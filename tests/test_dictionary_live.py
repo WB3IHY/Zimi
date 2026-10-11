@@ -403,6 +403,8 @@ def test_say_is_the_servers_audio_and_the_download_line_follows_the_setting(
     monkeypatch.delenv(voices.PIPER_CMD_ENV, raising=False)
     monkeypatch.setenv("PATH", str(tmp_path) + os.pathsep + os.environ.get("PATH", ""))
     tv.fake_piper(tmp_path)
+    # Piper here and Kokoro not, as a desktop build without it: nothing set up.
+    monkeypatch.setattr(voices, "_can_set_up", lambda: False)
     voices._reset_for_tests()
     assert voices.piper_command() == [
         str(tmp_path / "piper")
@@ -526,6 +528,8 @@ def piper_here(served, tmp_path, monkeypatch):
     monkeypatch.delenv(voices.PIPER_CMD_ENV, raising=False)
     monkeypatch.setenv("PATH", str(tmp_path) + os.pathsep + os.environ.get("PATH", ""))
     tv.fake_piper(tmp_path)
+    # Piper here and Kokoro not, as a desktop build without it: nothing set up.
+    monkeypatch.setattr(voices, "_can_set_up", lambda: False)
     _settle_downloads()
     voices._reset_for_tests()
     with sync_playwright() as pw:
@@ -1695,3 +1699,49 @@ def test_overlapping_settings_draws_keep_the_section(piper_here, served):
     pg.wait_for_selector(FOLD, state="attached", timeout=5000)
     pg.unroute("**/manage/status*")
     assert not errors, errors
+
+
+def test_a_python_install_with_no_engines_is_offered_a_voice_and_sets_up(served, tmp_path, monkeypatch):
+    """#113: a uv install with no Piper or Kokoro showed only "No ... voice
+    on this device". The offer now counts setting the engines up, and the
+    line says so while it runs; a setup that fails offers Retry."""
+    from playwright.sync_api import sync_playwright
+
+    monkeypatch.delenv(voices.PIPER_CMD_ENV, raising=False)
+    monkeypatch.setattr(voices, "_has_modules", lambda *names: False)
+    monkeypatch.setattr(voices, "piper_command", lambda: None)
+    monkeypatch.setattr(voices, "_kokoro_python", lambda: "/a/python3.12")
+    _settle_downloads()
+    voices._reset_for_tests()
+    release = threading.Event()
+
+    def set_up():
+        release.wait(DL_WAIT_MS / 1000)
+        return False  # pip failed
+
+    monkeypatch.setattr(voices, "_set_up_engines", set_up)
+    with sync_playwright() as pw:
+        br = pw.chromium.launch()
+        ctx = br.new_context(viewport={"width": 390, "height": 844}, locale="en-US", is_mobile=True, has_touch=True)
+        ctx.add_init_script(VOICES)
+        pg = ctx.new_page()
+        errors = []
+        pg.on("pageerror", lambda e: errors.append(str(e)))
+        try:
+            pg.goto(served + "/?dictionary=eau")
+            f = _frame(pg)
+            _word(f, "eau")
+            f.wait_for_function("() => (%s)() !== ''" % OFFER)
+            mb = round((voices._bytes("kokoro") + voices.ENGINES_BYTES) / 1e6)  # the page counts as Zimi does
+            assert f.evaluate(OFFER) == "Clearer voice for French: Download (%d MB)" % mb
+            f.eval_on_selector("[data-get='kokoro']", "b => b.click()")
+            f.wait_for_function("() => /first time only/.test((%s)())" % LINE_FR, timeout=DL_WAIT_MS)
+            _shot(pg, "voice-setup")
+            release.set()
+            f.wait_for_function("() => /Retry/.test((%s)())" % LINE_FR, timeout=DL_WAIT_MS)
+            assert errors == []
+        finally:
+            release.set()
+            br.close()
+            _settle_downloads()
+            voices._reset_for_tests()

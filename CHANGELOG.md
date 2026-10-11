@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- `pip install zimi[voices]` adds the Dictionary's clearer voices in one step.
+
+### Fixed
+
+- On a pip or uv install, the first voice download sets up the voices it needs, instead of offering nothing ([#113](https://github.com/epheterson/Zimi/discussions/113)).
+- The Device voice says it is silent on an iPhone while the ringer is off.
+- A desktop release no longer fails when its software bill of materials is missing.
+
 ## [1.13.1] - 2026-10-09
 
 ### Added

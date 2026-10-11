@@ -18,8 +18,11 @@ GPL code stays beside MIT Zimi the way ffmpeg does), in this order:
 4. espeak-ng, when installed. Robotic, and there with no download at all.
 
 Piper and Kokoro run through voicehelper.py: ``python voicehelper.py`` where
-they are installed in Zimi's Python (Docker, pip), or the ``zimi-voice``
-executable the desktop apps carry beside Zimi. Each runs as a warm worker
+they are installed in Zimi's Python (Docker, ``pip install zimi[voices]``),
+the ``zimi-voice`` executable the desktop apps carry beside Zimi, or, on a
+pip or uv install without them, a venv of their own under
+``<data>/tools/voices`` that the first voice download sets up (the way
+warc2zim and ArcticZim are installed). Each runs as a warm worker
 (``serve``) that loads its model once and stops when idle; the Dictionary
 asks it to load as the page opens (``warm``).
 
@@ -234,6 +237,31 @@ SAY_FORMAT = ("--file-format=WAVE", "--data-format=LEI16@22050")
 PIPER_CMD_ENV = "ZIMI_PIPER"  # a piper command to use instead of finding one
 HELPER_NAME = "zimi-voice"  # the desktop builds' engines, beside Zimi
 HELPER_SCRIPT = "voicehelper.py"  # the same, run by Zimi's Python
+# The engines a pip or uv install sets up in a venv of its own, the first
+# time a voice is downloaded: the Docker image's pins, and the voices extra's
+# (pyproject.toml); a test holds the three together.
+ENGINE_REQUIREMENTS = (
+    "piper-tts>=1.8,<2",
+    "kokoro-onnx>=0.6,<0.7",
+    "misaki[zh]>=0.9.4,<0.10",
+    "num2words>=0.5.14,<0.6",
+)
+PIPER_REQUIREMENTS = ENGINE_REQUIREMENTS[:1]
+# Kokoro runs on Python 3.10 to 3.12 (misaki 0.9 stops before 3.13,
+# kokoro-onnx 0.6 before 3.14), and onnxruntime, under both engines, comes
+# late to a new Python (none for 3.14 on an Intel Mac, 2026-10-10). The venv
+# takes the first such Python it finds (Zimi's own, python3.12 to
+# python3.10); with none, uv makes it with UV_PYTHON (uv fetches that Python
+# if it has none); without uv, it is Piper's alone, on Zimi's own Python.
+KOKORO_PYTHONS = ((3, 10), (3, 13))
+_PYTHON_NAMES = ("python3.12", "python3.11", "python3.10")
+UV_PYTHON = "3.12"
+# What setting the engines up downloads, on top of the voice: measured from
+# pip's own download of ENGINE_REQUIREMENTS (macOS, Python 3.12, 2026-10-10),
+# and uv's Python where uv brings one. The page adds it to the offer's size.
+ENGINES_BYTES = 108 * 1024 * 1024
+UV_PYTHON_BYTES = 20 * 1024 * 1024
+ENGINES_MARKER = ".zimi-sidecar.json"
 # What voicehelper.py needs in Zimi's Python to run an engine.
 _ENGINE_MODULES = {
     PIPER: ("piper",),
@@ -405,19 +433,121 @@ def helper_command():
     return [exe] if os.path.isfile(exe) and os.access(exe, os.X_OK) else None
 
 
+def engines_dir():
+    """The venv a pip or uv install keeps Piper and Kokoro in."""
+    from zimi import server as _srv
+
+    return os.path.join(_srv.ZIMI_DATA_DIR, "tools", "voices")
+
+
+def _engines_marker():
+    """What the engines venv's finished install recorded, or {}."""
+    try:
+        with open(os.path.join(engines_dir(), ENGINES_MARKER), encoding="utf-8") as f:
+            got = json.load(f)
+        return got if isinstance(got, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _engines_python(engine):
+    """The engines venv's Python where it has ``engine``, or None."""
+    from zimi.importer import _venv_bin
+
+    py = _venv_bin(engines_dir(), "python")
+    has = engine in _engines_marker().get("engines", ())
+    return py if has and os.path.exists(py) else None
+
+
+def _kokoro_python():
+    """A Python Kokoro runs on, or None: Zimi's own, else a python3.1x on
+    PATH."""
+    from zimi.importer import _probe_python
+
+    lo, hi = KOKORO_PYTHONS
+    for cand in (sys.executable,) + _PYTHON_NAMES:
+        ver = _probe_python(cand) if (cand == sys.executable or shutil.which(cand)) else None
+        if ver and lo <= ver < hi:
+            return cand
+    return None
+
+
+Plan = collections.namedtuple("Plan", "python requirements engines uv bytes")
+
+
+def _setup_plan():
+    """How the engines venv would be built, and what it downloads."""
+
+    def find():
+        py = _kokoro_python()
+        if py:
+            return Plan(py, ENGINE_REQUIREMENTS, DOWNLOADED, None, ENGINES_BYTES)
+        uv = shutil.which("uv")
+        if uv:
+            return Plan(UV_PYTHON, ENGINE_REQUIREMENTS, DOWNLOADED, uv, ENGINES_BYTES + UV_PYTHON_BYTES)
+        return Plan(sys.executable, PIPER_REQUIREMENTS, (PIPER,), None, ENGINES_BYTES)
+
+    return _memo("setup", find)
+
+
+def setup_bytes(engine):
+    """What a voice for ``engine`` downloads before itself: the engines,
+    where they are not here yet; else 0."""
+    return 0 if runtime(engine) else _setup_plan().bytes
+
+
+def _can_set_up():
+    """Whether Zimi can install the engines itself: a Python install can
+    (a venv beside it); a desktop build carries them in zimi-voice or not
+    at all, and an operator who named a Piper (ZIMI_PIPER) keeps their own."""
+    return not getattr(sys, "frozen", False) and not os.environ.get(PIPER_CMD_ENV, "").strip()
+
+
 def _runner(engine):
     """voicehelper.py's command for ``engine``: the bundled helper, or the
-    script itself run by Zimi's Python where the engine is installed."""
+    script itself, run by Zimi's Python where the engine is installed there,
+    else by the engines venv's."""
     helper = helper_command()
     if helper:
         return helper + [engine]
+    script = os.path.join(os.path.dirname(__file__), HELPER_SCRIPT)
     if _has_modules(*_ENGINE_MODULES[engine]):
-        return [
-            sys.executable,
-            os.path.join(os.path.dirname(__file__), HELPER_SCRIPT),
-            engine,
-        ]
-    return None
+        return [sys.executable, script, engine]
+    own = _engines_python(engine)
+    return [own, script, engine] if own else None
+
+
+def _usable(engine):
+    """Whether a voice for ``engine`` could be used once downloaded: the
+    engine is here, or the download can set it up first."""
+    if runtime(engine):
+        return True
+    return _can_set_up() and engine in _setup_plan().engines and not _engines_marker()
+
+
+def _set_up_engines():
+    """Install Piper and Kokoro into the engines venv. True when done; on
+    failure nothing is left behind and the log has pip's last words."""
+    from zimi.importer import _run_stream, _venv_bin, build_venv
+
+    venv = engines_dir()
+    plan = _setup_plan()
+    python, requirements, engines = plan.python, plan.requirements, plan.engines
+    tail = collections.deque(maxlen=20)
+    log.info("Voices: setting up %s with Python %s in %s", ", ".join(engines), python, venv)
+    ok = build_venv(
+        venv, python, requirements, _venv_bin(venv, "python"), tail.append,
+        run=_run_stream, uv=plan.uv,
+    )
+    if not ok:
+        log.warning("Voices: could not set up the engines:\n%s", "\n".join(tail))
+        return False
+    with open(os.path.join(venv, ENGINES_MARKER), "w", encoding="utf-8") as f:
+        json.dump({"tool": "voices", "spec": list(requirements), "engines": list(engines)}, f)
+        f.write("\n")
+    with _lock:
+        _found.clear()  # every engine and version is found again
+    return True
 
 
 def piper_command():
@@ -467,14 +597,17 @@ def _package_versions():
             return got if isinstance(got, dict) else {}
         except ValueError:
             return {}
+    import glob
     from importlib import metadata
 
+    # The engines venv's site-packages too, where the engines live there.
+    paths = sys.path + glob.glob(os.path.join(engines_dir(), "lib*", "python*", "site-packages"))
+    paths += glob.glob(os.path.join(engines_dir(), "Lib", "site-packages"))
     out = {}
     for name in ("piper-tts", "kokoro-onnx"):
-        try:
-            out[name] = metadata.version(name)
-        except Exception:
-            pass
+        for dist in metadata.distributions(name=name, path=paths):
+            out[name] = dist.version
+            break
     return out
 
 
@@ -1318,7 +1451,7 @@ def can_download(tag=None):
     engine, with no tag), and the setting is not Never (ZIMI_OFFLINE is
     Never)."""
     engines = [VOICES[tag].engine] if tag else DOWNLOADED
-    return any(runtime(e) for e in engines) and POLICY.mode()[0] != outbound.NEVER
+    return any(_usable(e) for e in engines) and POLICY.mode()[0] != outbound.NEVER
 
 
 def downloading():
@@ -1346,12 +1479,13 @@ def cancel_download():
 def start_download(tag):
     """Fetch the pinned voice ``tag`` in the background. ``(ok, error)``:
     error is "unknown", "never" (the setting, or ZIMI_OFFLINE), "noengine"
-    (nothing here could run it), "installed" or "busy" (one at a time)."""
+    (nothing here could run it, or set it up), "installed" or "busy" (one at
+    a time). An engine not here yet is set up first, in the same download."""
     if not isinstance(tag, str) or tag not in VOICES:
         return False, "unknown"
     if POLICY.mode()[0] == outbound.NEVER:
         return False, "never"
-    if not runtime(VOICES[tag].engine):
+    if not _usable(VOICES[tag].engine):
         return False, "noengine"
     rec = installed().get(tag)
     if rec and _is_current(tag, rec):
@@ -1382,7 +1516,7 @@ def _maybe_fetch(lang, accent):
     if POLICY.mode()[0] != outbound.AUTO:
         return
     tag = _offer_tag(lang, accent)
-    if tag and tag not in installed() and runtime(VOICES[tag].engine):
+    if tag and tag not in installed() and _usable(VOICES[tag].engine):
         start_download(tag)
 
 
@@ -1425,6 +1559,15 @@ def _fetch_voice(tag):
     folder = _engine_dir(pin.engine)
     parts = []
     try:
+        if not runtime(pin.engine):
+            with _lock:
+                _download["setup"] = True
+            if not _set_up_engines():
+                raise RuntimeError("the engines could not be installed")
+            with _lock:
+                if _download.get("cancel"):
+                    raise _Cancelled()
+                _download.pop("setup", None)
         os.makedirs(folder, exist_ok=True)
         for name, url, size in pin.files:
             final = os.path.join(folder, name)
@@ -1527,7 +1670,8 @@ def page_payload():
             # A language a downloaded voice already says needs nothing more:
             # which one says it is Manage's choice, not the Dictionary's.
             if (langs.get(lang) or {}).get("engine") not in DOWNLOADED:
-                offers.setdefault(lang, {"tag": tag, "bytes": _bytes(tag)})
+                # The engines first where they are not here: one figure.
+                offers.setdefault(lang, {"tag": tag, "bytes": _bytes(tag) + setup_bytes(pin.engine)})
     return {
         "langs": langs,
         # Which voices are here, in the address of every word's audio: a
@@ -1570,11 +1714,11 @@ def _manage_row(tag, rec):
         "tag": tag,
         "voice": pin.id,
         "kind": pin.engine,
-        "bytes": rec.get("bytes", _bytes(pin)) if rec else _bytes(pin),
+        "bytes": rec.get("bytes", _bytes(pin)) if rec else _bytes(pin) + setup_bytes(pin.engine),
         "license": pin.license,
         "credit": pin.credit,
         "credit_required": needs_credit(pin.license),
-        "runnable": bool(runtime(pin.engine)),
+        "runnable": _usable(pin.engine),
         "installed": bool(rec),
         "newer": bool(rec) and not _is_current(tag, rec),
         "engine": engine,
@@ -1604,7 +1748,7 @@ def _lang_row(primary, have, chosen, fetch_ok):
         stale = [t for t in here if not _is_current(t, have[t])]
         want = stale or ([] if here else tags)
         if want:
-            offer = {"tag": want[0], "bytes": _bytes(want[0]), "newer": bool(stale)}
+            offer = {"tag": want[0], "bytes": _bytes(want[0]) + setup_bytes(PIPER), "newer": bool(stale)}
     return {
         "lang": primary,
         "engines": options,
@@ -1625,7 +1769,7 @@ def manage_payload():
     have = installed()
     rows = [_manage_row(t, have.get(t)) for t in VOICES]
     chosen = choices()
-    fetch_ok = bool(runtime(PIPER)) and POLICY.mode()[0] != outbound.NEVER
+    fetch_ok = _usable(PIPER) and POLICY.mode()[0] != outbound.NEVER
     primaries = {_primary(t) for t in VOICES if t != KOKORO_TAG}
     primaries |= _KOKORO_PRIMARIES | set(can_say())
     langs = [_lang_row(p, have, chosen, fetch_ok) for p in sorted(primaries)]

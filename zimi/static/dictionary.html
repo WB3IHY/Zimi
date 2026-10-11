@@ -196,7 +196,7 @@ var STR = strings({ title: 'Dictionary', word_of_day: 'Word of the Day', recent:
   synonyms: 'Synonyms', antonyms: 'Antonyms', homophones: 'Homophones', rhymes: 'Rhymes',
   hyphenation: 'Hyphenation', other_languages: 'In other languages', from: 'From {source}', say: 'Say it', say_word: 'Say “{word}”',
   recording: 'Recording', no_voice: 'No {lang} voice on this device',
-  voice_offer: 'Clearer voice for {lang}:', voice_offer_none: 'Voice for {lang}:', voice_download: 'Download ({mb} MB)', voice_downloading: 'Downloading the voice for {lang}', voice_failed: 'Couldn\'t download the voice',
+  voice_offer: 'Clearer voice for {lang}:', voice_offer_none: 'Voice for {lang}:', voice_download: 'Download ({mb} MB)', voice_downloading: 'Downloading the voice for {lang}', voice_failed: 'Couldn\'t download the voice', voice_setup: 'Setting up voices (first time only)',
   voices_menu: 'Voices', voice_device: 'Device', voices_more: 'Voices…', voice_default: 'default', engine_kokoro: 'Natural', engine_piper: 'Piper', engine_say: 'System', engine_espeak: 'Basic', not_found: 'No dictionary here has “{word}”.', near: 'Did you mean',
   empty: 'No Wiktionary installed yet.', more: '{n} more', load_failed: 'Couldn\'t look this up.', also: 'Also', hint: 'Type a word in the box above to look it up.',
   more_words: 'More words', shuffle: 'Shuffle', entries: '{n} words', retry: 'Retry', cancel: 'Cancel', catalog: 'Browse the catalog' });
@@ -980,7 +980,7 @@ function offerPaint(el) {
   var code = el.getAttribute('data-offer'), offer = offerFor(code), dl = (_server && _server.downloading) || {};
   var name = langName(code, el.getAttribute('data-name') || code);
   var spk = el.parentNode.querySelector('[data-say]'), none = !spk || spk.hidden;
-  var state = !offer ? '' : dl.tag === offer.tag ? 'dl' : dl.error === offer.tag ? 'failed' : dl.tag ? '' : 'offer';
+  var state = !offer ? '' : dl.tag === offer.tag ? (dl.setup ? 'setup' : 'dl') : dl.error === offer.tag ? 'failed' : dl.tag ? '' : 'offer';
   var done = dl.total ? Math.min(1, (dl.done || 0) / dl.total) : 0;
   // Still downloading: the bar moves; nothing is redrawn under the finger.
   if (state === 'dl' && el.getAttribute('data-state') === 'dl') {
@@ -995,6 +995,9 @@ function offerPaint(el) {
     parts = ['<span>' + esc(fill(STR.voice_downloading, { lang: name })) + '</span>',
       '<span class="vbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.floor(done * 100) + '"><i style="width:' + barWidth(done) + '"></i></span>',
       '<span class="vpct">' + esc(pct(done)) + '</span>', '<button type="button" class="vget" data-cancel>' + esc(STR.cancel) + '</button>'];
+  } else if (state === 'setup') {
+    // The first voice on a Python install: the engines come first, no bar to show.
+    parts = ['<span>' + esc(STR.voice_setup) + '</span>', '<button type="button" class="vget" data-cancel>' + esc(STR.cancel) + '</button>'];
   } else if (state === 'failed') {
     parts = ['<span>' + esc(STR.voice_failed) + '</span>', '<button type="button" class="vget" data-get="' + esc(offer.tag) + '">' + esc(STR.retry) + '</button>'];
   } else if (state === 'offer') {

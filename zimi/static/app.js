@@ -1005,7 +1005,10 @@ function _voiceRowHtml(x, isOn, last) {
   // One word for speed (Eric: "one word each ... instant fast slow"); System
   // and Device add what tells them apart.
   var what = '<span class="share-row-desc voice-what">' + tH('voices_speed_' + e) +
-    (e === 'say' || e === _DEVICE_VOICE ? ' · ' + tH('voices_desc_' + e) : '') + '</span>';
+    (e === 'say' || e === _DEVICE_VOICE ? ' · ' + tH('voices_desc_' + e) : '') +
+    // iOS mutes a page's speech under the ring switch, as no page can undo;
+    // the server's voices are audio, and play.
+    (e === _DEVICE_VOICE && _isAppleTouch() ? ' · ' + tH('voices_desc_device_ios') : '') + '</span>';
   // Natural, an admin's: Remove (a second tap) when it is here, Get when it
   // is not (or a newer one is out), Cancel while it comes.
   var act = '';
@@ -1269,7 +1272,8 @@ function _paintKept(el, html) {
   }
   var dl = _voicesDl(), p = Math.floor(100 * (dl.done || 0) / (dl.total || 1));
   el.querySelectorAll('.voice-dl').forEach(function(b) {
-    b.querySelector('.voice-progress').textContent = t('voices_downloading', { p: p });
+    // The first voice on a Python install sets the engines up before it downloads.
+    b.querySelector('.voice-progress').textContent = dl.setup ? t('voices_setup') : t('voices_downloading', { p: p });
     b.querySelector('.dl-progress-bar').style.width = p + '%';
     b.querySelector('.dl-progress').setAttribute('aria-valuenow', p);
   });
@@ -3454,8 +3458,11 @@ function _currentPageUrl() {
 // There the control says what it does instead: Copy link. Android's and a
 // computer's installed app open a real browser tab.
 function _browserOutOfReach() {
-  return _isStandalonePWA() && !IS_DESKTOP &&
-    (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+  return _isStandalonePWA() && !IS_DESKTOP && _isAppleTouch();
+}
+// An iPhone, iPad or iPod (an iPad says it is a Mac, with a touch screen).
+function _isAppleTouch() {
+  return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 function _openInBrowser() {
   var url = _currentPageUrl();
@@ -19696,7 +19703,7 @@ function _dictStrings(w) {
     'dictionary_all_translations', 'dictionary_fewer_translations', 'dictionary_synonyms', 'dictionary_antonyms', 'dictionary_homophones', 'dictionary_rhymes',
     'dictionary_hyphenation', 'dictionary_other_languages', 'dictionary_from', 'dictionary_say', 'dictionary_say_word', 'dictionary_recording', 'dictionary_no_voice', 'dictionary_voice_offer', 'dictionary_voice_offer_none', 'dictionary_voice_download', 'dictionary_voice_downloading', 'dictionary_voices_menu', 'dictionary_voice_device', 'dictionary_voices_more', 'dictionary_voice_default',
     'dictionary_not_found', 'dictionary_near', 'dictionary_empty', 'dictionary_more', 'dictionary_load_failed', 'dictionary_also', 'dictionary_hint', 'dictionary_entries', 'dictionary_more_words', 'dictionary_shuffle'],
-    { w: w || '', word_of_day: t('word_of_day'), retry: t('retry'), cancel: t('cancel'), catalog: t('app_browse_catalog'), voice_failed: t('voices_failed'),
+    { w: w || '', word_of_day: t('word_of_day'), retry: t('retry'), cancel: t('cancel'), catalog: t('app_browse_catalog'), voice_failed: t('voices_failed'), voice_setup: t('voices_setup'),
       engine_kokoro: t('voices_engine_kokoro'), engine_piper: t('voices_engine_piper'), engine_say: t('voices_engine_say'), engine_espeak: t('voices_engine_espeak') });
 }
 // A word (or the front, w ''), as Reddot opens a post.

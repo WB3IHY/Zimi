@@ -686,6 +686,8 @@ def test_kokoro_speaks_through_its_runner_and_remove_clears_it(piper, monkeypatc
 
 
 def test_kokoro_is_offered_only_where_it_can_run(piper, monkeypatch):
+    # A desktop build whose zimi-voice lacks Kokoro: nothing to set it up with.
+    monkeypatch.setattr(voices, "_can_set_up", lambda: False)
     assert "zh" not in voices.page_payload()["offers"]
     assert voices.start_download("kokoro") == (False, "noengine")
     row = {r["tag"]: r for r in voices.manage_payload()["voices"]}["kokoro"]
@@ -1304,3 +1306,148 @@ def test_a_sample_sentence_is_said_under_its_own_cap(served):
         + "x" * (voices.SAMPLE_MAX + 1)
     )
     assert _get(too_long)[0] == 400
+
+
+# ── a pip or uv install sets the engines up itself ─────────────────────────
+
+
+@pytest.fixture
+def bare(data, monkeypatch):
+    """A Python install with no engine: none in Zimi's Python, no piper on
+    PATH, no say, no espeak-ng; a small Piper voice to fetch."""
+    monkeypatch.setattr(voices, "_has_modules", lambda *names: False)
+    monkeypatch.setattr(voices.shutil, "which", lambda name: None)
+    monkeypatch.setattr(voices, "_kokoro_python", lambda: "/a/python3.13")
+    monkeypatch.setattr(voices, "_say_voices", lambda: {})
+    monkeypatch.setattr(voices, "_espeak_voices", lambda: {})
+    monkeypatch.setitem(
+        voices.VOICES, "fr", voices._piper("fr_FR-siwis-medium", 10, 4, "CC BY 4.0", "SIWIS")
+    )
+    bodies = {".onnx": b"0123456789", ".onnx.json": b"{}{}"}
+
+    class Resp(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_open(req, timeout, context=None):
+        return Resp(bodies[".onnx.json" if req.full_url.endswith(".json") else ".onnx"])
+
+    monkeypatch.setattr(voices.urllib.request, "urlopen", fake_open)
+    return data
+
+
+def _fake_build(calls, ok=True):
+    def build(venv, python, requirements, ready, say, run=None, uv=None):
+        calls.append(list(requirements))
+        build.uv, build.python = uv, python
+        if not ok:
+            return False
+        os.makedirs(os.path.dirname(ready), exist_ok=True)
+        os.symlink(sys.executable, ready)
+        return True
+
+    return build
+
+
+def test_a_python_install_without_engines_sets_them_up_on_the_first_download(bare, monkeypatch):
+    """#113: a uv install had no Piper or Kokoro, so nothing was offered and
+    Automatically fetched nothing. The first download now installs them."""
+    from zimi import importer
+
+    calls = []
+    monkeypatch.setattr(importer, "build_venv", _fake_build(calls))
+    assert voices.piper_command() is None
+    assert "fr" in voices.page_payload()["offers"], "offered with no engine yet"
+    assert voices.start_download("fr")[0]
+    voices._fetcher.join(10)
+    assert calls == [list(voices.ENGINE_REQUIREMENTS)]
+    assert voices.installed()["fr"]["id"] == "fr_FR-siwis-medium"
+    assert voices.downloading() == {}
+    venv = voices.engines_dir()
+    assert voices.piper_command() == [
+        importer._venv_bin(venv, "python"),
+        os.path.join(os.path.dirname(voices.__file__), voices.HELPER_SCRIPT),
+        "piper",
+    ]
+    # Set up once: the next voice uses the engines already there.
+    assert voices.remove("fr")
+    assert voices.start_download("fr")[0]
+    voices._fetcher.join(10)
+    assert len(calls) == 1
+
+
+def test_with_no_python_kokoro_runs_on_the_venv_is_piper_alone(bare, monkeypatch):
+    """kokoro-onnx stops at Python 3.13: on a 3.14 with no older Python
+    about, Piper is set up and Kokoro is not offered."""
+    from zimi import importer
+
+    calls = []
+    monkeypatch.setattr(voices, "_kokoro_python", lambda: None)
+    monkeypatch.setattr(importer, "build_venv", _fake_build(calls))
+    assert voices.page_payload()["offers"]["en"]["tag"] == "en-US", "Piper's, not Kokoro's"
+    assert voices.start_download("kokoro") == (False, "noengine")
+    assert voices.start_download("fr")[0]
+    voices._fetcher.join(10)
+    assert calls == [list(voices.PIPER_REQUIREMENTS)]
+    assert voices.piper_command() and voices.kokoro_command() is None
+    assert voices.start_download("kokoro") == (False, "noengine")
+
+
+def test_with_uv_and_no_older_python_uv_brings_one_for_both_engines(bare, monkeypatch):
+    """A uv install on Python 3.14 (#113): uv makes the venv with its own
+    Python 3.12, so Kokoro is offered too, its size counting the engines."""
+    from zimi import importer
+
+    calls = []
+    build = _fake_build(calls)
+    monkeypatch.setattr(voices, "_kokoro_python", lambda: None)
+    monkeypatch.setattr(voices.shutil, "which", lambda name: "/bin/uv" if name == "uv" else None)
+    monkeypatch.setattr(importer, "build_venv", build)
+    offer = voices.page_payload()["offers"]["en"]
+    assert offer["tag"] == "kokoro"
+    assert offer["bytes"] == voices._bytes("kokoro") + voices.ENGINES_BYTES + voices.UV_PYTHON_BYTES
+    assert voices.start_download("fr")[0]
+    voices._fetcher.join(10)
+    assert (build.uv, build.python) == ("/bin/uv", voices.UV_PYTHON)
+    assert calls == [list(voices.ENGINE_REQUIREMENTS)]
+    assert voices.kokoro_command() and voices.piper_command()
+    assert voices.page_payload()["offers"]["en"]["bytes"] == voices._bytes("kokoro"), "set up: the voice alone"
+
+
+def test_engines_that_will_not_install_fail_the_download_and_leave_nothing(bare, monkeypatch):
+    from zimi import importer
+
+    monkeypatch.setattr(importer, "build_venv", _fake_build([], ok=False))
+    assert voices.start_download("fr")[0]
+    voices._fetcher.join(10)
+    assert voices.downloading() == {"tag": None, "error": "fr"}
+    assert "fr" not in voices.installed()
+    assert voices.piper_command() is None
+
+
+def test_never_sets_nothing_up(bare, monkeypatch):
+    from zimi import importer
+
+    calls = []
+    monkeypatch.setattr(importer, "build_venv", _fake_build(calls))
+    monkeypatch.setenv("ZIMI_OFFLINE", "1")
+    assert voices.start_download("fr") == (False, "never")
+    assert calls == []
+
+
+def test_the_engine_pins_agree_everywhere():
+    """The venv Zimi sets up, the voices extra and the Docker image install
+    the same engines."""
+    import re
+    import tomllib
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(root, "pyproject.toml"), "rb") as f:
+        extra = tomllib.load(f)["project"]["optional-dependencies"]["voices"]
+    assert tuple(extra) == voices.ENGINE_REQUIREMENTS
+    with open(os.path.join(root, "Dockerfile"), encoding="utf-8") as f:
+        docker = set(re.findall(r'"([^"]+)"', f.read()))
+    assert set(voices.ENGINE_REQUIREMENTS) <= docker
