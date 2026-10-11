@@ -34,7 +34,7 @@ from zimi import server as _srv
 # without the capture modules (server.bundled).
 if _srv.bundled("creator") and _srv.bundled("importer"):
     from zimi.creator import CreateError, _finish_output, _try_register
-    from zimi.importer import _run_capture, _run_stream, _venv_bin
+    from zimi.importer import _run_capture, _run_stream, _venv_bin, build_venv
 
 log = logging.getLogger("zimi")
 
@@ -317,26 +317,10 @@ def ensure_sidecar(sink=None):
             "the Reddit maker (ArcticZim) is not installed yet and offline mode is on. "
             "Install it once while connected: zimi create --setup-reddit"
         )
-    if os.path.isdir(venv):
-        shutil.rmtree(venv)
-    os.makedirs(os.path.dirname(venv), exist_ok=True)
     say(f"creating the ArcticZim sidecar at {venv}")
-    rc = _run_stream([sys.executable, "-m", "venv", venv], say)
-    if rc == 0:
-        rc = _run_stream(
-            [
-                _venv_bin(venv, "python"),
-                "-m",
-                "pip",
-                "install",
-                "--upgrade",
-                ARCTICZIM_REQUIREMENT,
-                *ARCTICZIM_PINS,
-            ],
-            say,
-        )
-    if rc != 0 or not os.path.exists(exe):
-        shutil.rmtree(venv, ignore_errors=True)
+    if not build_venv(
+        venv, sys.executable, [ARCTICZIM_REQUIREMENT, *ARCTICZIM_PINS], exe, say, run=_run_stream
+    ):
         raise CreateError(
             "ArcticZim sidecar install failed (the job log has pip's output). Nothing was left behind; re-run to try again."
         )

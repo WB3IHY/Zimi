@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Independent review of each PR, once, when it opens; comment
+# `@coderabbitai review` for another pass after later pushes. Advisory, never
+# a required check: findings are fixed or answered like any outside
+# contribution. Kept quiet: no summary written into the PR description, no
+# walkthrough extras.
+language: en-US
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: false
+  poem: false
+  review_status: false
+  in_progress_fortune: false
+  collapse_walkthrough: true
+  changed_files_summary: false
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  related_issues: false
+  assess_linked_issues: false
+  related_prs: false
+  suggested_labels: false
+  suggested_reviewers: false
+  auto_review:
+    enabled: true
+    auto_incremental_review: false
+    drafts: false
+  path_filters:
+    # Vendored libraries and binary fixtures: nothing here is ours to review.
+    - "!zimi/static/pdfjs/**"
+    - "!zimi/static/temml/**"
+    - "!zimi/static/golden-record/**"
+    - "!screenshots/**"
+    - "!**/*.min.js"
+    - "!**/*.{png,jpg,jpeg,gif,webp,ico,icns,woff2,ttf,bin,gz,tar,torrent,zim,meta4}"
+  path_instructions:
+    - path: "zimi/**/*.py"
+      instructions: >-
+        libzim's Archive is SWIG-wrapped C++ and not thread-safe: every use of
+        an Archive object must hold _zim_lock or a pool's own lock, or the
+        server segfaults with no traceback. HTTP error bodies use generic
+        messages; never return str(e). Nothing new may reach the network
+        without a row in zimi/outbound.py, and every outbound fetch must
+        honour ZIMI_OFFLINE. Nothing new on the request path may add a disk
+        read, a lock or a round trip that a cache or background worker could
+        carry instead.
+    - path: "zimi/{http,manage,users,sso}.py"
+      instructions: >-
+        Access control. A fresh install's setup is the one unauthenticated
+        door (GHSA-5mw2-53vv-9pw6): check that only the machine itself, the
+        home network in the first hour, or a holder of the setup key can
+        answer it, and that a proxied, tailnet or container-bridge client
+        never counts as the home network. Forwarded headers are never
+        trusted to prove a client local.
+    - path: "zimi/{creator,crawler,renderer,singlefile,alive,video,captureproxy,capturegate,netguard,importer,reddot}.py"
+      instructions: >-
+        Captures fetch addresses users type. Under the private-address rule
+        every hop must be judged: redirects, subresources, a browser's own
+        requests and the peer a connection actually reached (DNS
+        rebinding); anything that cannot be judged fails closed. Cookies go
+        only to the seed's host and are never written to a job record, log,
+        WARC, ZIM or defaults. A user's regex must be refused before it can
+        backtrack without bound. Child processes are started and reaped
+        through zimi/subproc.py.
+    - path: "zimi/static/**"
+      instructions: >-
+        One offline-first single-page app with no build step. Escape every
+        string that reaches innerHTML (esc/escAttr). The page may not fetch
+        from any host but its own server. Every user-visible string is an
+        i18n key present in all ten zimi/static/i18n files. It must work at
+        390px on a phone.
+    - path: "tests/**"
+      instructions: >-
+        A test should fail on the code before its fix. Prefer a real server,
+        a real ZIM fixture or a real browser over mocks for anything the
+        user touches. Flag assertions that cannot fail.
+    - path: ".github/workflows/**"
+      instructions: >-
+        Actions pinned to full commit SHAs with least-privilege permissions.
+        Release tags come only from auto-release.yml after a merge to main;
+        nothing may create, move or delete a tag by hand.
+    - path: "{CHANGELOG.md,docs/**}"
+      instructions: >-
+        Published text: one-line factual bullets in the changelog, no em
+        dashes, and every file, flag or URL it names must exist in the same
+        change.
+chat:
+  auto_reply: true

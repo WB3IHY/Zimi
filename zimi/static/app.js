@@ -896,13 +896,37 @@ function _voiceMb(bytes) { return Math.round(bytes / _VOICE_BYTES_PER_MB); }
 function _voicePrefs() {
   var p = _getStorageJSON(SK.VOICE_PREFS, {});
   p = p && typeof p === 'object' ? p : {};
-  return { voice: typeof p.voice === 'string' ? p.voice : '',
+  var out = { voice: typeof p.voice === 'string' ? p.voice : '',
     off: Array.isArray(p.off) ? p.off.filter(function(e) { return _VOICE_ENGINES.indexOf(e) >= 0; }) : [] };
+  if (p.quiet === true) out.quiet = true; // kept only when it says something
+  return out;
 }
+// Speaking, Settings > Voices' first switch (Eric, 2026-10-06: "a Speaking
+// toggle or something to turn all this off and hide it ... Some way that
+// hides it from everywhere even reader view"). Off: no Say, no voice menus,
+// no Discover speaker, no Read aloud, in this browser. The Dictionary reads
+// the same key.
+function _speakingOn() { return !_voicePrefs().quiet; }
+function _setSpeaking(on) {
+  // A Remove waiting for its second tap would keep the panel from redrawing.
+  var wrap = document.getElementById(_VOICES_WRAP_ID);
+  if (wrap) wrap.querySelectorAll('.confirming').forEach(function(b) { b.classList.remove('confirming'); });
+  if (!on) {
+    _ttsStop();
+    if (_discAudio) { try { _discAudio.pause(); } catch (e) {} }
+  }
+  _setVoicePrefs({ quiet: !on });
+  _markSpeaking();
+  updateTopbar();
+}
+// Discover's speakers hide by a class: the cards are not drawn again for it.
+function _markSpeaking() { document.documentElement.classList.toggle('zimi-quiet', !_speakingOn()); }
+_markSpeaking();
 function _setVoicePrefs(change) {
   var p = Object.assign(_voicePrefs(), change);
   if (p.voice && p.off.indexOf(p.voice) >= 0) p.voice = '';
-  if (!p.voice && !p.off.length) { try { localStorage.removeItem(SK.VOICE_PREFS); } catch (e) {} }
+  if (!p.quiet) delete p.quiet;
+  if (!p.voice && !p.off.length && !p.quiet) { try { localStorage.removeItem(SK.VOICE_PREFS); } catch (e) {} }
   else _setStorageJSON(SK.VOICE_PREFS, p);
   _voicesTellDictionary();
   _paintVoices();
@@ -1005,7 +1029,10 @@ function _voiceRowHtml(x, isOn, last) {
   // One word for speed (Eric: "one word each ... instant fast slow"); System
   // and Device add what tells them apart.
   var what = '<span class="share-row-desc voice-what">' + tH('voices_speed_' + e) +
-    (e === 'say' || e === _DEVICE_VOICE ? ' · ' + tH('voices_desc_' + e) : '') + '</span>';
+    (e === 'say' || e === _DEVICE_VOICE ? ' · ' + tH('voices_desc_' + e) : '') +
+    // iOS mutes a page's speech under the ring switch, as no page can undo;
+    // the server's voices are audio, and play.
+    (e === _DEVICE_VOICE && _isAppleTouch() ? ' · ' + tH('voices_desc_device_ios') : '') + '</span>';
   // Natural, an admin's: Remove (a second tap) when it is here, Get when it
   // is not (or a newer one is out), Cancel while it comes.
   var act = '';
@@ -1029,14 +1056,16 @@ function _voiceRowHtml(x, isOn, last) {
     else if (offers.length) {
       var dis = dl.tag ? ' disabled' : '';
       var first = offers.filter(function(o) { return o.lang === _uiLangPrimary(); })[0] || offers[0];
-      // Its own line under the words: beside Hear and the switch it wraps.
-      pick += '<div class="voice-get-line"><span class="voice-split"><button type="button" class="set-btn" data-primary' + dis +
+      // One line, as Natural's Get: the language a quieter word beside the size.
+      var split = '<span class="voice-split"><button type="button" class="set-btn" data-primary' + dis +
         ' onclick="' + escAttr('_clearGet(this, ' + JSON.stringify([first.tag]) + ')') + '">' +
-        // Natural's Get, the language on a light second line.
         '<span>' + tH('voices_get_mb', { mb: _voiceMb(first.bytes) }) + '</span><span class="set-btn-sub">' +
         esc(_langDisplayName(first.lang) || first.lang) + '</span></button>' +
         (offers.length > 1 ? '<button type="button" class="set-btn voice-split-more" aria-expanded="' + _clearPickOpen + '"' +
-          ' aria-label="' + escAttr(t('voices_get_other')) + '" onclick="_toggleClearPick()">▾</button>' : '') + '</span></div>';
+          ' aria-label="' + escAttr(t('voices_get_other')) + '" onclick="_toggleClearPick()">▾</button>' : '') + '</span>';
+      // Where Natural's sits; its own line only beside Hear and the switch, where it would wrap.
+      if (here) pick += '<div class="voice-get-line">' + split + '</div>';
+      else act += split;
       if (_clearPickOpen && offers.length > 1) {
         var all = offers.map(function(o) { return o.tag; });
         pick += '<div class="voice-pick">' + offers.filter(function(o) { return o !== first; }).map(function(o) {
@@ -1233,7 +1262,27 @@ function _voiceDefaultHtml(on) {
     '<div class="app-theme-seg voice-default" role="radiogroup" aria-label="' + escAttr(t('voices_default')) + '">' +
     opt('', t('voices_default_auto')) + on.map(function(x) { return opt(x.engine, _voiceEngineName(x.engine)); }).join('') + '</div>';
 }
+// The Speaking switch, and with it off, the voices downloaded here offered
+// for removal (an admin's): nothing else of Voices shows.
+function _speakingHtml() {
+  var on = _speakingOn();
+  var h = '<div class="share-rows set-rows voice-prefs"><div class="share-row set-row">' +
+    '<span class="share-row-text"><span class="share-row-title">' + tH('voices_speaking') + '</span>' +
+    '<span class="share-row-desc">' + tH('voices_speaking_desc') + '</span></span>' +
+    '<label class="switch"><input type="checkbox" role="switch" id="voices-speaking" aria-label="' + escAttr(t('voices_speaking')) + '"' +
+    (on ? ' checked' : '') + ' onchange="_setSpeaking(this.checked)"><span class="switch-slider"></span></label></div>';
+  var kept = ((_voicesHere && _voicesHere.voices) || []).filter(function(v) { return v.installed; });
+  if (!on && kept.length && _voicesHere.can_change) {
+    var mb = _voiceMb(kept.reduce(function(n, v) { return n + (v.bytes || 0); }, 0));
+    h += '<div class="share-row set-row"><span class="share-row-text"><span class="share-row-desc">' +
+      tH('voices_downloaded_here', { mb: mb }) + '</span></span>' +
+      _voiceAction('/manage/voices/remove', kept.map(function(v) { return v.tag; }).join(' '), tH('voices_remove'),
+        ' data-confirm="' + escAttr(t('voices_remove_confirm')) + '"') + '</div>';
+  }
+  return h + '</div>';
+}
 function _voicePrefsHtml() {
+  if (!_speakingOn()) return _speakingHtml();
   var off = _voicePrefs().off, here = _voiceEnginesHere(), nat = _voiceNatural(), dl = _voicesDl();
   // Clear not here yet but fetchable for your languages: its row, with Get.
   if (!here.some(function(x) { return x.engine === 'piper'; }) && _voicesHere && _voicesHere.can_change && _voicesMayFetch()) {
@@ -1251,7 +1300,7 @@ function _voicePrefsHtml() {
   here.sort(function(a, b) { return _VOICE_ENGINES.indexOf(a.engine) - _VOICE_ENGINES.indexOf(b.engine); });
   var on = here.filter(function(x) { return !x.absent && off.indexOf(x.engine) < 0; });
   // One row per engine here; the last one on stays on.
-  var h = _voiceDefaultHtml(on) + '<div class="share-rows set-rows voice-prefs">' + here.map(function(x) {
+  var h = _speakingHtml() + _voiceDefaultHtml(on) + '<div class="share-rows set-rows voice-prefs">' + here.map(function(x) {
     return _voiceRowHtml(x, !x.absent && off.indexOf(x.engine) < 0, on.length === 1);
   }).join('') + '</div>' + _voiceGridHtml();
   if (_voicesHere && _voicesHere.can_change && _voicesHere.setting) h += _voicesModeHtml(_voicesHere.setting);
@@ -1269,9 +1318,13 @@ function _paintKept(el, html) {
   }
   var dl = _voicesDl(), p = Math.floor(100 * (dl.done || 0) / (dl.total || 1));
   el.querySelectorAll('.voice-dl').forEach(function(b) {
-    b.querySelector('.voice-progress').textContent = t('voices_downloading', { p: p });
-    b.querySelector('.dl-progress-bar').style.width = p + '%';
-    b.querySelector('.dl-progress').setAttribute('aria-valuenow', p);
+    // The first voice on a Python install sets the engines up before it
+    // downloads: no measure of that, so the bar sweeps.
+    var bar = b.querySelector('.dl-progress');
+    b.querySelector('.voice-progress').textContent = dl.setup ? t('voices_setup') : t('voices_downloading', { p: p });
+    bar.classList.toggle('dl-indeterminate', !!dl.setup);
+    b.querySelector('.dl-progress-bar').style.width = dl.setup ? '' : p + '%';
+    if (dl.setup) bar.removeAttribute('aria-valuenow'); else bar.setAttribute('aria-valuenow', p);
   });
 }
 function _paintVoices() {
@@ -1332,7 +1385,11 @@ function _voicesPost(path, tag, btn) {
   if (btn && btn.hasAttribute('data-clear-cancel')) _clearQueue = [];
   if (btn && btn.getAttribute('data-confirm') && !btn.classList.contains('confirming')) { _voicesArm(btn); return; }
   if (btn) { btn.disabled = true; btn.classList.remove('confirming'); }
-  return _voicesSend(path, { lang: tag }, t(/remove$/.test(path) ? 'voices_remove_failed' : 'voices_failed'));
+  // Several tags, space-separated (Speaking off removes every voice here): one after another.
+  var fail = t(/remove$/.test(path) ? 'voices_remove_failed' : 'voices_failed');
+  return String(tag).split(' ').reduce(function(done, one) {
+    return done.then(function() { return _voicesSend(path, { lang: one }, fail); });
+  }, Promise.resolve());
 }
 function _voicesSetMode(mode) {
   _voicesSend('/manage/voices', { mode: mode }, t('env_controlled', { v: 'ZIMI_VOICE_DOWNLOADS' }));
@@ -2693,7 +2750,7 @@ function updateTopbar() {
     if (!showMapSrc) _closeMapSourceDropdown();
   }
   var ttsBtn = document.getElementById('tts-btn');
-  if (ttsBtn) ttsBtn.style.display = (_readingText && _TTS_AVAILABLE && !_foldReaderExtras) ? 'flex' : 'none';
+  if (ttsBtn) ttsBtn.style.display = (_readingText && _TTS_AVAILABLE && _speakingOn() && !_foldReaderExtras) ? 'flex' : 'none';
   // The dice on a map roll a place, and say so.
   var randomLabel = t(_isMapPage() ? 'random_place' : 'random_article');
   randomBtn.title = randomLabel;
@@ -3454,8 +3511,11 @@ function _currentPageUrl() {
 // There the control says what it does instead: Copy link. Android's and a
 // computer's installed app open a real browser tab.
 function _browserOutOfReach() {
-  return _isStandalonePWA() && !IS_DESKTOP &&
-    (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+  return _isStandalonePWA() && !IS_DESKTOP && _isAppleTouch();
+}
+// An iPhone, iPad or iPod (an iPad says it is a Mac, with a touch screen).
+function _isAppleTouch() {
+  return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 function _openInBrowser() {
   var url = _currentPageUrl();
@@ -19696,7 +19756,7 @@ function _dictStrings(w) {
     'dictionary_all_translations', 'dictionary_fewer_translations', 'dictionary_synonyms', 'dictionary_antonyms', 'dictionary_homophones', 'dictionary_rhymes',
     'dictionary_hyphenation', 'dictionary_other_languages', 'dictionary_from', 'dictionary_say', 'dictionary_say_word', 'dictionary_recording', 'dictionary_no_voice', 'dictionary_voice_offer', 'dictionary_voice_offer_none', 'dictionary_voice_download', 'dictionary_voice_downloading', 'dictionary_voices_menu', 'dictionary_voice_device', 'dictionary_voices_more', 'dictionary_voice_default',
     'dictionary_not_found', 'dictionary_near', 'dictionary_empty', 'dictionary_more', 'dictionary_load_failed', 'dictionary_also', 'dictionary_hint', 'dictionary_entries', 'dictionary_more_words', 'dictionary_shuffle'],
-    { w: w || '', word_of_day: t('word_of_day'), retry: t('retry'), cancel: t('cancel'), catalog: t('app_browse_catalog'), voice_failed: t('voices_failed'),
+    { w: w || '', word_of_day: t('word_of_day'), retry: t('retry'), cancel: t('cancel'), catalog: t('app_browse_catalog'), voice_failed: t('voices_failed'), voice_setup: t('voices_setup'),
       engine_kokoro: t('voices_engine_kokoro'), engine_piper: t('voices_engine_piper'), engine_say: t('voices_engine_say'), engine_espeak: t('voices_engine_espeak') });
 }
 // A word (or the front, w ''), as Reddot opens a post.
@@ -25975,7 +26035,7 @@ function _buildTopbarMenuHtml() {
         ' <span class="tbm-label">' + tH('find_in_page') + '</span></button>';
     }
     // 4. Read aloud.
-    if (_TTS_AVAILABLE && !_isMapPage() && !_isAppPage() && !_isPdfPage()) {
+    if (_TTS_AVAILABLE && !_isMapPage() && !_isAppPage() && !_isPdfPage() && _speakingOn()) {
       readerGroup += '<button class="topbar-menu-item" id="tbm-tts" aria-pressed="' + (_ttsSpeaking ? 'true' : 'false') +
         '" onclick="event.stopPropagation();_ttsToggle()">' + _TBM_TTS_ICON +
         ' <span class="tbm-label">' + tH(_ttsSpeaking ? 'tts_stop' : 'tts_speak') + '</span></button>';

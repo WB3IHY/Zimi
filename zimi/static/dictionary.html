@@ -66,11 +66,17 @@
   @keyframes spk-wait { 50% { opacity: .2; } }
   @media (prefers-reduced-motion: reduce) { .spk.busy svg path + path { animation: none; opacity: .45; } }
   .novoice, .voffer { font-size: 12.5px; color: var(--text2); }
+  /* Speaking off: the voices go; a recording the Wiktionary holds stays, it is the entry's own. */
+  html.quiet [data-say], html.quiet [data-voices], html.quiet .novoice, html.quiet .voffer, html.quiet .vdoor { display: none !important; }
   .voffer { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
   .vget { border: 0; background: none; padding: 6px 0; margin: -6px 0; font: inherit; color: var(--amber); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
   /* A voice on its way: a thin bar in the Download's colour, and how far. */
   .vbar { width: 64px; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; flex: none; }
   .vbar i { display: block; height: 100%; background: var(--amber); border-radius: 2px; transition: width .9s linear; }
+  /* Setting the engines up: no measure of it, so a segment sweeps. */
+  .vbar.indef i { width: 30%; margin-inline-start: -30%; transition: none; animation: vbar-indef 1.3s ease-in-out infinite; }
+  @keyframes vbar-indef { to { margin-inline-start: 100%; } }
+  @media (prefers-reduced-motion: reduce) { .vbar.indef i { animation: none; width: 34%; margin-inline-start: 33%; opacity: .6; } }
   .vpct { font-variant-numeric: tabular-nums; min-width: 3.2em; }
   /* Say and its voices: one pill split in two, the caret opening a menu of
      every voice that can say the word (apps.css .menu, the shell's). */
@@ -196,7 +202,7 @@ var STR = strings({ title: 'Dictionary', word_of_day: 'Word of the Day', recent:
   synonyms: 'Synonyms', antonyms: 'Antonyms', homophones: 'Homophones', rhymes: 'Rhymes',
   hyphenation: 'Hyphenation', other_languages: 'In other languages', from: 'From {source}', say: 'Say it', say_word: 'Say “{word}”',
   recording: 'Recording', no_voice: 'No {lang} voice on this device',
-  voice_offer: 'Clearer voice for {lang}:', voice_offer_none: 'Voice for {lang}:', voice_download: 'Download ({mb} MB)', voice_downloading: 'Downloading the voice for {lang}', voice_failed: 'Couldn\'t download the voice',
+  voice_offer: 'Clearer voice for {lang}:', voice_offer_none: 'Voice for {lang}:', voice_download: 'Download ({mb} MB)', voice_downloading: 'Downloading the voice for {lang}', voice_failed: 'Couldn\'t download the voice', voice_setup: 'Setting up voices (first time only)',
   voices_menu: 'Voices', voice_device: 'Device', voices_more: 'Voices…', voice_default: 'default', engine_kokoro: 'Natural', engine_piper: 'Piper', engine_say: 'System', engine_espeak: 'Basic', not_found: 'No dictionary here has “{word}”.', near: 'Did you mean',
   empty: 'No Wiktionary installed yet.', more: '{n} more', load_failed: 'Couldn\'t look this up.', also: 'Also', hint: 'Type a word in the box above to look it up.',
   more_words: 'More words', shuffle: 'Shuffle', entries: '{n} words', retry: 'Retry', cancel: 'Cancel', catalog: 'Browse the catalog' });
@@ -850,6 +856,7 @@ function wireSpeech() {
 // page's languages use, once each, before the first tap. It fetches nothing.
 var _warmed = {};
 function warmVoices(codes) {
+  if (!speaking()) return; // nothing will be said: no voice to load
   var langs = [];
   codes.forEach(function(code) {
     var tag = speechTag(code), row = serverRow(code);
@@ -980,7 +987,7 @@ function offerPaint(el) {
   var code = el.getAttribute('data-offer'), offer = offerFor(code), dl = (_server && _server.downloading) || {};
   var name = langName(code, el.getAttribute('data-name') || code);
   var spk = el.parentNode.querySelector('[data-say]'), none = !spk || spk.hidden;
-  var state = !offer ? '' : dl.tag === offer.tag ? 'dl' : dl.error === offer.tag ? 'failed' : dl.tag ? '' : 'offer';
+  var state = !offer ? '' : dl.tag === offer.tag ? (dl.setup ? 'setup' : 'dl') : dl.error === offer.tag ? 'failed' : dl.tag ? '' : 'offer';
   var done = dl.total ? Math.min(1, (dl.done || 0) / dl.total) : 0;
   // Still downloading: the bar moves; nothing is redrawn under the finger.
   if (state === 'dl' && el.getAttribute('data-state') === 'dl') {
@@ -995,6 +1002,10 @@ function offerPaint(el) {
     parts = ['<span>' + esc(fill(STR.voice_downloading, { lang: name })) + '</span>',
       '<span class="vbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.floor(done * 100) + '"><i style="width:' + barWidth(done) + '"></i></span>',
       '<span class="vpct">' + esc(pct(done)) + '</span>', '<button type="button" class="vget" data-cancel>' + esc(STR.cancel) + '</button>'];
+  } else if (state === 'setup') {
+    // The first voice on a Python install: the engines come first, no bar to show.
+    parts = ['<span>' + esc(STR.voice_setup) + '</span>', '<span class="vbar indef" role="progressbar"><i></i></span>',
+      '<button type="button" class="vget" data-cancel>' + esc(STR.cancel) + '</button>'];
   } else if (state === 'failed') {
     parts = ['<span>' + esc(STR.voice_failed) + '</span>', '<button type="button" class="vget" data-get="' + esc(offer.tag) + '">' + esc(STR.retry) + '</button>'];
   } else if (state === 'offer') {
@@ -1104,6 +1115,9 @@ function voicePrefs() {
   catch (e) { return {}; }
 }
 function voiceOn(e) { var off = voicePrefs().off; return !(Array.isArray(off) && off.indexOf(e) >= 0); }
+// Speaking off (Settings > Voices): nothing here speaks or offers a voice.
+function speaking() { return voicePrefs().quiet !== true; }
+function markSpeaking() { document.documentElement.classList.toggle('quiet', !speaking()); }
 function rememberVoice(e) {
   var p = voicePrefs();
   if (p.remember === false || p.voice === e) return;
@@ -1229,11 +1243,12 @@ document.addEventListener('click', function(e) {
 });
 
 window.addEventListener('message', function(e) {
-  if (e.origin === location.origin && e.data && e.data.zimi === 'voices-changed') loadVoices();
+  if (e.origin === location.origin && e.data && e.data.zimi === 'voices-changed') { markSpeaking(); loadVoices(); }
 });
 
 function load() {
   _home = null;
+  markSpeaking();
   loadVoices();
   renderHome();
   get('/dictionary/home').then(function(d) {

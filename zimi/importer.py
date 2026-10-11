@@ -208,6 +208,36 @@ def _venv_bin(venv, name):
     return os.path.join(venv, "bin", name)
 
 
+def build_venv(venv, python, requirements, ready, say, run=None, uv=None):
+    """A sidecar from nothing: ``python -m venv`` then pip-installs
+    ``requirements`` into it; with ``uv`` (its path), uv makes the venv with
+    the Python ``python`` names (a version, fetched by uv when it has none)
+    and installs into it. True when ``ready`` (a file the install puts in
+    it) exists afterwards; otherwise the venv is removed, so a half-built one
+    is never taken for an install. Whatever is at ``venv`` goes first: call it
+    only where there is no working install to keep. ``run`` streams each command's output to
+    ``say`` (a caller passes its own, for its tests)."""
+    run = run or _run_stream
+    if os.path.isdir(venv):
+        # A venv can't be repaired in place with any confidence.
+        shutil.rmtree(venv)
+    os.makedirs(os.path.dirname(venv), exist_ok=True)
+    own = _venv_bin(venv, "python")
+    if uv:
+        create = [uv, "venv", "--python", python, venv]
+        install = [uv, "pip", "install", "--python", own, *requirements]
+    else:
+        create = [python, "-m", "venv", venv]
+        install = [own, "-m", "pip", "install", "--upgrade", *requirements]
+    rc = run(create, say)
+    if rc == 0:
+        rc = run(install, say)
+    if rc == 0 and os.path.exists(ready):
+        return True
+    shutil.rmtree(venv, ignore_errors=True)
+    return False
+
+
 def _marker_path(venv):
     return os.path.join(venv, _SIDECAR_MARKER)
 
@@ -320,28 +350,11 @@ def ensure_sidecar(sink=None):
         return exe
     if is_offline():
         raise CreateError(OFFLINE_PRESEED_MSG.format(dir=venv))
-    if os.path.isdir(venv):
-        # No marker: a previous install died mid-flight. Rebuild from scratch —
-        # a venv can't be repaired-in-place with any confidence.
-        shutil.rmtree(venv)
+    # No marker but a directory: a previous install died mid-flight, and
+    # build_venv starts it again from nothing.
     py, ver = _find_python()
-    os.makedirs(os.path.dirname(venv), exist_ok=True)
     say(f"creating warc2zim sidecar (Python {ver[0]}.{ver[1]} via {py}) at {venv}")
-    rc = _run_stream([py, "-m", "venv", venv], say)
-    if rc == 0:
-        rc = _run_stream(
-            [
-                _venv_bin(venv, "python"),
-                "-m",
-                "pip",
-                "install",
-                "--upgrade",
-                WARC2ZIM_REQUIREMENT,
-            ],
-            say,
-        )
-    if rc != 0 or not os.path.exists(exe):
-        shutil.rmtree(venv, ignore_errors=True)
+    if not build_venv(venv, py, [WARC2ZIM_REQUIREMENT], exe, say):
         # Never "see the output above": by the time anyone reads this in a
         # journal or an activity row, the stream it pointed at is gone.
         raise CreateError(
