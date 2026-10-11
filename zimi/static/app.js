@@ -26032,7 +26032,7 @@ function _buildTopbarMenuHtml() {
         ' <span class="tbm-label">' + tH('find_in_page') + '</span></button>';
     }
     // 4. Read aloud.
-    if (_TTS_AVAILABLE && _speakingOn() && !_isMapPage() && !_isAppPage() && !_isPdfPage()) {
+    if (_TTS_AVAILABLE && !_isMapPage() && !_isAppPage() && !_isPdfPage() && _speakingOn()) {
       readerGroup += '<button class="topbar-menu-item" id="tbm-tts" aria-pressed="' + (_ttsSpeaking ? 'true' : 'false') +
         '" onclick="event.stopPropagation();_ttsToggle()">' + _TBM_TTS_ICON +
         ' <span class="tbm-label">' + tH(_ttsSpeaking ? 'tts_stop' : 'tts_speak') + '</span></button>';
