@@ -1449,5 +1449,6 @@ def test_the_engine_pins_agree_everywhere():
         extra = tomllib.load(f)["project"]["optional-dependencies"]["voices"]
     assert tuple(extra) == voices.ENGINE_REQUIREMENTS
     with open(os.path.join(root, "Dockerfile"), encoding="utf-8") as f:
-        docker = set(re.findall(r'"([^"]+)"', f.read()))
+        installs = [ln for ln in f if ln.startswith("RUN pip install")]
+    docker = {pin for ln in installs for pin in re.findall(r'"([^"]+)"', ln)}
     assert set(voices.ENGINE_REQUIREMENTS) <= docker

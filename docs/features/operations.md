@@ -84,7 +84,7 @@ What reaches nothing:
 - **Instance keeps reaching the network on an air-gapped host** — set `ZIMI_OFFLINE=1` (and `ZIMI_NEARBY=off` if you want mDNS silent too). Server settings, What Zimi fetches from the internet, shows what is still on.
 - **Requests to api.github.com or raw.githubusercontent.com.** Check for updates is Automatically. Ask first or Never in Server settings (or `ZIMI_UPDATE_CHECK`) stops them.
 - **Requests to celestrak.org.** The Almanac's satellite data, under Automatically or after an admin's Get fresh data. `ZIMI_SATELLITE_UPDATES=never` (or Never in Server settings) stops them.
-- **Requests to huggingface.co and github.com.** A voice for the Dictionary (Piper from Hugging Face, Kokoro from GitHub), after an admin's Download or under Automatically. `ZIMI_VOICE_DOWNLOADS=never` (or Never in Server settings) stops them.
+- **Requests to huggingface.co, github.com and pypi.org.** A voice for the Dictionary (Piper from Hugging Face, Kokoro from GitHub), and on a pip or uv install without them the first time, the engines from PyPI, after an admin's Download or under Automatically. `ZIMI_VOICE_DOWNLOADS=never` (or Never in Server settings) stops them.
 - **Air-gap bundle won't install on the target** — you built for the wrong platform. Wheels are OS/arch/Python-version specific; rebuild with the correct `--target` and `--python-version`. The script refuses to emit a bundle whose deps didn't all resolve to wheels.
 - **Restore didn't replace old state** — restore merges by default. Use `--overwrite` to replace matching state wholesale.
 - **An update landed sooner/later than expected** — check `ZIMI_UPDATE_CHANNEL` and `ZIMI_UPDATE_DELAY_DAYS`. Offline instances never update.

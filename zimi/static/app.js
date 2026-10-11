@@ -908,6 +908,9 @@ function _voicePrefs() {
 // the same key.
 function _speakingOn() { return !_voicePrefs().quiet; }
 function _setSpeaking(on) {
+  // A Remove waiting for its second tap would keep the panel from redrawing.
+  var wrap = document.getElementById(_VOICES_WRAP_ID);
+  if (wrap) wrap.querySelectorAll('.confirming').forEach(function(b) { b.classList.remove('confirming'); });
   if (!on) {
     _ttsStop();
     if (_discAudio) { try { _discAudio.pause(); } catch (e) {} }

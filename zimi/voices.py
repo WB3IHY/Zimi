@@ -528,7 +528,9 @@ def _usable(engine):
     engine is here, or the download can set it up first."""
     if runtime(engine):
         return True
-    return _can_set_up() and engine in _setup_plan().engines and not _engines_marker()
+    # Not here though the plan has it: a Piper-only venv from before a Python
+    # Kokoro runs on was found is built again, with both.
+    return _can_set_up() and engine in _setup_plan().engines
 
 
 def _set_up_engines():
@@ -548,9 +550,15 @@ def _set_up_engines():
     if not ok:
         log.warning("Voices: could not set up the engines:\n%s", "\n".join(tail))
         return False
-    with open(os.path.join(venv, ENGINES_MARKER), "w", encoding="utf-8") as f:
-        json.dump({"tool": "voices", "spec": list(requirements), "engines": list(engines)}, f)
-        f.write("\n")
+    from zimi import server as _srv
+
+    # Atomic: a marker half written would read as no install, and the next
+    # download would build the venv again.
+    if not _srv._atomic_write_json(
+        os.path.join(venv, ENGINES_MARKER),
+        {"tool": "voices", "spec": list(requirements), "engines": list(engines)},
+    ):
+        return False
     with _lock:
         _found.clear()  # every engine and version is found again
     return True

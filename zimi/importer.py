@@ -214,7 +214,8 @@ def build_venv(venv, python, requirements, ready, say, run=None, uv=None):
     the Python ``python`` names (a version, fetched by uv when it has none)
     and installs into it. True when ``ready`` (a file the install puts in
     it) exists afterwards; otherwise the venv is removed, so a half-built one
-    is never taken for an install. ``run`` streams each command's output to
+    is never taken for an install. Whatever is at ``venv`` goes first: call it
+    only where there is no working install to keep. ``run`` streams each command's output to
     ``say`` (a caller passes its own, for its tests)."""
     run = run or _run_stream
     if os.path.isdir(venv):
