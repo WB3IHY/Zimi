@@ -441,13 +441,18 @@ def engines_dir():
 
 
 def _engines_marker():
-    """What the engines venv's finished install recorded, or {}."""
-    try:
-        with open(os.path.join(engines_dir(), ENGINES_MARKER), encoding="utf-8") as f:
-            got = json.load(f)
-        return got if isinstance(got, dict) else {}
-    except (OSError, ValueError):
-        return {}
+    """What the engines venv's finished install recorded, or {}: read once,
+    found again when an install finishes (_found is cleared)."""
+
+    def find():
+        try:
+            with open(os.path.join(engines_dir(), ENGINES_MARKER), encoding="utf-8") as f:
+                got = json.load(f)
+            return got if isinstance(got, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    return _memo("marker", find)
 
 
 def _engines_python(engine):
@@ -461,14 +466,15 @@ def _engines_python(engine):
 
 def _kokoro_python():
     """A Python Kokoro runs on, or None: Zimi's own, else a python3.1x on
-    PATH."""
-    from zimi.importer import _probe_python
-
+    PATH. Read from names, never by running one: the Dictionary's first
+    open asks."""
     lo, hi = KOKORO_PYTHONS
-    for cand in (sys.executable,) + _PYTHON_NAMES:
-        ver = _probe_python(cand) if (cand == sys.executable or shutil.which(cand)) else None
-        if ver and lo <= ver < hi:
-            return cand
+    if lo <= sys.version_info[:2] < hi:
+        return sys.executable
+    for name in _PYTHON_NAMES:
+        found = shutil.which(name)
+        if found:
+            return found
     return None
 
 
@@ -1664,7 +1670,8 @@ def page_payload():
     langs = can_say()
     offers = {}
     for tag, pin in VOICES.items():
-        if tag in have or not can_download(tag):
+        # can_download(tag), the setting read once rather than per voice.
+        if tag in have or mode == outbound.NEVER or not _usable(pin.engine):
             continue
         for lang in _pin_langs(tag):
             # A language a downloaded voice already says needs nothing more:
