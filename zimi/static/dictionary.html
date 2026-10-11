@@ -66,6 +66,8 @@
   @keyframes spk-wait { 50% { opacity: .2; } }
   @media (prefers-reduced-motion: reduce) { .spk.busy svg path + path { animation: none; opacity: .45; } }
   .novoice, .voffer { font-size: 12.5px; color: var(--text2); }
+  /* Speaking off: the voices go; a recording the Wiktionary holds stays, it is the entry's own. */
+  html.quiet [data-say], html.quiet [data-voices], html.quiet .novoice, html.quiet .voffer, html.quiet .vdoor { display: none !important; }
   .voffer { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
   .vget { border: 0; background: none; padding: 6px 0; margin: -6px 0; font: inherit; color: var(--amber); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
   /* A voice on its way: a thin bar in the Download's colour, and how far. */
@@ -854,6 +856,7 @@ function wireSpeech() {
 // page's languages use, once each, before the first tap. It fetches nothing.
 var _warmed = {};
 function warmVoices(codes) {
+  if (!speaking()) return; // nothing will be said: no voice to load
   var langs = [];
   codes.forEach(function(code) {
     var tag = speechTag(code), row = serverRow(code);
@@ -1112,6 +1115,9 @@ function voicePrefs() {
   catch (e) { return {}; }
 }
 function voiceOn(e) { var off = voicePrefs().off; return !(Array.isArray(off) && off.indexOf(e) >= 0); }
+// Speaking off (Settings > Voices): nothing here speaks or offers a voice.
+function speaking() { return voicePrefs().quiet !== true; }
+function markSpeaking() { document.documentElement.classList.toggle('quiet', !speaking()); }
 function rememberVoice(e) {
   var p = voicePrefs();
   if (p.remember === false || p.voice === e) return;
@@ -1237,11 +1243,12 @@ document.addEventListener('click', function(e) {
 });
 
 window.addEventListener('message', function(e) {
-  if (e.origin === location.origin && e.data && e.data.zimi === 'voices-changed') loadVoices();
+  if (e.origin === location.origin && e.data && e.data.zimi === 'voices-changed') { markSpeaking(); loadVoices(); }
 });
 
 function load() {
   _home = null;
+  markSpeaking();
   loadVoices();
   renderHome();
   get('/dictionary/home').then(function(d) {

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Settings > Voices has a Speaking switch: off hides Say, the voice menus, Discover's speaker and Read aloud in this browser, and offers to remove the downloaded voices.
 - `pip install zimi[voices]` adds the Dictionary's clearer voices in one step.
 
 ### Fixed

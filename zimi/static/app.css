@@ -3707,6 +3707,7 @@
   .dc-say { position: absolute; top: 12px; inset-inline-end: 12px; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; margin: 0; border-radius: 50%; color: var(--amber); background: var(--amber-glow); border: 1px solid var(--amber-border); cursor: pointer; }
   .dc-say > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .dc-say:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  .zimi-quiet .dc-say { display: none; } /* Speaking off (Settings > Voices) */
   .dc-say.on { animation: dcSayPulse 1s ease-in-out infinite; }
   @keyframes dcSayPulse { 50% { opacity: .55; } }
   @media (prefers-reduced-motion: reduce) { .dc-say.on { animation: none; } }

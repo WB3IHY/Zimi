@@ -1745,3 +1745,49 @@ def test_a_python_install_with_no_engines_is_offered_a_voice_and_sets_up(served,
             br.close()
             _settle_downloads()
             voices._reset_for_tests()
+
+
+SPEAKING = "#voices-speaking"
+
+
+def test_speaking_off_hides_every_voice_and_offers_to_remove_them(piper_here, served):
+    """Eric, 2026-10-06: "a Speaking toggle ... to turn all this off and hide
+    it and offer to delete any download stuff ... even reader view". Off: no
+    Say or voice menu in the Dictionary (a Wiktionary recording stays), no
+    Discover speaker, no Read aloud; Settings > Voices is the switch and,
+    for an admin, the voices downloaded here to remove."""
+    open_eau, errors = piper_here
+    tv.install("fr")
+    f = open_eau()
+    pg = f.page
+    _settings_voices(pg, served)
+    pg.wait_for_selector(SPEAKING)
+    assert pg.is_checked(SPEAKING)
+    pg.click(SPEAKING + " + .switch-slider")
+    pg.wait_for_function("() => !_speakingOn()")
+    rows = pg.eval_on_selector_all(VOICES_WRAP + " .share-row", "rs => rs.map(r => r.innerText.replace(/\\s+/g, ' ').trim())")
+    assert len(rows) == 2 and rows[1].startswith("Voices downloaded here:"), rows
+    assert pg.evaluate("() => document.documentElement.classList.contains('zimi-quiet')")
+    assert pg.evaluate("() => { _readingText = 'x'; updateTopbar(); return getComputedStyle(document.getElementById('tts-btn')).display; }") == "none"
+    _shot(pg, "speaking-off")
+    # The Dictionary: nothing speaks.
+    pg.goto(served + "/?dictionary=eau")
+    f = _frame(pg)
+    _word(f, "eau")
+    pg.wait_for_timeout(500)
+    shown = f.evaluate("() => [...document.querySelectorAll('[data-say], [data-voices], .voffer, .novoice')].filter(b => getComputedStyle(b).display !== 'none').length")
+    assert shown == 0
+    # Remove, a second tap: the voice goes.
+    _settings_voices(pg, served)
+    remove = VOICES_WRAP + " .set-btn[data-confirm]"
+    pg.click(remove)
+    pg.click(remove)
+    pg.wait_for_function("s => !document.querySelector(s)", arg=remove, timeout=DL_WAIT_MS)
+    assert "fr" not in voices.installed()
+    # On again: every voice control is back.
+    pg.click(SPEAKING + " + .switch-slider")
+    pg.wait_for_function("() => _speakingOn() && !document.documentElement.classList.contains('zimi-quiet')")
+    assert pg.eval_on_selector_all(VOICES_WRAP + " .voice-engine", "rs => rs.length") > 0
+    f = open_eau()
+    assert f.evaluate("() => getComputedStyle(document.querySelector('[data-say]:not([hidden])')).display") != "none"
+    assert errors == []

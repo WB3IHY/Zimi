@@ -896,13 +896,34 @@ function _voiceMb(bytes) { return Math.round(bytes / _VOICE_BYTES_PER_MB); }
 function _voicePrefs() {
   var p = _getStorageJSON(SK.VOICE_PREFS, {});
   p = p && typeof p === 'object' ? p : {};
-  return { voice: typeof p.voice === 'string' ? p.voice : '',
+  var out = { voice: typeof p.voice === 'string' ? p.voice : '',
     off: Array.isArray(p.off) ? p.off.filter(function(e) { return _VOICE_ENGINES.indexOf(e) >= 0; }) : [] };
+  if (p.quiet === true) out.quiet = true; // kept only when it says something
+  return out;
 }
+// Speaking, Settings > Voices' first switch (Eric, 2026-10-06: "a Speaking
+// toggle or something to turn all this off and hide it ... Some way that
+// hides it from everywhere even reader view"). Off: no Say, no voice menus,
+// no Discover speaker, no Read aloud, in this browser. The Dictionary reads
+// the same key.
+function _speakingOn() { return !_voicePrefs().quiet; }
+function _setSpeaking(on) {
+  if (!on) {
+    _ttsStop();
+    if (_discAudio) { try { _discAudio.pause(); } catch (e) {} }
+  }
+  _setVoicePrefs({ quiet: !on });
+  _markSpeaking();
+  updateTopbar();
+}
+// Discover's speakers hide by a class: the cards are not drawn again for it.
+function _markSpeaking() { document.documentElement.classList.toggle('zimi-quiet', !_speakingOn()); }
+_markSpeaking();
 function _setVoicePrefs(change) {
   var p = Object.assign(_voicePrefs(), change);
   if (p.voice && p.off.indexOf(p.voice) >= 0) p.voice = '';
-  if (!p.voice && !p.off.length) { try { localStorage.removeItem(SK.VOICE_PREFS); } catch (e) {} }
+  if (!p.quiet) delete p.quiet;
+  if (!p.voice && !p.off.length && !p.quiet) { try { localStorage.removeItem(SK.VOICE_PREFS); } catch (e) {} }
   else _setStorageJSON(SK.VOICE_PREFS, p);
   _voicesTellDictionary();
   _paintVoices();
@@ -1238,7 +1259,27 @@ function _voiceDefaultHtml(on) {
     '<div class="app-theme-seg voice-default" role="radiogroup" aria-label="' + escAttr(t('voices_default')) + '">' +
     opt('', t('voices_default_auto')) + on.map(function(x) { return opt(x.engine, _voiceEngineName(x.engine)); }).join('') + '</div>';
 }
+// The Speaking switch, and with it off, the voices downloaded here offered
+// for removal (an admin's): nothing else of Voices shows.
+function _speakingHtml() {
+  var on = _speakingOn();
+  var h = '<div class="share-rows set-rows voice-prefs"><div class="share-row set-row">' +
+    '<span class="share-row-text"><span class="share-row-title">' + tH('voices_speaking') + '</span>' +
+    '<span class="share-row-desc">' + tH('voices_speaking_desc') + '</span></span>' +
+    '<label class="switch"><input type="checkbox" role="switch" id="voices-speaking" aria-label="' + escAttr(t('voices_speaking')) + '"' +
+    (on ? ' checked' : '') + ' onchange="_setSpeaking(this.checked)"><span class="switch-slider"></span></label></div>';
+  var kept = ((_voicesHere && _voicesHere.voices) || []).filter(function(v) { return v.installed; });
+  if (!on && kept.length && _voicesHere.can_change) {
+    var mb = _voiceMb(kept.reduce(function(n, v) { return n + (v.bytes || 0); }, 0));
+    h += '<div class="share-row set-row"><span class="share-row-text"><span class="share-row-desc">' +
+      tH('voices_downloaded_here', { mb: mb }) + '</span></span>' +
+      _voiceAction('/manage/voices/remove', kept.map(function(v) { return v.tag; }).join(' '), tH('voices_remove'),
+        ' data-confirm="' + escAttr(t('voices_remove_confirm')) + '"') + '</div>';
+  }
+  return h + '</div>';
+}
 function _voicePrefsHtml() {
+  if (!_speakingOn()) return _speakingHtml();
   var off = _voicePrefs().off, here = _voiceEnginesHere(), nat = _voiceNatural(), dl = _voicesDl();
   // Clear not here yet but fetchable for your languages: its row, with Get.
   if (!here.some(function(x) { return x.engine === 'piper'; }) && _voicesHere && _voicesHere.can_change && _voicesMayFetch()) {
@@ -1256,7 +1297,7 @@ function _voicePrefsHtml() {
   here.sort(function(a, b) { return _VOICE_ENGINES.indexOf(a.engine) - _VOICE_ENGINES.indexOf(b.engine); });
   var on = here.filter(function(x) { return !x.absent && off.indexOf(x.engine) < 0; });
   // One row per engine here; the last one on stays on.
-  var h = _voiceDefaultHtml(on) + '<div class="share-rows set-rows voice-prefs">' + here.map(function(x) {
+  var h = _speakingHtml() + _voiceDefaultHtml(on) + '<div class="share-rows set-rows voice-prefs">' + here.map(function(x) {
     return _voiceRowHtml(x, !x.absent && off.indexOf(x.engine) < 0, on.length === 1);
   }).join('') + '</div>' + _voiceGridHtml();
   if (_voicesHere && _voicesHere.can_change && _voicesHere.setting) h += _voicesModeHtml(_voicesHere.setting);
@@ -1341,7 +1382,11 @@ function _voicesPost(path, tag, btn) {
   if (btn && btn.hasAttribute('data-clear-cancel')) _clearQueue = [];
   if (btn && btn.getAttribute('data-confirm') && !btn.classList.contains('confirming')) { _voicesArm(btn); return; }
   if (btn) { btn.disabled = true; btn.classList.remove('confirming'); }
-  return _voicesSend(path, { lang: tag }, t(/remove$/.test(path) ? 'voices_remove_failed' : 'voices_failed'));
+  // Several tags, space-separated (Speaking off removes every voice here): one after another.
+  var fail = t(/remove$/.test(path) ? 'voices_remove_failed' : 'voices_failed');
+  return String(tag).split(' ').reduce(function(done, one) {
+    return done.then(function() { return _voicesSend(path, { lang: one }, fail); });
+  }, Promise.resolve());
 }
 function _voicesSetMode(mode) {
   _voicesSend('/manage/voices', { mode: mode }, t('env_controlled', { v: 'ZIMI_VOICE_DOWNLOADS' }));
@@ -2702,7 +2747,7 @@ function updateTopbar() {
     if (!showMapSrc) _closeMapSourceDropdown();
   }
   var ttsBtn = document.getElementById('tts-btn');
-  if (ttsBtn) ttsBtn.style.display = (_readingText && _TTS_AVAILABLE && !_foldReaderExtras) ? 'flex' : 'none';
+  if (ttsBtn) ttsBtn.style.display = (_readingText && _TTS_AVAILABLE && _speakingOn() && !_foldReaderExtras) ? 'flex' : 'none';
   // The dice on a map roll a place, and say so.
   var randomLabel = t(_isMapPage() ? 'random_place' : 'random_article');
   randomBtn.title = randomLabel;
@@ -25987,7 +26032,7 @@ function _buildTopbarMenuHtml() {
         ' <span class="tbm-label">' + tH('find_in_page') + '</span></button>';
     }
     // 4. Read aloud.
-    if (_TTS_AVAILABLE && !_isMapPage() && !_isAppPage() && !_isPdfPage()) {
+    if (_TTS_AVAILABLE && _speakingOn() && !_isMapPage() && !_isAppPage() && !_isPdfPage()) {
       readerGroup += '<button class="topbar-menu-item" id="tbm-tts" aria-pressed="' + (_ttsSpeaking ? 'true' : 'false') +
         '" onclick="event.stopPropagation();_ttsToggle()">' + _TBM_TTS_ICON +
         ' <span class="tbm-label">' + tH(_ttsSpeaking ? 'tts_stop' : 'tts_speak') + '</span></button>';
