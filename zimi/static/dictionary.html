@@ -71,6 +71,10 @@
   /* A voice on its way: a thin bar in the Download's colour, and how far. */
   .vbar { width: 64px; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; flex: none; }
   .vbar i { display: block; height: 100%; background: var(--amber); border-radius: 2px; transition: width .9s linear; }
+  /* Setting the engines up: no measure of it, so a segment sweeps. */
+  .vbar.indef i { width: 30%; margin-inline-start: -30%; transition: none; animation: vbar-indef 1.3s ease-in-out infinite; }
+  @keyframes vbar-indef { to { margin-inline-start: 100%; } }
+  @media (prefers-reduced-motion: reduce) { .vbar.indef i { animation: none; width: 34%; margin-inline-start: 33%; opacity: .6; } }
   .vpct { font-variant-numeric: tabular-nums; min-width: 3.2em; }
   /* Say and its voices: one pill split in two, the caret opening a menu of
      every voice that can say the word (apps.css .menu, the shell's). */
@@ -997,7 +1001,8 @@ function offerPaint(el) {
       '<span class="vpct">' + esc(pct(done)) + '</span>', '<button type="button" class="vget" data-cancel>' + esc(STR.cancel) + '</button>'];
   } else if (state === 'setup') {
     // The first voice on a Python install: the engines come first, no bar to show.
-    parts = ['<span>' + esc(STR.voice_setup) + '</span>', '<button type="button" class="vget" data-cancel>' + esc(STR.cancel) + '</button>'];
+    parts = ['<span>' + esc(STR.voice_setup) + '</span>', '<span class="vbar indef" role="progressbar"><i></i></span>',
+      '<button type="button" class="vget" data-cancel>' + esc(STR.cancel) + '</button>'];
   } else if (state === 'failed') {
     parts = ['<span>' + esc(STR.voice_failed) + '</span>', '<button type="button" class="vget" data-get="' + esc(offer.tag) + '">' + esc(STR.retry) + '</button>'];
   } else if (state === 'offer') {

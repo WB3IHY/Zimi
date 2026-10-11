@@ -1032,14 +1032,16 @@ function _voiceRowHtml(x, isOn, last) {
     else if (offers.length) {
       var dis = dl.tag ? ' disabled' : '';
       var first = offers.filter(function(o) { return o.lang === _uiLangPrimary(); })[0] || offers[0];
-      // Its own line under the words: beside Hear and the switch it wraps.
-      pick += '<div class="voice-get-line"><span class="voice-split"><button type="button" class="set-btn" data-primary' + dis +
+      // One line, as Natural's Get: the language a quieter word beside the size.
+      var split = '<span class="voice-split"><button type="button" class="set-btn" data-primary' + dis +
         ' onclick="' + escAttr('_clearGet(this, ' + JSON.stringify([first.tag]) + ')') + '">' +
-        // Natural's Get, the language on a light second line.
         '<span>' + tH('voices_get_mb', { mb: _voiceMb(first.bytes) }) + '</span><span class="set-btn-sub">' +
         esc(_langDisplayName(first.lang) || first.lang) + '</span></button>' +
         (offers.length > 1 ? '<button type="button" class="set-btn voice-split-more" aria-expanded="' + _clearPickOpen + '"' +
-          ' aria-label="' + escAttr(t('voices_get_other')) + '" onclick="_toggleClearPick()">▾</button>' : '') + '</span></div>';
+          ' aria-label="' + escAttr(t('voices_get_other')) + '" onclick="_toggleClearPick()">▾</button>' : '') + '</span>';
+      // Where Natural's sits; its own line only beside Hear and the switch, where it would wrap.
+      if (here) pick += '<div class="voice-get-line">' + split + '</div>';
+      else act += split;
       if (_clearPickOpen && offers.length > 1) {
         var all = offers.map(function(o) { return o.tag; });
         pick += '<div class="voice-pick">' + offers.filter(function(o) { return o !== first; }).map(function(o) {
@@ -1272,10 +1274,13 @@ function _paintKept(el, html) {
   }
   var dl = _voicesDl(), p = Math.floor(100 * (dl.done || 0) / (dl.total || 1));
   el.querySelectorAll('.voice-dl').forEach(function(b) {
-    // The first voice on a Python install sets the engines up before it downloads.
+    // The first voice on a Python install sets the engines up before it
+    // downloads: no measure of that, so the bar sweeps.
+    var bar = b.querySelector('.dl-progress');
     b.querySelector('.voice-progress').textContent = dl.setup ? t('voices_setup') : t('voices_downloading', { p: p });
-    b.querySelector('.dl-progress-bar').style.width = p + '%';
-    b.querySelector('.dl-progress').setAttribute('aria-valuenow', p);
+    bar.classList.toggle('dl-indeterminate', !!dl.setup);
+    b.querySelector('.dl-progress-bar').style.width = dl.setup ? '' : p + '%';
+    if (dl.setup) bar.removeAttribute('aria-valuenow'); else bar.setAttribute('aria-valuenow', p);
   });
 }
 function _paintVoices() {
