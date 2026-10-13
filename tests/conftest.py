@@ -33,6 +33,24 @@ import pytest
 os.environ.setdefault("ZIMI_BEST_ANSWER", "1")
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _cheap_password_hashing():
+    """Every password set or checked costs 600,000 PBKDF2 rounds, a fraction
+    of a second by design, and the access tests do it hundreds of times. In
+    this process a hash is made and checked with the same count, so the
+    tests lose nothing at 1,000. Servers a test starts as `zimi serve` keep
+    the real count; none of them reads a password this process wrote."""
+    try:
+        from zimi import manage
+    except Exception:
+        yield
+        return
+    real = manage._PW_ITERATIONS
+    manage._PW_ITERATIONS = 1_000
+    yield
+    manage._PW_ITERATIONS = real
+
+
 @pytest.fixture(autouse=True)
 def _fresh_archive_pools():
     try:
