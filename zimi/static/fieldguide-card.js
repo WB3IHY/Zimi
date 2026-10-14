@@ -221,10 +221,10 @@ var FieldGuideCard = (function() {
   }
 
   // ── The reader's country and place, from the time zone ──
-  // zones: {IANA zone: [lat, lon, country]} (static/earth/zones-v1.json);
+  // zones: {place(tz) -> [lat, lon] | null, country(tz) -> ISO 3166 code | null}, the sky's own time zone table
+  // (static/zone-places.js: _skyZonePlace, _skyZoneCountry);
   // numbers: static/fieldguide-numbers.json (the country table and its source).
   var NUM_ORDER = ['police', 'ambulance', 'fire'];
-  function zoneEntry(zones, tz) { return (zones && tz && zones[tz]) || null; }
   // The number(s) for a country: {all} when the source gives one for everything,
   // else its police / ambulance / fire, plus the mobile one when it differs.
   function numberParts(rec) {
@@ -238,10 +238,10 @@ var FieldGuideCard = (function() {
   // {known, parts, text}: what the line says for this zone. An unknown zone or
   // country says the table's default (112 and 911) and that it is unknown.
   function emergencyFor(zones, numbers, tz) {
-    var z = zoneEntry(zones, tz), rec = z && numbers && numbers.countries ? numbers.countries[z[2]] : null;
+    var cc = zones && tz ? zones.country(tz) : null, rec = cc && numbers && numbers.countries ? numbers.countries[cc] : null;
     var parts = numberParts(rec);
     if (!parts) return { known: false, parts: [{ k: 'all', v: ((numbers && numbers.default) || ['112', '911']).join(' / ') }] };
-    return { known: true, cc: z[2], parts: parts };
+    return { known: true, cc: cc, parts: parts };
   }
   function emergencyHtml(info, numbers, S) {
     var one = info.parts.length === 1 && info.parts[0].k === 'all';
@@ -258,7 +258,7 @@ var FieldGuideCard = (function() {
   function placeLat(chosenLat, zones, tz, chosenLon, chosenName) {
     var c = parseFloat(chosenLat), o = parseFloat(chosenLon);
     if (isFinite(c)) return { lat: c, lon: isFinite(o) ? o : 0, guessed: false, name: chosenName || '' };
-    var z = zoneEntry(zones, tz);
+    var z = zones && tz ? zones.place(tz) : null;
     return z ? { lat: z[0], lon: z[1], guessed: true, city: zoneCity(tz) } : null;
   }
   // Quotes tagged with a sky ('north', 'south', 'any'): the reader's hemisphere's first, those that serve

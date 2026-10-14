@@ -178,7 +178,7 @@ $('t-printall').onclick = function() { printSheet(true); };
 // ── one situation ──
 var seq = 0;
 // Where the reader is, for the emergency number and the sky: the time zone's country and
-// middle (static/earth/zones-v1.json, static/fieldguide-numbers.json), read once. Either failing to
+// middle (static/zone-places.js, static/fieldguide-numbers.json), read once. Either failing to
 // load is not an error: the number then says 112 / 911 and the sky is left as the data has it.
 var geo = null, geoWaiting = [];
 function geoLoad(then) {
@@ -186,7 +186,15 @@ function geoLoad(then) {
   geoWaiting.push(then);
   if (geoWaiting.length > 1) return;
   function get(url) { return fetch(url).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; }); }
-  Promise.all([get('/static/earth/zones-v1.json?v=1'), get('/static/fieldguide-numbers.json?v=1')]).then(function(x) {
+  // The sky's own time zone table (the same file the Almanac reads): a script that defines the lookups.
+  var zonesLoaded = new Promise(function(done) {
+    var s = document.createElement('script');
+    s.src = '/static/zone-places.js?v=45';
+    s.onload = function() { done(typeof _skyZonePlace === 'function' ? { place: _skyZonePlace, country: _skyZoneCountry } : null); };
+    s.onerror = function() { done(null); };
+    document.head.appendChild(s);
+  });
+  Promise.all([zonesLoaded, get('/static/fieldguide-numbers.json?v=1')]).then(function(x) {
     var tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
     geo = { zones: x[0], numbers: x[1], tz: tz };
     geoWaiting.splice(0).forEach(function(f) { f(geo); });
