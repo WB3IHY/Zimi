@@ -55,6 +55,14 @@ def test_a_geo_link_stands_in_where_there_is_no_meta_line():
     assert earth.parse_geo(page(body=link(b"-41.61", b"173.52"))) == (-41.61, 173.52)
 
 
+def test_an_infoboxs_hidden_decimal_is_the_last_resort():
+    data = page(
+        body=b'<span class="geo-dec">25.5\xc2\xb0G</span><span style="display:none"> / '
+        b'<span class="geo">-25.56250; -67.88083</span></span>'
+    )
+    assert earth.parse_geo(data) == (-25.5625, -67.88083)
+
+
 def test_the_meta_line_wins_over_a_link():
     got = earth.parse_geo(page(head=meta(b"10.5", b"20.5"), body=link(b"1", b"2")))
     assert got == (10.5, 20.5)

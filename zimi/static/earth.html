@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Earth</title>
+<!--@apps.css@-->
+<style>
+  /* The globe, edge to edge. What the library knows about a place appears
+     over it as you come down to it; nothing else is on the page until a
+     place is touched. */
+  html, body { height: 100%; overflow: hidden; background: #05070b; overscroll-behavior: none; }
+  #stage { position: fixed; inset: 0; touch-action: none; }
+  #globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+  #globe:active { cursor: grabbing; }
+  #dots { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .dot { position: absolute; left: 0; top: 0; pointer-events: auto; border: 0; background: none; padding: 0; margin: 0; width: 28px; height: 28px; margin: -14px 0 0 -14px; display: flex; align-items: center; justify-content: center; cursor: pointer; will-change: transform; }
+  .dot i { width: 9px; height: 9px; border-radius: 50%; background: #ffd27a; box-shadow: 0 0 0 2px rgba(5,7,11,.7), 0 0 10px rgba(255,210,122,.8); }
+  .dot.guide i { background: #8fd3ff; box-shadow: 0 0 0 2px rgba(5,7,11,.7), 0 0 10px rgba(143,211,255,.8); }
+  .dot span { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); white-space: nowrap; font-size: 12px; font-weight: 600; color: #fff; text-shadow: 0 0 3px #000, 0 0 6px #000; pointer-events: none; max-width: 160px; overflow: hidden; text-overflow: ellipsis; unicode-bidi: plaintext; }
+  [dir=rtl] .dot span { left: auto; right: 20px; }
+  .dot.flip span { left: auto; right: 20px; text-align: right; }
+  [dir=rtl] .dot.flip span { right: auto; left: 20px; }
+  #here { position: absolute; left: 0; top: 0; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 2px solid #fff; background: rgba(60,140,255,.9); box-shadow: 0 0 0 4px rgba(60,140,255,.3); pointer-events: none; will-change: transform; }
+  #pick { position: absolute; left: 0; top: 0; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; border: 2px solid var(--amber); pointer-events: none; will-change: transform; }
+
+  .tools { position: absolute; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; }
+  [dir=rtl] .tools { right: auto; left: 12px; }
+  .tool { width: 44px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,.18); background: rgba(20,22,28,.78); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); font-size: 22px; line-height: 1; padding: 0; }
+  .tool svg { width: 22px; height: 22px; }
+  .tool:disabled { opacity: .4; }
+  #hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom)); max-width: calc(100% - 140px); padding: 8px 14px; border-radius: 18px; background: rgba(20,22,28,.78); color: #e8e8ed; font-size: 13px; text-align: center; pointer-events: none; transition: opacity .6s; }
+  #hint.gone { opacity: 0; }
+  #map-chip { position: absolute; left: 50%; transform: translateX(-50%); top: 12px; }
+  #map-chip button { border: 0; padding: 9px 16px; border-radius: 20px; background: var(--amber); color: #fff; font-weight: 600; font-size: 13.5px; cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,.5); }
+  #status { position: absolute; left: 12px; top: 12px; max-width: calc(100% - 24px); padding: 6px 12px; border-radius: 16px; background: rgba(20,22,28,.78); color: #e8e8ed; font-size: 12.5px; }
+
+  /* A touched place: what the library has for it, as one card. */
+  #card { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); border-radius: 16px 16px 0 0; box-shadow: 0 -8px 32px rgba(0,0,0,.45); max-height: 60%; overflow-y: auto; }
+  #card .x { position: absolute; top: 6px; right: 6px; width: 44px; height: 44px; border: 0; background: none; font-size: 24px; color: var(--text2); cursor: pointer; }
+  [dir=rtl] #card .x { right: auto; left: 6px; }
+  #card h2 { margin: 0 44px 2px 0; font-size: 18px; line-height: 1.25; unicode-bidi: plaintext; }
+  [dir=rtl] #card h2 { margin: 0 0 2px 44px; }
+  #card .sub { color: var(--text2); font-size: 12.5px; margin: 0 0 12px; font-variant-numeric: tabular-nums; unicode-bidi: plaintext; }
+  #card .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+  #card .act { display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; min-height: 44px; border-radius: 22px; border: 1px solid var(--border); background: var(--surface2); font-size: 14px; cursor: pointer; text-align: start; box-sizing: border-box; }
+  #card .act.main { background: var(--text); color: var(--bg); border-color: var(--text); }
+  #card .act small { color: var(--text2); font-size: 11.5px; }
+  #card .act.main small { color: inherit; opacity: .7; }
+  #msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 32px; text-align: center; color: #e8e8ed; font-size: 15px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="globe" role="img" aria-label="Earth"></canvas>
+  <div id="dots"><div id="here" hidden></div><div id="pick" hidden></div></div>
+  <div id="status" hidden></div>
+  <div id="map-chip" hidden><button type="button" id="map-btn"></button></div>
+  <div class="tools">
+    <button type="button" class="tool" id="t-in" aria-label="+">+</button>
+    <button type="button" class="tool" id="t-out" aria-label="&minus;">&minus;</button>
+    <button type="button" class="tool" id="t-me"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.5"/><circle cx="12" cy="12" r="8"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></svg></button>
+  </div>
+  <div id="hint" hidden></div>
+  <div id="card" hidden></div>
+  <div id="msg" hidden></div>
+</div>
+<!--@apps.js@-->
+<script src="/static/globe.js?v=1"></script>
+<script>
+var STR = strings({ title: 'Earth', hint: 'Drag to turn the Earth. Pinch to come closer.', zoom_hint: 'Come closer to see places.',
+  look_up: 'Look up from here', read: 'Read', guide: 'Travel guide', map: 'Open the map here', locate: 'Show where I am',
+  no_webgl: 'This device cannot draw the globe.', load_failed: 'The globe could not load.', away: '{km} km away',
+  reading: 'Zimi is still reading where articles are. Places appear as each library finishes.', nothing: 'Nothing in the library here.',
+  zoom_in: 'Zoom in', zoom_out: 'Zoom out', close: 'Close', here: 'Where you are', nearby: 'Nearby' });
+
+var ALT_PLACES = [[1.2, 0], [0.3, 24], [0.05, 48], [0, 80]];      // below the first number: this many places
+var ALT_MAP = 0.01;                  // 64 km up: the screen is about 40 km wide
+var PLACES_DEBOUNCE_MS = 220;
+var TIME_TICK_MS = 60000;
+var HINT_MS = 6000;
+var HINT_KEY = 'zimi_earth_hint';
+var LABEL_H = 18;
+var LABEL_CHAR_PX = 6.6;
+var ZOOM_STEP = 0.55;
+var KEY_PAN_PX = 90;
+var ME_ALT = 0.04;
+var CARD_ALT = 0.05;                 // a tapped far place comes down to this
+
+var G = null, dots = new Map(), card = null, pickAt = null, hereAt = null, fetchTimer = 0, fetchCtl = null, mapOffered = false;
+var $ = function(id) { return document.getElementById(id); };
+function shell() { try { return window.parent !== window ? window.parent : null; } catch (e) { return null; } }
+function ask(fn, a, b, c) { var s = shell(); try { return s && typeof s[fn] === 'function' ? s[fn](a, b, c) : null; } catch (e) { return null; } }
+function fmt(s, vars) { return String(s).replace(/\{(\w+)\}/g, function(_, k) { return vars[k] != null ? vars[k] : ''; }); }
+function coords(lat, lon) {
+  var f = function(x, p, n) { return Math.abs(x).toFixed(2) + '° ' + (x >= 0 ? p : n); };
+  return '⁦' + f(lat, 'N', 'S') + ', ' + f(lon, 'E', 'W') + '⁩';
+}
+function show(id, on) { $(id).hidden = !on; }
+function say(text) { var m = $('msg'); m.textContent = text; m.hidden = !text; }
+
+// How many places the view's height earns: none from far out, more as you come down.
+function placeLimit(alt) {
+  for (var i = 0; i < ALT_PLACES.length; i++) if (alt >= ALT_PLACES[i][0]) return ALT_PLACES[i][1];
+  return ALT_PLACES[ALT_PLACES.length - 1][1];
+}
+
+// ── Places ──
+function wantPlaces() {
+  clearTimeout(fetchTimer);
+  fetchTimer = setTimeout(loadPlaces, PLACES_DEBOUNCE_MS);
+}
+function loadPlaces() {
+  var v = G.get(), limit = placeLimit(v.alt);
+  if (!limit) { drawDots([]); hint(STR.zoom_hint); return; }
+  var b = G.bounds();
+  var q = 'w=' + b.w.toFixed(3) + '&s=' + b.s.toFixed(3) + '&e=' + b.e.toFixed(3) + '&n=' + b.n.toFixed(3) + '&limit=' + limit;
+  if (fetchCtl) fetchCtl.abort();
+  fetchCtl = new AbortController();
+  fetch('/earth/places?' + q, { signal: fetchCtl.signal, credentials: 'same-origin' }).then(function(r) { return r.ok ? r.json() : { places: [] }; }).then(function(d) {
+    drawDots(d.places || []);
+    if (!(d.places || []).length) status(STR.nothing, 2500);
+  }).catch(function() {});
+}
+function drawDots(list) {
+  var seen = {};
+  list.forEach(function(p) {
+    var id = p.zim + '|' + p.path;
+    seen[id] = true;
+    if (dots.has(id)) return;
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'dot'; b.setAttribute('aria-label', p.title);
+    b.innerHTML = '<i></i><span></span>';
+    b.lastChild.textContent = p.title;
+    b.onclick = function(e) { e.stopPropagation(); chooseDot(p); };
+    $('dots').appendChild(b);
+    dots.set(id, { el: b, p: p, w: Math.min(160, p.title.length * LABEL_CHAR_PX + 8) });
+  });
+  dots.forEach(function(d, id) { if (!seen[id]) { d.el.remove(); dots.delete(id); } });
+  layout();
+}
+// Dots and labels follow the globe on every frame it draws (nothing draws
+// when nothing moves). A label that would sit on a bigger place's is left
+// off; its dot stays.
+function layout() {
+  if (!G) return;
+  var s = G.size(), taken = [];
+  var order = Array.from(dots.values()).sort(function(a, b) { return b.p.size - a.p.size; });
+  order.forEach(function(d) {
+    var pt = G.project(d.p.lat, d.p.lon);
+    var on = pt.front && pt.x > -20 && pt.x < s.w + 20 && pt.y > -20 && pt.y < s.h + 20;
+    d.el.style.display = on ? '' : 'none';
+    if (!on) return;
+    d.el.style.transform = 'translate(' + pt.x.toFixed(1) + 'px,' + pt.y.toFixed(1) + 'px)';
+    var rtl = document.documentElement.dir === 'rtl';
+    // The label sits on the text's side of the dot, or on the other if that
+    // is free; on neither, the dot stands alone.
+    var sides = rtl ? [-1, 1] : [1, -1], put = null;
+    for (var i = 0; i < sides.length && !put; i++) {
+      var a = pt.x + sides[i] * 20, b = a + sides[i] * d.w;
+      var box = { x0: Math.min(a, b), y0: pt.y - LABEL_H / 2, x1: Math.max(a, b), y1: pt.y + LABEL_H / 2 };
+      if (!taken.some(function(t) { return box.x0 < t.x1 && box.x1 > t.x0 && box.y0 < t.y1 && box.y1 > t.y0; })) put = { box: box, side: sides[i] };
+    }
+    d.el.lastChild.style.display = put ? '' : 'none';
+    if (put) {
+      d.el.classList.toggle('flip', put.side !== sides[0]);
+      taken.push(put.box);
+    } else taken.push({ x0: pt.x - 6, y0: pt.y - 6, x1: pt.x + 6, y1: pt.y + 6 });
+  });
+  mark('pick', pickAt); mark('here', hereAt);
+  offerMap();
+}
+function mark(id, at) {
+  var el = $(id);
+  if (!at) { el.hidden = true; return; }
+  var pt = G.project(at.lat, at.lon);
+  el.hidden = !pt.front;
+  if (pt.front) el.style.transform = 'translate(' + pt.x.toFixed(1) + 'px,' + pt.y.toFixed(1) + 'px)';
+}
+
+// ── A touched place ──
+function chooseDot(p) {
+  openCard(p.lat, p.lon, p);
+}
+function openCard(lat, lon, first) {
+  pickAt = { lat: lat, lon: lon };
+  layout();
+  var token = {};
+  card = token;
+  var c = $('card');
+  c.hidden = false;
+  c.innerHTML = '<button class="x" type="button" aria-label="' + esc(STR.close) + '">×</button><h2>' + esc(first ? first.title : coords(lat, lon)) + '</h2><p class="sub">' + esc(coords(lat, lon)) + '</p><div class="acts" id="acts"></div>';
+  c.querySelector('.x').onclick = closeCard;
+  acts(first ? { articles: [first], guides: [] } : { articles: [], guides: [] }, lat, lon, first);
+  fetch('/earth/near?lat=' + lat.toFixed(4) + '&lon=' + lon.toFixed(4), { credentials: 'same-origin' }).then(function(r) { return r.ok ? r.json() : { articles: [], guides: [] }; }).then(function(d) {
+    if (card !== token) return;
+    var a = d.articles[0];
+    if (a && !first) { c.querySelector('h2').textContent = a.title; c.querySelector('.sub').textContent = coords(lat, lon) + ' · ' + fmt(STR.away, { km: a.km < 10 ? a.km.toFixed(1) : Math.round(a.km) }); }
+    acts(d, lat, lon, first);
+  }).catch(function() {});
+}
+function acts(d, lat, lon, first) {
+  var box = $('acts'), html = '';
+  var art = first || d.articles[0];
+  if (art) html += '<button type="button" class="act main" data-read="' + esc(art.zim + '\u0000' + art.path) + '">' + esc(STR.read) + '</button>';
+  html += '<button type="button" class="act" data-up="1">' + esc(STR.look_up) + '</button>';
+  (d.guides || []).slice(0, 3).forEach(function(g) {
+    html += '<button type="button" class="act" data-read="' + esc(g.zim + '\u0000' + g.path) + '">' + esc(STR.guide) + ' <small>' + esc(g.title) + (g.language ? ' · ' + esc(g.language) : '') + '</small></button>';
+  });
+  if (ask('_earthMapFor', lat, lon)) html += '<button type="button" class="act" data-map="1">' + esc(STR.map) + '</button>';
+  box.innerHTML = html;
+  box.querySelectorAll('[data-read]').forEach(function(b) {
+    b.onclick = function() { var p = b.getAttribute('data-read').split('\u0000'); tell({ zimi: 'open', zim: p[0], path: p[1] }); };
+  });
+  var up = box.querySelector('[data-up]'); if (up) up.onclick = function() { ask('_earthLookUp', lat, lon, art ? art.title : ''); };
+  var mp = box.querySelector('[data-map]'); if (mp) mp.onclick = function() { openMap(lat, lon); };
+}
+function closeCard() { card = null; pickAt = null; $('card').hidden = true; layout(); }
+
+// ── The map takes over ──
+function mapZoomFor(alt) { return Math.max(3, Math.min(17, Math.round(Math.log2(40075 * 0.8 / Math.max(G.spanKm(), 0.05)) + 0.2))); }
+function openMap(lat, lon) { ask('_earthOpenMap', lat, lon, mapZoomFor(G.get().alt)); }
+function offerMap() {
+  if (!G) return;
+  var v = G.get(), on = v.alt <= ALT_MAP && !!ask('_earthMapFor', v.lat, v.lon);
+  if (on === mapOffered) return;
+  mapOffered = on;
+  show('map-chip', on);
+}
+
+// ── Where you are, and the first words ──
+function status(text, ms) {
+  var s = $('status'); s.textContent = text; s.hidden = !text;
+  if (ms) setTimeout(function() { if (s.textContent === text) s.hidden = true; }, ms);
+}
+function hint(text) {
+  var h = $('hint');
+  if (!text) { h.hidden = true; return; }
+  h.textContent = text; h.hidden = false; h.classList.remove('gone');
+  clearTimeout(hint.t); hint.t = setTimeout(function() { h.classList.add('gone'); }, HINT_MS);
+}
+function place() { var l = ask('_getLocation'); return l && l.stored ? l : null; }
+function locate() {
+  var l = place();
+  var go = function(lat, lon) { hereAt = { lat: lat, lon: lon }; G.set({ lat: lat, lon: lon, alt: ME_ALT, bearing: 0 }, 900); layout(); };
+  if (l) { go(l.lat, l.lon); return; }
+  if (!navigator.geolocation) { status(STR.locate, 2500); return; }
+  navigator.geolocation.getCurrentPosition(function(p) { go(p.coords.latitude, p.coords.longitude); }, function() { status(STR.locate, 2500); }, { timeout: 15000, maximumAge: 600000 });
+}
+function address() {
+  var v = G.get();
+  tell({ zimi: 'earth-at', lat: +v.lat.toFixed(4), lon: +v.lon.toFixed(4), alt: +v.alt.toPrecision(2) });
+}
+
+// ── Start ──
+function start() {
+  var t0 = STR.start || {};
+  var l = place();
+  G_opts = { interactive: true, lat: t0.lat != null ? t0.lat : l ? l.lat : 20, lon: t0.lon != null ? t0.lon : l ? l.lon : -new Date().getTimezoneOffset() / 4,
+    alt: t0.alt,
+    onMove: function() { wantPlaces(); clearTimeout(start.t); start.t = setTimeout(address, 600); },
+    onFrame: layout,
+    onTap: function(lat, lon) { openCard(lat, lon, null); } };
+  if (l) hereAt = { lat: l.lat, lon: l.lon };
+  ZimiGlobe.create($('globe'), G_opts).then(function(g) {
+    G = g;
+    $('t-in').onclick = function() { G.set({ alt: ZimiGlobe.zoomed(G.get().alt, ZOOM_STEP) }, 300); };
+    $('t-out').onclick = function() { G.set({ alt: ZimiGlobe.zoomed(G.get().alt, 1 / ZOOM_STEP) }, 300); };
+    $('t-me').onclick = locate;
+    $('map-btn').onclick = function() { var v = G.get(); openMap(v.lat, v.lon); };
+    document.addEventListener('keydown', key);
+    setInterval(function() { G.setTime(Date.now()); }, TIME_TICK_MS);
+    var seen = false; try { seen = localStorage.getItem(HINT_KEY) === '1'; localStorage.setItem(HINT_KEY, '1'); } catch (e) {}
+    hint(seen ? STR.zoom_hint : STR.hint);
+    wantPlaces(); layout();
+    fetch('/earth', { credentials: 'same-origin' }).then(function(r) { return r.json(); }).then(function(d) { if (!d.places) setTimeout(function() { status(STR.reading, 5000); }, 800); }).catch(function() {});
+    window.__earth = G;
+  }).catch(function(e) {
+    var gl = !!document.createElement('canvas').getContext('webgl2');
+    say(gl ? STR.load_failed : STR.no_webgl);
+  });
+}
+var G_opts;
+function key(e) {
+  if (!G || e.metaKey || e.ctrlKey || e.altKey) return;
+  var v = G.get(), d = {};
+  if (e.key === '+' || e.key === '=') d = { alt: ZimiGlobe.zoomed(v.alt, ZOOM_STEP) };
+  else if (e.key === '-' || e.key === '_') d = { alt: ZimiGlobe.zoomed(v.alt, 1 / ZOOM_STEP) };
+  else if (e.key === 'Escape' && card) { closeCard(); return; }
+  else {
+    var m = { ArrowLeft: [KEY_PAN_PX, 0], ArrowRight: [-KEY_PAN_PX, 0], ArrowUp: [0, KEY_PAN_PX], ArrowDown: [0, -KEY_PAN_PX] }[e.key];
+    if (!m) return;
+    d = ZimiGlobe.dragged(v, m[0], m[1], G.size().h);
+  }
+  e.preventDefault();
+  G.set(d, 160);
+}
+window.__top = function() { return true; };
+window.__home = function() { if (G) G.set({ lat: 20, alt: G.fitAlt }, 700); };
+document.title = STR.title;
+$('t-in').setAttribute('aria-label', STR.zoom_in); $('t-out').setAttribute('aria-label', STR.zoom_out); $('t-me').setAttribute('aria-label', STR.locate); $('t-me').title = STR.locate;
+$('map-btn').textContent = STR.map;
+$('globe').setAttribute('aria-label', STR.title);
+start();
+</script>
+</body>
+</html>

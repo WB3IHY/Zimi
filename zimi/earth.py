@@ -29,12 +29,15 @@ log = logging.getLogger("zimi")
 # The head of an article is searched, not all of it: mwoffliner puts the
 # page's meta tags before the body, but a long article's head can carry tens
 # of kilobytes of styles (Mount Everest's is 58 KB) before the meta line.
-HEAD_BYTES = 160_000
+HEAD_BYTES = 400_000
 _META_RE = re.compile(
     rb'<meta[^>]*name="geo\.position"[^>]*content="\s*(-?[0-9.]+)\s*;\s*(-?[0-9.]+)\s*"'
     rb'|<meta[^>]*content="\s*(-?[0-9.]+)\s*;\s*(-?[0-9.]+)\s*"[^>]*name="geo\.position"'
 )
 _LINK_RE = re.compile(rb'href="geo:(-?[0-9.]+),(-?[0-9.]+)')
+# The hidden decimal an infobox keeps in builds that strip the rest
+# (wikipedia_tr_geography: 42 of 5,325 pages).
+_SPAN_RE = re.compile(rb'<span class="geo">\s*(-?[0-9.]+)\s*;\s*(-?[0-9.]+)\s*</span>')
 WIKI_PROJECTS = ("wikipedia", "wikivoyage")
 
 # The most places one answer carries, and the nearest-article reach.
@@ -50,15 +53,15 @@ _SMALL_BOX_SHARE = 0.02
 def parse_geo(data):
     """(lat, lon) of the place an article's head names, or None.
 
-    ``data`` is the article's bytes. The meta line wins; the first geo: link
-    stands in for builds without it. Zeros and out-of-range pairs are
+    ``data`` is the article's bytes. The meta line wins; the first geo: link, then an
+    infobox's hidden decimal, stand in for builds without it. Zeros and out-of-range pairs are
     nobody's place."""
     head = data[:HEAD_BYTES]
     m = _META_RE.search(head)
     if m:
         pair = m.group(1) or m.group(3), m.group(2) or m.group(4)
     else:
-        m = _LINK_RE.search(head)
+        m = _LINK_RE.search(head) or _SPAN_RE.search(head)
         if not m:
             return None
         pair = m.group(1), m.group(2)

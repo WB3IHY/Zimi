@@ -234,6 +234,7 @@ _RATE_LIMITED_API_PATHS = (
     "/wiki",
     "/books",
     "/dictionary",
+    "/earth",
     "/map-home",
     "/read",
     "/suggest",
@@ -255,6 +256,7 @@ _RATE_LIMITED_API_PREFIXES = (
     "/wiki/",
     "/books/",
     "/dictionary/",
+    "/earth/",
 )
 
 # High-frequency read-only manage polls. While a download runs the manage UI
@@ -1058,6 +1060,9 @@ if os.path.isdir(_STATIC_DIR):
             + _static_hash("wiki-reader.js")
             + _static_hash("books.html")
             + _static_hash("dictionary.html")
+            + _static_hash("earth.html")
+            + _static_hash("globe.js")
+            + _static_hash("almanac-look.js")
             + _static_hash("apps.css")
             + _static_hash("apps.js")
             # The PDF viewer and Zimi's reader inlined into it.
@@ -1824,6 +1829,7 @@ APP_PAGES = (
     "wiki.html",
     "books.html",
     "dictionary.html",
+    "earth.html",
 )
 # Pages that show a ZIM's own HTML may load only from Zimi: inline styles and
 # scripts run (ZIM content uses them), anything on another host is refused,
@@ -2733,6 +2739,49 @@ class ZimHandler(BaseHTTPRequestHandler):
                 if events is None:
                     return self._json(503, {"error": "unavailable"})
                 return self._json(200, {"events": events})
+            elif parsed.path == "/earth" or parsed.path.startswith("/earth/"):
+                # Zimi Earth: the library's places on a globe.
+                from zimi import earth as _earth
+
+                if "earth" not in _srv.apps_shown():
+                    return self._json(404, {"error": "not found"})
+                sub = parsed.path[len("/earth") :].strip("/")
+
+                def _num(key, lo, hi):
+                    try:
+                        v = float(param(key))
+                    except (TypeError, ValueError):
+                        return None
+                    return v if lo <= v <= hi else None
+
+                if sub == "":
+                    return self._json(200, {"places": _earth.has_places()})
+                if sub == "places":
+                    box = [
+                        _num("w", -180, 180),
+                        _num("s", -90, 90),
+                        _num("e", -180, 180),
+                        _num("n", -90, 90),
+                    ]
+                    if None in box or box[1] > box[3]:
+                        return self._json(400, {"error": "box"})
+                    try:
+                        limit = int(param("limit") or 60)
+                    except ValueError:
+                        return self._json(400, {"error": "limit"})
+                    project = param("project") or "wikipedia"
+                    if project not in _earth.WIKI_PROJECTS:
+                        return self._json(400, {"error": "project"})
+                    return self._json(
+                        200,
+                        {"places": _earth.places_in(*box, limit=limit, project=project)},
+                    )
+                if sub == "near":
+                    lat, lon = _num("lat", -90, 90), _num("lon", -180, 180)
+                    if lat is None or lon is None:
+                        return self._json(400, {"error": "point"})
+                    return self._json(200, _earth.near(lat, lon))
+                return self._json(404, {"error": "not found"})
             elif parsed.path == "/books" or parsed.path.startswith("/books/"):
                 # Bookshelf: every Project Gutenberg ZIM in the library, as one shelf.
                 from zimi import books as _books

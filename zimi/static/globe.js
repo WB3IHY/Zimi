@@ -140,6 +140,14 @@ var ZimiGlobe = (function () {
     return { lat: lat, lon: lon };
   }
 
+  // How high the camera hangs for the whole globe to fit the screen's
+  // narrower side with a margin: a phone held upright is the narrow case.
+  var FIT_MARGIN = 0.84;
+  function fitAlt(w, h) {
+    var half = Math.atan(Math.tan(FOV_DEG * RAD / 2) * Math.min(1, w / h));
+    return 1 / Math.sin(half * FIT_MARGIN) - 1;
+  }
+
   function zoomed(alt, factor) { return clamp(alt * factor, ALT_MIN, ALT_MAX); }
 
   // ── The thing ────────────────────────────────────────────────────────────
@@ -175,7 +183,7 @@ var ZimiGlobe = (function () {
     '  float lights = texture2D(nightMap, uv).r;',
     '  float sun = smoothstep(-0.05, 0.12, mu) * (0.4 + 0.6 * max(mu, 0.0));',
     '  float night = 1.0 - smoothstep(-0.18, 0.02, mu);',
-    '  vec3 col = day * (0.035 + 1.05 * sun) + vec3(0.05, 0.09, 0.16) * sun;',
+    '  vec3 col = day * (0.09 + 1.0 * sun) + vec3(0.05, 0.09, 0.16) * sun;',
     '  col += vec3(1.0, 0.78, 0.45) * pow(lights, 1.6) * 1.25 * night;',
     '  vec3 V = normalize(cameraPosition - vP);',
     '  float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);',
@@ -198,7 +206,6 @@ var ZimiGlobe = (function () {
     renderer.setClearColor(0x000000, 0);
     var scene = new THREE.Scene();
     var camera = new THREE.PerspectiveCamera(FOV_DEG, 1, 0.001, 20);
-    dayMap.colorSpace = THREE.SRGBColorSpace;
     [dayMap, nightMap].forEach(function (m) { m.anisotropy = renderer.capabilities.getMaxAnisotropy(); m.wrapS = THREE.RepeatWrapping; });
     var sunDir = new THREE.Vector3(1, 0, 0);
     var material = new THREE.ShaderMaterial({
@@ -209,6 +216,7 @@ var ZimiGlobe = (function () {
     scene.add(ball);
 
     var view = { lat: opts.lat != null ? opts.lat : 20, lon: opts.lon != null ? opts.lon : 0, alt: opts.alt || ALT_START, bearing: 0 };
+    var fitted = !opts.alt;
     var W = 1, H = 1, dirty = true, raf = 0, tween = null, fling = null, dead = false;
     var G = {};
 
@@ -300,6 +308,7 @@ var ZimiGlobe = (function () {
       function (v) { fling = v; fling.t = performance.now(); kick(); }, opts, function () { return H; });
 
     G.resize();
+    if (fitted) { view.alt = clamp(fitAlt(W, H), ALT_MIN, ALT_MAX); G.fitAlt = view.alt; }
     setSun(opts.time || Date.now());
     if (typeof ResizeObserver === 'function') new ResizeObserver(function () { G.resize(); }).observe(canvas);
     return G;
@@ -365,7 +374,7 @@ var ZimiGlobe = (function () {
     create: create,
     // The maths, for the tests and for the surfaces that draw over the globe.
     subsolar: subsolar, toVec: toVec, fromVec: fromVec, cameraFor: cameraFor, pick: pick, project: project, bounds: bounds,
-    spanKm: spanKm, dragged: dragged, zoomed: zoomed,
+    spanKm: spanKm, dragged: dragged, zoomed: zoomed, fitAlt: fitAlt,
     ALT_MIN: ALT_MIN, ALT_MAX: ALT_MAX, FOV_DEG: FOV_DEG
   };
 })();
