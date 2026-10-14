@@ -927,9 +927,7 @@ def _title_index_search(zim_name, query, limit=10):
         # among them: a first-word scan is alphabetical and runs out of rows
         # among thousands of "Albert ..." before "Albert Einstein".
         leading = conn.execute(
-            "SELECT "
-            + cols
-            + " FROM titles WHERE title_lower >= ? AND title_lower < ? LIMIT ?",
+            "SELECT " + cols + " FROM titles WHERE title_lower >= ? AND title_lower < ? LIMIT ?",
             (q, _prefix_upper(q), fetch),
         ).fetchall()
         results = _collapse_titles(leading, limit, [], {})
@@ -945,18 +943,11 @@ def _title_index_search(zim_name, query, limit=10):
         first_word, other_words = words[0], words[1:]
         contains = " AND ".join(["instr(s.tl, ?) > 0"] * len(other_words))
         rows = conn.execute(
-            "SELECT "
-            + ", ".join("t." + c if c != "NULL" else c for c in cols.split(", "))
-            + " FROM (SELECT rowid AS r, title_lower AS tl FROM titles"
+            "SELECT " + ", ".join("t." + c if c != "NULL" else c for c in cols.split(", ")) +
+            " FROM (SELECT rowid AS r, title_lower AS tl FROM titles"
             " WHERE title_lower >= ? AND title_lower < ? LIMIT ?) s"
             " JOIN titles t ON t.rowid = s.r WHERE " + contains + " LIMIT ?",
-            (
-                first_word,
-                _prefix_upper(first_word),
-                _QUICK_CANDIDATES,
-                *other_words,
-                fetch,
-            ),
+            (first_word, _prefix_upper(first_word), _QUICK_CANDIDATES, *other_words, fetch),
         ).fetchall()
         # An index that has no such title is an answer, not a miss. None
         # sent 72 of the NAS's 78 ZIMs to libzim's SuggestionSearcher for
@@ -986,10 +977,7 @@ def _title_index_exact(zim_name, query):
         return []
     try:
         rows = conn.execute(
-            "SELECT "
-            + _title_select(zim_name, conn)
-            + " FROM titles WHERE title_lower = ? LIMIT 3",
-            (q,),
+            "SELECT " + _title_select(zim_name, conn) + " FROM titles WHERE title_lower = ? LIMIT 3", (q,)
         ).fetchall()
         rows = [(h["path"], h["title"]) for h in _collapse_titles(rows, 3, [], {})]
     except Exception as e:
@@ -1027,20 +1015,13 @@ def _get_title_index_status_brief():
 # keep _title_index_status): the Q-ID scan, the did-you-mean vocabulary and
 # ZimiTube's video details. Each marks what it is on, so Manage can say what is
 # still building and the activity poll can carry it; nothing here touches disk.
-_background = (
-    {}
-)  # kind -> {"current": str|None, "done": int, "total": int, "started": float}
+_background = {}  # kind -> {"current": str|None, "done": int, "total": int, "started": float}
 _background_lock = threading.Lock()
 
 
 def _background_start(kind, total=0):
     with _background_lock:
-        _background[kind] = {
-            "current": None,
-            "done": 0,
-            "total": total,
-            "started": time.time(),
-        }
+        _background[kind] = {"current": None, "done": 0, "total": total, "started": time.time()}
 
 
 def _background_step(kind, current, done=None):
@@ -1078,11 +1059,7 @@ def background_failures():
     """[{kind, name}] for what failed and has not since succeeded."""
     with _background_lock:
         return sorted(
-            (
-                {"kind": k, "name": n}
-                for k, names in _background_failed.items()
-                for n in names
-            ),
+            ({"kind": k, "name": n} for k, names in _background_failed.items() for n in names),
             key=lambda f: (f["kind"], f["name"] or ""),
         )
 
@@ -1095,13 +1072,8 @@ def background_work():
         jobs = [dict(v, kind=k) for k, v in _background.items()]
     jobs.sort(key=lambda j: j["started"])
     return [
-        {
-            "kind": j["kind"],
-            "current": j["current"],
-            "done": j["done"],
-            "total": j["total"],
-            "seconds": int(now - j["started"]),
-        }
+        {"kind": j["kind"], "current": j["current"], "done": j["done"], "total": j["total"],
+         "seconds": int(now - j["started"])}
         for j in jobs
     ]
 
@@ -2881,9 +2853,7 @@ def _search_places(queries, target_names, parsed=None):
                     got = mapsearch.search_places(archive, q, limit=_PLACES_PER_MAP)
                 for p in got:
                     key = (p.get("name"), p.get("lat"), p.get("lng"))
-                    if key in seen or (
-                        parsed and _query.excluded(parsed, p.get("name"))
-                    ):
+                    if key in seen or (parsed and _query.excluded(parsed, p.get("name"))):
                         continue
                     seen.add(key)
                     found.append(p)
@@ -2930,9 +2900,7 @@ def _filter_sources(parsed, names):
         if f["key"] == "lang":
             want = _lang_code(f["value"])
             return any(
-                _lang_code(c) == want
-                for c in (z.get("language") or "").split(",")
-                if c.strip()
+                _lang_code(c) == want for c in (z.get("language") or "").split(",") if c.strip()
             )
         return (
             f["value"] in name.lower() or f["value"] in (z.get("title") or "").lower()
@@ -3457,9 +3425,7 @@ def refresh_target(html, path):
     from urllib.parse import unquote
 
     target, _, fragment = url.partition("#")
-    target = posixpath.normpath(
-        posixpath.join(posixpath.dirname(path), unquote(target))
-    )
+    target = posixpath.normpath(posixpath.join(posixpath.dirname(path), unquote(target)))
     return target.lstrip("/"), unquote(fragment)
 
 

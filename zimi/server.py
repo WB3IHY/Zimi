@@ -4988,7 +4988,7 @@ def main():
         default=None,
         metavar="COOKIES",
         help="Cookies to send, as a Cookie header copied from your browser's "
-        'developer tools: "a=1; b=2". Sent only to the page\'s own host and its '
+        "developer tools: \"a=1; b=2\". Sent only to the page's own host and its "
         "subdomains, never stored or written down (--site only; not zimit or "
         "singlefile)",
     )
@@ -5104,17 +5104,14 @@ def main():
     )
 
     p_doctor = sub.add_parser(
-        "doctor",
-        help="Which optional features this install has, and how to get the rest",
+        "doctor", help="Which optional features this install has, and how to get the rest"
     )
     p_doctor.add_argument(
         "--check",
         action="store_true",
         help="Exit 1 when a feature this kind of install should include is missing",
     )
-    p_doctor.add_argument(
-        "--kind", choices=("docker", "desktop", "pip"), help=argparse.SUPPRESS
-    )
+    p_doctor.add_argument("--kind", choices=("docker", "desktop", "pip"), help=argparse.SUPPRESS)
     add_boot_flags(p_doctor)
 
     args = parser.parse_args()

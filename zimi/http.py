@@ -318,9 +318,7 @@ _PRIVATE_LOGIN_SURFACE_EXACT = frozenset(
 )
 _PRIVATE_LOGIN_SURFACE_PREFIX = ("/static/", "/manage/")
 # What a fresh install answers before its setup is done: the page itself.
-_SETUP_SURFACE = frozenset(
-    ("/manage/has-password", "/manage/access", "/manifest.json", "/sw.js")
-)
+_SETUP_SURFACE = frozenset(("/manage/has-password", "/manage/access", "/manifest.json", "/sw.js"))
 
 
 # Asked by the shell once for every wiki article opened (its language menu,
@@ -1949,7 +1947,6 @@ def _almanac_pdf_get(handler, path):
     handler.end_headers()
     handler.wfile.write(data)
 
-
 class ZimHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     timeout = 30  # seconds — prevents slow-client DoS on POST bodies
@@ -3279,9 +3276,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                     200,
                     {
                         "warming": _voices.warm(langs),
-                        "saying": (
-                            _voices.presay(words) if isinstance(words, list) else 0
-                        ),
+                        "saying": _voices.presay(words) if isinstance(words, list) else 0,
                     },
                 )
 
