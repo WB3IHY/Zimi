@@ -159,6 +159,7 @@ def _run_stream(cmd, sink, heartbeat_s=HEARTBEAT_SECONDS, watch=None):
     started = time.monotonic()
     last = [started]
     done = threading.Event()
+    stopped = []  # the cancel the heartbeat met, for the job thread to raise
 
     def beat():
         while not done.wait(heartbeat_s / 4):
@@ -171,7 +172,12 @@ def _run_stream(cmd, sink, heartbeat_s=HEARTBEAT_SECONDS, watch=None):
                 # instead — the job thread is about to notice on its own.
                 try:
                     sink(f"still converting… {int(time.monotonic() - started)}s")
-                except Exception:
+                except Exception as e:
+                    # A cancel: stop the command now rather than at its next
+                    # line, which a silent pip download may not print for
+                    # minutes; the job thread raises it once the command ends.
+                    stopped.append(e)
+                    subproc.terminate(proc)
                     return
                 last[0] = time.monotonic()
 
@@ -183,7 +189,10 @@ def _run_stream(cmd, sink, heartbeat_s=HEARTBEAT_SECONDS, watch=None):
             hit = watch(line) if watch is not None else False
             if hit:
                 return 1 if hit == "fail" else 0
-        return proc.wait()
+        rc = proc.wait()
+        if stopped:
+            raise stopped[0]
+        return rc
     finally:
         done.set()
         # In the finally, not after it. `sink` is the job's note(), which is
@@ -216,7 +225,8 @@ def build_venv(venv, python, requirements, ready, say, run=None, uv=None):
     it) exists afterwards; otherwise the venv is removed, so a half-built one
     is never taken for an install. Whatever is at ``venv`` goes first: call it
     only where there is no working install to keep. ``run`` streams each command's output to
-    ``say`` (a caller passes its own, for its tests)."""
+    ``say`` (a caller passes its own, for its tests); ``say`` raising stops
+    the install and removes what it built."""
     run = run or _run_stream
     if os.path.isdir(venv):
         # A venv can't be repaired in place with any confidence.
@@ -229,9 +239,15 @@ def build_venv(venv, python, requirements, ready, say, run=None, uv=None):
     else:
         create = [python, "-m", "venv", venv]
         install = [own, "-m", "pip", "install", "--upgrade", *requirements]
-    rc = run(create, say)
-    if rc == 0:
-        rc = run(install, say)
+    try:
+        rc = run(create, say)
+        if rc == 0:
+            rc = run(install, say)
+    except BaseException:
+        # ``say`` may raise to stop the install (a cancel); the runner has
+        # already stopped the command, and a half-built venv must not stay.
+        shutil.rmtree(venv, ignore_errors=True)
+        raise
     if rc == 0 and os.path.exists(ready):
         return True
     shutil.rmtree(venv, ignore_errors=True)

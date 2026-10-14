@@ -121,21 +121,33 @@ def set_prefs_path(path: str) -> None:
     _prefs_path = path
 
 
-def _read_pref(key: str, default):
+def _read_prefs() -> dict:
     if not _prefs_path:
-        return default
+        return {}
     try:
         with open(_prefs_path, encoding="utf-8") as f:
-            return json.load(f).get(key, default)
+            prefs = json.load(f)
     except (OSError, ValueError):
-        return default
+        return {}
+    return prefs if isinstance(prefs, dict) else {}
+
+
+def _read_pref(key: str, default):
+    return _read_prefs().get(key, default)
 
 
 def set_pref(key: str, value) -> bool:
     """Persist a UI preference. Returns False (and logs) when the config
     dir isn't writable — callers surface that instead of a 500."""
+    return set_prefs({key: value})
+
+
+def set_prefs(values: dict) -> bool:
+    """Persist several preferences in one write, so a reader never sees
+    half of them (a client's new kind with its old address)."""
     if not _prefs_path:
         return False
+    key = ", ".join(values)
     with _prefs_lock:
         prefs = {}
         try:
@@ -143,7 +155,7 @@ def set_pref(key: str, value) -> bool:
                 prefs = json.load(f)
         except (OSError, ValueError):
             pass
-        prefs[key] = value
+        prefs.update(values)
         try:
             os.makedirs(os.path.dirname(_prefs_path), exist_ok=True)
             tmp = _prefs_path + ".tmp"
@@ -712,6 +724,44 @@ class BTBackend(ABC):
         existence is liveness."""
         return True
 
+    # An engine Zimi does not run (btclient.ExternalBackend): it keeps
+    # seeding what it downloaded, owns its own limits and port, and its files
+    # cross into the library through path mappings.
+    external = False
+    # Set when another engine is taking over (switch_engine): a download
+    # running on this one stops polling it and asks for the new engine.
+    retired = False
+
+    def identity(self) -> tuple:
+        """What makes two engines the same one: a switch between equals
+        (mappings edited, a port changed) hands nothing over."""
+        return (type(self).__name__,)
+
+    def release(self) -> int:
+        """Another engine takes over: take Zimi's torrents out of this one,
+        so nothing is left running or comes back on its next start. The
+        library's seed intents stay; the next engine seeds them. Returns how
+        many torrents it took out."""
+        return 0
+
+    def payload_path(self, tid: str, filename: str, staging_dir: str) -> str:
+        """Where a finished download is, as Zimi sees it."""
+        return os.path.join(staging_dir, filename)
+
+    def install(self, tid: str, src: str, dest: str) -> str:
+        """Put a finished, validated download at ``dest`` and return the id
+        that now seeds it (the same one when the engine keeps it). The
+        built-in engine downloads into staging and Zimi moves the file."""
+        try:
+            os.replace(src, dest)
+        except OSError:
+            # Cross-filesystem rename: copy, then remove.
+            import shutil as _shutil
+
+            _shutil.copyfile(src, dest)
+            os.remove(src)
+        return tid
+
     def change_options(self, tid: str, options: dict) -> bool:
         """Change per-torrent options on a live transfer (e.g. seed-ratio).
         Returns True on success. Backends without live-option support may
@@ -730,6 +780,19 @@ _lt_import_failed = False
 # balloon memory. Real Kiwix .torrent files are tens of KB.
 TORRENT_FETCH_TIMEOUT_S = 30
 TORRENT_FETCH_MAX_BYTES = 10 * 1024 * 1024
+
+
+def fetch_torrent_bytes(url: str) -> bytes:
+    """Bounded .torrent metadata fetch, done before the torrent joins the
+    engine. Holding the full metadata up front is what makes 'complete'
+    unambiguously mean the *content* is complete — a two-phase add can
+    report complete on metadata alone and hand back a truncated ZIM."""
+    req = urllib.request.Request(url, headers={"User-Agent": _user_agent()})
+    with urllib.request.urlopen(req, timeout=TORRENT_FETCH_TIMEOUT_S) as resp:
+        data = resp.read(TORRENT_FETCH_MAX_BYTES + 1)
+    if len(data) > TORRENT_FETCH_MAX_BYTES:
+        raise RuntimeError(f".torrent metadata too large from {url}")
+    return data
 
 
 def _user_agent():
@@ -1091,16 +1154,7 @@ class LibtorrentBackend(BTBackend):
         raise last_exc if last_exc is not None else RuntimeError("add_torrent failed")
 
     def _fetch_torrent_bytes(self, url: str) -> bytes:
-        """Bounded .torrent metadata fetch, done before the torrent joins the
-        session. Holding the full metadata up front is what makes 'complete'
-        unambiguously mean the *content* is complete — a two-phase add can
-        report complete on metadata alone and hand back a truncated ZIM."""
-        req = urllib.request.Request(url, headers={"User-Agent": _user_agent()})
-        with urllib.request.urlopen(req, timeout=TORRENT_FETCH_TIMEOUT_S) as resp:
-            data = resp.read(TORRENT_FETCH_MAX_BYTES + 1)
-        if len(data) > TORRENT_FETCH_MAX_BYTES:
-            raise RuntimeError(f".torrent metadata too large from {url}")
-        return data
+        return fetch_torrent_bytes(url)
 
     def pause(self, tid: str) -> None:
         h = self._handles.get(tid)
@@ -1275,6 +1329,19 @@ class LibtorrentBackend(BTBackend):
         self._ensure_session()
         self._ses.apply_settings({"connections_limit": max(10, int(n))})
 
+    def release(self) -> int:
+        """Every torrent out, with its resume file: staging partials with
+        their data (remove() never deletes outside staging), library seeds
+        without. Nothing comes back the next time this engine starts."""
+        n = 0
+        for tid in list(self._handles):
+            self.remove(tid, delete_files=True)
+            n += 1
+        purge_builtin_leftovers(self.data_dir)
+        if n:
+            log.info("libtorrent: handed over %d torrent(s)", n)
+        return n
+
     def purge_stopped(self, keep_errors: bool = True) -> None:
         """No-op: libtorrent has no stopped-results ledger to groom.
         Finished downloads keep seeding on their live handle; policy
@@ -1296,34 +1363,167 @@ def resume_dir(data_dir: str) -> str:
     return os.path.join(data_dir, "bt", "resume")
 
 
-def get_backend(*, data_dir: str) -> BTBackend | None:
-    """Return the libtorrent backend, or None (→ HTTP floor).
+def engine_name() -> str:
+    """The engine Settings has chosen: "libtorrent" (built in), or the kind
+    of client the operator runs ("qbittorrent", "transmission")."""
+    from zimi import btclient
 
-    None when: BT disabled, libtorrent unimportable on this install, or
-    the session fails to start. Never crashes Zimi for a BT problem —
-    HTTP is the universal transport underneath.
+    cfg = btclient.config()
+    return cfg["kind"] if cfg else "libtorrent"
+
+
+# A switch in progress: get_backend waits for it, so a download asking for
+# the engine gets the new one, never the one being taken apart.
+_switch_done = threading.Event()
+_switch_done.set()
+_switch_lock = threading.Lock()
+SWITCH_WAIT_S = 120.0
+# A client that did not answer is not asked again (a 20 s timeout, inside
+# the backend lock) on every status poll; its configuration is remembered.
+UNREACHABLE_RETRY_S = 30.0
+_unreachable = (None, 0.0)
+
+
+def purge_builtin_leftovers(data_dir: str, keep_staging: bool = False) -> None:
+    """What the built-in engine leaves when it is not the engine: resume
+    files (they would bring its torrents back on its next start) and the
+    partial downloads in the default staging folder. A staging folder the
+    operator named is theirs and left alone, and so is the default one when
+    a client sees it (keep_staging): its files are the client's then."""
+    dirs = [resume_dir(data_dir)]
+    if not keep_staging:
+        dirs.append(os.path.join(data_dir, "staging"))
+    for d in dirs:
+        try:
+            names = os.listdir(d)
+        except OSError:
+            continue
+        for n in names:
+            path = os.path.join(d, n)
+            try:
+                if os.path.isdir(path) and not os.path.islink(path):
+                    shutil.rmtree(path)
+                else:
+                    os.unlink(path)
+            except OSError as e:
+                log.debug("could not purge %s: %s", path, e)
+
+
+def get_backend(*, data_dir: str) -> BTBackend | None:
+    """Return the engine: the operator's own client when one is configured,
+    else libtorrent; or None (→ HTTP floor).
+
+    None when: BT disabled, the engine unusable here (libtorrent not
+    importable, the client unreachable), or its session fails to start.
+    Never crashes Zimi for a BT problem — HTTP is the universal transport
+    underneath.
     """
-    global _backend_singleton
-    with _backend_lock:
-        if not is_torrent_enabled():
+    deadline = time.monotonic() + SWITCH_WAIT_S
+    while True:
+        _switch_done.wait(max(0.0, deadline - time.monotonic()))
+        with _backend_lock:
+            # Checked under the lock switch_engine clears it under, so no
+            # caller slips in between and builds an engine mid hand-over.
+            if not _switch_done.is_set() and time.monotonic() < deadline:
+                continue
+            return _get_backend_locked(data_dir)
+
+
+def _get_backend_locked(data_dir: str) -> BTBackend | None:
+    """get_backend's body, under _backend_lock."""
+    global _backend_singleton, _unreachable
+    if not is_torrent_enabled():
+        return None
+    if _backend_singleton is not None:
+        return _backend_singleton
+    from zimi import btclient
+
+    cfg = btclient.config()
+    if cfg:
+        from zimi import server as _srv
+
+        ident = btclient.identity(cfg)
+        if _unreachable[0] == ident and time.monotonic() - _unreachable[1] < UNREACHABLE_RETRY_S:
             return None
-        if _backend_singleton is not None:
-            return _backend_singleton
-        backend = LibtorrentBackend(
-            bt_port=get_bt_port(),
-            data_dir=data_dir,
-            staging_dir=get_staging_dir(data_dir),
+        ext = btclient.make_backend(
+            cfg, library_dir=_srv.ZIM_DIR, staging_dir=get_staging_dir(data_dir)
         )
-        if not backend.available():
-            log.info("BT unavailable (libtorrent missing?) — HTTP downloads only")
+        if not ext.available():
+            _unreachable = (ident, time.monotonic())
             return None
-        log.info(
-            "BT engine libtorrent ready on port %d (staging=%s)",
-            backend.bt_port,
-            backend.staging_dir,
+        _unreachable = (None, 0.0)
+        purge_builtin_leftovers(
+            data_dir,
+            keep_staging=btclient.to_remote(os.path.join(data_dir, "staging"), cfg["paths"]) is not None,
         )
-        _backend_singleton = backend
-        return backend
+        _backend_singleton = ext
+        return ext
+    backend = LibtorrentBackend(
+        bt_port=get_bt_port(),
+        data_dir=data_dir,
+        staging_dir=get_staging_dir(data_dir),
+    )
+    if not backend.available():
+        log.info("BT unavailable (libtorrent missing?) — HTTP downloads only")
+        return None
+    log.info(
+        "BT engine libtorrent ready on port %d (staging=%s)",
+        backend.bt_port,
+        backend.staging_dir,
+    )
+    _backend_singleton = backend
+    return backend
+
+
+def _next_identity() -> tuple:
+    from zimi import btclient
+
+    cfg = btclient.config()
+    if not cfg:
+        return (LibtorrentBackend.__name__,)
+    return btclient.identity(cfg)
+
+
+def switch_engine(*, data_dir: str) -> BTBackend | None:
+    """The engine setting changed: move to the engine it names now.
+
+    The old engine is retired first, so a download running on it stops
+    polling it and asks get_backend for the new one (which waits for this
+    to finish) instead of falling back to HTTP. A different engine takes
+    Zimi's torrents out of the old one (release); the same one restarted
+    hands nothing over, and its downloads carry on where they were. Seeds
+    follow the ledger: the caller re-seeds on the new engine."""
+    global _backend_singleton, _unreachable
+    with _switch_lock:
+        with _backend_lock:
+            old, _backend_singleton = _backend_singleton, None
+            _unreachable = (None, 0.0)
+            _switch_done.clear()
+        try:
+            if old is not None:
+                old.retired = True
+                cur, nxt = old.identity(), _next_identity()
+                if cur != nxt:
+                    relabeled = False
+                    if cur[:-1] == nxt[:-1] and hasattr(old, "recategorize"):
+                        # The same client, only another category: relabel.
+                        try:
+                            old.recategorize(nxt[-1])
+                            relabeled = True
+                        except Exception as e:
+                            log.warning("BT: could not relabel, handing over instead: %s", e)
+                    if not relabeled:
+                        try:
+                            old.release()
+                        except Exception as e:
+                            log.warning("BT: the old engine did not hand over cleanly: %s", e)
+                try:
+                    old.stop()
+                except Exception:
+                    pass
+        finally:
+            _switch_done.set()
+    return get_backend(data_dir=data_dir) if is_torrent_enabled() else None
 
 
 def peek_backend() -> "BTBackend | None":
@@ -1337,13 +1537,34 @@ def peek_backend() -> "BTBackend | None":
         return _backend_singleton
 
 
-def shutdown_backend() -> None:
-    """Stop the running engine (if any). Safe to call repeatedly."""
+def shutdown_backend(*, release: bool = False) -> None:
+    """Stop the running engine (if any). Safe to call repeatedly.
+
+    ``release``: BitTorrent is being turned off. A client the operator runs
+    keeps its torrents after Zimi stops talking to it, seeding past the cap
+    Zimi no longer enforces, so Zimi's are taken out of it as an engine switch
+    does (library files stay), off the caller's thread: the client may be
+    slow or down."""
     global _backend_singleton
     with _backend_lock:
-        if _backend_singleton is not None:
+        old, _backend_singleton = _backend_singleton, None
+    if old is None:
+        return
+    if release and getattr(old, "external", False):
+
+        def out():
             try:
-                _backend_singleton.stop()
+                old.release()
+            except Exception as e:
+                log.warning("BT: Zimi's torrents stay in the client: %s", e)
+            try:
+                old.stop()
             except Exception:
                 pass
-        _backend_singleton = None
+
+        threading.Thread(target=out, daemon=True, name="bt-release").start()
+        return
+    try:
+        old.stop()
+    except Exception:
+        pass

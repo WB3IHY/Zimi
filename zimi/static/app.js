@@ -4438,7 +4438,7 @@ function renderHome(filter) {
   if (filter) {
     // The search grammar, as the catalog has it: "-wiki" leaves the wikis out (#94).
     const parsed = parseSearchQuery(filter);
-    zims = baseZims.filter(z => searchQueryMatches(parsed, _libraryFilterText(z)));
+    zims = baseZims.filter(z => _libraryMatches(parsed, z));
   }
 
   // The recency + language pills also make sense scoped to a section (#37) —
@@ -4732,7 +4732,10 @@ function renderHome(filter) {
   var _prevDiscoverScroll = 0;
   if (_showDiscover) {
     var _prevRow = document.getElementById('discover-row');
-    if (_prevRow && _prevRow.innerHTML && _prevRow.dataset.lang === _currentLang) {
+    // ...and only a row drawn for this library: one drawn while the list was
+    // still loading holds only Today, and reused it would stay that way.
+    if (_prevRow && _prevRow.innerHTML && _prevRow.dataset.lang === _currentLang
+        && _prevRow.dataset.lib === _discoverLibKey()) {
       _prevDiscoverHtml = _prevRow.innerHTML;
       // scrollLeft is a live DOM property, not serialized by innerHTML — capture
       // it so the strip keeps its place across a home re-render (e.g. Back from
@@ -4752,7 +4755,7 @@ function renderHome(filter) {
       // Restore cached discover DOM — avoid re-fetch flash
       var newRow = document.getElementById('discover-row');
       if (newRow) {
-        newRow.innerHTML = _prevDiscoverHtml; newRow.dataset.lang = _currentLang;
+        newRow.innerHTML = _prevDiscoverHtml; newRow.dataset.lang = _currentLang; newRow.dataset.lib = _discoverLibKey();
         if (_prevDiscoverScroll) {
           var _newScrollEl = newRow.querySelector('.discover-scroll');
           if (_newScrollEl) _newScrollEl.scrollLeft = _prevDiscoverScroll;
@@ -6956,7 +6959,12 @@ function _loadDiscover() {
     if (el2 && !_getStorageFlag(SK.HIDE_DISCOVER)) _renderDiscover(el2, all);
   });
 }
+// Which library a drawn Discover row was chosen from.
+function _discoverLibKey() {
+  return String((zimsCache || []).length);
+}
 function _renderDiscover(el, items) {
+  el.dataset.lib = _discoverLibKey();
   var h = '<div class="discover-section"><div class="discover-label"><span>' + tH('discover') + '</span><button class="dc-dismiss" onclick="event.stopPropagation();_dismissDiscover()" title="' + escAttr(t('hide_discover')) + '" aria-label="' + escAttr(t('hide_discover')) + '">\u00D7</button></div><div class="discover-scroll">';
   for (var i = 0; i < items.length; i++) {
     var it = items[i];
@@ -8734,8 +8742,7 @@ function renderSearchResults(data, scope) {
   let zimMatchHtml = '';
   if (!scope && zimsCache && data._query) {
     const parsed = parseSearchQuery(data._query);
-    const matches = parsed.groups.length ? zimsCache.filter(z =>
-      searchQueryMatches(parsed, _libraryFilterText(z))) : [];
+    const matches = parsed.groups.length ? zimsCache.filter(z => _libraryMatches(parsed, z)) : [];
     if (matches.length > 0 && matches.length <= 8) {
       zimMatchHtml = '<div class="stats-grid" style="margin-bottom:16px">' + matches.map(z => {
         const icon = z.has_icon
@@ -8799,11 +8806,13 @@ function renderSearchResults(data, scope) {
   }
 
   // Real places first. The offer to type into the map's own box is for when
-  // the shards had nothing, not a second row under every hit.
+  // the shards had nothing, so the words are most likely not a place: it
+  // follows the results ("black hole" read the map first), and leads only
+  // when there is nothing else.
   const placesHtml = _mapPlaceRowsHtml(data.places || []);
   const mapFindHtml = (!scope && !placesHtml) ? _mapFindRowsHtml(data._query || '') : '';
   let html = chipsHtml + dymHtml + zimMatchHtml + '<div class="results' + (groups ? ' grouped' : '') + '">' +
-    placesHtml + mapFindHtml + listHtml + '</div>';
+    placesHtml + (listHtml ? listHtml + mapFindHtml : mapFindHtml) + '</div>';
 
   if (remaining > 0) {
     html += '<div class="load-more"><button onclick="showMoreResults()">' +
@@ -11088,14 +11097,26 @@ function _catalogText(s) {
 
 // An installed ZIM's text for the library filters (home, Settings > Library,
 // the sources a search matched): fields apart, so a phrase cannot run across.
+// Title and description only: a file name is a machine's word, and "git"
+// found zimgit-knots_en, "en" every English ZIM (#108).
 function _libraryFilterText(z) {
-  return (z.title || '') + '\u0001' + z.name + '\u0001' + (z.description || '');
+  return (z.title || '') + '\u0001' + (z.description || '');
+}
+// The catalog's operators on an installed ZIM: source: also reads the file
+// name, the one way to ask for it on purpose ("source:nopic").
+const _LIBRARY_FILTER_TESTS = {
+  source: (v, z) => [z.name, z.title, z.category].some(s => (s || '').toLowerCase().includes(v)),
+  lang: (v, z) => (z.language || '').toLowerCase().split(',').some(c => _catalogLang(c.trim()) === _catalogLang(v)),
+};
+function _libraryMatches(parsed, z, extra) {
+  return searchQueryMatches(parsed, _libraryFilterText(z) + (extra ? '\u0001' + extra : '')) &&
+    parsed.filters.every(f => _LIBRARY_FILTER_TESTS[f.key](f.value, z) !== f.negate);
 }
 
 function catalogItemMatches(parsed, item) {
   // Fields joined by a separator that is not a space, so a phrase cannot
   // run from the end of the title into the summary.
-  const text = [_catalogText(item.title), _catalogText(item.summary), item.name].join('\u0001');
+  const text = [_catalogText(item.title), _catalogText(item.summary)].join('\u0001');
   return searchQueryMatches(parsed, text) &&
     parsed.filters.every(f => _CATALOG_FILTER_TESTS[f.key](f.value, item) !== f.negate);
 }
@@ -12383,12 +12404,14 @@ function _renderManagePublicLocked() {
 }
 
 // Who can change settings (#107): the setup page a fresh install opens on,
-// the second page of the desktop's welcome, and the same rows in Settings.
-// Two switches: settings from outside the network, which needs a password,
-// and the password itself; with it on, a username for password managers and
-// the admin to edit later, a password and its confirmation. Before a password
-// exists only the machine running Zimi, or a device with the setup key it
-// logged, may answer (GHSA-5mw2-53vv-9pw6), so no neighbour answers for you.
+// the second page of the desktop's welcome, and the same row in Settings.
+// One switch, a password to manage. On, a username for password managers and
+// the admin to edit later, a password and its confirmation; off, anyone who
+// can reach Zimi manages it, chosen with a press under its cost. Zimi does
+// not guess where a visitor is: a guess behind a reverse proxy is what kept
+// owners from turning their own password off. Before a password exists only
+// the machine running Zimi, or a device with the setup key it logged, may
+// answer (GHSA-5mw2-53vv-9pw6), so no neighbour answers for you.
 var _setupState = {};  // /manage/has-password's answer
 // The setup gate, raced against the language load so it costs the boot no
 // round trip of its own; _probeManageAuth takes the same answer.
@@ -12400,66 +12423,171 @@ function _fetchHasPw() {
 }
 // mode 'setup' (the welcome card) or 'settings'. st is _setupState.
 function _setupFormHtml(st, mode) {
-  var hasPw = st.access === 'password';
+  var settings = mode === 'settings';
+  // While the password is off it is kept, not gone: turning the switch back
+  // on returns to it, so it shows as a password that exists.
+  var hasPw = _setupHasStoredPw(st);
   var needKey = mode === 'setup' && !st.keyless;
-  var ext = !!st.external, req = hasPw || ext || st.direct === false || mode === 'setup';
-  var lockReq = ext || st.direct === false || !!st.env_controlled;
+  var req = _setupReqSaved(st);
   var input = function(id, type, auto, label, ph, val) {
     return '<label class="setup-field"><span>' + tH(label) + '</span><input id="' + id + '" type="' + type + '" autocomplete="' + auto + '"' +
       (ph ? ' placeholder="' + escAttr(ph) + '"' : '') + (val ? ' value="' + escAttr(val) + '"' : '') +
       ' spellcheck="false" autocapitalize="off"></label>';
   };
-  var fields = input('setup-user', 'text', 'username', 'setup_username', 'admin', st.username || '') +
-    (hasPw ? '<div class="setup-change"><button type="button" class="pill" onclick="managePassword()">' + tH('change_password') + '</button></div>'
-      : input('setup-pw', 'password', 'new-password', 'setup_password_field') + input('setup-pw2', 'password', 'new-password', 'setup_confirm'));
+  // Once a password exists the username is Your account's, under Access.
+  var fields = hasPw ? '' : _setupUserFieldHtml(st.username || '', false) +
+    input('setup-pw', 'password', 'new-password', 'setup_password_field') + input('setup-pw2', 'password', 'new-password', 'setup_confirm');
+  // While no password is being chosen its cost sits under the switch, and
+  // the button that saves it says what it does: pressing it is the
+  // confirmation. Once off, the switch's own line is all that remains.
+  var open = '<div class="setup-open" id="setup-open"' + (_setupChoosingOpen(st, req) ? '' : ' hidden') + '>' +
+    '<p class="setup-open-cost">' + tH(hasPw ? 'setup_open_cost' : 'setup_open_cost_new') + '</p></div>' +
+    // The account's name rides along unseen: a lone password field reads to
+    // a password manager as a new account, so it offered to make one instead
+    // of filling the saved login.
+    (hasPw ? '<div class="setup-open" id="setup-cur"' + (_setupNeedsCurrent(st, req) ? '' : ' hidden') + '>' +
+      '<input class="sr-only" type="text" autocomplete="username" tabindex="-1" aria-hidden="true" value="' + escAttr(st.username || 'admin') + '">' +
+      input('setup-cur-pw', 'password', 'current-password', 'current_password') + '</div>' : '');
   return '<form class="setup-form" id="setup-form" data-mode="' + mode + '" onsubmit="event.preventDefault();_setupSubmit()">' +
     (needKey ? input('setup-key', 'text', 'off', 'setup_key', 'XXXX-XXXX-XXXX') + '<p class="setup-hint">' + tH('setup_key_hint') + '</p>' : '') +
     _switchRowsHtml([
-      { id: 'setup-ext', title: tH('setup_outside'), desc: tH(st.external_env ? 'configured_via_env' : 'setup_outside_desc'),
-        on: ext, disabled: !!st.external_env, onchange: '_setupSync()' },
-      { id: 'setup-req', title: tH('setup_password'), desc: tH(_setupReqDesc(st, ext)),
-        on: req, disabled: lockReq, onchange: '_setupSync()' }
-    ]) +
-    '<div class="setup-fields" id="setup-fields"' + (req ? '' : ' hidden') + '>' + fields + '</div>' +
+      { id: 'setup-req', title: tH('setup_password'), desc: _setupReqDescHtml(st, req),
+        on: req, disabled: !!st.env_controlled, onchange: '_setupSync(true)' }
+    ]).replace(/<\/div>$/, open + '</div>') +
+    (fields ? '<div class="setup-fields" id="setup-fields"' + (req ? '' : ' hidden') + '>' + fields + '</div>' : '') +
     '<div class="pw-error" id="setup-error"></div>' +
-    '<div class="btn-row"><button type="submit" class="btn-primary">' + tH(mode === 'setup' ? 'setup_continue' : 'save') + '</button></div>' +
+    // In Manage the switch saves itself, as every other switch there does;
+    // the button shows only while something must be typed or pressed first.
+    '<div class="btn-row" id="setup-save"' + (settings && !_setupNeedsInput(st, req) ? ' hidden' : '') + '><button type="submit" class="btn-primary">' + tH(_setupSaveLabel(st, req, mode)) + '</button></div>' +
     '</form>';
 }
-function _setupReqDesc(st, ext) {
+// The account's name: in the setup form before a password exists, in Your
+// account after, where a change saves itself.
+function _setupUserFieldHtml(name, autosave) {
+  return '<label class="setup-field"><span>' + tH('setup_username') + '</span><input id="setup-user" type="text" autocomplete="username" placeholder="admin"' +
+    (name ? ' value="' + escAttr(name) + '"' : '') + (autosave ? ' onchange="_setupAuto()"' : '') +
+    ' spellcheck="false" autocapitalize="off"></label>';
+}
+// The switch as the saved answer draws it: on with a password and on a first
+// run (a password is the suggested answer), off while open or on the network
+// alone (lan, from before this page asked, or ZIMI_LAN_ADMIN).
+function _setupReqSaved(st) {
+  return st.access !== 'open' && st.access !== 'lan';
+}
+// A line under the switch only when it says something the title does not:
+// who can manage Zimi while it is off.
+function _setupReqDesc(st, req) {
   if (st.env_controlled) return 'configured_via_env';
-  if (ext) return 'setup_password_needed_outside';
-  if (st.direct === false) return 'setup_password_needed_proxy';
-  return 'setup_password_desc';
+  if (req || _setupChoosingOpen(st, req)) return '';
+  return st.access === 'lan' ? 'setup_password_desc' : 'setup_password_desc_anywhere';
 }
-// Outside on holds the password on; the description says why.
-function _setupSync() {
-  var ext = document.getElementById('setup-ext'), req = document.getElementById('setup-req');
-  if (!ext || !req) return;
-  var st = _setupState, lock = ext.checked || st.direct === false || !!st.env_controlled;
-  if (lock) req.checked = true;
-  req.disabled = lock;
-  req.closest('.share-row').classList.toggle('share-locked', lock);
-  var desc = req.closest('.share-row').querySelector('.share-row-desc');
-  if (desc) desc.textContent = t(_setupReqDesc(st, ext.checked));
+function _setupReqDescHtml(st, req) {
+  var k = _setupReqDesc(st, req);
+  return k ? tH(k) : '';
+}
+// No password chosen here but not saved yet.
+function _setupChoosingOpen(st, req) {
+  return !req && _setupReqSaved(st);
+}
+function _setupSaveLabel(st, req, mode) {
+  if (_setupChoosingOpen(st, req)) return 'setup_open_go';
+  return mode === 'setup' ? 'setup_continue' : 'save';
+}
+// A password exists: in use, or kept while the switch is off.
+function _setupHasStoredPw(st) {
+  return st.access === 'password' || (st.access === 'open' && !!st.kept_password);
+}
+// Taking a password away asks for it; turning it back on does not (everyone
+// manages Zimi while it is off, and a forgotten kept password must not trap
+// the owner).
+function _setupNeedsCurrent(st, req) {
+  return !req && st.access === 'password';
+}
+// A new password, the current one, or the press that turns the password off
+// comes before Zimi can save; anything else saves on the switch. A first
+// answer (unset) is always a deliberate press.
+function _setupNeedsInput(st, req) {
+  if (st.access === 'unset' || _setupChoosingOpen(st, req)) return true;
+  return req && !_setupHasStoredPw(st);
+}
+// The switch as the saved state draws it: where a failed save puts it back.
+function _setupRevert() {
+  var req = document.getElementById('setup-req');
+  if (!req) return;
+  req.checked = _setupReqSaved(_setupState);
+  _setupSync();
+}
+function _setupAuto() {
+  var form = document.getElementById('setup-form');
+  if (!form || form.dataset.mode !== 'settings') return;
+  var req = document.getElementById('setup-req').checked;
+  var need = _setupNeedsInput(_setupState, req);
+  document.getElementById('setup-save').hidden = !need;
+  // Back where it was saved: nothing to send (off on the network alone must
+  // not become off for everyone without the press that says so), unless Your
+  // account's name was changed.
+  var user = document.getElementById('setup-user');
+  var renamed = user && !form.contains(user) && user.value !== user.defaultValue;
+  if (!need && (renamed || req !== _setupReqSaved(_setupState))) _setupSubmit({ auto: true });
+}
+function _setupSync(changed) {
+  var req = document.getElementById('setup-req'), form = document.getElementById('setup-form');
+  if (!req || !form) return;
+  var st = _setupState, mode = form.dataset.mode, on = req.checked;
+  var row = req.closest('.share-row'), desc = row.querySelector('.share-row-desc');
+  var k = _setupReqDesc(st, on);
+  if (desc && !k) desc.remove();
+  if (k && !desc) {
+    desc = document.createElement('span');
+    desc.className = 'share-row-desc';
+    row.querySelector('.share-row-text').appendChild(desc);
+  }
+  if (k) desc.textContent = t(k);
   var f = document.getElementById('setup-fields');
-  if (f) f.hidden = !req.checked;
+  if (f) f.hidden = !on;
+  var o = document.getElementById('setup-open');
+  if (o) o.hidden = !_setupChoosingOpen(st, on);
+  var btn = document.querySelector('#setup-save button');
+  if (btn) btn.textContent = t(_setupSaveLabel(st, on, mode));
+  var cur = document.getElementById('setup-cur');
+  if (cur) cur.hidden = !_setupNeedsCurrent(st, on);
+  if (changed) {
+    var err = document.getElementById('setup-error');
+    if (err) err.textContent = '';
+    _setupAuto();
+  }
 }
-var _SETUP_ERRORS = { needs_setup_key: 'setup_bad_key', behind_proxy: 'setup_password_needed_proxy',
-  needs_password: 'setup_need_pw', env_controlled: 'configured_via_env', outside_network: 'outside_locked_body' };
+var _SETUP_ERRORS = { needs_setup_key: 'setup_bad_key', needs_password: 'setup_need_pw', env_controlled: 'configured_via_env',
+  outside_network: 'outside_locked_body', open_locked: 'open_locked', wrong_password: 'wrong_password' };
 async function _setupSubmit(opts) {
   var quiet = !!(opts && opts.quiet);
   var form = document.getElementById('setup-form');
   if (!form) return false;
   var val = function(id) { var e = document.getElementById(id); return e ? e.value.trim() : ''; };
-  var err = document.getElementById('setup-error');
-  var show = function(k) { err.textContent = t(k); err.style.display = 'block'; return false; };
+  var err = document.getElementById('setup-error'), auto = !!(opts && opts.auto);
+  var show = function(k) {
+    err.textContent = t(k); err.style.display = 'block';
+    if (auto) _setupRevert();  // nothing was saved, so the switches say so
+    return false;
+  };
   var setup = form.dataset.mode === 'setup', st = _setupState;
   var req = document.getElementById('setup-req').checked;
-  var body = { external: document.getElementById('setup-ext').checked, require_password: req,
-    username: val('setup-user'), remember: true };
+  var body = { require_password: req, remember: true };
+  // The username field is the form's until a password exists, then Your
+  // account's, where it is sent only once edited: an untouched field (shown
+  // as "admin" when none is stored) must not rename the account.
+  var user = document.getElementById('setup-user');
+  if (user && (form.contains(user) || user.value !== user.defaultValue)) body.username = val('setup-user');
   var key = val('setup-key');
   if (document.getElementById('setup-key') && !key) return show('setup_need_key');
-  if (req && st.access !== 'password') {
+  // Reached only by pressing the button that names it.
+  if (!req) body.open_confirm = true;
+  var cur = document.getElementById('setup-cur');
+  if (cur && !cur.hidden) {
+    body.current_password = document.getElementById('setup-cur-pw').value;
+    if (!body.current_password) return show('setup_need_pw');
+  }
+  if (req && !_setupHasStoredPw(st)) {
     body.password = val('setup-pw');
     if (!body.password) return show('setup_need_pw');
     if (body.password !== val('setup-pw2')) return show('setup_mismatch');
@@ -12473,13 +12601,33 @@ async function _setupSubmit(opts) {
   } catch (e) { return show('setup_failed'); }
   var d = await res.json().catch(function() { return {}; });
   if (!res.ok) return show(_SETUP_ERRORS[d.error] || 'setup_failed');
+  if (user && body.username) user.defaultValue = user.value;
   if (d.token) { _manageUser = body.username || 'admin'; _manageToken = d.token; _saveManageToken(d.token, true); }
   if (quiet) return true;
   if (setup) { location.reload(); return true; }
+  var was = _manageAccess;
   _manageAccess = d.access || _manageAccess;
   _showToast(t('saved'));
-  renderManage();
+  // A switch that saved itself stays where it is; a change of mode redraws,
+  // since the fields under the switches belong to the mode.
+  if (auto && was === _manageAccess) { if (err) err.style.display = 'none'; return true; }
+  // Drawn again with the switch held where it was on screen: the accounts
+  // the password brings arrive above it, in two steps (the pane, then the
+  // users list), and the page jumped at each.
+  _holdAccessAnchor();
+  _renderMsUsers();
   return true;
+}
+var _accessAnchor = null;
+function _holdAccessAnchor() {
+  var el = document.getElementById('setup-req');
+  _accessAnchor = el ? el.getBoundingClientRect().top : null;
+}
+function _keepAccessAnchor() {
+  var el = document.getElementById('setup-req');
+  if (_accessAnchor === null || !el) return;
+  window.scrollBy(0, el.getBoundingClientRect().top - _accessAnchor);
+  _accessAnchor = null;
 }
 // The welcome card for a fresh install. The internet sees only that it is
 // being set up: no field, nothing to guess at.
@@ -12524,8 +12672,9 @@ async function renderManage() {
         '<button class="ms-nav-item" data-ms="preferences" onclick="switchMs(\'preferences\')">' + tH('ms_display') + '</button>' +
         '<button class="ms-nav-item" data-ms="creator" onclick="switchMs(\'creator\')">' + tH('ms_creator') + '</button>' +
         '<button class="ms-nav-item" data-ms="server" onclick="switchMs(\'server\')">' + tH('ms_server') + '</button>' +
-        // Anyone on the network is the admin: no accounts, so no Users.
-        (_manageAccess === 'lan' ? '' : '<button class="ms-nav-item" data-ms="users" onclick="switchMs(\'users\')">' + tH('ms_users') + '</button>') +
+        // Access: who can manage Zimi, your account, who can read, the users
+        // and the API token. Without a password it holds the first and last.
+        '<button class="ms-nav-item" data-ms="users" onclick="switchMs(\'users\')">' + tH('access_title') + '</button>' +
       '</div>' +
       '<div id="ms-pane" class="ms-pane"><div class="loading"><span class="spinner-inline"></span>Loading\u2026</div></div>' +
     '</div>' +
@@ -12721,14 +12870,54 @@ var _usersData = null;  // { users:[...], zims:[names] } from /manage/users
 
 function _renderMsUsers() {
   var pane = document.getElementById('ms-pane');
-  if (!pane) return;
-  pane.innerHTML = '<div class="loading"><span class="spinner-inline"></span>' + tH('loading') + '</div>';
-  manageFetch('/manage/users').then(function(res) { return res.json(); }).then(function(data) {
-    _usersData = data;
-    if (_msSection === 'users') pane.innerHTML = _msUsersHtml();
-  }).catch(function() {
-    pane.innerHTML = '<div style="color:var(--text2);font-size:13px">' + tH('could_not_load_stats') + '</div>';
+  if (!pane) return Promise.resolve();
+  // Accounts matter only behind a password: on the network alone there are
+  // none, and while anyone can manage Zimi none can be made or changed.
+  var accounts = _manageAccess === 'password';
+  if (!pane.querySelector('#ms-who')) pane.innerHTML = '<div class="loading"><span class="spinner-inline"></span>' + tH('loading') + '</div>';
+  // Everything is asked for first and drawn once: drawn as each answer came,
+  // the switch moved three times when the password came back on.
+  var users = accounts ? manageFetch('/manage/users').then(function(r) { return r.json(); }).catch(function() { return null; }) : null;
+  return Promise.all([_accessAnswers(), users]).then(function(got) {
+    // Another section may have opened meanwhile; #ms-pane is every section's.
+    if (_msSection !== 'users' || !document.body.contains(pane)) return;
+    if (accounts) _usersData = got[1];
+    // The password switch follows the accounts it guards, with the API token
+    // under it; with the password off it stands alone.
+    pane.innerHTML = '<div id="ms-users-body">' + (!accounts ? '' : got[1] ? _msUsersHtml() :
+        '<div style="color:var(--text2);font-size:13px">' + tH('could_not_load_stats') + '</div>') + '</div>' +
+      '<div id="ms-who" class="ms-access-who"></div>' +
+      '<div id="ms-security" class="ms-access-token"></div>';
+    _drawAccessCards(got[0]);
+    _keepAccessAnchor();
   });
+}
+function _accessAnswers() {
+  return Promise.all([
+    manageFetch('/manage/has-password').then(function(r) { return r.json(); }).catch(function() { return {}; }),
+    manageFetch('/manage/has-token').then(function(r) { return r.json(); }).catch(function() { return {}; })
+  ]);
+}
+// Who can manage Zimi (the setup page's rows, in place) and the API token.
+function _renderAccessCards() {
+  return _accessAnswers().then(_drawAccessCards);
+}
+function _drawAccessCards(results) {
+  var who = document.getElementById('ms-who'), tok = document.getElementById('ms-security');
+  if (!who || !tok) return;
+  _setupState = results[0];
+  // Opened by ZIMI_MANAGE_OPEN: the environment owns it, so no rows.
+  who.innerHTML = results[0].open_env && _manageAccess === 'open' ? '' :
+    '<div class="ms-section-label">' + tH('access_manage') + '</div>' + _setupFormHtml(results[0], 'settings');
+  who.hidden = !who.innerHTML;
+  // The token is for programs, and only a password makes them ask for it:
+  // while it is off the token is kept, unused, until it comes back on.
+  tok.innerHTML = results[0].access !== 'password' ? '' : '<div class="mc-row"><span class="mc-label">' + tH('api_token') + '</span><span class="mc-value">' +
+    (results[1].has_token
+      ? '<button class="pill" onclick="_regenerateToken()">' + tH('roll') + '</button> ' +
+        '<button class="pill" onclick="_revokeToken()">' + tH('revoke') + '</button>'
+      : '<button class="pill" onclick="_generateToken()">' + tH('generate') + '</button>') +
+    '</span></div>';
 }
 
 // Role → localized badge. Admin gets the amber badge; user/limited are muted.
@@ -12757,13 +12946,13 @@ function _msUsersHtml() {
   var isPrimary = d.self_kind === 'primary';
   var selfName = _manageAccountName();
 
-  // (a) Your Account FIRST — the signed-in admin, with Change password and Log
-  // out as visible buttons (no ⋯ for your own row). This is where password/logout
-  // live, moved out of Preferences → Security.
-  var h = '<div class="ms-user-account ms-user-account-self">' +
+  // Your account, under Public access: the primary admin's name is edited
+  // here (it saves itself), with Change password and Log out beside it.
+  var self = '<div class="ms-user-account ms-user-account-self">' +
     '<div class="ms-section-label">' + tH('users_your_account') + '</div>' +
+    (isPrimary ? _setupUserFieldHtml(selfName, true) : '') +
     '<div class="ms-user-row">' +
-      '<span class="ms-user-main"><strong>' + esc(selfName) + '</strong> ' + _roleBadge('admin') + '</span>' +
+      (isPrimary ? '' : '<span class="ms-user-main"><strong>' + esc(selfName) + '</strong> ' + _roleBadge('admin') + '</span>') +
       '<span class="ms-user-self-actions">' +
         '<button class="ms-btn" onclick="managePassword()">' + tH('change_password') + '</button>' +
         (_hasStoredManageToken()
@@ -12785,9 +12974,9 @@ function _msUsersHtml() {
     others.push(u);
   });
 
-  // Public access card — governs what an ANONYMOUS visitor sees. Sits above the
-  // user list because it is the broadest policy on the page.
-  h += _publicAccessCard();
+  // Public access card — governs what an ANONYMOUS visitor sees: the
+  // broadest policy here, so first.
+  var h = _publicAccessCard() + self;
 
   h += '<div class="ms-users-section">';
   // Titled like the two cards above it (Your account / Public access), so the
@@ -12951,7 +13140,7 @@ function _setUserPassword(name) {
       _refreshUsersPane();
       _showToast(t('users_password_set').replace('{name}', name));
     } else {
-      _showToast(t('users_create_failed'));
+      _showToast(_openLockedOr(r.j, 'users_create_failed'));
     }
   });
 }
@@ -13164,6 +13353,11 @@ function _publicAccessPost(payload) {
   });
 }
 
+// The server's refusal while anyone can manage Zimi, in the reader's
+// words; else the given key's text.
+function _openLockedOr(j, key) {
+  return j && j.error === 'open_locked' ? t('open_locked') : t(key);
+}
 function _usersPost(payload) {
   return manageFetch('/manage/users', {
     method: 'POST',
@@ -13175,8 +13369,8 @@ function _usersPost(payload) {
 // Re-render the Users pane in place after a mutation (shared by every action).
 function _refreshUsersPane() {
   if (_msSection !== 'users') return;
-  var pane = document.getElementById('ms-pane');
-  if (pane) pane.innerHTML = _msUsersHtml();
+  var body = document.getElementById('ms-users-body');
+  if (body) body.innerHTML = _msUsersHtml();
 }
 
 function _createUser() {
@@ -13190,7 +13384,7 @@ function _createUser() {
   var cb = document.getElementById('new-user-can-create');
   var grantCreate = !!(cb && cb.checked && role !== 'admin');
   _usersPost(payload).then(function(r) {
-    if (!r.ok) { errEl.textContent = t('users_create_failed'); errEl.style.display = 'block'; return; }
+    if (!r.ok) { errEl.textContent = _openLockedOr(r.j, 'users_create_failed'); errEl.style.display = 'block'; return; }
     if (!grantCreate) { _usersData = r.j; _refreshUsersPane(); return; }
     // The form's Creation checkbox rides the existing set-can-create action —
     // the account exists either way, so refresh from whichever answer is last.
@@ -13382,8 +13576,9 @@ function _creatorRedditCell(d) {
 // not a capture default, so it sits apart from the form, wired to the same
 // admin-only POST half of /manage/creator.
 function _creatorPrivateRow(d) {
-  return { id: 'ms-cr-allow_private', title: tH('creator_private'), desc: tH('creator_private_hint'),
-    on: _creatorSwitchOn(d, 'allow_private'), onchange: '_setCreatorDefault(\'allow_private\', this)' };
+  var locked = !!d.private_locked;
+  return { id: 'ms-cr-allow_private', title: tH('creator_private'), desc: tH(locked ? 'creator_private_locked_open' : 'creator_private_hint'),
+    on: !locked && _creatorSwitchOn(d, 'allow_private'), disabled: locked, onchange: '_setCreatorDefault(\'allow_private\', this)' };
 }
 // A stored switch, or the factory one the server answers for block_ads and
 // capture_variants (their *_default fields); the rest are off until stored.
@@ -13569,7 +13764,11 @@ function _patchCreatorSection(d) {
   put('ms-cr-reddit-cmd', _creatorInstallHtml(d.reddit_ready, _creatorSetupCmd('zimi create --setup-reddit', d)));
   put('ms-cr-queue', _creatorQueueHtml(d.queue));
   var priv = document.getElementById('ms-cr-allow_private');
-  if (priv) priv.checked = _creatorSwitchOn(d, 'allow_private');
+  if (priv) {
+    // The same rule as _creatorPrivateRow: off and held while anyone manages Zimi.
+    priv.checked = !d.private_locked && _creatorSwitchOn(d, 'allow_private');
+    priv.disabled = !!d.private_locked;
+  }
 }
 
 // How long to wait before asking again while the server is still probing what
@@ -14695,8 +14894,6 @@ function _msServerHtml() {
   // The server's backup; My data, this browser's, is under Preferences.
   var backupSec = '<div id="ms-backup" class="ms-backup">' + _serverBackupCardHtml() + '</div>';
 
-  var tokenSec = '<div id="ms-security">' + tH('loading') + '</div>';
-
   var hotSec = '<div class="ms-section-label">' + tH('hot_zims') + '</div>' +
     '<div class="ms-hint">' + tH('hot_zims_hint') + '</div>' +
     '<div id="ms-hot-zims" style="margin-top:10px">' + tH('loading') + '</div>' +
@@ -14717,34 +14914,12 @@ function _msServerHtml() {
   var netSec = '<div class="ms-section-label">' + tH('net_section') + '</div>' +
     '<div id="' + _NET_ID + '">' + tH('loading') + '</div>';
 
-  // Sharing, Downloads, Storage, My Data / Server Backups, then App Updates
-  // just before the API Token, Hot ZIMs + cache, the environment, and
-  // Internet use last (Eric's final pass for 1.12).
-  var h = [sharingSec, downloadsSec, storageSec, backupSec, updatesSec, tokenSec, hotSec, envSec, netSec].join(sep);
+  // Sharing, Downloads, Storage, My Data / Server Backups, App Updates, Hot
+  // ZIMs + cache, the environment, and Internet use last. Who can manage
+  // Zimi and the API token are under Access.
+  var h = [sharingSec, downloadsSec, storageSec, backupSec, updatesSec, hotSec, envSec, netSec].join(sep);
   _renderEnvSection();
   _renderNetSection();
-  // Async fill security
-  Promise.all([
-    manageFetch('/manage/has-password').then(function(r) { return r.json(); }).catch(function() { return {}; }),
-    manageFetch('/manage/has-token').then(function(r) { return r.json(); }).catch(function() { return {}; })
-  ]).then(function(results) {
-    var hasPw = results[0].has_password;
-    var hasToken = results[1].has_token;
-    var el = document.getElementById('ms-security');
-    if (!el) return;
-    // Who can change settings: the setup page's rows, in place.
-    _setupState = results[0];
-    var sh = _manageAccess === 'open' ? '' : '<div class="ms-section-label">' + tH('setup_settings_title') + '</div>' + _setupFormHtml(results[0], 'settings');
-    sh += '<div class="mc-row"><span class="mc-label">' + tH('api_token') + '</span><span class="mc-value">';
-    if (hasToken) {
-      sh += '<button class="pill" onclick="_regenerateToken()">' + tH('roll') + '</button> ' +
-        '<button class="pill" onclick="_revokeToken()">' + tH('revoke') + '</button>';
-    } else {
-      sh += '<button class="pill" onclick="_generateToken()">' + tH('generate') + '</button>';
-    }
-    sh += '</span></div>';
-    el.innerHTML = sh;
-  });
   // These populate elements by id, so they must run AFTER this HTML is in
   // the DOM — not mid-string. Deferring one tick also lets the cached
   // sharing rows paint first, so the section never flashes empty.
@@ -15000,6 +15175,24 @@ function _toggleAllHotZims(checked) {
 // port reachability dot, in place. No seeding list (that lives in the
 // Downloads tab; rendering it here changed height and made the pane jump),
 // no full-section rebuild. Kept the name so the many callers don't churn.
+// One line for the closed card: which engine, and whether it is reachable
+// (the built-in engine's port) or connected (a client). One dot for both.
+function _btSummaryHtml(bt, starting, stColor) {
+  var kind = (bt.client || {}).kind, running = bt.status === 'ready' && bt.sidecar_running;
+  var engine = kind ? _btcName(kind) : t('bt_engine_builtin');
+  var detail, color = stColor;
+  if (starting || !running) {
+    detail = t(starting ? 'bt_state_starting' : kind ? 'btc_not_connected' : 'bt_state_' + bt.status);
+    if (kind && !starting) color = 'var(--error)';
+  }
+  else if (kind) detail = t('btc_connected');
+  else {
+    var reach = bt.nat ? bt.nat.reachable : null;
+    detail = t('bt_port_word') + ' ' + (bt.bt_port || '') + ' ' + t(reach == null ? 'bt_port_unknown' : reach ? 'bt_port_open' : 'bt_port_closed');
+    if (reach === false) color = '#d9a13d';
+  }
+  return '<span class="share-port-dot" style="background:' + color + '"></span><span class="bt-summary-text"><b>' + esc(engine) + '</b> · ' + esc(detail) + '</span>';
+}
 async function _renderSeedingSection() {
   let bt;
   try {
@@ -15017,8 +15210,11 @@ async function _renderSeedingSection() {
   const stColor = bt.status === 'ready'
     ? (bt.sidecar_running ? '#6abf69' : 'var(--text3)')
     : bt.status === 'unavailable' ? '#d9a13d' : 'var(--text3)';
-  const stateLabel = starting ? t('bt_state_starting') : t('bt_state_' + bt.status);
-  statusEl.innerHTML = '<span class="share-port-dot" style="background:' + stColor + '"></span>' + esc(stateLabel);
+  statusEl.innerHTML = _btSummaryHtml(bt, starting, stColor);
+  // Open by itself when the client it should use does not answer.
+  const more = document.getElementById('ms-bt-more');
+  const kind = (bt.client || {}).kind;
+  if (more && kind && bt.enabled && !bt.sidecar_running && !starting && !window._btMoreTouched) more.open = true;
   // The server already works out WHY it is off — no wheel for this Python, or
   // the switch is set by the environment. Saying only "unavailable" leaves the
   // person with nothing to do about it (#70).
@@ -15092,24 +15288,22 @@ var _btSettlePollsLeft = 0;
 var _BT_SETTLE_POLL_MS = 1500;
 var _BT_SETTLE_POLL_MAX = 10;
 
-// Enable/disable the BT card's inner controls in place — no re-render, no
-// height change (they're always in the DOM; a toggle only flips `disabled`
-// and dims the group). Env-locked fields stay locked.
+// Show/hide and enable/disable the BT card's inner controls in place, no
+// re-render (they're always in the DOM). Env-locked fields stay locked.
 function _applyTorrentToggleInPlace(on) {
   const controls = document.getElementById('ms-bt-controls');
   const upnp = document.getElementById(_UPNP_ID);
+  _showIfOn('ms-bt-more', on);
   if (controls) {
     controls.classList.toggle('share-controls-off', !on);
     Array.from(controls.querySelectorAll('input, button')).concat(upnp ? [upnp] : []).forEach(function(el) {
-      // data-nogate stays editable with BT off: it governs HTTP downloads too
-      // (e.g. the concurrent-download cap), not just the BT engine.
-      if (el.dataset.envlock === '1' || el.dataset.nogate === '1') return;
+      if (el.dataset.envlock === '1') return;
       el.disabled = !on;
     });
   }
   const st = document.getElementById('ms-bt-status');
-  if (st) st.innerHTML = '<span class="share-port-dot" style="background:var(--text3)"></span>' +
-    esc(t(on ? 'bt_state_starting' : 'bt_state_off'));
+  // The same one line as when it is running, saying it is starting.
+  if (st && on) st.innerHTML = _btSummaryHtml({ client: window._btcSaved || {} }, true, 'var(--text3)');
   // Mirror depends on BT: grey its card + disable its switch instantly.
   const mrow = document.querySelector('#ms-mirror-status input[onchange*="\'mirror\'"]');
   const mcard = mrow && mrow.closest('.share-row');
@@ -15126,8 +15320,9 @@ function _applyTorrentToggleInPlace(on) {
 // Shared status line for the Mirror card's right column — same shape as the
 // BT "ready" dot so the two cards' lights sit in identical spots.
 function _mirrorStatusHtml(active) {
-  return '<span class="share-port-dot" style="background:' + (active ? '#6abf69' : 'var(--text3)') + '"></span>' +
-    esc(active ? t('seeding_state_active') : t('bt_state_off'));
+  // Off, the switch already says so; only "active" adds anything.
+  if (!active) return '';
+  return '<span class="share-port-dot" style="background:#6abf69"></span>' + esc(t('seeding_state_active'));
 }
 
 function _applyMirrorToggleInPlace(on) {
@@ -15135,6 +15330,12 @@ function _applyMirrorToggleInPlace(on) {
   if (mact) mact.innerHTML = _mirrorStatusHtml(on);
 }
 
+function _showIfOn(id, on) { var e = document.getElementById(id); if (e) e.hidden = !on; }
+function _undoBtSetting(key, on) {
+  if (key === 'torrent') _applyTorrentToggleInPlace(on);
+  else if (key === 'mirror') _applyMirrorToggleInPlace(on);
+  else if (key === 'peer_share') _showIfOn('ms-peer-name', on);
+}
 async function _setBtSetting(key, cb) {
   const on = cb.checked;
   cb.disabled = true;
@@ -15144,6 +15345,7 @@ async function _setBtSetting(key, cb) {
   // delayed and jumpy"). The server write happens in the background.
   if (key === 'torrent') _applyTorrentToggleInPlace(on);
   else if (key === 'mirror') _applyMirrorToggleInPlace(on);
+  else if (key === 'peer_share') _showIfOn('ms-peer-name', on);
   try {
     const body = {}; body[key] = on;
     const r = await manageFetch('/manage/bt-settings', {
@@ -15153,13 +15355,11 @@ async function _setBtSetting(key, cb) {
     });
     if (!r.ok) {
       cb.checked = !on; _showToast(t('save_failed'));
-      if (key === 'torrent') _applyTorrentToggleInPlace(!on);
-      else if (key === 'mirror') _applyMirrorToggleInPlace(!on);
+      _undoBtSetting(key, !on);
     }
   } catch (e) {
     cb.checked = !on; _showToast(t('save_failed'));
-    if (key === 'torrent') _applyTorrentToggleInPlace(!on);
-    else if (key === 'mirror') _applyMirrorToggleInPlace(!on);
+    _undoBtSetting(key, !on);
   }
   cb.disabled = false;
   _btSettingInFlight = false;
@@ -15258,15 +15458,13 @@ function _portRowInner(bt, btOn) {
     '</span>';
 }
 
-// UPnP: under BitTorrent's own switch, in the card's right column. Beside
-// the port it wrapped onto a broken line of its own on a phone (Eric,
-// 2026-10-03: "UPnP toggle should be able to float under on.off bt toggle").
+// UPnP: a row of the built-in engine's own, under its port.
 var _UPNP_ID = 'ms-bt-upnp';
 function _upnpHtml(bt, btOn) {
   var lock = bt.upnp_env_locked;
-  return '<label class="share-upnp"' + (lock ? ' title="' + escAttr(t('env_controlled', {v: 'ZIMI_BT'})) + '"' : '') + '>' +
-    'UPnP <span class="switch switch-sm"><input type="checkbox" role="switch" id="' + _UPNP_ID + '"' + (bt.upnp_enabled ? ' checked' : '') +
-    ((lock || !btOn) ? ' disabled' : '') + (lock ? ' data-envlock="1"' : '') + ' onchange="_setUpnp(this)"><span class="switch-slider"></span></span></label>';
+  return '<div class="share-field btc-builtin"><label for="' + _UPNP_ID + '"' + (lock ? ' title="' + escAttr(t('env_controlled', {v: 'ZIMI_BT'})) + '"' : '') + '>UPnP</label>' +
+    '<span><span class="switch switch-sm"><input type="checkbox" role="switch" id="' + _UPNP_ID + '"' + (bt.upnp_enabled ? ' checked' : '') +
+    ((lock || !btOn) ? ' disabled' : '') + (lock ? ' data-envlock="1"' : '') + ' onchange="_setUpnp(this)"><span class="switch-slider"></span></span></span></div>';
 }
 
 async function _setBtPort(inp) {
@@ -15431,32 +15629,22 @@ async function _renderMirrorSection() {
   // this too. The DOWNLOAD cap lives in the Downloads card below (one global
   // number governs HTTP + BT) so it isn't rendered twice.
   const upMb = m.bt_up_kb ? +(m.bt_up_kb / 1024).toFixed(2) : 0;
-  const limitRow = '<div class="share-field"><label title="' + escAttr(t('bt_limit_hint')) + '">' + tH('bt_up_limit_label') + '</label>' +
+  const limitRow = '<div class="share-field btc-builtin"><label title="' + escAttr(t('bt_limit_hint')) + '">' + tH('bt_up_limit_label') + '</label>' +
     '<span class="share-port-group">' +
     '<input type="number" min="0" step="0.5" value="' + upMb + '"' + disA(m.bt_up_env_locked) + lockA(m.bt_up_env_locked) +
     ' class="share-num-input" aria-label="' + escAttr(t('bt_limit_up')) + '" title="' + escAttr(t('bt_limit_hint')) + '" onchange="_setBtLimit(this,\'up\')">' +
     '<span class="share-field-note">↑ MB/s</span></span></div>';
 
-  // Concurrent downloads: how many run at once, the rest queue. Governs HTTP
-  // and BT alike, so it stays editable even with the BT engine off
-  // (data-nogate) — only an env var locks it.
-  const dlRow = '<div class="share-field"><label title="' + escAttr(t('bt_max_dl_hint')) + '">' + tH('bt_max_dl_label') + '</label>' +
-    '<span class="share-port-group">' +
-    '<input type="number" min="1" max="20" step="1" value="' + (m.max_active_downloads != null ? m.max_active_downloads : 4) + '"' +
-    (m.max_active_downloads_env_locked ? ' disabled' : '') + lockA(m.max_active_downloads_env_locked) + ' data-nogate="1"' +
-    ' class="share-num-input" aria-label="' + escAttr(t('bt_max_dl_label')) + '" title="' + escAttr(t('bt_max_dl_hint')) + '" onchange="_setBtMaxDl(this)">' +
-    '</span></div>';
-
   // Max connections: libtorrent's global socket cap (real, enforced). Pure BT
   // engine setting, so it greys with the engine.
-  const connRow = '<div class="share-field"><label title="' + escAttr(t('bt_max_conn_hint')) + '">' + tH('bt_max_conn_label') + '</label>' +
+  const connRow = '<div class="share-field btc-builtin"><label title="' + escAttr(t('bt_max_conn_hint')) + '">' + tH('bt_max_conn_label') + '</label>' +
     '<span class="share-port-group">' +
     '<input type="number" min="10" max="2000" step="10" value="' + (m.bt_max_connections != null ? m.bt_max_connections : 200) + '"' +
     disA(m.bt_max_connections_env_locked) + lockA(m.bt_max_connections_env_locked) +
     ' class="share-num-input" aria-label="' + escAttr(t('bt_max_conn_label')) + '" title="' + escAttr(t('bt_max_conn_hint')) + '" onchange="_setBtMaxConn(this)">' +
     '</span></div>';
 
-  const portRow = '<div class="share-field share-port-row" id="share-port-row">' + _portRowInner(bt || {}, btOn) + '</div>';
+  const portRow = '<div class="share-field share-port-row btc-builtin" id="share-port-row">' + _portRowInner(bt || {}, btOn) + '</div>';
 
   const selfName = (peers && peers.self) || '';
   const nameRow = '<div class="share-field"><label title="' + escAttr(t('peer_name_hint')) + '">' + tH('peer_advertising_as') + '</label>' +
@@ -15464,10 +15652,16 @@ async function _renderMirrorSection() {
     (m.peer_name_env_locked ? ' disabled' : '') + lockA(m.peer_name_env_locked) +
     ' title="' + escAttr(t('peer_name_hint')) + '" aria-label="' + escAttr(t('peer_advertising_as')) + '" onchange="_setPeerName(this)"></div>';
 
-  // Controls always present; the wrapper dims + disables them when BT is off,
-  // so toggling never adds/removes rows (no layout jump).
-  const btControls = '<div class="share-bt-controls' + (btOn ? '' : ' share-controls-off') + '" id="ms-bt-controls">' +
-    ratioRow + limitRow + dlRow + connRow + portRow + nameRow + '</div>';
+  // Controls always in the DOM; with BT off the wrapper hides them
+  // (.share-controls-off) and a toggle flips them in place, no re-render.
+  // A client the operator runs owns its own limits, connections and port, so
+  // those rows hide (.btc-ext) as soon as one is picked, before it is saved;
+  // the ratio (Zimi's ledger), the queue and the name stay.
+  window._btcSaved = (bt && bt.client) || {};
+  const ext = !!window._btcSaved.kind;
+  const btControls = '<div class="share-bt-controls' + (btOn ? '' : ' share-controls-off') + (ext ? ' btc-ext' : '') + '" id="ms-bt-controls">' +
+    _btcEngineRow(bt) + ratioRow + limitRow + connRow + portRow + _upnpHtml(bt || {}, btOn) + '</div>' +
+    '<!--btc-->';
 
   // Mirror status sits under its toggle in the right column — the SAME spot
   // as the BitTorrent "ready" dot — so both cards' status lights line up.
@@ -15494,25 +15688,220 @@ async function _renderMirrorSection() {
       // inactive, not locked: locked means an operator pinned it with an env
       // var and says so. Unavailable is the machine's answer, and the reason
       // line already gives it — claiming ZIMI_BT did this would be a lie.
-      !btUsable, '<div id="ms-bt-status" class="share-bt-status-right">' + (window._btStatusHtml || '') + '</div>' + _upnpHtml(bt || {}, btOn),
+      !btUsable, '',
       // Reason first, then the fields it explains. Both sit outside the dimmed
       // block: the reason so it stays readable, the fields because `disabled`
       // already greys them and dimming twice reads as damage.
-      '<div class="ms-hint bt-why" id="ms-bt-why" hidden></div>' + btControls) +
+      // Closed, the card says how BitTorrent is doing in one line; the
+      // settings open under it, by themselves when something needs fixing.
+      '<div class="ms-hint bt-why" id="ms-bt-why" hidden></div>' +
+      '<details class="bt-more" id="ms-bt-more"' + (btOn ? '' : ' hidden') + '>' +
+        '<summary class="bt-summary" id="ms-bt-status" onclick="window._btMoreTouched=true">' + (window._btStatusHtml || '') + '</summary>' + btControls + '</details>') +
     _shareSwitch('mirror', m.enabled, m.env_locked, 'ZIMI_BT',
       'share_mirror_title', tH('share_mirror_desc') + mirrorInner, !btOn, mirrorStatus) +
     _shareSwitch('peer_share', m.peer_share, m.peer_share_env_locked, 'ZIMI_NEARBY',
       'share_nearby_title', tH('share_nearby_desc') +
-        (m.peer_ip_unreachable ? '<div class="share-row-desc share-nearby-warn">⚠ ' + tH('nearby_bridge_warning') + '</div>' : '')) +
+        (m.peer_ip_unreachable ? '<div class="share-row-desc share-nearby-warn">⚠ ' + tH('nearby_bridge_warning') + '</div>' : ''),
+      false, '', '<div id="ms-peer-name"' + (m.peer_share ? '' : ' hidden') + '><div class="share-bt-controls">' + nameRow + '</div></div>') +
   '</div>';
   if (prog.phase) _scheduleMirrorProgressPoll();
-  el.innerHTML = h;
-  try { localStorage.setItem(SK.SHARE_ROWS, h); } catch (e) {}
+  // A redraw (a saved port, UPnP, a client saved) keeps the settings open
+  // that the person was working in.
+  var wasOpen = !!(document.getElementById('ms-bt-more') || {}).open;
+  el.innerHTML = h.replace('<!--btc-->', _btcFormHtml(bt));
+  if (wasOpen) document.getElementById('ms-bt-more').open = true;
+  // The first-paint copy leaves out the client's form (its address and
+  // login): browser storage is no place for them, and the real paint follows.
+  try { localStorage.setItem(SK.SHARE_ROWS, h.replace('<!--btc-->', '')); } catch (e) {}
   // Fill the status dot + port dot in place.
   _renderSeedingSection();
   _natCheckOnOpen(btOn);
 }
 
+
+// ── The engine: built in, or a client the operator already runs (#53) ──
+// The *arr apps' download-client form: URL, login, category, path mappings.
+// kind: [name, the address it usually answers on]
+var BT_CLIENTS = { qbittorrent: ['qBittorrent', 'http://qbittorrent:8080'], transmission: ['Transmission', 'http://transmission:9091'] };
+function _btcName(kind) { return (BT_CLIENTS[kind] || [''])[0]; }
+function _btcEngineRow(bt) {
+  // A dropdown, as the other either/ors in Settings are. Locked by the
+  // environment, or while anyone can manage Zimi; the reason is its title.
+  var c = (bt && bt.client) || {}, kind = c.kind || '';
+  var lock = !!c.locked;
+  var why = c.locked === 'open' ? t('btc_locked_open') : lock ? t('env_controlled', { v: c.locked }) : '';
+  var opt = function(val, label) {
+    return '<option value="' + val + '"' + (val === kind ? ' selected' : '') + '>' + label + '</option>';
+  };
+  return '<div class="share-field"><label for="btc-engine">' + tH('bt_engine') + '</label>' +
+    '<select id="btc-engine" class="btc-engine"' + (lock ? ' disabled title="' + escAttr(why) + '"' : '') + ' onchange="_btcEngine(this.value)">' +
+    opt('', tH('bt_engine_builtin')) + Object.keys(BT_CLIENTS).map(function(k) { return opt(k, _btcName(k)); }).join('') + '</select></div>';
+}
+function _btcFormHtml(bt) {
+  // The client's fields sit in the same label | field grid as the engine's
+  // rows above them, so the card reads as one list.
+  var c = (bt && bt.client) || {}, lock = c.locked, kind = c.kind || '';
+  var dis = lock ? ' disabled' : '';
+  var row = function(id, label, val, ph, type, auto) {
+    return '<div class="share-field"><label for="' + id + '">' + tH(label) + '</label><input id="' + id + '" class="peer-name-input" type="' + (type || 'text') + '"' +
+      ' autocomplete="' + (auto || 'off') + '" spellcheck="false" autocapitalize="off"' +
+      (val ? ' value="' + escAttr(val) + '"' : '') + (ph ? ' placeholder="' + escAttr(ph) + '"' : '') + dis + '></div>';
+  };
+  return '<div class="btc-form" id="ms-btc" data-kind="' + kind + '"' + (kind ? '' : ' hidden') + '>' +
+    '<div class="ms-hint" id="btc-note"' + (lock ? '' : ' hidden') + '>' + _btcNote(lock) + '</div>' +
+    '<div class="share-bt-controls">' +
+      row('btc-url', 'btc_url', c.url, kind ? BT_CLIENTS[kind][1] : '').replace('<input ', '<input dir="ltr" ') +
+      row('btc-user', 'setup_username', c.user, t('btc_optional')) +
+      row('btc-pw', 'btc_password', '', c.password_set ? t('btc_password_saved') : t('btc_optional'), 'password', 'new-password') +
+      row('btc-cat', 'btc_category', c.category && c.category !== 'zimi' ? c.category : '', 'zimi') +
+      '<div class="share-field btc-paths-field"><label title="' + escAttr(t('btc_paths_hint', { client: _btcName(kind) })) + '">' + tH('btc_paths') + '</label>' +
+        '<div><div class="btc-paths" id="btc-paths">' + _btcPathRows(c.paths, kind, lock) + '</div>' +
+        (lock ? '' : '<button type="button" class="btc-path-add" onclick="_btcPathAdd()">+ ' + tH('btc_path_add') + '</button>') +
+        '</div></div>' +
+    '</div>' +
+    '<div class="btc-result" id="btc-result" role="status"></div>' +
+    (lock ? '' : '<div class="btn-row"><button type="button" class="set-btn" onclick="_btcSubmit(true)">' + tH('btc_test') + '</button>' +
+      '<button type="button" class="set-btn primary" onclick="_btcSubmit(false)">' + tH('save') + '</button></div>') +
+    '</div>' +
+    '<div class="btn-row btc-back" id="btc-back" hidden><button type="button" class="set-btn primary" onclick="_btcBackToBuiltin()">' + tH('btc_use_builtin') + '</button></div>';
+}
+// Path mappings, the *arr way: one row per folder, the client's path beside
+// Zimi's. Sent as the "remote=local" lines the server keeps.
+function _btcPathRow(remote, local, kind, dis) {
+  // Each field carries its own name for the phone, where the two stack and
+  // the column heads above them go.
+  var inp = function(cls, val, ph, label) {
+    return '<label class="btc-path-cell"><span>' + esc(label) + '</span><input type="text" dir="ltr" class="peer-name-input ' + cls + '" value="' + escAttr(val || '') + '" placeholder="' + escAttr(ph) + '"' +
+      ' spellcheck="false" autocapitalize="off" autocomplete="off"' + (dis ? ' disabled' : '') + '></label>';
+  };
+  return '<div class="btc-path-row">' +
+    inp('btc-path-remote', remote, '/downloads', t('btc_path_remote', { client: _btcName(kind) })) +
+    '<span class="btc-path-arrow" aria-hidden="true">→</span>' +
+    inp('btc-path-local', local, '/data/downloads', t('btc_path_local')) +
+    (dis ? '' : '<button type="button" class="btc-path-del" aria-label="' + escAttr(t('remove')) + '" onclick="_btcPathDel(this)">×</button>') +
+    '</div>';
+}
+function _btcPathRows(text, kind, dis) {
+  var pairs = String(text || '').split(/[;\n]/).map(function(l) {
+    var i = l.indexOf('=');
+    return i < 0 ? null : [l.slice(0, i).trim(), l.slice(i + 1).trim()];
+  }).filter(Boolean);
+  if (!pairs.length) pairs = [['', '']];
+  var head = '<div class="btc-path-row btc-path-head"><span>' + tH('btc_path_remote', { client: _btcName(kind) }) + '</span><span></span><span>' +
+    tH('btc_path_local') + '</span>' + (dis ? '' : '<span></span>') + '</div>';
+  return head + pairs.map(function(p) { return _btcPathRow(p[0], p[1], kind, dis); }).join('');
+}
+function _btcPathAdd() {
+  var box = document.getElementById('btc-paths');
+  box.insertAdjacentHTML('beforeend', _btcPathRow('', '', document.getElementById('ms-btc').getAttribute('data-kind')));
+  box.lastElementChild.querySelector('input').focus();
+}
+function _btcPathDel(btn) {
+  var rows = document.querySelectorAll('#btc-paths .btc-path-row:not(.btc-path-head)');
+  if (rows.length > 1) { btn.parentNode.remove(); return; }
+  btn.parentNode.querySelectorAll('input').forEach(function(i) { i.value = ''; });
+}
+// The rows as remote=local lines, or null when a row has only one side (it
+// is marked, rather than silently left out of what is saved).
+function _btcPathsText() {
+  var half = false;
+  var lines = Array.prototype.map.call(document.querySelectorAll('#btc-paths .btc-path-row:not(.btc-path-head)'), function(r) {
+    var ins = r.querySelectorAll('input'), a = ins[0].value.trim(), b = ins[1].value.trim();
+    var bad = !a !== !b;
+    ins.forEach(function(i) { i.classList.toggle('btc-path-bad', bad && !i.value.trim()); });
+    half = half || bad;
+    return a && b ? a + '=' + b : '';
+  });
+  return half ? null : lines.filter(Boolean).join('\n');
+}
+// Only a locked form explains itself: why its fields cannot be changed.
+function _btcNote(lock) {
+  return lock === 'open' ? tH('btc_locked_open') : lock ? tH('configured_via_env') : '';
+}
+async function _btcEngine(kind) {
+  var form = document.getElementById('ms-btc');
+  if (!form) return;
+  var controls = document.getElementById('ms-bt-controls');
+  if (controls) controls.classList.toggle('btc-ext', !!kind);
+  var saved = window._btcSaved || {};
+  _showIfOn('btc-back', false);
+  if (kind) {
+    // The form follows the client picked; what was typed for another one
+    // (its address, its login) does not carry over.
+    if (form.getAttribute('data-kind') !== kind) {
+      form.setAttribute('data-kind', kind);
+      var same = saved.kind === kind;
+      var u = document.getElementById('btc-url');
+      u.value = same ? (saved.url || '') : '';
+      u.placeholder = BT_CLIENTS[kind][1];
+      document.getElementById('btc-user').value = same ? (saved.user || '') : '';
+      var pw = document.getElementById('btc-pw');
+      pw.value = '';
+      pw.placeholder = same && saved.password_set ? t('btc_password_saved') : t('btc_optional');
+
+      document.querySelector('.btc-paths-field > label').title = t('btc_paths_hint', { client: _btcName(kind) });
+      document.getElementById('btc-paths').innerHTML = _btcPathRows(same ? saved.paths : '', kind, saved.locked);
+      document.getElementById('btc-result').textContent = '';
+    }
+    form.hidden = false;
+    var url = document.getElementById('btc-url');
+    if (url && !url.value) url.focus();
+    return;
+  }
+  form.hidden = true;
+  // Back to the built-in engine takes Zimi's torrents out of the client, so
+  // it waits for a deliberate press instead of happening on the pick.
+  _showIfOn('btc-back', !!saved.kind && !saved.locked);
+}
+async function _btcBackToBuiltin() {
+  var res = null;
+  try { res = await _btcPost({ kind: '' }); } catch (e) { /* said below */ }
+  // Refused (the environment owns it, or the password is off): say so, or
+  // the card redraws as it was and the button looks broken.
+  if (!res || !res.ok) _showToast(_btcErr((res && res.d) || {}, { client: _btcName((window._btcSaved || {}).kind) }));
+  _renderMirrorSection();
+}
+function _btcBody() {
+  var v = function(id) { var e = document.getElementById(id); return e ? e.value.trim() : ''; };
+  var body = { kind: document.getElementById('ms-btc').getAttribute('data-kind'), url: v('btc-url'), user: v('btc-user'),
+    category: v('btc-cat'), paths: _btcPathsText() };
+  var pw = document.getElementById('btc-pw').value;
+  if (pw) body.password = pw;
+  return body;
+}
+async function _btcPost(body) {
+  var r = await manageFetch('/manage/bt-client', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  return { ok: r.ok, d: await r.json().catch(function() { return {}; }) };
+}
+// The server's reason in the reader's language: a key with its values, or
+// Zimi's own sentence (a refused login, a client too old).
+var _BTC_ERRORS = { bad_url: 'btc_bad_url', open_locked: 'btc_locked_open', env_controlled: 'configured_via_env', bad_kind: 'error' };
+function _btcErr(d, client) {
+  if (d.error_key) return t(d.error_key, { client: client.client, code: d.code });
+  return _BTC_ERRORS[d.error] ? t(_BTC_ERRORS[d.error]) : (d.error || t('error'));
+}
+async function _btcSubmit(test) {
+  var out = document.getElementById('btc-result');
+  var body = _btcBody(), client = { client: _btcName(body.kind) };
+  if (!body.url) { out.className = 'btc-result btc-bad'; out.textContent = t('btc_need_url', client); return; }
+  if (body.paths === null) { out.className = 'btc-result btc-bad'; out.textContent = t('btc_paths_half'); return; }
+  if (test) body.test = true;
+  out.className = 'btc-result'; out.textContent = t(test ? 'btc_testing' : 'saving');
+  var res;
+  try { res = await _btcPost(body); } catch (e) { out.className = 'btc-result btc-bad'; out.textContent = t('error'); return; }
+  var d = res.d;
+  if (!res.ok || !d.ok && test) { out.className = 'btc-result btc-bad'; out.textContent = _btcErr(d, client); return; }
+  if (!test) { _showToast(t('saved')); _renderMirrorSection(); return; }
+  // What works, then what each mapping would add: the test is where a person
+  // finds out the two containers do not see the same disk.
+  // The downloads folder is the one that must be visible; the library is a
+  // choice (seed in place, or copy in), so it is said plainly, not as an error.
+  var lines = [[t('btc_ok', { client: client.client, version: d.version }), ''],
+    d.visible ? [t('btc_sees_downloads', { path: d.save_path }), ''] : [t('btc_no_downloads', { path: d.save_path }), 'btc-bad'],
+    [d.library_mapped ? t('btc_library_mapped', client) : t('btc_library_unmapped', client), '']];
+  out.className = 'btc-result';
+  out.innerHTML = lines.map(function(l) { return '<div class="' + l[1] + '">' + esc(l[0]) + '</div>'; }).join('');
+}
 
 // ── Download scheduling card (nightly window + global download speed cap) ──
 async function _renderDownloadSchedule() {
@@ -15575,7 +15964,16 @@ async function _renderDownloadSchedule() {
         (s.upload_throttled ? '<div class="ms-hint">' + tH('dl_upload_throttled_now') + '</div>' : '')
       : '');
 
-  el.innerHTML = toggle + lockNote + windowBlock + speedRow + uploadRow;
+  // How many downloads run at once, HTTP and BitTorrent alike; the rest queue.
+  var maxLocked = !!s.max_active_downloads_locked;
+  var maxRow = '<div class="share-field ms-dl-speed"><label title="' + escAttr(t('bt_max_dl_hint')) + '">' + tH('bt_max_dl_label') + '</label>' +
+    '<span class="share-port-group">' +
+    '<input type="number" min="1" max="20" step="1" value="' + (s.max_active_downloads != null ? s.max_active_downloads : 4) + '"' +
+      (maxLocked ? ' disabled' : '') + ' class="share-num-input" aria-label="' + escAttr(t('bt_max_dl_label')) +
+      '" title="' + escAttr(t('bt_max_dl_hint')) + '" onchange="_setBtMaxDl(this)">' +
+    '</span></div>';
+
+  el.innerHTML = toggle + lockNote + windowBlock + maxRow + speedRow + uploadRow;
 }
 
 async function _postDownloadSchedule(body) {
@@ -16185,7 +16583,7 @@ function renderInstalled(filterText) {
     const cat = _zimCat(z);  // real category or OTHER_CAT — matches the home grouping
     if (manageCategoryFilter && cat !== manageCategoryFilter) continue;
     if (manageLangFilter && !_zimMatchesLang(z, manageLangFilter)) continue;
-    if (installedParsed && !searchQueryMatches(installedParsed, _libraryFilterText(z) + '\u0001' + cat)) continue;
+    if (installedParsed && !_libraryMatches(installedParsed, z, cat)) continue;
     if (_availableUpdates[z.file]) {
       pendingUpdates.push(z);
       continue;
@@ -16423,7 +16821,7 @@ async function manageClearPassword() {
   });
   if (!res.ok) {
     var err = await res.json().catch(function() { return {}; });
-    if (err.error) _showToast(err.error);
+    if (err.error) _showToast(err.error === 'open_locked' ? t('open_locked') : err.error);
     return;
   }
   if (res.ok) {
@@ -16438,7 +16836,7 @@ async function _generateToken() {
   var res = await manageFetch('/manage/generate-token', { method: 'POST' });
   if (!res.ok) {
     var err = await res.json().catch(function() { return {}; });
-    if (err.error) _showToast(err.error);
+    if (err.error) _showToast(err.error === 'open_locked' ? t('open_locked') : err.error);
     return;
   }
   var data = await res.json();
@@ -16450,7 +16848,7 @@ async function _generateToken() {
       '<span>' + esc(data.token) + '</span>' +
       '<button class="pill" data-token="' + escAttr(data.token) + '" onclick="_copyText(this.dataset.token)">' + tH('copy') + '</button>' +
       '</div></div>' +
-      '<button class="pill" style="margin-top:8px" onclick="switchMs(\'server\')">' + tH('done') + '</button>';
+      '<button class="pill" style="margin-top:8px" onclick="_renderAccessCards()">' + tH('done') + '</button>';
   }
 }
 
@@ -16463,7 +16861,7 @@ async function _regenerateToken() {
 async function _revokeToken() {
   if (!(await _appConfirm(t('confirm_revoke_token')))) return;
   await manageFetch('/manage/revoke-token', { method: 'POST' });
-  switchMs('server');
+  _renderAccessCards();
 }
 
 function getFlavorVariants(installedZim) {

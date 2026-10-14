@@ -237,3 +237,4 @@ def on_own_network(ip):
     if mapped is not None:
         ip = mapped
     return any(ip.version == net.version and ip in net for net in own_networks())
+

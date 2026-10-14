@@ -582,8 +582,14 @@
   .ms-user-account { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px; }
   /* "Your Account" now leads the pane: no top border, and a divider below it
      separates it from the other-users section. */
-  .ms-user-account-self { margin-top: 0; border-top: none; padding-top: 0; padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .ms-user-account-self { margin-top: 0; border-top: none; padding-top: 0; padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
   .ms-user-account-self .ms-user-row { border-bottom: none; }
+  /* Accounts, then the password switch that guards them, then the API token:
+     one rule between sections. Password off: the switch stands alone. */
+  #ms-users-body:not(:empty) + .ms-access-who { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px; }
+  .ms-access-who[hidden] { display: none; }
+  .ms-access-token { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 15px; }
+  .ms-access-token:empty { display: none; }
   /* Your-account actions: visible Change password / Log out buttons, not a ⋯. */
   .ms-user-self-actions { flex-shrink: 0; display: flex; gap: 8px; }
   /* Role badges in the users list. Muted by default; admin gets amber. */
@@ -616,7 +622,7 @@
   .ms-allow-empty { color: var(--text2); font-size: 12px; padding: 4px 0; }
 
   /* ── Public access card ── governs the anonymous view; sits atop the pane. */
-  .ms-pa-card { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .ms-pa-card { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
   .ms-pa-sub { color: var(--text2); font-size: 13px; margin: 2px 0 12px; }
   .ms-pa-env { font-size: 12px; color: var(--text2); background: var(--amber-glow); border: 1px solid var(--amber-border); border-radius: var(--radius); padding: 6px 10px; margin-bottom: 12px; }
   .ms-pa-env code { font-size: 11px; color: var(--amber); }
@@ -1103,19 +1109,21 @@
   .setup-form .set-rows { margin: 0; }
   .setup-form .share-row-desc { white-space: normal; }
   .setup-fields { display: flex; flex-direction: column; gap: 10px; }
-  .setup-fields[hidden] { display: none; }
+  .setup-fields[hidden], .setup-form .btn-row[hidden] { display: none; }
   .setup-field { display: flex; flex-direction: column; gap: 4px; margin: 0; }
   .setup-field > span { font-size: 12px; font-weight: 600; color: var(--text2); }
   .setup-field input::placeholder { color: var(--text3); }
   .setup-hint { font-size: 12px; color: var(--text2); margin: -6px 0 0; }
-  .setup-change { display: flex; }
   .setup-form .btn-row { display: flex; justify-content: flex-end; }
   .setup-form .btn-primary { padding: 9px 24px; font-size: 14px; font-weight: 600; }
   .setup-form .pw-error { margin: 0; color: var(--error); font-size: 13px; display: none; }
+  .setup-open { display: flex; flex-direction: column; gap: 8px; padding: 0 14px 12px; }
+  .setup-open[hidden] { display: none; }
+  .setup-open-cost { margin: 0; font-size: 12px; line-height: 1.45; color: var(--text2); }
   #onboard-access { margin-top: 12px; }
   .desktop-card .subtitle:last-child { margin-bottom: 0; }
   .manage-locked-card.setup-card { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
-  .ms-pane .setup-form { margin-bottom: 16px; }
+  .ms-pane .setup-form { margin-bottom: 0; }
   /* Nothing behind a fresh install's setup is usable yet: no half-seen app. */
   .desktop-overlay.setup-overlay { background: var(--bg); }
   .setup-overlay .desktop-card { max-height: calc(100dvh - 32px); overflow-y: auto; }
@@ -1889,9 +1897,9 @@
   }
   .set-btn:focus-visible, .ms-pane .pill:focus-visible, .ms-pane .ms-btn:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   .set-btn:disabled { opacity: 0.45; cursor: default; }
-  .set-btn.primary, .ms-pane .ms-btn-primary, .ms-pane .pill.active,
+  .set-btn.primary, .ms-pane .ms-btn-primary, .ms-pane .pill.active:not(.cat-pill):not(.reorder-add),
   .ms-pane .manage-btn-action { background: var(--amber); color: var(--on-amber); border-color: transparent; font-weight: 600; }
-  .set-btn.primary:hover:not(:disabled), .ms-pane .ms-btn-primary:hover, .ms-pane .pill.active:hover { color: var(--on-amber); background: var(--amber); filter: brightness(1.06); }
+  .set-btn.primary:hover:not(:disabled), .ms-pane .ms-btn-primary:hover, .ms-pane .pill.active:not(.cat-pill):not(.reorder-add):hover { color: var(--on-amber); background: var(--amber); filter: brightness(1.06); }
   .ms-pane .manage-btn-action { min-height: var(--set-ctl-h); border-radius: 999px; font-size: 13px; padding: 0 16px; }
   .ms-pane select {
     min-height: var(--set-ctl-h); box-sizing: border-box; padding: 0 30px 0 12px; border-radius: var(--radius);
@@ -2216,6 +2224,7 @@
   }
   .ms-dl-window input[type="time"]:disabled { opacity: 0.6; }
   .ms-dl-speed { margin-top: 12px; }
+  .share-field.ms-dl-speed > label { min-width: 9.5rem; }
   .dl-window-chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
   .dl-window-chip.dl-window-in { color: var(--amber); background: var(--amber-glow); border: 1px solid var(--amber-border); }
   .dl-window-chip.dl-window-out { color: var(--text2); background: var(--surface2); border: 1px solid var(--border); }
@@ -2320,7 +2329,73 @@
   /* Server name fills its grid cell rather than a fixed 130-160px that would
      overrun the narrow phone column; border-box so padding stays inside. */
   .share-bt-controls .peer-name-input { width: 100%; box-sizing: border-box; }
-  .share-bt-controls.share-controls-off { opacity: 0.4; }
+  /* The closed card: one line, the engine and how it is doing; a chevron
+     opens the settings beneath it. */
+  .bt-more { margin-top: 6px; }
+  .bt-more[hidden] { display: none; }
+  .bt-summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; font-size: 12px; color: var(--text2); padding: 2px 0; width: fit-content; }
+  .bt-summary::-webkit-details-marker { display: none; }
+  .bt-summary b { font-weight: 600; color: var(--text); }
+  .bt-summary::after { content: ''; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); margin-left: 2px; transition: transform 150ms; }
+  .bt-more[open] > .bt-summary::after { transform: rotate(45deg); }
+  [dir="rtl"] .bt-summary::after { transform: rotate(135deg); margin-left: 0; margin-right: 2px; }
+  [dir="rtl"] .bt-more[open] > .bt-summary::after { transform: rotate(45deg); }
+  .bt-summary:hover { color: var(--text); }
+  .bt-summary .share-port-dot { width: 8px; height: 8px; }
+  /* BitTorrent off: nothing of it to set, so none of it shows. */
+  .share-bt-controls.share-controls-off, .share-controls-off + .btc-form { display: none; }
+  /* A client the operator runs owns its limits, connections and port. */
+  .share-bt-controls.btc-ext .btc-builtin { display: none; }
+  .btc-form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .btc-form .share-bt-controls { margin-top: 0; }
+  .btc-form .peer-name-input { width: 100%; box-sizing: border-box; }
+  .btc-paths-field > label { align-self: start; padding-top: 4px; }
+  .btc-form[hidden] { display: none; }
+  .btc-form .ms-hint { margin: 0; }
+  /* Sized like the fields beside it: one row among the others, not a headline. */
+  .ms-pane .share-bt-controls select.btc-engine { width: auto; justify-self: start; min-height: 0; height: 24px; font-size: 12px; border-radius: 6px; padding: 0 26px 0 8px; }
+  [dir="rtl"] .ms-pane .share-bt-controls select.btc-engine { padding: 0 8px 0 26px; }
+  /* Paths read left to right in every language; the arrow follows the page. */
+  [dir="rtl"] .btc-path-arrow { transform: scaleX(-1); }
+  [dir="rtl"] .btc-form input[dir="ltr"] { text-align: left; }
+  /* The engine's rows and the client's share one label column, so every field
+     starts at the same x though the note between them splits the grid. */
+  .ms-pane .share-bt-controls { grid-template-columns: 7.5rem minmax(0, 1fr); }
+  .btc-paths { display: grid; gap: 6px; }
+  .btc-path-row { display: grid; grid-template-columns: 1fr auto 1fr 28px; gap: 8px; align-items: center; }
+  .btc-path-row input { font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; min-width: 0; width: 100%; box-sizing: border-box; }
+  .btc-path-head { font-size: 11px; color: var(--text3); }
+  .btc-path-arrow { color: var(--text3); }
+  .btc-path-del { width: 28px; height: 24px; border: 0; background: none; color: var(--text3); font-size: 16px; cursor: pointer; border-radius: 6px; }
+  .btc-path-del:hover { color: var(--amber); background: var(--amber-glow); }
+  .btc-path-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  /* Named for screen readers always; shown on a phone, where the column
+     heads above the rows give way to it. */
+  .btc-path-cell > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; font-size: 11px; color: var(--text3); }
+  .btc-path-row input.btc-path-bad { border-color: var(--error); }
+  .btc-path-add { margin-top: 4px; padding: 2px 0; border: 0; background: none; color: var(--text2); font: inherit; font-size: 12px; cursor: pointer; }
+  .btc-path-add:hover { color: var(--amber); }
+  @media (max-width: 600px) {
+    .share-bt-controls .btc-paths-field > label, .share-bt-controls .btc-paths-field > div { grid-column: 1 / -1; }
+    .btc-path-row { grid-template-columns: 1fr 28px; row-gap: 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .btc-path-head, .btc-path-arrow { display: none; }
+    .btc-path-cell { grid-column: 1; }
+    .btc-path-cell > span { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+    .btc-path-del { grid-column: 2; grid-row: 1 / span 2; }
+  }
+  /* A switch row with fields under it: the switch keeps the title's line and
+     the fields take the card's full width below both. */
+  .share-row:has(> .share-row-text > .share-row-dim + *) { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 14px; align-items: start; }
+  .share-row:has(> .share-row-text > .share-row-dim + *) > .share-row-text { display: contents; }
+  .share-row:has(> .share-row-text > .share-row-dim + *) .share-row-dim { grid-column: 1; grid-row: 1; }
+  .share-row:has(> .share-row-text > .share-row-dim + *) > .share-row-right { grid-column: 2; grid-row: 1; }
+  .share-row:has(> .share-row-text > .share-row-dim + *) > .share-row-text > :not(.share-row-dim) { grid-column: 1 / -1; }
+  .btc-result { font-size: 13px; color: var(--text); display: flex; flex-direction: column; gap: 2px; }
+  .btc-result:empty { display: none; }
+  .btc-result .btc-bad, .btc-result.btc-bad { color: var(--error); }
+  .btc-form .btn-row, .btc-back { display: flex; justify-content: flex-end; gap: 8px; }
+  .btc-back { margin-top: 8px; }
+  .btc-back[hidden] { display: none; }
   .share-bt-controls.share-controls-off .share-port-dot { opacity: 0.5; }
   /* Dim what is inert, not the whole row: the note that says WHY the row is
      inactive lives outside .share-row-dim and stays at full strength. */
@@ -2567,6 +2642,7 @@
     border-radius: 6px; color: var(--text);
   }
   .peer-name-input:focus { outline: none; border-color: var(--amber); }
+  .peer-name-input::placeholder { color: var(--text3); }
   .peer-name-input:disabled { opacity: 0.55; border-color: transparent; background: none; }
   .share-ratio-note { color: var(--text2); opacity: 0.75; font-size: 11px; margin-left: 4px; }
   /* iOS-style switch: amber track when on, black knob slides right */

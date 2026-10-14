@@ -19,6 +19,7 @@ import ssl
 import threading
 import time
 import xml.etree.ElementTree as ET
+import http.client
 import urllib.error
 import urllib.request
 from urllib.parse import urlparse, urlencode, quote
@@ -111,6 +112,74 @@ class _KiwixRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 _KIWIX_REDIRECT_OPENER = urllib.request.build_opener(_KiwixRedirectHandler)
+
+
+class _PublicOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Follow a redirect only to a public address. An import from a URL while
+    anyone can manage Zimi: the URL's own host is checked before the request,
+    and this keeps a public URL from bouncing the fetch into the operator's
+    own network."""
+
+    def __init__(self, guard):
+        super().__init__()
+        self.guard = guard
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if self.guard.refuses(urlparse(newurl).hostname or ""):
+            raise urllib.error.HTTPError(
+                req.full_url, code, "Redirect blocked (private address)", headers, fp
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _refuse_private_peer(conn):
+    """After connecting: the address actually reached, not the one a name
+    resolved to at the check (a name can answer public, then private). A
+    tunnel's peer is the proxy, which resolves the name itself."""
+    if getattr(conn, "_tunnel_host", None):
+        return
+    peer = ipaddress.ip_address(conn.sock.getpeername()[0].split("%")[0])
+    from zimi import netguard as _ng
+
+    if _ng.is_private_address(peer):
+        conn.sock.close()
+        raise OSError("connection to a private address refused")
+
+
+class _PublicHTTPConnection(http.client.HTTPConnection):
+    def connect(self):
+        super().connect()
+        _refuse_private_peer(self)
+
+
+class _PublicHTTPSConnection(http.client.HTTPSConnection):
+    def connect(self):
+        super().connect()
+        _refuse_private_peer(self)
+
+
+class _PublicOnlyHTTPHandler(urllib.request.HTTPHandler):
+    """urllib's HTTP handler that connects only to public addresses."""
+
+    def http_open(self, req):
+        return self.do_open(_PublicHTTPConnection, req)
+
+
+class _PublicOnlyHTTPSHandler(urllib.request.HTTPSHandler):
+    """urllib's HTTPS handler that connects only to public addresses, for
+    the first request and every redirect."""
+
+    def https_open(self, req):
+        return self.do_open(_PublicHTTPSConnection, req, context=self._context)
+
+
+def _imports_public_only():
+    """Whether an import may reach only public addresses: the web captures'
+    rule (manage._create_allows_private), so private ones only when an admin
+    allowed them, and never while the password to manage is off."""
+    from zimi import manage as _mng
+
+    return not _mng._create_allows_private()
 
 
 def _is_trusted_kiwix_url(url):
@@ -584,6 +653,9 @@ def _download_schedule_status():
         "upload_trickle_kb": sched["upload_trickle_kb"],
         "upload_kb": _p2p.get_bt_up_limit_kb(),
         "upload_kb_locked": _p2p.is_bt_up_env_locked(),
+        # How many downloads run at once, HTTP and BitTorrent alike.
+        "max_active_downloads": _p2p.get_max_active_downloads(),
+        "max_active_downloads_locked": _p2p.is_max_active_downloads_env_locked(),
         # True right now: uploads are actively trickled (restrict on + outside).
         "upload_throttled": sched["upload_restrict"] and not _in_window_now(sched),
     }
@@ -1139,6 +1211,11 @@ def reseed_from_ledger():
     backend = _p2p.peek_backend()
     if backend is None:
         return 0
+    if backend.external:
+        try:
+            backend.lift_limits()
+        except Exception as e:
+            log.debug("reseed: could not lift the client's limits: %s", e)
     if not _p2p.is_seeding_enabled():
         return 0
     mirror = _p2p.is_mirror_enabled()
@@ -1155,6 +1232,16 @@ def reseed_from_ledger():
                 if f.get("path"):
                     managed.add(os.path.basename(f["path"]))
     except Exception:
+        return 0
+    if backend.external and not backend.sees_library():
+        # Intents stay: switching back, or mapping the library, seeds them.
+        log.info(
+            "%d seed(s) wait: %s cannot see the library (Settings > BitTorrent:"
+            " map %s to seed them in place)",
+            sum(1 for f in ledger if f not in managed),
+            backend.name,
+            _srv.ZIM_DIR,
+        )
         return 0
     meta_all = _get_torrent_metadata()
     readded = 0
@@ -2391,6 +2478,25 @@ def archive_catalog_torrents(spacing=0.4, _max_bytes=5 * 1024 * 1024):
     return fetched
 
 
+def _seed_file(backend, raw, path, *, gone=False):
+    """The library file name an engine row seeds, or None. A torrent saved
+    in the library seeds that file; a client the operator runs may instead
+    seed its own finished copy of one (the library is not mapped), which
+    counts as the same seed. ``gone`` asks for those whose library file is
+    no longer there, which only the ledger can vouch were seeds."""
+    if not path or not path.endswith(".zim"):
+        return None
+    fname = os.path.basename(path)
+    if os.path.normpath(os.path.dirname(path)) == os.path.normpath(_srv.ZIM_DIR):
+        return fname if not gone or not os.path.exists(path) else None
+    if not backend.external or raw.get("seeder") not in ("true", True):
+        return None
+    in_lib = os.path.exists(os.path.join(_srv.ZIM_DIR, fname))
+    if gone:
+        return fname if not in_lib and fname in _seed_ledger() else None
+    return fname if in_lib else None
+
+
 def apply_seed_policy():
     """Make the CURRENT seed settings govern every live library seed — and
     enforce the ratio cap in the ledger, the sole cap authority.
@@ -2423,7 +2529,6 @@ def apply_seed_policy():
         entries = backend.list_managed()
     except Exception:
         return 0
-    zim_root = os.path.normpath(_srv.ZIM_DIR)
     with _seed_ledger_lock:
         ledger = _seed_ledger()
         ledger_dirty = False
@@ -2432,13 +2537,10 @@ def apply_seed_policy():
             if raw.get("status") not in (None, "active", "waiting", "paused"):
                 continue
             for f in raw.get("files", []):
-                path = f.get("path", "")
-                if not path or os.path.normpath(os.path.dirname(path)) != zim_root:
-                    continue
-                if not path.endswith(".zim"):
+                fname = _seed_file(backend, raw, f.get("path", ""))
+                if not fname:
                     continue
                 gid = raw.get("gid", "")
-                fname = os.path.basename(path)
                 try:
                     if not seeding:
                         # Stopped, not forgotten: the intent stays, so turning
@@ -2562,16 +2664,14 @@ def stop_mirror_seeds():
         entries = backend.list_managed()
     except Exception:
         return 0
-    zim_root = os.path.normpath(_srv.ZIM_DIR)
     # Every seed runs uncapped now (Zimi enforces caps in the ledger), so
     # the old "uncapped = mirror" option test can't discriminate. The
     # ledger's recorded origin can: stop what Mirror created, keep personal.
     ledger = _seed_ledger()
     for raw in entries:
         for f in raw.get("files", []):
-            path = f.get("path", "")
-            if path and os.path.normpath(os.path.dirname(path)) == zim_root:
-                fname = os.path.basename(path)
+            fname = _seed_file(backend, raw, f.get("path", ""))
+            if fname:
                 if ledger.get(fname, {}).get("origin") == "mirror":
                     try:
                         backend.remove(raw.get("gid", ""), delete_files=True)
@@ -2589,8 +2689,9 @@ def retire_stale_seeds():
     """Drop sidecar torrents whose library file is gone — an update
     replaced it, or the user deleted the ZIM. Without this, the engine keeps
     advertising (and hash-check failing) old versions forever. Only
-    torrents targeting ZIM_DIR are touched; staging transfers belong to
-    the download machinery. Returns how many were removed."""
+    library seeds are touched (an operator's client may seed its own copy
+    of one: see _seed_file); staging transfers belong to the download
+    machinery. Returns how many were removed."""
     from zimi import p2p as _p2p
 
     backend = _p2p.peek_backend()
@@ -2601,20 +2702,15 @@ def retire_stale_seeds():
         entries = backend.list_managed()
     except Exception:
         return 0
-    zim_root = os.path.normpath(_srv.ZIM_DIR)
     for raw in entries:
         for f in raw.get("files", []):
-            path = f.get("path", "")
-            if not path:
-                continue
-            if os.path.normpath(os.path.dirname(path)) != zim_root:
-                continue
-            if not os.path.exists(path):
+            fname = _seed_file(backend, raw, f.get("path", ""), gone=True)
+            if fname:
                 try:
                     backend.remove(raw.get("gid", ""), delete_files=True)
                     removed += 1
-                    unrecord_seed(os.path.basename(path))
-                    log.info("Retired stale seed: %s", os.path.basename(path))
+                    unrecord_seed(fname)
+                    log.info("Retired stale seed: %s", fname)
                 except Exception:
                     pass
                 break
@@ -2731,6 +2827,14 @@ def note_exiting():
     _exiting = True
 
 
+# How many engines one download will try before HTTP: the first, and the
+# next two a person switches to while it runs.
+ENGINE_RESTARTS = 3
+# A client the operator runs (in its own container, behind a VPN) restarts now
+# and then: this long of failed status polls in a row before HTTP takes over.
+STATUS_FAIL_S = 120
+
+
 def _try_bt_download(
     backend,
     dl,
@@ -2749,6 +2853,8 @@ def _try_bt_download(
       "cancelled" — user cancelled; backend cleaned up; caller stops
       "stopped"   — the engine was shut down under us (server exiting);
                     caller leaves the record alone, it resumes next start
+      "restart"   — the engine was replaced or restarted under us (Settings);
+                    caller asks for the engine again and carries on there
       "error"     — terminal (rare); caller should report
 
     On every poll we update dl with downloaded_bytes / total_bytes /
@@ -2761,7 +2867,8 @@ def _try_bt_download(
     # hash check below salvages every unchanged piece. Fail-soft — a no-op on
     # anything but a genuine update with room to copy.
     try:
-        _prepare_delta_staging(dl, staging_dir)
+        if not backend.external:  # an external engine saves where it saves
+            _prepare_delta_staging(dl, staging_dir)
     except Exception as e:
         log.debug("delta-update pre-seed skipped for %s: %s", dl["filename"], e)
 
@@ -2780,6 +2887,8 @@ def _try_bt_download(
     was_paused = False
     last_bytes = 0
     last_progress_t = started
+    poll_fails = 0
+    failing_since = None
     while True:
         if dl.get("cancelled"):
             try:
@@ -2815,10 +2924,17 @@ def _try_bt_download(
         # data and cleared its handle. Falling back here would delete that
         # data and start an HTTP copy of the same file in the seconds before
         # the process exits.
-        if not backend.is_alive():
+        if not backend.is_alive() or backend.retired:
             if _exiting:
                 log.info("BT engine stopped under %s; it resumes on next start", dl["filename"])
                 return "stopped"
+            if backend.retired or _p2p.is_torrent_enabled():
+                # Another engine took over, or this one restarted (a port
+                # change). The torrent stays where it is: the same engine
+                # picks it up where it was, and a different one was handed
+                # over clean (p2p.switch_engine).
+                log.info("BT engine changed under %s; carrying on with the new one", dl["filename"])
+                return "restart"
             # Not exiting: the engine was turned off (or its port changed)
             # from Settings while this download ran. That is what the HTTP
             # fallback is for, as it was before; the partial in staging is
@@ -2835,6 +2951,14 @@ def _try_bt_download(
         try:
             status = backend.status(tid)
         except Exception as e:
+            if backend.retired:
+                return "restart"  # taken apart between the check and the poll
+            poll_fails += 1
+            failing_since = failing_since or time.monotonic()
+            if getattr(backend, "external", False) and time.monotonic() - failing_since < STATUS_FAIL_S:
+                log.info("BT status poll failed for %s (%d): %s", dl["filename"], poll_fails, e)
+                time.sleep(poll_interval)
+                continue
             log.warning(
                 "BT status poll failed for %s: %s — falling back", dl["filename"], e
             )
@@ -2844,6 +2968,9 @@ def _try_bt_download(
                 pass
             return "fallback"
 
+        poll_fails, failing_since = 0, None
+        if backend.retired:
+            return "restart"
         # Surface progress to the existing UI.
         dl["downloaded_bytes"] = status.get("completed_bytes", 0)
         dl["total_bytes"] = status.get("total_bytes", 0)
@@ -2875,12 +3002,18 @@ def _try_bt_download(
 
         state = status.get("state")
         if state == "complete":
-            staged = os.path.join(staging_dir, dl["filename"])
-            if not os.path.exists(staged):
+            try:
+                staged = backend.payload_path(tid, dl["filename"], staging_dir)
+            except Exception as e:
+                log.warning("BT payload lookup failed for %s: %s", dl["filename"], e)
+                staged = ""
+            if not staged or not os.path.exists(staged):
                 log.warning(
                     "BT reported complete but staged file missing: %s"
-                    " — falling back",
+                    " — falling back%s",
                     staged,
+                    f" (can Zimi see {backend.name}'s download folder? Settings > "
+                    "BitTorrent > Folders)" if backend.external else "",
                 )
                 try:
                     backend.remove(tid, delete_files=True)
@@ -2906,17 +3039,21 @@ def _try_bt_download(
                 return "fallback"
             try:
                 os.makedirs(os.path.dirname(dl["dest"]), exist_ok=True)
-                os.replace(staged, dl["dest"])
-            except OSError as e:
-                # Cross-filesystem rename — fall back to copy + remove
+                tid = backend.install(tid, staged, dl["dest"]) or tid
+            except Exception as e:
+                if backend.retired:
+                    return "restart"  # the next engine picks it up
+                log.warning("BT staging→dest failed for %s: %s", dl["filename"], e)
+                # HTTP brings the file now; the engine's torrent must not land
+                # on top of it later. Its finished files stay where they are
+                # (a move the client never made is not a reason to delete a
+                # whole download); remove never touches the library.
                 try:
-                    import shutil as _shutil
-
-                    _shutil.copyfile(staged, dl["dest"])
-                    os.remove(staged)
-                except Exception as e2:
-                    log.warning("BT staging→dest failed: %s / %s", e, e2)
-                    return "fallback"
+                    backend.remove(tid, delete_files=False)
+                except Exception:
+                    pass
+                log.warning("BT: %s stays where the engine put it: %s", dl["filename"], staged)
+                return "fallback"
             # Post-world resilience: remember how to seed this file with
             # zero internet — infohash + .torrent survive in ZIMI_DATA_DIR
             # even after the sidecar forgets the download.
@@ -2935,10 +3072,25 @@ def _try_bt_download(
             # No re-hash needed: libtorrent seeds the existing file when
             # save_path points at it, and libzim just validated it.
             _cap = _p2p.get_seed_ratio_cap()
+            _seed = _p2p.is_seeding_enabled() and (_cap > 0 or _p2p.is_mirror_enabled())
+            if backend.external:
+                # It keeps seeding the file it has (moved into the library, or
+                # its own copy); the ledger caps it like any other seed. Not
+                # seeding: let it go, and its own copy with it (remove never
+                # deletes a library file).
+                if _seed:
+                    record_seed(dl["filename"])
+                    dl["bt_gid"] = tid
+                else:
+                    try:
+                        backend.remove(tid, delete_files=True)
+                    except Exception as e:
+                        log.debug("external engine remove failed: %s", e)
+                return "success"
             # Zimi's "ratio 0" means never seed; the engine seeds without a
             # cap and the ledger enforces the user's. Only mirror mode or a
             # positive cap re-adds the library seed.
-            if _p2p.is_seeding_enabled() and (_cap > 0 or _p2p.is_mirror_enabled()):
+            if _seed:
                 # Remove the staging torrent FIRST. It still holds this
                 # info-hash as an active seeder (now pointing at the moved-away
                 # staging path), so adding the library-path torrent before
@@ -3402,6 +3554,15 @@ def _download_from_url(dl, url, tmp_dest):
             # Peer pulls are plain HTTP to a LAN IP literal; refuse redirects
             # so a peer can't bounce us off-LAN. No SSL context needed.
             resp = _NO_REDIRECT_OPENER.open(req, timeout=600)
+        elif dl.get("_public_only"):
+            from zimi import netguard as _ng
+
+            opener = urllib.request.build_opener(
+                _PublicOnlyRedirectHandler(_ng.PrivateGuard()),
+                _PublicOnlyHTTPHandler(),
+                _PublicOnlyHTTPSHandler(context=_srv.SSL_CTX),
+            )
+            resp = opener.open(req, timeout=600)
         else:
             resp = urllib.request.urlopen(req, timeout=600, context=_srv.SSL_CTX)
     except urllib.error.HTTPError as e:
@@ -3668,12 +3829,21 @@ def _download_thread(dl):
         # on any non-success outcome — never strands the user's download.
         from zimi import p2p as _p2p
 
-        try:
-            _backend = _p2p.get_backend(data_dir=_srv.ZIMI_DATA_DIR)
-        except Exception:
-            _backend = None
-        _torrent_url = _resolve_torrent_url(dl["url"]) if _backend else None
-        if _backend and _torrent_url:
+        _bt_outcome = None
+        _torrent_url = None
+        # An engine switch mid-download carries on with the new engine; a
+        # second switch inside the same download is a person trying engines,
+        # and the third gets HTTP.
+        for _attempt in range(ENGINE_RESTARTS):
+            try:
+                _backend = _p2p.get_backend(data_dir=_srv.ZIMI_DATA_DIR)
+            except Exception:
+                _backend = None
+            if _backend and _torrent_url is None:
+                _torrent_url = _resolve_torrent_url(dl["url"]) or ""
+            if not (_backend and _torrent_url):
+                _bt_outcome = None if _bt_outcome is None else "fallback"
+                break
             try:
                 _bt_outcome = _try_bt_download(
                     _backend,
@@ -3684,6 +3854,21 @@ def _download_thread(dl):
             except Exception as e:
                 log.warning("BT path raised: %s — falling back to HTTP", e)
                 _bt_outcome = "fallback"
+            if _bt_outcome != "restart":
+                break
+        if _bt_outcome == "restart":
+            # Out of restarts: HTTP brings the file, so the torrent the last
+            # engine may still hold goes (remove never touches the library).
+            _bt_outcome = "fallback"
+            if dl.get("bt_info_hash"):
+                # The retired engine, and the live one when it is the same
+                # client restarted, may each still hold it.
+                for engine in {id(e): e for e in (_backend, _p2p.peek_backend()) if e is not None}.values():
+                    try:
+                        engine.remove(dl["bt_info_hash"], delete_files=True)
+                    except Exception as e:
+                        log.debug("BT: could not drop %s after restarts: %s", dl["filename"], e)
+        if _bt_outcome is not None:
             if _bt_outcome == "success":
                 dl["done"] = True
                 log.info("BT download complete: %s", dl["filename"])
@@ -4051,6 +4236,12 @@ def _start_import(url, size_bytes=None, actor=None):
         return None, "Only .zim files can be imported"
     if not re.match(r"^[\w.\-]+$", filename):
         return None, "Invalid characters in filename"
+    public_only = _imports_public_only()
+    if public_only:
+        from zimi import netguard as _ng
+
+        if _ng.PrivateGuard().refuses(urlparse(url).hostname or ""):
+            return None, "That address is on a private network"
     dest = os.path.join(_srv.ZIM_DIR, filename)
 
     space_err = _refuse_for_disk_space(size_bytes, dest=dest)
@@ -4074,6 +4265,7 @@ def _start_import(url, size_bytes=None, actor=None):
             # An import is its own kind of event in the activity journal: the
             # admin pointed at a URL nobody's catalog knows about.
             "_activity": {"actor": actor, "type": "import"},
+            "_public_only": public_only,
         }
         _enqueue_or_start(dl)
     return dl_id, None

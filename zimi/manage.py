@@ -245,14 +245,43 @@ def manage_open():
     cannot tell that client from the internet. This asks nothing, so there is
     nothing to get wrong.
 
-    Read from the environment on each call so the config file's value, which
-    is published into the environment at startup, and a test's, both land."""
-    return os.environ.get("ZIMI_MANAGE_OPEN", "0").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
+    The environment (or config file, published into it at startup) wins when
+    set; else the password switched off in Settings (_handle_access). Read on each call
+    so a test's value and a Settings change both land; the prefs read is the
+    cached one manage_external already pays for."""
+    env = manage_open_env()
+    if env is not None:
+        return env
+    if _read_app_update_prefs().get("manage_open") is not True:
+        return False
+    # Set in Settings, it gives way to an environment set since that forbids
+    # it (a password there, outside access off, the LAN not trusted), and is
+    # cleared, so removing that variable later does not quietly reopen it.
+    if _open_env_forbids():
+        _write_app_update_prefs(manage_open=False)
+        return False
+    return True
+
+
+def _open_env_forbids():
+    return bool(
+        os.environ.get("ZIMI_MANAGE_PASSWORD", "")
+        or _env_flag("ZIMI_MANAGE_EXTERNAL") is False
+        or _lan_admin_env() is False
     )
+
+
+def open_from_settings():
+    """The password switched off in Settings (not by ZIMI_MANAGE_OPEN): while
+    it is on, nothing that outlives it can be made (an API token, an account,
+    a password), and the BitTorrent client and private captures are fenced."""
+    return manage_open() and not manage_open_env()
+
+
+def manage_open_env():
+    """ZIMI_MANAGE_OPEN when someone set it, else None. Set either way, it
+    locks the Settings switch."""
+    return _env_flag("ZIMI_MANAGE_OPEN")
 
 
 def _lan_client(handler):
@@ -313,16 +342,13 @@ def access_mode():
 def manage_external():
     """Whether settings may be changed from outside the private network.
 
-    ZIMI_MANAGE_EXTERNAL (config manage_external) when set, else the setup
-    page's answer. With neither it is on: every install that had a password
-    before the setup page existed reached its settings from anywhere, and an
-    upgrade must not lock its owner out. Without a password it means nothing:
-    `lan` and `unset` keep the outside out on their own."""
+    ZIMI_MANAGE_EXTERNAL (config manage_external) when set, else on. The page
+    no longer asks: a wall drawn by where a request seems to come from locked
+    owners out behind their own proxies, and the password is the wall. A
+    saved answer from the old switch is not read. Without a password it means
+    nothing: `lan` and `unset` keep the outside out on their own."""
     env = _env_flag("ZIMI_MANAGE_EXTERNAL")
-    if env is not None:
-        return env
-    saved = _read_app_update_prefs().get("manage_external")
-    return True if saved is None else bool(saved)
+    return True if env is None else env
 
 
 def settings_reachable(handler):
@@ -370,7 +396,7 @@ def init_setup_gate(host, ran_before=False):
     _setup_gate = fresh and not loopback and access_mode() == "unset"
     if _setup_gate:
         _write_app_update_prefs(setup_gate=True, setup_started=time.time())
-        log.info("First-run setup: Zimi opens once its owner chooses who can change settings")
+        log.info("First-run setup: Zimi opens once its owner chooses who can manage it")
     return _setup_gate
 
 
@@ -520,6 +546,13 @@ def _revoke_api_token():
         pass
 
 
+def _verify_pbkdf2(candidate, stored_pw):
+    if not stored_pw or "$" not in stored_pw:
+        return False
+    salt = stored_pw.split("$")[0]
+    return hmac.compare_digest(_hash_pw(candidate, salt), stored_pw)
+
+
 def _verify_password(candidate, stored_pw):
     """Verify a password against the stored hash. Handles legacy and PBKDF2."""
     if _is_legacy_hash(stored_pw):
@@ -527,10 +560,14 @@ def _verify_password(candidate, stored_pw):
             _upgrade_legacy_hash(candidate)
             return True
         return False
-    if "$" not in stored_pw:
-        return False
-    salt = stored_pw.split("$")[0]
-    return hmac.compare_digest(_hash_pw(candidate, salt), stored_pw)
+    return _verify_pbkdf2(candidate, stored_pw)
+
+
+def _verify_current(candidate, stored_pw):
+    """The current password, asked again before a change. Only a PBKDF2 hash
+    can answer: signing in already moved a v1.5 hash to PBKDF2, so the legacy
+    check (and its SHA-256) stays on the sign-in path alone."""
+    return _verify_pbkdf2(candidate, stored_pw)
 
 
 def verify_admin_credentials(username, password):
@@ -2407,7 +2444,14 @@ def _create_defaults_view():
 
 
 def _create_allows_private():
-    """Whether an admin has allowed web captures of private addresses."""
+    """Whether an admin has allowed web captures of private addresses.
+
+    Never while the password is off in Settings: then anyone on the
+    internet is the admin, and this would let them read the operator's own
+    network through Zimi. An operator who opened Zimi with ZIMI_MANAGE_OPEN
+    made that call in their own config and keeps the choice."""
+    if open_from_settings():
+        return False
     return bool(_create_default("allow_private", False))
 
 
@@ -4780,6 +4824,8 @@ def _creator_payload():
         **_create_defaults_view(),
         "queue": len(_create_queue_view()),
         "offline": _is_offline_mode(),
+        # Held off while the password is off (_create_allows_private).
+        "private_locked": open_from_settings(),
     }
 
 
@@ -5649,10 +5695,11 @@ def handle_manage_get(handler, parsed, params):
                 # peek only — a 5s poll must never spawn (or retry) the sidecar
                 backend = _p2p.peek_backend()
                 if backend:
+                    # A client engine answers from its last list, refreshed in
+                    # the background; the built-in one from memory.
+                    rows = getattr(backend, "list_managed_cached", backend.list_managed)()
                     seeding_count = sum(
-                        1
-                        for raw in backend.list_managed()
-                        if raw.get("state") in ("seeding", "complete")
+                        1 for raw in rows if raw.get("seeder") == "true" and raw.get("status") == "active"
                     )
         except Exception:
             pass
@@ -5984,7 +6031,7 @@ def handle_manage_get(handler, parsed, params):
         from zimi import p2p
 
         enabled = p2p.is_torrent_enabled()
-        engine_importable = p2p._lt() is not None
+        engine_importable = p2p._lt() is not None or p2p.engine_name() != "libtorrent"
 
         # Live state — peek only. A status view must never start the
         # engine (with BT on by default that would mean every settings
@@ -6045,7 +6092,8 @@ def handle_manage_get(handler, parsed, params):
             {
                 "status": status,
                 "enabled": enabled,
-                "backend": "libtorrent",
+                "backend": p2p.engine_name(),
+                "client": _btc_view(),
                 "bt_port": p2p.get_bt_port(),
                 "staging_dir": p2p.get_staging_dir(_srv.ZIMI_DATA_DIR),
                 "engine_importable": engine_importable,
@@ -6128,6 +6176,9 @@ def _handle_users_post(handler, data):
     name = data.get("name", "")
     kind = admin_kind(handler)  # 'primary' | 'secondary' (auth already passed)
     role = data.get("role")
+    # While anyone can manage Zimi, no one may make a way in that outlives it.
+    if open_from_settings() and action in ("create", "set-password", "set-role"):
+        return handler._json(403, {"error": "open_locked"})
 
     # The primary admin is a synthetic row — no CRUD action may target it.
     primary_name = _get_manage_user() or "admin"
@@ -6263,12 +6314,12 @@ def access_answer(handler):
     return {
         "access": access_mode(),
         "access_env": _lan_admin_env() is not None,
-        "external": manage_external() and bool(_get_manage_password_hash()),
-        "external_env": _env_flag("ZIMI_MANAGE_EXTERNAL") is not None,
+        # The password off: set in the environment (the switch is locked and
+        # the rows are not shown), and whether a password is kept for when it
+        # is turned off again.
+        "open_env": manage_open_env() is not None,
+        "kept_password": bool(_get_manage_password_hash()),
         "setup": setup_pending(),
-        # Through a proxy "anyone on my network" would lock this browser out,
-        # so the page holds the password on (see _lan_client).
-        "direct": _lan_client(handler),
         # Whether this device answers without the setup key: the machine
         # running Zimi, or the home network while a fresh install's page is up
         # (_first_run_lan_client). Elsewhere inside the network a device is
@@ -6280,79 +6331,213 @@ def access_answer(handler):
         # it would be half the login handed out.
         "username": (
             _get_manage_user()
-            if _get_manage_password_hash() and _check_manage_auth(handler) is None
+            if _get_manage_password_hash()
+            and not manage_open()  # everyone passes the check while open
+            and _check_manage_auth(handler) is None
             else ""
         ),
     }
 
 
 def _handle_access(handler, data):
-    """POST /manage/access: the setup page, and the same rows in Settings.
+    """POST /manage/access: the one switch, on the setup page and in Settings.
 
-    {external, require_password, username, password}. Before a password
-    exists this is the bootstrap (GHSA-5mw2-53vv-9pw6): only the machine
-    running Zimi or the holder of the setup key it logged gets through, so a
-    neighbour cannot answer it for the owner. After, it is admin-only.
-    Changing an existing password stays with set-password, which asks for the
-    current one."""
-    if manage_open():
+    {require_password, password, username, current_password, open_confirm}.
+    Before a password exists this is the bootstrap (GHSA-5mw2-53vv-9pw6): only
+    the machine running Zimi or the holder of the setup key it logged gets
+    through, so a neighbour cannot answer it for the owner. After, it is
+    admin-only.
+
+    Where the request came from is not asked. Every rule that asked (a LAN
+    behind a reverse proxy, a proxy that could not be told from the internet)
+    ended with an owner who could not turn their own password off at home. On,
+    whoever has the password manages Zimi; off, anyone who can reach it does
+    (_open_to_anyone). Changing an existing password stays with set-password,
+    which asks for the current one."""
+    env_open = manage_open_env()
+    if env_open:  # the environment opened it; only the environment closes it
         return handler._json(403, {"error": "env_controlled", "var": "ZIMI_MANAGE_OPEN"})
     challenge = _manage_auth_challenge(handler)
     if challenge:
         return handler._json(*challenge)
-    external = data.get("external") is True
-    require = data.get("require_password") is True
-    username = str(data.get("username") or "").strip()[:64]
+    if data.get("require_password") is not True:
+        if env_open is False:  # ZIMI_MANAGE_OPEN=0 forbids only this answer
+            return handler._json(403, {"error": "env_controlled", "var": "ZIMI_MANAGE_OPEN"})
+        return _open_to_anyone(handler, data)
+    # No username sent leaves the stored one alone (only a form showing the
+    # field can rename the account).
+    username = str(data.get("username") or "").strip()[:64] if "username" in data else None
     password = str(data.get("password") or "").strip()
-    env_pw = bool(os.environ.get("ZIMI_MANAGE_PASSWORD", ""))
-    env_ext = _env_flag("ZIMI_MANAGE_EXTERNAL")
     stored = _get_manage_password_hash()
-    if env_ext is not None and external != env_ext:
-        return handler._json(403, {"error": "env_controlled", "var": "ZIMI_MANAGE_EXTERNAL"})
-    if env_pw and (not require or password):
+    if os.environ.get("ZIMI_MANAGE_PASSWORD", "") and password:
         return handler._json(403, {"error": "env_controlled", "var": "ZIMI_MANAGE_PASSWORD"})
-    if not require and _lan_admin_env() is False:
-        return handler._json(403, {"error": "env_controlled", "var": "ZIMI_LAN_ADMIN"})
-    if external and not require:
+    if not stored and not password:
         return handler._json(400, {"error": "needs_password"})
-    if require and not stored and not password:
-        return handler._json(400, {"error": "needs_password"})
-    if require and stored and password:
+    if stored and password:
+        # Off with a kept password, on returns to that password, never to a
+        # new one a visitor could set to lock the owner out with.
+        if open_from_settings():
+            return handler._json(403, {"error": "open_locked"})
         return handler._json(400, {"error": "change it with the current password"})
-    if not require:
-        # Through a reverse proxy the caller is not seen as on the network, so
-        # "anyone on my network" would lock them out the moment it was made.
-        if not _lan_client(handler):
-            return handler._json(409, {"error": "behind_proxy"})
-        if stored and _get_api_token():
-            return handler._json(
-                400, {"error": "Revoke the API token before removing the password"}
-            )
+    if stored and open_from_settings() and username is not None and username != _file_username():
+        # Nor a new name for it: the kept password would no longer log in.
+        return handler._json(403, {"error": "open_locked"})
     if os.environ.get("ZIMI_MANAGE_USER", "").strip():
         username = None  # the environment names the account
-    if require and password:
+    if password:
         if not _set_manage_password(password, username=username or ""):
             return handler._json(
                 500, {"error": "Could not save the password (storage is not writable)"}
             )
-    elif require and username is not None and username != _file_username():
+    elif username is not None and username != _file_username():
         if not _set_manage_username(username):
             return handler._json(500, {"error": "Could not save the username"})
-    elif not require and stored and not _set_manage_password(""):
-        return handler._json(
-            500, {"error": "Could not save the password (storage is not writable)"}
-        )
-    _write_app_update_prefs(manage_external=external, lan_admin=not require)
+    _write_app_update_prefs(lan_admin=False, manage_open=False)
     _clear_setup_key()
     _end_setup_gate()
-    log.info(
-        "Access: %s%s",
-        "password" if require else "anyone on the local network",
-        ", from outside the network too" if external else ", inside the network only",
-    )
-    if require and password:
+    log.info("Access: password")
+    if password:
         return _password_set_response(handler, data, {"access": access_mode()})
     return handler._json(200, {"access": access_mode()})
+
+
+def _open_to_anyone(handler, data):
+    """The password switched off in Settings: nobody is asked for anything, from
+    anywhere. The answer to "I do not want a password" for an instance that is
+    reachable from outside, which used to need ZIMI_MANAGE_OPEN in a config.
+
+    It costs a deliberate act: the box that names the cost, and the current
+    password when there is one, so a borrowed session cannot do it. Nothing is
+    purged (password, API token, accounts and sessions stay), so turning it
+    off goes back to exactly what was there. On a first run it is one of the
+    two answers, made only by those the setup page's two doors let through
+    (GHSA-5mw2-53vv-9pw6): never a default, always this named press."""
+    if data.get("open_confirm") is not True:
+        return handler._json(400, {"error": "open_unconfirmed"})
+    if _env_flag("ZIMI_MANAGE_EXTERNAL") is False:
+        return handler._json(403, {"error": "env_controlled", "var": "ZIMI_MANAGE_EXTERNAL"})
+    if os.environ.get("ZIMI_MANAGE_PASSWORD", ""):
+        return handler._json(403, {"error": "env_controlled", "var": "ZIMI_MANAGE_PASSWORD"})
+    if _lan_admin_env() is False:
+        return handler._json(403, {"error": "env_controlled", "var": "ZIMI_LAN_ADMIN"})
+    stored = _get_manage_password_hash()
+    if not manage_open() and stored:
+        current = str(data.get("current_password") or "")
+        if not current or not _verify_current(current, stored):
+            return handler._json(403, {"error": "wrong_password"})
+    _write_app_update_prefs(manage_open=True)
+    _clear_setup_key()
+    _end_setup_gate()
+    log.warning(
+        "Access: password off. Nobody is asked for a password; anyone who "
+        "can reach this server can manage it (Settings > Access > Managing "
+        "Zimi turns it off)."
+    )
+    return handler._json(200, {"access": access_mode()})
+
+
+def _btc_locked():
+    """Why the engine cannot be changed here, or None. The environment owns
+    it when ZIMI_BT_CLIENT or its URL is set; and while the password is off
+    a client could only come from there, or anyone could point Zimi's
+    requests at the operator's own network."""
+    from zimi import btclient
+
+    var = btclient.env_var()
+    if var:
+        return var
+    if open_from_settings():
+        return "open"
+    return None
+
+
+def _btc_view():
+    """The engine for Settings. Never the password: only whether one is
+    saved."""
+    from zimi import btclient
+
+    cfg = btclient.config() or {}
+    return {
+        "kind": cfg.get("kind", ""),
+        "url": cfg.get("url", ""),
+        "user": cfg.get("user", ""),
+        "password_set": bool(cfg.get("password")),
+        "category": cfg.get("category", btclient.DEFAULT_CATEGORY),
+        "paths": btclient.format_paths(cfg.get("paths", [])),
+        "locked": _btc_locked(),
+    }
+
+
+def _handle_bt_client(handler, data):
+    """POST /manage/bt-client: {kind, url, user, password?, category, paths,
+    test?}.
+
+    ``test`` only probes and saves nothing. A missing password keeps the saved
+    one; an empty kind (or url) goes back to the built-in engine. Saving moves
+    to the new engine at once: downloads carry on there and seeds follow
+    (p2p.switch_engine)."""
+    from zimi import btclient, p2p
+
+    locked = _btc_locked()
+    if locked:
+        return handler._json(403, {"error": "env_controlled" if locked != "open" else "open_locked", "var": locked})
+    if p2p.is_offline():  # BitTorrent is off, and Settings hides the card
+        return handler._json(403, {"error": "env_controlled", "var": "ZIMI_OFFLINE"})
+    old = btclient.config() or {}
+    kind = str(data.get("kind") or "").strip().lower()
+    url = str(data.get("url") or "").strip().rstrip("/")
+    if kind and kind not in btclient.KINDS:
+        return handler._json(400, {"error": "bad_kind"})
+    if not kind:
+        url = ""
+    if kind and not btclient.valid_url(url):
+        return handler._json(400, {"error": "bad_url"})
+    password = data.get("password")
+    if password is None:
+        # The saved password goes only to the client it was saved for: a new
+        # address with a blank password must not send it somewhere else.
+        same = old.get("kind") == kind and btclient.same_url(old.get("url", ""), url)
+        password = old.get("password", "") if same else ""
+    cfg = {
+        "kind": kind,
+        "url": url,
+        "user": str(data.get("user") or "").strip()[:128],
+        "password": str(password)[:256],
+        "category": str(data.get("category") or "").strip()[:64] or btclient.DEFAULT_CATEGORY,
+        "paths": btclient.parse_paths(data.get("paths") or ""),
+    }
+    if data.get("test"):
+        if not kind:
+            return handler._json(400, {"error": "bad_url"})
+        return handler._json(200, btclient.probe(cfg, library_dir=_srv.ZIM_DIR))
+    if kind:
+        # A client that does not answer is not switched to: the engine in
+        # use keeps its downloads and seeds, and the form says why.
+        found = btclient.probe(cfg, library_dir=_srv.ZIM_DIR)
+        if not found.get("ok"):
+            return handler._json(409, found)
+    saved = p2p.set_prefs(
+        {
+            btclient.PREF["kind"]: kind,
+            btclient.PREF["url"]: url,
+            btclient.PREF["user"]: cfg["user"] if kind else "",
+            btclient.PREF["password"]: cfg["password"] if kind else "",
+            btclient.PREF["category"]: cfg["category"],
+            btclient.PREF["paths"]: btclient.format_paths(cfg["paths"]),
+        }
+    )
+    if not saved:
+        return handler._json(500, {"error": "could not save setting (config dir not writable)"})
+    log.info("BitTorrent engine: %s", f"{btclient.label(kind)} at {btclient.loggable(url)}" if kind else "built in")
+
+    def _switch():
+        from zimi import library as _lib
+
+        if p2p.switch_engine(data_dir=_srv.ZIMI_DATA_DIR):
+            _lib.apply_seed_settings()
+
+    threading.Thread(target=_switch, daemon=True).start()
+    return handler._json(200, {"engine": kind or "libtorrent", "client": _btc_view()})
 
 
 def handle_manage_post(handler, parsed, data):
@@ -6364,6 +6549,8 @@ def handle_manage_post(handler, parsed, data):
         return _handle_access(handler, data)
 
     if parsed.path == "/manage/set-password":
+        if open_from_settings():
+            return handler._json(403, {"error": "open_locked"})
         # Env var controls password — UI changes would be silently overridden
         if os.environ.get("ZIMI_MANAGE_PASSWORD", ""):
             return handler._json(
@@ -6375,7 +6562,7 @@ def handle_manage_post(handler, parsed, data):
         stored = _get_manage_password_hash()
         if stored:
             cur = data.get("current", "")
-            if not cur or not _verify_password(cur, stored):
+            if not cur or not _verify_current(cur, stored):
                 return handler._json(401, {"error": "Current password is incorrect"})
         else:
             # Initial setup: there is no current password to verify, so the
@@ -6387,10 +6574,6 @@ def handle_manage_post(handler, parsed, data):
             if challenge:
                 return handler._json(*challenge)
         new_pw = data.get("password", "").strip()
-        if not new_pw and _get_api_token():
-            return handler._json(
-                400, {"error": "Revoke the API token before removing the password"}
-            )
         # OPTIONAL username stored alongside the hash. Absent field → None →
         # _set_manage_password preserves any existing username. When the env
         # var owns the username, the file copy is inert (env wins on read), so
@@ -6406,9 +6589,6 @@ def handle_manage_post(handler, parsed, data):
             )
         if new_pw:
             return _password_set_response(handler, data, {"status": "password set"})
-        # No password and no outside: settings from outside need a password.
-        if _read_app_update_prefs().get("manage_external"):
-            _write_app_update_prefs(manage_external=False)
         return handler._json(200, {"status": "password cleared"})
 
     # API token management — requires existing auth + password must be set
@@ -6416,6 +6596,8 @@ def handle_manage_post(handler, parsed, data):
         challenge = _manage_auth_challenge(handler)
         if challenge:
             return handler._json(*challenge)
+        if open_from_settings():
+            return handler._json(403, {"error": "open_locked"})
         if not _get_manage_password_hash():
             return handler._json(
                 400, {"error": "Set a password before generating an API token"}
@@ -7337,6 +7519,9 @@ def handle_manage_post(handler, parsed, data):
         )
         return handler._json(200, {"nat": result})
 
+    elif parsed.path == "/manage/bt-client":
+        return _handle_bt_client(handler, data)
+
     elif parsed.path == "/manage/bt-settings":
         # Seed/mirror toggles. An env var locks its field — UI changes would
         # be silently overridden on next read (same contract as auto-update).
@@ -7419,8 +7604,7 @@ def handle_manage_post(handler, parsed, data):
 
             # Apply live: respawn the sidecar on the new port + re-map UPnP
             def _respawn():
-                p2p.shutdown_backend()
-                if p2p.get_backend(data_dir=_srv.ZIMI_DATA_DIR):
+                if p2p.switch_engine(data_dir=_srv.ZIMI_DATA_DIR):
                     try:
                         from zimi import p2p_nat
 
@@ -7452,9 +7636,10 @@ def handle_manage_post(handler, parsed, data):
                 )
             changed["torrent"] = on
             if not on:
-                # Switch off means OFF — stop the sidecar (and its seeds) now.
+                # Switch off means OFF — stop the engine and its seeds now,
+                # in a client the operator runs too.
                 try:
-                    p2p.shutdown_backend()
+                    p2p.shutdown_backend(release=True)
                 except Exception:
                     pass
             else:

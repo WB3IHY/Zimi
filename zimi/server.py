@@ -126,7 +126,7 @@ except ImportError:
 # SSL context using certifi CA bundle (PyInstaller bundles lack system certs)
 SSL_CTX = ssl.create_default_context(cafile=certifi.where())
 
-ZIMI_VERSION = "1.13.2"
+ZIMI_VERSION = "1.13.3"
 
 
 def bundled(module):
@@ -904,10 +904,9 @@ CONFIG_ENV_SETTINGS = (
     # want an admin password at all", which is a real way people run this and
     # which 1.9.0 removed with nothing in its place (issue #59).
     ConfigSetting("lan_admin", "ZIMI_LAN_ADMIN", "bool", "0", None, False),
-    # Settings from outside the private network. Off on the setup page by
-    # default; unset here and never answered there, it is on, which is what
-    # every install with a password had before the page existed.
-    ConfigSetting("manage_external", "ZIMI_MANAGE_EXTERNAL", "bool", "", "setup page", False),
+    # Settings from outside the private network: on unless this says 0. The
+    # page no longer asks (one switch, a password; manage.manage_external).
+    ConfigSetting("manage_external", "ZIMI_MANAGE_EXTERNAL", "bool", "", "on", False),
     # The opt out. Management asks for nothing at all: no password, no setup
     # key, no question about where the request came from.
     #
@@ -5104,6 +5103,17 @@ def main():
         help="Start server and open in a native desktop window (requires pywebview)",
     )
 
+    p_doctor = sub.add_parser(
+        "doctor", help="Which optional features this install has, and how to get the rest"
+    )
+    p_doctor.add_argument(
+        "--check",
+        action="store_true",
+        help="Exit 1 when a feature this kind of install should include is missing",
+    )
+    p_doctor.add_argument("--kind", choices=("docker", "desktop", "pip"), help=argparse.SUPPRESS)
+    add_boot_flags(p_doctor)
+
     args = parser.parse_args()
 
     settings, config_path, data_dir_problem = _resolve_boot(args)
@@ -5168,6 +5178,11 @@ def main():
         from zimi import creator as _creator
 
         _creator.cli_create(args)
+
+    elif args.command == "doctor":
+        from zimi import runtimes as _runtimes
+
+        _runtimes.cli_doctor(args)
 
     elif args.command == "import":
         from zimi import importer as _importer
@@ -5238,6 +5253,15 @@ def main():
         if ZIMI_MANAGE:
             from zimi import manage as _mng_open
 
+            if os.environ.get("ZIMI_MANAGE_EXTERNAL") is not None:
+                # Deprecated with the outside switch: whether a visitor is
+                # outside is a guess a reverse proxy breaks. Still honoured, so
+                # an operator's 0 does not quietly open settings to the web.
+                log.warning(
+                    "ZIMI_MANAGE_EXTERNAL (manage_external) is deprecated and will "
+                    "be removed: keep /manage/ off the internet at your proxy "
+                    "instead. It still applies for now."
+                )
             if _mng_open.manage_open():
                 # Never quietly. A switch that turns authentication off has to
                 # be visible in the log of anyone who inherits this instance,
@@ -5246,7 +5270,8 @@ def main():
                 log.warning(
                     "Library management is OPEN: no password, no setup key, "
                     "anyone who can reach this server can administer it "
-                    "(manage_open / ZIMI_MANAGE_OPEN). Turn it off if this "
+                    "(Settings > Access > Managing Zimi, or manage_open / "
+                    "ZIMI_MANAGE_OPEN). Turn it off if this "
                     "instance is reachable from anywhere you do not control."
                 )
             elif _get_manage_password_hash():
@@ -5262,9 +5287,9 @@ def main():
                 key = _mng_open.ensure_setup_key()
                 log.info("Library management enabled — no admin password set yet.")
                 first = (
-                    "  │  Zimi opens once you choose who can change settings.\n"
+                    "  │  Zimi opens once you choose who can manage it.\n"
                     if gated
-                    else "  │  Choose who can change settings from this machine,\n"
+                    else "  │  Choose who can manage Zimi from this machine,\n"
                 )
                 print(
                     _printable(

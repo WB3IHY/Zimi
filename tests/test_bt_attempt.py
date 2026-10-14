@@ -19,6 +19,8 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import zimi.library as library  # noqa: E402
+import zimi.p2p as p2p  # noqa: E402
+from tests.engine_fakes import engine_mock  # noqa: E402
 
 
 def _mk_dl(tmp_path, name="wikipedia_en_top_2026-02.zim"):
@@ -38,7 +40,7 @@ def _mk_dl(tmp_path, name="wikipedia_en_top_2026-02.zim"):
 def _mk_backend(*, status_sequence):
     """Mock backend that returns the given status dicts in order on each
     .status() call. Each status dict represents one poll tick."""
-    backend = MagicMock()
+    backend = engine_mock()
     backend.add_torrent.return_value = "gid-001"
     iter_status = iter(status_sequence)
     backend.status.side_effect = lambda tid: next(iter_status)
@@ -264,11 +266,59 @@ def test_engine_stopped_under_the_poll_is_not_a_fallback(tmp_path, monkeypatch):
     assert not dl.get("done") and not dl.get("error")
 
 
+def _dying_backend():
+    backend = _mk_backend(
+        status_sequence=[
+            {
+                "state": "downloading",
+                "completed_bytes": 1000,
+                "total_bytes": 5000,
+                "down_speed": 10,
+                "up_speed": 0,
+                "peers": 3,
+                "info_hash": "",
+                "error_code": "",
+                "error_message": "",
+            },
+        ]
+    )
+    alive = iter([True, False])
+    backend.is_alive.side_effect = lambda: next(alive)
+    return backend
+
+
+@pytest.mark.parametrize("why", ["switched", "restarted"])
+def test_a_new_engine_mid_download_carries_on_there(tmp_path, monkeypatch, why):
+    """Another engine took over (Settings > Engine), or this one restarted
+    (a port change): the download asks for the engine again rather than
+    starting over on HTTP, and leaves the torrent where it is, since the
+    same engine picks it up where it was."""
+    dl = _mk_dl(tmp_path)
+    backend = _dying_backend()
+    if why == "switched":
+        backend.is_alive.side_effect = None
+        backend.is_alive.return_value = True
+        backend.retired = True
+    monkeypatch.setattr(library, "_exiting", False)
+    monkeypatch.setattr(p2p, "is_torrent_enabled", lambda: True)
+    result = library._try_bt_download(
+        backend,
+        dl,
+        torrent_url="https://download.kiwix.org/zim/foo.zim.torrent",
+        staging_dir=str(tmp_path / "staging"),
+        poll_interval=0.001,
+        no_peers_timeout=10.0,
+    )
+    assert result == "restart"
+    backend.remove.assert_not_called()
+
+
 def test_bittorrent_turned_off_mid_download_falls_back_to_http(tmp_path, monkeypatch):
-    """The same dead engine while the process is NOT exiting is the Settings
-    switch (or a port change). Stranding the row with no error and frozen
+    """The same dead engine while the process is NOT exiting and BitTorrent
+    is off is the Settings switch. Stranding the row with no error and frozen
     bytes until a restart is the outcome the first cut of the exit guard
     produced; the HTTP fallback is what 1.9.5 did, and what it does again."""
+    monkeypatch.setattr(p2p, "is_torrent_enabled", lambda: False)
     dl = _mk_dl(tmp_path)
     backend = _mk_backend(
         status_sequence=[
@@ -320,7 +370,7 @@ def test_cancelled_mid_download(tmp_path):
             "info_hash": "abc",
         }
 
-    backend = MagicMock()
+    backend = engine_mock()
     backend.add_torrent.return_value = "gid"
     backend.status.side_effect = status_with_cancel
     result = library._try_bt_download(
@@ -382,7 +432,7 @@ def test_add_failure_falls_back_cleanly(tmp_path):
     """If add_torrent itself raises (e.g. network blip fetching .torrent),
     we fall back to HTTP rather than failing loud."""
     dl = _mk_dl(tmp_path)
-    backend = MagicMock()
+    backend = engine_mock()
     backend.add_torrent.side_effect = RuntimeError("torrent metadata fetch failed")
     result = library._try_bt_download(
         backend,
