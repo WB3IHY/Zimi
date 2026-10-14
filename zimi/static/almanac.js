@@ -177,6 +177,9 @@ function _cancelAllRAF() {
   if (_almanacOrreryRAF) { cancelAnimationFrame(_almanacOrreryRAF); _almanacOrreryRAF = null; }
   _skyPause();
   if (_tzClockRAF) { clearTimeout(_tzClockRAF); _tzClockRAF = null; }
+  // A tick whose timer already fired waits as a frame: cancel that too, or it
+  // restarts the clock under a view that paused it.
+  if (_tzClockFrame) { cancelAnimationFrame(_tzClockFrame); _tzClockFrame = null; }
   _almTzHandPause();
 }
 function _resumeAllRAF() {
@@ -4504,6 +4507,7 @@ function _almTzHandPause() {
 
 // The clock's tick: the face, the digits and the cards, once a second.
 var _tzClockRAF = null;
+var _tzClockFrame = null;
 var _tzClockColors = null;
 var _tzGridMinute = -1;
 // The world clock ticks once a second, on the second, like a quartz watch:
@@ -4512,10 +4516,12 @@ var _tzGridMinute = -1;
 var _TZ_CLOCK_TICK_MS = 1000;
 function _startTzClock() {
   if (_tzClockRAF) clearTimeout(_tzClockRAF);
+  if (_tzClockFrame) { cancelAnimationFrame(_tzClockFrame); _tzClockFrame = null; }
   function next() {
-    _tzClockRAF = setTimeout(function () { requestAnimationFrame(tick); }, _TZ_CLOCK_TICK_MS - Date.now() % _TZ_CLOCK_TICK_MS);
+    _tzClockRAF = setTimeout(function () { _tzClockRAF = null; _tzClockFrame = requestAnimationFrame(tick); }, _TZ_CLOCK_TICK_MS - Date.now() % _TZ_CLOCK_TICK_MS);
   }
   function tick() {
+    _tzClockFrame = null;
     if (!_almanacOpen) { _tzClockRAF = null; return; }
     var now = new Date();
     _drawTzClock(now);
