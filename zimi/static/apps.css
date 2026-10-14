@@ -19,6 +19,12 @@
     --shadow-popup: 0 8px 32px rgba(0, 0, 0, 0.5);
   }
 }
+/* Red night light (apps.js nightApply): deep red on black, the least of the screen's light. Every tier of
+   text is at least 4.5:1 on every surface; pictures are turned to red monochrome. */
+:root.night-red { --bg: #000; --surface: #0d0000; --surface2: #160000; --border: #5a1414; --text: #ff5a5a; --text2: #f03030;
+  --amber: #ff4040; --amber-glow: rgba(255,64,64,0.16); --green: #f03030; --on-amber: #000; color-scheme: dark; }
+:root.night-red img, :root.night-red canvas, :root.night-red video, :root.night-red svg image {
+  filter: grayscale(1) sepia(1) hue-rotate(-42deg) saturate(10) brightness(.9); filter: url(#night-red-filter); }
 html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-text-size-adjust: 100%; }
 /* A double tap is a tap, as in the shell; no pinch either (apps.js). */
 html { touch-action: manipulation; }

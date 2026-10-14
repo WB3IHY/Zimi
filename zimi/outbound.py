@@ -142,6 +142,8 @@ SOURCES = {
     "importer": ("create",),
     "video": ("create",),
     "reddot": ("create",),
+    # The Field Guide's field manual: three Army PDFs, fetched when someone taps Build.
+    "fieldguide": ("create",),
 }
 
 

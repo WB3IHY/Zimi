@@ -215,7 +215,28 @@ function _applyAppTheme() {
   // sync with the app theme — this is what prevents the dark compositor flash
   // on tab re-activation. Mirrors the head bootstrap.
   el.style.colorScheme = t;
+  _nightApply();
 }
+// Red night light: one switch for the sky and the Field Guide, one key in this browser
+// (apps.js nightApply reads the same). night-red on <html> turns the palette deep red
+// on black (app.css), so looking at the phone does not cost night vision. Whoever draws
+// a switch (the sky's, the Field Guide's) writes NIGHT_KEY and calls _nightApply().
+var NIGHT_KEY = 'zimi.night', NIGHT_RED = 'red';
+function _nightApply() {
+  var on = false;
+  try { on = localStorage.getItem(NIGHT_KEY) === NIGHT_RED; document.documentElement.classList.toggle('night-red', on); } catch (e) {}
+  var btn = document.getElementById('night-btn');
+  if (btn) btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+// The header's switch while the Field Guide is open (the page has its own in each card).
+function _nightToggle() {
+  try {
+    if (localStorage.getItem(NIGHT_KEY) === NIGHT_RED) localStorage.removeItem(NIGHT_KEY);
+    else localStorage.setItem(NIGHT_KEY, NIGHT_RED);
+  } catch (e) {}
+  _nightApply();
+}
+window.addEventListener('storage', function(e) { if (e.key === NIGHT_KEY || e.key === null) _nightApply(); });
 function _setAppTheme(mode) {
   if (APP_THEMES.indexOf(mode) < 0) mode = 'auto';
   if (mode === 'auto') localStorage.removeItem(SK.APP_THEME);
@@ -1897,6 +1918,7 @@ function _appPlaceholder() {
   if (_isWikiPage()) return t('wiki_search_placeholder');
   if (_isBooksPage()) return t('books_search_placeholder');
   if (_isDictPage()) return t('dictionary_search_placeholder');
+  if (_isFieldguidePage()) return t('fieldguide_search_placeholder');
   if (_isReddotPage()) return t('reddot_search_placeholder');
   if (_isExchangePage()) return t('exchange_search_placeholder');
   if (_isTubePage()) return t('tube_search_placeholder');
@@ -2266,11 +2288,15 @@ var _loginRequired = false;
 function _enterLoginGate() {
   _loginRequired = true;
   document.body.classList.add('login-gate');
+  var help = document.getElementById('pw-helpnow');
+  if (help) { help.innerHTML = _gateHelpHtml(); help.hidden = false; }
   openLoginModal();
 }
 function _exitLoginGate() {
   _loginRequired = false;
   document.body.classList.remove('login-gate');
+  var help = document.getElementById('pw-helpnow');
+  if (help) help.hidden = true;
 }
 
 // Token-adding fetch for *ambient* /manage/* calls (activity bar, peer
@@ -2543,7 +2569,7 @@ var _CREATE_BC_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="non
 // or an app. Stamped on the page's history entry as it is pushed, so the
 // header's arrow and the browser's Back go to the same place, and named on
 // the arrow ("Almanac", "Search"). Read from the entry being left.
-var _FROM_APPS = ['tube', 'exchange', 'reddot', 'wiki', 'books', 'earth'];
+var _FROM_APPS = ['tube', 'exchange', 'reddot', 'wiki', 'books', 'earth', 'fieldguide'];
 function _openedFrom() {
   var s = history.state || {};
   if (s.mode === 'almanac' || s.mode === 'search') return s.mode;
@@ -2599,6 +2625,8 @@ function updateTopbar() {
   const backTo = _backLabel();
   const showBack = !!backTo || articleHistory.length > 0 || mode === 'search' || homeScope || (_isAppPage() && !_appTop);
   backBtn.style.display = showBack ? 'flex' : 'none';
+  var nightBtn = document.getElementById('night-btn');
+  if (nightBtn) nightBtn.style.display = _isFieldguidePage() ? 'flex' : 'none';
   backBtn.setAttribute('aria-label', backTo ? t('back_to', {place: backTo}) : t('go_back'));
   backBtn.title = backTo ? t('back_to', {place: backTo}) : '';
 
@@ -2629,6 +2657,12 @@ function updateTopbar() {
     bcIcon.title = t(hashApp);
     bcIcon.innerHTML = _appIcon(hashApp).replace('width="26" height="26"', 'width="20" height="20"');
     bcIcon.setAttribute('href', '/#' + hashApp);
+  } else if (_isFieldguidePage()) {
+    bcSep.style.display = 'inline';
+    bcIcon.style.display = 'inline-flex';
+    bcIcon.title = t('fieldguide');
+    bcIcon.innerHTML = _FIELDGUIDE_SVG.replace('width="26" height="26"', 'width="20" height="20"');
+    bcIcon.setAttribute('href', '/#fieldguide');
   } else if (_isReddotPage()) {
     bcSep.style.display = 'inline';
     bcIcon.style.display = 'inline-flex';
@@ -3302,6 +3336,11 @@ function route(push) {
   if (params.get('exchange') !== null) { enterHome(false); openExchange(true, params.get('exchange') || ''); return; }
   if (params.get('reddot') !== null) { enterHome(false); openReddot(true, params.get('reddot') || ''); return; }
   if (params.get('dictionary') !== null) { enterHome(false); openDictionary(true, params.get('dictionary') || ''); return; }
+  if (location.hash === '#fieldguide' || location.hash.indexOf('#fieldguide/') === 0) {
+    enterHome(false);
+    openFieldguide(true, location.hash.slice('#fieldguide/'.length));
+    return;
+  }
   if (location.hash === '#wiki') { enterHome(false); openWiki(true); return; }
   if (location.hash === '#books') { enterHome(false); openBooks(true); return; }
   if (location.hash === '#dictionary') { enterHome(false); openDictionary(true, ''); return; }
@@ -3681,7 +3720,7 @@ function _appReady(source) {
 }
 
 function _isAppPage() {
-  return _isTubePage() || _isExchangePage() || _isReddotPage() || _isWikiPage() || _isBooksPage() || _isDictPage() || _isEarthPage();
+  return _isTubePage() || _isExchangePage() || _isReddotPage() || _isWikiPage() || _isBooksPage() || _isDictPage() || _isEarthPage() || _isFieldguidePage();
 }
 // The reader is on the PDF viewer: nothing to read aloud, no type size.
 function _isPdfPage() {
@@ -3692,7 +3731,8 @@ function _isPdfPage() {
 // The app's home, in place of the item a shared link landed on.
 function _appEntryHome() {
   var app = _tubeOpen ? ['tube', 'play', _tubeUrl('')] : _exchangeOpen ? ['exchange', 'q', _exchangeUrl('')]
-    : _wikiOpen ? ['wiki', 'q', '/#wiki'] : _booksOpen ? ['books', 'q', '/#books'] : _dictOpen ? ['dictionary', 'w', _dictUrl('')] : ['reddot', 'p', _reddotUrl('')];
+    : _wikiOpen ? ['wiki', 'q', '/#wiki'] : _booksOpen ? ['books', 'q', '/#books'] : _dictOpen ? ['dictionary', 'w', _dictUrl('')]
+    : _fieldguideOpen ? ['fieldguide', 'fg', _fieldguideUrl('')] : ['reddot', 'p', _reddotUrl('')];
   var st = { mode: 'reader' }; st[app[0]] = true; st[app[1]] = '';
   _appHome(st, app[2], app[1]);
   // "home", not a route to nothing: a route only closes the thing on
@@ -3715,7 +3755,7 @@ function goBack() {
     // Opened from somewhere else (a search), it goes back there.
     var st = history.state;
     if (st && st.from && !st.entry) { history.back(); return; }
-    if (st && (st.play || st.q || st.p)) { if (st.entry) _appEntryHome(); else history.back(); return; }
+    if (st && (st.play || st.q || st.p || st.fg)) { if (st.entry) _appEntryHome(); else history.back(); return; }
     var f = document.getElementById('reader-frame');
     if (f && f.contentWindow) { try { f.contentWindow.postMessage({ zimi: 'back-request' }, location.origin); return; } catch (e) {} }
     closeReader();
@@ -3872,6 +3912,7 @@ window.addEventListener('blur', function() {
 });
 
 function enterHome(push) {
+  _fieldguideUnmount();
   mode = 'home';
   currentSource = null;
   readerSource = null;
@@ -4400,6 +4441,7 @@ document.addEventListener('keydown', function(e) {
   }
 });
 function renderHome(filter) {
+  _fieldguideUnmount();
   // We could not ask the server. Say so — never "No knowledge sources found",
   // which reads as "your library was wiped". Discover is skipped too: its cards
   // are drawn from the (unknown) installed set.
@@ -4412,7 +4454,7 @@ function renderHome(filter) {
   if (!zimsCache || zimsCache.length === 0) {
     statsBar.innerHTML = ''; statsBar.style.display = 'none';
     pillsBar.innerHTML = ''; pillsBar.style.display = 'none'; pillsBar.className = 'pills';
-    output.innerHTML = '<div id="discover-row"></div>'
+    output.innerHTML = _helpNowHtml() + '<div id="discover-row"></div>'
       + '<div class="empty"><p>' + tH('no_sources_found') + '</p><p class="hint">' + tH('add_zims') + '</p>'
       + (manageEnabled ? '<a href="/?manage" onclick="event.preventDefault();enterManage().then(function(ok){if(ok)switchManageTab(\'browse\')})" style="display:inline-block;margin-top:16px;color:var(--amber);font-weight:500;font-size:14px;text-decoration:none;border-bottom:1px solid var(--amber-border)">' + tH('catalog_link') + '</a>' : '')
       + '</div>'
@@ -4569,6 +4611,7 @@ function renderHome(filter) {
   }
 
   let h = '';
+  if (!homeScope && !filter) h += _helpNowHtml();
 
   // Scope header with back link — Favorites, a category or a collection all
   // drill in here, so keep a way back to "All sources".
@@ -8412,7 +8455,7 @@ async function doSearch(query, push, perSource) {
     // ── One request, both passes: the server sends the title matches, the
     // snippets of the cards they draw, the full-text results, then theirs,
     // a line of JSON each as it is ready (_searchStream in http.py).
-    const res = await serverFetch('/search?q=' + encodeURIComponent(query) + '&limit=' + perSource + zimParam + '&stream=1',
+    const res = await serverFetch('/search?q=' + encodeURIComponent(query) + '&limit=' + perSource + zimParam + '&ui=' + encodeURIComponent(_uiLangPrimary()) + '&stream=1',
       { signal: searchController.signal });
     _throwIfRateLimited(res);
     _snippetsStreamSeq = searchSeq;
@@ -8460,6 +8503,8 @@ async function doSearch(query, push, perSource) {
       clearInterval(timerInterval);
       d._clientElapsed = ((performance.now() - searchT0) / 1000).toFixed(1);
       allResults = d1 ? mergeSearchResults(d1, d) : d;
+      // The merge is the answer's own results; the Field Guide's hint rides beside them and is kept with them.
+      if (d.fieldguide && !allResults.fieldguide) allResults.fieldguide = d.fieldguide;
       gotFull = true;
       renderSearchResults(allResults, scope);
       _histPushSearch(query, scope, (allResults.results || []).length);
@@ -8682,6 +8727,7 @@ function searchResultCounts(items, zims) {
 }
 
 function renderSearchResults(data, scope) {
+  _fieldguideMount(data, scope);
   if (snippetController) { snippetController.abort(); snippetController = null; }
   let items = data.results || [];
   const counts = searchResultCounts(items, zimsCache);
@@ -8793,7 +8839,10 @@ function renderSearchResults(data, scope) {
     // A query of only exclusions and filters ("-ted") asks for nothing, so
     // the library finds nothing: say what it needs, not "try other words".
     const asksNothing = !!data._query && !parseSearchQuery(data._query).groups.length;
-    output.innerHTML = chipsHtml + '<div class="empty">' + dymHtml + '<p>' + tH('no_results') + '</p><p class="hint">' + tH(asksNothing ? 'search_needs_word' : 'try_different') + '</p></div>';
+    // Under the Field Guide's answer, "No results found" would be the louder
+    // line on a page that has just helped: the answer stands alone.
+    const guided = !!document.getElementById('fg-answer');
+    output.innerHTML = chipsHtml + (guided ? dymHtml : '<div class="empty">' + dymHtml + '<p>' + tH('no_results') + '</p><p class="hint">' + tH(asksNothing ? 'search_needs_word' : 'try_different') + '</p></div>');
     return;
   }
 
@@ -9509,6 +9558,7 @@ function _restoreSavedReader() {
 
 async function enterManage(e, section) {
   if (e && e.preventDefault) e.preventDefault();
+  _fieldguideUnmount();
   if (!manageEnabled) {
     // The gear must respond from first paint. On a large library the boot's
     // /list call blocks for seconds, and if the user clicks before the
@@ -12804,6 +12854,7 @@ function _openSetup(st) {
   card.innerHTML = st.inside === false
     ? '<h2>' + tH('setup_waiting_title') + '</h2><p class="subtitle">' + tH('setup_waiting_body') + '</p>'
     : '<h2>' + tH('welcome') + '</h2><p class="subtitle">' + tH('setup_body') + '</p>' + _setupFormHtml(st, 'setup');
+  card.innerHTML += '<p class="gate-help">' + _gateHelpHtml() + '</p>';
   document.getElementById('setup-overlay').classList.add('open');
   var first = card.querySelector('input:not([type=checkbox])');
   if (first && first.id === 'setup-key') first.focus();
@@ -19711,17 +19762,7 @@ function _readerPrint() {
   var lb = clone.querySelectorAll('.' + _READER_LIGHTBOX_CLASS + ',.zimi-lightbox-close');
   for (var j = 0; j < lb.length; j++) if (lb[j].parentNode) lb[j].parentNode.removeChild(lb[j]);
 
-  _readerPrintCleanup(); // clear any prior run
-  var style = document.createElement('style');
-  style.id = _READER_PRINT_STYLE_ID;
-  style.textContent = [
-    // On screen the print root is never shown; it only exists for @media print.
-    '#' + _READER_PRINT_ROOT_ID + '{display:none}',
-    '@media print{',
-      // Hide the entire app; reveal only the print root, black-on-white.
-      'body>*{display:none !important}',
-      'body>#' + _READER_PRINT_ROOT_ID + '{display:block !important}',
-      'html,body{background:#fff !important;margin:0 !important;padding:0 !important}',
+  _printNode(clone, [
       '#' + _READER_PRINT_ROOT_ID + '{color:#000;background:#fff;font-size:12pt;line-height:1.6;',
         'font-family:Georgia,"Times New Roman",serif;max-width:100%;padding:0 4mm}',
       '#' + _READER_PRINT_ROOT_ID + ' .zimi-reader-title{font-size:20pt;font-weight:700;margin:0 0 0.6em;line-height:1.25}',
@@ -19733,13 +19774,30 @@ function _readerPrint() {
         'page-break-inside:avoid;break-inside:avoid;max-width:100% !important;height:auto}',
       '#' + _READER_PRINT_ROOT_ID + ' th,#' + _READER_PRINT_ROOT_ID + ' td{border:1px solid #bbb;padding:6px 10px;text-align:left}',
       '#' + _READER_PRINT_ROOT_ID + ' pre,#' + _READER_PRINT_ROOT_ID + ' code{background:#f2f2f2;white-space:pre-wrap;word-wrap:break-word}',
+  ].join(''));
+}
+// Print a node on its own: the whole app steps aside and the node prints black
+// on white from this top-level window. `css` is the node's own print styling.
+function _printNode(node, css) {
+  _readerPrintCleanup(); // clear any prior run
+  var style = document.createElement('style');
+  style.id = _READER_PRINT_STYLE_ID;
+  style.textContent = [
+    // On screen the print root is never shown; it only exists for @media print.
+    '#' + _READER_PRINT_ROOT_ID + '{display:none}',
+    '@media print{',
+      // Hide the entire app; reveal only the print root, black-on-white.
+      'body>*{display:none !important}',
+      'body>#' + _READER_PRINT_ROOT_ID + '{display:block !important}',
+      'html,body{background:#fff !important;margin:0 !important;padding:0 !important}',
+      css,
     '}'
   ].join('');
   document.head.appendChild(style);
 
   var root = document.createElement('div');
   root.id = _READER_PRINT_ROOT_ID;
-  root.appendChild(clone);
+  root.appendChild(node);
   document.body.appendChild(root);
 
   // Tear down after printing. afterprint covers desktop + most mobile; a timeout
@@ -20246,11 +20304,11 @@ function _appFrameCall(fn, val) {
 // No app is on screen: an article, the home page, or another app about to
 // say it is.
 function _appsOff() {
-  _tubeOpen = false; _exchangeOpen = false; _reddotOpen = false; _wikiOpen = false; _booksOpen = false; _dictOpen = false; _earthOpen = false;
+  _tubeOpen = false; _exchangeOpen = false; _reddotOpen = false; _wikiOpen = false; _booksOpen = false; _dictOpen = false; _earthOpen = false; _fieldguideOpen = false;
   _chromeReset();
 }
 function _anyAppOpen() {
-  return _tubeOpen || _exchangeOpen || _reddotOpen || _wikiOpen || _booksOpen || _dictOpen || _earthOpen;
+  return _tubeOpen || _exchangeOpen || _reddotOpen || _wikiOpen || _booksOpen || _dictOpen || _earthOpen || _fieldguideOpen;
 }
 
 // ── Bookshelf ──
@@ -20292,6 +20350,186 @@ function openBooks(replaceState) {
   _openHashApp('books', replaceState, function() { _booksOpen = true; return _BOOKS_PAGE + '#' + _booksStrings(); });
 }
 function _booksSearch(val) { _appFrameCall('booksSearch', val); }
+
+// ── Field Guide ──
+// What is happening, then what the open sources say, in their own words
+// (/static/fieldguide.html, zimi/fieldguide.py): situations, each a list of
+// quotations with their source, edition, licence and a link, and the library
+// behind them. Not one of the apps in the row: it needs no ZIM, cannot be
+// switched off, and is reached by "Help now" on the home page and by search
+// (a situation above the results, see _fieldguideMount). Eric, 2026-09-28:
+// "build first aid and or a whole like how to live and survive bucket."
+var _fieldguideOpen = false;
+var _FIELDGUIDE_PAGE = '/static/fieldguide.html?v=1';
+var _FIELDGUIDE_SVG = '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M5.6 5.6l3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9"/></svg>';
+var _FIELDGUIDE_SITUATIONS = ['emergency_call', 'bleeding', 'not_breathing', 'heart_attack', 'shock', 'recovery_position', 'cold', 'burns', 'heat',
+  'broken_bone', 'bites', 'allergic', 'poison', 'lost', 'signal', 'shelter', 'water', 'flood', 'earthquake', 'wildfire', 'storm', 'power_out',
+  'carbon_monoxide', 'food'];
+var _FIELDGUIDE_WORDS = ['fieldguide_help_now', 'fieldguide_disclaimer', 'fieldguide_group_hurt', 'fieldguide_group_survive', 'fieldguide_group_disaster',
+  'fieldguide_order_march', 'fieldguide_print', 'fieldguide_english_only', 'fieldguide_get_library', 'fieldguide_library_note',
+  'fieldguide_red_night', 'fieldguide_more_in_library', 'fieldguide_add_to_library', 'fieldguide_installed', 'fieldguide_get_all', 'fieldguide_started',
+  'fieldguide_needs_admin', 'fieldguide_failed', 'fieldguide_loading', 'fieldguide_building', 'fieldguide_built', 'fieldguide_set_core', 'fieldguide_set_more',
+  'fieldguide_nothing', 'fieldguide_confirm_big', 'fieldguide_from', 'fieldguide_licence', 'fieldguide_original', 'fieldguide_in_library', 'fieldguide_read_full', 'fieldguide_add_for_full',
+  'fieldguide_build', 'fieldguide_get', 'fieldguide_search_in', 'fieldguide_dated', 'fieldguide_open_card', 'fieldguide_lic_US_PD',
+  'fieldguide_superseded', 'fieldguide_your_library', 'fieldguide_yes_download', 'fieldguide_cancel', 'fieldguide_print_all', 'fieldguide_build_note',
+  'fieldguide_help_link', 'fieldguide_show_all'];
+function _isFieldguidePage() {
+  return !!(_fieldguideOpen && readerOpen && !_almanacOpen && !_createOpen);
+}
+function _fieldguideUrl(id) {
+  return '/#fieldguide' + (id ? '/' + id : '');
+}
+// A situation's id from the address: only the names the guide has.
+function _fieldguideId(id) {
+  return _FIELDGUIDE_SITUATIONS.indexOf(id) >= 0 ? id : '';
+}
+// The words as the card and the page use them: the shell's fieldguide_*
+// strings without the prefix, one situation's name each.
+function _fieldguideWords() {
+  var out = {};
+  _FIELDGUIDE_WORDS.forEach(function(k) { out[k.slice('fieldguide_'.length)] = t(k); });
+  _FIELDGUIDE_SITUATIONS.forEach(function(id) { out['s_' + id] = t('fieldguide_s_' + id); });
+  return out;
+}
+function _fieldguideStrings(id) {
+  var keys = _FIELDGUIDE_WORDS.concat(_FIELDGUIDE_SITUATIONS.map(function(s) { return 'fieldguide_s_' + s; }));
+  // Where the reader is, when the Almanac knows it: the sky of that hemisphere leads.
+  var place = _almChosenPlace();
+  var lat = place && isFinite(parseFloat(place.lat)) ? String(place.lat) : '';
+  return _appStrings('fieldguide', keys, { open: id || '', lat: lat });
+}
+function openFieldguide(replaceState, id) {
+  id = _fieldguideId(id);
+  if (_isModClick()) { _lastMouseEvent = null; window.open(_fieldguideUrl(id), '_blank'); return; }
+  if (_createOpen) closeCreate();
+  if (_almanacOpen) closeAlmanac();
+  if (mode === 'manage') { mode = 'home'; updateTopbar(); }
+  if (_mapWatched) { _mapWatched = null; clearTimeout(_mapHashTimer); }
+  if (currentArticle) _pushArticleHistory(currentArticle.zim, currentArticle.path);
+  currentArticle = null;
+  readerSource = null;
+  _appsOff();
+  _fieldguideOpen = true;
+  _appTop = !id;
+  var st = { mode: 'reader', fieldguide: true, fg: id };
+  // Arrived at a situation by address: nothing beneath it to step back to.
+  if (replaceState && id) st.entry = true;
+  if (replaceState) history.replaceState(_keepFrom(st), '', _fieldguideUrl(id));
+  else history.pushState(_stampFrom(st), '', _fieldguideUrl(id));
+  openReader(_FIELDGUIDE_PAGE + '#' + _fieldguideStrings(id));
+  document.title = t('fieldguide') + ' — Zimi';
+  _setWindowTitle(document.title);
+  updateTopbar();
+}
+// Home's entry to the Field Guide, a plain button anyone can find when it
+// counts; with a situation it is the small link a bare word gets ("Help now:
+// Water") in place of the card.
+function _helpNowHtml(id) {
+  id = _fieldguideId(id);
+  var label = id ? t('fieldguide_help_link', { name: t('fieldguide_s_' + id) }) : t('fieldguide_help_now');
+  return '<div class="help-now-row"><a class="help-now" href="' + escAttr(_fieldguideUrl(id)) + '" onclick="return _spaNav(event, function() { openFieldguide(false, \'' + id + '\'); })">' +
+    _FIELDGUIDE_SVG.replace('width="26" height="26"', 'width="18" height="18"') + '<span>' + esc(label) + '</span></a></div>';
+}
+// The same entry where the app cannot be reached: the first-run setup and
+// the sign-in screen. A plain address to the page, which needs no shell.
+function _gateHelpHtml() {
+  return '<a class="help-now help-now-gate" href="' + escAttr(_FIELDGUIDE_PAGE + '#' + _fieldguideStrings('')) + '">' +
+    _FIELDGUIDE_SVG.replace('width="26" height="26"', 'width="18" height="18"') + '<span>' + tH('fieldguide_help_now') + '</span></a>';
+}
+// True only for a message from the Field Guide page itself: the reader frame
+// also holds ZIM pages (scripts of their own, the same origin), which must
+// not be able to ask the shell to search or print.
+function _fromFieldguide(e) {
+  var f = document.getElementById('reader-frame');
+  if (!_fieldguideOpen || !f || !e.source || e.source !== f.contentWindow) return false;
+  try { return f.contentWindow.location.pathname === '/static/fieldguide.html'; } catch (x) { return false; }
+}
+// Print what the Field Guide page built (a sheet of quotes): from this
+// window, since a sandboxed frame cannot print and iOS standalone ignores it.
+function _fieldguidePrint(win) {
+  var html = '';
+  try { html = win.__sheet; win.__sheet = ''; } catch (x) {}
+  if (typeof html !== 'string' || !html) return;
+  _fieldguideLoadCard(function() {
+    FieldGuideCard.ensureStyle(document);
+    var box = document.createElement('div');
+    box.className = 'fg-sheet-root';
+    box.innerHTML = html;
+    _printNode(box, '');
+  });
+}
+// A search inside one ZIM, asked from the Field Guide ("Search X for ...").
+function _searchInZim(zim, query) {
+  if (!_zimInfo(zim)) return;
+  if (readerOpen) closeReader();
+  currentSource = zim;
+  q.value = query;
+  doSearch(query);
+}
+// The Field Guide's answer above a search's results when the words name a
+// situation (search's `fieldguide` field: {id, kind, href, installed}; id ""
+// is the guide itself). A clear emergency gets a compact card, its first
+// plain passage; a bare word that could be about anything gets a small
+// "Help now: ..." link and no quote. Outside the results' own element so a
+// redraw of them leaves it; filled from /fieldguide/situation after the
+// results have drawn, so searching never waits on it. Another slot above the
+// results, such as an answer card, sits beside it: it has its own container,
+// #fg-answer. Searching inside one ZIM is not asking for help: no answer.
+var _fieldguideHint = null;
+var _fieldguideSeq = 0;
+// Gone with the search: home, Settings and the apps do not keep it.
+function _fieldguideUnmount() {
+  _fieldguideHint = null;
+  _fieldguideSeq++;
+  var el = document.getElementById('fg-answer');
+  if (el) el.remove();
+}
+function _fieldguideMount(data, scope) {
+  if (scope) { _fieldguideUnmount(); return; }
+  var key = data && data._query;
+  if (data && data.fieldguide) _fieldguideHint = { q: key, hint: data.fieldguide };
+  var h = _fieldguideHint && _fieldguideHint.q === key ? _fieldguideHint.hint : null;
+  var el = document.getElementById('fg-answer');
+  if (!h) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'fg-answer';
+    output.parentNode.insertBefore(el, output);
+  } else if (el.dataset.id === h.id && el.dataset.q === String(key) && el.dataset.kind === h.kind) return;
+  el.dataset.id = h.id; el.dataset.q = String(key); el.dataset.kind = h.kind;
+  var seq = ++_fieldguideSeq;
+  if (h.kind === 'link' || !h.id) { el.innerHTML = _helpNowHtml(h.id); return; }
+  _fieldguideLoadCard(function() {
+    if (seq !== _fieldguideSeq) return;
+    var S = _fieldguideWords();
+    FieldGuideCard.ensureStyle(document);
+    var shell = '<section class="fg-q fg-answer"><h3>' + esc(S['s_' + h.id]) + '</h3><div class="fg-where">' + esc(S.disclaimer) + '</div><div id="fg-answer-body"></div>' +
+      '<div class="fg-lib"><button type="button" class="fg-btn on" data-act="situation" data-id="' + escAttr(h.id) + '">' + esc(S.open_card) + '</button>' +
+      '<button type="button" class="fg-btn" data-act="more" hidden>' + esc(S.show_all) + '</button></div></section>';
+    el.innerHTML = shell;
+    FieldGuideCard.wire(el, function(act, btn) {
+      if (act === 'more') { el.firstChild.classList.add('fg-open'); btn.hidden = true; return; }
+      openFieldguide(false, h.id);
+    });
+    fetch('/fieldguide/situation?id=' + encodeURIComponent(h.id) + '&lang=' + encodeURIComponent(_uiLangPrimary())).then(function(r) { return r.ok ? r.json() : null; }).then(function(sit) {
+      var body = document.getElementById('fg-answer-body');
+      if (!sit || !sit.quotes.length || !body || seq !== _fieldguideSeq) return;
+      var first = sit.quotes[0];
+      body.innerHTML = '<div class="fg-body" lang="en" dir="ltr"><h4>' + esc(first.heading) + '</h4>' + FieldGuideCard.bodyHtml(first.lines) + FieldGuideCard.tableHtml(first.table) + '</div>' +
+        FieldGuideCard.footHtml(first, S);
+      var passage = body.firstChild, more = el.querySelector('[data-act=more]');
+      if (passage.scrollHeight > passage.clientHeight + 4) { passage.classList.add('fg-fold'); more.hidden = false; }
+    }).catch(function() {});
+  });
+}
+var _fieldguideCardLoaded = false;
+function _fieldguideLoadCard(then) {
+  if (_fieldguideCardLoaded || typeof FieldGuideCard !== 'undefined') { _fieldguideCardLoaded = true; then(); return; }
+  var el = document.createElement('script');
+  el.src = '/static/fieldguide-card.js?v=1';
+  el.onload = function() { _fieldguideCardLoaded = true; then(); };
+  document.head.appendChild(el);
+}
 
 // ── Dictionary ──
 // One word across every Wiktionary in the library (/static/dictionary.html,
@@ -21752,7 +21990,7 @@ window.addEventListener('message', function(e) {
     });
   } else if (d.zimi === 'back') {
     // The page's own back arrow: the step the shell took for it.
-    if (history.state && (history.state.play || history.state.q || history.state.p || history.state.w)) history.back();
+    if (history.state && (history.state.play || history.state.q || history.state.p || history.state.w || history.state.fg)) history.back();
   } else if (d.zimi === 'open' && typeof d.zim === 'string' && typeof d.path === 'string' && d.zim && d.path) {
     // "Open the original page" from an app: an article with the app as the
     // step behind it, so the header's arrow returns to the video, the
@@ -21814,6 +22052,19 @@ window.addEventListener('message', function(e) {
     _appItemClosed();
     document.title = t('dictionary') + ' \u2014 Zimi';
     _setWindowTitle(document.title);
+  } else if (d.zimi === 'fieldguide-card' && _fromFieldguide(e) && typeof d.id === 'string') {
+    _appStep({ mode: 'reader', fieldguide: true, fg: d.id }, _fieldguideUrl(d.id), 'fg');
+    if (d.title) { document.title = d.title + ' \u2014 ' + t('fieldguide'); _setWindowTitle(document.title); }
+  } else if (d.zimi === 'fieldguide-home' && _fromFieldguide(e)) {
+    _appHome({ mode: 'reader', fieldguide: true, fg: '' }, _fieldguideUrl(''), 'fg');
+    document.title = t('fieldguide') + ' \u2014 Zimi';
+    _setWindowTitle(document.title);
+  } else if (d.zimi === 'search-in' && _fromFieldguide(e) && typeof d.zim === 'string' && typeof d.q === 'string' && d.zim && d.q) {
+    _searchInZim(d.zim, d.q);
+  } else if (d.zimi === 'print-sheet' && _fromFieldguide(e)) {
+    _fieldguidePrint(e.source);
+  } else if (d.zimi === 'night' && _fromFieldguide(e)) {
+    _nightApply();
   } else if (d.zimi === 'voices') {
     _openSettingsAt('ms-voices');
   } else if (d.zimi === 'catalog' && typeof d.category === 'string' && _APP_CATEGORY_KEYS.indexOf(d.category) >= 0) {
@@ -21987,7 +22238,7 @@ function _setUserApp(app, on) {
 // and a name, lit when offered (Eric: "the lil app tiles with icons and i
 // can select or deselect which to show").
 function _appIcon(app) {
-  return app === 'maps' ? _MAPS_SVG : app === 'tube' ? _TUBE_PLAY_SVG : app === 'exchange' ? _EXCHANGE_SVG : app === 'wiki' ? _WIKI_SVG : app === 'books' ? _BOOKS_SVG : app === 'dictionary' ? _DICT_SVG : app === 'earth' ? _EARTH_SVG : _REDDOT_SVG;
+  return app === 'fieldguide' ? _FIELDGUIDE_SVG : app === 'maps' ? _MAPS_SVG : app === 'tube' ? _TUBE_PLAY_SVG : app === 'exchange' ? _EXCHANGE_SVG : app === 'wiki' ? _WIKI_SVG : app === 'books' ? _BOOKS_SVG : app === 'dictionary' ? _DICT_SVG : app === 'earth' ? _EARTH_SVG : _REDDOT_SVG;
 }
 // The ZIMs inside each app: the ones its tile names and its page reads.
 function _appZims(app) {
@@ -27046,11 +27297,12 @@ window.addEventListener('popstate', async (e) => {
     if (app.books && _appFrameRoute(_booksOpen, '')) return;
     if (app.dictionary && _appFrameRoute(_dictOpen, app.w)) return;
     if (app.earth && _earthOpen) return;
+    if (app.fieldguide && _appFrameRoute(_fieldguideOpen, app.fg)) return;
   }
   // Landing on an app's address from the article opened out of it: the app
   // is reopened below, not stepped past. (The article history's own copy of
   // that step would otherwise take a second step back.)
-  var toApp = app && app.mode === 'reader' && (app.tube || app.exchange || app.reddot || app.wiki || app.books || app.dictionary || app.earth);
+  var toApp = app && app.mode === 'reader' && (app.tube || app.exchange || app.reddot || app.wiki || app.books || app.dictionary || app.earth || app.fieldguide);
   // Step through article history when reader is open (mirrors in-app back button)
   if (readerOpen && articleHistory.length > 0 && !toApp) {
     _stepBackToArticle(articleHistory.pop(), false);
@@ -27091,6 +27343,8 @@ window.addEventListener('popstate', async (e) => {
     if (!_appFrameRoute(_booksOpen, '')) openBooks(true);
   } else if (s && s.mode === 'reader' && s.earth) {
     if (!_earthOpen) openEarth(true, _earthHashStart(location.hash) || undefined);
+  } else if (s && s.mode === 'reader' && s.fieldguide) {
+    if (!_appFrameRoute(_fieldguideOpen, s.fg)) openFieldguide(true, s.fg || '');
   } else if (s && s.mode === 'reader' && s.dictionary) {
     if (!_appFrameRoute(_dictOpen, s.w)) openDictionary(true, s.w || '');
   } else if (s && s.mode === 'reader' && s.reddot) {
