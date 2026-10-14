@@ -217,6 +217,9 @@ REF_PLANETS = {
     "Neptune": "899",
     "Pluto": "999",
 }
+# Moons are checked relative to their planet (Horizons centre 500@<planet>).
+REF_MOONS = {"Io": ("501", "599"), "Europa": ("502", "599"), "Ganymede": ("503", "599"), "Callisto": ("504", "599"),
+             "Titan": ("606", "699"), "Moon": ("301", "399")}
 REF_DATES = ["1990-01-01", "2026-10-13", "2045-06-15"]
 REF_PROBE_DATES = {
     "voyager1": ["1985-06-01", "2012-09-01", "2026-10-13"],
@@ -434,6 +437,10 @@ def build_reference():
             {"date": d, "xyz": horizons(cmd, d, d + " 00:01", "1m")[0][1:4]}
             for d in REF_DATES
         ]
+    ref["moons"] = {}
+    for name, (cmd, planet) in REF_MOONS.items():
+        ref["moons"][name] = [{"date": d, "xyz": horizons(cmd, d, d + " 00:01", "1m", center="500@" + planet)[0][1:4]}
+                              for d in REF_DATES]
     for key, dates in REF_PROBE_DATES.items():
         spec = PROBES[key]
         ref["probes"][key] = [
@@ -443,13 +450,23 @@ def build_reference():
     return ref
 
 
+def write_reference():
+    with open(REFERENCE_PATH, "w") as f:
+        json.dump(build_reference(), f, indent=1)
+    print("wrote", REFERENCE_PATH)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--only", help="rebuild a single track (merged into the existing file)"
     )
     ap.add_argument("--no-reference", action="store_true")
+    ap.add_argument("--reference-only", action="store_true", help="rewrite only the test reference")
     args = ap.parse_args()
+    if args.reference_only:
+        write_reference()
+        return
     tracks = build_tracks(args.only)
     if args.only and os.path.exists(TRACKS_PATH):
         with open(TRACKS_PATH) as f:
@@ -460,9 +477,7 @@ def main():
         json.dump(tracks, f, separators=(",", ":"))
     print("wrote %s (%d bytes)" % (TRACKS_PATH, os.path.getsize(TRACKS_PATH)))
     if not args.no_reference:
-        with open(REFERENCE_PATH, "w") as f:
-            json.dump(build_reference(), f, indent=1)
-        print("wrote", REFERENCE_PATH)
+        write_reference()
 
 
 if __name__ == "__main__":
