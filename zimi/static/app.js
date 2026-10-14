@@ -177,6 +177,52 @@ function _getSessionJSON(key, fallback) {
 function _almChosenPlace() {
   return _getStorageJSON(SK.ALMANAC_PLACE, null) || _getSessionJSON(SK.ALMANAC_LOC, null);
 }
+// Which hemisphere the Almanac's sky is drawn for: the chosen place, else the
+// device's time zone (zone-places.js, the table the sky uses), else null: the
+// sky does not know, so nothing season-shaped is said. The table is fetched
+// on first need and the Discover row drawn again when it lands.
+var _zonePlacesLoading = false, _discoverDrawn = null;
+function _almHemisphere() {
+  var p = _almChosenPlace();
+  if (p) return p.lat < 0 ? 'south' : 'north';
+  if (typeof _skyZonePlace !== 'function') {
+    if (!_zonePlacesLoading) {
+      _zonePlacesLoading = true;
+      var sc = document.createElement('script');
+      sc.src = '/static/zone-places.js?v=45';
+      sc.onload = function() {
+        var d = _discoverDrawn;
+        if (d && d.el.isConnected) _renderDiscover(d.el, d.items);
+      };
+      document.head.appendChild(sc);
+    }
+    return null;
+  }
+  var tz = null;
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch(e) {}
+  var z = _skyZonePlace(tz);
+  return z ? (z[0] < 0 ? 'south' : 'north') : null;
+}
+// "Spring 41%": the season the Today card names and how far through it is,
+// from the hemisphere the sky is drawn for. Null hemisphere (the place is not
+// known): no season, rather than the wrong one.
+var _SEASONS_NORTH = ['winter', 'spring', 'summer', 'autumn', 'winter'];
+var _SEASONS_SOUTH = ['summer', 'autumn', 'winter', 'spring', 'summer'];
+function _todaySeason(now, hemi) {
+  if (!hemi) return '';
+  var y = now.getFullYear(), keys = hemi === 'south' ? _SEASONS_SOUTH : _SEASONS_NORTH;
+  var bounds = [
+    { k: 0, s: new Date(y - 1, 11, 21), e: new Date(y, 2, 20) },
+    { k: 1, s: new Date(y, 2, 20), e: new Date(y, 5, 21) },
+    { k: 2, s: new Date(y, 5, 21), e: new Date(y, 8, 22) },
+    { k: 3, s: new Date(y, 8, 22), e: new Date(y, 11, 21) },
+    { k: 4, s: new Date(y, 11, 21), e: new Date(y + 1, 2, 20) }
+  ];
+  for (var i = 0; i < bounds.length; i++) {
+    if (now >= bounds[i].s && now < bounds[i].e) return t('season_' + keys[bounds[i].k]) + ' ' + Math.round((now - bounds[i].s) / (bounds[i].e - bounds[i].s) * 100) + '%';
+  }
+  return '';
+}
 function _setStorageJSON(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch(e) {}
 }
@@ -6511,13 +6557,13 @@ function _todayTeaser() {
     events.push({ days: days, name: s[2], extra: ' \u00b7 ZHR ' + s[3], tonight: true });
   }
   // Equinoxes & solstices — use season-aware names for Southern Hemisphere
-  var _tLoc = _almChosenPlace();
-  var _tSouth = _tLoc && _tLoc.lat < 0;
+  var _tHemi = _almHemisphere();
+  var _tSouth = _tHemi === 'south';
   var eqNames = _tSouth
     ? [t('season_autumn') + ' ' + t('alm_equinox'), t('season_winter') + ' ' + t('alm_solstice'), t('season_spring') + ' ' + t('alm_equinox'), t('season_summer') + ' ' + t('alm_solstice')]
     : [t('season_spring') + ' ' + t('alm_equinox'), t('season_summer') + ' ' + t('alm_solstice'), t('season_autumn') + ' ' + t('alm_equinox'), t('season_winter') + ' ' + t('alm_solstice')];
   var eqs = [[3,20,eqNames[0]],[6,21,eqNames[1]],[9,22,eqNames[2]],[12,21,eqNames[3]]];
-  for (var j = 0; j < eqs.length; j++) {
+  for (var j = 0; _tHemi && j < eqs.length; j++) {
     var eq = eqs[j], eqDate = new Date(y, eq[0]-1, eq[1]);
     if (eqDate < todayMidnight) eqDate = new Date(y+1, eq[0]-1, eq[1]);
     events.push({ days: Math.round((eqDate - todayMidnight) / 86400000), name: eq[2], extra: '' });
@@ -6720,6 +6766,7 @@ function openAlmanac(replaceState) {
       '/static/almanac-orrery.js?v=45',
       '/static/almanac-sky.js?v=45',
       '/static/almanac-skygl.js?v=45',
+      '/static/zone-places.js?v=45',
       '/static/almanac-skyfacts.js?v=45',
       '/static/almanac.js?v=45'
     ];
@@ -7062,6 +7109,7 @@ function _discoverLibKey() {
   return String((zimsCache || []).length);
 }
 function _renderDiscover(el, items) {
+  _discoverDrawn = { el: el, items: items };
   el.dataset.lib = _discoverLibKey();
   var h = '<div class="discover-section"><div class="discover-label"><span>' + tH('discover') + '</span><button class="dc-dismiss" onclick="event.stopPropagation();_dismissDiscover()" title="' + escAttr(t('hide_discover')) + '" aria-label="' + escAttr(t('hide_discover')) + '">\u00D7</button></div><div class="discover-scroll">';
   for (var i = 0; i < items.length; i++) {
@@ -7088,27 +7136,7 @@ function _renderDiscover(el, items) {
       var _now = new Date();
       var _lang = (typeof _currentLang !== 'undefined') ? _currentLang : 'en';
       var _dateTitle = _now.toLocaleDateString(_lang, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-      var _y = _now.getFullYear();
-      // Season detection — flip for Southern Hemisphere if location is set
-      var _nSeasons = ['winter', 'spring', 'summer', 'autumn', 'winter'];
-      var _sSeasons = ['summer', 'autumn', 'winter', 'spring', 'summer']; // Southern Hemisphere
-      var _storedLoc = _almChosenPlace();
-      var _isSouth = _storedLoc && _storedLoc.lat < 0;
-      var _seasonKeys = _isSouth ? _sSeasons : _nSeasons;
-      var _sBounds = [
-        { k: 0, s: new Date(_y - 1, 11, 21), e: new Date(_y, 2, 20) },
-        { k: 1, s: new Date(_y, 2, 20), e: new Date(_y, 5, 21) },
-        { k: 2, s: new Date(_y, 5, 21), e: new Date(_y, 8, 22) },
-        { k: 3, s: new Date(_y, 8, 22), e: new Date(_y, 11, 21) },
-        { k: 4, s: new Date(_y, 11, 21), e: new Date(_y + 1, 2, 20) }
-      ];
-      var _seasonStr = '';
-      for (var _si = 0; _si < _sBounds.length; _si++) {
-        if (_now >= _sBounds[_si].s && _now < _sBounds[_si].e) {
-          _seasonStr = t('season_' + _seasonKeys[_sBounds[_si].k]) + ' ' + Math.round((_now - _sBounds[_si].s) / (_sBounds[_si].e - _sBounds[_si].s) * 100) + '%';
-          break;
-        }
-      }
+      var _seasonStr = _todaySeason(_now, _almHemisphere());
       var _teaser = _todayTeaser();
       h += '<a class="discover-card" href="/#almanac" onclick="return _spaNav(event, openAlmanac)">' +
         _renderTodayCard() +

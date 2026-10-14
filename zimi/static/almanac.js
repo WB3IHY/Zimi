@@ -41,7 +41,7 @@ function _getLocation() {
     try {
       var loc = JSON.parse(stored);
       if (_almValidLatLon(loc.lat, loc.lon)) {
-        return { lat: loc.lat, lon: loc.lon, name: loc.name || '', stored: true };
+        return { lat: loc.lat, lon: loc.lon, name: loc.name || '', stored: true, known: true };
       }
     } catch(e) {}
   }
@@ -51,8 +51,10 @@ function _getLocation() {
   // fresh browser Denver's clock instead of its own (the device already
   // KNOWS its zone; deriving one from invented coordinates loses that).
   var zone = typeof _skyZonePlace === 'function' ? _skyZonePlace(_almDeviceTz()) : null;   // the zone's own city (almanac-skyfacts.js)
-  if (zone) return { lat: zone[0], lon: zone[1], name: '', stored: false };
-  return { lat: 34, lon: -new Date().getTimezoneOffset() / 60 * 15, name: '', stored: false };
+  if (zone) return { lat: zone[0], lon: zone[1], name: '', stored: false, known: true };
+  // A zone the table does not have: a middle latitude to draw with, and `known: false`
+  // so nothing is said that depends on the hemisphere (north, the season).
+  return { lat: 34, lon: -new Date().getTimezoneOffset() / 60 * 15, name: '', stored: false, known: false };
 }
 
 // The device's IANA zone, resolved once. It cannot change within a page
@@ -6384,10 +6386,11 @@ function _seasonEventsForYear(year) {
   // Hemisphere-aware names: October IS spring in Sydney. Chosen location
   // decides; no location defaults to the northern names.
   var loc = _getLocation();
-  var south = !!(loc.stored && loc.lat < 0);
-  var names = south
-    ? ['Autumn Equinox', 'Winter Solstice', 'Spring Equinox', 'Summer Solstice']
-    : ['Spring Equinox', 'Summer Solstice', 'Autumn Equinox', 'Winter Solstice'];
+  var names = !loc.known
+    ? ['March Equinox', 'June Solstice', 'September Equinox', 'December Solstice']
+    : loc.lat < 0
+      ? ['Autumn Equinox', 'Winter Solstice', 'Spring Equinox', 'Summer Solstice']
+      : ['Spring Equinox', 'Summer Solstice', 'Autumn Equinox', 'Winter Solstice'];
   var events = [];
   for (var k = 0; k < 4; k++) {
     // JDE (TT ~ UTC at day precision) -> the user's local calendar date

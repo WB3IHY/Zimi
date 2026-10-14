@@ -3307,5 +3307,6 @@
   "lib_folders_unreadable": "{n} не удаётся открыть",
   "zim_unreadable_permission": "Не открывается: у Zimi нет прав на чтение",
   "zim_unreadable_corrupt": "Не открывается: файл повреждён или ещё копируется",
-  "zim_also_in": "Также в {label}"
+  "zim_also_in": "Также в {label}",
+  "alm_sky_f_pole_unknown": "Неизвестно, пока не выбрано место"
 }

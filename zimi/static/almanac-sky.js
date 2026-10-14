@@ -2111,7 +2111,7 @@ var AlmanacSkyView = {
     canvas.setAttribute('role', 'img');
     canvas.style.cssText = 'display:block;width:100%;height:100%;touch-action:none';
     host.appendChild(canvas);
-    var s = { hosted: true, lat: place.lat, lon: place.lon, center: place.lat >= 0 ? 180 : 0, span: SKY_SPAN_DEG, lens: null, stored: true,
+    var s = { hosted: true, lat: place.lat, lon: place.lon, center: place.lat >= 0 ? 180 : 0, span: SKY_SPAN_DEG, lens: null, stored: true, known: true,
       moonAnim: null, twinkle: 0, bodies: [], baseBodies: [], actors: [], sea: null, aurora: null, base: null, baseDirty: true };
     _skyHost = { host: host, canvas: canvas, s: s, look: { az: place.lat >= 0 ? 180 : 0, alt: 30, fov: 90 } };
     _skyHostSize(_skyHost);
@@ -2402,6 +2402,7 @@ function _initSkyScene(now, lat, lon, animateMoon) {
     canvas: canvas, dpr: dpr, W: canvas.width, H: canvas.height, cssW: w, scale: _skyClamp(w / 600, 0.85, 1.15),
     lat: lat, lon: lon, center: lat >= 0 ? 180 : 0,
     stored: loc.stored && loc.lat === lat && loc.lon === lon, name: loc.name || '',
+    known: loc.known && loc.lat === lat && loc.lon === lon,
     moonAnim: null, twinkle: 0, bodies: [], baseBodies: [],
     actors: prev ? prev.actors : [], base: prev ? prev.base : null, baseDirty: true,
     inView: prev ? prev.inView : true,
