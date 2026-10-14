@@ -11561,7 +11561,7 @@ function renderCatalogItem(group) {
       actionsHtml = '<button class="ci-update-btn" onclick="downloadZim(\'' + escAttr(updVariant.download_url) + '\', this, true)" title="' + escAttr(t('from_to_update', {from: instVariant._installedDate, to: updVariant.date})) + '">' +
         tH('update') + '</button>';
     } else {
-      actionsHtml = '<span class="ci-installed-badge">' + tH('installed_badge') + '</span>';
+      actionsHtml = instVariant._installedExternal ? '' : '<span class="ci-installed-badge">' + tH('installed_badge') + '</span>';
     }
     if (instVariant._installedFile) {
       actionsHtml += _zimDeleteBtn(instVariant._installedFile, instVariant._installedExternal);
@@ -15922,6 +15922,7 @@ function _libFolderRowHtml(title, desc, right) {
   return '<div class="share-row set-row lf-row"><span class="share-row-text"><span class="share-row-title">' + title + '</span>' +
     '<span class="share-row-desc lf-path" dir="ltr">' + desc + '</span></span>' + right + '</div>';
 }
+function _libFolderCountHtml(count) { return ' <span class="lf-count">' + esc(count) + '</span>'; }
 async function _renderLibFolders() {
   var el = document.getElementById('ms-libfolders');
   if (!el) return;
@@ -15933,12 +15934,12 @@ async function _renderLibFolders() {
     var drop = f.source === 'env'
       ? '<span class="share-field-note" title="' + escAttr(t('configured_via_env')) + '">env</span>'
       : '<button type="button" class="set-btn" onclick="_libFolderAct(\'remove\', ' + i + ')">' + tH('lib_folders_stop') + '</button>';
-    return _libFolderRowHtml(esc(f.label) + ' <span class="lf-count">' + esc(count) + '</span>', esc(f.path), drop);
+    return _libFolderRowHtml(esc(f.label) + _libFolderCountHtml(count), esc(f.path), drop);
   });
   // The offer comes once, ahead of the list, and leaves for good on either answer.
   var offers = (d.suggestions || []).map(function(sg, i) {
-    return _libFolderRowHtml(tH('lib_folders_offer', { label: sg.label }),
-      esc(t('lib_folders_offer_hint', { n: sg.zims, path: sg.path })),
+    return _libFolderRowHtml(tH('lib_folders_offer', { label: sg.label }) + _libFolderCountHtml(tPlural('lib_folders_zims', sg.zims)),
+      esc(sg.path),
       '<span class="lf-btns"><button type="button" class="set-btn primary" onclick="_libFolderAct(\'add\', ' + i + ', true)">' + tH('lib_folders_add') + '</button>' +
       '<button type="button" class="set-btn" onclick="_libFolderAct(\'dismiss\', ' + i + ', true)">' + tH('lib_folders_not_now') + '</button></span>');
   });
@@ -16724,7 +16725,7 @@ function renderInstalled(filterText) {
           tH('update') + '</button>' +
           _zimDeleteBtn(z.file, z.external);
       } else {
-        actionsHtml = '<span class="ci-installed-badge">' + tH('installed_badge') + '</span>' +
+        actionsHtml = (z.external ? '' : '<span class="ci-installed-badge">' + tH('installed_badge') + '</span>') +
           _zimDeleteBtn(z.file, z.external);
       }
       // No inline download pill: the raw .zim lives on the row's \u22ef menu

@@ -3062,7 +3062,6 @@
   "lib_folders_zims_one": "{n} ZIM",
   "lib_folders_zims_other": "{n} ZIM",
   "lib_folders_offer": "{label} मिला",
-  "lib_folders_offer_hint": "{path} में {n} ZIM। Zimi इन्हें उनकी जगह पर ही पढ़ता है।",
   "lib_folders_add": "जोड़ें",
   "lib_folders_not_now": "अभी नहीं",
   "lib_folders_path": "फ़ोल्डर का पथ, जैसे /opt/project-nomad/storage/zim",

@@ -5435,7 +5435,7 @@ def handle_manage_get(handler, parsed, params):
         if denial:
             return handler._json(*denial)
         if not _primary_admin_authorized(handler):
-            return handler._json(403, {"error": "reading the server's disk is for the primary admin"})
+            return handler._json(403, _DISK_PRIMARY_ONLY)
         payload, status = _create_tree(param("path", ""), _create_int(param("offset"), 0, 2**31) or 0)
         return handler._json(status, payload)
     challenge = _manage_auth_challenge(handler)
@@ -6018,6 +6018,8 @@ def handle_manage_get(handler, parsed, params):
         )
 
     elif parsed.path == "/manage/library-folders":
+        if not _primary_admin_authorized(handler):
+            return handler._json(403, _DISK_PRIMARY_ONLY)
         return handler._json(200, _library_folders_view())
 
     elif parsed.path == "/manage/env":
@@ -6471,6 +6473,9 @@ def _btc_view():
     }
 
 
+_DISK_PRIMARY_ONLY = {"error": "reading the server's disk is for the primary admin"}
+
+
 def _library_folders_view():
     """What the Storage card draws: the folders read in place, and the one
     offer, if there is one. Asked when the card opens, so a listing per folder
@@ -6487,6 +6492,8 @@ def _handle_library_folders(handler, data):
 
     Adding or removing splices just that folder's ZIMs into the live library
     and answers once it has; the files in the folder are never touched."""
+    if not _primary_admin_authorized(handler):
+        return handler._json(403, _DISK_PRIMARY_ONLY)
     action = data.get("action")
     path = str(data.get("path") or "")
     try:
@@ -6693,7 +6700,7 @@ def handle_manage_post(handler, parsed, data):
             and data.get("mode") in CREATE_DISK_MODES
             and not _primary_admin_authorized(handler)
         ):
-            return handler._json(403, {"error": "reading the server's disk is for the primary admin"})
+            return handler._json(403, _DISK_PRIMARY_ONLY)
         if parsed.path == "/manage/create/cancel":
             # With an id: that job, wherever it is — the running one or one
             # still waiting. Without: whatever is running.

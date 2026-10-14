@@ -3062,7 +3062,6 @@
   "lib_folders_zims_one": "{n} ZIM",
   "lib_folders_zims_other": "{n} ZIM",
   "lib_folders_offer": "Найдено: {label}",
-  "lib_folders_offer_hint": "{n} ZIM в {path}. Zimi читает их на месте.",
   "lib_folders_add": "Добавить",
   "lib_folders_not_now": "Не сейчас",
   "lib_folders_path": "Путь к папке, например /opt/project-nomad/storage/zim",

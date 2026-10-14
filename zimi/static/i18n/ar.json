@@ -3062,7 +3062,6 @@
   "lib_folders_zims_one": "{n} ZIM",
   "lib_folders_zims_other": "{n} ZIM",
   "lib_folders_offer": "تم العثور على {label}",
-  "lib_folders_offer_hint": "{n} ZIM في {path}. يقرأها Zimi في مكانها.",
   "lib_folders_add": "إضافة",
   "lib_folders_not_now": "ليس الآن",
   "lib_folders_path": "مسار المجلد، مثل /opt/project-nomad/storage/zim",

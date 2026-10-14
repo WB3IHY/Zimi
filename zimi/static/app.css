@@ -2141,6 +2141,8 @@
   /* Other library folders (Storage). */
   .ms-libfolders { margin-top: 4px; }
   .lf-row .lf-path { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; overflow-wrap: anywhere; }
+  .lf-row { flex-wrap: wrap; }
+  .lf-row .share-row-text { flex: 1 1 14em; min-width: 0; }
   .lf-count { font-weight: 400; font-size: 12px; color: var(--text2); margin-inline-start: 6px; }
   .lf-btns { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
   .lf-add { display: flex; gap: 8px; margin-top: 10px; }

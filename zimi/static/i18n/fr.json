@@ -3062,7 +3062,6 @@
   "lib_folders_zims_one": "{n} ZIM",
   "lib_folders_zims_other": "{n} ZIM",
   "lib_folders_offer": "{label} trouvé",
-  "lib_folders_offer_hint": "{n} ZIM dans {path}. Zimi les lit là où ils sont.",
   "lib_folders_add": "Ajouter",
   "lib_folders_not_now": "Pas maintenant",
   "lib_folders_path": "Chemin du dossier, par exemple /opt/project-nomad/storage/zim",

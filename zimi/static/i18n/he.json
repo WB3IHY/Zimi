@@ -3062,7 +3062,6 @@
   "lib_folders_zims_one": "{n} ZIM",
   "lib_folders_zims_other": "{n} ZIM",
   "lib_folders_offer": "נמצא {label}",
-  "lib_folders_offer_hint": "{n} קובצי ZIM ב-{path}. Zimi קורא אותם במקומם.",
   "lib_folders_add": "הוספה",
   "lib_folders_not_now": "לא עכשיו",
   "lib_folders_path": "נתיב התיקייה, לדוגמה /opt/project-nomad/storage/zim",

@@ -416,6 +416,19 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(d["folders"][0]["zims"], 1)
         self.assertIn("wikipedia_en_100", server._zim_files_cache)
 
+    def test_only_the_primary_admin_may_name_a_folder_on_the_server_disk(self):
+        import zimi.manage as manage
+
+        saved = manage._primary_admin_authorized
+        manage._primary_admin_authorized = lambda handler: False
+        try:
+            st, _ = self._req("/manage/library-folders", {"action": "add", "path": self._nomad})
+            st_get, _ = self._req("/manage/library-folders")
+        finally:
+            manage._primary_admin_authorized = saved
+        self.assertEqual((st, st_get), (403, 403))
+        self.assertEqual(libfolders.dirs(), [])
+
     def test_a_bad_folder_says_why(self):
         st, d = self._req(
             "/manage/library-folders", {"action": "add", "path": "/no/such"}

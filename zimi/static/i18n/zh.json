@@ -3062,7 +3062,6 @@
   "lib_folders_zims_one": "{n} 个 ZIM",
   "lib_folders_zims_other": "{n} 个 ZIM",
   "lib_folders_offer": "发现 {label}",
-  "lib_folders_offer_hint": "{path} 中有 {n} 个 ZIM。Zimi 在原位置读取它们。",
   "lib_folders_add": "添加",
   "lib_folders_not_now": "暂不",
   "lib_folders_path": "文件夹路径，例如 /opt/project-nomad/storage/zim",
