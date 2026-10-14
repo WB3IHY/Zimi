@@ -218,6 +218,13 @@ const jsonRes = (body, ok = true) => Promise.resolve({ ok, json: () => Promise.r
     check(first.removed && S.fetched.length === 2, 'a different question removes the old card and asks again');
   }
 
+  // ── a quote is consumed where no page loads ───────────────────────────
+  {
+    const i = src.indexOf('_restoreMapPosition(flyPos, 0);');
+    const block = src.slice(i, src.indexOf('return;', i));
+    check(i > 0 && block.includes('_pendingQuote = null'), 'flying to a place on the open map drops a pending quote');
+  }
+
   if (failures) { console.error(failures + ' failed'); process.exit(1); }
   console.log('all passed');
 })();

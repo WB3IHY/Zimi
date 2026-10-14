@@ -3033,8 +3033,10 @@ def search_all(query_str, limit=5, filter_zim=None, fast=False):
             w.lower() for w in cleaned_q.split() if w.lower() not in STOP_WORDS
         ] or [w.lower() for w in q.split()]
 
-    # Clean query for Xapian (only pass raw query for single-ZIM scope)
-    cleaned = _clean_query(query_str) if not single_zim else query_str
+    # Clean query for Xapian: "how to purify water" asks for "purify water".
+    # (A search scoped to one ZIM used to send the raw words, so a question
+    # found nothing there while the same question across the library did.)
+    cleaned = _clean_query(query_str)
     if plan:
         word_sets = [_words(w, _clean_query(w)) for w in map(_query.term_words, plan)]
     else:
@@ -3156,7 +3158,7 @@ def search_all(query_str, limit=5, filter_zim=None, fast=False):
                         parsed,
                         plan,
                         lambda n, text, lim: _full(
-                            n, text if single_zim else _clean_query(text), lim, text
+                            n, _clean_query(text), lim, text
                         ),
                         name,
                         limit,
@@ -3165,6 +3167,12 @@ def search_all(query_str, limit=5, filter_zim=None, fast=False):
                     results = _full(name, cleaned, limit, query_str)
                     if results is None:
                         return
+                    # One source asked for by name, and the cleaned words found
+                    # nothing: the words as typed may be a title of function
+                    # words ("The Who"). Only here, so a library-wide search
+                    # that finds nothing costs what it always did.
+                    if not results and single_zim and cleaned != query_str:
+                        results = _full(name, query_str, limit, query_str) or results
                 dt = time.time() - t0
                 fts_results[name] = (results, dt)
             except Exception as e:
@@ -3697,25 +3705,37 @@ def best_answer_for(q, zim_scope_str, filter_zim, limit):
     if not bestanswer.worth_asking(q):
         return {"answer": None}  # a keyword search: no reading, no cache entry
 
-    def hits_for(query):
-        key = _search_cache_key(query, zim_scope_str, limit, False)
+    def hits_for(query, fast=False):
+        key = _search_cache_key(query, zim_scope_str, limit, fast)
         found, _ = search_cached(
-            key, lambda: search_all(query, limit=limit, filter_zim=filter_zim)
+            key,
+            lambda: search_all(
+                query, limit=limit, filter_zim=filter_zim, fast=fast
+            ),
         )
         return found.get("results", [])
 
     def compute():
-        hits = hits_for(q)
+        started = time.time()  # the budget covers everything the card does
+        hits = list(hits_for(q))  # a copy: the search's cached list is not ours
         # A question in a language the search keeps its function words in
-        # ("wer hat die Mona Lisa gemalt") finds nothing as asked: the same
-        # words without them, for the card alone.
+        # ("wer hat die Mona Lisa gemalt") finds nothing as asked. Its content
+        # words are looked up in the title index (milliseconds, no
+        # full-text search, no per-ZIM search lock held for a person who may
+        # have gone), longest first, until there are enough: "Mona Lisa
+        # gemalt", then "Mona Lisa". Not at all once the budget is spent.
         if len(hits) < bestanswer.SPARSE_HITS:
-            plain = bestanswer.content_query(q)
-            if plain and plain != q:
-                seen = {(h["zim"], h["path"]) for h in hits}
-                hits = hits + [
-                    h for h in hits_for(plain) if (h["zim"], h["path"]) not in seen
-                ]
+            seen = {(h["zim"], h["path"]) for h in hits}
+            words = bestanswer.content_query(q).split()
+            for n in range(len(words), 0, -1):
+                if time.time() - started > bestanswer.BUDGET_SECONDS:
+                    break
+                for h in hits_for(" ".join(words[:n]), fast=True):
+                    if (h["zim"], h["path"]) not in seen:
+                        seen.add((h["zim"], h["path"]))
+                        hits.append(h)
+                if len(hits) >= bestanswer.SPARSE_HITS:
+                    break
         kinds = {z["name"]: z.get("kind", "") for z in (_srv._zim_list_cache or [])}
 
         def read_chunks(zim, path):
@@ -3732,7 +3752,9 @@ def best_answer_for(q, zim_scope_str, filter_zim, limit):
                 max_text=bestanswer.PASSAGE_SIZE * bestanswer.MAX_CHUNKS_PER_ARTICLE,
             )["chunks"]
 
-        return bestanswer.best_answer(q, hits, read_chunks, kinds)
+        return bestanswer.best_answer(
+            q, hits, read_chunks, kinds, started=started
+        )
 
     key = ("best",) + _search_cache_key(q, zim_scope_str, limit, False)
     return bestanswer.cached_best_answer(key, compute)

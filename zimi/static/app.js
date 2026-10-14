@@ -26097,6 +26097,7 @@ function openArticle(zim, path, title, opts) {
       _histPushArticle(zim, path, flyTitle, opts.pos);
       history.pushState({ mode: 'reader', zim: zim, path: path }, '', _articleDeepLinkPath(zim, path) + '#' + opts.pos);
       _restoreMapPosition(flyPos, 0);
+      _pendingQuote = null; // no page loads here, so a quote has nothing to find
       document.title = flyTitle + ' \u2014 Zimi';
       _setWindowTitle(document.title);
       return;

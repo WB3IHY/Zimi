@@ -524,6 +524,7 @@ def rank_answer(q, passages, lang=None):
 
 _cache = collections.OrderedDict()
 _cache_lock = threading.Lock()
+_inflight = {}  # key -> Event, set when the card being made for it is cached
 
 
 def _cache_get(key):
@@ -548,13 +549,23 @@ def cache_clear():
         _cache.clear()
 
 
+_UNQUOTABLE_PATH = re.compile(r"\.(pdf|epub)$", re.IGNORECASE)
+_UNQUOTABLE_ZIM = "zimgit-"  # collections of PDFs
+
+
 def _readable_hits(results, kinds):
     """The search results worth reading: articles, in the search's order, not
-    maps, videos or a second page of one article."""
+    maps, videos, PDFs (a whole one would be read under the library lock) or a
+    second page of one article."""
     seen, out = set(), []
     for r in results:
         key = (r.get("zim"), r.get("path"))
-        if key in seen or kinds.get(r.get("zim")) in ("map", "video"):
+        if (
+            key in seen
+            or kinds.get(r.get("zim")) in ("map", "video")
+            or _UNQUOTABLE_PATH.search(r.get("path") or "")
+            or (r.get("zim") or "").startswith(_UNQUOTABLE_ZIM)
+        ):
             continue
         seen.add(key)
         out.append(r)
@@ -576,18 +587,22 @@ def lead_text(text, title):
     return text
 
 
-def best_answer(q, hits, read_chunks, kinds=None, budget=BUDGET_SECONDS):
+def best_answer(
+    q, hits, read_chunks, kinds=None, budget=None, started=None
+):
     """The card for `q`, or {"answer": None}.
 
     `hits`: the search's results, ranked. `read_chunks(zim, path)`: that
     article's chunks ({"seq", "text"}), taking whatever lock the library
     needs for as long as one article takes and no longer. Articles are read in
     rank order until `budget` seconds are spent, so a slow disk gives a card
-    from fewer articles, never a late one.
+    from fewer articles, never a late one. `started`: when the card's work
+    began, if before this call (the searches that found `hits` count).
     """
     if not worth_asking(q):
         return {"answer": None}
-    t0 = time.time()
+    budget = BUDGET_SECONDS if budget is None else budget
+    t0 = time.time() if started is None else started
     passages = []
     kinds = kinds or {}
     for rank, hit in enumerate(_readable_hits(hits, kinds)):
@@ -621,10 +636,30 @@ def best_answer(q, hits, read_chunks, kinds=None, budget=BUDGET_SECONDS):
 
 def cached_best_answer(key, compute):
     """`compute()` once per key for CACHE_TTL: the same question asked again
-    (Back, a second tab) costs nothing, and the cache is bounded."""
-    hit = _cache_get(key)
-    if hit is not None:
-        return hit
-    value = compute()
-    _cache_put(key, value)
-    return value
+    (Back, a second tab) costs nothing, one asked while it is being made waits
+    for that and shares it, and the cache is bounded."""
+    while True:
+        hit = _cache_get(key)
+        if hit is not None:
+            return hit
+        with _cache_lock:
+            slot = _inflight.get(key)
+            owner = slot is None
+            if owner:
+                slot = _inflight[key] = threading.Event()
+        if owner:
+            break
+        slot.wait(BUDGET_SECONDS * 4)
+        hit = _cache_get(key)
+        if hit is not None:
+            return hit
+        break  # the owner failed or took too long: make it here
+    try:
+        value = compute()
+        _cache_put(key, value)
+        return value
+    finally:
+        if owner:
+            with _cache_lock:
+                _inflight.pop(key, None)
+            slot.set()

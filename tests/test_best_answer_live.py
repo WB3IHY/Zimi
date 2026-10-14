@@ -18,18 +18,20 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+
 @pytest.fixture(scope="module")
 def served(tmp_path_factory):
     from http.server import ThreadingHTTPServer
 
     import zimi.server as srv
-    from conftest_zim import build_answer_fixture_zim
+    from conftest_zim import build_answer_fixture_zim, build_wiki_fixture_zim
     from zimi.http import ZimHandler
 
     tmp = tmp_path_factory.mktemp("best")
     zdir = tmp / "zims"
     zdir.mkdir()
     build_answer_fixture_zim(str(zdir / "wiki_en_test.zim"))
+    build_wiki_fixture_zim(str(zdir / "almanac_en_test.zim"))  # a second source
     old = (srv.ZIM_DIR, srv.ZIMI_DATA_DIR, os.environ.get("ZIMI_OFFLINE"))
     os.environ["ZIMI_OFFLINE"] = "1"
     srv.ZIM_DIR = str(zdir)
