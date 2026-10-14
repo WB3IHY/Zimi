@@ -143,3 +143,9 @@ callisto-v1.webp
 Moon and Earth: the Earth view's maps above (moon-v1.webp, earth-day-v1.webp,
 earth-night-v1.webp). Saturn's rings are drawn from their measured radial
 structure (Cassini Division 117,500-122,200 km, Encke Gap near 133,500 km).
+
+zones-v1.json
+  {IANA zone: [latitude, longitude, ISO 3166 country]} for the 418 zones of the
+  tz database's zone.tab (public domain) and the old names that link to them.
+  Coordinates are the tz database's own, to the arc minute, rounded to 0.01 degrees.
+  Read by the Field Guide for the emergency number and the sky of a reader's time zone.
