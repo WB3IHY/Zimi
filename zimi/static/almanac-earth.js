@@ -1386,25 +1386,30 @@ var AE_POINTS_FRAG = [
   '}'
 ].join('\n');
 
-// A point cloud of `capacity` points on the points shader.
+// A point cloud of `capacity` points on the points shader. `opts.kinds` adds a per-point
+// kind (aKind) and `opts.material` ({ uniforms, vertexShader, fragmentShader }) brings the
+// cloud's own shader, as the flown solar system's markers do (almanac-space.js).
 function _aePointCloud(THREE, capacity, dpr, glow, opts) {
   var g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(capacity * 3), 3));
   g.setAttribute('aColor', new THREE.BufferAttribute(new Float32Array(capacity * 3), 3));
   g.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(capacity), 1));
   g.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array(capacity), 1));
+  if (opts.kinds) g.setAttribute('aKind', new THREE.BufferAttribute(new Float32Array(capacity), 1));
   g.setDrawRange(0, 0);
+  var shaders = opts.material || { uniforms: { dpr: { value: dpr }, glow: { value: glow ? 1 : 0 }, fade: _aeFadeU }, vertexShader: AE_POINTS_VERT, fragmentShader: AE_POINTS_FRAG };
   var m = new THREE.ShaderMaterial({
-    uniforms: { dpr: { value: dpr }, glow: { value: glow ? 1 : 0 }, fade: _aeFadeU },
-    vertexShader: AE_POINTS_VERT, fragmentShader: AE_POINTS_FRAG,
+    uniforms: shaders.uniforms, vertexShader: shaders.vertexShader, fragmentShader: shaders.fragmentShader,
     transparent: true, depthWrite: false, depthTest: opts.depthTest !== false
   });
+  if (opts.additive) m.blending = THREE.AdditiveBlending;
   var p = new THREE.Points(g, m);
   p.frustumCulled = false;
   return p;
 }
-function _aeSetPoint(cloud, i, pos, color, alpha, size) {
+function _aeSetPoint(cloud, i, pos, color, alpha, size, kind) {
   var a = cloud.geometry.attributes;
+  if (a.aKind) a.aKind.array[i] = kind || 0;
   a.position.array[i * 3] = pos[0]; a.position.array[i * 3 + 1] = pos[1]; a.position.array[i * 3 + 2] = pos[2];
   a.aColor.array[i * 3] = color[0]; a.aColor.array[i * 3 + 1] = color[1]; a.aColor.array[i * 3 + 2] = color[2];
   a.aAlpha.array[i] = alpha;
@@ -1413,6 +1418,7 @@ function _aeSetPoint(cloud, i, pos, color, alpha, size) {
 function _aeCommitPoints(cloud, count) {
   var a = cloud.geometry.attributes;
   a.position.needsUpdate = a.aColor.needsUpdate = a.aAlpha.needsUpdate = a.aSize.needsUpdate = true;
+  if (a.aKind) a.aKind.needsUpdate = true;
   cloud.geometry.setDrawRange(0, count);
 }
 // A line of `count` vertices whose positions are rewritten in place.
@@ -1475,15 +1481,22 @@ function _aeStarField(THREE, dpr, stars) {
 // The whole catalogue, fetched with the other Earth assets: one fetch, one
 // pass over the bytes, one draw call. A failure keeps the first sky and the
 // next open asks again. The old points leave in the frame the new ones come.
-function _aeLoadStars(S) {
-  if (S.starsLoaded || S.starsLoading) return;
-  S.starsLoading = true;
-  fetch(AE_STARS_URL).then(function (r) {
+// The catalogue, fetched and decoded (read through at(i, out)); rejects if it is not there.
+function _aeFetchStars() {
+  return fetch(AE_STARS_URL).then(function (r) {
     if (!r.ok) throw new Error('stars');
     return r.arrayBuffer();
   }).then(function (buf) {
     var stars = _aeDecodeStars(buf);
-    if (!stars || _ae.gl !== S) throw new Error('stars');
+    if (!stars) throw new Error('stars');
+    return stars;
+  });
+}
+function _aeLoadStars(S) {
+  if (S.starsLoaded || S.starsLoading) return;
+  S.starsLoading = true;
+  _aeFetchStars().then(function (stars) {
+    if (_ae.gl !== S) throw new Error('stars');
     var old = S.starCloud;
     S.starCloud = _aeStarField(S.THREE, S.dpr, stars);
     S.sky.add(S.starCloud);
@@ -3283,6 +3296,17 @@ function _aeDisposeGl() {
   _ae.ready = false;
   _ae.scene = null;
   _ae.ringsAt = _ae.issRingAt = _ae.moonPathAt = null;
+  _aeFreeGl(S);
+  // The labels were pinned to that scene; the next one's frames pin them again.
+  ['ae-lbl-moon', 'ae-lbl-iss', 'ae-lbl-you', 'ae-lbl-shadow'].forEach(function (id) {
+    var label = _aeById(id);
+    if (label) label.hidden = true;
+  });
+  _aeFreshCanvas('ae-canvas', _aeBindCanvas);
+}
+// Every geometry, material and map of a scene, then the context itself. Shared with the
+// flown solar system (almanac-space.js), which holds its own.
+function _aeFreeGl(S) {
   S.scene.traverse(function (o) {
     if (o.geometry) o.geometry.dispose();
     if (!o.material) return;
@@ -3292,16 +3316,14 @@ function _aeDisposeGl() {
   });
   S.renderer.dispose();
   S.renderer.forceContextLoss();
-  // The labels were pinned to that scene; the next one's frames pin them again.
-  ['ae-lbl-moon', 'ae-lbl-iss', 'ae-lbl-you', 'ae-lbl-shadow'].forEach(function (id) {
-    var label = _aeById(id);
-    if (label) label.hidden = true;
-  });
-  var old = _aeById('ae-canvas');
+}
+// A lost context cannot be had again from its canvas: a clone takes its place, with the same listeners bound.
+function _aeFreshCanvas(id, bind) {
+  var old = _aeById(id);
   if (old && old.parentNode) {
     var fresh = old.cloneNode(false);
     old.parentNode.replaceChild(fresh, old);
-    _aeBindCanvas(fresh);
+    bind(fresh);
   }
 }
 

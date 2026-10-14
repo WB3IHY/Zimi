@@ -236,6 +236,7 @@ function _almanacTeardown() {
   // The 3D Earth (almanac-earth.js, loaded after this file) gives its GPU
   // memory back: a phone keeps a tab that holds less.
   if (typeof _aeRelease === 'function') _aeRelease();
+  if (typeof _spRelease === 'function') _spRelease();
   _cancelAllRAF();
   if (typeof _skyStop === 'function') _skyStop();
   _almSelectedTz = null;
@@ -252,6 +253,27 @@ function _almanacTeardown() {
   if (typeof updateTopbar === 'function') updateTopbar();
   var qEl = document.getElementById('q');
   if (qEl) qEl.placeholder = t('search_placeholder');
+}
+
+// The flown solar system loads on the first press, never before: nothing on the Almanac's own path.
+var _almSpaceLoading = false;
+var ALM_SPACE_WAIT_MS = 100, ALM_SPACE_WAIT_TRIES = 150;   // the Earth view's module follows the Almanac's first paint: wait up to 15 s for it
+function _almOpenSpace(tries) {
+  // It builds on the Earth view's three.js loader and star decoder (almanac-earth.js), which
+  // loads after the Almanac's first paint: pressed before it has, wait for it rather than fail.
+  if (typeof _aeLoadThree !== 'function') {
+    if ((tries || 0) >= ALM_SPACE_WAIT_TRIES) { _showToast(t('sp_unavailable')); return; }
+    setTimeout(function () { _almOpenSpace((tries || 0) + 1); }, ALM_SPACE_WAIT_MS);
+    return;
+  }
+  if (typeof openAlmanacSpace === 'function') { openAlmanacSpace(); return; }
+  if (_almSpaceLoading) return;
+  _almSpaceLoading = true;
+  var s = document.createElement('script');
+  s.src = '/static/almanac-space.js?v=45';
+  s.onload = function () { _almSpaceLoading = false; if (typeof openAlmanacSpace === 'function') openAlmanacSpace(); };
+  s.onerror = function () { _almSpaceLoading = false; _showToast(t('almanac_unavailable_offline')); };
+  document.head.appendChild(s);
 }
 
 function closeAlmanac() {
@@ -2127,6 +2149,8 @@ function _renderAlmanacContent() {
   html += '<span id="orrery-date" class="orrery-date"></span>';
   html += '<button id="orrery-now" class="orrery-ctrl-btn orrery-now" onclick="_orrerySnapToNow()" title="' + t('alm_back_to_now') + '" style="display:none">' + t('alm_now') + '</button>';
   html += '</div>';
+  // The way into the flown solar system (almanac-space.js, fetched the first time this is pressed).
+  html += '<div class="orrery-space-pill"><button type="button" class="orrery-space-btn" onclick="_almOpenSpace()">' + _almEsc(t('sp_open')) + '</button></div>';
   // Transit slider — appears when a rocket is in flight (aligned with main controls)
   html += '<div id="orrery-transit-wrap" class="orrery-transit-wrap">';
   html += '<span class="orrery-transit-end">' + t('alm_transit') + '</span>';
