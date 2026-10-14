@@ -1267,24 +1267,32 @@ function _spNewState(el) {
     jd: 0, rateIdx: 0, scaleMode: 'readable', beta: 0.1,
     // The camera: parked, it looks at `follow` (a body, or the free point `center` mid-glide) from `dist`
     // at azimuth `az` and elevation `el`; in flight it is the ship, and `look*` turn the head.
-    cam: { follow: 'Sun', center: [0, 0, 0], dist: SP_OVERVIEW_DIST_AU, az: -2.0, el: SP_OVERVIEW_ELEVATION,
+    cam: { follow: 'Sun', center: [0, 0, 0], dist: SP_OVERVIEW_DIST_AU, az: SP_START_AZIMUTH, el: SP_OVERVIEW_ELEVATION,
            pos: [0, 0, 0], fwd: [0, 1, 0], right: [1, 0, 0], up: [0, 0, 1], lookYaw: 0, lookPitch: 0 },
     glide: null, flight: null, selected: null, lastTrip: null, at: 'Earth', pendingFly: null,
+    layout: 1, layoutTarget: 1, group: 'planets', capQueue: [], moved: false, openJd: 0, shift: 0,
     pointers: {}, drag: null, pinch: null, w: 1, h: 1,
     projected: [], seen: {}, caption: null, whyOpen: false, labelPool: {}, lastCard: ''
   };
 }
 function _spReduceMotion() { return _aeReduceMotion(); }
-function _spScaleNow() { return _spScale(_sp.scaleMode); }
+// The scale as drawn now (it follows the spacecraft near each body), made again only when the moment or mode changes.
+// During a flight it is the scale of the moment the ship arrives, so no body changes size on the way
+// (a planet a probe is leaving would grow under the ship) and the standoff fits the planet as it will be.
+function _spScaleNow() {
+  var jd = _sp.flight ? _sp.flight.arriveJd : _sp.jd, c = _sp.scaleCache;
+  if (!c || c.mode !== _sp.scaleMode || c.jd !== jd) c = _sp.scaleCache = { mode: _sp.scaleMode, jd: jd, scale: _spScale(_sp.scaleMode, jd) };
+  return c.scale;
+}
 
 // ── Camera ──
 function _spSphericalOffset(dist, az, el) {
   return [dist * Math.cos(el) * Math.cos(az), dist * Math.cos(el) * Math.sin(az), dist * Math.sin(el)];
 }
-function _spMinDist(key) {
+function _spMinDist(key, sc) {
   var b = _spBody(key);
   if (b.kind === 'probe') return SP_PROBE_MIN_AU;
-  return Math.max(1e-9, _spShownRadius(key, _spScaleNow()) * SP_MIN_RADII);
+  return Math.max(1e-9, _spShownRadius(key, sc || _spScaleNow()) * SP_MIN_RADII);
 }
 // Turn a heading by the head's yaw (left, about the ecliptic's up) and pitch.
 function _spLookFrom(heading, yaw, pitch) {
@@ -1301,13 +1309,18 @@ function _spSetFacing(cam, fwd) {
   cam.up = _aeCross(cam.right, fwd);
 }
 // Where the camera is and which way it looks, at the view's moment.
+// Where the picture puts a body (the laid-out place when the overview is on).
+function _spFollowCenter(key) {
+  var abs = _spBodyPos(key, _sp.jd, _spScaleNow());
+  return abs ? _spDisplayAt(key, abs, _sp.jd, _sp.layout) : null;
+}
 function _spPlaceCamera() {
   var cam = _sp.cam, f = _sp.flight;
   if (f) {
     _spSetFacing(cam, _spLookFrom(f.heading, cam.lookYaw, cam.lookPitch));
     return;
   }
-  var center = cam.follow ? _spBodyPos(cam.follow, _sp.jd, _spScaleNow().moon) : cam.center;
+  var center = cam.follow ? _spFollowCenter(cam.follow) : cam.center;
   if (!center) center = cam.center;
   cam.center = center;
   var off = _spSphericalOffset(cam.dist, cam.az, cam.el);
@@ -1319,15 +1332,16 @@ function _spBeta() { return _sp.flight ? _sp.flight.now.beta : 0; }
 // Where the ship is: in flight, the camera; otherwise at the body it last reached (it starts at Earth).
 function _spShipPos() {
   if (_sp.flight) return _sp.cam.pos;
-  return _spBodyPos(_sp.at, _sp.jd, _spScaleNow().moon) || _sp.cam.pos;
+  return _spBodyPos(_sp.at, _sp.jd, _spScaleNow()) || _sp.cam.pos;
 }
 // Fly: first turn the camera to a launch pose beside the ship, looking toward the target, then go.
 function _spLaunch(key) {
   if (!_spCanFly(key)) return;
-  var sc = _spScaleNow(), ship = _spShipPos(), target = _spBodyPos(key, _sp.jd, sc.moon);
+  var sc = _spScaleNow(), ship = _spShipPos(), target = _spBodyPos(key, _sp.jd, sc);
   var toward = _aeSub(target, ship), d = _aeLen(toward);
   _spSelect(key);
   if (key === _sp.at || d < 1e-9) { _sp.at = key; _spGlideToBody(key); return; }
+  _spSetLayout(0);
   var u = _aeScale(toward, 1 / d), stand = _spStandoff(_sp.at);
   var pose = _spAdd(ship, _aeScale(u, stand));
   _sp.pendingFly = key;
@@ -1349,31 +1363,41 @@ function _spShareAt(len, beta, p) {
   }
   return (lo + hi) / 2;
 }
-function _spStandoff(key) {
+// How near the camera stops, in the drawn scene.
+function _spStandoff(key, sc) {
   var b = _spBody(key);
-  return b.kind === 'probe' ? SP_PROBE_STANDOFF_AU : Math.max(_spMinDist(key), _spShownRadius(key, _spScaleNow()) * SP_STANDOFF_RADII);
+  return b.kind === 'probe' ? SP_PROBE_STANDOFF_AU : Math.max(_spMinDist(key, sc), _spShownRadius(key, sc || _spScaleNow()) * SP_STANDOFF_RADII);
 }
-function _spCanFly(key) { return !_sp.flight && !!_spBodyPos(key, _sp.jd, 1); }
+function _spCanFly(key) { return !_sp.flight && !_spNoGo(key); }
+// Why the ship cannot go to a body from where it is: 'absent' (not flying on this date)
+// or 'gone' (its data ends before the ship would arrive); '' when it can.
+function _spNoGo(key) {
+  var trip = _spTripBetween(_sp.at, key, _sp.jd, _sp.beta);
+  return !trip ? 'absent' : (trip.reachable ? '' : 'gone');
+}
 function _spStartFlight(key) {
   if (!_spCanFly(key)) return;
   _spPlaceCamera();
-  var from = _sp.cam.pos.slice(), moonK = _spScaleNow().moon, stand = _spStandoff(key);
-  var hit = _spIntercept(function (jd) { return _spBodyPos(key, jd, moonK) || _spBodyPos(key, _sp.jd, moonK); }, from, _sp.beta, _sp.jd, stand);
-  var toTarget = _aeSub(hit.pos, from), d = _aeLen(toTarget);
-  var len = Math.max(0, d - stand);
+  // The clocks are the true trip (_spTripBetween); the camera flies the drawn one, to the
+  // drawn body where it will be when the ship arrives, and stops short of it by the drawn standoff.
+  _sp.layout = _sp.layoutTarget = 0;
+  var from = _sp.cam.pos.slice(), trip = _spTripBetween(_sp.at, key, _sp.jd, _sp.beta);
+  var sc = _spScale(_sp.scaleMode, trip.arriveJd), stand = _spStandoff(key, sc);   // the scale of the arrival, held through the flight
+  var target = _spBodyPos(key, trip.arriveJd, sc), toTarget = _aeSub(target, from), d = _aeLen(toTarget);
+  var camLen = Math.max(0, d - stand);
   _spSelect(key);
   _sp.lastTrip = null;
-  if (len < 1e-9) { _spGlideToBody(key); return; }
+  if (camLen < 1e-9 || trip.legAU < 1e-12) { _sp.at = key; _spGlideToBody(key); return; }
   var heading = _aeScale(toTarget, 1 / d);
   _sp.flight = {
-    key: key, from: from, heading: heading, len: len, beta: _sp.beta, jd0: _sp.jd, arriveJd: hit.arriveJd,
-    p: 0, dur: _spFlightSeconds(len), stand: stand,
-    now: _spTripAt(len, _sp.beta, 0)
+    key: key, from: from, heading: heading, len: trip.legAU, camLen: camLen, trueDist: trip.distAU, beta: _sp.beta,
+    jd0: _sp.jd, arriveJd: trip.arriveJd, p: 0, dur: _spFlightSeconds(camLen), stand: stand,
+    now: _spTripAt(trip.legAU, _sp.beta, 0)
   };
   _sp.cam.lookYaw = _sp.cam.lookPitch = 0;
   _sp.glide = null;
   _spPlaceCamera();
-  _sp.caption = null;
+  _sp.caption = null; _sp.capQueue = [];
   _spShowCaption('race');
   if (_spReduceMotion()) _spStepFlight(1e9);
   _spSyncControls();
@@ -1389,7 +1413,7 @@ function _spStepFlight(dt) {
   f.share = s;
   f.now = _spTripAt(f.len, f.beta, s);
   _sp.jd = f.jd0 + f.now.earthSec / SECONDS_PER_DAY;
-  _sp.cam.pos = _spAdd(f.from, _aeScale(f.heading, f.len * s));
+  _sp.cam.pos = _spAdd(f.from, _aeScale(f.heading, f.camLen * s));
   if (f.p >= 1) { _spFinishFlight(); return false; }
   return true;
 }
@@ -1398,10 +1422,13 @@ function _spFinishFlight() {
   _sp.at = f.key;
   _sp.lastTrip = { key: f.key, beta: f.beta, earthSec: f.now.earthSec, shipSec: f.now.shipSec };
   _sp.jd = f.jd0 + f.now.earthSec / SECONDS_PER_DAY;
-  var center = _spBodyPos(f.key, _sp.jd, _spScaleNow().moon);
-  var off;
-  off = _aeSub(_spAdd(f.from, _aeScale(f.heading, f.len)), center);
+  _sp.moved = true;
+  var end = _spAdd(f.from, _aeScale(f.heading, f.camLen));
+  // The body where the ship stops; if its table has ended the ship stops where it was bound.
+  var center = _spFollowCenter(f.key) || _spAdd(end, _aeScale(f.heading, f.stand));
+  var off = _aeSub(end, center);
   cam.follow = f.key;
+  cam.center = center;
   cam.dist = Math.max(_aeLen(off), _spMinDist(f.key));
   cam.az = Math.atan2(off[1], off[0]);
   cam.el = Math.asin(_aeClamp(off[2] / Math.max(_aeLen(off), 1e-18), -1, 1));
@@ -1417,7 +1444,7 @@ function _spSkipFlight() { if (_sp.flight) _spStepFlight(1e12); _spKick(); }
 // A smooth turn of the camera between parked views (no ship, no speed).
 function _spGlide(to) {
   var cam = _sp.cam;
-  var toCenter = to.follow ? _spBodyPos(to.follow, _sp.jd, _spScaleNow().moon) : (to.center || [0, 0, 0]);
+  var toCenter = to.follow ? (_spFollowCenter(to.follow) || cam.center) : (to.center || [0, 0, 0]);
   var g = { from: { center: cam.center.slice(), dist: cam.dist, az: cam.az, el: cam.el }, to: { follow: to.follow, center: toCenter, dist: to.dist, az: to.az, el: to.el }, p: 0 };
   var dAz = g.to.az - g.from.az;
   g.to.az = g.from.az + Math.atan2(Math.sin(dAz), Math.cos(dAz));
@@ -1449,26 +1476,52 @@ function _spStepGlide(dt) {
   return !!_sp.glide;
 }
 function _spGlideToBody(key) {
+  _spSetLayout(0);
   var stand = _spStandoff(key);
   _spGlide({ follow: key, dist: stand, az: _sp.cam.az, el: Math.max(0.25, _sp.cam.el) });
 }
-function _spOverview() {
+// The layout blends to its target (1 in the overview, 0 anywhere a place is to be flown to).
+function _spSetLayout(target) {
+  _sp.layoutTarget = target;
+  if (_spReduceMotion()) _sp.layout = target;
+  _sp.dirty = true; _spKick();
+}
+function _spStepLayout(dt) {
+  var d = _sp.layoutTarget - _sp.layout;
+  if (!d) return false;
+  var step = dt / SP_LAYOUT_MS;
+  _sp.layout = Math.abs(d) <= step ? _sp.layoutTarget : _sp.layout + (d > 0 ? step : -step);
+  _sp.dirty = true;
+  return _sp.layout !== _sp.layoutTarget;
+}
+// Back to the whole system, laid out; the selection stays unless `keep` is false.
+function _spOverview(keep) {
   if (_sp.flight) return;
   _sp.pendingFly = null;
+  _spSetLayout(1);
   _spGlide({ follow: 'Sun', dist: SP_OVERVIEW_DIST_AU, az: _sp.cam.az, el: SP_OVERVIEW_ELEVATION });
-  _spSelect(null);
+  if (!keep) _spSelect(null);
 }
 
 // ── What the scene shows, for one frame ──
-// The light's colour and brightness on a thing sunlit and seen from the ship:
-// its direction against the heading gives the Doppler factor; the Sun's
-// spectrum shifts by it.
+// The light's colour and brightness on a thing sunlit and seen from the ship: its
+// direction against the heading gives the Doppler factor D; the Sun's spectrum
+// shifts by it. A point of light (a star) gains D^2 (_spBeamGain); an extended
+// surface gains D^4, because the same light is also packed into a patch of sky
+// D^2 smaller. The planet's lighting itself (the terminator, the limb) is rest-frame
+// geometry of a body at rest in the Sun's frame, and is correctly not aberrated.
+var SP_SURFACE_GAIN_MAX = 400;
 function _spTintFor(dirToBody, beta, head) {
   if (!(beta > 0)) return [1, 1, 1];
   var D = _lorentzFactor(beta) * (1 + beta * _aeDot(dirToBody, head));
   var bb = _spBlackbodyRGB(D * SP_SUN_TEMP_K), bb0 = _spBlackbodyRGB(SP_SUN_TEMP_K);
-  var gain = Math.min(_spBeamGain(D, SP_SUN_TEMP_K), 60);
+  var gain = Math.min(D * D * _spBeamGain(D, SP_SUN_TEMP_K), SP_SURFACE_GAIN_MAX);
   return [bb[0] / bb0[0] * gain, bb[1] / bb0[1] * gain, bb[2] / bb0[2] * gain];
+}
+// How much smaller (or larger) a thing in direction dirToBody looks from the ship: 1 / D.
+function _spApparentScale(dirToBody, beta, head) {
+  if (!(beta > 0)) return 1;
+  return 1 / Math.max(0.05, _lorentzFactor(beta) * (1 + beta * _aeDot(dirToBody, head)));
 }
 // Projection of a camera-relative vector (AU), as the ship sees it: pixels, or null if behind.
 function _spProject(rel, beta, head) {
@@ -1513,81 +1566,86 @@ var SP_ORBIT_REBUILD_DAYS = 3652.5;
 // Everything for one frame: place the camera, the bodies and the lines, and
 // fill the list the labels and taps work from.
 function _spUpdate() {
-  var S = _sp.gl, cam = _sp.cam, jd = _sp.jd, sc = _spScaleNow(), beta = _spBeta();
+  var S = _sp.gl, cam = _sp.cam, jd = _sp.jd, sc = _spScaleNow(), beta = _spBeta(), lam = _sp.layout;
   _spPlaceCamera();
   var head = _sp.flight ? _sp.flight.heading : [0, 1, 0];
   S.ab.uBeta.value = beta;
   S.ab.uHead.value.set(head[0], head[1], head[2]);
+  S.lay.uLambda.value = lam;
+  S.lay.uCam.value.set(cam.pos[0], cam.pos[1], cam.pos[2]);
   var focal = _spFocalPx(), items = [], minSurf = Infinity, keys = _spAllKeys(), i, k;
   var markers = 0, M = S.markers;
-  function mark(rel, rgb, alpha, size, kind) { if (markers < SP_MARKER_CAPACITY) _spSetMarker(M, markers++, rel, rgb, alpha, size, kind); }
-  var sunRel = [-cam.pos[0], -cam.pos[1], -cam.pos[2]];
+  function mark(rel, rgb, alpha, size, kind) { if (markers < SP_MARKER_CAPACITY) _aeSetPoint(M, markers++, rel, rgb, alpha, size, kind); }
   for (i = 0; i < keys.length; i++) {
     k = keys[i];
-    var b = _spBody(k), it = S.items[k], abs = _spBodyPos(k, jd, sc.moon);
+    var b = _spBody(k), it = S.items[k], abs = _spBodyPos(k, jd, sc);
     if (!abs) { if (it.mesh) { it.mesh.visible = false; if (it.ring) it.ring.visible = false; } continue; }
-    var rel = _aeSub(abs, cam.pos), dist = _aeLen(rel), R = _spShownRadius(k, sc), rpx = R / Math.max(dist, 1e-18) * focal;
+    var rel = _aeSub(_spDisplayAt(k, abs, jd, lam), cam.pos), dist = _aeLen(rel), R = _spShownRadius(k, sc);
+    // The disc's size on the screen, as the ship sees it: turned by aberration too (1 / D).
+    var rpx = R / Math.max(dist, 1e-18) * focal * _spApparentScale(_aeScale(rel, 1 / Math.max(dist, 1e-18)), beta, head);
     minSurf = Math.min(minSurf, Math.max(dist - R, 1e-12));
     var pr = _spProject(rel, beta, head);
-    items.push({ key: k, kind: b.kind, abs: abs, rel: rel, dist: dist, R: R, rpx: rpx, scr: pr });
+    items.push({ key: k, kind: b.kind, parent: b.kind === 'moon' ? SP_MOONS[k].planet : null, abs: abs, rel: rel, dist: dist, R: R, rpx: rpx, scr: pr });
     if (it.mesh) {
-      var frame = _spFrameOf(k, jd, sc.moon), flat = b.flat || 0;
+      var frame = _spFrameOf(k, jd), flat = b.flat || 0;
       _spApplyMatrix(it.mesh, frame, [R, R * (1 - flat), R], rel, S);
-      it.mesh.visible = rpx > 0.35;
+      it.mesh.visible = rpx > SP_MIN_DISC_PX;
       var toSun = b.kind === 'sun' ? [1, 0, 0] : _aeNorm(_aeScale(abs, -1));
       it.uni.uSunDir.value.set(toSun[0], toSun[1], toSun[2]);
       var tint = _spTintFor(_aeNorm(rel), beta, head);
       it.uni.uTint.value.set(tint[0], tint[1], tint[2]);
       if (it.ring) {
         _spApplyMatrix(it.ring, frame, [R, R, R], rel, S);
-        it.ring.visible = rpx > 0.35;
+        it.ring.visible = rpx > SP_MIN_DISC_PX;
         it.ringUni.uCenter.value.set(rel[0], rel[1], rel[2]);
         it.ringUni.uRadius.value = R;
       }
       if (b.kind === 'sun') {
         S.glowUni.uCenter.value.set(rel[0], rel[1], rel[2]);
-        S.glowUni.uSize.value = Math.max(R * 3.5, dist * 11 / focal);
+        S.glowUni.uSize.value = Math.max(R * SP_GLOW_RADII, dist * SP_GLOW_MIN_PX / focal);
         S.glowUni.uTint.value.set(tint[0], tint[1], tint[2]);
       }
     }
   }
   // Markers: a ring round anything too small to see as a disc, a square on a probe.
-  var byKey = {};
+  var byKey = {}, ringPx = lam > 0.5 ? SP_MARKER_LAYOUT_PX : SP_MARKER_PX;
   items.forEach(function (it2) { byKey[it2.key] = it2; });
   for (i = 0; i < items.length; i++) {
     var t = items[i], tb = _spBody(t.key), sel = _sp.selected === t.key, col = _spHexRGB(tb.color);
-    if (tb.kind === 'probe') { mark(t.rel, col, 1, sel ? SP_PROBE_PX + 4 : SP_PROBE_PX, SP_KIND_PROBE); continue; }
+    if (tb.kind === 'probe') { mark(t.rel, col, 1, sel ? SP_PROBE_PX + SP_PROBE_SELECT_PX : SP_PROBE_PX, SP_KIND_PROBE); continue; }
     var a = _aeClamp((SP_RING_FADE_PX - t.rpx) / (SP_RING_FADE_PX - SP_AU_TO_PX_MIN), 0, 1);
     if (tb.kind === 'moon') {
-      var par = byKey[_spParentKey(t.key)];
+      var par = byKey[t.parent];
       if (par && t.scr && par.scr && Math.hypot(t.scr.x - par.scr.x, t.scr.y - par.scr.y) < SP_MOON_APART_PX) a = 0;
     }
-    if (a > 0.01) mark(t.rel, col, 0.85 * a, SP_MARKER_PX, SP_KIND_RING);
-    if (sel && t.rpx < SP_SELECT_RING_MAX_PX) mark(t.rel, [1, 0.72, 0.2], 1, Math.max(24, t.rpx * 2 + 10), SP_KIND_RING);
+    if (a > 0.01) mark(t.rel, col, SP_RING_ALPHA * a, ringPx, SP_KIND_RING);
+    if (sel && t.rpx < SP_SELECT_RING_MAX_PX) mark(t.rel, SP_SELECT_COLOUR, 1, Math.max(SP_SELECT_RING_MIN_PX, t.rpx * 2 + SP_SELECT_RING_PAD_PX), SP_KIND_RING);
   }
-  // The place the light shows the selected body, if that is not where it is.
+  // The place the light shows the selected body to the ship, if that is not where it is
+  // (parked, and in the true places: the laid-out picture has no such place).
   S.ghost = null;
-  if (_sp.selected && byKey[_sp.selected] && !_sp.flight) {
+  if (_sp.selected && byKey[_sp.selected] && !_sp.flight && !lam) {
     var sk = _sp.selected, st = byKey[sk];
-    var seen = _spRetarded(function (j) { return _spBodyPos(sk, j, sc.moon) || st.abs; }, _spShipPos(), jd);
+    var seen = _spRetarded(function (j) { return _spBodyPos(sk, j, sc) || st.abs; }, _spShipPos(), jd);
     var gp = _spProject(_aeSub(seen.pos, cam.pos), beta, head);
-    if (gp && st.scr && Math.hypot(gp.x - st.scr.x, gp.y - st.scr.y) > 12) {
-      mark(_aeSub(seen.pos, cam.pos), [1, 1, 1], 0.9, 12, SP_KIND_GHOST);
+    if (gp && st.scr && Math.hypot(gp.x - st.scr.x, gp.y - st.scr.y) > SP_GHOST_MIN_OFFSET_PX) {
+      mark(_aeSub(seen.pos, cam.pos), SP_GHOST_COLOUR, SP_GHOST_ALPHA, SP_GHOST_PX, SP_KIND_GHOST);
       S.ghost = { x: gp.x, y: gp.y, lagSec: seen.lagSec };
     }
   }
   // The flash of light that left with the ship.
   S.lightDot = null;
   if (_sp.flight) {
-    var f = _sp.flight, lightAU = Math.min(f.len, f.now.earthSec / LIGHT_SECONDS_PER_AU);
-    var lp = _spAdd(f.from, _aeScale(f.heading, lightAU)), lrel = _aeSub(lp, cam.pos);
-    mark(lrel, [1, 0.96, 0.7], 1, 22, SP_KIND_GLOW);
+    var f = _sp.flight, lightAU = Math.min(f.trueDist, f.now.earthSec / LIGHT_SECONDS_PER_AU);
+    var lp = _spAdd(f.from, _aeScale(f.heading, (f.camLen + f.stand) * lightAU / f.trueDist)), lrel = _aeSub(lp, cam.pos);
+    mark(lrel, SP_LIGHT_COLOUR, 1, SP_LIGHT_PX, SP_KIND_GLOW);
     var lpr = _spProject(lrel, beta, head);
-    if (lpr) S.lightDot = { x: lpr.x, y: lpr.y, ahead: lightAU - f.len * (f.share || 0) };
+    if (lpr) S.lightDot = { x: lpr.x, y: lpr.y };
   }
-  _spCommitMarkers(M, markers);
-  // Lines.
-  var neg = [-cam.pos[0], -cam.pos[1], -cam.pos[2]];
+  _aeCommitPoints(M, markers);
+  // Lines. In the laid-out picture their points are mapped in the vertex shader (and need no offset);
+  // in true places each is moved by the camera's place so a point is exact however far out it is.
+  var neg = lam > 0 ? [0, 0, 0] : [-cam.pos[0], -cam.pos[1], -cam.pos[2]];
   Object.keys(S.orbits).forEach(function (ok) {
     var o = S.orbits[ok];
     if (o.at === null || Math.abs(jd - o.at) > SP_ORBIT_REBUILD_DAYS) _spBuildOrbit(S, ok, jd);
@@ -1595,11 +1653,11 @@ function _spUpdate() {
   });
   Object.keys(S.moonRings).forEach(function (mk) {
     var ring = S.moonRings[mk], parent = SP_MOONS[mk].planet, pp = byKey[parent];
-    ring.visible = !!pp;
-    if (!pp) return;
+    ring.visible = !!pp && lam < 0.5;
+    if (!ring.visible) return;
     var pole = parent === 'Earth' ? [0, 0, 1] : _spPoleEcl(parent), x = _aeNorm(_aeCross([0, 0, 1], pole));
     if (parent === 'Earth') x = [1, 0, 0];
-    var y = _aeCross(pole, x), r = SP_MOONS[mk].a / AU_KM * sc.moon, e = S.basis.elements;
+    var y = _aeCross(pole, x), r = SP_MOONS[mk].a / AU_KM * sc.moon(parent), e = S.basis.elements;
     e[0] = x[0] * r; e[1] = x[1] * r; e[2] = x[2] * r; e[3] = 0;
     e[4] = y[0] * r; e[5] = y[1] * r; e[6] = y[2] * r; e[7] = 0;
     e[8] = pole[0]; e[9] = pole[1]; e[10] = pole[2]; e[11] = 0;
@@ -1607,11 +1665,12 @@ function _spUpdate() {
     ring.matrix.copy(S.basis);
     ring.matrixWorldNeedsUpdate = true;
   });
+  // A probe's path is drawn for the one chosen: a dozen paths at once say "things went out there", not where.
   Object.keys(S.trails).forEach(function (tk) {
-    var tr = S.trails[tk], track = _spTrack(tk), flying = track && _spTrackState(track, jd) === 'flying';
-    tr.past.visible = tr.future.visible = !!flying;
-    if (!flying) return;
-    var idx = _spTrailIndex(track, jd), whole = Math.floor(idx) + 1;
+    var tr = S.trails[tk], track = _spTrack(tk), shown = tk === _sp.selected && track && _spTrackState(track, jd) === 'flying';
+    tr.past.visible = tr.future.visible = !!shown;
+    if (!shown) return;
+    var idx = _spTrailIndex(track, tr.offsets, jd), whole = Math.floor(idx) + 1;
     tr.past.geometry.setDrawRange(0, whole);
     tr.future.geometry.setDrawRange(whole - 1, tr.count - whole + 1);
     tr.past.position.set(neg[0], neg[1], neg[2]);
@@ -1626,7 +1685,7 @@ function _spUpdate() {
   m[8] = -cam.fwd[0]; m[9] = -cam.fwd[1]; m[10] = -cam.fwd[2]; m[11] = 0;
   m[12] = m[13] = m[14] = 0; m[15] = 1;
   S.camera.quaternion.setFromRotationMatrix(S.basis);
-  S.camera.near = _aeClamp(0.35 * minSurf, 1e-10, 1);
+  S.camera.near = _aeClamp(SP_NEAR_FRACTION * minSurf, SP_NEAR_MIN_AU, 1);
   S.camera.far = SP_FAR_AU;
   S.camera.aspect = _sp.w / _sp.h;
   // The scene's middle sits in the clear part of the screen, above the card.
@@ -1659,18 +1718,22 @@ function _spLabels() {
   order.forEach(function (it) {
     var s = it.scr;
     if (!s || s.x < -40 || s.x > W + 40 || s.y < -20 || s.y > H + 20) return;
-    _sp.projected.push({ key: it.key, x: s.x, y: s.y, rpx: it.rpx, kind: it.kind });
-    var par = it.kind === 'moon' ? _sp.byKey[_spParentKey(it.key)] : null;
+    _sp.projected.push({ key: it.key, x: s.x, y: s.y, rpx: it.rpx, kind: it.kind, parent: it.parent });
+    var par = it.kind === 'moon' ? _sp.byKey[it.parent] : null;
     if (par && par.scr && Math.hypot(s.x - par.scr.x, s.y - par.scr.y) < SP_MOON_APART_PX) return;
     if (items.some(function (o) { return o !== it && o.scr && o.dist < it.dist && o.rpx > SP_COVER_PX && Math.hypot(s.x - o.scr.x, s.y - o.scr.y) < o.rpx; })) return;
     var el = _spLabelEl(it.key), name = _spName(it.key);
-    if (el.textContent !== name) el.textContent = name;
-    var w = name.length * SP_LABEL_CHAR_W + 8, x = s.x + Math.max(10, it.rpx + 6), y = s.y - SP_LABEL_H / 2;
-    var rect = [x, y, x + w, y + SP_LABEL_H];
-    for (var j = 0; j < placed.length; j++) {
-      var q = placed[j];
-      if (rect[0] < q[2] && rect[2] > q[0] && rect[1] < q[3] && rect[3] > q[1]) return;
+    _spSetText(el, name);
+    // A name goes beside its body, or if that is taken to the other side, above or below it:
+    // one is dropped only when all four are taken.
+    var w = name.length * SP_LABEL_CHAR_W + 8, gap = Math.max(SP_LABEL_GAP_PX, it.rpx + 6), x = 0, y = 0, rect = null;
+    var spots = [[s.x + gap, s.y - SP_LABEL_H / 2], [s.x - gap - w, s.y - SP_LABEL_H / 2], [s.x - w / 2, s.y - gap - SP_LABEL_H], [s.x - w / 2, s.y + gap]];
+    for (var c = 0; c < spots.length && !rect; c++) {
+      var r = [spots[c][0], spots[c][1], spots[c][0] + w, spots[c][1] + SP_LABEL_H];
+      var taken = r[0] < 0 || r[2] > W || placed.some(function (q) { return r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1]; });
+      if (!taken) { rect = r; x = spots[c][0]; y = spots[c][1]; }
     }
+    if (!rect) return;
     placed.push(rect);
     shown[it.key] = true;
     el.hidden = false;
@@ -1685,28 +1748,18 @@ function _spLabels() {
     g.hidden = !S.ghost;
     if (S.ghost) {
       g.style.transform = 'translate(' + (S.ghost.x + 10).toFixed(1) + 'px,' + (S.ghost.y - 7).toFixed(1) + 'px)';
-      g.textContent = _aeT('sp_ghost_label');
+      _spSetText(g, _aeT('sp_ghost_label', { body: _spName(_sp.at) }));
     }
   }
   if (l) {
     l.hidden = !S.lightDot;
     if (S.lightDot) {
       l.style.transform = 'translate(' + (S.lightDot.x + 14).toFixed(1) + 'px,' + (S.lightDot.y - SP_LABEL_H * 1.6).toFixed(1) + 'px)';
-      l.textContent = _aeT('sp_light_label');
+      _spSetText(l, _aeT('sp_light_label'));
     }
   }
 }
-function _spTapAt(x, y) {
-  var best = null, bestD = Infinity;
-  (_sp.projected || []).forEach(function (p) {
-    var d = Math.hypot(p.x - x, p.y - y), reach = Math.max(p.rpx, SP_TAP_RADIUS_PX);
-    if (d > reach) return;
-    // The smaller thing wins where two overlap (a moon over its planet, a probe over anything).
-    var score = d - (p.kind === 'probe' ? SP_TAP_PROBE_BIAS_PX : p.kind === 'moon' ? SP_TAP_MOON_BIAS_PX : 0);
-    if (score < bestD) { best = p; bestD = score; }
-  });
-  _spSelect(best ? best.key : null);
-}
+function _spTapAt(x, y) { _spSelect(_spPick(_sp.projected || [], x, y)); }
 
 // ── The page ──
 function _spDom() {
