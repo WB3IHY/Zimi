@@ -22,7 +22,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 PHONE = {"width": 390, "height": 844}
 DESKTOP = {"width": 1280, "height": 900}
 SHOTS = os.environ.get("ZIMI_SHOTS")
-QUESTION = "how to purify water"
+# Not "how to purify water": the Field Guide answers that, as the first card of
+# the slot, and the best answer is asked only when the guide has no card.
+QUESTION = "what causes the tides"
+HELD = "tides"   # the word the delayed card is held on
 
 
 @pytest.fixture(scope="module")
@@ -131,7 +134,7 @@ def test_results_first_then_the_card_above_them(served, monkeypatch, phone, loca
 
     with sync_playwright() as pw:
         br, pg, errors = _page(pw, served, phone, locale, scheme)
-        asked = _delay_card(monkeypatch, {"purify": 1.0})
+        asked = _delay_card(monkeypatch, {HELD: 1.0})
         _ask(pg, QUESTION)
         # The results are drawn; the card is still on its way.
         pg.wait_for_selector("#output a.result")
@@ -148,17 +151,15 @@ def test_results_first_then_the_card_above_them(served, monkeypatch, phone, loca
             "document.querySelector('#output').firstElementChild.classList.contains('search-card-slot')"
         )
         mark = pg.locator("#output .best-card mark.bq-hit").first.inner_text()
-        assert (
-            "boil it for one minute" in mark.lower() or "Water purification is" in mark
-        )
+        assert "gravity of the Moon" in mark
         card_text = pg.locator("#output .best-card").inner_text()
-        assert "Water purification" in card_text and "Wikipedia" in card_text
+        assert "Tides" in card_text and "Wikipedia" in card_text
         assert "answer" not in card_text.lower()
-        assert "Water purification Water purification" not in card_text  # no title stutter
+        assert "Tides Tides" not in card_text  # no title stutter
         # The label is the UI language's own, not the key.
         assert "best_from" not in card_text
         if locale.startswith("de"):
-            assert "Aus Water purification, Wikipedia" in card_text
+            assert "Aus Tides, Wikipedia" in card_text
         if locale.startswith("he"):
             assert "מתוך" in card_text
         # The card fits the screen, however narrow.
@@ -180,7 +181,7 @@ def test_a_keyword_search_asks_for_no_card(served):
         pg.on(
             "request", lambda r: asked.append(r.url) if "/bestanswer" in r.url else None
         )
-        _ask(pg, "water purification")
+        _ask(pg, "tides")
         pg.wait_for_selector("#output a.result")
         time.sleep(0.5)
         assert asked == [] and pg.locator(".best-card").count() == 0
@@ -213,7 +214,7 @@ def test_the_next_search_cancels_the_card_before_it_lands(served, monkeypatch):
         )
 
         # The first question's card is held for four seconds, the second's is not.
-        _delay_card(monkeypatch, {"purify": 4.0})
+        _delay_card(monkeypatch, {HELD: 4.0})
         _ask(pg, QUESTION)
         pg.wait_for_selector("#output a.result")
         _ask(pg, "who painted the mona lisa")
@@ -221,10 +222,10 @@ def test_the_next_search_cancels_the_card_before_it_lands(served, monkeypatch):
         assert "Leonardo" in pg.locator("#output .best-card").inner_text()
         time.sleep(4.5)  # the held one would have landed by now
         text = pg.locator("#output").inner_text()
-        assert "Leonardo" in text and "boil it for one minute" not in text.lower()
+        assert "Leonardo" in text and "gravity of the moon" not in text.lower()
         assert pg.locator(".best-card").count() == 1
         assert any(
-            "purify" in u for u in failed
+            HELD in u for u in failed
         ), failed  # it was cancelled, not ignored
         assert errors == [], errors
         br.close()
