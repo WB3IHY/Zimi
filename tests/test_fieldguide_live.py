@@ -163,6 +163,14 @@ def test_a_situation_works_with_no_zim_at_all_and_says_where_each_quote_is_from(
     assert f.inner_text("#c-disc") == fg.DISCLAIMER
     quotes = f.query_selector_all(".fg-q")
     assert len(quotes) == 5
+    # One chip per quotation, by the source's own heading, so a long one is a tap away.
+    chips = f.eval_on_selector_all(
+        "#c-jump .chip", "els => els.map(e => e.textContent)"
+    )
+    assert chips[0] == "Massive Hemorrhage" and "Apply a Tourniquet" in chips
+    f.click("#c-jump .chip:nth-child(4)")
+    phone.wait_for_timeout(900)
+    assert f.evaluate("window.scrollY") > 300
     text = f.inner_text("#c-quotes")
     assert "Twist the windlass until the bleeding stops." in text
     assert "Chapter 6, para 6-7, p. 6-2" in text

@@ -51,7 +51,7 @@
      in black on white, a quotation to a page when it will not fit. */
   @media print {
     html, body { background: #fff !important; color: #000 !important; }
-    .fg-print, .fg-tools, .fg-night, .fg-link, .fg-btn, .fg-lib, #front, #library, .fg-no-print, .fg-h2.fg-no-print { display: none !important; }
+    .fg-print, .fg-tools, .fg-night, .fg-link, .fg-btn, #c-jump, .fg-lib, #front, #library, .fg-no-print, .fg-h2.fg-no-print { display: none !important; }
     .page { max-width: none; padding: 0; }
     .fg-head h1 { font-size: 20pt; }
     .fg-disc { color: #000; font-size: 10pt; }
@@ -80,6 +80,7 @@
       <p class="fg-disc" id="c-disc"></p>
     </header>
     <p class="fg-en" id="c-en" hidden></p>
+    <div class="chips" id="c-jump" hidden></div>
     <div id="c-quotes"></div>
     <h2 class="fg-h2 fg-no-print" id="c-more-h" hidden></h2>
     <div id="c-more" class="fg-no-print"></div>
@@ -163,7 +164,7 @@ function openSituation(id, step) {
   $('c-disc').textContent = say('disclaimer');
   $('c-print').textContent = say('print');
   $('c-quotes').innerHTML = '';
-  $('c-more').innerHTML = ''; $('c-add').innerHTML = ''; $('c-more-h').hidden = true; $('c-add-h').hidden = true;
+  $('c-more').innerHTML = ''; $('c-add').innerHTML = ''; $('c-jump').hidden = true; $('c-more-h').hidden = true; $('c-add-h').hidden = true;
   $('c-en').hidden = LOCALE === 'en'; $('c-en').textContent = say('english_only');
   if (step) tell({ zimi: 'fieldguide-card', id: id, title: sit(id) });
   tellTop();
@@ -174,6 +175,7 @@ function openSituation(id, step) {
   }).then(function(s) {
     if (mine !== seq) return;
     $('c-quotes').innerHTML = s.quotes.map(function(q) { return CARD.quoteHtml(q, STR); }).join('');
+    drawJump(s.quotes);
     if (s.answers.length) { $('c-more-h').hidden = false; $('c-more-h').textContent = say('more_in_library'); $('c-more').innerHTML = CARD.answersHtml(s.answers, STR); }
     if (s.missing.length) { $('c-add-h').hidden = false; $('c-add-h').textContent = say('add_to_library'); $('c-add').innerHTML = CARD.missingHtml(s.missing, STR); }
   }).catch(function() {
@@ -182,6 +184,22 @@ function openSituation(id, step) {
   });
 }
 $('c-print').onclick = function() { window.print(); };
+
+// A long situation: one chip per quotation, by the source's own heading, so the one
+// that is wanted (the Southern Sky, Apply a Tourniquet) is a tap away, not a scroll.
+var JUMP_FROM = 3;
+function drawJump(quotes) {
+  var box = $('c-jump');
+  box.hidden = quotes.length < JUMP_FROM;
+  box.innerHTML = box.hidden ? '' : quotes.map(function(q) {
+    return '<button type="button" class="chip tag" data-jump="' + esc(q.id) + '">' + esc(q.heading) + '</button>';
+  }).join('');
+}
+$('c-jump').addEventListener('click', function(e) {
+  var b = e.target.closest('[data-jump]');
+  var el = b && document.querySelector('[data-quote="' + b.getAttribute('data-jump') + '"]');
+  if (el) el.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+});
 
 // ── what a tap on a quote's library line, a page row or a Get does ──
 function act(name, el) {

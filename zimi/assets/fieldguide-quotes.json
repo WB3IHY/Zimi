@@ -79,20 +79,20 @@
   "bleeding": [
    {
     "source": "tccc",
-    "heading": "Basic Management Plan for Care Under Fire/Threat",
-    "locator": "Care Under Fire, item 6, p. 1",
-    "lines": ["6. Stop life-threatening external hemorrhage if tactically feasible:", "a. Direct casualty to control hemorrhage by self-aid if able.", "b. Use a CoTCCC-recommended limb tourniquet for hemorrhage that is anatomically amenable to tourniquet use.", "c. Apply the limb tourniquet over the uniform clearly proximal to the bleeding site(s). If the site of the life-threatening bleeding is not readily apparent, place the tourniquet “high and tight” (as proximal as possible) on the injured limb and move the casualty to cover."],
-    "id": "bleeding-1",
+    "heading": "Massive Hemorrhage",
+    "locator": "Tactical Field Care, item 3a, p. 2",
+    "lines": ["a. Assess for unrecognized hemorrhage and control all sources of bleeding. If not already done, use a CoTCCC-recommended limb tourniquet to control life-threatening external hemorrhage that is anatomically amenable to tourniquet use or for any traumatic amputation. Apply directly to the skin 2-3 inches above the bleeding site. If bleeding is not controlled with the first tourniquet, apply a second tourniquet side-by-side with the first."],
+    "id": "bleeding-2",
     "url": "https://jts.health.mil/index.cfm/committees/cotccc/guidelines",
     "year": 2026,
     "edition": "01 May 2026"
    },
    {
     "source": "tccc",
-    "heading": "Massive Hemorrhage",
-    "locator": "Tactical Field Care, item 3a, p. 2",
-    "lines": ["a. Assess for unrecognized hemorrhage and control all sources of bleeding. If not already done, use a CoTCCC-recommended limb tourniquet to control life-threatening external hemorrhage that is anatomically amenable to tourniquet use or for any traumatic amputation. Apply directly to the skin 2-3 inches above the bleeding site. If bleeding is not controlled with the first tourniquet, apply a second tourniquet side-by-side with the first."],
-    "id": "bleeding-2",
+    "heading": "Basic Management Plan for Care Under Fire/Threat",
+    "locator": "Care Under Fire, item 6, p. 1",
+    "lines": ["6. Stop life-threatening external hemorrhage if tactically feasible:", "a. Direct casualty to control hemorrhage by self-aid if able.", "b. Use a CoTCCC-recommended limb tourniquet for hemorrhage that is anatomically amenable to tourniquet use.", "c. Apply the limb tourniquet over the uniform clearly proximal to the bleeding site(s). If the site of the life-threatening bleeding is not readily apparent, place the tourniquet “high and tight” (as proximal as possible) on the injured limb and move the casualty to cover."],
+    "id": "bleeding-1",
     "url": "https://jts.health.mil/index.cfm/committees/cotccc/guidelines",
     "year": 2026,
     "edition": "01 May 2026"
