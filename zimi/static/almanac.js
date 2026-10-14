@@ -257,9 +257,15 @@ function _almanacTeardown() {
 
 // The flown solar system loads on the first press, never before: nothing on the Almanac's own path.
 var _almSpaceLoading = false;
-function _almOpenSpace() {
-  // It builds on the Earth view's three.js loader and star decoder (almanac-earth.js).
-  if (typeof _aeLoadThree !== 'function') { _showToast(t('sp_unavailable')); return; }
+var ALM_SPACE_WAIT_MS = 100, ALM_SPACE_WAIT_TRIES = 150;   // the Earth view's module follows the Almanac's first paint: wait up to 15 s for it
+function _almOpenSpace(tries) {
+  // It builds on the Earth view's three.js loader and star decoder (almanac-earth.js), which
+  // loads after the Almanac's first paint: pressed before it has, wait for it rather than fail.
+  if (typeof _aeLoadThree !== 'function') {
+    if ((tries || 0) >= ALM_SPACE_WAIT_TRIES) { _showToast(t('sp_unavailable')); return; }
+    setTimeout(function () { _almOpenSpace((tries || 0) + 1); }, ALM_SPACE_WAIT_MS);
+    return;
+  }
   if (typeof openAlmanacSpace === 'function') { openAlmanacSpace(); return; }
   if (_almSpaceLoading) return;
   _almSpaceLoading = true;
