@@ -2097,6 +2097,8 @@ function _renderAlmanacContent() {
   html += '<div class="almanac-sky-wrap">' +
     '<canvas id="almanac-sky-canvas" aria-describedby="almanac-sky-desc" role="img" tabindex="0"></canvas>' +
     '<div id="almanac-sky-cap" class="alm-sky-cap"></div>' +
+    '<div id="almanac-sky-facts" class="alm-sky-facts"></div>' +
+    '<details id="almanac-sky-set" class="alm-sky-set"></details>' +
     '<div id="almanac-sky-tip" class="alm-sky-tip" hidden></div>' +
     // Inline styles duplicate .sr-only so a stale cached app.css can never
     // expose this text visually (issue #25).

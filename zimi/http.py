@@ -1041,6 +1041,8 @@ if os.path.isdir(_STATIC_DIR):
             # bundle hash or a change to one ships behind a stale SW cache.
             + _static_hash("almanac-orrery.js")
             + _static_hash("almanac-sky.js")
+            + _static_hash("almanac-skygl.js")
+            + _static_hash("almanac-skyfacts.js")
             + _static_hash("almanac-earth.js")
             + _static_hash("almanac-reference.js")
             + _static_hash("almanac-tables.js")

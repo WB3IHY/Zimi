@@ -12,8 +12,8 @@
 //      August, the Moon beside Spica on 2025-04-13 and past Regulus in May.
 //   4. Faint stars read as dust: size and alpha fall with magnitude, the
 //      brightest stay dominant, and no size is below one CSS pixel.
-//   5. The 2D Almanac never asks for the catalogue: only the 3D view's loader
-//      names the file.
+//   5. Who asks for the catalogue: the 3D view's loader and the GPU sky's, never
+//      the 2D fallback.
 //
 // Run: node tests/test_almanac_stars.cjs   (exit 0 = pass)
 
@@ -164,15 +164,20 @@ function closest(fromMs, toMs, target) {
   check(monotone, 'brighter is never smaller or dimmer');
 }
 
-// ── 5. Only the 3D view asks ─────────────────────────────────────────────
+// ── 5. Who asks ──────────────────────────────────────────────────────────
+// The 3D view's loader and the GPU sky's (almanac-skygl.js, which draws all of
+// them in the live sky). The Canvas 2D sky, the fallback, never asks.
 {
   const dirs = fs.readdirSync(STATIC).filter((f) => /\.(js|html|css)$/.test(f));
-  const named = dirs.concat(['../templates/index.html']).filter((f) => /stars-v1/.test(read(f)));
-  check(named.length === 1 && named[0] === 'almanac-earth.js', 'only almanac-earth.js names the catalogue (' + named.join(', ') + ')');
+  const named = dirs.concat(['../templates/index.html']).filter((f) => /stars-v1/.test(read(f))).sort();
+  check(named.join(',') === 'almanac-earth.js,almanac-skygl.js', 'only almanac-earth.js and almanac-skygl.js name the catalogue (' + named.join(', ') + ')');
   const src = read('almanac-earth.js');
   const callers = src.split('\n').filter((l) => /_aeLoadStars\(/.test(l) && !/^function/.test(l));
   check(callers.length === 1 && /function _aeLoadMaps\(S\) \{\n  _aeLoadStars\(S\);/.test(src),
-    'and only the 3D view\'s map loader calls its loader');
+    'only the 3D view\'s map loader calls its loader');
+  const sky = read('almanac-sky.js'), asks = sky.split('\n').filter((l) => /_sgLoadData\(/.test(l));
+  check(asks.length === 1 && /function _skyGLSky[\s\S]*?_sgLoadData\(_skyKickDirty\)/.test(sky),
+    'and the live sky asks only from the GPU sky, never in the 2D fallback');
   check(!/stars-v1/.test(read('sw.js')), 'and the service worker does not precache it');
 }
 

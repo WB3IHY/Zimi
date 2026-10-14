@@ -6644,6 +6644,8 @@ function openAlmanac(replaceState) {
       '/static/almanac-links.js?v=45',
       '/static/almanac-orrery.js?v=45',
       '/static/almanac-sky.js?v=45',
+      '/static/almanac-skygl.js?v=45',
+      '/static/almanac-skyfacts.js?v=45',
       '/static/almanac.js?v=45'
     ];
     var failed = false;
