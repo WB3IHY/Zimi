@@ -193,6 +193,17 @@ const C_AU_DAY = 299792.458 * 86400 / 149597870.7;
   check(fast.earthSec / fast.shipSec > 3.5, 'at 0.99c the clocks differ almost 4 to 1 (' + (fast.earthSec / fast.shipSec).toFixed(2) + ', the ramps count)');
   near(S._spTrip(1, 0.9999999).earthSec / (499.00478384 * (1 + 2 * R) / 0.9999999), 1, 1e-9, 'nothing arrives faster than light');
 
+  // With no ramps the clocks are the orrery's own (_tripSecondsAtBeta, _properTime): one set of physics.
+  {
+    const saved = S.SP_RAMP_FRACTION;
+    S.SP_RAMP_FRACTION = 1e-12;
+    for (const [d, b] of [[4.2, 0.5], [30, 0.9], [170, 0.99], [1, 1e-4]]) {
+      const t = S._spTrip(d, b), earth = S._tripSecondsAtBeta(d, b), ship = S._properTime(earth, b);
+      check(Math.abs(t.earthSec / earth - 1) < 1e-9 && Math.abs(t.shipSec / ship - 1) < 1e-9, 'with no ramps the trip clocks are the orrery\'s (' + d + ' AU at ' + b + 'c)');
+    }
+    S.SP_RAMP_FRACTION = saved;
+  }
+
   // Meeting a moving planet: the ship flies to where Jupiter will be.
   const t0 = jdOf('2026-10-13');
   const earthAt = (jd) => S._spPlanetPos('Earth', jd);
