@@ -1040,7 +1040,7 @@
    "match": "^zimi[-_]field[-_]manual",
    "listing": "zimi-database.js",
    "build": "field_manual",
-   "note": "TC 4-02.1 First Aid, FM 21-76 Survival and the Ranger Handbook, built here from the Army's public-domain PDFs"
+   "note": "ATP 4-02.11 Casualty Response, TC 4-02.1 First Aid, FM 21-76 Survival and the Ranger Handbook, built here from the Army's public-domain PDFs"
   }
  },
  "library": {
