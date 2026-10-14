@@ -55,7 +55,7 @@ def test_the_shell_is_stamped_only_when_off():
     assert http._index_content(srv.APPS_DEFAULT) == on
     # Every app is not the default now (Reddot is opt-in), so it is named.
     assert http._index_content(frozenset(srv.APP_NAMES)).count(
-        '<body data-zimi-apps="maps,tube,exchange,reddot,wiki,books,dictionary">'
+        '<body data-zimi-apps="maps,tube,exchange,reddot,wiki,books,dictionary,earth">'
     ) == 1
 
 
@@ -110,7 +110,7 @@ def test_the_default_shell_carries_no_stamp(data_dir):
         (" Reddot , maps ", {"maps", "reddot"}),
         ("maps,bogus", {"maps"}),
         ("all", DEFAULT),
-        ("maps,tube,exchange,reddot,wiki,books,dictionary", set(srv.APP_NAMES)),
+        ("maps,tube,exchange,reddot,wiki,books,dictionary,earth", set(srv.APP_NAMES)),
         ("none", set()),
         (["exchange"], {"exchange"}),
         (True, DEFAULT),

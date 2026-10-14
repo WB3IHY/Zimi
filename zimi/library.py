@@ -3786,6 +3786,13 @@ def _post_download_finalize(dl):
                 break
     except Exception as e:
         log.debug("Failed to cache ZIM metadata for download history: %s", e)
+    try:
+        if zim_info.get("name") and _srv.bundled("earth"):
+            from zimi import earth as _earth
+
+            _earth.request_places(zim_info["name"])
+    except Exception as e:
+        log.debug("Zimi Earth places request failed: %s", e)
     _record_download_activity(dl, "ok")
     event_type = "updated" if dl.get("is_update") else "download"
     _srv._append_history(

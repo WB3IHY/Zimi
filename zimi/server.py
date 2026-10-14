@@ -2318,7 +2318,7 @@ def _read_map_facts(path):
 
 
 APPS_ENV = "ZIMI_APPS"
-APP_NAMES = ("maps", "tube", "exchange", "reddot", "wiki", "books", "dictionary")
+APP_NAMES = ("maps", "tube", "exchange", "reddot", "wiki", "books", "dictionary", "earth")
 # Apps offered only when named: a comma list in ZIMI_APPS (or a saved list)
 # that names one turns it on; "1", "all", the default and a saved True leave
 # it off. Reddot since 1.13.1 (Eric: "kinda niche in hindsight").
@@ -5572,6 +5572,17 @@ def warm_indexes():
             _search_mod._build_vocab_here()
         except Exception as e:
             log.warning("Did-you-mean vocab phase failed: %s", e)
+
+        # Phase 7: Zimi Earth's places (where each Wikipedia and Wikivoyage
+        # article is), after everything a search waits for, and only where
+        # Earth is offered and has been opened (earth.maybe_build_all).
+        try:
+            if bundled("earth"):
+                from zimi import earth as _earth
+
+                _earth.maybe_build_all()
+        except Exception as e:
+            log.warning("Zimi Earth places phase failed: %s", e)
 
     threading.Thread(
         target=_startup_worker, daemon=True, name="zimi-startup-worker"

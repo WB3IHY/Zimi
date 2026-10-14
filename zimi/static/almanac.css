@@ -338,6 +338,9 @@
 .orrery-lc-labels { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums; }
 .orrery-lc-canvas { display: block; width: 100%; height: 84px; margin-top: 4px; background: var(--surface2); border-radius: 8px; }
 .almanac-sky-wrap { width: 100%; max-width: 600px; margin: 0 auto; position: relative; }
+.alm-sky-look { position: absolute; top: 8px; right: 8px; z-index: 2; width: 44px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.55); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.alm-sky-look svg { width: 22px; height: 22px; }
+[dir=rtl] .alm-sky-look { right: auto; left: 8px; }
 .almanac-sky-wrap canvas { width: 100%; display: block; border-radius: 12px; touch-action: pan-y; }
 /* The live sky's line: the light of the hour, the place. Under the scene, not
    on it, so the picture is only the picture. */
@@ -1268,3 +1271,29 @@
 }
 /* No place chosen yet: one line asking for it, under the sky and in the tides. */
 .alm-place-invite { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 8px; margin: 8px 0 0; font-size: 12px; color: var(--text2); text-align: center; }
+
+/* Point the phone (almanac-look.js): the sky above where you stand, the globe
+   under it, one window onto both. Edge to edge, over everything. */
+body.look-open { overflow: hidden; }
+.almanac-look { position: fixed; inset: 0; z-index: 10010; background: #05070b; color: #fff; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+.look-layers { position: absolute; inset: 0; }
+.look-sky { position: absolute; inset: 0; overflow: hidden; background: #080b12; }
+.look-sky .look-wrap { position: absolute; inset: 0; width: auto; max-width: none; margin: 0; }
+.look-sky .look-wrap canvas { position: absolute; left: 0; top: 0; width: 100%; border-radius: 0; touch-action: none; }
+.look-sky .look-wrap .alm-sky-look, .look-sky .look-wrap .alm-sky-cap { display: none; }
+.look-globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; pointer-events: none; }
+/* You, at the middle of the ground the globe shows. */
+.look-you { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2px solid #fff; background: rgba(60,140,255,.9); box-shadow: 0 0 0 5px rgba(60,140,255,.3); opacity: 0; transition: opacity .2s; pointer-events: none; }
+.look-ground .look-you { opacity: 1; }
+.look-top { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; align-items: center; gap: 12px; pointer-events: none; }
+.look-top > * { pointer-events: auto; }
+.look-btn { flex: none; width: 44px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.6); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+.look-btn svg { width: 22px; height: 22px; }
+.look-info { min-width: 0; text-shadow: 0 0 4px #000, 0 0 10px #000; pointer-events: none; }
+.look-read { font: 600 20px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-variant-numeric: tabular-nums; white-space: pre; }
+.look-place { font-size: 12px; opacity: .8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; unicode-bidi: plaintext; }
+.look-note { position: absolute; left: 16px; right: 16px; bottom: calc(88px + env(safe-area-inset-bottom)); margin: 0 auto; max-width: 420px; padding: 9px 14px; border-radius: 14px; background: rgba(20,22,28,.82); font-size: 13px; line-height: 1.35; text-align: center; }
+.look-bottom { position: absolute; left: 0; right: 0; bottom: calc(18px + env(safe-area-inset-bottom)); display: flex; justify-content: center; gap: 10px; padding: 0 16px; }
+.look-main { min-height: 48px; padding: 0 22px; border-radius: 24px; border: 0; background: #e0863a; color: #1a1005; font: 600 15px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.look-main svg { width: 20px; height: 20px; }
+.almanac-look [hidden] { display: none !important; }
