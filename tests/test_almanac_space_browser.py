@@ -130,6 +130,9 @@ def test_nothing_loads_until_the_pill_is_pressed(browser, served):
             or "-v1.webp" in u
             and "earth-" not in u
             and "moon" not in u
+            # The Almanac's own sky draws the Milky Way on open; it is not
+            # the space view's.
+            and "milkyway" not in u
         ], seen
         _open(pg)
         assert any("almanac-space.js" in u for u in seen)
