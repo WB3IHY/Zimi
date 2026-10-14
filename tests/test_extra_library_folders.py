@@ -405,6 +405,17 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual((st, d["error_key"]), (403, "folder_not_ours"))
         self.assertTrue(os.path.exists(os.path.join(self._nomad, NOMAD_WIKI)))
 
+    def test_adding_a_folder_reads_only_that_folder(self):
+        saved = server.load_cache
+        server.load_cache = lambda force=False: self.fail("a rescan of the whole library")
+        try:
+            st, d = self._req("/manage/library-folders", {"action": "add", "path": self._nomad})
+        finally:
+            server.load_cache = saved
+        self.assertEqual(st, 200, d)
+        self.assertEqual(d["folders"][0]["zims"], 1)
+        self.assertIn("wikipedia_en_100", server._zim_files_cache)
+
     def test_a_bad_folder_says_why(self):
         st, d = self._req(
             "/manage/library-folders", {"action": "add", "path": "/no/such"}

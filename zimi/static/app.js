@@ -10447,6 +10447,7 @@ function _enrichCatalogInstalled(items) {
         item.installed = true;
         item._installedDate = hit.date || null;
         item._installedFile = hit.file;
+        item._installedExternal = hit.external || null;
         item._installedName = hit.name;
         item._installedSizeGb = hit.size_gb;
         claimed.add(hit.file);
@@ -10461,6 +10462,7 @@ function _enrichCatalogInstalled(items) {
       const m = fb.match(/(\d{4}-\d{2})$/);
       item._installedDate = m ? m[1] : null;
       item._installedFile = z.file;
+      item._installedExternal = z.external || null;
       item._installedName = z.name;
       item._installedSizeGb = z.size_gb;
       claimed.add(z.file);
@@ -10472,6 +10474,7 @@ function _enrichCatalogInstalled(items) {
     item.installed = false;
     item._installedDate = null;
     item._installedFile = null;
+    item._installedExternal = null;
     item._installedName = null;
     item._installedSizeGb = null;
     tryMatch(item, true);
@@ -11561,7 +11564,7 @@ function renderCatalogItem(group) {
       actionsHtml = '<span class="ci-installed-badge">' + tH('installed_badge') + '</span>';
     }
     if (instVariant._installedFile) {
-      actionsHtml += '<button class="ci-delete-btn" onclick="deleteZim(\'' + escAttr(instVariant._installedFile) + '\', this)" title="' + escAttr(t('delete_zim')) + '">\u00D7</button>';
+      actionsHtml += _zimDeleteBtn(instVariant._installedFile, instVariant._installedExternal);
     }
   } else {
     // Sibling URLs disambiguate colliding labels (unsuffixed vs maxi → both
@@ -14869,6 +14872,9 @@ function _msServerHtml() {
   // Storage owns its desktop variant so the section can move freely — the old
   // reorder-fragile string split is gone.
   var storageSec = '<div class="ms-section-label">' + tH('storage_section') + '</div>';
+  // Other programs' libraries (Project NOMAD), read where they are. Painted by
+  // _renderLibFolders once the card is in the DOM.
+  var _libFoldersSlot = '<div id="ms-libfolders" class="ms-libfolders"></div>';
   if (IS_DESKTOP) {
     storageSec +=
       '<div class="ms-field"><label>' + tH('zim_folder') + '</label>' +
@@ -14882,13 +14888,13 @@ function _msServerHtml() {
         '<button class="manage-btn-action" onclick="settingsSaveInline()" style="margin-inline-start:auto">' + tH('save') + '</button></div>' +
       '<div class="ms-hint">' + tH('restart_hint') + '</div>' +
       // Painted by _renderDesktopLan from the app's own config, not /manage.
-      '<div id="ms-lan"></div>';
+      '<div id="ms-lan"></div>' + _libFoldersSlot;
     setTimeout(_renderDesktopLan, 0);
   } else {
     storageSec +=
       '<div class="ms-field"><label>' + tH('zim_folder') + '</label><input type="text" id="ms-zim-dir" dir="ltr" readonly value="' + escAttr(t('loading')) + '"></div>' +
       '<div class="ms-field"><label>' + tH('data_folder') + '</label><input type="text" id="ms-data-dir" dir="ltr" readonly value="' + escAttr(t('loading')) + '"></div>' +
-      '<div class="ms-hint">' + tH('configured_via_env') + '</div>';
+      '<div class="ms-hint">' + tH('configured_via_env') + '</div>' + _libFoldersSlot;
   }
 
   // The server's backup; My data, this browser's, is under Preferences.
@@ -14929,6 +14935,7 @@ function _msServerHtml() {
     _renderSeedingSection();
     _renderMirrorSection();
     _renderDownloadSchedule();
+    _renderLibFolders();
     _renderAppUpdate();
   }, 0);
   _msFetch('/manage/cache-info').then(function(d) {
@@ -15903,6 +15910,73 @@ async function _btcSubmit(test) {
   out.innerHTML = lines.map(function(l) { return '<div class="' + l[1] + '">' + esc(l[0]) + '</div>'; }).join('');
 }
 
+// ── Other library folders: another program's ZIMs, read where they are ──
+// The folder stays that program's. Zimi never deletes, renames or updates a
+// file in it, so there is nothing here to confirm, only to add or to stop reading.
+const LIB_FOLDERS_URL = '/manage/library-folders';
+async function _libFoldersPost(body) {
+  var r = await manageFetch(LIB_FOLDERS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  return { ok: r.ok, d: await r.json().catch(function() { return {}; }) };
+}
+function _libFolderRowHtml(title, desc, right) {
+  return '<div class="share-row set-row lf-row"><span class="share-row-text"><span class="share-row-title">' + title + '</span>' +
+    '<span class="share-row-desc lf-path" dir="ltr">' + desc + '</span></span>' + right + '</div>';
+}
+async function _renderLibFolders() {
+  var el = document.getElementById('ms-libfolders');
+  if (!el) return;
+  var d;
+  try { d = await (await manageFetch(LIB_FOLDERS_URL)).json(); } catch (e) { return; }
+  window._libFolders = d;
+  var rows = (d.folders || []).map(function(f, i) {
+    var count = f.present ? tPlural('lib_folders_zims', f.zims) : t('lib_folders_missing');
+    var drop = f.source === 'env'
+      ? '<span class="share-field-note" title="' + escAttr(t('configured_via_env')) + '">env</span>'
+      : '<button type="button" class="set-btn" onclick="_libFolderAct(\'remove\', ' + i + ')">' + tH('lib_folders_stop') + '</button>';
+    return _libFolderRowHtml(esc(f.label) + ' <span class="lf-count">' + esc(count) + '</span>', esc(f.path), drop);
+  });
+  // The offer comes once, ahead of the list, and leaves for good on either answer.
+  var offers = (d.suggestions || []).map(function(sg, i) {
+    return _libFolderRowHtml(tH('lib_folders_offer', { label: sg.label }),
+      esc(t('lib_folders_offer_hint', { n: sg.zims, path: sg.path })),
+      '<span class="lf-btns"><button type="button" class="set-btn primary" onclick="_libFolderAct(\'add\', ' + i + ', true)">' + tH('lib_folders_add') + '</button>' +
+      '<button type="button" class="set-btn" onclick="_libFolderAct(\'dismiss\', ' + i + ', true)">' + tH('lib_folders_not_now') + '</button></span>');
+  });
+  var add = '<div class="lf-add"><input type="text" id="lf-path" dir="ltr" class="peer-name-input" placeholder="' + escAttr(t('lib_folders_path')) +
+    '" aria-label="' + escAttr(t('lib_folders_title')) + '" onkeydown="if(event.key===\'Enter\')_libFolderAdd()">' +
+    '<button type="button" class="set-btn" onclick="_libFolderAdd()">' + tH('lib_folders_add') + '</button></div>';
+  el.innerHTML = '<div class="ms-section-label">' + tH('lib_folders_title') + '</div>' +
+    (offers.concat(rows).length ? '<div class="share-rows set-rows">' + offers.concat(rows).join('') + '</div>' : '') +
+    add + '<div id="lf-msg" class="ms-hint">' + tH('lib_folders_hint') + '</div>';
+}
+async function _libFolderAct(action, i, offer) {
+  var d = window._libFolders || {};
+  var f = (offer ? d.suggestions : d.folders)[i];
+  if (!f) return;
+  await _libFolderSend({ action: action, path: f.path, label: f.label });
+}
+async function _libFolderAdd() {
+  var inp = document.getElementById('lf-path');
+  if (!inp || !inp.value.trim()) return;
+  await _libFolderSend({ action: 'add', path: inp.value.trim() });
+}
+async function _libFolderSend(body) {
+  var msg = document.getElementById('lf-msg');
+  if (msg) msg.textContent = t('saving');
+  var res;
+  try { res = await _libFoldersPost(body); } catch (e) { if (msg) msg.textContent = t('error'); return; }
+  if (!res.ok) { if (msg) msg.textContent = res.d.error_key ? t(res.d.error_key) : (res.d.error || t('error')); return; }
+  // The library changed under the page: the lists that draw it start over.
+  if (body.action !== 'dismiss') {
+    zimsCache = await _fetchList();
+    _rebuildZimsMap();
+    _catalogCache = null;
+    var count = document.getElementById('ms-zim-count');
+    if (count) count.textContent = String(zimsCache ? zimsCache.length : 0);
+  }
+  _renderLibFolders();
+}
+
 // ── Download scheduling card (nightly window + global download speed cap) ──
 async function _renderDownloadSchedule() {
   var el = document.getElementById('ms-dl-schedule');
@@ -16648,10 +16722,10 @@ function renderInstalled(filterText) {
       if (upd) {
         actionsHtml = '<button class="ci-update-btn" onclick="downloadZim(\'' + escAttr(upd.download_url) + '\', this, true)" title="' + escAttr(t('from_to_update', {from: dateStr || '?', to: upd.latest_date})) + '">' +
           tH('update') + '</button>' +
-          '<button class="ci-delete-btn" onclick="deleteZim(\'' + escAttr(z.file) + '\', this)" title="' + escAttr(t('delete_zim')) + '">\u00D7</button>';
+          _zimDeleteBtn(z.file, z.external);
       } else {
         actionsHtml = '<span class="ci-installed-badge">' + tH('installed_badge') + '</span>' +
-          '<button class="ci-delete-btn" onclick="deleteZim(\'' + escAttr(z.file) + '\', this)" title="' + escAttr(t('delete_zim')) + '">\u00D7</button>';
+          _zimDeleteBtn(z.file, z.external);
       }
       // No inline download pill: the raw .zim lives on the row's \u22ef menu
       // (Download ZIM file), which the peer-share gate still governs.
@@ -17097,6 +17171,12 @@ async function downloadZim(url, btn, isUpdate) {
   }
 }
 
+// A ZIM in a folder another program owns (Project NOMAD) is Zimi's to read and
+// not to delete: the row says whose it is where the delete button would be.
+function _zimDeleteBtn(file, external) {
+  if (external) return '<span class="ci-from" title="' + escAttr(t('folder_not_ours')) + '">' + esc(external) + '</span>';
+  return '<button class="ci-delete-btn" onclick="deleteZim(\'' + escAttr(file) + '\', this)" title="' + escAttr(t('delete_zim')) + '">\u00D7</button>';
+}
 async function deleteZim(filename, btn) {
   if (!btn) return;
   // Two-click confirmation: first click shows "Delete?", second click confirms

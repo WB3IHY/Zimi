@@ -117,9 +117,13 @@ def owner(path, folder_labels=None):
     return folder_labels.get(os.path.dirname(os.path.normpath(path)))
 
 
+def _zims_in(folder):
+    return sorted(glob.glob(os.path.join(folder, "*.zim")))
+
+
 def zim_paths():
     """Every ``*.zim`` in the folders, folder by folder, name order."""
-    return [p for d in dirs() for p in sorted(glob.glob(os.path.join(d, "*.zim")))]
+    return [p for d in dirs() for p in _zims_in(d)]
 
 
 def _inside(child, parent):
@@ -148,10 +152,12 @@ def add(path, label=""):
     )
     _write_state(state)
     _watch.reset()
+    return _zims_in(p)
 
 
 def remove(path):
-    """Stop reading from a saved folder. Its files are not touched."""
+    """Stop reading from a saved folder. Its files are not touched. Returns the
+    ZIMs that were being read from it."""
     p = _norm(path)
     if any(f["path"] == p and f["source"] == "env" for f in folders()):
         raise FolderError("folder_env")
@@ -159,6 +165,7 @@ def remove(path):
     state["folders"] = [f for f in state["folders"] if _norm(f.get("path", "")) != p]
     _write_state(state)
     _watch.reset()
+    return _zims_in(p)
 
 
 def dismiss(path):
@@ -180,7 +187,7 @@ def suggestions():
     for c in NOMAD_CANDIDATES:
         if c in known or c in turned_down or not os.path.isdir(c):
             continue
-        n = len(glob.glob(os.path.join(c, "*.zim")))
+        n = len(_zims_in(c))
         if n:
             out.append({"path": c, "label": NOMAD_LABEL, "zims": n, "kind": "nomad"})
     return out
@@ -229,7 +236,7 @@ class Watch:
         self.pending = {p: now[p] for p in changed}
         if not gone and not stable:
             return [], []
-        if self._reconcile(stable, gone):
+        if reconcile(stable, gone):
             self.known, self.pending = now, {}
         else:
             known = dict(self.known)
@@ -239,28 +246,27 @@ class Watch:
             self.known = known
         return stable, gone
 
-    @staticmethod
-    def _reconcile(added, gone):
-        """Splice the change into the live library. True when a full rescan
-        had to be used (which also read everything on disk)."""
-        removed = [os.path.basename(p) for p in gone]
-        spliced = True
-        for p in added:
-            spliced = _srv.register_zim_file(p, removed_files=removed) and spliced
-        if spliced:
-            for name in removed:
-                if not _srv.unregister_zim_file(name):
-                    spliced = False
-                    break
-        if not spliced:
-            with _srv._zim_lock:
-                _srv.load_cache(force=True)
-        _srv._search_cache_clear()
-        _srv._suggest_cache_clear()
-        log.info(
-            "Other library folders changed: %d added, %d gone", len(added), len(gone)
-        )
-        return not spliced
+
+def reconcile(added, gone):
+    """Splice ZIMs that arrived in, or left, the folders into the live library
+    without reading the rest of it. Returns True when a full rescan had to be
+    used instead (which also read everything on disk)."""
+    removed = [os.path.basename(p) for p in gone]
+    spliced = True
+    for p in added:
+        spliced = _srv.register_zim_file(p, removed_files=removed) and spliced
+    if spliced:
+        for name in removed:
+            if not _srv.unregister_zim_file(name):
+                spliced = False
+                break
+    if not spliced:
+        with _srv._zim_lock:
+            _srv.load_cache(force=True)
+    _srv._search_cache_clear()
+    _srv._suggest_cache_clear()
+    log.info("Other library folders changed: %d added, %d gone", len(added), len(gone))
+    return not spliced
 
 
 _watch = Watch()

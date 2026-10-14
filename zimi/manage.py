@@ -6472,14 +6472,11 @@ def _btc_view():
 
 
 def _library_folders_view():
-    """What the Storage card draws: the folders read in place (how many ZIMs
-    each holds comes from the library already in memory, not the disk), and
-    the one offer, if there is one."""
-    held = {}
-    for path in (_srv.get_zim_files() or {}).values():
-        held[os.path.dirname(path)] = held.get(os.path.dirname(path), 0) + 1
+    """What the Storage card draws: the folders read in place, and the one
+    offer, if there is one. Asked when the card opens, so a listing per folder
+    is fine."""
     rows = [
-        {**f, "zims": held.get(f["path"], 0), "present": os.path.isdir(f["path"])}
+        {**f, "zims": len(libfolders._zims_in(f["path"])), "present": os.path.isdir(f["path"])}
         for f in libfolders.folders()
     ]
     return {"folders": rows, "suggestions": libfolders.suggestions()}
@@ -6488,30 +6485,22 @@ def _library_folders_view():
 def _handle_library_folders(handler, data):
     """POST /manage/library-folders: {action: add|remove|dismiss, path, label?}.
 
-    Adding or removing re-reads the library in the background; the files in the
-    folder are never touched. The page asks again when it is done."""
+    Adding or removing splices just that folder's ZIMs into the live library
+    and answers once it has; the files in the folder are never touched."""
     action = data.get("action")
     path = str(data.get("path") or "")
     try:
         if action == "add":
-            libfolders.add(path, str(data.get("label") or ""))
+            libfolders.reconcile(libfolders.add(path, str(data.get("label") or "")), [])
         elif action == "remove":
-            libfolders.remove(path)
+            libfolders.reconcile([], libfolders.remove(path))
         elif action == "dismiss":
             libfolders.dismiss(path)
         else:
             return handler._json(400, {"error": "bad_action"})
     except libfolders.FolderError as e:
         return handler._json(400, {"error": e.key, "error_key": e.key})
-    if action != "dismiss":
-
-        def _reread():
-            with _srv._zim_lock:
-                _srv.load_cache(force=True)
-            _srv._search_cache_clear()
-            _srv._suggest_cache_clear()
-
-        threading.Thread(target=_reread, daemon=True).start()
+    if action == "add":
         libfolders.ensure_watch()
     return handler._json(200, _library_folders_view())
 
