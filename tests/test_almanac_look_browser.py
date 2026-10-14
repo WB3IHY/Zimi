@@ -938,3 +938,48 @@ def test_show_where_i_am_explains_itself_when_location_is_off(browser, served):
         )
     finally:
         ctx.close()
+
+
+def test_look_keeps_its_step_when_the_library_lands_after_it_opened(browser, served):
+    """A slow /list lets the boot's route() run after the Almanac and Look are
+    already open (the URL says #almanac). It must not open the Almanac a second
+    time: that rewrote the history entry and dropped Look's step, so Back left
+    the Almanac with Look still on screen."""
+    ctx = _context(browser, "none")
+    pg = ctx.new_page()
+    # The library list waits in the page until released.
+    pg.add_init_script(
+        """
+        (() => {
+          const hold = new Promise((r) => { window.__releaseList = r; });
+          const f = window.fetch;
+          window.fetch = (u, ...a) =>
+            String(u && u.url || u).includes('/list?layout=1') ? hold.then(() => f(u, ...a)) : f(u, ...a);
+        })();
+        """
+    )
+    try:
+        pg.goto(served + "/", wait_until="commit")
+        pg.wait_for_function(
+            "() => typeof openAlmanac === 'function'", polling=POLL_MS
+        )
+        pg.evaluate("() => openAlmanac()")
+        pg.wait_for_function(
+            "() => !!document.querySelector('.alm-sky-look') && typeof _skyState !== 'undefined' && _skyState && _skyState.eph",
+            polling=POLL_MS,
+        )
+        pg.evaluate("() => document.querySelector('.alm-sky-look').click()")
+        pg.wait_for_function(
+            "() => !!document.getElementById('almanac-look')", polling=POLL_MS
+        )
+        assert pg.evaluate("() => history.state && history.state.look") == 1
+        pg.evaluate("() => window.__releaseList()")
+        pg.wait_for_function(
+            "() => typeof zimsCache !== 'undefined' && zimsCache && zimsCache.length",
+            polling=POLL_MS,
+        )
+        pg.wait_for_timeout(500)
+        assert pg.evaluate("() => history.state && history.state.look") == 1
+        assert pg.evaluate("() => !!document.getElementById('almanac-look')")
+    finally:
+        ctx.close()
