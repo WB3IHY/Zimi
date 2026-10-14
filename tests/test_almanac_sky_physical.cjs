@@ -328,6 +328,9 @@ check(run('_sgLimitMag(_sgSkyLum(60, -90, 0, 0, 0.003))') > 0 && run('_sgLimitMa
   check(run('_skyRoundMs(' + f.sunset + ', false, -1)') === f.sunset, 'a known place is not rounded at all');
   const left = Math.floor((down - now) / 60000);
   check(run('_orrFmtSpan(' + (down - now) / 1000 + ')') === run('_skySpan(' + f.sunset + ', ' + now + ', true, -1)'), 'and the row says that span (' + left + ' min of ' + Math.round((f.sunset - now) / 60000) + ' real)');
+  const soon = f.sunset - 3 * 60000, fs = run('_skyFactsAt(' + soon + ', -33.87, 151.21)');
+  S.__s = { lat: -33.87, lon: 151.21, nowTime: soon, stored: false, known: true, moonData: { phase: { illumination: 20 } } }; S.__f = fs;
+  check(run('_skyFactRows(__s, __f)')[0][1] === 'alm_sky_f_under_step', 'three minutes of light left, guessed: "under 15 min", not 0 sec');
   const darkUntil = Date.parse('2026-10-13T19:07:00Z');
   check(run('_skyRoundMs(' + (darkUntil + 7 * 60000) + ', true, 1)') >= darkUntil + 7 * 60000, 'dark until rounds up');
 }

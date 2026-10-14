@@ -4099,7 +4099,7 @@
 :root.night-red img { filter: grayscale(1) sepia(1) hue-rotate(-42deg) saturate(10) brightness(.9); filter: url(#night-red-filter); }
 /* Moving pictures take the GPU's own filter chain (the SVG one is a pass the page pays every frame);
    a canvas that paints its own red (the sky) takes none, or its red would be halved. */
-:root.night-red canvas:not([data-red]), :root.night-red video { filter: grayscale(1) sepia(1) hue-rotate(-42deg) saturate(10) brightness(.9); }
+:root.night-red canvas:not([data-red]), :root.night-red video { filter: brightness(.6) grayscale(1) sepia(1) hue-rotate(-42deg) saturate(12) brightness(1.5); }
 :root.night-red .dc-today { filter: url(#night-red-filter); }
 :root.night-red .dc-today img { filter: none; }
 /* Quiet things stay readable: no 30% stars or faded close marks at night. */

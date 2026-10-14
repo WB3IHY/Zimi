@@ -108,7 +108,9 @@ function _skyFactRows(s, f) {
   var rows = [], lat = s.lat, now = s.nowTime, guess = !s.stored;
   var about = function (v) { return guess ? t('alm_sky_f_about', { v: v }) : v; };
   var at = function (ms, az, dir) { return _skyClock(ms, guess, dir) + ' \u00b7 ' + _skyBearing(az); };
-  if (f.sunUp) rows.push([t('alm_sky_f_daylight_left'), f.sunset ? about(_skySpan(f.sunset, now, guess, -1) + ' \u00b7 ' + at(f.sunset, f.sunsetAz, -1)) : t('alm_midnight_sun')]);
+  // A guessed sunset less than a step away rounds down to now: said as what it is, not as a time already gone.
+  var soon = guess && f.sunUp && f.sunset && _skyRoundMs(f.sunset, guess, -1) <= now;
+  if (f.sunUp) rows.push([t('alm_sky_f_daylight_left'), soon ? t('alm_sky_f_under_step') : f.sunset ? about(_skySpan(f.sunset, now, guess, -1) + ' \u00b7 ' + at(f.sunset, f.sunsetAz, -1)) : t('alm_midnight_sun')]);
   else rows.push([t('alm_sky_f_sunrise_in'), f.sunrise ? about(_skySpan(f.sunrise, now, guess, 1) + ' \u00b7 ' + at(f.sunrise, f.sunriseAz, 1)) : t('alm_polar_night')]);
   if (f.fullyDark) rows.push([t('alm_sky_f_dark_until'), f.darkUntil ? about(_skyClock(f.darkUntil, guess, 1)) : t('alm_polar_night')]);
   else rows.push([t('alm_sky_f_dark_from'), f.darkFrom ? about(_skyClock(f.darkFrom, guess, 1)) : t('alm_sky_f_not_dark')]);

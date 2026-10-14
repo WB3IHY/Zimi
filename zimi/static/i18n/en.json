@@ -3309,5 +3309,6 @@
   "zim_unreadable_corrupt": "Can't open: the file looks damaged or is still arriving",
   "zim_also_in": "Also in {label}",
   "alm_sky_f_pole_unknown": "Not known until you set your place",
-  "earth_locate_off": "Zimi cannot see where you are: location is off for it. Allow it in your browser, or set your place in the Almanac."
+  "earth_locate_off": "Zimi cannot see where you are: location is off for it. Allow it in your browser, or set your place in the Almanac.",
+  "alm_sky_f_under_step": "under 15 min"
 }
