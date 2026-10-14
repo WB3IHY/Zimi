@@ -3,8 +3,8 @@
 
     python3 scripts/fit_moon_orbits.py
 
-Needs the internet (JPL Horizons) and prints the SP_MOONS table that is pasted
-into zimi/static/almanac-space.js, with how far a mean circular orbit strays
+Needs the internet (JPL Horizons) and prints the SP_MOONS table, in the form
+it has in zimi/static/almanac-space.js so it pastes over it, with how far a mean circular orbit strays
 from Horizons over 1990-2060. Each moon is taken relative to its planet in the
 J2000 ecliptic frame, turned into the planet's equatorial plane (the IAU pole
 below), and its angle in that plane is fitted as lambda0 + n * (JD - J2000)
@@ -98,23 +98,19 @@ def fit(name, cmd, center, planet, seed):
     }
 
 
+# IAU mean radii (km), the `r` of each SP_MOONS row.
+RADIUS_KM = {"Io": 1821.6, "Europa": 1560.8, "Ganymede": 2634.1, "Callisto": 2410.3, "Titan": 2574.7}
+
+
 def main():
-    print(
-        "// name, planet, mean radius km, longitude at J2000 deg (from the plane's node), deg/day, worst miss deg"
-    )
+    print("var SP_MOONS = {   // paste over the rows in zimi/static/almanac-space.js (the Moon's row is the Earth view's Meeus series)")
     for name, cmd, center, planet, seed in MOONS:
         f = fit(name, cmd, center, planet, seed)
         print(
-            "  { name: '%s', planet: '%s', a: %.0f, L0: %.3f, rate: %.6f },   // worst miss %.1f deg"
-            % (
-                f["name"],
-                f["planet"],
-                f["a_km"],
-                f["lam0"],
-                f["deg_per_day"],
-                f["worst_deg"],
-            )
+            "  %s: { planet: '%s', a: %.0f, L0: %.3f, rate: %.6f, r: %s },   // worst miss %.1f deg"
+            % (name, planet, f["a_km"], f["lam0"], f["deg_per_day"], RADIUS_KM[name], f["worst_deg"])
         )
+    print("  Moon: { planet: 'Earth', a: 384400, r: 1737.4 }\n};")
 
 
 if __name__ == "__main__":

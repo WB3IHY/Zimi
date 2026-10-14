@@ -49,16 +49,19 @@ stars-v1.bin
 The flown solar system (almanac-space.js). Every file below is public domain
 (NASA, USGS, JPL) and is fetched the first time a flight is asked for. Maps are
 equirectangular, longitude -180 to 180 left to right, resized to 1024x512 and
-WebP (quality 70-75). Total 738 KB. Saturn, Uranus, Neptune, Ceres and
-Ganymede have no public-domain map in the library, so the view paints each
-from its colours (almanac-space.js _spProcCanvas) and says nothing is mapped.
+WebP (quality 70-75). Total 781 KB. Saturn, Uranus, Neptune and Ceres have no
+public-domain map in the library, so the view paints each from its colours
+(almanac-space.js _spProcCanvas).
 
 space-tracks-v1.json
   NASA/JPL Horizons System, https://ssd.jpl.nasa.gov/horizons/ (public
   domain): heliocentric J2000 ecliptic position and velocity of Voyager 1 and
   2, Pioneer 10 and 11, New Horizons, Parker Solar Probe, Juno, JWST, Cassini,
-  Galileo, Europa Clipper and Ceres, thinned until a cubic Hermite curve stays
-  within 4e-4 AU + 3e-4 of the distance from the Sun of every Horizons sample.
+  Galileo, Europa Clipper and Ceres, and of Jupiter, Saturn, Uranus, Neptune and
+  Pluto (the Pluto-Charon barycentre) over 1970-2050, thinned until a cubic
+  Hermite curve stays within 4e-4 AU + 3e-4 of the distance from the Sun of
+  every Horizons sample (within 5% of the distance to the planet, 300 km at
+  least, in the five-minute sampling round each flyby; 2e-5 AU for the planets).
   Rebuilt by scripts/build_space_tracks.py. Launch and flyby dates are the
   missions' own (NASA mission pages).
 
@@ -103,6 +106,14 @@ europa-v1.webp
   Voyager and Galileo SSI global mosaic, USGS/PDS (Commons "Europa Voyager
   GalileoSSI global mosaic.jpg", PD-USGov). Greyscale.
   https://astrogeology.usgs.gov/search/map/Europa/Voyager-Galileo/Europa_Voyager_GalileoSSI_global_mosaic_500m
+
+ganymede-v1.webp
+  Voyager and Galileo SSI colour mosaic, USGS Astrogeology Science Center
+  (NASA/JPL), Ganymede_Voyager_GalileoSSI_Global_ClrMosaic_1435m. A US
+  Government work, public domain. Equirectangular, east-positive; rolled from
+  0-360 to -180..180 and resized from 11520x5760 to 1024x512. Black no-data
+  strips at the poles and mosaic seams remain.
+  https://astrogeology.usgs.gov/search/map/ganymede_voyager_galileo_ssi_global_mosaic_1435m
 
 callisto-v1.webp
   Galileo and Voyager simple cylindrical map, USGS Astrogeology (Commons
