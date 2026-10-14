@@ -152,6 +152,8 @@ def build_library(zdir, only=None):
     if MANUAL in only:
         db = (
             "var DATABASE = [\n"
+            "{'_id': '2', 'ti': 'ATP 4-02.11 Casualty Response', 'dsc': 'Army Techniques Publication, 2026', 'aut': 'Department of the Army', "
+            "'fp': ['ATP_4-02.11_Casualty_Response.pdf']},\n"
             "{'_id': '0', 'ti': 'TC 4-02.1 First Aid', 'dsc': 'Training Circular, 2016', 'aut': 'Department of the Army', "
             "'fp': ['TC_4-02.1_First_Aid.pdf']},\n"
             "{'_id': '1', 'ti': 'FM 21-76 Survival', 'dsc': 'Field Manual, 1992', 'aut': 'Department of the Army', "
@@ -169,6 +171,12 @@ def build_library(zdir, only=None):
             [
                 ("index.html", "Field manual", _html("Field manual", "<p>Manuals</p>")),
                 ("zimi-database.js", "listing", db, "text/javascript"),
+                (
+                    "ATP_4-02.11_Casualty_Response.pdf",
+                    "ATP 4-02.11",
+                    b"%PDF-1.4 atp",
+                    "application/pdf",
+                ),
                 (
                     "TC_4-02.1_First_Aid.pdf",
                     "TC 4-02.1",

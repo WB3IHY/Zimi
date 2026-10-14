@@ -112,46 +112,119 @@ def normalize(text):
     return " ".join("".join(out).split())
 
 
+class _Tables:
+    """One language's words: the whole query, a phrase anywhere in it, a
+    run of CJK characters anywhere in it, and a bare word that is only a link."""
+
+    __slots__ = ("exact", "within", "cjk", "link")
+
+    def __init__(self):
+        self.exact, self.within, self.cjk, self.link = {}, {}, {}, {}
+
+
+_CJK = re.compile("[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]")
+MAX_PHRASE_WORDS = 8
+MAX_CJK_RUN = 8
+
+
 def _keyword_index():
-    """({normalized phrase: situation id}, {filler words}) over every
-    language; "" is the Field Guide itself ("first aid", "survival"). First
-    writer wins; the tests hold the table to no phrase in two places."""
+    """({language: _Tables}, {language: filler words}). Per situation, three
+    kinds of words: ``keywords`` (the whole query, or a phrase of two or more
+    words anywhere in it), ``within`` (a single word safe inside any query:
+    "bleeding" in "my friend is bleeding") and ``ambiguous`` (a bare word that
+    names a situation only as a small link: "water", "storm"). "" is the Field
+    Guide itself ("first aid", "survival"). First writer wins; the tests hold
+    the table to no phrase in two places."""
     global _index
     with _lock:
         built = _index
     if built is not None:
         return built
     d = data()
-    idx = {}
-    for words in d["home"].values():
+    tables = {}
+
+    def of(lang):
+        return tables.setdefault(lang, _Tables())
+
+    for lang, words in d["home"].items():
         for w in words:
-            idx.setdefault(normalize(w), "")
+            n = normalize(w)
+            of(lang).exact.setdefault(n, "")
     for sid, sit in d["situations"].items():
-        for words in sit["keywords"].values():
+        for lang, words in sit["keywords"].items():
+            t = of(lang)
             for w in words:
-                idx.setdefault(normalize(w), sid)
-    stop = set()
-    for words in d["stop"].values():
-        stop.update(normalize(w) for w in words)
-    built = (idx, stop)
+                n = normalize(w)
+                t.exact.setdefault(n, sid)
+                if len(n.split()) >= 2:
+                    t.within.setdefault(n, sid)
+        for lang, words in sit.get("within", {}).items():
+            t = of(lang)
+            for w in words:
+                n = normalize(w)
+                (t.cjk if _CJK.search(n) else t.within).setdefault(n, sid)
+        for lang, words in sit.get("ambiguous", {}).items():
+            t = of(lang)
+            for w in words:
+                t.link.setdefault(normalize(w), sid)
+    stop = {
+        lang: {normalize(w) for w in words} for lang, words in d["stop"].items()
+    }
+    built = (tables, stop)
     with _lock:
         _index = built
     return built
 
 
-def match(query):
-    """The situation id a typed query names, "" for the Field Guide itself,
-    or None. The whole query is looked up first, then what is left of it
-    without filler words ("how to stop bleeding" is "stop bleeding"). A query
-    with any other word in it ("water cycle") names nothing."""
+def lookup(query, lang="en"):
+    """``(situation id, kind)`` for what was typed, or None. ``kind`` is
+    "card" (the words name an emergency: show its first passage) or "link"
+    (a bare ambiguous word, or the Field Guide itself: a small link, nothing
+    quoted). Only the reader's language and English are read. The whole
+    query is tried first, then without filler words; then any phrase in it,
+    the longest first ("my friend is bleeding"). Words that name nothing
+    ("water cycle", "signal processing") name nothing."""
     q = normalize(query)
     if not q or len(q) > MAX_QUERY_CHARS:
         return None
-    idx, stop = _keyword_index()
-    if q in idx:
-        return idx[q]
-    rest = " ".join(w for w in q.split() if w not in stop)
-    return idx.get(rest) if rest and rest != q else None
+    tables, stop = _keyword_index()
+    langs = [lang] if lang in tables and lang != "en" else []
+    langs.append("en")
+    words = q.split()
+    rest = " ".join(w for w in words if not any(w in stop.get(x, ()) for x in langs))
+    wholes = [q] + ([rest] if rest and rest != q else [])
+    for whole in wholes:
+        for x in langs:
+            t = tables.get(x)
+            if t and whole in t.exact:
+                sid = t.exact[whole]
+                return (sid, "card" if sid else "link")
+        for x in langs:
+            t = tables.get(x)
+            if t and whole in t.link:
+                return (t.link[whole], "link")
+    for n in range(min(len(words), MAX_PHRASE_WORDS), 0, -1):
+        for i in range(len(words) - n + 1):
+            gram = " ".join(words[i : i + n])
+            for x in langs:
+                t = tables.get(x)
+                if t and gram in t.within:
+                    return (t.within[gram], "card")
+    if _CJK.search(q):
+        for n in range(min(len(q), MAX_CJK_RUN), 1, -1):
+            for i in range(len(q) - n + 1):
+                for x in langs:
+                    t = tables.get(x)
+                    if t and q[i : i + n] in t.cjk:
+                        return (t.cjk[q[i : i + n]], "card")
+    return None
+
+
+def match(query, lang="en"):
+    """The situation id a typed query names ("" for the Field Guide itself),
+    or None; see lookup for what is read and in what order."""
+    got = lookup(query, lang)
+    return None if got is None else got[0]
 
 
 # ── what the library holds ──────────────────────────────────────────────────
@@ -207,17 +280,19 @@ def _pieces_of(sid):
     return seen
 
 
-def hint(query):
+def hint(query, lang="en"):
     """What search says beside its results when the words name a situation:
-    ``{"id", "href", "installed": [{"piece", "name"}]}``, or None. ``id`` is
-    "" for the Field Guide itself. Only the keyword table and the library
-    list in memory are read, so the search path pays nothing for it."""
-    sid = match(query)
-    if sid is None:
+    ``{"id", "kind", "href", "installed": [{"piece", "name"}]}``, or None.
+    ``id`` is "" for the Field Guide itself; ``kind`` is "card" or "link"
+    (see lookup). Only the keyword table and the library list in memory are
+    read, so the search path pays nothing for it."""
+    got = lookup(query, lang)
+    if got is None:
         return None
+    sid, kind = got
     d = data()
     installed = []
-    if sid:
+    if sid and kind == "card":
         have = installed_zims()
         installed = [
             {"piece": p, "name": d["pieces"][p]["name"]}
@@ -226,6 +301,7 @@ def hint(query):
         ]
     return {
         "id": sid,
+        "kind": kind,
         "href": "/#fieldguide" + ("/" + sid if sid else ""),
         "installed": installed,
     }
@@ -445,6 +521,7 @@ def _source_view(src_id, quote):
         "publisher": s["publisher"],
         "licence": s["licence"],
         "licence_note": s.get("licence_note", ""),
+        "superseded": s.get("superseded", ""),
         "year": year,
         "dated": year < DATED_BEFORE,
     }
@@ -481,21 +558,45 @@ def _carrier(quote, have, sizes):
 
 
 def situation(sid, lang="en"):
-    """One situation: its quotes (newest source first, each with its source,
-    edition, place, licence and link, and where the library goes deeper), the
-    pages the installed ZIMs hold on it, and the ZIMs that would add more.
-    None for an unknown id."""
+    """One situation: its quotes in the order the data gives (what to do in
+    the next minute first), each with its source, edition, place, licence
+    and link and where the library goes deeper, the pages the installed ZIMs
+    hold on it, and the ZIMs that would add more. None for an unknown id.
+    What depends on the library's ZIMs for the pieces is kept; the reader's
+    own-language Wikipedia is looked up after, so a ZIM added or removed
+    shows at once."""
     d = data()
     sit = d["situations"].get(sid)
     if sit is None:
         return None
     have = installed_zims()
     lang = lang if lang in d["stop"] else "en"
-    key = (sid, lang, _signature(have))
+    key = (sid, _signature(have))
     with _lock:
         kept = _resolved.get(key)
-    if kept is not None:
-        return kept
+    if kept is None:
+        kept = _resolve(sid, sit, have)
+        with _lock:
+            if len(_resolved) >= _CACHE_MAX:
+                _resolved.clear()
+            _resolved[key] = kept
+    rows = [dict(r) for r in kept["answers"]] + _language_rows(sit, lang)
+    for i, r in enumerate(rows):
+        r["_i"] = i
+        r["year"] = _year(r.get("edition"), r.get("built"))
+        r["dated"] = bool(r["year"]) and r["year"] < DATED_BEFORE
+    # Pages and documents before searches; then tier; then newest; then data order.
+    rows.sort(key=lambda r: (r["kind"] == "search", r["tier"], -r["year"], r["_i"]))
+    for r in rows:
+        r.pop("_i", None)
+    return dict(kept, answers=rows)
+
+
+def _resolve(sid, sit, have):
+    """A situation worked out against the pieces the library holds (not the
+    reader's language): its quotes and carriers, the pages found, the pieces
+    missing."""
+    d = data()
     sizes = _catalog_sizes()
     rows = []
     qs = []
@@ -531,15 +632,6 @@ def situation(sid, lang="en"):
                         "q": q,
                     }
                 )
-    rows += _language_rows(sit, lang)
-    for i, r in enumerate(rows):
-        r["year"] = _year(r.get("edition"), r.get("built"))
-        r["dated"] = bool(r["year"]) and r["year"] < DATED_BEFORE
-        r["_i"] = i
-    # Pages and documents before searches; then tier; then newest; then data order.
-    rows.sort(key=lambda r: (r["kind"] == "search", r["tier"], -r["year"], r["_i"]))
-    for r in rows:
-        r.pop("_i", None)
     missing = []
     for pid in _pieces_of(sid):
         piece = d["pieces"][pid]
@@ -547,7 +639,7 @@ def situation(sid, lang="en"):
             m = _missing(pid, piece, sizes)
             if m:
                 missing.append(m)
-    out = {
+    return {
         "id": sid,
         "mark": d["marks"].get(sid, ""),
         "quotes": qs,
@@ -555,11 +647,6 @@ def situation(sid, lang="en"):
         "missing": missing,
         "disclaimer": DISCLAIMER,
     }
-    with _lock:
-        if len(_resolved) >= _CACHE_MAX:
-            _resolved.clear()
-        _resolved[key] = out
-    return out
 
 
 def _language_rows(sit, lang):
@@ -650,10 +737,21 @@ def _reset_for_tests():
 # ── the field manual: a ZIM of the Army's public-domain manuals ─────────────
 
 _COMMONS = "https://upload.wikimedia.org/wikipedia/commons/"
-# Each manual's original on Wikimedia Commons (works of the US Army, approved
-# for public release), with the size and SHA-256 of the file as it was read
-# when these addresses were checked: a file that is not that file is refused.
+# Each manual's original, on the Army Publishing Directorate or Wikimedia
+# Commons (works of the US Army, approved for public release), with the size
+# and SHA-256 of the file as it was read when these addresses were checked: a
+# file that is not that file is refused.
+_ARMYPUBS = "https://armypubs.army.mil/epubs/DR_pubs/DR_a/"
 MANUALS = (
+    {
+        "file": "ATP_4-02.11_Casualty_Response.pdf",
+        "title": "ATP 4-02.11 Casualty Response",
+        "date": "2026-03-23",
+        "description": "Army Techniques Publication 4-02.11, 23 March 2026. Supersedes TC 4-02.1.",
+        "url": _ARMYPUBS + "ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+        "bytes": 12665561,
+        "sha256": "a4a0650f5bb14c1c7163b9b1e9f08bcc012fb3fe49ea4432f0ccaffb9af86542",
+    },
     {
         "file": "TC_4-02.1_First_Aid.pdf",
         "title": "TC 4-02.1 First Aid",

@@ -1,16 +1,20 @@
 {
- "version": 1,
+ "version": 2,
  "licences": ["US-PD", "CC BY 4.0", "CC BY-SA 4.0", "CC BY 3.0", "CC BY-SA 3.0"],
  "sources": {
-  "tccc": {
-   "title": "Tactical Combat Casualty Care (TCCC) Guidelines",
-   "edition": "01 May 2026",
+  "atp": {
+   "title": "ATP 4-02.11 Casualty Response, Tactical Combat Casualty Care, and First Aid",
+   "edition": "23 March 2026",
    "year": 2026,
-   "publisher": "Committee on Tactical Combat Casualty Care, Joint Trauma System, US Department of Defense",
+   "publisher": "Headquarters, Department of the Army",
    "licence": "US-PD",
-   "licence_note": "Work of the US Department of Defense (17 U.S.C. 105)",
-   "url": "https://jts.health.mil/index.cfm/committees/cotccc/guidelines",
-   "carriers": []
+   "licence_note": "Work of the US Army, approved for public release (17 U.S.C. 105)",
+   "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+   "fixture": "atp",
+   "carriers": [
+    {"piece": "field_manual", "doc": "ATP 4-02.11"},
+    {"piece": "armypubs", "find": "ATP 4-02.11"}
+   ]
   },
   "tc4021": {
    "title": "TC 4-02.1 First Aid",
@@ -18,17 +22,13 @@
    "year": 2018,
    "publisher": "Headquarters, Department of the Army",
    "licence": "US-PD",
+   "superseded": "ATP 4-02.11, 23 March 2026",
    "licence_note": "Work of the US Army, approved for public release (17 U.S.C. 105)",
    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
+   "fixture": "tc4021",
    "carriers": [
-    {
-     "piece": "field_manual",
-     "doc": "TC 4-02.1"
-    },
-    {
-     "piece": "armypubs",
-     "find": "TC 4-02.1 First Aid"
-    }
+    {"piece": "field_manual", "doc": "TC 4-02.1"},
+    {"piece": "armypubs", "find": "TC 4-02.1 First Aid"}
    ]
   },
   "fm2176": {
@@ -39,15 +39,10 @@
    "licence": "US-PD",
    "licence_note": "Work of the US Army, approved for public release (17 U.S.C. 105)",
    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
+   "fixture": "fm2176",
    "carriers": [
-    {
-     "piece": "field_manual",
-     "doc": "FM 21-76"
-    },
-    {
-     "piece": "armypubs",
-     "find": "FM 21-76 Survival"
-    }
+    {"piece": "field_manual", "doc": "FM 21-76"},
+    {"piece": "armypubs", "find": "FM 21-76 Survival"}
    ]
   },
   "ready": {
@@ -59,9 +54,7 @@
    "licence_note": "Work of the US Federal Emergency Management Agency (17 U.S.C. 105)",
    "url": "https://www.ready.gov/",
    "carriers": [
-    {
-     "piece": "ready"
-    }
+    {"piece": "ready"}
    ]
   },
   "epa": {
@@ -72,221 +65,554 @@
    "licence": "US-PD",
    "licence_note": "Work of the US Environmental Protection Agency (17 U.S.C. 105)",
    "url": "https://www.epa.gov/ground-water-and-drinking-water/emergency-disinfection-drinking-water",
+   "fixture": "epa-water",
+   "carriers": []
+  },
+  "usfs": {
+   "title": "If You Get Lost",
+   "edition": "Page retrieved 14 October 2026",
+   "year": 2026,
+   "publisher": "US Forest Service",
+   "licence": "US-PD",
+   "licence_note": "Work of the US Forest Service (17 U.S.C. 105)",
+   "url": "https://www.fs.usda.gov/visit/know-before-you-go/if-you-get-lost",
+   "fixture": "fs-lost",
+   "carriers": []
+  },
+  "nps": {
+   "title": "Outdoor Emergency Plan",
+   "edition": "Page last updated June 21, 2023",
+   "year": 2023,
+   "publisher": "National Park Service",
+   "licence": "US-PD",
+   "licence_note": "Work of the National Park Service (17 U.S.C. 105)",
+   "url": "https://www.nps.gov/articles/gtgemergencyplan.htm",
+   "fixture": "nps-plan",
+   "carriers": []
+  },
+  "g911": {
+   "title": "Calling 911",
+   "edition": "Page last updated 01/24/2023",
+   "year": 2023,
+   "publisher": "National 911 Program, National Highway Traffic Safety Administration",
+   "licence": "US-PD",
+   "licence_note": "Work of the US Department of Transportation (17 U.S.C. 105)",
+   "url": "https://www.911.gov/calling-911/",
+   "fixture": "g911",
+   "carriers": []
+  },
+  "g911faq": {
+   "title": "Frequently Asked Questions about 911",
+   "edition": "Page last updated 03/08/2023",
+   "year": 2023,
+   "publisher": "National 911 Program, National Highway Traffic Safety Administration",
+   "licence": "US-PD",
+   "licence_note": "Work of the US Department of Transportation (17 U.S.C. 105)",
+   "url": "https://www.911.gov/calling-911/frequently-asked-questions/",
+   "fixture": "g911-faq",
+   "carriers": []
+  },
+  "hrsa": {
+   "title": "Calling Poison Help",
+   "edition": "Page retrieved 14 October 2026",
+   "year": 2026,
+   "publisher": "Health Resources and Services Administration",
+   "licence": "US-PD",
+   "licence_note": "Work of the US Department of Health and Human Services (17 U.S.C. 105)",
+   "url": "https://poisonhelp.hrsa.gov/faq/calling-poison-help",
+   "fixture": "hrsa-call",
+   "carriers": []
+  },
+  "cdc_ca": {
+   "title": "About Cardiac Arrest",
+   "edition": "May 15, 2024",
+   "year": 2024,
+   "publisher": "Centers for Disease Control and Prevention",
+   "licence": "US-PD",
+   "licence_note": "Work of the Centers for Disease Control and Prevention (17 U.S.C. 105)",
+   "url": "https://www.cdc.gov/heart-disease/about/cardiac-arrest.html",
+   "fixture": "cdc-ca",
+   "carriers": []
+  },
+  "cdc_ha": {
+   "title": "About Heart Attack Symptoms, Risk, and Recovery",
+   "edition": "Oct. 24, 2024",
+   "year": 2024,
+   "publisher": "Centers for Disease Control and Prevention",
+   "licence": "US-PD",
+   "licence_note": "Work of the Centers for Disease Control and Prevention (17 U.S.C. 105)",
+   "url": "https://www.cdc.gov/heart-disease/about/heart-attack.html",
+   "fixture": "cdc-ha",
+   "carriers": []
+  },
+  "cdc_co": {
+   "title": "Carbon Monoxide Poisoning Basics",
+   "edition": "Jan. 12, 2026",
+   "year": 2026,
+   "publisher": "Centers for Disease Control and Prevention",
+   "licence": "US-PD",
+   "licence_note": "Work of the Centers for Disease Control and Prevention (17 U.S.C. 105)",
+   "url": "https://www.cdc.gov/carbon-monoxide/about/index.html",
+   "fixture": "cdc-co",
+   "carriers": []
+  },
+  "niosh": {
+   "title": "Venomous Snakes",
+   "edition": "Sept. 23, 2026",
+   "year": 2026,
+   "publisher": "National Institute for Occupational Safety and Health",
+   "licence": "US-PD",
+   "licence_note": "Work of the Centers for Disease Control and Prevention (17 U.S.C. 105)",
+   "url": "https://www.cdc.gov/niosh/outdoor-workers/about/venomous-snakes.html",
+   "fixture": "niosh-snake",
+   "carriers": []
+  },
+  "wp_crux": {
+   "title": "Crux",
+   "edition": "Revision 1379511054, 10 October 2026",
+   "year": 2026,
+   "publisher": "Wikipedia contributors",
+   "licence": "CC BY-SA 4.0",
+   "licence_note": "Wikipedia text, CC BY-SA 4.0: credit the contributors, share alike",
+   "url": "https://en.wikipedia.org/w/index.php?title=Crux&oldid=1379511054",
+   "fixture": "wp-crux",
    "carriers": []
   }
  },
  "quotes": {
-  "bleeding": [
+  "emergency_call": [
    {
-    "source": "tccc",
-    "heading": "Massive Hemorrhage",
-    "locator": "Tactical Field Care, item 3a, p. 2",
-    "lines": ["a. Assess for unrecognized hemorrhage and control all sources of bleeding. If not already done, use a CoTCCC-recommended limb tourniquet to control life-threatening external hemorrhage that is anatomically amenable to tourniquet use or for any traumatic amputation. Apply directly to the skin 2-3 inches above the bleeding site. If bleeding is not controlled with the first tourniquet, apply a second tourniquet side-by-side with the first."],
-    "id": "bleeding-2",
-    "url": "https://jts.health.mil/index.cfm/committees/cotccc/guidelines",
-    "year": 2026,
-    "edition": "01 May 2026"
+    "source": "g911",
+    "heading": "Calling 911",
+    "locator": "Calling 911",
+    "lines": [
+     "In an emergency, dial 911 from your phone immediately.",
+     "An emergency is any situation that requires immediate assistance from the police, fire department or ambulance.",
+     "When you call 911, be prepared to answer the call-taker's questions, which may include:",
+     "The location of the emergency, including the street address",
+     "The phone number you are calling from",
+     "The nature of the emergency",
+     "Details about the emergency, such as a physical description of a person who may have committed a crime, a description of any fire that may be burning, or a description of injuries or symptoms being experienced by a person having a medical emergency",
+     "Remember, the call-taker's questions are important to get the right kind of help to you quickly. Be prepared to follow any instructions the call-taker gives you. Many 911 centers can tell you exactly what to do until help arrives, such as providing step-by-step instructions to aid someone who is choking or needs first aid or CPR. Do not hang up until the call-taker instructs you to do so."
+    ],
+    "id": "emergency_call-1",
+    "url": "https://www.911.gov/calling-911/",
+    "year": 2023
    },
    {
-    "source": "tccc",
-    "heading": "Basic Management Plan for Care Under Fire/Threat",
-    "locator": "Care Under Fire, item 6, p. 1",
-    "lines": ["6. Stop life-threatening external hemorrhage if tactically feasible:", "a. Direct casualty to control hemorrhage by self-aid if able.", "b. Use a CoTCCC-recommended limb tourniquet for hemorrhage that is anatomically amenable to tourniquet use.", "c. Apply the limb tourniquet over the uniform clearly proximal to the bleeding site(s). If the site of the life-threatening bleeding is not readily apparent, place the tourniquet “high and tight” (as proximal as possible) on the injured limb and move the casualty to cover."],
-    "id": "bleeding-1",
-    "url": "https://jts.health.mil/index.cfm/committees/cotccc/guidelines",
-    "year": 2026,
-    "edition": "01 May 2026"
-   },
-   {
-    "source": "tc4021",
-    "heading": "Methods for Controlling External Bleeding",
-    "locator": "Chapter 6, paras 6-2 and 6-3, p. 6-1",
-    "lines": ["6-2. There are three methods of controlling external bleeding, they are—", "Direct pressure.", "Pressure dressing.", "Tourniquet.", "6-3. If the evaluation determines that the bleeding is life threatening, a tourniquet should be immediately applied."],
-    "id": "bleeding-3",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
-   },
-   {
-    "source": "tc4021",
-    "heading": "Apply a Tourniquet",
-    "locator": "Chapter 6, para 6-7, p. 6-2",
-    "lines": ["6-7. If the evaluation of the casualty determines that the bleeding is life threatening a commercial tourniquet contained in the IFAK should be immediately applied.", "Pull the free end of the self-adhering band through the buckle and route through the friction adapter buckle.", "Place the tourniquet, 2 to 3 inches above the wound on the injured extremity.", "Pull the self-adhering band tight around the extremity and fasten it back on itself as tightly as possible.", "Twist the windlass until the bleeding stops.", "Lock the windlass in place within the windlass clip.", "Secure the windlass with the windlass strap.", "Assess for absence of a distal pulse.", "Place a T and the time of the application on the casualty with a marker.", "Secure the commercial tourniquet in place with tape."],
-    "id": "bleeding-4",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
-   },
-   {
-    "source": "tc4021",
-    "heading": "Apply Direct Pressure",
-    "locator": "Chapter 6, paras 6-4 and 6-5, p. 6-1",
-    "lines": ["6-4. If bleeding is not life threatening, apply direct pressure as follows:", "Expose the wound.", "Place sterile gauze or dressing over the injury site and apply fingertips, palm or entire surface of one hand and apply direct pressure.", "Pack large, gaping wounds with sterile gauze and apply direct pressure.", "6-5. Once the bleeding has been controlled, it is important to check a distal pulse to make sure that the dressing has not been applied too tightly. If a pulse is not felt, adjust the dressing to re-establish circulation.", "WARNING The emergency bandage must be loosened if the skin distal to the injury becomes cool, blue, numb, or pulseless."],
-    "id": "bleeding-5",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "source": "g911faq",
+    "heading": "Can I text 911 for emergency assistance?",
+    "locator": "Calling or Texting 911",
+    "lines": [
+     "Calling 911 by sending a text message is increasing across the United States, and efforts are underway to receive text messages at call centers nationwide. If you need emergency assistance, it is always best to call 911 if you can, and text if you can’t.",
+     "Even if text-to-911 services are available in your community, a voice call remains the best way to reach 911. If you send a text message to 911, but text-to-911 services are not available in your community, you should receive an immediate bounce-back message from the wireless provider telling you that the text message was not delivered. For more information about text-to-911, go to the Federal Communications Communications “Text to 911: What You Need to Know” page."
+    ],
+    "id": "emergency_call-2",
+    "url": "https://www.911.gov/calling-911/frequently-asked-questions/",
+    "year": 2023
    }
   ],
-  "choking": [
+  "bleeding": [
    {
-    "source": "tc4021",
-    "heading": "Airway Obstruction Identification",
-    "locator": "Chapter 4, para 4-2, p. 4-1",
-    "lines": ["4-2. The airway may be partially or completely blocked. In either case removing the obstruction is vital. In cases of complete blockage, removing the blockage quickly is critical if the casualty is to survive.", "Determine if the casualty needs help as follows:", "If a casualty has a mild airway obstruction (able to speak or cough forcefully, may be wheezing between coughs) do not interfere except to encourage the casualty.", "If the casualty has a severe airway obstruction (poor air exchange and increased breathing difficulty, a silent cough, cyanosis [bluish tinge to the skin], or inability to speak or breathe) continue with abdominal or chest thrusts.", "Note. You can ask the casualty one question, Are you choking? If the casualty nods yes, help is needed.", "The decision to perform abdominal or chest thrusts is determined by the casualty’s condition.", "Note. Abdominal thrusts should be used unless the casualty is in advanced stages of pregnancy, is very obese, or has a significant abdominal wound."],
-    "id": "choking-1",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "source": "atp",
+    "heading": "Application of Direct Pressure",
+    "locator": "Chapter 4, para 4-66, p. 53",
+    "lines": [
+     "4-66. After packing the wound with a hemostatic dressing or gauze, hold direct pressure for three minutes. Direct pressure can and should be used as a temporary measure until a TQ or dressing is in place. It is difficult to use direct pressure alone to control significant bleeding, or while moving the casualty. While packing a wound, maintain constant, direct pressure, at the source of the bleeding to be effective."
+    ],
+    "id": "bleeding-1",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
    },
    {
-    "source": "tc4021",
-    "heading": "Abdominal Thrusts",
-    "locator": "Chapter 4, para 4-3, p. 4-1",
-    "lines": ["4-3. To perform abdominal thrusts—", "Stand behind the casualty.", "Wrap your arms around the casualty’s waist.", "Make a fist with one hand.", "Place the thumb side of the fist against the abdomen slightly above the navel and well below the tip of the breastbone.", "Grasp the fist with the other hand.", "Give quick backward and upward thrusts.", "Note. Each thrust should be a separate, distinct movement. Thrusts should be continued until the obstruction is expelled or the casualty becomes unconscious."],
-    "id": "choking-2",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "source": "atp",
+    "heading": "Application of Tourniquets",
+    "locator": "Chapter 4, paras 4-39 to 4-41, pp. 48 and 49",
+    "lines": [
+     "4-39. A hasty TQ is implemented as \"high and tight\" on the wounded extremity or when the bleeding source is ambiguous during the CUF phase. However, during TFC, all TQs should be deliberate, placed two to three inches above the wound directly on the skin, not over clothing. Once the casualty is in a safer position, the bleeding source should be reassessed, and the effectiveness of the TQs verified. If bleeding remains uncontrolled, a second TQ may be necessary, particularly for severe bleeding wounds of the thigh.",
+     "4-40. It is crucial to recognize that TQs should be used cautiously, with the optimal safe duration being less than two hours. Beyond this timeframe, tissues may start to die, potentially leading to limb loss after six hours. Regular reassessment of TQ effectiveness is necessary, including checking for stopped bleeding, absent distal pulse, and ensuring no pulse below the TQ on the limb. Common errors when applying TQs include not using one, when necessary, not tightening it adequately, and using it for minimal bleeding. Additionally, TQs should never be removed except by medical personnel at a higher role of care. If the source of massive bleeding is evident, such as from an amputation or major wound, immediate bleeding control measures like applying a TQ or wound packing should be initiated, especially in areas where a TQ cannot be used, such as the groin, armpit, or neck. The following steps address tourniquet application in CUF for all Service Members, CLS, and medical personnel.",
+     "4-41. One-Handed (Windlass) TQ Application CUF:",
+     "Remove TQ from JFAK and/or carrying pouch.",
+     "Insert the wounded extremity through the loop of the self-adhering band.",
+     "Position the TQ above the bleeding site, high on the extremity over the clothing/uniform.",
+     "Ensure that all the slack in the self-adhering band is pulled through the routing buckle before the band is fastened back on itself and the windlass is twisted.",
+     "Twist the rod until bleeding has stopped (complete steps 1-5 in under 1 min).",
+     "Lock the windlass rod in place with the windlass clip.",
+     "Route the self-adhering band around the rod and between the clips.",
+     "Secure the windlass safety strap.",
+     "If no other major bleeding is present, move to cover.",
+     "Note. Do not document the TQ application time until the TFC phase."
+    ],
+    "id": "bleeding-2",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
    },
    {
-    "source": "tc4021",
-    "heading": "Chest Thrusts",
-    "locator": "Chapter 4, paras 4-4 to 4-6, pp. 4-1 and 4-2",
-    "lines": ["4-4. To perform chest thrusts—", "Stand behind the casualty.", "Wrap your arms under the casualty’s armpits and around the chest.", "Make a fist with one hand.", "Give backwards thrusts.", "Note. Each thrust should be performed slowly and distinctly with the intent of relieving the obstruction.", "Continue to give abdominal or chest thrusts, as required. Give abdominal or chest thrusts until the obstruction is clear, you are relieved by a qualified person, or the casualty becomes unconscious.", "Note. If the casualty becomes unresponsive, lay him down and then start mouth-to-mouth resuscitation procedures.", "4-5. If the obstruction is cleared, watch the casualty closely and check for other injuries, if necessary.", "4-6. Seek medical aid."],
-    "id": "choking-3",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "source": "atp",
+    "heading": "Expedient Techniques for Hemorrhage Control",
+    "locator": "Chapter 4, paras 4-79 to 4-83, p. 57",
+    "lines": [
+     "4-79. Using one of the CoTCCC-recommended TQs is the safe and preferred procedure for hemorrhage control. Improvised TQs are much less effective than commercially available TQs discussed in paragraph 4-37 on page 48. Improvised TQs are difficult to make and apply without extensive practice, however they may be needed in situations where commercially produced TQs are unavailable, or supplies have been exhausted.",
+     "CAUTION The risks associated with using improvised TQs include:",
+     "Damage may occur to the skin if the band is too narrow.",
+     "Bleeding may worsen.",
+     "Bleeding may not be completely controlled.",
+     "Likely to loosen overtime from not being properly secured.",
+     "4-80. If a TQ is not available, pack the wound and hold direct pressure over the source of the heaviest bleed, FIRST. If this fails to control the bleeding in an arm or leg, only then consider an alternate improvised TQ.",
+     "4-81. An alternate improvised TQ uses other materials on hand. In constructing one, it is recommended that you fold a cravat (or other pliable material) to a width of approximately 1 ½ to 2 inches and tighten it with some sort of windlass rod (a straight rod that can be used to twist the material tighter). Then secure the rod to ensure it does not loosen.",
+     "Note. The cravat is included in the JFAK, however it is not part of the Army IFAK Generation 1 or 2. To resource the cravat for the Army IFAK, the nomenclature is: Sterile Burn Dressing Cravat, NSN: 6510-01-587-6579; Muslin Compressed Bandage NSN: 6510-00-201-1755.",
+     "4-82. An improvised TQ should not be used except as an absolute last resort when there is no other option to control life-threatening bleeding. If no TQ is available, pack the wound and hold direct pressure over the main source of bleeding.",
+     "4-83. Continue to check the TQ, as improvised TQs are prone to loosening due to (but not limited to) casualty movement, shifting fluid, and quality of improvised material."
+    ],
+    "id": "bleeding-3",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   },
+   {
+    "source": "atp",
+    "heading": "Application of Wound Packing",
+    "locator": "Chapter 4, paras 4-67 to 4-68, pp. 53 and 54",
+    "lines": [
+     "4-67. Wounds should not be blindly packed. Effort must be taken to locate the source of bleeding and apply direct pressure immediately while preparing the gauze.",
+     "4-68. Wound packing:",
+     "Identify and expose the wound.",
+     "Locate the source of the most active bleeding and apply direct pressure, while preparing the hemostatic dressing.",
+     "Remove the hemostatic dressing from its sterile package and pack it into the wound tightly, directly over the site of the most active bleeding.",
+     "Fill and pack the whole wound cavity tightly while keeping firm pressure on the wound.",
+     "Ensure the hemostatic dressing extends one to two inches above the skin.",
+     "Hold continuous direct pressure for a minimum of three minutes.",
+     "Reassess the wound to ensure that the bleeding has stopped.",
+     "Apply a pressure bandage over the hemostatic dressing to secure it in place.",
+     "Reassess the wound to ensure that the bleeding has stopped. If blood is seeping through or around the hemostatic dressing, the bleeding is not controlled, and the following steps should be applied:",
+     "If extra hemostatic dressings are available, remove the initial, ineffective hemostatic dressing and replace them with new hemostatic dressings.",
+     "If extra hemostatic dressings are unavailable, leave initial, ineffective hemostatic dressing in place and add extra gauze over the wound tract.",
+     "If roller or compressed gauze was used initially, due to unavailability of hemostatic dressings, leave initial, ineffective roller or compressed gauze in place and add extra gauze over the wound tract.",
+     "Once bleeding has been controlled, apply a pressure bandage over the wound packing material to secure it in place.",
+     "Note. More than one hemostatic dressing may be required to stop the blood flow."
+    ],
+    "id": "bleeding-4",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
    }
   ],
   "not_breathing": [
    {
-    "source": "tc4021",
-    "heading": "External Chest Compressions",
-    "locator": "Chapter 15, paras 15-2 to 15-7, pp. 15-1 and 15-2",
-    "lines": ["15-2. Establish unresponsiveness (gently shake the casualty, asking, Are you OK?).", "Assess the casualty for a response and look for normal or abnormal breathing.", "Note. If there is no response and no breathing or no normal breathing (for example only gasping) shout for help.", "Tap the casualty’s shoulder and shout, Are you all right?", "If the casualty is unresponsive, activate the emergency response system! This is typically accomplished by calling 911.", "If responsive, continue evaluating the casualty.", "15-3. Check for signs of circulation as follows:", "Attempt to feel the casualty’s carotid pulse (do not take more than 10 seconds).", "If the casualty has a carotid pulse but is not breathing, perform rescue breathing. See Chapter 14, Task 081-0831-0048, on page 14-1.", "If you do not definitely feel a pulse within 10 seconds, perform 5 cycles of compressions and breaths (30:2 ratio) starting with compressions (compressions-airway-breathing sequence).", "15-4. Begin chest compressions as follows:", "Ensure that the casualty is positioned on a hard, flat surface, in a supine position. Kneel next to the casualty.", "Note. If you suspect the casualty has a head or neck injury, try to keep the head, neck and torso in line when rolling the casualty to a face up position.", "Position yourself on the casualty’s side.", "Place the heel of one hand on the center of the casualty’s chest on the lower half of the breastbone.", "Note. You may either extend or interlace your fingers but keep your fingers off the casualty’s chest.", "Place the heel of your other hand on top of the first hand.", "Straighten your arms and lock your elbows and position your shoulders directly over your hands.", "Give 30 compressions.", "Push hard and fast.", "Press down at least 2 inches (5 centimeters) with each compression.", "Note. For each chest compression, make sure you push straight down on the casualty’s breast bone. This will require hard work. Adequate depth must be attained for at least 23 of the 30 compressions.", "Deliver compressions in a smooth fashion at the rate of 100 per minute, (for example, an adequate rate would be 30 compressions in 18 seconds of less).", "At the end of each compression, make sure you allow the chest to recoil (re-expand) completely.", "CAUTION DO NOT move the casualty with CPR in progress unless the casualty is in a dangerous environment, or if you cannot perform CPR effectively in the casualty’s present position or location.", "Minimize interruptions.", "Note. DO NOT remove the heel of your hand from the casualty’s chest or reposition your hands between compressions.", "15-5. Open the airway. See Chapter 3, Task 081-COM-1023, on page 3-1.", "Note. There are two methods to opening of the airway to provide breaths, the head-tilt chin-lift or the jaw thrust.", "15-6. Give two full rescue breaths.", "Move quickly to the casualty’s head and lean over his mouth.", "Give two full rescue breaths (each lasting 1 second).", "Note. Deliver air over one second to make the casualty’s chest rise.", "15-7. Continue to alternate between chest compressions and ventilations (30:2) until—", "The casualty is revived.", "You are too exhausted to continue.", "You are relieved by a health care provider.", "The casualty is pronounced dead by an authorized person.", "A second rescuer states, I know CPR, and joins you in performing two-rescuer CPR."],
+    "source": "cdc_ca",
+    "heading": "Signs and symptoms",
+    "locator": "Signs and symptoms",
+    "lines": [
+     "A person may be in cardiac arrest if they:",
+     "Collapse suddenly and lose consciousness (pass out).",
+     "Are not breathing or are gasping for air.",
+     "Don't respond to shouting or shaking.",
+     "Don't have a pulse.",
+     "If you believe someone is having a cardiac arrest, call 9-1-1 right away, look for an automated external defibrillator (AED), and give CPR until medical professionals arrive."
+    ],
     "id": "not_breathing-1",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "url": "https://www.cdc.gov/heart-disease/about/cardiac-arrest.html",
+    "year": 2024
    },
    {
-    "source": "tc4021",
-    "heading": "Head-Tilt Chin-Lift Method",
-    "locator": "Chapter 3, para 3-3, p. 3-1",
-    "lines": ["3-3. To open the airway using the head-tilt chin-lift method—", "CAUTION DO NOT use this method if a spinal or neck injury is suspected.", "Kneel at the level of the casualty’s shoulders.", "Place one hand on the casualty’s forehead and apply firm, backward pressure with the palm to tilt the head back.", "Place the fingertips of the other hand under the bony part of the lower jaw and lift, bringing the chin forward.", "Do not use the thumb to lift.", "Do not completely close the casualty’s mouth.", "Do not press deeply into the soft tissue under the chin with the fingers."],
+    "source": "atp",
+    "heading": "External chest compressions",
+    "locator": "Chapter 6, para 6-45, pp. 80 and 81",
+    "lines": [
+     "6-45. CPR is conducted using a specific technique to provide manual circulation support during cardiac arrest or when the heart has stopped beating effectively. A general outline of the steps involved in conducting external chest compressions is:",
+     "Position: Ensure the person is lying on a firm, flat surface, such as the ground or a CPR board. Kneel beside the person's chest.",
+     "Hand Placement: Place the heel of one hand on the center of the person's chest, between the nipples. For infants or children, use two or three fingers instead of the entire hand.",
+     "Compression Depth: Press down firmly and smoothly. For adults, compress the chest at least two inches (five centimeters) deep. For infants or children, compress the chest about one-third to one-half of its depth.",
+     "Compression Rate: Perform compressions at a rate of 100 to 120 compressions per minute. This equates to about two compressions per second.",
+     "Complete Chest Recoil: Allow the chest to fully recoil between each compression, without lifting your hands off the chest. This allows the heart to refill with blood.",
+     "Compression to Ventilation Ratio: If you are performing CPR alone, do cycles of 30 chest compressions to two rescue breaths (mouth-to-mouth or mouth-to-mask). If there are two rescuers, the ratio can be 30:2 or continuous chest compressions with ventilation being delivered by the other rescuer.",
+     "Continue until Help Arrives: Keep performing chest compressions until professional medical help arrives, or until the person shows signs of movement or starts breathing."
+    ],
     "id": "not_breathing-2",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
    },
    {
-    "source": "tc4021",
-    "heading": "Mouth-to-Mouth Method",
-    "locator": "Chapter 14, paras 14-2 and 14-3, pp. 14-1 and 14-2",
-    "lines": ["14-2. Perform the mouth-to-mouth method of rescue breathing as follows:", "Maintain the chin-lift method while pinching the nostrils closed using the thumb and index fingers of your hand on the casualty’s forehead.", "Take a regular breath and make an airtight seal around the casualty’s mouth with your mouth.", "Give one slow breath (lasting one second) into the casualty’s mouth, watching for the chest to rise and fall and listening and feeling for air to escape upon your cheek.", "Note. You must let go of the casualty’s nose once you have given the breath and you are watching for the rise and fall of the chest, in order to feel the air escape upon your cheek.", "If the chest rises and air escapes give a second slow breath.", "14-3. Check the carotid pulse, for at least five seconds but no longer than 10 seconds as follows:", "While maintaining the airway, place the index and middle fingers of your hand on the casualty’s throat.", "Slide the fingers into the groove beside the casualty’s Adam’s apple and feel for a pulse for no longer than 10 seconds.", "If a pulse is present, continue rescue breathing at the following rate:", "Adults: 12 to 20 breaths per minute.", "Children (one year of age to onset of puberty): 15 to 30 breaths per minute.", "Infants (less than one year of age): 25 to 50 breaths per minute.", "Watch for rising and fall of chest.", "If a pulse is not found, initiate CPR. See Chapter 15, Task 081-831-0046, on page 15-1.", "If the chest does not rise or air does not escape, reposition the head, and repeat. Give a second slow breath and check the carotid pulse."],
+    "source": "atp",
+    "heading": "Duration of CPR",
+    "locator": "Chapter 6, para 6-47, p. 81",
+    "lines": [
+     "6-47. The duration of CPR can vary depending on the circumstances and response of the individual being treated. In general, CPR should be continued until one of the following conditions is met:",
+     "Signs of Life: If the person shows obvious signs of life, such as breathing normally, coughing, or moving, CPR can be stopped.",
+     "Professional Medical Help Arrives: CPR should be continued until professional medical personnel take over the resuscitation efforts.",
+     "Provider Fatigue: If the person performing CPR becomes too exhausted to continue effectively, they can switch with another trained individual to maintain the quality of compression."
+    ],
     "id": "not_breathing-3",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   }
+  ],
+  "heart_attack": [
+   {
+    "source": "cdc_ha",
+    "heading": "Symptoms",
+    "locator": "Symptoms; Call 9-1-1 if you notice symptoms of a heart attack",
+    "lines": [
+     "The major symptoms of a heart attack are:",
+     "Chest pain or discomfort. Most heart attacks involve discomfort in the center or left side of the chest that lasts for more than a few minutes or that goes away and comes back. The discomfort can feel like uncomfortable pressure, squeezing, fullness, or pain.",
+     "Feeling weak, light-headed, or faint. You may also break into a cold sweat.",
+     "Pain or discomfort in the jaw, neck, or back.",
+     "Pain or discomfort in one or both arms or shoulders.",
+     "Shortness of breath. This often comes along with chest discomfort, but shortness of breath also can happen before chest discomfort.",
+     "Other symptoms of a heart attack could include unusual or unexplained tiredness and nausea or vomiting. Women are more likely to have these other symptoms. Learn more about women and heart disease.",
+     "Call 9-1-1 if you notice symptoms of a heart attack",
+     "If you notice the symptoms of a heart attack in yourself or someone else, call 9-1-1 immediately. The sooner you get to an emergency room, the sooner you can get treatment to reduce the amount of damage to the heart muscle. At the hospital, health care professionals can run tests to find out if a heart attack is happening and can decide the best treatment.",
+     "In some cases, a heart attack requires cardiopulmonary resuscitation (CPR) or an electrical shock (defibrillation) to the heart to get the heart pumping again. Bystanders trained to use CPR or a defibrillator may be able to help until emergency medical personnel arrive.",
+     "Remember, the chances of surviving a heart attack are better the sooner emergency treatment begins."
+    ],
+    "id": "heart_attack-1",
+    "url": "https://www.cdc.gov/heart-disease/about/heart-attack.html",
+    "year": 2024
    }
   ],
   "shock": [
    {
-    "source": "tc4021",
-    "heading": "Signs and Symptoms of Shock",
-    "locator": "Chapter 8, para 8-1, p. 8-1",
-    "lines": ["8-1. Check the casualty for signs and symptoms of shock.", "Sweaty but cool skin.", "Pale skin.", "Restlessness or nervousness.", "Thirst.", "Severe bleeding.", "Confusion.", "Rapid breathing.", "Blotchy blue skin.", "Nausea and/or vomiting."],
+    "source": "atp",
+    "heading": "Prevention of Shock",
+    "locator": "Chapter 7, para 7-8, p. 84",
+    "lines": [
+     "7-8. It is more effective to prevent shock through hemorrhage control than to treat it once it has developed. Even in cases where shock is already present, the most critical first action is to control any bleeding. Continuously reassess all bleeding control measures, such as tourniquets and pressure dressings, to ensure they remain effective and are adjusted tightly as soon as possible. This is a crucial step in treating shock."
+    ],
     "id": "shock-1",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
    },
    {
-    "source": "tc4021",
-    "heading": "Position the Casualty",
-    "locator": "Chapter 8, paras 8-2 to 8-5, p. 8-1",
-    "lines": ["8-2. Procedures for positioning the casualty include—", "Move the casualty under a permanent or improvised shelter to shade him from direct sunlight.", "Lay the casualty on his back unless a sitting position will allow the casualty to breathe easier.", "Elevate the casualty’s feet higher than the heart using a stable object so the feet will not fall.", "WARNING Do not loosen clothing if in a chemical area.", "Loosen clothing at the neck, waist, or anywhere it is binding.", "Prevent the casualty from getting chilled or overheated. Using a blanket or clothing, cover the casualty to avoid loss of body heat by wrapping completely around the casualty.", "Note. Ensure no part of the casualty is touching the ground, as this increases loss of body heat.", "CALM AND REASSURE THE CASUALTY", "8-3. Calm and reassure the casualty by—", "Taking charge and show self-confidence.", "Assuring the casualty that he is being taken care of.", "8-4. Watch the casualty closely for life-threatening conditions and check for other injuries, if necessary.", "8-5. Seek medical aid."],
+    "source": "atp",
+    "heading": "Position the Casualty for Shock",
+    "locator": "Chapter 7, paras 7-13 to 7-17, pp. 85 and 86",
+    "lines": [
+     "7-13. Control bleeding and then take steps to prevent shock by elevating the casualty’s legs higher than the casualty's heart if their airway tolerates lying flat on their back.",
+     "7-14. Conduct a bleeding re-check by:",
+     "Reassess every TQ and dressing that may have been applied earlier.",
+     "Expose the area and determine if bleeding is controlled.",
+     "Expose and clearly mark all TQ sites with the time of TQ application if not previously done.",
+     "When time and the tactical situation permit, check for further bleeding, and for pulses further out on the limb than the TQ.",
+     "7-15. Move the casualty under a permanent or improvised shelter to shade them from direct sunlight. If the casualty is conscious, place the casualty in the shock recovery position (see figure 7-1), which is on their back with their feet elevated slightly above the level of their heart. This will help their blood circulation. A log, field pack, box, rolled field jacket, or other stable objects can be used to elevate their feet. If a sitting position makes it easier for the casualty to breathe, that is fine.",
+     "7-16. The following steps will also significantly help in the prevention of shock:",
+     "Loosen clothing at the neck, waist, or anywhere is binding.",
+     "WARNING Do not loosen clothing if in a chemically contaminated area.",
+     "Prevent the casualty from getting chilled or overheated. Using a blanket or clothing, cover the casualty to avoid loss of body heat by wrapping the blanket completely around the casualty.",
+     "Note. Ensure no part of the casualty is touching the ground, as this increases loss of body heat.",
+     "Calm and reassure the casualty by— ▪ Taking charge and showing self-confidence. ▪ Assuring the casualty that they are being taken care of.",
+     "Watch the casualty closely for life-threatening conditions and check for other injuries, if necessary.",
+     "Seek medical aid.",
+     "Record the treatment on DD Form 1380.",
+     "WARNING If the casualty has a fractured lower extremity, do not place the casualty in the shock position until the fracture has been splinted.",
+     "7-17. When providing first aid for shock, DO NOT give the casualty any food or drink. If you must leave the casualty or if they are unconscious, turn their head to the side (see figure 7-2) to prevent them from choking, if they vomit."
+    ],
     "id": "shock-2",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   }
+  ],
+  "recovery_position": [
+   {
+    "source": "atp",
+    "heading": "Check responsiveness and the recovery position",
+    "locator": "Chapter 5, paras 5-10 to 5-11, pp. 60 and 61",
+    "lines": [
+     "5-10. Check for responsiveness (figure 5-2 step A on page 61) and establish whether the casualty is conscious by gently shaking them and asking, “Are you OK?” Call for help (figure 5-2 step B on page 61) and then position the unconscious casualty so that they are lying in the recovery position, head tilted back; chin away from chest (figure 5-2 step C on page 61) by —",
+     "Straightening the casualty’s legs.",
+     "Moving the casualty’s arm that is nearest to you. Move it so that it is straight and above their head. Repeat the procedure for the other arm placing it by their side.",
+     "Kneeling beside the casualty with your knees near their shoulders (leave space to roll their body).",
+     "Placing one hand behind their head and neck for support. On your other hand, grasp the casualty under their arm (figure 5-2 step C on page 61).",
+     "Rolling the casualty towards you using a steady, even pull. The casualty’s head and neck should stay in line with their back.",
+     "5-11. The recovery position allows blood and mucus to drain out of the casualty’s nose and mouth and not drain back into the airway. However, if a neck injury is suspected and the jaw-thrust technique will be used, kneel at the casualty’s head, looking towards their feet.",
+     "WARNING If the casualty is lying on their chest (prone position), cautiously roll the casualty as a unit so that their body does not twist. The twisting may further complicate a back, neck, or spinal injury."
+    ],
+    "id": "recovery_position-1",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   },
+   {
+    "source": "atp",
+    "heading": "Recovery position",
+    "locator": "Chapter 5, para 5-24, p. 65",
+    "lines": [
+     "5-24. The recovery position allows blood and mucus to drain out of the casualty’s nose and mouth and not drain back into the airway. The recovery position also helps to protect against inhaling vomit if the casualty throws up. If a casualty can breathe on their own, let them assume the best position (position of comfort) that allows them to breathe, including sitting up."
+    ],
+    "id": "recovery_position-2",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
    }
   ],
   "cold": [
    {
     "source": "ready",
-    "heading": "Stay Safe During Winter Weather",
-    "locator": "Frostbite and hypothermia",
-    "lines": ["Frostbite causes loss of feeling and color around the face, fingers and toes.", "Signs: Numbness, white or grayish-yellow skin, firm or waxy skin.", "Actions: Go to a warm room. Soak in warm water. Use body heat to warm. Do not massage or use a heating pad.", "Hypothermia is an unusually low body temperature. A temperature below 95 degrees is an emergency.", "Signs: Shivering, exhaustion, confusion, fumbling hands, memory loss, slurred speech or drowsiness.", "Actions: Go to a warm room. Warm the center of the body first—chest, neck, head and groin. Keep dry and wrapped up in warm blankets, including the head and neck."],
+    "heading": "Hypothermia",
+    "locator": "Stay Safe During Winter Weather",
+    "lines": [
+     "Hypothermia is an unusually low body temperature. A temperature below 95 degrees is an emergency.",
+     "Signs: Shivering, exhaustion, confusion, fumbling hands, memory loss, slurred speech or drowsiness.",
+     "Actions: Go to a warm room. Warm the center of the body first—chest, neck, head and groin. Keep dry and wrapped up in warm blankets, including the head and neck."
+    ],
     "edition": "Page last updated 03/10/2026",
-    "id": "cold-1",
-    "url": "https://www.ready.gov/winter-weather",
     "slug": "winter-weather",
+    "url": "https://www.ready.gov/winter-weather",
+    "year": 2026,
+    "id": "cold-1"
+   },
+   {
+    "source": "atp",
+    "heading": "First Aid for Hypothermia",
+    "locator": "Chapter 8, paras 8-8 to 8-10, p. 90",
+    "lines": [
+     "8-8. The goals for first aid for hypothermia are to rescue, examine, insulate, and rapidly transport. If untreated, hypothermia is a true medical emergency and requires evacuation. Evacuate as soon as possible with the casualty lying down.",
+     "CAUTION Do not allow the casualty to use tobacco, consume alcohol, or caffeinated drinks.",
+     "8-9. Re-warming techniques include—",
+     "Remove the casualty from the cold environment.",
+     "Replace wet clothing with dry clothing.",
+     "Cover the casualty with insulating material or blanket.",
+     "Wrap the casualty from head to toe.",
+     "Avoid unnecessary movement from the casualty.",
+     "If the casualty is conscious, slowly give high caloric sweet warm fluids.",
+     "Seek medical aid.",
+     "8-10. Hypothermia is a serious condition that requires professional evaluation and treatment. Attempting to rewarm a severely hypothermic person should be done by medical professionals using appropriate techniques. While waiting for help to arrive, focus on preventing further heat loss and providing support to the person."
+    ],
+    "id": "cold-2",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
     "year": 2026
    },
    {
-    "source": "tc4021",
-    "heading": "Signs and Symptoms of Hypothermia",
-    "locator": "Chapter 12, para 12-5, pp. 12-1 and 12-2",
-    "lines": ["12-5. Signs and symptoms of hypothermia include—", "Vigorous shivering is typically present.", "Shivering may decrease or cease as core temperature continues to fall.", "Conscious, but usually apathetic or lethargic.", "Confusion.", "Sleepiness.", "Slurred speech.", "Shallow breathing.", "Very slow respirations.", "Weak pulse.", "Low or unattainable blood pressure.", "Change in behavior with or without poor control over body movements with or without slow reactions.", "With severe hypothermia, the casualty may be unconscious or stuporous."],
-    "id": "cold-2",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "source": "atp",
+    "heading": "Hypothermia and afterdrop",
+    "locator": "Chapter 17, paras 17-30 to 17-31, p. 178",
+    "lines": [
+     "17-30. The risks differ with environmental hypothermia. Victims of moderate to severe environmental hypothermia are known to have a risk of an irregular heartbeat associated with “afterdrop.” Afterdrop is the continued fall of deep body temperatures during rewarming after hypothermia. Afterdrop is thought to endanger the heart by further cooling from cold blood presumed to be returning to the body’s center or core.",
+     "17-31. Environmental hypothermic casualties should be monitored and gently handled as afterdrop is not always observed. The goals for overall casualty treatment (such as hemorrhage control and resuscitation in TCCC versus warming measures along with gentle handling in environmental hypothermia) should be understood, trained, and rehearsed. For further discussion on hypothermia see Chapter 8."
+    ],
+    "id": "cold-3",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
    },
    {
-    "source": "tc4021",
-    "heading": "First Aid for Hypothermia",
-    "locator": "Chapter 12, paras 12-6 and 12-7, p. 12-2",
-    "lines": ["12-6. The goals for field management of hypothermia are to rescue, examine, insulate, and rapidly transport. If untreated, hypothermia is a true medical emergency and requires evacuation.", "CAUTION Do not allow the casualty to use tobacco, or consume alcohol or caffeinated drinks.", "12-7. Rewarming techniques include—", "Remove the casualty from the cold environment.", "Replace wet clothing with dry clothing.", "Cover the casualty with insulating material or blanket.", "Wrap the casualty from head to toe.", "Avoid unnecessary movement from the casualty.", "If casualty is conscious, slowly give high caloric sweet warm fluids.", "Seek medical aid.", "Evacuate as soon as possible with the casualty lying down."],
-    "id": "cold-3",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "source": "ready",
+    "heading": "Frostbite",
+    "locator": "Stay Safe During Winter Weather",
+    "lines": [
+     "Frostbite causes loss of feeling and color around the face, fingers and toes.",
+     "Signs: Numbness, white or grayish-yellow skin, firm or waxy skin.",
+     "Actions: Go to a warm room. Soak in warm water. Use body heat to warm. Do not massage or use a heating pad."
+    ],
+    "edition": "Page last updated 03/10/2026",
+    "slug": "winter-weather",
+    "url": "https://www.ready.gov/winter-weather",
+    "year": 2026,
+    "id": "cold-4"
+   },
+   {
+    "source": "atp",
+    "heading": "Frostbite",
+    "locator": "Chapter 17, paras 17-24 to 17-26, pp. 177 and 178",
+    "lines": [
+     "17-24. Frostbite is a cold weather injury that occurs when tissues freeze due to prolonged exposure to extreme cold temperatures. It typically affects extremities, such as the fingers, toes, ears, and nose, but can also occur in other exposed areas of the body. The signs and symptoms of frostbite may vary depending on the severity, and they can include:",
+     "Cold, pale, or bluish skin.",
+     "Numbness or a loss of sensation in the affected area.",
+     "Tingling or a “pins and needles” sensation.",
+     "Hard or waxy appearance of the skin.",
+     "Swelling or blistering (in severe cases).",
+     "Pain or a burning sensation (as the affected area rewarms).",
+     "Blackened or gangrenous tissue (in severe, untreated cases).",
+     "17-25. If someone is suspected of having frostbite, it is important to provide immediate first aid and seek medical attention. Take the following first aid steps:",
+     "Move to a warm environment: Get the person out of the cold and into a warm area as soon as possible to prevent further damage.",
+     "Remove wet or constrictive clothing: Take off any wet clothing or accessories that could contribute to heat loss or restrict blood flow to the affected area.",
+     "Gradually rewarm the affected area: Immerse the frostbit area in warm (not hot) water or use warm compresses. Avoid using direct heat sources like fires or heating pads, as the person may not be able to sense heat properly and could burn the skin.",
+     "Avoid rubbing or massaging the area: Vigorous rubbing can further damage the tissues. Let the affected area rewarm naturally.",
+     "Protect and elevate the affected area: Once the frostbitten area has thawed, cover it with a sterile dressing or clean cloth. Keep the area elevated to reduce swelling, if possible.",
+     "Offer pain relief if needed: Over-the-counter pain relievers like ibuprofen can help alleviate pain and reduce inflammation. However, consult a health care professional before administering any medication.",
+     "Seek medical attention: Frostbite requires medical evaluation and treatment. Even if the frostbite appears mild, professional medical care is essential to assess the extent of the injury and prevent complications.",
+     "17-26. Frostbite can cause long-term damage, including tissue loss and nerve damage. Prompt and appropriate treatment is crucial for minimizing complications and maximizing recovery."
+    ],
+    "id": "cold-5",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
    },
    {
     "source": "tc4021",
     "heading": "First Aid for Frostbite",
     "locator": "Chapter 12, para 12-12, p. 12-3",
-    "lines": ["CAUTION Avoid thawing the affected area if it is possible that the injury may refreeze before reaching the medical treatment facility.", "12-12. First aid measures for frostbite include—", "Local rewarming at room temperature or using body heat.", "Loosen or remove constricting clothing and remove jewelry.", "CAUTION DO NOT massage the skin or rub anything on the frozen parts.", "Move the casualty to a sheltered area, if possible.", "Protect the affected area from further cold or trauma.", "Once a tissue is thawed, it must not freeze again. If there is the possibility of tissue refreezing, it is better not to thaw it in order to avoid damaging tissue further.", "Avoid exposure to excessive heat (open flame, stove tops, steam, heat packs) or rubbing affected tissue.", "All Soldiers with a peripheral freezing injury must be suspected of being hypothermic and treated appropriately. During field management, it is more important to prevent hypothermia than to rewarm frostbite rapidly.", "Seek medical aid.", "Evacuate the casualty."],
-    "id": "cold-4",
+    "lines": [
+     "CAUTION Avoid thawing the affected area if it is possible that the injury may refreeze before reaching the medical treatment facility.",
+     "12-12. First aid measures for frostbite include—",
+     "Local rewarming at room temperature or using body heat.",
+     "Loosen or remove constricting clothing and remove jewelry.",
+     "CAUTION DO NOT massage the skin or rub anything on the frozen parts.",
+     "Move the casualty to a sheltered area, if possible.",
+     "Protect the affected area from further cold or trauma.",
+     "Once a tissue is thawed, it must not freeze again. If there is the possibility of tissue refreezing, it is better not to thaw it in order to avoid damaging tissue further.",
+     "Avoid exposure to excessive heat (open flame, stove tops, steam, heat packs) or rubbing affected tissue.",
+     "All Soldiers with a peripheral freezing injury must be suspected of being hypothermic and treated appropriately. During field management, it is more important to prevent hypothermia than to rewarm frostbite rapidly.",
+     "Seek medical aid.",
+     "Evacuate the casualty."
+    ],
+    "id": "cold-6",
     "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "year": 2018
    }
   ],
   "burns": [
    {
-    "source": "tc4021",
-    "heading": "Perform First Aid for Burns",
-    "locator": "Chapter 7, paras 7-1 and 7-2, pp. 7-1 and 7-2",
-    "lines": ["7-1. The first course of action when attempting to provide first aid for burns is to remove the casualty from the source of the burn to prevent further harm.", "CAUTION Synthetic materials, such as nylon, may melt and cause further injury.", "KINDS OF BURNS", "7-2. There are four kinds of burns which are likely to be encountered. They are—", "Thermal burns.", "Remove the casualty from the source of the burn. If the casualty’s clothing is on fire, cover the casualty with a field jacket or any large piece of nonsynthetic material and roll him on the ground to put out the flames.", "WARNING DO NOT touch the casualty or the electrical source with your bare hands. You will be injured too!", "Electrical burns.", "WARNING High voltage electrical burns from an electrical source or lightning may cause temporary unconsciousness, difficulties in breathing, or difficulties with the heart (irregular heartbeat).", "If the casualty is in contact with an electrical source, turn the electricity off, if the switch is nearby. If the electricity cannot be turned off, use nonconductive material (rope, clothing, or dry wood) to drag the casualty away from the source.", "WARNING Blisters caused by a blister agent are actually burns. DO NOT try to decontaminate the skin where blisters have already formed. If blisters have not formed, decontaminate the skin.", "Chemical burns.", "Remove liquid chemicals from the burned casualty by flushing with as much water as possible.", "Remove dry chemicals by carefully brushing them off with a clean, dry cloth. If large amounts of water are available, flush the area. Otherwise, do not apply water.", "Smother burning white phosphorus with water, a wet cloth, or wet mud. Keep the area covered with wet material.", "Laser burns.", "Move the casualty away from the source while avoiding eye contact with the beam source.", "If possible, wear appropriate laser eye protection.", "Note. After the casualty has been removed from the source of the burn, continually monitor the casualty for conditions that may require basic lifesaving measures.", "WARNING DO NOT uncover the wound in a chemical, biological, radiological, and nuclear environment. Exposure could cause additional harm."],
-    "id": "burns-1",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "source": "ready",
+    "heading": "Home Fires: clothes on fire",
+    "locator": "Home fires",
+    "lines": [
+     "If your clothes catch fire, stop, drop and roll – stop immediately, drop to the ground and cover your face with your hands. Roll over and over or back and forth until the fire is out. If you or someone else cannot stop, drop and roll, smother the flames with a blanket or towel. Use cool water to treat the burn immediately for three to five minutes. Cover with a clean, dry cloth. Get medical help right away by calling 9-1-1 or the fire department."
+    ],
+    "edition": "Page retrieved 14 October 2026",
+    "slug": "home-fires",
+    "url": "https://www.ready.gov/home-fires",
+    "year": 2026,
+    "id": "burns-1"
    },
    {
-    "source": "tc4021",
-    "heading": "Uncover the burn",
-    "locator": "Chapter 7, para 7-3, p. 7-2",
-    "lines": ["7-3. Uncover the burn as follows:", "WARNING DO NOT attempt to remove clothing that is stuck to the wound. Additional harm could result.", "Cut clothing from the burned area.", "CAUTION DO NOT pull clothing over the burns.", "Gently lift away clothing covering the burned area.", "If the casualty’s hands or wrists have been burned, remove jewelry (rings, watches) and place them in his pockets."],
+    "source": "atp",
+    "heading": "Burn Care",
+    "locator": "Chapter 12, paras 12-9 to 12-11, pp. 117 and 118",
+    "lines": [
+     "12-9. Burn care in TCCC is very basic. Eliminating the source of the burn should be the initial priority. Providing any treatment prior to removing the casualty from the source of the burn or extinguishing the cause of the burn will be ineffective and harmful to the casualty and casualty response personnel.",
+     "12-10. Electrical burn care consists of—",
+     "Eliminating the source of electrical burns.",
+     "Turning off any sources of electricity that have been exposed to the casualty (if applicable).",
+     "Using nonconductive material to drag the casualty away from the electrical source (if it cannot be turned off).",
+     "Note. Types of nonconductive material include rope, clothing, and dry wood.",
+     "Moving the casualty to a safe place.",
+     "WARNING Do not touch the casualty or the electrical source with your bare hands. You will be injured too! High voltage electrical burns from an electrical source or lightning may cause temporary unconsciousness, difficulties in breathing, or difficulties with the heart (irregular heartbeat).",
+     "12-11. Thermal burn care consists of—",
+     "Stopping the source of the thermal burn and remove the casualty from the source of the burn.",
+     "Extinguishing any flames on the casualty, cut the clothing around the burned area, and gently lift away.",
+     "CAUTION If clothing is stuck to the burn, ensure you cut around the clothing and leave the stuck clothing in place.",
+     "Avoid grabbing the burned area while moving or picking up the casualty."
+    ],
     "id": "burns-2",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
    },
    {
-    "source": "tc4021",
-    "heading": "Apply the casualty’s dry, sterile dressing",
-    "locator": "Chapter 7, paras 7-4 to 7-6, pp. 7-2 and 7-3",
-    "lines": ["7-4. Apply the casualty’s dry, sterile dressing directly over the wound as follows:", "Note. If the burn is caused by white phosphorus, the dressing must be wet.", "CAUTION DO NOT place the dressing over the face or genital area. DO NOT break blisters. DO NOT apply grease or ointments to the burns.", "Apply the dressing or pad, white-side down, directly over the wound.", "Wrap the tail (or the elastic bandage) so the dressing or pad is covered.", "For a field dressing, tie the tails into a nonslip knot over the outer edge of the dressing, not over the wound. For an emergency bandage, secure the hooking ends of the closure bar into the elastic bandage.", "Check to ensure that the dressing is applied lightly over the burn but firmly enough to prevent slipping.", "Note. If the casualty is conscious and not nauseated, give him small amounts of water to drink.", "7-5. Watch the casualty closely for signs of life-threatening conditions, check for other injuries (if necessary), and treat for shock.", "7-6. Seek medical aid."],
+    "source": "atp",
+    "heading": "Chemical Burn Care",
+    "locator": "Chapter 12, paras 12-12 to 12-13, p. 118",
+    "lines": [
+     "12-12. Chemical burn care consists of—",
+     "Eliminating the source of chemical burns.",
+     "Brushing off dry chemicals (carefully) with a clean, dry cloth.",
+     "Flush the burned area with copious amounts of flowing water to remove any liquid chemicals.",
+     "Applying a wet barrier (water-soaked gauze, clothing, or mud) with an occlusive dressing.",
+     "Advising medical personnel immediately.",
+     "WARNING Do not submerge a chemical burn casualty in water. This will greatly contribute to hypothermia and spread the irritation.",
+     "12-13. All burn care consists of—",
+     "Monitoring the casualty for life-threatening conditions.",
+     "Checking for additional injuries.",
+     "Treating for shock (if applicable).",
+     "Seeking medical aid.",
+     "Annotating all treatment and care on DD Form 1380."
+    ],
     "id": "burns-3",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
    }
   ],
   "heat": [
@@ -294,83 +620,487 @@
     "source": "ready",
     "heading": "Heat-Related Illnesses",
     "locator": "Heat stroke, heat cramps, heat exhaustion",
-    "lines": ["Know the signs of heat-related illnesses and ways to respond. If you are sick and need medical attention, contact your healthcare provider for advice and shelter in place if you can. If you are experiencing a medical emergency call 9-1-1.", "Get more detailed information about heat-related illnesses from the CDC and National Weather Service.", "HEAT STROKE", "Signs:", "Extremely high body temperature (above 103 degrees F)", "Red, hot and dry skin with no sweat", "Rapid, strong pulse", "Dizziness, confusion or unconsciousness", "If you suspect heat stroke, call 9-1-1 or take the person to a hospital immediately. If possible, move the person suffering from heat stroke into a cool, shaded area. Remove any outer clothing. Place a cold, wet cloth or ice pack on the head, neck, armpits, and groin. Alternatively, soak the person’s clothing with cool water. Elevate their feet.", "HEAT CRAMPS", "Signs: Muscle pains or spasms in the stomach, arms or legs", "HEAT EXHAUSTION", "Signs: Heavy sweating, paleness, muscle cramps, tiredness, weakness, fast or weak pulse, dizziness, headache, fainting, nausea, vomiting", "If you have signs of heat cramps or heat exhaustion, go to a cooler location and cool down by removing excess clothing and taking sips of sports drinks or water. Call your healthcare provider if symptoms get worse or last more than an hour."],
+    "lines": [
+     "Know the signs of heat-related illnesses and ways to respond. If you are sick and need medical attention, contact your healthcare provider for advice and shelter in place if you can. If you are experiencing a medical emergency call 9-1-1.",
+     "Get more detailed information about heat-related illnesses from the CDC and National Weather Service.",
+     "HEAT STROKE",
+     "Signs:",
+     "Extremely high body temperature (above 103 degrees F)",
+     "Red, hot and dry skin with no sweat",
+     "Rapid, strong pulse",
+     "Dizziness, confusion or unconsciousness",
+     "If you suspect heat stroke, call 9-1-1 or take the person to a hospital immediately. If possible, move the person suffering from heat stroke into a cool, shaded area. Remove any outer clothing. Place a cold, wet cloth or ice pack on the head, neck, armpits, and groin. Alternatively, soak the person’s clothing with cool water. Elevate their feet.",
+     "HEAT CRAMPS",
+     "Signs: Muscle pains or spasms in the stomach, arms or legs",
+     "HEAT EXHAUSTION",
+     "Signs: Heavy sweating, paleness, muscle cramps, tiredness, weakness, fast or weak pulse, dizziness, headache, fainting, nausea, vomiting",
+     "If you have signs of heat cramps or heat exhaustion, go to a cooler location and cool down by removing excess clothing and taking sips of sports drinks or water. Call your healthcare provider if symptoms get worse or last more than an hour."
+    ],
     "edition": "Page last updated 07/16/2026",
-    "id": "heat-1",
-    "url": "https://www.ready.gov/heat",
     "slug": "heat",
+    "url": "https://www.ready.gov/heat",
+    "year": 2026,
+    "id": "heat-1"
+   },
+   {
+    "source": "atp",
+    "heading": "Heat Stroke",
+    "locator": "Chapter 17, paras 17-14 to 17-16, pp. 175 and 176",
+    "lines": [
+     "17-14. Heat stroke is a severe and potentially life-threatening illness characterized by a rapid increase in body temperature. It occurs when the body's cooling mechanisms fail to regulate internal heat, often because of prolonged exposure to high temperatures or physical exertion in hot environments. Heat stroke is a medical emergency that requires immediate intervention. The signs and symptoms of heat stroke may include:",
+     "Altered mental state or confusion.",
+     "Headache, dizziness, or fainting.",
+     "Nausea or vomiting.",
+     "Difficulty breathing.",
+     "Hot, dry skin (lack of sweating).",
+     "High body temperature (typically above 104°Fahrenheit or 40°Celsius).",
+     "Rapid and strong heartbeat.",
+     "Seizures.",
+     "17-15. If someone is suspected of having heat stroke, it is crucial to seek emergency medical help immediately. While waiting for medical professionals to arrive, follow these first aid steps:",
+     "Move the person to a cooler location: Get them out of the heat and into a shaded or air-conditioned area as quickly as possible.",
+     "Call for emergency assistance: Dial 911 or the appropriate local emergency number to request immediate medical help to include MEDEVAC.",
+     "Cool the person rapidly: Reduce their body temperature as quickly as possible. You can immerse the person in a tub of cold water, use ice cooling sheets or apply cold water to their body using wet towels or sponges. Fan the person while misting them with cool water to enhance cooling.",
+     "Monitor their vital signs: Keep a close eye on the person's breathing, pulse, and level of consciousness. If they stop breathing and you can no longer find a pulse, begin CPR if you are trained to do so.",
+     "17-16. It's important to note that heat stroke is a severe condition, and professional medical treatment is essential. Rapid cooling of the body is crucial in preventing potential organ damage and reducing the risk of complications."
+    ],
+    "id": "heat-2",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
     "year": 2026
    },
    {
-    "source": "tc4021",
-    "heading": "First Aid for Heat Stroke",
-    "locator": "Chapter 11, paras 11-7 to 11-9, p. 11-2",
-    "lines": ["11-7. Heat stroke is a medical emergency and can be fatal if not immediately addressed. The casualty must be evacuated to the nearest medical treatment facility as soon as possible.", "SIGNS AND SYMPTOMS HEAT STROKE", "11-8. Signs and symptoms for heat stroke include—", "Hot dry skin.", "Headache.", "Note. In the early progression of heat stroke, the skin may be moist or wet", "Convulsions and chills.", "Dizziness.", "Nausea.", "Weakness.", "Pulse and respirations are weak and rapid", "Vomiting.", "Confusion, mumbling (do mental check questions to see if brain is working correctly).", "Combative.", "Passing out (unconscious).", "11-9. Immediately begin cooling the Soldier off (the faster the body is cooled, the less damage to the brain and organs) as follows:", "Cool the casualty with any means available, even before removing clothes.", "Strip (if possible, ensure a same gender helper is present).", "Rapidly cool by immersing the casualty in cold water.", "Rapidly cool with ice sheets as follows:", "Cover all but face with iced sheets.", "Ensure the iced sheet is soaked prior to applying to the casualty.", "Place ice packs, if available, in groin, axillae (armpits) and around the neck.", "Fan the entire body.", "Stop cooling if casualty starts shivering.", "Seek medical aid.", "Evacuate immediately, and continue cooling during transport.", "Give nothing by mouth.", "Note. The same person should observe the Soldier during cooling and evacuation in order to spot symptom changes."],
-    "id": "heat-2",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
-   },
-   {
-    "source": "tc4021",
-    "heading": "First Aid for Heat Exhaustion",
-    "locator": "Chapter 11, paras 11-4 to 11-6, p. 11-1",
-    "lines": ["11-4. Signs and symptoms of heat exhaustion include—", "Dizziness.", "Headache.", "Loss of appetite.", "Nausea.", "Weakness.", "Clumsy/unsteady walk.", "Profuse sweating and pale (or gray), moist cool skin.", "Normal to slightly elevated body temperature.", "Muscle cramps.", "Heat cramps.", "11-5. First aid measures for heat exhaustion include—", "Rest Soldier in shade.", "Loosen uniform and remove head gear.", "Have Soldier drink 2 quarts of water over 1 hour.", "Seek medical aid.", "Evacuate if no improvement in 30 minutes, or if Soldier’s condition worsens.", "11-6. First aid for heat cramps is the same for heat exhaustion; the goal is to prevent the heat cramps from progressing into heat exhaustion with further complications."],
-    "ocr": [
-     ["Soldier’s condition", "Soldier's condition"]
+    "source": "atp",
+    "heading": "Heat Exhaustion",
+    "locator": "Chapter 17, paras 17-9 to 17-11, pp. 174 and 175",
+    "lines": [
+     "17-9. Heat exhaustion is a heat-related condition that occurs when the body becomes overheated due to prolonged exposure to high temperatures and inadequate fluid replacement. It is considered a milder form of heat illness compared to heat stroke. Signs and symptoms of heat exhaustion may include:",
+     "Heavy sweating.",
+     "Weaknesses and fatigue.",
+     "Dizziness or lightheadedness.",
+     "Headache.",
+     "Nausea or vomiting.",
+     "Pale, cool, or clammy skin.",
+     "Rapid and shallow breathing.",
+     "Elevated heart rate.",
+     "Muscle cramps.",
+     "Feeling faint or fainting.",
+     "17-10. If a Service member is suspected to have heat exhaustion, immediate first aid treatment should be provided. The first aid steps to treat heat exhaustion are:",
+     "Move the Service member to a cooler environment: Get them out of the heat and into a shaded or air-conditioned area.",
+     "Encourage rest and rehydration: Have the Service member lie down and elevate their legs slightly. Provide them with cool water and or an electrolyte-containing sports drink to sip on. Avoid alcohol or caffeine.",
+     "Cool the Service member's body: Loosen or remove any tight or unnecessary clothing. Apply a cool, wet cloth or towels to their skin, especially on the neck, face, and armpits. Use a fan or create air movement to aid in evaporation.",
+     "Monitor their condition: Stay with the Service member and observe their symptoms. If they do not improve within 30 minutes or their condition worsens, seek medical assistance immediately.",
+     "17-11. Heat exhaustion can progress to heat stroke, a life-threatening condition. If the person's symptoms worsen, they become disoriented, confused, or lose consciousness, immediately call for medical assistance."
     ],
     "id": "heat-3",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   }
+  ],
+  "broken_bone": [
+   {
+    "source": "atp",
+    "heading": "Apply the splint",
+    "locator": "Chapter 13, paras 13-34 to 13-35, pp. 126 and 127",
+    "lines": [
+     "13-34. Apply the splint in place by—",
+     "Splinting the fracture in the position found. DO NOT attempt to reposition or straighten the injury. If it is an open fracture, stop the bleeding and protect the wound.",
+     "Covering all wounds with field dressings before applying a splint. Remember to use the casualty’s field dressing, before using your own.",
+     "Placing one splint on each side of the fracture. Make sure that the splints reach, if possible, beyond the joints above and below the fracture.",
+     "Tying the splints by— ▪ Securing each splint in place above and below the fracture site with cravats, or improvised material. Improvised materials, such as gauze bandage, strips of cloth, belts, or whatever other materials you have, may be used. ▪ With minimal motion to the injured areas, place and tie the splints with the bandages. ▪ Push splint material through and under the natural body curvatures, and then gently position splint material, and tie in place. ▪ Using square knots. Tie all knots on the splint away from the casualty (figure 13-3). DO NOT tie knots directly over the suspected fracture site.",
+     "13-35. Check the splint for tightness—",
+     "CHECK to ensure that the bandages are tight enough to securely hold splinting materials in place, but not so tight that circulation is impaired.",
+     "RECHECK the circulation after application of the splint. Check the skin color and temperature. This is to ensure that the bandages holding the splint in place have not been tied too tightly. A fingertip check can be made by inserting the tip of the finger between the bandaged knot and the skin.",
+     "MAKE any necessary adjustments without allowing the splint to become ineffective."
+    ],
+    "id": "broken_bone-1",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
    },
    {
-    "source": "tc4021",
-    "heading": "Hyponatremia (Water Intoxication)",
-    "locator": "Chapter 11, paras 11-10 to 11-12, pp. 11-2 and 11-3",
-    "lines": ["11-10. Hyponatremia is a medical emergency which can be mistaken for heat stroke, though treatment is very different.", "Note. This condition most often occurs during initial entry training; however, it may occur anytime overhydration is encountered.", "SIGNS AND SYMPTOMS OF HYPONATREMIA", "11-11. Signs and symptoms for hyponatremia include—", "Mental status changes.", "Vomiting.", "History of consumption of large volume of water.", "Poor food intake.", "Abdomen distended/bloated.", "Large amounts of clear urine.", "FIRST AID FOR HYPONATREMIA", "11-12. First aid measures for hyponatremia include—", "Do not give more water or intravenous fluids.", "If awake, allow Soldier to consume salty foods or snacks.", "Seek medical aid.", "Evacuate immediately."],
-    "id": "heat-4",
-    "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
-    "year": 2018,
-    "edition": "January 2016, Change 2 of 7 December 2018"
+    "source": "atp",
+    "heading": "Improvised splints, padding and bandages",
+    "locator": "Chapter 13, paras 13-22 to 13-26, p. 124",
+    "lines": [
+     "13-22. Splints may be improvised from such items such as boards, poles, sticks, tree limbs, or cardboard. If nothing is available for a splint, the chest wall can be used to immobilize a fractured arm, and the uninjured leg can be used to immobilize (to some extent) the fractured leg.",
+     "13-23. Padding may be improvised from such items as a jacket, blanket, poncho, shelter half, or leafy vegetation. Padding when splinting a fracture is essential for the well-being of the casualty. It promotes comfort, even pressure distribution, stability, protection against skin issues, and helps manage swelling, all of which contributes to an effective and safer management of fractures, especially in situations where immediate medical care may not be readily available.",
+     "13-24. Bandages may be improvised from belts, rifle slings, handkerchiefs, or strips torn from clothing, or blankets. Narrow materials such as wire, or cord should not be used to secure a splint in place. The application of wire or narrow material to an extremity could cause tissue damage and a TQ effect.",
+     "13-25. A sling is a bandage suspended from the neck to support an upper extremity. If a bandage is not available, a sling can be improvised by using the tail of a coat, shirt, or pieces of cloth torn from such items as clothing and blankets. The cravat is ideal for this purpose. Remember that the casualty’s hand should be higher than their elbow, and their fingers should be always showing. The sling should be applied so that the supporting pressure is on the uninjured side.",
+     "13-26. Swathes are any bands (pieces of cloth or straps) that are used to further immobilize a splinted fracture. Cravats are often used and are called swathe bandages. The purpose of the swathe is to immobilize; therefore, the swathe bandage is placed above or below the fracture, not on top of the fracture."
+    ],
+    "id": "broken_bone-2",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   },
+   {
+    "source": "atp",
+    "heading": "Cautions when splinting",
+    "locator": "Chapter 13, paras 13-14 to 13-15, p. 123",
+    "lines": [
+     "13-14. Caution must be taken when splinting to ensure that it is not wrapped too tightly. If wrapped too tightly, the splint may cut off circulation below the splint. If there is numbness, tingling or increased pain, or if the fingers or toes turn pale or bluish, loosen the bandage. Increased swelling may occur; continued monitoring of the splintered fracture is required.",
+     "13-15. When splinting, first responders or CLS should avoid—",
+     "Manipulating the fracture site too much, resulting in pain, additional damage to blood vessels, and nerves.",
+     "Securing too tightly and cutting off blood flow.",
+     "Failing to immobilize the joint above and below the fracture when possible.",
+     "Causing further injury.",
+     "Making the casualty uncomfortable during transport or evacuation.",
+     "Splinting near or over a wound that has not been properly treated."
+    ],
+    "id": "broken_bone-3",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   }
+  ],
+  "bites": [
+   {
+    "source": "niosh",
+    "heading": "If a snake bites you",
+    "locator": "First Aid",
+    "lines": [
+     "If a snake bites you",
+     "Seek emergency medical attention as soon as possible to start antivenom (if needed) and stop irreversible damage.",
+     "Do not drive yourself to the hospital because the snakebite can make you dizzy or pass out.",
+     "Take a photograph from a safe distance to identify the snake if possible, which may aid in faster treatment.",
+     "Keep calm.",
+     "Inform your supervisor.",
+     "Apply first aid while waiting for someone to take you to the hospital.",
+     "Lay or sit down with the bite in a neutral position of comfort.",
+     "Remove rings and watches before swelling starts.",
+     "Wash the bite with soap and water.",
+     "Cover the bite with a clean, dry dressing.",
+     "Mark the leading edge of tenderness/swelling on the skin and write the time alongside it."
+    ],
+    "id": "bites-1",
+    "url": "https://www.cdc.gov/niosh/outdoor-workers/about/venomous-snakes.html",
+    "year": 2026
+   },
+   {
+    "source": "niosh",
+    "heading": "What not to do",
+    "locator": "First Aid",
+    "lines": [
+     "Do not pick up the snake or try to trap it.",
+     "NEVER handle a venomous snake, not even a dead one or its decapitated head.",
+     "Do not wait for symptoms to appear; get medical help right away.",
+     "Do not apply a tourniquet, electric shock, or folk therapies.",
+     "Do not slash the wound with a knife or cut it in any way.",
+     "Do not try to suck out the venom.",
+     "Do not apply ice or immerse the wound in water.",
+     "Do not drink alcohol as a painkiller or take pain relievers (such as, aspirin, ibuprofen, naproxen)."
+    ],
+    "id": "bites-2",
+    "url": "https://www.cdc.gov/niosh/outdoor-workers/about/venomous-snakes.html",
+    "year": 2026
+   },
+   {
+    "source": "atp",
+    "heading": "Insect bites and stings",
+    "locator": "Chapter 16, paras 16-48 to 16-49, p. 167",
+    "lines": [
+     "16-48. First aid treatment for insect bites can vary depending on the type of insect and the individual's reaction. The general first aid steps for treating insect bites are:",
+     "Remove the stinger (if applicable): In the case of stinging insects like bees or wasps, it's important to remove the stinger as quickly as possible to prevent further venom injection. Gently scrape it off the skin using a blunt edge like a credit card or your fingernail. Avoid squeezing the venom sac, as it may release more venom.",
+     "Wash the bite area: Clean the bite site with mild soap and water to reduce the risk of infection. Be gentle and avoid excessive scrubbing.",
+     "Apply a cold compress: To alleviate pain, reduce swelling, and minimize itching, apply a cold compress or an ice pack wrapped in a cloth to the bite area. Do this for 10-15 minutes at a time, several times a day.",
+     "Use over-the-counter remedies: Over-the-counter topical creams, ointments, or sprays containing ingredients such as hydrocortisone, calamine lotion, or antihistamines can help relieve itching and inflammation. Follow the instructions and precautions on the product packaging.",
+     "Take oral antihistamines: If itching or swelling persists, you can take over-the-counter oral antihistamine to help reduce allergic reactions and relieve symptoms. Consult a pharmacist or health care professional for appropriate dosage and recommendations.",
+     "Avoid scratching: Although it may be tempting, refrain from scratching the insect bite to prevent further irritation, infection, or the development of a secondary skin condition.",
+     "Monitor for severe reactions: In rare cases, insect bites can cause severe allergic reactions, known as anaphylaxis. If you experience symptoms such as difficulty breathing, dizziness, swelling of the face or throat, or a widespread rash, seek immediate medical attention.",
+     "16-49. If the insect type is unknown or if the Service member is experiencing severe or worsening symptoms, it is best to consult a health care professional for proper evaluation and guidance."
+    ],
+    "id": "bites-3",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   }
+  ],
+  "allergic": [
+   {
+    "source": "atp",
+    "heading": "Treatment for Anaphylactic Shock",
+    "locator": "Chapter 7, paras 7-32 to 7-33, pp. 87 and 88",
+    "lines": [
+     "7-32. The treatment of anaphylactic shock is urgent and time sensitive. Immediate actions include calling for medical help and, if available, using the casualty’s epinephrine auto-injector. Anaphylactic reactions can manifest within seconds or minutes after exposure to an allergen, affecting the skin, respiratory, and circulatory systems.",
+     "7-33. Prompt recognition and response to anaphylactic shock are critical. Assessing both the signs and symptoms early on is essential for effective intervention. Quick and accurate identification of the condition allows for the necessary steps to be taken to mitigate its life-threatening effects."
+    ],
+    "id": "allergic-1",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   },
+   {
+    "source": "atp",
+    "heading": "Check for Anaphylactic Shock",
+    "locator": "Chapter 7, para 7-34, p. 88",
+    "lines": [
+     "7-34. To effectively check for anaphylactic shock, Service members should follow a systematic approach:",
+     "Assess Symptoms: ▪ Observe for sudden and severe symptoms like difficulty breathing, wheezing, or shortness of breath. ▪ Check for a rapid or weak pulse. ▪ Look for swelling of the face, lips, or tongue. ▪ Note any hives or widespread skin redness. ▪ Be alert to signs of confusion, dizziness, or loss of consciousness.",
+     "Ask Questions: ▪ Inquire about any known allergies or recent exposures to potential allergens. ▪ Ask if they have ingested or come into contact with a known allergen recently.",
+     "Observe Breathing: ▪ Check for signs of respiratory distress, such as rapid or labored breathing. ▪ Listen for wheezing or other abnormal breathing sounds.",
+     "Check Circulation: ▪ Assess the pulse to determine its rate and strength. ▪ Look for signs of poor circulation, such as pale or bluish skin.",
+     "Look for Other Symptoms: ▪ Be aware of nausea, vomiting, abdominal pain, or a feeling of impending doom."
+    ],
+    "id": "allergic-2",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   },
+   {
+    "source": "atp",
+    "heading": "Epinephrine",
+    "locator": "Chapter 7, paras 7-35 to 7-36, p. 88",
+    "lines": [
+     "7-35. If anaphylactic shock is suspected, immediate medical assistance is crucial. The primary treatment involves administering epinephrine (adrenaline). If an epinephrine auto-injector is available, assist the affected individual in using it, or administer it yourself if you are allowed and trained. Dosage guidelines are typically provided with the injector—0.15 milligrams (mg) for children and 0.3 mg for adults weighing more than 66 pounds.",
+     "7-36. Further doses of epinephrine may be necessary, administered every 5 to 10 minutes if prescribed and symptoms persist. Additionally, provide supportive measures for treating shock, respiratory failure, circulatory collapse, or cardiac arrest:",
+     "Position the casualty supine with legs elevated if injuries permit.",
+     "Perform rescue breathing and external chest compressions if required.",
+     "Monitor vital signs every three to five minutes until the casualty is stable."
+    ],
+    "id": "allergic-3",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   }
+  ],
+  "poison": [
+   {
+    "source": "hrsa",
+    "heading": "What should I do if I think someone has been poisoned?",
+    "locator": "Frequently asked questions",
+    "lines": [
+     "Right away call the Poison Help line (1-800-222-1222), which connects you to your local poison center. A poison expert will tell you exactly what to do. If necessary, the poison center may stay on the phone with you while you get other help."
+    ],
+    "id": "poison-1",
+    "url": "https://poisonhelp.hrsa.gov/faq/calling-poison-help",
+    "year": 2026
+   },
+   {
+    "source": "hrsa",
+    "heading": "What should I do when I need to call for help?",
+    "locator": "Frequently asked questions",
+    "lines": [
+     "When you call the Poison Help line, be ready to give information (listed below) to the expert on the phone. It is important to stay calm. Not all medicines and household products are poisonous. Not all contact with poison results in poisoning. When you call, make sure to have the container of the product you think caused the poisoning. The label has important information. When calling the Poison Help line, be ready (if you can) to tell the expert:",
+     "The person’s age and weight",
+     "Known health conditions or problems",
+     "The product involved",
+     "How the product contacted the person (for example, by mouth, by inhaling, through the skin, or through the eyes)",
+     "How long ago the poison contacted the person",
+     "What first aid has already been given",
+     "Whether the person has vomited",
+     "Your exact location and how long it would take you to get to a hospital",
+     "If medicine has been swallowed, do not give anything by mouth until you have talked to a Poison Help expert."
+    ],
+    "id": "poison-2",
+    "url": "https://poisonhelp.hrsa.gov/faq/calling-poison-help",
+    "year": 2026
+   },
+   {
+    "source": "hrsa",
+    "heading": "What is the Poison Help line?",
+    "locator": "Frequently asked questions",
+    "lines": [
+     "The toll-free Poison Help line is 1-800-222-1222. When you call the number, you will reach specially trained poison experts at a poison center that serves your area. This number provides free and confidential help 24 hours a day, 7 days a week, 365 days a year. Interpretation services are available in 161 languages."
+    ],
+    "id": "poison-3",
+    "url": "https://poisonhelp.hrsa.gov/faq/calling-poison-help",
+    "year": 2026
+   }
+  ],
+  "lost": [
+   {
+    "source": "usfs",
+    "heading": "Stop, Think, Observe, Plan",
+    "locator": "If You Get Lost",
+    "lines": [
+     "If you do become lost your most important tool is keeping a positive mental attitude.",
+     "Stop:",
+     "As soon as you realize you may be lost: stop, stay calm, stay put. Panic is your greatest enemy.",
+     "Think:",
+     "Go over in your mind how you got to where you are. What landmarks should you be able to see? Do not move at all until you have a specific reason to take a step.",
+     "Observe:",
+     "Get out your compass and determine the directions based on where you are standing. Do not walk aimlessly.",
+     "If you are on a trail, stay on it. All trails are marked with signs (where intersections meet) and with diamond blazers or markers. However, signs are sometimes vandalized or stolen.",
+     "As a very last resort, follow a drainage or stream downhill. This is often a difficult path but could lead to a trail or road. Again, this could be very dangerous.",
+     "Plan:",
+     "Based on your thinking and observations, come up with some possible plans, think them through then act on one of them.",
+     "If you are not very, very confident in the route, then it’s always better to stay put.",
+     "If it’s nightfall, you are injured or you are near exhaustion, stay in place."
+    ],
+    "id": "lost-1",
+    "url": "https://www.fs.usda.gov/visit/know-before-you-go/if-you-get-lost",
+    "year": 2026
+   },
+   {
+    "source": "nps",
+    "heading": "If You Get Lost: self rescue, seek help",
+    "locator": "If You Get Lost",
+    "lines": [
+     "1. Attempt self rescue – Use your knowledge, skills, and tools to find your way",
+     "Stop and breath – Take a moment to calmly assess your situation",
+     "Find your location – Use your map, compass, handheld GPS, or visible landmarks to try to find your location",
+     "Retrace your steps – If it is safe to do so, retrace your steps to get back on your planned route",
+     "2. Seek help – If you cannot retrace your steps:",
+     "Call 911 – Tell them:",
+     "GPS coordinates from your phone, if available",
+     "Name of the trail or area of the park where you started your activity",
+     "Your last known location before you became lost",
+     "Description of your surroundings including visible landmarks",
+     "Types and colors of clothing you are wearing",
+     "Equipment you are carrying",
+     "Any medical conditions you may have",
+     "Stay put – Changing location will make it difficult for authorities to find you. Move only if there is an immediate threat to life",
+     "Conserve energy – Wait patiently for help to arrive and conserve your energy"
+    ],
+    "id": "lost-2",
+    "url": "https://www.nps.gov/articles/gtgemergencyplan.htm",
+    "year": 2023
+   },
+   {
+    "source": "nps",
+    "heading": "Hug-A-Tree (for children)",
+    "locator": "If You Get Lost, For children",
+    "lines": [
+     "1. Hug-A-Tree",
+     "Find a tree, hug it, and stay put. If you do not see a tree around you, your “tree” can be a park bench or a big rock. The important thing is to stay in one place."
+    ],
+    "id": "lost-3",
+    "url": "https://www.nps.gov/articles/gtgemergencyplan.htm",
+    "year": 2023
+   },
+   {
+    "source": "fm2176",
+    "heading": "Shadow-Tip Methods",
+    "locator": "Chapter 18, p. 18-2",
+    "lines": [
+     "In the first shadow-tip method, find a straight stick 1 meter long, and a level spot free of brush on which the stick will cast a definite shadow. This method is simple and accurate and consists of four steps:",
+     "Step 1. Place the stick or branch into the ground at a level spot where it will cast a distinctive shadow. Mark the shadow’s tip with a stone, twig, or other means. This first shadow mark is always west—everywhere on earth.",
+     "Step 2. Wait 10 to 15 minutes until the shadow tip moves a few centimeters. Mark the shadow tip’s new position in the same way as the first.",
+     "Step 3. Draw a straight line through the two marks to obtain an approximate east-west line.",
+     "Step 4. Stand with the first mark (west) to your left and the second mark to your right—you are now facing north. This fact is true everywhere on earth."
+    ],
+    "ocr": [
+     ["will cast a distinctive", "will east a distinctive"],
+     ["always west—everywhere", "always west —everywhere"],
+     ["to your right—you are", "to your right-you are"]
+    ],
+    "id": "lost-4",
+    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
+    "year": 1992
+   },
+   {
+    "source": "fm2176",
+    "heading": "Northern Sky",
+    "locator": "Chapter 18, pp. 18-5 and 18-6",
+    "lines": [
+     "The main constellations to learn are the Ursa Major, also known as the Big Dipper or the Plow, and Cassiopeia (Figure 18-3). Neither of these constellations ever sets. They are always visible on a clear night. Use them to locate Polaris, also known as the polestar or the North Star. The North Star forms part of the Little Dipper handle and can be confused with the Big Dipper. Prevent confusion by using both the Big Dipper and Cassiopeia together. The Big Dipper and Cassiopeia are always directly opposite each other and rotate counterclockwise around Polaris, with Polaris in the center. The Big Dipper is a seven star constellation in the shape of a dipper. The two stars forming the outer lip of this dipper are the “pointer stars” because they point to the North Star. Mentally draw a line from the outer bottom star to the outer top star of the Big Dipper’s bucket. Extend this line about five times the distance between the pointer stars. You will find the North Star along this line. Cassiopeia has five stars that form a shape like a “W” on its side. The North Star is straight out from Cassiopeia’s center star.",
+     "After locating the North Star, locate the North Pole or true north by drawing an imaginary line directly to the earth."
+    ],
+    "sky": "north",
+    "ocr": [
+     ["each other", "each. other"]
+    ],
+    "id": "lost-5",
+    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
+    "year": 1992
+   },
+   {
+    "source": "wp_crux",
+    "heading": "Navigation with the Southern Cross",
+    "locator": "Crux, Navigation",
+    "lines": [
+     "In the Southern Hemisphere, the Southern Cross is frequently used for navigation in much the same way that Polaris is used in the Northern Hemisphere. Projecting a line from γ to α Crucis (the foot of the crucifix) about 4½ times beyond gives a point close to the Southern Celestial Pole which is also, coincidentally, where it intersects a perpendicular line taken southwards from the east–west axis of Alpha Centauri to Beta Centauri, which are stars at an alike declination to Crux and of a similar width as the cross, but higher magnitude. Argentine gauchos are documented as using Crux for night orientation in the Pampas and Patagonia.",
+     "Alpha and Beta Centauri are of similar declinations (thus distance from the pole) and are often referred as the \"Southern Pointers\" or just \"the Pointers\", allowing people to easily identify the Southern Cross, the constellation of Crux. Very few bright stars lie between Crux and the pole itself, although the constellation Musca is fairly easily recognised immediately south of Crux."
+    ],
+    "sky": "south",
+    "id": "lost-6",
+    "url": "https://en.wikipedia.org/w/index.php?title=Crux&oldid=1379511054",
+    "year": 2026
+   }
+  ],
+  "signal": [
+   {
+    "source": "nps",
+    "heading": "Signal for help",
+    "locator": "If You Get Lost",
+    "lines": [
+     "Signal for help – Use the following signals to help search and rescue authorities find you:",
+     "Blow your whistle often - This will help save your energy from not yelling",
+     "Flash your flashlight – Flash the SOS pattern: Three times quickly, three times slowly, three times quickly. Use your flashlight wisely as this will drain the batteries.",
+     "Flash your mirror – This can alert planes and helicopters flying in the area",
+     "Make yourself visible – Lay out the shelter from your 10 essentials or use rocks to create a shape that can be seen by planes or helicopters flying above",
+     "Conserve energy – Wait patiently for help to arrive"
+    ],
+    "id": "signal-1",
+    "url": "https://www.nps.gov/articles/gtgemergencyplan.htm",
+    "year": 2023
+   },
+   {
+    "source": "fm2176",
+    "heading": "SOS",
+    "locator": "Chapter 19, p. 19-10",
+    "lines": [
+     "You can use lights or flags to send an SOS—three dots, three dashes, three dots. The SOS is the internationally recognized distress signal in radio Morse code. A dot is a short, sharp pulse; a dash is a longer pulse. Keep repeating the signal. When using flags, hold flags on the left side for dashes and on the right side for dots."
+    ],
+    "id": "signal-2",
+    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
+    "year": 1992
+   },
+   {
+    "source": "fm2176",
+    "heading": "Whistles",
+    "locator": "Chapter 19, p. 19-10",
+    "lines": [
+     "Whistles provide an excellent way for close up signaling. In some documented cases, they have been heard up to 1.6 kilometers away. Manufactured whistles have more range than a human whistle."
+    ],
+    "id": "signal-3",
+    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
+    "year": 1992
+   },
+   {
+    "source": "fm2176",
+    "heading": "Fire",
+    "locator": "Chapter 19, pp. 19-2 and 19-3",
+    "lines": [
+     "During darkness, fire is the most effective visual means for signaling. Build three fires in a triangle (the international distress signal) or in a straight line with about 25 meters between the fires. Build them as soon as time and the situation permit and protect them until you need them. If you are alone, maintaining three fires may be difficult. If so, maintain one signal fire. When constructing signal fires, consider your geographic location. If in a jungle, find a natural clearing or the edge of a stream where you can build fires that the jungle foliage will not hide. You may even have to clear an area. If in a snow-covered area, you may have to clear the ground of snow or make a platform on which to build the fire so that melting snow will not extinguish it."
+    ],
+    "id": "signal-4",
+    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
+    "year": 1992
    }
   ],
   "shelter": [
    {
-    "source": "fm2176",
-    "heading": "Shelters",
-    "locator": "Chapter 5, p. 5-1",
-    "lines": ["A shelter can protect you from the sun, insects, wind, rain, snow, hot or cold temperatures, and enemy observation. It can give you a feeling of well-being. It can help you maintain your will to survive.", "In some areas, your need for shelter may take precedence over your need for food and possibly even your need for water. For example, prolonged exposure to cold can cause excessive fatigue and weakness (exhaustion). An exhausted person may develop a “passive” outlook, thereby losing the will to survive.", "The most common error in making a shelter is to make it too large. A shelter must be large enough to protect you. It must also be small enough to contain your body heat, especially in cold climates."],
-    "ocr": [
-     [
-      "“passive”",
-      "\"passive”"
-     ]
+    "source": "nps",
+    "heading": "Await rescue: find shelter, keep warm",
+    "locator": "If You Get Lost",
+    "lines": [
+     "3. Await rescue – If you do not have a phone or cell reception to call 911:",
+     "Find shelter – A place that can protect you from the elements (sun, rain, snow, etc.)",
+     "Inventory and conserve your resources – Check your 10 essentials and other items you packed to help you stay safe until help arrives",
+     "Keep warm – The temperature outside can change throughout the day. If you begin to feel cold put on any extra layers of clothing you have with you",
+     "Note: Do not build a fire if there is a high fire risk at the park or if it is wildland fire season. It could cause a wildfire and put you and others at great risk."
     ],
     "id": "shelter-1",
-    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
+    "url": "https://www.nps.gov/articles/gtgemergencyplan.htm",
+    "year": 2023
    },
    {
     "source": "fm2176",
     "heading": "Shelter Site Selection",
     "locator": "Chapter 5, p. 5-2",
-    "lines": ["You must also remember the problems that could arise in your environment. For instance—", "Avoid flash flood areas in foothills.", "Avoid avalanche or rockslide areas in mountainous terrain.", "Avoid sites near bodies of water that are below the high water mark."],
+    "lines": [
+     "You must also remember the problems that could arise in your environment. For instance—",
+     "Avoid flash flood areas in foothills.",
+     "Avoid avalanche or rockslide areas in mountainous terrain.",
+     "Avoid sites near bodies of water that are below the high water mark."
+    ],
     "id": "shelter-2",
     "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
+    "year": 1992
    },
    {
     "source": "fm2176",
     "heading": "Basic Principles of Cold Weather Survival",
     "locator": "Chapter 15, p. 15-5",
-    "lines": ["There are four basic principles to follow to keep warm. An easy way to remember these basic principles is to use the word COLD— C Keep clothing clean. O Avoid overheating. L Wear clothes loose and in layers. D Keep clothing dry."],
+    "lines": [
+     "There are four basic principles to follow to keep warm. An easy way to remember these basic principles is to use the word COLD— C Keep clothing clean. O Avoid overheating. L Wear clothes loose and in layers. D Keep clothing dry."
+    ],
     "id": "shelter-3",
     "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
+    "year": 1992
    },
    {
     "source": "fm2176",
@@ -379,28 +1109,33 @@
     "lines": ["To reduce heat loss to the ground, place some type of insulating material, such as leaves or pine needles, inside your lean-to."],
     "id": "shelter-4",
     "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
+    "year": 1992
    }
   ],
   "water": [
    {
     "source": "epa",
-    "heading": "Emergency Disinfection of Drinking Water",
-    "locator": "Boil water",
-    "lines": ["ONLY USE WATER THAT HAS BEEN PROPERLY DISINFECTED FOR DRINKING, COOKING, MAKING ANY PREPARED DRINK, WASHING DISHES AND FOR BRUSHING TEETH.", "Use bottled water or water you have properly prepared and stored as an emergency water supply.", "Boil water, if you do not have bottled water. Boiling is sufficient to kill pathogenic bacteria, viruses and protozoa (WHO, 2015).", "Bring water to a rolling boil for at least one minute. At altitudes above 5,000 feet (1,000 meters), boil water for three minutes.", "Let water cool naturally and store it in clean containers with covers."],
-    "edition": "Page last updated February 24, 2026",
-    "id": "water-4",
+    "heading": "Consider how the water looks and how to filter it if needed",
+    "locator": "Additional Water Guidance",
+    "lines": [
+     "Disinfection does not work as well when water is cloudy or colored. If water is cloudy, let it settle. Then filter the water through a clean cloth, paper towel, or coffee filter. Store the settled and filtered water in clean containers with covers."
+    ],
+    "id": "water-1",
     "url": "https://www.epa.gov/ground-water-and-drinking-water/emergency-disinfection-drinking-water",
     "year": 2026
    },
    {
     "source": "epa",
-    "heading": "Consider how the water looks and how to filter it if needed",
-    "locator": "Additional Water Guidance",
-    "lines": ["Disinfection does not work as well when water is cloudy or colored. If water is cloudy, let it settle. Then filter the water through a clean cloth, paper towel, or coffee filter. Store the settled and filtered water in clean containers with covers."],
-    "edition": "Page last updated February 24, 2026",
-    "id": "water-5",
+    "heading": "Emergency Disinfection of Drinking Water",
+    "locator": "Boil water",
+    "lines": [
+     "ONLY USE WATER THAT HAS BEEN PROPERLY DISINFECTED FOR DRINKING, COOKING, MAKING ANY PREPARED DRINK, WASHING DISHES AND FOR BRUSHING TEETH.",
+     "Use bottled water or water you have properly prepared and stored as an emergency water supply.",
+     "Boil water, if you do not have bottled water. Boiling is sufficient to kill pathogenic bacteria, viruses and protozoa (WHO, 2015).",
+     "Bring water to a rolling boil for at least one minute. At altitudes above 5,000 feet (1,000 meters), boil water for three minutes.",
+     "Let water cool naturally and store it in clean containers with covers."
+    ],
+    "id": "water-2",
     "url": "https://www.epa.gov/ground-water-and-drinking-water/emergency-disinfection-drinking-water",
     "year": 2026
    },
@@ -408,8 +1143,14 @@
     "source": "epa",
     "heading": "Disinfect water using household bleach",
     "locator": "If you can’t boil water",
-    "lines": ["Disinfect water using household bleach, if you can’t boil water. Only use regular, unscented chlorine bleach products that are suitable for disinfection and sanitization as indicated on the label. The label may say that the active ingredient contains 6 or 8.25% of sodium hypochlorite. Do not use scented, color safe, or bleaches with added cleaners.", "Locate a clean dropper from your medicine cabinet or emergency supply kit.", "Locate a fresh liquid chlorine bleach or liquid chlorine bleach that is stored at room temperatures for less than one year.", "Use the table below as a guide to decide the amount of bleach you should add to the water, for example, 8 drops of 6% bleach, or 6 drops of 8.25% bleach, to each gallon of water. Double the amount of bleach if the water is cloudy, colored, or very cold.", "Stir and let stand for 30 minutes. The water should have a slight chlorine odor. If it doesn’t, repeat the dosage and let stand for another 15 minutes before use.", "If the chlorine taste is too strong, pour the water from one clean container to another and let it stand for a few hours before use."],
-    "edition": "Page last updated February 24, 2026",
+    "lines": [
+     "Disinfect water using household bleach, if you can’t boil water. Only use regular, unscented chlorine bleach products that are suitable for disinfection and sanitization as indicated on the label. The label may say that the active ingredient contains 6 or 8.25% of sodium hypochlorite. Do not use scented, color safe, or bleaches with added cleaners.",
+     "Locate a clean dropper from your medicine cabinet or emergency supply kit.",
+     "Locate a fresh liquid chlorine bleach or liquid chlorine bleach that is stored at room temperatures for less than one year.",
+     "Use the table below as a guide to decide the amount of bleach you should add to the water, for example, 8 drops of 6% bleach, or 6 drops of 8.25% bleach, to each gallon of water. Double the amount of bleach if the water is cloudy, colored, or very cold.",
+     "Stir and let stand for 30 minutes. The water should have a slight chlorine odor. If it doesn’t, repeat the dosage and let stand for another 15 minutes before use.",
+     "If the chlorine taste is too strong, pour the water from one clean container to another and let it stand for a few hours before use."
+    ],
     "table": {
      "head": ["Volume of Water", "Amount of 6% Bleach to Add*", "Amount of 8.25% Bleach to Add*"],
      "rows": [
@@ -421,42 +1162,33 @@
      ],
      "foot": "*Bleach may contain 6 or 8.25% sodium hypochlorite."
     },
-    "id": "water-6",
+    "id": "water-3",
     "url": "https://www.epa.gov/ground-water-and-drinking-water/emergency-disinfection-drinking-water",
     "year": 2026
    },
    {
     "source": "fm2176",
-    "heading": "Water Procurement",
-    "locator": "Chapter 6, p. 6-1",
-    "lines": ["Water is one of your most urgent needs in a survival situation. You can’t live long without it, especially in hot areas where you lose water rapidly through perspiration. Even in cold areas, you need a minimum of 2 liters of water each day to maintain efficiency. More than three-fourths of your body is composed of fluids. Your body loses fluid as a result of heat, cold, stress, and exertion. To function effectively, you must replace the fluid your body loses. So, one of your first goals is to obtain an adequate supply of water."],
-    "ocr": [
-     ["can’t", "can‘t"]
-    ],
-    "id": "water-1",
-    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
-   },
-   {
-    "source": "fm2176",
-    "heading": "Water Purification",
-    "locator": "Chapter 6, p. 6-13",
-    "lines": ["Purify water by—", "Using water purification tablets. (Follow the directions provided.)", "Placing 5 drops of 2 percent tincture of iodine in a canteen full of clear water. If the canteen is full of cloudy or cold water, use 10 drops. (Let the canteen of water stand for 30 minutes before drinking.)", "Boiling water for 1 minute at sea level, adding 1 minute for each additional 300 meters above sea level, or boil for 10 minutes no matter where you are."],
-    "id": "water-2",
-    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
-   },
-   {
-    "source": "fm2176",
     "heading": "Water Filtration Devices",
     "locator": "Chapter 6, p. 6-14",
-    "lines": ["If the water you find is also muddy, stagnant, and foul smelling, you can clear the water—", "By placing it in a container and letting it stand for 12 hours.", "By pouring it through a filtering system. Note: These procedures only clear the water and make it more palatable. You will have to purify it."],
-    "id": "water-3",
+    "lines": [
+     "If the water you find is also muddy, stagnant, and foul smelling, you can clear the water—",
+     "By placing it in a container and letting it stand for 12 hours.",
+     "By pouring it through a filtering system. Note: These procedures only clear the water and make it more palatable. You will have to purify it."
+    ],
+    "id": "water-4",
     "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
+    "year": 1992
+   },
+   {
+    "source": "fm2176",
+    "heading": "Water Procurement",
+    "locator": "Chapter 6, p. 6-1",
+    "lines": [
+     "Water is one of your most urgent needs in a survival situation. You can‘t live long without it, especially in hot areas where you lose water rapidly through perspiration. Even in cold areas, you need a minimum of 2 liters of water each day to maintain efficiency. More than three-fourths of your body is composed of fluids. Your body loses fluid as a result of heat, cold, stress, and exertion. To function effectively, you must replace the fluid your body loses. So, one of your first goals is to obtain an adequate supply of water."
+    ],
+    "id": "water-5",
+    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
+    "year": 1992
    }
   ],
   "food": [
@@ -464,133 +1196,25 @@
     "source": "ready",
     "heading": "Food Safety and Sanitation",
     "locator": "Do and Don't",
-    "lines": ["Without electricity or a cold source food stored in refrigerators and freezers can become unsafe. Bacteria in food grow rapidly at temperatures between 40 and 140 degrees Fahrenheit and if these foods are consumed you can become very sick. Thawed food usually can be eaten if it is still “refrigerator cold.” It can be re-frozen if it still contains ice crystals. Remember “When in doubt, throw it out.”", "Do:", "Keep food in covered containers.", "Keep cooking and eating utensils clean.", "Throw away any food that has come into contact with contaminated flood water.", "Throw away any food that has been at room temperature for two hours or more.", "Throw away any food that has an unusual odor, color or texture.", "Use ready-to-feed formula. If you must mix infant formula use bottled water or boiled water as a last resort.", "Don’t:", "Eat foods from cans that are swollen, dented or corroded, even though the product may look safe to eat.", "Eat any food that looks or smells abnormal, even if the can looks normal.", "Let garbage accumulate inside, both for fire and sanitation reasons."],
+    "lines": [
+     "Without electricity or a cold source food stored in refrigerators and freezers can become unsafe. Bacteria in food grow rapidly at temperatures between 40 and 140 degrees Fahrenheit and if these foods are consumed you can become very sick. Thawed food usually can be eaten if it is still “refrigerator cold.” It can be re-frozen if it still contains ice crystals. Remember “When in doubt, throw it out.”",
+     "Do:",
+     "Keep food in covered containers.",
+     "Keep cooking and eating utensils clean.",
+     "Throw away any food that has come into contact with contaminated flood water.",
+     "Throw away any food that has been at room temperature for two hours or more.",
+     "Throw away any food that has an unusual odor, color or texture.",
+     "Use ready-to-feed formula. If you must mix infant formula use bottled water or boiled water as a last resort.",
+     "Don’t:",
+     "Eat foods from cans that are swollen, dented or corroded, even though the product may look safe to eat.",
+     "Eat any food that looks or smells abnormal, even if the can looks normal.",
+     "Let garbage accumulate inside, both for fire and sanitation reasons."
+    ],
     "edition": "Page last updated 03/12/2026",
-    "id": "food-1",
-    "url": "https://www.ready.gov/food",
     "slug": "food",
-    "year": 2026
-   },
-   {
-    "source": "fm2176",
-    "heading": "Food Procurement",
-    "locator": "Chapter 8, p. 8-1",
-    "lines": ["After water, man’s most urgent requirement is food. In contemplating virtually any hypothetical survival situation, the mind immediately turns to thoughts of food. Unless the situation occurs in an arid environment, even water, which is more important to maintaining body functions, will almost always follow food in our initial thoughts. The survivor must remember that the three essentials of survival—water, food, and shelter–are prioritized according to the estimate of the actual situation. This estimate must not only be timely but accurate as well. Some situations may well dictate that shelter precede both food and water."],
-    "ocr": [
-     ["contemplating", "con-templating"]
-    ],
-    "id": "food-2",
-    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
-   }
-  ],
-  "lost": [
-   {
-    "source": "fm2176",
-    "heading": "U - Use All Your Senses, Undue Haste Makes Waste",
-    "locator": "Introduction, p. 1-2",
-    "lines": ["U - Use All Your Senses, Undue Haste Makes Waste You may make a wrong move when you react quickly without thinking or planning. That move may result in your capture or death. Don’t move just for the sake of taking action. Consider all aspects of your situation (size up your situation) before you make a decision and a move. If you act in haste, you may forget or lose some of your equipment. In your haste you may also become disoriented so that you don’t know which way to go. Plan your moves. Be ready to move out quickly without endangering yourself if the enemy is near you. Use all your senses to evaluate the situation. Note sounds and smells. Be sensitive to temperature changes. Be observant."],
-    "id": "lost-1",
-    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
-   },
-   {
-    "source": "fm2176",
-    "heading": "Shadow-Tip Methods",
-    "locator": "Chapter 18, p. 18-2",
-    "lines": ["In the first shadow-tip method, find a straight stick 1 meter long, and a level spot free of brush on which the stick will cast a definite shadow. This method is simple and accurate and consists of four steps:", "Step 1. Place the stick or branch into the ground at a level spot where it will cast a distinctive shadow. Mark the shadow’s tip with a stone, twig, or other means. This first shadow mark is always west—everywhere on earth.", "Step 2. Wait 10 to 15 minutes until the shadow tip moves a few centimeters. Mark the shadow tip’s new position in the same way as the first.", "Step 3. Draw a straight line through the two marks to obtain an approximate east-west line.", "Step 4. Stand with the first mark (west) to your left and the second mark to your right—you are now facing north. This fact is true everywhere on earth."],
-    "ocr": [
-     ["will cast a distinctive", "will east a distinctive"],
-     ["always west—everywhere", "always west —everywhere"],
-     ["to your right—you are", "to your right-you are"]
-    ],
-    "id": "lost-2",
-    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
-   },
-   {
-    "source": "fm2176",
-    "heading": "The Northern Sky",
-    "locator": "Chapter 18, pp. 18-5 and 18-6",
-    "lines": ["The main constellations to learn are the Ursa Major, also known as the Big Dipper or the Plow, and Cassiopeia (Figure 18-3). Neither of these constellations ever sets. They are always visible on a clear night. Use them to locate Polaris, also known as the polestar or the North Star. The North Star forms part of the Little Dipper handle and can be confused with the Big Dipper. Prevent confusion by using both the Big Dipper and Cassiopeia together. The Big Dipper and Cassiopeia are always directly opposite each other and rotate counterclockwise around Polaris, with Polaris in the center. The Big Dipper is a seven star constellation in the shape of a dipper. The two stars forming the outer lip of this dipper are the “pointer stars” because they point to the North Star. Mentally draw a line from the outer bottom star to the outer top star of the Big Dipper’s bucket. Extend this line about five times the distance between the pointer stars. You will find the North Star along this line. Cassiopeia has five stars that form a shape like a “W” on its side. The North Star is straight out from Cassiopeia’s center star.", "After locating the North Star, locate the North Pole or true north by drawing an imaginary line directly to the earth."],
-    "ocr": [
-     ["each other", "each. other"]
-    ],
-    "id": "lost-3",
-    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
-   },
-   {
-    "source": "fm2176",
-    "heading": "The Southern Sky",
-    "locator": "Chapter 18, p. 18-6",
-    "lines": ["Because there is no star bright enough to be easily recognized near the south celestial pole, a constellation known as the Southern Cross is used as a signpost to the South (Figure 18-4). The Southern Cross or Crux has five stars. Its four brightest stars form a cross that tilts to one side. The two stars that make up the cross’s long axis are the pointer stars. To determine south, imagine a distance five times the distance between These stars and the point where this imaginary line ends is in the general direction of south. Look down to the horizon from this imaginary point and select a landmark to steer by. In a static survival situation, you can fix this location in daylight if you drive stakes in the ground at night to point the way."],
-    "ocr": [
-     ["cross’s long", "cross's long"]
-    ],
-    "id": "lost-4",
-    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
-   }
-  ],
-  "signal": [
-   {
-    "source": "fm2176",
-    "heading": "Fire",
-    "locator": "Chapter 19, pp. 19-2 and 19-3",
-    "lines": ["During darkness, fire is the most effective visual means for signaling. Build three fires in a triangle (the international distress signal) or in a straight line with about 25 meters between the fires. Build them as soon as time and the situation permit and protect them until you need them. If you are alone, maintaining three fires may be difficult. If so, maintain one signal fire. When constructing signal fires, consider your geographic location. If in a jungle, find a natural clearing or the edge of a stream where you can build fires that the jungle foliage will not hide. You may even have to clear an area. If in a snow-covered area, you may have to clear the ground of snow or make a platform on which to build the fire so that melting snow will not extinguish it."],
-    "id": "signal-1",
-    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
-   },
-   {
-    "source": "fm2176",
-    "heading": "Smoke",
-    "locator": "Chapter 19, p. 19-4",
-    "lines": ["During daylight, build a smoke generator and use smoke to gain attention (Figure 19-2). The international distress signal is three columns of smoke. Try to create a color of smoke that contrasts with the background; dark smoke against a light background and vice versa. If you practically smother a large fire with green leaves, moss, or a little water, the fire will produce white smoke. If you add rubber or oil-soaked rags to a fire, you will get black smoke."],
-    "id": "signal-2",
-    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
-   },
-   {
-    "source": "fm2176",
-    "heading": "Mirrors or Shiny Objects",
-    "locator": "Chapter 19, pp. 19-6 and 19-7",
-    "lines": ["On a sunny day, a mirror is your best signaling device. If you don’t have a mirror, polish your canteen cup, your belt buckle, or a similar object that will reflect the sun’s rays. Direct the flashes in one area so that they are secure from enemy observation. Practice using a mirror or shiny object for signaling now; do not wait until you need it. If you have an MK-3 signal mirror, follow the instructions on its back (Figure 19-3). Wear the signal mirror on a cord or chain around your neck so that it is ready for immediate use. However, be sure the glass side is against your body so that it will not flash; the enemy can see the flash.", "CAUTION Do not flash a signal mirror rapidly because a pilot may mistake the flashes for enemy fire. Do not direct the beam in the aircraft’s cockpit for more than a few seconds as it may blind the pilot.", "Haze, ground fog, and mirages may make it hard for a pilot to spot signals from a flashing object. So, if possible, get to the highest point in your area when signaling. If you can’t determine the aircraft’s location, flash your signal in the direction of the aircraft noise. Note: Pilots have reported seeing mirror flashes up to 160 kilometers away under ideal conditions. Figures 19-4 and 19-5 show methods of aiming a signal mirror for signaling."],
-    "ocr": [
-     ["signals", "sig-nals"]
-    ],
-    "id": "signal-3",
-    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
-   },
-   {
-    "source": "fm2176",
-    "heading": "Whistles",
-    "locator": "Chapter 19, p. 19-10",
-    "lines": ["Whistles provide an excellent way for close up signaling. In some documented cases, they have been heard up to 1.6 kilometers away. Manufactured whistles have more range than a human whistle."],
-    "id": "signal-4",
-    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
-   },
-   {
-    "source": "fm2176",
-    "heading": "SOS",
-    "locator": "Chapter 19, p. 19-10",
-    "lines": ["You can use lights or flags to send an SOS—three dots, three dashes, three dots. The SOS is the internationally recognized distress signal in radio Morse code. A dot is a short, sharp pulse; a dash is a longer pulse. Keep repeating the signal. When using flags, hold flags on the left side for dashes and on the right side for dots."],
-    "id": "signal-5",
-    "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
-    "year": 1992,
-    "edition": "5 June 1992"
+    "url": "https://www.ready.gov/food",
+    "year": 2026,
+    "id": "food-1"
    }
   ],
   "flood": [
@@ -598,23 +1222,42 @@
     "source": "ready",
     "heading": "During a Flood",
     "locator": "Floods",
-    "lines": ["Evacuate immediately, if told to do so. Never drive around barricades. Local responders use them to safely direct traffic out of flooded areas.", "Contact your healthcare provider if you are sick and need medical attention. Wait for further care instructions and shelter in place, if possible. If you are experiencing a medical emergency, call 9-1-1.", "Listen to EAS, NOAA Weather Radio or local alerting systems for current emergency information and instructions regarding flooding.", "Do not walk, swim or drive through flood waters. Turn Around. Don’t Drown!", "Stay off bridges over fast-moving water. Fast-moving water can wash bridges away without warning.", "Stay inside your car if it is trapped in rapidly moving water. Get on the roof if water is rising inside the car.", "Get to the highest level if trapped in a building. Only get on the roof if necessary and once there, signal for help. Do not climb into a closed attic to avoid getting trapped by rising floodwater."],
+    "lines": [
+     "Evacuate immediately, if told to do so. Never drive around barricades. Local responders use them to safely direct traffic out of flooded areas.",
+     "Contact your healthcare provider if you are sick and need medical attention. Wait for further care instructions and shelter in place, if possible. If you are experiencing a medical emergency, call 9-1-1.",
+     "Listen to EAS, NOAA Weather Radio or local alerting systems for current emergency information and instructions regarding flooding.",
+     "Do not walk, swim or drive through flood waters. Turn Around. Don’t Drown!",
+     "Stay off bridges over fast-moving water. Fast-moving water can wash bridges away without warning.",
+     "Stay inside your car if it is trapped in rapidly moving water. Get on the roof if water is rising inside the car.",
+     "Get to the highest level if trapped in a building. Only get on the roof if necessary and once there, signal for help. Do not climb into a closed attic to avoid getting trapped by rising floodwater."
+    ],
     "edition": "Page last updated 08/27/2026",
-    "id": "flood-1",
-    "url": "https://www.ready.gov/floods",
     "slug": "floods",
-    "year": 2026
+    "url": "https://www.ready.gov/floods",
+    "year": 2026,
+    "related": ["power_out"],
+    "id": "flood-1"
    },
    {
     "source": "ready",
     "heading": "After a Flood",
     "locator": "Floods",
-    "lines": ["Pay attention to authorities for information and instructions. Return home only when authorities say it is safe.", "Avoid driving except in emergencies.", "Wear heavy work gloves, protective clothing and boots during cleanup and use appropriate face coverings or masks if cleaning mold or other debris.", "People with asthma and other lung conditions and/or immune suppression should not enter buildings with indoor water leaks or mold growth that can be seen or smelled. Children should not take part in disaster cleanup work.", "Be aware that snakes and other animals may be in your house.", "Be aware of the risk of electrocution. Do not touch electrical equipment if it is wet or if you are standing in water. Turn off the electricity to prevent electric shock if it is safe to do so.", "Avoid wading in floodwater, which can be contaminated and contain dangerous debris. Underground or downed power lines can electrically charge the water.", "Use a generator or other gasoline-powered machinery ONLY outdoors and away from windows."],
+    "lines": [
+     "Pay attention to authorities for information and instructions. Return home only when authorities say it is safe.",
+     "Avoid driving except in emergencies.",
+     "Wear heavy work gloves, protective clothing and boots during cleanup and use appropriate face coverings or masks if cleaning mold or other debris.",
+     "People with asthma and other lung conditions and/or immune suppression should not enter buildings with indoor water leaks or mold growth that can be seen or smelled. Children should not take part in disaster cleanup work.",
+     "Be aware that snakes and other animals may be in your house.",
+     "Be aware of the risk of electrocution. Do not touch electrical equipment if it is wet or if you are standing in water. Turn off the electricity to prevent electric shock if it is safe to do so.",
+     "Avoid wading in floodwater, which can be contaminated and contain dangerous debris. Underground or downed power lines can electrically charge the water.",
+     "Use a generator or other gasoline-powered machinery ONLY outdoors and away from windows."
+    ],
     "edition": "Page last updated 08/27/2026",
-    "id": "flood-2",
-    "url": "https://www.ready.gov/floods",
     "slug": "floods",
-    "year": 2026
+    "url": "https://www.ready.gov/floods",
+    "year": 2026,
+    "related": ["power_out"],
+    "id": "flood-2"
    }
   ],
   "earthquake": [
@@ -622,23 +1265,58 @@
     "source": "ready",
     "heading": "Protect Yourself During Earthquakes",
     "locator": "Earthquakes",
-    "lines": ["1. Drop (or Lock)", "Drop where you are onto hands and knees.", "2. Cover", "Cover your head and neck with one arm and hand. If a sturdy table or desk is nearby, crawl underneath it for shelter. If no shelter is nearby, crawl next to an interior wall (away from windows). Stay on your knees; bend over to protect vital organs.", "3. Hold On", "Hold until the shaking stops. If under shelter, hold on with one hand and be ready to move with it when the shelter moves. If not under shelter, hold on to your head and neck with both arms and hands."],
+    "lines": [
+     "1. Drop (or Lock)",
+     "Drop where you are onto hands and knees.",
+     "2. Cover",
+     "Cover your head and neck with one arm and hand. If a sturdy table or desk is nearby, crawl underneath it for shelter. If no shelter is nearby, crawl next to an interior wall (away from windows). Stay on your knees; bend over to protect vital organs.",
+     "3. Hold On",
+     "Hold until the shaking stops. If under shelter, hold on with one hand and be ready to move with it when the shelter moves. If not under shelter, hold on to your head and neck with both arms and hands.",
+     "Using a Cane?",
+     "If you use a cane: DROP, COVER, and HOLD ON or sit on a chair, bed, etc. and cover your head and neck with both hands. Keep your cane near you so it can be used when the shaking stops.",
+     "Using a Walker or Wheelchair?",
+     "If you use a walker or wheelchair: LOCK your wheels (if applicable). If using a walker carefully get as low as possible. Bend over and COVER your head/neck with your arms, a book, or a pillow. Then HOLD ON until the shaking stops."
+    ],
     "edition": "Page last updated 09/09/2026",
-    "id": "earthquake-1",
-    "url": "https://www.ready.gov/earthquakes",
     "slug": "earthquakes",
-    "year": 2026
+    "url": "https://www.ready.gov/earthquakes",
+    "year": 2026,
+    "id": "earthquake-1"
    },
    {
     "source": "ready",
-    "heading": "After an Earthquake",
+    "heading": "After an Earthquake: first",
     "locator": "Earthquakes",
-    "lines": ["There can be serious hazards after an earthquake, such as damage to the building, leaking gas and water lines or downed power lines.", "Expect aftershocks to follow the main shock of an earthquake. Be ready to Drop, Cover and Hold On if you feel an aftershock.", "If you are in a damaged building, go outside and quickly move away from the building. Do not enter damaged buildings.", "If you are trapped, send a text or bang on a pipe or wall. Cover your mouth with your shirt for protection and instead of shouting, use a whistle.", "If you are in an area that may experience tsunamis, go inland or to higher ground immediately after the shaking stops. Avoid contact with floodwaters as they can contain chemicals, sewage and debris.", "Check yourself to see if you are hurt and help others if you have training. Be the help until help arrives.", "If you are sick or injured and need medical attention, contact your healthcare provider for instructions. If you are experiencing a medical emergency, call 9-1-1.", "Once you are safe, pay attention to local news reports for emergency information and instructions via battery-operated radio, TV, social media or from cell phone text alerts.", "Use social media to let people know you’re okay.", "Use text messages to communicate. This may be more reliable than phone calls and can save batter power.", "Be careful when cleaning up. Wear protective clothing, including a long-sleeved shirt, long pants, work gloves and sturdy thick-soled shoes. Do not try to remove heavy debris by yourself. Use an appropriate mask if cleaning mold or other debris. People with asthma and other lung conditions and/or immune suppression should not enter buildings with indoor water leaks or mold growth that can be seen or smelled. Children should not take part in disaster cleanup work."],
+    "lines": [
+     "There can be serious hazards after an earthquake, such as damage to the building, leaking gas and water lines or downed power lines.",
+     "Expect aftershocks to follow the main shock of an earthquake. Be ready to Drop, Cover and Hold On if you feel an aftershock.",
+     "If you are in a damaged building, go outside and quickly move away from the building. Do not enter damaged buildings.",
+     "If you are trapped, send a text or bang on a pipe or wall. Cover your mouth with your shirt for protection and instead of shouting, use a whistle.",
+     "If you are in an area that may experience tsunamis, go inland or to higher ground immediately after the shaking stops. Avoid contact with floodwaters as they can contain chemicals, sewage and debris.",
+     "Check yourself to see if you are hurt and help others if you have training. Be the help until help arrives."
+    ],
     "edition": "Page last updated 09/09/2026",
-    "id": "earthquake-2",
-    "url": "https://www.ready.gov/earthquakes",
     "slug": "earthquakes",
-    "year": 2026
+    "url": "https://www.ready.gov/earthquakes",
+    "year": 2026,
+    "id": "earthquake-2"
+   },
+   {
+    "source": "ready",
+    "heading": "After an Earthquake: then",
+    "locator": "Earthquakes",
+    "lines": [
+     "If you are sick or injured and need medical attention, contact your healthcare provider for instructions. If you are experiencing a medical emergency, call 9-1-1.",
+     "Once you are safe, pay attention to local news reports for emergency information and instructions via battery-operated radio, TV, social media or from cell phone text alerts.",
+     "Use social media to let people know you’re okay.",
+     "Use text messages to communicate. This may be more reliable than phone calls and can save batter power.",
+     "Be careful when cleaning up. Wear protective clothing, including a long-sleeved shirt, long pants, work gloves and sturdy thick-soled shoes. Do not try to remove heavy debris by yourself. Use an appropriate mask if cleaning mold or other debris. People with asthma and other lung conditions and/or immune suppression should not enter buildings with indoor water leaks or mold growth that can be seen or smelled. Children should not take part in disaster cleanup work."
+    ],
+    "edition": "Page last updated 09/09/2026",
+    "slug": "earthquakes",
+    "url": "https://www.ready.gov/earthquakes",
+    "year": 2026,
+    "id": "earthquake-3"
    }
   ],
   "wildfire": [
@@ -646,103 +1324,259 @@
     "source": "ready",
     "heading": "Stay Safe During",
     "locator": "Wildfires",
-    "lines": ["Pay attention to emergency alerts and notifications for information and instructions.", "Evacuate immediately if authorities tell you to do so.", "Check with local authorities for the latest information about public shelters or check open locations on the FEMA app. You can also download the free Red Cross Emergency app for a list of open Red Cross shelters in your area.", "Consider making plans with friends or family to shelter with them where you may be safer and more comfortable.", "If trapped, call 9-1-1 and give your location, but be aware that emergency response could be delayed or impossible. Turn on lights to help rescuers find you.", "Use an N95 mask to protect yourself from smoke inhalation or limit your exposure to smoke by doing the following:", "Choose a room to close off from outside air and set up a portable air cleaner or filter to keep the air in this room clean even when it’s smoky in the rest of the building and outdoors.", "Use high efficiency filters in your central air conditioning system to capture fine particles from smoke. If your system has fresh air intake, set the system to “recirculate” mode and close the outdoor intake damper.", "If you are not ordered to evacuate but smoky conditions exist, stay inside in a safe location or go to a community building where smoke levels are lower.", "If you are sick and need medical attention, contact your healthcare provider for further care instructions and shelter in place, if possible."],
+    "lines": [
+     "Pay attention to emergency alerts and notifications for information and instructions.",
+     "Evacuate immediately if authorities tell you to do so.",
+     "Check with local authorities for the latest information about public shelters or check open locations on the FEMA app. You can also download the free Red Cross Emergency app for a list of open Red Cross shelters in your area.",
+     "Consider making plans with friends or family to shelter with them where you may be safer and more comfortable.",
+     "If trapped, call 9-1-1 and give your location, but be aware that emergency response could be delayed or impossible. Turn on lights to help rescuers find you."
+    ],
     "edition": "Page last updated 08/11/2026",
-    "id": "wildfire-1",
-    "url": "https://www.ready.gov/wildfires",
     "slug": "wildfires",
-    "year": 2026
+    "url": "https://www.ready.gov/wildfires",
+    "year": 2026,
+    "id": "wildfire-1"
+   },
+   {
+    "source": "ready",
+    "heading": "Smoke",
+    "locator": "Wildfires",
+    "lines": [
+     "Use an N95 mask to protect yourself from smoke inhalation or limit your exposure to smoke by doing the following:",
+     "Choose a room to close off from outside air and set up a portable air cleaner or filter to keep the air in this room clean even when it’s smoky in the rest of the building and outdoors.",
+     "Use high efficiency filters in your central air conditioning system to capture fine particles from smoke. If your system has fresh air intake, set the system to “recirculate” mode and close the outdoor intake damper.",
+     "If you are not ordered to evacuate but smoky conditions exist, stay inside in a safe location or go to a community building where smoke levels are lower.",
+     "If you are sick and need medical attention, contact your healthcare provider for further care instructions and shelter in place, if possible."
+    ],
+    "edition": "Page last updated 08/11/2026",
+    "slug": "wildfires",
+    "url": "https://www.ready.gov/wildfires",
+    "year": 2026,
+    "id": "wildfire-2"
    },
    {
     "source": "ready",
     "heading": "Returning Home After a Wildfire",
     "locator": "Wildfires",
-    "lines": ["Do not return home until authorities say it is safe to do so.", "Avoid hot ash, charred trees, smoldering debris and live embers. The ground may contain heat pockets that can burn you or spark another fire.", "When cleaning, wear protective clothing – including a long-sleeved shirt, long pants, work gloves and sturdy thick-soled shoes – during clean-up efforts.", "Use a respirator to limit your exposure, and wet debris to minimize breathing dust particles. People with asthma, COPD and/or other lung conditions should take precautions in areas with poor air quality, as it can worsen symptoms.", "Document property damage with photographs. Conduct an inventory and contact your insurance company for assistance.", "Send text messages or use social media to reach out to family and friends. Phone systems are often busy following a disaster. Make calls only in emergencies."],
+    "lines": [
+     "Do not return home until authorities say it is safe to do so.",
+     "Avoid hot ash, charred trees, smoldering debris and live embers. The ground may contain heat pockets that can burn you or spark another fire.",
+     "When cleaning, wear protective clothing – including a long-sleeved shirt, long pants, work gloves and sturdy thick-soled shoes – during clean-up efforts.",
+     "Use a respirator to limit your exposure, and wet debris to minimize breathing dust particles. People with asthma, COPD and/or other lung conditions should take precautions in areas with poor air quality, as it can worsen symptoms.",
+     "Document property damage with photographs. Conduct an inventory and contact your insurance company for assistance.",
+     "Send text messages or use social media to reach out to family and friends. Phone systems are often busy following a disaster. Make calls only in emergencies."
+    ],
     "edition": "Page last updated 08/11/2026",
-    "id": "wildfire-2",
-    "url": "https://www.ready.gov/wildfires",
     "slug": "wildfires",
-    "year": 2026
+    "url": "https://www.ready.gov/wildfires",
+    "year": 2026,
+    "id": "wildfire-3"
    }
   ],
   "storm": [
    {
     "source": "ready",
+    "heading": "If You Are Under A Tornado or Severe Weather Warning",
+    "locator": "Tornadoes",
+    "lines": [
+     "Listen to local weather reports and officials for updated emergency information. Follow their instructions to remain safe.",
+     "Go to a public shelter if you can't stay at home.",
+     "Stay away from windows, doors, and outside walls.",
+     "Use your arms to protect your head and neck.",
+     "Watch out for flying debris that can cause injury or death."
+    ],
+    "edition": "Page last updated 06/02/2026",
+    "slug": "tornadoes",
+    "url": "https://www.ready.gov/tornadoes",
+    "year": 2026,
+    "id": "storm-1"
+   },
+   {
+    "source": "ready",
+    "heading": "Before a Tornado: a safe shelter",
+    "locator": "Tornadoes",
+    "lines": [
+     "Identify and practice going to a safe shelter such as a safe room built using FEMA criteria or a storm shelter built to ICC 500 standards. The next best protection is a small, interior, windowless room or basement on the lowest level of a sturdy building."
+    ],
+    "edition": "Page last updated 06/02/2026",
+    "slug": "tornadoes",
+    "url": "https://www.ready.gov/tornadoes",
+    "year": 2026,
+    "id": "storm-2"
+   },
+   {
+    "source": "ready",
     "heading": "During a Tornado",
     "locator": "Tornadoes",
-    "lines": ["Immediately go to a safe location that you have identified.", "Pay attention to EAS, NOAA Weather Radio, or local alerting systems for current emergency information and instructions.", "Protect yourself by covering your head or neck with your arms and putting materials such as furniture and blankets around or on top of you.", "In a car or truck: There is no safe option when caught in a tornado in a car, just slightly less dangerous ones.", "If the tornado is visible, far away, and the traffic is light, you may be able to drive out of its path by moving at right angles to the tornado.", "If you are caught by extreme winds or flying debris, park the car as quickly and safely as possible -- out of the traffic lanes.", "Stay in the car with the seat belt on. Put your head down below the windows; cover your head with your hands and a blanket, coat, or other cushion if possible.", "If you can safely get noticeably lower than the level of the roadway, leave your car and lie in that area, covering your head with your hands.", "Avoid seeking shelter under bridges, which can create deadly traffic hazards while offering little protection against flying debris."],
+    "lines": [
+     "Immediately go to a safe location that you have identified.",
+     "Pay attention to EAS, NOAA Weather Radio, or local alerting systems for current emergency information and instructions.",
+     "Protect yourself by covering your head or neck with your arms and putting materials such as furniture and blankets around or on top of you.",
+     "In a car or truck: There is no safe option when caught in a tornado in a car, just slightly less dangerous ones.",
+     "If the tornado is visible, far away, and the traffic is light, you may be able to drive out of its path by moving at right angles to the tornado.",
+     "If you are caught by extreme winds or flying debris, park the car as quickly and safely as possible -- out of the traffic lanes.",
+     "Stay in the car with the seat belt on. Put your head down below the windows; cover your head with your hands and a blanket, coat, or other cushion if possible.",
+     "If you can safely get noticeably lower than the level of the roadway, leave your car and lie in that area, covering your head with your hands.",
+     "Avoid seeking shelter under bridges, which can create deadly traffic hazards while offering little protection against flying debris."
+    ],
     "edition": "Page last updated 06/02/2026",
-    "id": "storm-1",
-    "url": "https://www.ready.gov/tornadoes",
     "slug": "tornadoes",
-    "year": 2026
+    "url": "https://www.ready.gov/tornadoes",
+    "year": 2026,
+    "id": "storm-3"
    },
    {
     "source": "ready",
     "heading": "Stay Safe During Thunderstorms & Lightning",
     "locator": "Thunderstorms and lightning",
-    "lines": ["If you are under a thunderstorm warning:", "When thunder roars, go indoors! Move from outdoors into a building or car with a roof.", "Pay attention to alerts and warnings.", "Avoid using electronic devices connected to an electrical outlet.", "Avoid running water.", "Turn Around. Don’t Drown! Do not drive through flooded roadways. Just six inches of fast-moving water can knock you down, and one foot of moving water can sweep your vehicle away."],
+    "lines": [
+     "If you are under a thunderstorm warning:",
+     "When thunder roars, go indoors! Move from outdoors into a building or car with a roof.",
+     "Pay attention to alerts and warnings.",
+     "Avoid using electronic devices connected to an electrical outlet.",
+     "Avoid running water.",
+     "Turn Around. Don’t Drown! Do not drive through flooded roadways. Just six inches of fast-moving water can knock you down, and one foot of moving water can sweep your vehicle away."
+    ],
     "edition": "Page last updated 05/11/2026",
-    "id": "storm-2",
-    "url": "https://www.ready.gov/thunderstorms-lightning",
     "slug": "thunderstorms-lightning",
-    "year": 2026
+    "url": "https://www.ready.gov/thunderstorms-lightning",
+    "year": 2026,
+    "id": "storm-4"
    },
    {
     "source": "ready",
     "heading": "During a Hurricane/Typhoon",
     "locator": "Hurricanes",
-    "lines": ["Stay Informed", "Pay attention to emergency information and alerts.", "If you live in a mandatory evacuation zone and local officials tell you to evacuate, do so immediately.", "Dealing with the Weather", "Determine how best to protect yourself from high winds and flooding.", "Take refuge in a designated storm shelter or an interior room for high winds.", "Go to the highest level of the building if you are trapped by flooding. Do not climb into a closed attic. You may become trapped by rising flood water.", "Do not walk, swim or drive through flood waters. Turn Around. Don’t Drown! Just six inches of fast-moving water can knock you down, and one foot of moving water can sweep your vehicle away."],
+    "lines": [
+     "Stay Informed",
+     "Pay attention to emergency information and alerts.",
+     "If you live in a mandatory evacuation zone and local officials tell you to evacuate, do so immediately.",
+     "Dealing with the Weather",
+     "Determine how best to protect yourself from high winds and flooding.",
+     "Take refuge in a designated storm shelter or an interior room for high winds.",
+     "Go to the highest level of the building if you are trapped by flooding. Do not climb into a closed attic. You may become trapped by rising flood water.",
+     "Do not walk, swim or drive through flood waters. Turn Around. Don’t Drown! Just six inches of fast-moving water can knock you down, and one foot of moving water can sweep your vehicle away."
+    ],
     "edition": "Page last updated 09/24/2026",
-    "id": "storm-3",
-    "url": "https://www.ready.gov/hurricanes",
     "slug": "hurricanes",
-    "year": 2026
+    "url": "https://www.ready.gov/hurricanes",
+    "year": 2026,
+    "id": "storm-5"
    }
   ],
   "power_out": [
    {
     "source": "ready",
+    "heading": "Generator Safety",
+    "locator": "Power outages",
+    "lines": [
+     "Generators can be helpful when the power goes out. It is important to know how use them safely to prevent carbon monoxide (CO) poisoning and other hazards.",
+     "Generators and fuel should always be used outdoors and at least 20 feet away from windows, doors and attached garages.",
+     "Install working carbon monoxide detectors on every level of your home. Carbon monoxide is a colorless, odorless gas that can kill you, your family and pets.",
+     "Keep the generator dry and protected from rain or flooding. Touching a wet generator or devices connected to one can cause electrical shock.",
+     "Always connect the generator to appliances with heavy-duty extension cords.",
+     "Let the generator cool before refueling. Fuel spilled on hot engine parts can ignite.",
+     "Follow manufacturer’s instructions carefully."
+    ],
+    "edition": "Page last updated 06/04/2026",
+    "slug": "power-outages",
+    "url": "https://www.ready.gov/power-outages",
+    "year": 2026,
+    "related": ["flood", "carbon_monoxide"],
+    "id": "power_out-1"
+   },
+   {
+    "source": "ready",
     "heading": "Power Outage Tips",
     "locator": "Power outages",
-    "lines": ["Keep freezers and refrigerators closed.", "Use a generator, but ONLY outdoors and away from windows.", "Do not use a gas stove or oven to heat your home. It increases your risk of carbon monoxide poisoning. Using an oven or stovetop can also increase the risk of fires, burns and could damage the appliance.", "Disconnect appliances and electronics to avoid damage from electrical surges.", "Have alternate plans for refrigerating medicines or using power-dependent medical devices.", "Check with local officials about heating and cooling locations open near you."],
+    "lines": [
+     "Keep freezers and refrigerators closed.",
+     "Use a generator, but ONLY outdoors and away from windows.",
+     "Do not use a gas stove or oven to heat your home. It increases your risk of carbon monoxide poisoning. Using an oven or stovetop can also increase the risk of fires, burns and could damage the appliance.",
+     "Disconnect appliances and electronics to avoid damage from electrical surges.",
+     "Have alternate plans for refrigerating medicines or using power-dependent medical devices.",
+     "Check with local officials about heating and cooling locations open near you."
+    ],
     "edition": "Page last updated 06/04/2026",
-    "id": "power_out-1",
-    "url": "https://www.ready.gov/power-outages",
     "slug": "power-outages",
-    "year": 2026
+    "url": "https://www.ready.gov/power-outages",
+    "year": 2026,
+    "related": ["flood", "carbon_monoxide"],
+    "id": "power_out-2"
    },
    {
     "source": "ready",
     "heading": "Food Storage",
     "locator": "Power outages",
-    "lines": ["Have enough nonperishable food and water. Keep freezers and refrigerators closed. The refrigerator will keep food cold for about four hours. A full freezer will keep the temperature for about 48 hours. Use coolers with ice if necessary. Monitor temperatures with a thermometer. Throw out food if the temperature is 40 degrees or higher."],
+    "lines": [
+     "Have enough nonperishable food and water. Keep freezers and refrigerators closed. The refrigerator will keep food cold for about four hours. A full freezer will keep the temperature for about 48 hours. Use coolers with ice if necessary. Monitor temperatures with a thermometer. Throw out food if the temperature is 40 degrees or higher."
+    ],
     "edition": "Page last updated 06/04/2026",
-    "id": "power_out-2",
-    "url": "https://www.ready.gov/power-outages",
     "slug": "power-outages",
-    "year": 2026
-   },
-   {
-    "source": "ready",
-    "heading": "Generator Safety",
-    "locator": "Power outages",
-    "lines": ["Generators can be helpful when the power goes out. It is important to know how use them safely to prevent carbon monoxide (CO) poisoning and other hazards.", "Generators and fuel should always be used outdoors and at least 20 feet away from windows, doors and attached garages.", "Install working carbon monoxide detectors on every level of your home. Carbon monoxide is a colorless, odorless gas that can kill you, your family and pets.", "Keep the generator dry and protected from rain or flooding. Touching a wet generator or devices connected to one can cause electrical shock.", "Always connect the generator to appliances with heavy-duty extension cords.", "Let the generator cool before refueling. Fuel spilled on hot engine parts can ignite.", "Follow manufacturer’s instructions carefully."],
-    "edition": "Page last updated 06/04/2026",
-    "id": "power_out-3",
     "url": "https://www.ready.gov/power-outages",
-    "slug": "power-outages",
-    "year": 2026
+    "year": 2026,
+    "related": ["flood", "carbon_monoxide"],
+    "id": "power_out-3"
    },
    {
     "source": "ready",
     "heading": "Returning After A Power Outage",
     "locator": "Power outages",
-    "lines": ["When in doubt, throw it out! Throw away any food that has been exposed to temperatures 40 degrees or higher for two hours or more, or that has an unusual odor, color or texture.", "If the power is out for more than a day, discard any medication that should be refrigerated, unless the drug’s label says otherwise. Consult your doctor or pharmacist immediately for a new supply."],
+    "lines": [
+     "When in doubt, throw it out! Throw away any food that has been exposed to temperatures 40 degrees or higher for two hours or more, or that has an unusual odor, color or texture.",
+     "If the power is out for more than a day, discard any medication that should be refrigerated, unless the drug’s label says otherwise. Consult your doctor or pharmacist immediately for a new supply."
+    ],
     "edition": "Page last updated 06/04/2026",
-    "id": "power_out-4",
-    "url": "https://www.ready.gov/power-outages",
     "slug": "power-outages",
+    "url": "https://www.ready.gov/power-outages",
+    "year": 2026,
+    "related": ["flood", "carbon_monoxide"],
+    "id": "power_out-4"
+   }
+  ],
+  "carbon_monoxide": [
+   {
+    "source": "cdc_co",
+    "heading": "Symptoms",
+    "locator": "Symptoms",
+    "lines": [
+     "The most common symptoms of CO poisoning are headache, dizziness, weakness, upset stomach, vomiting, chest pain, and confusion. CO symptoms are often described as “flu-like.”",
+     "If you breathe in a lot of CO, it can make you pass out or kill you. People who are sleeping, drunk, or under the influence of other substances can die from CO poisoning before they have symptoms."
+    ],
+    "related": ["power_out"],
+    "id": "carbon_monoxide-1",
+    "url": "https://www.cdc.gov/carbon-monoxide/about/index.html",
+    "year": 2026
+   },
+   {
+    "source": "cdc_co",
+    "heading": "Portable generators",
+    "locator": "Reducing risk",
+    "lines": [
+     "Operate your generator outdoors more than 20 feet from windows, doors, and vents to avoid CO poisoning",
+     "Never use a generator inside your home or garage, even if doors and windows are open.",
+     "Only use generators outside, more than 20 feet away from any windows, doors, and vents.",
+     "When using a generator, use a battery-powered or battery backup CO detector in your home.",
+     "If you have a had a poisoning incident related to any generator..."
+    ],
+    "related": ["power_out"],
+    "id": "carbon_monoxide-2",
+    "url": "https://www.cdc.gov/carbon-monoxide/about/index.html",
+    "year": 2026
+   },
+   {
+    "source": "cdc_co",
+    "heading": "Chimneys, charcoal, and portable appliances",
+    "locator": "Reducing risk",
+    "lines": [
+     "Have your chimney checked or cleaned every year. Chimneys can be blocked by debris, which can cause CO to build up inside your home or cabin.",
+     "Never burn charcoal indoors. Burning charcoal - red, gray, black, or white - gives off CO.",
+     "Never use a portable gas camp stove indoors.",
+     "Do not use portable flameless chemical heaters indoors."
+    ],
+    "related": ["power_out"],
+    "id": "carbon_monoxide-3",
+    "url": "https://www.cdc.gov/carbon-monoxide/about/index.html",
     "year": 2026
    }
   ]

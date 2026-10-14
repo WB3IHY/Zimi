@@ -501,12 +501,13 @@ def _search_answer(result, filter_zim, fast):
     return dict(result, incomplete=gaps) if gaps else result
 
 
-def _fieldguide_hint(query):
-    """The Field Guide's hint for a typed query, or None. Never fails a search."""
+def _fieldguide_hint(query, lang="en"):
+    """The Field Guide's hint for a typed query in the reader's language (and
+    English), or None. Never fails a search."""
     try:
         from zimi import fieldguide
 
-        return fieldguide.hint(query)
+        return fieldguide.hint(query, lang)
     except Exception:
         log.exception("field guide hint failed")
         return None
@@ -2360,7 +2361,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                 # Typed words that name a situation: the Field Guide's hint,
                 # in memory (see fieldguide.hint); not for a search inside
                 # one ZIM, which is not asking for help.
-                guide = _fieldguide_hint(q) if filter_zim is None else None
+                guide = _fieldguide_hint(q, param("ui") or "en") if filter_zim is None else None
                 if param("stream") == "1":
                     return self._search_stream(run, guide)
                 result = run(fast)
@@ -2782,7 +2783,11 @@ class ZimHandler(BaseHTTPRequestHandler):
                 if sub == "library":
                     return self._json(200, _fg.library())
                 if sub == "match":
-                    return self._json(200, {"id": _fg.match(param("q") or "")})
+                    got = _fg.lookup(param("q") or "", param("ui") or "en")
+                    return self._json(
+                        200,
+                        {"id": got[0] if got else None, "kind": got[1] if got else None},
+                    )
                 return self._json(404, {"error": "not found"})
             elif parsed.path == "/books" or parsed.path.startswith("/books/"):
                 # Bookshelf: every Project Gutenberg ZIM in the library, as one shelf.
