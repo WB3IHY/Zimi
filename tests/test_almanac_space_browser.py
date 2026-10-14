@@ -499,7 +499,9 @@ def test_without_webgl_there_are_no_empty_pills_and_the_orrery_is_named(
 ):
     ctx, pg, seen, errors = _page(browser, served)
     try:
-        pg.evaluate("() => { HTMLCanvasElement.prototype.getContext = () => null; }")
+        pg.evaluate(
+            "() => { const o = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (t, ...a) { return /webgl/.test(t) ? null : o.call(this, t, ...a); }; }"
+        )
         pg.evaluate("_almOpenSpace()")
         pg.wait_for_function(
             "() => typeof _sp !== 'undefined' && _sp && document.getElementById('sp-msg').textContent.includes('orrery')",
