@@ -331,6 +331,20 @@ check(run('_sgLimitMag(_sgSkyLum(60, -90, 0, 0, 0.003))') > 0 && run('_sgLimitMa
   const darkUntil = Date.parse('2026-10-13T19:07:00Z');
   check(run('_skyRoundMs(' + (darkUntil + 7 * 60000) + ', true, 1)') >= darkUntil + 7 * 60000, 'dark until rounds up');
 }
+// ── Names on the look-around sky ──
+{
+  const plan = (bodies) => { S.__s = { dpr: 2, W: 780, H: 1688, bodies: bodies }; return run('_skyLabelPlan(__s, (t) => t.length * 14)'); };
+  const body = (type, x, y, extra) => Object.assign({ type: type, x: x, y: y, r: 6, mag: 0 }, extra || {});
+  let p = plan([body('sun', 100, 300), body('moon', 200, 500), body('planet', 150, 420, { name: 'Mars', mag: 1 }), body('star', 300, 600, { idx: 41, mag: -1.4 }), body('star', 50, 700, { idx: -1, mag: 1 }), body('star', 120, 900, { idx: 50, mag: 5 })]);
+  const names = p.map((l) => l.text);
+  check(names.some((n) => /alm_sun/.test(n)) && names.some((n) => /alm_the_moon/.test(n)) && names.includes('Mars') && names.includes('Sirius'), 'the Sun, the Moon, a planet and a bright named star are named (' + names.join(', ') + ')');
+  check(!names.includes('Vega') && names.length === 4, 'a faint star and an unnamed one are not');
+  check(p.every((l) => l.box.x0 >= 16 && l.box.x1 <= 780 - 16), 'every label stays inside the screen');
+  p = plan([body('planet', 190, 400, { name: 'Venus', mag: -4 }), body('planet', 192, 405, { name: 'Jupiter', mag: -2 })]);
+  check(p.length >= 1 && (p.length === 1 || !(p[0].box.x0 < p[1].box.x1 && p[0].box.x1 > p[1].box.x0 && p[0].box.y0 < p[1].box.y1 && p[0].box.y1 > p[1].box.y0)), 'two bodies close together do not have their names on top of each other');
+  p = plan([body('planet', 192, 20, { name: 'Venus', mag: -4 }), body('planet', 385, 600, { name: 'Saturn', mag: 0.5 })]);
+  check(p.length === 1 && /Saturn/.test(p[0].text) && p[0].box.x1 <= 780 - 16, 'under the readout there is none, and one near the right edge goes to the left of its dot');
+}
 // ── The rows: bearings, and a guess says so in the row ──
 {
   const rowsOf = (stored) => {

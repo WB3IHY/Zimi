@@ -178,8 +178,25 @@ def _context(browser, mode="ios"):
     return ctx
 
 
-def _look(browser, served, mode="ios"):
+NEAR = {
+    "articles": [
+        {"title": "Oakland, California", "zim": "wikipedia_en_cities", "path": "A/Oakland", "km": 3.4}
+    ],
+    "guides": [],
+}
+
+
+def _look(browser, served, mode="ios", init=None):
     ctx = _context(browser, mode)
+    if init:
+        ctx.add_init_script(init)
+    # The library under the test server has places only around Paris and Sydney.
+    ctx.route(
+        "**/earth/near*",
+        lambda r: r.fulfill(
+            status=200, content_type="application/json", body=json.dumps(NEAR)
+        ),
+    )
     pg = ctx.new_page()
     errors = []
     pg.on("pageerror", lambda e: errors.append(str(e)))
@@ -745,5 +762,172 @@ def test_earth_look_up_then_closing_the_almanac_leaves_earth_properly_open(
         _look_up_from_a_place(pg)
         pg.evaluate("() => closeAlmanac()")
         _earth_is_back(pg)
+    finally:
+        ctx.close()
+
+
+def _look_down(pg):
+    _tap(pg, "#look-ask")
+    _fire(pg, 33, 45, 0, 180)
+    pg.wait_for_function(
+        "() => !document.getElementById('look-under').hidden",
+        polling=POLL_MS,
+        timeout=20000,
+    )
+
+
+def _rgb(css):
+    return [int(float(v)) for v in css[css.index("(") + 1 : css.index(")")].split(",")[:3]]
+
+
+def _is_red(css):
+    r, g, b = _rgb(css)
+    return r > 0 and g * 2 <= r and b * 2 <= r
+
+
+def test_looking_down_names_what_is_under_you(browser, served):
+    ctx, pg, errors = _look(browser, served, "ios")
+    try:
+        _look_down(pg)
+        pg.wait_for_function(
+            "() => !document.getElementById('look-under-read').hidden", polling=POLL_MS
+        )
+        assert "San Francisco" in pg.inner_text("#look-under-name")
+        assert "Oakland, California" in pg.inner_text("#look-under-read")
+        assert "3.4 km" in pg.inner_text("#look-under-read")
+        assert _hit(pg, "#look-under-read")
+        # Zimi Earth stays, but is not the loudest thing on the screen.
+        bg = pg.evaluate(
+            "() => getComputedStyle(document.getElementById('look-earth')).backgroundColor"
+        )
+        assert bg != "rgb(224, 134, 58)"
+        _spy_open(pg)
+        x, y = _centre(pg, "#look-under-read")
+        pg.touchscreen.tap(x, y)
+        pg.wait_for_function("() => window.__opened.length === 1", polling=POLL_MS)
+        assert pg.evaluate("() => window.__opened[0]") == [
+            "wikipedia_en_cities",
+            "A/Oakland",
+        ]
+        assert pg.query_selector("#almanac-look") is None
+        assert not errors
+    finally:
+        ctx.close()
+
+
+def test_looking_down_without_webgl_says_what_is_there_and_leads_nowhere(
+    browser, served
+):
+    nogl = browser.browser_type.launch(
+        args=["--disable-gpu", "--disable-webgl", "--disable-webgl2", "--disable-3d-apis"]
+    )
+    try:
+        ctx, pg, errors = _look(nogl, served, "ios")
+        assert pg.evaluate("() => !document.createElement('canvas').getContext('webgl2')")
+        _look_down(pg)
+        pg.wait_for_function(
+            "() => !document.getElementById('look-under-read').hidden", polling=POLL_MS
+        )
+        assert "San Francisco" in pg.inner_text("#look-under-name")
+        assert pg.evaluate("() => document.getElementById('look-earth').hidden")
+        assert _globe_opacity(pg) == 0
+        assert not errors
+        ctx.close()
+    finally:
+        nogl.close()
+
+
+def test_red_night_paints_the_look_view_red(browser, served):
+    ctx, pg, _ = _look(
+        browser, served, "ios", "localStorage.setItem('zimi.night', 'red')"
+    )
+    try:
+        _look_down(pg)
+        pg.wait_for_function(
+            "() => !document.getElementById('look-under-read').hidden", polling=POLL_MS
+        )
+        css = pg.evaluate(
+            "() => { const c = (s, p) => getComputedStyle(document.querySelector(s))[p];"
+            " return { you: c('.look-you', 'backgroundColor'), close: c('#look-close', 'color'),"
+            " name: c('#look-under-name', 'color'), read: c('#look-under-read', 'color'),"
+            " ask: c('#look-ask', 'backgroundColor'), read_: c('#look-read', 'color') }; }"
+        )
+        for k, v in css.items():
+            assert _is_red(v), (k, v)
+    finally:
+        ctx.close()
+
+
+def test_the_point_of_the_compass_is_in_the_persons_language(browser, served):
+    ctx, pg, _ = _look(
+        browser, served, "ios", "localStorage.setItem('zimi_ui_lang', 'de')"
+    )
+    try:
+        _tap(pg, "#look-ask")
+        _fire(pg, 33, 90, 0, 90)
+        assert _reads(pg, "O 90").startswith("O 90"), _reading(pg)
+    finally:
+        ctx.close()
+
+
+def test_the_sensor_note_is_let_go_after_a_finger_has_turned_the_view(browser, served):
+    ctx, pg, _ = _look(browser, served, "none")
+    try:
+        pg.wait_for_function(
+            "() => !document.getElementById('look-note').hidden", polling=POLL_MS
+        )
+        assert not pg.evaluate("() => document.getElementById('look-note').classList.contains('gone')")
+        pg.mouse.move(195, 400)
+        pg.mouse.down()
+        pg.mouse.move(250, 400, steps=4)
+        pg.mouse.up()
+        assert pg.evaluate("() => document.getElementById('look-note').classList.contains('gone')")
+    finally:
+        ctx.close()
+
+
+def test_a_link_that_names_a_place_does_not_give_the_first_visit_hint(browser, served):
+    ctx, pg, f, _ = _earth(browser, served, "#earth/48.8567,2.3522,0.012")
+    try:
+        _earth_dots(pg)
+        assert f.evaluate("() => document.getElementById('hint').hidden")
+    finally:
+        ctx.close()
+    ctx, pg, f, _ = _earth(browser, served)
+    try:
+        # A first visit with no place named still says how to turn the globe.
+        assert not f.evaluate("() => document.getElementById('hint').hidden")
+    finally:
+        ctx.close()
+
+
+def test_place_labels_stay_inside_the_screen(browser, served):
+    ctx, pg, f, _ = _earth(browser, served, "#earth/48.8567,2.3522,0.012")
+    try:
+        _earth_dots(pg)
+        for dlon in (-0.05, -0.02, 0.0, 0.02, 0.05):
+            f.evaluate(
+                "(d) => window.__earth.set({lat: 48.8567, lon: 2.3522 + d, alt: 0.012}, 0)", dlon
+            )
+            pg.wait_for_timeout(500)
+            out = f.evaluate(
+                "() => Array.from(document.querySelectorAll('.dot span')).filter((s) => s.style.display !== 'none' && s.parentElement.style.display !== 'none')"
+                ".map((s) => { const r = s.getBoundingClientRect(); return [r.left, r.right]; })"
+            )
+            for left, right in out:
+                assert left >= 0 and right <= VIEW["width"], (dlon, left, right)
+    finally:
+        ctx.close()
+
+
+def test_show_where_i_am_explains_itself_when_location_is_off(browser, served):
+    ctx, pg, f, _ = _earth(browser, served)
+    try:
+        f.evaluate("() => document.getElementById('t-me').click()")
+        pg.wait_for_function(
+            "() => { const s = document.getElementById('reader-frame').contentDocument.getElementById('status'); return !s.hidden && s.textContent.indexOf('location is off') >= 0; }",
+            polling=POLL_MS,
+            timeout=20000,
+        )
     finally:
         ctx.close()

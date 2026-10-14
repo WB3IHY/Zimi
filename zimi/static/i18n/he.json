@@ -3308,5 +3308,6 @@
   "zim_unreadable_permission": "לא ניתן לפתוח: ל-Zimi אין הרשאה לקרוא אותו",
   "zim_unreadable_corrupt": "לא ניתן לפתוח: הקובץ נראה פגום או שעדיין מגיע",
   "zim_also_in": "גם ב-{label}",
-  "alm_sky_f_pole_unknown": "לא ידוע עד שתגדיר את מיקומך"
+  "alm_sky_f_pole_unknown": "לא ידוע עד שתגדיר את מיקומך",
+  "earth_locate_off": "Zimi לא יכול לראות איפה אתה: המיקום כבוי עבורו. אפשר אותו בדפדפן או קבע את המקום שלך באלמנך."
 }

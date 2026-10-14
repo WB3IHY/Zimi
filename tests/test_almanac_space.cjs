@@ -457,5 +457,21 @@ const C_AU_DAY = 299792.458 * 86400 / 149597870.7;
   for (const k of ['voyager1', 'voyager2', 'pioneer10', 'pioneer11', 'newhorizons', 'parker', 'juno', 'jwst']) check(!!tracksJson.tracks[k], k + ' is shipped');
 }
 
+// ── Opening the flown view ──
+{
+  const r = vm.runInContext(`
+    _spIsOpen = false; _spEnsure = function () { return true; };
+    _sp = { el: { classList: { add: function () {} } }, cam: {}, layout: 0 };
+    _aePauseAlmanac = function () {}; _aeAdoptOrreryClock = function () {}; _aeDisplayMs = function () { return 0; };
+    _aeById = function () { return { focus: function () {} }; }; _spMessage = function () {};
+    _spPrepare = function () { return { then: function () {} }; }; _aeCoverAlmanac = function () {};
+    var __retry = 0, __release = 0;
+    _sgRetryLoads = function () { __retry++; }; _aeRelease = function () { __release++; }; _aeIsOpen = false;
+    openAlmanacSpace();
+    [__retry, __release]`, S);
+  check(r[0] === 1, 'opening the flown view asks again for the stars that failed to load');
+  check(r[1] === 1, 'and gives back the 3D Earth\'s GPU memory, which it covers');
+}
+
 if (failures) { console.error(failures + ' check(s) failed'); process.exit(1); }
 console.log('all checks passed');

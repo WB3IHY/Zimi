@@ -3308,5 +3308,6 @@
   "zim_unreadable_permission": "No se puede abrir: Zimi no tiene permiso para leerlo",
   "zim_unreadable_corrupt": "No se puede abrir: el archivo parece dañado o aún está llegando",
   "zim_also_in": "También en {label}",
-  "alm_sky_f_pole_unknown": "Se sabrá cuando fijes tu lugar"
+  "alm_sky_f_pole_unknown": "Se sabrá cuando fijes tu lugar",
+  "earth_locate_off": "Zimi no puede ver dónde estás: la ubicación está desactivada para él. Permítela en tu navegador o fija tu lugar en el Almanaque."
 }
