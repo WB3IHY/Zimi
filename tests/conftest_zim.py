@@ -199,6 +199,18 @@ ANSWER_ARTICLES = {
         "<p>The Danube is the second-longest river in Europe. It flows "
         "through ten countries before reaching the Black Sea.</p>",
     ),
+    # Long enough that the sentence is far below the fold: opening it must scroll.
+    "Tides": (
+        "Tides",
+        "".join(
+            "<p>Harbours keep tables of the hours. Sailors have read the sea "
+            "for centuries, paragraph %d of the old almanac.</p>" % i
+            for i in range(60)
+        )
+        + "<p>Tides are caused by the gravity of the Moon and the Sun acting "
+        "on the oceans.</p>"
+        + "".join("<p>Closing remarks %d about harbours and boats.</p>" % i for i in range(30)),
+    ),
     "Mona_Lisa_de": (
         "Mona Lisa (Gemälde)",
         "<p>Die Mona Lisa ist ein Gemälde, das Leonardo da Vinci gemalt hat. "

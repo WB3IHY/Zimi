@@ -520,6 +520,19 @@ def _readable_hits(results, kinds):
     return out
 
 
+def lead_text(text, title):
+    """An article's first passage without the title said over again at its
+    head (the page's <title> and its heading come out as the same words in
+    front of the first paragraph), keeping the one a sentence may begin with."""
+    low, t = text.lower(), title.lower().strip()
+    if not t:
+        return text
+    while low.startswith(t) and low[len(t) :].lstrip().startswith(t):
+        text = text[len(t) :].lstrip()
+        low = text.lower()
+    return text
+
+
 def best_answer(q, hits, read_chunks, kinds=None, budget=BUDGET_SECONDS):
     """The card for `q`, or {"answer": None}.
 
@@ -547,7 +560,9 @@ def best_answer(q, hits, read_chunks, kinds=None, budget=BUDGET_SECONDS):
                     "zim": hit["zim"],
                     "path": hit["path"],
                     "title": hit.get("title") or hit["path"],
-                    "text": c["text"],
+                    "text": lead_text(c["text"], hit.get("title") or "")
+                    if c["seq"] == 0
+                    else c["text"],
                     "seq": c["seq"],
                     "rank": rank,
                 }

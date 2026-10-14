@@ -207,6 +207,20 @@ class TestRanking(unittest.TestCase):
         self.assertTrue(a["after"].endswith("…"))
 
 
+class TestLeadText(unittest.TestCase):
+    def test_the_title_said_twice_before_the_first_sentence_is_dropped_once(self):
+        got = ba.lead_text(
+            "Water purification Water purification Water purification is the process.",
+            "Water purification",
+        )
+        self.assertEqual(got, "Water purification is the process.")
+
+    def test_a_sentence_that_begins_with_the_title_keeps_it(self):
+        text = "Water purification is the process."
+        self.assertEqual(ba.lead_text(text, "Water purification"), text)
+        self.assertEqual(ba.lead_text(text, ""), text)
+
+
 class TestContentQuery(unittest.TestCase):
     def test_function_and_question_words_go_the_content_words_stay_as_typed(self):
         self.assertEqual(ba.content_query("how to purify water"), "purify water")
