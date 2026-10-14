@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Search over a question shows the passage that answers it above the results, the answering sentence marked inside it and its source named; a tap opens the article with that sentence found and marked. It is the library's own text, nothing generated, and it comes from its own request after the results (`GET /bestanswer`).
+
 ## [1.13.3] - 2026-10-12
 
 ### Added
