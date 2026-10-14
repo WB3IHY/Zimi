@@ -4051,14 +4051,48 @@
 .cr-ver:hover, .cr-ver:focus-visible { color: var(--amber); border-bottom-color: var(--amber); }
 .cr-detail { margin: -4px 0 8px; font-size: 12px; text-align: end; }
 
-/* Red night light (app.js _nightApply): deep red on black, so the phone costs no night vision. */
-:root.night-red { --bg: #000; --surface: #0d0000; --surface2: #160000; --border: #3a0a0a; --border-strong: #5a1010; --text: #e03030; --text2: #a02020;
-  --text3: #881a1a; --text-dim: #881a1a; --amber: #ff4040; --amber2: #d03030; --on-amber: #000; --amber-glow: rgba(255,64,64,0.14); --amber-border: rgba(255,64,64,0.3);
-  --topbar-bg: rgba(0,0,0,0.92); --card-bg: #0d0000; --success: #c03030; --success-strong: #d04040; --error: #ff6060; color-scheme: dark; }
+/* Red night light (app.js _nightApply): deep red on black, so the phone costs no night vision.
+   Every tier of text is at least 4.5:1 on every surface; pictures (logo, moon, covers) are
+   turned to red monochrome so no other colour is left on the screen. */
+:root.night-red { --bg: #000; --surface: #0d0000; --surface2: #160000; --border: #5a1414; --border-strong: #7a1c1c; --text: #ff5a5a; --text2: #f03030;
+  --text3: #f03030; --text-dim: #f03030; --accent: #ff5a5a; --amber: #ff4040; --amber2: #f03030; --on-amber: #000; --amber-glow: rgba(255,64,64,0.16); --amber-border: rgba(255,64,64,0.4);
+  --hover: rgba(255,64,64,0.1); --topbar-bg: rgba(0,0,0,0.92); --card-bg: #0d0000; --success: #f03030; --success-strong: #ff5a5a; --error: #ff6a6a; --green: #f03030; color-scheme: dark; }
+:root.night-red img, :root.night-red canvas, :root.night-red video {
+  filter: grayscale(1) sepia(1) hue-rotate(-42deg) saturate(10) brightness(.9); filter: url(#night-red-filter); }
+:root.night-red .dc-today { filter: url(#night-red-filter); }
+:root.night-red .dc-today img { filter: none; }
+/* Quiet things stay readable: no 30% stars or faded close marks at night. */
+:root.night-red .dc-dismiss, :root.night-red .star-btn, :root.night-red .cat-heading-other { opacity: 1; }
+:root.night-red #reader-frame { background: #000; }
+.night-btn { display: none; align-items: center; justify-content: center; flex-shrink: 0; width: 36px; height: 28px; padding: 0; color: var(--text2); background: none; border: 1px solid transparent; border-radius: var(--radius); cursor: pointer; }
+.night-btn:hover, .night-btn:focus-visible { color: var(--amber); outline: none; }
+.night-btn[aria-pressed="true"] { color: var(--amber); border-color: var(--amber-border); }
+:root.night-red .topbar .logo, :root.night-red .cat-heading, :root.night-red .footer .footer-brand, :root.night-red .desktop-card h2 {
+  background: none; -webkit-text-fill-color: var(--amber); color: var(--amber); }
 
-/* Home's one quiet line to the Field Guide (app.js _helpNowHtml), and its card above search results. */
-.help-now-row { display: flex; justify-content: flex-end; margin: -6px 0 2px; }
-.help-now { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; color: var(--text2); font-size: 13px; text-decoration: none; }
-.help-now:hover, .help-now:focus-visible { color: var(--amber); outline: none; }
+/* Home's entry to the Field Guide (app.js _helpNowHtml): a plain button anyone can find when it counts. */
+.help-now-row { display: flex; justify-content: flex-end; margin: 0 0 8px; }
+.help-now { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 1px solid var(--amber-border); border-radius: 22px; background: var(--amber-glow); color: var(--text); font-size: 14px; font-weight: 600; text-decoration: none; }
+.help-now:hover, .help-now:focus-visible { border-color: var(--amber); color: var(--amber); outline: none; }
+.help-now svg { flex: none; color: var(--amber); }
+/* The same entry on the first-run and sign-in screens, where nothing else is reachable. */
+.gate-help { margin: 14px 0 0; text-align: center; }
+.help-now-gate { background: none; }
+
+/* Field Guide sheets (app.js _fieldguidePrint): black on white, small, in two columns for the whole set. */
+@media print {
+  #zimi-print-root .fg-sheet-root { color: #000; background: #fff; font: 10pt/1.4 Georgia, "Times New Roman", serif; padding: 0 4mm; }
+  #zimi-print-root .fg-sheet h1 { margin: 0 0 2pt; font-size: 18pt; }
+  #zimi-print-root .fg-sheet .fg-disc { margin: 0 0 8pt; font-size: 9pt; color: #000; }
+  #zimi-print-root .fg-sheet h2 { margin: 10pt 0 4pt; font-size: 13pt; break-after: avoid; }
+  #zimi-print-root .fg-sheet-all { column-count: 2; column-gap: 8mm; font-size: 9pt; }
+  #zimi-print-root .fg-sheet-sit { break-inside: auto; }
+  #zimi-print-root .fg-q { margin: 0 0 6pt; padding: 5pt 7pt; border: 1px solid #000; border-radius: 0; background: #fff; color: #000; break-inside: avoid; }
+  #zimi-print-root .fg-q h3 { font-size: 10.5pt; }
+  #zimi-print-root .fg-body p, #zimi-print-root .fg-body li { margin: 0 0 3pt; font-size: inherit; line-height: 1.35; }
+  #zimi-print-root .fg-body .fg-callout { background: none; border-inline-start-color: #000; }
+  #zimi-print-root .fg-foot { font-size: 8pt; }
+}
+
 #fg-answer { max-width: 760px; margin: 0 auto 12px; padding: 0 16px; }
 #fg-answer .fg-answer { margin: 0; }

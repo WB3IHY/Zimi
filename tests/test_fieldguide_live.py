@@ -140,7 +140,7 @@ def test_help_now_is_on_home_even_with_nothing_installed_and_opens_the_situation
     names = f.eval_on_selector_all(
         ".fg-sit .name", "els => els.map(e => e.textContent)"
     )
-    assert names[:3] == ["Bleeding", "Choking", "Not breathing"] and len(names) == 17
+    assert names[:3] == ["Calling for help", "Bleeding", "Not breathing"] and len(names) == 24
     assert f.inner_text("#t-disc") == fg.DISCLAIMER
     # Every row is one finger tall and the page does not scroll sideways.
     heights = f.eval_on_selector_all(
@@ -162,25 +162,36 @@ def test_a_situation_works_with_no_zim_at_all_and_says_where_each_quote_is_from(
     assert f.inner_text("#c-title") == "Bleeding"
     assert f.inner_text("#c-disc") == fg.DISCLAIMER
     quotes = f.query_selector_all(".fg-q")
-    assert len(quotes) == 5
+    assert len(quotes) == 4
     # One chip per quotation, by the source's own heading, so a long one is a tap away.
     chips = f.eval_on_selector_all(
         "#c-jump .chip", "els => els.map(e => e.textContent)"
     )
-    assert chips[0] == "Massive Hemorrhage" and "Apply a Tourniquet" in chips
-    f.click("#c-jump .chip:nth-child(4)")
+    assert chips[0] == "Application of Direct Pressure"
+    assert "Application of Tourniquets" in chips
+    f.click("#c-jump .chip:nth-child(2)")
     phone.wait_for_timeout(900)
     assert f.evaluate("window.scrollY") > 300
     text = f.inner_text("#c-quotes")
-    assert "Twist the windlass until the bleeding stops." in text
-    assert "Chapter 6, para 6-7, p. 6-2" in text
+    assert "Twist the rod until bleeding has stopped" in text
+    assert "Chapter 4, paras 4-39 to 4-41, pp. 48 and 49" in text
     assert "US government work, public domain" in text
     assert f.eval_on_selector_all(
         ".fg-q .fg-foot a", "els => els.every(a => a.href.startsWith('https://'))"
     )
-    # Not installed: what would add the full text, with its size.
-    assert "Add Army Publishing Directorate (8.2 GB) for the full text" in text
-    assert f.query_selector("[data-act=build]") is not None
+    # Not installed: one block for the situation says what would add the full text.
+    lib = f.inner_text("#c-lib")
+    assert "Your library" in lib
+    assert "Add Army Publishing Directorate (8.2 GB) for the full text" in lib
+    assert f.query_selector_all(".fg-q [data-act=get]") == []
+    assert len(f.query_selector_all("#c-lib [data-act=get]")) == 1
+    # Offline: nothing is built from here, so Build is not offered.
+    assert f.query_selector("[data-act=build]") is None
+    # Every tap target is a finger tall.
+    short = f.evaluate(
+        "Array.from(document.querySelectorAll('.fg-btn, #c-jump .chip, .fg-foot a, .fg-print')).filter(e => e.getBoundingClientRect().height < 43.5).length"
+    )
+    assert short == 0
     assert f.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     _shot(phone, "empty-bleeding")
     assert phone.errors == []
@@ -214,6 +225,8 @@ def test_search_puts_the_situation_above_the_results(full, phone):
     assert top[0] < top[1], "the card is above the results"
     assert phone.inner_text("#fg-answer h3") == "Bleeding"
     assert "Not medical advice" in phone.inner_text("#fg-answer")
+    assert "application of direct pressure" in phone.inner_text("#fg-answer").lower()
+    assert phone.query_selector("#fg-answer .fg-foot a") is not None
     _shot(phone, "full-search")
     phone.click("#fg-answer [data-act=situation]")
     f = _frame(phone)
@@ -227,22 +240,140 @@ def test_search_puts_the_situation_above_the_results(full, phone):
     assert phone.query_selector("#fg-answer") is None
 
 
+def _search(pg, text):
+    pg.fill(".topbar input", text)
+    pg.keyboard.press("Enter")
+    pg.wait_for_timeout(2500)
+
+
+def test_the_answer_goes_when_search_is_left(full, phone):
+    _open(phone, full)
+    _search(phone, "tourniquet")
+    phone.wait_for_selector("#fg-answer .fg-q", timeout=20000)
+    phone.evaluate("goHome()")
+    phone.wait_for_timeout(600)
+    assert phone.query_selector("#fg-answer") is None
+    _search(phone, "tourniquet")
+    phone.wait_for_selector("#fg-answer .fg-q", timeout=20000)
+    phone.evaluate("renderHome()")
+    assert phone.query_selector("#fg-answer") is None
+    _search(phone, "tourniquet")
+    phone.wait_for_selector("#fg-answer .fg-q", timeout=20000)
+    phone.evaluate("void enterManage()")
+    phone.wait_for_timeout(800)
+    assert phone.query_selector("#fg-answer") is None
+
+
+def test_no_answer_when_searching_inside_one_zim(full, phone):
+    _open(phone, full)
+    _search(phone, "tourniquet")
+    phone.wait_for_selector("#fg-answer .fg-q", timeout=20000)
+    # The guide's own "Search X for ..." links search one ZIM.
+    phone.evaluate("_searchInZim('wikipedia_en_top', 'tourniquet')")
+    phone.wait_for_timeout(2500)
+    assert phone.query_selector("#fg-answer") is None
+    assert phone.query_selector(".help-now") is None
+
+
+def test_a_bare_ambiguous_word_is_a_small_link_never_the_quote(full, phone):
+    _open(phone, full)
+    _search(phone, "water")
+    link = phone.wait_for_selector("#fg-answer .help-now")
+    assert link.inner_text().strip() == "Help now: Water"
+    assert phone.query_selector("#fg-answer .fg-q") is None
+    assert link.bounding_box()["height"] >= 44
+    link.click()
+    f = _frame(phone)
+    f.wait_for_selector(".fg-q")
+    assert f.inner_text("#c-title") == "Water"
+
+
+def test_a_sentence_names_the_situation_and_no_results_is_never_under_a_card(
+    full, phone
+):
+    _open(phone, full)
+    _search(phone, "my friend is bleeding")
+    phone.wait_for_selector("#fg-answer .fg-q", timeout=20000)
+    assert phone.inner_text("#fg-answer h3") == "Bleeding"
+    assert "No results found" not in phone.inner_text("#output")
+    assert "No results found" not in phone.inner_text("body")
+    _search(phone, "which way is south")
+    phone.wait_for_selector("#fg-answer .fg-q", timeout=20000)
+    assert phone.inner_text("#fg-answer h3") == "Lost"
+    # A tall passage is folded in the answer and whole behind Show all.
+    assert phone.is_visible("#fg-answer [data-act=more]")
+    phone.click("#fg-answer [data-act=more]")
+    assert phone.evaluate(
+        "document.querySelector('#fg-answer .fg-body').scrollHeight <= document.querySelector('#fg-answer .fg-body').clientHeight + 2"
+    )
+
+
+def test_normal_searches_get_no_card_and_no_link(full, phone):
+    _open(phone, full)
+    for text in ("signal processing", "generator docs", "sed", "water cycle"):
+        _search(phone, text)
+        assert phone.query_selector("#fg-answer") is None, text
+
+
+def test_the_guide_page_alone_may_ask_the_shell_to_search(full, phone):
+    _open(phone, full, "#fieldguide")
+    f = _frame(phone)
+    f.wait_for_selector(".fg-sit")
+    # The shell's own window is not the Field Guide page: refused.
+    phone.evaluate(
+        "window.postMessage({ zimi: 'search-in', zim: 'wikipedia_en_top', q: 'tourniquet' }, location.origin)"
+    )
+    phone.wait_for_timeout(800)
+    assert "?q=" not in phone.url
+    f.evaluate(
+        "parent.postMessage({ zimi: 'search-in', zim: 'wikipedia_en_top', q: 'tourniquet' }, location.origin)"
+    )
+    phone.wait_for_function("location.href.indexOf('q=tourniquet') >= 0", timeout=15000)
+
+
 def test_an_installed_zim_is_the_way_to_the_full_section_and_lists_its_pages(
     full, phone
 ):
     _open(phone, full, "#fieldguide/flood")
     f = _frame(phone)
     f.wait_for_selector(".fg-q")
-    lib = f.inner_text(".fg-q .fg-lib")
+    lib = f.inner_text("#c-lib")
     assert "In your library: Ready.gov" in lib and "Read the full section" in lib
+    assert f.query_selector(".fg-q .fg-lib") is None, "no prompt under each quote"
     f.evaluate("window.scrollTo(0, 99999)")
     assert "Floods | Ready.gov" in f.inner_text("#c-more")
     _shot(phone, "full-flood")
-    f.click(".fg-q .fg-btn[data-act=open]")
+    f.click("#c-lib .fg-btn[data-act=open]")
     phone.wait_for_timeout(1500)
     assert (
         "/w/www.ready.gov/www.ready.gov/floods" in phone.url or "ready.gov" in phone.url
     )
+
+
+def test_a_big_download_asks_inside_the_page_not_with_a_dialog(full, phone):
+    asked = []
+    phone.on("dialog", lambda d: (asked.append(d.message), d.dismiss()))
+    _open(phone, full, "#fieldguide")
+    # The shell's download call, recorded instead of sent.
+    phone.evaluate(
+        "window.__posts = []; window.manageFetch = function(u, o) { window.__posts.push(u); return Promise.resolve(new Response('{\"started\": 1}', { status: 200 })); }; 0"
+    )
+    f = _frame(phone)
+    f.wait_for_selector(".fg-sit")
+    f.click("#t-library")
+    f.wait_for_selector("[data-all]")
+    f.click("[data-all=core]")
+    f.wait_for_selector(".fg-confirm")
+    assert "Download it?" in f.inner_text(".fg-confirm")
+    assert phone.evaluate("window.__posts") == [] and asked == []
+    f.click(".fg-confirm [data-no]")
+    assert f.query_selector(".fg-confirm") is None
+    assert phone.evaluate("window.__posts") == []
+    f.click("[data-all=core]")
+    f.click(".fg-confirm [data-yes]")
+    phone.wait_for_timeout(800)
+    assert phone.evaluate("window.__posts") == ["/manage/download-batch"]
+    assert asked == []
 
 
 def test_documents_in_a_library_are_listed_by_their_titles(full, phone):
@@ -271,7 +402,7 @@ def test_red_night_follows_the_one_shared_key(empty, phone):
     f = _frame(phone)
     f.wait_for_selector(".fg-sit")
     assert not f.evaluate("document.documentElement.classList.contains('night-red')")
-    f.check("#night")
+    f.check(".fg-tools .night-box")
     assert f.evaluate("localStorage.getItem('zimi.night')") == "red"
     assert f.evaluate("document.documentElement.classList.contains('night-red')")
     bg = f.evaluate("getComputedStyle(document.body).backgroundColor")
@@ -279,7 +410,7 @@ def test_red_night_follows_the_one_shared_key(empty, phone):
     _shot(phone, "empty-red")
     # The shell turns red with it, and the key written elsewhere is honoured here.
     assert phone.evaluate("document.documentElement.classList.contains('night-red')")
-    f.uncheck("#night")
+    f.uncheck(".fg-tools .night-box")
     assert f.evaluate("localStorage.getItem('zimi.night')") is None
     phone.evaluate("localStorage.setItem('zimi.night', 'red'); _nightApply()")
     assert phone.evaluate("document.documentElement.classList.contains('night-red')")
@@ -287,7 +418,7 @@ def test_red_night_follows_the_one_shared_key(empty, phone):
 
 
 def test_a_situation_prints_as_its_quotations_alone(empty, phone):
-    _open(phone, empty, "#fieldguide/choking")
+    _open(phone, empty, "#fieldguide/cold")
     f = _frame(phone)
     f.wait_for_selector(".fg-q")
     phone.emulate_media(media="print")
@@ -311,7 +442,179 @@ def test_a_situation_prints_as_its_quotations_alone(empty, phone):
         f.evaluate("getComputedStyle(document.querySelector('.fg-q')).breakInside")
         == "avoid"
     )
+    # The address of the original is on the paper, not only a link.
+    assert "https://" in f.evaluate(
+        "getComputedStyle(document.querySelector('.fg-foot a'), '::after').content"
+    )
     phone.emulate_media(media="screen")
+
+
+def _stub_print(phone):
+    phone.evaluate("window.__printed = 0; window.print = function() { window.__printed++; }; 0")
+
+
+def test_print_goes_through_the_shell_once_and_prints_the_card(empty, phone):
+    _open(phone, empty, "#fieldguide/cold")
+    f = _frame(phone)
+    f.wait_for_selector(".fg-q")
+    _stub_print(phone)
+    f.evaluate("window.__framePrints = 0; window.print = function() { window.__framePrints++; }; 0")
+    f.evaluate("document.getElementById('c-print').click(); document.getElementById('c-print').click()")
+    phone.wait_for_function("window.__printed >= 1", timeout=10000)
+    phone.wait_for_timeout(400)
+    assert phone.evaluate("window.__printed") == 1, "one tap, one print"
+    assert f.evaluate("window.__framePrints") == 0, "the sandboxed frame never prints"
+    root = phone.inner_text("#zimi-print-root")
+    assert "Hypothermia" in root and "Original" in root
+    assert phone.evaluate(
+        "document.querySelectorAll('#zimi-print-root .fg-q').length"
+    ) >= 3
+
+
+def test_print_all_is_every_situation_in_one_sheet(empty, phone):
+    _open(phone, empty, "#fieldguide")
+    f = _frame(phone)
+    f.wait_for_selector(".fg-sit")
+    _stub_print(phone)
+    f.click("#t-printall")
+    phone.wait_for_function("window.__printed >= 1", timeout=20000)
+    assert (
+        phone.evaluate("document.querySelectorAll('#zimi-print-root .fg-sheet-sit').length")
+        == 24
+    )
+    assert phone.evaluate(
+        "Array.from(document.querySelectorAll('#zimi-print-root a')).some(a => a.href.indexOf('https://www.ready.gov/') === 0)"
+    )
+    text = phone.evaluate("document.getElementById('zimi-print-root').textContent")
+    assert "Calling for help" in text and "Carbon monoxide" in text
+
+
+def test_the_sky_of_the_readers_hemisphere_leads(empty, phone):
+    _open(phone, empty)
+    phone.evaluate(
+        "localStorage.setItem('zimi_almanac_place', JSON.stringify({lat: -33.9, lon: 18.4, name: 'Cape Town'}))"
+    )
+    _open(phone, empty, "#fieldguide/lost")
+    f = _frame(phone)
+    f.wait_for_selector(".fg-q")
+    heads = f.eval_on_selector_all(".fg-q h3", "els => els.map(e => e.textContent)")
+    assert heads.index("Navigation with the Southern Cross") < heads.index("Northern Sky")
+    phone.evaluate(
+        "localStorage.setItem('zimi_almanac_place', JSON.stringify({lat: 51.5, lon: -0.1, name: 'London'}))"
+    )
+    _open(phone, empty, "#fieldguide/lost")
+    f = _frame(phone)
+    f.wait_for_selector(".fg-q")
+    heads = f.eval_on_selector_all(".fg-q h3", "els => els.map(e => e.textContent)")
+    assert heads.index("Northern Sky") < heads.index("Navigation with the Southern Cross")
+    phone.evaluate("localStorage.removeItem('zimi_almanac_place')")
+
+
+def test_a_superseded_source_says_so_on_its_quote(empty, phone):
+    _open(phone, empty, "#fieldguide/cold")
+    f = _frame(phone)
+    f.wait_for_selector(".fg-q")
+    assert "Superseded by ATP 4-02.11" in f.inner_text("#c-quotes")
+
+
+# ── red night, the whole shell ──────────────────────────────────────────────
+
+
+def _lum(rgb):
+    def ch(v):
+        v /= 255
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+
+    return 0.2126 * ch(rgb[0]) + 0.7152 * ch(rgb[1]) + 0.0722 * ch(rgb[2])
+
+
+def _contrast(a, b):
+    la, lb = sorted((_lum(a), _lum(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+def _rgb(text):
+    import re
+
+    return tuple(int(x) for x in re.findall(r"\d+", text)[:3])
+
+
+def test_red_night_text_is_readable_everywhere_the_guide_goes(empty, phone):
+    _open(phone, empty, "#fieldguide")
+    phone.evaluate("localStorage.setItem('zimi.night', 'red'); _nightApply()")
+    f = _frame(phone)
+    f.wait_for_selector(".fg-sit")
+    for sel in (".fg-disc", ".fg-group-h", ".fg-sit .mark"):
+        fg_c = _rgb(f.evaluate("s => getComputedStyle(document.querySelector(s)).color", sel))
+        bg_c = _rgb(f.evaluate("getComputedStyle(document.body).backgroundColor"))
+        assert _contrast(fg_c, bg_c) >= 4.5, sel
+    for var in ("--text", "--text2", "--text3"):
+        shell = _rgb(
+            phone.evaluate(
+                "v => { var d = document.createElement('div'); d.style.color = 'var(' + v + ')'; document.body.appendChild(d); var c = getComputedStyle(d).color; d.remove(); return c; }",
+                var,
+            )
+        )
+        for surface in ("#000000", "#0d0000", "#160000"):
+            rgb = tuple(int(surface[i : i + 2], 16) for i in (1, 3, 5))
+            assert _contrast(shell, rgb) >= 4.5, (var, surface)
+    phone.evaluate("localStorage.removeItem('zimi.night')")
+
+
+def test_the_switch_is_in_the_header_and_in_the_card_while_the_guide_is_open(
+    empty, phone
+):
+    _open(phone, empty)
+    assert not phone.is_visible("#night-btn")
+    _open(phone, empty, "#fieldguide/cold")
+    f = _frame(phone)
+    f.wait_for_selector(".fg-q")
+    assert phone.is_visible("#night-btn")
+    assert f.is_visible("#card .night-box")
+    phone.click("#night-btn")
+    assert phone.evaluate("document.documentElement.classList.contains('night-red')")
+    phone.wait_for_timeout(300)
+    assert f.evaluate("document.documentElement.classList.contains('night-red')")
+    assert f.is_checked("#card .night-box")
+    phone.click("#night-btn")
+    assert not phone.evaluate("document.documentElement.classList.contains('night-red')")
+
+
+def test_an_app_page_is_stamped_red_in_the_head_before_it_paints(empty, phone):
+    html = phone.request.get(empty + "/static/fieldguide.html").text()
+    assert "zimi.night" in html[: html.index("<body")], "stamped in the head"
+    assert html.index("zimi.night") < html.index("<style>")
+
+
+def test_the_whole_shell_is_red_at_night(empty, phone):
+    pil = pytest.importorskip("PIL.Image")
+    import io
+
+    _open(phone, empty)
+    phone.evaluate("localStorage.setItem('zimi.night', 'red'); _nightApply()")
+    phone.wait_for_timeout(1200)
+    img = pil.open(io.BytesIO(phone.screenshot())).convert("RGB")
+    px = list(img.getdata())
+    bad = sum(1 for (r, g, b) in px if max(g, b) > 100 and max(g, b) > 0.5 * r)
+    assert bad / len(px) < 0.004, "no logo, moon card or icon left in colour"
+    phone.evaluate("localStorage.removeItem('zimi.night')")
+
+
+# ── first run ───────────────────────────────────────────────────────────────
+
+
+def test_help_now_is_reachable_from_the_first_run_and_sign_in_screens(empty, phone):
+    _open(phone, empty)
+    phone.evaluate("_openSetup({ inside: true })")
+    link = phone.wait_for_selector("#setup-card .help-now-gate")
+    assert "Help now" in link.inner_text() and link.bounding_box()["height"] >= 44
+    link.click()
+    phone.wait_for_selector(".fg-sit", timeout=15000)
+    assert "fieldguide.html" in phone.url
+    phone.go_back()
+    _open(phone, empty)
+    phone.evaluate("_enterLoginGate()")
+    assert phone.is_visible("#pw-helpnow .help-now-gate")
 
 
 def test_the_chrome_speaks_the_readers_language_and_the_quotes_stay_in_the_sources(

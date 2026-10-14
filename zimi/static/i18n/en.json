@@ -3119,5 +3119,13 @@
   "fieldguide_s_bites": "Bites and stings",
   "fieldguide_s_allergic": "Allergic reaction",
   "fieldguide_s_poison": "Poisoning",
-  "fieldguide_s_carbon_monoxide": "Carbon monoxide"
+  "fieldguide_s_carbon_monoxide": "Carbon monoxide",
+  "fieldguide_superseded": "Superseded by {by}",
+  "fieldguide_your_library": "Your library",
+  "fieldguide_yes_download": "Download",
+  "fieldguide_cancel": "Cancel",
+  "fieldguide_print_all": "Print every situation",
+  "fieldguide_build_note": "{size} from {source}",
+  "fieldguide_help_link": "Help now: {name}",
+  "fieldguide_show_all": "Show all"
 }

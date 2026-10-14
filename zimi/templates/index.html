@@ -84,6 +84,7 @@
 <link rel="stylesheet" href="/static/almanac.css?v=3">
 </head>
 <body>
+<!-- Red night light: pictures become red monochrome (app.css night-red) --><svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="night-red-filter" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.5 0.5 0.15 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/></filter></svg>
 
 <a href="#main-view" class="skip-link" data-i18n="skip_to_main">Skip to main content</a>
 
@@ -110,6 +111,8 @@
        library. updateTopbar() owns the visibility; it ships hidden so a
        non-admin never sees it flash during boot. -->
   <a href="#" id="random-btn" class="random-btn" title="Random article (R)" data-i18n-title="random_article" aria-label="Random article" data-i18n-aria="random_article" onclick="randomArticle(event)"><span class="dice" aria-hidden="true">&#x1F3B2;</span></a>
+  <!-- Red night light, in the bar while the Field Guide is open (updateTopbar owns the visibility). -->
+  <button type="button" id="night-btn" class="night-btn" style="display:none" aria-pressed="false" title="Red night light" data-i18n-title="fieldguide_red_night" aria-label="Red night light" data-i18n-aria="fieldguide_red_night" onclick="_nightToggle()"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
   <!-- History (the clock) and Saved (a list with a ribbon) are two panels. Off the
        reader library-btn is the clock; in it library-btn saves the page and
        history-btn is the clock. updateTopbar() owns which show. -->
@@ -163,6 +166,8 @@
     <label for="pw-input" class="sr-only" data-i18n="password">Password</label>
     <input id="pw-input" type="password" placeholder="Password" data-i18n-placeholder="password" autocomplete="current-password" aria-labelledby="pw-title" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPw()}">
     <div class="pw-error" id="pw-error"></div>
+    <!-- The Field Guide, where the app itself is out of reach (the sign-in gate): _enterLoginGate fills it. -->
+    <p class="gate-help" id="pw-helpnow" hidden></p>
     <label id="pw-remember-row" style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:13px;color:var(--text2);cursor:pointer">
       <input type="checkbox" id="pw-remember" checked style="accent-color:var(--amber);flex-shrink:0"> <span data-i18n="remember_me">Remember me</span>
     </label>

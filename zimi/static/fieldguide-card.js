@@ -16,9 +16,11 @@ var FieldGuideCard = (function() {
     from: 'From {title} ({edition})', licence: 'Licence: {licence}', original: 'Original',
     in_library: 'In your library: {name}', read_full: 'Read the full section',
     add_for_full: 'Add {name} ({size}) for the full text', build: 'Build it here', get: 'Get',
-    search_in: 'Search {zim} for “{q}”', dated: 'Dated', open_card: 'Open', quotes_n: '{n} passages',
+    search_in: 'Search {zim} for “{q}”', show_all: 'Show all', dated: 'Dated', open_card: 'Open', quotes_n: '{n} passages',
     lic_US_PD: 'US government work, public domain', more_in_library: 'More in your library',
-    add_to_library: 'Add to your library', nothing: 'Nothing installed answers this yet.', loading: 'Loading…'
+    add_to_library: 'Add to your library', nothing: 'Nothing installed answers this yet.', loading: 'Loading…',
+    superseded: 'Superseded by {by}', your_library: 'Your library', build_note: '{size} from {source}',
+    help_link: 'Help now: {name}'
   };
   // Source text carries its own marks for what must not be missed.
   var CALLOUT = /^(NOTE|Note\.|CAUTION|WARNING)\s*/;
@@ -43,18 +45,27 @@ var FieldGuideCard = (function() {
     '.fg-table th,.fg-table td{border:1px solid var(--border,#e4dfd4);padding:4px 8px;text-align:start}',
     '.fg-table caption{caption-side:bottom;text-align:start;font-size:12px;color:var(--text2,#6a675e);padding-top:4px}',
     '.fg-foot{margin-top:10px;padding-top:8px;border-top:1px solid var(--border,#e4dfd4);font-size:12px;line-height:1.5;color:var(--text2,#6a675e)}',
-    '.fg-foot a{color:var(--text2,#6a675e);text-decoration:underline;text-underline-offset:2px}',
+    '.fg-foot a{display:inline-flex;align-items:center;min-height:44px;padding:0 6px;color:var(--text2,#6a675e);text-decoration:underline;text-underline-offset:2px}',
     '.fg-lib{margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}',
-    '.fg-btn{display:inline-flex;align-items:center;min-height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--border,#e4dfd4);background:var(--surface,#faf8f4);color:var(--text,#26241f);font:inherit;font-size:13px;cursor:pointer}',
+    '.fg-btn{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:18px;border:1px solid var(--border,#e4dfd4);background:var(--surface,#faf8f4);color:var(--text,#26241f);font:inherit;font-size:13px;cursor:pointer}',
     '.fg-btn:hover,.fg-btn:focus-visible{border-color:var(--amber,#b5541c);color:var(--amber,#b5541c)}',
-    '.fg-btn.on{background:var(--amber,#b5541c);border-color:var(--amber,#b5541c);color:#fff}',
+    '.fg-btn.on{background:var(--amber,#b5541c);border-color:var(--amber,#b5541c);color:var(--on-amber,#fff)}',
     '.fg-rows{margin:0;padding:0;list-style:none}',
     '.fg-row{display:block;width:100%;text-align:start;padding:11px 0;border:0;border-top:1px solid var(--border,#e4dfd4);background:none;color:inherit;font:inherit;cursor:pointer}',
     '.fg-row:first-child{border-top:0}',
     '.fg-row b{display:block;font-size:14.5px;font-weight:600;line-height:1.3}',
     '.fg-row span{display:block;margin-top:2px;font-size:12px;color:var(--text2,#6a675e)}',
-    '.fg-dated{display:inline-block;margin-inline-start:6px;padding:0 6px;border-radius:6px;border:1px solid var(--amber,#b5541c);color:var(--amber,#b5541c);font-size:11px}',
-    '@media print{.fg-q{break-inside:avoid;border:1px solid #000;background:#fff;color:#000;border-radius:0}.fg-lib,.fg-btn{display:none!important}.fg-foot,.fg-foot a,.fg-q .fg-where{color:#000}}'
+    '.fg-dated{display:inline-block;margin-inline-start:6px;padding:0 6px;border-radius:6px;border:1px solid var(--amber,#b5541c);color:var(--amber,#b5541c);font-size:11px;font-style:normal}',
+    '.fg-libgroup{margin:0 0 14px}',
+    '.fg-libgroup h3{margin:0 0 4px;font-size:15px;font-weight:700}',
+    '.fg-libgroup .fg-row{display:flex;align-items:center;gap:10px;cursor:default}',
+    '.fg-libgroup .fg-row>div{flex:1;min-width:0}',
+    '.fg-confirm{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}',
+    // The search answer is compact: a tall passage is folded, whole behind Show all.
+    '.fg-answer .fg-body{position:relative;max-height:15em;overflow:hidden}',
+    '.fg-answer .fg-body.fg-fold::after{content:"";position:absolute;inset:auto 0 0 0;height:3em;background:linear-gradient(transparent,var(--surface,#faf8f4))}',
+    '.fg-answer.fg-open .fg-body{max-height:none}.fg-answer.fg-open .fg-body::after{display:none}',
+    '@media print{.fg-q{break-inside:avoid;border:1px solid #000;background:#fff;color:#000;border-radius:0}.fg-lib,.fg-libgroup,.fg-btn{display:none!important}.fg-foot,.fg-foot a,.fg-q .fg-where,.fg-dated{color:#000;border-color:#000}.fg-foot a{display:inline;min-height:0;padding:0;text-decoration:none}.fg-foot a::after{content:" " attr(href);word-break:break-all}}'
   ].join('');
 
   function esc(x) {
@@ -125,21 +136,36 @@ var FieldGuideCard = (function() {
     return Object.keys(o).map(function(k) { return ' data-' + k + '="' + esc(o[k]) + '"'; }).join('');
   }
 
-  // Where the library goes deeper for one quote: the full section when the
-  // ZIM that carries the source is installed, what to add when it is not.
-  function libraryHtml(lib, S) {
-    if (!lib) return '';
-    if (lib.state === 'installed') {
-      var open = lib.open || {};
-      var act = open.path ? 'open' : 'search';
-      var attrs = open.path ? dataAttrs({ zim: open.zim, path: open.path }) : dataAttrs({ zim: open.zim, q: open.q });
-      return '<div class="fg-lib"><span>' + esc(word(S, 'in_library', { name: lib.name })) + '</span>' + button(S, act, word(S, 'read_full'), attrs) + '</div>';
-    }
-    return (lib.options || []).map(function(o) {
-      var go = o.build ? button(S, 'build', word(S, 'build'), dataAttrs({ build: o.build })) :
-        (o.url ? button(S, 'get', word(S, 'get'), dataAttrs({ url: o.url, size: o.size_bytes })) : '');
-      return '<div class="fg-lib"><span>' + esc(word(S, 'add_for_full', { name: o.name, size: o.build ? '' : sizeText(o.size_bytes) }).replace(' ()', '')) + '</span>' + go + '</div>';
-    }).join('');
+  // Where the library goes deeper, once for the whole situation: one row per
+  // source the quotes come from, "In your library" with the way in when its
+  // ZIM is installed, "Add X (size)" with Get (or Build) when it is not. A
+  // source several quotes share is one row.
+  function libraryGroupHtml(quotes, S) {
+    var rows = [], seen = {};
+    (quotes || []).forEach(function(q) {
+      var lib = q.library;
+      if (!lib) return;
+      if (lib.state === 'installed') {
+        if (seen['in:' + lib.piece]) return;
+        seen['in:' + lib.piece] = 1;
+        var open = lib.open || {};
+        var act = open.path ? 'open' : 'search';
+        var attrs = open.path ? dataAttrs({ zim: open.zim, path: open.path }) : dataAttrs({ zim: open.zim, q: open.q });
+        rows.push('<li class="fg-row"><div><b>' + esc(word(S, 'in_library', { name: lib.name })) + '</b></div>' + button(S, act, word(S, 'read_full'), attrs) + '</li>');
+        return;
+      }
+      (lib.options || []).forEach(function(o) {
+        if (seen['add:' + o.piece]) return;
+        seen['add:' + o.piece] = 1;
+        var go = o.build ? button(S, 'build', word(S, 'build'), dataAttrs({ build: o.build, size: o.size_bytes })) :
+          (o.url ? button(S, 'get', word(S, 'get'), dataAttrs({ url: o.url, size: o.size_bytes })) : '');
+        var note = o.build ? word(S, 'build_note', { size: '~' + sizeText(o.size_bytes), source: o.source || '' }) : '';
+        rows.push('<li class="fg-row"><div><b>' + esc(word(S, 'add_for_full', { name: o.name, size: o.build ? sizeText(o.size_bytes) : sizeText(o.size_bytes) })) + '</b>' +
+          (note ? '<span>' + esc(note) + '</span>' : '') + '</div>' + go + '</li>');
+      });
+    });
+    if (!rows.length) return '';
+    return '<section class="fg-libgroup"><h3>' + esc(word(S, 'your_library')) + '</h3><ul class="fg-rows">' + rows.join('') + '</ul></section>';
   }
 
   function licenceText(code, S) {
@@ -153,11 +179,16 @@ var FieldGuideCard = (function() {
     return '<section class="fg-q" data-quote="' + esc(q.id) + '">' +
       '<h3 lang="en" dir="ltr">' + esc(q.heading) + '</h3>' +
       '<div class="fg-where" lang="en" dir="ltr">' + esc(s.title) + ' · ' + esc(q.locator) +
-      (s.dated ? '<i class="fg-dated">' + esc(word(S, 'dated')) + '</i>' : '') + '</div>' +
+      (s.dated ? '<i class="fg-dated">' + esc(word(S, 'dated')) + '</i>' : '') +
+      (s.superseded ? '<i class="fg-dated">' + esc(word(S, 'superseded', { by: s.superseded })) + '</i>' : '') + '</div>' +
       '<div class="fg-body" lang="en" dir="ltr">' + bodyHtml(q.lines) + tableHtml(q.table) + '</div>' +
-      '<div class="fg-foot">' + esc(word(S, 'from', { title: s.title, edition: s.edition })) + ' · ' + esc(s.publisher) + '<br>' +
-      esc(word(S, 'licence', { licence: licenceText(s.licence, S) })) + ' · <a href="' + esc(q.url) + '" target="_blank" rel="noopener noreferrer">' + esc(word(S, 'original')) + '</a>' +
-      libraryHtml(q.library, S) + '</div></section>';
+      footHtml(q, S) + '</section>';
+  }
+  // Where it came from: the source, its edition and publisher, the licence, and the original.
+  function footHtml(q, S) {
+    var s = q.source || {};
+    return '<div class="fg-foot">' + esc(word(S, 'from', { title: s.title, edition: s.edition })) + ' · ' + esc(s.publisher) + '<br>' +
+      esc(word(S, 'licence', { licence: licenceText(s.licence, S) })) + ' · <a href="' + esc(q.url) + '" target="_blank" rel="noopener noreferrer">' + esc(word(S, 'original')) + '</a></div>';
   }
 
   // Pages the installed ZIMs hold on the situation, each a tap away.
@@ -177,8 +208,9 @@ var FieldGuideCard = (function() {
   function missingHtml(rows, S) {
     if (!rows || !rows.length) return '';
     return '<ul class="fg-rows">' + rows.map(function(m) {
-      var go = m.build ? button(S, 'build', word(S, 'build'), dataAttrs({ build: m.build })) : button(S, 'get', word(S, 'get'), dataAttrs({ url: m.url, size: m.size_bytes }));
-      return '<li class="fg-row" style="cursor:default"><b>' + esc(m.name) + (m.build ? '' : ' · ' + esc(sizeText(m.size_bytes))) + '</b><span>' + esc(m.note) + '</span>' + go + '</li>';
+      var go = m.build ? button(S, 'build', word(S, 'build'), dataAttrs({ build: m.build, size: m.size_bytes })) : button(S, 'get', word(S, 'get'), dataAttrs({ url: m.url, size: m.size_bytes }));
+      var note = m.note + (m.build ? ' · ' + word(S, 'build_note', { size: '~' + sizeText(m.size_bytes), source: m.source || '' }) : '');
+      return '<li class="fg-row" style="cursor:default"><b>' + esc(m.name) + ' · ' + esc(sizeText(m.size_bytes)) + '</b><span>' + esc(note) + '</span>' + go + '</li>';
     }).join('') + '</ul>';
   }
 
@@ -189,6 +221,6 @@ var FieldGuideCard = (function() {
     });
   }
 
-  return { esc: esc, word: word, ensureStyle: ensureStyle, sizeText: sizeText, bodyHtml: bodyHtml, quoteHtml: quoteHtml,
-    answersHtml: answersHtml, missingHtml: missingHtml, wire: wire, DEFAULTS: DEFAULTS };
+  return { esc: esc, word: word, ensureStyle: ensureStyle, sizeText: sizeText, bodyHtml: bodyHtml, tableHtml: tableHtml, footHtml: footHtml, quoteHtml: quoteHtml,
+    answersHtml: answersHtml, missingHtml: missingHtml, libraryGroupHtml: libraryGroupHtml, wire: wire, DEFAULTS: DEFAULTS };
 })();

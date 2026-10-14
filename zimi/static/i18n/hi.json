@@ -3119,5 +3119,13 @@
   "fieldguide_s_bites": "काटना और डंक",
   "fieldguide_s_allergic": "एलर्जी प्रतिक्रिया",
   "fieldguide_s_poison": "विषाक्तता",
-  "fieldguide_s_carbon_monoxide": "कार्बन मोनोऑक्साइड"
+  "fieldguide_s_carbon_monoxide": "कार्बन मोनोऑक्साइड",
+  "fieldguide_superseded": "{by} द्वारा प्रतिस्थापित",
+  "fieldguide_your_library": "आपकी लाइब्रेरी",
+  "fieldguide_yes_download": "डाउनलोड",
+  "fieldguide_cancel": "रद्द करें",
+  "fieldguide_print_all": "सभी स्थितियाँ प्रिंट करें",
+  "fieldguide_build_note": "{source} से {size}",
+  "fieldguide_help_link": "अभी मदद: {name}",
+  "fieldguide_show_all": "सब दिखाएँ"
 }

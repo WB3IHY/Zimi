@@ -30,7 +30,9 @@
   .fg-sit.empty .have { display: none; }
 
   .fg-tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 4px 0 0; }
-  .fg-link { border: 0; background: none; padding: 10px 0; color: var(--amber); font: inherit; font-size: 14px; cursor: pointer; }
+  .fg-link { border: 0; background: none; padding: 0 4px; min-height: 44px; color: var(--amber); font: inherit; font-size: 14px; cursor: pointer; }
+  .chips .chip.tag { min-height: 44px; padding: 0 14px; font-size: 13px; }
+  .fg-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 12px; }
   .fg-night { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; color: var(--text2); cursor: pointer; }
   .fg-night input { width: 20px; height: 20px; accent-color: var(--amber); }
 
@@ -51,7 +53,7 @@
      in black on white, a quotation to a page when it will not fit. */
   @media print {
     html, body { background: #fff !important; color: #000 !important; }
-    .fg-print, .fg-tools, .fg-night, .fg-link, .fg-btn, #c-jump, .fg-lib, #front, #library, .fg-no-print, .fg-h2.fg-no-print { display: none !important; }
+    .fg-print, .fg-tools, .fg-night, .fg-actions, .fg-link, .fg-btn, #c-jump, .fg-lib, .fg-libgroup, #front, #library, .fg-no-print, .fg-h2.fg-no-print { display: none !important; }
     .page { max-width: none; padding: 0; }
     .fg-head h1 { font-size: 20pt; }
     .fg-disc { color: #000; font-size: 10pt; }
@@ -70,18 +72,22 @@
     <div id="groups"></div>
     <div class="fg-tools">
       <button type="button" class="fg-link" id="t-library"></button>
-      <label class="fg-night"><input type="checkbox" id="night"><span id="t-night"></span></label>
+      <label class="fg-night"><input type="checkbox" class="night-box"><span class="night-label"></span></label>
+      <button type="button" class="fg-link" id="t-printall"></button>
     </div>
   </div>
 
   <div id="card" hidden>
     <header class="fg-head">
-      <div class="fg-top"><h1 id="c-title"></h1><button type="button" class="fg-btn fg-print" id="c-print"></button></div>
+      <div class="fg-top"><h1 id="c-title"></h1>
+        <div class="fg-actions"><label class="fg-night"><input type="checkbox" class="night-box"><span class="night-label"></span></label>
+        <button type="button" class="fg-btn fg-print" id="c-print"></button></div></div>
       <p class="fg-disc" id="c-disc"></p>
     </header>
     <p class="fg-en" id="c-en" hidden></p>
     <div class="chips" id="c-jump" hidden></div>
     <div id="c-quotes"></div>
+    <div id="c-lib" class="fg-no-print"></div>
     <h2 class="fg-h2 fg-no-print" id="c-more-h" hidden></h2>
     <div id="c-more" class="fg-no-print"></div>
     <h2 class="fg-h2 fg-no-print" id="c-add-h" hidden></h2>
@@ -105,7 +111,8 @@ var STR = strings({
   red_night: 'Red night light', more_in_library: 'More in your library', add_to_library: 'Add to your library',
   installed: 'Installed', get_all: 'Get what is missing ({size})', started: 'Started', needs_admin: 'Sign in as an administrator to add ZIMs.',
   failed: 'That did not work. Try again.', loading: 'Loading…', building: 'Building…', built: 'Built', set_core: 'The core', set_more: 'Goes deeper',
-  nothing: 'Nothing installed answers this yet.', confirm_big: 'This is {size}. Download it?', open: '', lang: 'en'
+  nothing: 'Nothing installed answers this yet.', confirm_big: 'This is {size}. Download it?', open: '', lang: 'en', lat: '',
+  yes_download: 'Download', cancel: 'Cancel', print_all: 'Print every situation', your_library: 'Your library'
 });
 var LOCALE = STR.lang || 'en';
 var CARD = FieldGuideCard;
@@ -118,10 +125,12 @@ var state = { view: 'front', id: '' };
 
 // ── the shell's switch: red light at night, one key for the sky and this ──
 function nightInit() {
-  var box = $('night');
-  box.checked = document.documentElement.classList.contains('night-red');
-  box.onchange = function() { nightSet(box.checked); };
-  window.addEventListener('storage', function() { box.checked = document.documentElement.classList.contains('night-red'); });
+  var boxes = document.querySelectorAll('.night-box');
+  function sync() { var on = document.documentElement.classList.contains('night-red'); boxes.forEach(function(b) { b.checked = on; }); }
+  document.querySelectorAll('.night-label').forEach(function(l) { l.textContent = say('red_night'); });
+  boxes.forEach(function(b) { b.onchange = function() { nightSet(b.checked); sync(); tell({ zimi: 'night' }); }; });
+  window.addEventListener('storage', sync);
+  sync();
 }
 
 // ── the front ──
@@ -137,7 +146,7 @@ function drawFront() {
   $('t-title').textContent = say('help_now');
   $('t-disc').textContent = say('disclaimer');
   $('t-library').textContent = say('get_library');
-  $('t-night').textContent = say('red_night');
+  $('t-printall').textContent = say('print_all');
   $('groups').innerHTML = home.groups.map(function(g) {
     var order = g.order ? say('order_' + g.order) : '';
     return '<section class="fg-group"><h2 class="fg-group-h">' + esc(say('group_' + g.id)) + (order ? ' <i>' + esc(order) + '</i>' : '') + '</h2><ul class="fg-list">' +
@@ -153,6 +162,7 @@ $('groups').addEventListener('click', function(e) {
   if (b) openSituation(b.getAttribute('data-id'), true);
 });
 $('t-library').onclick = function() { openLibrary(); };
+$('t-printall').onclick = function() { printSheet(true); };
 
 // ── one situation ──
 var seq = 0;
@@ -163,7 +173,7 @@ function openSituation(id, step) {
   $('c-title').textContent = sit(id);
   $('c-disc').textContent = say('disclaimer');
   $('c-print').textContent = say('print');
-  $('c-quotes').innerHTML = '';
+  $('c-quotes').innerHTML = ''; $('c-lib').innerHTML = '';
   $('c-more').innerHTML = ''; $('c-add').innerHTML = ''; $('c-jump').hidden = true; $('c-more-h').hidden = true; $('c-add-h').hidden = true;
   $('c-en').hidden = LOCALE === 'en'; $('c-en').textContent = say('english_only');
   if (step) tell({ zimi: 'fieldguide-card', id: id, title: sit(id) });
@@ -174,16 +184,64 @@ function openSituation(id, step) {
     return r.json();
   }).then(function(s) {
     if (mine !== seq) return;
-    $('c-quotes').innerHTML = s.quotes.map(function(q) { return CARD.quoteHtml(q, STR); }).join('');
-    drawJump(s.quotes);
+    var quotes = hemisphereFirst(s.quotes);
+    $('c-quotes').innerHTML = quotes.map(function(q) { return CARD.quoteHtml(q, STR); }).join('');
+    $('c-lib').innerHTML = CARD.libraryGroupHtml(quotes, STR);
+    drawJump(quotes);
     if (s.answers.length) { $('c-more-h').hidden = false; $('c-more-h').textContent = say('more_in_library'); $('c-more').innerHTML = CARD.answersHtml(s.answers, STR); }
-    if (s.missing.length) { $('c-add-h').hidden = false; $('c-add-h').textContent = say('add_to_library'); $('c-add').innerHTML = CARD.missingHtml(s.missing, STR); }
+    // A source the library block already offers is not offered twice.
+    var offered = {};
+    quotes.forEach(function(q) { ((q.library && q.library.options) || []).forEach(function(o) { offered[o.piece] = 1; }); });
+    var rest = s.missing.filter(function(m) { return !offered[m.piece]; });
+    if (rest.length) { $('c-add-h').hidden = false; $('c-add-h').textContent = say('add_to_library'); $('c-add').innerHTML = CARD.missingHtml(rest, STR); }
   }).catch(function() {
     if (mine !== seq) return;
     $('c-quotes').innerHTML = '<p class="fg-state">' + esc(say('failed')) + '</p>';
   });
 }
-$('c-print').onclick = function() { window.print(); };
+// Where the reader is, when the Almanac knows: the sky of that hemisphere leads.
+// Quotes keep the data's order otherwise (the northern sky first).
+function hemisphereFirst(quotes) {
+  var lat = parseFloat(STR.lat);
+  if (!isFinite(lat)) return quotes;
+  var want = lat < 0 ? 'south' : 'north';
+  var first = quotes.filter(function(q) { return q.sky === want; })[0];
+  if (!first) return quotes;
+  var spots = [];
+  quotes.forEach(function(q, i) { if (q.sky) spots.push(i); });
+  var sky = quotes.filter(function(q) { return q.sky; });
+  sky.sort(function(a, b) { return (b.sky === want) - (a.sky === want); });
+  var out = quotes.slice();
+  spots.forEach(function(i, n) { out[i] = sky[n]; });
+  return out;
+}
+
+// ── print: the shell prints it (this page is a sandboxed frame, where
+// window.print() is blocked), from a sheet this page builds. One handler, one
+// print: a second tap while the first is on its way does nothing.
+var printing = false;
+function sheetHtml(html) {
+  return '<div class="fg-sheet"><h1>' + esc(say('title')) + '</h1><p class="fg-disc">' + esc(say('disclaimer')) + '</p>' + html + '</div>';
+}
+function handOver(html) {
+  window.__sheet = html;
+  var inShell = false;
+  try { inShell = window.parent !== window; } catch (e) {}
+  if (inShell) tell({ zimi: 'print-sheet' });
+  else { document.body.insertAdjacentHTML('beforeend', '<div id="sheet-only">' + html + '</div>'); window.print(); }
+}
+function printSheet(all) {
+  if (printing) return;
+  printing = true;
+  setTimeout(function() { printing = false; }, 3000);
+  if (!all) { handOver(sheetHtml('<h2>' + esc(sit(state.id)) + '</h2>' + $('c-quotes').innerHTML)); return; }
+  fetch('/fieldguide/print?lang=' + encodeURIComponent(LOCALE)).then(function(r) { if (!r.ok) throw new Error('status ' + r.status); return r.json(); }).then(function(d) {
+    handOver(sheetHtml('<div class="fg-sheet-all">' + d.situations.map(function(x) {
+      return '<section class="fg-sheet-sit"><h2>' + esc(sit(x.id)) + '</h2>' + x.quotes.map(function(q) { return CARD.quoteHtml(q, STR); }).join('') + '</section>';
+    }).join('') + '</div>'));
+  }).catch(function() { printing = false; });
+}
+$('c-print').addEventListener('click', function() { printSheet(false); });
 
 // A long situation: one chip per quotation, by the source's own heading, so the one
 // that is wanted (the Southern Sky, Apply a Tourniquet) is a tap away, not a scroll.
@@ -218,32 +276,57 @@ function manageFetch(url, opts) {
   try { if (window.parent !== window && typeof window.parent.manageFetch === 'function') return window.parent.manageFetch(url, opts); } catch (e) {}
   return fetch(url, opts);
 }
-// More than this much in one tap asks first: a manual library is gigabytes.
+// More than this much in one tap asks first (here, in the page: a sandboxed
+// frame cannot raise window.confirm): a manual library is gigabytes.
 var BIG_DOWNLOAD = 1e9;
+function askFirst(btn, size, go) {
+  var box = document.createElement('div');
+  box.className = 'fg-confirm';
+  box.innerHTML = '<span>' + esc(say('confirm_big', { size: CARD.sizeText(size) })) + '</span>' +
+    '<button type="button" class="fg-btn on" data-yes>' + esc(say('yes_download')) + '</button>' +
+    '<button type="button" class="fg-btn" data-no>' + esc(say('cancel')) + '</button>';
+  btn.hidden = true;
+  btn.parentNode.insertBefore(box, btn.nextSibling);
+  function close() { box.remove(); btn.hidden = false; }
+  box.querySelector('[data-yes]').onclick = function() { close(); go(); };
+  box.querySelector('[data-no]').onclick = close;
+}
+// What the server said, in its words, or ours when it said none.
+function reason(r, d) {
+  if (r.status === 401 || r.status === 403) return say('needs_admin');
+  return (d && d.error) ? String(d.error) : say('failed');
+}
+function post(url, body) {
+  return manageFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { return { r: r, d: d }; }); });
+}
 function getZims(items, btn) {
   items = items.filter(function(i) { return i.url; });
   if (!items.length) return;
   var total = items.reduce(function(n, i) { return n + (i.size || 0); }, 0);
-  if (total > BIG_DOWNLOAD && !window.confirm(say('confirm_big', { size: CARD.sizeText(total) }))) return;
+  if (total > BIG_DOWNLOAD && !btn.dataset.sure) { askFirst(btn, total, function() { btn.dataset.sure = '1'; getZims(items, btn); }); return; }
   btn.disabled = true; btn.textContent = say('loading');
-  manageFetch('/manage/download-batch', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ urls: items.map(function(i) { return i.url; }), sizes: items.map(function(i) { return i.size; }) }) })
-    .then(function(r) { if (r.status === 401 || r.status === 403) throw new Error('auth'); return r.json(); })
-    .then(function(d) { btn.textContent = say('started') + ' · ' + (d.started || 0); })
-    .catch(function(e) { btn.disabled = false; btn.textContent = e.message === 'auth' ? say('needs_admin') : say('failed'); });
+  post('/manage/download-batch', { urls: items.map(function(i) { return i.url; }), sizes: items.map(function(i) { return i.size; }) })
+    .then(function(x) {
+      if (!x.r.ok) { btn.disabled = false; btn.textContent = reason(x.r, x.d); return; }
+      btn.textContent = say('started') + ' · ' + (x.d.started || 0);
+    })
+    .catch(function() { btn.disabled = false; btn.textContent = say('failed'); });
 }
 function buildManual(btn) {
   btn.disabled = true; btn.textContent = say('building');
-  manageFetch('/manage/fieldmanual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-    .then(function(r) { if (r.status === 401 || r.status === 403) throw new Error('auth'); return r.json(); })
-    .then(function() { pollManual(btn); })
-    .catch(function(e) { btn.disabled = false; btn.textContent = e.message === 'auth' ? say('needs_admin') : say('failed'); });
+  post('/manage/fieldmanual', {})
+    .then(function(x) {
+      if (!x.r.ok) { btn.disabled = false; btn.textContent = reason(x.r, x.d); return; }
+      pollManual(btn);
+    })
+    .catch(function() { btn.disabled = false; btn.textContent = say('failed'); });
 }
 function pollManual(btn) {
   manageFetch('/manage/fieldmanual').then(function(r) { return r.json(); }).then(function(s) {
     if (s.state === 'running') { btn.textContent = say('building') + (s.total ? ' ' + s.done + '/' + s.total : ''); setTimeout(function() { pollManual(btn); }, 1500); }
     else if (s.state === 'done') btn.textContent = say('built');
-    else { btn.disabled = false; btn.textContent = say('failed'); }
+    else { btn.disabled = false; btn.textContent = s.message ? String(s.message) : say('failed'); }
   }).catch(function() { btn.disabled = false; btn.textContent = say('failed'); });
 }
 
@@ -259,9 +342,10 @@ function openLibrary() {
     $('l-sets').innerHTML = d.sets.map(function(s) {
       var rows = s.pieces.map(function(p) {
         var right = p.installed ? '<span class="ok">✓ ' + esc(say('installed')) + '</span>' :
-          p.build ? '<button type="button" class="fg-btn" data-act="build" data-build="' + esc(p.build) + '">' + esc(CARD.word(STR, 'build')) + '</button>' :
+          p.build ? '<button type="button" class="fg-btn" data-act="build" data-build="' + esc(p.build) + '">' + esc(CARD.word(STR, 'build')) + ' · ' + esc(CARD.sizeText(p.size_bytes)) + '</button>' :
           p.url ? '<button type="button" class="fg-btn" data-act="get" data-url="' + esc(p.url) + '" data-size="' + esc(p.size_bytes) + '">' + esc(CARD.word(STR, 'get')) + ' · ' + esc(CARD.sizeText(p.size_bytes)) + '</button>' : '';
-        return '<li class="fg-row"><div><b>' + esc(p.name) + '</b><span>' + esc(p.note) + '</span></div>' + right + '</li>';
+        var note = p.note + (p.build ? ' · ' + CARD.word(STR, 'build_note', { size: '~' + CARD.sizeText(p.size_bytes), source: p.source || '' }) : '');
+        return '<li class="fg-row"><div><b>' + esc(p.name) + '</b><span>' + esc(note) + '</span></div>' + right + '</li>';
       }).join('');
       var all = s.pieces.filter(function(p) { return !p.installed && p.url; });
       var allBtn = all.length > 1 ? '<button type="button" class="fg-btn on" data-all="' + esc(s.id) + '">' + esc(say('get_all', { size: CARD.sizeText(s.missing_bytes) })) + '</button>' : '';

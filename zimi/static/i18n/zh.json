@@ -3119,5 +3119,13 @@
   "fieldguide_s_bites": "咬伤和蜇伤",
   "fieldguide_s_allergic": "过敏反应",
   "fieldguide_s_poison": "中毒",
-  "fieldguide_s_carbon_monoxide": "一氧化碳"
+  "fieldguide_s_carbon_monoxide": "一氧化碳",
+  "fieldguide_superseded": "已被 {by} 取代",
+  "fieldguide_your_library": "你的资料库",
+  "fieldguide_yes_download": "下载",
+  "fieldguide_cancel": "取消",
+  "fieldguide_print_all": "打印所有情况",
+  "fieldguide_build_note": "{size},来自 {source}",
+  "fieldguide_help_link": "立即求助：{name}",
+  "fieldguide_show_all": "显示全部"
 }

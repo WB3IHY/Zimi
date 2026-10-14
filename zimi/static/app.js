@@ -223,7 +223,18 @@ function _applyAppTheme() {
 // a switch (the sky's, the Field Guide's) writes NIGHT_KEY and calls _nightApply().
 var NIGHT_KEY = 'zimi.night', NIGHT_RED = 'red';
 function _nightApply() {
-  try { document.documentElement.classList.toggle('night-red', localStorage.getItem(NIGHT_KEY) === NIGHT_RED); } catch (e) {}
+  var on = false;
+  try { on = localStorage.getItem(NIGHT_KEY) === NIGHT_RED; document.documentElement.classList.toggle('night-red', on); } catch (e) {}
+  var btn = document.getElementById('night-btn');
+  if (btn) btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+// The header's switch while the Field Guide is open (the page has its own in each card).
+function _nightToggle() {
+  try {
+    if (localStorage.getItem(NIGHT_KEY) === NIGHT_RED) localStorage.removeItem(NIGHT_KEY);
+    else localStorage.setItem(NIGHT_KEY, NIGHT_RED);
+  } catch (e) {}
+  _nightApply();
 }
 window.addEventListener('storage', function(e) { if (e.key === NIGHT_KEY || e.key === null) _nightApply(); });
 function _setAppTheme(mode) {
@@ -2277,11 +2288,15 @@ var _loginRequired = false;
 function _enterLoginGate() {
   _loginRequired = true;
   document.body.classList.add('login-gate');
+  var help = document.getElementById('pw-helpnow');
+  if (help) { help.innerHTML = _gateHelpHtml(); help.hidden = false; }
   openLoginModal();
 }
 function _exitLoginGate() {
   _loginRequired = false;
   document.body.classList.remove('login-gate');
+  var help = document.getElementById('pw-helpnow');
+  if (help) help.hidden = true;
 }
 
 // Token-adding fetch for *ambient* /manage/* calls (activity bar, peer
@@ -2610,6 +2625,8 @@ function updateTopbar() {
   const backTo = _backLabel();
   const showBack = !!backTo || articleHistory.length > 0 || mode === 'search' || homeScope || (_isAppPage() && !_appTop);
   backBtn.style.display = showBack ? 'flex' : 'none';
+  var nightBtn = document.getElementById('night-btn');
+  if (nightBtn) nightBtn.style.display = _isFieldguidePage() ? 'flex' : 'none';
   backBtn.setAttribute('aria-label', backTo ? t('back_to', {place: backTo}) : t('go_back'));
   backBtn.title = backTo ? t('back_to', {place: backTo}) : '';
 
@@ -3894,6 +3911,7 @@ window.addEventListener('blur', function() {
 });
 
 function enterHome(push) {
+  _fieldguideUnmount();
   mode = 'home';
   currentSource = null;
   readerSource = null;
@@ -4422,6 +4440,7 @@ document.addEventListener('keydown', function(e) {
   }
 });
 function renderHome(filter) {
+  _fieldguideUnmount();
   // We could not ask the server. Say so — never "No knowledge sources found",
   // which reads as "your library was wiped". Discover is skipped too: its cards
   // are drawn from the (unknown) installed set.
@@ -8379,7 +8398,7 @@ async function doSearch(query, push, perSource) {
     // ── One request, both passes: the server sends the title matches, the
     // snippets of the cards they draw, the full-text results, then theirs,
     // a line of JSON each as it is ready (_searchStream in http.py).
-    const res = await serverFetch('/search?q=' + encodeURIComponent(query) + '&limit=' + perSource + zimParam + '&stream=1',
+    const res = await serverFetch('/search?q=' + encodeURIComponent(query) + '&limit=' + perSource + zimParam + '&ui=' + encodeURIComponent(_uiLangPrimary()) + '&stream=1',
       { signal: searchController.signal });
     _throwIfRateLimited(res);
     _snippetsStreamSeq = searchSeq;
@@ -8427,6 +8446,8 @@ async function doSearch(query, push, perSource) {
       clearInterval(timerInterval);
       d._clientElapsed = ((performance.now() - searchT0) / 1000).toFixed(1);
       allResults = d1 ? mergeSearchResults(d1, d) : d;
+      // The merge is the answer's own results; the Field Guide's hint rides beside them and is kept with them.
+      if (d.fieldguide && !allResults.fieldguide) allResults.fieldguide = d.fieldguide;
       gotFull = true;
       renderSearchResults(allResults, scope);
       _histPushSearch(query, scope, (allResults.results || []).length);
@@ -8647,7 +8668,7 @@ function searchResultCounts(items, zims) {
 }
 
 function renderSearchResults(data, scope) {
-  _fieldguideMount(data);
+  _fieldguideMount(data, scope);
   if (snippetController) { snippetController.abort(); snippetController = null; }
   let items = data.results || [];
   const counts = searchResultCounts(items, zimsCache);
@@ -8759,7 +8780,10 @@ function renderSearchResults(data, scope) {
     // A query of only exclusions and filters ("-ted") asks for nothing, so
     // the library finds nothing: say what it needs, not "try other words".
     const asksNothing = !!data._query && !parseSearchQuery(data._query).groups.length;
-    output.innerHTML = chipsHtml + '<div class="empty">' + dymHtml + '<p>' + tH('no_results') + '</p><p class="hint">' + tH(asksNothing ? 'search_needs_word' : 'try_different') + '</p></div>';
+    // Under the Field Guide's answer, "No results found" would be the louder
+    // line on a page that has just helped: the answer stands alone.
+    const guided = !!document.getElementById('fg-answer');
+    output.innerHTML = chipsHtml + (guided ? dymHtml : '<div class="empty">' + dymHtml + '<p>' + tH('no_results') + '</p><p class="hint">' + tH(asksNothing ? 'search_needs_word' : 'try_different') + '</p></div>');
     return;
   }
 
@@ -9367,6 +9391,7 @@ function _restoreSavedReader() {
 
 async function enterManage(e, section) {
   if (e && e.preventDefault) e.preventDefault();
+  _fieldguideUnmount();
   if (!manageEnabled) {
     // The gear must respond from first paint. On a large library the boot's
     // /list call blocks for seconds, and if the user clicks before the
@@ -12662,6 +12687,7 @@ function _openSetup(st) {
   card.innerHTML = st.inside === false
     ? '<h2>' + tH('setup_waiting_title') + '</h2><p class="subtitle">' + tH('setup_waiting_body') + '</p>'
     : '<h2>' + tH('welcome') + '</h2><p class="subtitle">' + tH('setup_body') + '</p>' + _setupFormHtml(st, 'setup');
+  card.innerHTML += '<p class="gate-help">' + _gateHelpHtml() + '</p>';
   document.getElementById('setup-overlay').classList.add('open');
   var first = card.querySelector('input:not([type=checkbox])');
   if (first && first.id === 'setup-key') first.focus();
@@ -19569,17 +19595,7 @@ function _readerPrint() {
   var lb = clone.querySelectorAll('.' + _READER_LIGHTBOX_CLASS + ',.zimi-lightbox-close');
   for (var j = 0; j < lb.length; j++) if (lb[j].parentNode) lb[j].parentNode.removeChild(lb[j]);
 
-  _readerPrintCleanup(); // clear any prior run
-  var style = document.createElement('style');
-  style.id = _READER_PRINT_STYLE_ID;
-  style.textContent = [
-    // On screen the print root is never shown; it only exists for @media print.
-    '#' + _READER_PRINT_ROOT_ID + '{display:none}',
-    '@media print{',
-      // Hide the entire app; reveal only the print root, black-on-white.
-      'body>*{display:none !important}',
-      'body>#' + _READER_PRINT_ROOT_ID + '{display:block !important}',
-      'html,body{background:#fff !important;margin:0 !important;padding:0 !important}',
+  _printNode(clone, [
       '#' + _READER_PRINT_ROOT_ID + '{color:#000;background:#fff;font-size:12pt;line-height:1.6;',
         'font-family:Georgia,"Times New Roman",serif;max-width:100%;padding:0 4mm}',
       '#' + _READER_PRINT_ROOT_ID + ' .zimi-reader-title{font-size:20pt;font-weight:700;margin:0 0 0.6em;line-height:1.25}',
@@ -19591,13 +19607,30 @@ function _readerPrint() {
         'page-break-inside:avoid;break-inside:avoid;max-width:100% !important;height:auto}',
       '#' + _READER_PRINT_ROOT_ID + ' th,#' + _READER_PRINT_ROOT_ID + ' td{border:1px solid #bbb;padding:6px 10px;text-align:left}',
       '#' + _READER_PRINT_ROOT_ID + ' pre,#' + _READER_PRINT_ROOT_ID + ' code{background:#f2f2f2;white-space:pre-wrap;word-wrap:break-word}',
+  ].join(''));
+}
+// Print a node on its own: the whole app steps aside and the node prints black
+// on white from this top-level window. `css` is the node's own print styling.
+function _printNode(node, css) {
+  _readerPrintCleanup(); // clear any prior run
+  var style = document.createElement('style');
+  style.id = _READER_PRINT_STYLE_ID;
+  style.textContent = [
+    // On screen the print root is never shown; it only exists for @media print.
+    '#' + _READER_PRINT_ROOT_ID + '{display:none}',
+    '@media print{',
+      // Hide the entire app; reveal only the print root, black-on-white.
+      'body>*{display:none !important}',
+      'body>#' + _READER_PRINT_ROOT_ID + '{display:block !important}',
+      'html,body{background:#fff !important;margin:0 !important;padding:0 !important}',
+      css,
     '}'
   ].join('');
   document.head.appendChild(style);
 
   var root = document.createElement('div');
   root.id = _READER_PRINT_ROOT_ID;
-  root.appendChild(clone);
+  root.appendChild(node);
   document.body.appendChild(root);
 
   // Tear down after printing. afterprint covers desktop + most mobile; a timeout
@@ -20170,7 +20203,9 @@ var _FIELDGUIDE_WORDS = ['fieldguide_help_now', 'fieldguide_disclaimer', 'fieldg
   'fieldguide_red_night', 'fieldguide_more_in_library', 'fieldguide_add_to_library', 'fieldguide_installed', 'fieldguide_get_all', 'fieldguide_started',
   'fieldguide_needs_admin', 'fieldguide_failed', 'fieldguide_loading', 'fieldguide_building', 'fieldguide_built', 'fieldguide_set_core', 'fieldguide_set_more',
   'fieldguide_nothing', 'fieldguide_confirm_big', 'fieldguide_from', 'fieldguide_licence', 'fieldguide_original', 'fieldguide_in_library', 'fieldguide_read_full', 'fieldguide_add_for_full',
-  'fieldguide_build', 'fieldguide_get', 'fieldguide_search_in', 'fieldguide_dated', 'fieldguide_open_card', 'fieldguide_lic_US_PD'];
+  'fieldguide_build', 'fieldguide_get', 'fieldguide_search_in', 'fieldguide_dated', 'fieldguide_open_card', 'fieldguide_lic_US_PD',
+  'fieldguide_superseded', 'fieldguide_your_library', 'fieldguide_yes_download', 'fieldguide_cancel', 'fieldguide_print_all', 'fieldguide_build_note',
+  'fieldguide_help_link', 'fieldguide_show_all'];
 function _isFieldguidePage() {
   return !!(_fieldguideOpen && readerOpen && !_almanacOpen && !_createOpen);
 }
@@ -20191,7 +20226,10 @@ function _fieldguideWords() {
 }
 function _fieldguideStrings(id) {
   var keys = _FIELDGUIDE_WORDS.concat(_FIELDGUIDE_SITUATIONS.map(function(s) { return 'fieldguide_s_' + s; }));
-  return _appStrings('fieldguide', keys, { open: id || '' });
+  // Where the reader is, when the Almanac knows it: the sky of that hemisphere leads.
+  var place = _almChosenPlace();
+  var lat = place && isFinite(parseFloat(place.lat)) ? String(place.lat) : '';
+  return _appStrings('fieldguide', keys, { open: id || '', lat: lat });
 }
 function openFieldguide(replaceState, id) {
   id = _fieldguideId(id);
@@ -20216,11 +20254,42 @@ function openFieldguide(replaceState, id) {
   _setWindowTitle(document.title);
   updateTopbar();
 }
-// Home's one quiet entry: not a tile among tiles, a line anyone can find
-// when it counts.
-function _helpNowHtml() {
-  return '<div class="help-now-row"><a class="help-now" href="/#fieldguide" onclick="return _spaNav(event, function() { openFieldguide(); })">' +
-    _FIELDGUIDE_SVG.replace('width="26" height="26"', 'width="16" height="16"') + '<span>' + tH('fieldguide_help_now') + '</span></a></div>';
+// Home's entry to the Field Guide, a plain button anyone can find when it
+// counts; with a situation it is the small link a bare word gets ("Help now:
+// Water") in place of the card.
+function _helpNowHtml(id) {
+  id = _fieldguideId(id);
+  var label = id ? t('fieldguide_help_link', { name: t('fieldguide_s_' + id) }) : t('fieldguide_help_now');
+  return '<div class="help-now-row"><a class="help-now" href="' + escAttr(_fieldguideUrl(id)) + '" onclick="return _spaNav(event, function() { openFieldguide(false, \'' + id + '\'); })">' +
+    _FIELDGUIDE_SVG.replace('width="26" height="26"', 'width="18" height="18"') + '<span>' + esc(label) + '</span></a></div>';
+}
+// The same entry where the app cannot be reached: the first-run setup and
+// the sign-in screen. A plain address to the page, which needs no shell.
+function _gateHelpHtml() {
+  return '<a class="help-now help-now-gate" href="' + escAttr(_FIELDGUIDE_PAGE + '#' + _fieldguideStrings('')) + '">' +
+    _FIELDGUIDE_SVG.replace('width="26" height="26"', 'width="18" height="18"') + '<span>' + tH('fieldguide_help_now') + '</span></a>';
+}
+// True only for a message from the Field Guide page itself: the reader frame
+// also holds ZIM pages (scripts of their own, the same origin), which must
+// not be able to ask the shell to search or print.
+function _fromFieldguide(e) {
+  var f = document.getElementById('reader-frame');
+  if (!_fieldguideOpen || !f || !e.source || e.source !== f.contentWindow) return false;
+  try { return f.contentWindow.location.pathname === '/static/fieldguide.html'; } catch (x) { return false; }
+}
+// Print what the Field Guide page built (a sheet of quotes): from this
+// window, since a sandboxed frame cannot print and iOS standalone ignores it.
+function _fieldguidePrint(win) {
+  var html = '';
+  try { html = win.__sheet; win.__sheet = ''; } catch (x) {}
+  if (typeof html !== 'string' || !html) return;
+  _fieldguideLoadCard(function() {
+    FieldGuideCard.ensureStyle(document);
+    var box = document.createElement('div');
+    box.className = 'fg-sheet-root';
+    box.innerHTML = html;
+    _printNode(box, '');
+  });
 }
 // A search inside one ZIM, asked from the Field Guide ("Search X for ...").
 function _searchInZim(zim, query) {
@@ -20230,15 +20299,26 @@ function _searchInZim(zim, query) {
   q.value = query;
   doSearch(query);
 }
-// The Field Guide's card above a search's results when the words name a
-// situation (search's `fieldguide` field: {id, href, installed}, "" the
-// guide itself). Outside the results' own element so a redraw of them leaves
-// it; filled from /fieldguide/situation after the results have drawn, so
-// searching never waits on it. Another slot above the results, such as an
-// answer card, sits beside it: the card has its own container, #fg-answer.
+// The Field Guide's answer above a search's results when the words name a
+// situation (search's `fieldguide` field: {id, kind, href, installed}; id ""
+// is the guide itself). A clear emergency gets a compact card, its first
+// plain passage; a bare word that could be about anything gets a small
+// "Help now: ..." link and no quote. Outside the results' own element so a
+// redraw of them leaves it; filled from /fieldguide/situation after the
+// results have drawn, so searching never waits on it. Another slot above the
+// results, such as an answer card, sits beside it: it has its own container,
+// #fg-answer. Searching inside one ZIM is not asking for help: no answer.
 var _fieldguideHint = null;
 var _fieldguideSeq = 0;
-function _fieldguideMount(data) {
+// Gone with the search: home, Settings and the apps do not keep it.
+function _fieldguideUnmount() {
+  _fieldguideHint = null;
+  _fieldguideSeq++;
+  var el = document.getElementById('fg-answer');
+  if (el) el.remove();
+}
+function _fieldguideMount(data, scope) {
+  if (scope) { _fieldguideUnmount(); return; }
   var key = data && data._query;
   if (data && data.fieldguide) _fieldguideHint = { q: key, hint: data.fieldguide };
   var h = _fieldguideHint && _fieldguideHint.q === key ? _fieldguideHint.hint : null;
@@ -20248,25 +20328,30 @@ function _fieldguideMount(data) {
     el = document.createElement('div');
     el.id = 'fg-answer';
     output.parentNode.insertBefore(el, output);
-  } else if (el.dataset.id === h.id && el.dataset.q === String(key)) return;
-  el.dataset.id = h.id; el.dataset.q = String(key);
+  } else if (el.dataset.id === h.id && el.dataset.q === String(key) && el.dataset.kind === h.kind) return;
+  el.dataset.id = h.id; el.dataset.q = String(key); el.dataset.kind = h.kind;
   var seq = ++_fieldguideSeq;
+  if (h.kind === 'link' || !h.id) { el.innerHTML = _helpNowHtml(h.id); return; }
   _fieldguideLoadCard(function() {
     if (seq !== _fieldguideSeq) return;
     var S = _fieldguideWords();
     FieldGuideCard.ensureStyle(document);
-    var name = h.id ? S['s_' + h.id] : S.help_now;
-    var shell = '<section class="fg-q fg-answer"><h3>' + esc(name) + '</h3><div class="fg-where">' + esc(S.disclaimer) + '</div><div id="fg-answer-body"></div>' +
-      '<div class="fg-lib"><button type="button" class="fg-btn on" data-act="situation" data-id="' + escAttr(h.id) + '">' + esc(S.open_card) + '</button></div></section>';
+    var shell = '<section class="fg-q fg-answer"><h3>' + esc(S['s_' + h.id]) + '</h3><div class="fg-where">' + esc(S.disclaimer) + '</div><div id="fg-answer-body"></div>' +
+      '<div class="fg-lib"><button type="button" class="fg-btn on" data-act="situation" data-id="' + escAttr(h.id) + '">' + esc(S.open_card) + '</button>' +
+      '<button type="button" class="fg-btn" data-act="more" hidden>' + esc(S.show_all) + '</button></div></section>';
     el.innerHTML = shell;
-    FieldGuideCard.wire(el, function() { openFieldguide(false, h.id); });
-    if (!h.id) return;
-    fetch('/fieldguide/situation?id=' + encodeURIComponent(h.id) + '&lang=' + encodeURIComponent(_currentLang || 'en')).then(function(r) { return r.ok ? r.json() : null; }).then(function(s) {
+    FieldGuideCard.wire(el, function(act, btn) {
+      if (act === 'more') { el.firstChild.classList.add('fg-open'); btn.hidden = true; return; }
+      openFieldguide(false, h.id);
+    });
+    fetch('/fieldguide/situation?id=' + encodeURIComponent(h.id) + '&lang=' + encodeURIComponent(_uiLangPrimary())).then(function(r) { return r.ok ? r.json() : null; }).then(function(sit) {
       var body = document.getElementById('fg-answer-body');
-      if (!s || !s.quotes.length || !body || seq !== _fieldguideSeq) return;
-      var first = s.quotes[0];
-      body.innerHTML = '<div class="fg-body" lang="en" dir="ltr"><h4>' + esc(first.heading) + '</h4>' + FieldGuideCard.bodyHtml(first.lines) + '</div>' +
-        '<div class="fg-foot">' + esc(FieldGuideCard.word(S, 'from', { title: first.source.title, edition: first.source.edition })) + '</div>';
+      if (!sit || !sit.quotes.length || !body || seq !== _fieldguideSeq) return;
+      var first = sit.quotes[0];
+      body.innerHTML = '<div class="fg-body" lang="en" dir="ltr"><h4>' + esc(first.heading) + '</h4>' + FieldGuideCard.bodyHtml(first.lines) + FieldGuideCard.tableHtml(first.table) + '</div>' +
+        FieldGuideCard.footHtml(first, S);
+      var passage = body.firstChild, more = el.querySelector('[data-act=more]');
+      if (passage.scrollHeight > passage.clientHeight + 4) { passage.classList.add('fg-fold'); more.hidden = false; }
     }).catch(function() {});
   });
 }
@@ -21725,15 +21810,19 @@ window.addEventListener('message', function(e) {
     _appItemClosed();
     document.title = t('dictionary') + ' \u2014 Zimi';
     _setWindowTitle(document.title);
-  } else if (d.zimi === 'fieldguide-card' && _fieldguideOpen && typeof d.id === 'string') {
+  } else if (d.zimi === 'fieldguide-card' && _fromFieldguide(e) && typeof d.id === 'string') {
     _appStep({ mode: 'reader', fieldguide: true, fg: d.id }, _fieldguideUrl(d.id), 'fg');
     if (d.title) { document.title = d.title + ' \u2014 ' + t('fieldguide'); _setWindowTitle(document.title); }
-  } else if (d.zimi === 'fieldguide-home' && _fieldguideOpen) {
+  } else if (d.zimi === 'fieldguide-home' && _fromFieldguide(e)) {
     _appHome({ mode: 'reader', fieldguide: true, fg: '' }, _fieldguideUrl(''), 'fg');
     document.title = t('fieldguide') + ' \u2014 Zimi';
     _setWindowTitle(document.title);
-  } else if (d.zimi === 'search-in' && typeof d.zim === 'string' && typeof d.q === 'string' && d.zim && d.q) {
+  } else if (d.zimi === 'search-in' && _fromFieldguide(e) && typeof d.zim === 'string' && typeof d.q === 'string' && d.zim && d.q) {
     _searchInZim(d.zim, d.q);
+  } else if (d.zimi === 'print-sheet' && _fromFieldguide(e)) {
+    _fieldguidePrint(e.source);
+  } else if (d.zimi === 'night' && _fromFieldguide(e)) {
+    _nightApply();
   } else if (d.zimi === 'voices') {
     _openSettingsAt('ms-voices');
   } else if (d.zimi === 'catalog' && typeof d.category === 'string' && _APP_CATEGORY_KEYS.indexOf(d.category) >= 0) {

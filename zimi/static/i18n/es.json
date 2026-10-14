@@ -3119,5 +3119,13 @@
   "fieldguide_s_bites": "Mordeduras y picaduras",
   "fieldguide_s_allergic": "Reacción alérgica",
   "fieldguide_s_poison": "Envenenamiento",
-  "fieldguide_s_carbon_monoxide": "Monóxido de carbono"
+  "fieldguide_s_carbon_monoxide": "Monóxido de carbono",
+  "fieldguide_superseded": "Reemplazado por {by}",
+  "fieldguide_your_library": "Su biblioteca",
+  "fieldguide_yes_download": "Descargar",
+  "fieldguide_cancel": "Cancelar",
+  "fieldguide_print_all": "Imprimir todas las situaciones",
+  "fieldguide_build_note": "{size} de {source}",
+  "fieldguide_help_link": "Ayuda ya: {name}",
+  "fieldguide_show_all": "Mostrar todo"
 }

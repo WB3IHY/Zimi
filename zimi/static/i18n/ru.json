@@ -3119,5 +3119,13 @@
   "fieldguide_s_bites": "Укусы и ужаливания",
   "fieldguide_s_allergic": "Аллергическая реакция",
   "fieldguide_s_poison": "Отравление",
-  "fieldguide_s_carbon_monoxide": "Угарный газ"
+  "fieldguide_s_carbon_monoxide": "Угарный газ",
+  "fieldguide_superseded": "Заменено на {by}",
+  "fieldguide_your_library": "Ваша библиотека",
+  "fieldguide_yes_download": "Скачать",
+  "fieldguide_cancel": "Отмена",
+  "fieldguide_print_all": "Распечатать все ситуации",
+  "fieldguide_build_note": "{size}, источник: {source}",
+  "fieldguide_help_link": "Помощь сейчас: {name}",
+  "fieldguide_show_all": "Показать всё"
 }

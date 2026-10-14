@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Field Guide: "Help now" on home and search answers for bleeding, choking, not breathing, shock, cold, burns, heat, shelter, water, food, being lost, signalling, floods, earthquakes, wildfires, storms and power cuts.
+- Field Guide: "Help now" on home, the first-run and sign-in screens, and search answers for twenty-four situations (bleeding, not breathing, heart attack, unconscious, broken bone, bites and stings, allergic reaction, poisoning, carbon monoxide, cold, burns, heat, shock, calling for help, lost, signalling, shelter, water, flood, earthquake, wildfire, storm, power cuts, food safety), each a verbatim quotation from an open US government source in the order of what to do first.
 - Each situation is word-for-word quotations from TC 4-02.1, FM 21-76, the TCCC guidelines, Ready.gov and the EPA, each with its edition, place in the source, licence and link; it works with no ZIM installed.
 - Installed ZIMs deepen a quote (the full section and the pages around it); a missing one says what it would add, how large it is, and downloads in one tap.
 - Print gives a situation's quotations alone; the red night light follows one switch shared with the sky.

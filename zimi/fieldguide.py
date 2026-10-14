@@ -179,6 +179,42 @@ def _keyword_index():
     return built
 
 
+def _whole(wholes, tables, langs):
+    """The whole typed query (or what is left without filler) as a keyword
+    ("card") or a bare ambiguous word ("link"); None when it is neither."""
+    for whole in wholes:
+        for x in langs:
+            t = tables.get(x)
+            if t and whole in t.exact:
+                sid = t.exact[whole]
+                return (sid, "card" if sid else "link")
+        for x in langs:
+            t = tables.get(x)
+            if t and whole in t.link:
+                return (t.link[whole], "link")
+    return None
+
+
+def _inside(words, q, tables, langs):
+    """A phrase or a CJK run anywhere in the query, the longest first."""
+    for n in range(min(len(words), MAX_PHRASE_WORDS), 0, -1):
+        for i in range(len(words) - n + 1):
+            gram = " ".join(words[i : i + n])
+            for x in langs:
+                t = tables.get(x)
+                if t and gram in t.within:
+                    return (t.within[gram], "card")
+    if not _CJK.search(q):
+        return None
+    for n in range(min(len(q), MAX_CJK_RUN), 1, -1):
+        for i in range(len(q) - n + 1):
+            for x in langs:
+                t = tables.get(x)
+                if t and q[i : i + n] in t.cjk:
+                    return (t.cjk[q[i : i + n]], "card")
+    return None
+
+
 def lookup(query, lang="en"):
     """``(situation id, kind)`` for what was typed, or None. ``kind`` is
     "card" (the words name an emergency: show its first passage) or "link"
@@ -196,31 +232,7 @@ def lookup(query, lang="en"):
     words = q.split()
     rest = " ".join(w for w in words if not any(w in stop.get(x, ()) for x in langs))
     wholes = [q] + ([rest] if rest and rest != q else [])
-    for whole in wholes:
-        for x in langs:
-            t = tables.get(x)
-            if t and whole in t.exact:
-                sid = t.exact[whole]
-                return (sid, "card" if sid else "link")
-        for x in langs:
-            t = tables.get(x)
-            if t and whole in t.link:
-                return (t.link[whole], "link")
-    for n in range(min(len(words), MAX_PHRASE_WORDS), 0, -1):
-        for i in range(len(words) - n + 1):
-            gram = " ".join(words[i : i + n])
-            for x in langs:
-                t = tables.get(x)
-                if t and gram in t.within:
-                    return (t.within[gram], "card")
-    if _CJK.search(q):
-        for n in range(min(len(q), MAX_CJK_RUN), 1, -1):
-            for i in range(len(q) - n + 1):
-                for x in langs:
-                    t = tables.get(x)
-                    if t and q[i : i + n] in t.cjk:
-                        return (t.cjk[q[i : i + n]], "card")
-    return None
+    return _whole(wholes, tables, langs) or _inside(words, q, tables, langs)
 
 
 def match(query, lang="en"):

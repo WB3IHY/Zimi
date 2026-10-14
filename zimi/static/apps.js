@@ -6,8 +6,12 @@
 // (the shell reads the same key, app.js _nightApply). It puts night-red on <html>, which apps.css
 // and app.css turn into deep red on black, so looking at the phone does not cost night vision.
 var NIGHT_KEY = 'zimi.night', NIGHT_RED = 'red';
+var NIGHT_FILTER = '<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="night-red-filter" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.5 0.5 0.15 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/></filter></svg>';
 function nightApply() {
-  try { document.documentElement.classList.toggle('night-red', localStorage.getItem(NIGHT_KEY) === NIGHT_RED); } catch (e) {}
+  var on = false;
+  try { on = localStorage.getItem(NIGHT_KEY) === NIGHT_RED; document.documentElement.classList.toggle('night-red', on); } catch (e) {}
+  // The filter that turns pictures to red monochrome, once, where the page can use it.
+  if (on && document.body && !document.getElementById('night-red-filter')) document.body.insertAdjacentHTML('afterbegin', NIGHT_FILTER);
 }
 function nightSet(on) {
   try { if (on) localStorage.setItem(NIGHT_KEY, NIGHT_RED); else localStorage.removeItem(NIGHT_KEY); } catch (e) {}
