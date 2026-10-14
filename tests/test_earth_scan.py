@@ -3,6 +3,7 @@
 Run: pytest tests/test_earth_scan.py -v
 """
 
+import contextlib
 import os
 import sqlite3
 import sys
@@ -155,6 +156,13 @@ class _Wan:
 # ── how they are read ──
 
 
+def _rows(db):
+    """The place count of a scan file, the connection closed again: on Windows an
+    open handle on the scan's file stops the resumed scan renaming it into place."""
+    with contextlib.closing(sqlite3.connect(db)) as conn:
+        return conn.execute("SELECT COUNT(*) FROM places").fetchone()[0]
+
+
 def test_the_scan_checkpoints_and_resumes_after_it_is_killed(tmp_path, monkeypatch):
     _library(
         tmp_path,
@@ -187,7 +195,7 @@ def test_the_scan_checkpoints_and_resumes_after_it_is_killed(tmp_path, monkeypat
         earth.scan(name, path)
     tmp = earth.db_path(name) + ".tmp"
     assert os.path.exists(tmp) and not os.path.exists(earth.db_path(name))
-    kept = sqlite3.connect(tmp).execute("SELECT COUNT(*) FROM places").fetchone()[0]
+    kept = _rows(tmp)
     assert 25 <= kept <= 39  # whole batches, not the entry it died on
     # The next run takes up where the last stopped: it parses what is left, not everything.
     seen.clear()
@@ -195,12 +203,7 @@ def test_the_scan_checkpoints_and_resumes_after_it_is_killed(tmp_path, monkeypat
     earth.scan(name, path)
     assert len(seen) <= 60 - 25
     assert not os.path.exists(tmp)
-    assert (
-        sqlite3.connect(earth.db_path(name))
-        .execute("SELECT COUNT(*) FROM places")
-        .fetchone()[0]
-        == 60
-    )
+    assert _rows(earth.db_path(name)) == 60
 
 
 def test_one_bad_entry_does_not_stop_the_scan(tmp_path, monkeypatch):
