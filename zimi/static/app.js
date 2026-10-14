@@ -20752,7 +20752,14 @@ function openEarth(replaceState, start) {
     return;
   }
   _openHashApp('earth', replaceState, function() { _earthOpen = true; return _EARTH_PAGE + '#' + _earthStrings(start); });
-  if (start && start.lat != null) history.replaceState(history.state, '', _earthUrl(start));
+  if (start && start.lat != null) _earthRemember(start);
+}
+// Where the globe is, kept in the entry itself as well as the address: an
+// article read from a place replaces the address when it closes, and Back
+// to Earth reads the place from the entry, not from what is left of the URL.
+function _earthRemember(at) {
+  var st = Object.assign({}, history.state || {}, { earthAt: { lat: at.lat, lon: at.lon, alt: at.alt } });
+  history.replaceState(st, '', _earthUrl(at));
 }
 // What the page asks of the shell (same origin, called through window.parent).
 // The installed map that covers a point, preferring StreetZim's (it has the
@@ -20771,7 +20778,9 @@ function _earthOpenMap(lat, lng, zoom) {
 }
 // The sky above a place: the Almanac, and the Look view over that place
 // (almanac-look.js), without changing the place the Almanac keeps.
+var _earthUnderAlmanac = false;
 function _earthLookUp(lat, lng, name) {
+  _earthUnderAlmanac = _earthOpen;
   _appsOff();
   openAlmanac();
   var tries = 0;
@@ -20779,6 +20788,14 @@ function _earthLookUp(lat, lng, name) {
     if (typeof openAlmanacLook === 'function' && document.getElementById('almanac-sky-canvas')) { openAlmanacLook({ lat: lat, lon: lng, name: name || '' }); return; }
     if (++tries < 100) setTimeout(wait, 100);
   })();
+}
+
+// The Almanac that was opened over Earth has closed: Earth is what is on
+// screen again, and the shell must say so (its breadcrumb, its back).
+function _earthAlmanacClosed() {
+  if (!_earthUnderAlmanac) return;
+  _earthUnderAlmanac = false;
+  if (readerOpen && !currentArticle && !_anyAppOpen()) { _earthOpen = true; updateTopbar(); }
 }
 
 // A word (or the front, w ''), as Reddot opens a post.
@@ -22193,7 +22210,7 @@ window.addEventListener('message', function(e) {
     else _appItemClosed();
   } else if (d.zimi === 'earth-at' && _earthOpen && isFinite(d.lat) && isFinite(d.lon) && isFinite(d.alt)) {
     // Where the globe is, as the address: a place on Earth is a link.
-    history.replaceState(history.state, '', _earthUrl({ lat: d.lat, lon: d.lon, alt: d.alt }));
+    _earthRemember({ lat: d.lat, lon: d.lon, alt: d.alt });
   } else if (d.zimi === 'dictionary-home' && _dictOpen) {
     _appHome({ mode: 'reader', dictionary: true, w: '' }, _dictUrl(''), 'w');
     _appItemClosed();
@@ -27489,7 +27506,7 @@ window.addEventListener('popstate', async (e) => {
   } else if (s && s.mode === 'reader' && s.books) {
     if (!_appFrameRoute(_booksOpen, '')) openBooks(true);
   } else if (s && s.mode === 'reader' && s.earth) {
-    if (!_earthOpen) openEarth(true, _earthHashStart(location.hash) || undefined);
+    if (!_earthOpen) openEarth(true, s.earthAt || _earthHashStart(location.hash) || undefined);
   } else if (s && s.mode === 'reader' && s.fieldguide) {
     if (!_appFrameRoute(_fieldguideOpen, s.fg)) openFieldguide(true, s.fg || '');
   } else if (s && s.mode === 'reader' && s.dictionary) {

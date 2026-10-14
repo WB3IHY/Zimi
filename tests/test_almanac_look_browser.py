@@ -30,7 +30,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Linux CI needs SwiftShader asked for; a Mac has its own and the flags make it crawl.
-GL_ARGS = [] if sys.platform == "darwin" else ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
+GL_ARGS = (
+    []
+    if sys.platform == "darwin"
+    else ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
+)
 VIEW = {"width": 390, "height": 844}
 PLACE = {"lat": 37.7749, "lon": -122.4194, "name": "San Francisco"}
 POLL_MS = 100
@@ -117,7 +121,9 @@ def served(tmp_path_factory):
             _Article(
                 "A/Paris",
                 "Paris",
-                b'<html><body><a href="geo:48.85,2.35">map</a>' + b"g" * 800 + b"</body></html>",
+                b'<html><body><a href="geo:48.85,2.35">map</a>'
+                + b"g" * 800
+                + b"</body></html>",
             )
         )
         for k, v in {
@@ -482,13 +488,20 @@ def test_read_and_travel_guide_open_the_article_they_name(browser, served):
                 polling=POLL_MS,
             )
             _spy_open(pg2)
-            f2.evaluate("() => document.querySelector('.dot[aria-label=Paris]').click()")
+            f2.evaluate(
+                "() => document.querySelector('.dot[aria-label=Paris]').click()"
+            )
             pg2.wait_for_function(
-                "() => document.querySelectorAll('#acts [data-zim]').length >= 2" if False else
-                "() => document.getElementById('reader-frame').contentDocument.querySelectorAll('#acts [data-zim]').length >= 2",
+                (
+                    "() => document.querySelectorAll('#acts [data-zim]').length >= 2"
+                    if False
+                    else "() => document.getElementById('reader-frame').contentDocument.querySelectorAll('#acts [data-zim]').length >= 2"
+                ),
                 polling=POLL_MS,
             )
-            f2.evaluate("() => document.querySelectorAll('#acts [data-zim]')[1].click()")
+            f2.evaluate(
+                "() => document.querySelectorAll('#acts [data-zim]')[1].click()"
+            )
             pg2.wait_for_function("() => window.__opened.length === 1", polling=POLL_MS)
             assert pg2.evaluate("() => window.__opened[0]") == [guide, "A/Paris"]
         finally:
@@ -539,7 +552,9 @@ def test_escape_closes_look_and_leaves_the_almanac(browser, served):
     ctx, pg, _ = _look(browser, served, "none")
     try:
         pg.keyboard.press("Escape")
-        pg.wait_for_function("() => !document.getElementById('almanac-look')", polling=POLL_MS)
+        pg.wait_for_function(
+            "() => !document.getElementById('almanac-look')", polling=POLL_MS
+        )
         assert _almanac_open(pg) and pg.is_visible(".almanac-sky-wrap")
         assert pg.evaluate("() => !document.body.classList.contains('look-open')")
     finally:
@@ -558,7 +573,9 @@ def _look_from_home(browser, served):
         polling=POLL_MS,
     )
     pg.evaluate("() => document.querySelector('.alm-sky-look').click()")
-    pg.wait_for_function("() => !!document.getElementById('almanac-look')", polling=POLL_MS)
+    pg.wait_for_function(
+        "() => !!document.getElementById('almanac-look')", polling=POLL_MS
+    )
     return ctx, pg
 
 
@@ -567,7 +584,9 @@ def test_the_back_gesture_closes_look_first_and_the_almanac_second(browser, serv
     try:
         assert pg.evaluate("() => history.state && history.state.look") == 1
         pg.evaluate("() => history.back()")
-        pg.wait_for_function("() => !document.getElementById('almanac-look')", polling=POLL_MS)
+        pg.wait_for_function(
+            "() => !document.getElementById('almanac-look')", polling=POLL_MS
+        )
         assert _almanac_open(pg)
         pg.evaluate("() => history.back()")
         pg.wait_for_function("() => !_almanacOpen", polling=POLL_MS)
@@ -582,8 +601,12 @@ def test_closing_look_by_its_button_takes_back_the_step_it_made(browser, served)
         before = pg.evaluate("() => history.length")
         assert pg.evaluate("() => history.state && history.state.look") == 1
         _tap(pg, "#look-close")
-        pg.wait_for_function("() => !document.getElementById('almanac-look')", polling=POLL_MS)
-        pg.wait_for_function("() => !(history.state && history.state.look)", polling=POLL_MS)
+        pg.wait_for_function(
+            "() => !document.getElementById('almanac-look')", polling=POLL_MS
+        )
+        pg.wait_for_function(
+            "() => !(history.state && history.state.look)", polling=POLL_MS
+        )
         assert _almanac_open(pg)
         # One Back from here leaves the Almanac, not a step that is not there.
         pg.evaluate("() => history.back()")
@@ -597,7 +620,9 @@ def test_closing_the_almanac_takes_look_with_it(browser, served):
     ctx, pg, _ = _look(browser, served, "none")
     try:
         pg.evaluate("() => closeAlmanac()")
-        pg.wait_for_function("() => !document.getElementById('almanac-look')", polling=POLL_MS)
+        pg.wait_for_function(
+            "() => !document.getElementById('almanac-look')", polling=POLL_MS
+        )
         assert pg.evaluate("() => !document.body.classList.contains('look-open')")
     finally:
         ctx.close()
@@ -637,5 +662,88 @@ def test_look_controls_are_under_the_finger_not_under_the_sky(browser, served):
             "() => !document.getElementById('almanac-look')", polling=POLL_MS
         )
         assert not errors
+    finally:
+        ctx.close()
+
+
+def _earth_dots(pg):
+    pg.wait_for_function(
+        "() => document.getElementById('reader-frame').contentDocument.querySelectorAll('.dot').length >= 1",
+        polling=POLL_MS,
+    )
+
+
+def test_back_from_an_article_read_at_a_place_returns_to_that_place(browser, served):
+    ctx, pg, f, _ = _earth(browser, served, "#earth/48.8567,2.3522,0.012")
+    try:
+        _earth_dots(pg)
+        wiki = pg.evaluate(
+            "() => zimsCache.find((z) => z.kind === 'wiki' && z.project === 'wikipedia').name"
+        )
+        pg.evaluate("(z) => openArticle(z, 'A/Paris')", wiki)
+        pg.wait_for_function("() => !_earthOpen && !!currentArticle", polling=POLL_MS)
+        pg.evaluate("() => history.back()")
+        pg.wait_for_function("() => _earthOpen", polling=POLL_MS)
+        # The page reloads at the place it was left, not at the far globe.
+        pg.wait_for_function(
+            "() => { const w = document.getElementById('reader-frame').contentWindow;"
+            " if (!(w && w.__earth)) return false; const v = w.__earth.get();"
+            " return Math.abs(v.lat - 48.8567) < 1e-3 && Math.abs(v.lon - 2.3522) < 1e-3 && v.alt < 0.05; }",
+            polling=POLL_MS,
+            timeout=15000,
+        )
+        assert pg.evaluate("() => location.hash").startswith("#earth/48.85")
+    finally:
+        ctx.close()
+
+
+def _look_up_from_a_place(pg):
+    _earth_dots(pg)
+    pg.evaluate(
+        "() => document.getElementById('reader-frame').contentDocument.querySelector('.dot[aria-label=Paris]').click()"
+    )
+    pg.wait_for_function(
+        "() => document.getElementById('reader-frame').contentDocument.querySelectorAll('#acts .act').length >= 3",
+        polling=POLL_MS,
+    )
+    pg.evaluate(
+        "() => Array.from(document.getElementById('reader-frame').contentDocument.querySelectorAll('#acts .act'))"
+        ".find((a) => a.textContent === 'Look up from here').click()"
+    )
+    pg.wait_for_function(
+        "() => !!document.getElementById('almanac-look')",
+        polling=POLL_MS,
+        timeout=40000,
+    )
+
+
+def _earth_is_back(pg):
+    pg.wait_for_function("() => !_almanacOpen", polling=POLL_MS)
+    assert pg.evaluate("() => _earthOpen && readerOpen")
+    assert pg.evaluate("() => !!document.querySelector('#reader-frame')")
+
+
+def test_earth_look_up_then_back_twice_leaves_earth_properly_open(browser, served):
+    ctx, pg, f, _ = _earth(browser, served, "#earth/48.8567,2.3522,0.012")
+    try:
+        _look_up_from_a_place(pg)
+        pg.evaluate("() => history.back()")
+        pg.wait_for_function(
+            "() => !document.getElementById('almanac-look')", polling=POLL_MS
+        )
+        pg.evaluate("() => history.back()")
+        _earth_is_back(pg)
+    finally:
+        ctx.close()
+
+
+def test_earth_look_up_then_closing_the_almanac_leaves_earth_properly_open(
+    browser, served
+):
+    ctx, pg, f, _ = _earth(browser, served, "#earth/48.8567,2.3522,0.012")
+    try:
+        _look_up_from_a_place(pg)
+        pg.evaluate("() => closeAlmanac()")
+        _earth_is_back(pg)
     finally:
         ctx.close()

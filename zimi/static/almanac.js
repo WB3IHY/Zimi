@@ -290,6 +290,7 @@ function closeAlmanac() {
   if (location.hash === '#almanac') {
     history.replaceState(history.state, '', location.pathname + location.search);
   }
+  if (typeof _earthAlmanacClosed === 'function') _earthAlmanacClosed();
 }
 
 // Suspend the almanac to open a deep-linked article: tear down the visuals but
