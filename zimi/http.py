@@ -2915,6 +2915,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                     if lat is None or lon is None:
                         return self._json(400, {"error": "point"})
                     return self._json(200, _earth.near(lat, lon))
+                return self._json(404, {"error": "not found"})
             elif parsed.path == "/fieldguide" or parsed.path.startswith("/fieldguide/"):
                 # Field Guide: situations, their quoted sources and the
                 # library behind them (zimi/fieldguide.py).

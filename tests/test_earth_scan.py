@@ -558,3 +558,22 @@ def test_every_way_of_reading_gives_the_same_biggest_places(tmp_path, monkeypatc
         }, (west, south, east, north)
         assert len(got) == len(want)
     conn.close()
+
+
+def test_an_unknown_earth_path_is_answered_not_left_hanging(two, monkeypatch):
+    import urllib.error
+    import urllib.request
+    from http.server import ThreadingHTTPServer
+
+    from zimi.http import ZimHandler
+
+    monkeypatch.setattr(srv, "apps_shown", lambda: frozenset(["earth"]))
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), ZimHandler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    url = "http://127.0.0.1:%d/earth/bogus" % httpd.server_address[1]
+    try:
+        with pytest.raises(urllib.error.HTTPError) as got:
+            urllib.request.urlopen(url, timeout=5)
+        assert got.value.code == 404
+    finally:
+        httpd.shutdown()

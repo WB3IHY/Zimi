@@ -205,6 +205,25 @@ def fold(text):
     return _unaccent(text).lower()
 
 
+
+# Opening words that make a query a question, per language (folded). "die" and
+# "was" are German and English at once, so neither is listed bare.
+ASKING = frozenset("""what who whom whose when where why which how
+    wer wie wo wann warum wieso weshalb welche welcher welches wohin woher
+    qui que quoi quand ou pourquoi quel quelle quels quelles comment combien
+    quien quienes cuando donde porque cual cuales como cuanto cuantos
+    chi quando dove perche quale quali come quanto quanti
+    quem quando onde qual quais quanto quantos
+    wat wie waar wanneer waarom welke hoe
+    кто что когда где почему зачем какой какая какое какие как сколько
+    من ما ماذا متى اين لماذا كيف كم هل
+    क्या कौन कब कहाँ क्यों कैसे कितना
+    מי מה מתי איפה למה איך כמה""".split())
+# The question words other languages open with ("wer", "wie", "quand",
+# "почему"), for a search to leave out as it leaves out "who" and "how". Two
+# are also English words ("come", "dove") and stay.
+QUESTION_WORDS = frozenset(fold(w) for w in ASKING - {"come", "dove"})
+
 def _pattern(text):
     """A term as a regex: from the start of a word, so -ted drops "TED" and
     "TEDx" but not "United"; anywhere in a script without spaces."""

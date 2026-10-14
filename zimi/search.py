@@ -1738,12 +1738,10 @@ def _clean_query(q):
     """Strip stop words for better Xapian matching; the query as it was when
     every word is one. Quotes never reach here: a query with a phrase is an
     operator query, and the index is given its words (query.term_words)."""
-    from zimi.bestanswer import QUESTION_WORDS
-
     words = [
         w
         for w in q.split()
-        if w.lower() not in STOP_WORDS and _query.fold(w) not in QUESTION_WORDS
+        if w.lower() not in STOP_WORDS and _query.fold(w) not in _query.QUESTION_WORDS
     ]
     return " ".join(words) or q
 

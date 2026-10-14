@@ -125,23 +125,8 @@ _UNSPACED_STOP = frozenset(
     "的是了在有和与或吗呢么谁什哪怎如何为麼誰什嗎的は、がをにへでとのもか"
 )
 
-# Opening words that make a query a question, per language (folded). "die" and
-# "was" are German and English at once, so neither is listed bare.
-_ASKING = frozenset("""what who whom whose when where why which how
-    wer wie wo wann warum wieso weshalb welche welcher welches wohin woher
-    qui que quoi quand ou pourquoi quel quelle quels quelles comment combien
-    quien quienes cuando donde porque cual cuales como cuanto cuantos
-    chi quando dove perche quale quali come quanto quanti
-    quem quando onde qual quais quanto quantos
-    wat wie waar wanneer waarom welke hoe
-    кто что когда где почему зачем какой какая какое какие как сколько
-    من ما ماذا متى اين لماذا كيف كم هل
-    क्या कौन कब कहाँ क्यों कैसे कितना
-    מי מה מתי איפה למה איך כמה""".split())
-# The question words other languages open with ("wer", "wie", "quand",
-# "почему"), for a search to leave out as it leaves out "who" and "how". Two
-# are also English words ("come", "dove") and stay.
-QUESTION_WORDS = frozenset(_query.fold(w) for w in _ASKING - {"come", "dove"})
+_ASKING = _query.ASKING
+QUESTION_WORDS = _query.QUESTION_WORDS
 _ASKING_ANYWHERE = re.compile(
     "[?？؟]|什么|谁|怎么|怎样|如何|为什么|哪|吗|嗎|いつ|だれ|どこ|なぜ|どう|何"
 )
