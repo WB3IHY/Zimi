@@ -1771,47 +1771,60 @@ function _spDom() {
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-modal', 'true');
   el.setAttribute('aria-label', _aeT('sp_open'));
+  var tab = function (id, key) { return '<button type="button" class="ae-btn" ' + id + ' aria-pressed="false">' + _almEsc(_aeT(key)) + '</button>'; };
   el.innerHTML =
     '<canvas class="ae-canvas" id="sp-canvas" tabindex="0" role="img"></canvas>' +
     '<div class="ae-labels" id="sp-labels">' +
       '<span class="ae-label sp-label" id="sp-ghost" hidden></span><span class="ae-label sp-label" id="sp-light" hidden></span>' +
     '</div>' +
     '<div class="ae-msg" id="sp-msg"></div>' +
-    '<div class="ae-top">' +
-      '<button type="button" class="ae-btn ae-back" id="sp-back"><span class="ae-chev" aria-hidden="true">‹</span> ' + _almEsc(_aeT('alm_solar_system')) + '</button>' +
-      '<div class="ae-top-end"><div class="ae-when-col">' +
-        '<div class="ae-when" id="sp-when"></div>' +
-        '<button type="button" class="ae-btn ae-now" id="sp-now" hidden>' + _almEsc(_aeT('alm_now')) + '</button>' +
-      '</div><div class="ae-tools">' +
+    '<div class="ae-top sp-top">' +
+      '<div class="sp-top-row">' +
+        '<button type="button" class="ae-btn ae-back" id="sp-back"><span class="ae-chev" aria-hidden="true">‹</span> ' + _almEsc(_aeT('alm_solar_system')) + '</button>' +
+        '<div class="ae-when-col"><div class="ae-when"><b id="sp-when"></b></div>' +
+          '<button type="button" class="ae-btn ae-now" id="sp-now" hidden>' + _almEsc(_aeT('alm_now')) + '</button></div>' +
+      '</div>' +
+      '<div class="ae-tools sp-tools">' +
         '<button type="button" class="ae-btn" id="sp-scale" aria-pressed="false"></button>' +
         '<button type="button" class="ae-btn" id="sp-time"></button>' +
-      '</div></div>' +
+      '</div>' +
     '</div>' +
-    '<div class="ae-status" id="sp-status" aria-live="polite"></div>' +
     '<div class="ae-bottom">' +
       '<div class="ae-card sp-card" id="sp-card" hidden></div>' +
       '<div class="sp-cap" id="sp-cap" hidden aria-live="polite"></div>' +
       '<div class="sp-hud" id="sp-hud" hidden></div>' +
       '<div class="sp-speed"><label for="sp-slider">' + _almEsc(_aeT('sp_speed')) + '</label>' +
         '<input type="range" id="sp-slider" min="0" max="' + SP_BETA_STEPS + '" step="1"><output id="sp-speedout" for="sp-slider"></output></div>' +
-      '<div class="sp-chips" id="sp-chips" role="group" aria-label="' + _almEsc(_aeT('sp_destinations')) + '"></div>' +
-      '<div class="ae-note" id="sp-note"></div>' +
+      '<div class="sp-tabs" id="sp-tabs" role="group" aria-label="' + _almEsc(_aeT('sp_destinations')) + '">' +
+        '<button type="button" class="ae-btn" data-sp-overview="1">' + _almEsc(_aeT('sp_overview')) + '</button>' +
+        SP_GROUPS.map(function (g) { return tab('data-sp-tab="' + g.id + '"', g.label); }).join('') +
+      '</div>' +
+      '<div class="sp-chips" id="sp-chips" role="group"></div>' +
     '</div>';
   host.appendChild(el);
   return el;
 }
+// The destinations in three groups, the way the person thinks of them.
+var SP_GROUPS = [
+  { id: 'planets', label: 'sp_group_planets', kinds: ['sun', 'planet', 'dwarf'] },
+  { id: 'moons', label: 'sp_group_moons', kinds: ['moon'] },
+  { id: 'probes', label: 'sp_group_probes', kinds: ['probe'] }
+];
+function _spGroupOf(key) {
+  var kind = _spBody(key).kind;
+  return SP_GROUPS.filter(function (g) { return g.kinds.indexOf(kind) >= 0; })[0].id;
+}
 function _spChipsHtml() {
-  var html = '<button type="button" class="ae-btn" data-sp-overview="1">' + _almEsc(_aeT('sp_overview')) + '</button>';
-  var group = function (keys) {
-    return keys.map(function (k) {
-      return '<button type="button" class="ae-btn" data-sp-key="' + k + '" aria-pressed="false">' + _almEsc(_spName(k)) + '</button>';
-    }).join('');
-  };
-  var keys = SP_BODIES.map(function (b) { return b.key; });
-  var cut = keys.indexOf('Moon');
-  html += group(keys.slice(0, cut)) + '<i class="sp-gap" aria-hidden="true"></i>' + group(keys.slice(cut)) +
-    '<i class="sp-gap" aria-hidden="true"></i>' + group(_spProbeKeys);
-  return html;
+  return _spAllKeys().map(function (k) {
+    return '<button type="button" class="ae-btn" data-sp-key="' + k + '" data-sp-group="' + _spGroupOf(k) + '" aria-pressed="false">' + _almEsc(_spName(k)) + '</button>';
+  }).join('');
+}
+// Only the chips of the chosen group show.
+function _spShowGroup(id) {
+  _sp.group = id;
+  var tabs = _aeById('sp-tabs').querySelectorAll('[data-sp-tab]'), chips = _aeById('sp-chips').querySelectorAll('[data-sp-key]'), i;
+  for (i = 0; i < tabs.length; i++) tabs[i].setAttribute('aria-pressed', String(tabs[i].getAttribute('data-sp-tab') === id));
+  for (i = 0; i < chips.length; i++) chips[i].hidden = chips[i].getAttribute('data-sp-group') !== id;
 }
 
 function _spEnsure() {
@@ -1822,6 +1835,15 @@ function _spEnsure() {
   _sp = _spNewState(el);
   _spBindControls();
   _spBindCanvas(_aeById('sp-canvas'));
+  // The view follows its own size (a phone turned over), and draws again when the tab comes back.
+  if (typeof ResizeObserver === 'function') new ResizeObserver(_spResize).observe(_sp.el);
+  else window.addEventListener('resize', _spResize);
+  document.addEventListener('visibilitychange', function () {
+    if (!_spIsOpen || document.hidden) return;
+    setTimeout(_aePauseAlmanac, 0);   // the Almanac resumes its own loops on return; the view covers them
+    _sp.lastTs = 0; _sp.dirty = true;
+    _spKick();
+  });
   return true;
 }
 
@@ -1842,6 +1864,7 @@ function _spPrepare() {
     _sp.gl = S;
     _spSetStars(S, _aeStarList());
     _aeById('sp-chips').innerHTML = _spChipsHtml();
+    _spShowGroup(_sp.group);
     _spLoadMaps(S);
     return true;
   }, function () { _spLoading = null; return false; });
@@ -1861,7 +1884,8 @@ function openAlmanacSpace() {
   _sp.openJd = _sp.jd;
   _sp.selected = null; _sp.flight = null; _sp.glide = null; _sp.lastTrip = null; _sp.caption = null;
   _sp.rateIdx = 0; _sp.beta = 0.1; _sp.at = 'Earth'; _sp.pendingFly = null;
-  Object.assign(_sp.cam, { follow: 'Sun', dist: SP_OVERVIEW_DIST_AU, az: -2.0, el: SP_OVERVIEW_ELEVATION, lookYaw: 0, lookPitch: 0 });
+  Object.assign(_sp.cam, { follow: 'Sun', dist: SP_OVERVIEW_DIST_AU, az: SP_START_AZIMUTH, el: SP_OVERVIEW_ELEVATION, lookYaw: 0, lookPitch: 0 });
+  _sp.layout = _sp.layoutTarget = 1; _sp.moved = false; _sp.group = 'planets'; _sp.capQueue = []; _sp.seen = {};
   _aeById('sp-back').focus({ preventScroll: true });
   _spMessage(_aeT('sp_loading'));
   _spPrepare().then(function (ok) {
@@ -1871,7 +1895,6 @@ function openAlmanacSpace() {
     _spSyncControls();
     _spShowCaption('start');
     _spResize();
-    window.addEventListener('resize', _spResize);
     _sp.dirty = true;
     _spKick();
     _aeCoverAlmanac(true);
@@ -1890,7 +1913,6 @@ function _spClose() {
   _spIsOpen = false;
   _spStop();
   _sp.el.classList.remove('open');
-  window.removeEventListener('resize', _spResize);
   _spDisposeGl();
   _aeCoverAlmanac(false);
   if (typeof _almanacOpen === 'undefined' || _almanacOpen) _aeResumeAlmanac();
@@ -1909,21 +1931,8 @@ function _spDisposeGl() {
   var S = _sp && _sp.gl;
   if (!S) return;
   _sp.gl = null;
-  S.scene.traverse(function (o) {
-    if (o.geometry) o.geometry.dispose();
-    if (!o.material) return;
-    var u = o.material.uniforms || {};
-    for (var k in u) if (u[k].value && u[k].value.isTexture) u[k].value.dispose();
-    o.material.dispose();
-  });
-  S.renderer.dispose();
-  S.renderer.forceContextLoss();
-  var old = _aeById('sp-canvas');
-  if (old && old.parentNode) {
-    var fresh = old.cloneNode(false);
-    old.parentNode.replaceChild(fresh, old);
-    _spBindCanvas(fresh);
-  }
+  _aeFreeGl(S);
+  _aeFreshCanvas('sp-canvas', _spBindCanvas);
   Object.keys(_sp.labelPool).forEach(function (k) { _sp.labelPool[k].remove(); });
   _sp.labelPool = {};
 }
@@ -1936,13 +1945,14 @@ function _spRelease() {
 
 // The scene is centred in what the controls leave clear: the screen between the
 // top bar and the card (or the bottom controls), not behind them.
-var SP_TOP_BAR_PX = 56;
+var SP_TOP_GRADIENT_PX = 28;   // the top bar's fade below its last control (.ae-top padding)
 function _spUpdateShift() {
   if (!_sp || !_sp.el || !_sp.h) return;
   var box = _sp.el.getBoundingClientRect(), edge = _sp.el.querySelector('.ae-bottom').getBoundingClientRect().top - box.top;
+  var top = _sp.el.querySelector('.ae-top').getBoundingClientRect().bottom - box.top - SP_TOP_GRADIENT_PX;
   var card = _aeById('sp-card');
   if (!card.hidden && card.getClientRects().length) edge = Math.min(edge, card.getBoundingClientRect().top - box.top);
-  var shift = Math.round(_aeClamp(_sp.h / 2 - (SP_TOP_BAR_PX + edge) / 2, 0, _sp.h * 0.4));
+  var shift = Math.round(_aeClamp(_sp.h / 2 - (top + edge) / 2, 0, _sp.h * 0.4));
   if (shift !== _sp.shift) { _sp.shift = shift; _sp.dirty = true; _spKick(); }
 }
 function _spResize() {
@@ -1963,7 +1973,7 @@ function _spKick() {
   if (!_sp.raf) _sp.raf = requestAnimationFrame(_spFrame);
 }
 function _spRate() { return SP_TIME_RATES[_sp.rateIdx]; }
-function _spBusy() { return !!(_sp.flight || _sp.glide || _sp.drag || _sp.pinch || _spRate() > 0); }
+function _spBusy() { return !!(_sp.flight || _sp.glide || _sp.drag || _sp.pinch || _spRate() > 0 || _sp.layout !== _sp.layoutTarget); }
 function _spFrame() {
   _sp.raf = 0;
   if (!_spIsOpen || !_sp.gl || document.hidden) return;
@@ -1971,8 +1981,9 @@ function _spFrame() {
   var now = performance.now(), dt = _sp.lastTs ? Math.min(now - _sp.lastTs, 100) : 16;
   _sp.lastTs = now;
   if (_sp.flight) _spStepFlight(dt);
-  else if (_spRate() > 0) _sp.jd += _spRate() * dt / 1000;
+  else if (_spRate() > 0) { _sp.jd += _spRate() * dt / 1000; _sp.moved = true; }
   _spStepGlide(dt);
+  _spStepLayout(dt);
   var busy = _spBusy();
   if (_sp.dirty || busy) {
     _spUpdate();
@@ -1992,18 +2003,19 @@ function _spZoomBy(f) {
   _sp.glide = null; _sp.pendingFly = null;
   if (!cam.follow) cam.follow = 'Sun';
   cam.dist = _aeClamp(cam.dist * f, _spMinDist(cam.follow), SP_MAX_DIST_AU);
+  if (_sp.layoutTarget && cam.dist < SP_LAYOUT_ZOOM_OFF) _spSetLayout(0);   // zoomed in, the true places take over
   _sp.dirty = true; _spKick();
 }
 function _spTurnBy(dx, dy) {
   var cam = _sp.cam;
   if (_sp.flight) {
-    cam.lookYaw = _aeClamp(cam.lookYaw + dx * SP_DRAG_RAD_PER_PX, -Math.PI, Math.PI);
-    cam.lookPitch = _aeClamp(cam.lookPitch + dy * SP_DRAG_RAD_PER_PX, -1.5, 1.5);
+    cam.lookYaw = _aeClamp(cam.lookYaw + dx * SP_DRAG_RAD_PER_PX, -SP_MAX_LOOK_YAW, SP_MAX_LOOK_YAW);
+    cam.lookPitch = _aeClamp(cam.lookPitch + dy * SP_DRAG_RAD_PER_PX, -SP_MAX_PITCH, SP_MAX_PITCH);
   } else {
     _sp.glide = null; _sp.pendingFly = null;
     if (!cam.follow) cam.follow = 'Sun';
     cam.az -= dx * SP_DRAG_RAD_PER_PX;
-    cam.el = _aeClamp(cam.el + dy * SP_DRAG_RAD_PER_PX, -1.5, 1.5);
+    cam.el = _aeClamp(cam.el + dy * SP_DRAG_RAD_PER_PX, -SP_MAX_PITCH, SP_MAX_PITCH);
   }
   _sp.dirty = true; _spKick();
 }
@@ -2074,7 +2086,7 @@ function _spBindControls() {
     if (_sp.flight) return;
     _sp.scaleMode = _sp.scaleMode === 'true' ? 'readable' : 'true';
     if (_sp.cam.follow) _sp.cam.dist = Math.max(_sp.cam.dist, _spMinDist(_sp.cam.follow));
-    _spSyncControls(); _sp.dirty = true; _spKick();
+    _spSyncControls(); _spShowCaption('scale'); _sp.dirty = true; _spKick();
   });
   _aeById('sp-time').addEventListener('click', function () {
     _sp.rateIdx = (_sp.rateIdx + 1) % SP_TIME_RATES.length;
@@ -2082,20 +2094,23 @@ function _spBindControls() {
   });
   _aeById('sp-now').addEventListener('click', function () {
     if (_sp.flight) return;
-    _sp.jd = _dateToJD(Date.now()); _sp.rateIdx = 0;
-    _spSyncControls(); _sp.dirty = true; _spKick();
+    _sp.jd = _sp.openJd = _dateToJD(Date.now()); _sp.rateIdx = 0; _sp.moved = false;
+    _spSyncControls(); _spUpdateText(); _sp.dirty = true; _spKick();
   });
   _aeById('sp-slider').addEventListener('input', function (e) {
     if (_sp.flight) return;
     _sp.beta = _spSliderToBeta(+e.target.value);
     _spSyncControls(); _sp.dirty = true; _spKick();
   });
-  _aeById('sp-chips').addEventListener('click', function (e) {
+  function tabsOrChips(e) {
     var b = e.target.closest('button');
     if (!b) return;
-    if (b.hasAttribute('data-sp-overview')) { _spOverview(); return; }
-    _spSelect(b.getAttribute('data-sp-key'));
-  });
+    if (b.hasAttribute('data-sp-overview')) _spOverview();
+    else if (b.hasAttribute('data-sp-tab')) _spShowGroup(b.getAttribute('data-sp-tab'));
+    else if (b.hasAttribute('data-sp-key')) _spSelect(b.getAttribute('data-sp-key'));
+  }
+  _aeById('sp-chips').addEventListener('click', tabsOrChips);
+  _aeById('sp-tabs').addEventListener('click', tabsOrChips);
   _aeById('sp-card').addEventListener('click', function (e) {
     var b = e.target.closest('button');
     if (!b) return;
@@ -2107,10 +2122,15 @@ function _spBindControls() {
   _aeById('sp-cap').addEventListener('click', function (e) {
     var b = e.target.closest('button');
     if (!b || !_sp.caption) return;
-    if (b.hasAttribute('data-sp-why')) { _sp.whyOpen = !_sp.whyOpen; _spRenderCaption(); }
+    if (b.hasAttribute('data-sp-why')) { _sp.whyOpen = !_sp.whyOpen; _sp.caption.until = 0; _spRenderCaption(); }
     else if (b.hasAttribute('data-sp-ok')) _spDismissCaption();
   });
 }
+
+// Markup and text are written only when they change: rewriting a node every frame
+// loses a tap that landed on it and makes a live region announce the same words again.
+function _spSetHtml(el, html) { if (el._spHtml !== html) { el.innerHTML = html; el._spHtml = html; } }
+function _spSetText(el, text) { if (el._spText !== text) { el.textContent = text; el._spText = text; } }
 
 // ── Selecting, and the card ──
 function _spSelect(key) {
@@ -2118,15 +2138,24 @@ function _spSelect(key) {
   _sp.selected = key;
   _sp.libToken = (_sp.libToken || 0) + 1;
   _spRenderCard();
+  if (key && _spGroupOf(key) !== _sp.group) _spShowGroup(_spGroupOf(key));
   var chips = _aeById('sp-chips').querySelectorAll('[data-sp-key]');
   for (var i = 0; i < chips.length; i++) chips[i].setAttribute('aria-pressed', String(chips[i].getAttribute('data-sp-key') === key));
   if (key) {
     var chip = _aeById('sp-chips').querySelector('[data-sp-key="' + key + '"]');
     if (chip && chip.scrollIntoView) chip.scrollIntoView({ block: 'nearest', inline: 'center', behavior: _spReduceMotion() ? 'auto' : 'smooth' });
     _spLoadLibrary(key);
+    _spShowSelection(key);
   }
   _sp.dirty = true;
   _spKick();
+}
+// What was chosen is shown: if it is off the screen (a spacecraft 170 AU out, seen from beside
+// Jupiter) the camera goes back out to the whole system, where everything is in view.
+function _spShowSelection(key) {
+  if (_sp.flight || _sp.glide || _sp.pendingFly) return;
+  var it = _sp.byKey && _sp.byKey[key], on = it && it.scr && it.scr.x > 0 && it.scr.x < _sp.w && it.scr.y > 0 && it.scr.y < _sp.h;
+  if (!on && !_sp.layoutTarget) _spOverview(true);
 }
 function _spFmtDist(au) {
   return au < 0.01 ? _orrNum(au * AU_KM, 'kilometer', 0) : _orrNum(au, null, au < 10 ? 2 : 1) + ' AU';
@@ -2166,35 +2195,33 @@ function _spRenderCard() {
 function _spUpdateCardLines() {
   var key = _sp.selected, box = _aeById('sp-card-lines');
   if (!key || !box) return;
-  var b = _spBody(key), sc = _spScaleNow(), jd = _sp.jd, pos = _spBodyPos(key, jd, sc.moon), lines = [];
-  var fly = _aeById('sp-fly');
-  if (!pos) {
+  var b = _spBody(key), jd = _sp.jd, lines = [];
+  var fly = _aeById('sp-fly'), trip = _spTripBetween(_sp.at, key, jd, _sp.beta);
+  var here = key === _sp.at && !_sp.flight, nogo = _spNoGo(key);
+  if (!trip) {
     var track = _spTrack(b.track), before = track && jd < track.jd0;
     lines.push(_aeT(before ? 'sp_not_yet' : 'sp_over', { date: _spFmtDate(before ? track.events[0][0] : track.jd1) }));
-    if (fly) fly.disabled = true;
   } else {
-    var here = key === _sp.at && !_sp.flight;
-    if (fly) { fly.disabled = !!_sp.flight; fly.hidden = here; }
-    var d = _aeLen(_aeSub(pos, _spShipPos()));
-    lines.push(here ? _aeT('sp_here') : _aeT('sp_dist_light', { au: _spFmtDist(d), time: _orrFmtSpan(_lightDelaySeconds(d)) }));
-    var legs = Math.max(0, d - _spStandoff(key));
-    if (!_sp.flight && !here && legs > 1e-9) {
-      var trip = _spTrip(legs, _sp.beta), diff = (trip.earthSec - trip.shipSec) / trip.earthSec > 0.005;
+    lines.push(here ? _aeT('sp_here') : _aeT('sp_dist_light', { au: _spFmtDist(trip.distAU), time: _orrFmtSpan(trip.lightSec) }));
+    if (!_sp.flight && !here && !nogo && trip.legAU > 1e-9) {
+      var diff = (trip.earthSec - trip.shipSec) / trip.earthSec > 0.005;
       lines.push(diff ? _aeT('sp_trip_two', { speed: _orrFmtBeta(_sp.beta), earth: _orrFmtSpan(trip.earthSec), ship: _orrFmtSpan(trip.shipSec) })
                       : _aeT('sp_trip', { speed: _orrFmtBeta(_sp.beta), time: _orrFmtSpan(trip.earthSec) }));
     }
+    if (nogo === 'gone') lines.push(_aeT('sp_gone_before'));
     if (b.kind === 'probe') {
-      lines.push(_aeT('sp_from_sun', { au: _spFmtDist(_aeLen(pos)) }));
+      lines.push(_aeT('sp_from_sun', { au: _spFmtDist(_aeLen(_spBodyPos(key, jd))) }));
       var ev = _spLastEvent(_spTrack(b.track), jd);
       if (ev) lines.push(_spEventText(ev) + ', ' + _spFmtDate(ev[0]));
     }
   }
+  if (fly) { fly.disabled = !!_sp.flight || !!nogo; fly.hidden = here; }
   if (_sp.lastTrip && _sp.lastTrip.key === key && !_sp.flight) {
     var te = _orrFmtSpan(_sp.lastTrip.earthSec), ts = _orrFmtSpan(_sp.lastTrip.shipSec);
     lines.push(te === ts ? _aeT('sp_took_one', { time: te }) : _aeT('sp_took', { earth: te, ship: ts }));
   }
-  var html = lines.map(function (l) { return '<span class="sp-line">' + _almEsc(l) + '</span>'; }).join('');
-  if (html !== _sp.lastCard) { box.innerHTML = html; _sp.lastCard = html; _spUpdateShift(); }
+  _spSetHtml(box, lines.map(function (l) { return '<span class="sp-line">' + _almEsc(l) + '</span>'; }).join(''));
+  _spUpdateShift();
 }
 
 // ── The library: what the installed ZIMs say about the body ──
@@ -2215,7 +2242,7 @@ function _spLoadLibrary(key) {
   if (typeof _installedVideoZims === 'function' && _installedVideoZims().length) {
     fetch('/tube?q=' + encodeURIComponent(english) + '&limit=2').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
       ((j && j.items) || []).slice(0, 2).forEach(function (v) {
-        add(_spLibChip(_aeT('sp_watch', { title: String(v.title || '').slice(0, 34) }), 'data-app="tube" data-zim="' + _almEsc(v.zim) + '" data-path="' + _almEsc(v.page) + '"'));
+        add(_spLibChip(_aeT('sp_watch', { title: String(v.title || '').slice(0, SP_CHIP_TITLE_CHARS) }), 'data-app="tube" data-zim="' + _almEsc(v.zim) + '" data-path="' + _almEsc(v.page) + '"'));
       });
     }).catch(function () {});
   }
@@ -2224,7 +2251,7 @@ function _spLoadLibrary(key) {
   if (qa) {
     fetch('/search?q=' + encodeURIComponent(english) + '&limit=1&zim=' + encodeURIComponent(qa.name)).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
       var hit = j && j.results && j.results[0];
-      if (hit) add(_spLibChip(_aeT('sp_ask', { title: String(hit.title || '').slice(0, 34) }), 'data-app="exchange" data-zim="' + _almEsc(hit.zim || qa.name) + '" data-path="' + _almEsc(hit.path) + '"'));
+      if (hit) add(_spLibChip(_aeT('sp_ask', { title: String(hit.title || '').slice(0, SP_CHIP_TITLE_CHARS) }), 'data-app="exchange" data-zim="' + _almEsc(hit.zim || qa.name) + '" data-path="' + _almEsc(hit.path) + '"'));
     }).catch(function () {});
   }
   // The orbit sandbox, for the planets and moons.
@@ -2241,73 +2268,107 @@ function _spOpenLibrary(btn) {
 }
 
 // ── What the person is told, one idea at a time ──
-// The surprise first; the reason one tap away. Each shows once a session, when
-// its effect has become plain to see. The higher one wins if two want the place.
+// The surprise first; the reason one tap away. Each shows once a session, when its
+// effect has become plain to see, and they come in turn: at 0.99c all three cross
+// their threshold within a second, so a flight shows the race, then the stars, then
+// the colours, each for SP_CAPTION_MS, and not only the last. A `plain` caption has no
+// reason behind it; an `auto` one makes way for the next by itself (never while its
+// reason is open); `scale` shows every time the scale is changed.
 var SP_CAPTIONS = {
-  start:  { prio: -1, plain: true },
-  race:   { prio: 1, link: 'phys:lightspeed' },
-  stars:  { prio: 2, link: 'phys:aberration' },
-  colour: { prio: 3, link: 'phys:doppler' },
-  clocks: { prio: 4, link: 'phys:timedilation' },
-  old:    { prio: 0, link: 'phys:lightspeed' }
+  start:  { plain: true },
+  scale:  { plain: true, again: true },
+  race:   { auto: true, link: 'phys:lightspeed' },
+  stars:  { auto: true, link: 'phys:aberration' },
+  colour: { auto: true, link: 'phys:doppler' },
+  clocks: { link: 'phys:timedilation' },
+  old:    { link: 'phys:lightspeed' }
 };
 function _spShowCaption(kind) {
-  if (_sp.seen[kind]) return;
-  var cur = _sp.caption;
-  if (cur && SP_CAPTIONS[cur.kind].prio >= SP_CAPTIONS[kind].prio) return;
-  _sp.caption = { kind: kind };
+  var spec = SP_CAPTIONS[kind];
+  if (!spec.again && _sp.seen[kind]) return;
+  if (_sp.capQueue.indexOf(kind) >= 0 || (_sp.caption && _sp.caption.kind === kind && !spec.again)) return;
+  if (spec.again && _sp.caption && _sp.caption.kind === kind) { _spRenderCaption(); return; }
+  // The newest note about the scale replaces a note or a hint that is up, never the clocks.
+  if (spec.again && _sp.caption && SP_CAPTIONS[_sp.caption.kind].plain) _sp.caption = null;
+  _sp.capQueue.push(kind);
+  _spPumpCaption();
+}
+// Show the next caption in the queue, if none is up.
+function _spPumpCaption() {
+  if (_sp.caption || !_sp.capQueue.length) return;
+  var kind = _sp.capQueue.shift();
+  _sp.seen[kind] = true;
+  _sp.caption = { kind: kind, until: SP_CAPTIONS[kind].auto ? performance.now() + SP_CAPTION_MS : 0 };
   _sp.whyOpen = false;
   _spRenderCaption();
 }
 function _spDismissCaption() {
   var kind = _sp.caption && _sp.caption.kind;
-  if (kind) _sp.seen[kind] = true;
   _sp.caption = null;
   _spRenderCaption();
   // After the clocks, the last surprise: home is seen as it was.
   if (kind === 'clocks' && _spHomeLagSeconds() >= 60) _spShowCaption('old');
+  _spPumpCaption();
+}
+// The caption on show makes way once its time is up, if another waits (and not while its reason is open).
+function _spAdvanceCaptions() {
+  var c = _sp.caption;
+  if (c && c.until && !_sp.whyOpen && _sp.capQueue.length && performance.now() > c.until) _spDismissCaption();
 }
 function _spHomeLagSeconds() {
-  var home = _spBodyPos('Earth', _sp.jd, 1);
-  return home ? _lightDelaySeconds(_aeLen(_aeSub(home, _spShipPos()))) : 0;
+  return _lightDelaySeconds(_spTrueDistAU(_sp.at, 'Earth', _sp.jd) || 0);
 }
 function _spCaptionVars(kind) {
-  var vars = { body: _spName('Earth') };
+  var vars = { body: _spName('Earth'), k: _orrNum(SP_READABLE_BOOST, null, 0) };
   if (kind === 'old') vars.time = _orrFmtSpan(_spHomeLagSeconds());
   if (kind === 'clocks' && _sp.lastTrip) {
     vars.earth = _orrFmtSpan(_sp.lastTrip.earthSec); vars.ship = _orrFmtSpan(_sp.lastTrip.shipSec);
+    vars.gamma = _orrFmtGamma(_lorentzFactor(_sp.lastTrip.beta));
+  }
+  var f = _sp.flight;
+  if (kind === 'race') {
+    // How far behind the flash the ship arrives: the whole trip less the light's time to the same place.
+    var total = f ? _spTrip(f.len, f.beta).earthSec : (_sp.lastTrip ? _sp.lastTrip.earthSec : 0);
+    var lightSec = f ? _lightDelaySeconds(f.trueDist) : 0;
+    vars.gap = _orrFmtSpan(Math.max(0, total - lightSec));
   }
   return vars;
 }
+// What a caption says: its text key, and the paragraph behind it.
+function _spCaptionText(kind, vars) {
+  if (kind === 'scale') return { text: _aeT(_sp.scaleMode === 'true' ? 'sp_note_true' : 'sp_note_readable', vars), why: '' };
+  if (kind === 'start') return { text: _aeT('sp_cap_start'), why: _aeT('sp_note_ship') };
+  return { text: _aeT('sp_cap_' + kind, vars), why: _aeT('sp_why_' + kind, vars) };
+}
 function _spRenderCaption() {
   var box = _aeById('sp-cap'), c = _sp.caption;
-  if (!c) { box.hidden = true; box.innerHTML = ''; _spUpdateShift(); return; }
-  var spec = SP_CAPTIONS[c.kind], vars = _spCaptionVars(c.kind), read = spec.link;
+  if (!c) { box.hidden = true; _spSetHtml(box, ''); _spUpdateShift(); return; }
+  var spec = SP_CAPTIONS[c.kind], text = _spCaptionText(c.kind, _spCaptionVars(c.kind)), read = spec.link;
   var more = read && _aeLinked(read) ? _aeLink(read, _almEsc(_aeT('sp_read_more'))) : '';
-  box.innerHTML =
-    '<p>' + _almEsc(_aeT('sp_cap_' + c.kind, vars)) + '</p>' +
-    (_sp.whyOpen ? '<p class="sp-why">' + _almEsc(_aeT('sp_why_' + c.kind, vars)) + (more ? ' ' + more : '') + '</p>' : '') +
+  // The start and scale notes are shown whole; the others keep the reason behind a button.
+  var behind = spec.plain ? text.why : (_sp.whyOpen ? text.why : '');
+  _spSetHtml(box,
+    '<p>' + _almEsc(text.text) + '</p>' +
+    (behind ? '<p class="sp-why">' + _almEsc(behind) + (more && !spec.plain ? ' ' + more : '') + '</p>' : '') +
     '<div class="sp-cap-row">' + (spec.plain ? '' : '<button type="button" class="ae-btn" data-sp-why="1" aria-expanded="' + _sp.whyOpen + '">' + _almEsc(_aeT('sp_why')) + '</button>') +
-    '<button type="button" class="ae-btn" data-sp-ok="1">' + _almEsc(_aeT('sp_got_it')) + '</button></div>';
+    '<button type="button" class="ae-btn" data-sp-ok="1">' + _almEsc(_aeT('sp_got_it')) + '</button></div>');
   box.hidden = false;
   _spUpdateShift();
 }
 
 // ── Text: the date, the clocks, the speed, the notes ──
 function _spSyncControls() {
-  var sc = _spScaleNow(), flying = !!_sp.flight;
+  var flying = !!_sp.flight;
   var scaleBtn = _aeById('sp-scale');
-  scaleBtn.textContent = _sp.scaleMode === 'true' ? _aeT('sp_scale_true') : _aeT('sp_scale_readable', { k: _orrNum(SP_READABLE_BOOST, null, 0) });
+  _spSetText(scaleBtn, _sp.scaleMode === 'true' ? _aeT('sp_scale_true') : _aeT('sp_scale_readable', { k: _orrNum(SP_READABLE_BOOST, null, 0) }));
   scaleBtn.setAttribute('aria-pressed', String(_sp.scaleMode === 'true'));
   scaleBtn.disabled = flying;
-  _aeById('sp-time').textContent = _aeT(SP_TIME_KEYS[_sp.rateIdx]);
+  _spSetText(_aeById('sp-time'), _aeT(SP_TIME_KEYS[_sp.rateIdx]));
   _aeById('sp-time').disabled = flying;
   var slider = _aeById('sp-slider');
   slider.value = String(_spBetaToSlider(_sp.beta));
   slider.disabled = flying;
   slider.setAttribute('aria-valuetext', _spFmtSpeed(_sp.beta));
-  _aeById('sp-note').textContent = (_sp.scaleMode === 'true' ? _aeT('sp_note_true') : _aeT('sp_note_readable', { k: _orrNum(SP_READABLE_BOOST, null, 0) })) +
-    ' ' + _aeT('sp_note_ship');
   var hud = _aeById('sp-hud');
   hud.hidden = !flying;
   if (flying && !hud.firstChild) {
@@ -2316,28 +2377,37 @@ function _spSyncControls() {
       '<span style="grid-column:1/-1"><button type="button" class="ae-btn" data-sp-skip="1" style="pointer-events:auto">' + _almEsc(_aeT('sp_skip')) + '</button></span>';
     hud.onclick = function (e) { if (e.target.closest('[data-sp-skip]')) _spSkipFlight(); };
   } else if (!flying) hud.innerHTML = '';
-  if (!flying && _sp.caption && _sp.caption.kind !== 'clocks' && _sp.caption.kind !== 'old') { _sp.seen[_sp.caption.kind] = true; _sp.caption = null; _spRenderCaption(); }
-  _aeById('sp-speedout').textContent = _spFmtSpeed(_sp.beta);
+  // A flight over: the effects that were its own go, with what was queued behind them.
+  if (!flying) {
+    _sp.capQueue = _sp.capQueue.filter(function (k) { return !SP_CAPTIONS[k].auto; });
+    if (_sp.caption && SP_CAPTIONS[_sp.caption.kind].auto) { _sp.caption = null; _spRenderCaption(); _spPumpCaption(); }
+  }
+  _spSetText(_aeById('sp-speedout'), _spFmtSpeed(_sp.beta));
   _sp.el.classList.toggle('sp-flying', flying);
+  // Arrived with something to say: the sheet carries it, and the planet is left in view.
+  _sp.el.classList.toggle('sp-arrived', !flying && !!_sp.caption && (_sp.caption.kind === 'clocks' || _sp.caption.kind === 'old'));
   _spUpdateShift();
 }
 function _spUpdateText() {
-  var ms = (_sp.jd - JD_UNIX_EPOCH) * MS_PER_DAY;
-  _aeById('sp-when').innerHTML = '<b>' + _almEsc(_aeFmtDate(ms)) + '</b>';
-  _aeById('sp-now').hidden = Math.abs(_sp.jd - _dateToJD(Date.now())) < 2 / SECONDS_PER_DAY;
+  _spSetText(_aeById('sp-when'), _spFmtWhen(_sp.jd));
+  // "Now" is offered once the clock has been moved (by a flight, or time running) or the page's was moved before
+  // the view opened: not for a clock that is simply a few seconds behind the wall's.
+  var wall = _dateToJD(Date.now());
+  _aeById('sp-now').hidden = !((_sp.moved || Math.abs(_sp.openJd - wall) > 60 / SECONDS_PER_DAY) && Math.abs(_sp.jd - wall) > 2 / SECONDS_PER_DAY);
   var f = _sp.flight;
   if (f) {
-    _aeById('sp-h-earth').textContent = _orrFmtSpan(f.now.earthSec);
-    _aeById('sp-h-you').textContent = _orrFmtSpan(f.now.shipSec);
-    _aeById('sp-h-speed').textContent = _orrFmtBeta(f.now.beta);
-    _aeById('sp-speedout').textContent = _spFmtSpeed(f.now.beta);
+    _spSetText(_aeById('sp-h-earth'), _orrFmtSpan(f.now.earthSec));
+    _spSetText(_aeById('sp-h-you'), _orrFmtSpan(f.now.shipSec));
+    _spSetText(_aeById('sp-h-speed'), _orrFmtBeta(f.now.beta));
+    _spSetText(_aeById('sp-speedout'), _spFmtSpeed(f.now.beta));
     if (f.now.beta >= SP_CAPTION_BETA.stars) _spShowCaption('stars');
     if (f.now.beta >= SP_CAPTION_BETA.colour) _spShowCaption('colour');
   }
+  _spAdvanceCaptions();
   _spUpdateCardLines();
   if (_sp.caption && (_sp.caption.kind === 'old' || _sp.caption.kind === 'clocks')) _spRenderCaption();
   var c = _aeById('sp-canvas');
-  var aria = _aeT('sp_aria', { when: _aeFmtDate(ms) });
+  var aria = _aeT('sp_aria', { when: _spFmtWhen(_sp.jd) });
   if (c.getAttribute('aria-label') !== aria) c.setAttribute('aria-label', aria);
 }
 
