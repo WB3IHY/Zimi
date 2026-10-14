@@ -236,7 +236,7 @@ def _reading(pg):
     return pg.inner_text("#look-read")
 
 
-def _reads(pg, prefix, seconds=10):
+def _reads(pg, prefix, seconds=30):
     """The reading, once the view has caught up with the sensors: a slow page
     draws few frames a second, so this waits for the answer, not for a time."""
     try:
