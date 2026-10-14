@@ -41,7 +41,10 @@ MAX_CHUNKS_PER_ARTICLE = 60  # ~36k chars: the lead and a long way past it
 CANDIDATE_POOL = 8  # passages whose sentences are scored after BM25
 BUDGET_SECONDS = 1.5  # stop reading more articles after this long
 CONFIDENCE = 0.62  # a sentence below this covers too little of the question
-WEAK_MATCH = 0.5  # a word matched by its stem alone (president, preside) counts this much
+WEAK_MATCH = 0.35  # a word matched by its stem alone (president, preside) counts this much
+LONG_FROM = 80  # chars: a sentence longer than this is a worse quote ...
+LONG_PENALTY = 0.25  # ... losing up to this share of its score by LONG_FROM + LONG_SPAN
+LONG_SPAN = 240
 TIGHTNESS_FLOOR = 0.45  # a sentence with the words far apart keeps this share of its score
 FRONT_MATTER_KINDS = ("books",)  # whose first passage is a title page and a licence
 TITLE_LINE_SLACK = 12  # chars a sentence may exceed the title by and still be only the title
@@ -473,6 +476,7 @@ def rank_answer(q, passages, lang=None):
             if matched < min(2, len(terms)):
                 continue
             score = cover * (TIGHTNESS_FLOOR + (1 - TIGHTNESS_FLOOR) * tight)
+            score *= 1 - LONG_PENALTY * min(1, max(0, len(sent) - LONG_FROM) / LONG_SPAN)
             score += title_bonus * cover
             score += LEAD_BONUS * (p.get("seq", 1) == 0)
             score -= RANK_DECAY * p.get("rank", 0)
