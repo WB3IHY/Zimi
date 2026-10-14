@@ -6660,12 +6660,6 @@ function openAlmanac(replaceState) {
         var earth = document.createElement('script');
         earth.src = '/static/almanac-earth.js?v=45';
         document.head.appendChild(earth);
-        // The flown solar system follows the Earth view: it reuses its three.js loader and star decoder.
-        earth.onload = function () {
-          var space = document.createElement('script');
-          space.src = '/static/almanac-space.js?v=45';
-          document.head.appendChild(space);
-        };
       };
       // Offline with a cold cache: these modules were never fetched, so there is
       // nothing to serve. Say so — a console line and a button that appears to

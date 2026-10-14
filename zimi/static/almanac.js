@@ -255,6 +255,21 @@ function _almanacTeardown() {
   if (qEl) qEl.placeholder = t('search_placeholder');
 }
 
+// The flown solar system loads on the first press, never before: nothing on the Almanac's own path.
+var _almSpaceLoading = false;
+function _almOpenSpace() {
+  // It builds on the Earth view's three.js loader and star decoder (almanac-earth.js).
+  if (typeof _aeLoadThree !== 'function') { _showToast(t('sp_unavailable')); return; }
+  if (typeof openAlmanacSpace === 'function') { openAlmanacSpace(); return; }
+  if (_almSpaceLoading) return;
+  _almSpaceLoading = true;
+  var s = document.createElement('script');
+  s.src = '/static/almanac-space.js?v=45';
+  s.onload = function () { _almSpaceLoading = false; if (typeof openAlmanacSpace === 'function') openAlmanacSpace(); };
+  s.onerror = function () { _almSpaceLoading = false; _showToast(t('almanac_unavailable_offline')); };
+  document.head.appendChild(s);
+}
+
 function closeAlmanac() {
   if (!_almanacOpen) return;
   _almReturnScroll = null; // an explicit close cancels any pending return
@@ -2128,9 +2143,8 @@ function _renderAlmanacContent() {
   html += '<span id="orrery-date" class="orrery-date"></span>';
   html += '<button id="orrery-now" class="orrery-ctrl-btn orrery-now" onclick="_orrerySnapToNow()" title="' + t('alm_back_to_now') + '" style="display:none">' + t('alm_now') + '</button>';
   html += '</div>';
-  // The way into the flown solar system (almanac-space.js, which loads after the first paint and reveals this).
-  html += '<div class="orrery-space-pill" id="orrery-space-pill"' + (typeof openAlmanacSpace === 'function' ? '' : ' hidden') + '>' +
-    '<button type="button" class="orrery-space-btn" onclick="openAlmanacSpace()">' + _almEsc(t('sp_open')) + '</button></div>';
+  // The way into the flown solar system (almanac-space.js, fetched the first time this is pressed).
+  html += '<div class="orrery-space-pill"><button type="button" class="orrery-space-btn" onclick="_almOpenSpace()">' + _almEsc(t('sp_open')) + '</button></div>';
   // Transit slider — appears when a rocket is in flight (aligned with main controls)
   html += '<div id="orrery-transit-wrap" class="orrery-transit-wrap">';
   html += '<span class="orrery-transit-end">' + t('alm_transit') + '</span>';

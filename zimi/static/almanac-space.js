@@ -23,10 +23,10 @@
 //     flux), the two clocks. The ship is a pretend one: no real ship could
 //     change speed so freely; the page says that too.
 //
-// Loaded with the other almanac modules (they share one global scope); the
-// heavy parts (three.js, the maps, the probe table) load only when the view
-// is first opened. window.openAlmanacSpace() is the entry point: the pill under
-// the orrery calls it. The pure functions below take and return plain numbers
+// Loaded with the other almanac modules (they share one global scope), and only
+// when the pill under the orrery is first pressed (almanac.js _almOpenSpace); the
+// heavy parts (three.js, the maps, the probe table) load once the view opens.
+// window.openAlmanacSpace() is the entry point. The pure functions below take and return plain numbers
 // so tests/test_almanac_space.cjs can check them against Horizons.
 //
 // Frames and units: heliocentric, J2000 ecliptic and equinox, astronomical
@@ -352,7 +352,6 @@ var SP_BODIES = [
 ];
 // The Sun's blackbody, for the colour of everything it lights.
 var SP_SUN_TEMP_K = 5772;
-var SP_NO_MAP = { Moon: 1 };   // drawn from the Moon's own map (app.js), not earth/<name>-v1.webp
 var _spBodyIndex = null;
 var _spProbeKeys = [];         // track keys of the probes, by launch
 function _spBodies() {
@@ -433,7 +432,8 @@ function _spFmtDate(jd) {
 }
 function _spFmtSpeed(beta) {
   var kms = beta * SPEED_OF_LIGHT_KM_S;
-  return _orrNum(beta, null, beta < 0.01 ? 4 : 2) + ' c · ' + _orrNum(kms, null, 0) + ' km/s';
+  // Isolated left-to-right: inside right-to-left text the bidi algorithm would reorder "0.70 c · 209,253 km/s".
+  return AE_LTR_ISOLATE + _orrNum(beta, null, beta < 0.01 ? 4 : 2) + ' c · ' + _orrNum(kms, null, 0) + ' km/s' + AE_POP_ISOLATE;
 }
 // The speed slider goes by rapidity, so the last 9 hundredths of c are not a sliver.
 var SP_RAPIDITY_MIN = Math.atanh(SP_MIN_BETA), SP_RAPIDITY_MAX = Math.atanh(SP_MAX_BETA);
@@ -464,11 +464,10 @@ var SP_KEY_TURN = 0.09;
 var SP_KEY_ZOOM = 1.18;
 var SP_TAP_SLOP_PX = 6;
 var SP_TAP_RADIUS_PX = 24;
+var SP_TAP_PROBE_BIAS_PX = 8, SP_TAP_MOON_BIAS_PX = 6;   // where two things overlap the smaller one is meant
 var SP_FLIGHT_BASE_S = 6, SP_FLIGHT_PER_DECADE_S = 2.5, SP_FLIGHT_MAX_S = 13;
-var SP_FLIGHT_EASE = 0.08;           // the share of the time spent speeding up, and again slowing down
 var SP_TIME_RATES = [0, 1, 30, 365.25];   // days a second
 var SP_TIME_KEYS = ['sp_time_stopped', 'sp_time_day', 'sp_time_month', 'sp_time_year'];
-var SP_IDLE_TICK_MS = 500;
 var SP_AU_TO_PX_MIN = 6;             // a body smaller than this (px radius) gets a ring so it can be found
 var SP_RING_FADE_PX = 16;
 var SP_MARKER_PX = 15;
@@ -1507,7 +1506,7 @@ function _spLabels() {
   if (l) {
     l.hidden = !S.lightDot;
     if (S.lightDot) {
-      l.style.transform = 'translate(' + (S.lightDot.x + 14).toFixed(1) + 'px,' + (S.lightDot.y - 7).toFixed(1) + 'px)';
+      l.style.transform = 'translate(' + (S.lightDot.x + 14).toFixed(1) + 'px,' + (S.lightDot.y - SP_LABEL_H * 1.6).toFixed(1) + 'px)';
       l.textContent = _aeT('sp_light_label');
     }
   }
@@ -1518,11 +1517,10 @@ function _spTapAt(x, y) {
     var d = Math.hypot(p.x - x, p.y - y), reach = Math.max(p.rpx, SP_TAP_RADIUS_PX);
     if (d > reach) return;
     // The smaller thing wins where two overlap (a moon over its planet, a probe over anything).
-    var score = d - (p.kind === 'probe' ? 8 : p.kind === 'moon' ? 6 : 0) - (p.rpx > SP_TAP_RADIUS_PX && d < p.rpx * 0.8 ? 0 : 0);
+    var score = d - (p.kind === 'probe' ? SP_TAP_PROBE_BIAS_PX : p.kind === 'moon' ? SP_TAP_MOON_BIAS_PX : 0);
     if (score < bestD) { best = p; bestD = score; }
   });
-  if (best) { _spSelect(best.key); if (_sp.selected === best.key && !_sp.flight && _sp.cam.follow !== best.key) { /* selecting only */ } }
-  else _spSelect(null);
+  _spSelect(best ? best.key : null);
 }
 
 // ── The page ──
@@ -1633,6 +1631,7 @@ function openAlmanacSpace() {
     if (!ok) { _spMessage(_aeT(_sp.failed ? 'sp_nogl' : 'sp_unavailable')); return; }
     _spMessage('');
     _spSyncControls();
+    _spShowCaption('start');
     _spResize();
     window.addEventListener('resize', _spResize);
     _sp.dirty = true;
@@ -1877,6 +1876,7 @@ function _spBindControls() {
 
 // ── Selecting, and the card ──
 function _spSelect(key) {
+  if (key && _sp.caption && _sp.caption.kind === 'start') _spDismissCaption();
   _sp.selected = key;
   _sp.libToken = (_sp.libToken || 0) + 1;
   _spRenderCard();
@@ -2006,6 +2006,7 @@ function _spOpenLibrary(btn) {
 // The surprise first; the reason one tap away. Each shows once a session, when
 // its effect has become plain to see. The higher one wins if two want the place.
 var SP_CAPTIONS = {
+  start:  { prio: -1, plain: true },
   race:   { prio: 1, link: 'phys:lightspeed' },
   stars:  { prio: 2, link: 'phys:aberration' },
   colour: { prio: 3, link: 'phys:doppler' },
@@ -2043,12 +2044,12 @@ function _spCaptionVars(kind) {
 function _spRenderCaption() {
   var box = _aeById('sp-cap'), c = _sp.caption;
   if (!c) { box.hidden = true; box.innerHTML = ''; _spUpdateShift(); return; }
-  var vars = _spCaptionVars(c.kind), read = SP_CAPTIONS[c.kind].link;
-  var more = _aeLinked(read) ? _aeLink(read, _almEsc(_aeT('sp_read_more'))) : '';
+  var spec = SP_CAPTIONS[c.kind], vars = _spCaptionVars(c.kind), read = spec.link;
+  var more = read && _aeLinked(read) ? _aeLink(read, _almEsc(_aeT('sp_read_more'))) : '';
   box.innerHTML =
     '<p>' + _almEsc(_aeT('sp_cap_' + c.kind, vars)) + '</p>' +
     (_sp.whyOpen ? '<p class="sp-why">' + _almEsc(_aeT('sp_why_' + c.kind, vars)) + (more ? ' ' + more : '') + '</p>' : '') +
-    '<div class="sp-cap-row"><button type="button" class="ae-btn" data-sp-why="1" aria-expanded="' + _sp.whyOpen + '">' + _almEsc(_aeT('sp_why')) + '</button>' +
+    '<div class="sp-cap-row">' + (spec.plain ? '' : '<button type="button" class="ae-btn" data-sp-why="1" aria-expanded="' + _sp.whyOpen + '">' + _almEsc(_aeT('sp_why')) + '</button>') +
     '<button type="button" class="ae-btn" data-sp-ok="1">' + _almEsc(_aeT('sp_got_it')) + '</button></div>';
   box.hidden = false;
   _spUpdateShift();
@@ -2103,8 +2104,3 @@ function _spUpdateText() {
 }
 
 window.openAlmanacSpace = openAlmanacSpace;
-// The pill under the orrery, drawn before this file ran, can now open the view.
-(function () {
-  var pill = document.getElementById('orrery-space-pill');
-  if (pill) pill.hidden = false;
-})();
