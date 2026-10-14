@@ -154,7 +154,9 @@ def library(tmp_path, monkeypatch):
     os.makedirs(str(tmp_path / "data"), exist_ok=True)
     earth._reset_for_tests()
     srv.load_cache(force=True)
-    earth.build_all_places()
+    for z in srv._zim_list_cache:
+        if z["kind"] == "wiki":
+            earth.build_one(z["name"])
     return tmp_path
 
 

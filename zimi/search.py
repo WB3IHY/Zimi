@@ -4216,7 +4216,8 @@ def _build_index_child_main(kind, data_dir, zim_name, zim_path):
     elif kind == "places":
         from zimi import earth
 
-        earth.build_places(zim_name, zim_path)
+        earth.lower_priority()
+        earth.scan(zim_name, zim_path)
     else:
         raise SystemExit(f"unknown index kind {kind!r}")
 

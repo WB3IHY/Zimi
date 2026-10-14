@@ -5504,17 +5504,6 @@ def warm_indexes():
         except Exception as e:
             log.warning("Q-ID index build phase failed: %s", e)
 
-        # Phase 2b: Zimi Earth's places (where each Wikipedia and Wikivoyage
-        # article is), one pass over each wiki in a child process. After the
-        # Q-ID phase: nothing waits for the globe's dots.
-        try:
-            if bundled("earth"):
-                from zimi import earth as _earth
-
-                _earth.build_all_places()
-        except Exception as e:
-            log.warning("Zimi Earth places phase failed: %s", e)
-
         # Phase 3: warm suggestion indexes for hot ZIMs only. With no hot
         # list, suggest archives open lazily on first /suggest call —
         # paying the open once per ZIM at first use is cheaper than
@@ -5583,6 +5572,17 @@ def warm_indexes():
             _search_mod._build_vocab_here()
         except Exception as e:
             log.warning("Did-you-mean vocab phase failed: %s", e)
+
+        # Phase 7: Zimi Earth's places (where each Wikipedia and Wikivoyage
+        # article is), after everything a search waits for, and only where
+        # Earth is offered and has been opened (earth.maybe_build_all).
+        try:
+            if bundled("earth"):
+                from zimi import earth as _earth
+
+                _earth.maybe_build_all()
+        except Exception as e:
+            log.warning("Zimi Earth places phase failed: %s", e)
 
     threading.Thread(
         target=_startup_worker, daemon=True, name="zimi-startup-worker"

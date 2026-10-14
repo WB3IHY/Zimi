@@ -2759,8 +2759,11 @@ class ZimHandler(BaseHTTPRequestHandler):
                         return None
                     return v if lo <= v <= hi else None
 
+                # Someone opened Earth: the places begin to be read, if they
+                # have not been (earth.want), and the page says how far along.
+                _earth.want()
                 if sub == "":
-                    return self._json(200, {"places": _earth.has_places()})
+                    return self._json(200, _earth.status())
                 if sub == "places":
                     box = [
                         _num("w", -180, 180),
