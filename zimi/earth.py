@@ -284,7 +284,9 @@ def _create_indexes(conn):
             conn.execute(
                 f"CREATE VIRTUAL TABLE IF NOT EXISTS {table} USING rtree(id, min_lat, max_lat, min_lon, max_lon)"
             )
-        conn.execute("INSERT OR REPLACE INTO places_rt SELECT rowid, lat, lat, lon, lon FROM places")
+        conn.execute(
+            "INSERT OR REPLACE INTO places_rt SELECT rowid, lat, lat, lon, lon FROM places"
+        )
         n = conn.execute("SELECT COUNT(*) FROM places").fetchone()[0]
         cut = conn.execute(
             "SELECT size FROM places ORDER BY size DESC LIMIT 1 OFFSET ?",
@@ -383,7 +385,7 @@ def scan(zim_name, zim_path):
         conn.close()
         raise
     conn.close()
-    os.replace(tmp, final)
+    _srv._replace_with_retry(tmp, final)
     return count
 
 
@@ -488,7 +490,10 @@ def _box_share(west, south, east, north):
 
 
 def _has_table(conn, name):
-    return conn.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone() is not None
+    return (
+        conn.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone()
+        is not None
+    )
 
 
 def _kinds(conn, west, south, east, north, ordered):

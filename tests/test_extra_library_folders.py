@@ -8,6 +8,7 @@ renames or updates a file in a folder it does not own.
 Run: pytest tests/test_extra_library_folders.py -v
 """
 
+import gc
 import json
 import os
 import shutil
@@ -57,6 +58,13 @@ def lib(tmp_path, monkeypatch):
     return own, nomad
 
 
+def _folder_state(folder):
+    """Every name in a folder with its size and mtime: what 'untouched' means."""
+    return {
+        e.name: (e.stat().st_size, e.stat().st_mtime_ns) for e in os.scandir(folder)
+    }
+
+
 def _scan_names():
     return set(server._scan_zim_files())
 
@@ -72,14 +80,18 @@ def test_without_extra_folders_the_scan_is_unchanged(lib):
 
 def test_an_added_folder_is_read_in_place(lib):
     own, nomad = lib
+    before = _folder_state(nomad)
+    assert sorted(before) == sorted([NOMAD_WIKI, NOMAD_MED, "kiwix-library.xml"])
     libfolders.add(str(nomad), "Project NOMAD")
     zims = server._scan_zim_files()
     assert set(zims) == {"own", "wikipedia_en_100", "medlineplus"}
     assert all(os.path.dirname(p) == str(nomad) for n, p in zims.items() if n != "own")
-    # Nothing was copied, moved or created beside NOMAD's files.
-    assert sorted(os.listdir(nomad)) == sorted(
-        [NOMAD_WIKI, NOMAD_MED, "kiwix-library.xml"]
-    )
+    # Nothing was copied, moved or created beside NOMAD's files, and reading them
+    # (the scan, a cache build, an open) leaves every file as it was.
+    server.load_cache(force=True)
+    for name in ("wikipedia_en_100", "medlineplus"):
+        server.get_archive(name)
+    assert _folder_state(nomad) == before
 
 
 def test_zimi_own_file_wins_a_name_collision(lib):
@@ -568,6 +580,13 @@ def _live(lib):
     return own, nomad, watch
 
 
+def _let_go_of_every_zim():
+    """What NOMAD's own deletion or move has to wait for on Windows, where an open
+    libzim Archive locks its file: the pooled handles, freed. (POSIX never minds.)"""
+    server.release_zim_handles(list(server._zim_files_cache))
+    gc.collect()
+
+
 def _count_rescans(monkeypatch):
     calls = []
     real = server.load_cache
@@ -613,6 +632,7 @@ def test_an_update_never_opens_a_file_still_being_written(lib, monkeypatch):
     rescans = _count_rescans(monkeypatch)
     new = nomad / "medlineplus_en_all_2026-03.zim"
     new.write_bytes(b"x" * 10)
+    _let_go_of_every_zim()
     os.remove(nomad / NOMAD_MED)
     watch.tick()
     new.write_bytes(b"x" * 20)  # a cp still going
@@ -657,6 +677,7 @@ def test_removing_a_folder_that_is_unplugged_still_drops_its_zims(lib, tmp_path)
     own, nomad, watch = _live(lib)
     assert "medlineplus" in server._zim_files_cache
     gone = tmp_path / "unplugged"
+    _let_go_of_every_zim()
     nomad.rename(gone)  # the drive goes away
     path = libfolders.remove(str(nomad))
     libfolders.reconcile([], libfolders.registered_in(path))

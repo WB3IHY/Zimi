@@ -11,6 +11,8 @@ import os
 
 from libzim.writer import Creator, Item, ContentProvider, Hint
 
+from zimi.zimwriter import _sweep_creator_scratch
+
 
 class _StringProvider(ContentProvider):
     def __init__(self, content: bytes):
@@ -130,6 +132,10 @@ def build_fixture_zim(
         meta.update(metadata or {})
         for key, value in meta.items():
             creator.add_metadata(key, value)
+    # Windows leaves libzim's index scratch beside the file it built (it cannot
+    # unlink what it still has open); a fixture in a folder a test then lists must
+    # not carry it.
+    _sweep_creator_scratch(path)
     assert os.path.exists(path)
     return path
 

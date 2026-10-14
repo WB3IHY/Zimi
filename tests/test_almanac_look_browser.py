@@ -52,6 +52,10 @@ INIT = """
     window.__asked = 0;
     window.DeviceOrientationEvent.requestPermission = () => { window.__asked++; return Promise.resolve(mode === 'denied' ? 'denied' : 'granted'); };
   }
+  else if (mode === 'android' && window.DeviceOrientationEvent && DeviceOrientationEvent.requestPermission) {
+    // Chromium 156 has the permission API too: the page asks, as it does on iOS.
+    DeviceOrientationEvent.requestPermission = () => Promise.resolve('granted');
+  }
   const RO = window.ResizeObserver;
   window.__ro = { made: 0, off: 0 };
   window.ResizeObserver = class extends RO {
@@ -304,6 +308,9 @@ def test_look_follows_the_compass_and_the_tilt(browser, served):
 def test_look_takes_android_absolute_readings(browser, served):
     ctx, pg, _ = _look(browser, served, "android")
     try:
+        # A Chromium that has the permission API asks, like iOS; one that does not listens at once.
+        if pg.is_visible("#look-ask"):
+            _tap(pg, "#look-ask")
         for heading in (0, 90, 180, 270):
             _fire(pg, (360 - heading) % 360, 90, 0, None, absolute=True)
             want = "%s %d\u00b0" % ("NESW"[heading // 90], heading)

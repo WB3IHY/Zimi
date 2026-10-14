@@ -412,8 +412,9 @@ def test_red_night_follows_the_one_shared_key(empty, phone):
     bg = f.evaluate("getComputedStyle(document.body).backgroundColor")
     assert bg == "rgb(0, 0, 0)"
     _shot(phone, "empty-red")
-    # The shell turns red with it, and the key written elsewhere is honoured here.
-    assert phone.evaluate("document.documentElement.classList.contains('night-red')")
+    # The shell turns red with it (the browser delivers the storage event to the other
+    # document a moment later, not inside the write), and the key written elsewhere is honoured here.
+    phone.wait_for_function("document.documentElement.classList.contains('night-red')")
     f.uncheck(".fg-tools .night-box")
     assert f.evaluate("localStorage.getItem('zimi.night')") is None
     phone.evaluate("localStorage.setItem('zimi.night', 'red'); _nightApply()")
