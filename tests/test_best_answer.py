@@ -207,6 +207,28 @@ class TestRanking(unittest.TestCase):
         self.assertTrue(a["after"].endswith("…"))
 
 
+class TestWhatIsNotAQuote(unittest.TestCase):
+    """Found reading real books: a title line, the licence boilerplate and a
+    sentence cut by the passage edge all matched the question's words."""
+
+    def test_a_heading_line_is_not_a_sentence_start(self):
+        text = "Our Legal Heritage: King Aethelbert - King George III, 600 A.D.\n\nProduced by Al Haines\n\nThe law of England grew from the laws of Aethelbert."
+        got = [text[s:e] for s, e in ba.split_sentences(text)]
+        self.assertEqual(got[0], "Our Legal Heritage: King Aethelbert - King George III, 600 A.D.")
+        self.assertEqual(len(got), 3)
+
+    def test_a_title_line_alone_answers_nothing(self):
+        p = passage("Our Legal Heritage", "Our Legal Heritage: King Aethelbert - King George III, 600 A.D.\n\nProduced by Al Haines")
+        self.assertIsNone(ba.rank_answer("what is the legal heritage of england", [p]))
+
+    def test_a_fragment_cut_by_the_passage_edge_is_not_quoted(self):
+        p = passage("Mona Lisa", "and the painting by Leonardo da Vinci of the Mona Lisa was sold. Leonardo da Vinci painted the Mona Lisa in Florence")
+        self.assertIsNone(ba.rank_answer("who painted the mona lisa", [p]))
+
+    def test_underscores_and_empty_tokens_do_not_break_reading(self):
+        self.assertEqual(ba.words("_ __init__ a_b"), ["init", "a_b"])
+
+
 class TestLanguages(unittest.TestCase):
     def test_german(self):
         mona = passage(

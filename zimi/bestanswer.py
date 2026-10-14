@@ -159,8 +159,11 @@ def _split_on_stops(run):
 
 
 def _add(out, tok, drop):
-    s = _stem(tok.strip("_"))
-    if s and s not in drop:
+    tok = tok.strip("_")
+    if not tok:
+        return
+    s = _stem(tok)
+    if s not in drop:
         out.append(s)
 
 
@@ -211,47 +214,58 @@ _ASKING_STEMS = frozenset(_stem(_query.fold(w)) for w in _ASKING)
 
 
 def split_sentences(text):
-    """(start, end) of each sentence in `text`. A period after an abbreviation
-    or a single capital letter, or before a lower-case letter, is not an end."""
-    spans, start, n = [], 0, len(text)
-    for m in _BOUNDARY.finditer(text):
-        end = m.end()
-        stripped = text[start : m.start() + 1]
-        if text[m.start()] in _ENDERS or m.group().strip()[0] in _ENDERS:
-            pass
-        else:
-            word = re.split(r"\s", stripped.rstrip(".!?"))[-1] if stripped else ""
-            tail = word.lower().strip("(\"'")
-            nxt = text[end : end + 1]
-            if m.group().startswith(".") and (
-                tail in _ABBREV or (len(tail) == 1 and tail.isalpha())
-            ):
-                continue
-            if nxt and nxt.islower():
-                continue
-        spans.append((start, m.end()))
-        start = end
-    if start < n:
-        spans.append((start, n))
-    # trim whitespace inside each span
+    """(start, end) of each sentence in `text`, none across a line break (a
+    heading or a table row is not the start of the next sentence). A period
+    after an abbreviation or a single capital letter, or before a lower-case
+    letter, is not an end."""
     out = []
-    for s, e in spans:
-        while s < e and text[s].isspace():
-            s += 1
-        while e > s and text[e - 1].isspace():
-            e -= 1
-        if e > s:
-            out.append((s, e))
+    for block in re.finditer(r"[^\n]+", text):
+        out.extend(_split_block(text, block.start(), block.end()))
     return out
 
 
+def _split_block(text, lo, hi):
+    spans, start = [], lo
+    for m in _BOUNDARY.finditer(text, lo, hi):
+        end = m.end()
+        if m.group().strip()[0] not in _ENDERS:
+            head = text[start : m.start()].split()
+            last = head[-1].lower().strip("(\"'") if head else ""
+            if m.group().startswith(".") and (
+                last in _ABBREV or (len(last) == 1 and last.isalpha())
+            ):
+                continue
+            if end < hi and text[end].islower():
+                continue
+        spans.append((start, end))
+        start = end
+    if start < hi:
+        spans.append((start, hi))
+    return [
+        (s + len(text[s:e]) - len(text[s:e].lstrip()), e - (len(text[s:e]) - len(text[s:e].rstrip())))
+        for s, e in spans
+        if text[s:e].strip()
+    ]
+
+
+_CLOSERS = "\"'\u201d\u2019)]\u00bb\u300d\u300f \t"
+_TERMINAL = ".!?\u3002\uff01\uff1f\u061f\u0964\u2026"
+
+
 def _sentence_ok(sent):
+    """A whole sentence of prose: ends like one, starts like one, is neither
+    a fragment cut by a passage edge nor a heading, a table row or a citation."""
     n = len(sent)
     unspaced = bool(_UNSPACED.search(sent))
     if n < (SENTENCE_MIN_UNSPACED if unspaced else SENTENCE_MIN) or n > SENTENCE_MAX:
         return False
+    if sent.rstrip(_CLOSERS)[-1:] not in _TERMINAL:
+        return False
+    first = next((c for c in sent if c.isalpha()), "")
+    if first.islower():
+        return False
     letters = sum(1 for c in sent if c.isalpha())
-    return letters >= n * 0.5  # not a table row, a list of numbers, a citation
+    return letters >= n * 0.5
 
 
 # ── ranking ────────────────────────────────────────────────────────────────
