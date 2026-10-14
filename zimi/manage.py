@@ -5663,6 +5663,12 @@ def handle_manage_get(handler, parsed, params):
     elif parsed.path == "/manage/downloads":
         return handler._json(200, {"downloads": _srv._get_downloads()})
 
+    elif parsed.path == "/manage/fieldmanual":
+        # The Field Guide's field-manual ZIM: how far its build is.
+        from zimi import fieldguide
+
+        return handler._json(200, fieldguide.manual_status())
+
     elif parsed.path == "/manage/activity":
         # Aggregated background-activity snapshot for the topbar status row.
         # Cheap to call — reads in-memory state only, no heavy I/O. Designed
@@ -6723,6 +6729,14 @@ def handle_manage_post(handler, parsed, data):
         if err:
             return handler._json(400, {"error": err})
         return handler._json(200, {"status": "started", "id": dl_id})
+
+    elif parsed.path == "/manage/fieldmanual":
+        # Build a ZIM of the Army's public-domain manuals (zimi.fieldguide.build_field_manual).
+        from zimi import fieldguide
+
+        if not fieldguide.start_manual_build():
+            return handler._json(409, {"error": "a build is already running"})
+        return handler._json(200, {"status": "started"})
 
     elif parsed.path == "/manage/download-batch":
         urls = data.get("urls")

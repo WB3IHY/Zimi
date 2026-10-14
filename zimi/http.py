@@ -234,6 +234,7 @@ _RATE_LIMITED_API_PATHS = (
     "/wiki",
     "/books",
     "/dictionary",
+    "/fieldguide",
     "/map-home",
     "/read",
     "/suggest",
@@ -255,6 +256,7 @@ _RATE_LIMITED_API_PREFIXES = (
     "/wiki/",
     "/books/",
     "/dictionary/",
+    "/fieldguide/",
 )
 
 # High-frequency read-only manage polls. While a download runs the manage UI
@@ -497,6 +499,23 @@ def _search_answer(result, filter_zim, fast):
     scope = [filter_zim] if isinstance(filter_zim, str) else filter_zim
     gaps = index_gaps(scope, {r["zim"] for r in result.get("results", [])})
     return dict(result, incomplete=gaps) if gaps else result
+
+
+def _fieldguide_hint(query):
+    """The Field Guide's hint for a typed query, or None. Never fails a search."""
+    try:
+        from zimi import fieldguide
+
+        return fieldguide.hint(query)
+    except Exception:
+        log.exception("field guide hint failed")
+        return None
+
+
+def _with_fieldguide(answer, guide):
+    """A search answer with the Field Guide's hint beside its results (a
+    copy: the answer may be a cached one)."""
+    return dict(answer, fieldguide=guide) if guide and not answer.get("error") else answer
 
 
 def _record_metric(endpoint, latency, error=False):
@@ -1058,6 +1077,8 @@ if os.path.isdir(_STATIC_DIR):
             + _static_hash("wiki-reader.js")
             + _static_hash("books.html")
             + _static_hash("dictionary.html")
+            + _static_hash("fieldguide.html")
+            + _static_hash("fieldguide-card.js")
             + _static_hash("apps.css")
             + _static_hash("apps.js")
             # The PDF viewer and Zimi's reader inlined into it.
@@ -1824,6 +1845,7 @@ APP_PAGES = (
     "wiki.html",
     "books.html",
     "dictionary.html",
+    "fieldguide.html",
 )
 # Pages that show a ZIM's own HTML may load only from Zimi: inline styles and
 # scripts run (ZIM content uses them), anything on another host is refused,
@@ -1853,6 +1875,11 @@ _PDF_ASSETS = (
 # Pages whose shared parts are put in as they are served: never from the
 # in-memory cache, always revalidated by the browser.
 _INLINED_PAGES = {name: _APP_ASSETS for name in APP_PAGES}
+# The Field Guide page also carries its card renderer, which the shell loads on its own
+# to draw a situation above search results.
+_INLINED_PAGES["fieldguide.html"] = (
+    (b"<!--@fieldguide-card.js@-->", "fieldguide-card.js", b"<script>\n", b"</script>"),
+) + _APP_ASSETS
 _INLINED_PAGES[PDF_VIEWER] = _PDF_ASSETS
 
 
@@ -2330,13 +2357,17 @@ class ZimHandler(BaseHTTPRequestHandler):
                     return result
 
                 _record_usage("search", query=q)
+                # Typed words that name a situation: the Field Guide's hint,
+                # in memory (see fieldguide.hint); not for a search inside
+                # one ZIM, which is not asking for help.
+                guide = _fieldguide_hint(q) if filter_zim is None else None
                 if param("stream") == "1":
-                    return self._search_stream(run)
+                    return self._search_stream(run, guide)
                 result = run(fast)
                 # Scoped to a ZIM that is not here: 404, as /read and /chunks.
                 return self._json(
                     404 if result.get("error") else 200,
-                    _search_answer(result, filter_zim, fast),
+                    _with_fieldguide(_search_answer(result, filter_zim, fast), guide),
                 )
 
             elif parsed.path == "/read":
@@ -2733,6 +2764,26 @@ class ZimHandler(BaseHTTPRequestHandler):
                 if events is None:
                     return self._json(503, {"error": "unavailable"})
                 return self._json(200, {"events": events})
+            elif parsed.path == "/fieldguide" or parsed.path.startswith("/fieldguide/"):
+                # Field Guide: situations, their quoted sources and the
+                # library behind them (zimi/fieldguide.py).
+                from zimi import fieldguide as _fg
+
+                sub = parsed.path[len("/fieldguide") :].strip("/")
+                if sub in ("", "home"):
+                    return self._json(200, _fg.home())
+                if sub == "situation":
+                    got = _fg.situation(param("id") or "", param("lang") or "en")
+                    return (
+                        self._json(200, got)
+                        if got
+                        else self._json(404, {"error": "not found"})
+                    )
+                if sub == "library":
+                    return self._json(200, _fg.library())
+                if sub == "match":
+                    return self._json(200, {"id": _fg.match(param("q") or "")})
+                return self._json(404, {"error": "not found"})
             elif parsed.path == "/books" or parsed.path.startswith("/books/"):
                 # Bookshelf: every Project Gutenberg ZIM in the library, as one shelf.
                 from zimi import books as _books
@@ -4948,7 +4999,7 @@ class ZimHandler(BaseHTTPRequestHandler):
 
         return send, end
 
-    def _search_stream(self, run):
+    def _search_stream(self, run, guide=None):
         """A search's two passes in one response, a line each as it is ready:
         the quick title matches, the snippets of the cards they put on the
         first screen, the full-text results, then the snippets those add.
@@ -4985,11 +5036,11 @@ class ZimHandler(BaseHTTPRequestHandler):
 
         send, end = self._ndjson_stream()
         try:
-            send({"phase": "fast", "result": quick})
+            send({"phase": "fast", "result": _with_fieldguide(quick, guide)})
             send(snippets(quick))
             worker.join()
             result = full.get("result") or dict(quick, partial=False)
-            send({"phase": "full", "result": result})
+            send({"phase": "full", "result": _with_fieldguide(result, guide)})
             send(snippets(result))
             end()
         except (BrokenPipeError, ConnectionResetError):
