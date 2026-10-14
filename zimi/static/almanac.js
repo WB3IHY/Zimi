@@ -231,6 +231,8 @@ function _openAlmanacInner(replaceState) {
 function _almanacTeardown() {
   _almanacOpen = false;
   if (typeof _chromeReset === 'function') _chromeReset();
+  // Pointing the phone (almanac-look.js) lives on the Almanac and goes with it.
+  if (typeof closeAlmanacLook === 'function') closeAlmanacLook(true);
   _almHeroLiveStop();
   document.body.classList.remove('almanac-mode');
   if (typeof _armTapRelay === 'function') _armTapRelay(false);

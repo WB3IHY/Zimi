@@ -399,14 +399,23 @@ function _lookOpen(opts) {
   _lookEl('look-ask').onclick = _lookAskTap;
   _lookEl('look-earth').onclick = function () {
     var p = S.place;
-    _lookClose();
+    // Leaving for Earth: the overlay's history step is kept, as the Almanac's own.
+    _lookClose(true);
+    if (history.state && history.state.look) history.replaceState({ mode: 'almanac' }, '', location.href);
     if (typeof openEarth === 'function') openEarth(false, { lat: p.lat, lon: p.lon, alt: 0.01 });
   };
   _lookBindInput(root);
   S.onKey = _lookKey;
   S.onResize = function () { clearTimeout(S.resizeTimer); S.resizeTimer = setTimeout(_lookResize, 200); };
-  document.addEventListener('keydown', S.onKey);
+  // First in line (capture, on the window): the Almanac and the page under it
+  // each have an Escape of their own, and this one is for what is on top.
+  window.addEventListener('keydown', S.onKey, true);
   window.addEventListener('resize', S.onResize);
+  // The overlay is a step in history: the phone's back gesture closes it, and
+  // the Almanac stays; a second one leaves the Almanac.
+  history.pushState({ mode: 'almanac', look: 1 }, '', location.href);
+  S.stepped = true;
+
   if (!_lookHasSensors()) {
     S.mode = 'drag';
     _lookNote(_lookT(window.isSecureContext === false && typeof DeviceOrientationEvent !== 'undefined' ? 'look_insecure' : 'look_none'), 'sensors');
@@ -499,7 +508,7 @@ function _lookBindInput(root) {
 function _lookKey(e) {
   var S = _look;
   if (!S) return;
-  if (e.key === 'Escape') { _lookClose(); return; }
+  if (e.key === 'Escape') { e.stopImmediatePropagation(); e.preventDefault(); _lookClose(); return; }
   var base = S.mode === 'sensor' ? S.trim : S.target;
   var next = _lookKeyBy({ az: base.az, alt: base.alt }, e.key);
   if (!next) return;
@@ -509,15 +518,33 @@ function _lookKey(e) {
   _lookKick();
 }
 
-function _lookClose() {
+// The router (app.js) asks first of every history step: true when it was this
+// overlay's, which is then not the router's to act on. Back closes the
+// overlay and leaves the Almanac; the step the overlay takes back on its own
+// close is let go by.
+var _lookSwallow = false;
+function _lookPop(e) {
+  if (_lookSwallow) { _lookSwallow = false; return true; }
+  if (_look && !(e.state && e.state.look)) { _lookClose(true); return true; }
+  return false;
+}
+
+// Closed by the person (its button, Escape), or by the browser (its step
+// went back; the Almanac closing under it), which is `fromHistory`.
+function _lookClose(fromHistory) {
   var S = _look;
   if (!S) return;
   _look = null;
+  if (S.stepped && fromHistory !== true && history.state && history.state.look) {
+    // Take back the step it made; the router is told (_lookPop) to let it be.
+    _lookSwallow = true;
+    history.back();
+  }
   _lookStopSensors(S);
   if (S.raf) cancelAnimationFrame(S.raf);
   clearTimeout(S.resizeTimer);
   clearInterval(S.clock);
-  document.removeEventListener('keydown', S.onKey);
+  window.removeEventListener('keydown', S.onKey, true);
   window.removeEventListener('resize', S.onResize);
   if (S.globe) S.globe.dispose();
   if (S.skyMounted) {
@@ -533,3 +560,4 @@ function _lookClose() {
 
 window.openAlmanacLookNow = _lookOpen;
 window.closeAlmanacLook = _lookClose;
+window._lookPop = _lookPop;

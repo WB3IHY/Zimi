@@ -48,6 +48,11 @@ INIT = """
     window.__asked = 0;
     window.DeviceOrientationEvent.requestPermission = () => { window.__asked++; return Promise.resolve(mode === 'denied' ? 'denied' : 'granted'); };
   }
+  const RO = window.ResizeObserver;
+  window.__ro = { made: 0, off: 0 };
+  window.ResizeObserver = class extends RO {
+    constructor(cb) { super(cb); window.__ro.made++; const d = this.disconnect.bind(this); this.disconnect = () => { window.__ro.off++; d(); }; }
+  };
   window.__fire = (o, abs) => {
     const e = new Event(abs ? 'deviceorientationabsolute' : 'deviceorientation');
     Object.assign(e, { alpha: o.alpha, beta: o.beta, gamma: o.gamma, absolute: !!abs });
@@ -104,6 +109,25 @@ def served(tmp_path_factory):
             "Name": "wikipedia_en_cities",
         }.items():
             c.add_metadata(k, v)
+    with Creator(str(zims / "wikivoyage_fr_all_nopic_2026-10.zim")).config_indexing(
+        False, "fra"
+    ) as c:
+        c.set_mainpath("A/Paris")
+        c.add_item(
+            _Article(
+                "A/Paris",
+                "Paris",
+                b'<html><body><a href="geo:48.85,2.35">map</a>' + b"g" * 800 + b"</body></html>",
+            )
+        )
+        for k, v in {
+            "Title": "Wikivoyage",
+            "Language": "fra",
+            "Description": "guide",
+            "Scraper": "mwoffliner 1.14.0",
+            "Name": "wikivoyage_fr_all",
+        }.items():
+            c.add_metadata(k, v)
     build_fixture_zim(
         str(zims / "osm-ile-de-france-2026-10.zim"),
         {"Scraper": "streetzim 1.0", "Name": "osm_ile-de-france", "Tags": "maps"},
@@ -117,7 +141,9 @@ def served(tmp_path_factory):
     srv.ZIM_DIR, srv.ZIMI_DATA_DIR = str(zims), str(tmp / "data")
     srv.load_cache(force=True)
     earth._reset_for_tests()
-    earth.build_all_places()
+    for z in srv._zim_list_cache:
+        if z["kind"] == "wiki":
+            earth.build_one(z["name"])
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), ZimHandler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     yield "http://127.0.0.1:%d" % httpd.server_address[1]
@@ -338,6 +364,11 @@ def _earth(browser, served, hash_="#earth"):
     ctx = browser.new_context(
         viewport=VIEW, has_touch=True, is_mobile=True, service_workers="block"
     )
+    ctx.add_init_script(
+        "(() => { const RO = window.ResizeObserver; window.__ro = { made: 0, off: 0 };"
+        " window.ResizeObserver = class extends RO { constructor(cb) { super(cb); window.__ro.made++;"
+        " const d = this.disconnect.bind(this); this.disconnect = () => { window.__ro.off++; d(); }; } }; })();"
+    )
     pg = ctx.new_page()
     errors = []
     pg.on("pageerror", lambda e: errors.append(str(e)))
@@ -408,5 +439,165 @@ def test_the_globe_has_an_address(browser, served):
         pg.wait_for_function(
             "() => location.hash.indexOf('#earth/10,20,') === 0", polling=POLL_MS
         )
+    finally:
+        ctx.close()
+
+
+def _spy_open(pg):
+    pg.evaluate(
+        "() => { window.__opened = []; const o = window.openArticle;"
+        " window.openArticle = function () { window.__opened.push(Array.from(arguments).slice(0, 2));"
+        " return o.apply(this, arguments); }; }"
+    )
+
+
+def test_read_and_travel_guide_open_the_article_they_name(browser, served):
+    ctx, pg, f, _ = _earth(browser, served, "#earth/48.8567,2.3522,0.012")
+    try:
+        pg.wait_for_function(
+            "() => document.getElementById('reader-frame').contentDocument.querySelectorAll('.dot').length >= 1",
+            polling=POLL_MS,
+        )
+        _spy_open(pg)
+        f.evaluate("() => document.querySelector('.dot[aria-label=Paris]').click()")
+        pg.wait_for_function(
+            "() => document.getElementById('reader-frame').contentDocument.querySelectorAll('#acts [data-zim]').length >= 2",
+            polling=POLL_MS,
+        )
+        wiki = pg.evaluate(
+            "() => zimsCache.find((z) => z.kind === 'wiki' && z.project === 'wikipedia').name"
+        )
+        guide = pg.evaluate(
+            "() => zimsCache.find((z) => z.kind === 'wiki' && z.project === 'wikivoyage').name"
+        )
+        f.evaluate("() => document.querySelector('#acts .act.main').click()")
+        pg.wait_for_function("() => window.__opened.length === 1", polling=POLL_MS)
+        assert pg.evaluate("() => window.__opened[0]") == [wiki, "A/Paris"]
+        # Back to Earth, then the guide.
+        _spy_open(pg)
+        ctx2, pg2, f2, _ = _earth(browser, served, "#earth/48.8567,2.3522,0.012")
+        try:
+            pg2.wait_for_function(
+                "() => document.getElementById('reader-frame').contentDocument.querySelectorAll('.dot').length >= 1",
+                polling=POLL_MS,
+            )
+            _spy_open(pg2)
+            f2.evaluate("() => document.querySelector('.dot[aria-label=Paris]').click()")
+            pg2.wait_for_function(
+                "() => document.querySelectorAll('#acts [data-zim]').length >= 2" if False else
+                "() => document.getElementById('reader-frame').contentDocument.querySelectorAll('#acts [data-zim]').length >= 2",
+                polling=POLL_MS,
+            )
+            f2.evaluate("() => document.querySelectorAll('#acts [data-zim]')[1].click()")
+            pg2.wait_for_function("() => window.__opened.length === 1", polling=POLL_MS)
+            assert pg2.evaluate("() => window.__opened[0]") == [guide, "A/Paris"]
+        finally:
+            ctx2.close()
+    finally:
+        ctx.close()
+
+
+def test_earth_says_which_wikis_are_still_being_read(browser, served, monkeypatch):
+    from zimi import earth
+
+    monkeypatch.setattr(
+        earth,
+        "status",
+        lambda: {
+            "places": True,
+            "finding": [{"zim": "x", "title": "Wikipedia (English)", "pct": 34}],
+            "skipped": [{"zim": "y", "title": "Wikipedia (German)"}],
+        },
+    )
+    ctx, pg, f, _ = _earth(browser, served)
+    try:
+        pg.wait_for_function(
+            "() => !document.getElementById('reader-frame').contentDocument.getElementById('status').hidden",
+            polling=POLL_MS,
+        )
+        text = f.inner_text("#status")
+        assert "Places from Wikipedia (English) are still being found: 34%" in text
+        assert "Wikipedia (German) are not read on this device" in text
+    finally:
+        ctx.close()
+
+
+def test_the_globe_lets_go_of_its_resize_observer(browser, served):
+    ctx, pg, f, _ = _earth(browser, served)
+    try:
+        got = f.evaluate("() => { window.__earth.dispose(); return window.__ro; }")
+        assert got["made"] >= 1 and got["off"] >= got["made"], got
+    finally:
+        ctx.close()
+
+
+def _almanac_open(pg):
+    return pg.evaluate("() => _almanacOpen")
+
+
+def test_escape_closes_look_and_leaves_the_almanac(browser, served):
+    ctx, pg, _ = _look(browser, served, "none")
+    try:
+        pg.keyboard.press("Escape")
+        pg.wait_for_function("() => !document.getElementById('almanac-look')", polling=POLL_MS)
+        assert _almanac_open(pg) and pg.is_visible(".almanac-sky-wrap")
+        assert pg.evaluate("() => !document.body.classList.contains('look-open')")
+    finally:
+        ctx.close()
+
+
+def _look_from_home(browser, served):
+    """The Almanac opened from the home page, so Back has somewhere to go."""
+    ctx = _context(browser, "none")
+    pg = ctx.new_page()
+    pg.goto(served + "/", wait_until="load")
+    pg.wait_for_function("() => typeof openAlmanac === 'function'", polling=POLL_MS)
+    pg.evaluate("() => openAlmanac()")
+    pg.wait_for_function(
+        "() => !!document.querySelector('.alm-sky-look') && typeof _skyState !== 'undefined' && _skyState && _skyState.eph",
+        polling=POLL_MS,
+    )
+    pg.evaluate("() => document.querySelector('.alm-sky-look').click()")
+    pg.wait_for_function("() => !!document.getElementById('almanac-look')", polling=POLL_MS)
+    return ctx, pg
+
+
+def test_the_back_gesture_closes_look_first_and_the_almanac_second(browser, served):
+    ctx, pg = _look_from_home(browser, served)
+    try:
+        assert pg.evaluate("() => history.state && history.state.look") == 1
+        pg.evaluate("() => history.back()")
+        pg.wait_for_function("() => !document.getElementById('almanac-look')", polling=POLL_MS)
+        assert _almanac_open(pg)
+        pg.evaluate("() => history.back()")
+        pg.wait_for_function("() => !_almanacOpen", polling=POLL_MS)
+        assert pg.evaluate("() => !document.getElementById('almanac-look')")
+    finally:
+        ctx.close()
+
+
+def test_closing_look_by_its_button_takes_back_the_step_it_made(browser, served):
+    ctx, pg = _look_from_home(browser, served)
+    try:
+        before = pg.evaluate("() => history.length")
+        assert pg.evaluate("() => history.state && history.state.look") == 1
+        _tap(pg, "#look-close")
+        pg.wait_for_function("() => !document.getElementById('almanac-look')", polling=POLL_MS)
+        pg.wait_for_function("() => !(history.state && history.state.look)", polling=POLL_MS)
+        assert _almanac_open(pg)
+        # One Back from here leaves the Almanac, not a step that is not there.
+        pg.evaluate("() => history.back()")
+        pg.wait_for_function("() => !_almanacOpen", polling=POLL_MS)
+        assert before >= 3
+    finally:
+        ctx.close()
+
+
+def test_closing_the_almanac_takes_look_with_it(browser, served):
+    ctx, pg, _ = _look(browser, served, "none")
+    try:
+        pg.evaluate("() => closeAlmanac()")
+        pg.wait_for_function("() => !document.getElementById('almanac-look')", polling=POLL_MS)
+        assert pg.evaluate("() => !document.body.classList.contains('look-open')")
     finally:
         ctx.close()
