@@ -130,6 +130,45 @@ const C_AU_DAY = 299792.458 * 86400 / 149597870.7;
   check(S._spBeamGain(0.5, 5800) < 0.25, 'behind, a red-shifted star fades by more than the plain 1/4');
 }
 
+// ── 1b. The star sky from the ship, the way the page shades it ────────────
+{
+  const n = 8000, dirs = new Float32Array(n * 3), temp = new Float32Array(n), mag = new Float32Array(n);
+  let seed = 12345;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+  for (let i = 0; i < n; i++) {
+    const z = 2 * rnd() - 1, a = 2 * Math.PI * rnd(), r = Math.sqrt(1 - z * z);
+    dirs.set([r * Math.cos(a), r * Math.sin(a), z], i * 3);
+    temp[i] = 5800; mag[i] = 3;
+  }
+  const attrs = {};
+  for (const [k, w] of [['position', 3], ['aColor', 3], ['aAlpha', 1], ['aSize', 1], ['aKind', 1]]) attrs[k] = { array: new Float32Array(n * w), needsUpdate: false };
+  const fake = () => ({ starData: { n, dirs, temp, mag }, stars: { geometry: { attributes: attrs, setDrawRange() {} } }, starsKey: null });
+  const unit = (i) => { const x = attrs.position.array[i * 3], y = attrs.position.array[i * 3 + 1], z = attrs.position.array[i * 3 + 2], l = Math.hypot(x, y, z); return [x / l, y / l, z / l]; };
+  const band = (lo, hi) => { const out = []; for (let i = 0; i < n; i++) { const c = unit(i)[2]; if (c >= lo && c <= hi) out.push(i); } return out; };
+  S._spShadeStars(fake(), 0, [0, 0, 1]);
+  const restAhead = band(0.9, 1).length;
+  check(Math.abs(restAhead / n - 0.05) < 0.01, 'at rest 5% of the sky is within 26 deg of any direction (' + (restAhead / n).toFixed(3) + ')');
+  const restAlpha = attrs.aAlpha.array[0];
+  S._spShadeStars(fake(), 0.9, [0, 0, 1]);
+  const ahead = band(0.9, 1);
+  check(Math.abs(ahead.length / n - 0.5) < 0.03, 'at 0.9c half of the stars crowd into the 26 deg round the heading (' + (ahead.length / n).toFixed(3) + ')');
+  const mean = (idx, f) => idx.reduce((a, i) => a + f(i), 0) / Math.max(1, idx.length);
+  const bMinusR = (i) => attrs.aColor.array[i * 3 + 2] - attrs.aColor.array[i * 3];
+  const behind = band(-1, -0.9);
+  check(mean(ahead, bMinusR) > 0.05, 'stars ahead are bluer than white (' + mean(ahead, bMinusR).toFixed(2) + ')');
+  check(mean(behind, bMinusR) < -0.3 || behind.length === 0, 'stars behind are red');
+  check(mean(ahead, (i) => attrs.aAlpha.array[i]) >= restAlpha, 'stars ahead are at least as bright');
+  check(mean(behind, (i) => attrs.aAlpha.array[i]) < 0.2 * restAlpha, 'stars behind have faded');
+  // The same stars, ship turned around: the crowd turns with it.
+  S._spShadeStars(fake(), 0.9, [0, 0, -1]);
+  check(Math.abs(band(-1, -0.9).length / n - 0.5) < 0.03, 'heading the other way the crowd is on the other side');
+  // The tint a sunlit planet gets: blue ahead, red behind, nothing at rest.
+  const ahead2 = S._spTintFor([0, 0, 1], 0.6, [0, 0, 1]), behind2 = S._spTintFor([0, 0, -1], 0.6, [0, 0, 1]), none = S._spTintFor([0, 0, 1], 0, [0, 0, 1]);
+  check(none[0] === 1 && none[1] === 1 && none[2] === 1, 'no tint at rest');
+  check(ahead2[2] / ahead2[0] > 1.3, 'a planet dead ahead at 0.6c is bluer');
+  check(behind2[0] / behind2[2] > 1.5 || behind2[2] < behind2[0], 'a planet dead behind at 0.6c is redder');
+}
+
 // ── 2. The trip ────────────────────────────────────────────────────────────
 {
   const R = S.SP_RAMP_FRACTION;

@@ -63,7 +63,33 @@
     'probe:voyager2':    { q: 'Q48475', en: 'Voyager 2' },
     'probe:pioneer10':   { q: 'Q59103', en: 'Pioneer 10' },
     'probe:pioneer11':   { q: 'Q59113', en: 'Pioneer 11' },
-    'probe:newhorizons': { q: 'Q48461', en: 'New Horizons' }
+    'probe:newhorizons': { q: 'Q48461', en: 'New Horizons' },
+    'probe:parker':        { q: 'Q899091',   en: 'Parker Solar Probe' },
+    'probe:juno':          { q: 'Q48546',    en: 'Juno (spacecraft)' },
+    'probe:jwst':          { q: 'Q186447',   en: 'James Webb Space Telescope' },
+    'probe:cassini':       { q: 'Q165585',   en: 'Cassini\u2013Huygens' },
+    'probe:galileo':       { q: 'Q105425030', en: 'Galileo (spacecraft)' },
+    'probe:europaclipper': { q: 'Q15637513', en: 'Europa Clipper' }
+  };
+
+  // The flown solar system (almanac-space.js): the dwarf planets and big moons
+  // beside the planets, and the articles behind its light-speed lessons. Q-IDs
+  // from each article's wikibase_item on the live English Wikipedia (redirects
+  // followed).
+  var SPACE = {
+    'body:pluto':    { q: 'Q339',  en: 'Pluto' },
+    'body:ceres':    { q: 'Q596',  en: 'Ceres (dwarf planet)' },
+    'body:io':       { q: 'Q3123', en: 'Io (moon)' },
+    'body:europa':   { q: 'Q3143', en: 'Europa (moon)' },
+    'body:ganymede': { q: 'Q3169', en: 'Ganymede (moon)' },
+    'body:callisto': { q: 'Q3134', en: 'Callisto (moon)' },
+    'body:titan':    { q: 'Q2565', en: 'Titan (moon)' },
+    'phys:relativity': { q: 'Q11455',   en: 'Special relativity' },
+    'phys:timedilation': { q: 'Q185918', en: 'Time dilation' },
+    'phys:aberration': { q: 'Q2821580', en: 'Relativistic aberration' },
+    'phys:doppler':  { q: 'Q579900', en: 'Relativistic Doppler effect' },
+    'phys:twins':    { q: 'Q33539',  en: 'Twin paradox' },
+    'phys:lightspeed': { q: 'Q2111', en: 'Speed of light' }
   };
 
   // Constellations — `en` is the disambiguated article title so English
@@ -894,7 +920,7 @@
   };
 
   var MAP = {};
-  [PLANETS, PROBES, CONSTELLATIONS, SHOWERS, ECLIPSES, CALENDARS, ZODIAC, STARS, HOLIDAYS, TERMS, SEASONS, BELTS, EVENTS, MESSAGES, CITIES, PARENTS, PHASES, SKY, SOURCES]
+  [PLANETS, PROBES, SPACE, CONSTELLATIONS, SHOWERS, ECLIPSES, CALENDARS, ZODIAC, STARS, HOLIDAYS, TERMS, SEASONS, BELTS, EVENTS, MESSAGES, CITIES, PARENTS, PHASES, SKY, SOURCES]
     .forEach(function (group) { for (var k in group) if (group.hasOwnProperty(k)) MAP[k] = group[k]; });
 
   // Register curated holidays under a "holiday:<norm>" key so wrapHoliday() can
