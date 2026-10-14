@@ -187,6 +187,8 @@ for (const fn of ['_moonEqCoords', '_moonLimbAngles', '_moonLimbAnglesOf', '_moo
   vm.runInContext(extractFn(read('app.js'), fn), S);
 vm.runInContext(require('./moon_model.cjs')(), S);
 vm.runInContext(read('almanac-orrery.js'), S);
+vm.runInContext(read('almanac-sky.js'), S);
+vm.runInContext(read('almanac-skygl.js'), S);
 // The 2D Almanac's star lists, the first sky the 3D view draws.
 for (const name of ['_STARS', '_SKY_FIELD_STARS']) {
   const sky = read('almanac-sky.js'), at = sky.indexOf('var ' + name + ' = [');
@@ -598,6 +600,8 @@ const run = (code) => vm.runInContext(code, S);
       run('openAlmanacEarth()');
       await flush();
     };
+    // The catalogue is the sky's one request, kept once it has come: start this section with none.
+    run('_sgStarsPromise = null; _sgRetryLoads();');
     starRequests.length = 0; starsPlan = 'fail';
     await openFresh();
     check(starRequests.length === 1 && run('_ae.gl.starsLoaded') === false, 'the view asks for the catalogue on open');

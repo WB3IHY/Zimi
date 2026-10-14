@@ -182,7 +182,7 @@ check(run('_skyScreen(__s, 70, -35).visible') === false, 'behind the view is not
 
 // The look-around adapter other views mount: its four calls, and the pinch's range.
 check(['mount', 'setView', 'unmount', 'resize'].every((k) => run('typeof window.AlmanacSkyView.' + k) === 'function'), 'AlmanacSkyView has mount, setView, unmount and resize');
-check(run('SKY_HOST_FOV[0]') === 20 && run('SKY_HOST_FOV[1]') === 120, 'and takes a field of view from 20 to 120 degrees');
+check(run('SKY_LENS_FOV[0]') <= 20 && run('SKY_LENS_FOV[1]') >= 120, 'and takes the lens\'s field of view, which holds the 20 to 120 degrees of a pinch');
 check(run('AlmanacSkyView.mount(null, { lat: 1, lon: 1 })') === false, 'a host that is not there is refused, not thrown at');
 check(['setTimeout', 'requestAnimationFrame'].every((f) => !new RegExp(f).test(read('almanac-sky.js').slice(read('almanac-sky.js').indexOf('var AlmanacSkyView'), read('almanac-sky.js').indexOf('var ZimiSky')))), 'and its code asks for no timer and no frame');
 
@@ -231,6 +231,93 @@ check(run('_sgLimitMag(_sgSkyLum(60, -90, 0, 0, 0.003))') > 0 && run('_sgLimitMa
     check(Math.abs(p.phase * 100 - illu) < 1.5 && Math.abs(p.semi * 2 * 3600 - diam) < 0.05 * diam + 0.2,
       n + ' is ' + (p.phase * 100).toFixed(1) + '% lit and ' + (p.semi * 7200).toFixed(1) + '" across (Horizons ' + illu + '%, ' + diam + '")');
   }
+}
+
+// Apparent magnitudes (Horizons QUANTITIES 9, APmag) against Mallama and Hilton's formulae, where the old lit-share rule was off by 2 to 4 for Mercury.
+{
+  const refs = [['2026-10-14', { Mercury: 0.046, Venus: -4.350, Mars: 1.032, Jupiter: -1.918 }], ['2026-06-15', { Mercury: 0.466, Venus: -3.999, Mars: 1.337, Jupiter: -1.841 }],
+    ['2027-01-20', { Mercury: -1.036, Venus: -4.373, Mars: -0.638, Jupiter: -2.512 }], ['2026-03-03', { Mercury: 3.074, Venus: -3.900, Mars: 1.109, Jupiter: -2.424 }]];
+  let worst = 0, worstWhat = '';
+  for (const [day, mags] of refs) {
+    S.__d = new Date(day + 'T00:00:00Z');
+    const pl = run('_skyEphemeris(__d, 37.7749, -122.4194)').planets;
+    for (const [n, ref] of Object.entries(mags)) {
+      const d = Math.abs(pl.find((x) => x.name === n).mag - ref);
+      if (d > worst) { worst = d; worstWhat = n + ' ' + day; }
+    }
+  }
+  check(worst < 0.25, 'Mercury, Venus, Mars and Jupiter at four dates: magnitudes within 0.25 of Horizons (worst ' + worst.toFixed(2) + ', ' + worstWhat + ')');
+}
+
+// Totality over Dallas on 2024-04-08 (NASA: second contact about 18:40:50 UT, third about 18:44:38): the Moon, from the place (topocentric
+// radius and parallax), covers the Sun entirely between them, and the sky goes to deep twilight.
+{
+  const at = (sec) => { S.__d = new Date(Date.UTC(2024, 3, 8, 18, 0, 0) + sec * 1000); S.__s = { eph: run('_skyEphemeris(__d, 32.7767, -96.797)'), now: S.__d }; return run('_skySolarObscuration(__s)'); };
+  let first = null, last = null;
+  for (let sec = 38 * 60; sec <= 47 * 60; sec += 5) if (at(sec) >= 0.9999) { if (first === null) first = sec; last = sec; }
+  const secOf = (m, s) => m * 60 + s;
+  check(first !== null && Math.abs(first - secOf(40, 50)) <= 60 && Math.abs(last - secOf(44, 38)) <= 60,
+    'the Moon covers the Sun from 18:' + (first === null ? '-' : Math.floor(first / 60) + ':' + (first % 60)) + ' to 18:' + (last === null ? '-' : Math.floor(last / 60) + ':' + (last % 60)) + ': within a minute of NASA\'s contacts');
+  check(at(secOf(42, 45)) === 1 && at(secOf(30, 0)) > 0.8 && at(secOf(30, 0)) < 0.87 && at(secOf(20, 0)) < at(secOf(30, 0)), 'whole at the middle, 84% at 18:30 (Horizons 0.843), growing before');
+  const share = run('_sgSunShare(1)');
+  const lmTot = run('_sgLimitMag(_sgSkyLum(60, -90, 0, 0, ' + share + '))');
+  check(lmTot > -2 && lmTot < 3 && lmTot > run('_sgLimitMag(_sgSkyLum(60, -90, 0, 0, 1))') + 3,
+    'and in totality the sky is a deep twilight, as at the end of civil twilight: Venus and Jupiter are out, stars to magnitude ' + lmTot.toFixed(1));
+}
+// A lunar eclipse takes the Moon's light too: the sky in totality is the darkest of the month (NASA: total 2026-03-03, 11:04 to 12:03 UT).
+{
+  S.__d = new Date('2026-03-03T11:34:00Z');
+  const ec = run('_skyEclipse(__d)');
+  const sh = run('_sgMoonShare(' + JSON.stringify({ umbralMag: ec.umbralMag, penumbralMag: ec.penumbralMag }) + ')');
+  check(run('_sgMoonShare(null)') === 1 && sh <= run('SG_UMBRA_RESIDUE') * 1.0001, 'in totality only the umbra\'s copper residue of the Moon\'s light is left (' + sh + ')');
+  const full = run('_sgLimitMag(_sgSkyLum(-40, 55, 100, 0, 1, 1))'), tot = run('_sgLimitMag(_sgSkyLum(-40, 55, 100, 0, 1, ' + sh + '))');
+  check(tot > full + 1.5 && tot > 7, 'so the stars come back, from magnitude ' + full.toFixed(1) + ' to ' + tot.toFixed(1));
+  check(run('_sgMoonShare({ umbralMag: 0.5, penumbralMag: 1.5 })') > 0.2 && run('_sgMoonShare({ umbralMag: 0.5, penumbralMag: 1.5 })') < 0.4 && run('_sgMoonShare({ umbralMag: -0.2, penumbralMag: 0.4 })') > 0.8,
+    'a partial eclipse takes about half the light, the penumbra a little');
+}
+// A full Moon night at Dallas (2026-10-26): the stars the sky shows are hundreds, not forty.
+{
+  const lm = run('_sgLimitMag(_sgSkyLum(-40, 74, 99.8, 0, 1, 1))'), st = run('_sgDecodeStars(__buf)');
+  let up = 0;
+  for (let i = 0; i < st.n; i++) if (st.mag[i] < lm) up++;
+  check(lm > 5 && lm < 6.2 && up > 1000, 'a full-Moon sky shows to magnitude ' + lm.toFixed(1) + ': ' + up + ' stars of the catalogue are brighter than that (half above the horizon)');
+  const dark = 1 - Math.exp(-run('_sgMoonSkyLum(74, 99.8)') * run('_sgExposure(-40, 74, 99.8, 0, 1, 1)'));
+  check(dark > 0.01 && dark < 0.06, 'and the display holds it as a dark bluish sky (' + dark.toFixed(3) + ' linear, ' + Math.round(255 * Math.pow(dark, 1 / 2.2)) + ' of 255), not a twilight');
+}
+
+// ── Constellation lines ──
+{
+  const al = (lm, mag, dark) => run('_skyLineAlpha(' + [lm, mag, dark === undefined ? 1 : dark] + ')');
+  check(run('SKY_SETTING_DEFAULTS.lines') === 'off', 'a real sky has no lines: the default is none');
+  check(al(7.6, 1) > al(5.4, 1) && al(5.4, 1) > al(4, 1) && al(4, 1) > 0 && al(2.9, 1) === 0, 'a figure fades with how many stars the sky shows: none over a sky with no stars (' + [7.6, 5.4, 4, 2.9].map((x) => al(x, 1).toFixed(3)).join(', ') + ')');
+  check(al(7.6, 4.5) < 0.25 * al(7.6, 1.5) && al(7.6, 1.5) === al(7.6, 0.5) && al(7.6, 1, 0) === 0, 'and by its own brightest star: Orion shows first, Microscopium barely, nothing in daylight');
+  S.__s0 = null;
+  run('_skyState = { reveal: null, baseDirty: false, eph: null, canvas: null }; _skyKick = function () {}');
+  check(run('_skyFiguresWanted(_skyState)') === false, 'no figures wanted until one is asked for');
+  run("_skyRevealFigure('Ori')");
+  check(run('_skyState.reveal') === 'Ori' && run('_skyFiguresWanted(_skyState)') === true && run('_skyState.baseDirty') === true, 'a tap on a bright star asks for its figure');
+}
+
+// ── A guessed place ──
+{
+  const chi = run("_skyZonePlace('America/Chicago')");
+  check(chi && Math.abs(chi[0] - 41.88) < 0.1 && Math.abs(chi[1] + 87.63) < 0.1 && run("_skyZonePlace('Nowhere/Land')") === null, 'a time zone stands for its city (Chicago: 41.9 N, 87.6 W)');
+  const f = run('_skyFactsAt(' + Date.parse('2026-10-14T08:00:00Z') + ', ' + chi[0] + ', ' + chi[1] + ')');
+  check(Math.abs(f.sunrise - Date.parse('2026-10-14T12:01:55Z')) < 120000, 'and its sunrise is Chicago\'s (Horizons 12:01:55 UT, off ' + (Math.abs(f.sunrise - Date.parse('2026-10-14T12:01:55Z')) / 1000).toFixed(0) + ' s), not an Atlantic guess an hour early');
+}
+// ── The rows: bearings, and a guess says so in the row ──
+{
+  const rowsOf = (stored) => {
+    S.__ms = Date.parse('2026-10-14T20:00:00Z');
+    S.__s = { lat: 37.7749, lon: -122.4194, nowTime: S.__ms, stored: stored, moonData: { phase: { illumination: 20 } } };
+    S.__f = run('_skyFactsAt(__ms, 37.7749, -122.4194)');
+    return run('_skyFactRows(__s, __f)');
+  };
+  const f = run('_skyFactsAt(' + Date.parse('2026-10-14T20:00:00Z') + ', 37.7749, -122.4194)');
+  check(Math.abs(f.sunsetAz - 259.9) < 1.2 && f.sunriseAz > 80 && f.sunriseAz < 110, 'the Sun sets at bearing ' + f.sunsetAz.toFixed(1) + ' (Horizons 259.9) and rises in the east');
+  const known = rowsOf(true), guessed = rowsOf(false);
+  check(/alm_dir_w/.test(known[0][1]) && /\d+\u00b0/.test(known[0][1]) && !known.some((r) => /alm_sky_f_about/.test(r[1])), 'the daylight row names where the Sun goes down: "' + known[0][1] + '"');
+  check(guessed.filter((r) => /alm_sky_f_about/.test(r[1])).length >= 3 && !/alm_sky_f_about/.test(guessed[3][1]), 'while the place is a guess the rows say so in themselves (about)');
 }
 
 // ── 8. Rising and setting, the time by the Sun ──

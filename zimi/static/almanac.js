@@ -48,6 +48,8 @@ function _getLocation() {
   // must check `stored`: resolving this made-up point to a timezone showed a
   // fresh browser Denver's clock instead of its own (the device already
   // KNOWS its zone; deriving one from invented coordinates loses that).
+  var zone = typeof _skyZonePlace === 'function' ? _skyZonePlace(_almDeviceTz()) : null;   // the zone's own city (almanac-skyfacts.js)
+  if (zone) return { lat: zone[0], lon: zone[1], name: '', stored: false };
   return { lat: 34, lon: -new Date().getTimezoneOffset() / 60 * 15, name: '', stored: false };
 }
 

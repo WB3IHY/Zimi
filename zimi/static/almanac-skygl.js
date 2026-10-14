@@ -15,7 +15,9 @@
 
 // ══ Pure: what colour, which way, how bright ═════════════════════════════
 
+var SG_EXTINCTION_MAG = 0.2;                             // magnitudes a star loses per airmass beyond the zenith's
 var SG_STARS_URL = '/static/earth/stars-v1.bin';          // scripts/build_star_catalog.py documents the format
+var SG_NAMES_URL = '/static/earth/stars-names-v1.json';   // the bright stars' designations, from scripts/build_star_catalog.py
 var SG_MILKYWAY_URL = '/static/earth/milkyway-v1.webp';   // ESO / S. Brunier, galactic coordinates, stars removed
 var SG_STARS_HEADER_BYTES = 4, SG_STARS_VERSION = 1, SG_STARS_BYTES_EACH = 6;
 var SG_STARS_U16_STEPS = 65536, SG_STARS_U16_MAX = 65535;
@@ -120,6 +122,15 @@ function _sgInterpLog(table, x) {
     }
   }
 }
+// The same with the position logarithmic too: a table by luminance, whose rows are decades apart.
+function _sgInterpLogLog(table, x) {
+  for (var i = 1; i < table.length; i++) {
+    if (x >= table[i][0] || i === table.length - 1) {
+      var a = table[i - 1], b = table[i], f = Math.max(0, Math.min(1, (Math.log(x) - Math.log(a[0])) / (Math.log(b[0]) - Math.log(a[0]))));
+      return Math.exp(Math.log(a[1]) + (Math.log(b[1]) - Math.log(a[1])) * f);
+    }
+  }
+}
 function _sgZenithLum(sunAlt) { return _sgInterpLog(SG_ZENITH_LUM, sunAlt); }
 // The light a place adds to the dark sky: 0 (dial 0, a dark site) to a city's.
 function _sgSkyglow(dial) {
@@ -127,11 +138,11 @@ function _sgSkyglow(dial) {
   return d === 0 ? 0 : SG_SQM_TO_LUM * Math.pow(10, -0.4 * (SG_SQM_DARK + (SG_SQM_CITY - SG_SQM_DARK) * d)) - SG_DARK_SKY_LUM * (1 - d);
 }
 // The Moon's own light on the sky (cd/m2): a full Moon high up about 5e-3.
-var SG_MOON_SKY_FULL = 0.005;
-function _sgMoonSkyLum(moonAlt, illum) {
+var SG_MOON_SKY_FULL = 0.0035;
+function _sgMoonSkyLum(moonAlt, illum, moonShare) {
   if (moonAlt <= 0) return 0;
   var k = Math.max(0, Math.min(1, illum / 100));
-  return SG_MOON_SKY_FULL * k * k * Math.pow(Math.sin(Math.min(moonAlt, 90) * DEG_TO_RAD), 0.6);
+  return SG_MOON_SKY_FULL * k * k * Math.pow(Math.sin(Math.min(moonAlt, 90) * DEG_TO_RAD), 0.6) * (moonShare == null ? 1 : moonShare);
 }
 // The whole sky's luminance an eye is set to, and the faintest star it shows
 // (naked-eye limiting magnitude: 7.6 under a dark sky, falling 1.5 magnitudes
@@ -140,8 +151,8 @@ var SG_LM_DARK = 7.6, SG_LM_PER_DECADE = 1.5, SG_LM_MAX = 7.9, SG_LM_MIN = -4.5;
 // sunShare is the part of the Sun's light that reaches the place (1, less in an eclipse).
 var SG_SUN_SHARE_MIN = 0.003;      // the sky in totality: light scattered in from beyond the Moon's shadow
 function _sgSunShare(obscuration) { return Math.max(SG_SUN_SHARE_MIN, 1 - Math.min(1, obscuration || 0)); }
-function _sgSkyLum(sunAlt, moonAlt, moonIllum, dial, sunShare) {
-  return Math.max(_sgZenithLum(sunAlt) * (sunShare == null ? 1 : sunShare), SG_DARK_SKY_LUM) + _sgMoonSkyLum(moonAlt, moonIllum) + _sgSkyglow(dial);
+function _sgSkyLum(sunAlt, moonAlt, moonIllum, dial, sunShare, moonShare) {
+  return Math.max(_sgZenithLum(sunAlt) * (sunShare == null ? 1 : sunShare), SG_DARK_SKY_LUM) + _sgMoonSkyLum(moonAlt, moonIllum, moonShare) + _sgSkyglow(dial);
 }
 function _sgLimitMag(lum) {
   return Math.max(SG_LM_MIN, Math.min(SG_LM_MAX, SG_LM_DARK - SG_LM_PER_DECADE * Math.log10(lum / SG_DARK_SKY_LUM)));
@@ -150,10 +161,19 @@ function _sgLimitMag(lum) {
 // night must stay dark). Display value = 1 - exp(-L * exposure). Rows of
 // [adapting luminance, exposure].
 var SG_EXPOSURE = [[6000, 2.4e-4], [600, 1.4e-3], [50, 4e-3], [3.5, 8e-3], [0.04, 0.12], [0.00017, 22]];
-var SG_MOON_ADAPT = 0.35;                      // the Moon's share of what the eye adapts to
-function _sgExposure(sunAlt, moonAlt, moonIllum, dial, sunShare) {
-  var L = Math.max(_sgZenithLum(sunAlt) * (sunShare == null ? 1 : sunShare), SG_DARK_SKY_LUM) + SG_MOON_ADAPT * _sgMoonSkyLum(moonAlt, moonIllum) + _sgSkyglow(dial);
-  return _sgInterpLog(SG_EXPOSURE, L);
+var SG_MOON_ADAPT = 0.15;                      // the Moon's share of what the eye adapts to
+function _sgExposure(sunAlt, moonAlt, moonIllum, dial, sunShare, moonShare) {
+  var L = Math.max(_sgZenithLum(sunAlt) * (sunShare == null ? 1 : sunShare), SG_DARK_SKY_LUM) + SG_MOON_ADAPT * _sgMoonSkyLum(moonAlt, moonIllum, moonShare) + _sgSkyglow(dial);
+  return _sgInterpLogLog(SG_EXPOSURE, L);
+}
+// The part of the Moon's light that is left in a lunar eclipse: the umbra's
+// share of the disc takes it all but a copper residue, the penumbra a third.
+// ec is _skyEclipse's answer (null: no eclipse).
+var SG_UMBRA_RESIDUE = 0.001, SG_PENUMBRA_DIM = 0.35;
+function _sgMoonShare(ec) {
+  if (!ec) return 1;
+  var covered = Math.max(0, Math.min(1, ec.umbralMag)), pen = Math.max(0, Math.min(1, ec.penumbralMag));
+  return Math.max(SG_UMBRA_RESIDUE, (1 - covered) * (1 - SG_PENUMBRA_DIM * pen));
 }
 // The Moon's illuminance at the top of the air (lux) from its phase angle and
 // distance: V = -12.74 + 0.026|a| + 4e-9 a^4 (Allen), 0 mag = 2.54e-6 lux.
@@ -210,8 +230,13 @@ function _sgAirglow(altDeg) {
 }
 
 // ══ The shaders ══════════════════════════════════════════════════════════
+var SG_MW_GAMMA = '1.2', SG_MW_EXTINCTION = '0.28', SG_AIRGLOW_EXTINCTION = '0.12';   // the panorama's gamma lifts its faint outer disc; its extinction and the airglow's
+var SG_GROUND_ALBEDO = 'vec3(0.085, 0.075, 0.065)';
 var SG_SHADOW_SOFT = '0.025';      // half the width of the Earth's shadow edge, in the cosine of the Sun's zenith angle
-var SG_TRANS_W = 256, SG_TRANS_H = 64, SG_MS_N = 32, SG_VIEW_W = 256, SG_VIEW_H = 128, SG_VIEW_STEPS = 96;
+var SG_TRANS_W = 256, SG_TRANS_H = 64, SG_MS_N = 32, SG_VIEW_W = 256, SG_VIEW_H = 128, SG_VIEW_STEPS = 128;
+// The airmass at an altitude in degrees (Kasten and Young): the one formula, from the page's own constants.
+var SG_GLSL_AIRMASS = 'float airmassDeg(float h) { h = max(h, 0.0); return 1.0 / (sin(radians(h)) + ' + SKY_AIRMASS_A + ' * pow(h + ' + SKY_AIRMASS_B + ', -' + SKY_AIRMASS_C + ')); }';
+var SG_LUT_LOG_SCALE = '32.0', SG_LUT_OD_SCALE = '64.0';   // the tables hold the logarithm of the light and the optical depth, scaled to sit where a half float has digits
 var SG_GLSL_HEAD = [
   '#version 300 es', 'precision highp float;', 'precision highp sampler2D;',
   'const float PI = 3.14159265359;',
@@ -233,7 +258,11 @@ var SG_GLSL_HEAD = [
   '  if (D < 0.0 || b >= 0.0) return -1.0;',
   '  return c / (-b + sqrt(D));',
   '}',
-  'vec2 unitToTex(vec2 u, vec2 size) { return (u * (size - 1.0) + 0.5) / size; }'
+  'vec2 unitToTex(vec2 u, vec2 size) { return (u * (size - 1.0) + 0.5) / size; }',
+  SG_GLSL_AIRMASS,
+  // A table's value back to light: a half float cannot hold a twilight's 1e-8, its logarithm it can.
+  'vec3 lutLight(vec3 t) { return exp(t * ' + SG_LUT_LOG_SCALE + '); }',
+  'vec3 lutOut(vec3 L) { return log(max(L, vec3(1e-14))) / ' + SG_LUT_LOG_SCALE + '; }'
 ].join('\n');
 
 var SG_GLSL_TRANS_LOOKUP = [
@@ -244,7 +273,7 @@ var SG_GLSL_TRANS_LOOKUP = [
   '  float dmin = Rt - r, dmax = rho + H;',
   '  return unitToTex(vec2((d - dmin) / (dmax - dmin), rho / H), vec2(' + SG_TRANS_W + '.0, ' + SG_TRANS_H + '.0));',
   '}',
-  'vec3 transmittanceTo(float r, float mu) { return texture(uTrans, transUV(r, mu)).rgb; }',
+  'vec3 transmittanceTo(float r, float mu) { return exp(-textureLod(uTrans, transUV(r, mu), 0.0).rgb * ' + SG_LUT_OD_SCALE + '); }',
   // The Earth's shadow: 0 where the Sun is below the horizon seen from this height. Soft over about two degrees: the Sun's own disc is
   // half a degree, and the air bends the light along the shadow's edge by more.
   'float earthShadow(float r, float mu) { float muH = -sqrt(max(0.0, 1.0 - (Rg * Rg) / (r * r))); return smoothstep(-' + SG_SHADOW_SOFT + ', ' + SG_SHADOW_SOFT + ', mu - muH); }'
@@ -264,7 +293,7 @@ var SG_FS_TRANS = SG_GLSL_HEAD + '\n' + [
   '    float t0 = tmax * float(i) / 40.0, t1 = tmax * float(i + 1) / 40.0;',
   '    od += sigmaT(length(o + dir * 0.5 * (t0 + t1)) - Rg) * (t1 - t0);',
   '  }',
-  '  outColor = vec4(exp(-od), 1.0);',
+  '  outColor = vec4(od / ' + SG_LUT_OD_SCALE + ', 1.0);',
   '}'
 ].join('\n');
 
@@ -302,7 +331,7 @@ var SG_FS_MULTI = SG_GLSL_HEAD + '\n' + SG_GLSL_TRANS_LOOKUP + '\n' + [
   '    }',
   '  }',
   '  L2 /= 64.0; Fms /= 64.0;',
-  '  outColor = vec4(L2 / (1.0 - Fms), 1.0);',
+  '  outColor = vec4(lutOut(L2 / (1.0 - Fms)), 1.0);',
   '}'
 ].join('\n');
 
@@ -323,23 +352,21 @@ var SG_FS_SKYVIEW = SG_GLSL_HEAD + '\n' + SG_GLSL_TRANS_LOOKUP + '\n' + [
   '  vec3 sunDir = vec3(cos(uLightAlt), sin(uLightAlt), 0.0), o = vec3(0.0, Rg + uObsHeight, 0.0);',
   '  float tmax = sphereFar(o, d, Rt), cosS = dot(d, sunDir);',
   '  vec3 col = vec3(0.0), T = vec3(1.0);',
-  '  float tPrev = 0.0, jit = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);',
-  // Where the Sun is below the horizon only the high air is lit, a thin layer a ray crosses in a few samples: the sample sits
-  // at a different place in its segment at every texel, so the layer's edge is noise the filter smooths, not terraces.
+  '  float tPrev = 0.0;',
   '  for (int i = 0; i < ' + SG_VIEW_STEPS + '; i++) {',
   '    float f = float(i + 1) / ' + SG_VIEW_STEPS + '.0, t = tmax * f * f, dt = t - tPrev;',
-  '    vec3 P = o + d * (tPrev + dt * jit); float rp = length(P), h = rp - Rg;',
+  '    vec3 P = o + d * (tPrev + 0.5 * dt); float rp = length(P), h = rp - Rg;',
   '    vec3 sT = sigmaT(h), sR = RAY_S * exp(-h / ' + SG_RAYLEIGH_H.toFixed(1) + '), sM = vec3(MIE_S * exp(-h / ' + SG_MIE_H.toFixed(1) + '));',
   '    vec3 stepT = exp(-sT * dt);',
   '    float muP = dot(P / rp, sunDir);',
   '    vec3 sunT = transmittanceTo(rp, muP) * earthShadow(rp, muP);',
   '    vec2 msUV = unitToTex(vec2(muP * 0.5 + 0.5, clamp((rp - Rg) / (Rt - Rg), 0.0, 1.0)), vec2(' + SG_MS_N + '.0));',
-  '    vec3 ms = texture(uMulti, msUV).rgb;',
+  '    vec3 ms = lutLight(textureLod(uMulti, msUV, 0.0).rgb);',
   '    vec3 S = sunT * (sR * phaseR(cosS) + sM * phaseM(cosS)) + ms * (sR + sM);',
   '    vec3 Sint = (S - S * stepT) / max(sT, vec3(1e-9));',
   '    col += T * Sint; T *= stepT; tPrev = t;',
   '  }',
-  '  outColor = vec4(col, 1.0);',
+  '  outColor = vec4(lutOut(col), 1.0);',
   '}'
 ].join('\n');
 
@@ -382,14 +409,17 @@ var SG_FS_SKY = SG_GLSL_HEAD + '\n' + SG_GLSL_VIEW + '\n' + [
   'out vec4 outColor;',
   'float wrapPi(float a) { return a - 2.0 * PI * floor((a + PI) / (2.0 * PI)); }',
   'float hash(vec2 p) { p = fract(p * vec2(443.897, 441.423)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }',
-  'float airmass(float altRad) { float h = max(degrees(altRad), 0.0); return 1.0 / (sin(radians(h)) + 0.50572 * pow(h + 6.07995, -1.6364)); }',
-  'vec3 skyLight(float az, float alt) {',
+  // The light of the sky at a height, by its bearing from the Sun and from the Moon.
+  'vec3 lightRel(float phiS, float phiM, float alt) {',
   '  float v = sqrt(clamp(alt, 0.0, PI * 0.5) / (PI * 0.5));',
   '  vec3 L = vec3(0.0);',
-  '  if (uSunLux > 0.0) L += texture(uSkyS, unitToTex(vec2(abs(wrapPi(az - uSunAz)) / PI, v), vec2(' + SG_VIEW_W + '.0, ' + SG_VIEW_H + '.0))).rgb * uSunLux;',
-  '  if (uMoonLux > 0.0) L += texture(uSkyM, unitToTex(vec2(abs(wrapPi(az - uMoonAz)) / PI, v), vec2(' + SG_VIEW_W + '.0, ' + SG_VIEW_H + '.0))).rgb * uMoonLux;',
+  '  if (uSunLux > 0.0) L += lutLight(texture(uSkyS, unitToTex(vec2(phiS / PI, v), vec2(' + SG_VIEW_W + '.0, ' + SG_VIEW_H + '.0))).rgb) * uSunLux;',
+  '  if (uMoonLux > 0.0) L += lutLight(texture(uSkyM, unitToTex(vec2(phiM / PI, v), vec2(' + SG_VIEW_W + '.0, ' + SG_VIEW_H + '.0))).rgb) * uMoonLux;',
   '  return L;',
   '}',
+  'vec3 skyLight(float az, float alt) { return lightRel(abs(wrapPi(az - uSunAz)), abs(wrapPi(az - uMoonAz)), alt); }',
+  // What lights the ground from above, the same at every bearing: the sky's light high up, around the Sun and away from it.
+  'vec3 ambientSky() { const float e = 0.7; return (lightRel(0.0, 0.0, e) + lightRel(PI * 0.5, PI * 0.5, e) * 2.0 + lightRel(PI, PI, e)) * 0.25; }',
   // S10 (tenth-magnitude stars per square degree) of the zodiacal light, log-interpolated by elongation.
   'float zodiS10(float elong) {',
   '  for (int i = 1; i < 8; i++) {',
@@ -416,21 +446,23 @@ var SG_FS_SKY = SG_GLSL_HEAD + '\n' + SG_GLSL_VIEW + '\n' + [
   '  vec3 L;',
   '  if (alt >= 0.0) {',
   '    L = skyLight(az, alt);',
-  '    float ext = exp(-0.28 * (airmass(alt) - 1.0)) * smoothstep(0.0, 0.02, alt);',
+  '    float ext = exp(-' + SG_MW_EXTINCTION + ' * (airmassDeg(degrees(alt)) - 1.0)) * smoothstep(0.0, 0.02, alt);',
   '    vec3 g = uGal * d;',
   '    vec2 tc = vec2(0.5 - atan(g.y, g.x) / (2.0 * PI), 0.5 - asin(clamp(g.z, -1.0, 1.0)) / PI);',
-  '    vec3 mw = pow(texture(uMilky, tc).rgb, vec3(2.2));',
+  '    vec3 mw = pow(texture(uMilky, tc).rgb, vec3(' + SG_MW_GAMMA + '));',
   '    float grain = 0.75 + 0.5 * hash(floor(px * 0.5) + 7.0);',            // the stars too faint to be catalogued
   '    L += uMwOn * mw * (uMwScale * ext * mix(1.0, grain, clamp(dot(mw, vec3(1.0)) * 4.0, 0.0, 1.0)));',
   '    float elong = acos(clamp(dot(d, uSunVec), -1.0, 1.0)), beta = asin(clamp(dot(d, uEclPole), -1.0, 1.0));',
   '    float w = mix(radians(' + SG_ZODI_WIDTH[0] + '.0), radians(' + SG_ZODI_WIDTH[1] + '.0), min(1.0, elong / (PI * 0.5)));',
   '    L += vec3(1.0, 0.93, 0.8) * zodiS10(clamp(elong, radians(15.0), PI)) * ' + SG_S10_LUM.toExponential(2) + ' * exp(-0.5 * pow(beta / w, 2.0)) * uZodiScale * ext;',
-  '    L += vec3(0.55, 1.0, 0.7) * uAirglow * (1.0 / sqrt(1.0 - pow(' + (SG_EARTH_R / (SG_EARTH_R + SG_AIRGLOW_H)).toFixed(5) + ' * cos(alt), 2.0))) * exp(-0.12 * (airmass(alt) - 1.0));',
+  '    L += vec3(0.55, 1.0, 0.7) * uAirglow * (1.0 / sqrt(1.0 - pow(' + (SG_EARTH_R / (SG_EARTH_R + SG_AIRGLOW_H)).toFixed(5) + ' * cos(alt), 2.0))) * exp(-' + SG_AIRGLOW_EXTINCTION + ' * (airmassDeg(degrees(alt)) - 1.0));',
   '    L += uGlow * (1.0 + 2.0 * exp(-degrees(alt) / 14.0));',
   '  } else {',
-  // The ground: the sky's own light at the horizon, a fraction of it, darker the further down.
-  '    vec3 h = skyLight(az, 0.0) * 0.14 + uGlow * 0.3 + vec3(' + (SG_DARK_SKY_LUM * 0.4).toExponential(2) + ');',
-  '    L = h * (1.0 - 0.5 * smoothstep(0.0, 0.35, -alt));',
+  // The ground: what falls on it (the sky's light from above, the Sun's if it is up, the place's own glow) times what it gives back,
+  // with a little of the horizon's local light at the horizon; darker the further down. Nothing in it depends on the bearing at the nadir.
+  '    vec3 E = ambientSky() + vec3(uSunLux * max(uSunVec.z, 0.0) / PI) + uGlow;',
+  '    vec3 h = ' + SG_GROUND_ALBEDO + ' * (E + 0.4 * skyLight(az, 0.05) * smoothstep(-0.5, -0.02, alt)) + vec3(' + (SG_DARK_SKY_LUM * 0.4).toExponential(2) + ');',
+  '    L = h * (1.0 - 0.45 * smoothstep(0.0, 0.4, -alt));',
   '  }',
   '  outColor = vec4(finish(L, px), 1.0);',
   '}'
@@ -441,7 +473,7 @@ var SG_FS_SKY = SG_GLSL_HEAD + '\n' + SG_GLSL_VIEW + '\n' + [
 // reddened and thinned by the air they come through.
 var SG_VS_STARS = SG_GLSL_HEAD + '\n' + SG_GLSL_VIEW + '\n' + [
   'in vec3 aVec; in vec4 aInfo; in vec3 aCol;',      // J2000 unit vector; magnitude, radius (CSS px), seed; colour
-  'uniform mat3 uM;', 'uniform float uLm, uDpr, uScint, uSeed, uSat;',
+  'uniform mat3 uM;', 'uniform float uLm, uDpr, uScint, uSeed, uSat;', 'uniform vec3 uMoon;',   // the Moon's disc: centre and radius, device px
   'out vec2 vLocal; out vec4 vColor; out float vRad; out float vBloom;',
   'float hash(float n) { return fract(sin(n * 91.3458) * 47453.5453); }',
   'void main() {',
@@ -458,14 +490,15 @@ var SG_VS_STARS = SG_GLSL_HEAD + '\n' + SG_GLSL_VIEW + '\n' + [
   '    px = vec2(uRes.x * 0.5 + q.x * r / uLensK, uRes.y * 0.5 - q.y * r / uLensK);',
   '  }',
   '  float mag = aInfo.x, rCss = aInfo.y;',
-  '  float X = 1.0 / (sin(max(alt, 0.0)) + 0.50572 * pow(max(degrees(alt), 0.0) + 6.07995, -1.6364));',
-  '  float d = uLm - (mag + 0.2 * (X - 1.0));',
+  '  float X = airmassDeg(degrees(alt));',
+  '  float d = uLm - (mag + ' + SG_EXTINCTION_MAG + ' * (X - 1.0));',
   '  float amp = min(' + SG_SCINT_MAX.toFixed(2) + ', ' + SG_SCINT_ZENITH.toFixed(2) + ' * pow(X, 1.5)) * uScint;',
   '  float vis = smoothstep(0.0, ' + SG_STAR_FADE_MAG.toFixed(2) + ', d) * min(1.0, ' + SG_STAR_FLOOR.toFixed(2) + ' * pow(10.0, ' + SG_STAR_PER_MAG.toFixed(2) + ' * d));',
   '  float rDev = max(' + '0.65' + ', rCss * uDpr);',
   '  float half_ = rDev * 5.0 + 1.5;',
   '  vec2 corner = vec2(float(gl_VertexID & 1), float((gl_VertexID >> 1) & 1)) * 2.0 - 1.0;',
   '  if (alt < -0.004 || vis <= 0.0 || px.x < -half_ || px.x > uRes.x + half_ || px.y < -half_ || px.y > uRes.y + half_) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }',
+  '  if (uMoon.z > 0.0 && distance(px, uMoon.xy) < uMoon.z) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }',
   '  vec2 p = px + corner * half_;',
   '  gl_Position = vec4(p.x / uRes.x * 2.0 - 1.0, 1.0 - p.y / uRes.y * 2.0, 0.0, 1.0);',
   '  float jitter = 1.0 + amp * (hash(aInfo.z + uSeed) * 2.0 - 1.0);',
@@ -488,27 +521,41 @@ var SG_FS_STARS = SG_GLSL_HEAD + '\n' + [
 ].join('\n');
 
 // ══ The renderer ═════════════════════════════════════════════════════════
-var _sg = null;          // the live renderer once started, false once found unusable
+var _sg = null;          // null: not started (or given back); false: unusable here; else the renderer, ready once its programs have compiled and its tables are baked
 var SG_OBSERVER_KM = 0.1;          // a float has half a metre's resolution at the planet's radius: the observer stands on a low rise
-var SG_CONTEXT = { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true, powerPreference: 'default' };
+var SG_CONTEXT = { alpha: false, antialias: false, depth: false, stencil: false, powerPreference: 'default' };
+var SG_POLL_MS = 30;               // how often the compile is asked whether it has finished
+var SG_LIGHT_ALT_STEP = 0.05;      // degrees a light must move before its sky-view table is drawn again
+var SG_MAX_LOSSES = 3;             // contexts lost in one page load before the GPU sky is given up
+var _sgLosses = 0;
+// An asset that failed is not asked for again until something says it may be (a resume, an open).
+var _sgFailed = { stars: false, mw: false, names: false };
+function _sgRetryLoads() { _sgFailed.stars = _sgFailed.mw = _sgFailed.names = false; }
 
 function _sgShader(gl, type, src) {
   var sh = gl.createShader(type);
   gl.shaderSource(sh, src);
   gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error('sky shader: ' + gl.getShaderInfoLog(sh));
   return sh;
 }
+// Start a program compiling; it is finished (checked, its uniforms found) by _sgFinishProgram once the driver is done.
 function _sgProgram(gl, vs, fs) {
-  var p = gl.createProgram();
-  gl.attachShader(p, _sgShader(gl, gl.VERTEX_SHADER, vs));
-  gl.attachShader(p, _sgShader(gl, gl.FRAGMENT_SHADER, fs));
+  var p = gl.createProgram(), v = _sgShader(gl, gl.VERTEX_SHADER, vs), f = _sgShader(gl, gl.FRAGMENT_SHADER, fs);
+  gl.attachShader(p, v);
+  gl.attachShader(p, f);
   gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('sky program: ' + gl.getProgramInfoLog(p));
+  p.shaders = [v, f];
+  return p;
+}
+function _sgFinishProgram(gl, p) {
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    throw new Error('sky program: ' + gl.getProgramInfoLog(p) + ' ' + p.shaders.map(function (s) { return gl.getShaderInfoLog(s); }).join(' '));
+  }
   p.u = {};
   var n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
   for (var i = 0; i < n; i++) { var info = gl.getActiveUniform(p, i), nm = info.name.replace(/\[0\]$/, ''); p.u[nm] = gl.getUniformLocation(p, info.name); }
-  return p;
+  for (var k = 0; k < p.shaders.length; k++) gl.deleteShader(p.shaders[k]);
+  p.shaders = null;
 }
 function _sgTexture(gl, w, h, internal, format, type, data, filter) {
   var tx = gl.createTexture();
@@ -530,28 +577,51 @@ function _sgTarget(gl, w, h) {
 }
 function _sgBind(gl, unit, tex, loc) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(loc, unit); }
 
-// Start the renderer: the canvas, the programs, and the two lookup tables that
-// never change (the air's transmittance, and its multiple scattering). False
-// where this browser cannot (no WebGL2, or no floating-point targets).
+// Start the renderer: the canvas, the programs compiling (the driver can do it
+// off the main thread, KHR_parallel_shader_compile), the tables' targets.
+// True once started, false where this browser cannot (no WebGL2, or no
+// floating-point targets). Nothing is drawn until _sgReady(): the page paints
+// the Canvas 2D sky meanwhile and is asked to paint again when the GPU is.
 function _sgInit() {
   if (_sg !== null) return !!_sg;
-  _sg = false;
+  var sg = null;
   try {
     var canvas = document.createElement('canvas'), gl = canvas.getContext('webgl2', SG_CONTEXT);
-    if (!gl || !(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'))) return false;
-    var sg = { canvas: canvas, gl: gl, W: 0, H: 0, starCount: 0, starsLoading: false, mwLoading: false, mwReady: false };
-    // A phone takes the GPU back when the page is backgrounded: the 2D sky carries on from there.
-    canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); if (_sg === sg) { _sgDisable(); if (typeof _skyKickDirty === 'function') _skyKickDirty(); } });
+    if (!gl || !(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'))) return (_sg = false);
+    sg = { canvas: canvas, gl: gl, W: 0, H: 0, ready: false, starCount: 0, mwReady: false, mwLoading: false, starsLoading: false,
+      parallel: gl.getExtension('KHR_parallel_shader_compile'), sunKey: null, moonKey: null };
+    // A phone takes the GPU back when the page is backgrounded: the next paint starts it again (or the 2D sky carries on).
+    canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); _sgLost(sg); });
     sg.pTrans = _sgProgram(gl, SG_VS_QUAD, SG_FS_TRANS);
     sg.pMulti = _sgProgram(gl, SG_VS_QUAD, SG_FS_MULTI);
     sg.pView = _sgProgram(gl, SG_VS_QUAD, SG_FS_SKYVIEW);
     sg.pSky = _sgProgram(gl, SG_VS_QUAD, SG_FS_SKY);
-    sg.pStars = _sgProgram(gl, SG_VS_STARS, SG_FS_STARS);
+    sg.progs = [sg.pTrans, sg.pMulti, sg.pView, sg.pSky];
     sg.vao = gl.createVertexArray();
     sg.trans = _sgTarget(gl, SG_TRANS_W, SG_TRANS_H);
     sg.multi = _sgTarget(gl, SG_MS_N, SG_MS_N);
     sg.viewS = _sgTarget(gl, SG_VIEW_W, SG_VIEW_H);
     sg.viewM = _sgTarget(gl, SG_VIEW_W, SG_VIEW_H);
+    sg.mwTex = _sgTexture(gl, 1, 1, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+    _sg = sg;
+    _sgPoll(sg);
+    return true;
+  } catch (e) {
+    if (sg) _sgDispose(sg);
+    return (_sg = false);
+  }
+}
+// Until the programs have compiled: look again soon. Then link-check them and bake the two tables that never change.
+function _sgPoll(sg) {
+  if (_sg !== sg) return;
+  var gl = sg.gl, i;
+  if (sg.parallel) {
+    for (i = 0; i < sg.progs.length; i++) {
+      if (!gl.getProgramParameter(sg.progs[i], sg.parallel.COMPLETION_STATUS_KHR)) { sg.pollTimer = setTimeout(function () { _sgPoll(sg); }, SG_POLL_MS); return; }
+    }
+  }
+  try {
+    for (i = 0; i < sg.progs.length; i++) _sgFinishProgram(gl, sg.progs[i]);
     gl.bindVertexArray(sg.vao);
     gl.disable(gl.BLEND);
     gl.bindFramebuffer(gl.FRAMEBUFFER, sg.trans.fb);
@@ -563,46 +633,111 @@ function _sgInit() {
     gl.useProgram(sg.pMulti);
     _sgBind(gl, 0, sg.trans.tex, sg.pMulti.u.uTrans);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    sg.mwTex = _sgTexture(gl, 1, 1, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
-    _sg = sg;
-    return true;
+    sg.ready = true;
   } catch (e) {
-    _sg = false;
-    return false;
+    _sgDisable();
+    return;
   }
+  if (typeof _skyKickDirty === 'function') _skyKickDirty();
+  _sgAnnounce(true);
 }
-function _sgReady() { return !!_sg; }
+function _sgReady() { return !!(_sg && _sg.ready); }
+// What other views hear: the GPU sky came or went ('zimisky:gl', detail.ready).
+function _sgAnnounce(ready) {
+  if (typeof document !== 'undefined' && document.dispatchEvent && typeof CustomEvent === 'function') document.dispatchEvent(new CustomEvent('zimisky:gl', { detail: { ready: ready } }));
+}
+// Give the GPU back: its textures, buffers and programs, and the context itself.
+function _sgDispose(sg) {
+  sg = sg || _sg;
+  if (!sg) return;
+  clearTimeout(sg.pollTimer);
+  try {
+    var gl = sg.gl, t = [sg.trans, sg.multi, sg.viewS, sg.viewM], i;
+    for (i = 0; i < t.length; i++) if (t[i]) { gl.deleteTexture(t[i].tex); gl.deleteFramebuffer(t[i].fb); }
+    if (sg.mwTex) gl.deleteTexture(sg.mwTex);
+    for (i = 0; i < (sg.buffers || []).length; i++) gl.deleteBuffer(sg.buffers[i]);
+    if (sg.vao) gl.deleteVertexArray(sg.vao);
+    if (sg.vaoStars) gl.deleteVertexArray(sg.vaoStars);
+    var ps = (sg.progs || []).concat(sg.pStars ? [sg.pStars] : []);
+    for (i = 0; i < ps.length; i++) gl.deleteProgram(ps[i]);
+    var lose = gl.getExtension('WEBGL_lose_context');
+    if (lose) lose.loseContext();
+  } catch (e) { /* the context is gone already */ }
+  sg.canvas.width = sg.canvas.height = 1;
+  if (_sg === sg) _sg = null;
+}
 // The GPU sky is given up for this page load.
-function _sgDisable() { _sg = false; }
+function _sgDisable() { _sgDispose(); _sg = false; _sgAnnounce(false); }
+function _sgLost(sg) {
+  if (_sg !== sg) return;
+  _sgDispose(sg);
+  _sgLosses++;
+  if (_sgLosses >= SG_MAX_LOSSES) _sg = false;
+  _sgAnnounce(false);
+  if (typeof _skyKickDirty === 'function') _skyKickDirty();
+}
 
-// The stars' bytes and the Milky Way's picture, fetched once, after the first
-// paint; onReady asks for another paint when each lands.
+// ── The data ──
+// One decoder and one request for the star catalogue, whoever asks first (the
+// sky, the 3D view): a promise of the decoded stars. A failure is remembered
+// until _sgRetryLoads, so a missing file is not asked for on every frame.
+var _sgStarsPromise = null, _sgNamesPromise = null;
+function _sgLoadStars() {
+  if (_sgStarsPromise) return _sgStarsPromise;
+  if (_sgFailed.stars) return Promise.reject(new Error('stars'));
+  _sgStarsPromise = fetch(SG_STARS_URL).then(function (r) { if (!r.ok) throw new Error('stars'); return r.arrayBuffer(); }).then(function (buf) {
+    var stars = _sgDecodeStars(buf);
+    if (!stars) throw new Error('stars');
+    return stars;
+  });
+  _sgStarsPromise.catch(function () { _sgFailed.stars = true; _sgStarsPromise = null; });
+  return _sgStarsPromise;
+}
+// The designations of the bright stars: { binIndex: [designation, constellation id] }.
+function _sgLoadStarNames() {
+  if (_sgNamesPromise) return _sgNamesPromise;
+  if (_sgFailed.names) return Promise.reject(new Error('names'));
+  _sgNamesPromise = fetch(SG_NAMES_URL).then(function (r) { if (!r.ok) throw new Error('names'); return r.json(); }).then(function (d) {
+    var out = {};
+    for (var i = 0; i < d.n.length; i++) out[d.n[i][0]] = [d.n[i][1], d.n[i][2]];
+    return out;
+  });
+  _sgNamesPromise.catch(function () { _sgFailed.names = true; _sgNamesPromise = null; });
+  return _sgNamesPromise;
+}
+// The decoded stars as the 3D view reads them: count and at(i, out) giving RA and Dec (radians), magnitude and B-V.
+function _sgStarList(stars) {
+  return { count: stars.n, at: function (i, out) { out.ra = stars.ra[i]; out.dec = stars.dec[i]; out.mag = stars.mag[i]; out.ci = stars.bv[i]; } };
+}
+
+// The stars and the Milky Way's picture, fetched once the GPU sky is ready
+// (after the first paint); onReady asks for another paint when each lands.
 function _sgLoadData(onReady) {
   var sg = _sg;
-  if (!sg) return;
-  if (!sg.starCount && !sg.starsLoading) {
+  if (!sg || !sg.ready) return;
+  if (!sg.starCount && !sg.starsLoading && !_sgFailed.stars) {
     sg.starsLoading = true;
-    fetch(SG_STARS_URL).then(function (r) { if (!r.ok) throw new Error('stars'); return r.arrayBuffer(); }).then(function (buf) {
-      var stars = _sgDecodeStars(buf);
-      if (!stars || _sg !== sg) throw new Error('stars');
+    _sgLoadStars().then(function (stars) {
+      if (_sg !== sg) return;
       _sgUploadStars(sg, stars);
       onReady();
     }).catch(function () {}).then(function () { sg.starsLoading = false; });
   }
-  if (!sg.mwReady && !sg.mwLoading) {
+  if (!sg.mwReady && !sg.mwLoading && !_sgFailed.mw) {
     sg.mwLoading = true;
     var img = new Image();
     img.onload = function () {
+      sg.mwLoading = false;
       if (_sg !== sg) return;
       var gl = sg.gl;
       gl.bindTexture(gl.TEXTURE_2D, sg.mwTex);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, img);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-      sg.mwReady = true; sg.mwLoading = false;
+      sg.mwReady = true;
       onReady();
     };
-    img.onerror = function () { sg.mwLoading = false; };
+    img.onerror = function () { sg.mwLoading = false; _sgFailed.mw = true; };
     img.src = SG_MILKYWAY_URL;
   }
 }
@@ -616,10 +751,14 @@ function _sgUploadStars(sg, stars) {
     var c = _sgBvToRGB(stars.bv[i]);
     col[3 * i] = c[0]; col[3 * i + 1] = c[1]; col[3 * i + 2] = c[2];
   }
+  sg.pStars = _sgProgram(gl, SG_VS_STARS, SG_FS_STARS);
+  _sgFinishProgram(gl, sg.pStars);
   sg.vaoStars = gl.createVertexArray();
   gl.bindVertexArray(sg.vaoStars);
+  sg.buffers = [];
   function attr(name, data, size) {
     var loc = gl.getAttribLocation(sg.pStars, name), b = gl.createBuffer();
+    sg.buffers.push(b);
     gl.bindBuffer(gl.ARRAY_BUFFER, b);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(loc);
@@ -633,35 +772,49 @@ function _sgUploadStars(sg, stars) {
 
 var SG_STAR_SATURATION = 1.2;    // a catalogue's blackbody colours are pale; the eye and a photograph both lean into them (and faint stars show none)
 
-// One frame. p: { W, H, dpr, view, sunAlt, sunAz, moonAlt, moonAz, moonIllum,
+// The sky-view table of a light, drawn only when the light has moved enough to matter.
+function _sgBakeLight(sg, which, altDeg) {
+  var gl = sg.gl, key = Math.round(altDeg / SG_LIGHT_ALT_STEP), k = which + 'Key', t = which === 'sun' ? sg.viewS : sg.viewM;
+  if (sg[k] === key) return;
+  sg[k] = key;
+  gl.useProgram(sg.pView);
+  _sgBind(gl, 0, sg.trans.tex, sg.pView.u.uTrans);
+  _sgBind(gl, 1, sg.multi.tex, sg.pView.u.uMulti);
+  gl.uniform1f(sg.pView.u.uObsHeight, SG_OBSERVER_KM);
+  gl.viewport(0, 0, SG_VIEW_W, SG_VIEW_H);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb);
+  gl.uniform1f(sg.pView.u.uLightAlt, key * SG_LIGHT_ALT_STEP * DEG_TO_RAD);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+// One frame. p: { W, H, dpr, view, sunAltGeo, sunAz, moonAlt, moonAz, moonIllum,
 // moonDist, horizon (the 9 numbers of _sgHorizonMatrix), eclPole, sunVec,
-// dial, seed, scint, lm, sunAltGeo, sunShare }. Altitudes and bearings in degrees
-// (the Sun's and the Moon's as apparent). Returns the canvas the frame is in.
+// dial, seed, scint, lm, sunShare, moonShare, moonDisc: {x, y, r} in device px
+// or null }. Altitudes and bearings in degrees (the Sun's and the Moon's as
+// apparent). Returns the canvas the frame is in; copy it before the next
+// frame or the next task (it is not preserved).
 function _sgDraw(p) {
   var sg = _sg, gl = sg.gl;
   if (sg.W !== p.W || sg.H !== p.H) { sg.canvas.width = sg.W = p.W; sg.canvas.height = sg.H = p.H; }
   gl.bindVertexArray(sg.vao);
   gl.disable(gl.BLEND);
   // The two lights' sky-views (skipped when the light is far below the horizon).
-  var sunLux = p.sunAltGeo > -26 ? SG_SUN_LUX * (p.sunShare == null ? 1 : p.sunShare) : 0, moonLux = p.moonAlt > -12 && p.moonIllum > 0.5 ? _sgMoonLux(p.moonIllum, p.moonDist) : 0;
-  gl.useProgram(sg.pView);
-  _sgBind(gl, 0, sg.trans.tex, sg.pView.u.uTrans);
-  _sgBind(gl, 1, sg.multi.tex, sg.pView.u.uMulti);
-  gl.uniform1f(sg.pView.u.uObsHeight, SG_OBSERVER_KM);
-  gl.viewport(0, 0, SG_VIEW_W, SG_VIEW_H);
-  if (sunLux) { gl.bindFramebuffer(gl.FRAMEBUFFER, sg.viewS.fb); gl.uniform1f(sg.pView.u.uLightAlt, p.sunAltGeo * DEG_TO_RAD); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }
-  if (moonLux) { gl.bindFramebuffer(gl.FRAMEBUFFER, sg.viewM.fb); gl.uniform1f(sg.pView.u.uLightAlt, p.moonAlt * DEG_TO_RAD); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }
+  var moonShare = p.moonShare == null ? 1 : p.moonShare;
+  var sunLux = p.sunAltGeo > -26 ? SG_SUN_LUX * (p.sunShare == null ? 1 : p.sunShare) : 0;
+  var moonLux = p.moonAlt > -12 && p.moonIllum > 0.5 ? _sgMoonLux(p.moonIllum, p.moonDist) * SG_MOON_GAIN * moonShare : 0;
+  if (sunLux) _sgBakeLight(sg, 'sun', p.sunAltGeo);
+  if (moonLux) _sgBakeLight(sg, 'moon', p.moonAlt);
   // The sky itself.
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, p.W, p.H);
   gl.useProgram(sg.pSky);
-  var u = sg.pSky.u, v = p.view;
+  var u = sg.pSky.u;
   _sgBind(gl, 0, sg.viewS.tex, u.uSkyS); _sgBind(gl, 1, sg.viewM.tex, u.uSkyM); _sgBind(gl, 2, sg.mwTex, u.uMilky);
   _sgViewUniforms(gl, sg.pSky, p);
   gl.uniform1f(u.uSunAz, p.sunAz * DEG_TO_RAD); gl.uniform1f(u.uSunLux, sunLux);
   gl.uniform1f(u.uMoonAz, p.moonAz * DEG_TO_RAD); gl.uniform1f(u.uMoonLux, moonLux);
   // The eye has not time to adapt to an eclipse's dimming: it keeps most of the daylight's exposure (the square root of the share).
-  gl.uniform1f(u.uExposure, _sgExposure(p.sunAltGeo, p.moonAlt, p.moonIllum, p.dial, p.sunShare == null ? 1 : Math.sqrt(p.sunShare)));
+  gl.uniform1f(u.uExposure, _sgExposure(p.sunAltGeo, p.moonAlt, p.moonIllum, p.dial, p.sunShare == null ? 1 : Math.sqrt(p.sunShare), Math.sqrt(moonShare)));
   var glow = _sgSkyglow(p.dial);
   gl.uniform3f(u.uGlow, glow * 1.0, glow * 0.82, glow * 0.6);
   gl.uniformMatrix3fv(u.uGal, true, _sgMul3(SG_EQ_TO_GAL, _sgTranspose(p.horizon)));
@@ -672,23 +825,25 @@ function _sgDraw(p) {
   for (var i = SG_ZODI_S10.length - 1; i >= 0; i--) zt.push(SG_ZODI_S10[i][0] * DEG_TO_RAD, SG_ZODI_S10[i][1]);
   gl.uniform1fv(u['uZodi'], zt);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  // The stars over it, added as light.
+  // The stars over it, added as light (but not through the Moon's disc: it is in front of them).
   if (sg.starCount) {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.bindVertexArray(sg.vaoStars);
     gl.useProgram(sg.pStars);
-    var us = sg.pStars.u;
+    var us = sg.pStars.u, md = p.moonDisc;
     _sgViewUniforms(gl, sg.pStars, p);
     gl.uniformMatrix3fv(us.uM, true, p.horizon);
     gl.uniform1f(us.uLm, p.lm); gl.uniform1f(us.uDpr, p.dpr); gl.uniform1f(us.uScint, p.scint ? 1 : 0);
     gl.uniform1f(us.uSeed, p.seed || 0); gl.uniform1f(us.uSat, SG_STAR_SATURATION);
+    gl.uniform3f(us.uMoon, md ? md.x : 0, md ? md.y : 0, md ? md.r : 0);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, sg.starCount);
     gl.disable(gl.BLEND);
   }
   return sg.canvas;
 }
-var SG_MW_LUM = 0.007;          // cd/m2 at a pixel of the panorama's full brightness (the galactic bulge)
+var SG_MW_LUM = 0.008;          // cd/m2 at a pixel of the panorama's full brightness (the galactic bulge)
+var SG_MOON_GAIN = 0.25;        // what the tables' Moon needs to give the sky the brightness a full Moon measures
 
 function _sgViewUniforms(gl, prog, p) {
   var u = prog.u, v = p.view;

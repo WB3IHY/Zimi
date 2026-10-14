@@ -130,7 +130,7 @@ def test_the_gpu_sky_draws_the_catalogue_where_the_ephemeris_puts_it(browser, se
     try:
         _settle(pg, NIGHT)
         _drawn(pg)
-        # Vega's place on the GPU's canvas against the 2D ephemeris's.
+        # Vega's place in the painted sky against the 2D ephemeris's.
         pg.evaluate("() => _skyKick()")
         pg.wait_for_timeout(500)
         got = pg.evaluate("""() => {
@@ -139,7 +139,7 @@ def test_the_gpu_sky_draws_the_catalogue_where_the_ephemeris_puts_it(browser, se
               const p = _skyScreen(s, st.az, st.alt);
               const c = document.createElement('canvas'); c.width = s.W; c.height = s.H;
               const x = c.getContext('2d', { willReadFrequently: true });
-              x.drawImage(_sg.canvas, 0, 0);
+              x.drawImage(s.base, 0, 0);
               const R = 8, d = x.getImageData(Math.round(p.x) - R, Math.round(p.y) - R, 2 * R + 1, 2 * R + 1).data;
               let near = 0, sum = 0;
               for (let j = 0; j <= 2 * R; j++) for (let i = 0; i <= 2 * R; i++) {
@@ -184,7 +184,7 @@ def test_the_milky_way_stands_on_the_galactic_plane_brightest_at_the_centre(brow
               await new Promise((r) => { const t = setInterval(() => { if (_skyState.lens && _skyState.paintedTime === _skyState.nowTime && _sg.mwReady && !_skyState.baseDirty) { clearInterval(t); r(); } }, 100); });
               const c = document.createElement('canvas'); c.width = s.W; c.height = s.H;
               const x = c.getContext('2d', { willReadFrequently: true });
-              x.drawImage(_sg.canvas, 0, 0);
+              x.drawImage(s.base, 0, 0);
               const lum = (az, alt) => { const p = _skyScreen(s, az, alt), R = 5, d = x.getImageData(Math.round(p.x) - R, Math.round(p.y) - R, 2 * R + 1, 2 * R + 1).data; let t = 0;
                 for (let i = 0; i < d.length; i += 4) t += d[i] + d[i + 1] + d[i + 2]; return t / ((2 * R + 1) ** 2) / 3; };
               const at = (l, b) => { const a = aa(l, b); return lum(a.az, a.alt); };
@@ -219,25 +219,27 @@ def test_the_look_around_view_draws_the_whole_sphere_on_demand_and_leaves_the_ca
         # Straight up, and across the sky at several bearings, and down: always painted, with stars to the top.
         for az, alt, fov in [(0, 90, 100), (90, 80, 60), (200, 45, 120), (310, 75, 20), (45, 0, 90), (180, -50, 90)]:
             pg.evaluate("([a, b, c]) => AlmanacSkyView.setView(window.__host, a, b, c)", [az, alt, fov])
+            pg.evaluate("() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))")
             got = pg.evaluate(lit)
             if alt >= 0:
                 assert got["n"] > 20, ((az, alt, fov), got)
         assert got["w"] == 780 and got["h"] == 1400, got
         # The field of view is held to the pinch's range.
         pg.evaluate("AlmanacSkyView.setView(window.__host, 0, 0, 500)")
-        assert pg.evaluate("_skyHost.look.fov") == 120
-        pg.evaluate("AlmanacSkyView.setView(window.__host, 0, 0, 2)")
-        assert pg.evaluate("_skyHost.look.fov") == 20
-        # No timer and no frame while the view is still: a turn asks for neither (read in one turn, so no
-        # other module's clock can be counted), and an idle view never draws.
+        assert pg.evaluate("_skyHost.look.fov") == pg.evaluate("SKY_LENS_FOV[1]") >= 120
+        pg.evaluate("AlmanacSkyView.setView(window.__host, 0, 0, 0.1)")
+        assert pg.evaluate("_skyHost.look.fov") == pg.evaluate("SKY_LENS_FOV[0]") <= 20
+        # No timer while the view is still, and a burst of turns is one frame (read in one turn, so no other
+        # module's clock can be counted); an idle view never draws.
         turn = pg.evaluate(
-            "() => { let n = 0; const st = window.setTimeout, raf = window.requestAnimationFrame;"
-            " window.setTimeout = function () { n++; return st.apply(this, arguments); };"
-            " window.requestAnimationFrame = function () { n++; return raf.apply(this, arguments); };"
-            " AlmanacSkyView.setView(window.__host, 120, 40, 80); AlmanacSkyView.resize(window.__host);"
-            " window.setTimeout = st; window.requestAnimationFrame = raf; return n; }"
+            "() => { let t = 0, f = 0; const st = window.setTimeout, raf = window.requestAnimationFrame;"
+            " window.setTimeout = function () { t++; return st.apply(this, arguments); };"
+            " window.requestAnimationFrame = function () { f++; return raf.apply(this, arguments); };"
+            " for (let i = 0; i < 30; i++) AlmanacSkyView.setView(window.__host, 100 + i, 40, 80);"
+            " window.setTimeout = st; window.requestAnimationFrame = raf; return [t, f]; }"
         )
-        assert turn == 0, "the view asked for %d timers or frames" % turn
+        assert turn == [0, 1], "thirty turns asked for %s timers and frames" % turn
+        pg.evaluate("() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))")
         pg.evaluate("() => { window.__draws = 0; const d = window._skyHostDraw; window._skyHostDraw = function () { window.__draws++; return d.apply(this, arguments); }; }")
         pg.wait_for_timeout(4000)
         assert pg.evaluate("window.__draws") == 0, "an idle view drew"
@@ -301,7 +303,7 @@ def test_the_beach_scene_is_a_choice_that_stays_chosen_and_nothing_moves_by_defa
         assert pg.evaluate("_skySetting('skin')") == "horizon"
         assert (
             pg.evaluate("_skySetting('dial')") == 0
-            and pg.evaluate("_skySetting('lines')") == "lines"
+            and pg.evaluate("_skySetting('lines')") == "off"
         )
         timers = pg.evaluate(
             "() => Object.keys(_skyTimers).filter((k) => _skyTimers[k])"
@@ -382,6 +384,24 @@ def test_without_webgl2_the_panorama_turns_and_the_sky_still_draws(browser, serv
         assert lit > 100, "the Canvas 2D sky draws its stars (%d)" % lit
         # The facts and settings are the same.
         assert "Polaris" in pg.inner_text("#almanac-sky-facts")
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_without_webgl2_the_look_around_is_drawn_by_canvas_and_never_empty(browser, served):
+    ctx, pg, errors = _almanac(browser, served, init=NO_WEBGL2)
+    try:
+        _settle(pg, NIGHT)
+        assert pg.evaluate(HOST % json.dumps(PLACE)) is True
+        for az, alt, fov in [(180, 40, 90), (0, 90, 60), (270, 10, 120)]:
+            pg.evaluate("([a, b, c]) => AlmanacSkyView.setView(window.__host, a, b, c)", [az, alt, fov])
+            pg.evaluate("() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))")
+            lit = pg.evaluate(
+                "() => { const c = document.querySelector('#lookhost canvas'), x = c.getContext('2d', { willReadFrequently: true }); const d = x.getImageData(0, 0, c.width, c.height).data; let n = 0, v = 0; for (let i = 0; i < d.length; i += 4) { if (d[i] + d[i + 1] + d[i + 2] > 120) n++; v = Math.max(v, d[i + 2]); } return { n, v }; }"
+            )
+            assert lit["n"] > 5 and lit["v"] > 20, ((az, alt, fov), lit)
+        assert pg.evaluate("_sgReady()") is False
         assert not errors, errors
     finally:
         ctx.close()
@@ -474,5 +494,186 @@ def test_a_planets_phase_is_drawn_as_the_share_that_is_lit(browser, served):
         for k, share in got.items():
             assert abs(share - float(k)) < 0.04, got
         assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def _frames(pg, n=2):
+    pg.evaluate("(n) => new Promise((r) => { const go = (k) => (k ? requestAnimationFrame(() => go(k - 1)) : r()); go(n); })", n)
+
+
+def test_the_twilight_gradient_is_smooth_with_the_sun_between_14_and_18_degrees_down(browser, served):
+    """Posterised bands over the western horizon at SF 2026-10-15 02:40 to 03:05 UT: half-float underflow in the tables."""
+    ctx, pg, errors = _almanac(browser, served)
+    try:
+        for iso in ("2026-10-15T02:40:00Z", "2026-10-15T02:52:00Z", "2026-10-15T03:05:00Z"):
+            _settle(pg, iso)
+            _drawn(pg)
+            pg.evaluate("ZimiSky.setView({ az: 262, alt: 12, fov: 45 })")
+            pg.wait_for_function("() => _skyState.lens && !_skyState.baseDirty", polling=POLL_MS)
+            _frames(pg)
+            steps = pg.evaluate(
+                """() => { const s = _skyState, x = s.base.getContext('2d', { willReadFrequently: true });
+                  const hor = _skyScreen(s, 262, 0).y, rows = [];
+                  const x0 = Math.round(s.W * 0.3), w = Math.round(s.W * 0.4);
+                  for (let y = 0; y < Math.min(hor - 6, s.H - 1); y++) {
+                    const d = x.getImageData(x0, y, w, 1).data; let r = 0, g = 0, b = 0;
+                    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
+                    const n = d.length / 4; rows.push([r / n, g / n, b / n]);
+                  }
+                  let worst = 0;
+                  for (let k = 3; k < rows.length; k++) for (let c = 0; c < 3; c++) worst = Math.max(worst, Math.abs(rows[k][c] - rows[k - 3][c]));
+                  return { worst: worst, n: rows.length, sun: s.eph.sunGeoAlt }; }"""
+            )
+            assert steps["n"] > 100 and steps["worst"] < 7, (iso, steps)
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_a_full_moon_sky_is_dark_blue_with_hundreds_of_stars(browser, served):
+    ctx, pg, errors = _almanac(browser, served, place={"lat": 32.7767, "lon": -96.797, "name": "Dallas"})
+    try:
+        _settle(pg, "2026-10-26T06:00:00Z")
+        _drawn(pg)
+        _frames(pg)
+        got = pg.evaluate(
+            """() => { const s = _skyState, x = s.base.getContext('2d', { willReadFrequently: true });
+              const d = x.getImageData(0, 0, s.W, Math.round(s.H * 0.7)).data; let peaks = 0, sky = [0, 0, 0], n = 0;
+              const W = s.W, H = Math.round(s.H * 0.7);
+              for (let y = 2; y < H - 2; y += 1) for (let i = 2; i < W - 2; i += 1) {
+                const k = 4 * (y * W + i), v = d[k] + d[k + 1] + d[k + 2];
+                const bg = (d[k - 8] + d[k - 7] + d[k - 6] + d[k + 8] + d[k + 9] + d[k + 10]) / 2;
+                if (v > bg + 45) peaks++;
+                if (i > W * 0.7 && y < H * 0.5) { sky[0] += d[k]; sky[1] += d[k + 1]; sky[2] += d[k + 2]; n++; }
+              }
+              return { peaks: peaks, sky: sky.map((v) => v / n), lm: s.lm }; }"""
+        )
+        assert got["peaks"] > 300, got
+        assert got["sky"][2] > got["sky"][0] and got["sky"][2] < 80, got   # blue, and dark
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_the_milky_way_reads_away_from_the_centre_too(browser, served):
+    """Toward Cygnus (l = 90) from a northern dark sky: the plane against the sky on either side."""
+    ctx, pg, errors = _almanac(browser, served)
+    try:
+        _settle(pg, NIGHT)
+        got = pg.evaluate(
+            """async () => {
+              const s = _skyState, e = s.eph, M = _sgHorizonMatrix(e.P, e.lst, s.lat);
+              const eq = (l, b) => { const v = [Math.cos(b) * Math.cos(l), Math.cos(b) * Math.sin(l), Math.sin(b)], G = SG_EQ_TO_GAL;
+                return [0, 1, 2].map((j) => G[j] * v[0] + G[3 + j] * v[1] + G[6 + j] * v[2]); };
+              const aa = (l, b) => _skyAltAzOf(M, eq(l * Math.PI / 180, b * Math.PI / 180));
+              const c = aa(90, 0);
+              ZimiSky.setView({ az: c.az, alt: Math.max(c.alt, 20), fov: 80 });
+              await new Promise((r) => { const t = setInterval(() => { if (_sgReady() && _sg.mwReady && _skyState.lens && !_skyState.baseDirty) { clearInterval(t); r(); } }, 100); });
+              await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+              const x = s.base.getContext('2d', { willReadFrequently: true });
+              const lum = (l, b) => { const a = aa(l, b), p = _skyScreen(s, a.az, a.alt), R = 7, d = x.getImageData(Math.round(p.x) - R, Math.round(p.y) - R, 2 * R + 1, 2 * R + 1).data;
+                const v = []; for (let i = 0; i < d.length; i += 4) v.push(d[i] + d[i + 1] + d[i + 2]); v.sort((p2, q) => p2 - q); return v[v.length >> 1] / 3; };
+              return { plane: lum(90, 0), north: lum(90, 22), south: lum(90, -22), alt: c.alt }; }"""
+        )
+        off = max(got["north"], got["south"])
+        assert got["alt"] > 20 and got["plane"] > off + 6 and got["plane"] > 1.5 * off, got
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_every_bright_star_can_be_tapped_and_its_figure_comes_with_it(browser, served):
+    ctx, pg, errors = _almanac(browser, served)
+    fetched = []
+    pg.on("request", lambda r: fetched.append(r.url))
+    try:
+        _settle(pg, NIGHT)
+        _drawn(pg)
+        pg.wait_for_function("() => _skyNames && _skyTapStars > 500", polling=POLL_MS)
+        # Nothing asks for the constellations while the default (no lines) stands.
+        _frames(pg)
+        assert not any("constellations-v1" in u for u in fetched), fetched
+        got = pg.evaluate(
+            """() => { const bodies = _skyState.baseBodies.filter((b) => b.type === 'star' && b.idx < 0 && b.desig && b.mag < 3.4);
+              return { n: _skyState.baseBodies.filter((b) => b.type === 'star').length, named: bodies.length, first: bodies[0] || null }; }"""
+        )
+        assert got["n"] > 150 and got["named"] > 3, got
+        b = got["first"]
+        pg.evaluate("document.getElementById('almanac-sky-canvas').scrollIntoView({ block: 'center' })")
+        pg.wait_for_timeout(300)
+        pos = pg.evaluate("([x, y]) => { const r = _skyState.canvas.getBoundingClientRect(); return { x: r.left + x, y: r.top + y }; }", [b["x"], b["y"]])
+        pg.mouse.click(pos["x"], pos["y"])
+        pg.wait_for_function("() => !document.getElementById('almanac-sky-tip').hidden", polling=POLL_MS)
+        tip = pg.inner_text("#almanac-sky-tip")
+        assert b["desig"] in tip and "magnitude" in tip.lower(), (tip, b)
+        pg.wait_for_function("() => !!_skyConst && _skyState.reveal", polling=POLL_MS)
+        assert any("constellations-v1" in u for u in fetched)
+        assert pg.evaluate("_skyState.reveal") == b["con"]
+        # A tap on empty sky takes the figure away again.
+        pg.evaluate("_skyHideTip()")
+        assert pg.evaluate("_skyState.reveal") is None
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_a_lost_gpu_context_is_given_back_and_taken_again_and_dispose_frees_it(browser, served):
+    ctx, pg, errors = _almanac(browser, served)
+    try:
+        _settle(pg, NIGHT)
+        _drawn(pg)
+        pg.evaluate("window.__gl = []; document.addEventListener('zimisky:gl', (e) => window.__gl.push(e.detail.ready))")
+        pg.evaluate("_sg.gl.getExtension('WEBGL_lose_context').loseContext()")
+        pg.wait_for_function("() => window.__gl.length >= 1 && window.__gl[0] === false", polling=POLL_MS)
+        # The next paint starts it again.
+        pg.evaluate("_skyKickDirty()")
+        pg.wait_for_function("() => _sgReady() && _sg.starCount === 9096 && _sg.mwReady && !_skyState.baseDirty", polling=POLL_MS)
+        assert pg.evaluate("window.__gl.includes(true)")
+        # Dispose gives it all back, and nothing is left to draw with.
+        pg.evaluate("_sgDispose()")
+        assert pg.evaluate("_sg") is None and pg.evaluate("_sgReady()") is False
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_the_sky_view_tables_are_drawn_once_for_one_place_of_the_sun(browser, served):
+    ctx, pg, errors = _almanac(browser, served)
+    try:
+        _settle(pg, NIGHT)
+        _drawn(pg)
+        n = pg.evaluate(
+            """() => { const gl = _sg.gl, real = gl.drawArrays; let n = 0; gl.drawArrays = function () { n++; return real.apply(this, arguments); };
+              const s = _skyState, a = _skyGLParams(s); _sgDraw(a); const first = n; n = 0; _sgDraw(a); const second = n;
+              a.sunAltGeo += 0.01; a.moonAlt += 0.01; n = 0; _sgDraw(a); const third = n;
+              a.sunAltGeo += 1; n = 0; _sgDraw(a); const moved = n; gl.drawArrays = real; return [first, second, third, moved]; }"""
+        )
+        # One quad for the sky; a table more for each light that has moved (the Sun, at night, is too far down to have one).
+        assert n[1] == 1 and n[2] == 1 and n[3] <= 2, n
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_the_credit_the_bearings_and_the_zone_city_are_on_the_card(browser, served):
+    ctx, pg, errors = _almanac(browser, served)
+    try:
+        _settle(pg, NIGHT)
+        _drawn(pg)
+        pg.wait_for_function("() => /Brunier/.test(document.getElementById('almanac-sky-facts').innerText)", polling=POLL_MS)
+        text = pg.inner_text("#almanac-sky-facts")
+        assert "ESO/S. Brunier" in text and "\u00b0" in text, text
+        assert "guessed" not in text.lower() and "about" not in text.lower(), text
+    finally:
+        ctx.close()
+    ctx, pg, errors = _almanac(browser, served, place=None, timezone_id="America/Chicago")
+    try:
+        _settle(pg, NIGHT)
+        pg.wait_for_function("() => document.getElementById('almanac-sky-facts').innerText.length > 20", polling=POLL_MS)
+        text = pg.inner_text("#almanac-sky-facts")
+        # Chicago's own sunrise on 10 August is about 6:10: not the hour-early guess of an Atlantic longitude.
+        assert "Chicago" in text and "about" in text.lower() and "6:" in text, text
+        assert pg.evaluate("Math.round(_skyState.lat * 10) / 10") == 41.9
     finally:
         ctx.close()

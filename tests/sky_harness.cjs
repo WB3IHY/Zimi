@@ -41,8 +41,9 @@ function makeSky() {
     'function _lterm(k, h) { return h; } function _tLookup(k, f) { return f; }', S);
   for (const fn of ['_moonEqCoords', '_moonLimbAngles', '_moonLimbAnglesOf', '_moonAxisOf', '_moonView', '_normDeg360', '_moonPhase'])
     vm.runInContext(extractFn(appSrc, fn), S);
-  for (const fn of ['_dateToJD', '_jdToJulianCentury', '_solveKepler', '_moonPosition', '_moonDistance', '_eqOfTime', '_solarB', '_dayOfYear', '_solarDeclination'])
+  for (const fn of ['_dateToJD', '_jdToJulianCentury', '_solveKepler', '_moonPosition', '_moonDistance', '_eqOfTime', '_solarB', '_dayOfYear', '_solarDeclination', '_jdnToGregorian', '_cnDeltaTdays'])
     vm.runInContext(extractFn(almSrc, fn), S);
+  vm.runInContext('var _tzFmtCache = {};' + extractFn(almSrc, '_tzFmt'), S);
   vm.runInContext(require('./moon_model.cjs')(), S);
   vm.runInContext(read('almanac-orrery.js'), S);
   vm.runInContext(read('almanac-sky.js'), S);
