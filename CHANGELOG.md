@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Search over a question shows the passage that answers it above the results, the answering sentence marked inside it and its source named; a tap opens the article with that sentence found and marked. It is the library's own text, nothing generated, and it comes from its own request after the results (`GET /bestanswer`).
+
+### Fixed
+
+- A question no longer asks the search for "did", "does", "can", "would" and the other helping words, or for a question word in the other languages ("wer", "wie", "quand"): "when did the Berlin Wall fall" and "what does insulin do" found nothing.
+- A search scoped to one source cleaned its words no differently than across the library did not: "how to purify water" found nothing in Wikipedia alone.
+
 ## [1.13.3] - 2026-10-12
 
 ### Added

@@ -1766,6 +1766,8 @@
   "search_placeholder": "सब कुछ खोजें…",
   "search_chip_without": "{word} के बिना",
   "search_more_from": "{source} से और",
+  "best_from": "{title} से, {source}",
+  "best_label": "आपकी लाइब्रेरी से",
   "search_more_results": "और परिणाम",
   "recent_clear_searches": "खोजें साफ़ करें",
   "find_in_page": "पेज में खोजें",

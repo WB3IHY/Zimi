@@ -5687,6 +5687,7 @@ from zimi.search import (  # noqa: E402, F401
     search_all,
     read_article,
     chunk_article,
+    best_answer_for,
     CHUNK_SIZE_MIN,
     CHUNK_SIZE_MAX,
     CHUNK_SIZE_DEFAULT,

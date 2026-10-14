@@ -239,6 +239,7 @@ _RATE_LIMITED_API_PATHS = (
     "/suggest",
     "/random",
     "/chunks",
+    "/bestanswer",
     "/openapi.json",
     "/almanac-links",
     "/almanac-satellites",
@@ -482,6 +483,12 @@ _metrics_lock = threading.Lock()
 # It cannot trigger today; it exists so a future careless call site degrades
 # into a missing series instead of a cardinality explosion.
 _METRIC_ENDPOINT_CAP = 64
+
+
+def _zim_scope(zim_param):
+    """A ?zim= value as search takes it: None (every ZIM), one name, or a list."""
+    names = [z.strip() for z in (zim_param or "").split(",") if z.strip()]
+    return names[0] if len(names) == 1 else (names or None)
 
 
 def _search_answer(result, filter_zim, fast):
@@ -2238,12 +2245,8 @@ class ZimHandler(BaseHTTPRequestHandler):
                             400, {"error": f"Collection '{collection}' not found"}
                         )
                     filter_zim = coll.get("zims", []) or None
-                elif zim_param:
-                    filter_zim = [z.strip() for z in zim_param.split(",") if z.strip()]
-                    if len(filter_zim) == 1:
-                        filter_zim = filter_zim[0]
                 else:
-                    filter_zim = None
+                    filter_zim = _zim_scope(zim_param)
                 # Apply language filter: restrict to ZIMs matching the given language
                 if lang_filter:
                     lang_zims = [
@@ -2386,6 +2389,30 @@ class ZimHandler(BaseHTTPRequestHandler):
                 if result.get("error") == "not_found":
                     return self._json(404, {"error": "not found"})
                 _record_usage("read", zim)
+                return self._json(200, result)
+
+            elif parsed.path == "/bestanswer":
+                # The card above a question's results. Its own request, made
+                # after the search has filled its cache, so a search never
+                # waits for it and a changed query cancels it.
+                q = param("q")
+                if not q:
+                    return self._json(400, {"error": "missing ?q= parameter"})
+                try:
+                    limit = max(
+                        1, min(int(param("limit", "10")), _srv.MAX_SEARCH_LIMIT)
+                    )
+                except (ValueError, TypeError):
+                    limit = 10
+                filter_zim = _zim_scope(param("zim"))
+                scope_str = (
+                    ",".join(sorted(filter_zim))
+                    if isinstance(filter_zim, list)
+                    else (filter_zim or "")
+                )
+                t0 = time.time()
+                result = _srv.best_answer_for(q, scope_str, filter_zim, limit)
+                _record_metric("/bestanswer", time.time() - t0)
                 return self._json(200, result)
 
             elif parsed.path == "/suggest":
@@ -3178,6 +3205,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                             "/search",
                             "/read",
                             "/chunks",
+                            "/bestanswer",
                             "/suggest",
                             "/list",
                             "/zim-info",

@@ -183,6 +183,40 @@
     say();
   }
 
+  // ── a passage shown, no bar ───────────────────────────────────────────
+  // A quoted sentence opened from a search card: found in the article,
+  // painted like any match, scrolled to. No bar; it stays until the reader
+  // touches the page. The full sentence first, then its opening words (an
+  // article's text can differ from the quote by a footnote mark or a
+  // hyphen). The page may still be laying out pictures, so the scroll is
+  // done again at load unless the reader has already moved.
+  var SHOW_PREFIX_WORDS = 8;
+  function show(d, text) {
+    var r = find(d, text)[0];
+    if (!r) {
+      var head = String(text).split(/\s+/).slice(0, SHOW_PREFIX_WORDS).join(' ');
+      if (head !== text) r = find(d, head)[0];
+    }
+    if (!r) return false;
+    unpaint();
+    doc = d; matches = [r]; at = -1;
+    paint();
+    reveal(r);
+    var w = win(), moved = false;
+    var clear = function () {
+      moved = true;
+      if (isOpen()) return;
+      unpaint(); matches = []; doc = null;
+    };
+    ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(function (ev) {
+      d.addEventListener(ev, clear, { once: true, passive: true });
+    });
+    if (w && d.readyState !== 'complete') {
+      w.addEventListener('load', function () { if (!moved && matches[0] === r) reveal(r); }, { once: true });
+    }
+    return true;
+  }
+
   // ── the bar ───────────────────────────────────────────────────────────
   var ICON = {
     up: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
@@ -271,5 +305,5 @@
   }
   function isOpen() { return !!(bar && bar.classList.contains('open')); }
 
-  window.ZimiFind = { open: open, close: close, isOpen: isOpen, step: step, _find: find, _foldQuery: foldQuery };
+  window.ZimiFind = { open: open, close: close, isOpen: isOpen, step: step, show: show, _find: find, _foldQuery: foldQuery };
 })();

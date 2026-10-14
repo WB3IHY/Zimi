@@ -1710,6 +1710,27 @@ STOP_WORDS = _interlang_stopwords.get("en", set()) | {
     "will",
     "with",
     "you",
+    # The auxiliaries of a question: "when did the Berlin Wall fall" asked
+    # the index for a page holding "did" and found none.
+    "am",
+    "been",
+    "being",
+    "can",
+    "could",
+    "did",
+    "do",
+    "does",
+    "had",
+    "may",
+    "might",
+    "must",
+    "shall",
+    "should",
+    "were",
+    "whom",
+    "whose",
+    "why",
+    "would",
 }
 
 
@@ -1717,7 +1738,13 @@ def _clean_query(q):
     """Strip stop words for better Xapian matching; the query as it was when
     every word is one. Quotes never reach here: a query with a phrase is an
     operator query, and the index is given its words (query.term_words)."""
-    words = [w for w in q.split() if w.lower() not in STOP_WORDS]
+    from zimi.bestanswer import QUESTION_WORDS
+
+    words = [
+        w
+        for w in q.split()
+        if w.lower() not in STOP_WORDS and _query.fold(w) not in QUESTION_WORDS
+    ]
     return " ".join(words) or q
 
 
@@ -3033,8 +3060,10 @@ def search_all(query_str, limit=5, filter_zim=None, fast=False):
             w.lower() for w in cleaned_q.split() if w.lower() not in STOP_WORDS
         ] or [w.lower() for w in q.split()]
 
-    # Clean query for Xapian (only pass raw query for single-ZIM scope)
-    cleaned = _clean_query(query_str) if not single_zim else query_str
+    # Clean query for Xapian: "how to purify water" asks for "purify water".
+    # (A search scoped to one ZIM used to send the raw words, so a question
+    # found nothing there while the same question across the library did.)
+    cleaned = _clean_query(query_str)
     if plan:
         word_sets = [_words(w, _clean_query(w)) for w in map(_query.term_words, plan)]
     else:
@@ -3156,7 +3185,7 @@ def search_all(query_str, limit=5, filter_zim=None, fast=False):
                         parsed,
                         plan,
                         lambda n, text, lim: _full(
-                            n, text if single_zim else _clean_query(text), lim, text
+                            n, _clean_query(text), lim, text
                         ),
                         name,
                         limit,
@@ -3165,6 +3194,12 @@ def search_all(query_str, limit=5, filter_zim=None, fast=False):
                     results = _full(name, cleaned, limit, query_str)
                     if results is None:
                         return
+                    # One source asked for by name, and the cleaned words found
+                    # nothing: the words as typed may be a title of function
+                    # words ("The Who"). Only here, so a library-wide search
+                    # that finds nothing costs what it always did.
+                    if not results and single_zim and cleaned != query_str:
+                        results = _full(name, query_str, limit, query_str) or results
                 dt = time.time() - t0
                 fts_results[name] = (results, dt)
             except Exception as e:
@@ -3527,13 +3562,20 @@ _BLOCK_BOUNDARY_RE = re.compile(
 )
 
 
-def _paragraphs_from_html(html_text):
-    """Split HTML into stripped, non-empty paragraph strings on block boundaries."""
-    return [
-        t
-        for t in (strip_html(part) for part in _BLOCK_BOUNDARY_RE.split(html_text))
-        if t
-    ]
+def _paragraphs_from_html(html_text, max_chars=None):
+    """Split HTML into stripped, non-empty paragraph strings on block boundaries.
+
+    `max_chars`: stop once the paragraphs hold that much, so a caller that
+    wants an article's opening does not strip all of a very long one."""
+    out, held = [], 0
+    for part in _BLOCK_BOUNDARY_RE.split(html_text):
+        t = strip_html(part)
+        if t:
+            out.append(t)
+            held += len(t)
+            if max_chars is not None and held > max_chars:
+                break
+    return out
 
 
 def _split_span(text, start, end, size):
@@ -3569,32 +3611,54 @@ def chunk_article(
     0–size/2) rather than erroring. Returns {"error": "not_found"} for an unknown
     zim or path so the route can map it to 404.
     """
-    size = max(CHUNK_SIZE_MIN, min(int(size), CHUNK_SIZE_MAX))
-    overlap = max(0, min(int(overlap), size // 2))
-
-    zims = _srv.get_zim_files()
-    if zim_name not in zims:
+    if zim_name not in _srv.get_zim_files():
         return {"error": "not_found"}
-
     try:
-        archive, path, entry, item = _article_entry(zim_name, path)
-        raw = bytes(item.content)
-        title = entry.title
-        if item.mimetype == "application/pdf":
-            plain = extract_pdf_text(raw, max_length=CHUNK_MAX_TEXT)
-            paragraphs = [p for p in (b.strip() for b in plain.splitlines()) if p]
-        else:
-            paragraphs = _paragraphs_from_html(raw.decode("UTF-8", errors="replace"))
+        title, mimetype, raw, path = _read_article_raw(zim_name, path)
     except KeyError:
         return {"error": "not_found"}
+    return _chunk_raw(zim_name, path, title, mimetype, raw, size, overlap)
+
+
+def _read_article_raw(zim_name, path):
+    """(title, mimetype, bytes, path) of an article. The caller holds the lock
+    and has checked the ZIM is installed; KeyError when there is no such entry.
+    What follows (_chunk_raw) is bytes and strings: it needs no lock."""
+    archive, path, entry, item = _article_entry(zim_name, path)
+    return entry.title, item.mimetype, bytes(item.content), path
+
+
+def _chunk_raw(
+    zim_name,
+    path,
+    title,
+    mimetype,
+    raw,
+    size=CHUNK_SIZE_DEFAULT,
+    overlap=CHUNK_OVERLAP_DEFAULT,
+    max_text=CHUNK_MAX_TEXT,
+):
+    """chunk_article's work on an article already read: no libzim, no lock.
+    `max_text` caps the stripped text (never above CHUNK_MAX_TEXT): a caller
+    after an article's opening passes less, and the rest is never stripped."""
+    size = max(CHUNK_SIZE_MIN, min(int(size), CHUNK_SIZE_MAX))
+    overlap = max(0, min(int(overlap), size // 2))
+    max_text = min(max_text, CHUNK_MAX_TEXT)
+    if mimetype == "application/pdf":
+        plain = extract_pdf_text(raw, max_length=max_text)
+        paragraphs = [p for p in (b.strip() for b in plain.splitlines()) if p]
+    else:
+        paragraphs = _paragraphs_from_html(
+            raw.decode("UTF-8", errors="replace"), max_chars=max_text
+        )
 
     stripped_text = _CHUNK_SEP.join(paragraphs)
     # Cap the canonical text BEFORE hashing so content_rev (and thus chunk IDs)
     # stay deterministic for capped content. If the cut lands mid-paragraph,
     # drop the partial trailing paragraph so chunk offsets align to real breaks.
-    truncated = len(stripped_text) > CHUNK_MAX_TEXT
+    truncated = len(stripped_text) > max_text
     if truncated:
-        stripped_text = stripped_text[:CHUNK_MAX_TEXT]
+        stripped_text = stripped_text[:max_text]
         cut = stripped_text.rfind(_CHUNK_SEP)
         if cut > 0:
             stripped_text = stripped_text[:cut]
@@ -3652,6 +3716,87 @@ def chunk_article(
         "total_chunks": len(chunks),
         "chunks": chunks,
     }
+
+
+def best_answer_for(q, zim_scope_str, filter_zim, limit):
+    """The best-answer card for a query: the search's own top hits (the same
+    cache a search just filled, so a card asked after its search reads them
+    for nothing), their passages, the quote that answers or none.
+
+    Each article is read under _zim_lock on its own, so a search or a page
+    open never waits for more than one article; the budget in bestanswer
+    bounds how many are read.
+    """
+    from zimi import bestanswer
+
+    if not bestanswer.worth_asking(q):
+        return {"answer": None}  # a keyword search: no reading, no cache entry
+
+    def hits_for(query, fast=False):
+        key = _search_cache_key(query, zim_scope_str, limit, fast)
+        found, _ = search_cached(
+            key,
+            lambda: search_all(
+                query, limit=limit, filter_zim=filter_zim, fast=fast
+            ),
+        )
+        return found.get("results", [])
+
+    def compute():
+        started = time.time()  # the budget covers everything the card does
+        hits = list(hits_for(q))  # a copy: the search's cached list is not ours
+        # A question the search finds little for ("wer hat die Mona Lisa
+        # gemalt", "how tall is mount everest": the index wants every word, the
+        # verb and the adjective too). Its content words are looked up in the
+        # title index (milliseconds, no full-text search, no per-ZIM search lock
+        # held for a person who may have gone): runs of consecutive words,
+        # longest first, each also as its stems ("purify water" finds "Water
+        # purification"). Never once the budget is spent.
+        if len(hits) < bestanswer.SPARSE_HITS:
+            seen = {(h["zim"], h["path"]) for h in hits}
+            for sub in bestanswer.title_queries(q):
+                if time.time() - started > bestanswer.BUDGET_SECONDS:
+                    break
+                for h in hits_for(sub, fast=True):
+                    if (h["zim"], h["path"]) not in seen:
+                        seen.add((h["zim"], h["path"]))
+                        hits.append(h)
+                if len(hits) >= bestanswer.MAX_CANDIDATES:
+                    break
+        kinds = {z["name"]: z.get("kind", "") for z in (_srv._zim_list_cache or [])}
+
+        def read_chunks(zim, path):
+            with _srv._zim_lock:  # the read only: stripping is not libzim
+                title, mimetype, raw, path = _read_article_raw(zim, path)
+            qa = False
+            if mimetype == "text/html" and _srv.bundled("exchange"):
+                # A Q&A page: the answer is quoted, never the question.
+                from zimi import exchange
+
+                answer = exchange.answer_html(raw)
+                if answer is not None:
+                    raw = answer
+                    qa = True
+            chunks = _chunk_raw(
+                zim,
+                path,
+                title,
+                mimetype,
+                raw,
+                size=bestanswer.PASSAGE_SIZE,
+                overlap=0,
+                max_text=bestanswer.PASSAGE_SIZE * bestanswer.MAX_CHUNKS_PER_ARTICLE,
+            )["chunks"]
+            for c in chunks:
+                c["qa"] = qa
+            return chunks
+
+        return bestanswer.best_answer(
+            q, hits, read_chunks, kinds, started=started
+        )
+
+    key = ("best",) + _search_cache_key(q, zim_scope_str, limit, False)
+    return bestanswer.cached_best_answer(key, compute)
 
 
 def get_catalog(zim_name):

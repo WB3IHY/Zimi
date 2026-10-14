@@ -1,0 +1,363 @@
+[
+ {
+  "q": "what does insulin do",
+  "expect": [
+   "regulates the metabolism of carbohydrates",
+   "absorption of glucose"
+  ]
+ },
+ {
+  "q": "what is photosynthesis",
+  "expect": [
+   "photosynthesis is a system of biological processes"
+  ]
+ },
+ {
+  "q": "who painted the mona lisa",
+  "expect": [
+   "leonardo da vinci"
+  ]
+ },
+ {
+  "q": "when did the berlin wall fall",
+  "expect": [
+   "9 november 1989",
+   "1961 to 1989"
+  ]
+ },
+ {
+  "q": "how tall is the eiffel tower",
+  "expect": [
+   "330 metres"
+  ]
+ },
+ {
+  "q": "how tall is mount everest",
+  "expect": [
+   "8,848.86"
+  ]
+ },
+ {
+  "q": "who created the python programming language",
+  "expect": [
+   "guido van rossum"
+  ]
+ },
+ {
+  "q": "when did apollo 11 land on the moon",
+  "expect": [
+   "july 20",
+   "july 16–24, 1969"
+  ]
+ },
+ {
+  "q": "how to purify water",
+  "expect": [
+   "water purification is the process of removing"
+  ]
+ },
+ {
+  "q": "what is the capital of australia",
+  "expect": [
+   "canberra"
+  ]
+ },
+ {
+  "q": "who wrote hamlet",
+  "expect": [
+   "written by william shakespeare"
+  ]
+ },
+ {
+  "q": "who discovered penicillin",
+  "expect": [
+   "alexander fleming"
+  ]
+ },
+ {
+  "q": "how long is the amazon river",
+  "expect": [
+   "6,400 kilometers"
+  ]
+ },
+ {
+  "q": "what is a mitochondrion",
+  "expect": [
+   "is an organelle found in the cells"
+  ]
+ },
+ {
+  "q": "what is gravity",
+  "expect": [
+   "fundamental interaction"
+  ]
+ },
+ {
+  "q": "how do vaccines work",
+  "expect": [
+   "stimulates the immune system",
+   "provides active acquired immunity"
+  ]
+ },
+ {
+  "q": "what is dna",
+  "expect": [
+   "is a polymer composed of two polynucleotide"
+  ]
+ },
+ {
+  "q": "what is a black hole",
+  "expect": [
+   "so compact that its gravity prevents anything"
+  ]
+ },
+ {
+  "q": "who invented the telephone",
+  "expect": [
+   "first practical telephone"
+  ]
+ },
+ {
+  "q": "what is bitcoin",
+  "expect": [
+   "first decentralized cryptocurrency"
+  ]
+ },
+ {
+  "q": "what is the pythagorean theorem",
+  "expect": [
+   "three sides of a right triangle"
+  ]
+ },
+ {
+  "q": "what is boiling",
+  "expect": [
+   "rapid phase transition from liquid to gas"
+  ]
+ },
+ {
+  "q": "what causes the tides",
+  "expect": [
+   "differential gravitational forces"
+  ]
+ },
+ {
+  "q": "who invented the printing press",
+  "expect": [
+   "johannes gutenberg"
+  ]
+ },
+ {
+  "q": "what is the largest ocean",
+  "expect": [
+   "largest and deepest of earth's five oceanic"
+  ]
+ },
+ {
+  "q": "what is the largest hot desert",
+  "expect": [
+   "largest hot desert in the world"
+  ]
+ },
+ {
+  "q": "how long is the nile",
+  "expect": [
+   "7,088 kilometers"
+  ]
+ },
+ {
+  "q": "when did world war ii start",
+  "expect": [
+   "1 september 1939"
+  ]
+ },
+ {
+  "q": "what is the internet",
+  "expect": [
+   "global system of interconnected computer networks"
+  ]
+ },
+ {
+  "q": "who was the first person to walk on the moon",
+  "expect": [
+   "armstrong became the first human to walk on the moon"
+  ]
+ },
+ {
+  "q": "what causes climate change",
+  "expect": [
+   "driven by human activities"
+  ]
+ },
+ {
+  "q": "what did marie curie discover",
+  "expect": [
+   "radium and polonium",
+   "pioneering research on radioactivity"
+  ]
+ },
+ {
+  "q": "who was charles darwin",
+  "expect": [
+   "english naturalist"
+  ]
+ },
+ {
+  "q": "what is the largest planet in the solar system",
+  "expect": [
+   "largest in the solar system"
+  ]
+ },
+ {
+  "q": "what is honey",
+  "expect": [
+   "sweet and viscous substance"
+  ]
+ },
+ {
+  "q": "how to get around in tokyo",
+  "expect": [
+   "mass transit systems in the world"
+  ]
+ },
+ {
+  "q": "what is the climate like in paris",
+  "expect": [
+   "oceanic climate"
+  ]
+ },
+ {
+  "q": "which airport serves paris",
+  "expect": [
+   "primary airport"
+  ]
+ },
+ {
+  "q": "wer hat die mona lisa gemalt",
+  "expect": [
+   "leonardo da vinci"
+  ]
+ },
+ {
+  "q": "wann fiel die berliner mauer",
+  "expect": [
+   "9. november 1989"
+  ]
+ },
+ {
+  "q": "wie lang ist der rhein",
+  "expect": [
+   "1232,7 km"
+  ]
+ },
+ {
+  "q": "was ist photosynthese",
+  "expect": [
+   "ist ein physiologischer prozess"
+  ]
+ },
+ {
+  "q": "מה היא פוטוסינתזה",
+  "expect": [
+   "תהליך ביולוגי"
+  ]
+ },
+ {
+  "q": "מי היה ראש הממשלה הראשון של ישראל",
+  "expect": [
+   "ראש הממשלה הראשון"
+  ]
+ },
+ {
+  "q": "מה היא בירת ישראל",
+  "expect": [
+   "בירתה של מדינת ישראל"
+  ]
+ },
+ {
+  "q": "how to undo the last git commit",
+  "expect": [
+   "git reset",
+   "undo your last commit"
+  ]
+ },
+ {
+  "q": "how to delete a git branch locally and remotely",
+  "expect": [
+   "git push -d",
+   "git branch -d"
+  ]
+ },
+ {
+  "q": "what does the yield keyword do in python",
+  "expect": [
+   "to understand what yield does"
+  ]
+ },
+ {
+  "q": "what does if __name__ == main do in python",
+  "expect": [
+   "boilerplate code"
+  ]
+ },
+ {
+  "q": "what is the capital of atlantis",
+  "expect": []
+ },
+ {
+  "q": "who won the 1998 world cup",
+  "expect": []
+ },
+ {
+  "q": "how do i bake sourdough bread",
+  "expect": []
+ },
+ {
+  "q": "who is the president of france",
+  "expect": []
+ },
+ {
+  "q": "why is the sky blue",
+  "expect": []
+ },
+ {
+  "q": "how many moons does mars have",
+  "expect": []
+ },
+ {
+  "q": "what is the meaning of life",
+  "expect": []
+ },
+ {
+  "q": "how do i change a flat tire",
+  "expect": []
+ },
+ {
+  "q": "who painted the sistine chapel ceiling",
+  "expect": []
+ },
+ {
+  "q": "how fast does light travel",
+  "expect": []
+ },
+ {
+  "q": "who built the pyramids of giza",
+  "expect": []
+ },
+ {
+  "q": "wer hat die sixtinische kapelle gemalt",
+  "expect": []
+ },
+ {
+  "q": "מי המציא את הטלפון",
+  "expect": []
+ },
+ {
+  "q": "how do i reset my router password",
+  "expect": []
+ },
+ {
+  "q": "what is the population of mars",
+  "expect": []
+ }
+]
