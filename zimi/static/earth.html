@@ -29,6 +29,7 @@
   .tool { width: 44px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,.18); background: rgba(20,22,28,.78); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); font-size: 22px; line-height: 1; padding: 0; }
   .tool svg { width: 22px; height: 22px; }
   .tool:disabled { opacity: .4; }
+  .card-open .tools, .no-globe .tools, .card-open #hint { display: none; }
   #hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom)); max-width: calc(100% - 140px); padding: 8px 14px; border-radius: 18px; background: rgba(20,22,28,.78); color: #e8e8ed; font-size: 13px; text-align: center; pointer-events: none; transition: opacity .6s; }
   #hint.gone { opacity: 0; }
   #map-chip { position: absolute; left: 50%; transform: translateX(-50%); top: 12px; }
@@ -97,7 +98,7 @@ function coords(lat, lon) {
   return '⁦' + f(lat, 'N', 'S') + ', ' + f(lon, 'E', 'W') + '⁩';
 }
 function show(id, on) { $(id).hidden = !on; }
-function say(text) { var m = $('msg'); m.textContent = text; m.hidden = !text; }
+function say(text) { var m = $('msg'); m.textContent = text; m.hidden = !text; $('stage').classList.toggle('no-globe', !!text); }
 
 // How many places the view's height earns: none from far out, more as you come down.
 function placeLimit(alt) {
@@ -189,6 +190,7 @@ function openCard(lat, lon, first) {
   card = token;
   var c = $('card');
   c.hidden = false;
+  $('stage').classList.add('card-open');
   c.innerHTML = '<button class="x" type="button" aria-label="' + esc(STR.close) + '">×</button><h2>' + esc(first ? first.title : coords(lat, lon)) + '</h2><p class="sub">' + esc(coords(lat, lon)) + '</p><div class="acts" id="acts"></div>';
   c.querySelector('.x').onclick = closeCard;
   acts(first ? { articles: [first], guides: [] } : { articles: [], guides: [] }, lat, lon, first);
@@ -215,7 +217,7 @@ function acts(d, lat, lon, first) {
   var up = box.querySelector('[data-up]'); if (up) up.onclick = function() { ask('_earthLookUp', lat, lon, art ? art.title : ''); };
   var mp = box.querySelector('[data-map]'); if (mp) mp.onclick = function() { openMap(lat, lon); };
 }
-function closeCard() { card = null; pickAt = null; $('card').hidden = true; layout(); }
+function closeCard() { card = null; pickAt = null; $('card').hidden = true; $('stage').classList.remove('card-open'); layout(); }
 
 // ── The map takes over ──
 function mapZoomFor(alt) { return Math.max(3, Math.min(17, Math.round(Math.log2(40075 * 0.8 / Math.max(G.spanKm(), 0.05)) + 0.2))); }

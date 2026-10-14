@@ -126,8 +126,11 @@ function _lookCompassPoint(az) { return LOOK_POINTS[Math.round(_lookNorm360(az) 
 // ── The sensors ────────────────────────────────────────────────────────────
 
 var LOOK_SENSOR_WAIT_MS = 1500;        // no reading by then: this device has no sensors to read
+var LOOK_OFFSET_JUMP_DEG = 25;
+var LOOK_OFFSET_FAST_TAU_MS = 60;
 var LOOK_OFFSET_TAU_MS = 400;          // the compass's correction settles slower than the view
 var LOOK_NOTE_AFTER_MS = 1500;         // a calibration note appears only if the compass stays poor this long
+var LOOK_MAX_STEP_MS = 250;            // a late frame still takes its whole step (the smoothing is exact for any step)
 var LOOK_SETTLED_DEG = 0.05;           // the view has caught up with the reading
 var LOOK_REPAINT_DEG = 0.12;           // the sky is repainted past this much turn
 // The globe under your feet hangs this high (Earth radii; 640 km) at the
@@ -172,8 +175,13 @@ function _lookStartSensors() {
   S.onRel = function (e) { _lookOnOrientation(e, false); };
   window.addEventListener('deviceorientationabsolute', S.onAbs);
   window.addEventListener('deviceorientation', S.onRel);
+  // No reading by then: say so and let a finger turn the view. The listeners
+  // stay, so a reading that comes late takes over and clears the note.
   S.sensorTimer = setTimeout(function () {
-    if (_look === S && S.sensing && !S.sensing.got) _lookSensorsFailed('look_none');
+    if (_look !== S || !S.sensing || S.sensing.got) return;
+    S.mode = 'drag';
+    _lookNote(_lookT('look_none'), 'sensors');
+    _lookButtons();
   }, LOOK_SENSOR_WAIT_MS);
 }
 function _lookStopSensors(S) {
@@ -203,7 +211,11 @@ function _lookOnOrientation(e, absolute) {
     // alpha is from wherever the phone woke; the heading says where north is.
     var nat = _lookViewFromEuler(alpha, beta, gamma, 0);
     var off = _lookHeadingOffset(nat.az, e.webkitCompassHeading);
-    var k = sn.offset == null ? 1 : 1 - Math.exp(-(now - sn.lastEvent) / LOOK_OFFSET_TAU_MS);
+    // Slow, so a noisy compass does not shake the view; fast when it is far off
+    // (the first readings, a phone picked up after being still), so it is not
+    // wrong for long.
+    var tau = sn.offset != null && Math.abs(_lookDelta(sn.offset, off)) > LOOK_OFFSET_JUMP_DEG ? LOOK_OFFSET_FAST_TAU_MS : LOOK_OFFSET_TAU_MS;
+    var k = sn.offset == null ? 1 : 1 - Math.exp(-(now - sn.lastEvent) / tau);
     sn.offset = sn.offset == null ? off : sn.offset + _lookDelta(sn.offset, off) * k;
     view = _lookApplyOffset(view, sn.offset);
   }
@@ -240,7 +252,7 @@ function _lookFrame(ts) {
   var S = _look;
   if (!S) return;
   S.raf = 0;
-  var dt = S.last ? Math.min(ts - S.last, 100) : 16;
+  var dt = S.last ? Math.min(ts - S.last, LOOK_MAX_STEP_MS) : 16;
   S.last = ts;
   var goal = { az: _lookNorm360(S.target.az + S.trim.az), alt: _lookClamp(S.target.alt + S.trim.alt, -90, 90), roll: S.target.roll };
   S.view = _lookSmooth(S.view, goal, dt, _lookReduceMotion() ? 1 : LOOK_SMOOTH_TAU_MS);
@@ -345,7 +357,7 @@ function _lookPlaceLabel(place) {
 
 function _lookButtons() {
   var S = _look;
-  if (S) _lookEl('look-ask').hidden = !(S.mode === 'idle' && _lookHasSensors() && (_lookNeedsPermission() || !S.sensing));
+  if (S) _lookEl('look-ask').hidden = !(S.mode === 'idle' && !S.sensing && _lookHasSensors() && _lookNeedsPermission());
 }
 
 function _lookOpen(opts) {

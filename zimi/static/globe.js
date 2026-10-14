@@ -279,7 +279,7 @@ var ZimiGlobe = (function () {
         alt: v.alt != null ? clamp(v.alt, ALT_MIN, ALT_MAX) : view.alt, bearing: v.bearing != null ? v.bearing : view.bearing
       };
       fling = null;
-      if (ms) tween = { a: { lat: view.lat, lon: view.lon, alt: view.alt, bearing: view.bearing }, b: next, t0: performance.now(), ms: ms };
+      if (ms && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) tween = { a: { lat: view.lat, lon: view.lon, alt: view.alt, bearing: view.bearing }, b: next, t0: performance.now(), ms: ms };
       else { tween = null; view = next; if (opts.onMove) opts.onMove(view); }
       dirty = true; kick();
     };
