@@ -48,7 +48,7 @@ def lib(tmp_path, monkeypatch):
     build_fixture_zim(str(own / OWN))
     build_fixture_zim(str(nomad / NOMAD_WIKI))
     build_fixture_zim(str(nomad / NOMAD_MED))
-    (nomad / "kiwix-library.xml").write_text("<library/>")
+    (nomad / "kiwix-library.xml").write_text("<library/>", encoding="utf-8")
     monkeypatch.delenv(libfolders.ENV, raising=False)
     monkeypatch.setattr(server, "ZIM_DIR", str(own))
     monkeypatch.setattr(server, "ZIMI_DATA_DIR", str(data))
@@ -788,7 +788,7 @@ def test_a_reset_waits_for_a_tick_in_flight(lib, monkeypatch):
 def test_a_nomad_layout_is_named_project_nomad_wherever_it_lives(tmp_path):
     storage = tmp_path / "somewhere" / "storage"
     (storage / "zim").mkdir(parents=True)
-    (storage / "zim" / "kiwix-library.xml").write_text("<library/>")
+    (storage / "zim" / "kiwix-library.xml").write_text("<library/>", encoding="utf-8")
     assert libfolders._default_label(str(storage / "zim")) == "Project NOMAD"
 
 
