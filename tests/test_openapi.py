@@ -141,7 +141,7 @@ class TestOpenAPIRoute(unittest.TestCase):
         with urllib.request.urlopen(f"{self._base}/openapi.json", timeout=10) as r:
             data = json.loads(r.read())
             self.assertEqual(r.status, 200)
-        self.assertEqual(len(data["paths"]), 27)
+        self.assertEqual(len(data["paths"]), 28)
         self.assertEqual(data["info"]["version"], server.ZIMI_VERSION)
 
 
