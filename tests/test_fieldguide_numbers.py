@@ -61,13 +61,18 @@ def test_every_emergency_number_is_in_the_source_it_names():
 
 
 def test_every_time_zone_knows_its_country_and_the_table_knows_nearly_every_country():
-    zones = _static_json("earth", "zones-v1.json")
+    """The sky's time zone table (zone-places.js, built from zone.tab) carries the
+    country as its third element; the numbers table is keyed by it."""
+    with open(os.path.join(STATIC, "zone-places.js"), encoding="utf8") as f:
+        src = f.read()
+    zones = {
+        m[0]: (float(m[1]), float(m[2]), m[3])
+        for m in re.findall(r"'([A-Za-z_/+-]+)':\[(-?[\d.]+),(-?[\d.]+),'([A-Z]{2})'\]", src)
+    }
     table = _static_json("fieldguide-numbers.json")["countries"]
     assert len(zones) > 400
     for tz, (lat, lon, cc) in zones.items():
-        assert (
-            -90 <= lat <= 90 and -180 <= lon <= 180 and re.fullmatch("[A-Z]{2}", cc)
-        ), tz
+        assert -90 <= lat <= 90 and -180 <= lon <= 180, tz
     assert zones["Australia/Sydney"][2] == "AU" and zones["Africa/Windhoek"][0] < 0
     assert zones["America/Manaus"][0] < 0 and zones["Asia/Calcutta"][2] == "IN"
     # A country the table lacks gets the default and says so; keep that rare.

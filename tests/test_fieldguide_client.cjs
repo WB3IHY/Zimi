@@ -12,7 +12,9 @@ const ctx = { document: { getElementById: () => null } };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(root, 'fieldguide-card.js'), 'utf8') + '\nthis.CARD = FieldGuideCard;', ctx);
 const CARD = ctx.CARD;
-const zones = JSON.parse(fs.readFileSync(path.join(root, 'earth', 'zones-v1.json'), 'utf8'));
+// The sky's own time zone table, as the page reads it.
+vm.runInContext(fs.readFileSync(path.join(root, 'zone-places.js'), 'utf8') + '\nthis.ZONES = { place: _skyZonePlace, country: _skyZoneCountry };', ctx);
+const zones = ctx.ZONES;
 const numbers = JSON.parse(fs.readFileSync(path.join(root, 'fieldguide-numbers.json'), 'utf8'));
 
 let failures = 0;
