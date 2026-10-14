@@ -2107,7 +2107,7 @@ var AlmanacSkyView = {
     AlmanacSkyView.unmount(_skyHost && _skyHost.host);
     _sgInit();   // the GPU's sky comes when it is compiled; until then the Canvas 2D sky draws, and the host is painted again
     var canvas = document.createElement('canvas');
-    canvas.className = 'alm-sky-look';
+    canvas.className = 'alm-sky-host';
     canvas.setAttribute('role', 'img');
     canvas.style.cssText = 'display:block;width:100%;height:100%;touch-action:none';
     host.appendChild(canvas);

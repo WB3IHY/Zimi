@@ -601,3 +601,41 @@ def test_closing_the_almanac_takes_look_with_it(browser, served):
         assert pg.evaluate("() => !document.body.classList.contains('look-open')")
     finally:
         ctx.close()
+
+
+def _centre(pg, selector):
+    return pg.evaluate(
+        "(s) => { const r = document.querySelector(s).getBoundingClientRect();"
+        " return [r.left + r.width / 2, r.top + r.height / 2]; }",
+        selector,
+    )
+
+
+def _hit(pg, selector):
+    """True when what a finger lands on at the control's middle is the control."""
+    x, y = _centre(pg, selector)
+    return pg.evaluate(
+        "([s, x, y]) => { const e = document.elementFromPoint(x, y);"
+        " return !!e && !!e.closest(s); }",
+        [selector, x, y],
+    )
+
+
+def test_look_controls_are_under_the_finger_not_under_the_sky(browser, served):
+    """The sky's canvas once shared the Look button's class and covered every
+    control. Taps here are real touches at the control's middle, not clicks."""
+    ctx, pg, errors = _look(browser, served, "ios")
+    try:
+        for sel in ("#look-close", "#look-ask"):
+            assert _hit(pg, sel), sel
+        x, y = _centre(pg, "#look-ask")
+        pg.touchscreen.tap(x, y)
+        pg.wait_for_function("() => window.__asked === 1", polling=POLL_MS)
+        x, y = _centre(pg, "#look-close")
+        pg.touchscreen.tap(x, y)
+        pg.wait_for_function(
+            "() => !document.getElementById('almanac-look')", polling=POLL_MS
+        )
+        assert not errors
+    finally:
+        ctx.close()
