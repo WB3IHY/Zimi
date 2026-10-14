@@ -3072,7 +3072,6 @@
   "earth_no_webgl": "Este dispositivo no puede dibujar el globo.",
   "earth_load_failed": "No se pudo cargar el globo.",
   "earth_away": "a {km} km",
-  "earth_reading": "Zimi sigue leyendo dónde están los artículos. Los lugares aparecen cuando termina cada biblioteca.",
   "earth_nothing": "No hay nada de la biblioteca aquí.",
   "earth_zoom_in": "Acercar",
   "earth_zoom_out": "Alejar",
@@ -3083,5 +3082,7 @@
   "look_calibrate": "Mueve el teléfono en forma de ocho para ajustar la brújula.",
   "look_no_north": "Este teléfono no encuentra el norte, así que la vista puede estar girada.",
   "look_earth": "Abrir Zimi Tierra aquí",
-  "look_insecure": "Los sensores de movimiento necesitan una dirección segura (https). Arrastra para mirar alrededor."
+  "look_insecure": "Los sensores de movimiento necesitan una dirección segura (https). Arrastra para mirar alrededor.",
+  "earth_finding": "Aún se buscan los lugares de {title}: {pct} %",
+  "earth_skipped": "Los lugares de {title} no se leen en este dispositivo: es demasiado grande para él."
 }

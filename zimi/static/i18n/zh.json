@@ -3072,7 +3072,6 @@
   "earth_no_webgl": "此设备无法绘制地球。",
   "earth_load_failed": "地球无法加载。",
   "earth_away": "相距 {km} 公里",
-  "earth_reading": "Zimi 仍在读取文章的位置。每个资料库读完后，地点就会出现。",
   "earth_nothing": "资料库里这里没有内容。",
   "earth_zoom_in": "放大",
   "earth_zoom_out": "缩小",
@@ -3083,5 +3082,7 @@
   "look_calibrate": "请将手机画8字形，以校准指南针。",
   "look_no_north": "此手机无法确定北方，视图可能有偏转。",
   "look_earth": "在这里打开 Zimi 地球",
-  "look_insecure": "动作传感器需要安全（https）地址。拖动即可环顾四周。"
+  "look_insecure": "动作传感器需要安全（https）地址。拖动即可环顾四周。",
+  "earth_finding": "正在查找{title}中的地点：{pct}%",
+  "earth_skipped": "此设备不读取{title}中的地点：它对本设备来说太大了。"
 }

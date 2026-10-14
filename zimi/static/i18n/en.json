@@ -3072,7 +3072,6 @@
   "earth_no_webgl": "This device cannot draw the globe.",
   "earth_load_failed": "The globe could not load.",
   "earth_away": "{km} km away",
-  "earth_reading": "Zimi is still reading where articles are. Places appear as each library finishes.",
   "earth_nothing": "Nothing in the library here.",
   "earth_zoom_in": "Zoom in",
   "earth_zoom_out": "Zoom out",
@@ -3083,5 +3082,7 @@
   "look_calibrate": "Wave the phone in a figure eight to settle the compass.",
   "look_no_north": "This phone cannot find north, so the view may be turned.",
   "look_earth": "Open Zimi Earth here",
-  "look_insecure": "Motion sensors need a secure (https) address. Drag to look around."
+  "look_insecure": "Motion sensors need a secure (https) address. Drag to look around.",
+  "earth_finding": "Places from {title} are still being found: {pct}%",
+  "earth_skipped": "Places from {title} are not read on this device: it is too large for it."
 }

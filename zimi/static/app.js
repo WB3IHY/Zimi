@@ -20212,7 +20212,7 @@ function _earthUrl(at) {
 }
 function _earthStrings(start) {
   return _appStrings('earth', ['earth_hint', 'earth_zoom_hint', 'earth_look_up', 'earth_read', 'earth_guide', 'earth_map', 'earth_locate',
-    'earth_no_webgl', 'earth_load_failed', 'earth_away', 'earth_reading', 'earth_nothing', 'earth_zoom_in', 'earth_zoom_out'], { start: start || {}, close: t('close') });
+    'earth_no_webgl', 'earth_load_failed', 'earth_away', 'earth_finding', 'earth_skipped', 'earth_nothing', 'earth_zoom_in', 'earth_zoom_out'], { start: start || {}, close: t('close') });
 }
 function openEarth(replaceState, start) {
   if (start && start.type) start = null;   // a click's event, not a place
@@ -26847,6 +26847,8 @@ window.addEventListener('popstate', async (e) => {
   if (_urlIsOpenMapPage()) return;
   // The Almanac's tables and calculations are a step inside it (almanac-tables.js).
   if (typeof _almTablesPop === 'function' && _almTablesPop(e)) return;
+  // Pointing the phone is a step too (almanac-look.js): Back closes it, not the Almanac.
+  if (typeof _lookPop === 'function' && _lookPop(e)) return;
   hideSuggest();
   _hideHistoryTrail();
   if (_createOpen) { closeCreate(); return; }

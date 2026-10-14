@@ -298,6 +298,7 @@ var ZimiGlobe = (function () {
     };
     G.dispose = function () {
       dead = true;
+      G.disposeObserver();
       if (raf) cancelAnimationFrame(raf);
       ball.geometry.dispose(); material.dispose(); dayMap.dispose(); nightMap.dispose();
       renderer.dispose();
@@ -310,7 +311,9 @@ var ZimiGlobe = (function () {
     G.resize();
     if (fitted) { view.alt = clamp(fitAlt(W, H), ALT_MIN, ALT_MAX); G.fitAlt = view.alt; }
     setSun(opts.time || Date.now());
-    if (typeof ResizeObserver === 'function') new ResizeObserver(function () { G.resize(); }).observe(canvas);
+    var resizer = typeof ResizeObserver === 'function' ? new ResizeObserver(function () { G.resize(); }) : null;
+    if (resizer) resizer.observe(canvas);
+    G.disposeObserver = function () { if (resizer) resizer.disconnect(); };
     return G;
   }
 

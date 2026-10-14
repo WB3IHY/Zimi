@@ -72,7 +72,7 @@
 var STR = strings({ title: 'Earth', hint: 'Drag to turn the Earth. Pinch to come closer.', zoom_hint: 'Come closer to see places.',
   look_up: 'Look up from here', read: 'Read', guide: 'Travel guide', map: 'Open the map here', locate: 'Show where I am',
   no_webgl: 'This device cannot draw the globe.', load_failed: 'The globe could not load.', away: '{km} km away',
-  reading: 'Zimi is still reading where articles are. Places appear as each library finishes.', nothing: 'Nothing in the library here.',
+  finding: 'Places from {title} are still being found: {pct}%', skipped: 'Places from {title} are not read on this device: it is too large for it.', nothing: 'Nothing in the library here.',
   zoom_in: 'Zoom in', zoom_out: 'Zoom out', close: 'Close', here: 'Where you are', nearby: 'Nearby' });
 
 var ALT_PLACES = [[1.2, 0], [0.3, 24], [0.05, 48], [0, 80]];      // below the first number: this many places
@@ -204,15 +204,15 @@ function openCard(lat, lon, first) {
 function acts(d, lat, lon, first) {
   var box = $('acts'), html = '';
   var art = first || d.articles[0];
-  if (art) html += '<button type="button" class="act main" data-read="' + esc(art.zim + '\u0000' + art.path) + '">' + esc(STR.read) + '</button>';
+  if (art) html += '<button type="button" class="act main" data-zim="' + esc(art.zim) + '" data-path="' + esc(art.path) + '">' + esc(STR.read) + '</button>';
   html += '<button type="button" class="act" data-up="1">' + esc(STR.look_up) + '</button>';
   (d.guides || []).slice(0, 3).forEach(function(g) {
-    html += '<button type="button" class="act" data-read="' + esc(g.zim + '\u0000' + g.path) + '">' + esc(STR.guide) + ' <small>' + esc(g.title) + (g.language ? ' · ' + esc(g.language) : '') + '</small></button>';
+    html += '<button type="button" class="act" data-zim="' + esc(g.zim) + '" data-path="' + esc(g.path) + '">' + esc(STR.guide) + ' <small>' + esc(g.title) + (g.language ? ' · ' + esc(g.language) : '') + '</small></button>';
   });
   if (ask('_earthMapFor', lat, lon)) html += '<button type="button" class="act" data-map="1">' + esc(STR.map) + '</button>';
   box.innerHTML = html;
-  box.querySelectorAll('[data-read]').forEach(function(b) {
-    b.onclick = function() { var p = b.getAttribute('data-read').split('\u0000'); tell({ zimi: 'open', zim: p[0], path: p[1] }); };
+  box.querySelectorAll('[data-zim]').forEach(function(b) {
+    b.onclick = function() { tell({ zimi: 'open', zim: b.dataset.zim, path: b.dataset.path }); };
   });
   var up = box.querySelector('[data-up]'); if (up) up.onclick = function() { ask('_earthLookUp', lat, lon, art ? art.title : ''); };
   var mp = box.querySelector('[data-map]'); if (mp) mp.onclick = function() { openMap(lat, lon); };
@@ -249,6 +249,22 @@ function locate() {
   if (!navigator.geolocation) { status(STR.locate, 2500); return; }
   navigator.geolocation.getCurrentPosition(function(p) { go(p.coords.latitude, p.coords.longitude); }, function() { status(STR.locate, 2500); }, { timeout: 15000, maximumAge: 600000 });
 }
+// Which wikis are still being read, and how far along: said while it is true,
+// and the dots come as each finishes.
+var STATUS_POLL_MS = 15000;
+var knownReady = null;
+function pollStatus() {
+  fetch('/earth', { credentials: 'same-origin' }).then(function(r) { return r.ok ? r.json() : null; }).then(function(d) {
+    if (!d) return;
+    var lines = (d.finding || []).slice(0, 2).map(function(f) { return fmt(STR.finding, { title: f.title, pct: f.pct }); })
+      .concat((d.skipped || []).slice(0, 1).map(function(f) { return fmt(STR.skipped, { title: f.title }); }));
+    status(lines.join(' \u00b7 '));
+    if (knownReady !== null && d.places && !knownReady) wantPlaces();
+    knownReady = !!d.places;
+    clearTimeout(pollStatus.t);
+    if ((d.finding || []).length) pollStatus.t = setTimeout(pollStatus, STATUS_POLL_MS);
+  }).catch(function() {});
+}
 function address() {
   var v = G.get();
   tell({ zimi: 'earth-at', lat: +v.lat.toFixed(4), lon: +v.lon.toFixed(4), alt: +v.alt.toPrecision(2) });
@@ -275,7 +291,7 @@ function start() {
     var seen = false; try { seen = localStorage.getItem(HINT_KEY) === '1'; localStorage.setItem(HINT_KEY, '1'); } catch (e) {}
     hint(seen ? STR.zoom_hint : STR.hint);
     wantPlaces(); layout();
-    fetch('/earth', { credentials: 'same-origin' }).then(function(r) { return r.json(); }).then(function(d) { if (!d.places) setTimeout(function() { status(STR.reading, 5000); }, 800); }).catch(function() {});
+    pollStatus();
     window.__earth = G;
   }).catch(function(e) {
     var gl = !!document.createElement('canvas').getContext('webgl2');

@@ -3072,7 +3072,6 @@
   "earth_no_webgl": "Dieses Gerät kann den Globus nicht darstellen.",
   "earth_load_failed": "Der Globus konnte nicht geladen werden.",
   "earth_away": "{km} km entfernt",
-  "earth_reading": "Zimi liest noch, wo die Artikel liegen. Orte erscheinen, sobald eine Bibliothek fertig ist.",
   "earth_nothing": "Hier gibt es nichts in der Bibliothek.",
   "earth_zoom_in": "Vergrößern",
   "earth_zoom_out": "Verkleinern",
@@ -3083,5 +3082,7 @@
   "look_calibrate": "Schwenke das Telefon in einer Acht, um den Kompass zu kalibrieren.",
   "look_no_north": "Dieses Telefon findet Norden nicht, die Ansicht kann also gedreht sein.",
   "look_earth": "Zimi Erde hier öffnen",
-  "look_insecure": "Bewegungssensoren brauchen eine sichere (https) Adresse. Ziehe, um dich umzusehen."
+  "look_insecure": "Bewegungssensoren brauchen eine sichere (https) Adresse. Ziehe, um dich umzusehen.",
+  "earth_finding": "Orte aus {title} werden noch gesucht: {pct} %",
+  "earth_skipped": "Orte aus {title} werden auf diesem Gerät nicht gelesen: es ist dafür zu groß."
 }

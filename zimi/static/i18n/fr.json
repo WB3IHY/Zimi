@@ -3072,7 +3072,6 @@
   "earth_no_webgl": "Cet appareil ne peut pas dessiner le globe.",
   "earth_load_failed": "Le globe n’a pas pu se charger.",
   "earth_away": "à {km} km",
-  "earth_reading": "Zimi lit encore l’emplacement des articles. Les lieux apparaissent à mesure que chaque bibliothèque est lue.",
   "earth_nothing": "Rien dans la bibliothèque ici.",
   "earth_zoom_in": "Zoomer",
   "earth_zoom_out": "Dézoomer",
@@ -3083,5 +3082,7 @@
   "look_calibrate": "Dessinez un huit avec le téléphone pour calibrer la boussole.",
   "look_no_north": "Ce téléphone ne trouve pas le nord : la vue peut être tournée.",
   "look_earth": "Ouvrir Zimi Terre ici",
-  "look_insecure": "Les capteurs de mouvement exigent une adresse sécurisée (https). Faites glisser pour regarder autour."
+  "look_insecure": "Les capteurs de mouvement exigent une adresse sécurisée (https). Faites glisser pour regarder autour.",
+  "earth_finding": "Les lieux de {title} sont encore en cours de recherche : {pct} %",
+  "earth_skipped": "Les lieux de {title} ne sont pas lus sur cet appareil : il est trop volumineux pour lui."
 }
