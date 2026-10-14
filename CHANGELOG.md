@@ -9,19 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Search over a question shows the passage that answers it above the results, the answering sentence marked inside it and its source named; a tap opens the article with that sentence found and marked. It is the library's own text, nothing generated, and it comes from its own request after the results (`GET /bestanswer`).
+- Field Guide: what to do in 25 emergencies (bleeding, choking, not breathing, a heart attack, cold, a flood, being lost and more), each in word-for-word quotes from open sources with edition, page and licence. Works with no ZIM installed.
+- Help now on home, the first-run screen and the sign-in screen opens the Field Guide; searching "bleeding" or "my friend is not breathing" answers with its situation.
+- Each emergency card shows the local emergency number, worked out from the time zone.
+- The Field Guide shows which installed ZIMs go deeper on each situation and offers the missing ones with their size; it can build a field-manual ZIM from the Army's public-domain manuals.
+- A red night light for all of Zimi, to keep night vision.
+- Zimi Earth: a globe of the library's places, with Wikipedia articles and Wikivoyage guides by location and links that open a place.
+- A question in search shows the sentence from your library that answers it, with its source; a tap opens the article at that sentence.
+- Zimi reads ZIMs from folders another program owns, in place and never changed: `ZIMI_EXTRA_ZIM_DIRS`, or Settings, Server, Storage. Project NOMAD's library is found and offered once ([guide](docs/integrations/project-nomad.md)).
+- ZIMs another program adds to or removes from such a folder appear in or leave the library in about a minute, with no restart.
 
 ### Fixed
 
-- A question no longer asks the search for "did", "does", "can", "would" and the other helping words, or for a question word in the other languages ("wer", "wie", "quand"): "when did the Berlin Wall fall" and "what does insulin do" found nothing.
-- A search scoped to one source cleaned its words no differently than across the library did not: "how to purify water" found nothing in Wikipedia alone.
-- Field Guide: "Help now" on home, the first-run and sign-in screens, and search answers for twenty-four situations (bleeding, not breathing, heart attack, unconscious, broken bone, bites and stings, allergic reaction, poisoning, carbon monoxide, cold, burns, heat, shock, calling for help, lost, signalling, shelter, water, flood, earthquake, wildfire, storm, power cuts, food safety), each a verbatim quotation from an open US government source in the order of what to do first.
-- Each situation is word-for-word quotations from TC 4-02.1, FM 21-76, the TCCC guidelines, Ready.gov and the EPA, each with its edition, place in the source, licence and link; it works with no ZIM installed.
-- Installed ZIMs deepen a quote (the full section and the pages around it); a missing one says what it would add, how large it is, and downloads in one tap.
-- Print gives a situation's quotations alone; the red night light follows one switch shared with the sky.
-- `Build it here` makes a field-manual ZIM from the Army's public-domain manuals (TC 4-02.1, FM 21-76, the Ranger Handbook) with Create's folder mode.
-- Zimi reads ZIMs from other folders where they are, without copying or changing them: `ZIMI_EXTRA_ZIM_DIRS` or Settings, Server, Other library folders. Project NOMAD's library is offered once when Zimi finds it, and a [guide](docs/integrations/project-nomad.md) covers Docker and an offline research agent over the same files.
-- A ZIM another program adds to or removes from such a folder appears in or leaves Zimi's library in about a minute, with no restart.
+- A search inside one ZIM found nothing for questions like "how to purify water".
+- Searches beginning "when did", "what does" or "how do I" found nothing.
 
 ## [1.13.3] - 2026-10-12
 
