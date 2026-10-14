@@ -1766,6 +1766,8 @@
   "search_placeholder": "Искать везде…",
   "search_chip_without": "исключено: {word}",
   "search_more_from": "Ещё из {source}",
+  "best_from": "Из статьи «{title}», {source}",
+  "best_label": "Из вашей библиотеки",
   "search_more_results": "Ещё результаты",
   "recent_clear_searches": "Очистить поиски",
   "find_in_page": "Найти на странице",

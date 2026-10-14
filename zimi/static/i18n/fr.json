@@ -1766,6 +1766,8 @@
   "search_placeholder": "Rechercher partout…",
   "search_chip_without": "sans {word}",
   "search_more_from": "Plus de {source}",
+  "best_from": "Extrait de {title}, {source}",
+  "best_label": "De votre bibliothèque",
   "search_more_results": "Plus de résultats",
   "recent_clear_searches": "Effacer les recherches",
   "find_in_page": "Rechercher dans la page",

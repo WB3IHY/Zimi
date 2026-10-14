@@ -1766,6 +1766,8 @@
   "search_placeholder": "חיפוש בכל…",
   "search_chip_without": "ללא {word}",
   "search_more_from": "עוד מ־{source}",
+  "best_from": "מתוך {title}, {source}",
+  "best_label": "מהספרייה שלך",
   "search_more_results": "תוצאות נוספות",
   "recent_clear_searches": "ניקוי החיפושים",
   "find_in_page": "חיפוש בדף",

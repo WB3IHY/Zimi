@@ -61,7 +61,7 @@ vm.runInContext([
   extract(/function _setOpenInApps\(on\) \{[^\n]*\n/, '_setOpenInApps'),
   extract(/function _resultApp\(zim, path\) \{[\s\S]*?\n\}/, '_resultApp'),
   extract(/function _bookOfCover\(path\) \{[^\n]*\n/, '_bookOfCover'),
-  extract(/function _openResult\(zim, path, title\) \{[\s\S]*?\n\}/, '_openResult'),
+  extract(/function _openResult\(zim, path, title, opts\) \{[\s\S]*?\n\}/, '_openResult'),
 ].join('\n'), ctx);
 
 function open(zim, p) {

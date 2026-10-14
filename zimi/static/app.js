@@ -8272,6 +8272,7 @@ async function doSearch(query, push, perSource) {
   const more = !!perSource;
   perSource = perSource || SEARCH_PER_SOURCE;
   if (!query) return;
+  if (!more) _searchCardClear(); // a new question: the old card goes, its request with it
   _currentSearchQuery = query;
   clearTimeout(suggestTimer);
   hideSuggest();
@@ -8347,6 +8348,7 @@ async function doSearch(query, push, perSource) {
     pushSearchState();
     renderSearchResults(allResults, scope);
     _histPushSearch(query, scope, (kept.results || []).length);
+    _searchCardStart(query, scope, zimParam, perSource, kept);
     return;
   }
 
@@ -8411,6 +8413,8 @@ async function doSearch(query, push, perSource) {
     if (searchSeq !== _searchSeq) return;
     _snippetsStreamSeq = 0;
     if (gotFull) _searchKeptPut(keptKey, allResults);
+    // The card comes after the results, never with them.
+    if (gotFull || (d1 && !d1.partial)) _searchCardStart(query, scope, zimParam, perSource, allResults);
     // Any card the answer brought no snippet for asks on its own.
     if (mode === 'search') loadSnippets();
   } catch(e) {
@@ -8826,6 +8830,7 @@ function renderSearchResults(data, scope) {
   // The count and the time are said once, over the results ("Found 1
   // results in 0.3s" said them again under them).
   output.innerHTML = html;
+  _searchCardMount();
 
   loadSnippets();
 }
@@ -8911,6 +8916,113 @@ function _zimTitleWithLang(name) {
     title += ' (' + _langDisplayName(info.language) + ')';
   }
   return title;
+}
+
+// ── The card above a search's results ──
+// One slot over the results, for whatever answers the search best. Cards take
+// turns by priority and the first with something to say fills it; the rest are
+// never asked (a Pi should not read articles for a card that will not show).
+//
+// A card is registered as
+//   { id, priority,          lower asks first
+//     ask(ctx),              a payload, or null for "nothing from me"; may be
+//                            sync (read from the search's own answer) or a
+//                            promise; ctx = { query, scope, zimParam, limit,
+//                            data (the search's answer), signal }
+//     html(payload, ctx) }   the card, complete, as a string
+// The slot is cleared the moment a search starts, a card's request is aborted
+// with it, and a card that arrives for an older search is dropped. A card that
+// needs a request of its own should make it here, after the results: results
+// first, always. Sync cards go before async ones.
+var SEARCH_CARDS = [];
+function registerSearchCard(card) {
+  SEARCH_CARDS.push(card);
+  SEARCH_CARDS.sort(function(a, b) { return a.priority - b.priority; });
+}
+var _searchCard = null; // { key, ctrl, el } for the search on screen
+
+function _searchCardClear() {
+  if (!_searchCard) return;
+  _searchCard.ctrl.abort();
+  if (_searchCard.el) _searchCard.el.remove();
+  _searchCard = null;
+}
+// Put the slot back first in the results after they are drawn again.
+function _searchCardMount() {
+  if (_searchCard && _searchCard.el && output.firstChild !== _searchCard.el) output.prepend(_searchCard.el);
+}
+async function _searchCardStart(query, scope, zimParam, limit, data) {
+  const key = query + '\n' + zimParam;
+  if (_searchCard && _searchCard.key === key) return; // "More results": the card stands
+  _searchCardClear();
+  const card = _searchCard = { key: key, ctrl: new AbortController(), el: null };
+  const ctx = { query: query, scope: scope, zimParam: zimParam, limit: limit, data: data, signal: card.ctrl.signal };
+  for (const r of SEARCH_CARDS) {
+    let payload = null;
+    try { payload = await r.ask(ctx); } catch (e) { payload = null; }
+    if (card !== _searchCard || card.ctrl.signal.aborted || mode !== 'search') return;
+    if (payload == null) continue;
+    const el = document.createElement('div');
+    el.className = 'search-card-slot';
+    el.dataset.card = r.id;
+    el.innerHTML = r.html(payload, ctx);
+    card.el = el;
+    _searchCardMount();
+    return;
+  }
+}
+
+// The best passage for a question. A query of one or two words is a keyword
+// search and is never asked: the server would only say no (it is the judge;
+// this only spares it the request).
+const BEST_MIN_WORDS = 3;
+const BEST_ASKING = /[?？؟]|[぀-ヿ㐀-鿿]{4}/;
+function _bestMayHelp(query) {
+  return BEST_ASKING.test(query) || query.trim().split(/\s+/).length >= BEST_MIN_WORDS;
+}
+function _bestQuoteHtml(q, primary) {
+  const source = tH('best_from').replace(/\{(title|source)\}/g, function(m, k) {
+    return '<bdi>' + esc(k === 'title' ? q.title : _zimTitle(q.zim)) + '</bdi>';
+  });
+  const text = primary
+    ? '<span class="bq-ctx">' + esc(q.before) + '</span><mark class="bq-hit">' + esc(q.sentence) + '</mark><span class="bq-ctx">' + esc(q.after) + '</span>'
+    : esc(q.sentence);
+  return '<a class="best-quote' + (primary ? '' : ' more') + '" href="' + escAttr(_articleDeepLinkPath(q.zim, q.path)) +
+    '" data-zim="' + escAttr(q.zim) + '" data-path="' + escAttr(q.path) + '" data-title="' + escAttr(q.title) +
+    '" data-quote="' + escAttr(q.sentence) + '" onclick="return _bestQuoteClick(event, this)">' +
+    '<blockquote dir="auto">' + text + '</blockquote><span class="bq-src">' + source + '</span></a>';
+}
+function _bestQuoteClick(e, el) {
+  return _spaNav(e, function() {
+    _openResult(el.dataset.zim, el.dataset.path, el.dataset.title, { quote: el.dataset.quote });
+  });
+}
+registerSearchCard({
+  id: 'best',
+  priority: 100,
+  async ask(ctx) {
+    if (!_bestMayHelp(ctx.query)) return null;
+    const res = await fetch('/bestanswer?q=' + encodeURIComponent(ctx.query) + '&limit=' + ctx.limit + ctx.zimParam, { signal: ctx.signal });
+    if (!res.ok) return null;
+    const d = await res.json();
+    return d && d.answer ? d : null;
+  },
+  html(d) {
+    return '<aside class="best-card" aria-label="' + escAttr(t('best_label')) + '">' +
+      _bestQuoteHtml(d.answer, true) + (d.more || []).map(function(m) { return _bestQuoteHtml(m, false); }).join('') + '</aside>';
+  },
+});
+
+// The sentence a quote was tapped for, shown in the article once it is up.
+var _pendingQuote = null;
+function _quoteReveal(frame) {
+  const want = _pendingQuote;
+  _pendingQuote = null;
+  if (!want || !currentArticle || currentArticle.zim !== want.zim || !_findApplies()) return;
+  let doc = null;
+  try { doc = frame.contentDocument; } catch (e) {}
+  if (!doc || !doc.body) return;
+  _findLoad().then(function(F) { F.show(doc, want.text); }, function() {});
 }
 
 // ── Async Snippets + Thumbnails ──
@@ -21416,12 +21528,12 @@ function _resultApp(zim, path) {
 // A Gutenberg book's cover page (<title>_cover.<id>) is the way to the book
 // (<title>.<id>, zimi/books.py): Bookshelf opens the book.
 function _bookOfCover(path) { return String(path).replace(/_cover(\.\d+(?:\.html)?)$/, '$1'); }
-function _openResult(zim, path, title) {
+function _openResult(zim, path, title, opts) {
   var app = _resultApp(zim, path);
-  if (app === 'wiki') { _wikiFromApp = true; openArticle(zim, path, title); }
-  else if (app === 'books') openArticle(zim, _bookOfCover(path), title);
+  if (app === 'wiki') { _wikiFromApp = true; openArticle(zim, path, title, opts); }
+  else if (app === 'books') openArticle(zim, _bookOfCover(path), title, opts);
   else if (app) _openAppItem(app, zim, path);
-  else openArticle(zim, path, title);
+  else openArticle(zim, path, title, opts);
 }
 // The apps whose things (a video, a question, a post) open in the app, not
 // the reader; each thing's kind is the one Saved.KIND_APP gives the app.
@@ -22618,6 +22730,7 @@ function openReader(url) {
     var _d0 = null; try { _d0 = frame.contentDocument; } catch (e) {}
     if (_d0) { if (_d0.__zimiShown) return; _d0.__zimiShown = true; }
     _frameDocShown(frame, loading);
+    _quoteReveal(frame);
   };
   if (_earlyOk) _whenFrameDocReady(frame, _prevDoc, _onDoc);
   frame.onload = _onDoc;
@@ -25422,7 +25535,7 @@ function _findLoad() {
     _findLoading = new Promise(function (resolve, reject) {
       var el = document.createElement('script');
       // The version moves with the file: /static is cached for a year.
-      el.src = '/static/find.js?v=1';
+      el.src = '/static/find.js?v=2';
       el.onload = function () { if (window.ZimiFind) resolve(window.ZimiFind); else { _findLoading = null; reject(); } };
       el.onerror = function () { _findLoading = null; reject(); };
       document.head.appendChild(el);
@@ -25970,6 +26083,8 @@ function _fallbackTitle(zim, path) {
 
 function openArticle(zim, path, title, opts) {
   _appsOff();
+  // A sentence to be shown in the article once it is up (a quoted passage).
+  _pendingQuote = (opts && opts.quote) ? { zim: zim, text: opts.quote } : null;
   // A place on the map already on screen: fly there. Reloading an 800,000
   // entry map to move within it is a second of grey; the map is right here.
   // History gets the place (Back returns to the last one), the address gets

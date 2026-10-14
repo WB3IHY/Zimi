@@ -1766,6 +1766,8 @@
   "search_placeholder": "ابحث في كل شيء…",
   "search_chip_without": "بدون {word}",
   "search_more_from": "المزيد من {source}",
+  "best_from": "من {title}، {source}",
+  "best_label": "من مكتبتك",
   "search_more_results": "نتائج أخرى",
   "recent_clear_searches": "مسح عمليات البحث",
   "find_in_page": "البحث في الصفحة",
