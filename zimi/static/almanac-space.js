@@ -828,15 +828,26 @@ var SP_FRAG_POINTS = [
 ].join('\n');
 var SP_VERT_LINE = [
   SP_GLSL_ABERR,
+  'uniform float uLambda; uniform float uMapped; uniform vec3 uCam;',
+  'varying float vDim;',
+  // The overview's layout (_spLayoutMap), for a line whose points are heliocentric: K ln(1 + r / R0).
+  'vec3 spLayout(vec3 p) {',
+  '  float r = length(p); if (r < 1e-6) return p;',
+  '  float f = ' + SP_LAYOUT_K.toFixed(4) + ' * log(1.0 + r / ' + SP_LAYOUT_R0.toFixed(4) + ') / r;',
+  '  return p * (1.0 - uLambda + uLambda * f);',
+  '}',
   'void main() {',
-  '  vec4 w = modelMatrix * vec4(position, 1.0);',
-  '  gl_Position = projectionMatrix * viewMatrix * vec4(spAberr(w.xyz), 1.0);',
+  '  vec3 w = (uMapped > 0.5 && uLambda > 0.0) ? spLayout(position) - uCam : (modelMatrix * vec4(position, 1.0)).xyz;',
+  // A guide line is not light: aft, where the stars and bodies have dimmed (by D squared), it dims with them.
+  '  vDim = 1.0;',
+  '  if (uBeta > 0.0) { float c = dot(normalize(w), uHead); float D = inversesqrt(1.0 - uBeta * uBeta) * (1.0 + uBeta * c); vDim = clamp(D * D, 0.04, 1.0); }',
+  '  gl_Position = projectionMatrix * viewMatrix * vec4(spAberr(w), 1.0);',
   '}'
 ].join('\n');
 var SP_FRAG_LINE = [
   'precision mediump float;',
-  'uniform vec3 uColor; uniform float uAlpha;',
-  'void main() { gl_FragColor = vec4(uColor, uAlpha); }'
+  'uniform vec3 uColor; uniform float uAlpha; varying float vDim;',
+  'void main() { gl_FragColor = vec4(uColor, uAlpha * vDim); }'
 ].join('\n');
 // The Sun's glow: a camera-facing square, its middle where the (turned) Sun is.
 var SP_VERT_GLOW = [
@@ -861,17 +872,17 @@ var SP_FRAG_GLOW = [
 ].join('\n');
 
 // ── Surfaces drawn from colours ──
-// Saturn, Uranus, Neptune, Ceres and Ganymede have no public-domain map in
-// the library, so each is painted here from what it looks like: bands and a
-// few clouds for the giants, speckle for the rocks and ice.
+// Saturn, Uranus, Neptune and Ceres have no public-domain map in the library,
+// so each is painted here from what it looks like: bands and a few clouds for
+// the giants, speckle for the rock.
 var SP_PROC = {
   saturn:  { bands: [[0.93, 0.85, 0.66], [0.82, 0.72, 0.52], [0.9, 0.8, 0.6], [0.76, 0.66, 0.48]], freq: 11, amp: 0.17 },
   uranus:  { bands: [[0.62, 0.84, 0.86], [0.58, 0.8, 0.84], [0.66, 0.87, 0.88]], freq: 5, amp: 0.05 },
   neptune: { bands: [[0.2, 0.34, 0.78], [0.25, 0.4, 0.85], [0.17, 0.3, 0.7]], freq: 8, amp: 0.1 },
-  rock:    { speckle: [0.5, 0.48, 0.45], spread: 0.16 },
-  ice:     { speckle: [0.62, 0.6, 0.56], spread: 0.2 }
+  rock:    { speckle: [0.5, 0.48, 0.45], spread: 0.16 }
 };
 var SP_PROC_SIZE = [256, 128];
+var SP_BAND_WOBBLE = 0.35;           // how far the noise bends a giant's bands, in bands
 // Value noise from the orrery's seeded generator: the same picture every time.
 function _spProcCanvas(kind) {
   var spec = SP_PROC[kind], w = SP_PROC_SIZE[0], h = SP_PROC_SIZE[1];
@@ -891,7 +902,7 @@ function _spProcCanvas(kind) {
     for (var x = 0; x < w; x++) {
       var u = x / w, c;
       if (spec.bands) {
-        var pos = lat * spec.freq + noise(u * 3, lat * 2) * 0.35, i0 = Math.floor(pos), f = pos - i0;
+        var pos = lat * spec.freq + noise(u * 3, lat * 2) * SP_BAND_WOBBLE, i0 = Math.floor(pos), f = pos - i0;
         f = f * f * (3 - 2 * f);
         var c0 = spec.bands[i0 % spec.bands.length], c1 = spec.bands[(i0 + 1) % spec.bands.length];
         var n = (noise(u * 2, lat * 40) - 0.5) * spec.amp;
@@ -931,9 +942,6 @@ function _spRingCanvas() {
   }
   return cv;
 }
-function _spLoadTextureUrl(THREE, url) {
-  return new Promise(function (resolve, reject) { new THREE.TextureLoader().load(url, resolve, undefined, reject); });
-}
 
 // ── The scene ──
 var SP_THREE_DOUBLE_SIDE = 2;       // three's DoubleSide, not exported by name by the tree-shaken build
@@ -944,13 +952,18 @@ var SP_ORBIT_COLOR = [0.55, 0.62, 0.78], SP_ORBIT_ALPHA = 0.28;
 var SP_TRAIL_COLOR = [0.43, 0.9, 0.85], SP_TRAIL_PAST_ALPHA = 0.7, SP_TRAIL_FUTURE_ALPHA = 0.22;
 var SP_MOON_ORBIT_ALPHA = 0.22;
 var SP_STAR_CAPACITY = 9200;
+var SP_FIRST_SKY_STARS = 600;        // the Almanac's own sky has fewer than this; the catalogue has more
+var SP_MIN_DISC_PX = 0.35;           // a disc smaller than this (px radius) is left to its marker
 var SP_MARKER_CAPACITY = 80;
 
 function _spUniformsAber() { return { uHead: { value: null }, uBeta: { value: 0 } }; }
 
-function _spLineMaterial(THREE, ab, rgb, alpha) {
+function _spLineMaterial(THREE, ab, lay, rgb, alpha, mapped) {
   return new THREE.ShaderMaterial({
-    uniforms: { uHead: ab.uHead, uBeta: ab.uBeta, uColor: { value: new THREE.Vector3(rgb[0], rgb[1], rgb[2]) }, uAlpha: { value: alpha } },
+    uniforms: {
+      uHead: ab.uHead, uBeta: ab.uBeta, uLambda: lay.uLambda, uCam: lay.uCam, uMapped: { value: mapped ? 1 : 0 },
+      uColor: { value: new THREE.Vector3(rgb[0], rgb[1], rgb[2]) }, uAlpha: { value: alpha }
+    },
     vertexShader: SP_VERT_LINE, fragmentShader: SP_FRAG_LINE, transparent: true, depthWrite: false
   });
 }
@@ -962,33 +975,12 @@ function _spLine(THREE, Kind, mat, count) {
   line.renderOrder = 1;
   return line;
 }
+// Points (the markers, the stars): the Earth view's cloud, with the ship's aberration in its vertex shader and a kind.
 function _spPointsObject(THREE, ab, capacity, dpr, additive) {
-  var g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(capacity * 3), 3));
-  g.setAttribute('aColor', new THREE.BufferAttribute(new Float32Array(capacity * 3), 3));
-  g.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(capacity), 1));
-  g.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array(capacity), 1));
-  g.setAttribute('aKind', new THREE.BufferAttribute(new Float32Array(capacity), 1));
-  g.setDrawRange(0, 0);
-  var m = new THREE.ShaderMaterial({
-    uniforms: { uHead: ab.uHead, uBeta: ab.uBeta, dpr: { value: dpr } },
-    vertexShader: SP_VERT_POINTS, fragmentShader: SP_FRAG_POINTS, transparent: true, depthWrite: false, depthTest: false
+  return _aePointCloud(THREE, capacity, dpr, false, {
+    kinds: true, depthTest: false, additive: additive,
+    material: { uniforms: { uHead: ab.uHead, uBeta: ab.uBeta, dpr: { value: dpr } }, vertexShader: SP_VERT_POINTS, fragmentShader: SP_FRAG_POINTS }
   });
-  if (additive) m.blending = THREE.AdditiveBlending;
-  var p = new THREE.Points(g, m);
-  p.frustumCulled = false;
-  return p;
-}
-function _spSetMarker(cloud, i, pos, rgb, alpha, size, kind) {
-  var a = cloud.geometry.attributes;
-  a.position.array[i * 3] = pos[0]; a.position.array[i * 3 + 1] = pos[1]; a.position.array[i * 3 + 2] = pos[2];
-  a.aColor.array[i * 3] = rgb[0]; a.aColor.array[i * 3 + 1] = rgb[1]; a.aColor.array[i * 3 + 2] = rgb[2];
-  a.aAlpha.array[i] = alpha; a.aSize.array[i] = size; a.aKind.array[i] = kind;
-}
-function _spCommitMarkers(cloud, count) {
-  var a = cloud.geometry.attributes;
-  a.position.needsUpdate = a.aColor.needsUpdate = a.aAlpha.needsUpdate = a.aSize.needsUpdate = a.aKind.needsUpdate = true;
-  cloud.geometry.setDrawRange(0, count);
 }
 function _spHexRGB(hex) {
   var n = parseInt(hex.slice(1), 16);
@@ -1040,7 +1032,8 @@ function _spBuildGl(THREE, canvas, tracks) {
   var S = {
     THREE: THREE, renderer: renderer, scene: scene, camera: camera, dpr: dpr, ab: ab, items: {}, maps: {},
     basis: new THREE.Matrix4(), v1: new THREE.Vector3(), v2: new THREE.Vector3(), v3: new THREE.Vector3(),
-    starAb: _spUniformsAber(), orbits: {}, trails: {}, moonRings: {}
+    starAb: _spUniformsAber(), orbits: {}, trails: {}, moonRings: {},
+    lay: { uLambda: { value: 0 }, uCam: { value: new THREE.Vector3() } }
   };
   S.starAb.uHead.value = new THREE.Vector3(0, 0, -1);
 
@@ -1102,7 +1095,7 @@ function _spBuildGl(THREE, canvas, tracks) {
   // Orbit lines round the Sun for the planets, Pluto and Ceres; circles round
   // each planet for its big moons; the path of every probe, solid so far and
   // faint where it has still to go.
-  var orbitMat = _spLineMaterial(THREE, ab, SP_ORBIT_COLOR, SP_ORBIT_ALPHA);
+  var orbitMat = _spLineMaterial(THREE, ab, S.lay, SP_ORBIT_COLOR, SP_ORBIT_ALPHA, true);
   S.orbitMat = orbitMat;
   SP_BODIES.forEach(function (b) {
     if (!b.period) return;
@@ -1110,7 +1103,7 @@ function _spBuildGl(THREE, canvas, tracks) {
     scene.add(line);
     S.orbits[b.key] = { line: line, at: null };
   });
-  var moonMat = _spLineMaterial(THREE, ab, SP_ORBIT_COLOR, SP_MOON_ORBIT_ALPHA);
+  var moonMat = _spLineMaterial(THREE, ab, S.lay, SP_ORBIT_COLOR, SP_MOON_ORBIT_ALPHA, false);
   var circle = _spCircle(THREE, SP_MOON_ORBIT_POINTS);
   Object.keys(SP_MOONS).forEach(function (k) {
     var ring = new THREE.LineLoop(circle, moonMat);
@@ -1121,20 +1114,20 @@ function _spBuildGl(THREE, canvas, tracks) {
     S.moonRings[k] = ring;
   });
   S.moonMat = moonMat;
-  var pastMat = _spLineMaterial(THREE, ab, SP_TRAIL_COLOR, SP_TRAIL_PAST_ALPHA);
-  var futureMat = _spLineMaterial(THREE, ab, SP_TRAIL_COLOR, SP_TRAIL_FUTURE_ALPHA);
+  var pastMat = _spLineMaterial(THREE, ab, S.lay, SP_TRAIL_COLOR, SP_TRAIL_PAST_ALPHA, true);
+  var futureMat = _spLineMaterial(THREE, ab, S.lay, SP_TRAIL_COLOR, SP_TRAIL_FUTURE_ALPHA, true);
   S.trailMats = [pastMat, futureMat];
   Object.keys(tracks).forEach(function (k) {
     if (k === 'ceres') return;
-    var path = _spTrailPath(tracks[k]);
+    var trail = _spTrailPath(tracks[k]);
     var past = new THREE.BufferGeometry(), future = new THREE.BufferGeometry();
-    var attr = new THREE.BufferAttribute(path, 3);
+    var attr = new THREE.BufferAttribute(trail.path, 3);
     past.setAttribute('position', attr); future.setAttribute('position', attr);
     var a = new THREE.Line(past, pastMat), b = new THREE.Line(future, futureMat);
     a.frustumCulled = b.frustumCulled = false;
     a.renderOrder = b.renderOrder = 1;
     scene.add(a); scene.add(b);
-    S.trails[k] = { past: a, future: b, count: path.length / 3 };
+    S.trails[k] = { past: a, future: b, count: trail.path.length / 3, offsets: trail.offsets };
   });
 
   S.markers = _spPointsObject(THREE, ab, SP_MARKER_CAPACITY, dpr, false);
@@ -1143,26 +1136,37 @@ function _spBuildGl(THREE, canvas, tracks) {
   return S;
 }
 
-// A probe's whole path as a polyline: the table's samples with a few Hermite
-// points between each pair, so a flyby bends smoothly.
+// A probe's whole path as a polyline: the table's samples with Hermite points
+// between each pair (more where the pair is far apart, so a long cruise arc is
+// smooth, and curves rather than straightens when aberration bends it).
+// `offsets[i]` is the index of sample i in the polyline.
+var SP_TRAIL_SEGMENT_AU = 0.5, SP_TRAIL_MAX_PIECES = 32;
 function _spTrailPath(track) {
-  var s = track.s, n = (s.length - 1) * SP_TRAIL_SUBDIV + 1, out = new Float32Array(n * 3), k = 0;
-  for (var i = 0; i < s.length - 1; i++) {
-    for (var j = 0; j < SP_TRAIL_SUBDIV; j++) {
-      var p = _spHermite(s[i], s[i + 1], s[i][0] + (s[i + 1][0] - s[i][0]) * j / SP_TRAIL_SUBDIV);
+  var s = track.s, offsets = new Int32Array(s.length), pieces = [], n = 1, i;
+  for (i = 0; i < s.length - 1; i++) {
+    var span = Math.hypot(s[i + 1][1] - s[i][1], s[i + 1][2] - s[i][2], s[i + 1][3] - s[i][3]);
+    pieces.push(Math.min(SP_TRAIL_MAX_PIECES, Math.max(SP_TRAIL_SUBDIV, Math.ceil(span / SP_TRAIL_SEGMENT_AU))));
+    offsets[i] = n - 1;
+    n += pieces[i];
+  }
+  offsets[s.length - 1] = n - 1;
+  var out = new Float32Array(n * 3), k = 0;
+  for (i = 0; i < s.length - 1; i++) {
+    for (var j = 0; j < pieces[i]; j++) {
+      var p = _spHermite(s[i], s[i + 1], s[i][0] + (s[i + 1][0] - s[i][0]) * j / pieces[i]);
       out[k++] = p[0]; out[k++] = p[1]; out[k++] = p[2];
     }
   }
   var last = s[s.length - 1];
   out[k++] = last[1]; out[k++] = last[2]; out[k++] = last[3];
-  return out;
+  return { path: out, offsets: offsets };
 }
-// The index in a trail of the moment jd (fractional), by the same sampling.
-function _spTrailIndex(track, jd) {
+// The index in a trail of the moment jd (fractional).
+function _spTrailIndex(track, offsets, jd) {
   var s = track.s, lo = 0, hi = s.length - 1;
   while (hi - lo > 1) { var mid = (lo + hi) >> 1; if (s[mid][0] <= jd) lo = mid; else hi = mid; }
   var f = (jd - s[lo][0]) / (s[hi][0] - s[lo][0]);
-  return (lo + Math.min(1, Math.max(0, f))) * SP_TRAIL_SUBDIV;
+  return offsets[lo] + Math.min(1, Math.max(0, f)) * (offsets[hi] - offsets[lo]);
 }
 
 // ── Maps ──
@@ -1189,18 +1193,17 @@ function _spLoadMaps(S) {
     it.mapsRequested = true;
     var url = b.map && _spMapUrl(b);
     if (b.proc) url = _spProcCanvas(b.proc).toDataURL('image/png');
-    if (url) _spLoadTextureUrl(THREE, url).then(function (tx) { if (_sp.gl === S) _spApplyTexture(S, it, tx, 'uMap', 'uHasMap'); }, function () {});
-    if (b.night) _spLoadTextureUrl(THREE, AE_TEX_NIGHT).then(function (tx) { if (_sp.gl === S) _spApplyTexture(S, it, tx, 'uNight', 'uHasNight'); }, function () {});
-    if (b.rings) _spLoadTextureUrl(THREE, _spRingCanvas().toDataURL('image/png')).then(function (tx) {
+    if (url) _aeLoadTexture(THREE, url).then(function (tx) { if (_sp.gl === S) _spApplyTexture(S, it, tx, 'uMap', 'uHasMap'); }, function () {});
+    if (b.night) _aeLoadTexture(THREE, AE_TEX_NIGHT).then(function (tx) { if (_sp.gl === S) _spApplyTexture(S, it, tx, 'uNight', 'uHasNight'); }, function () {});
+    if (b.rings) _aeLoadTexture(THREE, _spRingCanvas().toDataURL('image/png')).then(function (tx) {
       if (_sp.gl !== S) return;
       it.ringUni.uProfile.value = tx; _sp.dirty = true; _spKick();
     }, function () {});
   });
   if (!S.starsLoading && !S.starsLoaded) {
     S.starsLoading = true;
-    fetch(AE_STARS_URL).then(function (r) { if (!r.ok) throw new Error('stars'); return r.arrayBuffer(); }).then(function (buf) {
-      var stars = _aeDecodeStars(buf);
-      if (!stars || _sp.gl !== S) throw new Error('stars');
+    _aeFetchStars().then(function (stars) {
+      if (_sp.gl !== S) throw new Error('stars');
       _spSetStars(S, stars);
     }).catch(function () {}).then(function () { S.starsLoading = false; });
   }
@@ -1218,7 +1221,7 @@ function _spSetStars(S, list) {
     mag[i] = s.mag;
   }
   S.starData = { n: n, dirs: dirs, temp: temp, mag: mag };
-  S.starsLoaded = list.count > 600;
+  S.starsLoaded = list.count > SP_FIRST_SKY_STARS;
   S.starsKey = null;
   _sp.dirty = true;
   _spKick();
@@ -1249,9 +1252,9 @@ function _spShadeStars(S, beta, head) {
     rgb = _spBlackbodyRGB(Tn);
     var alpha = _aeClamp(AE_STAR_ALPHA0 - AE_STAR_ALPHA_PER_MAG * m, 0, 1) * _aeClamp((SP_STAR_FADE_MAG[1] - m) / (SP_STAR_FADE_MAG[1] - SP_STAR_FADE_MAG[0]), 0, 1);
     var size = _aeClamp(AE_STAR_SIZE0 - AE_STAR_SIZE_PER_MAG * m, AE_STAR_SIZE_MIN, SP_STAR_SIZE_MAX);
-    _spSetMarker(cloud, i, [p[0] * R, p[1] * R, p[2] * R], rgb, alpha, size, SP_KIND_DOT);
+    _aeSetPoint(cloud, i, [p[0] * R, p[1] * R, p[2] * R], rgb, alpha, size, SP_KIND_DOT);
   }
-  _spCommitMarkers(cloud, n);
+  _aeCommitPoints(cloud, n);
 }
 
 // ── State ──
