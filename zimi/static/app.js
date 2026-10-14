@@ -8965,7 +8965,7 @@ async function _searchCardStart(query, scope, zimParam, limit, data) {
     const el = document.createElement('div');
     el.className = 'search-card-slot';
     el.dataset.card = r.id;
-    el.innerHTML = r.html(payload, ctx);
+    try { el.innerHTML = r.html(payload, ctx); } catch (e) { continue; } // a card that cannot draw leaves the slot to the next
     card.el = el;
     _searchCardMount();
     return;

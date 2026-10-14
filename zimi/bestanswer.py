@@ -28,7 +28,6 @@ import math
 import re
 import threading
 import time
-import unicodedata
 
 from zimi import query as _query
 
@@ -94,8 +93,15 @@ def _fast_fold_table():
 
 _FAST_FOLD = _fast_fold_table()
 
-_WORD = re.compile("[\\ẁ-֑ͯ-ׇً-ٰٟऀ-෿]+", re.UNICODE)
-_UNSPACED = re.compile("[぀-ヿ㐀-䶿一-鿿豈-﫿]+")
+# A word: letters and digits, plus the marks that belong to a letter (Latin
+# accents, Hebrew points, Arabic vowels) and the whole Indic block (its vowel
+# signs are marks, and \w would cut a word at each). Raw, so no tool rewrites
+# the escapes into characters nobody can read.
+_WORD = re.compile(
+    r"[\w\u0300-\u036f\u0591-\u05c7\u064b-\u065f\u0670\u0900-\u0dff]+"
+)
+# Scripts written without spaces: kana, Han and its compatibility forms.
+_UNSPACED = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+")
 # Characters that are all function in an unspaced script ("is", "of", "who",
 # "?"): dropped from the query and the text before pairs are made.
 _UNSPACED_STOP = frozenset(
