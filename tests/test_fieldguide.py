@@ -176,7 +176,7 @@ def test_every_situation_has_quotes_and_the_groups_name_each_once():
 FIRST_PASSAGE = {
     "emergency_call": ("g911", "Calling 911"),
     "bleeding": ("atp", "Application of Direct Pressure"),
-    "not_breathing": ("cdc_ca", "Signs and symptoms"),
+    "not_breathing": ("atp", "External chest compressions"),
     "choking": ("atp", "Opening the Obstructed Airway: Conscious Casualty"),
     "heart_attack": ("cdc_ha", "Symptoms"),
     "shock": ("atp", "Prevention of Shock"),
@@ -208,6 +208,20 @@ def test_every_card_opens_on_its_plain_first_passage():
     for sid, (source, heading) in FIRST_PASSAGE.items():
         first = quotes[sid][0]
         assert (first["source"], first["heading"]) == (source, heading), sid
+
+
+def test_the_first_words_are_what_to_do_in_the_next_minute():
+    """Bleeding opens on direct pressure itself, with none of the combat
+    phases' jargon before it; not breathing opens on the compression steps."""
+    q = fg.quotes()["quotes"]
+    first = q["bleeding"][0]["lines"][0]
+    assert first.startswith("Direct pressure can and should be used")
+    for jargon in ("CUF", "TFC", "hasty", "windlass", "After packing"):
+        assert jargon not in first, jargon
+    steps = " ".join(q["not_breathing"][0]["lines"])
+    assert "Place the heel of one hand on the center of the person's chest" in steps
+    assert "100 to 120 compressions per minute" in steps
+    assert q["not_breathing"][1]["source"] == "cdc_ca", "the signs and the call come second"
 
 
 def test_the_order_is_what_to_do_first():

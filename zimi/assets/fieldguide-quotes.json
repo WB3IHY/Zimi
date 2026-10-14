@@ -229,7 +229,7 @@
     "heading": "Application of Direct Pressure",
     "locator": "Chapter 4, para 4-66, p. 53",
     "lines": [
-     "4-66. After packing the wound with a hemostatic dressing or gauze, hold direct pressure for three minutes. Direct pressure can and should be used as a temporary measure until a TQ or dressing is in place. It is difficult to use direct pressure alone to control significant bleeding, or while moving the casualty. While packing a wound, maintain constant, direct pressure, at the source of the bleeding to be effective."
+     "Direct pressure can and should be used as a temporary measure until a TQ or dressing is in place. It is difficult to use direct pressure alone to control significant bleeding, or while moving the casualty. While packing a wound, maintain constant, direct pressure, at the source of the bleeding to be effective."
     ],
     "id": "bleeding-1",
     "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
@@ -308,6 +308,24 @@
   ],
   "not_breathing": [
    {
+    "source": "atp",
+    "heading": "External chest compressions",
+    "locator": "Chapter 6, para 6-45, pp. 80 and 81",
+    "lines": [
+     "A general outline of the steps involved in conducting external chest compressions is:",
+     "Position: Ensure the person is lying on a firm, flat surface, such as the ground or a CPR board. Kneel beside the person's chest.",
+     "Hand Placement: Place the heel of one hand on the center of the person's chest, between the nipples. For infants or children, use two or three fingers instead of the entire hand.",
+     "Compression Depth: Press down firmly and smoothly. For adults, compress the chest at least two inches (five centimeters) deep. For infants or children, compress the chest about one-third to one-half of its depth.",
+     "Compression Rate: Perform compressions at a rate of 100 to 120 compressions per minute. This equates to about two compressions per second.",
+     "Complete Chest Recoil: Allow the chest to fully recoil between each compression, without lifting your hands off the chest. This allows the heart to refill with blood.",
+     "Compression to Ventilation Ratio: If you are performing CPR alone, do cycles of 30 chest compressions to two rescue breaths (mouth-to-mouth or mouth-to-mask). If there are two rescuers, the ratio can be 30:2 or continuous chest compressions with ventilation being delivered by the other rescuer.",
+     "Continue until Help Arrives: Keep performing chest compressions until professional medical help arrives, or until the person shows signs of movement or starts breathing."
+    ],
+    "id": "not_breathing-1",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   },
+   {
     "source": "cdc_ca",
     "heading": "Signs and symptoms",
     "locator": "Signs and symptoms",
@@ -319,27 +337,9 @@
      "Don't have a pulse.",
      "If you believe someone is having a cardiac arrest, call 9-1-1 right away, look for an automated external defibrillator (AED), and give CPR until medical professionals arrive."
     ],
-    "id": "not_breathing-1",
+    "id": "not_breathing-2",
     "url": "https://www.cdc.gov/heart-disease/about/cardiac-arrest.html",
     "year": 2024
-   },
-   {
-    "source": "atp",
-    "heading": "External chest compressions",
-    "locator": "Chapter 6, para 6-45, pp. 80 and 81",
-    "lines": [
-     "6-45. CPR is conducted using a specific technique to provide manual circulation support during cardiac arrest or when the heart has stopped beating effectively. A general outline of the steps involved in conducting external chest compressions is:",
-     "Position: Ensure the person is lying on a firm, flat surface, such as the ground or a CPR board. Kneel beside the person's chest.",
-     "Hand Placement: Place the heel of one hand on the center of the person's chest, between the nipples. For infants or children, use two or three fingers instead of the entire hand.",
-     "Compression Depth: Press down firmly and smoothly. For adults, compress the chest at least two inches (five centimeters) deep. For infants or children, compress the chest about one-third to one-half of its depth.",
-     "Compression Rate: Perform compressions at a rate of 100 to 120 compressions per minute. This equates to about two compressions per second.",
-     "Complete Chest Recoil: Allow the chest to fully recoil between each compression, without lifting your hands off the chest. This allows the heart to refill with blood.",
-     "Compression to Ventilation Ratio: If you are performing CPR alone, do cycles of 30 chest compressions to two rescue breaths (mouth-to-mouth or mouth-to-mask). If there are two rescuers, the ratio can be 30:2 or continuous chest compressions with ventilation being delivered by the other rescuer.",
-     "Continue until Help Arrives: Keep performing chest compressions until professional medical help arrives, or until the person shows signs of movement or starts breathing."
-    ],
-    "id": "not_breathing-2",
-    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
-    "year": 2026
    },
    {
     "source": "atp",
