@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Field Guide</title>
+<!--@apps.css@-->
+<style>
+  /* Help now: what is happening, then what the sources say, in their own
+     words. Nothing here is advice of ours; a situation is a name, an order
+     and a list of quotations with where they came from. */
+  .page { max-width: 720px; }
+  .fg-head { margin: 4px 0 16px; }
+  .fg-head h1 { margin: 0; font-size: 24px; line-height: 1.2; }
+  .fg-disc { margin: 4px 0 0; font-size: 13px; color: var(--text2); }
+  .fg-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .fg-print { flex: none; }
+
+  .fg-group { margin: 0 0 22px; }
+  .fg-group-h { display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text2); }
+  .fg-group-h i { font-style: normal; font-weight: 400; letter-spacing: 0; text-transform: none; }
+  .fg-list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+  .fg-sit { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 0 16px; border: 0; border-top: 1px solid var(--border); background: none; color: var(--text); font: inherit; font-size: 16px; text-align: start; cursor: pointer; }
+  .fg-list li:first-child .fg-sit { border-top: 0; }
+  .fg-sit:hover, .fg-sit:focus-visible { background: var(--amber-glow); outline: none; }
+  .fg-sit .name { flex: 1; min-width: 0; }
+  .fg-sit .mark { flex: none; min-width: 28px; height: 28px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; border-radius: 14px; border: 1px solid var(--border); font-size: 12px; font-weight: 700; color: var(--text2); }
+  .fg-sit .mark.none { border-color: transparent; }
+  .fg-sit .have { flex: none; width: 8px; height: 8px; border-radius: 4px; background: var(--green); }
+  .fg-sit.empty .have { display: none; }
+
+  .fg-tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 4px 0 0; }
+  .fg-link { border: 0; background: none; padding: 10px 0; color: var(--amber); font: inherit; font-size: 14px; cursor: pointer; }
+  .fg-night { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; color: var(--text2); cursor: pointer; }
+  .fg-night input { width: 20px; height: 20px; accent-color: var(--amber); }
+
+  .fg-h2 { margin: 22px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text2); }
+  .fg-en { margin: 0 0 12px; font-size: 12.5px; color: var(--text2); }
+  .fg-state { margin: 40px 0; text-align: center; color: var(--text2); }
+
+  .fg-set { margin: 0 0 18px; }
+  .fg-set .fg-row { display: flex; align-items: center; gap: 10px; cursor: default; }
+  .fg-set .fg-row > div { flex: 1; min-width: 0; }
+  .fg-set .ok { color: var(--green); font-size: 13px; white-space: nowrap; }
+  .fg-bar { height: 4px; margin-top: 6px; border-radius: 2px; background: var(--border); overflow: hidden; }
+  .fg-bar i { display: block; height: 100%; width: 0; background: var(--amber); transition: width .4s linear; }
+
+  @media (max-width: 480px) { .fg-head h1 { font-size: 22px; } }
+
+  /* Paper: a situation prints as the quotations and where they came from,
+     in black on white, a quotation to a page when it will not fit. */
+  @media print {
+    html, body { background: #fff !important; color: #000 !important; }
+    .fg-print, .fg-tools, .fg-night, .fg-link, .fg-btn, .fg-lib, #front, #library, .fg-no-print, .fg-h2.fg-no-print { display: none !important; }
+    .page { max-width: none; padding: 0; }
+    .fg-head h1 { font-size: 20pt; }
+    .fg-disc { color: #000; font-size: 10pt; }
+    .fg-q { margin-bottom: 10pt; }
+    .fg-body p, .fg-body li { font-size: 11pt; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div id="front">
+    <header class="fg-head">
+      <h1 id="t-title">Help now</h1>
+      <p class="fg-disc" id="t-disc"></p>
+    </header>
+    <div id="groups"></div>
+    <div class="fg-tools">
+      <button type="button" class="fg-link" id="t-library"></button>
+      <label class="fg-night"><input type="checkbox" id="night"><span id="t-night"></span></label>
+    </div>
+  </div>
+
+  <div id="card" hidden>
+    <header class="fg-head">
+      <div class="fg-top"><h1 id="c-title"></h1><button type="button" class="fg-btn fg-print" id="c-print"></button></div>
+      <p class="fg-disc" id="c-disc"></p>
+    </header>
+    <p class="fg-en" id="c-en" hidden></p>
+    <div id="c-quotes"></div>
+    <h2 class="fg-h2 fg-no-print" id="c-more-h" hidden></h2>
+    <div id="c-more" class="fg-no-print"></div>
+    <h2 class="fg-h2 fg-no-print" id="c-add-h" hidden></h2>
+    <div id="c-add" class="fg-no-print"></div>
+  </div>
+
+  <div id="library" hidden>
+    <header class="fg-head"><h1 id="l-title"></h1><p class="fg-disc" id="l-disc"></p></header>
+    <div id="l-sets"></div>
+  </div>
+  <p class="fg-state" id="state" hidden></p>
+</div>
+<!--@fieldguide-card.js@-->
+<!--@apps.js@-->
+<script>
+var STR = strings({
+  title: 'Field Guide', help_now: 'Help now', disclaimer: 'Not medical advice. Call emergency services if you can.',
+  group_hurt: 'Someone is hurt', group_survive: 'Staying alive', group_disaster: 'A disaster',
+  order_march: 'MARCH', order_threes: 'Rule of Threes', print: 'Print', english_only: 'The sources are shown in English.',
+  get_library: 'Get the library', library_note: 'The sources behind each situation, and how large they are.',
+  red_night: 'Red night light', more_in_library: 'More in your library', add_to_library: 'Add to your library',
+  installed: 'Installed', get_all: 'Get what is missing ({size})', started: 'Started', needs_admin: 'Sign in as an administrator to add ZIMs.',
+  failed: 'That did not work. Try again.', loading: 'Loading…', building: 'Building…', built: 'Built', set_core: 'The core', set_more: 'Goes deeper',
+  nothing: 'Nothing installed answers this yet.', confirm_big: 'This is {size}. Download it?', open: '', lang: 'en'
+});
+var LOCALE = STR.lang || 'en';
+var CARD = FieldGuideCard;
+CARD.ensureStyle(document);
+
+function $(id) { return document.getElementById(id); }
+function say(key, vars) { return CARD.word(STR, key, vars); }
+function sit(id) { return STR['s_' + id] || id; }
+var state = { view: 'front', id: '' };
+
+// ── the shell's switch: red light at night, one key for the sky and this ──
+function nightInit() {
+  var box = $('night');
+  box.checked = document.documentElement.classList.contains('night-red');
+  box.onchange = function() { nightSet(box.checked); };
+  window.addEventListener('storage', function() { box.checked = document.documentElement.classList.contains('night-red'); });
+}
+
+// ── the front ──
+var home = null;
+function showFront() {
+  state = { view: 'front', id: '' };
+  $('front').hidden = false; $('card').hidden = true; $('library').hidden = true; $('state').hidden = true;
+  tell({ zimi: 'fieldguide-home' });
+  tellTop();
+  window.scrollTo(0, 0);
+}
+function drawFront() {
+  $('t-title').textContent = say('help_now');
+  $('t-disc').textContent = say('disclaimer');
+  $('t-library').textContent = say('get_library');
+  $('t-night').textContent = say('red_night');
+  $('groups').innerHTML = home.groups.map(function(g) {
+    var order = g.order ? say('order_' + g.order) : '';
+    return '<section class="fg-group"><h2 class="fg-group-h">' + esc(say('group_' + g.id)) + (order ? ' <i>' + esc(order) + '</i>' : '') + '</h2><ul class="fg-list">' +
+      g.situations.map(function(s) {
+        return '<li><button type="button" class="fg-sit' + (s.installed ? '' : ' empty') + '" data-id="' + esc(s.id) + '">' +
+          '<span class="mark' + (s.mark ? '' : ' none') + '" aria-hidden="true">' + esc(s.mark) + '</span>' +
+          '<span class="name">' + esc(sit(s.id)) + '</span><span class="have" aria-hidden="true"></span><span class="chev"></span></button></li>';
+      }).join('') + '</ul></section>';
+  }).join('');
+}
+$('groups').addEventListener('click', function(e) {
+  var b = e.target.closest('.fg-sit');
+  if (b) openSituation(b.getAttribute('data-id'), true);
+});
+$('t-library').onclick = function() { openLibrary(); };
+
+// ── one situation ──
+var seq = 0;
+function openSituation(id, step) {
+  var mine = ++seq;
+  state = { view: 'card', id: id };
+  $('front').hidden = true; $('library').hidden = true; $('card').hidden = false;
+  $('c-title').textContent = sit(id);
+  $('c-disc').textContent = say('disclaimer');
+  $('c-print').textContent = say('print');
+  $('c-quotes').innerHTML = '';
+  $('c-more').innerHTML = ''; $('c-add').innerHTML = ''; $('c-more-h').hidden = true; $('c-add-h').hidden = true;
+  $('c-en').hidden = LOCALE === 'en'; $('c-en').textContent = say('english_only');
+  if (step) tell({ zimi: 'fieldguide-card', id: id, title: sit(id) });
+  tellTop();
+  window.scrollTo(0, 0);
+  fetch('/fieldguide/situation?id=' + encodeURIComponent(id) + '&lang=' + encodeURIComponent(LOCALE)).then(function(r) {
+    if (!r.ok) throw new Error('status ' + r.status);
+    return r.json();
+  }).then(function(s) {
+    if (mine !== seq) return;
+    $('c-quotes').innerHTML = s.quotes.map(function(q) { return CARD.quoteHtml(q, STR); }).join('');
+    if (s.answers.length) { $('c-more-h').hidden = false; $('c-more-h').textContent = say('more_in_library'); $('c-more').innerHTML = CARD.answersHtml(s.answers, STR); }
+    if (s.missing.length) { $('c-add-h').hidden = false; $('c-add-h').textContent = say('add_to_library'); $('c-add').innerHTML = CARD.missingHtml(s.missing, STR); }
+  }).catch(function() {
+    if (mine !== seq) return;
+    $('c-quotes').innerHTML = '<p class="fg-state">' + esc(say('failed')) + '</p>';
+  });
+}
+$('c-print').onclick = function() { window.print(); };
+
+// ── what a tap on a quote's library line, a page row or a Get does ──
+function act(name, el) {
+  var d = el.dataset;
+  if (name === 'open') tell({ zimi: 'open', zim: d.zim, path: d.path });
+  else if (name === 'search') tell({ zimi: 'search-in', zim: d.zim, q: d.q });
+  else if (name === 'get') getZims([{ url: d.url, size: Number(d.size) || 0 }], el);
+  else if (name === 'build') buildManual(el);
+}
+CARD.wire($('card'), act);
+CARD.wire($('library'), act);
+
+// Downloads go through the shell's own machinery (the batch route that honours
+// the download schedule and the sign-in a ZIM download needs).
+function manageFetch(url, opts) {
+  try { if (window.parent !== window && typeof window.parent.manageFetch === 'function') return window.parent.manageFetch(url, opts); } catch (e) {}
+  return fetch(url, opts);
+}
+// More than this much in one tap asks first: a manual library is gigabytes.
+var BIG_DOWNLOAD = 1e9;
+function getZims(items, btn) {
+  items = items.filter(function(i) { return i.url; });
+  if (!items.length) return;
+  var total = items.reduce(function(n, i) { return n + (i.size || 0); }, 0);
+  if (total > BIG_DOWNLOAD && !window.confirm(say('confirm_big', { size: CARD.sizeText(total) }))) return;
+  btn.disabled = true; btn.textContent = say('loading');
+  manageFetch('/manage/download-batch', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ urls: items.map(function(i) { return i.url; }), sizes: items.map(function(i) { return i.size; }) }) })
+    .then(function(r) { if (r.status === 401 || r.status === 403) throw new Error('auth'); return r.json(); })
+    .then(function(d) { btn.textContent = say('started') + ' · ' + (d.started || 0); })
+    .catch(function(e) { btn.disabled = false; btn.textContent = e.message === 'auth' ? say('needs_admin') : say('failed'); });
+}
+function buildManual(btn) {
+  btn.disabled = true; btn.textContent = say('building');
+  manageFetch('/manage/fieldmanual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    .then(function(r) { if (r.status === 401 || r.status === 403) throw new Error('auth'); return r.json(); })
+    .then(function() { pollManual(btn); })
+    .catch(function(e) { btn.disabled = false; btn.textContent = e.message === 'auth' ? say('needs_admin') : say('failed'); });
+}
+function pollManual(btn) {
+  manageFetch('/manage/fieldmanual').then(function(r) { return r.json(); }).then(function(s) {
+    if (s.state === 'running') { btn.textContent = say('building') + (s.total ? ' ' + s.done + '/' + s.total : ''); setTimeout(function() { pollManual(btn); }, 1500); }
+    else if (s.state === 'done') btn.textContent = say('built');
+    else { btn.disabled = false; btn.textContent = say('failed'); }
+  }).catch(function() { btn.disabled = false; btn.textContent = say('failed'); });
+}
+
+// ── get the library ──
+function openLibrary() {
+  state = { view: 'library', id: '' };
+  $('front').hidden = true; $('card').hidden = true; $('library').hidden = false;
+  $('l-title').textContent = say('get_library'); $('l-disc').textContent = say('library_note');
+  $('l-sets').innerHTML = '<p class="fg-state">' + esc(say('loading')) + '</p>';
+  tellTop();
+  window.scrollTo(0, 0);
+  fetch('/fieldguide/library').then(function(r) { return r.json(); }).then(function(d) {
+    $('l-sets').innerHTML = d.sets.map(function(s) {
+      var rows = s.pieces.map(function(p) {
+        var right = p.installed ? '<span class="ok">✓ ' + esc(say('installed')) + '</span>' :
+          p.build ? '<button type="button" class="fg-btn" data-act="build" data-build="' + esc(p.build) + '">' + esc(CARD.word(STR, 'build')) + '</button>' :
+          p.url ? '<button type="button" class="fg-btn" data-act="get" data-url="' + esc(p.url) + '" data-size="' + esc(p.size_bytes) + '">' + esc(CARD.word(STR, 'get')) + ' · ' + esc(CARD.sizeText(p.size_bytes)) + '</button>' : '';
+        return '<li class="fg-row"><div><b>' + esc(p.name) + '</b><span>' + esc(p.note) + '</span></div>' + right + '</li>';
+      }).join('');
+      var all = s.pieces.filter(function(p) { return !p.installed && p.url; });
+      var allBtn = all.length > 1 ? '<button type="button" class="fg-btn on" data-all="' + esc(s.id) + '">' + esc(say('get_all', { size: CARD.sizeText(s.missing_bytes) })) + '</button>' : '';
+      return '<section class="fg-set"><h2 class="fg-h2">' + esc(say('set_' + s.id)) + '</h2><ul class="fg-rows">' + rows + '</ul>' + allBtn + '</section>';
+    }).join('');
+    $('l-sets').querySelectorAll('[data-all]').forEach(function(b) {
+      var set = d.sets.filter(function(s) { return s.id === b.getAttribute('data-all'); })[0];
+      b.onclick = function() { getZims(set.pieces.filter(function(p) { return !p.installed && p.url; }).map(function(p) { return { url: p.url, size: p.size_bytes }; }), b); };
+    });
+  }).catch(function() { $('l-sets').innerHTML = '<p class="fg-state">' + esc(say('failed')) + '</p>'; });
+}
+
+// ── the shell steering the page ──
+window.__top = function() { return state.view === 'front'; };
+window.__back = function() {
+  if (state.view === 'front') return false;
+  showFront();
+  return true;
+};
+window.__route = function(id) {
+  if (id) openSituation(id, false); else { state = { view: 'front', id: '' }; $('front').hidden = false; $('card').hidden = true; $('library').hidden = true; tellTop(); }
+};
+window.__home = function() { window.__route(''); };
+
+fetch('/fieldguide').then(function(r) { return r.json(); }).then(function(d) {
+  home = d;
+  drawFront();
+  nightInit();
+  if (STR.open) openSituation(STR.open, false);
+}).catch(function() {
+  $('state').hidden = false; $('state').textContent = say('failed');
+});
+</script>
+</body>
+</html>

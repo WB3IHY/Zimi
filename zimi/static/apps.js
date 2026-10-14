@@ -2,6 +2,19 @@
 // ZimiExchange, Reddot), inlined into each page by the server beside
 // apps.css (see http._inline_apps_assets), so a page is still one document
 // and a fix here reaches every app.
+// Red night light: one switch for the sky and the Field Guide, kept in this browser under one key
+// (the shell reads the same key, app.js _nightApply). It puts night-red on <html>, which apps.css
+// and app.css turn into deep red on black, so looking at the phone does not cost night vision.
+var NIGHT_KEY = 'zimi.night', NIGHT_RED = 'red';
+function nightApply() {
+  try { document.documentElement.classList.toggle('night-red', localStorage.getItem(NIGHT_KEY) === NIGHT_RED); } catch (e) {}
+}
+function nightSet(on) {
+  try { if (on) localStorage.setItem(NIGHT_KEY, NIGHT_RED); else localStorage.removeItem(NIGHT_KEY); } catch (e) {}
+  nightApply();
+}
+nightApply();
+window.addEventListener('storage', function(e) { if (e.key === NIGHT_KEY || e.key === null) nightApply(); });
 function esc(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 // A ZIM entry's address in Zimi.
 function zpath(zim, p) { return '/w/' + encodeURIComponent(zim) + '/' + String(p).split('/').map(encodeURIComponent).join('/'); }

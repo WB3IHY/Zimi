@@ -19,6 +19,9 @@
     --shadow-popup: 0 8px 32px rgba(0, 0, 0, 0.5);
   }
 }
+/* Red night light (apps.js nightApply): deep red on black, the least of the screen's light. */
+:root.night-red { --bg: #000; --surface: #0d0000; --surface2: #160000; --border: #3a0a0a; --text: #e03030; --text2: #a02020;
+  --amber: #ff4040; --amber-glow: rgba(255,64,64,0.14); --green: #c03030; color-scheme: dark; }
 html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-text-size-adjust: 100%; }
 /* A double tap is a tap, as in the shell; no pinch either (apps.js). */
 html { touch-action: manipulation; }

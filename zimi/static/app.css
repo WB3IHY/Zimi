@@ -4050,3 +4050,15 @@
 .cr-ver { color: var(--text2); text-decoration: none; border-bottom: 1px dotted var(--border); font-variant-numeric: tabular-nums; }
 .cr-ver:hover, .cr-ver:focus-visible { color: var(--amber); border-bottom-color: var(--amber); }
 .cr-detail { margin: -4px 0 8px; font-size: 12px; text-align: end; }
+
+/* Red night light (app.js _nightApply): deep red on black, so the phone costs no night vision. */
+:root.night-red { --bg: #000; --surface: #0d0000; --surface2: #160000; --border: #3a0a0a; --border-strong: #5a1010; --text: #e03030; --text2: #a02020;
+  --text3: #881a1a; --text-dim: #881a1a; --amber: #ff4040; --amber2: #d03030; --on-amber: #000; --amber-glow: rgba(255,64,64,0.14); --amber-border: rgba(255,64,64,0.3);
+  --topbar-bg: rgba(0,0,0,0.92); --card-bg: #0d0000; --success: #c03030; --success-strong: #d04040; --error: #ff6060; color-scheme: dark; }
+
+/* Home's one quiet line to the Field Guide (app.js _helpNowHtml), and its card above search results. */
+.help-now-row { display: flex; justify-content: flex-end; margin: -6px 0 2px; }
+.help-now { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; color: var(--text2); font-size: 13px; text-decoration: none; }
+.help-now:hover, .help-now:focus-visible { color: var(--amber); outline: none; }
+#fg-answer { max-width: 760px; margin: 0 auto 12px; padding: 0 16px; }
+#fg-answer .fg-answer { margin: 0; }
