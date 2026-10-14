@@ -55,6 +55,7 @@
     "emergency_call",
     "bleeding",
     "not_breathing",
+    "choking",
     "heart_attack",
     "shock",
     "recovery_position",
@@ -196,6 +197,36 @@
     "he": ["החייאה", "טביעה"],
     "hi": ["सीपीआर", "डूबना"],
     "zh": ["心肺复苏", "心脏骤停", "溺水", "没有呼吸", "不呼吸"]
+   }
+  },
+  "choking": {
+   "keywords": {
+    "en": ["choking", "choked", "heimlich", "heimlich maneuver", "cant breathe", "something stuck in throat", "stuck in throat", "stuck in my throat", "food stuck in throat", "swallowed wrong", "abdominal thrusts", "back blows", "cannot breathe"],
+    "es": ["atragantado", "atragantamiento", "se atragantó", "maniobra de heimlich", "no puedo respirar"],
+    "fr": ["étouffement", "il s'étouffe", "je m'étouffe", "manœuvre de heimlich", "je ne peux pas respirer"],
+    "de": ["verschluckt", "erstickt", "ersticken", "heimlich-handgriff", "ich bekomme keine luft"],
+    "pt": ["engasgado", "engasgo", "manobra de heimlich", "não consigo respirar"],
+    "ru": ["подавился", "поперхнулся", "приём геймлиха", "не могу дышать"],
+    "ar": ["اختناق", "يختنق", "مناورة هيمليخ", "لا أستطيع التنفس"],
+    "he": ["נחנק", "חנק", "תמרון היימליך", "אני לא יכול לנשום"],
+    "hi": ["दम घुटना", "गले में अटका", "हेमलिक", "सांस नहीं आ रही"],
+    "zh": ["噎住", "哽住", "海姆立克", "无法呼吸"]
+   },
+   "answers": [
+    {"piece": "armypubs", "tier": 2, "search": "ATP 4-02.11 Opening the obstructed airway", "edition": "2026"},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Choking", "Heimlich maneuver"]},
+    {"piece": "zimgit_medicine", "tier": 2, "docs": ["first aid", "where there is no doctor", "wilderness", "austere"]}
+   ],
+   "within": {
+    "en": ["choking", "choked", "choke", "heimlich"],
+    "es": ["atragantado", "atragantó"],
+    "fr": ["étouffe"],
+    "de": ["verschluckt", "erstickt"],
+    "pt": ["engasgado", "engasgou"],
+    "ru": ["подавился", "поперхнулся"],
+    "ar": ["اختناق", "يختنق"],
+    "he": ["נחנק"],
+    "zh": ["噎住", "哽住", "海姆立克"]
    }
   },
   "heart_attack": {

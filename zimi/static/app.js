@@ -20509,7 +20509,7 @@ function _booksSearch(val) { _appFrameCall('booksSearch', val); }
 var _fieldguideOpen = false;
 var _FIELDGUIDE_PAGE = '/static/fieldguide.html?v=1';
 var _FIELDGUIDE_SVG = '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M5.6 5.6l3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9"/></svg>';
-var _FIELDGUIDE_SITUATIONS = ['emergency_call', 'bleeding', 'not_breathing', 'heart_attack', 'shock', 'recovery_position', 'cold', 'burns', 'heat',
+var _FIELDGUIDE_SITUATIONS = ['emergency_call', 'bleeding', 'not_breathing', 'choking', 'heart_attack', 'shock', 'recovery_position', 'cold', 'burns', 'heat',
   'broken_bone', 'bites', 'allergic', 'poison', 'lost', 'signal', 'shelter', 'water', 'flood', 'earthquake', 'wildfire', 'storm', 'power_out',
   'carbon_monoxide', 'food'];
 var _FIELDGUIDE_WORDS = ['fieldguide_help_now', 'fieldguide_disclaimer', 'fieldguide_group_hurt', 'fieldguide_group_survive', 'fieldguide_group_disaster',
@@ -20519,7 +20519,7 @@ var _FIELDGUIDE_WORDS = ['fieldguide_help_now', 'fieldguide_disclaimer', 'fieldg
   'fieldguide_nothing', 'fieldguide_confirm_big', 'fieldguide_from', 'fieldguide_licence', 'fieldguide_original', 'fieldguide_in_library', 'fieldguide_read_full', 'fieldguide_add_for_full',
   'fieldguide_build', 'fieldguide_get', 'fieldguide_search_in', 'fieldguide_dated', 'fieldguide_open_card', 'fieldguide_lic_US_PD',
   'fieldguide_superseded', 'fieldguide_your_library', 'fieldguide_yes_download', 'fieldguide_cancel', 'fieldguide_print_all', 'fieldguide_build_note',
-  'fieldguide_help_link', 'fieldguide_show_all'];
+  'fieldguide_help_link', 'fieldguide_show_all', 'fieldguide_covers'];
 function _isFieldguidePage() {
   return !!(_fieldguideOpen && readerOpen && !_almanacOpen && !_createOpen);
 }

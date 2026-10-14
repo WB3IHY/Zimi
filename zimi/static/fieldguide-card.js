@@ -20,7 +20,7 @@ var FieldGuideCard = (function() {
     lic_US_PD: 'US government work, public domain', more_in_library: 'More in your library',
     add_to_library: 'Add to your library', nothing: 'Nothing installed answers this yet.', loading: 'Loading…',
     superseded: 'Superseded by {by}', your_library: 'Your library', build_note: '{size} from {source}',
-    help_link: 'Help now: {name}'
+    help_link: 'Help now: {name}', covers: 'Covers'
   };
   // Source text carries its own marks for what must not be missed.
   var CALLOUT = /^(NOTE|Note\.|CAUTION|WARNING)\s*/;
@@ -33,6 +33,7 @@ var FieldGuideCard = (function() {
     '.fg-q h3{margin:0;font-size:15px;line-height:1.3;font-weight:700;unicode-bidi:plaintext}',
     '.fg-q .fg-where{margin:2px 0 10px;font-size:12px;color:var(--text2,#6a675e)}',
     '.fg-q [lang=en]{unicode-bidi:isolate}',
+    '.fg-q .fg-scope{margin:0 0 10px;font-size:13px;line-height:1.4;color:var(--text2,#6a675e)}.fg-scope b{font-weight:700}',
     '.fg-body p{margin:0 0 8px;font-size:15px;line-height:1.5}',
     '.fg-body h4{margin:12px 0 4px;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text2,#6a675e)}',
     '.fg-body ul{margin:0 0 10px;padding-inline-start:20px}',
@@ -181,6 +182,7 @@ var FieldGuideCard = (function() {
       '<div class="fg-where" lang="en" dir="ltr">' + esc(s.title) + ' · ' + esc(q.locator) +
       (s.dated ? '<i class="fg-dated">' + esc(word(S, 'dated')) + '</i>' : '') +
       (s.superseded ? '<i class="fg-dated">' + esc(word(S, 'superseded', { by: s.superseded })) + '</i>' : '') + '</div>' +
+      (q.scope ? '<p class="fg-scope"><b>' + esc(word(S, 'covers')) + ':</b> <span lang="en" dir="ltr">' + esc(q.scope) + '</span></p>' : '') +
       '<div class="fg-body" lang="en" dir="ltr">' + bodyHtml(q.lines) + tableHtml(q.table) + '</div>' +
       footHtml(q, S) + '</section>';
   }

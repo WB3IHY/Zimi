@@ -177,6 +177,7 @@ FIRST_PASSAGE = {
     "emergency_call": ("g911", "Calling 911"),
     "bleeding": ("atp", "Application of Direct Pressure"),
     "not_breathing": ("cdc_ca", "Signs and symptoms"),
+    "choking": ("atp", "Opening the Obstructed Airway: Conscious Casualty"),
     "heart_attack": ("cdc_ha", "Symptoms"),
     "shock": ("atp", "Prevention of Shock"),
     "recovery_position": ("atp", "Check responsiveness and the recovery position"),
@@ -248,7 +249,12 @@ def test_no_mark_the_sources_do_not_state():
     marks = fg.data()["marks"]
     assert set(marks.values()) <= {"M", "A", "R", "C", "H"}
     assert not any(m in marks.values() for m in ("3h", "3d", "3w"))
-    assert marks == {"bleeding": "M", "recovery_position": "A", "shock": "C", "cold": "H"}
+    assert marks == {
+        "bleeding": "M",
+        "recovery_position": "A",
+        "shock": "C",
+        "cold": "H",
+    }
 
 
 def test_a_cross_linked_situation_names_a_real_one():
@@ -257,8 +263,12 @@ def test_a_cross_linked_situation_names_a_real_one():
         for q in qs:
             for other in q.get("related", []):
                 assert other in sits and other != sid, (sid, other)
-    assert "power_out" in {r for q in fg.quotes()["quotes"]["flood"] for r in q.get("related", [])}
-    assert "flood" in {r for q in fg.quotes()["quotes"]["power_out"] for r in q.get("related", [])}
+    assert "power_out" in {
+        r for q in fg.quotes()["quotes"]["flood"] for r in q.get("related", [])
+    }
+    assert "flood" in {
+        r for q in fg.quotes()["quotes"]["power_out"] for r in q.get("related", [])
+    }
 
 
 def test_the_disclaimer_is_the_one_sentence():
@@ -301,7 +311,14 @@ def test_no_authored_instruction_in_the_data():
 
 TYPED = {
     "bleeding": {
-        "en": ["bleeding", "tourniquet", "how to stop bleeding", "Stop Bleeding!", "my friend is bleeding", "blood"],
+        "en": [
+            "bleeding",
+            "tourniquet",
+            "how to stop bleeding",
+            "Stop Bleeding!",
+            "my friend is bleeding",
+            "blood",
+        ],
         "fr": ["saignement", "il saigne"],
         "de": ["blutung", "blutet"],
         "es": ["sangrando", "sangrado"],
@@ -309,29 +326,95 @@ TYPED = {
         "ar": ["ينزف"],
         "zh": ["止血"],
     },
-    "water": {"en": ["drinking water", "purify water", "boil water", "thirsty"], "es": ["agua potable", "purificar agua"], "de": ["wasser abkochen", "trinkwasser"], "ru": ["питьевая вода"], "zh": ["饮用水"]},
-    "lost": {"en": ["i am lost", "i'm lost", "which way is south", "which way is north", "no gps"], "es": ["estoy perdido"], "zh": ["迷路", "我迷路了"]},
-    "cold": {"en": ["hypothermia", "frostbite", "he has hypothermia"], "es": ["hipotermia"], "de": ["unterkühlung"], "zh": ["低温症"]},
-    "heat": {"en": ["heat stroke", "dehydration"], "es": ["golpe de calor"], "de": ["hitzschlag"]},
-    "not_breathing": {"en": ["cpr", "not breathing", "he is not breathing", "she stopped breathing"], "es": ["reanimación", "no respira"]},
-    "heart_attack": {"en": ["heart attack", "chest pain", "i think i am having a heart attack"], "es": ["infarto"], "de": ["herzinfarkt"]},
-    "burns": {"en": ["scald", "clothes on fire", "my clothes are on fire"], "es": ["quemadura"], "fr": ["brûlure"]},
-    "shock": {"en": ["going into shock", "signs of shock"], "es": ["estado de choque"], "fr": ["état de choc"]},
-    "recovery_position": {"en": ["unconscious", "recovery position", "he passed out"], "de": ["bewusstlos"]},
+    "water": {
+        "en": ["drinking water", "purify water", "boil water", "thirsty"],
+        "es": ["agua potable", "purificar agua"],
+        "de": ["wasser abkochen", "trinkwasser"],
+        "ru": ["питьевая вода"],
+        "zh": ["饮用水"],
+    },
+    "lost": {
+        "en": [
+            "i am lost",
+            "i'm lost",
+            "which way is south",
+            "which way is north",
+            "no gps",
+        ],
+        "es": ["estoy perdido"],
+        "zh": ["迷路", "我迷路了"],
+    },
+    "cold": {
+        "en": ["hypothermia", "frostbite", "he has hypothermia"],
+        "es": ["hipotermia"],
+        "de": ["unterkühlung"],
+        "zh": ["低温症"],
+    },
+    "heat": {
+        "en": ["heat stroke", "dehydration"],
+        "es": ["golpe de calor"],
+        "de": ["hitzschlag"],
+    },
+    "not_breathing": {
+        "en": ["cpr", "not breathing", "he is not breathing", "she stopped breathing"],
+        "es": ["reanimación", "no respira"],
+    },
+    "heart_attack": {
+        "en": ["heart attack", "chest pain", "i think i am having a heart attack"],
+        "es": ["infarto"],
+        "de": ["herzinfarkt"],
+    },
+    "burns": {
+        "en": ["scald", "clothes on fire", "my clothes are on fire"],
+        "es": ["quemadura"],
+        "fr": ["brûlure"],
+    },
+    "shock": {
+        "en": ["going into shock", "signs of shock"],
+        "es": ["estado de choque"],
+        "fr": ["état de choc"],
+    },
+    "recovery_position": {
+        "en": ["unconscious", "recovery position", "he passed out"],
+        "de": ["bewusstlos"],
+    },
     "emergency_call": {"en": ["call 911", "what to tell 911", "how to call 911"]},
-    "broken_bone": {"en": ["broken leg", "broken arm", "how to splint"], "de": ["beinbruch"]},
-    "bites": {"en": ["snake bite", "bee sting", "bitten by a snake"], "de": ["schlangenbiss"]},
+    "broken_bone": {
+        "en": ["broken leg", "broken arm", "how to splint"],
+        "de": ["beinbruch"],
+    },
+    "bites": {
+        "en": ["snake bite", "bee sting", "bitten by a snake"],
+        "de": ["schlangenbiss"],
+    },
     "allergic": {"en": ["allergic reaction", "anaphylaxis", "epipen"]},
-    "poison": {"en": ["poisoning", "poison control", "my child swallowed bleach"], "de": ["vergiftung"]},
-    "carbon_monoxide": {"en": ["carbon monoxide", "co poisoning", "carbon monoxide detector"]},
+    "poison": {
+        "en": ["poisoning", "poison control", "my child swallowed bleach"],
+        "de": ["vergiftung"],
+    },
+    "carbon_monoxide": {
+        "en": ["carbon monoxide", "co poisoning", "carbon monoxide detector"]
+    },
     "shelter": {"en": ["build a shelter", "make a fire", "stay warm"]},
     "food": {"en": ["preserve food", "hungry", "food safety"]},
     "signal": {"en": ["signal for help", "sos", "distress signal"]},
-    "flood": {"en": ["flood", "flash flood", "water rising", "the water is rising"], "es": ["inundación"], "de": ["hochwasser"]},
-    "earthquake": {"en": ["earthquake", "aftershock"], "es": ["terremoto"], "zh": ["地震"]},
+    "flood": {
+        "en": ["flood", "flash flood", "water rising", "the water is rising"],
+        "es": ["inundación"],
+        "de": ["hochwasser"],
+    },
+    "earthquake": {
+        "en": ["earthquake", "aftershock"],
+        "es": ["terremoto"],
+        "zh": ["地震"],
+    },
     "wildfire": {"en": ["wildfire", "forest fire"], "es": ["incendio forestal"]},
     "storm": {"en": ["tornado", "hurricane", "thunderstorm"], "fr": ["ouragan"]},
-    "power_out": {"en": ["power outage", "blackout", "no power"], "de": ["stromausfall"], "es": ["apagón"]},
+    "power_out": {
+        "en": ["power outage", "blackout", "no power"],
+        "de": ["stromausfall"],
+        "es": ["apagón"],
+    },
 }
 
 
@@ -377,9 +460,53 @@ def test_heart_attack_and_chest_pain_do_not_land_on_cpr():
     assert fg.match("cardiac arrest") == "not_breathing"
 
 
-def test_choking_has_no_card_until_a_current_open_source_has_the_words():
-    assert "choking" not in fg.data()["situations"]
-    assert fg.match("choking") is None and fg.match("heimlich maneuver") is None
+CHOKING_WORDS = [
+    "choking",
+    "he is choking",
+    "heimlich",
+    "heimlich maneuver",
+    "can't breathe",
+    "i cant breathe",
+    "I can't breathe",
+    "something stuck in throat",
+    "something is stuck in my throat",
+]
+
+
+@pytest.mark.parametrize("text", CHOKING_WORDS)
+def test_choking_words_find_the_choking_card(text):
+    assert fg.lookup(text) == ("choking", "card"), text
+
+
+def test_the_choking_card_is_the_armys_words_and_an_open_infant_source():
+    """Back blows, then abdominal thrusts, word for word from ATP 4-02.11;
+    infants have their own open passage, and each quote says what it covers
+    in the source's own sentence."""
+    qs = fg.quotes()["quotes"]["choking"]
+    assert [q["source"] for q in qs] == ["atp", "atp", "wp_choking"]
+    thrusts = " ".join(qs[1]["lines"])
+    assert thrusts.startswith(
+        "5-33. Prior to applying abdominal thrust, first responders should administer five back blows."
+    )
+    assert "Press the fists into the abdomen" in thrusts
+    infants = " ".join(qs[2]["lines"])
+    assert (
+        "Abdominal thrusts are not recommended in children less than one year old"
+        in infants
+    )
+    for q in qs:
+        assert q.get("scope", "x").strip(), q["id"]
+        assert q.get("scope", "") in " ".join(q["lines"]), (
+            q["id"] + ": scope is the source's own sentence"
+        )
+        assert q["related"] == ["not_breathing"]
+    assert qs[0]["scope"] and qs[2]["scope"]
+    sit = fg.situation("choking")
+    assert [q["source"]["licence"] for q in sit["quotes"]] == [
+        "US-PD",
+        "US-PD",
+        "CC BY-SA 4.0",
+    ]
 
 
 # Searches that are about something else and must get nothing.
@@ -585,7 +712,9 @@ def test_the_field_manual_zim_carries_the_manual_quotes(library):
         "zim": "zimi_field_manual",
         "path": "ATP_4-02.11_Casualty_Response.pdf",
     }
-    tc = next(q for q in fg.situation("cold")["quotes"] if q["source"]["id"] == "tc4021")
+    tc = next(
+        q for q in fg.situation("cold")["quotes"] if q["source"]["id"] == "tc4021"
+    )
     assert tc["library"]["open"]["path"] == "TC_4-02.1_First_Aid.pdf"
     fm = next(
         q for q in fg.situation("shelter")["quotes"] if q["source"]["id"] == "fm2176"
@@ -698,9 +827,13 @@ def test_the_front_lists_the_groups_in_order(served):
     assert status == 200
     assert [g["id"] for g in body["groups"]] == ["hurt", "survive", "disaster"]
     hurt = body["groups"][0]["situations"]
-    assert [s["id"] for s in hurt][:3] == ["emergency_call", "bleeding", "not_breathing"]
+    assert [s["id"] for s in hurt][:3] == [
+        "emergency_call",
+        "bleeding",
+        "not_breathing",
+    ]
     assert {s["id"]: s["mark"] for s in hurt}["bleeding"] == "M"
-    assert sum(len(g["situations"]) for g in body["groups"]) == 24
+    assert sum(len(g["situations"]) for g in body["groups"]) == 25
     assert body["disclaimer"] == fg.DISCLAIMER
 
 
@@ -915,7 +1048,9 @@ def _wait_job(base, want=("done", "error"), seconds=60):
     raise AssertionError("the build did not finish: %r" % st)
 
 
-def test_building_offline_is_refused_with_409_and_says_offline(served_empty, monkeypatch):
+def test_building_offline_is_refused_with_409_and_says_offline(
+    served_empty, monkeypatch
+):
     from zimi import p2p
 
     monkeypatch.setattr(p2p, "is_offline", lambda: True)
@@ -968,7 +1103,9 @@ def test_the_build_runs_as_a_create_job_and_lands_in_the_library(
 ):
     _tiny_fetch(monkeypatch)
     status, body = _post(served_empty, "/manage/fieldmanual")
-    assert status == 200 and body["status"] == "started" and body["mode"] == "fieldmanual"
+    assert (
+        status == 200 and body["status"] == "started" and body["mode"] == "fieldmanual"
+    )
     done = _wait_job(served_empty)
     assert done["state"] == "done", done
     status, listing = _get(served_empty, "/manage/create/status")
@@ -996,7 +1133,9 @@ def test_a_createerror_message_reaches_the_page_as_it_is(served_empty, monkeypat
     from zimi import creator
 
     def refuse(item, dest, fetch):
-        raise creator.CreateError("ATP 4-02.11 Casualty Response is not the file this build expects")
+        raise creator.CreateError(
+            "ATP 4-02.11 Casualty Response is not the file this build expects"
+        )
 
     _tiny_fetch(monkeypatch)
     monkeypatch.setattr(fg, "_download_manual", refuse)
@@ -1022,7 +1161,9 @@ def test_the_pinned_fetch_refuses_a_redirect():
     try:
         opener = urllib.request.build_opener(fg._NoRedirect)
         with pytest.raises(urllib.error.HTTPError) as err:
-            opener.open("http://127.0.0.1:%d/a.pdf" % httpd.server_address[1], timeout=10)
+            opener.open(
+                "http://127.0.0.1:%d/a.pdf" % httpd.server_address[1], timeout=10
+            )
         assert err.value.code == 302
         from zimi import creator
 
@@ -1052,10 +1193,19 @@ def test_the_sign_in_screen_still_gets_the_words_and_none_of_the_library(
     monkeypatch.setattr(users, "resolve_request_user", lambda h: None)
     monkeypatch.setattr(users, "_request_is_admin", lambda h: False)
     status, body = _get(served, "/fieldguide/situation?id=bleeding")
-    assert status == 200 and body["quotes"] and body["answers"] == [] and body["missing"] == []
-    assert all(q["library"] == {"state": "missing", "options": []} for q in body["quotes"])
+    assert (
+        status == 200
+        and body["quotes"]
+        and body["answers"] == []
+        and body["missing"] == []
+    )
+    assert all(
+        q["library"] == {"state": "missing", "options": []} for q in body["quotes"]
+    )
     status, home = _get(served, "/fieldguide")
-    assert status == 200 and all(s["installed"] == 0 for g in home["groups"] for s in g["situations"])
+    assert status == 200 and all(
+        s["installed"] == 0 for g in home["groups"] for s in g["situations"]
+    )
     assert _get(served, "/fieldguide/library")[0] == 401
     assert _get(served, "/search?q=bleeding")[0] == 401
 
@@ -1078,7 +1228,10 @@ def test_print_all_is_every_situation_in_order_with_its_address(served):
     status, body = _get(served, "/fieldguide/print")
     assert status == 200
     ids = [s["id"] for s in body["situations"]]
-    assert ids == [i for g in fg.data()["groups"] for i in g["situations"]] and len(ids) == 24
+    assert (
+        ids == [i for g in fg.data()["groups"] for i in g["situations"]]
+        and len(ids) == 25
+    )
     for sit in body["situations"]:
         assert sit["quotes"]
         assert all(q["url"].startswith("https://") for q in sit["quotes"])
