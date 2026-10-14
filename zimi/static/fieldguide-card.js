@@ -20,7 +20,7 @@ var FieldGuideCard = (function() {
     lic_US_PD: 'US government work, public domain', more_in_library: 'More in your library',
     add_to_library: 'Add to your library', nothing: 'Nothing installed answers this yet.', loading: 'Loading…',
     superseded: 'Superseded by {by}', your_library: 'Your library', build_note: '{size} from {source}',
-    help_link: 'Help now: {name}', covers: 'Covers',
+    help_link: 'Help now: {name}', covers: 'Covers', as_of: 'Guidance as of {date}',
     num_here: 'Emergency number here: {n}', nums_here: 'Emergency numbers here: {n}', num_unknown: 'Emergency number: {n}',
     num_police: 'Police', num_ambulance: 'Ambulance', num_fire: 'Fire', num_mobile: 'Mobile phones',
     num_source: 'Emergency numbers from {title}, {licence}'
@@ -35,6 +35,7 @@ var FieldGuideCard = (function() {
     '.fg-q{margin:0 0 14px;padding:14px 16px;border:1px solid var(--border,#e4dfd4);border-radius:var(--radius,12px);background:var(--surface,#faf8f4);color:var(--text,#26241f)}',
     '.fg-q h3{margin:0;font-size:15px;line-height:1.3;font-weight:700;unicode-bidi:plaintext}',
     '.fg-q .fg-where{margin:2px 0 10px;font-size:12px;color:var(--text2,#6a675e)}',
+    '.fg-q .fg-asof{margin:0;font-size:12px;font-weight:600;color:var(--text,#2a2925)}',
     '.fg-q [lang=en]{unicode-bidi:isolate}',
     '.fg-q .fg-scope{margin:0 0 10px;font-size:13px;line-height:1.4;color:var(--text2,#6a675e)}.fg-scope b{font-weight:700}',
     '.fg-body p{margin:0 0 8px;font-size:15px;line-height:1.5}',
@@ -177,12 +178,22 @@ var FieldGuideCard = (function() {
     return word(S, 'lic_' + String(code).replace(/[^A-Za-z0-9]/g, '_'), {}).replace(/^lic_.*$/, code);
   }
 
+  // The guidance's date ("2026-08", or "1992" with no month) in the reader's language.
+  function asOfText(asOf, S) {
+    var parts = String(asOf).split('-'), y = +parts[0], m = parts[1] ? +parts[1] : 0;
+    if (!m) return String(y);
+    try {
+      return new Intl.DateTimeFormat((S && S.lang) || 'en', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(Date.UTC(y, m - 1, 1));
+    } catch (e) { return asOf; }
+  }
+
   // One quote: the source's own heading, where in the source, the words as
   // given, then who published it, when, under what licence, and the way on.
   function quoteHtml(q, S) {
     var s = q.source || {};
     return '<section class="fg-q" data-quote="' + esc(q.id) + '">' +
       '<h3 lang="en" dir="ltr">' + esc(q.heading) + '</h3>' +
+      (s.as_of ? '<p class="fg-asof">' + esc(word(S, 'as_of', { date: asOfText(s.as_of, S) })) + '</p>' : '') +
       '<div class="fg-where" lang="en" dir="ltr">' + esc(s.title) + ' · ' + esc(q.locator) +
       (s.dated ? '<i class="fg-dated">' + esc(word(S, 'dated')) + '</i>' : '') +
       (s.superseded ? '<i class="fg-dated">' + esc(word(S, 'superseded', { by: s.superseded })) + '</i>' : '') + '</div>' +
@@ -281,6 +292,6 @@ var FieldGuideCard = (function() {
     });
   }
 
-  return { esc: esc, word: word, ensureStyle: ensureStyle, sizeText: sizeText, bodyHtml: bodyHtml, tableHtml: tableHtml, footHtml: footHtml, quoteHtml: quoteHtml,
+  return { esc: esc, word: word, ensureStyle: ensureStyle, sizeText: sizeText, bodyHtml: bodyHtml, tableHtml: tableHtml, footHtml: footHtml, quoteHtml: quoteHtml, asOfText: asOfText,
     answersHtml: answersHtml, missingHtml: missingHtml, libraryGroupHtml: libraryGroupHtml, wire: wire, emergencyFor: emergencyFor, emergencyHtml: emergencyHtml, placeLat: placeLat, skyFirst: skyFirst, numberParts: numberParts, DEFAULTS: DEFAULTS };
 })();

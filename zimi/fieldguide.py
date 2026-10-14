@@ -553,13 +553,44 @@ def _manual_sources():
     return " and ".join(names)
 
 
+_MONTHS = {m: i for i, m in enumerate(
+    "jan feb mar apr may jun jul aug sep oct nov dec".split(), 1)}
+_EDITION_DATE = re.compile(
+    r"(?:(\d{1,2})/\d{1,2}/(\d{4}))"                      # 03/10/2026, US order
+    r"|(?:([A-Za-z]{3,9})\.?\s+\d{1,2},?\s+(\d{4}))"      # May 15, 2024 / Sept. 23, 2026
+    r"|(?:\d{1,2}\s+([A-Za-z]{3,9})\s+(\d{4}))"            # 23 March 2026
+    r"|(?:\b([A-Za-z]{3,9})\s+(\d{4}))")                    # January 2016
+
+
+def _as_of(edition, year):
+    """The guidance's date as "YYYY-MM" from its edition line, the latest date
+    the line names (a change outdates its base edition); "YYYY" from the year
+    when the line names no month."""
+    best = None
+    for m in _EDITION_DATE.finditer(edition or ""):
+        if m.group(1):
+            mon, yr = int(m.group(1)), int(m.group(2))
+        else:
+            name, yr = next((m.group(i), int(m.group(i + 1))) for i in (3, 5, 7) if m.group(i))
+            mon = _MONTHS.get(name[:3].lower())
+            if not mon:
+                continue
+        if best is None or (yr, mon) > best:
+            best = (yr, mon)
+    if best:
+        return "%04d-%02d" % best
+    return "%04d" % year if year else ""
+
+
 def _source_view(src_id, quote):
     s = quotes()["sources"][src_id]
     year = quote.get("year") or s["year"]
+    edition = quote.get("edition") or s["edition"]
     return {
         "id": src_id,
         "title": s["title"],
-        "edition": quote.get("edition") or s["edition"],
+        "edition": edition,
+        "as_of": _as_of(edition, year),
         "publisher": s["publisher"],
         "licence": s["licence"],
         "licence_note": s.get("licence_note", ""),

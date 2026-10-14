@@ -568,12 +568,16 @@ def test_the_choking_card_is_the_armys_words_and_an_open_infant_source():
         in infants
     )
     for q in qs:
-        assert q.get("scope", "x").strip(), q["id"]
-        assert q.get("scope", "") in " ".join(q["lines"]), (
-            q["id"] + ": scope is the source's own sentence"
-        )
+        if "scope" in q:
+            assert q["scope"].strip() in " ".join(q["lines"]), (
+                q["id"] + ": scope is the source's own sentence"
+            )
         assert q["related"] == ["not_breathing"]
-    assert qs[0]["scope"] and qs[1]["scope"]
+    assert qs[0]["scope"]
+    # The infant passage names who it is for in its heading and opens on
+    # what to do: back slaps, then chest compressions.
+    assert "Infants" in qs[1]["heading"] and "scope" not in qs[1]
+    assert qs[1]["lines"][0].startswith("First aid for choking infants alternates")
     sit = fg.situation("choking")
     assert [q["source"]["licence"] for q in sit["quotes"]] == [
         "US-PD",
@@ -1308,3 +1312,19 @@ def test_print_all_is_every_situation_in_order_with_its_address(served):
     for sit in body["situations"]:
         assert sit["quotes"]
         assert all(q["url"].startswith("https://") for q in sit["quotes"])
+
+
+def test_every_quote_is_dated_by_its_guidance():
+    from zimi import fieldguide as fg
+
+    q = fg.quotes()
+    for sid, items in q["quotes"].items():
+        for item in items:
+            view = fg._source_view(item["source"], item)
+            assert view["as_of"], "%s has no guidance date" % item["id"]
+    # The infant passage dates to its revision; a change outdates its base edition.
+    infant = next(i for i in q["quotes"]["choking"] if i["source"] == "wp_choking")
+    assert fg._source_view("wp_choking", infant)["as_of"] == "2026-08"
+    assert fg._as_of("January 2016, Change 2 of 7 December 2018", 2018) == "2018-12"
+    assert fg._as_of("Page last updated 03/10/2026", 2026) == "2026-03"
+    assert fg._as_of("Sept. 23, 2026", 2026) == "2026-09"

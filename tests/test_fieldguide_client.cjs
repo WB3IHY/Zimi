@@ -52,3 +52,18 @@ ok('north: Polaris first', ids(CARD.skyFirst(lost, 40)) === 'a,b,c,north,shadow,
 ok('no place: the data order', CARD.skyFirst(lost, null) === lost);
 
 if (failures) { console.log(failures + ' failed'); process.exit(1); }
+
+// The guidance date reads in the reader's language, month and year.
+(function () {
+  var assert = require('assert');
+  var fs = require('fs'), vm = require('vm');
+  var ctx = { window: {}, document: { getElementById: function () { return null; } }, Intl: Intl };
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(require('path').join(__dirname, '..', 'zimi', 'static', 'fieldguide-card.js'), 'utf8') + '\nthis.C = FieldGuideCard;', ctx);
+  assert.strictEqual(ctx.C.asOfText('2026-08', { lang: 'en' }), 'August 2026');
+  assert.strictEqual(ctx.C.asOfText('1992', { lang: 'en' }), '1992');
+  assert.ok(/2026/.test(ctx.C.asOfText('2026-08', { lang: 'de' })));
+  var html = ctx.C.quoteHtml({ id: 'x', heading: 'Infants', locator: 'L', lines: ['a'], url: 'https://e.org', source: { title: 'T', as_of: '2026-08', edition: 'e', publisher: 'p', licence: 'CC BY-SA 4.0' } }, { lang: 'en' });
+  assert.ok(html.indexOf('Guidance as of August 2026') >= 0, html);
+  console.log('guidance date: ok');
+})();
