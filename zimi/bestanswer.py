@@ -41,6 +41,10 @@ MAX_CHUNKS_PER_ARTICLE = 60  # ~36k chars: the lead and a long way past it
 CANDIDATE_POOL = 8  # passages whose sentences are scored after BM25
 BUDGET_SECONDS = 1.5  # stop reading more articles after this long
 CONFIDENCE = 0.62  # a sentence below this covers too little of the question
+WEAK_MATCH = 0.5  # a word matched by its stem alone (president, preside) counts this much
+TIGHTNESS_FLOOR = 0.45  # a sentence with the words far apart keeps this share of its score
+FRONT_MATTER_KINDS = ("books",)  # whose first passage is a title page and a licence
+TITLE_LINE_SLACK = 12  # chars a sentence may exceed the title by and still be only the title
 EXTRA_MAX = 2  # more passages under the card
 EXTRA_RELATIVE = 0.7  # an extra must be this fraction as good as the best
 CONTEXT_BEFORE = 240  # chars of the passage kept before the sentence
@@ -51,7 +55,7 @@ SENTENCE_MAX = 420
 STEM_LEN = 5
 BM25_K1 = 1.2
 BM25_B = 0.75
-TITLE_BONUS = 0.25  # max added when the article's title holds the question
+TITLE_BONUS = 0.4   # max added when the article's title holds the question
 LEAD_BONUS = 0.04  # the first passage of an article is its summary
 RANK_DECAY = 0.015  # per search rank: the search already ordered the articles
 SPARSE_HITS = 3  # fewer search hits than this: ask again without function words
@@ -152,6 +156,13 @@ def _stem(word):
 def words(text, drop=frozenset()):
     """The stems of `text` in order. Stems in `drop` (function words) are left
     out. Scripts written without spaces give each character and each pair."""
+    return [stem for stem, _ in read(text, drop)]
+
+
+def read(text, drop=frozenset()):
+    """(stem, word) for each word of `text`, the word as folded but not cut:
+    purification is ("purif", "purification"). Two words with one stem
+    (president, preside) are told apart by it."""
     out = []
     for m in _WORD.finditer(_fold(text)):
         tok = m.group()
@@ -161,8 +172,8 @@ def words(text, drop=frozenset()):
                 _add(out, tok[pos : u.start()], drop)
             # a stop character splits the run in two; pair what is left
             for part in _split_on_stops(u.group()):
-                out.extend(part)
-                out.extend(part[i] + part[i + 1] for i in range(len(part) - 1))
+                out.extend((c, c) for c in part)
+                out.extend((part[i] + part[i + 1],) * 2 for i in range(len(part) - 1))
             pos = u.end()
         if pos < len(tok):
             _add(out, tok[pos:], drop)
@@ -189,7 +200,7 @@ def _add(out, tok, drop):
         return
     s = _stem(tok)
     if s not in drop:
-        out.append(s)
+        out.append((s, tok))
 
 
 def _drop_set(lang):
@@ -290,6 +301,14 @@ _CLOSERS = "\"'\u201d\u2019)]\u00bb\u300d\u300f \t"
 _TERMINAL = ".!?\u3002\uff01\uff1f\u061f\u0964\u2026"
 
 
+def _is_title_line(sent, title):
+    """The title of the work said as a sentence (a book's title page): it
+    holds the question's words and answers nothing."""
+    s = _fold(sent).strip(" .:;,-")
+    t = _fold(title).strip(" .:;,-")
+    return bool(t) and (s in t or t in s) and len(s) < len(t) + TITLE_LINE_SLACK
+
+
 def _sentence_ok(sent):
     """A whole sentence of prose: ends like one, starts like one, is neither
     a fragment cut by a passage edge nor a heading, a table row or a citation."""
@@ -346,15 +365,19 @@ class _Pool:
         )
 
 
-def _coverage(terms, weight, sent_tokens):
+def _coverage(terms, weight, sent_tokens, exact=None):
     """(share of the question's weight the sentence holds, how many of its
-    words, tightness 0..1). `sent_tokens`: the sentence's words in order."""
+    words, tightness 0..1). `sent_tokens`: the sentence's stems in order.
+    `exact`: the terms the sentence holds as the very word asked, not only
+    its stem (preside for president); those count WEAK_MATCH of their weight.
+    None: every match is the very word."""
     present = set(sent_tokens)
     have = [t for t in terms if t in present]
     total = sum(weight[t] for t in terms)
     if not have or total <= 0:
         return 0.0, 0, 0.0
-    cover = sum(weight[t] for t in have) / total
+    held = lambda t: weight[t] * (1 if exact is None or t in exact else WEAK_MATCH)
+    cover = sum(held(t) for t in have) / total
     # The shortest run of the sentence holding every covered word: 1 when the
     # words sit side by side, less the further apart they are.
     need = set(have)
@@ -406,7 +429,11 @@ def rank_answer(q, passages, lang=None):
     """
     lang = query_language(q) if lang is None else lang
     drop = _drop_set(lang)
-    terms = list(dict.fromkeys(t for t in words(q, drop) if t not in _ASKING_STEMS))
+    asked = [(st, w) for st, w in read(q, drop) if st not in _ASKING_STEMS]
+    terms = list(dict.fromkeys(st for st, _ in asked))
+    asked_as = collections.defaultdict(set)
+    for st, w in asked:
+        asked_as[st].add(w)
     if not terms or not passages:
         return None
     pool = _Pool(passages, drop, terms)
@@ -435,12 +462,18 @@ def rank_answer(q, passages, lang=None):
         title_bonus = TITLE_BONUS * _title_share(terms, weight, p["title"], drop)
         for s, e in split_sentences(text):
             sent = text[s:e]
-            if not _sentence_ok(sent):
+            if not _sentence_ok(sent) or _is_title_line(sent, p["title"]):
                 continue
-            cover, matched, tight = _coverage(terms, weight, words(sent, drop))
+            pairs = read(sent, drop)
+            said = {w for _, w in pairs}
+            exact = {t for t in terms if asked_as[t] & said}
+            cover, matched, tight = _coverage(
+                terms, weight, [st for st, _ in pairs], exact
+            )
             if matched < min(2, len(terms)):
                 continue
-            score = cover * (0.7 + 0.3 * tight) + title_bonus * cover
+            score = cover * (TIGHTNESS_FLOOR + (1 - TIGHTNESS_FLOOR) * tight)
+            score += title_bonus * cover
             score += LEAD_BONUS * (p.get("seq", 1) == 0)
             score -= RANK_DECAY * p.get("rank", 0)
             quotes.append((score, i, s, e))
@@ -546,7 +579,8 @@ def best_answer(q, hits, read_chunks, kinds=None, budget=BUDGET_SECONDS):
         return {"answer": None}
     t0 = time.time()
     passages = []
-    for rank, hit in enumerate(_readable_hits(hits, kinds or {})):
+    kinds = kinds or {}
+    for rank, hit in enumerate(_readable_hits(hits, kinds)):
         if rank and time.time() - t0 > budget:
             break
         try:
@@ -555,6 +589,8 @@ def best_answer(q, hits, read_chunks, kinds=None, budget=BUDGET_SECONDS):
             log.debug("best answer: %s/%s unreadable: %s", hit["zim"], hit["path"], e)
             continue
         for c in chunks[:MAX_CHUNKS_PER_ARTICLE]:
+            if c["seq"] == 0 and kinds.get(hit["zim"]) in FRONT_MATTER_KINDS:
+                continue
             passages.append(
                 {
                     "zim": hit["zim"],

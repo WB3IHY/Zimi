@@ -257,6 +257,37 @@ class TestWhatIsNotAQuote(unittest.TestCase):
         p = passage("Mona Lisa", "and the painting by Leonardo da Vinci of the Mona Lisa was sold. Leonardo da Vinci painted the Mona Lisa in Florence")
         self.assertIsNone(ba.rank_answer("who painted the mona lisa", [p]))
 
+    def test_two_words_far_apart_in_a_long_sentence_are_not_an_answer(self):
+        # Found asking "who is the president of france" of a library of law
+        # books: "preside" (the stem of president) and "France", fifteen
+        # words apart in a speech to a court.
+        p = passage(
+            "The trial of Emile Zola",
+            "You seem radiant in the apotheosis of that patriotic fete which "
+            "the Russian alliance has been for France, and you are preparing "
+            "to preside at the sole judgment.",
+        )
+        self.assertIsNone(ba.rank_answer("who is the president of france", [p]))
+
+    def test_a_title_page_is_not_a_quote(self):
+        p = passage(
+            "Medical Jurisprudence, Forensic medicine and Toxicology",
+            "Medical Jurisprudence, Forensic medicine and Toxicology.",
+        )
+        self.assertIsNone(ba.rank_answer("what is medical jurisprudence", [p]))
+
+    def test_a_books_first_passage_is_front_matter_and_is_not_read_for_quotes(self):
+        hits = [{"zim": "gutenberg", "path": "B", "title": "Law of Poisons"}]
+        front = {"seq": 0, "text": "The law of poisons. Produced by A. Volunteer."}
+        body = {"seq": 1, "text": "The law of poisons forbids the sale of arsenic without a licence."}
+        got = ba.best_answer(
+            "what is the law of poisons",
+            hits,
+            lambda z, p: [front, body],
+            kinds={"gutenberg": "books"},
+        )
+        self.assertEqual(got["answer"]["sentence"], body["text"])
+
     def test_underscores_and_empty_tokens_do_not_break_reading(self):
         self.assertEqual(ba.words("_ __init__ a_b"), ["init", "a_b"])
 
