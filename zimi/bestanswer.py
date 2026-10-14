@@ -62,6 +62,30 @@ CACHE_TTL = 120.0
 # BM25 order.
 rerank = None
 
+# Marks that are not part of a letter's identity for matching: Latin accents
+# (folded by query.fold), Hebrew points, Arabic harakat.
+_MARKS = [(0x591, 0x5C7), (0x64B, 0x65F), (0x670, 0x670)]
+_NO_MARKS = {c: None for lo, hi in _MARKS for c in range(lo, hi + 1)}
+
+
+def _fold(text):
+    return _query.fold(text).translate(_NO_MARKS)
+
+
+def _fast_fold_table():
+    """text.lower().translate(table): the cheap fold the prefilter uses, the
+    same letters _fold gives for Latin accents and marks."""
+    table = dict(_NO_MARKS)
+    for cp in range(0xC0, 0x250):
+        ch = chr(cp)
+        base = _query.fold(ch)
+        if base != ch.lower():
+            table[cp] = base
+    return table
+
+
+_FAST_FOLD = _fast_fold_table()
+
 _WORD = re.compile("[\\ẁ-֑ͯ-ׇً-ٰٟऀ-෿]+", re.UNICODE)
 _UNSPACED = re.compile("[぀-ヿ㐀-䶿一-鿿豈-﫿]+")
 # Characters that are all function in an unspaced script ("is", "of", "who",
@@ -128,7 +152,7 @@ def words(text, drop=frozenset()):
     """The stems of `text` in order. Stems in `drop` (function words) are left
     out. Scripts written without spaces give each character and each pair."""
     out = []
-    for m in _WORD.finditer(_query.fold(text)):
+    for m in _WORD.finditer(_fold(text)):
         tok = m.group()
         pos = 0
         for u in _UNSPACED.finditer(tok):
@@ -272,16 +296,24 @@ def _sentence_ok(sent):
 
 
 class _Pool:
-    """Passages from the candidate articles, tokenised once."""
+    """Passages from the candidate articles. Only a passage holding one of the
+    question's stems is read word by word (a string search finds those far
+    faster than tokenising all of them); the others cannot score."""
 
-    def __init__(self, passages, drop):
+    def __init__(self, passages, drop, terms):
         self.passages = passages
-        self.tokens = [words(p["text"], drop) for p in passages]
+        self.tokens = []
+        for p in passages:
+            low = p["text"].lower().translate(_FAST_FOLD)
+            self.tokens.append(
+                words(p["text"], drop) if any(t in low for t in terms) else []
+            )
         self.df = collections.Counter()
         for toks in self.tokens:
             self.df.update(set(toks))
         self.n = len(passages)
-        self.avg = (sum(len(t) for t in self.tokens) / self.n) if self.n else 0
+        live = [len(t) for t in self.tokens if t]
+        self.avg = sum(live) / len(live) if live else 0
 
     def idf(self, term):
         df = self.df.get(term, 0)
@@ -301,8 +333,10 @@ class _Pool:
 
 
 def _coverage(terms, weight, sent_tokens):
-    """(share of the question's weight the sentence holds, tightness 0..1)."""
-    have = [t for t in terms if t in sent_tokens]
+    """(share of the question's weight the sentence holds, how many of its
+    words, tightness 0..1). `sent_tokens`: the sentence's words in order."""
+    present = set(sent_tokens)
+    have = [t for t in terms if t in present]
     total = sum(weight[t] for t in terms)
     if not have or total <= 0:
         return 0.0, 0, 0.0
@@ -361,7 +395,7 @@ def rank_answer(q, passages, lang=None):
     terms = list(dict.fromkeys(t for t in words(q, drop) if t not in _ASKING_STEMS))
     if not terms or not passages:
         return None
-    pool = _Pool(passages, drop)
+    pool = _Pool(passages, drop, terms)
     weight = {t: pool.idf(t) for t in terms}
     # A term no passage holds weighs what a rare one does: the library does
     # not answer that part of the question, and the card must not pretend.
@@ -389,7 +423,7 @@ def rank_answer(q, passages, lang=None):
             sent = text[s:e]
             if not _sentence_ok(sent):
                 continue
-            cover, matched, tight = _coverage(terms, weight, set(words(sent, drop)))
+            cover, matched, tight = _coverage(terms, weight, words(sent, drop))
             if matched < min(2, len(terms)):
                 continue
             score = cover * (0.7 + 0.3 * tight) + title_bonus * cover

@@ -143,7 +143,7 @@ def test_a_keyword_search_gets_no_card_and_reads_nothing(served, monkeypatch):
     def boom(*a, **k):
         raise AssertionError("a keyword search must not read an article")
 
-    monkeypatch.setattr(search, "chunk_article", boom)
+    monkeypatch.setattr(search, "_read_article_raw", boom)
     for q in ("water purification", "mona lisa", "paris"):
         assert _ask(served, q) == {"answer": None}
 
@@ -156,14 +156,14 @@ def test_a_question_the_library_cannot_answer_gets_no_card(served):
 def test_the_same_question_twice_reads_once(served, monkeypatch):
     import zimi.search as search
 
-    real = search.chunk_article
+    real = search._read_article_raw
     reads = []
 
-    def counting(zim, path, **kw):
+    def counting(zim, path):
         reads.append(path)
-        return real(zim, path, **kw)
+        return real(zim, path)
 
-    monkeypatch.setattr(search, "chunk_article", counting)
+    monkeypatch.setattr(search, "_read_article_raw", counting)
     first = _ask(served, "how to purify water")
     n = len(reads)
     assert n >= 1

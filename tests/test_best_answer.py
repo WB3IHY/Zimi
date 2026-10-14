@@ -207,6 +207,15 @@ class TestRanking(unittest.TestCase):
         self.assertTrue(a["after"].endswith("…"))
 
 
+class TestProximity(unittest.TestCase):
+    def test_tightness_follows_word_order_not_hash_order(self):
+        w = {"a": 1.0, "b": 1.0}
+        cover, matched, tight = ba._coverage(["a", "b"], w, ["a", "x", "x", "b"])
+        self.assertEqual((cover, matched, tight), (1.0, 2, 0.5))
+        _, _, side = ba._coverage(["a", "b"], w, ["x", "a", "b", "x"])
+        self.assertEqual(side, 1.0)
+
+
 class TestWhatIsNotAQuote(unittest.TestCase):
     """Found reading real books: a title line, the licence boilerplate and a
     sentence cut by the passage edge all matched the question's words."""

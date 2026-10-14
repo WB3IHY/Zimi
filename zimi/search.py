@@ -3561,13 +3561,20 @@ _BLOCK_BOUNDARY_RE = re.compile(
 )
 
 
-def _paragraphs_from_html(html_text):
-    """Split HTML into stripped, non-empty paragraph strings on block boundaries."""
-    return [
-        t
-        for t in (strip_html(part) for part in _BLOCK_BOUNDARY_RE.split(html_text))
-        if t
-    ]
+def _paragraphs_from_html(html_text, max_chars=None):
+    """Split HTML into stripped, non-empty paragraph strings on block boundaries.
+
+    `max_chars`: stop once the paragraphs hold that much, so a caller that
+    wants an article's opening does not strip all of a very long one."""
+    out, held = [], 0
+    for part in _BLOCK_BOUNDARY_RE.split(html_text):
+        t = strip_html(part)
+        if t:
+            out.append(t)
+            held += len(t)
+            if max_chars is not None and held > max_chars:
+                break
+    return out
 
 
 def _split_span(text, start, end, size):
@@ -3603,32 +3610,54 @@ def chunk_article(
     0–size/2) rather than erroring. Returns {"error": "not_found"} for an unknown
     zim or path so the route can map it to 404.
     """
-    size = max(CHUNK_SIZE_MIN, min(int(size), CHUNK_SIZE_MAX))
-    overlap = max(0, min(int(overlap), size // 2))
-
-    zims = _srv.get_zim_files()
-    if zim_name not in zims:
+    if zim_name not in _srv.get_zim_files():
         return {"error": "not_found"}
-
     try:
-        archive, path, entry, item = _article_entry(zim_name, path)
-        raw = bytes(item.content)
-        title = entry.title
-        if item.mimetype == "application/pdf":
-            plain = extract_pdf_text(raw, max_length=CHUNK_MAX_TEXT)
-            paragraphs = [p for p in (b.strip() for b in plain.splitlines()) if p]
-        else:
-            paragraphs = _paragraphs_from_html(raw.decode("UTF-8", errors="replace"))
+        title, mimetype, raw, path = _read_article_raw(zim_name, path)
     except KeyError:
         return {"error": "not_found"}
+    return _chunk_raw(zim_name, path, title, mimetype, raw, size, overlap)
+
+
+def _read_article_raw(zim_name, path):
+    """(title, mimetype, bytes, path) of an article. The caller holds the lock
+    and has checked the ZIM is installed; KeyError when there is no such entry.
+    What follows (_chunk_raw) is bytes and strings: it needs no lock."""
+    archive, path, entry, item = _article_entry(zim_name, path)
+    return entry.title, item.mimetype, bytes(item.content), path
+
+
+def _chunk_raw(
+    zim_name,
+    path,
+    title,
+    mimetype,
+    raw,
+    size=CHUNK_SIZE_DEFAULT,
+    overlap=CHUNK_OVERLAP_DEFAULT,
+    max_text=CHUNK_MAX_TEXT,
+):
+    """chunk_article's work on an article already read: no libzim, no lock.
+    `max_text` caps the stripped text (never above CHUNK_MAX_TEXT): a caller
+    after an article's opening passes less, and the rest is never stripped."""
+    size = max(CHUNK_SIZE_MIN, min(int(size), CHUNK_SIZE_MAX))
+    overlap = max(0, min(int(overlap), size // 2))
+    max_text = min(max_text, CHUNK_MAX_TEXT)
+    if mimetype == "application/pdf":
+        plain = extract_pdf_text(raw, max_length=max_text)
+        paragraphs = [p for p in (b.strip() for b in plain.splitlines()) if p]
+    else:
+        paragraphs = _paragraphs_from_html(
+            raw.decode("UTF-8", errors="replace"), max_chars=max_text
+        )
 
     stripped_text = _CHUNK_SEP.join(paragraphs)
     # Cap the canonical text BEFORE hashing so content_rev (and thus chunk IDs)
     # stay deterministic for capped content. If the cut lands mid-paragraph,
     # drop the partial trailing paragraph so chunk offsets align to real breaks.
-    truncated = len(stripped_text) > CHUNK_MAX_TEXT
+    truncated = len(stripped_text) > max_text
     if truncated:
-        stripped_text = stripped_text[:CHUNK_MAX_TEXT]
+        stripped_text = stripped_text[:max_text]
         cut = stripped_text.rfind(_CHUNK_SEP)
         if cut > 0:
             stripped_text = stripped_text[:cut]
@@ -3710,9 +3739,18 @@ def best_answer_for(q, zim_scope_str, filter_zim, limit):
         kinds = {z["name"]: z.get("kind", "") for z in (_srv._zim_list_cache or [])}
 
         def read_chunks(zim, path):
-            with _srv._zim_lock:
-                got = chunk_article(zim, path, size=bestanswer.PASSAGE_SIZE, overlap=0)
-            return got.get("chunks", [])
+            with _srv._zim_lock:  # the read only: stripping is not libzim
+                title, mimetype, raw, path = _read_article_raw(zim, path)
+            return _chunk_raw(
+                zim,
+                path,
+                title,
+                mimetype,
+                raw,
+                size=bestanswer.PASSAGE_SIZE,
+                overlap=0,
+                max_text=bestanswer.PASSAGE_SIZE * bestanswer.MAX_CHUNKS_PER_ARTICLE,
+            )["chunks"]
 
         return bestanswer.best_answer(q, hits.get("results", []), read_chunks, kinds)
 
