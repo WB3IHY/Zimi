@@ -13968,6 +13968,21 @@ function _libSplitHtml(coverage) {
     '<div class="mc-row mc-sub"><span class="mc-label">' + tH('au_local') + '</span><span class="mc-value">' + esc(String(local)) + '</span></div>';
 }
 
+// What each folder another program owns contributes, one quiet line under the
+// total it is part of: "From Project NOMAD  9" under the ZIM count, its size
+// under the total size.
+function _libShareRowsHtml(shares, size) {
+  return (shares || []).map(function(f) {
+    return '<div class="mc-row mc-sub"><span class="mc-label">' + tH('lib_from_folder', { label: f.label }) + '</span><span class="mc-value">' +
+      esc(size ? fmtSize(f.size_gb) : String(f.zims)) + '</span></div>';
+  }).join('');
+}
+function _paintLibShares(d) {
+  var c = document.getElementById('ms-share-count'), z = document.getElementById('ms-share-size');
+  if (c) c.innerHTML = _libShareRowsHtml(d.from_folders, false);
+  if (z) z.innerHTML = _libShareRowsHtml(d.from_folders, true);
+}
+
 function _autoUpdateHtml(au) {
   // Frequency alone. The last-run / next-run clock rows are gone: operational
   // noise the operator did not ask for. How much of the library the updater
@@ -13995,7 +14010,9 @@ function _msLibraryHtml() {
   if (!d) return '<div class="loading"><span class="spinner-inline"></span>Loading\u2026</div>';
   var h = '<div class="mc-row"><span class="mc-label">' + tH('zim_files') + '</span><span class="mc-value" id="ms-zim-count">' + esc(String(d.zim_count)) + '</span></div>' +
     '<div id="ms-lib-split"></div>' +
+    '<div id="ms-share-count">' + _libShareRowsHtml(d.from_folders, false) + '</div>' +
     '<div class="mc-row"><span class="mc-label">' + tH('total_size') + '</span><span class="mc-value" id="ms-total-size">' + fmtSize(d.total_size_gb) + '</span></div>' +
+    '<div id="ms-share-size">' + _libShareRowsHtml(d.from_folders, true) + '</div>' +
     // Summary line + (only when updates exist) an expandable detail panel. The
     // row's state, clickability and detail are all driven by _renderUpdatesSummary
     // — the single writer — so the top-level label never strands on "Checking…".
@@ -17187,7 +17204,7 @@ function _catalogHasUpdate(inst, upd) {
 // A ZIM in a folder another program owns (Project NOMAD) is Zimi's to read and
 // not to delete: the row says whose it is where the delete button would be.
 function _zimDeleteBtn(file, external) {
-  if (external) return '<span class="ci-from" title="' + escAttr(t('folder_not_ours')) + '">' + esc(external) + '</span>';
+  if (external) return '<span class="ci-installed-badge ci-from" title="' + escAttr(t('folder_not_ours')) + '">' + esc(t('in_folder', { label: external })) + '</span>';
   return '<button class="ci-delete-btn" onclick="deleteZim(\'' + escAttr(file) + '\', this)" title="' + escAttr(t('delete_zim')) + '">\u00D7</button>';
 }
 async function deleteZim(filename, btn) {
@@ -17872,6 +17889,7 @@ async function _refreshDownloadsInner(useCache) {
         if (countVal) countVal.textContent = String(sd.zim_count);
         const sizeVal = document.getElementById('ms-total-size');
         if (sizeVal) sizeVal.textContent = fmtSize(sd.total_size_gb);
+        _paintLibShares(sd);
         _renderAutoUpdateSection();
         // Update tab count
         const tabBtn = document.querySelector('.manage-tab[data-tab="installed"]');

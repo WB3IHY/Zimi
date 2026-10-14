@@ -181,6 +181,24 @@ def registered_in(folder):
     ]
 
 
+def shares():
+    """What each folder contributes to the library being served, ``[{label,
+    zims, size_gb}]``: counted from the registry (names to paths, sizes from
+    the listing), so asking costs no disk."""
+    folder_labels = labels()
+    if not folder_labels:
+        return []
+    sizes = {z.get("name"): z.get("size_gb", 0) for z in (_srv._zim_list_cache or [])}
+    out = {}
+    for name, path in _srv.get_zim_files().items():
+        label = owner(path, folder_labels)
+        if label:
+            row = out.setdefault(label, {"label": label, "zims": 0, "size_gb": 0})
+            row["zims"] += 1
+            row["size_gb"] += sizes.get(name, 0)
+    return list(out.values())
+
+
 def add(path, label=""):
     """Start reading ZIMs from ``path``. Raises FolderError(key) when it is
     not a readable folder, is Zimi's own, is already listed, or is one too many.

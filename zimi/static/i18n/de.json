@@ -3075,5 +3075,7 @@
   "folder_limit": "Höchstens acht Ordner.",
   "folder_env": "Gesetzt durch ZIMI_EXTRA_ZIM_DIRS. Ändere es dort, wo Zimi gestartet wird.",
   "folder_unknown": "Dieser Ordner steht nicht in der Liste.",
-  "folder_primary_only": "Nur der Hauptadministrator kann einen Ordner auf dem Server angeben."
+  "folder_primary_only": "Nur der Hauptadministrator kann einen Ordner auf dem Server angeben.",
+  "lib_from_folder": "Aus {label}",
+  "in_folder": "In {label}"
 }

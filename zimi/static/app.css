@@ -2136,8 +2136,8 @@
   }
   .ci-delete-btn:hover, .coll-item .coll-del:hover { opacity: 1; color: var(--error); border-color: var(--error); }
   .ci-delete-btn.confirming { opacity: 1; color: var(--error); border-color: var(--error); font-size: 11px; padding: 4px 10px; }
-  /* Whose a ZIM is, where Delete would be: the folder's label, quiet. */
-  .ci-from { font-size: 11px; color: var(--text2); padding: 4px 8px; border: 1px solid var(--border); border-radius: 20px; white-space: nowrap; max-width: 12em; overflow: hidden; text-overflow: ellipsis; }
+  /* Whose a ZIM is, in the Installed badge's place: it is installed, and not Zimi's to delete. */
+  .ci-from { white-space: nowrap; }
   /* Other library folders (Storage). */
   .ms-libfolders { margin-top: 4px; }
   .lf-row .lf-path { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; overflow-wrap: anywhere; }

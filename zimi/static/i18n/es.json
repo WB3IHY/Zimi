@@ -3075,5 +3075,7 @@
   "folder_limit": "Ocho carpetas como máximo.",
   "folder_env": "Definido por ZIMI_EXTRA_ZIM_DIRS. Cámbialo donde se inicia Zimi.",
   "folder_unknown": "Esa carpeta no está en la lista.",
-  "folder_primary_only": "Solo el administrador principal puede indicar una carpeta del servidor."
+  "folder_primary_only": "Solo el administrador principal puede indicar una carpeta del servidor.",
+  "lib_from_folder": "De {label}",
+  "in_folder": "En {label}"
 }

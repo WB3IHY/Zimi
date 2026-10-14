@@ -3075,5 +3075,7 @@
   "folder_limit": "ثمانية مجلدات كحد أقصى.",
   "folder_env": "محدد بواسطة ZIMI_EXTRA_ZIM_DIRS. غيّره حيث يبدأ تشغيل Zimi.",
   "folder_unknown": "هذا المجلد ليس في القائمة.",
-  "folder_primary_only": "يمكن للمسؤول الرئيسي فقط تحديد مجلد على الخادم."
+  "folder_primary_only": "يمكن للمسؤول الرئيسي فقط تحديد مجلد على الخادم.",
+  "lib_from_folder": "من {label}",
+  "in_folder": "في {label}"
 }

@@ -5451,6 +5451,7 @@ def handle_manage_get(handler, parsed, params):
             {
                 "zim_count": zim_count,
                 "total_size_gb": round(total_gb, 6),  # as each ZIM's size_gb: 0.1 GB read 0 B for small libraries
+                "from_folders": libfolders.shares(),
                 "manage_enabled": True,
                 "linked_zims": linked_zims,
                 "domain_count": len(_srv._domain_zim_map),

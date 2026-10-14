@@ -456,6 +456,20 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(st, 200)
         self.assertEqual(len(listing), 2)
 
+    def test_status_counts_the_other_folders_share_separately(self):
+        self._req("/manage/library-folders", {"action": "add", "path": self._nomad, "label": "Project NOMAD"})
+        st, d = self._req("/manage/status")
+        self.assertEqual(st, 200)
+        self.assertEqual(d["zim_count"], 2)
+        (share,) = d["from_folders"]
+        self.assertEqual((share["label"], share["zims"]), ("Project NOMAD", 1))
+        self.assertGreater(share["size_gb"], 0)
+        self.assertLess(share["size_gb"], d["total_size_gb"])
+
+    def test_status_names_no_share_when_there_are_no_other_folders(self):
+        _, d = self._req("/manage/status")
+        self.assertEqual(d["from_folders"], [])
+
     def test_a_bad_folder_says_why(self):
         st, d = self._req(
             "/manage/library-folders", {"action": "add", "path": "/no/such"}
