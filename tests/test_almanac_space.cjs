@@ -15,6 +15,7 @@
 //
 // Run: node tests/test_almanac_space.cjs   (exit 0 = pass)
 
+process.env.TZ = 'America/Los_Angeles';   // the page shows UTC whatever the zone: so test in one that is not
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -229,7 +230,7 @@ const C_AU_DAY = 299792.458 * 86400 / 149597870.7;
   // Positions of the planets: the Keplerian elements are JPL's approximate
   // set; the sizes of the misses are the model's, stated here. Pluto's are
   // larger because the fit is the loosest for it.
-  const TOL = { Mercury: 0.004, Venus: 0.003, Earth: 0.001, Mars: 0.01, Jupiter: 0.02, Saturn: 0.06, Uranus: 0.12, Neptune: 0.03, Pluto: 0.02 };
+  const TOL = { Mercury: 0.004, Venus: 0.003, Earth: 0.001, Mars: 0.01, Jupiter: 5e-5, Saturn: 5e-5, Uranus: 5e-5, Neptune: 5e-5, Pluto: 5e-5 };   // Jupiter to Pluto: the shipped Horizons table (7,500 km)
   for (const [name, rows] of Object.entries(ref.bodies)) {
     for (const r of rows) {
       const p = S._spPlanetPos(name, jdOf(r.date));
@@ -323,18 +324,130 @@ const C_AU_DAY = 299792.458 * 86400 / 149597870.7;
   // Stars: right ascension 18 h, declination 66.56 is the ecliptic pole.
   const sp = S._spStarDir(18 * 15 / DEG, 66.5607 / DEG);
   near(sp[2], 1, 1e-4, 'the star sphere is in the ecliptic frame: RA 18h Dec +66.56 is straight up');
-  // Scale.
+  // Scale: readable draws a planet and its moons' orbits alike, so Io stays outside Jupiter.
   const r = S._spScale('readable'), tr = S._spScale('true');
-  near(tr.body, 1, 0, 'true scale draws true sizes'); near(tr.moon, 1, 0, 'true scale puts moons where they are');
-  check(r.body === r.moon, 'readable scale enlarges a planet and its moons\' orbits alike, so Io stays outside Jupiter');
-  check(r.body * 1.9e6 / 149597870.7 < 0.5, 'a readable Callisto orbit is under half an AU');
-  check(r.body * 695700 / 149597870.7 < 0.387 * 0.6, 'a readable Sun does not reach Mercury');
+  check(tr.body('Jupiter') === 1 && tr.moon('Jupiter') === 1 && tr.body('Io') === 1, 'true scale draws true sizes and puts moons where they are');
+  check(r.body('Io') === r.moon('Jupiter') && r.body('Jupiter') === S.SP_READABLE_BOOST, 'readable scale enlarges a planet and its moons\' orbits alike when no spacecraft is near');
+  check(r.moon('Jupiter') * 1.9e6 / 149597870.7 <= 0.5, 'a readable Callisto orbit is under half an AU');
+  check(r.body('Sun') * 695700 / 149597870.7 < 0.387 * 0.6, 'a readable Sun does not reach Mercury');
+  // No probe is drawn inside a body: the body is drawn only as big as keeps every spacecraft outside it,
+  // sampled monthly over the years any of them flew.
+  let worst = 1e9, samples = 0, worstWhat = '';
+  const AU = 149597870.7;
+  for (let jd = jdOf('2012-01-01'); jd < jdOf('2030-01-01'); jd += 31) {
+    const sc = S._spScale('readable', jd);
+    for (const pk of Object.keys(tracksJson.tracks)) {
+      if (pk === 'ceres') continue;
+      const pp = S._spTrackAt(S._spTrack(pk), jd);
+      if (!pp) continue;
+      for (const k of ['Sun', 'Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']) {
+        const R = (k === 'Sun' ? 695700 : S.SP_RADIUS_KM[k]) / AU * sc.body(k);
+        const gap = dist(pp, S._spBodyPos(k, jd)) / R;
+        samples++;
+        if (gap < worst) { worst = gap; worstWhat = pk + ' at ' + k + ' ' + jd; }
+      }
+    }
+  }
+  check(samples > 500 && worst > 1.0, 'no probe is drawn inside a body: closest ' + worst.toFixed(2) + ' drawn radii (' + worstWhat + ', ' + samples + ' samples)');
+  // The three the reviewers named.
+  const parker = jdOf('2024-12-24'), pk = S._spTrackAt(S._spTrack('parker'), parker);
+  check(dist(pk, [0, 0, 0]) > S._spScale('readable', parker).body('Sun') * 695700 / AU, 'Parker at perihelion is outside the Sun as drawn (' + (dist(pk, [0, 0, 0]) / (S._spScale('readable', parker).body('Sun') * 695700 / AU)).toFixed(2) + ' radii)');
+  const juno = jdOf('2026-10-14'), junoPos = S._spTrackAt(S._spTrack('juno'), juno), jsc = S._spScale('readable', juno);
+  check(dist(junoPos, S._spPlanetPos('Jupiter', juno)) > jsc.body('Jupiter') * 71492 / AU, 'Juno today is outside Jupiter as drawn');
+  const jw = jdOf('2026-10-14'), wp = S._spTrackAt(S._spTrack('jwst'), jw), wsc = S._spScale('readable', jw);
+  check(dist(wp, S._spPlanetPos('Earth', jw)) > wsc.moon('Earth') * 384400 / AU, 'JWST at L2 is outside the Moon\'s drawn orbit (' + wsc.moon('Earth') + 'x)');
+  check(wsc.body('Earth') >= 1 && wsc.moon('Earth') >= 1, 'scales are whole and at least 1');
+}
+
+// ── 3b. Flybys fly by ──────────────────────────────────────────────────────
+{
+  // The probe against the planet it passes, at the closest approach: both from the one table.
+  const LIM = { 'voyager2/Neptune': 1e5, 'newhorizons/Pluto': 3e4, 'voyager2/Uranus': 2e5, 'voyager1/Saturn': 3e5, 'pioneer11/Saturn': 3e5, 'cassini/Saturn': 3e5 };
+  const AUK = 149597870.7;
+  for (const f of ref.flybys) {
+    const jd = S._dateToJD(Date.parse(f.time));
+    const probe = S._spTrackAt(S._spTrack(f.probe), jd), planet = S._spPlanetPos(f.planet, jd);
+    const drawn = dist(probe, planet) * AUK, truth = dist(f.probe_xyz, f.planet_xyz) * AUK;
+    const lim = LIM[f.probe + '/' + f.planet];
+    check(Math.abs(drawn - truth) < lim, f.probe + ' at ' + f.planet + ' ' + f.time + ': ' + drawn.toExponential(2) + ' km from it, Horizons ' + truth.toExponential(2) + ' (limit ' + lim + ')');
+  }
+  // Voyager 2 at Neptune, in Neptune's radii: skimming the cloud tops, not a hundred radii off.
+  const f0 = ref.flybys.find((f) => f.probe === 'voyager2' && f.planet === 'Neptune');
+  const jdN = S._dateToJD(Date.parse(f0.time));
+  check(dist(S._spTrackAt(S._spTrack('voyager2'), jdN), S._spPlanetPos('Neptune', jdN)) * AUK < 1e5, 'Voyager 2 is within 1e5 km of Neptune on 1989-08-25');
+  const jdP = S._dateToJD(Date.parse('2015-07-14T11:50:00Z'));
+  check(dist(S._spTrackAt(S._spTrack('newhorizons'), jdP), S._spPlanetPos('Pluto', jdP)) * AUK < 3e4, 'New Horizons is within 3e4 km of Pluto on 2015-07-14');
+  const jdS = S._dateToJD(Date.parse('1980-11-12T23:46:00Z'));
+  check(dist(S._spTrackAt(S._spTrack('voyager1'), jdS), S._spPlanetPos('Saturn', jdS)) * AUK < 3e5, 'Voyager 1 is at Saturn on 1980-11-12');
+  // Cassini about Saturn in 2010: always within a few million km of it, never off in the cruise.
+  let cmax = 0, cmin = 1e12;
+  for (let jd = jdOf('2010-01-01'); jd < jdOf('2011-01-01'); jd += 1) {
+    const d = dist(S._spTrackAt(S._spTrack('cassini'), jd), S._spPlanetPos('Saturn', jd)) * AUK;
+    cmax = Math.max(cmax, d); cmin = Math.min(cmin, d);
+  }
+  check(cmax < 6e7 && cmin > 1e5, 'Cassini circles Saturn through 2010 (' + cmin.toExponential(1) + ' to ' + cmax.toExponential(1) + ' km)');
+  // The table's own limits are stated; the planets and probes are one table.
+  check(S._spPlanetPos('Jupiter', jdOf('2026-10-13')) !== null && Object.keys(tracksJson.planets).sort().join() === 'Jupiter,Neptune,Pluto,Saturn,Uranus', 'the giant planets and Pluto are shipped from Horizons');
+  // Outside the table's years the planets still come from the elements (no hole in the date range).
+  check(len(S._spPlanetPos('Jupiter', jdOf('2100-01-01'))) > 4 && len(S._spPlanetPos('Jupiter', jdOf('2100-01-01'))) < 6.5, 'Jupiter in 2100 is still drawn, from the elements');
+}
+
+// ── 3c. The numbers on the card are true, at either scale ──────────────────
+{
+  const jd = jdOf('2026-10-13');
+  // From Earth: the Moon is 1.3 light-seconds away, however far out it is drawn.
+  const moon = S._spTripBetween('Earth', 'Moon', jd, 0.1);
+  near(moon.lightSec, 1.28, 0.1, 'the Moon is 1.3 light-seconds from Earth');
+  near(moon.distAU * 149597870.7, 384400, 25000, 'the Moon is 384,400 km from Earth');
+  // The Moon's drawn place (x39 orbit) is for drawing only: a different number.
+  const drawn = dist(S._spBodyPos('Moon', jd, S._spScale('readable')), S._spBodyPos('Earth', jd));   // x39, no spacecraft near
+  check(drawn > 20 * moon.distAU, 'the drawn Moon is far out (' + (drawn / moon.distAU).toFixed(0) + 'x) but the card does not say so');
+  // Io and Titan from Earth: the light time of their planet, to within the orbit.
+  for (const [m, pl, a] of [['Io', 'Jupiter', 421769], ['Europa', 'Jupiter', 671090], ['Ganymede', 'Jupiter', 1070432], ['Callisto', 'Jupiter', 1882794], ['Titan', 'Saturn', 1222375]]) {
+    const dm = S._spTripBetween('Earth', m, jd, 0.1).distAU, dp = S._spTripBetween('Earth', pl, jd, 0.1).distAU;
+    check(Math.abs(dm - dp) <= 1.05 * a / 149597870.7, m + ' is as far from Earth as ' + pl + ' to within its orbit (' + dm.toFixed(4) + ' vs ' + dp.toFixed(4) + ' AU)');
+  }
+  // From Jupiter: Io is 1.4 light-seconds, Callisto 6.3.
+  near(S._spTripBetween('Jupiter', 'Io', jd, 0.1).lightSec, 421769 / 299792.458, 0.1, 'Io is 1.4 light-seconds from Jupiter');
+  near(S._spTripBetween('Jupiter', 'Callisto', jd, 0.1).lightSec, 1882794 / 299792.458, 0.2, 'Callisto is 6.3 light-seconds from Jupiter');
+  // The trip does not depend on the scale: the function takes none, and the standoff is true radii.
+  const t1 = S._spTripBetween('Earth', 'Jupiter', jd, 0.1);
+  near(t1.legAU, t1.distAU - 6 * 71492 / 149597870.7, 1e-3, 'the Jupiter trip stops 6 true radii short, at either scale');
+  check(t1.earthSec > 0 && t1.shipSec < t1.earthSec, 'a Jupiter trip has two clocks');
+  // A body that will have gone: Parker at the end of its table cannot be reached at walking pace.
+  const gone = S._spTripBetween('Earth', 'parker', jdOf('2029-12-30'), 1e-4);
+  check(gone && gone.reachable === false, 'a probe whose table ends before the ship arrives cannot be reached');
+  check(S._spTripBetween('Earth', 'juno', jdOf('2026-10-13'), 0.1).reachable === true, 'Juno can be reached today');
+  check(S._spTripBetween('Earth', 'cassini', jdOf('2026-10-13'), 0.1) === null, 'Cassini is not there to be flown to');
+  // The light-time of the Sun: 8 min 19 s.
+  near(S._spTripBetween('Earth', 'Sun', jd, 0.1).lightSec, 499 * 1.0, 12, 'the Sun is 8 min 19 s of light from Earth');
+}
+
+// ── 3d. Dates are UTC, event dates the same ────────────────────────────────
+{
+  const jd = S._dateToJD(Date.parse('1989-08-25T03:56:00Z'));
+  const when = S._spFmtWhen(jd);
+  check(/Aug/.test(when) && /25/.test(when) && /1989/.test(when) && /03:56/.test(when) && /UTC/.test(when), 'the Neptune flyby is Aug 25, 1989 03:56 UTC in a zone eight hours behind (' + when + ')');
+  check(/Aug 25, 1989/.test(S._spFmtDate(jd)), 'and an event date says Aug 25 too (' + S._spFmtDate(jd) + ')');
+  check(/Oct 13, 2026/.test(S._spFmtDate(jdOf('2026-10-13'))), 'midnight UTC is that day, not the day before');
+}
+
+// ── 3e. Which body a tap meant ─────────────────────────────────────────────
+{
+  const planet = { key: 'Saturn', kind: 'planet', x: 100, y: 100, rpx: 8 }, moon = { key: 'Titan', kind: 'moon', parent: 'Saturn', x: 104, y: 100, rpx: 3 };
+  check(S._spPick([planet, moon], 104, 100) === 'Saturn', 'a tap on a small planet is the planet, though its moon is nearer');
+  const big = { key: 'Saturn', kind: 'planet', x: 100, y: 100, rpx: 90 }, moon2 = { key: 'Titan', kind: 'moon', parent: 'Saturn', x: 150, y: 100, rpx: 6 };
+  check(S._spPick([big, moon2], 152, 100) === 'Titan', 'zoomed in on the planet, a tap on its moon is the moon');
+  check(S._spPick([big, moon2], 100, 100) === 'Saturn', 'and a tap on the planet is still the planet');
+  check(S._spPick([planet], 200, 200) === null, 'a tap on nothing is nothing');
+  const probe = { key: 'juno', kind: 'probe', x: 108, y: 100, rpx: 0 };
+  check(S._spPick([planet, probe], 108, 100) === 'juno', 'a probe beside a planet is picked when the tap is on it');
 }
 
 // ── 5. The shipped data ────────────────────────────────────────────────────
 {
   const bytes = fs.statSync(path.join(STATIC, 'earth', 'space-tracks-v1.json')).size;
-  check(bytes < 260000, 'the track table is ' + bytes + ' bytes');
+  check(bytes < 300000, 'the track table is ' + bytes + ' bytes');
   const kinds = new Set(['launch', 'flyby', 'orbit', 'arrive', 'record', 'interstellar', 'end', 'pale_blue_dot']);
   for (const [key, t] of Object.entries(tracksJson.tracks)) {
     check(t.s.length >= 2 && t.jd0 < t.jd1 && t.s[0][0] === t.jd0 && t.s[t.s.length - 1][0] === t.jd1, key + ' spans ' + t.jd0 + '-' + t.jd1);

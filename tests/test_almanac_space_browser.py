@@ -192,10 +192,10 @@ def test_a_flight_ends_at_its_body_with_the_physics_clocks(browser, served):
         assert 0.5 < trip["shipSec"] / trip["earthSec"] < 0.95
         # Earth to Jupiter (a little less than the orbit's reach) is 3.9 to 6.5 AU at any date.
         assert (
-            3.9 < length + pg.evaluate("_sp.flight ? 0 : _spStandoff('Jupiter')") < 6.6
+            3.9 < length + pg.evaluate("_spTrueStandoffAU('Jupiter')") < 6.6
         )
         assert pg.evaluate("_sp.jd") - jd0 == pytest.approx(
-            trip["earthSec"] / 86400, rel=1e-9
+            trip["earthSec"] / 86400, abs=1e-8   # a Julian Day is a double near 2.46e6: good to 5e-10
         )
         assert not errors, errors
     finally:
@@ -283,3 +283,264 @@ def test_the_speed_slider_goes_by_rapidity_not_a_sliver():
     lo, hi = atanh(1e-4), atanh(0.99)
     u_09 = math.log(atanh(0.9) / lo) / math.log(hi / lo)
     assert 0.9 < u_09 < 0.95
+# ── The review's findings, one test each ────────────────────────────────────
+
+RESET = """() => {
+  _spSelect(null); _sp.flight = null; _sp.glide = null; _sp.pendingFly = null; _sp.at = 'Earth';
+  _sp.jd = _sp.openJd = _dateToJD(Date.now()); _sp.moved = false; _sp.layout = _sp.layoutTarget = 1;
+  Object.assign(_sp.cam, { follow: 'Sun', dist: SP_OVERVIEW_DIST_AU, az: SP_START_AZIMUTH, el: SP_OVERVIEW_ELEVATION, lookYaw: 0, lookPitch: 0 });
+  _sp.capQueue = []; _sp.caption = null; _sp.seen = {}; _sp.beta = 0.1; _sp.scaleMode = 'readable'; _sp.scaleCache = null; _sp.rateIdx = 0;
+  _spRenderCaption(); _spShowGroup('planets'); _spSyncControls(); _sp.dirty = true; _spFrame();
+}"""
+STEP = "() => { _spStepGlide(1e6); _spStepLayout(1e6); _sp.dirty = true; _spFrame(); return !!_sp.flight; }"
+
+
+@pytest.fixture(scope="module")
+def space(browser, served):
+    ctx, pg, seen, errors = _page(browser, served)
+    _open(pg)
+    pg.wait_for_function("() => !!_sp.gl.starsLoaded", timeout=60_000, polling=POLL_MS)
+    yield pg, errors
+    ctx.close()
+
+
+def _card_lines(pg):
+    return pg.evaluate("() => document.getElementById('sp-card').innerText")
+
+
+def test_the_card_numbers_are_true_and_do_not_move_with_the_scale(space):
+    pg, errors = space
+    pg.evaluate(RESET)
+    texts = {}
+    for key, tab in (
+        ("Moon", "moons"),
+        ("Io", "moons"),
+        ("Titan", "moons"),
+        ("Jupiter", "planets"),
+    ):
+        for mode in ("readable", "true"):
+            pg.evaluate(
+                "(m) => { _sp.scaleMode = m; _sp.scaleCache = null; _spSyncControls(); }",
+                mode,
+            )
+            pg.click('[data-sp-tab="%s"]' % tab)
+            pg.click('[data-sp-key="%s"]' % key)
+            texts[(key, mode)] = _card_lines(pg)
+        # Distance, light time and the trip, whichever scale the moons are drawn at.
+        assert texts[(key, "readable")] == texts[(key, "true")], (
+            key,
+            texts[(key, "readable")],
+            texts[(key, "true")],
+        )
+    # The Moon is 1.3 light-seconds away, not the 52 the drawn x39 orbit would give.
+    assert (
+        "1.3 sec" in texts[("Moon", "readable")]
+        and "52" not in texts[("Moon", "readable")]
+    ), texts[("Moon", "readable")]
+    assert not errors, errors
+
+
+def test_now_is_offered_only_once_the_clock_has_moved_and_dates_are_utc(space):
+    pg, errors = space
+    pg.evaluate(RESET)
+    pg.wait_for_timeout(3000)
+    assert pg.evaluate("() => document.getElementById('sp-now').hidden") is True
+    assert "UTC" in pg.evaluate("() => document.getElementById('sp-when').textContent")
+    pg.evaluate("() => { _sp.jd += 2; _sp.moved = true; _spUpdateText(); }")
+    assert pg.evaluate("() => document.getElementById('sp-now').hidden") is False
+    pg.click("#sp-now")
+    assert pg.evaluate("() => document.getElementById('sp-now').hidden") is True
+    assert not errors, errors
+
+
+def test_a_flight_to_a_probe_that_will_be_gone_is_refused_with_a_reason(space):
+    pg, errors = space
+    pg.evaluate(RESET)
+    # Parker's table ends in a day; at 30 km/s Earth to Parker takes far longer than that.
+    pg.evaluate(
+        "() => { _sp.jd = _spTrack('parker').jd1 - 1; _sp.beta = SP_MIN_BETA; _sp.dirty = true; _spFrame(); }"
+    )
+    pg.click('[data-sp-tab="probes"]')
+    pg.click('[data-sp-key="parker"]')
+    assert pg.evaluate("() => document.getElementById('sp-fly').disabled") is True
+    assert "gone before you get there" in _card_lines(pg)
+    pg.evaluate("() => { _spLaunch('parker'); _spFrame(); }")
+    assert pg.evaluate("() => !_sp.flight") is True
+    pg.wait_for_timeout(500)  # frames keep coming without an error
+    assert not errors, errors
+
+
+def test_a_planet_does_not_grow_under_the_ship(space):
+    pg, errors = space
+    pg.evaluate(RESET)
+    # The day Voyager 2 passed Neptune the planet is drawn true size; two days on, with it gone, x39.
+    pg.evaluate(
+        "() => { _sp.jd = _sp.openJd = Date.UTC(1989, 7, 25, 3, 56) / 86400000 + 2440587.5; _sp.dirty = true; _spFrame(); }"
+    )
+    pg.click('[data-sp-key="Neptune"]')
+    pg.click("#sp-fly")
+    assert pg.evaluate(STEP)
+    before = pg.evaluate("() => _spShownRadius('Neptune', _spScaleNow())")
+    pg.evaluate("() => { _spSkipFlight(); _spFrame(); }")
+    after = pg.evaluate("() => _spShownRadius('Neptune', _spScaleNow())")
+    assert before == after
+    # And the camera stops outside the planet as drawn, not inside it.
+    assert pg.evaluate("() => _sp.cam.dist") >= 1.5 * after
+    assert not errors, errors
+
+
+def test_the_overview_shows_the_whole_system_with_every_ring_apart(space):
+    pg, errors = space
+    pg.evaluate(RESET)
+    out = pg.evaluate("""() => {
+          const by = {}; _sp.items.forEach((i) => { by[i.key] = i; });
+          const sun = by.Sun.scr, inside = (k) => by[k] && by[k].scr.x > 0 && by[k].scr.x < _sp.w && by[k].scr.y > 0 && by[k].scr.y < _sp.h;
+          const ring = ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'].map((k) => Math.hypot(by[k].scr.x - sun.x, by[k].scr.y - sun.y));
+          return { inside: ['Sun', 'Neptune', 'Pluto', 'voyager1', 'voyager2', 'pioneer10', 'pioneer11', 'newhorizons'].filter((k) => by[k]).map((k) => [k, inside(k)]), ring, w: _sp.w };
+        }""")
+    assert all(ok for _, ok in out["inside"]), out["inside"]
+    # Mercury to Mars are told apart: each a few pixels beyond the last (on a 390 px screen).
+    assert all(b - a >= 3 for a, b in zip(out["ring"][:4], out["ring"][1:5])), out[
+        "ring"
+    ]
+    assert out["w"] == 390
+    assert not errors, errors
+
+
+def test_choosing_something_out_of_view_shows_it_and_only_its_path_is_drawn(space):
+    pg, errors = space
+    pg.evaluate(RESET)
+    assert (
+        pg.evaluate(
+            "() => Object.values(_sp.gl.trails).filter((t) => t.past.visible).length"
+        )
+        == 0
+    )
+    pg.click('[data-sp-tab="probes"]')
+    pg.click('[data-sp-key="voyager1"]')
+    pg.evaluate(STEP)
+    assert pg.evaluate(
+        "() => Object.entries(_sp.gl.trails).filter(([k, t]) => t.past.visible).map(([k]) => k)"
+    ) == ["voyager1"]
+    # Zoomed in on Jupiter, Voyager 1 is nowhere in view: choosing it goes back out to the whole system.
+    pg.evaluate(
+        "() => { _sp.layout = _sp.layoutTarget = 0; Object.assign(_sp.cam, { follow: 'Jupiter', dist: 0.05 }); _spSelect(null); _sp.dirty = true; _spFrame(); }"
+    )
+    pg.click('[data-sp-key="voyager1"]')
+    assert pg.evaluate("() => _sp.layoutTarget") == 1
+    pg.evaluate(STEP)
+    assert pg.evaluate(
+        "() => { const i = _sp.byKey.voyager1; return i.scr.x > 0 && i.scr.x < _sp.w && i.scr.y > 0 && i.scr.y < _sp.h; }"
+    )
+    assert not errors, errors
+
+
+def test_a_tap_on_a_planet_is_the_planet_not_its_moon(space):
+    pg, errors = space
+    pg.evaluate(RESET)
+    x, y = pg.evaluate("() => { const s = _sp.byKey.Saturn.scr; return [s.x, s.y]; }")
+    pg.evaluate("([x, y]) => _spTapAt(x + 3, y + 2)", [x, y])
+    assert pg.evaluate("() => _sp.selected") == "Saturn"
+    assert not errors, errors
+
+
+def test_the_light_effects_are_shown_in_turn_not_skipped(space):
+    pg, errors = space
+    pg.evaluate(RESET)
+    _set_speed(pg, 0.99)
+    pg.click('[data-sp-key="Neptune"]')
+    pg.click("#sp-fly")
+    assert pg.evaluate(STEP)
+    shown = []
+    pg.evaluate(
+        "() => { const f = _sp.flight; f.p = 0.3; _spStepFlight(1); _spUpdateText(); }"
+    )
+    for _ in range(6):
+        kind = pg.evaluate("() => _sp.caption && _sp.caption.kind")
+        if not kind:
+            break
+        shown.append(kind)
+        if kind == "colour":   # the last of the three stays up until the flight ends
+            break
+        pg.evaluate("() => { _sp.caption.until = 1; _spUpdateText(); }")
+    assert shown == ["race", "stars", "colour"], shown
+    pg.evaluate("() => { _spSkipFlight(); _spFrame(); }")
+    assert pg.evaluate("() => _sp.caption && _sp.caption.kind") == "clocks"
+    assert not errors, errors
+
+
+def test_text_is_written_only_when_it_changes(space):
+    pg, errors = space
+    pg.evaluate(RESET)
+    pg.click('[data-sp-key="Jupiter"]')
+    pg.evaluate(
+        "() => { window.__muts = 0; new MutationObserver((m) => { window.__muts += m.length; }).observe(document.getElementById('sp-view'), { subtree: true, childList: true, characterData: true }); }"
+    )
+    pg.evaluate(
+        "() => { for (let i = 0; i < 30; i++) { _spUpdateText(); _spUpdateCardLines(); _spLabels(); } }"
+    )
+    assert pg.evaluate("window.__muts") == 0
+    assert not errors, errors
+
+
+def test_every_control_is_a_finger_wide(space):
+    pg, errors = space
+    pg.evaluate(RESET)
+    small = pg.evaluate(
+        """() => [...document.querySelectorAll('#sp-view button')].filter((b) => b.offsetParent && !b.hidden && b.getBoundingClientRect().height > 0 && b.getBoundingClientRect().height < 43)
+                 .map((b) => [b.id || b.textContent.trim(), Math.round(b.getBoundingClientRect().height)])"""
+    )
+    assert small == [], small
+    assert not errors, errors
+
+
+def test_without_webgl_there_are_no_empty_pills_and_the_orrery_is_named(
+    browser, served
+):
+    ctx, pg, seen, errors = _page(browser, served)
+    try:
+        pg.evaluate("() => { HTMLCanvasElement.prototype.getContext = () => null; }")
+        pg.evaluate("_almOpenSpace()")
+        pg.wait_for_function(
+            "() => typeof _sp !== 'undefined' && _sp && document.getElementById('sp-msg').textContent.includes('orrery')",
+            timeout=READY_MS,
+            polling=250,
+        )
+        assert (
+            pg.evaluate(
+                "() => getComputedStyle(document.querySelector('#sp-view .ae-tools')).display"
+            )
+            == "none"
+        )
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_the_russian_speed_unit_is_russian_and_the_date_is_one_line(browser, served):
+    ctx = browser.new_context(
+        viewport=VIEW,
+        device_scale_factor=2,
+        has_touch=True,
+        is_mobile=True,
+        service_workers="block",
+        locale="ru-RU",
+    )
+    pg = ctx.new_page()
+    errors = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        pg.goto(served + "/#almanac", wait_until="load")
+        pg.wait_for_function(ON_PAGE, timeout=60_000, polling=POLL_MS)
+        _open(pg)
+        unit = pg.evaluate("() => document.getElementById('sp-speedout').textContent")
+        assert "км" in unit and "km/s" not in unit, unit
+        assert (
+            pg.evaluate(
+                "() => document.getElementById('sp-when').getBoundingClientRect().height"
+            )
+            < 20
+        )  # one line
+        assert not errors, errors
+    finally:
+        ctx.close()
