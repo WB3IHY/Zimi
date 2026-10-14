@@ -570,7 +570,7 @@ function _skyGLView(s) {
 // Kept in this browser. The defaults are the true sky: a dark site, the true
 // size of the Sun and Moon where it can be seen, the true horizon.
 var SKY_SETTINGS_KEY = 'zimi_sky_settings';
-var SKY_SETTING_DEFAULTS = { skin: 'horizon', lines: 'lines', size: 'auto', dial: 0, red: false };
+var SKY_SETTING_DEFAULTS = { skin: 'horizon', lines: 'lines', size: 'auto', dial: 0 };
 var SKY_SETTING_VALUES = { skin: ['horizon', 'beach'], lines: ['off', 'lines', 'names'], size: ['auto', 'true', 'large'] };
 var _skySettings = null;
 function _skyLoadSettings() {
@@ -579,24 +579,55 @@ function _skyLoadSettings() {
   for (k in SKY_SETTING_DEFAULTS) out[k] = SKY_SETTING_DEFAULTS[k];
   for (k in SKY_SETTING_VALUES) if (SKY_SETTING_VALUES[k].indexOf(saved[k]) >= 0) out[k] = saved[k];
   if (typeof saved.dial === 'number' && saved.dial >= 0 && saved.dial <= 1) out.dial = saved.dial;
-  if (saved.red === true) out.red = true;
   return out;
 }
 function _skySetting(k) { if (!_skySettings) _skySettings = _skyLoadSettings(); return _skySettings[k]; }
 // Choose one; the sky draws once for it.
 function _skySet(k, v) {
+  if (k === 'red') { _skySetRed(!!v); return; }
   if (_skySetting(k) === v) return;
   _skySettings[k] = v;
   try { localStorage.setItem(SKY_SETTINGS_KEY, JSON.stringify(_skySettings)); } catch (e) {}
   var s = _skyState;
   if (s) { if (k === 'dial' && s.eph) _skyBrightness(s); s.baseDirty = true; if (k === 'skin') _skyArm(); _skyKick(); }
-  if (k === 'red') {
-    var wrap = document.querySelector && document.querySelector('.almanac-sky-wrap');
-    if (wrap && wrap.classList) wrap.classList.toggle('sky-red', !!v);
-    if (typeof CustomEvent === 'function' && document.dispatchEvent) document.dispatchEvent(new CustomEvent('zimisky:red', { detail: { on: !!v } }));
-  }
 }
-function _skyRedOn() { return !!_skySetting('red'); }
+
+// ── Red night mode ──
+// The one switch every view shares: localStorage 'zimi.night' = 'red', stamped
+// as the class night-red on <html> (by the shell before first paint). The sky
+// follows it, draws deep red on black when it is set, and flips it through
+// _nightApply when its own checkbox does.
+var SKY_NIGHT_KEY = 'zimi.night', SKY_NIGHT_VALUE = 'red', SKY_NIGHT_CLASS = 'night-red';
+var _skyRedSeen = false;
+function _skyRedOn() {
+  var root = typeof document !== 'undefined' && document.documentElement;
+  if (root && root.classList && root.classList.contains(SKY_NIGHT_CLASS)) return true;
+  try { return localStorage.getItem(SKY_NIGHT_KEY) === SKY_NIGHT_VALUE; } catch (e) { return false; }
+}
+function _skySetRed(on) {
+  try { if (on) localStorage.setItem(SKY_NIGHT_KEY, SKY_NIGHT_VALUE); else localStorage.removeItem(SKY_NIGHT_KEY); } catch (e) {}
+  if (typeof _nightApply === 'function') _nightApply();
+  else if (document.documentElement && document.documentElement.classList) document.documentElement.classList.toggle(SKY_NIGHT_CLASS, on);
+  _skyRedChanged();
+}
+// The sky's side of a change, whoever made it.
+function _skyRedChanged() {
+  var on = _skyRedOn();
+  if (on === _skyRedSeen) return;
+  _skyRedSeen = on;
+  var wrap = document.querySelector && document.querySelector('.almanac-sky-wrap');
+  if (wrap && wrap.classList) wrap.classList.toggle('sky-red', on);
+  var box = document.querySelector && document.querySelector('#almanac-sky-set [data-sky-set="red"]');
+  if (box) box.checked = on;
+  if (typeof CustomEvent === 'function' && document.dispatchEvent) document.dispatchEvent(new CustomEvent('zimisky:red', { detail: { on: on } }));
+  _skyKickDirty();
+}
+function _skyWatchNight() {
+  if (_skyWatchNight.on || typeof MutationObserver !== 'function' || !document.documentElement) return;
+  _skyWatchNight.on = true;
+  _skyRedSeen = _skyRedOn();
+  new MutationObserver(_skyRedChanged).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+}
 
 // The sky's own light: the gradient, the glow on the Sun's side, the Milky Way.
 function _skyPaintSky(ctx, s) {
@@ -1022,7 +1053,8 @@ function _skyPaintMoon(ctx, s, md) {
   ctx.fillRect(-R, -R, R * 2, R * 2);
   ctx.globalCompositeOperation = 'screen';
   ctx.globalAlpha = 1 - 0.1 * day;
-  if (spr) ctx.drawImage(spr, -R, -R, R * 2, R * 2);
+  if (s.obsc > 0.5) { /* in front of the Sun its night side is black: no sprite */ }
+  else if (spr) ctx.drawImage(spr, -R, -R, R * 2, R * 2);
   else { ctx.fillStyle = '#d8d2c0'; ctx.fillRect(-R, -R, R * 2, R * 2); }
   ctx.restore();
   if (s.obsc > 0.9) _skyPaintCorona(ctx, x, y, R, s.obsc);
@@ -1049,7 +1081,8 @@ function _skyPaintCorona(ctx, x, y, R, obsc) {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(x, y, R * SKY_CORONA_RADII, 0, Math.PI * 2); ctx.fill();
+  // A ring, not a disc: the Moon's black face is left alone.
+  ctx.beginPath(); ctx.arc(x, y, R * SKY_CORONA_RADII, 0, Math.PI * 2); ctx.arc(x, y, R * 0.98, 0, Math.PI * 2, true); ctx.fill();
   ctx.restore();
 }
 // The Earth's shadow across the disc when there is one: the penumbra a
@@ -1978,7 +2011,7 @@ var ZimiSky = {
   },
   setAspect: function (a) { _skyAspectReq = a > 0 ? a : null; var s = _skyState; if (s) _initSkyScene(s.now, s.lat, s.lon, false); },
   redMode: _skyRedOn,
-  setRedMode: function (on) { _skySet('red', !!on); },
+  setRedMode: function (on) { _skySetRed(!!on); },
   supportsLens: function () { return _sgReady(); }
 };
 

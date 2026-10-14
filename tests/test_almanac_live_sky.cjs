@@ -245,7 +245,7 @@ check(armed() === '', 'scrubbed: no live timer, the sky holds the focused instan
 vm.runInContext('_almFocus = null; _skyState.eph.sunGeoAlt = 20', S);
 check(armed() === '_skyLiveTick', 'by day the same');
 // The beach is a choice: its palms sway and its planes, birds, whales and meteors cross.
-vm.runInContext('_skySettings = { skin: "beach", lines: "lines", size: "auto", dial: 0, red: false }', S);
+vm.runInContext('_skySettings = { skin: "beach", lines: "lines", size: "auto", dial: 0 }', S);
 check(armed() === '_skyLiveTick,' + MOVING, 'the beach scene: the clock, the palms and the moving things');
 vm.runInContext('__reduce = true', S);
 check(armed() === '_skyLiveTick', 'motion reduced: no breeze and nothing crossing, even on the beach');

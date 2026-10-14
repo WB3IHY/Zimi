@@ -414,6 +414,17 @@ def test_red_night_mode_is_red_and_the_switch_is_readable(browser, served):
         assert ch["r"] > 0 and ch["g"] < 0.12 * ch["r"] and ch["b"] < 0.08 * ch["r"], ch
         pg.evaluate("ZimiSky.setRedMode(false)")
         assert pg.evaluate("window.__red") == [True, False]
+        # It is the one switch every view shares (localStorage zimi.night, the night-red class on <html>):
+        # the sky wrote it, and follows it when another view flips it.
+        assert pg.evaluate("localStorage.getItem('zimi.night')") is None
+        pg.evaluate("ZimiSky.setRedMode(true)")
+        assert pg.evaluate("localStorage.getItem('zimi.night')") == "red"
+        pg.evaluate("localStorage.removeItem('zimi.night'); document.documentElement.classList.remove('night-red'); ZimiSky.setRedMode(false)")
+        pg.evaluate("window.__red = []; document.documentElement.classList.add('night-red')")
+        pg.wait_for_function("() => window.__red.length === 1 && ZimiSky.redMode()", polling=POLL_MS)
+        assert pg.evaluate("window.__red") == [True]
+        pg.evaluate("document.documentElement.classList.remove('night-red')")
+        pg.wait_for_function("() => window.__red.length === 2 && !ZimiSky.redMode()", polling=POLL_MS)
         assert not errors, errors
     finally:
         ctx.close()
@@ -445,5 +456,23 @@ def test_a_guessed_place_is_said_to_be_guessed_and_named(browser, served):
         assert "guessed" not in text.lower(), text
         for label in ("sunrise", "moon", "true north", "solar time"):
             assert label in text.lower(), (label, text)
+    finally:
+        ctx.close()
+
+
+def test_a_planets_phase_is_drawn_as_the_share_that_is_lit(browser, served):
+    ctx, pg, errors = _almanac(browser, served)
+    try:
+        got = pg.evaluate(
+            """() => { const out = {}; for (const k of [0.04, 0.3, 0.5, 0.8, 0.97]) {
+              const c = document.createElement('canvas'); c.width = c.height = 120; const x = c.getContext('2d', { willReadFrequently: true });
+              _skyDrawPhase(x, 60, 60, 40, k, 0.7, '#ffffff', 1);
+              const d = x.getImageData(0, 0, 120, 120).data; let lit = 0;
+              for (let i = 3; i < d.length; i += 4) if (d[i] > 200) lit++;
+              out[k] = lit / (Math.PI * 1600); } return out; }"""
+        )
+        for k, share in got.items():
+            assert abs(share - float(k)) < 0.04, got
+        assert not errors, errors
     finally:
         ctx.close()

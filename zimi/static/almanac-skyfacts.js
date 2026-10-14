@@ -132,7 +132,9 @@ function _skyBindSettings() {
   var box = document.getElementById('almanac-sky-set');
   if (!box) return;
   var wrap = box.closest ? box.closest('.almanac-sky-wrap') : null;
-  if (wrap) wrap.classList.toggle('sky-red', _skyRedOn());
+  _skyWatchNight();
+  _skyRedSeen = _skyRedOn();
+  if (wrap) wrap.classList.toggle('sky-red', _skyRedSeen);
   if (box._skyBound) return;
   box._skyBound = true;
   box.innerHTML = _skySettingsHtml();

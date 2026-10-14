@@ -150,7 +150,7 @@ function _sgLimitMag(lum) {
 // night must stay dark). Display value = 1 - exp(-L * exposure). Rows of
 // [adapting luminance, exposure].
 var SG_EXPOSURE = [[6000, 2.4e-4], [600, 1.4e-3], [50, 4e-3], [3.5, 8e-3], [0.04, 0.12], [0.00017, 22]];
-var SG_MOON_ADAPT = 0.15;                      // the Moon's share of what the eye adapts to
+var SG_MOON_ADAPT = 0.35;                      // the Moon's share of what the eye adapts to
 function _sgExposure(sunAlt, moonAlt, moonIllum, dial, sunShare) {
   var L = Math.max(_sgZenithLum(sunAlt) * (sunShare == null ? 1 : sunShare), SG_DARK_SKY_LUM) + SG_MOON_ADAPT * _sgMoonSkyLum(moonAlt, moonIllum) + _sgSkyglow(dial);
   return _sgInterpLog(SG_EXPOSURE, L);
@@ -660,7 +660,8 @@ function _sgDraw(p) {
   _sgViewUniforms(gl, sg.pSky, p);
   gl.uniform1f(u.uSunAz, p.sunAz * DEG_TO_RAD); gl.uniform1f(u.uSunLux, sunLux);
   gl.uniform1f(u.uMoonAz, p.moonAz * DEG_TO_RAD); gl.uniform1f(u.uMoonLux, moonLux);
-  gl.uniform1f(u.uExposure, _sgExposure(p.sunAltGeo, p.moonAlt, p.moonIllum, p.dial, p.sunShare));
+  // The eye has not time to adapt to an eclipse's dimming: it keeps most of the daylight's exposure (the square root of the share).
+  gl.uniform1f(u.uExposure, _sgExposure(p.sunAltGeo, p.moonAlt, p.moonIllum, p.dial, p.sunShare == null ? 1 : Math.sqrt(p.sunShare)));
   var glow = _sgSkyglow(p.dial);
   gl.uniform3f(u.uGlow, glow * 1.0, glow * 0.82, glow * 0.6);
   gl.uniformMatrix3fv(u.uGal, true, _sgMul3(SG_EQ_TO_GAL, _sgTranspose(p.horizon)));
