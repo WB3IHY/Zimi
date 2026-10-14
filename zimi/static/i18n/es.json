@@ -3082,5 +3082,6 @@
   "look_none": "Este dispositivo no tiene sensores de movimiento. Arrastra para mirar alrededor.",
   "look_calibrate": "Mueve el teléfono en forma de ocho para ajustar la brújula.",
   "look_no_north": "Este teléfono no encuentra el norte, así que la vista puede estar girada.",
-  "look_earth": "Abrir Zimi Tierra aquí"
+  "look_earth": "Abrir Zimi Tierra aquí",
+  "look_insecure": "Los sensores de movimiento necesitan una dirección segura (https). Arrastra para mirar alrededor."
 }

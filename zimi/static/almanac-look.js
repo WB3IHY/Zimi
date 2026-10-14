@@ -122,3 +122,402 @@ function _lookFovByPinch(startFov, startDist, dist) {
   return _lookClamp(startFov * startDist / Math.max(dist, 1), LOOK_FOV_MIN_DEG, LOOK_FOV_MAX_DEG);
 }
 function _lookCompassPoint(az) { return LOOK_POINTS[Math.round(_lookNorm360(az) / 22.5) % 16]; }
+
+// ── The sensors ────────────────────────────────────────────────────────────
+
+var LOOK_SENSOR_WAIT_MS = 1500;        // no reading by then: this device has no sensors to read
+var LOOK_OFFSET_TAU_MS = 400;          // the compass's correction settles slower than the view
+var LOOK_NOTE_AFTER_MS = 1500;         // a calibration note appears only if the compass stays poor this long
+var LOOK_SETTLED_DEG = 0.05;           // the view has caught up with the reading
+var LOOK_REPAINT_DEG = 0.12;           // the sky is repainted past this much turn
+// The globe under your feet hangs this high (Earth radii; 640 km) at the
+// default field, and as much higher as the field is wider: the maps it is
+// drawn from are 20 km to a pixel, so a lower view is a smear, and the maps
+// of Zimi Earth are one tap away for the street.
+var LOOK_GROUND_ALT = 0.1;
+var LOOK_START_ALT_DEG = 20;
+var LOOK_CLOCK_MS = 60000;             // the sky moves a quarter degree a minute: drawn again that often
+var LOOK_ROOT_ID = 'almanac-look';
+var LOOK_STOPGAP_FOV_DEG = 60;         // the panorama is shown 60 degrees across...
+var LOOK_STOPGAP_DOWN_DEG = 120;       // ...and 120 down: square degrees, so a pixel is the same angle both ways
+
+var _look = null;                      // the open overlay's state
+
+function _lookT(key, vars) { return typeof t === 'function' ? t(key, vars) : key; }
+function _lookEl(id) { return document.getElementById(id); }
+function _lookScreenAngle() {
+  var a = (window.screen && screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle
+    : (typeof window.orientation === 'number' ? window.orientation : 0);
+  return _lookNorm360(a);
+}
+function _lookNeedsPermission() {
+  return typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function';
+}
+// Motion events need a secure address (https or localhost) on every phone.
+function _lookHasSensors() { return typeof DeviceOrientationEvent !== 'undefined' && window.isSecureContext !== false; }
+
+// iOS asks, once, in answer to a tap; everything else just listens.
+function _lookAskSensors() {
+  if (_lookNeedsPermission()) {
+    return DeviceOrientationEvent.requestPermission().then(function (r) { return r === 'granted' ? 'granted' : 'denied'; }, function () { return 'denied'; });
+  }
+  return Promise.resolve(_lookHasSensors() ? 'granted' : 'unavailable');
+}
+
+function _lookStartSensors() {
+  var S = _look;
+  if (S.sensing) return;
+  S.sensing = { absSeen: false, offset: null, lastEvent: 0, poorSince: 0, got: false };
+  S.onAbs = function (e) { _lookOnOrientation(e, true); };
+  S.onRel = function (e) { _lookOnOrientation(e, false); };
+  window.addEventListener('deviceorientationabsolute', S.onAbs);
+  window.addEventListener('deviceorientation', S.onRel);
+  S.sensorTimer = setTimeout(function () {
+    if (_look === S && S.sensing && !S.sensing.got) _lookSensorsFailed('look_none');
+  }, LOOK_SENSOR_WAIT_MS);
+}
+function _lookStopSensors(S) {
+  if (!S.sensing) return;
+  window.removeEventListener('deviceorientationabsolute', S.onAbs);
+  window.removeEventListener('deviceorientation', S.onRel);
+  clearTimeout(S.sensorTimer);
+  S.sensing = null;
+}
+function _lookSensorsFailed(noteKey) {
+  _lookStopSensors(_look);
+  _look.mode = 'drag';
+  _lookNote(_lookT(noteKey), 'sensors');
+  _lookButtons();
+}
+
+function _lookOnOrientation(e, absolute) {
+  var S = _look, sn = S && S.sensing;
+  if (!sn) return;
+  var ios = typeof e.webkitCompassHeading === 'number' && e.webkitCompassHeading >= 0;
+  if (e.alpha == null && !ios) return;                  // a desktop's empty first event
+  if (absolute) sn.absSeen = true; else if (sn.absSeen) return;   // Chrome fires both; the absolute one knows north
+  var now = performance.now();
+  var alpha = e.alpha || 0, beta = e.beta || 0, gamma = e.gamma || 0;
+  var view = _lookViewFromEuler(alpha, beta, gamma, _lookScreenAngle());
+  if (ios) {
+    // alpha is from wherever the phone woke; the heading says where north is.
+    var nat = _lookViewFromEuler(alpha, beta, gamma, 0);
+    var off = _lookHeadingOffset(nat.az, e.webkitCompassHeading);
+    var k = sn.offset == null ? 1 : 1 - Math.exp(-(now - sn.lastEvent) / LOOK_OFFSET_TAU_MS);
+    sn.offset = sn.offset == null ? off : sn.offset + _lookDelta(sn.offset, off) * k;
+    view = _lookApplyOffset(view, sn.offset);
+  }
+  sn.lastEvent = now;
+  if (!sn.got) { sn.got = true; S.mode = 'sensor'; _lookNote('', 'sensors'); _lookButtons(); }
+  var poor = _lookCompassNeedsCalibrating({ accuracy: ios ? e.webkitCompassAccuracy : null, absolute: absolute || !!e.absolute || ios });
+  if (poor) {
+    if (!sn.poorSince) sn.poorSince = now;
+    if (now - sn.poorSince > LOOK_NOTE_AFTER_MS) _lookNote(_lookT(ios ? 'look_calibrate' : 'look_no_north'), 'compass');
+  } else { sn.poorSince = 0; _lookNote('', 'compass'); }
+  S.target = { az: view.az, alt: view.alt, roll: view.roll };
+  _lookKick();
+}
+
+// ── The view ───────────────────────────────────────────────────────────────
+
+// One line of note at a time. `kind` says who wrote it, so a compass that
+// settles clears its own note and never one about the sensors.
+function _lookNote(text, kind) {
+  var n = _lookEl('look-note');
+  if (!n) return;
+  if (!text && _look.noteKind !== kind) return;
+  _look.noteKind = text ? kind : '';
+  n.textContent = text;
+  n.hidden = !text;
+}
+
+function _lookKick() { if (_look && !_look.raf) _look.raf = requestAnimationFrame(_lookFrame); }
+
+// One frame: the view takes a step toward the reading (and the finger's
+// trim), the layers follow. It asks for another only while it is still
+// moving: a held phone is a still picture and spends nothing.
+function _lookFrame(ts) {
+  var S = _look;
+  if (!S) return;
+  S.raf = 0;
+  var dt = S.last ? Math.min(ts - S.last, 100) : 16;
+  S.last = ts;
+  var goal = { az: _lookNorm360(S.target.az + S.trim.az), alt: _lookClamp(S.target.alt + S.trim.alt, -90, 90), roll: S.target.roll };
+  S.view = _lookSmooth(S.view, goal, dt, _lookReduceMotion() ? 1 : LOOK_SMOOTH_TAU_MS);
+  var moving = Math.abs(_lookDelta(S.view.az, goal.az)) > LOOK_SETTLED_DEG || Math.abs(S.view.alt - goal.alt) > LOOK_SETTLED_DEG;
+  if (!moving) S.view = goal;
+  _lookApply(S.view);
+  if (moving) S.raf = requestAnimationFrame(_lookFrame); else S.last = 0;
+}
+function _lookReduceMotion() { return typeof _almReduceMotion === 'function' && _almReduceMotion(); }
+
+function _lookSkyView() { return window.AlmanacSkyView || _lookStopgapSky; }
+
+function _lookApply(v) {
+  var S = _look, share = _lookGlobeShare(v.alt);
+  S.share = share;
+  var turned = !S.drawn || Math.abs(_lookDelta(S.drawn.az, v.az)) > LOOK_REPAINT_DEG || Math.abs(S.drawn.alt - v.alt) > LOOK_REPAINT_DEG || S.drawn.fov !== S.fov;
+  if (turned) {
+    S.drawn = { az: v.az, alt: v.alt, fov: S.fov };
+    if (S.skyMounted) _lookSkyView().setView(S.skyHost, v.az, v.alt, S.fov);
+    if (share > 0.01 && S.globe) S.globe.set({ bearing: v.az, alt: LOOK_GROUND_ALT * S.fov / LOOK_FOV_DEFAULT_DEG }, 0);
+  }
+  S.skyHost.style.opacity = String(1 - share);
+  S.globeEl.style.opacity = String(share);
+  S.root.classList.toggle('look-ground', share > 0.5);
+  S.skyHost.style.pointerEvents = share > 0.5 ? 'none' : '';
+  _lookEl('look-earth').hidden = share <= 0.5;
+  var altR = Math.round(v.alt), azR = Math.round(v.az) % 360;
+  var read = _lookCompassPoint(v.az) + ' ' + azR + '°   ' + (altR > 0 ? '+' : altR < 0 ? '−' : '') + Math.abs(altR) + '°';
+  var r = _lookEl('look-read');
+  if (r.textContent !== read) r.textContent = read;
+}
+
+// The sky as the Almanac draws it, shown through the window. This is the
+// contract a renderer that projects a view direction takes over, by
+// assigning window.AlmanacSkyView = {mount(host, place) -> bool,
+// setView(host, az, alt, fov), unmount(host)} (azimuth clockwise from north
+// and altitude in degrees, field of view across the screen's width). This
+// stopgap drives the panorama in almanac-sky.js through state it already has
+// (its centre azimuth and its field, both script globals) and moves the
+// canvas under the window so the altitude looked at is the middle of the
+// screen. Its field is fixed: the panorama's own.
+var _lookStopgapSky = {
+  mount: function (host, place) {
+    var wrap = document.querySelector('.almanac-sky-wrap');
+    if (!wrap || typeof _initSkyScene !== 'function') return false;
+    host._wrap = wrap;
+    host._home = { parent: wrap.parentNode, next: wrap.nextSibling };
+    host._was = { aspect: SKY_ASPECT, span: SKY_SPAN_DEG, half: SKY_SPAN_HALF };
+    SKY_SPAN_DEG = LOOK_STOPGAP_FOV_DEG; SKY_SPAN_HALF = SKY_SPAN_DEG / 2;
+    SKY_ASPECT = LOOK_STOPGAP_FOV_DEG / LOOK_STOPGAP_DOWN_DEG;
+    wrap.classList.add('look-wrap');
+    host.appendChild(wrap);
+    _initSkyScene(typeof _almFocusInstant === 'function' ? _almFocusInstant() : new Date(), place.lat, place.lon);
+    // Its observer asks whether the card is on screen; the window is always
+    // on screen, and the observer's answer for a canvas moved under it is not
+    // to be trusted. It watches the card again when the card is back.
+    var st = _skyState;
+    if (st.observer) st.observer.disconnect();
+    st.inView = true;
+    return true;
+  },
+  setView: function (host, az, alt) {
+    var s = typeof _skyState !== 'undefined' ? _skyState : null, wrap = host._wrap;
+    if (!s || !wrap) return;
+    var cv = s.canvas, cssH = cv.clientHeight, yh = cssH * SKY_HORIZON_Y;
+    var yc = yh - alt * (yh - cssH * SKY_ZENITH_Y) / 90;
+    cv.style.transform = 'translateY(' + Math.round(wrap.clientHeight / 2 - yc) + 'px)';
+    s.center = az; s.baseDirty = true;
+    _skyKick();
+  },
+  unmount: function (host) {
+    var wrap = host._wrap;
+    if (!wrap) return;
+    var cv = wrap.querySelector('canvas');
+    if (cv) cv.style.transform = '';
+    wrap.classList.remove('look-wrap');
+    SKY_ASPECT = host._was.aspect; SKY_SPAN_DEG = host._was.span; SKY_SPAN_HALF = host._was.half;
+    var home = host._home;
+    if (home.next && home.next.parentNode === home.parent) home.parent.insertBefore(wrap, home.next); else home.parent.appendChild(wrap);
+    host._wrap = null;
+    var loc = typeof _getLocation === 'function' ? _getLocation() : null;
+    if (loc) _initSkyScene(typeof _almFocusInstant === 'function' ? _almFocusInstant() : new Date(), loc.lat, loc.lon);
+    var st = _skyState;
+    if (st && st.observer) st.observer.observe(st.canvas);
+  },
+  // Re-lay the sky out after the window changed shape.
+  resize: function (host, place) {
+    _initSkyScene(typeof _almFocusInstant === 'function' ? _almFocusInstant() : new Date(), place.lat, place.lon);
+  }
+};
+
+// ── The overlay ────────────────────────────────────────────────────────────
+
+var LOOK_CLOSE_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+var LOOK_EARTH_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3.5 9.5c2.5.4 3.5 2 4.5 3.5s2.5 1 3 2.5-1 3 .5 4.5M13 3.2c-.4 2 .6 3 2 3.6s3.5.4 5 2.2"/></svg>';
+
+function _lookPlaceLabel(place) {
+  var f = function (x, p, n) { return Math.abs(x).toFixed(1) + '° ' + (x >= 0 ? p : n); };
+  var coords = '⁦' + f(place.lat, 'N', 'S') + ', ' + f(place.lon, 'E', 'W') + '⁩';
+  return place.name ? place.name + ' · ' + coords : coords;
+}
+
+function _lookButtons() {
+  var S = _look;
+  if (S) _lookEl('look-ask').hidden = !(S.mode === 'idle' && _lookHasSensors() && (_lookNeedsPermission() || !S.sensing));
+}
+
+function _lookOpen(opts) {
+  if (_look) return;
+  opts = opts || {};
+  var loc = typeof _getLocation === 'function' ? _getLocation() : { lat: 34, lon: 0, name: '' };
+  var place = opts.lat != null ? { lat: opts.lat, lon: opts.lon, name: opts.name || '' } : { lat: loc.lat, lon: loc.lon, name: loc.name || '' };
+  var root = document.createElement('div');
+  root.id = LOOK_ROOT_ID;
+  root.className = 'almanac-look';
+  root.setAttribute('role', 'dialog');
+  root.setAttribute('aria-label', _lookT('look_title'));
+  root.innerHTML =
+    '<div class="look-layers"><div class="look-sky" id="look-sky"></div><canvas class="look-globe" id="look-globe"></canvas><div class="look-you" id="look-you"></div></div>' +
+    '<div class="look-top"><button type="button" class="look-btn" id="look-close"></button>' +
+    '<div class="look-info"><div class="look-read" id="look-read"></div><div class="look-place" id="look-place"></div></div></div>' +
+    '<div class="look-note" id="look-note" role="status" hidden></div>' +
+    '<div class="look-bottom"><button type="button" class="look-main" id="look-ask"></button>' +
+    '<button type="button" class="look-main" id="look-earth" hidden>' + LOOK_EARTH_SVG + '<span></span></button></div>';
+  document.body.appendChild(root);
+  _lookEl('look-close').innerHTML = LOOK_CLOSE_SVG;
+  _lookEl('look-close').setAttribute('aria-label', _lookT('close'));
+  _lookEl('look-ask').textContent = _lookT('look_enable');
+  _lookEl('look-earth').lastChild.textContent = _lookT('look_earth');
+  _lookEl('look-place').textContent = _lookPlaceLabel(place);
+  document.body.classList.add('look-open');
+  var startAz = place.lat >= 0 ? 180 : 0;
+  var S = _look = {
+    root: root, skyHost: _lookEl('look-sky'), globeEl: _lookEl('look-globe'), place: place, mode: 'idle', fov: LOOK_FOV_DEFAULT_DEG,
+    target: { az: startAz, alt: LOOK_START_ALT_DEG, roll: 0 }, view: { az: startAz, alt: LOOK_START_ALT_DEG, roll: 0 },
+    trim: { az: 0, alt: 0 }, share: 0, raf: 0, last: 0, drawn: null, sensing: null, globe: null, resizeTimer: 0, noteKind: ''
+  };
+  S.skyMounted = !!_lookSkyView().mount(S.skyHost, place);
+  // The Almanac under the window rests: its orrery, clocks and the sky's own
+  // breeze would each ask for frames all the while nothing here moves.
+  if (typeof _cancelAllRAF === 'function') _cancelAllRAF();
+  S.clock = setInterval(_lookRefreshClock, LOOK_CLOCK_MS);
+  _lookEl('look-close').onclick = _lookClose;
+  _lookEl('look-ask').onclick = _lookAskTap;
+  _lookEl('look-earth').onclick = function () {
+    var p = S.place;
+    _lookClose();
+    if (typeof openEarth === 'function') openEarth(false, { lat: p.lat, lon: p.lon, alt: 0.01 });
+  };
+  _lookBindInput(root);
+  S.onKey = _lookKey;
+  S.onResize = function () { clearTimeout(S.resizeTimer); S.resizeTimer = setTimeout(_lookResize, 200); };
+  document.addEventListener('keydown', S.onKey);
+  window.addEventListener('resize', S.onResize);
+  if (!_lookHasSensors()) {
+    S.mode = 'drag';
+    _lookNote(_lookT(window.isSecureContext === false && typeof DeviceOrientationEvent !== 'undefined' ? 'look_insecure' : 'look_none'), 'sensors');
+  } else if (!_lookNeedsPermission()) {
+    _lookStartSensors();     // nothing to ask: listen at once
+  }
+  _lookButtons();
+  _lookApply(S.view);
+  _lookWarmGlobe();
+}
+
+// The stars turn: the sky is worked out for now again, once a minute.
+function _lookRefreshClock() {
+  var S = _look, st = typeof _skyState !== 'undefined' ? _skyState : null;
+  if (!S || !st || !S.skyMounted || window.AlmanacSkyView) return;
+  if (typeof _almFocus === 'undefined' || !_almFocus) _skyCompute(st, new Date());
+  S.drawn = null;
+  _lookKick();
+}
+
+function _lookAskTap() {
+  var S = _look;
+  _lookAskSensors().then(function (r) {
+    if (_look !== S) return;
+    if (r === 'granted') { _lookStartSensors(); _lookButtons(); }
+    else _lookSensorsFailed(r === 'denied' ? 'look_denied' : 'look_none');
+  });
+}
+
+// The globe is made once the sky is up, so the first tilt to the ground has
+// it ready; nothing draws until it shows.
+function _lookWarmGlobe() {
+  var S = _look;
+  var go = function () {
+    if (_look !== S || typeof ZimiGlobe === 'undefined') return;
+    ZimiGlobe.create(S.globeEl, { interactive: false, lat: S.place.lat, lon: S.place.lon, alt: LOOK_GROUND_ALT }).then(function (g) {
+      if (_look !== S) { g.dispose(); return; }
+      S.globe = g;
+      g.set({ bearing: S.view.az, alt: LOOK_GROUND_ALT * S.fov / LOOK_FOV_DEFAULT_DEG }, 0);
+    }).catch(function () { /* no WebGL: the ground stays dark, as the sky below the horizon already is */ });
+  };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(go, { timeout: 1500 }); else setTimeout(go, 300);
+}
+
+function _lookResize() {
+  var S = _look;
+  if (!S) return;
+  var sky = _lookSkyView();
+  if (S.skyMounted && sky.resize) sky.resize(S.skyHost, S.place);
+  S.drawn = null;
+  if (S.globe) S.globe.resize();
+  _lookKick();
+}
+
+// A finger or a mouse turns the view: with no sensors it is the view; with
+// them it trims the compass (a drifting north is one swipe from right).
+// Two fingers change the field.
+function _lookBindInput(root) {
+  var S = _look, pts = new Map(), last = null, pinch = null;
+  var layers = root.querySelector('.look-layers');
+  layers.style.touchAction = 'none';
+  layers.addEventListener('pointerdown', function (e) {
+    layers.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 1) last = { x: e.clientX, y: e.clientY };
+    if (pts.size === 2) { var a = Array.from(pts.values()); pinch = { d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), fov: S.fov }; }
+  });
+  layers.addEventListener('pointermove', function (e) {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2 && pinch) {
+      var a = Array.from(pts.values());
+      S.fov = _lookFovByPinch(pinch.fov, pinch.d, Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y));
+      _lookKick();
+      return;
+    }
+    if (!last || pts.size !== 1) return;
+    var sensing = S.mode === 'sensor';
+    var base = sensing ? S.trim : S.target;
+    var next = _lookDragBy({ az: base.az, alt: base.alt }, e.clientX - last.x, e.clientY - last.y, S.fov, root.clientWidth);
+    last = { x: e.clientX, y: e.clientY };
+    if (sensing) S.trim = { az: next.az, alt: next.alt };
+    else S.target = { az: next.az, alt: next.alt, roll: 0 };
+    _lookKick();
+  });
+  var end = function (e) { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; if (!pts.size) last = null; };
+  layers.addEventListener('pointerup', end);
+  layers.addEventListener('pointercancel', end);
+}
+function _lookKey(e) {
+  var S = _look;
+  if (!S) return;
+  if (e.key === 'Escape') { _lookClose(); return; }
+  var base = S.mode === 'sensor' ? S.trim : S.target;
+  var next = _lookKeyBy({ az: base.az, alt: base.alt }, e.key);
+  if (!next) return;
+  e.preventDefault();
+  if (S.mode === 'sensor') S.trim = { az: next.az, alt: next.alt };
+  else S.target = { az: next.az, alt: next.alt, roll: 0 };
+  _lookKick();
+}
+
+function _lookClose() {
+  var S = _look;
+  if (!S) return;
+  _look = null;
+  _lookStopSensors(S);
+  if (S.raf) cancelAnimationFrame(S.raf);
+  clearTimeout(S.resizeTimer);
+  clearInterval(S.clock);
+  document.removeEventListener('keydown', S.onKey);
+  window.removeEventListener('resize', S.onResize);
+  if (S.globe) S.globe.dispose();
+  if (S.skyMounted) {
+    var prev = _look;
+    _look = S;                      // unmount may ask for the open overlay's host
+    _lookSkyView().unmount(S.skyHost);
+    _look = prev;
+  }
+  if (typeof _resumeAllRAF === 'function' && typeof _almanacOpen !== 'undefined' && _almanacOpen) _resumeAllRAF();
+  S.root.remove();
+  document.body.classList.remove('look-open');
+}
+
+window.openAlmanacLookNow = _lookOpen;
+window.closeAlmanacLook = _lookClose;

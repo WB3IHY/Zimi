@@ -3082,5 +3082,6 @@
   "look_none": "Dieses Gerät hat keine Bewegungssensoren. Ziehe, um dich umzusehen.",
   "look_calibrate": "Schwenke das Telefon in einer Acht, um den Kompass zu kalibrieren.",
   "look_no_north": "Dieses Telefon findet Norden nicht, die Ansicht kann also gedreht sein.",
-  "look_earth": "Zimi Erde hier öffnen"
+  "look_earth": "Zimi Erde hier öffnen",
+  "look_insecure": "Bewegungssensoren brauchen eine sichere (https) Adresse. Ziehe, um dich umzusehen."
 }

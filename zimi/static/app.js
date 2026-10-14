@@ -6682,6 +6682,27 @@ function openAlmanac(replaceState) {
   _openAlmanacInner(replaceState);
 }
 
+// Point the phone at the sky (almanac-look.js, and the globe under it,
+// globe.js): loaded on the first tap of the sky's Look button, never with the
+// Almanac. opts: {lat, lon, name} for a place other than the Almanac's.
+var _almLookLoading = null;
+function openAlmanacLook(opts) {
+  if (!_almLookLoading) {
+    _almLookLoading = new Promise(function(resolve, reject) {
+      var files = ['/static/globe.js?v=45', '/static/almanac-look.js?v=45'], left = files.length;
+      files.forEach(function(src) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.async = false;
+        s.onload = function() { if (--left === 0) resolve(); };
+        s.onerror = function() { _almLookLoading = null; reject(new Error(src)); };
+        document.head.appendChild(s);
+      });
+    });
+  }
+  _almLookLoading.then(function() { window.openAlmanacLookNow(opts); }, function() { _showToast(t('almanac_unavailable_offline')); });
+}
+
 // (Almanac rendering code lives in /static/almanac.js)
 // closeAlmanac is defined there but referenced by the HTML close button,
 // so we provide a stub that delegates once loaded.

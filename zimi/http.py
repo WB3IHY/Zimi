@@ -1859,6 +1859,11 @@ _PDF_ASSETS = (
 # Pages whose shared parts are put in as they are served: never from the
 # in-memory cache, always revalidated by the browser.
 _INLINED_PAGES = {name: _APP_ASSETS for name in APP_PAGES}
+# The globe is Zimi Earth's own: inlined into its page, so a fix to it is
+# never behind a year of cache (the page itself is asked for each time).
+_INLINED_PAGES["earth.html"] = _APP_ASSETS + (
+    (b"<!--@globe.js@-->", "globe.js", b"<script>\n", b"</script>"),
+)
 _INLINED_PAGES[PDF_VIEWER] = _PDF_ASSETS
 
 

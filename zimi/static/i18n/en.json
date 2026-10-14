@@ -3082,5 +3082,6 @@
   "look_none": "This device has no motion sensors. Drag to look around.",
   "look_calibrate": "Wave the phone in a figure eight to settle the compass.",
   "look_no_north": "This phone cannot find north, so the view may be turned.",
-  "look_earth": "Open Zimi Earth here"
+  "look_earth": "Open Zimi Earth here",
+  "look_insecure": "Motion sensors need a secure (https) address. Drag to look around."
 }

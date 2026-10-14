@@ -3082,5 +3082,6 @@
   "look_none": "此设备没有动作传感器。拖动即可环顾四周。",
   "look_calibrate": "请将手机画8字形，以校准指南针。",
   "look_no_north": "此手机无法确定北方，视图可能有偏转。",
-  "look_earth": "在这里打开 Zimi 地球"
+  "look_earth": "在这里打开 Zimi 地球",
+  "look_insecure": "动作传感器需要安全（https）地址。拖动即可环顾四周。"
 }

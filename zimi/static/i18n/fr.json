@@ -3082,5 +3082,6 @@
   "look_none": "Cet appareil n’a pas de capteurs de mouvement. Faites glisser pour regarder autour.",
   "look_calibrate": "Dessinez un huit avec le téléphone pour calibrer la boussole.",
   "look_no_north": "Ce téléphone ne trouve pas le nord : la vue peut être tournée.",
-  "look_earth": "Ouvrir Zimi Terre ici"
+  "look_earth": "Ouvrir Zimi Terre ici",
+  "look_insecure": "Les capteurs de mouvement exigent une adresse sécurisée (https). Faites glisser pour regarder autour."
 }
