@@ -46,7 +46,6 @@ var SP_MIN_BETA = 1e-4;            // 30 km/s, about a probe's speed
 var SP_RAMP_FRACTION = 0.05;
 var SP_BETA_STEPS = 1000;          // the speed slider's resolution
 var SP_OBLIQUITY_DEG = AE_OBLIQUITY_J2000_ARCSEC / 3600;
-var SP_DAY_MS = 86400000;
 var SP_PRECESSION_DEG_PER_CENTURY = 5028.796195 / 3600;   // general precession in longitude (IAU 2006)
 
 // Where the page's assets live. Static files are served immutable, so each
@@ -74,9 +73,9 @@ function _spAberrateDir(n, v, beta) {
   var c2 = _spAberrateCos(c, beta);
   if (sideLen < 1e-12) return _aeScale(v, c2 >= 0 ? 1 : -1);
   var s2 = Math.sqrt(Math.max(0, 1 - c2 * c2));
-  return _aeNorm(_aeAdd(_aeScale(v, c2), _aeScale(side, s2 / sideLen)));
+  return _aeNorm(_spAdd(_aeScale(v, c2), _aeScale(side, s2 / sideLen)));
 }
-function _aeAdd(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+function _spAdd(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
 
 function _spDoppler(beta, cosT) { return _lorentzFactor(beta) * (1 + beta * cosT); }
 
@@ -175,13 +174,14 @@ function _spTripAt(au, beta, s) {
 function _spTrip(au, beta) { return _spTripAt(au, beta, 1); }
 
 // Fly from `from` (AU) at beta to a body that moves: `posAt(jd)` is where it is.
-// The place to fly to is where the body will be when the ship gets there.
-function _spIntercept(posAt, from, beta, jd0) {
-  var days = 0, pos = posAt(jd0), d = _aeLen(_aeSub(pos, from));
+// The place to fly to is where the body will be when the ship gets there; the
+// ship stops `standoff` short of it.
+function _spIntercept(posAt, from, beta, jd0, standoff) {
+  var stop = standoff || 0, pos = posAt(jd0), d = Math.max(0, _aeLen(_aeSub(pos, from)) - stop), days = 0;
   for (var i = 0; i < 12; i++) {
     days = _spTrip(d, beta).earthSec / SECONDS_PER_DAY;
     pos = posAt(jd0 + days);
-    d = _aeLen(_aeSub(pos, from));
+    d = Math.max(0, _aeLen(_aeSub(pos, from)) - stop);
   }
   return { arriveJd: jd0 + _spTrip(d, beta).earthSec / SECONDS_PER_DAY, pos: pos, distAU: d, trip: _spTrip(d, beta) };
 }
@@ -246,7 +246,7 @@ function _spBodyFrame(name, jd) {
     var w = _aeRad(_aeNormDeg(p.w0 + p.wd * d));
     var node = _spEqToEcl([-Math.sin(_aeRad(p.ra)), Math.cos(_aeRad(p.ra)), 0]);   // the equator's node: RA + 90 deg
     var perp = _aeCross(z, node);
-    x = _aeAdd(_aeScale(node, Math.cos(w)), _aeScale(perp, Math.sin(w)));
+    x = _spAdd(_aeScale(node, Math.cos(w)), _aeScale(perp, Math.sin(w)));
   }
   return { x: x, y: _aeCross(z, x), z: z };
 }
@@ -277,7 +277,7 @@ function _spMoonOffset(name, jd) {
   var pole = _spPoleEcl(m.planet);
   var x = _aeNorm(_aeCross([0, 0, 1], pole)), y = _aeCross(pole, x);
   var lam = _aeRad(m.L0 + m.rate * (jd - JD_J2000)), r2 = m.a / AU_KM;
-  return _aeAdd(_aeScale(x, r2 * Math.cos(lam)), _aeScale(y, r2 * Math.sin(lam)));
+  return _spAdd(_aeScale(x, r2 * Math.cos(lam)), _aeScale(y, r2 * Math.sin(lam)));
 }
 
 // ── The probe table ──
@@ -319,3 +319,1792 @@ function _spScale(mode) {
   var k = mode === 'true' ? 1 : SP_READABLE_BOOST;
   return { body: k, moon: k };
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// The view
+// ═══════════════════════════════════════════════════════════════════════
+
+// ── The bodies ──
+// kind: sun, planet, dwarf, moon, probe. `km` is the equatorial radius (IAU
+// 2015 nominal values), `flat` its flattening, `map` the file in earth/ named
+// <map>-v1.webp, `proc` a surface drawn from the body's colours when no
+// public-domain map exists, `atmo` the glow of its air, `period` its year in
+// days (for its orbit line). Probes come from the track table, in the order
+// they launched, after these.
+var SP_BODIES = [
+  { key: 'Sun', kind: 'sun', km: 695700, color: '#ffd27a' },
+  { key: 'Mercury', kind: 'planet', km: 2439.7, color: '#b0a090', map: 'mercury', period: 87.969 },
+  { key: 'Venus', kind: 'planet', km: 6051.8, color: '#e8c87a', map: 'venus', atmo: [1, 0.82, 0.5], period: 224.701 },
+  { key: 'Earth', kind: 'planet', km: 6378.137, flat: 1 / 298.257223563, color: '#4a90d9', map: 'earth', night: true, atmo: [0.35, 0.55, 1], period: 365.256 },
+  { key: 'Mars', kind: 'planet', km: 3396.2, flat: 0.00589, color: '#c46040', map: 'mars', atmo: [0.9, 0.55, 0.4], period: 686.98 },
+  { key: 'Jupiter', kind: 'planet', km: 71492, flat: 0.06487, color: '#c49868', map: 'jupiter', period: 4332.59 },
+  { key: 'Saturn', kind: 'planet', km: 60268, flat: 0.09796, color: '#d4b878', proc: 'saturn', rings: [74500, 140220], period: 10759.22 },
+  { key: 'Uranus', kind: 'planet', km: 25559, flat: 0.0229, color: '#78c8c8', proc: 'uranus', atmo: [0.5, 0.85, 0.9], period: 30688.5 },
+  { key: 'Neptune', kind: 'planet', km: 24764, flat: 0.0171, color: '#3868c8', proc: 'neptune', atmo: [0.3, 0.45, 1], period: 60182 },
+  { key: 'Pluto', kind: 'dwarf', km: 1188.3, color: '#c8b8a8', map: 'pluto', period: 90560 },
+  { key: 'Ceres', kind: 'dwarf', km: 469.7, color: '#a09890', proc: 'rock', track: 'ceres', period: 1681.6 },
+  { key: 'Moon', kind: 'moon', km: 1737.4, color: '#c8c8c8', map: 'moon' },
+  { key: 'Io', kind: 'moon', km: 1821.6, color: '#e8d870', map: 'io' },
+  { key: 'Europa', kind: 'moon', km: 1560.8, color: '#d8cfc0', map: 'europa' },
+  { key: 'Ganymede', kind: 'moon', km: 2634.1, color: '#a8a095', proc: 'ice' },
+  { key: 'Callisto', kind: 'moon', km: 2410.3, color: '#7d7468', map: 'callisto' },
+  { key: 'Titan', kind: 'moon', km: 2574.7, color: '#d9a550', map: 'titan', atmo: [1, 0.65, 0.2] }
+];
+// The Sun's blackbody, for the colour of everything it lights.
+var SP_SUN_TEMP_K = 5772;
+var SP_NO_MAP = { Moon: 1 };   // drawn from the Moon's own map (app.js), not earth/<name>-v1.webp
+var _spBodyIndex = null;
+var _spProbeKeys = [];         // track keys of the probes, by launch
+function _spBodies() {
+  if (!_spBodyIndex) {
+    _spBodyIndex = {};
+    _spProbeKeys = Object.keys(_spTracks).filter(function (k) { return k !== 'ceres'; }).sort(function (a, b) {
+      return _spTracks[a].events[0][0] - _spTracks[b].events[0][0];
+    });
+    SP_BODIES.forEach(function (b) { _spBodyIndex[b.key] = b; });
+    _spProbeKeys.forEach(function (k) {
+      _spBodyIndex[k] = { key: k, kind: 'probe', color: '#6ee7d8', track: k };
+    });
+  }
+  return _spBodyIndex;
+}
+function _spBody(key) { return _spBodies()[key]; }
+function _spAllKeys() { _spBodies(); return SP_BODIES.map(function (b) { return b.key; }).concat(_spProbeKeys); }
+
+// A body's name in the reader's language: the planets, the Sun and the Moon
+// already have theirs; the rest are the page's own (sp_n_<key>).
+function _spName(key) {
+  var b = _spBody(key);
+  if (key === 'Sun') return _aeT('alm_sun');
+  if (key === 'Moon') return _aeT('alm_moon');
+  if (b && b.kind === 'planet') return _tp(key);
+  return _aeT('sp_n_' + key.toLowerCase());
+}
+
+// The deep link of a body's encyclopedia article, if the Almanac knows one.
+var SP_LINK_KEYS = { Sun: 'planet:sun', Moon: 'planet:moon' };
+function _spLinkKey(key) {
+  var b = _spBody(key);
+  if (SP_LINK_KEYS[key]) return SP_LINK_KEYS[key];
+  if (b.kind === 'probe') return 'probe:' + key;
+  return (b.kind === 'planet' ? 'planet:' : 'body:') + key.toLowerCase();
+}
+
+// Where a body is at jd (AU, heliocentric ecliptic J2000), or null where it
+// is not (a probe before it launched or after it ended). Moons are placed
+// round their planet, with their orbits drawn `moonK` times as wide.
+function _spBodyPos(key, jd, moonK) {
+  var b = _spBody(key);
+  if (b.track) return _spTrackAt(_spTrack(b.track), jd);
+  if (b.kind === 'moon') {
+    var parent = _spPlanetPos(SP_MOONS[key].planet, jd), off = _spMoonOffset(key, jd), k = moonK || 1;
+    return [parent[0] + off[0] * k, parent[1] + off[1] * k, parent[2] + off[2] * k];
+  }
+  return _spPlanetPos(key, jd);
+}
+function _spParentKey(key) { var b = _spBody(key); return b.kind === 'moon' ? SP_MOONS[key].planet : null; }
+
+// A body's axes. A moon keeps one face to its planet: x toward it, z the
+// planet's pole.
+function _spFrameOf(key, jd, moonK) {
+  var b = _spBody(key);
+  if (b.kind === 'moon') {
+    var z = SP_MOONS[key].planet === 'Earth' ? [0, 0, 1] : _spPoleEcl(SP_MOONS[key].planet);
+    var to = _aeScale(_spMoonOffset(key, jd), -1);
+    var x = _aeNorm(_aeSub(to, _aeScale(z, _aeDot(to, z))));
+    return { x: x, y: _aeCross(z, x), z: z };
+  }
+  if (b.kind === 'planet' || b.kind === 'dwarf') return _spBodyFrame(key, jd);
+  return { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
+}
+
+// A body's size as drawn (AU) at a scale.
+function _spShownRadius(key, scale) {
+  var b = _spBody(key);
+  if (b.kind === 'probe') return 0;
+  return b.km / AU_KM * scale.body;
+}
+
+// ── Strings and numbers ──
+// A calendar date of an event (a launch, a flyby): in UTC, so no time zone moves it a day.
+var SP_EVENT_DATE_OPTS = { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' };
+function _spFmtDate(jd) {
+  return _aeDateFormatter('sp-date-utc', SP_EVENT_DATE_OPTS).format(new Date((jd - JD_UNIX_EPOCH) * MS_PER_DAY));
+}
+function _spFmtSpeed(beta) {
+  var kms = beta * SPEED_OF_LIGHT_KM_S;
+  return _orrNum(beta, null, beta < 0.01 ? 4 : 2) + ' c · ' + _orrNum(kms, null, 0) + ' km/s';
+}
+// The speed slider goes by rapidity, so the last 9 hundredths of c are not a sliver.
+var SP_RAPIDITY_MIN = Math.atanh(SP_MIN_BETA), SP_RAPIDITY_MAX = Math.atanh(SP_MAX_BETA);
+function _spSliderToBeta(v) {
+  var u = Math.min(1, Math.max(0, v / SP_BETA_STEPS));
+  return Math.tanh(SP_RAPIDITY_MIN * Math.pow(SP_RAPIDITY_MAX / SP_RAPIDITY_MIN, u));
+}
+function _spBetaToSlider(beta) {
+  var r = Math.atanh(Math.min(SP_MAX_BETA, Math.max(SP_MIN_BETA, beta)));
+  return Math.round(SP_BETA_STEPS * Math.log(r / SP_RAPIDITY_MIN) / Math.log(SP_RAPIDITY_MAX / SP_RAPIDITY_MIN));
+}
+
+// ── Camera and flight numbers ──
+var SP_FOV_DEG = 50;
+var SP_FAR_AU = 6000;
+var SP_STAR_DIST_AU = 3000;          // the star sphere, carried with the camera
+var SP_MAX_DPR = 2;
+var SP_STANDOFF_RADII = 6;           // a flight ends this many radii from the middle
+var SP_PROBE_STANDOFF_AU = 0.004;    // and 600,000 km from a probe, which is a marker anyway
+var SP_MIN_RADII = 1.6;              // the closest the camera comes, in radii
+var SP_PROBE_MIN_AU = 5e-4;
+var SP_MAX_DIST_AU = 500;
+var SP_OVERVIEW_DIST_AU = 60;        // wide enough for Neptune and Pluto's orbits
+var SP_OVERVIEW_ELEVATION = 0.55;    // radians above the ecliptic
+var SP_DRAG_RAD_PER_PX = 0.006;
+var SP_WHEEL_ZOOM = 0.0015;
+var SP_KEY_TURN = 0.09;
+var SP_KEY_ZOOM = 1.18;
+var SP_TAP_SLOP_PX = 6;
+var SP_TAP_RADIUS_PX = 24;
+var SP_FLIGHT_BASE_S = 6, SP_FLIGHT_PER_DECADE_S = 2.5, SP_FLIGHT_MAX_S = 13;
+var SP_FLIGHT_EASE = 0.08;           // the share of the time spent speeding up, and again slowing down
+var SP_TIME_RATES = [0, 1, 30, 365.25];   // days a second
+var SP_TIME_KEYS = ['sp_time_stopped', 'sp_time_day', 'sp_time_month', 'sp_time_year'];
+var SP_IDLE_TICK_MS = 500;
+var SP_AU_TO_PX_MIN = 6;             // a body smaller than this (px radius) gets a ring so it can be found
+var SP_RING_FADE_PX = 16;
+var SP_MARKER_PX = 15;
+var SP_SELECT_RING_MAX_PX = 30;      // a body bigger than this needs no ring round it
+var SP_PROBE_PX = 8;
+var SP_COVER_PX = 12;                // a body this big hides what is behind it, labels too
+var SP_LABEL_H = 15, SP_LABEL_CHAR_W = 6.6;
+var SP_MOON_APART_PX = 26;           // a moon is named and marked once this far from its planet
+var SP_STAR_SIZE_MAX = 9;
+var SP_STAR_FADE_MAG = [8, 9.5];     // brightness (V mag) where a star starts to go, and is gone
+var SP_ORBIT_POINTS = 360;
+var SP_MOON_ORBIT_POINTS = 96;
+var SP_TRAIL_SUBDIV = 3;
+var SP_CAPTION_BETA = { stars: 0.25, colour: 0.45 };   // where each effect has become plain to see
+
+// ── Styles ──
+// Shares the Earth view's (.ae-*): one look. These are the ones it lacks.
+var SP_CSS = [
+  '.sp-chips{display:flex;gap:6px;overflow-x:auto;max-width:100%;padding:2px 2px 4px;pointer-events:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}',
+  '.sp-chips::-webkit-scrollbar{display:none}',
+  '.sp-chips .ae-btn{flex:0 0 auto}',
+  '.sp-chips .ae-btn[aria-disabled="true"]{opacity:.5}',
+  '.sp-chips .sp-gap{flex:0 0 1px;background:var(--border);margin:4px 4px}',
+  '.sp-speed{display:flex;align-items:center;gap:10px;width:min(560px,100%);pointer-events:auto}',
+  '.sp-speed label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;flex:0 0 auto}',
+  '.sp-speed input{flex:1;min-width:80px;accent-color:var(--amber);height:28px}',
+  '.sp-speed output{flex:0 0 auto;min-width:112px;text-align:end;font-size:12px;color:var(--amber);font-variant-numeric:tabular-nums}',
+  '.sp-cap{display:flex;flex-direction:column;gap:6px;align-items:center;width:min(440px,calc(100% - 32px));box-sizing:border-box;background:rgba(14,14,16,.9);border:1px solid var(--amber-border);border-radius:12px;padding:10px 14px;font-size:13px;line-height:1.45;color:var(--text);pointer-events:auto;text-align:center}',
+  '.sp-cap[hidden]{display:none}',
+  '.sp-cap p{margin:0}',
+  '.sp-cap .sp-why{color:var(--text2);font-size:12.5px}',
+  '.sp-cap-row{display:flex;gap:8px}',
+  '.sp-hud{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 12px;width:min(440px,100%);font-size:11px;color:var(--text2);text-align:center;pointer-events:none}',
+  '.sp-hud b{display:block;font-size:14px;color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}',
+  '.sp-hud[hidden]{display:none}',
+  '.sp-card .sp-line{display:block;color:var(--text2)}',
+  '.sp-card .sp-kind{font-size:12px;font-weight:400;color:var(--text2);margin-inline-start:6px}',
+  '.sp-view.sp-flying .sp-card,.sp-view.sp-flying .sp-chips,.sp-view.sp-flying .ae-note{display:none}',
+  '.sp-card .sp-line b{color:var(--text);font-weight:500}',
+  '.sp-card .sp-go{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}',
+  '.sp-card .sp-lib{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}',
+  '.sp-card .sp-lib .ae-btn{font-size:12px;padding:6px 10px;min-height:30px}',
+  '.sp-fly{color:#000;background:var(--amber);border-color:var(--amber);font-weight:600}',
+  '.sp-fly:focus-visible{color:#000;background:var(--amber);filter:brightness(1.1)}',
+  '@media (hover:hover){.sp-fly:hover{color:#000;background:var(--amber);filter:brightness(1.1)}}',
+  '.sp-label.sp-sel{color:var(--amber)}',
+  '.sp-label.sp-probe{color:#8ef0e4}',
+  '.sp-label.sp-moon{opacity:.8;font-size:10.5px}',
+  '@media (prefers-reduced-motion: reduce){.sp-cap{transition:none}}'
+].join('\n');
+function _spEnsureStyles() {
+  _aeEnsureStyles();
+  if (_aeById('sp-style')) return;
+  var st = document.createElement('style');
+  st.id = 'sp-style';
+  st.textContent = SP_CSS;
+  document.head.appendChild(st);
+}
+
+// ── Shaders ──
+// Every position the GPU draws goes through spAberr: the camera is at the
+// origin, positions are relative to it (so a planet 30 AU out and a probe
+// 600,000 km off are both exact), and in flight each direction is turned as
+// the ship sees it. Shapes are bent the way light bends them: a sphere stays
+// a sphere (a moving ship sees no squashed planets, only turned ones: the
+// Terrell-Penrose effect).
+var SP_GLSL_ABERR = [
+  'uniform vec3 uHead; uniform float uBeta;',
+  'vec3 spAberr(vec3 p) {',
+  '  if (uBeta <= 0.0) return p;',
+  '  float d = length(p); if (d <= 0.0) return p;',
+  '  vec3 n = p / d; float c = dot(n, uHead);',
+  '  float c2 = (c + uBeta) / (1.0 + uBeta * c);',
+  '  vec3 side = n - uHead * c; float sl = length(side);',
+  '  vec3 n2 = sl < 1e-7 ? uHead * (c2 >= 0.0 ? 1.0 : -1.0) : uHead * c2 + side * (sqrt(max(0.0, 1.0 - c2 * c2)) / sl);',
+  '  return n2 * d;',
+  '}'
+].join('\n');
+// Light brighter or dimmer by the ship's speed, kept in range: the eye (and
+// the screen) adapts, so a gain of 1 is left alone and a big one saturates.
+var SP_GLSL_TONE = [
+  'vec3 spTone(vec3 c, vec3 tint) {',
+  '  vec3 v = c * tint;',
+  '  if (uBeta <= 0.0) return v;',
+  '  vec3 t = (1.0 - exp(-1.4 * v)) / (1.0 - exp(-1.4));',
+  '  return mix(v, t, smoothstep(0.0, 0.04, uBeta));',
+  '}'
+].join('\n');
+var SP_VERT_BODY = [
+  SP_GLSL_ABERR,
+  'varying vec2 vUv; varying vec3 vWorld; varying vec3 vNormal; varying vec3 vLocal;',
+  'void main() {',
+  '  vUv = uv; vLocal = position;',
+  '  vec4 w = modelMatrix * vec4(position, 1.0);',
+  '  vWorld = w.xyz;',
+  '  vNormal = normalize(mat3(modelMatrix) * normal);',
+  '  gl_Position = projectionMatrix * viewMatrix * vec4(spAberr(w.xyz), 1.0);',
+  '}'
+].join('\n');
+var SP_FRAG_PLANET = [
+  'precision highp float;',
+  SP_GLSL_ABERR, SP_GLSL_TONE,
+  'uniform sampler2D uMap; uniform float uHasMap; uniform sampler2D uNight; uniform float uHasNight;',
+  'uniform vec3 uColor; uniform vec3 uSunDir; uniform vec3 uAtmo; uniform vec3 uTint;',
+  'varying vec2 vUv; varying vec3 vWorld; varying vec3 vNormal; varying vec3 vLocal;',
+  'void main() {',
+  '  vec3 n = normalize(vNormal);',
+  '  float ndl = dot(n, uSunDir);',
+  '  float lit = smoothstep(-0.1, 0.14, ndl);',
+  '  vec3 base = uHasMap > 0.5 ? texture2D(uMap, vUv).rgb : uColor;',
+  '  vec3 col = base * (max(ndl, 0.0) * 0.96 + 0.035);',
+  '  if (uHasNight > 0.5) col += texture2D(uNight, vUv).rgb * (1.0 - lit) * vec3(1.0, 0.82, 0.55) * 0.9;',
+  '  float ndv = max(dot(n, normalize(-vWorld)), 0.0);',
+  '  col += uAtmo * pow(1.0 - ndv, 3.0) * (0.12 + 0.88 * lit) * 0.7;',
+  '  gl_FragColor = vec4(spTone(col, uTint), 1.0);',
+  '}'
+].join('\n');
+var SP_FRAG_SUN = [
+  'precision highp float;',
+  SP_GLSL_ABERR, SP_GLSL_TONE,
+  'uniform vec3 uLimb[6]; uniform vec3 uTint;',
+  'varying vec2 vUv; varying vec3 vWorld; varying vec3 vNormal; varying vec3 vLocal;',
+  'void main() {',
+  '  float mu = clamp(dot(normalize(vNormal), normalize(-vWorld)), 0.0, 1.0);',
+  '  vec3 limb = vec3(0.0);',
+  '  for (int k = 5; k >= 0; k--) limb = uLimb[k] + mu * limb;',
+  '  gl_FragColor = vec4(spTone(vec3(1.0, 0.93, 0.8) * limb * 1.15, uTint), 1.0);',
+  '}'
+].join('\n');
+// Saturn's rings: a radial profile (alpha in the texture's alpha), lit from
+// the Sun, in the planet's shadow where the planet is between.
+var SP_FRAG_RING = [
+  'precision highp float;',
+  SP_GLSL_ABERR, SP_GLSL_TONE,
+  'uniform sampler2D uProfile; uniform float uIn; uniform float uOut; uniform vec3 uSunDir; uniform vec3 uCenter; uniform float uRadius; uniform vec3 uTint;',
+  'varying vec2 vUv; varying vec3 vWorld; varying vec3 vNormal; varying vec3 vLocal;',
+  'void main() {',
+  '  float r = length(vLocal.xz);',
+  '  float t = (r - uIn) / (uOut - uIn);',
+  '  if (t < 0.0 || t > 1.0) discard;',
+  '  vec4 p = texture2D(uProfile, vec2(t, 0.5));',
+  '  vec3 toC = uCenter - vWorld;',
+  '  float b = dot(toC, uSunDir);',
+  '  float miss = sqrt(max(0.0, dot(toC, toC) - b * b));',
+  '  float shadow = (b > 0.0 && miss < uRadius) ? 0.12 : 1.0;',
+  '  gl_FragColor = vec4(spTone(p.rgb * shadow, uTint), p.a);',
+  '}'
+].join('\n');
+var SP_VERT_POINTS = [
+  SP_GLSL_ABERR,
+  'attribute vec3 aColor; attribute float aAlpha; attribute float aSize; attribute float aKind;',
+  'uniform float dpr;',
+  'varying vec3 vColor; varying float vAlpha; varying float vKind;',
+  'void main() {',
+  '  vColor = aColor; vAlpha = aAlpha; vKind = aKind;',
+  '  gl_PointSize = aSize * dpr;',
+  '  gl_Position = projectionMatrix * viewMatrix * vec4(spAberr(position), 1.0);',
+  '}'
+].join('\n');
+// Marker kinds: 0 soft dot (stars), 1 ring (a body too small to see), 2 square (a probe),
+// 3 diamond outline (the place the light shows a body), 4 glow (the flash of light).
+var SP_KIND_DOT = 0, SP_KIND_RING = 1, SP_KIND_PROBE = 2, SP_KIND_GHOST = 3, SP_KIND_GLOW = 4;
+var SP_FRAG_POINTS = [
+  'precision mediump float;',
+  'varying vec3 vColor; varying float vAlpha; varying float vKind;',
+  'void main() {',
+  '  vec2 c = gl_PointCoord - 0.5; float r = length(c) * 2.0; float a;',
+  '  if (vKind < 0.5) a = 1.0 - smoothstep(0.55, 1.0, r);',
+  '  else if (vKind < 1.5) a = smoothstep(0.66, 0.74, r) * (1.0 - smoothstep(0.9, 0.98, r));',
+  '  else if (vKind < 2.5) { float s = max(abs(c.x), abs(c.y)) * 2.0; a = 1.0 - smoothstep(0.82, 0.95, s); }',
+  '  else if (vKind < 3.5) { float d = (abs(c.x) + abs(c.y)) * 2.0; a = smoothstep(0.72, 0.8, d) * (1.0 - smoothstep(0.9, 0.98, d)); }',
+  '  else a = pow(max(0.0, 1.0 - r), 2.0);',
+  '  if (a <= 0.003) discard;',
+  '  gl_FragColor = vec4(vColor, vAlpha * a);',
+  '}'
+].join('\n');
+var SP_VERT_LINE = [
+  SP_GLSL_ABERR,
+  'void main() {',
+  '  vec4 w = modelMatrix * vec4(position, 1.0);',
+  '  gl_Position = projectionMatrix * viewMatrix * vec4(spAberr(w.xyz), 1.0);',
+  '}'
+].join('\n');
+var SP_FRAG_LINE = [
+  'precision mediump float;',
+  'uniform vec3 uColor; uniform float uAlpha;',
+  'void main() { gl_FragColor = vec4(uColor, uAlpha); }'
+].join('\n');
+// The Sun's glow: a camera-facing square, its middle where the (turned) Sun is.
+var SP_VERT_GLOW = [
+  SP_GLSL_ABERR,
+  'uniform vec3 uCenter; uniform float uSize;',
+  'varying vec2 vOff;',
+  'void main() {',
+  '  vOff = position.xy;',
+  '  vec4 vc = viewMatrix * vec4(spAberr(uCenter), 1.0);',
+  '  gl_Position = projectionMatrix * (vc + vec4(position.xy * uSize, 0.0, 0.0));',
+  '}'
+].join('\n');
+var SP_FRAG_GLOW = [
+  'precision mediump float;',
+  'uniform vec3 uTint; uniform float uStrength;',
+  'varying vec2 vOff;',
+  'void main() {',
+  '  float r = length(vOff);',
+  '  float g = (0.5 * exp(-3.4 * r) + 0.22 / (1.0 + 14.0 * r * r)) * (1.0 - smoothstep(0.75, 1.0, r));',
+  '  gl_FragColor = vec4(vec3(1.0, 0.82, 0.55) * uTint * g * uStrength, 1.0);',
+  '}'
+].join('\n');
+
+// ── Surfaces drawn from colours ──
+// Saturn, Uranus, Neptune, Ceres and Ganymede have no public-domain map in
+// the library, so each is painted here from what it looks like: bands and a
+// few clouds for the giants, speckle for the rocks and ice.
+var SP_PROC = {
+  saturn:  { bands: [[0.93, 0.85, 0.66], [0.82, 0.72, 0.52], [0.9, 0.8, 0.6], [0.76, 0.66, 0.48]], freq: 11, amp: 0.17 },
+  uranus:  { bands: [[0.62, 0.84, 0.86], [0.58, 0.8, 0.84], [0.66, 0.87, 0.88]], freq: 5, amp: 0.05 },
+  neptune: { bands: [[0.2, 0.34, 0.78], [0.25, 0.4, 0.85], [0.17, 0.3, 0.7]], freq: 8, amp: 0.1 },
+  rock:    { speckle: [0.5, 0.48, 0.45], spread: 0.16 },
+  ice:     { speckle: [0.62, 0.6, 0.56], spread: 0.2 }
+};
+var SP_PROC_SIZE = [256, 128];
+// Value noise from the orrery's seeded generator: the same picture every time.
+function _spProcCanvas(kind) {
+  var spec = SP_PROC[kind], w = SP_PROC_SIZE[0], h = SP_PROC_SIZE[1];
+  var cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  var g = cv.getContext('2d'), img = g.createImageData(w, h), rnd = _lcgRand(kind.length * 7919 + kind.charCodeAt(0));
+  var cell = [], i;
+  for (i = 0; i < 64 * 32; i++) cell.push(rnd());
+  function noise(x, y) {   // smooth, wrapping in x
+    var fx = x * 64, fy = y * 32, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0;
+    function v(a, b) { return cell[((b + 32) % 32) * 64 + ((a + 64) % 64)]; }
+    var sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+    return (v(x0, y0) * (1 - sx) + v(x0 + 1, y0) * sx) * (1 - sy) + (v(x0, y0 + 1) * (1 - sx) + v(x0 + 1, y0 + 1) * sx) * sy;
+  }
+  for (var y = 0; y < h; y++) {
+    var lat = y / (h - 1);
+    for (var x = 0; x < w; x++) {
+      var u = x / w, c;
+      if (spec.bands) {
+        var pos = lat * spec.freq + noise(u * 3, lat * 2) * 0.35, i0 = Math.floor(pos), f = pos - i0;
+        f = f * f * (3 - 2 * f);
+        var c0 = spec.bands[i0 % spec.bands.length], c1 = spec.bands[(i0 + 1) % spec.bands.length];
+        var n = (noise(u * 2, lat * 40) - 0.5) * spec.amp;
+        c = [c0[0] + (c1[0] - c0[0]) * f + n, c0[1] + (c1[1] - c0[1]) * f + n, c0[2] + (c1[2] - c0[2]) * f + n];
+      } else {
+        var s = noise(u * 5, lat * 5) * 0.5 + noise(u * 20, lat * 20) * 0.35 + noise(u * 60, lat * 60) * 0.15 - 0.5;
+        c = [spec.speckle[0] + s * spec.spread, spec.speckle[1] + s * spec.spread, spec.speckle[2] + s * spec.spread];
+      }
+      var p = (y * w + x) * 4;
+      img.data[p] = Math.max(0, Math.min(255, c[0] * 255));
+      img.data[p + 1] = Math.max(0, Math.min(255, c[1] * 255));
+      img.data[p + 2] = Math.max(0, Math.min(255, c[2] * 255));
+      img.data[p + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return cv;
+}
+// Saturn's rings, from the planet outward (km from its centre): alpha 0..1 and
+// a brightness. The C ring is faint, the B ring bright, the Cassini Division
+// nearly empty, the A ring in between with the Encke gap near its edge.
+var SP_RING_PROFILE = [
+  [74500, 92000, 0.12, 0.55], [92000, 117500, 0.82, 0.95], [117500, 122200, 0.05, 0.6],
+  [122200, 133300, 0.55, 0.85], [133300, 133700, 0.06, 0.6], [133700, 136800, 0.5, 0.8], [136800, 140220, 0.07, 0.6]
+];
+function _spRingCanvas() {
+  var w = 256, cv = document.createElement('canvas');
+  cv.width = w; cv.height = 1;
+  var g = cv.getContext('2d'), lo = SP_RING_PROFILE[0][0], hi = SP_RING_PROFILE[SP_RING_PROFILE.length - 1][1];
+  for (var x = 0; x < w; x++) {
+    var km = lo + (hi - lo) * (x + 0.5) / w, row = SP_RING_PROFILE[SP_RING_PROFILE.length - 1];
+    for (var i = 0; i < SP_RING_PROFILE.length; i++) if (km < SP_RING_PROFILE[i][1]) { row = SP_RING_PROFILE[i]; break; }
+    var ripple = 0.88 + 0.12 * Math.sin(km / 160);
+    var b = row[3] * ripple;
+    g.fillStyle = 'rgba(' + Math.round(235 * b) + ',' + Math.round(215 * b) + ',' + Math.round(180 * b) + ',' + (row[2] * ripple).toFixed(3) + ')';
+    g.fillRect(x, 0, 1, 1);
+  }
+  return cv;
+}
+function _spLoadTextureUrl(THREE, url) {
+  return new Promise(function (resolve, reject) { new THREE.TextureLoader().load(url, resolve, undefined, reject); });
+}
+
+// ── The scene ──
+var SP_THREE_DOUBLE_SIDE = 2;       // three's DoubleSide, not exported by name by the tree-shaken build
+var SP_SPHERE_SEGMENTS = [64, 32];
+var SP_BIG_SPHERE_SEGMENTS = [96, 48];
+var SP_RING_SEGMENTS = 160;
+var SP_ORBIT_COLOR = [0.55, 0.62, 0.78], SP_ORBIT_ALPHA = 0.28;
+var SP_TRAIL_COLOR = [0.43, 0.9, 0.85], SP_TRAIL_PAST_ALPHA = 0.7, SP_TRAIL_FUTURE_ALPHA = 0.22;
+var SP_MOON_ORBIT_ALPHA = 0.22;
+var SP_STAR_CAPACITY = 9200;
+var SP_MARKER_CAPACITY = 80;
+
+function _spUniformsAber() { return { uHead: { value: null }, uBeta: { value: 0 } }; }
+
+function _spLineMaterial(THREE, ab, rgb, alpha) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uHead: ab.uHead, uBeta: ab.uBeta, uColor: { value: new THREE.Vector3(rgb[0], rgb[1], rgb[2]) }, uAlpha: { value: alpha } },
+    vertexShader: SP_VERT_LINE, fragmentShader: SP_FRAG_LINE, transparent: true, depthWrite: false
+  });
+}
+function _spLine(THREE, Kind, mat, count) {
+  var g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+  var line = new Kind(g, mat);
+  line.frustumCulled = false;
+  line.renderOrder = 1;
+  return line;
+}
+function _spPointsObject(THREE, ab, capacity, dpr, additive) {
+  var g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(capacity * 3), 3));
+  g.setAttribute('aColor', new THREE.BufferAttribute(new Float32Array(capacity * 3), 3));
+  g.setAttribute('aAlpha', new THREE.BufferAttribute(new Float32Array(capacity), 1));
+  g.setAttribute('aSize', new THREE.BufferAttribute(new Float32Array(capacity), 1));
+  g.setAttribute('aKind', new THREE.BufferAttribute(new Float32Array(capacity), 1));
+  g.setDrawRange(0, 0);
+  var m = new THREE.ShaderMaterial({
+    uniforms: { uHead: ab.uHead, uBeta: ab.uBeta, dpr: { value: dpr } },
+    vertexShader: SP_VERT_POINTS, fragmentShader: SP_FRAG_POINTS, transparent: true, depthWrite: false, depthTest: false
+  });
+  if (additive) m.blending = THREE.AdditiveBlending;
+  var p = new THREE.Points(g, m);
+  p.frustumCulled = false;
+  return p;
+}
+function _spSetMarker(cloud, i, pos, rgb, alpha, size, kind) {
+  var a = cloud.geometry.attributes;
+  a.position.array[i * 3] = pos[0]; a.position.array[i * 3 + 1] = pos[1]; a.position.array[i * 3 + 2] = pos[2];
+  a.aColor.array[i * 3] = rgb[0]; a.aColor.array[i * 3 + 1] = rgb[1]; a.aColor.array[i * 3 + 2] = rgb[2];
+  a.aAlpha.array[i] = alpha; a.aSize.array[i] = size; a.aKind.array[i] = kind;
+}
+function _spCommitMarkers(cloud, count) {
+  var a = cloud.geometry.attributes;
+  a.position.needsUpdate = a.aColor.needsUpdate = a.aAlpha.needsUpdate = a.aSize.needsUpdate = a.aKind.needsUpdate = true;
+  cloud.geometry.setDrawRange(0, count);
+}
+function _spHexRGB(hex) {
+  var n = parseInt(hex.slice(1), 16);
+  return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255];
+}
+
+// A ring's geometry (a flat annulus in the xz plane, in planet radii), by hand:
+// the tree-shaken three has no RingGeometry.
+function _spRingGeometry(THREE, rin, rout, segs) {
+  var pos = new Float32Array((segs + 1) * 2 * 3), idx = [];
+  for (var i = 0; i <= segs; i++) {
+    var a = i / segs * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+    pos.set([c * rin, 0, s * rin, c * rout, 0, s * rout], i * 6);
+    if (i < segs) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+  }
+  var g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  return g;
+}
+function _spQuadGeometry(THREE) {
+  var g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]), 3));
+  g.setIndex([0, 1, 2, 0, 2, 3]);
+  return g;
+}
+function _spCircle(THREE, segs) {
+  var g = new THREE.BufferGeometry(), pos = new Float32Array(segs * 3);
+  for (var i = 0; i < segs; i++) pos.set([Math.cos(i / segs * Math.PI * 2), Math.sin(i / segs * Math.PI * 2), 0], i * 3);
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  return g;
+}
+
+// Build the three.js scene. Null if WebGL is not available.
+function _spBuildGl(THREE, canvas, tracks) {
+  var renderer, dpr = Math.min(window.devicePixelRatio || 1, SP_MAX_DPR);
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: dpr < AE_MSAA_BELOW_DPR, powerPreference: 'high-performance' });
+  } catch (e) {
+    return null;
+  }
+  renderer.setPixelRatio(dpr);
+  renderer.setClearColor(0x000000, 1);
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(SP_FOV_DEG, 1, 1e-6, SP_FAR_AU);
+  camera.up.set(0, 0, 1);
+  var ab = _spUniformsAber();
+  ab.uHead.value = new THREE.Vector3(0, 0, -1);
+  var S = {
+    THREE: THREE, renderer: renderer, scene: scene, camera: camera, dpr: dpr, ab: ab, items: {}, maps: {},
+    basis: new THREE.Matrix4(), v1: new THREE.Vector3(), v2: new THREE.Vector3(), v3: new THREE.Vector3(),
+    starAb: _spUniformsAber(), orbits: {}, trails: {}, moonRings: {}
+  };
+  S.starAb.uHead.value = new THREE.Vector3(0, 0, -1);
+
+  // The stars, turned and coloured on the CPU each time the speed or heading changes.
+  S.stars = _spPointsObject(THREE, S.starAb, SP_STAR_CAPACITY, dpr, true);
+  S.stars.renderOrder = -10;
+  scene.add(S.stars);
+
+  var limb = SUN_LIMB_POLY[0].map(function (_, k) { return new THREE.Vector3(SUN_LIMB_POLY[0][k], SUN_LIMB_POLY[1][k], SUN_LIMB_POLY[2][k]); });
+  SP_BODIES.concat(Object.keys(tracks).filter(function (k) { return k !== 'ceres'; }).map(function (k) { return _spBody(k); })).forEach(function (b) {
+    var it = S.items[b.key] = { body: b, mesh: null, uni: null };
+    if (b.kind === 'probe') return;
+    var segs = b.kind === 'planet' || b.kind === 'sun' ? SP_BIG_SPHERE_SEGMENTS : SP_SPHERE_SEGMENTS;
+    var uni = {
+      uHead: ab.uHead, uBeta: ab.uBeta, uTint: { value: new THREE.Vector3(1, 1, 1) }, uSunDir: { value: new THREE.Vector3(1, 0, 0) },
+      uMap: { value: null }, uHasMap: { value: 0 }, uNight: { value: null }, uHasNight: { value: 0 },
+      uColor: { value: new THREE.Vector3().fromArray(_spHexRGB(b.color)) },
+      uAtmo: { value: new THREE.Vector3().fromArray(b.atmo || [0, 0, 0]) }
+    };
+    var mat;
+    if (b.kind === 'sun') {
+      uni.uLimb = { value: limb };
+      mat = new THREE.ShaderMaterial({ uniforms: uni, vertexShader: SP_VERT_BODY, fragmentShader: SP_FRAG_SUN });
+    } else {
+      mat = new THREE.ShaderMaterial({ uniforms: uni, vertexShader: SP_VERT_BODY, fragmentShader: SP_FRAG_PLANET });
+    }
+    var mesh = new THREE.Mesh(new THREE.SphereGeometry(1, segs[0], segs[1]), mat);
+    mesh.matrixAutoUpdate = false;
+    mesh.frustumCulled = false;
+    scene.add(mesh);
+    it.mesh = mesh; it.uni = uni;
+    if (b.rings) {
+      var rUni = {
+        uHead: ab.uHead, uBeta: ab.uBeta, uTint: uni.uTint, uSunDir: uni.uSunDir, uProfile: { value: null },
+        uIn: { value: b.rings[0] / b.km }, uOut: { value: b.rings[1] / b.km }, uCenter: { value: new THREE.Vector3() }, uRadius: { value: 1 }
+      };
+      var ring = new THREE.Mesh(_spRingGeometry(THREE, b.rings[0] / b.km, b.rings[1] / b.km, SP_RING_SEGMENTS), new THREE.ShaderMaterial({
+        uniforms: rUni, vertexShader: SP_VERT_BODY, fragmentShader: SP_FRAG_RING, transparent: true, depthWrite: false, side: SP_THREE_DOUBLE_SIDE
+      }));
+      ring.matrixAutoUpdate = false;
+      ring.frustumCulled = false;
+      ring.renderOrder = 3;
+      scene.add(ring);
+      it.ring = ring; it.ringUni = rUni;
+    }
+  });
+
+  // The Sun's glow.
+  var glowUni = { uHead: ab.uHead, uBeta: ab.uBeta, uCenter: { value: new THREE.Vector3() }, uSize: { value: 1 }, uTint: { value: new THREE.Vector3(1, 1, 1) }, uStrength: { value: 1 } };
+  S.glow = new THREE.Mesh(_spQuadGeometry(THREE), new THREE.ShaderMaterial({
+    uniforms: glowUni, vertexShader: SP_VERT_GLOW, fragmentShader: SP_FRAG_GLOW, transparent: true, depthWrite: false
+  }));
+  S.glow.material.blending = THREE.AdditiveBlending;
+  S.glow.frustumCulled = false;
+  S.glow.renderOrder = 4;
+  S.glowUni = glowUni;
+  scene.add(S.glow);
+
+  // Orbit lines round the Sun for the planets, Pluto and Ceres; circles round
+  // each planet for its big moons; the path of every probe, solid so far and
+  // faint where it has still to go.
+  var orbitMat = _spLineMaterial(THREE, ab, SP_ORBIT_COLOR, SP_ORBIT_ALPHA);
+  S.orbitMat = orbitMat;
+  SP_BODIES.forEach(function (b) {
+    if (!b.period) return;
+    var line = _spLine(THREE, THREE.LineLoop, orbitMat, SP_ORBIT_POINTS);
+    scene.add(line);
+    S.orbits[b.key] = { line: line, at: null };
+  });
+  var moonMat = _spLineMaterial(THREE, ab, SP_ORBIT_COLOR, SP_MOON_ORBIT_ALPHA);
+  var circle = _spCircle(THREE, SP_MOON_ORBIT_POINTS);
+  Object.keys(SP_MOONS).forEach(function (k) {
+    var ring = new THREE.LineLoop(circle, moonMat);
+    ring.matrixAutoUpdate = false;
+    ring.frustumCulled = false;
+    ring.renderOrder = 1;
+    scene.add(ring);
+    S.moonRings[k] = ring;
+  });
+  S.moonMat = moonMat;
+  var pastMat = _spLineMaterial(THREE, ab, SP_TRAIL_COLOR, SP_TRAIL_PAST_ALPHA);
+  var futureMat = _spLineMaterial(THREE, ab, SP_TRAIL_COLOR, SP_TRAIL_FUTURE_ALPHA);
+  S.trailMats = [pastMat, futureMat];
+  Object.keys(tracks).forEach(function (k) {
+    if (k === 'ceres') return;
+    var path = _spTrailPath(tracks[k]);
+    var past = new THREE.BufferGeometry(), future = new THREE.BufferGeometry();
+    var attr = new THREE.BufferAttribute(path, 3);
+    past.setAttribute('position', attr); future.setAttribute('position', attr);
+    var a = new THREE.Line(past, pastMat), b = new THREE.Line(future, futureMat);
+    a.frustumCulled = b.frustumCulled = false;
+    a.renderOrder = b.renderOrder = 1;
+    scene.add(a); scene.add(b);
+    S.trails[k] = { past: a, future: b, count: path.length / 3 };
+  });
+
+  S.markers = _spPointsObject(THREE, ab, SP_MARKER_CAPACITY, dpr, false);
+  S.markers.renderOrder = 10;
+  scene.add(S.markers);
+  return S;
+}
+
+// A probe's whole path as a polyline: the table's samples with a few Hermite
+// points between each pair, so a flyby bends smoothly.
+function _spTrailPath(track) {
+  var s = track.s, n = (s.length - 1) * SP_TRAIL_SUBDIV + 1, out = new Float32Array(n * 3), k = 0;
+  for (var i = 0; i < s.length - 1; i++) {
+    for (var j = 0; j < SP_TRAIL_SUBDIV; j++) {
+      var p = _spHermite(s[i], s[i + 1], s[i][0] + (s[i + 1][0] - s[i][0]) * j / SP_TRAIL_SUBDIV);
+      out[k++] = p[0]; out[k++] = p[1]; out[k++] = p[2];
+    }
+  }
+  var last = s[s.length - 1];
+  out[k++] = last[1]; out[k++] = last[2]; out[k++] = last[3];
+  return out;
+}
+// The index in a trail of the moment jd (fractional), by the same sampling.
+function _spTrailIndex(track, jd) {
+  var s = track.s, lo = 0, hi = s.length - 1;
+  while (hi - lo > 1) { var mid = (lo + hi) >> 1; if (s[mid][0] <= jd) lo = mid; else hi = mid; }
+  var f = (jd - s[lo][0]) / (s[hi][0] - s[lo][0]);
+  return (lo + Math.min(1, Math.max(0, f))) * SP_TRAIL_SUBDIV;
+}
+
+// ── Maps ──
+// A map is fetched the first time a flight is asked for (or the view opens
+// with a body in view), uploaded when it lands, and the picture drawn again.
+// A body whose map fails keeps its colour. Procedural surfaces are drawn once.
+function _spMapUrl(b) {
+  if (b.map === 'moon') return AE_TEX_MOON;
+  if (b.map === 'earth') return AE_TEX_DAY;
+  return SP_MAP_URL + b.map + SP_MAP_EXT;
+}
+function _spApplyTexture(S, it, tx, uniKey, flagKey) {
+  tx.anisotropy = Math.min(8, S.renderer.capabilities.getMaxAnisotropy());
+  it.uni[uniKey].value = tx;
+  it.uni[flagKey].value = 1;
+  _sp.dirty = true;
+  _spKick();
+}
+function _spLoadMaps(S) {
+  var THREE = S.THREE;
+  Object.keys(S.items).forEach(function (k) {
+    var it = S.items[k], b = it.body;
+    if (!it.mesh || it.mapsRequested) return;
+    it.mapsRequested = true;
+    var url = b.map && _spMapUrl(b);
+    if (b.proc) url = _spProcCanvas(b.proc).toDataURL('image/png');
+    if (url) _spLoadTextureUrl(THREE, url).then(function (tx) { if (_sp.gl === S) _spApplyTexture(S, it, tx, 'uMap', 'uHasMap'); }, function () {});
+    if (b.night) _spLoadTextureUrl(THREE, AE_TEX_NIGHT).then(function (tx) { if (_sp.gl === S) _spApplyTexture(S, it, tx, 'uNight', 'uHasNight'); }, function () {});
+    if (b.rings) _spLoadTextureUrl(THREE, _spRingCanvas().toDataURL('image/png')).then(function (tx) {
+      if (_sp.gl !== S) return;
+      it.ringUni.uProfile.value = tx; _sp.dirty = true; _spKick();
+    }, function () {});
+  });
+  if (!S.starsLoading && !S.starsLoaded) {
+    S.starsLoading = true;
+    fetch(AE_STARS_URL).then(function (r) { if (!r.ok) throw new Error('stars'); return r.arrayBuffer(); }).then(function (buf) {
+      var stars = _aeDecodeStars(buf);
+      if (!stars || _sp.gl !== S) throw new Error('stars');
+      _spSetStars(S, stars);
+    }).catch(function () {}).then(function () { S.starsLoading = false; });
+  }
+}
+
+// The star list: the unit direction in the ecliptic frame, the temperature
+// from B-V, and the magnitude. The first sky is the Almanac's 518 brightest.
+function _spSetStars(S, list) {
+  var n = Math.min(list.count, SP_STAR_CAPACITY), dirs = new Float32Array(n * 3), temp = new Float32Array(n), mag = new Float32Array(n), s = {};
+  for (var i = 0; i < n; i++) {
+    list.at(i, s);
+    var d = _spStarDir(s.ra, s.dec);
+    dirs[i * 3] = d[0]; dirs[i * 3 + 1] = d[1]; dirs[i * 3 + 2] = d[2];
+    temp[i] = _spStarTemp(s.ci);
+    mag[i] = s.mag;
+  }
+  S.starData = { n: n, dirs: dirs, temp: temp, mag: mag };
+  S.starsLoaded = list.count > 600;
+  S.starsKey = null;
+  _sp.dirty = true;
+  _spKick();
+}
+// Turn and colour the stars as the ship (speed beta, heading head) sees them.
+// At rest this is the sky as it is. Ahead of the ship the light of a star is
+// bluer and brighter (D > 1), behind it redder and dimmer.
+function _spShadeStars(S, beta, head) {
+  var sd = S.starData;
+  if (!sd) return;
+  var key = beta.toFixed(5) + '|' + (beta > 0 ? head.map(function (v) { return v.toFixed(5); }).join() : '');
+  if (S.starsKey === key) return;
+  S.starsKey = key;
+  var cloud = S.stars, gamma = _lorentzFactor(beta), n = sd.n, hx = head[0], hy = head[1], hz = head[2];
+  var R = SP_STAR_DIST_AU, i, p = [0, 0, 0], rgb;
+  for (i = 0; i < n; i++) {
+    var dx = sd.dirs[i * 3], dy = sd.dirs[i * 3 + 1], dz = sd.dirs[i * 3 + 2];
+    var c = dx * hx + dy * hy + dz * hz, T = sd.temp[i], m = sd.mag[i], Tn = T;
+    if (beta > 0) {
+      var D = gamma * (1 + beta * c);
+      Tn = D * T;
+      m -= 2.5 * Math.log10(Math.max(1e-6, _spBeamGain(D, T)));
+      var c2 = (c + beta) / (1 + beta * c);
+      var sx = dx - hx * c, sy = dy - hy * c, sz = dz - hz * c, sl = Math.sqrt(sx * sx + sy * sy + sz * sz);
+      var k = sl < 1e-9 ? 0 : Math.sqrt(Math.max(0, 1 - c2 * c2)) / sl;
+      p[0] = hx * c2 + sx * k; p[1] = hy * c2 + sy * k; p[2] = hz * c2 + sz * k;
+    } else { p[0] = dx; p[1] = dy; p[2] = dz; }
+    rgb = _spBlackbodyRGB(Tn);
+    var alpha = _aeClamp(AE_STAR_ALPHA0 - AE_STAR_ALPHA_PER_MAG * m, 0, 1) * _aeClamp((SP_STAR_FADE_MAG[1] - m) / (SP_STAR_FADE_MAG[1] - SP_STAR_FADE_MAG[0]), 0, 1);
+    var size = _aeClamp(AE_STAR_SIZE0 - AE_STAR_SIZE_PER_MAG * m, AE_STAR_SIZE_MIN, SP_STAR_SIZE_MAX);
+    _spSetMarker(cloud, i, [p[0] * R, p[1] * R, p[2] * R], rgb, alpha, size, SP_KIND_DOT);
+  }
+  _spCommitMarkers(cloud, n);
+}
+
+// ── State ──
+var _sp = null;
+var _spIsOpen = false;
+function _spNewState(el) {
+  return {
+    el: el, gl: null, loading: false, failed: false, noProbes: false,
+    dirty: true, raf: 0, idleTimer: 0, lastTs: 0, lastText: 0,
+    jd: 0, rateIdx: 0, scaleMode: 'readable', beta: 0.1,
+    // The camera: parked, it looks at `follow` (a body, or the free point `center` mid-glide) from `dist`
+    // at azimuth `az` and elevation `el`; in flight it is the ship, and `look*` turn the head.
+    cam: { follow: 'Sun', center: [0, 0, 0], dist: SP_OVERVIEW_DIST_AU, az: -2.0, el: SP_OVERVIEW_ELEVATION,
+           pos: [0, 0, 0], fwd: [0, 1, 0], right: [1, 0, 0], up: [0, 0, 1], lookYaw: 0, lookPitch: 0 },
+    glide: null, flight: null, selected: null, lastTrip: null, at: 'Earth', pendingFly: null,
+    pointers: {}, drag: null, pinch: null, w: 1, h: 1,
+    projected: [], seen: {}, caption: null, whyOpen: false, labelPool: {}, lastCard: ''
+  };
+}
+function _spReduceMotion() { return _aeReduceMotion(); }
+function _spScaleNow() { return _spScale(_sp.scaleMode); }
+
+// ── Camera ──
+function _spSphericalOffset(dist, az, el) {
+  return [dist * Math.cos(el) * Math.cos(az), dist * Math.cos(el) * Math.sin(az), dist * Math.sin(el)];
+}
+function _spMinDist(key) {
+  var b = _spBody(key);
+  if (b.kind === 'probe') return SP_PROBE_MIN_AU;
+  return Math.max(1e-9, _spShownRadius(key, _spScaleNow()) * SP_MIN_RADII);
+}
+// Turn a heading by the head's yaw (left, about the ecliptic's up) and pitch.
+function _spLookFrom(heading, yaw, pitch) {
+  var up = Math.abs(heading[2]) > 0.999 ? [0, 1, 0] : [0, 0, 1];
+  var right = _aeNorm(_aeCross(heading, up)), top = _aeCross(right, heading);
+  var cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  var flat = _spAdd(_aeScale(heading, cy), _aeScale(right, -sy));
+  return _aeNorm(_spAdd(_aeScale(flat, cp), _aeScale(top, sp)));
+}
+function _spSetFacing(cam, fwd) {
+  var up = Math.abs(fwd[2]) > 0.999 ? [0, 1, 0] : [0, 0, 1];
+  cam.fwd = fwd;
+  cam.right = _aeNorm(_aeCross(fwd, up));
+  cam.up = _aeCross(cam.right, fwd);
+}
+// Where the camera is and which way it looks, at the view's moment.
+function _spPlaceCamera() {
+  var cam = _sp.cam, f = _sp.flight;
+  if (f) {
+    _spSetFacing(cam, _spLookFrom(f.heading, cam.lookYaw, cam.lookPitch));
+    return;
+  }
+  var center = cam.follow ? _spBodyPos(cam.follow, _sp.jd, _spScaleNow().moon) : cam.center;
+  if (!center) center = cam.center;
+  cam.center = center;
+  var off = _spSphericalOffset(cam.dist, cam.az, cam.el);
+  cam.pos = _spAdd(center, off);
+  _spSetFacing(cam, _aeNorm(_aeScale(off, -1)));
+}
+// The ship's heading and speed for the light, or none when parked.
+function _spBeta() { return _sp.flight ? _sp.flight.now.beta : 0; }
+// Where the ship is: in flight, the camera; otherwise at the body it last reached (it starts at Earth).
+function _spShipPos() {
+  if (_sp.flight) return _sp.cam.pos;
+  return _spBodyPos(_sp.at, _sp.jd, _spScaleNow().moon) || _sp.cam.pos;
+}
+// Fly: first turn the camera to a launch pose beside the ship, looking toward the target, then go.
+function _spLaunch(key) {
+  if (!_spCanFly(key)) return;
+  var sc = _spScaleNow(), ship = _spShipPos(), target = _spBodyPos(key, _sp.jd, sc.moon);
+  var toward = _aeSub(target, ship), d = _aeLen(toward);
+  _spSelect(key);
+  if (key === _sp.at || d < 1e-9) { _sp.at = key; _spGlideToBody(key); return; }
+  var u = _aeScale(toward, 1 / d), stand = _spStandoff(_sp.at);
+  var pose = _spAdd(ship, _aeScale(u, stand));
+  _sp.pendingFly = key;
+  _spGlide({ follow: null, center: _spAdd(pose, _aeScale(u, stand)), dist: stand, az: Math.atan2(-u[1], -u[0]), el: Math.asin(_aeClamp(-u[2], -1, 1)) });
+}
+
+// ── Flight ──
+function _spFlightSeconds(len) {
+  return Math.min(SP_FLIGHT_MAX_S, SP_FLIGHT_BASE_S + SP_FLIGHT_PER_DECADE_S * Math.log10(1 + len));
+}
+// The share of the way flown at progress p (0..1) of the animation: the time
+// is the Earth clock's, so the camera speeds up and slows down exactly as the
+// ship's speed does (bisection on the monotone Earth clock).
+function _spShareAt(len, beta, p) {
+  var total = _spTrip(len, beta).earthSec, want = p * total, lo = 0, hi = 1;
+  for (var i = 0; i < 40; i++) {
+    var mid = (lo + hi) / 2;
+    if (_spTripAt(len, beta, mid).earthSec < want) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+function _spStandoff(key) {
+  var b = _spBody(key);
+  return b.kind === 'probe' ? SP_PROBE_STANDOFF_AU : Math.max(_spMinDist(key), _spShownRadius(key, _spScaleNow()) * SP_STANDOFF_RADII);
+}
+function _spCanFly(key) { return !_sp.flight && !!_spBodyPos(key, _sp.jd, 1); }
+function _spStartFlight(key) {
+  if (!_spCanFly(key)) return;
+  _spPlaceCamera();
+  var from = _sp.cam.pos.slice(), moonK = _spScaleNow().moon, stand = _spStandoff(key);
+  var hit = _spIntercept(function (jd) { return _spBodyPos(key, jd, moonK) || _spBodyPos(key, _sp.jd, moonK); }, from, _sp.beta, _sp.jd, stand);
+  var toTarget = _aeSub(hit.pos, from), d = _aeLen(toTarget);
+  var len = Math.max(0, d - stand);
+  _spSelect(key);
+  _sp.lastTrip = null;
+  if (len < 1e-9) { _spGlideToBody(key); return; }
+  var heading = _aeScale(toTarget, 1 / d);
+  _sp.flight = {
+    key: key, from: from, heading: heading, len: len, beta: _sp.beta, jd0: _sp.jd, arriveJd: hit.arriveJd,
+    p: 0, dur: _spFlightSeconds(len), stand: stand,
+    now: _spTripAt(len, _sp.beta, 0)
+  };
+  _sp.cam.lookYaw = _sp.cam.lookPitch = 0;
+  _sp.glide = null;
+  _spPlaceCamera();
+  _sp.caption = null;
+  _spShowCaption('race');
+  if (_spReduceMotion()) _spStepFlight(1e9);
+  _spSyncControls();
+  _sp.dirty = true;
+  _spKick();
+}
+// Advance the flight by dt milliseconds; true while it flies.
+function _spStepFlight(dt) {
+  var f = _sp.flight;
+  if (!f) return false;
+  f.p = Math.min(1, f.p + dt / (f.dur * 1000));
+  var s = f.p >= 1 ? 1 : _spShareAt(f.len, f.beta, f.p);
+  f.share = s;
+  f.now = _spTripAt(f.len, f.beta, s);
+  _sp.jd = f.jd0 + f.now.earthSec / SECONDS_PER_DAY;
+  _sp.cam.pos = _spAdd(f.from, _aeScale(f.heading, f.len * s));
+  if (f.p >= 1) { _spFinishFlight(); return false; }
+  return true;
+}
+function _spFinishFlight() {
+  var f = _sp.flight, cam = _sp.cam;
+  _sp.at = f.key;
+  _sp.lastTrip = { key: f.key, beta: f.beta, earthSec: f.now.earthSec, shipSec: f.now.shipSec };
+  _sp.jd = f.jd0 + f.now.earthSec / SECONDS_PER_DAY;
+  var center = _spBodyPos(f.key, _sp.jd, _spScaleNow().moon);
+  var off;
+  off = _aeSub(_spAdd(f.from, _aeScale(f.heading, f.len)), center);
+  cam.follow = f.key;
+  cam.dist = Math.max(_aeLen(off), _spMinDist(f.key));
+  cam.az = Math.atan2(off[1], off[0]);
+  cam.el = Math.asin(_aeClamp(off[2] / Math.max(_aeLen(off), 1e-18), -1, 1));
+  cam.lookYaw = cam.lookPitch = 0;
+  _sp.flight = null;
+  if (_orrFmtSpan(f.now.earthSec) !== _orrFmtSpan(f.now.shipSec)) _spShowCaption('clocks');
+  _spSyncControls();
+  _sp.dirty = true;
+}
+// Fly cut short: arrive at once.
+function _spSkipFlight() { if (_sp.flight) _spStepFlight(1e12); _spKick(); }
+
+// A smooth turn of the camera between parked views (no ship, no speed).
+function _spGlide(to) {
+  var cam = _sp.cam;
+  var toCenter = to.follow ? _spBodyPos(to.follow, _sp.jd, _spScaleNow().moon) : (to.center || [0, 0, 0]);
+  var g = { from: { center: cam.center.slice(), dist: cam.dist, az: cam.az, el: cam.el }, to: { follow: to.follow, center: toCenter, dist: to.dist, az: to.az, el: to.el }, p: 0 };
+  var dAz = g.to.az - g.from.az;
+  g.to.az = g.from.az + Math.atan2(Math.sin(dAz), Math.cos(dAz));
+  if (_spReduceMotion()) { _spApplyGlide(g, 1); return; }
+  cam.follow = null;
+  _sp.glide = g;
+  _spKick();
+}
+var SP_GLIDE_MS = 900;
+function _spApplyGlide(g, p) {
+  var cam = _sp.cam, e = _aeEaseInOut(p);
+  if (p >= 1) {
+    cam.follow = g.to.follow; cam.center = g.to.center; cam.dist = g.to.dist; cam.az = g.to.az; cam.el = g.to.el;
+    _sp.glide = null;
+    if (_sp.pendingFly) { var k = _sp.pendingFly; _sp.pendingFly = null; _spStartFlight(k); }
+  } else {
+    cam.center = [0, 1, 2].map(function (i) { return g.from.center[i] + (g.to.center[i] - g.from.center[i]) * e; });
+    cam.dist = Math.exp(Math.log(g.from.dist) + (Math.log(g.to.dist) - Math.log(g.from.dist)) * e);
+    cam.az = g.from.az + (g.to.az - g.from.az) * e;
+    cam.el = g.from.el + (g.to.el - g.from.el) * e;
+  }
+  _sp.dirty = true;
+}
+function _spStepGlide(dt) {
+  var g = _sp.glide;
+  if (!g) return false;
+  g.p = Math.min(1, g.p + dt / SP_GLIDE_MS);
+  _spApplyGlide(g, g.p);
+  return !!_sp.glide;
+}
+function _spGlideToBody(key) {
+  var stand = _spStandoff(key);
+  _spGlide({ follow: key, dist: stand, az: _sp.cam.az, el: Math.max(0.25, _sp.cam.el) });
+}
+function _spOverview() {
+  if (_sp.flight) return;
+  _sp.pendingFly = null;
+  _spGlide({ follow: 'Sun', dist: SP_OVERVIEW_DIST_AU, az: _sp.cam.az, el: SP_OVERVIEW_ELEVATION });
+  _spSelect(null);
+}
+
+// ── What the scene shows, for one frame ──
+// The light's colour and brightness on a thing sunlit and seen from the ship:
+// its direction against the heading gives the Doppler factor; the Sun's
+// spectrum shifts by it.
+function _spTintFor(dirToBody, beta, head) {
+  if (!(beta > 0)) return [1, 1, 1];
+  var D = _lorentzFactor(beta) * (1 + beta * _aeDot(dirToBody, head));
+  var bb = _spBlackbodyRGB(D * SP_SUN_TEMP_K), bb0 = _spBlackbodyRGB(SP_SUN_TEMP_K);
+  var gain = Math.min(_spBeamGain(D, SP_SUN_TEMP_K), 60);
+  return [bb[0] / bb0[0] * gain, bb[1] / bb0[1] * gain, bb[2] / bb0[2] * gain];
+}
+// Projection of a camera-relative vector (AU), as the ship sees it: pixels, or null if behind.
+function _spProject(rel, beta, head) {
+  var cam = _sp.cam, r = _aeLen(rel);
+  if (r <= 0) return null;
+  var n = _aeScale(rel, 1 / r);
+  if (beta > 0) n = _spAberrateDir(n, head, beta);
+  var depth = _aeDot(n, cam.fwd);
+  if (depth <= 1e-6) return null;
+  var tanH = Math.tan(_aeRad(SP_FOV_DEG) / 2);
+  var x = _aeDot(n, cam.right) / depth / (tanH * _sp.w / _sp.h), y = _aeDot(n, cam.up) / depth / tanH;
+  return { x: (x * 0.5 + 0.5) * _sp.w, y: (0.5 - y * 0.5) * _sp.h - (_sp.shift || 0), depth: depth * r, n: n };
+}
+function _spFocalPx() { return (_sp.h / 2) / Math.tan(_aeRad(SP_FOV_DEG) / 2); }
+
+function _spApplyMatrix(mesh, basis, scale3, rel, S) {
+  var m = S.basis, e = m.elements;
+  // Columns: local x -> body x (lon 0), local y -> pole, local z -> minus east.
+  e[0] = basis.x[0] * scale3[0]; e[1] = basis.x[1] * scale3[0]; e[2] = basis.x[2] * scale3[0]; e[3] = 0;
+  e[4] = basis.z[0] * scale3[1]; e[5] = basis.z[1] * scale3[1]; e[6] = basis.z[2] * scale3[1]; e[7] = 0;
+  e[8] = -basis.y[0] * scale3[2]; e[9] = -basis.y[1] * scale3[2]; e[10] = -basis.y[2] * scale3[2]; e[11] = 0;
+  e[12] = rel[0]; e[13] = rel[1]; e[14] = rel[2]; e[15] = 1;
+  mesh.matrix.copy(m);
+  mesh.matrixWorldNeedsUpdate = true;
+}
+
+// The orbit round the Sun of one body, as a loop, from the model over one year.
+function _spBuildOrbit(S, key, jd) {
+  var o = S.orbits[key], b = _spBody(key), n = SP_ORBIT_POINTS, arr = o.line.geometry.attributes.position.array, ok = true;
+  for (var i = 0; i < n && ok; i++) {
+    var p = _spBodyPos(key, jd + b.period * i / n, 1);
+    if (!p) { ok = false; break; }
+    arr[i * 3] = p[0]; arr[i * 3 + 1] = p[1]; arr[i * 3 + 2] = p[2];
+  }
+  o.line.geometry.setDrawRange(0, ok ? n : 0);
+  o.line.geometry.attributes.position.needsUpdate = true;
+  o.at = jd;
+  o.line.visible = ok;
+}
+var SP_ORBIT_REBUILD_DAYS = 3652.5;
+
+// Everything for one frame: place the camera, the bodies and the lines, and
+// fill the list the labels and taps work from.
+function _spUpdate() {
+  var S = _sp.gl, cam = _sp.cam, jd = _sp.jd, sc = _spScaleNow(), beta = _spBeta();
+  _spPlaceCamera();
+  var head = _sp.flight ? _sp.flight.heading : [0, 1, 0];
+  S.ab.uBeta.value = beta;
+  S.ab.uHead.value.set(head[0], head[1], head[2]);
+  var focal = _spFocalPx(), items = [], minSurf = Infinity, keys = _spAllKeys(), i, k;
+  var markers = 0, M = S.markers;
+  function mark(rel, rgb, alpha, size, kind) { if (markers < SP_MARKER_CAPACITY) _spSetMarker(M, markers++, rel, rgb, alpha, size, kind); }
+  var sunRel = [-cam.pos[0], -cam.pos[1], -cam.pos[2]];
+  for (i = 0; i < keys.length; i++) {
+    k = keys[i];
+    var b = _spBody(k), it = S.items[k], abs = _spBodyPos(k, jd, sc.moon);
+    if (!abs) { if (it.mesh) { it.mesh.visible = false; if (it.ring) it.ring.visible = false; } continue; }
+    var rel = _aeSub(abs, cam.pos), dist = _aeLen(rel), R = _spShownRadius(k, sc), rpx = R / Math.max(dist, 1e-18) * focal;
+    minSurf = Math.min(minSurf, Math.max(dist - R, 1e-12));
+    var pr = _spProject(rel, beta, head);
+    items.push({ key: k, kind: b.kind, abs: abs, rel: rel, dist: dist, R: R, rpx: rpx, scr: pr });
+    if (it.mesh) {
+      var frame = _spFrameOf(k, jd, sc.moon), flat = b.flat || 0;
+      _spApplyMatrix(it.mesh, frame, [R, R * (1 - flat), R], rel, S);
+      it.mesh.visible = rpx > 0.35;
+      var toSun = b.kind === 'sun' ? [1, 0, 0] : _aeNorm(_aeScale(abs, -1));
+      it.uni.uSunDir.value.set(toSun[0], toSun[1], toSun[2]);
+      var tint = _spTintFor(_aeNorm(rel), beta, head);
+      it.uni.uTint.value.set(tint[0], tint[1], tint[2]);
+      if (it.ring) {
+        _spApplyMatrix(it.ring, frame, [R, R, R], rel, S);
+        it.ring.visible = rpx > 0.35;
+        it.ringUni.uCenter.value.set(rel[0], rel[1], rel[2]);
+        it.ringUni.uRadius.value = R;
+      }
+      if (b.kind === 'sun') {
+        S.glowUni.uCenter.value.set(rel[0], rel[1], rel[2]);
+        S.glowUni.uSize.value = Math.max(R * 3.5, dist * 11 / focal);
+        S.glowUni.uTint.value.set(tint[0], tint[1], tint[2]);
+      }
+    }
+  }
+  // Markers: a ring round anything too small to see as a disc, a square on a probe.
+  var byKey = {};
+  items.forEach(function (it2) { byKey[it2.key] = it2; });
+  for (i = 0; i < items.length; i++) {
+    var t = items[i], tb = _spBody(t.key), sel = _sp.selected === t.key, col = _spHexRGB(tb.color);
+    if (tb.kind === 'probe') { mark(t.rel, col, 1, sel ? SP_PROBE_PX + 4 : SP_PROBE_PX, SP_KIND_PROBE); continue; }
+    var a = _aeClamp((SP_RING_FADE_PX - t.rpx) / (SP_RING_FADE_PX - SP_AU_TO_PX_MIN), 0, 1);
+    if (tb.kind === 'moon') {
+      var par = byKey[_spParentKey(t.key)];
+      if (par && t.scr && par.scr && Math.hypot(t.scr.x - par.scr.x, t.scr.y - par.scr.y) < SP_MOON_APART_PX) a = 0;
+    }
+    if (a > 0.01) mark(t.rel, col, 0.85 * a, SP_MARKER_PX, SP_KIND_RING);
+    if (sel && t.rpx < SP_SELECT_RING_MAX_PX) mark(t.rel, [1, 0.72, 0.2], 1, Math.max(24, t.rpx * 2 + 10), SP_KIND_RING);
+  }
+  // The place the light shows the selected body, if that is not where it is.
+  S.ghost = null;
+  if (_sp.selected && byKey[_sp.selected] && !_sp.flight) {
+    var sk = _sp.selected, st = byKey[sk];
+    var seen = _spRetarded(function (j) { return _spBodyPos(sk, j, sc.moon) || st.abs; }, _spShipPos(), jd);
+    var gp = _spProject(_aeSub(seen.pos, cam.pos), beta, head);
+    if (gp && st.scr && Math.hypot(gp.x - st.scr.x, gp.y - st.scr.y) > 12) {
+      mark(_aeSub(seen.pos, cam.pos), [1, 1, 1], 0.9, 12, SP_KIND_GHOST);
+      S.ghost = { x: gp.x, y: gp.y, lagSec: seen.lagSec };
+    }
+  }
+  // The flash of light that left with the ship.
+  S.lightDot = null;
+  if (_sp.flight) {
+    var f = _sp.flight, lightAU = Math.min(f.len, f.now.earthSec / LIGHT_SECONDS_PER_AU);
+    var lp = _spAdd(f.from, _aeScale(f.heading, lightAU)), lrel = _aeSub(lp, cam.pos);
+    mark(lrel, [1, 0.96, 0.7], 1, 22, SP_KIND_GLOW);
+    var lpr = _spProject(lrel, beta, head);
+    if (lpr) S.lightDot = { x: lpr.x, y: lpr.y, ahead: lightAU - f.len * (f.share || 0) };
+  }
+  _spCommitMarkers(M, markers);
+  // Lines.
+  var neg = [-cam.pos[0], -cam.pos[1], -cam.pos[2]];
+  Object.keys(S.orbits).forEach(function (ok) {
+    var o = S.orbits[ok];
+    if (o.at === null || Math.abs(jd - o.at) > SP_ORBIT_REBUILD_DAYS) _spBuildOrbit(S, ok, jd);
+    o.line.position.set(neg[0], neg[1], neg[2]);
+  });
+  Object.keys(S.moonRings).forEach(function (mk) {
+    var ring = S.moonRings[mk], parent = SP_MOONS[mk].planet, pp = byKey[parent];
+    ring.visible = !!pp;
+    if (!pp) return;
+    var pole = parent === 'Earth' ? [0, 0, 1] : _spPoleEcl(parent), x = _aeNorm(_aeCross([0, 0, 1], pole));
+    if (parent === 'Earth') x = [1, 0, 0];
+    var y = _aeCross(pole, x), r = SP_MOONS[mk].a / AU_KM * sc.moon, e = S.basis.elements;
+    e[0] = x[0] * r; e[1] = x[1] * r; e[2] = x[2] * r; e[3] = 0;
+    e[4] = y[0] * r; e[5] = y[1] * r; e[6] = y[2] * r; e[7] = 0;
+    e[8] = pole[0]; e[9] = pole[1]; e[10] = pole[2]; e[11] = 0;
+    e[12] = pp.rel[0]; e[13] = pp.rel[1]; e[14] = pp.rel[2]; e[15] = 1;
+    ring.matrix.copy(S.basis);
+    ring.matrixWorldNeedsUpdate = true;
+  });
+  Object.keys(S.trails).forEach(function (tk) {
+    var tr = S.trails[tk], track = _spTrack(tk), flying = track && _spTrackState(track, jd) === 'flying';
+    tr.past.visible = tr.future.visible = !!flying;
+    if (!flying) return;
+    var idx = _spTrailIndex(track, jd), whole = Math.floor(idx) + 1;
+    tr.past.geometry.setDrawRange(0, whole);
+    tr.future.geometry.setDrawRange(whole - 1, tr.count - whole + 1);
+    tr.past.position.set(neg[0], neg[1], neg[2]);
+    tr.future.position.set(neg[0], neg[1], neg[2]);
+  });
+  // The stars, as the ship sees them.
+  _spShadeStars(S, beta, head);
+  // The camera.
+  var m = S.basis.elements;
+  m[0] = cam.right[0]; m[1] = cam.right[1]; m[2] = cam.right[2]; m[3] = 0;
+  m[4] = cam.up[0]; m[5] = cam.up[1]; m[6] = cam.up[2]; m[7] = 0;
+  m[8] = -cam.fwd[0]; m[9] = -cam.fwd[1]; m[10] = -cam.fwd[2]; m[11] = 0;
+  m[12] = m[13] = m[14] = 0; m[15] = 1;
+  S.camera.quaternion.setFromRotationMatrix(S.basis);
+  S.camera.near = _aeClamp(0.35 * minSurf, 1e-10, 1);
+  S.camera.far = SP_FAR_AU;
+  S.camera.aspect = _sp.w / _sp.h;
+  // The scene's middle sits in the clear part of the screen, above the card.
+  if (_sp.shift) S.camera.setViewOffset(_sp.w, _sp.h, 0, _sp.shift, _sp.w, _sp.h);
+  else if (S.camera.view) S.camera.clearViewOffset();
+  S.camera.updateProjectionMatrix();
+  _sp.items = items;
+  _sp.byKey = byKey;
+}
+
+// ── Labels and taps ──
+function _spLabelEl(key) {
+  var el = _sp.labelPool[key];
+  if (el) return el;
+  el = document.createElement('span');
+  el.className = 'ae-label sp-label';
+  el.hidden = true;
+  _aeById('sp-labels').appendChild(el);
+  return (_sp.labelPool[key] = el);
+}
+var SP_LABEL_ORDER = { sun: 0, planet: 1, dwarf: 2, probe: 3, moon: 4 };
+function _spLabels() {
+  var items = _sp.items || [], placed = [], W = _sp.w, H = _sp.h;
+  var order = items.slice().sort(function (a, b) {
+    if ((_sp.selected === a.key) !== (_sp.selected === b.key)) return _sp.selected === a.key ? -1 : 1;
+    return (SP_LABEL_ORDER[a.kind] - SP_LABEL_ORDER[b.kind]) || (a.dist - b.dist);
+  });
+  var shown = {};
+  _sp.projected = [];
+  order.forEach(function (it) {
+    var s = it.scr;
+    if (!s || s.x < -40 || s.x > W + 40 || s.y < -20 || s.y > H + 20) return;
+    _sp.projected.push({ key: it.key, x: s.x, y: s.y, rpx: it.rpx, kind: it.kind });
+    var par = it.kind === 'moon' ? _sp.byKey[_spParentKey(it.key)] : null;
+    if (par && par.scr && Math.hypot(s.x - par.scr.x, s.y - par.scr.y) < SP_MOON_APART_PX) return;
+    if (items.some(function (o) { return o !== it && o.scr && o.dist < it.dist && o.rpx > SP_COVER_PX && Math.hypot(s.x - o.scr.x, s.y - o.scr.y) < o.rpx; })) return;
+    var el = _spLabelEl(it.key), name = _spName(it.key);
+    if (el.textContent !== name) el.textContent = name;
+    var w = name.length * SP_LABEL_CHAR_W + 8, x = s.x + Math.max(10, it.rpx + 6), y = s.y - SP_LABEL_H / 2;
+    var rect = [x, y, x + w, y + SP_LABEL_H];
+    for (var j = 0; j < placed.length; j++) {
+      var q = placed[j];
+      if (rect[0] < q[2] && rect[2] > q[0] && rect[1] < q[3] && rect[3] > q[1]) return;
+    }
+    placed.push(rect);
+    shown[it.key] = true;
+    el.hidden = false;
+    el.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
+    el.classList.toggle('sp-sel', _sp.selected === it.key);
+    el.classList.toggle('sp-probe', it.kind === 'probe');
+    el.classList.toggle('sp-moon', it.kind === 'moon');
+  });
+  Object.keys(_sp.labelPool).forEach(function (k) { if (!shown[k]) _sp.labelPool[k].hidden = true; });
+  var S = _sp.gl, g = _aeById('sp-ghost'), l = _aeById('sp-light');
+  if (g) {
+    g.hidden = !S.ghost;
+    if (S.ghost) {
+      g.style.transform = 'translate(' + (S.ghost.x + 10).toFixed(1) + 'px,' + (S.ghost.y - 7).toFixed(1) + 'px)';
+      g.textContent = _aeT('sp_ghost_label');
+    }
+  }
+  if (l) {
+    l.hidden = !S.lightDot;
+    if (S.lightDot) {
+      l.style.transform = 'translate(' + (S.lightDot.x + 14).toFixed(1) + 'px,' + (S.lightDot.y - 7).toFixed(1) + 'px)';
+      l.textContent = _aeT('sp_light_label');
+    }
+  }
+}
+function _spTapAt(x, y) {
+  var best = null, bestD = Infinity;
+  (_sp.projected || []).forEach(function (p) {
+    var d = Math.hypot(p.x - x, p.y - y), reach = Math.max(p.rpx, SP_TAP_RADIUS_PX);
+    if (d > reach) return;
+    // The smaller thing wins where two overlap (a moon over its planet, a probe over anything).
+    var score = d - (p.kind === 'probe' ? 8 : p.kind === 'moon' ? 6 : 0) - (p.rpx > SP_TAP_RADIUS_PX && d < p.rpx * 0.8 ? 0 : 0);
+    if (score < bestD) { best = p; bestD = score; }
+  });
+  if (best) { _spSelect(best.key); if (_sp.selected === best.key && !_sp.flight && _sp.cam.follow !== best.key) { /* selecting only */ } }
+  else _spSelect(null);
+}
+
+// ── The page ──
+function _spDom() {
+  var host = _aeById('almanac-view');
+  if (!host) return null;
+  var el = document.createElement('div');
+  el.className = 'ae-view sp-view';
+  el.id = 'sp-view';
+  el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-modal', 'true');
+  el.setAttribute('aria-label', _aeT('sp_open'));
+  el.innerHTML =
+    '<canvas class="ae-canvas" id="sp-canvas" tabindex="0" role="img"></canvas>' +
+    '<div class="ae-labels" id="sp-labels">' +
+      '<span class="ae-label sp-label" id="sp-ghost" hidden></span><span class="ae-label sp-label" id="sp-light" hidden></span>' +
+    '</div>' +
+    '<div class="ae-msg" id="sp-msg"></div>' +
+    '<div class="ae-top">' +
+      '<button type="button" class="ae-btn ae-back" id="sp-back"><span class="ae-chev" aria-hidden="true">‹</span> ' + _almEsc(_aeT('alm_solar_system')) + '</button>' +
+      '<div class="ae-top-end"><div class="ae-when-col">' +
+        '<div class="ae-when" id="sp-when"></div>' +
+        '<button type="button" class="ae-btn ae-now" id="sp-now" hidden>' + _almEsc(_aeT('alm_now')) + '</button>' +
+      '</div><div class="ae-tools">' +
+        '<button type="button" class="ae-btn" id="sp-scale" aria-pressed="false"></button>' +
+        '<button type="button" class="ae-btn" id="sp-time"></button>' +
+      '</div></div>' +
+    '</div>' +
+    '<div class="ae-status" id="sp-status" aria-live="polite"></div>' +
+    '<div class="ae-bottom">' +
+      '<div class="ae-card sp-card" id="sp-card" hidden></div>' +
+      '<div class="sp-cap" id="sp-cap" hidden aria-live="polite"></div>' +
+      '<div class="sp-hud" id="sp-hud" hidden></div>' +
+      '<div class="sp-speed"><label for="sp-slider">' + _almEsc(_aeT('sp_speed')) + '</label>' +
+        '<input type="range" id="sp-slider" min="0" max="' + SP_BETA_STEPS + '" step="1"><output id="sp-speedout" for="sp-slider"></output></div>' +
+      '<div class="sp-chips" id="sp-chips" role="group" aria-label="' + _almEsc(_aeT('sp_destinations')) + '"></div>' +
+      '<div class="ae-note" id="sp-note"></div>' +
+    '</div>';
+  host.appendChild(el);
+  return el;
+}
+function _spChipsHtml() {
+  var html = '<button type="button" class="ae-btn" data-sp-overview="1">' + _almEsc(_aeT('sp_overview')) + '</button>';
+  var group = function (keys) {
+    return keys.map(function (k) {
+      return '<button type="button" class="ae-btn" data-sp-key="' + k + '" aria-pressed="false">' + _almEsc(_spName(k)) + '</button>';
+    }).join('');
+  };
+  var keys = SP_BODIES.map(function (b) { return b.key; });
+  var cut = keys.indexOf('Moon');
+  html += group(keys.slice(0, cut)) + '<i class="sp-gap" aria-hidden="true"></i>' + group(keys.slice(cut)) +
+    '<i class="sp-gap" aria-hidden="true"></i>' + group(_spProbeKeys);
+  return html;
+}
+
+function _spEnsure() {
+  if (_sp) return true;
+  _spEnsureStyles();
+  var el = _spDom();
+  if (!el) return false;
+  _sp = _spNewState(el);
+  _spBindControls();
+  _spBindCanvas(_aeById('sp-canvas'));
+  return true;
+}
+
+// ── Loading ──
+var _spLoading = null;
+function _spPrepare() {
+  if (_sp.gl) return Promise.resolve(true);
+  if (_sp.failed) return Promise.resolve(false);
+  if (_spLoading) return _spLoading;
+  var tracks = fetch(SP_TRACKS_URL).then(function (r) { if (!r.ok) throw new Error('tracks'); return r.json(); })
+    .then(function (j) { _spSetTracks(j); return true; }, function () { _sp.noProbes = true; return false; });
+  _spLoading = Promise.all([_aeLoadThree(), tracks]).then(function (res) {
+    _spLoading = null;
+    if (!_spIsOpen) return false;
+    _spBodyIndex = null;
+    var S = _spBuildGl(res[0], _aeById('sp-canvas'), _spTracks);
+    if (!S) { _sp.failed = true; return false; }
+    _sp.gl = S;
+    _spSetStars(S, _aeStarList());
+    _aeById('sp-chips').innerHTML = _spChipsHtml();
+    _spLoadMaps(S);
+    return true;
+  }, function () { _spLoading = null; return false; });
+  return _spLoading;
+}
+
+// ── Open and close ──
+function openAlmanacSpace() {
+  if (_spIsOpen || !_spEnsure()) return;
+  _spIsOpen = true;
+  _sp.opener = document.activeElement;
+  _sp.el.classList.add('open');
+  _aePauseAlmanac();
+  // The page's moment (its time machine, or now), with the orrery's own speed settled into it as the Earth view does.
+  if (typeof _aeAdoptOrreryClock === 'function') _aeAdoptOrreryClock();
+  _sp.jd = _dateToJD(_aeDisplayMs());
+  _sp.openJd = _sp.jd;
+  _sp.selected = null; _sp.flight = null; _sp.glide = null; _sp.lastTrip = null; _sp.caption = null;
+  _sp.rateIdx = 0; _sp.beta = 0.1; _sp.at = 'Earth'; _sp.pendingFly = null;
+  Object.assign(_sp.cam, { follow: 'Sun', dist: SP_OVERVIEW_DIST_AU, az: -2.0, el: SP_OVERVIEW_ELEVATION, lookYaw: 0, lookPitch: 0 });
+  _aeById('sp-back').focus({ preventScroll: true });
+  _spMessage(_aeT('sp_loading'));
+  _spPrepare().then(function (ok) {
+    if (!_spIsOpen) return;
+    if (!ok) { _spMessage(_aeT(_sp.failed ? 'sp_nogl' : 'sp_unavailable')); return; }
+    _spMessage('');
+    _spSyncControls();
+    _spResize();
+    window.addEventListener('resize', _spResize);
+    _sp.dirty = true;
+    _spKick();
+    _aeCoverAlmanac(true);
+  });
+  _aeCoverAlmanac(true);
+}
+function _spMessage(text) {
+  var m = _aeById('sp-msg');
+  if (!m) return;
+  m.textContent = text || '';
+  m.hidden = !text;
+  _sp.el.classList.toggle('ae-blank', !!text);
+}
+function _spClose() {
+  if (!_spIsOpen) return;
+  _spIsOpen = false;
+  _spStop();
+  _sp.el.classList.remove('open');
+  window.removeEventListener('resize', _spResize);
+  _spDisposeGl();
+  _aeCoverAlmanac(false);
+  if (typeof _almanacOpen === 'undefined' || _almanacOpen) _aeResumeAlmanac();
+  var back = _sp.opener;
+  if (back && back.focus && document.contains(back)) back.focus({ preventScroll: true, focusVisible: !!_sp.closedByKey });
+  _sp.closedByKey = false;
+}
+function _spStop() {
+  if (_sp.raf) { cancelAnimationFrame(_sp.raf); _sp.raf = 0; }
+  if (_sp.idleTimer) { clearTimeout(_sp.idleTimer); _sp.idleTimer = 0; }
+  _sp.flight = null; _sp.glide = null; _sp.pointers = {}; _sp.drag = _sp.pinch = null;
+}
+// Give the GPU back: every geometry, material and map, then the context itself.
+// A lost context cannot be had again from its canvas, so a fresh one takes its place.
+function _spDisposeGl() {
+  var S = _sp && _sp.gl;
+  if (!S) return;
+  _sp.gl = null;
+  S.scene.traverse(function (o) {
+    if (o.geometry) o.geometry.dispose();
+    if (!o.material) return;
+    var u = o.material.uniforms || {};
+    for (var k in u) if (u[k].value && u[k].value.isTexture) u[k].value.dispose();
+    o.material.dispose();
+  });
+  S.renderer.dispose();
+  S.renderer.forceContextLoss();
+  var old = _aeById('sp-canvas');
+  if (old && old.parentNode) {
+    var fresh = old.cloneNode(false);
+    old.parentNode.replaceChild(fresh, old);
+    _spBindCanvas(fresh);
+  }
+  Object.keys(_sp.labelPool).forEach(function (k) { _sp.labelPool[k].remove(); });
+  _sp.labelPool = {};
+}
+// Leaving the Almanac: the view closes and gives the GPU back.
+function _spRelease() {
+  if (!_sp) return;
+  if (_spIsOpen) _spClose();
+  else _spDisposeGl();
+}
+
+// The scene is centred in what the controls leave clear: the screen between the
+// top bar and the card (or the bottom controls), not behind them.
+var SP_TOP_BAR_PX = 56;
+function _spUpdateShift() {
+  if (!_sp || !_sp.el || !_sp.h) return;
+  var box = _sp.el.getBoundingClientRect(), edge = _sp.el.querySelector('.ae-bottom').getBoundingClientRect().top - box.top;
+  var card = _aeById('sp-card');
+  if (!card.hidden && card.getClientRects().length) edge = Math.min(edge, card.getBoundingClientRect().top - box.top);
+  var shift = Math.round(_aeClamp(_sp.h / 2 - (SP_TOP_BAR_PX + edge) / 2, 0, _sp.h * 0.4));
+  if (shift !== _sp.shift) { _sp.shift = shift; _sp.dirty = true; _spKick(); }
+}
+function _spResize() {
+  if (!_sp || !_sp.gl) return;
+  var c = _aeById('sp-canvas'), r = c.getBoundingClientRect();
+  _sp.w = Math.max(1, Math.round(r.width)); _sp.h = Math.max(1, Math.round(r.height));
+  _sp.gl.renderer.setSize(_sp.w, _sp.h, false);
+  _spUpdateShift();
+  _sp.dirty = true;
+  _spKick();
+}
+
+// ── The loop ──
+// Draws while something moves (a flight, a drag, a running clock) or after a
+// change, and not at all otherwise: a parked, still view costs nothing.
+function _spKick() {
+  if (!_spIsOpen || !_sp.gl) return;
+  if (!_sp.raf) _sp.raf = requestAnimationFrame(_spFrame);
+}
+function _spRate() { return SP_TIME_RATES[_sp.rateIdx]; }
+function _spBusy() { return !!(_sp.flight || _sp.glide || _sp.drag || _sp.pinch || _spRate() > 0); }
+function _spFrame() {
+  _sp.raf = 0;
+  if (!_spIsOpen || !_sp.gl || document.hidden) return;
+  if (typeof _almanacOpen !== 'undefined' && !_almanacOpen) { _spClose(); return; }
+  var now = performance.now(), dt = _sp.lastTs ? Math.min(now - _sp.lastTs, 100) : 16;
+  _sp.lastTs = now;
+  if (_sp.flight) _spStepFlight(dt);
+  else if (_spRate() > 0) _sp.jd += _spRate() * dt / 1000;
+  _spStepGlide(dt);
+  var busy = _spBusy();
+  if (_sp.dirty || busy) {
+    _spUpdate();
+    _sp.gl.renderer.render(_sp.gl.scene, _sp.gl.camera);
+    _spLabels();
+    _sp.dirty = false;
+    _spUpdateText();
+  }
+  if (busy || _sp.dirty) _sp.raf = requestAnimationFrame(_spFrame);
+  else _sp.lastTs = 0;
+}
+
+// ── Input ──
+function _spZoomBy(f) {
+  var cam = _sp.cam;
+  if (_sp.flight) return;
+  _sp.glide = null; _sp.pendingFly = null;
+  if (!cam.follow) cam.follow = 'Sun';
+  cam.dist = _aeClamp(cam.dist * f, _spMinDist(cam.follow), SP_MAX_DIST_AU);
+  _sp.dirty = true; _spKick();
+}
+function _spTurnBy(dx, dy) {
+  var cam = _sp.cam;
+  if (_sp.flight) {
+    cam.lookYaw = _aeClamp(cam.lookYaw + dx * SP_DRAG_RAD_PER_PX, -Math.PI, Math.PI);
+    cam.lookPitch = _aeClamp(cam.lookPitch + dy * SP_DRAG_RAD_PER_PX, -1.5, 1.5);
+  } else {
+    _sp.glide = null; _sp.pendingFly = null;
+    if (!cam.follow) cam.follow = 'Sun';
+    cam.az -= dx * SP_DRAG_RAD_PER_PX;
+    cam.el = _aeClamp(cam.el + dy * SP_DRAG_RAD_PER_PX, -1.5, 1.5);
+  }
+  _sp.dirty = true; _spKick();
+}
+function _spBindCanvas(canvas) {
+  canvas.addEventListener('pointerdown', function (e) {
+    canvas.setPointerCapture(e.pointerId);
+    _sp.pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(_sp.pointers);
+    if (ids.length === 1) _sp.drag = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, moved: false };
+    else if (ids.length === 2) {
+      var a = _sp.pointers[ids[0]], b = _sp.pointers[ids[1]];
+      _sp.pinch = { span: Math.hypot(a.x - b.x, a.y - b.y) };
+      _sp.drag = null;
+    }
+    canvas.classList.add('ae-dragging');
+    _spKick();
+  });
+  canvas.addEventListener('pointermove', function (e) {
+    if (!_sp.pointers[e.pointerId]) return;
+    _sp.pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(_sp.pointers);
+    if (_sp.pinch && ids.length >= 2) {
+      var a = _sp.pointers[ids[0]], b = _sp.pointers[ids[1]], span = Math.hypot(a.x - b.x, a.y - b.y);
+      if (span > 0 && _sp.pinch.span > 0) _spZoomBy(_sp.pinch.span / span);
+      _sp.pinch.span = span;
+    } else if (_sp.drag) {
+      var dx = e.clientX - _sp.drag.x, dy = e.clientY - _sp.drag.y;
+      _sp.drag.x = e.clientX; _sp.drag.y = e.clientY;
+      if (Math.hypot(e.clientX - _sp.drag.x0, e.clientY - _sp.drag.y0) > SP_TAP_SLOP_PX) _sp.drag.moved = true;
+      if (_sp.drag.moved) _spTurnBy(dx, dy);
+    }
+  });
+  function end(e) {
+    if (!_sp.pointers[e.pointerId]) return;
+    delete _sp.pointers[e.pointerId];
+    var left = Object.keys(_sp.pointers).length;
+    if (_sp.drag && !_sp.drag.moved && left === 0 && e.type === 'pointerup') {
+      var r = canvas.getBoundingClientRect();
+      _spTapAt(e.clientX - r.left, e.clientY - r.top);
+    }
+    if (left < 2) _sp.pinch = null;
+    if (left === 0) { _sp.drag = null; canvas.classList.remove('ae-dragging'); }
+    else if (left === 1) {
+      var p = _sp.pointers[Object.keys(_sp.pointers)[0]];
+      _sp.drag = { x: p.x, y: p.y, x0: p.x, y0: p.y, moved: true };
+    }
+    _sp.dirty = true; _spKick();
+  }
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
+  canvas.addEventListener('wheel', function (e) { e.preventDefault(); _spZoomBy(Math.exp(e.deltaY * SP_WHEEL_ZOOM)); }, { passive: false });
+}
+var SP_KEY_ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+function _spBindControls() {
+  var el = _sp.el;
+  el.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); _sp.closedByKey = true; _spClose(); return; }
+    if (e.target !== _aeById('sp-canvas')) return;
+    var arrow = SP_KEY_ARROWS[e.key], handled = true;
+    if (arrow) _spTurnBy(arrow[0] * SP_KEY_TURN / SP_DRAG_RAD_PER_PX, arrow[1] * SP_KEY_TURN / SP_DRAG_RAD_PER_PX);
+    else if (e.key === '+' || e.key === '=') _spZoomBy(1 / SP_KEY_ZOOM);
+    else if (e.key === '-' || e.key === '_') _spZoomBy(SP_KEY_ZOOM);
+    else handled = false;
+    if (handled) e.preventDefault();
+  });
+  _aeById('sp-back').addEventListener('click', _spClose);
+  _aeById('sp-scale').addEventListener('click', function () {
+    if (_sp.flight) return;
+    _sp.scaleMode = _sp.scaleMode === 'true' ? 'readable' : 'true';
+    if (_sp.cam.follow) _sp.cam.dist = Math.max(_sp.cam.dist, _spMinDist(_sp.cam.follow));
+    _spSyncControls(); _sp.dirty = true; _spKick();
+  });
+  _aeById('sp-time').addEventListener('click', function () {
+    _sp.rateIdx = (_sp.rateIdx + 1) % SP_TIME_RATES.length;
+    _spSyncControls(); _sp.dirty = true; _spKick();
+  });
+  _aeById('sp-now').addEventListener('click', function () {
+    if (_sp.flight) return;
+    _sp.jd = _dateToJD(Date.now()); _sp.rateIdx = 0;
+    _spSyncControls(); _sp.dirty = true; _spKick();
+  });
+  _aeById('sp-slider').addEventListener('input', function (e) {
+    if (_sp.flight) return;
+    _sp.beta = _spSliderToBeta(+e.target.value);
+    _spSyncControls(); _sp.dirty = true; _spKick();
+  });
+  _aeById('sp-chips').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    if (b.hasAttribute('data-sp-overview')) { _spOverview(); return; }
+    _spSelect(b.getAttribute('data-sp-key'));
+  });
+  _aeById('sp-card').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    if (b.hasAttribute('data-sp-fly')) _spLaunch(b.getAttribute('data-sp-fly'));
+    else if (b.hasAttribute('data-sp-skip')) _spSkipFlight();
+    else if (b.hasAttribute('data-sp-close')) _spSelect(null);
+    else if (b.hasAttribute('data-sp-lib')) _spOpenLibrary(b);
+  });
+  _aeById('sp-cap').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b || !_sp.caption) return;
+    if (b.hasAttribute('data-sp-why')) { _sp.whyOpen = !_sp.whyOpen; _spRenderCaption(); }
+    else if (b.hasAttribute('data-sp-ok')) _spDismissCaption();
+  });
+}
+
+// ── Selecting, and the card ──
+function _spSelect(key) {
+  _sp.selected = key;
+  _sp.libToken = (_sp.libToken || 0) + 1;
+  _spRenderCard();
+  var chips = _aeById('sp-chips').querySelectorAll('[data-sp-key]');
+  for (var i = 0; i < chips.length; i++) chips[i].setAttribute('aria-pressed', String(chips[i].getAttribute('data-sp-key') === key));
+  if (key) {
+    var chip = _aeById('sp-chips').querySelector('[data-sp-key="' + key + '"]');
+    if (chip && chip.scrollIntoView) chip.scrollIntoView({ block: 'nearest', inline: 'center', behavior: _spReduceMotion() ? 'auto' : 'smooth' });
+    _spLoadLibrary(key);
+  }
+  _sp.dirty = true;
+  _spKick();
+}
+function _spFmtDist(au) {
+  return au < 0.01 ? _orrNum(au * AU_KM, 'kilometer', 0) : _orrNum(au, null, au < 10 ? 2 : 1) + ' AU';
+}
+function _spKindLine(key) {
+  var b = _spBody(key);
+  if (b.kind === 'moon') return _aeT('sp_kind_moon', { planet: _spName(SP_MOONS[key].planet) });
+  return _aeT('sp_kind_' + b.kind);
+}
+function _spEventText(ev) {
+  var kind = ev[1], body = ev[2] ? (ev[2] === 'L2' ? _aeT('sp_l2') : (_spBody(ev[2]) ? _spName(ev[2]) : _aeT('sp_n_' + ev[2].toLowerCase()))) : '';
+  return _aeT('sp_ev_' + kind, { body: body });
+}
+// The most recent milestone of a probe at jd, and its date.
+function _spLastEvent(track, jd) {
+  var last = null;
+  track.events.forEach(function (ev) { if (ev[0] <= jd && (!last || ev[0] >= last[0])) last = ev; });
+  return last;
+}
+function _spRenderCard() {
+  var card = _aeById('sp-card'), key = _sp.selected;
+  if (!key) { card.hidden = true; card.innerHTML = ''; _spUpdateShift(); return; }
+  var b = _spBody(key), link = _spLinkKey(key), nameHtml = _almEsc(_spName(key));
+  if (typeof _aeLinked === 'function' && _aeLinked(link)) nameHtml = _aeLink(link, nameHtml);
+  card.innerHTML =
+    '<button type="button" class="ae-card-x" data-sp-close="1" aria-label="' + _almEsc(_aeT('close')) + '">×</button>' +
+    '<h3>' + nameHtml + ' <small class="sp-kind">' + _almEsc(_spKindLine(key)) + '</small></h3>' +
+    '<div id="sp-card-lines"></div>' +
+    '<div class="sp-go"><button type="button" class="ae-btn sp-fly" id="sp-fly" data-sp-fly="' + key + '">' + _almEsc(_aeT('alm_orr_fly')) + '</button></div>' +
+    '<div class="sp-lib" id="sp-lib"></div>';
+  card.hidden = false;
+  _sp.lastCard = '';
+  _spUpdateCardLines();
+  _spUpdateShift();
+}
+// The lines that change with the time and the camera: how far, how old the light is, how long the trip.
+function _spUpdateCardLines() {
+  var key = _sp.selected, box = _aeById('sp-card-lines');
+  if (!key || !box) return;
+  var b = _spBody(key), sc = _spScaleNow(), jd = _sp.jd, pos = _spBodyPos(key, jd, sc.moon), lines = [];
+  var fly = _aeById('sp-fly');
+  if (!pos) {
+    var track = _spTrack(b.track), before = track && jd < track.jd0;
+    lines.push(_aeT(before ? 'sp_not_yet' : 'sp_over', { date: _spFmtDate(before ? track.events[0][0] : track.jd1) }));
+    if (fly) fly.disabled = true;
+  } else {
+    var here = key === _sp.at && !_sp.flight;
+    if (fly) { fly.disabled = !!_sp.flight; fly.hidden = here; }
+    var d = _aeLen(_aeSub(pos, _spShipPos()));
+    lines.push(here ? _aeT('sp_here') : _aeT('sp_dist_light', { au: _spFmtDist(d), time: _orrFmtSpan(_lightDelaySeconds(d)) }));
+    var legs = Math.max(0, d - _spStandoff(key));
+    if (!_sp.flight && !here && legs > 1e-9) {
+      var trip = _spTrip(legs, _sp.beta), diff = (trip.earthSec - trip.shipSec) / trip.earthSec > 0.005;
+      lines.push(diff ? _aeT('sp_trip_two', { speed: _orrFmtBeta(_sp.beta), earth: _orrFmtSpan(trip.earthSec), ship: _orrFmtSpan(trip.shipSec) })
+                      : _aeT('sp_trip', { speed: _orrFmtBeta(_sp.beta), time: _orrFmtSpan(trip.earthSec) }));
+    }
+    if (b.kind === 'probe') {
+      lines.push(_aeT('sp_from_sun', { au: _spFmtDist(_aeLen(pos)) }));
+      var ev = _spLastEvent(_spTrack(b.track), jd);
+      if (ev) lines.push(_spEventText(ev) + ', ' + _spFmtDate(ev[0]));
+    }
+  }
+  if (_sp.lastTrip && _sp.lastTrip.key === key && !_sp.flight) {
+    var te = _orrFmtSpan(_sp.lastTrip.earthSec), ts = _orrFmtSpan(_sp.lastTrip.shipSec);
+    lines.push(te === ts ? _aeT('sp_took_one', { time: te }) : _aeT('sp_took', { earth: te, ship: ts }));
+  }
+  var html = lines.map(function (l) { return '<span class="sp-line">' + _almEsc(l) + '</span>'; }).join('');
+  if (html !== _sp.lastCard) { box.innerHTML = html; _sp.lastCard = html; _spUpdateShift(); }
+}
+
+// ── The library: what the installed ZIMs say about the body ──
+// Found when a body is selected, never before: its article by Q-ID (the name
+// above, when it resolves), talks about it, a question about it, an orbit
+// sandbox. A chip appears only for something that is installed.
+function _spZimsLike(re) { return (typeof zimsCache !== 'undefined' && zimsCache ? zimsCache : []).filter(function (z) { return re.test(z.name || ''); }); }
+function _spLibChip(label, attrs) {
+  return '<button type="button" class="ae-btn" data-sp-lib="1" ' + attrs + '>' + _almEsc(label) + '</button>';
+}
+function _spLoadLibrary(key) {
+  var token = _sp.libToken, box = _aeById('sp-lib');
+  if (!box) return;
+  box.innerHTML = '';
+  var add = function (html) { if (token === _sp.libToken && _aeById('sp-lib')) _aeById('sp-lib').insertAdjacentHTML('beforeend', html); };
+  var name = _spName(key), english = _spBody(key).kind === 'probe' ? _spTrack(_spBody(key).track).name : key;
+  // Talks.
+  if (typeof _installedVideoZims === 'function' && _installedVideoZims().length) {
+    fetch('/tube?q=' + encodeURIComponent(english) + '&limit=2').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      ((j && j.items) || []).slice(0, 2).forEach(function (v) {
+        add(_spLibChip(_aeT('sp_watch', { title: String(v.title || '').slice(0, 34) }), 'data-app="tube" data-zim="' + _almEsc(v.zim) + '" data-path="' + _almEsc(v.page) + '"'));
+      });
+    }).catch(function () {});
+  }
+  // A question on the space Q&A site.
+  var qa = _spZimsLike(/^space\.stackexchange/)[0];
+  if (qa) {
+    fetch('/search?q=' + encodeURIComponent(english) + '&limit=1&zim=' + encodeURIComponent(qa.name)).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      var hit = j && j.results && j.results[0];
+      if (hit) add(_spLibChip(_aeT('sp_ask', { title: String(hit.title || '').slice(0, 34) }), 'data-app="exchange" data-zim="' + _almEsc(hit.zim || qa.name) + '" data-path="' + _almEsc(hit.path) + '"'));
+    }).catch(function () {});
+  }
+  // The orbit sandbox, for the planets and moons.
+  var phet = _spZimsLike(/^phet_/)[0];
+  if (phet && _spBody(key).kind !== 'probe') {
+    var lang = (phet.name.match(/^phet_([a-z_]+?)_/) || [0, 'en'])[1];
+    add(_spLibChip(_aeT('sp_orbits'), 'data-app="" data-zim="' + _almEsc(phet.name) + '" data-path="gravity-and-orbits_' + _almEsc(lang) + '.html"'));
+  }
+}
+function _spOpenLibrary(btn) {
+  var app = btn.getAttribute('data-app'), zim = btn.getAttribute('data-zim'), path = btn.getAttribute('data-path');
+  if (app && typeof _openAppItem === 'function') _openAppItem(app, zim, path);
+  else if (typeof openArticle === 'function') openArticle(zim, path, btn.textContent);
+}
+
+// ── What the person is told, one idea at a time ──
+// The surprise first; the reason one tap away. Each shows once a session, when
+// its effect has become plain to see. The higher one wins if two want the place.
+var SP_CAPTIONS = {
+  race:   { prio: 1, link: 'phys:lightspeed' },
+  stars:  { prio: 2, link: 'phys:aberration' },
+  colour: { prio: 3, link: 'phys:doppler' },
+  clocks: { prio: 4, link: 'phys:timedilation' },
+  old:    { prio: 0, link: 'phys:lightspeed' }
+};
+function _spShowCaption(kind) {
+  if (_sp.seen[kind]) return;
+  var cur = _sp.caption;
+  if (cur && SP_CAPTIONS[cur.kind].prio >= SP_CAPTIONS[kind].prio) return;
+  _sp.caption = { kind: kind };
+  _sp.whyOpen = false;
+  _spRenderCaption();
+}
+function _spDismissCaption() {
+  var kind = _sp.caption && _sp.caption.kind;
+  if (kind) _sp.seen[kind] = true;
+  _sp.caption = null;
+  _spRenderCaption();
+  // After the clocks, the last surprise: home is seen as it was.
+  if (kind === 'clocks' && _spHomeLagSeconds() >= 60) _spShowCaption('old');
+}
+function _spHomeLagSeconds() {
+  var home = _spBodyPos('Earth', _sp.jd, 1);
+  return home ? _lightDelaySeconds(_aeLen(_aeSub(home, _spShipPos()))) : 0;
+}
+function _spCaptionVars(kind) {
+  var vars = { body: _spName('Earth') };
+  if (kind === 'old') vars.time = _orrFmtSpan(_spHomeLagSeconds());
+  if (kind === 'clocks' && _sp.lastTrip) {
+    vars.earth = _orrFmtSpan(_sp.lastTrip.earthSec); vars.ship = _orrFmtSpan(_sp.lastTrip.shipSec);
+  }
+  return vars;
+}
+function _spRenderCaption() {
+  var box = _aeById('sp-cap'), c = _sp.caption;
+  if (!c) { box.hidden = true; box.innerHTML = ''; _spUpdateShift(); return; }
+  var vars = _spCaptionVars(c.kind), read = SP_CAPTIONS[c.kind].link;
+  var more = _aeLinked(read) ? _aeLink(read, _almEsc(_aeT('sp_read_more'))) : '';
+  box.innerHTML =
+    '<p>' + _almEsc(_aeT('sp_cap_' + c.kind, vars)) + '</p>' +
+    (_sp.whyOpen ? '<p class="sp-why">' + _almEsc(_aeT('sp_why_' + c.kind, vars)) + (more ? ' ' + more : '') + '</p>' : '') +
+    '<div class="sp-cap-row"><button type="button" class="ae-btn" data-sp-why="1" aria-expanded="' + _sp.whyOpen + '">' + _almEsc(_aeT('sp_why')) + '</button>' +
+    '<button type="button" class="ae-btn" data-sp-ok="1">' + _almEsc(_aeT('sp_got_it')) + '</button></div>';
+  box.hidden = false;
+  _spUpdateShift();
+}
+
+// ── Text: the date, the clocks, the speed, the notes ──
+function _spSyncControls() {
+  var sc = _spScaleNow(), flying = !!_sp.flight;
+  var scaleBtn = _aeById('sp-scale');
+  scaleBtn.textContent = _sp.scaleMode === 'true' ? _aeT('sp_scale_true') : _aeT('sp_scale_readable', { k: _orrNum(SP_READABLE_BOOST, null, 0) });
+  scaleBtn.setAttribute('aria-pressed', String(_sp.scaleMode === 'true'));
+  scaleBtn.disabled = flying;
+  _aeById('sp-time').textContent = _aeT(SP_TIME_KEYS[_sp.rateIdx]);
+  _aeById('sp-time').disabled = flying;
+  var slider = _aeById('sp-slider');
+  slider.value = String(_spBetaToSlider(_sp.beta));
+  slider.disabled = flying;
+  slider.setAttribute('aria-valuetext', _spFmtSpeed(_sp.beta));
+  _aeById('sp-note').textContent = (_sp.scaleMode === 'true' ? _aeT('sp_note_true') : _aeT('sp_note_readable', { k: _orrNum(SP_READABLE_BOOST, null, 0) })) +
+    ' ' + _aeT('sp_note_ship');
+  var hud = _aeById('sp-hud');
+  hud.hidden = !flying;
+  if (flying && !hud.firstChild) {
+    hud.innerHTML = '<span>' + _almEsc(_aeT('sp_hud_earth')) + '<b id="sp-h-earth"></b></span><span>' + _almEsc(_aeT('sp_hud_you')) + '<b id="sp-h-you"></b></span>' +
+      '<span>' + _almEsc(_aeT('sp_hud_speed')) + '<b id="sp-h-speed"></b></span>' +
+      '<span style="grid-column:1/-1"><button type="button" class="ae-btn" data-sp-skip="1" style="pointer-events:auto">' + _almEsc(_aeT('sp_skip')) + '</button></span>';
+    hud.onclick = function (e) { if (e.target.closest('[data-sp-skip]')) _spSkipFlight(); };
+  } else if (!flying) hud.innerHTML = '';
+  if (!flying && _sp.caption && _sp.caption.kind !== 'clocks' && _sp.caption.kind !== 'old') { _sp.seen[_sp.caption.kind] = true; _sp.caption = null; _spRenderCaption(); }
+  _aeById('sp-speedout').textContent = _spFmtSpeed(_sp.beta);
+  _sp.el.classList.toggle('sp-flying', flying);
+  _spUpdateShift();
+}
+function _spUpdateText() {
+  var ms = (_sp.jd - JD_UNIX_EPOCH) * MS_PER_DAY;
+  _aeById('sp-when').innerHTML = '<b>' + _almEsc(_aeFmtDate(ms)) + '</b>';
+  _aeById('sp-now').hidden = Math.abs(_sp.jd - _dateToJD(Date.now())) < 2 / SECONDS_PER_DAY;
+  var f = _sp.flight;
+  if (f) {
+    _aeById('sp-h-earth').textContent = _orrFmtSpan(f.now.earthSec);
+    _aeById('sp-h-you').textContent = _orrFmtSpan(f.now.shipSec);
+    _aeById('sp-h-speed').textContent = _orrFmtBeta(f.now.beta);
+    _aeById('sp-speedout').textContent = _spFmtSpeed(f.now.beta);
+    if (f.now.beta >= SP_CAPTION_BETA.stars) _spShowCaption('stars');
+    if (f.now.beta >= SP_CAPTION_BETA.colour) _spShowCaption('colour');
+  }
+  _spUpdateCardLines();
+  if (_sp.caption && (_sp.caption.kind === 'old' || _sp.caption.kind === 'clocks')) _spRenderCaption();
+  var c = _aeById('sp-canvas');
+  var aria = _aeT('sp_aria', { when: _aeFmtDate(ms) });
+  if (c.getAttribute('aria-label') !== aria) c.setAttribute('aria-label', aria);
+}
+
+window.openAlmanacSpace = openAlmanacSpace;
+// The pill under the orrery, drawn before this file ran, can now open the view.
+(function () {
+  var pill = document.getElementById('orrery-space-pill');
+  if (pill) pill.hidden = false;
+})();
