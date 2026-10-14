@@ -39,28 +39,103 @@ def _json_response(description, schema):
 
 
 # Zimipedia is a preview, off unless ZIMI_APPS names it.
-_WIKI_PREVIEW = "Zimipedia: answers 404 when the server does not offer it (ZIMI_APPS without wiki)."
+_WIKI_PREVIEW = (
+    "Zimipedia: answers 404 when the server does not offer it (ZIMI_APPS without wiki)."
+)
 
 # Zimipedia's day: one pick per wiki, and each Wikipedia's dated events.
-_WIKI_EVENT = {"type": "object", "properties": {"event_year": {"type": "string"}, "event_text": {"type": "string"}, "path": {"type": "string"}, "title": {"type": "string"}}}
-_WIKI_PICKS = {"type": "object", "additionalProperties": {"type": "object", "properties": {
-    "zim": {"type": "string"}, "role": {"type": "string", "enum": ["article", "word", "quote", "place", "book", "text", "course", "news", "species"]},
-    "path": {"type": "string"}, "title": {"type": "string"}, "lang": {"type": "string"}, "blurb": {"type": "string"},
-    "thumbnail": {"type": "string"}, "width": {"type": "integer", "description": "The thumbnail's size in pixels, when it could be read"}, "height": {"type": "integer"},
-    "kick": {"type": "string", "description": "A word's part of speech, a quote's author"}}}}
-_WIKI_OTD = {"type": "object", "additionalProperties": {"type": "array", "items": _WIKI_EVENT}}
+_WIKI_EVENT = {
+    "type": "object",
+    "properties": {
+        "event_year": {"type": "string"},
+        "event_text": {"type": "string"},
+        "path": {"type": "string"},
+        "title": {"type": "string"},
+    },
+}
+_WIKI_PICKS = {
+    "type": "object",
+    "additionalProperties": {
+        "type": "object",
+        "properties": {
+            "zim": {"type": "string"},
+            "role": {
+                "type": "string",
+                "enum": [
+                    "article",
+                    "word",
+                    "quote",
+                    "place",
+                    "book",
+                    "text",
+                    "course",
+                    "news",
+                    "species",
+                ],
+            },
+            "path": {"type": "string"},
+            "title": {"type": "string"},
+            "lang": {"type": "string"},
+            "blurb": {"type": "string"},
+            "thumbnail": {"type": "string"},
+            "width": {
+                "type": "integer",
+                "description": "The thumbnail's size in pixels, when it could be read",
+            },
+            "height": {"type": "integer"},
+            "kick": {
+                "type": "string",
+                "description": "A word's part of speech, a quote's author",
+            },
+        },
+    },
+}
+_WIKI_OTD = {
+    "type": "object",
+    "additionalProperties": {"type": "array", "items": _WIKI_EVENT},
+}
 # One book as Bookshelf's endpoints return it.
-_BOOK = {"type": "object", "properties": {
-    "zim": {"type": "string"}, "id": {"type": "integer"}, "title": {"type": "string"}, "subtitle": {"type": "string"},
-    "author": {"type": "string"}, "lang": {"type": "string"}, "shelf": {"type": "string"}, "path": {"type": "string"},
-    "cover": {"type": "string"}, "html": {"type": "boolean"}, "born": {"type": "integer"}, "died": {"type": "integer"},
-    "era": {"type": "integer"}, "created": {"type": "string"},
-}}
+_BOOK = {
+    "type": "object",
+    "properties": {
+        "zim": {"type": "string"},
+        "id": {"type": "integer"},
+        "title": {"type": "string"},
+        "subtitle": {"type": "string"},
+        "author": {"type": "string"},
+        "lang": {"type": "string"},
+        "shelf": {"type": "string"},
+        "path": {"type": "string"},
+        "cover": {"type": "string"},
+        "html": {"type": "boolean"},
+        "born": {"type": "integer"},
+        "died": {"type": "integer"},
+        "era": {"type": "integer"},
+        "created": {"type": "string"},
+    },
+}
 
 
 def build_openapi():
     """Return the OpenAPI 3.1 document as a plain dict (version from VERSION)."""
     error = _error_schema()
+
+    quote_schema = {
+        "type": "object",
+        "properties": {
+            "zim": {"type": "string"},
+            "path": {"type": "string"},
+            "title": {"type": "string"},
+            "before": {
+                "type": "string",
+                "description": "The passage up to the sentence, cut at a word with an ellipsis when long",
+            },
+            "sentence": {"type": "string"},
+            "after": {"type": "string"},
+            "score": {"type": "number"},
+        },
+        "required": ["zim", "path", "title", "before", "sentence", "after", "score"],
+    }
 
     chunk_schema = {
         "type": "object",
@@ -296,6 +371,49 @@ def build_openapi():
                 },
             }
         },
+        "/bestanswer": {
+            "get": {
+                "summary": "The sentence in the library that answers a question, quoted",
+                "description": (
+                    "Reads the search's top articles and returns the passage "
+                    "that answers, with the answering sentence set apart, plus "
+                    "up to two more. Never writes a word: every string is the "
+                    "article's own text. `answer` is null for a keyword search "
+                    "(one or two words, or the search grammar) and when no "
+                    "sentence covers the question well enough."
+                ),
+                "operationId": "bestanswer",
+                "parameters": [
+                    _param("q", {"type": "string"}, required=True),
+                    _param(
+                        "zim",
+                        {"type": "string"},
+                        description="One ZIM, or several separated by commas",
+                    ),
+                    _param(
+                        "limit",
+                        {"type": "integer", "minimum": 1, "default": 10},
+                        description="The search's per-source limit; the same as the search it follows reads that search's cached results",
+                    ),
+                ],
+                "responses": {
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "answer": {
+                                    "oneOf": [quote_schema, {"type": "null"}],
+                                },
+                                "more": {"type": "array", "items": quote_schema},
+                            },
+                            "required": ["answer"],
+                        },
+                    ),
+                    **_json_response("400", error),
+                },
+            }
+        },
         "/w/{zim}/{path}": {
             "get": {
                 "summary": "Raw article content (original HTML/asset bytes) for the reader",
@@ -425,8 +543,20 @@ def build_openapi():
                 "summary": "Videos across every video ZIM, sources interleaved, one card per talk",
                 "operationId": "tube",
                 "parameters": [
-                    _param("q", {"type": "string"}, description="Keep videos whose title, description or speaker carry every word"),
-                    _param("limit", {"type": "integer", "minimum": 1, "maximum": 20000, "default": 60}),
+                    _param(
+                        "q",
+                        {"type": "string"},
+                        description="Keep videos whose title, description or speaker carry every word",
+                    ),
+                    _param(
+                        "limit",
+                        {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 20000,
+                            "default": 60,
+                        },
+                    ),
                     _param("offset", {"type": "integer", "minimum": 0, "default": 0}),
                 ],
                 "responses": {
@@ -435,12 +565,30 @@ def build_openapi():
                         {
                             "type": "object",
                             "properties": {
-                                "items": {"type": "array", "items": {"type": "object", "properties": {
-                                    "zim": {"type": "string"}, "zim_title": {"type": "string"}, "page": {"type": "string"},
-                                    "title": {"type": "string"}, "speaker": {"type": "string"}, "description": {"type": "string"},
-                                    "duration": {"type": ["integer", "string", "null"]}, "date": {"type": "string"}, "thumb": {"type": "string"},
-                                    "also": {"type": "array", "items": {"type": "object"}, "description": "The same talk in other ZIMs"},
-                                }}},
+                                "items": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "zim": {"type": "string"},
+                                            "zim_title": {"type": "string"},
+                                            "page": {"type": "string"},
+                                            "title": {"type": "string"},
+                                            "speaker": {"type": "string"},
+                                            "description": {"type": "string"},
+                                            "duration": {
+                                                "type": ["integer", "string", "null"]
+                                            },
+                                            "date": {"type": "string"},
+                                            "thumb": {"type": "string"},
+                                            "also": {
+                                                "type": "array",
+                                                "items": {"type": "object"},
+                                                "description": "The same talk in other ZIMs",
+                                            },
+                                        },
+                                    },
+                                },
                                 "total": {"type": "integer"},
                                 "sources": {"type": "integer"},
                                 "zims": {"type": "array", "items": {"type": "object"}},
@@ -465,12 +613,27 @@ def build_openapi():
                         {
                             "type": "object",
                             "properties": {
-                                "media": {"type": "array", "items": {"type": "object", "properties": {"path": {"type": "string"}, "type": {"type": "string"}}}},
+                                "media": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "path": {"type": "string"},
+                                            "type": {"type": "string"},
+                                        },
+                                    },
+                                },
                                 "subs": {"type": "array", "items": {"type": "object"}},
                                 "poster": {"type": "string"},
                                 "page": {"type": "string"},
-                                "ogv": {"type": "string", "description": "Path of the ZIM's own ogv.js decoder, or empty"},
-                                "missing": {"type": "boolean", "description": "True when the page names files the ZIM does not carry"},
+                                "ogv": {
+                                    "type": "string",
+                                    "description": "Path of the ZIM's own ogv.js decoder, or empty",
+                                },
+                                "missing": {
+                                    "type": "boolean",
+                                    "description": "True when the page names files the ZIM does not carry",
+                                },
                             },
                             "required": ["media"],
                         },
@@ -485,13 +648,44 @@ def build_openapi():
                 "operationId": "wikiHome",
                 "description": _WIKI_PREVIEW,
                 "parameters": [
-                    _param("day", {"type": "string", "pattern": "^[0-9]{8}$"}, description="YYYYMMDD, yesterday to tomorrow: adds what is already known of that day (picks, otd)"),
+                    _param(
+                        "day",
+                        {"type": "string", "pattern": "^[0-9]{8}$"},
+                        description="YYYYMMDD, yesterday to tomorrow: adds what is already known of that day (picks, otd)",
+                    ),
                 ],
-                "responses": {**_json_response("200", {"type": "object", "properties": {"wikis": {"type": "array", "items": {"type": "object", "properties": {
-                    "name": {"type": "string"}, "title": {"type": "string"}, "project": {"type": "string"}, "project_title": {"type": "string"},
-                    "role": {"type": "string"}, "language": {"type": "string"}, "icon": {"type": "boolean"}, "main_path": {"type": "string"}, "entries": {"type": "integer"},
-                }}}, "day": {"type": "string"}, "picks": _WIKI_PICKS, "otd": _WIKI_OTD}, "required": ["wikis"]}),
-                    **_json_response("404", error)},
+                "responses": {
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "wikis": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {"type": "string"},
+                                            "title": {"type": "string"},
+                                            "project": {"type": "string"},
+                                            "project_title": {"type": "string"},
+                                            "role": {"type": "string"},
+                                            "language": {"type": "string"},
+                                            "icon": {"type": "boolean"},
+                                            "main_path": {"type": "string"},
+                                            "entries": {"type": "integer"},
+                                        },
+                                    },
+                                },
+                                "day": {"type": "string"},
+                                "picks": _WIKI_PICKS,
+                                "otd": _WIKI_OTD,
+                            },
+                            "required": ["wikis"],
+                        },
+                    ),
+                    **_json_response("404", error),
+                },
             }
         },
         "/wiki/today": {
@@ -500,13 +694,40 @@ def build_openapi():
                 "operationId": "wikiToday",
                 "description": _WIKI_PREVIEW,
                 "parameters": [
-                    _param("day", {"type": "string", "pattern": "^[0-9]{8}$"}, required=True, description="YYYYMMDD, yesterday to tomorrow"),
-                    _param("zim", {"type": "string"}, required=True, description="Up to 8 wiki names, comma-separated"),
-                    _param("parts", {"type": "string"}, description="picks, otd, extras, front, comma-separated: only those (all when left out)"),
+                    _param(
+                        "day",
+                        {"type": "string", "pattern": "^[0-9]{8}$"},
+                        required=True,
+                        description="YYYYMMDD, yesterday to tomorrow",
+                    ),
+                    _param(
+                        "zim",
+                        {"type": "string"},
+                        required=True,
+                        description="Up to 8 wiki names, comma-separated",
+                    ),
+                    _param(
+                        "parts",
+                        {"type": "string"},
+                        description="picks, otd, extras, front, comma-separated: only those (all when left out)",
+                    ),
                 ],
                 "responses": {
-                    **_json_response("200", {"type": "object", "properties": {"picks": _WIKI_PICKS, "otd": _WIKI_OTD,
-                        "failed": {"type": "array", "items": {"type": "string"}}}, "required": ["picks", "otd", "failed"]}),
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "picks": _WIKI_PICKS,
+                                "otd": _WIKI_OTD,
+                                "failed": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                            },
+                            "required": ["picks", "otd", "failed"],
+                        },
+                    ),
                     **_json_response("400", error),
                     **_json_response("404", error),
                 },
@@ -522,13 +743,58 @@ def build_openapi():
                     _param("path", {"type": "string"}, required=True),
                 ],
                 "responses": {
-                    **_json_response("200", {"type": "object", "properties": {
-                        "qid": {"type": "string"}, "flavour": {"type": "string"},
-                        "languages": {"type": "array", "items": {"type": "object", "properties": {"lang": {"type": "string"}, "name": {"type": "string"}, "zim": {"type": "string"}, "path": {"type": "string"}}}},
-                        "level": {"type": ["object", "null"], "properties": {"zim": {"type": "string"}, "path": {"type": "string"}, "title": {"type": "string"}, "simple": {"type": "boolean"}}},
-                        "full": {"type": ["object", "null"], "properties": {"zim": {"type": "string"}, "path": {"type": "string"}, "title": {"type": "string"}}},
-                        "topic": {"type": "array", "items": {"type": "object", "properties": {"project": {"type": "string"}, "zim": {"type": "string"}, "path": {"type": "string"}, "title": {"type": "string"}}}},
-                    }, "required": ["qid", "languages", "level", "full", "topic"]}),
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "qid": {"type": "string"},
+                                "flavour": {"type": "string"},
+                                "languages": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "lang": {"type": "string"},
+                                            "name": {"type": "string"},
+                                            "zim": {"type": "string"},
+                                            "path": {"type": "string"},
+                                        },
+                                    },
+                                },
+                                "level": {
+                                    "type": ["object", "null"],
+                                    "properties": {
+                                        "zim": {"type": "string"},
+                                        "path": {"type": "string"},
+                                        "title": {"type": "string"},
+                                        "simple": {"type": "boolean"},
+                                    },
+                                },
+                                "full": {
+                                    "type": ["object", "null"],
+                                    "properties": {
+                                        "zim": {"type": "string"},
+                                        "path": {"type": "string"},
+                                        "title": {"type": "string"},
+                                    },
+                                },
+                                "topic": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "project": {"type": "string"},
+                                            "zim": {"type": "string"},
+                                            "path": {"type": "string"},
+                                            "title": {"type": "string"},
+                                        },
+                                    },
+                                },
+                            },
+                            "required": ["qid", "languages", "level", "full", "topic"],
+                        },
+                    ),
                     **_json_response("404", error),
                 },
             }
@@ -540,12 +806,35 @@ def build_openapi():
                 "description": _WIKI_PREVIEW,
                 "parameters": [
                     _param("zim", {"type": "string"}, required=True),
-                    _param("date", {"type": "string", "pattern": "^[0-9]{4}$"}, required=True, description="MMDD, yesterday to tomorrow"),
+                    _param(
+                        "date",
+                        {"type": "string", "pattern": "^[0-9]{4}$"},
+                        required=True,
+                        description="MMDD, yesterday to tomorrow",
+                    ),
                 ],
                 "responses": {
-                    **_json_response("200", {"type": "object", "properties": {"events": {"type": "array", "items": {"type": "object", "properties": {
-                        "event_year": {"type": "string"}, "event_text": {"type": "string"}, "path": {"type": "string"}, "title": {"type": "string"},
-                    }}}}, "required": ["events"]}),
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "events": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "event_year": {"type": "string"},
+                                            "event_text": {"type": "string"},
+                                            "path": {"type": "string"},
+                                            "title": {"type": "string"},
+                                        },
+                                    },
+                                }
+                            },
+                            "required": ["events"],
+                        },
+                    ),
                     **_json_response("400", error),
                     **_json_response("404", error),
                     **_json_response("503", error),
@@ -556,12 +845,34 @@ def build_openapi():
             "get": {
                 "summary": "Bookshelf: every Project Gutenberg ZIM as one shelf; the count, the sources, what there is to browse by (languages, LCC shelves, eras) and the first most read and newest books",
                 "operationId": "booksHome",
-                "responses": {**_json_response("200", {"type": "object", "properties": {
-                    "total": {"type": "integer"}, "details": {"type": "boolean"},
-                    "sources": {"type": "array", "items": {"type": "object"}}, "languages": {"type": "array", "items": {"type": "object"}},
-                    "shelves": {"type": "array", "items": {"type": "object"}}, "eras": {"type": "array", "items": {"type": "object"}},
-                    "popular": {"type": "array", "items": _BOOK}, "recent": {"type": "array", "items": _BOOK},
-                }, "required": ["total", "popular"]})},
+                "responses": {
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "total": {"type": "integer"},
+                                "details": {"type": "boolean"},
+                                "sources": {
+                                    "type": "array",
+                                    "items": {"type": "object"},
+                                },
+                                "languages": {
+                                    "type": "array",
+                                    "items": {"type": "object"},
+                                },
+                                "shelves": {
+                                    "type": "array",
+                                    "items": {"type": "object"},
+                                },
+                                "eras": {"type": "array", "items": {"type": "object"}},
+                                "popular": {"type": "array", "items": _BOOK},
+                                "recent": {"type": "array", "items": _BOOK},
+                            },
+                            "required": ["total", "popular"],
+                        },
+                    )
+                },
             }
         },
         "/books/list": {
@@ -569,16 +880,46 @@ def build_openapi():
                 "summary": "Books on the shelf, filtered and ordered, a page at a time",
                 "operationId": "booksList",
                 "parameters": [
-                    _param("q", {"type": "string"}, description="Words in the title or the author's name"),
+                    _param(
+                        "q",
+                        {"type": "string"},
+                        description="Words in the title or the author's name",
+                    ),
                     _param("author", {"type": "string"}),
-                    _param("shelf", {"type": "string"}, description="LCC class or subclass (PR, Q)"),
+                    _param(
+                        "shelf",
+                        {"type": "string"},
+                        description="LCC class or subclass (PR, Q)",
+                    ),
                     _param("lang", {"type": "string"}),
-                    _param("era", {"type": "integer"}, description="First year of the hundred years the author worked in (1800; -100 for 100 to 1 BCE)"),
-                    _param("sort", {"type": "string", "enum": ["popular", "title", "author", "recent"]}),
+                    _param(
+                        "era",
+                        {"type": "integer"},
+                        description="First year of the hundred years the author worked in (1800; -100 for 100 to 1 BCE)",
+                    ),
+                    _param(
+                        "sort",
+                        {
+                            "type": "string",
+                            "enum": ["popular", "title", "author", "recent"],
+                        },
+                    ),
                     _param("offset", {"type": "integer"}),
                     _param("limit", {"type": "integer", "maximum": 200}),
                 ],
-                "responses": {**_json_response("200", {"type": "object", "properties": {"total": {"type": "integer"}, "books": {"type": "array", "items": _BOOK}}, "required": ["total", "books"]})},
+                "responses": {
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "total": {"type": "integer"},
+                                "books": {"type": "array", "items": _BOOK},
+                            },
+                            "required": ["total", "books"],
+                        },
+                    )
+                },
             }
         },
         "/books/authors": {
@@ -587,28 +928,68 @@ def build_openapi():
                 "operationId": "booksAuthors",
                 "parameters": [
                     _param("q", {"type": "string"}),
-                    _param("sort", {"type": "string", "enum": ["name", "books", "popular"]}),
+                    _param(
+                        "sort", {"type": "string", "enum": ["name", "books", "popular"]}
+                    ),
                     _param("offset", {"type": "integer"}),
                     _param("limit", {"type": "integer", "maximum": 200}),
                 ],
-                "responses": {**_json_response("200", {"type": "object", "properties": {"total": {"type": "integer"}, "authors": {"type": "array", "items": {"type": "object", "properties": {
-                    "name": {"type": "string"}, "n": {"type": "integer"}, "born": {"type": "integer"}, "died": {"type": "integer"},
-                }}}}, "required": ["total", "authors"]})},
+                "responses": {
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "total": {"type": "integer"},
+                                "authors": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {"type": "string"},
+                                            "n": {"type": "integer"},
+                                            "born": {"type": "integer"},
+                                            "died": {"type": "integer"},
+                                        },
+                                    },
+                                },
+                            },
+                            "required": ["total", "authors"],
+                        },
+                    )
+                },
             }
         },
         "/books/book": {
             "get": {
                 "summary": "One book with its subjects, its EPUB and more by its author",
                 "operationId": "booksBook",
-                "parameters": [_param("id", {"type": "integer"}, required=True), _param("zim", {"type": "string"})],
-                "responses": {**_json_response("200", _BOOK), **_json_response("404", error)},
+                "parameters": [
+                    _param("id", {"type": "integer"}, required=True),
+                    _param("zim", {"type": "string"}),
+                ],
+                "responses": {
+                    **_json_response("200", _BOOK),
+                    **_json_response("404", error),
+                },
             }
         },
         "/exchange/home": {
             "get": {
                 "summary": "Every Stack Exchange site in the library, each with its first page and top tags",
                 "operationId": "exchangeHome",
-                "responses": {**_json_response("200", {"type": "object", "properties": {"sites": {"type": "array", "items": {"type": "object"}}}, "required": ["sites"]})},
+                "responses": {
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "sites": {"type": "array", "items": {"type": "object"}}
+                            },
+                            "required": ["sites"],
+                        },
+                    )
+                },
             }
         },
         "/exchange/site": {
@@ -621,13 +1002,35 @@ def build_openapi():
                     _param("tag", {"type": "string"}),
                 ],
                 "responses": {
-                    **_json_response("200", {"type": "object", "properties": {
-                        "rows": {"type": "array", "items": {"type": "object", "properties": {
-                            "id": {"type": "string"}, "title": {"type": "string"}, "page": {"type": "string"}, "votes": {"type": "integer"},
-                            "answers": {"type": "integer"}, "accepted": {"type": "boolean"}, "excerpt": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}},
-                        }}},
-                        "pages": {"type": "integer"},
-                    }, "required": ["rows", "pages"]}),
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "rows": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "string"},
+                                            "title": {"type": "string"},
+                                            "page": {"type": "string"},
+                                            "votes": {"type": "integer"},
+                                            "answers": {"type": "integer"},
+                                            "accepted": {"type": "boolean"},
+                                            "excerpt": {"type": "string"},
+                                            "tags": {
+                                                "type": "array",
+                                                "items": {"type": "string"},
+                                            },
+                                        },
+                                    },
+                                },
+                                "pages": {"type": "integer"},
+                            },
+                            "required": ["rows", "pages"],
+                        },
+                    ),
                     **_json_response("404", error),
                 },
             }
@@ -638,14 +1041,40 @@ def build_openapi():
                 "operationId": "exchangeQuestion",
                 "parameters": [
                     _param("zim", {"type": "string"}, required=True),
-                    _param("q", {"type": "string"}, required=True, description="The question page's path (questions/<id>/<slug>)"),
+                    _param(
+                        "q",
+                        {"type": "string"},
+                        required=True,
+                        description="The question page's path (questions/<id>/<slug>)",
+                    ),
                 ],
                 "responses": {
-                    **_json_response("200", {"type": "object", "properties": {
-                        "title": {"type": "string"}, "votes": {"type": "integer"}, "author": {"type": "string"}, "body": {"type": "string"},
-                        "tags": {"type": "array", "items": {"type": "string"}},
-                        "answers": {"type": "array", "items": {"type": "object", "properties": {"score": {"type": "integer"}, "accepted": {"type": "boolean"}, "author": {"type": "string"}, "body": {"type": "string"}}}},
-                    }, "required": ["title", "answers"]}),
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "title": {"type": "string"},
+                                "votes": {"type": "integer"},
+                                "author": {"type": "string"},
+                                "body": {"type": "string"},
+                                "tags": {"type": "array", "items": {"type": "string"}},
+                                "answers": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "score": {"type": "integer"},
+                                            "accepted": {"type": "boolean"},
+                                            "author": {"type": "string"},
+                                            "body": {"type": "string"},
+                                        },
+                                    },
+                                },
+                            },
+                            "required": ["title", "answers"],
+                        },
+                    ),
                     **_json_response("404", error),
                 },
             }
@@ -654,7 +1083,18 @@ def build_openapi():
             "get": {
                 "summary": "Every subreddit ZIM with a shelf per subreddit of its top posts",
                 "operationId": "reddotHome",
-                "responses": {**_json_response("200", {"type": "object", "properties": {"zims": {"type": "array", "items": {"type": "object"}}}, "required": ["zims"]})},
+                "responses": {
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "zims": {"type": "array", "items": {"type": "object"}}
+                            },
+                            "required": ["zims"],
+                        },
+                    )
+                },
             }
         },
         "/reddot/random": {
@@ -662,7 +1102,19 @@ def build_openapi():
                 "summary": "A post by chance: a subreddit, a page of its top posts, a post on it",
                 "operationId": "reddotRandom",
                 "responses": {
-                    **_json_response("200", {"type": "object", "properties": {"zim": {"type": "string"}, "page": {"type": "string"}, "title": {"type": "string"}, "subreddit": {"type": "string"}}, "required": ["zim", "page"]}),
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "zim": {"type": "string"},
+                                "page": {"type": "string"},
+                                "title": {"type": "string"},
+                                "subreddit": {"type": "string"},
+                            },
+                            "required": ["zim", "page"],
+                        },
+                    ),
                     **_json_response("404", error),
                 },
             }
@@ -672,7 +1124,18 @@ def build_openapi():
                 "summary": "A question by chance: a site, a page of its most voted, a question on it",
                 "operationId": "exchangeRandom",
                 "responses": {
-                    **_json_response("200", {"type": "object", "properties": {"zim": {"type": "string"}, "page": {"type": "string"}, "title": {"type": "string"}}, "required": ["zim", "page"]}),
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "zim": {"type": "string"},
+                                "page": {"type": "string"},
+                                "title": {"type": "string"},
+                            },
+                            "required": ["zim", "page"],
+                        },
+                    ),
                     **_json_response("404", error),
                 },
             }
@@ -683,7 +1146,18 @@ def build_openapi():
                 "operationId": "mapHome",
                 "parameters": [_param("zim", {"type": "string"}, required=True)],
                 "responses": {
-                    **_json_response("200", {"type": "object", "properties": {"lat": {"type": "number"}, "lng": {"type": "number"}, "zoom": {"type": "integer"}, "error": {"type": "string"}}}),
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "lat": {"type": "number"},
+                                "lng": {"type": "number"},
+                                "zoom": {"type": "integer"},
+                                "error": {"type": "string"},
+                            },
+                        },
+                    ),
                     **_json_response("404", error),
                 },
             }
@@ -694,18 +1168,46 @@ def build_openapi():
                 "operationId": "reddotSub",
                 "parameters": [
                     _param("zim", {"type": "string"}, required=True),
-                    _param("r", {"type": "string"}, required=True, description="The subreddit, as the ZIM names it"),
-                    _param("sort", {"type": "string", "enum": ["top", "new"], "default": "top"}),
+                    _param(
+                        "r",
+                        {"type": "string"},
+                        required=True,
+                        description="The subreddit, as the ZIM names it",
+                    ),
+                    _param(
+                        "sort",
+                        {"type": "string", "enum": ["top", "new"], "default": "top"},
+                    ),
                     _param("page", {"type": "integer", "minimum": 1, "default": 1}),
                 ],
                 "responses": {
-                    **_json_response("200", {"type": "object", "properties": {
-                        "rows": {"type": "array", "items": {"type": "object", "properties": {
-                            "id": {"type": "string"}, "subreddit": {"type": "string"}, "title": {"type": "string"}, "page": {"type": "string"},
-                            "score": {"type": "integer"}, "flair": {"type": "string"}, "author": {"type": "string"}, "date": {"type": "string"}, "external": {"type": "string"},
-                        }}},
-                        "pages": {"type": "integer"},
-                    }, "required": ["rows", "pages"]}),
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "rows": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "string"},
+                                            "subreddit": {"type": "string"},
+                                            "title": {"type": "string"},
+                                            "page": {"type": "string"},
+                                            "score": {"type": "integer"},
+                                            "flair": {"type": "string"},
+                                            "author": {"type": "string"},
+                                            "date": {"type": "string"},
+                                            "external": {"type": "string"},
+                                        },
+                                    },
+                                },
+                                "pages": {"type": "integer"},
+                            },
+                            "required": ["rows", "pages"],
+                        },
+                    ),
                     **_json_response("404", error),
                 },
             }
@@ -716,14 +1218,46 @@ def build_openapi():
                 "operationId": "reddotPost",
                 "parameters": [
                     _param("zim", {"type": "string"}, required=True),
-                    _param("p", {"type": "string"}, required=True, description="The post page's path (r/<sub>/<id>/)"),
+                    _param(
+                        "p",
+                        {"type": "string"},
+                        required=True,
+                        description="The post page's path (r/<sub>/<id>/)",
+                    ),
                 ],
                 "responses": {
-                    **_json_response("200", {"type": "object", "properties": {
-                        "title": {"type": "string"}, "subreddit": {"type": "string"}, "score": {"type": "integer"}, "author": {"type": "string"},
-                        "date": {"type": "string"}, "flair": {"type": "string"}, "body": {"type": "string"},
-                        "comments": {"type": "array", "items": {"type": "object", "properties": {"author": {"type": "string"}, "score": {"type": "integer"}, "date": {"type": "string"}, "body": {"type": "string"}, "children": {"type": "array", "items": {"type": "object"}}}}},
-                    }, "required": ["title", "comments"]}),
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "title": {"type": "string"},
+                                "subreddit": {"type": "string"},
+                                "score": {"type": "integer"},
+                                "author": {"type": "string"},
+                                "date": {"type": "string"},
+                                "flair": {"type": "string"},
+                                "body": {"type": "string"},
+                                "comments": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "author": {"type": "string"},
+                                            "score": {"type": "integer"},
+                                            "date": {"type": "string"},
+                                            "body": {"type": "string"},
+                                            "children": {
+                                                "type": "array",
+                                                "items": {"type": "object"},
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                            "required": ["title", "comments"],
+                        },
+                    ),
                     **_json_response("404", error),
                 },
             }

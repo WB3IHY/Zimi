@@ -284,6 +284,7 @@ class TestPrivateGate(_AccessBase):
             "/w/wiki/Foo",
             "/random",
             "/chunks",
+            "/bestanswer",
             "/almanac-links",
             "/languages",
             "/article-languages",
