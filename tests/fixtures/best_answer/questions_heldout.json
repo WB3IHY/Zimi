@@ -1,0 +1,134 @@
+[
+ {
+  "q": "what is the capital of france",
+  "expect": [
+   "capital and largest city of france"
+  ]
+ },
+ {
+  "q": "who developed the theory of relativity",
+  "expect": [
+   "theory of relativity"
+  ]
+ },
+ {
+  "q": "what is penicillin",
+  "expect": [
+   "group of β-lactam antibiotics"
+  ]
+ },
+ {
+  "q": "what was the roman empire",
+  "expect": [
+   "state that dominated the mediterranean"
+  ]
+ },
+ {
+  "q": "who was isaac newton",
+  "expect": [
+   "english polymath"
+  ]
+ },
+ {
+  "q": "what is the solar system",
+  "expect": [
+   "gravitationally bound system of the sun"
+  ]
+ },
+ {
+  "q": "what is diabetes",
+  "expect": [
+   "group of common endocrine diseases"
+  ]
+ },
+ {
+  "q": "what is saturn",
+  "expect": [
+   "sixth planet from the sun"
+  ]
+ },
+ {
+  "q": "what is salt",
+  "expect": [
+   "mineral composed primarily of sodium chloride"
+  ]
+ },
+ {
+  "q": "what is the moon",
+  "expect": [
+   "only natural satellite of earth"
+  ]
+ },
+ {
+  "q": "what was the french revolution",
+  "expect": [
+   "period of political and societal change in france"
+  ]
+ },
+ {
+  "q": "who was marie curie",
+  "expect": [
+   "polish and naturalised-french physicist"
+  ]
+ },
+ {
+  "q": "when did the french revolution end",
+  "expect": [
+   "9 november 1799"
+  ]
+ },
+ {
+  "q": "what is the great wall of china",
+  "expect": [
+   "series of fortifications"
+  ]
+ },
+ {
+  "q": "when was the printing press invented",
+  "expect": [
+   "around 1440"
+  ]
+ },
+ {
+  "q": "who invented bitcoin",
+  "expect": [
+   "satoshi nakamoto"
+  ]
+ },
+ {
+  "q": "what is a vaccine",
+  "expect": [
+   "biological preparation that provides active acquired immunity"
+  ]
+ },
+ {
+  "q": "what is the pacific ocean",
+  "expect": [
+   "largest and deepest of earth's five oceanic divisions"
+  ]
+ },
+ {
+  "q": "how do airplanes fly",
+  "expect": []
+ },
+ {
+  "q": "who won the nobel prize in literature in 2020",
+  "expect": []
+ },
+ {
+  "q": "what is the tallest building in the world",
+  "expect": []
+ },
+ {
+  "q": "when was the wheel invented",
+  "expect": []
+ },
+ {
+  "q": "who is the ceo of apple",
+  "expect": []
+ },
+ {
+  "q": "what is the best programming language to learn",
+  "expect": []
+ }
+]

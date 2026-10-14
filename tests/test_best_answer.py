@@ -134,10 +134,11 @@ class TestRanking(unittest.TestCase):
 
     def test_how_to_purify_water(self):
         got = self.best("how to purify water", WATER, WATER_BOIL, NOISE)
-        # Two articles answer it: the one about purifying water, and the one
-        # that says people boil it. Each is quoted once, the river article not.
-        titles = [got["answer"]["title"]] + [m["title"] for m in got["more"]]
-        self.assertCountEqual(titles, ["Water purification", "Boiling"])
+        # The article about purifying water answers; the article on boiling
+        # says people boil water to purify it, in its second sentence, and is
+        # not about the question's subject, so it is not quoted; nor are rivers.
+        self.assertEqual(got["answer"]["title"], "Water purification")
+        self.assertEqual(got["more"], [])
 
     def test_quote_is_text_from_the_passage(self):
         a = self.best("capital of france", PARIS, NOISE)["answer"]
@@ -232,9 +233,11 @@ class TestContentQuery(unittest.TestCase):
 class TestProximity(unittest.TestCase):
     def test_tightness_follows_word_order_not_hash_order(self):
         w = {"a": 1.0, "b": 1.0}
-        cover, matched, tight = ba._coverage(["a", "b"], w, ["a", "x", "x", "b"])
+        pairs = lambda toks: [(t, t) for t in toks]
+        both = {"a", "b"}
+        cover, matched, tight = ba._cover(["a", "b"], w, pairs(["a", "x", "x", "b"]), both, set())
         self.assertEqual((cover, matched, tight), (1.0, 2, 0.5))
-        _, _, side = ba._coverage(["a", "b"], w, ["x", "a", "b", "x"])
+        _, _, side = ba._cover(["a", "b"], w, pairs(["x", "a", "b", "x"]), both, set())
         self.assertEqual(side, 1.0)
 
 
@@ -275,20 +278,204 @@ class TestWhatIsNotAQuote(unittest.TestCase):
         )
         self.assertIsNone(ba.rank_answer("what is medical jurisprudence", [p]))
 
-    def test_a_books_first_passage_is_front_matter_and_is_not_read_for_quotes(self):
+    def test_a_shelf_of_books_is_not_read_for_quotes(self):
         hits = [{"zim": "gutenberg", "path": "B", "title": "Law of Poisons"}]
-        front = {"seq": 0, "text": "The law of poisons. Produced by A. Volunteer."}
-        body = {"seq": 1, "text": "The law of poisons forbids the sale of arsenic without a licence."}
+
+        def boom(z, p):
+            raise AssertionError("a book is not read for a card")
+
         got = ba.best_answer(
-            "what is the law of poisons",
-            hits,
-            lambda z, p: [front, body],
-            kinds={"gutenberg": "books"},
+            "what is the law of poisons", hits, boom, kinds={"gutenberg": "books"}
         )
-        self.assertEqual(got["answer"]["sentence"], body["text"])
+        self.assertEqual(got, {"answer": None})
 
     def test_underscores_and_empty_tokens_do_not_break_reading(self):
         self.assertEqual(ba.words("_ __init__ a_b"), ["init", "a_b"])
+
+
+def lead(title, *sentences, rank=0):
+    """An article's opening passage: its title as a heading, then sentences."""
+    return passage(title, title + "\n\n" + " ".join(sentences), rank=rank)
+
+
+class TestWhichSentence(unittest.TestCase):
+    """What a good sentence is, by the kind of question (the long, real cases
+    are in test_best_answer_eval)."""
+
+    def quote(self, q, *ps):
+        got = ba.rank_answer(q, list(ps))
+        return got["answer"]["sentence"] if got else None
+
+    def test_what_is_x_is_the_first_sentence_of_the_article_about_x(self):
+        p = lead(
+            "Insulin",
+            "Insulin is a peptide hormone produced by beta cells of the pancreas.",
+            "Insulin was first isolated in 1921 by Banting and Best at Toronto.",
+            "Insulin production is also regulated by glucose in the blood.",
+        )
+        self.assertEqual(self.quote("what is insulin", p), p["text"].split("\n\n")[1].split(". ")[0] + ".")
+
+    def test_what_does_x_do_prefers_what_it_says_it_does_to_what_it_is(self):
+        p = lead(
+            "Insulin",
+            "Insulin is a peptide hormone produced by beta cells of the pancreas.",
+            "It is the main anabolic hormone of the body.",
+            "It regulates the metabolism of carbohydrates by absorbing glucose from the blood.",
+        )
+        self.assertEqual(
+            self.quote("what does insulin do", p),
+            "It regulates the metabolism of carbohydrates by absorbing glucose from the blood.",
+        )
+
+    def test_a_sentence_of_another_article_is_quoted_only_when_it_is_that_articles_first(self):
+        nile = lead(
+            "Nile",
+            "The Nile is a major river in Africa.",
+            "At 7,088 kilometers long, it is the longest river, much longer than the Amazon River.",
+        )
+        # the Amazon's article is not here: a later sentence of the Nile's that
+        # mentions it is no answer about it
+        self.assertIsNone(self.quote("how long is the amazon river", nile))
+
+    def test_how_tall_needs_a_number_and_the_words_of_height(self):
+        p = lead(
+            "Eiffel Tower",
+            "The Eiffel Tower is a lattice tower in Paris.",
+            "The tower is 330 metres tall.",
+            "It is the most visited monument, with 6.91 million visitors a year.",
+        )
+        self.assertEqual(self.quote("how tall is the eiffel tower", p), "The tower is 330 metres tall.")
+
+    def test_how_long_does_not_take_a_volume_for_a_length(self):
+        p = lead(
+            "Amazon River",
+            "The Amazon is a river in South America.",
+            "It has an average discharge of 215,000 cubic kilometers per year.",
+        )
+        self.assertIsNone(self.quote("how long is the amazon river", p))
+
+    def test_when_needs_a_year(self):
+        p = lead(
+            "Berlin Wall",
+            "The Berlin Wall was a barrier that divided Berlin.",
+            "It fell on 9 November 1989.",
+        )
+        self.assertEqual(self.quote("when did the berlin wall fall", p), "It fell on 9 November 1989.")
+
+    def test_what_causes_x_needs_a_cause_in_the_sentence(self):
+        p = lead(
+            "Tide",
+            "Tides are the periodic rise and fall of sea level, resulting from the gravity of the Moon.",
+            "Tides are known to sailors on every coast of the world.",
+        )
+        self.assertIn("resulting from", self.quote("what causes the tides", p))
+        q = lead("Tide", "Tides are known to sailors on every coast of the world.")
+        self.assertIsNone(self.quote("what causes the tides", q))
+
+    def test_who_asks_for_a_name(self):
+        p = lead(
+            "Mona Lisa",
+            "The Mona Lisa is a half-length portrait painting by the Italian artist Leonardo da Vinci.",
+            "It is painted in oil on a white poplar panel.",
+        )
+        self.assertIn("Leonardo", self.quote("who painted the mona lisa", p))
+
+    def test_an_irregular_verb_meets_its_other_form(self):
+        drop = ba._drop_set("en")
+        self.assertEqual(ba.words("wrote", drop), ba.words("written", drop))
+        self.assertEqual(ba.words("start", drop), ba.words("began", drop))
+        self.assertEqual(ba.words("landed"), ba.words("land"))
+
+    def test_a_plural_is_the_same_word(self):
+        self.assertEqual([w for _, w in ba.read("vaccines")], [w for _, w in ba.read("vaccine")])
+
+    def test_a_link_and_an_unfinished_bracket_are_not_sentences(self):
+        self.assertFalse(ba._sentence_ok("Smart cards can be used too; see Japan/Get around/Smart cards."))
+        self.assertFalse(ba._sentence_ok("Sir Isaac Newton (4 January 1643 [O.S. 25 December 1642]."))
+
+    def test_dotted_initials_do_not_end_a_sentence(self):
+        text = "Newton lived from 1643 [O.S. 1642] to 1727. He was English."
+        self.assertEqual(len(ba.split_sentences(text)), 2)
+
+
+class TestWhatIsShown(unittest.TestCase):
+    """The quote and the words around it."""
+
+    def test_the_title_is_not_in_the_context(self):
+        p = lead(
+            "Mona Lisa",
+            "The Mona Lisa is a half-length portrait painting by Leonardo da Vinci.",
+            "It is in the Louvre.",
+        )
+        a = ba.rank_answer("who painted the mona lisa", [p])["answer"]
+        self.assertEqual(a["before"], "")
+        self.assertEqual(a["after"], " It is in the Louvre.")
+
+    def test_context_is_whole_sentences_never_a_part_of_one(self):
+        sents = ["Filler number %d says something about rivers and stones." % i for i in range(30)]
+        p = passage("Mona Lisa", " ".join(sents[:15]) + " Leonardo da Vinci painted the Mona Lisa. " + " ".join(sents[15:]))
+        a = ba.rank_answer("who painted the mona lisa", [p])["answer"]
+        self.assertTrue(a["before"].startswith("\u2026 Filler number"))
+        self.assertTrue(a["before"].rstrip().endswith("stones."))
+        self.assertTrue(a["after"].endswith("\u2026"))
+        self.assertLessEqual(len(a["before"]), ba.CONTEXT_BEFORE + 3)
+
+
+class TestTitleQueries(unittest.TestCase):
+    def test_runs_of_content_words_longest_first_and_their_stems(self):
+        got = ba.title_queries("how to purify water")
+        self.assertEqual(got[0], "purify water")
+        self.assertIn("purif water", got)  # a title that begins "Water" and holds "purif"
+        self.assertIn("water", got)
+
+    def test_it_is_capped(self):
+        self.assertLessEqual(len(ba.title_queries("a b c d e f g h i j k l m n o p")), ba.TITLE_QUERIES_MAX)
+
+
+class TestQuestionWordsAreNotSearched(unittest.TestCase):
+    def test_every_question_word_of_every_language_is_left_out_of_the_search(self):
+        import zimi.search as search
+
+        left_in = [w for w in sorted(ba.QUESTION_WORDS) if search._clean_query(w + " xyzzy") != "xyzzy"]
+        self.assertEqual(left_in, [])
+
+    def test_the_auxiliaries_of_a_question_are_left_out(self):
+        import zimi.search as search
+
+        for w in "did does do can could should would shall may might must had were been whom whose why".split():
+            self.assertEqual(search._clean_query(w + " xyzzy"), "xyzzy", w)
+        self.assertEqual(search._clean_query("when did the berlin wall fall"), "berlin wall fall")
+        self.assertEqual(search._clean_query("what does insulin do"), "insulin")
+
+    def test_a_search_of_nothing_but_them_still_runs(self):
+        import zimi.search as search
+
+        self.assertEqual(search._clean_query("how do you do"), "how do you do")
+
+
+class TestQuestionAndAnswerPages(unittest.TestCase):
+    def test_the_accepted_answer_is_quoted_never_the_question(self):
+        from tests.sotoki_fixture import QUESTION
+
+        from zimi import exchange
+
+        html = exchange.answer_html(QUESTION.encode()).decode()
+        self.assertIn("sharp", html)  # the accepted answer, though another has more votes
+        self.assertNotIn("Chill the onion", html)
+        self.assertNotIn("make me", html)  # the asker's post
+
+    def test_a_page_that_is_not_a_question_is_left_alone(self):
+        from zimi import exchange
+
+        self.assertIsNone(exchange.answer_html(b"<html><body><p>Water.</p></body></html>"))
+
+    def test_a_question_with_no_answer_has_nothing_to_quote(self):
+        from tests.sotoki_fixture import QUESTION
+
+        from zimi import exchange
+
+        bare = QUESTION[: QUESTION.index('<div id="answers">')] + "</div></body></html>"
+        self.assertEqual(exchange.answer_html(bare.encode()), b"")
 
 
 class TestLanguages(unittest.TestCase):
@@ -349,7 +536,8 @@ class TestLanguages(unittest.TestCase):
             "Intro \U0001f600 text. Leonardo da Vinci painted the Mona Lisa. Tail.",
         )
         a = ba.rank_answer("who painted the mona lisa", [p])["answer"]
-        self.assertEqual(a["before"] + a["sentence"] + a["after"], p["text"])
+        self.assertEqual(a["sentence"], "Leonardo da Vinci painted the Mona Lisa.")
+        self.assertEqual(p["text"].count(a["sentence"]), 1)
 
 
 class TestBestAnswerPath(unittest.TestCase):

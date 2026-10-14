@@ -214,6 +214,22 @@ def question_from_page(text, page, zim):
     }
 
 
+def answer_html(raw):
+    """What of a sotoki question page may be quoted: the accepted answer, else
+    the most voted one, as a page of its own (the question's post is the
+    asker's, not an answer). None when `raw` is not a question page, b"" when
+    the question has no answer."""
+    try:
+        q = question_from_page(raw.decode("utf-8", errors="replace"), "q/0/x", "x")
+    except Exception:  # a page that is not a question page, however odd
+        return None
+    if q is None:
+        return None
+    if not q["answers"]:
+        return b""
+    return ("<html><body>%s</body></html>" % q["answers"][0]["body"]).encode("utf-8")
+
+
 def _archive(name):
     from zimi.search import _get_fts_archive
 

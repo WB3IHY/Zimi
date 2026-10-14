@@ -1710,6 +1710,27 @@ STOP_WORDS = _interlang_stopwords.get("en", set()) | {
     "will",
     "with",
     "you",
+    # The auxiliaries of a question: "when did the Berlin Wall fall" asked
+    # the index for a page holding "did" and found none.
+    "am",
+    "been",
+    "being",
+    "can",
+    "could",
+    "did",
+    "do",
+    "does",
+    "had",
+    "may",
+    "might",
+    "must",
+    "shall",
+    "should",
+    "were",
+    "whom",
+    "whose",
+    "why",
+    "would",
 }
 
 
@@ -1717,7 +1738,13 @@ def _clean_query(q):
     """Strip stop words for better Xapian matching; the query as it was when
     every word is one. Quotes never reach here: a query with a phrase is an
     operator query, and the index is given its words (query.term_words)."""
-    words = [w for w in q.split() if w.lower() not in STOP_WORDS]
+    from zimi.bestanswer import QUESTION_WORDS
+
+    words = [
+        w
+        for w in q.split()
+        if w.lower() not in STOP_WORDS and _query.fold(w) not in QUESTION_WORDS
+    ]
     return " ".join(words) or q
 
 
@@ -3718,30 +3745,39 @@ def best_answer_for(q, zim_scope_str, filter_zim, limit):
     def compute():
         started = time.time()  # the budget covers everything the card does
         hits = list(hits_for(q))  # a copy: the search's cached list is not ours
-        # A question in a language the search keeps its function words in
-        # ("wer hat die Mona Lisa gemalt") finds nothing as asked. Its content
-        # words are looked up in the title index (milliseconds, no
-        # full-text search, no per-ZIM search lock held for a person who may
-        # have gone), longest first, until there are enough: "Mona Lisa
-        # gemalt", then "Mona Lisa". Not at all once the budget is spent.
+        # A question the search finds little for ("wer hat die Mona Lisa
+        # gemalt", "how tall is mount everest": the index wants every word, the
+        # verb and the adjective too). Its content words are looked up in the
+        # title index (milliseconds, no full-text search, no per-ZIM search lock
+        # held for a person who may have gone): runs of consecutive words,
+        # longest first, each also as its stems ("purify water" finds "Water
+        # purification"). Never once the budget is spent.
         if len(hits) < bestanswer.SPARSE_HITS:
             seen = {(h["zim"], h["path"]) for h in hits}
-            words = bestanswer.content_query(q).split()
-            for n in range(len(words), 0, -1):
+            for sub in bestanswer.title_queries(q):
                 if time.time() - started > bestanswer.BUDGET_SECONDS:
                     break
-                for h in hits_for(" ".join(words[:n]), fast=True):
+                for h in hits_for(sub, fast=True):
                     if (h["zim"], h["path"]) not in seen:
                         seen.add((h["zim"], h["path"]))
                         hits.append(h)
-                if len(hits) >= bestanswer.SPARSE_HITS:
+                if len(hits) >= bestanswer.MAX_CANDIDATES:
                     break
         kinds = {z["name"]: z.get("kind", "") for z in (_srv._zim_list_cache or [])}
 
         def read_chunks(zim, path):
             with _srv._zim_lock:  # the read only: stripping is not libzim
                 title, mimetype, raw, path = _read_article_raw(zim, path)
-            return _chunk_raw(
+            qa = False
+            if mimetype == "text/html" and _srv.bundled("exchange"):
+                # A Q&A page: the answer is quoted, never the question.
+                from zimi import exchange
+
+                answer = exchange.answer_html(raw)
+                if answer is not None:
+                    raw = answer
+                    qa = True
+            chunks = _chunk_raw(
                 zim,
                 path,
                 title,
@@ -3751,6 +3787,9 @@ def best_answer_for(q, zim_scope_str, filter_zim, limit):
                 overlap=0,
                 max_text=bestanswer.PASSAGE_SIZE * bestanswer.MAX_CHUNKS_PER_ARTICLE,
             )["chunks"]
+            for c in chunks:
+                c["qa"] = qa
+            return chunks
 
         return bestanswer.best_answer(
             q, hits, read_chunks, kinds, started=started

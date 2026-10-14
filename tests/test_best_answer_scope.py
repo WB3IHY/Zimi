@@ -94,9 +94,10 @@ def test_no_full_text_search_runs_after_the_budget_is_spent(served, monkeypatch)
 
     monkeypatch.setattr(ba, "BUDGET_SECONDS", 0.05)
     calls = _record_searches(monkeypatch, first_takes=0.2)
-    got = srv.best_answer_for("wer hat die Mona Lisa gemalt", "", None, 10)
+    q = "wer hat die Mona Lisa wirklich gemalt"  # "wirklich" is in no article
+    got = srv.best_answer_for(q, "", None, 10)
     assert got == {"answer": None}
-    assert calls == [("wer hat die Mona Lisa gemalt", False)], calls
+    assert calls == [(q, False)], calls
 
 
 def test_the_second_search_for_a_sparse_question_is_titles_only(served, monkeypatch):
