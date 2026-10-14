@@ -1,0 +1,568 @@
+{
+ "version": 1,
+ "stop": {
+  "en": [
+   "how",
+   "to",
+   "do",
+   "i",
+   "a",
+   "an",
+   "the",
+   "my",
+   "what",
+   "for",
+   "with",
+   "is",
+   "me",
+   "someone",
+   "need",
+   "can",
+   "in",
+   "on",
+   "of",
+   "when",
+   "help",
+   "emergency"
+  ],
+  "es": ["como", "cómo", "a", "el", "la", "mi", "que", "qué", "hacer", "para", "ayuda", "de", "un", "una", "y", "en", "necesito", "emergencia"],
+  "fr": ["comment", "un", "une", "le", "la", "les", "mon", "ma", "que", "faire", "pour", "aide", "de", "du", "des", "au", "besoin", "urgence"],
+  "de": ["wie", "ein", "eine", "der", "die", "das", "was", "tun", "bei", "hilfe", "meine", "mein", "ich", "um", "zu", "notfall", "brauche"],
+  "pt": ["como", "um", "uma", "o", "a", "meu", "minha", "que", "fazer", "para", "ajuda", "de", "do", "da", "preciso", "emergência"],
+  "ru": ["как", "что", "делать", "при", "помощь", "на", "мой", "я", "нужна", "нужно", "в"],
+  "ar": [],
+  "he": [],
+  "hi": [],
+  "zh": []
+ },
+ "home": {
+  "en": ["first aid", "survival", "emergency", "help now", "i need help", "help"],
+  "es": ["primeros auxilios", "supervivencia", "emergencia", "ayuda"],
+  "fr": ["premiers secours", "survie", "urgence", "au secours"],
+  "de": ["erste hilfe", "überleben", "notfall", "hilfe"],
+  "pt": ["primeiros socorros", "sobrevivência", "emergência", "socorro"],
+  "ru": ["первая помощь", "выживание", "экстренная помощь", "помогите"],
+  "ar": ["إسعافات أولية", "بقاء", "طوارئ", "النجدة"],
+  "he": ["עזרה ראשונה", "הישרדות", "חירום", "הצילו"],
+  "hi": ["प्राथमिक चिकित्सा", "जीवित रहना", "आपातकाल", "मदद"],
+  "zh": ["急救", "求生", "紧急情况", "救命"]
+ },
+ "groups": [
+  {"id": "hurt", "order": "march", "situations": ["bleeding", "choking", "not_breathing", "shock", "cold", "burns", "heat"]},
+  {"id": "survive", "order": "threes", "situations": ["shelter", "water", "food", "lost", "signal"]},
+  {"id": "disaster", "order": "", "situations": ["flood", "earthquake", "wildfire", "storm", "power_out"]}
+ ],
+ "marks": {"bleeding": "M", "choking": "A", "not_breathing": "R", "shock": "C", "cold": "H", "shelter": "3h", "water": "3d", "food": "3w"},
+ "situations": {
+  "bleeding": {
+   "keywords": {
+    "en": ["bleeding", "stop bleeding", "severe bleeding", "bleeding badly", "tourniquet", "hemorrhage", "haemorrhage", "blood loss", "bleeding wound"],
+    "es": ["sangrado", "hemorragia", "torniquete", "sangrar", "parar el sangrado"],
+    "fr": ["saignement", "hémorragie", "garrot", "arrêter le saignement"],
+    "de": ["blutung", "starke blutung", "aderpresse", "blutung stoppen", "tourniquet"],
+    "pt": ["sangramento", "hemorragia", "torniquete", "parar sangramento"],
+    "ru": ["кровотечение", "жгут", "остановить кровотечение"],
+    "ar": ["نزيف", "تورنيكيه", "إيقاف النزيف", "عاصبة"],
+    "he": ["דימום", "חוסם עורקים", "עצירת דימום"],
+    "hi": ["खून बहना", "रक्तस्राव", "टूर्निकेट"],
+    "zh": ["流血", "出血", "止血", "止血带"]
+   },
+   "answers": [
+    {"piece": "medlineplus", "tier": 1, "slugs": ["bleeding.html"], "titles": ["Bleeding"]},
+    {"piece": "armypubs", "tier": 2, "search": "TC 4-02.1 First Aid", "edition": "2016"},
+    {"piece": "fas_medicine", "tier": 2, "search": "hemorrhage control"},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Tourniquet", "Bleeding"]},
+    {
+     "piece": "zimgit_medicine",
+     "tier": 2,
+     "docs": ["first aid", "where there is no doctor", "wilderness", "austere", "bleed", "hemorrh", "wound", "tourniquet", "war surgery"]
+    }
+   ]
+  },
+  "choking": {
+   "keywords": {
+    "en": [
+     "choking",
+     "choke",
+     "heimlich",
+     "heimlich maneuver",
+     "something stuck in throat",
+     "cant breathe",
+     "can't breathe",
+     "airway blocked",
+     "obstructed airway"
+    ],
+    "es": ["atragantamiento", "atragantarse", "ahogo", "maniobra de heimlich"],
+    "fr": ["étouffement", "s'étouffer", "manœuvre de heimlich", "obstruction des voies respiratoires"],
+    "de": ["ersticken", "verschlucken", "heimlich-handgriff", "atemwege verlegt"],
+    "pt": ["engasgo", "engasgar", "manobra de heimlich"],
+    "ru": ["подавился", "удушье", "приём геймлиха", "инородное тело в горле"],
+    "ar": ["اختناق", "شرق", "مناورة هيمليك"],
+    "he": ["חנק", "נחנק", "תמרון היימליך"],
+    "hi": ["दम घुटना", "गले में अटकना", "हेमलिच"],
+    "zh": ["窒息", "噎住", "海姆立克"]
+   },
+   "answers": [
+    {"piece": "medlineplus", "tier": 1, "slugs": ["choking.html"], "titles": ["Choking"]},
+    {"piece": "armypubs", "tier": 2, "search": "TC 4-02.1 Airway obstructions", "edition": "2016"},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Choking", "Heimlich maneuver"]},
+    {"piece": "zimgit_medicine", "tier": 2, "docs": ["first aid", "where there is no doctor", "wilderness", "austere"]}
+   ]
+  },
+  "not_breathing": {
+   "keywords": {
+    "en": [
+     "not breathing",
+     "stopped breathing",
+     "cpr",
+     "cardiopulmonary resuscitation",
+     "rescue breathing",
+     "chest compressions",
+     "no pulse",
+     "unconscious",
+     "unresponsive",
+     "drowning",
+     "heart attack",
+     "cardiac arrest"
+    ],
+    "es": ["no respira", "reanimación", "rcp", "paro cardíaco", "inconsciente", "ahogamiento"],
+    "fr": ["ne respire pas", "réanimation", "rcr", "arrêt cardiaque", "inconscient", "noyade"],
+    "de": ["atmet nicht", "wiederbelebung", "herzstillstand", "bewusstlos", "ertrinken", "herzdruckmassage"],
+    "pt": ["não respira", "reanimação", "rcp", "parada cardíaca", "inconsciente", "afogamento"],
+    "ru": ["не дышит", "сердечно-легочная реанимация", "остановка сердца", "без сознания", "тонет"],
+    "ar": ["لا يتنفس", "إنعاش قلبي رئوي", "سكتة قلبية", "فاقد الوعي", "غرق"],
+    "he": ["לא נושם", "החייאה", "דום לב", "חסר הכרה", "טביעה"],
+    "hi": ["सांस नहीं ले रहा", "सीपीआर", "हृदय गति रुकना", "बेहोश", "डूबना"],
+    "zh": ["没有呼吸", "心肺复苏", "心脏骤停", "昏迷", "溺水"]
+   },
+   "answers": [
+    {"piece": "medlineplus", "tier": 1, "slugs": ["cpr.html"], "titles": ["CPR"]},
+    {"piece": "armypubs", "tier": 2, "search": "TC 4-02.1 Rescue breathing", "edition": "2016"},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Cardiopulmonary resuscitation", "Drowning"]},
+    {"piece": "zimgit_medicine", "tier": 2, "docs": ["first aid", "where there is no doctor", "wilderness", "austere"]}
+   ]
+  },
+  "shock": {
+   "keywords": {
+    "en": ["shock", "going into shock", "signs of shock", "pale and clammy", "fainting", "faint"],
+    "es": ["shock", "estado de choque", "desmayo"],
+    "fr": ["état de choc", "choc", "évanouissement", "malaise"],
+    "de": ["schock", "kreislaufschock", "ohnmacht"],
+    "pt": ["choque", "estado de choque", "desmaio"],
+    "ru": ["шок", "обморок"],
+    "ar": ["صدمة", "إغماء"],
+    "he": ["הלם", "עילפון"],
+    "hi": ["सदमा", "बेहोशी"],
+    "zh": ["休克", "晕厥"]
+   },
+   "answers": [
+    {"piece": "medlineplus", "tier": 1, "slugs": ["shock.html"], "titles": ["Shock"]},
+    {"piece": "armypubs", "tier": 2, "search": "TC 4-02.1 First aid to prevent or control shock", "edition": "2016"},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Shock (circulatory)"]},
+    {"piece": "zimgit_medicine", "tier": 2, "docs": ["first aid", "where there is no doctor", "wilderness", "austere", "shock"]}
+   ]
+  },
+  "cold": {
+   "keywords": {
+    "en": ["hypothermia", "frostbite", "too cold", "freezing", "cold injury", "cold exposure", "shivering"],
+    "es": ["hipotermia", "congelación", "demasiado frío"],
+    "fr": ["hypothermie", "gelure", "engelure", "trop froid"],
+    "de": ["unterkühlung", "erfrierung", "erfrierungen"],
+    "pt": ["hipotermia", "congelamento", "frio extremo", "queimadura de frio"],
+    "ru": ["переохлаждение", "обморожение"],
+    "ar": ["انخفاض حرارة الجسم", "قضمة الصقيع", "برد شديد"],
+    "he": ["היפותרמיה", "כוויות קור"],
+    "hi": ["हाइपोथर्मिया", "पाला", "बहुत ठंड"],
+    "zh": ["低温症", "失温", "冻伤", "太冷"]
+   },
+   "answers": [
+    {"piece": "medlineplus", "tier": 1, "slugs": ["hypothermia.html", "frostbite.html"], "titles": ["Hypothermia", "Frostbite"]},
+    {"piece": "ready", "tier": 1, "slugs": ["winter-weather"]},
+    {"piece": "armypubs", "tier": 2, "search": "TC 4-02.1 First aid for cold injury", "edition": "2016"},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Hypothermia", "Frostbite"]},
+    {"piece": "zimgit_medicine", "tier": 2, "docs": ["first aid", "where there is no doctor", "wilderness", "austere", "cold", "hypotherm", "frost"]}
+   ]
+  },
+  "burns": {
+   "keywords": {
+    "en": ["burn", "burns", "burned", "scald", "scalded", "on fire", "sunburn", "electric shock"],
+    "es": ["quemadura", "quemaduras", "quemado", "escaldadura"],
+    "fr": ["brûlure", "brûlures", "brûlé", "ébouillanté"],
+    "de": ["verbrennung", "verbrennungen", "verbrüht", "verbrannt"],
+    "pt": ["queimadura", "queimaduras", "queimado", "escaldadura"],
+    "ru": ["ожог", "ожоги", "обжёгся", "ошпарился"],
+    "ar": ["حرق", "حروق", "حروق الجلد"],
+    "he": ["כוויה", "כוויות"],
+    "hi": ["जलना", "जलने", "झुलसना"],
+    "zh": ["烧伤", "烫伤", "灼伤"]
+   },
+   "answers": [
+    {"piece": "medlineplus", "tier": 1, "slugs": ["burns.html"], "titles": ["Burns"]},
+    {"piece": "armypubs", "tier": 2, "search": "TC 4-02.1 First aid for burns", "edition": "2016"},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Burn"]},
+    {"piece": "zimgit_medicine", "tier": 2, "docs": ["first aid", "where there is no doctor", "wilderness", "austere", "burn"]}
+   ]
+  },
+  "heat": {
+   "keywords": {
+    "en": [
+     "heat stroke",
+     "heatstroke",
+     "heat exhaustion",
+     "heat illness",
+     "too hot",
+     "overheating",
+     "heat wave",
+     "extreme heat",
+     "dehydration",
+     "dehydrated"
+    ],
+    "es": ["golpe de calor", "agotamiento por calor", "demasiado calor", "ola de calor", "deshidratación"],
+    "fr": ["coup de chaleur", "épuisement par la chaleur", "canicule", "déshydratation", "trop chaud"],
+    "de": ["hitzschlag", "hitzeerschöpfung", "hitze", "hitzewelle", "dehydrierung", "sonnenstich"],
+    "pt": ["insolação", "golpe de calor", "exaustão pelo calor", "onda de calor", "desidratação"],
+    "ru": ["тепловой удар", "перегрев", "жара", "обезвоживание"],
+    "ar": ["ضربة شمس", "إجهاد حراري", "موجة حر", "جفاف"],
+    "he": ["מכת חום", "תשישות חום", "גל חום", "התייבשות"],
+    "hi": ["लू लगना", "हीट स्ट्रोक", "गर्मी", "निर्जलीकरण"],
+    "zh": ["中暑", "热射病", "高温", "脱水"]
+   },
+   "answers": [
+    {"piece": "medlineplus", "tier": 1, "slugs": ["heatillness.html", "dehydration.html"], "titles": ["Heat Illness", "Dehydration"]},
+    {"piece": "ready", "tier": 1, "slugs": ["heat"]},
+    {"piece": "armypubs", "tier": 2, "search": "TC 4-02.1 First aid for heat illness", "edition": "2016"},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Heat stroke", "Heat exhaustion"]},
+    {"piece": "zimgit_medicine", "tier": 2, "docs": ["first aid", "where there is no doctor", "wilderness", "austere", "heat", "dehydrat"]}
+   ]
+  },
+  "shelter": {
+   "keywords": {
+    "en": [
+     "shelter",
+     "emergency shelter",
+     "build a shelter",
+     "stay warm",
+     "warmth",
+     "keep warm",
+     "make a fire",
+     "build a fire",
+     "start a fire",
+     "campfire",
+     "lean-to",
+     "knots",
+     "lashing"
+    ],
+    "es": ["refugio", "abrigo", "mantenerse caliente", "hacer fuego", "encender fuego"],
+    "fr": ["abri", "refuge", "rester au chaud", "faire du feu"],
+    "de": ["unterschlupf", "notunterkunft", "warm bleiben", "feuer machen", "lagerfeuer"],
+    "pt": ["abrigo", "refúgio", "manter-se aquecido", "fazer fogo", "fogueira"],
+    "ru": ["укрытие", "шалаш", "согреться", "развести костёр"],
+    "ar": ["مأوى", "ملجأ", "التدفئة", "إشعال النار"],
+    "he": ["מחסה", "להתחמם", "להדליק אש"],
+    "hi": ["आश्रय", "गर्म रहना", "आग जलाना"],
+    "zh": ["庇护所", "避难所", "保暖", "生火"]
+   },
+   "answers": [
+    {"piece": "armypubs", "tier": 2, "search": "FM 21-76 Survival shelters", "edition": "1992"},
+    {"piece": "zimgit_knots", "tier": 2, "docs": ["*"]},
+    {"piece": "ready", "tier": 1, "slugs": ["winter-weather"]},
+    {"piece": "zimgit_post_disaster", "tier": 2, "docs": ["shelter", "survival", "emergency"]},
+    {"piece": "scoutwiki", "tier": 3, "titles": ["Campfire", "Bivouac shelter"]},
+    {"piece": "outdoors", "tier": 3, "search": "shelter warm night"},
+    {"piece": "appropedia", "tier": 3, "search": "emergency shelter"},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Emergency shelter", "Lean-to", "Bushcraft", "Fire making"]}
+   ]
+  },
+  "water": {
+   "keywords": {
+    "en": [
+     "water",
+     "drinking water",
+     "safe water",
+     "clean water",
+     "purify water",
+     "water purification",
+     "boil water",
+     "no water",
+     "find water",
+     "thirsty",
+     "dirty water",
+     "water treatment"
+    ],
+    "es": ["agua", "agua potable", "purificar agua", "hervir agua", "sed", "potabilizar agua"],
+    "fr": ["eau", "eau potable", "purifier l'eau", "faire bouillir l'eau", "soif", "eau sale"],
+    "de": ["wasser", "trinkwasser", "wasser reinigen", "wasser abkochen", "durst", "wasseraufbereitung"],
+    "pt": ["água", "água potável", "purificar água", "ferver água", "sede"],
+    "ru": ["вода", "питьевая вода", "очистка воды", "кипятить воду", "жажда"],
+    "ar": ["ماء", "مياه الشرب", "تنقية المياه", "غلي الماء", "عطش"],
+    "he": ["מים", "מי שתייה", "טיהור מים", "לרתוח מים", "צמא"],
+    "hi": ["पानी", "पीने का पानी", "पानी साफ करना", "पानी उबालना", "प्यास"],
+    "zh": ["水", "饮用水", "净水", "烧开水", "口渴"]
+   },
+   "answers": [
+    {"piece": "zimgit_water", "tier": 1, "docs": ["*"]},
+    {"piece": "ready", "tier": 1, "slugs": ["water"]},
+    {"piece": "armypubs", "tier": 2, "search": "FM 21-76 Survival water procurement", "edition": "1992"},
+    {"piece": "appropedia", "tier": 3, "search": "water treatment household"},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Water purification", "Boiling", "Dehydration"]}
+   ]
+  },
+  "food": {
+   "keywords": {
+    "en": ["food", "hungry", "find food", "no food", "preserve food", "food safety", "food preservation"],
+    "es": ["comida", "alimentos", "hambre", "conservar alimentos", "seguridad alimentaria"],
+    "fr": ["nourriture", "faim", "conserver les aliments", "sécurité alimentaire"],
+    "de": ["essen", "nahrung", "hunger", "lebensmittel haltbar machen", "lebensmittelsicherheit"],
+    "pt": ["comida", "alimentos", "fome", "conservar alimentos", "segurança alimentar"],
+    "ru": ["еда", "пища", "голод", "хранение продуктов", "безопасность еды"],
+    "ar": ["طعام", "أكل", "جوع", "حفظ الطعام", "سلامة الغذاء"],
+    "he": ["אוכל", "מזון", "רעב", "שימור מזון", "בטיחות מזון"],
+    "hi": ["खाना", "भोजन", "भूख", "खाना सुरक्षित रखना"],
+    "zh": ["食物", "饥饿", "保存食物", "食品安全"]
+   },
+   "answers": [
+    {"piece": "zimgit_food", "tier": 1, "docs": ["*"]},
+    {"piece": "ready", "tier": 1, "slugs": ["food"]},
+    {"piece": "medlineplus", "tier": 1, "slugs": ["foodsafety.html"], "titles": ["Food Safety"]},
+    {"piece": "armypubs", "tier": 2, "search": "FM 21-76 Survival food procurement", "edition": "1992"},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Food preservation", "Foraging"]}
+   ]
+  },
+  "lost": {
+   "keywords": {
+    "en": ["lost", "im lost", "i'm lost", "which way is north", "find north", "no gps", "which direction", "way home"],
+    "es": ["perdido", "estoy perdido", "sin gps"],
+    "fr": ["perdu", "je suis perdu", "sans gps"],
+    "de": ["verirrt", "ich habe mich verirrt", "ohne gps"],
+    "pt": ["perdido", "estou perdido", "sem gps"],
+    "ru": ["заблудился", "без gps"],
+    "ar": ["تائه", "ضائع"],
+    "he": ["אבוד", "הלכתי לאיבוד"],
+    "hi": ["खो गया"],
+    "zh": ["迷路", "迷失"]
+   },
+   "answers": [
+    {"piece": "armypubs", "tier": 2, "search": "FM 21-76 Survival orientation direction", "edition": "1992"},
+    {"piece": "outdoors", "tier": 3, "search": "lost without gps"},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Celestial navigation", "Polaris", "Crux", "Navigation", "Dead reckoning"]}
+   ]
+  },
+  "signal": {
+   "keywords": {
+    "en": [
+     "signal",
+     "signal for help",
+     "signalling",
+     "signaling",
+     "sos",
+     "rescue",
+     "get rescued",
+     "distress signal",
+     "mayday",
+     "signal mirror",
+     "smoke signal",
+     "whistle"
+    ],
+    "es": ["señal", "pedir ayuda", "señales de socorro", "sos", "rescate", "espejo de señales"],
+    "fr": ["signal", "signaux de détresse", "sos", "sauvetage", "miroir de signalisation"],
+    "de": ["signal", "notsignal", "sos", "rettung", "signalspiegel", "rauchzeichen"],
+    "pt": ["sinal", "sinal de socorro", "sos", "resgate", "espelho de sinalização"],
+    "ru": ["сигнал", "сигнал бедствия", "sos", "спасение", "сигнальное зеркало"],
+    "ar": ["إشارة", "إشارة استغاثة", "sos", "إنقاذ", "مرآة إشارة"],
+    "he": ["אות", "אות מצוקה", "sos", "חילוץ", "מראת איתות"],
+    "hi": ["संकेत", "संकट संकेत", "sos", "बचाव", "दर्पण संकेत"],
+    "zh": ["信号", "求救信号", "sos", "救援", "信号镜"]
+   },
+   "answers": [
+    {"piece": "armypubs", "tier": 2, "search": "FM 21-76 Survival signaling techniques", "edition": "1992"},
+    {"piece": "outdoors", "tier": 3, "search": "signal rescue"},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Distress signal", "Signalling mirror", "Mayday"]}
+   ]
+  },
+  "flood": {
+   "keywords": {
+    "en": ["flood", "flooding", "flash flood", "flood warning", "rising water", "storm surge"],
+    "es": ["inundación", "inundaciones", "crecida repentina", "alerta de inundación"],
+    "fr": ["inondation", "crue", "crue soudaine", "alerte inondation"],
+    "de": ["hochwasser", "überschwemmung", "sturzflut", "flutwarnung"],
+    "pt": ["inundação", "enchente", "cheia repentina", "alerta de inundação"],
+    "ru": ["наводнение", "паводок", "внезапное наводнение"],
+    "ar": ["فيضان", "سيول", "تحذير من الفيضان"],
+    "he": ["שיטפון", "הצפה", "אזהרת שיטפון"],
+    "hi": ["बाढ़", "अचानक बाढ़", "बाढ़ की चेतावनी"],
+    "zh": ["洪水", "山洪", "洪水预警"]
+   },
+   "answers": [
+    {"piece": "ready", "tier": 1, "slugs": ["floods"]},
+    {"piece": "zimgit_post_disaster", "tier": 2, "docs": ["flood"]},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Flood"]}
+   ]
+  },
+  "earthquake": {
+   "keywords": {
+    "en": ["earthquake", "quake", "aftershock", "tremor", "drop cover hold on", "tsunami"],
+    "es": ["terremoto", "sismo", "réplica", "temblor", "tsunami"],
+    "fr": ["tremblement de terre", "séisme", "réplique", "tsunami"],
+    "de": ["erdbeben", "nachbeben", "beben", "tsunami"],
+    "pt": ["terremoto", "sismo", "réplica", "tremor", "tsunami"],
+    "ru": ["землетрясение", "афтершок", "толчки", "цунами"],
+    "ar": ["زلزال", "هزة أرضية", "هزة ارتدادية", "تسونامي"],
+    "he": ["רעידת אדמה", "רעידה", "צונאמי"],
+    "hi": ["भूकंप", "झटके", "सुनामी"],
+    "zh": ["地震", "余震", "海啸"]
+   },
+   "answers": [
+    {"piece": "ready", "tier": 1, "slugs": ["earthquakes", "tsunamis"]},
+    {"piece": "zimgit_post_disaster", "tier": 2, "docs": ["earthquake"]},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Earthquake"]}
+   ]
+  },
+  "wildfire": {
+   "keywords": {
+    "en": ["wildfire", "forest fire", "bushfire", "fire evacuation", "house fire", "home fire"],
+    "es": ["incendio forestal", "incendio", "evacuación por fuego", "humo"],
+    "fr": ["feu de forêt", "incendie de forêt", "incendie", "évacuation", "fumée"],
+    "de": ["waldbrand", "buschfeuer", "brand", "rauch", "evakuierung"],
+    "pt": ["incêndio florestal", "incêndio", "queimada", "fumaça", "evacuação"],
+    "ru": ["лесной пожар", "пожар", "дым", "эвакуация"],
+    "ar": ["حريق غابات", "حريق", "دخان", "إخلاء"],
+    "he": ["שריפת יער", "שריפה", "עשן", "פינוי"],
+    "hi": ["जंगल की आग", "आग", "धुआं", "निकासी"],
+    "zh": ["山火", "森林火灾", "火灾", "烟雾", "撤离"]
+   },
+   "answers": [
+    {"piece": "ready", "tier": 1, "slugs": ["wildfires", "home-fires", "evacuation"]},
+    {"piece": "zimgit_post_disaster", "tier": 2, "docs": ["fire", "wildfire"]},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Wildfire"]}
+   ]
+  },
+  "storm": {
+   "keywords": {
+    "en": ["storm", "tornado", "hurricane", "typhoon", "cyclone", "thunderstorm", "lightning", "severe weather", "high winds", "blizzard"],
+    "es": ["tormenta", "tornado", "huracán", "tifón", "ciclón", "relámpago", "rayo"],
+    "fr": ["tempête", "tornade", "ouragan", "typhon", "cyclone", "orage", "foudre"],
+    "de": ["sturm", "tornado", "hurrikan", "taifun", "zyklon", "gewitter", "blitz", "unwetter"],
+    "pt": ["tempestade", "tornado", "furacão", "tufão", "ciclone", "trovoada", "raio"],
+    "ru": ["буря", "торнадо", "ураган", "тайфун", "циклон", "гроза", "молния"],
+    "ar": ["عاصفة", "إعصار", "تورنادو", "صاعقة", "رعد"],
+    "he": ["סערה", "טורנדו", "הוריקן", "ברק", "סופת רעמים"],
+    "hi": ["तूफान", "बवंडर", "चक्रवात", "आंधी", "बिजली"],
+    "zh": ["风暴", "龙卷风", "飓风", "台风", "雷暴", "闪电"]
+   },
+   "answers": [
+    {"piece": "ready", "tier": 1, "slugs": ["tornadoes", "thunderstorms-lightning", "hurricanes", "winter-weather"]},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Tornado", "Lightning", "Tropical cyclone preparedness"]}
+   ]
+  },
+  "power_out": {
+   "keywords": {
+    "en": ["power outage", "power out", "blackout", "no power", "power cut", "generator", "grid down", "carbon monoxide"],
+    "es": ["apagón", "corte de luz", "sin electricidad", "generador", "monóxido de carbono"],
+    "fr": ["panne de courant", "coupure de courant", "sans électricité", "groupe électrogène", "monoxyde de carbone"],
+    "de": ["stromausfall", "blackout", "kein strom", "generator", "notstrom", "kohlenmonoxid"],
+    "pt": ["apagão", "queda de energia", "sem eletricidade", "gerador", "monóxido de carbono"],
+    "ru": ["отключение электричества", "блэкаут", "нет света", "генератор", "угарный газ"],
+    "ar": ["انقطاع الكهرباء", "انقطاع التيار", "مولد كهرباء", "أول أكسيد الكربون"],
+    "he": ["הפסקת חשמל", "בלאקאאוט", "גנרטור", "פחמן חד חמצני"],
+    "hi": ["बिजली गुल", "ब्लैकआउट", "जनरेटर", "कार्बन मोनोऑक्साइड"],
+    "zh": ["停电", "断电", "发电机", "一氧化碳"]
+   },
+   "answers": [
+    {"piece": "ready", "tier": 1, "slugs": ["power-outages"]},
+    {"piece": "medlineplus", "tier": 1, "slugs": ["foodsafety.html"], "titles": ["Food Safety"]},
+    {"piece": "zimgit_post_disaster", "tier": 2, "docs": ["power", "generator", "electric"]},
+    {"piece": "wikipedia", "tier": 3, "titles": ["Power outage", "Carbon monoxide poisoning"]}
+   ]
+  }
+ },
+ "pieces": {
+  "medlineplus": {
+   "name": "MedlinePlus",
+   "match": "^medlineplus\\.gov(_en)?(_all)?$",
+   "catalog": ["medlineplus.gov_en_all"],
+   "paths": ["medlineplus.gov/{slug}", "www.medlineplus.gov/{slug}"],
+   "note": "US National Library of Medicine, in plain language"
+  },
+  "ready": {
+   "name": "Ready.gov",
+   "match": "^www\\.ready\\.gov(_en|_es)?$",
+   "catalog": ["www.ready.gov_en"],
+   "paths": ["www.ready.gov/{slug}", "ready.gov/{slug}"],
+   "note": "FEMA, what to do before, during and after"
+  },
+  "armypubs": {
+   "name": "Army Publishing Directorate",
+   "match": "^armypubs(_en)?(_all)?$",
+   "catalog": ["armypubs_en_all"],
+   "note": "TC 4-02.1 First Aid, FM 21-76 Survival and the Army's other manuals"
+  },
+  "fas_medicine": {
+   "name": "Military Medicine",
+   "match": "^irp\\.fas\\.org(_en)?_military-medicine$",
+   "catalog": ["irp.fas.org_en_military-medicine"],
+   "note": "Federation of American Scientists' collection of military medical manuals, including TCCC"
+  },
+  "zimgit_medicine": {"name": "Medical Library", "match": "^zimgit-medicine(_en)?$", "catalog": ["zimgit-medicine_en"], "note": "Field and emergency medicine books"},
+  "zimgit_water": {
+   "name": "Water Treatment Library",
+   "match": "^zimgit-water(_en)?$",
+   "catalog": ["zimgit-water_en"],
+   "note": "Distillation, purification, Giardia, safe water"
+  },
+  "zimgit_knots": {"name": "A Library of Knots", "match": "^zimgit-knots(_en)?$", "catalog": ["zimgit-knots_en"], "note": "Knots, lashings, anchors"},
+  "zimgit_food": {
+   "name": "Food for Preppers",
+   "match": "^zimgit-food(-preparation)?(_en)?$",
+   "catalog": ["zimgit-food-preparation_en"],
+   "note": "Preparing and keeping food"
+  },
+  "zimgit_post_disaster": {
+   "name": "Post Disaster Resource Library",
+   "match": "^zimgit-post-disaster(_en)?$",
+   "catalog": ["zimgit-post-disaster_en"],
+   "note": "Repair, shelter, power after a disaster"
+  },
+  "appropedia": {"name": "Appropedia", "match": "^appropedia(_en)?(_all)?$", "catalog": ["appropedia_en_all"], "note": "Water, sanitation and shelter by practice"},
+  "outdoors": {
+   "name": "The Great Outdoors Q&A",
+   "match": "^outdoors\\.stackexchange(\\.com)?(_en)?(_all)?$",
+   "catalog": ["outdoors.stackexchange.com_en_all"],
+   "note": "Questions and answers from people who camp and hike"
+  },
+  "wikipedia": {"name": "Wikipedia", "match": "^wikipedia(_en_[a-z0-9-]+)?$", "catalog": ["wikipedia_en_medicine"], "note": "An encyclopedia, not instructions"},
+  "scoutwiki": {
+   "name": "ScoutWiki",
+   "match": "^scoutwiki(_en)?(_all)?$",
+   "catalog": ["scoutwiki_en_all"],
+   "note": "Campfires, bivouac shelters and knots, from scouting"
+  },
+  "field_manual": {
+   "name": "Field manual",
+   "match": "^zimi[-_]field[-_]manual",
+   "listing": "zimi-database.js",
+   "build": "field_manual",
+   "note": "TC 4-02.1 First Aid, FM 21-76 Survival and the Ranger Handbook, built here from the Army's public-domain PDFs"
+  }
+ },
+ "library": {
+  "sets": [
+   {
+    "id": "core",
+    "pieces": [
+     "field_manual",
+     "medlineplus",
+     "ready",
+     "zimgit_water",
+     "zimgit_medicine",
+     "zimgit_food",
+     "zimgit_knots",
+     "zimgit_post_disaster",
+     "scoutwiki",
+     "fas_medicine"
+    ]
+   },
+   {"id": "more", "pieces": ["armypubs", "appropedia", "outdoors"]}
+  ]
+ },
+ "lang_fallback": {"pattern": "^wikipedia_{lang}(_|$)", "prefer": "medicine", "name": "Wikipedia"}
+}
