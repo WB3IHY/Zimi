@@ -54,6 +54,7 @@ BM25_B = 0.75
 TITLE_BONUS = 0.25  # max added when the article's title holds the question
 LEAD_BONUS = 0.04  # the first passage of an article is its summary
 RANK_DECAY = 0.015  # per search rank: the search already ordered the articles
+SPARSE_HITS = 3  # fewer search hits than this: ask again without function words
 CACHE_MAX = 64
 CACHE_TTL = 120.0
 
@@ -204,6 +205,19 @@ def query_language(q):
     from zimi.interlang import _detect_query_language
 
     return _detect_query_language(q) or ""
+
+
+def content_query(q):
+    """The query's own words with the function and question words left out,
+    as typed (not stemmed): what a search that keeps them would find."""
+    drop = _drop_set(query_language(q))
+    keep = []
+    for m in _WORD.finditer(q):
+        tok = m.group()
+        stem = _stem(_fold(tok).strip("_") or "_")
+        if stem not in drop and stem not in _ASKING_STEMS:
+            keep.append(tok)
+    return " ".join(keep)
 
 
 # ── is it a question? ─────────────────────────────────────────────────────

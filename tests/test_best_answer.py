@@ -207,6 +207,15 @@ class TestRanking(unittest.TestCase):
         self.assertTrue(a["after"].endswith("…"))
 
 
+class TestContentQuery(unittest.TestCase):
+    def test_function_and_question_words_go_the_content_words_stay_as_typed(self):
+        self.assertEqual(ba.content_query("how to purify water"), "purify water")
+        self.assertEqual(
+            ba.content_query("wer hat die Mona Lisa gemalt"), "Mona Lisa gemalt"
+        )
+        self.assertEqual(ba.content_query("кто написал Мону Лизу"), "написал Мону Лизу")
+
+
 class TestProximity(unittest.TestCase):
     def test_tightness_follows_word_order_not_hash_order(self):
         w = {"a": 1.0, "b": 1.0}

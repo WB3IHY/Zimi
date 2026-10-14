@@ -3731,11 +3731,25 @@ def best_answer_for(q, zim_scope_str, filter_zim, limit):
     if not bestanswer.worth_asking(q):
         return {"answer": None}  # a keyword search: no reading, no cache entry
 
-    def compute():
-        key = _search_cache_key(q, zim_scope_str, limit, False)
-        hits, _ = search_cached(
-            key, lambda: search_all(q, limit=limit, filter_zim=filter_zim)
+    def hits_for(query):
+        key = _search_cache_key(query, zim_scope_str, limit, False)
+        found, _ = search_cached(
+            key, lambda: search_all(query, limit=limit, filter_zim=filter_zim)
         )
+        return found.get("results", [])
+
+    def compute():
+        hits = hits_for(q)
+        # A question in a language the search keeps its function words in
+        # ("wer hat die Mona Lisa gemalt") finds nothing as asked: the same
+        # words without them, for the card alone.
+        if len(hits) < bestanswer.SPARSE_HITS:
+            plain = bestanswer.content_query(q)
+            if plain and plain != q:
+                seen = {(h["zim"], h["path"]) for h in hits}
+                hits = hits + [
+                    h for h in hits_for(plain) if (h["zim"], h["path"]) not in seen
+                ]
         kinds = {z["name"]: z.get("kind", "") for z in (_srv._zim_list_cache or [])}
 
         def read_chunks(zim, path):
@@ -3752,7 +3766,7 @@ def best_answer_for(q, zim_scope_str, filter_zim, limit):
                 max_text=bestanswer.PASSAGE_SIZE * bestanswer.MAX_CHUNKS_PER_ARTICLE,
             )["chunks"]
 
-        return bestanswer.best_answer(q, hits.get("results", []), read_chunks, kinds)
+        return bestanswer.best_answer(q, hits, read_chunks, kinds)
 
     key = ("best",) + _search_cache_key(q, zim_scope_str, limit, False)
     return bestanswer.cached_best_answer(key, compute)
