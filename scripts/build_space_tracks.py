@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate the spacecraft and dwarf-planet tracks that ship with Zimi.
+"""Regenerate the spacecraft, dwarf-planet and giant-planet tracks that ship with Zimi.
 
     python3 scripts/build_space_tracks.py            # tracks + the test reference
     python3 scripts/build_space_tracks.py --only voyager1
@@ -8,23 +8,33 @@ Needs the internet (JPL Horizons, https://ssd.jpl.nasa.gov/api/horizons.api);
 nothing else does, and Zimi itself never calls it. Writes two committed files:
 
     zimi/static/earth/space-tracks-v1.json
-        For each probe (and Ceres) the heliocentric position and velocity in
-        the J2000 ecliptic frame (AU, AU/day), at the times a cubic Hermite
-        curve needs to stay within a tolerance of the full Horizons table:
-        dense through a planetary flyby, sparse in cruise. almanac-space.js
-        interpolates it (_spHermite). Public domain (NASA/JPL); credited in
+        "tracks": for each probe (and Ceres) and "planets": for Jupiter,
+        Saturn, Uranus, Neptune and Pluto over 1970-2050, the heliocentric
+        position and velocity in the J2000 ecliptic frame (AU, AU/day), at the
+        times a cubic Hermite curve needs to stay within a tolerance of the
+        full Horizons table. Planets and probes come from the one source, so a
+        flyby is where it was: almanac-space.js interpolates both
+        (_spHermite) and falls back on the orrery's elements only outside a
+        planet's span. Public domain (NASA/JPL); credited in
         zimi/static/earth/SOURCES.txt. Renaming it means a new -vN name there
         and in almanac-space.js, because static files are served immutable.
 
     tests/fixtures/horizons-space-reference.json
-        Horizons' own vectors for planets, Pluto and probes at three dates
-        each, fetched directly (not thinned). tests/test_almanac_space.cjs
-        checks the shipped code against them, offline.
+        Horizons' own vectors for planets, Pluto, probes, moons and the
+        closest approaches of the flybys at the stated times, fetched directly
+        (not thinned). tests/test_almanac_space.cjs checks the shipped code
+        against them, offline.
 
 The thinning keeps the first sample, then the farthest next sample for which a
 Hermite curve through the two (positions and velocities) reproduces every
-dense sample between them to within TOL_ABS_AU + TOL_REL * distance from the
-Sun. The same test runs again over the written file before it is accepted.
+dense sample between them to within a tolerance. For a probe in cruise that is
+TOL_ABS_AU + TOL_REL * its distance from the Sun. In the window round each
+planetary flyby or orbit insertion (the dense table there is 5 minutes) the
+tolerance is also at most NEAR_FRACTION of its distance from that planet, so
+the encounter is right to a planetary radius, not to the cruise tolerance. A
+giant planet's own track is held to TOL_PLANET_AU. The check is run over the
+values as written (rounded), against the same tolerances, before a file is
+accepted.
 """
 
 import argparse
@@ -45,6 +55,13 @@ HORIZONS = "https://ssd.jpl.nasa.gov/api/horizons.api"
 
 TOL_ABS_AU = 4e-4
 TOL_REL = 3e-4  # of the distance from the Sun
+TOL_PLANET_AU = 2e-5  # a giant planet's own track: 3,000 km
+NEAR_FRACTION = 0.05  # in an encounter window: of the distance to the planet
+NEAR_FLOOR_AU = 2e-6  # and never asked for less than 300 km
+WINDOW_DAYS = (1.5, 2.0)  # before and after the event's date
+WINDOW_STEP = "5m"
+WINDOW_STEP_DAYS = 5 / 1440
+THIN_MARGIN = 0.85
 ROWS_PER_REQUEST = 8000  # Horizons answers a request this size in a second or two
 MIN_JD_STEP = 1.0 / 24  # never thinner than an hour of dense data
 
@@ -128,7 +145,7 @@ PROBES = {
         "step": "3h",
         "events": [
             ["2018-08-12", "launch", ""],
-            ["2018-09-28", "flyby", "Venus"],
+            ["2018-10-03", "flyby", "Venus"],
             ["2024-12-24", "record", ""],
         ],
     },
@@ -137,7 +154,7 @@ PROBES = {
         "id": "-61",
         "start": "2011-08-06",
         "end": "2028-09-01",
-        "step": "1d",
+        "step": "1h",
         "events": [
             ["2011-08-05", "launch", ""],
             ["2013-10-09", "flyby", "Earth"],
@@ -157,7 +174,7 @@ PROBES = {
         "id": "-82",
         "start": "1997-10-16",
         "end": "2017-09-14",
-        "step": "1d",
+        "step": "1h",
         "events": [
             ["1997-10-15", "launch", ""],
             ["1999-06-24", "flyby", "Venus"],
@@ -171,7 +188,7 @@ PROBES = {
         "id": "-77",
         "start": "1989-10-20",
         "end": "2003-09-29",
-        "step": "1d",
+        "step": "2h",
         "events": [
             ["1989-10-18", "launch", ""],
             ["1995-12-07", "orbit", "Jupiter"],
@@ -192,6 +209,18 @@ PROBES = {
         ],
     },
 }
+# The giant planets (and Pluto), from the same table as the probes.
+PLANETS = {
+    "Jupiter": "599",
+    "Saturn": "699",
+    "Uranus": "799",
+    "Neptune": "899",
+    # The Pluto-Charon barycentre, 2,100 km from Pluto: Pluto itself swings round it every 6.4 days.
+    "Pluto": "9",
+}
+PLANET_SPAN = ("1970-01-01", "2049-12-31", "1d")
+# Every planet an encounter window can name: the Horizons command of each.
+ENCOUNTER_BODIES = dict(PLANETS, Venus="299", Earth="399", Mars="499")
 # Dwarf planets whose elements the orrery does not carry.
 BODIES = {
     "ceres": {
@@ -221,6 +250,16 @@ REF_PLANETS = {
 REF_MOONS = {"Io": ("501", "599"), "Europa": ("502", "599"), "Ganymede": ("503", "599"), "Callisto": ("504", "599"),
              "Titan": ("606", "699"), "Moon": ("301", "399")}
 REF_DATES = ["1990-01-01", "2026-10-13", "2045-06-15"]
+# Closest approaches, to the minute (UT): the probe, the planet, the time. The probe is
+# checked against the planet's drawn place, not just its own.
+REF_FLYBYS = [
+    ("voyager2", "Neptune", "1989-08-25 03:56"),
+    ("voyager2", "Uranus", "1986-01-24 17:59"),
+    ("voyager1", "Saturn", "1980-11-12 23:46"),
+    ("pioneer11", "Saturn", "1979-09-01 16:31"),
+    ("newhorizons", "Pluto", "2015-07-14 11:50"),
+    ("cassini", "Saturn", "2010-06-01 00:00"),
+]
 REF_PROBE_DATES = {
     "voyager1": ["1985-06-01", "2012-09-01", "2026-10-13"],
     "voyager2": ["1986-02-01", "2008-03-01", "2026-10-13"],
@@ -282,18 +321,22 @@ def horizons(command, start, stop, step, center="500@10"):
 
 
 def _step_days(step):
+    if step.endswith("m"):
+        return int(step[:-1]) / 1440
     return int(step[:-1]) / 24 if step.endswith("h") else float(step[:-1])
 
 
-def dense_table(spec):
-    """The whole dense table for a probe, fetched in chunks small enough for one request each."""
-    step_d = _step_days(spec["step"])
-    jd0, jd1 = _jd_of(spec["start"]), _jd_of(spec["end"])
+def dense_table(spec, command=None, jd0=None, jd1=None, step=None):
+    """A dense table, fetched in chunks small enough for one request each (a probe's whole span by default)."""
+    step = step or spec["step"]
+    step_d = _step_days(step)
+    jd0 = _jd_of(spec["start"]) if jd0 is None else jd0
+    jd1 = _jd_of(spec["end"]) if jd1 is None else jd1
     rows, cur = [], jd0
     chunk = ROWS_PER_REQUEST * step_d
     while cur < jd1:
         stop = min(cur + chunk, jd1)
-        part = horizons(spec["id"], _cal(cur), _cal(stop), spec["step"])
+        part = horizons(command or spec["id"], _cal(cur), _cal(stop), step)
         if rows and part and part[0][0] <= rows[-1][0] + 1e-9:
             part = [r for r in part if r[0] > rows[-1][0] + 1e-9]
         rows.extend(part)
@@ -303,6 +346,7 @@ def dense_table(spec):
 
 def _cal(jd):
     """A Julian Day as the 'YYYY-MM-DD HH:MM' Horizons takes."""
+    jd = round((jd + 0.5) * 1440) / 1440 - 0.5   # to the minute, so 23:59:30 does not become 24:00
     z = int(jd + 0.5)
     f = jd + 0.5 - z
     a = (
@@ -336,22 +380,20 @@ def hermite(a, b, jd):
     ]
 
 
-def _tol(row):
+def _helio_tol(row):
     return TOL_ABS_AU + TOL_REL * math.sqrt(row[1] ** 2 + row[2] ** 2 + row[3] ** 2)
 
 
-def _fits(rows, i, j):
+def _fits(rows, tols, i, j):
     a, b = rows[i], rows[j]
     for k in range(i + 1, j):
         p = hermite(a, b, rows[k][0])
-        if max(abs(p[n] - rows[k][1 + n]) for n in range(3)) > min(
-            _tol(rows[k]), _tol(a), _tol(b)
-        ):
+        if max(abs(p[n] - rows[k][1 + n]) for n in range(3)) > min(tols[k], tols[i], tols[j]):
             return False
     return True
 
 
-def thin(rows):
+def thin(rows, tols):
     """The fewest samples whose Hermite curve stays within tolerance of every dense row."""
     keep, i, n = [0], 0, len(rows)
     while i < n - 1:
@@ -359,70 +401,124 @@ def thin(rows):
         lo, hi, span = i + 1, None, 2
         while hi is None and lo < n - 1:
             j = min(i + span, n - 1)
-            if _fits(rows, i, j):
+            if _fits(rows, tols, i, j):
                 lo, span = j, span * 2
             else:
                 hi = j
         while hi is not None and hi - lo > 1:
             mid = (lo + hi) // 2
-            if _fits(rows, i, mid):
+            if _fits(rows, tols, i, mid):
                 lo = mid
             else:
                 hi = mid
         keep.append(lo)
         i = lo
-    return [rows[k] for k in keep]
+    return keep
 
 
-def verify(rows, kept):
-    """The worst miss, in units of its tolerance, of the thinned curve against the dense table."""
+def verify(rows, tols, kept):
+    """The worst miss, in units of its tolerance, of the curve through `kept` rows against the dense table."""
     worst, j = 0.0, 0
-    for r in rows:
+    for r, tol in zip(rows, tols):
         while j < len(kept) - 2 and kept[j + 1][0] < r[0]:
             j += 1
         p = hermite(kept[j], kept[j + 1], r[0])
-        worst = max(worst, max(abs(p[n] - r[1 + n]) for n in range(3)) / _tol(r))
+        worst = max(worst, max(abs(p[n] - r[1 + n]) for n in range(3)) / tol)
     return worst
 
 
 def pack(row):
     return (
-        [round(row[0], 4)]
+        [round(row[0], 6)]
         + [round(v, 6) for v in row[1:4]]
-        + [round(v, 7) for v in row[4:7]]
+        + [round(v, 9) for v in row[4:7]]
     )
+
+
+def _merge(rows, extra):
+    """The dense table with the encounter windows' finer rows replacing its own inside each window."""
+    if not extra:
+        return rows
+    lo, hi = extra[0][0], extra[-1][0]
+    return [r for r in rows if r[0] < lo or r[0] > hi] + extra
+
+
+def encounter_windows(spec):
+    """[(planet, probe rows, planet rows)] at 5 minutes round each flyby or orbit insertion of a planet."""
+    out = []
+    for date, kind, body in spec["events"]:
+        if kind not in ("flyby", "orbit") or body not in ENCOUNTER_BODIES:
+            continue
+        jd = _jd_of(date)
+        probe = dense_table(spec, jd0=jd - WINDOW_DAYS[0], jd1=jd + WINDOW_DAYS[1], step=WINDOW_STEP)
+        planet = dense_table(spec, command=ENCOUNTER_BODIES[body], jd0=jd - WINDOW_DAYS[0], jd1=jd + WINDOW_DAYS[1], step=WINDOW_STEP)
+        planet_at = {round(r[0], 6): r for r in planet}
+        out.append((body, [r for r in probe if round(r[0], 6) in planet_at], planet_at))
+    return out
+
+
+def probe_table(spec):
+    """The dense rows and the tolerance of each, with the encounter windows folded in."""
+    rows = dense_table(spec)
+    near = {}   # JD -> distance to the planet being passed (AU), inside a window
+    for body, probe, planet_at in encounter_windows(spec):
+        rows = _merge(rows, probe)
+        for r in probe:
+            p = planet_at[round(r[0], 6)]
+            near[round(r[0], 6)] = math.sqrt(sum((r[1 + n] - p[1 + n]) ** 2 for n in range(3)))
+    rows.sort(key=lambda r: r[0])
+    tols = []
+    for r in rows:
+        tol = _helio_tol(r)
+        d = near.get(round(r[0], 6))
+        if d is not None:
+            tol = min(tol, NEAR_FRACTION * d + NEAR_FLOOR_AU)
+        tols.append(tol)
+    return rows, tols
+
+
+def _entry(spec, rows, tols, events):
+    """Thin a table, verify the rounded result, and make its JSON entry."""
+    keep = thin(rows, [t * THIN_MARGIN for t in tols])   # leaves room for the rounding of what is written
+    packed = [pack(rows[k]) for k in keep]
+    miss = verify(rows, tols, packed)
+    if miss > 1.0:
+        raise RuntimeError("%s: the written curve misses by %.2fx its tolerance" % (spec["name"], miss))
+    print("%-14s dense %7d -> kept %5d  worst %.2f of tolerance" % (spec["name"], len(rows), len(keep), miss))
+    return {
+        "name": spec["name"],
+        "id": spec["id"],
+        "jd0": packed[0][0],
+        "jd1": packed[-1][0],
+        "events": events,
+        "s": packed,
+    }
 
 
 def build_tracks(only):
     out = {
         "source": "NASA/JPL Horizons System, https://ssd.jpl.nasa.gov/horizons/ (public domain)",
         "frame": "heliocentric, ecliptic and equinox J2000, AU and AU/day; t in Julian Days TDB",
-        "tolerance": "cubic Hermite within %g AU + %g of the distance from the Sun"
-        % (TOL_ABS_AU, TOL_REL),
+        "tolerance": "cubic Hermite, checked as written: probes within %g AU + %g of the distance from the Sun, "
+        "and within %g of the distance to the planet inside a flyby window (%g AU at least); planets within %g AU"
+        % (TOL_ABS_AU, TOL_REL, NEAR_FRACTION, NEAR_FLOOR_AU, TOL_PLANET_AU),
         "tracks": {},
+        "planets": {},
     }
     for key, spec in list(PROBES.items()) + list(BODIES.items()):
         if only and key != only:
             continue
-        dense = dense_table(spec)
-        kept = thin(dense)
-        miss = verify(dense, kept)
-        if miss > 1.0:
-            raise RuntimeError(
-                "%s: thinned curve misses by %.2fx its tolerance" % (key, miss)
-            )
-        print(
-            "%-14s dense %6d -> kept %4d  worst %.2f of tolerance"
-            % (key, len(dense), len(kept), miss)
-        )
-        out["tracks"][key] = {
-            "name": spec["name"],
-            "id": spec["id"],
-            "jd0": kept[0][0],
-            "jd1": kept[-1][0],
-            "events": [[_jd_of(d), kind, body] for d, kind, body in spec["events"]],
-            "s": [pack(r) for r in kept],
-        }
+        rows, tols = probe_table(spec) if key in PROBES else (dense_table(spec), None)
+        if tols is None:
+            tols = [_helio_tol(r) for r in rows]
+        events = [[_jd_of(d), kind, body] for d, kind, body in spec["events"]]
+        out["tracks"][key] = _entry(spec, rows, tols, events)
+    for name, cmd in PLANETS.items():
+        if only and only != name.lower():
+            continue
+        spec = {"name": name, "id": cmd, "start": PLANET_SPAN[0], "end": PLANET_SPAN[1], "step": PLANET_SPAN[2]}
+        rows = dense_table(spec)
+        out["planets"][name] = _entry(spec, rows, [TOL_PLANET_AU] * len(rows), [])
     return out
 
 
@@ -447,6 +543,14 @@ def build_reference():
             {"date": d, "xyz": horizons(spec["id"], d, d + " 00:01", "1m")[0][1:4]}
             for d in dates
         ]
+    ref["flybys"] = []
+    for key, planet, when in REF_FLYBYS:
+        stop = _cal(_jd_of(when[:10]) + (int(when[11:13]) * 60 + int(when[14:16]) + 1) / 1440)
+        ref["flybys"].append({
+            "probe": key, "planet": planet, "time": when.replace(" ", "T") + ":00Z",
+            "probe_xyz": horizons(PROBES[key]["id"], when, stop, "1m")[0][1:4],
+            "planet_xyz": horizons(ENCOUNTER_BODIES[planet], when, stop, "1m")[0][1:4],
+        })
     return ref
 
 
@@ -472,6 +576,7 @@ def main():
         with open(TRACKS_PATH) as f:
             whole = json.load(f)
         whole["tracks"].update(tracks["tracks"])
+        whole.setdefault("planets", {}).update(tracks["planets"])
         tracks = whole
     with open(TRACKS_PATH, "w") as f:
         json.dump(tracks, f, separators=(",", ":"))
