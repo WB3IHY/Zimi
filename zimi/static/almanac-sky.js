@@ -607,17 +607,15 @@ function _skySet(k, v) {
 // as the class night-red on <html> (by the shell before first paint). The sky
 // follows it, draws deep red on black when it is set, and flips it through
 // _nightApply when its own checkbox does.
-var SKY_NIGHT_KEY = 'zimi.night', SKY_NIGHT_VALUE = 'red', SKY_NIGHT_CLASS = 'night-red';
+var SKY_NIGHT_CLASS = 'night-red';
 var _skyRedSeen = false;
 function _skyRedOn() {
   var root = typeof document !== 'undefined' && document.documentElement;
-  if (root && root.classList && root.classList.contains(SKY_NIGHT_CLASS)) return true;
-  try { return localStorage.getItem(SKY_NIGHT_KEY) === SKY_NIGHT_VALUE; } catch (e) { return false; }
+  return !!(root && root.classList && root.classList.contains(SKY_NIGHT_CLASS));
 }
+// The switch is the shell's (app.js _nightSet: the one key, the class on <html>); the sky follows.
 function _skySetRed(on) {
-  try { if (on) localStorage.setItem(SKY_NIGHT_KEY, SKY_NIGHT_VALUE); else localStorage.removeItem(SKY_NIGHT_KEY); } catch (e) {}
-  if (typeof _nightApply === 'function') _nightApply();
-  else if (document.documentElement && document.documentElement.classList) document.documentElement.classList.toggle(SKY_NIGHT_CLASS, on);
+  if (typeof _nightSet === 'function') _nightSet(on);
   _skyRedChanged();
 }
 // The sky's side of a change, whoever made it.
@@ -1890,6 +1888,7 @@ function _skyUnderMoon(s, x, y) { var m = s.moonDisc; return !!m && (x - m.x) * 
 // horizon, a line with the compass's ticks and its letters.
 var SKY_TICK_PX = [3, 5, 8], SKY_TICK_DEG = [5, 15, 45];   // tick length (CSS px) at each step of bearing
 var SKY_HORIZON_LINE = 'rgba(190,205,230,0.22)';
+var SKY_HOSTED_POINT_PX = 15;          // the points of the compass in the look-around view, CSS px
 function _skyPaintHorizon(ctx, s, gpu) {
   var dpr = s.dpr, e = s.eph, light = _skyDaylight(e.sunGeoAlt);
   if (!gpu && !s.lens) {   // without the GPU the ground is a plain shade of the horizon's colour
@@ -1912,9 +1911,10 @@ function _skyPaintHorizon(ctx, s, gpu) {
   ctx.stroke();
   // Ticks every 5 degrees, longer at 15 and 45; the letters under the points of the compass.
   ctx.strokeStyle = 'rgba(190,205,230,0.32)';
-  ctx.font = '600 ' + Math.round(10 * dpr) + 'px ' + SKY_FONT;
+  // The look-around view is held at arm's length: its letters are the size of the other labels, and brighter.
+  ctx.font = '600 ' + Math.round((s.hosted ? SKY_HOSTED_POINT_PX : 10) * dpr) + 'px ' + SKY_FONT;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillStyle = light > 0.5 ? 'rgba(235,240,250,0.8)' : 'rgba(210,220,240,0.62)';
+  ctx.fillStyle = s.hosted ? 'rgba(235,240,250,0.92)' : light > 0.5 ? 'rgba(235,240,250,0.8)' : 'rgba(210,220,240,0.62)';
   ctx.beginPath();
   for (az = 0; az < 360; az += SKY_TICK_DEG[0]) {
     var q = _skyScreen(s, az, 0, 2 * dpr);
@@ -1965,10 +1965,13 @@ function _skyPaintSkyLens(ctx, s) {
   ctx.drawImage(tmp, 0, 0, s.W, s.H);
 }
 // Deep red on black: every colour reduced to its brightness, then to red.
-var SKY_RED = 'rgb(255,18,8)';
+var SKY_RED = 'rgb(255,18,8)', SKY_RED_LIFT = '#808080';
 function _skyRedWash(ctx, s) {
   ctx.save();
   ctx.globalCompositeOperation = 'saturation'; ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, s.W, s.H);
+  // With the Sun down, twice the light before it is made red: a dim star in red is no brighter than the sky
+  // round it otherwise. (By day the sky is bright enough already; doubled it would be a red wall.)
+  if (s.eph && s.eph.sunGeoAlt < 0) { ctx.globalCompositeOperation = 'color-dodge'; ctx.fillStyle = SKY_RED_LIFT; ctx.fillRect(0, 0, s.W, s.H); }
   ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = SKY_RED; ctx.fillRect(0, 0, s.W, s.H);
   ctx.restore();
 }
@@ -2091,7 +2094,50 @@ function _skyHostDraw() {
   var ctx = h.canvas.getContext('2d');
   ctx.clearRect(0, 0, s.W, s.H);
   ctx.drawImage(s.base, 0, 0);
+  _skyHostLabels(ctx, s);
   if (_skyRedOn()) _skyRedWash(ctx, s);
+}
+// Names on what the person is most likely to look for: the Sun, the Moon, the planets and the brightest
+// named stars, beside each, inside the screen and clear of one another and of the readout at the top.
+var SKY_LABEL_PX = 13, SKY_LABEL_STAR_MAG = 1.8, SKY_LABEL_MAX = 14, SKY_LABEL_TOP_PX = 70, SKY_LABEL_PAD_PX = 8, SKY_LABEL_GAP_PX = 5;
+function _skyLabelRank(b) {
+  if (b.type === 'sun') return -2;
+  if (b.type === 'moon') return -1;
+  if (b.type === 'planet') return 0 + (b.mag == null ? 0 : b.mag) / 10;
+  if (b.type === 'star' && b.idx >= 0 && _STAR_NAMES[b.idx] && b.mag != null && b.mag <= SKY_LABEL_STAR_MAG) return 2 + b.mag / 10;
+  return null;
+}
+// [{text, x, y, align, box}] for the bodies drawn, in device px; pure but for the names.
+function _skyLabelPlan(s, measure) {
+  var dpr = s.dpr, pad = SKY_LABEL_PAD_PX * dpr, top = SKY_LABEL_TOP_PX * dpr, ph = SKY_LABEL_PX * dpr * 1.25;
+  var cands = [], out = [], taken = [], i;
+  for (i = 0; i < s.bodies.length; i++) {
+    var rk = _skyLabelRank(s.bodies[i]);
+    if (rk !== null) cands.push({ b: s.bodies[i], rank: rk });
+  }
+  cands.sort(function (a, b) { return a.rank - b.rank; });
+  for (i = 0; i < cands.length && out.length < SKY_LABEL_MAX; i++) {
+    var b = cands[i].b, text = _skyBodyName(b), w = measure(text), cx = b.x * dpr, cy = b.y * dpr, gap = (b.r || 3) * dpr + SKY_LABEL_GAP_PX * dpr;
+    if (cy < top || cy > s.H - pad) continue;
+    var rtl = document.documentElement.dir === 'rtl', sides = rtl ? [-1, 1] : [1, -1], put = null;
+    for (var k = 0; k < 2 && !put; k++) {
+      var x0 = sides[k] > 0 ? cx + gap : cx - gap - w, box = { x0: x0, x1: x0 + w, y0: cy - ph / 2, y1: cy + ph / 2 };
+      if (box.x0 < pad || box.x1 > s.W - pad) continue;
+      if (taken.some(function (t) { return box.x0 < t.x1 && box.x1 > t.x0 && box.y0 < t.y1 && box.y1 > t.y0; })) continue;
+      put = { text: text, x: box.x0, y: cy, box: box };
+    }
+    if (put) { out.push(put); taken.push(put.box); }
+  }
+  return out;
+}
+function _skyHostLabels(ctx, s) {
+  ctx.save();
+  ctx.font = '600 ' + Math.round(SKY_LABEL_PX * s.dpr) + 'px ' + SKY_FONT;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  var plan = _skyLabelPlan(s, function (text) { return ctx.measureText(text).width; });
+  ctx.lineJoin = 'round'; ctx.lineWidth = 3 * s.dpr; ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.fillStyle = 'rgba(240,244,252,0.92)';
+  for (var i = 0; i < plan.length; i++) { ctx.strokeText(plan[i].text, plan[i].x, plan[i].y); ctx.fillText(plan[i].text, plan[i].x, plan[i].y); }
+  ctx.restore();
 }
 // One frame for however many turns arrive before it.
 function _skyHostSchedule() {
@@ -2108,6 +2154,7 @@ var AlmanacSkyView = {
     _sgInit();   // the GPU's sky comes when it is compiled; until then the Canvas 2D sky draws, and the host is painted again
     var canvas = document.createElement('canvas');
     canvas.className = 'alm-sky-host';
+    canvas.setAttribute('data-red', '');
     canvas.setAttribute('role', 'img');
     canvas.style.cssText = 'display:block;width:100%;height:100%;touch-action:none';
     host.appendChild(canvas);

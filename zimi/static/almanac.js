@@ -2126,7 +2126,7 @@ function _renderAlmanacContent() {
   // planets and the star chart, the year's figures, deep time.
   // Its clock is the page's (the time machine); almanac-sky.js.
   html += '<div class="almanac-sky-wrap">' +
-    '<canvas id="almanac-sky-canvas" aria-describedby="almanac-sky-desc" role="img" tabindex="0"></canvas>' +
+    '<canvas id="almanac-sky-canvas" data-red aria-describedby="almanac-sky-desc" role="img" tabindex="0"></canvas>' +
     '<button type="button" class="alm-sky-look" onclick="openAlmanacLook()" aria-label="' + escAttr(t('look_title')) + '" title="' + escAttr(t('look_title')) + '">' + ALM_LOOK_SVG + '</button>' +
     '<div id="almanac-sky-cap" class="alm-sky-cap"></div>' +
     '<div id="almanac-sky-facts" class="alm-sky-facts"></div>' +

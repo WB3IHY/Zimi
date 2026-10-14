@@ -275,13 +275,12 @@ function _nightApply() {
   if (btn) btn.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
 // The header's switch while the Field Guide is open (the page has its own in each card).
-function _nightToggle() {
-  try {
-    if (localStorage.getItem(NIGHT_KEY) === NIGHT_RED) localStorage.removeItem(NIGHT_KEY);
-    else localStorage.setItem(NIGHT_KEY, NIGHT_RED);
-  } catch (e) {}
+// The one place the key is written: the header's switch, the sky's, and anything else that has one.
+function _nightSet(on) {
+  try { if (on) localStorage.setItem(NIGHT_KEY, NIGHT_RED); else localStorage.removeItem(NIGHT_KEY); } catch (e) {}
   _nightApply();
 }
+function _nightToggle() { _nightSet(!document.documentElement.classList.contains('night-red')); }
 window.addEventListener('storage', function(e) { if (e.key === NIGHT_KEY || e.key === null) _nightApply(); });
 function _setAppTheme(mode) {
   if (APP_THEMES.indexOf(mode) < 0) mode = 'auto';
@@ -20770,7 +20769,7 @@ function _earthUrl(at) {
 }
 function _earthStrings(start) {
   return _appStrings('earth', ['earth_hint', 'earth_zoom_hint', 'earth_look_up', 'earth_read', 'earth_guide', 'earth_map', 'earth_locate',
-    'earth_no_webgl', 'earth_load_failed', 'earth_away', 'earth_finding', 'earth_skipped', 'earth_nothing', 'earth_zoom_in', 'earth_zoom_out'], { start: start || {}, close: t('close') });
+    'earth_locate_off', 'earth_no_webgl', 'earth_load_failed', 'earth_away', 'earth_finding', 'earth_skipped', 'earth_nothing', 'earth_zoom_in', 'earth_zoom_out'], { start: start || {}, close: t('close') });
 }
 function openEarth(replaceState, start) {
   if (start && start.type) start = null;   // a click's event, not a place
@@ -20809,6 +20808,7 @@ function _earthOpenMap(lat, lng, zoom) {
 var _earthUnderAlmanac = false;
 function _earthLookUp(lat, lng, name) {
   _earthUnderAlmanac = _earthOpen;
+  if (_earthOpen) _appFrameCall('__release');   // the Almanac covers the globe: its GPU memory is given back
   _appsOff();
   openAlmanac();
   var tries = 0;
@@ -20823,7 +20823,7 @@ function _earthLookUp(lat, lng, name) {
 function _earthAlmanacClosed() {
   if (!_earthUnderAlmanac) return;
   _earthUnderAlmanac = false;
-  if (readerOpen && !currentArticle && !_anyAppOpen()) { _earthOpen = true; updateTopbar(); }
+  if (readerOpen && !currentArticle && !_anyAppOpen()) openEarth(true, (history.state && history.state.earthAt) || undefined);
 }
 
 // A word (or the front, w ''), as Reddot opens a post.
