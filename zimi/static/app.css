@@ -2158,6 +2158,22 @@
   }
   .ci-delete-btn:hover, .coll-item .coll-del:hover { opacity: 1; color: var(--error); border-color: var(--error); }
   .ci-delete-btn.confirming { opacity: 1; color: var(--error); border-color: var(--error); font-size: 11px; padding: 4px 10px; }
+  /* Whose a ZIM is, in the Installed badge's place: it is installed, and not Zimi's to delete. */
+  .ci-from { white-space: nowrap; }
+  /* Other library folders (Storage). */
+  .ms-libfolders { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .lf-note { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .ci-bad { color: var(--error); }
+  .catalog-item .ci-meta > span:has(> .ci-bad) { white-space: normal; display: block; }
+  button.ci-from { font-family: inherit; cursor: pointer; }
+  .lf-row .lf-path { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; overflow-wrap: anywhere; }
+  .lf-row { flex-wrap: wrap; }
+  .lf-row .share-row-text { flex: 1 1 14em; min-width: 0; }
+  .lf-count { font-weight: 400; font-size: 12px; color: var(--text2); margin-inline-start: 6px; }
+  .lf-btns { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+  .lf-add { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .lf-add input { flex: 1; min-width: 0; }
+  @media (max-width: 480px) { .lf-add input { flex-basis: 100%; } }
   .ci-update-btn {
     font-size: 11px; font-weight: 600; padding: 4px 12px; cursor: pointer;
     color: #fff; background: var(--amber2); border: none; border-radius: 20px;

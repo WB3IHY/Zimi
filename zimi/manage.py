@@ -22,7 +22,7 @@ import urllib.request
 from datetime import datetime, timezone
 
 import zimi.server as _srv
-from zimi import outbound
+from zimi import libfolders, outbound
 
 log = logging.getLogger("zimi")
 
@@ -5463,7 +5463,7 @@ def handle_manage_get(handler, parsed, params):
         if denial:
             return handler._json(*denial)
         if not _primary_admin_authorized(handler):
-            return handler._json(403, {"error": "reading the server's disk is for the primary admin"})
+            return handler._json(403, _DISK_PRIMARY_ONLY)
         payload, status = _create_tree(param("path", ""), _create_int(param("offset"), 0, 2**31) or 0)
         return handler._json(status, payload)
     challenge = _manage_auth_challenge(handler)
@@ -5479,6 +5479,7 @@ def handle_manage_get(handler, parsed, params):
             {
                 "zim_count": zim_count,
                 "total_size_gb": round(total_gb, 6),  # as each ZIM's size_gb: 0.1 GB read 0 B for small libraries
+                "from_folders": libfolders.shares(),
                 "manage_enabled": True,
                 "linked_zims": linked_zims,
                 "domain_count": len(_srv._domain_zim_map),
@@ -6051,6 +6052,11 @@ def handle_manage_get(handler, parsed, params):
             {"items": mapregions.annotate(list(items)), "source": source, "as_of": as_of, "refreshing": refreshing},
         )
 
+    elif parsed.path == "/manage/library-folders":
+        if not _primary_admin_authorized(handler):
+            return handler._json(403, _FOLDERS_PRIMARY_ONLY)
+        return handler._json(200, _library_folders_view())
+
     elif parsed.path == "/manage/env":
         # What the environment is overriding, so an admin can SEE it rather
         # than deducing it from a greyed-out control (#69). Read-only by
@@ -6502,6 +6508,48 @@ def _btc_view():
     }
 
 
+_DISK_PRIMARY_ONLY = {"error": "reading the server's disk is for the primary admin"}
+_FOLDERS_PRIMARY_ONLY = {**_DISK_PRIMARY_ONLY, "error_key": "folder_primary_only"}
+
+
+def _library_folders_view():
+    """What the Storage card draws: the folders read in place, and the one
+    offer, if there is one. Asked when the card opens, so a listing per folder
+    is fine."""
+    rows = [
+        {**f, **libfolders.audit(f["path"]), "present": os.path.isdir(f["path"])}
+        for f in libfolders.folders()
+    ]
+    return {"folders": rows, "suggestions": libfolders.suggestions()}
+
+
+def _handle_library_folders(handler, data):
+    """POST /manage/library-folders: {action: add|remove|dismiss, path, label?}.
+
+    Adding or removing splices just that folder's ZIMs into the live library
+    and answers once it has; the files in the folder are never touched."""
+    if not _primary_admin_authorized(handler):
+        return handler._json(403, _FOLDERS_PRIMARY_ONLY)
+    action = data.get("action")
+    path = str(data.get("path") or "")
+    try:
+        if action == "add":
+            libfolders.reconcile(libfolders.add(path, str(data.get("label") or "")), [])
+        elif action == "label":
+            libfolders.rename(path, str(data.get("label") or ""))
+        elif action == "remove":
+            libfolders.reconcile([], libfolders.registered_in(libfolders.remove(path)))
+        elif action == "dismiss":
+            libfolders.dismiss(path)
+        else:
+            return handler._json(400, {"error": "bad_action"})
+    except libfolders.FolderError as e:
+        return handler._json(400, {"error": e.key, "error_key": e.key})
+    if action == "add":
+        libfolders.ensure_watch()
+    return handler._json(200, _library_folders_view())
+
+
 def _handle_bt_client(handler, data):
     """POST /manage/bt-client: {kind, url, user, password?, category, paths,
     test?}.
@@ -6690,7 +6738,7 @@ def handle_manage_post(handler, parsed, data):
             and data.get("mode") in CREATE_DISK_MODES
             and not _primary_admin_authorized(handler)
         ):
-            return handler._json(403, {"error": "reading the server's disk is for the primary admin"})
+            return handler._json(403, _DISK_PRIMARY_ONLY)
         if parsed.path == "/manage/create/cancel":
             # With an id: that job, wherever it is — the running one or one
             # still waiting. Without: whatever is running.
@@ -7053,6 +7101,12 @@ def handle_manage_post(handler, parsed, data):
             for candidate in (_srv.get_zim_files() or {}).values():
                 if os.path.basename(candidate) != filename:
                     continue
+                label = libfolders.owner(candidate)
+                if label is not None:
+                    return handler._json(
+                        403,
+                        {"error": "not_ours", "error_key": "folder_not_ours", "label": label},
+                    )
                 resolved = os.path.realpath(candidate)
                 if resolved == root or not resolved.startswith(root + os.sep):
                     continue  # outside the library — not ours to delete
@@ -7577,6 +7631,9 @@ def handle_manage_post(handler, parsed, data):
 
     elif parsed.path == "/manage/bt-client":
         return _handle_bt_client(handler, data)
+
+    elif parsed.path == "/manage/library-folders":
+        return _handle_library_folders(handler, data)
 
     elif parsed.path == "/manage/bt-settings":
         # Seed/mirror toggles. An env var locks its field — UI changes would

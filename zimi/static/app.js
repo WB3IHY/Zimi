@@ -10664,6 +10664,7 @@ function _enrichCatalogInstalled(items) {
         item.installed = true;
         item._installedDate = hit.date || null;
         item._installedFile = hit.file;
+        item._installedExternal = hit.external || null;
         item._installedName = hit.name;
         item._installedSizeGb = hit.size_gb;
         claimed.add(hit.file);
@@ -10678,6 +10679,7 @@ function _enrichCatalogInstalled(items) {
       const m = fb.match(/(\d{4}-\d{2})$/);
       item._installedDate = m ? m[1] : null;
       item._installedFile = z.file;
+      item._installedExternal = z.external || null;
       item._installedName = z.name;
       item._installedSizeGb = z.size_gb;
       claimed.add(z.file);
@@ -10689,6 +10691,7 @@ function _enrichCatalogInstalled(items) {
     item.installed = false;
     item._installedDate = null;
     item._installedFile = null;
+    item._installedExternal = null;
     item._installedName = null;
     item._installedSizeGb = null;
     tryMatch(item, true);
@@ -11768,17 +11771,16 @@ function renderCatalogItem(group) {
     // ALONGSIDE the existing one instead of replacing it (#50, echoes #16).
     const instTok = _flavorToken(instVariant._installedFile || '');
     const updVariant = variants.find(v => v.download_url && _flavorToken(v.download_url) === instTok) || instVariant;
-    const hasUpdate = instVariant._installedDate && updVariant.date && updVariant.download_url
-      && instVariant._installedDate < updVariant.date.substring(0, 7);
+    const hasUpdate = _catalogHasUpdate(instVariant, updVariant);
     if (hasUpdate) {
       // Update available — show update button (same style as manage view)
       actionsHtml = '<button class="ci-update-btn" onclick="downloadZim(\'' + escAttr(updVariant.download_url) + '\', this, true)" title="' + escAttr(t('from_to_update', {from: instVariant._installedDate, to: updVariant.date})) + '">' +
         tH('update') + '</button>';
     } else {
-      actionsHtml = '<span class="ci-installed-badge">' + tH('installed_badge') + '</span>';
+      actionsHtml = instVariant._installedExternal ? '' : '<span class="ci-installed-badge">' + tH('installed_badge') + '</span>';
     }
     if (instVariant._installedFile) {
-      actionsHtml += '<button class="ci-delete-btn" onclick="deleteZim(\'' + escAttr(instVariant._installedFile) + '\', this)" title="' + escAttr(t('delete_zim')) + '">\u00D7</button>';
+      actionsHtml += _zimDeleteBtn(instVariant._installedFile, instVariant._installedExternal);
     }
   } else {
     // Sibling URLs disambiguate colliding labels (unsuffixed vs maxi → both
@@ -14184,6 +14186,21 @@ function _libSplitHtml(coverage) {
     '<div class="mc-row mc-sub"><span class="mc-label">' + tH('au_local') + '</span><span class="mc-value">' + esc(String(local)) + '</span></div>';
 }
 
+// What each folder another program owns contributes, one quiet line under the
+// total it is part of: "From Project NOMAD  9" under the ZIM count, its size
+// under the total size.
+function _libShareRowsHtml(shares, size) {
+  return (shares || []).map(function(f) {
+    return '<div class="mc-row mc-sub"><span class="mc-label">' + tH('lib_from_folder', { label: f.label }) + '</span><span class="mc-value">' +
+      esc(size ? fmtSize(f.size_gb) : String(f.zims)) + '</span></div>';
+  }).join('');
+}
+function _paintLibShares(d) {
+  var c = document.getElementById('ms-share-count'), z = document.getElementById('ms-share-size');
+  if (c) c.innerHTML = _libShareRowsHtml(d.from_folders, false);
+  if (z) z.innerHTML = _libShareRowsHtml(d.from_folders, true);
+}
+
 function _autoUpdateHtml(au) {
   // Frequency alone. The last-run / next-run clock rows are gone: operational
   // noise the operator did not ask for. How much of the library the updater
@@ -14211,7 +14228,9 @@ function _msLibraryHtml() {
   if (!d) return '<div class="loading"><span class="spinner-inline"></span>Loading\u2026</div>';
   var h = '<div class="mc-row"><span class="mc-label">' + tH('zim_files') + '</span><span class="mc-value" id="ms-zim-count">' + esc(String(d.zim_count)) + '</span></div>' +
     '<div id="ms-lib-split"></div>' +
+    '<div id="ms-share-count">' + _libShareRowsHtml(d.from_folders, false) + '</div>' +
     '<div class="mc-row"><span class="mc-label">' + tH('total_size') + '</span><span class="mc-value" id="ms-total-size">' + fmtSize(d.total_size_gb) + '</span></div>' +
+    '<div id="ms-share-size">' + _libShareRowsHtml(d.from_folders, true) + '</div>' +
     // Summary line + (only when updates exist) an expandable detail panel. The
     // row's state, clickability and detail are all driven by _renderUpdatesSummary
     // — the single writer — so the top-level label never strands on "Checking…".
@@ -15087,6 +15106,9 @@ function _msServerHtml() {
   // Storage owns its desktop variant so the section can move freely — the old
   // reorder-fragile string split is gone.
   var storageSec = '<div class="ms-section-label">' + tH('storage_section') + '</div>';
+  // Other programs' libraries (Project NOMAD), read where they are. Painted by
+  // _renderLibFolders once the card is in the DOM.
+  var _libFoldersSlot = '<div id="ms-libfolders" class="ms-libfolders"></div>';
   if (IS_DESKTOP) {
     storageSec +=
       '<div class="ms-field"><label>' + tH('zim_folder') + '</label>' +
@@ -15100,13 +15122,13 @@ function _msServerHtml() {
         '<button class="manage-btn-action" onclick="settingsSaveInline()" style="margin-inline-start:auto">' + tH('save') + '</button></div>' +
       '<div class="ms-hint">' + tH('restart_hint') + '</div>' +
       // Painted by _renderDesktopLan from the app's own config, not /manage.
-      '<div id="ms-lan"></div>';
+      '<div id="ms-lan"></div>' + _libFoldersSlot;
     setTimeout(_renderDesktopLan, 0);
   } else {
     storageSec +=
       '<div class="ms-field"><label>' + tH('zim_folder') + '</label><input type="text" id="ms-zim-dir" dir="ltr" readonly value="' + escAttr(t('loading')) + '"></div>' +
       '<div class="ms-field"><label>' + tH('data_folder') + '</label><input type="text" id="ms-data-dir" dir="ltr" readonly value="' + escAttr(t('loading')) + '"></div>' +
-      '<div class="ms-hint">' + tH('configured_via_env') + '</div>';
+      '<div class="ms-hint">' + tH('configured_via_env') + '</div>' + _libFoldersSlot;
   }
 
   // The server's backup; My data, this browser's, is under Preferences.
@@ -15147,6 +15169,7 @@ function _msServerHtml() {
     _renderSeedingSection();
     _renderMirrorSection();
     _renderDownloadSchedule();
+    _renderLibFolders();
     _renderAppUpdate();
   }, 0);
   _msFetch('/manage/cache-info').then(function(d) {
@@ -16121,6 +16144,99 @@ async function _btcSubmit(test) {
   out.innerHTML = lines.map(function(l) { return '<div class="' + l[1] + '">' + esc(l[0]) + '</div>'; }).join('');
 }
 
+// ── Other library folders: another program's ZIMs, read where they are ──
+// The folder stays that program's. Zimi never deletes, renames or updates a
+// file in it, so there is nothing here to confirm, only to add or to stop reading.
+const LIB_FOLDERS_URL = '/manage/library-folders';
+async function _libFoldersPost(body) {
+  var r = await manageFetch(LIB_FOLDERS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  return { ok: r.ok, d: await r.json().catch(function() { return {}; }) };
+}
+function _libFolderRowHtml(title, desc, right, notes) {
+  return '<div class="share-row set-row lf-row"><span class="share-row-text"><span class="share-row-title">' + title + '</span>' +
+    '<span class="share-row-desc lf-path" dir="ltr">' + desc + '</span>' +
+    (notes || []).map(function(n) { return '<span class="share-row-desc lf-note">' + esc(n) + '</span>'; }).join('') +
+    '</span>' + right + '</div>';
+}
+function _libFolderCountHtml(count) { return ' <span class="lf-count">' + esc(count) + '</span>'; }
+// What the folder holds that the library does not show, in a quiet line each.
+function _libFolderNotes(f) {
+  var notes = [];
+  if ((f.shadowed || []).length) notes.push(t('lib_folders_shadowed', { n: f.shadowed.length }));
+  if ((f.unreadable || []).length) notes.push(t('lib_folders_unreadable', { n: f.unreadable.length }) + ': ' +
+    f.unreadable.map(function(u) { return u.file + ' (' + t('zim_unreadable_' + u.why) + ')'; }).join(', '));
+  return notes;
+}
+const LIB_FOLDER_PLACEHOLDER = '/opt/project-nomad/storage/zim';
+async function _renderLibFolders() {
+  var el = document.getElementById('ms-libfolders');
+  if (!el) return;
+  var d;
+  try {
+    var r = await manageFetch(LIB_FOLDERS_URL);
+    // Naming a folder on the server's disk is for the primary admin; anyone
+    // else sees no card at all, not a field that answers with a refusal.
+    if (!r.ok) { el.innerHTML = ''; return; }
+    d = await r.json();
+  } catch (e) { return; }
+  window._libFolders = d;
+  var rows = (d.folders || []).map(function(f, i) {
+    var count = f.present ? tPlural('lib_folders_zims', f.zims) : t('lib_folders_missing');
+    var drop = f.source === 'env'
+      ? '<button type="button" class="set-btn" onclick="_showToast(t(\'configured_via_env\'))">env</button>'
+      : '<span class="lf-btns"><button type="button" class="set-btn" onclick="_libFolderRename(' + i + ')">' + tH('lib_folders_rename') + '</button>' +
+        '<button type="button" class="set-btn" onclick="_libFolderAct(\'remove\', ' + i + ')">' + tH('lib_folders_stop') + '</button></span>';
+    return _libFolderRowHtml(esc(f.label) + _libFolderCountHtml(count), esc(f.path), drop, _libFolderNotes(f));
+  });
+  // The offer comes once, ahead of the list, and leaves for good on either answer.
+  var offers = (d.suggestions || []).map(function(sg, i) {
+    return _libFolderRowHtml(tH('lib_folders_offer', { label: sg.label }) + _libFolderCountHtml(tPlural('lib_folders_zims', sg.zims)),
+      esc(sg.path),
+      '<span class="lf-btns"><button type="button" class="set-btn primary" onclick="_libFolderAct(\'add\', ' + i + ', true)">' + tH('lib_folders_add') + '</button>' +
+      '<button type="button" class="set-btn" onclick="_libFolderAct(\'dismiss\', ' + i + ', true)">' + tH('lib_folders_not_now') + '</button></span>');
+  });
+  var add = '<div class="lf-add"><input type="text" id="lf-path" dir="ltr" class="peer-name-input" placeholder="' + escAttr(LIB_FOLDER_PLACEHOLDER) +
+    '" aria-label="' + escAttr(t('lib_folders_title')) + '" onkeydown="if(event.key===\'Enter\')_libFolderAdd()">' +
+    '<button type="button" class="set-btn" onclick="_libFolderAdd()">' + tH('lib_folders_add_folder') + '</button></div>';
+  el.innerHTML = '<div class="ms-section-label">' + tH('lib_folders_title') + '</div>' +
+    (offers.concat(rows).length ? '<div class="share-rows set-rows">' + offers.concat(rows).join('') + '</div>' : '') +
+    add + '<div id="lf-msg" class="ms-hint">' + tH('lib_folders_hint') + '</div>';
+}
+async function _libFolderRename(i) {
+  var f = ((window._libFolders || {}).folders || [])[i];
+  if (!f) return;
+  var name = window.prompt(t('lib_folders_rename_prompt'), f.label);
+  if (name === null) return;
+  await _libFolderSend({ action: 'label', path: f.path, label: name });
+}
+async function _libFolderAct(action, i, offer) {
+  var d = window._libFolders || {};
+  var f = (offer ? d.suggestions : d.folders)[i];
+  if (!f) return;
+  await _libFolderSend({ action: action, path: f.path, label: f.label });
+}
+async function _libFolderAdd() {
+  var inp = document.getElementById('lf-path');
+  if (!inp || !inp.value.trim()) return;
+  await _libFolderSend({ action: 'add', path: inp.value.trim() });
+}
+async function _libFolderSend(body) {
+  var msg = document.getElementById('lf-msg');
+  if (msg) msg.textContent = t('saving');
+  var res;
+  try { res = await _libFoldersPost(body); } catch (e) { if (msg) msg.textContent = t('error'); return; }
+  if (!res.ok) { if (msg) msg.textContent = res.d.error_key ? t(res.d.error_key) : (res.d.error || t('error')); return; }
+  // The library changed under the page: the lists that draw it start over.
+  if (body.action !== 'dismiss') {
+    zimsCache = await _fetchList();
+    _rebuildZimsMap();
+    _catalogCache = null;
+    var count = document.getElementById('ms-zim-count');
+    if (count) count.textContent = String(zimsCache ? zimsCache.length : 0);
+  }
+  _renderLibFolders();
+}
+
 // ── Download scheduling card (nightly window + global download speed cap) ──
 async function _renderDownloadSchedule() {
   var el = document.getElementById('ms-dl-schedule');
@@ -16843,6 +16959,8 @@ function renderInstalled(filterText) {
       // stay on the YYYY-MM release stamp.
       const dateStr = z.date ? (_isZimiExport(z) ? z.date : z.date.substring(0, 7)) : null;
       if (dateStr) meta.push(dateStr);
+      if (z.unreadable) meta.push('<span class="ci-bad">' + esc(t('zim_unreadable_' + z.unreadable)) + '</span>');
+      if (z.also_in) meta.push('<span>' + esc(t('zim_also_in', { label: z.also_in })) + '</span>');
       // Flavor badge from filename. When catalog variants exist, the current
       // variant's label is group-aware — an installed unsuffixed build shows
       // "Full + video" next to a maxi sibling instead of a second "Full" (#50).
@@ -16866,10 +16984,10 @@ function renderInstalled(filterText) {
       if (upd) {
         actionsHtml = '<button class="ci-update-btn" onclick="downloadZim(\'' + escAttr(upd.download_url) + '\', this, true)" title="' + escAttr(t('from_to_update', {from: dateStr || '?', to: upd.latest_date})) + '">' +
           tH('update') + '</button>' +
-          '<button class="ci-delete-btn" onclick="deleteZim(\'' + escAttr(z.file) + '\', this)" title="' + escAttr(t('delete_zim')) + '">\u00D7</button>';
+          _zimDeleteBtn(z.file, z.external);
       } else {
-        actionsHtml = '<span class="ci-installed-badge">' + tH('installed_badge') + '</span>' +
-          '<button class="ci-delete-btn" onclick="deleteZim(\'' + escAttr(z.file) + '\', this)" title="' + escAttr(t('delete_zim')) + '">\u00D7</button>';
+        actionsHtml = (z.external ? '' : '<span class="ci-installed-badge">' + tH('installed_badge') + '</span>') +
+          _zimDeleteBtn(z.file, z.external);
       }
       // No inline download pill: the raw .zim lives on the row's \u22ef menu
       // (Download ZIM file), which the peer-share gate still governs.
@@ -17315,6 +17433,22 @@ async function downloadZim(url, btn, isUpdate) {
   }
 }
 
+// A catalog row offers Update when its catalog edition is newer than the file
+// installed. Never for a ZIM in a folder another program owns: an update would
+// download a second full copy into Zimi's own library beside the original.
+function _catalogHasUpdate(inst, upd) {
+  return !inst._installedExternal && !!(inst._installedDate && upd.date && upd.download_url
+    && inst._installedDate < upd.date.substring(0, 7));
+}
+// A ZIM in a folder another program owns (Project NOMAD) is Zimi's to read and
+// not to delete: the row says whose it is where the delete button would be.
+function _zimDeleteBtn(file, external) {
+  if (external) return '<button type="button" class="ci-installed-badge ci-from" data-label="' + escAttr(external) +
+    '" onclick="event.stopPropagation();_ownedNote(this)">' + esc(t('in_folder', { label: external })) + '</button>';
+  return '<button class="ci-delete-btn" onclick="deleteZim(\'' + escAttr(file) + '\', this)" title="' + escAttr(t('delete_zim')) + '">\u00D7</button>';
+}
+// Touch has no hover: a tap on the badge says why there is no Delete.
+function _ownedNote(el) { _showToast(t('folder_not_ours', { label: el.getAttribute('data-label') })); }
 async function deleteZim(filename, btn) {
   if (!btn) return;
   // Two-click confirmation: first click shows "Delete?", second click confirms
@@ -17339,6 +17473,18 @@ async function deleteZim(filename, btn) {
       body: JSON.stringify({filename})
     });
     const data = await res.json();
+    if (data.error_key) {
+      // Refused: not Zimi's file (a page from before it knew). Put the card
+      // back and say so in words.
+      zimsCache = await _fetchList();
+      _rebuildZimsMap();
+      if (card) card.style.display = '';
+      btn.disabled = false;
+      btn.classList.remove('confirming');
+      btn.textContent = '\u00D7';
+      _showToast(t(data.error_key, { label: data.label || '' }));
+      return;
+    }
     if (data.error) {
       // Restore card on error
       if (card) card.style.display = '';
@@ -17997,6 +18143,7 @@ async function _refreshDownloadsInner(useCache) {
         if (countVal) countVal.textContent = String(sd.zim_count);
         const sizeVal = document.getElementById('ms-total-size');
         if (sizeVal) sizeVal.textContent = fmtSize(sd.total_size_gb);
+        _paintLibShares(sd);
         _renderAutoUpdateSection();
         // Update tab count
         const tabBtn = document.querySelector('.manage-tab[data-tab="installed"]');

@@ -96,6 +96,7 @@ Most people configure nothing. Everything is in Settings; `zimi config` prints e
 - [Access](docs/features/access.md): public access, accounts, per-ZIM allowlists, single sign-on.
 - [Operations](docs/features/operations.md): configuration, backup, air-gapped use, monitoring, updates.
 - [API & MCP](docs/features/api-and-mcp.md): the JSON API (`/openapi.json`), RAG chunks, the MCP server and its tools.
+- [Project NOMAD](docs/integrations/project-nomad.md): read NOMAD's Information Library in Zimi without copying it, and an offline research agent over the same files.
 
 ## MCP server
 

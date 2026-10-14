@@ -1248,6 +1248,34 @@ def _public_zim_entry(entry):
     return {k: v for k, v in entry.items() if k not in _PRIVATE_ZIM_FIELDS}
 
 
+def _mark_external(entries):
+    """What the page needs to know about ZIMs in a folder another program owns.
+    ``external`` is that folder's label (the page hides Delete and Update: the
+    file is not Zimi's to change); ``unreadable`` says why such a ZIM will not
+    open; ``also_in`` marks one of Zimi's own that a copy there lost its name
+    to. Strings and a dict, no disk."""
+    from zimi import libfolders
+
+    folder_labels = libfolders.labels()
+    if not folder_labels:
+        return entries
+    paths = _srv.get_zim_files()
+    twins = libfolders.also_in()
+    out = []
+    for z in entries:
+        path = paths.get(z.get("name"), "")
+        label = libfolders.owner(path, folder_labels)
+        extra = {}
+        if label:
+            extra["external"] = label
+            if z.get("entries") == "?":
+                extra["unreadable"] = libfolders.why_unreadable(path)
+        elif os.path.normpath(path) in twins:
+            extra["also_in"] = twins[os.path.normpath(path)]
+        out.append({**z, **extra} if extra else z)
+    return out
+
+
 def _zim_file_sig(entry):
     """The file identity a memoized provenance record is valid for."""
     return (entry or {}).get("file", ""), (entry or {}).get("size_bytes", 0)
@@ -2590,6 +2618,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                         for z in result
                     ]
                 result = [_public_zim_entry(z) for z in result]
+                result = _mark_external(result)
                 # Additive envelope: ?layout=1 carries the top-level section_order
                 # alongside the ZIMs. The bare array shape stays the default so
                 # existing API consumers are unaffected.
