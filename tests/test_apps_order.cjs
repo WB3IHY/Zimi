@@ -87,7 +87,7 @@ vm.runInContext([
   extract(/var _EARTH_SVG = [^\n]*\n/, '_EARTH_SVG'),
   extract(/function _installedEarthZims\(\) \{[\s\S]*?\n\}/, '_installedEarthZims'),
   extract(/function _earthTileHtml\(\) \{[\s\S]*?\n\}/, '_earthTileHtml'),
-  extract(/function _appsRowHtml\(\) \{[\s\S]*?\n\}/, '_appsRowHtml'),
+  extract(/function _appsRowHtml\(withHelp\) \{[\s\S]*?\n\}/, '_appsRowHtml'),
   extract(/function _appsPageHtml\(shown\) \{[\s\S]*?\n\}/, '_appsPageHtml'),
   extract(/function _appSectionHtml\(app, n, grid\) \{[\s\S]*?\n\}/, '_appSectionHtml'),
   extract(/function _cardsInOrder\(cards, compare\) \{[\s\S]*?\n\}/, '_cardsInOrder'),
@@ -126,7 +126,7 @@ ok('ordering reads only the library list: no fetch, no disk', !/serverFetch|fetc
 const row = vm.runInContext('_appsRowHtml()', ctx);
 ok('the Apps heading is a clickable section heading like the categories\', a link for the keyboard too', /^<div class="cat-heading clickable" role="link" tabindex="0" onclick="openAppsPage\(\)">Apps<\/div><div class="stats-grid apps-grid">/.test(row), row.slice(0, 120));
 ok('Enter or Space on a clickable section heading opens it', /document\.addEventListener\('keydown', function\(e\) \{\n\s*var h = e\.target;\n\s*if \(\(e\.key === 'Enter' \|\| e\.key === ' '\) && h && h\.classList && h\.classList\.contains\('cat-heading'\) && h\.classList\.contains\('clickable'\)\)/.test(src));
-ok('the order and view controls ride the first section heading, which is now the Apps heading above the row', /function _placeViewToggle\(\) \{[\s\S]*?output\.querySelector\('\.cat-heading'\)/.test(src) && src.indexOf('h += _appsRowHtml();') < src.indexOf("const favNames = (collectionsCache && collectionsCache.favorites)"));
+ok('the order and view controls ride the first section heading, which is now the Apps heading above the row', /function _placeViewToggle\(\) \{[\s\S]*?output\.querySelector\('\.cat-heading'\)/.test(src) && src.indexOf('h += _appsRowHtml(true);') < src.indexOf("const favNames = (collectionsCache && collectionsCache.favorites)"));
 const saved = ctx.zimsCache;
 ctx.zimsCache = [];
 ok('an empty library: the name is only a name, there is no page behind it yet', /^<div class="cat-heading">Apps<\/div>/.test(vm.runInContext('_appsRowHtml()', ctx)));

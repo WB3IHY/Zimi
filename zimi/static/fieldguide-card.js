@@ -20,7 +20,10 @@ var FieldGuideCard = (function() {
     lic_US_PD: 'US government work, public domain', more_in_library: 'More in your library',
     add_to_library: 'Add to your library', nothing: 'Nothing installed answers this yet.', loading: 'Loading…',
     superseded: 'Superseded by {by}', your_library: 'Your library', build_note: '{size} from {source}',
-    help_link: 'Help now: {name}'
+    help_link: 'Help now: {name}', covers: 'Covers',
+    num_here: 'Emergency number here: {n}', nums_here: 'Emergency numbers here: {n}', num_unknown: 'Emergency number: {n}',
+    num_police: 'Police', num_ambulance: 'Ambulance', num_fire: 'Fire', num_mobile: 'Mobile phones',
+    num_source: 'Emergency numbers from {title}, {licence}'
   };
   // Source text carries its own marks for what must not be missed.
   var CALLOUT = /^(NOTE|Note\.|CAUTION|WARNING)\s*/;
@@ -33,6 +36,7 @@ var FieldGuideCard = (function() {
     '.fg-q h3{margin:0;font-size:15px;line-height:1.3;font-weight:700;unicode-bidi:plaintext}',
     '.fg-q .fg-where{margin:2px 0 10px;font-size:12px;color:var(--text2,#6a675e)}',
     '.fg-q [lang=en]{unicode-bidi:isolate}',
+    '.fg-q .fg-scope{margin:0 0 10px;font-size:13px;line-height:1.4;color:var(--text2,#6a675e)}.fg-scope b{font-weight:700}',
     '.fg-body p{margin:0 0 8px;font-size:15px;line-height:1.5}',
     '.fg-body h4{margin:12px 0 4px;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text2,#6a675e)}',
     '.fg-body ul{margin:0 0 10px;padding-inline-start:20px}',
@@ -46,6 +50,7 @@ var FieldGuideCard = (function() {
     '.fg-table caption{caption-side:bottom;text-align:start;font-size:12px;color:var(--text2,#6a675e);padding-top:4px}',
     '.fg-foot{margin-top:10px;padding-top:8px;border-top:1px solid var(--border,#e4dfd4);font-size:12px;line-height:1.5;color:var(--text2,#6a675e)}',
     '.fg-foot a{display:inline-flex;align-items:center;min-height:44px;padding:0 6px;color:var(--text2,#6a675e);text-decoration:underline;text-underline-offset:2px}',
+    '.fg-num{margin:0 0 14px;padding:12px 16px;border:1px solid var(--amber,#b5541c);border-radius:var(--radius,12px);background:var(--amber-glow,rgba(181,84,28,.08));color:var(--text,#26241f);font-size:16px;line-height:1.4}.fg-num b{font-weight:700}.fg-num-src{display:block;margin-top:4px;font-size:12px;color:var(--text2,#6a675e)}.fg-num-src a{color:inherit}',
     '.fg-lib{margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}',
     '.fg-btn{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:18px;border:1px solid var(--border,#e4dfd4);background:var(--surface,#faf8f4);color:var(--text,#26241f);font:inherit;font-size:13px;cursor:pointer}',
     '.fg-btn:hover,.fg-btn:focus-visible{border-color:var(--amber,#b5541c);color:var(--amber,#b5541c)}',
@@ -181,6 +186,7 @@ var FieldGuideCard = (function() {
       '<div class="fg-where" lang="en" dir="ltr">' + esc(s.title) + ' · ' + esc(q.locator) +
       (s.dated ? '<i class="fg-dated">' + esc(word(S, 'dated')) + '</i>' : '') +
       (s.superseded ? '<i class="fg-dated">' + esc(word(S, 'superseded', { by: s.superseded })) + '</i>' : '') + '</div>' +
+      (q.scope ? '<p class="fg-scope"><b>' + esc(word(S, 'covers')) + ':</b> <span lang="en" dir="ltr">' + esc(q.scope) + '</span></p>' : '') +
       '<div class="fg-body" lang="en" dir="ltr">' + bodyHtml(q.lines) + tableHtml(q.table) + '</div>' +
       footHtml(q, S) + '</section>';
   }
@@ -214,6 +220,60 @@ var FieldGuideCard = (function() {
     }).join('') + '</ul>';
   }
 
+  // ── The reader's country and place, from the time zone ──
+  // zones: {IANA zone: [lat, lon, country]} (static/earth/zones-v1.json);
+  // numbers: static/fieldguide-numbers.json (the country table and its source).
+  var NUM_ORDER = ['police', 'ambulance', 'fire'];
+  function zoneEntry(zones, tz) { return (zones && tz && zones[tz]) || null; }
+  // The number(s) for a country: {all} when the source gives one for everything,
+  // else its police / ambulance / fire, plus the mobile one when it differs.
+  function numberParts(rec) {
+    if (!rec) return null;
+    var parts = [];
+    if (rec.all) parts.push({ k: 'all', v: rec.all });
+    else NUM_ORDER.forEach(function(k) { if (rec[k]) parts.push({ k: k, v: rec[k] }); });
+    if (rec.mobile && !(rec.all && rec.mobile.indexOf(rec.all) >= 0)) parts.push({ k: 'mobile', v: rec.mobile });
+    return parts.length ? parts : null;
+  }
+  // {known, parts, text}: what the line says for this zone. An unknown zone or
+  // country says the table's default (112 and 911) and that it is unknown.
+  function emergencyFor(zones, numbers, tz) {
+    var z = zoneEntry(zones, tz), rec = z && numbers && numbers.countries ? numbers.countries[z[2]] : null;
+    var parts = numberParts(rec);
+    if (!parts) return { known: false, parts: [{ k: 'all', v: ((numbers && numbers.default) || ['112', '911']).join(' / ') }] };
+    return { known: true, cc: z[2], parts: parts };
+  }
+  function emergencyHtml(info, numbers, S) {
+    var one = info.parts.length === 1 && info.parts[0].k === 'all';
+    var txt = info.parts.map(function(p) { return p.k === 'all' ? p.v : word(S, 'num_' + p.k) + ' ' + p.v; }).join(' · ');
+    var head = !info.known ? word(S, 'num_unknown', { n: txt }) : one ? word(S, 'num_here', { n: txt }) : word(S, 'nums_here', { n: txt });
+    var src = numbers && numbers.source;
+    return '<p class="fg-num" data-num="' + esc(info.known ? info.cc : '') + '"><b>' + esc(head) + '</b>' +
+      (src ? '<span class="fg-num-src">' + esc(word(S, 'num_source', { title: src.title, licence: src.licence })) + ' · <a href="' + esc(src.url) + '" target="_blank" rel="noopener noreferrer">' + esc(word(S, 'original')) + '</a></span>' : '') + '</p>';
+  }
+  // "Los Angeles" from "America/Los_Angeles": the zone's own city.
+  function zoneCity(tz) { return tz && tz.indexOf('/') > 0 ? tz.split('/').pop().replace(/_/g, ' ') : ''; }
+  // The place the sky is read for: the one chosen in the Almanac (its latitude, longitude and name), else the
+  // middle of the device's time zone, said to be a guess; null when neither is known.
+  function placeLat(chosenLat, zones, tz, chosenLon, chosenName) {
+    var c = parseFloat(chosenLat), o = parseFloat(chosenLon);
+    if (isFinite(c)) return { lat: c, lon: isFinite(o) ? o : 0, guessed: false, name: chosenName || '' };
+    var z = zoneEntry(zones, tz);
+    return z ? { lat: z[0], lon: z[1], guessed: true, city: zoneCity(tz) } : null;
+  }
+  // Quotes tagged with a sky ('north', 'south', 'any'): the reader's hemisphere's first, those that serve
+  // anywhere next, the other hemisphere's last, in the slots the sky quotes held. Without a place, as given.
+  function skyFirst(quotes, lat) {
+    if (typeof lat !== 'number' || !isFinite(lat)) return quotes;
+    var want = lat < 0 ? 'south' : 'north', rank = function(q) { return q.sky === want ? 0 : q.sky === 'any' ? 1 : 2; };
+    var spots = [], sky = [];
+    quotes.forEach(function(q, i) { if (q.sky) { spots.push(i); sky.push(q); } });
+    sky = sky.map(function(q, i) { return { q: q, i: i }; }).sort(function(a, b) { return rank(a.q) - rank(b.q) || a.i - b.i; });
+    var out = quotes.slice();
+    spots.forEach(function(at, n) { out[at] = sky[n].q; });
+    return out;
+  }
+
   function wire(root, act) {
     root.addEventListener('click', function(e) {
       var el = e.target.closest ? e.target.closest('[data-act]') : null;
@@ -222,5 +282,5 @@ var FieldGuideCard = (function() {
   }
 
   return { esc: esc, word: word, ensureStyle: ensureStyle, sizeText: sizeText, bodyHtml: bodyHtml, tableHtml: tableHtml, footHtml: footHtml, quoteHtml: quoteHtml,
-    answersHtml: answersHtml, missingHtml: missingHtml, libraryGroupHtml: libraryGroupHtml, wire: wire, DEFAULTS: DEFAULTS };
+    answersHtml: answersHtml, missingHtml: missingHtml, libraryGroupHtml: libraryGroupHtml, wire: wire, emergencyFor: emergencyFor, emergencyHtml: emergencyHtml, placeLat: placeLat, skyFirst: skyFirst, numberParts: numberParts, DEFAULTS: DEFAULTS };
 })();

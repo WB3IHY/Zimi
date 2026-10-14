@@ -541,8 +541,11 @@ def _fieldguide_hint(query, lang="en"):
 
 def _with_fieldguide(answer, guide):
     """A search answer with the Field Guide's hint beside its results (a
-    copy: the answer may be a cached one)."""
-    return dict(answer, fieldguide=guide) if guide and not answer.get("error") else answer
+    copy: the answer may be a cached one). A situation's own word is not a
+    misspelling: "lost" is not offered "lit"."""
+    if not guide or answer.get("error"):
+        return answer
+    return {k: v for k, v in answer.items() if k != "did_you_mean"} | {"fieldguide": guide}
 
 
 def _record_metric(endpoint, latency, error=False):

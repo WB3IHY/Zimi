@@ -176,7 +176,8 @@ def test_every_situation_has_quotes_and_the_groups_name_each_once():
 FIRST_PASSAGE = {
     "emergency_call": ("g911", "Calling 911"),
     "bleeding": ("atp", "Application of Direct Pressure"),
-    "not_breathing": ("cdc_ca", "Signs and symptoms"),
+    "not_breathing": ("atp", "External chest compressions"),
+    "choking": ("atp", "Opening the Obstructed Airway: Conscious Casualty"),
     "heart_attack": ("cdc_ha", "Symptoms"),
     "shock": ("atp", "Prevention of Shock"),
     "recovery_position": ("atp", "Check responsiveness and the recovery position"),
@@ -207,6 +208,22 @@ def test_every_card_opens_on_its_plain_first_passage():
     for sid, (source, heading) in FIRST_PASSAGE.items():
         first = quotes[sid][0]
         assert (first["source"], first["heading"]) == (source, heading), sid
+
+
+def test_the_first_words_are_what_to_do_in_the_next_minute():
+    """Bleeding opens on direct pressure itself, with none of the combat
+    phases' jargon before it; not breathing opens on the compression steps."""
+    q = fg.quotes()["quotes"]
+    first = q["bleeding"][0]["lines"][0]
+    assert first.startswith("Direct pressure can and should be used")
+    for jargon in ("CUF", "TFC", "hasty", "windlass", "After packing"):
+        assert jargon not in first, jargon
+    steps = " ".join(q["not_breathing"][0]["lines"])
+    assert "Place the heel of one hand on the center of the person's chest" in steps
+    assert "100 to 120 compressions per minute" in steps
+    assert (
+        q["not_breathing"][1]["source"] == "cdc_ca"
+    ), "the signs and the call come second"
 
 
 def test_the_order_is_what_to_do_first():
@@ -248,7 +265,12 @@ def test_no_mark_the_sources_do_not_state():
     marks = fg.data()["marks"]
     assert set(marks.values()) <= {"M", "A", "R", "C", "H"}
     assert not any(m in marks.values() for m in ("3h", "3d", "3w"))
-    assert marks == {"bleeding": "M", "recovery_position": "A", "shock": "C", "cold": "H"}
+    assert marks == {
+        "bleeding": "M",
+        "recovery_position": "A",
+        "shock": "C",
+        "cold": "H",
+    }
 
 
 def test_a_cross_linked_situation_names_a_real_one():
@@ -257,8 +279,38 @@ def test_a_cross_linked_situation_names_a_real_one():
         for q in qs:
             for other in q.get("related", []):
                 assert other in sits and other != sid, (sid, other)
-    assert "power_out" in {r for q in fg.quotes()["quotes"]["flood"] for r in q.get("related", [])}
-    assert "flood" in {r for q in fg.quotes()["quotes"]["power_out"] for r in q.get("related", [])}
+    assert "power_out" in {
+        r for q in fg.quotes()["quotes"]["flood"] for r in q.get("related", [])
+    }
+    assert "flood" in {
+        r for q in fg.quotes()["quotes"]["power_out"] for r in q.get("related", [])
+    }
+
+
+def test_sources_that_pair_naturally_are_cross_linked():
+    """Flood and Power out, Power out and Carbon monoxide, Cold and Shelter,
+    Lost and Signal: each card offers its partner (See also), both ways."""
+    for a, b in (
+        ("flood", "power_out"),
+        ("power_out", "carbon_monoxide"),
+        ("carbon_monoxide", "power_out"),
+        ("cold", "shelter"),
+        ("shelter", "cold"),
+        ("lost", "signal"),
+        ("signal", "lost"),
+        ("power_out", "flood"),
+    ):
+        assert b in fg.situation(a)["related"], (a, b)
+        assert b in fg.situation_bare(a)["related"], (a, b)
+    assert fg.situation("water")["related"] == []
+
+
+def test_the_electricity_warning_is_the_flood_cards_second_quote():
+    flood = fg.quotes()["quotes"]["flood"]
+    assert flood[0]["heading"] == "During a Flood"
+    assert "Do not touch electrical equipment if it is wet" in " ".join(
+        flood[1]["lines"]
+    )
 
 
 def test_the_disclaimer_is_the_one_sentence():
@@ -301,7 +353,14 @@ def test_no_authored_instruction_in_the_data():
 
 TYPED = {
     "bleeding": {
-        "en": ["bleeding", "tourniquet", "how to stop bleeding", "Stop Bleeding!", "my friend is bleeding", "blood"],
+        "en": [
+            "bleeding",
+            "tourniquet",
+            "how to stop bleeding",
+            "Stop Bleeding!",
+            "my friend is bleeding",
+            "blood",
+        ],
         "fr": ["saignement", "il saigne"],
         "de": ["blutung", "blutet"],
         "es": ["sangrando", "sangrado"],
@@ -309,29 +368,95 @@ TYPED = {
         "ar": ["ينزف"],
         "zh": ["止血"],
     },
-    "water": {"en": ["drinking water", "purify water", "boil water", "thirsty"], "es": ["agua potable", "purificar agua"], "de": ["wasser abkochen", "trinkwasser"], "ru": ["питьевая вода"], "zh": ["饮用水"]},
-    "lost": {"en": ["i am lost", "i'm lost", "which way is south", "which way is north", "no gps"], "es": ["estoy perdido"], "zh": ["迷路", "我迷路了"]},
-    "cold": {"en": ["hypothermia", "frostbite", "he has hypothermia"], "es": ["hipotermia"], "de": ["unterkühlung"], "zh": ["低温症"]},
-    "heat": {"en": ["heat stroke", "dehydration"], "es": ["golpe de calor"], "de": ["hitzschlag"]},
-    "not_breathing": {"en": ["cpr", "not breathing", "he is not breathing", "she stopped breathing"], "es": ["reanimación", "no respira"]},
-    "heart_attack": {"en": ["heart attack", "chest pain", "i think i am having a heart attack"], "es": ["infarto"], "de": ["herzinfarkt"]},
-    "burns": {"en": ["scald", "clothes on fire", "my clothes are on fire"], "es": ["quemadura"], "fr": ["brûlure"]},
-    "shock": {"en": ["going into shock", "signs of shock"], "es": ["estado de choque"], "fr": ["état de choc"]},
-    "recovery_position": {"en": ["unconscious", "recovery position", "he passed out"], "de": ["bewusstlos"]},
+    "water": {
+        "en": ["drinking water", "purify water", "boil water", "thirsty"],
+        "es": ["agua potable", "purificar agua"],
+        "de": ["wasser abkochen", "trinkwasser"],
+        "ru": ["питьевая вода"],
+        "zh": ["饮用水"],
+    },
+    "lost": {
+        "en": [
+            "i am lost",
+            "i'm lost",
+            "which way is south",
+            "which way is north",
+            "no gps",
+        ],
+        "es": ["estoy perdido"],
+        "zh": ["迷路", "我迷路了"],
+    },
+    "cold": {
+        "en": ["hypothermia", "frostbite", "he has hypothermia"],
+        "es": ["hipotermia"],
+        "de": ["unterkühlung"],
+        "zh": ["低温症"],
+    },
+    "heat": {
+        "en": ["heat stroke", "dehydration"],
+        "es": ["golpe de calor"],
+        "de": ["hitzschlag"],
+    },
+    "not_breathing": {
+        "en": ["cpr", "not breathing", "he is not breathing", "she stopped breathing"],
+        "es": ["reanimación", "no respira"],
+    },
+    "heart_attack": {
+        "en": ["heart attack", "chest pain", "i think i am having a heart attack"],
+        "es": ["infarto"],
+        "de": ["herzinfarkt"],
+    },
+    "burns": {
+        "en": ["scald", "clothes on fire", "my clothes are on fire"],
+        "es": ["quemadura"],
+        "fr": ["brûlure"],
+    },
+    "shock": {
+        "en": ["going into shock", "signs of shock"],
+        "es": ["estado de choque"],
+        "fr": ["état de choc"],
+    },
+    "recovery_position": {
+        "en": ["unconscious", "recovery position", "he passed out"],
+        "de": ["bewusstlos"],
+    },
     "emergency_call": {"en": ["call 911", "what to tell 911", "how to call 911"]},
-    "broken_bone": {"en": ["broken leg", "broken arm", "how to splint"], "de": ["beinbruch"]},
-    "bites": {"en": ["snake bite", "bee sting", "bitten by a snake"], "de": ["schlangenbiss"]},
+    "broken_bone": {
+        "en": ["broken leg", "broken arm", "how to splint"],
+        "de": ["beinbruch"],
+    },
+    "bites": {
+        "en": ["snake bite", "bee sting", "bitten by a snake"],
+        "de": ["schlangenbiss"],
+    },
     "allergic": {"en": ["allergic reaction", "anaphylaxis", "epipen"]},
-    "poison": {"en": ["poisoning", "poison control", "my child swallowed bleach"], "de": ["vergiftung"]},
-    "carbon_monoxide": {"en": ["carbon monoxide", "co poisoning", "carbon monoxide detector"]},
+    "poison": {
+        "en": ["poisoning", "poison control", "my child swallowed bleach"],
+        "de": ["vergiftung"],
+    },
+    "carbon_monoxide": {
+        "en": ["carbon monoxide", "co poisoning", "carbon monoxide detector"]
+    },
     "shelter": {"en": ["build a shelter", "make a fire", "stay warm"]},
     "food": {"en": ["preserve food", "hungry", "food safety"]},
     "signal": {"en": ["signal for help", "sos", "distress signal"]},
-    "flood": {"en": ["flood", "flash flood", "water rising", "the water is rising"], "es": ["inundación"], "de": ["hochwasser"]},
-    "earthquake": {"en": ["earthquake", "aftershock"], "es": ["terremoto"], "zh": ["地震"]},
+    "flood": {
+        "en": ["flood", "flash flood", "water rising", "the water is rising"],
+        "es": ["inundación"],
+        "de": ["hochwasser"],
+    },
+    "earthquake": {
+        "en": ["earthquake", "aftershock"],
+        "es": ["terremoto"],
+        "zh": ["地震"],
+    },
     "wildfire": {"en": ["wildfire", "forest fire"], "es": ["incendio forestal"]},
     "storm": {"en": ["tornado", "hurricane", "thunderstorm"], "fr": ["ouragan"]},
-    "power_out": {"en": ["power outage", "blackout", "no power"], "de": ["stromausfall"], "es": ["apagón"]},
+    "power_out": {
+        "en": ["power outage", "blackout", "no power"],
+        "de": ["stromausfall"],
+        "es": ["apagón"],
+    },
 }
 
 
@@ -366,6 +491,37 @@ def test_a_bare_ambiguous_word_is_a_link_not_a_card(word):
     assert h["kind"] == "link" and h["installed"] == []
 
 
+# What a frightened person types, which must reach the card that answers it.
+SENTENCES = {
+    "cut leg": "bleeding",
+    "cut finger": "bleeding",
+    "bleeding hand": "bleeding",
+    "my friend has a deep cut": "bleeding",
+    "i cant breathe": "choking",
+    "i can't breathe": "choking",
+    "heimlich": "choking",
+    "something stuck in throat": "choking",
+    "stay put": "lost",
+    "lost at night": "lost",
+}
+
+
+@pytest.mark.parametrize("text", sorted(SENTENCES))
+def test_what_a_frightened_person_types_reaches_its_card(text):
+    assert fg.lookup(text) == (SENTENCES[text], "card"), text
+
+
+def test_a_bare_lost_is_the_small_help_now_link_and_never_offers_lit():
+    from zimi import http
+
+    assert fg.lookup("lost") == ("lost", "link")
+    answer = {"results": [], "did_you_mean": "lit"}
+    guided = http._with_fieldguide(answer, fg.hint("lost"))
+    assert "did_you_mean" not in guided and guided["fieldguide"]["id"] == "lost"
+    assert answer["did_you_mean"] == "lit", "the cached answer is left as it was"
+    assert http._with_fieldguide(answer, None)["did_you_mean"] == "lit"
+
+
 def test_a_clear_emergency_is_a_card():
     for text in ("bleeding", "not breathing", "tourniquet", "heart attack"):
         assert fg.lookup(text)[1] == "card", text
@@ -377,9 +533,53 @@ def test_heart_attack_and_chest_pain_do_not_land_on_cpr():
     assert fg.match("cardiac arrest") == "not_breathing"
 
 
-def test_choking_has_no_card_until_a_current_open_source_has_the_words():
-    assert "choking" not in fg.data()["situations"]
-    assert fg.match("choking") is None and fg.match("heimlich maneuver") is None
+CHOKING_WORDS = [
+    "choking",
+    "he is choking",
+    "heimlich",
+    "heimlich maneuver",
+    "can't breathe",
+    "i cant breathe",
+    "I can't breathe",
+    "something stuck in throat",
+    "something is stuck in my throat",
+]
+
+
+@pytest.mark.parametrize("text", CHOKING_WORDS)
+def test_choking_words_find_the_choking_card(text):
+    assert fg.lookup(text) == ("choking", "card"), text
+
+
+def test_the_choking_card_is_the_armys_words_and_an_open_infant_source():
+    """Back blows, then abdominal thrusts, word for word from ATP 4-02.11;
+    infants have their own open passage, and each quote says what it covers
+    in the source's own sentence."""
+    qs = fg.quotes()["quotes"]["choking"]
+    assert [q["source"] for q in qs] == ["atp", "wp_choking", "atp"]
+    thrusts = " ".join(qs[2]["lines"])
+    assert thrusts.startswith(
+        "5-33. Prior to applying abdominal thrust, first responders should administer five back blows."
+    )
+    assert "Press the fists into the abdomen" in thrusts
+    infants = " ".join(qs[1]["lines"])
+    assert (
+        "Abdominal thrusts are not recommended in children less than one year old"
+        in infants
+    )
+    for q in qs:
+        assert q.get("scope", "x").strip(), q["id"]
+        assert q.get("scope", "") in " ".join(q["lines"]), (
+            q["id"] + ": scope is the source's own sentence"
+        )
+        assert q["related"] == ["not_breathing"]
+    assert qs[0]["scope"] and qs[1]["scope"]
+    sit = fg.situation("choking")
+    assert [q["source"]["licence"] for q in sit["quotes"]] == [
+        "US-PD",
+        "CC BY-SA 4.0",
+        "US-PD",
+    ]
 
 
 # Searches that are about something else and must get nothing.
@@ -585,7 +785,9 @@ def test_the_field_manual_zim_carries_the_manual_quotes(library):
         "zim": "zimi_field_manual",
         "path": "ATP_4-02.11_Casualty_Response.pdf",
     }
-    tc = next(q for q in fg.situation("cold")["quotes"] if q["source"]["id"] == "tc4021")
+    tc = next(
+        q for q in fg.situation("cold")["quotes"] if q["source"]["id"] == "tc4021"
+    )
     assert tc["library"]["open"]["path"] == "TC_4-02.1_First_Aid.pdf"
     fm = next(
         q for q in fg.situation("shelter")["quotes"] if q["source"]["id"] == "fm2176"
@@ -698,9 +900,13 @@ def test_the_front_lists_the_groups_in_order(served):
     assert status == 200
     assert [g["id"] for g in body["groups"]] == ["hurt", "survive", "disaster"]
     hurt = body["groups"][0]["situations"]
-    assert [s["id"] for s in hurt][:3] == ["emergency_call", "bleeding", "not_breathing"]
+    assert [s["id"] for s in hurt][:3] == [
+        "emergency_call",
+        "bleeding",
+        "not_breathing",
+    ]
     assert {s["id"]: s["mark"] for s in hurt}["bleeding"] == "M"
-    assert sum(len(g["situations"]) for g in body["groups"]) == 24
+    assert sum(len(g["situations"]) for g in body["groups"]) == 25
     assert body["disclaimer"] == fg.DISCLAIMER
 
 
@@ -915,7 +1121,9 @@ def _wait_job(base, want=("done", "error"), seconds=60):
     raise AssertionError("the build did not finish: %r" % st)
 
 
-def test_building_offline_is_refused_with_409_and_says_offline(served_empty, monkeypatch):
+def test_building_offline_is_refused_with_409_and_says_offline(
+    served_empty, monkeypatch
+):
     from zimi import p2p
 
     monkeypatch.setattr(p2p, "is_offline", lambda: True)
@@ -968,7 +1176,9 @@ def test_the_build_runs_as_a_create_job_and_lands_in_the_library(
 ):
     _tiny_fetch(monkeypatch)
     status, body = _post(served_empty, "/manage/fieldmanual")
-    assert status == 200 and body["status"] == "started" and body["mode"] == "fieldmanual"
+    assert (
+        status == 200 and body["status"] == "started" and body["mode"] == "fieldmanual"
+    )
     done = _wait_job(served_empty)
     assert done["state"] == "done", done
     status, listing = _get(served_empty, "/manage/create/status")
@@ -996,7 +1206,9 @@ def test_a_createerror_message_reaches_the_page_as_it_is(served_empty, monkeypat
     from zimi import creator
 
     def refuse(item, dest, fetch):
-        raise creator.CreateError("ATP 4-02.11 Casualty Response is not the file this build expects")
+        raise creator.CreateError(
+            "ATP 4-02.11 Casualty Response is not the file this build expects"
+        )
 
     _tiny_fetch(monkeypatch)
     monkeypatch.setattr(fg, "_download_manual", refuse)
@@ -1022,7 +1234,9 @@ def test_the_pinned_fetch_refuses_a_redirect():
     try:
         opener = urllib.request.build_opener(fg._NoRedirect)
         with pytest.raises(urllib.error.HTTPError) as err:
-            opener.open("http://127.0.0.1:%d/a.pdf" % httpd.server_address[1], timeout=10)
+            opener.open(
+                "http://127.0.0.1:%d/a.pdf" % httpd.server_address[1], timeout=10
+            )
         assert err.value.code == 302
         from zimi import creator
 
@@ -1052,10 +1266,19 @@ def test_the_sign_in_screen_still_gets_the_words_and_none_of_the_library(
     monkeypatch.setattr(users, "resolve_request_user", lambda h: None)
     monkeypatch.setattr(users, "_request_is_admin", lambda h: False)
     status, body = _get(served, "/fieldguide/situation?id=bleeding")
-    assert status == 200 and body["quotes"] and body["answers"] == [] and body["missing"] == []
-    assert all(q["library"] == {"state": "missing", "options": []} for q in body["quotes"])
+    assert (
+        status == 200
+        and body["quotes"]
+        and body["answers"] == []
+        and body["missing"] == []
+    )
+    assert all(
+        q["library"] == {"state": "missing", "options": []} for q in body["quotes"]
+    )
     status, home = _get(served, "/fieldguide")
-    assert status == 200 and all(s["installed"] == 0 for g in home["groups"] for s in g["situations"])
+    assert status == 200 and all(
+        s["installed"] == 0 for g in home["groups"] for s in g["situations"]
+    )
     assert _get(served, "/fieldguide/library")[0] == 401
     assert _get(served, "/search?q=bleeding")[0] == 401
 
@@ -1078,7 +1301,10 @@ def test_print_all_is_every_situation_in_order_with_its_address(served):
     status, body = _get(served, "/fieldguide/print")
     assert status == 200
     ids = [s["id"] for s in body["situations"]]
-    assert ids == [i for g in fg.data()["groups"] for i in g["situations"]] and len(ids) == 24
+    assert (
+        ids == [i for g in fg.data()["groups"] for i in g["situations"]]
+        and len(ids) == 25
+    )
     for sit in body["situations"]:
         assert sit["quotes"]
         assert all(q["url"].startswith("https://") for q in sit["quotes"])

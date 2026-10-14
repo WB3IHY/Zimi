@@ -167,6 +167,17 @@
    "fixture": "niosh-snake",
    "carriers": []
   },
+  "wp_choking": {
+   "title": "Choking",
+   "edition": "Revision 1369110407, 13 August 2026",
+   "year": 2026,
+   "publisher": "Wikipedia contributors",
+   "licence": "CC BY-SA 4.0",
+   "licence_note": "Wikipedia text, CC BY-SA 4.0: credit the contributors, share alike",
+   "url": "https://en.wikipedia.org/w/index.php?title=Choking&oldid=1369110407",
+   "fixture": "wp-choking",
+   "carriers": []
+  },
   "wp_crux": {
    "title": "Crux",
    "edition": "Revision 1379511054, 10 October 2026",
@@ -218,7 +229,7 @@
     "heading": "Application of Direct Pressure",
     "locator": "Chapter 4, para 4-66, p. 53",
     "lines": [
-     "4-66. After packing the wound with a hemostatic dressing or gauze, hold direct pressure for three minutes. Direct pressure can and should be used as a temporary measure until a TQ or dressing is in place. It is difficult to use direct pressure alone to control significant bleeding, or while moving the casualty. While packing a wound, maintain constant, direct pressure, at the source of the bleeding to be effective."
+     "Direct pressure can and should be used as a temporary measure until a TQ or dressing is in place. It is difficult to use direct pressure alone to control significant bleeding, or while moving the casualty. While packing a wound, maintain constant, direct pressure, at the source of the bleeding to be effective."
     ],
     "id": "bleeding-1",
     "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
@@ -297,6 +308,24 @@
   ],
   "not_breathing": [
    {
+    "source": "atp",
+    "heading": "External chest compressions",
+    "locator": "Chapter 6, para 6-45, pp. 80 and 81",
+    "lines": [
+     "A general outline of the steps involved in conducting external chest compressions is:",
+     "Position: Ensure the person is lying on a firm, flat surface, such as the ground or a CPR board. Kneel beside the person's chest.",
+     "Hand Placement: Place the heel of one hand on the center of the person's chest, between the nipples. For infants or children, use two or three fingers instead of the entire hand.",
+     "Compression Depth: Press down firmly and smoothly. For adults, compress the chest at least two inches (five centimeters) deep. For infants or children, compress the chest about one-third to one-half of its depth.",
+     "Compression Rate: Perform compressions at a rate of 100 to 120 compressions per minute. This equates to about two compressions per second.",
+     "Complete Chest Recoil: Allow the chest to fully recoil between each compression, without lifting your hands off the chest. This allows the heart to refill with blood.",
+     "Compression to Ventilation Ratio: If you are performing CPR alone, do cycles of 30 chest compressions to two rescue breaths (mouth-to-mouth or mouth-to-mask). If there are two rescuers, the ratio can be 30:2 or continuous chest compressions with ventilation being delivered by the other rescuer.",
+     "Continue until Help Arrives: Keep performing chest compressions until professional medical help arrives, or until the person shows signs of movement or starts breathing."
+    ],
+    "id": "not_breathing-1",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   },
+   {
     "source": "cdc_ca",
     "heading": "Signs and symptoms",
     "locator": "Signs and symptoms",
@@ -308,27 +337,9 @@
      "Don't have a pulse.",
      "If you believe someone is having a cardiac arrest, call 9-1-1 right away, look for an automated external defibrillator (AED), and give CPR until medical professionals arrive."
     ],
-    "id": "not_breathing-1",
+    "id": "not_breathing-2",
     "url": "https://www.cdc.gov/heart-disease/about/cardiac-arrest.html",
     "year": 2024
-   },
-   {
-    "source": "atp",
-    "heading": "External chest compressions",
-    "locator": "Chapter 6, para 6-45, pp. 80 and 81",
-    "lines": [
-     "6-45. CPR is conducted using a specific technique to provide manual circulation support during cardiac arrest or when the heart has stopped beating effectively. A general outline of the steps involved in conducting external chest compressions is:",
-     "Position: Ensure the person is lying on a firm, flat surface, such as the ground or a CPR board. Kneel beside the person's chest.",
-     "Hand Placement: Place the heel of one hand on the center of the person's chest, between the nipples. For infants or children, use two or three fingers instead of the entire hand.",
-     "Compression Depth: Press down firmly and smoothly. For adults, compress the chest at least two inches (five centimeters) deep. For infants or children, compress the chest about one-third to one-half of its depth.",
-     "Compression Rate: Perform compressions at a rate of 100 to 120 compressions per minute. This equates to about two compressions per second.",
-     "Complete Chest Recoil: Allow the chest to fully recoil between each compression, without lifting your hands off the chest. This allows the heart to refill with blood.",
-     "Compression to Ventilation Ratio: If you are performing CPR alone, do cycles of 30 chest compressions to two rescue breaths (mouth-to-mouth or mouth-to-mask). If there are two rescuers, the ratio can be 30:2 or continuous chest compressions with ventilation being delivered by the other rescuer.",
-     "Continue until Help Arrives: Keep performing chest compressions until professional medical help arrives, or until the person shows signs of movement or starts breathing."
-    ],
-    "id": "not_breathing-2",
-    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
-    "year": 2026
    },
    {
     "source": "atp",
@@ -341,6 +352,65 @@
      "Provider Fatigue: If the person performing CPR becomes too exhausted to continue effectively, they can switch with another trained individual to maintain the quality of compression."
     ],
     "id": "not_breathing-3",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   }
+  ],
+  "choking": [
+   {
+    "source": "atp",
+    "heading": "Opening the Obstructed Airway: Conscious Casualty",
+    "locator": "Chapter 5, paras 5-29 to 5-31, pp. 66 and 67",
+    "scope": "Clearing an airway obstruction in a conscious casualty can be managed while they are either standing or sitting.",
+    "lines": [
+     "5-29. Clearing an airway obstruction in a conscious casualty can be managed while they are either standing or sitting. However, it's critical to recognize that an obstructed airway can lead to oxygen deficiency in the brain, resulting in respiratory arrest, unconsciousness and, if not promptly corrected, death.",
+     "5-30. To assess and manage airway obstruction, start by asking the casualty if they can speak or if they are choking. Additionally, check for the universal choking sign (see figure 5-11 on page 67). If the casualty can speak or cough effectively, encourage them to continue coughing. This indicates that they still have good air exchange, and you should not interfere with their efforts to expel the obstruction.",
+     "5-31. However, if you notice high-pitched sounds when the casualty breathes or coughs, indicating poor air exchange, or if the casualty is unable to breathe, immediate action is required. Call for help and prepare to perform manual thrusts to clear the obstruction. Use abdominal thrusts, also known as the Heimlich maneuver, by positioning your hands between the waist and the rib cage and delivering quick upward thrusts. For individuals in advanced stages of pregnancy, those who are markedly obese, or if there is a significant abdominal wound, use chest thrust instead. This involves placing your hands in the center of the breastbone and pushing sharply inward and upward."
+    ],
+    "related": [
+     "not_breathing"
+    ],
+    "id": "choking-1",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
+    "year": 2026
+   },
+   {
+    "source": "wp_choking",
+    "heading": "Infants (babies under 1 year-old)",
+    "locator": "Choking, Treatment, Particular cases",
+    "scope": "For infants under 1 year-old, the American Heart Association recommends adapted procedures.",
+    "lines": [
+     "For infants under 1 year-old, the American Heart Association recommends adapted procedures. The size of the children's body is the most important aspect in determining the correct anti-choking technique. So the normal first aid techniques against choking would be tried in children who are too large for the babies' procedures (or they would be tried as a less appropriated attempt if the rescuer is unable to perform the techniques for babies).",
+     "First aid for choking infants alternates a cycle of special back blows (five back slaps) followed by special chest thrusts (five adapted chest compressions). In the back blows maneuver, the rescuer slaps on the baby's back. It is recommended that the baby receive them being slightly leaned upside-down on an inclination. There exist several ways to achieve this:",
+     "According to a widely propagated modality: the rescuer sits down on a seat with the baby, and supports the baby with a forearm and its respective hand. The baby's head must be carefully held with that hand (approximately by the face), and kept in a normal position, facing forward, not inclinated. Then the baby's body can be leaned forward upside-down along the rescuer's thighs, and receive the slaps.",
+     "In the chest thrusts manoeuver, the baby's body is placed lying face up on a surface (it can be the rescuer's thighs, lap or forearm). Then, the rescuer does the compressions pressing with only two fingers on the lower half of the bone that is along the middle of the chest from the neck to the belly (on the chest bone, named sternum, on its part that is the nearest to the belly). Abdominal thrusts are not recommended in children less than one year old because they can cause liver damage.",
+     "The back blows and chest thrusts are alternated in cycles of five back blows and five chest compressions until the object comes out of the infant's airway or until the infant becomes unconscious.",
+     "If choking is unresolved despite these rescue attempts, it is vital that somebody calls to the emergency medical services and continue first aid until they arrive."
+    ],
+    "related": [
+     "not_breathing"
+    ],
+    "id": "choking-2",
+    "url": "https://en.wikipedia.org/w/index.php?title=Choking&oldid=1369110407",
+    "year": 2026
+   },
+   {
+    "source": "atp",
+    "heading": "Apply Abdominal Thrusts",
+    "locator": "Chapter 5, para 5-33, p. 67",
+    "lines": [
+     "5-33. Prior to applying abdominal thrust, first responders should administer five back blows. Abdominal thrust can be accomplished by using the following procedures: •",
+     "Stand behind the casualty and wrap your arms around their waist.",
+     "Make a fist with one hand and grasp it with the other. The thumb side of your fist should be against the casualty’s abdomen, in the midline and slightly above the casualty’s navel, but well below the tip of the breastbone (figure 5-12 on page 68).",
+     "Press the fists into the abdomen with a quick backward and upward thrust (figure 5-13 on page 68).",
+     "Each thrust should be a separate and distinct movement.",
+     "Continue performing abdominal thrusts until the obstruction is expelled or the casualty becomes unresponsive.",
+     "If the casualty becomes unresponsive, call for help as you proceed with the steps to open the airway."
+    ],
+    "related": [
+     "not_breathing"
+    ],
+    "id": "choking-3",
     "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
     "year": 2026
    }
@@ -454,6 +524,7 @@
     "slug": "winter-weather",
     "url": "https://www.ready.gov/winter-weather",
     "year": 2026,
+    "related": ["shelter"],
     "id": "cold-1"
    },
    {
@@ -473,6 +544,7 @@
      "Seek medical aid.",
      "8-10. Hypothermia is a serious condition that requires professional evaluation and treatment. Attempting to rewarm a severely hypothermic person should be done by medical professionals using appropriate techniques. While waiting for help to arrive, focus on preventing further heat loss and providing support to the person."
     ],
+    "related": ["shelter"],
     "id": "cold-2",
     "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
     "year": 2026
@@ -485,6 +557,7 @@
      "17-30. The risks differ with environmental hypothermia. Victims of moderate to severe environmental hypothermia are known to have a risk of an irregular heartbeat associated with “afterdrop.” Afterdrop is the continued fall of deep body temperatures during rewarming after hypothermia. Afterdrop is thought to endanger the heart by further cooling from cold blood presumed to be returning to the body’s center or core.",
      "17-31. Environmental hypothermic casualties should be monitored and gently handled as afterdrop is not always observed. The goals for overall casualty treatment (such as hemorrhage control and resuscitation in TCCC versus warming measures along with gentle handling in environmental hypothermia) should be understood, trained, and rehearsed. For further discussion on hypothermia see Chapter 8."
     ],
+    "related": ["shelter"],
     "id": "cold-3",
     "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
     "year": 2026
@@ -502,6 +575,7 @@
     "slug": "winter-weather",
     "url": "https://www.ready.gov/winter-weather",
     "year": 2026,
+    "related": ["shelter"],
     "id": "cold-4"
    },
    {
@@ -527,6 +601,7 @@
      "Seek medical attention: Frostbite requires medical evaluation and treatment. Even if the frostbite appears mild, professional medical care is essential to assess the extent of the injury and prevent complications.",
      "17-26. Frostbite can cause long-term damage, including tissue loss and nerve damage. Prompt and appropriate treatment is crucial for minimizing complications and maximizing recovery."
     ],
+    "related": ["shelter"],
     "id": "cold-5",
     "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
     "year": 2026
@@ -549,6 +624,7 @@
      "Seek medical aid.",
      "Evacuate the casualty."
     ],
+    "related": ["shelter"],
     "id": "cold-6",
     "url": "https://commons.wikimedia.org/wiki/File:TC_4-02.1_First_Aid_(Change_2,_ARN14135-TC_4-02.1-002-WEB-3).pdf",
     "year": 2018
@@ -919,6 +995,7 @@
      "If you are not very, very confident in the route, then it’s always better to stay put.",
      "If it’s nightfall, you are injured or you are near exhaustion, stay in place."
     ],
+    "related": ["signal"],
     "id": "lost-1",
     "url": "https://www.fs.usda.gov/visit/know-before-you-go/if-you-get-lost",
     "year": 2026
@@ -944,6 +1021,7 @@
      "Stay put – Changing location will make it difficult for authorities to find you. Move only if there is an immediate threat to life",
      "Conserve energy – Wait patiently for help to arrive and conserve your energy"
     ],
+    "related": ["signal"],
     "id": "lost-2",
     "url": "https://www.nps.gov/articles/gtgemergencyplan.htm",
     "year": 2023
@@ -956,6 +1034,7 @@
      "1. Hug-A-Tree",
      "Find a tree, hug it, and stay put. If you do not see a tree around you, your “tree” can be a park bench or a big rock. The important thing is to stay in one place."
     ],
+    "related": ["signal"],
     "id": "lost-3",
     "url": "https://www.nps.gov/articles/gtgemergencyplan.htm",
     "year": 2023
@@ -976,6 +1055,8 @@
      ["always west—everywhere", "always west —everywhere"],
      ["to your right—you are", "to your right-you are"]
     ],
+    "sky": "any",
+    "related": ["signal"],
     "id": "lost-4",
     "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
     "year": 1992
@@ -992,6 +1073,7 @@
     "ocr": [
      ["each other", "each. other"]
     ],
+    "related": ["signal"],
     "id": "lost-5",
     "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
     "year": 1992
@@ -1005,6 +1087,7 @@
      "Alpha and Beta Centauri are of similar declinations (thus distance from the pole) and are often referred as the \"Southern Pointers\" or just \"the Pointers\", allowing people to easily identify the Southern Cross, the constellation of Crux. Very few bright stars lie between Crux and the pole itself, although the constellation Musca is fairly easily recognised immediately south of Crux."
     ],
     "sky": "south",
+    "related": ["signal"],
     "id": "lost-6",
     "url": "https://en.wikipedia.org/w/index.php?title=Crux&oldid=1379511054",
     "year": 2026
@@ -1023,6 +1106,7 @@
      "Make yourself visible – Lay out the shelter from your 10 essentials or use rocks to create a shape that can be seen by planes or helicopters flying above",
      "Conserve energy – Wait patiently for help to arrive"
     ],
+    "related": ["lost"],
     "id": "signal-1",
     "url": "https://www.nps.gov/articles/gtgemergencyplan.htm",
     "year": 2023
@@ -1034,6 +1118,7 @@
     "lines": [
      "You can use lights or flags to send an SOS—three dots, three dashes, three dots. The SOS is the internationally recognized distress signal in radio Morse code. A dot is a short, sharp pulse; a dash is a longer pulse. Keep repeating the signal. When using flags, hold flags on the left side for dashes and on the right side for dots."
     ],
+    "related": ["lost"],
     "id": "signal-2",
     "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
     "year": 1992
@@ -1045,6 +1130,7 @@
     "lines": [
      "Whistles provide an excellent way for close up signaling. In some documented cases, they have been heard up to 1.6 kilometers away. Manufactured whistles have more range than a human whistle."
     ],
+    "related": ["lost"],
     "id": "signal-3",
     "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
     "year": 1992
@@ -1056,6 +1142,7 @@
     "lines": [
      "During darkness, fire is the most effective visual means for signaling. Build three fires in a triangle (the international distress signal) or in a straight line with about 25 meters between the fires. Build them as soon as time and the situation permit and protect them until you need them. If you are alone, maintaining three fires may be difficult. If so, maintain one signal fire. When constructing signal fires, consider your geographic location. If in a jungle, find a natural clearing or the edge of a stream where you can build fires that the jungle foliage will not hide. You may even have to clear an area. If in a snow-covered area, you may have to clear the ground of snow or make a platform on which to build the fire so that melting snow will not extinguish it."
     ],
+    "related": ["lost"],
     "id": "signal-4",
     "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
     "year": 1992
@@ -1073,6 +1160,7 @@
      "Keep warm – The temperature outside can change throughout the day. If you begin to feel cold put on any extra layers of clothing you have with you",
      "Note: Do not build a fire if there is a high fire risk at the park or if it is wildland fire season. It could cause a wildfire and put you and others at great risk."
     ],
+    "related": ["cold"],
     "id": "shelter-1",
     "url": "https://www.nps.gov/articles/gtgemergencyplan.htm",
     "year": 2023
@@ -1087,6 +1175,7 @@
      "Avoid avalanche or rockslide areas in mountainous terrain.",
      "Avoid sites near bodies of water that are below the high water mark."
     ],
+    "related": ["cold"],
     "id": "shelter-2",
     "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
     "year": 1992
@@ -1098,6 +1187,7 @@
     "lines": [
      "There are four basic principles to follow to keep warm. An easy way to remember these basic principles is to use the word COLD— C Keep clothing clean. O Avoid overheating. L Wear clothes loose and in layers. D Keep clothing dry."
     ],
+    "related": ["cold"],
     "id": "shelter-3",
     "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
     "year": 1992
@@ -1107,6 +1197,7 @@
     "heading": "Poncho Lean-To",
     "locator": "Chapter 5, p. 5-4",
     "lines": ["To reduce heat loss to the ground, place some type of insulating material, such as leaves or pine needles, inside your lean-to."],
+    "related": ["cold"],
     "id": "shelter-4",
     "url": "https://commons.wikimedia.org/wiki/File:FM_21-76_Survival_June_1992.pdf",
     "year": 1992
@@ -1240,6 +1331,23 @@
    },
    {
     "source": "ready",
+    "heading": "After a Flood: electricity and water",
+    "locator": "Floods, After a Flood",
+    "lines": [
+     "Be aware of the risk of electrocution. Do not touch electrical equipment if it is wet or if you are standing in water. Turn off the electricity to prevent electric shock if it is safe to do so.",
+     "Avoid wading in floodwater, which can be contaminated and contain dangerous debris. Underground or downed power lines can electrically charge the water."
+    ],
+    "edition": "Page last updated 08/27/2026",
+    "slug": "floods",
+    "related": [
+     "power_out"
+    ],
+    "id": "flood-2",
+    "url": "https://www.ready.gov/floods",
+    "year": 2026
+   },
+   {
+    "source": "ready",
     "heading": "After a Flood",
     "locator": "Floods",
     "lines": [
@@ -1257,7 +1365,7 @@
     "url": "https://www.ready.gov/floods",
     "year": 2026,
     "related": ["power_out"],
-    "id": "flood-2"
+    "id": "flood-3"
    }
   ],
   "earthquake": [

@@ -3957,7 +3957,7 @@ window.addEventListener('blur', function() {
 });
 
 function enterHome(push) {
-  _fieldguideUnmount();
+  _searchCardClear();
   mode = 'home';
   currentSource = null;
   readerSource = null;
@@ -4486,7 +4486,7 @@ document.addEventListener('keydown', function(e) {
   }
 });
 function renderHome(filter) {
-  _fieldguideUnmount();
+  _searchCardClear();
   // We could not ask the server. Say so — never "No knowledge sources found",
   // which reads as "your library was wiped". Discover is skipped too: its cards
   // are drawn from the (unknown) installed set.
@@ -4499,14 +4499,14 @@ function renderHome(filter) {
   if (!zimsCache || zimsCache.length === 0) {
     statsBar.innerHTML = ''; statsBar.style.display = 'none';
     pillsBar.innerHTML = ''; pillsBar.style.display = 'none'; pillsBar.className = 'pills';
-    output.innerHTML = _helpNowHtml() + '<div id="discover-row"></div>'
+    output.innerHTML = '<div id="discover-row"></div>'
       + '<div class="empty"><p>' + tH('no_sources_found') + '</p><p class="hint">' + tH('add_zims') + '</p>'
       + (manageEnabled ? '<a href="/?manage" onclick="event.preventDefault();enterManage().then(function(ok){if(ok)switchManageTab(\'browse\')})" style="display:inline-block;margin-top:16px;color:var(--amber);font-weight:500;font-size:14px;text-decoration:none;border-bottom:1px solid var(--amber-border)">' + tH('catalog_link') + '</a>' : '')
       + '</div>'
       // The apps on a fresh install too, each tile saying what it needs and
       // opening its catalog category (docs/features/apps.md). The empty
       // library returned before the row was ever built.
-      + _appsRowHtml();
+      + _appsRowHtml(true);
     _loadDiscover();
     return;
   }
@@ -4656,7 +4656,8 @@ function renderHome(filter) {
   }
 
   let h = '';
-  if (!homeScope && !filter) h += _helpNowHtml();
+  // Help now sits first in the Apps row; where that row is not drawn (a filter is narrowing home) it stands alone.
+  if (!homeScope && !filter && (homeRecentFilter || homeLangFilter.size)) h += _helpNowHtml();
 
   // Scope header with back link — Favorites, a category or a collection all
   // drill in here, so keep a way back to "All sources".
@@ -4721,7 +4722,7 @@ function renderHome(filter) {
   // Zimi Maps, first, as a source sits: one tile whenever a map is installed.
   // Eric: "a Maps tile that sits with the sources grid like a source does."
   if (!homeScope && !filter && !homeRecentFilter && !homeLangFilter.size) {
-    h += _appsRowHtml();
+    h += _appsRowHtml(true);
   }
 
   // Favorites section at top (only on unscoped home)
@@ -6747,6 +6748,48 @@ var _ALMANAC_REF_ASSETS = [
   '/static/almanac-tables.js?v=1'
 ];
 
+// The Almanac's modules. They share a global scope, so they must run in
+// order, and the Almanac opens (or the Field Guide's sky strip reads them)
+// only once the last one has run: opening early would call into functions not
+// yet defined. async=false keeps that order while all download at once, one
+// round trip instead of six on a phone away from home. One load, however many
+// ask: the promise is kept, and dropped when it fails so the next ask tries again.
+var _ALMANAC_MODULES = [
+  '/static/almanac-links.js?v=45',
+  '/static/almanac-orrery.js?v=45',
+  '/static/almanac-sky.js?v=45',
+  '/static/almanac-skygl.js?v=45',
+  '/static/zone-places.js?v=45',
+  '/static/almanac-skyfacts.js?v=45',
+  '/static/almanac.js?v=45'
+];
+var _almanacModulesLoading = null;
+function _loadAlmanacModules() {
+  if (_almanacLoaded) return Promise.resolve();
+  if (!_almanacModulesLoading) {
+    _almanacModulesLoading = new Promise(function(resolve, reject) {
+      var failed = false;
+      _ALMANAC_MODULES.forEach(function(src, i) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.async = false;
+        if (i === _ALMANAC_MODULES.length - 1) s.onload = function() { if (!failed) resolve(); };
+        // Offline with a cold cache: these modules were never fetched, so there is
+        // nothing to serve.
+        s.onerror = function() {
+          console.error('Failed to load ' + src);
+          if (failed) return;
+          failed = true;
+          _almanacModulesLoading = null;
+          reject(new Error(src));
+        };
+        document.head.appendChild(s);
+      });
+    });
+  }
+  return _almanacModulesLoading;
+}
+
 function openAlmanac(replaceState) {
   // Modifier-click: open Almanac in new browser tab
   if (_isModClick()) {
@@ -6755,49 +6798,21 @@ function openAlmanac(replaceState) {
     return;
   }
   if (!_almanacLoaded) {
-    // The almanac is split across sibling modules (it outgrew one file). They
-    // share a global scope, so they must run in order, and it opens only once
-    // the last one has run: opening early would call into functions not yet
-    // defined. async=false keeps that order while all four download at once,
-    // one round trip instead of four on a phone away from home.
-    var almanacModules = [
-      '/static/almanac-links.js?v=45',
-      '/static/almanac-orrery.js?v=45',
-      '/static/almanac-sky.js?v=45',
-      '/static/almanac-skygl.js?v=45',
-      '/static/zone-places.js?v=45',
-      '/static/almanac-skyfacts.js?v=45',
-      '/static/almanac.js?v=45'
-    ];
-    var failed = false;
-    almanacModules.forEach(function(src, i) {
-      var s = document.createElement('script');
-      s.src = src;
-      s.async = false;
-      if (i === almanacModules.length - 1) s.onload = function() {
-        if (failed) return;
-        _almanacLoaded = true;
-        _openAlmanacInner(replaceState);
-        // The 3D Earth's module follows the open instead of delaying it; the
-        // orrery draws the Earth's glow (the way in) once it has landed.
-        var earth = document.createElement('script');
-        earth.src = '/static/almanac-earth.js?v=45';
-        document.head.appendChild(earth);
-      };
-      // Offline with a cold cache: these modules were never fetched, so there is
-      // nothing to serve. Say so — a console line and a button that appears to
-      // do nothing is the same "silent absence" the connection banner exists to
-      // eliminate.
-      s.onerror = function() {
-        console.error('Failed to load ' + src);
-        if (failed) return;
-        failed = true;
-        // Drop the reload-into-almanac boot gate so the library becomes
-        // visible again instead of an empty dark shell.
-        document.documentElement.classList.remove('almanac-boot');
-        _showToast(t('almanac_unavailable_offline'));
-      };
-      document.head.appendChild(s);
+    _loadAlmanacModules().then(function() {
+      _almanacLoaded = true;
+      _openAlmanacInner(replaceState);
+      // The 3D Earth's module follows the open instead of delaying it; the
+      // orrery draws the Earth's glow (the way in) once it has landed.
+      var earth = document.createElement('script');
+      earth.src = '/static/almanac-earth.js?v=45';
+      document.head.appendChild(earth);
+    }, function() {
+      // A console line and a button that appears to do nothing is the same
+      // "silent absence" the connection banner exists to eliminate. Drop the
+      // reload-into-almanac boot gate so the library becomes visible again
+      // instead of an empty dark shell.
+      document.documentElement.classList.remove('almanac-boot');
+      _showToast(t('almanac_unavailable_offline'));
     });
     return;
   }
@@ -8477,6 +8492,7 @@ async function doSearch(query, push, perSource) {
     return;
   }
 
+  if (!more) _fieldguideEarly(query, scope, zimParam, perSource, searchSeq);
   let d1 = null, gotFull = false, timerInterval = null;
   try {
     // ── One request, both passes: the server sends the title matches, the
@@ -8754,7 +8770,6 @@ function searchResultCounts(items, zims) {
 }
 
 function renderSearchResults(data, scope) {
-  _fieldguideMount(data, scope);
   if (snippetController) { snippetController.abort(); snippetController = null; }
   let items = data.results || [];
   const counts = searchResultCounts(items, zimsCache);
@@ -8868,8 +8883,9 @@ function renderSearchResults(data, scope) {
     const asksNothing = !!data._query && !parseSearchQuery(data._query).groups.length;
     // Under the Field Guide's answer, "No results found" would be the louder
     // line on a page that has just helped: the answer stands alone.
-    const guided = !!document.getElementById('fg-answer');
+    const guided = !!(!scope && data.fieldguide) || !!(_searchCard && _searchCard.el && _searchCard.el.dataset.card === 'fieldguide');
     output.innerHTML = chipsHtml + (guided ? dymHtml : '<div class="empty">' + dymHtml + '<p>' + tH('no_results') + '</p><p class="hint">' + tH(asksNothing ? 'search_needs_word' : 'try_different') + '</p></div>');
+    _searchCardMount();
     return;
   }
 
@@ -9060,7 +9076,9 @@ function _zimTitleWithLang(name) {
 //                            sync (read from the search's own answer) or a
 //                            promise; ctx = { query, scope, zimParam, limit,
 //                            data (the search's answer), signal }
-//     html(payload, ctx) }   the card, complete, as a string
+//     html(payload, ctx),    the card, complete, as a string
+//     mounted(el, payload, ctx) }   optional: once the card is in the page, to wire
+//                            it and fill what it fetches (ctx.signal ends with it)
 // The slot is cleared the moment a search starts, a card's request is aborted
 // with it, and a card that arrives for an older search is dropped. A card that
 // needs a request of its own should make it here, after the results: results
@@ -9099,6 +9117,7 @@ async function _searchCardStart(query, scope, zimParam, limit, data) {
     try { el.innerHTML = r.html(payload, ctx); } catch (e) { continue; } // a card that cannot draw leaves the slot to the next
     card.el = el;
     _searchCardMount();
+    if (r.mounted) { try { r.mounted(el, payload, ctx); } catch (e) {} }
     return;
   }
 }
@@ -9585,7 +9604,7 @@ function _restoreSavedReader() {
 
 async function enterManage(e, section) {
   if (e && e.preventDefault) e.preventDefault();
-  _fieldguideUnmount();
+  _searchCardClear();
   if (!manageEnabled) {
     // The gear must respond from first paint. On a large library the boot's
     // /list call blocks for seconds, and if the user clicks before the
@@ -20531,12 +20550,14 @@ function _booksSearch(val) { _appFrameCall('booksSearch', val); }
 // quotations with their source, edition, licence and a link, and the library
 // behind them. Not one of the apps in the row: it needs no ZIM, cannot be
 // switched off, and is reached by "Help now" on the home page and by search
-// (a situation above the results, see _fieldguideMount). Eric, 2026-09-28:
+// (a situation above the results, see the card below). Eric, 2026-09-28:
 // "build first aid and or a whole like how to live and survive bucket."
 var _fieldguideOpen = false;
 var _FIELDGUIDE_PAGE = '/static/fieldguide.html?v=1';
+// Help now's own mark, a red cross: not the Field Guide's compass, which is the app's.
+var _HELP_NOW_SVG = '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>';
 var _FIELDGUIDE_SVG = '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M5.6 5.6l3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9"/></svg>';
-var _FIELDGUIDE_SITUATIONS = ['emergency_call', 'bleeding', 'not_breathing', 'heart_attack', 'shock', 'recovery_position', 'cold', 'burns', 'heat',
+var _FIELDGUIDE_SITUATIONS = ['emergency_call', 'bleeding', 'not_breathing', 'choking', 'heart_attack', 'shock', 'recovery_position', 'cold', 'burns', 'heat',
   'broken_bone', 'bites', 'allergic', 'poison', 'lost', 'signal', 'shelter', 'water', 'flood', 'earthquake', 'wildfire', 'storm', 'power_out',
   'carbon_monoxide', 'food'];
 var _FIELDGUIDE_WORDS = ['fieldguide_help_now', 'fieldguide_disclaimer', 'fieldguide_group_hurt', 'fieldguide_group_survive', 'fieldguide_group_disaster',
@@ -20546,7 +20567,8 @@ var _FIELDGUIDE_WORDS = ['fieldguide_help_now', 'fieldguide_disclaimer', 'fieldg
   'fieldguide_nothing', 'fieldguide_confirm_big', 'fieldguide_from', 'fieldguide_licence', 'fieldguide_original', 'fieldguide_in_library', 'fieldguide_read_full', 'fieldguide_add_for_full',
   'fieldguide_build', 'fieldguide_get', 'fieldguide_search_in', 'fieldguide_dated', 'fieldguide_open_card', 'fieldguide_lic_US_PD',
   'fieldguide_superseded', 'fieldguide_your_library', 'fieldguide_yes_download', 'fieldguide_cancel', 'fieldguide_print_all', 'fieldguide_build_note',
-  'fieldguide_help_link', 'fieldguide_show_all'];
+  'fieldguide_help_link', 'fieldguide_show_all', 'fieldguide_covers', 'fieldguide_see_also', 'fieldguide_sky_place',
+  'fieldguide_num_here', 'fieldguide_nums_here', 'fieldguide_num_unknown', 'fieldguide_num_police', 'fieldguide_num_ambulance', 'fieldguide_num_fire', 'fieldguide_num_mobile', 'fieldguide_num_source'];
 function _isFieldguidePage() {
   return !!(_fieldguideOpen && readerOpen && !_almanacOpen && !_createOpen);
 }
@@ -20569,8 +20591,8 @@ function _fieldguideStrings(id) {
   var keys = _FIELDGUIDE_WORDS.concat(_FIELDGUIDE_SITUATIONS.map(function(s) { return 'fieldguide_s_' + s; }));
   // Where the reader is, when the Almanac knows it: the sky of that hemisphere leads.
   var place = _almChosenPlace();
-  var lat = place && isFinite(parseFloat(place.lat)) ? String(place.lat) : '';
-  return _appStrings('fieldguide', keys, { open: id || '', lat: lat });
+  var lat = place && isFinite(parseFloat(place.lat)) && isFinite(parseFloat(place.lon)) ? String(place.lat) : '';
+  return _appStrings('fieldguide', keys, { open: id || '', lat: lat, lon: lat ? String(place.lon) : '', place: lat ? String(place.name || '') : '' });
 }
 function openFieldguide(replaceState, id) {
   id = _fieldguideId(id);
@@ -20598,17 +20620,20 @@ function openFieldguide(replaceState, id) {
 // Home's entry to the Field Guide, a plain button anyone can find when it
 // counts; with a situation it is the small link a bare word gets ("Help now:
 // Water") in place of the card.
-function _helpNowHtml(id) {
+function _helpNowPillHtml(id) {
   id = _fieldguideId(id);
   var label = id ? t('fieldguide_help_link', { name: t('fieldguide_s_' + id) }) : t('fieldguide_help_now');
-  return '<div class="help-now-row"><a class="help-now" href="' + escAttr(_fieldguideUrl(id)) + '" onclick="return _spaNav(event, function() { openFieldguide(false, \'' + id + '\'); })">' +
-    _FIELDGUIDE_SVG.replace('width="26" height="26"', 'width="18" height="18"') + '<span>' + esc(label) + '</span></a></div>';
+  return '<a class="help-now" href="' + escAttr(_fieldguideUrl(id)) + '" onclick="return _spaNav(event, function() { openFieldguide(false, \'' + id + '\'); })">' +
+    _HELP_NOW_SVG + '<span>' + esc(label) + '</span></a>';
+}
+function _helpNowHtml(id) {
+  return '<div class="help-now-row">' + _helpNowPillHtml(id) + '</div>';
 }
 // The same entry where the app cannot be reached: the first-run setup and
 // the sign-in screen. A plain address to the page, which needs no shell.
 function _gateHelpHtml() {
   return '<a class="help-now help-now-gate" href="' + escAttr(_FIELDGUIDE_PAGE + '#' + _fieldguideStrings('')) + '">' +
-    _FIELDGUIDE_SVG.replace('width="26" height="26"', 'width="18" height="18"') + '<span>' + tH('fieldguide_help_now') + '</span></a>';
+    _HELP_NOW_SVG + '<span>' + tH('fieldguide_help_now') + '</span></a>';
 }
 // True only for a message from the Field Guide page itself: the reader frame
 // also holds ZIM pages (scripts of their own, the same origin), which must
@@ -20632,6 +20657,50 @@ function _fieldguidePrint(win) {
     _printNode(box, '');
   });
 }
+// The sky strip of the Field Guide's Lost, Signal, Shelter, Flood and Cold
+// cards: daylight left, when it is dark, the Moon, true north (or south). The
+// page asks (window.fieldguideSky) with the place it read: {lat, lon, guessed,
+// city}. The Almanac's own functions work it out (almanac-skyfacts.js), loaded
+// here on first use, after the card has drawn, never before. While the place
+// is a guess every figure rounds the safe way: less daylight left, the dark
+// from earlier and until later, the Moon up for less, and it is said to be a
+// guess. Answers {place, guessed, rows: [[label, value]]} to the page, or
+// nothing when the modules cannot be loaded.
+var FG_SKY_ROUND_MS = 15 * 60000;
+function _fgRound(ms, dir, guessed) {
+  if (!guessed) return ms;
+  return (dir < 0 ? Math.floor(ms / FG_SKY_ROUND_MS) : Math.ceil(ms / FG_SKY_ROUND_MS)) * FG_SKY_ROUND_MS;
+}
+function _fgSkyRows(p, now) {
+  var f = _skyFactsAt(now, p.lat, p.lon), g = !!p.guessed, rows = [];
+  var about = function(v) { return g ? t('alm_sky_f_about', { v: v }) : v; };
+  // dir -1: toward now / earlier (the safe way for what ends the light), +1: later.
+  var span = function(ms, dir) { return _skySpan(_fgRound(ms - now, dir, g), false); };
+  var clock = function(ms, dir, az) { return _skyClock(_fgRound(ms, dir, g), false) + (az == null ? '' : ' · ' + _skyBearing(az)); };
+  if (f.sunUp) rows.push([t('alm_sky_f_daylight_left'), f.sunset ? about(span(f.sunset, -1) + ' · ' + clock(f.sunset, -1, f.sunsetAz)) : t('alm_midnight_sun')]);
+  else rows.push([t('alm_sky_f_sunrise_in'), f.sunrise ? about(span(f.sunrise, 1) + ' · ' + clock(f.sunrise, 1, f.sunriseAz)) : t('alm_polar_night')]);
+  if (f.fullyDark) rows.push([t('alm_sky_f_dark_until'), f.darkUntil ? about(clock(f.darkUntil, 1)) : t('alm_polar_night')]);
+  else rows.push([t('alm_sky_f_dark_from'), f.darkFrom ? about(clock(f.darkFrom, -1)) : t('alm_sky_f_not_dark')]);
+  var lit = t('alm_sky_f_moon_lit', { p: _orrNum(_moonPhase(new Date(now)).illumination, null, 0) + '%' });
+  var next = f.moonUp ? (f.moonset ? t('alm_sky_f_sets', { t: about(clock(f.moonset, -1, f.moonsetAz)) }) : '') : (f.moonrise ? t('alm_sky_f_rises', { t: about(clock(f.moonrise, 1, f.moonriseAz)) }) : '');
+  rows.push([t('alm_moon'), lit + (next ? ' \u00b7 ' + next : '')]);
+  var a = _skyDeg(Math.abs(p.lat));
+  if (Math.abs(p.lat) < 2) rows.push([t('alm_sky_f_north'), t('alm_sky_f_equator_val')]);
+  else if (p.lat > 0) rows.push([t('alm_sky_f_north'), t('alm_sky_f_north_val', { a: a })]);
+  else rows.push([t('alm_sky_f_south'), t('alm_sky_f_south_val', { a: a })]);
+  return rows;
+}
+function fieldguideSky(p, done) {
+  if (!p || !isFinite(p.lat) || !isFinite(p.lon)) { done(null); return; }
+  _loadAlmanacModules().then(function() {
+    var out = { guessed: !!p.guessed, rows: [] };
+    try { out.rows = _fgSkyRows(p, Date.now()); } catch (e) { console.error(e); }
+    out.place = p.guessed
+      ? t(p.city ? 'alm_sky_f_guess' : 'alm_sky_f_guess_nocity', { city: p.city || '' })
+      : t('fieldguide_sky_place', { place: p.name || (_skyDeg(Math.abs(p.lat)) + (p.lat < 0 ? ' S ' : ' N ') + _skyDeg(Math.abs(p.lon)) + (p.lon < 0 ? ' W' : ' E')) });
+    done(out.rows.length ? out : null);
+  }, function() { done(null); });
+}
 // A search inside one ZIM, asked from the Field Guide ("Search X for ...").
 function _searchInZim(zim, query) {
   if (!_zimInfo(zim)) return;
@@ -20642,59 +20711,64 @@ function _searchInZim(zim, query) {
 }
 // The Field Guide's answer above a search's results when the words name a
 // situation (search's `fieldguide` field: {id, kind, href, installed}; id ""
-// is the guide itself). A clear emergency gets a compact card, its first
-// plain passage; a bare word that could be about anything gets a small
-// "Help now: ..." link and no quote. Outside the results' own element so a
-// redraw of them leaves it; filled from /fieldguide/situation after the
-// results have drawn, so searching never waits on it. Another slot above the
-// results, such as an answer card, sits beside it: it has its own container,
-// #fg-answer. Searching inside one ZIM is not asking for help: no answer.
-var _fieldguideHint = null;
-var _fieldguideSeq = 0;
-// Gone with the search: home, Settings and the apps do not keep it.
-function _fieldguideUnmount() {
-  _fieldguideHint = null;
-  _fieldguideSeq++;
-  var el = document.getElementById('fg-answer');
-  if (el) el.remove();
+// is the guide itself). It is the first card of the slot above the results
+// (registerSearchCard), so when it answers, no other card is asked: no
+// /bestanswer request and no Wikipedia passage under a government quote. A
+// clear emergency gets a compact card, its first plain passage; a bare word
+// that could be about anything gets the small "Help now: ..." link and no
+// quote. Filled from /fieldguide/situation after the card is up, and asked
+// for from /fieldguide/match as the search starts (_fieldguideEarly): the
+// words are looked up in memory, so Help now does not wait for the search.
+// Searching inside one ZIM is not asking for help: no answer.
+var FIELDGUIDE_CARD_PRIORITY = 50; // before the best answer (100)
+function _fieldguideCardHtml(h) {
+  if (h.kind === 'link' || !h.id) return _helpNowHtml(h.id);
+  var S = _fieldguideWords();
+  return '<section class="fg-q fg-answer"><h3>' + esc(S['s_' + h.id]) + '</h3><div class="fg-where">' + esc(S.disclaimer) + '</div><div class="fg-answer-body"></div>' +
+    '<div class="fg-lib"><button type="button" class="fg-btn on" data-act="situation" data-id="' + escAttr(h.id) + '">' + esc(S.open_card) + '</button>' +
+    '<button type="button" class="fg-btn" data-act="more" hidden>' + esc(S.show_all) + '</button></div></section>';
 }
-function _fieldguideMount(data, scope) {
-  if (scope) { _fieldguideUnmount(); return; }
-  var key = data && data._query;
-  if (data && data.fieldguide) _fieldguideHint = { q: key, hint: data.fieldguide };
-  var h = _fieldguideHint && _fieldguideHint.q === key ? _fieldguideHint.hint : null;
-  var el = document.getElementById('fg-answer');
-  if (!h) { if (el) el.remove(); return; }
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'fg-answer';
-    output.parentNode.insertBefore(el, output);
-  } else if (el.dataset.id === h.id && el.dataset.q === String(key) && el.dataset.kind === h.kind) return;
-  el.dataset.id = h.id; el.dataset.q = String(key); el.dataset.kind = h.kind;
-  var seq = ++_fieldguideSeq;
-  if (h.kind === 'link' || !h.id) { el.innerHTML = _helpNowHtml(h.id); return; }
-  _fieldguideLoadCard(function() {
-    if (seq !== _fieldguideSeq) return;
-    var S = _fieldguideWords();
-    FieldGuideCard.ensureStyle(document);
-    var shell = '<section class="fg-q fg-answer"><h3>' + esc(S['s_' + h.id]) + '</h3><div class="fg-where">' + esc(S.disclaimer) + '</div><div id="fg-answer-body"></div>' +
-      '<div class="fg-lib"><button type="button" class="fg-btn on" data-act="situation" data-id="' + escAttr(h.id) + '">' + esc(S.open_card) + '</button>' +
-      '<button type="button" class="fg-btn" data-act="more" hidden>' + esc(S.show_all) + '</button></div></section>';
-    el.innerHTML = shell;
-    FieldGuideCard.wire(el, function(act, btn) {
-      if (act === 'more') { el.firstChild.classList.add('fg-open'); btn.hidden = true; return; }
-      openFieldguide(false, h.id);
-    });
-    fetch('/fieldguide/situation?id=' + encodeURIComponent(h.id) + '&lang=' + encodeURIComponent(_uiLangPrimary())).then(function(r) { return r.ok ? r.json() : null; }).then(function(sit) {
-      var body = document.getElementById('fg-answer-body');
-      if (!sit || !sit.quotes.length || !body || seq !== _fieldguideSeq) return;
-      var first = sit.quotes[0];
-      body.innerHTML = '<div class="fg-body" lang="en" dir="ltr"><h4>' + esc(first.heading) + '</h4>' + FieldGuideCard.bodyHtml(first.lines) + FieldGuideCard.tableHtml(first.table) + '</div>' +
-        FieldGuideCard.footHtml(first, S);
-      var passage = body.firstChild, more = el.querySelector('[data-act=more]');
-      if (passage.scrollHeight > passage.clientHeight + 4) { passage.classList.add('fg-fold'); more.hidden = false; }
-    }).catch(function() {});
+// Wire the card's buttons and bring in the situation's first passage.
+function _fieldguideCardMounted(el, h, ctx) {
+  if (h.kind === 'link' || !h.id) return;
+  var S = _fieldguideWords();
+  FieldGuideCard.ensureStyle(document);
+  FieldGuideCard.wire(el, function(act, btn) {
+    if (act === 'more') { el.firstChild.classList.add('fg-open'); btn.hidden = true; return; }
+    openFieldguide(false, h.id);
   });
+  fetch('/fieldguide/situation?id=' + encodeURIComponent(h.id) + '&lang=' + encodeURIComponent(_uiLangPrimary()), { signal: ctx.signal }).then(function(r) { return r.ok ? r.json() : null; }).then(function(sit) {
+    var body = el.querySelector('.fg-answer-body');
+    if (!sit || !sit.quotes.length || !body) return;
+    var first = sit.quotes[0];
+    body.innerHTML = '<div class="fg-body" lang="en" dir="ltr"><h4>' + esc(first.heading) + '</h4>' + FieldGuideCard.bodyHtml(first.lines) + FieldGuideCard.tableHtml(first.table) + '</div>' +
+      FieldGuideCard.footHtml(first, S);
+    var passage = body.firstChild, more = el.querySelector('[data-act=more]');
+    if (passage.scrollHeight > passage.clientHeight + 4) { passage.classList.add('fg-fold'); more.hidden = false; }
+  }).catch(function() {});
+}
+registerSearchCard({
+  id: 'fieldguide',
+  priority: FIELDGUIDE_CARD_PRIORITY,
+  ask(ctx) {
+    var h = !ctx.scope && ctx.data && ctx.data.fieldguide;
+    if (!h) return null;
+    if (h.kind === 'link' || !h.id) return h;
+    return new Promise(function(resolve) { _fieldguideLoadCard(function() { resolve(h); }); });
+  },
+  html: _fieldguideCardHtml,
+  mounted: _fieldguideCardMounted
+});
+// The words just typed, looked up in memory on the server (/fieldguide/match),
+// so the card is up in a moment rather than when a library-wide search ends.
+function _fieldguideEarly(query, scope, zimParam, limit, searchSeq) {
+  if (scope) return;
+  fetch('/fieldguide/match?q=' + encodeURIComponent(query) + '&ui=' + encodeURIComponent(_uiLangPrimary()), { signal: searchController && searchController.signal })
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(m) {
+      if (!m || !m.kind || mode !== 'search' || searchSeq !== _searchSeq) return;
+      _searchCardStart(query, scope, zimParam, limit, { fieldguide: { id: m.id || '', kind: m.kind } });
+    }).catch(function() {});
 }
 var _fieldguideCardLoaded = false;
 function _fieldguideLoadCard(then) {
@@ -22517,17 +22591,20 @@ function _appsGridHtml(tiles) {
   return '<div class="' + (_getLibraryView() === 'tiles' ? 'stats-grid tiles' : 'stats-grid') + ' apps-grid">' + tiles + '</div>';
 }
 
-function _appsRowHtml() {
-  if (!_appsEnabled()) return '';
+function _appsRowHtml(withHelp) {
+  // Help now leads the row, as its own kind of pill (a red cross): it is the
+  // one thing here that must be found by a person who is not looking for apps.
+  if (!_appsEnabled()) return withHelp ? _helpNowHtml() : '';
   var tiles = _shownApps().map(function(app) { return _APP_TILES[app](); }).join('');
-  if (!tiles) return '';
+  if (!tiles) return withHelp ? _helpNowHtml() : '';
+  var help = withHelp ? '<div class="apps-help">' + _helpNowPillHtml() + '</div>' : '';
   // Labelled like every section around it (Discover above, the categories
   // below): a row without a name between rows with names reads as lost. And
   // like theirs, its name opens its page (#100): the Apps page. An empty
   // library has nothing to show there, so its name is only a name.
   var open = zimsCache && zimsCache.length;
   return '<div class="cat-heading' + (open ? ' clickable"' + _CAT_HEAD_OPENS + ' onclick="openAppsPage()"' : '"') + '>' + tH('apps_section') + '</div>' +
-    _appsGridHtml(tiles);
+    help + _appsGridHtml(tiles);
 }
 
 // The Apps page (#100): each app, in the library's order, with the ZIMs
