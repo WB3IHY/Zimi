@@ -3073,5 +3073,7 @@
   "folder_is_library": "यह Zimi का अपना लाइब्रेरी फ़ोल्डर है।",
   "folder_known": "पहले से जोड़ा जा चुका है।",
   "folder_limit": "अधिकतम आठ फ़ोल्डर।",
-  "folder_env": "ZIMI_EXTRA_ZIM_DIRS द्वारा सेट। इसे वहाँ बदलें जहाँ Zimi शुरू किया जाता है।"
+  "folder_env": "ZIMI_EXTRA_ZIM_DIRS द्वारा सेट। इसे वहाँ बदलें जहाँ Zimi शुरू किया जाता है।",
+  "folder_unknown": "यह फ़ोल्डर सूची में नहीं है।",
+  "folder_primary_only": "सर्वर पर फ़ोल्डर केवल मुख्य व्यवस्थापक बता सकता है।"
 }

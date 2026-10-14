@@ -3073,5 +3073,7 @@
   "folder_is_library": "C'est le dossier de bibliothèque propre à Zimi.",
   "folder_known": "Déjà ajouté.",
   "folder_limit": "Huit dossiers au maximum.",
-  "folder_env": "Défini par ZIMI_EXTRA_ZIM_DIRS. Modifiez-le là où Zimi est lancé."
+  "folder_env": "Défini par ZIMI_EXTRA_ZIM_DIRS. Modifiez-le là où Zimi est lancé.",
+  "folder_unknown": "Ce dossier n'est pas dans la liste.",
+  "folder_primary_only": "Seul l'administrateur principal peut désigner un dossier du serveur."
 }

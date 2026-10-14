@@ -2998,6 +2998,7 @@ def _scan_zim_files():
     # they are, and never shadowing a ZIM of Zimi's own.
     from zimi import libfolders
 
+    libfolders.refresh()
     groups = {}  # base name -> [(tier, path)], in scan order
     for tier, paths in (
         (0, root_paths),
@@ -3012,6 +3013,16 @@ def _scan_zim_files():
         if len(cands) > 1:
             _split_languages(name, cands, zims, groups)
     return zims
+
+
+def _rel_or_abs(path, start):
+    """``path`` relative to ``start`` for a log line; the path itself when they
+    are on different drives (Windows raises ValueError there) so a log line can
+    never break a scan."""
+    try:
+        return os.path.relpath(path, start)
+    except ValueError:
+        return path
 
 
 def _split_languages(name, cands, zims, groups):
@@ -3036,16 +3047,16 @@ def _split_languages(name, cands, zims, groups):
                 log.info(
                     "ZIM name collision '%s': keeping %s, serving %s as '%s'",
                     name,
-                    os.path.relpath(keeper, ZIM_DIR),
-                    os.path.relpath(path, ZIM_DIR),
+                    _rel_or_abs(keeper, ZIM_DIR),
+                    _rel_or_abs(path, ZIM_DIR),
                     lang_name,
                 )
                 continue
             log.info(
                 "ZIM name collision '%s': keeping %s, ignoring %s",
                 lang_name if own else name,
-                os.path.relpath(zims[lang_name] if own else keeper, ZIM_DIR),
-                os.path.relpath(path, ZIM_DIR),
+                _rel_or_abs(zims[lang_name] if own else keeper, ZIM_DIR),
+                _rel_or_abs(path, ZIM_DIR),
             )
 
 
@@ -4042,7 +4053,7 @@ def _zim_holder_keeps(held, path):
     )
 
 
-def register_zim_file(path, removed_files=()):
+def register_zim_file(path, removed_files=(), removed_paths=()):
     """Incrementally register ONE just-downloaded ZIM into the live library.
 
     Replaces the post-download ``load_cache(force=True)`` full rebuild, which
@@ -4063,6 +4074,10 @@ def register_zim_file(path, removed_files=()):
     ``removed_files``: basenames of older versions the caller already deleted
     from disk; they are dropped from the registry and disk cache in the same
     splice.
+    ``removed_paths``: full paths of older editions that are gone from disk
+    (another program replaced them). The name each one served is dropped in
+    the same splice, so an update is one swap with no gap and no rescan; a
+    file with the same name in another folder is not touched.
 
     Returns True when the library reflects the file; False when the file
     could not be read — the caller should fall back to a full load_cache().
@@ -4199,21 +4214,41 @@ def register_zim_file(path, removed_files=()):
             new_cached[_opt] = entry[_opt]
 
     removed = {os.path.basename(f) for f in removed_files}
+    swapped = {os.path.normpath(p) for p in removed_paths}
 
     # ---- Phase 2: splice under _zim_lock — dict surgery + a small json ----
     with _zim_lock:
         # Rebind fresh containers instead of mutating: readers iterate these
         # without the lock, and an atomic rebind can never trip them mid-walk.
         files = dict(_zim_files_cache)
+        replaced = name in files  # a file already served this name
+        # Names whose registered file was one of the swapped-out editions.
+        left = {
+            n
+            for n, p in files.items()
+            if n != name and os.path.normpath(p) in swapped
+        }
+        for n in left:
+            del files[n]
         files[name] = path
         _zim_files_cache = files
+        # A file's basename is a disk-cache key, so it is only dead when no
+        # surviving file carries it (the same name can live in two folders).
+        kept = {os.path.basename(p) for p in files.values()}
+        removed |= {os.path.basename(p) for p in swapped} - kept
         listing = [
             z
             for z in (_zim_list_cache or [])
-            if z.get("name") != name and z.get("file") not in removed
+            if z.get("name") != name
+            and z.get("name") not in left
+            and z.get("file") not in removed
         ]
         listing.append(entry)
         _zim_list_cache = listing
+        if replaced or left:
+            # The file under a served name changed (replaced in place, or an
+            # edition swapped out): drop every handle still on the old one.
+            release_zim_handles({name} | left)
         with _archive_lock:
             # Hand the already-open archive to the pool (and drop any handle
             # still pointing at a replaced file) so nothing re-opens it.
@@ -4286,6 +4321,73 @@ def release_zim_handles(names):
             _fts_zim_locks.pop(n, None)
 
 
+def _drop_registered(gone, dead_files):
+    """Splice names that left the library out of the live registry: the
+    caches, the pooled handles, the disk-cache rows of ``dead_files`` and the
+    domain map. Rebinds rather than mutates, for the lock-free readers."""
+    global _zim_files_cache, _zim_list_cache, _cache_generation
+    with _zim_lock:
+        if gone:
+            _zim_files_cache = {
+                n: p for n, p in _zim_files_cache.items() if n not in gone
+            }
+            _zim_list_cache = [
+                z for z in (_zim_list_cache or []) if z.get("name") not in gone
+            ]
+            # Evict the pooled handles for the deleted files. Dropping them
+            # from the dicts only stops FUTURE use: a search thread already
+            # holding one keeps a valid mapping of an unlinked file until it
+            # finishes, which is why this needs no per-ZIM lock.
+            release_zim_handles(gone)
+        # Invalidates /w/ entry ETags and the interlang resolution caches —
+        # cross-ZIM answers genuinely change when a ZIM leaves.
+        _cache_generation += 1
+
+        # Re-read under the lock: a concurrent load_cache may have rewritten
+        # the file since phase 1, so mutate the freshest version.
+        def _apply(disk_now):
+            dropped = [
+                fn for fn in disk_now if fn in dead_files or _zim_short_name(fn) in gone
+            ]
+            for fn in dropped:
+                disk_now.pop(fn, None)
+            return bool(dropped)
+
+        _update_disk_cache(_apply)
+        if gone:
+            # Drop this ZIM's domain claims so _resolve_url_to_zim stops
+            # answering with a name that no longer resolves. Rebound, not
+            # mutated, for the same reason as the caches above.
+            import zimi.interlang as _interlang
+
+            pruned = {
+                d: n for d, n in _interlang._domain_zim_map.items() if n not in gone
+            }
+            _interlang._domain_zim_map = pruned
+
+
+def unregister_zim_paths(paths):
+    """Drop the ZIMs whose REGISTERED file is one of ``paths`` (full paths, a
+    folder another program owns that went away, or a file it removed), from the
+    registry alone: no scan, no archive open. A path that is not what some name
+    is registered under (a same-named file in another folder, a shadowed copy)
+    is none of this function's business. Returns the names dropped."""
+    _init()
+    if _zim_files_cache is None or _zim_list_cache is None:
+        load_cache()
+        return []
+    paths = {os.path.normpath(p) for p in paths}
+    current = _zim_files_cache
+    gone = {n for n, p in current.items() if os.path.normpath(p) in paths}
+    if not gone:
+        return []
+    kept = {os.path.basename(p) for n, p in current.items() if n not in gone}
+    dead = {os.path.basename(current[n]) for n in gone} - kept
+    _drop_registered(gone, dead)
+    log.info("Unregistered %s without a library rescan", ", ".join(sorted(gone)))
+    return sorted(gone)
+
+
 def unregister_zim_file(filename):
     """Incrementally drop ONE just-deleted ZIM from the live library.
 
@@ -4339,45 +4441,7 @@ def unregister_zim_file(filename):
     # check above proved no surviving file on disk still claims one.
     dead_files = {filename} | {os.path.basename(current[n]) for n in gone}
 
-    # ---- Phase 2: splice under _zim_lock — dict surgery + a small json ----
-    with _zim_lock:
-        if gone:
-            _zim_files_cache = {
-                n: p for n, p in _zim_files_cache.items() if n not in gone
-            }
-            _zim_list_cache = [
-                z for z in (_zim_list_cache or []) if z.get("name") not in gone
-            ]
-            # Evict the pooled handles for the deleted files. Dropping them
-            # from the dicts only stops FUTURE use: a search thread already
-            # holding one keeps a valid mapping of an unlinked file until it
-            # finishes, which is why this needs no per-ZIM lock.
-            release_zim_handles(gone)
-        # Invalidates /w/ entry ETags and the interlang resolution caches —
-        # cross-ZIM answers genuinely change when a ZIM leaves.
-        _cache_generation += 1
-
-        # Re-read under the lock: a concurrent load_cache may have rewritten
-        # the file since phase 1, so mutate the freshest version.
-        def _apply(disk_now):
-            dropped = [
-                fn for fn in disk_now if fn in dead_files or _zim_short_name(fn) in gone
-            ]
-            for fn in dropped:
-                disk_now.pop(fn, None)
-            return bool(dropped)
-
-        _update_disk_cache(_apply)
-        if gone:
-            # Drop this ZIM's domain claims so _resolve_url_to_zim stops
-            # answering with a name that no longer resolves. Rebound, not
-            # mutated, for the same reason as the caches above.
-            import zimi.interlang as _interlang
-
-            pruned = {
-                d: n for d, n in _interlang._domain_zim_map.items() if n not in gone
-            }
-            _interlang._domain_zim_map = pruned
+    _drop_registered(gone, dead_files)
     log.info(
         "Unregistered %s without a library rescan%s",
         filename,

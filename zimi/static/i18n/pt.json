@@ -3073,5 +3073,7 @@
   "folder_is_library": "Esta é a pasta de biblioteca do próprio Zimi.",
   "folder_known": "Já adicionada.",
   "folder_limit": "No máximo oito pastas.",
-  "folder_env": "Definido por ZIMI_EXTRA_ZIM_DIRS. Altere onde o Zimi é iniciado."
+  "folder_env": "Definido por ZIMI_EXTRA_ZIM_DIRS. Altere onde o Zimi é iniciado.",
+  "folder_unknown": "Essa pasta não está na lista.",
+  "folder_primary_only": "Somente o administrador principal pode indicar uma pasta do servidor."
 }

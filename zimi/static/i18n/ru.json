@@ -3073,5 +3073,7 @@
   "folder_is_library": "Это собственная папка библиотеки Zimi.",
   "folder_known": "Уже добавлена.",
   "folder_limit": "Не более восьми папок.",
-  "folder_env": "Задано через ZIMI_EXTRA_ZIM_DIRS. Измените там, где запускается Zimi."
+  "folder_env": "Задано через ZIMI_EXTRA_ZIM_DIRS. Измените там, где запускается Zimi.",
+  "folder_unknown": "Этой папки нет в списке.",
+  "folder_primary_only": "Указать папку на сервере может только главный администратор."
 }

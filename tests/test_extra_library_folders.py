@@ -14,6 +14,7 @@ import shutil
 import sys
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -429,6 +430,32 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual((st, st_get), (403, 403))
         self.assertEqual(libfolders.dirs(), [])
 
+    def test_zimis_own_file_wins_a_name_collision_in_the_list(self):
+        build_fixture_zim(os.path.join(self._nomad, OWN))
+        self._req("/manage/library-folders", {"action": "add", "path": self._nomad})
+        _, listing = self._req("/list")
+        own = [z for z in listing if z["name"] == "own"]
+        self.assertEqual(len(own), 1)
+        self.assertNotIn("external", own[0])
+
+    def test_removing_the_libraries_own_folder_is_refused_and_costs_nothing(self):
+        st, d = self._req("/manage/library-folders", {"action": "remove", "path": self._own})
+        self.assertEqual((st, d["error_key"]), (400, "folder_unknown"))
+        _, listing = self._req("/list")
+        self.assertEqual([z["name"] for z in listing], ["own"])
+        self.assertIn(OWN, server._load_disk_cache() or {})
+
+    def test_listing_never_parses_the_folder_file(self):
+        self._req("/manage/library-folders", {"action": "add", "path": self._nomad})
+        saved = libfolders._read_state
+        libfolders._read_state = lambda: self.fail("/list read library_folders.json")
+        try:
+            st, listing = self._req("/list")
+        finally:
+            libfolders._read_state = saved
+        self.assertEqual(st, 200)
+        self.assertEqual(len(listing), 2)
+
     def test_a_bad_folder_says_why(self):
         st, d = self._req(
             "/manage/library-folders", {"action": "add", "path": "/no/such"}
@@ -460,6 +487,233 @@ class TestRoutes(unittest.TestCase):
             self.assertEqual(d["suggestions"], [])
         finally:
             libfolders.NOMAD_CANDIDATES = saved
+
+
+# ---------------------------------------------------------------------------
+# Review round: the update swap, removal by registry, handles, drives, locks
+# ---------------------------------------------------------------------------
+
+
+def _live(lib):
+    """NOMAD's folder added, the library scanned, a watcher baseline taken."""
+    own, nomad = lib
+    libfolders.add(str(nomad), "Project NOMAD")
+    server.load_cache(force=True)
+    watch = libfolders.Watch()
+    watch.tick()
+    return own, nomad, watch
+
+
+def _count_rescans(monkeypatch):
+    calls = []
+    real = server.load_cache
+
+    def counting(force=False):
+        if force:
+            calls.append(1)
+        return real(force=force)
+
+    monkeypatch.setattr(server, "load_cache", counting)
+    return calls
+
+
+def test_an_update_is_one_swap_and_never_a_rescan(lib, monkeypatch):
+    """NOMAD renames the new edition in, then deletes the old one. One tick can
+    see the old file gone while the new one is still settling; the library must
+    keep serving the old one until the new one swaps in, with no full rescan."""
+    own, nomad, watch = _live(lib)
+    rescans = _count_rescans(monkeypatch)
+    new = nomad / "medlineplus_en_all_2026-03.zim"
+    build_fixture_zim(str(new))
+    server.release_zim_handles(["medlineplus"])
+    os.remove(nomad / NOMAD_MED)
+    served = []
+    for _ in range(3):
+        watch.tick()
+        served.append(server._zim_files_cache.get("medlineplus"))
+    assert rescans == []
+    assert all(served), "a tick left the ZIM unserved"
+    assert served[-1] == str(new)
+    assert [
+        z["file"] for z in server._zim_list_cache if z["name"] == "medlineplus"
+    ] == [new.name]
+
+
+def test_an_update_never_opens_a_file_still_being_written(lib, monkeypatch):
+    own, nomad, watch = _live(lib)
+    opened = []
+    real = server._extract_zim_metadata
+    monkeypatch.setattr(
+        server, "_extract_zim_metadata", lambda n, p: opened.append(p) or real(n, p)
+    )
+    rescans = _count_rescans(monkeypatch)
+    new = nomad / "medlineplus_en_all_2026-03.zim"
+    new.write_bytes(b"x" * 10)
+    os.remove(nomad / NOMAD_MED)
+    watch.tick()
+    new.write_bytes(b"x" * 20)  # a cp still going
+    watch.tick()
+    assert opened == [] and rescans == []
+    assert server._zim_files_cache["medlineplus"] == str(nomad / NOMAD_MED)
+
+
+def test_a_file_that_cannot_be_read_is_the_only_reason_to_rescan(lib, monkeypatch):
+    own, nomad, watch = _live(lib)
+    rescans = _count_rescans(monkeypatch)
+    (nomad / "broken_en_all_2026-03.zim").write_bytes(b"not a zim at all" * 100)
+    watch.tick()
+    watch.tick()
+    assert rescans == [1]
+
+
+def test_removing_a_folder_never_touches_the_libraries_own_zims(lib):
+    own, nomad, watch = _live(lib)
+    with pytest.raises(libfolders.FolderError) as e:
+        libfolders.remove(str(own))
+    assert e.value.key == "folder_unknown"
+    assert "own" in server._zim_files_cache
+
+
+def test_the_same_file_name_in_both_folders_is_two_files(lib):
+    """NOMAD deleting its copy of a name Zimi also has must not cost Zimi's."""
+    own, nomad, watch = _live(lib)
+    build_fixture_zim(str(nomad / OWN))
+    watch.tick()
+    watch.tick()
+    assert server._zim_files_cache["own"] == str(own / OWN)
+    server.release_zim_handles(["own"])
+    os.remove(nomad / OWN)
+    watch.tick()
+    assert server._zim_files_cache["own"] == str(own / OWN)
+    assert [z["file"] for z in server._zim_list_cache if z["name"] == "own"] == [OWN]
+    assert OWN in (server._load_disk_cache() or {})
+
+
+def test_removing_a_folder_that_is_unplugged_still_drops_its_zims(lib, tmp_path):
+    own, nomad, watch = _live(lib)
+    assert "medlineplus" in server._zim_files_cache
+    gone = tmp_path / "unplugged"
+    nomad.rename(gone)  # the drive goes away
+    path = libfolders.remove(str(nomad))
+    libfolders.reconcile([], libfolders.registered_in(path))
+    assert "medlineplus" not in server._zim_files_cache
+    assert "own" in server._zim_files_cache
+
+
+def test_a_name_that_leaves_is_served_again_by_the_copy_beside_it(lib):
+    own, nomad, watch = _live(lib)
+    second = nomad.parent / "second"
+    second.mkdir()
+    build_fixture_zim(str(second / NOMAD_MED))
+    libfolders.add(str(second), "Second")
+    server.load_cache(force=True)
+    assert server._zim_files_cache["medlineplus"] == str(nomad / NOMAD_MED)
+    server.release_zim_handles(["medlineplus"])
+    os.remove(nomad / NOMAD_MED)
+    libfolders.reconcile([], [str(nomad / NOMAD_MED)])
+    assert server._zim_files_cache["medlineplus"] == str(second / NOMAD_MED)
+
+
+def test_register_in_place_drops_the_stale_handles(lib):
+    own, nomad, watch = _live(lib)
+    server.open_archive(str(nomad / NOMAD_MED))
+    for pool in (server._suggest_pool, server._fts_pool):
+        pool["medlineplus"] = object()
+    assert server.register_zim_file(str(nomad / NOMAD_MED)) is True
+    assert "medlineplus" not in server._suggest_pool
+    assert "medlineplus" not in server._fts_pool
+
+
+def test_a_lower_tier_arrival_stays_shadowed_and_a_higher_one_takes_over(lib):
+    own, nomad = lib
+    build_fixture_zim(str(nomad / OWN))
+    libfolders.add(str(nomad))
+    server.load_cache(force=True)
+    assert server._zim_files_cache["own"] == str(own / OWN)
+    # Another program's copy arriving later does not displace Zimi's own.
+    assert server.register_zim_file(str(nomad / OWN)) is True
+    assert server._zim_files_cache["own"] == str(own / OWN)
+    # The rule itself, both ways round, whatever the build.
+    theirs, ours = str(nomad / OWN), str(own / OWN)
+    assert server._zim_holder_keeps(ours, theirs) is True
+    assert server._zim_holder_keeps(theirs, ours) is False
+
+
+def test_a_collision_log_never_breaks_a_scan_across_drives(lib, monkeypatch):
+    own, nomad = lib
+    build_fixture_zim(str(nomad / OWN))
+    libfolders.add(str(nomad))
+
+    def other_drive(path, start=os.curdir):
+        raise ValueError("path is on mount 'D:', start on mount 'C:'")
+
+    monkeypatch.setattr(server.os.path, "relpath", other_drive)
+    assert server._scan_zim_files()["own"] == str(own / OWN)
+
+
+def test_listing_the_library_reads_no_file_for_ownership(lib, monkeypatch):
+    own, nomad, watch = _live(lib)
+    monkeypatch.setattr(
+        libfolders, "_read_state", lambda: pytest.fail("a list read the folder file")
+    )
+    held = libfolders.labels()
+    assert libfolders.owner(str(nomad / NOMAD_MED), held) == "Project NOMAD"
+    assert libfolders.owner(str(nomad / NOMAD_MED)) == "Project NOMAD"
+
+
+def test_the_environment_cannot_make_zimis_own_library_somebody_elses(lib, monkeypatch):
+    own, nomad = lib
+    monkeypatch.setenv(libfolders.ENV, str(own) + os.pathsep + str(nomad))
+    assert libfolders.dirs() == [str(nomad)]
+    assert libfolders.owner(str(own / OWN)) is None
+
+
+def test_a_root_folder_still_has_a_label():
+    assert libfolders._default_label(os.path.abspath(os.sep)) == os.path.abspath(os.sep)
+
+
+def test_saved_folders_survive_threads_changing_them_at_once(lib, monkeypatch):
+    import time
+
+    real = libfolders._read_state
+
+    def slow():
+        state = real()
+        time.sleep(0.01)
+        return state
+
+    monkeypatch.setattr(libfolders, "_read_state", slow)
+    paths = [f"/dismissed/{i}" for i in range(12)]
+    threads = [threading.Thread(target=libfolders.dismiss, args=(p,)) for p in paths]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    monkeypatch.setattr(libfolders, "_read_state", real)
+    assert sorted(libfolders._read_state()["dismissed"]) == sorted(
+        libfolders._norm(p) for p in paths
+    )
+
+
+def test_a_reset_waits_for_a_tick_in_flight(lib, monkeypatch):
+    own, nomad, watch = _live(lib)
+    seen = []
+    real = libfolders.reconcile
+
+    def slow(added, gone):
+        seen.append("tick-start")
+        time.sleep(0.2)
+        seen.append("tick-end")
+        return real(added, gone)
+
+    monkeypatch.setattr(libfolders, "reconcile", slow)
+    build_fixture_zim(str(nomad / "later_en_all_2026-04.zim"))
+    watch.tick()  # first sighting
+    t = threading.Thread(target=watch.tick)  # settled: reconciles, slowly
+    t.start()
+    time.sleep(0.05)
+    watch.reset()
+    seen.append("reset-done")
+    t.join()
+    assert seen.index("tick-end") < seen.index("reset-done")
 
 
 if __name__ == "__main__":

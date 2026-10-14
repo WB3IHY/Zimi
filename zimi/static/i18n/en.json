@@ -3073,5 +3073,7 @@
   "folder_is_library": "That is Zimi's own library folder.",
   "folder_known": "Already added.",
   "folder_limit": "Eight folders at most.",
-  "folder_env": "Set by ZIMI_EXTRA_ZIM_DIRS. Change it where Zimi is started."
+  "folder_env": "Set by ZIMI_EXTRA_ZIM_DIRS. Change it where Zimi is started.",
+  "folder_unknown": "That folder is not in the list.",
+  "folder_primary_only": "Only the primary admin can name a folder on the server."
 }

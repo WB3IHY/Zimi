@@ -3073,5 +3073,7 @@
   "folder_is_library": "Es la carpeta de biblioteca propia de Zimi.",
   "folder_known": "Ya está añadida.",
   "folder_limit": "Ocho carpetas como máximo.",
-  "folder_env": "Definido por ZIMI_EXTRA_ZIM_DIRS. Cámbialo donde se inicia Zimi."
+  "folder_env": "Definido por ZIMI_EXTRA_ZIM_DIRS. Cámbialo donde se inicia Zimi.",
+  "folder_unknown": "Esa carpeta no está en la lista.",
+  "folder_primary_only": "Solo el administrador principal puede indicar una carpeta del servidor."
 }

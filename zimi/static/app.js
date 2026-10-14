@@ -11554,8 +11554,7 @@ function renderCatalogItem(group) {
     // ALONGSIDE the existing one instead of replacing it (#50, echoes #16).
     const instTok = _flavorToken(instVariant._installedFile || '');
     const updVariant = variants.find(v => v.download_url && _flavorToken(v.download_url) === instTok) || instVariant;
-    const hasUpdate = instVariant._installedDate && updVariant.date && updVariant.download_url
-      && instVariant._installedDate < updVariant.date.substring(0, 7);
+    const hasUpdate = _catalogHasUpdate(instVariant, updVariant);
     if (hasUpdate) {
       // Update available — show update button (same style as manage view)
       actionsHtml = '<button class="ci-update-btn" onclick="downloadZim(\'' + escAttr(updVariant.download_url) + '\', this, true)" title="' + escAttr(t('from_to_update', {from: instVariant._installedDate, to: updVariant.date})) + '">' +
@@ -15927,7 +15926,13 @@ async function _renderLibFolders() {
   var el = document.getElementById('ms-libfolders');
   if (!el) return;
   var d;
-  try { d = await (await manageFetch(LIB_FOLDERS_URL)).json(); } catch (e) { return; }
+  try {
+    var r = await manageFetch(LIB_FOLDERS_URL);
+    // Naming a folder on the server's disk is for the primary admin; anyone
+    // else sees no card at all, not a field that answers with a refusal.
+    if (!r.ok) { el.innerHTML = ''; return; }
+    d = await r.json();
+  } catch (e) { return; }
   window._libFolders = d;
   var rows = (d.folders || []).map(function(f, i) {
     var count = f.present ? tPlural('lib_folders_zims', f.zims) : t('lib_folders_missing');
@@ -17172,6 +17177,13 @@ async function downloadZim(url, btn, isUpdate) {
   }
 }
 
+// A catalog row offers Update when its catalog edition is newer than the file
+// installed. Never for a ZIM in a folder another program owns: an update would
+// download a second full copy into Zimi's own library beside the original.
+function _catalogHasUpdate(inst, upd) {
+  return !inst._installedExternal && !!(inst._installedDate && upd.date && upd.download_url
+    && inst._installedDate < upd.date.substring(0, 7));
+}
 // A ZIM in a folder another program owns (Project NOMAD) is Zimi's to read and
 // not to delete: the row says whose it is where the delete button would be.
 function _zimDeleteBtn(file, external) {

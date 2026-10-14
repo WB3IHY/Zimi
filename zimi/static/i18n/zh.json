@@ -3073,5 +3073,7 @@
   "folder_is_library": "这是 Zimi 自己的库文件夹。",
   "folder_known": "已添加。",
   "folder_limit": "最多八个文件夹。",
-  "folder_env": "由 ZIMI_EXTRA_ZIM_DIRS 设置。请在启动 Zimi 的地方修改。"
+  "folder_env": "由 ZIMI_EXTRA_ZIM_DIRS 设置。请在启动 Zimi 的地方修改。",
+  "folder_unknown": "该文件夹不在列表中。",
+  "folder_primary_only": "只有主管理员可以指定服务器上的文件夹。"
 }

@@ -3073,5 +3073,7 @@
   "folder_is_library": "هذا مجلد مكتبة Zimi نفسه.",
   "folder_known": "تمت إضافته مسبقًا.",
   "folder_limit": "ثمانية مجلدات كحد أقصى.",
-  "folder_env": "محدد بواسطة ZIMI_EXTRA_ZIM_DIRS. غيّره حيث يبدأ تشغيل Zimi."
+  "folder_env": "محدد بواسطة ZIMI_EXTRA_ZIM_DIRS. غيّره حيث يبدأ تشغيل Zimi.",
+  "folder_unknown": "هذا المجلد ليس في القائمة.",
+  "folder_primary_only": "يمكن للمسؤول الرئيسي فقط تحديد مجلد على الخادم."
 }

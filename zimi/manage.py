@@ -6019,7 +6019,7 @@ def handle_manage_get(handler, parsed, params):
 
     elif parsed.path == "/manage/library-folders":
         if not _primary_admin_authorized(handler):
-            return handler._json(403, _DISK_PRIMARY_ONLY)
+            return handler._json(403, _FOLDERS_PRIMARY_ONLY)
         return handler._json(200, _library_folders_view())
 
     elif parsed.path == "/manage/env":
@@ -6474,6 +6474,7 @@ def _btc_view():
 
 
 _DISK_PRIMARY_ONLY = {"error": "reading the server's disk is for the primary admin"}
+_FOLDERS_PRIMARY_ONLY = {**_DISK_PRIMARY_ONLY, "error_key": "folder_primary_only"}
 
 
 def _library_folders_view():
@@ -6493,14 +6494,14 @@ def _handle_library_folders(handler, data):
     Adding or removing splices just that folder's ZIMs into the live library
     and answers once it has; the files in the folder are never touched."""
     if not _primary_admin_authorized(handler):
-        return handler._json(403, _DISK_PRIMARY_ONLY)
+        return handler._json(403, _FOLDERS_PRIMARY_ONLY)
     action = data.get("action")
     path = str(data.get("path") or "")
     try:
         if action == "add":
             libfolders.reconcile(libfolders.add(path, str(data.get("label") or "")), [])
         elif action == "remove":
-            libfolders.reconcile([], libfolders.remove(path))
+            libfolders.reconcile([], libfolders.registered_in(libfolders.remove(path)))
         elif action == "dismiss":
             libfolders.dismiss(path)
         else:
