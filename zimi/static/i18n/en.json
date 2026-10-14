@@ -3137,5 +3137,6 @@
   "sp_n_europaclipper": "Europa Clipper",
   "sp_dist_light": "{au} from you. Its light takes {time} to reach you.",
   "sp_here": "You are here.",
-  "sp_took_one": "The trip took {time}."
+  "sp_took_one": "The trip took {time}.",
+  "sp_cap_start": "Tap a planet or spacecraft, then Fly there. Slide the speed up to see what light does."
 }

@@ -3137,5 +3137,6 @@
   "sp_n_europaclipper": "Europa Clipper",
   "sp_dist_light": "À {au} de vous. Sa lumière met {time} à vous parvenir.",
   "sp_here": "Vous êtes ici.",
-  "sp_took_one": "Le voyage a duré {time}."
+  "sp_took_one": "Le voyage a duré {time}.",
+  "sp_cap_start": "Touchez une planète ou un engin, puis Y voler. Montez la vitesse pour voir ce que fait la lumière."
 }

@@ -3137,5 +3137,6 @@
   "sp_n_europaclipper": "木卫二快船",
   "sp_dist_light": "离你 {au}。它的光要 {time}才能到你这里。",
   "sp_here": "你在这里。",
-  "sp_took_one": "这趟飞行用了 {time}。"
+  "sp_took_one": "这趟飞行用了 {time}。",
+  "sp_cap_start": "点按一颗行星或航天器，再点“飞过去”。把速度调高，看看光会怎样。"
 }
