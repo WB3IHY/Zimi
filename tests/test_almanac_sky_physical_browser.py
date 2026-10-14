@@ -230,7 +230,10 @@ def test_the_look_around_view_draws_the_whole_sphere_on_demand_and_leaves_the_ca
         pg.evaluate("AlmanacSkyView.setView(window.__host, 0, 0, 0.1)")
         assert pg.evaluate("_skyHost.look.fov") == pg.evaluate("SKY_LENS_FOV[0]") <= 20
         # No timer while the view is still, and a burst of turns is one frame (read in one turn, so no other
-        # module's clock can be counted); an idle view never draws.
+        # module's clock can be counted); an idle view never draws. The turns above
+        # may still have a frame pending (a slow page has not run it yet), and a
+        # burst joins a pending frame instead of asking for another: let it land first.
+        pg.evaluate("() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))")
         turn = pg.evaluate(
             "() => { let t = 0, f = 0; const st = window.setTimeout, raf = window.requestAnimationFrame;"
             " window.setTimeout = function () { t++; return st.apply(this, arguments); };"
