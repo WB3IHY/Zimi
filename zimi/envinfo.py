@@ -56,6 +56,7 @@ VARS: dict[str, tuple[str, str]] = {
     "ZIMI_DATA_DIR": ("Where Zimi keeps its own data", "Data folder"),
     "ZIMI_STAGING_DIR": ("Where downloads are assembled", ""),
     "ZIMI_CREATE_ROOT": ("Where the Create page looks for archives to import (the library folder when unset)", ""),
+    "ZIMI_EXTRA_ZIM_DIRS": ("Other folders to read ZIMs from in place, never changed (Project NOMAD's library, a Kiwix box)", "Other library folders"),
     "ZIMI_HOST": ("Address the server binds to", ""),
     "ZIMI_PORT": ("Port the server binds to", "Port"),
     # ── updates ───────────────────────────────────────────────────────────

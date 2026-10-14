@@ -22,7 +22,7 @@ import urllib.request
 from datetime import datetime, timezone
 
 import zimi.server as _srv
-from zimi import outbound
+from zimi import libfolders, outbound
 
 log = logging.getLogger("zimi")
 
@@ -6017,6 +6017,9 @@ def handle_manage_get(handler, parsed, params):
             {"items": mapregions.annotate(list(items)), "source": source, "as_of": as_of, "refreshing": refreshing},
         )
 
+    elif parsed.path == "/manage/library-folders":
+        return handler._json(200, _library_folders_view())
+
     elif parsed.path == "/manage/env":
         # What the environment is overriding, so an admin can SEE it rather
         # than deducing it from a greyed-out control (#69). Read-only by
@@ -6466,6 +6469,51 @@ def _btc_view():
         "paths": btclient.format_paths(cfg.get("paths", [])),
         "locked": _btc_locked(),
     }
+
+
+def _library_folders_view():
+    """What the Storage card draws: the folders read in place (how many ZIMs
+    each holds comes from the library already in memory, not the disk), and
+    the one offer, if there is one."""
+    held = {}
+    for path in (_srv.get_zim_files() or {}).values():
+        held[os.path.dirname(path)] = held.get(os.path.dirname(path), 0) + 1
+    rows = [
+        {**f, "zims": held.get(f["path"], 0), "present": os.path.isdir(f["path"])}
+        for f in libfolders.folders()
+    ]
+    return {"folders": rows, "suggestions": libfolders.suggestions()}
+
+
+def _handle_library_folders(handler, data):
+    """POST /manage/library-folders: {action: add|remove|dismiss, path, label?}.
+
+    Adding or removing re-reads the library in the background; the files in the
+    folder are never touched. The page asks again when it is done."""
+    action = data.get("action")
+    path = str(data.get("path") or "")
+    try:
+        if action == "add":
+            libfolders.add(path, str(data.get("label") or ""))
+        elif action == "remove":
+            libfolders.remove(path)
+        elif action == "dismiss":
+            libfolders.dismiss(path)
+        else:
+            return handler._json(400, {"error": "bad_action"})
+    except libfolders.FolderError as e:
+        return handler._json(400, {"error": e.key, "error_key": e.key})
+    if action != "dismiss":
+
+        def _reread():
+            with _srv._zim_lock:
+                _srv.load_cache(force=True)
+            _srv._search_cache_clear()
+            _srv._suggest_cache_clear()
+
+        threading.Thread(target=_reread, daemon=True).start()
+        libfolders.ensure_watch()
+    return handler._json(200, _library_folders_view())
 
 
 def _handle_bt_client(handler, data):
@@ -6997,6 +7045,11 @@ def handle_manage_post(handler, parsed, data):
             for candidate in (_srv.get_zim_files() or {}).values():
                 if os.path.basename(candidate) != filename:
                     continue
+                if libfolders.owner(candidate) is not None:
+                    return handler._json(
+                        403,
+                        {"error": "not_ours", "error_key": "folder_not_ours"},
+                    )
                 resolved = os.path.realpath(candidate)
                 if resolved == root or not resolved.startswith(root + os.sep):
                     continue  # outside the library — not ours to delete
@@ -7521,6 +7574,9 @@ def handle_manage_post(handler, parsed, data):
 
     elif parsed.path == "/manage/bt-client":
         return _handle_bt_client(handler, data)
+
+    elif parsed.path == "/manage/library-folders":
+        return _handle_library_folders(handler, data)
 
     elif parsed.path == "/manage/bt-settings":
         # Seed/mirror toggles. An env var locks its field — UI changes would

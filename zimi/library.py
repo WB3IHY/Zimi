@@ -2106,7 +2106,11 @@ def _fetch_kiwix_catalog(
 
     # Build set of installed filename bases (date-stripped) for accurate matching
     local_bases = set()
-    for path in glob.glob(os.path.join(_srv.ZIM_DIR, "*.zim")):
+    from zimi import libfolders
+
+    # A ZIM in another program's folder is installed too: the catalog says so
+    # instead of offering a second copy of it.
+    for path in glob.glob(os.path.join(_srv.ZIM_DIR, "*.zim")) + libfolders.zim_paths():
         base, _ = _srv._extract_zim_date(os.path.basename(path))
         local_bases.add(base.lower())
     items = []
@@ -3433,13 +3437,27 @@ def _check_streetzim_updates(installed_files):
     return updates
 
 
+def _owned_zim_files():
+    """The library's own ZIMs, ``{name: path}``: everything except what lives in
+    a folder another program owns. Updating replaces a file, and that is not
+    Zimi's to do in someone else's folder."""
+    from zimi import libfolders
+
+    folder_labels = libfolders.labels()
+    return {
+        name: path
+        for name, path in _srv.get_zim_files().items()
+        if libfolders.owner(path, folder_labels) is None
+    }
+
+
 def _check_updates():
     """Compare installed ZIMs against Kiwix catalog to find available updates.
 
     Fetches a large batch from the catalog and matches by base name.
     Returns list of {name, installed_date, latest_date, download_url}.
     """
-    zims = _srv.get_zim_files()
+    zims = _owned_zim_files()
     # Build lookup: catalog_prefix → (short_name, installed_date, filename)
     # Match by checking if installed filename starts with catalog name + '_'
     installed_files = []

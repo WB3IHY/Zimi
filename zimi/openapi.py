@@ -366,6 +366,16 @@ def build_openapi():
                                         ),
                                     },
                                     "size_gb": {"type": "number"},
+                                    "external": {
+                                        "type": "string",
+                                        "description": (
+                                            "Present when the file lives in a "
+                                            "folder another program owns (Project "
+                                            "NOMAD, ZIMI_EXTRA_ZIM_DIRS): that "
+                                            "folder's label. Zimi reads it in "
+                                            "place and never deletes or updates it."
+                                        ),
+                                    },
                                     "language": {"type": "string"},
                                     "first_seen": {
                                         "type": "number",

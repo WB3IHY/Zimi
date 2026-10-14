@@ -1194,6 +1194,23 @@ def _public_zim_entry(entry):
     return {k: v for k, v in entry.items() if k not in _PRIVATE_ZIM_FIELDS}
 
 
+def _mark_external(entries):
+    """Entries of ZIMs that live in another program's folder carry
+    ``external``: that folder's label. The page hides Delete and Update for
+    them, because the file is not Zimi's to change."""
+    from zimi import libfolders
+
+    folder_labels = libfolders.labels()
+    if not folder_labels:
+        return entries
+    paths = _srv.get_zim_files()
+    out = []
+    for z in entries:
+        label = libfolders.owner(paths.get(z.get("name"), ""), folder_labels)
+        out.append({**z, "external": label} if label else z)
+    return out
+
+
 def _zim_file_sig(entry):
     """The file identity a memoized provenance record is valid for."""
     return (entry or {}).get("file", ""), (entry or {}).get("size_bytes", 0)
@@ -2482,6 +2499,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                         for z in result
                     ]
                 result = [_public_zim_entry(z) for z in result]
+                result = _mark_external(result)
                 # Additive envelope: ?layout=1 carries the top-level section_order
                 # alongside the ZIMs. The bare array shape stays the default so
                 # existing API consumers are unaffected.

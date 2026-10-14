@@ -884,6 +884,9 @@ CONFIG_ENV_SETTINGS = (
     # it is not a filter that starts wide open. The CLI is unaffected: someone
     # at a shell on the machine already has the filesystem.
     ConfigSetting("create_root", "ZIMI_CREATE_ROOT", "str", "", "web off", False),
+    # Folders another program owns (Project NOMAD, a Kiwix box), read in place
+    # and never changed: a path list, os.pathsep separated (zimi/libfolders.py).
+    ConfigSetting("extra_zim_dirs", "ZIMI_EXTRA_ZIM_DIRS", "str", "", "none", False),
     # Trusted-header SSO (zimi/sso.py). Both the team domain and the audience
     # tag must be present for the feature to switch on at all, which is what
     # keeps a bare install from trusting an identity header anyone can send.
@@ -2991,8 +2994,16 @@ def _scan_zim_files():
             log.info("Skipping %s (has %s marker)", base, _SCAN_IGNORE_MARKER)
             continue
         sub_paths.extend(sorted(glob.glob(os.path.join(sub, "*.zim"))))
+    # Folders another program owns (libfolders) are the last tier: read where
+    # they are, and never shadowing a ZIM of Zimi's own.
+    from zimi import libfolders
+
     groups = {}  # base name -> [(tier, path)], in scan order
-    for tier, paths in ((0, root_paths), (1, sub_paths)):
+    for tier, paths in (
+        (0, root_paths),
+        (1, sub_paths),
+        (2, libfolders.zim_paths()),
+    ):
         for path in paths:
             name = _zim_base_name(os.path.basename(path))
             groups.setdefault(name, []).append((tier, path))
@@ -4007,16 +4018,25 @@ def _zim_live_holder(name, path):
     return held
 
 
+def _zim_tier(path):
+    """Where a ZIM sits in the collision rule: 0 the library root, 1 one of its
+    subfolders, 2 a folder another program owns (libfolders)."""
+    from zimi import libfolders
+
+    if libfolders.owner(path) is not None:
+        return 2
+    return 0 if os.path.dirname(os.path.realpath(path)) == os.path.realpath(ZIM_DIR) else 1
+
+
 def _zim_holder_keeps(held, path):
     """register_zim_file's mirror of _scan_zim_files' rule: True when `held`,
     already serving a name, keeps it against the arriving `path`. A root file
-    beats a subfolder one whatever its build; within a tier the richer build
+    beats a subfolder one, and that beats another program's folder, whatever
+    the build; within a tier the richer build
     (_zim_build_rank) holds, and an equal one yields to the arrival."""
-    root = os.path.realpath(ZIM_DIR)
-    held_in_root = os.path.dirname(os.path.realpath(held)) == root
-    new_in_root = os.path.dirname(os.path.realpath(path)) == root
-    if held_in_root != new_in_root:
-        return held_in_root
+    held_tier, new_tier = _zim_tier(held), _zim_tier(path)
+    if held_tier != new_tier:
+        return held_tier < new_tier
     return _zim_build_rank(os.path.basename(held)) > _zim_build_rank(
         os.path.basename(path)
     )
@@ -5214,6 +5234,9 @@ def main():
             for p in (_cache_file_path(), os.path.join(ZIM_DIR, ".zimi_cache.json"))
         )
         load_cache()
+        from zimi import libfolders
+
+        libfolders.ensure_watch()
         # Startup partial-download sweep. Keep partials that a download record
         # still wants (resume_pending_downloads() picks those up via Range).
         # For the rest (orphaned), auto-delete only the stale ones (>24h) — a
