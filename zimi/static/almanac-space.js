@@ -156,7 +156,7 @@ function _spRampTo(u, beta) {
 // of `au` AU: seconds on the Earth clock, on the ship's, and the speed then.
 function _spTripAt(au, beta, s) {
   var R = SP_RAMP_FRACTION, light = _lightDelaySeconds(au) / beta;
-  var cruiseLag = beta * beta / (1 + Math.sqrt(1 - beta * beta));   // lag per unit of cruise way
+  var cruiseLag = _timeDilationLag(1, beta);   // lag per unit of cruise way (the orrery's)
   var up = _spRampTo(1, beta), earth, lag;
   s = Math.min(1, Math.max(0, s));
   if (s <= R) {
@@ -198,10 +198,15 @@ function _spRetarded(posAt, observer, jd) {
 }
 
 // ── Where things are ──
-// A planet or Pluto, or the Sun: heliocentric AU, J2000 ecliptic. The Earth's
-// elements are the Earth-Moon barycentre's: 4700 km, 3e-5 AU, off the Earth.
+// A planet or Pluto, or the Sun: heliocentric AU, J2000 ecliptic. Jupiter to
+// Pluto come from the shipped Horizons table over 1970-2050, the same table the
+// probes are in, so a flyby is where it was; elsewhere, and for the inner planets,
+// from the orrery's elements. The Earth's elements are the Earth-Moon barycentre's:
+// 4700 km, 3e-5 AU, off the Earth.
 function _spPlanetPos(name, jd) {
   if (name === 'Sun') return [0, 0, 0];
+  var tracked = _spTrackAt(_spPlanetTracks[name], jd);
+  if (tracked) return tracked;
   var p = _planetHelio3D(name, _jdToJulianCentury(jd));
   return [p.x, p.y, p.z];
 }
@@ -284,7 +289,11 @@ function _spMoonOffset(name, jd) {
 // Rows [jd, x, y, z, vx, vy, vz] (AU, AU/day), thinned so a cubic Hermite curve
 // through them is within the table's tolerance of Horizons.
 var _spTracks = {};
-function _spSetTracks(json) { _spTracks = json && json.tracks ? json.tracks : {}; }
+var _spPlanetTracks = {};   // Jupiter, Saturn, Uranus, Neptune, Pluto over 1970-2050, from the same Horizons table
+function _spSetTracks(json) {
+  _spTracks = json && json.tracks ? json.tracks : {};
+  _spPlanetTracks = json && json.planets ? json.planets : {};
+}
 function _spTrack(key) { return _spTracks[key] || null; }
 function _spHermite(a, b, jd) {
   var h = b[0] - a[0], t = (jd - a[0]) / h, t2 = t * t, t3 = t2 * t;
@@ -306,18 +315,159 @@ function _spTrackAt(track, jd) {
 }
 
 // ── Scale ──
-// Readable: planets and moons drawn SP_READABLE_BOOST times their size, and the
-// moons' orbits round them by the same factor so Io stays outside Jupiter
-// (a boost on one and not the other would bury the moons). Orbits round the
-// Sun are always true. The factor is the largest whole number for which the
-// widest moon orbit drawn (Callisto's, 1.9 million km) stays under half an AU:
-// less than the gap between Mars and Jupiter, and the Sun it makes (0.18 AU)
-// stays well short of Mercury (0.39 AU).
+// Readable: planets and moons drawn up to SP_READABLE_BOOST times their size, and
+// the moons' orbits round them by the same factor so Io stays outside Jupiter
+// (a boost on one and not the other would bury the moons). Orbits round the Sun are
+// always true, and so are the places of the probes. The factor is the largest whole
+// number for which the widest moon orbit drawn (Callisto's, 1.9 million km) stays
+// under half an AU: less than the gap between Mars and Jupiter, and the Sun it makes
+// (0.18 AU) stays well short of Mercury (0.39 AU).
+//
+// A body is never inflated so far that a probe near it ends up inside it: where a
+// spacecraft flies, the body is drawn only as big as keeps it SP_CLEAR_FRACTION of
+// the probe's true distance (Parker near the Sun draws it 7 times, Juno at Jupiter
+// 25 times), and the moons' orbits round a planet stay outside the probe too.
 var SP_MOON_ORBIT_AU_MAX = 0.5;
 var SP_READABLE_BOOST = Math.floor(SP_MOON_ORBIT_AU_MAX * AU_KM / SP_MOONS.Callisto.a);
-function _spScale(mode) {
-  var k = mode === 'true' ? 1 : SP_READABLE_BOOST;
-  return { body: k, moon: k };
+var SP_CLEAR_FRACTION = 0.8;       // of a probe's distance, the most a body (or its moons' orbits) is drawn out to
+var SP_MOON_CLEARANCE = 1.5;       // a moon's orbit is drawn at least this far outside its planet's drawn edge
+var SP_SCALED_KEYS = ['Sun', 'Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Ceres'];
+
+// The true distance (AU) from each body to the nearest spacecraft flying at jd.
+function _spNearestProbeAU(jd) {
+  var near = {};
+  Object.keys(_spTracks).forEach(function (pk) {
+    if (pk === 'ceres') return;
+    var p = _spTrackAt(_spTracks[pk], jd);
+    if (!p) return;
+    SP_SCALED_KEYS.forEach(function (k) {
+      var pos = k === 'Ceres' ? _spTrackAt(_spTracks.ceres, jd) : _spPlanetPos(k, jd);
+      if (!pos) return;
+      var d = _aeLen(_aeSub(p, pos));
+      if (near[k] === undefined || d < near[k]) near[k] = d;
+    });
+  });
+  return near;
+}
+// The scale at jd: body(key) is the factor a body's size is drawn at, moon(planet)
+// the factor its moons' orbits (and the moons' sizes) are drawn at.
+function _spScale(mode, jd) {
+  var one = function () { return 1; };
+  if (mode === 'true') return { mode: mode, body: one, moon: one };
+  var near = jd === undefined ? {} : _spNearestProbeAU(jd);
+  function cap(d, rAU) {
+    return d === undefined ? SP_READABLE_BOOST : Math.max(1, Math.min(SP_READABLE_BOOST, Math.floor(SP_CLEAR_FRACTION * d / rAU)));
+  }
+  function planetFactor(key) {
+    var km = key === 'Sun' ? 695700 : (SP_RADIUS_KM[key] || 1);
+    return cap(near[key], km / AU_KM);
+  }
+  function moonFactor(planet) {
+    var moons = Object.keys(SP_MOONS).filter(function (m) { return SP_MOONS[m].planet === planet; });
+    if (!moons.length) return 1;
+    var aMax = 0, aMin = Infinity;
+    moons.forEach(function (m) { aMax = Math.max(aMax, SP_MOONS[m].a); aMin = Math.min(aMin, SP_MOONS[m].a); });
+    var outward = cap(near[planet], aMax / AU_KM);   // stays outside a probe near the planet
+    var inward = Math.ceil(SP_MOON_CLEARANCE * planetFactor(planet) * (SP_RADIUS_KM[planet] || 1) / aMin);   // and outside the planet
+    return Math.max(1, outward, inward);
+  }
+  var moonCache = {};
+  var moon = function (planet) { return moonCache[planet] || (moonCache[planet] = moonFactor(planet)); };
+  return {
+    mode: mode, moon: moon,
+    body: function (key) { return SP_MOONS[key] ? moon(SP_MOONS[key].planet) : planetFactor(key); }
+  };
+}
+
+// ── Numbers for the page's text ──
+// Every figure the page prints (how far, how long the light takes, how long the
+// trip) is the true one: the drawn places of the moons, ×39 on their orbits, are
+// for drawing only. A trip is measured from where the ship is to where the body
+// will be, stopping SP_STANDOFF_RADII of the body's own radii short of it (the
+// same at either scale, so the figure does not move when the scale does).
+var SP_RADIUS_KM = {
+  Mercury: 2439.7, Venus: 6051.8, Earth: 6378.137, Mars: 3396.2, Jupiter: 71492, Saturn: 60268, Uranus: 25559,
+  Neptune: 24764, Pluto: 1188.3, Ceres: 469.7
+};
+function _spTrueRadiusAU(key) {
+  var b = SP_MOONS[key] ? SP_MOONS[key].r : (key === 'Sun' ? 695700 : SP_RADIUS_KM[key]);
+  return b ? b / AU_KM : 0;
+}
+function _spTrueStandoffAU(key) {
+  return _spTrueRadiusAU(key) ? SP_STANDOFF_RADII * _spTrueRadiusAU(key) : SP_PROBE_STANDOFF_AU;
+}
+// The true distance (AU) between two bodies at jd, or null if either is not there.
+function _spTrueDistAU(aKey, bKey, jd) {
+  var a = _spBodyPos(aKey, jd), b = _spBodyPos(bKey, jd);
+  return a && b ? _aeLen(_aeSub(a, b)) : null;
+}
+// A trip at speed beta from where the ship is (at body `fromKey`) to body `key`:
+// how far, the light's time, the trip on the two clocks, when it arrives, and whether
+// the body is still there then (a probe's table ends).
+function _spTripBetween(fromKey, key, jd, beta) {
+  var from = _spBodyPos(fromKey, jd), now = _spBodyPos(key, jd);
+  if (!from || !now) return null;
+  var posAt = function (j) { return _spBodyPos(key, j) || now; };
+  var hit = _spIntercept(posAt, from, beta, jd, _spTrueStandoffAU(key));
+  var d = _aeLen(_aeSub(now, from));
+  return {
+    distAU: d, lightSec: _lightDelaySeconds(d), legAU: hit.distAU, earthSec: hit.trip.earthSec, shipSec: hit.trip.shipSec,
+    arriveJd: hit.arriveJd, arrivePos: hit.pos, reachable: !!_spBodyPos(key, hit.arriveJd)
+  };
+}
+
+// ── The moment, in UTC ──
+// The page's clock and every event's date are shown in one zone, UTC: a flyby is
+// "Aug 25, 1989" for everyone, whatever their clock says.
+var SP_WHEN_OPTS = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'UTC', timeZoneName: 'short' };
+function _spFmtWhen(jd) {
+  return _aeDateFormatter('sp-when-utc', SP_WHEN_OPTS).format(new Date((jd - JD_UNIX_EPOCH) * MS_PER_DAY));
+}
+
+// ── The overview's layout ──
+// The whole system cannot be drawn to scale on a phone: Neptune is 30 AU out and Mercury
+// 0.39, so in a 390 px width the inner planets would share 10 px. The overview draws
+// distance as order instead: a body at r AU is shown at K ln(1 + r / R0), which puts
+// Mercury to Pluto (and Voyager 1) on rings of their own, the way a flight time grows.
+// It is a layout of the picture only, blended in and out (lam, 0 to 1) as the camera
+// goes in: every number on the page is the true one, and a flight is flown in true space.
+var SP_LAYOUT_K = 1.5, SP_LAYOUT_R0 = 0.15;
+function _spLayoutMap(p, lam) {
+  var r = _aeLen(p);
+  if (!lam || r < 1e-9) return p;
+  var f = SP_LAYOUT_K * Math.log(1 + r / SP_LAYOUT_R0) / r;
+  var m = 1 - lam + lam * f;
+  return [p[0] * m, p[1] * m, p[2] * m];
+}
+// A body's place in the picture: a moon keeps its true offset (drawn wider by the scale) round its planet's laid-out place.
+function _spDisplayAt(key, abs, jd, lam) {
+  if (!lam) return abs;
+  if (SP_MOONS[key]) {
+    var par = _spPlanetPos(SP_MOONS[key].planet, jd), mp = _spLayoutMap(par, lam);
+    return [mp[0] + abs[0] - par[0], mp[1] + abs[1] - par[1], mp[2] + abs[2] - par[2]];
+  }
+  return _spLayoutMap(abs, lam);
+}
+
+// ── Which body a tap meant ──
+// `items` are what the last frame drew: key, kind, parent (a moon's planet), the
+// screen place and the radius in pixels. The nearest centre within reach wins; a
+// moon beside its planet loses to it unless the planet is big on the screen (the
+// person has zoomed in on it).
+var SP_TAP_RADIUS_PX = 24;
+var SP_ZOOMED_PX = 60;
+function _spPick(items, x, y) {
+  var reached = items.filter(function (p) { return Math.hypot(p.x - x, p.y - y) <= Math.max(p.rpx, SP_TAP_RADIUS_PX); });
+  var planetsHit = {};
+  reached.forEach(function (p) { if (p.kind !== 'moon') planetsHit[p.key] = p; });
+  var best = null, bestD = Infinity;
+  reached.forEach(function (p) {
+    var parent = p.kind === 'moon' ? planetsHit[p.parent] : null;
+    if (parent && parent.rpx < SP_ZOOMED_PX) return;
+    var d = Math.hypot(p.x - x, p.y - y);
+    if (d < bestD || (d === bestD && best && p.rpx < best.rpx)) { best = p; bestD = d; }
+  });
+  return best ? best.key : null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -346,7 +496,7 @@ var SP_BODIES = [
   { key: 'Moon', kind: 'moon', km: 1737.4, color: '#c8c8c8', map: 'moon' },
   { key: 'Io', kind: 'moon', km: 1821.6, color: '#e8d870', map: 'io' },
   { key: 'Europa', kind: 'moon', km: 1560.8, color: '#d8cfc0', map: 'europa' },
-  { key: 'Ganymede', kind: 'moon', km: 2634.1, color: '#a8a095', proc: 'ice' },
+  { key: 'Ganymede', kind: 'moon', km: 2634.1, color: '#a8a095', map: 'ganymede' },
   { key: 'Callisto', kind: 'moon', km: 2410.3, color: '#7d7468', map: 'callisto' },
   { key: 'Titan', kind: 'moon', km: 2574.7, color: '#d9a550', map: 'titan', atmo: [1, 0.65, 0.2] }
 ];
@@ -390,13 +540,15 @@ function _spLinkKey(key) {
 }
 
 // Where a body is at jd (AU, heliocentric ecliptic J2000), or null where it
-// is not (a probe before it launched or after it ended). Moons are placed
-// round their planet, with their orbits drawn `moonK` times as wide.
-function _spBodyPos(key, jd, moonK) {
+// is not (a probe before it launched or after it ended). Without a scale this is
+// the true place, the one every number is made from; with one (_spScale) the
+// moons are placed round their planet with their orbits drawn that much wider,
+// for drawing only.
+function _spBodyPos(key, jd, scale) {
   var b = _spBody(key);
   if (b.track) return _spTrackAt(_spTrack(b.track), jd);
   if (b.kind === 'moon') {
-    var parent = _spPlanetPos(SP_MOONS[key].planet, jd), off = _spMoonOffset(key, jd), k = moonK || 1;
+    var parent = _spPlanetPos(SP_MOONS[key].planet, jd), off = _spMoonOffset(key, jd), k = scale ? scale.moon(SP_MOONS[key].planet) : 1;
     return [parent[0] + off[0] * k, parent[1] + off[1] * k, parent[2] + off[2] * k];
   }
   return _spPlanetPos(key, jd);
@@ -405,7 +557,7 @@ function _spParentKey(key) { var b = _spBody(key); return b.kind === 'moon' ? SP
 
 // A body's axes. A moon keeps one face to its planet: x toward it, z the
 // planet's pole.
-function _spFrameOf(key, jd, moonK) {
+function _spFrameOf(key, jd) {
   var b = _spBody(key);
   if (b.kind === 'moon') {
     var z = SP_MOONS[key].planet === 'Earth' ? [0, 0, 1] : _spPoleEcl(SP_MOONS[key].planet);
@@ -421,7 +573,7 @@ function _spFrameOf(key, jd, moonK) {
 function _spShownRadius(key, scale) {
   var b = _spBody(key);
   if (b.kind === 'probe') return 0;
-  return b.km / AU_KM * scale.body;
+  return b.km / AU_KM * scale.body(key);
 }
 
 // ── Strings and numbers ──
@@ -430,10 +582,16 @@ var SP_EVENT_DATE_OPTS = { day: 'numeric', month: 'short', year: 'numeric', time
 function _spFmtDate(jd) {
   return _aeDateFormatter('sp-date-utc', SP_EVENT_DATE_OPTS).format(new Date((jd - JD_UNIX_EPOCH) * MS_PER_DAY));
 }
+// A speed in km/s, the unit in the reader's language ("км/с") where Intl has it.
+function _spFmtKmS(kms) {
+  try {
+    return _orrFormatter('km-s', function (lang) { return new Intl.NumberFormat(lang, { style: 'unit', unit: 'kilometer-per-second', unitDisplay: 'short', maximumFractionDigits: 0 }); }).format(kms);
+  } catch (e) { return _orrNum(kms, null, 0) + ' km/s'; }
+}
 function _spFmtSpeed(beta) {
   var kms = beta * SPEED_OF_LIGHT_KM_S;
   // Isolated left-to-right: inside right-to-left text the bidi algorithm would reorder "0.70 c · 209,253 km/s".
-  return AE_LTR_ISOLATE + _orrNum(beta, null, beta < 0.01 ? 4 : 2) + ' c · ' + _orrNum(kms, null, 0) + ' km/s' + AE_POP_ISOLATE;
+  return AE_LTR_ISOLATE + _orrNum(beta, null, beta < 0.01 ? 4 : 2) + ' c · ' + _spFmtKmS(kms) + AE_POP_ISOLATE;
 }
 // The speed slider goes by rapidity, so the last 9 hundredths of c are not a sliver.
 var SP_RAPIDITY_MIN = Math.atanh(SP_MIN_BETA), SP_RAPIDITY_MAX = Math.atanh(SP_MAX_BETA);
@@ -456,15 +614,16 @@ var SP_PROBE_STANDOFF_AU = 0.004;    // and 600,000 km from a probe, which is a 
 var SP_MIN_RADII = 1.6;              // the closest the camera comes, in radii
 var SP_PROBE_MIN_AU = 5e-4;
 var SP_MAX_DIST_AU = 500;
-var SP_OVERVIEW_DIST_AU = 60;        // wide enough for Neptune and Pluto's orbits
-var SP_OVERVIEW_ELEVATION = 0.55;    // radians above the ecliptic
+var SP_OVERVIEW_DIST_AU = 46;        // in the laid-out picture's units: wide enough for Voyager 1 on a phone's width
+var SP_OVERVIEW_ELEVATION = 1.1;     // radians above the ecliptic: nearly overhead, so the rings are round
+var SP_START_AZIMUTH = -2.0;         // where the overview first looks from (radians round the ecliptic)
+var SP_LAYOUT_MS = 900;              // the picture's layout blends in and out over this
+var SP_LAYOUT_ZOOM_OFF = 14;         // zoom in past this many units and the layout gives way to true places
 var SP_DRAG_RAD_PER_PX = 0.006;
 var SP_WHEEL_ZOOM = 0.0015;
 var SP_KEY_TURN = 0.09;
 var SP_KEY_ZOOM = 1.18;
 var SP_TAP_SLOP_PX = 6;
-var SP_TAP_RADIUS_PX = 24;
-var SP_TAP_PROBE_BIAS_PX = 8, SP_TAP_MOON_BIAS_PX = 6;   // where two things overlap the smaller one is meant
 var SP_FLIGHT_BASE_S = 6, SP_FLIGHT_PER_DECADE_S = 2.5, SP_FLIGHT_MAX_S = 13;
 var SP_TIME_RATES = [0, 1, 30, 365.25];   // days a second
 var SP_TIME_KEYS = ['sp_time_stopped', 'sp_time_day', 'sp_time_month', 'sp_time_year'];
@@ -472,8 +631,19 @@ var SP_AU_TO_PX_MIN = 6;             // a body smaller than this (px radius) get
 var SP_RING_FADE_PX = 16;
 var SP_MARKER_PX = 15;
 var SP_SELECT_RING_MAX_PX = 30;      // a body bigger than this needs no ring round it
-var SP_PROBE_PX = 8;
+var SP_PROBE_PX = 8, SP_PROBE_SELECT_PX = 4;
 var SP_COVER_PX = 12;                // a body this big hides what is behind it, labels too
+var SP_MAX_PITCH = 1.5;              // the head and the orbiting camera turn no further than this up or down (radians)
+var SP_MAX_LOOK_YAW = Math.PI;
+var SP_CHIP_TITLE_CHARS = 34;        // a talk or question on a chip is cut to this
+var SP_MARKER_LAYOUT_PX = 11;        // body rings are smaller in the laid-out picture, where bodies are close
+var SP_SELECT_COLOUR = [1, 0.72, 0.2], SP_GHOST_COLOUR = [1, 1, 1], SP_LIGHT_COLOUR = [1, 0.96, 0.7];
+var SP_SELECT_RING_MIN_PX = 24, SP_SELECT_RING_PAD_PX = 10, SP_GHOST_PX = 12, SP_LIGHT_PX = 30, SP_RING_ALPHA = 0.85, SP_GHOST_ALPHA = 0.9;
+var SP_GHOST_MIN_OFFSET_PX = 12;     // the light's place is drawn only when it is this far from the body's
+var SP_GLOW_RADII = 3.5, SP_GLOW_MIN_PX = 11;   // the Sun's glow: in its radii, and at least this wide on the screen
+var SP_NEAR_FRACTION = 0.35, SP_NEAR_MIN_AU = 1e-10;   // the camera's near plane: of the nearest surface, and its floor
+var SP_CAPTION_MS = 3200;            // an effect's caption stays this long before the next
+var SP_LABEL_GAP_PX = 10;            // a name's distance from its body
 var SP_LABEL_H = 15, SP_LABEL_CHAR_W = 6.6;
 var SP_MOON_APART_PX = 26;           // a moon is named and marked once this far from its planet
 var SP_STAR_SIZE_MAX = 9;
@@ -486,11 +656,22 @@ var SP_CAPTION_BETA = { stars: 0.25, colour: 0.45 };   // where each effect has 
 // ── Styles ──
 // Shares the Earth view's (.ae-*): one look. These are the ones it lacks.
 var SP_CSS = [
+  '.sp-top{flex-direction:column;align-items:stretch;gap:6px;justify-content:flex-start}',
+  '.sp-top-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}',
+  '.sp-tools{flex-direction:row;gap:6px;pointer-events:none}',
+  '.sp-tools>*{pointer-events:auto}',
+  '.sp-tabs{display:flex;gap:6px;width:min(560px,100%);pointer-events:auto}',
+  '.sp-tabs .ae-btn{flex:1 1 0;min-width:0;padding-inline:4px;font-size:12px;overflow:hidden;text-overflow:ellipsis}',
+  '.sp-tabs .ae-btn[data-sp-overview]{flex-grow:1.5}',
   '.sp-chips{display:flex;gap:6px;overflow-x:auto;max-width:100%;padding:2px 2px 4px;pointer-events:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}',
   '.sp-chips::-webkit-scrollbar{display:none}',
   '.sp-chips .ae-btn{flex:0 0 auto}',
+  '.sp-chips .ae-btn[hidden]{display:none}',
   '.sp-chips .ae-btn[aria-disabled="true"]{opacity:.5}',
-  '.sp-chips .sp-gap{flex:0 0 1px;background:var(--border);margin:4px 4px}',
+  // A finger needs 44 px, not the 34 the Earth view's buttons give a mouse.
+  '@media (pointer:coarse){.sp-view .ae-btn{min-height:44px}.sp-view .sp-lib .ae-btn,.sp-view .sp-cap .ae-btn{min-height:44px}}',
+  '.sp-view.ae-blank .ae-tools,.sp-view.ae-blank .ae-when-col,.sp-view.ae-blank .sp-speed,.sp-view.ae-blank .sp-tabs,.sp-view.ae-blank .sp-chips{display:none}',
+  '.sp-view .ae-when b{white-space:nowrap;font-size:12px}',
   '.sp-speed{display:flex;align-items:center;gap:10px;width:min(560px,100%);pointer-events:auto}',
   '.sp-speed label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;flex:0 0 auto}',
   '.sp-speed input{flex:1;min-width:80px;accent-color:var(--amber);height:28px}',
@@ -505,7 +686,8 @@ var SP_CSS = [
   '.sp-hud[hidden]{display:none}',
   '.sp-card .sp-line{display:block;color:var(--text2)}',
   '.sp-card .sp-kind{font-size:12px;font-weight:400;color:var(--text2);margin-inline-start:6px}',
-  '.sp-view.sp-flying .sp-card,.sp-view.sp-flying .sp-chips,.sp-view.sp-flying .ae-note{display:none}',
+  '.sp-view.sp-flying .sp-card,.sp-view.sp-flying .sp-chips,.sp-view.sp-flying .sp-tabs{display:none}',
+  '.sp-view.sp-arrived .sp-card{display:none}',
   '.sp-card .sp-line b{color:var(--text);font-weight:500}',
   '.sp-card .sp-go{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}',
   '.sp-card .sp-lib{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}',
