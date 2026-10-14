@@ -48,6 +48,8 @@ function _getLocation() {
   // must check `stored`: resolving this made-up point to a timezone showed a
   // fresh browser Denver's clock instead of its own (the device already
   // KNOWS its zone; deriving one from invented coordinates loses that).
+  var zone = typeof _skyZonePlace === 'function' ? _skyZonePlace(_almDeviceTz()) : null;   // the zone's own city (almanac-skyfacts.js)
+  if (zone) return { lat: zone[0], lon: zone[1], name: '', stored: false };
   return { lat: 34, lon: -new Date().getTimezoneOffset() / 60 * 15, name: '', stored: false };
 }
 
@@ -2119,6 +2121,8 @@ function _renderAlmanacContent() {
   html += '<div class="almanac-sky-wrap">' +
     '<canvas id="almanac-sky-canvas" aria-describedby="almanac-sky-desc" role="img" tabindex="0"></canvas>' +
     '<div id="almanac-sky-cap" class="alm-sky-cap"></div>' +
+    '<div id="almanac-sky-facts" class="alm-sky-facts"></div>' +
+    '<details id="almanac-sky-set" class="alm-sky-set"></details>' +
     '<div id="almanac-sky-tip" class="alm-sky-tip" hidden></div>' +
     // Inline styles duplicate .sr-only so a stale cached app.css can never
     // expose this text visually (issue #25).

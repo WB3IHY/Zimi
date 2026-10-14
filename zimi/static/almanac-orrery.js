@@ -1868,18 +1868,33 @@ function _orreryLaunchRocket(targetName) {
   }
 }
 
-var _PLANET_V0 = { Mercury: -0.61, Venus: -4.40, Mars: -1.60, Jupiter: -9.40, Saturn: -8.88, Uranus: -7.19, Neptune: -6.87 };
+var _PLANET_V0 = { Saturn: -8.88, Uranus: -7.19, Neptune: -6.87 };   // the outer planets: magnitude at 1 AU from both, full phase
 
 // A planet's apparent magnitude from its distances in AU: to the Sun r, to
-// the Earth delta, and the Earth's own from the Sun R. Mercury and Venus,
-// whose phase changes most, dim by the share of the disc that is lit (rough).
+// the Earth delta, and the Earth's own from the Sun R. Mercury, Venus, Mars
+// and Jupiter by Mallama and Hilton (2018, Astronomy and Computing 25): the
+// distance term plus a polynomial in the phase angle (degrees) fitted to the
+// planet's own brightness curve; the three distant planets, whose phase hardly
+// changes, by their magnitude at 1 AU.
+var _MALLAMA_MERCURY = [-0.613, 6.3280e-2, -1.6336e-3, 3.3644e-5, -3.4265e-7, 1.6893e-9, -3.0334e-12];
+var _MALLAMA_VENUS = [-4.384, -1.044e-3, 3.687e-4, -2.814e-6, 8.938e-9];
+var _MALLAMA_VENUS_NEAR_NEW = [236.05828, -2.81914, 8.39034e-3];   // beyond 163.7 degrees
+var _MALLAMA_VENUS_NEAR_NEW_FROM = 163.7;
+var _MALLAMA_MARS_LOW = [-1.601, 0.02267, -0.0001302], _MALLAMA_MARS_HIGH = [-0.367, -0.02573, 0.0003445], _MALLAMA_MARS_SPLIT = 50;
+var _MALLAMA_JUPITER_LOW = [-9.395, -3.7e-4, 6.16e-4], _MALLAMA_JUPITER_SPLIT = 12;
+function _polyAt(c, x) { var v = 0; for (var i = c.length - 1; i >= 0; i--) v = v * x + c[i]; return v; }
 function _planetMagnitude(name, r, delta, R) {
-  var mag = _PLANET_V0[name] + 5 * Math.log10(r * delta);
-  if (name === 'Venus' || name === 'Mercury') {
-    var cosPA = Math.max(-1, Math.min(1, (r * r + delta * delta - R * R) / (2 * r * delta)));
-    mag += -2.5 * Math.log10(Math.max(0.01, (1 + cosPA) / 2));
+  var cosPA = Math.max(-1, Math.min(1, (r * r + delta * delta - R * R) / (2 * r * delta))), a = Math.acos(cosPA) * 180 / Math.PI;
+  var dist = 5 * Math.log10(r * delta);
+  if (name === 'Mercury') return _polyAt(_MALLAMA_MERCURY, a) + dist;
+  if (name === 'Venus') return (a > _MALLAMA_VENUS_NEAR_NEW_FROM ? _polyAt(_MALLAMA_VENUS_NEAR_NEW, a) : _polyAt(_MALLAMA_VENUS, a)) + dist;
+  if (name === 'Mars') return _polyAt(a <= _MALLAMA_MARS_SPLIT ? _MALLAMA_MARS_LOW : _MALLAMA_MARS_HIGH, a) + dist;
+  if (name === 'Jupiter') {
+    if (a <= _MALLAMA_JUPITER_SPLIT) return _polyAt(_MALLAMA_JUPITER_LOW, a) + dist;
+    var f = a / 180;
+    return -9.428 - 2.5 * Math.log10(1 - 1.507 * f - 0.363 * f * f - 0.062 * f * f * f + 2.809 * Math.pow(f, 4) - 1.876 * Math.pow(f, 5)) + dist;
   }
-  return mag;
+  return _PLANET_V0[name] + dist;
 }
 
 var _VISIBLE_PLANETS = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'];

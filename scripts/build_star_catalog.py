@@ -30,6 +30,7 @@ a star, 55 KB in all.
 """
 
 import gzip
+import json
 import os
 import struct
 import sys
@@ -42,6 +43,7 @@ OUT_PATH = os.path.join(
     "stars-v1.bin",
 )
 FORMAT_VERSION = 1
+NAMES_PATH = os.path.join(os.path.dirname(OUT_PATH), "stars-names-v1.json")
 U16_STEPS = 65536
 U16_MAX = U16_STEPS - 1
 RA_HOURS = 24.0
@@ -136,15 +138,58 @@ def unpack(data):
     ]
 
 
+GREEK = {
+    "Alp": "\u03b1", "Bet": "\u03b2", "Gam": "\u03b3", "Del": "\u03b4", "Eps": "\u03b5", "Zet": "\u03b6",
+    "Eta": "\u03b7", "The": "\u03b8", "Iot": "\u03b9", "Kap": "\u03ba", "Lam": "\u03bb", "Mu": "\u03bc",
+    "Nu": "\u03bd", "Xi": "\u03be", "Omi": "\u03bf", "Pi": "\u03c0", "Rho": "\u03c1", "Sig": "\u03c3",
+    "Tau": "\u03c4", "Ups": "\u03c5", "Phi": "\u03c6", "Chi": "\u03c7", "Psi": "\u03c8", "Ome": "\u03c9",
+}
+SUPERSCRIPT = {"1": "\u00b9", "2": "\u00b2", "3": "\u00b3"}
+COL_FLAMSTEED, COL_BAYER, COL_BAYER_N, COL_CONSTELLATION = slice(4, 7), slice(7, 10), 10, slice(11, 14)
+NAMED_MAX_V = 4.6   # stars this bright get a designation (the sky lets a tap on them say which)
+
+
+def parse_name(line):
+    """(designation, constellation id) from a catalogue line: the Bayer letter
+    (alpha, beta, with a superscript where there are several) or else the
+    Flamsteed number; None where the star has neither."""
+    con = line[COL_CONSTELLATION].strip()
+    bayer = line[COL_BAYER].strip()
+    if con and bayer in GREEK:
+        return GREEK[bayer] + SUPERSCRIPT.get(line[COL_BAYER_N].strip(), ""), con
+    flam = line[COL_FLAMSTEED].strip()
+    if con and flam:
+        return flam, con
+    return None
+
+
+def names_json(pairs):
+    """[[star number in stars-v1.bin, designation, constellation id], ...] for
+    the stars with a designation and V <= NAMED_MAX_V, from (star, name) pairs
+    in the order the file stores them (brightest first)."""
+    rows = []
+    for i, (star, name) in enumerate(sorted(pairs, key=lambda p: p[0][2])):
+        if name and star[2] <= NAMED_MAX_V:
+            rows.append([i, name[0], name[1]])
+    return {"v": FORMAT_VERSION, "n": rows}
+
+
 def main(argv):
     if len(argv) != 2:
         sys.exit("usage: build_star_catalog.py bsc5.dat.gz")
     opener = gzip.open if argv[1].endswith(".gz") else open
+    pairs = []
     with opener(argv[1], "rt", encoding="ascii", errors="replace") as f:
-        stars = [s for s in map(parse_line, f) if s]
+        for line in f:
+            star = parse_line(line)
+            if star:
+                pairs.append((star, parse_name(line)))
+    stars = [p[0] for p in pairs]
     data = pack(stars)
     with open(OUT_PATH, "wb") as out:
         out.write(data)
+    with open(NAMES_PATH, "w", encoding="utf-8") as out:
+        json.dump(names_json(pairs), out, separators=(",", ":"), ensure_ascii=False)
     print("%d stars, %d bytes -> %s" % (len(stars), len(data), OUT_PATH))
 
 

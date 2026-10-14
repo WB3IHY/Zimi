@@ -549,7 +549,6 @@ function _aeEclipseNow(scene) {
 // the old one.
 var AE_THREE_URL = '/static/earth/three-r186.min.js';
 var AE_SGP4_URL = '/static/earth/satellite-7.1.0.min.js';
-var AE_STARS_URL = '/static/earth/stars-v1.bin';   // scripts/build_star_catalog.py documents the format
 var AE_TEX_DAY = '/static/earth/earth-day-v1.webp';
 var AE_TEX_NIGHT = '/static/earth/earth-night-v1.webp';
 var AE_TEX_MOON = _MOON_MAP_URL;        // app.js: the 2D Moons' maps, the 1024 one first
@@ -670,13 +669,7 @@ var AE_MOON_PATH_COLOR = 0xffffff, AE_MOON_PATH_ALPHA = 0.16;
 // dust at a low alpha, so they texture the dark rather than read as dots.
 var AE_STAR_SIZE0 = 3.4, AE_STAR_SIZE_PER_MAG = 0.55, AE_STAR_SIZE_MIN = 1.0;
 var AE_STAR_ALPHA0 = 1.15, AE_STAR_ALPHA_PER_MAG = 0.14, AE_STAR_ALPHA_MIN = 0.24;
-var AE_STAR_COLOR_DEFAULT = 0.6;      // B-V where a star has none (the Sun's is 0.65)
 var AE_STAR_CI_MIN = -0.3, AE_STAR_CI_SPAN = 1.9;   // colour index -0.3 (blue) .. 1.6 (orange)
-// stars-v1.bin (scripts/build_star_catalog.py): header, then planar arrays.
-var AE_STARS_HEADER_BYTES = 4, AE_STARS_VERSION = 1, AE_STARS_BYTES_EACH = 6;
-var AE_STARS_U16_STEPS = 65536, AE_STARS_U16_MAX = 65535;
-var AE_STARS_MAG_OFFSET = 2, AE_STARS_MAG_SCALE = 25;
-var AE_STARS_BV_SCALE = 50, AE_STARS_BV_NONE = -128;
 var AE_HOURS_TO_RAD = Math.PI / 12;
 
 var _ae = null;          // view state, built on first open
@@ -1444,24 +1437,7 @@ function _aeStarList() {
   return { count: all.length, at: function (i, out) {
     var s = all[i];
     out.ra = s[0] * AE_HOURS_TO_RAD; out.dec = _aeRad(s[1]); out.mag = s[2];
-    out.ci = s.length > 3 ? s[3] : AE_STAR_COLOR_DEFAULT;
-  } };
-}
-// stars-v1.bin as typed-array views over the one buffer; null if the bytes
-// are not this format.
-function _aeDecodeStars(buf) {
-  if (!buf || buf.byteLength < AE_STARS_HEADER_BYTES) return null;
-  var head = new Uint16Array(buf.slice(0, AE_STARS_HEADER_BYTES)), n = head[0];
-  if (head[1] !== AE_STARS_VERSION || buf.byteLength !== AE_STARS_HEADER_BYTES + AE_STARS_BYTES_EACH * n) return null;
-  var ra = new Uint16Array(buf, AE_STARS_HEADER_BYTES, n);
-  var dec = new Uint16Array(buf, AE_STARS_HEADER_BYTES + 2 * n, n);
-  var mag = new Uint8Array(buf, AE_STARS_HEADER_BYTES + 4 * n, n);
-  var bv = new Int8Array(buf, AE_STARS_HEADER_BYTES + 5 * n, n);
-  return { count: n, at: function (i, out) {
-    out.ra = ra[i] / AE_STARS_U16_STEPS * 2 * Math.PI;
-    out.dec = (dec[i] / AE_STARS_U16_MAX - 0.5) * Math.PI;
-    out.mag = mag[i] / AE_STARS_MAG_SCALE - AE_STARS_MAG_OFFSET;
-    out.ci = bv[i] === AE_STARS_BV_NONE ? AE_STAR_COLOR_DEFAULT : bv[i] / AE_STARS_BV_SCALE;
+    out.ci = s.length > 3 ? s[3] : SG_STAR_BV_DEFAULT;
   } };
 }
 function _aeStarField(THREE, dpr, stars) {
@@ -1481,24 +1457,20 @@ function _aeStarField(THREE, dpr, stars) {
 // The whole catalogue, fetched with the other Earth assets: one fetch, one
 // pass over the bytes, one draw call. A failure keeps the first sky and the
 // next open asks again. The old points leave in the frame the new ones come.
-// The catalogue, fetched and decoded (read through at(i, out)); rejects if it is not there.
+// The catalogue as the 3D views read it (count and at(i, out)), from the sky's one
+// decoder and request (almanac-skygl.js _sgLoadStars); rejects if it is not there.
 function _aeFetchStars() {
-  return fetch(AE_STARS_URL).then(function (r) {
-    if (!r.ok) throw new Error('stars');
-    return r.arrayBuffer();
-  }).then(function (buf) {
-    var stars = _aeDecodeStars(buf);
-    if (!stars) throw new Error('stars');
-    return stars;
-  });
+  return _sgLoadStars().then(_sgStarList);
 }
 function _aeLoadStars(S) {
   if (S.starsLoaded || S.starsLoading) return;
   S.starsLoading = true;
-  _aeFetchStars().then(function (stars) {
+  _sgRetryLoads();   // an open asks again for what failed before
+  // The catalogue's one decoder and one request are the sky's (almanac-skygl.js _sgLoadStars).
+  _sgLoadStars().then(function (stars) {
     if (_ae.gl !== S) throw new Error('stars');
     var old = S.starCloud;
-    S.starCloud = _aeStarField(S.THREE, S.dpr, stars);
+    S.starCloud = _aeStarField(S.THREE, S.dpr, _sgStarList(stars));
     S.sky.add(S.starCloud);
     S.sky.remove(old);
     old.geometry.dispose(); old.material.dispose();

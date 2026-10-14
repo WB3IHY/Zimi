@@ -24,8 +24,9 @@
 //   6. Taps: what a tap reaches, which wins, and what it does (the Sun and
 //      the Moon open the 3D view on themselves; a planet is named).
 //   7. One clock: live, a timer keeps the sky at now; scrubbed, no live
-//      timer; motion reduced, no twinkle and no breeze; and no frame loop
-//      once nothing moves.
+//      timer; the true horizon moves nothing (the beach scene breezes and
+//      has things cross, unless motion is reduced); and no frame loop once
+//      nothing moves.
 //
 // Run: node tests/test_almanac_live_sky.cjs   (exit 0 = pass)
 
@@ -78,6 +79,8 @@ for (const fn of ['_dateToJD', '_jdToJulianCentury', '_solveKepler', '_moonPosit
 vm.runInContext(require('./moon_model.cjs')(), S);
 vm.runInContext(read('almanac-orrery.js'), S);
 vm.runInContext(read('almanac-sky.js'), S);
+vm.runInContext(read('almanac-skygl.js'), S);
+vm.runInContext(read('almanac-skyfacts.js'), S);
 
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
 // Great-circle distance between two alt/az directions, degrees.
@@ -233,16 +236,22 @@ delete S.window.openAlmanacEarth.unsupported;
 vm.runInContext('var _almFocus = null; var _heroMoonAnim = null; var __reduce = false; function _almReduceMotion() { return __reduce; }' +
   'var __painted = 0; _skyPaint = function () { __painted++; };' +
   '_skyState = { inView: true, eph: { sunGeoAlt: -30 }, actors: [], bodies: [], moonAnim: null, nowTime: Date.now() };', S);
-const MOVING = '_skySpawnBirds,_skySpawnMeteor,_skySpawnPlane,_skySpawnWhale,_skySwayTick';   // the spawners and the palms' breeze
+const MOVING = '_skySpawnBirds,_skySpawnMeteor,_skySpawnPlane,_skySpawnWhale,_skySwayTick';   // the beach's: the spawners and the palms' breeze
 const armed = () => { timers.length = 0; vm.runInContext('_skyArm()', S); return timers.map((x) => x.fn.name).sort().join(','); };
-check(armed() === '_skyLiveTick,' + MOVING + ',_skyTwinkleTick', 'live at night: the clock\'s drift, the twinkle, the planes, birds and meteors');
+// The true horizon is the default: nothing but the clock's drift, at night or by day, and no twinkle at all.
+check(armed() === '_skyLiveTick', 'live at night: the clock\'s drift and nothing else (no twinkle, no breeze, nothing crossing)');
 vm.runInContext('_almFocus = new Date(0)', S);
-check(armed() === MOVING + ',_skyTwinkleTick', 'scrubbed: no live timer, the sky holds the focused instant');
+check(armed() === '', 'scrubbed: no live timer, the sky holds the focused instant');
 vm.runInContext('_almFocus = null; _skyState.eph.sunGeoAlt = 20', S);
-check(armed() === '_skyLiveTick,' + MOVING, 'by day no twinkle (no stars out)');
+check(armed() === '_skyLiveTick', 'by day the same');
+// The beach is a choice: its palms sway and its planes, birds, whales and meteors cross.
+vm.runInContext('_skySettings = { skin: "beach", lines: "lines", size: "auto", dial: 0 }', S);
+check(armed() === '_skyLiveTick,' + MOVING, 'the beach scene: the clock, the palms and the moving things');
 vm.runInContext('__reduce = true', S);
-check(armed() === '_skyLiveTick', 'motion reduced: no twinkle or breeze (the palms stand still)');
-vm.runInContext('__reduce = false; _skyState.inView = false', S);
+check(armed() === '_skyLiveTick', 'motion reduced: no breeze and nothing crossing, even on the beach');
+vm.runInContext('__reduce = false; _skySettings = null; _skyState.lens = { az: 0, alt: 0, fov: 60 };', S);
+check(armed() === '_skyLiveTick', 'looking through a lens the beach is not drawn, so nothing moves');
+vm.runInContext('_skyState.lens = null; _skyState.eph.sunGeoAlt = -30; _skyState.inView = false', S);
 check(armed() === '', 'scrolled out of sight: nothing runs');
 vm.runInContext('_skyState.inView = true; document.hidden = true', S);
 check(armed() === '', 'tab hidden: nothing runs');

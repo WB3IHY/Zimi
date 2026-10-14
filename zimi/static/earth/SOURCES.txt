@@ -46,6 +46,26 @@ stars-v1.bin
   that view opens.
   http://tdc-www.harvard.edu/catalogs/bsc5.html
 
+milkyway-v1.webp
+  ESO / S. Brunier, "The Milky Way panorama" (eso0932a), a photographic
+  all-sky mosaic in galactic coordinates. CC BY 4.0: credit ESO/S. Brunier,
+  https://www.eso.org/public/images/eso0932a/ . Changed by Zimi: the point
+  stars removed (a grey opening over a 5 px window, so the dust lanes stay and
+  the catalogue stars in stars-v1.bin are not drawn twice), a faint noise
+  floor subtracted, resized to 2048x1024, WebP quality 90. Longitude runs to
+  the left from the centre (l = 0 in the middle), latitude +90 at the top;
+  almanac-skygl.js _sgGalUV is that map. Drawn behind the stars of the live
+  sky (almanac-sky.js). Credited in THIRD_PARTY_NOTICES.md.
+
+constellations-v1.json
+  The 88 IAU constellations' figures and label places, packed by
+  scripts/build_constellations.py from d3-celestial's constellations.lines.json
+  and constellations.json (Olaf Frohn, BSD 3-Clause, github.com/ofrohn/d3-celestial;
+  the lines follow the IAU's constellation pages with the author's
+  modifications). Licence text: d3-celestial-LICENSE.txt. Stellarium's
+  constellation data is GPL and is not used.
+  Drawn by the live sky (almanac-sky.js _skyPaintConstellations), 15 KB.
+
 The flown solar system (almanac-space.js). Every file below is public domain
 (NASA, USGS, JPL) and is fetched the first time a flight is asked for. Maps are
 equirectangular, longitude -180 to 180 left to right, resized to 1024x512 and

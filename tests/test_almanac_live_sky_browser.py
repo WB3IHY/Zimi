@@ -73,7 +73,7 @@ def browser(served):
         br.close()
 
 
-def _almanac(browser, served, reduced=False, place=PLACE):
+def _almanac(browser, served, reduced=False, place=PLACE, beach=False):
     ctx = browser.new_context(
         viewport=VIEW,
         device_scale_factor=2,
@@ -86,6 +86,8 @@ def _almanac(browser, served, reduced=False, place=PLACE):
         "localStorage.setItem('zimi_almanac_place', %s);"
         % json.dumps(json.dumps(place))
     )
+    if beach:   # the beach scene is a choice (the true horizon is the default)
+        ctx.add_init_script("localStorage.setItem('zimi_sky_settings', '{\"skin\":\"beach\"}');")
     pg = ctx.new_page()
     errors = []
     pg.on("pageerror", lambda e: errors.append(str(e)))
@@ -352,7 +354,7 @@ def test_the_sky_stays_facing_the_equator(browser, served):
 def test_life_on_the_horizon(browser, served):
     """The coast has the sea at its tide, inland the land; the moving things
     run a light loop only while one is on screen, and each says what it is."""
-    ctx, pg, errors = _almanac(browser, served)
+    ctx, pg, errors = _almanac(browser, served, beach=True)
     try:
         _settle(pg, DAY)
         # Nothing spawns on its own during this test: each thing is put there.
@@ -417,7 +419,7 @@ def test_life_on_the_horizon(browser, served):
     finally:
         ctx.close()
     # Inland: the same beach and palms, the sea at half tide, and no tide claimed.
-    ctx, pg, errors = _almanac(browser, served, place=DENVER)
+    ctx, pg, errors = _almanac(browser, served, place=DENVER, beach=True)
     try:
         _settle(pg, DAY)
         pg.wait_for_function(
