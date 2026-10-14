@@ -215,7 +215,17 @@ function _applyAppTheme() {
   // sync with the app theme — this is what prevents the dark compositor flash
   // on tab re-activation. Mirrors the head bootstrap.
   el.style.colorScheme = t;
+  _nightApply();
 }
+// Red night light: one switch for the sky and the Field Guide, one key in this browser
+// (apps.js nightApply reads the same). night-red on <html> turns the palette deep red
+// on black (app.css), so looking at the phone does not cost night vision. Whoever draws
+// a switch (the sky's, the Field Guide's) writes NIGHT_KEY and calls _nightApply().
+var NIGHT_KEY = 'zimi.night', NIGHT_RED = 'red';
+function _nightApply() {
+  try { document.documentElement.classList.toggle('night-red', localStorage.getItem(NIGHT_KEY) === NIGHT_RED); } catch (e) {}
+}
+window.addEventListener('storage', function(e) { if (e.key === NIGHT_KEY || e.key === null) _nightApply(); });
 function _setAppTheme(mode) {
   if (APP_THEMES.indexOf(mode) < 0) mode = 'auto';
   if (mode === 'auto') localStorage.removeItem(SK.APP_THEME);
@@ -1897,6 +1907,7 @@ function _appPlaceholder() {
   if (_isWikiPage()) return t('wiki_search_placeholder');
   if (_isBooksPage()) return t('books_search_placeholder');
   if (_isDictPage()) return t('dictionary_search_placeholder');
+  if (_isFieldguidePage()) return t('fieldguide_search_placeholder');
   if (_isReddotPage()) return t('reddot_search_placeholder');
   if (_isExchangePage()) return t('exchange_search_placeholder');
   if (_isTubePage()) return t('tube_search_placeholder');
@@ -2543,7 +2554,7 @@ var _CREATE_BC_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="non
 // or an app. Stamped on the page's history entry as it is pushed, so the
 // header's arrow and the browser's Back go to the same place, and named on
 // the arrow ("Almanac", "Search"). Read from the entry being left.
-var _FROM_APPS = ['tube', 'exchange', 'reddot', 'wiki', 'books'];
+var _FROM_APPS = ['tube', 'exchange', 'reddot', 'wiki', 'books', 'fieldguide'];
 function _openedFrom() {
   var s = history.state || {};
   if (s.mode === 'almanac' || s.mode === 'search') return s.mode;
@@ -2629,6 +2640,12 @@ function updateTopbar() {
     bcIcon.title = t(hashApp);
     bcIcon.innerHTML = _appIcon(hashApp).replace('width="26" height="26"', 'width="20" height="20"');
     bcIcon.setAttribute('href', '/#' + hashApp);
+  } else if (_isFieldguidePage()) {
+    bcSep.style.display = 'inline';
+    bcIcon.style.display = 'inline-flex';
+    bcIcon.title = t('fieldguide');
+    bcIcon.innerHTML = _FIELDGUIDE_SVG.replace('width="26" height="26"', 'width="20" height="20"');
+    bcIcon.setAttribute('href', '/#fieldguide');
   } else if (_isReddotPage()) {
     bcSep.style.display = 'inline';
     bcIcon.style.display = 'inline-flex';
@@ -3302,6 +3319,11 @@ function route(push) {
   if (params.get('exchange') !== null) { enterHome(false); openExchange(true, params.get('exchange') || ''); return; }
   if (params.get('reddot') !== null) { enterHome(false); openReddot(true, params.get('reddot') || ''); return; }
   if (params.get('dictionary') !== null) { enterHome(false); openDictionary(true, params.get('dictionary') || ''); return; }
+  if (location.hash === '#fieldguide' || location.hash.indexOf('#fieldguide/') === 0) {
+    enterHome(false);
+    openFieldguide(true, location.hash.slice('#fieldguide/'.length));
+    return;
+  }
   if (location.hash === '#wiki') { enterHome(false); openWiki(true); return; }
   if (location.hash === '#books') { enterHome(false); openBooks(true); return; }
   if (location.hash === '#dictionary') { enterHome(false); openDictionary(true, ''); return; }
@@ -3680,7 +3702,7 @@ function _appReady(source) {
 }
 
 function _isAppPage() {
-  return _isTubePage() || _isExchangePage() || _isReddotPage() || _isWikiPage() || _isBooksPage() || _isDictPage();
+  return _isTubePage() || _isExchangePage() || _isReddotPage() || _isWikiPage() || _isBooksPage() || _isDictPage() || _isFieldguidePage();
 }
 // The reader is on the PDF viewer: nothing to read aloud, no type size.
 function _isPdfPage() {
@@ -3691,7 +3713,8 @@ function _isPdfPage() {
 // The app's home, in place of the item a shared link landed on.
 function _appEntryHome() {
   var app = _tubeOpen ? ['tube', 'play', _tubeUrl('')] : _exchangeOpen ? ['exchange', 'q', _exchangeUrl('')]
-    : _wikiOpen ? ['wiki', 'q', '/#wiki'] : _booksOpen ? ['books', 'q', '/#books'] : _dictOpen ? ['dictionary', 'w', _dictUrl('')] : ['reddot', 'p', _reddotUrl('')];
+    : _wikiOpen ? ['wiki', 'q', '/#wiki'] : _booksOpen ? ['books', 'q', '/#books'] : _dictOpen ? ['dictionary', 'w', _dictUrl('')]
+    : _fieldguideOpen ? ['fieldguide', 'fg', _fieldguideUrl('')] : ['reddot', 'p', _reddotUrl('')];
   var st = { mode: 'reader' }; st[app[0]] = true; st[app[1]] = '';
   _appHome(st, app[2], app[1]);
   // "home", not a route to nothing: a route only closes the thing on
@@ -3714,7 +3737,7 @@ function goBack() {
     // Opened from somewhere else (a search), it goes back there.
     var st = history.state;
     if (st && st.from && !st.entry) { history.back(); return; }
-    if (st && (st.play || st.q || st.p)) { if (st.entry) _appEntryHome(); else history.back(); return; }
+    if (st && (st.play || st.q || st.p || st.fg)) { if (st.entry) _appEntryHome(); else history.back(); return; }
     var f = document.getElementById('reader-frame');
     if (f && f.contentWindow) { try { f.contentWindow.postMessage({ zimi: 'back-request' }, location.origin); return; } catch (e) {} }
     closeReader();
@@ -4411,7 +4434,7 @@ function renderHome(filter) {
   if (!zimsCache || zimsCache.length === 0) {
     statsBar.innerHTML = ''; statsBar.style.display = 'none';
     pillsBar.innerHTML = ''; pillsBar.style.display = 'none'; pillsBar.className = 'pills';
-    output.innerHTML = '<div id="discover-row"></div>'
+    output.innerHTML = _helpNowHtml() + '<div id="discover-row"></div>'
       + '<div class="empty"><p>' + tH('no_sources_found') + '</p><p class="hint">' + tH('add_zims') + '</p>'
       + (manageEnabled ? '<a href="/?manage" onclick="event.preventDefault();enterManage().then(function(ok){if(ok)switchManageTab(\'browse\')})" style="display:inline-block;margin-top:16px;color:var(--amber);font-weight:500;font-size:14px;text-decoration:none;border-bottom:1px solid var(--amber-border)">' + tH('catalog_link') + '</a>' : '')
       + '</div>'
@@ -4568,6 +4591,7 @@ function renderHome(filter) {
   }
 
   let h = '';
+  if (!homeScope && !filter) h += _helpNowHtml();
 
   // Scope header with back link — Favorites, a category or a collection all
   // drill in here, so keep a way back to "All sources".
@@ -8623,6 +8647,7 @@ function searchResultCounts(items, zims) {
 }
 
 function renderSearchResults(data, scope) {
+  _fieldguideMount(data);
   if (snippetController) { snippetController.abort(); snippetController = null; }
   let items = data.results || [];
   const counts = searchResultCounts(items, zimsCache);
@@ -20079,11 +20104,11 @@ function _appFrameCall(fn, val) {
 // No app is on screen: an article, the home page, or another app about to
 // say it is.
 function _appsOff() {
-  _tubeOpen = false; _exchangeOpen = false; _reddotOpen = false; _wikiOpen = false; _booksOpen = false; _dictOpen = false;
+  _tubeOpen = false; _exchangeOpen = false; _reddotOpen = false; _wikiOpen = false; _booksOpen = false; _dictOpen = false; _fieldguideOpen = false;
   _chromeReset();
 }
 function _anyAppOpen() {
-  return _tubeOpen || _exchangeOpen || _reddotOpen || _wikiOpen || _booksOpen || _dictOpen;
+  return _tubeOpen || _exchangeOpen || _reddotOpen || _wikiOpen || _booksOpen || _dictOpen || _fieldguideOpen;
 }
 
 // ── Bookshelf ──
@@ -20125,6 +20150,133 @@ function openBooks(replaceState) {
   _openHashApp('books', replaceState, function() { _booksOpen = true; return _BOOKS_PAGE + '#' + _booksStrings(); });
 }
 function _booksSearch(val) { _appFrameCall('booksSearch', val); }
+
+// ── Field Guide ──
+// What is happening, then what the open sources say, in their own words
+// (/static/fieldguide.html, zimi/fieldguide.py): situations, each a list of
+// quotations with their source, edition, licence and a link, and the library
+// behind them. Not one of the apps in the row: it needs no ZIM, cannot be
+// switched off, and is reached by "Help now" on the home page and by search
+// (a situation above the results, see _fieldguideMount). Eric, 2026-09-28:
+// "build first aid and or a whole like how to live and survive bucket."
+var _fieldguideOpen = false;
+var _FIELDGUIDE_PAGE = '/static/fieldguide.html?v=1';
+var _FIELDGUIDE_SVG = '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M5.6 5.6l3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9"/></svg>';
+var _FIELDGUIDE_SITUATIONS = ['bleeding', 'choking', 'not_breathing', 'shock', 'cold', 'burns', 'heat', 'shelter', 'water', 'food', 'lost', 'signal',
+  'flood', 'earthquake', 'wildfire', 'storm', 'power_out'];
+var _FIELDGUIDE_WORDS = ['fieldguide_help_now', 'fieldguide_disclaimer', 'fieldguide_group_hurt', 'fieldguide_group_survive', 'fieldguide_group_disaster',
+  'fieldguide_order_march', 'fieldguide_order_threes', 'fieldguide_print', 'fieldguide_english_only', 'fieldguide_get_library', 'fieldguide_library_note',
+  'fieldguide_red_night', 'fieldguide_more_in_library', 'fieldguide_add_to_library', 'fieldguide_installed', 'fieldguide_get_all', 'fieldguide_started',
+  'fieldguide_needs_admin', 'fieldguide_failed', 'fieldguide_loading', 'fieldguide_building', 'fieldguide_built', 'fieldguide_set_core', 'fieldguide_set_more',
+  'fieldguide_nothing', 'fieldguide_confirm_big', 'fieldguide_from', 'fieldguide_licence', 'fieldguide_original', 'fieldguide_in_library', 'fieldguide_read_full', 'fieldguide_add_for_full',
+  'fieldguide_build', 'fieldguide_get', 'fieldguide_search_in', 'fieldguide_dated', 'fieldguide_open_card', 'fieldguide_lic_US_PD'];
+function _isFieldguidePage() {
+  return !!(_fieldguideOpen && readerOpen && !_almanacOpen && !_createOpen);
+}
+function _fieldguideUrl(id) {
+  return '/#fieldguide' + (id ? '/' + id : '');
+}
+// A situation's id from the address: only the names the guide has.
+function _fieldguideId(id) {
+  return _FIELDGUIDE_SITUATIONS.indexOf(id) >= 0 ? id : '';
+}
+// The words as the card and the page use them: the shell's fieldguide_*
+// strings without the prefix, one situation's name each.
+function _fieldguideWords() {
+  var out = {};
+  _FIELDGUIDE_WORDS.forEach(function(k) { out[k.slice('fieldguide_'.length)] = t(k); });
+  _FIELDGUIDE_SITUATIONS.forEach(function(id) { out['s_' + id] = t('fieldguide_s_' + id); });
+  return out;
+}
+function _fieldguideStrings(id) {
+  var keys = _FIELDGUIDE_WORDS.concat(_FIELDGUIDE_SITUATIONS.map(function(s) { return 'fieldguide_s_' + s; }));
+  return _appStrings('fieldguide', keys, { open: id || '' });
+}
+function openFieldguide(replaceState, id) {
+  id = _fieldguideId(id);
+  if (_isModClick()) { _lastMouseEvent = null; window.open(_fieldguideUrl(id), '_blank'); return; }
+  if (_createOpen) closeCreate();
+  if (_almanacOpen) closeAlmanac();
+  if (mode === 'manage') { mode = 'home'; updateTopbar(); }
+  if (_mapWatched) { _mapWatched = null; clearTimeout(_mapHashTimer); }
+  if (currentArticle) _pushArticleHistory(currentArticle.zim, currentArticle.path);
+  currentArticle = null;
+  readerSource = null;
+  _appsOff();
+  _fieldguideOpen = true;
+  _appTop = !id;
+  var st = { mode: 'reader', fieldguide: true, fg: id };
+  // Arrived at a situation by address: nothing beneath it to step back to.
+  if (replaceState && id) st.entry = true;
+  if (replaceState) history.replaceState(_keepFrom(st), '', _fieldguideUrl(id));
+  else history.pushState(_stampFrom(st), '', _fieldguideUrl(id));
+  openReader(_FIELDGUIDE_PAGE + '#' + _fieldguideStrings(id));
+  document.title = t('fieldguide') + ' — Zimi';
+  _setWindowTitle(document.title);
+  updateTopbar();
+}
+// Home's one quiet entry: not a tile among tiles, a line anyone can find
+// when it counts.
+function _helpNowHtml() {
+  return '<div class="help-now-row"><a class="help-now" href="/#fieldguide" onclick="return _spaNav(event, function() { openFieldguide(); })">' +
+    _FIELDGUIDE_SVG.replace('width="26" height="26"', 'width="16" height="16"') + '<span>' + tH('fieldguide_help_now') + '</span></a></div>';
+}
+// A search inside one ZIM, asked from the Field Guide ("Search X for ...").
+function _searchInZim(zim, query) {
+  if (!_zimInfo(zim)) return;
+  if (readerOpen) closeReader();
+  currentSource = zim;
+  q.value = query;
+  doSearch(query);
+}
+// The Field Guide's card above a search's results when the words name a
+// situation (search's `fieldguide` field: {id, href, installed}, "" the
+// guide itself). Outside the results' own element so a redraw of them leaves
+// it; filled from /fieldguide/situation after the results have drawn, so
+// searching never waits on it. Another slot above the results, such as an
+// answer card, sits beside it: the card has its own container, #fg-answer.
+var _fieldguideHint = null;
+var _fieldguideSeq = 0;
+function _fieldguideMount(data) {
+  var key = data && data._query;
+  if (data && data.fieldguide) _fieldguideHint = { q: key, hint: data.fieldguide };
+  var h = _fieldguideHint && _fieldguideHint.q === key ? _fieldguideHint.hint : null;
+  var el = document.getElementById('fg-answer');
+  if (!h) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'fg-answer';
+    output.parentNode.insertBefore(el, output);
+  } else if (el.dataset.id === h.id && el.dataset.q === String(key)) return;
+  el.dataset.id = h.id; el.dataset.q = String(key);
+  var seq = ++_fieldguideSeq;
+  _fieldguideLoadCard(function() {
+    if (seq !== _fieldguideSeq) return;
+    var S = _fieldguideWords();
+    FieldGuideCard.ensureStyle(document);
+    var name = h.id ? S['s_' + h.id] : S.help_now;
+    var shell = '<section class="fg-q fg-answer"><h3>' + esc(name) + '</h3><div class="fg-where">' + esc(S.disclaimer) + '</div><div id="fg-answer-body"></div>' +
+      '<div class="fg-lib"><button type="button" class="fg-btn on" data-act="situation" data-id="' + escAttr(h.id) + '">' + esc(S.open_card) + '</button></div></section>';
+    el.innerHTML = shell;
+    FieldGuideCard.wire(el, function() { openFieldguide(false, h.id); });
+    if (!h.id) return;
+    fetch('/fieldguide/situation?id=' + encodeURIComponent(h.id) + '&lang=' + encodeURIComponent(_currentLang || 'en')).then(function(r) { return r.ok ? r.json() : null; }).then(function(s) {
+      var body = document.getElementById('fg-answer-body');
+      if (!s || !s.quotes.length || !body || seq !== _fieldguideSeq) return;
+      var first = s.quotes[0];
+      body.innerHTML = '<div class="fg-body" lang="en"><h4>' + esc(first.heading) + '</h4>' + FieldGuideCard.bodyHtml(first.lines) + '</div>' +
+        '<div class="fg-foot">' + esc(FieldGuideCard.word(S, 'from', { title: first.source.title, edition: first.source.edition })) + '</div>';
+    }).catch(function() {});
+  });
+}
+var _fieldguideCardLoaded = false;
+function _fieldguideLoadCard(then) {
+  if (_fieldguideCardLoaded || typeof FieldGuideCard !== 'undefined') { _fieldguideCardLoaded = true; then(); return; }
+  var el = document.createElement('script');
+  el.src = '/static/fieldguide-card.js?v=1';
+  el.onload = function() { _fieldguideCardLoaded = true; then(); };
+  document.head.appendChild(el);
+}
 
 // ── Dictionary ──
 // One word across every Wiktionary in the library (/static/dictionary.html,
@@ -21513,7 +21665,7 @@ window.addEventListener('message', function(e) {
     });
   } else if (d.zimi === 'back') {
     // The page's own back arrow: the step the shell took for it.
-    if (history.state && (history.state.play || history.state.q || history.state.p || history.state.w)) history.back();
+    if (history.state && (history.state.play || history.state.q || history.state.p || history.state.w || history.state.fg)) history.back();
   } else if (d.zimi === 'open' && typeof d.zim === 'string' && typeof d.path === 'string' && d.zim && d.path) {
     // "Open the original page" from an app: an article with the app as the
     // step behind it, so the header's arrow returns to the video, the
@@ -21572,6 +21724,15 @@ window.addEventListener('message', function(e) {
     _appItemClosed();
     document.title = t('dictionary') + ' \u2014 Zimi';
     _setWindowTitle(document.title);
+  } else if (d.zimi === 'fieldguide-card' && _fieldguideOpen && typeof d.id === 'string') {
+    _appStep({ mode: 'reader', fieldguide: true, fg: d.id }, _fieldguideUrl(d.id), 'fg');
+    if (d.title) { document.title = d.title + ' \u2014 ' + t('fieldguide'); _setWindowTitle(document.title); }
+  } else if (d.zimi === 'fieldguide-home' && _fieldguideOpen) {
+    _appHome({ mode: 'reader', fieldguide: true, fg: '' }, _fieldguideUrl(''), 'fg');
+    document.title = t('fieldguide') + ' \u2014 Zimi';
+    _setWindowTitle(document.title);
+  } else if (d.zimi === 'search-in' && typeof d.zim === 'string' && typeof d.q === 'string' && d.zim && d.q) {
+    _searchInZim(d.zim, d.q);
   } else if (d.zimi === 'voices') {
     _openSettingsAt('ms-voices');
   } else if (d.zimi === 'catalog' && typeof d.category === 'string' && _APP_CATEGORY_KEYS.indexOf(d.category) >= 0) {
@@ -21745,7 +21906,7 @@ function _setUserApp(app, on) {
 // and a name, lit when offered (Eric: "the lil app tiles with icons and i
 // can select or deselect which to show").
 function _appIcon(app) {
-  return app === 'maps' ? _MAPS_SVG : app === 'tube' ? _TUBE_PLAY_SVG : app === 'exchange' ? _EXCHANGE_SVG : app === 'wiki' ? _WIKI_SVG : app === 'books' ? _BOOKS_SVG : app === 'dictionary' ? _DICT_SVG : _REDDOT_SVG;
+  return app === 'fieldguide' ? _FIELDGUIDE_SVG : app === 'maps' ? _MAPS_SVG : app === 'tube' ? _TUBE_PLAY_SVG : app === 'exchange' ? _EXCHANGE_SVG : app === 'wiki' ? _WIKI_SVG : app === 'books' ? _BOOKS_SVG : app === 'dictionary' ? _DICT_SVG : _REDDOT_SVG;
 }
 // The ZIMs inside each app: the ones its tile names and its page reads.
 function _appZims(app) {
@@ -26796,11 +26957,12 @@ window.addEventListener('popstate', async (e) => {
     if (app.wiki && _appFrameRoute(_wikiOpen, '')) return;
     if (app.books && _appFrameRoute(_booksOpen, '')) return;
     if (app.dictionary && _appFrameRoute(_dictOpen, app.w)) return;
+    if (app.fieldguide && _appFrameRoute(_fieldguideOpen, app.fg)) return;
   }
   // Landing on an app's address from the article opened out of it: the app
   // is reopened below, not stepped past. (The article history's own copy of
   // that step would otherwise take a second step back.)
-  var toApp = app && app.mode === 'reader' && (app.tube || app.exchange || app.reddot || app.wiki || app.books || app.dictionary);
+  var toApp = app && app.mode === 'reader' && (app.tube || app.exchange || app.reddot || app.wiki || app.books || app.dictionary || app.fieldguide);
   // Step through article history when reader is open (mirrors in-app back button)
   if (readerOpen && articleHistory.length > 0 && !toApp) {
     _stepBackToArticle(articleHistory.pop(), false);
@@ -26839,6 +27001,8 @@ window.addEventListener('popstate', async (e) => {
     if (!_appFrameRoute(_wikiOpen, '')) openWiki(true);
   } else if (s && s.mode === 'reader' && s.books) {
     if (!_appFrameRoute(_booksOpen, '')) openBooks(true);
+  } else if (s && s.mode === 'reader' && s.fieldguide) {
+    if (!_appFrameRoute(_fieldguideOpen, s.fg)) openFieldguide(true, s.fg || '');
   } else if (s && s.mode === 'reader' && s.dictionary) {
     if (!_appFrameRoute(_dictOpen, s.w)) openDictionary(true, s.w || '');
   } else if (s && s.mode === 'reader' && s.reddot) {

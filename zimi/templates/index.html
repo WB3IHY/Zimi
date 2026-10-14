@@ -53,6 +53,8 @@
       var t = dark ? 'dark' : 'light';
       el.setAttribute('data-theme', t);
       el.style.colorScheme = t;
+      // Red night light (one key for the sky and the Field Guide, app.js _nightApply).
+      el.classList.toggle('night-red', localStorage.getItem('zimi.night') === 'red');
     } catch(e) {
       el.setAttribute('data-theme', 'dark');
       el.style.colorScheme = 'dark';
