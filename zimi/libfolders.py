@@ -52,8 +52,25 @@ def _norm(path):
     return os.path.normpath(os.path.abspath(os.path.expanduser(str(path).strip())))
 
 
+def _looks_like_nomad(path):
+    """NOMAD's layout, wherever its storage was put: ``storage/zim`` with
+    ``kiwix-library.xml`` beside the ZIMs, or the folders NOMAD keeps next to
+    ``zim`` (maps, kolibri)."""
+    parent = os.path.dirname(path)
+    if parent == path:
+        return False
+    if os.path.basename(parent) == "storage" and os.path.isfile(
+        os.path.join(path, "kiwix-library.xml")
+    ):
+        return True
+    try:
+        return any(n == "maps" or n.startswith("kolibri") for n in os.listdir(parent))
+    except OSError:
+        return False
+
+
 def _default_label(path):
-    if path in NOMAD_CANDIDATES:
+    if path in NOMAD_CANDIDATES or _looks_like_nomad(path):
         return NOMAD_LABEL
     # A root folder has no name of its own; the path is the label.
     return os.path.basename(path) or path
@@ -170,6 +187,67 @@ def _inside(child, parent):
     return child == parent or child.startswith(parent + os.sep)
 
 
+# Files in these folders that lost a name to another file, ``{loser: winner}``,
+# noted where the library is scanned or a file registered, so a list or a card
+# can say so without looking at the disk.
+_shadowed = {}
+
+
+def set_shadowed(losers):
+    global _shadowed
+    _shadowed = dict(losers)
+
+
+def note_shadowed(loser, winner):
+    if owner(loser) is not None:
+        _shadowed[os.path.normpath(loser)] = os.path.normpath(winner)
+
+
+def forget(path):
+    _shadowed.pop(os.path.normpath(path), None)
+
+
+def also_in():
+    """``{winner path: label}``: Zimi's own files that a copy in another
+    program's folder lost to, so the row can say a copy exists there."""
+    folder_labels = labels()
+    out = {}
+    for loser, winner in _shadowed.items():
+        label = owner(loser, folder_labels)
+        if label and owner(winner, folder_labels) is None:
+            out[winner] = label
+    return out
+
+
+def why_unreadable(path):
+    """Why a ZIM will not open: nobody told Zimi's user it may be read (a
+    container running as another user), or the file itself is damaged or still
+    arriving."""
+    return "permission" if not os.access(path, os.R_OK) else "corrupt"
+
+
+def audit(folder):
+    """What a folder holds, as the library sees it: ``zims`` served and
+    readable, ``shadowed`` (same name as a file that won), ``unreadable`` with
+    a reason. Counted from the registry, so a number never promises more than
+    the library shows."""
+    held = {os.path.normpath(p): n for n, p in _srv.get_zim_files().items()}
+    entries = {z.get("name"): z for z in (_srv._zim_list_cache or [])}
+    out = {"zims": 0, "shadowed": [], "unreadable": []}
+    for path in _zims_in(folder):
+        name = held.get(os.path.normpath(path))
+        base = os.path.basename(path)
+        if name is None:
+            out["shadowed"].append(
+                {"file": base, "wins": os.path.basename(_shadowed.get(os.path.normpath(path), ""))}
+            )
+        elif entries.get(name, {}).get("entries", "?") == "?":
+            out["unreadable"].append({"file": base, "why": why_unreadable(path)})
+        else:
+            out["zims"] += 1
+    return out
+
+
 def registered_in(folder):
     """The ZIMs the live library is serving from ``folder``: what leaves with
     it, however its files look on disk (an unplugged drive has none)."""
@@ -188,11 +266,12 @@ def shares():
     folder_labels = labels()
     if not folder_labels:
         return []
-    sizes = {z.get("name"): z.get("size_gb", 0) for z in (_srv._zim_list_cache or [])}
+    listed = {z.get("name"): z for z in (_srv._zim_list_cache or [])}
+    sizes = {n: z.get("size_gb", 0) for n, z in listed.items()}
     out = {}
     for name, path in _srv.get_zim_files().items():
         label = owner(path, folder_labels)
-        if label:
+        if label and listed.get(name, {}).get("entries", "?") != "?":
             row = out.setdefault(label, {"label": label, "zims": 0, "size_gb": 0})
             row["zims"] += 1
             row["size_gb"] += sizes.get(name, 0)
@@ -245,6 +324,24 @@ def remove(path):
         refresh()
     _watch.reset()
     return p
+
+
+def rename(path, label):
+    """Give a saved folder another name (blank goes back to the detected one).
+    The environment's folders are named where they are set."""
+    p = _norm(path)
+    with _state_lock:
+        listed = {f["path"]: f["source"] for f in folders()}
+        if p not in listed:
+            raise FolderError("folder_unknown")
+        if listed[p] == "env":
+            raise FolderError("folder_env")
+        state = _read_state()
+        for f in state["folders"]:
+            if _norm(f.get("path", "")) == p:
+                f["label"] = (label.strip() or _default_label(p))[:_LABEL_MAX]
+        _write_state(state)
+        refresh()
 
 
 def dismiss(path):
@@ -348,6 +445,8 @@ def reconcile(added, gone):
     by their full paths, without reading the rest of it. An arrival takes over
     from a departed edition of the same name in one swap. A full rescan is the
     last resort, only for a file that cannot be read. Returns True when it ran."""
+    for g in gone:
+        forget(g)
     swapped = set()
     readable = True
     for p in added:

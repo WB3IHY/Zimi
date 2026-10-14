@@ -3064,10 +3064,9 @@
   "lib_folders_offer": "Найдено: {label}",
   "lib_folders_add": "Добавить",
   "lib_folders_not_now": "Не сейчас",
-  "lib_folders_path": "Путь к папке, например /opt/project-nomad/storage/zim",
   "lib_folders_missing": "Сейчас недоступна",
   "lib_folders_stop": "Перестать читать",
-  "folder_not_ours": "Лежит в папке, которую Zimi только читает. Управляйте им там, где он лежит.",
+  "folder_not_ours": "Этот файл принадлежит {label}. Zimi только читает его и никогда не меняет.",
   "folder_missing": "Такой папки нет, или отсюда её не видно.",
   "folder_unreadable": "Zimi не может прочитать эту папку.",
   "folder_is_library": "Это собственная папка библиотеки Zimi.",
@@ -3077,5 +3076,13 @@
   "folder_unknown": "Этой папки нет в списке.",
   "folder_primary_only": "Указать папку на сервере может только главный администратор.",
   "lib_from_folder": "Из {label}",
-  "in_folder": "В {label}"
+  "in_folder": "В {label}",
+  "lib_folders_rename": "Переименовать",
+  "lib_folders_rename_prompt": "Название этой папки",
+  "lib_folders_add_folder": "Добавить папку",
+  "lib_folders_shadowed": "{n} не показано: то же имя, что у ZIM Zimi. Копия Zimi главнее.",
+  "lib_folders_unreadable": "{n} не удаётся открыть",
+  "zim_unreadable_permission": "Не открывается: у Zimi нет прав на чтение",
+  "zim_unreadable_corrupt": "Не открывается: файл повреждён или ещё копируется",
+  "zim_also_in": "Также в {label}"
 }

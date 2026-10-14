@@ -3064,10 +3064,9 @@
   "lib_folders_offer": "נמצא {label}",
   "lib_folders_add": "הוספה",
   "lib_folders_not_now": "לא עכשיו",
-  "lib_folders_path": "נתיב התיקייה, לדוגמה /opt/project-nomad/storage/zim",
   "lib_folders_missing": "לא זמין כרגע",
   "lib_folders_stop": "להפסיק לקרוא",
-  "folder_not_ours": "בתיקייה ש-Zimi רק קורא. נהלו אותו במקום שבו הוא נמצא.",
+  "folder_not_ours": "הקובץ הזה שייך ל-{label}. Zimi קורא אותו ואף פעם לא משנה אותו.",
   "folder_missing": "התיקייה לא קיימת או שאינה נראית מכאן.",
   "folder_unreadable": "Zimi לא מצליח לקרוא את התיקייה.",
   "folder_is_library": "זו תיקיית הספרייה של Zimi עצמו.",
@@ -3077,5 +3076,13 @@
   "folder_unknown": "התיקייה הזו אינה ברשימה.",
   "folder_primary_only": "רק המנהל הראשי יכול לציין תיקייה בשרת.",
   "lib_from_folder": "מתוך {label}",
-  "in_folder": "ב-{label}"
+  "in_folder": "ב-{label}",
+  "lib_folders_rename": "שינוי שם",
+  "lib_folders_rename_prompt": "שם התיקייה הזו",
+  "lib_folders_add_folder": "הוספת תיקייה",
+  "lib_folders_shadowed": "{n} לא מוצג: אותו שם כמו אחד מקובצי ה-ZIM של Zimi. העותק של Zimi גובר.",
+  "lib_folders_unreadable": "לא ניתן לפתוח {n}",
+  "zim_unreadable_permission": "לא ניתן לפתוח: ל-Zimi אין הרשאה לקרוא אותו",
+  "zim_unreadable_corrupt": "לא ניתן לפתוח: הקובץ נראה פגום או שעדיין מגיע",
+  "zim_also_in": "גם ב-{label}"
 }

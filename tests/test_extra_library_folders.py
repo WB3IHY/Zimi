@@ -114,9 +114,12 @@ def test_owner_names_the_folder_a_zim_is_in(lib):
     assert libfolders.owner(str(own / OWN)) is None
 
 
-def test_a_label_defaults_to_the_folder_name(lib):
-    libfolders.add(str(lib[1]))
-    assert libfolders.owner(str(lib[1] / NOMAD_WIKI)) == "zim"
+def test_a_label_defaults_to_the_folder_name(lib, tmp_path):
+    plain = tmp_path / "wikis"
+    plain.mkdir()
+    build_fixture_zim(str(plain / NOMAD_WIKI))
+    libfolders.add(str(plain))
+    assert libfolders.owner(str(plain / NOMAD_WIKI)) == "wikis"
 
 
 # ---------------------------------------------------------------------------
@@ -470,6 +473,53 @@ class TestRoutes(unittest.TestCase):
         _, d = self._req("/manage/status")
         self.assertEqual(d["from_folders"], [])
 
+
+    def test_the_refusal_names_whose_file_it_is(self):
+        self._req(
+            "/manage/library-folders",
+            {"action": "add", "path": self._nomad, "label": "Project NOMAD"},
+        )
+        st, d = self._req("/manage/delete", {"filename": NOMAD_WIKI})
+        self.assertEqual((st, d["label"]), (403, "Project NOMAD"))
+
+    def test_the_card_counts_only_what_is_served(self):
+        build_fixture_zim(os.path.join(self._nomad, "own_en_2026-02.zim"))
+        build_fixture_zim(os.path.join(self._nomad, "extra_en_2026-01.zim"))
+        _, d = self._req(
+            "/manage/library-folders", {"action": "add", "path": self._nomad}
+        )
+        (row,) = d["folders"]
+        self.assertEqual(row["zims"], 2)
+        self.assertEqual(len(row["shadowed"]), 1)
+
+    def test_rename_through_the_route(self):
+        self._req("/manage/library-folders", {"action": "add", "path": self._nomad})
+        st, d = self._req(
+            "/manage/library-folders",
+            {"action": "label", "path": self._nomad, "label": "Garage"},
+        )
+        self.assertEqual((st, d["folders"][0]["label"]), (200, "Garage"))
+        _, listing = self._req("/list")
+        self.assertEqual(
+            {z["name"]: z.get("external") for z in listing}["wikipedia_en_100"],
+            "Garage",
+        )
+
+    def test_the_list_marks_the_unreadable_and_the_own_copy_that_wins(self):
+        open(os.path.join(self._nomad, "broken_en_all_2026-01.zim"), "wb").write(
+            b"junk" * 500
+        )
+        build_fixture_zim(os.path.join(self._nomad, "own_en_2026-02.zim"))
+        self._req(
+            "/manage/library-folders",
+            {"action": "add", "path": self._nomad, "label": "Project NOMAD"},
+        )
+        _, listing = self._req("/list")
+        by = {z["name"]: z for z in listing}
+        self.assertEqual(by["broken"]["unreadable"], "corrupt")
+        self.assertEqual(by["own"]["also_in"], "Project NOMAD")
+        self.assertNotIn("unreadable", by["wikipedia_en_100"])
+
     def test_a_bad_folder_says_why(self):
         st, d = self._req(
             "/manage/library-folders", {"action": "add", "path": "/no/such"}
@@ -728,6 +778,99 @@ def test_a_reset_waits_for_a_tick_in_flight(lib, monkeypatch):
     seen.append("reset-done")
     t.join()
     assert seen.index("tick-end") < seen.index("reset-done")
+
+
+# ---------------------------------------------------------------------------
+# Phone-path review: names, shadowed and broken files, a stalled copy
+# ---------------------------------------------------------------------------
+
+
+def test_a_nomad_layout_is_named_project_nomad_wherever_it_lives(tmp_path):
+    storage = tmp_path / "somewhere" / "storage"
+    (storage / "zim").mkdir(parents=True)
+    (storage / "zim" / "kiwix-library.xml").write_text("<library/>")
+    assert libfolders._default_label(str(storage / "zim")) == "Project NOMAD"
+
+
+def test_maps_or_kolibri_beside_the_zims_say_nomad_too(tmp_path):
+    for sibling in ("maps", "kolibri-gen2"):
+        root = tmp_path / sibling
+        (root / "zim").mkdir(parents=True)
+        (root / sibling).mkdir()
+        assert libfolders._default_label(str(root / "zim")) == "Project NOMAD"
+
+
+def test_an_ordinary_folder_is_named_after_itself(tmp_path):
+    (tmp_path / "wikis").mkdir()
+    assert libfolders._default_label(str(tmp_path / "wikis")) == "wikis"
+
+
+def test_a_folder_can_be_renamed_and_the_name_follows_its_zims(lib):
+    own, nomad = lib
+    libfolders.add(str(nomad))
+    libfolders.rename(str(nomad), "Garage box")
+    assert libfolders.owner(str(nomad / NOMAD_WIKI)) == "Garage box"
+
+
+def test_a_folder_the_environment_names_cannot_be_renamed(lib, monkeypatch):
+    monkeypatch.setenv(libfolders.ENV, str(lib[1]))
+    with pytest.raises(libfolders.FolderError) as e:
+        libfolders.rename(str(lib[1]), "x")
+    assert e.value.key == "folder_env"
+
+
+def test_a_newer_edition_in_the_other_folder_is_shown_not_swallowed(lib):
+    own, nomad = lib
+    build_fixture_zim(str(nomad / "own_en_2026-02.zim"))
+    libfolders.add(str(nomad), "Project NOMAD")
+    server.load_cache(force=True)
+    assert server._zim_files_cache["own"] == str(own / OWN)  # Zimi's copy wins
+    audit = libfolders.audit(str(nomad))
+    assert audit["zims"] == 2  # the two NOMAD files that are served
+    assert [s["file"] for s in audit["shadowed"]] == ["own_en_2026-02.zim"]
+    assert libfolders.also_in() == {str(own / OWN): "Project NOMAD"}
+
+
+def test_a_broken_zim_is_counted_apart_with_its_reason(lib):
+    own, nomad = lib
+    (nomad / "broken_en_all_2026-01.zim").write_bytes(b"not a zim" * 100)
+    libfolders.add(str(nomad))
+    server.load_cache(force=True)
+    audit = libfolders.audit(str(nomad))
+    assert audit["zims"] == 2
+    assert [(u["file"], u["why"]) for u in audit["unreadable"]] == [
+        ("broken_en_all_2026-01.zim", "corrupt")
+    ]
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads everything")
+def test_a_file_nobody_may_read_says_permission(lib):
+    own, nomad = lib
+    locked = nomad / "locked_en_all_2026-01.zim"
+    build_fixture_zim(str(locked))
+    locked.chmod(0)
+    try:
+        libfolders.add(str(nomad))
+        server.load_cache(force=True)
+        why = [u["why"] for u in libfolders.audit(str(nomad))["unreadable"]]
+        assert why == ["permission"]
+    finally:
+        locked.chmod(0o644)
+
+
+def test_a_copy_that_stalls_is_registered_again_when_it_finishes(lib):
+    own, nomad, watch = _live(lib)
+    full = nomad / "later_en_all_2026-04.zim"
+    build_fixture_zim(str(full))
+    data = full.read_bytes()
+    full.write_bytes(data[:20000])  # the copy stalls here
+    watch.tick()
+    watch.tick()  # size held: registered, truncated
+    full.write_bytes(data)  # the copy finishes
+    watch.tick()
+    watch.tick()
+    entry = next(z for z in server._zim_list_cache if z["name"] == "later")
+    assert entry["entries"] == 3
 
 
 if __name__ == "__main__":

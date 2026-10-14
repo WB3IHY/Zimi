@@ -6483,7 +6483,7 @@ def _library_folders_view():
     offer, if there is one. Asked when the card opens, so a listing per folder
     is fine."""
     rows = [
-        {**f, "zims": len(libfolders._zims_in(f["path"])), "present": os.path.isdir(f["path"])}
+        {**f, **libfolders.audit(f["path"]), "present": os.path.isdir(f["path"])}
         for f in libfolders.folders()
     ]
     return {"folders": rows, "suggestions": libfolders.suggestions()}
@@ -6501,6 +6501,8 @@ def _handle_library_folders(handler, data):
     try:
         if action == "add":
             libfolders.reconcile(libfolders.add(path, str(data.get("label") or "")), [])
+        elif action == "label":
+            libfolders.rename(path, str(data.get("label") or ""))
         elif action == "remove":
             libfolders.reconcile([], libfolders.registered_in(libfolders.remove(path)))
         elif action == "dismiss":
@@ -7043,10 +7045,11 @@ def handle_manage_post(handler, parsed, data):
             for candidate in (_srv.get_zim_files() or {}).values():
                 if os.path.basename(candidate) != filename:
                     continue
-                if libfolders.owner(candidate) is not None:
+                label = libfolders.owner(candidate)
+                if label is not None:
                     return handler._json(
                         403,
-                        {"error": "not_ours", "error_key": "folder_not_ours"},
+                        {"error": "not_ours", "error_key": "folder_not_ours", "label": label},
                     )
                 resolved = os.path.realpath(candidate)
                 if resolved == root or not resolved.startswith(root + os.sep):

@@ -3064,10 +3064,9 @@
   "lib_folders_offer": "{label} मिला",
   "lib_folders_add": "जोड़ें",
   "lib_folders_not_now": "अभी नहीं",
-  "lib_folders_path": "फ़ोल्डर का पथ, जैसे /opt/project-nomad/storage/zim",
   "lib_folders_missing": "अभी उपलब्ध नहीं",
   "lib_folders_stop": "पढ़ना बंद करें",
-  "folder_not_ours": "ऐसे फ़ोल्डर में जिसे Zimi केवल पढ़ता है। इसे वहीं प्रबंधित करें जहाँ यह रखा है।",
+  "folder_not_ours": "यह फ़ाइल {label} की है। Zimi इसे पढ़ता है और कभी बदलता नहीं।",
   "folder_missing": "वह फ़ोल्डर मौजूद नहीं है, या यहाँ से दिखाई नहीं देता।",
   "folder_unreadable": "Zimi उस फ़ोल्डर को नहीं पढ़ पा रहा।",
   "folder_is_library": "यह Zimi का अपना लाइब्रेरी फ़ोल्डर है।",
@@ -3077,5 +3076,13 @@
   "folder_unknown": "यह फ़ोल्डर सूची में नहीं है।",
   "folder_primary_only": "सर्वर पर फ़ोल्डर केवल मुख्य व्यवस्थापक बता सकता है।",
   "lib_from_folder": "{label} से",
-  "in_folder": "{label} में"
+  "in_folder": "{label} में",
+  "lib_folders_rename": "नाम बदलें",
+  "lib_folders_rename_prompt": "इस फ़ोल्डर का नाम",
+  "lib_folders_add_folder": "फ़ोल्डर जोड़ें",
+  "lib_folders_shadowed": "{n} नहीं दिखाया गया: Zimi के किसी ZIM का ही नाम। Zimi की प्रति मान्य है।",
+  "lib_folders_unreadable": "{n} खोला नहीं जा सका",
+  "zim_unreadable_permission": "खुल नहीं रहा: Zimi के पास इसे पढ़ने की अनुमति नहीं है",
+  "zim_unreadable_corrupt": "खुल नहीं रहा: फ़ाइल क्षतिग्रस्त लगती है या अभी आ रही है",
+  "zim_also_in": "{label} में भी"
 }

@@ -3012,6 +3012,15 @@ def _scan_zim_files():
     for name, cands in groups.items():
         if len(cands) > 1:
             _split_languages(name, cands, zims, groups)
+    served = set(zims.values())
+    libfolders.set_shadowed(
+        {
+            path: zims[name]
+            for name, cands in groups.items()
+            for tier, path in cands
+            if tier == 2 and path not in served
+        }
+    )
     return zims
 
 
@@ -4029,6 +4038,12 @@ def _zim_live_holder(name, path):
     return held
 
 
+def _note_shadowed(loser, winner):
+    from zimi import libfolders
+
+    libfolders.note_shadowed(loser, winner)
+
+
 def _zim_tier(path):
     """Where a ZIM sits in the collision rule: 0 the library root, 1 one of its
     subfolders, 2 a folder another program owns (libfolders)."""
@@ -4136,6 +4151,7 @@ def register_zim_file(path, removed_files=(), removed_paths=()):
                 os.path.basename(existing_path),
                 filename,
             )
+            _note_shadowed(path, existing_path)
             return True  # library correctly unchanged
     if existing_path and _zim_holder_keeps(existing_path, path):
         # A root file against a subfolder one, or a richer build in the same
@@ -4147,6 +4163,7 @@ def register_zim_file(path, removed_files=(), removed_paths=()):
             os.path.basename(existing_path),
             filename,
         )
+        _note_shadowed(path, existing_path)
         return True  # library correctly unchanged
 
     # ---- Phase 1: metadata extraction, deliberately WITHOUT _zim_lock ----

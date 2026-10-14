@@ -3064,10 +3064,9 @@
   "lib_folders_offer": "{label} encontrado",
   "lib_folders_add": "Añadir",
   "lib_folders_not_now": "Ahora no",
-  "lib_folders_path": "Ruta de la carpeta, por ejemplo /opt/project-nomad/storage/zim",
   "lib_folders_missing": "No accesible ahora mismo",
   "lib_folders_stop": "Dejar de leer",
-  "folder_not_ours": "Está en una carpeta que Zimi solo lee. Gestiónalo donde está.",
+  "folder_not_ours": "Este archivo es de {label}. Zimi lo lee y nunca lo cambia.",
   "folder_missing": "Esa carpeta no existe o no se ve desde aquí.",
   "folder_unreadable": "Zimi no puede leer esa carpeta.",
   "folder_is_library": "Es la carpeta de biblioteca propia de Zimi.",
@@ -3077,5 +3076,13 @@
   "folder_unknown": "Esa carpeta no está en la lista.",
   "folder_primary_only": "Solo el administrador principal puede indicar una carpeta del servidor.",
   "lib_from_folder": "De {label}",
-  "in_folder": "En {label}"
+  "in_folder": "En {label}",
+  "lib_folders_rename": "Renombrar",
+  "lib_folders_rename_prompt": "Nombre de esta carpeta",
+  "lib_folders_add_folder": "Añadir carpeta",
+  "lib_folders_shadowed": "{n} no se muestra: mismo nombre que uno de Zimi. Gana la copia de Zimi.",
+  "lib_folders_unreadable": "{n} no se puede abrir",
+  "zim_unreadable_permission": "No se puede abrir: Zimi no tiene permiso para leerlo",
+  "zim_unreadable_corrupt": "No se puede abrir: el archivo parece dañado o aún está llegando",
+  "zim_also_in": "También en {label}"
 }

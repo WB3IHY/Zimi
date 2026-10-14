@@ -54,4 +54,19 @@ const badge = c2.badge('x.zim', 'Project NOMAD');
 ok('another program\'s ZIM wears an In badge, not a Delete button', badge.includes('ci-installed-badge') && badge.includes('In Project NOMAD') && !badge.includes('deleteZim'));
 ok('Zimi\'s own ZIM keeps its Delete button', c2.badge('x.zim', null).includes('deleteZim'));
 
+// A phone has no hover: the badge is a button that says why, in words.
+const c3 = { esc, escAttr: esc, t, tH: (k, v) => esc(t(k, v)), toasts: [] };
+c3._showToast = m => c3.toasts.push(m);
+vm.createContext(c3);
+vm.runInContext(grab('_zimDeleteBtn') + grab('_ownedNote') + grab('_libFolderNotes') + '\nthis.badge = _zimDeleteBtn; this.note = _ownedNote; this.notes = _libFolderNotes;', c3);
+const tapBadge = c3.badge('x.zim', 'Project NOMAD');
+ok('the badge is a button, tappable on touch', tapBadge.startsWith('<button') && tapBadge.includes('_ownedNote(this)'));
+c3.note({ getAttribute: () => 'Project NOMAD' });
+ok('a tap says whose file it is and that Zimi never changes it', c3.toasts[0] === 'Project NOMAD owns this file. Zimi reads it and never changes it.');
+const notes = c3.notes({ shadowed: [{ file: 'a.zim' }], unreadable: [{ file: 'b.zim', why: 'permission' }] });
+ok('the card says what is not shown and what cannot be opened', notes.length === 2 && notes[0].includes('1 not shown') && notes[1].includes('b.zim') && notes[1].includes('no permission'));
+ok('a refused delete is shown by its translated key, not the raw error', /if \(data\.error_key\) \{[\s\S]*?_showToast\(t\(data\.error_key/.test(src));
+ok('the two Add buttons have different names', en.lib_folders_add !== en.lib_folders_add_folder);
+ok('the path hint is the path, short enough for a phone', /LIB_FOLDER_PLACEHOLDER = '\/opt\/project-nomad\/storage\/zim'/.test(src));
+
 process.exit(failures ? 1 : 0);

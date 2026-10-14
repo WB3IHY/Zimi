@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Zimi reads ZIMs from other folders where they are, without copying or changing them: `ZIMI_EXTRA_ZIM_DIRS` or Settings, Server, Other library folders. Project NOMAD's library is offered once when Zimi finds it, and a [guide](docs/integrations/project-nomad.md) covers Docker and an offline research agent over the same files.
-- A ZIM another program adds to or removes from such a folder appears in or leaves Zimi's library within a minute, with no restart.
+- A ZIM another program adds to or removes from such a folder appears in or leaves Zimi's library in about a minute, with no restart.
 
 ## [1.13.3] - 2026-10-12
 

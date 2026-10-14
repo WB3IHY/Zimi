@@ -15934,11 +15934,22 @@ async function _libFoldersPost(body) {
   var r = await manageFetch(LIB_FOLDERS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   return { ok: r.ok, d: await r.json().catch(function() { return {}; }) };
 }
-function _libFolderRowHtml(title, desc, right) {
+function _libFolderRowHtml(title, desc, right, notes) {
   return '<div class="share-row set-row lf-row"><span class="share-row-text"><span class="share-row-title">' + title + '</span>' +
-    '<span class="share-row-desc lf-path" dir="ltr">' + desc + '</span></span>' + right + '</div>';
+    '<span class="share-row-desc lf-path" dir="ltr">' + desc + '</span>' +
+    (notes || []).map(function(n) { return '<span class="share-row-desc lf-note">' + esc(n) + '</span>'; }).join('') +
+    '</span>' + right + '</div>';
 }
 function _libFolderCountHtml(count) { return ' <span class="lf-count">' + esc(count) + '</span>'; }
+// What the folder holds that the library does not show, in a quiet line each.
+function _libFolderNotes(f) {
+  var notes = [];
+  if ((f.shadowed || []).length) notes.push(t('lib_folders_shadowed', { n: f.shadowed.length }));
+  if ((f.unreadable || []).length) notes.push(t('lib_folders_unreadable', { n: f.unreadable.length }) + ': ' +
+    f.unreadable.map(function(u) { return u.file + ' (' + t('zim_unreadable_' + u.why) + ')'; }).join(', '));
+  return notes;
+}
+const LIB_FOLDER_PLACEHOLDER = '/opt/project-nomad/storage/zim';
 async function _renderLibFolders() {
   var el = document.getElementById('ms-libfolders');
   if (!el) return;
@@ -15954,9 +15965,10 @@ async function _renderLibFolders() {
   var rows = (d.folders || []).map(function(f, i) {
     var count = f.present ? tPlural('lib_folders_zims', f.zims) : t('lib_folders_missing');
     var drop = f.source === 'env'
-      ? '<span class="share-field-note" title="' + escAttr(t('configured_via_env')) + '">env</span>'
-      : '<button type="button" class="set-btn" onclick="_libFolderAct(\'remove\', ' + i + ')">' + tH('lib_folders_stop') + '</button>';
-    return _libFolderRowHtml(esc(f.label) + _libFolderCountHtml(count), esc(f.path), drop);
+      ? '<button type="button" class="set-btn" onclick="_showToast(t(\'configured_via_env\'))">env</button>'
+      : '<span class="lf-btns"><button type="button" class="set-btn" onclick="_libFolderRename(' + i + ')">' + tH('lib_folders_rename') + '</button>' +
+        '<button type="button" class="set-btn" onclick="_libFolderAct(\'remove\', ' + i + ')">' + tH('lib_folders_stop') + '</button></span>';
+    return _libFolderRowHtml(esc(f.label) + _libFolderCountHtml(count), esc(f.path), drop, _libFolderNotes(f));
   });
   // The offer comes once, ahead of the list, and leaves for good on either answer.
   var offers = (d.suggestions || []).map(function(sg, i) {
@@ -15965,12 +15977,19 @@ async function _renderLibFolders() {
       '<span class="lf-btns"><button type="button" class="set-btn primary" onclick="_libFolderAct(\'add\', ' + i + ', true)">' + tH('lib_folders_add') + '</button>' +
       '<button type="button" class="set-btn" onclick="_libFolderAct(\'dismiss\', ' + i + ', true)">' + tH('lib_folders_not_now') + '</button></span>');
   });
-  var add = '<div class="lf-add"><input type="text" id="lf-path" dir="ltr" class="peer-name-input" placeholder="' + escAttr(t('lib_folders_path')) +
+  var add = '<div class="lf-add"><input type="text" id="lf-path" dir="ltr" class="peer-name-input" placeholder="' + escAttr(LIB_FOLDER_PLACEHOLDER) +
     '" aria-label="' + escAttr(t('lib_folders_title')) + '" onkeydown="if(event.key===\'Enter\')_libFolderAdd()">' +
-    '<button type="button" class="set-btn" onclick="_libFolderAdd()">' + tH('lib_folders_add') + '</button></div>';
+    '<button type="button" class="set-btn" onclick="_libFolderAdd()">' + tH('lib_folders_add_folder') + '</button></div>';
   el.innerHTML = '<div class="ms-section-label">' + tH('lib_folders_title') + '</div>' +
     (offers.concat(rows).length ? '<div class="share-rows set-rows">' + offers.concat(rows).join('') + '</div>' : '') +
     add + '<div id="lf-msg" class="ms-hint">' + tH('lib_folders_hint') + '</div>';
+}
+async function _libFolderRename(i) {
+  var f = ((window._libFolders || {}).folders || [])[i];
+  if (!f) return;
+  var name = window.prompt(t('lib_folders_rename_prompt'), f.label);
+  if (name === null) return;
+  await _libFolderSend({ action: 'label', path: f.path, label: name });
 }
 async function _libFolderAct(action, i, offer) {
   var d = window._libFolders || {};
@@ -16722,6 +16741,8 @@ function renderInstalled(filterText) {
       // stay on the YYYY-MM release stamp.
       const dateStr = z.date ? (_isZimiExport(z) ? z.date : z.date.substring(0, 7)) : null;
       if (dateStr) meta.push(dateStr);
+      if (z.unreadable) meta.push('<span class="ci-bad">' + esc(t('zim_unreadable_' + z.unreadable)) + '</span>');
+      if (z.also_in) meta.push('<span>' + esc(t('zim_also_in', { label: z.also_in })) + '</span>');
       // Flavor badge from filename. When catalog variants exist, the current
       // variant's label is group-aware — an installed unsuffixed build shows
       // "Full + video" next to a maxi sibling instead of a second "Full" (#50).
@@ -17204,9 +17225,12 @@ function _catalogHasUpdate(inst, upd) {
 // A ZIM in a folder another program owns (Project NOMAD) is Zimi's to read and
 // not to delete: the row says whose it is where the delete button would be.
 function _zimDeleteBtn(file, external) {
-  if (external) return '<span class="ci-installed-badge ci-from" title="' + escAttr(t('folder_not_ours')) + '">' + esc(t('in_folder', { label: external })) + '</span>';
+  if (external) return '<button type="button" class="ci-installed-badge ci-from" data-label="' + escAttr(external) +
+    '" onclick="event.stopPropagation();_ownedNote(this)">' + esc(t('in_folder', { label: external })) + '</button>';
   return '<button class="ci-delete-btn" onclick="deleteZim(\'' + escAttr(file) + '\', this)" title="' + escAttr(t('delete_zim')) + '">\u00D7</button>';
 }
+// Touch has no hover: a tap on the badge says why there is no Delete.
+function _ownedNote(el) { _showToast(t('folder_not_ours', { label: el.getAttribute('data-label') })); }
 async function deleteZim(filename, btn) {
   if (!btn) return;
   // Two-click confirmation: first click shows "Delete?", second click confirms
@@ -17231,6 +17255,18 @@ async function deleteZim(filename, btn) {
       body: JSON.stringify({filename})
     });
     const data = await res.json();
+    if (data.error_key) {
+      // Refused: not Zimi's file (a page from before it knew). Put the card
+      // back and say so in words.
+      zimsCache = await _fetchList();
+      _rebuildZimsMap();
+      if (card) card.style.display = '';
+      btn.disabled = false;
+      btn.classList.remove('confirming');
+      btn.textContent = '\u00D7';
+      _showToast(t(data.error_key, { label: data.label || '' }));
+      return;
+    }
     if (data.error) {
       // Restore card on error
       if (card) card.style.display = '';
