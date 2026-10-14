@@ -20519,7 +20519,7 @@ var _FIELDGUIDE_WORDS = ['fieldguide_help_now', 'fieldguide_disclaimer', 'fieldg
   'fieldguide_nothing', 'fieldguide_confirm_big', 'fieldguide_from', 'fieldguide_licence', 'fieldguide_original', 'fieldguide_in_library', 'fieldguide_read_full', 'fieldguide_add_for_full',
   'fieldguide_build', 'fieldguide_get', 'fieldguide_search_in', 'fieldguide_dated', 'fieldguide_open_card', 'fieldguide_lic_US_PD',
   'fieldguide_superseded', 'fieldguide_your_library', 'fieldguide_yes_download', 'fieldguide_cancel', 'fieldguide_print_all', 'fieldguide_build_note',
-  'fieldguide_help_link', 'fieldguide_show_all', 'fieldguide_covers',
+  'fieldguide_help_link', 'fieldguide_show_all', 'fieldguide_covers', 'fieldguide_see_also',
   'fieldguide_num_here', 'fieldguide_nums_here', 'fieldguide_num_unknown', 'fieldguide_num_police', 'fieldguide_num_ambulance', 'fieldguide_num_fire', 'fieldguide_num_mobile', 'fieldguide_num_source'];
 function _isFieldguidePage() {
   return !!(_fieldguideOpen && readerOpen && !_almanacOpen && !_createOpen);

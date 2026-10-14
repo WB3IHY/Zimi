@@ -3282,6 +3282,7 @@
   "fieldguide_help_link": "Помощь сейчас: {name}",
   "fieldguide_show_all": "Показать всё",
   "fieldguide_covers": "Относится к",
+  "fieldguide_see_also": "См. также",
   "fieldguide_num_here": "Номер экстренных служб здесь: {n}",
   "fieldguide_nums_here": "Номера экстренных служб здесь: {n}",
   "fieldguide_num_unknown": "Номер экстренных служб: {n}",

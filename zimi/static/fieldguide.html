@@ -32,6 +32,7 @@
   .fg-tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 4px 0 0; }
   .fg-link { border: 0; background: none; padding: 0 4px; min-height: 44px; color: var(--amber); font: inherit; font-size: 14px; cursor: pointer; }
   .chips .chip.tag { min-height: 44px; padding: 0 14px; font-size: 13px; }
+  .fg-also { align-self: center; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text2); }
   .fg-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 12px; }
   .fg-night { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; color: var(--text2); cursor: pointer; }
   .fg-night input { width: 20px; height: 20px; accent-color: var(--amber); }
@@ -53,7 +54,7 @@
      in black on white, a quotation to a page when it will not fit. */
   @media print {
     html, body { background: #fff !important; color: #000 !important; }
-    .fg-print, .fg-tools, .fg-night, .fg-actions, .fg-link, .fg-btn, #c-jump, .fg-lib, .fg-libgroup, #front, #library, .fg-no-print, .fg-h2.fg-no-print { display: none !important; }
+    .fg-print, .fg-tools, #c-related, .fg-night, .fg-actions, .fg-link, .fg-btn, #c-jump, .fg-lib, .fg-libgroup, #front, #library, .fg-no-print, .fg-h2.fg-no-print { display: none !important; }
     .page { max-width: none; padding: 0; }
     .fg-head h1 { font-size: 20pt; }
     .fg-disc { color: #000; font-size: 10pt; }
@@ -87,6 +88,7 @@
     </header>
     <div id="c-num"></div>
     <p class="fg-en" id="c-en" hidden></p>
+    <div class="chips" id="c-related" hidden></div>
     <div class="chips" id="c-jump" hidden></div>
     <div id="c-quotes"></div>
     <div id="c-lib" class="fg-no-print"></div>
@@ -114,7 +116,7 @@ var STR = strings({
   installed: 'Installed', get_all: 'Get what is missing ({size})', started: 'Started', needs_admin: 'Sign in as an administrator to add ZIMs.',
   failed: 'That did not work. Try again.', loading: 'Loading…', building: 'Building…', built: 'Built', set_core: 'The core', set_more: 'Goes deeper',
   nothing: 'Nothing installed answers this yet.', confirm_big: 'This is {size}. Download it?', open: '', lang: 'en', lat: '',
-  yes_download: 'Download', cancel: 'Cancel', print_all: 'Print every situation', your_library: 'Your library'
+  yes_download: 'Download', cancel: 'Cancel', print_all: 'Print every situation', your_library: 'Your library', see_also: 'See also'
 });
 var LOCALE = STR.lang || 'en';
 var CARD = FieldGuideCard;
@@ -211,6 +213,7 @@ function openSituation(id, step) {
   $('c-print').textContent = say('print');
   $('c-quotes').innerHTML = ''; $('c-lib').innerHTML = '';
   drawNumber('c-num', id);
+  $('c-related').hidden = true; $('c-related').innerHTML = '';
   $('c-more').innerHTML = ''; $('c-add').innerHTML = ''; $('c-jump').hidden = true; $('c-more-h').hidden = true; $('c-add-h').hidden = true;
   $('c-en').hidden = LOCALE === 'en'; $('c-en').textContent = say('english_only');
   if (step) tell({ zimi: 'fieldguide-card', id: id, title: sit(id) });
@@ -238,7 +241,20 @@ function openSituation(id, step) {
     $('c-quotes').innerHTML = '<p class="fg-state">' + esc(say('failed')) + '</p>';
   });
 }
+// The situations the sources pair with this one: See also, one chip each.
+function drawRelated(ids) {
+  var box = $('c-related');
+  box.hidden = !ids.length;
+  box.innerHTML = ids.length ? '<span class="fg-also">' + esc(say('see_also')) + '</span>' + ids.map(function(r) {
+    return '<button type="button" class="chip tag" data-sit="' + esc(r) + '">' + esc(sit(r)) + '</button>';
+  }).join('') : '';
+}
+$('c-related').addEventListener('click', function(e) {
+  var b = e.target.closest('[data-sit]');
+  if (b) openSituation(b.getAttribute('data-sit'), true);
+});
 function paint(s, quotes) {
+  drawRelated(s.related || []);
   $('c-quotes').innerHTML = quotes.map(function(q) { return CARD.quoteHtml(q, STR); }).join('');
   $('c-lib').innerHTML = CARD.libraryGroupHtml(quotes, STR);
   drawJump(quotes);

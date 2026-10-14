@@ -221,7 +221,9 @@ def test_the_first_words_are_what_to_do_in_the_next_minute():
     steps = " ".join(q["not_breathing"][0]["lines"])
     assert "Place the heel of one hand on the center of the person's chest" in steps
     assert "100 to 120 compressions per minute" in steps
-    assert q["not_breathing"][1]["source"] == "cdc_ca", "the signs and the call come second"
+    assert (
+        q["not_breathing"][1]["source"] == "cdc_ca"
+    ), "the signs and the call come second"
 
 
 def test_the_order_is_what_to_do_first():
@@ -283,6 +285,32 @@ def test_a_cross_linked_situation_names_a_real_one():
     assert "flood" in {
         r for q in fg.quotes()["quotes"]["power_out"] for r in q.get("related", [])
     }
+
+
+def test_sources_that_pair_naturally_are_cross_linked():
+    """Flood and Power out, Power out and Carbon monoxide, Cold and Shelter,
+    Lost and Signal: each card offers its partner (See also), both ways."""
+    for a, b in (
+        ("flood", "power_out"),
+        ("power_out", "carbon_monoxide"),
+        ("carbon_monoxide", "power_out"),
+        ("cold", "shelter"),
+        ("shelter", "cold"),
+        ("lost", "signal"),
+        ("signal", "lost"),
+        ("power_out", "flood"),
+    ):
+        assert b in fg.situation(a)["related"], (a, b)
+        assert b in fg.situation_bare(a)["related"], (a, b)
+    assert fg.situation("water")["related"] == []
+
+
+def test_the_electricity_warning_is_the_flood_cards_second_quote():
+    flood = fg.quotes()["quotes"]["flood"]
+    assert flood[0]["heading"] == "During a Flood"
+    assert "Do not touch electrical equipment if it is wet" in " ".join(
+        flood[1]["lines"]
+    )
 
 
 def test_the_disclaimer_is_the_one_sentence():

@@ -3282,6 +3282,7 @@
   "fieldguide_help_link": "Aide immédiate : {name}",
   "fieldguide_show_all": "Tout afficher",
   "fieldguide_covers": "Concerne",
+  "fieldguide_see_also": "Voir aussi",
   "fieldguide_num_here": "Numéro d’urgence ici : {n}",
   "fieldguide_nums_here": "Numéros d’urgence ici : {n}",
   "fieldguide_num_unknown": "Numéro d’urgence : {n}",

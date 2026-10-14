@@ -599,6 +599,17 @@ def _carrier(quote, have, sizes):
     return {"state": "missing", "options": options}
 
 
+def _related(sid):
+    """The situations the sources pair with this one (a quote's ``related``),
+    in the order they first appear."""
+    out = []
+    for q in quotes()["quotes"].get(sid, []):
+        for other in q.get("related", []):
+            if other != sid and other not in out:
+                out.append(other)
+    return out
+
+
 def situation_bare(sid):
     """A situation's quotes and nothing of the library: for a visitor it is
     not shown to. Free of the ZIMs altogether, so it works with none."""
@@ -617,6 +628,7 @@ def situation_bare(sid):
         ],
         "answers": [],
         "missing": [],
+        "related": _related(sid),
         "disclaimer": DISCLAIMER,
     }
 
@@ -709,6 +721,7 @@ def _resolve(sid, sit, have):
         "quotes": qs,
         "answers": rows,
         "missing": missing,
+        "related": _related(sid),
         "disclaimer": DISCLAIMER,
     }
 
