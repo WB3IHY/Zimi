@@ -45,6 +45,11 @@ Harmonic constants, tidal datums and subordinate-station offsets for every NOAA 
 - Source: NOAA Center for Operational Oceanographic Products and Services, https://tidesandcurrents.noaa.gov/
 - Terms: work of the U.S. Government, public domain in the United States (17 U.S.C. 105). NOAA asks that it be credited as the source and that its data not be presented as an official NOAA product; Zimi's predictions are its own computation and say so.
 
+## The live sky's Milky Way and constellations (`zimi/static/earth/`)
+
+- Milky Way panorama (`milkyway-v1.webp`): ESO / S. Brunier, "The Milky Way panorama" (eso0932a), CC BY 4.0, https://www.eso.org/public/images/eso0932a/ . Zimi removed the point stars, resized it and recompressed it; the stars drawn over it are the Yale Bright Star Catalogue's (`stars-v1.bin`, public domain).
+- Constellation figures (`constellations-v1.json`): d3-celestial, Copyright (c) 2015 Olaf Frohn, BSD 3-Clause License, https://github.com/ofrohn/d3-celestial . Built by `scripts/build_constellations.py`. The lines follow the IAU's constellation pages. Stellarium's GPL data is not used.
+
 ## Checked and not shipped
 
 Tides outside the United States, recorded so the next look starts here (2026-10-01):
