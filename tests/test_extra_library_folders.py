@@ -843,7 +843,10 @@ def test_a_broken_zim_is_counted_apart_with_its_reason(lib):
     ]
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root reads everything")
+@pytest.mark.skipif(
+    os.name == "nt" or os.geteuid() == 0,
+    reason="Windows has no POSIX read bits; root reads everything",
+)
 def test_a_file_nobody_may_read_says_permission(lib):
     own, nomad = lib
     locked = nomad / "locked_en_all_2026-01.zim"
