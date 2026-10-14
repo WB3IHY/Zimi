@@ -20264,7 +20264,7 @@ function _fieldguideMount(data) {
       var body = document.getElementById('fg-answer-body');
       if (!s || !s.quotes.length || !body || seq !== _fieldguideSeq) return;
       var first = s.quotes[0];
-      body.innerHTML = '<div class="fg-body" lang="en"><h4>' + esc(first.heading) + '</h4>' + FieldGuideCard.bodyHtml(first.lines) + '</div>' +
+      body.innerHTML = '<div class="fg-body" lang="en" dir="ltr"><h4>' + esc(first.heading) + '</h4>' + FieldGuideCard.bodyHtml(first.lines) + '</div>' +
         '<div class="fg-foot">' + esc(FieldGuideCard.word(S, 'from', { title: first.source.title, edition: first.source.edition })) + '</div>';
     }).catch(function() {});
   });

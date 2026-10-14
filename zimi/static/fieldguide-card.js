@@ -151,10 +151,10 @@ var FieldGuideCard = (function() {
   function quoteHtml(q, S) {
     var s = q.source || {};
     return '<section class="fg-q" data-quote="' + esc(q.id) + '">' +
-      '<h3 lang="en">' + esc(q.heading) + '</h3>' +
-      '<div class="fg-where">' + esc(s.title) + ' · ' + esc(q.locator) +
+      '<h3 lang="en" dir="ltr">' + esc(q.heading) + '</h3>' +
+      '<div class="fg-where" lang="en" dir="ltr">' + esc(s.title) + ' · ' + esc(q.locator) +
       (s.dated ? '<i class="fg-dated">' + esc(word(S, 'dated')) + '</i>' : '') + '</div>' +
-      '<div class="fg-body" lang="en">' + bodyHtml(q.lines) + tableHtml(q.table) + '</div>' +
+      '<div class="fg-body" lang="en" dir="ltr">' + bodyHtml(q.lines) + tableHtml(q.table) + '</div>' +
       '<div class="fg-foot">' + esc(word(S, 'from', { title: s.title, edition: s.edition })) + ' · ' + esc(s.publisher) + '<br>' +
       esc(word(S, 'licence', { licence: licenceText(s.licence, S) })) + ' · <a href="' + esc(q.url) + '" target="_blank" rel="noopener noreferrer">' + esc(word(S, 'original')) + '</a>' +
       libraryHtml(q.library, S) + '</div></section>';

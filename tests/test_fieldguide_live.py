@@ -328,4 +328,18 @@ def test_the_chrome_speaks_the_readers_language_and_the_quotes_stay_in_the_sourc
     assert f.eval_on_selector(".fg-q h3", "e => e.getAttribute('lang')") == "en"
     assert "First Aid for Hypothermia" in f.inner_text("#c-quotes")
     _shot(phone, "empty-cold-ru")
+    # Arabic chrome, English quotes: the page reads right to left, the quoted words do not.
+    phone.evaluate("localStorage.setItem('zimi_ui_lang', 'ar')")
+    _open(phone, empty, "#fieldguide/cold")
+    f = _frame(phone)
+    f.wait_for_selector(".fg-q")
+    assert f.evaluate("document.documentElement.dir") == "rtl"
+    assert (
+        f.evaluate("getComputedStyle(document.querySelector('.fg-body')).direction")
+        == "ltr"
+    )
+    assert (
+        f.evaluate("getComputedStyle(document.querySelector('.fg-q h3')).direction")
+        == "ltr"
+    )
     phone.evaluate("localStorage.removeItem('zimi_ui_lang')")
