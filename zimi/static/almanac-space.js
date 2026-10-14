@@ -1073,3 +1073,455 @@ function _spShadeStars(S, beta, head) {
   _spCommitMarkers(cloud, n);
 }
 
+// ── State ──
+var _sp = null;
+var _spIsOpen = false;
+function _spNewState(el) {
+  return {
+    el: el, gl: null, loading: false, failed: false, noProbes: false,
+    dirty: true, raf: 0, idleTimer: 0, lastTs: 0, lastText: 0,
+    jd: 0, rateIdx: 0, scaleMode: 'readable', beta: 0.1,
+    // The camera: parked, it looks at `follow` (a body, or the free point `center` mid-glide) from `dist`
+    // at azimuth `az` and elevation `el`; in flight it is the ship, and `look*` turn the head.
+    cam: { follow: 'Sun', center: [0, 0, 0], dist: SP_OVERVIEW_DIST_AU, az: -2.0, el: SP_OVERVIEW_ELEVATION,
+           pos: [0, 0, 0], fwd: [0, 1, 0], right: [1, 0, 0], up: [0, 0, 1], lookYaw: 0, lookPitch: 0 },
+    glide: null, flight: null, selected: null, lastTrip: null, at: 'Earth', pendingFly: null,
+    pointers: {}, drag: null, pinch: null, w: 1, h: 1,
+    projected: [], seen: {}, caption: null, whyOpen: false, labelPool: {}, lastCard: ''
+  };
+}
+function _spReduceMotion() { return _aeReduceMotion(); }
+function _spScaleNow() { return _spScale(_sp.scaleMode); }
+
+// ── Camera ──
+function _spSphericalOffset(dist, az, el) {
+  return [dist * Math.cos(el) * Math.cos(az), dist * Math.cos(el) * Math.sin(az), dist * Math.sin(el)];
+}
+function _spMinDist(key) {
+  var b = _spBody(key);
+  if (b.kind === 'probe') return SP_PROBE_MIN_AU;
+  return Math.max(1e-9, _spShownRadius(key, _spScaleNow()) * SP_MIN_RADII);
+}
+// Turn a heading by the head's yaw (left, about the ecliptic's up) and pitch.
+function _spLookFrom(heading, yaw, pitch) {
+  var up = Math.abs(heading[2]) > 0.999 ? [0, 1, 0] : [0, 0, 1];
+  var right = _aeNorm(_aeCross(heading, up)), top = _aeCross(right, heading);
+  var cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  var flat = _spAdd(_aeScale(heading, cy), _aeScale(right, -sy));
+  return _aeNorm(_spAdd(_aeScale(flat, cp), _aeScale(top, sp)));
+}
+function _spSetFacing(cam, fwd) {
+  var up = Math.abs(fwd[2]) > 0.999 ? [0, 1, 0] : [0, 0, 1];
+  cam.fwd = fwd;
+  cam.right = _aeNorm(_aeCross(fwd, up));
+  cam.up = _aeCross(cam.right, fwd);
+}
+// Where the camera is and which way it looks, at the view's moment.
+function _spPlaceCamera() {
+  var cam = _sp.cam, f = _sp.flight;
+  if (f) {
+    _spSetFacing(cam, _spLookFrom(f.heading, cam.lookYaw, cam.lookPitch));
+    return;
+  }
+  var center = cam.follow ? _spBodyPos(cam.follow, _sp.jd, _spScaleNow().moon) : cam.center;
+  if (!center) center = cam.center;
+  cam.center = center;
+  var off = _spSphericalOffset(cam.dist, cam.az, cam.el);
+  cam.pos = _spAdd(center, off);
+  _spSetFacing(cam, _aeNorm(_aeScale(off, -1)));
+}
+// The ship's heading and speed for the light, or none when parked.
+function _spBeta() { return _sp.flight ? _sp.flight.now.beta : 0; }
+// Where the ship is: in flight, the camera; otherwise at the body it last reached (it starts at Earth).
+function _spShipPos() {
+  if (_sp.flight) return _sp.cam.pos;
+  return _spBodyPos(_sp.at, _sp.jd, _spScaleNow().moon) || _sp.cam.pos;
+}
+// Fly: first turn the camera to a launch pose beside the ship, looking toward the target, then go.
+function _spLaunch(key) {
+  if (!_spCanFly(key)) return;
+  var sc = _spScaleNow(), ship = _spShipPos(), target = _spBodyPos(key, _sp.jd, sc.moon);
+  var toward = _aeSub(target, ship), d = _aeLen(toward);
+  _spSelect(key);
+  if (key === _sp.at || d < 1e-9) { _sp.at = key; _spGlideToBody(key); return; }
+  var u = _aeScale(toward, 1 / d), stand = _spStandoff(_sp.at);
+  var pose = _spAdd(ship, _aeScale(u, stand));
+  _sp.pendingFly = key;
+  _spGlide({ follow: null, center: _spAdd(pose, _aeScale(u, stand)), dist: stand, az: Math.atan2(-u[1], -u[0]), el: Math.asin(_aeClamp(-u[2], -1, 1)) });
+}
+
+// ── Flight ──
+function _spFlightSeconds(len) {
+  return Math.min(SP_FLIGHT_MAX_S, SP_FLIGHT_BASE_S + SP_FLIGHT_PER_DECADE_S * Math.log10(1 + len));
+}
+// The share of the way flown at progress p (0..1) of the animation: the time
+// is the Earth clock's, so the camera speeds up and slows down exactly as the
+// ship's speed does (bisection on the monotone Earth clock).
+function _spShareAt(len, beta, p) {
+  var total = _spTrip(len, beta).earthSec, want = p * total, lo = 0, hi = 1;
+  for (var i = 0; i < 40; i++) {
+    var mid = (lo + hi) / 2;
+    if (_spTripAt(len, beta, mid).earthSec < want) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+function _spStandoff(key) {
+  var b = _spBody(key);
+  return b.kind === 'probe' ? SP_PROBE_STANDOFF_AU : Math.max(_spMinDist(key), _spShownRadius(key, _spScaleNow()) * SP_STANDOFF_RADII);
+}
+function _spCanFly(key) { return !_sp.flight && !!_spBodyPos(key, _sp.jd, 1); }
+function _spStartFlight(key) {
+  if (!_spCanFly(key)) return;
+  _spPlaceCamera();
+  var from = _sp.cam.pos.slice(), moonK = _spScaleNow().moon, stand = _spStandoff(key);
+  var hit = _spIntercept(function (jd) { return _spBodyPos(key, jd, moonK) || _spBodyPos(key, _sp.jd, moonK); }, from, _sp.beta, _sp.jd, stand);
+  var toTarget = _aeSub(hit.pos, from), d = _aeLen(toTarget);
+  var len = Math.max(0, d - stand);
+  _spSelect(key);
+  _sp.lastTrip = null;
+  if (len < 1e-9) { _spGlideToBody(key); return; }
+  var heading = _aeScale(toTarget, 1 / d);
+  _sp.flight = {
+    key: key, from: from, heading: heading, len: len, beta: _sp.beta, jd0: _sp.jd, arriveJd: hit.arriveJd,
+    p: 0, dur: _spFlightSeconds(len), stand: stand,
+    now: _spTripAt(len, _sp.beta, 0)
+  };
+  _sp.cam.lookYaw = _sp.cam.lookPitch = 0;
+  _sp.glide = null;
+  _spPlaceCamera();
+  _sp.caption = null;
+  _spShowCaption('race');
+  if (_spReduceMotion()) _spStepFlight(1e9);
+  _spSyncControls();
+  _sp.dirty = true;
+  _spKick();
+}
+// Advance the flight by dt milliseconds; true while it flies.
+function _spStepFlight(dt) {
+  var f = _sp.flight;
+  if (!f) return false;
+  f.p = Math.min(1, f.p + dt / (f.dur * 1000));
+  var s = f.p >= 1 ? 1 : _spShareAt(f.len, f.beta, f.p);
+  f.share = s;
+  f.now = _spTripAt(f.len, f.beta, s);
+  _sp.jd = f.jd0 + f.now.earthSec / SECONDS_PER_DAY;
+  _sp.cam.pos = _spAdd(f.from, _aeScale(f.heading, f.len * s));
+  if (f.p >= 1) { _spFinishFlight(); return false; }
+  return true;
+}
+function _spFinishFlight() {
+  var f = _sp.flight, cam = _sp.cam;
+  _sp.at = f.key;
+  _sp.lastTrip = { key: f.key, beta: f.beta, earthSec: f.now.earthSec, shipSec: f.now.shipSec };
+  _sp.jd = f.jd0 + f.now.earthSec / SECONDS_PER_DAY;
+  var center = _spBodyPos(f.key, _sp.jd, _spScaleNow().moon);
+  var off;
+  off = _aeSub(_spAdd(f.from, _aeScale(f.heading, f.len)), center);
+  cam.follow = f.key;
+  cam.dist = Math.max(_aeLen(off), _spMinDist(f.key));
+  cam.az = Math.atan2(off[1], off[0]);
+  cam.el = Math.asin(_aeClamp(off[2] / Math.max(_aeLen(off), 1e-18), -1, 1));
+  cam.lookYaw = cam.lookPitch = 0;
+  _sp.flight = null;
+  if (_orrFmtSpan(f.now.earthSec) !== _orrFmtSpan(f.now.shipSec)) _spShowCaption('clocks');
+  _spSyncControls();
+  _sp.dirty = true;
+}
+// Fly cut short: arrive at once.
+function _spSkipFlight() { if (_sp.flight) _spStepFlight(1e12); _spKick(); }
+
+// A smooth turn of the camera between parked views (no ship, no speed).
+function _spGlide(to) {
+  var cam = _sp.cam;
+  var toCenter = to.follow ? _spBodyPos(to.follow, _sp.jd, _spScaleNow().moon) : (to.center || [0, 0, 0]);
+  var g = { from: { center: cam.center.slice(), dist: cam.dist, az: cam.az, el: cam.el }, to: { follow: to.follow, center: toCenter, dist: to.dist, az: to.az, el: to.el }, p: 0 };
+  var dAz = g.to.az - g.from.az;
+  g.to.az = g.from.az + Math.atan2(Math.sin(dAz), Math.cos(dAz));
+  if (_spReduceMotion()) { _spApplyGlide(g, 1); return; }
+  cam.follow = null;
+  _sp.glide = g;
+  _spKick();
+}
+var SP_GLIDE_MS = 900;
+function _spApplyGlide(g, p) {
+  var cam = _sp.cam, e = _aeEaseInOut(p);
+  if (p >= 1) {
+    cam.follow = g.to.follow; cam.center = g.to.center; cam.dist = g.to.dist; cam.az = g.to.az; cam.el = g.to.el;
+    _sp.glide = null;
+    if (_sp.pendingFly) { var k = _sp.pendingFly; _sp.pendingFly = null; _spStartFlight(k); }
+  } else {
+    cam.center = [0, 1, 2].map(function (i) { return g.from.center[i] + (g.to.center[i] - g.from.center[i]) * e; });
+    cam.dist = Math.exp(Math.log(g.from.dist) + (Math.log(g.to.dist) - Math.log(g.from.dist)) * e);
+    cam.az = g.from.az + (g.to.az - g.from.az) * e;
+    cam.el = g.from.el + (g.to.el - g.from.el) * e;
+  }
+  _sp.dirty = true;
+}
+function _spStepGlide(dt) {
+  var g = _sp.glide;
+  if (!g) return false;
+  g.p = Math.min(1, g.p + dt / SP_GLIDE_MS);
+  _spApplyGlide(g, g.p);
+  return !!_sp.glide;
+}
+function _spGlideToBody(key) {
+  var stand = _spStandoff(key);
+  _spGlide({ follow: key, dist: stand, az: _sp.cam.az, el: Math.max(0.25, _sp.cam.el) });
+}
+function _spOverview() {
+  if (_sp.flight) return;
+  _sp.pendingFly = null;
+  _spGlide({ follow: 'Sun', dist: SP_OVERVIEW_DIST_AU, az: _sp.cam.az, el: SP_OVERVIEW_ELEVATION });
+  _spSelect(null);
+}
+
+// ── What the scene shows, for one frame ──
+// The light's colour and brightness on a thing sunlit and seen from the ship:
+// its direction against the heading gives the Doppler factor; the Sun's
+// spectrum shifts by it.
+function _spTintFor(dirToBody, beta, head) {
+  if (!(beta > 0)) return [1, 1, 1];
+  var D = _lorentzFactor(beta) * (1 + beta * _aeDot(dirToBody, head));
+  var bb = _spBlackbodyRGB(D * SP_SUN_TEMP_K), bb0 = _spBlackbodyRGB(SP_SUN_TEMP_K);
+  var gain = Math.min(_spBeamGain(D, SP_SUN_TEMP_K), 60);
+  return [bb[0] / bb0[0] * gain, bb[1] / bb0[1] * gain, bb[2] / bb0[2] * gain];
+}
+// Projection of a camera-relative vector (AU), as the ship sees it: pixels, or null if behind.
+function _spProject(rel, beta, head) {
+  var cam = _sp.cam, r = _aeLen(rel);
+  if (r <= 0) return null;
+  var n = _aeScale(rel, 1 / r);
+  if (beta > 0) n = _spAberrateDir(n, head, beta);
+  var depth = _aeDot(n, cam.fwd);
+  if (depth <= 1e-6) return null;
+  var tanH = Math.tan(_aeRad(SP_FOV_DEG) / 2);
+  var x = _aeDot(n, cam.right) / depth / (tanH * _sp.w / _sp.h), y = _aeDot(n, cam.up) / depth / tanH;
+  return { x: (x * 0.5 + 0.5) * _sp.w, y: (0.5 - y * 0.5) * _sp.h - (_sp.shift || 0), depth: depth * r, n: n };
+}
+function _spFocalPx() { return (_sp.h / 2) / Math.tan(_aeRad(SP_FOV_DEG) / 2); }
+
+function _spApplyMatrix(mesh, basis, scale3, rel, S) {
+  var m = S.basis, e = m.elements;
+  // Columns: local x -> body x (lon 0), local y -> pole, local z -> minus east.
+  e[0] = basis.x[0] * scale3[0]; e[1] = basis.x[1] * scale3[0]; e[2] = basis.x[2] * scale3[0]; e[3] = 0;
+  e[4] = basis.z[0] * scale3[1]; e[5] = basis.z[1] * scale3[1]; e[6] = basis.z[2] * scale3[1]; e[7] = 0;
+  e[8] = -basis.y[0] * scale3[2]; e[9] = -basis.y[1] * scale3[2]; e[10] = -basis.y[2] * scale3[2]; e[11] = 0;
+  e[12] = rel[0]; e[13] = rel[1]; e[14] = rel[2]; e[15] = 1;
+  mesh.matrix.copy(m);
+  mesh.matrixWorldNeedsUpdate = true;
+}
+
+// The orbit round the Sun of one body, as a loop, from the model over one year.
+function _spBuildOrbit(S, key, jd) {
+  var o = S.orbits[key], b = _spBody(key), n = SP_ORBIT_POINTS, arr = o.line.geometry.attributes.position.array, ok = true;
+  for (var i = 0; i < n && ok; i++) {
+    var p = _spBodyPos(key, jd + b.period * i / n, 1);
+    if (!p) { ok = false; break; }
+    arr[i * 3] = p[0]; arr[i * 3 + 1] = p[1]; arr[i * 3 + 2] = p[2];
+  }
+  o.line.geometry.setDrawRange(0, ok ? n : 0);
+  o.line.geometry.attributes.position.needsUpdate = true;
+  o.at = jd;
+  o.line.visible = ok;
+}
+var SP_ORBIT_REBUILD_DAYS = 3652.5;
+
+// Everything for one frame: place the camera, the bodies and the lines, and
+// fill the list the labels and taps work from.
+function _spUpdate() {
+  var S = _sp.gl, cam = _sp.cam, jd = _sp.jd, sc = _spScaleNow(), beta = _spBeta();
+  _spPlaceCamera();
+  var head = _sp.flight ? _sp.flight.heading : [0, 1, 0];
+  S.ab.uBeta.value = beta;
+  S.ab.uHead.value.set(head[0], head[1], head[2]);
+  var focal = _spFocalPx(), items = [], minSurf = Infinity, keys = _spAllKeys(), i, k;
+  var markers = 0, M = S.markers;
+  function mark(rel, rgb, alpha, size, kind) { if (markers < SP_MARKER_CAPACITY) _spSetMarker(M, markers++, rel, rgb, alpha, size, kind); }
+  var sunRel = [-cam.pos[0], -cam.pos[1], -cam.pos[2]];
+  for (i = 0; i < keys.length; i++) {
+    k = keys[i];
+    var b = _spBody(k), it = S.items[k], abs = _spBodyPos(k, jd, sc.moon);
+    if (!abs) { if (it.mesh) { it.mesh.visible = false; if (it.ring) it.ring.visible = false; } continue; }
+    var rel = _aeSub(abs, cam.pos), dist = _aeLen(rel), R = _spShownRadius(k, sc), rpx = R / Math.max(dist, 1e-18) * focal;
+    minSurf = Math.min(minSurf, Math.max(dist - R, 1e-12));
+    var pr = _spProject(rel, beta, head);
+    items.push({ key: k, kind: b.kind, abs: abs, rel: rel, dist: dist, R: R, rpx: rpx, scr: pr });
+    if (it.mesh) {
+      var frame = _spFrameOf(k, jd, sc.moon), flat = b.flat || 0;
+      _spApplyMatrix(it.mesh, frame, [R, R * (1 - flat), R], rel, S);
+      it.mesh.visible = rpx > 0.35;
+      var toSun = b.kind === 'sun' ? [1, 0, 0] : _aeNorm(_aeScale(abs, -1));
+      it.uni.uSunDir.value.set(toSun[0], toSun[1], toSun[2]);
+      var tint = _spTintFor(_aeNorm(rel), beta, head);
+      it.uni.uTint.value.set(tint[0], tint[1], tint[2]);
+      if (it.ring) {
+        _spApplyMatrix(it.ring, frame, [R, R, R], rel, S);
+        it.ring.visible = rpx > 0.35;
+        it.ringUni.uCenter.value.set(rel[0], rel[1], rel[2]);
+        it.ringUni.uRadius.value = R;
+      }
+      if (b.kind === 'sun') {
+        S.glowUni.uCenter.value.set(rel[0], rel[1], rel[2]);
+        S.glowUni.uSize.value = Math.max(R * 3.5, dist * 11 / focal);
+        S.glowUni.uTint.value.set(tint[0], tint[1], tint[2]);
+      }
+    }
+  }
+  // Markers: a ring round anything too small to see as a disc, a square on a probe.
+  var byKey = {};
+  items.forEach(function (it2) { byKey[it2.key] = it2; });
+  for (i = 0; i < items.length; i++) {
+    var t = items[i], tb = _spBody(t.key), sel = _sp.selected === t.key, col = _spHexRGB(tb.color);
+    if (tb.kind === 'probe') { mark(t.rel, col, 1, sel ? SP_PROBE_PX + 4 : SP_PROBE_PX, SP_KIND_PROBE); continue; }
+    var a = _aeClamp((SP_RING_FADE_PX - t.rpx) / (SP_RING_FADE_PX - SP_AU_TO_PX_MIN), 0, 1);
+    if (tb.kind === 'moon') {
+      var par = byKey[_spParentKey(t.key)];
+      if (par && t.scr && par.scr && Math.hypot(t.scr.x - par.scr.x, t.scr.y - par.scr.y) < SP_MOON_APART_PX) a = 0;
+    }
+    if (a > 0.01) mark(t.rel, col, 0.85 * a, SP_MARKER_PX, SP_KIND_RING);
+    if (sel && t.rpx < SP_SELECT_RING_MAX_PX) mark(t.rel, [1, 0.72, 0.2], 1, Math.max(24, t.rpx * 2 + 10), SP_KIND_RING);
+  }
+  // The place the light shows the selected body, if that is not where it is.
+  S.ghost = null;
+  if (_sp.selected && byKey[_sp.selected] && !_sp.flight) {
+    var sk = _sp.selected, st = byKey[sk];
+    var seen = _spRetarded(function (j) { return _spBodyPos(sk, j, sc.moon) || st.abs; }, _spShipPos(), jd);
+    var gp = _spProject(_aeSub(seen.pos, cam.pos), beta, head);
+    if (gp && st.scr && Math.hypot(gp.x - st.scr.x, gp.y - st.scr.y) > 12) {
+      mark(_aeSub(seen.pos, cam.pos), [1, 1, 1], 0.9, 12, SP_KIND_GHOST);
+      S.ghost = { x: gp.x, y: gp.y, lagSec: seen.lagSec };
+    }
+  }
+  // The flash of light that left with the ship.
+  S.lightDot = null;
+  if (_sp.flight) {
+    var f = _sp.flight, lightAU = Math.min(f.len, f.now.earthSec / LIGHT_SECONDS_PER_AU);
+    var lp = _spAdd(f.from, _aeScale(f.heading, lightAU)), lrel = _aeSub(lp, cam.pos);
+    mark(lrel, [1, 0.96, 0.7], 1, 22, SP_KIND_GLOW);
+    var lpr = _spProject(lrel, beta, head);
+    if (lpr) S.lightDot = { x: lpr.x, y: lpr.y, ahead: lightAU - f.len * (f.share || 0) };
+  }
+  _spCommitMarkers(M, markers);
+  // Lines.
+  var neg = [-cam.pos[0], -cam.pos[1], -cam.pos[2]];
+  Object.keys(S.orbits).forEach(function (ok) {
+    var o = S.orbits[ok];
+    if (o.at === null || Math.abs(jd - o.at) > SP_ORBIT_REBUILD_DAYS) _spBuildOrbit(S, ok, jd);
+    o.line.position.set(neg[0], neg[1], neg[2]);
+  });
+  Object.keys(S.moonRings).forEach(function (mk) {
+    var ring = S.moonRings[mk], parent = SP_MOONS[mk].planet, pp = byKey[parent];
+    ring.visible = !!pp;
+    if (!pp) return;
+    var pole = parent === 'Earth' ? [0, 0, 1] : _spPoleEcl(parent), x = _aeNorm(_aeCross([0, 0, 1], pole));
+    if (parent === 'Earth') x = [1, 0, 0];
+    var y = _aeCross(pole, x), r = SP_MOONS[mk].a / AU_KM * sc.moon, e = S.basis.elements;
+    e[0] = x[0] * r; e[1] = x[1] * r; e[2] = x[2] * r; e[3] = 0;
+    e[4] = y[0] * r; e[5] = y[1] * r; e[6] = y[2] * r; e[7] = 0;
+    e[8] = pole[0]; e[9] = pole[1]; e[10] = pole[2]; e[11] = 0;
+    e[12] = pp.rel[0]; e[13] = pp.rel[1]; e[14] = pp.rel[2]; e[15] = 1;
+    ring.matrix.copy(S.basis);
+    ring.matrixWorldNeedsUpdate = true;
+  });
+  Object.keys(S.trails).forEach(function (tk) {
+    var tr = S.trails[tk], track = _spTrack(tk), flying = track && _spTrackState(track, jd) === 'flying';
+    tr.past.visible = tr.future.visible = !!flying;
+    if (!flying) return;
+    var idx = _spTrailIndex(track, jd), whole = Math.floor(idx) + 1;
+    tr.past.geometry.setDrawRange(0, whole);
+    tr.future.geometry.setDrawRange(whole - 1, tr.count - whole + 1);
+    tr.past.position.set(neg[0], neg[1], neg[2]);
+    tr.future.position.set(neg[0], neg[1], neg[2]);
+  });
+  // The stars, as the ship sees them.
+  _spShadeStars(S, beta, head);
+  // The camera.
+  var m = S.basis.elements;
+  m[0] = cam.right[0]; m[1] = cam.right[1]; m[2] = cam.right[2]; m[3] = 0;
+  m[4] = cam.up[0]; m[5] = cam.up[1]; m[6] = cam.up[2]; m[7] = 0;
+  m[8] = -cam.fwd[0]; m[9] = -cam.fwd[1]; m[10] = -cam.fwd[2]; m[11] = 0;
+  m[12] = m[13] = m[14] = 0; m[15] = 1;
+  S.camera.quaternion.setFromRotationMatrix(S.basis);
+  S.camera.near = _aeClamp(0.35 * minSurf, 1e-10, 1);
+  S.camera.far = SP_FAR_AU;
+  S.camera.aspect = _sp.w / _sp.h;
+  // The scene's middle sits in the clear part of the screen, above the card.
+  if (_sp.shift) S.camera.setViewOffset(_sp.w, _sp.h, 0, _sp.shift, _sp.w, _sp.h);
+  else if (S.camera.view) S.camera.clearViewOffset();
+  S.camera.updateProjectionMatrix();
+  _sp.items = items;
+  _sp.byKey = byKey;
+}
+
+// ── Labels and taps ──
+function _spLabelEl(key) {
+  var el = _sp.labelPool[key];
+  if (el) return el;
+  el = document.createElement('span');
+  el.className = 'ae-label sp-label';
+  el.hidden = true;
+  _aeById('sp-labels').appendChild(el);
+  return (_sp.labelPool[key] = el);
+}
+var SP_LABEL_ORDER = { sun: 0, planet: 1, dwarf: 2, probe: 3, moon: 4 };
+function _spLabels() {
+  var items = _sp.items || [], placed = [], W = _sp.w, H = _sp.h;
+  var order = items.slice().sort(function (a, b) {
+    if ((_sp.selected === a.key) !== (_sp.selected === b.key)) return _sp.selected === a.key ? -1 : 1;
+    return (SP_LABEL_ORDER[a.kind] - SP_LABEL_ORDER[b.kind]) || (a.dist - b.dist);
+  });
+  var shown = {};
+  _sp.projected = [];
+  order.forEach(function (it) {
+    var s = it.scr;
+    if (!s || s.x < -40 || s.x > W + 40 || s.y < -20 || s.y > H + 20) return;
+    _sp.projected.push({ key: it.key, x: s.x, y: s.y, rpx: it.rpx, kind: it.kind });
+    var par = it.kind === 'moon' ? _sp.byKey[_spParentKey(it.key)] : null;
+    if (par && par.scr && Math.hypot(s.x - par.scr.x, s.y - par.scr.y) < SP_MOON_APART_PX) return;
+    if (items.some(function (o) { return o !== it && o.scr && o.dist < it.dist && o.rpx > SP_COVER_PX && Math.hypot(s.x - o.scr.x, s.y - o.scr.y) < o.rpx; })) return;
+    var el = _spLabelEl(it.key), name = _spName(it.key);
+    if (el.textContent !== name) el.textContent = name;
+    var w = name.length * SP_LABEL_CHAR_W + 8, x = s.x + Math.max(10, it.rpx + 6), y = s.y - SP_LABEL_H / 2;
+    var rect = [x, y, x + w, y + SP_LABEL_H];
+    for (var j = 0; j < placed.length; j++) {
+      var q = placed[j];
+      if (rect[0] < q[2] && rect[2] > q[0] && rect[1] < q[3] && rect[3] > q[1]) return;
+    }
+    placed.push(rect);
+    shown[it.key] = true;
+    el.hidden = false;
+    el.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
+    el.classList.toggle('sp-sel', _sp.selected === it.key);
+    el.classList.toggle('sp-probe', it.kind === 'probe');
+    el.classList.toggle('sp-moon', it.kind === 'moon');
+  });
+  Object.keys(_sp.labelPool).forEach(function (k) { if (!shown[k]) _sp.labelPool[k].hidden = true; });
+  var S = _sp.gl, g = _aeById('sp-ghost'), l = _aeById('sp-light');
+  if (g) {
+    g.hidden = !S.ghost;
+    if (S.ghost) {
+      g.style.transform = 'translate(' + (S.ghost.x + 10).toFixed(1) + 'px,' + (S.ghost.y - 7).toFixed(1) + 'px)';
+      g.textContent = _aeT('sp_ghost_label');
+    }
+  }
+  if (l) {
+    l.hidden = !S.lightDot;
+    if (S.lightDot) {
+      l.style.transform = 'translate(' + (S.lightDot.x + 14).toFixed(1) + 'px,' + (S.lightDot.y - 7).toFixed(1) + 'px)';
+      l.textContent = _aeT('sp_light_label');
+    }
+  }
+}
+function _spTapAt(x, y) {
+  var best = null, bestD = Infinity;
+  (_sp.projected || []).forEach(function (p) {
+    var d = Math.hypot(p.x - x, p.y - y), reach = Math.max(p.rpx, SP_TAP_RADIUS_PX);
+    if (d > reach) return;
+    // The smaller thing wins where two overlap (a moon over its planet, a probe over anything).
+    var score = d - (p.kind === 'probe' ? 8 : p.kind === 'moon' ? 6 : 0) - (p.rpx > SP_TAP_RADIUS_PX && d < p.rpx * 0.8 ? 0 : 0);
+    if (score < bestD) { best = p; bestD = score; }
+  });
+  if (best) { _spSelect(best.key); if (_sp.selected === best.key && !_sp.flight && _sp.cam.follow !== best.key) { /* selecting only */ } }
+  else _spSelect(null);
+}
+
