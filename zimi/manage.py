@@ -3641,6 +3641,10 @@ def _create_run(job, opts):
     stack and yt-dlp are heavy, and a server that never creates a ZIM should
     never pay for them. (Folder capture never reaches here — the web refuses
     it at validation; `zimi create <folder>` is its only door.)"""
+    if job.mode == "fieldmanual":
+        from zimi import fieldguide
+
+        return fieldguide.build_field_manual(progress=job.note)
     if job.mode == "page":
         # create_pages_zim hands a single URL to create_page_zim itself, so one
         # entry point covers both shapes — and it takes a progress callback,
@@ -4040,10 +4044,14 @@ def _create_start(data, actor=None):
     ``actor`` is whoever submitted it — captured here because the job outlives
     its request by an hour, and the activity journal is written at the end.
     """
-    try:
-        mode, source, title, opts = _create_validate(data)
-    except ValueError as e:
-        return {"error": str(e)}, 400
+    if data.get("mode") == "fieldmanual":
+        # The Field Guide's own recipe: nothing is typed, so nothing is validated.
+        mode, source, title, opts = "fieldmanual", "Field manual", "Field manual", {}
+    else:
+        try:
+            mode, source, title, opts = _create_validate(data)
+        except ValueError as e:
+            return {"error": str(e)}, 400
     global _create_job
     job = _CreateJob(mode, source, title)
     job.limits = _create_limits(mode, opts)
@@ -4088,6 +4096,26 @@ def _create_start(data, actor=None):
         }, 200
     _create_launch(job, opts)
     return {"status": "started", "id": job.id, "mode": mode}, 200
+
+
+def _fieldmanual_status(fieldguide):
+    """The field-manual build as the Field Guide page polls it: the Create
+    job's state (idle, running, done, error) with the build's own progress.
+    Only text Create already sends the client reaches it."""
+    out = fieldguide.manual_status()
+    with _create_lock:
+        job = _create_job if (_create_job and _create_job.mode == "fieldmanual") else None
+        queued = any(j.mode == "fieldmanual" for j, _o in _create_queue)
+    if (job is not None and not job.done) or queued:
+        out["state"] = "running"
+    elif job is not None:
+        out["state"] = "done" if job.ok else "error"
+        out["message"] = "" if job.ok else job.error
+    elif out["state"] == "running":
+        out["state"] = "idle"
+    if job is not None:
+        out["id"] = job.id
+    return out
 
 
 def _create_queue_view():
@@ -5667,7 +5695,7 @@ def handle_manage_get(handler, parsed, params):
         # The Field Guide's field-manual ZIM: how far its build is.
         from zimi import fieldguide
 
-        return handler._json(200, fieldguide.manual_status())
+        return handler._json(200, _fieldmanual_status(fieldguide))
 
     elif parsed.path == "/manage/activity":
         # Aggregated background-activity snapshot for the topbar status row.
@@ -6732,11 +6760,25 @@ def handle_manage_post(handler, parsed, data):
 
     elif parsed.path == "/manage/fieldmanual":
         # Build a ZIM of the Army's public-domain manuals (zimi.fieldguide.build_field_manual).
-        from zimi import fieldguide
+        from zimi import fieldguide, p2p
 
-        if not fieldguide.start_manual_build():
-            return handler._json(409, {"error": "a build is already running"})
-        return handler._json(200, {"status": "started"})
+        if p2p.is_offline():
+            return handler._json(
+                409,
+                {
+                    "error": "offline",
+                    "message": "Offline mode is on: nothing is fetched from the internet.",
+                },
+            )
+        if fieldguide.installed_manual():
+            return handler._json(
+                409,
+                {"error": "installed", "message": "The field manual is already in the library."},
+            )
+        payload, status = _create_start(
+            {"mode": "fieldmanual"}, actor=activity_actor(handler)
+        )
+        return handler._json(status, payload)
 
     elif parsed.path == "/manage/download-batch":
         urls = data.get("urls")

@@ -315,11 +315,28 @@ _PRIVATE_LOGIN_SURFACE_EXACT = frozenset(
         "/favicon.png",
         "/favicon-64.png",
         "/apple-touch-icon.png",
+        # The Field Guide's quotes: public-domain text, open to whoever is at
+        # the door (the library behind them is not; see _fieldguide_is_bare).
+        "/fieldguide",
+        "/fieldguide/home",
+        "/fieldguide/situation",
+        "/fieldguide/print",
     )
 )
 _PRIVATE_LOGIN_SURFACE_PREFIX = ("/static/", "/manage/")
 # What a fresh install answers before its setup is done: the page itself.
-_SETUP_SURFACE = frozenset(("/manage/has-password", "/manage/access", "/manifest.json", "/sw.js"))
+_SETUP_SURFACE = frozenset(
+    (
+        "/manage/has-password",
+        "/manage/access",
+        "/manifest.json",
+        "/sw.js",
+        "/fieldguide",
+        "/fieldguide/home",
+        "/fieldguide/situation",
+        "/fieldguide/print",
+    )
+)
 
 
 # Asked by the shell once for every wiki article opened (its language menu,
@@ -1860,8 +1877,14 @@ ZIM_HTML_CSP = (
 )
 _APPS_CSS_MARK = b"<!--@apps.css@-->"
 _APPS_JS_MARK = b"<!--@apps.js@-->"
+# Red night light, stamped in the head before the first paint (apps.js keeps
+# it in step afterwards): an app page opened at night never flashes white.
+_NIGHT_STAMP = (
+    b"<script>try{document.documentElement.classList.toggle('night-red',"
+    b"localStorage.getItem('zimi.night')==='red')}catch(e){}</script>\n"
+)
 _APP_ASSETS = (
-    (_APPS_CSS_MARK, "apps.css", b"<style>\n", b"</style>"),
+    (_APPS_CSS_MARK, "apps.css", _NIGHT_STAMP + b"<style>\n", b"</style>"),
     (_APPS_JS_MARK, "apps.js", b"<script>\n", b"</script>"),
 )
 # The PDF viewer (pdf.js's page) with Zimi's own reading chrome, inlined the
@@ -2113,6 +2136,18 @@ class ZimHandler(BaseHTTPRequestHandler):
         # authenticate — a verifier that explains itself is a tuning oracle.
         self._json(401, {"error": "authentication required"})
         return True
+
+    def _fieldguide_is_bare(self):
+        """True when the Field Guide may show its quotes and nothing of the
+        library: a fresh install still being set up, or a private server's
+        anonymous visitor at the sign-in screen. In an emergency the words
+        must be there; what the library holds is not theirs yet."""
+        if _manage_mod.setup_pending():
+            return True
+        mode, _ = _users.get_public_access()
+        return mode == "private" and not (
+            _users.resolve_request_user(self) or _users._request_is_admin(self)
+        )
 
     def _private_access_block(self, parsed):
         """Enforce ``private`` public-access mode. Returns True (and sends a 401)
@@ -2771,10 +2806,15 @@ class ZimHandler(BaseHTTPRequestHandler):
                 from zimi import fieldguide as _fg
 
                 sub = parsed.path[len("/fieldguide") :].strip("/")
+                bare = self._fieldguide_is_bare()
                 if sub in ("", "home"):
-                    return self._json(200, _fg.home())
+                    return self._json(200, _fg.home(bare=bare))
                 if sub == "situation":
-                    got = _fg.situation(param("id") or "", param("lang") or "en")
+                    got = (
+                        _fg.situation_bare(param("id") or "")
+                        if bare
+                        else _fg.situation(param("id") or "", param("lang") or "en")
+                    )
                     return (
                         self._json(200, got)
                         if got
@@ -2782,6 +2822,8 @@ class ZimHandler(BaseHTTPRequestHandler):
                     )
                 if sub == "library":
                     return self._json(200, _fg.library())
+                if sub == "print":
+                    return self._json(200, _fg.print_all())
                 if sub == "match":
                     got = _fg.lookup(param("q") or "", param("ui") or "en")
                     return self._json(

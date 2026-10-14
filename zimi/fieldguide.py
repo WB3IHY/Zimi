@@ -37,6 +37,9 @@ import os
 import re
 import threading
 import unicodedata
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from zimi import server as _srv
 
@@ -310,13 +313,15 @@ def hint(query, lang="en"):
 # ── the front ───────────────────────────────────────────────────────────────
 
 
-def home():
+def home(bare=False):
     """The situations in their groups and order, with how many quotes each
     holds and how many of the sources that go deeper are installed. The
-    library list only: no ZIM is read."""
+    library list only: no ZIM is read. ``bare`` is for a visitor the library
+    is not shown to (the sign-in screen, a fresh install's setup): the
+    quotes, nothing about what is installed."""
     d = data()
     q = quotes()["quotes"]
-    have = installed_zims()
+    have = {} if bare else installed_zims()
     groups = []
     for g in d["groups"]:
         rows = []
@@ -499,16 +504,41 @@ def _missing(pid, piece, sizes):
                 "url": got["url"],
                 "date": got.get("date", ""),
             }
-    if piece.get("build"):
+    if piece.get("build") and not _offline():
         return {
             "piece": pid,
             "name": piece["name"],
             "note": piece.get("note", ""),
             "build": piece["build"],
-            "size_bytes": 0,
+            "size_bytes": sum(m["bytes"] for m in MANUALS),
+            "source": _manual_sources(),
             "url": "",
         }
     return None
+
+
+def _offline():
+    """Offline: nothing is built or fetched from here, so nothing is offered."""
+    from zimi import p2p
+
+    return p2p.is_offline()
+
+
+# The places the manuals are fetched from, named for a person.
+_MANUAL_HOSTS = {
+    "armypubs.army.mil": "Army Publishing Directorate",
+    "upload.wikimedia.org": "Wikimedia Commons",
+}
+
+
+def _manual_sources():
+    names = []
+    for m in MANUALS:
+        host = urllib.parse.urlsplit(m["url"]).hostname
+        name = _MANUAL_HOSTS.get(host, host)
+        if name not in names:
+            names.append(name)
+    return " and ".join(names)
 
 
 def _source_view(src_id, quote):
@@ -555,6 +585,28 @@ def _carrier(quote, have, sizes):
                 return dict(here, open={"zim": zim, "path": docs[0][0]})
         return dict(here, open={"zim": zim, "q": c.get("find") or quote["heading"]})
     return {"state": "missing", "options": options}
+
+
+def situation_bare(sid):
+    """A situation's quotes and nothing of the library: for a visitor it is
+    not shown to. Free of the ZIMs altogether, so it works with none."""
+    if sid not in data()["situations"]:
+        return None
+    return {
+        "id": sid,
+        "mark": data()["marks"].get(sid, ""),
+        "quotes": [
+            dict(
+                x,
+                source=_source_view(x["source"], x),
+                library={"state": "missing", "options": []},
+            )
+            for x in quotes()["quotes"].get(sid, [])
+        ],
+        "answers": [],
+        "missing": [],
+        "disclaimer": DISCLAIMER,
+    }
 
 
 def situation(sid, lang="en"):
@@ -682,6 +734,25 @@ def _language_rows(sit, lang):
     ]
 
 
+def print_all():
+    """Every situation's quotes in the data's order, for one printed set. No
+    ZIM is read and nothing depends on the library."""
+    d = data()
+    q = quotes()["quotes"]
+    out = []
+    for g in d["groups"]:
+        for sid in g["situations"]:
+            out.append(
+                {
+                    "id": sid,
+                    "quotes": [
+                        dict(x, source=_source_view(x["source"], x)) for x in q.get(sid, [])
+                    ],
+                }
+            )
+    return {"situations": out, "disclaimer": DISCLAIMER}
+
+
 # ── get the library ─────────────────────────────────────────────────────────
 
 
@@ -711,7 +782,9 @@ def library():
                     catalog=m["catalog"], size_bytes=m["size_bytes"], url=m["url"]
                 )
             elif m:
-                row.update(build=m["build"])
+                row.update(
+                    build=m["build"], size_bytes=m["size_bytes"], source=m["source"]
+                )
             rows.append(row)
         todo = [r for r in rows if not r["installed"] and r.get("url")]
         sets.append(
@@ -798,6 +871,27 @@ def _set_manual(**kw):
         _manual.update(kw)
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """The pinned addresses answer themselves: a redirect is a file that has
+    moved, and the one expected is checked by its hash, not trusted by its
+    path."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _fetch_pinned(url):
+    """Open one of the manuals' pinned addresses: https, no redirects."""
+    from zimi import creator
+
+    if not url.startswith("https://"):
+        raise creator.CreateError("a manual is fetched over https only")
+    req = urllib.request.Request(
+        url, headers={"User-Agent": creator.zimi_user_agent()}
+    )
+    return urllib.request.build_opener(_NoRedirect).open(req, _DOWNLOAD_TIMEOUT_S)
+
+
 def _download_manual(item, dest, fetch):
     """One manual into ``dest``, checked against its size and SHA-256."""
     import hashlib
@@ -805,29 +899,40 @@ def _download_manual(item, dest, fetch):
     from zimi.creator import CreateError
 
     digest, n = hashlib.sha256(), 0
-    with fetch(item["url"]) as resp, open(dest, "wb") as out:
-        while True:
-            chunk = resp.read(_DOWNLOAD_CHUNK)
-            if not chunk:
-                break
-            n += len(chunk)
-            if n > item["bytes"]:
-                break
-            digest.update(chunk)
-            out.write(chunk)
+    try:
+        with fetch(item["url"]) as resp, open(dest, "wb") as out:
+            while True:
+                chunk = resp.read(_DOWNLOAD_CHUNK)
+                if not chunk:
+                    break
+                n += len(chunk)
+                if n > item["bytes"]:
+                    break
+                digest.update(chunk)
+                out.write(chunk)
+    except urllib.error.HTTPError as e:
+        if 300 <= e.code < 400:
+            raise CreateError(
+                "%s has moved: the address this build expects redirected" % item["title"]
+            )
+        raise CreateError("%s could not be fetched (HTTP %d)" % (item["title"], e.code))
+    except OSError as e:
+        if isinstance(e, urllib.error.URLError):
+            raise CreateError("%s could not be fetched: the network failed" % item["title"])
+        raise
     if n != item["bytes"] or digest.hexdigest() != item["sha256"]:
         raise CreateError("%s is not the file this build expects" % item["title"])
 
 
-def build_field_manual(out_dir=None, progress=None, fetch=None, manuals=MANUALS):
+def build_field_manual(out_dir=None, progress=None, fetch=None, manuals=None):
     """Download the Army's manuals and package them as one ZIM with Create's
     folder mode (so it reads in the reader and the Bookshelf like any folder
     ZIM, and the Field Guide finds its manuals in it). Returns Create's
-    summary. ``fetch(url)`` opens an address (the guarded, honestly named
-    Create fetch by default); ``progress(text)`` hears each step."""
+    summary. It runs as a Create job (zimi.manage, mode "fieldmanual"): one
+    slot, a queue, a journal and a cancel at every line of ``progress``.
+    ``fetch(url)`` opens an address (pinned, https, no redirects by default)."""
     import shutil
     import tempfile
-    import urllib.request
 
     from zimi import creator, p2p
 
@@ -835,15 +940,10 @@ def build_field_manual(out_dir=None, progress=None, fetch=None, manuals=MANUALS)
         raise creator.CreateError(
             "ZIMI_OFFLINE is set: nothing is fetched from the internet"
         )
-    if fetch is None:
-
-        def fetch(url):
-            req = urllib.request.Request(
-                url, headers={"User-Agent": creator.zimi_user_agent()}
-            )
-            return creator.urlopen_guarded(req, _DOWNLOAD_TIMEOUT_S)
-
+    fetch = fetch or _fetch_pinned
+    manuals = manuals or MANUALS
     say = progress or (lambda _t: None)
+    _set_manual(state="running", done=0, total=len(manuals), message="")
     scratch = tempfile.mkdtemp(
         prefix=FIELD_MANUAL_NAME + "-", dir=creator.scratch_dir(out_dir)
     )
@@ -852,6 +952,7 @@ def build_field_manual(out_dir=None, progress=None, fetch=None, manuals=MANUALS)
     try:
         for i, item in enumerate(manuals):
             say("Downloading %s" % item["title"])
+            _set_manual(message="Downloading %s" % item["title"])
             _download_manual(item, os.path.join(folder, item["file"]), fetch)
             with open(
                 os.path.join(folder, item["file"] + ".txt"), "w", encoding="utf-8"
@@ -862,7 +963,7 @@ def build_field_manual(out_dir=None, progress=None, fetch=None, manuals=MANUALS)
                 )
             _set_manual(done=i + 1)
         say("Packaging")
-        return creator.create_folder_zim(
+        out = creator.create_folder_zim(
             folder,
             out_dir=out_dir or _srv.ZIM_DIR,
             title="Field manual",
@@ -874,24 +975,19 @@ def build_field_manual(out_dir=None, progress=None, fetch=None, manuals=MANUALS)
             register=True,
             progress=say,
         )
+        _set_manual(state="done", message="")
+        return out
+    except creator.CreateError as e:
+        _set_manual(state="error", message=str(e))
+        raise
+    except Exception:
+        log.exception("field manual build failed")
+        _set_manual(state="error", message="The build failed. The server log has the details.")
+        raise
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
 
-def start_manual_build():
-    """Start the build on its own thread. False when one is already running."""
-    with _manual_lock:
-        if _manual["state"] == "running":
-            return False
-        _manual.update(state="running", done=0, total=len(MANUALS), message="")
-
-    def run():
-        try:
-            build_field_manual(progress=lambda t: _set_manual(message=t))
-            _set_manual(state="done", message="")
-        except Exception as e:
-            log.warning("field manual build failed: %s", e)
-            _set_manual(state="error", message=str(e))
-
-    threading.Thread(target=run, daemon=True, name="field-manual").start()
-    return True
+def installed_manual():
+    """True when the field manual ZIM is in the library."""
+    return "field_manual" in installed_zims()

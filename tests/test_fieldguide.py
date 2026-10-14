@@ -867,7 +867,218 @@ def test_the_shipped_manual_addresses_are_the_verified_originals():
     }
 
 
-def test_one_build_at_a_time(build_dir):
-    fg._set_manual(state="running")
-    assert fg.start_manual_build() is False
-    fg._set_manual(state="idle")
+# ── the build as a Create job, over HTTP ────────────────────────────────────
+
+
+def _post(base, path, body=None, headers=None):
+    req = urllib.request.Request(
+        base + path,
+        data=json.dumps(body or {}).encode(),
+        headers=dict({"Content-Type": "application/json"}, **(headers or {})),
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.status, json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        return e.code, json.loads(e.read() or b"{}")
+
+
+@pytest.fixture
+def served_empty(build_dir, monkeypatch):
+    from http.server import ThreadingHTTPServer
+
+    from zimi import manage, p2p
+    from zimi.http import ZimHandler
+
+    monkeypatch.setattr(p2p, "is_offline", lambda: False)
+    monkeypatch.setattr(manage, "setup_pending", lambda: False)
+    srv.load_cache(force=True)
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), ZimHandler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    yield "http://127.0.0.1:%d" % httpd.server_address[1]
+    httpd.shutdown()
+    monkeypatch.undo()
+    srv.load_cache(force=True)
+    fg._reset_for_tests()
+
+
+def _wait_job(base, want=("done", "error"), seconds=60):
+    import time
+
+    end = time.time() + seconds
+    while time.time() < end:
+        _s, st = _get(base, "/manage/fieldmanual")
+        if st["state"] in want:
+            return st
+        time.sleep(0.2)
+    raise AssertionError("the build did not finish: %r" % st)
+
+
+def test_building_offline_is_refused_with_409_and_says_offline(served_empty, monkeypatch):
+    from zimi import p2p
+
+    monkeypatch.setattr(p2p, "is_offline", lambda: True)
+    status, body = _post(served_empty, "/manage/fieldmanual")
+    assert (status, body["error"]) == (409, "offline")
+
+
+def test_build_is_not_offered_offline_and_is_with_its_size_and_source(
+    empty_library, monkeypatch
+):
+    from zimi import p2p
+
+    monkeypatch.setattr(p2p, "is_offline", lambda: False)
+    got = fg.situation("bleeding")
+    atp = next(q for q in got["quotes"] if q["source"]["id"] == "atp")
+    build = next(o for o in atp["library"]["options"] if o.get("build"))
+    assert build["size_bytes"] == sum(m["bytes"] for m in fg.MANUALS) > 80_000_000
+    assert build["source"] == "Army Publishing Directorate and Wikimedia Commons"
+    monkeypatch.setattr(p2p, "is_offline", lambda: True)
+    fg._reset_for_tests()
+    got = fg.situation("bleeding")
+    atp = next(q for q in got["quotes"] if q["source"]["id"] == "atp")
+    assert not any(o.get("build") for o in atp["library"]["options"])
+    row = next(
+        p
+        for s in fg.library()["sets"]
+        for p in s["pieces"]
+        if p["piece"] == "field_manual"
+    )
+    assert "build" not in row
+
+
+def test_building_when_it_is_installed_is_refused_with_409(served_empty, monkeypatch):
+    monkeypatch.setattr(fg, "installed_manual", lambda: True)
+    status, body = _post(served_empty, "/manage/fieldmanual")
+    assert (status, body["error"]) == (409, "installed")
+
+
+def _tiny_fetch(monkeypatch):
+    import io
+
+    manuals, blobs = _tiny_manuals()
+    monkeypatch.setattr(fg, "MANUALS", manuals)
+    monkeypatch.setattr(fg, "_fetch_pinned", lambda url: io.BytesIO(blobs[url]))
+    return manuals
+
+
+def test_the_build_runs_as_a_create_job_and_lands_in_the_library(
+    served_empty, monkeypatch
+):
+    _tiny_fetch(monkeypatch)
+    status, body = _post(served_empty, "/manage/fieldmanual")
+    assert status == 200 and body["status"] == "started" and body["mode"] == "fieldmanual"
+    done = _wait_job(served_empty)
+    assert done["state"] == "done", done
+    status, listing = _get(served_empty, "/manage/create/status")
+    assert status == 200
+
+
+def test_a_failed_build_says_why_in_the_createerror_words_only(
+    served_empty, monkeypatch
+):
+    manuals = _tiny_fetch(monkeypatch)
+    monkeypatch.setattr(
+        fg,
+        "_fetch_pinned",
+        lambda url: (_ for _ in ()).throw(RuntimeError("secret /home/eric/.ssh path")),
+    )
+    status, _b = _post(served_empty, "/manage/fieldmanual")
+    assert status == 200
+    st = _wait_job(served_empty)
+    assert st["state"] == "error"
+    assert "secret" not in json.dumps(st) and ".ssh" not in json.dumps(st)
+    assert "server log" in st["message"]
+
+
+def test_a_createerror_message_reaches_the_page_as_it_is(served_empty, monkeypatch):
+    from zimi import creator
+
+    def refuse(item, dest, fetch):
+        raise creator.CreateError("ATP 4-02.11 Casualty Response is not the file this build expects")
+
+    _tiny_fetch(monkeypatch)
+    monkeypatch.setattr(fg, "_download_manual", refuse)
+    _post(served_empty, "/manage/fieldmanual")
+    st = _wait_job(served_empty)
+    assert st["state"] == "error" and "not the file this build expects" in st["message"]
+
+
+def test_the_pinned_fetch_refuses_a_redirect():
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class Moved(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(302)
+            self.send_header("Location", "http://127.0.0.1:1/elsewhere")
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    httpd = HTTPServer(("127.0.0.1", 0), Moved)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        opener = urllib.request.build_opener(fg._NoRedirect)
+        with pytest.raises(urllib.error.HTTPError) as err:
+            opener.open("http://127.0.0.1:%d/a.pdf" % httpd.server_address[1], timeout=10)
+        assert err.value.code == 302
+        from zimi import creator
+
+        with pytest.raises(creator.CreateError, match="moved"):
+            fg._download_manual(
+                {"url": "http://x", "title": "T", "bytes": 1, "sha256": "0"},
+                os.devnull,
+                lambda url: (_ for _ in ()).throw(
+                    urllib.error.HTTPError(url, 302, "Found", {}, None)
+                ),
+            )
+        with pytest.raises(creator.CreateError, match="https"):
+            fg._fetch_pinned("http://example.invalid/a.pdf")
+    finally:
+        httpd.shutdown()
+
+
+# ── who the guide answers before the library is theirs ──────────────────────
+
+
+def test_the_sign_in_screen_still_gets_the_words_and_none_of_the_library(
+    served, monkeypatch
+):
+    from zimi import users
+
+    monkeypatch.setattr(users, "get_public_access", lambda: ("private", None))
+    monkeypatch.setattr(users, "resolve_request_user", lambda h: None)
+    monkeypatch.setattr(users, "_request_is_admin", lambda h: False)
+    status, body = _get(served, "/fieldguide/situation?id=bleeding")
+    assert status == 200 and body["quotes"] and body["answers"] == [] and body["missing"] == []
+    assert all(q["library"] == {"state": "missing", "options": []} for q in body["quotes"])
+    status, home = _get(served, "/fieldguide")
+    assert status == 200 and all(s["installed"] == 0 for g in home["groups"] for s in g["situations"])
+    assert _get(served, "/fieldguide/library")[0] == 401
+    assert _get(served, "/search?q=bleeding")[0] == 401
+
+
+def test_a_fresh_install_still_gets_the_words(served, monkeypatch):
+    from zimi import manage
+
+    monkeypatch.setattr(manage, "setup_pending", lambda: True)
+    status, body = _get(served, "/fieldguide/situation?id=lost")
+    assert status == 200 and body["quotes"] and body["answers"] == []
+    assert _get(served, "/fieldguide/library")[0] != 200
+
+
+def test_a_signed_in_visitor_gets_the_library_with_the_words(served):
+    status, body = _get(served, "/fieldguide/situation?id=flood")
+    assert status == 200 and body["answers"], "the installed pages are listed"
+
+
+def test_print_all_is_every_situation_in_order_with_its_address(served):
+    status, body = _get(served, "/fieldguide/print")
+    assert status == 200
+    ids = [s["id"] for s in body["situations"]]
+    assert ids == [i for g in fg.data()["groups"] for i in g["situations"]] and len(ids) == 24
+    for sit in body["situations"]:
+        assert sit["quotes"]
+        assert all(q["url"].startswith("https://") for q in sit["quotes"])
