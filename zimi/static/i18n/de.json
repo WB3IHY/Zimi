@@ -3282,6 +3282,7 @@
   "fieldguide_help_link": "Hilfe jetzt: {name}",
   "fieldguide_show_all": "Alles anzeigen",
   "fieldguide_covers": "Gilt für",
+  "fieldguide_sky_place": "Himmel für {place}",
   "fieldguide_see_also": "Siehe auch",
   "fieldguide_num_here": "Notruf hier: {n}",
   "fieldguide_nums_here": "Notrufnummern hier: {n}",

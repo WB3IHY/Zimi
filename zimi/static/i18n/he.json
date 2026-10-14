@@ -3282,6 +3282,7 @@
   "fieldguide_help_link": "עזרה עכשיו: {name}",
   "fieldguide_show_all": "הצג הכול",
   "fieldguide_covers": "חל על",
+  "fieldguide_sky_place": "השמיים ב{place}",
   "fieldguide_see_also": "ראו גם",
   "fieldguide_num_here": "מספר החירום כאן: {n}",
   "fieldguide_nums_here": "מספרי החירום כאן: {n}",

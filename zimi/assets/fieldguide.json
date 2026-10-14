@@ -71,6 +71,7 @@
   {"id": "survive", "order": "", "situations": ["lost", "signal", "shelter", "water"]},
   {"id": "disaster", "order": "", "situations": ["flood", "earthquake", "wildfire", "storm", "power_out", "carbon_monoxide", "food"]}
  ],
+ "sky_strip": ["lost", "signal", "shelter", "flood", "cold"],
  "marks": {"bleeding": "M", "recovery_position": "A", "shock": "C", "cold": "H"},
  "situations": {
   "emergency_call": {
@@ -107,6 +108,12 @@
     "en": [
      "bleeding",
      "stop bleeding",
+     "cut leg",
+     "cut arm",
+     "cut hand",
+     "cut finger",
+     "cut foot",
+     "deep cut",
      "severe bleeding",
      "bleeding badly",
      "tourniquet",
@@ -587,6 +594,8 @@
     "en": [
      "im lost",
      "i'm lost",
+     "stay put",
+     "lost at night",
      "which way is north",
      "find north",
      "no gps",

@@ -629,6 +629,7 @@ def situation_bare(sid):
         "answers": [],
         "missing": [],
         "related": _related(sid),
+        "sky": sid in data()["sky_strip"],
         "disclaimer": DISCLAIMER,
     }
 
@@ -722,6 +723,7 @@ def _resolve(sid, sit, have):
         "answers": rows,
         "missing": missing,
         "related": _related(sid),
+        "sky": sid in data()["sky_strip"],
         "disclaimer": DISCLAIMER,
     }
 

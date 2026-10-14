@@ -4,6 +4,8 @@ Help now: what is happening, and what the open sources say about it, in their ow
 
 Zimi writes no first-aid or survival instruction. A situation is a name (Bleeding, Water, Lost, Flood and twenty more), an order and a list of quotations: short passages quoted word for word from public-domain and openly licensed sources, each with its source, edition, the place in it, its licence and a link to the original. The quotations ship inside Zimi, so every situation works with no ZIM installed. The ZIMs you install are the depth behind each quote: the full section, the pages around it, the rest of the manual. A situation with nothing installed says which ZIM would add what, how large it is, and downloads it in one tap through the ordinary download machinery.
 
+## How it works
+
 Each situation is in the order of what to do in the next minute: the quotations are listed in the data's own order, plain civilian passages before tactical ones, and a card opens on a passage a frightened person can act on (bleeding: direct pressure, then the tourniquet; cold: hypothermia, then frostbite; lost: stay put first). Where a situation has a current manual and an older one, the older is kept only for a passage the current lacks and carries a "Superseded by" badge.
 
 Every situation carries "Not medical advice. Call emergency services if you can."
@@ -23,7 +25,7 @@ Every situation carries "Not medical advice. Call emergency services if you can.
 {"fieldguide": {"id": "bleeding", "kind": "card", "href": "/#fieldguide/bleeding", "installed": [{"piece": "wikipedia", "name": "Wikipedia"}]}}
 ```
 
-`id` is a situation, or `""` for the Field Guide itself ("first aid", "survival"); `kind` is `card` or `link`. The search request carries `ui=` (the reader's language); only that language and English are read. A situation's keywords come in three kinds in `assets/fieldguide.json`: `keywords` (the whole query, or a phrase of two or more words inside it), `within` (a single word safe inside any query) and `ambiguous` (a bare word that is only a link). The field is in both phases of a streamed search. Computing it reads a keyword table and the library list the server already holds: no ZIM is opened and nothing is fetched on the search path. The shell keeps it per query (`_fieldguideMount` in app.js) and draws the card in its own container, `#fg-answer`, above `#output`, so another slot above the results (the best answer card) sits beside it, not inside it. The card fills from `GET /fieldguide/situation?id=` after the results have drawn.
+`id` is a situation, or `""` for the Field Guide itself ("first aid", "survival"); `kind` is `card` or `link`. The search request carries `ui=` (the reader's language); only that language and English are read. A situation's keywords come in three kinds in `assets/fieldguide.json`: `keywords` (the whole query, or a phrase of two or more words inside it), `within` (a single word safe inside any query) and `ambiguous` (a bare word that is only a link). The field is in both phases of a streamed search. Computing it reads a keyword table and the library list the server already holds: no ZIM is opened and nothing is fetched on the search path. The Field Guide is the first card of the slot above the results (`registerSearchCard`, priority 50, before the best answer at 100), so when it answers no other card is asked: no `/bestanswer` request, and no Wikipedia passage under a government quote. The shell asks `GET /fieldguide/match` as the search starts, so the card is up in a moment rather than when a library-wide search ends; a situation's own word is never offered a spelling ("lost" is not offered "lit"). The card fills from `GET /fieldguide/situation?id=`.
 
 `static/fieldguide-card.js` is the renderer both the page and the shell use (`FieldGuideCard.quoteHtml`, `answersHtml`, `missingHtml`, `bodyHtml`): a quote, its source line and the way deeper, drawn from the situation's JSON. A slot that wants to host a quote calls those, with the shell's `fieldguide_*` words.
 
@@ -51,8 +53,10 @@ Every quote names its source and why it may be quoted. Allowed: US federal publi
 | Calling Poison Help (HRSA) | retrieved 14 October 2026 | US federal work |
 | Cardiac arrest, heart attack, carbon monoxide (CDC); Venomous Snakes (NIOSH) | 2024, 2024, 2026; 23 Sept 2026 | US federal work |
 | Crux, Navigation (Wikipedia, revision 1379511054) | 10 October 2026 | CC BY-SA 4.0 |
+| Choking, Infants (Wikipedia, revision 1369110407) | 13 August 2026 | CC BY-SA 4.0 |
+| List of emergency telephone numbers (Wikipedia, revision 1377218654) | the emergency number line | CC BY-SA 4.0 |
 
-Pages that refuse a script were read from the Internet Archive's copy of the original and the snapshot's date is the edition. TCCC is not quoted (its licence is not confirmed). Choking is left out of this release: no current open source states it for infants, and ATP's is adult only.
+Pages that refuse a script were read from the Internet Archive's copy of the original and the snapshot's date is the edition. TCCC is not quoted (its licence is not confirmed). Choking quotes ATP 4-02.11 (back blows, then abdominal thrusts; the Army text states no age) and, for infants, the Choking article of Wikipedia; each quote carries the source's own scope sentence ("Covers").
 
 Never quoted: MedlinePlus's A.D.A.M. encyclopedia pages (copyrighted; a link is fine), Hesperian, wikiHow, the Red Cross, commercial books. WikEM is never in a lay flow. No plant identification.
 
@@ -67,3 +71,13 @@ The words of the page (names of situations, buttons, the disclaimer) are in all 
 ## Red night light
 
 One browser key, `zimi.night`, value `red`, shared by the Field Guide and the sky. `apps.js` (`nightApply`, `nightSet`) and the shell (`app.js` `_nightApply`, stamped before first paint in `index.html`) put `night-red` on `<html>`; `app.css` and `apps.css` turn it into deep red on black. Whoever draws a switch writes the key and calls `_nightApply()`. At night every tier of text is at least 4.5:1 on every surface, pictures (the logo, the moon card, covers) become red monochrome through one SVG filter, and an app page is stamped red in its head, before it paints.
+
+## Configure
+
+Nothing to set. The emergency number line (top of Help now and of every card for someone who is hurt) reads the device's time zone: `static/earth/zones-v1.json` maps each IANA zone to `[latitude, longitude, country]` (the tz database's zone.tab), and `static/fieldguide-numbers.json` holds the country's row of Wikipedia's List of emergency telephone numbers (CC BY-SA 4.0, named on the line), word for word: one number when the source gives one for everything, else police, ambulance and fire, and the mobile-phone number when it differs. A zone or country the tables lack says "Emergency number: 112 / 911". The same zone gives the place the sky strip (Lost, Signal, Shelter, Flood, Cold) and the hemisphere order of the Lost card are read for when no place was chosen in the Almanac; a guessed place is said to be a guess. Under `ZIMI_OFFLINE` everything here still works: it is all in the install. The field manual build (above) is the only part that fetches.
+
+## Troubleshoot
+
+- *The number line says "Emergency number: 112 / 911" at home*: the device reports a time zone the table lacks (Etc/UTC, or a blank one in a privacy-hardened browser). It is an honest "country not known"; the sky strip then names no place.
+- *Lost shows the northern sky first in the south*: no place is chosen and the zone is unknown; choose a place in the Almanac.
+- *Help now does not show in search*: searching inside one ZIM is not asking for help; clear the source chip.

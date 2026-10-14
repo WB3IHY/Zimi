@@ -113,6 +113,11 @@ def _open(pg, base, hash_=""):
     pg.goto("about:blank")
     pg.goto(base + "/" + hash_, wait_until="domcontentloaded")
     pg.wait_for_timeout(800)
+    # The library list is what the first screen waits for; a search typed before
+    # it arrives is drawn over by it.
+    pg.wait_for_function(
+        "!document.querySelector('#output .loading')", timeout=30000
+    )
 
 
 def test_the_scripts_are_valid_javascript():
@@ -140,7 +145,7 @@ def test_help_now_is_on_home_even_with_nothing_installed_and_opens_the_situation
     names = f.eval_on_selector_all(
         ".fg-sit .name", "els => els.map(e => e.textContent)"
     )
-    assert names[:3] == ["Calling for help", "Bleeding", "Not breathing"] and len(names) == 24
+    assert names[:3] == ["Calling for help", "Bleeding", "Not breathing"] and len(names) == 25
     assert f.inner_text("#t-disc") == fg.DISCLAIMER
     # Every row is one finger tall and the page does not scroll sideways.
     heights = f.eval_on_selector_all(
@@ -215,20 +220,19 @@ def test_search_puts_the_situation_above_the_results(full, phone):
     _open(phone, full)
     phone.fill(".topbar input", "tourniquet")
     phone.keyboard.press("Enter")
-    phone.wait_for_selector("#fg-answer .fg-q", timeout=20000)
+    phone.wait_for_selector("[data-card=fieldguide] .fg-q", timeout=20000)
     phone.wait_for_function(
-        "document.querySelector('#fg-answer-body .fg-body')", timeout=20000
+        "document.querySelector('.fg-answer-body .fg-body')", timeout=20000
     )
-    top = phone.evaluate(
-        "[document.getElementById('fg-answer').getBoundingClientRect().top, document.getElementById('output').getBoundingClientRect().top]"
-    )
-    assert top[0] < top[1], "the card is above the results"
-    assert phone.inner_text("#fg-answer h3") == "Bleeding"
-    assert "Not medical advice" in phone.inner_text("#fg-answer")
-    assert "application of direct pressure" in phone.inner_text("#fg-answer").lower()
-    assert phone.query_selector("#fg-answer .fg-foot a") is not None
+    assert phone.evaluate(
+        "document.getElementById('output').firstElementChild.dataset.card"
+    ) == "fieldguide", "the card is above the results"
+    assert phone.inner_text("[data-card=fieldguide] h3") == "Bleeding"
+    assert "Not medical advice" in phone.inner_text("[data-card=fieldguide]")
+    assert "application of direct pressure" in phone.inner_text("[data-card=fieldguide]").lower()
+    assert phone.query_selector("[data-card=fieldguide] .fg-foot a") is not None
     _shot(phone, "full-search")
-    phone.click("#fg-answer [data-act=situation]")
+    phone.click("[data-card=fieldguide] [data-act=situation]")
     f = _frame(phone)
     f.wait_for_selector(".fg-q")
     assert f.inner_text("#c-title") == "Bleeding"
@@ -237,7 +241,7 @@ def test_search_puts_the_situation_above_the_results(full, phone):
     phone.fill(".topbar input", "water cycle")
     phone.keyboard.press("Enter")
     phone.wait_for_timeout(2500)
-    assert phone.query_selector("#fg-answer") is None
+    assert phone.query_selector("[data-card=fieldguide]") is None
 
 
 def _search(pg, text):
@@ -249,38 +253,38 @@ def _search(pg, text):
 def test_the_answer_goes_when_search_is_left(full, phone):
     _open(phone, full)
     _search(phone, "tourniquet")
-    phone.wait_for_selector("#fg-answer .fg-q", timeout=20000)
+    phone.wait_for_selector("[data-card=fieldguide] .fg-q", timeout=20000)
     phone.evaluate("goHome()")
     phone.wait_for_timeout(600)
-    assert phone.query_selector("#fg-answer") is None
+    assert phone.query_selector("[data-card=fieldguide]") is None
     _search(phone, "tourniquet")
-    phone.wait_for_selector("#fg-answer .fg-q", timeout=20000)
+    phone.wait_for_selector("[data-card=fieldguide] .fg-q", timeout=20000)
     phone.evaluate("renderHome()")
-    assert phone.query_selector("#fg-answer") is None
+    assert phone.query_selector("[data-card=fieldguide]") is None
     _search(phone, "tourniquet")
-    phone.wait_for_selector("#fg-answer .fg-q", timeout=20000)
+    phone.wait_for_selector("[data-card=fieldguide] .fg-q", timeout=20000)
     phone.evaluate("void enterManage()")
     phone.wait_for_timeout(800)
-    assert phone.query_selector("#fg-answer") is None
+    assert phone.query_selector("[data-card=fieldguide]") is None
 
 
 def test_no_answer_when_searching_inside_one_zim(full, phone):
     _open(phone, full)
     _search(phone, "tourniquet")
-    phone.wait_for_selector("#fg-answer .fg-q", timeout=20000)
+    phone.wait_for_selector("[data-card=fieldguide] .fg-q", timeout=20000)
     # The guide's own "Search X for ..." links search one ZIM.
     phone.evaluate("_searchInZim('wikipedia_en_top', 'tourniquet')")
     phone.wait_for_timeout(2500)
-    assert phone.query_selector("#fg-answer") is None
+    assert phone.query_selector("[data-card=fieldguide]") is None
     assert phone.query_selector(".help-now") is None
 
 
 def test_a_bare_ambiguous_word_is_a_small_link_never_the_quote(full, phone):
     _open(phone, full)
     _search(phone, "water")
-    link = phone.wait_for_selector("#fg-answer .help-now")
+    link = phone.wait_for_selector("[data-card=fieldguide] .help-now")
     assert link.inner_text().strip() == "Help now: Water"
-    assert phone.query_selector("#fg-answer .fg-q") is None
+    assert phone.query_selector("[data-card=fieldguide] .fg-q") is None
     assert link.bounding_box()["height"] >= 44
     link.click()
     f = _frame(phone)
@@ -293,18 +297,18 @@ def test_a_sentence_names_the_situation_and_no_results_is_never_under_a_card(
 ):
     _open(phone, full)
     _search(phone, "my friend is bleeding")
-    phone.wait_for_selector("#fg-answer .fg-q", timeout=20000)
-    assert phone.inner_text("#fg-answer h3") == "Bleeding"
+    phone.wait_for_selector("[data-card=fieldguide] .fg-q", timeout=20000)
+    assert phone.inner_text("[data-card=fieldguide] h3") == "Bleeding"
     assert "No results found" not in phone.inner_text("#output")
     assert "No results found" not in phone.inner_text("body")
     _search(phone, "which way is south")
-    phone.wait_for_selector("#fg-answer .fg-q", timeout=20000)
-    assert phone.inner_text("#fg-answer h3") == "Lost"
+    phone.wait_for_selector("[data-card=fieldguide] .fg-q", timeout=20000)
+    assert phone.inner_text("[data-card=fieldguide] h3") == "Lost"
     # A tall passage is folded in the answer and whole behind Show all.
-    assert phone.is_visible("#fg-answer [data-act=more]")
-    phone.click("#fg-answer [data-act=more]")
+    assert phone.is_visible("[data-card=fieldguide] [data-act=more]")
+    phone.click("[data-card=fieldguide] [data-act=more]")
     assert phone.evaluate(
-        "document.querySelector('#fg-answer .fg-body').scrollHeight <= document.querySelector('#fg-answer .fg-body').clientHeight + 2"
+        "document.querySelector('[data-card=fieldguide] .fg-body').scrollHeight <= document.querySelector('[data-card=fieldguide] .fg-body').clientHeight + 2"
     )
 
 
@@ -312,7 +316,7 @@ def test_normal_searches_get_no_card_and_no_link(full, phone):
     _open(phone, full)
     for text in ("signal processing", "generator docs", "sed", "water cycle"):
         _search(phone, text)
-        assert phone.query_selector("#fg-answer") is None, text
+        assert phone.query_selector("[data-card=fieldguide]") is None, text
 
 
 def test_the_guide_page_alone_may_ask_the_shell_to_search(full, phone):
@@ -480,7 +484,7 @@ def test_print_all_is_every_situation_in_one_sheet(empty, phone):
     phone.wait_for_function("window.__printed >= 1", timeout=20000)
     assert (
         phone.evaluate("document.querySelectorAll('#zimi-print-root .fg-sheet-sit').length")
-        == 24
+        == 25
     )
     assert phone.evaluate(
         "Array.from(document.querySelectorAll('#zimi-print-root a')).some(a => a.href.indexOf('https://www.ready.gov/') === 0)"

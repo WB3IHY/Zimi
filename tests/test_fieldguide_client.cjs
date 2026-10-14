@@ -35,9 +35,10 @@ ok('the source is named with its licence', /Emergency numbers from List of emerg
 ok('the table failing to load still says 112 / 911', /112 \/ 911/.test(CARD.emergencyHtml(CARD.emergencyFor(null, null, 'Australia/Sydney'), null, {}).replace(/<[^>]+>/g, '')));
 
 // The place
-ok('a chosen place wins and is not a guess', JSON.stringify(CARD.placeLat('-33.9', zones, 'America/Denver')) === JSON.stringify({ lat: -33.9, guessed: false }));
+const c = CARD.placeLat('-33.9', zones, 'America/Denver', '151.2', 'Sydney');
+ok('a chosen place wins and is not a guess', c.lat === -33.9 && c.lon === 151.2 && c.guessed === false && c.name === 'Sydney');
 const g = CARD.placeLat('', zones, 'Australia/Sydney');
-ok('no chosen place: the zone, said to be a guess', g && g.guessed && g.lat < -30);
+ok('no chosen place: the zone, said to be a guess, with its city', g && g.guessed && g.lat < -30 && g.lon > 150 && g.city === 'Sydney');
 ok('Manaus and Windhoek are south', CARD.placeLat('', zones, 'America/Manaus').lat < 0 && CARD.placeLat('', zones, 'Africa/Windhoek').lat < 0);
 ok('an unknown zone gives no place', CARD.placeLat('', zones, 'Etc/UTC') === null);
 

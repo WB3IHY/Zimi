@@ -491,6 +491,37 @@ def test_a_bare_ambiguous_word_is_a_link_not_a_card(word):
     assert h["kind"] == "link" and h["installed"] == []
 
 
+# What a frightened person types, which must reach the card that answers it.
+SENTENCES = {
+    "cut leg": "bleeding",
+    "cut finger": "bleeding",
+    "bleeding hand": "bleeding",
+    "my friend has a deep cut": "bleeding",
+    "i cant breathe": "choking",
+    "i can't breathe": "choking",
+    "heimlich": "choking",
+    "something stuck in throat": "choking",
+    "stay put": "lost",
+    "lost at night": "lost",
+}
+
+
+@pytest.mark.parametrize("text", sorted(SENTENCES))
+def test_what_a_frightened_person_types_reaches_its_card(text):
+    assert fg.lookup(text) == (SENTENCES[text], "card"), text
+
+
+def test_a_bare_lost_is_the_small_help_now_link_and_never_offers_lit():
+    from zimi import http
+
+    assert fg.lookup("lost") == ("lost", "link")
+    answer = {"results": [], "did_you_mean": "lit"}
+    guided = http._with_fieldguide(answer, fg.hint("lost"))
+    assert "did_you_mean" not in guided and guided["fieldguide"]["id"] == "lost"
+    assert answer["did_you_mean"] == "lit", "the cached answer is left as it was"
+    assert http._with_fieldguide(answer, None)["did_you_mean"] == "lit"
+
+
 def test_a_clear_emergency_is_a_card():
     for text in ("bleeding", "not breathing", "tourniquet", "heart attack"):
         assert fg.lookup(text)[1] == "card", text
@@ -525,13 +556,13 @@ def test_the_choking_card_is_the_armys_words_and_an_open_infant_source():
     infants have their own open passage, and each quote says what it covers
     in the source's own sentence."""
     qs = fg.quotes()["quotes"]["choking"]
-    assert [q["source"] for q in qs] == ["atp", "atp", "wp_choking"]
-    thrusts = " ".join(qs[1]["lines"])
+    assert [q["source"] for q in qs] == ["atp", "wp_choking", "atp"]
+    thrusts = " ".join(qs[2]["lines"])
     assert thrusts.startswith(
         "5-33. Prior to applying abdominal thrust, first responders should administer five back blows."
     )
     assert "Press the fists into the abdomen" in thrusts
-    infants = " ".join(qs[2]["lines"])
+    infants = " ".join(qs[1]["lines"])
     assert (
         "Abdominal thrusts are not recommended in children less than one year old"
         in infants
@@ -542,12 +573,12 @@ def test_the_choking_card_is_the_armys_words_and_an_open_infant_source():
             q["id"] + ": scope is the source's own sentence"
         )
         assert q["related"] == ["not_breathing"]
-    assert qs[0]["scope"] and qs[2]["scope"]
+    assert qs[0]["scope"] and qs[1]["scope"]
     sit = fg.situation("choking")
     assert [q["source"]["licence"] for q in sit["quotes"]] == [
         "US-PD",
-        "US-PD",
         "CC BY-SA 4.0",
+        "US-PD",
     ]
 
 

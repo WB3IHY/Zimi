@@ -251,12 +251,15 @@ var FieldGuideCard = (function() {
     return '<p class="fg-num" data-num="' + esc(info.known ? info.cc : '') + '"><b>' + esc(head) + '</b>' +
       (src ? '<span class="fg-num-src">' + esc(word(S, 'num_source', { title: src.title, licence: src.licence })) + ' · <a href="' + esc(src.url) + '" target="_blank" rel="noopener noreferrer">' + esc(word(S, 'original')) + '</a></span>' : '') + '</p>';
   }
-  // The latitude the sky is read for: the place the reader chose, else the middle of the device's time zone.
-  function placeLat(chosen, zones, tz) {
-    var c = parseFloat(chosen);
-    if (isFinite(c)) return { lat: c, guessed: false };
+  // "Los Angeles" from "America/Los_Angeles": the zone's own city.
+  function zoneCity(tz) { return tz && tz.indexOf('/') > 0 ? tz.split('/').pop().replace(/_/g, ' ') : ''; }
+  // The place the sky is read for: the one chosen in the Almanac (its latitude, longitude and name), else the
+  // middle of the device's time zone, said to be a guess; null when neither is known.
+  function placeLat(chosenLat, zones, tz, chosenLon, chosenName) {
+    var c = parseFloat(chosenLat), o = parseFloat(chosenLon);
+    if (isFinite(c)) return { lat: c, lon: isFinite(o) ? o : 0, guessed: false, name: chosenName || '' };
     var z = zoneEntry(zones, tz);
-    return z ? { lat: z[0], guessed: true } : null;
+    return z ? { lat: z[0], lon: z[1], guessed: true, city: zoneCity(tz) } : null;
   }
   // Quotes tagged with a sky ('north', 'south', 'any'): the reader's hemisphere's first, those that serve
   // anywhere next, the other hemisphere's last, in the slots the sky quotes held. Without a place, as given.

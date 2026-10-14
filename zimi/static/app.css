@@ -4112,7 +4112,10 @@
 .help-now-row { display: flex; justify-content: flex-end; margin: 0 0 8px; }
 .help-now { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 1px solid var(--amber-border); border-radius: 22px; background: var(--amber-glow); color: var(--text); font-size: 14px; font-weight: 600; text-decoration: none; }
 .help-now:hover, .help-now:focus-visible { border-color: var(--amber); color: var(--amber); outline: none; }
-.help-now svg { flex: none; color: var(--amber); }
+.help-now svg { flex: none; color: var(--error); }
+/* In the Apps row it is the first pill, at the start, over the tiles. */
+.apps-help { display: flex; margin: 8px 0 0; }
+.apps-help + .apps-grid { margin-top: 8px; }
 /* The same entry on the first-run and sign-in screens, where nothing else is reachable. */
 .gate-help { margin: 14px 0 0; text-align: center; }
 .help-now-gate { background: none; }
@@ -4132,5 +4135,3 @@
   #zimi-print-root .fg-foot { font-size: 8pt; }
 }
 
-#fg-answer { max-width: 760px; margin: 0 auto 12px; padding: 0 16px; }
-#fg-answer .fg-answer { margin: 0; }

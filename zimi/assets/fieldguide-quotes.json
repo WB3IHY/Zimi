@@ -375,26 +375,6 @@
     "year": 2026
    },
    {
-    "source": "atp",
-    "heading": "Apply Abdominal Thrusts",
-    "locator": "Chapter 5, para 5-33, p. 67",
-    "lines": [
-     "5-33. Prior to applying abdominal thrust, first responders should administer five back blows. Abdominal thrust can be accomplished by using the following procedures: •",
-     "Stand behind the casualty and wrap your arms around their waist.",
-     "Make a fist with one hand and grasp it with the other. The thumb side of your fist should be against the casualty’s abdomen, in the midline and slightly above the casualty’s navel, but well below the tip of the breastbone (figure 5-12 on page 68).",
-     "Press the fists into the abdomen with a quick backward and upward thrust (figure 5-13 on page 68).",
-     "Each thrust should be a separate and distinct movement.",
-     "Continue performing abdominal thrusts until the obstruction is expelled or the casualty becomes unresponsive.",
-     "If the casualty becomes unresponsive, call for help as you proceed with the steps to open the airway."
-    ],
-    "related": [
-     "not_breathing"
-    ],
-    "id": "choking-2",
-    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
-    "year": 2026
-   },
-   {
     "source": "wp_choking",
     "heading": "Infants (babies under 1 year-old)",
     "locator": "Choking, Treatment, Particular cases",
@@ -410,8 +390,28 @@
     "related": [
      "not_breathing"
     ],
-    "id": "choking-3",
+    "id": "choking-2",
     "url": "https://en.wikipedia.org/w/index.php?title=Choking&oldid=1369110407",
+    "year": 2026
+   },
+   {
+    "source": "atp",
+    "heading": "Apply Abdominal Thrusts",
+    "locator": "Chapter 5, para 5-33, p. 67",
+    "lines": [
+     "5-33. Prior to applying abdominal thrust, first responders should administer five back blows. Abdominal thrust can be accomplished by using the following procedures: •",
+     "Stand behind the casualty and wrap your arms around their waist.",
+     "Make a fist with one hand and grasp it with the other. The thumb side of your fist should be against the casualty’s abdomen, in the midline and slightly above the casualty’s navel, but well below the tip of the breastbone (figure 5-12 on page 68).",
+     "Press the fists into the abdomen with a quick backward and upward thrust (figure 5-13 on page 68).",
+     "Each thrust should be a separate and distinct movement.",
+     "Continue performing abdominal thrusts until the obstruction is expelled or the casualty becomes unresponsive.",
+     "If the casualty becomes unresponsive, call for help as you proceed with the steps to open the airway."
+    ],
+    "related": [
+     "not_breathing"
+    ],
+    "id": "choking-3",
+    "url": "https://armypubs.army.mil/epubs/DR_pubs/DR_a/ARN46159-ATP_4-02.11-000-WEB-1.pdf",
     "year": 2026
    }
   ],

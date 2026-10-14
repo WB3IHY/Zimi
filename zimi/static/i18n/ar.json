@@ -3282,6 +3282,7 @@
   "fieldguide_help_link": "مساعدة الآن: {name}",
   "fieldguide_show_all": "عرض الكل",
   "fieldguide_covers": "يشمل",
+  "fieldguide_sky_place": "السماء في {place}",
   "fieldguide_see_also": "انظر أيضًا",
   "fieldguide_num_here": "رقم الطوارئ هنا: {n}",
   "fieldguide_nums_here": "أرقام الطوارئ هنا: {n}",

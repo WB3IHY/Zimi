@@ -89,3 +89,10 @@ def test_the_shell_hands_the_page_every_word_the_number_line_uses():
         "num_source",
     ):
         assert "'fieldguide_%s'" % key in words, key
+
+
+def test_the_sky_strip_is_on_exactly_the_cards_that_use_it():
+    for sid in ("lost", "signal", "shelter", "flood", "cold"):
+        assert fg.situation(sid)["sky"] is True and fg.situation_bare(sid)["sky"] is True, sid
+    for sid in ("bleeding", "water", "choking", "power_out"):
+        assert fg.situation(sid)["sky"] is False, sid

@@ -3282,6 +3282,7 @@
   "fieldguide_help_link": "Help now: {name}",
   "fieldguide_show_all": "Show all",
   "fieldguide_covers": "Covers",
+  "fieldguide_sky_place": "Sky for {place}",
   "fieldguide_see_also": "See also",
   "fieldguide_num_here": "Emergency number here: {n}",
   "fieldguide_nums_here": "Emergency numbers here: {n}",

@@ -32,6 +32,11 @@
   .fg-tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 4px 0 0; }
   .fg-link { border: 0; background: none; padding: 0 4px; min-height: 44px; color: var(--amber); font: inherit; font-size: 14px; cursor: pointer; }
   .chips .chip.tag { min-height: 44px; padding: 0 14px; font-size: 13px; }
+  .fg-sky { margin: 0 0 14px; padding: 10px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+  .fg-sky > div { display: flex; flex-wrap: wrap; gap: 0 10px; padding: 3px 0; }
+  .fg-sky dt { flex: none; min-width: 7.5em; font-size: 13px; font-weight: 700; color: var(--text2); }
+  .fg-sky dd { flex: 1; min-width: 12em; margin: 0; font-size: 15px; line-height: 1.4; }
+  .fg-sky-place { margin: 6px 0 0; font-size: 12px; color: var(--text2); }
   .fg-also { align-self: center; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text2); }
   .fg-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 12px; }
   .fg-night { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; color: var(--text2); cursor: pointer; }
@@ -54,7 +59,7 @@
      in black on white, a quotation to a page when it will not fit. */
   @media print {
     html, body { background: #fff !important; color: #000 !important; }
-    .fg-print, .fg-tools, #c-related, .fg-night, .fg-actions, .fg-link, .fg-btn, #c-jump, .fg-lib, .fg-libgroup, #front, #library, .fg-no-print, .fg-h2.fg-no-print { display: none !important; }
+    .fg-print, .fg-tools, #c-related, #c-sky, .fg-night, .fg-actions, .fg-link, .fg-btn, #c-jump, .fg-lib, .fg-libgroup, #front, #library, .fg-no-print, .fg-h2.fg-no-print { display: none !important; }
     .page { max-width: none; padding: 0; }
     .fg-head h1 { font-size: 20pt; }
     .fg-disc { color: #000; font-size: 10pt; }
@@ -87,6 +92,7 @@
       <p class="fg-disc" id="c-disc"></p>
     </header>
     <div id="c-num"></div>
+    <dl class="fg-sky" id="c-sky" hidden></dl>
     <p class="fg-en" id="c-en" hidden></p>
     <div class="chips" id="c-related" hidden></div>
     <div class="chips" id="c-jump" hidden></div>
@@ -202,7 +208,7 @@ function drawNumber(boxId, id) {
 }
 // The latitude to read the sky for: the place chosen in the Almanac, else the time zone's.
 function whereAmI(then) {
-  geoLoad(function(g) { then(CARD.placeLat(STR.lat, g.zones, g.tz)); });
+  geoLoad(function(g) { then(CARD.placeLat(STR.lat, g.zones, g.tz, STR.lon, STR.place)); });
 }
 function openSituation(id, step) {
   var mine = ++seq;
@@ -214,6 +220,7 @@ function openSituation(id, step) {
   $('c-quotes').innerHTML = ''; $('c-lib').innerHTML = '';
   drawNumber('c-num', id);
   $('c-related').hidden = true; $('c-related').innerHTML = '';
+  $('c-sky').hidden = true; $('c-sky').innerHTML = '';
   $('c-more').innerHTML = ''; $('c-add').innerHTML = ''; $('c-jump').hidden = true; $('c-more-h').hidden = true; $('c-add-h').hidden = true;
   $('c-en').hidden = LOCALE === 'en'; $('c-en').textContent = say('english_only');
   if (step) tell({ zimi: 'fieldguide-card', id: id, title: sit(id) });
@@ -229,6 +236,7 @@ function openSituation(id, step) {
     // reveals reorders them (only the situations with a sky in them).
     var chosen = parseFloat(STR.lat);
     paint(s, CARD.skyFirst(s.quotes, isFinite(chosen) ? chosen : null));
+    if (s.sky) drawSky(mine);
     if (s.quotes.some(function(q) { return q.sky; }) && !isFinite(chosen)) {
       whereAmI(function(p) {
         if (mine !== seq || !p) return;
@@ -239,6 +247,24 @@ function openSituation(id, step) {
   }).catch(function() {
     if (mine !== seq) return;
     $('c-quotes').innerHTML = '<p class="fg-state">' + esc(say('failed')) + '</p>';
+  });
+}
+// The sky strip (Lost, Signal, Shelter, Flood, Cold): daylight left, the dark, the Moon, true north, from
+// the Almanac's own functions in the shell, which loads them now, after the card is up. No shell (the page
+// alone) or no modules (offline with a cold cache): no strip.
+function drawSky(mine) {
+  var shell = null;
+  try { if (window.parent !== window && typeof window.parent.fieldguideSky === 'function') shell = window.parent; } catch (e) {}
+  if (!shell) return;
+  whereAmI(function(p) {
+    if (!p || mine !== seq) return;
+    shell.fieldguideSky(p, function(sky) {
+      if (!sky || mine !== seq) return;
+      var box = $('c-sky');
+      box.innerHTML = sky.rows.map(function(r) { return '<div><dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd></div>'; }).join('') +
+        '<p class="fg-sky-place' + (sky.guessed ? ' guess' : '') + '">' + esc(sky.place) + '</p>';
+      box.hidden = false;
+    });
   });
 }
 // The situations the sources pair with this one: See also, one chip each.
