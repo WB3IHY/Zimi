@@ -3232,7 +3232,9 @@ async function init() {
   _applyI18nToDOM();
   // The shell is live during the load: a search or Manage opened meanwhile
   // is what is on screen now, and drawing the address's page would wipe it.
-  if (mode === 'home') route(false);
+  // Nor the Almanac, open or on its way: route() would open it a second time
+  // and rewrite its history entry, dropping a step Look had pushed on top.
+  if (mode === 'home' && !_almanacOpen && !_almanacModulesLoading) route(false);
   _desktopCheckOnboarding();
   // Register service worker
   if ('serviceWorker' in navigator) {
