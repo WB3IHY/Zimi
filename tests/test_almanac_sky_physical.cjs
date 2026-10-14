@@ -305,6 +305,49 @@ check(run('_sgLimitMag(_sgSkyLum(60, -90, 0, 0, 0.003))') > 0 && run('_sgLimitMa
   const f = run('_skyFactsAt(' + Date.parse('2026-10-14T08:00:00Z') + ', ' + chi[0] + ', ' + chi[1] + ')');
   check(Math.abs(f.sunrise - Date.parse('2026-10-14T12:01:55Z')) < 120000, 'and its sunrise is Chicago\'s (Horizons 12:01:55 UT, off ' + (Math.abs(f.sunrise - Date.parse('2026-10-14T12:01:55Z')) / 1000).toFixed(0) + ' s), not an Atlantic guess an hour early');
 }
+// A time zone outside the curated cities still stands for its own city, in its own hemisphere (zone.tab); one nobody knows stands for none.
+{
+  const z = (n) => run("_skyZonePlace('" + n + "')");
+  const wh = z('Africa/Windhoek'), mn = z('America/Manaus'), sy = z('Australia/Sydney'), rk = z('Atlantic/Reykjavik');
+  check(wh && wh[0] < -20 && wh[0] > -23 && Math.abs(wh[1] - 17.1) < 0.5, 'Windhoek is 22.6 S, 17.1 E, not 34 N (' + wh + ')');
+  check(mn && mn[0] < 0 && mn[0] > -4 && Math.abs(mn[1] + 60) < 1, 'Manaus is 3.1 S, 60 W (' + mn + ')');
+  check(sy && sy[0] < -33 && rk && rk[0] > 64 && rk[0] < 65, 'Sydney south, Reykjavik at 64 N');
+  check(run("_skyZonePlace('Etc/UTC')") === null && run("_skyZonePlace('Mars/Olympus')") === null && run('_skyZonePlace(null)') === null, 'UTC and a zone nobody has: no place');
+  check(run("_skyZonePlace('America/Buenos_Aires')")[0] < -30 && run("_skyZonePlace('Asia/Calcutta')") !== null, 'link names stand for the zone they link to');
+  const keys = run("Object.keys(SKY_ZONE_GENERATED).length");
+  check(keys > 450, 'the table has every zone.tab zone and its links (' + keys + ')');
+  const rows = (known) => { S.__ms = Date.parse('2026-10-14T20:00:00Z'); S.__s = { lat: 34, lon: 0, nowTime: S.__ms, stored: false, known: known, moonData: { phase: { illumination: 20 } } }; S.__f = run('_skyFactsAt(__ms, 34, 0)'); return run('_skyFactRows(__s, __f)'); };
+  check(rows(false).some((r) => r[1] === 'alm_sky_f_pole_unknown') && !rows(false).some((r) => /alm_sky_f_north_val|alm_sky_f_south_val/.test(r[1])), 'an unknown zone says it does not know where north is');
+  check(rows(true).some((r) => /alm_sky_f_north_val/.test(r[1])), 'a known northern one names Polaris');
+}
+// Guessed times round the way that does no harm, and add up (Sydney, 18:50 local, sunset 19:07).
+{
+  const now = Date.parse('2026-10-14T07:50:00Z'), f = run('_skyFactsAt(' + now + ', -33.87, 151.21)');
+  const down = run('_skyRoundMs(' + f.sunset + ', true, -1)'), up = run('_skyRoundMs(' + f.sunset + ', true, 1)');
+  check(down <= f.sunset && f.sunset - down < 15 * 60000 && up >= f.sunset && up - f.sunset < 15 * 60000, 'daylight left rounds down, never past the Sun');
+  check(run('_skyRoundMs(' + f.sunset + ', false, -1)') === f.sunset, 'a known place is not rounded at all');
+  const left = Math.floor((down - now) / 60000);
+  check(run('_orrFmtSpan(' + (down - now) / 1000 + ')') === run('_skySpan(' + f.sunset + ', ' + now + ', true, -1)'), 'and the row says that span (' + left + ' min of ' + Math.round((f.sunset - now) / 60000) + ' real)');
+  const soon = f.sunset - 3 * 60000, fs = run('_skyFactsAt(' + soon + ', -33.87, 151.21)');
+  S.__s = { lat: -33.87, lon: 151.21, nowTime: soon, stored: false, known: true, moonData: { phase: { illumination: 20 } } }; S.__f = fs;
+  check(run('_skyFactRows(__s, __f)')[0][1] === 'alm_sky_f_under_step', 'three minutes of light left, guessed: "under 15 min", not 0 sec');
+  const darkUntil = Date.parse('2026-10-13T19:07:00Z');
+  check(run('_skyRoundMs(' + (darkUntil + 7 * 60000) + ', true, 1)') >= darkUntil + 7 * 60000, 'dark until rounds up');
+}
+// ── Names on the look-around sky ──
+{
+  const plan = (bodies) => { S.__s = { dpr: 2, W: 780, H: 1688, bodies: bodies }; return run('_skyLabelPlan(__s, (t) => t.length * 14)'); };
+  const body = (type, x, y, extra) => Object.assign({ type: type, x: x, y: y, r: 6, mag: 0 }, extra || {});
+  let p = plan([body('sun', 100, 300), body('moon', 200, 500), body('planet', 150, 420, { name: 'Mars', mag: 1 }), body('star', 300, 600, { idx: 41, mag: -1.4 }), body('star', 50, 700, { idx: -1, mag: 1 }), body('star', 120, 900, { idx: 50, mag: 5 })]);
+  const names = p.map((l) => l.text);
+  check(names.some((n) => /alm_sun/.test(n)) && names.some((n) => /alm_the_moon/.test(n)) && names.includes('Mars') && names.includes('Sirius'), 'the Sun, the Moon, a planet and a bright named star are named (' + names.join(', ') + ')');
+  check(!names.includes('Vega') && names.length === 4, 'a faint star and an unnamed one are not');
+  check(p.every((l) => l.box.x0 >= 16 && l.box.x1 <= 780 - 16), 'every label stays inside the screen');
+  p = plan([body('planet', 190, 400, { name: 'Venus', mag: -4 }), body('planet', 192, 405, { name: 'Jupiter', mag: -2 })]);
+  check(p.length >= 1 && (p.length === 1 || !(p[0].box.x0 < p[1].box.x1 && p[0].box.x1 > p[1].box.x0 && p[0].box.y0 < p[1].box.y1 && p[0].box.y1 > p[1].box.y0)), 'two bodies close together do not have their names on top of each other');
+  p = plan([body('planet', 192, 20, { name: 'Venus', mag: -4 }), body('planet', 385, 600, { name: 'Saturn', mag: 0.5 })]);
+  check(p.length === 1 && /Saturn/.test(p[0].text) && p[0].box.x1 <= 780 - 16, 'under the readout there is none, and one near the right edge goes to the left of its dot');
+}
 // ── The rows: bearings, and a guess says so in the row ──
 {
   const rowsOf = (stored) => {

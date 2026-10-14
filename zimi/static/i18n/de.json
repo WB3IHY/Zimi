@@ -3307,5 +3307,8 @@
   "lib_folders_unreadable": "{n} lässt sich nicht öffnen",
   "zim_unreadable_permission": "Lässt sich nicht öffnen: Zimi darf die Datei nicht lesen",
   "zim_unreadable_corrupt": "Lässt sich nicht öffnen: Die Datei wirkt beschädigt oder ist noch nicht vollständig",
-  "zim_also_in": "Auch in {label}"
+  "zim_also_in": "Auch in {label}",
+  "alm_sky_f_pole_unknown": "Unbekannt, bis du deinen Ort festlegst",
+  "earth_locate_off": "Zimi kann deinen Standort nicht sehen: Die Ortung ist dafür ausgeschaltet. Erlaube sie in deinem Browser oder lege deinen Ort im Almanach fest.",
+  "alm_sky_f_under_step": "weniger als 15 Min."
 }

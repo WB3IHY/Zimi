@@ -373,8 +373,21 @@ var ZimiGlobe = (function () {
     }, { passive: false });
   }
 
+  // Whether this device can draw a globe at all, asked once: a context made to find out is let go at once.
+  var canDraw = null;
+  function supported() {
+    if (canDraw === null) {
+      try {
+        var gl = document.createElement('canvas').getContext('webgl2'), lose = gl && gl.getExtension('WEBGL_lose_context');
+        canDraw = !!gl;
+        if (lose) lose.loseContext();
+      } catch (e) { canDraw = false; }
+    }
+    return canDraw;
+  }
+
   return {
-    create: create,
+    create: create, supported: supported,
     // The maths, for the tests and for the surfaces that draw over the globe.
     subsolar: subsolar, toVec: toVec, fromVec: fromVec, cameraFor: cameraFor, pick: pick, project: project, bounds: bounds,
     spanKm: spanKm, dragged: dragged, zoomed: zoomed, fitAlt: fitAlt,

@@ -122,6 +122,13 @@ function _lookFovByPinch(startFov, startDist, dist) {
   return _lookClamp(startFov * startDist / Math.max(dist, 1), LOOK_FOV_MIN_DEG, LOOK_FOV_MAX_DEG);
 }
 function _lookCompassPoint(az) { return LOOK_POINTS[Math.round(_lookNorm360(az) / 22.5) % 16]; }
+// The point in the person's language (the Almanac's own letters: O for East in German), eight to the circle.
+function _lookPointName(az) { return typeof _azCompass === 'function' ? _azCompass(az) : _lookCompassPoint(az); }
+// The ground is lit when the Sun is within a few degrees of the horizon or above it (civil twilight is dark enough for the lights).
+var LOOK_DAY_SUN_ALT_DEG = -4;
+function _lookIsDay(place, ms) {
+  return typeof _skySunAltAt === 'function' && _skySunAltAt(ms, place.lat, place.lon) > LOOK_DAY_SUN_ALT_DEG;
+}
 
 // ── The sensors ────────────────────────────────────────────────────────────
 
@@ -139,6 +146,8 @@ var LOOK_REPAINT_DEG = 0.12;           // the sky is repainted past this much tu
 // of Zimi Earth are one tap away for the street.
 var LOOK_GROUND_ALT = 0.1;
 var LOOK_START_ALT_DEG = 20;
+var LOOK_NOTE_FADE_MS = 6000;          // a note about the sensors is said, then let go (the Earth's hint does the same)
+var LOOK_NEAR_URL = '/earth/near';     // what the library has for the point under the feet (Zimi Earth's own lookup)
 var LOOK_CLOCK_MS = 60000;             // the sky moves a quarter degree a minute: drawn again that often
 var LOOK_ROOT_ID = 'almanac-look';
 var LOOK_STOPGAP_FOV_DEG = 60;         // the panorama is shown 60 degrees across...
@@ -241,6 +250,15 @@ function _lookNote(text, kind) {
   _look.noteKind = text ? kind : '';
   n.textContent = text;
   n.hidden = !text;
+  n.classList.remove('gone');
+  clearTimeout(_look.noteTimer);
+  // What the sensors cannot do is said once and let go; the compass's own note stays while it is true.
+  if (text && kind === 'sensors') _look.noteTimer = setTimeout(_lookNoteGone, LOOK_NOTE_FADE_MS);
+}
+function _lookNoteGone() {
+  var S = _look, n = _lookEl('look-note');
+  if (!S || !n || S.noteKind !== 'sensors') return;
+  n.classList.add('gone');
 }
 
 function _lookKick() { if (_look && !_look.raf) _look.raf = requestAnimationFrame(_lookFrame); }
@@ -272,15 +290,17 @@ function _lookApply(v) {
   if (turned) {
     S.drawn = { az: v.az, alt: v.alt, fov: S.fov };
     if (S.skyMounted) _lookSkyView().setView(S.skyHost, v.az, v.alt, S.fov);
-    if (share > 0.01 && S.globe) S.globe.set({ bearing: v.az, alt: LOOK_GROUND_ALT * S.fov / LOOK_FOV_DEFAULT_DEG }, 0);
+    if (share > 0.01 && S.globe && !S.noGlobe) S.globe.set({ bearing: v.az, alt: LOOK_GROUND_ALT * S.fov / LOOK_FOV_DEFAULT_DEG }, 0);
   }
   S.skyHost.style.opacity = String(1 - share);
-  S.globeEl.style.opacity = String(share);
+  S.globeEl.style.opacity = S.noGlobe ? '0' : String(share);
   S.root.classList.toggle('look-ground', share > 0.5);
   S.skyHost.style.pointerEvents = share > 0.5 ? 'none' : '';
-  _lookEl('look-earth').hidden = share <= 0.5;
+  var ground = share > 0.5;
+  _lookEl('look-earth').hidden = !ground || S.noGlobe;
+  _lookUnder(ground);
   var altR = Math.round(v.alt), azR = Math.round(v.az) % 360;
-  var read = _lookCompassPoint(v.az) + ' ' + azR + '°   ' + (altR > 0 ? '+' : altR < 0 ? '−' : '') + Math.abs(altR) + '°';
+  var read = _lookPointName(v.az) + ' ' + azR + '°   ' + (altR > 0 ? '+' : altR < 0 ? '−' : '') + Math.abs(altR) + '°';
   var r = _lookEl('look-read');
   if (r.textContent !== read) r.textContent = read;
 }
@@ -374,9 +394,11 @@ function _lookOpen(opts) {
     '<div class="look-layers"><div class="look-sky" id="look-sky"></div><canvas class="look-globe" id="look-globe"></canvas><div class="look-you" id="look-you"></div></div>' +
     '<div class="look-top"><button type="button" class="look-btn" id="look-close"></button>' +
     '<div class="look-info"><div class="look-read" id="look-read"></div><div class="look-place" id="look-place"></div></div></div>' +
+    '<div class="look-under" id="look-under" hidden><div class="look-under-name" id="look-under-name"></div>' +
+    '<button type="button" class="look-under-read" id="look-under-read" hidden></button></div>' +
     '<div class="look-note" id="look-note" role="status" hidden></div>' +
     '<div class="look-bottom"><button type="button" class="look-main" id="look-ask"></button>' +
-    '<button type="button" class="look-main" id="look-earth" hidden>' + LOOK_EARTH_SVG + '<span></span></button></div>';
+    '<button type="button" class="look-quiet" id="look-earth" hidden>' + LOOK_EARTH_SVG + '<span></span></button></div>';
   document.body.appendChild(root);
   _lookEl('look-close').innerHTML = LOOK_CLOSE_SVG;
   _lookEl('look-close').setAttribute('aria-label', _lookT('close'));
@@ -388,7 +410,8 @@ function _lookOpen(opts) {
   var S = _look = {
     root: root, skyHost: _lookEl('look-sky'), globeEl: _lookEl('look-globe'), place: place, mode: 'idle', fov: LOOK_FOV_DEFAULT_DEG,
     target: { az: startAz, alt: LOOK_START_ALT_DEG, roll: 0 }, view: { az: startAz, alt: LOOK_START_ALT_DEG, roll: 0 },
-    trim: { az: 0, alt: 0 }, share: 0, raf: 0, last: 0, drawn: null, sensing: null, globe: null, resizeTimer: 0, noteKind: ''
+    trim: { az: 0, alt: 0 }, share: 0, raf: 0, last: 0, drawn: null, sensing: null, globe: null, resizeTimer: 0, noteKind: '', noteTimer: 0,
+    noGlobe: typeof ZimiGlobe === 'undefined' || (typeof ZimiGlobe.supported === 'function' && !ZimiGlobe.supported()), near: null, nearAsked: false, day: _lookIsDay(place, Date.now())
   };
   S.skyMounted = !!_lookSkyView().mount(S.skyHost, place);
   // The Almanac under the window rests: its orrery, clocks and the sky's own
@@ -396,6 +419,7 @@ function _lookOpen(opts) {
   if (typeof _cancelAllRAF === 'function') _cancelAllRAF();
   S.clock = setInterval(_lookRefreshClock, LOOK_CLOCK_MS);
   _lookEl('look-close').onclick = _lookClose;
+  _lookEl('look-under-read').onclick = _lookReadNear;
   _lookEl('look-ask').onclick = _lookAskTap;
   _lookEl('look-earth').onclick = function () {
     var p = S.place;
@@ -424,12 +448,52 @@ function _lookOpen(opts) {
   }
   _lookButtons();
   _lookApply(S.view);
-  _lookWarmGlobe();
+  if (!S.noGlobe) _lookWarmGlobe();
+}
+
+// What is under the feet, said in words: the place, and the nearest article the library has for it,
+// one tap from being read. Asked once, when the phone first points down, never on the way in.
+function _lookUnder(ground) {
+  var S = _look, box = _lookEl('look-under');
+  if (!box) return;
+  box.hidden = !ground;
+  S.root.classList.toggle('look-day', S.day);
+  if (!ground) return;
+  _lookEl('look-under-name').textContent = S.place.name || _lookPlaceLabel({ lat: S.place.lat, lon: S.place.lon });
+  if (!S.nearAsked) { S.nearAsked = true; _lookFetchNear(); }
+}
+function _lookFetchNear() {
+  var S = _look;
+  if (typeof fetch !== 'function') return;
+  fetch(LOOK_NEAR_URL + '?lat=' + S.place.lat.toFixed(4) + '&lon=' + S.place.lon.toFixed(4), { credentials: 'same-origin' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (_look !== S || !d || !d.articles || !d.articles.length) return;
+      var a = d.articles[0], btn = _lookEl('look-under-read'), km = a.km < 10 ? a.km.toFixed(1) : String(Math.round(a.km));
+      S.near = a;
+      btn.textContent = '';
+      var lead = document.createElement('small'), name = document.createElement('b'), away = document.createElement('small');
+      lead.textContent = _lookT('earth_read'); name.textContent = a.title; away.textContent = _lookT('earth_away', { km: km });
+      btn.appendChild(lead); btn.appendChild(name); btn.appendChild(away);
+      btn.setAttribute('aria-label', _lookT('earth_read') + ': ' + a.title);
+      btn.hidden = false;
+    }).catch(function () { /* no library here: the place is all there is to say, and it is said */ });
+}
+// Reading it leaves the overlay and the Almanac the way a link in the Almanac does, so Back returns to the Almanac.
+function _lookReadNear() {
+  var S = _look, a = S && S.near;
+  if (!a || typeof openArticle !== 'function') return;
+  _lookClose(true);
+  if (history.state && history.state.look) history.replaceState({ mode: 'almanac' }, '', location.href);
+  var scroll = typeof _suspendAlmanacForLink === 'function' ? _suspendAlmanacForLink() : 0;
+  openArticle(a.zim, a.path, a.title);
+  window._almReturnScroll = scroll;
 }
 
 // The stars turn: the sky is worked out for now again, once a minute.
 function _lookRefreshClock() {
   var S = _look, st = typeof _skyState !== 'undefined' ? _skyState : null;
+  if (S) S.day = _lookIsDay(S.place, Date.now());
   if (!S || !st || !S.skyMounted || window.AlmanacSkyView) return;
   if (typeof _almFocus === 'undefined' || !_almFocus) _skyCompute(st, new Date());
   S.drawn = null;
@@ -455,7 +519,13 @@ function _lookWarmGlobe() {
       if (_look !== S) { g.dispose(); return; }
       S.globe = g;
       g.set({ bearing: S.view.az, alt: LOOK_GROUND_ALT * S.fov / LOOK_FOV_DEFAULT_DEG }, 0);
-    }).catch(function () { /* no WebGL: the ground stays dark, as the sky below the horizon already is */ });
+    }).catch(function () {
+      // No globe on this device: the ground is words (the place, the nearest article), and no way to Zimi Earth, which needs one.
+      if (_look !== S) return;
+      S.noGlobe = true;
+      S.drawn = null;
+      _lookKick();
+    });
   };
   if (typeof requestIdleCallback === 'function') requestIdleCallback(go, { timeout: 1500 }); else setTimeout(go, 300);
 }
@@ -494,6 +564,7 @@ function _lookBindInput(root) {
     }
     if (!last || pts.size !== 1) return;
     var sensing = S.mode === 'sensor';
+    _lookNoteGone();     // a finger on the view has read the note
     var base = sensing ? S.trim : S.target;
     var next = _lookDragBy({ az: base.az, alt: base.alt }, e.clientX - last.x, e.clientY - last.y, S.fov, root.clientWidth);
     last = { x: e.clientX, y: e.clientY };
@@ -543,6 +614,7 @@ function _lookClose(fromHistory) {
   _lookStopSensors(S);
   if (S.raf) cancelAnimationFrame(S.raf);
   clearTimeout(S.resizeTimer);
+  clearTimeout(S.noteTimer);
   clearInterval(S.clock);
   window.removeEventListener('keydown', S.onKey, true);
   window.removeEventListener('resize', S.onResize);

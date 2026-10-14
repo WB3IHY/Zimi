@@ -169,5 +169,16 @@ function LOOK_FADE_FROM() { return L('LOOK_FADE_FROM_DEG'); }
   check(label(44) === 'NE' && label(359) === 'N' && label(337) === 'NNW', 'between them, to sixteen');
 }
 
+// ── 8. In the person's language, and whether the ground is lit ──
+{
+  check(L('_lookPointName')(90) === 'E', "without the Almanac's letters the point is the plain one");
+  ctx._azCompass = (az) => ['N', 'NO', 'O', 'SO', 'S', 'SW', 'W', 'NW'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
+  check(L('_lookPointName')(90) === 'O' && L('_lookPointName')(135) === 'SO', 'with them, East is O in German');
+  ctx._skySunAltAt = (ms) => (ms === 1 ? 30 : ms === 2 ? -3 : -20);
+  const day = L('_lookIsDay');
+  check(day({ lat: 0, lon: 0 }, 1) && day({ lat: 0, lon: 0 }, 2), 'the ground is lit from the Sun being up to just under the horizon');
+  check(day({ lat: 0, lon: 0 }, 3) === false, 'and dark at night');
+}
+
 if (failures) { console.error(failures + ' failed'); process.exit(1); }
 console.log('all passed');

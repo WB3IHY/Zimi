@@ -71,6 +71,7 @@
 <script>
 var STR = strings({ title: 'Earth', hint: 'Drag to turn the Earth. Pinch to come closer.', zoom_hint: 'Come closer to see places.',
   look_up: 'Look up from here', read: 'Read', guide: 'Travel guide', map: 'Open the map here', locate: 'Show where I am',
+  locate_off: 'Zimi cannot see where you are: location is off for it. Allow it in your browser, or set your place in the Almanac.',
   no_webgl: 'This device cannot draw the globe.', load_failed: 'The globe could not load.', away: '{km} km away',
   finding: 'Places from {title} are still being found: {pct}%', skipped: 'Places from {title} are not read on this device: it is too large for it.', nothing: 'Nothing in the library here.',
   zoom_in: 'Zoom in', zoom_out: 'Zoom out', close: 'Close', here: 'Where you are', nearby: 'Nearby' });
@@ -80,6 +81,8 @@ var ALT_MAP = 0.01;                  // 64 km up: the screen is about 40 km wide
 var PLACES_DEBOUNCE_MS = 220;
 var TIME_TICK_MS = 60000;
 var HINT_MS = 6000;
+var LOCATE_NOTE_MS = 7000;           // the reason "Show where I am" did nothing is read, not glanced at
+var LABEL_EDGE_PX = 4;               // a label stays this far inside the screen
 var HINT_KEY = 'zimi_earth_hint';
 var LABEL_H = 18;
 var LABEL_CHAR_PX = 6.6;
@@ -112,6 +115,7 @@ function wantPlaces() {
   fetchTimer = setTimeout(loadPlaces, PLACES_DEBOUNCE_MS);
 }
 function loadPlaces() {
+  if (!G) return;
   var v = G.get(), limit = placeLimit(v.alt);
   if (!limit) { drawDots([]); hint(STR.zoom_hint); return; }
   var b = G.bounds();
@@ -160,7 +164,8 @@ function layout() {
     for (var i = 0; i < sides.length && !put; i++) {
       var a = pt.x + sides[i] * 20, b = a + sides[i] * d.w;
       var box = { x0: Math.min(a, b), y0: pt.y - LABEL_H / 2, x1: Math.max(a, b), y1: pt.y + LABEL_H / 2 };
-      if (!taken.some(function(t) { return box.x0 < t.x1 && box.x1 > t.x0 && box.y0 < t.y1 && box.y1 > t.y0; })) put = { box: box, side: sides[i] };
+      var inside = box.x0 >= LABEL_EDGE_PX && box.x1 <= s.w - LABEL_EDGE_PX;
+      if (inside && !taken.some(function(t) { return box.x0 < t.x1 && box.x1 > t.x0 && box.y0 < t.y1 && box.y1 > t.y0; })) put = { box: box, side: sides[i] };
     }
     d.el.lastChild.style.display = put ? '' : 'none';
     if (put) {
@@ -246,8 +251,8 @@ function locate() {
   var l = place();
   var go = function(lat, lon) { hereAt = { lat: lat, lon: lon }; G.set({ lat: lat, lon: lon, alt: ME_ALT, bearing: 0 }, 900); layout(); };
   if (l) { go(l.lat, l.lon); return; }
-  if (!navigator.geolocation) { status(STR.locate, 2500); return; }
-  navigator.geolocation.getCurrentPosition(function(p) { go(p.coords.latitude, p.coords.longitude); }, function() { status(STR.locate, 2500); }, { timeout: 15000, maximumAge: 600000 });
+  if (!navigator.geolocation) { status(STR.locate_off, LOCATE_NOTE_MS); return; }
+  navigator.geolocation.getCurrentPosition(function(p) { go(p.coords.latitude, p.coords.longitude); }, function() { status(STR.locate_off, LOCATE_NOTE_MS); }, { timeout: 15000, maximumAge: 600000 });
 }
 // Which wikis are still being read, and how far along: said while it is true,
 // and the dots come as each finishes.
@@ -266,6 +271,7 @@ function pollStatus() {
   }).catch(function() {});
 }
 function address() {
+  if (!G) return;
   var v = G.get();
   tell({ zimi: 'earth-at', lat: +v.lat.toFixed(4), lon: +v.lon.toFixed(4), alt: +v.alt.toPrecision(2) });
 }
@@ -289,13 +295,13 @@ function start() {
     document.addEventListener('keydown', key);
     setInterval(function() { G.setTime(Date.now()); }, TIME_TICK_MS);
     var seen = false; try { seen = localStorage.getItem(HINT_KEY) === '1'; localStorage.setItem(HINT_KEY, '1'); } catch (e) {}
-    hint(seen ? STR.zoom_hint : STR.hint);
+    // A link that names a place is not a first visit to the globe: there is nothing to say about turning it.
+    if (t0.lat == null) hint(seen ? STR.zoom_hint : STR.hint);
     wantPlaces(); layout();
     pollStatus();
     window.__earth = G;
   }).catch(function(e) {
-    var gl = !!document.createElement('canvas').getContext('webgl2');
-    say(gl ? STR.load_failed : STR.no_webgl);
+    say(ZimiGlobe.supported() ? STR.load_failed : STR.no_webgl);
   });
 }
 var G_opts;
@@ -313,6 +319,8 @@ function key(e) {
   e.preventDefault();
   G.set(d, 160);
 }
+// The Almanac opened over this page keeps the GPU to itself: the globe is let go, and the shell loads the page again when the Almanac closes.
+window.__release = function() { if (G) { G.dispose(); G = null; } clearTimeout(fetchTimer); clearTimeout(start.t); };
 window.__top = function() { return true; };
 window.__home = function() { if (G) G.set({ lat: 20, alt: G.fitAlt }, 700); };
 document.title = STR.title;

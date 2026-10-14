@@ -80,6 +80,7 @@ vm.runInContext(require('./moon_model.cjs')(), S);
 vm.runInContext(read('almanac-orrery.js'), S);
 vm.runInContext(read('almanac-sky.js'), S);
 vm.runInContext(read('almanac-skygl.js'), S);
+vm.runInContext(read('zone-places.js'), S);
 vm.runInContext(read('almanac-skyfacts.js'), S);
 
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;

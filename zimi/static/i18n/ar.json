@@ -3307,5 +3307,8 @@
   "lib_folders_unreadable": "تعذر فتح {n}",
   "zim_unreadable_permission": "تعذر الفتح: ليس لدى Zimi إذن بقراءته",
   "zim_unreadable_corrupt": "تعذر الفتح: يبدو الملف تالفًا أو ما زال قيد النقل",
-  "zim_also_in": "موجود أيضًا في {label}"
+  "zim_also_in": "موجود أيضًا في {label}",
+  "alm_sky_f_pole_unknown": "غير معروف حتى تحدد مكانك",
+  "earth_locate_off": "لا يستطيع Zimi معرفة مكانك: الموقع متوقف له. اسمح به في المتصفح أو حدد مكانك في التقويم.",
+  "alm_sky_f_under_step": "أقل من 15 دقيقة"
 }

@@ -364,10 +364,10 @@
 .almanac-sky-wrap.sky-red canvas { background: #000; }
 .almanac-sky-wrap.sky-red .alm-sky-cap, .almanac-sky-wrap.sky-red .alm-sky-facts, .almanac-sky-wrap.sky-red .alm-sky-set,
 .almanac-sky-wrap.sky-red .alm-sky-facts dt, .almanac-sky-wrap.sky-red .alm-sky-guess, .almanac-sky-wrap.sky-red .alm-sky-set summary,
-.almanac-sky-wrap.sky-red .alm-sky-place, .almanac-sky-wrap.sky-red .alm-sky-season { color: #b3281a; }
-.almanac-sky-wrap.sky-red .alm-sky-dial small, .almanac-sky-wrap.sky-red .alm-sky-set-row { color: #b3281a; }
-.almanac-sky-wrap.sky-red input { accent-color: #b3281a; }
-.almanac-sky-wrap.sky-red .alm-sky-set select { background: #1a0604; color: #b3281a; border-color: #4a120b; }
+.almanac-sky-wrap.sky-red .alm-sky-place, .almanac-sky-wrap.sky-red .alm-sky-season { color: var(--text2); }
+.almanac-sky-wrap.sky-red .alm-sky-dial small, .almanac-sky-wrap.sky-red .alm-sky-set-row { color: var(--text2); }
+.almanac-sky-wrap.sky-red input { accent-color: var(--text2); }
+.almanac-sky-wrap.sky-red .alm-sky-set select { background: var(--surface2); color: var(--text2); border-color: var(--border); }
 /* A tapped body's name: the orrery tip's look, with room for a few lines. */
 .alm-sky-tip { position: absolute; z-index: 10; max-width: min(260px, calc(100% - 4px)); background: rgba(0,0,0,0.8); color: #ccc; font-size: 11px; line-height: 1.5; padding: 5px 9px; border-radius: 6px; backdrop-filter: blur(4px); }
 .alm-sky-tip[hidden] { display: none; }
@@ -1297,3 +1297,42 @@ body.look-open { overflow: hidden; }
 .look-main { min-height: 48px; padding: 0 22px; border-radius: 24px; border: 0; background: #e0863a; color: #1a1005; font: 600 15px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
 .look-main svg { width: 20px; height: 20px; }
 .almanac-look [hidden] { display: none !important; }
+
+/* Red night light, for every surface the Almanac and the Look view draw: the shell's palette (app.css
+   :root.night-red) and nothing else. Hard-coded warm, violet and white tones of the tiles, clocks,
+   time machine, buttons and the Look view's own marks become the palette's red. The sky and the
+   pictures turn red themselves (canvas[data-red], the canvas filter chain). */
+:root.night-red #almanac-view :is(.alm-card-golden, .alm-ev, .almanac-eclipse-type, [class*="alm-tz-glyph"], [class*="alm-tm-"], .alm-sky-look) { color: var(--text2); }
+:root.night-red #almanac-view :is(.alm-tz-city-card, .alm-tm-panel, .alm-tm-key, .alm-tm-close, .alm-tm-lever, .alm-sky-look) { border-color: var(--border); }
+:root.night-red #almanac-view :is(.alm-cell, .alm-sky-look) { background-color: var(--amber-glow); }
+:root.night-red #almanac-view .alm-tz-hand { background-color: var(--amber); }
+:root.night-red #almanac-view input { background-color: var(--surface2); accent-color: var(--amber); }
+:root.night-red #almanac-view :is(svg circle, svg path)[stroke] { stroke: currentColor; }
+:root.night-red .almanac-look { color: var(--text); }
+:root.night-red .look-btn { color: var(--text); border-color: var(--border-strong); background: rgba(0,0,0,.7); }
+:root.night-red .look-you { border-color: var(--text); background: rgba(255,64,64,.9); box-shadow: 0 0 0 5px rgba(255,64,64,.3); }
+:root.night-red .look-main { background: var(--amber2); color: #000; }
+:root.night-red .look-note { background: rgba(0,0,0,.85); color: var(--text); border: 1px solid var(--border); }
+:root.night-red .look-sky, :root.night-red .look-globe { background: #000; }
+:root.night-red .almanac-sky-wrap.sky-red canvas { background: #000; }
+:root.night-red #almanac-view .almanac-eclipse-type { color: var(--text2) !important; }
+:root.night-red #almanac-view svg path[fill]:not([fill="none"]) { fill: var(--text2); }
+
+/* Looking down: what is under the feet, in words. The place under the dot, the nearest article one tap
+   below it; Zimi Earth is a quiet way out beside it, not the loudest thing on the screen. */
+.look-under { position: absolute; left: 16px; right: 16px; top: calc(50% + 30px); margin: 0 auto; max-width: 420px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; pointer-events: none; }
+.look-under > * { pointer-events: auto; }
+.look-under-name { font: 600 20px/1.25 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #fff; text-shadow: 0 0 4px #000, 0 0 12px #000; unicode-bidi: plaintext; overflow-wrap: anywhere; }
+.look-under-read { display: flex; flex-direction: column; align-items: center; gap: 2px; max-width: 100%; min-height: 48px; padding: 8px 18px; border-radius: 24px; border: 1px solid rgba(255,255,255,.28); background: rgba(8,10,16,.72); color: #fff; font: 14px/1.25 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.look-under-read b { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+.look-under-read small { font-size: 11px; opacity: .75; }
+.look-under-read[hidden], .look-under[hidden] { display: none; }
+.look-quiet { min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.6); color: rgba(255,255,255,.85); font: 500 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.look-quiet svg { width: 18px; height: 18px; }
+.look-quiet[hidden] { display: none; }
+.look-note { transition: opacity .6s; }
+.look-note.gone { opacity: 0; pointer-events: none; }
+/* By day the ground is a pale, readable map instead of a dark smear. */
+.look-day.look-ground .look-globe { filter: brightness(1.35) saturate(.8) contrast(.95); }
+:root.night-red .look-under-name { color: var(--text); }
+:root.night-red .look-under-read, :root.night-red .look-quiet { background: rgba(0,0,0,.85); color: var(--text); border-color: var(--border-strong); }

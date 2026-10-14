@@ -177,6 +177,52 @@ function _getSessionJSON(key, fallback) {
 function _almChosenPlace() {
   return _getStorageJSON(SK.ALMANAC_PLACE, null) || _getSessionJSON(SK.ALMANAC_LOC, null);
 }
+// Which hemisphere the Almanac's sky is drawn for: the chosen place, else the
+// device's time zone (zone-places.js, the table the sky uses), else null: the
+// sky does not know, so nothing season-shaped is said. The table is fetched
+// on first need and the Discover row drawn again when it lands.
+var _zonePlacesLoading = false, _discoverDrawn = null;
+function _almHemisphere() {
+  var p = _almChosenPlace();
+  if (p) return p.lat < 0 ? 'south' : 'north';
+  if (typeof _skyZonePlace !== 'function') {
+    if (!_zonePlacesLoading) {
+      _zonePlacesLoading = true;
+      var sc = document.createElement('script');
+      sc.src = '/static/zone-places.js?v=45';
+      sc.onload = function() {
+        var d = _discoverDrawn;
+        if (d && d.el.isConnected) _renderDiscover(d.el, d.items);
+      };
+      document.head.appendChild(sc);
+    }
+    return null;
+  }
+  var tz = null;
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch(e) {}
+  var z = _skyZonePlace(tz);
+  return z ? (z[0] < 0 ? 'south' : 'north') : null;
+}
+// "Spring 41%": the season the Today card names and how far through it is,
+// from the hemisphere the sky is drawn for. Null hemisphere (the place is not
+// known): no season, rather than the wrong one.
+var _SEASONS_NORTH = ['winter', 'spring', 'summer', 'autumn', 'winter'];
+var _SEASONS_SOUTH = ['summer', 'autumn', 'winter', 'spring', 'summer'];
+function _todaySeason(now, hemi) {
+  if (!hemi) return '';
+  var y = now.getFullYear(), keys = hemi === 'south' ? _SEASONS_SOUTH : _SEASONS_NORTH;
+  var bounds = [
+    { k: 0, s: new Date(y - 1, 11, 21), e: new Date(y, 2, 20) },
+    { k: 1, s: new Date(y, 2, 20), e: new Date(y, 5, 21) },
+    { k: 2, s: new Date(y, 5, 21), e: new Date(y, 8, 22) },
+    { k: 3, s: new Date(y, 8, 22), e: new Date(y, 11, 21) },
+    { k: 4, s: new Date(y, 11, 21), e: new Date(y + 1, 2, 20) }
+  ];
+  for (var i = 0; i < bounds.length; i++) {
+    if (now >= bounds[i].s && now < bounds[i].e) return t('season_' + keys[bounds[i].k]) + ' ' + Math.round((now - bounds[i].s) / (bounds[i].e - bounds[i].s) * 100) + '%';
+  }
+  return '';
+}
 function _setStorageJSON(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch(e) {}
 }
@@ -229,13 +275,12 @@ function _nightApply() {
   if (btn) btn.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
 // The header's switch while the Field Guide is open (the page has its own in each card).
-function _nightToggle() {
-  try {
-    if (localStorage.getItem(NIGHT_KEY) === NIGHT_RED) localStorage.removeItem(NIGHT_KEY);
-    else localStorage.setItem(NIGHT_KEY, NIGHT_RED);
-  } catch (e) {}
+// The one place the key is written: the header's switch, the sky's, and anything else that has one.
+function _nightSet(on) {
+  try { if (on) localStorage.setItem(NIGHT_KEY, NIGHT_RED); else localStorage.removeItem(NIGHT_KEY); } catch (e) {}
   _nightApply();
 }
+function _nightToggle() { _nightSet(!document.documentElement.classList.contains('night-red')); }
 window.addEventListener('storage', function(e) { if (e.key === NIGHT_KEY || e.key === null) _nightApply(); });
 function _setAppTheme(mode) {
   if (APP_THEMES.indexOf(mode) < 0) mode = 'auto';
@@ -6511,13 +6556,13 @@ function _todayTeaser() {
     events.push({ days: days, name: s[2], extra: ' \u00b7 ZHR ' + s[3], tonight: true });
   }
   // Equinoxes & solstices — use season-aware names for Southern Hemisphere
-  var _tLoc = _almChosenPlace();
-  var _tSouth = _tLoc && _tLoc.lat < 0;
+  var _tHemi = _almHemisphere();
+  var _tSouth = _tHemi === 'south';
   var eqNames = _tSouth
     ? [t('season_autumn') + ' ' + t('alm_equinox'), t('season_winter') + ' ' + t('alm_solstice'), t('season_spring') + ' ' + t('alm_equinox'), t('season_summer') + ' ' + t('alm_solstice')]
     : [t('season_spring') + ' ' + t('alm_equinox'), t('season_summer') + ' ' + t('alm_solstice'), t('season_autumn') + ' ' + t('alm_equinox'), t('season_winter') + ' ' + t('alm_solstice')];
   var eqs = [[3,20,eqNames[0]],[6,21,eqNames[1]],[9,22,eqNames[2]],[12,21,eqNames[3]]];
-  for (var j = 0; j < eqs.length; j++) {
+  for (var j = 0; _tHemi && j < eqs.length; j++) {
     var eq = eqs[j], eqDate = new Date(y, eq[0]-1, eq[1]);
     if (eqDate < todayMidnight) eqDate = new Date(y+1, eq[0]-1, eq[1]);
     events.push({ days: Math.round((eqDate - todayMidnight) / 86400000), name: eq[2], extra: '' });
@@ -6720,6 +6765,7 @@ function openAlmanac(replaceState) {
       '/static/almanac-orrery.js?v=45',
       '/static/almanac-sky.js?v=45',
       '/static/almanac-skygl.js?v=45',
+      '/static/zone-places.js?v=45',
       '/static/almanac-skyfacts.js?v=45',
       '/static/almanac.js?v=45'
     ];
@@ -7062,6 +7108,7 @@ function _discoverLibKey() {
   return String((zimsCache || []).length);
 }
 function _renderDiscover(el, items) {
+  _discoverDrawn = { el: el, items: items };
   el.dataset.lib = _discoverLibKey();
   var h = '<div class="discover-section"><div class="discover-label"><span>' + tH('discover') + '</span><button class="dc-dismiss" onclick="event.stopPropagation();_dismissDiscover()" title="' + escAttr(t('hide_discover')) + '" aria-label="' + escAttr(t('hide_discover')) + '">\u00D7</button></div><div class="discover-scroll">';
   for (var i = 0; i < items.length; i++) {
@@ -7088,27 +7135,7 @@ function _renderDiscover(el, items) {
       var _now = new Date();
       var _lang = (typeof _currentLang !== 'undefined') ? _currentLang : 'en';
       var _dateTitle = _now.toLocaleDateString(_lang, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-      var _y = _now.getFullYear();
-      // Season detection — flip for Southern Hemisphere if location is set
-      var _nSeasons = ['winter', 'spring', 'summer', 'autumn', 'winter'];
-      var _sSeasons = ['summer', 'autumn', 'winter', 'spring', 'summer']; // Southern Hemisphere
-      var _storedLoc = _almChosenPlace();
-      var _isSouth = _storedLoc && _storedLoc.lat < 0;
-      var _seasonKeys = _isSouth ? _sSeasons : _nSeasons;
-      var _sBounds = [
-        { k: 0, s: new Date(_y - 1, 11, 21), e: new Date(_y, 2, 20) },
-        { k: 1, s: new Date(_y, 2, 20), e: new Date(_y, 5, 21) },
-        { k: 2, s: new Date(_y, 5, 21), e: new Date(_y, 8, 22) },
-        { k: 3, s: new Date(_y, 8, 22), e: new Date(_y, 11, 21) },
-        { k: 4, s: new Date(_y, 11, 21), e: new Date(_y + 1, 2, 20) }
-      ];
-      var _seasonStr = '';
-      for (var _si = 0; _si < _sBounds.length; _si++) {
-        if (_now >= _sBounds[_si].s && _now < _sBounds[_si].e) {
-          _seasonStr = t('season_' + _seasonKeys[_sBounds[_si].k]) + ' ' + Math.round((_now - _sBounds[_si].s) / (_sBounds[_si].e - _sBounds[_si].s) * 100) + '%';
-          break;
-        }
-      }
+      var _seasonStr = _todaySeason(_now, _almHemisphere());
       var _teaser = _todayTeaser();
       h += '<a class="discover-card" href="/#almanac" onclick="return _spaNav(event, openAlmanac)">' +
         _renderTodayCard() +
@@ -20742,7 +20769,7 @@ function _earthUrl(at) {
 }
 function _earthStrings(start) {
   return _appStrings('earth', ['earth_hint', 'earth_zoom_hint', 'earth_look_up', 'earth_read', 'earth_guide', 'earth_map', 'earth_locate',
-    'earth_no_webgl', 'earth_load_failed', 'earth_away', 'earth_finding', 'earth_skipped', 'earth_nothing', 'earth_zoom_in', 'earth_zoom_out'], { start: start || {}, close: t('close') });
+    'earth_locate_off', 'earth_no_webgl', 'earth_load_failed', 'earth_away', 'earth_finding', 'earth_skipped', 'earth_nothing', 'earth_zoom_in', 'earth_zoom_out'], { start: start || {}, close: t('close') });
 }
 function openEarth(replaceState, start) {
   if (start && start.type) start = null;   // a click's event, not a place
@@ -20752,7 +20779,14 @@ function openEarth(replaceState, start) {
     return;
   }
   _openHashApp('earth', replaceState, function() { _earthOpen = true; return _EARTH_PAGE + '#' + _earthStrings(start); });
-  if (start && start.lat != null) history.replaceState(history.state, '', _earthUrl(start));
+  if (start && start.lat != null) _earthRemember(start);
+}
+// Where the globe is, kept in the entry itself as well as the address: an
+// article read from a place replaces the address when it closes, and Back
+// to Earth reads the place from the entry, not from what is left of the URL.
+function _earthRemember(at) {
+  var st = Object.assign({}, history.state || {}, { earthAt: { lat: at.lat, lon: at.lon, alt: at.alt } });
+  history.replaceState(st, '', _earthUrl(at));
 }
 // What the page asks of the shell (same origin, called through window.parent).
 // The installed map that covers a point, preferring StreetZim's (it has the
@@ -20771,7 +20805,10 @@ function _earthOpenMap(lat, lng, zoom) {
 }
 // The sky above a place: the Almanac, and the Look view over that place
 // (almanac-look.js), without changing the place the Almanac keeps.
+var _earthUnderAlmanac = false;
 function _earthLookUp(lat, lng, name) {
+  _earthUnderAlmanac = _earthOpen;
+  if (_earthOpen) _appFrameCall('__release');   // the Almanac covers the globe: its GPU memory is given back
   _appsOff();
   openAlmanac();
   var tries = 0;
@@ -20779,6 +20816,14 @@ function _earthLookUp(lat, lng, name) {
     if (typeof openAlmanacLook === 'function' && document.getElementById('almanac-sky-canvas')) { openAlmanacLook({ lat: lat, lon: lng, name: name || '' }); return; }
     if (++tries < 100) setTimeout(wait, 100);
   })();
+}
+
+// The Almanac that was opened over Earth has closed: Earth is what is on
+// screen again, and the shell must say so (its breadcrumb, its back).
+function _earthAlmanacClosed() {
+  if (!_earthUnderAlmanac) return;
+  _earthUnderAlmanac = false;
+  if (readerOpen && !currentArticle && !_anyAppOpen()) openEarth(true, (history.state && history.state.earthAt) || undefined);
 }
 
 // A word (or the front, w ''), as Reddot opens a post.
@@ -22193,7 +22238,7 @@ window.addEventListener('message', function(e) {
     else _appItemClosed();
   } else if (d.zimi === 'earth-at' && _earthOpen && isFinite(d.lat) && isFinite(d.lon) && isFinite(d.alt)) {
     // Where the globe is, as the address: a place on Earth is a link.
-    history.replaceState(history.state, '', _earthUrl({ lat: d.lat, lon: d.lon, alt: d.alt }));
+    _earthRemember({ lat: d.lat, lon: d.lon, alt: d.alt });
   } else if (d.zimi === 'dictionary-home' && _dictOpen) {
     _appHome({ mode: 'reader', dictionary: true, w: '' }, _dictUrl(''), 'w');
     _appItemClosed();
@@ -27489,7 +27534,7 @@ window.addEventListener('popstate', async (e) => {
   } else if (s && s.mode === 'reader' && s.books) {
     if (!_appFrameRoute(_booksOpen, '')) openBooks(true);
   } else if (s && s.mode === 'reader' && s.earth) {
-    if (!_earthOpen) openEarth(true, _earthHashStart(location.hash) || undefined);
+    if (!_earthOpen) openEarth(true, s.earthAt || _earthHashStart(location.hash) || undefined);
   } else if (s && s.mode === 'reader' && s.fieldguide) {
     if (!_appFrameRoute(_fieldguideOpen, s.fg)) openFieldguide(true, s.fg || '');
   } else if (s && s.mode === 'reader' && s.dictionary) {
