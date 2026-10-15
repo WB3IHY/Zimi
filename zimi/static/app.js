@@ -20570,7 +20570,8 @@ var _FIELDGUIDE_WORDS = ['fieldguide_help_now', 'fieldguide_disclaimer', 'fieldg
   'fieldguide_build', 'fieldguide_get', 'fieldguide_search_in', 'fieldguide_dated', 'fieldguide_open_card', 'fieldguide_lic_US_PD',
   'fieldguide_superseded', 'fieldguide_your_library', 'fieldguide_yes_download', 'fieldguide_cancel', 'fieldguide_print_all', 'fieldguide_build_note',
   'fieldguide_help_link', 'fieldguide_show_all', 'fieldguide_covers', 'fieldguide_as_of', 'fieldguide_see_also', 'fieldguide_sky_place',
-  'fieldguide_num_here', 'fieldguide_nums_here', 'fieldguide_num_unknown', 'fieldguide_num_police', 'fieldguide_num_ambulance', 'fieldguide_num_fire', 'fieldguide_num_mobile', 'fieldguide_num_source'];
+  'fieldguide_num_here', 'fieldguide_nums_here', 'fieldguide_num_unknown', 'fieldguide_num_police', 'fieldguide_num_ambulance', 'fieldguide_num_fire', 'fieldguide_num_mobile', 'fieldguide_num_source',
+  'fieldguide_ask', 'fieldguide_search_library'];
 function _isFieldguidePage() {
   return !!(_fieldguideOpen && readerOpen && !_almanacOpen && !_createOpen);
 }
@@ -20703,6 +20704,13 @@ function fieldguideSky(p, done) {
       : t('fieldguide_sky_place', { place: p.name || (_skyDeg(Math.abs(p.lat)) + (p.lat < 0 ? ' S ' : ' N ') + _skyDeg(Math.abs(p.lon)) + (p.lon < 0 ? ' W' : ' E')) });
     done(out.rows.length ? out : null);
   }, function() { done(null); });
+}
+// A search of the whole library, asked from the Field Guide's box.
+function _searchAll(query) {
+  if (readerOpen) closeReader();
+  currentSource = null;
+  q.value = query;
+  doSearch(query);
 }
 // A search inside one ZIM, asked from the Field Guide ("Search X for ...").
 function _searchInZim(zim, query) {
@@ -22329,6 +22337,8 @@ window.addEventListener('message', function(e) {
     _appHome({ mode: 'reader', fieldguide: true, fg: '' }, _fieldguideUrl(''), 'fg');
     document.title = t('fieldguide') + ' \u2014 Zimi';
     _setWindowTitle(document.title);
+  } else if (d.zimi === 'search' && _fromFieldguide(e) && typeof d.q === 'string' && d.q) {
+    _searchAll(d.q);
   } else if (d.zimi === 'search-in' && _fromFieldguide(e) && typeof d.zim === 'string' && typeof d.q === 'string' && d.zim && d.q) {
     _searchInZim(d.zim, d.q);
   } else if (d.zimi === 'print-sheet' && _fromFieldguide(e)) {

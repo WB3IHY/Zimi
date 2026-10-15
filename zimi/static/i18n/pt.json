@@ -3211,6 +3211,8 @@
   "earth_skipped": "Os lugares de {title} não são lidos neste dispositivo: ele é grande demais para isso.",
   "fieldguide": "Guia de campo",
   "fieldguide_search_placeholder": "O que está acontecendo?",
+  "fieldguide_ask": "O que está acontecendo?",
+  "fieldguide_search_library": "Pesquisar “{q}” na sua biblioteca",
   "fieldguide_help_now": "Ajuda agora",
   "fieldguide_disclaimer": "Não é aconselhamento médico. Ligue para a emergência se puder.",
   "fieldguide_group_hurt": "Alguém está ferido",

@@ -3211,6 +3211,8 @@
   "earth_skipped": "此设备不读取{title}中的地点：它对本设备来说太大了。",
   "fieldguide": "野外指南",
   "fieldguide_search_placeholder": "发生了什么？",
+  "fieldguide_ask": "发生了什么？",
+  "fieldguide_search_library": "在你的资料库中搜索“{q}”",
   "fieldguide_help_now": "紧急求助",
   "fieldguide_disclaimer": "这不是医疗建议。如有可能，请拨打紧急电话。",
   "fieldguide_group_hurt": "有人受伤",

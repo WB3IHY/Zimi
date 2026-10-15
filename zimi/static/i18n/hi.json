@@ -3211,6 +3211,8 @@
   "earth_skipped": "{title} के स्थान इस डिवाइस पर नहीं पढ़े जाते: यह इसके लिए बहुत बड़ा है।",
   "fieldguide": "फ़ील्ड गाइड",
   "fieldguide_search_placeholder": "क्या हो रहा है?",
+  "fieldguide_ask": "क्या हो रहा है?",
+  "fieldguide_search_library": "अपनी लाइब्रेरी में “{q}” खोजें",
   "fieldguide_help_now": "अभी मदद",
   "fieldguide_disclaimer": "यह चिकित्सीय सलाह नहीं है। यदि संभव हो तो आपातकालीन सेवाओं को कॉल करें।",
   "fieldguide_group_hurt": "कोई घायल है",

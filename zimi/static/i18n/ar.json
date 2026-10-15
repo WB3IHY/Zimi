@@ -3211,6 +3211,8 @@
   "earth_skipped": "لا تُقرأ أماكن {title} على هذا الجهاز لأنه أكبر من قدرته.",
   "fieldguide": "دليل الميدان",
   "fieldguide_search_placeholder": "ماذا يحدث؟",
+  "fieldguide_ask": "ماذا يحدث؟",
+  "fieldguide_search_library": "ابحث في مكتبتك عن «{q}»",
   "fieldguide_help_now": "مساعدة الآن",
   "fieldguide_disclaimer": "هذه ليست نصيحة طبية. اتصل بالطوارئ إن استطعت.",
   "fieldguide_group_hurt": "شخص مصاب",

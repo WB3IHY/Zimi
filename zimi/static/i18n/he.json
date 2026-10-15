@@ -3211,6 +3211,8 @@
   "earth_skipped": "המקומות מ־{title} אינם נקראים במכשיר הזה: הוא גדול מדי עבורו.",
   "fieldguide": "מדריך שטח",
   "fieldguide_search_placeholder": "מה קורה?",
+  "fieldguide_ask": "מה קורה?",
+  "fieldguide_search_library": "חיפוש „{q}” בספרייה שלך",
   "fieldguide_help_now": "עזרה עכשיו",
   "fieldguide_disclaimer": "זו אינה ייעוץ רפואי. התקשרו לשירותי החירום אם אפשר.",
   "fieldguide_group_hurt": "מישהו נפצע",

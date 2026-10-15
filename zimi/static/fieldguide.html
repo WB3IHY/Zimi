@@ -53,6 +53,17 @@
   .fg-bar { height: 4px; margin-top: 6px; border-radius: 2px; background: var(--border); overflow: hidden; }
   .fg-bar i { display: block; height: 100%; width: 0; background: var(--amber); transition: width .4s linear; }
 
+  /* "What's happening?": the first thing on the page, one tap from the answer */
+  .fg-ask { margin: 0 0 18px; }
+  .fg-ask input { width: 100%; min-height: 52px; padding: 0 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); font: inherit; font-size: 17px; -webkit-appearance: none; appearance: none; }
+  .fg-ask input::placeholder { color: var(--text2); }
+  .fg-ask input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+  .fg-ask input:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-glow); }
+  .fg-hits { margin-top: 8px; }
+  .fg-hits:empty { display: none; }
+  .fg-hit .name { font-weight: 600; }
+  .fg-hit.lead { background: var(--amber-glow); }
+  .fg-hit.lib .name { font-size: 15px; font-weight: 400; color: var(--text2); }
   @media (max-width: 480px) { .fg-head h1 { font-size: 22px; } }
 
   /* Paper: a situation prints as the quotations and where they came from,
@@ -75,6 +86,10 @@
       <h1 id="t-title">Help now</h1>
       <p class="fg-disc" id="t-disc"></p>
     </header>
+    <div class="fg-ask fg-no-print" id="t-ask" role="search">
+      <input id="t-q" type="search" enterkeyhint="go" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <ul class="fg-list fg-hits" id="t-hits"></ul>
+    </div>
     <div id="t-num"></div>
     <div id="groups"></div>
     <div class="fg-tools">
@@ -122,7 +137,8 @@ var STR = strings({
   installed: 'Installed', get_all: 'Get what is missing ({size})', started: 'Started', needs_admin: 'Sign in as an administrator to add ZIMs.',
   failed: 'That did not work. Try again.', loading: 'Loading…', building: 'Building…', built: 'Built', set_core: 'The core', set_more: 'Goes deeper',
   nothing: 'Nothing installed answers this yet.', confirm_big: 'This is {size}. Download it?', open: '', lang: 'en', lat: '',
-  yes_download: 'Download', cancel: 'Cancel', print_all: 'Print every situation', your_library: 'Your library', see_also: 'See also'
+  yes_download: 'Download', cancel: 'Cancel', print_all: 'Print every situation', your_library: 'Your library', see_also: 'See also',
+  ask: 'What’s happening?', search_library: 'Search your library for “{q}”'
 });
 var LOCALE = STR.lang || 'en';
 var CARD = FieldGuideCard;
@@ -155,6 +171,10 @@ function showFront() {
 function drawFront() {
   drawNumber('t-num');
   $('t-title').textContent = say('help_now');
+  $('t-q').placeholder = say('ask');
+  $('t-q').setAttribute('aria-label', say('ask'));
+  // A keyboard on a desk: type at once. On a phone the keyboard would hide the list, so no.
+  if (window.matchMedia && matchMedia('(pointer: fine)').matches && state.view === 'front') $('t-q').focus({ preventScroll: true });
   $('t-disc').textContent = say('disclaimer');
   $('t-library').textContent = say('get_library');
   $('t-printall').textContent = say('print_all');
@@ -173,6 +193,56 @@ $('groups').addEventListener('click', function(e) {
   if (b) openSituation(b.getAttribute('data-id'), true);
 });
 $('t-library').onclick = function() { openLibrary(); };
+
+// ── what's happening: the words go to the matcher search uses (/fieldguide/match),
+// so the box and the search bar name the same situation; Enter opens it, or, when
+// nothing is named, searches the library. A named baby leads with its passage. ──
+var ASK_WAIT_MS = 120, askSeq = 0, askTimer = 0, askHit = null, askAsked = null;
+function askRows(q) {
+  var rows = askHit ? '<li><button type="button" class="fg-sit fg-hit lead" data-id="' + esc(askHit.id) + '"><span class="mark none" aria-hidden="true"></span>' +
+    '<span class="name">' + esc(sit(askHit.id)) + '</span><span class="chev"></span></button></li>' : '';
+  return rows + '<li><button type="button" class="fg-sit fg-hit lib" data-lib="1"><span class="mark none" aria-hidden="true"></span>' +
+    '<span class="name">' + esc(say('search_library', { q: q })) + '</span><span class="chev"></span></button></li>';
+}
+function askDraw() {
+  var q = $('t-q').value.trim();
+  $('t-hits').innerHTML = q ? askRows(q) : '';
+}
+// The answer for what is in the box now, as a promise Enter can wait on.
+function askLookup() {
+  var q = $('t-q').value.trim(), mine = ++askSeq;
+  askHit = null;
+  askDraw();
+  if (!q) return (askAsked = Promise.resolve());
+  return (askAsked = fetch('/fieldguide/match?q=' + encodeURIComponent(q) + '&ui=' + encodeURIComponent(LOCALE)).then(function(r) { return r.ok ? r.json() : null; }).then(function(m) {
+    if (mine !== askSeq) return;
+    askHit = m && m.id ? m : null;
+    askDraw();
+  }).catch(function() {}));
+}
+function askGo(lib) {
+  var q = $('t-q').value.trim();
+  if (!q) return;
+  if (askHit && !lib) openSituation(askHit.id, true, askHit.who);
+  else tell({ zimi: 'search', q: q });
+}
+$('t-q').addEventListener('input', function() {
+  clearTimeout(askTimer);
+  askTimer = setTimeout(function() { askTimer = 0; askLookup(); }, ASK_WAIT_MS);
+});
+// Enter, read off the key: the reader's frame is sandboxed without forms, so no submit event.
+$('t-q').addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  e.preventDefault();
+  // Enter before the answer is back (or before it was asked): wait for it, then go.
+  var waiting = !!askTimer;
+  clearTimeout(askTimer); askTimer = 0;
+  (waiting ? askLookup() : askAsked || Promise.resolve()).then(function() { askGo(false); });
+});
+$('t-hits').addEventListener('click', function(e) {
+  var b = e.target.closest('.fg-hit');
+  if (b) askGo(!!b.getAttribute('data-lib'));
+});
 $('t-printall').onclick = function() { printSheet(true); };
 
 // ── one situation ──
@@ -218,7 +288,7 @@ function drawNumber(boxId, id) {
 function whereAmI(then) {
   geoLoad(function(g) { then(CARD.placeLat(STR.lat, g.zones, g.tz, STR.lon, STR.place)); });
 }
-function openSituation(id, step) {
+function openSituation(id, step, who) {
   var mine = ++seq;
   state = { view: 'card', id: id };
   $('front').hidden = true; $('library').hidden = true; $('card').hidden = false;
@@ -243,6 +313,7 @@ function openSituation(id, step) {
     // The quotes draw at once; a sky for the reader's hemisphere that the zone table then
     // reveals reorders them (only the situations with a sky in them).
     var chosen = parseFloat(STR.lat);
+    if (who) { var lead = CARD.forWho(s.quotes, who); s.quotes = [lead].concat(s.quotes.filter(function(q) { return q !== lead; })); }
     paint(s, CARD.skyFirst(s.quotes, isFinite(chosen) ? chosen : null));
     if (s.sky) drawSky(mine);
     if (s.quotes.some(function(q) { return q.sky; }) && !isFinite(chosen)) {

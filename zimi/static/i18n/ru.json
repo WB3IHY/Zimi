@@ -3211,6 +3211,8 @@
   "earth_skipped": "Места из «{title}» не читаются на этом устройстве: он слишком велик для него.",
   "fieldguide": "Полевой справочник",
   "fieldguide_search_placeholder": "Что происходит?",
+  "fieldguide_ask": "Что случилось?",
+  "fieldguide_search_library": "Искать «{q}» в вашей библиотеке",
   "fieldguide_help_now": "Помощь сейчас",
   "fieldguide_disclaimer": "Это не медицинская консультация. Если можете, вызовите экстренную службу.",
   "fieldguide_group_hurt": "Кто-то ранен",

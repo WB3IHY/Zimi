@@ -281,6 +281,35 @@ def test_a_baby_choking_gets_the_infant_passage_not_the_adults(full, phone):
     assert not phone.errors
 
 
+def test_the_help_now_box_names_the_situation_and_opens_it(full, phone):
+    _open(phone, full, "#fieldguide")
+    f = _frame(phone)
+    box = f.wait_for_selector("#t-q")
+    assert box.get_attribute("placeholder") == "What’s happening?"
+    box.fill("my baby is choking")
+    f.wait_for_selector(".fg-hit.lead[data-id=choking]", timeout=10000)
+    box.press("Enter")
+    f.wait_for_selector("#card:not([hidden]) .fg-q")
+    assert f.inner_text("#c-title") == "Choking"
+    first = f.query_selector("#c-quotes .fg-q h3, #c-quotes .fg-q h4")
+    assert first.text_content().startswith("Infants")
+    assert not phone.errors
+
+
+def test_the_help_now_box_searches_the_library_when_nothing_is_named(full, phone):
+    _open(phone, full, "#fieldguide")
+    f = _frame(phone)
+    box = f.wait_for_selector("#t-q")
+    box.fill("water cycle")
+    # Enter at once, before the matcher has answered: it waits, then searches.
+    box.press("Enter")
+    phone.wait_for_function(
+        "() => document.querySelector('.topbar input').value === 'water cycle' && !document.querySelector('[data-card=fieldguide] .fg-q')",
+        timeout=20000,
+    )
+    assert not phone.errors
+
+
 def test_no_answer_when_searching_inside_one_zim(full, phone):
     _open(phone, full)
     _search(phone, "tourniquet")
