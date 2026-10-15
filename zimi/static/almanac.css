@@ -1315,7 +1315,7 @@ body.look-open { overflow: hidden; }
 :root.night-red #almanac-view :is(svg circle, svg path)[stroke] { stroke: currentColor; }
 :root.night-red .almanac-look { color: var(--text); }
 :root.night-red .look-btn { color: var(--text); border-color: var(--border-strong); background: rgba(0,0,0,.7); }
-:root.night-red .look-you { border-color: var(--text); background: rgba(255,64,64,.9); box-shadow: 0 0 0 5px rgba(255,64,64,.3); }
+:root.night-red .look-you { border-color: var(--text); background: rgba(255,32,16,.9); box-shadow: 0 0 0 5px rgba(255,32,16,.3); }
 :root.night-red .look-main { background: var(--amber2); color: #000; }
 :root.night-red .look-note { background: rgba(0,0,0,.85); color: var(--text); border: 1px solid var(--border); }
 :root.night-red .look-sky, :root.night-red .look-globe { background: #000; }

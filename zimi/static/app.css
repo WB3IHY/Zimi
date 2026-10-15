@@ -4092,9 +4092,9 @@
 /* Red night light (app.js _applyAppTheme, the Red theme): deep red on black, so the phone costs no night vision.
    Every tier of text is at least 4.5:1 on every surface; pictures (logo, moon, covers) are
    turned to red monochrome so no other colour is left on the screen. */
-:root.night-red, :root.night-red .almanac-view, :root.night-red body.almanac-mode, :root.night-red.almanac-boot body { --bg: #000; --surface: #0d0000; --surface2: #160000; --border: #5a1414; --border-strong: #7a1c1c; --text: #ff5a5a; --text2: #f03030;
-  --text3: #f03030; --text-dim: #f03030; --accent: #ff5a5a; --amber: #ff4040; --amber2: #f03030; --on-amber: #000; --amber-glow: rgba(255,64,64,0.16); --amber-border: rgba(255,64,64,0.4);
-  --hover: rgba(255,64,64,0.1); --topbar-bg: rgba(0,0,0,0.92); --card-bg: #0d0000; --success: #f03030; --success-strong: #ff5a5a; --error: #ff6a6a; --green: #f03030; color-scheme: dark; }
+:root.night-red, :root.night-red .almanac-view, :root.night-red body.almanac-mode, :root.night-red.almanac-boot body { --bg: #000; --surface: #0d0000; --surface2: #160000; --border: #5c0e06; --border-strong: #7c1408; --text: #ff2a14; --text2: #f01a0a;
+  --text3: #f01a0a; --text-dim: #f01a0a; --accent: #ff2a14; --amber: #ff2010; --amber2: #f01a0a; --on-amber: #000; --amber-glow: rgba(255,32,16,0.16); --amber-border: rgba(255,32,16,0.4);
+  --hover: rgba(255,32,16,0.1); --topbar-bg: rgba(0,0,0,0.92); --card-bg: #0d0000; --success: #f01a0a; --success-strong: #ff2a14; --error: #ff3a1e; --green: #f01a0a; color-scheme: dark; }
 :root.night-red:has(> body.almanac-mode), :root.night-red.almanac-boot { background: #000; }
 :root.night-red img { filter: grayscale(1) sepia(1) hue-rotate(-42deg) saturate(10) brightness(.9); filter: url(#night-red-filter); }
 /* Moving pictures take the GPU's own filter chain (the SVG one is a pass the page pays every frame);
@@ -4113,7 +4113,7 @@
 :root.night-red, :root.night-red * { scrollbar-color: var(--border-strong) #000; }
 :root.night-red ::-webkit-scrollbar { background: #000; }
 :root.night-red ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
-:root.night-red ::selection { background: rgba(255,64,64,0.35); color: var(--text); }
+:root.night-red ::selection { background: rgba(255,32,16,0.35); color: var(--text); }
 :root.night-red { accent-color: var(--amber); caret-color: var(--amber); }
 :root.night-red :focus-visible { outline-color: var(--amber); }
 /* The chosen pill is a lit outline, not a solid block: the largest bright area in Settings would be the

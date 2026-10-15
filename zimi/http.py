@@ -1725,8 +1725,8 @@ _UNCAPTURED_PAGE = """<!DOCTYPE html>
   :root {{ color-scheme: dark;
     --bg:#0a0a0b; --surface:#141416; --border:#27272b;
     --text:#e8e8ed; --text2:#8a8a94; --amber:#f59e0b; --on-amber:#000; }}
-  html.night-red {{ --bg:#000; --surface:#0d0000; --border:#5a1414;
-    --text:#ff5a5a; --text2:#f03030; --amber:#ff4040; --on-amber:#000; }}
+  html.night-red {{ --bg:#000; --surface:#0d0000; --border:#5c0e06;
+    --text:#ff2a14; --text2:#f01a0a; --amber:#ff2010; --on-amber:#000; }}
   html[data-theme="light"] {{ color-scheme: light;
     --bg:#f2efe8; --surface:#fbfaf6; --border:#e4dfd4;
     --text:#26241f; --text2:#6a675e; --amber:#9d4a08; --on-amber:#fff; }}
