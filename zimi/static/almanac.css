@@ -349,7 +349,9 @@
 .alm-sky-lead { font-size: 15px; font-weight: 500; line-height: 1.3; color: var(--text); }
 .alm-sky-sub { font-size: 11px; line-height: 1.4; color: var(--text2); }
 .alm-sky-facts { padding: 14px 0 0; }
-.alm-sky-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.alm-sky-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.alm-sky-cards .alm-card-lbl, .alm-sky-cards .alm-card-val { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; text-wrap: balance; }
+.alm-nobr { white-space: nowrap; }
 .alm-sky-cards .alm-card { display: flex; flex-direction: column; justify-content: center; }
 .alm-card-sub { margin-top: 3px; font-size: 11px; line-height: 1.3; color: var(--text2); font-variant-numeric: tabular-nums; text-wrap: balance; }
 .alm-card-wide { grid-column: 1 / -1; }

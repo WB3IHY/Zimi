@@ -2470,6 +2470,7 @@
   "alm_sky_plane_note": "Une illustration : Zimi n'a pas de données de vol.",
   "alm_sky_birds": "Des oiseaux",
   "alm_sky_birds_line": "Un vol en V : chaque oiseau profite de l'air qui monte au bout de l'aile du précédent.",
+  "alm_sky_illustration": "Une illustration, qui apparaît de temps en temps.",
   "alm_sky_meteor": "Un météore",
   "alm_sky_meteor_line": "De la poussière qui brûle à 100 km d'altitude. Sous un ciel comme celui-ci, on en voit environ {n} par heure.",
   "alm_sky_meteor_shower": "{name} : poussière de comète qui brûle à 100 km d'altitude. Sous un ciel comme celui-ci, on en voit environ {n} par heure.",

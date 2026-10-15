@@ -238,8 +238,9 @@ vm.runInContext('var __store = {}; var localStorage = { getItem: function (k) { 
   'var _almFocus = null; var _heroMoonAnim = null; var __reduce = false; function _almReduceMotion() { return __reduce; }' +
   'var __painted = 0; _skyPaint = function () { __painted++; };' +
   '_skyState = { inView: true, eph: { sunGeoAlt: -30 }, lm: 7, actors: [], bodies: [], moonAnim: null, nowTime: Date.now() };' +
+  'function _skySolarMinutes() { return 360; };' +
   '_skyRand = function () { return 0.99; };', S);   // a meteor's wait is drawn at random: here always a short one, so the timer is the meteor's own
-const MOVING = '_skySpawnBirds,_skySpawnMeteor,_skySpawnPlane,_skySpawnWhale,_skySwayTick';   // the beach's: the spawners and the palms' breeze
+const MOVING = '_skyPollSatsTick,_skySpawnBirds,_skySpawnMeteor,_skySpawnPlane,_skySpawnWhale,_skySwayTick';   // the beach's: the spawners, the palms' breeze, and the wait for the ISS's elements
 const armed = () => { timers.length = 0; vm.runInContext('_skyArm()', S); return timers.map((x) => x.fn.name).sort().join(','); };
 // The true horizon, chosen: nothing but the clock's drift, at night or by day, and no twinkle at all.
 vm.runInContext('_skySettings = { skin: "horizon", lines: "off", size: "auto", dial: 0 }', S);
@@ -279,21 +280,25 @@ vm.runInContext('_almanacSkyRAF = null; _skyKick(); _skyKick();', S);
 check(frames.length === 1, 'two asks while a frame is pending make one frame, never a second loop');
 frames[0](2000);
 check(frames.length === 1 && vm.runInContext('_almanacSkyRAF', S) === null, 'still: after painting, no frame loop');
-// A plane crossing: the loop runs while it is on screen, painting at most
-// every SKY_ACTOR_FRAME_MS (thirty a second, not sixty), and stops once it has gone.
-frames.length = 0;
-vm.runInContext('_almanacSkyRAF = null; __painted = 0; _skyState.baseDirty = false; _skyState.paintedAt = 0;' +
+// A plane crossing: no vsync loop. A timer asks for each frame at
+// SKY_ACTOR_FRAME_MS (thirty a second, not sixty wakes for thirty paints), and
+// stops once the plane has gone.
+frames.length = 0; timers.length = 0;
+vm.runInContext('_almanacSkyRAF = null; __painted = 0; _skyState.baseDirty = false; _skyState.paintedAt = 0; _skyTimers.actor = 0;' +
   '_skyState.actors = [{ type: "plane", start: 0, dur: 1000 }];', S);
 const step = vm.runInContext('SKY_ACTOR_FRAME_MS', S);
 // _skyPaint is the counter here; a real paint drops the plane once its time is up.
 vm.runInContext('_skyPaint = function (ts) { __painted++; _skyState.actors = _skyState.actors.filter((a) => ts - a.start <= a.dur); };', S);
-for (const ts of [100, 100 + step / 2, 100 + step + 1, 100 + step * 1.5 + 1, 100 + step * 2 + 2]) {
-  vm.runInContext('_almanacSkyRAF = null; _skyLoop(' + ts + ')', S);
-}
-check(vm.runInContext('__painted', S) === 3 && frames.length === 5, 'a plane: a frame each vsync, a paint every other one (' + vm.runInContext('__painted', S) + ' of 5)');
-frames.length = 0;
-vm.runInContext('_almanacSkyRAF = null; _skyLoop(1200)', S);
-check(frames.length === 0 && vm.runInContext('_skyState.actors.length', S) === 0, 'gone from the sky, the loop stops');
+vm.runInContext('_skyLoop(100)', S);
+const tick = timers.filter((x) => x.fn.name === '_skyActorTick');
+check(vm.runInContext('__painted', S) === 1 && frames.length === 0 && tick.length === 1 && tick[0].ms === step, 'a plane: one paint, no vsync loop, the next frame asked for by a timer ' + step + ' ms on');
+timers.length = 0; tick[0].fn();
+check(frames.length === 1 && vm.runInContext('_skyTimers.actor', S) === 0, 'the timer asks for exactly one frame');
+frames[0](100 + step + 1);
+check(vm.runInContext('__painted', S) === 2 && timers.some((x) => x.fn.name === '_skyActorTick'), 'which paints, and asks for the next');
+frames.length = 0; timers.length = 0;
+vm.runInContext('_skyTimers.actor = 0; _almanacSkyRAF = null; _skyLoop(1200)', S);
+check(frames.length === 0 && !timers.some((x) => x.fn.name === '_skyActorTick') && vm.runInContext('_skyState.actors.length', S) === 0, 'gone from the sky, nothing is asked for');
 // The time machine's frames move the instant without a new loop.
 frames.length = 0;
 vm.runInContext('_almanacSkyRAF = null; _skyState.moonData = null; _skySetInstant(new Date("2026-10-01T06:00:00Z"))', S);

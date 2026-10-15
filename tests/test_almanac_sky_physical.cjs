@@ -413,7 +413,9 @@ check(noon > later && noon > earlier, 'and at that solar noon the Sun is at its 
   run('var _METEOR_SHOWERS = [{ key: "perseids", peak: [8, 12], zhr: 100 }, { key: "geminids", peak: [12, 14], zhr: 150 }, { key: "quadrantids", peak: [1, 3], zhr: 120 }];');
   const rate = (iso, lm, lat, lon) => { const ms = Date.parse(iso); S.__s = { nowTime: ms, lm: lm, lat: lat, lon: lon, eph: { lst: run('_skyLST(new Date(' + ms + '), ' + lon + ')') } }; return run('_skyMeteorRate(__s)'); };
   const quiet = rate('2026-03-10T09:00:00Z', 7.6, 37.77, -122.42), per = rate('2026-08-13T09:00:00Z', 7.6, 37.77, -122.42), perCity = rate('2026-08-13T09:00:00Z', 3.5, 37.77, -122.42);
-  check(quiet.perHour === 6 && !quiet.shower, 'a quiet dark night: the sporadic six an hour, no shower (' + quiet.perHour + ')');
+  const eve = rate('2026-03-11T02:00:00Z', 7.6, 37.77, -122.42), dawn = rate('2026-03-10T13:00:00Z', 7.6, 37.77, -122.42);
+check(quiet.perHour > 5 && quiet.perHour < 9 && !quiet.shower, 'a quiet dark night: the sporadic six or so an hour, no shower (' + quiet.perHour.toFixed(1) + ')');
+check(dawn.perHour > 2.5 * eve.perHour && eve.perHour > 2 && dawn.perHour < 11, 'sporadics are three an hour at evening and about ten before dawn (' + eve.perHour.toFixed(1) + ', ' + dawn.perHour.toFixed(1) + ')');
   check(per.shower && per.shower.sh.key === 'perseids' && per.perHour > 20 && per.perHour < 60, 'the Perseids near their peak with the radiant up: a few dozen an hour (' + per.perHour.toFixed(1) + ')');
   check(perCity.perHour < per.perHour / 8 && perCity.perHour > 0, 'under a city sky (limiting magnitude 3.5) the same night shows an eighth or less (' + perCity.perHour.toFixed(1) + ')');
   check(!rate('2026-08-12T22:00:00Z', 7.6, -33.87, 151.21).shower || rate('2026-08-12T22:00:00Z', 7.6, -33.87, 151.21).perHour < per.perHour, 'a shower whose radiant is down adds nothing');
@@ -428,6 +430,16 @@ check(noon > later && noon > earlier, 'and at that solar noon the Sun is at its 
   const m2 = run('_skyMeteor(__s, { radiant: { az: 180, alt: 80 } })');
   check(m2.alt1 < m2.alt0, 'and from a high radiant, down and away');
   run('_skyRand = Math.random');
+  // An airliner comes out of the haze at the horizon's edge and goes back into it; only the first, already flying, may be seen part-way along.
+  run('_skyRand = (function () { var i = 0, v = [0.3, 0.6, 0.1, 0.9, 0.5, 0.2, 0.7, 0.4]; return function () { return v[i++ % 8]; }; })();');
+  S.__s = { center: 180, span: 240 };
+  const fresh = run('_skyPlane(__s, false)'), flying = run('_skyPlane(__s, true)');
+  check(Math.abs(fresh.L0 + Math.sqrt(Math.pow(fresh.h / Math.tan(10 * D2R), 2) - fresh.b * fresh.b)) < 1e-6 && at(fresh, 0).alt < 11, 'a plane that comes later starts at the haze, ' + at(fresh, 0).alt.toFixed(1) + ' degrees up');
+  check(flying.L0 > fresh.L0 && flying.L0 < 0 || at(flying, 0).alt > 11, 'the first one may already be flying');
+  check(at(fresh, 0.999).alt < 11 && at(fresh, 0.5).alt > at(fresh, 0).alt, 'and leaves at the haze too');
+  run('_skyRand = Math.random');
+  // The palms stand clear of where the Sun sets and the Moon rises at the equinoxes (and the autumn evening at 38 N).
+  check(run('SKY_PALMS.every(function (p) { return p[0] < 60 || p[0] > 285; })') === true, 'the palms stand at the edges of the picture, not under the setting Sun');
   // The sea mirrors the sky: a clear table, more at grazing sight.
   check(run('_skyTableAt(SKY_FRESNEL, 0)') > 0.8 && run('_skyTableAt(SKY_FRESNEL, 25)') < 0.15 && run('_skyTableAt(SKY_FRESNEL, 4)') > run('_skyTableAt(SKY_FRESNEL, 10)'), 'the sea mirrors nearly all of the sky at the horizon and little at the feet');
   // The boats show the lights the rules of the sea give them.

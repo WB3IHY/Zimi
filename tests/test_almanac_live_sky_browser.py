@@ -390,7 +390,7 @@ def test_life_on_the_horizon(browser, served):
         )
         moving = pg.evaluate("""() => new Promise((done) => {
           const n0 = _skyState.paints || 0;
-          setTimeout(() => done({ painted: (_skyState.paints || 0) - n0, loop: !!_almanacSkyRAF }), 1000);
+          setTimeout(() => done({ painted: (_skyState.paints || 0) - n0, loop: !!_almanacSkyRAF || !!_skyTimers.actor }), 1000);
         })""")
         # It moves frame by frame while on screen (a loaded test machine draws
         # few frames a second; the thirty-a-second cap is held in

@@ -2470,6 +2470,7 @@
   "alm_sky_plane_note": "An illustration: Zimi has no flight data.",
   "alm_sky_birds": "Birds",
   "alm_sky_birds_line": "A V of birds: each rides the lift off the wingtip ahead.",
+  "alm_sky_illustration": "An illustration, drawn now and then.",
   "alm_sky_meteor": "A meteor",
   "alm_sky_meteor_line": "Dust burning up 100 km high. About {n} an hour can be seen under a sky like this.",
   "alm_sky_meteor_shower": "{name}: comet dust burning up 100 km high. About {n} an hour can be seen under a sky like this.",

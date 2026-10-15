@@ -2470,6 +2470,7 @@
   "alm_sky_plane_note": "Una ilustración: Zimi no tiene datos de vuelos.",
   "alm_sky_birds": "Aves",
   "alm_sky_birds_line": "Aves en V: cada una aprovecha el aire que sube de la punta del ala de la de delante.",
+  "alm_sky_illustration": "Una ilustración, que aparece de vez en cuando.",
   "alm_sky_meteor": "Un meteoro",
   "alm_sky_meteor_line": "Polvo que arde a 100 km de altura. Bajo un cielo como este se ven unos {n} por hora.",
   "alm_sky_meteor_shower": "{name}: polvo de cometa que arde a 100 km de altura. Bajo un cielo como este se ven unos {n} por hora.",

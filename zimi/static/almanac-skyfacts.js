@@ -110,15 +110,15 @@ function _skyBearing(az) { return _azCompass(az) + ' ' + Math.round(az) + '\u00b
 function _skyFactRows(s, f) {
   var rows = [], lat = s.lat, now = s.nowTime, guess = !s.stored;
   var about = function (v) { return guess ? t('alm_sky_f_about', { v: v }) : v; };
-  var at = function (ms, az, dir) { return _skyClock(ms, guess, dir) + ' · ' + _skyBearing(az); };
+  var at = function (ms, az, dir, qualify) { var c = _skyClock(ms, guess, dir); return (qualify ? about(c) : c) + ' · ' + _skyBearing(az); };
   // A guessed sunset less than a step away rounds down to now: said as what it is, not as a time already gone.
   var soon = guess && f.sunUp && f.sunset && _skyRoundMs(f.sunset, guess, -1) <= now;
   if (f.sunUp) rows.push([t('alm_sky_f_daylight_left'), soon ? t('alm_sky_f_under_step') : f.sunset ? about(_skySpan(f.sunset, now, guess, -1)) : t('alm_midnight_sun'), f.sunset && !soon ? at(f.sunset, f.sunsetAz, -1) : '']);
   else rows.push([t('alm_sky_f_sunrise_in'), f.sunrise ? about(_skySpan(f.sunrise, now, guess, 1)) : t('alm_polar_night'), f.sunrise ? at(f.sunrise, f.sunriseAz, 1) : '']);
   if (f.fullyDark) rows.push([t('alm_sky_f_dark_until'), f.darkUntil ? about(_skyClock(f.darkUntil, guess, 1)) : t('alm_polar_night'), '']);
   else rows.push([t('alm_sky_f_dark_from'), f.darkFrom ? about(_skyClock(f.darkFrom, guess, 1)) : t('alm_sky_f_not_dark'), '']);
-  var moonNext = f.moonUp ? (f.moonset ? t('alm_sky_f_sets', { t: at(f.moonset, f.moonsetAz, -1) }) : '') : (f.moonrise ? t('alm_sky_f_rises', { t: at(f.moonrise, f.moonriseAz, 1) }) : '');
-  rows.push([t('alm_moon'), t('alm_sky_f_moon_lit', { p: _orrNum(s.moonData.phase.illumination, null, 0) + '%' }), guess && moonNext ? about(moonNext) : moonNext]);
+  var moonNext = f.moonUp ? (f.moonset ? t('alm_sky_f_sets', { t: at(f.moonset, f.moonsetAz, -1, true) }) : '') : (f.moonrise ? t('alm_sky_f_rises', { t: at(f.moonrise, f.moonriseAz, 1, true) }) : '');
+  rows.push([t('alm_moon'), t('alm_sky_f_moon_lit', { p: _orrNum(s.moonData.phase.illumination, null, 0) + '%' }), moonNext]);
   var a = _skyDeg(Math.abs(lat));
   if (s.known === false) rows.push([t('alm_sky_f_north'), t('alm_sky_f_pole_unknown'), '', true]);
   else if (Math.abs(lat) < 2) rows.push([t('alm_sky_f_north'), t('alm_sky_f_equator_val'), '', true]);
@@ -126,6 +126,11 @@ function _skyFactRows(s, f) {
   else rows.push([t('alm_sky_f_south'), t('alm_sky_f_south_val', { a: a }), '', true]);
   rows.push([t('alm_sky_f_solar'), about(_skySolarClock(_skySolarMinutes(new Date(now), s.lon), guess)), '']);
   return rows;
+}
+// A line that breaks only at its dots (each piece, a time or a bearing, whole, the dot staying with the piece before it).
+function _skyNoBreak(text) {
+  var parts = text.split(' · ');
+  return parts.map(function (p, i) { return '<span class="alm-nobr">' + _almEsc(p) + (i < parts.length - 1 ? ' ·' : '') + '</span>'; }).join(' ');
 }
 // The cards in the hero's own grammar (a label over a value, two columns),
 // the short ones first and the wide ones under them.
@@ -136,7 +141,7 @@ function _skyFactCards(rows) {
       var r = rows[i];
       if (!!r[3] !== !!pass) continue;
       html += '<div class="alm-card' + (r[3] ? ' alm-card-wide' : '') + '"><div class="alm-card-lbl">' + _almEsc(r[0]) + '</div><div class="alm-card-val">' + _almEsc(r[1]) + '</div>' +
-        (r[2] ? '<div class="alm-card-sub">' + _almEsc(r[2]) + '</div>' : '') + '</div>';
+        (r[2] ? '<div class="alm-card-sub">' + _skyNoBreak(r[2]) + '</div>' : '') + '</div>';
     }
   }
   return html + '</div>';

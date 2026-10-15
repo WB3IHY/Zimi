@@ -2470,6 +2470,7 @@
   "alm_sky_plane_note": "仅为示意：Zimi 没有航班数据。",
   "alm_sky_birds": "飞鸟",
   "alm_sky_birds_line": "人字形的鸟群：每只鸟都借前一只翼尖带起的上升气流。",
+  "alm_sky_illustration": "仅为示意，偶尔出现。",
   "alm_sky_meteor": "一颗流星",
   "alm_sky_meteor_line": "尘埃在 100 公里高处燃尽。 在这样的天空下每小时约能看到 {n} 颗。",
   "alm_sky_meteor_shower": "{name}：彗星尘埃在 100 公里高处燃尽。 在这样的天空下每小时约能看到 {n} 颗。",
