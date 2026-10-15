@@ -449,7 +449,7 @@ def test_red_night_follows_the_one_shared_key(empty, phone):
     f.wait_for_selector(".fg-sit")
     assert not f.evaluate("document.documentElement.classList.contains('night-red')")
     f.check(".fg-tools .night-box")
-    assert f.evaluate("localStorage.getItem('zimi.night')") == "red"
+    assert f.evaluate("localStorage.getItem('zimi_app_theme')") == "red"
     assert f.evaluate("document.documentElement.classList.contains('night-red')")
     bg = f.evaluate("getComputedStyle(document.body).backgroundColor")
     assert bg == "rgb(0, 0, 0)"
@@ -458,10 +458,10 @@ def test_red_night_follows_the_one_shared_key(empty, phone):
     # document a moment later, not inside the write), and the key written elsewhere is honoured here.
     phone.wait_for_function("document.documentElement.classList.contains('night-red')")
     f.uncheck(".fg-tools .night-box")
-    assert f.evaluate("localStorage.getItem('zimi.night')") is None
-    phone.evaluate("localStorage.setItem('zimi.night', 'red'); _nightApply()")
+    assert f.evaluate("localStorage.getItem('zimi_app_theme')") is None
+    phone.evaluate("localStorage.setItem('zimi_app_theme', 'red'); _appThemeChanged()")
     assert phone.evaluate("document.documentElement.classList.contains('night-red')")
-    phone.evaluate("localStorage.removeItem('zimi.night')")
+    phone.evaluate("localStorage.removeItem('zimi_app_theme')")
 
 
 def test_a_situation_prints_as_its_quotations_alone(empty, phone):
@@ -588,7 +588,7 @@ def _rgb(text):
 
 def test_red_night_text_is_readable_everywhere_the_guide_goes(empty, phone):
     _open(phone, empty, "#fieldguide")
-    phone.evaluate("localStorage.setItem('zimi.night', 'red'); _nightApply()")
+    phone.evaluate("localStorage.setItem('zimi_app_theme', 'red'); _appThemeChanged()")
     f = _frame(phone)
     f.wait_for_selector(".fg-sit")
     for sel in (".fg-disc", ".fg-group-h", ".fg-sit .mark"):
@@ -605,7 +605,7 @@ def test_red_night_text_is_readable_everywhere_the_guide_goes(empty, phone):
         for surface in ("#000000", "#0d0000", "#160000"):
             rgb = tuple(int(surface[i : i + 2], 16) for i in (1, 3, 5))
             assert _contrast(shell, rgb) >= 4.5, (var, surface)
-    phone.evaluate("localStorage.removeItem('zimi.night')")
+    phone.evaluate("localStorage.removeItem('zimi_app_theme')")
 
 
 def test_the_switch_is_in_the_header_and_in_the_card_while_the_guide_is_open(
@@ -629,8 +629,8 @@ def test_the_switch_is_in_the_header_and_in_the_card_while_the_guide_is_open(
 
 def test_an_app_page_is_stamped_red_in_the_head_before_it_paints(empty, phone):
     html = phone.request.get(empty + "/static/fieldguide.html").text()
-    assert "zimi.night" in html[: html.index("<body")], "stamped in the head"
-    assert html.index("zimi.night") < html.index("<style>")
+    assert "zimi_app_theme" in html[: html.index("<body")], "stamped in the head"
+    assert html.index("zimi_app_theme") < html.index("<style>")
 
 
 def test_the_whole_shell_is_red_at_night(empty, phone):
@@ -638,13 +638,13 @@ def test_the_whole_shell_is_red_at_night(empty, phone):
     import io
 
     _open(phone, empty)
-    phone.evaluate("localStorage.setItem('zimi.night', 'red'); _nightApply()")
+    phone.evaluate("localStorage.setItem('zimi_app_theme', 'red'); _appThemeChanged()")
     phone.wait_for_timeout(1200)
     img = pil.open(io.BytesIO(phone.screenshot())).convert("RGB")
     px = list(img.getdata())
     bad = sum(1 for (r, g, b) in px if max(g, b) > 100 and max(g, b) > 0.5 * r)
     assert bad / len(px) < 0.004, "no logo, moon card or icon left in colour"
-    phone.evaluate("localStorage.removeItem('zimi.night')")
+    phone.evaluate("localStorage.removeItem('zimi_app_theme')")
 
 
 # ── first run ───────────────────────────────────────────────────────────────

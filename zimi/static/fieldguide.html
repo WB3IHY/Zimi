@@ -149,12 +149,12 @@ function say(key, vars) { return CARD.word(STR, key, vars); }
 function sit(id) { return STR['s_' + id] || id; }
 var state = { view: 'front', id: '' };
 
-// ── the shell's switch: red light at night, one key for the sky and this ──
+// ── the shell's switch: red light at night, the Red theme, shared with the sky ──
 function nightInit() {
   var boxes = document.querySelectorAll('.night-box');
   function sync() { var on = document.documentElement.classList.contains('night-red'); boxes.forEach(function(b) { b.checked = on; }); }
   document.querySelectorAll('.night-label').forEach(function(l) { l.textContent = say('red_night'); });
-  boxes.forEach(function(b) { b.onchange = function() { nightSet(b.checked); sync(); tell({ zimi: 'night' }); }; });
+  boxes.forEach(function(b) { b.onchange = function() { nightSet(b.checked); sync(); }; });
   window.addEventListener('storage', sync);
   sync();
 }

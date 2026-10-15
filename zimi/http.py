@@ -1725,6 +1725,8 @@ _UNCAPTURED_PAGE = """<!DOCTYPE html>
   :root {{ color-scheme: dark;
     --bg:#0a0a0b; --surface:#141416; --border:#27272b;
     --text:#e8e8ed; --text2:#8a8a94; --amber:#f59e0b; --on-amber:#000; }}
+  html.night-red {{ --bg:#000; --surface:#0d0000; --border:#5a1414;
+    --text:#ff5a5a; --text2:#f03030; --amber:#ff4040; --on-amber:#000; }}
   html[data-theme="light"] {{ color-scheme: light;
     --bg:#f2efe8; --surface:#fbfaf6; --border:#e4dfd4;
     --text:#26241f; --text2:#6a675e; --amber:#9d4a08; --on-amber:#fff; }}
@@ -1809,7 +1811,10 @@ _UNCAPTURED_PAGE = """<!DOCTYPE html>
   // was already sent.
   try {{
     var theme = localStorage.getItem('{theme_key}');
-    if (theme === 'light' || theme === 'dark') {{
+    if (theme === 'red') {{
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.classList.add('night-red');
+    }} else if (theme === 'light' || theme === 'dark') {{
       document.documentElement.setAttribute('data-theme', theme);
     }} else if (window.matchMedia &&
                window.matchMedia('(prefers-color-scheme: light)').matches) {{
@@ -1929,7 +1934,7 @@ _APPS_JS_MARK = b"<!--@apps.js@-->"
 # it in step afterwards): an app page opened at night never flashes white.
 _NIGHT_STAMP = (
     b"<script>try{document.documentElement.classList.toggle('night-red',"
-    b"localStorage.getItem('zimi.night')==='red')}catch(e){}</script>\n"
+    b"localStorage.getItem('zimi_app_theme')==='red')}catch(e){}</script>\n"
 )
 _APP_ASSETS = (
     (_APPS_CSS_MARK, "apps.css", _NIGHT_STAMP + b"<style>\n", b"</style>"),

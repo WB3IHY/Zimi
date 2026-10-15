@@ -778,6 +778,12 @@ var AE_CSS = [
   '.ae-label-sub{display:block;font-size:10px;color:var(--text2)}',
   '.ae-label-you{color:#f5c16c}',
   '.ae-label-shadow{color:#ffb4a0}',
+  // Red night light (the Red theme, app.css): the labels' warm and cool tints are one red, the views' bright
+  // overlays go black, and the globe and the solar system are recoloured by the canvas filter.
+  '.night-red .ae-label,.night-red .ae-label-you,.night-red .ae-label-shadow,.night-red .sp-label.sp-probe,.night-red .ae-status,.night-red .ae-live{color:var(--text)}',
+  '.night-red .ae-btn,.night-red .ae-set,.night-red .ae-card{background:rgba(0,0,0,.9)}',
+  '.night-red .ae-btn[aria-pressed="true"]{background:var(--amber-glow)}',
+  '.night-red .ae-set-choice:hover{background:var(--amber-glow)}',
   // A label that marks a place carries its dot ON the place: the dot hangs
   // off the label by the label's own gap (AE_LABEL_DX), on whichever side
   // the label hangs from its point, in either writing direction.

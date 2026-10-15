@@ -4089,7 +4089,7 @@
 .cr-ver:hover, .cr-ver:focus-visible { color: var(--amber); border-bottom-color: var(--amber); }
 .cr-detail { margin: -4px 0 8px; font-size: 12px; text-align: end; }
 
-/* Red night light (app.js _nightApply): deep red on black, so the phone costs no night vision.
+/* Red night light (app.js _applyAppTheme, the Red theme): deep red on black, so the phone costs no night vision.
    Every tier of text is at least 4.5:1 on every surface; pictures (logo, moon, covers) are
    turned to red monochrome so no other colour is left on the screen. */
 :root.night-red, :root.night-red .almanac-view, :root.night-red body.almanac-mode, :root.night-red.almanac-boot body { --bg: #000; --surface: #0d0000; --surface2: #160000; --border: #5a1414; --border-strong: #7a1c1c; --text: #ff5a5a; --text2: #f03030;
@@ -4100,11 +4100,26 @@
 /* Moving pictures take the GPU's own filter chain (the SVG one is a pass the page pays every frame);
    a canvas that paints its own red (the sky) takes none, or its red would be halved. */
 :root.night-red canvas:not([data-red]), :root.night-red video { filter: brightness(.6) grayscale(1) sepia(1) hue-rotate(-42deg) saturate(12) brightness(1.5); }
-:root.night-red .dc-today { filter: url(#night-red-filter); }
+:root.night-red .dc-today, :root.night-red .dice { filter: url(#night-red-filter); }
 :root.night-red .dc-today img { filter: none; }
 /* Quiet things stay readable: no 30% stars or faded close marks at night. */
 :root.night-red .dc-dismiss, :root.night-red .star-btn, :root.night-red .cat-heading-other { opacity: 1; }
 :root.night-red #reader-frame { background: #000; }
+/* A ZIM's own page is HTML and CSS we do not write: Red is a filter over the frame, after the
+   page has been darkened as in Dark (app.js _syncFrameNight). Zimi's own pages are not filtered. */
+:root.night-red #reader-frame.night-filter { filter: url(#night-red-frame); }
+/* The rest of the surface the page does not colour: scrollbars, the selection, a focus ring, a form
+   control's accent, the caret, so none of them is a grey or white or blue light in the dark. */
+:root.night-red, :root.night-red * { scrollbar-color: var(--border-strong) #000; }
+:root.night-red ::-webkit-scrollbar { background: #000; }
+:root.night-red ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+:root.night-red ::selection { background: rgba(255,64,64,0.35); color: var(--text); }
+:root.night-red { accent-color: var(--amber); caret-color: var(--amber); }
+:root.night-red :focus-visible { outline-color: var(--amber); }
+/* The chosen pill is a lit outline, not a solid block: the largest bright area in Settings would be the
+   choice itself. Red decides the articles' look, so the article choice waits, dimmed, until Red is off. */
+:root.night-red .app-theme-btn.active { background: var(--amber-glow); color: var(--text); border-color: var(--amber); }
+:root.night-red #article-theme-seg { opacity: .45; pointer-events: none; }
 .night-btn { display: none; align-items: center; justify-content: center; flex-shrink: 0; width: 36px; height: 28px; padding: 0; color: var(--text2); background: none; border: 1px solid transparent; border-radius: var(--radius); cursor: pointer; }
 .night-btn:hover, .night-btn:focus-visible { color: var(--amber); outline: none; }
 .night-btn[aria-pressed="true"] { color: var(--amber); border-color: var(--amber-border); }

@@ -151,9 +151,12 @@ var SK = {
   WIKI_TRAIL: 'zimi_wiki_trail',
   WIKI_TRAILS: 'zimi_wiki_trails',
   // Whole-app theme: 'auto' (follow prefers-color-scheme, dark fallback) |
-  // 'dark' | 'light'. Default auto. Read/written via _appTheme/_setAppTheme;
+  // 'dark' | 'light' | 'red' (night vision: deep red on black everywhere). Default auto. Read/written via _appTheme/_setAppTheme;
   // the head bootstrap in index.html stamps the resolved value pre-paint.
   APP_THEME: 'zimi_app_theme',
+  // What Red replaced, so switching Red off (the sky's and the Field Guide's
+  // switches do) puts the person back where they were rather than on Auto.
+  APP_THEME_BEFORE_RED: 'zimi_app_theme_before_red',
   // Auto-darken raw (non-Reader-View) ZIM articles when the app is dark, so a
   // blinding-white ZIM page doesn't break dark mode. Tri-state: unset = follow
   // the app theme (on when dark); '1'/'0' = explicit override once toggled.
@@ -230,70 +233,90 @@ function _getStorageFlag(key) {
   return localStorage.getItem(key) === '1';
 }
 
-// ── Whole-app theme (Auto / Dark / Light) ──
+// ── Whole-app theme (Auto / Dark / Light / Red) ──
 // The token palette in app.css is driven by data-theme on <html>. Auto mode
 // resolves the OS preference to a concrete 'dark'|'light' and stamps the SAME
 // attribute, so the CSS has one code path (no reliance on prefers-color-scheme
 // in the stylesheet). The head bootstrap sets it pre-paint; this re-applies on
 // load and, in Auto, live-tracks the media query.
-var APP_THEMES = ['auto', 'dark', 'light'];
+//
+// Red is a theme like the others, kept under the same key: it is Dark with the
+// night-red class on <html>, which app.css / apps.css turn into deep red on
+// black so looking at the phone does not cost night vision. Every view reads
+// that one class; the sky's and the Field Guide's switches are shortcuts that
+// choose this theme (_nightSet).
+var APP_THEMES = ['auto', 'dark', 'light', 'red'];
+var APP_THEME_RED = 'red', NIGHT_CLASS = 'night-red';
+// The browser's own chrome (address bar, status area) follows this while Red is on.
+var NIGHT_THEME_COLOR = '#000000';
 function _appTheme() {
   var v = localStorage.getItem(SK.APP_THEME);
   return APP_THEMES.indexOf(v) >= 0 ? v : 'auto';
 }
+function _nightRedOn() { return _appTheme() === APP_THEME_RED; }
 function _prefersLight() {
   return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
 }
 // Resolve a stored mode to the concrete theme actually painted. Auto → the OS
-// preference, dark fallback (matches the index.html bootstrap exactly).
+// preference, dark fallback (matches the index.html bootstrap exactly). Red is
+// dark underneath: every dark-only rule still holds, then night-red recolours.
 function _resolveAppTheme(mode) {
   mode = mode || _appTheme();
   if (mode === 'light') return 'light';
-  if (mode === 'dark') return 'dark';
+  if (mode === 'dark' || mode === APP_THEME_RED) return 'dark';
   return _prefersLight() ? 'light' : 'dark';
 }
 function _appThemeIsDark() { return _resolveAppTheme() === 'dark'; }
 function _applyAppTheme() {
   var t = _resolveAppTheme();
   var el = document.documentElement;
+  var red = _nightRedOn();
   el.setAttribute('data-theme', t);
   // Keep the UA surface (scrollbars, form controls, Safari's tab backdrop) in
   // sync with the app theme — this is what prevents the dark compositor flash
   // on tab re-activation. Mirrors the head bootstrap.
   el.style.colorScheme = t;
-  _nightApply();
-}
-// Red night light: one switch for the sky and the Field Guide, one key in this browser
-// (apps.js nightApply reads the same). night-red on <html> turns the palette deep red
-// on black (app.css), so looking at the phone does not cost night vision. Whoever draws
-// a switch (the sky's, the Field Guide's) writes NIGHT_KEY and calls _nightApply().
-var NIGHT_KEY = 'zimi.night', NIGHT_RED = 'red';
-function _nightApply() {
-  var on = false;
-  try { on = localStorage.getItem(NIGHT_KEY) === NIGHT_RED; document.documentElement.classList.toggle('night-red', on); } catch (e) {}
+  el.classList.toggle(NIGHT_CLASS, red);
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (red && !meta) {
+    meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    document.head.appendChild(meta);
+  }
+  if (meta) { if (red) meta.content = NIGHT_THEME_COLOR; else meta.remove(); }
   var btn = document.getElementById('night-btn');
-  if (btn) btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  if (btn) btn.setAttribute('aria-pressed', red ? 'true' : 'false');
+  _syncFrameNight(null);
 }
-// The header's switch while the Field Guide is open (the page has its own in each card).
-// The one place the key is written: the header's switch, the sky's, and anything else that has one.
+// The sky's, the Field Guide's and the header's switch: Red on, or back to what
+// it replaced. The one door a switch uses, so there is one key and one apply.
 function _nightSet(on) {
-  try { if (on) localStorage.setItem(NIGHT_KEY, NIGHT_RED); else localStorage.removeItem(NIGHT_KEY); } catch (e) {}
-  _nightApply();
+  var back = localStorage.getItem(SK.APP_THEME_BEFORE_RED);
+  _setAppTheme(on ? APP_THEME_RED : (APP_THEMES.indexOf(back) >= 0 && back !== APP_THEME_RED ? back : 'auto'));
 }
-function _nightToggle() { _nightSet(!document.documentElement.classList.contains('night-red')); }
-window.addEventListener('storage', function(e) { if (e.key === NIGHT_KEY || e.key === null) _nightApply(); });
+function _nightToggle() { _nightSet(!_nightRedOn()); }
 function _setAppTheme(mode) {
   if (APP_THEMES.indexOf(mode) < 0) mode = 'auto';
+  var cur = _appTheme();
+  if (mode === APP_THEME_RED && cur !== APP_THEME_RED) localStorage.setItem(SK.APP_THEME_BEFORE_RED, cur);
   if (mode === 'auto') localStorage.removeItem(SK.APP_THEME);
   else localStorage.setItem(SK.APP_THEME, mode);
+  _appThemeChanged();
+}
+// Everything that follows a theme change, whoever made it (the selector here,
+// a switch in an app page's frame, another tab: the storage event below).
+function _appThemeChanged() {
   _applyAppTheme();
   // Repaint the segmented control's active state in place, and re-apply the
   // article appearance: on Match Zimi, this is the setting it matches.
   var seg = document.getElementById('app-theme-seg');
   if (seg) seg.innerHTML = _appThemeSegInner();
+  var hint = document.getElementById('app-theme-hint');
+  if (hint) hint.innerHTML = _appThemeHintHtml();
   try { _applyArticleDarken(_readerFrameDoc()); } catch (e) {}
   _reapplyReaderThemeIfAuto();
 }
+window.addEventListener('storage', function(e) { if (e.key === SK.APP_THEME || e.key === null) _appThemeChanged(); });
 // When the reader theme is set to Auto, it follows the app theme — so an app
 // theme change (manual or OS flip) must re-stamp an open reader. Hoisted, so it
 // can be called from the app-theme handlers above the reader definitions.
@@ -336,6 +359,7 @@ function _articleTheme() {
   return ARTICLE_THEMES.indexOf(v) < 0 ? 'match' : v;
 }
 function _articlesAreDark() {
+  if (_nightRedOn()) return true; // no white page anywhere in Red, whatever was pinned
   var m = _articleTheme();
   return m === 'match' ? _appThemeIsDark() : m === 'dark';
 }
@@ -392,11 +416,13 @@ function _setDarkenArticles(on) {
 }
 
 // ── App-theme segmented control (Display settings) ──
-// Auto / Dark / Light, matching the reader palette's control language (pills).
+// Auto / Dark / Light / Red, matching the reader palette's control language (pills).
 var _APP_THEME_ICONS = {
   auto: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>',
   dark: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
-  light: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>'
+  light: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  // An eye adjusted to the dark: Red is for night vision.
+  red: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>'
 };
 // A segmented control's buttons: one per value, the current one on. `setter`
 // is the global each button calls with its value; `keyPrefix` + value is its
@@ -431,6 +457,8 @@ function _articleThemeSegInner() {
 function _articleThemeSegHtml() {
   return _segHtml('article-theme-seg', 'article_theme', _articleThemeSegInner());
 }
+// What the choice means, in the person's words: Auto's line by default, Red's while Red is on.
+function _appThemeHintHtml() { return tH(_nightRedOn() ? 'app_theme_hint_red' : 'app_theme_hint'); }
 function _appThemeSegHtml() {
   return _segHtml('app-theme-seg', 'app_theme', _appThemeSegInner());
 }
@@ -442,7 +470,14 @@ var _ARTICLE_DARKEN_STYLE_ID = 'zimi-article-darken';
 // own background image is counter-inverted so photos/diagrams/formulas stay true.
 // A slightly-off-white root background gives the invert a clean white to flip to
 // pure near-black, so transparent pages don't leave a grey haze.
-var _ARTICLE_DARKEN_CSS = [
+// In Red a white picture would be the brightest thing on the screen: media is dimmed before it is flipped
+// back (the root's flip then turns the dimming into dimming, not into a brighter page).
+var _NIGHT_MEDIA_DIM = 'brightness(.5) ';
+// And on a page that was not flipped (it has a dark of its own, or is Reader View).
+var _NIGHT_MEDIA_CSS = 'img,video,canvas{filter:brightness(.5) !important}';
+function _articleDarkenCss(dimMedia) {
+  var flipBack = (dimMedia ? _NIGHT_MEDIA_DIM : '') + 'invert(1) hue-rotate(180deg)';
+  return [
   'html{background:#ffffff !important;filter:invert(1) hue-rotate(180deg) !important;',
     '-webkit-filter:invert(1) hue-rotate(180deg) !important}',
   // Counter-invert media + anything painting its own image so photos, diagrams,
@@ -455,8 +490,8 @@ var _ARTICLE_DARKEN_CSS = [
   // are marked by _applyArticleDarken, since a selector cannot see computed
   // style.
   'img,video,canvas,svg,image,embed,object,iframe,',
-  '[style*="background-image"],[data-zimi-bgimg]{filter:invert(1) hue-rotate(180deg) !important;',
-    '-webkit-filter:invert(1) hue-rotate(180deg) !important}',
+  '[style*="background-image"],[data-zimi-bgimg]{filter:' + flipBack + ' !important;',
+    '-webkit-filter:' + flipBack + ' !important}',
   '[style*="background-image"] img,[style*="background-image"] video,[style*="background-image"] svg,',
   '[style*="background-image"] canvas,[data-zimi-bgimg] img,[data-zimi-bgimg] video,',
   '[data-zimi-bgimg] svg,[data-zimi-bgimg] canvas,[data-zimi-bgimg] [data-zimi-bgimg],',
@@ -469,7 +504,8 @@ var _ARTICLE_DARKEN_CSS = [
   '.mwe-math-element,.mwe-math-element img,.mwe-math-element svg,',
   '.mwe-math-fallback-image-inline,.mwe-math-fallback-image-display{',
     'filter:none !important;-webkit-filter:none !important}'
-].join('');
+  ].join('');
+}
 // A page "declares its own dark scheme" (so we must NOT invert it, or we'd flip it
 // back to blinding white) when it opts into dark via <meta name="color-scheme">
 // or its body already paints a dark background.
@@ -599,16 +635,18 @@ function _applyArticleDarken(doc) {
   // turned light) would show the reader frame's white through it: white on
   // white. It gets the scheme's own page colour instead.
   if (scheme === 'dark' && paintsDark && _articleHasNoBackground(doc)) _setCanvasBackground(doc);
-  if (!_shouldSimulateDark(dark, _darkenArticlesOn(), _darkenArticlesExplicit(),
-                           _readerViewOn, loc, _articleIsWebCapture(),
-                           paintsDark)) return;
-  if (doc.head) {
+  // Red is for night vision: a page that has no dark mode is darkened whatever
+  // the setting says, a captured site included, and its pictures are dimmed.
+  var red = _nightRedOn() && loc.indexOf('/static/') !== 0 && !_docIsOurOwnPage(doc);
+  var simulate = _shouldSimulateDark(dark, _darkenArticlesOn() || red, _darkenArticlesExplicit() || red,
+                                     _readerViewOn, loc, _articleIsWebCapture(), paintsDark);
+  if (doc.head && (simulate || red)) {
     var st = doc.createElement('style');
     st.id = _ARTICLE_DARKEN_STYLE_ID;
-    st.textContent = _ARTICLE_DARKEN_CSS;
+    st.textContent = simulate ? _articleDarkenCss(red) : _NIGHT_MEDIA_CSS;
     doc.head.appendChild(st);
   }
-  _markStylesheetPictures(doc);
+  if (simulate) _markStylesheetPictures(doc);
 }
 
 // Ask the page itself for a face. Passing '' hands it back its own judgement.
@@ -14614,7 +14652,7 @@ function _msPreferencesHtml() {
     '<div class="ms-section-label">' + tH('ms_display_section') + '</div>' +
     '<div class="ms-theme-label">' + tH('app_theme') + '</div>' +
     _appThemeSegHtml() +
-    '<div class="ms-hint">' + tH('app_theme_hint') + '</div>' +
+    '<div class="ms-hint" id="app-theme-hint">' + _appThemeHintHtml() + '</div>' +
 
     // Reading: everything about how an article reads, in one place. The two
     // choices first, then the switches.
@@ -18893,6 +18931,7 @@ function _readerThemeMode() {
 // white page). Articles, not the app: on Match Zimi they are the same answer,
 // and when someone has pinned articles dark they meant this one too.
 function _readerTheme() {
+  if (_nightRedOn()) return 'dark'; // a pinned light or sepia page would be the brightest thing on screen
   var m = _readerThemeMode();
   if (m === 'auto') return _articlesAreDark() ? 'dark' : 'sepia';
   return READER_THEMES.indexOf(m) >= 0 ? m : 'dark';
@@ -22343,8 +22382,6 @@ window.addEventListener('message', function(e) {
     _searchInZim(d.zim, d.q);
   } else if (d.zimi === 'print-sheet' && _fromFieldguide(e)) {
     _fieldguidePrint(e.source);
-  } else if (d.zimi === 'night' && _fromFieldguide(e)) {
-    _nightApply();
   } else if (d.zimi === 'voices') {
     _openSettingsAt('ms-voices');
   } else if (d.zimi === 'catalog' && typeof d.category === 'string' && _APP_CATEGORY_KEYS.indexOf(d.category) >= 0) {
@@ -23352,7 +23389,9 @@ function openReader(url) {
   // it can't be trusted to fully mask the raw white ZIM paint — hiding the frame
   // outright guarantees the first painted frame is the reader, never the original.
   // (visibility:hidden preserves layout + load, so extraction still works.)
-  var _maskFrame = _readerViewOn || _readerAuto() || _bookLoading || _wikiFromApp;
+  // Red over a page we do not write is a filter on the frame: held back with the
+  // rest until the page has been darkened, so no raw white page is ever lit red.
+  var _maskFrame = _syncFrameNight(url) || _readerViewOn || _readerAuto() || _bookLoading || _wikiFromApp;
   // A wiki's article: the reader's code comes alongside the page (it is
   // usually here already), never before it.
   // Not a wiki's article: Zimi's header offers saving again from the start.
@@ -23441,6 +23480,7 @@ function openReader(url) {
     var _wikiOn = _wikiDoc && _readerViewOn;
     if (_wikiOn) _wikiReaderAttach(frame); else _wikiChrome(false);
     _tintReaderChrome(); // reset frame bg to app.css's if reader ended up off
+    _syncFrameNight(null); // now the page is known: Zimi's own pages bring their own Red
     _syncReaderViewBtn();
     // Auto-darken a raw (non-Reader-View) ZIM page when the app is dark, so the
     // white page doesn't break dark mode. No-op under Reader View / dark pages.
@@ -28625,6 +28665,26 @@ function _isHollow(el) {
 // a consent wall is not left standing while somebody reads.
 var REPLAY_SETTLE_MS = 2500;
 
+// Red over a page we do not write. A ZIM's article is arbitrary HTML and CSS,
+// so Red is a filter over the frame (app.css .night-filter) instead of a
+// palette: the page is darkened as in Dark (_applyArticleDarken), then every
+// pixel is turned to red light. Zimi's own pages bring their own Red and are
+// left alone (the PDF viewer's pages are pictures and are reddened by its own
+// stylesheet). `url` is the page about to load; null reads the one loaded, which
+// also knows a page Zimi wrote under /w/. Returns whether the filter is on.
+function _syncFrameNight(url) {
+  var frame = document.getElementById('reader-frame');
+  if (!frame) return false;
+  var on = false;
+  if (_nightRedOn()) {
+    try {
+      var path = url ? new URL(url, location.origin).pathname : frame.contentWindow.location.pathname;
+      on = path.indexOf('/static/') !== 0 && (url ? true : !_docIsOurOwnPage(frame.contentDocument));
+    } catch (e) { on = true; } // unreadable: filtered, never a bright page
+  }
+  frame.classList.toggle('night-filter', on);
+  return on;
+}
 // Whether what the reader frame is showing is Zimi's own page rather than
 // something out of a ZIM. Everything that edits a captured page's DOM has to
 // ask first: our own pages are not captures, and the cleanup meant for one

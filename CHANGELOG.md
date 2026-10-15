@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Help now on home, the first-run screen and the sign-in screen opens the Field Guide; searching "bleeding" or "my friend is not breathing" answers with its situation.
 - Each emergency card shows the local emergency number, worked out from the time zone.
 - The Field Guide shows which installed ZIMs go deeper on each situation and offers the missing ones with their size; it can build a field-manual ZIM from the Army's public-domain manuals.
-- A red night light for all of Zimi, to keep night vision.
+- Red, a theme beside Light and Dark, to keep night vision: deep red on black in every screen, app, the sky and Earth, and over the ZIM page you are reading. The sky's and the Field Guide's red switches choose it.
 - Zimi Earth: a globe of the library's places, with Wikipedia articles and Wikivoyage guides by location and links that open a place.
 - A question in search shows the sentence from your library that answers it, with its source; a tap opens the article at that sentence.
 - Zimi reads ZIMs from folders another program owns, in place and never changed: `ZIMI_EXTRA_ZIM_DIRS`, or Settings, Server, Storage. Project NOMAD's library is found and offered once ([guide](docs/integrations/project-nomad.md)).

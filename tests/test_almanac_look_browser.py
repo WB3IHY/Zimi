@@ -846,7 +846,7 @@ def test_looking_down_without_webgl_says_what_is_there_and_leads_nowhere(
 
 def test_red_night_paints_the_look_view_red(browser, served):
     ctx, pg, _ = _look(
-        browser, served, "ios", "localStorage.setItem('zimi.night', 'red')"
+        browser, served, "ios", "localStorage.setItem('zimi_app_theme', 'red')"
     )
     try:
         _look_down(pg)
