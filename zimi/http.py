@@ -2945,10 +2945,15 @@ class ZimHandler(BaseHTTPRequestHandler):
                 if sub == "print":
                     return self._json(200, _fg.print_all())
                 if sub == "match":
-                    got = _fg.lookup(param("q") or "", param("ui") or "en")
+                    q, ui = param("q") or "", param("ui") or "en"
+                    got = _fg.lookup(q, ui)
                     return self._json(
                         200,
-                        {"id": got[0] if got else None, "kind": got[1] if got else None},
+                        {
+                            "id": got[0] if got else None,
+                            "kind": got[1] if got else None,
+                            "who": _fg.who(q, ui) if got and got[1] == "card" else None,
+                        },
                     )
                 return self._json(404, {"error": "not found"})
             elif parsed.path == "/books" or parsed.path.startswith("/books/"):

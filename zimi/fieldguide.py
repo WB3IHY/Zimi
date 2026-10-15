@@ -170,9 +170,7 @@ def _keyword_index():
             t = of(lang)
             for w in words:
                 t.link.setdefault(normalize(w), sid)
-    stop = {
-        lang: {normalize(w) for w in words} for lang, words in d["stop"].items()
-    }
+    stop = {lang: {normalize(w) for w in words} for lang, words in d["stop"].items()}
     built = (tables, stop)
     with _lock:
         _index = built
@@ -233,6 +231,25 @@ def lookup(query, lang="en"):
     rest = " ".join(w for w in words if not any(w in stop.get(x, ()) for x in langs))
     wholes = [q] + ([rest] if rest and rest != q else [])
     return _whole(wholes, tables, langs) or _inside(words, q, tables, langs)
+
+
+def who(query, lang="en"):
+    """Who the words say needs help ("infant" for "baby choking"), or None:
+    the situation's passages tagged for them come first. The reader's
+    language and English are read, as in lookup."""
+    q = normalize(query)
+    if not q or len(q) > MAX_QUERY_CHARS:
+        return None
+    words = set(q.split())
+    for name, by_lang in data().get("who", {}).items():
+        for x in {lang, "en"}:
+            for w in by_lang.get(x, ()):
+                # A phrase or a CJK run anywhere in the text; one word whole.
+                n = normalize(w)
+                phrase = " " in n or _CJK.search(n)
+                if (phrase and n in q) or (not phrase and n in words):
+                    return name
+    return None
 
 
 def match(query, lang="en"):
@@ -299,7 +316,7 @@ def hint(query, lang="en"):
     """What search says beside its results when the words name a situation:
     ``{"id", "kind", "href", "installed": [{"piece", "name"}]}``, or None.
     ``id`` is "" for the Field Guide itself; ``kind`` is "card" or "link"
-    (see lookup). Only the keyword table and the library list in memory are
+    (see lookup); ``who`` is who the words say needs help (see who). Only the keyword table and the library list in memory are
     read, so the search path pays nothing for it."""
     got = lookup(query, lang)
     if got is None:
@@ -319,6 +336,7 @@ def hint(query, lang="en"):
         "kind": kind,
         "href": "/#fieldguide" + ("/" + sid if sid else ""),
         "installed": installed,
+        "who": who(query, lang) if sid and kind == "card" else None,
     }
 
 
@@ -553,13 +571,16 @@ def _manual_sources():
     return " and ".join(names)
 
 
-_MONTHS = {m: i for i, m in enumerate(
-    "jan feb mar apr may jun jul aug sep oct nov dec".split(), 1)}
+_MONTHS = {
+    m: i
+    for i, m in enumerate("jan feb mar apr may jun jul aug sep oct nov dec".split(), 1)
+}
 _EDITION_DATE = re.compile(
-    r"(?:(\d{1,2})/\d{1,2}/(\d{4}))"                      # 03/10/2026, US order
-    r"|(?:([A-Za-z]{3,9})\.?\s+\d{1,2},?\s+(\d{4}))"      # May 15, 2024 / Sept. 23, 2026
-    r"|(?:\d{1,2}\s+([A-Za-z]{3,9})\s+(\d{4}))"            # 23 March 2026
-    r"|(?:\b([A-Za-z]{3,9})\s+(\d{4}))")                    # January 2016
+    r"(?:(\d{1,2})/\d{1,2}/(\d{4}))"  # 03/10/2026, US order
+    r"|(?:([A-Za-z]{3,9})\.?\s+\d{1,2},?\s+(\d{4}))"  # May 15, 2024 / Sept. 23, 2026
+    r"|(?:\d{1,2}\s+([A-Za-z]{3,9})\s+(\d{4}))"  # 23 March 2026
+    r"|(?:\b([A-Za-z]{3,9})\s+(\d{4}))"
+)  # January 2016
 
 
 def _as_of(edition, year):
@@ -571,7 +592,9 @@ def _as_of(edition, year):
         if m.group(1):
             mon, yr = int(m.group(1)), int(m.group(2))
         else:
-            name, yr = next((m.group(i), int(m.group(i + 1))) for i in (3, 5, 7) if m.group(i))
+            name, yr = next(
+                (m.group(i), int(m.group(i + 1))) for i in (3, 5, 7) if m.group(i)
+            )
             mon = _MONTHS.get(name[:3].lower())
             if not mon:
                 continue
@@ -804,7 +827,8 @@ def print_all():
                 {
                     "id": sid,
                     "quotes": [
-                        dict(x, source=_source_view(x["source"], x)) for x in q.get(sid, [])
+                        dict(x, source=_source_view(x["source"], x))
+                        for x in q.get(sid, [])
                     ],
                 }
             )
@@ -944,9 +968,7 @@ def _fetch_pinned(url):
 
     if not url.startswith("https://"):
         raise creator.CreateError("a manual is fetched over https only")
-    req = urllib.request.Request(
-        url, headers={"User-Agent": creator.zimi_user_agent()}
-    )
+    req = urllib.request.Request(url, headers={"User-Agent": creator.zimi_user_agent()})
     return urllib.request.build_opener(_NoRedirect).open(req, _DOWNLOAD_TIMEOUT_S)
 
 
@@ -971,12 +993,15 @@ def _download_manual(item, dest, fetch):
     except urllib.error.HTTPError as e:
         if 300 <= e.code < 400:
             raise CreateError(
-                "%s has moved: the address this build expects redirected" % item["title"]
+                "%s has moved: the address this build expects redirected"
+                % item["title"]
             )
         raise CreateError("%s could not be fetched (HTTP %d)" % (item["title"], e.code))
     except OSError as e:
         if isinstance(e, urllib.error.URLError):
-            raise CreateError("%s could not be fetched: the network failed" % item["title"])
+            raise CreateError(
+                "%s could not be fetched: the network failed" % item["title"]
+            )
         raise
     if n != item["bytes"] or digest.hexdigest() != item["sha256"]:
         raise CreateError("%s is not the file this build expects" % item["title"])
@@ -1040,7 +1065,9 @@ def build_field_manual(out_dir=None, progress=None, fetch=None, manuals=None):
         raise
     except Exception:
         log.exception("field manual build failed")
-        _set_manual(state="error", message="The build failed. The server log has the details.")
+        _set_manual(
+            state="error", message="The build failed. The server log has the details."
+        )
         raise
     finally:
         shutil.rmtree(scratch, ignore_errors=True)

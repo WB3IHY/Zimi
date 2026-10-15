@@ -484,6 +484,37 @@ AMBIGUOUS = {
 }
 
 
+# A parent types "baby": the infant passage leads, never the adult's thrusts.
+@pytest.mark.parametrize(
+    "query,lang",
+    [
+        ("baby choking", "en"),
+        ("my infant is choking", "en"),
+        ("newborn choked", "en"),
+        ("bebé atragantado", "es"),
+        ("婴儿噎住", "zh"),
+    ],
+)
+def test_a_baby_named_gets_the_infant_passage_first(query, lang):
+    h = fg.hint(query, lang)
+    assert h["id"] == "choking" and h["who"] == "infant"
+    tagged = [q for q in fg.quotes()["quotes"]["choking"] if q.get("who") == "infant"]
+    assert tagged and tagged[0]["heading"].startswith("Infants")
+
+
+@pytest.mark.parametrize("query", ["choking", "my friend is choking", "baby food"])
+def test_no_baby_named_no_one_singled_out(query):
+    h = fg.hint(query)
+    assert h is None or h["who"] is None
+
+
+def test_every_who_tag_is_one_the_words_can_name():
+    names = set(fg.data()["who"])
+    for qs in fg.quotes()["quotes"].values():
+        for q in qs:
+            assert q.get("who") in names | {None}
+
+
 @pytest.mark.parametrize("word", sorted(AMBIGUOUS))
 def test_a_bare_ambiguous_word_is_a_link_not_a_card(word):
     assert fg.lookup(word) == (AMBIGUOUS[word], "link")
@@ -839,6 +870,7 @@ def test_the_search_hint_names_the_situation_and_what_is_installed(library):
         "kind": "link",
         "href": "/#fieldguide",
         "installed": [],
+        "who": None,
     }
 
 
@@ -927,13 +959,15 @@ def test_the_library_and_match_routes(served):
     status, body = _get(served, "/fieldguide/library")
     assert status == 200 and body["sets"]
     status, body = _get(served, "/fieldguide/match?q=hypothermia")
-    assert status == 200 and body == {"id": "cold", "kind": "card"}
+    assert status == 200 and body == {"id": "cold", "kind": "card", "who": None}
     status, body = _get(served, "/fieldguide/match?q=water+cycle")
-    assert status == 200 and body == {"id": None, "kind": None}
+    assert status == 200 and body == {"id": None, "kind": None, "who": None}
     status, body = _get(served, "/fieldguide/match?q=blutet&ui=de")
-    assert body == {"id": "bleeding", "kind": "card"}
+    assert body == {"id": "bleeding", "kind": "card", "who": None}
     status, body = _get(served, "/fieldguide/match?q=blutet")
-    assert body == {"id": None, "kind": None}
+    assert body == {"id": None, "kind": None, "who": None}
+    status, body = _get(served, "/fieldguide/match?q=my+baby+is+choking")
+    assert body == {"id": "choking", "kind": "card", "who": "infant"}
 
 
 def test_search_answers_with_the_situation_and_stays_quiet_otherwise(served):

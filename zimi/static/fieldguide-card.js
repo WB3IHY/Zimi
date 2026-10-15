@@ -285,6 +285,12 @@ var FieldGuideCard = (function() {
     return out;
   }
 
+  // The passage for whoever the words named ('infant' for "baby choking"), else the first.
+  function forWho(quotes, who) {
+    for (var i = 0; who && i < quotes.length; i++) if (quotes[i].who === who) return quotes[i];
+    return quotes[0];
+  }
+
   function wire(root, act) {
     root.addEventListener('click', function(e) {
       var el = e.target.closest ? e.target.closest('[data-act]') : null;
@@ -293,5 +299,5 @@ var FieldGuideCard = (function() {
   }
 
   return { esc: esc, word: word, ensureStyle: ensureStyle, sizeText: sizeText, bodyHtml: bodyHtml, tableHtml: tableHtml, footHtml: footHtml, quoteHtml: quoteHtml, asOfText: asOfText,
-    answersHtml: answersHtml, missingHtml: missingHtml, libraryGroupHtml: libraryGroupHtml, wire: wire, emergencyFor: emergencyFor, emergencyHtml: emergencyHtml, placeLat: placeLat, skyFirst: skyFirst, numberParts: numberParts, DEFAULTS: DEFAULTS };
+    answersHtml: answersHtml, missingHtml: missingHtml, libraryGroupHtml: libraryGroupHtml, wire: wire, emergencyFor: emergencyFor, emergencyHtml: emergencyHtml, placeLat: placeLat, skyFirst: skyFirst, forWho: forWho, numberParts: numberParts, DEFAULTS: DEFAULTS };
 })();

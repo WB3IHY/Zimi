@@ -51,6 +51,12 @@ ok('south: the Cross before the shadow and the Pole Star', ids(CARD.skyFirst(los
 ok('north: Polaris first', ids(CARD.skyFirst(lost, 40)) === 'a,b,c,north,shadow,south');
 ok('no place: the data order', CARD.skyFirst(lost, null) === lost);
 
+// Whose passage leads
+const choke = [{ id: 'adult' }, { id: 'infant', who: 'infant' }];
+ok('a baby named: the infant passage', CARD.forWho(choke, 'infant').id === 'infant');
+ok('no one named: the first passage', CARD.forWho(choke, null).id === 'adult');
+ok('named but untagged: the first passage', CARD.forWho([{ id: 'adult' }], 'infant').id === 'adult');
+
 if (failures) { console.log(failures + ' failed'); process.exit(1); }
 
 // The guidance date reads in the reader's language, month and year.

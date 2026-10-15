@@ -268,6 +268,19 @@ def test_the_answer_goes_when_search_is_left(full, phone):
     assert phone.query_selector("[data-card=fieldguide]") is None
 
 
+def test_a_baby_choking_gets_the_infant_passage_not_the_adults(full, phone):
+    _open(phone, full)
+    _search(phone, "my baby is choking")
+    h4 = phone.wait_for_selector("[data-card=fieldguide] .fg-body h4", timeout=20000)
+    assert h4.text_content().startswith("Infants")
+    _search(phone, "my friend is choking")
+    phone.wait_for_function(
+        "() => { const h = document.querySelector('[data-card=fieldguide] .fg-body h4'); return h && !/^Infants/.test(h.textContent); }",
+        timeout=20000,
+    )
+    assert not phone.errors
+
+
 def test_no_answer_when_searching_inside_one_zim(full, phone):
     _open(phone, full)
     _search(phone, "tourniquet")

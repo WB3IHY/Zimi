@@ -20713,11 +20713,12 @@ function _searchInZim(zim, query) {
   doSearch(query);
 }
 // The Field Guide's answer above a search's results when the words name a
-// situation (search's `fieldguide` field: {id, kind, href, installed}; id ""
+// situation (search's `fieldguide` field: {id, kind, href, installed, who}; id ""
 // is the guide itself). It is the first card of the slot above the results
 // (registerSearchCard), so when it answers, no other card is asked: no
 // /bestanswer request and no Wikipedia passage under a government quote. A
-// clear emergency gets a compact card, its first plain passage; a bare word
+// clear emergency gets a compact card, its first plain passage (the one for
+// whoever the words named: a baby's, for "baby choking"); a bare word
 // that could be about anything gets the small "Help now: ..." link and no
 // quote. Filled from /fieldguide/situation after the card is up, and asked
 // for from /fieldguide/match as the search starts (_fieldguideEarly): the
@@ -20743,7 +20744,7 @@ function _fieldguideCardMounted(el, h, ctx) {
   fetch('/fieldguide/situation?id=' + encodeURIComponent(h.id) + '&lang=' + encodeURIComponent(_uiLangPrimary()), { signal: ctx.signal }).then(function(r) { return r.ok ? r.json() : null; }).then(function(sit) {
     var body = el.querySelector('.fg-answer-body');
     if (!sit || !sit.quotes.length || !body) return;
-    var first = sit.quotes[0];
+    var first = FieldGuideCard.forWho(sit.quotes, h.who);
     body.innerHTML = '<div class="fg-body" lang="en" dir="ltr"><h4>' + esc(first.heading) + '</h4>' + FieldGuideCard.bodyHtml(first.lines) + FieldGuideCard.tableHtml(first.table) + '</div>' +
       FieldGuideCard.footHtml(first, S);
     var passage = body.firstChild, more = el.querySelector('[data-act=more]');
@@ -20770,7 +20771,7 @@ function _fieldguideEarly(query, scope, zimParam, limit, searchSeq) {
     .then(function(r) { return r.ok ? r.json() : null; })
     .then(function(m) {
       if (!m || !m.kind || mode !== 'search' || searchSeq !== _searchSeq) return;
-      _searchCardStart(query, scope, zimParam, limit, { fieldguide: { id: m.id || '', kind: m.kind } });
+      _searchCardStart(query, scope, zimParam, limit, { fieldguide: { id: m.id || '', kind: m.kind, who: m.who } });
     }).catch(function() {});
 }
 var _fieldguideCardLoaded = false;

@@ -71,6 +71,20 @@
   {"id": "survive", "order": "", "situations": ["lost", "signal", "shelter", "water"]},
   {"id": "disaster", "order": "", "situations": ["flood", "earthquake", "wildfire", "storm", "power_out", "carbon_monoxide", "food"]}
  ],
+ "who": {
+  "infant": {
+   "en": ["baby", "babies", "infant", "infants", "newborn"],
+   "es": ["bebé", "bebe", "lactante", "recién nacido"],
+   "fr": ["bébé", "nourrisson", "nouveau-né"],
+   "de": ["baby", "säugling", "neugeborenes"],
+   "pt": ["bebê", "bebé", "lactente", "recém-nascido"],
+   "ru": ["младенец", "грудничок", "новорождённый"],
+   "ar": ["رضيع", "الرضيع"],
+   "he": ["תינוק", "תינוקת"],
+   "hi": ["शिशु", "नवजात"],
+   "zh": ["婴儿", "宝宝", "新生儿"]
+  }
+ },
  "sky_strip": ["lost", "signal", "shelter", "flood", "cold"],
  "marks": {"bleeding": "M", "recovery_position": "A", "shock": "C", "cold": "H"},
  "situations": {
