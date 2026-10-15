@@ -234,20 +234,32 @@ check(vm.runInContext('_skyAct({ type: "sun", x: 100, y: 100, r: 9, alt: 30, az:
 delete S.window.openAlmanacEarth.unsupported;
 
 // ── 7. One clock ──
-vm.runInContext('var _almFocus = null; var _heroMoonAnim = null; var __reduce = false; function _almReduceMotion() { return __reduce; }' +
+vm.runInContext('var __store = {}; var localStorage = { getItem: function (k) { return k in __store ? __store[k] : null; }, setItem: function (k, v) { __store[k] = String(v); }, removeItem: function (k) { delete __store[k]; } };' +
+  'var _almFocus = null; var _heroMoonAnim = null; var __reduce = false; function _almReduceMotion() { return __reduce; }' +
   'var __painted = 0; _skyPaint = function () { __painted++; };' +
-  '_skyState = { inView: true, eph: { sunGeoAlt: -30 }, actors: [], bodies: [], moonAnim: null, nowTime: Date.now() };', S);
+  '_skyState = { inView: true, eph: { sunGeoAlt: -30 }, lm: 7, actors: [], bodies: [], moonAnim: null, nowTime: Date.now() };' +
+  '_skyRand = function () { return 0.99; };', S);   // a meteor's wait is drawn at random: here always a short one, so the timer is the meteor's own
 const MOVING = '_skySpawnBirds,_skySpawnMeteor,_skySpawnPlane,_skySpawnWhale,_skySwayTick';   // the beach's: the spawners and the palms' breeze
 const armed = () => { timers.length = 0; vm.runInContext('_skyArm()', S); return timers.map((x) => x.fn.name).sort().join(','); };
-// The true horizon is the default: nothing but the clock's drift, at night or by day, and no twinkle at all.
+// The true horizon, chosen: nothing but the clock's drift, at night or by day, and no twinkle at all.
+vm.runInContext('_skySettings = { skin: "horizon", lines: "off", size: "auto", dial: 0 }', S);
 check(armed() === '_skyLiveTick', 'live at night: the clock\'s drift and nothing else (no twinkle, no breeze, nothing crossing)');
 vm.runInContext('_almFocus = new Date(0)', S);
 check(armed() === '', 'scrubbed: no live timer, the sky holds the focused instant');
 vm.runInContext('_almFocus = null; _skyState.eph.sunGeoAlt = 20', S);
 check(armed() === '_skyLiveTick', 'by day the same');
-// The beach is a choice: its palms sway and its planes, birds, whales and meteors cross.
-vm.runInContext('_skySettings = { skin: "beach", lines: "lines", size: "auto", dial: 0 }', S);
-check(armed() === '_skyLiveTick,' + MOVING, 'the beach scene: the clock, the palms and the moving things');
+// The beach is the default: its palms sway and its planes, birds, whales and meteors cross, with nothing chosen.
+vm.runInContext('_skySettings = null; localStorage.removeItem("zimi_sky_settings")', S);
+check(vm.runInContext('_skySetting("skin")', S) === 'beach', 'nothing chosen: the scene is the beach with its life');
+check(armed() === '_skyLiveTick,' + MOVING, 'the default scene: the clock, the palms and the moving things');
+// A viewer who chose the true horizon keeps it, and one who chose something else is not made to choose the scene.
+vm.runInContext('_skySettings = null; localStorage.setItem("zimi_sky_settings", JSON.stringify({ skin: "horizon" }))', S);
+check(vm.runInContext('_skySetting("skin")', S) === 'horizon' && armed() === '_skyLiveTick', 'a saved true horizon stays the true horizon');
+vm.runInContext('_skySettings = null; localStorage.setItem("zimi_sky_settings", JSON.stringify({ lines: "lines" })); _skySetting("lines")', S);
+check(vm.runInContext('_skySetting("skin")', S) === 'beach', 'saving another choice does not save the scene with it');
+vm.runInContext('_skySet("lines", "names")', S);
+check(JSON.parse(vm.runInContext('localStorage.getItem("zimi_sky_settings")', S)).skin === undefined, 'only what was chosen is kept');
+vm.runInContext('_skySettings = null; localStorage.removeItem("zimi_sky_settings")', S);
 vm.runInContext('__reduce = true', S);
 check(armed() === '_skyLiveTick', 'motion reduced: no breeze and nothing crossing, even on the beach');
 vm.runInContext('__reduce = false; _skySettings = null; _skyState.lens = { az: 0, alt: 0, fov: 60 };', S);

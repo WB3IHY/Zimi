@@ -73,7 +73,7 @@ def browser(served):
         br.close()
 
 
-def _almanac(browser, served, reduced=False, place=PLACE, beach=False):
+def _almanac(browser, served, reduced=False, place=PLACE, horizon=False):
     ctx = browser.new_context(
         viewport=VIEW,
         device_scale_factor=2,
@@ -86,8 +86,8 @@ def _almanac(browser, served, reduced=False, place=PLACE, beach=False):
         "localStorage.setItem('zimi_almanac_place', %s);"
         % json.dumps(json.dumps(place))
     )
-    if beach:   # the beach scene is a choice (the true horizon is the default)
-        ctx.add_init_script("localStorage.setItem('zimi_sky_settings', '{\"skin\":\"beach\"}');")
+    if horizon:   # the beach with its life is the default; the true horizon is a choice that is kept
+        ctx.add_init_script("localStorage.setItem('zimi_sky_settings', '{\"skin\":\"horizon\"}');")
     pg = ctx.new_page()
     errors = []
     pg.on("pageerror", lambda e: errors.append(str(e)))
@@ -354,7 +354,7 @@ def test_the_sky_stays_facing_the_equator(browser, served):
 def test_life_on_the_horizon(browser, served):
     """The coast has the sea at its tide, inland the land; the moving things
     run a light loop only while one is on screen, and each says what it is."""
-    ctx, pg, errors = _almanac(browser, served, beach=True)
+    ctx, pg, errors = _almanac(browser, served)
     try:
         _settle(pg, DAY)
         # Nothing spawns on its own during this test: each thing is put there.
@@ -374,7 +374,9 @@ def test_life_on_the_horizon(browser, served):
         pg.wait_for_timeout(200)
         box = pg.evaluate(
             "() => { const b = _skyState.bodies.find((x) => x.type === 'sea'); const r = _skyState.canvas.getBoundingClientRect();"
-            " return { x: r.left + (b.box[0] + b.box[2]) / 2 + 40, y: r.top + (b.box[1] + b.box[3]) / 2 }; }"
+            " const boats = _skyState.bodies.filter((x) => x.type === 'boat'); let best = 0, gap = -1;"
+            " for (let x = b.box[0] + 20; x < b.box[2] - 20; x += 5) { const g = Math.min(...boats.map((o) => Math.abs(o.x - x)), 1e9); if (g > gap) { gap = g; best = x; } }"
+            " return { x: r.left + best, y: r.top + (b.box[1] + b.box[3]) / 2 }; }"   # a tap on open water, clear of the boats on the horizon
         )
         pg.touchscreen.tap(box["x"], box["y"])
         tip = pg.locator("#almanac-sky-tip")
@@ -384,7 +386,7 @@ def test_life_on_the_horizon(browser, served):
         pg.evaluate(
             "() => { Object.keys(SKY_SPAWNERS).forEach((k) => { clearTimeout(_skyTimers[k]); SKY_FIRST_SPAWN_MS[k] = 1e9; });"
             " [SKY_PLANE_GAP_S, SKY_BIRD_GAP_S].forEach((g) => { g[0] = g[1] = 1e9; });"
-            " const a = _skyCrossing(_skyState, 'plane', [6, 6], [30, 30]); _skyState.actors = [a]; _skyKick(); }"
+            " const a = _skyPlane(_skyState); a.dur = 6000; a.start = performance.now(); _skyState.actors = [a]; _skyKick(); }"
         )
         moving = pg.evaluate("""() => new Promise((done) => {
           const n0 = _skyState.paints || 0;
@@ -419,7 +421,7 @@ def test_life_on_the_horizon(browser, served):
     finally:
         ctx.close()
     # Inland: the same beach and palms, the sea at half tide, and no tide claimed.
-    ctx, pg, errors = _almanac(browser, served, place=DENVER, beach=True)
+    ctx, pg, errors = _almanac(browser, served, place=DENVER)
     try:
         _settle(pg, DAY)
         pg.wait_for_function(
@@ -437,6 +439,74 @@ def test_life_on_the_horizon(browser, served):
         ctx.close()
 
 
+ISS_PASS = "2026-09-29T03:12:40Z"  # the shipped elements are exact for days either side of 2026-09-28: a pass at 51 degrees in the southwest, Sun 16 degrees down
+
+
+def test_the_first_look_is_the_beach_with_its_life(browser, served):
+    """Nothing chosen, nothing saved: the scene is the beach, boats lit at
+    night, palms swaying, an airliner crossing within seconds, meteors on the
+    real calendar's clock; a viewer who chose the true horizon keeps it."""
+    ctx, pg, errors = _almanac(browser, served)
+    try:
+        _settle(pg, NIGHT)
+        assert pg.evaluate("_skySetting('skin')") == "beach"
+        assert pg.evaluate("localStorage.getItem('zimi_sky_settings')") is None
+        assert pg.evaluate("_skyState.bodies.some((b) => b.type === 'boat')")
+        pg.wait_for_function(
+            "() => (_skyState.palmCache || []).some(Boolean)", polling=POLL_MS
+        )
+        # A plane is crossing soon (it is first seen part-way along its track), and the timers that keep the life going are set.
+        pg.wait_for_function(
+            "() => _skyState.actors.some((a) => a.type === 'plane')",
+            polling=POLL_MS,
+            timeout=30000,
+        )
+        assert pg.evaluate(
+            "!!_skyTimers.sway && !!_skyTimers.meteor && !!_skyTimers.whale"
+        )
+        # Its lights are the ones a navigator sees: one coloured wingtip, or a white tail, never both colours from the side.
+        lt = pg.evaluate(
+            "() => { const a = _skyState.actors.find((x) => x.type === 'plane'); return _skyPlaneLights(a, _skyPlaneAt(a, 0.5)); }"
+        )
+        assert abs(lt["red"] - lt["green"]) > 0.5 or lt["tail"] > 0.5, lt
+        assert not errors, errors
+    finally:
+        ctx.close()
+    ctx, pg, errors = _almanac(browser, served, horizon=True)
+    try:
+        _settle(pg, NIGHT)
+        assert pg.evaluate("_skySetting('skin')") == "horizon"
+        assert not pg.evaluate("_skyState.bodies.some((b) => b.type === 'boat')")
+        assert pg.evaluate("!_skyTimers.sway && !_skyTimers.plane")
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_the_iss_is_drawn_when_it_is_overhead_and_lit(browser, served):
+    """From the satellite elements the 3D view keeps (loaded for the sky too),
+    only while it stands above 8 degrees, in the Sun's light, over a dark sky."""
+    ctx, pg, errors = _almanac(browser, served)
+    try:
+        pg.wait_for_function(
+            "() => { if (typeof _ae !== 'undefined' && _ae) { _skyIssWatch(_skyState); return !!_ae.sats; } return false; }",
+            polling=500,
+            timeout=90000,
+        )
+        _settle(pg, ISS_PASS)
+        pg.wait_for_function(
+            "() => _skyState.bodies.some((b) => b.type === 'iss')",
+            polling=POLL_MS,
+            timeout=30000,
+        )
+        iss = pg.evaluate("_skyState.bodies.find((b) => b.type === 'iss')")
+        assert iss["alt"] > 8 and 300 < iss["km"] < 500, iss
+        # An hour on the same orbit's ground track it is not over this sky: nothing is drawn.
+        _settle(pg, "2026-09-29T06:00:00Z")
+        assert not pg.evaluate("_skyState.bodies.some((b) => b.type === 'iss')")
+        assert not errors, errors
+    finally:
+        ctx.close()
 def test_the_aurora_where_it_is_seen(browser, served):
     ctx, pg, errors = _almanac(browser, served, place=TROMSO)
     try:
@@ -451,7 +521,7 @@ def test_the_aurora_where_it_is_seen(browser, served):
     try:
         _settle(pg, NIGHT)
         assert pg.evaluate("_skyState.aurora") is None  # San Francisco: too far south
-        # Meteors by night, with the rate said and the speed-up owned up to.
+        # Meteors by night, with the rate said (the real one: no speed-up).
         pg.evaluate(
             "() => { const m = _skyMeteor(_skyState); m.dur = 60000; m.az0 = _skyState.center; m.az1 = _skyState.center + 4;"
             " m.alt0 = 40; m.alt1 = 30; m.start -= 30000; _skyState.actors = [m]; _skyKick(); }"
@@ -469,9 +539,7 @@ def test_the_aurora_where_it_is_seen(browser, served):
         )
         pg.touchscreen.tap(b["x"], b["y"])
         tip = pg.inner_text("#almanac-sky-tip")
-        assert (
-            "an hour" in tip and "%d times" % pg.evaluate("SKY_METEOR_SPEEDUP") in tip
-        ), tip
+        assert "an hour" in tip and "times as often" not in tip, tip
         assert not errors, errors
     finally:
         ctx.close()

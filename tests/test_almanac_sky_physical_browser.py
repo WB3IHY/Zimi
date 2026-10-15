@@ -10,8 +10,9 @@ WebGL2) at a phone's width, San Francisco chosen as the place:
   3. The view: a lens answers the direction it was pointed at, and with WebGL2
      missing the panorama turns instead and the sky still draws.
   4. Red night mode: nothing but red, and the switch is readable and announced.
-  5. The honest defaults: the true horizon, a dark site, constellation lines; the
-     beach is a choice that stays chosen; a guessed place is said to be guessed.
+  5. The honest defaults: the beach with its life over the physical sky, a dark
+     site, no constellation lines; the true horizon is a choice that stays
+     chosen; a guessed place is said to be guessed.
 
 The numbers behind it are held in tests/test_almanac_sky_physical.cjs.
 
@@ -31,6 +32,7 @@ GL_ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
 VIEW = {"width": 390, "height": 844}
 PLACE = {"lat": 37.7749, "lon": -122.4194, "name": "San Francisco"}
 NIGHT = "2026-08-10T08:00:00Z"  # 01:00 in San Francisco, Sagittarius low in the south
+HORIZON = "localStorage.setItem('zimi_sky_settings', '{\"skin\":\"horizon\"}');"   # the true horizon, chosen
 POLL_MS = 100
 WAIT_MS = 170000  # a loaded runner compiles shaders slowly
 
@@ -271,7 +273,7 @@ COUNT = (
 def test_an_idle_sky_asks_for_no_frame_and_a_live_tick_that_moved_nothing_paints_nothing(
     browser, served
 ):
-    ctx, pg, errors = _almanac(browser, served)
+    ctx, pg, errors = _almanac(browser, served, init=HORIZON)   # the beach's breeze asks for twelve frames a second; this is the still sky
     try:
         _settle(pg, NIGHT)
         _drawn(pg)
@@ -297,31 +299,35 @@ def test_an_idle_sky_asks_for_no_frame_and_a_live_tick_that_moved_nothing_paints
         ctx.close()
 
 
-def test_the_beach_scene_is_a_choice_that_stays_chosen_and_nothing_moves_by_default(
+def test_the_beach_with_its_life_is_the_default_and_the_true_horizon_a_choice_that_stays_chosen(
     browser, served
 ):
     ctx, pg, errors = _almanac(browser, served)
     try:
         _settle(pg, NIGHT)
-        assert pg.evaluate("_skySetting('skin')") == "horizon"
+        assert pg.evaluate("_skySetting('skin')") == "beach"
         assert (
             pg.evaluate("_skySetting('dial')") == 0
             and pg.evaluate("_skySetting('lines')") == "off"
         )
-        timers = pg.evaluate(
-            "() => Object.keys(_skyTimers).filter((k) => _skyTimers[k])"
-        )
-        assert set(timers) <= {"live"}, timers  # scrubbed here, so not even that
-        pg.evaluate("_skySet('skin', 'beach')")
         pg.wait_for_function(
-            "() => _skyTimers.sway && _skyTimers.plane", polling=POLL_MS
+            "() => _skyTimers.sway && _skyTimers.plane && _skyTimers.meteor", polling=POLL_MS
+        )
+        # The beach's sea mirrors the sky that was drawn: the strip is kept and read.
+        ground = pg.evaluate("() => _skyState.ground")
+        assert ground and len(ground["hor"]) == 3 and len(ground["avg"]) == 3, ground
+        assert pg.evaluate("_skyState.reflect.width") > 10
+        # The true horizon: chosen, it stops every one of them, and is kept across a reload.
+        pg.evaluate("_skySet('skin', 'horizon')")
+        pg.wait_for_function(
+            "() => !_skyTimers.sway && !_skyTimers.plane && !_skyTimers.meteor", polling=POLL_MS
         )
         pg.reload(wait_until="load")
         pg.wait_for_function(
             "() => typeof _skyState !== 'undefined' && _skyState && _skyState.eph",
             polling=POLL_MS,
         )
-        assert pg.evaluate("_skySetting('skin')") == "beach"
+        assert pg.evaluate("_skySetting('skin')") == "horizon"
         assert not errors, errors
     finally:
         ctx.close()

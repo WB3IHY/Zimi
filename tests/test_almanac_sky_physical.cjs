@@ -14,6 +14,7 @@
 //   7. The Earth's shadow on the Moon, against NASA's eclipse circumstances.
 //   8. Rising and setting, and the time by the Sun, against JPL Horizons.
 //   9. The data files: 88 constellations, the Milky Way panorama, their credits.
+//  10. The life on the horizon: an airliner's pace and lights, meteor rates, the sea's mirror.
 //
 // Horizons references: https://ssd.jpl.nasa.gov/api/horizons.api, fetched
 // 2026-10-14, COMMAND 10 (Sun) and 301 (Moon), CENTER coord@399, geodetic
@@ -359,7 +360,7 @@ check(run('_sgLimitMag(_sgSkyLum(60, -90, 0, 0, 0.003))') > 0 && run('_sgLimitMa
   const f = run('_skyFactsAt(' + Date.parse('2026-10-14T20:00:00Z') + ', 37.7749, -122.4194)');
   check(Math.abs(f.sunsetAz - 259.9) < 1.2 && f.sunriseAz > 80 && f.sunriseAz < 110, 'the Sun sets at bearing ' + f.sunsetAz.toFixed(1) + ' (Horizons 259.9) and rises in the east');
   const known = rowsOf(true), guessed = rowsOf(false);
-  check(/alm_dir_w/.test(known[0][1]) && /\d+\u00b0/.test(known[0][1]) && !known.some((r) => /alm_sky_f_about/.test(r[1])), 'the daylight row names where the Sun goes down: "' + known[0][1] + '"');
+  check(/alm_dir_w/.test(known[0][2]) && /\d+\u00b0/.test(known[0][2]) && !known.some((r) => /alm_sky_f_about/.test(r.join(' '))), 'the daylight card names where the Sun goes down: "' + known[0][2] + '"');
   check(guessed.filter((r) => /alm_sky_f_about/.test(r[1])).length >= 3 && !/alm_sky_f_about/.test(guessed[3][1]), 'while the place is a guess the rows say so in themselves (about)');
 }
 
@@ -384,6 +385,55 @@ check(Math.abs(sol('2026-10-01T12:00:00Z', 0) - (720 + 10.2)) < 0.6, 'at Greenwi
 check(Math.abs(sol('2026-10-01T12:00:00Z', 90) - sol('2026-10-01T12:00:00Z', 0) - 360) < 1e-6, 'and six hours ahead at 90 E');
 const noon = run('_skySunAltAt(' + ms('2026-10-01T11:50:00Z') + ', 51.5, 0)'), later = run('_skySunAltAt(' + ms('2026-10-01T12:20:00Z') + ', 51.5, 0)'), earlier = run('_skySunAltAt(' + ms('2026-10-01T11:20:00Z') + ', 51.5, 0)');
 check(noon > later && noon > earlier, 'and at that solar noon the Sun is at its highest');
+
+// ── 10. The life on the horizon: judged against what a person on a beach would see ──
+{
+  const plane = (o) => Object.assign({ type: 'plane', theta: 180, dir: 1, b: 10, h: 10.7, L0: -50, L1: 50 }, o || {});
+  const at = (a, p) => run('_skyPlaneAt(' + JSON.stringify(a) + ', ' + p + ')');
+  const lights = (a, p) => run('_skyPlaneLights(' + JSON.stringify(a) + ', ' + JSON.stringify(at(a, p)) + ')');
+  // An airliner's angular speed is its ground speed over its range: more than a degree a second as it passes close, a creep near the horizon.
+  const speed = (a, p) => { const d = 0.001, q1 = at(a, p), q2 = at(a, p + d), km = Math.abs(a.L1 - a.L0) * d, rad = Math.hypot(((q2.az - q1.az + 540) % 360 - 180) * Math.cos(q1.alt * D2R), q2.alt - q1.alt) * D2R;
+    return rad / (km / 0.25) * R2D; };   // degrees a second at 250 m/s
+  const mid = plane(), mids = speed(mid, 0.5), edge = speed(mid, 0.02);
+  check(mids > 0.9 && mids < 1.05, 'abeam at 10 km, 10.7 km up (range 14.6 km) it crosses ' + mids.toFixed(2) + ' deg a second: 250 m/s over that range');
+  check(edge < mids / 4 && edge > 0.05, 'near the edge of sight it crawls (' + edge.toFixed(2) + ' deg a second)');
+  check(Math.abs(at(mid, 0.5).alt - Math.atan2(10.7, 10) / D2R) < 1, 'its height at the nearest point is the angle of 10.7 km over 10 km (' + at(mid, 0.5).alt.toFixed(1) + ')');
+  check(Math.abs(at(plane({ b: 5, L0: -49.7, L1: 49.7 }), 0).alt - 12) < 1, 'it is seen down to about 12 degrees, 50 km out (' + at(plane({ b: 5, L0: -49.7, L1: 49.7 }), 0).alt.toFixed(1) + ')');
+  check(at(mid, 0.5).alt < at(plane({ b: 4 }), 0.5).alt, 'a track that passes nearer goes higher');
+  // Wingtip lights: the side that faces the viewer, red from the plane's left. Heading west with the viewer to its north (on its right): green.
+  const west = plane(), east = plane({ dir: -1 });
+  check(lights(west, 0.5).green > 0.9 && lights(west, 0.5).red < 0.1, 'flying clockwise round the viewer (the viewer on its right) shows green');
+  check(lights(east, 0.5).red > 0.9 && lights(east, 0.5).green < 0.1, 'flying the other way, red');
+  check(lights(west, 0.99).tail > 0.9 && lights(west, 0.99).red < 0.05 && lights(west, 0.99).green < 0.05, 'going away it shows its steady white tail light only');
+  check(lights(west, 0.0).tail < 0.1, 'coming toward the viewer it shows no tail light');
+  const head = plane({ theta: 90, dir: 1, b: 0.001, L0: -40, L1: -39 }), hl = lights(head, 0);
+  check(hl.red > 0.3 && hl.green > 0.3, 'dead ahead the two wingtip lights meet (' + hl.red.toFixed(2) + ', ' + hl.green.toFixed(2) + ')');
+  check(Math.abs(run('_skyPulse(30, 1000, SKY_PLANE_STROBE_PULSES)') - 1) < 2 && run('_skyPulse(30, 1000, SKY_PLANE_STROBE_PULSES)') === true && run('_skyPulse(100, 1000, SKY_PLANE_STROBE_PULSES)') === false && run('_skyPulse(180, 1000, SKY_PLANE_STROBE_PULSES)') === true, 'the white strobe flashes twice a second');
+  // Meteors at the rate this sky shows a patient eye, no speed-up.
+  run('var _METEOR_SHOWERS = [{ key: "perseids", peak: [8, 12], zhr: 100 }, { key: "geminids", peak: [12, 14], zhr: 150 }, { key: "quadrantids", peak: [1, 3], zhr: 120 }];');
+  const rate = (iso, lm, lat, lon) => { const ms = Date.parse(iso); S.__s = { nowTime: ms, lm: lm, lat: lat, lon: lon, eph: { lst: run('_skyLST(new Date(' + ms + '), ' + lon + ')') } }; return run('_skyMeteorRate(__s)'); };
+  const quiet = rate('2026-03-10T09:00:00Z', 7.6, 37.77, -122.42), per = rate('2026-08-13T09:00:00Z', 7.6, 37.77, -122.42), perCity = rate('2026-08-13T09:00:00Z', 3.5, 37.77, -122.42);
+  check(quiet.perHour === 6 && !quiet.shower, 'a quiet dark night: the sporadic six an hour, no shower (' + quiet.perHour + ')');
+  check(per.shower && per.shower.sh.key === 'perseids' && per.perHour > 20 && per.perHour < 60, 'the Perseids near their peak with the radiant up: a few dozen an hour (' + per.perHour.toFixed(1) + ')');
+  check(perCity.perHour < per.perHour / 8 && perCity.perHour > 0, 'under a city sky (limiting magnitude 3.5) the same night shows an eighth or less (' + perCity.perHour.toFixed(1) + ')');
+  check(!rate('2026-08-12T22:00:00Z', 7.6, -33.87, 151.21).shower || rate('2026-08-12T22:00:00Z', 7.6, -33.87, 151.21).perHour < per.perHour, 'a shower whose radiant is down adds nothing');
+  const dec = rate('2026-12-14T11:00:00Z', 7.6, 37.77, -122.42);
+  check(dec.shower && dec.shower.sh.key === 'geminids' && dec.perHour > 60, 'the Geminids from a northern place, up all night (' + dec.perHour.toFixed(0) + ')');
+  check(run('_skyMeteorVisible(7.6)') === 1 && Math.abs(run('_skyMeteorVisible(4.5)') - Math.pow(2.5, -2)) < 1e-9, 'each magnitude lost thins them by the population index');
+  // A shower's meteors fall away from its radiant.
+  run('_skyRand = (function () { var i = 0, v = [0.5, 0.5, 0.5, 0.5]; return function () { return v[i++ % 4]; }; })();');
+  S.__s = { center: 180, span: 240 };
+  const m = run('_skyMeteor(__s, { radiant: { az: 180, alt: 20 } })');
+  check(m.alt1 > m.alt0 && Math.abs(m.az1 - m.az0) < 1, 'overhead of a low radiant, a meteor streaks up and away from it (' + m.alt0.toFixed(0) + ' to ' + m.alt1.toFixed(0) + ')');
+  const m2 = run('_skyMeteor(__s, { radiant: { az: 180, alt: 80 } })');
+  check(m2.alt1 < m2.alt0, 'and from a high radiant, down and away');
+  run('_skyRand = Math.random');
+  // The sea mirrors the sky: a clear table, more at grazing sight.
+  check(run('_skyTableAt(SKY_FRESNEL, 0)') > 0.8 && run('_skyTableAt(SKY_FRESNEL, 25)') < 0.15 && run('_skyTableAt(SKY_FRESNEL, 4)') > run('_skyTableAt(SKY_FRESNEL, 10)'), 'the sea mirrors nearly all of the sky at the horizon and little at the feet');
+  // The boats show the lights the rules of the sea give them.
+  check(run('SKY_BOATS.filter(function (b) { return b[3] === "sail"; })[0][1]') === 0, 'the sailing boat lies at anchor and does not drift');
+  check(run('SKY_BOATS.every(function (b) { return b[1] < 90; })') === true, 'no boat swings faster than a ship at speed some kilometres out');
+}
 
 // ── 9. The data files ──
 const lines = JSON.parse(fs.readFileSync(path.join(STATIC, 'earth', 'constellations-v1.json'), 'utf8'));
