@@ -98,6 +98,7 @@
     TOKENS.forEach(function (k) { var v = cs.getPropertyValue(k).trim(); if (v) html.style.setProperty(k, v); });
     var theme = shellTheme();
     if (theme) { html.setAttribute('data-zp-theme', theme); html.style.colorScheme = theme; }
+    try { html.classList.toggle('night-red', shell._nightRedOn()); } catch (e) {} // Red: the pages are pictures, reddened below
     paintDark();
   }
   // The screen's safe-area insets: a framed page is told none (env() is 0
@@ -118,6 +119,7 @@
 
   // ── dark pages: chosen here, or as the articles are (Simulate dark mode) ──
   function darkWanted() {
+    try { if (shell && shell._nightRedOn()) return true; } catch (e) {} // no white page in Red, whatever was chosen
     var v = store(DARK_KEY);
     if (v === '1' || v === '0') return v === '1';
     try { if (shell) return !!(shell._articlesAreDark() && shell._darkenArticlesOn()); } catch (e) {}
@@ -229,7 +231,7 @@
       shell.addEventListener('resize', syncInsets);
       window.addEventListener('pagehide', function () { shell.removeEventListener('resize', syncInsets); });
     } catch (e) {}
-    try { new shell.MutationObserver(syncTheme).observe(shell.document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }); } catch (e) {}
+    try { new shell.MutationObserver(syncTheme).observe(shell.document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] }); } catch (e) {}
   }
 
   // ── pdf.js: its options before it starts, its bus once it has ──

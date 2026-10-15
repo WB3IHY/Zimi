@@ -49,6 +49,14 @@
   #card .act small { color: var(--text2); font-size: 11.5px; }
   #card .act.main small { color: inherit; opacity: .7; }
   #msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 32px; text-align: center; color: #e8e8ed; font-size: 15px; }
+  /* Red night light (apps.js): the page's own blues, whites and yellows become the palette's red; the globe is
+     recoloured by apps.css's canvas filter. */
+  html.night-red, html.night-red body { background: #000; }
+  .night-red .dot i, .night-red .dot.guide i { background: var(--amber); box-shadow: 0 0 0 2px #000, 0 0 10px rgba(255,64,64,.7); }
+  .night-red .dot span, .night-red .tool, .night-red #hint, .night-red #status, .night-red #msg { color: var(--text); }
+  .night-red .tool, .night-red #hint, .night-red #status { background: rgba(0,0,0,.85); border: 1px solid var(--border); }
+  .night-red #here { border-color: var(--text); background: rgba(255,64,64,.9); box-shadow: 0 0 0 4px rgba(255,64,64,.3); }
+  .night-red #map-chip button { color: #000; }
 </style>
 </head>
 <body>

@@ -44,6 +44,10 @@ body { background: var(--bg) !important; }
 html.zp-dark { --page-bg-color: #151515; }
 html.zp-dark .pdfViewer .page .canvasWrapper, html.zp-dark .zp-thumb canvas { filter: invert(.92) hue-rotate(180deg); }
 html.zp-dark .pdfViewer .page { box-shadow: 0 0 0 1px var(--border); }
+/* Red (pdfreader.js syncTheme): the dark page, then every pixel turned to red light, the same chain the
+   shell gives a canvas (app.css night-red). The chrome takes the shell's red tokens. */
+html.night-red .pdfViewer .page .canvasWrapper, html.night-red .zp-thumb canvas { filter: invert(.92) hue-rotate(180deg) brightness(.6) grayscale(1) sepia(1) hue-rotate(-42deg) saturate(12) brightness(1.5); }
+html.night-red { scrollbar-color: var(--border-strong) #000; }
 
 /* ── the bars ── */
 .zp-bar {
