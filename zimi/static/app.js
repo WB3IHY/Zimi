@@ -311,6 +311,8 @@ function _appThemeChanged() {
   // article appearance: on Match Zimi, this is the setting it matches.
   var seg = document.getElementById('app-theme-seg');
   if (seg) seg.innerHTML = _appThemeSegInner();
+  var hint = document.getElementById('app-theme-hint');
+  if (hint) hint.innerHTML = _appThemeHintHtml();
   try { _applyArticleDarken(_readerFrameDoc()); } catch (e) {}
   _reapplyReaderThemeIfAuto();
 }
@@ -455,6 +457,8 @@ function _articleThemeSegInner() {
 function _articleThemeSegHtml() {
   return _segHtml('article-theme-seg', 'article_theme', _articleThemeSegInner());
 }
+// What the choice means, in the person's words: Auto's line by default, Red's while Red is on.
+function _appThemeHintHtml() { return tH(_nightRedOn() ? 'app_theme_hint_red' : 'app_theme_hint'); }
 function _appThemeSegHtml() {
   return _segHtml('app-theme-seg', 'app_theme', _appThemeSegInner());
 }
@@ -468,9 +472,9 @@ var _ARTICLE_DARKEN_STYLE_ID = 'zimi-article-darken';
 // pure near-black, so transparent pages don't leave a grey haze.
 // In Red a white picture would be the brightest thing on the screen: media is dimmed before it is flipped
 // back (the root's flip then turns the dimming into dimming, not into a brighter page).
-var _NIGHT_MEDIA_DIM = 'brightness(.7) ';
+var _NIGHT_MEDIA_DIM = 'brightness(.5) ';
 // And on a page that was not flipped (it has a dark of its own, or is Reader View).
-var _NIGHT_MEDIA_CSS = 'img,video,canvas{filter:brightness(.7) !important}';
+var _NIGHT_MEDIA_CSS = 'img,video,canvas{filter:brightness(.5) !important}';
 function _articleDarkenCss(dimMedia) {
   var flipBack = (dimMedia ? _NIGHT_MEDIA_DIM : '') + 'invert(1) hue-rotate(180deg)';
   return [
@@ -14648,7 +14652,7 @@ function _msPreferencesHtml() {
     '<div class="ms-section-label">' + tH('ms_display_section') + '</div>' +
     '<div class="ms-theme-label">' + tH('app_theme') + '</div>' +
     _appThemeSegHtml() +
-    '<div class="ms-hint">' + tH('app_theme_hint') + '</div>' +
+    '<div class="ms-hint" id="app-theme-hint">' + _appThemeHintHtml() + '</div>' +
 
     // Reading: everything about how an article reads, in one place. The two
     // choices first, then the switches.

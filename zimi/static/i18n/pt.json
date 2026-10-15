@@ -540,6 +540,7 @@
   "api_token": "Token API",
   "app_theme": "Tema",
   "app_theme_hint": "Automático segue a definição clara ou escura do seu dispositivo.",
+  "app_theme_hint_red": "O vermelho mantém a tela escura e vermelha, para que seus olhos continuem adaptados ao escuro.",
   "app_update_available": "Atualização disponível: {v}",
   "app_update_channel": "Canal de atualização",
   "app_update_channel_beta": "Beta",

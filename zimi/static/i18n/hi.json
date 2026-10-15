@@ -540,6 +540,7 @@
   "api_token": "API टोकन",
   "app_theme": "थीम",
   "app_theme_hint": "ऑटो आपके डिवाइस की लाइट या डार्क सेटिंग का अनुसरण करता है।",
+  "app_theme_hint_red": "लाल रंग स्क्रीन को धीमा और लाल रखता है, ताकि आपकी आँखें अँधेरे की आदी रहें।",
   "app_update_available": "अपडेट उपलब्ध: {v}",
   "app_update_channel": "अपडेट चैनल",
   "app_update_channel_beta": "बीटा",

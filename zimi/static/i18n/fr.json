@@ -540,6 +540,7 @@
   "api_token": "Jeton API",
   "app_theme": "Thème",
   "app_theme_hint": "Automatique suit le réglage clair ou sombre de votre appareil.",
+  "app_theme_hint_red": "Le rouge garde l’écran sombre et rouge, pour que vos yeux restent habitués à l’obscurité.",
   "app_update_available": "Mise à jour disponible : {v}",
   "app_update_channel": "Canal de mise à jour",
   "app_update_channel_beta": "Bêta",

@@ -540,6 +540,7 @@
   "api_token": "אסימון API",
   "app_theme": "ערכת נושא",
   "app_theme_hint": "«אוטומטי» עוקב אחר הגדרת הבהיר או הכהה של המכשיר שלך.",
+  "app_theme_hint_red": "אדום שומר על המסך עמום ואדום, כדי שהעיניים יישארו רגילות לחושך.",
   "app_update_available": "עדכון זמין: {v}",
   "app_update_channel": "ערוץ עדכונים",
   "app_update_channel_beta": "בטא",
