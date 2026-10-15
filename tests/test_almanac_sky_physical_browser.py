@@ -437,12 +437,12 @@ def test_red_night_mode_is_red_and_the_switch_is_readable(browser, served):
         assert ch["r"] > 0 and ch["g"] < 0.12 * ch["r"] and ch["b"] < 0.08 * ch["r"], ch
         pg.evaluate("ZimiSky.setRedMode(false)")
         assert pg.evaluate("window.__red") == [True, False]
-        # It is the one switch every view shares (localStorage zimi.night, the night-red class on <html>):
+        # It is the one switch every view shares (the Red theme in localStorage zimi_app_theme, the night-red class on <html>):
         # the sky wrote it, and follows it when another view flips it.
-        assert pg.evaluate("localStorage.getItem('zimi.night')") is None
+        assert pg.evaluate("localStorage.getItem('zimi_app_theme')") is None
         pg.evaluate("ZimiSky.setRedMode(true)")
-        assert pg.evaluate("localStorage.getItem('zimi.night')") == "red"
-        pg.evaluate("localStorage.removeItem('zimi.night'); document.documentElement.classList.remove('night-red'); ZimiSky.setRedMode(false)")
+        assert pg.evaluate("localStorage.getItem('zimi_app_theme')") == "red"
+        pg.evaluate("localStorage.removeItem('zimi_app_theme'); document.documentElement.classList.remove('night-red'); ZimiSky.setRedMode(false)")
         pg.evaluate("window.__red = []; document.documentElement.classList.add('night-red')")
         pg.wait_for_function("() => window.__red.length === 1 && ZimiSky.redMode()", polling=POLL_MS)
         assert pg.evaluate("window.__red") == [True]

@@ -4089,7 +4089,7 @@
 .cr-ver:hover, .cr-ver:focus-visible { color: var(--amber); border-bottom-color: var(--amber); }
 .cr-detail { margin: -4px 0 8px; font-size: 12px; text-align: end; }
 
-/* Red night light (app.js _nightApply): deep red on black, so the phone costs no night vision.
+/* Red night light (app.js _applyAppTheme, the Red theme): deep red on black, so the phone costs no night vision.
    Every tier of text is at least 4.5:1 on every surface; pictures (logo, moon, covers) are
    turned to red monochrome so no other colour is left on the screen. */
 :root.night-red, :root.night-red .almanac-view, :root.night-red body.almanac-mode, :root.night-red.almanac-boot body { --bg: #000; --surface: #0d0000; --surface2: #160000; --border: #5a1414; --border-strong: #7a1c1c; --text: #ff5a5a; --text2: #f03030;
@@ -4105,6 +4105,17 @@
 /* Quiet things stay readable: no 30% stars or faded close marks at night. */
 :root.night-red .dc-dismiss, :root.night-red .star-btn, :root.night-red .cat-heading-other { opacity: 1; }
 :root.night-red #reader-frame { background: #000; }
+/* A ZIM's own page is HTML and CSS we do not write: Red is a filter over the frame, after the
+   page has been darkened as in Dark (app.js _syncFrameNight). Zimi's own pages are not filtered. */
+:root.night-red #reader-frame.night-filter { filter: url(#night-red-frame); }
+/* The rest of the surface the page does not colour: scrollbars, the selection, a focus ring, a form
+   control's accent, the caret, so none of them is a grey or white or blue light in the dark. */
+:root.night-red, :root.night-red * { scrollbar-color: var(--border-strong) #000; }
+:root.night-red ::-webkit-scrollbar { background: #000; }
+:root.night-red ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+:root.night-red ::selection { background: rgba(255,64,64,0.35); color: var(--text); }
+:root.night-red { accent-color: var(--amber); caret-color: var(--amber); }
+:root.night-red :focus-visible { outline-color: var(--amber); }
 .night-btn { display: none; align-items: center; justify-content: center; flex-shrink: 0; width: 36px; height: 28px; padding: 0; color: var(--text2); background: none; border: 1px solid transparent; border-radius: var(--radius); cursor: pointer; }
 .night-btn:hover, .night-btn:focus-visible { color: var(--amber); outline: none; }
 .night-btn[aria-pressed="true"] { color: var(--amber); border-color: var(--amber-border); }

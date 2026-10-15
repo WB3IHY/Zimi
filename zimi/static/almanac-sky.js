@@ -603,17 +603,17 @@ function _skySet(k, v) {
 }
 
 // ── Red night mode ──
-// The one switch every view shares: localStorage 'zimi.night' = 'red', stamped
-// as the class night-red on <html> (by the shell before first paint). The sky
-// follows it, draws deep red on black when it is set, and flips it through
-// _nightApply when its own checkbox does.
+// Red is one of the app's themes (Light, Dark, Red), stamped as the class
+// night-red on <html> (by the shell before first paint). The sky follows it,
+// draws deep red on black when it is set, and its own checkbox is a shortcut
+// that chooses the theme through _nightSet.
 var SKY_NIGHT_CLASS = 'night-red';
 var _skyRedSeen = false;
 function _skyRedOn() {
   var root = typeof document !== 'undefined' && document.documentElement;
   return !!(root && root.classList && root.classList.contains(SKY_NIGHT_CLASS));
 }
-// The switch is the shell's (app.js _nightSet: the one key, the class on <html>); the sky follows.
+// The switch is the shell's (app.js _nightSet: the theme, the class on <html>); the sky follows.
 function _skySetRed(on) {
   if (typeof _nightSet === 'function') _nightSet(on);
   _skyRedChanged();

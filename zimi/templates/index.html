@@ -48,13 +48,23 @@
     el.classList.add('theme-boot');
     try {
       var m = localStorage.getItem('zimi_app_theme') || 'auto';
-      var dark = m === 'dark' || (m !== 'light' && !(window.matchMedia &&
+      // Red used to be its own switch under 'zimi.night'; someone who had it on
+      // keeps it, as the theme, with what it sat on top of remembered.
+      if (localStorage.getItem('zimi.night') === 'red') {
+        localStorage.removeItem('zimi.night');
+        if (m !== 'red') { localStorage.setItem('zimi_app_theme_before_red', m); m = 'red'; localStorage.setItem('zimi_app_theme', m); }
+      }
+      var red = m === 'red';
+      var dark = red || m === 'dark' || (m !== 'light' && !(window.matchMedia &&
         window.matchMedia('(prefers-color-scheme: light)').matches));
       var t = dark ? 'dark' : 'light';
       el.setAttribute('data-theme', t);
       el.style.colorScheme = t;
-      // Red night light (one key for the sky and the Field Guide, app.js _nightApply).
-      el.classList.toggle('night-red', localStorage.getItem('zimi.night') === 'red');
+      // Red (app.js _applyAppTheme): the class, and the browser's own chrome black.
+      el.classList.toggle('night-red', red);
+      var tc = document.querySelector('meta[name="theme-color"]');
+      if (red && !tc) { tc = document.createElement('meta'); tc.name = 'theme-color'; document.head.appendChild(tc); }
+      if (tc) { if (red) tc.content = '#000000'; else tc.remove(); }
     } catch(e) {
       el.setAttribute('data-theme', 'dark');
       el.style.colorScheme = 'dark';
@@ -84,7 +94,8 @@
 <link rel="stylesheet" href="/static/almanac.css?v=3">
 </head>
 <body>
-<!-- Red night light: pictures become red monochrome (app.css night-red) --><svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="night-red-filter" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.5 0.5 0.15 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/></filter></svg>
+<!-- Red night light (app.css night-red): pictures become red monochrome; night-red-frame is the same over a whole ZIM page in the reader, its mid-tones lifted so grey text stays readable while a dark ground stays black -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="night-red-filter" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.5 0.5 0.15 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/></filter><filter id="night-red-frame" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.3 0.58 0.12 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/><feComponentTransfer><feFuncR type="table" tableValues="0 0 0.03 0.18 0.45 0.7 0.85 0.93 0.97 1 1"/></feComponentTransfer></filter></svg>
 
 <a href="#main-view" class="skip-link" data-i18n="skip_to_main">Skip to main content</a>
 
