@@ -234,20 +234,33 @@ check(vm.runInContext('_skyAct({ type: "sun", x: 100, y: 100, r: 9, alt: 30, az:
 delete S.window.openAlmanacEarth.unsupported;
 
 // ── 7. One clock ──
-vm.runInContext('var _almFocus = null; var _heroMoonAnim = null; var __reduce = false; function _almReduceMotion() { return __reduce; }' +
+vm.runInContext('var __store = {}; var localStorage = { getItem: function (k) { return k in __store ? __store[k] : null; }, setItem: function (k, v) { __store[k] = String(v); }, removeItem: function (k) { delete __store[k]; } };' +
+  'var _almFocus = null; var _heroMoonAnim = null; var __reduce = false; function _almReduceMotion() { return __reduce; }' +
   'var __painted = 0; _skyPaint = function () { __painted++; };' +
-  '_skyState = { inView: true, eph: { sunGeoAlt: -30 }, actors: [], bodies: [], moonAnim: null, nowTime: Date.now() };', S);
-const MOVING = '_skySpawnBirds,_skySpawnMeteor,_skySpawnPlane,_skySpawnWhale,_skySwayTick';   // the beach's: the spawners and the palms' breeze
+  '_skyState = { inView: true, eph: { sunGeoAlt: -30 }, lm: 7, actors: [], bodies: [], moonAnim: null, nowTime: Date.now() };' +
+  'function _skySolarMinutes() { return 360; };' +
+  '_skyRand = function () { return 0.99; };', S);   // a meteor's wait is drawn at random: here always a short one, so the timer is the meteor's own
+const MOVING = '_skyPollSatsTick,_skySpawnBirds,_skySpawnMeteor,_skySpawnPlane,_skySpawnWhale,_skySwayTick';   // the beach's: the spawners, the palms' breeze, and the wait for the ISS's elements
 const armed = () => { timers.length = 0; vm.runInContext('_skyArm()', S); return timers.map((x) => x.fn.name).sort().join(','); };
-// The true horizon is the default: nothing but the clock's drift, at night or by day, and no twinkle at all.
+// The true horizon, chosen: nothing but the clock's drift, at night or by day, and no twinkle at all.
+vm.runInContext('_skySettings = { skin: "horizon", lines: "off", size: "auto", dial: 0 }', S);
 check(armed() === '_skyLiveTick', 'live at night: the clock\'s drift and nothing else (no twinkle, no breeze, nothing crossing)');
 vm.runInContext('_almFocus = new Date(0)', S);
 check(armed() === '', 'scrubbed: no live timer, the sky holds the focused instant');
 vm.runInContext('_almFocus = null; _skyState.eph.sunGeoAlt = 20', S);
 check(armed() === '_skyLiveTick', 'by day the same');
-// The beach is a choice: its palms sway and its planes, birds, whales and meteors cross.
-vm.runInContext('_skySettings = { skin: "beach", lines: "lines", size: "auto", dial: 0 }', S);
-check(armed() === '_skyLiveTick,' + MOVING, 'the beach scene: the clock, the palms and the moving things');
+// The beach is the default: its palms sway and its planes, birds, whales and meteors cross, with nothing chosen.
+vm.runInContext('_skySettings = null; localStorage.removeItem("zimi_sky_settings")', S);
+check(vm.runInContext('_skySetting("skin")', S) === 'beach', 'nothing chosen: the scene is the beach with its life');
+check(armed() === '_skyLiveTick,' + MOVING, 'the default scene: the clock, the palms and the moving things');
+// A viewer who chose the true horizon keeps it, and one who chose something else is not made to choose the scene.
+vm.runInContext('_skySettings = null; localStorage.setItem("zimi_sky_settings", JSON.stringify({ skin: "horizon" }))', S);
+check(vm.runInContext('_skySetting("skin")', S) === 'horizon' && armed() === '_skyLiveTick', 'a saved true horizon stays the true horizon');
+vm.runInContext('_skySettings = null; localStorage.setItem("zimi_sky_settings", JSON.stringify({ lines: "lines" })); _skySetting("lines")', S);
+check(vm.runInContext('_skySetting("skin")', S) === 'beach', 'saving another choice does not save the scene with it');
+vm.runInContext('_skySet("lines", "names")', S);
+check(JSON.parse(vm.runInContext('localStorage.getItem("zimi_sky_settings")', S)).skin === undefined, 'only what was chosen is kept');
+vm.runInContext('_skySettings = null; localStorage.removeItem("zimi_sky_settings")', S);
 vm.runInContext('__reduce = true', S);
 check(armed() === '_skyLiveTick', 'motion reduced: no breeze and nothing crossing, even on the beach');
 vm.runInContext('__reduce = false; _skySettings = null; _skyState.lens = { az: 0, alt: 0, fov: 60 };', S);
@@ -267,21 +280,25 @@ vm.runInContext('_almanacSkyRAF = null; _skyKick(); _skyKick();', S);
 check(frames.length === 1, 'two asks while a frame is pending make one frame, never a second loop');
 frames[0](2000);
 check(frames.length === 1 && vm.runInContext('_almanacSkyRAF', S) === null, 'still: after painting, no frame loop');
-// A plane crossing: the loop runs while it is on screen, painting at most
-// every SKY_ACTOR_FRAME_MS (thirty a second, not sixty), and stops once it has gone.
-frames.length = 0;
-vm.runInContext('_almanacSkyRAF = null; __painted = 0; _skyState.baseDirty = false; _skyState.paintedAt = 0;' +
+// A plane crossing: no vsync loop. A timer asks for each frame at
+// SKY_ACTOR_FRAME_MS (thirty a second, not sixty wakes for thirty paints), and
+// stops once the plane has gone.
+frames.length = 0; timers.length = 0;
+vm.runInContext('_almanacSkyRAF = null; __painted = 0; _skyState.baseDirty = false; _skyState.paintedAt = 0; _skyTimers.actor = 0;' +
   '_skyState.actors = [{ type: "plane", start: 0, dur: 1000 }];', S);
 const step = vm.runInContext('SKY_ACTOR_FRAME_MS', S);
 // _skyPaint is the counter here; a real paint drops the plane once its time is up.
 vm.runInContext('_skyPaint = function (ts) { __painted++; _skyState.actors = _skyState.actors.filter((a) => ts - a.start <= a.dur); };', S);
-for (const ts of [100, 100 + step / 2, 100 + step + 1, 100 + step * 1.5 + 1, 100 + step * 2 + 2]) {
-  vm.runInContext('_almanacSkyRAF = null; _skyLoop(' + ts + ')', S);
-}
-check(vm.runInContext('__painted', S) === 3 && frames.length === 5, 'a plane: a frame each vsync, a paint every other one (' + vm.runInContext('__painted', S) + ' of 5)');
-frames.length = 0;
-vm.runInContext('_almanacSkyRAF = null; _skyLoop(1200)', S);
-check(frames.length === 0 && vm.runInContext('_skyState.actors.length', S) === 0, 'gone from the sky, the loop stops');
+vm.runInContext('_skyLoop(100)', S);
+const tick = timers.filter((x) => x.fn.name === '_skyActorTick');
+check(vm.runInContext('__painted', S) === 1 && frames.length === 0 && tick.length === 1 && tick[0].ms === step, 'a plane: one paint, no vsync loop, the next frame asked for by a timer ' + step + ' ms on');
+timers.length = 0; tick[0].fn();
+check(frames.length === 1 && vm.runInContext('_skyTimers.actor', S) === 0, 'the timer asks for exactly one frame');
+frames[0](100 + step + 1);
+check(vm.runInContext('__painted', S) === 2 && timers.some((x) => x.fn.name === '_skyActorTick'), 'which paints, and asks for the next');
+frames.length = 0; timers.length = 0;
+vm.runInContext('_skyTimers.actor = 0; _almanacSkyRAF = null; _skyLoop(1200)', S);
+check(frames.length === 0 && !timers.some((x) => x.fn.name === '_skyActorTick') && vm.runInContext('_skyState.actors.length', S) === 0, 'gone from the sky, nothing is asked for');
 // The time machine's frames move the instant without a new loop.
 frames.length = 0;
 vm.runInContext('_almanacSkyRAF = null; _skyState.moonData = null; _skySetInstant(new Date("2026-10-01T06:00:00Z"))', S);
