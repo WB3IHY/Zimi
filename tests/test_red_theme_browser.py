@@ -197,7 +197,7 @@ def test_red_holds_in_an_app_page_the_reader_frame_shows(base, phone):
     _open(phone, base, "/#fieldguide")
     phone.wait_for_function(
         "(() => { var f = document.getElementById('reader-frame'); var d = f && f.contentDocument;"
-        " return !!(d && d.documentElement.classList.contains('night-red')); })()",
+        " return !!(d && d.documentElement && d.documentElement.classList.contains('night-red')); })()",
         timeout=15000,
     )
     # An app page brings its own Red; a filter over it as well would dim its text to a muddy red.
