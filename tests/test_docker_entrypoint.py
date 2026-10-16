@@ -180,6 +180,29 @@ def test_a_writable_data_folder_as_non_root_is_silent(
     assert capsys.readouterr().err == ""
 
 
+def test_an_empty_library_folder_is_taken_but_one_with_files_is_not(
+    ep, root_run, monkeypatch, tmp_path
+):
+    empty, full, data = tmp_path / "empty", tmp_path / "full", tmp_path / "config"
+    for d in (empty, full, data):
+        d.mkdir()
+    (full / "a.zim").write_text("x")
+    monkeypatch.setattr(ep, "_writable_by", lambda uid, gid, p: False)
+    _as_owner(ep, monkeypatch, 0)
+    ep.main(["python3"], {"ZIM_DIR": str(empty)})
+    assert [p for p, _, _ in root_run.chown] == [str(empty)]
+    root_run.chown.clear()
+    ep.main(["python3", "serve", "--zim-dir", str(full)], {"ZIMI_DATA_DIR": str(data)})
+    assert str(full) not in {p for p, _, _ in root_run.chown}
+    assert str(data) in {p for p, _, _ in root_run.chown}
+
+
+def test_a_library_folder_that_is_not_mounted_is_not_invented(ep, root_run, tmp_path):
+    ep.main(["python3"], {"ZIM_DIR": str(tmp_path / "zims")})
+    assert not (tmp_path / "zims").exists()
+    assert root_run.chown == []
+
+
 def test_the_dockerfile_uses_the_entrypoint_and_not_a_fixed_user():
     text = open(os.path.join(ROOT, "Dockerfile"), encoding="utf-8").read()
     lines = [ln.strip() for ln in text.splitlines() if not ln.lstrip().startswith("#")]

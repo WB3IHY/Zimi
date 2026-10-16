@@ -10,8 +10,10 @@ privileges before Zimi's code runs.
 
 What it touches, and what it never does:
 
-* Only the data folder (--data-dir, else ZIMI_DATA_DIR). Never the ZIM folder
-  and never an extra or read-only library folder: those are somebody's files.
+* The data folder (--data-dir, else ZIMI_DATA_DIR), and Zimi's own library
+  folder (--zim-dir, else ZIM_DIR) only while it is empty: a fresh mount has
+  no files to be wrong about. Never a library folder that holds files, and
+  never an extra or read-only one (ZIMI_EXTRA_ZIM_DIRS): those are somebody's.
 * Only when the folder is owned by root and `zimi` cannot already write to it.
   A folder some other user owns is left alone and the error says how to fix it.
 * Started with --user (or runAsUser), the process is not root, so nothing is
@@ -29,14 +31,19 @@ import sys
 RUN_AS = "zimi"
 
 
+def folder_from(argv, environ, flag, variable):
+    """A folder the server will use (the flag beats the environment), or None."""
+    for i, arg in enumerate(argv):
+        if arg == flag and i + 1 < len(argv):
+            return argv[i + 1]
+        if arg.startswith(flag + "="):
+            return arg.split("=", 1)[1]
+    return environ.get(variable) or None
+
+
 def data_dir_from(argv, environ):
     """The data folder the server will use, or None when it derives its own."""
-    for i, arg in enumerate(argv):
-        if arg == "--data-dir" and i + 1 < len(argv):
-            return argv[i + 1]
-        if arg.startswith("--data-dir="):
-            return arg.split("=", 1)[1]
-    return environ.get("ZIMI_DATA_DIR") or None
+    return folder_from(argv, environ, "--data-dir", "ZIMI_DATA_DIR")
 
 
 def _writable_by(uid, gid, path):
@@ -63,9 +70,14 @@ def _chown_tree(root, uid, gid):
                 pass
 
 
-def take_ownership(path, uid, gid):
-    """Make the data folder usable by uid. Returns a message when it could not."""
+def take_ownership(path, uid, gid, create=True, empty_only=False):
+    """Make a folder usable by uid. Returns a message when it could not.
+
+    ``create=False`` leaves a missing folder missing. ``empty_only`` leaves a
+    folder that holds anything alone: a library's files are not ours to chown."""
     if not os.path.isdir(path):
+        if not create:
+            return None
         try:
             os.makedirs(path, exist_ok=True)
             os.lchown(path, uid, gid)
@@ -73,6 +85,8 @@ def take_ownership(path, uid, gid):
             return f"could not create {path} ({e.strerror})"
         return None
     if _writable_by(uid, gid, path):
+        return None
+    if empty_only and os.listdir(path):
         return None
     owner = os.stat(path).st_uid
     if owner != 0:
@@ -126,10 +140,15 @@ def main(argv=None, environ=None):
     path = data_dir_from(argv, environ)
     if os.geteuid() == 0:
         user = pwd.getpwnam(RUN_AS)
-        if path:
-            problem = take_ownership(path, user.pw_uid, user.pw_gid)
-            if problem:
-                print(f"zimi: {problem}", file=sys.stderr, flush=True)
+        library = folder_from(argv, environ, "--zim-dir", "ZIM_DIR")
+        for folder, only in (
+            (path, {}),
+            (library, {"create": False, "empty_only": True}),
+        ):
+            if folder:
+                problem = take_ownership(folder, user.pw_uid, user.pw_gid, **only)
+                if problem:
+                    print(f"zimi: {problem}", file=sys.stderr, flush=True)
         drop_privileges(user)
     elif path:
         warn_if_unwritable(path)
