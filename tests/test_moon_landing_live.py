@@ -32,6 +32,7 @@ Run: pytest tests/test_moon_landing_live.py -v
 """
 
 import io
+import math
 import os
 import sys
 import threading
@@ -182,10 +183,66 @@ def _axis(pg):
 
 
 # ── 1. The swap is invisible ──
+# The Moon alone at rest (LP_REST 'moon') is the picture's twin, pixel for pixel. The limb at rest sees the
+# Moon from a degree aside of the Earth (its camera clears the Earth), so its Moon is within a couple of device
+# pixels of the picture's, and the picture fades into it rather than being swapped.
+REST_MOON = "try{localStorage.setItem('zimi.lpRest','moon')}catch(e){}"
+LIMB_PIXELS = 3   # the most the degree aside may move the Moon's face (CSS px)
+
+
 @pytest.mark.parametrize("iso", DATES)
 def test_the_live_scene_is_the_picture(browser, served, shots, iso):
-    ctx, pg, errors = _almanac(browser, served)
+    ctx, pg, errors = _almanac(browser, served, init=REST_MOON)
     _swap_is_invisible(ctx, pg, errors, shots, iso, "landing")
+
+
+@pytest.mark.parametrize("iso", DATES)
+def test_the_limb_at_rest_holds_the_pictures_moon(browser, served, shots, iso):
+    import numpy as np
+    from PIL import Image
+
+    ctx, pg, errors = _almanac(browser, served)
+    try:
+        _settle(pg, iso)
+        assert pg.evaluate("() => _lpRestMode()") == "limb"
+        # The band is wider than the hero, behind its words, and the picture fades into it.
+        band = pg.evaluate(
+            "() => { var c = document.querySelector('#almanac-head canvas.lp-in-hero.lp-band');"
+            " var r = c.getBoundingClientRect(), h = document.querySelector('%s').getBoundingClientRect();"
+            " return { w: r.width, hw: h.width, top: r.top, ht: h.top, z: getComputedStyle(c).zIndex,"
+            " pic: getComputedStyle(document.querySelector('#almanac-head .almanac-moon')).animationName }; }" % HERO
+        )
+        assert band["w"] > band["hw"] * 1.5 and band["top"] < band["ht"] and band["z"] == "-1", band
+        assert band["pic"] == "lp-out", band
+        pg.wait_for_timeout(800)
+        clip = _rect(pg)
+        live = _png(pg.screenshot(clip=clip))
+        pg.evaluate("() => _lpRelease()")
+        pg.wait_for_timeout(200)
+        flat = _png(pg.screenshot(clip=clip))
+        tag = iso[:13].replace(":", "")
+        live.save(os.path.join(shots, "limb-%s-live.png" % tag))
+        # Inside the disc only: the Earth's limb may stand in the hero's corners.
+        w, h = flat.size
+        yy, xx = np.mgrid[0:h, 0:w]
+        disc = (xx - w / 2 + 0.5) ** 2 + (yy - h / 2 + 0.5) ** 2 < (min(w, h) / 2 - 2) ** 2
+        a, b = np.asarray(flat, dtype=float)[disc], np.asarray(live, dtype=float)[disc]
+        # The yardstick: what that degree aside moves the Moon's face by (its radius times the angle, in device
+        # pixels), and a pixel more for the filtering; the picture moved by that much.
+        aside = pg.evaluate(
+            "() => { var sc = _ae.scene, p = _lpRestPose(sc, _aeRollDeg('moon', sc.ms));"
+            " var cam = _lpCamPos(p), a = _aeNorm(_aeSub(cam, sc.moon)), b = _aeNorm(_aeScale(sc.moon, -1));"
+            " return Math.acos(Math.min(1, _aeDot(a, b))); }"
+        )
+        shift = math.sin(aside) * w / 2 + 1
+        assert shift < LIMB_PIXELS * DPR + 1, (iso, aside, shift)
+        moved = np.asarray(flat.transform(flat.size, Image.AFFINE, (1, 0, shift, 0, 1, 0), resample=Image.BILINEAR), dtype=float)[disc]
+        mad, pixels = float(np.abs(a - b).mean()), float(np.abs(a - moved).mean())
+        print("%s: limb MAD %.2f, the aside's %.1f device pixels' shift %.2f" % (iso, mad, shift, pixels))
+        assert mad < pixels, (iso, mad, pixels)
+        assert not errors, errors
+    finally:
+        ctx.close()
 
 
 def test_the_live_scene_is_the_picture_on_an_iphone(browser, pw, served, shots):
@@ -194,6 +251,7 @@ def test_the_live_scene_is_the_picture_on_an_iphone(browser, pw, served, shots):
     pg = ctx.new_page()
     errors = []
     pg.on("pageerror", lambda e: errors.append(str(e)))
+    pg.add_init_script(REST_MOON)
     pg.goto(served + "/#almanac", wait_until="load")
     _wait_live(pg)
     _swap_is_invisible(ctx, pg, errors, shots, DATES[1], "iphone15")

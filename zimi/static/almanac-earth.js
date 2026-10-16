@@ -1698,6 +1698,9 @@ function _aeHeroFrame() {
 // The hero's camera at a scene, for `hand` (its frame, and any turn a drag
 // has given the Moon since the swap).
 function _aeHandCam(sc, hand) {
+  // The landing's Moon at rest may stand elsewhere (behind the Earth): the hero is drawn from there.
+  var rest = typeof _lpRestHandCam === 'function' ? _lpRestHandCam(sc, hand) : null;
+  if (rest) return rest;
   var dist = _aeLen(sc.moon) - AE_HAND_EARTH_GAP;
   var azel = _aeAzElOf(_aeScale(sc.moon, -1));
   var f = hand.frame;

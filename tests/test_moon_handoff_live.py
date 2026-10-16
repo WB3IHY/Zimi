@@ -163,17 +163,26 @@ def _mad(a, b):
     return float(np.abs(np.asarray(a, dtype=float) - np.asarray(b, dtype=float)).mean())
 
 
+# The Moon at rest is the Moon alone (the picture) or the limb (the Earth beside it, drawn from behind the
+# Earth): either way the first 3D frame is the hero as it stood, the picture or the live band.
+@pytest.mark.parametrize("rest", ["moon", "limb"])
 @pytest.mark.parametrize("iso", DATES)
-def test_the_first_3d_frame_is_the_hero(browser, served, shots, iso):
+def test_the_first_3d_frame_is_the_hero(browser, served, shots, iso, rest):
     from PIL import Image, ImageChops
 
-    ctx, pg, errors = _almanac(browser, served)
+    ctx, pg, errors = _almanac(
+        browser, served, init="try{localStorage.setItem('zimi.lpRest','%s')}catch(e){}" % rest
+    )
     try:
         _settle(pg, iso)
         clip = _rect(pg)
-        # The flat picture: the live scene (almanac-landing.js) stands aside, as before it was ready.
-        pg.evaluate("() => _lpRelease()")
-        pg.wait_for_timeout(200)
+        if rest == "moon":
+            # The flat picture: the live scene (almanac-landing.js) stands aside, as before it was ready.
+            pg.evaluate("() => _lpRelease()")
+            pg.wait_for_timeout(200)
+        else:
+            # The live band, once the picture has faded into it.
+            pg.wait_for_timeout(800)
         flat = _png(pg.screenshot(clip=clip))
         # Hold the swap at its first frame (a long flight), so the screenshot
         # is the page as composited with the 3D Moon standing in.
@@ -189,10 +198,10 @@ def test_the_first_3d_frame_is_the_hero(browser, served, shots, iso):
         pg.wait_for_timeout(200)
         first = _png(pg.screenshot(clip=clip))
         tag = iso[:13].replace(":", "")
-        flat.save(os.path.join(shots, "handoff-%s-flat.png" % tag))
-        first.save(os.path.join(shots, "handoff-%s-3d.png" % tag))
+        flat.save(os.path.join(shots, "handoff-%s-%s-flat.png" % (rest, tag)))
+        first.save(os.path.join(shots, "handoff-%s-%s-3d.png" % (rest, tag)))
         diff = ImageChops.difference(flat, first).point(lambda v: min(255, v * 4))
-        diff.save(os.path.join(shots, "handoff-%s-diff.png" % tag))
+        diff.save(os.path.join(shots, "handoff-%s-%s-diff.png" % (rest, tag)))
         mad = _mad(flat, first)
         # The yardstick: the same flat picture moved by one device pixel.
         moved = flat.transform(
@@ -472,9 +481,12 @@ def test_the_cost(browser, served):
         assert pg.evaluate("() => _ae.gl.renderer.getContext().drawingBufferWidth") > 1
         pg.evaluate("() => _aeClose()")
         pg.wait_for_function("() => !_aeIsOpen", timeout=10000, polling=POLL_MS)
-        # Not the screen's: the hero's own rectangle (the landing draws the Moon there again), at the view's pixel ratio.
+        # Not the screen's: the hero's own band (the landing draws the Moon, and the Earth beside it, there again),
+        # at the view's pixel ratio.
         assert pg.evaluate(
-            "() => _ae.gl.renderer.getContext().drawingBufferWidth <= document.querySelector(AE_HERO_SEL).offsetWidth * _ae.gl.dpr"
+            "() => { var gl = _ae.gl.renderer.getContext(), h = document.querySelector(AE_HERO_SEL);"
+            " return gl.drawingBufferHeight <= (h.offsetHeight + LP_BAND_ABOVE_PX + LP_BAND_BELOW_PX) * _ae.gl.dpr"
+            " && gl.drawingBufferHeight < innerHeight * _ae.gl.dpr / 2; }"
         )
         lost = pg.evaluate(
             """() => { var gl = _ae.gl.renderer.getContext(); closeAlmanac();

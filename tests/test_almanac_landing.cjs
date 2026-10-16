@@ -85,16 +85,24 @@ const DATES = ['2026-10-16T09:00:00Z', '2025-11-21T00:00:00Z', '2026-03-03T12:00
   check(E('_lpSnap(3.9)').stop === 4 && E('_lpSnap(-1)').stop === 0, 'snapping stays on the axis');
 }
 
-// ── 2. The first stop is the Earth view's Moon preset ──
+// ── 2. The first stop is the Moon at rest: behind the Earth, the Earth's limb beside the Moon ──
+// (LP_REST 'limb': the camera stands back along the line from the Moon through the Earth, a little aside.)
 for (const iso of DATES) {
-  const sc = at(iso);
-  const cam = E('_lpStopCams(_aeSceneAt(' + Date.parse(iso) + '), ' + JSON.stringify(PHONE) + ')')[0];
-  const azel = E('_aeAzElOf(_aeScale(_aeSceneAt(' + Date.parse(iso) + ').moon, -1))');
+  const ms = Date.parse(iso), sc = at(iso);
+  const cam = E('_lpStopCams(_aeSceneAt(' + ms + '), ' + JSON.stringify(PHONE) + ')')[0];
+  const pos = E('_lpCamPos(' + JSON.stringify(cam) + ')');
   check(vlen(sub(cam.tp, sc.moon)) < 1e-9, iso + ': stop 0 looks at the Moon');
-  near(cam.dist, E('_aeFitDist(AE_FIT_MOON, ' + PHONE.aspect + ')'), 1e-9, iso + ': stop 0 stands where the Moon preset stands');
-  near(cam.az, azel.az, 1e-12, iso + ': from the Earth\'s side (azimuth)');
-  near(cam.el, azel.el, 1e-12, iso + ': from the Earth\'s side (elevation)');
   check(cam.roll === PHONE.moonRoll, iso + ': in the observer\'s sky (the roll is the Moon\'s)');
+  const toMoon = sub(sc.moon, pos), toEarth = [-pos[0], -pos[1], -pos[2]];
+  const behind = Math.acos(dot(toMoon, sc.moon) / vlen(toMoon) / vlen(sc.moon)) * DEG;
+  check(behind < 3, iso + ': seen from behind the Earth, the Moon as from the Earth (' + behind.toFixed(2) + ' deg off)');
+  check(vlen(pos) > vlen(sc.moon) * 0.5, iso + ': the camera stands well back from the Earth');
+  const mu = Math.asin(E('AE_MOON_RADIUS_RE') / vlen(toMoon)), rho = Math.asin(1 / vlen(toEarth));
+  near(Math.tan(rho) / Math.tan(mu), E('LP_REST_EARTH_MOONS'), 0.05, iso + ': the Earth as large as it is from there');
+  const apart = Math.acos(dot(toMoon, toEarth) / vlen(toMoon) / vlen(toEarth));
+  near((apart - rho - mu) / Math.tan(mu), E('LP_REST_GAP_MOONS'), 1e-3, iso + ': the limbs this far apart (Moon radii)');
+  check(apart - rho > mu, iso + ': the Earth covers no part of the Moon');
+  near(Math.tan(mu) * (PHONE.height / 2) / cam.th, E('LP_REST_MOON_PX'), 0.01, iso + ': the Moon as large in the view as in the hero');
 }
 
 // ── 3. Every stop holds what it is named for, Sun up ──
