@@ -572,6 +572,11 @@ def test_the_light_clock_on_a_ride(browser, served):
         pg.evaluate(
             "_orrerySnapToNow(); _orreryLaunchRocket('Mars'); _orreryTwinInput(80)"
         )
+        # The twins and the light clock open from "What if it flew faster?" and
+        # are not drawn while closed.
+        assert pg.evaluate("document.getElementById('orrery-twin').hidden")
+        assert not pg.evaluate("document.getElementById('orrery-lc-gamma').textContent")
+        pg.click("#orrery-twin-link")
         pg.wait_for_function(
             "() => document.getElementById('orrery-lc-gamma') && document.getElementById('orrery-lc-gamma').textContent",
             polling=POLL_MS,

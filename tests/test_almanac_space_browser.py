@@ -157,6 +157,12 @@ def test_a_parked_view_asks_for_no_frames(browser, served):
             "() => { window.__raf = 0; window.__who = []; const o = window.requestAnimationFrame.bind(window);"
             " window.requestAnimationFrame = (f) => { window.__raf++; window.__who.push(String(f).slice(0, 90)); return o(f); }; }"
         )
+        # A late section filling in under the view (On this day, on a slow
+        # server) is no reason for a frame either.
+        pg.evaluate(
+            "() => { const d = document.getElementById('almanac-onthisday');"
+            " if (d) d.style.minHeight = (d.offsetHeight + 40) + 'px'; }"
+        )
         pg.wait_for_timeout(4000)
         assert pg.evaluate("window.__raf") == 0, pg.evaluate("window.__who")
         assert pg.evaluate(

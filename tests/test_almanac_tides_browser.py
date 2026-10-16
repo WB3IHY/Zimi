@@ -41,6 +41,8 @@ SF = {"lat": 37.8063, "lon": -122.4659, "name": "San Francisco"}
 PENSACOLA = {"lat": 30.4044, "lon": -87.2112, "name": "Pensacola"}
 POLL_MS = 100
 STILL_PX = 3
+# How far a first visit's guess may be from the drawn tide (fonts differ by platform).
+FIRST_GUESS_PX = 40
 DRAWN = "() => !!document.querySelector('#almanac-place .at-section')"
 
 
@@ -202,6 +204,35 @@ def test_the_tide_section_keeps_the_height_it_will_draw_at(browser, served):
             pg.evaluate("document.getElementById('almanac-place').style.minHeight")
             == ""
         )
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_a_first_visit_keeps_about_the_height_the_tide_draws_at(browser, served):
+    # Nothing remembered yet: the space kept is the guess, and a guess far from
+    # what is drawn moves everything below it once the tide lands.
+    ctx = _context(browser)
+    held = []
+    ctx.route("**/almanac-place?*", lambda route: held.append(route))
+    try:
+        pg, errors = _open(ctx, served)
+        pg.wait_for_function(
+            "() => parseFloat(document.getElementById('almanac-place').style.minHeight) > 0",
+            polling=POLL_MS,
+        )
+        kept = pg.evaluate(
+            "parseFloat(document.getElementById('almanac-place').style.minHeight)"
+        )
+        for _ in range(600):
+            if held:
+                break
+            pg.wait_for_timeout(POLL_MS)
+        while held:
+            held.pop().continue_()
+        pg.wait_for_function(DRAWN, polling=POLL_MS, timeout=60000)
+        drawn = pg.evaluate("document.getElementById('almanac-place').offsetHeight")
+        assert abs(kept - drawn) <= FIRST_GUESS_PX, (kept, drawn)
         assert not errors, errors
     finally:
         ctx.close()

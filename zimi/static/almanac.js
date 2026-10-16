@@ -1878,17 +1878,13 @@ function _almSecBarInit() {
     _almSecBarSync();
   }, { root: root, rootMargin: '-' + line + 'px 0px -' + rest + 'px 0px', threshold: 0 });
   sections.forEach(function (s) { s.els.forEach(function (e) { st.io.observe(e); }); });
-  // A late section (the tide) or an empty one filling in changes the set.
+  // A late section (the tide) or an empty one filling in changes the set. The
+  // observer already runs once per laid-out frame, so it asks for none: a
+  // parked page stays without frames.
   if ('ResizeObserver' in window) {
-    var again = false;
+    var keys = function (list) { return list.map(function (s) { return s.key; }).join(); };
     st.ro = new ResizeObserver(function () {
-      if (again) return;
-      again = true;
-      requestAnimationFrame(function () {
-        again = false;
-        var now = _almSecBarFind().map(function (s) { return s.key; }).join();
-        if (_almSecBar === st && (root.clientHeight !== st.h || now !== st.sections.map(function (s) { return s.key; }).join())) _almSecBarInit();
-      });
+      if (_almSecBar === st && (root.clientHeight !== st.h || keys(_almSecBarFind()) !== keys(st.sections))) _almSecBarInit();
     });
     ['#almanac-place', '#almanac-onthisday'].forEach(function (sel) {
       var el = document.querySelector('#almanac-content ' + sel);
@@ -2177,9 +2173,9 @@ function _almRefReady(fn) {
 // station list opening under the reader's own tap grows where they look.
 var _ALM_PLACE_H_KEY = 'zimi_almanac_place_h';
 var _ALM_PLACE_H_MAX = 24;                             // remembered heights kept
-var _ALM_PLACE_GUESS_PX = { tide: 760, empty: 170 };   // before any is remembered
-var _ALM_PLACE_GUESS_NARROW_PX = 770;                  // a phone's column wraps more
-var _ALM_NARROW_PX = 480;
+// Before any is remembered. The tide is drawn at one height on a phone and
+// on a wide screen; measure it again when the tide section changes.
+var _ALM_PLACE_GUESS_PX = { tide: 530, empty: 170 };
 
 // The late sections being watched, and whether any is still arriving.
 var _almLate = [];
@@ -2243,8 +2239,7 @@ function _almPlaceHeights() {
 }
 function _almPlaceReserve(host) {
   var known = _almPlaceHeights()[_almPlaceHKey(host)];
-  var guess = !_getLocation().stored ? _ALM_PLACE_GUESS_PX.empty
-    : host.clientWidth < _ALM_NARROW_PX ? _ALM_PLACE_GUESS_NARROW_PX : _ALM_PLACE_GUESS_PX.tide;
+  var guess = _getLocation().stored ? _ALM_PLACE_GUESS_PX.tide : _ALM_PLACE_GUESS_PX.empty;
   host.style.minHeight = (known || guess) + 'px';
 }
 // Called by almanac-tides.js each time it has drawn its answer: remember the
