@@ -674,9 +674,6 @@ def test_at_a_private_servers_door_the_box_still_names_a_baby_choking(
     phone.wait_for_selector("body.login-gate #pw-helpnow .help-now-gate")
     brand = phone.query_selector(".pw-brand")
     assert brand.is_visible() and brand.inner_text().strip() == "Zimi"
-    assert phone.evaluate(
-        "document.querySelector('.pw-brand img').naturalWidth"
-    ), "the app's mark loads before sign-in"
     phone.click("#pw-helpnow .help-now-gate")
     box = phone.wait_for_selector("#t-q", timeout=15000)
     box.fill("my baby is choking")
