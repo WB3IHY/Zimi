@@ -4,6 +4,61 @@
 
 Point Zimi at NOMAD's ZIM folder and everything NOMAD has is in Zimi. Anything NOMAD downloads shows up in Zimi in about a minute, with no restart. Zimi reads the files where they are: no copy, no move, nothing written beside them.
 
+## In NOMAD, in a minute
+
+This needs **Zimi 1.15.0 or later**. In NOMAD, open **Supply Depot** and choose **Add a custom app**, then enter:
+
+| Field | Value |
+| --- | --- |
+| Name | `Zimi` |
+| Image | `epheterson/zimi:1.15.0` (pin the version; NOMAD's auto-update stays yours to decide) |
+| Port | host `8600` to container `8899` |
+| Volume | `/opt/project-nomad/storage/zim` to `/nomad` |
+| Volume | `/opt/project-nomad/storage/zimi` to `/config` |
+| Volume | `/opt/project-nomad/storage/zimi-library` to `/zims` |
+| Environment | `ZIMI_EXTRA_ZIM_DIRS=/nomad` |
+| Environment | `ZIMI_LAN_ADMIN=1` |
+| Environment | `ZIMI_TORRENT=0` |
+
+If you moved NOMAD's storage, use your own path on the left of each volume. The same app through NOMAD's API:
+
+```bash
+curl -X POST http://<your-nomad>:8080/api/system/services/custom \
+  -H 'content-type: application/json' -d '{
+  "friendly_name": "Zimi", "image": "epheterson/zimi:1.15.0", "category": "education",
+  "ports": [{"container": 8899, "host": 8600}],
+  "volumes": [
+    {"host_path": "/opt/project-nomad/storage/zim", "container_path": "/nomad"},
+    {"host_path": "/opt/project-nomad/storage/zimi", "container_path": "/config"},
+    {"host_path": "/opt/project-nomad/storage/zimi-library", "container_path": "/zims"}],
+  "env": ["ZIMI_EXTRA_ZIM_DIRS=/nomad", "ZIMI_LAN_ADMIN=1", "ZIMI_TORRENT=0"]
+}'
+```
+
+Then make the Information Library tile open Zimi: in **Supply Depot**, find **Information Library**, choose **Manage**, then **Edit**, and set its launch URL to `http://<your-nomad>:8600`. Or with the API: `curl -X PUT http://<your-nomad>:8080/api/system/services/custom-url -H 'content-type: application/json' -d '{"service_name": "nomad_kiwix_server", "custom_url": "http://<your-nomad>:8600"}'`. NOMAD keeps its own link and the override survives its upgrades; clear the field to switch back. Kiwix keeps running underneath for NOMAD's own plumbing.
+
+What the three volumes and settings do:
+
+- `/nomad` is NOMAD's ZIM folder, read in place. Zimi never writes, renames or deletes there, even though NOMAD offers no read-only option for a custom app's volumes.
+- `/config` holds Zimi's own state (indexes, bookmarks, settings). `/zims` is Zimi's own library, for ZIMs you fetch or create in Zimi. Neither folder has to exist or be owned by anyone: Docker creates a missing bind folder as root, and the image takes ownership of an empty one itself before it drops to its own user. A folder that already holds files, or belongs to another user, is never changed.
+- `ZIMI_LAN_ADMIN=1` lets devices on your network manage Zimi without a login, which matches NOMAD's own Command Center (it has none). Without it, a fresh install asks for a setup key printed in Zimi's log before it opens. Leave it out and set a password instead if other people share the network, and do not combine it with a public address.
+- `ZIMI_TORRENT=0` keeps Zimi from asking your router to open a port. HTTP downloads still work.
+
+### What you see
+
+Tap the Information Library tile and you land in Zimi with NOMAD's ZIMs, searchable together.
+
+- **Nothing downloaded yet:** Zimi says Project NOMAD has no ZIMs yet and that content downloaded there shows up here in about a minute.
+- **One ZIM:** Zimi opens it directly.
+- **NOMAD still downloading:** the home page says what is arriving ("Downloading in Project NOMAD: 1 ZIM, 52 MB so far"). A ZIM appears about a minute after NOMAD finishes it (NOMAD writes it as `.zim.tmp` first and renames it when whole).
+- **NOMAD removes a ZIM:** it leaves Zimi in under a minute. Bookmarks to it stay and read "Source no longer installed", and come back if the ZIM does.
+- **Anything that would write to NOMAD's folder is off:** Delete is replaced by "In Project NOMAD" on each ZIM, and tapping it says why. NOMAD's updates are NOMAD's.
+- **Two NOMAD ZIMs of one family** (for example a mini and a full Wikipedia) are one entry in Zimi: the newer edition is shown, and Settings, Server, Storage says how many are not shown.
+
+### Links you already have
+
+Kiwix addresses from NOMAD's Information Library work against Zimi, so bookmarks and pasted links keep working: `/content/<book>/<page>`, `/viewer#<book>/<page>`, and a pasted Kiwix search (`/search?content=<book>&pattern=<words>`). A Kiwix book name carries the file's date (`wikipedia_en_100_2026-08`); Zimi finds the ZIM either way. Nothing else of Kiwix's is imitated: NOMAD does not use Kiwix's catalog or raw endpoints, so Zimi has no use for them either.
+
 ## What Zimi will and will not do to NOMAD's files
 
 A folder added this way is read-only as far as Zimi is concerned, whether or not the mount allows writing.
@@ -16,7 +71,7 @@ A folder added this way is read-only as far as Zimi is concerned, whether or not
 
 ## Docker
 
-This needs **Zimi 1.15.0 or later**. An older image ignores `ZIMI_EXTRA_ZIM_DIRS` without a word and shows an empty library, so check the version under Settings, Server first.
+The same setup outside NOMAD's custom-app form. This needs **Zimi 1.15.0 or later**. An older image ignores `ZIMI_EXTRA_ZIM_DIRS` without a word and shows an empty library, so check the version under Settings, Server first.
 
 NOMAD keeps its ZIMs in `<storage>/zim`, and its installer puts storage at `/opt/project-nomad/storage` ([install script](https://github.com/Crosstalk-Solutions/project-nomad/blob/main/install/install_nomad.sh), [compose file](https://github.com/Crosstalk-Solutions/project-nomad/blob/main/install/management_compose.yaml)). If you moved NOMAD's storage, use your path in place of `/opt/project-nomad/storage` below. Mount the folder read-only and tell Zimi about it:
 
