@@ -1321,7 +1321,9 @@ body.look-open { overflow: hidden; }
 :root.night-red .look-sky, :root.night-red .look-globe { background: #000; }
 :root.night-red .almanac-sky-wrap.sky-red canvas { background: #000; }
 :root.night-red #almanac-view .almanac-eclipse-type { color: var(--text2) !important; }
-:root.night-red #almanac-view svg path[fill]:not([fill="none"]) { fill: var(--text2); }
+:root.night-red #almanac-view svg path[fill]:not([fill="none"]):not([fill^="url"]) { fill: var(--text2); }
+/* Emoji draw in their own colours whatever the theme: red monochrome like the pictures. */
+:root.night-red #almanac-view .alm-emoji { filter: url(#night-red-filter); }
 
 /* Looking down: what is under the feet, in words. The place under the dot, the nearest article one tap
    below it; Zimi Earth is a quiet way out beside it, not the loudest thing on the screen. */

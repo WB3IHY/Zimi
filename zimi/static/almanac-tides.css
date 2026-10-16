@@ -98,3 +98,11 @@
 .at-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .at-row-kind { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); }
 .at-row-km { font-size: 12px; color: var(--text3); font-variant-numeric: tabular-nums; }
+
+/* Red: the water, the Sun, the Earth and the Moon of the figure in the palette's reds, apart by
+   brightness; the moment shown stays the brightest thing (var(--amber)). */
+:root.night-red #almanac-place { --at-water: #a8140a; --at-water-line: var(--text2); --at-sun: var(--amber2); --at-night: rgba(0, 0, 0, 0.45); }
+:root.night-red .at-m-bar { opacity: 0.7; }
+:root.night-red .at-fig-earth { fill: #3c0803; }
+:root.night-red .at-fig-moon-dark { fill: #2a0502; }
+:root.night-red .at-fig-moon-lit { fill: var(--text2); }

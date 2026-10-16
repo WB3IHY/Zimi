@@ -5882,12 +5882,12 @@ function _renderMeteorShowers(now, moon) {
       '<span class="almanac-eclipse-type">' + _alLink('shower:' + s.key, t('alm_shower_' + s.key)) + '</span>' +
       '<br><span class="almanac-eclipse-date">~' + s.zhr + t('alm_per_hour') + ' &middot; ' + _lc(s.radiant) + ' &middot; ' + t('alm_speed_' + s.speed.toLowerCase()) +
       ' &middot; ' + t('alm_shower_parent', { name: _alLink('parent:' + s.key, _almEsc(s.parent)) }) +
-      ' &middot; <span style="color:' + condColor + '">' + s.moonIcon + ' ' + s.moonCondition + '</span></span>' +
+      ' &middot; <span style="color:' + condColor + '"><span class="alm-emoji">' + s.moonIcon + '</span> ' + s.moonCondition + '</span></span>' +
       '</div>' +
       '<div class="' + untilClass + '">' + untilStr + '</div></div>';
   }
   html += '<div style="margin-top:10px;font-size:11px;color:var(--text3)">' + t('alm_moon_conditions') + ': ' +
-    '\u{1F311} ' + t('alm_moon_ideal_desc') + ' &middot; \u{1F313} ' + t('alm_moon_fair') + ' &middot; \u{1F315} ' + t('alm_moon_poor_desc') + '</div>';
+    '<span class="alm-emoji">\u{1F311}</span> ' + t('alm_moon_ideal_desc') + ' &middot; <span class="alm-emoji">\u{1F313}</span> ' + t('alm_moon_fair') + ' &middot; <span class="alm-emoji">\u{1F315}</span> ' + t('alm_moon_poor_desc') + '</div>';
   el.innerHTML = html;
 }
 
