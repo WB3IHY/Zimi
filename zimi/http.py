@@ -1302,6 +1302,13 @@ def _public_zim_entry(entry):
     return {k: v for k, v in entry.items() if k not in _PRIVATE_ZIM_FIELDS}
 
 
+def _library_folders():
+    """The other programs' folders for /list?layout=1, no paths."""
+    from zimi import libfolders
+
+    return libfolders.summary()
+
+
 def _mark_external(entries):
     """What the page needs to know about ZIMs in a folder another program owns.
     ``external`` is that folder's label (the page hides Delete and Update: the
@@ -2696,6 +2703,9 @@ class ZimHandler(BaseHTTPRequestHandler):
                             "zims": result,
                             "section_order": layout.get("section_order", []),
                             "sections": layout.get("sections", []),
+                            # Folders another program owns, for the empty and
+                            # "still downloading" states. Memory only.
+                            "folders": _library_folders(),
                         },
                     )
                 return self._json(200, result)

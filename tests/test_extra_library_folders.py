@@ -339,6 +339,52 @@ def test_a_quiet_library_costs_one_listing_per_tick(lib, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# What the home page says: an empty folder, a download still arriving
+# ---------------------------------------------------------------------------
+
+
+def test_a_download_under_way_is_counted_until_it_is_renamed(lib):
+    _, nomad = lib
+    libfolders.add(str(nomad))
+    watch = libfolders.Watch()
+    assert libfolders.summary() == [
+        {"label": "Project NOMAD", "incoming_files": 0, "incoming_bytes": 0}
+    ]
+    (nomad / "wikipedia_en_all_2026-10.zim.tmp").write_bytes(b"x" * 1000)
+    (nomad / "gutenberg_en_all_2026-10.zim.tmp").write_bytes(b"y" * 500)
+    watch.tick()
+    (only,) = libfolders.summary()
+    assert (only["incoming_files"], only["incoming_bytes"]) == (2, 1500)
+    for f in nomad.glob("*.tmp"):
+        f.unlink()
+    watch.tick()
+    assert libfolders.summary()[0]["incoming_files"] == 0
+
+
+def test_asking_what_is_arriving_never_reads_the_disk(lib, monkeypatch):
+    _, nomad = lib
+    libfolders.add(str(nomad))
+    libfolders.Watch().tick()
+    libfolders.folders()  # the folder list is cached too
+    monkeypatch.setattr(libfolders.glob, "glob", lambda *a, **k: pytest.fail("listed a folder"))
+    monkeypatch.setattr(libfolders.os.path, "isdir", lambda *a: pytest.fail("looked at a folder"))
+    assert libfolders.summary()[0]["label"] == "Project NOMAD"
+
+
+def test_no_other_folder_means_no_summary(lib):
+    assert libfolders.summary() == []
+
+
+def test_nomads_storage_zim_is_named_even_before_it_has_a_library_file(tmp_path):
+    folder = tmp_path / "opt" / "storage" / "zim"
+    folder.mkdir(parents=True)
+    assert libfolders._default_label(str(folder)) == "Project NOMAD"
+    other = tmp_path / "opt" / "elsewhere" / "zim"
+    other.mkdir(parents=True)
+    assert libfolders._default_label(str(other)) == "zim"
+
+
+# ---------------------------------------------------------------------------
 # Never touch what is not ours
 # ---------------------------------------------------------------------------
 
@@ -403,6 +449,23 @@ class TestRoutes(unittest.TestCase):
                 return r.status, json.loads(r.read() or b"{}")
         except urllib.error.HTTPError as e:
             return e.code, json.loads(e.read() or b"{}")
+
+    def test_the_layout_list_carries_the_folders_and_the_bare_list_does_not(self):
+        self._req(
+            "/manage/library-folders",
+            {"action": "add", "path": self._nomad, "label": "Project NOMAD"},
+        )
+        st, bare = self._req("/list")
+        self.assertIsInstance(bare, list)
+        st, wrapped = self._req("/list?layout=1")
+        self.assertEqual(
+            wrapped["folders"],
+            [{"label": "Project NOMAD", "incoming_files": 0, "incoming_bytes": 0}],
+        )
+
+    def test_the_layout_list_without_other_folders_has_none(self):
+        _, wrapped = self._req("/list?layout=1")
+        self.assertEqual(wrapped["folders"], [])
 
     def test_add_shows_the_folder_and_flags_its_zims(self):
         st, d = self._req(
