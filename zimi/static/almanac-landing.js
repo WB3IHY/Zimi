@@ -258,12 +258,177 @@ function _lpStarScale(near, far) {
   return Math.min(radius, far * LP_STAR_FAR_SHARE) / AE_STAR_RADIUS;
 }
 
+// ── The scene's solar layer ──
+// Built into the Earth view's scene when it is: the planets' orbits (one loop each, in the layout's
+// frame and moved with the Sun), a dot for each planet, the Earth and the Moon (for when their discs
+// fall under a pixel), and the two rays of sunlight. Nothing here is drawn while the camera is at the
+// Moon or the Earth and Moon, except the rays.
+var LP_ORBIT_POINTS = 128;
+var LP_ORBIT_ALPHA = 0.26, LP_ORBIT_EARTH_ALPHA = 0.4;
+var LP_RAY_ALPHA = 0.5;
+var LP_RAY_FROM = 0.15, LP_RAY_TO = 0.55;        // the rays come in as the camera leaves the Moon
+var LP_RAY_OUT = 1.5;                            // and are gone by here, past the pair (stops)
+var LP_SATS_HIDDEN_FROM = 0.45;                 // the Earth's satellites are a speck on it from here out
+var LP_PHASE_FROM = 0.6, LP_PHASE_TO = 2.3;      // the phase disc stands from the pair out to the Earth stop
+var LP_RAY_LENGTH_RE = 38;                       // each ray's length at the pair, at least
+var LP_RAY_ORBIT_SHARE = 0.6;                    // and a share of the Moon's distance, so it stands out of the pair's view
+var LP_ORBITS_FROM = 1.6, LP_ORBITS_TO = 2.0;    // orbits and dots come in between the pair and the Earth stop
+var LP_DOT_COLORS = { Moon: '#c8c8c8' };
+
+function _lpBuildSolar(S) {
+  var THREE = S.THREE;
+  var group = new THREE.Group();
+  group.matrixAutoUpdate = false;
+  var orbits = EPH_PLANET_KEYS.map(function (k) {
+    var line = _aeLine(THREE, THREE.LineLoop, LP_ORBIT_POINTS, _lpHexInt(EPH_PLANET[k].color), k === 'Earth' ? LP_ORBIT_EARTH_ALPHA : LP_ORBIT_ALPHA);
+    line.geometry.setDrawRange(0, LP_ORBIT_POINTS);
+    group.add(line);
+    return { key: k, line: line };
+  });
+  S.scene.add(group);
+  var dots = _aePointCloud(THREE, EPH_PLANET_KEYS.length + 1, S.dpr, true, { depthTest: true });
+  S.scene.add(dots);
+  var rays = _aeLine(THREE, THREE.LineSegments, 4, 0xffe9a8, LP_RAY_ALPHA);
+  S.scene.add(rays);
+  return { group: group, orbits: orbits, dots: dots, rays: rays, orbitsAt: null, basis: new THREE.Matrix4(), vx: new THREE.Vector3(), vy: new THREE.Vector3(), vz: new THREE.Vector3(), v: new THREE.Vector3() };
+}
+function _lpHexInt(hex) { return parseInt(hex.slice(1), 16); }
+
+// The Earth and the Moon, drawn `grow` times their size (1 is true): the meshes' own scales, about their centres.
+function _lpSizeBodies(S, grow) {
+  var L = S.solar;
+  S.earth.scale.set(grow, grow, grow * (1 - AE_EARTH_FLATTENING));
+  S.atmo.scale.setScalar(grow);
+  if (grow !== 1) S.moon.matrix.scale(L.v.set(grow, grow, grow));
+}
+// The orbit loops, in the layout's frame (Sun-centred, J2000 ecliptic, Re): remade when the
+// instant moves by a day or the layout by a hundredth, not every frame.
+var LP_ORBIT_REFRESH_DAYS = 1, LP_ORBIT_REFRESH_LAM = 0.01;
+function _lpUpdateOrbits(L, sc, lam) {
+  if (L.orbitsAt && Math.abs(sc.jd - L.orbitsAt.jd) < LP_ORBIT_REFRESH_DAYS && Math.abs(lam - L.orbitsAt.lam) < LP_ORBIT_REFRESH_LAM) return;
+  L.orbits.forEach(function (o) {
+    var arr = o.line.geometry.attributes.position.array, period = EPH_PLANET[o.key].periodDays;
+    for (var i = 0; i < LP_ORBIT_POINTS; i++) {
+      var p = _lpLaid(_ephBodyJ2000(o.key, sc.jd + period * i / LP_ORBIT_POINTS), lam);
+      arr[i * 3] = p[0]; arr[i * 3 + 1] = p[1]; arr[i * 3 + 2] = p[2];
+    }
+    o.line.geometry.attributes.position.needsUpdate = true;
+  });
+  L.orbitsAt = { jd: sc.jd, lam: lam };
+}
+// The layout frame's turn into the scene, and its origin where the Sun is.
+function _lpOrientGroup(L, sc, sun) {
+  var x = _lpToScene([1, 0, 0], sc), y = _lpToScene([0, 1, 0], sc), z = _lpToScene([0, 0, 1], sc);
+  L.vx.set(x[0], x[1], x[2]); L.vy.set(y[0], y[1], y[2]); L.vz.set(z[0], z[1], z[2]);
+  L.basis.makeBasis(L.vx, L.vy, L.vz);
+  L.basis.setPosition(sun[0], sun[1], sun[2]);
+  L.group.matrix.copy(L.basis);
+  L.group.matrixWorldNeedsUpdate = true;
+}
+// Dot sizes: Mercury's, and a little more for each decade of radius.
+function _lpDotSize(km) { return LP_DOT_PX + LP_DOT_PX_PER_DECADE * Math.max(0, Math.log10(km / EPH_PLANET.Mercury.km)); }
+// How much of an orbit's alpha a stop's distance leaves: orbits belong to the planets' stops.
+function _lpPlanetsIn(u) { return _smoothstep(LP_ORBITS_FROM, LP_ORBITS_TO, u); }
+function _lpRaysIn(u) { return _smoothstep(LP_RAY_FROM, LP_RAY_TO, u) * (1 - _smoothstep(1, LP_RAY_OUT, u)); }
+
+// One frame's worth of the layer: the orbits and dots at the layout lam for a camera at `cam`
+// (distance `dist` from what it looks at, `focal` pixels), the Sun moved between the Earth view's near
+// one and the true one, the rays. Returns where each planet is drawn, for the labels.
+function _lpUpdateSolar(S, sc, ax, vp, focal) {
+  var L = S.solar, u = ax.u, lam = ax.lam, dist = ax.cam.dist, grow = ax.grow;
+  var sun = _lpSunScene(sc, lam);
+  _lpSizeBodies(S, grow);
+  var planets = _lpPlanetsIn(u);
+  var places = {};
+  // The orbits and dots.
+  L.group.visible = planets > 0;
+  if (planets > 0) {
+    _lpUpdateOrbits(L, sc, lam);
+    _lpOrientGroup(L, sc, sun);
+    L.orbits.forEach(function (o) { o.line.material.opacity = (o.key === 'Earth' ? LP_ORBIT_EARTH_ALPHA : LP_ORBIT_ALPHA) * planets * _aeFadeU.value; });
+  }
+  var n = 0;
+  EPH_PLANET_KEYS.forEach(function (k) {
+    var pos = k === 'Earth' ? [0, 0, 0] : _lpBodyScene(k, sc, lam);
+    places[k] = pos;
+    var alpha = planets;
+    // The Earth's dot comes in as its disc falls under a pixel or two, wherever the axis is; the others' with the planets.
+    if (k === 'Earth') alpha = 1 - _smoothstep(LP_DOT_FADE_PX[0], LP_DOT_FADE_PX[1], grow / dist * focal);
+    if (alpha > 0.01) _aeSetPoint(L.dots, n++, pos, _lpHexRGB(EPH_PLANET[k].color), alpha, _lpDotSize(EPH_PLANET[k].km));
+  });
+  // The Moon: a dot as its disc falls under a pixel or two, from the pair outward.
+  var moonPx = grow * AE_MOON_RADIUS_RE / Math.max(1e-6, _aeLen(_aeSub(sc.moon, _lpCamPos(ax.cam)))) * focal;
+  var moonAlpha = _smoothstep(0, LP_PAIR, u) * (1 - _smoothstep(LP_DOT_FADE_PX[0], LP_DOT_FADE_PX[1], moonPx));
+  if (moonAlpha > 0.01) _aeSetPoint(L.dots, n++, sc.moon, _lpHexRGB(LP_DOT_COLORS.Moon), moonAlpha, LP_DOT_PX);
+  places.Moon = sc.moon;
+  _aeCommitPoints(L.dots, n);
+  // The Sun: the Earth view's near one at the Moon and the pair, the true one (laid out) from the Earth stop on.
+  var mix = _smoothstep(Math.log(LP_SUN_MIX_FROM), Math.log(LP_SUN_MIX_TO), Math.log(dist));
+  var nearDist = AE_SUN_SHOW_DIST, farDist = _aeLen(sun);
+  var d = _aeLogLerp(nearDist, farDist, mix), dir = _aeNorm(sc.sun);
+  S.sun.position.set(dir[0] * d, dir[1] * d, dir[2] * d);
+  var camToSun = Math.max(1, _aeLen(_aeSub([dir[0] * d, dir[1] * d, dir[2] * d], _lpCamPos(ax.cam))));
+  var farR = Math.max(AE_SUN_RADIUS_RE, LP_SUN_FLOOR_PX * camToSun / focal);
+  var r = _aeLogLerp(AE_SUN_SHOW_R, farR, mix);
+  S.sun.scale.setScalar(r / AE_SUN_SHOW_R);
+  S.sunGlowUni.center.value.copy(S.sun.position);
+  S.sunGlowUni.radius.value = r;
+  places.Sun = [dir[0] * d, dir[1] * d, dir[2] * d];
+  // The two rays of sunlight, Earth's and Moon's, parallel, as long as the pair's view is wide.
+  var rays = _lpRaysIn(u);
+  L.rays.visible = rays > 0;
+  if (rays > 0) {
+    var len = Math.max(LP_RAY_LENGTH_RE, _aeLen(sc.moon) * LP_RAY_ORBIT_SHARE), arr = L.rays.geometry.attributes.position.array;
+    var seg = [[0, 0, 0], sc.moon];
+    for (var i = 0; i < 2; i++) {
+      var a = seg[i], b = _lpAdd3(a, _aeScale(dir, len));
+      arr.set(a, i * 6); arr.set(b, i * 6 + 3);
+    }
+    L.rays.geometry.attributes.position.needsUpdate = true;
+    L.rays.geometry.setDrawRange(0, 4);
+    L.rays.material.opacity = LP_RAY_ALPHA * rays * _aeFadeU.value;
+    places.Ray = _lpAdd3(sc.moon, _aeScale(dir, len));
+  }
+  return places;
+}
+function _lpAdd3(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+
 // ── Styles, with the module ──
+var LP_TRACK_BOTTOM_PX = 236;                // the track stops above the controls and the hint
 var LP_CSS = [
   // The canvas in the hero: over the picture, under the finger (the disc's own handlers take the touch).
   '.lp-in-hero{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;border-radius:50%;cursor:inherit}',
   '.almanac-view.lp-live .almanac-moon{visibility:hidden}',
-  '.almanac-view.lp-nogl .almanac-moon-open{cursor:default}'
+  // Red night light: the live Moon in the hero is turned red the way the picture it stands in for is (an image's
+  // filter, app.css), not the way a canvas is (brighter): the swap from one to the other changes nothing you see.
+  ':root.night-red canvas.lp-in-hero:not([data-red]){filter:grayscale(1) sepia(1) hue-rotate(-42deg) saturate(10) brightness(.9);filter:url(#night-red-filter)}',
+  '.almanac-view.lp-nogl .almanac-moon-open{cursor:default}',
+  // The axis: a thin track on the end edge, the stops on it, the way back at its foot.
+  '.lp-track{position:absolute;inset-inline-end:10px;top:118px;bottom:' + LP_TRACK_BOTTOM_PX + 'px;width:2px;background:rgba(255,255,255,.22);border-radius:1px;display:none;opacity:var(--ae-ui,1);pointer-events:none}',
+  '.ae-view.lp-axis .lp-track{display:block}',
+  // A tick is a 44 px target (a finger's), its mark a 12 px dot, its words beside it.
+  '.lp-tick{position:absolute;inset-inline-end:-21px;width:44px;height:44px;margin-bottom:-22px;padding:0;border:0;background:none;cursor:pointer;pointer-events:auto;-webkit-tap-highlight-color:transparent}',
+  '.lp-tick::before{content:"";position:absolute;inset:16px;border-radius:50%;background:rgba(18,18,20,.9);border:1.5px solid var(--text2)}',
+  '.lp-tick:focus-visible{outline:none}.lp-tick:focus-visible::before{border-color:var(--amber);box-shadow:0 0 0 3px var(--amber-glow)}',
+  '.lp-tick.lp-on::before{background:var(--amber);border-color:var(--amber)}',
+  '.lp-tick-text{position:absolute;inset-inline-end:36px;top:50%;transform:translateY(-50%);text-align:end;white-space:nowrap;font-size:11px;line-height:1.3;color:var(--text2);text-shadow:0 1px 2px #000,0 0 4px #000;pointer-events:none}',
+  '.lp-tick-text b{display:block;font-weight:500;color:var(--text)}',
+  '.lp-tick-text i{display:none;font-style:normal;font-size:10.5px;color:var(--text2)}',
+  '.lp-tick.lp-on .lp-tick-text i{display:block}',
+  '.lp-knob{position:absolute;inset-inline-end:-4px;width:10px;height:10px;margin-bottom:-5px;border-radius:50%;background:var(--amber);box-shadow:0 0 6px rgba(245,158,11,.7);pointer-events:none}',
+  '.lp-scale{display:none;font-size:12px;line-height:1.3;color:var(--amber);text-shadow:0 1px 3px #000;pointer-events:none}',
+  '.ae-view.lp-axis .lp-scale.lp-show{display:block}',
+  '.ae-view.lp-axis #ae-views{display:none}',
+  '.lp-phase{position:absolute;inset-inline-start:16px;top:62px;width:56px;text-align:center;font-size:10.5px;line-height:1.25;color:var(--text2);text-shadow:0 1px 2px #000;pointer-events:none;display:none;opacity:0;transition:opacity .25s}',
+  '.ae-view.lp-axis .lp-phase{display:block}',
+  '.lp-phase img{display:block;width:56px;height:56px;border-radius:50%}',
+  '.lp-phase.lp-show{opacity:1}',
+  '@media (prefers-reduced-motion: reduce){.lp-phase{transition:none}}',
+  // Red night light: every tint here is the one red.
+  '.night-red .lp-knob,.night-red .lp-tick.lp-on::before{box-shadow:none}',
+  '.night-red .lp-scale{color:var(--text)}',
+  '.night-red .lp-track{background:var(--border-strong)}',
+  '.night-red .lp-tick::before{background:rgba(0,0,0,.9)}'
 ].join('\n');
 function _lpEnsureStyles() {
   if (document.getElementById('lp-style')) return;
@@ -279,7 +444,14 @@ var _lpState = {
   canvas: null,        // the view's canvas, held while it stands in the hero
   drawnMs: null,       // the instant the hero's scene was last drawn for
   watchHead: null, watchHero: null,
-  queued: false
+  queued: false,
+  axis: null,          // { u, fly, tilt }: the axis while the view is open on it
+  ax: null,            // the camera on the axis this frame: { cam, lam, u }
+  gesture: null,       // the drag under way: { key, kind, dir }
+  places: null,        // where each body was drawn last frame, for the labels
+  pending: null,       // a drag's travel before the scene was ready: { dx, dy, dir, at }
+  uiKey: null, phaseKey: null,   // what the ticks' words and the phase disc were last written for
+  dom: false, hinted: false
 };
 function _lpById(id) { return document.getElementById(id); }
 
@@ -400,3 +572,333 @@ function _lpRelease() {
   _lpState.axis = null; _lpState.ax = null; _lpState.gesture = null;
   if (_ae) _ae.axis = null;
 }
+
+// ── The axis in the open view ──
+function _lpReduceMotion() { return _aeReduceMotion(); }
+// A drag that began before the scene was ready is not lost: its travel waits (a drag's end, a slow network, a
+// page still painting) and is played the moment the view opens on the axis.
+var LP_PENDING_MS = 15000;
+function _lpQueueDrag(dx, dy) {
+  var now = performance.now(), p = _lpState.pending;
+  if (!p || now - p.at > LP_PENDING_MS) p = _lpState.pending = { dx: 0, dy: 0, dir: 0, at: now };
+  if (!p.dir && dx) p.dir = dx > 0 ? 1 : -1;
+  p.dx += dx * (p.dir || 1); p.dy += dy; p.at = now;
+}
+function _lpEnterAxis(u) {
+  if (!_ae.gl || !_ae.gl.solar) return;   // the layer did not build: the view stays the classic one
+  _lpEnsureStyles();
+  _lpEnsureDom();
+  var pend = _lpState.pending && performance.now() - _lpState.pending.at <= LP_PENDING_MS ? _lpState.pending : null;
+  _lpState.pending = null;
+  _lpState.axis = { u: pend ? Math.max(0, Math.min(LP_LAST, u + Math.max(0, pend.dx) / LP_PX_PER_STOP)) : u, fly: null,
+               tilt: pend ? Math.max(-LP_TILT_MAX, Math.min(LP_TILT_MAX, pend.dy * LP_TILT_PER_PX)) : 0 };
+  _lpState.uiKey = _lpState.phaseKey = null;
+  // The view's target is the Moon while the axis is on (as the hand-off sets it): a tap on the Earth or the Sun
+  // is then a tap on something else, and hands over to the view's own flight to it.
+  _ae.target = 'moon';
+  _ae.axis = _lpState.axis;
+  _ae.el.classList.add('lp-axis');
+  _ae.dirty = true;
+}
+function _lpActive() { return !!(_ae && _ae.axis); }
+// Fly the axis to stop `to` (or settle on it); `done` runs when it has arrived.
+function _lpFlyTo(to, ms, done) {
+  var ax = _ae.axis;
+  if (!ax) return;
+  var from = ax.u, span = Math.abs(to - from);
+  if (_lpReduceMotion() || span < 1e-3) { ax.u = to; ax.fly = null; _ae.dirty = true; _aeKick(); if (done) done(); return; }
+  ax.fly = { from: from, to: to, start: performance.now(), ms: ms || Math.max(LP_SNAP_MS, LP_FLY_MS_PER_STOP * Math.sqrt(span)), done: done };
+  _aeKick();
+}
+function _lpStepAxis(now) {
+  var ax = _ae.axis, f = ax && ax.fly;
+  if (!f) return false;
+  var p = Math.max(0, Math.min(1, (now - f.start) / f.ms)), e = _aeEaseInOut(p);
+  ax.u = f.from + (f.to - f.from) * e;
+  if (p >= 1) { ax.u = f.to; ax.fly = null; if (f.done) f.done(); }
+  _ae.dirty = true;
+  return true;
+}
+function _lpBusy() { return !!(_ae.axis && (_ae.axis.fly || _lpState.gesture)); }
+// A way back that goes by the axis: from the far stops the camera flies home to the Moon first.
+function _lpCloseFirst(then) {
+  var ax = _ae && _ae.axis;
+  if (!ax || ax.u < 0.02) return false;
+  _lpFlyTo(0, Math.min(900, LP_FLY_MS_PER_STOP * Math.sqrt(ax.u)), then);
+  return true;
+}
+
+// ── The camera and the scene, each frame ──
+// The view's camera for this frame (it replaces the view's own while the axis is on).
+function _lpViewport() {
+  var sc = _ae.scene;
+  return { aspect: _ae.w / _ae.h, height: _ae.h, moonRoll: _aeRollDeg('moon', sc.ms) };
+}
+function _lpAxisView(c) {
+  var ax = _ae.axis, sc = _ae.scene;
+  var st = _lpAxisCam(ax.u, sc, _lpViewport(), ax.tilt);
+  _lpState.ax = st;
+  var cam = st.cam;
+  return { tp: cam.tp, az: cam.az, el: cam.el, dist: cam.dist, tanHalf: c.tanHalf, roll: cam.roll, frame: { x: 0, y: -LP_VIEW_SHIFT_PX, w: _ae.w, h: _ae.h } };
+}
+// After the camera stands: the solar layer, and what the camera needs of it. Where the axis is off the layer is
+// folded away and the Sun is the view's own again.
+function _lpFrame(pos) {
+  var S = _ae.gl, L = S.solar, sc = _ae.scene;
+  if (!L) return null;
+  if (!_ae.axis || !_lpState.ax) { _lpIdle(S); return null; }
+  var ax = _lpState.ax, focal = _aeFocalPx();
+  _lpState.places = _lpUpdateSolar(S, sc, ax, _lpViewport(), focal);
+  var sunDist = _aeLen(_aeSub([S.sun.position.x, S.sun.position.y, S.sun.position.z], pos));
+  var reach = Math.max(ax.cam.dist, sunDist) * LP_FAR_FACTOR;
+  return { far: Math.max(AE_FAR, reach) };
+}
+function _lpIdle(S) {
+  var L = S.solar;
+  if (L.group.visible) L.group.visible = false;
+  _aeCommitPoints(L.dots, 0);
+  if (L.rays.visible) L.rays.visible = false;
+  if (S.sun.scale.x !== 1) { S.sun.scale.setScalar(1); S.sunGlowUni.radius.value = AE_SUN_SHOW_R; }
+  _lpSizeBodies(S, 1);
+  _lpState.places = null;
+}
+// ── Taps, drags and keys ──
+// The view's zoom (a wheel, a pinch): along the axis, a stop's worth for a sixfold change of distance.
+var LP_ZOOM_PER_STOP = 6;
+function _lpZoomBy(factor) {
+  var ax = _ae.axis;
+  ax.fly = null;
+  ax.u = Math.max(0, Math.min(LP_LAST, ax.u + Math.log(factor) / Math.log(LP_ZOOM_PER_STOP)));
+  _ae.dirty = true;
+  _aeKick();
+  _lpSettleSoon();
+}
+// A wheel or pinch has no release: settle on a stop when it has been still a moment.
+var LP_SETTLE_IDLE_MS = 450;
+function _lpSettleSoon() {
+  clearTimeout(_lpState.settleTimer);
+  _lpState.settleTimer = setTimeout(_lpDragEnd, LP_SETTLE_IDLE_MS);
+}
+var LP_DATE_FROM = 0.7, LP_DATE_TO = 1.5;       // where a drag on the Moon's line changes the date (the Moon is a dot beyond)
+var LP_MOON_GRAB_PX = 48, LP_LINE_GRAB_PX = 26;
+var LP_SIDEREAL_MONTH_DAYS = 27.321661;
+var LP_MS_PER_DAY = 86400000;
+function _lpDist2Seg(p, a, b) {
+  var dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+  var t = len2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+// A pointer's place on the view's canvas (the view stands below the page's header): what _aeProject returns.
+function _lpOnCanvas(x, y) {
+  var r = _lpCanvas().getBoundingClientRect();
+  return { x: x - r.left, y: y - r.top };
+}
+// A drag that begins on the Moon or the line to it, between the pair and the Earth, turns the date.
+function _lpStartGesture(key) {
+  var g = { key: key, kind: 'axis', dir: 0 };
+  var ax = _ae.axis, sc = _ae.scene;
+  if (key !== 'hero' && key && ax.u >= LP_DATE_FROM && ax.u <= LP_DATE_TO && sc) {
+    var moon = _aeProject(sc.moon), earth = _aeProject([0, 0, 0]);
+    var at = _lpOnCanvas(key.x0, key.y0), now = _lpOnCanvas(key.x, key.y);
+    if (moon && earth && (Math.hypot(at.x - moon.x, at.y - moon.y) <= LP_MOON_GRAB_PX || _lpDist2Seg(at, earth, moon) <= LP_LINE_GRAB_PX)) {
+      g.kind = 'date';
+      g.center = earth;
+      g.angle = Math.atan2(now.y - earth.y, now.x - earth.x);
+    }
+  }
+  return g;
+}
+// The Moon follows the finger round the Earth: its angle on the screen is the date's, a sidereal month a turn.
+function _lpDateDrag(g) {
+  var d = _ae.drag;
+  if (!d) return;
+  var at = _lpOnCanvas(d.x, d.y);
+  var a = Math.atan2(at.y - g.center.y, at.x - g.center.x);
+  var turn = ((a - g.angle + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
+  g.angle = a;
+  // On the screen the Moon runs against the clock hands as seen from the ecliptic's north: screen angle (y down) falls as longitude rises.
+  _aeRunClock(-turn / AE_TWO_PI * LP_SIDEREAL_MONTH_DAYS * LP_MS_PER_DAY);
+  _ae.dirty = true;
+}
+function _lpDragBy(dx, dy) {
+  var ax = _ae.axis;
+  var key = _ae.drag || 'hero';
+  if (!_lpState.gesture || _lpState.gesture.key !== key) _lpState.gesture = _lpStartGesture(key);
+  var g = _lpState.gesture;
+  ax.fly = null;
+  clearTimeout(_lpState.settleTimer);
+  if (g.kind === 'date') { _lpDateDrag(g); _aeKick(); return; }
+  // The first move says which way is back; the finger going the other way brings the camera in again.
+  if (!g.dir && dx) g.dir = dx > 0 ? 1 : -1;
+  ax.u = Math.max(0, Math.min(LP_LAST, ax.u + dx * (g.dir || 1) / LP_PX_PER_STOP));
+  ax.tilt = Math.max(-LP_TILT_MAX, Math.min(LP_TILT_MAX, ax.tilt + dy * LP_TILT_PER_PX));
+  _ae.dirty = true;
+  _aeKick();
+}
+// The finger lifted: a date's drag lands the page's clock; an axis drag near a stop settles on it.
+function _lpDragEnd() {
+  var ax = _ae && _ae.axis, g = _lpState.gesture;
+  _lpState.gesture = null;
+  if (!ax) return;
+  if (g && g.kind === 'date') { _aeLandClock(); return; }
+  var s = _lpSnap(ax.u);
+  if (s.near && Math.abs(ax.u - s.stop) > 1e-3) _lpFlyTo(s.stop, LP_SNAP_MS);
+}
+// Arrow keys and Home/End walk the stops; + and - are the zoom's.
+function _lpKeyDown(e) {
+  if (!_ae.axis || e.target !== _lpById('ae-canvas')) return false;
+  var step = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1, PageUp: 1, PageDown: -1 }[e.key];
+  if (step) { _lpFlyTo(Math.max(0, Math.min(LP_LAST, Math.round(_ae.axis.u) + step))); return true; }
+  if (e.key === 'Home') { _lpFlyTo(0); return true; }
+  if (e.key === 'End') { _lpFlyTo(LP_LAST); return true; }
+  return false;
+}
+
+// ── The controls ──
+function _lpStopName(i) {
+  var k = LP_STOPS[i];
+  if (k === 'moon') return _aeT('alm_moon');
+  if (k === 'pair') return _aeT('lp_stop_pair');
+  if (k === 'earth') return _tp('Earth');
+  if (k === 'inner') return _aeT('lp_stop_inner');
+  return _tp('Neptune');
+}
+var LP_REACH_KEYS = { Moon: 'lp_reach_moon', Sun: 'lp_reach_sun', Mars: 'lp_reach_mars', Neptune: 'lp_reach_neptune' };
+function _lpReachLine(i, sc) {
+  return _aeT(LP_REACH_KEYS[LP_STOP_REACH[LP_STOPS[i]]]) + ': ' + _lpFmtReach(_lpStopKm(LP_STOPS[i], sc));
+}
+function _lpEnsureDom() {
+  if (_lpState.dom && _lpById('lp-track')) return;
+  var el = _ae.el;
+  var ticks = '';
+  LP_STOPS.forEach(function (k, i) {
+    ticks += '<button type="button" class="lp-tick" data-lp-stop="' + i + '" style="bottom:' + (i / LP_LAST * 100).toFixed(2) + '%">' +
+      '<span class="lp-tick-text"><b></b><i></i></span></button>';
+  });
+  var track = document.createElement('div');
+  track.className = 'lp-track'; track.id = 'lp-track'; track.setAttribute('role', 'group'); track.setAttribute('aria-label', _aeT('lp_track'));
+  track.innerHTML = ticks + '<i class="lp-knob" id="lp-knob"></i>';
+  el.appendChild(track);
+  var phase = document.createElement('div');
+  phase.className = 'lp-phase'; phase.id = 'lp-phase';
+  phase.innerHTML = '<img id="lp-phase-img" alt="" width="56" height="56"><span id="lp-phase-text"></span>';
+  el.appendChild(phase);
+  var views = _lpById('ae-views');
+  var note = document.createElement('div');
+  note.className = 'lp-scale'; note.id = 'lp-scale';
+  views.parentNode.insertBefore(note, views);
+  var labels = _lpById('ae-labels');
+  ['Moon', 'Earth', 'Sun'].concat(EPH_PLANET_KEYS.filter(function (k) { return k !== 'Earth'; })).concat(['Ray']).forEach(function (k) {
+    var span = document.createElement('span');
+    span.className = 'ae-label'; span.id = 'lp-lbl-' + k; span.hidden = true;
+    labels.appendChild(span);
+  });
+  var onTap = function (e) {
+    var t = e.target.closest ? e.target.closest('[data-lp-stop]') : null;
+    if (t) _lpFlyTo(+t.getAttribute('data-lp-stop'));
+  };
+  track.addEventListener('click', onTap);
+  _lpState.dom = true;
+}
+var LP_UI_MS = 60000;               // the stops' distances and the phase disc are written afresh each minute
+var LP_TICK_NEAR = 0.45;           // the stop whose distance is written: the one the camera is nearest, within this
+function _lpSetText(el, text) { if (el && el.textContent !== text) el.textContent = text; }
+// Per frame, the words and marks that follow the axis: ticks, knob, chips, the layout's note, the phase disc, the labels.
+function _lpUpdateUi() {
+  var ax = _ae.axis, st = _lpState.ax, sc = _ae.scene;
+  if (!ax || !st || !sc) return;
+  var near = Math.round(ax.u), on = Math.abs(ax.u - near) <= LP_TICK_NEAR;
+  var track = _lpById('lp-track');
+  var key = Math.floor(sc.ms / LP_UI_MS) + ':' + (on ? near : -1) + ':' + _orrLang();
+  if (key !== _lpState.uiKey) {
+    _lpState.uiKey = key;
+    var ticks = track.querySelectorAll('.lp-tick');
+    for (var i = 0; i < LP_STOPS.length; i++) {
+      var t = ticks[i], isOn = on && i === near;
+      t.classList.toggle('lp-on', isOn);
+      _lpSetText(t.querySelector('b'), _lpStopName(i));
+      if (isOn) _lpSetText(t.querySelector('i'), _lpReachLine(i, sc));
+      t.setAttribute('aria-label', _lpStopName(i) + ', ' + _lpFmtReach(_lpStopKm(LP_STOPS[i], sc)));
+      t.setAttribute('aria-pressed', String(isOn));
+    }
+  }
+  _lpById('lp-knob').style.bottom = (ax.u / LP_LAST * 100).toFixed(2) + '%';
+  var scale = _lpById('lp-scale'), show = _lpSaysNotToScale(st.lam, st.grow);
+  _lpSetText(scale, show ? _aeT('lp_not_to_scale') : '');
+  scale.classList.toggle('lp-show', show);
+  // The Moon's phase at the clock, small, from the pair outward: what the pair's picture is the cause of.
+  var phase = _lpById('lp-phase'), fade = ax.u >= LP_PHASE_FROM && ax.u <= LP_PHASE_TO;
+  phase.classList.toggle('lp-show', fade);
+  if (fade && _lpState.phaseKey !== Math.floor(sc.ms / LP_UI_MS)) {
+    _lpState.phaseKey = Math.floor(sc.ms / LP_UI_MS);
+    var date = new Date(sc.ms), view = _moonView(date, null, null), m = _moonPhase(date);
+    var img = _lpById('lp-phase-img'), url = _renderMoonSprite(view, 56);
+    if (img.getAttribute('src') !== url) img.setAttribute('src', url);
+    _lpSetText(_lpById('lp-phase-text'), _localMoonName(m.name) + ' · ' + m.illumination + '%');
+  }
+  _lpUpdateLabels(st);
+  // Once, as the camera reaches the pair: what a drag on the Moon does there.
+  if (!_lpState.dateHinted && ax.u >= LP_DATE_FROM + 0.2 && ax.u <= LP_PAIR + 0.3 && !ax.fly) { _lpState.dateHinted = true; _aeShowHint(_aeT('lp_date_hint')); }
+}
+// Where a label may stand: below the header and clear of the track and the controls.
+function _lpInClearArea(pos) {
+  var s = _aeProject(pos);
+  return !!s && s.y > LP_CLEAR_TOP_PX && s.y < _ae.h - LP_CLEAR_BOTTOM_PX && s.x > 8 && s.x < _ae.w - LP_CLEAR_END_PX;
+}
+// Names beside the bodies the axis shows: the Moon and the Earth from the pair out, the Sun, the planets once they are drawn, the sunlight.
+function _lpUpdateLabels(st) {
+  var P = _lpState.places, u = st.u;
+  var set = function (k, text, pos, show) {
+    var el = _lpById('lp-lbl-' + k);
+    if (!el) return;
+    _lpSetText(el, text);
+    _aePlaceLabel('lp-lbl-' + k, pos, show && pos && _lpInClearArea(pos));
+  };
+  var pair = u >= LP_NAMES_FROM[0], planets = _lpPlanetsIn(u) > LP_NAME_SHOWN;
+  // The Moon's name stands unless the Moon is on top of the Earth's (a dot beside a dot).
+  var moonS = P && _aeProject(P.Moon), earthS = P && _aeProject(P.Earth);
+  var apart = !moonS || !earthS || Math.hypot(moonS.x - earthS.x, moonS.y - earthS.y) > LP_LABEL_APART_PX;
+  set('Moon', _aeT('alm_moon'), P && P.Moon, !!P && pair && apart);
+  set('Earth', _tp('Earth'), P && P.Earth, !!P && pair);
+  set('Sun', _aeT('alm_sun'), P && P.Sun, !!P && u >= LP_NAMES_FROM[1]);
+  EPH_PLANET_KEYS.forEach(function (k) {
+    if (k !== 'Earth') set(k, _tp(k), P && P[k], !!P && planets);
+  });
+  set('Ray', _aeT('lp_to_sun'), P && P.Ray, !!P && !!P.Ray && _lpRaysIn(u) > LP_NAME_SHOWN);
+}
+
+// From the classic view (Earth, satellites, Moon, Sun) back onto the axis: where its camera stood, flying to the Earth stop.
+function _lpEnterFromView() {
+  var from = _ae.target === 'sun' ? LP_EARTH : (_ae.target === 'earth' ? LP_PAIR : 0);
+  _ae.fly = null;
+  _ae.preset = 'axis';
+  _lpEnterAxis(from);
+  _aeMarkViews();
+  _lpFlyTo(LP_EARTH);
+}
+// Off the axis (a preset, a tap on a body, closing): the view's own camera takes over where the axis left it.
+function _lpLeaveAxis() {
+  if (!_ae || !_ae.axis) return;
+  var ax = _ae.axis, st = _lpState.ax;
+  if (st) {
+    _ae.target = ax.u < LP_PAIR - 0.5 ? 'moon' : (ax.u < LP_EARTH - 0.5 ? 'earth' : 'sun');
+    _ae.az = st.cam.az; _ae.el_ = st.cam.el;
+    _ae.dist = _aeClampDist(st.cam.dist);
+  }
+  _ae.axis = null; _lpState.axis = null; _lpState.ax = null; _lpState.gesture = null;
+  _ae.el.classList.remove('lp-axis');
+  // The names pinned to bodies go with it (the view's own labels are its own).
+  var names = _ae.el.querySelectorAll('[id^="lp-lbl-"]');
+  for (var i = 0; i < names.length; i++) names[i].hidden = true;
+  _ae.dirty = true;
+}
+// From the pair out the Earth's satellites are a speck on it: not drawn.
+function _lpAfterPlace(S) {
+  var far = !!(_ae.axis && _ae.axis.u > LP_SATS_HIDDEN_FROM);
+  S.sats.visible = !far;
+  if (far) { S.gpsRings.visible = false; S.issRing.visible = false; } else S.issRing.visible = true;
+}
+
+// ── Joining the Earth view ──
+// The pieces the view calls (guarded there): the solar layer is built with its scene, the dom with its own.
+function _lpSceneBuilt(S) { S.solar = _lpBuildSolar(S); }

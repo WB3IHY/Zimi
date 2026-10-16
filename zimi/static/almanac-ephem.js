@@ -334,19 +334,19 @@ function _ephBodyJ2000(name, jd) {
 }
 
 // ── What the views share about the planets ──
-// Mean radius (km) and sidereal period (days), in order from the Sun: the
-// flown solar system draws them at their size and the landing's orbits at
-// their period, from these one table.
+// Mean radius (km), sidereal period (days) and the colour a planet is drawn in, in order
+// from the Sun: the flown solar system draws them at their size, the landing's orbits at
+// their period, and a dot is the one colour in both, from these one table.
 var EPH_PLANET_KEYS = ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'];
 var EPH_PLANET = {
-  Mercury: { km: 2439.7, periodDays: 87.969 },
-  Venus: { km: 6051.8, periodDays: 224.701 },
-  Earth: { km: 6378.137, periodDays: 365.256 },
-  Mars: { km: 3396.2, periodDays: 686.98 },
-  Jupiter: { km: 71492, periodDays: 4332.59 },
-  Saturn: { km: 60268, periodDays: 10759.22 },
-  Uranus: { km: 25559, periodDays: 30688.5 },
-  Neptune: { km: 24764, periodDays: 60182 }
+  Mercury: { km: 2439.7, periodDays: 87.969, color: '#b0a090' },
+  Venus: { km: 6051.8, periodDays: 224.701, color: '#e8c87a' },
+  Earth: { km: 6378.137, periodDays: 365.256, color: '#4a90d9' },
+  Mars: { km: 3396.2, periodDays: 686.98, color: '#c46040' },
+  Jupiter: { km: 71492, periodDays: 4332.59, color: '#c49868' },
+  Saturn: { km: 60268, periodDays: 10759.22, color: '#d4b878' },
+  Uranus: { km: 25559, periodDays: 30688.5, color: '#78c8c8' },
+  Neptune: { km: 24764, periodDays: 60182, color: '#3868c8' }
 };
 
 // ── The layout of a picture of the whole system ──
