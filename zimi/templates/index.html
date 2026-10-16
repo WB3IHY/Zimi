@@ -161,6 +161,7 @@
      Cancel and Esc remain the explicit ways out. -->
 <div id="pw-overlay" class="pw-overlay" role="dialog" aria-modal="true" aria-labelledby="pw-title">
   <form class="pw-box" onsubmit="event.preventDefault();submitPw()">
+    <div class="pw-brand" aria-hidden="true"><img src="/apple-touch-icon.png" alt="" width="48" height="48"><span>Zimi</span></div>
     <h3 id="pw-title" data-i18n="enter_password">Enter password</h3>
     <!-- Optional username (v1.8): purely optional identifier, not a secret.
          When the server has no username configured it accepts any value (the
@@ -177,17 +178,18 @@
     <label for="pw-input" class="sr-only" data-i18n="password">Password</label>
     <input id="pw-input" type="password" placeholder="Password" data-i18n-placeholder="password" autocomplete="current-password" aria-labelledby="pw-title" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPw()}">
     <div class="pw-error" id="pw-error"></div>
-    <!-- The Field Guide, where the app itself is out of reach (the sign-in gate): _enterLoginGate fills it. -->
-    <p class="gate-help" id="pw-helpnow" hidden></p>
     <label id="pw-remember-row" style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:13px;color:var(--text2);cursor:pointer">
       <input type="checkbox" id="pw-remember" checked style="accent-color:var(--amber);flex-shrink:0"> <span data-i18n="remember_me">Remember me</span>
     </label>
     <div class="pw-actions">
       <button type="button" id="pw-remove-btn" onclick="_confirmRemovePassword(this)" style="display:none;color:var(--text2);font-size:12px;margin-right:auto" data-i18n="remove">Remove</button>
       <button type="button" id="pw-cancel" onclick="closePwModal()" data-i18n="cancel">Cancel</button>
-      <button type="submit" class="pw-primary" data-i18n="ok">OK</button>
+      <button type="submit" class="pw-primary"><span class="pw-ok-label" data-i18n="ok">OK</span><span class="pw-gate-label" data-i18n="sign_in">Sign in</span></button>
     </div>
   </form>
+  <!-- The Field Guide, where the app itself is out of reach (the sign-in gate): _enterLoginGate fills it.
+       Below the card, not in it: it is the other way in, not a step of signing in. -->
+  <p class="gate-help" id="pw-helpnow" hidden></p>
 </div>
 
 <!-- Desktop: Onboarding overlay (first-run) -->

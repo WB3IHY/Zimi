@@ -235,6 +235,9 @@
   .topbar .logo {
     font-size: 18px; font-weight: 700; letter-spacing: -0.5px;
     text-decoration: none; white-space: nowrap; flex-shrink: 0; cursor: pointer;
+  }
+  /* The wordmark: the top bar's, and the sign-in screen's (.pw-brand). */
+  .topbar .logo, .pw-brand span {
     background: linear-gradient(135deg, #f59e0b, #f97316, #ef4444);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -3128,6 +3131,23 @@
   body.login-gate .pw-overlay { background:var(--bg); z-index:1000; }
   .pw-box { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; width:320px; max-width:90vw; }
   .pw-box h3 { margin:0 0 12px; font-size:15px; color:var(--text); }
+  /* At the sign-in screen the form is the whole page, so it carries the app's mark;
+     a password asked for over the app does not repeat it. */
+  .pw-brand { display:none; flex-direction:column; align-items:center; gap:8px; margin:0 0 20px; }
+  .pw-brand img { width:56px; height:56px; border-radius:13px; }
+  .pw-brand span { font-size:22px; font-weight:700; letter-spacing:-0.5px; }
+  .pw-gate-label { display:none; }
+  /* The sign-in screen is one centred column: the mark, what this is, two fields, one
+     full-width way in. Help now sits under the card as the other door. */
+  body.login-gate .pw-overlay { flex-direction:column; gap:20px; }
+  body.login-gate .pw-box { width:340px; padding:32px 28px 28px; }
+  body.login-gate .pw-brand { display:flex; }
+  body.login-gate .pw-box h3 { text-align:center; font-size:15px; font-weight:500; color:var(--text2); margin:0 0 20px; }
+  body.login-gate .pw-box input[type="password"], body.login-gate .pw-box input[type="text"] { padding:12px; }
+  body.login-gate .pw-box .pw-actions { margin-top:16px; }
+  body.login-gate .pw-box button.pw-primary { flex:1; padding:12px; font-size:15px; }
+  body.login-gate .pw-ok-label { display:none; }
+  body.login-gate .pw-gate-label { display:inline; }
   /* 16px minimum — iOS Safari auto-zooms (and stays zoomed) on focus of any
      input smaller than 16px. */
   .pw-box input[type="password"], .pw-box input[type="text"] { width:100%; padding:8px 10px; border-radius:var(--radius); border:1px solid var(--border-strong); background:var(--bg); color:var(--text); font-size:16px; box-sizing:border-box; }
@@ -4123,7 +4143,7 @@
 .night-btn { display: none; align-items: center; justify-content: center; flex-shrink: 0; width: 36px; height: 28px; padding: 0; color: var(--text2); background: none; border: 1px solid transparent; border-radius: var(--radius); cursor: pointer; }
 .night-btn:hover, .night-btn:focus-visible { color: var(--amber); outline: none; }
 .night-btn[aria-pressed="true"] { color: var(--amber); border-color: var(--amber-border); }
-:root.night-red .topbar .logo, :root.night-red .cat-heading, :root.night-red .footer .footer-brand, :root.night-red .desktop-card h2 {
+:root.night-red .topbar .logo, :root.night-red .pw-brand span, :root.night-red .cat-heading, :root.night-red .footer .footer-brand, :root.night-red .desktop-card h2 {
   background: none; -webkit-text-fill-color: var(--amber); color: var(--amber); }
 
 /* Home's entry to the Field Guide (app.js _helpNowHtml): a plain button anyone can find when it counts. */
@@ -4136,6 +4156,7 @@
 .apps-help + .apps-grid { margin-top: 8px; }
 /* The same entry on the first-run and sign-in screens, where nothing else is reachable. */
 .gate-help { margin: 14px 0 0; text-align: center; }
+body.login-gate .gate-help { margin: 0; }
 .help-now-gate { background: none; }
 
 /* Field Guide sheets (app.js _fieldguidePrint): black on white, small, in two columns for the whole set. */

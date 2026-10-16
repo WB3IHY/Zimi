@@ -664,6 +664,32 @@ def test_help_now_is_reachable_from_the_first_run_and_sign_in_screens(empty, pho
     assert phone.is_visible("#pw-helpnow .help-now-gate")
 
 
+def test_at_a_private_servers_door_the_box_still_names_a_baby_choking(
+    empty, phone, monkeypatch
+):
+    from zimi import users
+
+    monkeypatch.setattr(users, "get_public_access", lambda: ("private", None))
+    _open(phone, empty)
+    phone.wait_for_selector("body.login-gate #pw-helpnow .help-now-gate")
+    brand = phone.query_selector(".pw-brand")
+    assert brand.is_visible() and brand.inner_text().strip() == "Zimi"
+    assert phone.evaluate(
+        "document.querySelector('.pw-brand img').naturalWidth"
+    ), "the app's mark loads before sign-in"
+    phone.click("#pw-helpnow .help-now-gate")
+    box = phone.wait_for_selector("#t-q", timeout=15000)
+    box.fill("my baby is choking")
+    phone.wait_for_selector(".fg-hit.lead[data-id=choking]", timeout=10000)
+    # No library to search from the door, so no row that would do nothing.
+    assert not phone.query_selector(".fg-hit.lib")
+    box.press("Enter")
+    phone.wait_for_selector("#card:not([hidden]) .fg-q")
+    first = phone.query_selector("#c-quotes .fg-q h3, #c-quotes .fg-q h4")
+    assert first.text_content().startswith("Infants")
+    assert not phone.errors
+
+
 def test_the_chrome_speaks_the_readers_language_and_the_quotes_stay_in_the_sources(
     empty, phone
 ):
