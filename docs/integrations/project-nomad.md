@@ -17,7 +17,7 @@ This needs **Zimi 1.15.0 or later**. In NOMAD, open **Supply Depot** and choose 
 | Volume | `/opt/project-nomad/storage/zimi` to `/config` |
 | Volume | `/opt/project-nomad/storage/zimi-library` to `/zims` |
 | Environment | `ZIMI_EXTRA_ZIM_DIRS=/nomad` |
-| Environment | `ZIMI_LAN_ADMIN=1` |
+| Environment | `ZIMI_MANAGE_PASSWORD=<choose a password>` |
 | Environment | `ZIMI_TORRENT=0` |
 
 If you moved NOMAD's storage, use your own path on the left of each volume. The same app through NOMAD's API:
@@ -31,7 +31,7 @@ curl -X POST http://<your-nomad>:8080/api/system/services/custom \
     {"host_path": "/opt/project-nomad/storage/zim", "container_path": "/nomad"},
     {"host_path": "/opt/project-nomad/storage/zimi", "container_path": "/config"},
     {"host_path": "/opt/project-nomad/storage/zimi-library", "container_path": "/zims"}],
-  "env": ["ZIMI_EXTRA_ZIM_DIRS=/nomad", "ZIMI_LAN_ADMIN=1", "ZIMI_TORRENT=0"]
+  "env": ["ZIMI_EXTRA_ZIM_DIRS=/nomad", "ZIMI_MANAGE_PASSWORD=<choose a password>", "ZIMI_TORRENT=0"]
 }'
 ```
 
@@ -41,7 +41,7 @@ What the three volumes and settings do:
 
 - `/nomad` is NOMAD's ZIM folder, read in place. Zimi never writes, renames or deletes there, even though NOMAD offers no read-only option for a custom app's volumes.
 - `/config` holds Zimi's own state (indexes, bookmarks, settings). `/zims` is Zimi's own library, for ZIMs you fetch or create in Zimi. Neither folder has to exist or be owned by anyone: Docker creates a missing bind folder as root, and the image takes ownership of an empty one itself before it drops to its own user. A folder that already holds files, or belongs to another user, is never changed.
-- `ZIMI_LAN_ADMIN=1` lets devices on your network manage Zimi without a login, which matches NOMAD's own Command Center (it has none). Without it, a fresh install asks for a setup key printed in Zimi's log before it opens. Leave it out and set a password instead if other people share the network, and do not combine it with a public address.
+- `ZIMI_MANAGE_PASSWORD` is the admin password. Setting it here means a fresh install opens straight to the library and never shows the setup-key screen; searching and reading need no login, only changing settings does. Do not use `ZIMI_LAN_ADMIN=1` for this: it trusts any client that looks local, and behind a proxy, a tunnel or a Docker network every client looks local, so Zimi cannot tell your LAN from the internet.
 - `ZIMI_TORRENT=0` keeps Zimi from asking your router to open a port. HTTP downloads still work.
 
 ### What you see

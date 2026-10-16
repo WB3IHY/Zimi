@@ -42,7 +42,7 @@ VARS: dict[str, tuple[str, str]] = {
     "ZIMI_MANAGE_OPEN": ("Leaves the admin interface unauthenticated", "Set password"),
     "ZIMI_API_TOKEN": ("Bearer token for the API", "API token"),
     "ZIMI_PUBLIC_ACCESS": ("Who may read: open, limited or private", "Access"),
-    "ZIMI_LAN_ADMIN": ("Treats direct LAN clients as admin", "Access"),
+    "ZIMI_LAN_ADMIN": ("Treats direct LAN clients as admin; unsafe behind a proxy or tunnel (use a password)", "Access"),
     "ZIMI_MANAGE_EXTERNAL": ("0 keeps managing inside the network (deprecated)", "Access"),
     "ZIMI_SSO_PROXY": ("Trusted SSO proxy (Cloudflare Access)", "Single sign-on"),
     "ZIMI_SSO_AUD": ("SSO audience tag to require", "Single sign-on"),

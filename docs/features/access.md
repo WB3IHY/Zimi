@@ -42,7 +42,7 @@ The page is the first-run bootstrap, so the rules above hold: the machine runnin
 | `ZIMI_MANAGE_PASSWORD` | env / config | password file | Admin password (else the password file) |
 | `ZIMI_API_TOKEN` | env / config | token file | Bearer token for programmatic access (else the generated token file) |
 | `ZIMI_MANAGE_OPEN` | env | `0` | `1` turns management authentication off entirely: no password, no setup key. Only for a network you control; it warns at every boot. |
-| `ZIMI_LAN_ADMIN` | env | `0` | `1` makes any direct private-network client the admin while no password is set, as before 1.9.0. Not through a proxy. |
+| `ZIMI_LAN_ADMIN` | env | `0` | `1` makes any direct private-network client the admin while no password is set, as before 1.9.0. Warning: behind a reverse proxy, tunnel or Docker network every client looks local, so Zimi cannot tell your LAN from the internet; use a password there. |
 | `ZIMI_MANAGE_EXTERNAL` | env / config `manage_external` | on | Deprecated, and will be removed. `0` keeps settings inside the private network even with the password, judged by where the visitor seems to be, which a reverse proxy can hide. Keep `/manage/` off the internet at your proxy instead. |
 | setup key | `ZIMI_DATA_DIR/setup-key` | auto-generated | One-time remote bootstrap secret; printed to the server log |
 
