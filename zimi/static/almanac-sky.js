@@ -2932,7 +2932,7 @@ function _skyBodyKey(b) {
 // What lives on the horizon and in the air, and its article (almanac-links.js SKY).
 var SKY_LIFE_KEYS = { sea: 'sky:sea', boat: 'sky:ship', whale: 'sky:whale', plane: 'sky:airliner', birds: 'sky:birds',
   meteor: 'sky:meteor', aurora: 'sky:aurora' };
-var SKY_NAME_KEYS = { sun: 'alm_sun', moon: 'alm_the_moon', iss: 'alm_earth_iss_name', sea: 'alm_sky_sea',
+var SKY_NAME_KEYS = { sun: 'alm_sun', moon: 'alm_moon', iss: 'alm_earth_iss_name', sea: 'alm_sky_sea',
   boat: 'alm_sky_boat', whale: 'alm_sky_whale', plane: 'alm_sky_plane', birds: 'alm_sky_birds', meteor: 'alm_sky_meteor', aurora: 'alm_sky_aurora' };
 function _skyBodyName(b) {
   if (b.type === 'planet') return _tp(b.name);
@@ -3425,7 +3425,7 @@ function _drawStarChart(now) {
     ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.5; ctx.stroke();
     _starChartBodies.push({
       x: mpp.x, y: mpp.y, key: 'planet:moon',
-      label: t('alm_the_moon') + ' \u00b7 ' + mp.altitude.toFixed(0) + '\u00b0 ' +
+      label: t('alm_moon') + ' \u00b7 ' + mp.altitude.toFixed(0) + '\u00b0 ' +
              _azCompass(mp.azimuth) + ' \u00b7 ' + _moonPhase(now).illumination + '%'
     });
   }
@@ -3438,6 +3438,6 @@ function _drawStarChart(now) {
       (panned ? ' <button class="alm-sc-reset" onclick="_starChartResetLoc()">' + _almEsc(t('alm_my_location')) + '</button>' : '') + '</div>' +
       '<div class="alm-starchart-desc">' + starCount + ' ' + t('alm_stars_up') +
       (planetsUp.length ? ' · ' + planetsUp.join(', ') : '') +
-      (moonUp ? ' · ' + t('alm_the_moon') : '') + '</div>';
+      (moonUp ? ' · ' + t('alm_moon') : '') + '</div>';
   }
 }

@@ -341,7 +341,7 @@ check(run('_sgLimitMag(_sgSkyLum(60, -90, 0, 0, 0.003))') > 0 && run('_sgLimitMa
   const body = (type, x, y, extra) => Object.assign({ type: type, x: x, y: y, r: 6, mag: 0 }, extra || {});
   let p = plan([body('sun', 100, 300), body('moon', 200, 500), body('planet', 150, 420, { name: 'Mars', mag: 1 }), body('star', 300, 600, { idx: 41, mag: -1.4 }), body('star', 50, 700, { idx: -1, mag: 1 }), body('star', 120, 900, { idx: 50, mag: 5 })]);
   const names = p.map((l) => l.text);
-  check(names.some((n) => /alm_sun/.test(n)) && names.some((n) => /alm_the_moon/.test(n)) && names.includes('Mars') && names.includes('Sirius'), 'the Sun, the Moon, a planet and a bright named star are named (' + names.join(', ') + ')');
+  check(names.some((n) => /alm_sun/.test(n)) && names.some((n) => /alm_moon/.test(n)) && names.includes('Mars') && names.includes('Sirius'), 'the Sun, the Moon, a planet and a bright named star are named (' + names.join(', ') + ')');
   check(!names.includes('Vega') && names.length === 4, 'a faint star and an unnamed one are not');
   check(p.every((l) => l.box.x0 >= 16 && l.box.x1 <= 780 - 16), 'every label stays inside the screen');
   p = plan([body('planet', 190, 400, { name: 'Venus', mag: -4 }), body('planet', 192, 405, { name: 'Jupiter', mag: -2 })]);
