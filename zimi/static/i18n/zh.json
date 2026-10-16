@@ -2423,7 +2423,6 @@
   "alm_subj_sun": "太阳",
   "alm_subj_eclipses": "日月食",
   "alm_subj_seasons": "季节",
-  "alm_clock_remove": "移除{city}",
   "alm_tide_nearest": "附近没有潮汐站。显示最近的一个：{name}，相距 {d}。",
   "alm_place_no_match": "没有这个名称的站点",
   "alm_tide_title": "潮汐",
@@ -3343,5 +3342,14 @@
   "alm_sky_f_pole_unknown": "设定你的位置后才能知道",
   "earth_locate_off": "Zimi 无法获知你的位置：它的定位权限已关闭。请在浏览器中允许，或在年鉴中设置你的位置。",
   "alm_sky_f_under_step": "不到 15 分钟",
-  "fieldguide_as_of": "指引更新于 {date}"
+  "fieldguide_as_of": "指引更新于 {date}",
+  "alm_nav_place": "你的地点",
+  "alm_nav_sections": "分区",
+  "alm_nav_all": "全部分区",
+  "alm_tide_why_q": "为什么？",
+  "alm_tide_source": "NOAA 预测。天气会改变实际水位。",
+  "alm_clock_saved": "已保存",
+  "alm_clock_view_label": "显示哪些时钟",
+  "alm_clock_save": "保存{city}",
+  "alm_clock_hint_empty": "还没有保存的时钟。在“全部”中点击时钟上的星标，它就会留在这里。"
 }

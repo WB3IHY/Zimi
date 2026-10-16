@@ -1,4 +1,5 @@
 /* ── Almanac mini-app ── */
+:root { --alm-pad-top: 24px; }
 .almanac-view { position: fixed; top: 56px; left: 0; right: 0; bottom: 0; display: none; flex-direction: column; z-index: 100; background: var(--bg); }
 .almanac-view.open { display: flex; animation: fadeIn 0.15s ease; }
 /* Bottom padding is deliberately small: the sticky time-machine dock sticks
@@ -6,7 +7,7 @@
    pushes the dock that much further off the screen edge. The dock's own
    margins provide the flow spacing; 8px is just edge breathing for the
    footer. */
-.almanac-content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 24px 16px 8px; overscroll-behavior: contain; }
+.almanac-content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: var(--alm-pad-top) 16px 8px; overscroll-behavior: contain; }
 /* The Almanac keeps its own content still when a section arrives late
    (_almKeepStill in almanac.js); the browser's anchoring would add to it. */
 .almanac-content { overflow-anchor: none; }
@@ -62,12 +63,12 @@
   .alm-sec-out, .alm-sec-in { animation: none; }
 }
 .alm-tz-list { width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-.alm-tz-city-card { --alm-tz-corner: 16px; position: relative; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 4px; cursor: pointer; transition: all 0.1s; text-align: center; }
+.alm-tz-city-card { --alm-tz-corner: 18px; position: relative; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 4px; cursor: pointer; transition: all 0.1s; text-align: center; }
 .alm-tz-city-card:hover { background: var(--surface2); border-color: var(--text3); }
 /* One line, whatever the name's length, so every card's time sits on the
    same line ("Dumont d'Urville Station" wrapped and pushed its time down);
    the full name is the card's title. Room either side for the hour's glyph
-   and, on an added clock, its remove button. */
+   and its save star. */
 .alm-tz-city-name { font-size: 11px; color: var(--text2); display: block; padding: 0 var(--alm-tz-corner); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .alm-tz-city-time { font-size: 13px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; display: block; margin-top: 2px; direction: ltr; unicode-bidi: isolate; }
 .alm-tz-city-offset { font-size: 9px; color: var(--text3); display: block; margin-top: 1px; }
@@ -139,6 +140,30 @@
 @media (prefers-reduced-motion: reduce) { .almanac-moon-anim { display: none; } }
 .almanac-section { margin-top: 32px; border-top: 1px solid var(--border); padding-top: 24px; }
 .almanac-section-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.06em; }
+/* The section bar (almanac.js, _almSecBar*): a zero-height host sticks to the
+   scroller's top edge (the scroller's padding is where sticky counts from); the bar hangs from it across the scroller's width. 44px is
+   ALM_SECBAR_H. The pills are the app's own .pills-row/.pill. */
+.alm-secbar-host { position: sticky; top: calc(-1 * var(--alm-pad-top)); z-index: 40; height: 0; }
+.alm-secbar { position: absolute; top: 0; inset-inline: -16px; height: 44px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 16px; background: var(--bg); border-bottom: 1px solid var(--border); animation: fadeIn 0.15s ease; }
+.alm-secbar[hidden] { display: none; }
+.alm-secbar-nav { flex: 1; min-width: 0; }
+.alm-secbar .pills-row { padding-bottom: 0; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent); }
+[dir="rtl"] .alm-secbar .pills-row { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 20px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 20px), transparent); }
+.alm-secbar .pill:focus-visible, .alm-secbar-more:focus-visible, .alm-secbar-list button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.alm-secbar-more { flex: none; position: relative; }
+.alm-secbar-more::before { content: ""; position: absolute; inset: -8px -4px; }
+.alm-secbar-more svg { transition: transform 0.2s; }
+.alm-secbar-more[aria-expanded="true"] svg { transform: rotate(180deg); }
+.alm-secbar-list { position: absolute; top: 100%; inset-inline-end: 16px; width: min(280px, calc(100% - 32px)); max-height: min(60vh, 420px); overflow-y: auto; margin: 6px 0 0; padding: 6px; list-style: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); }
+.alm-secbar-list[hidden] { display: none; }
+.alm-secbar-list button { display: block; width: 100%; padding: 10px 12px; background: none; border: 0; border-radius: 8px; color: var(--text2); font: inherit; font-size: 14px; text-align: start; cursor: pointer; }
+.alm-secbar-list button:hover { background: var(--amber-glow); color: var(--text); }
+.alm-secbar-list button[aria-current] { color: var(--amber); font-weight: 600; }
+/* A titled section scrolls to the top, under the bar, which is then its
+   heading; one without a title stops just below the bar. */
+.alm-group { scroll-margin-top: -12px; }
+#almanac-calendar, #almanac-sunmap, #almanac-onthisday { scroll-margin-top: 46px; }
+@media (prefers-reduced-motion: reduce) { .alm-secbar { animation: none; } .alm-secbar-more svg { transition: none; } }
 /* About this data: closed until asked for; a reference, not a panel. */
 .alm-about summary.almanac-section-title { cursor: pointer; margin-bottom: 0; list-style-position: inside; }
 .alm-about[open] summary.almanac-section-title { margin-bottom: 12px; }
@@ -154,11 +179,18 @@
 .alm-group { margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--border); }
 .alm-group-title { margin: 0 0 16px; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
 .alm-group > .almanac-section:first-of-type, .alm-group-title + .almanac-section { margin-top: 24px; border-top: 0; padding-top: 0; }
-/* The reader's clocks: one taken away by its corner, one added from the
-   cities through the native picker laid over a dashed card. */
-/* The glyph keeps the end corner; the remove button takes the start one. */
-.alm-tz-remove { position: absolute; top: 0; inset-inline-start: 0; width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--text3); font: inherit; font-size: 14px; line-height: 1; cursor: pointer; border-radius: 8px; }
-.alm-tz-remove:hover, .alm-tz-remove:focus-visible { color: var(--amber); }
+/* The reader's clocks: each kept or let go by the star in its start corner,
+   more added from the cities through the sheet behind a dashed card. */
+/* The glyph keeps the end corner; the star takes the start one. */
+.alm-tz-star { position: absolute; top: 2px; inset-inline-start: 2px; width: 20px; height: 20px; padding: 0; border: 0; background: none; color: var(--text3); display: grid; place-items: center; cursor: pointer; border-radius: 6px; }
+.alm-tz-star::before { content: ""; position: absolute; inset: -6px; }
+.alm-tz-star svg { fill: none; }
+.alm-tz-star.on { color: var(--amber); }
+.alm-tz-star.on svg { fill: currentColor; }
+.alm-tz-star:hover, .alm-tz-star:focus-visible { color: var(--amber); }
+.alm-tz-star:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+.alm-tz-view { margin-top: 0; }
+.alm-tz-hint { grid-column: 1 / -1; margin: 0 0 4px; font-size: 12px; line-height: 1.5; color: var(--text2); text-align: center; }
 .alm-tz-add { display: flex; align-items: center; justify-content: center; min-height: 52px; border: 1px dashed var(--border); border-radius: 8px; background: none; color: var(--text2); font: inherit; font-size: 12px; cursor: pointer; }
 .alm-tz-add:hover, .alm-tz-add:focus-visible { color: var(--amber); border-color: var(--amber-border); outline: none; }
 /* ── Popovers: under the pill on a wide screen, a sheet from the bottom on a phone (the tables' and the clocks') ── */
@@ -325,7 +357,10 @@
 .orrery-ride-delay { color: var(--text); font-size: 14px; margin-top: 2px; }
 .orrery-twin { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 .orrery-twin-title { color: var(--text); font-weight: 600; }
-.orrery-twin-whatif { color: var(--text3); font-style: italic; }
+.orrery-twin-link { display: block; margin-top: 8px; padding: 2px 0; background: none; border: 0; color: var(--text3); font: inherit; text-align: start; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; cursor: pointer; }
+.orrery-twin-link:hover, .orrery-twin-link:focus-visible { color: var(--amber); text-decoration-color: var(--amber-border); }
+.orrery-twin-link:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.orrery-twin[hidden] { display: none; }
 .orrery-twin-ctl { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .orrery-twin-speed { color: var(--amber); flex-shrink: 0; }
 .orrery-twin-clocks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }

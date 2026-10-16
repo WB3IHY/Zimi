@@ -398,6 +398,7 @@ var _at = {
   loading: false,
   tideId: null,     // a station picked over the nearest, for this place
   picking: null,    // 'tide' while the station list is open
+  whyOpen: false,   // the reason (the figure and the data note) is shown
   query: '',
   results: null
 };
@@ -711,23 +712,34 @@ function _atTideHtml(st, far) {
   lead += '</div>';
   var note = st.refrec ? t('alm_tide_note_sub', { ref: _atTitle(st.refrec.n) }) : t('alm_tide_note');
   var body = farHtml + lead +
-    '<div class="at-curve" id="at-curve">' + _atCurveSvg(st, day, focus) + '</div>' +
+    '<div class="at-curve" id="at-curve">' + _atCurveSvg(st, day, focus, next) + '</div>' +
     _atMonthHtml(st, focus) +
-    _atWhyHtml(st, focus) +
+    // One answer, then what is behind it, one tap away: the reason and the
+    // month's table. The figure stays in the page (hidden) so the time
+    // machine's frames keep moving it.
+    '<div class="at-more"><button type="button" class="at-link" id="at-why-btn" aria-expanded="' + !!_at.whyOpen + '" aria-controls="at-why-panel" onclick="_atWhyToggle()">' +
+      _almEsc(t('alm_tide_why_q')) + '</button>' +
+      '<button type="button" class="at-link" onclick="_almRefOpen(\'tides\')">' + _almEsc(t('alm_tide_month')) + '</button></div>' +
+    '<div class="at-why-panel" id="at-why-panel"' + (_at.whyOpen ? '' : ' hidden') + '>' + _atWhyHtml(st, focus) +
+      '<p class="at-why-n">' + _almEsc(note) + '</p></div>' +
     _atStationLine('tide', _atTideName(st), st.km, true) +
     (_at.picking === 'tide' ? _atPickerHtml('tide') : '') +
-    '<p class="at-note">' + _almEsc(note) + ' <button type="button" class="at-link" onclick="_almRefOpen(\'tides\')">' + _almEsc(t('alm_tide_month')) + '</button></p>';
+    '<p class="at-note">' + _almEsc(t('alm_tide_source')) + '</p>';
   return _atSection(t('alm_tide_title'), body, 'at-tides', 'term:tide');
 }
 
 // The day's water as one shape: midnight to midnight in the harbour's time,
 // night shaded from the Sun's altitude, each turn a dot with its time and
-// height written over it, the focused instant as the Almanac's amber line.
+// height written over the next one, the focused instant as the Almanac's amber line.
 // Height runs from the chart datum (0, mean lower low water) to the station's
 // mean higher high water, widened only when the day goes past them, so
 // springs look bigger than neaps.
 var AT_LABEL_HALF_W = 26;   // half a turn label's width, to keep it inside
-function _atCurveSvg(st, day, focus) {
+var AT_LABEL_BESIDE_DX = 9;               // a floor trough's label stands this far from its dot
+var AT_LABEL_BELOW_DY = 16;               // a trough's label hangs this far under its dot
+var AT_SAME_TURN_MS = 10 * 60000;        // two searches find one turn this close together
+var AT_DOT_R = 3, AT_DOT_R_NEXT = 4.5;   // a turn's dot; the next turn's is larger
+function _atCurveSvg(st, day, focus, next) {
   var pts = [], lo = 0, hi = (st.mhhw || (st.refrec && st.refrec.mhhw) || 0) / 1000;
   for (var t0 = day.start; t0 <= day.end; t0 += AT_CURVE_STEP_MS) {
     var h = day.p.height(t0);
@@ -766,14 +778,31 @@ function _atCurveSvg(st, day, focus) {
       '<text class="at-tick-l" x="' + X(tm).toFixed(1) + '" y="' + (H - 4) + '">' + _almEsc(_tzFmt(day.tz, { hour: 'numeric' }).format(new Date(tm))) + '</text>';
   }
   var zero = lo < 0 ? '<line class="at-datum" x1="0" x2="' + W + '" y1="' + Y(0).toFixed(1) + '" y2="' + Y(0).toFixed(1) + '"/>' : '';
-  // Each turn says when and how high, right where it happens: the curve is
-  // the table.
+  // Every turn is a dot with its time; only the next one, the answer the
+  // lead gives, says how high as well and is written large. The others stay
+  // quiet (their heights are in the month table and the chart's description).
   var turns = day.turns.map(function(e) {
-    var x = X(e.t), y = Y(e.h);
+    var x = X(e.t), y = Y(e.h), isNext = !!next && Math.abs(e.t - next.t) < AT_SAME_TURN_MS;
     var lx = Math.max(AT_LABEL_HALF_W, Math.min(W - AT_LABEL_HALF_W, x)).toFixed(1);
-    return '<circle class="at-dot ' + (e.high ? 'hi' : 'lo') + '" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="4"/>' +
-      '<text class="at-turn-l ' + (e.high ? 'hi' : 'lo') + '" x="' + lx + '" y="' + (y - 21).toFixed(1) + '">' + _almEsc(_atTime(e.t, day.tz)) + '</text>' +
-      '<text class="at-turn-h" x="' + lx + '" y="' + (y - 9).toFixed(1) + '">' + _almEsc(_atHeight(e.h, true)) + '</text>';
+    var kind = e.high ? 'hi' : 'lo';
+    // A label sits clear of the curve: over a crest, under a trough. A trough
+    // on the floor has no room under it: its label stands beside the dot, on
+    // the side the curve is not coming from.
+    var below = !e.high && y + AT_LABEL_BELOW_DY < bot, beside = !e.high && !below;
+    var dy = below ? AT_LABEL_BELOW_DY : -9, dyBig = below ? AT_LABEL_BELOW_DY : -21;
+    var cls = 'at-turn-l ' + (isNext ? kind : 'quiet');
+    var lblX = lx, anchor = '';
+    if (beside) {
+      var left = x > W / 2;
+      lblX = (x + (left ? -AT_LABEL_BESIDE_DX : AT_LABEL_BESIDE_DX)).toFixed(1);
+      anchor = ' style="text-anchor:' + (left ? 'end' : 'start') + '"';
+      dy = dyBig = 4;
+    }
+    return '<circle class="at-dot ' + kind + (isNext ? ' next' : '') + '" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (isNext ? AT_DOT_R_NEXT : AT_DOT_R) + '"/>' +
+      (isNext
+        ? '<text class="' + cls + '"' + anchor + ' x="' + lblX + '" y="' + (y + dyBig).toFixed(1) + '">' + _almEsc(_atTime(e.t, day.tz)) + '</text>' +
+          '<text class="at-turn-h"' + anchor + ' x="' + lblX + '" y="' + (y + dyBig + 12).toFixed(1) + '">' + _almEsc(_atHeight(e.h, true)) + '</text>'
+        : '<text class="' + cls + '"' + anchor + ' x="' + lblX + '" y="' + (y + dy).toFixed(1) + '">' + _almEsc(_atTime(e.t, day.tz)) + '</text>');
   }).join('');
   var desc = day.turns.map(function(e) { return t(e.high ? 'alm_tide_high' : 'alm_tide_low') + ' ' + _atTime(e.t, day.tz) + ' ' + _atHeight(e.h); }).join(', ');
   var fx = Math.max(0, Math.min(W, X(focus))), fh = day.p.height(focus);
@@ -838,7 +867,7 @@ function _atMonthHtml(st, focus) {
     return '<button type="button" class="at-m-day' + (d.k === 0 ? ' on' : '') + (d.phase ? ' ph' : '') + '"' +
       (d.k === 0 ? ' aria-current="date"' : '') + ' aria-label="' + _almEsc(label) + '" onclick="_atGoDay(' + d.k + ')">' +
       moon + '<span class="at-m-well"><span class="at-m-bar" style="height:' + (frac * 100).toFixed(1) + '%"></span></span>' +
-      '<span class="at-m-n">' + (d.phase || d.k === 0 ? _almEsc(dayFmt.format(mid)) : '') + '</span></button>';
+      '<span class="at-m-n">' + (d.k === 0 ? _almEsc(dayFmt.format(mid)) : '') + '</span></button>';
   }).join('');
   return '<div class="at-month"><div class="at-sub">' + _almEsc(t('alm_tide_range_title')) + '</div>' +
     '<div class="at-m-row" dir="ltr">' + cols + '</div></div>';
@@ -968,6 +997,14 @@ function _atWhyHtml(st, focus) {
     '<div class="at-why-text"><div class="at-why-k">' + (s.kind === 'spring' || s.kind === 'neap' ? _lterm('tide', _almEsc(t('alm_tide_why_' + s.kind))) : _almEsc(t('alm_tide_why_' + s.kind))) + '</div>' +
     '<p class="at-why-d">' + _almEsc(t(s.desc, s.phase ? { phase: _localMoonName(s.phase) } : undefined)) + '</p></div></div>' +
     '<p class="at-why-n">' + _almEsc(t('alm_tide_fig_note')) + '</p>';
+}
+// The reason, opened or closed in place: the section is not drawn again, so a
+// time-machine frame, a typed station or the scroll are left as they are.
+function _atWhyToggle() {
+  _at.whyOpen = !_at.whyOpen;
+  var btn = _atEl('at-why-btn'), panel = _atEl('at-why-panel');
+  if (btn) btn.setAttribute('aria-expanded', String(_at.whyOpen));
+  if (panel) panel.hidden = !_at.whyOpen;
 }
 
 // One time-machine frame: the Moon goes round, the bulges follow it, the

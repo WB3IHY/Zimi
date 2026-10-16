@@ -2423,7 +2423,6 @@
   "alm_subj_sun": "Солнце",
   "alm_subj_eclipses": "Затмения",
   "alm_subj_seasons": "Времена года",
-  "alm_clock_remove": "Убрать {city}",
   "alm_tide_nearest": "Рядом нет станции приливов. Показана ближайшая: {name}, в {d}.",
   "alm_place_no_match": "Станции с таким названием нет",
   "alm_tide_title": "Приливы",
@@ -3343,5 +3342,14 @@
   "alm_sky_f_pole_unknown": "Неизвестно, пока не выбрано место",
   "earth_locate_off": "Zimi не видит, где вы: геолокация для него выключена. Разрешите её в браузере или выберите место в Альманахе.",
   "alm_sky_f_under_step": "меньше 15 мин",
-  "fieldguide_as_of": "Рекомендации на {date}"
+  "fieldguide_as_of": "Рекомендации на {date}",
+  "alm_nav_place": "Ваше место",
+  "alm_nav_sections": "Разделы",
+  "alm_nav_all": "Все разделы",
+  "alm_tide_why_q": "Почему?",
+  "alm_tide_source": "Прогноз NOAA. Погода сдвигает настоящее море.",
+  "alm_clock_saved": "Сохранённые",
+  "alm_clock_view_label": "Какие часы показывать",
+  "alm_clock_save": "Сохранить {city}",
+  "alm_clock_hint_empty": "Пока ничего не сохранено. Во вкладке «Все» нажмите на звёздочку у часов, и они появятся здесь."
 }

@@ -2423,7 +2423,6 @@
   "alm_subj_sun": "Sol",
   "alm_subj_eclipses": "Eclipses",
   "alm_subj_seasons": "Estações",
-  "alm_clock_remove": "Remover {city}",
   "alm_tide_nearest": "Nenhuma estação de marés por perto. Mostrada a mais próxima: {name}, a {d}.",
   "alm_place_no_match": "Nenhuma estação com esse nome",
   "alm_tide_title": "Marés",
@@ -3343,5 +3342,14 @@
   "alm_sky_f_pole_unknown": "Desconhecido até você definir seu lugar",
   "earth_locate_off": "O Zimi não consegue ver onde você está: a localização está desativada para ele. Permita-a no navegador ou defina seu lugar no Almanaque.",
   "alm_sky_f_under_step": "menos de 15 min",
-  "fieldguide_as_of": "Orientação de {date}"
+  "fieldguide_as_of": "Orientação de {date}",
+  "alm_nav_place": "O seu lugar",
+  "alm_nav_sections": "Secções",
+  "alm_nav_all": "Todas as secções",
+  "alm_tide_why_q": "Porquê?",
+  "alm_tide_source": "Previsão da NOAA. O tempo move o mar real.",
+  "alm_clock_saved": "Guardados",
+  "alm_clock_view_label": "Que relógios mostrar",
+  "alm_clock_save": "Guardar {city}",
+  "alm_clock_hint_empty": "Ainda nada guardado. Em «Todos», toque na estrela de um relógio para o manter aqui."
 }

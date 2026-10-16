@@ -3,7 +3,9 @@
 // It shows the whole curated world tour (every city in _TZ_CITIES), plus the
 // chosen place's zone and this device's when no card keeps that offset (the
 // fractional zones too: Eucla +8:45, Chatham +12:45), plus the clocks the
-// reader added, one card each, west to east by their offset at the instant.
+// reader saved, one card each, west to east by their offset at the instant.
+// Any card can be saved (the star); the Saved view then shows the place's own
+// clock and the saved ones, and All shows everything.
 // A stored list that is not zone names is ignored, never written into the page.
 //
 // Pure-helper approach, like tests/test_almanac_tz_resolution.cjs: the tables
@@ -42,6 +44,7 @@ const pieces = [
   extract(/function _almClocks\(\)\s*\{[\s\S]*?\n\}/, '_almClocks'),
   extract(/function _almClockCards\(targetTz, now\)\s*\{[\s\S]*?\n\}/, '_almClockCards'),
   extract(/function _almClockLit\(cards, tz, now\)\s*\{[\s\S]*?\n\}/, '_almClockLit'),
+  extract(/function _almClockShown\(cards, view\)\s*\{[\s\S]*?\n\}/, '_almClockShown'),
 ];
 
 const store = {};
@@ -55,7 +58,7 @@ sandbox._almDisplayTz = () => sandbox.__home;
 sandbox._almDeviceTz = () => sandbox.__device;
 vm.createContext(sandbox);
 vm.runInContext(pieces.join('\n'), sandbox);
-const { _almTzForLocation, _almClockCards, _almClockLit, _almTzCardLabel, _TZ_CITIES, _MAP_CITIES } = sandbox;
+const { _almTzForLocation, _almClockCards, _almClockLit, _almClockShown, _almTzCardLabel, _TZ_CITIES, _MAP_CITIES } = sandbox;
 
 let failed = 0;
 function check(name, cond, detail) {
@@ -76,7 +79,8 @@ check('every curated city has a card, nothing hidden behind Add a clock', _TZ_CI
 check('the place\'s own zone (+8:45, on no curated card) gets one too', has('Australia/Eucla') && cards.length === _TZ_CITIES.length + 1, cards.length);
 check('the place\'s card is named for the place', cards.find((c) => c.tz === 'Australia/Eucla').label === 'Eucla');
 check('a curated zone is named for its city', cards.find((c) => c.tz === 'America/Los_Angeles').label === 'alm_city_los_angeles');
-check('none of them can be taken away', cards.every((c) => !c.added));
+check('none is saved until the reader keeps it', cards.every((c) => !c.saved));
+check('exactly one is the place\'s own', cards.filter((c) => c.local).length === 1 && cards.find((c) => c.local).tz === 'Australia/Eucla');
 let offs = cards.map((c) => c.off);
 check('west to east', offs.every((o, i) => i === 0 || offs[i - 1] <= o), offs.join(','));
 sandbox.__loc = { name: 'Mumbai, India', lat: 19.07, lon: 72.88, stored: true };
@@ -100,9 +104,26 @@ sandbox.__home = 'America/Los_Angeles'; sandbox.__device = 'America/Los_Angeles'
 store.zimi_almanac_clocks = JSON.stringify(['Asia/Tokyo', 'Europe/London', 'America/Los_Angeles', 'Pacific/Chatham']);
 cards = _almClockCards('America/Los_Angeles', JAN);
 check('added clocks join the tour, one card per zone', cards.length === _TZ_CITIES.length + 1 && has('Pacific/Chatham'), cards.length);
-check('only the added one that is not already a city can be taken away', cards.filter((c) => c.added).map((c) => c.tz).join() === 'Pacific/Chatham');
+check('every saved zone is marked saved, curated or not', cards.filter((c) => c.saved).map((c) => c.tz).sort().join() === 'America/Los_Angeles,Asia/Tokyo,Europe/London,Pacific/Chatham');
 offs = cards.map((c) => c.off);
 check('west to east', offs.every((o, i) => i === 0 || offs[i - 1] <= o), offs.join(','));
+
+// --- 3b. the Saved view: the place's own clock and the saved ones ---------
+let saved = _almClockShown(cards, 'saved');
+check('Saved shows the place\'s own clock and the saved ones, nothing else',
+  saved.map((c) => c.tz).sort().join() === 'America/Los_Angeles,Asia/Tokyo,Europe/London,Pacific/Chatham', tzs(saved));
+check('All shows every card', _almClockShown(cards, 'all').length === cards.length);
+check('Saved keeps west to east', saved.every((c, i) => i === 0 || saved[i - 1].off <= c.off));
+store.zimi_almanac_clocks = '[]';
+saved = _almClockShown(_almClockCards('America/Los_Angeles', JAN), 'saved');
+check('with nothing saved, Saved is the place\'s own clock alone', saved.length === 1 && saved[0].local && saved[0].tz === 'America/Los_Angeles', tzs(saved));
+// A home that no curated city keeps (Eucla) is a card of its own, and local.
+sandbox.__loc = { name: 'Eucla, Western Australia, Australia', lat: -31.68, lon: 128.89, stored: true };
+sandbox.__home = 'Australia/Eucla';
+saved = _almClockShown(_almClockCards('Australia/Eucla', JAN), 'saved');
+check('a place no curated city keeps is its own clock in Saved', saved.length === 1 && saved[0].tz === 'Australia/Eucla');
+sandbox.__loc = { name: 'Los Angeles', lat: 34.05, lon: -118.24, stored: true };
+sandbox.__home = 'America/Los_Angeles';
 
 // --- 4. a stored list that is not zone names is ignored --------------------
 store.zimi_almanac_clocks = JSON.stringify(["Asia/Tokyo", "x');alert(1);('", 42, 'Europe/Paris']);

@@ -1789,6 +1789,194 @@ function _almSec(titleHtml, bodyHtml) {
   return '<div class="almanac-section"><div class="almanac-section-title">' + titleHtml + '</div>' + bodyHtml + '</div>';
 }
 
+// ── The section bar ──
+// Pinned under the top bar once the page scrolls past its first section (the
+// hero), and gone again at the top: a row of pills, one per section, the
+// current one lit, and a dropdown at the end that lists them all (Eric,
+// 2026-10-16: "like my row selector but for sections ... it becomes the
+// header for that section"). It reuses the .pills-row/.pill look of the
+// other selectors. The current section is read by an IntersectionObserver on
+// a one-pixel line just under the bar, never by a scroll handler. A section
+// that has its own title scrolls to the top so the bar covers that title:
+// the bar is its header, and it is not written twice.
+var ALM_SECBAR_H = 44;                       // px; .alm-secbar's height in almanac.css
+var ALM_SECBAR_LINE = ALM_SECBAR_H + 4;      // px from the scroller's top: where a section counts as current
+var ALM_SECBAR_HERO = 'today';
+var ALM_SECBAR_LOCK_MS = 3000;               // the longest a tap's scroll holds the bar
+// [key, the selectors of its parts (the first is where a tap lands), heading string]
+// A part inside a titled section stands for the whole section.
+var ALM_SECTIONS = [
+  [ALM_SECBAR_HERO, ['#almanac-head', '.almanac-sky-wrap', '#almanac-sky-invite'], 'alm_today'],
+  ['calendar', ['#almanac-calendar'], 'alm_subj_calendars'],
+  ['place', ['#almanac-sunmap'], 'alm_nav_place'],
+  ['tides', ['#almanac-place .almanac-section'], 'alm_tide_title'],
+  ['onthisday', ['#almanac-onthisday'], 'alm_on_this_day'],
+  ['solar', ['#almanac-orrery'], 'alm_solar_system'],
+  ['tonight', ['#almanac-tonight'], 'alm_tonights_sky'],
+  ['starchart', ['#almanac-starchart'], 'alm_star_chart'],
+  ['analemma', ['#almanac-analemma'], 'alm_analemma'],
+  ['meteors', ['#almanac-meteors'], 'alm_meteor_showers'],
+  ['events', ['#almanac-events'], 'alm_celestial_events'],
+  ['astro', ['#almanac-astro'], 'alm_astro_data'],
+  ['deeptime', ['#almanac-deeptime'], 'alm_deep_time'],
+  ['rosetta', ['#almanac-rosetta'], 'alm_messages_across_time'],
+  ['tables', ['#alm-group-tables'], 'alm_group_tables']
+];
+var ALM_SECBAR_CHEVRON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+var _almSecBar = null;   // { io, ro, sections: [{key, name, els}], seen: Map(el -> bool), cur }
+
+function _almSecBarHostHtml() { return '<div class="alm-secbar-host" id="alm-secbar-host"></div>'; }
+function _almSecBarScroller() { return document.getElementById('almanac-content'); }
+function _almSecBarTeardown() {
+  if (!_almSecBar) return;
+  if (_almSecBar.io) _almSecBar.io.disconnect();
+  if (_almSecBar.ro) _almSecBar.ro.disconnect();
+  _almSecBar = null;
+}
+// The sections that are on the page now (a late or empty one is left out).
+function _almSecBarFind() {
+  var out = [];
+  ALM_SECTIONS.forEach(function (d) {
+    var els = [];
+    d[1].forEach(function (sel) {
+      var el = document.querySelector('#almanac-content ' + sel);
+      if (!el) return;
+      els.push(el.closest('.almanac-section, .alm-group') || el);
+    });
+    if (!els.length || !els.some(function (e) { return e.offsetHeight > 0; })) return;
+    out.push({ key: d[0], name: t(d[2]), els: els.filter(function (e, i) { return els.indexOf(e) === i; }) });
+  });
+  return out;
+}
+function _almSecBarMarkup(sections) {
+  var pills = '', items = '';
+  sections.forEach(function (s) {
+    var n = _almEsc(s.name);
+    pills += '<button type="button" class="pill" data-sec="' + s.key + '" onclick="_almSecGo(\'' + s.key + '\')">' + n + '</button>';
+    items += '<li><button type="button" data-sec="' + s.key + '" onclick="_almSecGo(\'' + s.key + '\')">' + n + '</button></li>';
+  });
+  var label = _almEsc(t('alm_nav_sections'));
+  return '<div class="alm-secbar" id="alm-secbar" hidden>' +
+    '<nav class="alm-secbar-nav" aria-label="' + label + '"><div class="pills-row" id="alm-secbar-pills">' + pills + '</div></nav>' +
+    '<button type="button" class="pill alm-secbar-more" id="alm-secbar-more" aria-expanded="false" aria-controls="alm-secbar-list"' +
+      ' aria-label="' + _almEsc(t('alm_nav_all')) + '" onclick="_almSecListToggle()">' + ALM_SECBAR_CHEVRON + '</button>' +
+    '<ul class="alm-secbar-list" id="alm-secbar-list" aria-label="' + _almEsc(t('alm_nav_all')) + '" hidden>' + items + '</ul></div>';
+}
+// Build (or rebuild, when a late section arrives) the bar and its observer.
+function _almSecBarInit() {
+  var host = document.getElementById('alm-secbar-host'), root = _almSecBarScroller();
+  var keep = _almSecBar && _almSecBar.cur;
+  _almSecBarTeardown();
+  if (!host || !root || !('IntersectionObserver' in window)) return;
+  var sections = _almSecBarFind();
+  host.innerHTML = _almSecBarMarkup(sections);
+  var st = _almSecBar = { io: null, ro: null, sections: sections, seen: new Map(), cur: keep || ALM_SECBAR_HERO, h: root.clientHeight };
+  // One line, a pixel high, under the bar: the section across it is current.
+  var line = ALM_SECBAR_LINE, rest = Math.max(0, root.clientHeight - line - 1);
+  st.io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { st.seen.set(e.target, e.isIntersecting); });
+    _almSecBarSync();
+  }, { root: root, rootMargin: '-' + line + 'px 0px -' + rest + 'px 0px', threshold: 0 });
+  sections.forEach(function (s) { s.els.forEach(function (e) { st.io.observe(e); }); });
+  // A late section (the tide) or an empty one filling in changes the set.
+  if ('ResizeObserver' in window) {
+    var again = false;
+    st.ro = new ResizeObserver(function () {
+      if (again) return;
+      again = true;
+      requestAnimationFrame(function () {
+        again = false;
+        var now = _almSecBarFind().map(function (s) { return s.key; }).join();
+        if (_almSecBar === st && (root.clientHeight !== st.h || now !== st.sections.map(function (s) { return s.key; }).join())) _almSecBarInit();
+      });
+    });
+    ['#almanac-place', '#almanac-onthisday'].forEach(function (sel) {
+      var el = document.querySelector('#almanac-content ' + sel);
+      if (el) st.ro.observe(el);
+    });
+    st.ro.observe(root);   // a turned phone changes where the line sits
+  }
+  _almSecBarPaint();
+}
+function _almSecBarSync() {
+  var st = _almSecBar;
+  if (!st || st.lock) return;   // a tap's scroll is on its way: the bar already names where it ends
+  var cur = null;
+  st.sections.forEach(function (s) {
+    if (s.els.some(function (e) { return st.seen.get(e); })) cur = s.key;
+  });
+  if (cur && cur !== st.cur) { st.cur = cur; _almSecBarPaint(); }
+}
+// The bar's face for the current section: shown past the first, the current
+// pill lit and brought into the row, the list's current item marked.
+function _almSecBarPaint() {
+  var st = _almSecBar, bar = document.getElementById('alm-secbar');
+  if (!st || !bar) return;
+  var show = st.cur !== ALM_SECBAR_HERO;
+  if (bar.hidden === show) bar.hidden = !show;
+  if (!show) _almSecListClose(false);
+  var on = null;
+  bar.querySelectorAll('[data-sec]').forEach(function (b) {
+    var is = b.getAttribute('data-sec') === st.cur;
+    b.classList.toggle('active', is && b.classList.contains('pill'));
+    if (is) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+    if (is && b.classList.contains('pill')) on = b;
+  });
+  var row = document.getElementById('alm-secbar-pills');
+  if (on && row && show) {
+    var a = on.getBoundingClientRect(), b = row.getBoundingClientRect();
+    var d = (a.left + a.width / 2) - (b.left + b.width / 2);
+    if (Math.abs(d) > 1) row.scrollBy({ left: d, behavior: _scrollBehavior() });
+  }
+}
+function _almSecGo(key) {
+  var st = _almSecBar, root = _almSecBarScroller();
+  if (!st || !root) return;
+  var s = st.sections.filter(function (x) { return x.key === key; })[0];
+  if (!s) return;
+  _almSecListClose(false);
+  if (key === ALM_SECBAR_HERO) root.scrollTo({ top: 0, behavior: _scrollBehavior() });
+  else s.els[0].scrollIntoView({ block: 'start', behavior: _scrollBehavior() });
+  st.cur = key;
+  _almSecBarPaint();
+  // Sections flying past on the way are not announced; the scroll's end (or,
+  // where the browser has no scrollend, a while after) hands the bar back.
+  var done = function () {
+    clearTimeout(st.lockTimer);
+    ['scrollend', 'touchstart', 'wheel'].forEach(function (ev) { root.removeEventListener(ev, done); });
+    st.lock = false;
+    _almSecBarSync();
+  };
+  st.lock = true;
+  // A finger or wheel on the page takes it back at once.
+  ['scrollend', 'touchstart', 'wheel'].forEach(function (ev) { root.addEventListener(ev, done, { passive: true }); });
+  clearTimeout(st.lockTimer);
+  st.lockTimer = setTimeout(done, ALM_SECBAR_LOCK_MS);
+}
+function _almSecListToggle() {
+  var list = document.getElementById('alm-secbar-list');
+  if (!list) return;
+  if (list.hidden) {
+    list.hidden = false;
+    document.getElementById('alm-secbar-more').setAttribute('aria-expanded', 'true');
+    var on = list.querySelector('[aria-current]') || list.querySelector('button');
+    if (on) { on.focus({ preventScroll: true }); on.scrollIntoView({ block: 'nearest' }); }
+  } else _almSecListClose(true);
+}
+function _almSecListClose(refocus) {
+  var list = document.getElementById('alm-secbar-list'), more = document.getElementById('alm-secbar-more');
+  if (!list || list.hidden) return;
+  list.hidden = true;
+  if (more) { more.setAttribute('aria-expanded', 'false'); if (refocus) more.focus({ preventScroll: true }); }
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && document.querySelector('#alm-secbar-list:not([hidden])')) { e.stopPropagation(); _almSecListClose(true); }
+}, true);
+document.addEventListener('pointerdown', function (e) {
+  if (!e.target.closest || e.target.closest('.alm-secbar')) return;
+  _almSecListClose(false);
+});
+
 // Tables and calculations: the almanac's back matter, for any time. Two rows
 // of tiles, each opening its table or calculation over the page
 // (almanac-tables.js, with almanac-reference.js's sums and their styles,
@@ -2114,7 +2302,7 @@ function _renderAlmanacContent() {
   var now = new Date();
   var m = _moonPhase(now);
 
-  var html = '<div class="almanac-inner">';
+  var html = '<div class="almanac-inner">' + _almSecBarHostHtml();
 
   html += '<div id="almanac-head">' + _almHeadHtml(now) + '</div>';
   _almPrevFocusTime = now.getTime();   // seed the hero-moon sweep's start
@@ -2315,6 +2503,7 @@ function _renderAlmanacContent() {
   _almTmInit();
   _cacheAlmanacHighlights(now, m);
   _almPlaceWatch();
+  _almSecBarInit();
   _almRedrawRestore(anchor);
 }
 
@@ -3723,6 +3912,7 @@ function _renderSunMap(now) {
     '<span class="alm-tz-hand" id="almanac-tz-hand" aria-hidden="true"></span></div>';
   html += '<div id="almanac-tz-label" class="alm-clock-info"></div>';
   html += '</div>';
+  html += '<div class="alm-hol-row alm-tz-view" id="almanac-tz-view"></div>';
   html += '<div class="alm-tz-list" id="almanac-tz-pills"></div>';
   html += '</div>';
 
@@ -3995,11 +4185,17 @@ function _initTzClock(now) {
   // one in be sure to put it in the right position", Eric). The curated
   // cities are offered to add, not all shown at once.
   var targetTz = _almSelectedTz || _almDisplayTz();
-  var cards = _almClockCards(targetTz, now);
+  var focused = _almTzFocusKey(pillsEl);
+  var view = _almClockView();
+  var cards = _almClockShown(_almClockCards(targetTz, now), view);
   var localMatch = _almClockLit(cards, targetTz, now);
+  _almClockViewPaint(view);
 
   // Render city cards with times
   var html = '';
+  if (view === 'saved' && !_almClocks().length) {
+    html += '<p class="alm-tz-hint">' + _almEsc(t('alm_clock_hint_empty')) + '</p>';
+  }
   for (var i = 0; i < cards.length; i++) {
     var tzc = cards[i];
     var isActive = (i === localMatch);
@@ -4013,30 +4209,38 @@ function _initTzClock(now) {
     // thin outlines at small sizes)
     var glyphHtml = phase === 'night'
       ? '<span class="alm-tz-glyph alm-glyph-moon" aria-hidden="true"></span>'
-      : '<span class="alm-tz-glyph" aria-hidden="true">\u2600\ufe0e</span>';
+      : '<span class="alm-tz-glyph" aria-hidden="true">☀︎</span>';
     var pick = '_almSelectTz(\'' + tzc.tz + '\')';
-    html += '<div class="alm-tz-city-card alm-tz-' + phase + (isActive ? ' alm-tz-city-active' : '') + '" role="button" tabindex="0"' +
+    html += '<div class="alm-tz-city-card alm-tz-' + phase + (isActive ? ' alm-tz-city-active' : '') + '" role="button" tabindex="0" data-tz="' + tzc.tz + '"' +
       ' onclick="' + pick + '" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + pick + '}">';
     html += glyphHtml;
     html += '<span class="alm-tz-city-name" title="' + _almEsc(tzc.label) + '">' + _almEsc(tzc.label) + '</span>';
     html += '<span class="alm-tz-city-time">' + tzTime + '</span>';
     html += '<span class="alm-tz-city-offset">' + utcOff + '</span>';
-    if (tzc.added) {
-      html += '<button type="button" class="alm-tz-remove" onclick="event.stopPropagation();_almClockRemove(\'' + tzc.tz + '\')"' +
-        ' aria-label="' + _almEsc(t('alm_clock_remove', { city: tzc.label })) + '" title="' + _almEsc(t('alm_clock_remove', { city: tzc.label })) + '">×</button>';
+    // The place's own clock is always here; every other can be kept or let go.
+    if (!tzc.local) {
+      var saveLabel = _almEsc(t('alm_clock_save', { city: tzc.label }));
+      html += '<button type="button" class="alm-tz-star' + (tzc.saved ? ' on' : '') + '" aria-pressed="' + !!tzc.saved + '" data-tz="' + tzc.tz + '"' +
+        ' onclick="event.stopPropagation();_almClockToggle(\'' + tzc.tz + '\')" onkeydown="event.stopPropagation()"' +
+        ' aria-label="' + saveLabel + '" title="' + saveLabel + '">' + ALM_STAR_SVG + '</button>';
     }
     html += '</div>';
   }
-  // Add a clock: a sheet of every zone the Almanac knows.
+  // Add a clock: a sheet of every zone the Almanac knows; the one picked is kept.
   html += '<button type="button" class="alm-tz-add" onclick="_almClockSheetOpen(this)">+ ' + _almEsc(t('alm_clock_add')) + '</button>';
   pillsEl.innerHTML = html;
+  _almTzFocusRestore(pillsEl, focused);
 
   // Draw the clock
   _drawTzClock(now);
 }
 
-// The reader's clocks, kept on this device: zone names, in the order added.
+// The reader's saved clocks, kept on this device: zone names, in the order
+// saved. (The key is the one added clocks have always used, so they are saved
+// ones now.) Which of the two views is showing is kept beside them.
 var _ALM_CLOCKS_KEY = 'zimi_almanac_clocks';
+var _ALM_CLOCKS_VIEW_KEY = 'zimi_almanac_clocks_view';
+var ALM_CLOCKS_VIEWS = ['saved', 'all'];
 var ALM_TZ_NAME_RE = /^[A-Za-z0-9_+\/-]+$/;   // an IANA zone name, and nothing that could leave an attribute
 function _almClocks() {
   try { var v = JSON.parse(localStorage.getItem(_ALM_CLOCKS_KEY)); return Array.isArray(v) ? v.filter(function (z) { return typeof z === 'string' && ALM_TZ_NAME_RE.test(z); }) : []; }
@@ -4052,7 +4256,51 @@ function _almClockAdd(tz) {
   if (list.indexOf(tz) < 0) list.push(tz);
   _almSetClocks(list);
 }
-function _almClockRemove(tz) { _almSetClocks(_almClocks().filter(function (z) { return z !== tz; })); }
+function _almClockRemove(tz) {
+  // A clock let go while it is the one shown returns the big clock to the place's own.
+  if (_almClockView() === 'saved' && _almSelectedTz === tz) _almSelectedTz = null;
+  _almSetClocks(_almClocks().filter(function (z) { return z !== tz; }));
+}
+function _almClockToggle(tz) { if (_almClocks().indexOf(tz) < 0) _almClockAdd(tz); else _almClockRemove(tz); }
+// Saved clocks, or All of them; All until the reader chooses.
+function _almClockView() {
+  try { var v = localStorage.getItem(_ALM_CLOCKS_VIEW_KEY); return ALM_CLOCKS_VIEWS.indexOf(v) >= 0 ? v : 'all'; }
+  catch (e) { return 'all'; }
+}
+function _almClockSetView(view) {
+  if (ALM_CLOCKS_VIEWS.indexOf(view) < 0) return;
+  try { localStorage.setItem(_ALM_CLOCKS_VIEW_KEY, view); } catch (e) {}
+  // The big clock never shows a zone the list under it does not: back to the place's own.
+  if (view === 'saved' && _almSelectedTz && _almClocks().indexOf(_almSelectedTz) < 0) _almSelectedTz = null;
+  _initTzClock(new Date());
+  if (typeof _drawSunMap === 'function') _drawSunMap();
+}
+// The grid is drawn again on a toggle and each minute: a keyboard user's place
+// in it (a card or its star, by zone) is found again afterwards.
+function _almTzFocusKey(host) {
+  var a = document.activeElement;
+  if (!a || !host.contains(a) || !a.getAttribute('data-tz')) return null;
+  return { tz: a.getAttribute('data-tz'), star: a.classList.contains('alm-tz-star') };
+}
+function _almTzFocusRestore(host, key) {
+  if (!key) return;
+  var all = host.querySelectorAll('[data-tz="' + key.tz + '"]'), pick = null;
+  for (var i = 0; i < all.length; i++) if (all[i].classList.contains('alm-tz-star') === key.star) pick = all[i];
+  if (pick) pick.focus({ preventScroll: true });
+}
+// The two-way switch above the clocks, the Regional/Worldwide pill's look.
+var ALM_STAR_SVG = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.5l2.4 5.2 5.6.6-4.2 3.8 1.2 5.6L12 15.8l-5 2.9 1.2-5.6L4 9.3l5.6-.6z"/></svg>';
+function _almClockViewPaint(view) {
+  var host = document.getElementById('almanac-tz-view');
+  if (!host) return;
+  var html = '<div class="alm-scope-seg" role="tablist" aria-label="' + _almEsc(t('alm_clock_view_label')) + '">';
+  ALM_CLOCKS_VIEWS.forEach(function (v) {
+    html += '<button type="button" class="alm-scope-btn' + (v === view ? ' active' : '') + '" role="tab" aria-selected="' + (v === view) + '"' +
+      ' onclick="_almClockSetView(\'' + v + '\')">' + _almEsc(t(v === 'saved' ? 'alm_clock_saved' : 'all')) + '</button>';
+  });
+  html += '</div>';
+  if (host._almHtml !== html) { host.innerHTML = html; host._almHtml = html; }
+}
 
 // A clock's time, and its zone's offset from UTC now: "UTC+5:30 · IST". The
 // short name only when it is a real abbreviation; a GMT/UTC alias (GMT+8,
@@ -4090,7 +4338,7 @@ function _almTzCityLabel(tz) {
 var _almClockSheetEl = null;
 function _almClockZones(now) {
   var shown = {}, seen = {}, out = [];
-  _almClockCards(_almSelectedTz || _almDisplayTz(), now).forEach(function (c) { shown[c.tz] = 1; });
+  _almClockShown(_almClockCards(_almSelectedTz || _almDisplayTz(), now), _almClockView()).forEach(function (c) { shown[c.tz] = 1; });
   function add(tz) {
     if (shown[tz] || seen[tz]) return;
     seen[tz] = 1;
@@ -4171,22 +4419,30 @@ function _almSheetAboveKeyboard(pop) {
 // offset now. The place's own city, when it is a curated one, carries the
 // place's name.
 function _almClockCards(targetTz, now) {
-  var out = [], seen = {}, offs = {}, home = _almDisplayTz(), named = _getLocation().stored;
-  function add(tz, added, onlyIfNewOffset) {
+  var out = [], seen = {}, offs = {}, home = _almDisplayTz(), named = _getLocation().stored, saved = _almClocks();
+  function add(tz, onlyIfNewOffset) {
     if (!tz || seen[tz]) return;
     var off = 0;
     try { off = _tzUtcOffsetMin(tz, now); } catch (e) { return; }
     if (onlyIfNewOffset && offs[off]) return;
     seen[tz] = 1; offs[off] = 1;
-    out.push({ tz: tz, added: added, off: off,
+    out.push({ tz: tz, saved: saved.indexOf(tz) >= 0, off: off,
       label: tz === home && named ? _almTzCardLabel(tz) : _almTzCityLabel(tz) });
   }
-  _TZ_CITIES.forEach(function (c) { add(c.tz, false); });
-  add(home, false, true);
-  add(targetTz, false, true);
-  add(_almDeviceTz(), false, true);
-  _almClocks().forEach(function (tz) { add(tz, true); });
-  return out.sort(function (a, b) { return a.off - b.off; });
+  _TZ_CITIES.forEach(function (c) { add(c.tz); });
+  add(home, true);
+  add(targetTz, true);
+  add(_almDeviceTz(), true);
+  saved.forEach(function (tz) { add(tz); });
+  out.sort(function (a, b) { return a.off - b.off; });
+  // The place's own clock: the card that keeps its time. Always shown, never let go.
+  var li = _almClockLit(out, home, now);
+  if (li >= 0) out[li].local = true;
+  return out;
+}
+// What a view shows: every card, or the place's own and the saved ones.
+function _almClockShown(cards, view) {
+  return view === 'saved' ? cards.filter(function (c) { return c.local || c.saved; }) : cards;
 }
 // The card a zone lights: its own, else the first keeping the same offset now.
 function _almClockLit(cards, tz, now) {
