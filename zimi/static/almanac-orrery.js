@@ -303,6 +303,7 @@ function _orrFmtTransitDays(rk) {
 var _TWIN_SLIDER_STEPS_PER_C = 100;
 var _TWIN_MAX_BETA = 0.99;
 var _orreryTwinBeta = 0;
+var _orreryTwinOpen = false;   // the twins and the light clock, shown behind a quiet link
 
 function _twinSliderToBeta(v) {
   return Math.min(_TWIN_MAX_BETA, Math.max(0, v / _TWIN_SLIDER_STEPS_PER_C));
@@ -324,6 +325,15 @@ function _orreryTwinClocks(rk, whatIfBeta, frac) {
            ship: _properTime(earth, beta), lag: _timeDilationLag(earth, beta) };
 }
 
+// Opened or closed in place: the panel is not built again, so the slider keeps its hold.
+function _orreryTwinToggle() {
+  _orreryTwinOpen = !_orreryTwinOpen;
+  var box = document.getElementById('orrery-twin'), btn = document.getElementById('orrery-twin-link');
+  if (box) box.hidden = !_orreryTwinOpen;
+  if (btn) btn.setAttribute('aria-expanded', String(_orreryTwinOpen));
+  _orreryLcStart = 0;
+  _orreryUpdateRide();
+}
 function _orreryTwinInput(val) {
   _orreryTwinBeta = _twinSliderToBeta(parseInt(val, 10) || 0);
   _orreryUpdateRide();
@@ -1551,9 +1561,11 @@ function _orreryRidePanelHtml() {
   return '<div class="orrery-ride-head"><span id="orrery-ride-where" class="orrery-ride-where"></span>' +
       '<span id="orrery-ride-dist" class="orrery-ride-dist"></span></div>' +
     '<div id="orrery-ride-delay" class="orrery-ride-delay"></div>' +
-    '<div class="orrery-twin">' +
-      '<div class="orrery-twin-head"><span class="orrery-twin-title">' + _lterm('twin_paradox', _almEsc(t('alm_orr_twin_title'))) + '</span>' +
-        '<span class="orrery-twin-whatif">' + _almEsc(t('alm_orr_twin_whatif')) + '</span></div>' +
+    // The message home is the answer; the twins and the light clock are behind one quiet link.
+    '<button type="button" id="orrery-twin-link" class="orrery-twin-link" aria-expanded="' + _orreryTwinOpen + '" aria-controls="orrery-twin"' +
+      ' onclick="_orreryTwinToggle()">' + _almEsc(t('alm_orr_twin_whatif')) + '</button>' +
+    '<div class="orrery-twin" id="orrery-twin"' + (_orreryTwinOpen ? '' : ' hidden') + '>' +
+      '<div class="orrery-twin-head"><span class="orrery-twin-title">' + _lterm('twin_paradox', _almEsc(t('alm_orr_twin_title'))) + '</span></div>' +
       '<div class="orrery-twin-ctl"><input id="orrery-twin-slider" type="range" min="0" max="' + max + '" value="' + slider + '"' +
         ' class="orrery-slider" aria-label="' + _almEsc(t('alm_orr_twin_whatif')) + '" oninput="_orreryTwinInput(this.value)" />' +
         '<span id="orrery-twin-speed" class="orrery-twin-speed"></span></div>' +
@@ -1686,7 +1698,7 @@ function _orreryUpdateRide() {
   _orrSetText('orrery-twin-earth', _orrFmtSpan(tw.earth));
   _orrSetText('orrery-twin-ship', _orrFmtSpan(tw.ship));
   _orrSetText('orrery-twin-note', t('alm_orr_twin_explain', { g: _orrFmtGamma(tw.gamma), lag: _orrFmtSpan(_orreryShownLag(tw)) }));
-  _orreryLightClock(tw.beta, speed, performance.now());
+  if (_orreryTwinOpen) _orreryLightClock(tw.beta, speed, performance.now());
 }
 
 function _orreryUpdateDate() {

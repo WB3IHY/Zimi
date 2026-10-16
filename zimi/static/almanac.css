@@ -350,7 +350,10 @@
 .orrery-ride-delay { color: var(--text); font-size: 14px; margin-top: 2px; }
 .orrery-twin { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 .orrery-twin-title { color: var(--text); font-weight: 600; }
-.orrery-twin-whatif { color: var(--text3); font-style: italic; }
+.orrery-twin-link { display: block; margin-top: 8px; padding: 2px 0; background: none; border: 0; color: var(--text3); font: inherit; text-align: start; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; cursor: pointer; }
+.orrery-twin-link:hover, .orrery-twin-link:focus-visible { color: var(--amber); text-decoration-color: var(--amber-border); }
+.orrery-twin-link:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.orrery-twin[hidden] { display: none; }
 .orrery-twin-ctl { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .orrery-twin-speed { color: var(--amber); flex-shrink: 0; }
 .orrery-twin-clocks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
