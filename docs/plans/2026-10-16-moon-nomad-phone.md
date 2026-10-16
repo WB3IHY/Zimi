@@ -107,3 +107,14 @@ Four lenses, each a method from the person's published principles, not an impers
 - Offline says which it is: "can't reach your server" apart from "no network".
 - From Kiwix's ideas, link previews and the trust prompt for a stranger's ZIM with scripts; colour scheme and contents parked.
 - Lasting past the software: a printable sky sheet (the year's Moon phases, rise and set for your latitude, finding north) beside the Field Guide's, and both as plain HTML with no JavaScript (Brand).
+
+## NOMAD for real (2026-10-16, 01:30 to 02:05)
+
+NOMAD v1.35.1 runs in a Multipass VM on the iMac (Eric chose the Mac over the NAS: less work for him), installed by its own installer after Eric accepted its terms. Every image pinned to its digest, its three auto-update switches off. A 100-article Wikipedia in its storage, rescanned by its own API.
+
+Zimi added as a Supply Depot custom app through NOMAD's own API (`POST /api/system/services/custom`): image `zimi:1.15-dev` built in the VM from this branch, port 8600, `<storage>/zim` at `/nomad` with `ZIMI_EXTRA_ZIM_DIRS=/nomad`, `<storage>/zimi` at `/config`. It reads NOMAD's ZIM and searches it; NOMAD's folder is unchanged (nothing written beside the ZIM).
+
+What a NOMAD user would hit, to fix in Zimi:
+- **The data folder.** Docker creates a missing bind-mount folder owned by root; Zimi's image runs as `zimi` (1000:1000), so it stopped at start with "data dir /config is not writable" and NOMAD restarted it in a loop. The image should handle a fresh root-owned data folder itself (start as root only long enough to take ownership of the data folder, then drop to `zimi`), or the docs' custom-app spec must say how. Fixed by hand here with a chown.
+- **A published image.** The NOMAD path needs 1.15 (`ZIMI_EXTRA_ZIM_DIRS`); 1.13.3 would have to mount NOMAD's folder as its own and could write there.
+- NOMAD has no read-only option for a custom app's volumes; Zimi's own rule (extra folders are never written) is what keeps NOMAD's files safe.
