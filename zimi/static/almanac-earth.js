@@ -2726,6 +2726,7 @@ function _aePrepare() {
         // The orrery stops offering what this browser cannot draw (its glow
         // and Earth's button go; Earth opens its article again).
         openAlmanacEarth.unsupported = true;
+        if (typeof _lpUnsupported === 'function') _lpUnsupported();
         return false;
       }
       _ae.gl = S;
@@ -2740,6 +2741,7 @@ function _aePrepare() {
   }).catch(function () { return false; }).then(function (ok) {
     _ae.loading = false;
     _aePreparing = null;
+    if (ok && typeof _lpWarmed === 'function') _lpWarmed();
     return ok;
   });
   return _aePreparing;
@@ -2938,6 +2940,7 @@ function openAlmanacEarth(opts) {
   });
 }
 function _aeShow(fromHero) {
+  if (typeof _lpBeforeShow === 'function') _lpBeforeShow();
   // From the orrery, its chosen moment; from the hero or the sky, the moment
   // they show.
   if (_aeFrom === 'orrery') _aeAdoptOrreryClock();
@@ -3033,6 +3036,7 @@ function _aeFinishClose() {
     if ((!back || document.activeElement !== back) && performance.now() < until) requestAnimationFrame(land);
   })();
   _ae.closedByKey = false;
+  if (typeof _lpAfterClose === 'function') _lpAfterClose();
   // Found unsupported, the orrery drops its Earth glow; a paused orrery
   // (1x) draws nothing by itself, so give it the frame without.
   if (openAlmanacEarth.unsupported && typeof _orrerySyncToFocus === 'function') _orrerySyncToFocus();
@@ -3085,6 +3089,7 @@ function _aeFreshCanvas(id, bind) {
 // gives the GPU back.
 function _aeRelease() {
   if (!_ae) return;
+  if (typeof _lpRelease === 'function') _lpRelease();
   _ae.wanted = false;
   _aeFinishClose();
   _aeDisposeGl();

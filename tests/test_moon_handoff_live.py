@@ -134,6 +134,12 @@ def _settle(pg, iso):
         timeout=20000,
         polling=POLL_MS,
     )
+    # And the live scene (the landing) stands in the hero again: that is the page at rest.
+    pg.wait_for_function(
+        "() => !!document.querySelector('#almanac-view.lp-live')",
+        timeout=20000,
+        polling=POLL_MS,
+    )
     pg.wait_for_timeout(300)
 
 
@@ -165,6 +171,9 @@ def test_the_first_3d_frame_is_the_hero(browser, served, shots, iso):
     try:
         _settle(pg, iso)
         clip = _rect(pg)
+        # The flat picture: the live scene (almanac-landing.js) stands aside, as before it was ready.
+        pg.evaluate("() => _lpRelease()")
+        pg.wait_for_timeout(200)
         flat = _png(pg.screenshot(clip=clip))
         # Hold the swap at its first frame (a long flight), so the screenshot
         # is the page as composited with the 3D Moon standing in.
@@ -462,9 +471,9 @@ def test_the_cost(browser, served):
         assert pg.evaluate("() => _ae.gl.renderer.getContext().drawingBufferWidth") > 1
         pg.evaluate("() => _aeClose()")
         pg.wait_for_function("() => !_aeIsOpen", timeout=10000, polling=POLL_MS)
-        # One CSS pixel: the device pixels of one at the view's pixel ratio.
+        # Not the screen's: the hero's own rectangle (the landing draws the Moon there again), at the view's pixel ratio.
         assert pg.evaluate(
-            "() => _ae.gl.renderer.getContext().drawingBufferWidth === _ae.gl.dpr"
+            "() => _ae.gl.renderer.getContext().drawingBufferWidth <= document.querySelector(AE_HERO_SEL).offsetWidth * _ae.gl.dpr"
         )
         lost = pg.evaluate(
             """() => { var gl = _ae.gl.renderer.getContext(); closeAlmanac();
