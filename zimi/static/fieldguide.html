@@ -148,6 +148,10 @@ function $(id) { return document.getElementById(id); }
 function say(key, vars) { return CARD.word(STR, key, vars); }
 function sit(id) { return STR['s_' + id] || id; }
 var state = { view: 'front', id: '' };
+// Inside the shell's reader there is a library to search and a print sheet to hand over;
+// opened on its own (the sign-in or first-run screen) there is neither.
+var inShell = false;
+try { inShell = window.parent !== window; } catch (e) {}
 
 // ── the shell's switch: red light at night, the Red theme, shared with the sky ──
 function nightInit() {
@@ -201,6 +205,7 @@ var ASK_WAIT_MS = 120, askSeq = 0, askTimer = 0, askHit = null, askAsked = null;
 function askRows(q) {
   var rows = askHit ? '<li><button type="button" class="fg-sit fg-hit lead" data-id="' + esc(askHit.id) + '"><span class="mark none" aria-hidden="true"></span>' +
     '<span class="name">' + esc(sit(askHit.id)) + '</span><span class="chev"></span></button></li>' : '';
+  if (!inShell) return rows;
   return rows + '<li><button type="button" class="fg-sit fg-hit lib" data-lib="1"><span class="mark none" aria-hidden="true"></span>' +
     '<span class="name">' + esc(say('search_library', { q: q })) + '</span><span class="chev"></span></button></li>';
 }
@@ -224,7 +229,7 @@ function askGo(lib) {
   var q = $('t-q').value.trim();
   if (!q) return;
   if (askHit && !lib) openSituation(askHit.id, true, askHit.who);
-  else tell({ zimi: 'search', q: q });
+  else if (inShell) tell({ zimi: 'search', q: q });
 }
 $('t-q').addEventListener('input', function() {
   clearTimeout(askTimer);
@@ -380,8 +385,6 @@ function sheetHtml(html) {
 }
 function handOver(html) {
   window.__sheet = html;
-  var inShell = false;
-  try { inShell = window.parent !== window; } catch (e) {}
   if (inShell) tell({ zimi: 'print-sheet' });
   else { document.body.insertAdjacentHTML('beforeend', '<div id="sheet-only">' + html + '</div>'); window.print(); }
 }

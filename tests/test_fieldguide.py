@@ -756,8 +756,10 @@ def test_a_missing_zim_is_named_with_its_size_and_a_way_to_get_it(empty_library)
 
 
 def test_a_manual_quote_offers_the_field_manual_and_the_full_army_library(
-    empty_library,
+    empty_library, monkeypatch
 ):
+    # Building the manual is offered only online; the test's own ZIMI_OFFLINE must not decide it.
+    monkeypatch.setattr(fg, "_offline", lambda: False)
     s = fg.situation("bleeding")
     tc = next(q for q in s["quotes"] if q["source"]["id"] == "atp")
     options = {o["piece"]: o for o in tc["library"]["options"]}
@@ -1319,6 +1321,19 @@ def test_the_sign_in_screen_still_gets_the_words_and_none_of_the_library(
     )
     assert _get(served, "/fieldguide/library")[0] == 401
     assert _get(served, "/search?q=bleeding")[0] == 401
+    # The "What's happening?" box: the guide's own phrase lists, no ZIM read.
+    assert _get(served, "/fieldguide/match?q=baby+is+choking") == (
+        200,
+        {"id": "choking", "kind": "card", "who": "infant"},
+    )
+    # Nothing past the door by a route's spelling.
+    for path in (
+        "/fieldguide/library/",
+        "/fieldguide//library",
+        "/fieldguide/../search?q=x",
+        "/fieldguide/%2e%2e/search?q=x",
+    ):
+        assert _get(served, path)[0] == 401, path
 
 
 def test_a_fresh_install_still_gets_the_words(served, monkeypatch):
@@ -1327,6 +1342,7 @@ def test_a_fresh_install_still_gets_the_words(served, monkeypatch):
     monkeypatch.setattr(manage, "setup_pending", lambda: True)
     status, body = _get(served, "/fieldguide/situation?id=lost")
     assert status == 200 and body["quotes"] and body["answers"] == []
+    assert _get(served, "/fieldguide/match?q=bleeding")[1]["id"] == "bleeding"
     assert _get(served, "/fieldguide/library")[0] != 200
 
 

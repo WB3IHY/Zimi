@@ -320,10 +320,13 @@ _PRIVATE_LOGIN_SURFACE_EXACT = frozenset(
         "/apple-touch-icon.png",
         # The Field Guide's quotes: public-domain text, open to whoever is at
         # the door (the library behind them is not; see _fieldguide_is_bare).
+        # /match names a situation from the guide's own phrase lists; it reads
+        # no ZIM, so the "What's happening?" box works at the door too.
         "/fieldguide",
         "/fieldguide/home",
         "/fieldguide/situation",
         "/fieldguide/print",
+        "/fieldguide/match",
     )
 )
 _PRIVATE_LOGIN_SURFACE_PREFIX = ("/static/", "/manage/")
@@ -338,6 +341,7 @@ _SETUP_SURFACE = frozenset(
         "/fieldguide/home",
         "/fieldguide/situation",
         "/fieldguide/print",
+        "/fieldguide/match",
     )
 )
 
