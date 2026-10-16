@@ -42,10 +42,18 @@ IDENTITY_ENDPOINTS = [
     # Who may fetch a voice, and audio asked for by range.
     "/dictionary/voices",
     "/dictionary/speak",
+    # The Field Guide's answers name the installed ZIMs; offline the page
+    # reads its own copy (/static/fieldguide-offline.json) instead.
+    "/fieldguide",
+    "/fieldguide/home",
+    "/fieldguide/situation",
+    "/fieldguide/match",
+    "/fieldguide/print",
+    "/fieldguide/library",
 ]
 
 # Query strings must not change the classification (the SW keys off pathname).
-IDENTITY_WITH_QUERY = ["/search?q=water", "/list?layout=1", "/suggest?q=wa"]
+IDENTITY_WITH_QUERY = ["/search?q=water", "/list?layout=1", "/suggest?q=wa", "/fieldguide/situation?id=choking"]
 
 _DRIVER = r"""
 const fs = require('node:fs');
