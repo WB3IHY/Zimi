@@ -2230,7 +2230,7 @@ var SKY_BELOW_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" str
 function _skyEnsureBelowButton(wrap) {
   if (!wrap || wrap.querySelector('[data-sky-below]')) return;
   var b = document.createElement('button');
-  b.type = 'button'; b.className = 'alm-sky-look alm-sky-tool alm-sky-below';
+  b.type = 'button'; b.className = 'alm-sky-tool alm-sky-below';
   b.setAttribute('data-sky-below', '');
   b.setAttribute('aria-label', t('alm_sky_below_btn')); b.title = t('alm_sky_below_btn');
   b.setAttribute('aria-pressed', _skyBelowOn() ? 'true' : 'false');
@@ -2243,7 +2243,7 @@ var SKY_FIND_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stro
 function _skyEnsureFindButton(wrap) {
   if (!wrap || wrap.querySelector('[data-sky-find]')) return;
   var b = document.createElement('button');
-  b.type = 'button'; b.className = 'alm-sky-look alm-sky-tool alm-sky-find';
+  b.type = 'button'; b.className = 'alm-sky-tool alm-sky-find';
   b.setAttribute('data-sky-find', '');
   b.setAttribute('aria-label', t('sky_find_btn')); b.title = t('sky_find_btn');
   b.innerHTML = SKY_FIND_SVG;
