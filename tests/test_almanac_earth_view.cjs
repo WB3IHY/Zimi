@@ -194,6 +194,7 @@ for (const name of ['_STARS', '_SKY_FIELD_STARS']) {
   const sky = read('almanac-sky.js'), at = sky.indexOf('var ' + name + ' = [');
   vm.runInContext(sky.slice(at, sky.indexOf('\n];', at) + 3), S);
 }
+vm.runInContext(read('almanac-ephem.js'), S);
 vm.runInContext(read('almanac-earth.js'), S);
 vm.runInContext(read('earth/satellite-7.1.0.min.js'), S);
 S.window.SatelliteJS = S.SatelliteJS;

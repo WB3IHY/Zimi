@@ -8,8 +8,9 @@
 // Offline and honest:
 //   - The planets and Pluto come from the orrery's own Keplerian elements
 //     (almanac-orrery.js _planetHelio3D, JPL's approximate set), so the flat
-//     orrery and this view cannot disagree. The Moon is the Earth view's
-//     (almanac-earth.js _aeMoon, Meeus). The Galilean moons and Titan are on
+//     orrery and this view cannot disagree. The Earth and the Moon are the Earth
+//     view's, VSOP87D and Meeus (almanac-ephem.js, the one ephemeris). The
+//     Galilean moons and Titan are on
 //     mean circular orbits fitted to JPL Horizons (scripts/fit_moon_orbits.py)
 //     and the page says so.
 //   - The probes and Ceres are a table of JPL Horizons vectors that ships with
@@ -45,8 +46,6 @@ var SP_MIN_BETA = 1e-4;            // 30 km/s, about a probe's speed
 // goes as sqrt(distance flown) there, so the clocks have closed forms.
 var SP_RAMP_FRACTION = 0.05;
 var SP_BETA_STEPS = 1000;          // the speed slider's resolution
-var SP_OBLIQUITY_DEG = AE_OBLIQUITY_J2000_ARCSEC / 3600;
-var SP_PRECESSION_DEG_PER_CENTURY = 5028.796195 / 3600;   // general precession in longitude (IAU 2006)
 
 // Where the page's assets live. Static files are served immutable, so each
 // name carries its version.
@@ -201,19 +200,16 @@ function _spRetarded(posAt, observer, jd) {
 // A planet or Pluto, or the Sun: heliocentric AU, J2000 ecliptic. Jupiter to
 // Pluto come from the shipped Horizons table over 1970-2050, the same table the
 // probes are in, so a flyby is where it was; elsewhere, and for the inner planets,
-// from the orrery's elements. The Earth's elements are the Earth-Moon barycentre's:
-// 4700 km, 3e-5 AU, off the Earth.
+// from the Almanac's ephemeris (almanac-ephem.js, which has the Earth itself from
+// VSOP87D rather than the Earth-Moon barycentre).
 function _spPlanetPos(name, jd) {
-  if (name === 'Sun') return [0, 0, 0];
   var tracked = _spTrackAt(_spPlanetTracks[name], jd);
-  if (tracked) return tracked;
-  var p = _planetHelio3D(name, _jdToJulianCentury(jd));
-  return [p.x, p.y, p.z];
+  return tracked || _ephBodyJ2000(name, jd);
 }
 
 // Equatorial (ICRF/J2000) to ecliptic (J2000).
 function _spEqToEcl(v) {
-  var c = Math.cos(_aeRad(SP_OBLIQUITY_DEG)), s = Math.sin(_aeRad(SP_OBLIQUITY_DEG));
+  var c = Math.cos(_aeRad(EPH_OBLIQUITY_DEG)), s = Math.sin(_aeRad(EPH_OBLIQUITY_DEG));
   return [v[0], c * v[1] + s * v[2], -s * v[1] + c * v[2]];
 }
 function _spStarDir(ra, dec) { return _spEqToEcl(_aeEqVec(ra, dec, 1)); }
@@ -274,11 +270,7 @@ function _spMoonPlanet(name) { return SP_MOONS[name].planet; }
 // A moon's place relative to its planet (AU, ecliptic axes).
 function _spMoonOffset(name, jd) {
   var m = SP_MOONS[name];
-  if (name === 'Moon') {
-    // _aeMoon's longitude is of date; the frame here is J2000's.
-    var q = _aeMoon(jd + _aeDeltaTDays(jd)), lo = _aeRad(q.lon - SP_PRECESSION_DEG_PER_CENTURY * (jd - JD_J2000) / JULIAN_CENTURY), la = _aeRad(q.lat), r = q.distKm / AU_KM;
-    return [r * Math.cos(la) * Math.cos(lo), r * Math.cos(la) * Math.sin(lo), r * Math.sin(la)];
-  }
+  if (name === 'Moon') return _ephMoonGeoJ2000(jd);
   var pole = _spPoleEcl(m.planet);
   var x = _aeNorm(_aeCross([0, 0, 1], pole)), y = _aeCross(pole, x);
   var lam = _aeRad(m.L0 + m.rate * (jd - JD_J2000)), r2 = m.a / AU_KM;
@@ -386,8 +378,9 @@ function _spScale(mode, jd) {
 // will be, stopping SP_STANDOFF_RADII of the body's own radii short of it (the
 // same at either scale, so the figure does not move when the scale does).
 var SP_RADIUS_KM = {
-  Mercury: 2439.7, Venus: 6051.8, Earth: 6378.137, Mars: 3396.2, Jupiter: 71492, Saturn: 60268, Uranus: 25559,
-  Neptune: 24764, Pluto: 1188.3, Ceres: 469.7
+  Mercury: EPH_PLANET.Mercury.km, Venus: EPH_PLANET.Venus.km, Earth: EPH_PLANET.Earth.km, Mars: EPH_PLANET.Mars.km,
+  Jupiter: EPH_PLANET.Jupiter.km, Saturn: EPH_PLANET.Saturn.km, Uranus: EPH_PLANET.Uranus.km, Neptune: EPH_PLANET.Neptune.km,
+  Pluto: 1188.3, Ceres: 469.7
 };
 function _spTrueRadiusAU(key) {
   var b = SP_MOONS[key] ? SP_MOONS[key].r : (key === 'Sun' ? 695700 : SP_RADIUS_KM[key]);
@@ -425,28 +418,16 @@ function _spFmtWhen(jd) {
 }
 
 // ── The overview's layout ──
-// The whole system cannot be drawn to scale on a phone: Neptune is 30 AU out and Mercury
-// 0.39, so in a 390 px width the inner planets would share 10 px. The overview draws
-// distance as order instead: a body at r AU is shown at K ln(1 + r / R0), which puts
-// Mercury to Pluto (and Voyager 1) on rings of their own, the way a flight time grows.
-// It is a layout of the picture only, blended in and out (lam, 0 to 1) as the camera
-// goes in: every number on the page is the true one, and a flight is flown in true space.
-var SP_LAYOUT_K = 1.5, SP_LAYOUT_R0 = 0.15;
-function _spLayoutMap(p, lam) {
-  var r = _aeLen(p);
-  if (!lam || r < 1e-9) return p;
-  var f = SP_LAYOUT_K * Math.log(1 + r / SP_LAYOUT_R0) / r;
-  var m = 1 - lam + lam * f;
-  return [p[0] * m, p[1] * m, p[2] * m];
-}
+// The picture's layout of the whole system is almanac-ephem.js's (_ephLayoutMap), which the
+// landing draws with too.
 // A body's place in the picture: a moon keeps its true offset (drawn wider by the scale) round its planet's laid-out place.
 function _spDisplayAt(key, abs, jd, lam) {
   if (!lam) return abs;
   if (SP_MOONS[key]) {
-    var par = _spPlanetPos(SP_MOONS[key].planet, jd), mp = _spLayoutMap(par, lam);
+    var par = _spPlanetPos(SP_MOONS[key].planet, jd), mp = _ephLayoutMap(par, lam);
     return [mp[0] + abs[0] - par[0], mp[1] + abs[1] - par[1], mp[2] + abs[2] - par[2]];
   }
-  return _spLayoutMap(abs, lam);
+  return _ephLayoutMap(abs, lam);
 }
 
 // ── Which body a tap meant ──
@@ -483,14 +464,14 @@ function _spPick(items, x, y) {
 // they launched, after these.
 var SP_BODIES = [
   { key: 'Sun', kind: 'sun', km: 695700, color: '#ffd27a' },
-  { key: 'Mercury', kind: 'planet', km: 2439.7, color: '#b0a090', map: 'mercury', period: 87.969 },
-  { key: 'Venus', kind: 'planet', km: 6051.8, color: '#e8c87a', map: 'venus', atmo: [1, 0.82, 0.5], period: 224.701 },
-  { key: 'Earth', kind: 'planet', km: 6378.137, flat: 1 / 298.257223563, color: '#4a90d9', map: 'earth', night: true, atmo: [0.35, 0.55, 1], period: 365.256 },
-  { key: 'Mars', kind: 'planet', km: 3396.2, flat: 0.00589, color: '#c46040', map: 'mars', atmo: [0.9, 0.55, 0.4], period: 686.98 },
-  { key: 'Jupiter', kind: 'planet', km: 71492, flat: 0.06487, color: '#c49868', map: 'jupiter', period: 4332.59 },
-  { key: 'Saturn', kind: 'planet', km: 60268, flat: 0.09796, color: '#d4b878', proc: 'saturn', rings: [74500, 140220], period: 10759.22 },
-  { key: 'Uranus', kind: 'planet', km: 25559, flat: 0.0229, color: '#78c8c8', proc: 'uranus', atmo: [0.5, 0.85, 0.9], period: 30688.5 },
-  { key: 'Neptune', kind: 'planet', km: 24764, flat: 0.0171, color: '#3868c8', proc: 'neptune', atmo: [0.3, 0.45, 1], period: 60182 },
+  { key: 'Mercury', kind: 'planet', km: EPH_PLANET.Mercury.km, color: '#b0a090', map: 'mercury', period: EPH_PLANET.Mercury.periodDays },
+  { key: 'Venus', kind: 'planet', km: EPH_PLANET.Venus.km, color: '#e8c87a', map: 'venus', atmo: [1, 0.82, 0.5], period: EPH_PLANET.Venus.periodDays },
+  { key: 'Earth', kind: 'planet', km: EPH_PLANET.Earth.km, flat: 1 / 298.257223563, color: '#4a90d9', map: 'earth', night: true, atmo: [0.35, 0.55, 1], period: EPH_PLANET.Earth.periodDays },
+  { key: 'Mars', kind: 'planet', km: EPH_PLANET.Mars.km, flat: 0.00589, color: '#c46040', map: 'mars', atmo: [0.9, 0.55, 0.4], period: EPH_PLANET.Mars.periodDays },
+  { key: 'Jupiter', kind: 'planet', km: EPH_PLANET.Jupiter.km, flat: 0.06487, color: '#c49868', map: 'jupiter', period: EPH_PLANET.Jupiter.periodDays },
+  { key: 'Saturn', kind: 'planet', km: EPH_PLANET.Saturn.km, flat: 0.09796, color: '#d4b878', proc: 'saturn', rings: [74500, 140220], period: EPH_PLANET.Saturn.periodDays },
+  { key: 'Uranus', kind: 'planet', km: EPH_PLANET.Uranus.km, flat: 0.0229, color: '#78c8c8', proc: 'uranus', atmo: [0.5, 0.85, 0.9], period: EPH_PLANET.Uranus.periodDays },
+  { key: 'Neptune', kind: 'planet', km: EPH_PLANET.Neptune.km, flat: 0.0171, color: '#3868c8', proc: 'neptune', atmo: [0.3, 0.45, 1], period: EPH_PLANET.Neptune.periodDays },
   { key: 'Pluto', kind: 'dwarf', km: 1188.3, color: '#c8b8a8', map: 'pluto', period: 90560 },
   { key: 'Ceres', kind: 'dwarf', km: 469.7, color: '#a09890', proc: 'rock', track: 'ceres', period: 1681.6 },
   { key: 'Moon', kind: 'moon', km: 1737.4, color: '#c8c8c8', map: 'moon' },
@@ -830,10 +811,10 @@ var SP_VERT_LINE = [
   SP_GLSL_ABERR,
   'uniform float uLambda; uniform float uMapped; uniform vec3 uCam;',
   'varying float vDim;',
-  // The overview's layout (_spLayoutMap), for a line whose points are heliocentric: K ln(1 + r / R0).
+  // The overview's layout (_ephLayoutMap), for a line whose points are heliocentric: K ln(1 + r / R0).
   'vec3 spLayout(vec3 p) {',
   '  float r = length(p); if (r < 1e-6) return p;',
-  '  float f = ' + SP_LAYOUT_K.toFixed(4) + ' * log(1.0 + r / ' + SP_LAYOUT_R0.toFixed(4) + ') / r;',
+  '  float f = ' + EPH_LAYOUT_K.toFixed(4) + ' * log(1.0 + r / ' + EPH_LAYOUT_R0.toFixed(4) + ') / r;',
   '  return p * (1.0 - uLambda + uLambda * f);',
   '}',
   'void main() {',

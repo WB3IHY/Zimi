@@ -1097,6 +1097,7 @@ if os.path.isdir(_STATIC_DIR):
             + _static_hash("almanac-skygl.js")
             + _static_hash("almanac-skyfacts.js")
             + _static_hash("zone-places.js")
+            + _static_hash("almanac-ephem.js")
             + _static_hash("almanac-earth.js")
             + _static_hash("almanac-space.js")
             + _static_hash("almanac-reference.js")
