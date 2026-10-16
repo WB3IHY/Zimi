@@ -1225,6 +1225,9 @@ function _skyPaintEarthShadow(ctx, s, x, y, R, semi) {
 var SKY_EYE_KM = 3.57;            // the sea's edge, km, times the square root of eye height in metres
 var SKY_EYE_M = 1.7;
 var SKY_SHORE = [0.3, 0.66];      // the beach's share of the ground band, high water and low
+var SKY_SHORE_AMP = [2.4, 0.8];   // the edge of the sand wanders by these (CSS px, two waves along the shore), so up to their sum either side
+var SKY_SHORE_WAVE = SKY_SHORE_AMP[0] + SKY_SHORE_AMP[1];
+var SKY_SHALLOW_PX = 6, SKY_SHALLOW_MIX = 0.8;   // the last of the water above the sand is shallow: this deep, this much sand through it
 var SKY_CALM_FRAC = 0.5;          // the sea's level where no tide station is near: half tide
 // The palms: azimuth, height (share of the scene's height), lean, and how far
 // their feet stand above the bottom (share of the ground band). Two groups
@@ -1332,6 +1335,8 @@ function _skySeaChanged() {
   _skyKick();
 }
 
+// How far the edge of the sand lies below the tide's line at a bearing (radians), CSS px.
+function _skyShoreWave(rad) { return SKY_SHORE_AMP[0] * Math.sin(rad * 3 + 0.7) + SKY_SHORE_AMP[1] * Math.sin(rad * 7 + 2); }
 function _skyAzAt(s, x) { return s.center + (x / s.W - 0.5) * s.span; }
 
 // ── The light the ground stands in ──
@@ -1419,8 +1424,13 @@ function _skyPaintSea(ctx, s, frac) {
   // The water itself, darker toward the feet where it is deeper and sees less sky.
   var gain = _skyClamp(_skyLuma(s.ground ? s.ground.avg : hor) / SKY_WATER_LUMA_REF, 0.03, 1.1);
   var far = _skyMix(SKY_WATER, [0, 0, 0], 0.25).map(function (v) { return v * gain; }), near = far.map(function (v) { return v * 0.55; });
-  var g = ctx.createLinearGradient(0, yh, 0, shore);
-  g.addColorStop(0, _skyRgb(far)); g.addColorStop(1, _skyRgb(near));
+  // The beach's edge wanders by up to SKY_SHORE_WAVE px either side of the tide's line; where it dips the water
+  // still stands, and the last of it is shallow: the sand shows through, so no dark band is left between the
+  // deep water and the sand where the edge is far down.
+  var sand = _skyLitColour(SKY_SAND, lit), wet = _skyMix(sand.map(function (v) { return v * 0.6; }), hor, 0.35);
+  var shoreLow = shore + SKY_SHORE_WAVE * dpr, shallow = _skyMix(near, _skyMix(wet, sand, 0.5), SKY_SHALLOW_MIX);
+  var g = ctx.createLinearGradient(0, yh, 0, shoreLow), deepEnd = (shore - yh - SKY_SHALLOW_PX * dpr) / (shoreLow - yh);
+  g.addColorStop(0, _skyRgb(far)); g.addColorStop(_skyClamp(deepEnd, 0.01, 0.99), _skyRgb(near)); g.addColorStop(1, _skyRgb(shallow));
   ctx.fillStyle = g;
   ctx.fillRect(0, yh, W, H - yh);
   // The mirrored sky, in strips each moved a little sideways by the swell.
@@ -1453,12 +1463,11 @@ function _skyPaintSea(ctx, s, frac) {
   // The beach: one long soft curve of sand (tied to bearings, so it turns
   // with the view), wet and holding the sky's light at the water, a thin
   // line of foam, dry sand toward the feet, the light of the hour in all of it.
-  var sand = _skyLitColour(SKY_SAND, lit), wet = _skyMix(sand.map(function (v) { return v * 0.6; }), hor, 0.35);
   ctx.beginPath(); ctx.moveTo(0, H);
   var step = 6 * dpr;
   for (var sx = 0; sx <= W + step; sx += step) {
     var sa = _skyAzAt(s, sx) * DEG_TO_RAD;
-    ctx.lineTo(sx, shore + dpr * (2.4 * Math.sin(sa * 3 + 0.7) + 0.8 * Math.sin(sa * 7 + 2)));
+    ctx.lineTo(sx, shore + dpr * _skyShoreWave(sa));
   }
   ctx.lineTo(W, H); ctx.closePath();
   var sg = ctx.createLinearGradient(0, shore - 3 * dpr, 0, H);
