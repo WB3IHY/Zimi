@@ -3332,5 +3332,7 @@
   "fieldguide_as_of": "Stand der Empfehlung: {date}",
   "alm_nav_place": "Dein Ort",
   "alm_nav_sections": "Abschnitte",
-  "alm_nav_all": "Alle Abschnitte"
+  "alm_nav_all": "Alle Abschnitte",
+  "alm_tide_why_q": "Warum?",
+  "alm_tide_source": "Vorhersage der NOAA. Das Wetter bewegt das wirkliche Meer."
 }

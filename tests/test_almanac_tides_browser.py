@@ -16,6 +16,10 @@ San Francisco (Golden Gate) chosen as the place:
      full Moon at San Francisco are springs, the days after a quarter neaps;
      at Pensacola, where the tide is once a day, the month follows the Moon's
      declination instead.
+  5. The section is calm: one answer first, the curve writes only the next
+     turn large (with its height, the lead's own number), the other turns are
+     a quiet time, the month's bars are small, the reason and its footnote sit
+     behind one "Why?", and the source is one short line.
 
 The predictions themselves are held to NOAA in tests/test_almanac_tides.cjs.
 
@@ -245,6 +249,55 @@ def test_the_tide_follows_the_one_clock(browser, served):
             == "2026-10-04T19:00:00.000Z"
         )
         assert pg.locator(".at-m-day.on").count() == 1
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_the_tide_is_calm(browser, served):
+    ctx = _context(browser)
+    try:
+        pg, errors = _open(ctx, served)
+        pg.wait_for_function(DRAWN, polling=POLL_MS, timeout=60000)
+        # Noon in the harbour: the day's next turn is on the curve.
+        pg.evaluate("_almScrubSettle(new Date('2026-10-01T19:00:00Z'))")
+        pg.wait_for_function(DRAWN, polling=POLL_MS)
+        # The answer first, and the curve agrees with it: one turn is written
+        # large, with the height the lead gives; the rest are a quiet time.
+        lead_h = pg.inner_text(".at-lead-h")
+        strong = pg.locator("#at-curve .at-turn-l:not(.quiet)")
+        assert strong.count() == 1
+        assert pg.locator("#at-curve .at-turn-h").count() == 1
+        assert pg.text_content("#at-curve .at-turn-h").replace("\u200e", "") in lead_h.replace("\u200e", "")
+        assert strong.text_content() in pg.inner_text(".at-lead-next")
+        assert pg.locator("#at-curve .at-turn-l.quiet").count() >= 1
+        # The month's bars and Moons are small.
+        assert pg.evaluate("document.querySelector('.at-m-well').offsetHeight") <= 36
+        assert pg.evaluate("document.querySelector('.at-m-moon svg').getBoundingClientRect().width") <= 10
+        # The reason is one question away, with its footnote; closed, it takes no room.
+        btn = pg.locator("#at-why-btn")
+        assert btn.inner_text() == "Why?"
+        assert btn.get_attribute("aria-expanded") == "false"
+        assert pg.locator("#at-why-panel").is_hidden()
+        assert pg.locator("#at-fig").is_hidden()
+        btn.click()
+        assert btn.get_attribute("aria-expanded") == "true"
+        assert pg.locator("#at-why-panel").is_visible()
+        assert pg.locator("#at-fig svg").is_visible()
+        assert "Bulges exaggerated" in pg.inner_text("#at-why-panel")
+        # Open, it stays open as the Almanac's clock moves (the section is drawn again).
+        pg.evaluate("_almScrubSettle(new Date('2026-10-03T19:00:00Z'))")
+        pg.wait_for_function(DRAWN, polling=POLL_MS)
+        assert pg.locator("#at-why-panel").is_visible()
+        pg.locator("#at-why-btn").click()
+        assert pg.locator("#at-why-panel").is_hidden()
+        # The source is one short line.
+        note = pg.locator("#almanac-place .at-note")
+        assert note.inner_text() == "NOAA prediction. Weather moves the real sea."
+        assert pg.evaluate(
+            "(() => { const n = document.querySelector('#almanac-place .at-note');"
+            " return n.getBoundingClientRect().height <= parseFloat(getComputedStyle(n).lineHeight) * 1.2; })()"
+        )
         assert not errors, errors
     finally:
         ctx.close()

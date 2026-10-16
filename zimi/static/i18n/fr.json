@@ -3332,5 +3332,7 @@
   "fieldguide_as_of": "Recommandation à jour : {date}",
   "alm_nav_place": "Votre lieu",
   "alm_nav_sections": "Sections",
-  "alm_nav_all": "Toutes les sections"
+  "alm_nav_all": "Toutes les sections",
+  "alm_tide_why_q": "Pourquoi ?",
+  "alm_tide_source": "Prévision de la NOAA. La météo déplace la mer réelle."
 }

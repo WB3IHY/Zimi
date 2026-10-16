@@ -3332,5 +3332,7 @@
   "fieldguide_as_of": "Guidance as of {date}",
   "alm_nav_place": "Your place",
   "alm_nav_sections": "Sections",
-  "alm_nav_all": "All sections"
+  "alm_nav_all": "All sections",
+  "alm_tide_why_q": "Why?",
+  "alm_tide_source": "NOAA prediction. Weather moves the real sea."
 }

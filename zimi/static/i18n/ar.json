@@ -3332,5 +3332,7 @@
   "fieldguide_as_of": "الإرشادات حتى {date}",
   "alm_nav_place": "مكانك",
   "alm_nav_sections": "الأقسام",
-  "alm_nav_all": "كل الأقسام"
+  "alm_nav_all": "كل الأقسام",
+  "alm_tide_why_q": "لماذا؟",
+  "alm_tide_source": "تنبؤ NOAA. الطقس يحرّك البحر الحقيقي."
 }

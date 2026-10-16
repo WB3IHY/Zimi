@@ -3332,5 +3332,7 @@
   "fieldguide_as_of": "ההנחיות נכונות ל-{date}",
   "alm_nav_place": "המקום שלכם",
   "alm_nav_sections": "מדורים",
-  "alm_nav_all": "כל המדורים"
+  "alm_nav_all": "כל המדורים",
+  "alm_tide_why_q": "למה?",
+  "alm_tide_source": "תחזית NOAA. מזג האוויר מזיז את הים האמיתי."
 }

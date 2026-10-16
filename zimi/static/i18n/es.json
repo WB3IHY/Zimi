@@ -3332,5 +3332,7 @@
   "fieldguide_as_of": "Recomendación vigente a {date}",
   "alm_nav_place": "Tu lugar",
   "alm_nav_sections": "Secciones",
-  "alm_nav_all": "Todas las secciones"
+  "alm_nav_all": "Todas las secciones",
+  "alm_tide_why_q": "¿Por qué?",
+  "alm_tide_source": "Predicción de la NOAA. El tiempo mueve el mar real."
 }

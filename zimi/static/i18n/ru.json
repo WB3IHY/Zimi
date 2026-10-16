@@ -3332,5 +3332,7 @@
   "fieldguide_as_of": "Рекомендации на {date}",
   "alm_nav_place": "Ваше место",
   "alm_nav_sections": "Разделы",
-  "alm_nav_all": "Все разделы"
+  "alm_nav_all": "Все разделы",
+  "alm_tide_why_q": "Почему?",
+  "alm_tide_source": "Прогноз NOAA. Погода сдвигает настоящее море."
 }
