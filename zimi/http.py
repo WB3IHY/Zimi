@@ -3530,6 +3530,14 @@ class ZimHandler(BaseHTTPRequestHandler):
                     ticket=(_dl_q.get("t") or [""])[0],
                 )
 
+            elif parsed.path.startswith("/keep/"):
+                # /keep/<zim> — the raw .zim for the phone's own private
+                # storage (keep.js), by HTTP Range so a pull resumes. Same
+                # bytes as /dl/, a different door: /dl/ is LAN peer sharing
+                # (private clients, the sharing switch); this one is for a
+                # person signed in over any network (see _keep_allowed).
+                return self._serve_zim_file(unquote(parsed.path[6:]), keep=True)
+
             elif parsed.path.startswith("/w/"):
                 # /w/<zim_name>/<entry_path> — serve raw ZIM content
                 rest = parsed.path[3:]  # strip "/w/"
@@ -4781,7 +4789,20 @@ class ZimHandler(BaseHTTPRequestHandler):
             return RATE_LIMIT_TRUSTED
         return RATE_LIMIT
 
-    def _serve_zim_file(self, name, ticket=""):
+    def _keep_allowed(self):
+        """True if this request may pull a whole ZIM to keep on a phone.
+
+        Whole-file pulls are not what an anonymous visitor to a public
+        instance needs, and they are the most bandwidth a request can ask for,
+        so the door opens to: a signed-in user (an account, or the edge's
+        verified identity, which resolves to one), an admin, a direct client
+        on the private network, or whoever /dl/'s own sharing rules admit.
+        The ZIM must also be in this request's allowlist (get_zim_files)."""
+        if _users.resolve_request_user(self) or _users._request_is_admin(self):
+            return True
+        return self._is_direct_private_client() or self._peer_share_allowed()
+
+    def _serve_zim_file(self, name, ticket="", keep=False):
         """Stream a whole local .zim file to a LAN peer with Range support.
 
         Resolves `name` strictly against the known ZIM set (by ZIM name or
@@ -4795,7 +4816,10 @@ class ZimHandler(BaseHTTPRequestHandler):
         file, for two minutes. No ticket → the normal sharing gates."""
         from zimi import manage as _manage
 
-        if (
+        if keep:
+            if not self._keep_allowed():
+                return self._json(403, {"error": "sign in to keep this on your phone"})
+        elif (
             not (ticket and _manage.spend_dl_ticket(ticket, name))
             and not self._peer_share_allowed()
         ):
@@ -4816,9 +4840,17 @@ class ZimHandler(BaseHTTPRequestHandler):
         except OSError:
             return self._json(404, {"error": "ZIM not found"})
 
+        # The file's identity (size + mtime): a pull resumed after the ZIM
+        # was replaced in place (auto-update) must start over, not append the
+        # new file's tail to the old one's head. If-Range carries it back.
+        try:
+            etag = '"%d-%d"' % (total_size, int(os.path.getmtime(path)))
+        except OSError:
+            return self._json(404, {"error": "ZIM not found"})
+
         range_start = range_end = None
         range_header = self.headers.get("Range")
-        if range_header:
+        if range_header and self.headers.get("If-Range", etag) == etag:
             range_start, range_end = self._parse_range(range_header, total_size)
 
         if range_start is not None and range_end is not None:
@@ -4831,6 +4863,9 @@ class ZimHandler(BaseHTTPRequestHandler):
             range_start, send_len = 0, total_size
             self.send_response(200)
 
+        self.send_header("ETag", etag)
+        if keep:
+            self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Type", "application/octet-stream")
         self.send_header("Content-Length", str(send_len))
         self.send_header("Accept-Ranges", "bytes")
