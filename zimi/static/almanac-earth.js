@@ -1498,8 +1498,8 @@ function _aeFollowClock() {
 }
 
 // ── Camera ──
-function _aeFitDist(radius) {
-  var cam = _ae.gl.camera, aspect = _ae.w && _ae.h ? _ae.w / _ae.h : cam.aspect;
+function _aeFitDist(radius, aspect) {
+  if (!aspect) { var cam = _ae.gl.camera; aspect = _ae.w && _ae.h ? _ae.w / _ae.h : cam.aspect; }
   var half = Math.tan(_aeRad(AE_FOV_DEG) / 2) * Math.min(1, aspect);
   return radius / (half * AE_FIT_FILL);
 }
