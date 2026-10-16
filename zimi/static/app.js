@@ -1713,10 +1713,28 @@ let _pendingMsSection = null;
 // ({zims, section_order}) back to the bare ZIM array every caller expects, and
 // stashes the section order as a side effect. Older/plain array responses still
 // work (section order simply stays empty).
+// Folders another program owns (Project NOMAD): `{label, incoming_files,
+// incoming_bytes}`, from /list. The words for an empty library and for a
+// download that is still arriving there.
+let _libFolders = [];
+function _libFoldersNoteHtml() {
+  var parts = _libFolders.filter(function(f) { return f.incoming_files > 0; }).map(function(f) {
+    return tPluralH('ext_folder_incoming', f.incoming_files, { label: f.label, size: fmtBytes(f.incoming_bytes) });
+  });
+  return parts.length ? '<div class="folder-note" role="status">' + parts.join('<br>') + '</div>' : '';
+}
+// The empty library, said for the folder it is waiting on when there is one.
+function _emptyLibraryHtml() {
+  var f = _libFolders[0];
+  var what = f ? '<p>' + tH('ext_folder_empty', { label: f.label }) + '</p><p class="hint">' + tH('ext_folder_empty_hint') + '</p>'
+    : '<p>' + tH('no_sources_found') + '</p><p class="hint">' + tH('add_zims') + '</p>';
+  return what + _libFoldersNoteHtml();
+}
 async function _fetchList() {
   const r = await serverFetch('/list?layout=1');
   const data = await r.json();
-  if (Array.isArray(data)) { _sectionOrder = []; _declaredSections = []; return data; }
+  if (Array.isArray(data)) { _sectionOrder = []; _declaredSections = []; _libFolders = []; return data; }
+  _libFolders = Array.isArray(data.folders) ? data.folders : [];
   _sectionOrder = Array.isArray(data.section_order) ? data.section_order : [];
   _declaredSections = Array.isArray(data.sections) ? data.sections : [];
   return Array.isArray(data.zims) ? data.zims : [];
@@ -4616,7 +4634,7 @@ function renderHome(filter) {
     statsBar.innerHTML = ''; statsBar.style.display = 'none';
     pillsBar.innerHTML = ''; pillsBar.style.display = 'none'; pillsBar.className = 'pills';
     output.innerHTML = '<div id="discover-row"></div>'
-      + '<div class="empty"><p>' + tH('no_sources_found') + '</p><p class="hint">' + tH('add_zims') + '</p>'
+      + '<div class="empty">' + _emptyLibraryHtml()
       + (manageEnabled ? '<a href="/?manage" onclick="event.preventDefault();enterManage().then(function(ok){if(ok)switchManageTab(\'browse\')})" style="display:inline-block;margin-top:16px;color:var(--amber);font-weight:500;font-size:14px;text-decoration:none;border-bottom:1px solid var(--amber-border)">' + tH('catalog_link') + '</a>' : '')
       + '</div>'
       // The apps on a fresh install too, each tile saying what it needs and
@@ -4772,6 +4790,7 @@ function renderHome(filter) {
   }
 
   let h = '';
+  if (!homeScope && !filter) h += _libFoldersNoteHtml();
   // Help now sits first in the Apps row; where that row is not drawn (a filter is narrowing home) it stands alone.
   if (!homeScope && !filter && (homeRecentFilter || homeLangFilter.size)) h += _helpNowHtml();
 

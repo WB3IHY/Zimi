@@ -59,8 +59,9 @@ def _looks_like_nomad(path):
     parent = os.path.dirname(path)
     if parent == path:
         return False
-    if os.path.basename(parent) == "storage" and os.path.isfile(
-        os.path.join(path, "kiwix-library.xml")
+    if os.path.basename(parent) == "storage" and (
+        os.path.basename(path) == "zim"
+        or os.path.isfile(os.path.join(path, "kiwix-library.xml"))
     ):
         return True
     try:
@@ -180,6 +181,40 @@ def _zims_in(folder):
 def zim_paths():
     """Every ``*.zim`` in the folders, folder by folder, name order."""
     return [p for d in dirs() for p in _zims_in(d)]
+
+
+#: How NOMAD stages a download: ``<name>.zim.tmp``, renamed when whole.
+STAGED = "*.zim.tmp"
+
+# ``{folder: (files, bytes)}`` of downloads still arriving, read in the
+# watcher's own pass so a page asking never touches the disk.
+_incoming = {}
+
+
+def _scan_incoming():
+    """One listing per folder: the ZIMs the other program is still fetching."""
+    found = {}
+    for d in dirs():
+        sizes = []
+        for p in glob.glob(os.path.join(d, STAGED)):
+            try:
+                sizes.append(os.stat(p).st_size)
+            except OSError:
+                pass
+        if sizes:
+            found[d] = (len(sizes), sum(sizes))
+    global _incoming
+    _incoming = found
+
+
+def summary():
+    """What the home page says about these folders, no paths: ``[{label,
+    incoming_files, incoming_bytes}]`` for each folder asked for. Memory only."""
+    out = []
+    for f in folders():
+        files, size = _incoming.get(f["path"], (0, 0))
+        out.append({"label": f["label"], "incoming_files": files, "incoming_bytes": size})
+    return out
 
 
 def _inside(child, parent):
@@ -412,6 +447,7 @@ class Watch:
         with self._lock:
             refresh()
             now = self._listing()
+            _scan_incoming()
             if self.known is None:
                 self.known, self.pending = now, {}
                 return [], []
@@ -476,6 +512,11 @@ _watch_start_lock = threading.Lock()
 def _watch_loop():
     import time
 
+    # The page asks what is arriving from the first minute, not the second.
+    try:
+        _scan_incoming()
+    except Exception as e:
+        log.warning("Listing the downloads under way failed: %s", e)
     while True:
         time.sleep(WATCH_SECONDS)
         try:

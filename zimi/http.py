@@ -1302,6 +1302,98 @@ def _public_zim_entry(entry):
     return {k: v for k, v in entry.items() if k not in _PRIVATE_ZIM_FIELDS}
 
 
+def _library_folders():
+    """The other programs' folders for /list?layout=1, no paths."""
+    from zimi import libfolders
+
+    return libfolders.summary()
+
+
+# kiwix-serve addresses that are in links people already have. Project NOMAD's
+# Information Library is kiwix-serve, and what it shows in the address bar
+# (/content/<book>/<page>, /viewer#<book>/<page>, a search) is what gets
+# bookmarked and pasted; its translation add-on forwards the same paths. Each
+# lands on the Zimi address that does the same job. Nothing else of Kiwix's is
+# imitated: nothing in NOMAD calls its OPDS catalog or /raw.
+_KIWIX_CONTENT = "/content/"
+
+# The page at /viewer. The book and page ride in the URL's fragment, which a
+# server never sees, so this hands them to the /w/ address in the browser.
+# `#<book>/<page>` opens the page, `#<book>` the book, and Kiwix's
+# `#search?content=<book>&pattern=<words>` the search. The page goes through
+# /content/, which says the book's name the way Zimi does.
+_VIEWER_PAGE = """<!doctype html><meta charset="utf-8"><title>Zimi</title>
+<script>
+(function () {
+  var h = location.hash.replace(/^#/, ''), to = '/';
+  var m = /^search\\?(.*)$/.exec(h);
+  if (m) {
+    var q = new URLSearchParams(m[1]), words = q.get('pattern') || '', book = q.get('content') || q.get('books.name') || '';
+    to = words ? '/search?pattern=' + encodeURIComponent(words) + (book ? '&content=' + encodeURIComponent(book) : '') : (book ? '/content/' + encodeURIComponent(book) : '/');
+  } else if (h) {
+    to = '/content/' + h;
+  }
+  location.replace(to);
+})();
+</script>
+<noscript><a href="/">Zimi</a></noscript>
+"""
+
+
+def _opens_as_page(headers):
+    """A browser opening an address as a page, not a script or a frame
+    fetching it. ``Sec-Fetch-Dest`` says so, but browsers send it only to https
+    and localhost: a LAN address over plain http (a NOMAD box) carries just
+    Accept, which for a page starts with text/html and for curl or a script is
+    ``*/*`` or JSON."""
+    dest = (headers.get("Sec-Fetch-Dest") or "").lower()
+    if dest:
+        return dest == "document"
+    return "text/html" in (headers.get("Accept") or "").lower()
+
+
+def _kiwix_book(book):
+    """Zimi's name for a book as Kiwix names it. Kiwix's is the file's name
+    with its date (``wikipedia_en_100_2026-08``); Zimi's is the same without
+    the date, and a name that is already Zimi's stays."""
+    names = _srv.get_zim_files()
+    book = unquote(book)
+    if book in names:
+        return book
+    for name, path in names.items():
+        if os.path.basename(path)[: -len(".zim")] == book:
+            return name
+    base = _srv._zim_base_name(book + ".zim")
+    return base if base in names else book
+
+
+def _kiwix_alias(parsed, params, document, resolve=lambda book: book):
+    """What to do with a kiwix-serve address: ``("redirect", location)``,
+    ``("path", new_path)`` to serve as the /w/ address it stands for, or None
+    when it is not one. ``document`` is a browser opening it as a page, which
+    belongs in the shell at /w/; anything else (an iframe, a script, curl) is
+    given the page itself."""
+    path = parsed.path
+    if path.startswith(_KIWIX_CONTENT):
+        rest = path[len(_KIWIX_CONTENT):]
+        book, _, entry = rest.partition("/")
+        if not book:
+            return None
+        book = quote(resolve(book), safe="")
+        if not entry:  # the book's own address: its main page, as Kiwix does
+            return "redirect", "/w/" + book
+        if document:
+            return "redirect", "/w/%s/%s" % (book, entry) + (
+                "?" + parsed.query if parsed.query else ""
+            )
+        return "path", "/w/%s/%s" % (book, entry)
+    if document and path == "/search" and "q" not in params and "pattern" in params:
+        book = resolve((params.get("content") or params.get("books.name") or [""])[0])
+        words = quote(params["pattern"][0], safe="")
+        return "redirect", ("/w/" + quote(book, safe="") if book else "/") + "?q=" + words
+    return None
+
+
 def _mark_external(entries):
     """What the page needs to know about ZIMs in a folder another program owns.
     ``external`` is that folder's label (the page hides Delete and Update: the
@@ -2350,6 +2442,21 @@ class ZimHandler(BaseHTTPRequestHandler):
         def param(key, default=None):
             return params.get(key, [default])[0]
 
+        alias = _kiwix_alias(
+            parsed,
+            params,
+            _opens_as_page(self.headers),
+            _kiwix_book,
+        )
+        if alias and alias[0] == "redirect":
+            self.send_response(302)
+            self.send_header("Location", alias[1])
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if alias:  # /content/... is the /w/ address, for everything the gates ask
+            parsed = parsed._replace(path=alias[1])
+
         # Trusted-header SSO: verify (once per request — a keep-alive connection
         # reuses this handler) before any identity is resolved from it.
         _sso.clear_request_cache(self)
@@ -2696,6 +2803,9 @@ class ZimHandler(BaseHTTPRequestHandler):
                             "zims": result,
                             "section_order": layout.get("section_order", []),
                             "sections": layout.get("sections", []),
+                            # Folders another program owns, for the empty and
+                            # "still downloading" states. Memory only.
+                            "folders": _library_folders(),
                         },
                     )
                 return self._json(200, result)
@@ -3401,6 +3511,9 @@ class ZimHandler(BaseHTTPRequestHandler):
 
             elif parsed.path == "/apple-touch-icon.png":
                 return self._serve_apple_touch_icon()
+
+            elif parsed.path == "/viewer":
+                return self._uncached(lambda: self._html(200, _VIEWER_PAGE))
 
             elif parsed.path == "/":
                 return self._serve_index()
