@@ -1789,6 +1789,194 @@ function _almSec(titleHtml, bodyHtml) {
   return '<div class="almanac-section"><div class="almanac-section-title">' + titleHtml + '</div>' + bodyHtml + '</div>';
 }
 
+// ── The section bar ──
+// Pinned under the top bar once the page scrolls past its first section (the
+// hero), and gone again at the top: a row of pills, one per section, the
+// current one lit, and a dropdown at the end that lists them all (Eric,
+// 2026-10-16: "like my row selector but for sections ... it becomes the
+// header for that section"). It reuses the .pills-row/.pill look of the
+// other selectors. The current section is read by an IntersectionObserver on
+// a one-pixel line just under the bar, never by a scroll handler. A section
+// that has its own title scrolls to the top so the bar covers that title:
+// the bar is its header, and it is not written twice.
+var ALM_SECBAR_H = 44;                       // px; .alm-secbar's height in almanac.css
+var ALM_SECBAR_LINE = ALM_SECBAR_H + 4;      // px from the scroller's top: where a section counts as current
+var ALM_SECBAR_HERO = 'today';
+var ALM_SECBAR_LOCK_MS = 3000;               // the longest a tap's scroll holds the bar
+// [key, the selectors of its parts (the first is where a tap lands), heading string]
+// A part inside a titled section stands for the whole section.
+var ALM_SECTIONS = [
+  [ALM_SECBAR_HERO, ['#almanac-head', '.almanac-sky-wrap', '#almanac-sky-invite'], 'alm_today'],
+  ['calendar', ['#almanac-calendar'], 'alm_subj_calendars'],
+  ['place', ['#almanac-sunmap'], 'alm_nav_place'],
+  ['tides', ['#almanac-place .almanac-section'], 'alm_tide_title'],
+  ['onthisday', ['#almanac-onthisday'], 'alm_on_this_day'],
+  ['solar', ['#almanac-orrery'], 'alm_solar_system'],
+  ['tonight', ['#almanac-tonight'], 'alm_tonights_sky'],
+  ['starchart', ['#almanac-starchart'], 'alm_star_chart'],
+  ['analemma', ['#almanac-analemma'], 'alm_analemma'],
+  ['meteors', ['#almanac-meteors'], 'alm_meteor_showers'],
+  ['events', ['#almanac-events'], 'alm_celestial_events'],
+  ['astro', ['#almanac-astro'], 'alm_astro_data'],
+  ['deeptime', ['#almanac-deeptime'], 'alm_deep_time'],
+  ['rosetta', ['#almanac-rosetta'], 'alm_messages_across_time'],
+  ['tables', ['#alm-group-tables'], 'alm_group_tables']
+];
+var ALM_SECBAR_CHEVRON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+var _almSecBar = null;   // { io, ro, sections: [{key, name, els}], seen: Map(el -> bool), cur }
+
+function _almSecBarHostHtml() { return '<div class="alm-secbar-host" id="alm-secbar-host"></div>'; }
+function _almSecBarScroller() { return document.getElementById('almanac-content'); }
+function _almSecBarTeardown() {
+  if (!_almSecBar) return;
+  if (_almSecBar.io) _almSecBar.io.disconnect();
+  if (_almSecBar.ro) _almSecBar.ro.disconnect();
+  _almSecBar = null;
+}
+// The sections that are on the page now (a late or empty one is left out).
+function _almSecBarFind() {
+  var out = [];
+  ALM_SECTIONS.forEach(function (d) {
+    var els = [];
+    d[1].forEach(function (sel) {
+      var el = document.querySelector('#almanac-content ' + sel);
+      if (!el) return;
+      els.push(el.closest('.almanac-section, .alm-group') || el);
+    });
+    if (!els.length || !els.some(function (e) { return e.offsetHeight > 0; })) return;
+    out.push({ key: d[0], name: t(d[2]), els: els.filter(function (e, i) { return els.indexOf(e) === i; }) });
+  });
+  return out;
+}
+function _almSecBarMarkup(sections) {
+  var pills = '', items = '';
+  sections.forEach(function (s) {
+    var n = _almEsc(s.name);
+    pills += '<button type="button" class="pill" data-sec="' + s.key + '" onclick="_almSecGo(\'' + s.key + '\')">' + n + '</button>';
+    items += '<li><button type="button" data-sec="' + s.key + '" onclick="_almSecGo(\'' + s.key + '\')">' + n + '</button></li>';
+  });
+  var label = _almEsc(t('alm_nav_sections'));
+  return '<div class="alm-secbar" id="alm-secbar" hidden>' +
+    '<nav class="alm-secbar-nav" aria-label="' + label + '"><div class="pills-row" id="alm-secbar-pills">' + pills + '</div></nav>' +
+    '<button type="button" class="pill alm-secbar-more" id="alm-secbar-more" aria-expanded="false" aria-controls="alm-secbar-list"' +
+      ' aria-label="' + _almEsc(t('alm_nav_all')) + '" onclick="_almSecListToggle()">' + ALM_SECBAR_CHEVRON + '</button>' +
+    '<ul class="alm-secbar-list" id="alm-secbar-list" aria-label="' + _almEsc(t('alm_nav_all')) + '" hidden>' + items + '</ul></div>';
+}
+// Build (or rebuild, when a late section arrives) the bar and its observer.
+function _almSecBarInit() {
+  var host = document.getElementById('alm-secbar-host'), root = _almSecBarScroller();
+  var keep = _almSecBar && _almSecBar.cur;
+  _almSecBarTeardown();
+  if (!host || !root || !('IntersectionObserver' in window)) return;
+  var sections = _almSecBarFind();
+  host.innerHTML = _almSecBarMarkup(sections);
+  var st = _almSecBar = { io: null, ro: null, sections: sections, seen: new Map(), cur: keep || ALM_SECBAR_HERO, h: root.clientHeight };
+  // One line, a pixel high, under the bar: the section across it is current.
+  var line = ALM_SECBAR_LINE, rest = Math.max(0, root.clientHeight - line - 1);
+  st.io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { st.seen.set(e.target, e.isIntersecting); });
+    _almSecBarSync();
+  }, { root: root, rootMargin: '-' + line + 'px 0px -' + rest + 'px 0px', threshold: 0 });
+  sections.forEach(function (s) { s.els.forEach(function (e) { st.io.observe(e); }); });
+  // A late section (the tide) or an empty one filling in changes the set.
+  if ('ResizeObserver' in window) {
+    var again = false;
+    st.ro = new ResizeObserver(function () {
+      if (again) return;
+      again = true;
+      requestAnimationFrame(function () {
+        again = false;
+        var now = _almSecBarFind().map(function (s) { return s.key; }).join();
+        if (_almSecBar === st && (root.clientHeight !== st.h || now !== st.sections.map(function (s) { return s.key; }).join())) _almSecBarInit();
+      });
+    });
+    ['#almanac-place', '#almanac-onthisday'].forEach(function (sel) {
+      var el = document.querySelector('#almanac-content ' + sel);
+      if (el) st.ro.observe(el);
+    });
+    st.ro.observe(root);   // a turned phone changes where the line sits
+  }
+  _almSecBarPaint();
+}
+function _almSecBarSync() {
+  var st = _almSecBar;
+  if (!st || st.lock) return;   // a tap's scroll is on its way: the bar already names where it ends
+  var cur = null;
+  st.sections.forEach(function (s) {
+    if (s.els.some(function (e) { return st.seen.get(e); })) cur = s.key;
+  });
+  if (cur && cur !== st.cur) { st.cur = cur; _almSecBarPaint(); }
+}
+// The bar's face for the current section: shown past the first, the current
+// pill lit and brought into the row, the list's current item marked.
+function _almSecBarPaint() {
+  var st = _almSecBar, bar = document.getElementById('alm-secbar');
+  if (!st || !bar) return;
+  var show = st.cur !== ALM_SECBAR_HERO;
+  if (bar.hidden === show) bar.hidden = !show;
+  if (!show) _almSecListClose(false);
+  var on = null;
+  bar.querySelectorAll('[data-sec]').forEach(function (b) {
+    var is = b.getAttribute('data-sec') === st.cur;
+    b.classList.toggle('active', is && b.classList.contains('pill'));
+    if (is) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+    if (is && b.classList.contains('pill')) on = b;
+  });
+  var row = document.getElementById('alm-secbar-pills');
+  if (on && row && show) {
+    var a = on.getBoundingClientRect(), b = row.getBoundingClientRect();
+    var d = (a.left + a.width / 2) - (b.left + b.width / 2);
+    if (Math.abs(d) > 1) row.scrollBy({ left: d, behavior: _scrollBehavior() });
+  }
+}
+function _almSecGo(key) {
+  var st = _almSecBar, root = _almSecBarScroller();
+  if (!st || !root) return;
+  var s = st.sections.filter(function (x) { return x.key === key; })[0];
+  if (!s) return;
+  _almSecListClose(false);
+  if (key === ALM_SECBAR_HERO) root.scrollTo({ top: 0, behavior: _scrollBehavior() });
+  else s.els[0].scrollIntoView({ block: 'start', behavior: _scrollBehavior() });
+  st.cur = key;
+  _almSecBarPaint();
+  // Sections flying past on the way are not announced; the scroll's end (or,
+  // where the browser has no scrollend, a while after) hands the bar back.
+  var done = function () {
+    clearTimeout(st.lockTimer);
+    ['scrollend', 'touchstart', 'wheel'].forEach(function (ev) { root.removeEventListener(ev, done); });
+    st.lock = false;
+    _almSecBarSync();
+  };
+  st.lock = true;
+  // A finger or wheel on the page takes it back at once.
+  ['scrollend', 'touchstart', 'wheel'].forEach(function (ev) { root.addEventListener(ev, done, { passive: true }); });
+  clearTimeout(st.lockTimer);
+  st.lockTimer = setTimeout(done, ALM_SECBAR_LOCK_MS);
+}
+function _almSecListToggle() {
+  var list = document.getElementById('alm-secbar-list');
+  if (!list) return;
+  if (list.hidden) {
+    list.hidden = false;
+    document.getElementById('alm-secbar-more').setAttribute('aria-expanded', 'true');
+    var on = list.querySelector('[aria-current]') || list.querySelector('button');
+    if (on) { on.focus({ preventScroll: true }); on.scrollIntoView({ block: 'nearest' }); }
+  } else _almSecListClose(true);
+}
+function _almSecListClose(refocus) {
+  var list = document.getElementById('alm-secbar-list'), more = document.getElementById('alm-secbar-more');
+  if (!list || list.hidden) return;
+  list.hidden = true;
+  if (more) { more.setAttribute('aria-expanded', 'false'); if (refocus) more.focus({ preventScroll: true }); }
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && document.querySelector('#alm-secbar-list:not([hidden])')) { e.stopPropagation(); _almSecListClose(true); }
+}, true);
+document.addEventListener('pointerdown', function (e) {
+  if (!e.target.closest || e.target.closest('.alm-secbar')) return;
+  _almSecListClose(false);
+});
+
 // Tables and calculations: the almanac's back matter, for any time. Two rows
 // of tiles, each opening its table or calculation over the page
 // (almanac-tables.js, with almanac-reference.js's sums and their styles,
@@ -2114,7 +2302,7 @@ function _renderAlmanacContent() {
   var now = new Date();
   var m = _moonPhase(now);
 
-  var html = '<div class="almanac-inner">';
+  var html = '<div class="almanac-inner">' + _almSecBarHostHtml();
 
   html += '<div id="almanac-head">' + _almHeadHtml(now) + '</div>';
   _almPrevFocusTime = now.getTime();   // seed the hero-moon sweep's start
@@ -2315,6 +2503,7 @@ function _renderAlmanacContent() {
   _almTmInit();
   _cacheAlmanacHighlights(now, m);
   _almPlaceWatch();
+  _almSecBarInit();
   _almRedrawRestore(anchor);
 }
 

@@ -3329,5 +3329,8 @@
   "alm_sky_f_pole_unknown": "Se sabrá cuando fijes tu lugar",
   "earth_locate_off": "Zimi no puede ver dónde estás: la ubicación está desactivada para él. Permítela en tu navegador o fija tu lugar en el Almanaque.",
   "alm_sky_f_under_step": "menos de 15 min",
-  "fieldguide_as_of": "Recomendación vigente a {date}"
+  "fieldguide_as_of": "Recomendación vigente a {date}",
+  "alm_nav_place": "Tu lugar",
+  "alm_nav_sections": "Secciones",
+  "alm_nav_all": "Todas las secciones"
 }

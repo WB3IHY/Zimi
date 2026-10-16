@@ -3329,5 +3329,8 @@
   "alm_sky_f_pole_unknown": "Unbekannt, bis du deinen Ort festlegst",
   "earth_locate_off": "Zimi kann deinen Standort nicht sehen: Die Ortung ist dafür ausgeschaltet. Erlaube sie in deinem Browser oder lege deinen Ort im Almanach fest.",
   "alm_sky_f_under_step": "weniger als 15 Min.",
-  "fieldguide_as_of": "Stand der Empfehlung: {date}"
+  "fieldguide_as_of": "Stand der Empfehlung: {date}",
+  "alm_nav_place": "Dein Ort",
+  "alm_nav_sections": "Abschnitte",
+  "alm_nav_all": "Alle Abschnitte"
 }

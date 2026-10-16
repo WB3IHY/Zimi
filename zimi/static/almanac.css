@@ -1,4 +1,5 @@
 /* ── Almanac mini-app ── */
+:root { --alm-pad-top: 24px; }
 .almanac-view { position: fixed; top: 56px; left: 0; right: 0; bottom: 0; display: none; flex-direction: column; z-index: 100; background: var(--bg); }
 .almanac-view.open { display: flex; animation: fadeIn 0.15s ease; }
 /* Bottom padding is deliberately small: the sticky time-machine dock sticks
@@ -6,7 +7,7 @@
    pushes the dock that much further off the screen edge. The dock's own
    margins provide the flow spacing; 8px is just edge breathing for the
    footer. */
-.almanac-content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 24px 16px 8px; overscroll-behavior: contain; }
+.almanac-content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: var(--alm-pad-top) 16px 8px; overscroll-behavior: contain; }
 /* The Almanac keeps its own content still when a section arrives late
    (_almKeepStill in almanac.js); the browser's anchoring would add to it. */
 .almanac-content { overflow-anchor: none; }
@@ -139,6 +140,30 @@
 @media (prefers-reduced-motion: reduce) { .almanac-moon-anim { display: none; } }
 .almanac-section { margin-top: 32px; border-top: 1px solid var(--border); padding-top: 24px; }
 .almanac-section-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.06em; }
+/* The section bar (almanac.js, _almSecBar*): a zero-height host sticks to the
+   scroller's top edge (the scroller's padding is where sticky counts from); the bar hangs from it across the scroller's width. 44px is
+   ALM_SECBAR_H. The pills are the app's own .pills-row/.pill. */
+.alm-secbar-host { position: sticky; top: calc(-1 * var(--alm-pad-top)); z-index: 40; height: 0; }
+.alm-secbar { position: absolute; top: 0; inset-inline: -16px; height: 44px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 16px; background: var(--bg); border-bottom: 1px solid var(--border); animation: fadeIn 0.15s ease; }
+.alm-secbar[hidden] { display: none; }
+.alm-secbar-nav { flex: 1; min-width: 0; }
+.alm-secbar .pills-row { padding-bottom: 0; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent); }
+[dir="rtl"] .alm-secbar .pills-row { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 20px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 20px), transparent); }
+.alm-secbar .pill:focus-visible, .alm-secbar-more:focus-visible, .alm-secbar-list button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.alm-secbar-more { flex: none; position: relative; }
+.alm-secbar-more::before { content: ""; position: absolute; inset: -8px -4px; }
+.alm-secbar-more svg { transition: transform 0.2s; }
+.alm-secbar-more[aria-expanded="true"] svg { transform: rotate(180deg); }
+.alm-secbar-list { position: absolute; top: 100%; inset-inline-end: 16px; width: min(280px, calc(100% - 32px)); max-height: min(60vh, 420px); overflow-y: auto; margin: 6px 0 0; padding: 6px; list-style: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); }
+.alm-secbar-list[hidden] { display: none; }
+.alm-secbar-list button { display: block; width: 100%; padding: 10px 12px; background: none; border: 0; border-radius: 8px; color: var(--text2); font: inherit; font-size: 14px; text-align: start; cursor: pointer; }
+.alm-secbar-list button:hover { background: var(--amber-glow); color: var(--text); }
+.alm-secbar-list button[aria-current] { color: var(--amber); font-weight: 600; }
+/* A titled section scrolls to the top, under the bar, which is then its
+   heading; one without a title stops just below the bar. */
+.alm-group { scroll-margin-top: -12px; }
+#almanac-calendar, #almanac-sunmap, #almanac-onthisday { scroll-margin-top: 46px; }
+@media (prefers-reduced-motion: reduce) { .alm-secbar { animation: none; } .alm-secbar-more svg { transition: none; } }
 /* About this data: closed until asked for; a reference, not a panel. */
 .alm-about summary.almanac-section-title { cursor: pointer; margin-bottom: 0; list-style-position: inside; }
 .alm-about[open] summary.almanac-section-title { margin-bottom: 12px; }

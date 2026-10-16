@@ -3329,5 +3329,8 @@
   "alm_sky_f_pole_unknown": "Неизвестно, пока не выбрано место",
   "earth_locate_off": "Zimi не видит, где вы: геолокация для него выключена. Разрешите её в браузере или выберите место в Альманахе.",
   "alm_sky_f_under_step": "меньше 15 мин",
-  "fieldguide_as_of": "Рекомендации на {date}"
+  "fieldguide_as_of": "Рекомендации на {date}",
+  "alm_nav_place": "Ваше место",
+  "alm_nav_sections": "Разделы",
+  "alm_nav_all": "Все разделы"
 }

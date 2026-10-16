@@ -3329,5 +3329,8 @@
   "alm_sky_f_pole_unknown": "غير معروف حتى تحدد مكانك",
   "earth_locate_off": "لا يستطيع Zimi معرفة مكانك: الموقع متوقف له. اسمح به في المتصفح أو حدد مكانك في التقويم.",
   "alm_sky_f_under_step": "أقل من 15 دقيقة",
-  "fieldguide_as_of": "الإرشادات حتى {date}"
+  "fieldguide_as_of": "الإرشادات حتى {date}",
+  "alm_nav_place": "مكانك",
+  "alm_nav_sections": "الأقسام",
+  "alm_nav_all": "كل الأقسام"
 }

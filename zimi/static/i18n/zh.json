@@ -3329,5 +3329,8 @@
   "alm_sky_f_pole_unknown": "设定你的位置后才能知道",
   "earth_locate_off": "Zimi 无法获知你的位置：它的定位权限已关闭。请在浏览器中允许，或在年鉴中设置你的位置。",
   "alm_sky_f_under_step": "不到 15 分钟",
-  "fieldguide_as_of": "指引更新于 {date}"
+  "fieldguide_as_of": "指引更新于 {date}",
+  "alm_nav_place": "你的地点",
+  "alm_nav_sections": "分区",
+  "alm_nav_all": "全部分区"
 }

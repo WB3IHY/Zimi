@@ -3329,5 +3329,8 @@
   "alm_sky_f_pole_unknown": "तब तक पता नहीं जब तक आप अपनी जगह न चुनें",
   "earth_locate_off": "Zimi आपकी जगह नहीं देख सकता: उसके लिए लोकेशन बंद है। अपने ब्राउज़र में इसकी अनुमति दें, या पंचांग में अपनी जगह चुनें।",
   "alm_sky_f_under_step": "15 मिनट से कम",
-  "fieldguide_as_of": "{date} तक का मार्गदर्शन"
+  "fieldguide_as_of": "{date} तक का मार्गदर्शन",
+  "alm_nav_place": "आपकी जगह",
+  "alm_nav_sections": "खंड",
+  "alm_nav_all": "सभी खंड"
 }

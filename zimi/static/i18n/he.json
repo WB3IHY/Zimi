@@ -3329,5 +3329,8 @@
   "alm_sky_f_pole_unknown": "לא ידוע עד שתגדיר את מיקומך",
   "earth_locate_off": "Zimi לא יכול לראות איפה אתה: המיקום כבוי עבורו. אפשר אותו בדפדפן או קבע את המקום שלך באלמנך.",
   "alm_sky_f_under_step": "פחות מ־15 דקות",
-  "fieldguide_as_of": "ההנחיות נכונות ל-{date}"
+  "fieldguide_as_of": "ההנחיות נכונות ל-{date}",
+  "alm_nav_place": "המקום שלכם",
+  "alm_nav_sections": "מדורים",
+  "alm_nav_all": "כל המדורים"
 }
