@@ -835,6 +835,45 @@ def print_all():
     return {"situations": out, "disclaimer": DISCLAIMER}
 
 
+# ── the guide with no server ────────────────────────────────────────────────
+
+_offline_bytes = None
+
+
+def offline_bundle():
+    """Everything the page needs to run with no server: the matcher's tables
+    (read from the same data as ``lookup`` and ``who``; static/
+    fieldguide-offline.js reads them, and the tests hold the two to the same
+    answers), the front, and each situation's quotes with the library left
+    out. Public text, the same a visitor at the sign-in screen is shown."""
+    d = data()
+    return {
+        "matcher": {
+            "home": d["home"],
+            "stop": d["stop"],
+            "who": d.get("who", {}),
+            "situations": {
+                sid: {k: sit.get(k, {}) for k in ("keywords", "within", "ambiguous")}
+                for sid, sit in d["situations"].items()
+            },
+        },
+        "home": home(bare=True),
+        "situations": {sid: situation_bare(sid) for sid in d["situations"]},
+    }
+
+
+def offline_bundle_bytes():
+    """The bundle as served (static/fieldguide-offline.json), made once."""
+    global _offline_bytes
+    with _lock:
+        built = _offline_bytes
+    if built is None:
+        built = json.dumps(offline_bundle(), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        with _lock:
+            _offline_bytes = built
+    return built
+
+
 # ── get the library ─────────────────────────────────────────────────────────
 
 
