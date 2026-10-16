@@ -111,10 +111,12 @@ class TestAgainstARealServer(unittest.TestCase):
         server._zim_list_cache = None
         shutil.rmtree(self._tmp, ignore_errors=True)
 
-    def get(self, path, dest=None):
+    def get(self, path, dest=None, accept=None):
         """One request, redirects not followed: (status, location, body)."""
         c = http.client.HTTPConnection("127.0.0.1", self._port, timeout=20)
         headers = {"Sec-Fetch-Dest": dest} if dest else {}
+        if accept:
+            headers["Accept"] = accept
         c.request("GET", path, headers=headers)
         r = c.getresponse()
         body = r.read()
@@ -134,6 +136,18 @@ class TestAgainstARealServer(unittest.TestCase):
         self.assertEqual(self.get(f"/content/{BOOK}/A/Water", "iframe")[0], 200)
         status, location, _ = self.get(f"/content/{BOOK}/A/Water", "document")
         self.assertEqual((status, location), (302, f"/w/{NAME}/A/Water"))
+
+    def test_a_browser_on_a_lan_address_is_known_by_its_accept_alone(self):
+        """Browsers send Sec-Fetch-Dest only to https and localhost; a NOMAD box
+        is plain http on a LAN address, so the page open is told by Accept."""
+        page = "text/html,application/xhtml+xml,*/*;q=0.8"
+        status, location, _ = self.get(f"/content/{BOOK}/A/Water", accept=page)
+        self.assertEqual((status, location), (302, f"/w/{NAME}/A/Water"))
+        self.assertEqual(self.get(f"/content/{BOOK}/A/Water", accept="*/*")[0], 200)
+        self.assertEqual(
+            self.get(f"/search?content={BOOK}&pattern=water", accept=page)[1],
+            f"/w/{NAME}?q=water",
+        )
 
     def test_the_zimi_name_works_in_a_kiwix_address_too(self):
         self.assertEqual(self.get(f"/content/{NAME}/A/Fire")[0], 200)
@@ -157,7 +171,7 @@ class TestAgainstARealServer(unittest.TestCase):
         self.assertEqual(status, 200)
         text = body.decode()
         self.assertIn("location.replace", text)
-        self.assertIn("'/w/' + h", text)
+        self.assertIn("'/content/' + h", text)
         # It can only ever send the reader to this server's own /w/ or /.
         self.assertNotIn("http", text.replace("</noscript>", ""))
 

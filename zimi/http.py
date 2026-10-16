@@ -1320,7 +1320,8 @@ _KIWIX_CONTENT = "/content/"
 # The page at /viewer. The book and page ride in the URL's fragment, which a
 # server never sees, so this hands them to the /w/ address in the browser.
 # `#<book>/<page>` opens the page, `#<book>` the book, and Kiwix's
-# `#search?content=<book>&pattern=<words>` the search.
+# `#search?content=<book>&pattern=<words>` the search. The page goes through
+# /content/, which says the book's name the way Zimi does.
 _VIEWER_PAGE = """<!doctype html><meta charset="utf-8"><title>Zimi</title>
 <script>
 (function () {
@@ -1328,15 +1329,27 @@ _VIEWER_PAGE = """<!doctype html><meta charset="utf-8"><title>Zimi</title>
   var m = /^search\\?(.*)$/.exec(h);
   if (m) {
     var q = new URLSearchParams(m[1]), words = q.get('pattern') || '', book = q.get('content') || q.get('books.name') || '';
-    to = (book ? '/w/' + encodeURIComponent(book) : '/') + (words ? '?q=' + encodeURIComponent(words) : '');
+    to = words ? '/search?pattern=' + encodeURIComponent(words) + (book ? '&content=' + encodeURIComponent(book) : '') : (book ? '/content/' + encodeURIComponent(book) : '/');
   } else if (h) {
-    to = '/w/' + h;
+    to = '/content/' + h;
   }
   location.replace(to);
 })();
 </script>
 <noscript><a href="/">Zimi</a></noscript>
 """
+
+
+def _opens_as_page(headers):
+    """A browser opening an address as a page, not a script or a frame
+    fetching it. ``Sec-Fetch-Dest`` says so, but browsers send it only to https
+    and localhost: a LAN address over plain http (a NOMAD box) carries just
+    Accept, which for a page starts with text/html and for curl or a script is
+    ``*/*`` or JSON."""
+    dest = (headers.get("Sec-Fetch-Dest") or "").lower()
+    if dest:
+        return dest == "document"
+    return "text/html" in (headers.get("Accept") or "").lower()
 
 
 def _kiwix_book(book):
@@ -2432,7 +2445,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         alias = _kiwix_alias(
             parsed,
             params,
-            (self.headers.get("Sec-Fetch-Dest") or "").lower() == "document",
+            _opens_as_page(self.headers),
             _kiwix_book,
         )
         if alias and alias[0] == "redirect":
