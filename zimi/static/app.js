@@ -3087,6 +3087,12 @@ async function serverFetch(url, opts) {
     _noteConn(CONN_OFFLINE);
     throw _offlineError();
   }
+  // A kept answer the worker gave because the server did not answer in time:
+  // good to draw from, and proof of nothing about the server.
+  if (res.headers.get('X-Zimi-Stale') === '1') {
+    _noteConn(CONN_OFFLINE);
+    return res;
+  }
   if (_isGatewayDown(res)) {
     _noteConn(CONN_OFFLINE, WHY_RESTARTING);
     throw _offlineError(WHY_RESTARTING);
@@ -3145,6 +3151,7 @@ const _CONN_OFFLINE_MSG = { nonet: 'conn_nonet_msg', server: 'conn_offline_msg',
 
 function _renderConnBanner() {
   const offline = _connState !== CONN_OK;
+  document.documentElement.classList.toggle('conn-away', offline);
   if (!offline && _libraryKnown) {
     const existing = document.getElementById('conn-banner');
     if (existing) existing.remove();
@@ -3278,6 +3285,7 @@ async function _offlineWorks() {
     try { return !!(await caches.match(url, bare ? { ignoreSearch: true } : undefined)); } catch (e) { return false; }
   };
   const works = {
+    carried: await _keepLocalList(),
     almanac: await kept(_ALMANAC_MODULES[_ALMANAC_MODULES.length - 1]),
     help: (await kept(_FIELDGUIDE_PAGE)) && (await kept(_FIELDGUIDE_OFFLINE_URL)),
     saved: 0
@@ -3299,7 +3307,14 @@ async function _renderOfflineHome() {
     return '<li><a href="' + href + '" onclick="return _spaNav(event, function() { ' + onclick + ' })">' +
       '<b>' + esc(title) + '</b><span>' + esc(desc) + '</span></a></li>';
   };
-  box.innerHTML =
+  // Each ZIM carried on this phone opens at its front page, read from the phone.
+  const carried = w.carried.map(function(m) {
+    return row(m.title || m.name, t('offline_works_kept_desc', { size: _fmtBytes(m.size) }),
+      'openArticle(' + JSON.stringify(m.name).replace(/"/g, '&quot;') + ', ' + JSON.stringify(m.main || '').replace(/"/g, '&quot;') + ', ' + JSON.stringify(m.mainTitle || m.title || '').replace(/"/g, '&quot;') + ')',
+      _articleDeepLinkPath(m.name, m.main || ''));
+  }).join('');
+  _keepWarmWhenIdle(w.carried);
+  box.innerHTML = carried +
     (w.almanac ? row(t('almanac'), t('offline_works_almanac_desc'), 'openAlmanac()', '/#almanac') : '') +
     (w.help ? row(t('fieldguide_help_now'), t('offline_works_help_desc'), 'openFieldguide(false)', _fieldguideUrl('')) : '') +
     (w.saved ? row(t('saved_tab'), t('offline_works_saved_n', { n: w.saved }), 'toggleLibraryPanel(\'bookmarks\')', '/') : '');
@@ -3358,6 +3373,10 @@ async function init() {
     _renderConnBanner();
   }
   _rebuildZimsMap();
+  _keepRefreshNames();
+  // A kept answer marked the connection offline while the words were still
+  // loading: say it again now they are here.
+  if (_connState !== CONN_OK) _renderConnBanner();
   // Render immediately with what we have
   if (!history.state) history.replaceState({ mode: 'home' }, '', location.href);
   _applyI18nToDOM();
@@ -3370,6 +3389,18 @@ async function init() {
   // Register service worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/static/sw.js', { scope: '/' }).catch(function() {});
+    // The first visit's answers went by before the worker was in charge: ask
+    // for the ones the next start cannot do without once it is, so that start
+    // can draw the library from the phone when the server does not answer.
+    var prime = function() {
+      ['/list?layout=1', '/whoami', '/manage/has-password'].forEach(function(u) {
+        fetch(u, { credentials: 'same-origin', headers: _manageToken ? _authHeaders() : {} }).catch(function() {});
+      });
+    };
+    navigator.serviceWorker.ready.then(function() {
+      if (navigator.serviceWorker.controller) prime();
+      else navigator.serviceWorker.addEventListener('controllerchange', prime, { once: true });
+    }).catch(function() {});
   }
   // Fetch secondary data in parallel, update UI as each arrives
   _initSecondary();
@@ -5838,6 +5869,240 @@ function _ziUnlockPage() {
   window.scrollTo({ top: _ziScrollY, behavior: 'instant' });
 }
 
+// ── Keep on this phone ──
+//
+// A ZIM carried in the browser's private storage reads and searches with no
+// server (keepstore.js stores it, the service worker reads it). One control per
+// ZIM, in its About panel: Keep on this phone, then what it needs and what the
+// phone has, then progress with Pause, then Remove. The storage code loads the
+// first time the panel is opened.
+var _KEEP_JS = '/static/keepstore.js?v=1';
+var _KEEP_WORKER = '/static/keepworker.js?v=1';
+var _keepLoading = null;
+var _keepPlan = {};            // zim -> {size, free, used} between "Keep" and "Download"
+var _keepSubscribed = false;
+var _keepPersisted = null;     // whether the browser agreed to keep it through low-space clean-ups
+
+// The ZIMs on this phone, by name: cards say so, and offline the ones that are
+// not here are dimmed (nothing of them opens). Filled from the worker's answer.
+var _keepNames = new Set();
+async function _keepRefreshNames() {
+  var kept = await _keepLocalList();
+  var names = new Set(kept.map(function(m) { return m.name; }));
+  var same = names.size === _keepNames.size && kept.every(function(m) { return _keepNames.has(m.name); });
+  _keepNames = names;
+  if (!same && mode === 'home' && !readerOpen && !currentSource && !readerSource && !_almanacOpen) renderHome();
+}
+
+function _keepAvailable() {
+  return !!(navigator.storage && navigator.storage.getDirectory && window.Worker);
+}
+function _keepLoad() {
+  if (typeof KeepStore !== 'undefined' && KeepStore.workerUrl === _KEEP_WORKER) return Promise.resolve();
+  if (_keepLoading) return _keepLoading;
+  _keepLoading = new Promise(function(resolve, reject) {
+    var el = document.createElement('script');
+    el.src = _KEEP_JS;
+    el.onload = function() {
+      KeepStore.workerUrl = _KEEP_WORKER;
+      if (!_keepSubscribed) {
+        _keepSubscribed = true;
+        KeepStore.subscribe(function(st) {
+          _keepRenderOpen();
+          if (st.phase === 'idle' && !st.error && st.size && st.written === st.size) _keepPrimeSearch();
+        });
+      }
+      resolve();
+    };
+    el.onerror = function() { _keepLoading = null; reject(new Error('keepstore')); };
+    document.head.appendChild(el);
+  });
+  return _keepLoading;
+}
+
+// The full-text engine (2.3 MB) is fetched through the service worker once a
+// ZIM is kept, so it is on the phone when the signal is not.
+function _keepPrimeSearch() {
+  ['/static/libzim/libzim-wasm.js', '/static/libzim/libzim-wasm.wasm'].forEach(function(u) {
+    fetch(u).catch(function() {});
+  });
+}
+
+// An installed home-screen app keeps its files; a tab in Safari is cleared
+// after a week unused.
+function _keepIsInstalled() {
+  return !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
+}
+
+function _keepBoxHtml(zim) {
+  return '<div class="zi-keep" id="zi-keep" data-zim="' + escAttr(zim) + '"></div>';
+}
+function _keepRenderOpen() {
+  var box = document.getElementById('zi-keep');
+  if (!box) return;
+  // Progress arrives several times a second: move the bar and the numbers in
+  // place. Rebuilding the buttons under a thumb swallows the tap on Pause.
+  var st = KeepStore.state(), bar = box.querySelector('.keep-bar');
+  if (bar && st.phase === 'pulling' && st.name === box.getAttribute('data-zim')) {
+    var pct = st.size ? Math.min(100, Math.floor(st.written * 100 / st.size)) : 0;
+    bar.firstChild.style.width = pct + '%';
+    bar.setAttribute('aria-valuenow', pct);
+    box.querySelector('.keep-line span').innerHTML = tH('keep_progress', { done: _fmtBytes(st.written), size: _fmtBytes(st.size) });
+    return;
+  }
+  _keepRender(box.getAttribute('data-zim'));
+}
+
+async function _keepRender(zim) {
+  var box = document.getElementById('zi-keep');
+  if (!box || box.getAttribute('data-zim') !== zim) return;
+  if (!_keepAvailable()) { box.innerHTML = '<div class="keep-note">' + tH('keep_unsupported') + '</div>'; return; }
+  try { await _keepLoad(); } catch (e) { box.innerHTML = '<div class="keep-note">' + tH('keep_err_worker') + '</div>'; return; }
+  var metas = await KeepStore.list();
+  var meta = metas.filter(function(m) { return m.name === zim; })[0] || null;
+  var st = KeepStore.state();
+  var mine = st.name === zim;
+  var pulling = mine && st.phase === 'pulling';
+  var busyElsewhere = st.phase === 'pulling' && !mine;
+  box = document.getElementById('zi-keep');
+  if (!box || box.getAttribute('data-zim') !== zim) return;
+  var z = esc(zim).replace(/'/g, '&#39;');
+  var btn = function(label, fn, cls) {
+    return '<button type="button" class="conn-retry keep-btn' + (cls ? ' ' + cls : '') + '" onclick="' + fn + '">' + tH(label) + '</button>';
+  };
+  var head = '<div class="keep-head">' + tH('keep_title') + '</div>';
+  var err = (mine && st.error) ? '<div class="keep-note keep-err">' + tH('keep_err_' + st.error) + '</div>' : '';
+  var html;
+  if (meta && meta.complete) {
+    html = '<div class="keep-line"><b>' + tH('keep_kept') + '</b><span>' + esc(_fmtBytes(meta.size)) + '</span></div>' +
+      '<div class="keep-note">' + tH('keep_kept_hint') + '</div>' +
+      (_keepPersisted === false ? '<div class="keep-note">' + tH('keep_persist_no') + '</div>' : '') +
+      '<div class="keep-actions">' + btn('keep_remove', "_keepRemove('" + z + "')", 'keep-quiet') + '</div>';
+  } else if (pulling) {
+    var pct = st.size ? Math.min(100, Math.floor(st.written * 100 / st.size)) : 0;
+    html = '<div class="keep-line"><b>' + tH('keep_pulling') + '</b><span>' +
+      tH('keep_progress', { done: _fmtBytes(st.written), size: _fmtBytes(st.size) }) + '</span></div>' +
+      '<div class="keep-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="keep-note">' + tH('keep_stay_open') + '</div>' +
+      '<div class="keep-actions">' + btn('keep_pause', '_keepPause()', 'keep-quiet') + '</div>';
+  } else if (meta) {
+    html = '<div class="keep-line"><b>' + tH('keep_paused') + '</b><span>' +
+      tH('keep_progress', { done: _fmtBytes(meta.written || 0), size: _fmtBytes(meta.size || 0) }) + '</span></div>' + err +
+      '<div class="keep-actions">' + btn('keep_resume', "_keepGo('" + z + "')") + btn('keep_remove', "_keepRemove('" + z + "')", 'keep-quiet') + '</div>';
+    err = '';
+  } else if (_keepPlan[zim]) {
+    var plan = _keepPlan[zim], fits = plan.size <= plan.free;
+    html = '<div class="keep-note">' + tH(fits ? 'keep_room' : 'keep_no_room', {
+        size: _fmtBytes(plan.size), free: _fmtBytes(plan.free), used: _fmtBytes(plan.used) }) + '</div>' +
+      '<div class="keep-actions">' + (fits ? btn('keep_download', "_keepGo('" + z + "')") : '') +
+      btn('keep_cancel', "_keepCancel('" + z + "')", 'keep-quiet') + '</div>';
+  } else {
+    html = '<div class="keep-note">' + tH('keep_hint') + '</div>' +
+      (_keepIsInstalled() ? '' : '<div class="keep-note">' + tH('keep_install_note') + '</div>') + err +
+      '<div class="keep-actions">' + (busyElsewhere ? '<div class="keep-note">' + tH('keep_one_at_a_time') + '</div>' : btn('keep_btn', "_keepAsk('" + z + "')")) + '</div>';
+    err = '';
+  }
+  box.innerHTML = head + html + err;
+}
+
+// "Keep on this phone": learn the size and whether this person may, ask the
+// phone what room it has, and say both before anything is downloaded.
+async function _keepAsk(zim) {
+  var box = document.getElementById('zi-keep');
+  if (box) box.querySelector('.keep-actions').innerHTML = '<span class="spinner-inline"></span>';
+  try {
+    await _keepLoad();
+    var p = await KeepStore.probe(zim, _manageToken ? _authHeaders() : {});
+    if (!p.ok) { _keepFail(zim, p.status === 401 || p.status === 403 ? 'auth' : 'gone'); return; }
+    var room = await KeepStore.room();
+    _keepPlan[zim] = { size: p.size, free: room.free, used: room.usage };
+  } catch (e) { _keepFail(zim, 'network'); return; }
+  _keepRender(zim);
+}
+function _keepFail(zim, code) {
+  delete _keepPlan[zim];
+  var box = document.getElementById('zi-keep');
+  if (box) box.innerHTML = '<div class="keep-head">' + tH('keep_title') + '</div><div class="keep-note keep-err">' + tH('keep_err_' + code) +
+    '</div><div class="keep-actions"><button type="button" class="conn-retry keep-btn" onclick="_keepCancel(\'' + esc(zim).replace(/'/g, '&#39;') + '\')">' + tH('conn_retry') + '</button></div>';
+}
+function _keepCancel(zim) { delete _keepPlan[zim]; _keepRender(zim); }
+
+async function _keepGo(zim) {
+  delete _keepPlan[zim];
+  await _keepLoad();
+  _keepPersisted = await KeepStore.persist();
+  var info = _zimInfo(zim);
+  var who = (typeof _userSession !== 'undefined' && _userSession && _userSession.name) || '';
+  KeepStore.pull(zim, (info && info.title) || zim, _manageToken ? _authHeaders() : {}, who);
+  _keepRender(zim);
+}
+function _keepPause() { KeepStore.stop(); }
+async function _keepRemove(zim) {
+  await _keepLoad();
+  await KeepStore.removeKept(zim);
+  _keepRender(zim);
+}
+
+// ── ZIMs on this phone, with no server ──
+
+// The metas of what is kept, from the service worker's answer (it works with no
+// network); [] where there is no worker or nothing kept.
+async function _keepLocalList() {
+  try {
+    var r = await fetch('/keep-local/list', { cache: 'no-store' });
+    if (!r.ok) return [];
+    return ((await r.json()).zims || []).filter(function(m) { return m.complete; });
+  } catch (e) { return []; }
+}
+
+// Titles that begin with the words, from every ZIM on this phone, and then the
+// full-text hits of the ones whose index has started, said plainly: the first
+// is instant and the second is not.
+async function _keepSearchOffline(query, scope, output) {
+  var kept = await _keepLocalList();
+  if (!kept.length) return false;
+  var names = scope ? kept.filter(function(m) { return m.name === scope; }) : kept;
+  if (!names.length) return false;
+  var seq = ++_keepSearchSeq;
+  var url = '/keep-local/search?q=' + encodeURIComponent(query) + (scope ? '&zim=' + encodeURIComponent(scope) : '');
+  var r = await (await fetch(url, { cache: 'no-store' })).json();
+  if (seq !== _keepSearchSeq || mode !== 'search') return true;
+  var seen = {};
+  var card = function(h, i) {
+    seen[h.zim + '/' + h.path] = 1;
+    return '<a class="result" href="' + escAttr(_articleDeepLinkPath(h.zim, h.path)) + '" data-zim="' + escAttr(h.zim) +
+      '" data-path="' + escAttr(h.path) + '" data-title="' + escAttr(h.title || '') + '" onclick="return _spaCardClick(event, this)">' +
+      '<div class="result-body"><div class="result-source">' + esc(h.zim_title || h.zim) + '</div><div class="title">' + esc(h.title) + '</div></div></a>';
+  };
+  var paint = function(full, state) {
+    var cards = r.results.map(card).join('') + (full || []).filter(function(h) { return !seen[h.zim + '/' + h.path]; }).map(card).join('');
+    output.innerHTML = '<div class="keep-search-note">' + tH(state === 'ready' ? 'keep_search_full' : (state === 'failed' ? 'keep_search_titles' : 'keep_search_warming')) + '</div>' +
+      '<div class="results">' + (cards || '<div class="empty"><p>' + tH('keep_search_none', { q: esc(query) }) + '</p></div>') + '</div>';
+  };
+  paint(null, 'warming');
+  // The full-text index of each ZIM, as it comes up.
+  try { await _keepLoad(); } catch (e) { paint(null, 'failed'); return true; }
+  var all = [];
+  var pending = names.map(function(m) {
+    return KeepStore.ftsSearch(m.name, query, 20).then(function(hits) {
+      hits.forEach(function(h) { all.push({ zim: m.name, zim_title: m.title, title: h.title, path: h.path }); });
+    }, function() { /* that ZIM's index would not start: its titles are shown */ });
+  });
+  await Promise.all(pending);
+  if (seq !== _keepSearchSeq || mode !== 'search') return true;
+  paint(all, names.some(function(m) { return KeepStore.ftsState(m.name) === 'ready'; }) ? 'ready' : 'failed');
+  return true;
+}
+var _keepSearchSeq = 0;
+
+// Start the full-text index of the first kept ZIM while the page is idle and
+// the server is not there, so the first search is not the one that waits.
+function _keepWarmWhenIdle(kept) {
+  if (!kept.length || !_keepAvailable()) return;
+  var go = function() { _keepLoad().then(function() { KeepStore.ftsWarm(kept[0].name).catch(function() {}); }, function() {}); };
+  if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 1500);
+}
+
 function _closeZimAbout() {
   var ov = document.getElementById(_ZI_OVERLAY_ID);
   if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
@@ -5875,7 +6140,7 @@ function _openZimAbout(zim) {
       if (!r.ok) throw new Error('zim-info ' + r.status);
       return r.json();
     })
-    .then(function (info) { write(_ziBodyHtml(info)); })
+    .then(function (info) { write(_keepBoxHtml(info.name) + _ziBodyHtml(info)); _keepRender(info.name); })
     .catch(function () { write('<div class="zi-none">' + tH('zi_load_failed') + '</div>'); });
 }
 
@@ -5980,7 +6245,8 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
     // taking space on the card (Eric: "no big buttons... it's rare to need").
     const cardTag = 'a';
     const cardNav = ' href="/w/' + encodeURIComponent(z.name) + '" onclick="return _spaSourceClick(event, this)"';
-    return '<' + cardTag + ' class="stat-card' + (newHtml ? ' is-new' : '') + '" data-zim="' + escAttr(z.name) + '"' + cardNav + '>' +
+    const onPhone = _keepNames.has(z.name);
+    return '<' + cardTag + ' class="stat-card' + (newHtml ? ' is-new' : '') + (onPhone ? ' kept' : '') + '" data-zim="' + escAttr(z.name) + '"' + cardNav + '>' +
       starHtml +
       '<div class="card-icon">' + icon + '</div>' +
       '<div class="card-info">' +
@@ -5996,6 +6262,7 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
         // without leaving a dangling middot behind — which is what lets the
         // in-place re-sort swap them without rebuilding the card.
         _cardOwnDateHtml(z) + _sortedByDateHtml(z) +
+        (onPhone ? ' &middot; <span class="card-kept">' + tH('keep_kept') + '</span>' : '') +
         '</div>' +
       '</div></' + cardTag + '>';
   }).join('') + '</div>';
@@ -8707,6 +8974,8 @@ async function doSearch(query, push, perSource) {
     // "Search failed / try again" implies the server tried and something went
     // wrong there. If we never reached it, say that instead and offer Retry.
     if (_isOfflineError(e)) {
+      // ZIMs carried on this phone are searched where they are.
+      try { if (await _keepSearchOffline(query, scope, output)) return; } catch (x) { /* say it is offline */ }
       output.innerHTML = '<div class="empty conn-empty"><p>' + tH('search_offline') + '</p>' +
         '<p class="hint">' + tH('search_offline_hint') + '</p>' +
         '<button type="button" class="conn-retry conn-retry-inline" onclick="_connRetryClick(this)">' + tH('conn_retry') + '</button></div>';

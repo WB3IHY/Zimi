@@ -1,0 +1,302 @@
+"""Carry a ZIM on the phone, lose the server, read and search it.
+
+An iPhone 15 (390 px) opens the app online, keeps a ZIM from its About panel
+(the real /keep route into the browser's private storage, through the real
+worker), then the server is stopped and the phone starts the app cold:
+
+  - the home says what is on the phone and dims what is not;
+  - a kept ZIM opens at its front page, read from the phone, and an article
+    shows its picture;
+  - title search answers at once; full-text search follows and is labelled;
+  - a reload offline still works.
+
+Timings are printed (run with -s). Chromium is the full proof (the service
+worker's Cache Storage and OPFS both work in it). Playwright's WebKit keeps no
+Cache Storage in a persistent context and no OPFS in an ephemeral one, so the
+WebKit run (persistent: OPFS) proves the part Safari is new at (writing OPFS
+from a worker, reading it from the service worker, libzim in a worker) with the
+page already loaded, not a cold start.
+
+Run: pytest tests/test_keep_phone_live.py -v -s
+Screenshots: ZIMI_SHOTS=/some/dir pytest tests/test_keep_phone_live.py -s
+"""
+
+import os
+import sys
+import tempfile
+import time
+
+import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import wiki_fixture as wf  # noqa: E402
+from test_offline_truth_live import Server, _free_port  # noqa: E402
+
+SHOTS = os.environ.get("ZIMI_SHOTS", "")
+ZIM = "wikipedia"
+ARTICLE = "Albert_Einstein"
+
+
+def shot(pg, name):
+    if SHOTS:
+        os.makedirs(SHOTS, exist_ok=True)
+        pg.screenshot(path=os.path.join(SHOTS, name + ".png"))
+
+
+@pytest.fixture(scope="module")
+def pw():
+    import zimi.renderer as renderer
+
+    if not renderer.browser_available():
+        pytest.skip("playwright + chromium are not usable here")
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        yield p
+
+
+@pytest.fixture
+def world(tmp_path):
+    zims, data = tmp_path / "zims", tmp_path / "data"
+    zims.mkdir()
+    data.mkdir()
+    wf.build_library(str(zims))
+    srv = Server(str(zims), str(data), _free_port())
+    srv.start()
+    yield srv
+    srv.stop()
+
+
+def _device(pw):
+    return {
+        k: v for k, v in pw.devices["iPhone 15"].items() if k != "default_browser_type"
+    }
+
+
+def keep_from_about(pg, zim=ZIM, timeout=90000):
+    """Tap Keep on this phone in the ZIM's About panel and let it finish."""
+    pg.evaluate("(z) => _openZimAbout(z)", zim)
+    pg.wait_for_selector("#zi-keep .keep-btn", timeout=30000)
+    shot(pg, "1-about-keep")
+    pg.click("#zi-keep .keep-btn")
+    pg.wait_for_selector("#zi-keep .keep-note", timeout=30000)
+    pg.wait_for_function(
+        "() => /to keep/.test(document.querySelector('#zi-keep').innerText)",
+        timeout=30000,
+    )
+    room = pg.inner_text("#zi-keep")
+    shot(pg, "2-about-room")
+    pg.click("#zi-keep .keep-btn")
+    t0 = time.time()
+    pg.wait_for_function(
+        "() => /On this phone/.test(document.querySelector('#zi-keep .keep-line')?.innerText || '')",
+        timeout=timeout,
+    )
+    shot(pg, "3-about-kept")
+    return room, time.time() - t0
+
+
+def poll(pg, js, timeout_s=60):
+    """Ask an async page function until it says yes (wait_for_function does not
+    await the promise an async function returns: it is truthy at once)."""
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if pg.evaluate(js):
+            return
+        pg.wait_for_timeout(250)
+    raise AssertionError("never became true: " + js[:80])
+
+
+def wait_shell_kept(pg):
+    """The worker is in charge and has kept the shell and, once the page has
+    asked for them through it, the answers the next start cannot do without."""
+    pg.wait_for_function("() => !!navigator.serviceWorker.controller", timeout=30000)
+    poll(
+        pg,
+        """async () => {
+          for (const k of await caches.keys()) {
+            const u = (await (await caches.open(k)).keys()).map(r => r.url);
+            if (u.some(x => x.includes('/static/app.js')) && u.some(x => x.endsWith('/'))
+                && u.some(x => x.includes('/list?layout=1')) && u.some(x => x.includes('/whoami'))) return true;
+          }
+          return false;
+        }""",
+    )
+
+
+PICTURE_LOADED = """() => {
+  const f = document.querySelector('iframe');
+  const i = f && f.contentDocument && f.contentDocument.querySelector('img');
+  return !!(i && i.naturalWidth > 0);
+}"""
+
+
+def article_text(pg):
+    return pg.evaluate(
+        "() => { const f = document.querySelector('iframe'); try { return f.contentDocument.body.innerText; } catch (e) { return ''; } }"
+    )
+
+
+def wait_article(pg, needle, timeout=30000):
+    pg.wait_for_function(
+        "(n) => { const f = document.querySelector('iframe'); try { return f && f.contentDocument.body.innerText.includes(n); } catch (e) { return false; } }",
+        arg=needle,
+        timeout=timeout,
+    )
+
+
+def test_chromium_full_cold_start_offline(pw, world):
+    br = pw.chromium.launch()
+    ctx = br.new_context(**_device(pw))
+    pg = ctx.new_page()
+    errors = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    pg.goto(world.base + "/", wait_until="load")
+    pg.wait_for_selector(".stat-card", timeout=30000)
+    wait_shell_kept(pg)
+
+    room, pull_s = keep_from_about(pg)
+    assert "to keep" in room and "allows Zimi" in room, room
+    print("\nkeep: pulled in %.1f s; says: %s" % (pull_s, room.replace("\n", " ")))
+    kept = pg.evaluate(
+        "async () => (await (await fetch('/keep-local/list')).json()).zims.map(z => [z.name, z.complete, z.main])"
+    )
+    assert kept == [[ZIM, True, "Main_Page"]], kept
+
+    print(
+        "kept before offline:",
+        pg.evaluate(
+            "async () => { const o=[]; for (const k of await caches.keys()) for (const r of await (await caches.open(k)).keys()) if (/list|whoami|has-pass/.test(r.url)) o.push(new URL(r.url).pathname); return o; }"
+        ),
+    )
+    world.stop()
+    ctx.set_offline(True)
+    pg.close()
+
+    # A cold start: a new page, no server.
+    pg = ctx.new_page()
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    t0 = time.time()
+    pg.goto(world.base + "/", wait_until="commit")
+    pg.wait_for_selector(".stat-card.kept", timeout=20000)
+    home_ms = (time.time() - t0) * 1000
+    shot(pg, "4-offline-home")
+    cards = pg.evaluate(
+        "() => [...document.querySelectorAll('.stat-card')].map(c => [c.dataset.zim, c.classList.contains('kept')])"
+    )
+    assert [z for z, k in cards if k] == [ZIM], cards
+    assert len(cards) > 1 and "On this phone" in pg.inner_text(".stat-card.kept")
+    # The library is drawn from the phone's copy of the list, and says so.
+    banner = pg.inner_text("#conn-banner")
+    assert "Can't reach your Zimi server" in banner or "No network" in banner, banner
+    opacity = pg.evaluate(
+        "() => getComputedStyle([...document.querySelectorAll('.stat-card:not(.kept)')][0]).opacity"
+    )
+    assert float(opacity) < 1, "what is not on the phone is dimmed offline"
+
+    # Open the kept ZIM: its front page, then an article with its picture.
+    t1 = time.time()
+    pg.evaluate("([z]) => openArticle(z, 'Main_Page', 'Main Page')", [ZIM])
+    wait_article(pg, "Welcome to Wikipedia")
+    first_page_ms = (time.time() - t1) * 1000
+    t2 = time.time()
+    pg.evaluate("([z, p]) => openArticle(z, p, 'Albert Einstein')", [ZIM, ARTICLE])
+    wait_article(pg, "theory of relativity")
+    article_ms = (time.time() - t2) * 1000
+    shot(pg, "5-article-offline")
+    poll(pg, PICTURE_LOADED, 10)  # the article's picture is read from the phone too
+    assert "Albert Einstein" in article_text(pg)
+
+    # Title search: instant. Full text: follows, and says so.
+    pg.evaluate("() => closeReader()")
+    pg.fill("#search-input, input[type=search], .topbar input", "albert")
+    pg.keyboard.press("Enter")
+    t3 = time.time()
+    pg.wait_for_selector(".results .result .title", timeout=20000)
+    title_ms = (time.time() - t3) * 1000
+    shot(pg, "6-title-search-offline")
+    titles = pg.evaluate(
+        "() => [...document.querySelectorAll('.results .result .title')].map(e => e.innerText)"
+    )
+    assert "Albert Einstein" in titles, titles
+    assert "Full-text search is starting" in pg.inner_text(
+        ".keep-search-note"
+    ) or "full text" in pg.inner_text(".keep-search-note")
+
+    pg.fill("#search-input, input[type=search], .topbar input", "relativity")
+    pg.keyboard.press("Enter")
+    t4 = time.time()
+    pg.wait_for_function(
+        "() => /full text/i.test(document.querySelector('.keep-search-note')?.innerText || '')",
+        timeout=120000,
+    )
+    full_ms = (time.time() - t4) * 1000
+    shot(pg, "7-full-text-offline")
+    hits = pg.evaluate(
+        "() => [...document.querySelectorAll('.results .result .title')].map(e => e.innerText)"
+    )
+    assert hits, "full-text search found the article whose body says it"
+
+    # A reload offline: the same app, still working.
+    pg.reload(wait_until="commit")
+    pg.wait_for_selector(".stat-card.kept", timeout=20000)
+    shot(pg, "8-reloaded-offline")
+
+    print("cold start offline -> kept home: %.0f ms" % home_ms)
+    print(
+        "front page of a kept ZIM: %.0f ms; an article with its picture: %.0f ms"
+        % (first_page_ms, article_ms)
+    )
+    print(
+        "title search: %.0f ms; full-text search (cold worker): %.0f ms"
+        % (title_ms, full_ms)
+    )
+    assert not [e for e in errors if "keep" in e.lower()], errors
+    ctx.close()
+    br.close()
+
+
+def test_webkit_opfs_worker_service_worker_and_libzim(pw, world):
+    """What Safari is new at, in WebKit: a worker writes OPFS (sync access
+    handle), the service worker reads it with async Blob.slice, libzim searches
+    it in a worker. The page stays loaded (Playwright's WebKit has no Cache
+    Storage in a context that has OPFS), so this is not a cold start."""
+    try:
+        br_ctx = pw.webkit.launch_persistent_context(tempfile.mkdtemp(), **_device(pw))
+    except Exception as e:  # pragma: no cover
+        pytest.skip("webkit not available: %s" % e)
+    pg = br_ctx.new_page()
+    pg.goto(world.base + "/", wait_until="load")
+    pg.wait_for_selector(".stat-card", timeout=30000)
+    pg.wait_for_function("() => !!navigator.serviceWorker.controller", timeout=30000)
+    room, pull_s = keep_from_about(pg)
+    print("\nwebkit: pulled in %.1f s; %s" % (pull_s, room.replace("\n", " ")))
+    world.stop()
+
+    t0 = time.time()
+    pg.evaluate("([z, p]) => openArticle(z, p, 'Albert Einstein')", [ZIM, ARTICLE])
+    wait_article(pg, "theory of relativity")
+    article_ms = (time.time() - t0) * 1000
+    poll(pg, PICTURE_LOADED, 10)
+    shot(pg, "w1-webkit-article")
+
+    t1 = time.time()
+    titles = pg.evaluate(
+        "async () => (await (await fetch('/keep-local/search?q=albert')).json()).results.map(r => r.title)"
+    )
+    title_ms = (time.time() - t1) * 1000
+    assert "Albert Einstein" in titles, titles
+
+    t2 = time.time()
+    hits = pg.evaluate(
+        "async () => { await KeepStore.ftsWarm('wikipedia'); return await KeepStore.ftsSearch('wikipedia', 'relativity', 10); }"
+    )
+    full_ms = (time.time() - t2) * 1000
+    assert hits, "libzim finds the article whose body says it"
+    print(
+        "webkit: article with picture %.0f ms; title search %.0f ms; full-text (cold worker) %.0f ms; first hit %s"
+        % (article_ms, title_ms, full_ms, hits[0]["title"])
+    )
+    br_ctx.close()

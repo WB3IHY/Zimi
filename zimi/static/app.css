@@ -271,6 +271,22 @@
   }
   .conn-retry:hover:not(:disabled) { background: var(--amber); color: var(--on-amber); border-color: var(--amber); }
   .conn-retry:disabled { opacity: 0.5; cursor: default; }
+  /* Keep on this phone: one block in a ZIM's About panel. */
+  .zi-keep { margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface2); }
+  .keep-head { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .keep-line { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; font-size: 13px; color: var(--text); }
+  .keep-line span { color: var(--text2); font-variant-numeric: tabular-nums; }
+  .keep-note { font-size: 12.5px; line-height: 1.5; color: var(--text2); margin-top: 6px; }
+  .keep-note.keep-err { color: var(--amber2); }
+  .keep-bar { height: 6px; border-radius: 3px; background: var(--border); margin-top: 8px; overflow: hidden; }
+  .keep-bar i { display: block; height: 100%; background: var(--amber); transition: width 0.25s linear; }
+  .keep-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .keep-btn { margin: 0; min-height: 44px; padding: 8px 18px; font-size: 13.5px; }
+  .keep-btn.keep-quiet { background: none; color: var(--text2); border-color: var(--border); }
+  .card-kept { color: var(--amber); }
+  /* Offline, what is not on this phone cannot open: say so by its weight. */
+  html.conn-away .stat-card:not(.kept) { opacity: 0.4; }
+  .keep-search-note { font-size: 12.5px; color: var(--text2); margin: 0 0 10px; }
   .conn-retry-inline { margin-top: 16px; padding: 6px 16px; font-size: 13px; }
   .conn-empty .hint { opacity: 0.75; max-width: 34em; margin: 0 auto; }
   /* What still works with no server: each a link with its own line under it, a finger tall. */
