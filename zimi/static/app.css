@@ -4149,7 +4149,9 @@
 :root.night-red ::placeholder { color: var(--text2); opacity: .6; }
 /* A ZIM's own page is HTML and CSS we do not write: Red is a filter over the frame, after the
    page has been darkened as in Dark (app.js _syncFrameNight). Zimi's own pages are not filtered. */
-:root.night-red #reader-frame.night-filter { filter: url(#night-red-frame); }
+/* CSS filter functions, not an SVG url() filter: iOS Safari drops the url() kind on the frame's
+   GPU layer and showed the page white. The page was darkened first, so light text goes to red. */
+:root.night-red #reader-frame.night-filter { filter: var(--red-picture); }
 /* The rest of the surface the page does not colour: scrollbars, the selection, a focus ring, a form
    control's accent, the caret, so none of them is a grey or white or blue light in the dark. */
 :root.night-red, :root.night-red * { scrollbar-color: var(--border-strong) #000; }

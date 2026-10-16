@@ -2533,6 +2533,7 @@
   "pdf_zoom_in": "放大",
   "pdf_zoom_out": "缩小",
   "pdf_dark_pages": "深色页面",
+  "pdf_dark_in_red": "红色模式下始终开启",
   "pdf_page": "页",
   "pdf_failed": "无法打开此 PDF。",
   "pdf_prev_page": "上一页",

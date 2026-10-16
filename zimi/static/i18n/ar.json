@@ -2533,6 +2533,7 @@
   "pdf_zoom_in": "تكبير",
   "pdf_zoom_out": "تصغير",
   "pdf_dark_pages": "صفحات داكنة",
+  "pdf_dark_in_red": "مفعّل دائمًا في الوضع الأحمر",
   "pdf_page": "الصفحة",
   "pdf_failed": "تعذّر فتح ملف PDF هذا.",
   "pdf_prev_page": "الصفحة السابقة",

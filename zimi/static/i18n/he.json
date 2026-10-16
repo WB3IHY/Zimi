@@ -2533,6 +2533,7 @@
   "pdf_zoom_in": "הגדלה",
   "pdf_zoom_out": "הקטנה",
   "pdf_dark_pages": "עמודים כהים",
+  "pdf_dark_in_red": "תמיד פועל במצב אדום",
   "pdf_page": "עמוד",
   "pdf_failed": "לא ניתן לפתוח את קובץ ה־PDF הזה.",
   "pdf_prev_page": "העמוד הקודם",

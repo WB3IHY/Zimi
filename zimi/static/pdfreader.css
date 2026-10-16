@@ -46,7 +46,7 @@ html.zp-dark .pdfViewer .page .canvasWrapper, html.zp-dark .zp-thumb canvas { fi
 html.zp-dark .pdfViewer .page { box-shadow: 0 0 0 1px var(--border); }
 /* Red (pdfreader.js syncTheme): the dark page, then every pixel turned to red light, the same chain the
    shell gives a canvas (app.css night-red). The chrome takes the shell's red tokens. */
-html.night-red .pdfViewer .page .canvasWrapper, html.night-red .zp-thumb canvas { filter: invert(.92) hue-rotate(180deg) brightness(.6) grayscale(1) sepia(1) hue-rotate(-42deg) saturate(12) brightness(1.5); }
+html.night-red .pdfViewer .page .canvasWrapper, html.night-red .zp-thumb canvas { filter: invert(1) hue-rotate(180deg) brightness(.6) grayscale(1) sepia(1) hue-rotate(-42deg) saturate(12) brightness(1.5); }
 html.night-red { scrollbar-color: var(--border-strong) #000; }
 
 /* ── the bars ── */
@@ -221,6 +221,10 @@ html.zp-dark .zp-thumb .zp-sheetpage { background: #151515; }
 .zp-switch::after { content: ''; position: absolute; top: 2px; inset-inline-start: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: inset-inline-start .15s; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); }
 [aria-checked="true"] > .zp-switch { background: var(--amber); }
 [aria-checked="true"] > .zp-switch::after { inset-inline-start: 16px; }
+.zp-menu button[aria-disabled="true"] { cursor: default; }
+.zp-menu button[aria-disabled="true"] .zp-switch { opacity: .5; }
+.zp-why { display: block; font-size: 12px; color: var(--text3); }
+html.night-red .zp-switch::after { background: #000; }
 .zp-menu [aria-pressed="true"] svg { color: var(--amber); fill: currentColor; }
 /* One page or two: the chosen one marked, as a choice is. */
 .zp-menu [role="menuitemradio"][aria-checked="true"] { color: var(--amber); font-weight: 600; }

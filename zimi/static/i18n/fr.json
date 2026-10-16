@@ -2533,6 +2533,7 @@
   "pdf_zoom_in": "Zoom avant",
   "pdf_zoom_out": "Zoom arrière",
   "pdf_dark_pages": "Pages sombres",
+  "pdf_dark_in_red": "Toujours activé en Rouge",
   "pdf_page": "Page",
   "pdf_failed": "Impossible d’ouvrir ce PDF.",
   "pdf_prev_page": "Page précédente",

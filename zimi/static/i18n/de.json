@@ -2533,6 +2533,7 @@
   "pdf_zoom_in": "Vergrößern",
   "pdf_zoom_out": "Verkleinern",
   "pdf_dark_pages": "Dunkle Seiten",
+  "pdf_dark_in_red": "In Rot immer an",
   "pdf_page": "Seite",
   "pdf_failed": "Dieses PDF ließ sich nicht öffnen.",
   "pdf_prev_page": "Vorherige Seite",

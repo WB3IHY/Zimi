@@ -2533,6 +2533,7 @@
   "pdf_zoom_in": "Aumentar zoom",
   "pdf_zoom_out": "Diminuir zoom",
   "pdf_dark_pages": "Páginas escuras",
+  "pdf_dark_in_red": "Sempre ativado no Vermelho",
   "pdf_page": "Página",
   "pdf_failed": "Não foi possível abrir este PDF.",
   "pdf_prev_page": "Página anterior",

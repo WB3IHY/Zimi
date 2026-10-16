@@ -176,9 +176,11 @@ def test_red_holds_over_a_zims_own_page_in_the_reader_frame(base, phone):
     _open(phone, base, ARTICLE)
     frame = _reader_frame(phone)
     assert "night-filter" in (frame.get_attribute("class") or "")
-    assert "night-red-frame" in phone.evaluate(
+    # CSS filter functions, which iOS applies on the frame's GPU layer (an SVG url() filter it drops).
+    frame_filter = phone.evaluate(
         "getComputedStyle(document.getElementById('reader-frame')).filter"
     )
+    assert "sepia" in frame_filter and "url(" not in frame_filter
     # A plain ZIM page is white and has no dark mode: it was darkened before it was reddened.
     assert phone.evaluate(
         "!!document.getElementById('reader-frame').contentDocument.getElementById('zimi-article-darken')"
