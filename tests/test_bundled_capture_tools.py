@@ -53,7 +53,7 @@ def test_bundled_copy_is_the_default():
 
 def test_operator_env_overrides_the_bundled_copy(tmp_path, monkeypatch):
     mine = tmp_path / "behaviors.js"
-    mine.write_text("/* mine */")
+    mine.write_text("/* mine */", encoding="utf-8")
     monkeypatch.setenv(behaviors._ENV_VAR, str(mine))
     assert behaviors.behaviors_path() == str(mine)
     assert behaviors.behaviors_source() == "/* mine */"
@@ -63,7 +63,7 @@ def test_operator_npm_install_beats_the_bundled_copy(tmp_path, monkeypatch):
     root = tmp_path / "node_modules"
     installed = root / behaviors._REL_PATH
     installed.parent.mkdir(parents=True)
-    installed.write_text("/* npm */")
+    installed.write_text("/* npm */", encoding="utf-8")
     monkeypatch.setattr(behaviors, "_NODE_ROOTS", (str(root),))
     assert behaviors.behaviors_path() == str(installed)
 
