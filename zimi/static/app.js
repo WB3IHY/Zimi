@@ -6919,9 +6919,14 @@ function openAlmanac(replaceState) {
       _openAlmanacInner(replaceState);
       // The 3D Earth's module follows the open instead of delaying it; the
       // orrery draws the Earth's glow (the way in) once it has landed.
-      var earth = document.createElement('script');
-      earth.src = '/static/almanac-earth.js?v=45';
-      document.head.appendChild(earth);
+      // The ephemeris first (the Sun, the Moon, the planets: no GL), then the Earth view, then the landing that
+      // puts the view's Moon in the hero; in order.
+      ['/static/almanac-ephem.js?v=45', '/static/almanac-earth.js?v=45', '/static/almanac-landing.js?v=45'].forEach(function(src) {
+        var el = document.createElement('script');
+        el.src = src;
+        el.async = false;
+        document.head.appendChild(el);
+      });
     }, function() {
       // A console line and a button that appears to do nothing is the same
       // "silent absence" the connection banner exists to eliminate. Drop the

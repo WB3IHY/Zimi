@@ -48,6 +48,7 @@ vm.runInContext(read('almanac-orrery.js'), S);
 vm.runInContext(read('almanac-sky.js'), S);
 vm.runInContext(read('almanac-skygl.js'), S);
 vm.runInContext(require('./moon_model.cjs')(), S);
+vm.runInContext(read('almanac-ephem.js'), S);
 vm.runInContext(read('almanac-earth.js'), S);
 
 const DEG = 180 / Math.PI;

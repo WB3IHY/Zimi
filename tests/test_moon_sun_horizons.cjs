@@ -67,6 +67,7 @@ for (const fn of ['_dateToJD', '_jdnToGregorian', '_cnDeltaTdays', '_computeEcli
 vm.runInContext(extractFn(read('almanac-sky.js'), '_angleDelta'), S);
 vm.runInContext(read('almanac-orrery.js'), S);
 vm.runInContext(require('./moon_model.cjs')(), S);
+vm.runInContext(read('almanac-ephem.js'), S);
 vm.runInContext(read('almanac-earth.js'), S);
 
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;

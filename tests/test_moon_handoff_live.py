@@ -134,6 +134,12 @@ def _settle(pg, iso):
         timeout=20000,
         polling=POLL_MS,
     )
+    # And the live scene (the landing) stands in the hero again: that is the page at rest.
+    pg.wait_for_function(
+        "() => !!document.querySelector('#almanac-view.lp-live')",
+        timeout=20000,
+        polling=POLL_MS,
+    )
     pg.wait_for_timeout(300)
 
 
@@ -165,6 +171,9 @@ def test_the_first_3d_frame_is_the_hero(browser, served, shots, iso):
     try:
         _settle(pg, iso)
         clip = _rect(pg)
+        # The flat picture: the live scene (almanac-landing.js) stands aside, as before it was ready.
+        pg.evaluate("() => _lpRelease()")
+        pg.wait_for_timeout(200)
         flat = _png(pg.screenshot(clip=clip))
         # Hold the swap at its first frame (a long flight), so the screenshot
         # is the page as composited with the 3D Moon standing in.
@@ -319,10 +328,11 @@ def _touch_drag_turns(pg, cdp, x, y, steps, dx, dy):
 
 
 @pytest.mark.parametrize("pointer", ["touch", "mouse"])
-def test_one_finger_lifts_and_keeps_turning(browser, served, pointer):
+def test_one_finger_lifts_and_keeps_pulling(browser, served, pointer):
     """A drag that starts on the hero Moon opens the 3D view and the same
-    finger, never lifted, goes on turning the Moon there. On a phone the
-    drag may wander up and down: the page must not take it for a scroll."""
+    finger, never lifted, goes on pulling the camera back there (the landing's
+    axis; its vertical tips the view). On a phone the drag may wander up and
+    down: the page must not take it for a scroll."""
     if pointer == "touch":
         ctx = browser.new_context(
             viewport=VIEW, device_scale_factor=DPR, has_touch=True, is_mobile=True
@@ -359,15 +369,15 @@ def test_one_finger_lifts_and_keeps_turning(browser, served, pointer):
         pg.wait_for_function(
             "() => _aeIsOpen && !_ae.hand", timeout=10000, polling=POLL_MS
         )
-        az0, el0 = pg.evaluate("[_ae.az, _ae.el_]")
+        u0, t0 = pg.evaluate("[_ae.axis.u, _ae.axis.tilt]")
         if pointer == "touch":
             x, y = _touch_drag_turns(pg, cdp, x, y, 10, 3, 6)
         else:
             for i in range(1, 11):
                 pg.mouse.move(x + i * 3, y + i * 6)
-        az1, el1 = pg.evaluate("[_ae.az, _ae.el_]")
+        u1, t1 = pg.evaluate("[_ae.axis.u, _ae.axis.tilt]")
         # Still the same gesture: nothing has been lifted yet.
-        assert abs(az1 - az0) > 0.01 and abs(el1 - el0) > 0.01, (az0, az1, el0, el1)
+        assert u1 - u0 > 0.1 and abs(t1 - t0) > 0.01, (u0, u1, t0, t1)
         # And the 3D canvas owns it: the pointer is its drag, not a stream
         # forwarded from the hidden page (which WebKit cuts when the page
         # under the view stops being drawn).
@@ -375,16 +385,16 @@ def test_one_finger_lifts_and_keeps_turning(browser, served, pointer):
             "Object.keys(_ae.pointers).length === 1 &&"
             " document.getElementById('ae-canvas').classList.contains('ae-dragging')"
         )
-        # Each move turns the Moon once, not twice (the page no longer forwards).
-        want = pg.evaluate("_aeDragTurn(20, 0, _ae.roll, _aeDragK(), _ae.el_).daz")
-        az2 = pg.evaluate("_ae.az")
+        # Each move pulls once, not twice (the page no longer forwards): 20 px is a fraction of a stop.
+        want = 20 / pg.evaluate("LP_PX_PER_STOP")
+        u2 = pg.evaluate("_ae.axis.u")
         if pointer == "touch":
             _touch_drag_turns(pg, cdp, x, y, 5, 4, 0)
         else:
             for i in range(1, 6):
                 pg.mouse.move(x + 30 + i * 4, y + 60)
-        turned = pg.evaluate("_ae.az") - az2
-        assert abs(turned - want) < 0.35 * abs(want), (turned, want)
+        pulled = pg.evaluate("_ae.axis.u") - u2
+        assert abs(pulled - want) < 0.35 * want, (pulled, want)
         if pointer == "touch":
             cdp.send(
                 "Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []}
@@ -462,9 +472,9 @@ def test_the_cost(browser, served):
         assert pg.evaluate("() => _ae.gl.renderer.getContext().drawingBufferWidth") > 1
         pg.evaluate("() => _aeClose()")
         pg.wait_for_function("() => !_aeIsOpen", timeout=10000, polling=POLL_MS)
-        # One CSS pixel: the device pixels of one at the view's pixel ratio.
+        # Not the screen's: the hero's own rectangle (the landing draws the Moon there again), at the view's pixel ratio.
         assert pg.evaluate(
-            "() => _ae.gl.renderer.getContext().drawingBufferWidth === _ae.gl.dpr"
+            "() => _ae.gl.renderer.getContext().drawingBufferWidth <= document.querySelector(AE_HERO_SEL).offsetWidth * _ae.gl.dpr"
         )
         lost = pg.evaluate(
             """() => { var gl = _ae.gl.renderer.getContext(); closeAlmanac();

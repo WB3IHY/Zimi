@@ -52,6 +52,7 @@ vm.runInContext(
 for (const fn of ['_dateToJD', '_jdToJulianCentury', '_solveKepler', '_jdnToGregorian', '_cnDeltaTdays']) vm.runInContext(extractFn(almSrc, fn), S);
 vm.runInContext(fs.readFileSync(path.join(STATIC, 'almanac-orrery.js'), 'utf8'), S);
 vm.runInContext(require('./moon_model.cjs')(), S);
+vm.runInContext(fs.readFileSync(path.join(STATIC, 'almanac-ephem.js'), 'utf8'), S);
 vm.runInContext(fs.readFileSync(path.join(STATIC, 'almanac-earth.js'), 'utf8'), S);
 const spFile = path.join(STATIC, 'almanac-space.js');
 if (!fs.existsSync(spFile)) { console.error('FAIL: almanac-space.js does not exist'); process.exit(1); }

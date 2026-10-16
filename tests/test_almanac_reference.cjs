@@ -54,7 +54,7 @@ vm.createContext(S);
 vm.runInContext('var _currentLang = "en"; function t(k) { return k; } var _almanacOpen = false;', S);
 vm.runInContext(fs.readFileSync(path.join(STATIC, 'almanac-orrery.js'), 'utf8'), S);
 vm.runInContext(require('./moon_model.cjs')(), S);
-for (const f of ['almanac.js', 'almanac-earth.js', 'almanac-navdata.js', 'almanac-reference.js']) {
+for (const f of ['almanac.js', 'almanac-ephem.js', 'almanac-earth.js', 'almanac-navdata.js', 'almanac-reference.js']) {
   vm.runInContext(fs.readFileSync(path.join(STATIC, f), 'utf8'), S);
 }
 
