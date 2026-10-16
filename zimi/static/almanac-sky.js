@@ -583,8 +583,8 @@ function _skyGLView(s) {
 // chosen: only what the viewer set is saved, so a default that changes later
 // reaches everyone who never chose.
 var SKY_SETTINGS_KEY = 'zimi_sky_settings';
-var SKY_SETTING_DEFAULTS = { skin: 'beach', lines: 'off', size: 'auto', dial: 0 };   // a real sky has no lines: a figure shows when its star is tapped
-var SKY_SETTING_VALUES = { skin: ['horizon', 'beach'], lines: ['off', 'lines', 'names'], size: ['auto', 'true', 'large'] };
+var SKY_SETTING_DEFAULTS = { skin: 'beach', lines: 'off', size: 'auto', below: 'off', dial: 0 };   // a real sky has no lines: a figure shows when its star is tapped
+var SKY_SETTING_VALUES = { skin: ['horizon', 'beach'], lines: ['off', 'lines', 'names'], size: ['auto', 'true', 'large'], below: ['off', 'on'] };   // below: the ground see-through, the sky under it shown
 var _skySettings = null, _skyChosen = {};
 function _skyLoadSettings() {
   var out = {}, k, saved = {};
@@ -2174,6 +2174,141 @@ function _skyMoonDisc(s) {
 }
 function _skyUnderMoon(s, x, y) { var m = s.moonDisc; return !!m && (x - m.x) * (x - m.x) + (y - m.y) * (y - m.y) < m.r * m.r; }
 
+// ══ Below the horizon ══
+// A choice, off unless asked for: the ground goes see-through and the sky
+// that is under it shows, everything below the horizon placed by the same
+// geometry as everything above (none of it is a sight from this place: the
+// Earth is in the way; it is where they are). The panorama reaches as far
+// down as it has room, about 24 degrees; the star chart (below) reaches
+// further. Everything under the horizon is marked as such: a dashed horizon,
+// the depths in degrees, a cool ink, and the words.
+var SKY_BELOW_KEEP = 0.4;              // the share of the ground left over what is under it
+var SKY_BELOW_MAG = 4.6;               // the faintest star drawn under the horizon
+var SKY_BELOW_UNDER = [[10, 14, 30], [3, 4, 9]];   // the sky under the ground, at the horizon and at the foot
+var SKY_BELOW_INK = '170,190,230';
+var SKY_BELOW_RULES = [10, 20];        // depths (degrees) marked with a faint dotted line
+var SKY_BELOW_NAME_MAG = 2.2;          // stars this bright are named
+function _skyBelowOn() { return _skySetting('below') === 'on'; }
+// Whichever way the choice is made (the scene's button, the chart's), both follow it.
+function _skyBelowToggle() {
+  _skySet('below', _skyBelowOn() ? 'off' : 'on');
+  _skyBelowSync();
+  if (typeof _starChartBase !== 'undefined' && _starChartBase && document.getElementById('almanac-starchart')) _drawStarChart(_starChartTime());
+}
+function _skyBelowSync() {
+  var on = _skyBelowOn(), btns = document.querySelectorAll ? document.querySelectorAll('[data-sky-below]') : [];
+  for (var i = 0; i < btns.length; i++) btns[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+var SKY_BELOW_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 11h18"/><path d="M5 15.5h2M10 15.5h4M17 15.5h2" stroke-dasharray="1 3"/><circle cx="12" cy="6" r="2.3"/><circle cx="7" cy="19" r="1" fill="currentColor" stroke="none"/><circle cx="16.5" cy="19.5" r="1.4" fill="currentColor" stroke="none"/></svg>';
+// The scene's button, beside the others on the picture; once.
+function _skyEnsureBelowButton(wrap) {
+  if (!wrap || wrap.querySelector('[data-sky-below]')) return;
+  var b = document.createElement('button');
+  b.type = 'button'; b.className = 'alm-sky-look alm-sky-tool alm-sky-below';
+  b.setAttribute('data-sky-below', '');
+  b.setAttribute('aria-label', t('alm_sky_below_btn')); b.title = t('alm_sky_below_btn');
+  b.setAttribute('aria-pressed', _skyBelowOn() ? 'true' : 'false');
+  b.innerHTML = SKY_BELOW_SVG;
+  b.addEventListener('click', _skyBelowToggle);
+  wrap.insertBefore(b, wrap.firstChild);
+}
+// What is under the horizon at the instant, within the depth the picture has: the catalogue's stars by
+// the ephemeris's own rotation (P, lst), the planets, the Sun and the Moon. Kept until the instant changes.
+function _skyBelowBodies(s, depth) {
+  var key = s.nowTime + '|' + s.lat + '|' + s.lon + '|' + depth;
+  if (s.belowKey === key) return s.below;
+  var e = s.eph, sinLat = Math.sin(s.lat * DEG_TO_RAD), cosLat = Math.cos(s.lat * DEG_TO_RAD), out = { stars: [], planets: [] }, cat = _skyCatalogue();
+  for (var j = 0; j < cat.length; j++) {
+    if (cat[j].mag > SKY_BELOW_MAG) continue;
+    var rd = _skyRaDec(_skyMul(e.P, cat[j].v)), h = _skyHorizontal(rd.ra, rd.dec, e.lst, sinLat, cosLat);
+    if (h.alt < 0 && h.alt > -depth) out.stars.push({ alt: h.alt, az: h.az, mag: cat[j].mag, tint: cat[j].tint, idx: cat[j].idx });
+  }
+  for (var i = 0; i < e.planets.length; i++) if (e.planets[i].alt < 0 && e.planets[i].alt > -depth) out.planets.push(e.planets[i]);
+  out.sun = e.sunGeoAlt < -2 && e.sunGeoAlt > -depth ? { alt: e.sunGeoAlt, az: e.sun.az } : null;
+  var mp = e.moon;
+  out.moon = mp.altitude < -2 && mp.altitude > -depth ? { alt: mp.altitude, az: mp.azimuth } : null;
+  s.belowKey = key; s.below = out;
+  return out;
+}
+// The ground see-through: part of it taken away, the dark sky put behind, then the sky under it and its marks.
+function _skyPaintBelowSky(ctx, s) {
+  var dpr = s.dpr, yh = s.H * SKY_HORIZON_Y, ppd = _skyPxPerDegY(s), depth = (s.H - yh) / ppd + 1;
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = 'rgba(0,0,0,' + (1 - SKY_BELOW_KEEP) + ')';
+  ctx.fillRect(0, yh, s.W, s.H - yh);
+  ctx.globalCompositeOperation = 'destination-over';
+  var g = ctx.createLinearGradient(0, yh, 0, s.H);
+  g.addColorStop(0, _skyRgb(SKY_BELOW_UNDER[0])); g.addColorStop(1, _skyRgb(SKY_BELOW_UNDER[1]));
+  ctx.fillStyle = g; ctx.fillRect(0, yh, s.W, s.H - yh);
+  ctx.restore();
+  var b = _skyBelowBodies(s, depth), ink = SKY_BELOW_INK;
+  // The horizon and the depths, in degrees, from the left edge.
+  ctx.save();
+  ctx.lineWidth = Math.max(1, 0.8 * dpr);
+  ctx.strokeStyle = 'rgba(' + ink + ',0.55)'; ctx.setLineDash([5 * dpr, 4 * dpr]);
+  ctx.beginPath(); ctx.moveTo(0, yh); ctx.lineTo(s.W, yh); ctx.stroke();
+  ctx.strokeStyle = 'rgba(' + ink + ',0.2)'; ctx.setLineDash([1 * dpr, 5 * dpr]);
+  ctx.font = '600 ' + Math.round(8 * dpr) + 'px ' + SKY_FONT; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillStyle = 'rgba(' + ink + ',0.55)';
+  for (var i = 0; i < SKY_BELOW_RULES.length; i++) {
+    var y = yh + SKY_BELOW_RULES[i] * ppd;
+    if (y > s.H - 8 * dpr) continue;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(s.W, y); ctx.stroke();
+    ctx.fillText('−' + _orrNum(SKY_BELOW_RULES[i], null, 0) + '°', s.W - 6 * dpr, y - 1 * dpr);
+  }
+  ctx.restore();
+  ctx.save();
+  ctx.font = '700 ' + Math.round(9 * dpr) + 'px ' + SKY_FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = 'rgba(' + ink + ',0.85)';
+  ctx.fillText(t('alm_sky_below_label').toUpperCase(), 8 * dpr, yh + 5 * dpr);
+  ctx.restore();
+  // The stars, named when they are bright; then the planets, the Moon and the Sun.
+  for (var j = 0; j < b.stars.length; j++) {
+    var st = b.stars[j], p = _skyScreen(s, st.az, st.alt, 4);
+    if (!p.visible) continue;
+    var look = _skyStarLook(st.mag), r = _skyStarDevR(look.r, dpr);
+    if (look.bloom) _skyStarBloom(ctx, p.x, p.y, r, st.tint, 0.8);
+    ctx.fillStyle = 'rgba(' + st.tint + ',' + (0.9 * look.k).toFixed(3) + ')';
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+    var named = st.idx >= 0 && _STAR_NAMES[st.idx];
+    if (named && st.mag < SKY_BELOW_NAME_MAG) {
+      ctx.font = '500 ' + Math.round(9 * dpr) + 'px ' + SKY_FONT; ctx.textBaseline = 'middle';
+      var nm = _STAR_NAMES[st.idx], flip = p.x + r + 6 * dpr + ctx.measureText(nm).width > s.W;   // beside the star, on the side with room
+      ctx.textAlign = flip ? 'right' : 'left';
+      ctx.fillStyle = 'rgba(' + ink + ',0.8)'; ctx.fillText(nm, p.x + (flip ? -1 : 1) * (r + 3 * dpr), p.y);
+    }
+    if (named) s.bodies.push({ type: 'star', idx: st.idx, x: p.x / dpr, y: p.y / dpr, r: r / dpr, alt: st.alt, az: st.az, mag: st.mag });
+  }
+  for (var k = 0; k < b.planets.length; k++) {
+    var pl = b.planets[k], pt = _skyScreen(s, pl.az, pl.alt, 6 * dpr);
+    if (!pt.visible) continue;
+    var col = _PLANETS[pl.name].glow, pr = _skyStarDevR(_skyStarLook(pl.mag).r * SKY_PLANET_R_X, dpr);
+    ctx.fillStyle = _hexToRgba(col, 0.95);
+    ctx.beginPath(); ctx.arc(pt.x, pt.y, pr, 0, Math.PI * 2); ctx.fill();
+    ctx.font = '600 ' + Math.round(9 * dpr) + 'px ' + SKY_FONT; ctx.textBaseline = 'middle';
+    var pn = _tp(pl.name), pflip = pt.x + pr + 8 * dpr + ctx.measureText(pn).width > s.W;
+    ctx.textAlign = pflip ? 'right' : 'left';
+    ctx.fillStyle = _hexToRgba(col, 0.9); ctx.fillText(pn, pt.x + (pflip ? -1 : 1) * (pr + 4 * dpr), pt.y);
+    s.bodies.push({ type: 'planet', name: pl.name, x: pt.x / dpr, y: pt.y / dpr, r: pr / dpr, alt: pl.alt, az: pl.az, mag: pl.mag, phase: pl.phase });
+  }
+  if (b.moon) {
+    var mp = _skyScreen(s, b.moon.az, b.moon.alt, 12 * dpr);
+    if (mp.visible) {
+      var mr = _skyBodyRadius(s, _skyMoonSemi(s.now, b.moon.alt)), sp = _skyScreen(s, s.eph.sun.az, s.eph.sunGeoAlt);
+      _skyDrawPhase(ctx, mp.x, mp.y, mr, s.moonData.phase.illumination / 100, Math.atan2(sp.y - mp.y, sp.x - mp.x), '#dcd8c8', 0.9);
+      s.bodies.push({ type: 'moon', x: mp.x / dpr, y: mp.y / dpr, r: mr / dpr, alt: b.moon.alt, az: b.moon.az });
+    }
+  }
+  if (b.sun) {
+    var sn = _skyScreen(s, b.sun.az, b.sun.alt, 12 * dpr);
+    if (sn.visible) {
+      var sr = _skyBodyRadius(s, SKY_SUN_SEMI_DEG);
+      ctx.fillStyle = 'rgba(255,205,130,0.9)'; ctx.beginPath(); ctx.arc(sn.x, sn.y, sr, 0, Math.PI * 2); ctx.fill();
+      s.bodies.push({ type: 'sun', x: sn.x / dpr, y: sn.y / dpr, r: sr / dpr, alt: b.sun.alt, az: b.sun.az });
+    }
+  }
+}
+
 // What stands on the horizon: the beach (its sea, boats, palms), or the true
 // horizon, a line with the compass's ticks and its letters.
 var SKY_TICK_PX = [3, 5, 8], SKY_TICK_DEG = [5, 15, 45];   // tick length (CSS px) at each step of bearing
@@ -2293,6 +2428,7 @@ function _skyPaintBase(s, ts) {
   _skyPaintSun(ctx, s);
   _skyPaintMoon(ctx, s, _skyMoonAt(s, ts));
   if (beach) _skyPaintGround(ctx, s); else _skyPaintHorizon(ctx, s, !!gl);
+  if (_skyBelowOn() && !s.lens) _skyPaintBelowSky(ctx, s);
   s.baseBodies = s.bodies;
   s.baseDirty = !!s.moonAnim;
   s.paintedTime = s.nowTime;
@@ -2799,6 +2935,7 @@ function _initSkyScene(now, lat, lon, animateMoon) {
     s.observer.observe(canvas);
   }
   _skyBindTaps(canvas);
+  _skyEnsureBelowButton(wrap);
   _skyBindSettings();
   _skyHideTip();
   _skyArm();
@@ -2972,6 +3109,7 @@ function _skyBodyLines(b) {
   if (b.type === 'star' && b.con) { var cc = _skyConById(b.con); if (cc) lines.push(t('alm_sky_in_con', { c: cc.name })); }
   // The planets whose phase shows (they pass between us and the Sun, or are not far from it).
   if (b.type === 'planet' && b.phase != null && SKY_PHASED_PLANETS.indexOf(b.name) >= 0) lines.push(t('alm_sky_f_moon_lit', { p: _orrNum(Math.round(b.phase * 100), null, 0) + '%' }));
+  if (b.alt < 0) lines.push(t('alm_sky_below_label'));
   if (b.enlarged) lines.push(t('alm_sky_enlarged', { n: _orrNum(Math.round(b.enlarged), null, 0) }));
   return lines;
 }
@@ -3069,6 +3207,8 @@ var _starChartViewLat = null; // null = use the saved location; set by dragging
 
 var _starChartViewLon = null;
 
+var SKY_CHART_HORIZON_SHARE = 0.64;   // with the sky under the horizon shown, the horizon is this share of the disc's radius (the rim is then about 50 degrees down)
+var _starChartRot = 0;                // the bearing at the top of the chart (0: north up); Find turns it to what it was asked for
 var _starChartDragged = false; // suppresses the tap-to-identify after a drag
 
 var _starChartSelectedKey = null; // the currently selected body's link key (2nd
@@ -3215,6 +3355,28 @@ function _starChartClick(ev) {
   _starChartSelectedKey = link ? best.key : null;
 }
 
+// The sky under the horizon on the chart: the ring of the horizon, one of -30 degrees, the zone between
+// and the rim tinted, and the words.
+function _skyChartBelowZone(ctx, cx, cy, R, R0) {
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.arc(cx, cy, R0, 0, Math.PI * 2, true);
+  ctx.fillStyle = 'rgba(' + SKY_BELOW_INK + ',0.07)'; ctx.fill('evenodd');
+  ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(' + SKY_BELOW_INK + ',0.6)'; ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.arc(cx, cy, R0, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(' + SKY_BELOW_INK + ',0.22)'; ctx.setLineDash([1, 4]);
+  ctx.beginPath(); ctx.arc(cx, cy, R0 * (1 + 30 / 90), 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font = '700 8px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(' + SKY_BELOW_INK + ',0.85)';
+  ctx.fillText(t('alm_sky_below_label').toUpperCase(), cx, cy + R - 9);
+  ctx.restore();
+}
+// The chart's small controls under it: see below the horizon (and, once the Find module is in, find).
+function _starChartToolsHtml() {
+  var on = _skyBelowOn(), label = _almEsc(t('alm_sky_below_btn'));
+  return '<div class="alm-sc-tools"><button type="button" class="alm-sc-tool" data-sky-below aria-pressed="' + (on ? 'true' : 'false') + '" onclick="_skyBelowToggle()">' + label + '</button></div>';
+}
+
 function _renderStarChart(baseNow) {
   _starChartBase = baseNow;
   _starChartViewLat = null;
@@ -3287,6 +3449,7 @@ function _drawStarChart(now) {
   var lon = panned ? _starChartViewLon : loc.lon;
   var cx = size / 2, cy = size / 2;
   var R = size / 2 - 16; // leave room for cardinal labels
+  var below = _skyBelowOn(), R0 = below ? R * SKY_CHART_HORIZON_SHARE : R;   // R0: the horizon's radius
 
   // Shared alt/az from apparent local sidereal time.
   var JD = _dateToJD(now.getTime());
@@ -3296,9 +3459,9 @@ function _drawStarChart(now) {
   function altAz(raRad, decRad) { return _skyHorizontal(raRad, decRad, LST, sinLat, cosLat); }
   // Azimuthal (zenith-centered) projection with N up, E left (looking up).
   function project(altDeg, azDeg) {
-    var r = (90 - altDeg) / 90 * R;
-    var a = azDeg * DEG_TO_RAD;
-    return { x: cx - r * Math.sin(a), y: cy - r * Math.cos(a) };
+    var r = (90 - altDeg) / 90 * R0;
+    var a = (azDeg - _starChartRot) * DEG_TO_RAD;
+    return { x: cx - r * Math.sin(a), y: cy - r * Math.cos(a), r: r };
   }
 
   var styles = getComputedStyle(document.documentElement);
@@ -3326,7 +3489,7 @@ function _drawStarChart(now) {
   // Faint decorative background stars, clipped to the disc — ambiance only,
   // drawn under the constellation lines and the real (linkable) catalog stars.
   ctx.save();
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+  ctx.beginPath(); ctx.arc(cx, cy, R0, 0, Math.PI * 2); ctx.clip();
   var bgStars = _ensureStarChartBgStars(size);
   for (var bgi = 0; bgi < bgStars.length; bgi++) {
     var bg = bgStars[bgi];
@@ -3341,24 +3504,27 @@ function _drawStarChart(now) {
   ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
   // Altitude ring at 30° and 60°.
   ctx.strokeStyle = 'rgba(120,140,180,0.12)';
-  ctx.beginPath(); ctx.arc(cx, cy, R * 2 / 3, 0, Math.PI * 2); ctx.stroke();
-  ctx.beginPath(); ctx.arc(cx, cy, R / 3, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, R0 * 2 / 3, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, R0 / 3, 0, Math.PI * 2); ctx.stroke();
+  if (below) _skyChartBelowZone(ctx, cx, cy, R, R0);
 
   // Cardinal labels (N up, E left — planisphere convention).
   ctx.fillStyle = amber;
   ctx.font = 'bold 12px system-ui, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(t('alm_dir_n'), cx, cy - R - 7);
-  ctx.fillText(t('alm_dir_s'), cx, cy + R + 7);
-  ctx.fillText(t('alm_dir_e'), cx - R - 7, cy);
-  ctx.fillText(t('alm_dir_w'), cx + R + 7, cy);
+  [['alm_dir_n', 0], ['alm_dir_e', 90], ['alm_dir_s', 180], ['alm_dir_w', 270]].forEach(function (c) {
+    var a = (c[1] - _starChartRot) * DEG_TO_RAD, x = cx - (R0 + 7) * Math.sin(a), y = cy - (R0 + 7) * Math.cos(a);
+    if (below) { ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(5,6,13,0.8)'; ctx.strokeText(t(c[0]), x, y); }
+    ctx.fillText(t(c[0]), x, y);
+  });
 
   // Precompute star projections.
   var proj = {};
   for (var i = 0; i < _STARS.length; i++) {
     var aa = altAz(_STARS[i][0] * 15 * DEG_TO_RAD, _STARS[i][1] * DEG_TO_RAD);
-    if (aa.alt < 0) continue;
+    if (aa.alt < 0 && !below) continue;
     proj[i] = project(aa.alt, aa.az);
+    if (proj[i].r > R) { delete proj[i]; continue; }
     proj[i].alt = aa.alt; proj[i].az = aa.az;
   }
   // Constellation lines (both endpoints up).
@@ -3372,16 +3538,17 @@ function _drawStarChart(now) {
   var starCount = 0;
   for (var i = 0; i < _STARS.length; i++) {
     var p = proj[i]; if (!p) continue;
-    starCount++;
+    var under = p.alt < 0;
+    if (!under) starCount++;
     var mag = _STARS[i][2], look = _skyStarLook(mag);
     // The chart is drawn in CSS pixels (its context is scaled by dpr).
     var rad = _skyStarDevR(look.r, dpr) / dpr;
-    var tint = _WARM_STARS[i] ? '255,208,160' : '238,242,255';
-    if (look.bloom) _skyStarBloom(ctx, p.x, p.y, rad, tint, 1);
-    ctx.fillStyle = 'rgba(' + tint + ',' + look.k.toFixed(3) + ')';
+    var tint = under ? SKY_BELOW_INK : _WARM_STARS[i] ? '255,208,160' : '238,242,255', fade = under ? 0.7 : 1;
+    if (look.bloom) _skyStarBloom(ctx, p.x, p.y, rad, tint, fade);
+    ctx.fillStyle = 'rgba(' + tint + ',' + (look.k * fade).toFixed(3) + ')';
     ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, Math.PI * 2); ctx.fill();
     if (_STAR_NAMES[i] && mag < 1.6) {
-      ctx.fillStyle = 'rgba(200,210,235,0.7)';
+      ctx.fillStyle = under ? 'rgba(' + SKY_BELOW_INK + ',0.8)' : 'rgba(200,210,235,0.7)';
       ctx.font = '9px system-ui, sans-serif';
       drawLabel(_STAR_NAMES[i], p.x, p.y, rad + 2);
     }
@@ -3400,34 +3567,50 @@ function _drawStarChart(now) {
     var nm = _VISIBLE_PLANETS[pi];
     var pq = _skyPlanet(nm, T, P);
     var aa = altAz(pq.ra, pq.dec);
-    if (aa.alt < 0) continue;
+    if (aa.alt < 0 && !below) continue;
     var pp = project(aa.alt, aa.az);
+    if (pp.r > R) continue;
     var col = _PLANETS[nm] ? _PLANETS[nm].color : amber;
+    ctx.globalAlpha = aa.alt < 0 ? 0.75 : 1;
     ctx.fillStyle = col;
     ctx.beginPath(); ctx.arc(pp.x, pp.y, 3.2, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = col;
     ctx.font = 'bold 9px system-ui, sans-serif';
     drawLabel(_tp(nm), pp.x, pp.y, 5);
+    ctx.globalAlpha = 1;
     _starChartBodies.push({
       x: pp.x, y: pp.y, key: 'planet:' + nm.toLowerCase(),
       label: _tp(nm) + ' \u00b7 ' + aa.alt.toFixed(0) + '\u00b0 ' + _azCompass(aa.az)
     });
-    planetsUp.push(_tp(nm));
+    if (aa.alt > 0) planetsUp.push(_tp(nm));
   }
 
   // The Moon.
   var mp = _moonPosition(now, lat, lon);
-  var moonUp = mp.altitude > 0;
-  if (moonUp) {
-    var mpp = project(mp.altitude, mp.azimuth);
+  var moonUp = mp.altitude > 0, mpp = project(mp.altitude, mp.azimuth);
+  if (moonUp || (below && mpp.r <= R)) {
+    ctx.globalAlpha = moonUp ? 1 : 0.75;
     ctx.fillStyle = '#f4f4e8';
     ctx.beginPath(); ctx.arc(mpp.x, mpp.y, 4.5, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.5; ctx.stroke();
+    ctx.globalAlpha = 1;
     _starChartBodies.push({
       x: mpp.x, y: mpp.y, key: 'planet:moon',
       label: t('alm_moon') + ' \u00b7 ' + mp.altitude.toFixed(0) + '\u00b0 ' +
              _azCompass(mp.azimuth) + ' \u00b7 ' + _moonPhase(now).illumination + '%'
     });
+  }
+
+  // The Sun, only where the sky under the horizon is shown (above it the chart is of the night sky).
+  if (below) {
+    var sq = _skySunRaDec(T), sa = altAz(sq.ra, sq.dec), sp = project(sa.alt, sa.az);
+    if (sp.r <= R) {
+      ctx.globalAlpha = sa.alt < 0 ? 0.75 : 1;
+      ctx.fillStyle = '#ffd089';
+      ctx.beginPath(); ctx.arc(sp.x, sp.y, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      _starChartBodies.push({ x: sp.x, y: sp.y, key: 'planet:sun', label: t('alm_sun') + ' \u00b7 ' + sa.alt.toFixed(0) + '\u00b0 ' + _azCompass(sa.az) });
+    }
   }
 
   var cap = document.getElementById('almanac-starchart-caption');
@@ -3438,6 +3621,6 @@ function _drawStarChart(now) {
       (panned ? ' <button class="alm-sc-reset" onclick="_starChartResetLoc()">' + _almEsc(t('alm_my_location')) + '</button>' : '') + '</div>' +
       '<div class="alm-starchart-desc">' + starCount + ' ' + t('alm_stars_up') +
       (planetsUp.length ? ' · ' + planetsUp.join(', ') : '') +
-      (moonUp ? ' · ' + t('alm_moon') : '') + '</div>';
+      (moonUp ? ' · ' + t('alm_moon') : '') + '</div>' + _starChartToolsHtml();
   }
 }

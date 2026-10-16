@@ -2486,6 +2486,8 @@
   "alm_sky_find_orrery": "Le trouver dans le système solaire",
   "alm_sky_facing": "vers le {dir}",
   "alm_sky_sea": "La mer",
+  "alm_sky_below_btn": "Voir sous l’horizon",
+  "alm_sky_below_label": "Sous l’horizon",
   "alm_sky_boat": "Un bateau",
   "alm_sky_boat_line": "À l'horizon, à environ {d}, là où la Terre s'incurve.",
   "alm_sky_boat_lights": "La nuit, seuls ses feux se voient : rouge à bâbord, vert à tribord, blanc au-dessus. Au mouillage, un seul feu blanc visible de tous côtés.",

@@ -119,6 +119,26 @@ for (const [place, lon, lat, iso, ref] of HORIZONS) {
 }
 console.log('worst per body (deg): ' + Object.keys(worst).map((b) => b + ' ' + worst[b].toFixed(3)).join(', '));
 
+// The sky under the horizon (the ground see-through) is the same sky: its planets, Sun and stars come from
+// the ephemeris above and below the horizon alike, so the ones Horizons puts under it are the ones drawn there.
+{
+  const [place, lon, lat, iso, ref] = HORIZONS[1];
+  const eph = vm.runInContext('_skyEphemeris(new Date(' + JSON.stringify(iso) + '), ' + lat + ', ' + lon + ')', S);
+  S.__s = { nowTime: Date.parse(iso), lat, lon, eph };
+  const b = vm.runInContext('_skyBelowBodies(__s, 60)', S);
+  const names = b.planets.map((p) => p.name).sort().join(',');
+  const want = Object.keys(ref).filter((n) => !['Sun', 'Moon'].includes(n) && ref[n][1] < 0 && ref[n][1] > -60).sort().join(',');
+  check(names === want, 'the planets under the horizon at 23:00 in San Francisco are the ones Horizons has there (' + names + ')');
+  check(b.sun && sep(b.sun.alt, b.sun.az, ref.Sun[1], ref.Sun[0]) < 1, 'the Sun is under it, where Horizons has it (' + (b.sun && b.sun.alt.toFixed(1)) + ' deg)');
+  check(b.moon === null, 'the Moon, up at 17 degrees, is not under it');
+  check(b.stars.length > 20 && b.stars.every((st) => st.alt < 0 && st.alt > -60 && st.mag <= 4.6), 'the stars under it are all under it, to the limit (' + b.stars.length + ')');
+  // Above and below together are the whole catalogue to the limit: nothing is lost or counted twice at the horizon.
+  const all = vm.runInContext('_skyCatalogue().filter(function (c) { return c.mag <= SKY_BELOW_MAG; }).length', S);
+  const full = vm.runInContext('_skyBelowBodies(__s, 91).stars.length', S);
+  const up = eph.stars.filter((st) => st.mag <= 4.6).length;
+  check(up + full === all, 'stars above (' + up + ') and below (' + full + ') are all ' + all + ' of the catalogue');
+}
+
 // Twilight is counted on the Sun's geometric altitude; the drawn Sun is lifted
 // by the air only near the horizon.
 const civil = vm.runInContext('_skyEphemeris(new Date("2026-10-01T02:05:00Z"), 37.7749, -122.4194)', S);

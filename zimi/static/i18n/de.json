@@ -2486,6 +2486,8 @@
   "alm_sky_find_orrery": "Im Sonnensystem zeigen",
   "alm_sky_facing": "Blick nach {dir}",
   "alm_sky_sea": "Das Meer",
+  "alm_sky_below_btn": "Unter den Horizont sehen",
+  "alm_sky_below_label": "Unter dem Horizont",
   "alm_sky_boat": "Ein Boot",
   "alm_sky_boat_line": "Am Horizont, etwa {d} entfernt, wo sich die Erde wegkrümmt.",
   "alm_sky_boat_lights": "Nachts sieht man nur die Lichter: rot an Backbord, grün an Steuerbord, weiß darüber. Vor Anker ein einzelnes weißes Rundumlicht.",

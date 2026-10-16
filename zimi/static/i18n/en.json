@@ -2486,6 +2486,8 @@
   "alm_sky_find_orrery": "Find it in the solar system",
   "alm_sky_facing": "facing {dir}",
   "alm_sky_sea": "The sea",
+  "alm_sky_below_btn": "See below the horizon",
+  "alm_sky_below_label": "Below the horizon",
   "alm_sky_boat": "A boat",
   "alm_sky_boat_line": "On the horizon, about {d} away, where the Earth curves out of sight.",
   "alm_sky_boat_lights": "At night only its lights show: red to port, green to starboard, white above. At anchor, one white light all round.",

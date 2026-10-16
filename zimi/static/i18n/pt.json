@@ -2486,6 +2486,8 @@
   "alm_sky_find_orrery": "Ver no sistema solar",
   "alm_sky_facing": "virado a {dir}",
   "alm_sky_sea": "O mar",
+  "alm_sky_below_btn": "Ver abaixo do horizonte",
+  "alm_sky_below_label": "Abaixo do horizonte",
   "alm_sky_boat": "Um barco",
   "alm_sky_boat_line": "No horizonte, a cerca de {d}, onde a Terra se curva.",
   "alm_sky_boat_lights": "De noite só se veem as luzes: vermelha a bombordo, verde a estibordo, branca em cima. Fundeado, uma única luz branca visível de todos os lados.",

@@ -2486,6 +2486,8 @@
   "alm_sky_find_orrery": "在太阳系中查看",
   "alm_sky_facing": "面向{dir}",
   "alm_sky_sea": "大海",
+  "alm_sky_below_btn": "查看地平线以下",
+  "alm_sky_below_label": "地平线以下",
   "alm_sky_boat": "一艘船",
   "alm_sky_boat_line": "在海平线上，约 {d} 远，地球从这里弯下去。",
   "alm_sky_boat_lights": "夜里只看得见灯：左舷红灯，右舷绿灯，上方白灯。抛锚时只有一盏四面可见的白灯。",
