@@ -45,7 +45,8 @@ def _writable_by(uid, gid, path):
     try:
         os.setegid(gid)
         os.seteuid(uid)
-        return os.access(path, os.W_OK | os.X_OK)
+        # effective_ids: plain access() asks about the REAL uid, still root here
+        return os.access(path, os.W_OK | os.X_OK, effective_ids=True)
     finally:
         os.seteuid(saved[0])
         os.setegid(saved[1])
