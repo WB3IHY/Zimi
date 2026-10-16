@@ -63,12 +63,12 @@
   .alm-sec-out, .alm-sec-in { animation: none; }
 }
 .alm-tz-list { width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-.alm-tz-city-card { --alm-tz-corner: 16px; position: relative; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 4px; cursor: pointer; transition: all 0.1s; text-align: center; }
+.alm-tz-city-card { --alm-tz-corner: 18px; position: relative; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 4px; cursor: pointer; transition: all 0.1s; text-align: center; }
 .alm-tz-city-card:hover { background: var(--surface2); border-color: var(--text3); }
 /* One line, whatever the name's length, so every card's time sits on the
    same line ("Dumont d'Urville Station" wrapped and pushed its time down);
    the full name is the card's title. Room either side for the hour's glyph
-   and, on an added clock, its remove button. */
+   and its save star. */
 .alm-tz-city-name { font-size: 11px; color: var(--text2); display: block; padding: 0 var(--alm-tz-corner); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .alm-tz-city-time { font-size: 13px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; display: block; margin-top: 2px; direction: ltr; unicode-bidi: isolate; }
 .alm-tz-city-offset { font-size: 9px; color: var(--text3); display: block; margin-top: 1px; }
@@ -179,11 +179,18 @@
 .alm-group { margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--border); }
 .alm-group-title { margin: 0 0 16px; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
 .alm-group > .almanac-section:first-of-type, .alm-group-title + .almanac-section { margin-top: 24px; border-top: 0; padding-top: 0; }
-/* The reader's clocks: one taken away by its corner, one added from the
-   cities through the native picker laid over a dashed card. */
-/* The glyph keeps the end corner; the remove button takes the start one. */
-.alm-tz-remove { position: absolute; top: 0; inset-inline-start: 0; width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--text3); font: inherit; font-size: 14px; line-height: 1; cursor: pointer; border-radius: 8px; }
-.alm-tz-remove:hover, .alm-tz-remove:focus-visible { color: var(--amber); }
+/* The reader's clocks: each kept or let go by the star in its start corner,
+   more added from the cities through the sheet behind a dashed card. */
+/* The glyph keeps the end corner; the star takes the start one. */
+.alm-tz-star { position: absolute; top: 2px; inset-inline-start: 2px; width: 20px; height: 20px; padding: 0; border: 0; background: none; color: var(--text3); display: grid; place-items: center; cursor: pointer; border-radius: 6px; }
+.alm-tz-star::before { content: ""; position: absolute; inset: -6px; }
+.alm-tz-star svg { fill: none; }
+.alm-tz-star.on { color: var(--amber); }
+.alm-tz-star.on svg { fill: currentColor; }
+.alm-tz-star:hover, .alm-tz-star:focus-visible { color: var(--amber); }
+.alm-tz-star:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+.alm-tz-view { margin-top: 0; }
+.alm-tz-hint { grid-column: 1 / -1; margin: 0 0 4px; font-size: 12px; line-height: 1.5; color: var(--text2); text-align: center; }
 .alm-tz-add { display: flex; align-items: center; justify-content: center; min-height: 52px; border: 1px dashed var(--border); border-radius: 8px; background: none; color: var(--text2); font: inherit; font-size: 12px; cursor: pointer; }
 .alm-tz-add:hover, .alm-tz-add:focus-visible { color: var(--amber); border-color: var(--amber-border); outline: none; }
 /* ── Popovers: under the pill on a wide screen, a sheet from the bottom on a phone (the tables' and the clocks') ── */

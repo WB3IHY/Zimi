@@ -2410,7 +2410,6 @@
   "alm_subj_sun": "सूर्य",
   "alm_subj_eclipses": "ग्रहण",
   "alm_subj_seasons": "ऋतुएँ",
-  "alm_clock_remove": "{city} हटाएँ",
   "alm_tide_nearest": "पास में कोई ज्वार स्टेशन नहीं। सबसे पास वाला दिखाया गया है: {name}, {d} दूर।",
   "alm_place_no_match": "इस नाम का कोई स्टेशन नहीं",
   "alm_tide_title": "ज्वार-भाटा",
@@ -3334,5 +3333,9 @@
   "alm_nav_sections": "खंड",
   "alm_nav_all": "सभी खंड",
   "alm_tide_why_q": "क्यों?",
-  "alm_tide_source": "NOAA का अनुमान। मौसम असली समुद्र को बदलता है।"
+  "alm_tide_source": "NOAA का अनुमान। मौसम असली समुद्र को बदलता है।",
+  "alm_clock_saved": "सहेजी गईं",
+  "alm_clock_view_label": "कौन-सी घड़ियाँ दिखानी हैं",
+  "alm_clock_save": "{city} सहेजें",
+  "alm_clock_hint_empty": "अभी कुछ सहेजा नहीं गया। “सभी” में किसी घड़ी का सितारा छूएँ, वह यहाँ रहेगी।"
 }

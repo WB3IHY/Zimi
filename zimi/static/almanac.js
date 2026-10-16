@@ -3912,6 +3912,7 @@ function _renderSunMap(now) {
     '<span class="alm-tz-hand" id="almanac-tz-hand" aria-hidden="true"></span></div>';
   html += '<div id="almanac-tz-label" class="alm-clock-info"></div>';
   html += '</div>';
+  html += '<div class="alm-hol-row alm-tz-view" id="almanac-tz-view"></div>';
   html += '<div class="alm-tz-list" id="almanac-tz-pills"></div>';
   html += '</div>';
 
@@ -4184,11 +4185,17 @@ function _initTzClock(now) {
   // one in be sure to put it in the right position", Eric). The curated
   // cities are offered to add, not all shown at once.
   var targetTz = _almSelectedTz || _almDisplayTz();
-  var cards = _almClockCards(targetTz, now);
+  var focused = _almTzFocusKey(pillsEl);
+  var view = _almClockView();
+  var cards = _almClockShown(_almClockCards(targetTz, now), view);
   var localMatch = _almClockLit(cards, targetTz, now);
+  _almClockViewPaint(view);
 
   // Render city cards with times
   var html = '';
+  if (view === 'saved' && !_almClocks().length) {
+    html += '<p class="alm-tz-hint">' + _almEsc(t('alm_clock_hint_empty')) + '</p>';
+  }
   for (var i = 0; i < cards.length; i++) {
     var tzc = cards[i];
     var isActive = (i === localMatch);
@@ -4202,30 +4209,38 @@ function _initTzClock(now) {
     // thin outlines at small sizes)
     var glyphHtml = phase === 'night'
       ? '<span class="alm-tz-glyph alm-glyph-moon" aria-hidden="true"></span>'
-      : '<span class="alm-tz-glyph" aria-hidden="true">\u2600\ufe0e</span>';
+      : '<span class="alm-tz-glyph" aria-hidden="true">☀︎</span>';
     var pick = '_almSelectTz(\'' + tzc.tz + '\')';
-    html += '<div class="alm-tz-city-card alm-tz-' + phase + (isActive ? ' alm-tz-city-active' : '') + '" role="button" tabindex="0"' +
+    html += '<div class="alm-tz-city-card alm-tz-' + phase + (isActive ? ' alm-tz-city-active' : '') + '" role="button" tabindex="0" data-tz="' + tzc.tz + '"' +
       ' onclick="' + pick + '" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + pick + '}">';
     html += glyphHtml;
     html += '<span class="alm-tz-city-name" title="' + _almEsc(tzc.label) + '">' + _almEsc(tzc.label) + '</span>';
     html += '<span class="alm-tz-city-time">' + tzTime + '</span>';
     html += '<span class="alm-tz-city-offset">' + utcOff + '</span>';
-    if (tzc.added) {
-      html += '<button type="button" class="alm-tz-remove" onclick="event.stopPropagation();_almClockRemove(\'' + tzc.tz + '\')"' +
-        ' aria-label="' + _almEsc(t('alm_clock_remove', { city: tzc.label })) + '" title="' + _almEsc(t('alm_clock_remove', { city: tzc.label })) + '">×</button>';
+    // The place's own clock is always here; every other can be kept or let go.
+    if (!tzc.local) {
+      var saveLabel = _almEsc(t('alm_clock_save', { city: tzc.label }));
+      html += '<button type="button" class="alm-tz-star' + (tzc.saved ? ' on' : '') + '" aria-pressed="' + !!tzc.saved + '" data-tz="' + tzc.tz + '"' +
+        ' onclick="event.stopPropagation();_almClockToggle(\'' + tzc.tz + '\')" onkeydown="event.stopPropagation()"' +
+        ' aria-label="' + saveLabel + '" title="' + saveLabel + '">' + ALM_STAR_SVG + '</button>';
     }
     html += '</div>';
   }
-  // Add a clock: a sheet of every zone the Almanac knows.
+  // Add a clock: a sheet of every zone the Almanac knows; the one picked is kept.
   html += '<button type="button" class="alm-tz-add" onclick="_almClockSheetOpen(this)">+ ' + _almEsc(t('alm_clock_add')) + '</button>';
   pillsEl.innerHTML = html;
+  _almTzFocusRestore(pillsEl, focused);
 
   // Draw the clock
   _drawTzClock(now);
 }
 
-// The reader's clocks, kept on this device: zone names, in the order added.
+// The reader's saved clocks, kept on this device: zone names, in the order
+// saved. (The key is the one added clocks have always used, so they are saved
+// ones now.) Which of the two views is showing is kept beside them.
 var _ALM_CLOCKS_KEY = 'zimi_almanac_clocks';
+var _ALM_CLOCKS_VIEW_KEY = 'zimi_almanac_clocks_view';
+var ALM_CLOCKS_VIEWS = ['saved', 'all'];
 var ALM_TZ_NAME_RE = /^[A-Za-z0-9_+\/-]+$/;   // an IANA zone name, and nothing that could leave an attribute
 function _almClocks() {
   try { var v = JSON.parse(localStorage.getItem(_ALM_CLOCKS_KEY)); return Array.isArray(v) ? v.filter(function (z) { return typeof z === 'string' && ALM_TZ_NAME_RE.test(z); }) : []; }
@@ -4241,7 +4256,51 @@ function _almClockAdd(tz) {
   if (list.indexOf(tz) < 0) list.push(tz);
   _almSetClocks(list);
 }
-function _almClockRemove(tz) { _almSetClocks(_almClocks().filter(function (z) { return z !== tz; })); }
+function _almClockRemove(tz) {
+  // A clock let go while it is the one shown returns the big clock to the place's own.
+  if (_almClockView() === 'saved' && _almSelectedTz === tz) _almSelectedTz = null;
+  _almSetClocks(_almClocks().filter(function (z) { return z !== tz; }));
+}
+function _almClockToggle(tz) { if (_almClocks().indexOf(tz) < 0) _almClockAdd(tz); else _almClockRemove(tz); }
+// Saved clocks, or All of them; All until the reader chooses.
+function _almClockView() {
+  try { var v = localStorage.getItem(_ALM_CLOCKS_VIEW_KEY); return ALM_CLOCKS_VIEWS.indexOf(v) >= 0 ? v : 'all'; }
+  catch (e) { return 'all'; }
+}
+function _almClockSetView(view) {
+  if (ALM_CLOCKS_VIEWS.indexOf(view) < 0) return;
+  try { localStorage.setItem(_ALM_CLOCKS_VIEW_KEY, view); } catch (e) {}
+  // The big clock never shows a zone the list under it does not: back to the place's own.
+  if (view === 'saved' && _almSelectedTz && _almClocks().indexOf(_almSelectedTz) < 0) _almSelectedTz = null;
+  _initTzClock(new Date());
+  if (typeof _drawSunMap === 'function') _drawSunMap();
+}
+// The grid is drawn again on a toggle and each minute: a keyboard user's place
+// in it (a card or its star, by zone) is found again afterwards.
+function _almTzFocusKey(host) {
+  var a = document.activeElement;
+  if (!a || !host.contains(a) || !a.getAttribute('data-tz')) return null;
+  return { tz: a.getAttribute('data-tz'), star: a.classList.contains('alm-tz-star') };
+}
+function _almTzFocusRestore(host, key) {
+  if (!key) return;
+  var all = host.querySelectorAll('[data-tz="' + key.tz + '"]'), pick = null;
+  for (var i = 0; i < all.length; i++) if (all[i].classList.contains('alm-tz-star') === key.star) pick = all[i];
+  if (pick) pick.focus({ preventScroll: true });
+}
+// The two-way switch above the clocks, the Regional/Worldwide pill's look.
+var ALM_STAR_SVG = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.5l2.4 5.2 5.6.6-4.2 3.8 1.2 5.6L12 15.8l-5 2.9 1.2-5.6L4 9.3l5.6-.6z"/></svg>';
+function _almClockViewPaint(view) {
+  var host = document.getElementById('almanac-tz-view');
+  if (!host) return;
+  var html = '<div class="alm-scope-seg" role="tablist" aria-label="' + _almEsc(t('alm_clock_view_label')) + '">';
+  ALM_CLOCKS_VIEWS.forEach(function (v) {
+    html += '<button type="button" class="alm-scope-btn' + (v === view ? ' active' : '') + '" role="tab" aria-selected="' + (v === view) + '"' +
+      ' onclick="_almClockSetView(\'' + v + '\')">' + _almEsc(t(v === 'saved' ? 'alm_clock_saved' : 'all')) + '</button>';
+  });
+  html += '</div>';
+  if (host._almHtml !== html) { host.innerHTML = html; host._almHtml = html; }
+}
 
 // A clock's time, and its zone's offset from UTC now: "UTC+5:30 · IST". The
 // short name only when it is a real abbreviation; a GMT/UTC alias (GMT+8,
@@ -4279,7 +4338,7 @@ function _almTzCityLabel(tz) {
 var _almClockSheetEl = null;
 function _almClockZones(now) {
   var shown = {}, seen = {}, out = [];
-  _almClockCards(_almSelectedTz || _almDisplayTz(), now).forEach(function (c) { shown[c.tz] = 1; });
+  _almClockShown(_almClockCards(_almSelectedTz || _almDisplayTz(), now), _almClockView()).forEach(function (c) { shown[c.tz] = 1; });
   function add(tz) {
     if (shown[tz] || seen[tz]) return;
     seen[tz] = 1;
@@ -4360,22 +4419,30 @@ function _almSheetAboveKeyboard(pop) {
 // offset now. The place's own city, when it is a curated one, carries the
 // place's name.
 function _almClockCards(targetTz, now) {
-  var out = [], seen = {}, offs = {}, home = _almDisplayTz(), named = _getLocation().stored;
-  function add(tz, added, onlyIfNewOffset) {
+  var out = [], seen = {}, offs = {}, home = _almDisplayTz(), named = _getLocation().stored, saved = _almClocks();
+  function add(tz, onlyIfNewOffset) {
     if (!tz || seen[tz]) return;
     var off = 0;
     try { off = _tzUtcOffsetMin(tz, now); } catch (e) { return; }
     if (onlyIfNewOffset && offs[off]) return;
     seen[tz] = 1; offs[off] = 1;
-    out.push({ tz: tz, added: added, off: off,
+    out.push({ tz: tz, saved: saved.indexOf(tz) >= 0, off: off,
       label: tz === home && named ? _almTzCardLabel(tz) : _almTzCityLabel(tz) });
   }
-  _TZ_CITIES.forEach(function (c) { add(c.tz, false); });
-  add(home, false, true);
-  add(targetTz, false, true);
-  add(_almDeviceTz(), false, true);
-  _almClocks().forEach(function (tz) { add(tz, true); });
-  return out.sort(function (a, b) { return a.off - b.off; });
+  _TZ_CITIES.forEach(function (c) { add(c.tz); });
+  add(home, true);
+  add(targetTz, true);
+  add(_almDeviceTz(), true);
+  saved.forEach(function (tz) { add(tz); });
+  out.sort(function (a, b) { return a.off - b.off; });
+  // The place's own clock: the card that keeps its time. Always shown, never let go.
+  var li = _almClockLit(out, home, now);
+  if (li >= 0) out[li].local = true;
+  return out;
+}
+// What a view shows: every card, or the place's own and the saved ones.
+function _almClockShown(cards, view) {
+  return view === 'saved' ? cards.filter(function (c) { return c.local || c.saved; }) : cards;
 }
 // The card a zone lights: its own, else the first keeping the same offset now.
 function _almClockLit(cards, tz, now) {

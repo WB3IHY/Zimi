@@ -2410,7 +2410,6 @@
   "alm_subj_sun": "Sun",
   "alm_subj_eclipses": "Eclipses",
   "alm_subj_seasons": "Seasons",
-  "alm_clock_remove": "Remove {city}",
   "alm_tide_nearest": "No tide station near here. Shown: the nearest, {name}, {d} away.",
   "alm_place_no_match": "No station by that name",
   "alm_tide_title": "Tides",
@@ -3334,5 +3333,9 @@
   "alm_nav_sections": "Sections",
   "alm_nav_all": "All sections",
   "alm_tide_why_q": "Why?",
-  "alm_tide_source": "NOAA prediction. Weather moves the real sea."
+  "alm_tide_source": "NOAA prediction. Weather moves the real sea.",
+  "alm_clock_saved": "Saved",
+  "alm_clock_view_label": "Which clocks to show",
+  "alm_clock_save": "Save {city}",
+  "alm_clock_hint_empty": "Nothing saved yet. In All, tap the star on a clock to keep it here."
 }

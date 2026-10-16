@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - A question in search shows the sentence from your library that answers it, with its source; a tap opens the article at that sentence.
 - Zimi reads ZIMs from folders another program owns, in place and never changed: `ZIMI_EXTRA_ZIM_DIRS`, or Settings, Server, Storage. Project NOMAD's library is found and offered once ([guide](docs/integrations/project-nomad.md)).
 - ZIMs another program adds to or removes from such a folder appear in or leave the library in about a minute, with no restart.
+- Almanac: a bar of its sections appears once you scroll past the first, with a pill for each, the current one lit, and a list of all of them at its end.
+- Almanac world clocks: a star on every clock saves it; Saved shows your own clock and the saved ones, All shows every clock.
+
+### Changed
+
+- Almanac tides: one answer first, the curve labels only the next turn, the month's bars are smaller, and the reason sits behind "Why?".
+- Almanac solar system: the twin paradox and the light clock are behind "What if it flew faster?" on the ride card.
 
 ### Fixed
 

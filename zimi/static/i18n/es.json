@@ -2410,7 +2410,6 @@
   "alm_subj_sun": "Sol",
   "alm_subj_eclipses": "Eclipses",
   "alm_subj_seasons": "Estaciones",
-  "alm_clock_remove": "Quitar {city}",
   "alm_tide_nearest": "No hay estación de mareas cerca. Se muestra la más cercana: {name}, a {d}.",
   "alm_place_no_match": "Ninguna estación con ese nombre",
   "alm_tide_title": "Mareas",
@@ -3334,5 +3333,9 @@
   "alm_nav_sections": "Secciones",
   "alm_nav_all": "Todas las secciones",
   "alm_tide_why_q": "¿Por qué?",
-  "alm_tide_source": "Predicción de la NOAA. El tiempo mueve el mar real."
+  "alm_tide_source": "Predicción de la NOAA. El tiempo mueve el mar real.",
+  "alm_clock_saved": "Guardados",
+  "alm_clock_view_label": "Qué relojes mostrar",
+  "alm_clock_save": "Guardar {city}",
+  "alm_clock_hint_empty": "Aún no hay nada guardado. En «Todos», toca la estrella de un reloj para tenerlo aquí."
 }

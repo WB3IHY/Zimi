@@ -2410,7 +2410,6 @@
   "alm_subj_sun": "Sonne",
   "alm_subj_eclipses": "Finsternisse",
   "alm_subj_seasons": "Jahreszeiten",
-  "alm_clock_remove": "{city} entfernen",
   "alm_tide_nearest": "Keine Pegelstation in der Nähe. Gezeigt wird die nächste: {name}, {d} entfernt.",
   "alm_place_no_match": "Keine Station mit diesem Namen",
   "alm_tide_title": "Gezeiten",
@@ -3334,5 +3333,9 @@
   "alm_nav_sections": "Abschnitte",
   "alm_nav_all": "Alle Abschnitte",
   "alm_tide_why_q": "Warum?",
-  "alm_tide_source": "Vorhersage der NOAA. Das Wetter bewegt das wirkliche Meer."
+  "alm_tide_source": "Vorhersage der NOAA. Das Wetter bewegt das wirkliche Meer.",
+  "alm_clock_saved": "Gespeichert",
+  "alm_clock_view_label": "Welche Uhren angezeigt werden",
+  "alm_clock_save": "{city} speichern",
+  "alm_clock_hint_empty": "Noch nichts gespeichert. Tippe unter „Alle“ auf den Stern einer Uhr, um sie hier zu behalten."
 }

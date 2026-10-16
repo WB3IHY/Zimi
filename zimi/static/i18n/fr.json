@@ -2410,7 +2410,6 @@
   "alm_subj_sun": "Soleil",
   "alm_subj_eclipses": "Éclipses",
   "alm_subj_seasons": "Saisons",
-  "alm_clock_remove": "Retirer {city}",
   "alm_tide_nearest": "Aucune station marégraphique à proximité. Voici la plus proche : {name}, à {d}.",
   "alm_place_no_match": "Aucune station de ce nom",
   "alm_tide_title": "Marées",
@@ -3334,5 +3333,9 @@
   "alm_nav_sections": "Sections",
   "alm_nav_all": "Toutes les sections",
   "alm_tide_why_q": "Pourquoi ?",
-  "alm_tide_source": "Prévision de la NOAA. La météo déplace la mer réelle."
+  "alm_tide_source": "Prévision de la NOAA. La météo déplace la mer réelle.",
+  "alm_clock_saved": "Enregistrées",
+  "alm_clock_view_label": "Quelles horloges afficher",
+  "alm_clock_save": "Enregistrer {city}",
+  "alm_clock_hint_empty": "Rien d’enregistré pour l’instant. Dans « Tous », touchez l’étoile d’une horloge pour la garder ici."
 }

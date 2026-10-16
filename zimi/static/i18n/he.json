@@ -2410,7 +2410,6 @@
   "alm_subj_sun": "שמש",
   "alm_subj_eclipses": "ליקויים",
   "alm_subj_seasons": "עונות",
-  "alm_clock_remove": "הסרת {city}",
   "alm_tide_nearest": "אין תחנת גאות קרובה. מוצגת הקרובה ביותר: {name}, במרחק {d}.",
   "alm_place_no_match": "אין תחנה בשם הזה",
   "alm_tide_title": "גאות ושפל",
@@ -3334,5 +3333,9 @@
   "alm_nav_sections": "מדורים",
   "alm_nav_all": "כל המדורים",
   "alm_tide_why_q": "למה?",
-  "alm_tide_source": "תחזית NOAA. מזג האוויר מזיז את הים האמיתי."
+  "alm_tide_source": "תחזית NOAA. מזג האוויר מזיז את הים האמיתי.",
+  "alm_clock_saved": "שמורים",
+  "alm_clock_view_label": "אילו שעונים להציג",
+  "alm_clock_save": "שמירת {city}",
+  "alm_clock_hint_empty": "עדיין לא נשמר דבר. ב״הכל״ אפשר ללחוץ על הכוכב בשעון כדי לשמור אותו כאן."
 }
