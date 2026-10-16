@@ -69,7 +69,7 @@ def test_a_root_owned_data_folder_is_taken_then_privileges_drop(
 ):
     data = tmp_path / "config"
     (data / "sub").mkdir(parents=True)
-    (data / "sub" / "f.json").write_text("{}")
+    (data / "sub" / "f.json").write_text("{}", encoding="utf-8")
     monkeypatch.setattr(ep, "_writable_by", lambda uid, gid, p: False)
     _as_owner(ep, monkeypatch, 0)
     ep.main(["python3", "-m", "zimi", "serve"], {"ZIMI_DATA_DIR": str(data)})
@@ -115,7 +115,7 @@ def test_the_zim_and_extra_folders_are_never_touched(
     zims, extra, data = tmp_path / "zims", tmp_path / "nomad", tmp_path / "config"
     for d in (zims, extra, data):
         d.mkdir()
-        (d / "a.zim").write_text("x")
+        (d / "a.zim").write_text("x", encoding="utf-8")
     monkeypatch.setattr(ep, "_writable_by", lambda uid, gid, p: False)
     _as_owner(ep, monkeypatch, 0)
     env = {
@@ -134,7 +134,7 @@ def test_a_symlink_inside_the_data_folder_is_not_followed(
     data, outside = tmp_path / "config", tmp_path / "elsewhere"
     data.mkdir()
     outside.mkdir()
-    (outside / "keep.txt").write_text("x")
+    (outside / "keep.txt").write_text("x", encoding="utf-8")
     os.symlink(outside, data / "link")
     monkeypatch.setattr(ep, "_writable_by", lambda uid, gid, p: False)
     _as_owner(ep, monkeypatch, 0)
@@ -186,7 +186,7 @@ def test_an_empty_library_folder_is_taken_but_one_with_files_is_not(
     empty, full, data = tmp_path / "empty", tmp_path / "full", tmp_path / "config"
     for d in (empty, full, data):
         d.mkdir()
-    (full / "a.zim").write_text("x")
+    (full / "a.zim").write_text("x", encoding="utf-8")
     monkeypatch.setattr(ep, "_writable_by", lambda uid, gid, p: False)
     _as_owner(ep, monkeypatch, 0)
     ep.main(["python3"], {"ZIM_DIR": str(empty)})
