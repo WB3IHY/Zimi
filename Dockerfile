@@ -140,7 +140,15 @@ WORKDIR /app
 COPY zimi/ ./zimi/
 
 RUN useradd -m -u 1000 zimi && mkdir -p /config && chown -R zimi:zimi /app /config
-USER zimi
+
+# No `USER zimi`: the entrypoint starts as root for one chown of the DATA folder
+# (a bind mount Docker just created is root-owned, which stopped Zimi on the
+# first run under Project NOMAD, Portainer and Unraid), then drops to zimi
+# before any Zimi code runs. It never touches the ZIM folder or an extra
+# library folder, and `--user N` skips it entirely (nothing runs as root).
+COPY docker/entrypoint.py /usr/local/bin/zimi-entrypoint
+RUN chmod 755 /usr/local/bin/zimi-entrypoint
+ENTRYPOINT ["python3", "/usr/local/bin/zimi-entrypoint"]
 
 ENV ZIM_DIR=/zims
 ENV ZIMI_DATA_DIR=/config
