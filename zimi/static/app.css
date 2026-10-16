@@ -4128,6 +4128,21 @@
 /* Quiet things stay readable: no 30% stars or faded close marks at night. */
 :root.night-red .dc-dismiss, :root.night-red .star-btn, :root.night-red .cat-heading-other { opacity: 1; }
 :root.night-red #reader-frame { background: #000; }
+/* Proportion bars: hue can't tell segments apart in Red, so brightness does, in segment
+   order, the legend's swatches in the same order (the legend still names each one). */
+:root.night-red :is(.cache-seg, .cache-legend-item:nth-child(1) .cache-legend-swatch) { background: var(--amber) !important; }
+:root.night-red :is(.cache-seg:nth-child(2), .cache-legend-item:nth-child(2) .cache-legend-swatch) { background: #a8140a !important; }
+:root.night-red :is(.cache-seg:nth-child(3), .cache-legend-item:nth-child(3) .cache-legend-swatch) { background: #6a0e06 !important; }
+:root.night-red :is(.cache-seg:nth-child(n+4), .cache-legend-item:nth-child(n+4) .cache-legend-swatch) { background: #3c0803 !important; }
+:root.night-red .cache-seg + .cache-seg { box-shadow: inset 1px 0 0 #000; }
+/* Checkboxes and radios are drawn here: the platform's grey ring and white tick ignore
+   accent-color when unchecked. A switch keeps its own drawing. */
+:root.night-red input:is([type="checkbox"]:not([role="switch"]), [type="radio"]) { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin: 0; border: 1.5px solid var(--border-strong); border-radius: 4px; background: #000; display: inline-grid; place-content: center; flex-shrink: 0; }
+:root.night-red input[type="radio"] { border-radius: 50%; }
+:root.night-red input:is([type="checkbox"]:not([role="switch"]), [type="radio"]):checked { border-color: var(--amber); background: var(--amber); }
+:root.night-red input[type="checkbox"]:not([role="switch"]):checked::after { content: ""; width: 9px; height: 5px; border: solid #000; border-width: 0 0 2px 2px; transform: translateY(-1px) rotate(-45deg); }
+:root.night-red input[type="radio"]:checked::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #000; }
+:root.night-red ::placeholder { color: var(--text2); opacity: .6; }
 /* A ZIM's own page is HTML and CSS we do not write: Red is a filter over the frame, after the
    page has been darkened as in Dark (app.js _syncFrameNight). Zimi's own pages are not filtered. */
 :root.night-red #reader-frame.night-filter { filter: url(#night-red-frame); }

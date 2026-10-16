@@ -15323,12 +15323,13 @@ async function _renderBackgroundWork() {
   const ix = a.indexing || {};
   if (ix.state === 'building') {
     rows.push(_bgWorkRow(tH('title_indexes'),
-      tH('n_of_total', {n: ix.ready || 0, total: ix.total || 0}) + (ix.current ? ' · ' + esc(ix.current) + '&hellip;' : '')));
+      (ix.current ? esc(_zimTitleWithLang(ix.current)) + ' · ' : '') + tH('n_of_total', {n: ix.ready || 0, total: ix.total || 0})));
   }
   for (const job of (a.background || [])) {
-    const where = job.current ? esc(job.current) + '&hellip;' : tH('in_progress');
-    const count = job.total ? tH('n_of_total', {n: Math.min(job.done + 1, job.total), total: job.total}) + ' · ' : '';
-    rows.push(_bgWorkRow(tH(_BG_WORK_LABEL[job.kind] || job.kind), count + where));
+    // The ZIM by its title, then how far along: "Wikipedia (Español) · 1 of 1".
+    const where = job.current ? esc(_zimTitleWithLang(job.current)) : tH('in_progress');
+    const count = job.total ? ' · ' + tH('n_of_total', {n: Math.min(job.done + 1, job.total), total: job.total}) : '';
+    rows.push(_bgWorkRow(tH(_BG_WORK_LABEL[job.kind] || job.kind), where + count));
   }
   // What failed stays on screen: a ZIM whose rebuild failed keeps its old
   // index, and "up to date" would say otherwise.
