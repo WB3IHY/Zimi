@@ -1023,6 +1023,14 @@ if os.path.isdir(_STATIC_DIR):
             return hashlib.md5(open(p, "rb").read()).hexdigest()[:8]
         return "0"
 
+    def _keep_scripts_version():
+        """One token for the files the service worker imports to read ZIMs kept
+        on a phone (the decoder, the reader, the storage): a change to any of
+        them is a different worker."""
+        return "".join(
+            _static_hash(f) for f in ("fzstd.js", "zimreader.js", "keepstore.js")
+        )
+
     # Replace versioned references: /static/foo.js?v=39 → /static/foo.js?v=a1b2c3d4
     def _replace_static_ver(m):
         fname = m.group(1)
@@ -1123,6 +1131,7 @@ if os.path.isdir(_STATIC_DIR):
             + _static_hash("fieldguide.html")
             + _static_hash("fieldguide-card.js")
             + _static_hash("fieldguide-offline.js")
+            + _keep_scripts_version()
             + _static_hash("apps.css")
             + _static_hash("apps.js")
             # The PDF viewer and Zimi's reader inlined into it.
@@ -1142,6 +1151,7 @@ if os.path.isdir(_STATIC_DIR):
 _OFFLINE_SHELL_FILE = re.compile(
     r"/static/((?:app\.(?:js|css)|almanac[\w-]*\.(?:js|css)|globe\.js|zone-places\.js"
     r"|world-map\.svg|tz-borders\.json|fieldguide[\w-]*\.(?:html|json|js)|highlights\.js|find\.js"
+    r"|keepstore\.js|keepworker\.js|zimreader\.js|fzstd\.js"
     r"|earth/(?:moon-v1\.webp|stars-v1\.bin|stars-names-v1\.json|constellations-v1\.json|milkyway-v1\.webp))"
     r"(?:\?v=[0-9a-z]+)?)"
 )
@@ -5157,6 +5167,15 @@ class ZimHandler(BaseHTTPRequestHandler):
                     body = re.sub(
                         rb"const CACHE_VERSION = '[^']*'",
                         b"const CACHE_VERSION = '" + _asset_version().encode() + b"'",
+                        body,
+                    )
+                    body = re.sub(
+                        rb"const KEEP_V = '[^']*'",
+                        b"const KEEP_V = '"
+                        + hashlib.md5(_keep_scripts_version().encode())
+                        .hexdigest()[:8]
+                        .encode()
+                        + b"'",
                         body,
                     )
                     body = re.sub(

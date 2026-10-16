@@ -213,10 +213,28 @@ def warm(ctx, pg, base):
         }""",
         timeout=30000,
     )
+    drop_kept_answers(pg)
+
+
+def drop_kept_answers(pg):
+    """The phone that has not kept the library's answers (a first visit, or after
+    a sign-out): nothing stands in for /list, so the offline panel says what is
+    true and what still works. With them kept, the home is drawn from them (see
+    test_keep_phone_live.py)."""
+    pg.evaluate("""async () => {
+          for (const k of await caches.keys()) {
+            const c = await caches.open(k);
+            for (const r of await c.keys()) if (/\\/(list|whoami|manage\\/has-password)(\\?|$)/.test(r.url)) await c.delete(r);
+          }
+        }""")
 
 
 def reopen(pg, base):
     pg.goto(base + "/", wait_until="load")
+    pg.wait_for_selector("#offline-works li", timeout=30000)
+    # The home is drawn once more a moment after boot (_renderHomeSoon, when the
+    # library's kinds arrive): let that settle so the panel read is the last one.
+    pg.wait_for_timeout(600)
     pg.wait_for_selector("#offline-works li", timeout=30000)
 
 
