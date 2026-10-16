@@ -8,12 +8,9 @@
 // switch (the Field Guide's) asks the shell to choose the theme; the storage event below is how a
 // change made anywhere else reaches this page.
 var APP_THEME_KEY = 'zimi_app_theme', NIGHT_RED = 'red';
-var NIGHT_FILTER = '<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="night-red-filter" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.5 0.5 0.15 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/></filter></svg>';
 function nightApply() {
   var on = false;
   try { on = localStorage.getItem(APP_THEME_KEY) === NIGHT_RED; document.documentElement.classList.toggle('night-red', on); } catch (e) {}
-  // The filter that turns pictures to red monochrome, once, where the page can use it.
-  if (on && document.body && !document.getElementById('night-red-filter')) document.body.insertAdjacentHTML('afterbegin', NIGHT_FILTER);
 }
 // Red on, or back to the theme it replaced: the shell's _nightSet, the one door. A page opened with no
 // shell around it has nothing else to change, so it only follows the key.
