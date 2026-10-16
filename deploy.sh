@@ -6,7 +6,7 @@ echo "=== Deploying to NAS ==="
 ssh nas "mkdir -p /volume1/docker/kiwix/zimi /volume1/docker/kiwix/zimi-data"
 # Ship the whole package as a tar so new modules deploy automatically.
 # Excludes pycache + tests so the image stays slim.
-tar cf - --exclude='__pycache__' --exclude='*.pyc' zimi/ | ssh nas "cd /volume1/docker/kiwix && tar xf -"
+tar cf - --exclude='__pycache__' --exclude='*.pyc' zimi/ docker/ | ssh nas "cd /volume1/docker/kiwix && tar xf -"
 cat requirements.txt | ssh nas "cat > /volume1/docker/kiwix/requirements.txt"
 cat Dockerfile | ssh nas "cat > /volume1/docker/kiwix/Dockerfile"
 # Ship our own compose so the deploy is deterministic — never trust whatever
