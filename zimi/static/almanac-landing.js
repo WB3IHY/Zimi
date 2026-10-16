@@ -401,7 +401,7 @@ var LP_CSS = [
   '.almanac-view.lp-live .almanac-moon{visibility:hidden}',
   // Red night light: the live Moon in the hero is turned red the way the picture it stands in for is (an image's
   // filter, app.css), not the way a canvas is (brighter): the swap from one to the other changes nothing you see.
-  ':root.night-red canvas.lp-in-hero:not([data-red]){filter:grayscale(1) sepia(1) hue-rotate(-42deg) saturate(10) brightness(.9);filter:url(#night-red-filter)}',
+  ':root.night-red canvas.lp-in-hero:not([data-red]){filter:var(--red-picture)}',
   '.almanac-view.lp-nogl .almanac-moon-open{cursor:default}',
   // The axis: a thin track on the end edge, the stops on it, the way back at its foot.
   '.lp-track{position:absolute;inset-inline-end:10px;top:118px;bottom:' + LP_TRACK_BOTTOM_PX + 'px;width:2px;background:rgba(255,255,255,.22);border-radius:1px;display:none;opacity:var(--ae-ui,1);pointer-events:none}',
