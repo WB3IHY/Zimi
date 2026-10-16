@@ -11,7 +11,7 @@ the sites everybody archives, plus a generic autoscroll that is better than
 ours. It is real domain expertise accumulated over years of archiving, and it
 is the single thing our capture engines most obviously lack.
 
-**Not shipped, only used.** The bundle is AGPL-3.0 and Zimi is MIT, so Zimi
+**Not shipped, only used.** The bundle is AGPL-3.0 (its network clause goes further than Zimi's GPL-3.0), so Zimi
 neither vendors it nor installs it: it looks for a copy the operator installed,
 uses it when it is there, and falls back to the plain scroll when it is not.
 Same arrangement as warc2zim, zimit and SingleFile — the dependency boundary

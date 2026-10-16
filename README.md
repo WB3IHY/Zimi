@@ -7,7 +7,7 @@
 [![i18n](https://img.shields.io/badge/i18n-10%20languages-blueviolet)](#languages)
 [![Docker Pulls](https://img.shields.io/docker/pulls/epheterson/zimi)](https://hub.docker.com/r/epheterson/zimi)
 [![PyPI](https://img.shields.io/pypi/v/zimi)](https://pypi.org/project/zimi/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/epheterson/Zimi/badge)](https://scorecard.dev/viewer/?uri=github.com/epheterson/Zimi)
 
 A modern experience for your ZIM files.
@@ -122,7 +122,7 @@ Issues and ideas are welcome, and every one gets answered. See [CONTRIBUTING.md]
 
 ## License
 
-[MIT](LICENSE). Desktop and Docker builds bundle [libtorrent-rasterbar](https://libtorrent.org/) (BSD-3-Clause), see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[GPL-3.0-or-later](LICENSE), like the Kiwix and openZIM libraries it builds on; 1.13.3 and earlier were MIT. Desktop and Docker builds bundle [libtorrent-rasterbar](https://libtorrent.org/) (BSD-3-Clause), see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ---
 
