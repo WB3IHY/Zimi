@@ -139,6 +139,25 @@ console.log('worst per body (deg): ' + Object.keys(worst).map((b) => b + ' ' + w
   check(up + full === all, 'stars above (' + up + ') and below (' + full + ') are all ' + all + ' of the catalogue');
 }
 
+// Every named star of the catalogue is the star it is named for: its place within half a degree of
+// the Hipparcos position the navigation tables carry for that name (Shaula once sat on Sargas).
+{
+  vm.runInContext(read('almanac-navdata.js') + '; var _navStars = AR_NAV_STARS;', S);
+  const nav = {};
+  for (const n of vm.runInContext('_navStars', S)) nav[n[1].toLowerCase()] = n;
+  const names = vm.runInContext('_STAR_NAMES', S), stars = vm.runInContext('_STARS', S);
+  let checked = 0;
+  for (const idx of Object.keys(names)) {
+    const want = nav[names[idx].toLowerCase().replace('rigil kent.', 'rigil kentaurus')];
+    if (!want) continue;
+    const ra = stars[idx][0] * 15, dec = stars[idx][1];
+    const d = sep(dec, ra, want[3], want[2]);   // alt/az sep is the great-circle distance of (lat, lon)
+    checked++;
+    check(d < 0.5, names[idx] + ' (_STARS[' + idx + ']) is within half a degree of its Hipparcos place (' + d.toFixed(2) + ' deg)');
+  }
+  check(checked >= 18, 'most named stars were found in the tables to be checked (' + checked + ')');
+}
+
 // Twilight is counted on the Sun's geometric altitude; the drawn Sun is lifted
 // by the air only near the horizon.
 const civil = vm.runInContext('_skyEphemeris(new Date("2026-10-01T02:05:00Z"), 37.7749, -122.4194)', S);

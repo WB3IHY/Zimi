@@ -273,7 +273,7 @@ var _WARM_STARS = {0:1, 19:1, 40:1, 45:1, 48:1};
 // label the star chart. Proper star names are effectively international, so
 // they are not localized.
 var _STAR_NAMES = {
-  0: 'Betelgeuse', 1: 'Rigel', 7: 'Dubhe', 19: 'Antares', 25: 'Shaula',
+  0: 'Betelgeuse', 1: 'Rigel', 7: 'Dubhe', 19: 'Antares', 24: 'Shaula',
   26: 'Regulus', 30: 'Deneb', 35: 'Acrux', 40: 'Pollux', 41: 'Sirius',
   45: 'Aldebaran', 47: 'Canopus', 48: 'Arcturus', 49: 'Rigil Kent.',
   50: 'Vega', 51: 'Capella', 52: 'Procyon', 53: 'Altair', 54: 'Spica',
