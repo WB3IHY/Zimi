@@ -16355,6 +16355,33 @@ function _libFolderNotes(f) {
   return notes;
 }
 const LIB_FOLDER_PLACEHOLDER = '/opt/project-nomad/storage/zim';
+// Project NOMAD mode: Zimi asks NOMAD's own API to download, update and delete
+// in NOMAD's library, so NOMAD's records, Kiwix and assistant stay in step.
+// Off until the owner turns it on; read-only is what the page says otherwise.
+const NOMAD_URL_PLACEHOLDER = 'http://nomad_admin:8080';
+function _nomadModeHtml(n) {
+  if (!n || !n.available) return '';
+  var status = '';
+  if (n.enabled) {
+    status = n.reason === 'ok'
+      ? t('nomad_mode_ok', { version: n.version })
+      : t('nomad_mode_why_' + n.reason, { version: n.version, supported: (n.supported || []).join(', ') });
+  }
+  var url = n.enabled && !n.locked
+    ? '<div class="lf-add"><input type="text" id="lf-nomad-url" dir="ltr" class="peer-name-input" value="' + escAttr(n.url || '') +
+      '" placeholder="' + escAttr(NOMAD_URL_PLACEHOLDER) + '" aria-label="' + escAttr(t('nomad_mode_url')) +
+      '" onkeydown="if(event.key===\'Enter\')_setNomadMode(true)">' +
+      '<button type="button" class="set-btn" onclick="_setNomadMode(true)">' + tH('save') + '</button></div>'
+    : '';
+  return '<div class="ms-section-label">' + tH('nomad_mode_title') + '</div>' +
+    _switchRowsHtml([{ id: 'ms-nomad-mode', title: tH('nomad_mode_toggle'), desc: tH('nomad_mode_desc'),
+      on: !!n.enabled, disabled: !!n.locked, onchange: '_setNomadMode(this.checked)' }]) +
+    (status ? '<div class="ms-hint nomad-status ' + (n.reason === 'ok' ? 'ok' : 'warn') + '">' + esc(status) + '</div>' : '') + url;
+}
+function _setNomadMode(on) {
+  var inp = document.getElementById('lf-nomad-url');
+  return _libFolderSend({ action: 'nomad', enabled: !!on, url: inp ? inp.value.trim() : '' });
+}
 async function _renderLibFolders() {
   var el = document.getElementById('ms-libfolders');
   if (!el) return;
@@ -16387,7 +16414,7 @@ async function _renderLibFolders() {
     '<button type="button" class="set-btn" onclick="_libFolderAdd()">' + tH('lib_folders_add_folder') + '</button></div>';
   el.innerHTML = '<div class="ms-section-label">' + tH('lib_folders_title') + '</div>' +
     (offers.concat(rows).length ? '<div class="share-rows set-rows">' + offers.concat(rows).join('') + '</div>' : '') +
-    add + '<div id="lf-msg" class="ms-hint">' + tH('lib_folders_hint') + '</div>';
+    add + '<div id="lf-msg" class="ms-hint">' + tH('lib_folders_hint') + '</div>' + _nomadModeHtml(d.nomad);
 }
 async function _libFolderRename(i) {
   var f = ((window._libFolders || {}).folders || [])[i];
@@ -17148,6 +17175,7 @@ function renderInstalled(filterText) {
       if (dateStr) meta.push(dateStr);
       if (z.unreadable) meta.push('<span class="ci-bad">' + esc(t('zim_unreadable_' + z.unreadable)) + '</span>');
       if (z.also_in) meta.push('<span>' + esc(t('zim_also_in', { label: z.also_in })) + '</span>');
+      if (z.via) meta.push('<span>' + esc(t('zim_via', { label: z.via })) + '</span>');
       // Flavor badge from filename. When catalog variants exist, the current
       // variant's label is group-aware — an installed unsuffixed build shows
       // "Full + video" next to a maxi sibling instead of a second "Full" (#50).

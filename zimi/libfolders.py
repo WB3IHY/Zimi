@@ -504,6 +504,19 @@ def reconcile(added, gone):
     return not readable
 
 
+def settle(added=(), gone=()):
+    """A change the other program just made at our request (NOMAD finished a
+    download we asked for, or deleted a ZIM): splice it in now instead of
+    waiting for the watcher's second look."""
+    reconcile(list(added), list(gone))
+    _watch.reset()
+
+
+def nomad_folder():
+    """The path of the folder that is Project NOMAD's, or None."""
+    return next((f["path"] for f in folders() if f["label"] == NOMAD_LABEL), None)
+
+
 _watch = Watch()
 _watch_thread = None
 _watch_start_lock = threading.Lock()
@@ -517,7 +530,13 @@ def _watch_loop():
         _scan_incoming()
     except Exception as e:
         log.warning("Listing the downloads under way failed: %s", e)
+    from zimi import nomadapi
+
     while True:
+        try:
+            nomadapi.tick()
+        except Exception as e:
+            log.warning("Asking Project NOMAD's API failed: %s", e)
         time.sleep(WATCH_SECONDS)
         try:
             _watch.tick()

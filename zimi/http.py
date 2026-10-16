@@ -1405,6 +1405,9 @@ def _mark_external(entries):
     folder_labels = libfolders.labels()
     if not folder_labels:
         return entries
+    from zimi import nomadapi
+
+    through_nomad = nomadapi.managed()
     paths = _srv.get_zim_files()
     twins = libfolders.also_in()
     out = []
@@ -1413,7 +1416,10 @@ def _mark_external(entries):
         label = libfolders.owner(path, folder_labels)
         extra = {}
         if label:
-            extra["external"] = label
+            # Through NOMAD the page treats the ZIM as its own (Delete and
+            # Update work, NOMAD does them); elsewhere it is read-only.
+            key = "via" if through_nomad and label == libfolders.NOMAD_LABEL else "external"
+            extra[key] = label
             if z.get("entries") == "?":
                 extra["unreadable"] = libfolders.why_unreadable(path)
         elif os.path.normpath(path) in twins:

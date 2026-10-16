@@ -1281,7 +1281,8 @@ def _persist_pending_downloads():
     _download_lock; the write is atomic and tiny."""
     items = []
     for dl in list(_active_downloads.values()) + list(_download_queue):
-        if dl.get("done") or dl.get("cancelled"):
+        # NOMAD owns a job it was handed: it keeps going across our restarts.
+        if dl.get("done") or dl.get("cancelled") or dl.get("_source") == "nomad":
             continue
         items.append(
             {
@@ -3438,16 +3439,22 @@ def _check_streetzim_updates(installed_files):
 
 
 def _owned_zim_files():
-    """The library's own ZIMs, ``{name: path}``: everything except what lives in
-    a folder another program owns. Updating replaces a file, and that is not
-    Zimi's to do in someone else's folder."""
+    """The ZIMs Zimi may update, ``{name: path}``: everything except what lives
+    in a folder another program owns. Updating replaces a file, and that is not
+    Zimi's to do in someone else's folder, unless that program is Project NOMAD
+    and does the updating itself (zimi/nomadapi.py)."""
     from zimi import libfolders
 
     folder_labels = libfolders.labels()
+    from zimi import nomadapi
+
+    # Project NOMAD's folder joins in once NOMAD itself does the updating.
+    through_nomad = nomadapi.managed()
     return {
         name: path
         for name, path in _srv.get_zim_files().items()
         if libfolders.owner(path, folder_labels) is None
+        or (through_nomad and nomadapi.is_nomad_path(path))
     }
 
 
@@ -4065,6 +4072,11 @@ def _enqueue_zim_download(url, mirrors, filename, size_bytes=None, extra=None):
     the download record (e.g. _source/peer_name for peer pulls).
     """
     global _download_counter
+    from zimi import nomadapi
+
+    # The catalog's downloads go to NOMAD's library through NOMAD, when asked to.
+    if nomadapi.managed() and not (extra or {}).get("_source"):
+        return _hand_to_nomad(url, filename, size_bytes, extra)
     dest = os.path.join(_srv.ZIM_DIR, filename)
 
     space_err = _refuse_for_disk_space(size_bytes, dest=dest)
@@ -4114,6 +4126,79 @@ def _enqueue_zim_download(url, mirrors, filename, size_bytes=None, extra=None):
         len(mirrors),
         "s" if len(mirrors) != 1 else "",
     )
+    return dl_id, None
+
+
+def _hand_to_nomad(url, filename, size_bytes, extra):
+    """Ask Project NOMAD to download into its own library and show its progress
+    as an ordinary download here. NOMAD stages, renames, records, rebuilds its
+    Kiwix library and indexes the ZIM; Zimi only follows."""
+    global _download_counter
+    from zimi import libfolders, nomadapi
+
+    folder = libfolders.nomad_folder()
+    prefix, _date = _srv._extract_zim_date(filename)
+    is_update = any(
+        f != filename
+        and _srv._extract_zim_date(f)[1] is not None
+        and _srv._extract_zim_date(f)[0] == prefix
+        for f in nomadapi.nomad_files()
+    )
+    with _download_lock:
+        _download_counter += 1
+        dl_id = str(_download_counter)
+    dl = {
+        "id": dl_id,
+        "url": url,
+        "filename": filename,
+        "dest": os.path.join(folder, filename),
+        "started": time.time(),
+        "done": False,
+        "error": None,
+        "is_update": is_update,
+        "size_bytes": size_bytes,
+        "_source": "nomad",
+        **(extra or {}),
+    }
+    named = _title_from_filename(filename)
+    try:
+        job_id = nomadapi.hand_off(dl, named.get("title") or named.get("name"))
+    except nomadapi.NomadError as e:
+        log.info("Project NOMAD refused %s: %s", filename, e)
+        return None, str(e)
+    with _download_lock:
+        _active_downloads[dl_id] = dl
+    log.info("Download handed to Project NOMAD: %s (job %s)", filename, job_id)
+
+    def landed(base):
+        gone = [p for p in nomadapi.nomad_files().values() if not os.path.exists(p)]
+        libfolders.settle(added=[dl["dest"]], gone=gone)
+        _record_download_activity(dl, "ok")
+        _srv._append_history(
+            {
+                "event": "updated" if is_update else "download",
+                "ts": time.time(),
+                "filename": filename,
+                "size_bytes": dl.get("total_bytes", 0),
+                **named,
+            }
+        )
+        log.info("Project NOMAD finished %s", filename)
+
+    def failed(reason):
+        log.warning("Project NOMAD download failed: %s: %s", filename, reason)
+        _record_download_activity(dl, "failed", "Download failed")
+        _srv._append_history(
+            {
+                "event": "download_failed",
+                "ts": time.time(),
+                "filename": filename,
+                "error": "Download failed",
+                **named,
+            }
+        )
+
+    nomadapi.follow(dl, job_id, landed, failed)
     return dl_id, None
 
 
