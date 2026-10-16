@@ -118,3 +118,18 @@ What a NOMAD user would hit, to fix in Zimi:
 - **The data folder.** Docker creates a missing bind-mount folder owned by root; Zimi's image runs as `zimi` (1000:1000), so it stopped at start with "data dir /config is not writable" and NOMAD restarted it in a loop. The image should handle a fresh root-owned data folder itself (start as root only long enough to take ownership of the data folder, then drop to `zimi`), or the docs' custom-app spec must say how. Fixed by hand here with a chown.
 - **A published image.** The NOMAD path needs 1.15 (`ZIMI_EXTRA_ZIM_DIRS`); 1.13.3 would have to mount NOMAD's folder as its own and could write there.
 - NOMAD has no read-only option for a custom app's volumes; Zimi's own rule (extra folders are never written) is what keeps NOMAD's files safe.
+
+## 1.15 has to feel complete (Eric, 2026-10-16 13:31)
+
+"This is a mega release. ... This release has to be incredible, feel complete, and be bulletproof."
+
+- [ ] CI green on v1.15 (3 Almanac browser failures after the merges, being fixed)
+- [ ] The Moon at rest shows the system without a drag: camera stepped back past the Earth's limb, or the Sun and planets with no Earth. Both built, Eric picks from screenshots
+- [ ] NOMAD done properly: image takes a fresh data folder, the Information Library tile opens Zimi, the kiwix-serve URLs NOMAD uses, the assistant seam, docs/integrations/project-nomad.md
+- [ ] Full offline on the phone: ZIMs carried in the app, read and title-searched in airplane mode
+- [x] Saved web pages (Firefox/Chrome "Web page, complete") link to each other in a folder ZIM
+- [ ] Offline leftovers: versioned zone-places/almanac-space requests, /health?ping cached, the shell's own Help now
+- [ ] Moon leftovers: the Moon as a dot mid-pull, RTL and keyboard, the plain tap, the duplicate Moon mesh, the silent catch in _aePrepare
+- [ ] Eric's phone pass: Red everywhere, airplane mode, the Moon drag, section bar, tides, clocks
+- [ ] Ultracode review when Eric says, then fixes
+- [ ] Version, PR text and release notes (Eric's)
