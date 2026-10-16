@@ -739,7 +739,7 @@ var AE_ECL_LINE_W = 0.08;    // a line's half-width, in quarters
 var AE_EARTH_FRAG = [
   'precision highp float;',
   'uniform sampler2D dayMap; uniform sampler2D nightMap;',
-  'uniform vec3 sunPos; uniform float sunR; uniform vec3 moonPos; uniform float moonR;',
+  'uniform vec3 sunPos; uniform float sunR; uniform vec3 moonPos; uniform float moonR; uniform float dim;',
   'varying vec2 vUv; varying vec3 vWorld; varying vec3 vNormal;',
   AE_GLSL_OVERLAP,
   'void main() {',
@@ -762,6 +762,8 @@ var AE_EARTH_FRAG = [
   '  vec3 haze = vec3(0.05, 0.09, 0.16);',
   '  vec3 col = day * (0.035 + 1.05 * sun) + haze * sun + vec3(1.0, 0.92, 0.8) * glint * sun;',
   '  col += vec3(1.0, 0.78, 0.45) * pow(lights, 1.6) * 1.25 * night;',
+  // Dimmed in Red (AE_RED_EARTH_LIGHT): the ground, not the air's glow at the limb, which keeps its edge.
+  '  col *= dim;',
   '  float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);',
   '  col += vec3(0.30, 0.55, 1.0) * rim * 0.55 * smoothstep(-0.25, 0.4, mu) * max(light, 0.35);',
   // Where the Moon covers some of the Sun, the map says so, as an eclipse
@@ -775,6 +777,12 @@ var AE_EARTH_FRAG = [
   '  gl_FragColor = vec4(col, 1.0);',
   '}'
 ].join('\n');
+
+// In Red the Earth's ground is drawn at this share of its light: a night light's red is kept for what is read, and a
+// sunlit Earth filling half the screen would be the brightest thing on it. Its limb and the air's glow stay as they are.
+var AE_RED_EARTH_LIGHT = 0.1;
+// Red is on: the page's class, which is what the CSS reads too (a page without a root, as in the tests, is not Red).
+function _aeRedOn() { var r = document.documentElement; return !!r && r.classList.contains('night-red'); }
 
 // The atmosphere's glow past the limb, on the sunlit side.
 var AE_ATMO_FRAG = [
@@ -1301,7 +1309,8 @@ function _aeBuildGl(THREE, canvas) {
   var earthUni = {
     dayMap: { value: null }, nightMap: { value: null },
     sunPos: shared.sunPos, sunR: shared.sunR,
-    moonPos: { value: new THREE.Vector3() }, moonR: { value: AE_MOON_RADIUS_RE }
+    moonPos: { value: new THREE.Vector3() }, moonR: { value: AE_MOON_RADIUS_RE },
+    dim: { value: 1 }
   };
   var earth = new THREE.Mesh(earthGeo, new THREE.ShaderMaterial({
     uniforms: earthUni, vertexShader: AE_SPHERE_VERT, fragmentShader: AE_EARTH_FRAG
@@ -2051,6 +2060,7 @@ function _aeUpdate(ms) {
   S.earth.rotation.z = sc.gast;
   S.shared.sunPos.value.set(sc.sun[0], sc.sun[1], sc.sun[2]);
   S.earthUni.moonPos.value.set(sc.moon[0], sc.moon[1], sc.moon[2]);
+  S.earthUni.dim.value = _aeRedOn() ? AE_RED_EARTH_LIGHT : 1;
   // The Moon's phase angle, Sun-Moon-Earth, sets the earthshine.
   S.moonUni.earthshine.value = _moonEarthshine(_aeDot(_aeNorm(_aeSub(sc.sun, sc.moon)), _aeNorm(_aeScale(sc.moon, -1))));
   _aeOrientMoon(sc);

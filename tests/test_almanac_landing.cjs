@@ -282,5 +282,27 @@ for (const iso of DATES) {
   }
 }
 
+// ── The Moon's words stay clear of the Earth at rest ──
+// The limb's Earth stands where its disc misses the box of words under the Moon, whatever the phase (a full Moon puts
+// the Sun behind the camera, where "away from the Sun" points anywhere), and a wider caption pushes it further round.
+{
+  const cap = E('LP_REST_CAPTION'), R = E('LP_REST_EARTH_MOONS'), D = 1 + E('LP_REST_GAP_MOONS') + R;
+  const clear = E('_lpEarthClear(LP_REST_CAPTION)'), spread = E('LP_REST_EARTH_SPREAD');
+  check(clear > 0 && clear < spread, 'the caption needs the Earth round from straight down, within its reach (' + (clear * DEG).toFixed(1) + ' deg)');
+  check(E('_lpEarthClear({ hw: 1.1, top: -1.15, bottom: -1.6 })') > clear, 'a wider caption (another language) pushes the Earth further round');
+  check(E('_lpEarthClear({ hw: 0.5, top: 3, bottom: 2 })') === 0, 'words above the Moon, where the Earth never stands, leaves it straight down');
+  for (const iso of DATES.concat(['2026-10-26T03:00:00Z', '2026-10-10T19:00:00Z'])) {
+    const ms = Date.parse(iso), sc = at(iso);
+    const cam = E('_lpStopCams(_aeSceneAt(' + ms + '), ' + JSON.stringify(PHONE) + ')')[0], f = frame(cam);
+    const toMoon = sub(sc.moon, f.pos), toEarth = [-f.pos[0], -f.pos[1], -f.pos[2]];
+    // The Earth's centre on the screen relative to the Moon's, in the screen's own axes.
+    const ex = dot(toEarth, f.right) / dot(toEarth, f.fwd) - dot(toMoon, f.right) / dot(toMoon, f.fwd);
+    const ey = dot(toEarth, f.up) / dot(toEarth, f.fwd) - dot(toMoon, f.up) / dot(toMoon, f.fwd);
+    const fromDown = Math.abs(Math.atan2(ex, -ey));
+    check(fromDown >= clear - 0.02, iso + ': the Earth stands ' + (fromDown * DEG).toFixed(1) + ' deg from straight down, clear of the words');
+    check(fromDown <= spread + 0.02, iso + ': and no higher than its reach, clear of the date');
+  }
+}
+
 if (failures) { console.error(failures + ' check(s) failed'); process.exit(1); }
 console.log('all passed');

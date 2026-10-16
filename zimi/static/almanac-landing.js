@@ -135,7 +135,11 @@ var LP_REST = 'limb';
 var LP_REST_MODES = ['moon', 'limb', 'sky'];
 var LP_REST_EARTH_MOONS = 6;          // limb: the Earth drawn this many Moon radii across (radius): how far back the camera stands
 var LP_REST_GAP_MOONS = 0.3;          // limb: the Earth's limb this many Moon radii from the Moon's
-var LP_REST_EARTH_SPREAD = _aeRad(70);   // limb: the Earth stands opposite the Sun on the screen, within this of straight down
+var LP_REST_EARTH_SPREAD = _aeRad(80);   // limb: the Earth stands opposite the Sun on the screen, within this of straight down (clear of the date above)
+// limb: the words under the Moon (its phase, which way is up) as a box in Moon radii from the disc's centre, x across
+// and y up, until the hero's own are measured (_lpCaptionBox); the Earth's limb keeps this far (Moon radii) clear of them.
+var LP_REST_CAPTION = { hw: 0.9, top: -1.15, bottom: -1.6 };
+var LP_REST_CAPTION_GAP_MOONS = 0.15;
 var LP_REST_MOON_PX = 100;            // the Moon's radius in the open view at rest (CSS px), as in the hero
 function _lpRestMode() {
   try {
@@ -143,6 +147,22 @@ function _lpRestMode() {
     if (LP_REST_MODES.indexOf(s) >= 0) return s;
   } catch (e) { /* storage blocked: the default */ }
   return LP_REST;
+}
+// limb: how far from straight down (radians) the Earth must stand on the screen for its disc to clear the caption
+// box `cap`: the Earth drawn LP_REST_EARTH_MOONS Moon radii across, its limb LP_REST_GAP_MOONS from the Moon's.
+// The nearest point of the box to the Earth's centre decides; up to LP_REST_EARTH_SPREAD, past which it does not go.
+function _lpEarthClear(cap) {
+  var R = LP_REST_EARTH_MOONS, D = 1 + LP_REST_GAP_MOONS + R;
+  function clears(t) {
+    var cx = D * Math.sin(t), cy = -D * Math.cos(t);
+    var nx = Math.max(-cap.hw, Math.min(cap.hw, cx)), ny = Math.max(cap.bottom, Math.min(cap.top, cy));
+    return Math.hypot(cx - nx, cy - ny) >= R + LP_REST_CAPTION_GAP_MOONS;
+  }
+  if (clears(0)) return 0;
+  if (!clears(LP_REST_EARTH_SPREAD)) return LP_REST_EARTH_SPREAD;
+  var lo = 0, hi = LP_REST_EARTH_SPREAD;
+  for (var i = 0; i < 32; i++) { var mid = (lo + hi) / 2; if (clears(mid)) hi = mid; else lo = mid; }
+  return hi;
 }
 // The screen's axes for a camera looking along `fwd` with `roll`: up and right (three.js: right = forward x up).
 function _lpScreenAxes(fwd, roll) {
@@ -153,13 +173,15 @@ function _lpScreenAxes(fwd, roll) {
 function _lpScreenAngle(v, ax) { return Math.atan2(_aeDot(v, ax.up), _aeDot(v, ax.right)); }
 // limb: { tp, az, el, dist, roll, tanMoon }, for the Moon's roll in the observer's sky: the camera behind the Earth (tanMoon is the tangent of the
 // Moon's angular radius from it), or null when the rest is not the limb. The Earth's limb stands on the
-// side away from the Sun (its lit edge toward the Moon), kept in the screen's lower half.
-function _lpRestPose(sc, roll) {
+// side away from the Sun (its lit edge toward the Moon), kept in the screen's lower half and `clear` (radians, from
+// _lpEarthClear) or more from straight down, where the Moon's words are.
+function _lpRestPose(sc, roll, clear) {
+  if (clear == null) clear = _lpEarthClear(LP_REST_CAPTION);
   var L = _aeLen(sc.moon), mh = _aeNorm(sc.moon);
   var ax = _lpScreenAxes(mh, roll);
   var sunAt = _lpScreenAngle(_aeNorm(sc.sun), ax);
   var down = -Math.PI / 2, away = _aeAngleDeltaRad(down, sunAt + Math.PI);
-  var at = down + Math.max(-LP_REST_EARTH_SPREAD, Math.min(LP_REST_EARTH_SPREAD, away));
+  var at = down + (away < 0 ? -1 : 1) * Math.max(clear, Math.min(LP_REST_EARTH_SPREAD, Math.abs(away)));
   var toward = _lpAdd3(_aeScale(ax.right, Math.cos(at)), _aeScale(ax.up, Math.sin(at)));   // where the Earth is drawn
   var k = L / (AE_MOON_RADIUS_RE * LP_REST_EARTH_MOONS - 1);
   // The camera aside by s, away from where the Earth is to stand: the Earth's limb this far from the Moon's.
@@ -179,7 +201,7 @@ function _lpRestPose(sc, roll) {
 // framed as the picture is, the Moon's disc across the frame's width.
 function _lpRestHandCam(sc, hand) {
   if (_lpRestMode() !== 'limb') return null;
-  var p = _lpRestPose(sc, _aeRollDeg('moon', sc.ms)), f = hand.frame;
+  var p = _lpRestPose(sc, _aeRollDeg('moon', sc.ms), _lpState.restClear), f = hand.frame;
   return { tp: p.tp, az: p.az + hand.daz, el: _aeClamp(p.el + hand.del, -AE_MAX_ELEVATION, AE_MAX_ELEVATION),
            dist: p.dist, tanHalf: p.tanMoon * f.h / f.w, roll: p.roll, frame: f };
 }
@@ -225,7 +247,7 @@ var LP_TAN_HALF = Math.tan(_aeRad(AE_FOV_DEG) / 2);   // the view's own field, e
 // in the open view as in the hero (a drag from the hero starts where the picture is).
 function _lpRestStop(sc, vp) {
   if (_lpRestMode() !== 'limb') return null;
-  var p = _lpRestPose(sc, vp.moonRoll);
+  var p = _lpRestPose(sc, vp.moonRoll, vp.restClear);
   return { tp: p.tp, dist: p.dist, az: p.az, el: p.el, roll: p.roll, th: p.tanMoon * (vp.height / 2) / LP_REST_MOON_PX };
 }
 // Two cameras `e` of the way from a to b: the point linearly, the distance by its log, the turns the short way.
@@ -535,7 +557,8 @@ var _lpState = {
   places: null,        // where each body was drawn last frame, for the labels
   pending: null,       // a drag's travel before the scene was ready: { dx, dy, dir, at }
   uiKey: null, phaseKey: null,   // what the ticks' words and the phase disc were last written for
-  dom: false, hinted: false
+  dom: false, hinted: false,
+  restClear: null      // limb: how far from straight down the Earth stands, from the hero's words (_lpCaptionBox)
 };
 function _lpById(id) { return document.getElementById(id); }
 
@@ -613,6 +636,7 @@ function _lpDrawHero(hero) {
   var frame = { x: 0, y: 0, w: w, h: h };
   canvas.classList.toggle('lp-band', rest === 'limb');
   if (rest === 'limb') {
+    _lpState.restClear = _lpEarthClear(_lpCaptionBox(hero) || LP_REST_CAPTION);
     _lpPlaceBand(canvas, band);
     frame = { x: -band.x, y: -band.y, w: w, h: h };
     w = band.w; h = band.h;
@@ -640,6 +664,23 @@ function _lpDrawHero(hero) {
   _lpState.hero = hero;
   _lpState.drawnMs = ms;
   _lpForgetOwnMutations();
+}
+// The hero's words under the Moon as a box in Moon radii from the disc's centre (x across, y up), their text's own
+// extent (the language's width, not the line's); null when there is no disc to measure from.
+function _lpCaptionBox(hero) {
+  var disc = hero.querySelector('.almanac-moon'), open = hero.querySelector('.almanac-moon-open');
+  if (!disc || !open) return null;
+  var d = disc.getBoundingClientRect(), R = d.width / 2, cx = d.left + R, cy = d.top + R, range = document.createRange(), box = null;
+  if (!R) return null;
+  for (var el = open.nextElementSibling; el; el = el.nextElementSibling) {
+    if (el.tagName === 'CANVAS' || !el.textContent.trim()) continue;
+    range.selectNodeContents(el);
+    var r = range.getBoundingClientRect();
+    if (!r.width) continue;
+    var hw = Math.max(Math.abs(r.left - cx), Math.abs(r.right - cx)) / R, top = (cy - r.top) / R, bottom = (cy - r.bottom) / R;
+    box = box ? { hw: Math.max(box.hw, hw), top: Math.max(box.top, top), bottom: Math.min(box.bottom, bottom) } : { hw: hw, top: top, bottom: bottom };
+  }
+  return box;
 }
 // The band round the hero, in the hero's own coordinates: the view's width, from above the disc to below its words.
 function _lpBand(hero, view) {
@@ -800,7 +841,7 @@ function _lpCloseFirst(then) {
 // The view's camera for this frame (it replaces the view's own while the axis is on).
 function _lpViewport() {
   var sc = _ae.scene;
-  return { aspect: _ae.w / _ae.h, height: _ae.h, moonRoll: _aeRollDeg('moon', sc.ms) };
+  return { aspect: _ae.w / _ae.h, height: _ae.h, moonRoll: _aeRollDeg('moon', sc.ms), restClear: _lpState.restClear };
 }
 function _lpAxisView(c) {
   var ax = _ae.axis, sc = _ae.scene;
