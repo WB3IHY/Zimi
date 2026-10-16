@@ -158,6 +158,39 @@ console.log('worst per body (deg): ' + Object.keys(worst).map((b) => b + ' ' + w
   check(checked >= 18, 'most named stars were found in the tables to be checked (' + checked + ')');
 }
 
+// An airliner's trail stays where it was laid: with no wind, the point laid `age` seconds ago, looked at `dt` seconds
+// later (the age grown by dt), is the same point of the sky. The wind then carries it, and nothing else does.
+{
+  vm.runInContext('SKY_CONTRAIL_SHEAR = 0;', S);
+  const a = { theta: 170, dir: 1, b: 14, h: 10.5, L0: -30, L1: 60, dur: 240000, wind: [0, 0] };
+  S.__a = a;
+  const at = (p, age) => vm.runInContext('_skyContrailAt(__a, ' + p + ', ' + age + ')', S);
+  const dp = 20 / (a.dur / 1000);                                 // 20 seconds on
+  const x = at(0.4, 30), y = at(0.4 + dp, 50);
+  check(sep(x.alt, x.az, y.alt, y.az) < 1e-6, 'with no wind a trail point stays where it was laid (' + sep(x.alt, x.az, y.alt, y.az).toExponential(1) + ' deg)');
+  const still = at(0.4, 100);
+  S.__a.wind = [0.02, 0];                                         // 72 km/h from the west
+  const blown = at(0.4, 100), moved = Math.hypot(blown.E - still.E, blown.N - still.N);
+  check(moved > 1.9 && moved < 2.1, 'a 72 km/h wind has taken a 100 s old trail 2 km (' + moved.toFixed(2) + ')');
+  // By night there is no trail at all, and by day it is drawn in strokes.
+  const strokes = [];
+  const ctx = new Proxy({}, {
+    get: (t, k) => (k === 'stroke' ? () => strokes.push(1) : k === 'createLinearGradient' || k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : typeof t[k] === 'undefined' ? () => {} : t[k]),
+    set: (t, k, val) => { t[k] = val; return true; },
+  });
+  S.__ctx = ctx;
+  function painted(sunAlt) {
+    strokes.length = 0;
+    vm.runInContext('(function () { var s = { W: 716, H: 550, dpr: 2, scale: 1, center: 180, span: 240, eph: { sunGeoAlt: ' + sunAlt + ', sun: { alt: ' + sunAlt + ', az: 250 } }, bodies: [] };' +
+      'var a = { type: "plane", start: 0, dur: 240000, dir: 1, h: 10.5, b: 14, theta: 170, L0: -30, L1: 60, contrail: true, wind: [0.01, 0.005], phase: 1 };' +
+      '_skyPaintPlane(__ctx, s, a, 90000); })()', S);
+    return strokes.length;
+  }
+  vm.runInContext('SKY_CONTRAIL_SHEAR = 0.00015;', S);
+  const day = painted(40), night = painted(-30);
+  check(day > 3 && night === 0, 'a trail by day (' + day + ' strokes), none by night (' + night + ')');
+}
+
 // Twilight is counted on the Sun's geometric altitude; the drawn Sun is lifted
 // by the air only near the horizon.
 const civil = vm.runInContext('_skyEphemeris(new Date("2026-10-01T02:05:00Z"), 37.7749, -122.4194)', S);

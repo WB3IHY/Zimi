@@ -1267,15 +1267,21 @@ var SKY_ACTOR_FRAME_MS = 33;      // the moving things' frames: thirty a second 
 // flies) and its place in the sky follows from that and the Earth's curve.
 // Where it flies in the real world no offline page can say: it is an
 // illustration of an airliner, and its tap says so.
-var SKY_PLANE_GAP_S = [240, 600];
+var SKY_PLANE_GAP_S = [420, 1080];       // an airliner every seven to eighteen minutes: a sky is not a flight path
 var SKY_PLANE_KM = [9, 12], SKY_PLANE_KM_S = [0.22, 0.26];   // cruising height; ground speed, km a second
 var SKY_PLANE_PASS_KM = [4, 30];          // how near the ground track passes the viewer
 var SKY_PLANE_MIN_ALT = 10;               // it comes out of the haze at this height and goes back into it
 var SKY_PLANE_FADE_DEG = 8;               // and is in full this far higher
 var SKY_PLANE_SEEN_FROM = 0.7;            // the first airliner after the sky is looked at is already flying: seen anywhere in this share of its track; every later one comes from the haze
-var SKY_PLANE_CONTRAIL_SHARE = 0.5;       // the share of airliners leaving a trail the air keeps
-var SKY_PLANE_CONTRAIL_KM = 24;           // how far behind it the trail is still there
-var SKY_PLANE_CONTRAIL_STEPS = 6;
+var SKY_PLANE_CONTRAIL_SHARE = 0.4;       // the share of airliners leaving a trail the air keeps (the air must be cold and damp at their height)
+// A trail forms a little behind the engines, stays where it was laid (the air it is in moves, the airliner
+// does not take it along), drifts with the wind, spreads and thins until it is gone. Seconds behind the airliner.
+var SKY_CONTRAIL_S = [3, 110], SKY_CONTRAIL_STEPS = 14;
+var SKY_CONTRAIL_ALPHA = 0.4, SKY_CONTRAIL_FADE_S = 55;    // how bright it starts, and the seconds it takes to fall by a factor e
+var SKY_CONTRAIL_WIDTH_PX = [0.9, 2.6];                     // thin where it is new, spread where it is old
+var SKY_CONTRAIL_WIND_KM_S = [0.004, 0.02];                 // the wind at that height, 15 to 70 km/h: how fast the laid trail drifts
+var SKY_CONTRAIL_SHEAR = 0.00015;                           // the wind changes across the layer: km a second to the power 1.5 of age, sideways
+var SKY_CONTRAIL_GAP_AFTER_S = 45, SKY_CONTRAIL_GAP_RATE = 0.37, SKY_CONTRAIL_GAP_AT = 0.72;   // aged, it breaks up in places
 var SKY_EARTH_KM = 6371;
 var SKY_WINGSPAN_KM = 0.06;               // an A320's wingtips are 36 m apart, a 777's 65: its lights stand this far apart
 var SKY_NAV_ARC_COS = Math.cos(110 * Math.PI / 180), SKY_NAV_FEATHER = 0.12;   // a wingtip light shines from dead ahead to 110 degrees round; behind, a white tail light
@@ -1289,7 +1295,6 @@ var SKY_PLANE_STROBE = [0.7, 0.75];       // the white strobe: two flashes a sec
 var SKY_PLANE_STROBE_MS = 1000, SKY_PLANE_STROBE_PULSES = [[0, 60], [160, 220]];
 var SKY_PLANE_BEACON = [0.55, 0.55];      // the red beacon
 var SKY_PLANE_BEACON_MS = 1300, SKY_PLANE_BEACON_PULSE_MS = 120;
-var SKY_PLANE_CONTRAIL_ALPHA = 0.3;
 var SKY_PLANE_CONTRAIL_GLOW = 0.7, SKY_PLANE_CONTRAIL_GLOW_PX = 1.5;   // after sunset a trail the Sun still lights: how bright, how much wider
 var SKY_PLANE_SPECK_KM = 15;              // an airliner is the full speck at this range, smaller further out
 var SKY_PLANE_LIT_FADE_DEG = 1;           // the Sun leaves a 10 km height this many degrees after its first touch of the horizon's dip
@@ -1956,19 +1961,32 @@ function _skyMeteor(s, part) {
 // curve of the Earth: its height above the horizon, its bearing, its range.
 function _skyPlaneAt(a, p) {
   var along = _skyLerp(a.L0, a.L1, p), th = a.theta * DEG_TO_RAD, st = Math.sin(th), ct = Math.cos(th);
-  var E = a.b * st + along * a.dir * ct, N = a.b * ct - along * a.dir * st, rho = Math.sqrt(E * E + N * N), arc = rho / SKY_EARTH_KM;
-  var top = SKY_EARTH_KM + a.h;
+  return _skyPlaneFromEN(a.b * st + along * a.dir * ct, a.b * ct - along * a.dir * st, a.h);
+}
+// Where something h km up, E km east and N km north of the viewer, stands in the sky.
+function _skyPlaneFromEN(E, N, h) {
+  var rho = Math.sqrt(E * E + N * N), arc = rho / SKY_EARTH_KM, top = SKY_EARTH_KM + h;
   return { E: E, N: N, rho: rho, az: (Math.atan2(E, N) / DEG_TO_RAD + 360) % 360,
     alt: Math.atan2(top * Math.cos(arc) - SKY_EARTH_KM, top * Math.sin(arc)) / DEG_TO_RAD };
 }
+// A point of its trail laid `age` seconds ago: where the airliner was then, taken on by the wind (and its change across
+// the layer, sideways) for as long as it has been there.
+function _skyContrailAt(a, p, age) {
+  var v = (a.L1 - a.L0) / (a.dur / 1000), was = _skyPlaneAt(a, p - age * v / (a.L1 - a.L0)), w = a.wind, drift = Math.pow(age, 1.5) * SKY_CONTRAIL_SHEAR, speed = Math.hypot(w[0], w[1]) || 1;
+  return _skyPlaneFromEN(was.E + w[0] * age - w[1] / speed * drift, was.N + w[1] * age + w[0] / speed * drift, a.h);
+}
 // How far out an airliner at height h is seen down to SKY_PLANE_MIN_ALT (flat ground; the curve matters little this close).
 function _skyPlaneReach(h) { return h / Math.tan(SKY_PLANE_MIN_ALT * DEG_TO_RAD); }
+function _skyWind() {
+  var sp = _skyRandIn(_skyRand, SKY_CONTRAIL_WIND_KM_S), dir = _skyRand() * 2 * Math.PI;
+  return [sp * Math.sin(dir), sp * Math.cos(dir)];
+}
 function _skyPlane(s, flying) {
   var h = _skyRandIn(_skyRand, SKY_PLANE_KM), b = _skyRandIn(_skyRand, SKY_PLANE_PASS_KM), v = _skyRandIn(_skyRand, SKY_PLANE_KM_S);
   var half = Math.sqrt(Math.max(0, Math.pow(_skyPlaneReach(h), 2) - b * b)), from = -half + (flying ? 2 * half * SKY_PLANE_SEEN_FROM * _skyRand() : 0);
   return { type: 'plane', start: performance.now(), dur: (half - from) / v * 1000, dir: _skyRand() < 0.5 ? 1 : -1, h: h, b: b,
     theta: s.center + (_skyRand() - 0.5) * s.span, L0: from, L1: half, contrail: _skyRand() < SKY_PLANE_CONTRAIL_SHARE,
-    phase: _skyRand() * SKY_PLANE_STROBE_MS };
+    wind: _skyWind(), phase: _skyRand() * SKY_PLANE_STROBE_MS };
 }
 // Which of its lights this side of it shows (each 0 to 1): a wingtip light
 // shines from dead ahead round to 110 degrees on its own side, so from the
@@ -1987,6 +2005,24 @@ function _skyPulse(t, period, windows) {
   for (var i = 0; i < windows.length; i++) if (m >= windows[i][0] && m < windows[i][1]) return true;
   return false;
 }
+// The trail behind an airliner: new and thin near it, drifting with the wind, spread and broken where it is old.
+// By day white; a high one the Sun still lights after the ground is dark keeps a glow, and the Sun's colour.
+function _skyPaintContrail(ctx, s, a, p, x, y, light, sunlit) {
+  var dpr = s.dpr, e = s.eph, last = { x: x, y: y, alt: 99 }, span = SKY_CONTRAIL_S[1] - SKY_CONTRAIL_S[0];
+  var tint = _skySunTint(Math.max(0, e.sun.alt)).map(function (v) { return 255 * v; }), c = _skyMix([255, 255, 255], tint, _skyClamp(1 - (e.sunGeoAlt + 3) / 10, 0, 1));
+  var glow = sunlit * (1 - light), reach = 0.4 + 0.6 * sunlit;   // a trail only the Sun's last light finds is a short one
+  ctx.lineCap = 'round';
+  for (var i = 0; i <= SKY_CONTRAIL_STEPS; i++) {
+    var age = SKY_CONTRAIL_S[0] + span * reach * i / SKY_CONTRAIL_STEPS, q = _skyContrailAt(a, p, age), qx = _skyX(s, q.az), qy = _skyY(s, q.alt);
+    if (i && q.alt > 0 && last.alt > 0 && Math.abs(qx - last.x) < s.W / 2 && !(age > SKY_CONTRAIL_GAP_AFTER_S && Math.sin(age * SKY_CONTRAIL_GAP_RATE + a.phase) > SKY_CONTRAIL_GAP_AT)) {
+      var fresh = Math.exp(-age / SKY_CONTRAIL_FADE_S), alpha = Math.max(SKY_CONTRAIL_ALPHA * light, SKY_PLANE_CONTRAIL_GLOW * glow) * sunlit * fresh;
+      ctx.lineWidth = dpr * _skyLerp(SKY_CONTRAIL_WIDTH_PX[0], SKY_CONTRAIL_WIDTH_PX[1], (age - SKY_CONTRAIL_S[0]) / span) * (1 + SKY_PLANE_CONTRAIL_GLOW_PX * glow);
+      ctx.strokeStyle = _skyRgb(c, alpha);
+      ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(qx, qy); ctx.stroke();
+    }
+    last = { x: qx, y: qy, alt: q.alt };
+  }
+}
 function _skyPaintPlane(ctx, s, a, ts) {
   var p = _skyActorAt(a, ts), pos = _skyPlaneAt(a, p), dpr = s.dpr, u = s.scale * dpr, e = s.eph;
   var x = _skyX(s, pos.az), y = _skyY(s, pos.alt), light = _skyDaylight(e.sunGeoAlt);
@@ -1997,26 +2033,16 @@ function _skyPaintPlane(ctx, s, a, ts) {
   ctx.globalAlpha = haze;
   // The Sun's light still reaches an airliner when the ground is in shadow (the horizon dips a few degrees from 10 km): its trail glows then.
   var dip = Math.acos(SKY_EARTH_KM / (SKY_EARTH_KM + a.h)) / DEG_TO_RAD, sunlit = _skyClamp((e.sunGeoAlt + dip) / SKY_PLANE_LIT_FADE_DEG, 0, 1);
-  if (a.contrail && sunlit > 0 && (light > 0.1 || e.sunGeoAlt > -dip)) {
-    var tint = _skySunTint(Math.max(0, e.sun.alt)).map(function (v) { return 255 * v; }), c = _skyMix([255, 255, 255], tint, _skyClamp(1 - (e.sunGeoAlt + 3) / 10, 0, 1));
-    var glow = sunlit * (1 - light), alpha = Math.max(SKY_PLANE_CONTRAIL_ALPHA * light, SKY_PLANE_CONTRAIL_GLOW * glow) * sunlit, last = { x: x, y: y };
-    ctx.lineWidth = dpr * (1 + SKY_PLANE_CONTRAIL_GLOW_PX * glow);   // lit against a dark sky it is a bright band
-    for (var i = 1; i <= SKY_PLANE_CONTRAIL_STEPS; i++) {
-      var back = _skyPlaneAt({ theta: a.theta, dir: a.dir, b: a.b, h: a.h, L0: a.L0, L1: a.L1 }, p - i / SKY_PLANE_CONTRAIL_STEPS * SKY_PLANE_CONTRAIL_KM / (a.L1 - a.L0));
-      var bx = _skyX(s, back.az), by = _skyY(s, back.alt);
-      if (Math.abs(bx - last.x) < s.W / 2 && back.alt > 0) {
-        ctx.strokeStyle = _skyRgb(c, alpha * (1 - (i - 1) / SKY_PLANE_CONTRAIL_STEPS));
-        ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(bx, by); ctx.stroke();
-      }
-      last = { x: bx, y: by };
-    }
-  }
+  if (a.contrail && sunlit > 0 && (light > 0.1 || e.sunGeoAlt > -dip)) _skyPaintContrail(ctx, s, a, p, x, y, light, sunlit);
   // By day a speck: from the ground an airliner is a fraction of a degree long.
   if (light > 0.15) {
-    var sp = _skyClamp(SKY_PLANE_SPECK_KM / pos.rho, 0.35, 1.2) * u;
+    var sp = _skyClamp(SKY_PLANE_SPECK_KM / pos.rho, 0.35, 1.2) * u, ahead = _skyPlaneAt(a, Math.min(1, p + 0.002)), head = Math.atan2(_skyY(s, ahead.alt) - y, _skyX(s, ahead.az) - x);
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(head);   // its body along its way, the wings across it
     ctx.fillStyle = 'rgba(40,46,58,' + (0.7 * light).toFixed(3) + ')';
-    ctx.fillRect(x - 1.5 * sp, y - 0.35 * sp, 3 * sp, 0.7 * sp);
-    ctx.fillRect(x - 0.3 * sp, y - 1.3 * sp, 0.6 * sp, 2.6 * sp);
+    ctx.fillRect(-1.5 * sp, -0.35 * sp, 3 * sp, 0.7 * sp);
+    ctx.fillRect(-0.3 * sp, -1.3 * sp, 0.6 * sp, 2.6 * sp);
+    ctx.restore();
   } else if (sunlit > 0) {
     // After sunset a high one still catches the Sun: a bright warm point.
     _skyLight(ctx, x, y, 0.6 * dpr, _skySunTint(0).map(function (v) { return 255 * v; }), 0.9 * sunlit * (1 - light));
@@ -2210,6 +2236,18 @@ function _skyEnsureBelowButton(wrap) {
   b.setAttribute('aria-pressed', _skyBelowOn() ? 'true' : 'false');
   b.innerHTML = SKY_BELOW_SVG;
   b.addEventListener('click', _skyBelowToggle);
+  wrap.insertBefore(b, wrap.firstChild);
+}
+var SKY_FIND_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5.5 5.5"/></svg>';
+// The scene's other button: find a planet, a star, a constellation (almanac-skyfind.js, loaded on the first tap).
+function _skyEnsureFindButton(wrap) {
+  if (!wrap || wrap.querySelector('[data-sky-find]')) return;
+  var b = document.createElement('button');
+  b.type = 'button'; b.className = 'alm-sky-look alm-sky-tool alm-sky-find';
+  b.setAttribute('data-sky-find', '');
+  b.setAttribute('aria-label', t('sky_find_btn')); b.title = t('sky_find_btn');
+  b.innerHTML = SKY_FIND_SVG;
+  b.addEventListener('click', function () { openAlmanacFind('page'); });
   wrap.insertBefore(b, wrap.firstChild);
 }
 // What is under the horizon at the instant, within the depth the picture has: the catalogue's stars by
@@ -2455,6 +2493,7 @@ function _skyPaint(ts) {
     }
   }
   if (s.issUp && !_skyTimers.iss) _skyTimers.iss = setTimeout(_skyIssTick, SKY_ISS_MS);
+  if (typeof _skyFind !== 'undefined' && _skyFind && typeof _sfPaintMark === 'function') _sfPaintMark(ctx, s);   // what was asked for (almanac-skyfind.js), ringed
   if (_skyRedOn()) _skyRedWash(ctx, s);
 }
 
@@ -2714,7 +2753,7 @@ var _skyTimers = { live: 0, iss: 0, sway: 0, sats: 0, actor: 0, plane: 0, birds:
 var SKY_ISS_MS = 500;               // the ISS crosses the sky in minutes: a frame twice a second keeps it moving
 // The first of each after the sky is seen again (opening, coming back to the app).
 // A plane is likely already crossing (it is seen part-way along its track); a meteor's wait is its rate's.
-var SKY_FIRST_SPAWN_MS = { plane: 4000, birds: 30000, whale: 60000 };
+var SKY_FIRST_SPAWN_MS = { plane: 25000, birds: 30000, whale: 60000 };
 function _skyDisarm() {
   for (var k in _skyTimers) { clearTimeout(_skyTimers[k]); _skyTimers[k] = 0; }
 }
@@ -2936,6 +2975,7 @@ function _initSkyScene(now, lat, lon, animateMoon) {
   }
   _skyBindTaps(canvas);
   _skyEnsureBelowButton(wrap);
+  _skyEnsureFindButton(wrap);
   _skyBindSettings();
   _skyHideTip();
   _skyArm();
@@ -3374,7 +3414,8 @@ function _skyChartBelowZone(ctx, cx, cy, R, R0) {
 // The chart's small controls under it: see below the horizon (and, once the Find module is in, find).
 function _starChartToolsHtml() {
   var on = _skyBelowOn(), label = _almEsc(t('alm_sky_below_btn'));
-  return '<div class="alm-sc-tools"><button type="button" class="alm-sc-tool" data-sky-below aria-pressed="' + (on ? 'true' : 'false') + '" onclick="_skyBelowToggle()">' + label + '</button></div>';
+  return '<div class="alm-sc-tools"><button type="button" class="alm-sc-tool" onclick="openAlmanacFind(\'page\')">' + _almEsc(t('sky_find_btn')) + '</button>' +
+    '<button type="button" class="alm-sc-tool" data-sky-below aria-pressed="' + (on ? 'true' : 'false') + '" onclick="_skyBelowToggle()">' + label + '</button></div>';
 }
 
 function _renderStarChart(baseNow) {
@@ -3449,6 +3490,11 @@ function _drawStarChart(now) {
   var lon = panned ? _starChartViewLon : loc.lon;
   var cx = size / 2, cy = size / 2;
   var R = size / 2 - 16; // leave room for cardinal labels
+  // What was asked for stays at the top of the chart as the sky turns (almanac-skyfind.js); the turn there is its own.
+  if (typeof _skyFind !== 'undefined' && _skyFind && typeof _sfTurn !== 'undefined' && !_sfTurn) {
+    var fp = _sfPosition(_skyFind, now, lat, lon);
+    if (fp) _starChartRot = _sfChartTurn(fp);
+  }
   var below = _skyBelowOn(), R0 = below ? R * SKY_CHART_HORIZON_SHARE : R;   // R0: the horizon's radius
 
   // Shared alt/az from apparent local sidereal time.
@@ -3601,6 +3647,7 @@ function _drawStarChart(now) {
     });
   }
 
+  if (typeof _skyFind !== 'undefined' && _skyFind && typeof _sfChartMark === 'function') _sfChartMark(ctx, project, R, now, lat, lon);
   // The Sun, only where the sky under the horizon is shown (above it the chart is of the night sky).
   if (below) {
     var sq = _skySunRaDec(T), sa = altAz(sq.ra, sq.dec), sp = project(sa.alt, sa.az);
