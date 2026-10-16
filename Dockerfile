@@ -43,24 +43,20 @@ RUN pip install --no-cache-dir "playwright>=1.40" \
  && chmod -R a+rx /ms-playwright \
  && rm -rf /var/lib/apt/lists/*
 
-# Node, and the two capture tools that need it. Both are AGPL and neither is
-# vendored: they are installed here as separate programs the image happens to
-# carry, exactly as warc2zim (GPL) and zimit (GPL) already are, and Zimi calls
-# them as subprocesses or reads a file they left on disk.
+# Node, and the SingleFile CLI that needs it (AGPL, so installed here as a
+# separate program Zimi calls as a subprocess, exactly as warc2zim and zimit
+# already are).
 #
-#   single-file-cli        the reference "save this page as one file". Its
-#                          output is the sturdiest capture Zimi can make —
-#                          every asset a data: URI, so nothing can lazy-load,
-#                          re-fetch, or fail to resolve.
-#   browsertrix-behaviors  Webrecorder's catalogue of per-site scroll/expand
-#                          behaviour. Zimi reads dist/behaviors.js and injects
-#                          it; without it the engines fall back to a plain
-#                          scroll, which is why this layer is optional in
-#                          principle even though the image carries it.
+#   single-file-cli  the reference "save this page as one file". Its output is
+#                    the sturdiest capture Zimi can make: every asset a data:
+#                    URI, so nothing can lazy-load, re-fetch, or fail to
+#                    resolve.
+#
+# browsertrix-behaviors is not installed here: Zimi ships its unmodified 0.15.0
+# in zimi/assets/browsertrix-behaviors/ (see THIRD_PARTY_NOTICES.md).
 #
 # Its own layer, before the source copy, so editing Zimi does not reinstall
-# Node. Chromium comes from the Playwright layer above and serves both.
-# Node, and the two capture tools that need it.
+# Node. Chromium comes from the Playwright layer above.
 #
 # From the official tarball at a pinned version, verified against the checksum
 # Node publishes. The version is not arbitrary and both bounds were learned the
@@ -90,7 +86,7 @@ RUN set -eux; \
         --exclude=CHANGELOG.md --exclude=LICENSE --exclude=README.md; \
     rm -f "${tarball}" SHASUMS256.txt; \
     node --version; \
-    npm install -g single-file-cli browsertrix-behaviors; \
+    npm install -g single-file-cli; \
     npm cache clean --force
 
 # yt-dlp is the video engine, and in the image it is not optional. It is a soft
@@ -102,6 +98,22 @@ RUN set -eux; \
 # layer, and the last of the dependency layers, because it is also the one that
 # will be bumped most often: extractors break when sites change.
 RUN pip install --no-cache-dir "yt-dlp>=2024.1.1"
+
+# The warc2zim sidecar (Create: import WARC/WACZ, and the alive engine's exit),
+# built here instead of on the first import, so those engines work with no
+# network. It lives outside the /config volume (zimi/importer.py looks in
+# /opt/zimi-sidecars when the data folder has none of its own), under Python
+# 3.14 (the one warc2zim needs), owned by `zimi` so the one-time script patches
+# Zimi applies to it can write. The version is pinned to the one the patches
+# were written against; the marker is what makes Zimi treat it as installed.
+# Its own layer, before the source copy: a code deploy never rebuilds it.
+ARG WARC2ZIM_VERSION=2.3.1
+RUN useradd -m -u 1000 zimi \
+ && python3.14 -m venv /opt/zimi-sidecars/warc2zim \
+ && /opt/zimi-sidecars/warc2zim/bin/pip install --no-cache-dir "warc2zim==${WARC2ZIM_VERSION}" \
+ && printf '{"warc2zim": "%s", "python": "3.14"}\n' "${WARC2ZIM_VERSION}" \
+      > /opt/zimi-sidecars/warc2zim/.zimi-sidecar.json \
+ && chown -R zimi:zimi /opt/zimi-sidecars
 
 # libmagic1 is the warc2zim sidecar's one system dependency (python-magic
 # binds it at import). Without it every WARC conversion — the alive engine's
@@ -139,7 +151,7 @@ RUN pip install --no-cache-dir "kokoro-onnx>=0.6,<0.7" "misaki[zh]>=0.9.4,<0.10"
 WORKDIR /app
 COPY zimi/ ./zimi/
 
-RUN useradd -m -u 1000 zimi && mkdir -p /config && chown -R zimi:zimi /app /config
+RUN mkdir -p /config && chown -R zimi:zimi /app /config
 
 # No `USER zimi`: the entrypoint starts as root for one chown of the DATA folder
 # (a bind mount Docker just created is root-owned, which stopped Zimi on the

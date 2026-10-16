@@ -36,6 +36,15 @@ The Dictionary's Say runs Piper and Kokoro as a separate program, `zimi-voice` (
 - misaki: https://github.com/hexgrad/misaki
 - Kokoro-82M (weights, Apache-2.0, downloaded): https://huggingface.co/hexgrad/Kokoro-82M
 
+## browsertrix-behaviors
+
+Capture engines that drive a browser inject Webrecorder's browsertrix-behaviors 0.15.0 into the page being captured, to reveal what it hides (infinite feeds, "show more", per-site expanders). It is shipped unmodified in `zimi/assets/browsertrix-behaviors/` (`dist/behaviors.js`, `package.json`, and the licence text as `LICENSE.md`) in every build, and runs inside the captured page, not inside Zimi's process. It is AGPL-3.0-or-later; Zimi is GPL-3.0-or-later, and section 13 of both licences allows the two to be combined. The file is the unmodified upstream release, so its source is upstream's.
+
+- Project: https://github.com/webrecorder/browsertrix-behaviors (Webrecorder Software)
+- License: AGPL-3.0-or-later
+- Pinned: npm release 0.15.0, tarball sha512 `Gm9Ni/yq68k3ub7S0JT4muZWGj++fkFVQ95RFczc29hFZYmyX1yMfUs7UrApMZ+1uPW6q6JpBmjRcsC+sHN6lg==`; shipped `dist/behaviors.js` sha256 `82c60aae18588aa6c1a6e54d75887a72c970d840c54cb8b36eb9c9ccf946d7da`
+- An operator can replace it with `ZIMI_BEHAVIORS` or a global npm install.
+
 # Data shipped with Zimi
 
 ## NOAA CO-OPS tide stations (`zimi/assets/tides-snapshot.json.gz`)

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- browsertrix-behaviors 0.15.0 ships unmodified in every build, so capture engines reveal per-site content with no install (AGPL, combined under GPL-3 section 13; licence and checksum in THIRD_PARTY_NOTICES.md). `ZIMI_BEHAVIORS` or a global npm install still wins.
+- The Docker image carries the warc2zim sidecar, so Create's import and alive engines work with no network.
 - Field Guide: what to do in 25 emergencies (bleeding, choking, not breathing, a heart attack, cold, a flood, being lost and more), each in word-for-word quotes from open sources with edition, page and licence. Works with no ZIM installed.
 - Help now on home, the first-run screen and the sign-in screen opens the Field Guide; searching "bleeding" or "my friend is not breathing" answers with its situation.
 - Each emergency card shows the local emergency number, worked out from the time zone.

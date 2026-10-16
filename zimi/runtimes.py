@@ -162,7 +162,7 @@ FEATURES = (
         "Create: import WARC/WACZ (warc2zim)",
         _sidecar("importer"),
         {
-            DOCKER: Way(SETS_UP, "the first import sets it up"),
+            DOCKER: Way(BUNDLED, ""),
             DESKTOP: Way(ABSENT, "needs Python 3.14 beside the app; use pip or Docker"),
             PIP: Way(
                 SETS_UP,
@@ -175,7 +175,7 @@ FEATURES = (
         "Create: alive pages (JavaScript kept running)",
         _alive,
         {
-            DOCKER: Way(SETS_UP, "the first alive capture sets up warc2zim"),
+            DOCKER: Way(BUNDLED, ""),
             DESKTOP: Way(
                 ABSENT, "needs the browser engine and warc2zim; use pip or Docker"
             ),

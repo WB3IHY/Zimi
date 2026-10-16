@@ -207,8 +207,19 @@ def _run_stream(cmd, sink, heartbeat_s=HEARTBEAT_SECONDS, watch=None):
 # ── sidecar venv management ─────────────────────────────────────────────────
 
 
+# Where an image that carries its own sidecar keeps it (the Docker image: the
+# data folder is a volume the venv must not live in, or every volume would need
+# a 230 MB copy). A sidecar of the same name in the data folder wins, so an
+# operator who ran `zimi import --setup` or updated one keeps theirs.
+BUNDLED_SIDECARS_DIR = "/opt/zimi-sidecars"
+
+
 def sidecar_dir():
-    return os.path.join(_srv.ZIMI_DATA_DIR, "tools", "warc2zim")
+    own = os.path.join(_srv.ZIMI_DATA_DIR, "tools", "warc2zim")
+    bundled = os.path.join(BUNDLED_SIDECARS_DIR, "warc2zim")
+    if not _installed(own) and _installed(bundled):
+        return bundled
+    return own
 
 
 def _venv_bin(venv, name):
