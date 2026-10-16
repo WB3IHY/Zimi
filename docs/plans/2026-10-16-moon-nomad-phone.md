@@ -79,7 +79,7 @@ Every piece: a test that fails on the old code, a screenshot strip read at 390 p
 Four lenses, each a method from the person's published principles, not an impersonation: Jony Ive (craft, inevitability), Bret Victor (direct manipulation, explorable explanation), Brewster Kahle (universal access, open formats, lots of copies), Stewart Brand (access to tools, pace layers, the long now). What changes in the plan:
 
 **The Moon landing**
-- The landing Moon is the size Eric asked for: about 70% of a 390 px phone's width, the image and the first GL frame together (Ive). Today's hero is 200 px.
+- The landing looks exactly as it does today (Eric, 00:25: "same exact almanac landing as we had but it's a live solar system centered around that actual moon"). Ive's suggestion to enlarge the Moon is declined: the hero's size and place stay; what changes is that it is the real Moon in the live scene.
 - The pull-back is one axis with named stops that snap softly: Moon, Earth and Moon, Earth, inner planets, Neptune. Each stop carries its true distance ("384,400 km, 1.3 light-seconds"); a thin distance track on the edge shows where you are and takes a tap to fly back (Ive, Victor).
 - The cause of the phase is in the scene: the Sun's direction and the lit half, and once pulled back past Earth a drag changes the date while a small phase disc follows the angle (Victor). This is what a person learns from the gesture.
 - The switch from true scale to the laid-out view is derived (the smallest planet in view under a pixel floor) and says "not to scale" in words (Ive, Brand).
