@@ -3142,7 +3142,11 @@
   body.login-gate .pw-overlay { flex-direction:column; gap:20px; }
   body.login-gate .pw-box { width:340px; padding:32px 28px 28px; }
   body.login-gate .pw-brand { display:flex; }
-  body.login-gate .pw-box h3 { text-align:center; font-size:15px; font-weight:500; color:var(--text2); margin:0 0 20px; }
+  /* The mark and the button already say what this is: the title stays for screen readers only,
+     and the default-username hint goes (the field is filled with it). */
+  body.login-gate .pw-box h3 { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  body.login-gate #pw-username-hint { display:none !important; }
+  body.login-gate .pw-brand { margin-bottom:24px; }
   body.login-gate .pw-box input[type="password"], body.login-gate .pw-box input[type="text"] { padding:12px; }
   body.login-gate .pw-box .pw-actions { margin-top:16px; }
   body.login-gate .pw-box button.pw-primary { flex:1; padding:12px; font-size:15px; }
