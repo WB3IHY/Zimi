@@ -1120,6 +1120,7 @@ if os.path.isdir(_STATIC_DIR):
             + _static_hash("almanac-look.js")
             + _static_hash("fieldguide.html")
             + _static_hash("fieldguide-card.js")
+            + _static_hash("fieldguide-offline.js")
             + _static_hash("apps.css")
             + _static_hash("apps.js")
             # The PDF viewer and Zimi's reader inlined into it.
@@ -1129,6 +1130,49 @@ if os.path.isdir(_STATIC_DIR):
             + _i18n_hash
         ).encode()
     ).hexdigest()[:8]
+
+
+# What the service worker keeps at install so the shell, the Almanac and the
+# Field Guide run with no server (sw.js SHELL_URLS). Read from the pages
+# themselves, so the addresses carry the content hashes the pages ask for;
+# only the files named here are kept (the 3D Earth's textures and three.js are
+# large, and /static/ keeps them the first time they are opened).
+_OFFLINE_SHELL_FILE = re.compile(
+    r"/static/((?:app\.(?:js|css)|almanac[\w-]*\.(?:js|css)|globe\.js|zone-places\.js"
+    r"|world-map\.svg|tz-borders\.json|fieldguide[\w-]*\.(?:html|json|js)|highlights\.js|find\.js"
+    r"|earth/(?:moon-v1\.webp|stars-v1\.bin|stars-names-v1\.json|constellations-v1\.json|milkyway-v1\.webp))"
+    r"(?:\?v=[0-9a-z]+)?)"
+)
+
+
+def _offline_shell_urls():
+    """The /static/ addresses (with their ?v= hashes) the shell and the
+    pages it opens ask for, among the files kept for offline, sorted."""
+    # The pages as they are served: the shell and app.js rewritten, the
+    # Field Guide page and the Almanac's scripts as written. An address in a
+    # comment is not asked for; one with a version is, so a bare address is
+    # dropped when a versioned one of the same file exists.
+    sources = [SEARCH_UI_HTML]
+    for name in sorted(os.listdir(_STATIC_DIR)):
+        if name == "app.js" and APP_JS_REWRITTEN is not None:
+            sources.append(APP_JS_REWRITTEN)
+        elif name in ("app.js", "fieldguide.html") or (
+            name.startswith(("almanac", "globe")) and name.endswith(".js")
+        ):
+            try:
+                with open(os.path.join(_STATIC_DIR, name), encoding="utf-8") as f:
+                    sources.append(f.read())
+            except OSError:
+                pass
+    found = {
+        "/static/" + m.group(1)
+        for src in sources
+        for m in _OFFLINE_SHELL_FILE.finditer(src)
+    }
+    versioned = {u.split("?")[0] for u in found if "?" in u}
+    found = {u for u in found if "?" in u or u not in versioned}
+    found.add("/static/" + FIELDGUIDE_OFFLINE)
+    return sorted(found)
 
 
 def _asset_version():
@@ -1949,6 +1993,8 @@ _APP_ASSETS = (
 # is loaded at its bare address, so it is asked for each time (no-cache)
 # rather than kept a year on a phone that then never sees a fix.
 PDF_VIEWER = "pdfjs/web/viewer.html"
+# The Field Guide's quotes and phrase tables as one file (built, not stored).
+FIELDGUIDE_OFFLINE = "fieldguide-offline.json"
 _PDF_ASSETS = (
     (b"<!--@pdfreader.css@-->", "pdfreader.css", b"<style>\n", b"</style>"),
     (b"<!--@pdfreader.js@-->", "pdfreader.js", b"<script>\n", b"</script>"),
@@ -1965,6 +2011,12 @@ _INLINED_PAGES["earth.html"] = _APP_ASSETS + (
 # to draw a situation above search results.
 _INLINED_PAGES["fieldguide.html"] = (
     (b"<!--@fieldguide-card.js@-->", "fieldguide-card.js", b"<script>\n", b"</script>"),
+    (
+        b"<!--@fieldguide-offline.js@-->",
+        "fieldguide-offline.js",
+        b"<script>\n",
+        b"</script>",
+    ),
 ) + _APP_ASSETS
 _INLINED_PAGES[PDF_VIEWER] = _PDF_ASSETS
 
@@ -4896,6 +4948,13 @@ class ZimHandler(BaseHTTPRequestHandler):
         if rel_path == "app.js" and APP_JS_REWRITTEN is not None:
             body = _app_js_bytes()
             content_type = "application/javascript"
+        elif rel_path == FIELDGUIDE_OFFLINE:
+            # Built from the guide's own data, not a file: what the page reads
+            # when the server cannot be reached (zimi/fieldguide.py).
+            from zimi import fieldguide as _fg
+
+            body = _fg.offline_bundle_bytes()
+            content_type = "application/json"
         else:
             # The cache is validated against the file's mtime: one stat per
             # request instead of one read. Without it, an edited JS/CSS file
@@ -4950,6 +5009,13 @@ class ZimHandler(BaseHTTPRequestHandler):
                         b"const CACHE_VERSION = '" + _asset_version().encode() + b"'",
                         body,
                     )
+                    body = re.sub(
+                        rb"const SHELL_URLS = \[[^\]]*\];",
+                        b"const SHELL_URLS = "
+                        + json.dumps(_offline_shell_urls()).encode()
+                        + b";",
+                        body,
+                    )
                 # Cache in memory (vendor files are immutable, ~8MB total for pdf.js)
                 with ZimHandler._static_cache_lock:
                     try:
@@ -4971,6 +5037,10 @@ class ZimHandler(BaseHTTPRequestHandler):
         # Service worker needs scope override; i18n files change between versions
         if rel_path == "sw.js":
             self.send_header("Service-Worker-Allowed", "/")
+            self.send_header("Cache-Control", "no-cache")
+        elif rel_path == FIELDGUIDE_OFFLINE:
+            # Public text that changes with a release, kept by the service
+            # worker: asked each time, so the copy it holds is the latest seen.
             self.send_header("Cache-Control", "no-cache")
         elif rel_path in APP_PAGES:
             # The reader loads an app page at its bare address (no version

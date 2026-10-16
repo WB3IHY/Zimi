@@ -126,6 +126,7 @@
   <p class="fg-state" id="state" hidden></p>
 </div>
 <!--@fieldguide-card.js@-->
+<!--@fieldguide-offline.js@-->
 <!--@apps.js@-->
 <script>
 var STR = strings({
@@ -142,6 +143,28 @@ var STR = strings({
 });
 var LOCALE = STR.lang || 'en';
 var CARD = FieldGuideCard;
+var OFFLINE = FieldGuideOffline;
+
+// The server first. When it cannot be reached (no connection, the service worker's stand-in
+// for an answer, or a proxy answering for a dead server), the guide's own copy of the same
+// data (static/fieldguide-offline.js): the quotes and Help now work with no signal. A real
+// answer, a 404 included, is never replaced.
+function unreachable(r) {
+  return !r || r.headers.get('X-Zimi-Offline') === '1' || r.status === 502 || r.status === 503 || r.status === 504;
+}
+function guide(url, fromCopy) {
+  return fetch(url).catch(function() { return null; }).then(function(r) {
+    if (!unreachable(r)) {
+      if (!r.ok) throw new Error('status ' + r.status);
+      return r.json();
+    }
+    return OFFLINE.load().then(function(b) {
+      var got = b && fromCopy(b);
+      if (!got) throw new Error('unreachable');
+      return got;
+    });
+  });
+}
 CARD.ensureStyle(document);
 
 function $(id) { return document.getElementById(id); }
@@ -219,7 +242,7 @@ function askLookup() {
   askHit = null;
   askDraw();
   if (!q) return (askAsked = Promise.resolve());
-  return (askAsked = fetch('/fieldguide/match?q=' + encodeURIComponent(q) + '&ui=' + encodeURIComponent(LOCALE)).then(function(r) { return r.ok ? r.json() : null; }).then(function(m) {
+  return (askAsked = guide('/fieldguide/match?q=' + encodeURIComponent(q) + '&ui=' + encodeURIComponent(LOCALE), function(b) { return OFFLINE.match(b.matcher, q, LOCALE); }).then(function(m) {
     if (mine !== askSeq) return;
     askHit = m && m.id ? m : null;
     askDraw();
@@ -309,9 +332,8 @@ function openSituation(id, step, who) {
   if (step) tell({ zimi: 'fieldguide-card', id: id, title: sit(id) });
   tellTop();
   window.scrollTo(0, 0);
-  var got = fetch('/fieldguide/situation?id=' + encodeURIComponent(id) + '&lang=' + encodeURIComponent(LOCALE)).then(function(r) {
-    if (!r.ok) throw new Error('status ' + r.status);
-    return r.json();
+  var got = guide('/fieldguide/situation?id=' + encodeURIComponent(id) + '&lang=' + encodeURIComponent(LOCALE), function(b) {
+    return b.situations[id] && Object.assign({}, b.situations[id]);
   });
   got.then(function(s) {
     if (mine !== seq) return;
@@ -393,7 +415,7 @@ function printSheet(all) {
   printing = true;
   setTimeout(function() { printing = false; }, 3000);
   if (!all) { handOver(sheetHtml('<h2>' + esc(sit(state.id)) + '</h2>' + $('c-quotes').innerHTML)); return; }
-  fetch('/fieldguide/print?lang=' + encodeURIComponent(LOCALE)).then(function(r) { if (!r.ok) throw new Error('status ' + r.status); return r.json(); }).then(function(d) {
+  guide('/fieldguide/print?lang=' + encodeURIComponent(LOCALE), function(b) { return OFFLINE.printAll(b); }).then(function(d) {
     handOver(sheetHtml('<div class="fg-sheet-all">' + d.situations.map(function(x) {
       return '<section class="fg-sheet-sit"><h2>' + esc(sit(x.id)) + '</h2>' + x.quotes.map(function(q) { return CARD.quoteHtml(q, STR); }).join('') + '</section>';
     }).join('') + '</div>'));
@@ -528,7 +550,7 @@ window.__route = function(id) {
 };
 window.__home = function() { window.__route(''); };
 
-fetch('/fieldguide').then(function(r) { return r.json(); }).then(function(d) {
+guide('/fieldguide', function(b) { return b.home; }).then(function(d) {
   home = d;
   drawFront();
   nightInit();

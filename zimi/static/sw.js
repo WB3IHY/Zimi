@@ -12,32 +12,70 @@ const CACHE_VERSION = 'zimi-vdev';
 const PRECACHE_URLS = ['/', '/favicon.png', '/apple-touch-icon.png',
                        '/static/fonts/DSEG14Classic-Bold.woff2'];
 
+// What the shell, the Almanac and the Field Guide need to run with no
+// server, at the addresses this deploy's pages ask for (they carry a content
+// hash, so only the server can list them): filled in at serve time by
+// http.py from the pages themselves. Kept separately from PRECACHE_URLS: a
+// file that fails to fetch is skipped rather than failing the whole install,
+// which would leave the phone with no service worker at all. The big
+// pictures (the 3D Earth's textures, three.js) are not here; /static/ keeps
+// them the first time they are opened.
+const SHELL_URLS = [];
+
+// The page shown when nothing can be served at all: the shell was never kept
+// (the app has not been opened with a connection since it was installed).
+// It says which of three things is true, from what the browser knows, and
+// uses the words the app last kept for the reader's language (localStorage is
+// the app's own; this page is the same origin). English is the fallback.
 const OFFLINE_HTML = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Zimi</title>
 <style>
   body { background: #0a0a0b; color: #e0e0e0; font-family: -apple-system, system-ui, sans-serif;
-         display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-  .msg { text-align: center; }
+         display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 0 24px; box-sizing: border-box; }
+  .msg { text-align: center; max-width: 22rem; }
   h1 { font-size: 1.4rem; font-weight: 500; margin-bottom: 0.5rem; }
-  p { color: #888; font-size: 0.9rem; }
-  .spinner { width: 24px; height: 24px; border: 2px solid #333; border-top-color: #e0e0e0;
-             border-radius: 50%; animation: spin 0.8s linear infinite; margin: 1rem auto; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  p { color: #999; font-size: 0.95rem; line-height: 1.45; }
+  button { margin-top: 1rem; min-height: 44px; padding: 0 20px; border-radius: 22px; border: 1px solid #444;
+           background: none; color: inherit; font: inherit; }
 </style>
 </head><body><div class="msg">
-  <div class="spinner"></div>
-  <h1>Zimi is restarting\u2026</h1>
-  <p>Retrying automatically</p>
+  <h1 id="h"></h1>
+  <p id="p"></p>
+  <button id="b" type="button"></button>
 </div>
-<script>setInterval(() => fetch('/').then(r => { if (r.ok) location.reload(); }).catch(() => {}), 5000);</script>
+<script>
+var EN = {
+  nonet: ['You\\'re offline', 'This device has no connection. Open Zimi again once you\\'re back on a network.'],
+  server: ['Can\\'t reach your Zimi server', 'This device is online, but your Zimi server isn\\'t answering. It may be off, or you may be away from its network.'],
+  retry: 'Retry'
+};
+var kept = {};
+try {
+  var lang = localStorage.getItem('zimi_ui_lang') || (navigator.language || 'en').split('-')[0];
+  kept = JSON.parse(localStorage.getItem('zimi_i18n_kept_' + lang) || '{}') || {};
+} catch (e) {}
+function word(key, fallback) { return kept[key] || fallback; }
+function show() {
+  var offline = navigator.onLine === false;
+  document.getElementById('h').textContent = offline ? word('offline_title_nonet', EN.nonet[0]) : word('offline_title_server', EN.server[0]);
+  document.getElementById('p').textContent = offline ? word('offline_page_nonet_hint', EN.nonet[1]) : word('offline_page_server_hint', EN.server[1]);
+  document.getElementById('b').textContent = word('conn_retry', EN.retry);
+}
+show();
+document.getElementById('b').onclick = function() { location.reload(); };
+window.addEventListener('online', function() { location.reload(); });
+window.addEventListener('offline', show);
+setInterval(function() { fetch('/', { cache: 'no-store' }).then(function(r) { if (r.ok) location.reload(); }).catch(function() {}); }, 5000);
+</script>
 </body></html>`;
 
 // Install: precache essential assets
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_VERSION)
-      .then(cache => cache.addAll(PRECACHE_URLS))
+      .then(cache => cache.addAll(PRECACHE_URLS)
+        .then(() => Promise.allSettled(SHELL_URLS.map(u => cache.add(u)))))
       .then(() => self.skipWaiting())
   );
 });
@@ -99,7 +137,20 @@ async function checkVersion() {
 // The Dictionary's voices: /dictionary/voices says who may fetch a voice and
 // what the server can say now (a download changes it), and /dictionary/speak
 // is audio asked for by range, which the cache cannot hold.
-const NETWORK_ONLY_PREFIXES = ['/whoami', '/login', '/logout', '/list', '/search', '/suggest', '/random', '/places', '/tube', '/exchange', '/reddot', '/me', '/collections', '/userdata', '/dictionary/voices', '/dictionary/speak'];
+// The Field Guide's answers (/fieldguide, /situation, /match, /print, /library)
+// name the ZIMs installed, and a private server shows them to signed-in
+// visitors only; they were once left to stale-while-revalidate and a
+// signed-out phone could be shown them. Offline the page reads the guide's own
+// copy instead (/static/fieldguide-offline.json: public text, kept like any
+// static file), so nothing is lost by never keeping these.
+const NETWORK_ONLY_PREFIXES = ['/whoami', '/login', '/logout', '/list', '/search', '/suggest', '/random', '/places', '/tube', '/exchange', '/reddot', '/me', '/collections', '/userdata', '/dictionary/voices', '/dictionary/speak', '/fieldguide'];
+
+// Pages a person read are kept for offline (/w/, /read), under the identity
+// that read them. A sign-in or sign-out changes who is holding the phone, so
+// each one empties those copies: the next person offline is never shown what
+// the last could read. The cost is that signing out forgets what was kept.
+const IDENTITY_CHANGE_PATHS = ['/login', '/logout'];
+const KEPT_CONTENT_PREFIXES = ['/w', '/read'];
 
 // Non-identity API/data (article reads, health, manage, language lists). These
 // do not expose the library index and tolerate a cached fallback when offline.
@@ -117,7 +168,7 @@ function _hasPrefix(path, prefixes) {
 
 // The single source of truth for which cache strategy a request uses. Pure
 // function of the pathname + request mode so it can be asserted directly.
-function routeStrategy(path, requestMode) {
+function routeStrategy(path, requestMode, destination) {
   if (_hasPrefix(path, NETWORK_ONLY_PREFIXES)) return 'networkOnly';
   if (_hasPrefix(path, NETWORK_FIRST_PREFIXES)) return 'networkFirst';
   // ZIM content: top-level navigation (reload/bookmark) needs the SPA shell so
@@ -128,12 +179,17 @@ function routeStrategy(path, requestMode) {
   // deleted capture's pages. The server answers /w/ with an ETag keyed to the
   // file's identity and Cache-Control: no-cache, so the network path is a
   // cheap conditional GET online, and the cache still carries reads offline.
+  // The reader's frame is also a navigation, but it asks for the article
+  // itself: it is kept for offline like any sub-resource, and answered by the
+  // shell only when the whole window is what is navigating.
   if (path.startsWith('/w/')) {
-    return requestMode === 'navigate' ? 'navigateShell' : 'networkFirst';
+    return requestMode === 'navigate' && destination !== 'iframe' ? 'navigateShell' : 'networkFirst';
   }
   if (path.startsWith('/static/')) return 'staleWhileRevalidate';
-  // Root page: network-first (always serve latest after deploy).
-  if (path === '/' || requestMode === 'navigate') return 'networkFirst';
+  // The shell (and any address the app answers for): the latest after a
+  // deploy; when the server cannot be reached, the shell last kept, which says
+  // what is true and what still works.
+  if (path === '/' || requestMode === 'navigate') return 'shell';
   return 'staleWhileRevalidate';
 }
 self.routeStrategy = routeStrategy;  // test hook
@@ -146,12 +202,15 @@ self.addEventListener('fetch', event => {
   // Cache Storage: a TED talk's 65 MB copied on an iPhone while it played.
   if (event.request.headers.has('range')) return;
   const url = new URL(event.request.url);
-  switch (routeStrategy(url.pathname, event.request.mode)) {
+  switch (routeStrategy(url.pathname, event.request.mode, event.request.destination)) {
     case 'networkOnly':
       event.respondWith(networkOnly(event.request));
       return;
     case 'networkFirst':
       event.respondWith(networkFirst(event.request));
+      return;
+    case 'shell':
+      event.respondWith(shellNavigation(event.request));
       return;
     case 'navigateShell':
       // Fetch from network; if offline, fall back to the cached SPA shell '/'.
@@ -172,10 +231,49 @@ self.addEventListener('fetch', event => {
 // authorized one. Offline → the offline page, never a wrong-identity cache hit.
 async function networkOnly(request) {
   try {
-    return await fetch(request);
+    const resp = await fetch(request);
+    if (resp.ok && _hasPrefix(new URL(request.url).pathname, IDENTITY_CHANGE_PATHS)) {
+      await purgeKeptContent();
+    }
+    return resp;
   } catch (e) {
     return offlineResponse();
   }
+}
+
+// Forget the pages kept for offline reading (see IDENTITY_CHANGE_PATHS).
+async function purgeKeptContent() {
+  try {
+    const cache = await caches.open(CACHE_VERSION);
+    const keys = await cache.keys();
+    await Promise.all(keys.filter(r => _hasPrefix(new URL(r.url).pathname, KEPT_CONTENT_PREFIXES))
+      .map(r => cache.delete(r)));
+  } catch (e) {}
+}
+
+// A proxy or tunnel in front of a server that is down or restarting answers
+// for it: its own 502/503/504 page is not the server speaking, so it never
+// stands in for the app or a kept page.
+function _gatewayDown(resp) {
+  return (resp.status === 502 || resp.status === 503 || resp.status === 504) &&
+    !/json/.test(resp.headers.get('Content-Type') || '');
+}
+
+// A navigation: the page from the server; or, when it cannot be reached (no
+// network, or a proxy answering for a dead server), the exact page last kept,
+// else the shell, which boots from the device and says what is true. Only a
+// device that never kept the shell sees OFFLINE_HTML.
+async function shellNavigation(request) {
+  let resp = null;
+  try { resp = await fetch(request); } catch (e) { /* unreachable */ }
+  if (resp && !_gatewayDown(resp)) {
+    if (resp.ok && resp.status !== 206) {
+      const cache = await caches.open(CACHE_VERSION);
+      cache.put(request, resp.clone()).catch(() => {});
+    }
+    return resp;
+  }
+  return (await caches.match(request)) || (await caches.match('/')) || offlineResponse();
 }
 
 // Sound and pictures that move are streamed, never kept: a whole video in
@@ -191,6 +289,9 @@ async function networkFirst(request) {
     if (resp.ok && resp.status !== 206 && !_isMedia(resp)) {
       const cache = await caches.open(CACHE_VERSION);
       cache.put(request, resp.clone()).catch(() => {});
+    } else if (_gatewayDown(resp)) {
+      const kept = await caches.match(request);
+      if (kept) return kept;
     }
     return resp;
   } catch (e) {

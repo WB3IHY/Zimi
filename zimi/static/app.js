@@ -2293,7 +2293,7 @@ async function _refreshAfterAuthChange() {
   catch (e) {
     zimsCache = [];
     _libraryKnown = false;
-    _noteConn(_isOfflineError(e) ? CONN_OFFLINE : CONN_ERROR);
+    _noteConnFailure(e);
     _renderConnBanner();
   }
   if (typeof goHome === 'function') goHome();
@@ -2991,6 +2991,12 @@ const CONN_OK = 'online', CONN_OFFLINE = 'offline', CONN_ERROR = 'error';
 // 30s heartbeat rather than hammering a server that may be mid-restart.
 const CONN_PROBE_STEPS = [3000, 5000, 10000, 20000, 30000];
 let _connState = CONN_OK;
+// Why we are offline, so the words say what is true: 'nonet' (this device has no
+// connection), 'server' (it has one and the server does not answer) or
+// 'restarting' (a proxy in front of the server answered for it). Only
+// meaningful while _connState is not online.
+const WHY_NONET = 'nonet', WHY_SERVER = 'server', WHY_RESTARTING = 'restarting';
+let _connWhy = WHY_SERVER;
 // False once an attempt to load /list failed for ANY reason. Gates every
 // "no ZIMs" claim in the UI: we only assert an empty library when the server
 // actually told us it was empty.
@@ -3002,9 +3008,10 @@ let _connRecovering = false;
 
 // Tagged error meaning "never reached the server". Thrown by serverFetch so
 // callers can branch on cause without re-sniffing the failure.
-function _offlineError() {
+function _offlineError(why) {
   const e = new Error('zimi-offline');
   e.zimiOffline = true;
+  e.why = why;
   return e;
 }
 function _isOfflineError(e) { return !!(e && e.zimiOffline); }
@@ -3017,6 +3024,15 @@ function _isOfflineResponse(res) {
     // Older cached SW without the header: its offline page is the only 503 that
     // returns HTML from an endpoint the app only ever asks for JSON.
     return res.status === 503 && (res.headers.get('Content-Type') || '').indexOf('text/html') === 0;
+  } catch (e) { return false; }
+}
+
+// A proxy or tunnel answering for a server that is down or restarting (its own
+// 502/503/504 page, never the app's JSON): the server did not speak.
+function _isGatewayDown(res) {
+  try {
+    return (res.status === 502 || res.status === 503 || res.status === 504) &&
+      (res.headers.get('Content-Type') || '').indexOf('json') < 0;
   } catch (e) { return false; }
 }
 
@@ -3053,13 +3069,28 @@ async function serverFetch(url, opts) {
     _noteConn(CONN_OFFLINE);
     throw _offlineError();
   }
+  if (_isGatewayDown(res)) {
+    _noteConn(CONN_OFFLINE, WHY_RESTARTING);
+    throw _offlineError(WHY_RESTARTING);
+  }
   if (_isLiveProof(url)) _noteConn(CONN_OK);
   return res;
 }
 
 // Record the outcome of a server exchange. Transitions drive the banner and,
 // on a fall to offline, start the reconnect probe.
-function _noteConn(state) {
+// A failed exchange, from the error it threw: never reached the server (and,
+// when it says, why), or reached it and could not use the answer.
+function _noteConnFailure(e) {
+  if (_isOfflineError(e)) _noteConn(CONN_OFFLINE, e.why); else _noteConn(CONN_ERROR);
+}
+
+function _noteConn(state, why) {
+  if (state !== CONN_OK) {
+    const was = _connWhy;
+    _connWhy = why || (navigator.onLine === false ? WHY_NONET : WHY_SERVER);
+    if (state === _connState && was !== _connWhy) { _renderConnBanner(); _renderOfflineHome(); return; }
+  }
   if (state === _connState) {
     // Still online and the library is stale-unknown from an earlier outage
     // (e.g. only /list failed): keep probing until the library is back.
@@ -3092,6 +3123,8 @@ function _connBannerEl() {
   return el;
 }
 
+const _CONN_OFFLINE_MSG = { nonet: 'conn_nonet_msg', server: 'conn_offline_msg', restarting: 'conn_restarting_msg' };
+
 function _renderConnBanner() {
   const offline = _connState !== CONN_OK;
   if (!offline && _libraryKnown) {
@@ -3103,7 +3136,7 @@ function _renderConnBanner() {
   const el = _connBannerEl();
   // Server answered but we still can't show the library: a different, honest
   // sentence from "no network at all".
-  const msgKey = _connState === CONN_OFFLINE ? 'conn_offline_msg'
+  const msgKey = _connState === CONN_OFFLINE ? _CONN_OFFLINE_MSG[_connWhy]
     : (_connState === CONN_ERROR ? 'conn_error_msg' : 'conn_library_stale_msg');
   el.innerHTML =
     '<span class="conn-dot" aria-hidden="true"></span>' +
@@ -3170,7 +3203,7 @@ async function _connRecover() {
     _rebuildZimsMap();
     _libraryKnown = true;
   } catch (e) {
-    _noteConn(_isOfflineError(e) ? CONN_OFFLINE : CONN_ERROR);
+    _noteConnFailure(e);
     _scheduleConnProbe();
     return;
   }
@@ -3205,11 +3238,53 @@ function _bindConnEvents() {
 // Shared honest-empty markup for any surface that would otherwise assert "no
 // ZIMs" while _libraryKnown is false.
 function _libraryUnavailableHtml() {
+  // Cannot reach the server (not "it answered and the library would not
+  // load"): say which, and what this device can still do without it.
+  const unreachable = _connState === CONN_OFFLINE;
+  const title = unreachable ? 'offline_title_' + _connWhy : 'library_unavailable';
+  const hint = unreachable ? 'offline_hint_' + _connWhy : 'library_unavailable_hint';
   return '<div class="empty conn-empty">' +
-    '<p>' + tH('library_unavailable') + '</p>' +
-    '<p class="hint">' + tH('library_unavailable_hint') + '</p>' +
+    '<p>' + tH(title) + '</p>' +
+    '<p class="hint">' + tH(hint) + '</p>' +
+    (unreachable ? '<ul class="offline-works" id="offline-works"></ul>' : '') +
     '<button type="button" class="conn-retry conn-retry-inline" onclick="_connRetryClick(this)">' + tH('conn_retry') + '</button>' +
     '</div>';
+}
+
+// What this device can do with no server, from what it actually holds: the
+// Almanac when its scripts are kept, Help now when the page and the guide's
+// own copy are, and the saved pages whose text is kept. Asked of the cache, not
+// assumed, so the list is true (an app opened once with no connection has none).
+async function _offlineWorks() {
+  const kept = async function(url, bare) {
+    try { return !!(await caches.match(url, bare ? { ignoreSearch: true } : undefined)); } catch (e) { return false; }
+  };
+  const works = {
+    almanac: await kept(_ALMANAC_MODULES[_ALMANAC_MODULES.length - 1]),
+    help: (await kept(_FIELDGUIDE_PAGE)) && (await kept(_FIELDGUIDE_OFFLINE_URL)),
+    saved: 0
+  };
+  const items = Saved.all().filter(function(it) { return it.kind === 'article' && !it.app; });
+  const hits = await Promise.all(items.map(function(it) { return kept(_articleUrl(it.zim, it.path), true); }));
+  works.saved = hits.filter(Boolean).length;
+  return works;
+}
+
+// The panel's list, filled in once the cache has answered (only when the panel
+// is on screen).
+async function _renderOfflineHome() {
+  const box = document.getElementById('offline-works');
+  if (!box) return;
+  const w = await _offlineWorks();
+  if (!document.getElementById('offline-works')) return;
+  const row = function(title, desc, onclick, href) {
+    return '<li><a href="' + href + '" onclick="return _spaNav(event, function() { ' + onclick + ' })">' +
+      '<b>' + esc(title) + '</b><span>' + esc(desc) + '</span></a></li>';
+  };
+  box.innerHTML =
+    (w.almanac ? row(t('almanac'), t('offline_works_almanac_desc'), 'openAlmanac()', '/#almanac') : '') +
+    (w.help ? row(t('fieldguide_help_now'), t('offline_works_help_desc'), 'openFieldguide(false)', _fieldguideUrl('')) : '') +
+    (w.saved ? row(t('saved_tab'), t('offline_works_saved_n', { n: w.saved }), 'toggleLibraryPanel(\'bookmarks\')', '/') : '');
 }
 
 // ── Init ──
@@ -3261,7 +3336,7 @@ async function init() {
   } catch(e) {
     zimsCache = [];
     _libraryKnown = false;
-    _noteConn(_isOfflineError(e) ? CONN_OFFLINE : CONN_ERROR);
+    _noteConnFailure(e);
     _renderConnBanner();
   }
   _rebuildZimsMap();
@@ -4534,6 +4609,7 @@ function renderHome(filter) {
     statsBar.innerHTML = ''; statsBar.style.display = 'none';
     pillsBar.innerHTML = ''; pillsBar.style.display = 'none'; pillsBar.className = 'pills';
     output.innerHTML = _libraryUnavailableHtml();
+    _renderOfflineHome();
     return;
   }
   if (!zimsCache || zimsCache.length === 0) {
@@ -16988,7 +17064,7 @@ function renderInstalled(filterText) {
   if (!el) return;
   const zims = zimsCache || [];
   // Same rule as home: only claim "nothing installed" when the server said so.
-  if (!_libraryKnown) { el.innerHTML = _libraryUnavailableHtml(); return; }
+  if (!_libraryKnown) { el.innerHTML = _libraryUnavailableHtml(); _renderOfflineHome(); return; }
   if (!zims.length) {
     el.innerHTML = '<div class="empty"><p>' + tH('no_zims_installed') + '</p><div class="hint">' + tH('switch_to_catalog') + '</div></div>';
     return;
@@ -20596,6 +20672,8 @@ function _booksSearch(val) { _appFrameCall('booksSearch', val); }
 // "build first aid and or a whole like how to live and survive bucket."
 var _fieldguideOpen = false;
 var _FIELDGUIDE_PAGE = '/static/fieldguide.html?v=1';
+// The guide's own copy of its quotes and phrase tables (fieldguide-offline.js).
+var _FIELDGUIDE_OFFLINE_URL = '/static/fieldguide-offline.json';
 // Help now's own mark, a red cross: not the Field Guide's compass, which is the app's.
 var _HELP_NOW_SVG = '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>';
 var _FIELDGUIDE_SVG = '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M5.6 5.6l3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9"/></svg>';
