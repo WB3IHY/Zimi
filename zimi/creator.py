@@ -263,7 +263,9 @@ OTHER_FACE_PATH = "A/index~other"
 FACES_METADATA_KEY = _srv.FACES_METADATA_KEY
 
 
-def _store_other_face(creator, static_cls, capture, title, final_url, note, unlink=None):
+def _store_other_face(
+    creator, static_cls, capture, title, final_url, note, unlink=None
+):
     """Keep the site's other face when it has one, as a second entry.
 
     A site with a dark mode serves a different page depending on the reader's
@@ -739,6 +741,81 @@ _MAIN_CANDIDATES = (
 )
 
 
+# A page saved from a browser ("Web page, complete") names the address it came
+# from: Chrome and Edge in a comment at the top, SingleFile in its own comment,
+# and most pages themselves in a canonical link or og:url. Read from the head.
+_SAVED_URL_HEAD_BYTES = 65536
+_SAVED_URL_RES = (
+    re.compile(r"<!--\s*saved from url=\(\d+\)(\S+?)\s*-->", re.I),
+    re.compile(r"<!--\s*Page saved with SingleFile\s*\n\s*url:\s*(\S+)", re.I),
+    re.compile(r"<link\b[^>]*\brel=[\"']?canonical\b[^>]*\bhref=[\"']([^\"']+)", re.I),
+    re.compile(
+        r"<link\b[^>]*\bhref=[\"']([^\"']+)[\"'][^>]*\brel=[\"']?canonical\b", re.I
+    ),
+    re.compile(
+        r"<meta\b[^>]*\bproperty=[\"']og:url[\"'][^>]*\bcontent=[\"']([^\"']+)", re.I
+    ),
+)
+_A_HREF_RE = re.compile(r"(<a\b[^>]*?\bhref\s*=\s*)([\"'])(.*?)\2", re.I | re.S)
+
+
+def _web_page_key(url):
+    """One key per web page, whichever way a link spells it: http or https,
+    the host's case, a trailing slash and the fragment don't make another page."""
+    p = urllib.parse.urlsplit(_html.unescape(url).strip())
+    if p.scheme.lower() not in ("http", "https") or not p.netloc:
+        return None
+    path = urllib.parse.unquote(p.path).rstrip("/") or "/"
+    return (p.netloc.lower(), path, p.query)
+
+
+def _saved_page_key(text):
+    head = text[:_SAVED_URL_HEAD_BYTES]
+    for rx in _SAVED_URL_RES:
+        m = rx.search(head)
+        if m:
+            key = _web_page_key(m.group(1))
+            if key:
+                return key
+    return None
+
+
+def _link_saved_pages(text, zim_path, saved):
+    """Point links at a page that was saved too at its copy in the folder,
+    relative to this page, keeping the fragment. Every other link is left as is."""
+    here = posixpath.dirname(zim_path)
+
+    def fix(m):
+        href = m.group(3)
+        target = saved.get(_web_page_key(href))
+        if not target or target == zim_path:
+            return m.group(0)
+        frag = urllib.parse.urlsplit(_html.unescape(href)).fragment
+        rel = urllib.parse.quote(posixpath.relpath(target, here or "."))
+        return '%s"%s"' % (m.group(1), attr_quote(rel + ("#" + frag if frag else "")))
+
+    return _A_HREF_RE.sub(fix, text)
+
+
+def _saved_pages(items):
+    """{page key: zim path} for the folder's pages that name where they were saved from."""
+    saved = {}
+    for fs_path, zim_path, fam in items:
+        if (
+            fam != "page"
+            or posixpath.splitext(zim_path)[1].lower() not in _folderfiles.PAGE_EXTS
+        ):
+            continue
+        try:
+            with open(fs_path, encoding="utf-8", errors="replace") as f:
+                key = _saved_page_key(f.read(_SAVED_URL_HEAD_BYTES))
+        except OSError:
+            continue
+        if key:
+            saved.setdefault(key, zim_path)
+    return saved
+
+
 def _pick_main(zim_paths):
     root_files = {p.lower(): p for p in zim_paths if "/" not in p}
     for cand in _MAIN_CANDIDATES:
@@ -1112,6 +1189,7 @@ def create_folder_zim(
     mimetypes = set()  # evidence for the _pictures:/_videos: tags
     main_path = _pick_main(rel for _f, rel in files)
     taken = {rel for _f, rel in files}
+    saved = _saved_pages(items)
     # Pictures on a page of their own, unless the folder is a site (its own
     # index.html is the main page) whose pages already show them. A cover,
     # poster or icon is part of what it belongs to, not a picture in its own
@@ -1167,8 +1245,11 @@ def create_folder_zim(
                     # whole folder ships at its original paths. Only the
                     # charset declaration is rewritten, because the file was
                     # just read as UTF-8 and is stored as UTF-8, and the ZIM
-                    # entry's bare text/html mimetype no longer says so.
+                    # entry's bare text/html mimetype no longer says so, and
+                    # links to another page saved from the web point at its copy.
                     page_title = named or _page_title_from_html(text, fallback)
+                    if saved:
+                        text = _link_saved_pages(text, zim_path, saved)
                     content = _normalize_charset(text).encode("utf-8")
                 elif ext in _folderfiles.TEXT_EXTS:
                     page_title = named or fallback
@@ -1479,7 +1560,11 @@ class _GuardedHTTPSHandler(urllib.request.HTTPSHandler):
 def _peer_handlers():
     """The handlers that check the connected peer, when a private-address rule
     is in force and nothing otherwise."""
-    return [_GuardedHTTPHandler, _GuardedHTTPSHandler] if _PRIVATE_GUARD.get() is not None else []
+    return (
+        [_GuardedHTTPHandler, _GuardedHTTPSHandler]
+        if _PRIVATE_GUARD.get() is not None
+        else []
+    )
 
 
 class _CaptureCookieScope(urllib.request.BaseHandler):
@@ -2175,7 +2260,9 @@ def _externalize_links(page, base_url, resolve=None):
 # walked in order over the masked markup (a script's "<a href=" is a string).
 # Anchors do not nest in HTML, which is what makes "the next </a>" the close.
 _A_OPEN_CLOSE_RE = re.compile(r"<a\b[^>]*>|</a\s*>", re.IGNORECASE)
-_LINK_ONLY_ATTR_RE = attr_re("href", "target", "rel", "ping", "hreflang", "referrerpolicy")
+_LINK_ONLY_ATTR_RE = attr_re(
+    "href", "target", "rel", "ping", "hreflang", "referrerpolicy"
+)
 
 
 def _site_host(url):
@@ -2206,7 +2293,10 @@ def unlink_other_sites(page, page_url):
         if ":" in head and not val.lower().startswith(("http:", "https:")):
             return tag  # mailto:, tel:, javascript: are not another site
         target = urllib.parse.urljoin(page_url, val)
-        if not target.lower().startswith(("http:", "https:")) or _site_host(target) == site:
+        if (
+            not target.lower().startswith(("http:", "https:"))
+            or _site_host(target) == site
+        ):
             return tag
         state["open"] = True
         state["removed"] += 1
@@ -3114,7 +3204,9 @@ def create_page_zim(
             # the wrong heading (Eric: "growing on the package step not fetch
             # step? Fetch is all download steps"). The packaging line moves to
             # where the writing actually starts.
-            page = unlink(capture.render(creator_target(creator), page, final_url), final_url)
+            page = unlink(
+                capture.render(creator_target(creator), page, final_url), final_url
+            )
             _gate.report_left_out(note)
             note(f"packaging {final_url}")
             creator.add_item(static_cls("A/index", zim_title, page.encode("utf-8")))
@@ -3628,16 +3720,20 @@ def _probe_icon_data_uri(final_url, timeout, page):
 PROBE_FOLDER_DEPTH = 2
 PROBE_FOLDER_MAX_ENTRIES = 4000
 _DOC_EXTS = _nautilus.BOOK_EXTS | {".txt", ".rst"}
-_MEDIA_EXTS = {
-    ".png",
-    ".jpg",
-    ".jpeg",
-    ".gif",
-    ".webp",
-    ".svg",
-    ".bmp",
-    ".ico",
-} | _nautilus.VIDEO_EXTS | _nautilus.AUDIO_EXTS
+_MEDIA_EXTS = (
+    {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".svg",
+        ".bmp",
+        ".ico",
+    }
+    | _nautilus.VIDEO_EXTS
+    | _nautilus.AUDIO_EXTS
+)
 
 
 def _file_kind(name):
@@ -3834,7 +3930,9 @@ def _detail_kwargs(args):
     ``_apply_cli_defaults``), as keyword arguments."""
     from zimi import crawler
 
-    return crawler.detail_kwargs({k: getattr(args, k, None) for k in crawler.DETAIL_KEYS})
+    return crawler.detail_kwargs(
+        {k: getattr(args, k, None) for k in crawler.DETAIL_KEYS}
+    )
 
 
 def _apply_cli_defaults(args, sources, folder):
@@ -3908,7 +4006,9 @@ def _build_from_args(args, src, is_url):
             raise CreateError(f"{', '.join(named)} {because}")
 
     if is_url and getattr(args, "only", None):
-        raise CreateError("--only picks files inside a folder — give a folder to use it")
+        raise CreateError(
+            "--only picks files inside a folder — give a folder to use it"
+        )
     if not is_url:
         refuse(crawl_flags, f"only applies to a URL capture — {src} is a folder")
         return create_folder_zim(
@@ -3964,7 +4064,9 @@ def _build_from_args(args, src, is_url):
             max_pages=wanted.get("max_pages"),
             max_depth=wanted.get("max_depth"),
             scope=crawler.CrawlScope(**_scope_kwargs(args, wanted)) if site else None,
-            capture_options={k: wanted[k] for k in crawler.NEW_OPTION_KEYS if k in wanted},
+            capture_options={
+                k: wanted[k] for k in crawler.NEW_OPTION_KEYS if k in wanted
+            },
             engine_args=getattr(args, "engine_arg", None) or (),
             progress=_note,
             **common,
@@ -4043,7 +4145,11 @@ def cli_create(args):
     """`zimi create <folder-or-url> [<url>…]` — dispatch, then print a short
     honest summary. Exit 2 with a one-line message on any user-fixable failure,
     matching the backup/restore CLI convention."""
-    sources = list(args.source) if isinstance(args.source, list) else ([args.source] if args.source else [])
+    sources = (
+        list(args.source)
+        if isinstance(args.source, list)
+        else ([args.source] if args.source else [])
+    )
     if not sources:
         # The one thing the command does without a source: install the
         # Reddit maker ahead of time (docs: `zimi create --setup-reddit`).
@@ -4057,7 +4163,10 @@ def cli_create(args):
                 sys.exit(2)
             print(f"Reddit maker ready at {_reddot.sidecar_dir()}")
             return
-        print("zimi create: a source is required (a folder, a page, a site, a video or a subreddit)", file=sys.stderr)
+        print(
+            "zimi create: a source is required (a folder, a page, a site, a video or a subreddit)",
+            file=sys.stderr,
+        )
         sys.exit(2)
     src = sources[0]
     # ONE source restores the exact pre-multi-URL contract for everything
@@ -4171,7 +4280,9 @@ def cli_create(args):
             f"{_plural(info['assets'], 'file')}; main page: {info['main']}"
         )
         if info.get("unsupported"):
-            print(f"  left out: {_plural(len(info['unsupported']), 'file')} (listed above)")
+            print(
+                f"  left out: {_plural(len(info['unsupported']), 'file')} (listed above)"
+            )
     if info["registered"]:
         print("  registered in the library — no rescan needed")
     elif not args.out:

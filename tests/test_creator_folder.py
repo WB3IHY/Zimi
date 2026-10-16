@@ -452,3 +452,52 @@ def test_cli_create_url_offline_exits_2(tmp_path):
     )
     assert r.returncode == 2
     assert "ZIMI_OFFLINE" in r.stderr
+
+
+def _saved_page(root, name, own_url, links, header=""):
+    """A page saved the browsers' "Web page, complete" way: Name.html beside Name_files/."""
+    files = root / (name + "_files")
+    files.mkdir(parents=True)
+    (files / "a.png").write_bytes(FAKE_PNG)
+    anchors = "".join('<a href="%s">%s</a> ' % (href, text) for href, text in links)
+    (root / (name + ".html")).write_text(
+        header
+        + '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>%s</title>%s</head>'
+        '<body><img src="%s_files/a.png"><p>%s</p></body></html>'
+        % (name, own_url, name.replace(" ", "%20"), anchors),
+        encoding="utf-8",
+    )
+
+
+def test_saved_web_pages_link_to_each_other_not_to_the_web(tmp_path):
+    src = tmp_path / "saved"
+    # Firefox: the page names itself with a canonical link; links are absolute.
+    _saved_page(
+        src,
+        "Water purification – Wikipedia",
+        '<link rel="canonical" href="https://en.wikipedia.org/wiki/Water_purification">',
+        [
+            ("http://en.wikipedia.org/wiki/Bowline#Tying", "bowline, other scheme, a fragment"),
+            ("https://en.wikipedia.org/wiki/Rope", "a page not saved"),
+        ],
+    )
+    # Chrome: the address is in its "saved from url" comment, and in og:url.
+    _saved_page(
+        src / "knots",
+        "Bowline",
+        '<meta property="og:url" content="https://en.wikipedia.org/wiki/Bowline">',
+        [("https://en.wikipedia.org/wiki/Water_purification?x=1&amp;y=2", "query differs")]
+        + [("https://en.wikipedia.org/wiki/Water_purification/", "trailing slash")],
+        header="<!-- saved from url=(0040)https://en.wikipedia.org/wiki/Bowline -->\n",
+    )
+    out = tmp_path / "saved.zim"
+    creator.create_folder_zim(str(src), out_path=str(out))
+    arc = Archive(str(out))
+    water = _entry_text(arc, "Water purification – Wikipedia.html")
+    assert 'href="knots/Bowline.html#Tying"' in water
+    assert 'href="https://en.wikipedia.org/wiki/Rope"' in water, "a page not saved stays on the web"
+    bowline = _entry_text(arc, "knots/Bowline.html")
+    assert 'href="../Water%20purification%20%E2%80%93%20Wikipedia.html"' in bowline
+    assert "?x=1" in bowline, "another query is another page: left alone"
+    # Assets are untouched.
+    assert 'src="Bowline_files/a.png"' in bowline
