@@ -469,3 +469,18 @@ def test_a_tide_turns_time_keeps_clear_of_a_dot(browser, served):
         assert not pairs["hit"], pairs
     finally:
         ctx.close()
+
+
+def test_reopening_the_almanac_opens_at_the_top(browser, served):
+    ctx, pg, errors = _page(browser, served)
+    try:
+        pg.evaluate("() => { document.getElementById('almanac-content').scrollTop = 3000; }")
+        pg.wait_for_timeout(500)
+        assert pg.evaluate("() => document.getElementById('almanac-content').scrollTop") > 1000
+        pg.evaluate("() => closeAlmanac()")
+        pg.evaluate("() => openAlmanac()")
+        pg.wait_for_function("() => _almanacOpen && !!document.getElementById('almanac-head')", timeout=30_000)
+        pg.wait_for_timeout(1500)
+        assert pg.evaluate("() => document.getElementById('almanac-content').scrollTop") < 5
+    finally:
+        ctx.close()

@@ -230,6 +230,10 @@ function _openAlmanacInner(replaceState) {
   var qEl = document.getElementById('q');
   if (qEl) qEl.placeholder = t('almanac');
   _renderAlmanacContent();
+  // Opened afresh it is at the top, on the Moon: the page keeps its element, and with it where it was last scrolled
+  // to. (Back from a page opened out of it puts the offset back after this: _reopenAlmanacFromLink.)
+  var scroller = document.getElementById('almanac-content');
+  if (scroller) scroller.scrollTop = 0;
   // Zimi's header is in place under the Almanac: nothing in it slides the
   // header, so one left away by the page before (an article scrolled on a
   // phone) would keep the Almanac's own header, its date, behind the bar.
