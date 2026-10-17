@@ -392,3 +392,24 @@ def test_the_orrery_is_still_at_now_under_reduced_motion(browser, served):
         assert pg.evaluate("() => _orreryPlaying && _orrerySpeed === 100000")
     finally:
         ctx.close()
+
+
+def test_a_sky_left_alone_stops_asking_for_frames_and_wakes_on_a_touch(browser, served):
+    ctx, pg, errors = _page(browser, served)
+    try:
+        pg.wait_for_function("() => typeof _skyState !== 'undefined' && _skyState && _skyState.eph", timeout=60_000)
+        pg.evaluate("() => { if (_skySetting('skin') !== 'beach') _skySet('skin', 'beach'); _skyArm(); }")
+        pg.wait_for_timeout(500)
+        assert pg.evaluate("() => !!_skyTimers.sway || !!_almanacSkyRAF")  # being looked at: the breeze runs
+        pg.evaluate("() => { window.__raf = 0; const r = window.requestAnimationFrame; window.requestAnimationFrame = function (f) { window.__raf++; return r.call(window, f); }; }")
+        pg.evaluate("() => { _skyAttentionAt = performance.now() - 10 * SKY_BREEZE_IDLE_MS; }")
+        pg.wait_for_timeout(600)  # the last frame asked for
+        pg.evaluate("() => { window.__raf = 0; }")
+        pg.wait_for_timeout(2500)
+        idle = pg.evaluate("() => ({ raf: window.__raf, sway: _skyTimers.sway })")
+        assert idle["sway"] == 0 and idle["raf"] <= 3, idle
+        pg.evaluate("() => document.dispatchEvent(new Event('pointerdown', { bubbles: true }))")
+        pg.wait_for_timeout(300)
+        assert pg.evaluate("() => !!_skyTimers.sway || !!_almanacSkyRAF")
+    finally:
+        ctx.close()

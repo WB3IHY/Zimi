@@ -2777,6 +2777,7 @@ function _skyDisarm() {
 // unless motion is reduced, the palms' breeze and the moving things.
 function _skyArm() {
   _skyDisarm();
+  _skyAttentionAt = performance.now();   // opened, resumed, or set to a new picture: it is being looked at
   var s = _skyState;
   if (!_skyAwake(s) || !s.eph) return;
   if (_skyLive()) _skyTimers.live = setTimeout(_skyLiveTick, SKY_LIVE_MS);
@@ -2826,12 +2827,25 @@ function _skyPollSatsTick() {
   _skyTimers.sats = setTimeout(_skyPollSatsTick, SKY_SATS_POLL_MS);
 }
 // The breeze: a frame (the still picture copied, the palms over it) twelve
-// times a second while the beach is seen.
+// times a second while the beach is seen, and for as long after the last touch, scroll or key as it is likely
+// being looked at: a page left open on its own settles into the still picture (nothing in it changes but the
+// stars' slow drift, which the live tick paints when it has moved a pixel) and the breeze picks up at the next touch.
+var SKY_BREEZE_IDLE_MS = 45000;
+var _skyAttentionAt = (typeof performance !== 'undefined' ? performance.now() : 0);
+function _skyBreezeParked() { return performance.now() - _skyAttentionAt > SKY_BREEZE_IDLE_MS; }
 function _skySwayTick() {
   _skyTimers.sway = 0;
   if (!_skyAwake(_skyState) || _skyReduceMotion()) return;
   _skyKick();
+  if (_skyBreezeParked()) return;   // the frame just asked for is the last until someone is back
   _skyTimers.sway = setTimeout(_skySwayTick, SKY_SWAY_MS);
+}
+function _skyAttend() {
+  var was = _skyBreezeParked();
+  _skyAttentionAt = performance.now();
+  if (was && !_skyTimers.sway && _skyAwake(_skyState) && !_skyReduceMotion() && !_skyState.lens && _skySetting('skin') === 'beach') {
+    _skyTimers.sway = setTimeout(_skySwayTick, SKY_SWAY_MS);
+  }
 }
 function _skyIssTick() {
   _skyTimers.iss = 0;
@@ -2874,6 +2888,8 @@ function _skyWake() {
 if (typeof window.addEventListener === 'function') {   // not in the tests' bare window
   window.addEventListener('pageshow', _skyWake);
   window.addEventListener('focus', _skyWake);
+  ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'].forEach(function (ev) { window.addEventListener(ev, _skyAttend, { passive: true, capture: true }); });
+  window.addEventListener('scroll', _skyAttend, { passive: true, capture: true });
 }
 
 // Leaving the Almanac.
