@@ -62,7 +62,7 @@ The plan was "the field kit": sky, Earth, the flown solar system, Field Guide, b
 - [ ] Phone agent: confirm before remove, Add from Files, the too-big message with real numbers (Gutenberg on a 2 TB phone), feedback in compact tiles, grouped menu.
 - [x] The Almanac's 16 phone defects fixed and merged (f1fac7e5); each has a test that fails on the old code.
 - [ ] Eric: the Almanac now keeps its GPU scenes 30 s after closing (faster reopen, more memory on iOS); keep or revert. Holiday names newly translated into Hindi, Hebrew and Arabic need a native speaker.
-- [ ] CI green: the service worker answered the offline page at 8 s when nothing was kept, so slow but live answers (pictures, Manage) broke; fixed in 13446585, run 39056293921.
+- [x] CI green (run 39068587372, all jobs, 2026-10-17). Found on the way: the service worker answered the offline page at 8 s when nothing was kept (fixed); tide labels under the clock's dot (fixed); Chrome 156 never reports SW-claimed requests finished (tests wait on _swPrimed).
 - [ ] Eric's iPhone pass: Red, Keep offline, airplane mode, Almanac.
 - [ ] Pull the Field Guide if decided.
 - [ ] Draft PR to main so CI and CodeRabbit run on it; answer every CodeRabbit finding.
