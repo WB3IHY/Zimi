@@ -157,7 +157,6 @@ function _skyFacts(s) {
     var city = _skyZoneCity();
     html += '<p class="alm-sky-guess">' + _almEsc(city ? t('alm_sky_f_guess', { city: city }) : t('alm_sky_f_guess_nocity')) + '</p>';
   }
-  if (_sgReady() && _sg.mwReady) html += '<p class="alm-sky-credit">' + _almEsc(t('alm_sky_credit')) + '</p>';
   if (el._html !== html) { el.innerHTML = html; el._html = html; }
 }
 

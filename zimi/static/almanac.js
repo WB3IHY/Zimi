@@ -583,16 +583,13 @@ function _almClockParts(focus) {
   };
 }
 
-// Header, hero moon and the eight pills for a given instant. Re-rendered in
+// Header and hero moon for a given instant: the top half of a folded wall calendar, the Moon and its name and nothing under it. Re-rendered in
 // place when a calendar day is picked, so there's one set of numbers on the
 // page rather than a duplicate panel lower down.
 function _almHeadHtml(focus) {
   var m = _moonPhase(focus);
-  var dist = _moonDistance(focus);
-  var age = (m.phase * 29.53).toFixed(1);
-
   var cp = _almClockParts(focus);
-  var loc = cp.loc, locTz = cp.locTz, lang = cp.lang;
+  var loc = cp.loc;
 
   // Both the big date and the time beneath it summon the time machine — the
   // heading is the almanac's clearest "this is the moment shown" surface, so
@@ -619,68 +616,7 @@ function _almHeadHtml(focus) {
   html += _heroMoonOrientNote(loc);
   html += '</div>';
 
-  // Sun cards render in the LOCATION's timezone, not the header clock's: a
-  // sunrise is a fact about a place, and reading "sunrise 8:07 PM" because the
-  // viewer's own zone was applied to somewhere else's sky helps nobody. The two
-  // only differ once a location has actually been chosen (_almDisplayTz falls
-  // back to the device zone otherwise), and the header states its zone.
-  var _locTzOff;
-  try { _locTzOff = _tzUtcOffsetMin(locTz, focus); }
-  catch (e) { _locTzOff = -focus.getTimezoneOffset(); }
-  var sunInfo0 = _computeSunTimes(focus, loc.lat, loc.lon, _locTzOff);
-
-  var _nfm = _nextFullMoon(focus);
-
-  html += '<div class="alm-cards">';
-  html += _almHeadCard(t('alm_illuminated'), m.illumination + '%', 'alm-hc-illum');
-  html += _almHeadCard(t('alm_moon_age'), age + ' ' + t('alm_days'), 'alm-hc-age');
-  html += _almHeadCard(t('alm_distance'), _almFmtNum(Math.round(dist)) + ' ' + t('alm_km'), 'alm-hc-dist');
-  html += _almHeadCard(t('alm_next_full'), _almNextFullHtml(_nfm, lang, focus), 'alm-hc-nextfull',
-    { cardId: 'alm-hc-nextfull-card', hidden: !_nfm, valClass: _nfm && _nfm.isSuper ? 'alm-card-super' : '' });
-  // Both faces of the sun row live in the DOM at once and only their `hidden`
-  // flags move. Travel crosses into and out of a polar day mid-scrub, and
-  // flipping a flag is something the per-frame updater can do; rebuilding the
-  // card grid is not, so the alternative was a stale row contradicting the
-  // date beside it.
-  html += _almHeadCard('', sunInfo0.polar || '', 'alm-hc-polar',
-    { cardId: 'alm-hc-polar-card', span: 4, hidden: !sunInfo0.polar });
-  html += _almHeadCard(t('alm_sunrise'), sunInfo0.sunrise || '', 'alm-hc-sunrise',
-    { cardId: 'alm-hc-sunrise-card', hidden: !!sunInfo0.polar });
-  html += _almHeadCard(t('alm_sunset'), sunInfo0.sunset || '', 'alm-hc-sunset',
-    { cardId: 'alm-hc-sunset-card', hidden: !!sunInfo0.polar });
-  html += _almHeadCard(t('alm_daylight'), sunInfo0.dayLength || '', 'alm-hc-daylight',
-    { cardId: 'alm-hc-daylight-card', hidden: !!sunInfo0.polar });
-  html += _almHeadCard(_lterm('golden_hour', t('alm_golden')), sunInfo0.goldenHour || '', 'alm-hc-golden',
-    { cardId: 'alm-hc-golden-card', hidden: !sunInfo0.goldenHour, valClass: 'alm-card-golden' });
-  html += '</div>';
   return html;
-}
-
-// One card in the hero readout grid. Every value node carries an id so the
-// per-frame travel updater can rewrite it in place instead of the whole grid.
-// opts: cardId (id on the card, for hiding it), span (grid columns), hidden,
-// valClass (colour variant).
-function _almHeadCard(lbl, valHtml, valId, opts) {
-  opts = opts || {};
-  return '<div class="alm-card"' + (opts.cardId ? ' id="' + opts.cardId + '"' : '') +
-    (opts.span ? ' style="grid-column:span ' + opts.span + '"' : '') +
-    (opts.hidden ? ' hidden' : '') + '>' +
-    (lbl ? '<div class="alm-card-lbl">' + lbl + '</div>' : '') +
-    '<div class="alm-card-val' + (opts.valClass ? ' ' + opts.valClass : '') + '" id="' + valId + '">' +
-    valHtml + '</div></div>';
-}
-
-// Value markup for the next-full-moon card, shared by the full render and the
-// throttled travel refresh so the two can never disagree on format. The year
-// shows only when the full moon falls outside the focused year: a bare "Aug 27"
-// is unambiguous beside a header reading 2026 and meaningless beside one
-// reading 2183, and the card is a quarter of the grid wide.
-function _almNextFullHtml(nfm, lang, focus) {
-  if (!nfm) return '';
-  var opts = { month: 'short', day: 'numeric' };
-  if (nfm.date.getFullYear() !== focus.getFullYear()) opts.year = 'numeric';
-  return nfm.date.toLocaleDateString(lang, opts) +
-    (nfm.isSuper ? ' \u00b7 ' + _lterm('supermoon', t('alm_supermoon')) : '');
 }
 
 // Render one panel resiliently. Travel now reaches arbitrary epochs, where a
@@ -1036,60 +972,13 @@ function _almTravelThrottled(key, ms, fn) {
   fn();
 }
 
-// Refresh the next-full-moon card. _nextFullMoon walks up to 45 days an hour at
-// a time (~0.3ms), several times the per-frame budget the sky redraw lives
-// inside, so it rides the throttle.
-function _almLiveNextFull(focus) {
-  var card = document.getElementById('alm-hc-nextfull-card');
-  var val = document.getElementById('alm-hc-nextfull');
-  if (!card || !val) return;
-  var nfm = null;
-  try { nfm = _nextFullMoon(focus); } catch (e) {}
-  card.hidden = !nfm;
-  if (!nfm) return;
-  val.innerHTML = _almNextFullHtml(nfm, (typeof _currentLang !== 'undefined') ? _currentLang : 'en', focus);
-  val.classList.toggle('alm-card-super', !!nfm.isSuper);
-}
-
-// Update the moon/sun readout cards in place (text nodes and `hidden` flags, no
-// header rebuild). DOM tier only — the hero disc itself is drawn by
-// _almTravelLive's visual tier, every frame, from its own _moonPhase call.
-//
-// Within this tier nothing may contradict anything else in it: the phase NAME
-// and the illumination figure come from the one _moonPhase call below, and the
-// sun row swaps between its polar and its sunrise/sunset face rather than
-// leaving yesterday's face standing. The next-full-moon card updates here too —
-// at this cadence its own throttle is redundant.
+// Update the hero's phase name in place (a text node, no header rebuild). DOM tier only: the hero disc itself is
+// drawn by _almTravelLive's visual tier, every frame, from its own _moonPhase call.
 // _almRepaintFocus recomputes everything exactly on settle.
-function _almLiveHeadCards(focus) {
-  var set = function (id, val) { var e = document.getElementById(id); if (e) e.textContent = val; };
-  var show = function (id, on) { var e = document.getElementById(id); if (e) e.hidden = !on; };
-  var m;
-  try { m = _moonPhase(focus); } catch (e) { return; }
-  set('alm-hc-illum', m.illumination + '%');
-  set('alm-hc-age', (m.phase * 29.53).toFixed(1) + ' ' + t('alm_days'));
-  set('alm-hc-phase', _localMoonName(m.name));
-  try { var dist = _moonDistance(focus); if (dist) set('alm-hc-dist', _almFmtNum(Math.round(dist)) + ' ' + t('alm_km')); } catch (e) {}
-  _almLiveNextFull(focus);
-  try {
-    var loc = _getLocation();
-    var off;
-    try { off = _tzUtcOffsetMin(_almDisplayTz(loc), focus); } catch (e) { off = -focus.getTimezoneOffset(); }
-    var s = _computeSunTimes(focus, loc.lat, loc.lon, off);
-    show('alm-hc-polar-card', !!s.polar);
-    show('alm-hc-sunrise-card', !s.polar);
-    show('alm-hc-sunset-card', !s.polar);
-    show('alm-hc-daylight-card', !s.polar);
-    show('alm-hc-golden-card', !!s.goldenHour);
-    if (s.polar) {
-      set('alm-hc-polar', s.polar);
-    } else {
-      set('alm-hc-sunrise', s.sunrise);
-      set('alm-hc-sunset', s.sunset);
-      set('alm-hc-daylight', s.dayLength);
-      if (s.goldenHour) set('alm-hc-golden', s.goldenHour);
-    }
-  } catch (e) {}
+function _almLiveHeadPhase(focus) {
+  var name = document.getElementById('alm-hc-phase');
+  if (!name) return;
+  try { name.textContent = _localMoonName(_moonPhase(focus).name); } catch (e) { /* beyond the calendar's range: the name stays */ }
 }
 
 // The live update run during time travel — the single hook both the lever loop
@@ -1131,7 +1020,7 @@ function _almTravelLive(focus) {
   if (typeof _orreryTravelTick === 'function') _orreryTravelTick();
   _almTravelThrottled('dom', _ALM_TRAVEL_DOM_MS, function () {
     _almScrubClock(focus);
-    _almLiveHeadCards(focus);
+    _almLiveHeadPhase(focus);
     if (typeof _orreryUpdateDate === 'function' && !_almanacOrreryRAF) _orreryUpdateDate();
   });
   _almTravelThrottled('grid', _ALM_TRAVEL_GRID_MS, _almSyncSelectedToFocus);
@@ -1775,7 +1664,9 @@ function _almAboutDataHtml() {
     '<summary class="almanac-section-title">' + _almEsc(t('alm_about_data')) + '</summary>' +
     '<p class="alm-about-intro">' + _almEsc(t('alm_about_intro')) + '</p><ul class="alm-about-list">' +
     _ALM_ABOUT_ROWS.map(function(k) { return '<li>' + _almEsc(t('alm_about_' + k)) + '</li>'; }).join('') +
-    '</ul><button type="button" class="alm-ref-decay-link" onclick="_almRefOpen(\'decay\')">' + _almEsc(t('ref_decay_link')) + '</button></details>';
+    '</ul><button type="button" class="alm-ref-decay-link" onclick="_almRefOpen(\'decay\')">' + _almEsc(t('ref_decay_link')) + '</button>' +
+    // The picture credit the sky's panorama is owed: here, not under the sky (Eric, 2026-10-16).
+    '<p class="alm-about-credit">' + _almEsc(t('alm_sky_credit')) + '</p></details>';
 }
 
 // The back matter's group under one heading (the tables and calculations),
@@ -2841,29 +2732,7 @@ function _almHeroLiveUpdate(now) {
   var turn = view.tilt ? 'rotate(' + view.tilt.toFixed(1) + 'deg)' : '';
   if (img.parentNode.style.transform !== turn) img.parentNode.style.transform = turn;
   _almScrubClock(now);
-  _almLiveHeadCards(now);
-}
-
-// Next full moon after fromDate, with its distance and whether it's a
-// "supermoon" (full within ~90% of perigee ≈ ≤ 361,500 km).
-function _nextFullMoon(fromDate) {
-  var t = fromDate.getTime();
-  var prev = _moonPhase(new Date(t)).phase - 0.5;
-  for (var h = 1; h <= 45 * 24; h++) {
-    var tt = t + h * 3600000;
-    var delta = _moonPhase(new Date(tt)).phase - 0.5;
-    if (prev < 0 && delta >= 0) { // waxing crossing of full
-      var lo = tt - 3600000, hi = tt;
-      for (var b = 0; b < 22; b++) {
-        var mid = (lo + hi) / 2;
-        if (_moonPhase(new Date(mid)).phase - 0.5 < 0) lo = mid; else hi = mid;
-      }
-      var fm = new Date(hi), d = _moonDistance(fm);
-      return { date: fm, distance: d, isSuper: d <= 361500 };
-    }
-    prev = delta;
-  }
-  return null;
+  _almLiveHeadPhase(now);
 }
 
 // Small inline-SVG moon at a given phase (0=new .. 0.5=full .. 1=new).

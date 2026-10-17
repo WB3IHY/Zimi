@@ -1484,7 +1484,7 @@ function _aeRunClock(dms) {
   if (typeof _almTravelThrottled !== 'function') return;
   _almTravelThrottled('ae-page', AE_PAGE_TICK_MS, function () {
     if (typeof _almScrubClock === 'function') _almScrubClock(next);
-    if (typeof _almLiveHeadCards === 'function') _almLiveHeadCards(next);
+    if (typeof _almLiveHeadPhase === 'function') _almLiveHeadPhase(next);
   });
 }
 // The clock stopped running (back to real time, or the view closing): the
