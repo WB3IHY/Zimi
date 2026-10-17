@@ -253,3 +253,17 @@ def test_a_drag_on_the_picture_answers_before_the_live_moon_is_ready(browser, se
         assert scales[-1] > 0.5, scales
     finally:
         ctx.close()
+
+
+def test_rest_system_is_gone(browser, served):
+    """?rest=system was a comparison prototype (the sky round the Moon), never a shipped option."""
+    ctx, pg, errors = _page(browser, served, query="?rest=system")
+    try:
+        pg.wait_for_function(
+            "() => document.getElementById('almanac-view').classList.contains('lp-live')", timeout=READY_MS, polling=250
+        )
+        assert pg.evaluate(
+            "() => !document.querySelector('.lp-band, #lp-ring-names') && typeof _lpRestSystem === 'undefined'"
+        )
+    finally:
+        ctx.close()

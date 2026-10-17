@@ -476,7 +476,7 @@ def test_the_cost(browser, served):
         # at the view's pixel ratio.
         assert pg.evaluate(
             "() => { var gl = _ae.gl.renderer.getContext(), h = document.querySelector(AE_HERO_SEL);"
-            " return gl.drawingBufferHeight <= (h.offsetHeight + LP_BAND_ABOVE_PX + LP_BAND_BELOW_PX) * _ae.gl.dpr"
+            " return gl.drawingBufferHeight <= (h.offsetHeight + 1) * _ae.gl.dpr"
             " && gl.drawingBufferHeight < innerHeight * _ae.gl.dpr / 2; }"
         )
         # Leaving the Almanac keeps the scene for a grace (a reopen reuses it) with the buffer a pixel; once the grace
