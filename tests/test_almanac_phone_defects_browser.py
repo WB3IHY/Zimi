@@ -413,3 +413,33 @@ def test_a_sky_left_alone_stops_asking_for_frames_and_wakes_on_a_touch(browser, 
         assert pg.evaluate("() => !!_skyTimers.sway || !!_almanacSkyRAF")
     finally:
         ctx.close()
+
+
+def test_star_chart_names_do_not_stand_on_each_other(browser, served):
+    ctx, pg, errors = _page(browser, served)
+    try:
+        pg.wait_for_function("() => typeof _drawStarChart === 'function' && !!document.getElementById('almanac-starchart')", timeout=60_000)
+        boxes = pg.evaluate(
+            """() => {
+              const out = [], f = CanvasRenderingContext2D.prototype.fillText;
+              CanvasRenderingContext2D.prototype.fillText = function (s, x, y) {
+                const w = this.measureText(String(s)).width, a = this.textAlign;
+                out.push({ s: String(s), x0: a === 'right' ? x - w : a === 'center' ? x - w / 2 : x, x1: a === 'right' ? x : a === 'center' ? x + w / 2 : x + w, y0: y - 9, y1: y + 1, size: parseFloat(/([0-9.]+)px/.exec(this.font)[1]) });
+                return f.apply(this, arguments);
+              };
+              _drawStarChart(new Date(Date.UTC(2026, 9, 17, 7, 12)));
+              CanvasRenderingContext2D.prototype.fillText = f;
+              return out.filter(b => b.size < 12);
+            }"""
+        )
+        names = {b["s"] for b in boxes}
+        assert {"Aldebaran", "Uranus", "Saturn", "Neptune"} <= names, names
+        clash = [
+            (a["s"], b["s"])
+            for i, a in enumerate(boxes)
+            for b in boxes[i + 1 :]
+            if a["x0"] < b["x1"] and b["x0"] < a["x1"] and a["y0"] < b["y1"] and b["y0"] < a["y1"]
+        ]
+        assert not clash, clash
+    finally:
+        ctx.close()

@@ -3500,6 +3500,7 @@ function _ensureStarChartBgStars(size) {
   return stars;
 }
 
+var SKY_LABEL_NUDGES_PX = [-3, 10, -14, 21, -25], SKY_LABEL_H_PX = 10;   // where a chart name may stand, from the body's own height
 function _drawStarChart(now) {
   var canvas = document.getElementById('almanac-starchart');
   if (!canvas) return;
@@ -3546,11 +3547,21 @@ function _drawStarChart(now) {
 
   // Label helper — anchor toward the center so names near the rim grow inward
   // and never clip off the disc.
+  // A name that would stand on one already written moves to the next place about its body (above, below, further
+  // above, further below) and is written at the first that is clear; with none clear it keeps its first place.
+  var labelBoxes = [];
   function drawLabel(txt, x, y, off) {
-    var leftHalf = x <= cx;
+    var leftHalf = x <= cx, w = ctx.measureText(txt).width, lx = x + (leftHalf ? off : -off);
     ctx.textAlign = leftHalf ? 'left' : 'right';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(txt, x + (leftHalf ? off : -off), y - 3);
+    var box = null;
+    for (var n = 0; n < SKY_LABEL_NUDGES_PX.length && !box; n++) {
+      var by = y + SKY_LABEL_NUDGES_PX[n], c = { x0: leftHalf ? lx : lx - w, x1: leftHalf ? lx + w : lx, y0: by - SKY_LABEL_H_PX, y1: by + 2, ty: by };
+      if (!labelBoxes.some(function (p) { return c.x0 < p.x1 && p.x0 < c.x1 && c.y0 < p.y1 && p.y0 < c.y1; })) box = c;
+    }
+    if (!box) box = { x0: leftHalf ? lx : lx - w, x1: leftHalf ? lx + w : lx, y0: y - 3 - SKY_LABEL_H_PX, y1: y - 1, ty: y - 3 };
+    labelBoxes.push(box);
+    ctx.fillText(txt, lx, box.ty);
   }
 
   // Sky disc + horizon rim.
