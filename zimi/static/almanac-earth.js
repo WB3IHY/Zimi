@@ -2970,8 +2970,37 @@ function openAlmanacEarth(opts) {
     _aeShow(true);
   });
 }
+// The view is a step in history, as Look's overlay is: the phone's back
+// gesture closes it and the Almanac stays; a second one leaves the Almanac.
+// Shared with the flown solar system (almanac-space.js).
+var _aeStepped = false, _aeStepSwallow = false;
+function _aeStepIn() {
+  if (_aeStepped) return;
+  history.pushState({ mode: 'almanac', aeView: 1 }, '', location.href);
+  _aeStepped = true;
+}
+// Closed by the person (its button, Escape): the step it made is taken back,
+// and the router is told (_aeStepPop) to let that one go by.
+function _aeStepOut() {
+  if (!_aeStepped) return;
+  _aeStepped = false;
+  if (history.state && history.state.aeView) { _aeStepSwallow = true; history.back(); }
+}
+// The router (app.js) asks first of every history step: true when it was this
+// view's, which is then not the router's to act on.
+function _aeStepPop(e) {
+  if (_aeStepSwallow) { _aeStepSwallow = false; return true; }
+  if (_aeStepped && !(e.state && e.state.aeView)) {
+    _aeStepped = false;
+    if (typeof _spIsOpen !== 'undefined' && _spIsOpen) _spClose(); else if (_aeIsOpen) _aeClose();
+    return true;
+  }
+  return false;
+}
+window._aeStepPop = _aeStepPop;
 function _aeShow(fromHero) {
   if (typeof _lpBeforeShow === 'function') _lpBeforeShow();
+  _aeStepIn();
   // From the orrery, its chosen moment; from the hero or the sky, the moment
   // they show.
   if (_aeFrom === 'orrery') _aeAdoptOrreryClock();
@@ -3022,6 +3051,7 @@ function _aeFinishClose() {
   if (!_aeIsOpen) return;
   _aeLandClock();
   _aeIsOpen = false;
+  _aeStepOut();
   if (_ae.raf) { cancelAnimationFrame(_ae.raf); _ae.raf = 0; }
   if (_ae.idleTimer) { clearTimeout(_ae.idleTimer); _ae.idleTimer = 0; }
   _ae.hand = null;
@@ -3124,6 +3154,8 @@ function _aeRelease() {
   if (!_ae) return;
   if (typeof _lpRelease === 'function') _lpRelease();
   _ae.wanted = false;
+  // Released with the Almanac or for the flown view: its history step is not its to take back.
+  _aeStepped = false;
   _aeFinishClose();
   _aeDisposeGl();
 }

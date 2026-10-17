@@ -1877,6 +1877,7 @@ function openAlmanacSpace() {
   if (typeof _sgRetryLoads === 'function') _sgRetryLoads();   // an open asks again for the stars that failed before
   // The idle-prepared 3D Earth is covered by this view: its GPU memory goes back (it is made again when it is opened).
   if (typeof _aeRelease === 'function' && !(typeof _aeIsOpen !== 'undefined' && _aeIsOpen)) _aeRelease();
+  _aeStepIn();
   // The page's moment (its time machine, or now), with the orrery's own speed settled into it as the Earth view does.
   if (typeof _aeAdoptOrreryClock === 'function') _aeAdoptOrreryClock();
   _sp.jd = _dateToJD(_aeDisplayMs());
@@ -1910,6 +1911,7 @@ function _spMessage(text) {
 function _spClose() {
   if (!_spIsOpen) return;
   _spIsOpen = false;
+  _aeStepOut();
   _spStop();
   _sp.el.classList.remove('open');
   _spDisposeGl();
@@ -1938,7 +1940,7 @@ function _spDisposeGl() {
 // Leaving the Almanac: the view closes and gives the GPU back.
 function _spRelease() {
   if (!_sp) return;
-  if (_spIsOpen) _spClose();
+  if (_spIsOpen) { _aeStepped = false; _spClose(); }
   else _spDisposeGl();
 }
 
