@@ -22,7 +22,7 @@ import urllib.request
 from datetime import datetime, timezone
 
 import zimi.server as _srv
-from zimi import libfolders, outbound
+from zimi import libfolders, nomadapi, outbound
 
 log = logging.getLogger("zimi")
 
@@ -6512,6 +6512,25 @@ _DISK_PRIMARY_ONLY = {"error": "reading the server's disk is for the primary adm
 _FOLDERS_PRIMARY_ONLY = {**_DISK_PRIMARY_ONLY, "error_key": "folder_primary_only"}
 
 
+def _delete_through_nomad(handler, filename):
+    """Delete a ZIM in Project NOMAD's folder by asking NOMAD (its database,
+    Kiwix library and knowledge base follow), journalled like any delete."""
+    title = filename
+    for z in _srv._zim_list_cache or []:
+        if z.get("file") == filename:
+            title = z.get("title") or z.get("name") or filename
+            break
+    try:
+        nomadapi.delete(filename)
+    except nomadapi.NomadError as e:
+        log.warning("Project NOMAD would not delete %s: %s", filename, e)
+        status = 404 if e.status == 404 else 502
+        return handler._json(status, {"error": "Project NOMAD did not delete it"})
+    record_activity("delete", title, actor=activity_actor(handler))
+    _srv._append_history({"event": "deleted", "ts": time.time(), "filename": filename, "title": title})
+    return handler._json(200, {"status": "deleted", "filename": filename})
+
+
 def _library_folders_view():
     """What the Storage card draws: the folders read in place, and the one
     offer, if there is one. Asked when the card opens, so a listing per folder
@@ -6520,11 +6539,16 @@ def _library_folders_view():
         {**f, **libfolders.audit(f["path"]), "present": os.path.isdir(f["path"])}
         for f in libfolders.folders()
     ]
-    return {"folders": rows, "suggestions": libfolders.suggestions()}
+    return {
+        "folders": rows,
+        "suggestions": libfolders.suggestions(),
+        "nomad": nomadapi.view(),
+    }
 
 
 def _handle_library_folders(handler, data):
-    """POST /manage/library-folders: {action: add|remove|dismiss, path, label?}.
+    """POST /manage/library-folders: {action: add|remove|dismiss, path, label?},
+    or {action: nomad, enabled, url?} for the Project NOMAD opt-in.
 
     Adding or removing splices just that folder's ZIMs into the live library
     and answers once it has; the files in the folder are never touched."""
@@ -6541,10 +6565,16 @@ def _handle_library_folders(handler, data):
             libfolders.reconcile([], libfolders.registered_in(libfolders.remove(path)))
         elif action == "dismiss":
             libfolders.dismiss(path)
+        elif action == "nomad":
+            if nomadapi.settings()["locked"]:
+                return handler._json(403, {"error": "env_locked", "error_key": "configured_via_env"})
+            nomadapi.save(bool(data.get("enabled")), str(data.get("url") or ""))
         else:
             return handler._json(400, {"error": "bad_action"})
     except libfolders.FolderError as e:
         return handler._json(400, {"error": e.key, "error_key": e.key})
+    except ValueError as e:
+        return handler._json(400, {"error": str(e), "error_key": str(e)})
     if action == "add":
         libfolders.ensure_watch()
     return handler._json(200, _library_folders_view())
@@ -7102,6 +7132,8 @@ def handle_manage_post(handler, parsed, data):
                 if os.path.basename(candidate) != filename:
                     continue
                 label = libfolders.owner(candidate)
+                if label is not None and nomadapi.managed() and nomadapi.is_nomad_path(candidate):
+                    return _delete_through_nomad(handler, filename)
                 if label is not None:
                     return handler._json(
                         403,

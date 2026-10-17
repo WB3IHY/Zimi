@@ -132,11 +132,65 @@ def warn_if_unwritable(path):
         )
 
 
+#: kiwix-serve's container port, which Project NOMAD maps and its add-ons
+#: (the translation proxy) reach by the container's name.
+KIWIX_PORT = "8080"
+
+
+def kiwix_serve_invocation(argv, environ):
+    """Project NOMAD runs its Information Library container with kiwix-serve's
+    flags (``--library /data/kiwix-library.xml --monitorLibrary --address=all``)
+    and cannot change them for an app it ships. When Zimi is put in that
+    container's place those flags arrive as the whole command: serve the folder
+    the library file lives in, on the port kiwix-serve would have used.
+
+    Returns ``(argv, folder)``, or None when this is not that. Every other
+    kiwix-serve flag is accepted and ignored: Zimi has its own meaning for them.
+    """
+    if not argv or not argv[0].startswith("-"):
+        return None
+    library = host = port = None
+    i = 0
+    while i < len(argv):
+        flag, eq, value = argv[i].partition("=")
+        if not eq and flag in ("--library", "-l", "--address", "-I", "--port", "-p"):
+            i += 1
+            value = argv[i] if i < len(argv) else ""
+        if flag in ("--library", "-l"):
+            library = value
+        elif flag in ("--address", "-I"):
+            host = "0.0.0.0" if value == "all" else value
+        elif flag in ("--port", "-p"):
+            port = value
+        i += 1
+    serve = [
+        "python3",
+        "-m",
+        "zimi",
+        "serve",
+        "--port",
+        port or environ.get("ZIMI_PORT") or KIWIX_PORT,
+    ]
+    if host:
+        serve += ["--host", host]
+    folder = os.path.dirname(library) if library else None
+    return serve, folder
+
+
 def main(argv=None, environ=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     environ = os.environ if environ is None else environ
     if not argv:
         argv = ["python3", "-m", "zimi", "serve", "--port", "8899"]
+    kiwix = kiwix_serve_invocation(argv, environ)
+    if kiwix:
+        argv, folder = kiwix
+        if folder:
+            held = [
+                p for p in environ.get("ZIMI_EXTRA_ZIM_DIRS", "").split(os.pathsep) if p
+            ]
+            if folder not in held:
+                environ["ZIMI_EXTRA_ZIM_DIRS"] = os.pathsep.join(held + [folder])
     path = data_dir_from(argv, environ)
     if os.geteuid() == 0:
         user = pwd.getpwnam(RUN_AS)

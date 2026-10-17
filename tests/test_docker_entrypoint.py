@@ -209,3 +209,59 @@ def test_the_dockerfile_uses_the_entrypoint_and_not_a_fixed_user():
     assert "USER zimi" not in lines
     assert any(ln.startswith("ENTRYPOINT") and "zimi-entrypoint" in ln for ln in lines)
     assert any("docker/entrypoint.py" in ln for ln in lines)
+
+
+# -- standing in for NOMAD's kiwix-serve container ---------------------------
+
+
+NOMAD_KIWIX = [
+    "--library",
+    "/data/kiwix-library.xml",
+    "--monitorLibrary",
+    "--address=all",
+]
+
+
+def test_nomads_kiwix_flags_become_a_zimi_serve_of_that_folder(ep):
+    argv, folder = ep.kiwix_serve_invocation(NOMAD_KIWIX, {})
+    assert argv == [
+        "python3",
+        "-m",
+        "zimi",
+        "serve",
+        "--port",
+        "8080",
+        "--host",
+        "0.0.0.0",
+    ]
+    assert folder == "/data"
+
+
+def test_the_port_is_kiwixs_unless_the_owner_says_otherwise(ep):
+    assert ep.kiwix_serve_invocation(NOMAD_KIWIX, {"ZIMI_PORT": "9000"})[0][5] == "9000"
+    both = NOMAD_KIWIX + ["--port", "7000"]
+    assert ep.kiwix_serve_invocation(both, {"ZIMI_PORT": "9000"})[0][5] == "7000"
+    assert ep.kiwix_serve_invocation(["--library=/x/l.xml", "--port=7001"], {})[0][5] == "7001"
+
+
+@pytest.mark.parametrize("argv", [[], ["python3", "-m", "zimi", "serve"], ["zimi"]])
+def test_an_ordinary_command_is_left_alone(ep, argv):
+    assert ep.kiwix_serve_invocation(argv, {}) is None
+
+
+def test_main_serves_the_library_folder_as_an_extra_one(ep, root_run, tmp_path):
+    env = {"ZIMI_DATA_DIR": str(tmp_path / "config")}
+    ep.main(NOMAD_KIWIX, env)
+    assert root_run.exec[1][:5] == ["python3", "-m", "zimi", "serve", "--port"]
+    assert env["ZIMI_EXTRA_ZIM_DIRS"] == "/data"
+
+
+def test_a_folder_already_named_is_not_named_twice(ep, root_run):
+    env = {"ZIMI_EXTRA_ZIM_DIRS": "/data"}
+    ep.main(NOMAD_KIWIX, env)
+    assert env["ZIMI_EXTRA_ZIM_DIRS"] == "/data"
+
+
+def test_the_healthcheck_follows_the_port_the_owner_set():
+    text = open(os.path.join(ROOT, "Dockerfile"), encoding="utf-8").read()
+    assert "ZIMI_PORT" in text.split("HEALTHCHECK", 1)[1].split("CMD [", 1)[0]

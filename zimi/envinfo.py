@@ -42,8 +42,14 @@ VARS: dict[str, tuple[str, str]] = {
     "ZIMI_MANAGE_OPEN": ("Leaves the admin interface unauthenticated", "Set password"),
     "ZIMI_API_TOKEN": ("Bearer token for the API", "API token"),
     "ZIMI_PUBLIC_ACCESS": ("Who may read: open, limited or private", "Access"),
-    "ZIMI_LAN_ADMIN": ("Treats direct LAN clients as admin; unsafe behind a proxy or tunnel (use a password)", "Access"),
-    "ZIMI_MANAGE_EXTERNAL": ("0 keeps managing inside the network (deprecated)", "Access"),
+    "ZIMI_LAN_ADMIN": (
+        "Treats direct LAN clients as admin; unsafe behind a proxy or tunnel (use a password)",
+        "Access",
+    ),
+    "ZIMI_MANAGE_EXTERNAL": (
+        "0 keeps managing inside the network (deprecated)",
+        "Access",
+    ),
     "ZIMI_SSO_PROXY": ("Trusted SSO proxy (Cloudflare Access)", "Single sign-on"),
     "ZIMI_SSO_AUD": ("SSO audience tag to require", "Single sign-on"),
     "ZIMI_SSO_TEAM": ("SSO team domain", "Single sign-on"),
@@ -55,8 +61,18 @@ VARS: dict[str, tuple[str, str]] = {
     "ZIM_DIR": ("Where the ZIM files are", "ZIM folder"),
     "ZIMI_DATA_DIR": ("Where Zimi keeps its own data", "Data folder"),
     "ZIMI_STAGING_DIR": ("Where downloads are assembled", ""),
-    "ZIMI_CREATE_ROOT": ("Where the Create page looks for archives to import (the library folder when unset)", ""),
-    "ZIMI_EXTRA_ZIM_DIRS": ("Other folders to read ZIMs from in place, never changed (Project NOMAD's library, a Kiwix box)", "Other library folders"),
+    "ZIMI_CREATE_ROOT": (
+        "Where the Create page looks for archives to import (the library folder when unset)",
+        "",
+    ),
+    "ZIMI_EXTRA_ZIM_DIRS": (
+        "Other folders to read ZIMs from in place, never changed (Project NOMAD's library, a Kiwix box)",
+        "Other library folders",
+    ),
+    "ZIMI_NOMAD_API": (
+        "Project NOMAD's admin address: Zimi then downloads, updates and deletes in NOMAD's library through NOMAD (read-only when unset)",
+        "Project NOMAD mode",
+    ),
     "ZIMI_HOST": ("Address the server binds to", ""),
     "ZIMI_PORT": ("Port the server binds to", "Port"),
     # ── updates ───────────────────────────────────────────────────────────
@@ -80,7 +96,10 @@ VARS: dict[str, tuple[str, str]] = {
         "Clearer voices for the Dictionary's Say (Piper from Hugging Face, Kokoro from GitHub): ask (only when an admin asks), auto or never",
         "Voices for Dictionary",
     ),
-    "ZIMI_PIPER": ("The Piper command the Dictionary's Say runs, when not piper on PATH", "Voices for Dictionary"),
+    "ZIMI_PIPER": (
+        "The Piper command the Dictionary's Say runs, when not piper on PATH",
+        "Voices for Dictionary",
+    ),
     # ── downloads ─────────────────────────────────────────────────────────
     "ZIMI_MAX_CONCURRENT_DOWNLOADS": (
         "How many downloads run at once",
@@ -92,15 +111,36 @@ VARS: dict[str, tuple[str, str]] = {
     ),
     # ── sharing: BitTorrent ───────────────────────────────────────────────
     "ZIMI_OFFLINE": ("Air-gap switch: turns off everything internet-bound", "Sharing"),
-    "ZIMI_MCP_TOOLS": ("MCP tools: lean (search, read, read_section) or full (every tool)", "MCP"),
-    "ZIMI_APPS": ("The apps on the home page: 0 hides them all, 1 shows them all, or a comma list of maps, tube, exchange, reddot, books, wiki, dictionary, earth keeps only those", "Apps"),
+    "ZIMI_MCP_TOOLS": (
+        "MCP tools: lean (search, read, read_section) or full (every tool)",
+        "MCP",
+    ),
+    "ZIMI_APPS": (
+        "The apps on the home page: 0 hides them all, 1 shows them all, or a comma list of maps, tube, exchange, reddot, books, wiki, dictionary, earth keeps only those",
+        "Apps",
+    ),
     # ── the desktop app ────────────────────────────────────────────────────
-    "ZIMI_DESKTOP_BROWSER": ("1 runs the desktop app in the system browser instead of a native window", "Desktop"),
+    "ZIMI_DESKTOP_BROWSER": (
+        "1 runs the desktop app in the system browser instead of a native window",
+        "Desktop",
+    ),
     "ZIMI_APPCAST_URL": ("Where the Windows desktop app looks for updates", "Desktop"),
-    "ZIMI_DESKTOP_SMOKE": ("CI: 1 opens a window and exits; app renders the home view and exits", "Desktop"),
-    "ZIMI_DESKTOP_SMOKE_DWELL": ("CI: seconds the smoke window stays open for a screenshot", "Desktop"),
-    "ZIMI_DESKTOP_DEBUG": ("1 opens the desktop window with the page's console on stdout and the inspector", "Desktop"),
-    "ZIMI_DESKTOP_KEEP_MARK": ("CI: 1 leaves the mark of the web on the Windows zip's libraries", "Desktop"),
+    "ZIMI_DESKTOP_SMOKE": (
+        "CI: 1 opens a window and exits; app renders the home view and exits",
+        "Desktop",
+    ),
+    "ZIMI_DESKTOP_SMOKE_DWELL": (
+        "CI: seconds the smoke window stays open for a screenshot",
+        "Desktop",
+    ),
+    "ZIMI_DESKTOP_DEBUG": (
+        "1 opens the desktop window with the page's console on stdout and the inspector",
+        "Desktop",
+    ),
+    "ZIMI_DESKTOP_KEEP_MARK": (
+        "CI: 1 leaves the mark of the web on the Windows zip's libraries",
+        "Desktop",
+    ),
     "ZIMI_BT": ("BitTorrent settings, as one blob", "BitTorrent"),
     "ZIMI_TORRENT": ("Turns BitTorrent on or off", "BitTorrent"),
     "ZIMI_BT_PORT": ("Inbound BitTorrent port", "Port"),
@@ -113,12 +153,21 @@ VARS: dict[str, tuple[str, str]] = {
     "ZIMI_MIRROR": ("Seeds the whole library and mirrors the catalog", "Mirror"),
     "ZIMI_MIRROR_RATIO": ("Seed ratio while mirroring", "Mirror"),
     "ZIMI_MIRROR_UPLOAD_KB": ("Upload limit while mirroring, KB/s", "Mirror"),
-    "ZIMI_BT_CLIENT": ("The BitTorrent engine: qbittorrent or transmission (one you already run), or builtin", "BitTorrent"),
+    "ZIMI_BT_CLIENT": (
+        "The BitTorrent engine: qbittorrent or transmission (one you already run), or builtin",
+        "BitTorrent",
+    ),
     "ZIMI_BT_CLIENT_URL": ("Its Web UI or RPC address", "BitTorrent"),
     "ZIMI_BT_CLIENT_USER": ("Its username", "BitTorrent"),
     "ZIMI_BT_CLIENT_PASSWORD": ("Its password", "BitTorrent"),
-    "ZIMI_BT_CLIENT_CATEGORY": ("The category (qBittorrent) or label (Transmission) Zimi's torrents carry (zimi)", "BitTorrent"),
-    "ZIMI_BT_CLIENT_PATHS": ("Path mappings: the client's path=Zimi's path, separated by ;", "BitTorrent"),
+    "ZIMI_BT_CLIENT_CATEGORY": (
+        "The category (qBittorrent) or label (Transmission) Zimi's torrents carry (zimi)",
+        "BitTorrent",
+    ),
+    "ZIMI_BT_CLIENT_PATHS": (
+        "Path mappings: the client's path=Zimi's path, separated by ;",
+        "BitTorrent",
+    ),
     # ── sharing: the local network ────────────────────────────────────────
     "ZIMI_NEARBY": ("Nearby sharing settings, as one blob", "Nearby"),
     "ZIMI_PEER_DISCOVERY": ("Announces this Zimi on the local network", "Nearby"),

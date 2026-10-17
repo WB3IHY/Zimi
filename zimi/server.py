@@ -887,6 +887,10 @@ CONFIG_ENV_SETTINGS = (
     # Folders another program owns (Project NOMAD, a Kiwix box), read in place
     # and never changed: a path list, os.pathsep separated (zimi/libfolders.py).
     ConfigSetting("extra_zim_dirs", "ZIMI_EXTRA_ZIM_DIRS", "str", "", "none", False),
+    # Project NOMAD's admin address: turns on "Zimi manages NOMAD's library
+    # through NOMAD's API" for a NOMAD folder (zimi/nomadapi.py). Unset, the
+    # page's own opt-in decides, and the default is read-only.
+    ConfigSetting("nomad_api", "ZIMI_NOMAD_API", "str", "", "read-only", False),
     # Trusted-header SSO (zimi/sso.py). Both the team domain and the audience
     # tag must be present for the feature to switch on at all, which is what
     # keeps a bare install from trusting an identity header anyone can send.

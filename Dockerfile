@@ -177,6 +177,6 @@ EXPOSE 6881/udp
 # enough grace period the orchestrator marks the container unhealthy and may
 # crash-loop, restarting the same expensive build over and over.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10m --retries=3 \
-  CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8899/health')"
+  CMD python3 -c "import os, urllib.request; urllib.request.urlopen('http://localhost:%s/health' % os.environ.get('ZIMI_PORT', '8899'))"
 
 CMD ["python3", "-m", "zimi", "serve", "--port", "8899"]

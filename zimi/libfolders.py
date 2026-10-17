@@ -59,6 +59,12 @@ def _looks_like_nomad(path):
     parent = os.path.dirname(path)
     if parent == path:
         return False
+    # Zimi standing in for NOMAD's Information Library sees the folder as
+    # /data (where NOMAD mounts it for Kiwix); the owner names NOMAD's admin.
+    if os.environ.get("ZIMI_NOMAD_API") and os.path.isfile(
+        os.path.join(path, "kiwix-library.xml")
+    ):
+        return True
     if os.path.basename(parent) == "storage" and (
         os.path.basename(path) == "zim"
         or os.path.isfile(os.path.join(path, "kiwix-library.xml"))
@@ -213,7 +219,9 @@ def summary():
     out = []
     for f in folders():
         files, size = _incoming.get(f["path"], (0, 0))
-        out.append({"label": f["label"], "incoming_files": files, "incoming_bytes": size})
+        out.append(
+            {"label": f["label"], "incoming_files": files, "incoming_bytes": size}
+        )
     return out
 
 
@@ -274,7 +282,10 @@ def audit(folder):
         base = os.path.basename(path)
         if name is None:
             out["shadowed"].append(
-                {"file": base, "wins": os.path.basename(_shadowed.get(os.path.normpath(path), ""))}
+                {
+                    "file": base,
+                    "wins": os.path.basename(_shadowed.get(os.path.normpath(path), "")),
+                }
             )
         elif entries.get(name, {}).get("entries", "?") == "?":
             out["unreadable"].append({"file": base, "why": why_unreadable(path)})
@@ -504,6 +515,19 @@ def reconcile(added, gone):
     return not readable
 
 
+def settle(added=(), gone=()):
+    """A change the other program just made at our request (NOMAD finished a
+    download we asked for, or deleted a ZIM): splice it in now instead of
+    waiting for the watcher's second look."""
+    reconcile(list(added), list(gone))
+    _watch.reset()
+
+
+def nomad_folder():
+    """The path of the folder that is Project NOMAD's, or None."""
+    return next((f["path"] for f in folders() if f["label"] == NOMAD_LABEL), None)
+
+
 _watch = Watch()
 _watch_thread = None
 _watch_start_lock = threading.Lock()
@@ -517,7 +541,13 @@ def _watch_loop():
         _scan_incoming()
     except Exception as e:
         log.warning("Listing the downloads under way failed: %s", e)
+    from zimi import nomadapi
+
     while True:
+        try:
+            nomadapi.tick()
+        except Exception as e:
+            log.warning("Asking Project NOMAD's API failed: %s", e)
         time.sleep(WATCH_SECONDS)
         try:
             _watch.tick()
