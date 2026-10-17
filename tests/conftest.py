@@ -24,7 +24,13 @@ neither (cleared in memory only; the server's own clear also writes the
 suggest cache to whatever data dir the last test left behind).
 """
 
+import os
+
 import pytest
+
+# The best answer card is off unless the operator turns it on; its tests are
+# about the card, so the suite runs with it on (set before zimi.http reads it).
+os.environ.setdefault("ZIMI_BEST_ANSWER", "1")
 
 
 @pytest.fixture(autouse=True)

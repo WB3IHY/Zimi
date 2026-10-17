@@ -607,3 +607,18 @@ class TestBestAnswerPath(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_card_is_off_unless_the_operator_turns_it_on(monkeypatch):
+    """The release gate pulled the card: 8 of 30 real questions got a wrong or
+    off-topic quote. Off by default, the route answers null and the page is
+    told not to ask."""
+    from zimi import bestanswer
+
+    monkeypatch.delenv(bestanswer.ENV, raising=False)
+    assert not bestanswer.enabled()
+    for on in ("1", "true", "On"):
+        monkeypatch.setenv(bestanswer.ENV, on)
+        assert bestanswer.enabled()
+    monkeypatch.setenv(bestanswer.ENV, "0")
+    assert not bestanswer.enabled()

@@ -25,6 +25,7 @@ also gets them from IDF, since a word in nearly every passage weighs nothing.
 import collections
 import logging
 import math
+import os
 import re
 import threading
 import time
@@ -32,6 +33,17 @@ import time
 from zimi import query as _query
 
 log = logging.getLogger("zimi")
+
+# The card is off unless the operator turns it on. The release gate (30 real
+# questions, tests/data/bestanswer_eval_questions.json) found it quoting a
+# wrong or off-topic sentence far more often than 1 time in 15, and a
+# confident wrong answer is worse than none.
+ENV = "ZIMI_BEST_ANSWER"
+
+
+def enabled():
+    return os.environ.get(ENV, "").strip().lower() in ("1", "true", "yes", "on")
+
 
 # ── knobs, each with the reason it is what it is ──────────────────────────
 PASSAGE_SIZE = 2000  # chars per chunk: an article lead whole, so its sentences keep their order

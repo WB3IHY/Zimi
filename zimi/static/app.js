@@ -9925,6 +9925,7 @@ async function _searchCardStart(query, scope, zimParam, limit, data) {
 const BEST_MIN_WORDS = 3;
 const BEST_ASKING = /[?？؟]|[぀-ヿ㐀-鿿]{4}/;
 function _bestMayHelp(query) {
+  if (!_cfg.bestAnswer) return false; // off unless the server runs with ZIMI_BEST_ANSWER=1
   return BEST_ASKING.test(query) || query.trim().split(/\s+/).length >= BEST_MIN_WORDS;
 }
 function _bestQuoteHtml(q, primary) {
