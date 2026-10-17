@@ -230,3 +230,26 @@ def test_reopening_the_almanac_reuses_what_was_built(browser, served):
         assert pg.evaluate("() => _ae.gl === null && (_sg === null || _sg === false)")
     finally:
         ctx.close()
+
+
+def test_a_drag_on_the_picture_answers_before_the_live_moon_is_ready(browser, served):
+    ctx, pg, errors = _page(browser, served)
+    try:
+        pg.wait_for_function("() => typeof _aeReady === 'function' && typeof _lpQueueDrag === 'function'", timeout=60_000)
+        # The live scene is not ready, and does not become so while the finger is down.
+        pg.evaluate("() => { _ae.ready = false; _aePrepare = () => new Promise(() => {}); }")
+        scales = pg.evaluate(
+            """() => {
+              const hero = document.querySelector(AE_HERO_SEL), r = hero.getBoundingClientRect();
+              const at = (type, dx) => hero.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 7, pointerType: 'touch',
+                clientX: r.x + r.width / 2 + dx, clientY: r.y + r.height / 2, button: 0 }));
+              at('pointerdown', 0);
+              const out = [];
+              for (const dx of [10, 40, 90]) { at('pointermove', dx); out.push(new DOMMatrix(getComputedStyle(hero).transform).a); }
+              return out;
+            }"""
+        )
+        assert scales[0] < 1 and scales[-1] < scales[0], scales
+        assert scales[-1] > 0.5, scales
+    finally:
+        ctx.close()

@@ -709,7 +709,7 @@ function _lpUnsupported() {
 // The view's scene is ready (_aePrepare): the hero can be the live Moon.
 function _lpWarmed() { _lpQueueSync(); }
 // The Earth view opens: its canvas goes home first; closes: the hero takes the Moon back.
-function _lpBeforeShow() { _lpDetach(); }
+function _lpBeforeShow() { _lpPreviewPull(0); _lpDetach(); }
 function _lpAfterClose() { _lpSync(); }
 // Leaving the Almanac: nothing of the hero's is kept.
 function _lpRelease() {
@@ -736,6 +736,17 @@ function _lpQueueDrag(dx, dy) {
   var now = performance.now(), p = _lpState.pending;
   if (!p || now - p.at > LP_PENDING_MS) p = _lpState.pending = { dx: 0, dy: 0, at: now };
   p.dx += dx * _lpOutDir(dx, 0); p.dy += dy; p.at = now;
+  _lpPreviewPull(Math.max(0, Math.min(1, p.dx / LP_PX_PER_STOP)));
+}
+// While the live scene is not ready the pull is the picture's own: the Moon draws back as the finger does, at once,
+// and stands full size again when the view opens (_lpBeforeShow) and takes the pull on from there.
+var LP_PREVIEW_SHRINK = 0.4;
+function _lpPreviewPull(u) {
+  var hero = _lpHeroEl();
+  if (!hero) return;
+  hero.classList.toggle('alm-moon-pulling', u > 0);
+  if (u > 0) hero.style.setProperty('--alm-pull', (u * LP_PREVIEW_SHRINK).toFixed(3));
+  else hero.style.removeProperty('--alm-pull');
 }
 function _lpEnterAxis(u) {
   if (!_ae.gl || !_ae.gl.solar) return;   // the layer did not build: the view stays the classic one

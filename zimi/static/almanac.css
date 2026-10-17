@@ -114,6 +114,8 @@
    gets ready for a first tap, the disc breathes. */
 .almanac-moon-open { position: relative; border-radius: 50%; cursor: grab; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .almanac-moon-open img { -webkit-user-drag: none; }
+/* Pulled before the live Moon is ready: the picture draws back with the finger (almanac-landing.js _lpPreviewPull). */
+.almanac-moon-open.alm-moon-pulling { transform: scale(calc(1 - var(--alm-pull, 0))); }
 .almanac-view.alm-moon-lifted .almanac-moon,
 .almanac-view.alm-moon-lifted .almanac-moon-anim { visibility: hidden; }
 .almanac-moon-open.alm-moon-waking { cursor: progress; }
