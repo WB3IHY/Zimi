@@ -267,3 +267,26 @@ def test_rest_system_is_gone(browser, served):
         )
     finally:
         ctx.close()
+
+
+@pytest.mark.parametrize("theme", ["red", "dark"])
+def test_a_lit_section_pill_never_shows_its_unlit_text_on_the_lit_ground(browser, served, theme):
+    ctx, pg, errors = _page(browser, served, theme=theme)
+    try:
+        pg.wait_for_function("() => typeof _almSecBar !== 'undefined' && _almSecBar && _almSecBar.sections", timeout=60_000)
+        got = pg.evaluate(
+            """() => {
+              const bar = document.getElementById('alm-secbar');
+              bar.hidden = false;
+              const keys = _almSecBar.sections.map(s => s.key).filter(k => k !== ALM_SECBAR_HERO);
+              _almSecBar.cur = keys[0]; _almSecBarPaint();
+              void bar.offsetWidth;
+              _almSecBar.cur = keys[2]; _almSecBarPaint();
+              const lit = bar.querySelector('.pill.active');
+              const c = getComputedStyle(lit);
+              return { color: c.color, on: getComputedStyle(document.documentElement).getPropertyValue('--on-amber').trim() };
+            }"""
+        )
+        assert got["color"] in ("rgb(0, 0, 0)", "rgb(255, 255, 255)"), got
+    finally:
+        ctx.close()

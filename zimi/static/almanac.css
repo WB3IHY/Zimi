@@ -143,6 +143,9 @@
 .alm-secbar { position: absolute; top: 0; inset-inline: -16px; height: 44px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 16px; background: var(--bg); border-bottom: 1px solid var(--border); animation: fadeIn 0.15s ease; }
 .alm-secbar[hidden] { display: none; }
 .alm-secbar-nav { flex: 1; min-width: 0; }
+/* A pill's lit state is a gradient, which does not fade, so its text must not fade either: it would be the unlit
+   colour on the lit ground for the length of the transition (red on red in the night mode, grey on amber in dark). */
+.alm-secbar .pill { transition: none; }
 .alm-secbar .pills-row { padding-bottom: 0; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent); }
 [dir="rtl"] .alm-secbar .pills-row { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 20px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 20px), transparent); }
 .alm-secbar .pill:focus-visible, .alm-secbar-more:focus-visible, .alm-secbar-list button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
