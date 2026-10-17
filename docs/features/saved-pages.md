@@ -4,7 +4,9 @@ Pages saved from a browser go into a ZIM through Create, Folder (`zimi create <f
 
 Measured against real saves: Firefox 147 (its own Save Page As code path, driven over Marionette), Chrome 155 (`Page.captureSnapshot`, the engine behind "Single File"), SingleFile 2.2 (CLI). Chrome's "Webpage, Complete" and Safari's "Web Archive" could not be driven without taking over a desktop; those two are reproduced from the real Chrome snapshot's parts in the layout their browsers use, and are marked below. The tests use the real saves (`tests/fixtures/saved_pages.zip`).
 
-## What each export is
+## How it works
+
+### What each export is
 
 | Export | Written as | Zimi |
 | --- | --- | --- |
@@ -16,7 +18,7 @@ Measured against real saves: Firefox 147 (its own Save Page As code path, driven
 | Safari "Web Archive" | `.webarchive`, a binary plist (reproduced) | unpacked into the layout above |
 | SingleFile (extension or CLI) | one `.html`, parts as `data:` URIs | a page, nothing to unpack |
 
-## Firefox "Web Page, complete", measured
+### Firefox "Web Page, complete", measured
 
 - The folder is `<page name>_files`. Current Firefox never translates the suffix; older ones and other browsers in other languages wrote `Seite_Dateien`, `Page_fichiers`. Zimi takes any sibling folder that starts with the page's name and is named by the page.
 - The page name is the document title, so it can hold spaces, parentheses, `&`, quotes, `?`, `%` and non-ASCII (`Café (50% off) – naïve & "more"?.html`).
@@ -28,16 +30,16 @@ Measured against real saves: Firefox 147 (its own Save Page As code path, driven
 - Not rewritten: `data-src` and the other lazy-load attributes, a stylesheet's own `url()` and `@import` (the CSS file is saved as it came, its backgrounds are not), inline `style="background:url(...)"`, `<video poster>`, `<link rel=icon>`. A picture the browser had not loaded when you saved is not saved at all, and its reference stays an address on the web.
 - Scripts are saved and run again when the page is opened.
 
-## Chrome
+### Chrome
 
 - "Single File" is `Page.captureSnapshot`: MHTML written by Blink, `From: <Saved by Blink>`, the page's address in `Snapshot-Content-Location`, the title in an encoded `Subject`. Each part has a `Content-Location` (its absolute address as the server wrote it) and, for a frame, `Content-ID: <frame-HEX@mhtml.blink>`. Text is quoted-printable, pictures base64. The HTML is left pointing at absolute addresses; the parts carry the rest, including pictures named only in CSS and in `style` attributes (which Firefox does not keep). Frames are referenced by `cid:`.
 - "Webpage, Complete" uses the same `Title.html` and `Title_files/`, an `<!-- saved from url=(NNNN)... -->` comment first, references written `./Title_files/name`, and a clash named `name (1).ext`. Reproduced here, not captured from Chrome.
 
-## Safari
+### Safari
 
 "Web Archive" is a binary property list: `WebMainResource` (`WebResourceData`, `WebResourceURL`, `WebResourceMIMEType`, `WebResourceTextEncodingName`), `WebSubresources` (the same keys, plus an archived response), and `WebSubframeArchives` (each a nested archive). The page's HTML is unchanged; its parts are found by `WebResourceURL`. Reproduced, not captured from Safari.
 
-## What Zimi does
+### What Zimi does
 
 - **The parts belong to the page.** A saved page's `_files` folder is carried but not a gallery, not an index row, not a search hit; a frame saved as HTML in it is not an article. A page picked alone in the tree takes its folder with it.
 - **Titles** are the page's `<title>`. The index lists a saved page with the site it came from (Chrome's comment, SingleFile's, `canonical`, `og:url`) and links to it with an encoded address.
@@ -47,13 +49,17 @@ Measured against real saves: Firefox 147 (its own Save Page As code path, driven
 - **Single-file pages.** `.mhtml`, `.mht` and `.webarchive` are unpacked into `Title.html` and `Title_files/` with every reference retargeted (HTML, `srcset`, `style`, stylesheets' `url()` and `@import`), `<base>` folded in, links to other addresses made absolute so saved pages link to each other, and the "saved from" comment added. An unreadable one is left out with the reason in the log.
 - **A note** in the build log names a page that still has pictures pointing at the web: the browser did not save them, so they will not show.
 
-## Limits
+## Configure
 
-- Pictures a browser did not save cannot come back. Scroll the page to the end, wait for it, then save.
-- CSS backgrounds in a Firefox save are missing from the folder; Chrome's Single File keeps them.
-- A page whose script builds an address of its own at run time can still replace a saved picture; the data-attribute rule covers the usual libraries.
-- Scripts run in the ZIM as they did in the save, so a page that depends on its server shows what it shows offline.
+Nothing to set. Put the saved pages (any mix of `Title.html` with its `Title_files/`, `.mhtml`, `.mht`, `.webarchive` and SingleFile `.html`) in one folder and choose Create, Folder, or run `zimi create <folder>`. Picking a single page in the folder tree takes its `_files` folder with it.
 
-## Regenerating the fixtures
+### Regenerating the test fixtures
 
 `scripts/saved_pages_corpus/` holds what made them: `testsite.py` serves the test page, `ffsave.py` saves it through Firefox (Marionette), `chrome_mhtml.py` through Chrome, `sf.py` through the SingleFile CLI, `synth.py` writes the two reproduced formats, `mkfixture.py` packs the zip. Each takes real pages the same way.
+
+## Troubleshoot
+
+- **A picture is missing.** The browser did not save it (the build log names such pages). Scroll the page to the end, wait for it, then save again.
+- **Backgrounds are missing from a Firefox save.** Firefox does not keep CSS backgrounds; Chrome's Single File does.
+- **A picture flips back to a web address.** A page whose script builds an address of its own at run time can still replace a saved picture; the data-attribute rule covers the usual libraries.
+- **A page looks empty.** Scripts run in the ZIM as they did in the save, so a page that depends on its server shows what it shows offline.

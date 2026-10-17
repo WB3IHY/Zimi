@@ -93,6 +93,7 @@ Most people configure nothing. Everything is in Settings; `zimi config` prints e
 - [Saving](docs/features/saving.md): bookmarks, lists, likes, highlights, sync.
 - [Field Guide](docs/features/fieldguide.md): Help now, situations quoted from public-domain sources, the emergency number for your country.
 - [Making ZIMs](docs/features/making-zims.md): every capture mode, folders and their metadata files, web archives.
+- [Saved web pages](docs/features/saved-pages.md): pages saved from Firefox, Chrome and Safari (complete, single file, web archive) as a ZIM.
 - [Getting & sharing](docs/features/getting-and-sharing.md): the catalog, downloads, auto-update, BitTorrent, Nearby.
 - [Access](docs/features/access.md): public access, accounts, per-ZIM allowlists, single sign-on.
 - [Operations](docs/features/operations.md): configuration, backup, air-gapped use, monitoring, updates.
