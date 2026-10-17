@@ -91,7 +91,6 @@ Most people configure nothing. Everything is in Settings; `zimi config` prints e
 - [Reading](docs/features/reading.md): search, the reader, Reader View, find in page, languages, PDFs, offline use.
 - [Apps](docs/features/apps.md): Zimipedia, Bookshelf, ZimiTube, ZimiExchange, Reddot and Maps.
 - [Saving](docs/features/saving.md): bookmarks, lists, likes, highlights, sync.
-- [Field Guide](docs/features/fieldguide.md): Help now, situations quoted from public-domain sources, the emergency number for your country.
 - [Making ZIMs](docs/features/making-zims.md): every capture mode, folders and their metadata files, web archives.
 - [Saved web pages](docs/features/saved-pages.md): pages saved from Firefox, Chrome and Safari (complete, single file, web archive) as a ZIM.
 - [Getting & sharing](docs/features/getting-and-sharing.md): the catalog, downloads, auto-update, BitTorrent, Nearby.

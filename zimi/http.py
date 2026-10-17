@@ -319,10 +319,15 @@ _PRIVATE_LOGIN_SURFACE_EXACT = frozenset(
         "/favicon.png",
         "/favicon-64.png",
         "/apple-touch-icon.png",
-        # The Field Guide's quotes: public-domain text, open to whoever is at
-        # the door (the library behind them is not; see _fieldguide_is_bare).
-        # /match names a situation from the guide's own phrase lists; it reads
-        # no ZIM, so the "What's happening?" box works at the door too.
+    )
+)
+# The Field Guide's quotes: public-domain text, open to whoever is at the door
+# (the library behind them is not; see _fieldguide_is_bare). /match names a
+# situation from the guide's own phrase lists; it reads no ZIM, so the "What's
+# happening?" box works at the door too. On the door's and the setup's lists
+# only while ZIMI_FIELDGUIDE is on (_open_at_the_door).
+_FIELDGUIDE_DOOR = frozenset(
+    (
         "/fieldguide",
         "/fieldguide/home",
         "/fieldguide/situation",
@@ -338,13 +343,14 @@ _SETUP_SURFACE = frozenset(
         "/manage/access",
         "/manifest.json",
         "/sw.js",
-        "/fieldguide",
-        "/fieldguide/home",
-        "/fieldguide/situation",
-        "/fieldguide/print",
-        "/fieldguide/match",
     )
 )
+
+
+def _open_at_the_door(path, surface):
+    """Whether a path is on a pre-sign-in list: the list itself, or the Field
+    Guide's quotes while that feature is on."""
+    return path in surface or (path in _FIELDGUIDE_DOOR and _srv.fieldguide_enabled())
 
 
 # Asked by the shell once for every wiki article opened (its language menu,
@@ -534,7 +540,9 @@ def _search_answer(result, filter_zim, fast):
 
 def _fieldguide_hint(query, lang="en"):
     """The Field Guide's hint for a typed query in the reader's language (and
-    English), or None. Never fails a search."""
+    English), or None. Never fails a search; None while the guide is off."""
+    if not _srv.fieldguide_enabled():
+        return None
     try:
         from zimi import fieldguide
 
@@ -1188,7 +1196,10 @@ def _offline_shell_urls():
     }
     versioned = {u.split("?")[0] for u in found if "?" in u}
     found = {u for u in found if "?" in u or u not in versioned}
-    found.add("/static/" + FIELDGUIDE_OFFLINE)
+    if _srv.fieldguide_enabled():
+        found.add("/static/" + FIELDGUIDE_OFFLINE)
+    else:
+        found = {u for u in found if not u.startswith("/static/fieldguide")}
     return sorted(found)
 
 
@@ -2150,14 +2161,27 @@ def _inline_apps_assets(body, assets=_APP_ASSETS):
     return body
 
 
+def _shell_html():
+    """The shell as served: stamped ``data-zimi-fieldguide`` on <html> while
+    the Field Guide is on, so the client draws no Help now and no guide card
+    when it is not. Every shell response (sign-in, setup and home) goes
+    through here."""
+    if not _srv.fieldguide_enabled():
+        return SEARCH_UI_HTML
+    return SEARCH_UI_HTML.replace(
+        '<html lang="en">', '<html lang="en" data-zimi-fieldguide="1">', 1
+    )
+
+
 def _index_content(apps=True):
     """The shell, stamped when the server offers fewer than all the apps
     (``0`` for none, else the names), so the client knows before it draws
     the home page."""
+    html = _shell_html()
     stamp = _srv.apps_stamp(apps)
     if stamp is None:
-        return SEARCH_UI_HTML
-    return SEARCH_UI_HTML.replace("<body>", '<body data-zimi-apps="%s">' % stamp, 1)
+        return html
+    return html.replace("<body>", '<body data-zimi-apps="%s">' % stamp, 1)
 
 
 def _prefs_reply(prefs):
@@ -2390,7 +2414,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         if mode != "private":
             return False
         path = parsed.path
-        if path in _PRIVATE_LOGIN_SURFACE_EXACT or path.startswith(
+        if _open_at_the_door(path, _PRIVATE_LOGIN_SURFACE_EXACT) or path.startswith(
             _PRIVATE_LOGIN_SURFACE_PREFIX
         ):
             return False
@@ -2414,7 +2438,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         # whoever asked. `Vary` because the same URL genuinely has two correct
         # answers depending on how it was requested.
         if self._wants_html():
-            self._html(401, SEARCH_UI_HTML, vary="Accept, Sec-Fetch-Dest")
+            self._html(401, _shell_html(), vary="Accept, Sec-Fetch-Dest")
             return True
         self._json(401, {"error": "authentication required", "login_required": True})
         return True
@@ -2431,15 +2455,15 @@ class ZimHandler(BaseHTTPRequestHandler):
             return False
         path = parsed.path
         if (
-            path in _PRIVATE_LOGIN_SURFACE_EXACT
+            _open_at_the_door(path, _PRIVATE_LOGIN_SURFACE_EXACT)
             or path.startswith("/static/")
-            or path in _SETUP_SURFACE
+            or _open_at_the_door(path, _SETUP_SURFACE)
         ):
             return False
         if _manage_mod._owner_proof(self):
             return False
         if self._wants_html():
-            self._html(503, SEARCH_UI_HTML, vary="Accept, Sec-Fetch-Dest")
+            self._html(503, _shell_html(), vary="Accept, Sec-Fetch-Dest")
             return True
         self._json(503, {"error": "setup_pending"})
         return True
@@ -3119,6 +3143,8 @@ class ZimHandler(BaseHTTPRequestHandler):
             elif parsed.path == "/fieldguide" or parsed.path.startswith("/fieldguide/"):
                 # Field Guide: situations, their quoted sources and the
                 # library behind them (zimi/fieldguide.py).
+                if not _srv.fieldguide_enabled():
+                    return self._json(404, {"error": "not found"})
                 from zimi import fieldguide as _fg
 
                 sub = parsed.path[len("/fieldguide") :].strip("/")
@@ -5115,6 +5141,10 @@ class ZimHandler(BaseHTTPRequestHandler):
         rel_path = rel_path.lstrip("/")
         if os.path.isabs(rel_path):
             return self._json(400, {"error": "invalid path"})
+        # The Field Guide's page, card, script and offline bundle: in the tree,
+        # unreachable while ZIMI_FIELDGUIDE is off.
+        if rel_path.startswith("fieldguide") and not _srv.fieldguide_enabled():
+            return self._json(404, {"error": "not found"})
 
         # app.js gets the in-memory rewrite when present (auto-versioned ?v=
         # references inside the file). Avoids touching the read-only filesystem.
@@ -5357,6 +5387,8 @@ class ZimHandler(BaseHTTPRequestHandler):
                 '"', '-apps-%s"' % stamp.replace(",", "-"), 1
             )
         )
+        if _srv.fieldguide_enabled():
+            etag = etag.replace('"', '-fg"', 1)
         # Cache strategy:
         #   max-age=0, must-revalidate — browser always revalidates (Safari-safe)
         #   s-maxage=60 — an edge (Cloudflare) may hold it a minute: the shell

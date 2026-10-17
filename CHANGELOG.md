@@ -11,11 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - browsertrix-behaviors 0.15.0 ships unmodified in every build, so capture engines reveal per-site content with no install (AGPL, combined under GPL-3 section 13; licence and checksum in THIRD_PARTY_NOTICES.md). `ZIMI_BEHAVIORS` or a global npm install still wins.
 - The Docker image carries the warc2zim sidecar, so Create's import and alive engines work with no network.
-- Field Guide: what to do in 25 emergencies (bleeding, choking, not breathing, a heart attack, cold, a flood, being lost and more), each in word-for-word quotes from open sources with edition, page and licence. Works with no ZIM installed.
-- Help now on home, the first-run screen and the sign-in screen opens the Field Guide; searching "bleeding" or "my friend is not breathing" answers with its situation.
-- Each emergency card shows the local emergency number, worked out from the time zone.
-- The Field Guide shows which installed ZIMs go deeper on each situation and offers the missing ones with their size; it can build a field-manual ZIM from the Army's public-domain manuals.
-- Red, a theme beside Light and Dark, to keep night vision: deep red on black in every screen, app, the sky and Earth, and over the ZIM page you are reading. The sky's and the Field Guide's red switches choose it.
+- Red, a theme beside Light and Dark, to keep night vision: deep red on black in every screen, app, the sky and Earth, and over the ZIM page you are reading. The sky's red switch chooses it.
 - Zimi Earth: a globe of the library's places, with Wikipedia articles and Wikivoyage guides by location and links that open a place.
 - Search finds the articles a question is about ("how tall is mount everest"). The card that quotes the answering sentence is off by default (`ZIMI_BEST_ANSWER=1` turns it on): on 30 real questions it quoted a wrong or off-topic sentence too often.
 - Zimi reads ZIMs from folders another program owns, in place and never changed: `ZIMI_EXTRA_ZIM_DIRS`, or Settings, Server, Storage. Project NOMAD's library is found and offered once ([guide](docs/integrations/project-nomad.md)).

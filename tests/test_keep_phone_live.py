@@ -252,6 +252,7 @@ def test_chromium_full_cold_start_offline(pw, world):
     br.close()
 
 
+@pytest.mark.fieldguide_on
 def test_the_shell_features_need_no_server_and_no_file_is_missing(pw, world):
     """From the home the phone draws from its kept list, offline: Help now opens
     and answers, the Almanac opens, and not one /static/ file the shell asks for

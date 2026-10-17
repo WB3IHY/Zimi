@@ -185,6 +185,7 @@ def _sort(pg, key):
     ids=["desktop", "phone"],
 )
 @pytest.mark.parametrize("scheme", ["dark", "light"])
+@pytest.mark.fieldguide_on
 @pytest.mark.parametrize("lang", ["en", "he"])
 def test_the_order_governs_the_apps_and_their_title_opens_their_page(
     served, size, phone, scheme, lang

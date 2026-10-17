@@ -119,5 +119,6 @@ addopts = "--ignore=tests/test_article_languages.py"
 # Naming it explicitly still runs it.
 testpaths = ["tests"]
 markers = [
+    "fieldguide_on: runs with ZIMI_FIELDGUIDE=1 (the Field Guide and Help now are off by default)",
     "real_engine: opts a test out of the autouse libtorrent guard (may start a live libtorrent session)",
 ]

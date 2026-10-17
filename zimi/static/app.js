@@ -2390,7 +2390,7 @@ function _enterLoginGate() {
   _loginRequired = true;
   document.body.classList.add('login-gate');
   var help = document.getElementById('pw-helpnow');
-  if (help) { help.innerHTML = _gateHelpHtml(); help.hidden = false; }
+  if (help) { help.innerHTML = _gateHelpHtml(); help.hidden = !help.innerHTML; }
   openLoginModal();
 }
 function _exitLoginGate() {
@@ -3274,7 +3274,7 @@ async function _offlineWorks() {
   const works = {
     carried: await _keepLocalList(),
     almanac: await kept(_ALMANAC_MODULES[_ALMANAC_MODULES.length - 1]),
-    help: (await kept(_FIELDGUIDE_PAGE)) && (await kept(_FIELDGUIDE_OFFLINE_URL)),
+    help: _fieldguideOn() && (await kept(_FIELDGUIDE_PAGE)) && (await kept(_FIELDGUIDE_OFFLINE_URL)),
     saved: 0
   };
   const items = Saved.all().filter(function(it) { return it.kind === 'article' && !it.app; });
@@ -6354,7 +6354,7 @@ function _keepSurvivalTilesHtml(withHelp) {
   var almanac = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>';
   return '<div class="' + (isTiles ? 'stats-grid tiles' : 'stats-grid') + ' keep-apps">' +
     tile('/#almanac', 'openAlmanac()', almanac, t('almanac'), t('offline_works_almanac_desc')) +
-    (withHelp === false ? '' : tile(_fieldguideUrl(''), 'openFieldguide(false)', _HELP_NOW_SVG, t('fieldguide_help_now'), t('offline_works_help_desc'))) +
+    (withHelp === false || !_fieldguideOn() ? '' : tile(_fieldguideUrl(''), 'openFieldguide(false)', _HELP_NOW_SVG, t('fieldguide_help_now'), t('offline_works_help_desc'))) +
     '</div>';
 }
 
@@ -13700,7 +13700,8 @@ function _openSetup(st) {
   card.innerHTML = st.inside === false
     ? '<h2>' + tH('setup_waiting_title') + '</h2><p class="subtitle">' + tH('setup_waiting_body') + '</p>'
     : '<h2>' + tH('welcome') + '</h2><p class="subtitle">' + tH('setup_body') + '</p>' + _setupFormHtml(st, 'setup');
-  card.innerHTML += '<p class="gate-help">' + _gateHelpHtml() + '</p>';
+  var gateHelp = _gateHelpHtml();
+  if (gateHelp) card.innerHTML += '<p class="gate-help">' + gateHelp + '</p>';
   document.getElementById('setup-overlay').classList.add('open');
   var first = card.querySelector('input:not([type=checkbox])');
   if (first && first.id === 'setup-key') first.focus();
@@ -21387,6 +21388,11 @@ function _booksSearch(val) { _appFrameCall('booksSearch', val); }
 // (a situation above the results, see the card below). Eric, 2026-09-28:
 // "build first aid and or a whole like how to live and survive bucket."
 var _fieldguideOpen = false;
+// The server stamps <html data-zimi-fieldguide="1"> when the guide is on
+// (ZIMI_FIELDGUIDE); without it nothing here draws an entry to it.
+function _fieldguideOn() {
+  try { return document.documentElement.dataset.zimiFieldguide === '1'; } catch (e) { return false; }
+}
 var _FIELDGUIDE_PAGE = '/static/fieldguide.html?v=1';
 // The guide's own copy of its quotes and phrase tables (fieldguide-offline.js).
 var _FIELDGUIDE_OFFLINE_URL = '/static/fieldguide-offline.json';
@@ -21433,6 +21439,7 @@ function _fieldguideStrings(id) {
   return _appStrings('fieldguide', keys, { open: id || '', lat: lat, lon: lat ? String(place.lon) : '', place: lat ? String(place.name || '') : '' });
 }
 function openFieldguide(replaceState, id) {
+  if (!_fieldguideOn()) return;
   id = _fieldguideId(id);
   if (_isModClick()) { _lastMouseEvent = null; window.open(_fieldguideUrl(id), '_blank'); return; }
   if (_createOpen) closeCreate();
@@ -21459,17 +21466,20 @@ function openFieldguide(replaceState, id) {
 // counts; with a situation it is the small link a bare word gets ("Help now:
 // Water") in place of the card.
 function _helpNowPillHtml(id) {
+  if (!_fieldguideOn()) return '';
   id = _fieldguideId(id);
   var label = id ? t('fieldguide_help_link', { name: t('fieldguide_s_' + id) }) : t('fieldguide_help_now');
   return '<a class="help-now" href="' + escAttr(_fieldguideUrl(id)) + '" onclick="return _spaNav(event, function() { openFieldguide(false, \'' + id + '\'); })">' +
     _HELP_NOW_SVG + '<span>' + esc(label) + '</span></a>';
 }
 function _helpNowHtml(id) {
+  if (!_fieldguideOn()) return '';
   return '<div class="help-now-row">' + _helpNowPillHtml(id) + '</div>';
 }
 // The same entry where the app cannot be reached: the first-run setup and
 // the sign-in screen. A plain address to the page, which needs no shell.
 function _gateHelpHtml() {
+  if (!_fieldguideOn()) return '';
   return '<a class="help-now help-now-gate" href="' + escAttr(_FIELDGUIDE_PAGE + '#' + _fieldguideStrings('')) + '">' +
     _HELP_NOW_SVG + '<span>' + tH('fieldguide_help_now') + '</span></a>';
 }
@@ -21597,7 +21607,7 @@ registerSearchCard({
   id: 'fieldguide',
   priority: FIELDGUIDE_CARD_PRIORITY,
   ask(ctx) {
-    var h = !ctx.scope && ctx.data && ctx.data.fieldguide;
+    var h = _fieldguideOn() && !ctx.scope && ctx.data && ctx.data.fieldguide;
     if (!h) return null;
     if (h.kind === 'link' || !h.id) return h;
     return new Promise(function(resolve) { _fieldguideLoadCard(function() { resolve(h); }); });
@@ -21608,7 +21618,7 @@ registerSearchCard({
 // The words just typed, looked up in memory on the server (/fieldguide/match),
 // so the card is up in a moment rather than when a library-wide search ends.
 function _fieldguideEarly(query, scope, zimParam, limit, searchSeq) {
-  if (scope) return;
+  if (scope || !_fieldguideOn()) return;
   fetch('/fieldguide/match?q=' + encodeURIComponent(query) + '&ui=' + encodeURIComponent(_uiLangPrimary()), { signal: searchController && searchController.signal })
     .then(function(r) { return r.ok ? r.json() : null; })
     .then(function(m) {
@@ -23443,7 +23453,8 @@ function _appsRowHtml(withHelp) {
   if (!_appsEnabled()) return withHelp ? _helpNowHtml() : '';
   var tiles = _shownApps().map(function(app) { return _APP_TILES[app](); }).join('');
   if (!tiles) return withHelp ? _helpNowHtml() : '';
-  var help = withHelp ? '<div class="apps-help">' + _helpNowPillHtml() + '</div>' : '';
+  var pill = withHelp ? _helpNowPillHtml() : '';
+  var help = pill ? '<div class="apps-help">' + pill + '</div>' : '';
   // Labelled like every section around it (Discover above, the categories
   // below): a row without a name between rows with names reads as lost. And
   // like theirs, its name opens its page (#100): the Apps page. An empty

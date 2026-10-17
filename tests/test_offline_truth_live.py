@@ -261,6 +261,7 @@ def frame_of(pg, needle):
 # ── no network at all ───────────────────────────────────────────────────────
 
 
+@pytest.mark.fieldguide_on
 def test_with_no_network_it_says_so_and_what_still_works_works(phone, world):
     ctx, pg = phone
     warm(ctx, pg, world.base)

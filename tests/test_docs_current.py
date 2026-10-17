@@ -31,11 +31,18 @@ def _all_docs_text():
     )
 
 
+# Guides for features parked out of the release (ZIMI_FIELDGUIDE is off): in the
+# tree, not linked until the feature ships again.
+_PARKED_GUIDES = {"fieldguide.md"}
+
+
 def test_every_guide_is_listed_in_the_index_and_the_readme():
     """A guide nobody links to is a guide nobody reads."""
     index = (FEATURES / "README.md").read_text(encoding="utf-8")
     readme = README.read_text(encoding="utf-8")
     for guide in _guides():
+        if guide.name in _PARKED_GUIDES:
+            continue
         assert f"({guide.name})" in index, (
             f"{guide.name} is not linked from docs/features/README.md — add a row "
             f"to the table so it can be found."

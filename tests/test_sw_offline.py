@@ -29,6 +29,8 @@ import subprocess
 import sys
 import unittest
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -365,6 +367,7 @@ class TestFieldGuideKept(unittest.TestCase):
 
 
 class TestServerFillsTheShellList(unittest.TestCase):
+    @pytest.mark.fieldguide_on
     def test_served_worker_names_the_addresses_the_pages_ask_for(self):
         from zimi import http
 
@@ -395,7 +398,9 @@ class TestServerFillsTheShellList(unittest.TestCase):
             [u for u in urls if "three" in u or "earth-day" in u or "moon-4k" in u]
         )
 
-    def test_the_worker_a_browser_is_sent_carries_the_list_and_this_deploys_version(self):
+    def test_the_worker_a_browser_is_sent_carries_the_list_and_this_deploys_version(
+        self,
+    ):
         import threading
         import urllib.request
         from http.server import ThreadingHTTPServer

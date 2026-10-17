@@ -2325,6 +2325,18 @@ def _read_map_facts(path):
 
 
 APPS_ENV = "ZIMI_APPS"
+# The Field Guide and Help now are out of the shipped release until they come
+# back as "How to (anything)" (docs/plans/app-candidates.md). The code stays in
+# the tree; this switch (default off) is the one thing that reaches it.
+FIELDGUIDE_ENV = "ZIMI_FIELDGUIDE"
+
+
+def fieldguide_enabled():
+    """Whether the Field Guide, Help now and their search card are offered.
+    Read on every call, so a server and its tests agree on what is on."""
+    return os.environ.get(FIELDGUIDE_ENV, "").strip().lower() in ("1", "true", "yes", "on")
+
+
 APP_NAMES = ("maps", "tube", "exchange", "reddot", "wiki", "books", "dictionary", "earth")
 # Apps offered only when named: a comma list in ZIMI_APPS (or a saved list)
 # that names one turns it on; "1", "all", the default and a saved True leave

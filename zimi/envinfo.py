@@ -123,6 +123,10 @@ VARS: dict[str, tuple[str, str]] = {
         "The apps on the home page: 0 hides them all, 1 shows them all, or a comma list of maps, tube, exchange, reddot, books, wiki, dictionary, earth keeps only those",
         "Apps",
     ),
+    "ZIMI_FIELDGUIDE": (
+        "1 brings back the Field Guide and Help now (off in this release)",
+        "Apps",
+    ),
     # ── the desktop app ────────────────────────────────────────────────────
     "ZIMI_DESKTOP_BROWSER": (
         "1 runs the desktop app in the system browser instead of a native window",
