@@ -187,3 +187,26 @@ def test_a_jump_repaints_the_sky_even_when_the_observer_is_stale(browser, served
         assert pg.evaluate("_skyState.inView") is True  # a measured, in-view sky wakes properly
     finally:
         ctx.close()
+
+
+def test_the_ground_light_is_read_back_once_per_light_not_per_frame(browser, served):
+    """Reading the ground's colours back from the GPU stops the page until it answers: a still light reads once."""
+    ctx, pg, errors = _page(browser, served)
+    try:
+        pg.wait_for_function("() => typeof _skyState !== 'undefined' && _skyState && _skyState.eph", timeout=60_000)
+        reads = pg.evaluate(
+            """() => {
+              const s = _skyState;
+              if (_skySetting('skin') !== 'beach') _skySet('skin', 'beach');
+              let n = 0;
+              const get = CanvasRenderingContext2D.prototype.getImageData;
+              CanvasRenderingContext2D.prototype.getImageData = function () { n++; return get.apply(this, arguments); };
+              s.ground = null;
+              for (let i = 0; i < 6; i++) { s.baseDirty = true; _skyPaintBase(s, performance.now()); }
+              CanvasRenderingContext2D.prototype.getImageData = get;
+              return n;
+            }"""
+        )
+        assert reads == 1, reads
+    finally:
+        ctx.close()

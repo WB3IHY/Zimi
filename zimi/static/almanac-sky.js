@@ -1351,6 +1351,7 @@ function _skyAzAt(s, x) { return s.center + (x / s.W - 0.5) * s.span; }
 // mirrors (its glow toward the Sun, the Moon's halo, the blue hour's bands),
 // and read as a few colours, which is what the sand and the palms are lit by.
 var SKY_REFLECT_DOWN = 6;                // the mirrored strip's size: a sea blurs what it holds
+var SKY_LIGHT_KEY_PER_DEG = 10;          // the Sun's height, in tenths of a degree, that makes the ground's light worth reading again
 var SKY_LIGHT_GRID = [8, 4];             // the strip read as this many colours across and down (row 0 is at the horizon)
 var SKY_SAND = [206, 186, 146], SKY_WATER = [30, 85, 105];   // what the sand and the water are, in white light
 var SKY_PALM_TRUNK = [96, 80, 62], SKY_PALM_FROND = [44, 90, 50];
@@ -1388,6 +1389,11 @@ function _skyCaptureLight(s, src) {
   g.setTransform(1, 0, 0, -1, 0, ch);
   g.drawImage(src, 0, yh - band, s.W, band, 0, 0, cw, ch);
   g.setTransform(1, 0, 0, 1, 0, 0);
+  // The ground's colours are read back from the GPU, which stops everything until it answers: only when the light has
+  // changed (the Sun or Moon's height, the Moon's phase, the dial), not on each frame of the Moon's glide.
+  var lightKey = Math.round(s.eph.sunGeoAlt * SKY_LIGHT_KEY_PER_DEG) + ':' + Math.round(s.eph.moon.altitude) + ':' + s.moonData.phase.illumination + ':' + _skySetting('dial');
+  if (s.ground && s.lightKey === lightKey) return;
+  s.lightKey = lightKey;
   var gw = SKY_LIGHT_GRID[0], gh = SKY_LIGHT_GRID[1];
   var t = s.lightGrid || (s.lightGrid = document.createElement('canvas'));
   if (t.width !== gw) { t.width = gw; t.height = gh; }
