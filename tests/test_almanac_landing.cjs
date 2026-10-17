@@ -85,24 +85,16 @@ const DATES = ['2026-10-16T09:00:00Z', '2025-11-21T00:00:00Z', '2026-03-03T12:00
   check(E('_lpSnap(3.9)').stop === 4 && E('_lpSnap(-1)').stop === 0, 'snapping stays on the axis');
 }
 
-// ── 2. The first stop is the Moon at rest: behind the Earth, the Earth's limb beside the Moon ──
-// (LP_REST 'limb': the camera stands back along the line from the Moon through the Earth, a little aside.)
+// ── 2. The first stop is the Moon at rest: from the Earth's side, as the picture is ──
 for (const iso of DATES) {
   const ms = Date.parse(iso), sc = at(iso);
   const cam = E('_lpStopCams(_aeSceneAt(' + ms + '), ' + JSON.stringify(PHONE) + ')')[0];
   const pos = E('_lpCamPos(' + JSON.stringify(cam) + ')');
   check(vlen(sub(cam.tp, sc.moon)) < 1e-9, iso + ': stop 0 looks at the Moon');
-  check(cam.roll === PHONE.moonRoll, iso + ': in the observer\'s sky (the roll is the Moon\'s)');
-  const toMoon = sub(sc.moon, pos), toEarth = [-pos[0], -pos[1], -pos[2]];
-  const behind = Math.acos(dot(toMoon, sc.moon) / vlen(toMoon) / vlen(sc.moon)) * DEG;
-  check(behind < 3, iso + ': seen from behind the Earth, the Moon as from the Earth (' + behind.toFixed(2) + ' deg off)');
-  check(vlen(pos) > vlen(sc.moon) * 0.5, iso + ': the camera stands well back from the Earth');
-  const mu = Math.asin(E('AE_MOON_RADIUS_RE') / vlen(toMoon)), rho = Math.asin(1 / vlen(toEarth));
-  near(Math.tan(rho) / Math.tan(mu), E('LP_REST_EARTH_MOONS'), 0.05, iso + ': the Earth as large as it is from there');
-  const apart = Math.acos(dot(toMoon, toEarth) / vlen(toMoon) / vlen(toEarth));
-  near((apart - rho - mu) / Math.tan(mu), E('LP_REST_GAP_MOONS'), 1e-3, iso + ': the limbs this far apart (Moon radii)');
-  check(apart - rho > mu, iso + ': the Earth covers no part of the Moon');
-  near(Math.tan(mu) * (PHONE.height / 2) / cam.th, E('LP_REST_MOON_PX'), 0.01, iso + ': the Moon as large in the view as in the hero');
+  check(cam.roll === PHONE.moonRoll, iso + ": in the observer's sky (the roll is the Moon's)");
+  const toMoon = sub(sc.moon, pos);
+  const behind = Math.acos(Math.min(1, dot(toMoon, sc.moon) / vlen(toMoon) / vlen(sc.moon))) * DEG;
+  check(behind < 1e-3, iso + ': on the line from the Earth to the Moon (' + behind.toFixed(6) + ' deg off)');
 }
 
 // ── 3. Every stop holds what it is named for, Sun up ──
@@ -282,26 +274,19 @@ for (const iso of DATES) {
   }
 }
 
-// ── The Moon's words stay clear of the Earth at rest ──
-// The limb's Earth stands where its disc misses the box of words under the Moon, whatever the phase (a full Moon puts
-// the Sun behind the camera, where "away from the Sun" points anywhere), and a wider caption pushes it further round.
+// ── The sky round the Moon (?rest=system): a body's place on the ring ──
 {
-  const cap = E('LP_REST_CAPTION'), R = E('LP_REST_EARTH_MOONS'), D = 1 + E('LP_REST_GAP_MOONS') + R;
-  const clear = E('_lpEarthClear(LP_REST_CAPTION)'), spread = E('LP_REST_EARTH_SPREAD');
-  check(clear > 0 && clear < spread, 'the caption needs the Earth round from straight down, within its reach (' + (clear * DEG).toFixed(1) + ' deg)');
-  check(E('_lpEarthClear({ hw: 1.1, top: -1.15, bottom: -1.6 })') > clear, 'a wider caption (another language) pushes the Earth further round');
-  check(E('_lpEarthClear({ hw: 0.5, top: 3, bottom: 2 })') === 0, 'words above the Moon, where the Earth never stands, leaves it straight down');
-  for (const iso of DATES.concat(['2026-10-26T03:00:00Z', '2026-10-10T19:00:00Z'])) {
-    const ms = Date.parse(iso), sc = at(iso);
-    const cam = E('_lpStopCams(_aeSceneAt(' + ms + '), ' + JSON.stringify(PHONE) + ')')[0], f = frame(cam);
-    const toMoon = sub(sc.moon, f.pos), toEarth = [-f.pos[0], -f.pos[1], -f.pos[2]];
-    // The Earth's centre on the screen relative to the Moon's, in the screen's own axes.
-    const ex = dot(toEarth, f.right) / dot(toEarth, f.fwd) - dot(toMoon, f.right) / dot(toMoon, f.fwd);
-    const ey = dot(toEarth, f.up) / dot(toEarth, f.fwd) - dot(toMoon, f.up) / dot(toMoon, f.fwd);
-    const fromDown = Math.abs(Math.atan2(ex, -ey));
-    check(fromDown >= clear - 0.02, iso + ': the Earth stands ' + (fromDown * DEG).toFixed(1) + ' deg from straight down, clear of the words');
-    check(fromDown <= spread + 0.02, iso + ': and no higher than its reach, clear of the date');
-  }
+  const ax = { fwd: [0, 0, -1], up: [0, 1, 0], right: [1, 0, 0] };
+  const spot = (d) => E('_lpRingSpot(' + JSON.stringify(d) + ', ' + JSON.stringify(ax) + ')');
+  const inner = E('LP_RING_INNER_PX'), side = E('LP_RING_REACH_SIDE_PX'), up = E('LP_RING_REACH_UP_PX');
+  near(spot([0, 0, -1]).theta, 0, 1e-9, 'behind the Moon: 0 deg from it');
+  near(Math.hypot(spot([0, 0, -1]).x, spot([0, 0, -1]).y), inner, 1e-6, 'and just off its edge');
+  near(spot([0, 0, 1]).theta * DEG, 180, 1e-6, 'behind the camera: 180 deg');
+  near(spot([1, 0, 0]).theta * DEG, 90, 1e-6, 'a quarter of the sky round: 90 deg');
+  near(spot([1, 0, 0]).x, inner + side / 2, 1e-6, 'standing beside the Moon, on its right, half way out');
+  near(spot([0, 1, 0]).y, inner + up / 2, 1e-6, 'and above it, where the hero\'s date is, no further than the up reach allows');
+  check(spot([-1, 0, 0]).x < 0 && spot([0, -1, 0]).y < 0, 'bearings are the screen\'s: left and down');
+  check(spot([0.6, 0, 0.8]).theta > spot([0.6, 0, -0.8]).theta, 'the further from the Moon in the sky, the further out');
 }
 
 if (failures) { console.error(failures + ' check(s) failed'); process.exit(1); }

@@ -18,6 +18,7 @@ function _jdToJulianCentury(JD) { return (JD - JD_J2000) / JULIAN_CENTURY; }
 // Under that old key localStorage may still hold the corrupted longitude the
 // v1.7 hero-time bug could write, so that copy is never read, only removed.
 // The sky's way in to pointing the phone at it (almanac-look.js, loaded on its first tap).
+var ALM_GEAR_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
 var ALM_LOOK_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="5"/><path d="M12 9.5l1 2.5-1 2.5-1-2.5z" fill="currentColor"/></svg>';
 var _ALM_PLACE_KEY = 'zimi_almanac_place';     // app.js SK.ALMANAC_PLACE
 var _ALM_LOC_KEY = 'zimi_almanac_location';   // app.js SK.ALMANAC_LOC
@@ -174,6 +175,7 @@ function _almEsc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
 
 
 function _cancelAllRAF() {
+  _almanacLoopsHeld = true;
   if (_almanacOrreryRAF) { cancelAnimationFrame(_almanacOrreryRAF); _almanacOrreryRAF = null; }
   _skyPause();
   if (_tzClockRAF) { clearTimeout(_tzClockRAF); _tzClockRAF = null; }
@@ -183,6 +185,7 @@ function _cancelAllRAF() {
   _almTzHandPause();
 }
 function _resumeAllRAF() {
+  _almanacLoopsHeld = false;
   _orreryLastFrame = performance.now();  // prevent time-jump after tab was hidden
   if (typeof _orreryAnimate === 'function') _orreryAnimate();
   _skyResume();
@@ -583,16 +586,13 @@ function _almClockParts(focus) {
   };
 }
 
-// Header, hero moon and the eight pills for a given instant. Re-rendered in
+// Header and hero moon for a given instant: the top half of a folded wall calendar, the Moon and its name and nothing under it. Re-rendered in
 // place when a calendar day is picked, so there's one set of numbers on the
 // page rather than a duplicate panel lower down.
 function _almHeadHtml(focus) {
   var m = _moonPhase(focus);
-  var dist = _moonDistance(focus);
-  var age = (m.phase * 29.53).toFixed(1);
-
   var cp = _almClockParts(focus);
-  var loc = cp.loc, locTz = cp.locTz, lang = cp.lang;
+  var loc = cp.loc;
 
   // Both the big date and the time beneath it summon the time machine — the
   // heading is the almanac's clearest "this is the moment shown" surface, so
@@ -619,68 +619,7 @@ function _almHeadHtml(focus) {
   html += _heroMoonOrientNote(loc);
   html += '</div>';
 
-  // Sun cards render in the LOCATION's timezone, not the header clock's: a
-  // sunrise is a fact about a place, and reading "sunrise 8:07 PM" because the
-  // viewer's own zone was applied to somewhere else's sky helps nobody. The two
-  // only differ once a location has actually been chosen (_almDisplayTz falls
-  // back to the device zone otherwise), and the header states its zone.
-  var _locTzOff;
-  try { _locTzOff = _tzUtcOffsetMin(locTz, focus); }
-  catch (e) { _locTzOff = -focus.getTimezoneOffset(); }
-  var sunInfo0 = _computeSunTimes(focus, loc.lat, loc.lon, _locTzOff);
-
-  var _nfm = _nextFullMoon(focus);
-
-  html += '<div class="alm-cards">';
-  html += _almHeadCard(t('alm_illuminated'), m.illumination + '%', 'alm-hc-illum');
-  html += _almHeadCard(t('alm_moon_age'), age + ' ' + t('alm_days'), 'alm-hc-age');
-  html += _almHeadCard(t('alm_distance'), _almFmtNum(Math.round(dist)) + ' ' + t('alm_km'), 'alm-hc-dist');
-  html += _almHeadCard(t('alm_next_full'), _almNextFullHtml(_nfm, lang, focus), 'alm-hc-nextfull',
-    { cardId: 'alm-hc-nextfull-card', hidden: !_nfm, valClass: _nfm && _nfm.isSuper ? 'alm-card-super' : '' });
-  // Both faces of the sun row live in the DOM at once and only their `hidden`
-  // flags move. Travel crosses into and out of a polar day mid-scrub, and
-  // flipping a flag is something the per-frame updater can do; rebuilding the
-  // card grid is not, so the alternative was a stale row contradicting the
-  // date beside it.
-  html += _almHeadCard('', sunInfo0.polar || '', 'alm-hc-polar',
-    { cardId: 'alm-hc-polar-card', span: 4, hidden: !sunInfo0.polar });
-  html += _almHeadCard(t('alm_sunrise'), sunInfo0.sunrise || '', 'alm-hc-sunrise',
-    { cardId: 'alm-hc-sunrise-card', hidden: !!sunInfo0.polar });
-  html += _almHeadCard(t('alm_sunset'), sunInfo0.sunset || '', 'alm-hc-sunset',
-    { cardId: 'alm-hc-sunset-card', hidden: !!sunInfo0.polar });
-  html += _almHeadCard(t('alm_daylight'), sunInfo0.dayLength || '', 'alm-hc-daylight',
-    { cardId: 'alm-hc-daylight-card', hidden: !!sunInfo0.polar });
-  html += _almHeadCard(_lterm('golden_hour', t('alm_golden')), sunInfo0.goldenHour || '', 'alm-hc-golden',
-    { cardId: 'alm-hc-golden-card', hidden: !sunInfo0.goldenHour, valClass: 'alm-card-golden' });
-  html += '</div>';
   return html;
-}
-
-// One card in the hero readout grid. Every value node carries an id so the
-// per-frame travel updater can rewrite it in place instead of the whole grid.
-// opts: cardId (id on the card, for hiding it), span (grid columns), hidden,
-// valClass (colour variant).
-function _almHeadCard(lbl, valHtml, valId, opts) {
-  opts = opts || {};
-  return '<div class="alm-card"' + (opts.cardId ? ' id="' + opts.cardId + '"' : '') +
-    (opts.span ? ' style="grid-column:span ' + opts.span + '"' : '') +
-    (opts.hidden ? ' hidden' : '') + '>' +
-    (lbl ? '<div class="alm-card-lbl">' + lbl + '</div>' : '') +
-    '<div class="alm-card-val' + (opts.valClass ? ' ' + opts.valClass : '') + '" id="' + valId + '">' +
-    valHtml + '</div></div>';
-}
-
-// Value markup for the next-full-moon card, shared by the full render and the
-// throttled travel refresh so the two can never disagree on format. The year
-// shows only when the full moon falls outside the focused year: a bare "Aug 27"
-// is unambiguous beside a header reading 2026 and meaningless beside one
-// reading 2183, and the card is a quarter of the grid wide.
-function _almNextFullHtml(nfm, lang, focus) {
-  if (!nfm) return '';
-  var opts = { month: 'short', day: 'numeric' };
-  if (nfm.date.getFullYear() !== focus.getFullYear()) opts.year = 'numeric';
-  return nfm.date.toLocaleDateString(lang, opts) +
-    (nfm.isSuper ? ' \u00b7 ' + _lterm('supermoon', t('alm_supermoon')) : '');
 }
 
 // Render one panel resiliently. Travel now reaches arbitrary epochs, where a
@@ -1036,60 +975,13 @@ function _almTravelThrottled(key, ms, fn) {
   fn();
 }
 
-// Refresh the next-full-moon card. _nextFullMoon walks up to 45 days an hour at
-// a time (~0.3ms), several times the per-frame budget the sky redraw lives
-// inside, so it rides the throttle.
-function _almLiveNextFull(focus) {
-  var card = document.getElementById('alm-hc-nextfull-card');
-  var val = document.getElementById('alm-hc-nextfull');
-  if (!card || !val) return;
-  var nfm = null;
-  try { nfm = _nextFullMoon(focus); } catch (e) {}
-  card.hidden = !nfm;
-  if (!nfm) return;
-  val.innerHTML = _almNextFullHtml(nfm, (typeof _currentLang !== 'undefined') ? _currentLang : 'en', focus);
-  val.classList.toggle('alm-card-super', !!nfm.isSuper);
-}
-
-// Update the moon/sun readout cards in place (text nodes and `hidden` flags, no
-// header rebuild). DOM tier only — the hero disc itself is drawn by
-// _almTravelLive's visual tier, every frame, from its own _moonPhase call.
-//
-// Within this tier nothing may contradict anything else in it: the phase NAME
-// and the illumination figure come from the one _moonPhase call below, and the
-// sun row swaps between its polar and its sunrise/sunset face rather than
-// leaving yesterday's face standing. The next-full-moon card updates here too —
-// at this cadence its own throttle is redundant.
+// Update the hero's phase name in place (a text node, no header rebuild). DOM tier only: the hero disc itself is
+// drawn by _almTravelLive's visual tier, every frame, from its own _moonPhase call.
 // _almRepaintFocus recomputes everything exactly on settle.
-function _almLiveHeadCards(focus) {
-  var set = function (id, val) { var e = document.getElementById(id); if (e) e.textContent = val; };
-  var show = function (id, on) { var e = document.getElementById(id); if (e) e.hidden = !on; };
-  var m;
-  try { m = _moonPhase(focus); } catch (e) { return; }
-  set('alm-hc-illum', m.illumination + '%');
-  set('alm-hc-age', (m.phase * 29.53).toFixed(1) + ' ' + t('alm_days'));
-  set('alm-hc-phase', _localMoonName(m.name));
-  try { var dist = _moonDistance(focus); if (dist) set('alm-hc-dist', _almFmtNum(Math.round(dist)) + ' ' + t('alm_km')); } catch (e) {}
-  _almLiveNextFull(focus);
-  try {
-    var loc = _getLocation();
-    var off;
-    try { off = _tzUtcOffsetMin(_almDisplayTz(loc), focus); } catch (e) { off = -focus.getTimezoneOffset(); }
-    var s = _computeSunTimes(focus, loc.lat, loc.lon, off);
-    show('alm-hc-polar-card', !!s.polar);
-    show('alm-hc-sunrise-card', !s.polar);
-    show('alm-hc-sunset-card', !s.polar);
-    show('alm-hc-daylight-card', !s.polar);
-    show('alm-hc-golden-card', !!s.goldenHour);
-    if (s.polar) {
-      set('alm-hc-polar', s.polar);
-    } else {
-      set('alm-hc-sunrise', s.sunrise);
-      set('alm-hc-sunset', s.sunset);
-      set('alm-hc-daylight', s.dayLength);
-      if (s.goldenHour) set('alm-hc-golden', s.goldenHour);
-    }
-  } catch (e) {}
+function _almLiveHeadPhase(focus) {
+  var name = document.getElementById('alm-hc-phase');
+  if (!name) return;
+  try { name.textContent = _localMoonName(_moonPhase(focus).name); } catch (e) { /* beyond the calendar's range: the name stays */ }
 }
 
 // The live update run during time travel — the single hook both the lever loop
@@ -1131,7 +1023,7 @@ function _almTravelLive(focus) {
   if (typeof _orreryTravelTick === 'function') _orreryTravelTick();
   _almTravelThrottled('dom', _ALM_TRAVEL_DOM_MS, function () {
     _almScrubClock(focus);
-    _almLiveHeadCards(focus);
+    _almLiveHeadPhase(focus);
     if (typeof _orreryUpdateDate === 'function' && !_almanacOrreryRAF) _orreryUpdateDate();
   });
   _almTravelThrottled('grid', _ALM_TRAVEL_GRID_MS, _almSyncSelectedToFocus);
@@ -1775,7 +1667,9 @@ function _almAboutDataHtml() {
     '<summary class="almanac-section-title">' + _almEsc(t('alm_about_data')) + '</summary>' +
     '<p class="alm-about-intro">' + _almEsc(t('alm_about_intro')) + '</p><ul class="alm-about-list">' +
     _ALM_ABOUT_ROWS.map(function(k) { return '<li>' + _almEsc(t('alm_about_' + k)) + '</li>'; }).join('') +
-    '</ul><button type="button" class="alm-ref-decay-link" onclick="_almRefOpen(\'decay\')">' + _almEsc(t('ref_decay_link')) + '</button></details>';
+    '</ul><button type="button" class="alm-ref-decay-link" onclick="_almRefOpen(\'decay\')">' + _almEsc(t('ref_decay_link')) + '</button>' +
+    // The picture credit the sky's panorama is owed: here, not under the sky (Eric, 2026-10-16).
+    '<p class="alm-about-credit">' + _almEsc(t('alm_sky_credit')) + '</p></details>';
 }
 
 // The back matter's group under one heading (the tables and calculations),
@@ -2316,7 +2210,8 @@ function _renderAlmanacContent() {
     '<button type="button" class="alm-sky-look" onclick="openAlmanacLook()" aria-label="' + escAttr(t('look_title')) + '" title="' + escAttr(t('look_title')) + '">' + ALM_LOOK_SVG + '</button>' +
     '<div id="almanac-sky-cap" class="alm-sky-cap"></div>' +
     '<div id="almanac-sky-facts" class="alm-sky-facts"></div>' +
-    '<details id="almanac-sky-set" class="alm-sky-set"></details>' +
+    '<button type="button" class="alm-sky-gear" id="almanac-sky-gear" onclick="_skyToggleSettings()" aria-expanded="false" aria-controls="almanac-sky-set" aria-label="' + escAttr(t('alm_sky_set')) + '" title="' + escAttr(t('alm_sky_set')) + '">' + ALM_GEAR_SVG + '</button>' +
+    '<div id="almanac-sky-set" class="alm-sky-set" role="group" aria-label="' + escAttr(t('alm_sky_set')) + '" hidden></div>' +
     '<div id="almanac-sky-tip" class="alm-sky-tip" hidden></div>' +
     // Inline styles duplicate .sr-only so a stale cached app.css can never
     // expose this text visually (issue #25).
@@ -2841,29 +2736,7 @@ function _almHeroLiveUpdate(now) {
   var turn = view.tilt ? 'rotate(' + view.tilt.toFixed(1) + 'deg)' : '';
   if (img.parentNode.style.transform !== turn) img.parentNode.style.transform = turn;
   _almScrubClock(now);
-  _almLiveHeadCards(now);
-}
-
-// Next full moon after fromDate, with its distance and whether it's a
-// "supermoon" (full within ~90% of perigee ≈ ≤ 361,500 km).
-function _nextFullMoon(fromDate) {
-  var t = fromDate.getTime();
-  var prev = _moonPhase(new Date(t)).phase - 0.5;
-  for (var h = 1; h <= 45 * 24; h++) {
-    var tt = t + h * 3600000;
-    var delta = _moonPhase(new Date(tt)).phase - 0.5;
-    if (prev < 0 && delta >= 0) { // waxing crossing of full
-      var lo = tt - 3600000, hi = tt;
-      for (var b = 0; b < 22; b++) {
-        var mid = (lo + hi) / 2;
-        if (_moonPhase(new Date(mid)).phase - 0.5 < 0) lo = mid; else hi = mid;
-      }
-      var fm = new Date(hi), d = _moonDistance(fm);
-      return { date: fm, distance: d, isSuper: d <= 361500 };
-    }
-    prev = delta;
-  }
-  return null;
+  _almLiveHeadPhase(now);
 }
 
 // Small inline-SVG moon at a given phase (0=new .. 0.5=full .. 1=new).
@@ -3907,8 +3780,9 @@ function _renderSunMap(now) {
     '<span class="alm-tz-hand" id="almanac-tz-hand" aria-hidden="true"></span></div>';
   html += '<div id="almanac-tz-label" class="alm-clock-info"></div>';
   html += '</div>';
-  html += '<div class="alm-hol-row alm-tz-view" id="almanac-tz-view"></div>';
   html += '<div class="alm-tz-list" id="almanac-tz-pills"></div>';
+  // Under the clocks it filters, as the holidays' Regional/Worldwide is under its grid.
+  html += '<div class="alm-hol-row alm-tz-view" id="almanac-tz-view"></div>';
   html += '</div>';
 
   html += '</div>';
@@ -4198,7 +4072,7 @@ function _initTzClock(now) {
     try { tzTime = _tzFmt(tzc.tz, ALM_TZ_TIME_OPTS).format(now); } catch(e) { continue; }
     var utcOff = _almTzOffsetLabel(tzc.tz, now);
     var tzHour = 0;
-    try { tzHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: tzc.tz, hour: 'numeric', hour12: false }).format(now)); } catch(e) {}
+    try { tzHour = parseInt(_tzFmt(tzc.tz, ALM_TZ_HOUR_OPTS, 'en-US').format(now)); } catch(e) {}
     var phase = (tzHour < 5 || tzHour >= 21) ? 'night' : tzHour < 8 ? 'dawn' : tzHour < 18 ? 'day' : 'dusk';
     // Sun: solid unicode; moon: CSS crescent (the unicode moons render as
     // thin outlines at small sizes)
@@ -4235,7 +4109,7 @@ function _initTzClock(now) {
 // ones now.) Which of the two views is showing is kept beside them.
 var _ALM_CLOCKS_KEY = 'zimi_almanac_clocks';
 var _ALM_CLOCKS_VIEW_KEY = 'zimi_almanac_clocks_view';
-var ALM_CLOCKS_VIEWS = ['saved', 'all'];
+var ALM_CLOCKS_VIEWS = ['all', 'saved'];
 var ALM_TZ_NAME_RE = /^[A-Za-z0-9_+\/-]+$/;   // an IANA zone name, and nothing that could leave an attribute
 function _almClocks() {
   try { var v = JSON.parse(localStorage.getItem(_ALM_CLOCKS_KEY)); return Array.isArray(v) ? v.filter(function (z) { return typeof z === 'string' && ALM_TZ_NAME_RE.test(z); }) : []; }
@@ -4283,7 +4157,7 @@ function _almTzFocusRestore(host, key) {
   for (var i = 0; i < all.length; i++) if (all[i].classList.contains('alm-tz-star') === key.star) pick = all[i];
   if (pick) pick.focus({ preventScroll: true });
 }
-// The two-way switch above the clocks, the Regional/Worldwide pill's look.
+// The two-way switch under the clocks, the Regional/Worldwide pill's look.
 var ALM_STAR_SVG = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.5l2.4 5.2 5.6.6-4.2 3.8 1.2 5.6L12 15.8l-5 2.9 1.2-5.6L4 9.3l5.6-.6z"/></svg>';
 function _almClockViewPaint(view) {
   var host = document.getElementById('almanac-tz-view');
@@ -4300,6 +4174,7 @@ function _almClockViewPaint(view) {
 // A clock's time, and its zone's offset from UTC now: "UTC+5:30 · IST". The
 // short name only when it is a real abbreviation; a GMT/UTC alias (GMT+8,
 // UTC-5) would only repeat the offset.
+var ALM_TZ_HOUR_OPTS = { hour: 'numeric', hour12: false };   // a card's day phase: the hour in the zone, as digits
 var ALM_TZ_TIME_OPTS = { hour: 'numeric', minute: '2-digit', hour12: true };
 function _almTzOffsetLabel(tz, now) {
   var out = '';
@@ -4765,28 +4640,51 @@ var _tzGridMinute = -1;
 // a sweeping hand redrew it every frame, the largest idle cost left on a
 // phone once the sky stopped animating.
 var _TZ_CLOCK_TICK_MS = 1000;
+// The face and the cards are drawn only while the clocks are on screen: out of sight they stay as they were, and are
+// drawn at the time they have reached when they come back (the second's tick, a card grid a minute stale, are
+// not worth a phone's main thread under a page nobody is looking at them on).
+var _tzClockInView = true;
+var _tzClockObs = null;
+var _tzTmMinute = -1;
+function _tzWatchView() {
+  if (_tzClockObs) { _tzClockObs.disconnect(); _tzClockObs = null; }
+  var wrap = document.querySelector('.alm-tz-wrap');
+  _tzClockInView = true;
+  if (!wrap || typeof IntersectionObserver !== 'function') return;
+  _tzClockObs = new IntersectionObserver(function (entries) {
+    var on = entries[entries.length - 1].isIntersecting;
+    if (on && !_tzClockInView && _almanacOpen) { _tzClockInView = true; _tzClockTick(); }   // the face at the time it has reached; the cards only if a minute has turned
+    _tzClockInView = on;
+  });
+  _tzClockObs.observe(wrap);
+}
+function _tzClockTick() {
+  var now = new Date(), minute = now.getMinutes();
+  if (_tzClockInView) {
+    _drawTzClock(now);
+    // City cards rendered once and went stale within minutes: refresh the grid on each minute rollover.
+    if (minute !== _tzGridMinute) { _tzGridMinute = minute; _initTzClock(now); }
+  }
+  // Keep the time machine's ACTUAL row ticking (HH:MM resolution, so a
+  // once-per-minute refresh is enough) while parked in the past/future,
+  // and with it the offset lamp, which is measured against that row.
+  if (minute !== _tzTmMinute) {
+    _tzTmMinute = minute;
+    _almTmSetCells('alm-tm-now', now);
+    _almTmSetDelta('alm-tm-delta', _almFocusInstant());
+  }
+}
 function _startTzClock() {
   if (_tzClockRAF) clearTimeout(_tzClockRAF);
   if (_tzClockFrame) { cancelAnimationFrame(_tzClockFrame); _tzClockFrame = null; }
+  _tzWatchView();
   function next() {
     _tzClockRAF = setTimeout(function () { _tzClockRAF = null; _tzClockFrame = requestAnimationFrame(tick); }, _TZ_CLOCK_TICK_MS - Date.now() % _TZ_CLOCK_TICK_MS);
   }
   function tick() {
     _tzClockFrame = null;
     if (!_almanacOpen) { _tzClockRAF = null; return; }
-    var now = new Date();
-    _drawTzClock(now);
-    // City cards rendered once and went stale within minutes — refresh
-    // the grid on each minute rollover (cheap: 28 cards, 1x/min)
-    if (now.getMinutes() !== _tzGridMinute) {
-      _tzGridMinute = now.getMinutes();
-      _initTzClock(now);
-      // Keep the time machine's ACTUAL row ticking (HH:MM resolution, so a
-      // once-per-minute refresh is enough) while parked in the past/future —
-      // and with it the offset lamp, which is measured against that row.
-      _almTmSetCells('alm-tm-now', now);
-      _almTmSetDelta('alm-tm-delta', _almFocusInstant());
-    }
+    _tzClockTick();
     next();
   }
   tick();

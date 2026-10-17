@@ -1484,7 +1484,7 @@ function _aeRunClock(dms) {
   if (typeof _almTravelThrottled !== 'function') return;
   _almTravelThrottled('ae-page', AE_PAGE_TICK_MS, function () {
     if (typeof _almScrubClock === 'function') _almScrubClock(next);
-    if (typeof _almLiveHeadCards === 'function') _almLiveHeadCards(next);
+    if (typeof _almLiveHeadPhase === 'function') _almLiveHeadPhase(next);
   });
 }
 // The clock stopped running (back to real time, or the view closing): the
@@ -1707,9 +1707,6 @@ function _aeHeroFrame() {
 // The hero's camera at a scene, for `hand` (its frame, and any turn a drag
 // has given the Moon since the swap).
 function _aeHandCam(sc, hand) {
-  // The landing's Moon at rest may stand elsewhere (behind the Earth): the hero is drawn from there.
-  var rest = typeof _lpRestHandCam === 'function' ? _lpRestHandCam(sc, hand) : null;
-  if (rest) return rest;
   var dist = _aeLen(sc.moon) - AE_HAND_EARTH_GAP;
   var azel = _aeAzElOf(_aeScale(sc.moon, -1));
   var f = hand.frame;

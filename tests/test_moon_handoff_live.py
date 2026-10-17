@@ -163,26 +163,17 @@ def _mad(a, b):
     return float(np.abs(np.asarray(a, dtype=float) - np.asarray(b, dtype=float)).mean())
 
 
-# The Moon at rest is the Moon alone (the picture) or the limb (the Earth beside it, drawn from behind the
-# Earth): either way the first 3D frame is the hero as it stood, the picture or the live band.
-@pytest.mark.parametrize("rest", ["moon", "limb"])
 @pytest.mark.parametrize("iso", DATES)
-def test_the_first_3d_frame_is_the_hero(browser, served, shots, iso, rest):
+def test_the_first_3d_frame_is_the_hero(browser, served, shots, iso):
     from PIL import Image, ImageChops
 
-    ctx, pg, errors = _almanac(
-        browser, served, init="try{localStorage.setItem('zimi.lpRest','%s')}catch(e){}" % rest
-    )
+    ctx, pg, errors = _almanac(browser, served)
     try:
         _settle(pg, iso)
         clip = _rect(pg)
-        if rest == "moon":
-            # The flat picture: the live scene (almanac-landing.js) stands aside, as before it was ready.
-            pg.evaluate("() => _lpRelease()")
-            pg.wait_for_timeout(200)
-        else:
-            # The live band, once the picture has faded into it.
-            pg.wait_for_timeout(800)
+        # The flat picture: the live scene (almanac-landing.js) stands aside, as before it was ready.
+        pg.evaluate("() => _lpRelease()")
+        pg.wait_for_timeout(200)
         flat = _png(pg.screenshot(clip=clip))
         # Hold the swap at its first frame (a long flight), so the screenshot
         # is the page as composited with the 3D Moon standing in.
@@ -198,10 +189,10 @@ def test_the_first_3d_frame_is_the_hero(browser, served, shots, iso, rest):
         pg.wait_for_timeout(200)
         first = _png(pg.screenshot(clip=clip))
         tag = iso[:13].replace(":", "")
-        flat.save(os.path.join(shots, "handoff-%s-%s-flat.png" % (rest, tag)))
-        first.save(os.path.join(shots, "handoff-%s-%s-3d.png" % (rest, tag)))
+        flat.save(os.path.join(shots, "handoff-%s-flat.png" % tag))
+        first.save(os.path.join(shots, "handoff-%s-3d.png" % tag))
         diff = ImageChops.difference(flat, first).point(lambda v: min(255, v * 4))
-        diff.save(os.path.join(shots, "handoff-%s-%s-diff.png" % (rest, tag)))
+        diff.save(os.path.join(shots, "handoff-%s-diff.png" % tag))
         mad = _mad(flat, first)
         # The yardstick: the same flat picture moved by one device pixel.
         moved = flat.transform(
