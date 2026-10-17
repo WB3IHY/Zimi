@@ -195,6 +195,8 @@ function _skySettingsOutside(e) {
 }
 function _skySettingsKey(e) {
   if (e.key !== 'Escape') return;
+  // Closes the panel, never the Almanac behind it (app.js closes that on an Escape that reaches it).
+  e.preventDefault(); e.stopImmediatePropagation();
   _skyToggleSettings(false);
   var gear = document.getElementById('almanac-sky-gear');
   if (gear) gear.focus();
