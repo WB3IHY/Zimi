@@ -18673,11 +18673,17 @@ function _articleUrl(zim, path) {
   var p = _splitPathFragment(path);
   return '/w/' + encodeURIComponent(zim) + '/' + p.base.split('/').map(encodeURIComponent).join('/') + p.frag;
 }
+// decodeURIComponent that keeps what it cannot decode. A saved page's own file
+// names can hold a bare '%' ("50% off.html"), and a path that is already decoded
+// or half-encoded must not stop a page from opening.
+function _decodeSafe(s) {
+  try { return decodeURIComponent(s); } catch (e) { return s; }
+}
 function _titleFromPath(path) {
   // Drop any in-page '#fragment' — a title should name the article, not the anchor
   // (single-page devdocs links carry 'index#section' style paths).
   var base = _splitPathFragment(path).base;
-  return decodeURIComponent(base.split('/').pop() || '').replace(/_/g, ' ');
+  return _decodeSafe(base.split('/').pop() || '').replace(/_/g, ' ');
 }
 function _saveCurrentFile() {
   // Desktop: save the currently viewed file (PDF, EPUB) to disk
@@ -20565,8 +20571,8 @@ function _wikiUrl(url) {
 function _wikiArticleDoc(frame) {
   var m = null; try { m = /^\/w\/([^\/]+)\/(.+)$/.exec(frame.contentWindow.location.pathname); } catch (e) { return false; }
   if (!m || !_wikiUrl(m[0])) return false;
-  var z = _zimInfo(decodeURIComponent(m[1]));
-  if (decodeURIComponent(m[2]) === z.main_path) return false;
+  var z = _zimInfo(_decodeSafe(m[1]));
+  if (_decodeSafe(m[2]) === z.main_path) return false;
   try { return !!frame.contentDocument.querySelector('#mw-content-text,.mw-parser-output'); } catch (e) { return false; }
 }
 // What Zimipedia's reader shows beside a wiki's article (wiki.article on the
@@ -21608,7 +21614,7 @@ function _bookLay(frame) {
   if (!shell || !article) return false;
   var loc = win.location.pathname.match(/^\/w\/([^\/]+)\/(.+)$/);
   if (!loc) return false;
-  var zim = decodeURIComponent(loc[1]), path = decodeURIComponent(loc[2]);
+  var zim = _decodeSafe(loc[1]), path = _decodeSafe(loc[2]);
   var html = doc.documentElement, uiRtl = document.documentElement.getAttribute('dir') === 'rtl';
   var st = doc.createElement('style');
   st.id = 'zb-style';
@@ -23735,7 +23741,7 @@ function openReader(url) {
       // keys correctly even after in-iframe navigation (not just openArticle).
       try {
         var _vm = _frameLoc.match(/^\/w\/([^\/]+)\/(.+)$/);
-        if (_vm) _bindVideoResume(frame, decodeURIComponent(_vm[1]), decodeURIComponent(_vm[2]));
+        if (_vm) _bindVideoResume(frame, _decodeSafe(_vm[1]), _decodeSafe(_vm[2]));
       } catch(e) {}
       // Dead-player affordance for broken-scrape ZIMs (0-byte / missing media).
       // Independent of the resume binding above — runs for any /w/ article frame.
@@ -23788,8 +23794,8 @@ function openReader(url) {
         var wMatch = fullUrl.startsWith(location.origin) && fullUrl.match(/\/w\/([^\/]+)\/(.+)/);
         if (wMatch) {
           e.preventDefault();
-          var linkZim = decodeURIComponent(wMatch[1]);
-          var linkPath = decodeURIComponent(wMatch[2]).replace(/\?.*$/, ''); // strip query params, keep hash
+          var linkZim = _decodeSafe(wMatch[1]);
+          var linkPath = _decodeSafe(wMatch[2]).replace(/\?.*$/, ''); // strip query params, keep hash
           openArticle(linkZim, linkPath);
           return;
         }
@@ -23908,8 +23914,8 @@ function openReader(url) {
       var _fPath = frame.contentWindow.location.pathname;
       var _wm = _fPath.match(/^\/w\/([^\/]+)\/(.+)/);
       if (_wm) {
-        var _navZim = decodeURIComponent(_wm[1]);
-        var _navPath = decodeURIComponent(_wm[2]);
+        var _navZim = _decodeSafe(_wm[1]);
+        var _navPath = _decodeSafe(_wm[2]);
         currentArticle = { zim: _navZim, path: _navPath };
         // The page's own title, now that it is here: a visit recorded before
         // the page loaded (a deep link, a link inside an article) carried
