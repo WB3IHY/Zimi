@@ -7324,11 +7324,33 @@ var _ALMANAC_MODULES = [
   '/static/almanac-skyfacts.js?v=45',
   '/static/almanac.js?v=45'
 ];
+// Its stylesheet comes with them, not on the home page's first paint; the
+// Almanac opens once both are in, so it never draws unstyled.
+var _ALMANAC_CSS = '/static/almanac.css?v=3';
 var _almanacModulesLoading = null;
+var _almanacCssLoading = null;
+function _loadAlmanacCss() {
+  if (!_almanacCssLoading) {
+    _almanacCssLoading = new Promise(function(resolve, reject) {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = _ALMANAC_CSS;
+      l.onload = resolve;
+      l.onerror = function() {
+        l.remove();
+        _almanacCssLoading = null;
+        reject(new Error(_ALMANAC_CSS));
+      };
+      document.head.appendChild(l);
+    });
+  }
+  return _almanacCssLoading;
+}
 function _loadAlmanacModules() {
   if (_almanacLoaded) return Promise.resolve();
   if (!_almanacModulesLoading) {
-    _almanacModulesLoading = new Promise(function(resolve, reject) {
+    var css = _loadAlmanacCss();
+    var scripts = new Promise(function(resolve, reject) {
       var failed = false;
       _ALMANAC_MODULES.forEach(function(src, i) {
         var s = document.createElement('script');
@@ -7346,6 +7368,10 @@ function _loadAlmanacModules() {
         };
         document.head.appendChild(s);
       });
+    });
+    _almanacModulesLoading = Promise.all([css, scripts]).catch(function(e) {
+      _almanacModulesLoading = null;
+      throw e;
     });
   }
   return _almanacModulesLoading;

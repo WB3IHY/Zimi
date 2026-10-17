@@ -147,6 +147,11 @@
      and the almanac's dark shell shows immediately — before almanac.js loads. */
   html.almanac-boot #main-view { display: none !important; }
   html.almanac-boot #almanac-view { display: flex; }
+  /* Its content gets no box until the Almanac opens: almanac.css arrives with
+     the scripts, and a box styled before it would change under it, which with
+     reduced motion (every transition 0.01ms) still starts a transition, so the
+     first measure would read the old padding. */
+  html.almanac-boot #almanac-content { display: none; }
   /* Reload-into-Create boot gate, same contract as the almanac one above:
      stamped by the head bootstrap for #create, dropped by _openCreateInner (or
      by the load-failure paths), so a shared Create URL opens ON Create instead
@@ -719,6 +724,10 @@
      beside it to land on by accident. */
   .create-view { position: fixed; top: var(--under-topbar); left: 0; right: 0; bottom: 0; display: none; flex-direction: column; z-index: 100; background: var(--bg); }
   .create-view.open { display: flex; animation: fadeIn 0.15s ease; }
+  /* The Almanac's view, closed, is part of the shell; the rest of its styles
+     (almanac.css) arrive with its scripts, off the home page's first paint. */
+  .almanac-view { position: fixed; top: var(--under-topbar); left: 0; right: 0; bottom: 0; display: none; flex-direction: column; z-index: 100; background: var(--bg); }
+  .almanac-view.open { display: flex; animation: fadeIn 0.15s ease; }
   .create-content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 24px 16px 40px; overscroll-behavior: contain; }
   .create-inner { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
   .create-head { display: flex; flex-direction: column; gap: 4px; }
@@ -4021,9 +4030,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* almanac.css loads after this file and pins .almanac-view to a literal 56px;
-     the body prefix wins on specificity so the almanac clears the banner too. */
-  body .almanac-view { top: var(--under-topbar); }
 
 /* The site's mark beside its name while a capture runs. Fixed box so a
    tall or wide favicon cannot push the two text lines around, and the

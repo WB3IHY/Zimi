@@ -1,7 +1,5 @@
 /* ── Almanac mini-app ── */
 :root { --alm-pad-top: 24px; }
-.almanac-view { position: fixed; top: 56px; left: 0; right: 0; bottom: 0; display: none; flex-direction: column; z-index: 100; background: var(--bg); }
-.almanac-view.open { display: flex; animation: fadeIn 0.15s ease; }
 /* Bottom padding is deliberately small: the sticky time-machine dock sticks
    relative to this scroller's padding box, so every px of bottom padding here
    pushes the dock that much further off the screen edge. The dock's own
