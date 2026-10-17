@@ -163,6 +163,7 @@ def test_it_asks_only_when_it_will_not_fit_or_is_a_big_share(pw, world):
     br.close()
 
 
+@pytest.mark.fieldguide_on
 def test_ring_while_it_comes_the_view_and_manage(pw, world):
     if not os.path.exists(rs.REAL):
         pytest.skip("the real 70 MB ZIM is not here")

@@ -194,6 +194,7 @@ def test_red_holds_over_a_zims_own_page_in_the_reader_frame(base, phone):
     )
 
 
+@pytest.mark.fieldguide_on
 def test_red_holds_in_an_app_page_the_reader_frame_shows(base, phone):
     phone.add_init_script("try{localStorage.setItem('%s','red')}catch(e){}" % THEME_KEY)
     _open(phone, base, "/#fieldguide")
