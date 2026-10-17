@@ -3377,19 +3377,22 @@ async function init() {
   _desktopCheckOnboarding();
   // Register service worker
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/static/sw.js', { scope: '/' }).catch(function() {});
+    navigator.serviceWorker.register('/static/sw.js', { scope: '/' }).catch(function() { _swPrimed = true; });
     // The first visit's answers went by before the worker was in charge: ask
     // for the ones the next start cannot do without once it is, so that start
     // can draw the library from the phone when the server does not answer.
-    var prime = function() {
-      ['/list?layout=1', '/whoami', '/manage/has-password'].forEach(function(u) {
-        fetch(u, { credentials: 'same-origin', headers: _manageToken ? _authHeaders() : {} }).catch(function() {});
-      });
-    };
-    navigator.serviceWorker.ready.then(function() {
-      if (navigator.serviceWorker.controller) prime();
-      else navigator.serviceWorker.addEventListener('controllerchange', prime, { once: true });
-    }).catch(function() {});
+    // Only then: a start the worker already controls kept them on the way in,
+    // and asking again would cost every start three requests for nothing.
+    // _swPrimed says when that is done (tests wait for the boot to go quiet).
+    if (!navigator.serviceWorker.controller) {
+      navigator.serviceWorker.addEventListener('controllerchange', function() {
+        Promise.all(['/list?layout=1', '/whoami', '/manage/has-password'].map(function(u) {
+          return fetch(u, { credentials: 'same-origin', headers: _manageToken ? _authHeaders() : {} }).catch(function() {});
+        })).then(function() { _swPrimed = true; });
+      }, { once: true });
+    } else {
+      _swPrimed = true;
+    }
   }
   // Fetch secondary data in parallel, update UI as each arrives
   _initSecondary();
@@ -3404,6 +3407,8 @@ let _manageProbe = null;
 // tell "manage genuinely disabled" (bail) apart from "state not known yet"
 // (open on demand). See #44.
 let _manageProbed = false;
+// The first visit's kept answers are asked for once the worker is in charge (boot).
+let _swPrimed = !('serviceWorker' in navigator);
 
 async function _probeManageAuth() {
   try {
