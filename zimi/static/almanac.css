@@ -372,12 +372,14 @@
 .alm-sky-look { position: absolute; top: 8px; right: 8px; z-index: 2; width: 44px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.55); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .alm-sky-look svg { width: 22px; height: 22px; }
 [dir=rtl] .alm-sky-look { right: auto; left: 8px; }
-/* The sky's two smaller tools (find, see below the horizon), top corner opposite Look, side by side. */
-.alm-sky-tool { position: absolute; top: 8px; left: 8px; z-index: 2; width: 40px; height: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.55); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.alm-sky-tool svg { width: 20px; height: 20px; }
-.alm-sky-tool + .alm-sky-tool { left: 54px; }
-[dir=rtl] .alm-sky-tool { left: auto; right: 8px; }
-[dir=rtl] .alm-sky-tool + .alm-sky-tool { right: 54px; }
+/* The scene's tools in one row along the top, clear of each other and of Look in the opposite corner:
+   the gear, then find, then see below the horizon, each a 44 px target with 8 px between. */
+.alm-sky-tool { position: absolute; top: 8px; z-index: 2; width: 44px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.55); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.alm-sky-tool svg { width: 22px; height: 22px; }
+.alm-sky-find { left: 60px; }
+.alm-sky-below { left: 112px; }
+[dir=rtl] .alm-sky-find { left: auto; right: 60px; }
+[dir=rtl] .alm-sky-below { left: auto; right: 112px; }
 .alm-sky-tool[aria-pressed=true] { background: rgba(120,150,210,.6); border-color: rgba(190,205,230,.7); }
 .almanac-sky-wrap canvas { width: 100%; display: block; border-radius: 12px; touch-action: pan-y; }
 /* What the sky says under the picture: one lead line (the light of the hour),

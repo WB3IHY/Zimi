@@ -144,3 +144,28 @@ def test_the_views_own_close_takes_its_step_back(browser, served):
         assert pg.evaluate("_almanacOpen") is True
     finally:
         ctx.close()
+
+
+TOOLS = ".alm-sky-gear, .alm-sky-find, .alm-sky-below, .alm-sky-look"
+
+
+@pytest.mark.parametrize("locale", ["en-US", "ar"])
+def test_the_scene_tools_do_not_overlap_and_are_44px(browser, served, locale):
+    ctx, pg, errors = _page(browser, served, locale=locale)
+    try:
+        pg.wait_for_selector("[data-sky-find]", state="attached", timeout=60_000)
+        pg.wait_for_selector("[data-sky-below]", state="attached", timeout=60_000)
+        boxes = pg.evaluate(
+            "(sel) => [...document.querySelectorAll(sel)].map(e => { const r = e.getBoundingClientRect();"
+            " return { n: e.className, x: r.x, y: r.y, w: r.width, h: r.height }; })",
+            TOOLS,
+        )
+        assert len(boxes) == 4, boxes
+        for b in boxes:
+            assert b["w"] >= 44 and b["h"] >= 44, b
+        for i, a in enumerate(boxes):
+            for b in boxes[i + 1 :]:
+                apart = a["x"] + a["w"] <= b["x"] or b["x"] + b["w"] <= a["x"] or a["y"] + a["h"] <= b["y"] or b["y"] + b["h"] <= a["y"]
+                assert apart, (a, b)
+    finally:
+        ctx.close()
