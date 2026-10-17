@@ -50,6 +50,11 @@ An app earns a place when the library already holds the data, in a shape Zimi ca
 - Wikiquote and Wikispecies: Zimipedia v2's one-topic strip.
 - freeCodeCamp and MOOCs: their own pages already work; no app.
 
+## Raised 2026-10-16
+
+- **How to (anything).** Eric: "Something doesn't feel right about the help now and field guide. Not only poorly executed but maybe too narrow. It could be a how to do anything cutting through all the zims that say how to do various specific things? Not sure how but something like that broken up in an intuitive way." One question box over every how-to source in the library (wikiHow, iFixit, Appropedia, the Stack Exchange DIY/cooking/gardening sites, the zimgit post-disaster and water/food/knots sets, Wikibooks), answers as steps from the best source, grouped by what you're doing (fix, make, grow, cook, first aid, find your way). The Field Guide's urgent situations become one shelf of it, not its own app. Brainstorm and design before building; not 1.15.
+- **ZimiArcade.** Eric: "I had a ZimiArcade idea which made no sense but for full offline and nothing to do suddenly that's different." Open-source HTML5 games captured as ZIMs (the alive engine keeps their JavaScript running), listed as an arcade, keepable on the phone. Check licences per game; a curated starter set. After the offline-first apps work.
+
 ## Built
 
 - Maps, ZimiTube, ZimiExchange, Reddot (1.10); Bookshelf (1.11); Zimipedia (opt-in in 1.11; v2 in 1.12); the Almanac (always).
