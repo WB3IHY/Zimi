@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Zimi is GPL-3.0-or-later from this release; 1.13.3 and earlier stay MIT.
 - A connection that accepts and never answers ("lie-fi") no longer hangs the app: every request has a deadline and a kept copy answers after it.
 - Almanac tides: one answer first, the curve labels only the next turn, the month's bars are smaller, and the reason sits behind "Why?".
 - Almanac solar system: the twin paradox and the light clock are behind "What if it flew faster?" on the ride card.
