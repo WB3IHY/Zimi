@@ -283,6 +283,17 @@ def test_pictures_that_were_not_saved_are_reported(tmp_path):
     assert any("1 picture not saved" in line for line in log)
 
 
+# ── SingleFile ──────────────────────────────────────────────────────────────
+
+
+@needs_posix_names
+def test_a_singlefile_page_is_one_page_that_says_where_it_came_from(tmp_path):
+    arc, summary, _ = _build(tmp_path, "singlefile", "odd")
+    assert (summary["pages"], summary["assets"]) == (1, 0)
+    assert "localhost:8765" in _text(arc, "index")
+    assert "data:image/png;base64" in _text(arc, "odd.html")
+
+
 # ── Chrome ──────────────────────────────────────────────────────────────────
 
 

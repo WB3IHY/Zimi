@@ -13,6 +13,7 @@ Everything here is verified against the shipping code. Commands are `python3 -m 
 | [Apps](apps.md) | Maps, ZimiTube, ZimiExchange and Reddot: Zimi's own views over the map, video, Q&A and subreddit ZIMs in the library; one thing once across builds; the apps switch |
 | [Field Guide](fieldguide.md) | Help now: situations (bleeding, water, lost, flood...) as quotations from public-domain sources with their source, edition and licence; works with no ZIM; search answers with a situation; the field-manual ZIM; the red night light |
 | [Making ZIMs](making-zims.md) | `zimi create` for a folder, a page, a `--site` crawl, a video or a subreddit; the engines and what each one trades; bookmarks as a standalone ZIM; import for a WARC/WACZ |
+| [Saved web pages](saved-pages.md) | What Firefox, Chrome and Safari write when you save a page (complete, HTML only, single file, web archive), how Zimi packages each, and what a browser leaves out |
 | [Getting & sharing](getting-and-sharing.md) | The catalog and downloads, folders as categories, same-flavor auto-update, BitTorrent seeding, Nearby (mDNS LAN), and the `/dl/` peer transport |
 | [Access](access.md) | Public-access modes, named accounts, per-ZIM allowlists, the creator role, the first-run bootstrap, and Cloudflare Access SSO |
 | [Operations](operations.md) | `zimi config` and the config file, backup/restore, air-gap (`ZIMI_OFFLINE`), `/metrics`, `/health`, update channels, deploy manifests |
