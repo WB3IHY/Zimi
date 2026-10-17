@@ -279,6 +279,13 @@
     cursor: pointer; white-space: nowrap;
   }
   .conn-pill[hidden] { display: none; }
+  /* A phone's top bar has no room for the words: the glyph alone, round, and the
+     words stay in its label and title. Text where there is room. */
+  @media (max-width: 600px) {
+    .conn-pill { padding: 0; width: 28px; height: 28px; justify-content: center; margin-inline-start: 4px; }
+    .conn-pill .conn-pill-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .conn-pill svg { width: 15px; height: 15px; }
+  }
   .conn-pill:hover, .conn-pill:focus-visible { color: var(--text); border-color: var(--text2); outline: none; }
   .ctx-note { pointer-events: none; color: var(--text2); max-width: 230px; white-space: normal; line-height: 1.4; }
   /* Keeping offline: one glyph language on the tile, in the menu, About and the view. */
@@ -3853,7 +3860,7 @@
   }
   .dc-dismiss { background: none; border: none; color: var(--text2); font-size: 16px; cursor: pointer; padding: 0 4px; opacity: 0.4; transition: opacity 0.2s; line-height: 1; }
   .dc-dismiss:hover { opacity: 1; color: var(--text); }
-  .discover-scroll { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding: 8px 2px; margin: -8px -2px; will-change: transform; }
+  .discover-scroll { display: flex; align-items: flex-start; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding: 8px 2px; margin: -8px -2px; will-change: transform; }
   /* The scrollbar stays. It was hidden once on a guess about which stray line
      was being complained about — the answer was the step rail on the create
      page — and on a desktop with no touchscreen that left the strip with no
@@ -3868,6 +3875,8 @@
     cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden; display: flex; flex-direction: column;
   }
+  /* A card with no picture is as tall as its words: the 200px floor is for the pictured ones. */
+  .discover-card:not(.dc-loading):not(:has(.dc-thumb:not([style*="none"]), .dc-today, canvas)) { min-height: 0; }
   .discover-card:hover { background: var(--surface2); border-color: var(--amber-border); box-shadow: 0 4px 24px var(--amber-glow), 0 0 0 1px var(--amber-glow); transform: translateY(-2px); }
   .discover-card.dc-no-click { cursor: default; }
   .discover-card.dc-no-click:hover { background: var(--surface); border-color: var(--border); box-shadow: none; transform: none; }

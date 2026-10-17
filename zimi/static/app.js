@@ -3149,6 +3149,9 @@ function _renderConnBanner() {
   const key = _connState === CONN_OFFLINE ? (_connWhy === WHY_NONET ? 'nonet' : 'server') : 'error';
   el.dataset.why = key;
   el.querySelector('.conn-pill-text').textContent = t('conn_pill_' + key);
+  // Icon-only where there is no room for words: the words ride the label.
+  el.setAttribute('aria-label', t('conn_pill_' + key));
+  el.title = t('conn_pill_' + key);
   el.hidden = false;
 }
 function _connPillTap(e) {
@@ -4886,7 +4889,8 @@ function renderHome(filter) {
   // Zimi Maps, first, as a source sits: one tile whenever a map is installed.
   // Eric: "a Maps tile that sits with the sources grid like a source does."
   if (!homeScope && !filter && !homeRecentFilter && !homeLangFilter.size) {
-    h += _appsRowHtml(true);
+    // Offline the survival tiles above already hold Help now: once, not twice.
+    h += _appsRowHtml(!(_keepNames.size && _connState !== CONN_OK));
   }
 
   // Favorites section at top (only on unscoped home)
