@@ -1314,7 +1314,7 @@ def _create_folder_zim(
                     # entry's bare text/html mimetype no longer says so, and
                     # links to another page saved from the web point at its copy.
                     page_title = named or _page_title_from_html(text, fallback)
-                    text, hints = _saved.prepare(text, zim_path)
+                    text, hints = _saved.prepare(text, zim_path, taken)
                     use_hints.update(hints)
                     if saved:
                         text = _link_saved_pages(text, zim_path, saved)

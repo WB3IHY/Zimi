@@ -232,6 +232,24 @@ def test_a_part_saved_without_an_extension_is_served_as_what_the_page_says_it_is
     assert _mime(arc, "Page_files/saved_resource") == "image/png"
 
 
+def test_a_file_a_browser_named_with_percent_escapes_is_still_found(tmp_path):
+    root = tmp_path / "x"
+    (root / "Page_files").mkdir(parents=True)
+    (root / "Page.html").write_text(
+        "<html><head><title>Page</title></head><body>"
+        '<img src="Page_files/%C4%90_a.jpg"><img src="Page_files/%C4%90_b.jpg">'
+        "</body></html>",
+        encoding="utf-8",
+    )
+    # one saved under its decoded name, one under the URL's own escapes
+    (root / "Page_files" / "\u0110_a.jpg").write_bytes(b"\xff\xd8\xff\xe0a")
+    (root / "Page_files" / "%C4%90_b.jpg").write_bytes(b"\xff\xd8\xff\xe0b")
+    out = str(tmp_path / "x.zim")
+    creator.create_folder_zim(str(root), out_path=out)
+    arc = Archive(out)
+    assert _unresolved(arc, "Page.html") == []
+
+
 def test_pictures_that_were_not_saved_are_reported(tmp_path):
     root = tmp_path / "x"
     root.mkdir()

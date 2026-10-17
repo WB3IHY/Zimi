@@ -181,21 +181,41 @@ def _target(page_rel, ref):
     )
 
 
-def _tidy_urls(tag):
-    """One tag's references with a bare ``%`` made valid."""
+def _valid_ref(ref, page_rel, have):
+    """One local reference made valid: a bare ``%`` is ``%25``; and when the
+    reference, read as the server will (decoded once), names no file but its
+    literal text does (a browser kept ``%C3%A9`` in the file's own name), it is
+    escaped so it reads back as that name."""
+    fixed = _fix_percent(ref)
+    if not have or _target(page_rel, fixed) in have:
+        return fixed
+    path, sep, tail = _html.unescape(ref).strip().partition("#")
+    path, qsep, query = path.partition("?")
+    literal = posixpath.normpath(posixpath.join(posixpath.dirname(page_rel), path))
+    if literal not in have:
+        return fixed
+    here = posixpath.dirname(page_rel) or "."
+    out = urllib.parse.quote(posixpath.relpath(literal, here), safe="/")
+    return out + (qsep + query if qsep else "") + (sep + tail if sep else "")
+
+
+def _tidy_urls(tag, page_rel, have):
+    """One tag's references made valid (see ``_valid_ref``)."""
 
     def fix(m):
         value = m.group("val")
         if m.group("attr").lower() == "srcset":
             fixed = ", ".join(
-                (_fix_percent(u) + (" " + d if d else ""))
+                (_valid_ref(u, page_rel, have) if _is_local(u) else u) + (" " + d if d else "")
                 for u, d in _split_srcset(_html.unescape(value))
                 if u
             )
             fixed = _html.escape(fixed, quote=False) if fixed != value else value
-        elif _is_local(value) and "%" in value:
-            fixed = _fix_percent(value)
+        elif _is_local(value):
+            fixed = _valid_ref(value, page_rel, have)
         else:
+            return m.group(0)
+        if fixed == value:
             return m.group(0)
         return m.group("pre") + '"' + attr_quote(fixed) + '"'
 
@@ -272,16 +292,17 @@ def _use_hints(text, page_rel):
     return hints
 
 
-def prepare(text, page_rel):
+def prepare(text, page_rel, have=()):
     """A saved page ready for the ZIM: ``(text, hints)``. ``hints`` maps the
-    paths this page loads as a stylesheet or script to their mimetype."""
+    paths this page loads as a stylesheet or script to their mimetype. ``have`` is
+    the folder's paths, so a reference can be checked against what exists."""
     hints = _use_hints(text, page_rel)
     text = sub_markup(
         re.compile(
             r"<(?:img|source|link|script|iframe|video|audio|object|embed|a)\b[^>]*>",
             re.I,
         ),
-        lambda m: _tidy_urls(m.group(0)),
+        lambda m: _tidy_urls(m.group(0), page_rel, have),
         text,
     )
     text = sub_markup(_IMG_TAG_RE, lambda m: _keep_saved_copy(m.group(0)), text)
