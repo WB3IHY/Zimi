@@ -309,3 +309,27 @@ def test_tapping_saved_keeps_the_toggle_under_the_finger(browser, served):
         assert 0 < hint[0] and hint[1] < hint[2], hint
     finally:
         ctx.close()
+
+
+def test_a_clock_cards_light_follows_the_suns_real_height(browser, served):
+    ctx, pg, errors = _page(browser, served)
+    try:
+        pg.wait_for_function("() => typeof _almTzPhase === 'function'", timeout=60_000)
+        got = pg.evaluate(
+            """() => ({
+              // Midnight in Reykjavik at midsummer: the Sun is just under the horizon, not night.
+              reykjavik: _almTzPhase('Atlantic/Reykjavik', new Date(Date.UTC(2026, 5, 21, 0, 0))),
+              // 7:30 on a December morning in Tokyo: the Sun has been up for 40 minutes.
+              tokyo: _almTzPhase('Asia/Tokyo', new Date(Date.UTC(2026, 11, 20, 22, 30))),
+              // 6:30 pm in Tokyo in December: down for an hour and a half.
+              tokyo_eve: _almTzPhase('Asia/Tokyo', new Date(Date.UTC(2026, 11, 21, 9, 30))),
+              noon: _almTzPhase('Europe/Paris', new Date(Date.UTC(2026, 9, 17, 11, 0))),
+              deep: _almTzPhase('Europe/Paris', new Date(Date.UTC(2026, 9, 17, 1, 0))),
+            })"""
+        )
+        assert got["reykjavik"] in ("dawn", "dusk"), got
+        assert got["tokyo"] == "day", got
+        assert got["tokyo_eve"] in ("dusk", "night"), got
+        assert got["noon"] == "day" and got["deep"] == "night", got
+    finally:
+        ctx.close()

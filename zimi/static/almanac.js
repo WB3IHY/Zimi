@@ -4068,6 +4068,29 @@ function _almTzForLocation(lat, lon) {
 
 var _almSelectedTz = null; // null = local timezone
 
+// A card's light, from the Sun's real height at the city (not the clock's hour: a June midnight in Reykjavik is
+// twilight, a December 7:30 in Tokyo is day): day above the horizon, dawn or dusk down to nautical twilight
+// (dawn while the Sun is rising), night below. A zone with no known place falls back to its hour.
+var ALM_TZ_DARK_ALT = -12, ALM_TZ_RISE_PROBE_MS = 600000;
+var ALM_TZ_HOUR_OPTS = { hour: 'numeric', hour12: false };
+function _almTzPlace(tz) {
+  for (var i = 0; i < _TZ_CITIES.length; i++) if (_TZ_CITIES[i].tz === tz) return { lat: _TZ_CITIES[i].lat, lon: _TZ_CITIES[i].lon };
+  var z = typeof _skyZonePlace === 'function' ? _skyZonePlace(tz) : null;
+  return z ? { lat: z[0], lon: z[1] } : null;
+}
+function _almTzPhase(tz, now) {
+  var p = _almTzPlace(tz);
+  if (p) {
+    var alt = _sunPosition(now, p.lat, p.lon).altitude;
+    if (alt >= 0) return 'day';
+    if (alt < ALM_TZ_DARK_ALT) return 'night';
+    return _sunPosition(new Date(now.getTime() + ALM_TZ_RISE_PROBE_MS), p.lat, p.lon).altitude > alt ? 'dawn' : 'dusk';
+  }
+  var h = 0;
+  try { h = parseInt(_tzFmt(tz, ALM_TZ_HOUR_OPTS, 'en-US').format(now)); } catch (e) {}
+  return (h < 5 || h >= 21) ? 'night' : h < 8 ? 'dawn' : h < 18 ? 'day' : 'dusk';
+}
+
 function _initTzClock(now) {
   var pillsEl = document.getElementById('almanac-tz-pills');
   if (!pillsEl) return;
@@ -4094,9 +4117,7 @@ function _initTzClock(now) {
     var tzTime = '';
     try { tzTime = _tzFmt(tzc.tz, ALM_TZ_TIME_OPTS).format(now); } catch(e) { continue; }
     var utcOff = _almTzOffsetLabel(tzc.tz, now);
-    var tzHour = 0;
-    try { tzHour = parseInt(_tzFmt(tzc.tz, ALM_TZ_HOUR_OPTS, 'en-US').format(now)); } catch(e) {}
-    var phase = (tzHour < 5 || tzHour >= 21) ? 'night' : tzHour < 8 ? 'dawn' : tzHour < 18 ? 'day' : 'dusk';
+    var phase = _almTzPhase(tzc.tz, now);
     // Sun: solid unicode; moon: CSS crescent (the unicode moons render as
     // thin outlines at small sizes)
     var glyphHtml = phase === 'night'
@@ -4209,7 +4230,6 @@ function _almClockViewPaint(view) {
 // A clock's time, and its zone's offset from UTC now: "UTC+5:30 · IST". The
 // short name only when it is a real abbreviation; a GMT/UTC alias (GMT+8,
 // UTC-5) would only repeat the offset.
-var ALM_TZ_HOUR_OPTS = { hour: 'numeric', hour12: false };   // a card's day phase: the hour in the zone, as digits
 var ALM_TZ_TIME_OPTS = { hour: 'numeric', minute: '2-digit', hour12: true };
 function _almTzOffsetLabel(tz, now) {
   var out = '';
