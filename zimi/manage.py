@@ -3914,6 +3914,10 @@ def _create_finish(job, **outcome):
         # this lock is what makes the two truths one truth.
         job.done = True
         _create_journal_put(job)
+        # The done event goes up with the flag, under the same lock: a poll that
+        # sees done reads its events next and expects the last one to be done.
+        # Published after the lock, one poll could land in the gap (CI did).
+        job._push_events([{"t": "phase", "phase": "done", "detail": _create_job_state(job)}])
         tail = list(job.lines[-CREATE_SERVER_LOG_LINES:]) if not job.ok else []
     if tail:
         # The server's log (docker logs) has it too, for whoever reads there.
@@ -3921,15 +3925,10 @@ def _create_finish(job, **outcome):
             "Create %s failed (%s): %s\n  %s",
             job.mode, job.source, job.error, "\n  ".join(tail),
         )
-    _create_emit(job, {"t": "phase", "phase": "done", "detail": _create_job_state(job)})
     # The create journal serves the Create page; the activity journal serves the
     # operator asking what has been happening to this library. A settled job is
-    # one line in each — but this one is written HERE, after the done event is
-    # published and before waiters are released. Between the done FLAG going up
-    # (under the lock, with the create journal) and the done EVENT reaching the
-    # stream there must be nothing: a poll that sees done and then reads the
-    # events expects the last one to be there, and a file write in that gap is
-    # long enough to lose the race.
+    # one line in each; this one is written after the done event is published
+    # and before waiters are released.
     _create_activity(job)
     job.settled.set()
     _create_start_next()
