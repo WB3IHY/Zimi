@@ -10,6 +10,9 @@ import types
 
 import pytest
 
+# The entrypoint runs only in the Linux image; it needs pwd and grp.
+pytest.importorskip("pwd")
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 

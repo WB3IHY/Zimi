@@ -670,10 +670,13 @@ def test_the_credit_the_bearings_and_the_zone_city_are_on_the_card(browser, serv
     try:
         _settle(pg, NIGHT)
         _drawn(pg)
-        pg.wait_for_function("() => /Brunier/.test(document.getElementById('almanac-sky-facts').innerText)", polling=POLL_MS)
+        pg.wait_for_function("() => /\u00b0/.test(document.getElementById('almanac-sky-facts').innerText)", polling=POLL_MS)
         text = pg.inner_text("#almanac-sky-facts")
-        assert "ESO/S. Brunier" in text and "\u00b0" in text, text
         assert "guessed" not in text.lower() and "about" not in text.lower(), text
+        # The Milky Way's credit lives in About this data, off the card (the folded-calendar pass).
+        assert "Brunier" not in text, text
+        credit = pg.evaluate("(document.querySelector('#almanac-view .alm-about-credit') || {}).textContent || ''")
+        assert "ESO/S. Brunier" in credit, credit
     finally:
         ctx.close()
     ctx, pg, errors = _almanac(browser, served, place=None, timezone_id="America/Chicago")

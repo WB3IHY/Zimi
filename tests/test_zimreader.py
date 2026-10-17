@@ -140,6 +140,8 @@ def _run_node(zim, paths, queries):
         ],
         capture_output=True,
         text=True,
+        # The reader's titles are UTF-8; Windows would decode them as cp1252.
+        encoding="utf-8",
         timeout=60,
     )
     if p.returncode:
