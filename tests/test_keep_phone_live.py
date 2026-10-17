@@ -76,18 +76,11 @@ def _device(pw):
 
 
 def keep_from_about(pg, zim=ZIM, timeout=90000):
-    """Tap Keep on this phone in the ZIM's About panel and let it finish."""
+    """One tap on Keep offline in the ZIM's About panel, and let it finish."""
     pg.evaluate("(z) => _openZimAbout(z)", zim)
     pg.wait_for_selector("#zi-keep .keep-btn", timeout=30000)
     shot(pg, "1-about-keep")
-    pg.click("#zi-keep .keep-btn")
-    pg.wait_for_selector("#zi-keep .keep-note", timeout=30000)
-    pg.wait_for_function(
-        "() => /to keep/.test(document.querySelector('#zi-keep').innerText)",
-        timeout=30000,
-    )
-    room = pg.inner_text("#zi-keep")
-    shot(pg, "2-about-room")
+    size_label = pg.inner_text("#zi-keep .keep-size")
     pg.click("#zi-keep .keep-btn")
     t0 = time.time()
     pg.wait_for_function(
@@ -95,7 +88,7 @@ def keep_from_about(pg, zim=ZIM, timeout=90000):
         timeout=timeout,
     )
     shot(pg, "3-about-kept")
-    return room, time.time() - t0
+    return size_label, time.time() - t0
 
 
 def poll(pg, js, timeout_s=60):
@@ -158,8 +151,8 @@ def test_chromium_full_cold_start_offline(pw, world):
     wait_shell_kept(pg)
 
     room, pull_s = keep_from_about(pg)
-    assert "to keep" in room and "allows Zimi" in room, room
-    print("\nkeep: pulled in %.1f s; says: %s" % (pull_s, room.replace("\n", " ")))
+    assert room.endswith("KB"), room   # the ZIM's own size beside the button, no sentence
+    print("\nkeep: pulled in %.1f s; size label %s" % (pull_s, room))
     kept = pg.evaluate(
         "async () => (await (await fetch('/keep-local/list')).json()).zims.map(z => [z.name, z.complete, z.main])"
     )
@@ -186,13 +179,13 @@ def test_chromium_full_cold_start_offline(pw, world):
     cards = pg.evaluate(
         "() => [...document.querySelectorAll('.stat-card')].map(c => [c.dataset.zim, c.classList.contains('kept')])"
     )
-    assert [z for z, k in cards if k] == [ZIM], cards
-    assert len(cards) > 1 and "On this phone" in pg.inner_text(".stat-card.kept")
+    assert {z for z, k in cards if k} == {ZIM}, cards
+    assert len(cards) > 1 and pg.query_selector(".stat-card.kept .keep-ico.kept")
     # The library is drawn from the phone's copy of the list, and says so.
-    banner = pg.inner_text("#conn-banner")
-    assert "Can't reach your Zimi server" in banner or "No network" in banner, banner
+    assert pg.inner_text("#conn-pill").strip() in ("Offline", "No server")
+    assert not pg.query_selector(".conn-retry")
     opacity = pg.evaluate(
-        "() => getComputedStyle([...document.querySelectorAll('.stat-card:not(.kept)')][0]).opacity"
+        "() => getComputedStyle([...document.querySelectorAll('.stat-card:not(.kept):not(.keep-tile-app)')][0]).opacity"
     )
     assert float(opacity) < 1, "what is not on the phone is dimmed offline"
 
@@ -314,7 +307,12 @@ def test_the_shell_features_need_no_server_and_no_file_is_missing(pw, world):
     shot(pg, "10-almanac-offline")
     # Kept on first use rather than at install, on purpose (their size): the 3D
     # Earth's textures and three.js, and one rosetta entry's text. Anything else is a hole.
-    lazy = ("/static/earth/earth-", "/static/earth/three-", "/static/rosetta/")
+    lazy = (
+        "/static/earth/earth-",
+        "/static/earth/three-",
+        "/static/earth/satellite-",
+        "/static/rosetta/",
+    )
     holes = [
         u
         for u in missing
@@ -341,7 +339,7 @@ def test_webkit_opfs_worker_service_worker_and_libzim(pw, world):
     pg.wait_for_selector(".stat-card", timeout=30000)
     pg.wait_for_function("() => !!navigator.serviceWorker.controller", timeout=30000)
     room, pull_s = keep_from_about(pg)
-    print("\nwebkit: pulled in %.1f s; %s" % (pull_s, room.replace("\n", " ")))
+    print("\nwebkit: pulled in %.1f s; size label %s" % (pull_s, room))
     world.stop()
 
     t0 = time.time()

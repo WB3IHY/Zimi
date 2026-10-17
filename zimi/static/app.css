@@ -250,20 +250,6 @@
      red alarm. Being offline is normal for an offline-first app; it should feel
      handled. Never a modal: cached articles, bookmarks and the almanac stay
      usable behind it. */
-  .conn-banner {
-    position: fixed; top: 56px; left: 0; right: 0; z-index: 190;
-    display: flex; align-items: center; gap: 10px;
-    padding: 8px 16px; font-size: 13px; line-height: 1.35;
-    color: var(--text2); background: var(--surface);
-    border-bottom: 1px solid var(--amber-border);
-  }
-  .conn-banner .conn-dot {
-    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-    background: var(--amber); box-shadow: 0 0 0 3px var(--amber-glow);
-    animation: conn-pulse 2.4s ease-in-out infinite;
-  }
-  @keyframes conn-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-  .conn-banner .conn-msg { flex: 1; min-width: 0; }
   .conn-retry {
     flex-shrink: 0; font: inherit; font-size: 12px; font-weight: 500; cursor: pointer;
     color: var(--amber); background: var(--amber-glow);
@@ -283,9 +269,61 @@
   .keep-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   .keep-btn { margin: 0; min-height: 44px; padding: 8px 18px; font-size: 13.5px; }
   .keep-btn.keep-quiet { background: none; color: var(--text2); border-color: var(--border); }
-  .card-kept { color: var(--amber); }
   /* Offline, what is not on this phone cannot open: say so by its weight. */
-  html.conn-away .stat-card:not(.kept) { opacity: 0.4; }
+  html.conn-away .stat-card:not(.kept):not(.keep-tile-app) { opacity: 0.4; }
+  /* Offline is a mode: one small neutral pill by the logo, no alarm, no Retry. */
+  .conn-pill {
+    display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; margin-inline-start: 6px;
+    padding: 3px 9px; font: inherit; font-size: 11.5px; font-weight: 500; line-height: 1.4;
+    color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 999px;
+    cursor: pointer; white-space: nowrap;
+  }
+  .conn-pill[hidden] { display: none; }
+  /* A phone's top bar has no room for the words: the glyph alone, round, and the
+     words stay in its label and title. Text where there is room. */
+  @media (max-width: 600px) {
+    .conn-pill { padding: 0; width: 28px; height: 28px; justify-content: center; margin-inline-start: 4px; }
+    .conn-pill .conn-pill-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .conn-pill svg { width: 15px; height: 15px; }
+  }
+  .conn-pill:hover, .conn-pill:focus-visible { color: var(--text); border-color: var(--text2); outline: none; }
+  .ctx-note { pointer-events: none; color: var(--text2); max-width: 230px; white-space: normal; line-height: 1.4; }
+  /* Keeping offline: one glyph language on the tile, in the menu, About and the view. */
+  .keep-ico {
+    position: absolute; right: 6px; bottom: 6px; z-index: 2; width: 28px; height: 28px; padding: 3px;
+    display: inline-flex; border: none; background: none; color: var(--amber); cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .keep-ico svg { width: 100%; height: 100%; }
+  .keep-ico .kr-track { fill: none; stroke: var(--border); stroke-width: 2; }
+  .keep-ico .kr-arc { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; transition: stroke-dasharray 0.25s linear; }
+  .keep-ico.paused { color: var(--text2); }
+  .ctx-keep { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+  .ctx-keep .keep-glyph { flex-shrink: 0; opacity: 0.8; }
+  .keep-btn .keep-glyph { vertical-align: -3px; margin-inline-end: 6px; }
+  .keep-row { align-items: center; }
+  .keep-size { font-size: 13px; color: var(--text2); font-variant-numeric: tabular-nums; }
+  .keep-mark svg { width: 14px; height: 14px; color: var(--amber); vertical-align: -2px; margin-inline-end: 6px; }
+  .keep-head-glyph { display: inline-flex; vertical-align: -3px; margin-inline-end: 6px; color: var(--amber); }
+  .keep-head-glyph svg { width: 15px; height: 15px; }
+  /* The On this phone view: a storage bar as a phone draws one, and Manage. */
+  .keep-view-head { display: flex; gap: 14px; align-items: flex-end; margin: 0 0 16px; }
+  .keep-storage { flex: 1; min-width: 0; }
+  .keep-sbar { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
+  .keep-sbar i { display: block; height: 100%; background: var(--amber); border-radius: 4px; transition: width 0.3s; }
+  .keep-slabels { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--text2); margin-top: 5px; font-variant-numeric: tabular-nums; }
+  .keep-manage-btn {
+    flex-shrink: 0; font: inherit; font-size: 13px; font-weight: 500; min-height: 36px; padding: 0 14px; cursor: pointer;
+    color: var(--text2); background: none; border: 1px solid var(--border); border-radius: 18px;
+  }
+  .keep-manage-btn:hover { color: var(--amber); border-color: var(--amber-border); }
+  .keep-rm {
+    position: absolute; top: 6px; left: 6px; z-index: 3; width: 28px; height: 28px; border-radius: 50%; border: none;
+    background: #c64a3a; color: #fff; font-size: 18px; line-height: 1; cursor: pointer;
+  }
+  .offline-home .cat-heading { margin-top: 4px; }
+  .keep-apps { margin-bottom: 20px; }
+  .offline-none { color: var(--text2); font-size: 13px; line-height: 1.5; margin: 12px 0; max-width: 34em; }
   .keep-search-note { font-size: 12.5px; color: var(--text2); margin: 0 0 10px; }
   .conn-retry-inline { margin-top: 16px; padding: 6px 16px; font-size: 13px; }
   .conn-empty .hint { opacity: 0.75; max-width: 34em; margin: 0 auto; }
@@ -297,8 +335,6 @@
   .offline-works a:hover, .offline-works a:focus-visible { color: var(--amber); border-color: var(--amber-border); background: var(--amber-glow); }
   .offline-works b { display: block; font-weight: 600; }
   .offline-works span { display: block; font-size: 12.5px; opacity: 0.7; margin-top: 2px; }
-  @media (prefers-reduced-motion: reduce) { .conn-banner .conn-dot { animation: none; } }
-  @media (max-width: 600px) { .conn-banner { padding: 8px 12px; gap: 8px; font-size: 12.5px; } }
 
   .back-btn {
     display: none; align-items: center; justify-content: center;
@@ -1612,7 +1648,6 @@
     .reader-view, body .almanac-view { transition: top 0.2s ease; }
     body.chrome-away { --under-topbar: var(--conn-h); }
     body.chrome-away .topbar:not(:focus-within) { transform: translateY(var(--topbar-away)); }
-    body.chrome-away .conn-banner { top: 0; }
   }
   @media (prefers-reduced-motion: reduce) {
     .topbar, .reader-view, body .almanac-view { transition: none; }
@@ -1621,7 +1656,6 @@
      at every size, since the book's own header takes its place. */
   body.chrome-held { --under-topbar: var(--conn-h); }
   body.chrome-held .topbar:not(:focus-within) { transform: translateY(var(--topbar-away)); }
-  body.chrome-held .conn-banner { top: 0; }
 
   /* ── Context Menu ── */
   .zimi-ctx {
@@ -3826,7 +3860,7 @@
   }
   .dc-dismiss { background: none; border: none; color: var(--text2); font-size: 16px; cursor: pointer; padding: 0 4px; opacity: 0.4; transition: opacity 0.2s; line-height: 1; }
   .dc-dismiss:hover { opacity: 1; color: var(--text); }
-  .discover-scroll { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding: 8px 2px; margin: -8px -2px; will-change: transform; }
+  .discover-scroll { display: flex; align-items: flex-start; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding: 8px 2px; margin: -8px -2px; will-change: transform; }
   /* The scrollbar stays. It was hidden once on a guess about which stray line
      was being complained about — the answer was the step rail on the create
      page — and on a desktop with no touchscreen that left the strip with no
@@ -3841,6 +3875,8 @@
     cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden; display: flex; flex-direction: column;
   }
+  /* A card with no picture is as tall as its words: the 200px floor is for the pictured ones. */
+  .discover-card:not(.dc-loading):not(:has(.dc-thumb:not([style*="none"]), .dc-today, canvas)) { min-height: 0; }
   .discover-card:hover { background: var(--surface2); border-color: var(--amber-border); box-shadow: 0 4px 24px var(--amber-glow), 0 0 0 1px var(--amber-glow); transform: translateY(-2px); }
   .discover-card.dc-no-click { cursor: default; }
   .discover-card.dc-no-click:hover { background: var(--surface); border-color: var(--border); box-shadow: none; transform: none; }

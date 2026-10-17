@@ -96,7 +96,7 @@ async function pull(m) {
       var range = /\/(\d+)$/.exec(resp.headers.get('Content-Range') || '');
       total = range ? +range[1] : +resp.headers.get('Content-Length');
       current = { written: written, size: total };
-      meta = { name: name, title: m.title, who: m.who || '', size: total, etag: etag, written: written, complete: false, at: 0 };
+      meta = { name: name, title: m.title, who: m.who || '', icon: !!m.icon, size: total, etag: etag, written: written, complete: false, at: 0 };
       await KeepStore.writeMeta(d, meta);
 
       var reader = resp.body.getReader(), lastMeta = written;
@@ -137,7 +137,7 @@ async function pull(m) {
       var main = await r.main();
       opened = { main: main ? r.pathOf(main) : '', mainTitle: main ? r.titleOf(main) : '' };
     } catch (e) { throw coded('corrupt'); }
-    meta = { name: name, title: m.title, who: m.who || '', size: total, etag: etag, written: total, complete: true,
+    meta = { name: name, title: m.title, who: m.who || '', icon: !!m.icon, size: total, etag: etag, written: total, complete: true,
              at: Date.now(), main: opened.main, mainTitle: opened.mainTitle };
     await KeepStore.writeMeta(d, meta);
     say({ type: 'done', meta: meta });

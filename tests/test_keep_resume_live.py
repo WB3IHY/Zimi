@@ -150,12 +150,7 @@ def _open_about(pg, proxy):
 
 
 def _start(pg):
-    pg.click("#zi-keep .keep-btn")
-    pg.wait_for_function(
-        "() => /to keep/.test(document.querySelector('#zi-keep').innerText)",
-        timeout=30000,
-    )
-    pg.click("#zi-keep .keep-btn")
+    pg.click("#zi-keep .keep-btn")  # one tap: it starts
 
 
 def _written(pg):
@@ -209,7 +204,7 @@ def test_pause_resume_and_a_replaced_zim(pw, world):
     assert pg.evaluate(META, NAME) is None
     proxy.slow = True
     pg.wait_for_function(
-        "() => /Keep on this phone/.test(document.querySelector('#zi-keep .keep-btn').innerText)"
+        "() => /Keep offline/.test(document.querySelector('#zi-keep .keep-btn').innerText)"
     )
     _start(pg)
     _wait_written(pg, 10 * 1024 * 1024)
