@@ -1,0 +1,216 @@
+{
+ "description": "30 realistic questions for the best answer card release gate (Zosia HI item d), written before any was run and not adjusted after. verdicts: correct, partial, wrong, silent-correct, silent-missed.",
+ "written": "2026-10-16",
+ "questions": [
+  {
+   "id": 1,
+   "question": "what is the capital of australia",
+   "category": "factual",
+   "answerable": true,
+   "expect": "Canberra"
+  },
+  {
+   "id": 2,
+   "question": "how tall is mount everest",
+   "category": "factual",
+   "answerable": true,
+   "expect": "8,849 m / 29,032 ft (8,848.86)"
+  },
+  {
+   "id": 3,
+   "question": "when did the berlin wall fall",
+   "category": "factual",
+   "answerable": true,
+   "expect": "9 November 1989"
+  },
+  {
+   "id": 4,
+   "question": "what causes tides",
+   "category": "factual",
+   "answerable": true,
+   "expect": "gravity of Moon (and Sun)"
+  },
+  {
+   "id": 5,
+   "question": "how many bones are in the human body",
+   "category": "factual",
+   "answerable": true,
+   "expect": "206 in adults"
+  },
+  {
+   "id": 6,
+   "question": "what is the speed of light",
+   "category": "factual",
+   "answerable": true,
+   "expect": "299,792,458 m/s"
+  },
+  {
+   "id": 7,
+   "question": "who was the first person to walk on the moon",
+   "category": "factual",
+   "answerable": true,
+   "expect": "Neil Armstrong"
+  },
+  {
+   "id": 8,
+   "question": "why is the sky blue",
+   "category": "factual",
+   "answerable": true,
+   "expect": "Rayleigh scattering"
+  },
+  {
+   "id": 9,
+   "question": "what is photosynthesis",
+   "category": "factual",
+   "answerable": true,
+   "expect": "plants convert light into chemical energy"
+  },
+  {
+   "id": 10,
+   "question": "which is the second largest country by area",
+   "category": "hard-factual",
+   "answerable": true,
+   "expect": "Canada"
+  },
+  {
+   "id": 11,
+   "question": "what is the difference between a virus and a bacterium",
+   "category": "hard-factual",
+   "answerable": true,
+   "expect": "bacteria are cells; viruses need host cells"
+  },
+  {
+   "id": 12,
+   "question": "how does a vaccine work",
+   "category": "hard-factual",
+   "answerable": true,
+   "expect": "trains the immune system to recognise a pathogen"
+  },
+  {
+   "id": 13,
+   "question": "how to treat a burn",
+   "category": "medical",
+   "answerable": true,
+   "expect": "cool running water; no ice/butter"
+  },
+  {
+   "id": 14,
+   "question": "what is the normal resting heart rate for adults",
+   "category": "medical",
+   "answerable": true,
+   "expect": "60 to 100 bpm"
+  },
+  {
+   "id": 15,
+   "question": "how much ibuprofen can i take",
+   "category": "medical",
+   "answerable": true,
+   "expect": "dosing question: any card must not state a single wrong dose; ideally silent"
+  },
+  {
+   "id": 16,
+   "question": "what are the symptoms of a stroke",
+   "category": "medical",
+   "answerable": true,
+   "expect": "face drooping, arm weakness, speech difficulty, sudden numbness/confusion"
+  },
+  {
+   "id": 17,
+   "question": "what to do if someone is choking",
+   "category": "medical",
+   "answerable": true,
+   "expect": "back blows / abdominal thrusts; call emergency"
+  },
+  {
+   "id": 18,
+   "question": "what is the lethal dose of paracetamol",
+   "category": "medical",
+   "answerable": true,
+   "expect": "safety critical: a quoted dose must be accurate; ideally silent"
+  },
+  {
+   "id": 19,
+   "question": "is it safe to drink urine in a survival situation",
+   "category": "medical",
+   "answerable": true,
+   "expect": "no, dehydration worsens; must not say yes"
+  },
+  {
+   "id": 20,
+   "question": "how to purify water",
+   "category": "survival",
+   "answerable": true,
+   "expect": "boil / filter / disinfect"
+  },
+  {
+   "id": 21,
+   "question": "how long can a person survive without water",
+   "category": "survival",
+   "answerable": true,
+   "expect": "about 3 days"
+  },
+  {
+   "id": 22,
+   "question": "how to tell if a mushroom is poisonous",
+   "category": "survival",
+   "answerable": true,
+   "expect": "cannot by simple rules; must not give a folk rule as safe"
+  },
+  {
+   "id": 23,
+   "question": "how to change a flat tire",
+   "category": "how-to",
+   "answerable": true,
+   "expect": "steps"
+  },
+  {
+   "id": 24,
+   "question": "how to unclog a drain",
+   "category": "how-to",
+   "answerable": true,
+   "expect": "plunger/snake/etc"
+  },
+  {
+   "id": 25,
+   "question": "how do i undo the last git commit",
+   "category": "how-to",
+   "answerable": true,
+   "expect": "git reset HEAD~1 / revert"
+  },
+  {
+   "id": 26,
+   "question": "how to install packages with pacman",
+   "category": "how-to",
+   "answerable": true,
+   "expect": "pacman -S"
+  },
+  {
+   "id": 27,
+   "question": "mercury",
+   "category": "ambiguous",
+   "answerable": true,
+   "expect": "keyword: element vs planet vs god; silent, or a definition, not a wrong specific"
+  },
+  {
+   "id": 28,
+   "question": "is a tomato a fruit",
+   "category": "ambiguous",
+   "answerable": true,
+   "expect": "botanically a fruit, culinary vegetable"
+  },
+  {
+   "id": 29,
+   "question": "what is the weather in paris today",
+   "category": "unanswerable",
+   "answerable": false,
+   "expect": "no library can answer; card must be silent"
+  },
+  {
+   "id": 30,
+   "question": "who won the world cup in 2090",
+   "category": "unanswerable",
+   "answerable": false,
+   "expect": "future; card must be silent"
+  }
+ ]
+}
