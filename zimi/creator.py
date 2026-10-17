@@ -119,6 +119,7 @@ class CreateError(Exception):
 MAX_SOURCE_FILE_BYTES = 1024**3  # 1 GiB per raw file
 MAX_TOTAL_SOURCE_BYTES = 8 * 1024**3  # 8 GiB per ZIM
 MAX_TEXT_SOURCE_BYTES = 16 * 1024**2  # 16 MiB per HTML/Markdown file
+MAX_ARCHIVE_PAGE_BYTES = 256 * 1024**2  # a single-file saved page is read whole
 MAX_PAGE_FETCH_BYTES = 10 * 1024**2  # 10 MiB fetched page document
 MAX_FAVICON_BYTES = 512 * 1024  # a site icon; anything larger is not one
 DEFAULT_FETCH_TIMEOUT = 30.0
@@ -1169,6 +1170,13 @@ def _expand_saved_archives(items, stage, progress):
     for fs, rel, fam in items:
         if os.path.splitext(rel.lower())[1] not in _folderfiles.ARCHIVE_PAGE_EXTS:
             out.append((fs, rel, fam))
+            continue
+        if os.path.getsize(fs) > MAX_ARCHIVE_PAGE_BYTES:
+            if progress:
+                progress(
+                    f"left out {rel}: over {_fmt_bytes(MAX_ARCHIVE_PAGE_BYTES)}; "
+                    "save the page as a folder instead"
+                )
             continue
         try:
             unpacked = _saved.expand(fs, rel, stage)
