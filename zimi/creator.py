@@ -55,6 +55,7 @@ from zimi import capturegate as _gate
 from zimi import netguard as _netguard
 from zimi import folderfiles as _folderfiles
 from zimi import nautilus as _nautilus
+from zimi import savedpages as _saved
 from zimi.blocklist import blocked_phrase
 from zimi.zimwriter import (
     SHOT_DIMS_METADATA_KEY,
@@ -909,18 +910,24 @@ def _folder_videos_json(assets, sidecars=None):
     return json.dumps(rows, ensure_ascii=False).encode("utf-8") if rows else None
 
 
+def _href(path):
+    """A ZIM path as a link target: a name may hold a space, ``%``, ``?`` or
+    ``#``, which a bare href would read as an escape, a query or a fragment."""
+    return _html.escape(urllib.parse.quote(path, safe="/"), quote=True)
+
+
 def _index_tree_html(title, pages, assets, gallery=None):
     """The generated main page: the content tree as nested lists, pages
-    first (with their real titles), assets after; the pictures' gallery
-    first of all when there is one."""
+    first (with their real titles, and the site a saved page came from),
+    assets after; the pictures' gallery first of all when there is one."""
     tree = {}
-    for zim_path, page_title in pages:
+    for zim_path, page_title, *site in pages:
         tree.setdefault(posixpath.dirname(zim_path), []).append(
-            (zim_path, page_title, True)
+            (zim_path, page_title, True, site[0] if site else "")
         )
     for zim_path in assets:
         tree.setdefault(posixpath.dirname(zim_path), []).append(
-            (zim_path, posixpath.basename(zim_path), False)
+            (zim_path, posixpath.basename(zim_path), False, "")
         )
     body = [f"<h1>{_html.escape(title)}</h1>"]
     body.append(
@@ -933,7 +940,7 @@ def _index_tree_html(title, pages, assets, gallery=None):
     if gallery:
         path, count = gallery
         body.append(
-            f"<p><a href='{_html.escape(path)}'>Pictures</a> "
+            f"<p><a href='{_href(path)}'>Pictures</a> "
             f"<span style='color:#666'>({_plural(count, 'picture')})</span></p>"
         )
     for folder in sorted(tree):
@@ -941,11 +948,12 @@ def _index_tree_html(title, pages, assets, gallery=None):
             body.append(f"<h2 class='zimi-section'>{_html.escape(folder)}/</h2>")
         items = sorted(tree[folder], key=lambda e: (not e[2], e[1].lower()))
         body.append("<ol class='zimi-index'>")
-        for zim_path, label, is_page in items:
+        for zim_path, label, is_page, site in items:
             style = "" if is_page else " style='color:#999'"
+            where = f" <span style='color:#666'>{_html.escape(site)}</span>" if site else ""
             body.append(
-                f"<li{style}><a href='{_html.escape(zim_path)}'>"
-                f"{_html.escape(label)}</a></li>"
+                f"<li{style}><a href='{_href(zim_path)}'>"
+                f"{_html.escape(label)}</a>{where}</li>"
             )
         body.append("</ol>")
     return (
@@ -970,7 +978,7 @@ def _gallery_html(title, images, sidecars):
         meta = sidecars.get(path) or {}
         caption = meta.get("title") or _nautilus.title_from_name(path)
         alt = meta.get("description") or caption
-        src = _html.escape(path)
+        src = _href(path)
         cells.append(
             f"<li><figure><a href='{src}'><img src='{src}' loading='lazy' alt='{_html.escape(alt)}'></a>"
             f"<figcaption>{_html.escape(caption)}</figcaption></figure></li>"
@@ -1072,6 +1080,23 @@ def _folder_documents(files, sidecars=None, have=None):
 FOLDER_PROGRESS_LINES = 500
 
 
+_REMOTE_PICTURE_RE = re.compile(
+    r"<(?:img|source)\b[^>]*?\s(?:src|srcset)\s*=\s*[\"']?\s*https?://", re.I
+)
+
+
+def _note_unsaved_pictures(progress, rel, text):
+    """Say so when a page's pictures still point at the web: the browser did not
+    save them (it had not loaded them yet), and the ZIM cannot show what it
+    does not have."""
+    n = len(_REMOTE_PICTURE_RE.findall(text))
+    if n:
+        progress(
+            f"note: {rel}: {_plural(n, 'picture')} not saved with the page "
+            "(the browser had not loaded them), so they will not show"
+        )
+
+
 def _folder_progress(progress, n_done, n_total, zim_path):
     if progress is None:
         return
@@ -1123,9 +1148,43 @@ def _folder_icon(root, meta):
         return None
 
 
-def create_folder_zim(
+def create_folder_zim(folder, **kwargs):
+    """Package a folder of files into one ZIM (see ``_create_folder_zim``).
+    Pages a browser saved as one file are unpacked into a scratch folder that
+    lives exactly as long as the build."""
+    with tempfile.TemporaryDirectory(prefix="zimi-saved-") as stage:
+        return _create_folder_zim(folder, stage=stage, **kwargs)
+
+
+def _expand_saved_archives(items, stage, progress):
+    """``items`` with each single-file saved page (.mhtml, .webarchive) replaced
+    by the page and parts it holds, unpacked under ``stage``."""
+    out = []
+    for fs, rel, fam in items:
+        if os.path.splitext(rel.lower())[1] not in _folderfiles.ARCHIVE_PAGE_EXTS:
+            out.append((fs, rel, fam))
+            continue
+        try:
+            unpacked = _saved.expand(fs, rel, stage)
+        except (_saved.ArchiveError, OSError) as e:
+            if progress:
+                progress(f"left out {rel}: {e}")
+            continue
+        if progress:
+            progress(f"unpacked {rel}: {_plural(len(unpacked) - 1, 'part')}")
+        out.extend((f, r, _folderfiles.family(r)[0]) for f, r in unpacked)
+    return out
+
+
+def _read_text(fs_path):
+    with open(fs_path, encoding="utf-8", errors="replace") as f:
+        return f.read()
+
+
+def _create_folder_zim(
     folder,
     *,
+    stage,
     out_dir=None,
     out_path=None,
     title=None,
@@ -1169,8 +1228,15 @@ def create_folder_zim(
     items = [(fs, rel, fam) for fs, rel, fam in plan["items"]] + [
         (fs, rel, "image") for fs, rel in plan["covers"]
     ]
+    items = _expand_saved_archives(items, stage, progress)
     if not items:
         raise CreateError(f"nothing to package — no files found in {folder}")
+    # Pages first: what they load as a stylesheet or a script names the
+    # mimetype of a file a browser saved without an extension.
+    items.sort(key=lambda it: it[2] != "page")
+    # The parts of a page a browser saved are that page's, not articles.
+    owned = _saved.owners(items, _read_text)
+    use_hints = {}
     meta = plan["folder"]
     sidecars = plan["sidecars"]
     files = [(fs, rel) for fs, rel, _fam in items]
@@ -1197,7 +1263,7 @@ def create_folder_zim(
     is_site = main_path is not None and (
         posixpath.splitext(main_path)[1].lower() in _folderfiles.PAGE_EXTS
     )
-    belongs = plan["belongs"]
+    belongs = plan["belongs"] | set(owned)
     gallery_images = (
         []
         if is_site
@@ -1248,21 +1314,34 @@ def create_folder_zim(
                     # entry's bare text/html mimetype no longer says so, and
                     # links to another page saved from the web point at its copy.
                     page_title = named or _page_title_from_html(text, fallback)
+                    text, hints = _saved.prepare(text, zim_path)
+                    use_hints.update(hints)
                     if saved:
                         text = _link_saved_pages(text, zim_path, saved)
                     content = _normalize_charset(text).encode("utf-8")
+                    if progress and zim_path not in owned:
+                        _note_unsaved_pictures(progress, zim_path, text)
                 elif ext in _folderfiles.TEXT_EXTS:
                     page_title = named or fallback
                     content = _render_text_page(text, page_title)
                 else:
                     content, page_title = _render_markdown_page(text, fallback)
                     page_title = named or page_title
+                part_of_page = zim_path in owned
                 creator.add_item(
-                    static_cls(zim_path, page_title, content, mimetype=_HTML_MIME)
+                    static_cls(
+                        zim_path,
+                        page_title,
+                        content,
+                        mimetype=_HTML_MIME,
+                        front=not part_of_page,
+                    )
                 )
-                pages.append((zim_path, page_title))
+                if not part_of_page:
+                    key = _saved_page_key(text) if ext in _folderfiles.PAGE_EXTS else None
+                    pages.append((zim_path, page_title, key[0] if key else ""))
             else:
-                mime = _guess_mime(zim_path)
+                mime = _saved.mime_for(zim_path, fs_path, use_hints)
                 creator.add_item(file_cls(zim_path, named or stem, fs_path, mime))
                 assets.append(zim_path)
                 mimetypes.add(mime)
@@ -1304,7 +1383,12 @@ def create_folder_zim(
                 static_cls(
                     main_path,
                     zim_title,
-                    _index_tree_html(zim_title, pages, assets, gallery),
+                    _index_tree_html(
+                        zim_title,
+                        pages,
+                        [a for a in assets if a not in owned],
+                        gallery,
+                    ),
                 )
             )
         creator.set_mainpath(main_path)
