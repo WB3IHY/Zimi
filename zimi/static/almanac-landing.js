@@ -459,6 +459,7 @@ var _lpState = {
   ax: null,            // the camera on the axis this frame: { cam, lam, u }
   gesture: null,       // the drag under way: { key, kind, dir }
   places: null,        // where each body was drawn last frame, for the labels
+  outDir: 0,           // the sign of a finger's sideways travel that pulls back, once a drag has said
   pending: null,       // a drag's travel before the scene was ready: { dx, dy, dir, at }
   uiKey: null, phaseKey: null,   // what the ticks' words and the phase disc were last written for
   dom: false, hinted: false
@@ -725,11 +726,16 @@ function _lpReduceMotion() { return _aeReduceMotion(); }
 // A drag that began before the scene was ready is not lost: its travel waits (a drag's end, a slow network, a
 // page still painting) and is played the moment the view opens on the axis.
 var LP_PENDING_MS = 15000;
+// Which way a finger travels to pull back is settled by the first drag from the Moon and kept for every
+// drag after it (a hand that pulled to the left keeps pulling to the left): the other way brings the camera in.
+function _lpOutDir(dx, u) {
+  if (!_lpState.outDir && dx) _lpState.outDir = u > 0 ? 1 : (dx > 0 ? 1 : -1);
+  return _lpState.outDir || 1;
+}
 function _lpQueueDrag(dx, dy) {
   var now = performance.now(), p = _lpState.pending;
-  if (!p || now - p.at > LP_PENDING_MS) p = _lpState.pending = { dx: 0, dy: 0, dir: 0, at: now };
-  if (!p.dir && dx) p.dir = dx > 0 ? 1 : -1;
-  p.dx += dx * (p.dir || 1); p.dy += dy; p.at = now;
+  if (!p || now - p.at > LP_PENDING_MS) p = _lpState.pending = { dx: 0, dy: 0, at: now };
+  p.dx += dx * _lpOutDir(dx, 0); p.dy += dy; p.at = now;
 }
 function _lpEnterAxis(u) {
   if (!_ae.gl || !_ae.gl.solar) return;   // the layer did not build: the view stays the classic one
@@ -842,7 +848,7 @@ function _lpOnCanvas(x, y) {
 }
 // A drag that begins on the Moon or the line to it, between the pair and the Earth, turns the date.
 function _lpStartGesture(key) {
-  var g = { key: key, kind: 'axis', dir: 0 };
+  var g = { key: key, kind: 'axis' };
   var ax = _ae.axis, sc = _ae.scene;
   if (key !== 'hero' && key && ax.u >= LP_DATE_FROM && ax.u <= LP_DATE_TO && sc) {
     var moon = _aeProject(sc.moon), earth = _aeProject([0, 0, 0]);
@@ -875,9 +881,7 @@ function _lpDragBy(dx, dy) {
   ax.fly = null;
   clearTimeout(_lpState.settleTimer);
   if (g.kind === 'date') { _lpDateDrag(g); _aeKick(); return; }
-  // The first move says which way is back; the finger going the other way brings the camera in again.
-  if (!g.dir && dx) g.dir = dx > 0 ? 1 : -1;
-  ax.u = Math.max(0, Math.min(LP_LAST, ax.u + dx * (g.dir || 1) / LP_PX_PER_STOP));
+  ax.u = Math.max(0, Math.min(LP_LAST, ax.u + dx * _lpOutDir(dx, ax.u) / LP_PX_PER_STOP));
   ax.tilt = Math.max(-LP_TILT_MAX, Math.min(LP_TILT_MAX, ax.tilt + dy * LP_TILT_PER_PX));
   _ae.dirty = true;
   _aeKick();

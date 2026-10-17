@@ -274,6 +274,19 @@ for (const iso of DATES) {
   }
 }
 
+// ── The pull-back follows the finger, every gesture ──
+{
+  E('_ae = { axis: { u: 0, tilt: 0, fly: null }, drag: "hero", dirty: false }; _aeKick = function () {}; clearTimeout = function () {};');
+  const pull = (dx) => { E('_lpState.gesture = null'); E('_lpDragBy(' + dx + ', 0)'); return E('_ae.axis.u'); };
+  const stop = E('LP_PX_PER_STOP');
+  near(pull(-stop), 1, 1e-9, 'the first drag from the Moon, to the left, pulls back one stop');
+  near(pull(-stop), 2, 1e-9, 'a second drag the same way pulls back another');
+  near(pull(stop), 1, 1e-9, 'a new drag the other way brings the camera in, not further out');
+  near(pull(stop), 0, 1e-9, 'and again, back to the Moon');
+  near(pull(stop), 0, 1e-9, 'the Moon is the end of the axis: the finger the other way stays there');
+  near(pull(-stop / 2), 0.5, 1e-9, 'and the way that was pulling back still does');
+}
+
 // ── The sky round the Moon (?rest=system): a body's place on the ring ──
 {
   const ax = { fwd: [0, 0, -1], up: [0, 1, 0], right: [1, 0, 0] };
