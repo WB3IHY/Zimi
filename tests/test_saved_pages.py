@@ -268,6 +268,20 @@ def test_a_picture_keeps_a_source_that_is_its_own_data_and_drops_one_on_the_web(
     assert "cdn.example.com" not in html
 
 
+def test_a_canonical_link_far_down_a_big_head_still_names_the_site(tmp_path):
+    root = tmp_path / "x"
+    root.mkdir()
+    # Wikipedia's comes after 160 KB of inline script and style
+    (root / "Tea.html").write_text(
+        "<html><head><title>Tea</title><script>var a='" + "x" * 200_000 + "'</script>"
+        '<link rel="canonical" href="https://en.wikipedia.org/wiki/Tea"></head><body>t</body></html>',
+        encoding="utf-8",
+    )
+    out = str(tmp_path / "x.zim")
+    creator.create_folder_zim(str(root), out_path=out)
+    assert "en.wikipedia.org" in _text(Archive(out), "index")
+
+
 def test_pictures_that_were_not_saved_are_reported(tmp_path):
     root = tmp_path / "x"
     root.mkdir()

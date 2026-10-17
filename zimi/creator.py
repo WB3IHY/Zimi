@@ -745,7 +745,7 @@ _MAIN_CANDIDATES = (
 # A page saved from a browser ("Web page, complete") names the address it came
 # from: Chrome and Edge in a comment at the top, SingleFile in its own comment,
 # and most pages themselves in a canonical link or og:url. Read from the head.
-_SAVED_URL_HEAD_BYTES = 65536
+_SAVED_URL_HEAD_BYTES = 1024 * 1024
 _SAVED_URL_RES = (
     re.compile(r"<!--\s*saved from url=\(\d+\)(\S+?)\s*-->", re.I),
     re.compile(r"<!--\s*Page saved with SingleFile\s*\n\s*url:\s*(\S+)", re.I),
@@ -772,6 +772,10 @@ def _web_page_key(url):
 
 def _saved_page_key(text):
     head = text[:_SAVED_URL_HEAD_BYTES]
+    # Wikipedia's canonical link comes after 160 KB of inline script and style.
+    end = head.lower().find("</head>")
+    if end > 0:
+        head = head[:end]
     for rx in _SAVED_URL_RES:
         m = rx.search(head)
         if m:
@@ -932,9 +936,11 @@ def _index_tree_html(title, pages, assets, gallery=None):
     body = [f"<h1>{_html.escape(title)}</h1>"]
     body.append(
         "<p style='color:#666'>"
-        + _plural(len(pages), "page")
-        + ", "
-        + _plural(len(assets), "file")
+        + " and ".join(
+            _plural(n, word)
+            for n, word in ((len(pages), "page"), (len(assets), "file"))
+            if n
+        )
         + " packaged by Zimi</p>"
     )
     if gallery:
