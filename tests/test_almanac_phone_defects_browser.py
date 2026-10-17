@@ -373,3 +373,22 @@ def test_german_almanac_speaks_german(browser, served):
         assert "Dec" not in labels, labels
     finally:
         ctx.close()
+
+
+def test_the_orrery_is_still_at_now_under_reduced_motion(browser, served):
+    ctx, pg, errors = _page(browser, served, reduced=True)
+    try:
+        pg.wait_for_timeout(1500)
+        got = pg.evaluate(
+            "() => ({ playing: _orreryPlaying, speed: _orrerySpeed, raf: !!_almanacOrreryRAF, offset: _orreryTimeOffset,"
+            " label: document.getElementById('orrery-speed-label').textContent })"
+        )
+        assert got["playing"] is False and got["speed"] == 1 and not got["raf"] and got["offset"] == 0, got
+        assert "100" not in got["label"], got
+    finally:
+        ctx.close()
+    ctx, pg, errors = _page(browser, served, reduced=False)
+    try:
+        assert pg.evaluate("() => _orreryPlaying && _orrerySpeed === 100000")
+    finally:
+        ctx.close()

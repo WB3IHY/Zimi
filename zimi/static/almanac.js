@@ -279,7 +279,7 @@ function _almanacTeardown() {
   _almSelectedTz = null;
   // Reset orrery state
   _orreryPlaying = true;
-  _orrerySpeed = 100000;
+  _orrerySpeed = ORRERY_SCENERY_SPEED;
   _orreryAutoTransit = false;
   _orreryTimeOffset = 0;
   _orreryRockets = [];
@@ -2407,8 +2407,9 @@ function _renderAlmanacContent() {
   _renderCelestialEvents(now);
   _renderDeepTime(now);
   _renderRosettaStone(now);
+  _orreryStartState();
   _initOrrery();
-  // Start orrery at 100K× so planets visibly orbit on load
+  // The orrery opens at 100K× so planets visibly orbit on load (still at now, where motion is reduced)
   _orreryLastFrame = performance.now();
   _orreryAnimate();
   _loadSunData(now);
