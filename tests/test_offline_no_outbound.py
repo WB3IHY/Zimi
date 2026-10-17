@@ -296,6 +296,7 @@ def test_every_row_of_the_list_is_off_but_nearby(offline_server, tripwire):
     assert on == [], on
 
 
+@pytest.mark.fieldguide_on
 def test_app_pages_refuse_anything_from_another_host(offline_server):
     """A ZIM's question or post, shown in an app page, cannot fetch from the
     internet either: the page carries the policy ZIM articles carry."""
