@@ -119,6 +119,78 @@ for (const [place, lon, lat, iso, ref] of HORIZONS) {
 }
 console.log('worst per body (deg): ' + Object.keys(worst).map((b) => b + ' ' + worst[b].toFixed(3)).join(', '));
 
+// The sky under the horizon (the ground see-through) is the same sky: its planets, Sun and stars come from
+// the ephemeris above and below the horizon alike, so the ones Horizons puts under it are the ones drawn there.
+{
+  const [place, lon, lat, iso, ref] = HORIZONS[1];
+  const eph = vm.runInContext('_skyEphemeris(new Date(' + JSON.stringify(iso) + '), ' + lat + ', ' + lon + ')', S);
+  S.__s = { nowTime: Date.parse(iso), lat, lon, eph };
+  const b = vm.runInContext('_skyBelowBodies(__s, 60)', S);
+  const names = b.planets.map((p) => p.name).sort().join(',');
+  const want = Object.keys(ref).filter((n) => !['Sun', 'Moon'].includes(n) && ref[n][1] < 0 && ref[n][1] > -60).sort().join(',');
+  check(names === want, 'the planets under the horizon at 23:00 in San Francisco are the ones Horizons has there (' + names + ')');
+  check(b.sun && sep(b.sun.alt, b.sun.az, ref.Sun[1], ref.Sun[0]) < 1, 'the Sun is under it, where Horizons has it (' + (b.sun && b.sun.alt.toFixed(1)) + ' deg)');
+  check(b.moon === null, 'the Moon, up at 17 degrees, is not under it');
+  check(b.stars.length > 20 && b.stars.every((st) => st.alt < 0 && st.alt > -60 && st.mag <= 4.6), 'the stars under it are all under it, to the limit (' + b.stars.length + ')');
+  // Above and below together are the whole catalogue to the limit: nothing is lost or counted twice at the horizon.
+  const all = vm.runInContext('_skyCatalogue().filter(function (c) { return c.mag <= SKY_BELOW_MAG; }).length', S);
+  const full = vm.runInContext('_skyBelowBodies(__s, 91).stars.length', S);
+  const up = eph.stars.filter((st) => st.mag <= 4.6).length;
+  check(up + full === all, 'stars above (' + up + ') and below (' + full + ') are all ' + all + ' of the catalogue');
+}
+
+// Every named star of the catalogue is the star it is named for: its place within half a degree of
+// the Hipparcos position the navigation tables carry for that name (Shaula once sat on Sargas).
+{
+  vm.runInContext(read('almanac-navdata.js') + '; var _navStars = AR_NAV_STARS;', S);
+  const nav = {};
+  for (const n of vm.runInContext('_navStars', S)) nav[n[1].toLowerCase()] = n;
+  const names = vm.runInContext('_STAR_NAMES', S), stars = vm.runInContext('_STARS', S);
+  let checked = 0;
+  for (const idx of Object.keys(names)) {
+    const want = nav[names[idx].toLowerCase().replace('rigil kent.', 'rigil kentaurus')];
+    if (!want) continue;
+    const ra = stars[idx][0] * 15, dec = stars[idx][1];
+    const d = sep(dec, ra, want[3], want[2]);   // alt/az sep is the great-circle distance of (lat, lon)
+    checked++;
+    check(d < 0.5, names[idx] + ' (_STARS[' + idx + ']) is within half a degree of its Hipparcos place (' + d.toFixed(2) + ' deg)');
+  }
+  check(checked >= 18, 'most named stars were found in the tables to be checked (' + checked + ')');
+}
+
+// An airliner's trail stays where it was laid: with no wind, the point laid `age` seconds ago, looked at `dt` seconds
+// later (the age grown by dt), is the same point of the sky. The wind then carries it, and nothing else does.
+{
+  vm.runInContext('SKY_CONTRAIL_SHEAR = 0;', S);
+  const a = { theta: 170, dir: 1, b: 14, h: 10.5, L0: -30, L1: 60, dur: 240000, wind: [0, 0] };
+  S.__a = a;
+  const at = (p, age) => vm.runInContext('_skyContrailAt(__a, ' + p + ', ' + age + ')', S);
+  const dp = 20 / (a.dur / 1000);                                 // 20 seconds on
+  const x = at(0.4, 30), y = at(0.4 + dp, 50);
+  check(sep(x.alt, x.az, y.alt, y.az) < 1e-6, 'with no wind a trail point stays where it was laid (' + sep(x.alt, x.az, y.alt, y.az).toExponential(1) + ' deg)');
+  const still = at(0.4, 100);
+  S.__a.wind = [0.02, 0];                                         // 72 km/h from the west
+  const blown = at(0.4, 100), moved = Math.hypot(blown.E - still.E, blown.N - still.N);
+  check(moved > 1.9 && moved < 2.1, 'a 72 km/h wind has taken a 100 s old trail 2 km (' + moved.toFixed(2) + ')');
+  // By night there is no trail at all, and by day it is drawn in strokes.
+  const strokes = [];
+  const ctx = new Proxy({}, {
+    get: (t, k) => (k === 'stroke' ? () => strokes.push(1) : k === 'createLinearGradient' || k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : typeof t[k] === 'undefined' ? () => {} : t[k]),
+    set: (t, k, val) => { t[k] = val; return true; },
+  });
+  S.__ctx = ctx;
+  function painted(sunAlt) {
+    strokes.length = 0;
+    vm.runInContext('(function () { var s = { W: 716, H: 550, dpr: 2, scale: 1, center: 180, span: 240, eph: { sunGeoAlt: ' + sunAlt + ', sun: { alt: ' + sunAlt + ', az: 250 } }, bodies: [] };' +
+      'var a = { type: "plane", start: 0, dur: 240000, dir: 1, h: 10.5, b: 14, theta: 170, L0: -30, L1: 60, contrail: true, wind: [0.01, 0.005], phase: 1 };' +
+      '_skyPaintPlane(__ctx, s, a, 90000); })()', S);
+    return strokes.length;
+  }
+  vm.runInContext('SKY_CONTRAIL_SHEAR = 0.00015;', S);
+  const day = painted(40), night = painted(-30);
+  check(day > 3 && night === 0, 'a trail by day (' + day + ' strokes), none by night (' + night + ')');
+}
+
 // Twilight is counted on the Sun's geometric altitude; the drawn Sun is lifted
 // by the air only near the horizon.
 const civil = vm.runInContext('_skyEphemeris(new Date("2026-10-01T02:05:00Z"), 37.7749, -122.4194)', S);

@@ -303,6 +303,7 @@ function _lookApply(v) {
   var read = _lookPointName(v.az) + ' ' + azR + '°   ' + (altR > 0 ? '+' : altR < 0 ? '−' : '') + Math.abs(altR) + '°';
   var r = _lookEl('look-read');
   if (r.textContent !== read) r.textContent = read;
+  if (window._sfLookTick) window._sfLookTick();   // the way to what is being found moves with the view (almanac-skyfind.js)
 }
 
 // The sky as the Almanac draws it, shown through the window. This is the
@@ -367,6 +368,7 @@ var _lookStopgapSky = {
 // ── The overlay ────────────────────────────────────────────────────────────
 
 var LOOK_CLOSE_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+var LOOK_FIND_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5.5 5.5"/></svg>';
 var LOOK_EARTH_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3.5 9.5c2.5.4 3.5 2 4.5 3.5s2.5 1 3 2.5-1 3 .5 4.5M13 3.2c-.4 2 .6 3 2 3.6s3.5.4 5 2.2"/></svg>';
 
 function _lookPlaceLabel(place) {
@@ -393,7 +395,8 @@ function _lookOpen(opts) {
   root.innerHTML =
     '<div class="look-layers"><div class="look-sky" id="look-sky"></div><canvas class="look-globe" id="look-globe"></canvas><div class="look-you" id="look-you"></div></div>' +
     '<div class="look-top"><button type="button" class="look-btn" id="look-close"></button>' +
-    '<div class="look-info"><div class="look-read" id="look-read"></div><div class="look-place" id="look-place"></div></div></div>' +
+    '<div class="look-info"><div class="look-read" id="look-read"></div><div class="look-place" id="look-place"></div></div>' +
+    '<button type="button" class="look-btn look-find" id="look-find"></button></div>' +
     '<div class="look-under" id="look-under" hidden><div class="look-under-name" id="look-under-name"></div>' +
     '<button type="button" class="look-under-read" id="look-under-read" hidden></button></div>' +
     '<div class="look-note" id="look-note" role="status" hidden></div>' +
@@ -402,6 +405,9 @@ function _lookOpen(opts) {
   document.body.appendChild(root);
   _lookEl('look-close').innerHTML = LOOK_CLOSE_SVG;
   _lookEl('look-close').setAttribute('aria-label', _lookT('close'));
+  _lookEl('look-find').innerHTML = LOOK_FIND_SVG;
+  _lookEl('look-find').setAttribute('aria-label', _lookT('sky_find_btn'));
+  _lookEl('look-find').onclick = function () { if (typeof openAlmanacFind === 'function') openAlmanacFind('look'); };
   _lookEl('look-ask').textContent = _lookT('look_enable');
   _lookEl('look-earth').lastChild.textContent = _lookT('look_earth');
   _lookEl('look-place').textContent = _lookPlaceLabel(place);
@@ -449,6 +455,8 @@ function _lookOpen(opts) {
   _lookButtons();
   _lookApply(S.view);
   if (!S.noGlobe) _lookWarmGlobe();
+  // Asked to lead to something (the page's "point your phone"): the Find module is loaded, then it leads there.
+  if (opts.find && typeof openAlmanacFind === 'function') openAlmanacFind('look', opts.find);
 }
 
 // What is under the feet, said in words: the place, and the nearest article the library has for it,
@@ -579,6 +587,7 @@ function _lookBindInput(root) {
 function _lookKey(e) {
   var S = _look;
   if (!S) return;
+  if (e.target && e.target.closest && e.target.closest('#sf-sheet')) return;   // typing in the Find sheet: its keys are its own
   if (e.key === 'Escape') { e.stopImmediatePropagation(); e.preventDefault(); _lookClose(); return; }
   var base = S.mode === 'sensor' ? S.trim : S.target;
   var next = _lookKeyBy({ az: base.az, alt: base.alt }, e.key);
@@ -628,6 +637,7 @@ function _lookClose(fromHistory) {
   if (typeof _resumeAllRAF === 'function' && typeof _almanacOpen !== 'undefined' && _almanacOpen) _resumeAllRAF();
   S.root.remove();
   document.body.classList.remove('look-open');
+  if (window._sfLookTick) window._sfLookTick();   // what was being found is shown on the page's sky again
 }
 
 window.openAlmanacLookNow = _lookOpen;

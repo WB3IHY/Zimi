@@ -273,7 +273,7 @@ var _WARM_STARS = {0:1, 19:1, 40:1, 45:1, 48:1};
 // label the star chart. Proper star names are effectively international, so
 // they are not localized.
 var _STAR_NAMES = {
-  0: 'Betelgeuse', 1: 'Rigel', 7: 'Dubhe', 19: 'Antares', 25: 'Shaula',
+  0: 'Betelgeuse', 1: 'Rigel', 7: 'Dubhe', 19: 'Antares', 24: 'Shaula',
   26: 'Regulus', 30: 'Deneb', 35: 'Acrux', 40: 'Pollux', 41: 'Sirius',
   45: 'Aldebaran', 47: 'Canopus', 48: 'Arcturus', 49: 'Rigil Kent.',
   50: 'Vega', 51: 'Capella', 52: 'Procyon', 53: 'Altair', 54: 'Spica',
@@ -583,8 +583,8 @@ function _skyGLView(s) {
 // chosen: only what the viewer set is saved, so a default that changes later
 // reaches everyone who never chose.
 var SKY_SETTINGS_KEY = 'zimi_sky_settings';
-var SKY_SETTING_DEFAULTS = { skin: 'beach', lines: 'off', size: 'auto', dial: 0 };   // a real sky has no lines: a figure shows when its star is tapped
-var SKY_SETTING_VALUES = { skin: ['horizon', 'beach'], lines: ['off', 'lines', 'names'], size: ['auto', 'true', 'large'] };
+var SKY_SETTING_DEFAULTS = { skin: 'beach', lines: 'off', size: 'auto', below: 'off', dial: 0 };   // a real sky has no lines: a figure shows when its star is tapped
+var SKY_SETTING_VALUES = { skin: ['horizon', 'beach'], lines: ['off', 'lines', 'names'], size: ['auto', 'true', 'large'], below: ['off', 'on'] };   // below: the ground see-through, the sky under it shown
 var _skySettings = null, _skyChosen = {};
 function _skyLoadSettings() {
   var out = {}, k, saved = {};
@@ -1225,6 +1225,9 @@ function _skyPaintEarthShadow(ctx, s, x, y, R, semi) {
 var SKY_EYE_KM = 3.57;            // the sea's edge, km, times the square root of eye height in metres
 var SKY_EYE_M = 1.7;
 var SKY_SHORE = [0.3, 0.66];      // the beach's share of the ground band, high water and low
+var SKY_SHORE_AMP = [2.4, 0.8];   // the edge of the sand wanders by these (CSS px, two waves along the shore), so up to their sum either side
+var SKY_SHORE_WAVE = SKY_SHORE_AMP[0] + SKY_SHORE_AMP[1];
+var SKY_SHALLOW_PX = 6, SKY_SHALLOW_MIX = 0.8;   // the last of the water above the sand is shallow: this deep, this much sand through it
 var SKY_CALM_FRAC = 0.5;          // the sea's level where no tide station is near: half tide
 // The palms: azimuth, height (share of the scene's height), lean, and how far
 // their feet stand above the bottom (share of the ground band). Two groups
@@ -1264,15 +1267,21 @@ var SKY_ACTOR_FRAME_MS = 33;      // the moving things' frames: thirty a second 
 // flies) and its place in the sky follows from that and the Earth's curve.
 // Where it flies in the real world no offline page can say: it is an
 // illustration of an airliner, and its tap says so.
-var SKY_PLANE_GAP_S = [240, 600];
+var SKY_PLANE_GAP_S = [420, 1080];       // an airliner every seven to eighteen minutes: a sky is not a flight path
 var SKY_PLANE_KM = [9, 12], SKY_PLANE_KM_S = [0.22, 0.26];   // cruising height; ground speed, km a second
 var SKY_PLANE_PASS_KM = [4, 30];          // how near the ground track passes the viewer
 var SKY_PLANE_MIN_ALT = 10;               // it comes out of the haze at this height and goes back into it
 var SKY_PLANE_FADE_DEG = 8;               // and is in full this far higher
 var SKY_PLANE_SEEN_FROM = 0.7;            // the first airliner after the sky is looked at is already flying: seen anywhere in this share of its track; every later one comes from the haze
-var SKY_PLANE_CONTRAIL_SHARE = 0.5;       // the share of airliners leaving a trail the air keeps
-var SKY_PLANE_CONTRAIL_KM = 24;           // how far behind it the trail is still there
-var SKY_PLANE_CONTRAIL_STEPS = 6;
+var SKY_PLANE_CONTRAIL_SHARE = 0.4;       // the share of airliners leaving a trail the air keeps (the air must be cold and damp at their height)
+// A trail forms a little behind the engines, stays where it was laid (the air it is in moves, the airliner
+// does not take it along), drifts with the wind, spreads and thins until it is gone. Seconds behind the airliner.
+var SKY_CONTRAIL_S = [3, 110], SKY_CONTRAIL_STEPS = 14;
+var SKY_CONTRAIL_ALPHA = 0.4, SKY_CONTRAIL_FADE_S = 55;    // how bright it starts, and the seconds it takes to fall by a factor e
+var SKY_CONTRAIL_WIDTH_PX = [0.9, 2.6];                     // thin where it is new, spread where it is old
+var SKY_CONTRAIL_WIND_KM_S = [0.004, 0.02];                 // the wind at that height, 15 to 70 km/h: how fast the laid trail drifts
+var SKY_CONTRAIL_SHEAR = 0.00015;                           // the wind changes across the layer: km a second to the power 1.5 of age, sideways
+var SKY_CONTRAIL_GAP_AFTER_S = 45, SKY_CONTRAIL_GAP_RATE = 0.37, SKY_CONTRAIL_GAP_AT = 0.72;   // aged, it breaks up in places
 var SKY_EARTH_KM = 6371;
 var SKY_WINGSPAN_KM = 0.06;               // an A320's wingtips are 36 m apart, a 777's 65: its lights stand this far apart
 var SKY_NAV_ARC_COS = Math.cos(110 * Math.PI / 180), SKY_NAV_FEATHER = 0.12;   // a wingtip light shines from dead ahead to 110 degrees round; behind, a white tail light
@@ -1286,7 +1295,6 @@ var SKY_PLANE_STROBE = [0.7, 0.75];       // the white strobe: two flashes a sec
 var SKY_PLANE_STROBE_MS = 1000, SKY_PLANE_STROBE_PULSES = [[0, 60], [160, 220]];
 var SKY_PLANE_BEACON = [0.55, 0.55];      // the red beacon
 var SKY_PLANE_BEACON_MS = 1300, SKY_PLANE_BEACON_PULSE_MS = 120;
-var SKY_PLANE_CONTRAIL_ALPHA = 0.3;
 var SKY_PLANE_CONTRAIL_GLOW = 0.7, SKY_PLANE_CONTRAIL_GLOW_PX = 1.5;   // after sunset a trail the Sun still lights: how bright, how much wider
 var SKY_PLANE_SPECK_KM = 15;              // an airliner is the full speck at this range, smaller further out
 var SKY_PLANE_LIT_FADE_DEG = 1;           // the Sun leaves a 10 km height this many degrees after its first touch of the horizon's dip
@@ -1332,6 +1340,8 @@ function _skySeaChanged() {
   _skyKick();
 }
 
+// How far the edge of the sand lies below the tide's line at a bearing (radians), CSS px.
+function _skyShoreWave(rad) { return SKY_SHORE_AMP[0] * Math.sin(rad * 3 + 0.7) + SKY_SHORE_AMP[1] * Math.sin(rad * 7 + 2); }
 function _skyAzAt(s, x) { return s.center + (x / s.W - 0.5) * s.span; }
 
 // ── The light the ground stands in ──
@@ -1419,8 +1429,13 @@ function _skyPaintSea(ctx, s, frac) {
   // The water itself, darker toward the feet where it is deeper and sees less sky.
   var gain = _skyClamp(_skyLuma(s.ground ? s.ground.avg : hor) / SKY_WATER_LUMA_REF, 0.03, 1.1);
   var far = _skyMix(SKY_WATER, [0, 0, 0], 0.25).map(function (v) { return v * gain; }), near = far.map(function (v) { return v * 0.55; });
-  var g = ctx.createLinearGradient(0, yh, 0, shore);
-  g.addColorStop(0, _skyRgb(far)); g.addColorStop(1, _skyRgb(near));
+  // The beach's edge wanders by up to SKY_SHORE_WAVE px either side of the tide's line; where it dips the water
+  // still stands, and the last of it is shallow: the sand shows through, so no dark band is left between the
+  // deep water and the sand where the edge is far down.
+  var sand = _skyLitColour(SKY_SAND, lit), wet = _skyMix(sand.map(function (v) { return v * 0.6; }), hor, 0.35);
+  var shoreLow = shore + SKY_SHORE_WAVE * dpr, shallow = _skyMix(near, _skyMix(wet, sand, 0.5), SKY_SHALLOW_MIX);
+  var g = ctx.createLinearGradient(0, yh, 0, shoreLow), deepEnd = (shore - yh - SKY_SHALLOW_PX * dpr) / (shoreLow - yh);
+  g.addColorStop(0, _skyRgb(far)); g.addColorStop(_skyClamp(deepEnd, 0.01, 0.99), _skyRgb(near)); g.addColorStop(1, _skyRgb(shallow));
   ctx.fillStyle = g;
   ctx.fillRect(0, yh, W, H - yh);
   // The mirrored sky, in strips each moved a little sideways by the swell.
@@ -1453,12 +1468,11 @@ function _skyPaintSea(ctx, s, frac) {
   // The beach: one long soft curve of sand (tied to bearings, so it turns
   // with the view), wet and holding the sky's light at the water, a thin
   // line of foam, dry sand toward the feet, the light of the hour in all of it.
-  var sand = _skyLitColour(SKY_SAND, lit), wet = _skyMix(sand.map(function (v) { return v * 0.6; }), hor, 0.35);
   ctx.beginPath(); ctx.moveTo(0, H);
   var step = 6 * dpr;
   for (var sx = 0; sx <= W + step; sx += step) {
     var sa = _skyAzAt(s, sx) * DEG_TO_RAD;
-    ctx.lineTo(sx, shore + dpr * (2.4 * Math.sin(sa * 3 + 0.7) + 0.8 * Math.sin(sa * 7 + 2)));
+    ctx.lineTo(sx, shore + dpr * _skyShoreWave(sa));
   }
   ctx.lineTo(W, H); ctx.closePath();
   var sg = ctx.createLinearGradient(0, shore - 3 * dpr, 0, H);
@@ -1947,19 +1961,32 @@ function _skyMeteor(s, part) {
 // curve of the Earth: its height above the horizon, its bearing, its range.
 function _skyPlaneAt(a, p) {
   var along = _skyLerp(a.L0, a.L1, p), th = a.theta * DEG_TO_RAD, st = Math.sin(th), ct = Math.cos(th);
-  var E = a.b * st + along * a.dir * ct, N = a.b * ct - along * a.dir * st, rho = Math.sqrt(E * E + N * N), arc = rho / SKY_EARTH_KM;
-  var top = SKY_EARTH_KM + a.h;
+  return _skyPlaneFromEN(a.b * st + along * a.dir * ct, a.b * ct - along * a.dir * st, a.h);
+}
+// Where something h km up, E km east and N km north of the viewer, stands in the sky.
+function _skyPlaneFromEN(E, N, h) {
+  var rho = Math.sqrt(E * E + N * N), arc = rho / SKY_EARTH_KM, top = SKY_EARTH_KM + h;
   return { E: E, N: N, rho: rho, az: (Math.atan2(E, N) / DEG_TO_RAD + 360) % 360,
     alt: Math.atan2(top * Math.cos(arc) - SKY_EARTH_KM, top * Math.sin(arc)) / DEG_TO_RAD };
 }
+// A point of its trail laid `age` seconds ago: where the airliner was then, taken on by the wind (and its change across
+// the layer, sideways) for as long as it has been there.
+function _skyContrailAt(a, p, age) {
+  var v = (a.L1 - a.L0) / (a.dur / 1000), was = _skyPlaneAt(a, p - age * v / (a.L1 - a.L0)), w = a.wind, drift = Math.pow(age, 1.5) * SKY_CONTRAIL_SHEAR, speed = Math.hypot(w[0], w[1]) || 1;
+  return _skyPlaneFromEN(was.E + w[0] * age - w[1] / speed * drift, was.N + w[1] * age + w[0] / speed * drift, a.h);
+}
 // How far out an airliner at height h is seen down to SKY_PLANE_MIN_ALT (flat ground; the curve matters little this close).
 function _skyPlaneReach(h) { return h / Math.tan(SKY_PLANE_MIN_ALT * DEG_TO_RAD); }
+function _skyWind() {
+  var sp = _skyRandIn(_skyRand, SKY_CONTRAIL_WIND_KM_S), dir = _skyRand() * 2 * Math.PI;
+  return [sp * Math.sin(dir), sp * Math.cos(dir)];
+}
 function _skyPlane(s, flying) {
   var h = _skyRandIn(_skyRand, SKY_PLANE_KM), b = _skyRandIn(_skyRand, SKY_PLANE_PASS_KM), v = _skyRandIn(_skyRand, SKY_PLANE_KM_S);
   var half = Math.sqrt(Math.max(0, Math.pow(_skyPlaneReach(h), 2) - b * b)), from = -half + (flying ? 2 * half * SKY_PLANE_SEEN_FROM * _skyRand() : 0);
   return { type: 'plane', start: performance.now(), dur: (half - from) / v * 1000, dir: _skyRand() < 0.5 ? 1 : -1, h: h, b: b,
     theta: s.center + (_skyRand() - 0.5) * s.span, L0: from, L1: half, contrail: _skyRand() < SKY_PLANE_CONTRAIL_SHARE,
-    phase: _skyRand() * SKY_PLANE_STROBE_MS };
+    wind: _skyWind(), phase: _skyRand() * SKY_PLANE_STROBE_MS };
 }
 // Which of its lights this side of it shows (each 0 to 1): a wingtip light
 // shines from dead ahead round to 110 degrees on its own side, so from the
@@ -1978,6 +2005,24 @@ function _skyPulse(t, period, windows) {
   for (var i = 0; i < windows.length; i++) if (m >= windows[i][0] && m < windows[i][1]) return true;
   return false;
 }
+// The trail behind an airliner: new and thin near it, drifting with the wind, spread and broken where it is old.
+// By day white; a high one the Sun still lights after the ground is dark keeps a glow, and the Sun's colour.
+function _skyPaintContrail(ctx, s, a, p, x, y, light, sunlit) {
+  var dpr = s.dpr, e = s.eph, last = { x: x, y: y, alt: 99 }, span = SKY_CONTRAIL_S[1] - SKY_CONTRAIL_S[0];
+  var tint = _skySunTint(Math.max(0, e.sun.alt)).map(function (v) { return 255 * v; }), c = _skyMix([255, 255, 255], tint, _skyClamp(1 - (e.sunGeoAlt + 3) / 10, 0, 1));
+  var glow = sunlit * (1 - light), reach = 0.4 + 0.6 * sunlit;   // a trail only the Sun's last light finds is a short one
+  ctx.lineCap = 'round';
+  for (var i = 0; i <= SKY_CONTRAIL_STEPS; i++) {
+    var age = SKY_CONTRAIL_S[0] + span * reach * i / SKY_CONTRAIL_STEPS, q = _skyContrailAt(a, p, age), qx = _skyX(s, q.az), qy = _skyY(s, q.alt);
+    if (i && q.alt > 0 && last.alt > 0 && Math.abs(qx - last.x) < s.W / 2 && !(age > SKY_CONTRAIL_GAP_AFTER_S && Math.sin(age * SKY_CONTRAIL_GAP_RATE + a.phase) > SKY_CONTRAIL_GAP_AT)) {
+      var fresh = Math.exp(-age / SKY_CONTRAIL_FADE_S), alpha = Math.max(SKY_CONTRAIL_ALPHA * light, SKY_PLANE_CONTRAIL_GLOW * glow) * sunlit * fresh;
+      ctx.lineWidth = dpr * _skyLerp(SKY_CONTRAIL_WIDTH_PX[0], SKY_CONTRAIL_WIDTH_PX[1], (age - SKY_CONTRAIL_S[0]) / span) * (1 + SKY_PLANE_CONTRAIL_GLOW_PX * glow);
+      ctx.strokeStyle = _skyRgb(c, alpha);
+      ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(qx, qy); ctx.stroke();
+    }
+    last = { x: qx, y: qy, alt: q.alt };
+  }
+}
 function _skyPaintPlane(ctx, s, a, ts) {
   var p = _skyActorAt(a, ts), pos = _skyPlaneAt(a, p), dpr = s.dpr, u = s.scale * dpr, e = s.eph;
   var x = _skyX(s, pos.az), y = _skyY(s, pos.alt), light = _skyDaylight(e.sunGeoAlt);
@@ -1988,26 +2033,16 @@ function _skyPaintPlane(ctx, s, a, ts) {
   ctx.globalAlpha = haze;
   // The Sun's light still reaches an airliner when the ground is in shadow (the horizon dips a few degrees from 10 km): its trail glows then.
   var dip = Math.acos(SKY_EARTH_KM / (SKY_EARTH_KM + a.h)) / DEG_TO_RAD, sunlit = _skyClamp((e.sunGeoAlt + dip) / SKY_PLANE_LIT_FADE_DEG, 0, 1);
-  if (a.contrail && sunlit > 0 && (light > 0.1 || e.sunGeoAlt > -dip)) {
-    var tint = _skySunTint(Math.max(0, e.sun.alt)).map(function (v) { return 255 * v; }), c = _skyMix([255, 255, 255], tint, _skyClamp(1 - (e.sunGeoAlt + 3) / 10, 0, 1));
-    var glow = sunlit * (1 - light), alpha = Math.max(SKY_PLANE_CONTRAIL_ALPHA * light, SKY_PLANE_CONTRAIL_GLOW * glow) * sunlit, last = { x: x, y: y };
-    ctx.lineWidth = dpr * (1 + SKY_PLANE_CONTRAIL_GLOW_PX * glow);   // lit against a dark sky it is a bright band
-    for (var i = 1; i <= SKY_PLANE_CONTRAIL_STEPS; i++) {
-      var back = _skyPlaneAt({ theta: a.theta, dir: a.dir, b: a.b, h: a.h, L0: a.L0, L1: a.L1 }, p - i / SKY_PLANE_CONTRAIL_STEPS * SKY_PLANE_CONTRAIL_KM / (a.L1 - a.L0));
-      var bx = _skyX(s, back.az), by = _skyY(s, back.alt);
-      if (Math.abs(bx - last.x) < s.W / 2 && back.alt > 0) {
-        ctx.strokeStyle = _skyRgb(c, alpha * (1 - (i - 1) / SKY_PLANE_CONTRAIL_STEPS));
-        ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(bx, by); ctx.stroke();
-      }
-      last = { x: bx, y: by };
-    }
-  }
+  if (a.contrail && sunlit > 0 && (light > 0.1 || e.sunGeoAlt > -dip)) _skyPaintContrail(ctx, s, a, p, x, y, light, sunlit);
   // By day a speck: from the ground an airliner is a fraction of a degree long.
   if (light > 0.15) {
-    var sp = _skyClamp(SKY_PLANE_SPECK_KM / pos.rho, 0.35, 1.2) * u;
+    var sp = _skyClamp(SKY_PLANE_SPECK_KM / pos.rho, 0.35, 1.2) * u, ahead = _skyPlaneAt(a, Math.min(1, p + 0.002)), head = Math.atan2(_skyY(s, ahead.alt) - y, _skyX(s, ahead.az) - x);
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(head);   // its body along its way, the wings across it
     ctx.fillStyle = 'rgba(40,46,58,' + (0.7 * light).toFixed(3) + ')';
-    ctx.fillRect(x - 1.5 * sp, y - 0.35 * sp, 3 * sp, 0.7 * sp);
-    ctx.fillRect(x - 0.3 * sp, y - 1.3 * sp, 0.6 * sp, 2.6 * sp);
+    ctx.fillRect(-1.5 * sp, -0.35 * sp, 3 * sp, 0.7 * sp);
+    ctx.fillRect(-0.3 * sp, -1.3 * sp, 0.6 * sp, 2.6 * sp);
+    ctx.restore();
   } else if (sunlit > 0) {
     // After sunset a high one still catches the Sun: a bright warm point.
     _skyLight(ctx, x, y, 0.6 * dpr, _skySunTint(0).map(function (v) { return 255 * v; }), 0.9 * sunlit * (1 - light));
@@ -2165,6 +2200,153 @@ function _skyMoonDisc(s) {
 }
 function _skyUnderMoon(s, x, y) { var m = s.moonDisc; return !!m && (x - m.x) * (x - m.x) + (y - m.y) * (y - m.y) < m.r * m.r; }
 
+// ══ Below the horizon ══
+// A choice, off unless asked for: the ground goes see-through and the sky
+// that is under it shows, everything below the horizon placed by the same
+// geometry as everything above (none of it is a sight from this place: the
+// Earth is in the way; it is where they are). The panorama reaches as far
+// down as it has room, about 24 degrees; the star chart (below) reaches
+// further. Everything under the horizon is marked as such: a dashed horizon,
+// the depths in degrees, a cool ink, and the words.
+var SKY_BELOW_KEEP = 0.4;              // the share of the ground left over what is under it
+var SKY_BELOW_MAG = 4.6;               // the faintest star drawn under the horizon
+var SKY_BELOW_UNDER = [[10, 14, 30], [3, 4, 9]];   // the sky under the ground, at the horizon and at the foot
+var SKY_BELOW_INK = '170,190,230';
+var SKY_BELOW_RULES = [10, 20];        // depths (degrees) marked with a faint dotted line
+var SKY_BELOW_NAME_MAG = 2.2;          // stars this bright are named
+function _skyBelowOn() { return _skySetting('below') === 'on'; }
+// Whichever way the choice is made (the scene's button, the chart's), both follow it.
+function _skyBelowToggle() {
+  _skySet('below', _skyBelowOn() ? 'off' : 'on');
+  _skyBelowSync();
+  if (typeof _starChartBase !== 'undefined' && _starChartBase && document.getElementById('almanac-starchart')) _drawStarChart(_starChartTime());
+}
+function _skyBelowSync() {
+  var on = _skyBelowOn(), btns = document.querySelectorAll ? document.querySelectorAll('[data-sky-below]') : [];
+  for (var i = 0; i < btns.length; i++) btns[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+var SKY_BELOW_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 11h18"/><path d="M5 15.5h2M10 15.5h4M17 15.5h2" stroke-dasharray="1 3"/><circle cx="12" cy="6" r="2.3"/><circle cx="7" cy="19" r="1" fill="currentColor" stroke="none"/><circle cx="16.5" cy="19.5" r="1.4" fill="currentColor" stroke="none"/></svg>';
+// The scene's button, beside the others on the picture; once.
+function _skyEnsureBelowButton(wrap) {
+  if (!wrap || wrap.querySelector('[data-sky-below]')) return;
+  var b = document.createElement('button');
+  b.type = 'button'; b.className = 'alm-sky-tool alm-sky-below';
+  b.setAttribute('data-sky-below', '');
+  b.setAttribute('aria-label', t('alm_sky_below_btn')); b.title = t('alm_sky_below_btn');
+  b.setAttribute('aria-pressed', _skyBelowOn() ? 'true' : 'false');
+  b.innerHTML = SKY_BELOW_SVG;
+  b.addEventListener('click', _skyBelowToggle);
+  wrap.insertBefore(b, wrap.firstChild);
+}
+var SKY_FIND_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5.5 5.5"/></svg>';
+// The scene's other button: find a planet, a star, a constellation (almanac-skyfind.js, loaded on the first tap).
+function _skyEnsureFindButton(wrap) {
+  if (!wrap || wrap.querySelector('[data-sky-find]')) return;
+  var b = document.createElement('button');
+  b.type = 'button'; b.className = 'alm-sky-tool alm-sky-find';
+  b.setAttribute('data-sky-find', '');
+  b.setAttribute('aria-label', t('sky_find_btn')); b.title = t('sky_find_btn');
+  b.innerHTML = SKY_FIND_SVG;
+  b.addEventListener('click', function () { openAlmanacFind('page'); });
+  wrap.insertBefore(b, wrap.firstChild);
+}
+// What is under the horizon at the instant, within the depth the picture has: the catalogue's stars by
+// the ephemeris's own rotation (P, lst), the planets, the Sun and the Moon. Kept until the instant changes.
+function _skyBelowBodies(s, depth) {
+  var key = s.nowTime + '|' + s.lat + '|' + s.lon + '|' + depth;
+  if (s.belowKey === key) return s.below;
+  var e = s.eph, sinLat = Math.sin(s.lat * DEG_TO_RAD), cosLat = Math.cos(s.lat * DEG_TO_RAD), out = { stars: [], planets: [] }, cat = _skyCatalogue();
+  for (var j = 0; j < cat.length; j++) {
+    if (cat[j].mag > SKY_BELOW_MAG) continue;
+    var rd = _skyRaDec(_skyMul(e.P, cat[j].v)), h = _skyHorizontal(rd.ra, rd.dec, e.lst, sinLat, cosLat);
+    if (h.alt < 0 && h.alt > -depth) out.stars.push({ alt: h.alt, az: h.az, mag: cat[j].mag, tint: cat[j].tint, idx: cat[j].idx });
+  }
+  for (var i = 0; i < e.planets.length; i++) if (e.planets[i].alt < 0 && e.planets[i].alt > -depth) out.planets.push(e.planets[i]);
+  out.sun = e.sunGeoAlt < -2 && e.sunGeoAlt > -depth ? { alt: e.sunGeoAlt, az: e.sun.az } : null;
+  var mp = e.moon;
+  out.moon = mp.altitude < -2 && mp.altitude > -depth ? { alt: mp.altitude, az: mp.azimuth } : null;
+  s.belowKey = key; s.below = out;
+  return out;
+}
+// The ground see-through: part of it taken away, the dark sky put behind, then the sky under it and its marks.
+function _skyPaintBelowSky(ctx, s) {
+  var dpr = s.dpr, yh = s.H * SKY_HORIZON_Y, ppd = _skyPxPerDegY(s), depth = (s.H - yh) / ppd + 1;
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = 'rgba(0,0,0,' + (1 - SKY_BELOW_KEEP) + ')';
+  ctx.fillRect(0, yh, s.W, s.H - yh);
+  ctx.globalCompositeOperation = 'destination-over';
+  var g = ctx.createLinearGradient(0, yh, 0, s.H);
+  g.addColorStop(0, _skyRgb(SKY_BELOW_UNDER[0])); g.addColorStop(1, _skyRgb(SKY_BELOW_UNDER[1]));
+  ctx.fillStyle = g; ctx.fillRect(0, yh, s.W, s.H - yh);
+  ctx.restore();
+  var b = _skyBelowBodies(s, depth), ink = SKY_BELOW_INK;
+  // The horizon and the depths, in degrees, from the left edge.
+  ctx.save();
+  ctx.lineWidth = Math.max(1, 0.8 * dpr);
+  ctx.strokeStyle = 'rgba(' + ink + ',0.55)'; ctx.setLineDash([5 * dpr, 4 * dpr]);
+  ctx.beginPath(); ctx.moveTo(0, yh); ctx.lineTo(s.W, yh); ctx.stroke();
+  ctx.strokeStyle = 'rgba(' + ink + ',0.2)'; ctx.setLineDash([1 * dpr, 5 * dpr]);
+  ctx.font = '600 ' + Math.round(8 * dpr) + 'px ' + SKY_FONT; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillStyle = 'rgba(' + ink + ',0.55)';
+  for (var i = 0; i < SKY_BELOW_RULES.length; i++) {
+    var y = yh + SKY_BELOW_RULES[i] * ppd;
+    if (y > s.H - 8 * dpr) continue;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(s.W, y); ctx.stroke();
+    ctx.fillText('−' + _orrNum(SKY_BELOW_RULES[i], null, 0) + '°', s.W - 6 * dpr, y - 1 * dpr);
+  }
+  ctx.restore();
+  ctx.save();
+  ctx.font = '700 ' + Math.round(9 * dpr) + 'px ' + SKY_FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = 'rgba(' + ink + ',0.85)';
+  ctx.fillText(t('alm_sky_below_label').toUpperCase(), 8 * dpr, yh + 5 * dpr);
+  ctx.restore();
+  // The stars, named when they are bright; then the planets, the Moon and the Sun.
+  for (var j = 0; j < b.stars.length; j++) {
+    var st = b.stars[j], p = _skyScreen(s, st.az, st.alt, 4);
+    if (!p.visible) continue;
+    var look = _skyStarLook(st.mag), r = _skyStarDevR(look.r, dpr);
+    if (look.bloom) _skyStarBloom(ctx, p.x, p.y, r, st.tint, 0.8);
+    ctx.fillStyle = 'rgba(' + st.tint + ',' + (0.9 * look.k).toFixed(3) + ')';
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+    var named = st.idx >= 0 && _STAR_NAMES[st.idx];
+    if (named && st.mag < SKY_BELOW_NAME_MAG) {
+      ctx.font = '500 ' + Math.round(9 * dpr) + 'px ' + SKY_FONT; ctx.textBaseline = 'middle';
+      var nm = _STAR_NAMES[st.idx], flip = p.x + r + 6 * dpr + ctx.measureText(nm).width > s.W;   // beside the star, on the side with room
+      ctx.textAlign = flip ? 'right' : 'left';
+      ctx.fillStyle = 'rgba(' + ink + ',0.8)'; ctx.fillText(nm, p.x + (flip ? -1 : 1) * (r + 3 * dpr), p.y);
+    }
+    if (named) s.bodies.push({ type: 'star', idx: st.idx, x: p.x / dpr, y: p.y / dpr, r: r / dpr, alt: st.alt, az: st.az, mag: st.mag });
+  }
+  for (var k = 0; k < b.planets.length; k++) {
+    var pl = b.planets[k], pt = _skyScreen(s, pl.az, pl.alt, 6 * dpr);
+    if (!pt.visible) continue;
+    var col = _PLANETS[pl.name].glow, pr = _skyStarDevR(_skyStarLook(pl.mag).r * SKY_PLANET_R_X, dpr);
+    ctx.fillStyle = _hexToRgba(col, 0.95);
+    ctx.beginPath(); ctx.arc(pt.x, pt.y, pr, 0, Math.PI * 2); ctx.fill();
+    ctx.font = '600 ' + Math.round(9 * dpr) + 'px ' + SKY_FONT; ctx.textBaseline = 'middle';
+    var pn = _tp(pl.name), pflip = pt.x + pr + 8 * dpr + ctx.measureText(pn).width > s.W;
+    ctx.textAlign = pflip ? 'right' : 'left';
+    ctx.fillStyle = _hexToRgba(col, 0.9); ctx.fillText(pn, pt.x + (pflip ? -1 : 1) * (pr + 4 * dpr), pt.y);
+    s.bodies.push({ type: 'planet', name: pl.name, x: pt.x / dpr, y: pt.y / dpr, r: pr / dpr, alt: pl.alt, az: pl.az, mag: pl.mag, phase: pl.phase });
+  }
+  if (b.moon) {
+    var mp = _skyScreen(s, b.moon.az, b.moon.alt, 12 * dpr);
+    if (mp.visible) {
+      var mr = _skyBodyRadius(s, _skyMoonSemi(s.now, b.moon.alt)), sp = _skyScreen(s, s.eph.sun.az, s.eph.sunGeoAlt);
+      _skyDrawPhase(ctx, mp.x, mp.y, mr, s.moonData.phase.illumination / 100, Math.atan2(sp.y - mp.y, sp.x - mp.x), '#dcd8c8', 0.9);
+      s.bodies.push({ type: 'moon', x: mp.x / dpr, y: mp.y / dpr, r: mr / dpr, alt: b.moon.alt, az: b.moon.az });
+    }
+  }
+  if (b.sun) {
+    var sn = _skyScreen(s, b.sun.az, b.sun.alt, 12 * dpr);
+    if (sn.visible) {
+      var sr = _skyBodyRadius(s, SKY_SUN_SEMI_DEG);
+      ctx.fillStyle = 'rgba(255,205,130,0.9)'; ctx.beginPath(); ctx.arc(sn.x, sn.y, sr, 0, Math.PI * 2); ctx.fill();
+      s.bodies.push({ type: 'sun', x: sn.x / dpr, y: sn.y / dpr, r: sr / dpr, alt: b.sun.alt, az: b.sun.az });
+    }
+  }
+}
+
 // What stands on the horizon: the beach (its sea, boats, palms), or the true
 // horizon, a line with the compass's ticks and its letters.
 var SKY_TICK_PX = [3, 5, 8], SKY_TICK_DEG = [5, 15, 45];   // tick length (CSS px) at each step of bearing
@@ -2284,6 +2466,7 @@ function _skyPaintBase(s, ts) {
   _skyPaintSun(ctx, s);
   _skyPaintMoon(ctx, s, _skyMoonAt(s, ts));
   if (beach) _skyPaintGround(ctx, s); else _skyPaintHorizon(ctx, s, !!gl);
+  if (_skyBelowOn() && !s.lens) _skyPaintBelowSky(ctx, s);
   s.baseBodies = s.bodies;
   s.baseDirty = !!s.moonAnim;
   s.paintedTime = s.nowTime;
@@ -2310,6 +2493,7 @@ function _skyPaint(ts) {
     }
   }
   if (s.issUp && !_skyTimers.iss) _skyTimers.iss = setTimeout(_skyIssTick, SKY_ISS_MS);
+  if (typeof _skyFind !== 'undefined' && _skyFind && typeof _sfPaintMark === 'function') _sfPaintMark(ctx, s);   // what was asked for (almanac-skyfind.js), ringed
   if (_skyRedOn()) _skyRedWash(ctx, s);
 }
 
@@ -2569,7 +2753,7 @@ var _skyTimers = { live: 0, iss: 0, sway: 0, sats: 0, actor: 0, plane: 0, birds:
 var SKY_ISS_MS = 500;               // the ISS crosses the sky in minutes: a frame twice a second keeps it moving
 // The first of each after the sky is seen again (opening, coming back to the app).
 // A plane is likely already crossing (it is seen part-way along its track); a meteor's wait is its rate's.
-var SKY_FIRST_SPAWN_MS = { plane: 4000, birds: 30000, whale: 60000 };
+var SKY_FIRST_SPAWN_MS = { plane: 25000, birds: 30000, whale: 60000 };
 function _skyDisarm() {
   for (var k in _skyTimers) { clearTimeout(_skyTimers[k]); _skyTimers[k] = 0; }
 }
@@ -2790,6 +2974,8 @@ function _initSkyScene(now, lat, lon, animateMoon) {
     s.observer.observe(canvas);
   }
   _skyBindTaps(canvas);
+  _skyEnsureBelowButton(wrap);
+  _skyEnsureFindButton(wrap);
   _skyBindSettings();
   _skyHideTip();
   _skyArm();
@@ -2923,7 +3109,7 @@ function _skyBodyKey(b) {
 // What lives on the horizon and in the air, and its article (almanac-links.js SKY).
 var SKY_LIFE_KEYS = { sea: 'sky:sea', boat: 'sky:ship', whale: 'sky:whale', plane: 'sky:airliner', birds: 'sky:birds',
   meteor: 'sky:meteor', aurora: 'sky:aurora' };
-var SKY_NAME_KEYS = { sun: 'alm_sun', moon: 'alm_the_moon', iss: 'alm_earth_iss_name', sea: 'alm_sky_sea',
+var SKY_NAME_KEYS = { sun: 'alm_sun', moon: 'alm_moon', iss: 'alm_earth_iss_name', sea: 'alm_sky_sea',
   boat: 'alm_sky_boat', whale: 'alm_sky_whale', plane: 'alm_sky_plane', birds: 'alm_sky_birds', meteor: 'alm_sky_meteor', aurora: 'alm_sky_aurora' };
 function _skyBodyName(b) {
   if (b.type === 'planet') return _tp(b.name);
@@ -2963,6 +3149,7 @@ function _skyBodyLines(b) {
   if (b.type === 'star' && b.con) { var cc = _skyConById(b.con); if (cc) lines.push(t('alm_sky_in_con', { c: cc.name })); }
   // The planets whose phase shows (they pass between us and the Sun, or are not far from it).
   if (b.type === 'planet' && b.phase != null && SKY_PHASED_PLANETS.indexOf(b.name) >= 0) lines.push(t('alm_sky_f_moon_lit', { p: _orrNum(Math.round(b.phase * 100), null, 0) + '%' }));
+  if (b.alt < 0) lines.push(t('alm_sky_below_label'));
   if (b.enlarged) lines.push(t('alm_sky_enlarged', { n: _orrNum(Math.round(b.enlarged), null, 0) }));
   return lines;
 }
@@ -3060,6 +3247,8 @@ var _starChartViewLat = null; // null = use the saved location; set by dragging
 
 var _starChartViewLon = null;
 
+var SKY_CHART_HORIZON_SHARE = 0.64;   // with the sky under the horizon shown, the horizon is this share of the disc's radius (the rim is then about 50 degrees down)
+var _starChartRot = 0;                // the bearing at the top of the chart (0: north up); Find turns it to what it was asked for
 var _starChartDragged = false; // suppresses the tap-to-identify after a drag
 
 var _starChartSelectedKey = null; // the currently selected body's link key (2nd
@@ -3206,6 +3395,29 @@ function _starChartClick(ev) {
   _starChartSelectedKey = link ? best.key : null;
 }
 
+// The sky under the horizon on the chart: the ring of the horizon, one of -30 degrees, the zone between
+// and the rim tinted, and the words.
+function _skyChartBelowZone(ctx, cx, cy, R, R0) {
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.arc(cx, cy, R0, 0, Math.PI * 2, true);
+  ctx.fillStyle = 'rgba(' + SKY_BELOW_INK + ',0.07)'; ctx.fill('evenodd');
+  ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(' + SKY_BELOW_INK + ',0.6)'; ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.arc(cx, cy, R0, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(' + SKY_BELOW_INK + ',0.22)'; ctx.setLineDash([1, 4]);
+  ctx.beginPath(); ctx.arc(cx, cy, R0 * (1 + 30 / 90), 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font = '700 8px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(' + SKY_BELOW_INK + ',0.85)';
+  ctx.fillText(t('alm_sky_below_label').toUpperCase(), cx, cy + R - 9);
+  ctx.restore();
+}
+// The chart's small controls under it: see below the horizon (and, once the Find module is in, find).
+function _starChartToolsHtml() {
+  var on = _skyBelowOn(), label = _almEsc(t('alm_sky_below_btn'));
+  return '<div class="alm-sc-tools"><button type="button" class="alm-sc-tool" onclick="openAlmanacFind(\'page\')">' + _almEsc(t('sky_find_btn')) + '</button>' +
+    '<button type="button" class="alm-sc-tool" data-sky-below aria-pressed="' + (on ? 'true' : 'false') + '" onclick="_skyBelowToggle()">' + label + '</button></div>';
+}
+
 function _renderStarChart(baseNow) {
   _starChartBase = baseNow;
   _starChartViewLat = null;
@@ -3278,6 +3490,12 @@ function _drawStarChart(now) {
   var lon = panned ? _starChartViewLon : loc.lon;
   var cx = size / 2, cy = size / 2;
   var R = size / 2 - 16; // leave room for cardinal labels
+  // What was asked for stays at the top of the chart as the sky turns (almanac-skyfind.js); the turn there is its own.
+  if (typeof _skyFind !== 'undefined' && _skyFind && typeof _sfTurn !== 'undefined' && !_sfTurn) {
+    var fp = _sfPosition(_skyFind, now, lat, lon);
+    if (fp) _starChartRot = _sfChartTurn(fp);
+  }
+  var below = _skyBelowOn(), R0 = below ? R * SKY_CHART_HORIZON_SHARE : R;   // R0: the horizon's radius
 
   // Shared alt/az from apparent local sidereal time.
   var JD = _dateToJD(now.getTime());
@@ -3287,9 +3505,9 @@ function _drawStarChart(now) {
   function altAz(raRad, decRad) { return _skyHorizontal(raRad, decRad, LST, sinLat, cosLat); }
   // Azimuthal (zenith-centered) projection with N up, E left (looking up).
   function project(altDeg, azDeg) {
-    var r = (90 - altDeg) / 90 * R;
-    var a = azDeg * DEG_TO_RAD;
-    return { x: cx - r * Math.sin(a), y: cy - r * Math.cos(a) };
+    var r = (90 - altDeg) / 90 * R0;
+    var a = (azDeg - _starChartRot) * DEG_TO_RAD;
+    return { x: cx - r * Math.sin(a), y: cy - r * Math.cos(a), r: r };
   }
 
   var styles = getComputedStyle(document.documentElement);
@@ -3317,7 +3535,7 @@ function _drawStarChart(now) {
   // Faint decorative background stars, clipped to the disc — ambiance only,
   // drawn under the constellation lines and the real (linkable) catalog stars.
   ctx.save();
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+  ctx.beginPath(); ctx.arc(cx, cy, R0, 0, Math.PI * 2); ctx.clip();
   var bgStars = _ensureStarChartBgStars(size);
   for (var bgi = 0; bgi < bgStars.length; bgi++) {
     var bg = bgStars[bgi];
@@ -3332,24 +3550,27 @@ function _drawStarChart(now) {
   ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
   // Altitude ring at 30° and 60°.
   ctx.strokeStyle = 'rgba(120,140,180,0.12)';
-  ctx.beginPath(); ctx.arc(cx, cy, R * 2 / 3, 0, Math.PI * 2); ctx.stroke();
-  ctx.beginPath(); ctx.arc(cx, cy, R / 3, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, R0 * 2 / 3, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, R0 / 3, 0, Math.PI * 2); ctx.stroke();
+  if (below) _skyChartBelowZone(ctx, cx, cy, R, R0);
 
   // Cardinal labels (N up, E left — planisphere convention).
   ctx.fillStyle = amber;
   ctx.font = 'bold 12px system-ui, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(t('alm_dir_n'), cx, cy - R - 7);
-  ctx.fillText(t('alm_dir_s'), cx, cy + R + 7);
-  ctx.fillText(t('alm_dir_e'), cx - R - 7, cy);
-  ctx.fillText(t('alm_dir_w'), cx + R + 7, cy);
+  [['alm_dir_n', 0], ['alm_dir_e', 90], ['alm_dir_s', 180], ['alm_dir_w', 270]].forEach(function (c) {
+    var a = (c[1] - _starChartRot) * DEG_TO_RAD, x = cx - (R0 + 7) * Math.sin(a), y = cy - (R0 + 7) * Math.cos(a);
+    if (below) { ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(5,6,13,0.8)'; ctx.strokeText(t(c[0]), x, y); }
+    ctx.fillText(t(c[0]), x, y);
+  });
 
   // Precompute star projections.
   var proj = {};
   for (var i = 0; i < _STARS.length; i++) {
     var aa = altAz(_STARS[i][0] * 15 * DEG_TO_RAD, _STARS[i][1] * DEG_TO_RAD);
-    if (aa.alt < 0) continue;
+    if (aa.alt < 0 && !below) continue;
     proj[i] = project(aa.alt, aa.az);
+    if (proj[i].r > R) { delete proj[i]; continue; }
     proj[i].alt = aa.alt; proj[i].az = aa.az;
   }
   // Constellation lines (both endpoints up).
@@ -3363,16 +3584,17 @@ function _drawStarChart(now) {
   var starCount = 0;
   for (var i = 0; i < _STARS.length; i++) {
     var p = proj[i]; if (!p) continue;
-    starCount++;
+    var under = p.alt < 0;
+    if (!under) starCount++;
     var mag = _STARS[i][2], look = _skyStarLook(mag);
     // The chart is drawn in CSS pixels (its context is scaled by dpr).
     var rad = _skyStarDevR(look.r, dpr) / dpr;
-    var tint = _WARM_STARS[i] ? '255,208,160' : '238,242,255';
-    if (look.bloom) _skyStarBloom(ctx, p.x, p.y, rad, tint, 1);
-    ctx.fillStyle = 'rgba(' + tint + ',' + look.k.toFixed(3) + ')';
+    var tint = under ? SKY_BELOW_INK : _WARM_STARS[i] ? '255,208,160' : '238,242,255', fade = under ? 0.7 : 1;
+    if (look.bloom) _skyStarBloom(ctx, p.x, p.y, rad, tint, fade);
+    ctx.fillStyle = 'rgba(' + tint + ',' + (look.k * fade).toFixed(3) + ')';
     ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, Math.PI * 2); ctx.fill();
     if (_STAR_NAMES[i] && mag < 1.6) {
-      ctx.fillStyle = 'rgba(200,210,235,0.7)';
+      ctx.fillStyle = under ? 'rgba(' + SKY_BELOW_INK + ',0.8)' : 'rgba(200,210,235,0.7)';
       ctx.font = '9px system-ui, sans-serif';
       drawLabel(_STAR_NAMES[i], p.x, p.y, rad + 2);
     }
@@ -3391,34 +3613,51 @@ function _drawStarChart(now) {
     var nm = _VISIBLE_PLANETS[pi];
     var pq = _skyPlanet(nm, T, P);
     var aa = altAz(pq.ra, pq.dec);
-    if (aa.alt < 0) continue;
+    if (aa.alt < 0 && !below) continue;
     var pp = project(aa.alt, aa.az);
+    if (pp.r > R) continue;
     var col = _PLANETS[nm] ? _PLANETS[nm].color : amber;
+    ctx.globalAlpha = aa.alt < 0 ? 0.75 : 1;
     ctx.fillStyle = col;
     ctx.beginPath(); ctx.arc(pp.x, pp.y, 3.2, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = col;
     ctx.font = 'bold 9px system-ui, sans-serif';
     drawLabel(_tp(nm), pp.x, pp.y, 5);
+    ctx.globalAlpha = 1;
     _starChartBodies.push({
       x: pp.x, y: pp.y, key: 'planet:' + nm.toLowerCase(),
       label: _tp(nm) + ' \u00b7 ' + aa.alt.toFixed(0) + '\u00b0 ' + _azCompass(aa.az)
     });
-    planetsUp.push(_tp(nm));
+    if (aa.alt > 0) planetsUp.push(_tp(nm));
   }
 
   // The Moon.
   var mp = _moonPosition(now, lat, lon);
-  var moonUp = mp.altitude > 0;
-  if (moonUp) {
-    var mpp = project(mp.altitude, mp.azimuth);
+  var moonUp = mp.altitude > 0, mpp = project(mp.altitude, mp.azimuth);
+  if (moonUp || (below && mpp.r <= R)) {
+    ctx.globalAlpha = moonUp ? 1 : 0.75;
     ctx.fillStyle = '#f4f4e8';
     ctx.beginPath(); ctx.arc(mpp.x, mpp.y, 4.5, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.5; ctx.stroke();
+    ctx.globalAlpha = 1;
     _starChartBodies.push({
       x: mpp.x, y: mpp.y, key: 'planet:moon',
-      label: t('alm_the_moon') + ' \u00b7 ' + mp.altitude.toFixed(0) + '\u00b0 ' +
+      label: t('alm_moon') + ' \u00b7 ' + mp.altitude.toFixed(0) + '\u00b0 ' +
              _azCompass(mp.azimuth) + ' \u00b7 ' + _moonPhase(now).illumination + '%'
     });
+  }
+
+  if (typeof _skyFind !== 'undefined' && _skyFind && typeof _sfChartMark === 'function') _sfChartMark(ctx, project, R, now, lat, lon);
+  // The Sun, only where the sky under the horizon is shown (above it the chart is of the night sky).
+  if (below) {
+    var sq = _skySunRaDec(T), sa = altAz(sq.ra, sq.dec), sp = project(sa.alt, sa.az);
+    if (sp.r <= R) {
+      ctx.globalAlpha = sa.alt < 0 ? 0.75 : 1;
+      ctx.fillStyle = '#ffd089';
+      ctx.beginPath(); ctx.arc(sp.x, sp.y, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      _starChartBodies.push({ x: sp.x, y: sp.y, key: 'planet:sun', label: t('alm_sun') + ' \u00b7 ' + sa.alt.toFixed(0) + '\u00b0 ' + _azCompass(sa.az) });
+    }
   }
 
   var cap = document.getElementById('almanac-starchart-caption');
@@ -3429,6 +3668,6 @@ function _drawStarChart(now) {
       (panned ? ' <button class="alm-sc-reset" onclick="_starChartResetLoc()">' + _almEsc(t('alm_my_location')) + '</button>' : '') + '</div>' +
       '<div class="alm-starchart-desc">' + starCount + ' ' + t('alm_stars_up') +
       (planetsUp.length ? ' · ' + planetsUp.join(', ') : '') +
-      (moonUp ? ' · ' + t('alm_the_moon') : '') + '</div>';
+      (moonUp ? ' · ' + t('alm_moon') : '') + '</div>' + _starChartToolsHtml();
   }
 }

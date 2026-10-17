@@ -7247,6 +7247,24 @@ function openAlmanacLook(opts) {
   _almLookLoading.then(function() { window.openAlmanacLookNow(opts); }, function() { _showToast(t('almanac_unavailable_offline')); });
 }
 
+// Find in the sky (almanac-skyfind.js): loaded on the first tap of a Find button, never with the Almanac.
+// where: 'page' (the sky and the star chart) or 'look' (the phone's window); pickId: a thing to lead to at once.
+var _almFindLoading = null;
+function openAlmanacFind(where, pickId) {
+  if (!_almFindLoading) {
+    _almFindLoading = new Promise(function(resolve, reject) {
+      var s = document.createElement('script');
+      s.src = '/static/almanac-skyfind.js?v=45';
+      s.onload = function() { resolve(); };
+      s.onerror = function() { _almFindLoading = null; reject(new Error(s.src)); };
+      document.head.appendChild(s);
+    });
+  }
+  _almFindLoading.then(function() {
+    if (pickId) window.AlmanacFind.pickId(pickId, where); else window.AlmanacFind.open(where);
+  }, function() { _showToast(t('almanac_unavailable_offline')); });
+}
+
 // (Almanac rendering code lives in /static/almanac.js)
 // closeAlmanac is defined there but referenced by the HTML close button,
 // so we provide a stub that delegates once loaded.

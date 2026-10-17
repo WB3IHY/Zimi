@@ -376,6 +376,13 @@
 .alm-sky-look { position: absolute; top: 8px; right: 8px; z-index: 2; width: 44px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.55); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .alm-sky-look svg { width: 22px; height: 22px; }
 [dir=rtl] .alm-sky-look { right: auto; left: 8px; }
+/* The sky's two smaller tools (find, see below the horizon), top corner opposite Look, side by side. */
+.alm-sky-tool { position: absolute; top: 8px; left: 8px; z-index: 2; width: 40px; height: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.55); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.alm-sky-tool svg { width: 20px; height: 20px; }
+.alm-sky-tool + .alm-sky-tool { left: 54px; }
+[dir=rtl] .alm-sky-tool { left: auto; right: 8px; }
+[dir=rtl] .alm-sky-tool + .alm-sky-tool { right: 54px; }
+.alm-sky-tool[aria-pressed=true] { background: rgba(120,150,210,.6); border-color: rgba(190,205,230,.7); }
 .almanac-sky-wrap canvas { width: 100%; display: block; border-radius: 12px; touch-action: pan-y; }
 /* What the sky says under the picture: one lead line (the light of the hour),
    what is true of it here and the year, quieter, then the facts as cards in
@@ -576,6 +583,32 @@
 }
 
 /* Star-chart tap-to-identify readout (time now comes from the pinned scrubber) */
+.alm-sc-tools { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.alm-sc-tool { min-height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 12px; cursor: pointer; }
+.alm-sc-tool[aria-pressed=true] { color: var(--amber); border-color: var(--amber-border); background: var(--amber-glow); }
+/* Find in the sky (almanac-skyfind.js): the search sheet, and the chip that says what is being found and the way to it. */
+.sf-sheet { position: fixed; inset: 0 0 auto 0; z-index: 10030; padding: calc(10px + env(safe-area-inset-top)) 12px 12px; background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,.45); max-height: 72vh; overflow-y: auto; }
+.sf-bar { display: flex; gap: 8px; align-items: center; }
+.sf-input { flex: 1; min-width: 0; height: 44px; border-radius: 22px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); padding: 0 16px; font-size: 16px; }
+.sf-close { flex: none; width: 44px; height: 44px; border-radius: 22px; border: 1px solid var(--border); background: transparent; color: var(--text2); cursor: pointer; font-size: 15px; }
+.sf-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.sf-row { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 48px; padding: 6px 14px; border-radius: 12px; cursor: pointer; }
+.sf-row[aria-selected=true] { background: var(--amber-glow); box-shadow: inset 0 0 0 1px var(--amber-border); }
+.sf-name { color: var(--text); font-size: 15px; font-weight: 600; unicode-bidi: plaintext; }
+.sf-meta { color: var(--text2); font-size: 12px; font-variant-numeric: tabular-nums; }
+.sf-none { padding: 14px; color: var(--text2); font-size: 13px; }
+.sf-chip { position: absolute; z-index: 3; top: 8px; inset-inline: 100px 60px; min-height: 40px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 4px 6px 4px 10px; border-radius: 20px; border: 1px solid rgba(255,208,128,.55); background: rgba(8,10,16,.74); color: #fff; font-size: 12px; line-height: 1.3; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); cursor: pointer; }
+.sf-chip-look { position: absolute; top: calc(66px + env(safe-area-inset-top)); inset-inline: 12px; margin: 0 auto; max-width: 360px; z-index: 5; }
+.sf-chip-ico { flex: none; width: 26px; height: 26px; color: #ffd080; transition: transform .12s linear; }
+.sf-chip-ico svg { display: block; width: 100%; height: 100%; }
+.sf-chip-text { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; unicode-bidi: plaintext; }
+.sf-chip-btn { flex: none; min-height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,.3); background: transparent; color: #fff; font-size: 12px; cursor: pointer; }
+.sf-chip-x { flex: none; width: 32px; height: 32px; border-radius: 16px; border: 0; background: transparent; color: #fff; cursor: pointer; font-size: 14px; }
+.look-find { margin-inline-start: auto; }
+@media (prefers-reduced-motion: reduce) { .sf-chip-ico { transition: none; } }
+:root.night-red .sf-chip, :root.night-red .sf-chip-btn, :root.night-red .sf-chip-x { color: var(--text2); border-color: var(--border-strong); }
+:root.night-red .sf-chip { background: rgba(0,0,0,.85); }
+:root.night-red .sf-chip-ico { color: var(--amber); }
 .alm-sc-info { text-align: center; font-size: 11px; color: var(--text2); min-height: 15px; margin-top: 6px; font-variant-numeric: tabular-nums; }
 /* Chart is draggable: stand somewhere else on Earth. */
 /* touch-action:auto so a touch starting in the square's corners scrolls the page
@@ -1320,7 +1353,7 @@ body.look-open { overflow: hidden; }
 .look-sky { position: absolute; inset: 0; overflow: hidden; background: #080b12; }
 .look-sky .look-wrap { position: absolute; inset: 0; width: auto; max-width: none; margin: 0; }
 .look-sky .look-wrap canvas { position: absolute; left: 0; top: 0; width: 100%; border-radius: 0; touch-action: none; }
-.look-sky .look-wrap .alm-sky-look, .look-sky .look-wrap .alm-sky-cap { display: none; }
+.look-sky .look-wrap .alm-sky-look, .look-sky .look-wrap .alm-sky-tool, .look-sky .look-wrap .alm-sky-cap { display: none; }
 .look-globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; pointer-events: none; }
 /* You, at the middle of the ground the globe shows. */
 .look-you { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2px solid #fff; background: rgba(60,140,255,.9); box-shadow: 0 0 0 5px rgba(60,140,255,.3); opacity: 0; transition: opacity .2s; pointer-events: none; }
@@ -1342,13 +1375,13 @@ body.look-open { overflow: hidden; }
    :root.night-red) and nothing else. Hard-coded warm, violet and white tones of the tiles, clocks,
    time machine, buttons and the Look view's own marks become the palette's red. The sky and the
    pictures turn red themselves (canvas[data-red], the canvas filter chain). */
-:root.night-red #almanac-view :is(.alm-card-golden, .alm-ev, .almanac-eclipse-type, [class*="alm-tz-glyph"], [class*="alm-tm-"], .alm-sky-look) { color: var(--text2); }
+:root.night-red #almanac-view :is(.alm-card-golden, .alm-ev, .almanac-eclipse-type, [class*="alm-tz-glyph"], [class*="alm-tm-"], .alm-sky-look, .alm-sky-tool) { color: var(--text2); }
 /* The clocks' day, dawn, dusk and night tints (amber, coral, violet, blue) are one dim red wash in Red;
    the glyph (sun, moon) still says which part of the day it is. */
 :root.night-red #almanac-view :is(.alm-tz-day, .alm-tz-dawn, .alm-tz-dusk, .alm-tz-night) { background: linear-gradient(180deg, var(--amber-glow), var(--surface) 70%); border-color: var(--border); }
 :root.night-red #almanac-view .alm-tz-glyph { color: var(--text2) !important; }
-:root.night-red #almanac-view :is(.alm-tz-city-card, .alm-tm-panel, .alm-tm-key, .alm-tm-close, .alm-tm-lever, .alm-sky-look) { border-color: var(--border); }
-:root.night-red #almanac-view :is(.alm-cell, .alm-sky-look) { background-color: var(--amber-glow); }
+:root.night-red #almanac-view :is(.alm-tz-city-card, .alm-tm-panel, .alm-tm-key, .alm-tm-close, .alm-tm-lever, .alm-sky-look, .alm-sky-tool) { border-color: var(--border); }
+:root.night-red #almanac-view :is(.alm-cell, .alm-sky-look, .alm-sky-tool) { background-color: var(--amber-glow); }
 :root.night-red #almanac-view .alm-tz-hand { background-color: var(--amber); }
 :root.night-red #almanac-view input { background-color: var(--surface2); accent-color: var(--amber); }
 :root.night-red #almanac-view :is(svg circle, svg path)[stroke] { stroke: currentColor; }

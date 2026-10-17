@@ -1128,6 +1128,7 @@ if os.path.isdir(_STATIC_DIR):
             + _static_hash("earth.html")
             + _static_hash("globe.js")
             + _static_hash("almanac-look.js")
+            + _static_hash("almanac-skyfind.js")
             + _static_hash("fieldguide.html")
             + _static_hash("fieldguide-card.js")
             + _static_hash("fieldguide-offline.js")
