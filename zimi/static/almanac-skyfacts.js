@@ -168,7 +168,7 @@ function _skySelectHtml(id, labelKey, values, keyOf) {
   return h + '</select></label>';
 }
 function _skySettingsHtml() {
-  return '<summary>' + _almEsc(t('alm_sky_set')) + '</summary>' +
+  return '<div class="alm-sky-set-title">' + _almEsc(t('alm_sky_set')) + '</div>' +
     '<label class="alm-sky-set-row"><span>' + _almEsc(t('alm_sky_set_dark')) + '</span>' +
     '<span class="alm-sky-dial"><small>' + _almEsc(t('alm_sky_set_dark_lo')) + '</small>' +
     '<input type="range" min="0" max="' + SKY_DIAL_STEPS + '" step="1" data-sky-set="dial" aria-label="' + _almEsc(t('alm_sky_set_dark')) + '">' +
@@ -177,6 +177,27 @@ function _skySettingsHtml() {
     _skySelectHtml('size', 'alm_sky_set_size', SKY_SETTING_VALUES.size, function (v) { return 'alm_sky_size_' + v; }) +
     _skySelectHtml('skin', 'alm_sky_set_skin', SKY_SETTING_VALUES.skin, function (v) { return 'alm_sky_skin_' + v; }) +
     '<label class="alm-sky-set-row alm-sky-set-check"><input type="checkbox" data-sky-set="red"><span>' + _almEsc(t('alm_sky_set_red')) + '</span></label>';
+}
+// The gear opens the panel over the sky and closes it again; so does a tap anywhere else, and Escape.
+function _skyToggleSettings(open) {
+  var box = document.getElementById('almanac-sky-set'), gear = document.getElementById('almanac-sky-gear');
+  if (!box || !gear) return;
+  if (open === undefined) open = box.hidden;
+  box.hidden = !open;
+  gear.setAttribute('aria-expanded', String(open));
+  var off = open ? 'addEventListener' : 'removeEventListener';
+  document[off]('pointerdown', _skySettingsOutside, true);
+  document[off]('keydown', _skySettingsKey, true);
+}
+function _skySettingsOutside(e) {
+  var box = document.getElementById('almanac-sky-set'), gear = document.getElementById('almanac-sky-gear');
+  if (box && !box.contains(e.target) && !(gear && gear.contains(e.target))) _skyToggleSettings(false);
+}
+function _skySettingsKey(e) {
+  if (e.key !== 'Escape') return;
+  _skyToggleSettings(false);
+  var gear = document.getElementById('almanac-sky-gear');
+  if (gear) gear.focus();
 }
 // The panel and its controls, set to what is chosen; once per panel.
 function _skyBindSettings() {

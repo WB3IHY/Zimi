@@ -18,6 +18,7 @@ function _jdToJulianCentury(JD) { return (JD - JD_J2000) / JULIAN_CENTURY; }
 // Under that old key localStorage may still hold the corrupted longitude the
 // v1.7 hero-time bug could write, so that copy is never read, only removed.
 // The sky's way in to pointing the phone at it (almanac-look.js, loaded on its first tap).
+var ALM_GEAR_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
 var ALM_LOOK_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="5"/><path d="M12 9.5l1 2.5-1 2.5-1-2.5z" fill="currentColor"/></svg>';
 var _ALM_PLACE_KEY = 'zimi_almanac_place';     // app.js SK.ALMANAC_PLACE
 var _ALM_LOC_KEY = 'zimi_almanac_location';   // app.js SK.ALMANAC_LOC
@@ -2207,7 +2208,8 @@ function _renderAlmanacContent() {
     '<button type="button" class="alm-sky-look" onclick="openAlmanacLook()" aria-label="' + escAttr(t('look_title')) + '" title="' + escAttr(t('look_title')) + '">' + ALM_LOOK_SVG + '</button>' +
     '<div id="almanac-sky-cap" class="alm-sky-cap"></div>' +
     '<div id="almanac-sky-facts" class="alm-sky-facts"></div>' +
-    '<details id="almanac-sky-set" class="alm-sky-set"></details>' +
+    '<button type="button" class="alm-sky-gear" id="almanac-sky-gear" onclick="_skyToggleSettings()" aria-expanded="false" aria-controls="almanac-sky-set" aria-label="' + escAttr(t('alm_sky_set')) + '" title="' + escAttr(t('alm_sky_set')) + '">' + ALM_GEAR_SVG + '</button>' +
+    '<div id="almanac-sky-set" class="alm-sky-set" role="group" aria-label="' + escAttr(t('alm_sky_set')) + '" hidden></div>' +
     '<div id="almanac-sky-tip" class="alm-sky-tip" hidden></div>' +
     // Inline styles duplicate .sr-only so a stale cached app.css can never
     // expose this text visually (issue #25).

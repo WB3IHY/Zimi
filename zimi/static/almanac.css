@@ -390,8 +390,15 @@
 .alm-card-wide .alm-card-val { font-size: 13px; line-height: 1.35; white-space: normal; text-wrap: balance; }
 .alm-sky-guess { margin: 10px 0 0; font-size: 11px; line-height: 1.4; color: var(--text3); text-align: center; text-wrap: balance; }
 .alm-about-credit { margin: 14px 0 0; font-size: 11px; color: var(--text3); }
-.alm-sky-set { padding: 10px 2px 0; font-size: 12px; color: var(--text2); }
-.alm-sky-set summary { cursor: pointer; font-size: 11px; color: var(--text3); text-align: center; list-style-position: inside; }
+.alm-sky-gear { position: absolute; top: 8px; left: 8px; z-index: 2; width: 44px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.55); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.alm-sky-gear svg { width: 22px; height: 22px; }
+.alm-sky-gear[aria-expanded="true"] { border-color: var(--amber-border); color: var(--amber); }
+[dir=rtl] .alm-sky-gear { left: auto; right: 8px; }
+/* The settings: a small panel over the sky, under the gear. */
+.alm-sky-set { position: absolute; top: 60px; left: 8px; z-index: 3; width: min(300px, calc(100% - 16px)); padding: 10px 14px 6px; font-size: 12px; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.45); }
+[dir=rtl] .alm-sky-set { left: auto; right: 8px; }
+.alm-sky-set[hidden] { display: none; }
+.alm-sky-set-title { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); }
 .alm-sky-set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; }
 .alm-sky-set-row select { max-width: 55%; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; font: inherit; }
 .alm-sky-set-check { justify-content: flex-start; }
@@ -401,7 +408,7 @@
 /* Red night mode: the sky and what is written under it in deep red, so the eye stays dark-adapted. */
 .almanac-sky-wrap.sky-red canvas { background: #000; }
 .almanac-sky-wrap.sky-red .alm-sky-sub, .almanac-sky-wrap.sky-red .alm-card-sub, .almanac-sky-wrap.sky-red .alm-sky-set,
-.almanac-sky-wrap.sky-red .alm-card-lbl, .almanac-sky-wrap.sky-red .alm-sky-guess, .almanac-sky-wrap.sky-red .alm-sky-set summary { color: var(--text2); }
+.almanac-sky-wrap.sky-red .alm-card-lbl, .almanac-sky-wrap.sky-red .alm-sky-guess, .almanac-sky-wrap.sky-red .alm-sky-set-title { color: var(--text2); }
 .almanac-sky-wrap.sky-red .alm-sky-dial small, .almanac-sky-wrap.sky-red .alm-sky-set-row { color: var(--text2); }
 .almanac-sky-wrap.sky-red input { accent-color: var(--text2); }
 .almanac-sky-wrap.sky-red .alm-sky-set select { background: var(--surface2); color: var(--text2); border-color: var(--border); }
@@ -1314,7 +1321,7 @@ body.look-open { overflow: hidden; }
 .look-sky { position: absolute; inset: 0; overflow: hidden; background: #080b12; }
 .look-sky .look-wrap { position: absolute; inset: 0; width: auto; max-width: none; margin: 0; }
 .look-sky .look-wrap canvas { position: absolute; left: 0; top: 0; width: 100%; border-radius: 0; touch-action: none; }
-.look-sky .look-wrap .alm-sky-look, .look-sky .look-wrap .alm-sky-cap { display: none; }
+.look-sky .look-wrap :is(.alm-sky-look, .alm-sky-gear, .alm-sky-set, .alm-sky-cap) { display: none; }
 .look-globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; pointer-events: none; }
 /* You, at the middle of the ground the globe shows. */
 .look-you { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2px solid #fff; background: rgba(60,140,255,.9); box-shadow: 0 0 0 5px rgba(60,140,255,.3); opacity: 0; transition: opacity .2s; pointer-events: none; }
