@@ -78,7 +78,7 @@ const caches = {
   delete: (n) => { delete stores[n]; return Promise.resolve(true); },
 };
 class FakeRequest { constructor(u, o) { o = o || {}; this.url = u.startsWith('http') ? u : ORIGIN + u;
-  this.mode = o.mode || 'cors'; this.destination = o.destination || ''; this.headers = headers(o.headers || {}); } }
+  this.method = o.method || 'GET'; this.mode = o.mode || 'cors'; this.destination = o.destination || ''; this.headers = headers(o.headers || {}); } }
 
 const network = {};          // path -> scripted answer ('down' by default when OFFLINE)
 const asked = [];
@@ -93,7 +93,7 @@ const listeners = {};
 const ctx = {
   self: { addEventListener: (t, fn) => { listeners[t] = fn; }, skipWaiting: () => {},
           clients: { claim: () => Promise.resolve() }, registration: { unregister: () => Promise.resolve() } },
-  caches, URL, fetch: net, Response: FakeResponse, setInterval: () => {}, console, Promise,
+  caches, URL, fetch: net, Response: FakeResponse, setInterval: () => {}, setTimeout, clearTimeout, AbortController, Headers, console, Promise,
 };
 vm.createContext(ctx);
 vm.runInContext(src, ctx);
@@ -108,7 +108,7 @@ async function install() {
 async function request(url, o) {
   let responded = null;
   const req = new FakeRequest(url, o);
-  listeners.fetch({ request: req, respondWith: (p) => { responded = p; } });
+  listeners.fetch({ request: req, respondWith: (p) => { responded = p; }, waitUntil: () => {} });
   if (!responded) return { passed: true };
   const r = await responded;
   return { status: r.status, body: r.body, offline: r.headers.get('X-Zimi-Offline'), passed: false };

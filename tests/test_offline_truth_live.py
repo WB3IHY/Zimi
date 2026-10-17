@@ -213,10 +213,28 @@ def warm(ctx, pg, base):
         }""",
         timeout=30000,
     )
+    drop_kept_answers(pg)
+
+
+def drop_kept_answers(pg):
+    """The phone that has not kept the library's answers (a first visit, or after
+    a sign-out): nothing stands in for /list, so the offline panel says what is
+    true and what still works. With them kept, the home is drawn from them (see
+    test_keep_phone_live.py)."""
+    pg.evaluate("""async () => {
+          for (const k of await caches.keys()) {
+            const c = await caches.open(k);
+            for (const r of await c.keys()) if (/\\/(list|whoami|manage\\/has-password)(\\?|$)/.test(r.url)) await c.delete(r);
+          }
+        }""")
 
 
 def reopen(pg, base):
     pg.goto(base + "/", wait_until="load")
+    pg.wait_for_selector("#offline-works li", timeout=30000)
+    # The home is drawn once more a moment after boot (_renderHomeSoon, when the
+    # library's kinds arrive): let that settle so the panel read is the last one.
+    pg.wait_for_timeout(600)
     pg.wait_for_selector("#offline-works li", timeout=30000)
 
 
@@ -352,7 +370,14 @@ def test_when_the_server_returns_the_state_clears_by_itself(phone, world):
     reopen(pg, world.base)
     assert pg.query_selector("#conn-banner")
     world.start()
-    pg.click(".conn-retry-inline")
+    # The page probes on its own every few seconds: on a loaded machine it can
+    # find the server before this tap does, which is the thing being tested.
+    btn = pg.query_selector(".conn-retry-inline")
+    if btn:
+        try:
+            btn.click(timeout=3000)
+        except Exception:
+            pass
     pg.wait_for_function("() => !document.getElementById('conn-banner')", timeout=30000)
     pg.wait_for_function("() => !document.querySelector('.conn-empty')", timeout=30000)
 

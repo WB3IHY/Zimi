@@ -45,6 +45,17 @@ Capture engines that drive a browser inject Webrecorder's browsertrix-behaviors 
 - Pinned: npm release 0.15.0, tarball sha512 `Gm9Ni/yq68k3ub7S0JT4muZWGj++fkFVQ95RFczc29hFZYmyX1yMfUs7UrApMZ+1uPW6q6JpBmjRcsC+sHN6lg==`; shipped `dist/behaviors.js` sha256 `82c60aae18588aa6c1a6e54d75887a72c970d840c54cb8b36eb9c9ccf946d7da`
 - An operator can replace it with `ZIMI_BEHAVIORS` or a global npm install.
 
+## ZIMs kept on the phone: libzim for the browser, fzstd, and the ZIM reader
+
+"Keep on this phone" stores a ZIM in the browser's private file system and reads it with no server. Three pieces, none of them loaded until a ZIM is kept:
+
+- `zimi/static/libzim/libzim-wasm.js` and `libzim-wasm.wasm`: the release build of javascript-libzim v0.95, unmodified (libzim and Xapian compiled to WebAssembly), for full-text search in a Web Worker. License: GPL-3.0-or-later (javascript-libzim), GPL-2.0-or-later (libzim, Xapian); zstd, xz, ICU and zlib are linked in under their own licences. Its licence text and source pointers are in `zimi/static/libzim/NOTICE.txt`.
+  - Project: https://github.com/openzim/javascript-libzim
+  - Source code: https://github.com/openzim/javascript-libzim/tree/v0.95
+- `zimi/static/fzstd.js`: fzstd 0.1.1, unmodified, decodes zstd-compressed ZIM clusters in the service worker. License: MIT, Copyright (c) 2020 Arjun Barrett.
+  - Project: https://github.com/101arrowz/fzstd
+- `zimi/static/zimreader.js`: Zimi's own reader for the ZIM file format, written from the openZIM format description (https://wiki.openzim.org/wiki/ZIM_file_format). No Kiwix code is in it.
+
 # Data shipped with Zimi
 
 ## NOAA CO-OPS tide stations (`zimi/assets/tides-snapshot.json.gz`)

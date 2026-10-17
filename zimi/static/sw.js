@@ -2,6 +2,13 @@
 // Substituted at serve time to match the running server version (see
 // http.py); the literal below is only a fallback for direct file use.
 const CACHE_VERSION = 'zimi-vdev';
+// The ZIM reader and the phone's private storage (ZIMs kept on this phone),
+// versioned by the server like CACHE_VERSION so a changed reader is a changed
+// worker. Imports are stored with the worker, so they load with no network.
+const KEEP_V = '0';
+try {
+  importScripts('/static/fzstd.js?v=' + KEEP_V, '/static/zimreader.js?v=' + KEEP_V, '/static/keepstore.js?v=' + KEEP_V);
+} catch (e) { /* no reader: nothing kept can be read, everything else works */ }
 // The almanac's segment readout face is precached rather than left to the
 // /static/ stale-while-revalidate path: it is a font, so a cold offline start
 // that misses it falls back to system mono and the time machine's digits
@@ -143,14 +150,39 @@ async function checkVersion() {
 // signed-out phone could be shown them. Offline the page reads the guide's own
 // copy instead (/static/fieldguide-offline.json: public text, kept like any
 // static file), so nothing is lost by never keeping these.
-const NETWORK_ONLY_PREFIXES = ['/whoami', '/login', '/logout', '/list', '/search', '/suggest', '/random', '/places', '/tube', '/exchange', '/reddot', '/me', '/collections', '/userdata', '/dictionary/voices', '/dictionary/speak', '/fieldguide'];
+const NETWORK_ONLY_PREFIXES = ['/login', '/logout', '/suggest', '/random', '/places', '/tube', '/exchange', '/reddot', '/me', '/collections', '/userdata', '/dictionary/voices', '/dictionary/speak', '/fieldguide', '/keep'];
+
+// The answers the app cannot start without, which say who is asking and what
+// the library holds: /whoami, /list, /search (the last few searches are kept
+// so they read again), and the password question. The network's answer is
+// always preferred and never replaced by a kept one while it answers; a kept
+// copy stands in only when the network does not (no connection, or none that
+// works: "lie-fi"), flagged X-Zimi-Stale so the app knows it is not live.
+// A sign-in or sign-out empties them (IDENTITY_CHANGE_PATHS), so a copy never
+// outlives the identity that asked for it. This replaces "never kept": a phone
+// with no network used to show nothing at all for the library it carries.
+const KEPT_ANSWER_PREFIXES = ['/whoami', '/list', '/search', '/manage/has-password'];
+const SEARCH_KEPT_MAX = 30;
 
 // Pages a person read are kept for offline (/w/, /read), under the identity
 // that read them. A sign-in or sign-out changes who is holding the phone, so
 // each one empties those copies: the next person offline is never shown what
 // the last could read. The cost is that signing out forgets what was kept.
 const IDENTITY_CHANGE_PATHS = ['/login', '/logout'];
-const KEPT_CONTENT_PREFIXES = ['/w', '/read'];
+const KEPT_CONTENT_PREFIXES = ['/w', '/read'].concat(KEPT_ANSWER_PREFIXES);
+
+// How long the network gets before a kept copy answers instead: to the first
+// byte of the answer, not the whole of it, so a long search still streams.
+// With nothing kept there is nothing to fall back on, so it waits longer.
+// Probes and reads that nothing else can stand in for give up sooner.
+const DEADLINE_KEPT_MS = 2500;
+const DEADLINE_COLD_MS = 8000;
+const DEADLINE_PROBE_MS = 4000;
+// Once the network has failed to answer, the next requests do not each wait out
+// their own deadline: for this long a kept copy answers at once (the request
+// still goes out, so the first answer to come back ends it).
+const NETWORK_DOWN_MS = 15000;
+let networkDownUntil = 0;
 
 // Non-identity API/data (article reads, health, manage, language lists). These
 // do not expose the library index and tolerate a cached fallback when offline.
@@ -168,7 +200,12 @@ function _hasPrefix(path, prefixes) {
 
 // The single source of truth for which cache strategy a request uses. Pure
 // function of the pathname + request mode so it can be asserted directly.
-function routeStrategy(path, requestMode, destination) {
+function routeStrategy(path, requestMode, destination, search) {
+  // The reconnect probe asks /health with a cache-busting query: its answer
+  // is the point, so it is never kept (it filled the cache on every probe).
+  if (_hasPrefix(path, ['/keep-local'])) return 'keepLocal';
+  if (path === '/health' && /(^|[?&])ping=/.test(search || '')) return 'networkOnly';
+  if (_hasPrefix(path, KEPT_ANSWER_PREFIXES)) return 'networkFirst';
   if (_hasPrefix(path, NETWORK_ONLY_PREFIXES)) return 'networkOnly';
   if (_hasPrefix(path, NETWORK_FIRST_PREFIXES)) return 'networkFirst';
   // ZIM content: top-level navigation (reload/bookmark) needs the SPA shell so
@@ -202,20 +239,28 @@ self.addEventListener('fetch', event => {
   // Cache Storage: a TED talk's 65 MB copied on an iPhone while it played.
   if (event.request.headers.has('range')) return;
   const url = new URL(event.request.url);
-  switch (routeStrategy(url.pathname, event.request.mode, event.request.destination)) {
+  switch (routeStrategy(url.pathname, event.request.mode, event.request.destination, url.search)) {
     case 'networkOnly':
       event.respondWith(networkOnly(event.request));
       return;
+    case 'keepLocal':
+      event.respondWith(keepLocal(event.request));
+      return;
     case 'networkFirst':
-      event.respondWith(networkFirst(event.request));
+      event.respondWith(networkFirst(event));
       return;
     case 'shell':
-      event.respondWith(shellNavigation(event.request));
+      event.respondWith(shellNavigation(event));
       return;
     case 'navigateShell':
-      // Fetch from network; if offline, fall back to the cached SPA shell '/'.
+      // Opening an article's address (a reload, a bookmark): the server answers
+      // with the same SPA shell it gives '/', so the kept one answers at once.
+      // The raw file (a PDF opened in its own tab, an EPUB) is the server's.
       event.respondWith(
-        fetch(event.request).catch(() => caches.match('/').then(r => r || offlineResponse()))
+        /(^|[?&])raw(=|&|$)/.test(url.search) || /\.epub$/i.test(url.pathname)
+          ? fetchWithin(event.request, DEADLINE_COLD_MS).catch(() => offlineResponse())
+          : caches.match('/').then(r => r || fetchWithin(event.request, DEADLINE_COLD_MS))
+              .catch(() => offlineResponse())
       );
       return;
     case 'cacheFirst':
@@ -231,7 +276,7 @@ self.addEventListener('fetch', event => {
 // authorized one. Offline → the offline page, never a wrong-identity cache hit.
 async function networkOnly(request) {
   try {
-    const resp = await fetch(request);
+    const resp = await fetchWithin(request, DEADLINE_PROBE_MS);
     if (resp.ok && _hasPrefix(new URL(request.url).pathname, IDENTITY_CHANGE_PATHS)) {
       await purgeKeptContent();
     }
@@ -248,6 +293,8 @@ async function purgeKeptContent() {
     const keys = await cache.keys();
     await Promise.all(keys.filter(r => _hasPrefix(new URL(r.url).pathname, KEPT_CONTENT_PREFIXES))
       .map(r => cache.delete(r)));
+    // ZIMs kept under an account go the same way; those kept with none stay.
+    if (self.KeepStore && KeepStore.supported()) await KeepStore.purgeOwned();
   } catch (e) {}
 }
 
@@ -259,13 +306,46 @@ function _gatewayDown(resp) {
     !/json/.test(resp.headers.get('Content-Type') || '');
 }
 
-// A navigation: the page from the server; or, when it cannot be reached (no
-// network, or a proxy answering for a dead server), the exact page last kept,
-// else the shell, which boots from the device and says what is true. Only a
-// device that never kept the shell sees OFFLINE_HTML.
-async function shellNavigation(request) {
+// fetch() that gives up when the first byte has not come by `ms`: a phone on
+// "lie-fi" (a connection that accepts and never answers) otherwise waits for
+// the operating system's timeout, a minute or more. Only reads are cut short;
+// the body, once it starts, is not.
+function fetchWithin(request, ms) {
+  if (request.method && request.method !== 'GET' && request.method !== 'HEAD') return fetch(request);
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ms);
+  return fetch(request, { signal: ctl.signal }).finally(() => clearTimeout(timer));
+}
+
+// A kept answer handed back in place of the server's, marked as such.
+function asStale(resp) {
+  const h = new Headers(resp.headers);
+  h.set('X-Zimi-Stale', '1');
+  return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers: h });
+}
+
+// A navigation: the shell as the phone last kept it, at once. The page boots
+// from the device and says what is true; waiting on a server first made every
+// start as slow as the worst connection. The copy is the one this worker
+// installed with (the server pins CACHE_VERSION to the asset bundle), so it and
+// the scripts it names are one set; a new deploy arrives as a new worker.
+// Only a device that never kept the shell asks the server, and only a device
+// that cannot reach it sees OFFLINE_HTML.
+async function shellNavigation(event) {
+  const request = event.request;
+  const kept = (await caches.match(request)) || (await caches.match('/'));
+  if (kept) {
+    // Refresh the kept copy for next time, off the path of this start.
+    event.waitUntil(fetchWithin(request, DEADLINE_COLD_MS).then(async resp => {
+      if (resp.ok && resp.status !== 206 && !_gatewayDown(resp)) {
+        const cache = await caches.open(CACHE_VERSION);
+        await cache.put(request, resp);
+      }
+    }).catch(() => {}));
+    return kept;
+  }
   let resp = null;
-  try { resp = await fetch(request); } catch (e) { /* unreachable */ }
+  try { resp = await fetchWithin(request, DEADLINE_COLD_MS); } catch (e) { /* unreachable */ }
   if (resp && !_gatewayDown(resp)) {
     if (resp.ok && resp.status !== 206) {
       const cache = await caches.open(CACHE_VERSION);
@@ -273,7 +353,7 @@ async function shellNavigation(request) {
     }
     return resp;
   }
-  return (await caches.match(request)) || (await caches.match('/')) || offlineResponse();
+  return offlineResponse();
 }
 
 // Sound and pictures that move are streamed, never kept: a whole video in
@@ -282,23 +362,165 @@ function _isMedia(resp) {
   return /^(video|audio)\//.test(resp.headers.get('Content-Type') || '');
 }
 
-// Network-first: try network, fall back to cache, then offline page
-async function networkFirst(request) {
-  try {
-    const resp = await fetch(request);
-    if (resp.ok && resp.status !== 206 && !_isMedia(resp)) {
+// Network-first, with a deadline: the server's answer when it comes, the kept
+// copy when it does not come in time (or at all), the offline page when there
+// is neither. A copy served for that reason is marked X-Zimi-Stale. The request
+// goes on after the deadline and the kept copy is refreshed by its answer.
+async function networkFirst(event) {
+  const request = event.request;
+  const get = request.method === 'GET';
+  const keptCopy = get ? await caches.match(request) : undefined;
+  // A ZIM carried on this phone answers when the server does not, so a page of
+  // it is as good as kept even if it was never read before.
+  const carried = get && await carriedZim(request);
+  const kept = keptCopy || carried;
+  const net = fetch(request).then(async resp => {
+    networkDownUntil = 0;
+    if (get && resp.ok && resp.status !== 206 && !_isMedia(resp)) {
       const cache = await caches.open(CACHE_VERSION);
-      cache.put(request, resp.clone()).catch(() => {});
-    } else if (_gatewayDown(resp)) {
-      const kept = await caches.match(request);
-      if (kept) return kept;
+      cache.put(request, resp.clone()).then(trimSearches).catch(() => {});
     }
     return resp;
-  } catch (e) {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    return offlineResponse();
+  });
+  net.catch(() => {});
+  if (!get) return net.catch(() => offlineResponse());
+  event.waitUntil(net.catch(() => {}));
+  let timer;
+  const wait = kept ? (Date.now() < networkDownUntil ? 0 : DEADLINE_KEPT_MS) : DEADLINE_COLD_MS;
+  const late = new Promise(r => { timer = setTimeout(() => r(null), wait); });
+  let resp = null;
+  try { resp = await Promise.race([net, late]); } catch (e) { /* no answer */ }
+  clearTimeout(timer);
+  if (!resp) networkDownUntil = Date.now() + NETWORK_DOWN_MS;
+  if (resp && !(_gatewayDown(resp) && kept)) return resp;
+  if (carried) {
+    const local = await keptZimResponse(request);
+    if (local) return local;
   }
+  return keptCopy ? asStale(keptCopy) : offlineResponse();
+}
+
+// ── ZIMs carried on this phone ──
+
+// /w/<zim>/<path> as (zim, path), or null.
+function zimAndPath(url) {
+  if (url.pathname.indexOf('/w/') !== 0) return null;
+  const rest = url.pathname.slice(3), slash = rest.indexOf('/');
+  if (slash < 0) return null;
+  try { return [decodeURIComponent(rest.slice(0, slash)), decodeURIComponent(rest.slice(slash + 1))]; } catch (e) { return null; }
+}
+
+// True when the page asked for is in a ZIM kept on this phone.
+async function carriedZim(request) {
+  const zp = zimAndPath(new URL(request.url));
+  try { return !!(zp && zp[1] && self.KeepStore && await KeepStore.has(zp[0])); } catch (e) { return false; }
+}
+
+function wLocation(zim, path) {
+  return '/w/' + encodeURIComponent(zim) + '/' + path.split('/').map(encodeURIComponent).join('/');
+}
+
+// What a ZIM that says "mp4" or labels a picture as a page means.
+const MIME_BY_EXT = { html: 'text/html', htm: 'text/html', css: 'text/css', js: 'application/javascript',
+  json: 'application/json', svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+  gif: 'image/gif', webp: 'image/webp', ico: 'image/x-icon', woff: 'font/woff', woff2: 'font/woff2',
+  ttf: 'font/ttf', pdf: 'application/pdf', mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', ogg: 'audio/ogg', txt: 'text/plain' };
+function mimeFor(mime, path) {
+  const ext = (/\.([a-z0-9]+)$/i.exec(path) || [])[1];
+  const byExt = ext && MIME_BY_EXT[ext.toLowerCase()];
+  if (!mime || mime.indexOf('/') < 0) return byExt || 'application/octet-stream';
+  if (byExt && mime === 'text/html' && !/^html?$/i.test(ext)) return byExt;   // a picture packed as a page
+  return mime;
+}
+
+// The CSP the server puts on a ZIM's pages (http.py ZIM_HTML_CSP): its own
+// scripts and styles run, nothing outside the page is reached, and only Zimi
+// frames it.
+const ZIM_HTML_CSP = "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; frame-ancestors 'self'";
+
+// What the server answers for a page that is not in the ZIM, in words.
+function notInKeptZim(zim, path) {
+  return new Response('<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<body style="font-family:-apple-system,system-ui,sans-serif;padding:24px;color:#999;background:#0a0a0b">' +
+    '<p>This page is not in the copy of this ZIM on your phone.</p></body>',
+    { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Zimi-Kept': '1', 'Cache-Control': 'no-store' } });
+}
+
+// An entry of a kept ZIM as the server would send it, from the phone's copy.
+async function answerFromKeptZim(r, zim, path) {
+  const e = await r.lookup(path);
+  if (!e) return notInKeptZim(zim, path);
+  if (e.redirect >= 0) {
+    const target = await r.resolve(e);
+    if (!target) return notInKeptZim(zim, path);
+    return new Response(null, { status: 302, headers: { Location: wLocation(zim, r.pathOf(target)) } });
+  }
+  const bytes = await r.read(e);
+  const mime = mimeFor(e.mime, path);
+  const headers = { 'Content-Type': mime, 'Cache-Control': 'no-cache', 'X-Zimi-Kept': '1' };
+  if (/^text\/html/.test(mime)) {
+    headers['Content-Security-Policy'] = ZIM_HTML_CSP;
+    const text = new TextDecoder('utf-8').decode(bytes).replace(/<base\s[^>]*>/gi, '');
+    return new Response(text, { status: 200, headers: headers });
+  }
+  return new Response(bytes, { status: 200, headers: headers });
+}
+
+async function keptZimResponse(request) {
+  const zp = zimAndPath(new URL(request.url));
+  if (!zp || !self.KeepStore) return null;
+  try {
+    const r = await KeepStore.reader(zp[0]);
+    return r ? await answerFromKeptZim(r, zp[0], zp[1]) : null;
+  } catch (e) {
+    return null;   // unreadable: the kept copy or the offline page speaks instead
+  }
+}
+
+function jsonResponse(obj) {
+  return new Response(JSON.stringify(obj), { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+}
+
+// /keep-local/list: what is on this phone. /keep-local/search?q=&zim=&limit=:
+// titles that begin with the words, from the phone's copies, in the time the
+// phone takes (the answer says how long, and that it is titles only).
+async function keepLocal(request) {
+  const url = new URL(request.url);
+  if (!self.KeepStore || !KeepStore.supported()) return jsonResponse({ zims: [], results: [] });
+  try {
+    if (url.pathname === '/keep-local/list') {
+      return jsonResponse({ zims: await KeepStore.list() });
+    }
+    if (url.pathname === '/keep-local/search') {
+      const q = url.searchParams.get('q') || '', only = url.searchParams.get('zim');
+      const limit = Math.max(1, Math.min(50, +url.searchParams.get('limit') || 20));
+      const t0 = Date.now();
+      const zims = (await KeepStore.kept()).filter(m => !only || m.name === only);
+      const per = await Promise.all(zims.map(async m => {
+        const r = await KeepStore.reader(m.name);
+        const hits = r ? await r.search(q, limit) : [];
+        return hits.map(h => ({ zim: m.name, zim_title: m.title, title: h.title, path: h.path }));
+      }));
+      // One from each ZIM in turn, so a big ZIM does not bury a small one.
+      const results = [];
+      for (let i = 0; results.length < limit && per.some(p => i < p.length); i++) {
+        per.forEach(p => { if (i < p.length && results.length < limit) results.push(p[i]); });
+      }
+      return jsonResponse({ query: q, mode: 'title', results: results, took_ms: Date.now() - t0 });
+    }
+  } catch (e) { /* fall through */ }
+  return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+}
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'keep-changed' && self.KeepStore) KeepStore.forgetNames();
+});
+
+// Only the last few searches are kept, newest first.
+async function trimSearches() {
+  const cache = await caches.open(CACHE_VERSION);
+  const keys = (await cache.keys()).filter(r => new URL(r.url).pathname === '/search');
+  await Promise.all(keys.slice(0, Math.max(0, keys.length - SEARCH_KEPT_MAX)).map(r => cache.delete(r)));
 }
 
 // Cache-first: serve from cache, fetch if missing
@@ -334,6 +556,11 @@ async function staleWhileRevalidate(request) {
   // Nothing cached, must wait for network
   const resp = await fetchPromise;
   if (resp) return resp;
+  // Not reachable, and not kept at this address: the same file kept at another
+  // version (a script asked for as ?v=45 here and ?v=<hash> there) is better
+  // than nothing, which is how a phone lost the Almanac's three.js.
+  const otherVersion = await cache.match(request, { ignoreSearch: true });
+  if (otherVersion) return otherVersion;
   return offlineResponse();
 }
 
