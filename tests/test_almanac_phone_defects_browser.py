@@ -443,3 +443,29 @@ def test_star_chart_names_do_not_stand_on_each_other(browser, served):
         assert not clash, clash
     finally:
         ctx.close()
+
+
+def test_a_tide_turns_time_keeps_clear_of_a_dot(browser, served):
+    ctx, pg, errors = _page(browser, served)
+    try:
+        pg.evaluate("() => document.getElementById('almanac-place').scrollIntoView({ behavior: 'instant' })")
+        pg.wait_for_selector("#almanac-place .at-section", timeout=60_000)
+        # The end of the day: the clock's dot stands where the day's last turn is.
+        pg.evaluate("() => _almScrubSettle(new Date(2026, 9, 16, 23, 17), { land: false })")
+        pg.wait_for_timeout(1500)
+        pairs = pg.evaluate(
+            """() => {
+              const svg = document.querySelector('#almanac-place .at-section svg[role=img], #almanac-place svg[role=img]');
+              const GAP = 4, rect = (e) => { const r = e.getBoundingClientRect(); return { x0: r.left - GAP, x1: r.right + GAP, y0: r.top - GAP, y1: r.bottom + GAP }; };
+              const labels = [...svg.querySelectorAll('.at-turn-l')].map(e => ({ s: e.textContent, ...rect(e) }));
+              const dots = [...svg.querySelectorAll('circle.at-now-dot')].map(e => ({ c: e.getAttribute('class'), ...rect(e) }));
+              const hit = [];
+              for (const l of labels) for (const d of dots)
+                if (l.x0 < d.x1 && d.x0 < l.x1 && l.y0 < d.y1 && d.y0 < l.y1) hit.push([l.s, d.c]);
+              return { labels: labels.length, hit };
+            }"""
+        )
+        assert pairs["labels"] >= 2, pairs  # (the clock's dot is the one a label at the day's end runs into)
+        assert not pairs["hit"], pairs
+    finally:
+        ctx.close()

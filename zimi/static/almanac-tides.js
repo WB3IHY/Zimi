@@ -735,7 +735,7 @@ function _atTideHtml(st, far) {
 // mean higher high water, widened only when the day goes past them, so
 // springs look bigger than neaps.
 var AT_LABEL_HALF_W = 26;   // half a turn label's width, to keep it inside
-var AT_LABEL_BESIDE_DX = 9;               // a floor trough's label stands this far from its dot
+var AT_LABEL_BESIDE_DX = 18;              // a floor trough's label stands this far from its dot: clear of the clock's dot (r 5) that can be on it
 var AT_LABEL_BELOW_DY = 16;               // a trough's label hangs this far under its dot
 var AT_SAME_TURN_MS = 10 * 60000;        // two searches find one turn this close together
 var AT_DOT_R = 3, AT_DOT_R_NEXT = 4.5;   // a turn's dot; the next turn's is larger
