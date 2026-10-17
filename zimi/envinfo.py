@@ -111,6 +111,10 @@ VARS: dict[str, tuple[str, str]] = {
     ),
     # ── sharing: BitTorrent ───────────────────────────────────────────────
     "ZIMI_OFFLINE": ("Air-gap switch: turns off everything internet-bound", "Sharing"),
+    "ZIMI_BEST_ANSWER": (
+        "1 turns on the search card that quotes the sentence answering a question (off by default)",
+        "Best answer",
+    ),
     "ZIMI_MCP_TOOLS": (
         "MCP tools: lean (search, read, read_section) or full (every tool)",
         "MCP",

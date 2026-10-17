@@ -322,7 +322,8 @@ def build_openapi():
                     "up to two more. Never writes a word: every string is the "
                     "article's own text. `answer` is null for a keyword search "
                     "(one or two words, or the search grammar) and when no "
-                    "sentence covers the question well enough."
+                    "sentence covers the question well enough. Always null unless the "
+                    "server runs with ZIMI_BEST_ANSWER=1."
                 ),
                 "operationId": "bestanswer",
                 "parameters": [

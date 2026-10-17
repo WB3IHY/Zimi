@@ -25,6 +25,7 @@ from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, unquote, quote
 
 import zimi.server as _srv
+from zimi import bestanswer as _bestanswer
 from zimi import bookpages as _bookpages
 from zimi import manage as _manage_mod
 from zimi import netguard as _netguard
@@ -1085,6 +1086,9 @@ if os.path.isdir(_STATIC_DIR):
     SEARCH_UI_HTML = SEARCH_UI_HTML.replace(
         "discoverStamp:'disc6'", f"discoverStamp:'d{_build_stamp}'"
     ).replace("i18nHash:'0'", f"i18nHash:'{_i18n_hash}'")
+    SEARCH_UI_HTML = SEARCH_UI_HTML.replace(
+        "bestAnswer:0", f"bestAnswer:{int(_bestanswer.enabled())}"
+    )
 
     # Content token for the service worker's cache key (and /health). It
     # changes whenever ANY app asset changes, so every deploy — even within
@@ -2698,6 +2702,8 @@ class ZimHandler(BaseHTTPRequestHandler):
                 q = param("q")
                 if not q:
                     return self._json(400, {"error": "missing ?q= parameter"})
+                if not _bestanswer.enabled():  # off by default (ZIMI_BEST_ANSWER)
+                    return self._json(200, {"answer": None})
                 try:
                     limit = max(
                         1, min(int(param("limit", "10")), _srv.MAX_SEARCH_LIMIT)

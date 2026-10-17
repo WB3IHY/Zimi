@@ -44,6 +44,7 @@ function makeSandbox() {
   const sb = {
     console, AbortController, Promise, encodeURIComponent, setTimeout,
     output, mode: 'search',
+    _cfg: { bestAnswer: 1 },
     document: { createElement: fakeEl },
     t: k => STRINGS[k] || k,
     tH: k => esc(STRINGS[k] || k),
@@ -74,6 +75,12 @@ const answer = {
 const jsonRes = (body, ok = true) => Promise.resolve({ ok, json: () => Promise.resolve(body) });
 
 (async () => {
+  // ── the card off (the default): no request for any question ──────────
+  {
+    const S = makeSandbox();
+    S._cfg.bestAnswer = 0;
+    check(S._bestMayHelp('how to purify water') === false, 'off: no request for a question');
+  }
   // ── keyword searches make no request ───────────────────────────────────
   {
     const S = makeSandbox();
