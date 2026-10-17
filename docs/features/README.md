@@ -11,7 +11,6 @@ Everything here is verified against the shipping code. Commands are `python3 -m 
 | [Reading](reading.md) | Search and ranking, the reader and Reader View, bookmarks and history, word lookup, cross-language articles, PDFs, offline/PWA, accessibility, the almanac, and what happens to a page captured without its JavaScript |
 | [Saving](saving.md) | Saved items, lists and Liked, Continue, the Saved panel, export per list, keeping them with an account across devices, and the store an app page calls |
 | [Apps](apps.md) | Maps, ZimiTube, ZimiExchange and Reddot: Zimi's own views over the map, video, Q&A and subreddit ZIMs in the library; one thing once across builds; the apps switch |
-| [Field Guide](fieldguide.md) | Help now: situations (bleeding, water, lost, flood...) as quotations from public-domain sources with their source, edition and licence; works with no ZIM; search answers with a situation; the field-manual ZIM; the red night light |
 | [Making ZIMs](making-zims.md) | `zimi create` for a folder, a page, a `--site` crawl, a video or a subreddit; the engines and what each one trades; bookmarks as a standalone ZIM; import for a WARC/WACZ |
 | [Saved web pages](saved-pages.md) | What Firefox, Chrome and Safari write when you save a page (complete, HTML only, single file, web archive), how Zimi packages each, and what a browser leaves out |
 | [Getting & sharing](getting-and-sharing.md) | The catalog and downloads, folders as categories, same-flavor auto-update, BitTorrent seeding, Nearby (mDNS LAN), and the `/dl/` peer transport |
