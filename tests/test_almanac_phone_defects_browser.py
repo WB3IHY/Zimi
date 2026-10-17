@@ -275,7 +275,7 @@ def test_a_drag_on_the_picture_answers_before_the_live_moon_is_ready(browser, se
         )
         # The live scene is not ready, and does not become so while the finger is down.
         pg.evaluate(
-            "() => { _ae.ready = false; _aePrepare = () => new Promise(() => {}); }"
+            "() => { _aeEnsure(); _ae.ready = false; _aePrepare = () => new Promise(() => {}); }"
         )
         scales = pg.evaluate("""() => {
               const hero = document.querySelector(AE_HERO_SEL), r = hero.getBoundingClientRect();
