@@ -1752,7 +1752,7 @@ function _almSecBarTeardown() {
   if (!_almSecBar) return;
   if (_almSecBar.io) _almSecBar.io.disconnect();
   if (_almSecBar.ro) _almSecBar.ro.disconnect();
-  if (_almSecBar.roFrame) cancelAnimationFrame(_almSecBar.roFrame);
+  if (_almSecBar.roFrame) clearTimeout(_almSecBar.roFrame);
   _almSecBar = null;
 }
 // The sections that are on the page now (a late or empty one is left out).
@@ -1805,11 +1805,11 @@ function _almSecBarInit() {
   // parked page stays without frames.
   if ('ResizeObserver' in window) {
     var keys = function (list) { return list.map(function (s) { return s.key; }).join(); };
-    // The bar is rebuilt in a frame of its own: rebuilt inside the observer's delivery it changes what is being
-    // observed in the same frame, which the browser reports as a loop error in the console.
+    // The bar is rebuilt after the observer's delivery, not inside it (which changes what is being observed in the
+    // same frame, reported as a loop error in the console): by a timer, since a parked page asks for no frames.
     st.ro = new ResizeObserver(function () {
       if (st.roFrame) return;
-      st.roFrame = requestAnimationFrame(function () {
+      st.roFrame = setTimeout(function () {
         st.roFrame = 0;
         if (_almSecBar === st && (root.clientHeight !== st.h || keys(_almSecBarFind()) !== keys(st.sections))) _almSecBarInit();
       });
