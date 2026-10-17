@@ -84,6 +84,18 @@ def _fresh_search_state():
     yield
 
 
+@pytest.fixture(autouse=True)
+def _fieldguide_switch(request, monkeypatch):
+    """The Field Guide is off by default (ZIMI_FIELDGUIDE); a test whose
+    premise is the guide opts in with @pytest.mark.fieldguide_on (or a
+    module-level pytestmark). Every other test runs with it off."""
+    if request.node.get_closest_marker("fieldguide_on"):
+        monkeypatch.setenv("ZIMI_FIELDGUIDE", "1")
+    else:
+        monkeypatch.delenv("ZIMI_FIELDGUIDE", raising=False)
+    yield
+
+
 _UPNP_TEST_MODULES = ("test_p2p_nat", "test_offline_switch")
 
 

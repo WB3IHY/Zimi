@@ -4044,6 +4044,8 @@ def _create_start(data, actor=None):
     its request by an hour, and the activity journal is written at the end.
     """
     if data.get("mode") == "fieldmanual":
+        if not _srv.fieldguide_enabled():
+            return {"error": "not found"}, 404
         # The Field Guide's own recipe: nothing is typed, so nothing is validated.
         mode, source, title, opts = "fieldmanual", "Field manual", "Field manual", {}
     else:
@@ -5691,7 +5693,7 @@ def handle_manage_get(handler, parsed, params):
     elif parsed.path == "/manage/downloads":
         return handler._json(200, {"downloads": _srv._get_downloads()})
 
-    elif parsed.path == "/manage/fieldmanual":
+    elif parsed.path == "/manage/fieldmanual" and _srv.fieldguide_enabled():
         # The Field Guide's field-manual ZIM: how far its build is.
         from zimi import fieldguide
 
@@ -6835,7 +6837,7 @@ def handle_manage_post(handler, parsed, data):
             return handler._json(400, {"error": err})
         return handler._json(200, {"status": "started", "id": dl_id})
 
-    elif parsed.path == "/manage/fieldmanual":
+    elif parsed.path == "/manage/fieldmanual" and _srv.fieldguide_enabled():
         # Build a ZIM of the Army's public-domain manuals (zimi.fieldguide.build_field_manual).
         from zimi import fieldguide, p2p
 
