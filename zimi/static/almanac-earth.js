@@ -2793,6 +2793,8 @@ function _aePrepareWhenIdle() {
     requestAnimationFrame(function () {
       idle(function () {
         if (typeof _almanacOpen !== 'undefined' && !_almanacOpen) return;
+        // Back within the grace the GPU is kept for: nothing to build, but the hero is to be drawn live again.
+        if (_aeReady()) { if (typeof _lpWarmed === 'function') _lpWarmed(); return; }
         _aePrepare();
       }, { timeout: AE_IDLE_PREPARE_TIMEOUT_MS });
     });
@@ -3150,15 +3152,19 @@ function _aeFreshCanvas(id, bind) {
 
 // Leaving the Almanac (almanac.js _almanacTeardown): the view closes and
 // gives the GPU back.
-function _aeRelease() {
+function _aeRelease(keepGl) {
   if (!_ae) return;
   if (typeof _lpRelease === 'function') _lpRelease();
   _ae.wanted = false;
   // Released with the Almanac or for the flown view: its history step is not its to take back.
   _aeStepped = false;
   _aeFinishClose();
-  _aeDisposeGl();
+  // keepGl: the Almanac was left, not for long perhaps: the scene and its maps are kept (the buffer is a pixel)
+  // and _aeReleaseGpu gives them back if it is not returned to (almanac.js).
+  if (!keepGl) _aeDisposeGl();
+  else if (_ae.gl) _ae.gl.renderer.setSize(1, 1, false);   // the hero band's buffer is a screen's worth of pixels
 }
+function _aeReleaseGpu() { if (!_aeIsOpen) _aeDisposeGl(); }
 
 window.openAlmanacEarth = openAlmanacEarth;
 // The orrery, drawn before this file ran, can now say Earth opens in 3D.

@@ -209,6 +209,8 @@ var _almReturnScroll = null;
 
 function _openAlmanacInner(replaceState) {
   _almanacOpen = true;
+  clearTimeout(_almGpuTimer);
+  _almGpuTimer = 0;
   document.body.classList.add('almanac-mode');
   // The reload-into-almanac boot gate (stamped by the head bootstrap before
   // first paint) has done its job once the real almanac chrome is up.
@@ -235,6 +237,26 @@ function _openAlmanacInner(replaceState) {
   if (typeof _armTapRelay === 'function') _armTapRelay(true);
 }
 
+// The GPU's scenes (the sky's, the 3D Earth's, the flown solar system's) are given back when the Almanac has
+// been left a while, or at once when the page is hidden (a phone ends tabs that hold memory in the background):
+// a reopen within the grace reuses what was built, which is most of what the reopen costs.
+var ALM_GPU_GRACE_MS = 30000;
+var _almGpuTimer = 0;
+function _almReleaseGpu() {
+  clearTimeout(_almGpuTimer);
+  _almGpuTimer = 0;
+  if (_almanacOpen) return;
+  if (typeof _aeReleaseGpu === 'function') _aeReleaseGpu();
+  if (typeof _spReleaseGpu === 'function') _spReleaseGpu();
+  if (typeof _sgDispose === 'function' && !(typeof _skyHost !== 'undefined' && _skyHost)) _sgDispose();
+}
+function _almReleaseGpuSoon() {
+  clearTimeout(_almGpuTimer);
+  if (document.hidden) _almReleaseGpu();
+  else _almGpuTimer = setTimeout(_almReleaseGpu, ALM_GPU_GRACE_MS);
+}
+document.addEventListener('visibilitychange', function () { if (document.hidden && _almGpuTimer) _almReleaseGpu(); });
+
 // Shared visual/animation teardown for leaving the almanac. Does NOT touch
 // history — the caller decides whether to strip the #almanac entry (a real
 // close) or preserve it (a deep-link suspend that Back should return to).
@@ -249,10 +271,11 @@ function _almanacTeardown() {
   if (typeof _almTravelUnfreeze === 'function') _almTravelUnfreeze();
   // The 3D Earth (almanac-earth.js, loaded after this file) gives its GPU
   // memory back: a phone keeps a tab that holds less.
-  if (typeof _aeRelease === 'function') _aeRelease();
-  if (typeof _spRelease === 'function') _spRelease();
+  if (typeof _aeRelease === 'function') _aeRelease(true);
+  if (typeof _spRelease === 'function') _spRelease(true);
   _cancelAllRAF();
-  if (typeof _skyStop === 'function') _skyStop();
+  if (typeof _skyStop === 'function') _skyStop(true);
+  _almReleaseGpuSoon();
   _almSelectedTz = null;
   // Reset orrery state
   _orreryPlaying = true;

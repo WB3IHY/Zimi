@@ -2877,9 +2877,9 @@ if (typeof window.addEventListener === 'function') {   // not in the tests' bare
 }
 
 // Leaving the Almanac.
-function _skyStop() {
+function _skyStop(keepGpu) {
   _skyPause();
-  if (!_skyHost) _sgDispose();   // the GPU goes back with the Almanac, unless the look-around still draws
+  if (!_skyHost && !keepGpu) _sgDispose();   // the GPU goes back with the Almanac, unless the look-around still draws
   if (_skyState && _skyState.observer) _skyState.observer.disconnect();
   _skyHideTip();
   _skyState = null;

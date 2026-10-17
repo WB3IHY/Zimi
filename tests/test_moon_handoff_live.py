@@ -479,8 +479,15 @@ def test_the_cost(browser, served):
             " return gl.drawingBufferHeight <= (h.offsetHeight + LP_BAND_ABOVE_PX + LP_BAND_BELOW_PX) * _ae.gl.dpr"
             " && gl.drawingBufferHeight < innerHeight * _ae.gl.dpr / 2; }"
         )
-        lost = pg.evaluate(
+        # Leaving the Almanac keeps the scene for a grace (a reopen reuses it) with the buffer a pixel; once the grace
+        # is over, or the page hidden, the GPU is given back.
+        kept = pg.evaluate(
             """() => { var gl = _ae.gl.renderer.getContext(); closeAlmanac();
+          return { lost: gl.isContextLost(), kept: _ae.gl !== null, pixel: gl.drawingBufferWidth <= _ae.gl.dpr }; }"""
+        )
+        assert kept == {"lost": False, "kept": True, "pixel": True}, kept
+        lost = pg.evaluate(
+            """() => { var gl = _ae.gl.renderer.getContext(); _almReleaseGpu();
           return { lost: gl.isContextLost(), gone: _ae.gl === null }; }"""
         )
         assert lost == {"lost": True, "gone": True}, lost
