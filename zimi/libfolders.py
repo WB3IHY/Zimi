@@ -59,6 +59,12 @@ def _looks_like_nomad(path):
     parent = os.path.dirname(path)
     if parent == path:
         return False
+    # Zimi standing in for NOMAD's Information Library sees the folder as
+    # /data (where NOMAD mounts it for Kiwix); the owner names NOMAD's admin.
+    if os.environ.get("ZIMI_NOMAD_API") and os.path.isfile(
+        os.path.join(path, "kiwix-library.xml")
+    ):
+        return True
     if os.path.basename(parent) == "storage" and (
         os.path.basename(path) == "zim"
         or os.path.isfile(os.path.join(path, "kiwix-library.xml"))
@@ -213,7 +219,9 @@ def summary():
     out = []
     for f in folders():
         files, size = _incoming.get(f["path"], (0, 0))
-        out.append({"label": f["label"], "incoming_files": files, "incoming_bytes": size})
+        out.append(
+            {"label": f["label"], "incoming_files": files, "incoming_bytes": size}
+        )
     return out
 
 
@@ -274,7 +282,10 @@ def audit(folder):
         base = os.path.basename(path)
         if name is None:
             out["shadowed"].append(
-                {"file": base, "wins": os.path.basename(_shadowed.get(os.path.normpath(path), ""))}
+                {
+                    "file": base,
+                    "wins": os.path.basename(_shadowed.get(os.path.normpath(path), "")),
+                }
             )
         elif entries.get(name, {}).get("entries", "?") == "?":
             out["unreadable"].append({"file": base, "why": why_unreadable(path)})
