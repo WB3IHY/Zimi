@@ -3021,16 +3021,16 @@ function _skyUpdateDesc(s) {
   var srEl = document.getElementById('almanac-sky-desc');
   if (!srEl) return;
   var e = s.eph, sunAlt = e.sun.alt, moonPos0 = e.moon, moonM0 = s.moonData.phase;
-  var when = s.now.toLocaleString(undefined, {
+  var when = s.now.toLocaleString((typeof _currentLang !== 'undefined') ? _currentLang : undefined, {
     weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit'
   });
   var sunDesc = sunAlt > 0
-    ? _tLookup('alm_sun', 'Sun') + ' ' + sunAlt.toFixed(0) + '° ' + _tLookup('alm_a11y_above_horizon', 'above the horizon')
+    ? _tLookup('alm_sun', 'Sun') + ' ' + _orrNum(sunAlt, null, 0) + '° ' + _tLookup('alm_a11y_above_horizon', 'above the horizon')
     : _tLookup('alm_sun', 'Sun') + ' ' + _tLookup('alm_a11y_below_horizon', 'below the horizon');
   var moonDesc;
   if (moonPos0.altitude > -2) {
     moonDesc = _tLookup('alm_moon', 'Moon') + ' ' + moonM0.illumination + '% ' + _tLookup('alm_a11y_illuminated', 'illuminated') +
-      ', ' + moonPos0.altitude.toFixed(0) + '° ' + _tLookup('alm_a11y_altitude', 'high');
+      ', ' + _orrNum(moonPos0.altitude, null, 0) + '° ' + _tLookup('alm_a11y_altitude', 'high');
   } else {
     moonDesc = _tLookup('alm_moon', 'Moon') + ' ' + _tLookup('alm_a11y_below_horizon', 'below the horizon');
   }
@@ -3050,7 +3050,7 @@ function _skyDeg(x) { return _orrNum(Math.round(x) || 0, null, 0) + '°'; }
 
 // "37.8°N, 122.4°W", the place in numbers (the star chart's caption too).
 function _skyCoords(lat, lon) {
-  return Math.abs(lat).toFixed(1) + '°' + (lat >= 0 ? 'N' : 'S') + ', ' + Math.abs(lon).toFixed(1) + '°' + (lon >= 0 ? 'E' : 'W');
+  return _orrNum(Math.abs(lat), null, 1) + '°' + (lat >= 0 ? 'N' : 'S') + ', ' + _orrNum(Math.abs(lon), null, 1) + '°' + (lon >= 0 ? 'E' : 'W');
 }
 
 // The line on the ground: the light of the hour (twilight linked to its
@@ -3615,8 +3615,8 @@ function _drawStarChart(now) {
     }
     _starChartBodies.push({
       x: p.x, y: p.y, key: _starLinkKey(i),
-      label: (_STAR_NAMES[i] || t('alm_star')) + ' \u00b7 ' + p.alt.toFixed(0) + '\u00b0 ' +
-             _azCompass(p.az) + ' \u00b7 mag ' + mag.toFixed(1)
+      label: (_STAR_NAMES[i] || t('alm_star')) + ' \u00b7 ' + _orrNum(p.alt, null, 0) + '\u00b0 ' +
+             _azCompass(p.az) + ' \u00b7 mag ' + _orrNum(mag, null, 1)
     });
   }
 
@@ -3641,7 +3641,7 @@ function _drawStarChart(now) {
     ctx.globalAlpha = 1;
     _starChartBodies.push({
       x: pp.x, y: pp.y, key: 'planet:' + nm.toLowerCase(),
-      label: _tp(nm) + ' \u00b7 ' + aa.alt.toFixed(0) + '\u00b0 ' + _azCompass(aa.az)
+      label: _tp(nm) + ' \u00b7 ' + _orrNum(aa.alt, null, 0) + '\u00b0 ' + _azCompass(aa.az)
     });
     if (aa.alt > 0) planetsUp.push(_tp(nm));
   }
@@ -3657,7 +3657,7 @@ function _drawStarChart(now) {
     ctx.globalAlpha = 1;
     _starChartBodies.push({
       x: mpp.x, y: mpp.y, key: 'planet:moon',
-      label: t('alm_moon') + ' \u00b7 ' + mp.altitude.toFixed(0) + '\u00b0 ' +
+      label: t('alm_moon') + ' \u00b7 ' + _orrNum(mp.altitude, null, 0) + '\u00b0 ' +
              _azCompass(mp.azimuth) + ' \u00b7 ' + _moonPhase(now).illumination + '%'
     });
   }
@@ -3671,7 +3671,7 @@ function _drawStarChart(now) {
       ctx.fillStyle = '#ffd089';
       ctx.beginPath(); ctx.arc(sp.x, sp.y, 4.5, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = 1;
-      _starChartBodies.push({ x: sp.x, y: sp.y, key: 'planet:sun', label: t('alm_sun') + ' \u00b7 ' + sa.alt.toFixed(0) + '\u00b0 ' + _azCompass(sa.az) });
+      _starChartBodies.push({ x: sp.x, y: sp.y, key: 'planet:sun', label: t('alm_sun') + ' \u00b7 ' + _orrNum(sa.alt, null, 0) + '\u00b0 ' + _azCompass(sa.az) });
     }
   }
 

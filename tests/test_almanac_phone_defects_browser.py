@@ -333,3 +333,43 @@ def test_a_clock_cards_light_follows_the_suns_real_height(browser, served):
         assert got["noon"] == "day" and got["deep"] == "night", got
     finally:
         ctx.close()
+
+
+def test_german_almanac_speaks_german(browser, served):
+    ctx, pg, errors = _page(
+        browser,
+        served,
+        locale="de-DE",
+        init="try { localStorage.setItem('zimi_ui_lang', 'de'); } catch (e) {}",
+    )
+    try:
+        pg.wait_for_function("() => typeof _almDayMonthYear === 'function' && document.querySelector('.alm-tz-city-time')", timeout=60_000)
+        got = pg.evaluate(
+            """() => ({
+              date: _almDayMonthYear(17, 'Oktober', '2026'),
+              holiday: _th('World Water Day'),
+              num: _orrNum(3.5, null, 1),
+              cardTimes: [...document.querySelectorAll('.alm-tz-city-time')].map(e => e.textContent),
+              bigClock: document.getElementById('almanac-tz-label').textContent,
+              analemma: t('alm_analemma'),
+              evening: t('alm_evening_sky'),
+              elong: t('alm_event_elongation', { planet: 'Merkur', event: t('alm_greatest_elongation') }),
+            })"""
+        )
+        assert got["date"] == "17. Oktober 2026", got
+        assert got["holiday"] == "Weltwassertag", got
+        assert got["num"] == "3,5", got
+        # The hour cycle is German's own (24 hours), as the header's is: no AM or PM on any clock.
+        assert not any("AM" in x or "PM" in x for x in got["cardTimes"] + [got["bigClock"]]), got
+        assert got["analemma"] == "Das Analemma" and got["evening"] == "Abendhimmel", got
+        assert got["elong"] == "Merkur: größte Elongation", got
+        # The analemma's month labels are German ("Dez", not "Dec").
+        labels = pg.evaluate(
+            """() => { const out = []; const f = CanvasRenderingContext2D.prototype.fillText;
+              CanvasRenderingContext2D.prototype.fillText = function (s) { out.push(String(s)); return f.apply(this, arguments); };
+              _renderAnalemma(new Date(2026, 9, 17)); CanvasRenderingContext2D.prototype.fillText = f; return out; }"""
+        )
+        assert "Dez" in labels or "Dez." in labels, labels
+        assert "Dec" not in labels, labels
+    finally:
+        ctx.close()
