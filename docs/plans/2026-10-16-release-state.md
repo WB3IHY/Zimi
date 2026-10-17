@@ -43,7 +43,13 @@ The plan was "the field kit": sky, Earth, the flown solar system, Field Guide, b
 
 **Zimi wherever there's no internet:** in your pocket (Keep offline), in the box (NOMAD), and your own saved pages. Red, search fixes, bundled capture tools and GPL are one-line plumbing. The Almanac rides along quietly.
 
-## Decisions for Eric
+## Decisions (Eric, 2026-10-16 22:09: "let's execute and take our time")
+
+- Field Guide and Help now: out of this release. Important; to be figured out (How to, anything).
+- NOMAD: do all we can without stepping on toes, ship, prove it, then post the issue.
+- Earth: in this release, world-class, with downloadable local satellite and road imagery and Feynman-plain captions (plan: docs/plans/2026-10-16-earth-world-class.md).
+
+## Still open
 
 1. **Field Guide and Help now:** pull from this release (behind a flag) and redesign as "How to (anything)"? It is wired into home, first run, sign-in and search. Recommended: pull.
 2. **Best-answer card:** keep (it's search, fits) or pull? Needs your look.
