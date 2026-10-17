@@ -4164,8 +4164,20 @@ function _almClockSetView(view) {
   try { localStorage.setItem(_ALM_CLOCKS_VIEW_KEY, view); } catch (e) {}
   // The big clock never shows a zone the list under it does not: back to the place's own.
   if (view === 'saved' && _almSelectedTz && _almClocks().indexOf(_almSelectedTz) < 0) _almSelectedTz = null;
-  _initTzClock(new Date());
-  if (typeof _drawSunMap === 'function') _drawSunMap();
+  // The cards above the switch change in number: the page is moved by what they gained or lost, so the switch
+  // stays under the finger that pressed it.
+  _almKeepInPlace(document.getElementById('almanac-tz-view'), function () {
+    _initTzClock(new Date());
+    if (typeof _drawSunMap === 'function') _drawSunMap();
+  });
+}
+function _almKeepInPlace(anchor, change) {
+  var root = typeof _almSecBarScroller === 'function' ? _almSecBarScroller() : null;
+  if (!anchor || !root) { change(); return; }
+  var before = anchor.getBoundingClientRect().top;
+  change();
+  var moved = anchor.getBoundingClientRect().top - before;
+  if (moved) root.scrollTop += moved;
 }
 // The grid is drawn again on a toggle and each minute: a keyboard user's place
 // in it (a card or its star, by zone) is found again afterwards.

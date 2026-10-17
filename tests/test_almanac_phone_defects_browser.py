@@ -290,3 +290,22 @@ def test_a_lit_section_pill_never_shows_its_unlit_text_on_the_lit_ground(browser
         assert got["color"] in ("rgb(0, 0, 0)", "rgb(255, 255, 255)"), got
     finally:
         ctx.close()
+
+
+def test_tapping_saved_keeps_the_toggle_under_the_finger(browser, served):
+    ctx, pg, errors = _page(browser, served)
+    try:
+        pg.evaluate("() => { localStorage.removeItem('zimi_almanac_clocks'); localStorage.removeItem('zimi_almanac_clocks_view'); }")
+        pg.reload()
+        pg.wait_for_function("() => document.querySelectorAll('#almanac-tz-pills .alm-tz-city-card').length > 5", timeout=60_000)
+        pg.evaluate("() => document.getElementById('almanac-tz-view').scrollIntoView({ behavior: 'instant', block: 'center' })")
+        pg.wait_for_timeout(800)
+        top = lambda: pg.evaluate("() => document.querySelector('#almanac-tz-view .alm-scope-btn:nth-child(2)').getBoundingClientRect().top")
+        before = top()
+        pg.tap("#almanac-tz-view .alm-scope-btn:nth-child(2)")
+        pg.wait_for_function("() => !!document.querySelector('.alm-tz-hint')", timeout=10_000)
+        assert abs(top() - before) < 2, (before, top())
+        hint = pg.evaluate("() => { const r = document.querySelector('.alm-tz-hint').getBoundingClientRect(); return [r.top, r.bottom, innerHeight]; }")
+        assert 0 < hint[0] and hint[1] < hint[2], hint
+    finally:
+        ctx.close()
