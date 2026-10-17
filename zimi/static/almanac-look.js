@@ -451,6 +451,8 @@ function _lookOpen(opts) {
     _lookNote(_lookT(window.isSecureContext === false && typeof DeviceOrientationEvent !== 'undefined' ? 'look_insecure' : 'look_none'), 'sensors');
   } else if (!_lookNeedsPermission()) {
     _lookStartSensors();     // nothing to ask: listen at once
+  } else if (window._lookPermission) {
+    _lookUsePermission(S);   // asked in the tap that opened this: its answer
   }
   _lookButtons();
   _lookApply(S.view);
@@ -508,6 +510,15 @@ function _lookRefreshClock() {
   _lookKick();
 }
 
+function _lookUsePermission(S) {
+  var asked = window._lookPermission;
+  window._lookPermission = null;
+  asked.then(function (r) {
+    if (_look !== S) return;
+    if (r === 'granted') { _lookStartSensors(); _lookButtons(); }
+    else _lookSensorsFailed('look_denied');
+  });
+}
 function _lookAskTap() {
   var S = _look;
   _lookAskSensors().then(function (r) {

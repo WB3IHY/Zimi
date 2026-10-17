@@ -43,7 +43,8 @@ function extractFn(src, name) {
   throw new Error('unbalanced braces extracting ' + name);
 }
 
-const S = { Math, Date, Intl, Object, JSON, console, String, Number, Array, isNaN, window: {}, document: { getElementById: () => null } };
+const S = { Math, Date, Intl, Object, JSON, console, String, Number, Array, isNaN, window: {}, document: { getElementById: () => null },
+  history: { state: null, pushState(s) { this.state = s; }, replaceState(s) { this.state = s; }, back() {} }, location: { href: '' } };
 vm.createContext(S);
 vm.runInContext(
   'var JD_UNIX_EPOCH = 2440587.5; var JD_J2000 = 2451545.0; var MS_PER_DAY = 86400000;' +

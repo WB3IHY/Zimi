@@ -274,19 +274,17 @@ for (const iso of DATES) {
   }
 }
 
-// ── The sky round the Moon (?rest=system): a body's place on the ring ──
+// ── The pull-back follows the finger, every gesture ──
 {
-  const ax = { fwd: [0, 0, -1], up: [0, 1, 0], right: [1, 0, 0] };
-  const spot = (d) => E('_lpRingSpot(' + JSON.stringify(d) + ', ' + JSON.stringify(ax) + ')');
-  const inner = E('LP_RING_INNER_PX'), side = E('LP_RING_REACH_SIDE_PX'), up = E('LP_RING_REACH_UP_PX');
-  near(spot([0, 0, -1]).theta, 0, 1e-9, 'behind the Moon: 0 deg from it');
-  near(Math.hypot(spot([0, 0, -1]).x, spot([0, 0, -1]).y), inner, 1e-6, 'and just off its edge');
-  near(spot([0, 0, 1]).theta * DEG, 180, 1e-6, 'behind the camera: 180 deg');
-  near(spot([1, 0, 0]).theta * DEG, 90, 1e-6, 'a quarter of the sky round: 90 deg');
-  near(spot([1, 0, 0]).x, inner + side / 2, 1e-6, 'standing beside the Moon, on its right, half way out');
-  near(spot([0, 1, 0]).y, inner + up / 2, 1e-6, 'and above it, where the hero\'s date is, no further than the up reach allows');
-  check(spot([-1, 0, 0]).x < 0 && spot([0, -1, 0]).y < 0, 'bearings are the screen\'s: left and down');
-  check(spot([0.6, 0, 0.8]).theta > spot([0.6, 0, -0.8]).theta, 'the further from the Moon in the sky, the further out');
+  E('_ae = { axis: { u: 0, tilt: 0, fly: null }, drag: "hero", dirty: false }; _aeKick = function () {}; clearTimeout = function () {};');
+  const pull = (dx) => { E('_lpState.gesture = null'); E('_lpDragBy(' + dx + ', 0)'); return E('_ae.axis.u'); };
+  const stop = E('LP_PX_PER_STOP');
+  near(pull(-stop), 1, 1e-9, 'the first drag from the Moon, to the left, pulls back one stop');
+  near(pull(-stop), 2, 1e-9, 'a second drag the same way pulls back another');
+  near(pull(stop), 1, 1e-9, 'a new drag the other way brings the camera in, not further out');
+  near(pull(stop), 0, 1e-9, 'and again, back to the Moon');
+  near(pull(stop), 0, 1e-9, 'the Moon is the end of the axis: the finger the other way stays there');
+  near(pull(-stop / 2), 0.5, 1e-9, 'and the way that was pulling back still does');
 }
 
 if (failures) { console.error(failures + ' check(s) failed'); process.exit(1); }

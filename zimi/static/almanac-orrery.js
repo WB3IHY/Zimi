@@ -1326,7 +1326,8 @@ function _drawOrrery(canvas, dpr) {
 
 var _orreryPlaying = true;
 
-var _orrerySpeed = 100000;
+var ORRERY_SCENERY_SPEED = 100000;
+var _orrerySpeed = ORRERY_SCENERY_SPEED;
 
 var _orreryTimeOffset = 0;       // milliseconds offset from real time
 // Whether the offset is a moment someone chose (the speed slider, a ride)
@@ -1470,6 +1471,13 @@ function _orrerySetSlider(speed) {
   if (slider) slider.value = _speedToSlider(speed);
   var label = document.getElementById('orrery-speed-label');
   if (label) label.textContent = _formatSpeed(speed);
+}
+
+// How the orrery opens: spinning fast as scenery, or, where motion is reduced, still at now until someone asks.
+function _orreryStartState() {
+  var still = typeof _almReduceMotion === 'function' && _almReduceMotion();
+  _orreryPlaying = !still;
+  _orrerySetSlider(still ? 1 : ORRERY_SCENERY_SPEED);
 }
 
 function _orrerySnapToNow() {

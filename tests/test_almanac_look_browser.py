@@ -190,7 +190,9 @@ NEAR = {
 }
 
 
-def _look(browser, served, mode="ios", init=None):
+def _look(browser, served, mode="ios", init=None, in_tap=True):
+    """in_tap=False opens the view without the sky button's tap (as the Earth view and the finder do), so iOS has not
+    been asked for motion on the way in and the view's own "Turn on motion" is how it is."""
     ctx = _context(browser, mode)
     if init:
         ctx.add_init_script(init)
@@ -209,7 +211,12 @@ def _look(browser, served, mode="ios", init=None):
         "() => !!document.querySelector('.alm-sky-look') && typeof _skyState !== 'undefined' && _skyState && _skyState.eph",
         polling=POLL_MS,
     )
-    pg.evaluate("() => document.querySelector('.alm-sky-look').click()")
+    if in_tap:
+        pg.evaluate("() => document.querySelector('.alm-sky-look').click()")
+    else:
+        pg.evaluate(
+            "() => Promise.all(['/static/globe.js?v=45', '/static/almanac-look.js?v=45'].map(src => new Promise(r => { const s = document.createElement('script'); s.src = src; s.async = false; s.onload = r; document.head.appendChild(s); }))).then(() => openAlmanacLookNow())"
+        )
     pg.wait_for_function(
         "() => !!document.getElementById('almanac-look')", polling=POLL_MS
     )
@@ -264,7 +271,7 @@ def _globe_opacity(pg):
 
 
 def test_look_asks_for_motion_on_the_tap_and_not_before(browser, served):
-    ctx, pg, errors = _look(browser, served, "ios")
+    ctx, pg, errors = _look(browser, served, "ios", in_tap=False)
     try:
         assert pg.evaluate("() => window.__asked") == 0
         assert pg.is_visible("#look-ask")
@@ -673,7 +680,7 @@ def _hit(pg, selector):
 def test_look_controls_are_under_the_finger_not_under_the_sky(browser, served):
     """The sky's canvas once shared the Look button's class and covered every
     control. Taps here are real touches at the control's middle, not clicks."""
-    ctx, pg, errors = _look(browser, served, "ios")
+    ctx, pg, errors = _look(browser, served, "ios", in_tap=False)
     try:
         for sel in ("#look-close", "#look-ask"):
             assert _hit(pg, sel), sel

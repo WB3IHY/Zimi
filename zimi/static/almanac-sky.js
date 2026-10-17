@@ -1351,6 +1351,7 @@ function _skyAzAt(s, x) { return s.center + (x / s.W - 0.5) * s.span; }
 // mirrors (its glow toward the Sun, the Moon's halo, the blue hour's bands),
 // and read as a few colours, which is what the sand and the palms are lit by.
 var SKY_REFLECT_DOWN = 6;                // the mirrored strip's size: a sea blurs what it holds
+var SKY_LIGHT_KEY_PER_DEG = 10;          // the Sun's height, in tenths of a degree, that makes the ground's light worth reading again
 var SKY_LIGHT_GRID = [8, 4];             // the strip read as this many colours across and down (row 0 is at the horizon)
 var SKY_SAND = [206, 186, 146], SKY_WATER = [30, 85, 105];   // what the sand and the water are, in white light
 var SKY_PALM_TRUNK = [96, 80, 62], SKY_PALM_FROND = [44, 90, 50];
@@ -1388,6 +1389,11 @@ function _skyCaptureLight(s, src) {
   g.setTransform(1, 0, 0, -1, 0, ch);
   g.drawImage(src, 0, yh - band, s.W, band, 0, 0, cw, ch);
   g.setTransform(1, 0, 0, 1, 0, 0);
+  // The ground's colours are read back from the GPU, which stops everything until it answers: only when the light has
+  // changed (the Sun or Moon's height, the Moon's phase, the dial), not on each frame of the Moon's glide.
+  var lightKey = Math.round(s.eph.sunGeoAlt * SKY_LIGHT_KEY_PER_DEG) + ':' + Math.round(s.eph.moon.altitude) + ':' + s.moonData.phase.illumination + ':' + _skySetting('dial');
+  if (s.ground && s.lightKey === lightKey) return;
+  s.lightKey = lightKey;
   var gw = SKY_LIGHT_GRID[0], gh = SKY_LIGHT_GRID[1];
   var t = s.lightGrid || (s.lightGrid = document.createElement('canvas'));
   if (t.width !== gw) { t.width = gw; t.height = gh; }
@@ -2734,6 +2740,15 @@ function _skyLoop(ts) {
   else if (_skyStale(s)) _skyCompute(s, new Date());
   // With only the moving things moving, every other frame is enough.
   var onlyActors = !_skyAnimating(s, ts) && !s.baseDirty;
+  // A sky the page has just been repainted for (a jump of the clock, a resize) is drawn once whatever the
+  // observer last said: its word can be stale (it speaks only on crossing the screen's edge, and a
+  // measurement made while the page was laid out otherwise overwrites it), and a picture left at the old
+  // instant until the next scroll is a wrong one. Measured then, so a sky that is in view wakes properly.
+  if (s.forcePaint && !document.hidden && !_skyCovered()) {
+    s.forcePaint = false;
+    if (!s.inView && _skyMeasureInView(s)) { s.inView = true; _skyArm(); }
+    else if (!s.inView) _skyPaint(ts);
+  }
   if (_skyAwake(s) && !(onlyActors && ts - (s.paintedAt || 0) < SKY_ACTOR_FRAME_MS)) { _skyPaint(ts); s.paintedAt = ts; s.paints = (s.paints || 0) + 1; }
   // The hero's time-travel sweep rides this same loop (almanac.js).
   if (typeof _heroMoonTick === 'function') _heroMoonTick(ts);
@@ -2762,6 +2777,7 @@ function _skyDisarm() {
 // unless motion is reduced, the palms' breeze and the moving things.
 function _skyArm() {
   _skyDisarm();
+  _skyAttentionAt = performance.now();   // opened, resumed, or set to a new picture: it is being looked at
   var s = _skyState;
   if (!_skyAwake(s) || !s.eph) return;
   if (_skyLive()) _skyTimers.live = setTimeout(_skyLiveTick, SKY_LIVE_MS);
@@ -2811,12 +2827,25 @@ function _skyPollSatsTick() {
   _skyTimers.sats = setTimeout(_skyPollSatsTick, SKY_SATS_POLL_MS);
 }
 // The breeze: a frame (the still picture copied, the palms over it) twelve
-// times a second while the beach is seen.
+// times a second while the beach is seen, and for as long after the last touch, scroll or key as it is likely
+// being looked at: a page left open on its own settles into the still picture (nothing in it changes but the
+// stars' slow drift, which the live tick paints when it has moved a pixel) and the breeze picks up at the next touch.
+var SKY_BREEZE_IDLE_MS = 45000;
+var _skyAttentionAt = (typeof performance !== 'undefined' ? performance.now() : 0);
+function _skyBreezeParked() { return performance.now() - _skyAttentionAt > SKY_BREEZE_IDLE_MS; }
 function _skySwayTick() {
   _skyTimers.sway = 0;
   if (!_skyAwake(_skyState) || _skyReduceMotion()) return;
   _skyKick();
+  if (_skyBreezeParked()) return;   // the frame just asked for is the last until someone is back
   _skyTimers.sway = setTimeout(_skySwayTick, SKY_SWAY_MS);
+}
+function _skyAttend() {
+  var was = _skyBreezeParked();
+  _skyAttentionAt = performance.now();
+  if (was && !_skyTimers.sway && _skyAwake(_skyState) && !_skyReduceMotion() && !_skyState.lens && _skySetting('skin') === 'beach') {
+    _skyTimers.sway = setTimeout(_skySwayTick, SKY_SWAY_MS);
+  }
 }
 function _skyIssTick() {
   _skyTimers.iss = 0;
@@ -2859,12 +2888,14 @@ function _skyWake() {
 if (typeof window.addEventListener === 'function') {   // not in the tests' bare window
   window.addEventListener('pageshow', _skyWake);
   window.addEventListener('focus', _skyWake);
+  ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'].forEach(function (ev) { window.addEventListener(ev, _skyAttend, { passive: true, capture: true }); });
+  window.addEventListener('scroll', _skyAttend, { passive: true, capture: true });
 }
 
 // Leaving the Almanac.
-function _skyStop() {
+function _skyStop(keepGpu) {
   _skyPause();
-  if (!_skyHost) _sgDispose();   // the GPU goes back with the Almanac, unless the look-around still draws
+  if (!_skyHost && !keepGpu) _sgDispose();   // the GPU goes back with the Almanac, unless the look-around still draws
   if (_skyState && _skyState.observer) _skyState.observer.disconnect();
   _skyHideTip();
   _skyState = null;
@@ -2955,7 +2986,7 @@ function _initSkyScene(now, lat, lon, animateMoon) {
     known: loc.known && loc.lat === lat && loc.lon === lon,
     moonAnim: null, twinkle: 0, bodies: [], baseBodies: [],
     actors: prev ? prev.actors : [], base: prev ? prev.base : null, baseDirty: true,
-    inView: prev ? prev.inView : true,
+    inView: prev ? prev.inView : true, forcePaint: !!prev,
     observer: prev && prev.observer
   };
   _skyState = s;
@@ -3006,16 +3037,16 @@ function _skyUpdateDesc(s) {
   var srEl = document.getElementById('almanac-sky-desc');
   if (!srEl) return;
   var e = s.eph, sunAlt = e.sun.alt, moonPos0 = e.moon, moonM0 = s.moonData.phase;
-  var when = s.now.toLocaleString(undefined, {
+  var when = s.now.toLocaleString((typeof _currentLang !== 'undefined') ? _currentLang : undefined, {
     weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit'
   });
   var sunDesc = sunAlt > 0
-    ? _tLookup('alm_sun', 'Sun') + ' ' + sunAlt.toFixed(0) + '° ' + _tLookup('alm_a11y_above_horizon', 'above the horizon')
+    ? _tLookup('alm_sun', 'Sun') + ' ' + _orrNum(sunAlt, null, 0) + '° ' + _tLookup('alm_a11y_above_horizon', 'above the horizon')
     : _tLookup('alm_sun', 'Sun') + ' ' + _tLookup('alm_a11y_below_horizon', 'below the horizon');
   var moonDesc;
   if (moonPos0.altitude > -2) {
     moonDesc = _tLookup('alm_moon', 'Moon') + ' ' + moonM0.illumination + '% ' + _tLookup('alm_a11y_illuminated', 'illuminated') +
-      ', ' + moonPos0.altitude.toFixed(0) + '° ' + _tLookup('alm_a11y_altitude', 'high');
+      ', ' + _orrNum(moonPos0.altitude, null, 0) + '° ' + _tLookup('alm_a11y_altitude', 'high');
   } else {
     moonDesc = _tLookup('alm_moon', 'Moon') + ' ' + _tLookup('alm_a11y_below_horizon', 'below the horizon');
   }
@@ -3035,7 +3066,7 @@ function _skyDeg(x) { return _orrNum(Math.round(x) || 0, null, 0) + '°'; }
 
 // "37.8°N, 122.4°W", the place in numbers (the star chart's caption too).
 function _skyCoords(lat, lon) {
-  return Math.abs(lat).toFixed(1) + '°' + (lat >= 0 ? 'N' : 'S') + ', ' + Math.abs(lon).toFixed(1) + '°' + (lon >= 0 ? 'E' : 'W');
+  return _orrNum(Math.abs(lat), null, 1) + '°' + (lat >= 0 ? 'N' : 'S') + ', ' + _orrNum(Math.abs(lon), null, 1) + '°' + (lon >= 0 ? 'E' : 'W');
 }
 
 // The line on the ground: the light of the hour (twilight linked to its
@@ -3469,6 +3500,7 @@ function _ensureStarChartBgStars(size) {
   return stars;
 }
 
+var SKY_LABEL_NUDGES_PX = [-3, 10, -14, 21, -25], SKY_LABEL_H_PX = 10;   // where a chart name may stand, from the body's own height
 function _drawStarChart(now) {
   var canvas = document.getElementById('almanac-starchart');
   if (!canvas) return;
@@ -3515,11 +3547,21 @@ function _drawStarChart(now) {
 
   // Label helper — anchor toward the center so names near the rim grow inward
   // and never clip off the disc.
+  // A name that would stand on one already written moves to the next place about its body (above, below, further
+  // above, further below) and is written at the first that is clear; with none clear it keeps its first place.
+  var labelBoxes = [];
   function drawLabel(txt, x, y, off) {
-    var leftHalf = x <= cx;
+    var leftHalf = x <= cx, w = ctx.measureText(txt).width, lx = x + (leftHalf ? off : -off);
     ctx.textAlign = leftHalf ? 'left' : 'right';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(txt, x + (leftHalf ? off : -off), y - 3);
+    var box = null;
+    for (var n = 0; n < SKY_LABEL_NUDGES_PX.length && !box; n++) {
+      var by = y + SKY_LABEL_NUDGES_PX[n], c = { x0: leftHalf ? lx : lx - w, x1: leftHalf ? lx + w : lx, y0: by - SKY_LABEL_H_PX, y1: by + 2, ty: by };
+      if (!labelBoxes.some(function (p) { return c.x0 < p.x1 && p.x0 < c.x1 && c.y0 < p.y1 && p.y0 < c.y1; })) box = c;
+    }
+    if (!box) box = { x0: leftHalf ? lx : lx - w, x1: leftHalf ? lx + w : lx, y0: y - 3 - SKY_LABEL_H_PX, y1: y - 1, ty: y - 3 };
+    labelBoxes.push(box);
+    ctx.fillText(txt, lx, box.ty);
   }
 
   // Sky disc + horizon rim.
@@ -3600,8 +3642,8 @@ function _drawStarChart(now) {
     }
     _starChartBodies.push({
       x: p.x, y: p.y, key: _starLinkKey(i),
-      label: (_STAR_NAMES[i] || t('alm_star')) + ' \u00b7 ' + p.alt.toFixed(0) + '\u00b0 ' +
-             _azCompass(p.az) + ' \u00b7 mag ' + mag.toFixed(1)
+      label: (_STAR_NAMES[i] || t('alm_star')) + ' \u00b7 ' + _orrNum(p.alt, null, 0) + '\u00b0 ' +
+             _azCompass(p.az) + ' \u00b7 mag ' + _orrNum(mag, null, 1)
     });
   }
 
@@ -3626,7 +3668,7 @@ function _drawStarChart(now) {
     ctx.globalAlpha = 1;
     _starChartBodies.push({
       x: pp.x, y: pp.y, key: 'planet:' + nm.toLowerCase(),
-      label: _tp(nm) + ' \u00b7 ' + aa.alt.toFixed(0) + '\u00b0 ' + _azCompass(aa.az)
+      label: _tp(nm) + ' \u00b7 ' + _orrNum(aa.alt, null, 0) + '\u00b0 ' + _azCompass(aa.az)
     });
     if (aa.alt > 0) planetsUp.push(_tp(nm));
   }
@@ -3642,7 +3684,7 @@ function _drawStarChart(now) {
     ctx.globalAlpha = 1;
     _starChartBodies.push({
       x: mpp.x, y: mpp.y, key: 'planet:moon',
-      label: t('alm_moon') + ' \u00b7 ' + mp.altitude.toFixed(0) + '\u00b0 ' +
+      label: t('alm_moon') + ' \u00b7 ' + _orrNum(mp.altitude, null, 0) + '\u00b0 ' +
              _azCompass(mp.azimuth) + ' \u00b7 ' + _moonPhase(now).illumination + '%'
     });
   }
@@ -3656,7 +3698,7 @@ function _drawStarChart(now) {
       ctx.fillStyle = '#ffd089';
       ctx.beginPath(); ctx.arc(sp.x, sp.y, 4.5, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = 1;
-      _starChartBodies.push({ x: sp.x, y: sp.y, key: 'planet:sun', label: t('alm_sun') + ' \u00b7 ' + sa.alt.toFixed(0) + '\u00b0 ' + _azCompass(sa.az) });
+      _starChartBodies.push({ x: sp.x, y: sp.y, key: 'planet:sun', label: t('alm_sun') + ' \u00b7 ' + _orrNum(sa.alt, null, 0) + '\u00b0 ' + _azCompass(sa.az) });
     }
   }
 
