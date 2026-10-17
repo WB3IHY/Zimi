@@ -952,13 +952,31 @@ def _settings_voices(pg, served):
     pg.eval_on_selector(VOICES_WRAP, "e => e.scrollIntoView({ block: 'center' })")
 
 
+def _in_flight(pg):
+    """The requests the page has started and not finished, kept as they go."""
+    flying = {}
+    pg.on("request", lambda r: flying.__setitem__(id(r), r.url))
+    for ev in ("requestfinished", "requestfailed"):
+        pg.on(ev, lambda r: flying.pop(id(r), None))
+    return flying
+
+
+def _quiet(pg, flying, timeout=30.0):
+    """networkidle, and on a timeout the requests that never finished."""
+    try:
+        pg.wait_for_load_state("networkidle", timeout=timeout * 1000)
+    except Exception:
+        raise AssertionError("still in flight: %s" % sorted(set(flying.values())))
+
+
 def _settings_languages(pg, served, open_list=True):
     """Settings > Languages, the checklist open."""
+    flying = _in_flight(pg)
     pg.goto(served + "/?manage=preferences")
     pg.wait_for_function("() => window._voicesHere", timeout=20000)
     # Settings draws again as its answers come in (a slow runner sees the
     # fold replaced under a click): wait until nothing is still coming.
-    pg.wait_for_load_state("networkidle")
+    _quiet(pg, flying)
     if open_list and pg.get_attribute(FOLD, "aria-expanded") != "true":
         pg.click(FOLD)
     pg.eval_on_selector("#ms-languages", "e => e.scrollIntoView({ block: 'start' })")

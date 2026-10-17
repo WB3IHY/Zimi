@@ -456,11 +456,16 @@ def test_the_first_look_is_the_beach_with_its_life(browser, served):
             "() => (_skyState.palmCache || []).some(Boolean)", polling=POLL_MS
         )
         # A plane is crossing soon (it is first seen part-way along its track), and the timers that keep the life going are set.
+        # The first comes 15 to 35 s after the sky is armed (SKY_FIRST_SPAWN_MS.plane, +/-40%).
         pg.wait_for_function(
             "() => _skyState.actors.some((a) => a.type === 'plane')",
             polling=POLL_MS,
-            timeout=30000,
+            timeout=45000,
         )
+        # Someone is looking: a page left alone 45 s settles and parks the breeze,
+        # which a slow runner reaches before here.
+        pg.mouse.move(200, 300)
+        pg.mouse.move(210, 310)
         assert pg.evaluate(
             "!!_skyTimers.sway && !!_skyTimers.meteor && !!_skyTimers.whale"
         )

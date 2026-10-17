@@ -536,7 +536,16 @@ def test_a_tide_turns_time_keeps_clear_of_a_dot(browser, served):
         pg.evaluate(
             "() => _almScrubSettle(new Date(2026, 9, 16, 23, 17), { land: false })"
         )
-        pg.wait_for_timeout(1500)
+        # A slow runner repaints later: wait for the dot to stand at 23:17.
+        pg.wait_for_function(
+            """() => {
+              const d = document.getElementById('at-now-dot'), c = _at.curve;
+              const t = new Date(2026, 9, 16, 23, 17).getTime();
+              return d && c && t >= c.start && t <= c.end &&
+                Math.abs(+d.getAttribute('cx') - c.X(t)) < 1;
+            }""",
+            timeout=30_000,
+        )
         pairs = pg.evaluate("""() => {
               const svg = document.querySelector('#almanac-place .at-section svg[role=img], #almanac-place svg[role=img]');
               const GAP = 4, rect = (e) => { const r = e.getBoundingClientRect(); return { x0: r.left - GAP, x1: r.right + GAP, y0: r.top - GAP, y1: r.bottom + GAP }; };
