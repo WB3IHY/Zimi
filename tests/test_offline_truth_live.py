@@ -370,7 +370,14 @@ def test_when_the_server_returns_the_state_clears_by_itself(phone, world):
     reopen(pg, world.base)
     assert pg.query_selector("#conn-banner")
     world.start()
-    pg.click(".conn-retry-inline")
+    # The page probes on its own every few seconds: on a loaded machine it can
+    # find the server before this tap does, which is the thing being tested.
+    btn = pg.query_selector(".conn-retry-inline")
+    if btn:
+        try:
+            btn.click(timeout=3000)
+        except Exception:
+            pass
     pg.wait_for_function("() => !document.getElementById('conn-banner')", timeout=30000)
     pg.wait_for_function("() => !document.querySelector('.conn-empty')", timeout=30000)
 
