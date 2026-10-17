@@ -3157,7 +3157,7 @@ function _renderConnBanner() {
 function _connPillTap(e) {
   e.preventDefault(); e.stopPropagation();
   const el = document.getElementById('conn-pill'), r = el.getBoundingClientRect();
-  window._openMenuAt('<div class="ctx-item ctx-note">' + tH('conn_pill_' + el.dataset.why + '_hint') + '</div>' +
+  window._openMenuAt('<div class="ctx-item ctx-info">' + tH('conn_pill_' + el.dataset.why + '_hint') + '</div>' +
     '<div class="ctx-sep"></div><div class="ctx-item" data-action="check">' + tH('conn_check') + '</div>',
     r.left, r.bottom + 4, function() { _connProbeStep = 0; _connProbeNow(); });
 }
@@ -4819,7 +4819,7 @@ function renderHome(filter) {
   let h = '';
   if (!homeScope && !filter && _keepNames.size && _connState !== CONN_OK) {
     const keptNow = sorted.filter(z => _keepNames.has(z.name));
-    if (keptNow.length) h += _keepSectionHtml(keptNow) + _keepSurvivalTilesHtml();
+    if (keptNow.length) h += _keepSectionHtml(keptNow) + _keepSurvivalTilesHtml(false);
   }
   if (!homeScope && !filter) h += _libFoldersNoteHtml();
   // Help now sits first in the Apps row; where that row is not drawn (a filter is narrowing home) it stands alone.
@@ -4889,8 +4889,7 @@ function renderHome(filter) {
   // Zimi Maps, first, as a source sits: one tile whenever a map is installed.
   // Eric: "a Maps tile that sits with the sources grid like a source does."
   if (!homeScope && !filter && !homeRecentFilter && !homeLangFilter.size) {
-    // Offline the survival tiles above already hold Help now: once, not twice.
-    h += _appsRowHtml(!(_keepNames.size && _connState !== CONN_OK));
+    h += _appsRowHtml(true);
   }
 
   // Favorites section at top (only on unscoped home)
@@ -6198,7 +6197,8 @@ function _keepOpenView() {
 
 // Almanac and Help now work with no server: tiles beside the ZIMs, in the
 // library's own look, on this view and on the offline home.
-function _keepSurvivalTilesHtml() {
+// withHelp false: the page already has Help now (its chip in the Apps row).
+function _keepSurvivalTilesHtml(withHelp) {
   var isTiles = _getLibraryView() === 'tiles';
   var tile = function(href, onclick, svg, name, desc) {
     return '<a class="stat-card keep-tile-app" href="' + escAttr(href) + '" onclick="return _spaNav(event, function() { ' + onclick + ' })">' +
@@ -6208,7 +6208,7 @@ function _keepSurvivalTilesHtml() {
   var almanac = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>';
   return '<div class="' + (isTiles ? 'stats-grid tiles' : 'stats-grid') + ' keep-apps">' +
     tile('/#almanac', 'openAlmanac()', almanac, t('almanac'), t('offline_works_almanac_desc')) +
-    tile(_fieldguideUrl(''), 'openFieldguide(false)', _HELP_NOW_SVG, t('fieldguide_help_now'), t('offline_works_help_desc')) +
+    (withHelp === false ? '' : tile(_fieldguideUrl(''), 'openFieldguide(false)', _HELP_NOW_SVG, t('fieldguide_help_now'), t('offline_works_help_desc'))) +
     '</div>';
 }
 

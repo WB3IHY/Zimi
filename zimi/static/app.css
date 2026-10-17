@@ -287,7 +287,7 @@
     .conn-pill svg { width: 15px; height: 15px; }
   }
   .conn-pill:hover, .conn-pill:focus-visible { color: var(--text); border-color: var(--text2); outline: none; }
-  .ctx-note { pointer-events: none; color: var(--text2); max-width: 230px; white-space: normal; line-height: 1.4; }
+  .ctx-info { pointer-events: none; color: var(--text2); max-width: 230px; white-space: normal; line-height: 1.4; }
   /* Keeping offline: one glyph language on the tile, in the menu, About and the view. */
   .keep-ico {
     position: absolute; right: 6px; bottom: 6px; z-index: 2; width: 28px; height: 28px; padding: 3px;
