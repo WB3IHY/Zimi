@@ -173,7 +173,8 @@ const KEPT_CONTENT_PREFIXES = ['/w', '/read'].concat(KEPT_ANSWER_PREFIXES);
 
 // How long the network gets before a kept copy answers instead: to the first
 // byte of the answer, not the whole of it, so a long search still streams.
-// With nothing kept there is nothing to fall back on, so it waits longer.
+// With nothing kept there is nothing to fall back on: it waits for the server,
+// and gives up after the longer one only once the network is known down.
 // Probes and reads that nothing else can stand in for give up sooner.
 const DEADLINE_KEPT_MS = 2500;
 const DEADLINE_COLD_MS = 8000;
@@ -282,6 +283,7 @@ async function networkOnly(request) {
     }
     return resp;
   } catch (e) {
+    networkDownUntil = Date.now() + NETWORK_DOWN_MS;
     return offlineResponse();
   }
 }
@@ -385,8 +387,13 @@ async function networkFirst(event) {
   net.catch(() => {});
   if (!get) return net.catch(() => offlineResponse());
   event.waitUntil(net.catch(() => {}));
+  // With nothing to stand in, a slow server (a busy NAS, a big picture) is
+  // waited for: the offline page in its place would be wrong. Only once the
+  // network is known not to answer does such a request give up.
+  const down = Date.now() < networkDownUntil;
+  if (!kept && !down) return net.catch(() => offlineResponse());
   let timer;
-  const wait = kept ? (Date.now() < networkDownUntil ? 0 : DEADLINE_KEPT_MS) : DEADLINE_COLD_MS;
+  const wait = kept ? (down ? 0 : DEADLINE_KEPT_MS) : DEADLINE_COLD_MS;
   const late = new Promise(r => { timer = setTimeout(() => r(null), wait); });
   let resp = null;
   try { resp = await Promise.race([net, late]); } catch (e) { /* no answer */ }

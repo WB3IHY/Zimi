@@ -40,7 +40,10 @@ _DRIVER = r"""
 const fs = require('node:fs');
 const vm = require('node:vm');
 const src = fs.readFileSync(process.argv[1], 'utf8').replace(
-  /const SHELL_URLS = \[\];/, 'const SHELL_URLS = ' + JSON.stringify(SHELL) + ';');
+  /const SHELL_URLS = \[\];/, 'const SHELL_URLS = ' + JSON.stringify(SHELL) + ';')
+  // The deadlines in tenths, so a slow server can be played in real time.
+  .replace(/(const DEADLINE_\w+_MS = )(\d+)/g, (m, k, v) => k + Math.round(v / 10))
+  .replace(/(const NETWORK_DOWN_MS = )(\d+)/, (m, k, v) => k + Math.round(v / 10));
 const ORIGIN = 'http://x';
 
 function headers(h) {
@@ -53,8 +56,15 @@ class FakeResponse {
     this.ok = this.status >= 200 && this.status < 300; this.headers = headers(o.headers); }
   clone() { return new FakeResponse(this.body, { status: this.status, headers: this.rawHeaders }); }
 }
-function reply(spec) {  // a scripted answer, or a thrown network error
+function reply(spec, signal) {  // a scripted answer, or a thrown network error
   if (spec === 'down') return Promise.reject(new TypeError('Failed to fetch'));
+  // 'hang' accepts and never answers (lie-fi); { delay } answers late.
+  if (spec === 'hang' || spec.delay) {
+    return new Promise((resolve, reject) => {
+      if (signal) signal.addEventListener('abort', () => reject(new TypeError('aborted')));
+      if (spec !== 'hang') setTimeout(() => resolve(reply(Object.assign({}, spec, { delay: 0 }))), spec.delay);
+    });
+  }
   const r = new FakeResponse(spec.body === undefined ? 'live' : spec.body, spec);
   r.rawHeaders = spec.headers;
   return Promise.resolve(r);
@@ -84,11 +94,11 @@ class FakeRequest { constructor(u, o) { o = o || {}; this.url = u.startsWith('ht
 
 const network = {};          // path -> scripted answer ('down' by default when OFFLINE)
 const asked = [];
-function net(req) {
+function net(req, o) {
   const path = new URL(req.url).pathname + new URL(req.url).search;
   asked.push(path);
   if (OFFLINE) return reply('down');
-  return reply(network[path] || network[new URL(req.url).pathname] || { body: 'live ' + path });
+  return reply(network[path] || network[new URL(req.url).pathname] || { body: 'live ' + path }, o && o.signal);
 }
 
 const listeners = {};
@@ -307,6 +317,35 @@ class TestKeptReading(unittest.TestCase):
         )
         self.assertEqual(out["status"], 503)
         self.assertEqual(out["offline"], "1")
+
+    def test_a_slow_server_is_waited_for_when_nothing_is_kept(self):
+        """A picture or a Manage answer that takes longer than the deadline (a
+        busy NAS, a loaded runner) is the server's, not the offline page: with
+        nothing kept there is nothing better to show, so the worker waits."""
+        out = _run(
+            "await install();"
+            "network['/w/wiki/big.jpg'] = { delay: 1200, body: 'picture' };"
+            "network['/manage/catalog'] = { delay: 1200, body: 'catalog' };"
+            "return [await request('/w/wiki/big.jpg', { destination: 'image' }),"
+            "        await request('/manage/catalog')];",
+            shell=SHELL,
+        )
+        self.assertEqual([o["body"] for o in out], ["picture", "catalog"])
+
+    def test_on_lie_fi_a_page_not_kept_still_gives_up(self):
+        """Once the network is known not to answer (the reconnect probe hung),
+        a page nothing can stand in for says so instead of spinning forever."""
+        out = _run(
+            "await install();"
+            "network['/health'] = 'hang'; network['/w/wiki/Never_read'] = 'hang';"
+            "await request('/health?ping=1');"
+            "const t0 = Date.now();"
+            "const r = await request('/w/wiki/Never_read', { mode: 'navigate', destination: 'iframe' });"
+            "return { status: r.status, ms: Date.now() - t0 };",
+            shell=SHELL,
+        )
+        self.assertEqual(out["status"], 503)
+        self.assertLess(out["ms"], 2000)
 
     def test_a_proxys_error_page_does_not_replace_a_kept_article(self):
         out = _run(
