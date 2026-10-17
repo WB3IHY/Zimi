@@ -4,6 +4,7 @@
 // Loaded before almanac.js; all almanac scripts share one global scope.
 
 var _almanacOrreryRAF = null;
+var _almanacLoopsHeld = false;   // the Almanac's loops are stopped by _cancelAllRAF (the Earth view, the phone's Look, a hidden tab) until _resumeAllRAF
 
 // Planet visual radius is now a fraction of canvas width — much bigger, Apple Watch style
 var _PLANETS = {
@@ -646,8 +647,11 @@ function _initOrrery() {
   if (typeof IntersectionObserver === 'function') {
     _orreryViewObs = new IntersectionObserver(function (entries) {
       _orreryInView = entries[entries.length - 1].isIntersecting;
+      // Back on screen: the loop that parked itself (_orreryAnimate) starts again, unless something else holds it (the Earth view over the page).
+      if (_orreryInView && !_almanacOrreryRAF && _orreryPlaying && _almanacOpen && !_almanacLoopsHeld) _orreryAnimate();
     });
-    _orreryViewObs.observe(canvas);
+    // The whole section, its controls and readout as well as the canvas: any of them on screen is the orrery in view.
+    _orreryViewObs.observe(canvas.closest('.almanac-section') || canvas);
   } else {
     _orreryInView = true;
   }
@@ -1720,6 +1724,9 @@ function _orreryAnimate() {
     _almanacOrreryRAF = null;
     return;
   }
+  // Out of view the loop parks, keeping _orreryLastFrame: the first frame back on screen takes the whole gap in one
+  // step, so the simulated clock and the rockets are where they would have been, and nothing woke the page meanwhile.
+  if (!_orreryInView) { _almanacOrreryRAF = null; return; }
   var now = performance.now();
   var dt = now - _orreryLastFrame;
   _orreryLastFrame = now;

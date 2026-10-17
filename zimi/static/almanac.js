@@ -175,6 +175,7 @@ function _almEsc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
 
 
 function _cancelAllRAF() {
+  _almanacLoopsHeld = true;
   if (_almanacOrreryRAF) { cancelAnimationFrame(_almanacOrreryRAF); _almanacOrreryRAF = null; }
   _skyPause();
   if (_tzClockRAF) { clearTimeout(_tzClockRAF); _tzClockRAF = null; }
@@ -184,6 +185,7 @@ function _cancelAllRAF() {
   _almTzHandPause();
 }
 function _resumeAllRAF() {
+  _almanacLoopsHeld = false;
   _orreryLastFrame = performance.now();  // prevent time-jump after tab was hidden
   if (typeof _orreryAnimate === 'function') _orreryAnimate();
   _skyResume();
@@ -4070,7 +4072,7 @@ function _initTzClock(now) {
     try { tzTime = _tzFmt(tzc.tz, ALM_TZ_TIME_OPTS).format(now); } catch(e) { continue; }
     var utcOff = _almTzOffsetLabel(tzc.tz, now);
     var tzHour = 0;
-    try { tzHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: tzc.tz, hour: 'numeric', hour12: false }).format(now)); } catch(e) {}
+    try { tzHour = parseInt(_tzFmt(tzc.tz, ALM_TZ_HOUR_OPTS, 'en-US').format(now)); } catch(e) {}
     var phase = (tzHour < 5 || tzHour >= 21) ? 'night' : tzHour < 8 ? 'dawn' : tzHour < 18 ? 'day' : 'dusk';
     // Sun: solid unicode; moon: CSS crescent (the unicode moons render as
     // thin outlines at small sizes)
@@ -4172,6 +4174,7 @@ function _almClockViewPaint(view) {
 // A clock's time, and its zone's offset from UTC now: "UTC+5:30 · IST". The
 // short name only when it is a real abbreviation; a GMT/UTC alias (GMT+8,
 // UTC-5) would only repeat the offset.
+var ALM_TZ_HOUR_OPTS = { hour: 'numeric', hour12: false };   // a card's day phase: the hour in the zone, as digits
 var ALM_TZ_TIME_OPTS = { hour: 'numeric', minute: '2-digit', hour12: true };
 function _almTzOffsetLabel(tz, now) {
   var out = '';
@@ -4637,28 +4640,51 @@ var _tzGridMinute = -1;
 // a sweeping hand redrew it every frame, the largest idle cost left on a
 // phone once the sky stopped animating.
 var _TZ_CLOCK_TICK_MS = 1000;
+// The face and the cards are drawn only while the clocks are on screen: out of sight they stay as they were, and are
+// drawn at the time they have reached when they come back (the second's tick, a card grid a minute stale, are
+// not worth a phone's main thread under a page nobody is looking at them on).
+var _tzClockInView = true;
+var _tzClockObs = null;
+var _tzTmMinute = -1;
+function _tzWatchView() {
+  if (_tzClockObs) { _tzClockObs.disconnect(); _tzClockObs = null; }
+  var wrap = document.querySelector('.alm-tz-wrap');
+  _tzClockInView = true;
+  if (!wrap || typeof IntersectionObserver !== 'function') return;
+  _tzClockObs = new IntersectionObserver(function (entries) {
+    var on = entries[entries.length - 1].isIntersecting;
+    if (on && !_tzClockInView && _almanacOpen) { _tzClockInView = true; _tzClockTick(); }   // the face at the time it has reached; the cards only if a minute has turned
+    _tzClockInView = on;
+  });
+  _tzClockObs.observe(wrap);
+}
+function _tzClockTick() {
+  var now = new Date(), minute = now.getMinutes();
+  if (_tzClockInView) {
+    _drawTzClock(now);
+    // City cards rendered once and went stale within minutes: refresh the grid on each minute rollover.
+    if (minute !== _tzGridMinute) { _tzGridMinute = minute; _initTzClock(now); }
+  }
+  // Keep the time machine's ACTUAL row ticking (HH:MM resolution, so a
+  // once-per-minute refresh is enough) while parked in the past/future,
+  // and with it the offset lamp, which is measured against that row.
+  if (minute !== _tzTmMinute) {
+    _tzTmMinute = minute;
+    _almTmSetCells('alm-tm-now', now);
+    _almTmSetDelta('alm-tm-delta', _almFocusInstant());
+  }
+}
 function _startTzClock() {
   if (_tzClockRAF) clearTimeout(_tzClockRAF);
   if (_tzClockFrame) { cancelAnimationFrame(_tzClockFrame); _tzClockFrame = null; }
+  _tzWatchView();
   function next() {
     _tzClockRAF = setTimeout(function () { _tzClockRAF = null; _tzClockFrame = requestAnimationFrame(tick); }, _TZ_CLOCK_TICK_MS - Date.now() % _TZ_CLOCK_TICK_MS);
   }
   function tick() {
     _tzClockFrame = null;
     if (!_almanacOpen) { _tzClockRAF = null; return; }
-    var now = new Date();
-    _drawTzClock(now);
-    // City cards rendered once and went stale within minutes — refresh
-    // the grid on each minute rollover (cheap: 28 cards, 1x/min)
-    if (now.getMinutes() !== _tzGridMinute) {
-      _tzGridMinute = now.getMinutes();
-      _initTzClock(now);
-      // Keep the time machine's ACTUAL row ticking (HH:MM resolution, so a
-      // once-per-minute refresh is enough) while parked in the past/future —
-      // and with it the offset lamp, which is measured against that row.
-      _almTmSetCells('alm-tm-now', now);
-      _almTmSetDelta('alm-tm-delta', _almFocusInstant());
-    }
+    _tzClockTick();
     next();
   }
   tick();
