@@ -6236,6 +6236,9 @@ var _keepPersisted = null;
 // with no network); [] where there is no worker or nothing kept. `all`: part-way
 // ones too.
 async function _keepLocalList(all) {
+  // The list is the service worker's to answer: with none in charge of the page (the first visit, a browser with
+  // workers off) the server is asked and says 404 in the console, for an answer that is [] either way.
+  if (!(navigator.serviceWorker && navigator.serviceWorker.controller)) return [];
   try {
     var r = await fetch('/keep-local/list', { cache: 'no-store' });
     if (!r.ok) return [];

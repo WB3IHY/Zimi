@@ -581,6 +581,21 @@ def test_reopening_the_almanac_opens_at_the_top(browser, served):
         ctx.close()
 
 
+def test_no_page_load_asks_the_server_for_the_phones_own_list(browser, served):
+    ctx = browser.new_context(viewport=VIEW, service_workers="block", locale="en-US")
+    pg = ctx.new_page()
+    seen, failed = [], []
+    pg.on("request", lambda r: seen.append(r.url))
+    pg.on("response", lambda r: failed.append(r.url) if r.status == 404 else None)
+    try:
+        pg.goto(served + "/", wait_until="load")
+        pg.wait_for_timeout(2500)
+        assert not [u for u in seen if "/keep-local/" in u], seen
+        assert not failed, failed
+    finally:
+        ctx.close()
+
+
 IOS_MOTION = """
   window.DeviceOrientationEvent = window.DeviceOrientationEvent || function () {};
   window.__asked = 0; window.__askedBeforeLoad = null;
