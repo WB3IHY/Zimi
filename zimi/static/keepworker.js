@@ -9,6 +9,9 @@
 // the meantime comes back whole, and the pull starts over instead of joining
 // two different files.
 //
+// Also: {cmd: 'import', name, file, title}: a ZIM picked from Files (or iCloud Drive,
+// a USB stick) copied into the phone's storage in chunks. It never asks the
+// server, so it works in airplane mode. Error code notzim: not a ZIM at all.
 // Messages in:  {cmd: 'pull', name, title, who, headers}  (who: the account it is kept under, '' for none)   {cmd: 'stop'}
 // Messages out: {type: 'progress', written, size}  {type: 'done', meta}
 //               {type: 'stopped', written, size}   {type: 'error', code, written, size}
@@ -32,10 +35,12 @@ function say(o) { self.postMessage(o); }
 function coded(code) { var e = new Error(code); e.code = code; return e; }
 function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
 
+var importStop = false;
 self.onmessage = function(e) {
   var m = e.data;
   if (m.cmd === 'pull') pull(m);
-  else if (m.cmd === 'stop' && ctl) ctl.abort();
+  else if (m.cmd === 'import') importFile(m);
+  else if (m.cmd === 'stop') { importStop = true; if (ctl) ctl.abort(); }
 };
 
 // Can this reader open what is in the file? Asked of the real file over the
@@ -48,6 +53,11 @@ async function preflight(url, headers) {
     if (/zim-http-404/.test(e.message)) throw coded('gone');
     throw e;
   }
+  await checkCompression(r);
+}
+
+// The first and last cluster's compression: can this reader open what is in it?
+async function checkCompression(r) {
   var count = r.h.clusterCount;
   if (!count) return;
   var probes = count > 1 ? [0, count - 1] : [0];
@@ -159,6 +169,68 @@ async function pull(m) {
     } else {
       say(Object.assign({ type: 'error', code: (e && e.code) || 'network' }, out));
     }
+  } finally {
+    try { if (h) h.close(); } catch (e) {}
+  }
+}
+
+
+// A ZIM from Files: the same storage and the same meta as a pulled one, marked
+// source 'files'. The file is read in slices (a File needs no network), checked
+// before a byte is stored, written through the sync access handle, and opened
+// once to take its title, icon and front page.
+var IMPORT_CHUNK = 8 * 1024 * 1024;
+async function importFile(m) {
+  var file = m.file, name = m.name, h = null, d = null, written = 0;
+  importStop = false;
+  current = { written: 0, size: file.size };
+  try {
+    d = await KeepStore.dir(true);
+    var r0;
+    try { r0 = await ZimReader.open(ZimReader.fileSource(file)); } catch (e) { throw coded('notzim'); }
+    await checkCompression(r0);
+    var fh = await d.getFileHandle(KeepStore.fileBase(name) + '.zim', { create: true });
+    try { h = await fh.createSyncAccessHandle(); } catch (e) { throw coded('locked'); }
+    h.truncate(0);
+    var meta = { name: name, title: m.title || name, who: '', source: 'files', icon: false, size: file.size, etag: '', written: 0, complete: false, at: 0 };
+    await KeepStore.writeMeta(d, meta);
+    var lastSay = 0;
+    while (written < file.size) {
+      if (importStop) throw ABORTED;
+      var buf = new Uint8Array(await file.slice(written, Math.min(file.size, written + IMPORT_CHUNK)).arrayBuffer());
+      h.write(buf, { at: written });
+      written += buf.length;
+      current = { written: written, size: file.size };
+      var now = Date.now();
+      if (now - lastSay >= SAY_EVERY_MS) { lastSay = now; say({ type: 'progress', written: written, size: file.size }); }
+    }
+    h.flush();
+    h.close();
+    h = null;
+    var kept = await (await d.getFileHandle(KeepStore.fileBase(name) + '.zim')).getFile();
+    if (kept.size !== file.size) throw coded('corrupt');
+    var opened;
+    try {
+      var r = await ZimReader.open(ZimReader.fileSource(kept));
+      var main = await r.main();
+      var title = (await r.meta('Title')) || m.title || name;
+      var icon = !!(await r._findKey(0x4D, new TextEncoder().encode('Illustration_48x48@1')));
+      opened = { main: main ? r.pathOf(main) : '', mainTitle: main ? r.titleOf(main) : '', title: title, icon: icon };
+    } catch (e) { throw coded('corrupt'); }
+    meta = { name: name, title: opened.title, who: '', source: 'files', icon: opened.icon, size: file.size, etag: '', written: file.size,
+             complete: true, at: Date.now(), main: opened.main, mainTitle: opened.mainTitle };
+    await KeepStore.writeMeta(d, meta);
+    say({ type: 'done', meta: meta });
+  } catch (e) {
+    var out = { written: written, size: file.size };
+    try { if (h) { h.close(); h = null; } } catch (x) {}
+    if (e === ABORTED || (e && e.code === 'corrupt') || (e && e.code === 'notzim') || (e && (e.code === 'xz' || e.code === 'unsupported')) || (e && e.name === 'QuotaExceededError')) {
+      // Nothing half-copied is worth keeping: it has no resume.
+      try { if (d) await KeepStore.remove(name); } catch (x) {}
+    }
+    if (e === ABORTED) say(Object.assign({ type: 'stopped' }, out));
+    else if (e && e.name === 'QuotaExceededError') say(Object.assign({ type: 'error', code: 'quota' }, out));
+    else say(Object.assign({ type: 'error', code: (e && e.code) || 'corrupt' }, out));
   } finally {
     try { if (h) h.close(); } catch (e) {}
   }

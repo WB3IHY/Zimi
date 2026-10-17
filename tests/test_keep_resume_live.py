@@ -200,6 +200,7 @@ def test_pause_resume_and_a_replaced_zim(pw, world):
 
     # 2. Remove, pull again slowly, stop part way; replace the ZIM on the server.
     pg.click("#zi-keep .keep-btn")  # Remove
+    pg.click("#ac-ok")  # it asks first
     pg.wait_for_selector("#zi-keep .keep-btn", timeout=20000)
     assert pg.evaluate(META, NAME) is None
     proxy.slow = True

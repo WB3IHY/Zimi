@@ -3434,5 +3434,19 @@
   "conn_pill_nonet_hint": "显示的是此手机上的内容。Zimi 会自动重新连接。",
   "conn_pill_server_hint": "你的 Zimi 服务器没有响应。显示的是此手机上的内容。",
   "conn_pill_error_hint": "部分内容无法刷新。显示的是此手机上的内容。",
-  "conn_check": "检查连接"
+  "conn_check": "检查连接",
+  "keep_remove_confirm": "从此手机移除 {title}？",
+  "keep_remove_ok": "移除",
+  "keep_add_files": "从“文件”添加",
+  "keep_importing": "正在从“文件”复制",
+  "keep_from_files": "来自“文件”",
+  "keep_from_files_note": "已从“文件”复制。它保存在这部手机上，不需要服务器。",
+  "keep_err_notzim": "该文件不是 ZIM。",
+  "keep_about_source": "来源",
+  "keep_toobig_title": "超出此手机上 Zimi 的可用空间",
+  "keep_toobig_needs": "需要 {size}",
+  "keep_toobig_have": "Zimi 在此可用 {size}",
+  "keep_toobig_guess": "手机给出的数字只是粗略估计。可以照样尝试：若手机拒绝，会干净地停止。",
+  "keep_try_anyway": "仍然尝试",
+  "keep_smaller": "较小的版本"
 }

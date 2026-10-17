@@ -3434,5 +3434,19 @@
   "conn_pill_nonet_hint": "מוצג מה שנמצא בטלפון הזה. Zimi יתחבר מחדש מעצמו.",
   "conn_pill_server_hint": "שרת Zimi שלכם לא עונה. מוצג מה שנמצא בטלפון הזה.",
   "conn_pill_error_hint": "לא ניתן היה לרענן חלק מהדברים. מוצג מה שנמצא בטלפון הזה.",
-  "conn_check": "בדיקת חיבור"
+  "conn_check": "בדיקת חיבור",
+  "keep_remove_confirm": "להסיר את {title} מהטלפון הזה?",
+  "keep_remove_ok": "הסרה",
+  "keep_add_files": "הוספה מקבצים",
+  "keep_importing": "מעתיק מקבצים",
+  "keep_from_files": "מקבצים",
+  "keep_from_files_note": "הועתק מקבצים. נמצא בטלפון הזה ולא צריך שרת.",
+  "keep_err_notzim": "הקובץ הזה אינו ZIM.",
+  "keep_about_source": "מקור",
+  "keep_toobig_title": "גדול מדי למקום של Zimi בטלפון הזה",
+  "keep_toobig_needs": "דורש {size}",
+  "keep_toobig_have": "Zimi יכול להשתמש כאן ב-{size}",
+  "keep_toobig_guess": "המספר של הטלפון הוא הערכה גסה. אפשר לנסות בכל זאת: זה ייעצר בצורה נקייה אם הטלפון יסרב.",
+  "keep_try_anyway": "לנסות בכל זאת",
+  "keep_smaller": "גרסה קטנה יותר"
 }

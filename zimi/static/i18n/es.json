@@ -3434,5 +3434,19 @@
   "conn_pill_nonet_hint": "Se muestra lo que hay en este teléfono. Zimi se reconecta solo.",
   "conn_pill_server_hint": "Tu servidor Zimi no responde. Se muestra lo que hay en este teléfono.",
   "conn_pill_error_hint": "Algunas cosas no se pudieron actualizar. Se muestra lo que hay en este teléfono.",
-  "conn_check": "Comprobar conexión"
+  "conn_check": "Comprobar conexión",
+  "keep_remove_confirm": "¿Quitar {title} de este teléfono?",
+  "keep_remove_ok": "Quitar",
+  "keep_add_files": "Añadir desde Archivos",
+  "keep_importing": "Copiando desde Archivos",
+  "keep_from_files": "Desde Archivos",
+  "keep_from_files_note": "Copiado desde Archivos. Está en este teléfono y no necesita servidor.",
+  "keep_err_notzim": "Ese archivo no es un ZIM.",
+  "keep_about_source": "Origen",
+  "keep_toobig_title": "Demasiado grande para el espacio de Zimi en este teléfono",
+  "keep_toobig_needs": "Necesita {size}",
+  "keep_toobig_have": "Zimi puede usar {size} aquí",
+  "keep_toobig_guess": "La cifra del teléfono es una estimación aproximada. Puedes intentarlo igualmente: se detiene limpiamente si el teléfono dice que no.",
+  "keep_try_anyway": "Intentar igualmente",
+  "keep_smaller": "Una versión más pequeña"
 }

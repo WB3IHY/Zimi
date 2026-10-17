@@ -112,7 +112,7 @@ def wait_shell_kept(pg):
           for (const k of await caches.keys()) {
             const u = (await (await caches.open(k)).keys()).map(r => r.url);
             if (u.some(x => x.includes('/static/app.js')) && u.some(x => x.endsWith('/'))
-                && u.some(x => x.includes('/list?layout=1')) && u.some(x => x.includes('/whoami'))) return true;
+                && u.some(x => x.includes('/list?layout=1')) && u.some(x => x.includes('/whoami')) && ['/fzstd.js', '/zimreader.js', '/keepstore.js', '/keepworker.js'].every(f => u.some(x => x.includes(f)))) return true;
           }
           return false;
         }""",

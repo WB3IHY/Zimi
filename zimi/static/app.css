@@ -295,6 +295,9 @@
     -webkit-tap-highlight-color: transparent;
   }
   .keep-ico svg { width: 100%; height: 100%; }
+  /* In the compact grid the corner is free (the star hides until used): the icon sits top-left, clear of the title. */
+  .stats-grid.tiles .keep-ico { top: 6px; bottom: auto; left: 6px; right: auto; }
+  [dir="rtl"] .stats-grid.tiles .keep-ico { left: auto; right: 6px; }
   .keep-ico .kr-track { fill: none; stroke: var(--border); stroke-width: 2; }
   .keep-ico .kr-arc { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; transition: stroke-dasharray 0.25s linear; }
   .keep-ico.paused { color: var(--text2); }
@@ -317,11 +320,32 @@
     color: var(--text2); background: none; border: 1px solid var(--border); border-radius: 18px;
   }
   .keep-manage-btn:hover { color: var(--amber); border-color: var(--amber-border); }
+  .keep-view-actions { display: flex; gap: 10px; justify-content: flex-end; margin: -6px 0 16px; flex-wrap: wrap; }
+  .keep-add { display: inline-flex; align-items: center; gap: 6px; position: relative; }
+  .keep-add .keep-glyph { opacity: 0.8; }
+  .keep-file-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 0; }
+  .keep-import-box { margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface2); }
   .keep-rm {
     position: absolute; top: 6px; left: 6px; z-index: 3; width: 28px; height: 28px; border-radius: 50%; border: none;
     background: #c64a3a; color: #fff; font-size: 18px; line-height: 1; cursor: pointer;
   }
   .offline-home .cat-heading { margin-top: 4px; }
+  /* Keep feedback, under the top bar: seen on a phone where a bottom toast is not. */
+  .keep-notice {
+    position: fixed; z-index: 10002; left: 50%; transform: translateX(-50%);
+    top: calc(env(safe-area-inset-top, 0px) + 64px); max-width: calc(100vw - 32px); box-sizing: border-box;
+    padding: 10px 16px; font-size: 13.5px; line-height: 1.4; color: var(--text); text-align: center;
+    background: var(--surface); border: 1px solid var(--amber-border); border-radius: var(--radius); box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+  }
+  .keep-notice[hidden] { display: none; }
+  .keep-sheet { width: 340px; }
+  .keep-sheet h3 { margin: 0 0 12px; font-size: 16px; line-height: 1.3; }
+  .keep-sheet-rows { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--text2); font-variant-numeric: tabular-nums; }
+  .keep-sheet-rows b { color: var(--text); font-weight: 600; }
+  .keep-sheet-note { margin: 12px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--text2); }
+  .keep-sheet-alt { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--text2); }
+  .keep-sheet-pick { font: inherit; font-size: 13.5px; text-align: start; padding: 10px 12px; min-height: 44px; color: var(--text); background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+  .keep-sheet-pick i { font-style: normal; color: var(--text2); margin-inline-start: 6px; }
   .keep-apps { margin-bottom: 20px; }
   .offline-none { color: var(--text2); font-size: 13px; line-height: 1.5; margin: 12px 0; max-width: 34em; }
   .keep-search-note { font-size: 12.5px; color: var(--text2); margin: 0 0 10px; }
@@ -3185,6 +3209,8 @@
   /* ── Password modal ── */
   .pw-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:200; align-items:center; justify-content:center; }
   .pw-overlay.open { display:flex; }
+  /* A question asked over a panel (About) is above it. */
+  .pw-overlay.pw-confirm { z-index: 10001; }
   /* Login gate (private public-access mode): the overlay becomes fully opaque
      so the anonymous visitor sees nothing but the login card — no half-loaded
      home showing through. Highest layer, and the background page can't scroll. */

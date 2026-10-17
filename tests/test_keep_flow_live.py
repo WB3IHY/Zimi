@@ -100,7 +100,7 @@ def test_one_tap_from_the_menu_then_remove(pw, world):
     br, ctx, pg = library(pw, world)
     open_menu(pg, ZIM)
     labels = menu_labels(pg)
-    assert labels.index("Keep offline") == labels.index("About this ZIM") + 1, labels
+    assert labels.index("Keep offline") == labels.index("Download ZIM file") + 1, labels
     shot(pg, "f1-menu")
     pg.click("[data-action='keep-start']")
     # No question was asked: nothing modal appeared, and it comes.
@@ -117,6 +117,7 @@ def test_one_tap_from_the_menu_then_remove(pw, world):
         pg
     ) and "Keep offline" not in menu_labels(pg)
     pg.click("[data-action='keep-remove']")
+    pg.click("#ac-ok")   # it asks first (test_keep_files_live holds the wording)
     pg.wait_for_function(
         "(z) => !document.querySelector(`.stat-card[data-zim='${z}'] .keep-ico`)",
         arg=ZIM,
@@ -133,7 +134,9 @@ def stub_room(pg, free):
 def test_it_asks_only_when_it_will_not_fit_or_is_a_big_share(pw, world):
     br, ctx, pg = library(pw, world)
     size = pg.evaluate("async (z) => (await KeepStore.probe(z, {})).size", ZIM)
-    # A big share of what is left: one line, no numbers; saying no keeps nothing.
+    # Where the room figure is real: a big share of what is left asks one line,
+    # no numbers; saying no keeps nothing.
+    pg.evaluate("() => { KeepStore.estimateIsFuzzy = () => false; }")
     stub_room(pg, size * 2)
     pg.evaluate("(z) => { _keepStart(z); }", ZIM)
     pg.wait_for_selector(".pw-overlay.open h3", timeout=10000)
@@ -143,20 +146,19 @@ def test_it_asks_only_when_it_will_not_fit_or_is_a_big_share(pw, world):
     pg.click("#ac-cancel")
     pg.wait_for_timeout(500)
     assert not pg.query_selector(".stat-card[data-zim='%s'] .keep-ico" % ZIM)
-    # It will not fit: a toast, no numbers, and nothing starts.
+    # It will not fit: a sheet, not a toast, and nothing starts.
     stub_room(pg, size // 2)
     pg.evaluate("(z) => { _keepStart(z); }", ZIM)
-    pg.wait_for_selector(".toast, #toast, [role=status]", timeout=5000)
-    text = pg.evaluate("() => document.body.innerText")
-    assert "Not enough room on this phone." in text
-    assert not NUMBER.search("Not enough room on this phone.")
+    pg.wait_for_selector(".keep-sheet", timeout=10000)
+    assert not pg.query_selector(".keep-sheet [data-act='try']")
+    pg.click(".keep-sheet [data-act='cancel']")
     assert not pg.query_selector(".stat-card[data-zim='%s'] .keep-ico" % ZIM)
-    # Plenty of room: it simply starts.
-    stub_room(pg, size * 100)
+    # Safari's figure is a rough guess: a ZIM that fits it starts with no question.
+    pg.evaluate("() => { KeepStore.estimateIsFuzzy = () => true; }")
+    stub_room(pg, size * 2)
     pg.evaluate("(z) => { _keepStart(z); }", ZIM)
-    pg.wait_for_selector(
-        ".stat-card[data-zim='%s'] .keep-ico.kept" % ZIM, timeout=30000
-    )
+    pg.wait_for_selector(".stat-card[data-zim='%s'] .keep-ico.kept" % ZIM, timeout=30000)
+    assert not pg.query_selector(".pw-overlay.open")
     ctx.close()
     br.close()
 
@@ -212,10 +214,11 @@ def test_ring_while_it_comes_the_view_and_manage(pw, world):
         "() => [...document.querySelectorAll('.stat-card')].map(c => c.dataset.zim)"
     )
     shot(pg, "f5-view")
-    pg.click(".keep-manage-btn")
+    pg.click("button.keep-manage-btn")
     pg.wait_for_selector(".keep-rm")
     shot(pg, "f6-view-manage")
     pg.click(".keep-rm")
+    pg.click("#ac-ok")
     pg.wait_for_function(
         "() => !document.querySelector('.stat-card.kept')", timeout=15000
     )
@@ -321,5 +324,99 @@ def test_the_pill_and_the_tiles_hold_in_every_theme(pw, world, theme):
         )
     pg.click("#conn-pill")
     shot(pg, "t-%s-pill-menu" % theme)
+    ctx.close()
+    br.close()
+
+
+# ── feedback in every view, the too-big sheet, the grouped menu ─────────────
+
+
+def set_view(pg, view):
+    pg.evaluate("(v) => { localStorage.setItem('zimi_library_view', v); renderHome(); }", view)
+    pg.wait_for_timeout(400)
+
+
+@pytest.mark.parametrize("view", ["list", "tiles"])
+def test_the_ring_and_the_tick_show_in_the_list_and_the_compact_grid(pw, world, view):
+    br, ctx, pg = library(pw, world)
+    set_view(pg, view)
+    pg.evaluate("(z) => _keepStart(z)", ZIM)
+    pg.wait_for_selector(".stat-card[data-zim='%s'] .keep-ico.kept" % ZIM, timeout=30000)
+    box = pg.evaluate(
+        """(z) => { const c = document.querySelector(`.stats-grid .stat-card[data-zim='${z}']`);
+          const i = c.querySelector('.keep-ico'), a = c.getBoundingClientRect(), b = i.getBoundingClientRect();
+          return { inside: b.left >= a.left && b.right <= a.right && b.top >= a.top && b.bottom <= a.bottom,
+                   w: b.width, grid: !!c.closest('.stats-grid.tiles') }; }""",
+        ZIM,
+    )
+    assert box["inside"] and box["w"] >= 24, box
+    assert box["grid"] == (view == "tiles")
+    pg.evaluate("(z) => document.querySelector(`.stat-card[data-zim='${z}']`).scrollIntoView({block: 'center'})", ZIM)
+    shot(pg, "g-%s-tick" % view)
+    if os.path.exists(rs.REAL):
+        pg.evaluate("(z) => _keepStart(z)", rs.NAME)
+        pg.wait_for_selector(".stat-card[data-zim='%s'] .keep-ico.pull" % rs.NAME, timeout=30000)
+        arc = pg.evaluate("(z) => document.querySelector(`.stat-card[data-zim='${z}'] .kr-arc`).getAttribute('stroke-dasharray')", rs.NAME)
+        assert arc.endswith(" 100"), arc
+        pg.evaluate("(z) => document.querySelector(`.stat-card[data-zim='${z}']`).scrollIntoView({block: 'center'})", rs.NAME)
+        shot(pg, "g-%s-ring" % view)
+    ctx.close()
+    br.close()
+
+
+def test_keep_messages_are_pinned_where_a_phone_sees_them(pw, world):
+    br, ctx, pg = library(pw, world)
+    pg.evaluate("() => _keepNotice('One at a time.')")
+    r = pg.evaluate("() => { const e = document.getElementById('keep-notice').getBoundingClientRect(); return [e.top, e.bottom, innerHeight]; }")
+    assert 0 < r[0] < 140 and r[1] < r[2] / 3, r   # under the top bar, nowhere near the bottom
+    ctx.close()
+    br.close()
+
+
+def test_too_big_says_so_in_labels_and_offers_a_smaller_version(pw, world):
+    br, ctx, pg = library(pw, world)
+    big = 74 * 10**9
+    pg.evaluate(
+        "(b) => { KeepStore.room = async () => ({ quota: 0, usage: 0, free: 38e9 }); KeepStore.probe = async () => ({ ok: true, size: b }); }",
+        big,
+    )
+    # Where the figure is real: the end of it, with a smaller version to take instead.
+    pg.evaluate("() => { KeepStore.estimateIsFuzzy = () => false; }")
+    pg.evaluate("() => { _keepStart('wikipedia_en'); }")
+    pg.wait_for_selector(".keep-sheet")
+    title = pg.inner_text(".keep-sheet h3")
+    rows = pg.inner_text(".keep-sheet-rows")
+    assert title == "Too big for this phone's Zimi space", title
+    assert "Needs 74 GB" in rows and "Zimi may use 38 GB here" in rows, rows
+    assert not pg.query_selector(".keep-sheet [data-act='try']"), "a real figure is not argued with"
+    assert pg.query_selector(".keep-sheet-pick"), "a smaller version of the same title is offered"
+    shot(pg, "s1-too-big-real")
+    pg.click(".keep-sheet [data-act='cancel']")
+    assert not pg.query_selector(".stat-card[data-zim='wikipedia_en'] .keep-ico")
+
+    # Safari's figure is a rough guess: the sheet says so and lets it try.
+    pg.evaluate("() => { KeepStore.estimateIsFuzzy = () => true; }")
+    pg.evaluate("() => { _keepStart('wikipedia_en'); }")
+    pg.wait_for_selector(".keep-sheet [data-act='try']")
+    assert "rough estimate" in pg.inner_text(".keep-sheet-note")
+    shot(pg, "s2-too-big-safari")
+    # Taking the smaller version starts it at once.
+    pg.evaluate("() => { KeepStore.probe = async () => ({ ok: true, size: 60000 }); }")
+    pg.click(".keep-sheet-pick")
+    pg.wait_for_selector(".stat-card[data-zim='wikipedia_en_simple'] .keep-ico.kept", timeout=30000)
+    ctx.close()
+    br.close()
+
+
+def test_the_menu_is_in_groups_about_file_move_delete(pw, world):
+    br, ctx, pg = library(pw, world)
+    open_menu(pg, ZIM)
+    groups = pg.evaluate(
+        """() => { const out = [[]]; for (const e of document.querySelectorAll('#zim-ctx-menu > *')) {
+            if (e.classList.contains('ctx-sep')) out.push([]); else out[out.length - 1].push(e.innerText.trim().replace(/\\s+/g, ' ')); }
+          return out; }"""
+    )
+    assert groups[-4:] == [["About this ZIM"], ["Download ZIM file", "Keep offline"], ["Move to… ›"], ["Delete"]], groups
+    shot(pg, "m-grouped-menu")
     ctx.close()
     br.close()
