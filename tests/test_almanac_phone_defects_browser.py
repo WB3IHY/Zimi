@@ -596,6 +596,63 @@ def test_no_page_load_asks_the_server_for_the_phones_own_list(browser, served):
         ctx.close()
 
 
+def test_resizing_the_page_raises_no_resize_observer_loop_error(browser, served):
+    ctx, pg, errors = _page(
+        browser,
+        served,
+        init="window.__loop = []; window.addEventListener('error', e => window.__loop.push(e.message));",
+    )
+    try:
+        pg.wait_for_function(
+            "() => typeof _almSecBar !== 'undefined' && _almSecBar && _almSecBar.ro",
+            timeout=60_000,
+        )
+        for h in (700, 844, 760, 844):
+            pg.set_viewport_size({"width": 390, "height": h})
+            pg.wait_for_timeout(400)
+        # A late section arriving, as the tide does, is a size change the bar also answers.
+        pg.evaluate(
+            "() => { const p = document.getElementById('almanac-place'); p.style.minHeight = '900px'; }"
+        )
+        pg.wait_for_timeout(600)
+        pg.evaluate(
+            "() => { const p = document.getElementById('almanac-place'); p.style.minHeight = ''; }"
+        )
+        pg.wait_for_timeout(600)
+        assert pg.evaluate("() => window.__loop") == []
+    finally:
+        ctx.close()
+
+
+def test_opening_look_loads_one_three_and_makes_no_texture_error(browser, served):
+    ctx, pg, errors = _page(browser, served)
+    msgs = []
+    pg.on("console", lambda m: msgs.append(m.text))
+    try:
+        # The 3D Earth's three.js is the one the Almanac prepared; Look's globe must be the same module.
+        pg.wait_for_function(
+            "() => typeof _aeReady === 'function' && _aeReady()",
+            timeout=READY_MS,
+            polling=250,
+        )
+        pg.evaluate("() => document.querySelector('.alm-sky-look').click()")
+        pg.wait_for_function(
+            "() => typeof _look !== 'undefined' && _look && (_look.globe || _look.noGlobe)",
+            timeout=60_000,
+            polling=POLL_MS,
+        )
+        pg.wait_for_timeout(1500)
+        bad = [
+            m
+            for m in msgs
+            if "Multiple instances of Three.js" in m or "texParameter" in m
+        ]
+        assert not bad, bad
+        assert pg.evaluate("() => !!_look.globe")
+    finally:
+        ctx.close()
+
+
 IOS_MOTION = """
   window.DeviceOrientationEvent = window.DeviceOrientationEvent || function () {};
   window.__asked = 0; window.__askedBeforeLoad = null;

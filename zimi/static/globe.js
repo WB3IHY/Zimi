@@ -17,7 +17,10 @@
 
 var ZimiGlobe = (function () {
   var RAD = Math.PI / 180;
-  var THREE_URL = '/static/earth/three-r186.min.js?v=1';
+  // The very address the Almanac's own 3D view imports (almanac-earth.js AE_THREE_URL): a second address is a second
+  // copy of three.js, which it says so about in the console and holds in memory.
+  var THREE_URL = '/static/earth/three-r186.min.js';
+  var REPEAT_WRAPPING = 1000;   // three's RepeatWrapping; this build of it does not export the name
   var DAY_URL = '/static/earth/earth-day-v1.webp?v=1';
   var NIGHT_URL = '/static/earth/earth-night-v1.webp?v=1';
   var FOV_DEG = 40;                   // vertical
@@ -155,7 +158,7 @@ var ZimiGlobe = (function () {
   var threePromise = null;
   function loadThree() {
     if (!threePromise) {
-      threePromise = import(THREE_URL);
+      threePromise = typeof _aeLoadThree === 'function' ? _aeLoadThree() : import(THREE_URL);
       threePromise.catch(function () { threePromise = null; });
     }
     return threePromise;
@@ -206,7 +209,7 @@ var ZimiGlobe = (function () {
     renderer.setClearColor(0x000000, 0);
     var scene = new THREE.Scene();
     var camera = new THREE.PerspectiveCamera(FOV_DEG, 1, 0.001, 20);
-    [dayMap, nightMap].forEach(function (m) { m.anisotropy = renderer.capabilities.getMaxAnisotropy(); m.wrapS = THREE.RepeatWrapping; });
+    [dayMap, nightMap].forEach(function (m) { m.anisotropy = renderer.capabilities.getMaxAnisotropy(); m.wrapS = THREE.RepeatWrapping || REPEAT_WRAPPING; });
     var sunDir = new THREE.Vector3(1, 0, 0);
     var material = new THREE.ShaderMaterial({
       uniforms: { dayMap: { value: dayMap }, nightMap: { value: nightMap }, sunDir: { value: sunDir } },
