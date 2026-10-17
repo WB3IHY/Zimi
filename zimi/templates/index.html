@@ -100,6 +100,7 @@
 <nav class="topbar" aria-label="Main navigation" data-i18n-aria="aria_main_nav">
   <div class="topbar-breadcrumb" onclick="bcClick(event)">
     <a id="logo" class="logo" href="/" onclick="goHome(event)" title="Home" data-i18n-title="home" aria-label="Home" data-i18n-aria="home">Zimi</a>
+    <button type="button" id="conn-pill" class="conn-pill" hidden onclick="_connPillTap(event)" aria-haspopup="menu"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M8.5 6.2A6 6 0 0 1 18 11h.5a3.5 3.5 0 0 1 2.2 6.2M5.5 18A4.5 4.5 0 0 1 4.7 9.3"/></svg><span class="conn-pill-text"></span></button>
     <span id="bc-sep" class="bc-sep" style="display:none">/</span>
     <a id="bc-icon" class="bc-icon" style="display:none"></a>
   </div>

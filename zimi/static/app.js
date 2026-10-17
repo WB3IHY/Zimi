@@ -3135,48 +3135,32 @@ function _noteConn(state, why) {
 // Calm, persistent, non-blocking. Sits between the topbar and the content (it
 // pushes rather than overlays, so cached articles and the almanac stay fully
 // readable) and offers an explicit Retry alongside the automatic probe.
-function _connBannerEl() {
-  let el = document.getElementById('conn-banner');
-  if (el) return el;
-  el = document.createElement('div');
-  el.id = 'conn-banner';
-  el.className = 'conn-banner';
-  el.setAttribute('role', 'status');
-  el.setAttribute('aria-live', 'polite');
-  document.body.appendChild(el);
-  return el;
-}
-
-const _CONN_OFFLINE_MSG = { nonet: 'conn_nonet_msg', server: 'conn_offline_msg', restarting: 'conn_restarting_msg' };
 
 function _renderConnBanner() {
-  const offline = _connState !== CONN_OK;
-  document.documentElement.classList.toggle('conn-away', offline);
-  if (!offline && _libraryKnown) {
-    const existing = document.getElementById('conn-banner');
-    if (existing) existing.remove();
-    document.documentElement.style.setProperty('--conn-h', '0px');
-    return;
-  }
-  const el = _connBannerEl();
-  // Server answered but we still can't show the library: a different, honest
-  // sentence from "no network at all".
-  const msgKey = _connState === CONN_OFFLINE ? _CONN_OFFLINE_MSG[_connWhy]
-    : (_connState === CONN_ERROR ? 'conn_error_msg' : 'conn_library_stale_msg');
-  el.innerHTML =
-    '<span class="conn-dot" aria-hidden="true"></span>' +
-    '<span class="conn-msg">' + tH(msgKey) + '</span>' +
-    '<button type="button" class="conn-retry" onclick="_connRetryClick(this)">' + tH('conn_retry') + '</button>';
-  _syncConnBannerHeight();
+  // Offline is a mode, not a fault: a small neutral pill by the logo, no Retry
+  // (the check is automatic and silent). Tapping it says what is shown and
+  // offers a manual check. It leaves, quietly, when the server is back.
+  const away = _connState !== CONN_OK || !_libraryKnown;
+  document.documentElement.classList.toggle('conn-away', _connState !== CONN_OK);
+  document.documentElement.style.setProperty('--conn-h', '0px');
+  const el = document.getElementById('conn-pill');
+  if (!el) return;
+  if (!away) { el.hidden = true; return; }
+  const key = _connState === CONN_OFFLINE ? (_connWhy === WHY_NONET ? 'nonet' : 'server') : 'error';
+  el.dataset.why = key;
+  el.querySelector('.conn-pill-text').textContent = t('conn_pill_' + key);
+  el.hidden = false;
+}
+function _connPillTap(e) {
+  e.preventDefault(); e.stopPropagation();
+  const el = document.getElementById('conn-pill'), r = el.getBoundingClientRect();
+  window._openMenuAt('<div class="ctx-item ctx-note">' + tH('conn_pill_' + el.dataset.why + '_hint') + '</div>' +
+    '<div class="ctx-sep"></div><div class="ctx-item" data-action="check">' + tH('conn_check') + '</div>',
+    r.left, r.bottom + 4, function() { _connProbeStep = 0; _connProbeNow(); });
 }
 
-// The banner's height is content-dependent (it wraps on narrow screens), so the
-// layout offset every under-topbar surface uses is measured, not assumed.
-function _syncConnBannerHeight() {
-  const el = document.getElementById('conn-banner');
-  const h = el ? el.offsetHeight : 0;
-  document.documentElement.style.setProperty('--conn-h', h + 'px');
-}
+// The banner's height was content-dependent; the pill takes no room.
+function _syncConnBannerHeight() { document.documentElement.style.setProperty('--conn-h', '0px'); }
 
 function _connRetryClick(btn) {
   if (btn) { btn.disabled = true; btn.textContent = t('conn_retrying'); }
@@ -3236,7 +3220,6 @@ async function _connRecover() {
   _renderConnBanner();
   if (!hadLibrary) {
     // Only announce when something actually changed on screen.
-    _showToast(t('conn_restored'));
     if (mode === 'manage') renderInstalled();
     else if (!readerOpen && !currentSource && !readerSource) renderHome();
   }
@@ -3264,14 +3247,15 @@ function _bindConnEvents() {
 // ZIMs" while _libraryKnown is false.
 function _libraryUnavailableHtml() {
   // Cannot reach the server (not "it answered and the library would not
-  // load"): say which, and what this device can still do without it.
+  // load"): that is a mode, not a fault. Lead with what is on the phone.
   const unreachable = _connState === CONN_OFFLINE;
-  const title = unreachable ? 'offline_title_' + _connWhy : 'library_unavailable';
-  const hint = unreachable ? 'offline_hint_' + _connWhy : 'library_unavailable_hint';
+  if (unreachable) {
+    return '<div class="offline-home" id="offline-home"><div class="cat-heading">' + tH('keep_kept') + '</div>' +
+      '<div id="offline-works"></div><p class="offline-none" id="offline-none" hidden>' + tH('offline_none_hint') + '</p></div>';
+  }
   return '<div class="empty conn-empty">' +
-    '<p>' + tH(title) + '</p>' +
-    '<p class="hint">' + tH(hint) + '</p>' +
-    (unreachable ? '<ul class="offline-works" id="offline-works"></ul>' : '') +
+    '<p>' + tH('library_unavailable') + '</p>' +
+    '<p class="hint">' + tH('library_unavailable_hint') + '</p>' +
     '<button type="button" class="conn-retry conn-retry-inline" onclick="_connRetryClick(this)">' + tH('conn_retry') + '</button>' +
     '</div>';
 }
@@ -3303,21 +3287,22 @@ async function _renderOfflineHome() {
   if (!box) return;
   const w = await _offlineWorks();
   if (!document.getElementById('offline-works')) return;
-  const row = function(title, desc, onclick, href) {
-    return '<li><a href="' + href + '" onclick="return _spaNav(event, function() { ' + onclick + ' })">' +
-      '<b>' + esc(title) + '</b><span>' + esc(desc) + '</span></a></li>';
-  };
-  // Each ZIM carried on this phone opens at its front page, read from the phone.
-  const carried = w.carried.map(function(m) {
-    return row(m.title || m.name, t('offline_works_kept_desc', { size: _fmtBytes(m.size) }),
-      'openArticle(' + JSON.stringify(m.name).replace(/"/g, '&quot;') + ', ' + JSON.stringify(m.main || '').replace(/"/g, '&quot;') + ', ' + JSON.stringify(m.mainTitle || m.title || '').replace(/"/g, '&quot;') + ')',
-      _articleDeepLinkPath(m.name, m.main || ''));
-  }).join('');
+  w.carried.forEach(function(m) { _keepMetas[m.name] = m; });
+  _keepNames = new Set(w.carried.map(function(m) { return m.name; }));
+  // The ZIMs on this phone as the library draws them: tiles, with their icons.
+  const tiles = w.carried.map(function(m) {
+    return { name: m.name, title: m.title || m.name, size_gb: (m.size || 0) / BYTES_PER_GB, has_icon: !!m.icon, description: '', entries: '' };
+  });
+  const noCount = function() { return ''; };
+  const saved = w.saved ? '<a class="stat-card keep-tile-app" href="/" onclick="return _spaNav(event, function() { toggleLibraryPanel(\'bookmarks\') })">' +
+    '<div class="card-icon"><span class="icon-letter">\u2605</span></div><div class="card-info"><div class="name"><span class="zt">' + esc(t('saved_tab')) + '</span></div>' +
+    '<div class="desc">' + esc(t('offline_works_saved_n', { n: w.saved })) + '</div></div></a>' : '';
   _keepWarmWhenIdle(w.carried);
-  box.innerHTML = carried +
-    (w.almanac ? row(t('almanac'), t('offline_works_almanac_desc'), 'openAlmanac()', '/#almanac') : '') +
-    (w.help ? row(t('fieldguide_help_now'), t('offline_works_help_desc'), 'openFieldguide(false)', _fieldguideUrl('')) : '') +
-    (w.saved ? row(t('saved_tab'), t('offline_works_saved_n', { n: w.saved }), 'toggleLibraryPanel(\'bookmarks\')', '/') : '');
+  box.innerHTML = (tiles.length ? renderCardGrid(tiles, false, false, noCount) : '') +
+    ((w.almanac || w.help) ? _keepSurvivalTilesHtml() : '') +
+    (saved ? '<div class="' + (_getLibraryView() === 'tiles' ? 'stats-grid tiles' : 'stats-grid') + ' keep-apps">' + saved + '</div>' : '');
+  const none = document.getElementById('offline-none');
+  if (none) none.hidden = tiles.length > 0;
 }
 
 // ── Init ──
@@ -4157,6 +4142,7 @@ function _resolveScopeZims(type, label) {
     return coll ? (coll.zims || []) : [];
   }
   if (type === 'apps') return _appsZimNames();
+  if (type === 'phone') return Array.from(_keepNames);
   return [];
 }
 
@@ -4185,7 +4171,13 @@ function enterScope(type, label, zimNames, push) {
 
 async function enterSource(name, push) {
   const info = _zimInfo(name);
-  if (!info) { enterHome(push); return; }
+  if (!info) {
+    // The library is not known (no server, nothing kept of its list) but the
+    // ZIM is on the phone: open it at its front page from there.
+    const km = _keepMeta(name);
+    if (km && km.complete && km.main) { openArticle(name, km.main, km.mainTitle || km.title || name); return; }
+    enterHome(push); return;
+  }
   _markZimOpened(name);  // opening a source clears its New/Updated badge (#34)
   // Modifier-click: open in new browser tab
   if (_isModClick()) {
@@ -4682,6 +4674,7 @@ function renderHome(filter) {
     // The Apps page holds what is inside the apps now, so a ZIM that lands
     // while it is open joins its app there.
     if (homeScope.type === 'apps') homeScope.zimNames = _appsZimNames();
+    if (homeScope.type === 'phone') homeScope.zimNames = Array.from(_keepNames);
     const scopeSet = new Set(homeScope.zimNames);
     baseZims = zimsCache.filter(z => scopeSet.has(z.name));
   }
@@ -4821,6 +4814,10 @@ function renderHome(filter) {
   }
 
   let h = '';
+  if (!homeScope && !filter && _keepNames.size && _connState !== CONN_OK) {
+    const keptNow = sorted.filter(z => _keepNames.has(z.name));
+    if (keptNow.length) h += _keepSectionHtml(keptNow) + _keepSurvivalTilesHtml();
+  }
   if (!homeScope && !filter) h += _libFoldersNoteHtml();
   // Help now sits first in the Apps row; where that row is not drawn (a filter is narrowing home) it stands alone.
   if (!homeScope && !filter && (homeRecentFilter || homeLangFilter.size)) h += _helpNowHtml();
@@ -4833,6 +4830,7 @@ function renderHome(filter) {
       '<span style="color:var(--border)">/</span>' +
       '<span style="font-size:13px;font-weight:600;color:var(--amber)">' + esc(homeScope.label) + '</span>' +
     '</div>';
+    if (homeScope.type === 'phone') h += _keepViewHeadHtml();
   }
 
   // The compact/full layout toggle is injected onto the first section header
@@ -4910,6 +4908,14 @@ function renderHome(filter) {
     // (#37) \u2014 no longer pinned above categories.
   }
 
+  // On this phone: the ZIMs kept offline, as a section like Favorites, its
+  // heading the way into the view with the storage bar and Manage. Offline it
+  // leads the page (it is what the page is); online it follows Favorites.
+  if (!homeScope && !filter && _keepNames.size && _connState === CONN_OK) {
+    const keptZims = sorted.filter(z => _keepNames.has(z.name));
+    if (keptZims.length) h += _keepSectionHtml(keptZims);
+  }
+
   // Language auto-collection: when UI is non-English, show matching-language ZIMs as their own section
   var _langSectionNames = new Set();
   if (!homeScope && !filter && _currentLang !== 'en') {
@@ -4929,6 +4935,8 @@ function renderHome(filter) {
     h += '<div class="empty"><p>' + tH('no_sources_matching', {query: filter}) + '</p></div>';
   } else if (homeScope && homeScope.type === 'apps') {
     h += _appsPageHtml(_homeShown);
+  } else if (homeScope && homeScope.type === 'phone') {
+    h += renderCardGrid(_sortLibrary(zims.filter(z => _keepNames.has(z.name))), true, true) + _keepSurvivalTilesHtml();
   } else if (homeScope) {
     // Scoped view: plain category headings, no reordering or collections.
     cats.forEach(cat => {
@@ -5001,6 +5009,7 @@ function renderHome(filter) {
     }
   }
   output.innerHTML = h;
+  if (homeScope && homeScope.type === 'phone') _keepFillStorageBar();
   _placeViewToggle();
   // The library is on screen; only now go find out what made each of these
   // ZIMs. Deliberately after the paint — reading provenance opens archives, and
@@ -5879,20 +5888,39 @@ function _ziUnlockPage() {
 var _KEEP_JS = '/static/keepstore.js?v=1';
 var _KEEP_WORKER = '/static/keepworker.js?v=1';
 var _keepLoading = null;
-var _keepPlan = {};            // zim -> {size, free, used} between "Keep" and "Download"
 var _keepSubscribed = false;
-var _keepPersisted = null;     // whether the browser agreed to keep it through low-space clean-ups
+var _keepManaging = false;     // the On this phone view's Manage mode: a remove button on each tile
 
-// The ZIMs on this phone, by name: cards say so, and offline the ones that are
-// not here are dimmed (nothing of them opens). Filled from the worker's answer.
-var _keepNames = new Set();
+// The glyph language of keeping offline, one set for the tile, the menu, About
+// and the view: a download arrow; the same arrow in a ring that fills as it
+// comes; a filled disc with a tick once it is here.
+var _KEEP_ARROW = '<path d="M12 6.5v8M8.5 11.5l3.5 3.5 3.5-3.5M7 18h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+var _KEEP_GLYPH = '<svg class="keep-glyph" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' + _KEEP_ARROW + '</svg>';
+function _keepRingSvg(pct) {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="kr-track" cx="12" cy="12" r="9.5"/>' +
+    '<circle class="kr-arc" cx="12" cy="12" r="9.5" pathLength="100" stroke-dasharray="' + pct + ' 100" transform="rotate(-90 12 12)"/>' +
+    _KEEP_ARROW.replace('M7 18h10', 'M8.5 17.5h7').replace('M12 6.5v8', 'M12 7.5v6.5') + '</svg>';
+}
+var _KEEP_DISC = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="currentColor"/>' +
+  '<path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="var(--on-amber)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+// ZIMs on this phone: every one the service worker knows (kept or part-way),
+// by name. Cards, the menu and the view draw from these; the worker answers
+// with no network, so they are the same offline.
+var _keepNames = new Set();    // kept, whole
+var _keepMetas = {};           // every meta, kept or part-way
 async function _keepRefreshNames() {
-  var kept = await _keepLocalList();
+  var all = await _keepLocalList(true);
+  var kept = all.filter(function(m) { return m.complete; });
   var names = new Set(kept.map(function(m) { return m.name; }));
   var same = names.size === _keepNames.size && kept.every(function(m) { return _keepNames.has(m.name); });
   _keepNames = names;
+  _keepMetas = {};
+  all.forEach(function(m) { _keepMetas[m.name] = m; });
   if (!same && mode === 'home' && !readerOpen && !currentSource && !readerSource && !_almanacOpen) renderHome();
+  else _keepIconSync();
 }
+function _keepMeta(name) { return _keepMetas[name] || null; }
 
 function _keepAvailable() {
   return !!(navigator.storage && navigator.storage.getDirectory && window.Worker);
@@ -5909,7 +5937,9 @@ function _keepLoad() {
         _keepSubscribed = true;
         KeepStore.subscribe(function(st) {
           _keepRenderOpen();
-          if (st.phase === 'idle' && !st.error && st.size && st.written === st.size) _keepPrimeSearch();
+          _keepIconSync();
+          if (st.phase === 'idle' && !st.error && st.size && st.written === st.size) { _keepPrimeSearch(); _keepRefreshNames(); }
+          else if (st.phase === 'idle') _keepRefreshNames();
         });
       }
       resolve();
@@ -5934,20 +5964,89 @@ function _keepIsInstalled() {
   return !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
 }
 
-function _keepBoxHtml(zim) {
-  return '<div class="zi-keep" id="zi-keep" data-zim="' + escAttr(zim) + '"></div>';
+// What a ZIM is to the phone right now: null (nothing), {kind:'kept'},
+// {kind:'pull', pct} while it comes, {kind:'paused', pct} part-way.
+function _keepState(zim) {
+  var st = (typeof KeepStore !== 'undefined') ? KeepStore.state() : null;
+  if (st && st.name === zim && st.phase === 'pulling') {
+    return { kind: 'pull', pct: st.size ? Math.min(100, Math.floor(st.written * 100 / st.size)) : 0 };
+  }
+  var m = _keepMetas[zim];
+  if (m && m.complete) return { kind: 'kept' };
+  if (m) return { kind: 'paused', pct: m.size ? Math.min(100, Math.floor((m.written || 0) * 100 / m.size)) : 0 };
+  return null;
+}
+
+// The tile's one small icon, only when it matters: a ring that fills while a
+// ZIM comes, a filled disc once it is here, nothing on any other.
+function _keepIconHtml(zim) {
+  var s = _keepState(zim);
+  if (!s) return '';
+  var label = s.kind === 'kept' ? t('keep_kept') : (s.kind === 'pull' ? t('keep_pulling') : t('keep_paused'));
+  return '<button type="button" class="keep-ico ' + s.kind + '" data-k="' + s.kind + '" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '"' +
+    ' onclick="event.preventDefault();event.stopPropagation();_keepIconTap(event,this)">' +
+    (s.kind === 'kept' ? _KEEP_DISC : _keepRingSvg(s.pct)) + '</button>';
+}
+// Bring every tile on screen in step with what the phone holds, in place (a
+// rebuild under a thumb swallows the tap).
+function _keepIconSync() {
+  document.querySelectorAll('.stat-card[data-zim]').forEach(function(card) {
+    var zim = card.getAttribute('data-zim'), s = _keepState(zim), cur = card.querySelector('.keep-ico');
+    card.classList.toggle('kept', !!(s && s.kind === 'kept'));
+    if (!s) { if (cur) cur.remove(); return; }
+    if (cur && cur.dataset.k === s.kind) {
+      var arc = cur.querySelector('.kr-arc');
+      if (arc) arc.setAttribute('stroke-dasharray', s.pct + ' 100');
+      return;
+    }
+    if (cur) cur.remove();
+    card.insertAdjacentHTML('beforeend', _keepIconHtml(zim));
+  });
+}
+
+// The same line drawing for each thing that can be done.
+function _keepGlyphFor(action) {
+  var d = { 'keep-pause': 'M9 7v10M15 7v10', 'keep-cancel': 'M7.5 7.5l9 9M16.5 7.5l-9 9', 'keep-remove': 'M7.5 7.5l9 9M16.5 7.5l-9 9' }[action];
+  if (!d) return _KEEP_GLYPH;
+  return '<svg class="keep-glyph" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="' + d + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+}
+
+// What the tile's icon does when tapped: the few things that can be done.
+function _keepMenuHtml(zim) {
+  var s = _keepState(zim);
+  var item = function(action, label) { return '<div class="ctx-item ctx-keep" data-action="' + action + '"><span>' + tH(label) + '</span>' + _keepGlyphFor(action) + '</div>'; };
+  if (!s) return item('keep-start', 'keep_btn');
+  if (s.kind === 'kept') return item('keep-remove', 'keep_remove');
+  if (s.kind === 'pull') return item('keep-pause', 'keep_pause') + item('keep-cancel', 'keep_cancel_pull');
+  return item('keep-resume', 'keep_resume') + item('keep-cancel', 'keep_cancel_pull');
+}
+function _keepDo(action, zim) {
+  if (action === 'keep-start' || action === 'keep-resume') _keepStart(zim);
+  else if (action === 'keep-pause') _keepPause();
+  else if (action === 'keep-remove' || action === 'keep-cancel') _keepRemove(zim);
+}
+function _keepIconTap(e, btn) {
+  var card = btn.closest('[data-zim]'), zim = card && card.getAttribute('data-zim');
+  if (!zim) return;
+  var r = btn.getBoundingClientRect();
+  window._openMenuAt(_keepMenuHtml(zim), r.left, r.bottom + 4, function(action) { _keepDo(action, zim); });
+}
+
+// ── The About panel's block ──
+// Quiet: the ZIM's own size beside the one button, a bar once it is coming,
+// and a line only when something is wrong. No sentence carries a number.
+function _keepBoxHtml(zim, size) {
+  return '<div class="zi-keep" id="zi-keep" data-zim="' + escAttr(zim) + '" data-size="' + (size || 0) + '"></div>';
 }
 function _keepRenderOpen() {
   var box = document.getElementById('zi-keep');
   if (!box) return;
-  // Progress arrives several times a second: move the bar and the numbers in
-  // place. Rebuilding the buttons under a thumb swallows the tap on Pause.
   var st = KeepStore.state(), bar = box.querySelector('.keep-bar');
   if (bar && st.phase === 'pulling' && st.name === box.getAttribute('data-zim')) {
     var pct = st.size ? Math.min(100, Math.floor(st.written * 100 / st.size)) : 0;
     bar.firstChild.style.width = pct + '%';
     bar.setAttribute('aria-valuenow', pct);
-    box.querySelector('.keep-line span').innerHTML = tH('keep_progress', { done: _fmtBytes(st.written), size: _fmtBytes(st.size) });
+    box.querySelector('.keep-line span').textContent = _fmtBytes(st.written) + ' / ' + _fmtBytes(st.size);
     return;
   }
   _keepRender(box.getAttribute('data-zim'));
@@ -5958,101 +6057,155 @@ async function _keepRender(zim) {
   if (!box || box.getAttribute('data-zim') !== zim) return;
   if (!_keepAvailable()) { box.innerHTML = '<div class="keep-note">' + tH('keep_unsupported') + '</div>'; return; }
   try { await _keepLoad(); } catch (e) { box.innerHTML = '<div class="keep-note">' + tH('keep_err_worker') + '</div>'; return; }
-  var metas = await KeepStore.list();
-  var meta = metas.filter(function(m) { return m.name === zim; })[0] || null;
-  var st = KeepStore.state();
-  var mine = st.name === zim;
-  var pulling = mine && st.phase === 'pulling';
-  var busyElsewhere = st.phase === 'pulling' && !mine;
+  await _keepRefreshMetasOnly();
+  var s = _keepState(zim), meta = _keepMetas[zim] || null, st = KeepStore.state();
+  var mine = st.name === zim, busyElsewhere = st.phase === 'pulling' && !mine;
+  var size = +box.getAttribute('data-size') || (meta && meta.size) || 0;
+  var room = await KeepStore.room();
+  var persisted = false;
+  try { persisted = !!(navigator.storage.persisted && await navigator.storage.persisted()); } catch (e) {}
   box = document.getElementById('zi-keep');
   if (!box || box.getAttribute('data-zim') !== zim) return;
   var z = esc(zim).replace(/'/g, '&#39;');
-  var btn = function(label, fn, cls) {
-    return '<button type="button" class="conn-retry keep-btn' + (cls ? ' ' + cls : '') + '" onclick="' + fn + '">' + tH(label) + '</button>';
+  var btn = function(label, fn, cls, disabled) {
+    return '<button type="button" class="conn-retry keep-btn' + (cls ? ' ' + cls : '') + '"' + (disabled ? ' disabled' : '') + ' onclick="' + fn + '">' + _KEEP_GLYPH + tH(label) + '</button>';
   };
-  var head = '<div class="keep-head">' + tH('keep_title') + '</div>';
   var err = (mine && st.error) ? '<div class="keep-note keep-err">' + tH('keep_err_' + st.error) + '</div>' : '';
   var html;
-  if (meta && meta.complete) {
-    html = '<div class="keep-line"><b>' + tH('keep_kept') + '</b><span>' + esc(_fmtBytes(meta.size)) + '</span></div>' +
-      '<div class="keep-note">' + tH('keep_kept_hint') + (meta.who ? ' ' + tH('keep_signout_note') : '') + '</div>' +
-      (_keepPersisted === false ? '<div class="keep-note">' + tH('keep_persist_no') + '</div>' : '') +
+  if (s && s.kind === 'kept') {
+    html = '<div class="keep-line"><b>' + _keepMark('kept') + tH('keep_kept') + '</b><span>' + esc(_fmtBytes(meta.size)) + '</span></div>' +
+      (meta.who ? '<div class="keep-note">' + tH('keep_signout_note') + '</div>' : '') +
+      (persisted ? '' : '<div class="keep-note">' + tH('keep_persist_no') + '</div>') +
       '<div class="keep-actions">' + btn('keep_remove', "_keepRemove('" + z + "')", 'keep-quiet') + '</div>';
-  } else if (pulling) {
-    var pct = st.size ? Math.min(100, Math.floor(st.written * 100 / st.size)) : 0;
-    html = '<div class="keep-line"><b>' + tH('keep_pulling') + '</b><span>' +
-      tH('keep_progress', { done: _fmtBytes(st.written), size: _fmtBytes(st.size) }) + '</span></div>' +
-      '<div class="keep-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><i style="width:' + pct + '%"></i></div>' +
+  } else if (s && s.kind === 'pull') {
+    html = '<div class="keep-line"><b>' + tH('keep_pulling') + '</b><span>' + esc(_fmtBytes(st.written) + ' / ' + _fmtBytes(st.size)) + '</span></div>' +
+      '<div class="keep-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + s.pct + '"><i style="width:' + s.pct + '%"></i></div>' +
       '<div class="keep-note">' + tH('keep_stay_open') + '</div>' +
       '<div class="keep-actions">' + btn('keep_pause', '_keepPause()', 'keep-quiet') + '</div>';
-  } else if (meta) {
-    html = '<div class="keep-line"><b>' + tH('keep_paused') + '</b><span>' +
-      tH('keep_progress', { done: _fmtBytes(meta.written || 0), size: _fmtBytes(meta.size || 0) }) + '</span></div>' + err +
-      '<div class="keep-actions">' + btn('keep_resume', "_keepGo('" + z + "')") + btn('keep_remove', "_keepRemove('" + z + "')", 'keep-quiet') + '</div>';
+  } else if (s) {
+    html = '<div class="keep-line"><b>' + tH('keep_paused') + '</b><span>' + esc(_fmtBytes(meta.written || 0) + ' / ' + _fmtBytes(meta.size || 0)) + '</span></div>' + err +
+      '<div class="keep-actions">' + btn('keep_resume', "_keepStart('" + z + "')") + btn('keep_cancel_pull', "_keepRemove('" + z + "')", 'keep-quiet') + '</div>';
     err = '';
-  } else if (_keepPlan[zim]) {
-    var plan = _keepPlan[zim], fits = plan.size <= plan.free;
-    html = '<div class="keep-note">' + tH(fits ? 'keep_room' : 'keep_no_room', {
-        size: _fmtBytes(plan.size), free: _fmtBytes(plan.free), used: _fmtBytes(plan.used) }) + '</div>' +
-      '<div class="keep-actions">' + (fits ? btn('keep_download', "_keepGo('" + z + "')") : '') +
-      btn('keep_cancel', "_keepCancel('" + z + "')", 'keep-quiet') + '</div>';
   } else {
-    html = '<div class="keep-note">' + tH('keep_hint') + '</div>' +
-      (_keepIsInstalled() ? '' : '<div class="keep-note">' + tH('keep_install_note') + '</div>') + err +
-      '<div class="keep-actions">' + (busyElsewhere ? '<div class="keep-note">' + tH('keep_one_at_a_time') + '</div>' : btn('keep_btn', "_keepAsk('" + z + "')")) + '</div>';
-    err = '';
+    var fits = !size || size <= room.free;
+    html = '<div class="keep-actions keep-row">' + btn('keep_btn', "_keepStart('" + z + "')", '', !fits || busyElsewhere) +
+      (size ? '<span class="keep-size">' + esc(_fmtBytes(size)) + '</span>' : '') + '</div>' +
+      (fits ? '' : '<div class="keep-note keep-err">' + tH('keep_no_room') + '</div>') +
+      (busyElsewhere ? '<div class="keep-note">' + tH('keep_one_at_a_time') + '</div>' : '') +
+      (_keepIsInstalled() ? '' : '<div class="keep-note">' + tH('keep_install_note') + '</div>');
   }
-  box.innerHTML = head + html + err;
+  box.innerHTML = '<div class="keep-head">' + tH('keep_title') + '</div>' + html + err;
+}
+function _keepMark(kind) { return '<span class="keep-mark ' + kind + '">' + (kind === 'kept' ? _KEEP_DISC : '') + '</span>'; }
+// The About block needs the metas fresh from the worker (a partial pull is a
+// state of its own); the tiles' copy is refreshed with them.
+async function _keepRefreshMetasOnly() {
+  var all = await _keepLocalList(true);
+  _keepMetas = {};
+  all.forEach(function(m) { _keepMetas[m.name] = m; });
+  _keepNames = new Set(all.filter(function(m) { return m.complete; }).map(function(m) { return m.name; }));
 }
 
-// "Keep on this phone": learn the size and whether this person may, ask the
-// phone what room it has, and say both before anything is downloaded.
-async function _keepAsk(zim) {
-  var box = document.getElementById('zi-keep');
-  if (box) box.querySelector('.keep-actions').innerHTML = '<span class="spinner-inline"></span>';
-  try {
-    await _keepLoad();
-    var p = await KeepStore.probe(zim, _manageToken ? _authHeaders() : {});
-    if (!p.ok) { _keepFail(zim, p.status === 401 || p.status === 403 ? 'auth' : 'gone'); return; }
-    var room = await KeepStore.room();
-    _keepPlan[zim] = { size: p.size, free: room.free, used: room.usage };
-  } catch (e) { _keepFail(zim, 'network'); return; }
-  _keepRender(zim);
-}
-function _keepFail(zim, code) {
-  delete _keepPlan[zim];
-  var box = document.getElementById('zi-keep');
-  if (box) box.innerHTML = '<div class="keep-head">' + tH('keep_title') + '</div><div class="keep-note keep-err">' + tH('keep_err_' + code) +
-    '</div><div class="keep-actions"><button type="button" class="conn-retry keep-btn" onclick="_keepCancel(\'' + esc(zim).replace(/'/g, '&#39;') + '\')">' + tH('conn_retry') + '</button></div>';
-}
-function _keepCancel(zim) { delete _keepPlan[zim]; _keepRender(zim); }
-
-async function _keepGo(zim) {
-  delete _keepPlan[zim];
-  await _keepLoad();
+// One tap: "Keep offline" starts at once. The only questions are the two that
+// change the answer, asked in a line with no numbers: it will not fit, or it is
+// a big share of the room that is left.
+var KEEP_BIG_SHARE = 0.25;
+async function _keepStart(zim) {
+  if (!_keepAvailable()) { _showToast(t('keep_unsupported')); return; }
+  try { await _keepLoad(); } catch (e) { _showToast(t('keep_err_worker')); return; }
+  if (KeepStore.state().phase === 'pulling') { _showToast(t('keep_one_at_a_time')); return; }
+  var meta = _keepMetas[zim];
+  var size = meta && meta.size, headers = _manageToken ? _authHeaders() : {};
+  if (!size) {
+    try {
+      var p = await KeepStore.probe(zim, headers);
+      if (!p.ok) { _showToast(t('keep_err_' + (p.status === 401 || p.status === 403 ? 'auth' : 'gone'))); return; }
+      size = p.size;
+    } catch (e) { _showToast(t('keep_err_network')); return; }
+  }
+  var room = await KeepStore.room();
+  var left = size - ((meta && meta.written) || 0);
+  if (left > room.free) { _showToast(t('keep_no_room')); return; }
+  if (!meta && size > room.free * KEEP_BIG_SHARE && !(await _appConfirm(t('keep_big'), t('keep_btn')))) return;
   _keepPersisted = await KeepStore.persist();
   var info = _zimInfo(zim);
   var who = (typeof _userSession !== 'undefined' && _userSession && _userSession.name) || '';
-  KeepStore.pull(zim, (info && info.title) || zim, _manageToken ? _authHeaders() : {}, who);
-  _keepRender(zim);
+  KeepStore.pull(zim, (info && info.title) || (meta && meta.title) || zim, headers, who, !!(info && info.has_icon));
+  _keepIconSync();
+  _keepRenderOpen();
 }
 function _keepPause() { KeepStore.stop(); }
 async function _keepRemove(zim) {
   await _keepLoad();
   await KeepStore.removeKept(zim);
-  _keepRender(zim);
+  await _keepRefreshNames();
+  _keepRenderOpen();
+  if (homeScope && homeScope.type === 'phone') renderHome();
 }
+var _keepPersisted = null;
 
 // ── ZIMs on this phone, with no server ──
 
-// The metas of what is kept, from the service worker's answer (it works with no
-// network); [] where there is no worker or nothing kept.
-async function _keepLocalList() {
+// The metas of what is on the phone, from the service worker's answer (it works
+// with no network); [] where there is no worker or nothing kept. `all`: part-way
+// ones too.
+async function _keepLocalList(all) {
   try {
     var r = await fetch('/keep-local/list', { cache: 'no-store' });
     if (!r.ok) return [];
-    return ((await r.json()).zims || []).filter(function(m) { return m.complete; });
+    var zims = (await r.json()).zims || [];
+    return all ? zims : zims.filter(function(m) { return m.complete; });
   } catch (e) { return []; }
+}
+
+// ── The On this phone view ──
+
+// The storage bar, as a phone shows it: what the kept ZIMs take against the
+// room left for Zimi, the room as a short label under it. Filled once the
+// browser has said what the room is.
+function _keepViewHeadHtml() {
+  return '<div class="keep-view-head"><div class="keep-storage" id="keep-storage"><div class="keep-sbar"><i style="width:0%"></i></div>' +
+    '<div class="keep-slabels"><span id="keep-s-used"></span><span id="keep-s-free"></span></div></div>' +
+    '<button type="button" class="keep-manage-btn" onclick="_keepToggleManage()">' + tH(_keepManaging ? 'keep_done' : 'keep_manage') + '</button></div>';
+}
+async function _keepFillStorageBar() {
+  var el = document.getElementById('keep-storage');
+  if (!el || !_keepAvailable()) return;
+  try { await _keepLoad(); } catch (e) { return; }
+  var room = await KeepStore.room();
+  var used = 0;
+  (zimsCache || []).forEach(function(z) { if (_keepNames.has(z.name)) { var m = _keepMetas[z.name]; used += (m && m.size) || 0; } });
+  Object.keys(_keepMetas).forEach(function(n) { if (!(zimsCache || []).some(function(z) { return z.name === n; })) used += _keepMetas[n].size || 0; });
+  el = document.getElementById('keep-storage');
+  if (!el) return;
+  var total = used + room.free, pct = total ? Math.max(used ? 2 : 0, Math.round(used * 100 / total)) : 0;
+  el.querySelector('.keep-sbar i').style.width = pct + '%';
+  document.getElementById('keep-s-used').textContent = t('keep_bar_used', { size: _fmtBytes(used) });
+  document.getElementById('keep-s-free').textContent = t('keep_bar_free', { size: _fmtBytes(room.free) });
+}
+function _keepToggleManage() { _keepManaging = !_keepManaging; renderHome(); }
+function _keepSectionHtml(zims) {
+  return '<div class="cat-heading clickable"' + _CAT_HEAD_OPENS + ' onclick="_keepOpenView()"><span class="keep-head-glyph">' + _KEEP_GLYPH + '</span>' + tH('keep_kept') + '</div>' +
+    renderCardGrid(zims, true, true);
+}
+function _keepOpenView() {
+  enterScope('phone', t('keep_kept'), Array.from(_keepNames), true);
+}
+
+// Almanac and Help now work with no server: tiles beside the ZIMs, in the
+// library's own look, on this view and on the offline home.
+function _keepSurvivalTilesHtml() {
+  var isTiles = _getLibraryView() === 'tiles';
+  var tile = function(href, onclick, svg, name, desc) {
+    return '<a class="stat-card keep-tile-app" href="' + escAttr(href) + '" onclick="return _spaNav(event, function() { ' + onclick + ' })">' +
+      '<div class="card-icon"><span class="icon-letter">' + svg + '</span></div><div class="card-info"><div class="name"><span class="zt">' + esc(name) + '</span></div>' +
+      '<div class="desc">' + esc(desc) + '</div></div></a>';
+  };
+  var almanac = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>';
+  return '<div class="' + (isTiles ? 'stats-grid tiles' : 'stats-grid') + ' keep-apps">' +
+    tile('/#almanac', 'openAlmanac()', almanac, t('almanac'), t('offline_works_almanac_desc')) +
+    tile(_fieldguideUrl(''), 'openFieldguide(false)', _HELP_NOW_SVG, t('fieldguide_help_now'), t('offline_works_help_desc')) +
+    '</div>';
 }
 
 // Titles that begin with the words, from every ZIM on this phone, and then the
@@ -6140,7 +6293,7 @@ function _openZimAbout(zim) {
       if (!r.ok) throw new Error('zim-info ' + r.status);
       return r.json();
     })
-    .then(function (info) { write(_keepBoxHtml(info.name) + _ziBodyHtml(info)); _keepRender(info.name); })
+    .then(function (info) { write(_keepBoxHtml(info.name, info.size_bytes) + _ziBodyHtml(info)); _keepRender(info.name); })
     .catch(function () { write('<div class="zi-none">' + tH('zi_load_failed') + '</div>'); });
 }
 
@@ -6262,9 +6415,11 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
         // without leaving a dangling middot behind — which is what lets the
         // in-place re-sort swap them without rebuilding the card.
         _cardOwnDateHtml(z) + _sortedByDateHtml(z) +
-        (onPhone ? ' &middot; <span class="card-kept">' + tH('keep_kept') + '</span>' : '') +
         '</div>' +
-      '</div></' + cardTag + '>';
+      '</div>' + _keepIconHtml(z.name) +
+      (_keepManaging && homeScope && homeScope.type === 'phone'
+        ? '<button type="button" class="keep-rm" aria-label="' + escAttr(t('keep_remove')) + '" title="' + escAttr(t('keep_remove')) + '" onclick="event.preventDefault();event.stopPropagation();_keepRemove(\'' + escAttr(z.name) + '\')">\u00D7</button>' : '') +
+      '</' + cardTag + '>';
   }).join('') + '</div>';
 }
 
@@ -7394,6 +7549,25 @@ function _loadDiscover() {
   // another language's picks.
   var yours = _getPrefLanguages().map(_normLang).filter(_isValidLangCode).join('.');
   var cacheKey = 'zimi_' + (window.__ZIMI_CONFIG && __ZIMI_CONFIG.discoverStamp || 'disc6') + '-' + _currentLang + (yours ? '-' + yours : '') + '_' + today;
+  // Offline: the last copy drawn online, whatever day it was, and only the
+  // cards whose ZIM is on this phone (every card shown opens). No server is
+  // asked, and the day's cache is left as it is.
+  if (_connState !== CONN_OK) {
+    var lastKey = null;
+    try {
+      for (var oi = 0; oi < localStorage.length; oi++) {
+        var ok = localStorage.key(oi);
+        if (ok && _DISCOVER_CACHE_KEY_RE.test(ok) && ok.indexOf('-' + _currentLang) >= 0 && (!lastKey || ok > lastKey)) lastKey = ok;
+      }
+      var lastCopy = lastKey ? JSON.parse(localStorage.getItem(lastKey)) : null;
+      var offlineCards = (lastCopy || []).filter(function(it) {
+        return it && (it.type === 'today' || (it.zim && _keepNames.has(it.zim)));
+      });
+      if (!offlineCards.some(function(it) { return it.type === 'today'; })) offlineCards.unshift({ type: 'today' });
+      _renderDiscover(el, offlineCards);
+    } catch (e) { _renderDiscover(el, [{ type: 'today' }]); }
+    return;
+  }
   // Clean up old Discover cache keys (from previous days or old versions).
   //
   // Matched on SHAPE, not on a prefix. This used to delete anything starting
@@ -8144,7 +8318,8 @@ function _moveZimTo(zim, category) {
     var zim = _ctxZim;
     // About belongs on EVERY library card, so both menu shapes carry it — the
     // compact gear menu (an Installed row) as much as the full card menu.
-    var aboutItem = '<div class="ctx-item" data-action="about">' + tH('about_zim') + '</div>';
+    var aboutItem = '<div class="ctx-item" data-action="about">' + tH('about_zim') + '</div>' +
+      (_keepAvailable() ? _keepMenuHtml(zim) : '');
     // Download the raw .zim — the plainest way to carry a made-here ZIM to
     // another machine. Admin-gated like delete: /dl/ answers the admin
     // regardless of the sharing switches.
@@ -8356,6 +8531,8 @@ function _moveZimTo(zim, category) {
       closeCtx(); enterSource(zim, true);
     } else if (action === 'about') {
       closeCtx(); _openZimAbout(zim);
+    } else if (action.indexOf('keep-') === 0) {
+      closeCtx(); _keepDo(action, zim);
     } else if (action === 'newtab') {
       closeCtx(); window.open('/w/' + encodeURIComponent(zim), '_blank');
     } else if (action === 'move-to') {
@@ -28234,7 +28411,12 @@ function _spaCardClick(e, el) {
   });
 }
 function _spaSourceClick(e, el) {
-  return _spaNav(e, function () { enterSource(el.getAttribute('data-zim'), true); });
+  return _spaNav(e, function () {
+    var zim = el.getAttribute('data-zim');
+    // Offline, a ZIM that is not on the phone cannot open: say why, in a line.
+    if (_connState !== CONN_OK && !_keepNames.has(zim)) { _showToast(t('keep_not_here')); return; }
+    enterSource(zim, true);
+  });
 }
 
 // ── Middle-click (auxclick) handler for search results, discover cards, etc. ──

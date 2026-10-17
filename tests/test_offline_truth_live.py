@@ -231,21 +231,21 @@ def drop_kept_answers(pg):
 
 def reopen(pg, base):
     pg.goto(base + "/", wait_until="load")
-    pg.wait_for_selector("#offline-works li", timeout=30000)
+    pg.wait_for_selector("#offline-works .stat-card", timeout=30000)
     # The home is drawn once more a moment after boot (_renderHomeSoon, when the
     # library's kinds arrive): let that settle so the panel read is the last one.
     pg.wait_for_timeout(600)
-    pg.wait_for_selector("#offline-works li", timeout=30000)
+    pg.wait_for_selector("#offline-works .stat-card", timeout=30000)
 
 
 def works_list(pg):
     return pg.evaluate(
-        "() => [...document.querySelectorAll('#offline-works li')].map(li => li.innerText.replace(/\\s+/g, ' '))"
+        "() => [...document.querySelectorAll('#offline-works .stat-card')].map(li => li.innerText.replace(/\\s+/g, ' '))"
     )
 
 
 def panel_text(pg):
-    return pg.inner_text(".conn-empty")
+    return pg.inner_text(".offline-home")
 
 
 def frame_of(pg, needle):
@@ -270,14 +270,15 @@ def test_with_no_network_it_says_so_and_what_still_works_works(phone, world):
     shot(pg, "1-no-network")
 
     text = panel_text(pg)
-    assert "You're offline" in text
+    assert "on this phone" in text.lower() and "You're offline" not in text
     assert "restarting" not in pg.inner_text("body").lower()
-    banner = pg.inner_text("#conn-banner")
-    assert "No network" in banner
+    # A mode, not a fault: a small pill, no Retry, no alarm.
+    assert pg.inner_text("#conn-pill").strip() == "Offline"
+    assert not pg.query_selector(".conn-retry")
     rows = works_list(pg)
     assert any(r.startswith("Almanac") for r in rows), rows
     assert any(r.startswith("Help now") for r in rows), rows
-    assert any(r.startswith("Saved") and "1 kept" in r for r in rows), rows
+    assert any("Saved" in r and "1 kept" in r for r in rows), rows
 
     # The Almanac opens and draws, all of it worked out on the device.
     pg.click("#offline-works a[href='/#almanac']")
@@ -343,9 +344,8 @@ def test_with_a_connection_but_no_server_it_says_that_instead(phone, world):
     reopen(pg, world.base)
     shot(pg, "6-server-unreachable")
     assert pg.evaluate("() => navigator.onLine") is True
-    text = panel_text(pg)
-    assert "Can't reach your Zimi server" in text and "You're offline" not in text
-    assert "No network" not in pg.inner_text("#conn-banner")
+    assert pg.inner_text("#conn-pill").strip() == "No server"
+    assert "You're offline" not in pg.inner_text("body")
     assert any(r.startswith("Almanac") for r in works_list(pg))
 
 
@@ -357,8 +357,8 @@ def test_a_proxy_answering_for_a_restarting_server_says_restarting(phone, world)
     try:
         reopen(pg, world.base)
         shot(pg, "7-restarting")
-        assert "Your Zimi server is restarting" in panel_text(pg)
-        assert "restarting" in pg.inner_text("#conn-banner")
+        assert pg.inner_text("#conn-pill").strip() == "No server"
+        assert "on this phone" in panel_text(pg).lower()
     finally:
         proxy.stop()
 
@@ -368,18 +368,12 @@ def test_when_the_server_returns_the_state_clears_by_itself(phone, world):
     warm(ctx, pg, world.base)
     world.stop()
     reopen(pg, world.base)
-    assert pg.query_selector("#conn-banner")
+    assert not pg.evaluate("() => document.getElementById('conn-pill').hidden")
     world.start()
-    # The page probes on its own every few seconds: on a loaded machine it can
-    # find the server before this tap does, which is the thing being tested.
-    btn = pg.query_selector(".conn-retry-inline")
-    if btn:
-        try:
-            btn.click(timeout=3000)
-        except Exception:
-            pass
-    pg.wait_for_function("() => !document.getElementById('conn-banner')", timeout=30000)
-    pg.wait_for_function("() => !document.querySelector('.conn-empty')", timeout=30000)
+    # The page checks on its own, silently: the pill just goes, with no toast.
+    pg.wait_for_function("() => document.getElementById('conn-pill').hidden", timeout=60000)
+    pg.wait_for_function("() => !document.querySelector('.offline-home')", timeout=30000)
+    assert not pg.query_selector(".toast, #toast")
 
 
 def test_the_red_night_light_reads_in_the_offline_state(phone, world):
@@ -393,6 +387,6 @@ def test_the_red_night_light_reads_in_the_offline_state(phone, world):
     shot(pg, "8-red-no-network")
     # Legible: the panel's text is not the page's own colour.
     colors = pg.evaluate(
-        "() => { const c = getComputedStyle(document.querySelector('.conn-empty p')).color; const b = getComputedStyle(document.body).backgroundColor; return [c, b]; }"
+        "() => { const c = getComputedStyle(document.querySelector('.offline-home .cat-heading')).color; const b = getComputedStyle(document.body).backgroundColor; return [c, b]; }"
     )
     assert colors[0] != colors[1], colors
