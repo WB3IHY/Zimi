@@ -3434,5 +3434,19 @@
   "conn_pill_nonet_hint": "يعرض ما على هذا الهاتف. يعيد Zimi الاتصال تلقائياً.",
   "conn_pill_server_hint": "خادم Zimi لا يستجيب. يعرض ما على هذا الهاتف.",
   "conn_pill_error_hint": "تعذّر تحديث بعض الأشياء. يعرض ما على هذا الهاتف.",
-  "conn_check": "تحقق من الاتصال"
+  "conn_check": "تحقق من الاتصال",
+  "keep_remove_confirm": "إزالة {title} من هذا الهاتف؟",
+  "keep_remove_ok": "إزالة",
+  "keep_add_files": "إضافة من الملفات",
+  "keep_importing": "جارٍ النسخ من الملفات",
+  "keep_from_files": "من الملفات",
+  "keep_from_files_note": "نُسخ من الملفات. يبقى على هذا الهاتف ولا يحتاج إلى خادم.",
+  "keep_err_notzim": "هذا الملف ليس ZIM.",
+  "keep_about_source": "المصدر",
+  "keep_toobig_title": "أكبر من مساحة Zimi على هذا الهاتف",
+  "keep_toobig_needs": "يحتاج {size}",
+  "keep_toobig_have": "قد يستخدم Zimi {size} هنا",
+  "keep_toobig_guess": "رقم الهاتف تقدير تقريبي. يمكنك المحاولة على أي حال: يتوقف بسلاسة إذا رفض الهاتف.",
+  "keep_try_anyway": "حاول على أي حال",
+  "keep_smaller": "نسخة أصغر"
 }

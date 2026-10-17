@@ -3434,5 +3434,19 @@
   "conn_pill_nonet_hint": "इस फ़ोन पर जो है वही दिख रहा है। Zimi अपने आप दोबारा जुड़ेगा।",
   "conn_pill_server_hint": "आपका Zimi सर्वर जवाब नहीं दे रहा। इस फ़ोन पर जो है वही दिख रहा है।",
   "conn_pill_error_hint": "कुछ चीज़ें ताज़ा नहीं हो सकीं। इस फ़ोन पर जो है वही दिख रहा है।",
-  "conn_check": "कनेक्शन जाँचें"
+  "conn_check": "कनेक्शन जाँचें",
+  "keep_remove_confirm": "{title} को इस फ़ोन से हटाएँ?",
+  "keep_remove_ok": "हटाएँ",
+  "keep_add_files": "फ़ाइलें से जोड़ें",
+  "keep_importing": "फ़ाइलें से कॉपी हो रहा है",
+  "keep_from_files": "फ़ाइलें से",
+  "keep_from_files_note": "फ़ाइलें से कॉपी किया गया। यह इसी फ़ोन पर है और इसे सर्वर नहीं चाहिए।",
+  "keep_err_notzim": "यह फ़ाइल ZIM नहीं है।",
+  "keep_about_source": "स्रोत",
+  "keep_toobig_title": "इस फ़ोन में Zimi की जगह के लिए बहुत बड़ा",
+  "keep_toobig_needs": "{size} चाहिए",
+  "keep_toobig_have": "यहाँ Zimi {size} उपयोग कर सकता है",
+  "keep_toobig_guess": "फ़ोन का आँकड़ा मोटा अनुमान है। फिर भी कोशिश कर सकते हैं: फ़ोन मना करे तो यह साफ़ तरीके से रुक जाएगा।",
+  "keep_try_anyway": "फिर भी कोशिश करें",
+  "keep_smaller": "एक छोटा संस्करण"
 }

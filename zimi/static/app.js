@@ -1832,7 +1832,7 @@ function _loadingHtml(key) { return '<div class="loading"><span class="spinner-i
 function _appConfirm(message, okLabel) {
   return new Promise(function(resolve) {
     var overlay = document.createElement('div');
-    overlay.className = 'pw-overlay open';
+    overlay.className = 'pw-overlay open pw-confirm';
     overlay.innerHTML =
       '<div class="pw-box" role="alertdialog" aria-modal="true">' +
         '<h3>' + esc(message) + '</h3>' +
@@ -3301,7 +3301,8 @@ async function _renderOfflineHome() {
     '<div class="card-icon"><span class="icon-letter">\u2605</span></div><div class="card-info"><div class="name"><span class="zt">' + esc(t('saved_tab')) + '</span></div>' +
     '<div class="desc">' + esc(t('offline_works_saved_n', { n: w.saved })) + '</div></div></a>' : '';
   _keepWarmWhenIdle(w.carried);
-  box.innerHTML = (tiles.length ? renderCardGrid(tiles, false, false, noCount) : '') +
+  box.innerHTML = '<div class="keep-view-actions">' + _keepFilesBtnHtml() + '</div><div id="keep-import"></div>' +
+    (tiles.length ? renderCardGrid(tiles, false, false, noCount) : '') +
     ((w.almanac || w.help) ? _keepSurvivalTilesHtml() : '') +
     (saved ? '<div class="' + (_getLibraryView() === 'tiles' ? 'stats-grid tiles' : 'stats-grid') + ' keep-apps">' + saved + '</div>' : '');
   const none = document.getElementById('offline-none');
@@ -4680,6 +4681,7 @@ function renderHome(filter) {
     if (homeScope.type === 'phone') homeScope.zimNames = Array.from(_keepNames);
     const scopeSet = new Set(homeScope.zimNames);
     baseZims = zimsCache.filter(z => scopeSet.has(z.name));
+    if (homeScope.type === 'phone') baseZims = baseZims.concat(_keepSyntheticZims());
   }
 
   // Filter ZIMs by title/name/description when filter text provided
@@ -4818,7 +4820,7 @@ function renderHome(filter) {
 
   let h = '';
   if (!homeScope && !filter && _keepNames.size && _connState !== CONN_OK) {
-    const keptNow = sorted.filter(z => _keepNames.has(z.name));
+    const keptNow = sorted.filter(z => _keepNames.has(z.name)).concat(_keepSyntheticZims());
     if (keptNow.length) h += _keepSectionHtml(keptNow) + _keepSurvivalTilesHtml(false);
   }
   if (!homeScope && !filter) h += _libFoldersNoteHtml();
@@ -4914,8 +4916,8 @@ function renderHome(filter) {
   // On this phone: the ZIMs kept offline, as a section like Favorites, its
   // heading the way into the view with the storage bar and Manage. Offline it
   // leads the page (it is what the page is); online it follows Favorites.
-  if (!homeScope && !filter && _keepNames.size && _connState === CONN_OK) {
-    const keptZims = sorted.filter(z => _keepNames.has(z.name));
+  if (!homeScope && !filter && _keepNames.size && _connState === CONN_OK) {  // kept, online
+    const keptZims = sorted.filter(z => _keepNames.has(z.name)).concat(_keepSyntheticZims());
     if (keptZims.length) h += _keepSectionHtml(keptZims);
   }
 
@@ -5890,6 +5892,9 @@ function _ziUnlockPage() {
 // first time the panel is opened.
 var _KEEP_JS = '/static/keepstore.js?v=1';
 var _KEEP_WORKER = '/static/keepworker.js?v=1';
+// What the download worker imports: named here so the install keeps them (the
+// worker itself builds its import addresses at run time, where no scan sees them).
+var _KEEP_DEPS = ['/static/fzstd.js?v=1', '/static/zimreader.js?v=1'];
 var _keepLoading = null;
 var _keepSubscribed = false;
 var _keepManaging = false;     // the On this phone view's Manage mode: a remove button on each tile
@@ -5940,7 +5945,9 @@ function _keepLoad() {
         _keepSubscribed = true;
         KeepStore.subscribe(function(st) {
           _keepRenderOpen();
+          _keepImportRender();
           _keepIconSync();
+          if (st.importing && st.done) _keepRefreshNames().then(function() { if (homeScope && homeScope.type === 'phone') renderHome(); _keepImportRender(); });
           if (st.phase === 'idle' && !st.error && st.size && st.written === st.size) { _keepPrimeSearch(); _keepRefreshNames(); }
           else if (st.phase === 'idle') _keepRefreshNames();
         });
@@ -6026,7 +6033,8 @@ function _keepMenuHtml(zim) {
 function _keepDo(action, zim) {
   if (action === 'keep-start' || action === 'keep-resume') _keepStart(zim);
   else if (action === 'keep-pause') _keepPause();
-  else if (action === 'keep-remove' || action === 'keep-cancel') _keepRemove(zim);
+  else if (action === 'keep-remove') _keepAskRemove(zim);
+  else if (action === 'keep-cancel') _keepRemove(zim);
 }
 function _keepIconTap(e, btn) {
   var card = btn.closest('[data-zim]'), zim = card && card.getAttribute('data-zim');
@@ -6071,15 +6079,17 @@ async function _keepRender(zim) {
   if (!box || box.getAttribute('data-zim') !== zim) return;
   var z = esc(zim).replace(/'/g, '&#39;');
   var btn = function(label, fn, cls, disabled) {
-    return '<button type="button" class="conn-retry keep-btn' + (cls ? ' ' + cls : '') + '"' + (disabled ? ' disabled' : '') + ' onclick="' + fn + '">' + _KEEP_GLYPH + tH(label) + '</button>';
+    var act = label === 'keep_remove' ? 'keep-remove' : (label === 'keep_pause' ? 'keep-pause' : (label === 'keep_cancel_pull' ? 'keep-cancel' : 'keep-start'));
+    return '<button type="button" class="conn-retry keep-btn' + (cls ? ' ' + cls : '') + '"' + (disabled ? ' disabled' : '') + ' onclick="' + fn + '">' + _keepGlyphFor(act) + tH(label) + '</button>';
   };
   var err = (mine && st.error) ? '<div class="keep-note keep-err">' + tH('keep_err_' + st.error) + '</div>' : '';
   var html;
   if (s && s.kind === 'kept') {
     html = '<div class="keep-line"><b>' + _keepMark('kept') + tH('keep_kept') + '</b><span>' + esc(_fmtBytes(meta.size)) + '</span></div>' +
       (meta.who ? '<div class="keep-note">' + tH('keep_signout_note') + '</div>' : '') +
+      (meta.source === 'files' ? '<div class="keep-note">' + tH('keep_from_files_note') + '</div>' : '') +
       (persisted ? '' : '<div class="keep-note">' + tH('keep_persist_no') + '</div>') +
-      '<div class="keep-actions">' + btn('keep_remove', "_keepRemove('" + z + "')", 'keep-quiet') + '</div>';
+      '<div class="keep-actions">' + btn('keep_remove', "_keepAskRemove('" + z + "')", 'keep-quiet') + '</div>';
   } else if (s && s.kind === 'pull') {
     html = '<div class="keep-line"><b>' + tH('keep_pulling') + '</b><span>' + esc(_fmtBytes(st.written) + ' / ' + _fmtBytes(st.size)) + '</span></div>' +
       '<div class="keep-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + s.pct + '"><i style="width:' + s.pct + '%"></i></div>' +
@@ -6090,7 +6100,7 @@ async function _keepRender(zim) {
       '<div class="keep-actions">' + btn('keep_resume', "_keepStart('" + z + "')") + btn('keep_cancel_pull', "_keepRemove('" + z + "')", 'keep-quiet') + '</div>';
     err = '';
   } else {
-    var fits = !size || size <= room.free;
+    var fits = !size || size <= room.free || KeepStore.estimateIsFuzzy();
     html = '<div class="keep-actions keep-row">' + btn('keep_btn', "_keepStart('" + z + "')", '', !fits || busyElsewhere) +
       (size ? '<span class="keep-size">' + esc(_fmtBytes(size)) + '</span>' : '') + '</div>' +
       (fits ? '' : '<div class="keep-note keep-err">' + tH('keep_no_room') + '</div>') +
@@ -6113,23 +6123,88 @@ async function _keepRefreshMetasOnly() {
 // change the answer, asked in a line with no numbers: it will not fit, or it is
 // a big share of the room that is left.
 var KEEP_BIG_SHARE = 0.25;
+// A sheet over the page (a toast under the bottom bar is not seen on a phone):
+// what it needs and what Zimi may use, as labels; a rough-figure note on Safari
+// with Try anyway; and a smaller version of the same title when the library
+// has one that fits. Resolves 'try', 'cancel' or 'other:<zim>'.
+function _keepSmaller(zim, size, free) {
+  var info = _zimInfo(zim), family = String(zim).split('_').slice(0, 2).join('_');
+  return (zimsCache || []).filter(function(z) {
+    var b = (z.size_gb || 0) * BYTES_PER_GB;
+    return z.name !== zim && String(z.name).split('_').slice(0, 2).join('_') === family && b > 0 && b < size && b <= free && !_keepNames.has(z.name);
+  }).sort(function(a, b) { return (b.size_gb || 0) - (a.size_gb || 0); }).slice(0, 3);
+}
+function _keepTooBig(zim, size, room, fuzzy) {
+  return new Promise(function(resolve) {
+    var smaller = _keepSmaller(zim, size, room.free);
+    var overlay = document.createElement('div');
+    overlay.className = 'pw-overlay open pw-confirm';
+    overlay.innerHTML = '<div class="pw-box keep-sheet" role="alertdialog" aria-modal="true">' +
+      '<h3>' + tH('keep_toobig_title') + '</h3>' +
+      '<div class="keep-sheet-rows"><div><b>' + tH('keep_toobig_needs', { size: _fmtBytes(size) }) + '</b></div>' +
+      '<div>' + tH('keep_toobig_have', { size: _fmtBytes(room.free) }) + '</div></div>' +
+      (fuzzy ? '<p class="keep-sheet-note">' + tH('keep_toobig_guess') + '</p>' : '') +
+      (smaller.length ? '<div class="keep-sheet-alt"><span>' + tH('keep_smaller') + '</span>' + smaller.map(function(z) {
+        return '<button type="button" class="keep-sheet-pick" data-act="other:' + escAttr(z.name) + '">' + esc(z.title || z.name) + ' <i>' + esc(_fmtBytes((z.size_gb || 0) * BYTES_PER_GB)) + '</i></button>';
+      }).join('') + '</div>' : '') +
+      '<div class="pw-actions"><button type="button" data-act="cancel">' + tH(fuzzy ? 'cancel' : 'ok') + '</button>' +
+      (fuzzy ? '<button type="button" class="pw-primary" data-act="try">' + tH('keep_try_anyway') + '</button>' : '') + '</div></div>';
+    function done(act) { overlay.remove(); document.removeEventListener('keydown', onKey, true); resolve(act); }
+    function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); done('cancel'); } }
+    overlay.addEventListener('click', function(e) {
+      var b = e.target.closest('[data-act]');
+      if (b) done(b.getAttribute('data-act')); else if (e.target === overlay) done('cancel');
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(overlay);
+    var first = overlay.querySelector('[data-act]');
+    if (first) first.focus();
+  });
+}
+
+// Feedback for keeping that is seen on a phone: pinned under the top bar (a
+// toast at the bottom sits behind the home indicator and the browser's bar),
+// one line, gone in a few seconds or on a tap.
+var _keepNoticeTimer = null;
+function _keepNotice(msg) {
+  var el = document.getElementById('keep-notice');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'keep-notice';
+    el.className = 'keep-notice';
+    el.setAttribute('role', 'status');
+    el.onclick = function() { el.hidden = true; };
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(_keepNoticeTimer);
+  _keepNoticeTimer = setTimeout(function() { el.hidden = true; }, 5000);
+}
 async function _keepStart(zim) {
-  if (!_keepAvailable()) { _showToast(t('keep_unsupported')); return; }
-  try { await _keepLoad(); } catch (e) { _showToast(t('keep_err_worker')); return; }
-  if (KeepStore.state().phase === 'pulling') { _showToast(t('keep_one_at_a_time')); return; }
+  if (!_keepAvailable()) { _keepNotice(t('keep_unsupported')); return; }
+  try { await _keepLoad(); } catch (e) { _keepNotice(t('keep_err_worker')); return; }
+  if (KeepStore.state().phase === 'pulling') { _keepNotice(t('keep_one_at_a_time')); return; }
   var meta = _keepMetas[zim];
   var size = meta && meta.size, headers = _manageToken ? _authHeaders() : {};
   if (!size) {
     try {
       var p = await KeepStore.probe(zim, headers);
-      if (!p.ok) { _showToast(t('keep_err_' + (p.status === 401 || p.status === 403 ? 'auth' : 'gone'))); return; }
+      if (!p.ok) { _keepNotice(t('keep_err_' + (p.status === 401 || p.status === 403 ? 'auth' : 'gone'))); return; }
       size = p.size;
-    } catch (e) { _showToast(t('keep_err_network')); return; }
+    } catch (e) { _keepNotice(t('keep_err_network')); return; }
   }
   var room = await KeepStore.room();
   var left = size - ((meta && meta.written) || 0);
-  if (left > room.free) { _showToast(t('keep_no_room')); return; }
-  if (!meta && size > room.free * KEEP_BIG_SHARE && !(await _appConfirm(t('keep_big'), t('keep_btn')))) return;
+  var fuzzy = KeepStore.estimateIsFuzzy();
+  if (left > room.free) {
+    // Safari rounds and moves its figure on purpose (WebKit's storage policy:
+    // up to 60% of the disk for an installed app, but quota "might change based
+    // on usage and visit frequency"), so there it is a guess to try past; where
+    // the figure is real, this is the end of it.
+    var act = await _keepTooBig(zim, size, room, fuzzy);
+    if (act !== 'try') { if (act && act.indexOf('other:') === 0) _keepStart(act.slice(6)); return; }
+  } else if (!meta && !fuzzy && size > room.free * KEEP_BIG_SHARE && !(await _appConfirm(t('keep_big'), t('keep_btn')))) return;
   _keepPersisted = await KeepStore.persist();
   var info = _zimInfo(zim);
   var who = (typeof _userSession !== 'undefined' && _userSession && _userSession.name) || '';
@@ -6138,6 +6213,14 @@ async function _keepStart(zim) {
   _keepRenderOpen();
 }
 function _keepPause() { KeepStore.stop(); }
+// Removing a kept ZIM asks first, in one line, in the app's own dialog: a ZIM
+// can be gigabytes and a tap is easy. Cancelling a download part-way does not.
+async function _keepAskRemove(zim) {
+  var m = _keepMetas[zim], info = _zimInfo(zim);
+  var title = (m && m.title) || (info && info.title) || zim;
+  if (!(await _appConfirm(t('keep_remove_confirm', { title: title }), t('keep_remove_ok')))) return;
+  _keepRemove(zim);
+}
 async function _keepRemove(zim) {
   await _keepLoad();
   await KeepStore.removeKept(zim);
@@ -6168,8 +6251,71 @@ async function _keepLocalList(all) {
 // browser has said what the room is.
 function _keepViewHeadHtml() {
   return '<div class="keep-view-head"><div class="keep-storage" id="keep-storage"><div class="keep-sbar"><i style="width:0%"></i></div>' +
-    '<div class="keep-slabels"><span id="keep-s-used"></span><span id="keep-s-free"></span></div></div>' +
-    '<button type="button" class="keep-manage-btn" onclick="_keepToggleManage()">' + tH(_keepManaging ? 'keep_done' : 'keep_manage') + '</button></div>';
+    '<div class="keep-slabels"><span id="keep-s-used"></span><span id="keep-s-free"></span></div></div></div>' +
+    '<div class="keep-view-actions">' + _keepFilesBtnHtml() +
+    '<button type="button" class="keep-manage-btn" onclick="_keepToggleManage()">' + tH(_keepManaging ? 'keep_done' : 'keep_manage') + '</button></div>' +
+    '<div id="keep-import"></div>';
+}
+
+// ── Add from Files ──
+// iOS Safari has no way to write a file the Files app can see, so Files cannot
+// be the storage; but it can be a source. A ZIM picked there (Files, iCloud
+// Drive, a USB stick) is copied into the phone's storage in slices, with
+// progress, and is then a kept ZIM like any other: it opens and searches with
+// no signal even if the server never had it, and the copy never touches the
+// network.
+function _keepFilesBtnHtml() {
+  return '<label class="keep-manage-btn keep-add">' + _KEEP_GLYPH + '<span>' + tH('keep_add_files') + '</span>' +
+    '<input type="file" accept=".zim" class="keep-file-input" onchange="_keepImportPicked(this)"></label>';
+}
+async function _keepImportPicked(input) {
+  var file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  if (!_keepAvailable()) { _keepNotice(t('keep_unsupported')); return; }
+  try { await _keepLoad(); } catch (e) { _keepNotice(t('keep_err_worker')); return; }
+  if (KeepStore.state().phase === 'pulling') { _keepNotice(t('keep_one_at_a_time')); return; }
+  var name = KeepStore.nameFromFile(file.name), ex = _keepMetas[name];
+  if (ex && ex.complete && ex.source !== 'files') name += '-files';   // never replace a ZIM the server gave
+  var room = await KeepStore.room();
+  if (file.size > room.free && !KeepStore.estimateIsFuzzy()) { _keepNotice(t('keep_no_room')); return; }
+  _keepPersisted = await KeepStore.persist();
+  KeepStore.importFile(file, name, name);
+  _keepImportRender();
+}
+var _keepImportShown = '';
+function _keepImportRender() {
+  var el = document.getElementById('keep-import');
+  if (!el || typeof KeepStore === 'undefined') return;
+  var st = KeepStore.state();
+  if (!st.importing) { el.innerHTML = ''; return; }
+  if (st.phase === 'pulling') {
+    var pct = st.size ? Math.min(100, Math.floor(st.written * 100 / st.size)) : 0;
+    var bar = el.querySelector('.keep-bar');
+    if (bar) {
+      bar.firstChild.style.width = pct + '%';
+      el.querySelector('.keep-line span').textContent = _fmtBytes(st.written) + ' / ' + _fmtBytes(st.size);
+      return;
+    }
+    el.innerHTML = '<div class="keep-import-box"><div class="keep-line"><b>' + tH('keep_importing') + '</b><span>' +
+      esc(_fmtBytes(st.written) + ' / ' + _fmtBytes(st.size)) + '</span></div>' +
+      '<div class="keep-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="keep-actions"><button type="button" class="conn-retry keep-btn keep-quiet" onclick="KeepStore.stop()">' + tH('keep_cancel_pull') + '</button></div></div>';
+  } else if (st.error) {
+    el.innerHTML = '<div class="keep-note keep-err">' + tH('keep_err_' + st.error) + '</div>';
+  } else {
+    el.innerHTML = '';
+  }
+}
+// ZIMs on the phone the server does not list (copied from Files, or one the
+// server has since lost) drawn as tiles like any other.
+function _keepSyntheticZims() {
+  return Object.keys(_keepMetas).map(function(n) { return _keepMetas[n]; }).filter(function(m) {
+    return m.complete && !_zimInfo(m.name);
+  }).map(function(m) {
+    return { name: m.name, title: m.title || m.name, size_gb: (m.size || 0) / BYTES_PER_GB, has_icon: !!m.icon,
+             description: m.source === 'files' ? t('keep_from_files') : '', entries: '' };
+  });
 }
 async function _keepFillStorageBar() {
   var el = document.getElementById('keep-storage');
@@ -6292,6 +6438,18 @@ function _openZimAbout(zim) {
     var body = document.querySelector('#' + _ZI_OVERLAY_ID + ' .zi-body');
     if (body) body.innerHTML = html;
   };
+  // A ZIM only the phone has (copied from Files): its About is the phone's own.
+  var local = !_zimInfo(zim) && _keepMeta(zim);
+  if (local && local.complete) {
+    write(_keepBoxHtml(zim, local.size) +
+      '<div class="zi-id"><span class="zi-icon"><span class="zi-letter">' + (esc(local.title || zim)[0] || '?').toUpperCase() + '</span></span>' +
+      '<div class="zi-id-text"><div class="zi-title">' + esc(local.title || zim) + '</div>' +
+      (local.source === 'files' ? '<div class="zi-desc">' + tH('keep_from_files') + '</div>' : '') + '</div></div>' +
+      '<div class="zi-rows">' + _ziRow('zi_identifier', esc(zim)) + _ziRow('zi_size', esc(_fmtBytes(local.size))) +
+      _ziRow('keep_about_source', local.source === 'files' ? tH('keep_from_files') : '') + '</div>');
+    _keepRender(zim);
+    return;
+  }
   serverFetch('/zim-info?zim=' + encodeURIComponent(zim))
     .then(function (r) {
       if (!r.ok) throw new Error('zim-info ' + r.status);
@@ -6422,7 +6580,7 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
         '</div>' +
       '</div>' + _keepIconHtml(z.name) +
       (_keepManaging && homeScope && homeScope.type === 'phone'
-        ? '<button type="button" class="keep-rm" aria-label="' + escAttr(t('keep_remove')) + '" title="' + escAttr(t('keep_remove')) + '" onclick="event.preventDefault();event.stopPropagation();_keepRemove(\'' + escAttr(z.name) + '\')">\u00D7</button>' : '') +
+        ? '<button type="button" class="keep-rm" aria-label="' + escAttr(t('keep_remove')) + '" title="' + escAttr(t('keep_remove')) + '" onclick="event.preventDefault();event.stopPropagation();_keepAskRemove(\'' + escAttr(z.name) + '\')">\u00D7</button>' : '') +
       '</' + cardTag + '>';
   }).join('') + '</div>';
 }
@@ -8350,17 +8508,19 @@ function _moveZimTo(zim, category) {
     var zim = _ctxZim;
     // About belongs on EVERY library card, so both menu shapes carry it — the
     // compact gear menu (an Installed row) as much as the full card menu.
-    var aboutItem = '<div class="ctx-item" data-action="about">' + tH('about_zim') + '</div>' +
-      (_keepAvailable() ? _keepMenuHtml(zim) : '');
+    var aboutItem = '<div class="ctx-item" data-action="about">' + tH('about_zim') + '</div>';
+    var keepItems = _keepAvailable() ? _keepMenuHtml(zim) : '';
     // Download the raw .zim — the plainest way to carry a made-here ZIM to
     // another machine. Admin-gated like delete: /dl/ answers the admin
     // regardless of the sharing switches.
     var dlItem = manageEnabled
       ? '<div class="ctx-item" data-action="download-zim">' + tH('ctx_download_zim') + '</div>'
       : '';
+    // The file's own group: take it with you, as a file or as a copy on the phone.
+    var fileGroup = dlItem + keepItems;
     if (_ctxCompact) {
       var layout = _layoutItemsHtml(zim);
-      menu.innerHTML = aboutItem + dlItem + (layout ? '<div class="ctx-sep"></div>' + layout : '');
+      menu.innerHTML = aboutItem + (fileGroup ? '<div class="ctx-sep"></div>' + fileGroup : '') + (layout ? '<div class="ctx-sep"></div>' + layout : '');
       posMenu(_ctxX, _ctxY);
       return;
     }
@@ -8382,9 +8542,10 @@ function _moveZimTo(zim, category) {
     if (Object.keys(colls).length > 0) h += '<div class="ctx-sep"></div>';
     h += '<div class="ctx-item" data-action="new-collection">' + tH('new_collection') + '</div>';
     h += '</div></div>';
+    h += '<div class="ctx-sep"></div>' + aboutItem;
+    if (fileGroup) h += '<div class="ctx-sep"></div>' + fileGroup;
     var layoutItems = _layoutItemsHtml(zim);
     if (layoutItems) { h += '<div class="ctx-sep"></div>' + layoutItems; }
-    h += '<div class="ctx-sep"></div>' + aboutItem + dlItem;
     if (manageEnabled) {
       h += '<div class="ctx-sep"></div>';
       h += '<div class="ctx-item danger" data-action="delete">' + tH('delete') + '</div>';
@@ -28446,7 +28607,7 @@ function _spaSourceClick(e, el) {
   return _spaNav(e, function () {
     var zim = el.getAttribute('data-zim');
     // Offline, a ZIM that is not on the phone cannot open: say why, in a line.
-    if (_connState !== CONN_OK && !_keepNames.has(zim)) { _showToast(t('keep_not_here')); return; }
+    if (_connState !== CONN_OK && !_keepNames.has(zim)) { _keepNotice(t('keep_not_here')); return; }
     enterSource(zim, true);
   });
 }

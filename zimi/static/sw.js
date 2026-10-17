@@ -551,6 +551,7 @@ async function staleWhileRevalidate(request) {
   const cache = await caches.open(CACHE_VERSION);
   const cached = await cache.match(request);
   const fetchPromise = fetch(request).then(resp => {
+    if (_gatewayDown(resp)) return null;   // a proxy answering for a dead server is not an answer
     if (resp.ok) cache.put(request, resp.clone());
     return resp;
   }).catch(() => null);

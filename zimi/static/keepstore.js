@@ -7,7 +7,7 @@
 //
 // Layout, in the directory "zimi-keep": <zim>.zim, the file as it arrives, and
 // <zim>.json beside it, which says what it is and how far it got:
-//   {name, title, who, icon, size, etag, written, complete, at, main, mainTitle}
+//   {name, title, who, source, icon, size, etag, written, complete, at, main, mainTitle}
 // `who` is the account it was kept under ('' when none): a sign-in or sign-out
 // removes the ones kept under an account (purgeOwned), as it empties the pages
 // the worker kept for reading; ZIMs kept with no account stay until removed.
@@ -136,6 +136,11 @@ var KeepStore = (function() {
     var quota = e.quota || 0, usage = e.usage || 0;
     return { quota: quota, usage: usage, free: Math.max(0, quota * QUOTA_HEADROOM - usage) };
   }
+  // Safari's estimate is rounded and shifted on purpose; it is a guess there.
+  function estimateIsFuzzy() {
+    var ua = (self.navigator && navigator.userAgent) || '';
+    return /AppleWebKit/.test(ua) && !/Chrome|Chromium|Edg|CriOS|FxiOS|Android/.test(ua);
+  }
   // Ask the browser not to clear this when the phone runs low. The answer is
   // the browser's to give (Safari decides for a home-screen app on its own).
   async function persist() {
@@ -200,6 +205,44 @@ var KeepStore = (function() {
     };
     holdScreen();
     worker.postMessage({ cmd: 'pull', name: name, title: title || name, who: who || '', icon: !!icon, headers: headers || {} });
+    return true;
+  }
+  // A ZIM picked from Files (or iCloud Drive, a USB stick), copied into the
+  // phone's storage with no server: the same worker, the same meta, marked
+  // source 'files'. A name for it from the file's own.
+  function nameFromFile(fileName) {
+    return String(fileName || 'zim').replace(/\.zim$/i, '').replace(/[^\w.\-]+/g, '_').slice(0, 80) || 'zim';
+  }
+  function importFile(file, name, title) {
+    if (worker) return false;
+    state = { name: name, phase: 'pulling', written: 0, size: file.size, error: '', importing: true };
+    emit();
+    worker = new Worker(KeepStore.workerUrl);
+    worker.onmessage = function(e) {
+      var m = e.data;
+      if (m.type === 'progress') {
+        state = { name: name, phase: 'pulling', written: m.written, size: m.size, error: '', importing: true };
+      } else if (m.type === 'done') {
+        stopWorker(); forgetNames();
+        state = { name: name, phase: 'idle', written: m.meta.size, size: m.meta.size, error: '', importing: true, done: true };
+        notifyServiceWorker();
+      } else if (m.type === 'stopped') {
+        stopWorker();
+        state = { name: name, phase: 'idle', written: 0, size: file.size, error: '', importing: true };
+      } else if (m.type === 'error') {
+        stopWorker();
+        state = { name: name, phase: 'idle', written: 0, size: file.size, error: m.code, importing: true };
+      }
+      emit();
+    };
+    worker.onerror = function(ev) {
+      try { console.warn('keep worker: ' + (ev && ev.message)); } catch (x) {}
+      stopWorker();
+      state = { name: name, phase: 'idle', written: 0, size: file.size, error: 'worker', importing: true };
+      emit();
+    };
+    holdScreen();
+    worker.postMessage({ cmd: 'import', name: name, file: file, title: title || name });
     return true;
   }
   // Stop, keeping what was written: the next pull resumes from it.
@@ -288,10 +331,10 @@ var KeepStore = (function() {
   return {
     ftsWarm: ftsWarm, ftsSearch: ftsSearch, ftsState: ftsState, ftsForget: ftsForget,
     libzimUrl: '/static/libzim/libzim-wasm.js',
-    supported: supported, fileBase: fileBase, dir: dir, readMeta: readMeta, writeMeta: writeMeta,
+    supported: supported, estimateIsFuzzy: estimateIsFuzzy, fileBase: fileBase, dir: dir, readMeta: readMeta, writeMeta: writeMeta,
     list: list, kept: kept, reader: reader, has: has, forgetNames: forgetNames,
     remove: remove, purge: purge, purgeOwned: purgeOwned, room: room, persist: persist, probe: probe,
-    pull: pull, stop: stop, removeKept: removeKept, subscribe: subscribe,
+    pull: pull, importFile: importFile, nameFromFile: nameFromFile, stop: stop, removeKept: removeKept, subscribe: subscribe,
     state: function() { return state; }, workerUrl: '/static/keepworker.js', inWindow: inWindow
   };
 })();

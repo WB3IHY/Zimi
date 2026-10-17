@@ -3434,5 +3434,19 @@
   "conn_pill_nonet_hint": "Showing what's on this phone. Zimi reconnects by itself.",
   "conn_pill_server_hint": "Your Zimi server isn't answering. Showing what's on this phone.",
   "conn_pill_error_hint": "Some things could not be refreshed. Showing what's on this phone.",
-  "conn_check": "Check connection"
+  "conn_check": "Check connection",
+  "keep_remove_confirm": "Remove {title} from this phone?",
+  "keep_remove_ok": "Remove",
+  "keep_add_files": "Add from Files",
+  "keep_importing": "Copying from Files",
+  "keep_from_files": "From Files",
+  "keep_from_files_note": "Copied from Files. It lives on this phone and needs no server.",
+  "keep_err_notzim": "That file is not a ZIM.",
+  "keep_about_source": "Source",
+  "keep_toobig_title": "Too big for this phone's Zimi space",
+  "keep_toobig_needs": "Needs {size}",
+  "keep_toobig_have": "Zimi may use {size} here",
+  "keep_toobig_guess": "The phone's figure is a rough estimate. You can try anyway: it stops cleanly if the phone says no.",
+  "keep_try_anyway": "Try anyway",
+  "keep_smaller": "A smaller version"
 }
