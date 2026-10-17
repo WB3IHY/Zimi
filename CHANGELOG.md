@@ -22,8 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - ZIMs another program adds to or removes from such a folder appear in or leave the library in about a minute, with no restart.
 - Almanac: a bar of its sections appears once you scroll past the first, with a pill for each, the current one lit, and a list of all of them at its end.
 - Almanac world clocks: a star on every clock saves it; Saved shows your own clock and the saved ones, All shows every clock.
-- Keep on this phone: a ZIM's About panel can store it in the browser's private storage (resumable, with the room the phone offers shown first); a kept ZIM opens, reads with its pictures, and searches (titles at once, full text once its index starts) with no server, in the home-screen app too.
-- A phone that cannot reach the server starts from what it kept: the shell at once, the library from its last list, and carried ZIMs marked "On this phone".
+- Keep offline: one tap in a ZIM's menu or About keeps it on the phone (resumable); a ring on its tile while it comes, a filled disc once it is here; an On this phone view with a storage bar and Manage; kept ZIMs open from their tile, with their pictures, and search (titles at once, full text once its index starts) with no server, in the home-screen app too.
+- Offline is a mode, not a fault: a small "Offline" pill by the logo replaces the warning bar and its Retry; the home leads with what is on the phone, and Discover shows only cards that open.
 
 ### Changed
 

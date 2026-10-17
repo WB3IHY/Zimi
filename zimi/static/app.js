@@ -7719,7 +7719,9 @@ function _loadDiscover() {
 }
 // Which library a drawn Discover row was chosen from.
 function _discoverLibKey() {
-  return String((zimsCache || []).length);
+  // Offline the row is drawn from what is on the phone: a change to that is a
+  // different row.
+  return String((zimsCache || []).length) + (_connState !== CONN_OK ? ':off:' + Array.from(_keepNames).sort().join(',') : '');
 }
 function _renderDiscover(el, items) {
   _discoverDrawn = { el: el, items: items };

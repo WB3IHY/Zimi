@@ -307,7 +307,12 @@ def test_the_shell_features_need_no_server_and_no_file_is_missing(pw, world):
     shot(pg, "10-almanac-offline")
     # Kept on first use rather than at install, on purpose (their size): the 3D
     # Earth's textures and three.js, and one rosetta entry's text. Anything else is a hole.
-    lazy = ("/static/earth/earth-", "/static/earth/three-", "/static/rosetta/")
+    lazy = (
+        "/static/earth/earth-",
+        "/static/earth/three-",
+        "/static/earth/satellite-",
+        "/static/rosetta/",
+    )
     holes = [
         u
         for u in missing
