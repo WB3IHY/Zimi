@@ -448,6 +448,13 @@ function notInKeptZim(zim, path) {
 
 // An entry of a kept ZIM as the server would send it, from the phone's copy.
 async function answerFromKeptZim(r, zim, path) {
+  // The ZIM's icon (what the library's tile draws): its 48 px illustration.
+  if (path === '-/icon') {
+    const ill = await r._findKey(0x4D, new TextEncoder().encode('Illustration_48x48@1'));
+    const target = ill && await r.resolve(ill);
+    if (!target) return notInKeptZim(zim, path);
+    return new Response(await r.read(target), { status: 200, headers: { 'Content-Type': 'image/png', 'Cache-Control': 'no-cache', 'X-Zimi-Kept': '1' } });
+  }
   const e = await r.lookup(path);
   if (!e) return notInKeptZim(zim, path);
   if (e.redirect >= 0) {

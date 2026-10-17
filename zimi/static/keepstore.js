@@ -7,7 +7,7 @@
 //
 // Layout, in the directory "zimi-keep": <zim>.zim, the file as it arrives, and
 // <zim>.json beside it, which says what it is and how far it got:
-//   {name, title, who, size, etag, written, complete, at, main, mainTitle}
+//   {name, title, who, icon, size, etag, written, complete, at, main, mainTitle}
 // `who` is the account it was kept under ('' when none): a sign-in or sign-out
 // removes the ones kept under an account (purgeOwned), as it empties the pages
 // the worker kept for reading; ZIMs kept with no account stay until removed.
@@ -170,7 +170,7 @@ var KeepStore = (function() {
   function stopWorker() { if (worker) { worker.terminate(); worker = null; } releaseScreen(); }
 
   // KeepStore.workerUrl is set by the app (a versioned address).
-  function pull(name, title, headers, who) {
+  function pull(name, title, headers, who, icon) {
     if (worker) return false;
     state = { name: name, phase: 'pulling', written: 0, size: 0, error: '' };
     emit();
@@ -199,7 +199,7 @@ var KeepStore = (function() {
       emit();
     };
     holdScreen();
-    worker.postMessage({ cmd: 'pull', name: name, title: title || name, who: who || '', headers: headers || {} });
+    worker.postMessage({ cmd: 'pull', name: name, title: title || name, who: who || '', icon: !!icon, headers: headers || {} });
     return true;
   }
   // Stop, keeping what was written: the next pull resumes from it.
