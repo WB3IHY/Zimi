@@ -556,6 +556,11 @@ async function staleWhileRevalidate(request) {
   // Nothing cached, must wait for network
   const resp = await fetchPromise;
   if (resp) return resp;
+  // Not reachable, and not kept at this address: the same file kept at another
+  // version (a script asked for as ?v=45 here and ?v=<hash> there) is better
+  // than nothing, which is how a phone lost the Almanac's three.js.
+  const otherVersion = await cache.match(request, { ignoreSearch: true });
+  if (otherVersion) return otherVersion;
   return offlineResponse();
 }
 

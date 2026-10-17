@@ -1151,7 +1151,7 @@ if os.path.isdir(_STATIC_DIR):
 _OFFLINE_SHELL_FILE = re.compile(
     r"/static/((?:app\.(?:js|css)|almanac[\w-]*\.(?:js|css)|globe\.js|zone-places\.js"
     r"|world-map\.svg|tz-borders\.json|fieldguide[\w-]*\.(?:html|json|js)|highlights\.js|find\.js"
-    r"|keepstore\.js|keepworker\.js|zimreader\.js|fzstd\.js"
+    r"|keepstore\.js|keepworker\.js|zimreader\.js|fzstd\.js|rosetta/manifest\.json"
     r"|earth/(?:moon-v1\.webp|stars-v1\.bin|stars-names-v1\.json|constellations-v1\.json|milkyway-v1\.webp))"
     r"(?:\?v=[0-9a-z]+)?)"
 )

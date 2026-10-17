@@ -84,6 +84,8 @@ def cold_start(ctx, base, timeout_s=20):
     except Exception:
         arrived = -1
         shown = ''
+        if os.environ.get('BENCH_DEBUG'):
+            print('  not arrived; page says:', pg.evaluate("() => document.body.innerText.replace(/\\s+/g, ' ').slice(0, 200)"))
     paint = pg.evaluate(PAINT)
     try:
         pg.wait_for_load_state("load", timeout=timeout_s * 1000)
@@ -131,15 +133,19 @@ def main():
         pg.wait_for_timeout(1500)
         pg.close()
         rows = []
-        for label in ("online", "down", "liefi"):
-            hole = None
-            if label == "down":
+        # In this order, with no pause: the worker remembers a dead network for
+        # 15 s, so "liefi" must come while the last answer it saw was live; and
+        # Playwright's WebKit empties an ephemeral context's Cache Storage after
+        # a few idle seconds with no page open, which a pause here would trigger.
+        hole = None
+        for label in ("online", "liefi", "down"):
+            if label == "liefi":
                 srv.stop()
-            elif label == "liefi":
                 hole = BlackHole(port)
-            res = [cold_start(ctx, srv.base) for _ in range(runs)]
-            if hole:
+            elif label == "down" and hole:
                 hole.stop()
+                hole = None
+            res = [cold_start(ctx, srv.base) for _ in range(runs)]
             med = [statistics.median(r[i] for r in res) for i in range(3)]  # paint, on screen, load
             rows.append((label, med, res))
             print(
