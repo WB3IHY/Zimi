@@ -7574,6 +7574,12 @@ function openAlmanac(replaceState) {
 // Almanac. opts: {lat, lon, name} for a place other than the Almanac's.
 var _almLookLoading = null;
 function openAlmanacLook(opts) {
+  // iOS answers a motion request only from inside a tap, and the view's files load after this one ends: asked here,
+  // in the tap's own turn, the answer is waiting when the view is up (almanac-look.js _lookUsePermission).
+  var Orientation = window.DeviceOrientationEvent;
+  if (Orientation && typeof Orientation.requestPermission === 'function' && window.isSecureContext !== false) {
+    window._lookPermission = Orientation.requestPermission().then(function(r) { return r === 'granted' ? 'granted' : 'denied'; }, function() { return 'denied'; });
+  }
   if (!_almLookLoading) {
     _almLookLoading = new Promise(function(resolve, reject) {
       var files = ['/static/globe.js?v=45', '/static/almanac-look.js?v=45'], left = files.length;
