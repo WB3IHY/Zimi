@@ -133,3 +133,12 @@ What a NOMAD user would hit, to fix in Zimi:
 - [ ] Eric's phone pass: Red everywhere, airplane mode, the Moon drag, section bar, tides, clocks
 - [ ] Ultracode review when Eric says, then fixes
 - [ ] Version, PR text and release notes (Eric's)
+
+## After 1.15: apps written offline first (Eric, 2026-10-16 19:55)
+
+"Book app offline seems cool what if they're written offline first with serve side benefits? Then it's like one app we ship"
+
+- Each app's reading logic in JavaScript against one ZIM interface: the server's API online, the phone's kept copy (zimreader.js + libzim-wasm) offline.
+- The server's role is precompute: the per-ZIM details database (details.py) becomes a sidecar file that downloads with a kept ZIM, the "open index sidecar" item above.
+- Bookshelf first as the proof (the plane case, simple index), then Zimipedia, ZimiTube, Exchange one at a time.
+- Not 1.15: new architecture, against "complete and bulletproof". Theme for the next release.
