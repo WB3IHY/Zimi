@@ -270,6 +270,8 @@
 .almanac-info-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
 .almanac-info-val { font-size: 16px; font-weight: 600; color: var(--text); }
 .almanac-info-lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
+/* Deep time's cards carry paragraphs: one to a row on a phone, where two columns made them ten ragged lines each. */
+@media (max-width: 560px) { #almanac-deeptime .almanac-info-grid { grid-template-columns: 1fr; } }
 .almanac-progress { height: 4px; background: var(--surface2); border-radius: 2px; margin-top: 6px; overflow: hidden; }
 .almanac-progress-bar { height: 100%; background: var(--amber); border-radius: 2px; }
 .almanac-orrery-wrap { width: 100%; max-width: 500px; aspect-ratio: 1; margin: 0 auto; }
