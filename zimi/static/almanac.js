@@ -3778,8 +3778,9 @@ function _renderSunMap(now) {
     '<span class="alm-tz-hand" id="almanac-tz-hand" aria-hidden="true"></span></div>';
   html += '<div id="almanac-tz-label" class="alm-clock-info"></div>';
   html += '</div>';
-  html += '<div class="alm-hol-row alm-tz-view" id="almanac-tz-view"></div>';
   html += '<div class="alm-tz-list" id="almanac-tz-pills"></div>';
+  // Under the clocks it filters, as the holidays' Regional/Worldwide is under its grid.
+  html += '<div class="alm-hol-row alm-tz-view" id="almanac-tz-view"></div>';
   html += '</div>';
 
   html += '</div>';
@@ -4106,7 +4107,7 @@ function _initTzClock(now) {
 // ones now.) Which of the two views is showing is kept beside them.
 var _ALM_CLOCKS_KEY = 'zimi_almanac_clocks';
 var _ALM_CLOCKS_VIEW_KEY = 'zimi_almanac_clocks_view';
-var ALM_CLOCKS_VIEWS = ['saved', 'all'];
+var ALM_CLOCKS_VIEWS = ['all', 'saved'];
 var ALM_TZ_NAME_RE = /^[A-Za-z0-9_+\/-]+$/;   // an IANA zone name, and nothing that could leave an attribute
 function _almClocks() {
   try { var v = JSON.parse(localStorage.getItem(_ALM_CLOCKS_KEY)); return Array.isArray(v) ? v.filter(function (z) { return typeof z === 'string' && ALM_TZ_NAME_RE.test(z); }) : []; }
@@ -4154,7 +4155,7 @@ function _almTzFocusRestore(host, key) {
   for (var i = 0; i < all.length; i++) if (all[i].classList.contains('alm-tz-star') === key.star) pick = all[i];
   if (pick) pick.focus({ preventScroll: true });
 }
-// The two-way switch above the clocks, the Regional/Worldwide pill's look.
+// The two-way switch under the clocks, the Regional/Worldwide pill's look.
 var ALM_STAR_SVG = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.5l2.4 5.2 5.6.6-4.2 3.8 1.2 5.6L12 15.8l-5 2.9 1.2-5.6L4 9.3l5.6-.6z"/></svg>';
 function _almClockViewPaint(view) {
   var host = document.getElementById('almanac-tz-view');
