@@ -169,3 +169,21 @@ def test_the_scene_tools_do_not_overlap_and_are_44px(browser, served, locale):
                 assert apart, (a, b)
     finally:
         ctx.close()
+
+
+def test_a_jump_repaints_the_sky_even_when_the_observer_is_stale(browser, served):
+    """The sky's in-view flag can be stale (the observer speaks only on crossing the screen's edge): after
+    a jump of the clock the picture must still be drawn at the new instant, not left at the old one."""
+    ctx, pg, errors = _page(browser, served)
+    try:
+        pg.wait_for_function("() => typeof _skyState !== 'undefined' && _skyState && _skyState.eph", timeout=60_000)
+        for i in range(4):
+            target = 1_790_000_000_000 + i * 86_400_000 * 3 + i * 7_000_000
+            pg.evaluate("() => { _skyState.inView = false; }")
+            pg.evaluate("(t) => _almScrubSettle(new Date(t), { land: true })", target)
+            pg.wait_for_function(
+                "(t) => _skyState && _skyState.paintedTime === t", arg=target, timeout=8_000, polling=POLL_MS
+            )
+        assert pg.evaluate("_skyState.inView") is True  # a measured, in-view sky wakes properly
+    finally:
+        ctx.close()

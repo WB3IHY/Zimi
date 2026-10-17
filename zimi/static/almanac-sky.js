@@ -2734,6 +2734,15 @@ function _skyLoop(ts) {
   else if (_skyStale(s)) _skyCompute(s, new Date());
   // With only the moving things moving, every other frame is enough.
   var onlyActors = !_skyAnimating(s, ts) && !s.baseDirty;
+  // A sky the page has just been repainted for (a jump of the clock, a resize) is drawn once whatever the
+  // observer last said: its word can be stale (it speaks only on crossing the screen's edge, and a
+  // measurement made while the page was laid out otherwise overwrites it), and a picture left at the old
+  // instant until the next scroll is a wrong one. Measured then, so a sky that is in view wakes properly.
+  if (s.forcePaint && !document.hidden && !_skyCovered()) {
+    s.forcePaint = false;
+    if (!s.inView && _skyMeasureInView(s)) { s.inView = true; _skyArm(); }
+    else if (!s.inView) _skyPaint(ts);
+  }
   if (_skyAwake(s) && !(onlyActors && ts - (s.paintedAt || 0) < SKY_ACTOR_FRAME_MS)) { _skyPaint(ts); s.paintedAt = ts; s.paints = (s.paints || 0) + 1; }
   // The hero's time-travel sweep rides this same loop (almanac.js).
   if (typeof _heroMoonTick === 'function') _heroMoonTick(ts);
@@ -2955,7 +2964,7 @@ function _initSkyScene(now, lat, lon, animateMoon) {
     known: loc.known && loc.lat === lat && loc.lon === lon,
     moonAnim: null, twinkle: 0, bodies: [], baseBodies: [],
     actors: prev ? prev.actors : [], base: prev ? prev.base : null, baseDirty: true,
-    inView: prev ? prev.inView : true,
+    inView: prev ? prev.inView : true, forcePaint: !!prev,
     observer: prev && prev.observer
   };
   _skyState = s;
