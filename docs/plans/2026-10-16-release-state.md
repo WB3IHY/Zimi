@@ -81,3 +81,27 @@ The plan was "the field kit": sky, Earth, the flown solar system, Field Guide, b
 - The phone reader learns old xz-compressed ZIMs.
 </content>
 </invoke>
+
+## Zosia HI review (2026-10-16 23:04)
+
+Why, in one line: "Zimi works where the internet doesn't, in your pocket and in the box, and it doesn't break." Version 1.14.0.
+
+Each experience gets a written review from fresh eyes on the real thing (phone screenshots, first 10 seconds, failure states): why, how it feels, verdict (ship / reshape / let's not). Eric signs.
+
+What "ready" means:
+- **Keep offline:** fresh install, a large ZIM, lock and kill mid-download then resume, airplane mode reads pictures, instant title search, full-text works, real numbers in "too big", remove asks, no endless spinner offline.
+- **NOMAD:** a fresh agent follows the guide word for word on a clean NOMAD 1.35.1; replace Kiwix and switch back; NOMAD's ZIM folder byte-identical before and after; uninstall leaves NOMAD as it was. One unwritten step means not ready.
+- **Create (saved pages):** 10 real pages from Firefox, Chrome and Safari (one .webarchive, one .mhtml) opened on the phone; links and pictures work; a bad input gives a plain sentence.
+- **Search answers:** 30 real questions chosen before looking; if the card quotes a wrong or misleading sentence more than about 1 in 15, pull the card. The question-finding fix stays either way.
+- **Red:** every screen at night on the iPhone, no white flash, the sky readable.
+- **Upgrade from 1.13.3:** a real install upgrades with library, settings, kept files and sign-in intact; the GPL change stated plainly in the notes.
+
+Sound overall: feature freeze, zero known data loss or crash, CI green, every CodeRabbit finding answered, a full suite run on the final tree, all six signed.
+
+Recommended cuts and holds:
+- Earth world-class: hold to the next release; Phase 0 (baseline, licences) can run now since it ships nothing.
+- The Almanac: pull behind a flag until it passes its own review.
+- Zimi Earth: ship only if it passes the phone pass, quiet either way.
+- Field Guide / Help now: pulled; nothing in home, first run, sign-in or search may point at it.
+- Docker +343 MB for capture tools: reshape (a -full tag, or install on first use) or state the size in the notes.
+- Phone polish: only what fixes confusion.
