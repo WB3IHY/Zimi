@@ -549,7 +549,7 @@ def test_a_tide_turns_time_keeps_clear_of_a_dot(browser, served):
         pairs = pg.evaluate("""() => {
               const svg = document.querySelector('#almanac-place .at-section svg[role=img], #almanac-place svg[role=img]');
               const GAP = 4, rect = (e) => { const r = e.getBoundingClientRect(); return { x0: r.left - GAP, x1: r.right + GAP, y0: r.top - GAP, y1: r.bottom + GAP }; };
-              const labels = [...svg.querySelectorAll('.at-turn-l')].map(e => ({ s: e.textContent, ...rect(e) }));
+              const labels = [...svg.querySelectorAll('.at-turn-l:not(.at-yield)')].map(e => ({ s: e.textContent, ...rect(e) }));
               const dots = [...svg.querySelectorAll('circle.at-now-dot')].map(e => ({ c: e.getAttribute('class'), ...rect(e) }));
               const hit = [];
               for (const l of labels) for (const d of dots)
@@ -560,6 +560,33 @@ def test_a_tide_turns_time_keeps_clear_of_a_dot(browser, served):
             pairs["labels"] >= 2
         ), pairs  # (the clock's dot is the one a label at the day's end runs into)
         assert not pairs["hit"], pairs
+    finally:
+        ctx.close()
+
+
+def test_a_turns_time_steps_back_while_the_clock_dot_is_on_it(browser, served):
+    """The dot travels the whole curve, so at each turn it stands on that
+    turn's time: the time fades while it does, and comes back after."""
+    ctx, pg, errors = _page(browser, served)
+    try:
+        pg.evaluate(
+            "() => document.getElementById('almanac-place').scrollIntoView({ behavior: 'instant' })"
+        )
+        pg.wait_for_selector("#almanac-place .at-section", timeout=60_000)
+        # The time of the first turn's dot (c.X inverted by bisection).
+        turn = pg.evaluate("""() => {
+              const c = _at.curve, cx = +document.querySelector('#almanac-place circle.at-dot').getAttribute('cx');
+              let a = c.start, b = c.end;
+              for (let i = 0; i < 50; i++) { const m = (a + b) / 2; if (c.X(m) < cx) a = m; else b = m; }
+              return a;
+            }""")
+        shown = "() => [...document.querySelectorAll('#almanac-place .at-turn-l')].filter(e => !e.classList.contains('at-yield')).length"
+        total = pg.evaluate("() => document.querySelectorAll('#almanac-place .at-turn-l').length")
+        pg.evaluate("(t) => _almScrubSettle(new Date(t), { land: false })", turn)
+        pg.wait_for_function("(n) => (%s)() < n" % shown, arg=total, timeout=30_000)
+        pg.evaluate("(t) => _almScrubSettle(new Date(t + 3 * 3600e3), { land: false })", turn)
+        pg.wait_for_function("(n) => (%s)() === n" % shown, arg=total, timeout=30_000)
+        assert not errors, errors
     finally:
         ctx.close()
 

@@ -42,6 +42,9 @@
 .at-turn-h { font-size: 10px; fill: var(--at-water-line); }
 /* The turns that are not next: a time, small and quiet. */
 .at-turn-l.quiet { font-size: 10px; font-weight: 400; fill: var(--text3); }
+.at-turn-l, .at-turn-h { transition: opacity 0.2s; }
+.at-turn-l.at-yield, .at-turn-h.at-yield { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .at-turn-l, .at-turn-h { transition: none; } }
 
 /* The month: a bar per day, its height the day's range; the Moon over it. */
 .at-sub { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin: 14px 0 4px; opacity: 0.8; }

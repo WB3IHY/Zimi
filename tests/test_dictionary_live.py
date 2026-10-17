@@ -966,7 +966,18 @@ def _quiet(pg, flying, timeout=30.0):
     try:
         pg.wait_for_load_state("networkidle", timeout=timeout * 1000)
     except Exception:
-        raise AssertionError("still in flight: %s" % sorted(set(flying.values())))
+        import sys
+        import traceback
+
+        # The server runs in this process: where its handlers stand now.
+        stacks = [
+            "".join(traceback.format_stack(f)[-8:])
+            for f in sys._current_frames().values()
+            if "zimi" in "".join(traceback.format_stack(f))
+        ]
+        raise AssertionError(
+            "still in flight: %s\n%s" % (sorted(set(flying.values())), "\n---\n".join(stacks))
+        )
 
 
 def _settings_languages(pg, served, open_list=True):

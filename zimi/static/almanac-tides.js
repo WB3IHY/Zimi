@@ -521,6 +521,7 @@ function _atRender() {
 
 function _atDraw(host, html) {
   host.innerHTML = html;
+  _atMeasureLabels(host);
   if (typeof _almPlaceDrawn === 'function') _almPlaceDrawn();
   // The live sky's sea follows this tide: tell it there is one now.
   if (typeof _skySeaChanged === 'function') _skySeaChanged();
@@ -1030,7 +1031,30 @@ function _atTravel(focus) {
   var x = c.X(ms).toFixed(1), h = c.p.height(ms);
   var line = _atEl('at-now-line'), dot = _atEl('at-now-dot');
   line.setAttribute('x1', x); line.setAttribute('x2', x);
-  dot.setAttribute('cx', x); dot.setAttribute('cy', (isFinite(h) ? c.Y(h) : c.bot).toFixed(1));
+  var y = isFinite(h) ? c.Y(h) : c.bot;
+  dot.setAttribute('cx', x); dot.setAttribute('cy', y.toFixed(1));
+  _atYieldLabels(+x, y);
+}
+
+// The clock's dot travels the whole curve, so near a turn it passes over that
+// turn's time. The time steps back while the dot is on it (the dot is saying
+// the same thing). Boxes are read once per drawing; a frame only compares.
+var AT_YIELD_GAP = 4 + 5;   // the dot's radius and a little air
+function _atMeasureLabels(host) {
+  _at.labels = [];
+  var svg = host && host.querySelector('svg[role=img]');
+  if (!svg) return;
+  svg.querySelectorAll('.at-turn-l, .at-turn-h').forEach(function(el) {
+    try { var b = el.getBBox(); _at.labels.push({ el: el, x0: b.x, x1: b.x + b.width, y0: b.y, y1: b.y + b.height }); } catch (e) {}
+  });
+  var dot = _atEl('at-now-dot'), g = _atEl('at-now');
+  if (dot && g && g.style.display !== 'none') _atYieldLabels(+dot.getAttribute('cx'), +dot.getAttribute('cy'));
+}
+function _atYieldLabels(x, y) {
+  (_at.labels || []).forEach(function(l) {
+    var on = l.x0 < x + AT_YIELD_GAP && x - AT_YIELD_GAP < l.x1 && l.y0 < y + AT_YIELD_GAP && y - AT_YIELD_GAP < l.y1;
+    if (l.on !== on) { l.on = on; l.el.classList.toggle('at-yield', on); }
+  });
 }
 
 // The drawings are made at the width they are shown (their viewBox is that
