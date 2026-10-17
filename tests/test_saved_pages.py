@@ -250,6 +250,24 @@ def test_a_file_a_browser_named_with_percent_escapes_is_still_found(tmp_path):
     assert _unresolved(arc, "Page.html") == []
 
 
+def test_a_picture_keeps_a_source_that_is_its_own_data_and_drops_one_on_the_web(tmp_path):
+    root = tmp_path / "x"
+    (root / "Page_files").mkdir(parents=True)
+    (root / "Page.html").write_text(
+        "<html><head><title>Page</title></head><body><picture>"
+        '<source type="image/avif" srcset="data:image/avif;base64,AAAA 1x">'
+        '<source type="image/webp" srcset="https://cdn.example.com/a.webp 1x, https://cdn.example.com/a2.webp 2x">'
+        '<img src="Page_files/a.png"></picture></body></html>',
+        encoding="utf-8",
+    )
+    (root / "Page_files" / "a.png").write_bytes(PNG + b"x")
+    out = str(tmp_path / "x.zim")
+    creator.create_folder_zim(str(root), out_path=out)
+    html = _text(Archive(out), "Page.html")
+    assert "data:image/avif;base64,AAAA" in html
+    assert "cdn.example.com" not in html
+
+
 def test_pictures_that_were_not_saved_are_reported(tmp_path):
     root = tmp_path / "x"
     root.mkdir()

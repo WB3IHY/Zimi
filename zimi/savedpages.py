@@ -227,6 +227,17 @@ def _local_srcset(value):
     return bool(candidates) and all(_is_local(u) for u, _d in candidates)
 
 
+def _only_the_web_srcset(value):
+    """A srcset whose every candidate is an address on the web (or the site's
+    own root): nothing in it the reader can show. A data: candidate is the
+    picture itself, not an address."""
+    candidates = _split_srcset(_html.unescape(value))
+    return bool(candidates) and all(
+        not _is_local(u) and not u.strip().lower().startswith(("data:", "#"))
+        for u, _d in candidates
+    )
+
+
 def _keep_saved_copy(tag):
     """An ``<img>``/``<source>`` whose ``src`` is the saved copy but whose lazy
     attributes still name the live web: the page's script would set ``src``
@@ -256,7 +267,7 @@ def _keep_saved_copy(tag):
     swap(LAZY_SRCSET_ATTRS, own_set or own_src)
     # srcset wins over src in a browser: a live-web srcset beside a saved src
     # is a picture that shows online and vanishes in the reader.
-    if own_src and srcset and not _local_srcset(srcset):
+    if own_src and srcset and _only_the_web_srcset(srcset):
         tag = _SRCSET_RE.sub("", tag, count=1)
     return tag
 
@@ -271,7 +282,7 @@ def _drop_remote_sources(block):
 
     def drop(m):
         s = _SRCSET_RE.search(m.group(0))
-        return m.group(0) if not s or _local_srcset(s.group("val")) else ""
+        return "" if s and _only_the_web_srcset(s.group("val")) else m.group(0)
 
     return _SOURCE_TAG_RE.sub(drop, block)
 
