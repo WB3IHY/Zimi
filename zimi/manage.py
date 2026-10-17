@@ -6521,6 +6521,13 @@ def _delete_through_nomad(handler, filename):
         if z.get("file") == filename:
             title = z.get("title") or z.get("name") or filename
             break
+    # Let go of it first, as the own-library delete does: Windows refuses to
+    # remove a file anyone holds open, and on POSIX an open handle would keep
+    # the deleted ZIM's space on NOMAD's disk until something else closed it.
+    try:
+        _srv.release_zim_handles([_srv._zim_short_name(filename)])
+    except Exception as e:
+        log.debug("Handle release before NOMAD deletes %s: %s", filename, e)
     try:
         nomadapi.delete(filename)
     except nomadapi.NomadError as e:

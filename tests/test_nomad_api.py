@@ -171,6 +171,7 @@ class FakeNomad:
             def do_DELETE(self):
                 fake.calls.append(("DELETE", self.path))
                 name = urllib.parse.unquote(self.path.rsplit("/", 1)[-1])
+                fake.held_at_delete = server._zim_short_name(name) in server._archive_pool
                 path = os.path.join(fake.folder, name)
                 if not os.path.exists(path):
                     return self._send(404, {"message": "not found"})
@@ -317,6 +318,11 @@ def test_the_page_treats_nomads_zims_as_its_own_only_through_nomad(box):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="NOMAD runs on Linux, where it removes the old edition while Zimi still"
+    " reads it; Windows refuses to remove a file another process holds open",
+)
 def test_a_catalog_download_is_nomads_job_and_zimi_shows_its_progress(box):
     fake, url, nomad = box
     _turn_on(url)
@@ -440,9 +446,11 @@ def test_delete_asks_nomad_and_the_zim_leaves_the_library(box):
 
     fake, url, nomad = box
     _turn_on(url)
+    assert server.get_archive(server._zim_short_name(OTHER)) is not None
     h = _Handler()
     manage._delete_through_nomad(h, OTHER)
     assert h.sent[0] == 200
+    assert fake.held_at_delete is False, "Zimi still held the ZIM open when NOMAD deleted it"
     assert ("DELETE", "/api/zim/" + OTHER) in fake.calls
     assert _names(str(nomad)) == [OLD]
     assert "medlineplus" not in server.get_zim_files()
