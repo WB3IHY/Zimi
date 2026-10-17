@@ -5975,7 +5975,7 @@ async function _keepRender(zim) {
   var html;
   if (meta && meta.complete) {
     html = '<div class="keep-line"><b>' + tH('keep_kept') + '</b><span>' + esc(_fmtBytes(meta.size)) + '</span></div>' +
-      '<div class="keep-note">' + tH('keep_kept_hint') + '</div>' +
+      '<div class="keep-note">' + tH('keep_kept_hint') + (meta.who ? ' ' + tH('keep_signout_note') : '') + '</div>' +
       (_keepPersisted === false ? '<div class="keep-note">' + tH('keep_persist_no') + '</div>' : '') +
       '<div class="keep-actions">' + btn('keep_remove', "_keepRemove('" + z + "')", 'keep-quiet') + '</div>';
   } else if (pulling) {

@@ -205,8 +205,9 @@ def test_chromium_full_cold_start_offline(pw, world):
     pg.evaluate("([z, p]) => openArticle(z, p, 'Albert Einstein')", [ZIM, ARTICLE])
     wait_article(pg, "theory of relativity")
     article_ms = (time.time() - t2) * 1000
-    shot(pg, "5-article-offline")
-    poll(pg, PICTURE_LOADED, 10)  # the article's picture is read from the phone too
+    poll(pg, PICTURE_LOADED, 10)
+    pg.wait_for_timeout(600)
+    shot(pg, "5-article-offline")  # the article's picture is read from the phone too
     assert "Albert Einstein" in article_text(pg)
 
     # Title search: instant. Full text: follows, and says so.
@@ -254,6 +255,74 @@ def test_chromium_full_cold_start_offline(pw, world):
         % (title_ms, full_ms)
     )
     assert not [e for e in errors if "keep" in e.lower()], errors
+    ctx.close()
+    br.close()
+
+
+def test_the_shell_features_need_no_server_and_no_file_is_missing(pw, world):
+    """From the home the phone draws from its kept list, offline: Help now opens
+    and answers, the Almanac opens, and not one /static/ file the shell asks for
+    comes back as the worker's "offline" answer (a versioned script missing from
+    the precache shows up here as a 503)."""
+    br = pw.chromium.launch()
+    ctx = br.new_context(**_device(pw))
+    pg = ctx.new_page()
+    pg.goto(world.base + "/", wait_until="load")
+    pg.wait_for_selector(".stat-card", timeout=30000)
+    wait_shell_kept(pg)
+    world.stop()
+    ctx.set_offline(True)
+    pg.close()
+
+    pg = ctx.new_page()
+    missing = []
+    pg.on(
+        "response",
+        lambda r: (
+            missing.append(r.url)
+            if r.status == 503
+            and "/static/" in r.url
+            and r.headers.get("x-zimi-offline")
+            else None
+        ),
+    )
+    pg.goto(world.base + "/", wait_until="commit")
+    pg.wait_for_selector(".stat-card", timeout=20000)
+
+    # Help now, from the pill on the kept home.
+    pg.click("a.help-now")
+    fg = None
+    deadline = time.time() + 30
+    while time.time() < deadline and fg is None:
+        fg = next((f for f in pg.frames if "fieldguide.html" in f.url), None)
+        pg.wait_for_timeout(200)
+    assert fg, "the Field Guide page opened"
+    fg.wait_for_selector("#t-q", timeout=30000)
+    fg.fill("#t-q", "my baby is choking")
+    fg.wait_for_selector(".fg-hit.lead", timeout=15000)
+    shot(pg, "9-help-now-offline")
+    pg.evaluate("() => closeReader()")
+
+    # The Almanac, all of it worked out on the device.
+    pg.evaluate("() => openAlmanac()")
+    pg.wait_for_selector("#almanac-head-date", timeout=30000)
+    pg.wait_for_function(
+        "() => document.querySelector('#almanac-view').innerText.length > 200",
+        timeout=30000,
+    )
+    pg.wait_for_timeout(1500)
+    shot(pg, "10-almanac-offline")
+    # Kept on first use rather than at install, on purpose (their size): the 3D
+    # Earth's textures and three.js, and one rosetta entry's text. Anything else is a hole.
+    lazy = ("/static/earth/earth-", "/static/earth/three-", "/static/rosetta/")
+    holes = [
+        u
+        for u in missing
+        if not any(m in u for m in lazy) or u.endswith("rosetta/manifest.json")
+    ]
+    assert not holes, (
+        "files the shell asked for that the phone did not have: %s" % holes
+    )
     ctx.close()
     br.close()
 

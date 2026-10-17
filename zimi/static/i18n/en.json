@@ -3386,7 +3386,7 @@
   "keep_resume": "Resume",
   "keep_remove": "Remove from this phone",
   "keep_kept": "On this phone",
-  "keep_kept_hint": "Reads and searches with no signal. Signing out removes ZIMs kept under an account.",
+  "keep_kept_hint": "Reads and searches with no signal.",
   "keep_persist_no": "Not protected: if the phone runs low on space it may clear this.",
   "keep_one_at_a_time": "Another ZIM is downloading. One at a time.",
   "keep_err_auth": "Sign in to keep this ZIM on your phone.",
@@ -3402,5 +3402,6 @@
   "keep_search_warming": "Titles on this phone, now. Full-text search is starting and will add to this.",
   "keep_search_titles": "Titles on this phone. Full-text search could not start here.",
   "keep_search_full": "From the ZIMs on this phone: titles first, then full text.",
-  "keep_search_none": "Nothing on this phone matches “{q}”."
+  "keep_search_none": "Nothing on this phone matches “{q}”.",
+  "keep_signout_note": "Signing out removes it from this phone: it was kept under your account."
 }

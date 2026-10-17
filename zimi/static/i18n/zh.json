@@ -3386,7 +3386,7 @@
   "keep_resume": "继续",
   "keep_remove": "从此手机移除",
   "keep_kept": "在此手机上",
-  "keep_kept_hint": "无信号时也能阅读和搜索。退出登录会移除以账户保存的 ZIM。",
+  "keep_kept_hint": "无信号时也能阅读和搜索。",
   "keep_persist_no": "未受保护：手机空间不足时可能会清除它。",
   "keep_one_at_a_time": "正在下载另一个 ZIM。一次一个。",
   "keep_err_auth": "请登录后再把这个 ZIM 保存到手机上。",
@@ -3402,5 +3402,6 @@
   "keep_search_warming": "此手机上的标题结果，立即显示。全文搜索正在启动，稍后会补充结果。",
   "keep_search_titles": "此手机上的标题结果。全文搜索无法在这里启动。",
   "keep_search_full": "来自此手机上的 ZIM：先标题，后全文。",
-  "keep_search_none": "此手机上没有与“{q}”匹配的内容。"
+  "keep_search_none": "此手机上没有与“{q}”匹配的内容。",
+  "keep_signout_note": "退出登录会将它从此手机移除：它是以你的账户保存的。"
 }

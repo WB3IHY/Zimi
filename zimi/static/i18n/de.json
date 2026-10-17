@@ -3386,7 +3386,7 @@
   "keep_resume": "Fortsetzen",
   "keep_remove": "Von diesem Telefon entfernen",
   "keep_kept": "Auf diesem Telefon",
-  "keep_kept_hint": "Lesen und Suchen ohne Empfang. Abmelden entfernt ZIMs, die unter einem Konto behalten wurden.",
+  "keep_kept_hint": "Lesen und Suchen ohne Empfang.",
   "keep_persist_no": "Nicht geschützt: Wenn der Speicher knapp wird, kann das Telefon dies löschen.",
   "keep_one_at_a_time": "Ein anderes ZIM wird geladen. Eines nach dem anderen.",
   "keep_err_auth": "Melde dich an, um dieses ZIM auf dem Telefon zu behalten.",
@@ -3402,5 +3402,6 @@
   "keep_search_warming": "Titel auf diesem Telefon, sofort. Die Volltextsuche startet und ergänzt dies.",
   "keep_search_titles": "Titel auf diesem Telefon. Die Volltextsuche ließ sich hier nicht starten.",
   "keep_search_full": "Aus den ZIMs auf diesem Telefon: erst Titel, dann Volltext.",
-  "keep_search_none": "Nichts auf diesem Telefon passt zu „{q}“."
+  "keep_search_none": "Nichts auf diesem Telefon passt zu „{q}“.",
+  "keep_signout_note": "Abmelden entfernt es von diesem Telefon: Es wurde unter deinem Konto behalten."
 }

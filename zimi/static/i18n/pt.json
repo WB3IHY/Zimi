@@ -3386,7 +3386,7 @@
   "keep_resume": "Retomar",
   "keep_remove": "Remover deste telefone",
   "keep_kept": "Neste telefone",
-  "keep_kept_hint": "Lê e pesquisa sem sinal. Sair da conta remove os ZIMs mantidos sob uma conta.",
+  "keep_kept_hint": "Lê e pesquisa sem sinal.",
   "keep_persist_no": "Sem proteção: se o telefone ficar sem espaço, pode apagar isto.",
   "keep_one_at_a_time": "Outro ZIM está sendo baixado. Um de cada vez.",
   "keep_err_auth": "Entre para manter este ZIM no seu telefone.",
@@ -3402,5 +3402,6 @@
   "keep_search_warming": "Títulos neste telefone, agora. A busca em texto completo está começando e vai acrescentar.",
   "keep_search_titles": "Títulos neste telefone. A busca em texto completo não conseguiu começar aqui.",
   "keep_search_full": "Dos ZIMs neste telefone: primeiro títulos, depois texto completo.",
-  "keep_search_none": "Nada neste telefone corresponde a “{q}”."
+  "keep_search_none": "Nada neste telefone corresponde a “{q}”.",
+  "keep_signout_note": "Sair da conta o remove deste telefone: ele foi mantido sob a sua conta."
 }

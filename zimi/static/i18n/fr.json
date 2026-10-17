@@ -3386,7 +3386,7 @@
   "keep_resume": "Reprendre",
   "keep_remove": "Retirer de ce téléphone",
   "keep_kept": "Sur ce téléphone",
-  "keep_kept_hint": "Lecture et recherche sans réseau. Se déconnecter retire les ZIM gardés sous un compte.",
+  "keep_kept_hint": "Lecture et recherche sans réseau.",
   "keep_persist_no": "Non protégé : si le téléphone manque de place, il peut l'effacer.",
   "keep_one_at_a_time": "Un autre ZIM se télécharge. Un à la fois.",
   "keep_err_auth": "Connectez-vous pour garder ce ZIM sur votre téléphone.",
@@ -3402,5 +3402,6 @@
   "keep_search_warming": "Titres sur ce téléphone, tout de suite. La recherche plein texte démarre et complétera la liste.",
   "keep_search_titles": "Titres sur ce téléphone. La recherche plein texte n'a pas pu démarrer ici.",
   "keep_search_full": "Depuis les ZIM de ce téléphone : titres d'abord, puis plein texte.",
-  "keep_search_none": "Rien sur ce téléphone ne correspond à « {q} »."
+  "keep_search_none": "Rien sur ce téléphone ne correspond à « {q} ».",
+  "keep_signout_note": "Se déconnecter le retire de ce téléphone : il est gardé sous votre compte."
 }

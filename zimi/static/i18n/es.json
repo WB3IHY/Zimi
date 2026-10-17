@@ -3386,7 +3386,7 @@
   "keep_resume": "Reanudar",
   "keep_remove": "Quitar de este teléfono",
   "keep_kept": "En este teléfono",
-  "keep_kept_hint": "Se lee y se busca sin señal. Cerrar sesión quita los ZIM guardados con una cuenta.",
+  "keep_kept_hint": "Se lee y se busca sin señal.",
   "keep_persist_no": "Sin protección: si el teléfono se queda sin espacio, puede borrarlo.",
   "keep_one_at_a_time": "Se está descargando otro ZIM. Uno a la vez.",
   "keep_err_auth": "Inicia sesión para guardar este ZIM en tu teléfono.",
@@ -3402,5 +3402,6 @@
   "keep_search_warming": "Títulos en este teléfono, ahora. La búsqueda de texto completo está arrancando y añadirá más.",
   "keep_search_titles": "Títulos en este teléfono. La búsqueda de texto completo no pudo arrancar aquí.",
   "keep_search_full": "De los ZIM de este teléfono: primero títulos, luego texto completo.",
-  "keep_search_none": "Nada en este teléfono coincide con «{q}»."
+  "keep_search_none": "Nada en este teléfono coincide con «{q}».",
+  "keep_signout_note": "Cerrar sesión lo quita de este teléfono: se guardó con tu cuenta."
 }

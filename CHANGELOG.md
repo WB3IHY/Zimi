@@ -22,9 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - ZIMs another program adds to or removes from such a folder appear in or leave the library in about a minute, with no restart.
 - Almanac: a bar of its sections appears once you scroll past the first, with a pill for each, the current one lit, and a list of all of them at its end.
 - Almanac world clocks: a star on every clock saves it; Saved shows your own clock and the saved ones, All shows every clock.
+- Keep on this phone: a ZIM's About panel can store it in the browser's private storage (resumable, with the room the phone offers shown first); a kept ZIM opens, reads with its pictures, and searches (titles at once, full text once its index starts) with no server, in the home-screen app too.
+- A phone that cannot reach the server starts from what it kept: the shell at once, the library from its last list, and carried ZIMs marked "On this phone".
 
 ### Changed
 
+- A connection that accepts and never answers ("lie-fi") no longer hangs the app: every request has a deadline and a kept copy answers after it.
 - Almanac tides: one answer first, the curve labels only the next turn, the month's bars are smaller, and the reason sits behind "Why?".
 - Almanac solar system: the twin paradox and the light clock are behind "What if it flew faster?" on the ride card.
 
