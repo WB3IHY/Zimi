@@ -1117,8 +1117,6 @@ if os.path.isdir(_STATIC_DIR):
             + _static_hash("zone-places.js")
             + _static_hash("almanac-ephem.js")
             + _static_hash("almanac-earth.js")
-            + _static_hash("almanac-landing.js")
-            + _static_hash("almanac-space.js")
             + _static_hash("almanac-reference.js")
             + _static_hash("almanac-tables.js")
             + _static_hash("almanac-reference.css")
@@ -1135,7 +1133,6 @@ if os.path.isdir(_STATIC_DIR):
             + _static_hash("wiki-reader.js")
             + _static_hash("books.html")
             + _static_hash("dictionary.html")
-            + _static_hash("globe.js")
             + _static_hash("almanac-look.js")
             + _static_hash("almanac-skyfind.js")
             + _static_hash("fieldguide.html")
@@ -1159,7 +1156,7 @@ if os.path.isdir(_STATIC_DIR):
 # only the files named here are kept (the 3D Earth's textures and three.js are
 # large, and /static/ keeps them the first time they are opened).
 _OFFLINE_SHELL_FILE = re.compile(
-    r"/static/((?:app\.(?:js|css)|almanac[\w-]*\.(?:js|css)|globe\.js|zone-places\.js"
+    r"/static/((?:app\.(?:js|css)|almanac[\w-]*\.(?:js|css)|zone-places\.js"
     r"|world-map\.svg|tz-borders\.json|fieldguide[\w-]*\.(?:html|json|js)|highlights\.js|find\.js"
     r"|keepstore\.js|keepworker\.js|zimreader\.js|fzstd\.js|rosetta/manifest\.json"
     r"|earth/(?:moon-v1\.webp|stars-v1\.bin|stars-names-v1\.json|constellations-v1\.json|milkyway-v1\.webp))"
@@ -1179,7 +1176,7 @@ def _offline_shell_urls():
         if name == "app.js" and APP_JS_REWRITTEN is not None:
             sources.append(APP_JS_REWRITTEN)
         elif name in ("app.js", "fieldguide.html") or (
-            name.startswith(("almanac", "globe")) and name.endswith(".js")
+            name.startswith("almanac") and name.endswith(".js")
         ):
             try:
                 with open(os.path.join(_STATIC_DIR, name), encoding="utf-8") as f:
