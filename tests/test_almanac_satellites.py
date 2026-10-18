@@ -317,13 +317,13 @@ def test_zimi_offline_forces_never(data_dir, monkeypatch):
 
 def test_the_choice_keeps_the_other_server_settings_in_its_file(data_dir):
     """Saved in the app-update prefs file, like the Apps switch: setting it
-    must never drop the update channel stored beside it."""
+    must never drop the update delay stored beside it."""
     from zimi import manage
 
-    manage._write_app_update_prefs(channel="beta")
+    manage._write_app_update_prefs(delay_days=7)
     satellites.set_update_mode("never")
     prefs = manage._read_app_update_prefs()
-    assert prefs == {"channel": "beta", satellites.PREFS_KEY: "never"}
+    assert prefs == {"delay_days": 7, satellites.PREFS_KEY: "never"}
     assert satellites.set_update_mode("sometimes") == (None, "invalid")
     assert manage._read_app_update_prefs() == prefs
 

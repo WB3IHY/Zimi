@@ -64,7 +64,6 @@ What reaches nothing:
 | `ZIMI_PORT` | env / `--port` | `8899` | Bind port |
 | `ZIMI_CONFIG` | env / `--config` | `<data-dir>/zimi.json` | Config file path |
 | `ZIMI_OFFLINE` | env / config `offline` | `0` | `1` = full air-gap (all internet features off; mDNS stays) |
-| `ZIMI_UPDATE_CHANNEL` | env | `latest` | `latest` or `beta` (aliases like `stable`→latest, `edge`→beta accepted) |
 | `ZIMI_UPDATE_DELAY_DAYS` | env | `0` | Defer adopting a release by N days |
 | `ZIMI_UPDATE_CHECK` | env / Server settings | `auto` | Whether Zimi looks for its own updates: `auto` (when Server settings opens, at most daily, and the desktop updater), `ask` (only on Check now) or `never` |
 | `ZIMI_SATELLITE_UPDATES` | env / Server settings / the Earth view's gear | `ask` | Satellite data for the Almanac's 3D Earth from CelesTrak: `ask` (only when an admin asks), `auto` (in the background, at most every six hours) or `never` |
@@ -89,4 +88,4 @@ What reaches nothing:
 - **Requests to huggingface.co, github.com and pypi.org.** A voice for the Dictionary (Piper from Hugging Face, Kokoro from GitHub), and on a pip or uv install without them the first time, the engines from PyPI, after an admin's Download or under Automatically. `ZIMI_VOICE_DOWNLOADS=never` (or Never in Server settings) stops them.
 - **Air-gap bundle won't install on the target** — you built for the wrong platform. Wheels are OS/arch/Python-version specific; rebuild with the correct `--target` and `--python-version`. The script refuses to emit a bundle whose deps didn't all resolve to wheels.
 - **Restore didn't replace old state** — restore merges by default. Use `--overwrite` to replace matching state wholesale.
-- **An update landed sooner/later than expected** — check `ZIMI_UPDATE_CHANNEL` and `ZIMI_UPDATE_DELAY_DAYS`. Offline instances never update.
+- **An update landed sooner/later than expected** — check `ZIMI_UPDATE_DELAY_DAYS`. Offline instances never update.

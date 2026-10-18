@@ -15685,28 +15685,23 @@ function _appUpdateHowHtml(d) {
   return '<div class="ms-hint">' + tH('app_update_how_releases') + ' ' + _appUpdateReleasesLink(d) + '</div>';
 }
 
-// Latest vs beta, and how long a release must have been public before this
-// instance is offered it. Locked (ZIMI_UPDATE_CHANNEL / ZIMI_UPDATE_DELAY_DAYS)
-// renders the same select, disabled with the standard env-controlled note, so
-// the setting stays visible instead of vanishing on the deployments most
-// likely to set it.
-var _APP_UPDATE_CHANNEL_LABELS = {
-  latest: 'app_update_channel_latest',
-  beta: 'app_update_channel_beta'
-};
-
-// One row shape for the update selects: label, <select>, and either the
-// setting's hint or, locked, why (the env-controlled note unless the caller
-// names another reason in o.lockNote).
+// How long a release must have been public before this instance is offered
+// it. Locked (ZIMI_UPDATE_DELAY_DAYS) renders the same select, disabled with
+// the standard env-controlled note, so the setting stays visible instead of
+// vanishing on the deployments most likely to set it.
+//
+// One row: label and <select>. The setting's explanation is the select's
+// tooltip; only a lock earns a visible line, because it says why the control
+// does nothing.
 function _appUpdateSelectRow(o) {
-  var lockNote = o.lockNote || t('env_controlled', { v: o.envVar });
+  var lockNote = t('env_controlled', { v: o.envVar });
   return '<div class="mc-row" style="align-items:center">' +
       '<span class="mc-label">' + esc(t(o.labelKey)) + '</span>' +
       // Styled as every Settings select is (.ms-pane select).
       '<span class="mc-value"><select id="' + escAttr(o.id) + '"' +
-        (o.locked ? ' disabled title="' + escAttr(lockNote) + '"' : '') +
+        ' title="' + escAttr(o.locked ? lockNote : t(o.hintKey)) + '"' + (o.locked ? ' disabled' : '') +
         ' onchange="' + escAttr(o.onchange) + '">' + o.options + '</select></span></div>' +
-    '<div class="ms-hint">' + esc(o.locked ? lockNote : t(o.hintKey)) + '</div>';
+    (o.locked ? '<div class="ms-hint">' + esc(lockNote) + '</div>' : '');
 }
 
 // String(value) matters: escAttr() turns a falsy value into '', which would
@@ -15714,23 +15709,6 @@ function _appUpdateSelectRow(o) {
 function _appUpdateOption(value, label, selected) {
   return '<option value="' + escAttr(String(value)) + '"' + (selected ? ' selected' : '') + '>' +
     esc(label) + '</option>';
-}
-
-function _appUpdateChannelHtml(d) {
-  var cur = d.channel || 'latest';
-  var opts = (d.channels || ['latest', 'beta']).map(function(c) {
-    var key = _APP_UPDATE_CHANNEL_LABELS[c];
-    return _appUpdateOption(c, key ? t(key) : c, c === cur);
-  }).join('');
-  return _appUpdateSelectRow({
-    id: 'app-update-channel',
-    labelKey: 'app_update_channel',
-    hintKey: 'app_update_channel_hint',
-    envVar: d.channel_env || 'ZIMI_UPDATE_CHANNEL',
-    locked: !!d.channel_locked,
-    onchange: '_appUpdateSetChannel(this.value)',
-    options: opts
-  });
 }
 
 // A saved delay the presets don't cover (set over the API or by an env var)
@@ -15814,7 +15792,7 @@ function _appUpdateHowSlot(d) {
 // Offline mode does no checking at all, so these would be controls with
 // nothing behind them.
 function _appUpdateSettingsSlot(d) {
-  return d.offline ? '' : _appUpdateCheckHtml(d) + _appUpdateChannelHtml(d) + _appUpdateDelayHtml(d);
+  return d.offline ? '' : _appUpdateCheckHtml(d) + _appUpdateDelayHtml(d);
 }
 
 // "Check for updates": Ask first / Automatically / Never, the choice the
@@ -15829,8 +15807,8 @@ function _appUpdateCheckHtml(d) {
       (locked ? ' disabled' : '') + ' onclick="_appUpdateSetCheck(\'' + escAttr(m) + '\')"><span>' + tH('alm_earth_sat_' + m) + '</span></button>';
   }).join('');
   return '<div class="ms-theme-label">' + tH('app_update_check') + '</div>' +
-    '<div class="app-theme-seg" id="' + _APP_UPDATE_CHECK_ID + '" role="radiogroup" tabindex="-1" aria-label="' + escAttr(t('app_update_check')) + '">' + btns + '</div>' +
-    '<div class="ms-hint">' + esc(locked ? t('env_controlled', { v: d.check_env || 'ZIMI_UPDATE_CHECK' }) : t('app_update_check_hint')) + '</div>';
+    '<div class="app-theme-seg" id="' + _APP_UPDATE_CHECK_ID + '" role="radiogroup" tabindex="-1" aria-label="' + escAttr(t('app_update_check')) + '" title="' + escAttr(t('app_update_check_hint')) + '">' + btns + '</div>' +
+    (locked ? '<div class="ms-hint">' + esc(t('env_controlled', { v: d.check_env || 'ZIMI_UPDATE_CHECK' })) + '</div>' : '');
 }
 var _APP_UPDATE_CHECK_ID = 'app-update-check';
 
@@ -15860,8 +15838,7 @@ function _appUpdatePaint(d) {
 function _appUpdateVerdictHtml(d) {
   var status;
   if (d.update_available) {
-    status = '<span class="app-update-badge">' + tH('app_update_available', { v: d.latest }) + '</span>' +
-      (d.prerelease ? ' <span class="app-update-quiet">' + tH('app_update_prerelease') + '</span>' : '');
+    status = '<span class="app-update-badge">' + tH('app_update_available', { v: d.latest }) + '</span>';
   } else if (d.update_held) {
     // The release exists and we know it — say so quietly instead of showing
     // "up to date", which would be a lie the user could check.
@@ -15891,8 +15868,8 @@ function _appUpdateShowChecking() {
 }
 
 // A failed check must not take the settings down with it. The verdict line
-// says so and everything else stays put — the channel and delay the admin set
-// are still true, whatever the network did.
+// says so and everything else stays put — the choices the admin made are
+// still true, whatever the network did.
 function _appUpdateShowError() {
   var host = document.getElementById(_APP_UPDATE_ID);
   if (!host) return;
@@ -15918,7 +15895,7 @@ function _renderAppUpdate(force) {
 
 function _appUpdateCheckNow() { _renderAppUpdate(true); }
 
-// Both update settings answer with the full app-update payload, so the
+// The update settings answer with the full app-update payload, so the
 // response IS the repainted state. The only reachable error is the env lock
 // (the select is disabled then, so that means a second browser raced a config
 // change) — say so and repaint from server truth.
@@ -15933,13 +15910,6 @@ function _appUpdateSaveSetting(path, body, envVar) {
     if (d && d.error) { _showToast(t('env_controlled', { v: envVar })); _renderAppUpdate(false); return; }
     _appUpdatePaint(d);
   }).catch(function() { _renderAppUpdate(false); });
-}
-
-// Switching channel re-checks server-side (the cached answer belongs to the
-// other channel); the delay is applied when the payload is built, so neither
-// needs a follow-up fetch.
-function _appUpdateSetChannel(channel) {
-  _appUpdateSaveSetting('/manage/app-update-channel', { channel: channel }, 'ZIMI_UPDATE_CHANNEL');
 }
 
 function _appUpdateSetCheck(mode) {
@@ -17380,7 +17350,9 @@ async function _renderDownloadSchedule() {
       '" title="' + escAttr(t('bt_max_dl_hint')) + '" onchange="_setBtMaxDl(this)">' +
     '</span></div>';
 
-  el.innerHTML = toggle + lockNote + windowBlock + maxRow + speedRow + uploadRow;
+  // Limits first (how many, how fast), then the nightly window with the
+  // upload restriction that shares its times right under it.
+  el.innerHTML = maxRow + speedRow + toggle + lockNote + windowBlock + uploadRow;
 }
 
 async function _postDownloadSchedule(body) {

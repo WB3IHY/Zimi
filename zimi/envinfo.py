@@ -78,7 +78,6 @@ VARS: dict[str, tuple[str, str]] = {
     # ── updates ───────────────────────────────────────────────────────────
     "ZIMI_AUTO_UPDATE": ("Keeps installed ZIMs up to date", "Auto-update"),
     "ZIMI_UPDATE_FREQ": ("How often to check for ZIM updates", "Frequency"),
-    "ZIMI_UPDATE_CHANNEL": ("App update channel: stable or beta", "App updates"),
     "ZIMI_UPDATE_DELAY_DAYS": (
         "Waits this long before taking an app update",
         "App updates",
