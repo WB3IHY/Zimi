@@ -119,8 +119,39 @@ function _timeDilationLag(sec, beta) {
 // The moving clock's own reading (proper time) over `sec` of rest-frame time.
 function _properTime(sec, beta) { return sec - _timeDilationLag(sec, beta); }
 
-// Rest-frame duration of a straight trip of `au` at beta * c.
-function _tripSecondsAtBeta(au, beta) { return _lightDelaySeconds(au) / beta; }
+// A ship that burns at constant proper acceleration `a` (m/s^2) from rest, the
+// relativistic rocket: after covering x metres its gamma is 1 + a x / c^2, the
+// Earth-frame time is (c / a) sqrt(gamma^2 - 1) and the ship's own clock reads
+// (c / a) acosh(gamma). Nothing here assumes a cruise speed: the speed is what
+// the burn has built up so far.
+var STANDARD_GRAVITY_M_S2 = 9.80665;
+var LIGHT_YEAR_M = SPEED_OF_LIGHT_M_S * SECONDS_PER_JULIAN_YEAR;
+function _rocketBurn(x, a) {
+  var g = 1 + a * x / (SPEED_OF_LIGHT_M_S * SPEED_OF_LIGHT_M_S), k = SPEED_OF_LIGHT_M_S / a;
+  return { gamma: g, earth: k * Math.sqrt(g * g - 1), ship: k * Math.acosh(g) };
+}
+
+// A one-way trip of `distM` metres that speeds up at `a` to the halfway point
+// and slows down at `a` the rest of the way, at the share `frac` of the
+// distance: both clocks so far, the gamma and beta there, and the trip's
+// totals and peak gamma (at the halfway point).
+function _rocketTripAt(distM, a, frac) {
+  var half = _rocketBurn(distM / 2, a), x = frac * distM;
+  var total = { earth: 2 * half.earth, ship: 2 * half.ship };
+  var out = {
+    earthTotal: total.earth, shipTotal: total.ship, peakGamma: half.gamma,
+    earth: 0, ship: 0, gamma: 1, beta: 0
+  };
+  if (x <= distM / 2) {
+    var up = _rocketBurn(x, a);
+    out.earth = up.earth; out.ship = up.ship; out.gamma = up.gamma;
+  } else {
+    var down = _rocketBurn(distM - x, a);
+    out.earth = total.earth - down.earth; out.ship = total.ship - down.ship; out.gamma = down.gamma;
+  }
+  out.beta = Math.sqrt(1 - 1 / (out.gamma * out.gamma));
+  return out;
+}
 
 // Heliocentric ecliptic position (AU) of a body at a sim instant; the Sun is the origin.
 function _orreryBodyAU(name, simMs) {
@@ -220,6 +251,14 @@ function _orrFmtAU(au) { return _orrNum(au, null, 2); }
 // Speed as a fraction of light: "0.90c".
 function _orrFmtBeta(beta) { return _orrNum(beta, null, 2) + 'c'; }
 
+// A top speed as a fraction of light with enough decimals to tell it from 1:
+// "0.95c" to Alpha Centauri, "0.9999999972c" to the galactic centre.
+function _orrFmtTopBeta(beta) {
+  var gap = 1 - beta;
+  var d = gap > 0 && gap < 0.01 ? Math.ceil(-Math.log10(gap)) + 1 : 2;
+  return _orrNum(beta, null, Math.min(d, _ORR_MAX_FRACTION_DIGITS)) + 'c';
+}
+
 // Gamma with enough decimals to show two significant digits past the 1:
 // "2.29" at 0.9c, "1.0000000038" for a real rocket.
 var _ORR_MAX_FRACTION_DIGITS = 20; // Intl's ceiling
@@ -294,31 +333,32 @@ function _orrFmtTransitDays(rk) {
 }
 
 // ── The twin paradox, on the ride ──
-// Slider 0 is the rocket as flown: its average speed along the drawn path over
-// the transfer time (tens of km/s, some 0.0001c). Above 0 is a what-if: a
-// straight line to where the planet stood at launch, at that fraction of c.
-// Both clocks run with the ride's progress and stop at arrival.
-var _TWIN_SLIDER_STEPS_PER_C = 100;
-var _TWIN_MAX_BETA = 0.99;
-var _orreryTwinBeta = 0;
+// Stop 0 is the rocket as flown: its average speed along the drawn path over
+// the transfer time (tens of km/s, some 0.0001c). The other stops are what-ifs:
+// a ship that burns at 1 g, half the way accelerating and half decelerating, to
+// a star. A planet is too close for that to build up any relativistic speed
+// (1 g to Mars peaks near 0.0001c), so the what-ifs are the stars. Both clocks
+// run with the ride's progress, as a share of the distance, and stop at arrival.
+var _TWIN_TRIPS = [null,
+  { name: 'alm_orr_twin_dest_alpha', ly: 4.37 },
+  { name: 'alm_orr_twin_dest_core', ly: 26000 }];
+var _TWIN_MAX_BETA = 0.99;     // the light clock's drawing stops here, however fast the ship
+var _orreryTwinTrip = 0;
 var _orreryTwinOpen = false;   // the twins and the light clock, shown behind a quiet link
 
-function _twinSliderToBeta(v) {
-  return Math.min(_TWIN_MAX_BETA, Math.max(0, v / _TWIN_SLIDER_STEPS_PER_C));
+function _twinSliderToTrip(v) {
+  return Math.min(_TWIN_TRIPS.length - 1, Math.max(0, Math.round(v) || 0));
 }
 
 function _orreryRealSpeedKmS(rk) { return rk.pathAU * AU_KM / (rk.duration / 1000); }
 
-function _orreryTwinClocks(rk, whatIfBeta, frac) {
-  var total, beta;
-  if (whatIfBeta > 0) {
-    beta = whatIfBeta;
-    total = _tripSecondsAtBeta(rk.straightAU, beta);
-  } else {
-    total = rk.duration / 1000;
-    beta = _orreryRealSpeedKmS(rk) * 1000 / SPEED_OF_LIGHT_M_S;
+function _orreryTwinClocks(rk, trip, frac) {
+  if (trip > 0) {
+    var r = _rocketTripAt(_TWIN_TRIPS[trip].ly * LIGHT_YEAR_M, STANDARD_GRAVITY_M_S2, frac);
+    return { beta: r.beta, gamma: r.gamma, earth: r.earth, ship: r.ship, lag: r.earth - r.ship, peakGamma: r.peakGamma };
   }
-  var earth = total * frac;
+  var beta = _orreryRealSpeedKmS(rk) * 1000 / SPEED_OF_LIGHT_M_S;
+  var earth = rk.duration / 1000 * frac;
   return { beta: beta, gamma: _lorentzFactor(beta), earth: earth,
            ship: _properTime(earth, beta), lag: _timeDilationLag(earth, beta) };
 }
@@ -333,7 +373,7 @@ function _orreryTwinToggle() {
   _orreryUpdateRide();
 }
 function _orreryTwinInput(val) {
-  _orreryTwinBeta = _twinSliderToBeta(parseInt(val, 10) || 0);
+  _orreryTwinTrip = _twinSliderToTrip(parseInt(val, 10));
   _orreryUpdateRide();
 }
 
@@ -1565,8 +1605,7 @@ function _orreryUpdateMissions() {
 // Built once per ride panel and then only its text nodes change, so the twin
 // slider keeps working while the readout updates every frame.
 function _orreryRidePanelHtml() {
-  var slider = Math.round(_orreryTwinBeta * _TWIN_SLIDER_STEPS_PER_C);
-  var max = Math.round(_TWIN_MAX_BETA * _TWIN_SLIDER_STEPS_PER_C);
+  var slider = _orreryTwinTrip, max = _TWIN_TRIPS.length - 1;
   return '<div class="orrery-ride-head"><span id="orrery-ride-where" class="orrery-ride-where"></span>' +
       '<span id="orrery-ride-dist" class="orrery-ride-dist"></span></div>' +
     '<div id="orrery-ride-delay" class="orrery-ride-delay"></div>' +
@@ -1701,13 +1740,22 @@ function _orreryUpdateRide() {
   _orrSetText('orrery-ride-where', t(arrived ? 'alm_orr_arrived' : 'alm_orr_ride_to', { planet: planet }));
   _orrSetText('orrery-ride-dist', t('alm_orr_au_from_earth', { d: _orrFmtAU(st.au) }));
   _orrSetText('orrery-ride-delay', t(arrived ? 'alm_orr_msg_home_now' : 'alm_orr_msg_home', { t: span }));
-  var tw = _orreryTwinClocks(rk, _orreryTwinBeta, st.frac);
-  var speed = _orreryTwinBeta > 0 ? _orrFmtBeta(_orreryTwinBeta) : _orrNum(_orreryRealSpeedKmS(rk), 'kilometer-per-second');
-  _orrSetText('orrery-twin-speed', t(_orreryTwinBeta > 0 ? 'alm_orr_twin_whatif_at' : 'alm_orr_twin_real', { v: speed }));
+  var tw = _orreryTwinClocks(rk, _orreryTwinTrip, st.frac);
+  var whatIf = _orreryTwinTrip > 0, speed, lcBeta = tw.beta;
+  if (whatIf) {
+    speed = _orrFmtTopBeta(Math.sqrt(1 - 1 / (tw.peakGamma * tw.peakGamma)));
+    _orrSetText('orrery-twin-speed', t('alm_orr_twin_whatif_at', { dest: t(_TWIN_TRIPS[_orreryTwinTrip].name), v: speed }));
+    lcBeta = Math.min(tw.beta, _TWIN_MAX_BETA);
+    speed = _orrFmtBeta(lcBeta);
+  } else {
+    speed = _orrNum(_orreryRealSpeedKmS(rk), 'kilometer-per-second');
+    _orrSetText('orrery-twin-speed', t('alm_orr_twin_real', { v: speed }));
+  }
   _orrSetText('orrery-twin-earth', _orrFmtSpan(tw.earth));
   _orrSetText('orrery-twin-ship', _orrFmtSpan(tw.ship));
-  _orrSetText('orrery-twin-note', t('alm_orr_twin_explain', { g: _orrFmtGamma(tw.gamma), lag: _orrFmtSpan(_orreryShownLag(tw)) }));
-  if (_orreryTwinOpen) _orreryLightClock(tw.beta, speed, performance.now());
+  _orrSetText('orrery-twin-note', t('alm_orr_twin_explain', { lag: _orrFmtSpan(_orreryShownLag(tw)) }) +
+    (whatIf ? ' ' + t('alm_orr_twin_burn') : ''));
+  if (_orreryTwinOpen) _orreryLightClock(lcBeta, speed, performance.now());
 }
 
 function _orreryUpdateDate() {

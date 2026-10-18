@@ -359,8 +359,10 @@
 .orrery-twin-link:hover, .orrery-twin-link:focus-visible { color: var(--amber); text-decoration-color: var(--amber-border); }
 .orrery-twin-link:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .orrery-twin[hidden] { display: none; }
-.orrery-twin-ctl { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-.orrery-twin-speed { color: var(--amber); flex-shrink: 0; }
+/* The trip's name can be long (1 g to the galactic center, top speed 0.9999999972c): it takes its own line. */
+.orrery-twin-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 6px; }
+.orrery-twin-ctl .orrery-slider { flex-basis: 100%; }
+.orrery-twin-speed { color: var(--amber); }
 .orrery-twin-clocks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 .orrery-twin-clock { display: flex; flex-direction: column; background: var(--surface2); border-radius: 8px; padding: 6px 8px; }
 .orrery-twin-lbl { font-size: 10px; color: var(--text3); letter-spacing: 0.04em; }
