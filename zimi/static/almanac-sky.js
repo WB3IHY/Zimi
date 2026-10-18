@@ -731,6 +731,17 @@ function _skyStarDevR(rCss, dpr) { return Math.max(SKY_STAR_MIN_DEV_R, rCss * dp
 // (_sgStarVisibility, the GPU's own formula), thinned and reddened by the air
 // they come through, each steady between paints but not between paintings.
 // The named stars become tap targets either way.
+// Look names what the eye cannot see by day: a bright star or a planet the sky's light hides is a thin ring where it
+// stands (the name is written beside it by _skyHostLabels), dark under light so it reads on the blue and on the black.
+var SKY_DAY_MARK_PX = 6, SKY_DAY_MARK_MAG = 1.8, SKY_DAY_MARK_SEEN = 0.6;   // a planet fainter than this share of itself in the sky is ringed
+function _skyDayMark(ctx, x, y, dpr) {
+  var r = SKY_DAY_MARK_PX * dpr;
+  ctx.save();
+  ctx.lineWidth = 3 * dpr; ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 1.5 * dpr; ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.stroke();
+  ctx.restore();
+  return r;
+}
 function _skyPaintStars(ctx, s, gpu) {
   var e = s.eph, dpr = s.dpr, lm = s.lm, scint = !_skyReduceMotion();
   for (var i = 0; i < e.stars.length; i++) {
@@ -738,9 +749,11 @@ function _skyPaintStars(ctx, s, gpu) {
     if (gpu && (!named || _skyNames)) continue;   // the GPU draws them; the bright ones are tapped by designation once those are loaded
     var look = _skyStarLook(st.mag), X = _skyAirmass(st.alt);
     var a = _sgStarVisibility(st.mag + SG_EXTINCTION_MAG * (X - 1), lm);
-    if (a < 0.02) continue;
+    var hidden = s.hosted && named && st.mag <= SKY_DAY_MARK_MAG && st.alt > 0 && a <= 0.3;   // Look names it by day though the sky hides it
+    if (a < 0.02 && !hidden) continue;
     var p = _skyScreen(s, st.az, st.alt, 4);
     if (!p.visible) continue;
+    if (hidden) { s.bodies.push({ type: 'star', idx: st.idx, x: p.x / dpr, y: p.y / dpr, r: _skyDayMark(ctx, p.x, p.y, dpr) / dpr, alt: st.alt, az: st.az, mag: st.mag }); continue; }
     var r = _skyStarDevR(look.r, dpr);
     if (!gpu && !_skyUnderMoon(s, p.x, p.y)) {
       if (scint) a *= 1 + _sgScintillation(st.alt) * Math.sin(st.phase + s.twinkle * 2.39996);
@@ -882,16 +895,19 @@ function _skyPaintFigureNames(ctx, s, M, labels) {
   }
 }
 // Every star down to magnitude 4.5 can be tapped: its name or its Bayer or Flamsteed designation, its magnitude and its figure.
-function _skyPaintStarBodies(s, M) {
+function _skyPaintStarBodies(s, M, ctx) {
   var st = _sg && _sg.stars;
   if (!st || !_skyNames) return;
   var dpr = s.dpr, lm = s.lm;
   for (var i = 0; i < _skyTapStars; i++) {
-    if (_sgStarVisibility(st.mag[i], lm) < 0.05) continue;
+    var unseen = _sgStarVisibility(st.mag[i], lm) < 0.05;
+    var hidden = unseen && s.hosted && st.mag[i] <= SKY_DAY_MARK_MAG && _skyNamedBin[i] != null;   // Look names it by day though the sky hides it
+    if (unseen && !hidden) continue;
     var aa = _skyAltAzOf(M, [st.vec[3 * i], st.vec[3 * i + 1], st.vec[3 * i + 2]]);
     if (aa.alt <= 0) continue;
     var p = _skyScreen(s, aa.az, aa.alt, 4);
     if (!p.visible || _skyUnderMoon(s, p.x, p.y)) continue;
+    if (hidden) _skyDayMark(ctx, p.x, p.y, dpr);
     var nm = _skyNames[i];
     s.bodies.push({ type: 'star', bin: i, idx: _skyNamedBin[i] == null ? -1 : _skyNamedBin[i], desig: nm ? nm[0] : '', con: nm ? nm[1] : '',
       x: p.x / dpr, y: p.y / dpr, r: _skyStarDevR(_skyStarLook(st.mag[i]).r, dpr) / dpr, alt: aa.alt, az: aa.az, mag: st.mag[i] });
@@ -966,7 +982,10 @@ function _skyPaintPlanets(ctx, s) {
     var pt = _skyScreen(s, p.az, p.alt);
     if (!pt.visible || _skyUnderMoon(s, pt.x, pt.y)) continue;
     var a = _sgStarVisibility(p.mag + SG_EXTINCTION_MAG * (_skyAirmass(p.alt) - 1), lm);
-    if (a < 0.05) continue;
+    if (a < 0.05) {
+      if (s.hosted) s.bodies.push({ type: 'planet', name: p.name, x: pt.x / s.dpr, y: pt.y / s.dpr, r: _skyDayMark(ctx, pt.x, pt.y, s.dpr) / s.dpr, alt: p.alt, az: p.az, mag: p.mag, phase: p.phase });   // Look names it by day though the sky hides it
+      continue;
+    }
     // A planet is a point too, a little fuller than a star of its brightness
     // (it does not twinkle, and its steady light reads as a touch larger).
     var x = pt.x, y = pt.y, r = _skyStarDevR(_skyStarLook(p.mag).r * SKY_PLANET_R_X, s.dpr), disc = p.semi * ppd;
@@ -984,7 +1003,8 @@ function _skyPaintPlanets(ctx, s) {
       ctx.fillStyle = _hexToRgba(col, a);
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     }
-    if (a > 0.15) s.bodies.push({ type: 'planet', name: p.name, x: x / s.dpr, y: y / s.dpr, r: r / s.dpr, alt: p.alt, az: p.az, mag: p.mag, phase: p.phase });
+    if (s.hosted && a < SKY_DAY_MARK_SEEN) _skyDayMark(ctx, x, y, s.dpr);   // faint in the blue (Venus by day): ringed so it can be found
+    if (a > 0.15 || s.hosted) s.bodies.push({ type: 'planet', name: p.name, x: x / s.dpr, y: y / s.dpr, r: r / s.dpr, alt: p.alt, az: p.az, mag: p.mag, phase: p.phase });
   }
 }
 // A disc lit to a fraction k, its bright side toward `angle` (canvas radians):
@@ -2416,7 +2436,7 @@ function _skyPaintBase(s, ts) {
   _skyPaintConstellations(ctx, s, M);
   _skyPaintDeepSky(ctx, s, M);
   _skyPaintStars(ctx, s, !!gl);
-  if (gl) _skyPaintStarBodies(s, M);
+  if (gl) _skyPaintStarBodies(s, M, ctx);
   _skyPaintPlanets(ctx, s);
   _skyPaintSun(ctx, s);
   _skyPaintMoon(ctx, s, _skyMoonAt(s, ts));
