@@ -231,41 +231,6 @@ def test_the_ground_light_is_read_back_once_per_light_not_per_frame(browser, ser
         ctx.close()
 
 
-def test_reopening_the_almanac_reuses_what_was_built(browser, served):
-    ctx, pg, errors = _page(browser, served)
-    try:
-        pg.wait_for_function(
-            "() => typeof _aeReady === 'function' && _aeReady()",
-            timeout=READY_MS,
-            polling=250,
-        )
-        pg.evaluate(
-            "() => { window.__gl = _ae.gl; window.__sg = _sg; closeAlmanac(); }"
-        )
-        assert pg.evaluate(
-            "() => _ae.gl === window.__gl && !_ae.gl.renderer.getContext().isContextLost()"
-        )
-        pg.evaluate("() => openAlmanac()")
-        pg.wait_for_function(
-            "() => _almanacOpen && !!document.getElementById('almanac-head')",
-            timeout=30_000,
-        )
-        # Nothing built again: the same scene, ready at once, and the hero drawn live from it.
-        assert pg.evaluate(
-            "() => _ae.gl === window.__gl && _aeReady() && _sg === window.__sg"
-        )
-        pg.wait_for_function(
-            "() => document.getElementById('almanac-view').classList.contains('lp-live')",
-            timeout=30_000,
-            polling=POLL_MS,
-        )
-        # Left for good, it goes back.
-        pg.evaluate("() => { closeAlmanac(); _almReleaseGpu(); }")
-        assert pg.evaluate("() => _ae.gl === null && (_sg === null || _sg === false)")
-    finally:
-        ctx.close()
-
-
 def test_a_drag_on_the_picture_answers_before_the_live_moon_is_ready(browser, served):
     ctx, pg, errors = _page(browser, served)
     try:

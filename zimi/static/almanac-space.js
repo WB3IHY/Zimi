@@ -1938,12 +1938,11 @@ function _spDisposeGl() {
   _sp.labelPool = {};
 }
 // Leaving the Almanac: the view closes and gives the GPU back.
-function _spRelease(keepGl) {
+function _spRelease() {
   if (!_sp) return;
   if (_spIsOpen) { _aeStepped = false; _spClose(); }
-  if (!keepGl) _spDisposeGl();
+  else _spDisposeGl();
 }
-function _spReleaseGpu() { if (!_spIsOpen) _spDisposeGl(); }
 
 // The scene is centred in what the controls leave clear: the screen between the
 // top bar and the card (or the bottom controls), not behind them.

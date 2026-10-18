@@ -179,8 +179,7 @@ vm.runInContext(
   'var _almSettled = []; function _almScrubSettle(d) { _almSettled.push(d.getTime()); _almFocus = d; }' +
   'function _almBackToToday() { _almSettled.push(null); _almFocus = null; } function _almHeroLiveStop() {}', S);
 for (const fn of ['_dateToJD', '_almEsc', '_jdnToGregorian', '_cnDeltaTdays', '_speedToSlider', '_formatSpeed',
-                  '_almanacTeardown', '_almFocusInstant', '_almReleaseGpu', '_almReleaseGpuSoon']) vm.runInContext(extractFn(almSrc, fn), S);
-vm.runInContext('var ALM_GPU_GRACE_MS = 30000, _almGpuTimer = 0;', S);
+                  '_almanacTeardown', '_almFocusInstant']) vm.runInContext(extractFn(almSrc, fn), S);
 vm.runInContext(extractFn(read('app.js'), '_smoothstep'), S);
 // The shared angle and Moon-orientation helpers the view borrows from the
 // Almanac's other files (one global scope in the browser).
@@ -353,9 +352,7 @@ const run = (code) => vm.runInContext(code, S);
     S._almanacOpen = true;
     run('_almanacTeardown()');   // closing the Almanac, as its close button does
     check(run('_aeIsOpen') === false, 'closing the Almanac closes the view');
-    check(run('_ae.gl') !== null && disposed === 0, 'the scene is kept for the grace, a reopen reusing it');
-    run('_almReleaseGpu()');     // the grace over (or the page hidden)
-    check(run('_ae.gl') === null, 'and then lets the scene go');
+    check(run('_ae.gl') === null, 'and lets the scene go');
     check(held.size > 10 && disposed === held.size, 'every geometry and material is disposed (' + disposed + ' of ' + held.size + ')');
     check(maps.length === 3 && maps.every((x) => x.disposed), 'every map is disposed');
     check(textures.some((x) => x.url === S.AE_TEX_MOON_HI) && textures.filter((x) => x.url === S.AE_TEX_MOON).every((x) => x.disposed),
