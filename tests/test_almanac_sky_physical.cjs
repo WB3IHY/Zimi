@@ -318,8 +318,9 @@ check(run('_sgLimitMag(_sgSkyLum(60, -90, 0, 0, 0.003))') > 0 && run('_sgLimitMa
   const keys = run("Object.keys(SKY_ZONE_GENERATED).length");
   check(keys > 450, 'the table has every zone.tab zone and its links (' + keys + ')');
   const rows = (known) => { S.__ms = Date.parse('2026-10-14T20:00:00Z'); S.__s = { lat: 34, lon: 0, nowTime: S.__ms, stored: false, known: known, moonData: { phase: { illumination: 20 } } }; S.__f = run('_skyFactsAt(__ms, 34, 0)'); return run('_skyFactRows(__s, __f)'); };
-  check(rows(false).some((r) => r[1] === 'alm_sky_f_pole_unknown') && !rows(false).some((r) => /alm_sky_f_north_val|alm_sky_f_south_val/.test(r[1])), 'an unknown zone says it does not know where north is');
-  check(rows(true).some((r) => /alm_sky_f_north_val/.test(r[1])), 'a known northern one names Polaris');
+  // Four cards, two by two, under the Moon's eight (Eric, 2026-10-18); where north is, Look and the chart show.
+  check(rows(false).length === 4 && rows(true).length === 4, 'four cards, guessed or known');
+  check(!rows(true).some((r) => /alm_sky_f_(north|south)/.test(r[0])), 'no north card under the Moon');
 }
 // Guessed times round the way that does no harm, and add up (Sydney, 18:50 local, sunset 19:07).
 {
@@ -361,7 +362,7 @@ check(run('_sgLimitMag(_sgSkyLum(60, -90, 0, 0, 0.003))') > 0 && run('_sgLimitMa
   check(Math.abs(f.sunsetAz - 259.9) < 1.2 && f.sunriseAz > 80 && f.sunriseAz < 110, 'the Sun sets at bearing ' + f.sunsetAz.toFixed(1) + ' (Horizons 259.9) and rises in the east');
   const known = rowsOf(true), guessed = rowsOf(false);
   check(/alm_dir_w/.test(known[0][2]) && /\d+\u00b0/.test(known[0][2]) && !known.some((r) => /alm_sky_f_about/.test(r.join(' '))), 'the daylight card names where the Sun goes down: "' + known[0][2] + '"');
-  check(guessed.filter((r) => /alm_sky_f_about/.test(r[1])).length >= 3 && !/alm_sky_f_about/.test(guessed[3][1]), 'while the place is a guess the rows say so in themselves (about)');
+  check(guessed.every((r) => /alm_sky_f_about/.test(r[1])), 'while the place is a guess the rows say so in themselves (about)');
 }
 
 // ── 8. Rising and setting, the time by the Sun ──

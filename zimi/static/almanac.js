@@ -2305,12 +2305,13 @@ function _renderAlmanacContent() {
   // live sky directly above the month like a wall calendar flipped open (Eric, 2026-10-18: nothing between
   // the sky and the calendar, ever), then the place (the map, its clocks, its tide), the solar system,
   // tonight's planets and the star chart, the year's figures, deep time. What the sky says about the hour
-  // (its caption, the facts a person acts on, the ask for a place) belongs to the Moon's block above it.
-  // Its clock is the page's (the time machine); almanac-sky.js.
+  // (the facts a person acts on, the ask for a place, its caption) belongs to the Moon's block above it:
+  // the facts' cards straight under the Moon's own, the caption last, directly over the picture it
+  // describes (Eric, 2026-10-18). Its clock is the page's (the time machine); almanac-sky.js.
   html += '<div class="alm-sky-info">' +
-    '<div id="almanac-sky-cap" class="alm-sky-cap"></div>' +
     '<div id="almanac-sky-facts" class="alm-sky-facts"></div>' +
     '<div id="almanac-sky-invite">' + (_getLocation().stored ? '' : _almPlaceInviteHtml()) + '</div>' +
+    '<div id="almanac-sky-cap" class="alm-sky-cap"></div>' +
     '</div>';
   html += '<div class="almanac-sky-wrap">' +
     '<canvas id="almanac-sky-canvas" data-red aria-describedby="almanac-sky-desc" role="img" tabindex="0"></canvas>' +
@@ -7010,7 +7011,7 @@ function _drawAlmanacGrid() {
       // colour so they read apart from the worldwide observances (#33).
       var evCls = 'alm-ev alm-ev-' + ev.type + (ev.src ? ' alm-ev-country' : '');
       html += '<div class="' + evCls + '"' + srcTitle + '>' +
-        (ev.icon ? ev.icon + ' ' : '') + escapedLabel + '</div>';
+        (ev.icon ? '<span class="alm-emoji">' + ev.icon + '</span> ' : '') + escapedLabel + '</div>';
     }
     if (dayEvents.length > 2) {
       html += '<div class="alm-ev alm-ev-more">+' + (dayEvents.length - 2) + '</div>';
@@ -7058,7 +7059,7 @@ function _drawAlmanacGrid() {
           : (ev.link ? _alLink(ev.link, escName) : escName);
         if (ev.src) detailLabel += ' <span style="color:var(--text3)">\u00b7 ' + ev.src.replace(/</g,'&lt;') + '</span>';
         html += '<div class="alm-ev alm-ev-' + ev.type + (ev.src ? ' alm-ev-country' : '') + '" style="font-size:12px;padding:2px 0">' +
-          (ev.icon ? ev.icon + ' ' : '') + detailLabel + '</div>';
+          (ev.icon ? '<span class="alm-emoji">' + ev.icon + '</span> ' : '') + detailLabel + '</div>';
       }
       html += '</div>';
     }

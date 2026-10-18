@@ -103,15 +103,16 @@ function _skySpan(at, now, guess, dir) { return _orrFmtSpan(Math.max(0, _skyRoun
 // "SW 252°": the point of the compass and the bearing it stands for.
 function _skyBearing(az) { return _azCompass(az) + ' ' + Math.round(az) + '\u00b0'; }
 
-// The cards: [label, value, sub, wide]. The value is the one short thing the
-// card is for (a span, a clock time); the sub is where on the horizon, in the
-// card's own small line; wide is a card whose words run long. A card that rests
+// The cards: [label, value, sub], four, two by two. The value is the one short
+// thing the card is for (a span, a clock time); the sub is where on the
+// horizon, in the card's own small line. (Where north is, the Look view and the
+// star chart show, and the Field Guide says: fieldguide-card.js.) A card that rests
 // on a guessed place says "about" in itself. They sit under the Moon beside the
 // hero's own numbers (illuminated, sunrise, sunset: almanac.js _almHeadHtml), so
 // they say none of those again: the span left, not the time it ends; when the
 // Moon comes or goes, not how lit it is.
 function _skyFactRows(s, f) {
-  var rows = [], lat = s.lat, now = s.nowTime, guess = !s.stored;
+  var rows = [], now = s.nowTime, guess = !s.stored;
   var about = function (v) { return guess ? t('alm_sky_f_about', { v: v }) : v; };
   var at = function (ms, dir) { return about(_skyClock(ms, guess, dir)); };
   // A guessed sunset less than a step away rounds down to now: said as what it is, not as a time already gone.
@@ -123,11 +124,6 @@ function _skyFactRows(s, f) {
   // When it next comes or goes, and where; how lit it is is the hero's card. With neither in the next day and a half, that.
   var moonAt = f.moonUp ? (f.moonset ? [t('alm_sky_f_sets', { t: at(f.moonset, -1) }), f.moonsetAz] : null) : (f.moonrise ? [t('alm_sky_f_rises', { t: at(f.moonrise, 1) }), f.moonriseAz] : null);
   rows.push(moonAt ? [t('alm_moon'), moonAt[0], _skyBearing(moonAt[1])] : [t('alm_moon'), t('alm_sky_f_moon_lit', { p: _orrNum(s.moonData.phase.illumination, null, 0) + '%' }), '']);
-  var a = _skyDeg(Math.abs(lat));
-  if (s.known === false) rows.push([t('alm_sky_f_north'), t('alm_sky_f_pole_unknown'), '', true]);
-  else if (Math.abs(lat) < 2) rows.push([t('alm_sky_f_north'), t('alm_sky_f_equator_val'), '', true]);
-  else if (lat > 0) rows.push([t('alm_sky_f_north'), t('alm_sky_f_north_val', { a: a }), '', true]);
-  else rows.push([t('alm_sky_f_south'), t('alm_sky_f_south_val', { a: a }), '', true]);
   rows.push([t('alm_sky_f_solar'), about(_skySolarClock(_skySolarMinutes(new Date(now), s.lon), guess)), '']);
   return rows;
 }
@@ -136,17 +132,13 @@ function _skyNoBreak(text) {
   var parts = text.split(' · ');
   return parts.map(function (p, i) { return '<span class="alm-nobr">' + _almEsc(p) + (i < parts.length - 1 ? ' ·' : '') + '</span>'; }).join(' ');
 }
-// The cards in the hero's own grammar (a label over a value, two columns),
-// the short ones first and the wide ones under them.
+// The cards in the hero's own grammar (a label over a value, two columns).
 function _skyFactCards(rows) {
   var html = '<div class="alm-sky-cards">';
-  for (var pass = 0; pass < 2; pass++) {
-    for (var i = 0; i < rows.length; i++) {
-      var r = rows[i];
-      if (!!r[3] !== !!pass) continue;
-      html += '<div class="alm-card' + (r[3] ? ' alm-card-wide' : '') + '"><div class="alm-card-lbl">' + _almEsc(r[0]) + '</div><div class="alm-card-val">' + _almEsc(r[1]) + '</div>' +
-        (r[2] ? '<div class="alm-card-sub">' + _skyNoBreak(r[2]) + '</div>' : '') + '</div>';
-    }
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    html += '<div class="alm-card"><div class="alm-card-lbl">' + _almEsc(r[0]) + '</div><div class="alm-card-val">' + _almEsc(r[1]) + '</div>' +
+      (r[2] ? '<div class="alm-card-sub">' + _skyNoBreak(r[2]) + '</div>' : '') + '</div>';
   }
   return html + '</div>';
 }
@@ -179,8 +171,7 @@ function _skySettingsHtml() {
     '<small>' + _almEsc(t('alm_sky_set_dark_hi')) + '</small></span></label>' +
     _skySelectHtml('lines', 'alm_sky_set_lines', SKY_SETTING_VALUES.lines, function (v) { return 'alm_sky_lines_' + v; }) +
     _skySelectHtml('size', 'alm_sky_set_size', SKY_SETTING_VALUES.size, function (v) { return 'alm_sky_size_' + v; }) +
-    _skySelectHtml('skin', 'alm_sky_set_skin', SKY_SETTING_VALUES.skin, function (v) { return 'alm_sky_skin_' + v; }) +
-    '<label class="alm-sky-set-row alm-sky-set-check"><input type="checkbox" data-sky-set="red"><span>' + _almEsc(t('alm_sky_set_red')) + '</span></label>';
+    _skySelectHtml('skin', 'alm_sky_set_skin', SKY_SETTING_VALUES.skin, function (v) { return 'alm_sky_skin_' + v; });
 }
 // The gear opens the panel over the sky and closes it again; so does a tap anywhere else, and Escape.
 function _skyToggleSettings(open) {
@@ -219,11 +210,10 @@ function _skyBindSettings() {
   for (var i = 0; i < controls.length; i++) {
     (function (el) {
       var k = el.getAttribute('data-sky-set');
-      if (k === 'red') el.checked = _skyRedOn();
-      else if (k === 'dial') el.value = Math.round(_skySetting('dial') * SKY_DIAL_STEPS);
+      if (k === 'dial') el.value = Math.round(_skySetting('dial') * SKY_DIAL_STEPS);
       else el.value = _skySetting(k);
       el.addEventListener(k === 'dial' ? 'input' : 'change', function () {
-        _skySet(k, k === 'red' ? el.checked : k === 'dial' ? el.value / SKY_DIAL_STEPS : el.value);
+        _skySet(k, k === 'dial' ? el.value / SKY_DIAL_STEPS : el.value);
       });
     })(controls[i]);
   }

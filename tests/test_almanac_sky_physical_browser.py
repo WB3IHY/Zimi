@@ -396,7 +396,7 @@ def test_without_webgl2_the_panorama_turns_and_the_sky_still_draws(browser, serv
         )
         assert lit > 100, "the Canvas 2D sky draws its stars (%d)" % lit
         # The facts and settings are the same.
-        assert "Polaris" in pg.inner_text("#almanac-sky-facts")
+        assert "local solar time" in pg.inner_text("#almanac-sky-facts").lower()
         assert not errors, errors
     finally:
         ctx.close()
@@ -487,7 +487,7 @@ def test_a_guessed_place_is_said_to_be_guessed_and_named(browser, served):
         )
         text = pg.inner_text("#almanac-sky-facts")
         assert "guessed" not in text.lower(), text
-        for label in ("sunrise", "moon", "true north", "solar time"):
+        for label in ("sunrise", "moon", "solar time"):
             assert label in text.lower(), (label, text)
     finally:
         ctx.close()

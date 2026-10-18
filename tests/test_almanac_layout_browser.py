@@ -143,7 +143,9 @@ def test_the_moons_numbers_are_under_the_moon_with_the_skys_words_after_them(
                 sky = document.querySelector('.almanac-sky-wrap');
               const cards = ids.map(i => document.getElementById(i));
               return { present: cards.map(c => !!c), text: cards.map(c => c && c.textContent.trim()),
-                order: [y(moon), y(cards[0]), y(info), y(sky)],
+                order: [y(moon), y(cards[0]), y(document.getElementById('almanac-sky-facts')), y(document.getElementById('almanac-sky-cap')), y(sky)],
+                // The Moon's cards and the sky's run on as one grid: the same gap between the two sets as inside them.
+                seam: Math.round(document.getElementById('almanac-sky-facts').getBoundingClientRect().top - document.querySelector('#almanac-head .alm-cards').getBoundingClientRect().bottom),
                 cap: document.getElementById('almanac-sky-cap').textContent.trim().length > 0,
                 facts: document.getElementById('almanac-sky-facts').querySelectorAll('.alm-card').length,
                 factLabels: [...document.querySelectorAll('#almanac-sky-facts .alm-card-lbl')].map(e => e.textContent.trim().toLowerCase()),
@@ -153,7 +155,9 @@ def test_the_moons_numbers_are_under_the_moon_with_the_skys_words_after_them(
         )
         assert all(got["present"]), got
         assert all(got["text"]), got  # each has its figure
+        # The Moon, its cards, the sky's cards, then the caption directly over the sky (Eric, 2026-10-18).
         assert got["order"] == sorted(got["order"]), got["order"]
+        assert got["seam"] == 8, got["seam"]
         assert got["cap"] and got["facts"] >= 4, got
         # No duplication: the facts do not say how lit the Moon is (the hero's Illuminated card does), and do not
         # write a sunrise or sunset hour again (the hero's cards do).
@@ -162,7 +166,8 @@ def test_the_moons_numbers_are_under_the_moon_with_the_skys_words_after_them(
             l in ("illuminated", "sunrise", "sunset", "daylight")
             for l in got["factLabels"]
         ), got["factLabels"]
-        assert "True north" in got["factText"] or "True south" in got["factText"]
+        # Four cards, so the Moon's eight and these four are one grid of twelve.
+        assert got["facts"] == 4, got
         assert not errors, errors
     finally:
         ctx.close()
