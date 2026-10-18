@@ -2172,6 +2172,13 @@ def _fetch_kiwix_catalog(
                 icon_url = (
                     "https://library.kiwix.org" + href if href.startswith("/") else href
                 )
+        # The icon shipped with the snapshot loads at once and offline; the
+        # live one is one round trip to Kiwix per picture.
+        from zimi import catalog_snapshot
+
+        shipped_icon = catalog_snapshot.icon_for(name)
+        if shipped_icon:
+            icon_url = "/catalog-icon/" + shipped_icon
 
         # Determine if installed by matching download URL filename against local ZIMs
         installed = False
@@ -2298,7 +2305,7 @@ def _prefetch_thumbs(items, limit=200, spacing=0.15):
     urls = []
     for it in items or []:
         u = it.get("icon_url")
-        if u:
+        if u and u.startswith("https://"):  # a shipped icon needs no warming
             urls.append(u)
         if len(urls) >= limit:
             break
