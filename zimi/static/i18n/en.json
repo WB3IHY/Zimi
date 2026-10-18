@@ -2028,6 +2028,8 @@
   "try_specific": "Try more specific keywords",
   "tts_speak": "Read aloud",
   "tts_stop": "Stop reading",
+  "tts_slow_suggest": "{slow} is slow on this server. Try {fast}?",
+  "tts_slow_use": "Use {fast}",
   "uncaptured_back": "Go back",
   "zim_gone_title": "This source isn't in the library",
   "zim_gone_body": "The source this page belonged to has been removed or renamed. Old bookmarks and history entries keep pointing here; the rest of the library is fine.",

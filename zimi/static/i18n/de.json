@@ -2028,6 +2028,8 @@
   "try_specific": "Versuchen Sie genauere Suchbegriffe",
   "tts_speak": "Vorlesen",
   "tts_stop": "Vorlesen beenden",
+  "tts_slow_suggest": "{slow} ist auf diesem Server langsam. {fast} ausprobieren?",
+  "tts_slow_use": "{fast} verwenden",
   "uncaptured_back": "Zurück",
   "zim_gone_title": "Diese Quelle ist nicht in der Bibliothek",
   "zim_gone_body": "Die Quelle, zu der diese Seite gehörte, wurde entfernt oder umbenannt. Alte Lesezeichen und Verlaufseinträge zeigen noch hierher; der Rest der Bibliothek ist in Ordnung.",

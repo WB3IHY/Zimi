@@ -2028,6 +2028,8 @@
   "try_specific": "Tente palavras-chave mais específicas",
   "tts_speak": "Ler em voz alta",
   "tts_stop": "Parar leitura",
+  "tts_slow_suggest": "{slow} está lento neste servidor. Experimentar {fast}?",
+  "tts_slow_use": "Usar {fast}",
   "uncaptured_back": "Voltar",
   "zim_gone_title": "Esta fonte não está na biblioteca",
   "zim_gone_body": "A fonte a que esta página pertencia foi removida ou renomeada. Favoritos e histórico antigos ainda apontam para cá; o resto da biblioteca está bem.",
