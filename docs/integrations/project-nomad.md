@@ -6,12 +6,12 @@ Point Zimi at NOMAD's ZIM folder and everything NOMAD has is in Zimi. Anything N
 
 ## In NOMAD, in a minute
 
-This needs **Zimi 1.15.0 or later**. In NOMAD, open **Supply Depot** and choose **Add a custom app**, then enter:
+This needs **Zimi 1.14.0 or later**. In NOMAD, open **Supply Depot** and choose **Add a custom app**, then enter:
 
 | Field | Value |
 | --- | --- |
 | Name | `Zimi` |
-| Image | `epheterson/zimi:1.15.0` (pin the version; NOMAD's auto-update stays yours to decide) |
+| Image | `epheterson/zimi:1.14.0` (pin the version; NOMAD's auto-update stays yours to decide) |
 | Port | host `8600` to container `8899` |
 | Volume | `/opt/project-nomad/storage/zim` to `/nomad` |
 | Volume | `/opt/project-nomad/storage/zimi` to `/config` |
@@ -25,7 +25,7 @@ If you moved NOMAD's storage, use your own path on the left of each volume. The 
 ```bash
 curl -X POST http://<your-nomad>:8080/api/system/services/custom \
   -H 'content-type: application/json' -d '{
-  "friendly_name": "Zimi", "image": "epheterson/zimi:1.15.0", "category": "education",
+  "friendly_name": "Zimi", "image": "epheterson/zimi:1.14.0", "category": "education",
   "ports": [{"container": 8899, "host": 8600}],
   "volumes": [
     {"host_path": "/opt/project-nomad/storage/zim", "container_path": "/nomad"},
@@ -91,7 +91,7 @@ Zimi can stand in for the Kiwix container itself, so the Information Library til
 If you added Zimi as a custom app above, remove it first (see [Uninstalling](#uninstalling)): both would use `<storage>/zimi` as `/config`. The Information Library must be installed (see above).
 
 1. Supply Depot, Information Library, **Manage**, **Edit**.
-2. Image: `epheterson/zimi:1.15.0`, the same image as the custom app (1.15.0 is the first whose entrypoint understands NOMAD's kiwix-serve command).
+2. Image: `epheterson/zimi:1.14.0`, the same image as the custom app (1.14.0 is the first whose entrypoint understands NOMAD's kiwix-serve command).
 3. Ports: leave container `8080` to host `8090` as it is. Zimi listens on `8080` when it is started with kiwix-serve's flags, so NOMAD's add-ons that reach the library by name (`http://nomad_kiwix_server:8080`) still do.
 4. Volumes: keep `<storage>/zim` to `/data`, and add `<storage>/zimi` to `/config` and `<storage>/zimi-library` to `/zims`.
 5. Environment: `ZIMI_MANAGE_PASSWORD=<choose a password>`, `ZIMI_TORRENT=0`, `ZIMI_PORT=8080`, `ZIMI_NOMAD_API=http://nomad_admin:8080`.
@@ -114,14 +114,14 @@ Nothing Zimi did needs undoing in NOMAD's ZIM folder: it never wrote there.
 
 ## Docker
 
-The same setup outside NOMAD's custom-app form. This needs **Zimi 1.15.0 or later**. An older image ignores `ZIMI_EXTRA_ZIM_DIRS` without a word and shows an empty library, so check the version under Settings, Server first.
+The same setup outside NOMAD's custom-app form. This needs **Zimi 1.14.0 or later**. An older image ignores `ZIMI_EXTRA_ZIM_DIRS` without a word and shows an empty library, so check the version under Settings, Server first.
 
 NOMAD keeps its ZIMs in `<storage>/zim`, and its installer puts storage at `/opt/project-nomad/storage` ([install script](https://github.com/Crosstalk-Solutions/project-nomad/blob/main/install/install_nomad.sh), [compose file](https://github.com/Crosstalk-Solutions/project-nomad/blob/main/install/management_compose.yaml)). If you moved NOMAD's storage, use your path in place of `/opt/project-nomad/storage` below. Mount the folder read-only and tell Zimi about it:
 
 ```yaml
 services:
   zimi:
-    image: epheterson/zimi:1.15.0
+    image: epheterson/zimi:1.14.0
     ports:
       - "8899:8899"
     volumes:
