@@ -3135,7 +3135,6 @@ function _skyBodyLines(b) {
   if (b.type === 'star' && b.con) { var cc = _skyConById(b.con); if (cc) lines.push(t('alm_sky_in_con', { c: cc.name })); }
   // The planets whose phase shows (they pass between us and the Sun, or are not far from it).
   if (b.type === 'planet' && b.phase != null && SKY_PHASED_PLANETS.indexOf(b.name) >= 0) lines.push(t('alm_sky_f_moon_lit', { p: _orrNum(Math.round(b.phase * 100), null, 0) + '%' }));
-  if (b.alt < 0) lines.push(t('alm_sky_below_label'));
   if (b.enlarged) lines.push(t('alm_sky_enlarged', { n: _orrNum(Math.round(b.enlarged), null, 0) }));
   return lines;
 }

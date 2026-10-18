@@ -1761,7 +1761,9 @@ function _almAboutDataHtml() {
     '<summary class="almanac-section-title">' + _almEsc(t('alm_about_data')) + '</summary>' +
     '<p class="alm-about-intro">' + _almEsc(t('alm_about_intro')) + '</p><ul class="alm-about-list">' +
     _ALM_ABOUT_ROWS.map(function(k) { return '<li>' + _almEsc(t('alm_about_' + k)) + '</li>'; }).join('') +
-    '</ul><button type="button" class="alm-ref-decay-link" onclick="_almRefOpen(\'decay\')">' + _almEsc(t('ref_decay_link')) + '</button></details>';
+    '</ul><button type="button" class="alm-ref-decay-link" onclick="_almRefOpen(\'decay\')">' + _almEsc(t('ref_decay_link')) + '</button>' +
+    // The picture credit the sky's panorama is owed (CC BY 4.0): here, not under the sky (Eric, 2026-10-16).
+    '<p class="alm-about-credit">' + _almEsc(t('alm_sky_credit')) + '</p></details>';
 }
 
 // The back matter's group under one heading (the tables and calculations),

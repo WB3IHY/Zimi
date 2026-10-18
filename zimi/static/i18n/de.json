@@ -2602,7 +2602,6 @@
   "sky_find_here": "Im Blickfeld",
   "sky_find_away": "{d} entfernt",
   "sky_find_clear": "Suche beenden",
-  "alm_sky_below_label": "Unter dem Horizont",
   "alm_sky_boat": "Ein Boot",
   "alm_sky_boat_line": "Am Horizont, etwa {d} entfernt, wo sich die Erde wegkrümmt.",
   "alm_sky_boat_lights": "Nachts sieht man nur die Lichter: rot an Backbord, grün an Steuerbord, weiß darüber. Vor Anker ein einzelnes weißes Rundumlicht.",

@@ -2602,7 +2602,6 @@
   "sky_find_here": "In view",
   "sky_find_away": "{d} away",
   "sky_find_clear": "Stop finding",
-  "alm_sky_below_label": "Below the horizon",
   "alm_sky_boat": "A boat",
   "alm_sky_boat_line": "On the horizon, about {d} away, where the Earth curves out of sight.",
   "alm_sky_boat_lights": "At night only its lights show: red to port, green to starboard, white above. At anchor, one white light all round.",
