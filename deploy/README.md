@@ -67,23 +67,14 @@ ZIM_DIR=/path/to/zims ZIMI_OFFLINE=1 python3 -m zimi serve --port 8899
 
 Upgrading an air-gapped instance means building a new bundle on the connected machine and running its `install.sh` again. There is no other path in, by design.
 
-## Update channels
+## Update checks
 
-An instance that can reach GitHub checks for new Zimi releases when an admin opens Manage ▸ Server — never at boot, never on a timer. `ZIMI_UPDATE_CHANNEL` decides what counts as a release:
-
-| | |
-|---|---|
-| `latest` | Finished releases, the day they ship. The default, and what every install did before channels existed. |
-| `beta` | Whatever is newest, pre-release or final. On this channel `1.9.0-rc1` → `1.9.0-rc2` is an update; on latest it is not. |
-
-There is no channel called `stable`, deliberately: that word promises a validation program this project does not run, and both channels ship the same code with the same testing — beta just ships it earlier. `stable`, `release` and `final` are all accepted as synonyms for `latest`, and `edge`, `prerelease` and `pre` for `beta`, so nobody's config is rejected over the obvious word.
-
-Set the variable and the channel is locked to it — the Manage UI shows the choice greyed out and says which variable owns it, the same as every other environment-locked setting. Leave it unset and an admin can pick from the UI, which persists to the config volume.
+An instance that can reach GitHub checks for new Zimi releases when an admin opens Manage ▸ Server, never at boot and never on a timer. Only finished releases count; there is no beta track.
 
 ## Update delay
 
-`ZIMI_UPDATE_DELAY_DAYS` holds a release back until it has been public that long — the fleet equivalent of letting someone else go first. `0` (the default) offers a release the moment it exists; `ZIMI_UPDATE_DELAY_DAYS=7` means a release published today is offered a week from today, on whichever channel you are on. A held release is not hidden: Manage ▸ Server names the version and says when it will be offered, so an admin who wants it early can still take it from the releases page.
+`ZIMI_UPDATE_DELAY_DAYS` holds a release back until it has been public that long — the fleet equivalent of letting someone else go first. `0` (the default) offers a release the moment it exists; `ZIMI_UPDATE_DELAY_DAYS=7` means a release published today is offered a week from today. A held release is not hidden: Manage ▸ Server names the version and says when it will be offered, so an admin who wants it early can still take it from the releases page.
 
 The waiting period is measured from GitHub's publish date and re-evaluated on every read, so a release matures on schedule without anyone poking the check. A release with no publish date is treated as mature — a missing field must never hide an update permanently. The same env-lock rule applies: set the variable and the UI control greys out.
 
-`ZIMI_OFFLINE=1` outranks all of it: an offline instance performs no check on any channel, with or without a delay.
+`ZIMI_OFFLINE=1` outranks all of it: an offline instance performs no check, with or without a delay.
