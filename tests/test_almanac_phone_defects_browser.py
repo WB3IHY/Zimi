@@ -65,10 +65,23 @@ def browser(served):
         br.close()
 
 
+# The harbour's own zone (PLACE is San Francisco): a tide's day is its midnight to midnight, so a test that
+# names a clock time names it here, whatever zone the runner is in.
+HARBOUR_TZ = "America/Los_Angeles"
+
+
 def _page(
-    browser, served, theme="dark", reduced=False, locale="en-US", init=None, query=""
+    browser,
+    served,
+    theme="dark",
+    reduced=False,
+    locale="en-US",
+    init=None,
+    query="",
+    tz=None,
 ):
     ctx = browser.new_context(
+        timezone_id=tz,
         viewport=VIEW,
         device_scale_factor=2,
         has_touch=True,
@@ -120,17 +133,6 @@ def test_back_from_earth_keeps_the_almanac(browser, served):
         ctx.close()
 
 
-def test_back_from_space_keeps_the_almanac(browser, served):
-    ctx, pg, errors = _page(browser, served)
-    try:
-        pg.wait_for_function("() => typeof _aeLoadThree === 'function'", timeout=60_000)
-        _back_leaves_view_only(
-            pg, "_almOpenSpace()", "(typeof _spIsOpen !== 'undefined' && _spIsOpen)"
-        )
-    finally:
-        ctx.close()
-
-
 def test_the_views_own_close_takes_its_step_back(browser, served):
     ctx, pg, errors = _page(browser, served)
     try:
@@ -150,21 +152,20 @@ def test_the_views_own_close_takes_its_step_back(browser, served):
         ctx.close()
 
 
-TOOLS = ".alm-sky-gear, .alm-sky-find, .alm-sky-below, .alm-sky-look"
+TOOLS = ".alm-sky-gear, .alm-sky-look"
 
 
 @pytest.mark.parametrize("locale", ["en-US", "ar"])
 def test_the_scene_tools_do_not_overlap_and_are_44px(browser, served, locale):
     ctx, pg, errors = _page(browser, served, locale=locale)
     try:
-        pg.wait_for_selector("[data-sky-find]", state="attached", timeout=60_000)
-        pg.wait_for_selector("[data-sky-below]", state="attached", timeout=60_000)
+        pg.wait_for_selector(".alm-sky-gear", state="attached", timeout=60_000)
         boxes = pg.evaluate(
             "(sel) => [...document.querySelectorAll(sel)].map(e => { const r = e.getBoundingClientRect();"
             " return { n: e.className, x: r.x, y: r.y, w: r.width, h: r.height }; })",
             TOOLS,
         )
-        assert len(boxes) == 4, boxes
+        assert len(boxes) == 2, boxes
         for b in boxes:
             assert b["w"] >= 44 and b["h"] >= 44, b
         for i, a in enumerate(boxes):
@@ -189,6 +190,9 @@ def test_a_jump_repaints_the_sky_even_when_the_observer_is_stale(browser, served
         pg.wait_for_function(
             "() => typeof _skyState !== 'undefined' && _skyState && _skyState.eph",
             timeout=60_000,
+        )
+        pg.evaluate(
+            "() => document.querySelector('.almanac-sky-wrap').scrollIntoView({ behavior: 'instant', block: 'center' })"
         )
         for i in range(4):
             target = 1_790_000_000_000 + i * 86_400_000 * 3 + i * 7_000_000
@@ -231,44 +235,25 @@ def test_the_ground_light_is_read_back_once_per_light_not_per_frame(browser, ser
         ctx.close()
 
 
-def test_a_drag_on_the_picture_answers_before_the_live_moon_is_ready(browser, served):
-    ctx, pg, errors = _page(browser, served)
-    try:
-        pg.wait_for_function(
-            "() => typeof _aeReady === 'function' && typeof _lpQueueDrag === 'function'",
-            timeout=60_000,
-        )
-        # The live scene is not ready, and does not become so while the finger is down.
-        pg.evaluate(
-            "() => { _aeEnsure(); _ae.ready = false; _aePrepare = () => new Promise(() => {}); }"
-        )
-        scales = pg.evaluate("""() => {
-              const hero = document.querySelector(AE_HERO_SEL), r = hero.getBoundingClientRect();
-              const at = (type, dx) => hero.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 7, pointerType: 'touch',
-                clientX: r.x + r.width / 2 + dx, clientY: r.y + r.height / 2, button: 0 }));
-              at('pointerdown', 0);
-              const out = [];
-              for (const dx of [10, 40, 90]) { at('pointermove', dx); out.push(new DOMMatrix(getComputedStyle(hero).transform).a); }
-              return out;
-            }""")
-        assert scales[0] < 1 and scales[-1] < scales[0], scales
-        assert scales[-1] > 0.5, scales
-    finally:
-        ctx.close()
-
-
-def test_rest_system_is_gone(browser, served):
-    """?rest=system was a comparison prototype (the sky round the Moon), never a shipped option."""
+def test_the_hero_is_the_picture_of_the_moon_and_nothing_stands_in_for_it(browser, served):
+    """Eric, 2026-10-18: the Moon was simpler as a picture that opens the 3D view. No live 3D scene stands in the hero
+    (it once showed only a shadow), and there is no pull-back through the solar system."""
     ctx, pg, errors = _page(browser, served, query="?rest=system")
     try:
         pg.wait_for_function(
-            "() => document.getElementById('almanac-view').classList.contains('lp-live')",
+            "() => typeof _aeReady === 'function' && _aeReady()",
             timeout=READY_MS,
             polling=250,
         )
-        assert pg.evaluate(
-            "() => !document.querySelector('.lp-band, #lp-ring-names') && typeof _lpRestSystem === 'undefined'"
-        )
+        got = pg.evaluate("""() => ({
+              live: document.getElementById('almanac-view').classList.contains('lp-live'),
+              landing: typeof _lpRelease !== 'undefined' || typeof _lpQueueDrag !== 'undefined',
+              canvasInHero: !!document.querySelector('.almanac-hero canvas#ae-canvas'),
+              sprite: (() => { const i = document.querySelector('.almanac-hero img.almanac-moon-sprite'); return !!i && i.complete && i.naturalWidth > 0 && getComputedStyle(i).visibility !== 'hidden'; })()
+            })""")
+        assert got == {"live": False, "landing": False, "canvasInHero": False, "sprite": True}, got
+        assert pg.evaluate("() => typeof _lpRestSystem === 'undefined' && typeof openAlmanacSpace === 'undefined'")
+        assert not pg.query_selector(".orrery-space-btn")
     finally:
         ctx.close()
 
@@ -430,6 +415,9 @@ def test_a_sky_left_alone_stops_asking_for_frames_and_wakes_on_a_touch(browser, 
             timeout=60_000,
         )
         pg.evaluate(
+            "() => document.querySelector('.almanac-sky-wrap').scrollIntoView({ behavior: 'instant', block: 'center' })"
+        )
+        pg.evaluate(
             "() => { if (_skySetting('skin') !== 'beach') _skySet('skin', 'beach'); _skyArm(); }"
         )
         pg.wait_for_timeout(500)
@@ -491,7 +479,7 @@ def test_star_chart_names_do_not_stand_on_each_other(browser, served):
 
 
 def test_a_tide_turns_time_keeps_clear_of_a_dot(browser, served):
-    ctx, pg, errors = _page(browser, served)
+    ctx, pg, errors = _page(browser, served, tz=HARBOUR_TZ)
     try:
         pg.evaluate(
             "() => document.getElementById('almanac-place').scrollIntoView({ behavior: 'instant' })"
@@ -529,28 +517,63 @@ def test_a_tide_turns_time_keeps_clear_of_a_dot(browser, served):
         ctx.close()
 
 
+# The day the dot test is held on (noon in the harbour): tides move 50 minutes a day, so a test run on "today" meets a
+# different set of turns each day, and on some days the first turn is so near the day's start that its time is
+# written clear of the edge, where the dot can never stand on it.
+DOT_DAY_UTC_MS = "Date.UTC(2026, 9, 16, 19, 0)"
+
+
 def test_a_turns_time_steps_back_while_the_clock_dot_is_on_it(browser, served):
-    """The dot travels the whole curve, so at each turn it stands on that
+    """The dot travels the whole curve, so at a turn it stands on that
     turn's time: the time fades while it does, and comes back after."""
-    ctx, pg, errors = _page(browser, served)
+    ctx, pg, errors = _page(browser, served, tz=HARBOUR_TZ)
     try:
         pg.evaluate(
             "() => document.getElementById('almanac-place').scrollIntoView({ behavior: 'instant' })"
         )
         pg.wait_for_selector("#almanac-place .at-section", timeout=60_000)
-        # The time of the first turn's dot (c.X inverted by bisection).
-        turn = pg.evaluate("""() => {
-              const c = _at.curve, cx = +document.querySelector('#almanac-place circle.at-dot').getAttribute('cx');
-              let a = c.start, b = c.end;
-              for (let i = 0; i < 50; i++) { const m = (a + b) / 2; if (c.X(m) < cx) a = m; else b = m; }
-              return a;
-            }""")
+        # A fixed day, drawn: its curve, its turns and their times measured.
+        pg.evaluate(
+            "() => _almScrubSettle(new Date(%s), { land: false })" % DOT_DAY_UTC_MS
+        )
+        pg.wait_for_function(
+            """() => {
+              const c = _at.curve, t = %s;
+              return !!c && t >= c.start && t <= c.end && _at.labels && _at.labels.length > 0 &&
+                document.querySelectorAll('#almanac-place circle.at-dot').length > 1;
+            }"""
+            % DOT_DAY_UTC_MS,
+            timeout=30_000,
+            polling=POLL_MS,
+        )
+        # The turns the dot can stand on: where it is at the turn, the time written over it (the first turn of a
+        # day that begins just after midnight has its time moved clear of the edge, and the dot is not on that).
+        turn = pg.evaluate(
+            """() => {
+              const c = _at.curve, labels = _at.labels, g = AT_YIELD_GAP;
+              for (const dot of document.querySelectorAll('#almanac-place circle.at-dot')) {
+                const cx = +dot.getAttribute('cx');
+                let a = c.start, b = c.end;
+                for (let i = 0; i < 50; i++) { const m = (a + b) / 2; if (c.X(m) < cx) a = m; else b = m; }
+                const x = c.X(a), y = c.Y(c.p.height(a));
+                if (labels.some(l => l.x0 < x + g && x - g < l.x1 && l.y0 < y + g && y - g < l.y1)) return a;
+              }
+              return null;
+            }"""
+        )
+        assert turn is not None, "no turn of the day has its time where the dot can stand"
         shown = "() => [...document.querySelectorAll('#almanac-place .at-turn-l')].filter(e => !e.classList.contains('at-yield')).length"
         total = pg.evaluate("() => document.querySelectorAll('#almanac-place .at-turn-l').length")
         pg.evaluate("(t) => _almScrubSettle(new Date(t), { land: false })", turn)
-        pg.wait_for_function("(n) => (%s)() < n" % shown, arg=total, timeout=30_000)
-        pg.evaluate("(t) => _almScrubSettle(new Date(t + 3 * 3600e3), { land: false })", turn)
-        pg.wait_for_function("(n) => (%s)() === n" % shown, arg=total, timeout=30_000)
+        pg.wait_for_function(
+            "(n) => (%s)() < n" % shown, arg=total, timeout=30_000, polling=POLL_MS
+        )
+        pg.evaluate(
+            "(t) => _almScrubSettle(new Date(t + 3 * 3600e3), { land: false })", turn
+        )
+        pg.wait_for_function(
+            "(n) => (%s)() === n" % shown, arg=total, timeout=30_000, polling=POLL_MS
+        )
         assert not errors, errors
     finally:
         ctx.close()
@@ -625,12 +648,11 @@ def test_resizing_the_page_raises_no_resize_observer_loop_error(browser, served)
         ctx.close()
 
 
-def test_opening_look_loads_one_three_and_makes_no_texture_error(browser, served):
+def test_opening_look_makes_no_second_three_and_no_texture_error(browser, served):
     ctx, pg, errors = _page(browser, served)
     msgs = []
     pg.on("console", lambda m: msgs.append(m.text))
     try:
-        # The 3D Earth's three.js is the one the Almanac prepared; Look's globe must be the same module.
         pg.wait_for_function(
             "() => typeof _aeReady === 'function' && _aeReady()",
             timeout=READY_MS,
@@ -638,7 +660,7 @@ def test_opening_look_loads_one_three_and_makes_no_texture_error(browser, served
         )
         pg.evaluate("() => document.querySelector('.alm-sky-look').click()")
         pg.wait_for_function(
-            "() => typeof _look !== 'undefined' && _look && (_look.globe || _look.noGlobe)",
+            "() => typeof _look !== 'undefined' && _look && _look.skyMounted",
             timeout=60_000,
             polling=POLL_MS,
         )
@@ -649,7 +671,9 @@ def test_opening_look_loads_one_three_and_makes_no_texture_error(browser, served
             if "Multiple instances of Three.js" in m or "texParameter" in m
         ]
         assert not bad, bad
-        assert pg.evaluate("() => !!_look.globe")
+        # Look is the sky edge to edge: no globe of its own to load, and no way out to a second view.
+        assert pg.evaluate("() => !document.getElementById('look-globe') && !document.getElementById('look-earth')")
+        assert not errors, errors
     finally:
         ctx.close()
 
