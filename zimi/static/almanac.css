@@ -114,8 +114,6 @@
    gets ready for a first tap, the disc breathes. */
 .almanac-moon-open { position: relative; border-radius: 50%; cursor: grab; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .almanac-moon-open img { -webkit-user-drag: none; }
-/* Pulled before the live Moon is ready: the picture draws back with the finger (almanac-landing.js _lpPreviewPull). */
-.almanac-moon-open.alm-moon-pulling { transform: scale(calc(1 - var(--alm-pull, 0))); }
 .almanac-view.alm-moon-lifted .almanac-moon,
 .almanac-view.alm-moon-lifted .almanac-moon-anim { visibility: hidden; }
 .almanac-moon-open.alm-moon-waking { cursor: progress; }
@@ -318,11 +316,6 @@
   .orrery-slider::-moz-range-thumb { width: 22px; height: 22px; }
   .orrery-slider::-moz-range-track { background: transparent; }
 }
-.orrery-space-pill { max-width: 500px; margin: 10px auto 0; display: flex; justify-content: center; }
-.orrery-space-pill[hidden] { display: none; }
-.orrery-space-btn { font: inherit; font-size: 13px; line-height: 1; padding: 9px 16px; min-height: 36px; border-radius: 999px; border: 1px solid var(--amber-border); background: var(--amber-glow); color: var(--amber); cursor: pointer; }
-.orrery-space-btn:focus-visible { outline: 2px solid var(--amber-border); outline-offset: 2px; }
-@media (hover: hover) { .orrery-space-btn:hover { background: rgba(245,158,11,.18); } }
 /* Orrery hover/tap tooltip: body stats with the body NAME itself as the link
    (dotted-amber .alm-link idiom). Only the link and the button take the
    pointer: the box sits among crowded inner planets (Earth's covered Mars),

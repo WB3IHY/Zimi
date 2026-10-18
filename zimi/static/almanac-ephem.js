@@ -1,9 +1,9 @@
 // ── Almanac ephemeris: where the Sun, the Moon and the planets are ──
 // One source of positions for every Almanac view. Pure functions and tables:
 // no WebGL, no DOM, no clock, so the numbers can be tested alone and the scenes
-// on top (the Earth view, the flown solar system, the landing) can change
+// on top (the Earth view, the live sky) can change
 // without touching them. Loaded after almanac-orrery.js (its Keplerian planets,
-// AU_KM) and before almanac-earth.js and almanac-space.js; the Julian Day
+// AU_KM) and before almanac-earth.js; the Julian Day
 // helpers are almanac.js's, called only when a position is asked for.
 //
 //   Sun    VSOP87D (Bretagnon & Francou), apparent place of date: _aeSun
@@ -331,36 +331,4 @@ function _ephBodyJ2000(name, jd) {
   }
   var p = _planetHelio3D(name, _jdToJulianCentury(jd));
   return [p.x, p.y, p.z];
-}
-
-// ── What the views share about the planets ──
-// Mean radius (km), sidereal period (days) and the colour a planet is drawn in, in order
-// from the Sun: the flown solar system draws them at their size, the landing's orbits at
-// their period, and a dot is the one colour in both, from these one table.
-var EPH_PLANET_KEYS = ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'];
-var EPH_PLANET = {
-  Mercury: { km: 2439.7, periodDays: 87.969, color: '#b0a090' },
-  Venus: { km: 6051.8, periodDays: 224.701, color: '#e8c87a' },
-  Earth: { km: 6378.137, periodDays: 365.256, color: '#4a90d9' },
-  Mars: { km: 3396.2, periodDays: 686.98, color: '#c46040' },
-  Jupiter: { km: 71492, periodDays: 4332.59, color: '#c49868' },
-  Saturn: { km: 60268, periodDays: 10759.22, color: '#d4b878' },
-  Uranus: { km: 25559, periodDays: 30688.5, color: '#78c8c8' },
-  Neptune: { km: 24764, periodDays: 60182, color: '#3868c8' }
-};
-
-// ── The layout of a picture of the whole system ──
-// The whole system cannot be drawn to scale on a phone: Neptune is 30 AU out and
-// Mercury 0.39, so in a 390 px width the inner planets would share 10 px. The
-// layout draws distance as order instead: a body at r AU is shown at
-// K ln(1 + r / R0), which puts Mercury to Pluto (and Voyager 1) on rings of their
-// own, the way a flight time grows. It is a layout of the picture only, blended
-// in and out (lam, 0 to 1): every number a view prints is the true one.
-var EPH_LAYOUT_K = 1.5, EPH_LAYOUT_R0 = 0.15;
-function _ephLayoutMap(p, lam) {
-  var r = _aeLen(p);
-  if (!lam || r < 1e-9) return p;
-  var f = EPH_LAYOUT_K * Math.log(1 + r / EPH_LAYOUT_R0) / r;
-  var m = 1 - lam + lam * f;
-  return [p[0] * m, p[1] * m, p[2] * m];
 }

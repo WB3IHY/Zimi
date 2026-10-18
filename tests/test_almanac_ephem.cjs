@@ -155,35 +155,15 @@ for (const jdTT of [2451545.0, 2461000.5, 2470000.5, 2433282.5]) {
 }
 
 
-// The tables the views share: the layout of a picture of the whole system, and the planets' size and period.
-{
-  const lay = (p, lam) => E('_ephLayoutMap(' + JSON.stringify(p) + ', ' + lam + ')');
-  check(lay([1, 0, 0], 0)[0] === 1, 'layout at 0 is the true place');
-  near(vlen(lay([1, 0, 0], 1)), 1.5 * Math.log(1 + 1 / 0.15), 1e-12, 'layout at 1: 1 AU is drawn at K ln(1 + r / R0)');
-  check(vlen(lay([30, 0, 0], 1)) < vlen(lay([1, 0, 0], 1)) * 3, 'layout at 1 draws Neptune less than three times as far out as the Earth');
-  for (const k of E('EPH_PLANET_KEYS')) {
-    // Kepler's third law: the table's period (days) against the orbit the ephemeris draws, its
-    // semi-major axis the mean of the nearest and farthest the planet gets over one period.
-    const period = E('EPH_PLANET.' + k + '.periodDays');
-    let lo = Infinity, hi = 0;
-    for (let i = 0; i < 400; i++) {
-      const r = vlen(E('_ephBodyJ2000("' + k + '", ' + (2451545.0 + period * i / 400) + ')'));
-      lo = Math.min(lo, r); hi = Math.max(hi, r);
-    }
-    near(Math.pow((lo + hi) / 2, 1.5) * 365.256, period, period * 0.01, k + ': the table period agrees with the orbit drawn (Kepler III)');
-  }
-}
-
 // J2000.0 itself: the equator-of-date turn is the J2000 obliquity, to nutation.
 near(E('EPH_OBLIQUITY_DEG'), 23.4392911, 1e-6, 'J2000 mean obliquity');
 
 // One source: nothing but the ephemeris defines these, and it needs no GL or DOM.
-const ephSrc = read('almanac-ephem.js'), earthSrc = read('almanac-earth.js'), spaceSrc = read('almanac-space.js');
+const ephSrc = read('almanac-ephem.js'), earthSrc = read('almanac-earth.js');
 check(!/\b(document|window|THREE|WebGL|requestAnimationFrame|getContext)\b/.test(ephSrc.replace(/\/\/.*$/gm, '')), 'almanac-ephem.js touches no DOM, window or GL');
 for (const def of [/function _aeSun\(/, /function _aeMoon\(/, /var AE_VSOP_L\b/, /var AE_MOON_LR\b/, /function _aeNutation\(/, /function _aeGast\(/]) {
-  check(def.test(ephSrc) && !def.test(earthSrc) && !def.test(spaceSrc), def + ' is defined in the ephemeris only');
+  check(def.test(ephSrc) && !def.test(earthSrc), def + ' is defined in the ephemeris only');
 }
-check(!/_aeMoon\(/.test(spaceSrc) && !/PRECESSION_DEG_PER_CENTURY|_aeMoon\(/.test(spaceSrc), 'the flown solar system reads the Moon from the ephemeris, not its own precession');
 
 if (failures) { console.error(failures + ' check(s) failed'); process.exit(1); }
 console.log('all passed');
