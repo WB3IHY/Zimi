@@ -230,8 +230,8 @@
 .alm-invite-btn:hover, .alm-invite-btn:focus-visible { color: var(--amber); border-color: var(--amber-border); background: var(--amber-glow); }
 .alm-invite-btn svg { flex: none; width: 14px; height: 14px; }
 /* In the header the button is the mark alone: the hint beside it names the place. */
-.alm-head-here { min-height: 24px; padding: 0 7px; margin-left: 2px; vertical-align: middle; }
-.alm-head-here span { display: none; }
+.alm-here-icon { min-height: 24px; padding: 0 7px; margin-left: 2px; vertical-align: middle; }
+.alm-here-icon span { display: none; }
 /* Tables and calculations: two rows of tiles, each a scroller that runs to
    the screen's edges (the page itself never scrolls sideways). A tile is
    what opens: its mark, its name, and one line of what it gives. */
@@ -373,9 +373,13 @@
 /* What the sky says about the hour sits under the Moon, in the sky's own width; the sky follows it directly. */
 .alm-sky-info { width: 100%; max-width: 600px; margin: 0 auto 16px; }
 .almanac-sky-wrap { width: 100%; max-width: 600px; margin: 0 auto; position: relative; }
-.alm-sky-look { position: absolute; top: 8px; right: 8px; z-index: 2; width: 44px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.55); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.alm-sky-look svg { width: 22px; height: 22px; }
-[dir=rtl] .alm-sky-look { right: auto; left: 8px; }
+/* The sky's two corner buttons (settings, Look): small, so the sky is the picture; the touch target
+   stays 44 px through an invisible ring around each. */
+:is(.alm-sky-look, .alm-sky-gear) { position: absolute; top: 4px; z-index: 2; width: 44px; height: 44px; border-radius: 22px; border: 0; background: none; color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; isolation: isolate; }
+:is(.alm-sky-look, .alm-sky-gear)::before { content: ""; position: absolute; inset: 6px; z-index: -1; border-radius: 16px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+:is(.alm-sky-look, .alm-sky-gear) svg { width: 17px; height: 17px; }
+.alm-sky-look { right: 4px; }
+[dir=rtl] .alm-sky-look { right: auto; left: 4px; }
 .almanac-sky-wrap canvas { width: 100%; display: block; border-radius: 12px; touch-action: pan-y; }
 /* What the sky says under the picture: one lead line (the light of the hour),
    what is true of it here and the year, quieter, then the facts as cards in
@@ -383,10 +387,14 @@
 .alm-sky-cap { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 20px 10px 0; text-align: center; text-wrap: balance; }
 .alm-sky-lead { font-size: 15px; font-weight: 500; line-height: 1.3; color: var(--text); }
 .alm-sky-sub { font-size: 11px; line-height: 1.4; color: var(--text2); }
-.alm-sky-facts { padding: 0; }
-/* The Moon's cards go on: same columns, same gap, nothing between the two sets. */
-#almanac-head .alm-cards { margin-bottom: 8px; }
-.alm-sky-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+/* The sky's four cards are items of the Moon's grid (the slot and its list step aside), and the twelve
+   read in pairs: the Moon (how lit, how old; when it comes or goes, when it is next full), then its
+   distance beside the Sun's own clock, then the Sun's day (rise, set; its length, what is left; golden
+   hour, full dark). Four across on a wide screen, the same sequence. */
+.alm-sky-facts, .alm-sky-cards { display: contents; }
+#alm-hc-illum-card { order: 1; } #alm-hc-age-card { order: 2; } .alm-sf-moon { order: 3; } #alm-hc-nextfull-card { order: 4; }
+#alm-hc-dist-card { order: 5; } .alm-sf-solar { order: 6; } #alm-hc-polar-card, #alm-hc-sunrise-card { order: 7; } #alm-hc-sunset-card { order: 8; }
+#alm-hc-daylight-card { order: 9; } .alm-sf-left { order: 10; } #alm-hc-golden-card { order: 11; } .alm-sf-dark { order: 12; }
 .alm-sky-cards .alm-card-lbl, .alm-sky-cards .alm-card-val { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; text-wrap: balance; }
 .alm-nobr { white-space: nowrap; }
 /* Top-aligned: the cards side by side read their labels on one line, whatever the values below them hold. */
@@ -394,12 +402,12 @@
 .alm-card-sub { margin-top: 3px; font-size: 11px; line-height: 1.3; color: var(--text2); font-variant-numeric: tabular-nums; text-wrap: balance; }
 .alm-sky-guess { margin: 10px 0 0; font-size: 11px; line-height: 1.4; color: var(--text3); text-align: center; text-wrap: balance; }
 .alm-about-credit { margin: 14px 0 0; font-size: 11px; color: var(--text3); }
-.alm-sky-gear { position: absolute; top: 8px; left: 8px; z-index: 2; width: 44px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.55); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.alm-sky-gear svg { width: 22px; height: 22px; }
-.alm-sky-gear[aria-expanded="true"] { border-color: var(--amber-border); color: var(--amber); }
-[dir=rtl] .alm-sky-gear { left: auto; right: 8px; }
+.alm-sky-gear { left: 4px; }
+.alm-sky-gear[aria-expanded="true"] { color: var(--amber); }
+.alm-sky-gear[aria-expanded="true"]::before { border-color: var(--amber-border); }
+[dir=rtl] .alm-sky-gear { left: auto; right: 4px; }
 /* The settings: a small panel over the sky, under the gear. */
-.alm-sky-set { position: absolute; top: 60px; left: 8px; z-index: 3; width: min(300px, calc(100% - 16px)); padding: 10px 14px 6px; font-size: 12px; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.45); }
+.alm-sky-set { position: absolute; top: 50px; left: 8px; z-index: 3; width: min(300px, calc(100% - 16px)); padding: 10px 14px 6px; font-size: 12px; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.45); }
 [dir=rtl] .alm-sky-set { left: auto; right: 8px; }
 .alm-sky-set[hidden] { display: none; }
 .alm-sky-set-title { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); }
@@ -560,7 +568,7 @@
   .orrery-speed-label { font-size: 10px; min-width: 44px; }
   .orrery-speed-end { font-size: 8px; }
   .orrery-date { font-size: 10px; }
-  .alm-cards, .alm-sky-cards { grid-template-columns: repeat(2, 1fr); }
+  .alm-cards { grid-template-columns: repeat(2, 1fr); }
   .alm-tz-wrap { gap: 12px; width: 100%; }
   .alm-tz-clock-side { width: 100%; gap: 12px; }
   .alm-tz-clock-side canvas { width: 140px; height: 140px; }
@@ -1366,13 +1374,14 @@ body.look-open { overflow: hidden; }
    :root.night-red) and nothing else. Hard-coded warm, violet and white tones of the tiles, clocks,
    time machine, buttons and the Look view's own marks become the palette's red. The sky and the
    pictures turn red themselves (canvas[data-red], the canvas filter chain). */
-:root.night-red #almanac-view :is(.alm-card-golden, .alm-ev, .almanac-eclipse-type, [class*="alm-tz-glyph"], [class*="alm-tm-"], .alm-sky-look) { color: var(--text2); }
+:root.night-red #almanac-view :is(.alm-card-golden, .alm-ev, .almanac-eclipse-type, [class*="alm-tz-glyph"], [class*="alm-tm-"], .alm-sky-look, .alm-sky-gear) { color: var(--text2); }
 /* The clocks' day, dawn, dusk and night tints (amber, coral, violet, blue) are one dim red wash in Red;
    the glyph (sun, moon) still says which part of the day it is. */
 :root.night-red #almanac-view :is(.alm-tz-day, .alm-tz-dawn, .alm-tz-dusk, .alm-tz-night) { background: linear-gradient(180deg, var(--amber-glow), var(--surface) 70%); border-color: var(--border); }
 :root.night-red #almanac-view .alm-tz-glyph { color: var(--text2) !important; }
-:root.night-red #almanac-view :is(.alm-tz-city-card, .alm-tm-panel, .alm-tm-key, .alm-tm-close, .alm-tm-lever, .alm-sky-look) { border-color: var(--border); }
-:root.night-red #almanac-view :is(.alm-cell, .alm-sky-look) { background-color: var(--amber-glow); }
+:root.night-red #almanac-view :is(.alm-tz-city-card, .alm-tm-panel, .alm-tm-key, .alm-tm-close, .alm-tm-lever) { border-color: var(--border); }
+:root.night-red #almanac-view :is(.alm-sky-look, .alm-sky-gear)::before { border-color: var(--border); background-color: var(--amber-glow); }
+:root.night-red #almanac-view .alm-cell { background-color: var(--amber-glow); }
 :root.night-red #almanac-view .alm-tz-hand { background-color: var(--amber); }
 :root.night-red #almanac-view input { background-color: var(--surface2); accent-color: var(--amber); }
 :root.night-red #almanac-view :is(svg circle, svg path)[stroke] { stroke: currentColor; }
@@ -1386,7 +1395,6 @@ body.look-open { overflow: hidden; }
 :root.night-red #almanac-view .alm-tm-displayed :is(.alm-tm-cell, .alm-tm-colon) { color: var(--text2); }
 :root.night-red #almanac-view .alm-tm-now :is(.alm-tm-cell, .alm-tm-colon), :root.night-red #almanac-view :is(.alm-tm-cap, .alm-tm-colcap, .alm-tm-seccap) { color: var(--text2); opacity: .75; }
 :root.night-red #almanac-view #alm-tm-track { filter: var(--red-picture) brightness(.6); }
-:root.night-red #almanac-view .alm-sky-gear { color: var(--text2); border-color: var(--border-strong); background: rgba(0,0,0,.6); }
 :root.night-red .almanac-look { color: var(--text); }
 :root.night-red .look-btn { color: var(--text); border-color: var(--border-strong); background: rgba(0,0,0,.7); }
 :root.night-red .look-main { background: var(--amber2); color: #000; }

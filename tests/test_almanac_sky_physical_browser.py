@@ -473,7 +473,8 @@ def test_a_guessed_place_is_said_to_be_guessed_and_named(browser, served):
             "() => document.getElementById('almanac-sky-facts').innerText.length > 20",
             polling=POLL_MS,
         )
-        text = pg.inner_text("#almanac-sky-facts")
+        pg.wait_for_function("() => document.getElementById('almanac-sky-guess').innerText.length > 10", polling=POLL_MS)
+        text = pg.inner_text("#almanac-sky-guess")
         assert "guessed" in text.lower() and "Los Angeles" in text, text
         assert not errors, errors
     finally:
@@ -485,7 +486,7 @@ def test_a_guessed_place_is_said_to_be_guessed_and_named(browser, served):
             "() => document.getElementById('almanac-sky-facts').innerText.length > 20",
             polling=POLL_MS,
         )
-        text = pg.inner_text("#almanac-sky-facts")
+        text = pg.inner_text("#almanac-sky-facts") + pg.inner_text("#almanac-sky-guess")
         assert "guessed" not in text.lower(), text
         for label in ("sunrise", "moon", "solar time"):
             assert label in text.lower(), (label, text)
@@ -675,7 +676,7 @@ def test_the_credit_the_bearings_and_the_zone_city_are_on_the_card(browser, serv
         _settle(pg, NIGHT)
         _drawn(pg)
         pg.wait_for_function("() => /\u00b0/.test(document.getElementById('almanac-sky-facts').innerText)", polling=POLL_MS)
-        text = pg.inner_text("#almanac-sky-facts")
+        text = pg.inner_text("#almanac-sky-facts") + pg.inner_text("#almanac-sky-guess")
         assert "guessed" not in text.lower() and "about" not in text.lower(), text
         # The Milky Way's credit lives in About this data, off the card (the folded-calendar pass).
         assert "Brunier" not in text, text
@@ -686,8 +687,8 @@ def test_the_credit_the_bearings_and_the_zone_city_are_on_the_card(browser, serv
     ctx, pg, errors = _almanac(browser, served, place=None, timezone_id="America/Chicago")
     try:
         _settle(pg, NIGHT)
-        pg.wait_for_function("() => document.getElementById('almanac-sky-facts').innerText.length > 20", polling=POLL_MS)
-        text = pg.inner_text("#almanac-sky-facts")
+        pg.wait_for_function("() => document.getElementById('almanac-sky-guess').innerText.length > 10", polling=POLL_MS)
+        text = pg.inner_text("#almanac-sky-facts") + pg.inner_text("#almanac-sky-guess")
         # Chicago's own sunrise on 10 August is about 6:10: not the hour-early guess of an Atlantic longitude.
         assert "Chicago" in text and "about" in text.lower(), text
         # The sunrise's time is the Moon's block's own card (not said twice): Chicago's, not an Atlantic longitude's.

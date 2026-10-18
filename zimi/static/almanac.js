@@ -592,7 +592,7 @@ function _almHeadHtml(focus) {
   // text color is var(--text) already.
   html += '<div id="almanac-head-date"' + tmTap + ' style="font-size:22px;font-weight:600">' + cp.date + '</div>';
   html += '<div style="font-size:16px;color:var(--text2);margin-top:4px"><span id="almanac-head-time"' + tmTap + '>' + cp.time + '</span>' + (cp.tz ? ' &middot; ' + cp.tz : '') +
-    (cp.place ? ' &middot; <span id="almanac-head-place">' + _almEsc(cp.place) + '</span> ' + _almHereBtnHtml('alm-head-here') : '') +
+    (cp.place ? ' &middot; <span id="almanac-head-place">' + _almEsc(cp.place) + '</span> ' + _almHereBtnHtml('alm-here-icon') : '') +
     (cp.live ? '' : ' <button class="alm-sc-reset" onclick="_almBackToToday()">' + _almEsc(t('alm_today')) + '</button>') + '</div>';
   html += '</div>';
 
@@ -618,9 +618,9 @@ function _almHeadHtml(focus) {
   var _nfm = _nextFullMoon(focus);
 
   html += '<div class="alm-cards">';
-  html += _almHeadCard(t('alm_illuminated'), m.illumination + '%', 'alm-hc-illum');
-  html += _almHeadCard(t('alm_moon_age'), age + ' ' + t('alm_days'), 'alm-hc-age');
-  html += _almHeadCard(t('alm_distance'), _almFmtNum(Math.round(dist)) + ' ' + t('alm_km'), 'alm-hc-dist');
+  html += _almHeadCard(t('alm_illuminated'), m.illumination + '%', 'alm-hc-illum', { cardId: 'alm-hc-illum-card' });
+  html += _almHeadCard(t('alm_moon_age'), age + ' ' + t('alm_days'), 'alm-hc-age', { cardId: 'alm-hc-age-card' });
+  html += _almHeadCard(t('alm_distance'), _almFmtNum(Math.round(dist)) + ' ' + t('alm_km'), 'alm-hc-dist', { cardId: 'alm-hc-dist-card' });
   html += _almHeadCard(t('alm_next_full'), _almNextFullHtml(_nfm, lang, focus), 'alm-hc-nextfull',
     { cardId: 'alm-hc-nextfull-card', hidden: !_nfm, valClass: _nfm && _nfm.isSuper ? 'alm-card-super' : '' });
   // Both faces of the sun row live in the DOM at once and only their `hidden`
@@ -638,6 +638,8 @@ function _almHeadHtml(focus) {
     { cardId: 'alm-hc-daylight-card', hidden: !!sunInfo0.polar });
   html += _almHeadCard(_lterm('golden_hour', t('alm_golden')), sunInfo0.goldenHour || '', 'alm-hc-golden',
     { cardId: 'alm-hc-golden-card', hidden: !sunInfo0.goldenHour, valClass: 'alm-card-golden' });
+  // The sky's four cards (almanac-skyfacts.js) live in this same grid, ordered among these by almanac.css.
+  html += '<div id="almanac-sky-facts" class="alm-sky-facts"></div>';
   html += '</div>';
   return html;
 }
@@ -709,6 +711,8 @@ function _almRepaintFocus() {
     // continuous rotation) after the header rebuilds to the destination.
     var fromTime = (_almPrevFocusTime != null) ? _almPrevFocusTime : focus.getTime();
     _almSafePanel(function () { head.innerHTML = _almHeadHtml(focus); }, 'almanac-head');
+    // The rebuilt grid holds an empty slot for the sky's cards: fill it now, not on the sky's next tick.
+    if (typeof _skyState !== 'undefined' && _skyState && _skyState.eph && typeof _skyFacts === 'function') _skyFacts(_skyState);
     if (!_almReduceMotion()) _almHeroMoonSweep(head, fromTime, focus.getTime(), loc);
   }
   _almPrevFocusTime = focus.getTime();
@@ -2305,11 +2309,10 @@ function _renderAlmanacContent() {
   // live sky directly above the month like a wall calendar flipped open (Eric, 2026-10-18: nothing between
   // the sky and the calendar, ever), then the place (the map, its clocks, its tide), the solar system,
   // tonight's planets and the star chart, the year's figures, deep time. What the sky says about the hour
-  // (the facts a person acts on, the ask for a place, its caption) belongs to the Moon's block above it:
-  // the facts' cards straight under the Moon's own, the caption last, directly over the picture it
-  // describes (Eric, 2026-10-18). Its clock is the page's (the time machine); almanac-sky.js.
+  // (the facts a person acts on, in the Moon's own grid; the ask for a place; its caption) belongs to the
+  // Moon's block above it, the caption last, directly over the picture it describes (Eric, 2026-10-18). Its clock is the page's (the time machine); almanac-sky.js.
   html += '<div class="alm-sky-info">' +
-    '<div id="almanac-sky-facts" class="alm-sky-facts"></div>' +
+    '<div id="almanac-sky-guess"></div>' +
     '<div id="almanac-sky-invite">' + (_getLocation().stored ? '' : _almPlaceInviteHtml()) + '</div>' +
     '<div id="almanac-sky-cap" class="alm-sky-cap"></div>' +
     '</div>';
@@ -3887,7 +3890,7 @@ function _renderSunMap(now) {
   } else {
     html += '<span id="almanac-loc-name" style="font-size:12px;color:var(--text3);cursor:pointer" onclick="_almShowCitySearch()" title="' + t('alm_set_location') + '">' + t('alm_set_location') + '</span>';
   }
-  html += _almHereBtnHtml('');
+  html += _almHereBtnHtml('alm-here-icon');   // the crosshair alone beside the city, as in the header
   // Hidden city search — revealed on click
   html += '<div id="almanac-city-search-wrap" style="display:none;position:absolute;top:-2px;left:50%;transform:translateX(-50%);z-index:10">';
   html += '<input id="almanac-city-search" type="text" placeholder="' + t('alm_search_city') + '" ' +

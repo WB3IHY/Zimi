@@ -156,18 +156,20 @@ TOOLS = ".alm-sky-gear, .alm-sky-look"
 
 
 @pytest.mark.parametrize("locale", ["en-US", "ar"])
-def test_the_scene_tools_do_not_overlap_and_are_44px(browser, served, locale):
+def test_the_scene_tools_do_not_overlap_and_take_a_44px_tap(browser, served, locale):
     ctx, pg, errors = _page(browser, served, locale=locale)
     try:
         pg.wait_for_selector(".alm-sky-gear", state="attached", timeout=60_000)
         boxes = pg.evaluate(
-            "(sel) => [...document.querySelectorAll(sel)].map(e => { const r = e.getBoundingClientRect();"
-            " return { n: e.className, x: r.x, y: r.y, w: r.width, h: r.height }; })",
+            "(sel) => [...document.querySelectorAll(sel)].map(e => { e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect();"
+            " const cx = r.x + r.width / 2, cy = r.y + r.height / 2, hit = (dx, dy) => e.contains(document.elementFromPoint(cx + dx, cy + dy));"
+            # Drawn small (32 px) so the sky is the picture; the tap lands on it 21 px out each way (an invisible ring).
+            " return { n: e.className, x: r.x, y: r.y, w: r.width, h: r.height, tap: [hit(21, 0), hit(-21, 0), hit(0, 21), hit(0, -21)] }; })",
             TOOLS,
         )
         assert len(boxes) == 2, boxes
         for b in boxes:
-            assert b["w"] >= 44 and b["h"] >= 44, b
+            assert all(b["tap"]), b
         for i, a in enumerate(boxes):
             for b in boxes[i + 1 :]:
                 apart = (
@@ -432,6 +434,13 @@ def test_a_sky_left_alone_stops_asking_for_frames_and_wakes_on_a_touch(browser, 
                 const at = new Error().stack || '';
                 if (at.indexOf('almanac-sky.js') >= 0 && at.indexOf('_skyPollSatsTick') < 0) window.__raf++;
                 return r.call(window, f); }; }"""
+        )
+        # Left alone: backdated attention holds once the page has stopped re-arming the sky (a late redraw, a
+        # scene re-made after the place or the tides arrive, counts as opening it again).
+        pg.wait_for_function(
+            "() => { const t = performance.now(); if (window.__armAt === undefined) { window.__armAt = _skyAttentionAt; window.__armT = t; }"
+            " if (_skyAttentionAt !== window.__armAt) { window.__armAt = _skyAttentionAt; window.__armT = t; } return t - window.__armT > 1500; }",
+            timeout=20_000, polling=100,
         )
         pg.evaluate(
             "() => { _skyAttentionAt = performance.now() - 10 * SKY_BREEZE_IDLE_MS; }"

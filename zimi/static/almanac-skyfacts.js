@@ -103,7 +103,8 @@ function _skySpan(at, now, guess, dir) { return _orrFmtSpan(Math.max(0, _skyRoun
 // "SW 252°": the point of the compass and the bearing it stands for.
 function _skyBearing(az) { return _azCompass(az) + ' ' + Math.round(az) + '\u00b0'; }
 
-// The cards: [label, value, sub], four, two by two. The value is the one short
+// The cards: [label, value, sub, key], four, set among the Moon's eight in
+// one grid (almanac.css orders the twelve by key). The value is the one short
 // thing the card is for (a span, a clock time); the sub is where on the
 // horizon, in the card's own small line. (Where north is, the Look view and the
 // star chart show, and the Field Guide says: fieldguide-card.js.) A card that rests
@@ -117,14 +118,14 @@ function _skyFactRows(s, f) {
   var at = function (ms, dir) { return about(_skyClock(ms, guess, dir)); };
   // A guessed sunset less than a step away rounds down to now: said as what it is, not as a time already gone.
   var soon = guess && f.sunUp && f.sunset && _skyRoundMs(f.sunset, guess, -1) <= now;
-  if (f.sunUp) rows.push([t('alm_sky_f_daylight_left'), soon ? t('alm_sky_f_under_step') : f.sunset ? about(_skySpan(f.sunset, now, guess, -1)) : t('alm_midnight_sun'), f.sunset && !soon ? _skyBearing(f.sunsetAz) : '']);
-  else rows.push([t('alm_sky_f_sunrise_in'), f.sunrise ? about(_skySpan(f.sunrise, now, guess, 1)) : t('alm_polar_night'), f.sunrise ? _skyBearing(f.sunriseAz) : '']);
-  if (f.fullyDark) rows.push([t('alm_sky_f_dark_until'), f.darkUntil ? about(_skyClock(f.darkUntil, guess, 1)) : t('alm_polar_night'), '']);
-  else rows.push([t('alm_sky_f_dark_from'), f.darkFrom ? about(_skyClock(f.darkFrom, guess, 1)) : t('alm_sky_f_not_dark'), '']);
+  if (f.sunUp) rows.push([t('alm_sky_f_daylight_left'), soon ? t('alm_sky_f_under_step') : f.sunset ? about(_skySpan(f.sunset, now, guess, -1)) : t('alm_midnight_sun'), f.sunset && !soon ? _skyBearing(f.sunsetAz) : '', 'left']);
+  else rows.push([t('alm_sky_f_sunrise_in'), f.sunrise ? about(_skySpan(f.sunrise, now, guess, 1)) : t('alm_polar_night'), f.sunrise ? _skyBearing(f.sunriseAz) : '', 'left']);
+  if (f.fullyDark) rows.push([t('alm_sky_f_dark_until'), f.darkUntil ? about(_skyClock(f.darkUntil, guess, 1)) : t('alm_polar_night'), '', 'dark']);
+  else rows.push([t('alm_sky_f_dark_from'), f.darkFrom ? about(_skyClock(f.darkFrom, guess, 1)) : t('alm_sky_f_not_dark'), '', 'dark']);
   // When it next comes or goes, and where; how lit it is is the hero's card. With neither in the next day and a half, that.
   var moonAt = f.moonUp ? (f.moonset ? [t('alm_sky_f_sets', { t: at(f.moonset, -1) }), f.moonsetAz] : null) : (f.moonrise ? [t('alm_sky_f_rises', { t: at(f.moonrise, 1) }), f.moonriseAz] : null);
-  rows.push(moonAt ? [t('alm_moon'), moonAt[0], _skyBearing(moonAt[1])] : [t('alm_moon'), t('alm_sky_f_moon_lit', { p: _orrNum(s.moonData.phase.illumination, null, 0) + '%' }), '']);
-  rows.push([t('alm_sky_f_solar'), about(_skySolarClock(_skySolarMinutes(new Date(now), s.lon), guess)), '']);
+  rows.push(moonAt ? [t('alm_moon'), moonAt[0], _skyBearing(moonAt[1]), 'moon'] : [t('alm_moon'), t('alm_sky_f_moon_lit', { p: _orrNum(s.moonData.phase.illumination, null, 0) + '%' }), '', 'moon']);
+  rows.push([t('alm_sky_f_solar'), about(_skySolarClock(_skySolarMinutes(new Date(now), s.lon), guess)), '', 'solar']);
   return rows;
 }
 // A line that breaks only at its dots (each piece, a time or a bearing, whole, the dot staying with the piece before it).
@@ -137,7 +138,7 @@ function _skyFactCards(rows) {
   var html = '<div class="alm-sky-cards">';
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
-    html += '<div class="alm-card"><div class="alm-card-lbl">' + _almEsc(r[0]) + '</div><div class="alm-card-val">' + _almEsc(r[1]) + '</div>' +
+    html += '<div class="alm-card alm-sf-' + r[3] + '"><div class="alm-card-lbl">' + _almEsc(r[0]) + '</div><div class="alm-card-val">' + _almEsc(r[1]) + '</div>' +
       (r[2] ? '<div class="alm-card-sub">' + _skyNoBreak(r[2]) + '</div>' : '') + '</div>';
   }
   return html + '</div>';
@@ -149,11 +150,11 @@ function _skyFacts(s) {
   var key = s.lat + ',' + s.lon, due = !s.factsAt || Math.abs(s.nowTime - s.factsAt) >= SKY_FACTS_MS || s.factsKey !== key;
   if (due) { s.facts = _skyFactsAt(s.nowTime, s.lat, s.lon); s.factsAt = s.nowTime; s.factsKey = key; }
   var html = _skyFactCards(_skyFactRows(s, s.facts));
-  if (!s.stored) {
-    var city = _skyZoneCity();
-    html += '<p class="alm-sky-guess">' + _almEsc(city ? t('alm_sky_f_guess', { city: city }) : t('alm_sky_f_guess_nocity')) + '</p>';
-  }
   if (el._html !== html) { el.innerHTML = html; el._html = html; }
+  // Under the twelve, the word that the place is a guess.
+  var g = document.getElementById('almanac-sky-guess'), city = !s.stored && _skyZoneCity();
+  var gh = s.stored ? '' : '<p class="alm-sky-guess">' + _almEsc(city ? t('alm_sky_f_guess', { city: city }) : t('alm_sky_f_guess_nocity')) + '</p>';
+  if (g && g._html !== gh) { g.innerHTML = gh; g._html = gh; }
 }
 
 // ══ The settings ════════════════════════════════════════════════════════

@@ -3929,7 +3929,7 @@
   }
   .dc-dismiss { background: none; border: none; color: var(--text2); font-size: 16px; cursor: pointer; padding: 0 4px; opacity: 0.4; transition: opacity 0.2s; line-height: 1; }
   .dc-dismiss:hover { opacity: 1; color: var(--text); }
-  .discover-scroll { display: flex; align-items: flex-start; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding: 8px 2px; margin: -8px -2px; will-change: transform; }
+  .discover-scroll { display: flex; align-items: stretch; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding: 8px 2px; margin: -8px -2px; will-change: transform; }
   /* The scrollbar stays. It was hidden once on a guess about which stray line
      was being complained about — the answer was the step rail on the create
      page — and on a desktop with no touchscreen that left the strip with no
@@ -3944,8 +3944,8 @@
     cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden; display: flex; flex-direction: column;
   }
-  /* A card with no picture is as tall as its words: the 200px floor is for the pictured ones. */
-  .discover-card:not(.dc-loading):not(:has(.dc-thumb:not([style*="none"]), .dc-today, canvas)) { min-height: 0; }
+  /* One height across the row (Eric, 2026-10-18: "the discover cards are still not uniform height"):
+     the row stretches every card to its tallest, never under the 200px floor. */
   .discover-card:hover { background: var(--surface2); border-color: var(--amber-border); box-shadow: 0 4px 24px var(--amber-glow), 0 0 0 1px var(--amber-glow); transform: translateY(-2px); }
   .discover-card.dc-no-click { cursor: default; }
   .discover-card.dc-no-click:hover { background: var(--surface); border-color: var(--border); box-shadow: none; transform: none; }

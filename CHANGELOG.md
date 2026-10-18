@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The catalog shows its icons at once, from the copy Zimi ships, and leads each category with its most complete edition.
 - A connection that accepts and never answers no longer hangs the app.
 
+### Removed
+
+- The app update channel (Latest or Beta) and `ZIMI_UPDATE_CHANNEL`: Zimi has one release track. An old saved choice is ignored.
+
 ### Fixed
 
 - A search inside one ZIM found nothing for questions like "how to purify water".

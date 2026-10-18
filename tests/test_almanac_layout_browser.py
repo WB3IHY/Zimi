@@ -131,7 +131,7 @@ def test_the_live_sky_is_directly_above_the_calendar(browser, served, place):
         ctx.close()
 
 
-def test_the_moons_numbers_are_under_the_moon_with_the_skys_words_after_them(
+def test_the_moons_numbers_and_the_skys_are_one_grid_with_the_caption_over_the_sky(
     browser, served
 ):
     ctx, pg, errors = _page(browser, served)
@@ -143,9 +143,11 @@ def test_the_moons_numbers_are_under_the_moon_with_the_skys_words_after_them(
                 sky = document.querySelector('.almanac-sky-wrap');
               const cards = ids.map(i => document.getElementById(i));
               return { present: cards.map(c => !!c), text: cards.map(c => c && c.textContent.trim()),
-                order: [y(moon), y(cards[0]), y(document.getElementById('almanac-sky-facts')), y(document.getElementById('almanac-sky-cap')), y(sky)],
-                // The Moon's cards and the sky's run on as one grid: the same gap between the two sets as inside them.
-                seam: Math.round(document.getElementById('almanac-sky-facts').getBoundingClientRect().top - document.querySelector('#almanac-head .alm-cards').getBoundingClientRect().bottom),
+                order: [y(moon), y(cards[0]), y(document.getElementById('almanac-sky-cap')), y(sky)],
+                // The twelve as they read: one grid, row by row (top, then left).
+                reading: [...document.querySelectorAll('#almanac-head .alm-cards .alm-card')].filter(e => !e.hidden)
+                  .map(e => { const r = e.getBoundingClientRect(); return [Math.round(r.top), Math.round(r.left), e.id || e.className]; })
+                  .sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => x[2].replace(/^alm-card /, '')),
                 cap: document.getElementById('almanac-sky-cap').textContent.trim().length > 0,
                 facts: document.getElementById('almanac-sky-facts').querySelectorAll('.alm-card').length,
                 factLabels: [...document.querySelectorAll('#almanac-sky-facts .alm-card-lbl')].map(e => e.textContent.trim().toLowerCase()),
@@ -155,9 +157,14 @@ def test_the_moons_numbers_are_under_the_moon_with_the_skys_words_after_them(
         )
         assert all(got["present"]), got
         assert all(got["text"]), got  # each has its figure
-        # The Moon, its cards, the sky's cards, then the caption directly over the sky (Eric, 2026-10-18).
+        # The Moon, its cards, then the caption directly over the sky (Eric, 2026-10-18).
         assert got["order"] == sorted(got["order"]), got["order"]
-        assert got["seam"] == 8, got["seam"]
+        # The sky's four among the Moon's eight, in pairs: the Moon, its distance and the Sun's clock, the Sun's day.
+        assert got["reading"] == [
+            "alm-hc-illum-card", "alm-hc-age-card", "alm-sf-moon", "alm-hc-nextfull-card",
+            "alm-hc-dist-card", "alm-sf-solar", "alm-hc-sunrise-card", "alm-hc-sunset-card",
+            "alm-hc-daylight-card", "alm-sf-left", "alm-hc-golden-card", "alm-sf-dark",
+        ], got["reading"]
         assert got["cap"] and got["facts"] >= 4, got
         # No duplication: the facts do not say how lit the Moon is (the hero's Illuminated card does), and do not
         # write a sunrise or sunset hour again (the hero's cards do).
