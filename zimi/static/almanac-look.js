@@ -1,9 +1,10 @@
-// Pointing the phone: look up and you are in the sky above where you stand,
-// look down and you are over the globe where you stand. One object, two
-// faces. This file is the part that knows where the phone points (the
-// sensors, the compass, the fall-back when there are none) and the overlay
-// that shows the sky and the globe by it. The maths comes first and touches
-// nothing but numbers, so it is tested alone (tests/test_almanac_look.cjs).
+// Pointing the phone: the whole sphere round where you stand. Look up and it is the
+// sky above you; look down and it is the sky under your feet, the stars, planets,
+// Sun and Moon that the Earth is in the way of, seen through the ground drawn as
+// dim glass. This file is the part that knows where the phone points (the sensors,
+// the compass, the fall-back when there are none) and the overlay that shows the
+// sky by it. The maths comes first and touches nothing but numbers, so it is
+// tested alone (tests/test_almanac_look.cjs).
 //
 // Loaded on the first tap of the sky's Look button, never with the Almanac.
 // Motion permission (iOS asks) is requested on that tap, never on load.
@@ -14,11 +15,6 @@ var LOOK_RAD = Math.PI / 180;
 var LOOK_FOV_DEFAULT_DEG = 60;        // a phone held at arm's length covers about this
 var LOOK_FOV_MIN_DEG = 15;
 var LOOK_FOV_MAX_DEG = 100;
-// The globe shows through from this far below the horizon, and fills the
-// view at the second: tipping the phone to the ground is the change, a
-// wobble at the horizon is not.
-var LOOK_FADE_FROM_DEG = 4;
-var LOOK_FADE_TO_DEG = 30;
 // Looking nearly straight up or down, the back of the phone has no heading
 // (it points at the sky); the top edge says which way instead. The two are
 // blended between these cosines of the altitude.
@@ -103,11 +99,6 @@ function _lookSmooth(prev, next, dtMs, tauMs) {
   };
 }
 
-// How much of the picture is the globe, from the altitude looked at.
-function _lookGlobeShare(altDeg) {
-  return _lookSmoothstep(LOOK_FADE_FROM_DEG, LOOK_FADE_TO_DEG, -altDeg);
-}
-
 // Without sensors: the picture follows a finger, as the sky does in a planetarium.
 function _lookDragBy(view, dx, dy, fovDeg, widthPx) {
   var k = fovDeg / widthPx;
@@ -124,12 +115,6 @@ function _lookFovByPinch(startFov, startDist, dist) {
 function _lookCompassPoint(az) { return LOOK_POINTS[Math.round(_lookNorm360(az) / 22.5) % 16]; }
 // The point in the person's language (the Almanac's own letters: O for East in German), eight to the circle.
 function _lookPointName(az) { return typeof _azCompass === 'function' ? _azCompass(az) : _lookCompassPoint(az); }
-// The ground is lit when the Sun is within a few degrees of the horizon or above it (civil twilight is dark enough for the lights).
-var LOOK_DAY_SUN_ALT_DEG = -4;
-function _lookIsDay(place, ms) {
-  return typeof _skySunAltAt === 'function' && _skySunAltAt(ms, place.lat, place.lon) > LOOK_DAY_SUN_ALT_DEG;
-}
-
 // ── The sensors ────────────────────────────────────────────────────────────
 
 var LOOK_SENSOR_WAIT_MS = 1500;        // no reading by then: this device has no sensors to read
@@ -140,14 +125,8 @@ var LOOK_NOTE_AFTER_MS = 1500;         // a calibration note appears only if the
 var LOOK_MAX_STEP_MS = 250;            // a late frame still takes its whole step (the smoothing is exact for any step)
 var LOOK_SETTLED_DEG = 0.05;           // the view has caught up with the reading
 var LOOK_REPAINT_DEG = 0.12;           // the sky is repainted past this much turn
-// The globe under your feet hangs this high (Earth radii; 640 km) at the
-// default field, and as much higher as the field is wider: the maps it is
-// drawn from are 20 km to a pixel, so a lower view is a smear, and the maps
-// of Zimi Earth are one tap away for the street.
-var LOOK_GROUND_ALT = 0.1;
 var LOOK_START_ALT_DEG = 20;
-var LOOK_NOTE_FADE_MS = 6000;          // a note about the sensors is said, then let go (the Earth's hint does the same)
-var LOOK_NEAR_URL = '/earth/near';     // what the library has for the point under the feet (Zimi Earth's own lookup)
+var LOOK_NOTE_FADE_MS = 6000;          // a note about the sensors is said, then let go
 var LOOK_CLOCK_MS = 60000;             // the sky moves a quarter degree a minute: drawn again that often
 var LOOK_ROOT_ID = 'almanac-look';
 var LOOK_STOPGAP_FOV_DEG = 60;         // the panorama is shown 60 degrees across...
@@ -283,22 +262,14 @@ function _lookReduceMotion() { return typeof _almReduceMotion === 'function' && 
 
 function _lookSkyView() { return window.AlmanacSkyView || _lookStopgapSky; }
 
+// The view moved: the sky is turned to it (repainted past a small turn), and the readout says where it points.
 function _lookApply(v) {
-  var S = _look, share = _lookGlobeShare(v.alt);
-  S.share = share;
+  var S = _look;
   var turned = !S.drawn || Math.abs(_lookDelta(S.drawn.az, v.az)) > LOOK_REPAINT_DEG || Math.abs(S.drawn.alt - v.alt) > LOOK_REPAINT_DEG || S.drawn.fov !== S.fov;
   if (turned) {
     S.drawn = { az: v.az, alt: v.alt, fov: S.fov };
     if (S.skyMounted) _lookSkyView().setView(S.skyHost, v.az, v.alt, S.fov);
-    if (share > 0.01 && S.globe && !S.noGlobe) S.globe.set({ bearing: v.az, alt: LOOK_GROUND_ALT * S.fov / LOOK_FOV_DEFAULT_DEG }, 0);
   }
-  S.skyHost.style.opacity = String(1 - share);
-  S.globeEl.style.opacity = S.noGlobe ? '0' : String(share);
-  S.root.classList.toggle('look-ground', share > 0.5);
-  S.skyHost.style.pointerEvents = share > 0.5 ? 'none' : '';
-  var ground = share > 0.5;
-  _lookEl('look-earth').hidden = !ground || S.noGlobe;
-  _lookUnder(ground);
   var altR = Math.round(v.alt), azR = Math.round(v.az) % 360;
   var read = _lookPointName(v.az) + ' ' + azR + '°   ' + (altR > 0 ? '+' : altR < 0 ? '−' : '') + Math.abs(altR) + '°';
   var r = _lookEl('look-read');
@@ -369,7 +340,6 @@ var _lookStopgapSky = {
 
 var LOOK_CLOSE_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 var LOOK_FIND_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5.5 5.5"/></svg>';
-var LOOK_EARTH_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3.5 9.5c2.5.4 3.5 2 4.5 3.5s2.5 1 3 2.5-1 3 .5 4.5M13 3.2c-.4 2 .6 3 2 3.6s3.5.4 5 2.2"/></svg>';
 
 function _lookPlaceLabel(place) {
   var f = function (x, p, n) { return Math.abs(x).toFixed(1) + '° ' + (x >= 0 ? p : n); };
@@ -393,15 +363,12 @@ function _lookOpen(opts) {
   root.setAttribute('role', 'dialog');
   root.setAttribute('aria-label', _lookT('look_title'));
   root.innerHTML =
-    '<div class="look-layers"><div class="look-sky" id="look-sky"></div><canvas class="look-globe" id="look-globe"></canvas><div class="look-you" id="look-you"></div></div>' +
+    '<div class="look-layers"><div class="look-sky" id="look-sky"></div></div>' +
     '<div class="look-top"><button type="button" class="look-btn" id="look-close"></button>' +
     '<div class="look-info"><div class="look-read" id="look-read"></div><div class="look-place" id="look-place"></div></div>' +
     '<button type="button" class="look-btn look-find" id="look-find"></button></div>' +
-    '<div class="look-under" id="look-under" hidden><div class="look-under-name" id="look-under-name"></div>' +
-    '<button type="button" class="look-under-read" id="look-under-read" hidden></button></div>' +
     '<div class="look-note" id="look-note" role="status" hidden></div>' +
-    '<div class="look-bottom"><button type="button" class="look-main" id="look-ask"></button>' +
-    '<button type="button" class="look-quiet" id="look-earth" hidden>' + LOOK_EARTH_SVG + '<span></span></button></div>';
+    '<div class="look-bottom"><button type="button" class="look-main" id="look-ask"></button></div>';
   document.body.appendChild(root);
   _lookEl('look-close').innerHTML = LOOK_CLOSE_SVG;
   _lookEl('look-close').setAttribute('aria-label', _lookT('close'));
@@ -409,15 +376,13 @@ function _lookOpen(opts) {
   _lookEl('look-find').setAttribute('aria-label', _lookT('sky_find_btn'));
   _lookEl('look-find').onclick = function () { if (typeof openAlmanacFind === 'function') openAlmanacFind('look'); };
   _lookEl('look-ask').textContent = _lookT('look_enable');
-  _lookEl('look-earth').lastChild.textContent = _lookT('look_earth');
   _lookEl('look-place').textContent = _lookPlaceLabel(place);
   document.body.classList.add('look-open');
   var startAz = place.lat >= 0 ? 180 : 0;
   var S = _look = {
-    root: root, skyHost: _lookEl('look-sky'), globeEl: _lookEl('look-globe'), place: place, mode: 'idle', fov: LOOK_FOV_DEFAULT_DEG,
+    root: root, skyHost: _lookEl('look-sky'), place: place, mode: 'idle', fov: LOOK_FOV_DEFAULT_DEG,
     target: { az: startAz, alt: LOOK_START_ALT_DEG, roll: 0 }, view: { az: startAz, alt: LOOK_START_ALT_DEG, roll: 0 },
-    trim: { az: 0, alt: 0 }, share: 0, raf: 0, last: 0, drawn: null, sensing: null, globe: null, resizeTimer: 0, noteKind: '', noteTimer: 0,
-    noGlobe: typeof ZimiGlobe === 'undefined' || (typeof ZimiGlobe.supported === 'function' && !ZimiGlobe.supported()), near: null, nearAsked: false, day: _lookIsDay(place, Date.now())
+    trim: { az: 0, alt: 0 }, raf: 0, last: 0, drawn: null, sensing: null, resizeTimer: 0, noteKind: '', noteTimer: 0
   };
   S.skyMounted = !!_lookSkyView().mount(S.skyHost, place);
   // The Almanac under the window rests: its orrery, clocks and the sky's own
@@ -425,15 +390,7 @@ function _lookOpen(opts) {
   if (typeof _cancelAllRAF === 'function') _cancelAllRAF();
   S.clock = setInterval(_lookRefreshClock, LOOK_CLOCK_MS);
   _lookEl('look-close').onclick = _lookClose;
-  _lookEl('look-under-read').onclick = _lookReadNear;
   _lookEl('look-ask').onclick = _lookAskTap;
-  _lookEl('look-earth').onclick = function () {
-    var p = S.place;
-    // Leaving for Earth: the overlay's history step is kept, as the Almanac's own.
-    _lookClose(true);
-    if (history.state && history.state.look) history.replaceState({ mode: 'almanac' }, '', location.href);
-    if (typeof openEarth === 'function') openEarth(false, { lat: p.lat, lon: p.lon, alt: 0.01 });
-  };
   _lookBindInput(root);
   S.onKey = _lookKey;
   S.onResize = function () { clearTimeout(S.resizeTimer); S.resizeTimer = setTimeout(_lookResize, 200); };
@@ -456,56 +413,14 @@ function _lookOpen(opts) {
   }
   _lookButtons();
   _lookApply(S.view);
-  if (!S.noGlobe) _lookWarmGlobe();
-  // Asked to lead to something (the page's "point your phone"): the Find module is loaded, then it leads there.
-  if (opts.find && typeof openAlmanacFind === 'function') openAlmanacFind('look', opts.find);
-}
-
-// What is under the feet, said in words: the place, and the nearest article the library has for it,
-// one tap from being read. Asked once, when the phone first points down, never on the way in.
-function _lookUnder(ground) {
-  var S = _look, box = _lookEl('look-under');
-  if (!box) return;
-  box.hidden = !ground;
-  S.root.classList.toggle('look-day', S.day);
-  if (!ground) return;
-  _lookEl('look-under-name').textContent = S.place.name || _lookPlaceLabel({ lat: S.place.lat, lon: S.place.lon });
-  if (!S.nearAsked) { S.nearAsked = true; _lookFetchNear(); }
-}
-function _lookFetchNear() {
-  var S = _look;
-  if (typeof fetch !== 'function') return;
-  fetch(LOOK_NEAR_URL + '?lat=' + S.place.lat.toFixed(4) + '&lon=' + S.place.lon.toFixed(4), { credentials: 'same-origin' })
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (d) {
-      if (_look !== S || !d || !d.articles || !d.articles.length) return;
-      var a = d.articles[0], btn = _lookEl('look-under-read'), km = a.km < 10 ? a.km.toFixed(1) : String(Math.round(a.km));
-      S.near = a;
-      btn.textContent = '';
-      var lead = document.createElement('small'), name = document.createElement('b'), away = document.createElement('small');
-      lead.textContent = _lookT('earth_read'); name.textContent = a.title; away.textContent = _lookT('earth_away', { km: km });
-      btn.appendChild(lead); btn.appendChild(name); btn.appendChild(away);
-      btn.setAttribute('aria-label', _lookT('earth_read') + ': ' + a.title);
-      btn.hidden = false;
-    }).catch(function () { /* no library here: the place is all there is to say, and it is said */ });
-}
-// Reading it leaves the overlay and the Almanac the way a link in the Almanac does, so Back returns to the Almanac.
-function _lookReadNear() {
-  var S = _look, a = S && S.near;
-  if (!a || typeof openArticle !== 'function') return;
-  _lookClose(true);
-  if (history.state && history.state.look) history.replaceState({ mode: 'almanac' }, '', location.href);
-  var scroll = typeof _suspendAlmanacForLink === 'function' ? _suspendAlmanacForLink() : 0;
-  openArticle(a.zim, a.path, a.title);
-  window._almReturnScroll = scroll;
 }
 
 // The stars turn: the sky is worked out for now again, once a minute.
 function _lookRefreshClock() {
   var S = _look, st = typeof _skyState !== 'undefined' ? _skyState : null;
-  if (S) S.day = _lookIsDay(S.place, Date.now());
-  if (!S || !st || !S.skyMounted || window.AlmanacSkyView) return;
-  if (typeof _almFocus === 'undefined' || !_almFocus) _skyCompute(st, new Date());
+  if (!S || !S.skyMounted) return;
+  // The window's own sky works the instant out again when it is drawn; the stopgap uses the page's.
+  if (!window.AlmanacSkyView && st && (typeof _almFocus === 'undefined' || !_almFocus)) _skyCompute(st, new Date());
   S.drawn = null;
   _lookKick();
 }
@@ -528,34 +443,12 @@ function _lookAskTap() {
   });
 }
 
-// The globe is made once the sky is up, so the first tilt to the ground has
-// it ready; nothing draws until it shows.
-function _lookWarmGlobe() {
-  var S = _look;
-  var go = function () {
-    if (_look !== S || typeof ZimiGlobe === 'undefined') return;
-    ZimiGlobe.create(S.globeEl, { interactive: false, lat: S.place.lat, lon: S.place.lon, alt: LOOK_GROUND_ALT }).then(function (g) {
-      if (_look !== S) { g.dispose(); return; }
-      S.globe = g;
-      g.set({ bearing: S.view.az, alt: LOOK_GROUND_ALT * S.fov / LOOK_FOV_DEFAULT_DEG }, 0);
-    }).catch(function () {
-      // No globe on this device: the ground is words (the place, the nearest article), and no way to Zimi Earth, which needs one.
-      if (_look !== S) return;
-      S.noGlobe = true;
-      S.drawn = null;
-      _lookKick();
-    });
-  };
-  if (typeof requestIdleCallback === 'function') requestIdleCallback(go, { timeout: 1500 }); else setTimeout(go, 300);
-}
-
 function _lookResize() {
   var S = _look;
   if (!S) return;
   var sky = _lookSkyView();
   if (S.skyMounted && sky.resize) sky.resize(S.skyHost, S.place);
   S.drawn = null;
-  if (S.globe) S.globe.resize();
   _lookKick();
 }
 
@@ -638,7 +531,6 @@ function _lookClose(fromHistory) {
   clearInterval(S.clock);
   window.removeEventListener('keydown', S.onKey, true);
   window.removeEventListener('resize', S.onResize);
-  if (S.globe) S.globe.dispose();
   if (S.skyMounted) {
     var prev = _look;
     _look = S;                      // unmount may ask for the open overlay's host
@@ -648,7 +540,7 @@ function _lookClose(fromHistory) {
   if (typeof _resumeAllRAF === 'function' && typeof _almanacOpen !== 'undefined' && _almanacOpen) _resumeAllRAF();
   S.root.remove();
   document.body.classList.remove('look-open');
-  if (window._sfLookTick) window._sfLookTick();   // what was being found is shown on the page's sky again
+  if (window._sfLookTick) window._sfLookTick();
 }
 
 window.openAlmanacLookNow = _lookOpen;
