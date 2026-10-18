@@ -1,7 +1,7 @@
 """Zero-config ZIM discovery and the one-level-deep scan (1.9 portable mode).
 
-Two behaviors under test, both bounded by the compatibility contract in
-docs/plans/2026-08-07-v19-plan.md:
+Two behaviors under test, both bounded by the compatibility contract (an
+explicit setting always beats a discovered folder):
 
 1. Discovery is the FIFTH, lowest resolution layer. It probes the executable
    directory (frozen builds), the macOS .app container, and the cwd for

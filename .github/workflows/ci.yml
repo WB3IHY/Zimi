@@ -119,6 +119,15 @@ jobs:
           fi
           echo "no session links"
 
+      # Plans, drafts and working notes live outside the public repo.
+      - name: No internal working docs in the tree
+        run: |
+          if git ls-files docs/plans docs/drafts docs/superpowers docs/roadmap-*.md | grep .; then
+            echo "::error::internal working docs are tracked; they belong outside the repo"
+            exit 1
+          fi
+          echo "no internal docs"
+
       - name: Verify CLI entry point
         run: zimi --help
 

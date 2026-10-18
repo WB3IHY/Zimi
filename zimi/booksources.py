@@ -7,7 +7,7 @@ support as many as we can across all the apps as well. Be sure to support
 our own."
 
 One reader per family, each from the family's own structure (the 1.12
-coverage audit, docs/plans/2026-09-28-app-coverage.md):
+coverage audit):
 
 - ``nautilus``: Kiwix's document libraries (zimgit-*, maitre_lucas,
   prunelle, youscribe...). Their ``database.js`` lists every file with a

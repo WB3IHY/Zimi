@@ -52,7 +52,7 @@ from zimi import subproc
 from zimi.p2p import is_offline
 from zimi.zimwriter import _slug, scraper_string
 
-# warc2zim's own pin (see docs/plans/2026-08-10-zim-creation-landscape.md §5):
+# warc2zim's own pin:
 # a single Python minor version. Bump both bounds together when upstream moves.
 WARC2ZIM_PY_MIN = (3, 14)
 WARC2ZIM_PY_MAX_EXCL = (3, 15)

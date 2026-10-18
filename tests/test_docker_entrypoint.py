@@ -1,6 +1,6 @@
 """The image's entrypoint: a fresh root-owned data folder, then drop to zimi.
 
-The real root path is proven in a container (see docs/plans); these tests pin
+The real root path is proven in a container; these tests pin
 the decisions with the privileged calls replaced by recorders.
 """
 

@@ -738,7 +738,7 @@ def announce_ready(port):
 # (a frozen build on a USB stick), the folder a macOS .app bundle sits in, and
 # the working directory, for `*.zim` files or a `zims/` child holding them.
 #
-# The compatibility contract (docs/plans/2026-08-07-v19-plan.md) is why this
+# The compatibility contract is why this
 # is a separate, explicitly-passed layer rather than a smarter default: an
 # explicit ZIM_DIR, --zim-dir, config-file zim_dir, or a desktop-configured
 # folder must ALWAYS beat a discovered one, and the precedence tests pin that.
@@ -1330,8 +1330,7 @@ def resolve_data_paths(
 #   * If `<zim_dir>/.zimi` already EXISTS but is unwritable, its contents are
 #     ignored and the cache dir is used wholesale. Reading stick indexes while
 #     writing new state elsewhere would be a two-layer overlay; the simple
-#     rule (documented in docs/plans/2026-08-07-zero-config-portable.md) is
-#     one data dir at a time.
+#     rule is one data dir at a time.
 # ---------------------------------------------------------------------------
 
 
@@ -2023,7 +2022,7 @@ _DOC_MIMETYPES = ("application/pdf", "application/epub+zip")
 _MEDIA_MIME_PREFIXES = ("video/", "audio/")
 # ZIMs that are one book each, by Name: a textbook or a guide captured whole
 # by zimit, with nothing in its metadata that says "book" (from the 1.12
-# coverage audit, docs/plans/2026-09-28-app-coverage.md). Any other ZIM can
+# coverage audit). Any other ZIM can
 # be put on the shelf by hand (books.set_whole).
 WHOLE_BOOK_NAMES = frozenset(
     (
@@ -2326,7 +2325,7 @@ def _read_map_facts(path):
 
 APPS_ENV = "ZIMI_APPS"
 # The Field Guide and Help now are out of the shipped release until they come
-# back as "How to (anything)" (docs/plans/app-candidates.md). The code stays in
+# back as "How to (anything)". The code stays in
 # the tree; this switch (default off) is the one thing that reaches it.
 FIELDGUIDE_ENV = "ZIMI_FIELDGUIDE"
 
