@@ -420,12 +420,18 @@ def test_a_sky_left_alone_stops_asking_for_frames_and_wakes_on_a_touch(browser, 
         pg.evaluate(
             "() => { if (_skySetting('skin') !== 'beach') _skySet('skin', 'beach'); _skyArm(); }"
         )
-        pg.wait_for_timeout(500)
-        assert pg.evaluate(
-            "() => !!_skyTimers.sway || !!_almanacSkyRAF"
-        )  # being looked at: the breeze runs
+        # Being looked at, the breeze runs (once the page has seen the sky come into view).
+        pg.wait_for_function(
+            "() => !!_skyTimers.sway || !!_almanacSkyRAF", timeout=10_000, polling=POLL_MS
+        )
+        # The sky's own frames: the world clock ticks a frame a second by design, and the satellite poll asks for one
+        # to paint the positions it brings; neither is the sky running a loop.
         pg.evaluate(
-            "() => { window.__raf = 0; const r = window.requestAnimationFrame; window.requestAnimationFrame = function (f) { window.__raf++; return r.call(window, f); }; }"
+            """() => { window.__raf = 0; const r = window.requestAnimationFrame;
+              window.requestAnimationFrame = function (f) {
+                const at = new Error().stack || '';
+                if (at.indexOf('almanac-sky.js') >= 0 && at.indexOf('_skyPollSatsTick') < 0) window.__raf++;
+                return r.call(window, f); }; }"""
         )
         pg.evaluate(
             "() => { _skyAttentionAt = performance.now() - 10 * SKY_BREEZE_IDLE_MS; }"
