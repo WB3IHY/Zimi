@@ -2750,7 +2750,8 @@ function updateTopbar() {
   const showBack = !!backTo || articleHistory.length > 0 || mode === 'search' || homeScope || (_isAppPage() && (!_appTop || _connState !== CONN_OK));
   backBtn.style.display = showBack ? 'flex' : 'none';
   var nightBtn = document.getElementById('night-btn');
-  if (nightBtn) nightBtn.style.display = _isFieldguidePage() ? 'flex' : 'none';
+  // The red night light where it is used in the dark: the Field Guide and the Almanac's sky.
+  if (nightBtn) nightBtn.style.display = _isFieldguidePage() || _almanacOpen ? 'flex' : 'none';
   backBtn.setAttribute('aria-label', backTo ? t('back_to', {place: backTo}) : t('go_back'));
   backBtn.title = backTo ? t('back_to', {place: backTo}) : '';
 

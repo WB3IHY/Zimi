@@ -599,7 +599,6 @@ function _skyLoadSettings() {
 function _skySetting(k) { if (!_skySettings) _skySettings = _skyLoadSettings(); return _skySettings[k]; }
 // Choose one; the sky draws once for it.
 function _skySet(k, v) {
-  if (k === 'red') { _skySetRed(!!v); return; }
   if (_skySetting(k) === v) return;
   _skySettings[k] = _skyChosen[k] = v;
   try { localStorage.setItem(SKY_SETTINGS_KEY, JSON.stringify(_skyChosen)); } catch (e) {}
@@ -609,9 +608,9 @@ function _skySet(k, v) {
 
 // ── Red night mode ──
 // Red is one of the app's themes (Light, Dark, Red), stamped as the class
-// night-red on <html> (by the shell before first paint). The sky follows it,
-// draws deep red on black when it is set, and its own checkbox is a shortcut
-// that chooses the theme through _nightSet.
+// night-red on <html> (by the shell before first paint). The sky follows it
+// and draws deep red on black when it is set. The theme is chosen in the shell
+// (Settings, Theme), not in the sky's settings.
 var SKY_NIGHT_CLASS = 'night-red';
 var _skyRedSeen = false;
 function _skyRedOn() {
@@ -634,8 +633,6 @@ function _skyRedChanged() {
   if (on === _skyRedSeen) return;
   _skyRedSeen = on;
   _skyRedScope(on);
-  var box = document.querySelector && document.querySelector('#almanac-sky-set [data-sky-set="red"]');
-  if (box) box.checked = on;
   if (typeof CustomEvent === 'function' && document.dispatchEvent) document.dispatchEvent(new CustomEvent('zimisky:red', { detail: { on: on } }));
   _skyKickDirty();
 }
