@@ -114,6 +114,9 @@ var SK = {
   VOICE_PREFS: 'zimi_voice_prefs',
   // Hear's sample words, {lang: [words]}: SESSION-scoped, the same all session.
   VOICE_SAMPLE: 'zimi_voice_sample',
+  // Read aloud: server engines that could not keep up with reading on this
+  // server ([engines]), tried last from then on.
+  TTS_SLOW: 'zimi_tts_slow',
   // Reader font scale (percent, one of READER_FONT_LEVELS), applied as a `zoom`
   // on the iframe body and reapplied on every article load.
   READER_FONT: 'zimi_reader_font_scale',
@@ -2885,7 +2888,7 @@ function updateTopbar() {
     if (!showMapSrc) _closeMapSourceDropdown();
   }
   var ttsBtn = document.getElementById('tts-btn');
-  if (ttsBtn) ttsBtn.style.display = (_readingText && _TTS_AVAILABLE && _speakingOn() && !_foldReaderExtras) ? 'flex' : 'none';
+  if (ttsBtn) ttsBtn.style.display = (_readingText && _ttsCanSpeak() && _speakingOn() && !_foldReaderExtras) ? 'flex' : 'none';
   // The dice on a map roll a place, and say so.
   var randomLabel = t(_isMapPage() ? 'random_place' : 'random_article');
   randomBtn.title = randomLabel;
@@ -19530,6 +19533,67 @@ function _cycleReaderFont() {
 var _TTS_AVAILABLE = (typeof window !== 'undefined') && ('speechSynthesis' in window);
 var _ttsSpeaking = false;
 
+// Read aloud in the server's voices (voices.py: Kokoro, Piper, ...) when it
+// has one for the article's language, as the Dictionary's Say does: the same
+// voice on every device, and a natural one where the browser's own is robotic
+// or missing (a Linux browser often has only espeak, or none at all). The
+// browser's speechSynthesis stays the fallback, and is used as before when the
+// server can say nothing or the viewer chose Device in Settings > Voices.
+// Each chunk is one /dictionary/speak?kind=sentence request (chunks are 240
+// characters, under voices.SENTENCE_MAX), played by one <audio> element; the
+// next chunk is asked for while this one plays, so the server has said it by
+// the time it is needed. An engine too slow for that on this server (Kokoro on
+// a small NAS takes longer to say a chunk than to play it) gives way to the
+// next engine for the language for the rest of the article.
+var _TTS_SERVER_RETRY_MS = 2000; // voices.RETRY_AFTER_S: the server was busy
+// How long a chunk may take to start before the next engine says it instead.
+// Piper says a 240-character chunk in 1 to 3 s on an Intel N150; Kokoro takes
+// 18 to 24 s there (2026-10-17), longer than the chunk plays.
+var _TTS_START_WAIT_MS = 6000;
+var _ttsVoices = null; // /dictionary/voices (its page payload), or null
+var _ttsAudio = null;
+var _ttsRun = 0; // bumped by every start and stop: callbacks of an older run do nothing
+function _ttsLoadVoices() {
+  authedFetch('/dictionary/voices').then(function(r) { return r.ok ? r.json() : null; })
+    .catch(function() { return null; })
+    .then(function(d) { _ttsVoices = d; updateTopbar(); });
+}
+_ttsLoadVoices();
+// The server's engines for a language, best first: the viewer's chosen voice,
+// then the server's own choice, then the rest; none that Settings turned off.
+// An engine too slow to read with here goes last, unless it is the one chosen.
+// Empty when the viewer chose Device, or the server cannot say the language.
+function _ttsServerEngines(lang) {
+  var langs = (_ttsVoices && _ttsVoices.langs) || {};
+  var row = langs[_normLang(_langPrimary(lang))];
+  var prefs = _voicePrefs();
+  if (!row || prefs.voice === _DEVICE_VOICE) return [];
+  var order = [prefs.voice, row.engine].concat(row.engines || []);
+  order = order.filter(function(e, i) {
+    return e && order.indexOf(e) === i && (row.engines || []).indexOf(e) >= 0 && prefs.off.indexOf(e) < 0;
+  });
+  var slow = _ttsSlowEngines();
+  var quick = order.filter(function(e) { return e === prefs.voice || slow.indexOf(e) < 0; });
+  return quick.concat(order.filter(function(e) { return quick.indexOf(e) < 0; }));
+}
+function _ttsSlowEngines() {
+  var s = _getStorageJSON(SK.TTS_SLOW, []);
+  return Array.isArray(s) ? s : [];
+}
+function _ttsMarkSlow(engine) {
+  var s = _ttsSlowEngines();
+  if (s.indexOf(engine) < 0) { s.push(engine); _setStorageJSON(SK.TTS_SLOW, s); }
+}
+function _ttsServerSays() {
+  return Object.keys((_ttsVoices && _ttsVoices.langs) || {}).length > 0;
+}
+// The Read aloud button shows when the server or this browser can speak.
+function _ttsCanSpeak() { return _TTS_AVAILABLE || _ttsServerSays(); }
+function _ttsSpeakUrl(text, lang, engine) {
+  return '/dictionary/speak?kind=sentence&lang=' + encodeURIComponent(_normLang(_langPrimary(lang))) +
+    '&engine=' + encodeURIComponent(engine) + '&text=' + encodeURIComponent(text);
+}
+
 function _ttsChunkText(text, maxLen) {
   maxLen = maxLen || 240;
   var out = [];
@@ -19615,28 +19679,110 @@ function _ttsSetSpeaking(on) {
   btn.setAttribute('aria-label', label);
 }
 function _ttsStop() {
-  if (!_TTS_AVAILABLE) return;
-  try { window.speechSynthesis.cancel(); } catch(e) {}
+  _ttsRun++;
+  if (_ttsAudio) {
+    try { _ttsAudio.pause(); _ttsAudio.removeAttribute('src'); _ttsAudio.load(); } catch(e) {}
+  }
+  if (_TTS_AVAILABLE) { try { window.speechSynthesis.cancel(); } catch(e) {} }
   if (_ttsSpeaking) _ttsSetSpeaking(false);
 }
 function _ttsSpeak() {
-  if (!_TTS_AVAILABLE) return;
+  if (!_ttsCanSpeak()) return;
   var frame = document.getElementById('reader-frame');
   var doc; try { doc = frame && frame.contentDocument; } catch(e) { doc = null; }
   if (!doc) return;
   var chunks = _ttsChunkText(_ttsExtractText(doc), 240);
   if (!chunks.length) return;
   var lang = _ttsLang(doc);
-  var synth = window.speechSynthesis;
-  synth.cancel(); // clear any residual queue before starting fresh
+  _ttsStop(); // clear any residual queue or audio before starting fresh
+  var engines = _ttsServerEngines(lang);
+  if (!engines.length && !_TTS_AVAILABLE) return;
   _ttsSetSpeaking(true);
-  chunks.forEach(function(chunk, idx) {
+  if (engines.length) _ttsSpeakServer(chunks, lang, engines, ++_ttsRun);
+  else _ttsSpeakDevice(chunks, lang, 0);
+  _ttsLoadVoices(); // a voice downloaded since the page opened is used next time
+}
+// This browser's own voices, from chunk ``from`` on.
+function _ttsSpeakDevice(chunks, lang, from) {
+  var synth = window.speechSynthesis;
+  synth.cancel();
+  chunks.slice(from).forEach(function(chunk, idx, rest) {
     var u = new SpeechSynthesisUtterance(chunk);
     if (lang) u.lang = lang;
-    if (idx === chunks.length - 1) u.onend = function() { _ttsSetSpeaking(false); };
+    if (idx === rest.length - 1) u.onend = function() { _ttsSetSpeaking(false); };
     u.onerror = function() { _ttsSetSpeaking(false); };
     synth.speak(u);
   });
+}
+// The server's voices: one <audio> element plays the chunks in turn. Its src
+// is set and played inside the tap for the first chunk, as iOS requires (an
+// element started in a tap may play again from its own events).
+function _ttsSpeakServer(chunks, lang, engines, run) {
+  var audio = _ttsAudio || (_ttsAudio = new Audio());
+  var i = 0, eng = 0, retried = false, waiting = null;
+  var asked = {}; // chunk index -> true once the server has said it (or failed to)
+  function live() { return run === _ttsRun; }
+  // Too slow here: the next engine for the language says the rest, and this
+  // one is tried last from now on.
+  function slower() {
+    _ttsMarkSlow(engines[eng]);
+    eng++;
+    asked = {};
+  }
+  // Ask for chunk ``idx`` ahead of time; the server keeps what it said, so
+  // the <audio> element then gets it at once.
+  function ask(idx) {
+    if (idx >= chunks.length || asked[idx] !== undefined) return;
+    var engine = engines[eng];
+    asked[idx] = false;
+    authedFetch(_ttsSpeakUrl(chunks[idx], lang, engine)).then(function(r) {
+      if (!live()) return;
+      if (r.status === 503) {
+        delete asked[idx]; // busy: ask again shortly
+        setTimeout(function() { if (live()) ask(idx); }, _TTS_SERVER_RETRY_MS);
+        return;
+      }
+      if (engines[eng] === engine) asked[idx] = true;
+    }).catch(function() { if (live()) delete asked[idx]; });
+  }
+  function play(idx) {
+    // Not ready when it is needed: this engine is too slow here, so the next
+    // one for the language says the rest (what was asked of the slow one
+    // still plays if it arrives first).
+    if (idx > 0 && asked[idx] === false && eng + 1 < engines.length) slower();
+    audio.src = _ttsSpeakUrl(chunks[idx], lang, engines[eng]);
+    var p = audio.play();
+    if (p && p.catch) p.catch(function() { if (live()) fail(); });
+    // Still silent after a while (the first chunk, or one asked too late):
+    // say it with the next engine instead.
+    clearTimeout(waiting);
+    if (eng + 1 < engines.length) {
+      waiting = setTimeout(function() {
+        if (live() && i === idx && audio.paused) { slower(); play(idx); }
+      }, _TTS_START_WAIT_MS);
+    }
+  }
+  function fail() {
+    // Once more after a moment (the server may have been busy), then this
+    // browser's voices for the rest, or stop when it has none.
+    if (!retried) {
+      retried = true;
+      setTimeout(function() { if (live()) play(i); }, _TTS_SERVER_RETRY_MS);
+      return;
+    }
+    _ttsRun++;
+    if (_TTS_AVAILABLE) _ttsSpeakDevice(chunks, lang, i);
+    else _ttsSetSpeaking(false);
+  }
+  audio.onplaying = function() { if (live()) { clearTimeout(waiting); retried = false; ask(i + 1); } };
+  audio.onended = function() {
+    if (!live()) return;
+    i++;
+    if (i >= chunks.length) { _ttsRun++; _ttsSetSpeaking(false); return; }
+    play(i);
+  };
+  audio.onerror = function() { if (live() && audio.getAttribute('src')) fail(); };
+  play(0);
 }
 function _ttsToggle() {
   if (_ttsSpeaking) _ttsStop();
@@ -28079,7 +28225,7 @@ function _buildTopbarMenuHtml() {
         ' <span class="tbm-label">' + tH('find_in_page') + '</span></button>';
     }
     // 4. Read aloud.
-    if (_TTS_AVAILABLE && !_isMapPage() && !_isAppPage() && !_isPdfPage() && _speakingOn()) {
+    if (_ttsCanSpeak() && !_isMapPage() && !_isAppPage() && !_isPdfPage() && _speakingOn()) {
       readerGroup += '<button class="topbar-menu-item" id="tbm-tts" aria-pressed="' + (_ttsSpeaking ? 'true' : 'false') +
         '" onclick="event.stopPropagation();_ttsToggle()">' + _TBM_TTS_ICON +
         ' <span class="tbm-label">' + tH(_ttsSpeaking ? 'tts_stop' : 'tts_speak') + '</span></button>';
