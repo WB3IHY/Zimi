@@ -117,6 +117,12 @@ var SK = {
   // Read aloud: server engines that could not keep up with reading on this
   // server ([engines]), tried last from then on.
   TTS_SLOW: 'zimi_tts_slow',
+  // Read aloud: when it was last used (ms), so a Reader View opened within a
+  // week of it gets the voice list and the engine warmed ahead of the tap.
+  TTS_LAST_USE: 'zimi_tts_last_use',
+  // Read aloud: engines already suggested as a faster choice ([engines]),
+  // each said once.
+  TTS_SUGGESTED: 'zimi_tts_suggested',
   // Reader font scale (percent, one of READER_FONT_LEVELS), applied as a `zoom`
   // on the iframe body and reapplied on every article load.
   READER_FONT: 'zimi_reader_font_scale',
@@ -1006,6 +1012,7 @@ function _voicePrefs() {
   var out = { voice: typeof p.voice === 'string' ? p.voice : '',
     off: Array.isArray(p.off) ? p.off.filter(function(e) { return _VOICE_ENGINES.indexOf(e) >= 0; }) : [] };
   if (p.quiet === true) out.quiet = true; // kept only when it says something
+  if (typeof p.read === 'string' && p.read) out.read = p.read; // Read aloud's own voice; absent = Automatic
   return out;
 }
 // Speaking, Settings > Voices' first switch (Eric, 2026-10-06: "a Speaking
@@ -1032,8 +1039,10 @@ _markSpeaking();
 function _setVoicePrefs(change) {
   var p = Object.assign(_voicePrefs(), change);
   if (p.voice && p.off.indexOf(p.voice) >= 0) p.voice = '';
+  if (p.read && p.off.indexOf(p.read) >= 0) p.read = '';
   if (!p.quiet) delete p.quiet;
-  if (!p.voice && !p.off.length && !p.quiet) { try { localStorage.removeItem(SK.VOICE_PREFS); } catch (e) {} }
+  if (!p.read) delete p.read;
+  if (!p.voice && !p.off.length && !p.quiet && !p.read) { try { localStorage.removeItem(SK.VOICE_PREFS); } catch (e) {} }
   else _setStorageJSON(SK.VOICE_PREFS, p);
   _voicesTellDictionary();
   _paintVoices();
@@ -1357,16 +1366,25 @@ function _clearGet(btn, tags) {
 // the server's choice per language; a voice that cannot say a language
 // gives way to it there. Picking in the Dictionary's Say menu sets it too.
 function _voiceDefaultHtml(on) {
+  return _voicePickHtml(on, 'voices_default', _voicePrefs().voice, 'voice', 'voice-default');
+}
+// Read aloud's own voice, beside it: Automatic follows the default above.
+function _voiceReadHtml(on) {
+  return _voicePickHtml(on, 'tts_speak', _voicePrefs().read || '', 'read', 'voice-read');
+}
+// One row of voice choices: Automatic and every voice here, ``cur`` marked,
+// a pick saved as prefs[field].
+function _voicePickHtml(on, labelKey, cur, field, cls) {
   if (on.length < 2) return '';
-  var cur = _voicePrefs().voice;
   if (cur && !on.some(function(x) { return x.engine === cur; })) cur = '';
   var opt = function(e, label) {
-    var sel = e === cur;
+    var sel = e === cur, change = {};
+    change[field] = e;
     return '<button type="button" class="app-theme-btn' + (sel ? ' active' : '') + '" role="radio" aria-checked="' + sel + '"' +
-      ' onclick="' + escAttr('_setVoicePrefs({ voice: ' + JSON.stringify(e) + ' })') + '"><span>' + esc(label) + '</span></button>';
+      ' onclick="' + escAttr('_setVoicePrefs(' + JSON.stringify(change) + ')') + '"><span>' + esc(label) + '</span></button>';
   };
-  return '<div class="ms-theme-label">' + tH('voices_default') + '</div>' +
-    '<div class="app-theme-seg voice-default" role="radiogroup" aria-label="' + escAttr(t('voices_default')) + '">' +
+  return '<div class="ms-theme-label">' + tH(labelKey) + '</div>' +
+    '<div class="app-theme-seg voice-default ' + cls + '" role="radiogroup" aria-label="' + escAttr(t(labelKey)) + '">' +
     opt('', t('voices_default_auto')) + on.map(function(x) { return opt(x.engine, _voiceEngineName(x.engine)); }).join('') + '</div>';
 }
 // The Speaking switch, and with it off, the voices downloaded here offered
@@ -1407,7 +1425,7 @@ function _voicePrefsHtml() {
   here.sort(function(a, b) { return _VOICE_ENGINES.indexOf(a.engine) - _VOICE_ENGINES.indexOf(b.engine); });
   var on = here.filter(function(x) { return !x.absent && off.indexOf(x.engine) < 0; });
   // One row per engine here; the last one on stays on.
-  var h = _speakingHtml() + _voiceDefaultHtml(on) + '<div class="share-rows set-rows voice-prefs">' + here.map(function(x) {
+  var h = _speakingHtml() + _voiceDefaultHtml(on) + _voiceReadHtml(on) + '<div class="share-rows set-rows voice-prefs">' + here.map(function(x) {
     return _voiceRowHtml(x, !x.absent && off.indexOf(x.engine) < 0, on.length === 1);
   }).join('') + '</div>' + _voiceGridHtml();
   if (_voicesHere && _voicesHere.can_change && _voicesHere.setting) h += _voicesModeHtml(_voicesHere.setting);
@@ -3702,10 +3720,11 @@ async function _bootDeepLinkArticle(zim, path) {
 }
 
 // `undo`: a toast for something just taken away carries its way back, and
-// stays long enough to reach it.
+// stays long enough to reach it. ``actionLabel`` names that button when it is
+// an offer rather than an undo.
 var _TOAST_UNDO_MS = 6000;
 var _toastUndoLast = null;
-function _showToast(msg, duration, undo) {
+function _showToast(msg, duration, undo, actionLabel) {
   var toast = document.createElement('div');
   toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;font-size:13px;color:var(--text2);z-index:300;box-shadow:0 4px 16px rgba(0,0,0,0.3)';
   toast.textContent = msg;
@@ -3716,7 +3735,7 @@ function _showToast(msg, duration, undo) {
     toast.className = 'toast-undo';
     var b = document.createElement('button');
     b.type = 'button';
-    b.textContent = t('undo');
+    b.textContent = actionLabel || t('undo');
     b.onclick = function() { toast.remove(); undo(); };
     toast.appendChild(b);
     duration = duration || _TOAST_UNDO_MS;
@@ -19572,28 +19591,105 @@ var _TTS_START_WAIT_MS = 6000;
 var _ttsVoices = null; // /dictionary/voices (its page payload), or null
 var _ttsAudio = null;
 var _ttsRun = 0; // bumped by every start and stop: callbacks of an older run do nothing
+// The list is asked for when Read aloud may be used soon, never at page load
+// (most people rarely or never read aloud): when the ... menu opens, and when
+// Reader View opens for someone who read aloud this week. Kept a minute, so
+// a voice downloaded since is found without a request per tap.
+var _TTS_VOICES_FRESH_MS = 60000;
+var _TTS_RECENT_MS = 7 * 86400000; // "uses Read aloud": the last time was within a week
+var _TTS_SUGGEST_MS = 9000;
+var _ttsVoicesAt = 0;
+var _ttsVoicesBusy = null;
 function _ttsLoadVoices() {
-  authedFetch('/dictionary/voices').then(function(r) { return r.ok ? r.json() : null; })
+  if (_ttsVoicesBusy) return _ttsVoicesBusy;
+  if (_ttsVoices && Date.now() - _ttsVoicesAt < _TTS_VOICES_FRESH_MS) return Promise.resolve(_ttsVoices);
+  _ttsVoicesBusy = authedFetch('/dictionary/voices').then(function(r) { return r.ok ? r.json() : null; })
     .catch(function() { return null; })
-    .then(function(d) { _ttsVoices = d; updateTopbar(); });
+    .then(function(d) {
+      _ttsVoices = d; _ttsVoicesAt = Date.now(); _ttsVoicesBusy = null;
+      updateTopbar();
+      _rebuildTopbarMenu(); // Read aloud's row, if the list changed whether it shows
+      return d;
+    });
+  return _ttsVoicesBusy;
 }
-_ttsLoadVoices();
-// The server's engines for a language, best first: the viewer's chosen voice,
-// then the server's own choice, then the rest; none that Settings turned off.
-// An engine too slow to read with here goes last, unless it is the one chosen.
-// Empty when the viewer chose Device, or the server cannot say the language.
+function _ttsUsedRecently() {
+  var at = _getStorageJSON(SK.TTS_LAST_USE, 0);
+  return typeof at === 'number' && Date.now() - at < _TTS_RECENT_MS;
+}
+function _ttsFrameDoc() {
+  var frame = document.getElementById('reader-frame');
+  try { return (frame && frame.contentDocument) || null; } catch(e) { return null; }
+}
+// Read aloud may be used soon: have the voice list; and for someone who reads
+// aloud (this week), have the server load the article's voice now, so the
+// first chunk does not wait for the model (the Dictionary does the same on
+// opening). Nothing is fetched or downloaded for it.
+var _TTS_WARM_ENGINES = ['kokoro', 'piper']; // the voices that load a model
+var _ttsWarmed = {};
+function _ttsPrepare() {
+  if (!readerOpen || !_speakingOn()) return;
+  _ttsLoadVoices().then(function() {
+    if (!_ttsUsedRecently()) return;
+    var doc = _ttsFrameDoc();
+    var lang = doc ? _ttsLang(doc) : '';
+    var engines = lang ? _ttsServerEngines(lang) : [];
+    var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
+    // warm loads the server's own pick for the language: worth asking only
+    // when that is what reads.
+    if (!row || engines[0] !== row.engine || _TTS_WARM_ENGINES.indexOf(row.engine) < 0) return;
+    var tag = _normLang(_langPrimary(lang)), key = tag + ' ' + row.engine;
+    if (_ttsWarmed[key]) return;
+    _ttsWarmed[key] = true;
+    authedFetch('/dictionary/voices/warm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ langs: [tag], words: [] }) })
+      .catch(function() { delete _ttsWarmed[key]; });
+  });
+}
+// The voice Read aloud reads in when the person chose one: its own (Settings >
+// Voices) or else the default there. '' is Automatic.
+function _ttsChosenVoice() {
+  var p = _voicePrefs();
+  return p.read || p.voice;
+}
+// The server's engines for a language, best first. A chosen voice reads
+// alone: it is the person's setting, so it neither gives way mid-read nor is
+// marked slow (a slow one is suggested against, _ttsSuggestFaster). Only when
+// it cannot say the language does Automatic pick: the server's own choice, then
+// the rest, none that Settings turned off, an engine too slow to read with
+// here last. Empty when the chosen voice is Device, or the server cannot say
+// the language.
 function _ttsServerEngines(lang) {
   var langs = (_ttsVoices && _ttsVoices.langs) || {};
   var row = langs[_normLang(_langPrimary(lang))];
-  var prefs = _voicePrefs();
-  if (!row || prefs.voice === _DEVICE_VOICE) return [];
-  var order = [prefs.voice, row.engine].concat(row.engines || []);
-  order = order.filter(function(e, i) {
+  var prefs = _voicePrefs(), chosen = _ttsChosenVoice();
+  if (!row || chosen === _DEVICE_VOICE) return [];
+  var order = _ttsRowOrder(row, prefs);
+  if (chosen && order.indexOf(chosen) >= 0) return [chosen];
+  var slow = _ttsSlowEngines();
+  var quick = order.filter(function(e) { return slow.indexOf(e) < 0; });
+  return quick.concat(order.filter(function(e) { return quick.indexOf(e) < 0; }));
+}
+// The engines the server has for a language row, its own choice first, none
+// that Settings turned off.
+function _ttsRowOrder(row, prefs) {
+  var order = [row.engine].concat(row.engines || []);
+  return order.filter(function(e, i) {
     return e && order.indexOf(e) === i && (row.engines || []).indexOf(e) >= 0 && prefs.off.indexOf(e) < 0;
   });
+}
+// Chosen, and not keeping up: once per engine, a quiet offer of another.
+function _ttsSuggestFaster(lang, slowEngine) {
+  var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
+  var said = _getStorageJSON(SK.TTS_SUGGESTED, []);
+  if (!Array.isArray(said)) said = [];
+  if (!row || said.indexOf(slowEngine) >= 0) return;
   var slow = _ttsSlowEngines();
-  var quick = order.filter(function(e) { return e === prefs.voice || slow.indexOf(e) < 0; });
-  return quick.concat(order.filter(function(e) { return quick.indexOf(e) < 0; }));
+  var faster = _ttsRowOrder(row, _voicePrefs()).filter(function(e) { return e !== slowEngine && slow.indexOf(e) < 0; })[0];
+  if (!faster) return;
+  said.push(slowEngine);
+  _setStorageJSON(SK.TTS_SUGGESTED, said);
+  _showToast(t('tts_slow_suggest', { slow: _voiceEngineName(slowEngine), fast: _voiceEngineName(faster) }), _TTS_SUGGEST_MS,
+    function() { _setVoicePrefs({ read: faster }); }, t('tts_slow_use', { fast: _voiceEngineName(faster) }));
 }
 function _ttsSlowEngines() {
   var s = _getStorageJSON(SK.TTS_SLOW, []);
@@ -19707,8 +19803,7 @@ function _ttsStop() {
 }
 function _ttsSpeak() {
   if (!_ttsCanSpeak()) return;
-  var frame = document.getElementById('reader-frame');
-  var doc; try { doc = frame && frame.contentDocument; } catch(e) { doc = null; }
+  var doc = _ttsFrameDoc();
   if (!doc) return;
   var chunks = _ttsChunkText(_ttsExtractText(doc), 240);
   if (!chunks.length) return;
@@ -19717,9 +19812,12 @@ function _ttsSpeak() {
   var engines = _ttsServerEngines(lang);
   if (!engines.length && !_TTS_AVAILABLE) return;
   _ttsSetSpeaking(true);
-  if (engines.length) _ttsSpeakServer(chunks, lang, engines, ++_ttsRun);
+  _setStorageJSON(SK.TTS_LAST_USE, Date.now());
+  // A chosen voice reads alone and, if it cannot keep up, is offered a faster
+  // one; only Automatic moves on to the next engine by itself.
+  var chosen = engines.length === 1 && engines[0] === _ttsChosenVoice();
+  if (engines.length) _ttsSpeakServer(chunks, lang, engines, ++_ttsRun, chosen ? function(e) { _ttsSuggestFaster(lang, e); } : null);
   else _ttsSpeakDevice(chunks, lang, 0);
-  _ttsLoadVoices(); // a voice downloaded since the page opened is used next time
 }
 // This browser's own voices, from chunk ``from`` on.
 function _ttsSpeakDevice(chunks, lang, from) {
@@ -19736,9 +19834,9 @@ function _ttsSpeakDevice(chunks, lang, from) {
 // The server's voices: one <audio> element plays the chunks in turn. Its src
 // is set and played inside the tap for the first chunk, as iOS requires (an
 // element started in a tap may play again from its own events).
-function _ttsSpeakServer(chunks, lang, engines, run) {
+function _ttsSpeakServer(chunks, lang, engines, run, onSlow) {
   var audio = _ttsAudio || (_ttsAudio = new Audio());
-  var i = 0, eng = 0, retried = false, waiting = null;
+  var i = 0, eng = 0, retried = false, waiting = null, told = false;
   var asked = {}; // chunk index -> true once the server has said it (or failed to)
   function live() { return run === _ttsRun; }
   // Too slow here: the next engine for the language says the rest, and this
@@ -19750,6 +19848,10 @@ function _ttsSpeakServer(chunks, lang, engines, run) {
   }
   // Ask for chunk ``idx`` ahead of time; the server keeps what it said, so
   // the <audio> element then gets it at once.
+  // A chosen voice (``onSlow``) keeps reading; the person is told once.
+  function tooSlow() {
+    if (onSlow && !told) { told = true; onSlow(engines[eng]); }
+  }
   function ask(idx) {
     if (idx >= chunks.length || asked[idx] !== undefined) return;
     var engine = engines[eng];
@@ -19768,16 +19870,19 @@ function _ttsSpeakServer(chunks, lang, engines, run) {
     // Not ready when it is needed: this engine is too slow here, so the next
     // one for the language says the rest (what was asked of the slow one
     // still plays if it arrives first).
-    if (idx > 0 && asked[idx] === false && eng + 1 < engines.length) slower();
+    if (idx > 0 && asked[idx] === false) {
+      if (eng + 1 < engines.length) slower(); else tooSlow();
+    }
     audio.src = _ttsSpeakUrl(chunks[idx], lang, engines[eng]);
     var p = audio.play();
     if (p && p.catch) p.catch(function() { if (live()) fail(); });
     // Still silent after a while (the first chunk, or one asked too late):
     // say it with the next engine instead.
     clearTimeout(waiting);
-    if (eng + 1 < engines.length) {
+    if (eng + 1 < engines.length || onSlow) {
       waiting = setTimeout(function() {
-        if (live() && i === idx && audio.paused) { slower(); play(idx); }
+        if (!live() || i !== idx || !audio.paused) return;
+        if (eng + 1 < engines.length) { slower(); play(idx); } else tooSlow();
       }, _TTS_START_WAIT_MS);
     }
   }
@@ -20630,6 +20735,7 @@ function _readerViewApply(doc) {
   // Measuring every picture lays the whole article out: after the text is
   // on screen, not before (a long article paid it before its first paint).
   if (!_isBookDoc(doc)) _afterPaint(function() { _readerBindLightbox(shell, doc); });
+  if (_ttsUsedRecently()) _ttsPrepare(); // someone who reads aloud: its voices ready before the tap
   return true;
 }
 // Work that can wait until the page has painted: the next frame, then a task.
@@ -28297,6 +28403,7 @@ function _toggleTopbarMenu(event) {
   if (!html) return; // nothing to show (e.g. desktop reader with no foldable controls)
   menu.innerHTML = html;
   menu.classList.add('visible');
+  _ttsPrepare(); // Read aloud may be next: its voices, asked for now, not at page load
   // Close on outside interaction — including a tap inside the reader iframe,
   // which a plain document listener never sees. The ⋯ trigger is kept "inside"
   // so a second tap toggles the menu shut via its own handler.
