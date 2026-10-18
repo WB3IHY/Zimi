@@ -305,7 +305,7 @@
   [dir="rtl"] .stats-grid.tiles .keep-ico { left: auto; right: 6px; }
   .keep-ico .kr-track { fill: none; stroke: var(--border); stroke-width: 2; }
   .keep-ico .kr-arc { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; transition: stroke-dasharray 0.25s linear; }
-  .keep-ico.paused { color: var(--text2); }
+  .keep-ico.paused, .keep-ico.can { color: var(--text2); }
   .ctx-keep { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
   .ctx-keep .keep-glyph { flex-shrink: 0; opacity: 0.8; }
   .keep-btn .keep-glyph { vertical-align: -3px; margin-inline-end: 6px; }

@@ -5992,21 +5992,26 @@ function _keepState(zim) {
   return null;
 }
 
-// The tile's one small icon, only when it matters: a ring that fills while a
-// ZIM comes, a filled disc once it is here, nothing on any other.
+// The tile's one small icon: a ring that fills while a ZIM comes, a filled
+// disc once it is here. Once this phone keeps one, every other tile carries
+// the bare arrow, so the next is a tap away; before that, tiles stay calm.
+function _keepTileState(zim) {
+  return _keepState(zim) || (_keepNames.size ? { kind: 'can' } : null);
+}
+var _KEEP_TILE_LABEL = { kept: 'keep_kept', pull: 'keep_pulling', paused: 'keep_paused', can: 'keep_btn' };
 function _keepIconHtml(zim) {
-  var s = _keepState(zim);
+  var s = _keepTileState(zim);
   if (!s) return '';
-  var label = s.kind === 'kept' ? t('keep_kept') : (s.kind === 'pull' ? t('keep_pulling') : t('keep_paused'));
+  var label = t(_KEEP_TILE_LABEL[s.kind]);
+  var svg = s.kind === 'kept' ? _KEEP_DISC : (s.kind === 'can' ? '<svg viewBox="0 0 24 24" aria-hidden="true">' + _KEEP_ARROW + '</svg>' : _keepRingSvg(s.pct));
   return '<button type="button" class="keep-ico ' + s.kind + '" data-k="' + s.kind + '" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '"' +
-    ' onclick="event.preventDefault();event.stopPropagation();_keepIconTap(event,this)">' +
-    (s.kind === 'kept' ? _KEEP_DISC : _keepRingSvg(s.pct)) + '</button>';
+    ' onclick="event.preventDefault();event.stopPropagation();_keepIconTap(event,this)">' + svg + '</button>';
 }
 // Bring every tile on screen in step with what the phone holds, in place (a
 // rebuild under a thumb swallows the tap).
 function _keepIconSync() {
   document.querySelectorAll('.stat-card[data-zim]').forEach(function(card) {
-    var zim = card.getAttribute('data-zim'), s = _keepState(zim), cur = card.querySelector('.keep-ico');
+    var zim = card.getAttribute('data-zim'), s = _keepTileState(zim), cur = card.querySelector('.keep-ico');
     card.classList.toggle('kept', !!(s && s.kind === 'kept'));
     if (!s) { if (cur) cur.remove(); return; }
     if (cur && cur.dataset.k === s.kind) {

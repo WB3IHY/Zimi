@@ -98,6 +98,7 @@ def menu_labels(pg):
 
 def test_one_tap_from_the_menu_then_remove(pw, world):
     br, ctx, pg = library(pw, world)
+    assert not pg.query_selector(".keep-ico"), "before the first keep, tiles stay calm"
     open_menu(pg, ZIM)
     labels = menu_labels(pg)
     assert labels.index("Keep offline") == labels.index("Download ZIM file") + 1, labels
@@ -109,9 +110,11 @@ def test_one_tap_from_the_menu_then_remove(pw, world):
         ".stat-card[data-zim='%s'] .keep-ico.kept" % ZIM, timeout=30000
     )
     assert not pg.query_selector(".stat-card[data-zim='%s'] .keep-ico.pull" % OTHER)
-    assert not pg.query_selector(
-        ".stat-card[data-zim='%s'] .keep-ico" % OTHER
-    ), "tiles not kept stay calm"
+    # One is kept: every other tile carries the bare arrow, and it offers the keep.
+    shot(pg, "f1-arrows")
+    pg.click(".stat-card[data-zim='%s'] .keep-ico.can" % OTHER)
+    assert "Keep offline" in menu_labels(pg)
+    pg.keyboard.press("Escape")
     open_menu(pg, ZIM)
     assert "Remove from this phone" in menu_labels(
         pg
@@ -123,6 +126,7 @@ def test_one_tap_from_the_menu_then_remove(pw, world):
         arg=ZIM,
         timeout=15000,
     )
+    assert not pg.query_selector(".keep-ico"), "with nothing kept, the arrows go"
     ctx.close()
     br.close()
 
