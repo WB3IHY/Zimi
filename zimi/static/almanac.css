@@ -18,9 +18,13 @@
    machine off the screen's edge too. */
 .alm-footer { margin-top: 40px; padding-bottom: env(safe-area-inset-bottom, 0px); text-align: center; font-size: 11px; color: var(--text3); }
 
+.alm-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
 .alm-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 8px; text-align: center; }
 .alm-card-lbl { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .alm-card-val { font-size: 14px; font-weight: 500; color: var(--text); white-space: nowrap; }
+.alm-card-super { color: #e0b060; }
+.alm-card-golden { color: #d4aa64; }
+.alm-card[hidden] { display: none; }
 /* Value tints. Classes, not inline styles: travel toggles the supermoon tint on
    and off per scrub, which a style attribute written at render time cannot do. */
 /* Clock row (analog + digital box side by side) above the grid */
@@ -114,8 +118,6 @@
    gets ready for a first tap, the disc breathes. */
 .almanac-moon-open { position: relative; border-radius: 50%; cursor: grab; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .almanac-moon-open img { -webkit-user-drag: none; }
-/* Pulled before the live Moon is ready: the picture draws back with the finger (almanac-landing.js _lpPreviewPull). */
-.almanac-moon-open.alm-moon-pulling { transform: scale(calc(1 - var(--alm-pull, 0))); }
 .almanac-view.alm-moon-lifted .almanac-moon,
 .almanac-view.alm-moon-lifted .almanac-moon-anim { visibility: hidden; }
 .almanac-moon-open.alm-moon-waking { cursor: progress; }
@@ -188,7 +190,7 @@
 .alm-tz-star.on svg { fill: currentColor; }
 .alm-tz-star:hover, .alm-tz-star:focus-visible { color: var(--amber); }
 .alm-tz-star:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
-.alm-tz-view { margin-top: 0; }
+.alm-tz-view { margin-top: 0; width: 100%; justify-content: flex-end; }
 .alm-tz-hint { grid-column: 1 / -1; margin: 0 0 4px; font-size: 12px; line-height: 1.5; color: var(--text2); text-align: center; }
 .alm-tz-add { display: flex; align-items: center; justify-content: center; min-height: 52px; border: 1px dashed var(--border); border-radius: 8px; background: none; color: var(--text2); font: inherit; font-size: 12px; cursor: pointer; }
 .alm-tz-add:hover, .alm-tz-add:focus-visible { color: var(--amber); border-color: var(--amber-border); outline: none; }
@@ -318,11 +320,6 @@
   .orrery-slider::-moz-range-thumb { width: 22px; height: 22px; }
   .orrery-slider::-moz-range-track { background: transparent; }
 }
-.orrery-space-pill { max-width: 500px; margin: 10px auto 0; display: flex; justify-content: center; }
-.orrery-space-pill[hidden] { display: none; }
-.orrery-space-btn { font: inherit; font-size: 13px; line-height: 1; padding: 9px 16px; min-height: 36px; border-radius: 999px; border: 1px solid var(--amber-border); background: var(--amber-glow); color: var(--amber); cursor: pointer; }
-.orrery-space-btn:focus-visible { outline: 2px solid var(--amber-border); outline-offset: 2px; }
-@media (hover: hover) { .orrery-space-btn:hover { background: rgba(245,158,11,.18); } }
 /* Orrery hover/tap tooltip: body stats with the body NAME itself as the link
    (dotted-amber .alm-link idiom). Only the link and the button take the
    pointer: the box sits among crowded inner planets (Earth's covered Mars),
@@ -373,19 +370,12 @@
 .orrery-lc { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 .orrery-lc-labels { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums; }
 .orrery-lc-canvas { display: block; width: 100%; height: 84px; margin-top: 4px; background: var(--surface2); border-radius: 8px; }
+/* What the sky says about the hour sits under the Moon, in the sky's own width; the sky follows it directly. */
+.alm-sky-info { width: 100%; max-width: 600px; margin: 0 auto 16px; }
 .almanac-sky-wrap { width: 100%; max-width: 600px; margin: 0 auto; position: relative; }
 .alm-sky-look { position: absolute; top: 8px; right: 8px; z-index: 2; width: 44px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.55); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .alm-sky-look svg { width: 22px; height: 22px; }
 [dir=rtl] .alm-sky-look { right: auto; left: 8px; }
-/* The scene's tools in one row along the top, clear of each other and of Look in the opposite corner:
-   the gear, then find, then see below the horizon, each a 44 px target with 8 px between. */
-.alm-sky-tool { position: absolute; top: 8px; z-index: 2; width: 44px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.55); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.alm-sky-tool svg { width: 22px; height: 22px; }
-.alm-sky-find { left: 60px; }
-.alm-sky-below { left: 112px; }
-[dir=rtl] .alm-sky-find { left: auto; right: 60px; }
-[dir=rtl] .alm-sky-below { left: auto; right: 112px; }
-.alm-sky-tool[aria-pressed=true] { background: rgba(120,150,210,.6); border-color: rgba(190,205,230,.7); }
 .almanac-sky-wrap canvas { width: 100%; display: block; border-radius: 12px; touch-action: pan-y; }
 /* What the sky says under the picture: one lead line (the light of the hour),
    what is true of it here and the year, quieter, then the facts as cards in
@@ -421,6 +411,7 @@
 .alm-sky-dial small { font-size: 10px; color: var(--text3); }
 /* Red night mode: the sky and what is written under it in deep red, so the eye stays dark-adapted. */
 .almanac-sky-wrap.sky-red canvas { background: #000; }
+.alm-sky-info.sky-red :is(.alm-sky-sub, .alm-card-sub, .alm-card-lbl, .alm-sky-guess) { color: var(--text2); }
 .almanac-sky-wrap.sky-red .alm-sky-sub, .almanac-sky-wrap.sky-red .alm-card-sub, .almanac-sky-wrap.sky-red .alm-sky-set,
 .almanac-sky-wrap.sky-red .alm-card-lbl, .almanac-sky-wrap.sky-red .alm-sky-guess, .almanac-sky-wrap.sky-red .alm-sky-set-title { color: var(--text2); }
 .almanac-sky-wrap.sky-red .alm-sky-dial small, .almanac-sky-wrap.sky-red .alm-sky-set-row { color: var(--text2); }
@@ -570,6 +561,7 @@
   .orrery-speed-label { font-size: 10px; min-width: 44px; }
   .orrery-speed-end { font-size: 8px; }
   .orrery-date { font-size: 10px; }
+  .alm-cards { grid-template-columns: repeat(2, 1fr); }
   .alm-tz-wrap { gap: 12px; width: 100%; }
   .alm-tz-clock-side { width: 100%; gap: 12px; }
   .alm-tz-clock-side canvas { width: 140px; height: 140px; }
@@ -592,9 +584,6 @@
 }
 
 /* Star-chart tap-to-identify readout (time now comes from the pinned scrubber) */
-.alm-sc-tools { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-.alm-sc-tool { min-height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 12px; cursor: pointer; }
-.alm-sc-tool[aria-pressed=true] { color: var(--amber); border-color: var(--amber-border); background: var(--amber-glow); }
 /* Find in the sky (almanac-skyfind.js): the search sheet, and the chip that says what is being found and the way to it. */
 .sf-sheet { position: fixed; inset: 0 0 auto 0; z-index: 10030; padding: calc(10px + env(safe-area-inset-top)) 12px 12px; background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,.45); max-height: 72vh; overflow-y: auto; }
 .sf-bar { display: flex; gap: 8px; align-items: center; }
@@ -611,11 +600,10 @@
 .sf-chip-ico { flex: none; width: 26px; height: 26px; color: #ffd080; transition: transform .12s linear; }
 .sf-chip-ico svg { display: block; width: 100%; height: 100%; }
 .sf-chip-text { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; unicode-bidi: plaintext; }
-.sf-chip-btn { flex: none; min-height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,.3); background: transparent; color: #fff; font-size: 12px; cursor: pointer; }
 .sf-chip-x { flex: none; width: 32px; height: 32px; border-radius: 16px; border: 0; background: transparent; color: #fff; cursor: pointer; font-size: 14px; }
 .look-find { margin-inline-start: auto; }
 @media (prefers-reduced-motion: reduce) { .sf-chip-ico { transition: none; } }
-:root.night-red .sf-chip, :root.night-red .sf-chip-btn, :root.night-red .sf-chip-x { color: var(--text2); border-color: var(--border-strong); }
+:root.night-red .sf-chip, :root.night-red .sf-chip-x { color: var(--text2); border-color: var(--border-strong); }
 :root.night-red .sf-chip { background: rgba(0,0,0,.85); }
 :root.night-red .sf-chip-ico { color: var(--amber); }
 .alm-sc-info { text-align: center; font-size: 11px; color: var(--text2); min-height: 15px; margin-top: 6px; font-variant-numeric: tabular-nums; }
@@ -634,6 +622,7 @@
 .alm-daysel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 10px; flex-wrap: wrap; }
 .alm-daysel-moon { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 400; color: var(--text2); }
 .alm-daysel-moon svg { vertical-align: middle; }
+.alm-daysel .alm-cards { margin-bottom: 0; }
 .alm-daysel-otd { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
 .alm-daysel-otd-ttl { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
 
@@ -1353,19 +1342,15 @@
 /* No place chosen yet: one line asking for it, under the sky and in the tides. */
 .alm-place-invite { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 8px; margin: 8px 0 0; font-size: 12px; color: var(--text2); text-align: center; }
 
-/* Point the phone (almanac-look.js): the sky above where you stand, the globe
-   under it, one window onto both. Edge to edge, over everything. */
+/* Point the phone (almanac-look.js): the whole sphere round where you stand, the sky
+   under your feet seen through the ground. Edge to edge, over everything. */
 body.look-open { overflow: hidden; }
 .almanac-look { position: fixed; inset: 0; z-index: 10010; background: #05070b; color: #fff; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
 .look-layers { position: absolute; inset: 0; }
 .look-sky { position: absolute; inset: 0; overflow: hidden; background: #080b12; }
 .look-sky .look-wrap { position: absolute; inset: 0; width: auto; max-width: none; margin: 0; }
 .look-sky .look-wrap canvas { position: absolute; left: 0; top: 0; width: 100%; border-radius: 0; touch-action: none; }
-.look-sky .look-wrap :is(.alm-sky-look, .alm-sky-tool, .alm-sky-gear, .alm-sky-set, .alm-sky-cap) { display: none; }
-.look-globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; pointer-events: none; }
-/* You, at the middle of the ground the globe shows. */
-.look-you { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2px solid #fff; background: rgba(60,140,255,.9); box-shadow: 0 0 0 5px rgba(60,140,255,.3); opacity: 0; transition: opacity .2s; pointer-events: none; }
-.look-ground .look-you { opacity: 1; }
+.look-sky .look-wrap :is(.alm-sky-look, .alm-sky-gear, .alm-sky-set, .alm-sky-cap) { display: none; }
 .look-top { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; align-items: center; gap: 12px; pointer-events: none; }
 .look-top > * { pointer-events: auto; }
 .look-btn { flex: none; width: 44px; height: 44px; border-radius: 22px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.6); color: #fff; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
@@ -1383,22 +1368,21 @@ body.look-open { overflow: hidden; }
    :root.night-red) and nothing else. Hard-coded warm, violet and white tones of the tiles, clocks,
    time machine, buttons and the Look view's own marks become the palette's red. The sky and the
    pictures turn red themselves (canvas[data-red], the canvas filter chain). */
-:root.night-red #almanac-view :is(.alm-ev, .almanac-eclipse-type, [class*="alm-tz-glyph"], [class*="alm-tm-"], .alm-sky-look, .alm-sky-tool) { color: var(--text2); }
+:root.night-red #almanac-view :is(.alm-card-golden, .alm-ev, .almanac-eclipse-type, [class*="alm-tz-glyph"], [class*="alm-tm-"], .alm-sky-look) { color: var(--text2); }
 /* The clocks' day, dawn, dusk and night tints (amber, coral, violet, blue) are one dim red wash in Red;
    the glyph (sun, moon) still says which part of the day it is. */
 :root.night-red #almanac-view :is(.alm-tz-day, .alm-tz-dawn, .alm-tz-dusk, .alm-tz-night) { background: linear-gradient(180deg, var(--amber-glow), var(--surface) 70%); border-color: var(--border); }
 :root.night-red #almanac-view .alm-tz-glyph { color: var(--text2) !important; }
-:root.night-red #almanac-view :is(.alm-tz-city-card, .alm-tm-panel, .alm-tm-key, .alm-tm-close, .alm-tm-lever, .alm-sky-look, .alm-sky-tool) { border-color: var(--border); }
-:root.night-red #almanac-view :is(.alm-cell, .alm-sky-look, .alm-sky-tool) { background-color: var(--amber-glow); }
+:root.night-red #almanac-view :is(.alm-tz-city-card, .alm-tm-panel, .alm-tm-key, .alm-tm-close, .alm-tm-lever, .alm-sky-look) { border-color: var(--border); }
+:root.night-red #almanac-view :is(.alm-cell, .alm-sky-look) { background-color: var(--amber-glow); }
 :root.night-red #almanac-view .alm-tz-hand { background-color: var(--amber); }
 :root.night-red #almanac-view input { background-color: var(--surface2); accent-color: var(--amber); }
 :root.night-red #almanac-view :is(svg circle, svg path)[stroke] { stroke: currentColor; }
 :root.night-red .almanac-look { color: var(--text); }
 :root.night-red .look-btn { color: var(--text); border-color: var(--border-strong); background: rgba(0,0,0,.7); }
-:root.night-red .look-you { border-color: var(--text); background: rgba(255,32,16,.9); box-shadow: 0 0 0 5px rgba(255,32,16,.3); }
 :root.night-red .look-main { background: var(--amber2); color: #000; }
 :root.night-red .look-note { background: rgba(0,0,0,.85); color: var(--text); border: 1px solid var(--border); }
-:root.night-red .look-sky, :root.night-red .look-globe { background: #000; }
+:root.night-red .look-sky { background: #000; }
 :root.night-red .almanac-sky-wrap.sky-red canvas { background: #000; }
 :root.night-red #almanac-view .almanac-eclipse-type { color: var(--text2) !important; }
 :root.night-red #almanac-view svg path[fill]:not([fill="none"]):not([fill^="url"]) { fill: var(--text2); }
@@ -1407,19 +1391,6 @@ body.look-open { overflow: hidden; }
 
 /* Looking down: what is under the feet, in words. The place under the dot, the nearest article one tap
    below it; Zimi Earth is a quiet way out beside it, not the loudest thing on the screen. */
-.look-under { position: absolute; left: 16px; right: 16px; top: calc(50% + 30px); margin: 0 auto; max-width: 420px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; pointer-events: none; }
-.look-under > * { pointer-events: auto; }
-.look-under-name { font: 600 20px/1.25 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #fff; text-shadow: 0 0 4px #000, 0 0 12px #000; unicode-bidi: plaintext; overflow-wrap: anywhere; }
-.look-under-read { display: flex; flex-direction: column; align-items: center; gap: 2px; max-width: 100%; min-height: 48px; padding: 8px 18px; border-radius: 24px; border: 1px solid rgba(255,255,255,.28); background: rgba(8,10,16,.72); color: #fff; font: 14px/1.25 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.look-under-read b { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
-.look-under-read small { font-size: 11px; opacity: .75; }
-.look-under-read[hidden], .look-under[hidden] { display: none; }
-.look-quiet { min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid rgba(255,255,255,.22); background: rgba(8,10,16,.6); color: rgba(255,255,255,.85); font: 500 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
-.look-quiet svg { width: 18px; height: 18px; }
-.look-quiet[hidden] { display: none; }
 .look-note { transition: opacity .6s; }
 .look-note.gone { opacity: 0; pointer-events: none; }
 /* By day the ground is a pale, readable map instead of a dark smear. */
-.look-day.look-ground .look-globe { filter: brightness(1.35) saturate(.8) contrast(.95); }
-:root.night-red .look-under-name { color: var(--text); }
-:root.night-red .look-under-read, :root.night-red .look-quiet { background: rgba(0,0,0,.85); color: var(--text); border-color: var(--border-strong); }

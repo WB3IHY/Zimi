@@ -16,9 +16,6 @@ var _PLANETS = {
   Saturn:  { a: 9.55491, e: 0.05551, I: 2.489, L: 50.077, LP: 93.057, N: 113.665, da: -0.00003, de: -0.00035, dI: 0.0033, dL: 1222.114, dLP: 0.752, dN: -0.250, color: '#d4b878', glow: '#f0da98', vr: 0.026, rings: true, mb: 0.00025899, mc: -0.13434469, ms: 0.87320147, mf: 38.35125 },
   Uranus:  { a: 19.1884, e: 0.04638, I: 0.773, L: 314.055, LP: 173.005, N: 74.006, da: -0.00002, de: -0.00002, dI: -0.0023, dL: 428.467, dLP: 0.009, dN: 0.074, color: '#78c8c8', glow: '#a0e8e8', vr: 0.018, mb: 0.00058331, mc: -0.97731848, ms: 0.17689245, mf: 7.67025 },
   Neptune: { a: 30.0699, e: 0.00895, I: 1.770, L: 304.223, LP: 46.682, N: 131.784, da: 0.00003, de: 0.00001, dI: 0.0001, dL: 218.460, dLP: 0.010, dN: -0.005, color: '#3868c8', glow: '#5888f0', vr: 0.016, mb: -0.00041348, mc: 0.68346318, ms: -0.10162547, mf: 7.67025 },
-  // Pluto is not drawn by this flat orrery; the flown solar system (almanac-space.js) places it with the same
-  // elements (JPL, Standish, Table 1, 1800-2050), so there is one ephemeris, not two.
-  Pluto:   { a: 39.48211675, e: 0.24882730, I: 17.14001206, L: 238.92903833, LP: 224.06891629, N: 110.30393684, da: -0.00031596, de: 0.00005170, dI: 0.00004818, dL: 145.20780515, dLP: -0.04062942, dN: -0.01183482, color: '#c8b8a8', glow: '#e0d0c0', vr: 0.006 }
 };
 
 // The Sun's limb darkening, shared by every Sun the Almanac draws (the live

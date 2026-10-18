@@ -107,6 +107,10 @@ def _almanac(browser, served, place=PLACE, init="", **ctx_args):
         "() => typeof _skyState !== 'undefined' && _skyState && _skyState.eph",
         polling=POLL_MS,
     )
+    # The sky stands under the Moon's numbers and its words, below the first screen: bring it into view, as a reader does.
+    pg.evaluate(
+        "() => document.querySelector('.almanac-sky-wrap').scrollIntoView({ behavior: 'instant', block: 'center' })"
+    )
     return ctx, pg, errors
 
 
@@ -685,7 +689,12 @@ def test_the_credit_the_bearings_and_the_zone_city_are_on_the_card(browser, serv
         pg.wait_for_function("() => document.getElementById('almanac-sky-facts').innerText.length > 20", polling=POLL_MS)
         text = pg.inner_text("#almanac-sky-facts")
         # Chicago's own sunrise on 10 August is about 6:10: not the hour-early guess of an Atlantic longitude.
-        assert "Chicago" in text and "about" in text.lower() and "6:" in text, text
+        assert "Chicago" in text and "about" in text.lower(), text
+        # The sunrise's time is the Moon's block's own card (not said twice): Chicago's, not an Atlantic longitude's.
+        import re
+
+        sunrise = pg.inner_text("#alm-hc-sunrise")
+        assert re.match(r"[56]:\d\d AM", sunrise), sunrise
         assert pg.evaluate("Math.round(_skyState.lat * 10) / 10") == 41.9
     finally:
         ctx.close()

@@ -11,7 +11,8 @@
 //      trust it) which corrects alpha; Android's absolute event is alpha.
 //   4. Smoothing: a noisy reading settles, across north (359 to 1) without
 //      a spin the long way round.
-//   5. Sky and globe: how far each shows at an altitude.
+//   5. The whole sphere: pointing down is a view of the sky under the feet (no globe, no Earth
+//      link, the sky never fades out), and the maps' compass points.
 //   6. The fallbacks: drag, keys and pinch turn the same view.
 //
 // Run: node tests/test_almanac_look.cjs   (exit 0 = pass)
@@ -129,17 +130,15 @@ const smooth = L('_lookSmooth');
   check(max < 1, 'plus or minus 3 degrees of jitter shows as under 1');
 }
 
-// ── 5. Sky and globe ──
-const globe = L('_lookGlobeShare');
+// ── 5. The whole sphere ──
 {
-  check(globe(10) === 0 && globe(0) === 0, 'at and above the horizon: all sky');
-  check(globe(-90) === 1, 'straight down: all globe');
-  const a = globe(-10), b = globe(-20), c = globe(-30);
-  check(a > 0 && a < b && b < c && c <= 1, 'it grows steadily as you tip down');
-  check(globe(-60) === 1, 'well down it is all globe');
-  check(globe(-LOOK_FADE_FROM()) === 0, 'it begins exactly where the fade begins');
+  const down = view(0, 0, 0, 0);
+  check(down.alt < -80, 'a phone held flat, face up, back to the ground: looking straight down (' + down.alt.toFixed(0) + ' deg)');
+  check(vm.runInContext('_lookClamp(-120, -90, 90)', ctx) === -90, 'the view can reach straight down');
+  const code = src.replace(/\/\/.*$/gm, '');
+  check(!/ZimiGlobe|openEarth|earth\/near|look-globe|look-earth|globeEl/.test(code), 'Look has no globe and no link to an Earth view: the sky under you is the sky');
+  check(!/skyHost\.style\.opacity/.test(code), 'the sky is never faded out as the phone tips down');
 }
-function LOOK_FADE_FROM() { return L('LOOK_FADE_FROM_DEG'); }
 
 // ── 6. The fallbacks ──
 {
@@ -169,15 +168,11 @@ function LOOK_FADE_FROM() { return L('LOOK_FADE_FROM_DEG'); }
   check(label(44) === 'NE' && label(359) === 'N' && label(337) === 'NNW', 'between them, to sixteen');
 }
 
-// ── 8. In the person's language, and whether the ground is lit ──
+// ── 8. In the person's language ──
 {
   check(L('_lookPointName')(90) === 'E', "without the Almanac's letters the point is the plain one");
   ctx._azCompass = (az) => ['N', 'NO', 'O', 'SO', 'S', 'SW', 'W', 'NW'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
   check(L('_lookPointName')(90) === 'O' && L('_lookPointName')(135) === 'SO', 'with them, East is O in German');
-  ctx._skySunAltAt = (ms) => (ms === 1 ? 30 : ms === 2 ? -3 : -20);
-  const day = L('_lookIsDay');
-  check(day({ lat: 0, lon: 0 }, 1) && day({ lat: 0, lon: 0 }, 2), 'the ground is lit from the Sun being up to just under the horizon');
-  check(day({ lat: 0, lon: 0 }, 3) === false, 'and dark at night');
 }
 
 if (failures) { console.error(failures + ' failed'); process.exit(1); }

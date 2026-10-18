@@ -1,16 +1,20 @@
-"""Pointing the phone, in a real browser.
+"""Pointing the phone at the sky, in a real browser.
 
 On the shipped files, served by Zimi, in headless Chromium (SwiftShader for
-the globe), at a phone's width, with the orientation events a phone sends
+the sky), at a phone's width, with the orientation events a phone sends
 simulated:
 
-  1. Look. Opened from the sky, asks for motion on a tap (iOS's way) and
-     never before; the view follows the compass heading and the tilt (east,
-     west, up 45, down); tipped to the ground the globe replaces the sky;
-     denied and no-sensor devices say so and turn by finger; closing gives
-     the sky its card back; and a held phone costs no frames.
+  1. Opened from the sky, Look asks for motion on a tap (iOS's way) and never
+     before; the view follows the compass heading and the tilt (east, west, up
+     45, down); denied and no-sensor devices say so and turn by finger;
+     closing gives the sky its card back; a held phone costs no frames.
+  2. It is the whole sphere. Tipped to the ground the sky does not fade out for
+     a globe: it shows what is under the horizon (stars, planets, Sun, Moon in
+     their places, the ground as dim glass over them), named, as it names what
+     is above. Find is here and nowhere else on the Almanac.
+  3. Its way in is an icon of a phone held up to the sky, as large as the gear.
 
-The maths behind it is tests/test_almanac_look.cjs and tests/test_globe.cjs.
+The maths behind it is tests/test_almanac_look.cjs.
 
 Run: pytest tests/test_almanac_look_browser.py -v
 """
@@ -19,11 +23,11 @@ import json
 import os
 import sys
 import threading
+from datetime import datetime, timezone
 
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Linux CI needs SwiftShader asked for; a Mac has its own and the flags make it crawl.
 GL_ARGS = (
@@ -52,11 +56,6 @@ INIT = """
     // Chromium 156 has the permission API too: the page asks, as it does on iOS.
     DeviceOrientationEvent.requestPermission = () => Promise.resolve('granted');
   }
-  const RO = window.ResizeObserver;
-  window.__ro = { made: 0, off: 0 };
-  window.ResizeObserver = class extends RO {
-    constructor(cb) { super(cb); window.__ro.made++; const d = this.disconnect.bind(this); this.disconnect = () => { window.__ro.off++; d(); }; }
-  };
   window.__fire = (o, abs) => {
     const e = new Event(abs ? 'deviceorientationabsolute' : 'deviceorientation');
     Object.assign(e, { alpha: o.alpha, beta: o.beta, gamma: o.gamma, absolute: !!abs });
@@ -65,19 +64,6 @@ INIT = """
   };
 })();
 """
-
-CITIES = [
-    ("A/Paris", "Paris", 48.8567, 2.3522, 9000),
-    ("A/Eiffel_Tower", "Eiffel Tower", 48.8584, 2.2945, 4000),
-    ("A/Sydney", "Sydney", -33.8688, 151.2093, 7000),
-]
-
-
-def _page(title, lat, lon, size):
-    return (
-        '<html><head><meta name="geo.position" content="%s;%s"/></head><body>%s</body></html>'
-        % (lat, lon, "x" * size)
-    ).encode()
 
 
 @pytest.fixture(scope="module")
@@ -88,62 +74,14 @@ def served(tmp_path_factory):
         pytest.skip("playwright + chromium are not usable here")
     from http.server import ThreadingHTTPServer
 
-    from conftest_zim import _Article, build_fixture_zim
-    from libzim.writer import Creator
-
     import zimi.server as srv
     from zimi.http import ZimHandler
 
     tmp = tmp_path_factory.mktemp("look")
-    zims = tmp / "zims"
-    zims.mkdir()
+    (tmp / "zims").mkdir()
     (tmp / "data").mkdir()
-    with Creator(str(zims / "wikipedia_en_cities_2026-10.zim")).config_indexing(
-        False, "eng"
-    ) as c:
-        c.set_mainpath("A/Paris")
-        for path, title, lat, lon, size in CITIES:
-            c.add_item(_Article(path, title, _page(title, lat, lon, size)))
-        for k, v in {
-            "Title": "Wikipedia",
-            "Language": "eng",
-            "Description": "cities",
-            "Scraper": "mwoffliner 1.14.0",
-            "Name": "wikipedia_en_cities",
-        }.items():
-            c.add_metadata(k, v)
-    with Creator(str(zims / "wikivoyage_fr_all_nopic_2026-10.zim")).config_indexing(
-        False, "fra"
-    ) as c:
-        c.set_mainpath("A/Paris")
-        c.add_item(
-            _Article(
-                "A/Paris",
-                "Paris",
-                b'<html><body><a href="geo:48.85,2.35">map</a>'
-                + b"g" * 800
-                + b"</body></html>",
-            )
-        )
-        for k, v in {
-            "Title": "Wikivoyage",
-            "Language": "fra",
-            "Description": "guide",
-            "Scraper": "mwoffliner 1.14.0",
-            "Name": "wikivoyage_fr_all",
-        }.items():
-            c.add_metadata(k, v)
-    build_fixture_zim(
-        str(zims / "osm-ile-de-france-2026-10.zim"),
-        {"Scraper": "streetzim 1.0", "Name": "osm_ile-de-france", "Tags": "maps"},
-        indexing=False,
-        files={
-            "map-config.json": json.dumps({"bounds": [1.5, 48.3, 3.5, 49.3]}).encode()
-        },
-        main_path="map-config.json",
-    )
     old = (srv.ZIM_DIR, srv.ZIMI_DATA_DIR)
-    srv.ZIM_DIR, srv.ZIMI_DATA_DIR = str(zims), str(tmp / "data")
+    srv.ZIM_DIR, srv.ZIMI_DATA_DIR = str(tmp / "zims"), str(tmp / "data")
     srv.load_cache(force=True)
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), ZimHandler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
@@ -162,39 +100,28 @@ def browser(served):
         br.close()
 
 
-def _context(browser, mode="ios"):
+def _context(browser, mode="ios", color_scheme="dark"):
     ctx = browser.new_context(
         viewport=VIEW,
         has_touch=True,
         is_mobile=True,
         service_workers="block",
+        color_scheme=color_scheme,
     )
     ctx.add_init_script(INIT % (json.dumps(json.dumps(PLACE)), json.dumps(mode)))
     return ctx
 
 
-NEAR = {
-    "articles": [
-        {"title": "Oakland, California", "zim": "wikipedia_en_cities", "path": "A/Oakland", "km": 3.4}
-    ],
-    "guides": [],
-}
-
-
-def _look(browser, served, mode="ios", init=None, in_tap=True):
-    """in_tap=False opens the view without the sky button's tap (as the Earth view and the finder do), so iOS has not
-    been asked for motion on the way in and the view's own "Turn on motion" is how it is."""
+def _look(browser, served, mode="ios", init=None, in_tap=True, when=None):
+    """in_tap=False opens the view without the sky button's tap (as the finder does), so iOS has not
+    been asked for motion on the way in and the view's own "Turn on motion" is how it is.
+    """
     ctx = _context(browser, mode)
     if init:
         ctx.add_init_script(init)
-    # The library under the test server has places only around Paris and Sydney.
-    ctx.route(
-        "**/earth/near*",
-        lambda r: r.fulfill(
-            status=200, content_type="application/json", body=json.dumps(NEAR)
-        ),
-    )
     pg = ctx.new_page()
+    if when:
+        pg.clock.set_fixed_time(when)  # an instant held still: what is under the horizon is the same every run
     errors = []
     pg.on("pageerror", lambda e: errors.append(str(e)))
     pg.goto(served + "/#almanac", wait_until="load")
@@ -206,7 +133,7 @@ def _look(browser, served, mode="ios", init=None, in_tap=True):
         pg.evaluate("() => document.querySelector('.alm-sky-look').click()")
     else:
         pg.evaluate(
-            "() => Promise.all(['/static/globe.js?v=45', '/static/almanac-look.js?v=45'].map(src => new Promise(r => { const s = document.createElement('script'); s.src = src; s.async = false; s.onload = r; document.head.appendChild(s); }))).then(() => openAlmanacLookNow())"
+            "() => new Promise(r => { const s = document.createElement('script'); s.src = '/static/almanac-look.js?v=45'; s.async = false; s.onload = r; document.head.appendChild(s); }).then(() => openAlmanacLookNow())"
         )
     pg.wait_for_function(
         "() => !!document.getElementById('almanac-look')", polling=POLL_MS
@@ -216,7 +143,7 @@ def _look(browser, served, mode="ios", init=None, in_tap=True):
 
 def _tap(pg, selector):
     """A click in the page itself: Playwright's own waits for a still element
-    ride on animation frames, which a swiftshader page busy drawing a globe
+    ride on animation frames, which a swiftshader page busy drawing a sky
     gives slowly."""
     pg.evaluate("(s) => document.querySelector(s).click()", selector)
 
@@ -253,14 +180,6 @@ def _reads(pg, prefix, seconds=30):
     return _reading(pg)
 
 
-def _globe_opacity(pg):
-    return float(
-        pg.evaluate(
-            "() => getComputedStyle(document.getElementById('look-globe')).opacity"
-        )
-    )
-
-
 def test_look_asks_for_motion_on_the_tap_and_not_before(browser, served):
     ctx, pg, errors = _look(browser, served, "ios", in_tap=False)
     try:
@@ -283,22 +202,166 @@ def test_look_follows_the_compass_and_the_tilt(browser, served):
             _fire(pg, 33, 90, 0, heading)
             assert _reads(pg, word).startswith(word), (heading, _reading(pg))
         _fire(pg, 33, 135, 0, 180)
-        assert _reads(pg, "S 180\u00b0   +45").startswith("S 180\u00b0   +45")
-        # The sky shows above the horizon, the globe not at all.
-        assert _globe_opacity(pg) == 0
+        assert _reads(pg, "S 180°   +45").startswith("S 180°   +45")
         _fire(pg, 33, 45, 0, 180)
-        assert _reads(pg, "S 180\u00b0   \u221245").startswith("S 180\u00b0   \u221245")
+        assert _reads(pg, "S 180°   −45").startswith("S 180°   −45")
+        _fire(pg, 33, 90, 0, 180)
+        _reads(pg, "S 180°   0")
+    finally:
+        ctx.close()
+
+
+def _painted(pg):
+    """What the look-around view has put on its sky at the last paint: the bodies it names or can be tapped on."""
+    return pg.evaluate("""() => {
+          const s = _skyHost && _skyHost.s;
+          return s ? s.bodies.map(b => ({ type: b.type, name: b.name || null, under: !!b.under, alt: b.alt, x: b.x, y: b.y })) : null;
+        }""")
+
+
+def _labels(pg):
+    """The names the view writes, as it plans them at the last paint."""
+    return pg.evaluate("""() => {
+          const s = _skyHost.s, c = document.createElement('canvas').getContext('2d');
+          c.font = '600 ' + Math.round(SKY_LABEL_PX * s.dpr) + 'px ' + SKY_FONT;
+          return _skyLabelPlan(s, (t) => c.measureText(t).width).map(l => ({ text: l.text, under: l.under }));
+        }""")
+
+
+def _wait_painted(pg, test, arg=None):
+    pg.wait_for_function(
+        "(a) => { const s = typeof _skyHost !== 'undefined' && _skyHost && _skyHost.s; return !!s && s.eph && (%s)(s, a); }"
+        % test,
+        arg=arg,
+        polling=POLL_MS,
+        timeout=60_000,
+    )
+
+
+def test_pointing_down_shows_what_is_under_the_horizon_and_names_it(browser, served):
+    """Eric, 2026-10-18: Look is where the sky under the horizon is shown, the ground translucent. Down at 45 degrees
+    the stars and whatever planets are below are drawn and named; the sky never fades to anything else.
+    """
+    ctx, pg, errors = _look(browser, served, "ios")
+    try:
+        _tap(pg, "#look-ask")
+        _fire(pg, 33, 45, 0, 180)  # 45 degrees below the horizon, facing south
+        assert _reads(pg, "S 180°   −45").startswith("S 180°   −45")
+        _wait_painted(pg, "(s) => s.belowKey && s.below.stars.length > 20")
+        # The sky is the whole picture: nothing covers it, and it is not faded.
+        assert pg.evaluate(
+            "() => document.getElementById('look-sky').style.opacity === '' && !document.getElementById('look-globe')"
+        )
+        under = [b for b in _painted(pg) if b["under"]]
+        assert under, "nothing under the horizon was drawn pointing down"
+        assert all(b["alt"] < 0 for b in under), under
+        # Above the horizon nothing is marked as under it.
+        _fire(pg, 33, 135, 0, 180)
+        assert _reads(pg, "S 180°   +45").startswith("S 180°   +45")
         pg.wait_for_function(
-            "() => document.getElementById('look-globe').style.opacity === '1'",
+            "() => { const s = _skyHost.s; return s.bodies.every(b => !b.under || b.alt < 0); }",
             polling=POLL_MS,
         )
-        assert pg.is_visible("#look-earth")
-        _fire(pg, 33, 90, 0, 180)
-        _reads(pg, "S 180\u00b0   0")
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_what_is_under_the_horizon_is_named_in_its_own_ink(browser, served):
+    """At one in the morning in San Francisco the Sun is far under the horizon: pointing at its place, it is drawn
+    there and its name is the under kind, in the cool ink, among the names the view writes."""
+    ctx, pg, errors = _look(
+        browser, served, "none", when=datetime(2026, 10, 19, 8, 0, tzinfo=timezone.utc)
+    )
+    try:
         pg.wait_for_function(
-            "() => document.getElementById('look-earth').hidden", polling=POLL_MS
+            "() => typeof _skyHost !== 'undefined' && _skyHost && _skyHost.s && _skyHost.s.eph",
+            polling=POLL_MS,
         )
-        assert _globe_opacity(pg) == 0
+        sun = pg.evaluate(
+            "() => { const b = _skyBelowBodies(_skyHost.s); return b.sun ? { az: b.sun.az, alt: b.sun.alt } : null; }"
+        )
+        assert sun and sun["alt"] < -20, sun
+        pg.evaluate(
+            "(t) => { _look.target = { az: t.az, alt: t.alt, roll: 0 }; _look.view = { az: t.az, alt: t.alt, roll: 0 }; _look.drawn = null; _lookKick(); }",
+            sun,
+        )
+        pg.wait_for_function(
+            "() => _skyHost.s.bodies.some(b => b.under && b.type === 'sun')",
+            polling=POLL_MS,
+        )
+        labels = _labels(pg)
+        assert any(l["under"] and l["text"] == "Sun" for l in labels), (sun, labels)
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_find_is_in_look_and_nowhere_else_on_the_almanac(browser, served):
+    ctx = _context(browser, "none")
+    pg = ctx.new_page()
+    try:
+        pg.goto(served + "/#almanac", wait_until="load")
+        pg.wait_for_function(
+            "() => !!document.querySelector('.alm-sky-look') && typeof _skyState !== 'undefined' && _skyState && _skyState.eph",
+            polling=POLL_MS,
+        )
+        pg.evaluate(
+            "() => document.getElementById('almanac-starchart').scrollIntoView({ behavior: 'instant' })"
+        )
+        pg.wait_for_timeout(1500)
+        outside = pg.evaluate(
+            """() => [...document.querySelectorAll(
+              '[data-sky-find], [data-sky-below], .alm-sky-find, .alm-sky-below, .alm-sky-tool, .alm-sc-tools, .alm-sc-tool, [onclick*="openAlmanacFind"], [onclick*="_skyBelow"]')].length"""
+        )
+        assert outside == 0
+        # In Look it is: the finder's button, and it opens the finder.
+        pg.evaluate("() => document.querySelector('.alm-sky-look').click()")
+        pg.wait_for_function(
+            "() => !!document.getElementById('look-find')", polling=POLL_MS
+        )
+        _tap(pg, "#look-find")
+        pg.wait_for_function(
+            "() => !!document.getElementById('sf-sheet')",
+            polling=POLL_MS,
+            timeout=30_000,
+        )
+        pg.fill("#sf-input", "Sirius")
+        pg.wait_for_function(
+            "() => document.querySelectorAll('#sf-list .sf-row').length >= 1",
+            polling=POLL_MS,
+        )
+        pg.keyboard.press("Enter")
+        pg.wait_for_function(
+            "() => !!document.getElementById('sf-look-chip')", polling=POLL_MS
+        )
+        # Found under the horizon or above it, the chip says where.
+        assert "Sirius" in pg.inner_text("#sf-look-chip")
+    finally:
+        ctx.close()
+
+
+def test_the_way_in_is_a_phone_held_up_with_a_star_and_as_large_as_the_gear(
+    browser, served
+):
+    ctx = _context(browser, "none")
+    pg = ctx.new_page()
+    try:
+        pg.goto(served + "/#almanac", wait_until="load")
+        pg.wait_for_selector(".alm-sky-look", timeout=60_000)
+        got = pg.evaluate("""() => {
+              const look = document.querySelector('.alm-sky-look'), gear = document.querySelector('.alm-sky-gear');
+              const lb = look.getBoundingClientRect(), gb = gear.getBoundingClientRect();
+              const l = look.querySelector('svg'), g = gear.querySelector('svg');
+              return { lw: lb.width, lh: lb.height, gw: gb.width, gh: gb.height,
+                stroke: l.getAttribute('stroke-width') === g.getAttribute('stroke-width'),
+                size: l.getBoundingClientRect().width === g.getBoundingClientRect().width,
+                phone: !!l.querySelector('rect'), star: !!l.querySelector('path[fill=currentColor]'),
+                crosshair: !!l.querySelector('circle') };
+            }""")
+        assert got["lw"] == got["gw"] == 44 and got["lh"] == got["gh"] == 44, got
+        assert got["stroke"] and got["size"], got
+        assert got["phone"] and got["star"] and not got["crosshair"], got
     finally:
         ctx.close()
 
@@ -311,12 +374,12 @@ def test_look_takes_android_absolute_readings(browser, served):
             _tap(pg, "#look-ask")
         for heading in (0, 90, 180, 270):
             _fire(pg, (360 - heading) % 360, 90, 0, None, absolute=True)
-            want = "%s %d\u00b0" % ("NESW"[heading // 90], heading)
+            want = "%s %d°" % ("NESW"[heading // 90], heading)
             assert _reads(pg, want).startswith(want), _reading(pg)
         # Chrome fires both events; the relative one must not pull the view.
         pg.evaluate("() => window.__fire({alpha: 10, beta: 90, gamma: 0}, false)")
         pg.wait_for_timeout(300)
-        assert _reading(pg).startswith("W 270\u00b0")
+        assert _reading(pg).startswith("W 270°")
     finally:
         ctx.close()
 
@@ -386,14 +449,6 @@ def test_a_held_phone_costs_no_frames_and_closing_gives_the_card_back(browser, s
         assert not errors
     finally:
         ctx.close()
-
-
-def _spy_open(pg):
-    pg.evaluate(
-        "() => { window.__opened = []; const o = window.openArticle;"
-        " window.openArticle = function () { window.__opened.push(Array.from(arguments).slice(0, 2));"
-        " return o.apply(this, arguments); }; }"
-    )
 
 
 def _almanac_open(pg):
@@ -514,170 +569,5 @@ def test_look_controls_are_under_the_finger_not_under_the_sky(browser, served):
             "() => !document.getElementById('almanac-look')", polling=POLL_MS
         )
         assert not errors
-    finally:
-        ctx.close()
-
-
-def _look_down(pg):
-    _tap(pg, "#look-ask")
-    _fire(pg, 33, 45, 0, 180)
-    pg.wait_for_function(
-        "() => !document.getElementById('look-under').hidden",
-        polling=POLL_MS,
-        timeout=20000,
-    )
-
-
-def _rgb(css):
-    return [int(float(v)) for v in css[css.index("(") + 1 : css.index(")")].split(",")[:3]]
-
-
-def _is_red(css):
-    r, g, b = _rgb(css)
-    return r > 0 and g * 2 <= r and b * 2 <= r
-
-
-def test_looking_down_names_what_is_under_you(browser, served):
-    ctx, pg, errors = _look(browser, served, "ios")
-    try:
-        _look_down(pg)
-        pg.wait_for_function(
-            "() => !document.getElementById('look-under-read').hidden", polling=POLL_MS
-        )
-        assert "San Francisco" in pg.inner_text("#look-under-name")
-        assert "Oakland, California" in pg.inner_text("#look-under-read")
-        assert "3.4 km" in pg.inner_text("#look-under-read")
-        assert _hit(pg, "#look-under-read")
-        # Zimi Earth stays, but is not the loudest thing on the screen.
-        bg = pg.evaluate(
-            "() => getComputedStyle(document.getElementById('look-earth')).backgroundColor"
-        )
-        assert bg != "rgb(224, 134, 58)"
-        _spy_open(pg)
-        x, y = _centre(pg, "#look-under-read")
-        pg.touchscreen.tap(x, y)
-        pg.wait_for_function("() => window.__opened.length === 1", polling=POLL_MS)
-        assert pg.evaluate("() => window.__opened[0]") == [
-            "wikipedia_en_cities",
-            "A/Oakland",
-        ]
-        assert pg.query_selector("#almanac-look") is None
-        assert not errors
-    finally:
-        ctx.close()
-
-
-def test_looking_down_without_webgl_says_what_is_there_and_leads_nowhere(
-    browser, served
-):
-    nogl = browser.browser_type.launch(
-        args=["--disable-gpu", "--disable-webgl", "--disable-webgl2", "--disable-3d-apis"]
-    )
-    try:
-        ctx, pg, errors = _look(nogl, served, "ios")
-        assert pg.evaluate("() => !document.createElement('canvas').getContext('webgl2')")
-        _look_down(pg)
-        pg.wait_for_function(
-            "() => !document.getElementById('look-under-read').hidden", polling=POLL_MS
-        )
-        assert "San Francisco" in pg.inner_text("#look-under-name")
-        assert pg.evaluate("() => document.getElementById('look-earth').hidden")
-        assert _globe_opacity(pg) == 0
-        assert not errors
-        ctx.close()
-    finally:
-        nogl.close()
-
-
-def test_red_night_paints_the_look_view_red(browser, served):
-    ctx, pg, _ = _look(
-        browser, served, "ios", "localStorage.setItem('zimi_app_theme', 'red')"
-    )
-    try:
-        _look_down(pg)
-        pg.wait_for_function(
-            "() => !document.getElementById('look-under-read').hidden", polling=POLL_MS
-        )
-        css = pg.evaluate(
-            "() => { const c = (s, p) => getComputedStyle(document.querySelector(s))[p];"
-            " return { you: c('.look-you', 'backgroundColor'), close: c('#look-close', 'color'),"
-            " name: c('#look-under-name', 'color'), read: c('#look-under-read', 'color'),"
-            " ask: c('#look-ask', 'backgroundColor'), read_: c('#look-read', 'color') }; }"
-        )
-        for k, v in css.items():
-            assert _is_red(v), (k, v)
-    finally:
-        ctx.close()
-
-
-def test_the_point_of_the_compass_is_in_the_persons_language(browser, served):
-    ctx, pg, _ = _look(
-        browser, served, "ios", "localStorage.setItem('zimi_ui_lang', 'de')"
-    )
-    try:
-        _tap(pg, "#look-ask")
-        _fire(pg, 33, 90, 0, 90)
-        assert _reads(pg, "O 90").startswith("O 90"), _reading(pg)
-    finally:
-        ctx.close()
-
-
-def test_the_sensor_note_is_let_go_after_a_finger_has_turned_the_view(browser, served):
-    ctx, pg, _ = _look(browser, served, "none")
-    try:
-        pg.wait_for_function(
-            "() => !document.getElementById('look-note').hidden", polling=POLL_MS
-        )
-        assert not pg.evaluate("() => document.getElementById('look-note').classList.contains('gone')")
-        pg.mouse.move(195, 400)
-        pg.mouse.down()
-        pg.mouse.move(250, 400, steps=4)
-        pg.mouse.up()
-        assert pg.evaluate("() => document.getElementById('look-note').classList.contains('gone')")
-    finally:
-        ctx.close()
-
-
-def test_look_keeps_its_step_when_the_library_lands_after_it_opened(browser, served):
-    """A slow /list lets the boot's route() run after the Almanac and Look are
-    already open (the URL says #almanac). It must not open the Almanac a second
-    time: that rewrote the history entry and dropped Look's step, so Back left
-    the Almanac with Look still on screen."""
-    ctx = _context(browser, "none")
-    pg = ctx.new_page()
-    # The library list waits in the page until released.
-    pg.add_init_script(
-        """
-        (() => {
-          const hold = new Promise((r) => { window.__releaseList = r; });
-          const f = window.fetch;
-          window.fetch = (u, ...a) =>
-            String(u && u.url || u).includes('/list?layout=1') ? hold.then(() => f(u, ...a)) : f(u, ...a);
-        })();
-        """
-    )
-    try:
-        pg.goto(served + "/", wait_until="commit")
-        pg.wait_for_function(
-            "() => typeof openAlmanac === 'function'", polling=POLL_MS
-        )
-        pg.evaluate("() => openAlmanac()")
-        pg.wait_for_function(
-            "() => !!document.querySelector('.alm-sky-look') && typeof _skyState !== 'undefined' && _skyState && _skyState.eph",
-            polling=POLL_MS,
-        )
-        pg.evaluate("() => document.querySelector('.alm-sky-look').click()")
-        pg.wait_for_function(
-            "() => !!document.getElementById('almanac-look')", polling=POLL_MS
-        )
-        assert pg.evaluate("() => history.state && history.state.look") == 1
-        pg.evaluate("() => window.__releaseList()")
-        pg.wait_for_function(
-            "() => typeof zimsCache !== 'undefined' && zimsCache && zimsCache.length",
-            polling=POLL_MS,
-        )
-        pg.wait_for_timeout(500)
-        assert pg.evaluate("() => history.state && history.state.look") == 1
-        assert pg.evaluate("() => !!document.getElementById('almanac-look')")
     finally:
         ctx.close()

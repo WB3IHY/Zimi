@@ -119,24 +119,32 @@ for (const [place, lon, lat, iso, ref] of HORIZONS) {
 }
 console.log('worst per body (deg): ' + Object.keys(worst).map((b) => b + ' ' + worst[b].toFixed(3)).join(', '));
 
-// The sky under the horizon (the ground see-through) is the same sky: its planets, Sun and stars come from
-// the ephemeris above and below the horizon alike, so the ones Horizons puts under it are the ones drawn there.
+// The sky under the horizon (the phone's Look view, the ground as dim glass) is the same sky: its planets, Sun and stars
+// come from the ephemeris above and below the horizon alike, so the ones Horizons puts under it are the ones drawn there.
 {
   const [place, lon, lat, iso, ref] = HORIZONS[1];
   const eph = vm.runInContext('_skyEphemeris(new Date(' + JSON.stringify(iso) + '), ' + lat + ', ' + lon + ')', S);
   S.__s = { nowTime: Date.parse(iso), lat, lon, eph };
-  const b = vm.runInContext('_skyBelowBodies(__s, 60)', S);
+  const b = vm.runInContext('_skyBelowBodies(__s)', S);
   const names = b.planets.map((p) => p.name).sort().join(',');
-  const want = Object.keys(ref).filter((n) => !['Sun', 'Moon'].includes(n) && ref[n][1] < 0 && ref[n][1] > -60).sort().join(',');
+  const want = Object.keys(ref).filter((n) => !['Sun', 'Moon'].includes(n) && ref[n][1] < 0).sort().join(',');
   check(names === want, 'the planets under the horizon at 23:00 in San Francisco are the ones Horizons has there (' + names + ')');
   check(b.sun && sep(b.sun.alt, b.sun.az, ref.Sun[1], ref.Sun[0]) < 1, 'the Sun is under it, where Horizons has it (' + (b.sun && b.sun.alt.toFixed(1)) + ' deg)');
   check(b.moon === null, 'the Moon, up at 17 degrees, is not under it');
-  check(b.stars.length > 20 && b.stars.every((st) => st.alt < 0 && st.alt > -60 && st.mag <= 4.6), 'the stars under it are all under it, to the limit (' + b.stars.length + ')');
+  check(b.stars.length > 20 && b.stars.every((st) => st.alt < 0 && st.mag <= 4.6), 'the stars under it are all under it, to the limit (' + b.stars.length + ')');
   // Above and below together are the whole catalogue to the limit: nothing is lost or counted twice at the horizon.
   const all = vm.runInContext('_skyCatalogue().filter(function (c) { return c.mag <= SKY_BELOW_MAG; }).length', S);
-  const full = vm.runInContext('_skyBelowBodies(__s, 91).stars.length', S);
+  const full = b.stars.length;
   const up = eph.stars.filter((st) => st.mag <= 4.6).length;
   check(up + full === all, 'stars above (' + up + ') and below (' + full + ') are all ' + all + ' of the catalogue');
+}
+
+// Below the horizon is the phone's Look view and nowhere else: the page's sky and the star chart show the sky above it.
+{
+  const code = fs.readFileSync(path.join(STATIC, 'almanac-sky.js'), 'utf8').replace(/\/\/.*$/gm, '');
+  check(!/_skyBelowOn|_skyBelowToggle|data-sky-below|SKY_CHART_HORIZON_SHARE|_starChartRot|_skyChartBelowZone|_skyEnsureBelowButton/.test(code), 'the live sky and the star chart have nothing for below the horizon');
+  check(!/below: \[/.test(code), 'and no setting for it');
+  check(/s\.hosted\) _skyPaintBelowLens/.test(code), "the look-around view paints what is under the ground");
 }
 
 // Every named star of the catalogue is the star it is named for: its place within half a degree of

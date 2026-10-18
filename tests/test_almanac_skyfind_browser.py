@@ -1,17 +1,16 @@
-"""Find in the sky, and the sky under the horizon, in a real browser.
+"""Find in the sky, in the phone's Look view, in a real browser.
 
 On the shipped files, served by Zimi, in headless Chromium at a phone's
 width, San Francisco at 23:00 on 30 September 2026 (Saturn up in the
 southeast, Mars, Jupiter, Venus and the Sun under the horizon):
 
-  1. Find. A tap on the scene's Find button loads the module and opens the
-     sheet; with nothing typed it offers what is up; a name finds its thing;
-     choosing it rings it, says where it is, and turns the star chart to put
-     it at the top.
-  2. Under the horizon. A thing that is below it turns the sky under the
-     horizon on (and the choice is kept); the button toggles it by hand.
-  3. Look. Opened to lead to something on a device with no sensors, the view
-     turns to it and says it is in view; clearing takes the chip away.
+  1. Find is Look's: its magnifier opens the sheet; with nothing typed it
+     offers what is up; a name finds its thing; choosing it says where it is
+     and, with no sensors, turns the view to it. Clearing takes the chip away.
+  2. A thing under the horizon is as findable as one above it: Look shows the
+     whole sphere, so the view turns down to it and rings it there.
+  3. Nowhere else: the live sky and the star chart have no Find (see also
+     tests/test_almanac_look_browser.py).
 
 The maths (matching, places against Horizons, the way to a thing) is
 tests/test_almanac_skyfind.cjs.
@@ -96,6 +95,10 @@ def _almanac(browser, served, no_sensors=False):
         polling=POLL_MS,
         timeout=60000,
     )
+    # The sky stands under the Moon's numbers and its words, below the first screen: bring it into view, as a reader does.
+    pg.evaluate(
+        "() => document.querySelector('.almanac-sky-wrap').scrollIntoView({ behavior: 'instant', block: 'center' })"
+    )
     pg.evaluate("(iso) => _almScrubSettle(new Date(iso))", NIGHT)
     pg.wait_for_function(
         "(t) => _skyState.nowTime === t && !_skyState.moonAnim",
@@ -112,8 +115,17 @@ def _ms(iso):
     return int(datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp() * 1000)
 
 
+def _open_look(pg):
+    pg.evaluate("() => document.querySelector('.alm-sky-look').click()")
+    pg.wait_for_function(
+        "() => typeof _look !== 'undefined' && _look && _look.skyMounted",
+        polling=POLL_MS,
+        timeout=60000,
+    )
+
+
 def _find(pg, query):
-    pg.evaluate("() => document.querySelector('[data-sky-find]').click()")
+    pg.evaluate("() => document.getElementById('look-find').click()")
     pg.wait_for_selector("#sf-input", timeout=60000)
     pg.fill("#sf-input", query)
     pg.wait_for_function(
@@ -125,10 +137,10 @@ def _find(pg, query):
 
 
 def test_find_offers_what_is_up_and_leads_to_a_planet(browser, served):
-    ctx, pg, errors = _almanac(browser, served)
+    ctx, pg, errors = _almanac(browser, served, no_sensors=True)
     try:
-        assert pg.query_selector("[data-sky-find]"), "the scene has a Find button"
-        pg.evaluate("() => document.querySelector('[data-sky-find]').click()")
+        _open_look(pg)
+        pg.evaluate("() => document.getElementById('look-find').click()")
         pg.wait_for_selector("#sf-input", timeout=60000)
         pg.wait_for_function(
             "() => document.querySelectorAll('#sf-list .sf-row').length > 0",
@@ -138,56 +150,14 @@ def test_find_offers_what_is_up_and_leads_to_a_planet(browser, served):
             "() => [...document.querySelectorAll('#sf-list .sf-name')].map(e => e.textContent)"
         )
         assert "Saturn" in offered and "Moon" in offered, offered
-        assert "Mars" not in offered, "Mars is under the horizon: not on offer"
+        assert "Mars" not in offered, "Mars is under the horizon: not on offer unasked"
         pg.keyboard.press("Escape")
         pg.wait_for_function("() => !document.getElementById('sf-sheet')")
         _find(pg, "saturn")
         assert pg.evaluate("() => _skyFind && _skyFind.id") == "planet:Saturn"
-        chip = pg.inner_text("#sf-chip")
-        assert "Saturn" in chip and "up" in chip, chip
-        # The chart is turned to put it at the top: Saturn's bearing is 130.5 degrees.
-        pg.wait_for_function(
-            "() => Math.abs(_starChartRot - 130.47) < 1.5", polling=POLL_MS
-        )
-        # Clearing takes it all away.
-        pg.evaluate("() => document.querySelector('[data-sf-clear]').click()")
-        assert pg.evaluate("() => _skyFind") is None
-        assert pg.query_selector("#sf-chip") is None
-        assert pg.evaluate("() => _starChartRot") == 0
-        assert not errors, errors
-    finally:
-        ctx.close()
-
-
-def test_a_thing_under_the_horizon_turns_the_sky_under_it_on(browser, served):
-    ctx, pg, errors = _almanac(browser, served)
-    try:
-        assert pg.evaluate("() => _skyBelowOn()") is False
-        _find(pg, "mars")
-        assert pg.evaluate("() => _skyFind.id") == "planet:Mars"
-        assert pg.evaluate("() => _skyBelowOn()") is True
-        assert "below the horizon" in pg.inner_text("#sf-chip")
-        assert (
-            json.loads(pg.evaluate("() => localStorage.getItem('zimi_sky_settings')"))[
-                "below"
-            ]
-            == "on"
-        ), "the choice is kept"
-        pg.evaluate("() => document.querySelector('[data-sky-below]').click()")
-        assert pg.evaluate("() => _skyBelowOn()") is False
-        assert (
-            pg.get_attribute("[data-sky-below]", "aria-pressed") == "false"
-        ), "the button says so"
-        assert not errors, errors
-    finally:
-        ctx.close()
-
-
-def test_look_without_sensors_turns_to_what_is_found(browser, served):
-    ctx, pg, errors = _almanac(browser, served, no_sensors=True)
-    try:
-        pg.evaluate("() => openAlmanacLook({ find: 'planet:Saturn' })")
-        pg.wait_for_selector("#sf-look-chip", timeout=60000)
+        chip = pg.inner_text("#sf-look-chip")
+        assert "Saturn" in chip, chip
+        # No sensors: the view turned to it, and it is in view.
         pg.wait_for_function(
             "() => { const r = document.getElementById('look-read').textContent; return /SE/.test(r) && /\\+4[23]/.test(r); }",
             polling=POLL_MS,
@@ -207,7 +177,39 @@ def test_look_without_sensors_turns_to_what_is_found(browser, served):
         pg.evaluate(
             "() => document.querySelector('#sf-look-chip [data-sf-clear]').click()"
         )
+        assert pg.evaluate("() => _skyFind") is None
         assert pg.query_selector("#sf-look-chip") is None
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_a_thing_under_the_horizon_is_found_in_look_and_ringed(browser, served):
+    ctx, pg, errors = _almanac(browser, served, no_sensors=True)
+    try:
+        _open_look(pg)
+        _find(pg, "mars")
+        assert pg.evaluate("() => _skyFind.id") == "planet:Mars"
+        # The view went down to it, and Mars is drawn there, as under the horizon.
+        pg.wait_for_function(
+            "() => _look.view.alt < -5 && _skyHost.s.bodies.some(b => b.type === 'planet' && b.name === 'Mars' && b.under)",
+            polling=POLL_MS,
+            timeout=30000,
+        )
+        assert "In view" in pg.inner_text("#sf-look-chip")
+        assert not errors, errors
+    finally:
+        ctx.close()
+
+
+def test_a_finder_elsewhere_can_lead_look_to_a_thing(browser, served):
+    """openAlmanacFind('look', id) is what a finder elsewhere would call, with Look open."""
+    ctx, pg, errors = _almanac(browser, served, no_sensors=True)
+    try:
+        _open_look(pg)
+        pg.evaluate("() => openAlmanacFind('look', 'planet:Saturn')")
+        pg.wait_for_selector("#sf-look-chip", timeout=60000)
+        assert "Saturn" in pg.inner_text("#sf-look-chip")
         assert not errors, errors
     finally:
         ctx.close()

@@ -7727,9 +7727,8 @@ function openAlmanac(replaceState) {
       _openAlmanacInner(replaceState);
       // The 3D Earth's module follows the open instead of delaying it; the
       // orrery draws the Earth's glow (the way in) once it has landed.
-      // The ephemeris first (the Sun, the Moon, the planets: no GL), then the Earth view, then the landing that
-      // puts the view's Moon in the hero; in order.
-      ['/static/almanac-ephem.js?v=45', '/static/almanac-earth.js?v=45', '/static/almanac-landing.js?v=45'].forEach(function(src) {
+      // The ephemeris first (the Sun, the Moon, the planets: no GL), then the Earth view; in order.
+      ['/static/almanac-ephem.js?v=45', '/static/almanac-earth.js?v=45'].forEach(function(src) {
         var el = document.createElement('script');
         el.src = src;
         el.async = false;
@@ -7748,8 +7747,7 @@ function openAlmanac(replaceState) {
   _openAlmanacInner(replaceState);
 }
 
-// Point the phone at the sky (almanac-look.js, and the globe under it,
-// globe.js): loaded on the first tap of the sky's Look button, never with the
+// Point the phone at the sky (almanac-look.js): loaded on the first tap of the sky's Look button, never with the
 // Almanac. opts: {lat, lon, name} for a place other than the Almanac's.
 var _almLookLoading = null;
 function openAlmanacLook(opts) {
@@ -7761,22 +7759,18 @@ function openAlmanacLook(opts) {
   }
   if (!_almLookLoading) {
     _almLookLoading = new Promise(function(resolve, reject) {
-      var files = ['/static/globe.js?v=45', '/static/almanac-look.js?v=45'], left = files.length;
-      files.forEach(function(src) {
-        var s = document.createElement('script');
-        s.src = src;
-        s.async = false;
-        s.onload = function() { if (--left === 0) resolve(); };
-        s.onerror = function() { _almLookLoading = null; reject(new Error(src)); };
-        document.head.appendChild(s);
-      });
+      var s = document.createElement('script');
+      s.src = '/static/almanac-look.js?v=45';
+      s.onload = function() { resolve(); };
+      s.onerror = function() { _almLookLoading = null; reject(new Error(s.src)); };
+      document.head.appendChild(s);
     });
   }
   _almLookLoading.then(function() { window.openAlmanacLookNow(opts); }, function() { _showToast(t('almanac_unavailable_offline')); });
 }
 
-// Find in the sky (almanac-skyfind.js): loaded on the first tap of a Find button, never with the Almanac.
-// where: 'page' (the sky and the star chart) or 'look' (the phone's window); pickId: a thing to lead to at once.
+// Find in the sky (almanac-skyfind.js): the phone's Look window only, loaded on the first tap of its Find button.
+// where: 'look'; pickId: a thing to lead to at once.
 var _almFindLoading = null;
 function openAlmanacFind(where, pickId) {
   if (!_almFindLoading) {

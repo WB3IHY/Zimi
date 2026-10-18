@@ -96,6 +96,10 @@ def _almanac(browser, served, reduced=False, place=PLACE, horizon=False):
         "() => typeof _skyState !== 'undefined' && _skyState && _skyState.eph",
         polling=POLL_MS,
     )
+    # The sky stands under the Moon's numbers and its words, below the first screen: bring it into view, as a reader does.
+    pg.evaluate(
+        "() => document.querySelector('.almanac-sky-wrap').scrollIntoView({ behavior: 'instant', block: 'center' })"
+    )
     return ctx, pg, errors
 
 

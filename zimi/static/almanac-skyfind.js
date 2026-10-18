@@ -2,19 +2,17 @@
 // star, a constellation, the Sun, the Moon, the space station, one of the
 // deep-sky objects the sky already names (the Messier ones among them).
 //
-// Loaded on the first tap of a Find button (the live sky, the star chart,
-// the Look overlay), never with the Almanac. It adds no catalogue of its
+// Loaded on the first tap of Look's Find button, never with the Almanac: finding
+// belongs to the phone-motion view and nowhere else. It adds no catalogue of its
 // own: the names and places come from almanac-sky.js (the stars, the figures,
 // the deep-sky list, the planets' own orbits, the Moon, the ISS), and a place
 // is worked out for the instant and the place being looked at, never kept.
 //
-// What finding does, by where it was asked:
-//   - Look, a phone with sensors: an arrow and the distance in degrees to it
-//     lead you there, and it is ringed in the sky when it is in view.
-//   - Look, no sensors: the view turns to it, and it is ringed.
-//   - The page's sky and its star chart: it is ringed where it is drawn, the
-//     chart turns to put it at the top, and a thing under the horizon turns
-//     the sky under the horizon on (the chart and the scene show it).
+// What finding does:
+//   - A phone with sensors: an arrow and the distance in degrees to it lead
+//     you there, and it is ringed in the sky when it is in view.
+//   - No sensors: the view turns to it, and it is ringed.
+//   - Under the horizon is as findable as above it: Look shows the whole sphere.
 //
 // The maths (matching, the place of a thing, the way to it) touches no
 // element and is tested alone (tests/test_almanac_skyfind.cjs).
@@ -22,7 +20,6 @@
 var SF_MAX_RESULTS = 8;
 var SF_SUGGEST_MAG = 1.6;          // with nothing typed: the stars this bright that are up are offered with the planets
 var SF_IN_VIEW_FRAC = 0.35;        // inside this share of the field of view, from its centre, it is "in view"
-var SF_TURN_MS = 450;              // the chart turning to it
 var SF_RING_PX = 15;               // the ring round it in the sky (CSS px radius)
 var SF_RING_INK = '255,208,128';
 var SF_FAINT_PLANETS = ['Uranus', 'Neptune'];   // found by name, never offered: the eye does not see them
@@ -150,13 +147,10 @@ function _sfGuide(view, pos) {
   var angle = (Math.atan2(qx, qy) / DEG_TO_RAD + 360) % 360;
   return { sep: sep, angle: angle, inView: sep < (view.fov || 60) * SF_IN_VIEW_FRAC };
 }
-// The bearing at the top of the chart that has the thing straight up: its own bearing.
-function _sfChartTurn(pos) { return ((pos.az % 360) + 360) % 360; }
 
 // ── What was asked for ─────────────────────────────────────────────────────
 
 var _skyFind = null;          // the thing being found (an item of _sfBuild), or null
-var _sfTurn = null;           // the chart's turn in progress
 var _sfSheet = null;          // the open search sheet's state
 
 // Said in words: where it is.
@@ -165,62 +159,35 @@ function _sfWhere(pos) {
   var deg = _skyDeg(Math.abs(pos.alt));
   return pos.alt < 0 ? t('sky_find_below', { d: deg, dir: _azCompass(pos.az) }) : t('sky_find_up', { d: deg, dir: _azCompass(pos.az) });
 }
+// The instant and the place being looked at: the Look window's (it may be somewhere else), else the Almanac's.
 function _sfNow() {
-  var s = typeof _skyState !== 'undefined' ? _skyState : null;
-  if (s && s.now) return { now: s.now, lat: s.lat, lon: s.lon };
-  var loc = _getLocation();
+  var loc = typeof _look !== 'undefined' && _look ? _look.place : _getLocation();
   return { now: typeof _almFocusInstant === 'function' ? _almFocusInstant() : new Date(), lat: loc.lat, lon: loc.lon };
 }
 
-// Choose a thing: it is ringed, the chart turns to it, and where it is is said.
+// Choose a thing: it is ringed, the view leads to it, and where it is is said.
 function _sfPick(f, ctx) {
   var at = _sfNow(), pos = _sfPosition(f, at.now, at.lat, at.lon);
-  if (f.kind === 'iss' && !pos) { _sfSay(t('sky_find_iss_down')); return false; }
+  if (f.kind === 'iss' && !pos) return false;
   _skyFind = f;
-  // Under the horizon it can only be shown with the sky under the horizon.
-  if (pos && pos.alt < 0 && typeof _skyBelowOn === 'function' && !_skyBelowOn()) _skyBelowToggle();
   if (typeof _look !== 'undefined' && _look && ctx === 'look') _sfLookPick(pos);
-  _sfTurnChart(pos);
   _sfRefresh();
   return true;
 }
 function _sfClear() {
-  _skyFind = null; _sfTurn = null; _starChartRot = 0;
-  var chip = document.getElementById('sf-chip'); if (chip) chip.remove();
+  _skyFind = null;
   var lk = document.getElementById('sf-look-chip'); if (lk) lk.remove();
   _sfRefresh();
 }
-// Everything that shows it: the sky, the chart and its line, the chip.
+// Everything that shows it: the Look window's sky (the ring) and its chip.
 function _sfRefresh() {
-  if (typeof _skyKickDirty === 'function') _skyKickDirty();
-  if (document.getElementById('almanac-starchart') && typeof _starChartBase !== 'undefined' && _starChartBase) _drawStarChart(_starChartTime());
+  if (typeof AlmanacSkyView !== 'undefined' && typeof _look !== 'undefined' && _look && _look.skyMounted) AlmanacSkyView.redraw(_look.skyHost);
   _sfUpdateChips();
-}
-function _sfSay(text) {
-  var info = document.getElementById('alm-sc-info');
-  if (info) info.textContent = text;
-}
-
-// The chart turns so the thing is at the top.
-function _sfTurnChart(pos) {
-  if (!pos) return;
-  var to = _sfChartTurn(pos), from = _starChartRot;
-  if (_skyReduceMotion() || typeof requestAnimationFrame !== 'function') { _starChartRot = to; return; }
-  var d = ((to - from + 540) % 360) - 180, start = null, token = _sfTurn = {};
-  function step(ts) {
-    if (_sfTurn !== token) return;
-    if (start === null) start = ts;
-    var k = Math.min(1, (ts - start) / SF_TURN_MS), e = 1 - Math.pow(1 - k, 3);
-    _starChartRot = (from + d * e + 360) % 360;
-    if (document.getElementById('almanac-starchart') && typeof _starChartBase !== 'undefined' && _starChartBase) _drawStarChart(_starChartTime());
-    if (k < 1) requestAnimationFrame(step); else _sfTurn = null;
-  }
-  requestAnimationFrame(step);
 }
 
 // ── Drawn where it is ──
 
-// A ring round it in the sky scene (and the Look window's), over the picture.
+// A ring round it in the Look window's sky, over the picture.
 function _sfPaintMark(ctx, s) {
   var f = _skyFind;
   if (!f || !s.eph) return;
@@ -247,20 +214,6 @@ function _sfPaintMark(ctx, s) {
   ctx.strokeText(label, lx, pt.y); ctx.fillStyle = 'rgba(' + SF_RING_INK + ',1)'; ctx.fillText(label, lx, pt.y);
   ctx.restore();
 }
-// And on the chart, where the chart's own projection puts it (its place, panned or not).
-function _sfChartMark(ctx, project, R, now, lat, lon) {
-  var f = _skyFind;
-  if (!f) return;
-  var pos = _sfPosition(f, now, lat, lon);
-  if (!pos) return;
-  var p = project(pos.alt, pos.az);
-  if (p.r > R) return;
-  ctx.save();
-  ctx.strokeStyle = 'rgba(' + SF_RING_INK + ',0.95)'; ctx.lineWidth = 1.6;
-  ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, Math.PI * 2); ctx.stroke();
-  ctx.restore();
-}
-
 // ── Chips: what it is, where, and the way to it ──
 
 var SF_ARROW_SVG = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5M6 11l6-6 6 6"/></svg>';
@@ -269,48 +222,29 @@ function _sfChipHtml(f, text, withArrow) {
   return '<span class="sf-chip-ico" id="' + (withArrow ? 'sf-arrow' : 'sf-ring') + '">' + (withArrow ? SF_ARROW_SVG : SF_RING_SVG) + '</span>' +
     '<span class="sf-chip-text"><b>' + _almEsc(f.name) + '</b> <span id="sf-chip-where">' + _almEsc(text) + '</span></span>';
 }
-// Where the chip lives: over the Look window when it is open, else on the page's sky.
-function _sfChipHost() {
-  var look = typeof _look !== 'undefined' && _look && document.getElementById('almanac-look');
-  if (look) return { el: look, id: 'sf-look-chip', cls: 'sf-chip sf-chip-look', look: true };
-  var wrap = document.querySelector('.almanac-sky-wrap');
-  return wrap ? { el: wrap, id: 'sf-chip', cls: 'sf-chip', look: false } : null;
-}
 function _sfUpdateChips() {
-  ['sf-chip', 'sf-look-chip'].forEach(function (id) { var o = document.getElementById(id); if (o && !_skyFind) o.remove(); });
-  var f = _skyFind;
-  if (!f) return;
-  var host = _sfChipHost();
-  if (!host) return;
-  var at = _sfNow(), pos = _sfPosition(f, at.now, at.lat, at.lon), chip = document.getElementById(host.id);
-  var guide = host.look && _look.view ? (pos ? _sfGuide({ az: _look.view.az, alt: _look.view.alt, fov: _look.fov }, pos) : null) : null;
+  var old = document.getElementById('sf-look-chip');
+  if (old && !_skyFind) old.remove();
+  var f = _skyFind, look = typeof _look !== 'undefined' && _look && document.getElementById('almanac-look');
+  if (!f || !look) return;
+  var at = _sfNow(), pos = _sfPosition(f, at.now, at.lat, at.lon), chip = old;
+  var guide = _look.view && pos ? _sfGuide({ az: _look.view.az, alt: _look.view.alt, fov: _look.fov }, pos) : null;
   var text = guide ? (guide.inView ? t('sky_find_here') : t('sky_find_away', { d: _skyDeg(guide.sep) })) : _sfWhere(pos);
   if (!chip) {
     chip = document.createElement('div');
-    chip.id = host.id; chip.className = host.cls; chip.setAttribute('role', 'status');
-    host.el.appendChild(chip);
+    chip.id = 'sf-look-chip'; chip.className = 'sf-chip sf-chip-look'; chip.setAttribute('role', 'status');
+    look.appendChild(chip);
     chip.addEventListener('click', function (e) {
       if (e.target.closest('[data-sf-clear]')) { _sfClear(); return; }
-      if (e.target.closest('[data-sf-point]')) { _sfPointPhone(); return; }
-      _sfOpen(chip.id === 'sf-look-chip' ? 'look' : 'page');
+      _sfOpen('look');
     });
   }
   var arrow = !!guide && !guide.inView;
   var html = _sfChipHtml(f, text, arrow);
-  if (!host.look && _sfHasSensors() && pos) html += '<button type="button" class="sf-chip-btn" data-sf-point>' + _almEsc(t('sky_find_point')) + '</button>';
   html += '<button type="button" class="sf-chip-x" data-sf-clear aria-label="' + _almEsc(t('sky_find_clear')) + '">✕</button>';
   if (chip._html !== html) { chip.innerHTML = html; chip._html = html; }
   var ico = document.getElementById('sf-arrow');
   if (ico && guide) ico.style.transform = 'rotate(' + guide.angle.toFixed(1) + 'deg)';
-  var info = document.getElementById('alm-sc-info');
-  if (info && !host.look) info.textContent = f.name + ' · ' + _sfWhere(pos);
-}
-function _sfHasSensors() {
-  return typeof DeviceOrientationEvent !== 'undefined' && window.isSecureContext !== false && (('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0);
-}
-// "Point your phone at it": Look opens, and leads there.
-function _sfPointPhone() {
-  if (typeof openAlmanacLook === 'function') openAlmanacLook({ find: _skyFind.id });
 }
 
 // ── The Look window ──
