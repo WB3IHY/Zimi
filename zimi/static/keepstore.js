@@ -157,7 +157,8 @@ var KeepStore = (function() {
     });
     if (r.status !== 206 && r.status !== 200) return { ok: false, status: r.status };
     var m = /\/(\d+)$/.exec(r.headers.get('Content-Range') || '');
-    return { ok: true, size: m ? +m[1] : +r.headers.get('Content-Length') || 0, etag: r.headers.get('ETag') || '' };
+    // A 206 with no Content-Range says only that its one byte is one byte: that is no size.
+    return { ok: true, size: m ? +m[1] : (r.status === 200 ? +r.headers.get('Content-Length') || 0 : 0), etag: r.headers.get('ETag') || '' };
   }
 
   // One pull at a time, in one worker. `state` is what the controls draw.
@@ -175,15 +176,27 @@ var KeepStore = (function() {
   function stopWorker() { if (worker) { worker.terminate(); worker = null; } releaseScreen(); }
 
   // KeepStore.workerUrl is set by the app (a versioned address).
-  function pull(name, title, headers, who, icon) {
+  // `size` is the library's byte count, shown as the total from the first frame (the worker takes the server's own
+  // figure once it answers). `speed` (bytes/s, smoothed) and `at` (when bytes last arrived) say whether it is moving;
+  // `retrying` that the stream broke and the worker is asking again.
+  var SPEED_SMOOTHING = 0.3;
+  function pull(name, title, headers, who, icon, size) {
     if (worker) return false;
-    state = { name: name, phase: 'pulling', written: 0, size: 0, error: '' };
+    state = { name: name, phase: 'pulling', written: 0, size: size || 0, error: '', speed: 0, at: Date.now(), retrying: false };
+    var sampled = false;
     emit();
     worker = new Worker(KeepStore.workerUrl);
     worker.onmessage = function(e) {
       var m = e.data;
-      if (m.type === 'progress') {
-        state = { name: name, phase: 'pulling', written: m.written, size: m.size, error: '' };
+      if (m.type === 'progress' || m.type === 'retrying') {
+        // The first message only says where a resumed pull starts: no speed is read from it.
+        var now = Date.now(), moved = sampled ? m.written - state.written : 0, dt = (now - state.at) / 1000;
+        var speed = state.speed;
+        if (m.type === 'progress' && moved > 0 && dt > 0) speed = speed ? speed + SPEED_SMOOTHING * (moved / dt - speed) : moved / dt;
+        var first = !sampled;
+        if (m.type === 'progress') sampled = true;
+        state = { name: name, phase: 'pulling', written: m.written, size: m.size || state.size, error: '',
+                  speed: m.type === 'retrying' ? 0 : speed, at: (moved > 0 || first) ? now : state.at, retrying: m.type === 'retrying' };
       } else if (m.type === 'done') {
         stopWorker();
         forgetNames();
@@ -204,7 +217,7 @@ var KeepStore = (function() {
       emit();
     };
     holdScreen();
-    worker.postMessage({ cmd: 'pull', name: name, title: title || name, who: who || '', icon: !!icon, headers: headers || {} });
+    worker.postMessage({ cmd: 'pull', name: name, title: title || name, who: who || '', icon: !!icon, size: size || 0, headers: headers || {} });
     return true;
   }
   // A ZIM picked from Files (or iCloud Drive, a USB stick), copied into the

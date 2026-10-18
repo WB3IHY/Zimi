@@ -112,21 +112,28 @@ def test_one_tap_from_the_menu_then_remove(pw, world):
     assert not pg.query_selector(".stat-card[data-zim='%s'] .keep-ico.pull" % OTHER)
     # One is kept: every other tile carries the bare arrow, and it offers the keep.
     shot(pg, "f1-arrows")
+    # The arrow is the whole control: a small ZIM starts on one tap, no menu, no question.
+    pg.evaluate("(z) => document.querySelector(`.stat-card[data-zim='${z}']`).scrollIntoView({block: 'center'})", OTHER)
     pg.click(".stat-card[data-zim='%s'] .keep-ico.can" % OTHER)
-    assert "Keep offline" in menu_labels(pg)
-    pg.keyboard.press("Escape")
+    assert not pg.query_selector("#zim-ctx-menu.visible") and not pg.query_selector(".pw-overlay.open")
+    pg.wait_for_selector(".stat-card[data-zim='%s'] .keep-ico.kept" % OTHER, timeout=30000)
     open_menu(pg, ZIM)
     assert "Remove from this phone" in menu_labels(
         pg
     ) and "Keep offline" not in menu_labels(pg)
     pg.click("[data-action='keep-remove']")
     pg.click("#ac-ok")   # it asks first (test_keep_files_live holds the wording)
-    pg.wait_for_function(
-        "(z) => !document.querySelector(`.stat-card[data-zim='${z}'] .keep-ico`)",
-        arg=ZIM,
-        timeout=15000,
-    )
-    assert not pg.query_selector(".keep-ico"), "with nothing kept, the arrows go"
+    pg.wait_for_selector(".stat-card[data-zim='%s'] .keep-ico.can" % ZIM, timeout=15000)
+    # The check turns into a trash can on the first tap, and the second deletes: no sheet, and the
+    # last kept ZIM going takes the arrows off every tile.
+    pg.evaluate("(z) => document.querySelector(`.stat-card[data-zim='${z}']`).scrollIntoView({block: 'center'})", OTHER)
+    pg.click(".stat-card[data-zim='%s'] .keep-ico.kept" % OTHER)
+    pg.wait_for_selector(".stat-card[data-zim='%s'] .keep-ico.trash" % OTHER)
+    assert OTHER in pg.evaluate("() => _keepNames && [..._keepNames].join()"), "the first tap deletes nothing"
+    shot(pg, "f1-trash")
+    pg.click(".stat-card[data-zim='%s'] .keep-ico.trash" % OTHER)
+    assert not pg.query_selector(".pw-overlay.open"), "the second tap asks nothing"
+    pg.wait_for_function("() => !document.querySelector('.keep-ico')", timeout=15000)
     ctx.close()
     br.close()
 
@@ -191,12 +198,15 @@ def test_ring_while_it_comes_the_view_and_manage(pw, world):
         "(z) => document.querySelector(`.stat-card[data-zim='${z}'] .kr-arc`).getAttribute('stroke-dasharray')",
         rs.NAME,
     )
-    assert re.match(r"^\d+ 100$", arc) and not arc.startswith("0 "), arc
-    # Tap the ring: a tiny menu, Pause / Cancel download.
+    assert re.match(r"^[\d.]+ 100$", arc) and not arc.startswith("0 "), arc
+    # Tap the ring: the detail, real numbers and only Pause / Cancel download.
     pg.click(".stat-card[data-zim='%s'] .keep-ico" % rs.NAME)
-    assert menu_labels(pg) == ["Pause", "Cancel download"], menu_labels(pg)
-    shot(pg, "f4-ring-menu")
-    pg.click("[data-action='keep-pause']")
+    pg.wait_for_selector("#keep-detail:not([hidden])")
+    acts = pg.evaluate("() => [...document.querySelectorAll('#keep-detail button')].map(b => b.innerText.trim())")
+    assert acts == ["Pause", "Cancel download"], acts
+    assert re.search(r"[\d.]+%", pg.inner_text("#keep-detail")) and " / " in pg.inner_text("#keep-detail")
+    shot(pg, "f4-ring-detail")
+    pg.click("#keep-detail [data-act='pause']")
     pg.wait_for_selector(
         ".stat-card[data-zim='%s'] .keep-ico.paused" % rs.NAME, timeout=15000
     )
@@ -263,11 +273,14 @@ def test_offline_a_kept_zim_opens_the_others_say_why_discover_is_only_what_opens
     pill = pg.inner_text("#conn-pill").strip()
     assert pill in ("Offline", "No server"), pill
     shot(pg, "f7-offline-home")
-    # The kept section leads the page, in the library's own tiles.
-    first = pg.evaluate(
-        "() => document.querySelector('#output .cat-heading, .cat-heading').innerText"
+    # Discover is always first; the kept section follows it, in the library's own tiles.
+    order = pg.evaluate(
+        """() => { const kids = [...document.querySelectorAll('#output > *')];
+          const d = kids.findIndex(e => e.id === 'discover-row');
+          const k = kids.findIndex(e => /this phone/i.test(e.innerText || '') && e.classList.contains('cat-heading'));
+          return [d, k]; }"""
     )
-    assert "this phone" in first.lower(), first
+    assert order[0] == 0 and order[1] > order[0], order
     # Discover: the last copy, only what opens.
     disc = pg.evaluate(
         "() => (document.querySelector('.discover-scroll') || {}).innerText || ''"

@@ -12,8 +12,9 @@
 // Also: {cmd: 'import', name, file, title}: a ZIM picked from Files (or iCloud Drive,
 // a USB stick) copied into the phone's storage in chunks. It never asks the
 // server, so it works in airplane mode. Error code notzim: not a ZIM at all.
-// Messages in:  {cmd: 'pull', name, title, who, headers}  (who: the account it is kept under, '' for none)   {cmd: 'stop'}
-// Messages out: {type: 'progress', written, size}  {type: 'done', meta}
+// Messages in:  {cmd: 'pull', name, title, who, size, headers}  (who: the account it is kept under, '' for none; size: the
+//               library's own byte count, the total when a proxy answers with no length of its own)   {cmd: 'stop'}
+// Messages out: {type: 'progress', written, size}  {type: 'retrying', written, size}  {type: 'done', meta}
 //               {type: 'stopped', written, size}   {type: 'error', code, written, size}
 // Error codes:  auth (not allowed to keep it), gone (no such ZIM), xz (this
 // reader cannot open that compression), quota (the phone is full), locked
@@ -98,14 +99,18 @@ async function pull(m) {
       if (resp && resp.status === 404) throw coded('gone');
       if (!resp || (resp.status !== 200 && resp.status !== 206)) {
         if (attempt >= RETRIES) throw coded('network');
+        say({ type: 'retrying', written: written, size: total || m.size || 0 });
         await sleep(BACKOFF_MS[attempt++]);
         continue;
       }
       if (resp.status === 200 && written > 0) { written = 0; h.truncate(0); }   // the file changed: start over
       etag = resp.headers.get('ETag') || '';
       var range = /\/(\d+)$/.exec(resp.headers.get('Content-Range') || '');
-      total = range ? +range[1] : +resp.headers.get('Content-Length');
+      // A proxy can answer a long stream with no length of its own (chunked): the library's byte count is the total then,
+      // so the ring has a total from the first byte instead of reading 0 of 0 for the whole pull.
+      total = range ? +range[1] : (+resp.headers.get('Content-Length') + written) || m.size || 0;
       current = { written: written, size: total };
+      say({ type: 'progress', written: written, size: total });
       meta = { name: name, title: m.title, who: m.who || '', icon: !!m.icon, size: total, etag: etag, written: written, complete: false, at: 0 };
       await KeepStore.writeMeta(d, meta);
 
@@ -132,6 +137,7 @@ async function pull(m) {
         if (e && e.name === 'QuotaExceededError') throw coded('quota');
         if (attempt >= RETRIES) throw coded('network');
         h.flush();
+        say({ type: 'retrying', written: written, size: total });
         await sleep(BACKOFF_MS[attempt++]);   // the stream broke: ask again from here
       }
     }
