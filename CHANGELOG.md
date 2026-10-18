@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Keep offline: one tap on a ZIM's tile keeps it on the phone, resumable, with its progress on the tile and Pause and Cancel a tap away. Kept ZIMs open, show their pictures and search with no server, in the home-screen app too.
+- Keep offline: a ZIM's menu or About keeps it on the phone, and after the first, a tap on any tile's corner does (a second tap confirms from 1 GB). It resumes, shows its progress on the tile, and Pause and Cancel are a tap away. Kept ZIMs open, show their pictures and search with no server, in the home-screen app too.
 - Offline is a mode, not a fault: a small Offline pill replaces the warning bar, and Discover shows only cards that open.
 - Zimi reads ZIMs from folders another program owns, in place: `ZIMI_EXTRA_ZIM_DIRS`, or Settings, Server, Storage. ZIMs added or removed there appear or leave within about a minute.
 - Project NOMAD: Zimi can be NOMAD's Information Library, its downloads, updates and deletes can go through NOMAD, and old Kiwix links keep working ([guide](docs/integrations/project-nomad.md)).
