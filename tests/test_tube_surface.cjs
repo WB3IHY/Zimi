@@ -134,7 +134,7 @@ ok('the decoder\'s sound is woken inside the tap and handed to it (iOS left it s
 // ── the box and the chrome ───────────────────────────────────────────────
 ok('typing on Tube filters the feed inside the page', /if \(_isTubePage\(\)\) \{\n\s*\/\/ Tube[^\n]*\n\s*hideSuggest\(\);\n\s*suggestTimer = setTimeout\(function\(\) \{ _tubeSearch\(val\); \}, 150\);/.test(src));
 ok('the hand-off calls the page\'s own function', /win\.tubeSearch\(val\)/.test(extract(/function _tubeSearch\(val\) \{[\s\S]*?\n\}/, '_tubeSearch')));
-ok('no reading controls on Tube, in the bar or the ⋯', /_readingText = _readingArticle && !_isMapPage\(\) && !_isAppPage\(\)/.test(src) && /_TTS_AVAILABLE && !_isMapPage\(\) && !_isAppPage\(\)/.test(src) && /function _isAppPage\(\) \{\n\s*return _isTubePage\(\)/.test(src));
+ok('no reading controls on Tube, in the bar or the ⋯', /_readingText = _readingArticle && !_isMapPage\(\) && !_isAppPage\(\)/.test(src) && /_ttsCanSpeak\(\) && !_isMapPage\(\) && !_isAppPage\(\)/.test(src) && /function _isAppPage\(\) \{\n\s*return _isTubePage\(\)/.test(src));
 ok('the breadcrumb is ZimiTube and the box says what it is for', /bcIcon\.title = t\('tube'\)/.test(src) && /return t\('tube_search_placeholder'\)/.test(src) && /if \(_appPlaceholder\(\)\) return _appPlaceholder\(\);/.test(src) && /function updateTopbar\(\) \{[\s\S]*?_updateSearchPlaceholder\(\);/.test(src));
 
 // ── a card becomes a page ────────────────────────────────────────────────
