@@ -6559,7 +6559,7 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
       : '';
     const catPrefix = showCategory && z.category ? '<span class="card-cat">' + esc(z.category) + '</span> &middot; ' : '';
     const badge = _langBadge(z, false, isTiles);
-    const qidIcon = z.has_qids
+    const qidIcon = _canSwitchLanguage(z)
       ? '<span class="qid-badge" title="' + escAttr(t('cross_lang_linking')) + '"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l-3 3 3 3"/><path d="M1 9h10"/><path d="M12 10l3-3-3-3"/><path d="M15 7H5"/></svg></span>'
       : '';
     const badgeInfo = _zimBadge(z);
@@ -11623,6 +11623,15 @@ function _newestPer(list, key) {
 }
 
 // The installed ZIMs of one kind, by title; with a key, one per identity.
+// The cross-language mark shows only where it can take you somewhere: another
+// ZIM in a different language that links by the same Q-IDs.
+function _canSwitchLanguage(z) {
+  if (!z.has_qids) return false;
+  var lang = _normLang(_langPrimary(z.language || ''));
+  return (zimsCache || []).some(function(o) {
+    return o !== z && o.has_qids && _normLang(_langPrimary(o.language || '')) !== lang;
+  });
+}
 function _installedOfKind(kind, key) {
   return _installedFor(kind, '', key);
 }
@@ -11989,8 +11998,9 @@ function drillCategory(catKey, namePrefix) {
       filtered = filtered.filter(function(item) { return _zimMatchesLang(item, manageLangFilter); });
     }
     const grouped = groupVariants(filtered);
-    // Sort: installed first, then alphabetical
-    grouped.sort((a, b) => (a.title || a.name || '').localeCompare(b.title || b.name || ''));
+    // The most complete edition of a project leads its category; the rest
+    // go alphabetically.
+    grouped.sort((a, b) => _mostComplete(b) - _mostComplete(a) || (a.title || a.name || '').localeCompare(b.title || b.name || ''));
     let h = '<div class="browse-drilldown-header">' +
       '<button class="browse-back" onclick="renderBrowseGallery()">' + tH('back_to_catalog') + '</button>' +
       '<span class="browse-drilldown-title">' + (catMeta ? '<span class="browse-drilldown-icon">' + catMeta.icon + '</span>' : '') + esc(catName) + '</span>' +
@@ -12483,6 +12493,7 @@ const _DL_ARROW_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="non
 // for something new — collapse them behind a count button at the list end.
 let _showHiddenCatalog = false;
 
+function _mostComplete(g) { return g.hierarchy && g.hierarchy.coverage_advantage_bundle ? 1 : 0; }
 function _catalogItemDemoted(g) {
   const variants = g.variants || [g];
   if (variants.some(v => v.installed)) return true;
@@ -15051,11 +15062,11 @@ function _libSplitHtml(coverage) {
 }
 
 // What each folder another program owns contributes, one quiet line under the
-// total it is part of: "From Project NOMAD  9" under the ZIM count, its size
+// total it is part of: "Project NOMAD  9" under the ZIM count, its size
 // under the total size.
 function _libShareRowsHtml(shares, size) {
   return (shares || []).map(function(f) {
-    return '<div class="mc-row mc-sub"><span class="mc-label">' + tH('lib_from_folder', { label: f.label }) + '</span><span class="mc-value">' +
+    return '<div class="mc-row mc-sub"><span class="mc-label">' + esc(f.label) + '</span><span class="mc-value">' +
       esc(size ? fmtSize(f.size_gb) : String(f.zims)) + '</span></div>';
   }).join('');
 }
@@ -15070,7 +15081,16 @@ function _autoUpdateHtml(au) {
   // noise the operator did not ask for. How much of the library the updater
   // can check reads under the ZIM count (_libSplitHtml).
   return '<div class="ms-section-label">' + tH('auto_update') + '</div>' +
-    _mcRow(tH('au_frequency'), _autoUpdateSelectHtml(au));
+    _mcRow(tH('au_frequency'), _autoUpdateSelectHtml(au)) + _autoUpdateScopeHtml(au);
+}
+// Which ZIMs the updater leaves alone, said once under the frequency, only
+// when there are some: local ones, and those another program looks after.
+function _autoUpdateScopeHtml(au) {
+  var folders = ((_manageStatusData && _manageStatusData.from_folders) || []).map(function(f) { return f.label; });
+  var local = au.coverage && (au.coverage.skipped || []).length;
+  if (!folders.length && !local) return '';
+  var line = folders.length ? tH('au_scope_folders', { label: folders.join(', ') }) : tH('au_scope_local');
+  return '<div class="ms-hint">' + line + '</div>';
 }
 
 // Repaint the section from server truth. The library pane draws it once from
@@ -23470,7 +23490,10 @@ function _appsRowHtml(withHelp) {
   // Help now leads the row, as its own kind of pill (a red cross): it is the
   // one thing here that must be found by a person who is not looking for apps.
   if (!_appsEnabled()) return withHelp ? _helpNowHtml() : '';
-  var tiles = _shownApps().map(function(app) { return _APP_TILES[app](); }).join('');
+  // Home shows the apps that have something inside; the Apps page and
+  // Settings list every app, with how to fill an empty one.
+  var tiles = _shownApps().filter(function(app) { return _appZims(app).length > 0; })
+    .map(function(app) { return _APP_TILES[app](); }).join('');
   if (!tiles) return withHelp ? _helpNowHtml() : '';
   var pill = withHelp ? _helpNowPillHtml() : '';
   var help = pill ? '<div class="apps-help">' + pill + '</div>' : '';
