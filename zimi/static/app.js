@@ -2673,7 +2673,7 @@ var _CREATE_BC_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="non
 // or an app. Stamped on the page's history entry as it is pushed, so the
 // header's arrow and the browser's Back go to the same place, and named on
 // the arrow ("Almanac", "Search"). Read from the entry being left.
-var _FROM_APPS = ['tube', 'exchange', 'reddot', 'wiki', 'books', 'earth', 'fieldguide'];
+var _FROM_APPS = ['tube', 'exchange', 'reddot', 'wiki', 'books', 'fieldguide'];
 function _openedFrom() {
   var s = history.state || {};
   if (s.mode === 'almanac' || s.mode === 'search') return s.mode;
@@ -2754,8 +2754,8 @@ function updateTopbar() {
     bcIcon.innerHTML = _ALMANAC_BC_ICON;
     // Identity only — no destination behind it, so no link affordance either.
     bcIcon.removeAttribute('href');
-  } else if (_isWikiPage() || _isBooksPage() || _isDictPage() || _isEarthPage()) {
-    var hashApp = _isWikiPage() ? 'wiki' : _isBooksPage() ? 'books' : _isEarthPage() ? 'earth' : 'dictionary';
+  } else if (_isWikiPage() || _isBooksPage() || _isDictPage()) {
+    var hashApp = _isWikiPage() ? 'wiki' : _isBooksPage() ? 'books' : 'dictionary';
     bcSep.style.display = 'inline';
     bcIcon.style.display = 'inline-flex';
     bcIcon.title = t(hashApp);
@@ -3550,7 +3550,6 @@ function route(push) {
   if (location.hash === '#wiki') { enterHome(false); openWiki(true); return; }
   if (location.hash === '#books') { enterHome(false); openBooks(true); return; }
   if (location.hash === '#dictionary') { enterHome(false); openDictionary(true, ''); return; }
-  if (_earthHashStart(location.hash) !== null) { enterHome(false); openEarth(true, _earthHashStart(location.hash)); return; }
   if (location.hash === '#reddot' || location.hash.indexOf('#reddot?') === 0) {
     enterHome(false);
     var rdQ = new URLSearchParams(location.hash.slice(location.hash.indexOf('?') + 1));
@@ -3926,7 +3925,7 @@ function _appReady(source) {
 }
 
 function _isAppPage() {
-  return _isTubePage() || _isExchangePage() || _isReddotPage() || _isWikiPage() || _isBooksPage() || _isDictPage() || _isEarthPage() || _isFieldguidePage();
+  return _isTubePage() || _isExchangePage() || _isReddotPage() || _isWikiPage() || _isBooksPage() || _isDictPage() || _isFieldguidePage();
 }
 // The reader is on the PDF viewer: nothing to read aloud, no type size.
 function _isPdfPage() {
@@ -21517,11 +21516,11 @@ function _appFrameCall(fn, val) {
 // No app is on screen: an article, the home page, or another app about to
 // say it is.
 function _appsOff() {
-  _tubeOpen = false; _exchangeOpen = false; _reddotOpen = false; _wikiOpen = false; _booksOpen = false; _dictOpen = false; _earthOpen = false; _fieldguideOpen = false;
+  _tubeOpen = false; _exchangeOpen = false; _reddotOpen = false; _wikiOpen = false; _booksOpen = false; _dictOpen = false; _fieldguideOpen = false;
   _chromeReset();
 }
 function _anyAppOpen() {
-  return _tubeOpen || _exchangeOpen || _reddotOpen || _wikiOpen || _booksOpen || _dictOpen || _earthOpen || _fieldguideOpen;
+  return _tubeOpen || _exchangeOpen || _reddotOpen || _wikiOpen || _booksOpen || _dictOpen || _fieldguideOpen;
 }
 
 // ── Bookshelf ──
@@ -21851,96 +21850,6 @@ function _dictStrings(w) {
     { w: w || '', word_of_day: t('word_of_day'), retry: t('retry'), cancel: t('cancel'), catalog: t('app_browse_catalog'), voice_failed: t('voices_failed'), voice_setup: t('voices_setup'),
       engine_kokoro: t('voices_engine_kokoro'), engine_piper: t('voices_engine_piper'), engine_say: t('voices_engine_say'), engine_espeak: t('voices_engine_espeak') });
 }
-// ── Zimi Earth ──
-// The Almanac's globe as a place of its own (/static/earth.html), shown in the
-// reader like the other apps: drag it, come down to a place, and what the
-// library knows about it is there (Wikipedia articles with coordinates, the
-// Wikivoyage guide, the map). Looking up from a place opens the sky above it.
-// Eric, 2026-10-13: "maybe we need Zimi Earth like Google earth that has a
-// bunch of the stuff mixed?"
-var _earthOpen = false;
-var _EARTH_PAGE = '/static/earth.html?v=1';
-var _EARTH_SVG = '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3.5 9.5c2.5.4 3.5 2 4.5 3.5s2.5 1 3 2.5-1 3 .5 4.5M13 3.2c-.4 2 .6 3 2 3.6s3.5.4 5 2.2"/></svg>';
-function _installedEarthZims() {
-  return _installedMaps().concat((zimsCache || []).filter(function(z) { return z.main_path && z.kind === 'wiki' && (z.project === 'wikipedia' || z.project === 'wikivoyage'); }));
-}
-function _isEarthPage() {
-  return !!(_earthOpen && readerOpen && !_almanacOpen && !_createOpen);
-}
-function _earthTileHtml() {
-  return _appTileHtml('earth', t('earth'), _EARTH_SVG, [t('earth_detail')], 'openEarth');
-}
-// #earth, or #earth/48.8567,2.3522,0.01 (latitude, longitude, height in Earth
-// radii): the start the page opens at, null when the address is not Earth's.
-function _earthHashStart(hash) {
-  var m = /^#earth(?:\/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),(\d+(?:\.\d+)?(?:e-?\d+)?))?$/.exec(hash || '');
-  if (!m) return null;
-  if (m[1] === undefined) return {};
-  var lat = +m[1], lon = +m[2], alt = +m[3];
-  return (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 && alt > 0) ? { lat: lat, lon: lon, alt: alt } : {};
-}
-function _earthUrl(at) {
-  return at ? '/#earth/' + at.lat + ',' + at.lon + ',' + at.alt : '/#earth';
-}
-function _earthStrings(start) {
-  return _appStrings('earth', ['earth_hint', 'earth_zoom_hint', 'earth_look_up', 'earth_read', 'earth_guide', 'earth_map', 'earth_locate',
-    'earth_locate_off', 'earth_no_webgl', 'earth_load_failed', 'earth_away', 'earth_finding', 'earth_skipped', 'earth_nothing', 'earth_zoom_in', 'earth_zoom_out'], { start: start || {}, close: t('close') });
-}
-function openEarth(replaceState, start) {
-  if (start && start.type) start = null;   // a click's event, not a place
-  if (!_appsAllowedByServer('earth')) {
-    if (mode !== 'home') enterHome(false);
-    if (_earthHashStart(location.hash) !== null) history.replaceState({ mode: 'home' }, '', '/');
-    return;
-  }
-  _openHashApp('earth', replaceState, function() { _earthOpen = true; return _EARTH_PAGE + '#' + _earthStrings(start); });
-  if (start && start.lat != null) _earthRemember(start);
-}
-// Where the globe is, kept in the entry itself as well as the address: an
-// article read from a place replaces the address when it closes, and Back
-// to Earth reads the place from the entry, not from what is left of the URL.
-function _earthRemember(at) {
-  var st = Object.assign({}, history.state || {}, { earthAt: { lat: at.lat, lon: at.lon, alt: at.alt } });
-  history.replaceState(st, '', _earthUrl(at));
-}
-// What the page asks of the shell (same origin, called through window.parent).
-// The installed map that covers a point, preferring StreetZim's (it has the
-// streets); null when none does.
-function _earthMapFor(lat, lng) {
-  var maps = _installedMaps().filter(function(z) { return z.main_path && _mapCovers(z, { lat: lat, lng: lng }) === true; });
-  maps.sort(function(a, b) { return (_mapSourceLabel(a) === 'StreetZim' ? 0 : 1) - (_mapSourceLabel(b) === 'StreetZim' ? 0 : 1); });
-  return maps.length ? maps[0].name : null;
-}
-function _earthOpenMap(lat, lng, zoom) {
-  var name = _earthMapFor(lat, lng), z = (zimsCache || []).filter(function(m) { return m.name === name; })[0];
-  if (!z) return;
-  if (_isModClick()) return;
-  _appsOff();
-  openArticle(z.name, z.main_path, _mapName(z), { pos: 'map=' + zoom + '/' + lat + '/' + lng });
-}
-// The sky above a place: the Almanac, and the Look view over that place
-// (almanac-look.js), without changing the place the Almanac keeps.
-var _earthUnderAlmanac = false;
-function _earthLookUp(lat, lng, name) {
-  _earthUnderAlmanac = _earthOpen;
-  if (_earthOpen) _appFrameCall('__release');   // the Almanac covers the globe: its GPU memory is given back
-  _appsOff();
-  openAlmanac();
-  var tries = 0;
-  (function wait() {
-    if (typeof openAlmanacLook === 'function' && document.getElementById('almanac-sky-canvas')) { openAlmanacLook({ lat: lat, lon: lng, name: name || '' }); return; }
-    if (++tries < 100) setTimeout(wait, 100);
-  })();
-}
-
-// The Almanac that was opened over Earth has closed: Earth is what is on
-// screen again, and the shell must say so (its breadcrumb, its back).
-function _earthAlmanacClosed() {
-  if (!_earthUnderAlmanac) return;
-  _earthUnderAlmanac = false;
-  if (readerOpen && !currentArticle && !_anyAppOpen()) openEarth(true, (history.state && history.state.earthAt) || undefined);
-}
-
 // A word (or the front, w ''), as Reddot opens a post.
 function openDictionary(replaceState, w) {
   w = typeof w === 'string' ? w : '';
@@ -23351,9 +23260,6 @@ window.addEventListener('message', function(e) {
     _setWindowTitle(document.title);
     if (typeof d.zim === 'string' && typeof d.path === 'string' && d.zim && d.path) _appItemOpened('dictionary', d.zim + '/' + d.path, d.w);
     else _appItemClosed();
-  } else if (d.zimi === 'earth-at' && _earthOpen && isFinite(d.lat) && isFinite(d.lon) && isFinite(d.alt)) {
-    // Where the globe is, as the address: a place on Earth is a link.
-    _earthRemember({ lat: d.lat, lon: d.lon, alt: d.alt });
   } else if (d.zimi === 'dictionary-home' && _dictOpen) {
     _appHome({ mode: 'reader', dictionary: true, w: '' }, _dictUrl(''), 'w');
     _appItemClosed();
@@ -23467,7 +23373,7 @@ function openTube(replaceState, play) {
 // can exist on a fresh install and suggest which zims to add or pop to
 // relevant catalog categories." An app with data opens; one without opens
 // the catalog category that feeds it, and its tile says so.
-var _APP_CATEGORY = { maps: 'maps', tube: 'ted', exchange: 'stack_exchange', wiki: 'wikipedia', books: 'gutenberg', dictionary: 'wikipedia', earth: 'maps' };  // reddot: made, not downloaded
+var _APP_CATEGORY = { maps: 'maps', tube: 'ted', exchange: 'stack_exchange', wiki: 'wikipedia', books: 'gutenberg', dictionary: 'wikipedia' };  // reddot: made, not downloaded
 // A mode the Create page should open on, set by whoever sends someone there.
 var _createRememberMode = '';
 var _createRememberSource = '';
@@ -23481,7 +23387,7 @@ var _REDDIT_ADDRESS_START = 'https://www.reddit.com/r/Kiwix';
 // (ZIMI_APPS, or the switch in Server settings; stamped on the shell) or
 // this signed-in person turned it off for their account. Never per
 // browser (Eric: "Not per browser only per user or server").
-var APP_NAMES = ['maps', 'tube', 'exchange', 'reddot', 'wiki', 'books', 'dictionary', 'earth'];
+var APP_NAMES = ['maps', 'tube', 'exchange', 'reddot', 'wiki', 'books', 'dictionary'];
 // Offered only when the server names them (a preview, while it is built):
 // Reddot since 1.13.1. Mirrors server.APPS_OPT_IN.
 var APPS_OPT_IN = ['reddot'];
@@ -23545,7 +23451,7 @@ function _setUserApp(app, on) {
 // and a name, lit when offered (Eric: "the lil app tiles with icons and i
 // can select or deselect which to show").
 function _appIcon(app) {
-  return app === 'fieldguide' ? _FIELDGUIDE_SVG : app === 'maps' ? _MAPS_SVG : app === 'tube' ? _TUBE_PLAY_SVG : app === 'exchange' ? _EXCHANGE_SVG : app === 'wiki' ? _WIKI_SVG : app === 'books' ? _BOOKS_SVG : app === 'dictionary' ? _DICT_SVG : app === 'earth' ? _EARTH_SVG : _REDDOT_SVG;
+  return app === 'fieldguide' ? _FIELDGUIDE_SVG : app === 'maps' ? _MAPS_SVG : app === 'tube' ? _TUBE_PLAY_SVG : app === 'exchange' ? _EXCHANGE_SVG : app === 'wiki' ? _WIKI_SVG : app === 'books' ? _BOOKS_SVG : app === 'dictionary' ? _DICT_SVG : _REDDOT_SVG;
 }
 // The ZIMs inside each app: the ones its tile names and its page reads.
 function _appZims(app) {
@@ -23555,7 +23461,6 @@ function _appZims(app) {
     : app === 'wiki' ? _installedWikiZims()
     : app === 'books' ? _installedBookZims()
     : app === 'dictionary' ? _installedDictZims()
-    : app === 'earth' ? _installedEarthZims()
     : _installedRedditZims();
 }
 // What the library holds for each app, in a line under its name.
@@ -23578,7 +23483,7 @@ function _appPicksHtml(apps, checked, onchange, disabled) {
 
 // Each app's tile and its door, by name, so the row and the Apps page can
 // take the apps in any order.
-var _APP_TILES = { maps: _mapsTileHtml, tube: _tubeTileHtml, exchange: _exchangeTileHtml, reddot: _reddotTileHtml, wiki: _wikiTileHtml, books: _booksTileHtml, dictionary: _dictionaryTileHtml, earth: _earthTileHtml };
+var _APP_TILES = { maps: _mapsTileHtml, tube: _tubeTileHtml, exchange: _exchangeTileHtml, reddot: _reddotTileHtml, wiki: _wikiTileHtml, books: _booksTileHtml, dictionary: _dictionaryTileHtml };
 
 // The apps follow the library's order, as the sources do (#100). Eric: "sort
 // the apps by recently updated (i.e. contains zims that were recently
@@ -28615,13 +28520,12 @@ window.addEventListener('popstate', async (e) => {
     if (app.wiki && _appFrameRoute(_wikiOpen, '')) return;
     if (app.books && _appFrameRoute(_booksOpen, '')) return;
     if (app.dictionary && _appFrameRoute(_dictOpen, app.w)) return;
-    if (app.earth && _earthOpen) return;
     if (app.fieldguide && _appFrameRoute(_fieldguideOpen, app.fg)) return;
   }
   // Landing on an app's address from the article opened out of it: the app
   // is reopened below, not stepped past. (The article history's own copy of
   // that step would otherwise take a second step back.)
-  var toApp = app && app.mode === 'reader' && (app.tube || app.exchange || app.reddot || app.wiki || app.books || app.dictionary || app.earth || app.fieldguide);
+  var toApp = app && app.mode === 'reader' && (app.tube || app.exchange || app.reddot || app.wiki || app.books || app.dictionary || app.fieldguide);
   // Step through article history when reader is open (mirrors in-app back button)
   if (readerOpen && articleHistory.length > 0 && !toApp) {
     _stepBackToArticle(articleHistory.pop(), false);
@@ -28660,8 +28564,6 @@ window.addEventListener('popstate', async (e) => {
     if (!_appFrameRoute(_wikiOpen, '')) openWiki(true);
   } else if (s && s.mode === 'reader' && s.books) {
     if (!_appFrameRoute(_booksOpen, '')) openBooks(true);
-  } else if (s && s.mode === 'reader' && s.earth) {
-    if (!_earthOpen) openEarth(true, s.earthAt || _earthHashStart(location.hash) || undefined);
   } else if (s && s.mode === 'reader' && s.fieldguide) {
     if (!_appFrameRoute(_fieldguideOpen, s.fg)) openFieldguide(true, s.fg || '');
   } else if (s && s.mode === 'reader' && s.dictionary) {
