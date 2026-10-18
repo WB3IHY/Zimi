@@ -2691,7 +2691,7 @@ var _CREATE_BC_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="non
 // or an app. Stamped on the page's history entry as it is pushed, so the
 // header's arrow and the browser's Back go to the same place, and named on
 // the arrow ("Almanac", "Search"). Read from the entry being left.
-var _FROM_APPS = ['tube', 'exchange', 'reddot', 'wiki', 'books', 'fieldguide'];
+var _FROM_APPS = ['tube', 'exchange', 'reddot', 'wiki', 'books', 'fieldguide', 'dictionary'];
 function _openedFrom() {
   var s = history.state || {};
   if (s.mode === 'almanac' || s.mode === 'search') return s.mode;
@@ -2745,7 +2745,9 @@ function updateTopbar() {
   // On an app page the arrow is always there: a step back inside the app
   // (a video, a question, a post, a list), and from its home, out.
   const backTo = _backLabel();
-  const showBack = !!backTo || articleHistory.length > 0 || mode === 'search' || homeScope || (_isAppPage() && !_appTop);
+  // Offline an app's page may not be here at all (the worker answers with its own "You're offline" page, which never
+  // tells the topbar it is at the app's top or not): the arrow stays so there is always a way back to where you were.
+  const showBack = !!backTo || articleHistory.length > 0 || mode === 'search' || homeScope || (_isAppPage() && (!_appTop || _connState !== CONN_OK));
   backBtn.style.display = showBack ? 'flex' : 'none';
   var nightBtn = document.getElementById('night-btn');
   if (nightBtn) nightBtn.style.display = _isFieldguidePage() ? 'flex' : 'none';
@@ -3164,6 +3166,7 @@ function _renderConnBanner() {
   const away = _connState !== CONN_OK || !_libraryKnown;
   document.documentElement.classList.toggle('conn-away', _connState !== CONN_OK);
   document.documentElement.style.setProperty('--conn-h', '0px');
+  if (_isAppPage()) updateTopbar();   // an app's back arrow depends on the connection
   const el = document.getElementById('conn-pill');
   if (!el) return;
   if (!away) { el.hidden = true; return; }
@@ -4845,10 +4848,6 @@ function renderHome(filter) {
   }
 
   let h = '';
-  if (!homeScope && !filter && _keepNames.size && _connState !== CONN_OK) {
-    const keptNow = sorted.filter(z => _keepNames.has(z.name)).concat(_keepSyntheticZims());
-    if (keptNow.length) h += _keepSectionHtml(keptNow) + _keepSurvivalTilesHtml(false);
-  }
   if (!homeScope && !filter) h += _libFoldersNoteHtml();
   // Help now sits first in the Apps row; where that row is not drawn (a filter is narrowing home) it stands alone.
   if (!homeScope && !filter && (homeRecentFilter || homeLangFilter.size)) h += _helpNowHtml();
@@ -4882,6 +4881,11 @@ function renderHome(filter) {
   var _showDiscover = !homeScope && !filter && !homeRecentFilter && !homeLangFilter.size && !discoverHidden;
   if (_showDiscover) {
     h += '<div id="discover-row"></div>';
+  }
+  // Offline, what is on this phone is what the page is, and comes right after Discover, which is always first.
+  if (!homeScope && !filter && _keepNames.size && _connState !== CONN_OK) {
+    const keptNow = sorted.filter(z => _keepNames.has(z.name)).concat(_keepSyntheticZims());
+    if (keptNow.length) h += _keepSectionHtml(keptNow) + _keepSurvivalTilesHtml(false);
   }
 
   // Language welcome card (non-English UI, no matching ZIMs installed)
@@ -4937,14 +4941,6 @@ function renderHome(filter) {
     }
     // Collections now render inside the unified, reorderable section list below
     // (#37) \u2014 no longer pinned above categories.
-  }
-
-  // On this phone: the ZIMs kept offline, as a section like Favorites, its
-  // heading the way into the view with the storage bar and Manage. Offline it
-  // leads the page (it is what the page is); online it follows Favorites.
-  if (!homeScope && !filter && _keepNames.size && _connState === CONN_OK) {  // kept, online
-    const keptZims = sorted.filter(z => _keepNames.has(z.name)).concat(_keepSyntheticZims());
-    if (keptZims.length) h += _keepSectionHtml(keptZims);
   }
 
   // Language auto-collection: when UI is non-English, show matching-language ZIMs as their own section
@@ -5012,7 +5008,15 @@ function renderHome(filter) {
         '<div class="cat-heading cat-heading-other">' + tH('cat_other') + '</div>' +
         renderCardGrid(_otherItems, true) });
     }
-    h += _orderSections(_sections).map(function(s) { return s.html; }).join('');
+    var _ordered = _orderSections(_sections);
+    // On this phone: the ZIMs kept offline, its heading the way into the view with the storage bar and Manage. Online it
+    // opens the categories: directly below the collections, before the big library flow.
+    if (!filter && _keepNames.size && _connState === CONN_OK) {
+      const keptZims = sorted.filter(z => _keepNames.has(z.name)).concat(_keepSyntheticZims());
+      var _keptAt = _ordered.findIndex(function(sec) { return sec.key.indexOf('col:') !== 0; });
+      if (keptZims.length) _ordered.splice(_keptAt < 0 ? _ordered.length : _keptAt, 0, { key: 'keep', html: _keepSectionHtml(keptZims) });
+    }
+    h += _ordered.map(function(sec) { return sec.html; }).join('');
   }
 
   // Counts at the bottom whenever the top bar is suppressed: a stable anchor
@@ -5931,10 +5935,25 @@ var _keepManaging = false;     // the On this phone view's Manage mode: a remove
 var _KEEP_ARROW = '<path d="M12 6.5v8M8.5 11.5l3.5 3.5 3.5-3.5M7 18h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
 var _KEEP_GLYPH = '<svg class="keep-glyph" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' + _KEEP_ARROW + '</svg>';
 function _keepRingSvg(pct) {
+  // A sliver always shows (KEEP_RING_MIN_PCT): at 70 GB one percent is 700 MB, and an empty ring reads as stuck.
+  var shown = Math.max(pct, KEEP_RING_MIN_PCT);
   return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="kr-track" cx="12" cy="12" r="9.5"/>' +
-    '<circle class="kr-arc" cx="12" cy="12" r="9.5" pathLength="100" stroke-dasharray="' + pct + ' 100" transform="rotate(-90 12 12)"/>' +
-    _KEEP_ARROW.replace('M7 18h10', 'M8.5 17.5h7').replace('M12 6.5v8', 'M12 7.5v6.5') + '</svg>';
+    '<circle class="kr-arc" cx="12" cy="12" r="9.5" pathLength="100" stroke-dasharray="' + shown + ' 100" transform="rotate(-90 12 12)"/>' +
+    '<g class="kr-glyph">' + _KEEP_ARROW.replace('M7 18h10', 'M8.5 17.5h7').replace('M12 6.5v8', 'M12 7.5v6.5') + '</g></svg>';
 }
+// The ring when it failed: the same ring, a bang where the arrow was.
+function _keepFailedSvg(pct) {
+  return _keepRingSvg(pct).replace(/<g class="kr-glyph">.*<\/g>/, '<g class="kr-glyph"><path d="M12 7v6.5M12 17v.01" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></g>');
+}
+// The kept disc turns into this on its first tap; the second deletes.
+var _KEEP_TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.5h14M10 7.5V5.5h4v2M7 7.5l.8 11h8.4l.8-11M10.3 11v4.8M13.7 11v4.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// Under this size one tap starts the download; from here up the button first grows into the size and a second tap
+// on the same pill starts it. Four seconds without that tap (or a tap anywhere else) and it is the arrow again.
+var KEEP_ONE_TAP_MAX_BYTES = 1e9;
+var KEEP_ARM_MS = 4000;
+var KEEP_RING_MIN_PCT = 4;
+var KEEP_STALL_MS = 8000;       // no bytes for this long: the ring stops saying it is moving
+var KEEP_TICK_MS = 1000;        // while a pull runs, the ring and the detail are redrawn this often
 var _KEEP_DISC = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="currentColor"/>' +
   '<path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="var(--on-amber)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
@@ -5973,6 +5992,7 @@ function _keepLoad() {
           _keepRenderOpen();
           _keepImportRender();
           _keepIconSync();
+          _keepDetailRender();
           if (st.importing && st.done) _keepRefreshNames().then(function() { if (homeScope && homeScope.type === 'phone') renderHome(); _keepImportRender(); });
           if (st.phase === 'idle' && !st.error && st.size && st.written === st.size) { _keepPrimeSearch(); _keepRefreshNames(); }
           else if (st.phase === 'idle') _keepRefreshNames();
@@ -6001,32 +6021,64 @@ function _keepIsInstalled() {
 }
 
 // What a ZIM is to the phone right now: null (nothing), {kind:'kept'},
-// {kind:'pull', pct} while it comes, {kind:'paused', pct} part-way.
+// {kind:'pull', pct} while it comes, {kind:'failed', pct, error} when it stopped
+// for a reason, {kind:'paused', pct} part-way. pct has a tenth of a percent.
+function _keepPct(written, size) { return size ? Math.min(100, Math.round(written * 1000 / size) / 10) : 0; }
 function _keepState(zim) {
   var st = (typeof KeepStore !== 'undefined') ? KeepStore.state() : null;
-  if (st && st.name === zim && st.phase === 'pulling') {
-    return { kind: 'pull', pct: st.size ? Math.min(100, Math.floor(st.written * 100 / st.size)) : 0 };
-  }
+  if (st && st.name === zim && st.phase === 'pulling') return { kind: 'pull', pct: _keepPct(st.written, st.size) };
   var m = _keepMetas[zim];
   if (m && m.complete) return { kind: 'kept' };
-  if (m) return { kind: 'paused', pct: m.size ? Math.min(100, Math.floor((m.written || 0) * 100 / m.size)) : 0 };
+  if (st && st.name === zim && st.phase === 'idle' && st.error) return { kind: 'failed', pct: _keepPct(st.written, st.size || (m && m.size)), error: st.error };
+  if (m) return { kind: 'paused', pct: _keepPct(m.written || 0, m.size) };
   return null;
 }
 
-// The tile's one small icon: a ring that fills while a ZIM comes, a filled
-// disc once it is here. Once this phone keeps one, every other tile carries
-// the bare arrow, so the next is a tap away; before that, tiles stay calm.
+// The tile's one mark, bottom right, muted until touched: the arrow where a ZIM
+// can come, a ring while it does, the disc once it is here. Once this phone
+// keeps one, every other tile carries the bare arrow, so the next is a tap
+// away; before that, tiles stay calm. Tapped, one button does everything:
+//   arrow   under 1 GB: starts, and is the ring at once. From 1 GB: grows into
+//           the size ('ask'); the same pill, tapped again, starts
+//   disc    turns into a trash can ('trash'); tapped again, deletes
+//   ring    opens the detail: progress, Pause or Resume, Cancel
+// 'ask' and 'trash' are the armed states: they last KEEP_ARM_MS or until a tap
+// anywhere else.
+var _keepArmed = null;          // {zim, kind: 'ask' | 'trash'}
+var _keepArmTimer = null;
+var _keepStarting = new Set();  // tapped, not yet pulling: the ring shows at once
 function _keepTileState(zim) {
-  return _keepState(zim) || (_keepNames.size ? { kind: 'can' } : null);
+  if (_keepStarting.has(zim)) return { kind: 'pull', pct: 0 };
+  var s = _keepState(zim) || (_keepNames.size ? { kind: 'can' } : null);
+  if (s && _keepArmed && _keepArmed.zim === zim && (s.kind === 'can' || s.kind === 'kept')) return { kind: _keepArmed.kind };
+  return s;
 }
-var _KEEP_TILE_LABEL = { kept: 'keep_kept', pull: 'keep_pulling', paused: 'keep_paused', can: 'keep_btn' };
+// How many bytes a ZIM is: the library's own count (a stat of the file), the meta of a part-way copy otherwise.
+function _keepZimBytes(zim) {
+  var info = _zimInfo(zim), m = _keepMetas[zim];
+  return (info && info.size_bytes) || (m && m.size) || ((info && info.size_gb) || 0) * BYTES_PER_GB;
+}
+var _KEEP_TILE_LABEL = { kept: 'keep_kept', pull: 'keep_pulling', paused: 'keep_paused', can: 'keep_btn', ask: 'keep_btn', trash: 'keep_remove', failed: 'keep_pulling' };
+function _keepMarkSvg(zim, s) {
+  if (s.kind === 'kept') return _KEEP_DISC;
+  if (s.kind === 'trash') return _KEEP_TRASH;
+  if (s.kind === 'ask') return '<span class="keep-pill">' + esc(_fmtBytes(_keepZimBytes(zim))) + '</span>';
+  if (s.kind === 'failed') return _keepFailedSvg(s.pct);
+  if (s.kind === 'can') return '<svg viewBox="0 0 24 24" aria-hidden="true">' + _KEEP_ARROW + '</svg>';
+  return _keepRingSvg(s.pct);
+}
+// A ring that has had no bytes for a while (or is asking again after a break) stops saying it is moving.
+function _keepIsStalled(zim, s) {
+  var st = KeepStore.state();
+  return s.kind === 'pull' && st.name === zim && st.phase === 'pulling' && (st.retrying || Date.now() - st.at > KEEP_STALL_MS);
+}
 function _keepIconHtml(zim) {
   var s = _keepTileState(zim);
   if (!s) return '';
   var label = t(_KEEP_TILE_LABEL[s.kind]);
-  var svg = s.kind === 'kept' ? _KEEP_DISC : (s.kind === 'can' ? '<svg viewBox="0 0 24 24" aria-hidden="true">' + _KEEP_ARROW + '</svg>' : _keepRingSvg(s.pct));
-  return '<button type="button" class="keep-ico ' + s.kind + '" data-k="' + s.kind + '" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '"' +
-    ' onclick="event.preventDefault();event.stopPropagation();_keepIconTap(event,this)">' + svg + '</button>';
+  var stalled = typeof KeepStore !== 'undefined' && _keepIsStalled(zim, s);
+  return '<button type="button" class="keep-ico ' + s.kind + (stalled ? ' stalled' : '') + '" data-k="' + s.kind + '" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '"' +
+    ' onclick="event.preventDefault();event.stopPropagation();_keepIconTap(event,this)">' + _keepMarkSvg(zim, s) + '</button>';
 }
 // Bring every tile on screen in step with what the phone holds, in place (a
 // rebuild under a thumb swallows the tap).
@@ -6037,13 +6089,40 @@ function _keepIconSync() {
     if (!s) { if (cur) cur.remove(); return; }
     if (cur && cur.dataset.k === s.kind) {
       var arc = cur.querySelector('.kr-arc');
-      if (arc) arc.setAttribute('stroke-dasharray', s.pct + ' 100');
+      if (arc) arc.setAttribute('stroke-dasharray', Math.max(s.pct, KEEP_RING_MIN_PCT) + ' 100');
+      cur.classList.toggle('stalled', _keepIsStalled(zim, s));
       return;
     }
     if (cur) cur.remove();
     card.insertAdjacentHTML('beforeend', _keepIconHtml(zim));
   });
+  _keepTickWhilePulling();
 }
+// A pull on a big ZIM moves a few bytes in a tick: the ring and the detail's
+// numbers are redrawn each second so it is plain that it is alive (or stopped).
+var _keepTicker = null;
+function _keepTickWhilePulling() {
+  var pulling = typeof KeepStore !== 'undefined' && KeepStore.state().phase === 'pulling';
+  if (pulling && !_keepTicker) _keepTicker = setInterval(function() { _keepIconSync(); _keepDetailRender(); }, KEEP_TICK_MS);
+  else if (!pulling && _keepTicker) { clearInterval(_keepTicker); _keepTicker = null; }
+}
+
+function _keepDisarm() {
+  var was = _keepArmed;
+  _keepArmed = null;
+  clearTimeout(_keepArmTimer);
+  if (was) _keepIconSync();
+}
+function _keepArm(zim, kind) {
+  clearTimeout(_keepArmTimer);
+  _keepArmed = { zim: zim, kind: kind };
+  _keepArmTimer = setTimeout(_keepDisarm, KEEP_ARM_MS);
+  _keepIconSync();
+}
+// A touch anywhere but on a mark puts the armed mark back (the mark's own tap decides for itself).
+document.addEventListener('pointerdown', function(e) {
+  if (_keepArmed && !(e.target.closest && e.target.closest('.keep-ico'))) _keepDisarm();
+}, true);
 
 // The same line drawing for each thing that can be done.
 function _keepGlyphFor(action) {
@@ -6068,10 +6147,74 @@ function _keepDo(action, zim) {
   else if (action === 'keep-cancel') _keepRemove(zim);
 }
 function _keepIconTap(e, btn) {
-  var card = btn.closest('[data-zim]'), zim = card && card.getAttribute('data-zim');
+  var card = btn.closest('[data-zim]'), zim = card && card.getAttribute('data-zim'), kind = btn.dataset.k;
   if (!zim) return;
-  var r = btn.getBoundingClientRect();
-  window._openMenuAt(_keepMenuHtml(zim), r.left, r.bottom + 4, function(action) { _keepDo(action, zim); });
+  if (kind === 'pull' || kind === 'paused' || kind === 'failed') _keepDetailOpen(zim, btn);
+  else if (kind === 'kept') _keepArm(zim, 'trash');
+  else if (kind === 'trash') { _keepDisarm(); _keepRemove(zim); }
+  else if (kind === 'can' && _keepZimBytes(zim) >= KEEP_ONE_TAP_MAX_BYTES) _keepArm(zim, 'ask');
+  else _keepBegin(zim);   // 'can' under the size, or the 'ask' pill tapped again
+}
+// The mark is the ring from the tap on, before the probe and the room check have answered; a refusal puts it back.
+async function _keepBegin(zim) {
+  _keepDisarm();
+  _keepStarting.add(zim);
+  _keepIconSync();
+  try { await _keepStart(zim, true); }
+  finally { _keepStarting.delete(zim); _keepIconSync(); }
+}
+
+// ── The detail: a small sheet over a ring ──
+// Real progress and two actions. It is the one place a tens-of-GB download can be followed: the ring moves a pixel
+// in a minute at that size, the numbers move every second.
+var _keepDetailZim = '';
+function _keepDetailEl() {
+  var el = document.getElementById('keep-detail');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'keep-detail';
+  el.className = 'keep-detail';
+  el.setAttribute('role', 'dialog');
+  el.addEventListener('click', function(e) {
+    var b = e.target.closest('[data-act]');
+    if (!b) return;
+    var act = b.getAttribute('data-act'), zim = _keepDetailZim;
+    _keepDetailClose();
+    if (act === 'pause') _keepPause();
+    else if (act === 'resume') _keepStart(zim, true);
+    else if (act === 'cancel') _keepRemove(zim);
+  });
+  document.body.appendChild(el);
+  document.addEventListener('pointerdown', function(e) {
+    if (_keepDetailZim && !(e.target.closest && e.target.closest('#keep-detail, .keep-ico'))) _keepDetailClose();
+  }, true);
+  return el;
+}
+function _keepDetailClose() { _keepDetailZim = ''; var el = document.getElementById('keep-detail'); if (el) el.hidden = true; }
+function _keepDetailOpen(zim, btn) {
+  var el = _keepDetailEl(), r = btn.getBoundingClientRect();
+  _keepDetailZim = zim;
+  el.hidden = false;
+  _keepDetailRender();
+  // Above the mark, right edges together, kept inside the window.
+  var w = el.offsetWidth, h = el.offsetHeight;
+  el.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + 'px';
+  el.style.top = (r.top - h - 6 > 8 ? r.top - h - 6 : Math.min(r.bottom + 6, innerHeight - h - 8)) + 'px';
+}
+function _keepDetailRender() {
+  var el = document.getElementById('keep-detail'), zim = _keepDetailZim;
+  if (!el || !zim || el.hidden) return;
+  var s = _keepState(zim);
+  if (!s || s.kind === 'kept') { _keepDetailClose(); return; }
+  var st = KeepStore.state(), m = _keepMetas[zim] || {}, live = st.name === zim;
+  var size = (live && st.size) || m.size || _keepZimBytes(zim);
+  var written = live ? st.written : (m.written || 0);
+  var side = s.kind === 'failed' ? '<div class="keep-d-err">' + tH('keep_err_' + s.error) + '</div>'
+    : '<div class="keep-d-speed">' + (s.kind === 'pull' && live && st.speed ? esc(_fmtBytes(st.speed)) + '/s' : '&nbsp;') + '</div>';
+  var primary = s.kind === 'pull' ? ['pause', 'keep_pause'] : (s.kind === 'failed' ? ['resume', 'retry'] : ['resume', 'keep_resume']);
+  el.innerHTML = '<div class="keep-d-top"><b>' + (s.pct >= 10 ? Math.floor(s.pct) : s.pct) + '%</b><span>' + esc(_fmtBytes(written)) + ' / ' + esc(_fmtBytes(size)) + '</span></div>' +
+    '<div class="keep-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.floor(s.pct) + '"><i style="width:' + Math.max(s.pct, 1) + '%"></i></div>' + side +
+    '<div class="keep-d-actions"><button type="button" data-act="' + primary[0] + '">' + tH(primary[1]) + '</button><button type="button" data-act="cancel" class="keep-quiet">' + tH('keep_cancel_pull') + '</button></div>';
 }
 
 // ── The About panel's block ──
@@ -6212,7 +6355,9 @@ function _keepNotice(msg) {
   clearTimeout(_keepNoticeTimer);
   _keepNoticeTimer = setTimeout(function() { el.hidden = true; }, 5000);
 }
-async function _keepStart(zim) {
+// `sized`: asked from the tile's own button, which already showed the size (a 1 GB+ ZIM took its second tap), so the
+// big-share question is not asked on top of it.
+async function _keepStart(zim, sized) {
   if (!_keepAvailable()) { _keepNotice(t('keep_unsupported')); return; }
   try { await _keepLoad(); } catch (e) { _keepNotice(t('keep_err_worker')); return; }
   if (KeepStore.state().phase === 'pulling') { _keepNotice(t('keep_one_at_a_time')); return; }
@@ -6222,7 +6367,7 @@ async function _keepStart(zim) {
     try {
       var p = await KeepStore.probe(zim, headers);
       if (!p.ok) { _keepNotice(t('keep_err_' + (p.status === 401 || p.status === 403 ? 'auth' : 'gone'))); return; }
-      size = p.size;
+      size = p.size || _keepZimBytes(zim);
     } catch (e) { _keepNotice(t('keep_err_network')); return; }
   }
   var room = await KeepStore.room();
@@ -6235,11 +6380,11 @@ async function _keepStart(zim) {
     // the figure is real, this is the end of it.
     var act = await _keepTooBig(zim, size, room, fuzzy);
     if (act !== 'try') { if (act && act.indexOf('other:') === 0) _keepStart(act.slice(6)); return; }
-  } else if (!meta && !fuzzy && size > room.free * KEEP_BIG_SHARE && !(await _appConfirm(t('keep_big'), t('keep_btn')))) return;
+  } else if (!sized && !meta && !fuzzy && size > room.free * KEEP_BIG_SHARE && !(await _appConfirm(t('keep_big'), t('keep_btn')))) return;
   _keepPersisted = await KeepStore.persist();
   var info = _zimInfo(zim);
   var who = (typeof _userSession !== 'undefined' && _userSession && _userSession.name) || '';
-  KeepStore.pull(zim, (info && info.title) || (meta && meta.title) || zim, headers, who, !!(info && info.has_icon));
+  KeepStore.pull(zim, (info && info.title) || (meta && meta.title) || zim, headers, who, !!(info && info.has_icon), size);
   _keepIconSync();
   _keepRenderOpen();
 }
@@ -21973,7 +22118,7 @@ function openDictionary(replaceState, w) {
   var st = { mode: 'reader', dictionary: true, w: w };
   if (replaceState && w) st.entry = true;
   if (replaceState) history.replaceState(st, '', _dictUrl(w));
-  else history.pushState(st, '', _dictUrl(w));
+  else history.pushState(_stampFrom(st), '', _dictUrl(w));
   openReader(_DICT_PAGE + '#' + _dictStrings(w));
   document.title = (w ? w + ' — ' : '') + t('dictionary') + (w ? '' : ' — Zimi');
   _setWindowTitle(document.title);

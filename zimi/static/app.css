@@ -292,20 +292,52 @@
     .conn-pill svg { width: 15px; height: 15px; }
   }
   .conn-pill:hover, .conn-pill:focus-visible { color: var(--text); border-color: var(--text2); outline: none; }
-  .ctx-info { pointer-events: none; color: var(--text2); max-width: 230px; white-space: normal; line-height: 1.4; }
+  /* .ctx-item (later in the file) sets nowrap at the same weight: the doubled class is what lets the hint wrap. */
+  .ctx-item.ctx-info { pointer-events: none; color: var(--text2); max-width: 230px; white-space: normal; line-height: 1.4; }
   /* Keeping offline: one glyph language on the tile, in the menu, About and the view. */
+  /* Bottom right of the tile, one spot for "on this phone" in every view: the arrow, the ring and the check share it.
+     The button is a 44px target; the mark inside is small and faded until it is touched or has something to say. */
   .keep-ico {
-    position: absolute; right: 6px; bottom: 6px; z-index: 2; width: 28px; height: 28px; padding: 3px;
-    display: inline-flex; border: none; background: none; color: var(--amber); cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
+    position: absolute; right: 0; bottom: 0; z-index: 2; min-width: 44px; height: 44px; padding: 0 11px;
+    display: inline-flex; align-items: center; justify-content: flex-end; border: none; background: none; color: var(--text2); cursor: pointer;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   }
-  .keep-ico svg { width: 100%; height: 100%; }
-  /* In the compact grid the corner is free (the star hides until used): the icon sits top-left, clear of the title. */
-  .stats-grid.tiles .keep-ico { top: 6px; bottom: auto; left: 6px; right: auto; }
-  [dir="rtl"] .stats-grid.tiles .keep-ico { left: auto; right: 6px; }
+  .keep-ico svg { width: 22px; height: 22px; flex: none; }
+  .keep-ico.can { opacity: 0.45; }
+  .keep-ico.can:hover, .keep-ico.can:focus-visible, .keep-ico.can:active { opacity: 1; color: var(--amber); }
+  .keep-ico.kept { color: var(--amber); opacity: 0.8; }
+  .keep-ico.pull, .keep-ico.failed { color: var(--amber); }
+  .keep-ico.failed { color: var(--error); }
+  .keep-ico.trash { color: var(--error); }
+  .keep-ico.stalled { color: var(--text2); }
   .keep-ico .kr-track { fill: none; stroke: var(--border); stroke-width: 2; }
   .keep-ico .kr-arc { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; transition: stroke-dasharray 0.25s linear; }
-  .keep-ico.paused, .keep-ico.can { color: var(--text2); }
+  .keep-ico.paused { color: var(--text2); opacity: 0.8; }
+  /* The arrow in a running ring breathes: a download of tens of GB moves the arc a pixel a minute, the breath says it is alive. */
+  .keep-ico.pull:not(.stalled) .kr-glyph { animation: keep-breathe 1.6s ease-in-out infinite; }
+  @keyframes keep-breathe { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .keep-ico.pull .kr-glyph { animation: none; } }
+  /* The size, in the button's own place: it grows leftward from the corner. */
+  .keep-pill {
+    display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 13px;
+    background: var(--amber); color: var(--on-amber); font-size: 12.5px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums;
+  }
+  .keep-detail {
+    position: fixed; z-index: 9999; width: 270px; padding: 12px 14px 8px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); box-shadow: var(--shadow-popup); color: var(--text);
+  }
+  .keep-detail[hidden] { display: none; }
+  .keep-d-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-variant-numeric: tabular-nums; }
+  .keep-d-top b { font-size: 20px; font-weight: 700; }
+  .keep-d-top span, .keep-d-speed { font-size: 12.5px; color: var(--text2); font-variant-numeric: tabular-nums; }
+  .keep-d-speed, .keep-d-err { margin-top: 6px; min-height: 17px; }
+  .keep-d-err { font-size: 12.5px; line-height: 1.4; color: var(--error); }
+  .keep-d-actions { display: flex; gap: 6px; margin: 8px -6px 0; }
+  .keep-d-actions button {
+    flex: 1; min-height: 44px; border: none; background: none; font: inherit; font-size: 14px; white-space: nowrap; font-weight: 600; color: var(--amber); cursor: pointer; border-radius: 8px;
+  }
+  .keep-d-actions button.keep-quiet { color: var(--text2); font-weight: 500; }
+  .keep-d-actions button:active { background: var(--amber-glow); }
   .ctx-keep { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
   .ctx-keep .keep-glyph { flex-shrink: 0; opacity: 0.8; }
   .keep-btn .keep-glyph { vertical-align: -3px; margin-inline-end: 6px; }
@@ -1529,6 +1561,8 @@
     flex-direction: column; align-items: center; justify-content: flex-start;
     gap: 8px; padding: 20px 12px 12px; text-align: center;
   }
+  /* The tile's bottom band is the mark's (arrow, size, ring, check): the title never runs under it. */
+  .stats-grid.tiles .stat-card:has(> .keep-ico) { padding-bottom: 38px; }
   .stats-grid.tiles .card-icon { align-self: center; }
   .stats-grid.tiles .card-info { align-items: center; padding-right: 0; gap: 6px; flex: 0 0 auto; }
   .stats-grid.tiles .desc, .stats-grid.tiles .detail, .stats-grid.tiles .card-cat, .stats-grid.tiles .qid-badge { display: none; }
