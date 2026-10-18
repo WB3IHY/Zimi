@@ -8,7 +8,7 @@
 //      the Sun and the Moon against the positions JPL Horizons gives; a star
 //      by the height it reaches over a day, which is 90 - latitude + declination).
 //   3. The way to it. The angle to it, the way it lies on the screen, and when
-//      it counts as in view; the chart turns to its bearing.
+//      it counts as in view.
 //   4. The names are the names: every star named here sits within half a degree
 //      of the Hipparcos place the navigation tables carry for that name.
 //   5. Every string it speaks is in the English file, and the module is loaded
@@ -107,7 +107,6 @@ function sep(alt1, az1, alt2, az2) {
   check(Math.abs(r.sep - 30) < 1e-6 && (r.angle < 0.01 || r.angle > 359.99), 'looking up at 60: the zenith is 30 degrees on, and up the screen');
   r = g({ az: 90, alt: 0, fov: 60 }, { az: 90, alt: -20 });
   check(Math.abs(r.sep - 20) < 1e-6 && Math.abs(r.angle - 180) < 0.01, 'below the view: the arrow down');
-  check(sky.run('_sfChartTurn({ az: -30 })') === 330 && sky.run('_sfChartTurn({ az: 725 })') === 5, 'the chart turns to its bearing, whichever way round');
 
   // ── 4. The names are the names ──
   const nav = {};
@@ -133,5 +132,11 @@ function sep(alt1, az1, alt2, az2) {
   const app = read('app.js');
   check(/function openAlmanacFind\(/.test(app) && /almanac-skyfind\.js\?v=/.test(app) && !/_ALMANAC_MODULES = \[[^\]]*skyfind/.test(app), 'it is loaded by a tap on a Find button, not with the Almanac');
   check(/almanac-skyfind\.js/.test(fs.readFileSync(path.join(STATIC, '..', 'http.py'), 'utf8')), 'and a change to it busts the service worker cache');
+  // Find is the phone-motion view's and nowhere else: not on the live sky, not on the star chart, not in the page.
+  const code = (name) => read(name).replace(/\/\/.*$/gm, '');
+  check(!/openAlmanacFind|data-sky-find|_skyEnsureFindButton|_sfChartMark|_sfTurnChart|alm-sc-tool/.test(code('almanac-sky.js')), 'the live sky and the star chart have no Find');
+  check(!/openAlmanacFind/.test(code('almanac.js')), 'the page has no way into Find');
+  check(/openAlmanacFind\('look'\)/.test(code('almanac-look.js')), 'Look has it');
+  check(!/_sfChipHost|sf-chip'|data-sf-point|_sfPointPhone/.test(code('almanac-skyfind.js')), 'no chip on the page, no point-your-phone button');
   done();
 })();
