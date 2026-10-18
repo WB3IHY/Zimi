@@ -48,8 +48,8 @@ vm.runInContext([
 ].join('\n'), ctx);
 
 // ── the shell's stamp ────────────────────────────────────────────────────
-ok('Reddot is the one opt-in app', ctx.APPS_OPT_IN.join() === 'reddot' && ctx.APPS_DEFAULT.join() === 'maps,tube,exchange,wiki,books,dictionary,earth');
-ok('no stamp: every app but Reddot, Zimipedia too', ctx.APP_NAMES.filter(ctx._appsAllowedByServer).join() === 'maps,tube,exchange,wiki,books,dictionary,earth');
+ok('Reddot is the one opt-in app', ctx.APPS_OPT_IN.join() === 'reddot' && ctx.APPS_DEFAULT.join() === 'maps,tube,exchange,wiki,books,dictionary');
+ok('no stamp: every app but Reddot, Zimipedia too', ctx.APP_NAMES.filter(ctx._appsAllowedByServer).join() === 'maps,tube,exchange,wiki,books,dictionary');
 ctx.document.body.dataset.zimiApps = 'reddot,maps';
 ok('a stamp naming Reddot offers it', ctx._appsAllowedByServer('reddot'));
 delete ctx.document.body.dataset.zimiApps;

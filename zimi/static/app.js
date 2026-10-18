@@ -117,6 +117,12 @@ var SK = {
   // Read aloud: server engines that could not keep up with reading on this
   // server ([engines]), tried last from then on.
   TTS_SLOW: 'zimi_tts_slow',
+  // Read aloud: when it was last used (ms), so a Reader View opened within a
+  // week of it gets the voice list and the engine warmed ahead of the tap.
+  TTS_LAST_USE: 'zimi_tts_last_use',
+  // Read aloud: engines already suggested as a faster choice ([engines]),
+  // each said once.
+  TTS_SUGGESTED: 'zimi_tts_suggested',
   // Reader font scale (percent, one of READER_FONT_LEVELS), applied as a `zoom`
   // on the iframe body and reapplied on every article load.
   READER_FONT: 'zimi_reader_font_scale',
@@ -1006,6 +1012,7 @@ function _voicePrefs() {
   var out = { voice: typeof p.voice === 'string' ? p.voice : '',
     off: Array.isArray(p.off) ? p.off.filter(function(e) { return _VOICE_ENGINES.indexOf(e) >= 0; }) : [] };
   if (p.quiet === true) out.quiet = true; // kept only when it says something
+  if (typeof p.read === 'string' && p.read) out.read = p.read; // Read aloud's own voice; absent = Automatic
   return out;
 }
 // Speaking, Settings > Voices' first switch (Eric, 2026-10-06: "a Speaking
@@ -1032,8 +1039,10 @@ _markSpeaking();
 function _setVoicePrefs(change) {
   var p = Object.assign(_voicePrefs(), change);
   if (p.voice && p.off.indexOf(p.voice) >= 0) p.voice = '';
+  if (p.read && p.off.indexOf(p.read) >= 0) p.read = '';
   if (!p.quiet) delete p.quiet;
-  if (!p.voice && !p.off.length && !p.quiet) { try { localStorage.removeItem(SK.VOICE_PREFS); } catch (e) {} }
+  if (!p.read) delete p.read;
+  if (!p.voice && !p.off.length && !p.quiet && !p.read) { try { localStorage.removeItem(SK.VOICE_PREFS); } catch (e) {} }
   else _setStorageJSON(SK.VOICE_PREFS, p);
   _voicesTellDictionary();
   _paintVoices();
@@ -1357,16 +1366,25 @@ function _clearGet(btn, tags) {
 // the server's choice per language; a voice that cannot say a language
 // gives way to it there. Picking in the Dictionary's Say menu sets it too.
 function _voiceDefaultHtml(on) {
+  return _voicePickHtml(on, 'voices_default', _voicePrefs().voice, 'voice', 'voice-default');
+}
+// Read aloud's own voice, beside it: Automatic follows the default above.
+function _voiceReadHtml(on) {
+  return _voicePickHtml(on, 'tts_speak', _voicePrefs().read || '', 'read', 'voice-read');
+}
+// One row of voice choices: Automatic and every voice here, ``cur`` marked,
+// a pick saved as prefs[field].
+function _voicePickHtml(on, labelKey, cur, field, cls) {
   if (on.length < 2) return '';
-  var cur = _voicePrefs().voice;
   if (cur && !on.some(function(x) { return x.engine === cur; })) cur = '';
   var opt = function(e, label) {
-    var sel = e === cur;
+    var sel = e === cur, change = {};
+    change[field] = e;
     return '<button type="button" class="app-theme-btn' + (sel ? ' active' : '') + '" role="radio" aria-checked="' + sel + '"' +
-      ' onclick="' + escAttr('_setVoicePrefs({ voice: ' + JSON.stringify(e) + ' })') + '"><span>' + esc(label) + '</span></button>';
+      ' onclick="' + escAttr('_setVoicePrefs(' + JSON.stringify(change) + ')') + '"><span>' + esc(label) + '</span></button>';
   };
-  return '<div class="ms-theme-label">' + tH('voices_default') + '</div>' +
-    '<div class="app-theme-seg voice-default" role="radiogroup" aria-label="' + escAttr(t('voices_default')) + '">' +
+  return '<div class="ms-theme-label">' + tH(labelKey) + '</div>' +
+    '<div class="app-theme-seg voice-default ' + cls + '" role="radiogroup" aria-label="' + escAttr(t(labelKey)) + '">' +
     opt('', t('voices_default_auto')) + on.map(function(x) { return opt(x.engine, _voiceEngineName(x.engine)); }).join('') + '</div>';
 }
 // The Speaking switch, and with it off, the voices downloaded here offered
@@ -1407,7 +1425,7 @@ function _voicePrefsHtml() {
   here.sort(function(a, b) { return _VOICE_ENGINES.indexOf(a.engine) - _VOICE_ENGINES.indexOf(b.engine); });
   var on = here.filter(function(x) { return !x.absent && off.indexOf(x.engine) < 0; });
   // One row per engine here; the last one on stays on.
-  var h = _speakingHtml() + _voiceDefaultHtml(on) + '<div class="share-rows set-rows voice-prefs">' + here.map(function(x) {
+  var h = _speakingHtml() + _voiceDefaultHtml(on) + _voiceReadHtml(on) + '<div class="share-rows set-rows voice-prefs">' + here.map(function(x) {
     return _voiceRowHtml(x, !x.absent && off.indexOf(x.engine) < 0, on.length === 1);
   }).join('') + '</div>' + _voiceGridHtml();
   if (_voicesHere && _voicesHere.can_change && _voicesHere.setting) h += _voicesModeHtml(_voicesHere.setting);
@@ -2673,7 +2691,7 @@ var _CREATE_BC_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="non
 // or an app. Stamped on the page's history entry as it is pushed, so the
 // header's arrow and the browser's Back go to the same place, and named on
 // the arrow ("Almanac", "Search"). Read from the entry being left.
-var _FROM_APPS = ['tube', 'exchange', 'reddot', 'wiki', 'books', 'earth', 'fieldguide'];
+var _FROM_APPS = ['tube', 'exchange', 'reddot', 'wiki', 'books', 'fieldguide'];
 function _openedFrom() {
   var s = history.state || {};
   if (s.mode === 'almanac' || s.mode === 'search') return s.mode;
@@ -2754,8 +2772,8 @@ function updateTopbar() {
     bcIcon.innerHTML = _ALMANAC_BC_ICON;
     // Identity only — no destination behind it, so no link affordance either.
     bcIcon.removeAttribute('href');
-  } else if (_isWikiPage() || _isBooksPage() || _isDictPage() || _isEarthPage()) {
-    var hashApp = _isWikiPage() ? 'wiki' : _isBooksPage() ? 'books' : _isEarthPage() ? 'earth' : 'dictionary';
+  } else if (_isWikiPage() || _isBooksPage() || _isDictPage()) {
+    var hashApp = _isWikiPage() ? 'wiki' : _isBooksPage() ? 'books' : 'dictionary';
     bcSep.style.display = 'inline';
     bcIcon.style.display = 'inline-flex';
     bcIcon.title = t(hashApp);
@@ -3550,7 +3568,6 @@ function route(push) {
   if (location.hash === '#wiki') { enterHome(false); openWiki(true); return; }
   if (location.hash === '#books') { enterHome(false); openBooks(true); return; }
   if (location.hash === '#dictionary') { enterHome(false); openDictionary(true, ''); return; }
-  if (_earthHashStart(location.hash) !== null) { enterHome(false); openEarth(true, _earthHashStart(location.hash)); return; }
   if (location.hash === '#reddot' || location.hash.indexOf('#reddot?') === 0) {
     enterHome(false);
     var rdQ = new URLSearchParams(location.hash.slice(location.hash.indexOf('?') + 1));
@@ -3703,10 +3720,11 @@ async function _bootDeepLinkArticle(zim, path) {
 }
 
 // `undo`: a toast for something just taken away carries its way back, and
-// stays long enough to reach it.
+// stays long enough to reach it. ``actionLabel`` names that button when it is
+// an offer rather than an undo.
 var _TOAST_UNDO_MS = 6000;
 var _toastUndoLast = null;
-function _showToast(msg, duration, undo) {
+function _showToast(msg, duration, undo, actionLabel) {
   var toast = document.createElement('div');
   toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;font-size:13px;color:var(--text2);z-index:300;box-shadow:0 4px 16px rgba(0,0,0,0.3)';
   toast.textContent = msg;
@@ -3717,7 +3735,7 @@ function _showToast(msg, duration, undo) {
     toast.className = 'toast-undo';
     var b = document.createElement('button');
     b.type = 'button';
-    b.textContent = t('undo');
+    b.textContent = actionLabel || t('undo');
     b.onclick = function() { toast.remove(); undo(); };
     toast.appendChild(b);
     duration = duration || _TOAST_UNDO_MS;
@@ -3926,7 +3944,7 @@ function _appReady(source) {
 }
 
 function _isAppPage() {
-  return _isTubePage() || _isExchangePage() || _isReddotPage() || _isWikiPage() || _isBooksPage() || _isDictPage() || _isEarthPage() || _isFieldguidePage();
+  return _isTubePage() || _isExchangePage() || _isReddotPage() || _isWikiPage() || _isBooksPage() || _isDictPage() || _isFieldguidePage();
 }
 // The reader is on the PDF viewer: nothing to read aloud, no type size.
 function _isPdfPage() {
@@ -19573,28 +19591,105 @@ var _TTS_START_WAIT_MS = 6000;
 var _ttsVoices = null; // /dictionary/voices (its page payload), or null
 var _ttsAudio = null;
 var _ttsRun = 0; // bumped by every start and stop: callbacks of an older run do nothing
+// The list is asked for when Read aloud may be used soon, never at page load
+// (most people rarely or never read aloud): when the ... menu opens, and when
+// Reader View opens for someone who read aloud this week. Kept a minute, so
+// a voice downloaded since is found without a request per tap.
+var _TTS_VOICES_FRESH_MS = 60000;
+var _TTS_RECENT_MS = 7 * 86400000; // "uses Read aloud": the last time was within a week
+var _TTS_SUGGEST_MS = 9000;
+var _ttsVoicesAt = 0;
+var _ttsVoicesBusy = null;
 function _ttsLoadVoices() {
-  authedFetch('/dictionary/voices').then(function(r) { return r.ok ? r.json() : null; })
+  if (_ttsVoicesBusy) return _ttsVoicesBusy;
+  if (_ttsVoices && Date.now() - _ttsVoicesAt < _TTS_VOICES_FRESH_MS) return Promise.resolve(_ttsVoices);
+  _ttsVoicesBusy = authedFetch('/dictionary/voices').then(function(r) { return r.ok ? r.json() : null; })
     .catch(function() { return null; })
-    .then(function(d) { _ttsVoices = d; updateTopbar(); });
+    .then(function(d) {
+      _ttsVoices = d; _ttsVoicesAt = Date.now(); _ttsVoicesBusy = null;
+      updateTopbar();
+      _rebuildTopbarMenu(); // Read aloud's row, if the list changed whether it shows
+      return d;
+    });
+  return _ttsVoicesBusy;
 }
-_ttsLoadVoices();
-// The server's engines for a language, best first: the viewer's chosen voice,
-// then the server's own choice, then the rest; none that Settings turned off.
-// An engine too slow to read with here goes last, unless it is the one chosen.
-// Empty when the viewer chose Device, or the server cannot say the language.
+function _ttsUsedRecently() {
+  var at = _getStorageJSON(SK.TTS_LAST_USE, 0);
+  return typeof at === 'number' && Date.now() - at < _TTS_RECENT_MS;
+}
+function _ttsFrameDoc() {
+  var frame = document.getElementById('reader-frame');
+  try { return (frame && frame.contentDocument) || null; } catch(e) { return null; }
+}
+// Read aloud may be used soon: have the voice list; and for someone who reads
+// aloud (this week), have the server load the article's voice now, so the
+// first chunk does not wait for the model (the Dictionary does the same on
+// opening). Nothing is fetched or downloaded for it.
+var _TTS_WARM_ENGINES = ['kokoro', 'piper']; // the voices that load a model
+var _ttsWarmed = {};
+function _ttsPrepare() {
+  if (!readerOpen || !_speakingOn()) return;
+  _ttsLoadVoices().then(function() {
+    if (!_ttsUsedRecently()) return;
+    var doc = _ttsFrameDoc();
+    var lang = doc ? _ttsLang(doc) : '';
+    var engines = lang ? _ttsServerEngines(lang) : [];
+    var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
+    // warm loads the server's own pick for the language: worth asking only
+    // when that is what reads.
+    if (!row || engines[0] !== row.engine || _TTS_WARM_ENGINES.indexOf(row.engine) < 0) return;
+    var tag = _normLang(_langPrimary(lang)), key = tag + ' ' + row.engine;
+    if (_ttsWarmed[key]) return;
+    _ttsWarmed[key] = true;
+    authedFetch('/dictionary/voices/warm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ langs: [tag], words: [] }) })
+      .catch(function() { delete _ttsWarmed[key]; });
+  });
+}
+// The voice Read aloud reads in when the person chose one: its own (Settings >
+// Voices) or else the default there. '' is Automatic.
+function _ttsChosenVoice() {
+  var p = _voicePrefs();
+  return p.read || p.voice;
+}
+// The server's engines for a language, best first. A chosen voice reads
+// alone: it is the person's setting, so it neither gives way mid-read nor is
+// marked slow (a slow one is suggested against, _ttsSuggestFaster). Only when
+// it cannot say the language does Automatic pick: the server's own choice, then
+// the rest, none that Settings turned off, an engine too slow to read with
+// here last. Empty when the chosen voice is Device, or the server cannot say
+// the language.
 function _ttsServerEngines(lang) {
   var langs = (_ttsVoices && _ttsVoices.langs) || {};
   var row = langs[_normLang(_langPrimary(lang))];
-  var prefs = _voicePrefs();
-  if (!row || prefs.voice === _DEVICE_VOICE) return [];
-  var order = [prefs.voice, row.engine].concat(row.engines || []);
-  order = order.filter(function(e, i) {
+  var prefs = _voicePrefs(), chosen = _ttsChosenVoice();
+  if (!row || chosen === _DEVICE_VOICE) return [];
+  var order = _ttsRowOrder(row, prefs);
+  if (chosen && order.indexOf(chosen) >= 0) return [chosen];
+  var slow = _ttsSlowEngines();
+  var quick = order.filter(function(e) { return slow.indexOf(e) < 0; });
+  return quick.concat(order.filter(function(e) { return quick.indexOf(e) < 0; }));
+}
+// The engines the server has for a language row, its own choice first, none
+// that Settings turned off.
+function _ttsRowOrder(row, prefs) {
+  var order = [row.engine].concat(row.engines || []);
+  return order.filter(function(e, i) {
     return e && order.indexOf(e) === i && (row.engines || []).indexOf(e) >= 0 && prefs.off.indexOf(e) < 0;
   });
+}
+// Chosen, and not keeping up: once per engine, a quiet offer of another.
+function _ttsSuggestFaster(lang, slowEngine) {
+  var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
+  var said = _getStorageJSON(SK.TTS_SUGGESTED, []);
+  if (!Array.isArray(said)) said = [];
+  if (!row || said.indexOf(slowEngine) >= 0) return;
   var slow = _ttsSlowEngines();
-  var quick = order.filter(function(e) { return e === prefs.voice || slow.indexOf(e) < 0; });
-  return quick.concat(order.filter(function(e) { return quick.indexOf(e) < 0; }));
+  var faster = _ttsRowOrder(row, _voicePrefs()).filter(function(e) { return e !== slowEngine && slow.indexOf(e) < 0; })[0];
+  if (!faster) return;
+  said.push(slowEngine);
+  _setStorageJSON(SK.TTS_SUGGESTED, said);
+  _showToast(t('tts_slow_suggest', { slow: _voiceEngineName(slowEngine), fast: _voiceEngineName(faster) }), _TTS_SUGGEST_MS,
+    function() { _setVoicePrefs({ read: faster }); }, t('tts_slow_use', { fast: _voiceEngineName(faster) }));
 }
 function _ttsSlowEngines() {
   var s = _getStorageJSON(SK.TTS_SLOW, []);
@@ -19708,8 +19803,7 @@ function _ttsStop() {
 }
 function _ttsSpeak() {
   if (!_ttsCanSpeak()) return;
-  var frame = document.getElementById('reader-frame');
-  var doc; try { doc = frame && frame.contentDocument; } catch(e) { doc = null; }
+  var doc = _ttsFrameDoc();
   if (!doc) return;
   var chunks = _ttsChunkText(_ttsExtractText(doc), 240);
   if (!chunks.length) return;
@@ -19718,9 +19812,12 @@ function _ttsSpeak() {
   var engines = _ttsServerEngines(lang);
   if (!engines.length && !_TTS_AVAILABLE) return;
   _ttsSetSpeaking(true);
-  if (engines.length) _ttsSpeakServer(chunks, lang, engines, ++_ttsRun);
+  _setStorageJSON(SK.TTS_LAST_USE, Date.now());
+  // A chosen voice reads alone and, if it cannot keep up, is offered a faster
+  // one; only Automatic moves on to the next engine by itself.
+  var chosen = engines.length === 1 && engines[0] === _ttsChosenVoice();
+  if (engines.length) _ttsSpeakServer(chunks, lang, engines, ++_ttsRun, chosen ? function(e) { _ttsSuggestFaster(lang, e); } : null);
   else _ttsSpeakDevice(chunks, lang, 0);
-  _ttsLoadVoices(); // a voice downloaded since the page opened is used next time
 }
 // This browser's own voices, from chunk ``from`` on.
 function _ttsSpeakDevice(chunks, lang, from) {
@@ -19737,9 +19834,9 @@ function _ttsSpeakDevice(chunks, lang, from) {
 // The server's voices: one <audio> element plays the chunks in turn. Its src
 // is set and played inside the tap for the first chunk, as iOS requires (an
 // element started in a tap may play again from its own events).
-function _ttsSpeakServer(chunks, lang, engines, run) {
+function _ttsSpeakServer(chunks, lang, engines, run, onSlow) {
   var audio = _ttsAudio || (_ttsAudio = new Audio());
-  var i = 0, eng = 0, retried = false, waiting = null;
+  var i = 0, eng = 0, retried = false, waiting = null, told = false;
   var asked = {}; // chunk index -> true once the server has said it (or failed to)
   function live() { return run === _ttsRun; }
   // Too slow here: the next engine for the language says the rest, and this
@@ -19751,6 +19848,10 @@ function _ttsSpeakServer(chunks, lang, engines, run) {
   }
   // Ask for chunk ``idx`` ahead of time; the server keeps what it said, so
   // the <audio> element then gets it at once.
+  // A chosen voice (``onSlow``) keeps reading; the person is told once.
+  function tooSlow() {
+    if (onSlow && !told) { told = true; onSlow(engines[eng]); }
+  }
   function ask(idx) {
     if (idx >= chunks.length || asked[idx] !== undefined) return;
     var engine = engines[eng];
@@ -19769,16 +19870,19 @@ function _ttsSpeakServer(chunks, lang, engines, run) {
     // Not ready when it is needed: this engine is too slow here, so the next
     // one for the language says the rest (what was asked of the slow one
     // still plays if it arrives first).
-    if (idx > 0 && asked[idx] === false && eng + 1 < engines.length) slower();
+    if (idx > 0 && asked[idx] === false) {
+      if (eng + 1 < engines.length) slower(); else tooSlow();
+    }
     audio.src = _ttsSpeakUrl(chunks[idx], lang, engines[eng]);
     var p = audio.play();
     if (p && p.catch) p.catch(function() { if (live()) fail(); });
     // Still silent after a while (the first chunk, or one asked too late):
     // say it with the next engine instead.
     clearTimeout(waiting);
-    if (eng + 1 < engines.length) {
+    if (eng + 1 < engines.length || onSlow) {
       waiting = setTimeout(function() {
-        if (live() && i === idx && audio.paused) { slower(); play(idx); }
+        if (!live() || i !== idx || !audio.paused) return;
+        if (eng + 1 < engines.length) { slower(); play(idx); } else tooSlow();
       }, _TTS_START_WAIT_MS);
     }
   }
@@ -20631,6 +20735,7 @@ function _readerViewApply(doc) {
   // Measuring every picture lays the whole article out: after the text is
   // on screen, not before (a long article paid it before its first paint).
   if (!_isBookDoc(doc)) _afterPaint(function() { _readerBindLightbox(shell, doc); });
+  if (_ttsUsedRecently()) _ttsPrepare(); // someone who reads aloud: its voices ready before the tap
   return true;
 }
 // Work that can wait until the page has painted: the next frame, then a task.
@@ -21517,11 +21622,11 @@ function _appFrameCall(fn, val) {
 // No app is on screen: an article, the home page, or another app about to
 // say it is.
 function _appsOff() {
-  _tubeOpen = false; _exchangeOpen = false; _reddotOpen = false; _wikiOpen = false; _booksOpen = false; _dictOpen = false; _earthOpen = false; _fieldguideOpen = false;
+  _tubeOpen = false; _exchangeOpen = false; _reddotOpen = false; _wikiOpen = false; _booksOpen = false; _dictOpen = false; _fieldguideOpen = false;
   _chromeReset();
 }
 function _anyAppOpen() {
-  return _tubeOpen || _exchangeOpen || _reddotOpen || _wikiOpen || _booksOpen || _dictOpen || _earthOpen || _fieldguideOpen;
+  return _tubeOpen || _exchangeOpen || _reddotOpen || _wikiOpen || _booksOpen || _dictOpen || _fieldguideOpen;
 }
 
 // ── Bookshelf ──
@@ -21851,96 +21956,6 @@ function _dictStrings(w) {
     { w: w || '', word_of_day: t('word_of_day'), retry: t('retry'), cancel: t('cancel'), catalog: t('app_browse_catalog'), voice_failed: t('voices_failed'), voice_setup: t('voices_setup'),
       engine_kokoro: t('voices_engine_kokoro'), engine_piper: t('voices_engine_piper'), engine_say: t('voices_engine_say'), engine_espeak: t('voices_engine_espeak') });
 }
-// ── Zimi Earth ──
-// The Almanac's globe as a place of its own (/static/earth.html), shown in the
-// reader like the other apps: drag it, come down to a place, and what the
-// library knows about it is there (Wikipedia articles with coordinates, the
-// Wikivoyage guide, the map). Looking up from a place opens the sky above it.
-// Eric, 2026-10-13: "maybe we need Zimi Earth like Google earth that has a
-// bunch of the stuff mixed?"
-var _earthOpen = false;
-var _EARTH_PAGE = '/static/earth.html?v=1';
-var _EARTH_SVG = '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3.5 9.5c2.5.4 3.5 2 4.5 3.5s2.5 1 3 2.5-1 3 .5 4.5M13 3.2c-.4 2 .6 3 2 3.6s3.5.4 5 2.2"/></svg>';
-function _installedEarthZims() {
-  return _installedMaps().concat((zimsCache || []).filter(function(z) { return z.main_path && z.kind === 'wiki' && (z.project === 'wikipedia' || z.project === 'wikivoyage'); }));
-}
-function _isEarthPage() {
-  return !!(_earthOpen && readerOpen && !_almanacOpen && !_createOpen);
-}
-function _earthTileHtml() {
-  return _appTileHtml('earth', t('earth'), _EARTH_SVG, [t('earth_detail')], 'openEarth');
-}
-// #earth, or #earth/48.8567,2.3522,0.01 (latitude, longitude, height in Earth
-// radii): the start the page opens at, null when the address is not Earth's.
-function _earthHashStart(hash) {
-  var m = /^#earth(?:\/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),(\d+(?:\.\d+)?(?:e-?\d+)?))?$/.exec(hash || '');
-  if (!m) return null;
-  if (m[1] === undefined) return {};
-  var lat = +m[1], lon = +m[2], alt = +m[3];
-  return (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 && alt > 0) ? { lat: lat, lon: lon, alt: alt } : {};
-}
-function _earthUrl(at) {
-  return at ? '/#earth/' + at.lat + ',' + at.lon + ',' + at.alt : '/#earth';
-}
-function _earthStrings(start) {
-  return _appStrings('earth', ['earth_hint', 'earth_zoom_hint', 'earth_look_up', 'earth_read', 'earth_guide', 'earth_map', 'earth_locate',
-    'earth_locate_off', 'earth_no_webgl', 'earth_load_failed', 'earth_away', 'earth_finding', 'earth_skipped', 'earth_nothing', 'earth_zoom_in', 'earth_zoom_out'], { start: start || {}, close: t('close') });
-}
-function openEarth(replaceState, start) {
-  if (start && start.type) start = null;   // a click's event, not a place
-  if (!_appsAllowedByServer('earth')) {
-    if (mode !== 'home') enterHome(false);
-    if (_earthHashStart(location.hash) !== null) history.replaceState({ mode: 'home' }, '', '/');
-    return;
-  }
-  _openHashApp('earth', replaceState, function() { _earthOpen = true; return _EARTH_PAGE + '#' + _earthStrings(start); });
-  if (start && start.lat != null) _earthRemember(start);
-}
-// Where the globe is, kept in the entry itself as well as the address: an
-// article read from a place replaces the address when it closes, and Back
-// to Earth reads the place from the entry, not from what is left of the URL.
-function _earthRemember(at) {
-  var st = Object.assign({}, history.state || {}, { earthAt: { lat: at.lat, lon: at.lon, alt: at.alt } });
-  history.replaceState(st, '', _earthUrl(at));
-}
-// What the page asks of the shell (same origin, called through window.parent).
-// The installed map that covers a point, preferring StreetZim's (it has the
-// streets); null when none does.
-function _earthMapFor(lat, lng) {
-  var maps = _installedMaps().filter(function(z) { return z.main_path && _mapCovers(z, { lat: lat, lng: lng }) === true; });
-  maps.sort(function(a, b) { return (_mapSourceLabel(a) === 'StreetZim' ? 0 : 1) - (_mapSourceLabel(b) === 'StreetZim' ? 0 : 1); });
-  return maps.length ? maps[0].name : null;
-}
-function _earthOpenMap(lat, lng, zoom) {
-  var name = _earthMapFor(lat, lng), z = (zimsCache || []).filter(function(m) { return m.name === name; })[0];
-  if (!z) return;
-  if (_isModClick()) return;
-  _appsOff();
-  openArticle(z.name, z.main_path, _mapName(z), { pos: 'map=' + zoom + '/' + lat + '/' + lng });
-}
-// The sky above a place: the Almanac, and the Look view over that place
-// (almanac-look.js), without changing the place the Almanac keeps.
-var _earthUnderAlmanac = false;
-function _earthLookUp(lat, lng, name) {
-  _earthUnderAlmanac = _earthOpen;
-  if (_earthOpen) _appFrameCall('__release');   // the Almanac covers the globe: its GPU memory is given back
-  _appsOff();
-  openAlmanac();
-  var tries = 0;
-  (function wait() {
-    if (typeof openAlmanacLook === 'function' && document.getElementById('almanac-sky-canvas')) { openAlmanacLook({ lat: lat, lon: lng, name: name || '' }); return; }
-    if (++tries < 100) setTimeout(wait, 100);
-  })();
-}
-
-// The Almanac that was opened over Earth has closed: Earth is what is on
-// screen again, and the shell must say so (its breadcrumb, its back).
-function _earthAlmanacClosed() {
-  if (!_earthUnderAlmanac) return;
-  _earthUnderAlmanac = false;
-  if (readerOpen && !currentArticle && !_anyAppOpen()) openEarth(true, (history.state && history.state.earthAt) || undefined);
-}
-
 // A word (or the front, w ''), as Reddot opens a post.
 function openDictionary(replaceState, w) {
   w = typeof w === 'string' ? w : '';
@@ -23351,9 +23366,6 @@ window.addEventListener('message', function(e) {
     _setWindowTitle(document.title);
     if (typeof d.zim === 'string' && typeof d.path === 'string' && d.zim && d.path) _appItemOpened('dictionary', d.zim + '/' + d.path, d.w);
     else _appItemClosed();
-  } else if (d.zimi === 'earth-at' && _earthOpen && isFinite(d.lat) && isFinite(d.lon) && isFinite(d.alt)) {
-    // Where the globe is, as the address: a place on Earth is a link.
-    _earthRemember({ lat: d.lat, lon: d.lon, alt: d.alt });
   } else if (d.zimi === 'dictionary-home' && _dictOpen) {
     _appHome({ mode: 'reader', dictionary: true, w: '' }, _dictUrl(''), 'w');
     _appItemClosed();
@@ -23467,7 +23479,7 @@ function openTube(replaceState, play) {
 // can exist on a fresh install and suggest which zims to add or pop to
 // relevant catalog categories." An app with data opens; one without opens
 // the catalog category that feeds it, and its tile says so.
-var _APP_CATEGORY = { maps: 'maps', tube: 'ted', exchange: 'stack_exchange', wiki: 'wikipedia', books: 'gutenberg', dictionary: 'wikipedia', earth: 'maps' };  // reddot: made, not downloaded
+var _APP_CATEGORY = { maps: 'maps', tube: 'ted', exchange: 'stack_exchange', wiki: 'wikipedia', books: 'gutenberg', dictionary: 'wikipedia' };  // reddot: made, not downloaded
 // A mode the Create page should open on, set by whoever sends someone there.
 var _createRememberMode = '';
 var _createRememberSource = '';
@@ -23481,7 +23493,7 @@ var _REDDIT_ADDRESS_START = 'https://www.reddit.com/r/Kiwix';
 // (ZIMI_APPS, or the switch in Server settings; stamped on the shell) or
 // this signed-in person turned it off for their account. Never per
 // browser (Eric: "Not per browser only per user or server").
-var APP_NAMES = ['maps', 'tube', 'exchange', 'reddot', 'wiki', 'books', 'dictionary', 'earth'];
+var APP_NAMES = ['maps', 'tube', 'exchange', 'reddot', 'wiki', 'books', 'dictionary'];
 // Offered only when the server names them (a preview, while it is built):
 // Reddot since 1.13.1. Mirrors server.APPS_OPT_IN.
 var APPS_OPT_IN = ['reddot'];
@@ -23545,7 +23557,7 @@ function _setUserApp(app, on) {
 // and a name, lit when offered (Eric: "the lil app tiles with icons and i
 // can select or deselect which to show").
 function _appIcon(app) {
-  return app === 'fieldguide' ? _FIELDGUIDE_SVG : app === 'maps' ? _MAPS_SVG : app === 'tube' ? _TUBE_PLAY_SVG : app === 'exchange' ? _EXCHANGE_SVG : app === 'wiki' ? _WIKI_SVG : app === 'books' ? _BOOKS_SVG : app === 'dictionary' ? _DICT_SVG : app === 'earth' ? _EARTH_SVG : _REDDOT_SVG;
+  return app === 'fieldguide' ? _FIELDGUIDE_SVG : app === 'maps' ? _MAPS_SVG : app === 'tube' ? _TUBE_PLAY_SVG : app === 'exchange' ? _EXCHANGE_SVG : app === 'wiki' ? _WIKI_SVG : app === 'books' ? _BOOKS_SVG : app === 'dictionary' ? _DICT_SVG : _REDDOT_SVG;
 }
 // The ZIMs inside each app: the ones its tile names and its page reads.
 function _appZims(app) {
@@ -23555,7 +23567,6 @@ function _appZims(app) {
     : app === 'wiki' ? _installedWikiZims()
     : app === 'books' ? _installedBookZims()
     : app === 'dictionary' ? _installedDictZims()
-    : app === 'earth' ? _installedEarthZims()
     : _installedRedditZims();
 }
 // What the library holds for each app, in a line under its name.
@@ -23578,7 +23589,7 @@ function _appPicksHtml(apps, checked, onchange, disabled) {
 
 // Each app's tile and its door, by name, so the row and the Apps page can
 // take the apps in any order.
-var _APP_TILES = { maps: _mapsTileHtml, tube: _tubeTileHtml, exchange: _exchangeTileHtml, reddot: _reddotTileHtml, wiki: _wikiTileHtml, books: _booksTileHtml, dictionary: _dictionaryTileHtml, earth: _earthTileHtml };
+var _APP_TILES = { maps: _mapsTileHtml, tube: _tubeTileHtml, exchange: _exchangeTileHtml, reddot: _reddotTileHtml, wiki: _wikiTileHtml, books: _booksTileHtml, dictionary: _dictionaryTileHtml };
 
 // The apps follow the library's order, as the sources do (#100). Eric: "sort
 // the apps by recently updated (i.e. contains zims that were recently
@@ -28392,6 +28403,7 @@ function _toggleTopbarMenu(event) {
   if (!html) return; // nothing to show (e.g. desktop reader with no foldable controls)
   menu.innerHTML = html;
   menu.classList.add('visible');
+  _ttsPrepare(); // Read aloud may be next: its voices, asked for now, not at page load
   // Close on outside interaction — including a tap inside the reader iframe,
   // which a plain document listener never sees. The ⋯ trigger is kept "inside"
   // so a second tap toggles the menu shut via its own handler.
@@ -28615,13 +28627,12 @@ window.addEventListener('popstate', async (e) => {
     if (app.wiki && _appFrameRoute(_wikiOpen, '')) return;
     if (app.books && _appFrameRoute(_booksOpen, '')) return;
     if (app.dictionary && _appFrameRoute(_dictOpen, app.w)) return;
-    if (app.earth && _earthOpen) return;
     if (app.fieldguide && _appFrameRoute(_fieldguideOpen, app.fg)) return;
   }
   // Landing on an app's address from the article opened out of it: the app
   // is reopened below, not stepped past. (The article history's own copy of
   // that step would otherwise take a second step back.)
-  var toApp = app && app.mode === 'reader' && (app.tube || app.exchange || app.reddot || app.wiki || app.books || app.dictionary || app.earth || app.fieldguide);
+  var toApp = app && app.mode === 'reader' && (app.tube || app.exchange || app.reddot || app.wiki || app.books || app.dictionary || app.fieldguide);
   // Step through article history when reader is open (mirrors in-app back button)
   if (readerOpen && articleHistory.length > 0 && !toApp) {
     _stepBackToArticle(articleHistory.pop(), false);
@@ -28660,8 +28671,6 @@ window.addEventListener('popstate', async (e) => {
     if (!_appFrameRoute(_wikiOpen, '')) openWiki(true);
   } else if (s && s.mode === 'reader' && s.books) {
     if (!_appFrameRoute(_booksOpen, '')) openBooks(true);
-  } else if (s && s.mode === 'reader' && s.earth) {
-    if (!_earthOpen) openEarth(true, s.earthAt || _earthHashStart(location.hash) || undefined);
   } else if (s && s.mode === 'reader' && s.fieldguide) {
     if (!_appFrameRoute(_fieldguideOpen, s.fg)) openFieldguide(true, s.fg || '');
   } else if (s && s.mode === 'reader' && s.dictionary) {

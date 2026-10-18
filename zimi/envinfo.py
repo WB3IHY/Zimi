@@ -120,7 +120,7 @@ VARS: dict[str, tuple[str, str]] = {
         "MCP",
     ),
     "ZIMI_APPS": (
-        "The apps on the home page: 0 hides them all, 1 shows them all, or a comma list of maps, tube, exchange, reddot, books, wiki, dictionary, earth keeps only those",
+        "The apps on the home page: 0 hides them all, 1 shows them all, or a comma list of maps, tube, exchange, reddot, books, wiki, dictionary keeps only those",
         "Apps",
     ),
     "ZIMI_FIELDGUIDE": (
