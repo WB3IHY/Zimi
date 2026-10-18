@@ -51,10 +51,10 @@ The plan was "the field kit": sky, Earth, the flown solar system, Field Guide, b
 
 ## Still open
 
-1. **Field Guide and Help now:** pull from this release (behind a flag) and redesign as "How to (anything)"? It is wired into home, first run, sign-in and search. Recommended: pull.
-2. **Best-answer card:** keep (it's search, fits) or pull? Needs your look.
-3. **Zimi Earth:** quiet like the Almanac, or in the notes?
-4. **Version:** 1.14.0 (next unused) or 1.15.0 (what the docs and branch say).
+1. ~~Field Guide and Help now~~: pulled (decided).
+2. ~~Best-answer card~~: pulled (decided).
+3. ~~Zimi Earth~~: held, Phase 0 only (decided).
+4. **Version: 1.14.0** (Eric, 2026-10-17: "We don't skip versions"). NOMAD guide says 1.14.0 now; pyproject/ZIMI_VERSION bump and the `[Unreleased]` heading rename happen together at the cut, with the CHANGELOG trim.
 5. **The Moon at rest:** the plain Moon (now) or the Sun-and-planets prototype (`?rest=system`, two layout flaws)?
 
 ## Left before shipping
@@ -65,9 +65,13 @@ The plan was "the field kit": sky, Earth, the flown solar system, Field Guide, b
 - [ ] Holiday names newly translated into Hindi, Hebrew and Arabic need a native speaker.
 - [x] Keep offline: once one ZIM is kept, every other tile shows the bare download arrow (Eric, 2026-10-17); deployed to the NAS.
 - [x] NOMAD fresh-eyes guide run on nomad-clean (2026-10-17): every tested section PASS, NOMAD's ZIM folder byte-identical; 9 unwritten steps (uninstall, install the Information Library first, friendly_name, Save, admin user, image name, shared /config, browser-only links, Docker tag) written into the guide. Open: the version the guide names must match the bump.
+- [x] #116 read aloud (WB3IHY): reply posted 2026-10-17 inviting a PR against v1.15. When it lands: review, merge into v1.15, Eric reads one article on the NAS; if Kokoro stalls, Piper becomes Read aloud's default.
+- [ ] Read aloud on top of #116 (Eric's calls 2026-10-17, feature inventory): load the voice on intent only (⋯ menu opens, or Reader View for someone who used Read aloud in the last week); switch a slow voice only under Automatic, suggest otherwise; Read aloud's own remembered voice. Highlighting is a later release.
+- [ ] Internal docs out of the public repo: copied to `~/vault/projects/zimi/` (byte-identical), references cleaned and CI guard in ec81099e. Removal commit is `.git/move-docs.sh` (77 files, past the commit-size guard), run by Eric; it leaves symlinks so `docs/plans` keeps working locally. Gone from main only when v1.15 merges (or a docs-only PR first); history keeps them.
+- [x] NOMAD framed in two stages (proposal draft): stage 1 ships in 1.15 on our side alone; stage 2, the full integration branch on a NOMAD fork, is built after 1.15 ships and before the issue is posted. nomad-clean kept for Eric to play with.
 - [x] CI green (run 39068587372, all jobs, 2026-10-17). Found on the way: the service worker answered the offline page at 8 s when nothing was kept (fixed); tide labels under the clock's dot (fixed); Chrome 156 never reports SW-claimed requests finished (tests wait on _swPrimed).
 - [ ] Eric's iPhone pass: Red, Keep offline, airplane mode, Almanac.
-- [ ] Pull the Field Guide if decided.
+- [x] Field Guide (57bd8e14) and best-answer card (d1418d4f) off by default.
 - [ ] Draft PR to main so CI and CodeRabbit run on it; answer every CodeRabbit finding.
 - [ ] Ultracode review, then fixes (when Eric says).
 - [ ] CHANGELOG cut to one-line bullets in story order; release notes are Eric's.
