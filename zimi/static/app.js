@@ -17380,7 +17380,9 @@ async function _renderDownloadSchedule() {
       '" title="' + escAttr(t('bt_max_dl_hint')) + '" onchange="_setBtMaxDl(this)">' +
     '</span></div>';
 
-  el.innerHTML = toggle + lockNote + windowBlock + maxRow + speedRow + uploadRow;
+  // Limits first (how many, how fast), then the nightly window with the
+  // upload restriction that shares its times right under it.
+  el.innerHTML = maxRow + speedRow + toggle + lockNote + windowBlock + uploadRow;
 }
 
 async function _postDownloadSchedule(body) {
