@@ -9,23 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- browsertrix-behaviors 0.15.0 ships unmodified in every build, so capture engines reveal per-site content with no install (AGPL, combined under GPL-3 section 13; licence and checksum in THIRD_PARTY_NOTICES.md). `ZIMI_BEHAVIORS` or a global npm install still wins.
-- The Docker image carries the warc2zim sidecar, so Create's import and alive engines work with no network.
-- Red, a theme beside Light and Dark, to keep night vision: deep red on black in every screen, app, the sky and Earth, and over the ZIM page you are reading. The sky's red switch chooses it.
-- Search finds the articles a question is about ("how tall is mount everest"). The card that quotes the answering sentence is off by default (`ZIMI_BEST_ANSWER=1` turns it on): on 30 real questions it quoted a wrong or off-topic sentence too often.
-- Zimi reads ZIMs from folders another program owns, in place and never changed: `ZIMI_EXTRA_ZIM_DIRS`, or Settings, Server, Storage. Project NOMAD's library is found and offered once ([guide](docs/integrations/project-nomad.md)).
-- ZIMs another program adds to or removes from such a folder appear in or leave the library in about a minute, with no restart.
-- Almanac: a bar of its sections appears once you scroll past the first, with a pill for each, the current one lit, and a list of all of them at its end.
-- Almanac world clocks: a star on every clock saves it; Saved shows your own clock and the saved ones, All shows every clock.
-- Keep offline: one tap in a ZIM's menu or About keeps it on the phone (resumable); a ring on its tile while it comes, a filled disc once it is here; an On this phone view with a storage bar and Manage; kept ZIMs open from their tile, with their pictures, and search (titles at once, full text once its index starts) with no server, in the home-screen app too.
-- Offline is a mode, not a fault: a small "Offline" pill by the logo replaces the warning bar and its Retry; the home leads with what is on the phone, and Discover shows only cards that open.
+- Keep offline: one tap on a ZIM's tile keeps it on the phone, resumable, with its progress on the tile and Pause and Cancel a tap away. Kept ZIMs open, show their pictures and search with no server, in the home-screen app too.
+- Offline is a mode, not a fault: a small Offline pill replaces the warning bar, and Discover shows only cards that open.
+- Zimi reads ZIMs from folders another program owns, in place: `ZIMI_EXTRA_ZIM_DIRS`, or Settings, Server, Storage. ZIMs added or removed there appear or leave within about a minute.
+- Project NOMAD: Zimi can be NOMAD's Information Library, its downloads, updates and deletes can go through NOMAD, and old Kiwix links keep working ([guide](docs/integrations/project-nomad.md)).
+- Create turns pages saved from Firefox, Chrome or Safari (including `.mhtml` and `.webarchive`) into a ZIM that looks like the original, with its pictures and the links between pages.
+- The Docker image carries the capture tools (browsertrix-behaviors 0.15.0, AGPL, and the warc2zim sidecar), so every Create engine works with no install; the image is about 343 MB larger.
+- Read aloud uses the server's voices (Kokoro, Piper) when it has one for the article's language, with the browser's voice as the fallback, and has its own voice in Settings, Voices ([#117](https://github.com/epheterson/Zimi/pull/117)).
+- Red, a theme beside Light and Dark, to keep night vision: deep red on black on every screen and over the page you are reading.
+- Search finds the articles a question is about ("how tall is mount everest").
 
 ### Changed
 
 - Zimi is GPL-3.0-or-later from this release; 1.13.3 and earlier stay MIT.
-- A connection that accepts and never answers ("lie-fi") no longer hangs the app: every request has a deadline and a kept copy answers after it.
-- Almanac tides: one answer first, the curve labels only the next turn, the month's bars are smaller, and the reason sits behind "Why?".
-- Almanac solar system: the twin paradox and the light clock are behind "What if it flew faster?" on the ride card.
+- Home shows only the apps with something inside; the Apps page and Settings list them all.
+- The catalog shows its icons at once, from the copy Zimi ships, and leads each category with its most complete edition.
+- A connection that accepts and never answers no longer hangs the app.
 
 ### Fixed
 
