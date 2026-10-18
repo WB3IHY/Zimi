@@ -272,7 +272,7 @@ function _sfOpen(ctx) {
   var root = document.createElement('div');
   root.className = 'sf-sheet'; root.id = 'sf-sheet'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', t('sky_find_btn'));
   root.innerHTML = '<div class="sf-bar"><input type="search" class="sf-input" id="sf-input" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">' +
-    '<button type="button" class="sf-close" id="sf-close" aria-label="' + _almEsc(t('close')) + '">✕</button></div>' +
+    '<button type="button" class="look-btn sf-close" id="sf-close" aria-label="' + _almEsc(t('close')) + '">' + LOOK_CLOSE_SVG + '</button></div>' +
     '<ul class="sf-list" id="sf-list" role="listbox"></ul>';
   document.body.appendChild(root);
   var input = root.querySelector('#sf-input');

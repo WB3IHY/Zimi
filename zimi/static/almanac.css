@@ -588,7 +588,6 @@
 .sf-sheet { position: fixed; inset: 0 0 auto 0; z-index: 10030; padding: calc(10px + env(safe-area-inset-top)) 12px 12px; background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,.45); max-height: 72vh; overflow-y: auto; }
 .sf-bar { display: flex; gap: 8px; align-items: center; }
 .sf-input { flex: 1; min-width: 0; height: 44px; border-radius: 22px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); padding: 0 16px; font-size: 16px; }
-.sf-close { flex: none; width: 44px; height: 44px; border-radius: 22px; border: 1px solid var(--border); background: transparent; color: var(--text2); cursor: pointer; font-size: 15px; }
 .sf-list { list-style: none; margin: 8px 0 0; padding: 0; }
 .sf-row { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 48px; padding: 6px 14px; border-radius: 12px; cursor: pointer; }
 .sf-row[aria-selected=true] { background: var(--amber-glow); box-shadow: inset 0 0 0 1px var(--amber-border); }

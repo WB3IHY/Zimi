@@ -571,3 +571,37 @@ def test_look_controls_are_under_the_finger_not_under_the_sky(browser, served):
         assert not errors
     finally:
         ctx.close()
+
+
+DAYTIME = datetime(2026, 10, 19, 22, 0, tzinfo=timezone.utc)  # 3 pm in San Francisco, the sky blue
+
+
+def test_look_names_planets_and_bright_stars_by_day(browser, served):
+    """Eric, 2026-10-18: "Why not still show things on the blue sky? It only shows sun unless I search for something."
+    What the sky's light hides is still marked and named in Look, as it is at night: the Sun's name is not the only one."""
+    ctx, pg, errors = _look(browser, served, "none", when=DAYTIME)
+    try:
+        _wait_painted(pg, "(s) => s.lm < 0 && s.bodies.length > 0")
+        # Every planet above the horizon, and every named star as bright as the labelled ones, is a body in daylight.
+        want = pg.evaluate(
+            """() => { const s = _skyHost.s, e = s.eph;
+              return { planets: e.planets.filter(p => p.alt > 0).map(p => p.name),
+                       stars: e.stars.filter(t => t.alt > 0 && t.idx >= 0 && _STAR_NAMES[t.idx] && t.mag <= SKY_LABEL_STAR_MAG).length }; }"""
+        )
+        assert want["planets"] or want["stars"], want
+        # Aim at each planet in turn: its mark and its name are there.
+        for name in want["planets"]:
+            pg.evaluate(
+                """(n) => { const p = _skyHost.s.eph.planets.find(q => q.name === n);
+                  _look.target = { az: p.az, alt: p.alt, roll: 0 }; _look.view = { az: p.az, alt: p.alt, roll: 0 }; _look.drawn = null; _lookKick(); }""",
+                name,
+            )
+            pg.wait_for_function(
+                "(n) => _skyHost.s.bodies.some(b => b.type === 'planet' && b.name === n)",
+                arg=name,
+                polling=POLL_MS,
+            )
+            assert any(l["text"] == name for l in _labels(pg)), (name, _labels(pg))
+        assert not errors, errors
+    finally:
+        ctx.close()
