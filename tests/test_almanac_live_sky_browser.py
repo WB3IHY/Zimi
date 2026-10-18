@@ -579,9 +579,9 @@ def test_the_light_clock_on_a_ride(browser, served):
     ctx, pg, errors = _almanac(browser, served)
     try:
         pg.evaluate(
-            "_orrerySnapToNow(); _orreryLaunchRocket('Mars'); _orreryTwinInput(80)"
+            "_orrerySnapToNow(); _orreryLaunchRocket('Mars'); _orreryTwinInput(1)"
         )
-        # The twins and the light clock open from "What if it flew faster?" and
+        # The twins and the light clock open from "What if it flew to the stars?" and
         # are not drawn while closed.
         assert pg.evaluate("document.getElementById('orrery-twin').hidden")
         assert not pg.evaluate("document.getElementById('orrery-lc-gamma').textContent")
@@ -590,16 +590,24 @@ def test_the_light_clock_on_a_ride(browser, served):
             "() => document.getElementById('orrery-lc-gamma') && document.getElementById('orrery-lc-gamma').textContent",
             polling=POLL_MS,
         )
-        gamma = pg.evaluate("document.getElementById('orrery-lc-gamma').textContent")
-        assert (
-            gamma
-            == "\u2066\u03b3 = "
-            + pg.evaluate("_orrFmtGamma(_lorentzFactor(0.8))")
-            + "\u2069"
+        # Halfway along the 1 g trip the ship is at its peak (gamma 3.26 to
+        # Alpha Centauri): the light clock shows that speed, not a cruise speed.
+        pg.evaluate(
+            "_orreryRockets[0].elapsed = _orreryRockets[0].duration / 2; _orreryUpdateRide()"
+        )
+        peak = pg.evaluate("_orreryTwinClocks(_orreryRockets[0], 1, 0.5).gamma")
+        assert 3.2 < peak < 3.3
+        pg.wait_for_function(
+            "(g) => document.getElementById('orrery-lc-gamma').textContent.indexOf(g) > 0",
+            arg=pg.evaluate(f"_orrFmtGamma({peak})"),
+            polling=POLL_MS,
+        )
+        assert "alm_orr_twin" not in pg.evaluate(
+            "document.getElementById('orrery-twin').textContent"
         )
         assert pg.evaluate("document.getElementById('orrery-lc').clientWidth") > 200
         assert pg.evaluate(
-            "t('alm_lc_moving', { v: _orrFmtBeta(0.8) })"
+            "t('alm_lc_moving', { v: _orrFmtBeta(_orreryTwinClocks(_orreryRockets[0], 1, 0.5).beta) })"
         ) in pg.evaluate("document.getElementById('orrery-lc-moving').textContent")
         assert not errors, errors
     finally:
