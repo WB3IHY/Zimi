@@ -235,7 +235,6 @@ _RATE_LIMITED_API_PATHS = (
     "/wiki",
     "/books",
     "/dictionary",
-    "/earth",
     "/fieldguide",
     "/map-home",
     "/read",
@@ -259,7 +258,6 @@ _RATE_LIMITED_API_PREFIXES = (
     "/wiki/",
     "/books/",
     "/dictionary/",
-    "/earth/",
     "/fieldguide/",
 )
 
@@ -1137,7 +1135,6 @@ if os.path.isdir(_STATIC_DIR):
             + _static_hash("wiki-reader.js")
             + _static_hash("books.html")
             + _static_hash("dictionary.html")
-            + _static_hash("earth.html")
             + _static_hash("globe.js")
             + _static_hash("almanac-look.js")
             + _static_hash("almanac-skyfind.js")
@@ -2089,7 +2086,6 @@ APP_PAGES = (
     "wiki.html",
     "books.html",
     "dictionary.html",
-    "earth.html",
     "fieldguide.html",
 )
 # Pages that show a ZIM's own HTML may load only from Zimi: inline styles and
@@ -2128,11 +2124,6 @@ _PDF_ASSETS = (
 # Pages whose shared parts are put in as they are served: never from the
 # in-memory cache, always revalidated by the browser.
 _INLINED_PAGES = {name: _APP_ASSETS for name in APP_PAGES}
-# The globe is Zimi Earth's own: inlined into its page, so a fix to it is
-# never behind a year of cache (the page itself is asked for each time).
-_INLINED_PAGES["earth.html"] = _APP_ASSETS + (
-    (b"<!--@globe.js@-->", "globe.js", b"<script>\n", b"</script>"),
-)
 # The Field Guide page also carries its card renderer, which the shell loads on its own
 # to draw a situation above search results.
 _INLINED_PAGES["fieldguide.html"] = (
@@ -3094,52 +3085,6 @@ class ZimHandler(BaseHTTPRequestHandler):
                 if events is None:
                     return self._json(503, {"error": "unavailable"})
                 return self._json(200, {"events": events})
-            elif parsed.path == "/earth" or parsed.path.startswith("/earth/"):
-                # Zimi Earth: the library's places on a globe.
-                from zimi import earth as _earth
-
-                if "earth" not in _srv.apps_shown():
-                    return self._json(404, {"error": "not found"})
-                sub = parsed.path[len("/earth") :].strip("/")
-
-                def _num(key, lo, hi):
-                    try:
-                        v = float(param(key))
-                    except (TypeError, ValueError):
-                        return None
-                    return v if lo <= v <= hi else None
-
-                # Someone opened Earth: the places begin to be read, if they
-                # have not been (earth.want), and the page says how far along.
-                _earth.want()
-                if sub == "":
-                    return self._json(200, _earth.status())
-                if sub == "places":
-                    box = [
-                        _num("w", -180, 180),
-                        _num("s", -90, 90),
-                        _num("e", -180, 180),
-                        _num("n", -90, 90),
-                    ]
-                    if None in box or box[1] > box[3]:
-                        return self._json(400, {"error": "box"})
-                    try:
-                        limit = int(param("limit") or 60)
-                    except ValueError:
-                        return self._json(400, {"error": "limit"})
-                    project = param("project") or "wikipedia"
-                    if project not in _earth.WIKI_PROJECTS:
-                        return self._json(400, {"error": "project"})
-                    return self._json(
-                        200,
-                        {"places": _earth.places_in(*box, limit=limit, project=project)},
-                    )
-                if sub == "near":
-                    lat, lon = _num("lat", -90, 90), _num("lon", -180, 180)
-                    if lat is None or lon is None:
-                        return self._json(400, {"error": "point"})
-                    return self._json(200, _earth.near(lat, lon))
-                return self._json(404, {"error": "not found"})
             elif parsed.path == "/fieldguide" or parsed.path.startswith("/fieldguide/"):
                 # Field Guide: situations, their quoted sources and the
                 # library behind them (zimi/fieldguide.py).
