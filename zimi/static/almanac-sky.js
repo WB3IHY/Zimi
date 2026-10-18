@@ -623,13 +623,17 @@ function _skySetRed(on) {
   if (typeof _nightSet === 'function') _nightSet(on);
   _skyRedChanged();
 }
+// The sky's picture and the words about it (under the Moon) wear the red together.
+function _skyRedScope(on) {
+  var scopes = document.querySelectorAll ? document.querySelectorAll('.almanac-sky-wrap, .alm-sky-info') : [];
+  for (var i = 0; i < scopes.length; i++) scopes[i].classList.toggle('sky-red', on);
+}
 // The sky's side of a change, whoever made it.
 function _skyRedChanged() {
   var on = _skyRedOn();
   if (on === _skyRedSeen) return;
   _skyRedSeen = on;
-  var wrap = document.querySelector && document.querySelector('.almanac-sky-wrap');
-  if (wrap && wrap.classList) wrap.classList.toggle('sky-red', on);
+  _skyRedScope(on);
   var box = document.querySelector && document.querySelector('#almanac-sky-set [data-sky-set="red"]');
   if (box) box.checked = on;
   if (typeof CustomEvent === 'function' && document.dispatchEvent) document.dispatchEvent(new CustomEvent('zimisky:red', { detail: { on: on } }));

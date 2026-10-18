@@ -104,21 +104,25 @@ function _skySpan(at, now, guess, dir) { return _orrFmtSpan(Math.max(0, _skyRoun
 function _skyBearing(az) { return _azCompass(az) + ' ' + Math.round(az) + '\u00b0'; }
 
 // The cards: [label, value, sub, wide]. The value is the one short thing the
-// card is for (a span, a clock time, a share lit); the sub is where on the
-// horizon and when, in the card's own small line; wide is a card whose words
-// run long. A card that rests on a guessed place says "about" in itself.
+// card is for (a span, a clock time); the sub is where on the horizon, in the
+// card's own small line; wide is a card whose words run long. A card that rests
+// on a guessed place says "about" in itself. They sit under the Moon beside the
+// hero's own numbers (illuminated, sunrise, sunset: almanac.js _almHeadHtml), so
+// they say none of those again: the span left, not the time it ends; when the
+// Moon comes or goes, not how lit it is.
 function _skyFactRows(s, f) {
   var rows = [], lat = s.lat, now = s.nowTime, guess = !s.stored;
   var about = function (v) { return guess ? t('alm_sky_f_about', { v: v }) : v; };
-  var at = function (ms, az, dir, qualify) { var c = _skyClock(ms, guess, dir); return (qualify ? about(c) : c) + ' · ' + _skyBearing(az); };
+  var at = function (ms, dir) { return about(_skyClock(ms, guess, dir)); };
   // A guessed sunset less than a step away rounds down to now: said as what it is, not as a time already gone.
   var soon = guess && f.sunUp && f.sunset && _skyRoundMs(f.sunset, guess, -1) <= now;
-  if (f.sunUp) rows.push([t('alm_sky_f_daylight_left'), soon ? t('alm_sky_f_under_step') : f.sunset ? about(_skySpan(f.sunset, now, guess, -1)) : t('alm_midnight_sun'), f.sunset && !soon ? at(f.sunset, f.sunsetAz, -1) : '']);
-  else rows.push([t('alm_sky_f_sunrise_in'), f.sunrise ? about(_skySpan(f.sunrise, now, guess, 1)) : t('alm_polar_night'), f.sunrise ? at(f.sunrise, f.sunriseAz, 1) : '']);
+  if (f.sunUp) rows.push([t('alm_sky_f_daylight_left'), soon ? t('alm_sky_f_under_step') : f.sunset ? about(_skySpan(f.sunset, now, guess, -1)) : t('alm_midnight_sun'), f.sunset && !soon ? _skyBearing(f.sunsetAz) : '']);
+  else rows.push([t('alm_sky_f_sunrise_in'), f.sunrise ? about(_skySpan(f.sunrise, now, guess, 1)) : t('alm_polar_night'), f.sunrise ? _skyBearing(f.sunriseAz) : '']);
   if (f.fullyDark) rows.push([t('alm_sky_f_dark_until'), f.darkUntil ? about(_skyClock(f.darkUntil, guess, 1)) : t('alm_polar_night'), '']);
   else rows.push([t('alm_sky_f_dark_from'), f.darkFrom ? about(_skyClock(f.darkFrom, guess, 1)) : t('alm_sky_f_not_dark'), '']);
-  var moonNext = f.moonUp ? (f.moonset ? t('alm_sky_f_sets', { t: at(f.moonset, f.moonsetAz, -1, true) }) : '') : (f.moonrise ? t('alm_sky_f_rises', { t: at(f.moonrise, f.moonriseAz, 1, true) }) : '');
-  rows.push([t('alm_moon'), t('alm_sky_f_moon_lit', { p: _orrNum(s.moonData.phase.illumination, null, 0) + '%' }), moonNext]);
+  // When it next comes or goes, and where; how lit it is is the hero's card. With neither in the next day and a half, that.
+  var moonAt = f.moonUp ? (f.moonset ? [t('alm_sky_f_sets', { t: at(f.moonset, -1) }), f.moonsetAz] : null) : (f.moonrise ? [t('alm_sky_f_rises', { t: at(f.moonrise, 1) }), f.moonriseAz] : null);
+  rows.push(moonAt ? [t('alm_moon'), moonAt[0], _skyBearing(moonAt[1])] : [t('alm_moon'), t('alm_sky_f_moon_lit', { p: _orrNum(s.moonData.phase.illumination, null, 0) + '%' }), '']);
   var a = _skyDeg(Math.abs(lat));
   if (s.known === false) rows.push([t('alm_sky_f_north'), t('alm_sky_f_pole_unknown'), '', true]);
   else if (Math.abs(lat) < 2) rows.push([t('alm_sky_f_north'), t('alm_sky_f_equator_val'), '', true]);
@@ -205,10 +209,9 @@ function _skySettingsKey(e) {
 function _skyBindSettings() {
   var box = document.getElementById('almanac-sky-set');
   if (!box) return;
-  var wrap = box.closest ? box.closest('.almanac-sky-wrap') : null;
   _skyWatchNight();
   _skyRedSeen = _skyRedOn();
-  if (wrap) wrap.classList.toggle('sky-red', _skyRedSeen);
+  _skyRedScope(_skyRedSeen);
   if (box._skyBound) return;
   box._skyBound = true;
   box.innerHTML = _skySettingsHtml();
