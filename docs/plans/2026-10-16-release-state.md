@@ -64,7 +64,7 @@ The plan was "the field kit": sky, Earth, the flown solar system, Field Guide, b
 - [x] Almanac GPU grace: reverted on Eric's call (2026-10-17, memory over a faster reopen); leaving gives the GPU back at once.
 - [ ] Holiday names newly translated into Hindi, Hebrew and Arabic need a native speaker.
 - [x] Keep offline: once one ZIM is kept, every other tile shows the bare download arrow (Eric, 2026-10-17); deployed to the NAS.
-- [ ] NOMAD fresh-eyes guide run on nomad-clean: Eric accepted NOMAD's licence 2026-10-17; running.
+- [x] NOMAD fresh-eyes guide run on nomad-clean (2026-10-17): every tested section PASS, NOMAD's ZIM folder byte-identical; 9 unwritten steps (uninstall, install the Information Library first, friendly_name, Save, admin user, image name, shared /config, browser-only links, Docker tag) written into the guide. Open: the version the guide names must match the bump.
 - [x] CI green (run 39068587372, all jobs, 2026-10-17). Found on the way: the service worker answered the offline page at 8 s when nothing was kept (fixed); tide labels under the clock's dot (fixed); Chrome 156 never reports SW-claimed requests finished (tests wait on _swPrimed).
 - [ ] Eric's iPhone pass: Red, Keep offline, airplane mode, Almanac.
 - [ ] Pull the Field Guide if decided.
