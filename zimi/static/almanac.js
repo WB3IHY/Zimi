@@ -3903,9 +3903,9 @@ function _renderSunMap(now) {
     '<span class="alm-tz-hand" id="almanac-tz-hand" aria-hidden="true"></span></div>';
   html += '<div id="almanac-tz-label" class="alm-clock-info"></div>';
   html += '</div>';
-  html += '<div class="alm-tz-list" id="almanac-tz-pills"></div>';
-  // Under the clocks it filters, as the holidays' Regional/Worldwide is under its grid.
+  // Above the clocks it filters, at the end of the line (Eric, 2026-10-18).
   html += '<div class="alm-hol-row alm-tz-view" id="almanac-tz-view"></div>';
+  html += '<div class="alm-tz-list" id="almanac-tz-pills"></div>';
   html += '</div>';
 
   html += '</div>';
@@ -4285,8 +4285,8 @@ function _almClockSetView(view) {
   try { localStorage.setItem(_ALM_CLOCKS_VIEW_KEY, view); } catch (e) {}
   // The big clock never shows a zone the list under it does not: back to the place's own.
   if (view === 'saved' && _almSelectedTz && _almClocks().indexOf(_almSelectedTz) < 0) _almSelectedTz = null;
-  // The cards above the switch change in number: the page is moved by what they gained or lost, so the switch
-  // stays under the finger that pressed it.
+  // The switch is above the cards that change in number, so it stays where it is; a page that was moved by what the
+  // cards gained or lost would move the switch under the finger that pressed it (kept in place all the same).
   _almKeepInPlace(document.getElementById('almanac-tz-view'), function () {
     _initTzClock(new Date());
     if (typeof _drawSunMap === 'function') _drawSunMap();

@@ -94,7 +94,6 @@
 .at-unit { background: none; border: 0; color: var(--text3); font: inherit; font-size: 11px; padding: 6px 10px; min-width: 36px; cursor: pointer; }
 .at-unit.on { background: var(--surface2); color: var(--text); }
 .at-unit:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
-.at-note { font-size: 11px; color: var(--text3); line-height: 1.5; margin: 8px 0 0; }
 
 /* Search and station lists. */
 .at-search { margin: 6px 0 8px; }

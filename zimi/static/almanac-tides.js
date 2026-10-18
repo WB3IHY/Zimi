@@ -724,8 +724,7 @@ function _atTideHtml(st, far) {
     '<div class="at-why-panel" id="at-why-panel"' + (_at.whyOpen ? '' : ' hidden') + '>' + _atWhyHtml(st, focus) +
       '<p class="at-why-n">' + _almEsc(note) + '</p></div>' +
     _atStationLine('tide', _atTideName(st), st.km, true) +
-    (_at.picking === 'tide' ? _atPickerHtml('tide') : '') +
-    '<p class="at-note">' + _almEsc(t('alm_tide_source')) + '</p>';
+    (_at.picking === 'tide' ? _atPickerHtml('tide') : '');
   return _atSection(t('alm_tide_title'), body, 'at-tides', 'term:tide');
 }
 

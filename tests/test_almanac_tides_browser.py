@@ -322,13 +322,9 @@ def test_the_tide_is_calm(browser, served):
         assert pg.locator("#at-why-panel").is_visible()
         pg.locator("#at-why-btn").click()
         assert pg.locator("#at-why-panel").is_hidden()
-        # The source is one short line.
-        note = pg.locator("#almanac-place .at-note")
-        assert note.inner_text() == "NOAA prediction. Weather moves the real sea."
-        assert pg.evaluate(
-            "(() => { const n = document.querySelector('#almanac-place .at-note');"
-            " return n.getBoundingClientRect().height <= parseFloat(getComputedStyle(n).lineHeight) * 1.2; })()"
-        )
+        # No line under the section about where the prediction comes from (Eric, 2026-10-18: it reads weird).
+        assert pg.locator("#almanac-place .at-note").count() == 0
+        assert "Weather moves the real sea" not in pg.inner_text("#almanac-place")
         assert not errors, errors
     finally:
         ctx.close()

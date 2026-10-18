@@ -190,7 +190,7 @@
 .alm-tz-star.on svg { fill: currentColor; }
 .alm-tz-star:hover, .alm-tz-star:focus-visible { color: var(--amber); }
 .alm-tz-star:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
-.alm-tz-view { margin-top: 0; }
+.alm-tz-view { margin-top: 0; width: 100%; justify-content: flex-end; }
 .alm-tz-hint { grid-column: 1 / -1; margin: 0 0 4px; font-size: 12px; line-height: 1.5; color: var(--text2); text-align: center; }
 .alm-tz-add { display: flex; align-items: center; justify-content: center; min-height: 52px; border: 1px dashed var(--border); border-radius: 8px; background: none; color: var(--text2); font: inherit; font-size: 12px; cursor: pointer; }
 .alm-tz-add:hover, .alm-tz-add:focus-visible { color: var(--amber); border-color: var(--amber-border); outline: none; }
