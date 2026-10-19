@@ -81,6 +81,15 @@ class FakeAudio {
   removeAttribute() { this.src = ''; }
   load() {}
 }
+// A real <audio> rejects the play() still pending when its src changes
+// (AbortError): that is the switch to the next engine, not a failure. Taken
+// for one, the reading retried, cut off the voice it had just switched to, and
+// fell to the browser's voice outside the tap, which iOS keeps silent.
+class AbortingAudio extends FakeAudio {
+  play() { const p = new Promise((res, rej) => { this.pending = rej; }); this.played.push(this.src); return p; }
+  set src(v) { if (this.pending) { const rej = this.pending; this.pending = null; rej(Object.assign(new Error('interrupted'), { name: 'AbortError' })); } this._src = v; }
+  get src() { return this._src || ''; }
+}
 function freshReading() {
   for (const k of Object.keys(store)) delete store[k];
   timers.length = 0; fetched.length = 0;
@@ -92,6 +101,7 @@ function freshReading() {
     clearTimeout: id => { if (id) timers[id - 1] = null; },
     authedFetch: u => { fetched.push(u); return new Promise(() => {}); }, // never answers: the server is still saying it
     _ttsSetSpeaking: on => { r.speaking = on; },
+    _ttsNow: {}, _ttsBarSync: () => {},
     _ttsSpeakDevice: (c, l, from) => { r.device = from; },
   });
   return r;
@@ -141,7 +151,7 @@ ok('nothing asks for the voice list when the page loads', !/^_ttsLoadVoices\(\);
 ok('opening the ... menu is one intent', /function _toggleTopbarMenu[\s\S]*?_ttsPrepare\(\)/.test(src));
 ok('Reader View opening is the other, for someone who read aloud lately',
   /function _readerViewApply[\s\S]*?if \(_ttsUsedRecently\(\)\) _ttsPrepare\(\)/.test(src));
-ok('speaking does not ask again on every start', !/function _ttsSpeak\(\)[\s\S]*?_ttsLoadVoices\(\)[\s\S]*?\n\}/.test(extract(/function _ttsSpeak\(\) \{[\s\S]*?\r?\n\}/, '_ttsSpeak')));
+ok('speaking does not ask again on every start', !/_ttsLoadVoices\(\)/.test(fn('_ttsSpeak')));
 
 const intent = { calls: [], now: 1e12, answer: null, rebuilt: 0, topbar: 0, readerOpen: true, speakingOn: true, lang: 'en', posts: [] };
 Object.assign(ctx, {
@@ -298,6 +308,16 @@ const tick = () => new Promise(r => setImmediate(r));
   ok('Settings > Voices has a Read aloud row: Automatic and each voice', /tts_speak/.test(html) && (html.match(/role="radio"/g) || []).length === 3 && /voice-read/.test(html) && /read/.test(html), html.slice(0, 120));
   ok('...hidden with only one voice to choose', sandbox._voiceReadHtml([{ engine: 'piper' }]) === '');
   ok('...and the default row is as it was', /voices_default/.test(sandbox._voiceDefaultHtml([{ engine: 'kokoro' }, { engine: 'piper' }])));
+
+  // The switch's AbortError settles on a later tick.
+  r = freshReading();
+  a = ctx._ttsAudio = new AbortingAudio();
+  ctx._ttsSpeakServer(chunks, 'en', ['kokoro', 'piper'], 1);
+  timers.filter(Boolean).pop().f(); // kokoro silent for six seconds: piper says it
+  await new Promise(res => setImmediate(res));
+  ok('switching engines is not a failure: no retry, no browser voice',
+    !timers.some(t => t && t.ms === 2000) && r.device === null && engineOf(a.src) === 'piper',
+    JSON.stringify({ device: r.device, retry: timers.filter(t => t && t.ms === 2000).length, src: engineOf(a.src) }));
 
   if (failures) { console.log(failures + ' failed'); process.exit(1); }
   console.log('all passed');

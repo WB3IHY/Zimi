@@ -19920,6 +19920,7 @@ function _ttsLang(doc) {
 function _ttsSetSpeaking(on) {
   _ttsSpeaking = on;
   _syncTopbarMenuReaderItems(); // mobile: reflect speaking-state on the ... menu row
+  _ttsBarSync();
   var btn = document.getElementById('tts-btn');
   if (!btn) return;
   btn.classList.toggle('speaking', on);
@@ -19936,7 +19937,8 @@ function _ttsStop() {
   if (_TTS_AVAILABLE) { try { window.speechSynthesis.cancel(); } catch(e) {} }
   if (_ttsSpeaking) _ttsSetSpeaking(false);
 }
-function _ttsSpeak() {
+function _ttsSpeak(from) {
+  from = from || 0;
   if (!_ttsCanSpeak()) return;
   var doc = _ttsFrameDoc();
   if (!doc) return;
@@ -19951,8 +19953,11 @@ function _ttsSpeak() {
   // A chosen voice reads alone and, if it cannot keep up, is offered a faster
   // one; only Automatic moves on to the next engine by itself.
   var chosen = engines.length === 1 && engines[0] === _ttsChosenVoice();
-  if (engines.length) _ttsSpeakServer(chunks, lang, engines, ++_ttsRun, chosen ? function(e) { _ttsSuggestFaster(lang, e); } : null);
-  else _ttsSpeakDevice(chunks, lang, 0);
+  from = Math.min(from, chunks.length - 1);
+  _ttsNow = { at: from, engine: engines[0] || _DEVICE_VOICE, playing: false, lang: lang };
+  _ttsBarSync();
+  if (engines.length) _ttsSpeakServer(chunks, lang, engines, ++_ttsRun, chosen ? function(e) { _ttsSuggestFaster(lang, e); } : null, from);
+  else _ttsSpeakDevice(chunks, lang, from);
 }
 // This browser's own voices, from chunk ``from`` on.
 function _ttsSpeakDevice(chunks, lang, from) {
@@ -19961,6 +19966,7 @@ function _ttsSpeakDevice(chunks, lang, from) {
   chunks.slice(from).forEach(function(chunk, idx, rest) {
     var u = new SpeechSynthesisUtterance(chunk);
     if (lang) u.lang = lang;
+    u.onstart = function() { _ttsNow.at = from + idx; _ttsNow.engine = _DEVICE_VOICE; _ttsNow.playing = true; _ttsBarSync(); };
     if (idx === rest.length - 1) u.onend = function() { _ttsSetSpeaking(false); };
     u.onerror = function() { _ttsSetSpeaking(false); };
     synth.speak(u);
@@ -19969,9 +19975,9 @@ function _ttsSpeakDevice(chunks, lang, from) {
 // The server's voices: one <audio> element plays the chunks in turn. Its src
 // is set and played inside the tap for the first chunk, as iOS requires (an
 // element started in a tap may play again from its own events).
-function _ttsSpeakServer(chunks, lang, engines, run, onSlow) {
+function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
   var audio = _ttsAudio || (_ttsAudio = new Audio());
-  var i = 0, eng = 0, retried = false, waiting = null, told = false;
+  var i = from || 0, eng = 0, retried = false, waiting = null, told = false;
   var asked = {}; // chunk index -> true once the server has said it (or failed to)
   function live() { return run === _ttsRun; }
   // Too slow here: the next engine for the language says the rest, and this
@@ -20009,8 +20015,12 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow) {
       if (eng + 1 < engines.length) slower(); else tooSlow();
     }
     audio.src = _ttsSpeakUrl(chunks[idx], lang, engines[eng]);
+    _ttsNow.at = idx; _ttsNow.engine = engines[eng]; _ttsNow.playing = false;
+    _ttsBarSync();
     var p = audio.play();
-    if (p && p.catch) p.catch(function() { if (live()) fail(); });
+    // AbortError: this play() was cut short by the next src (a switch of
+    // engine, or the next chunk), which is not a failure.
+    if (p && p.catch) p.catch(function(e) { if (live() && !(e && e.name === 'AbortError')) fail(); });
     // Still silent after a while (the first chunk, or one asked too late):
     // say it with the next engine instead.
     clearTimeout(waiting);
@@ -20033,7 +20043,11 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow) {
     if (_TTS_AVAILABLE) _ttsSpeakDevice(chunks, lang, i);
     else _ttsSetSpeaking(false);
   }
-  audio.onplaying = function() { if (live()) { clearTimeout(waiting); retried = false; ask(i + 1); } };
+  audio.onplaying = function() {
+    if (!live()) return;
+    clearTimeout(waiting); retried = false; ask(i + 1);
+    _ttsNow.playing = true; _ttsBarSync();
+  };
   audio.onended = function() {
     if (!live()) return;
     i++;
@@ -20041,11 +20055,80 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow) {
     play(i);
   };
   audio.onerror = function() { if (live() && audio.getAttribute('src')) fail(); };
-  play(0);
+  play(i);
 }
 function _ttsToggle() {
   if (_ttsSpeaking) _ttsStop();
   else _ttsSpeak();
+}
+
+// ── While it reads: a bar at the foot of the reader ──
+// On a phone Read aloud is a row in the ⋯ menu, so once the menu closed
+// nothing said a reading had begun, that it waited for the server's voice, or
+// which voice it was. The bar says all three (a turning ring until the first
+// sound, then the voice), offers this language's voices where it plays
+// (remembered as Read aloud's own, Settings > Voices), and stops it.
+var _ttsNow = { at: 0, engine: '', playing: false, lang: '' };
+var _ttsMenuOpen = false;
+var _TTS_CHEVRON = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>';
+var _TTS_STOP_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/></svg>';
+// The voices this article's language can be read in: the server's, in its
+// order (none Settings turned off), then this browser's.
+function _ttsVoicesFor(lang) {
+  var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
+  var out = row ? _ttsRowOrder(row, _voicePrefs()) : [];
+  if (_TTS_AVAILABLE) out.push(_DEVICE_VOICE);
+  return out;
+}
+function _ttsBarHtml() {
+  var pick = _voicePrefs().read || '';
+  var voices = _ttsVoicesFor(_ttsNow.lang);
+  var h = '<span class="tts-bar-state' + (_ttsNow.playing ? ' playing' : '') + '" aria-hidden="true"><i></i><i></i><i></i></span>';
+  if (voices.length > 1) {
+    h += '<button type="button" class="tts-bar-voice" aria-haspopup="menu" aria-expanded="' + _ttsMenuOpen + '" onclick="_ttsMenuToggle()">' +
+      '<span>' + esc(_voiceEngineName(_ttsNow.engine)) + '</span>' + _TTS_CHEVRON + '</button>';
+  } else {
+    h += '<span class="tts-bar-voice">' + esc(_voiceEngineName(_ttsNow.engine)) + '</span>';
+  }
+  h += '<button type="button" class="tts-bar-stop" aria-label="' + escAttr(t('tts_stop')) + '" title="' + escAttr(t('tts_stop')) + '" onclick="_ttsStop()">' + _TTS_STOP_ICON + '</button>';
+  if (_ttsMenuOpen && voices.length > 1) {
+    var item = function(e, label) {
+      return '<button type="button" role="menuitemradio" aria-checked="' + (e === pick) + '" onclick="' + escAttr('_ttsPickVoice(' + JSON.stringify(e) + ')') + '">' + esc(label) + '</button>';
+    };
+    h += '<div class="tts-bar-menu" role="menu">' + item('', t('voices_default_auto')) +
+      voices.map(function(e) { return item(e, _voiceEngineName(e)); }).join('') + '</div>';
+  }
+  return h;
+}
+function _ttsBarSync() {
+  var bar = document.getElementById('tts-bar');
+  if (!_ttsSpeaking) {
+    _ttsMenuOpen = false;
+    if (bar) bar.hidden = true;
+    return;
+  }
+  if (!bar) {
+    var reader = document.getElementById('reader');
+    if (!reader) return;
+    bar = document.createElement('div');
+    bar.id = 'tts-bar';
+    bar.className = 'tts-bar';
+    reader.appendChild(bar);
+  }
+  var html = _ttsBarHtml();
+  if (bar._painted !== html) bar.innerHTML = bar._painted = html;
+  bar.hidden = false;
+}
+function _ttsMenuToggle() {
+  _ttsMenuOpen = !_ttsMenuOpen;
+  _ttsBarSync();
+}
+// A voice picked while it reads: remembered, and the reading goes on from the
+// sentence it was at, in the new voice (inside this tap, as iOS needs).
+function _ttsPickVoice(engine) {
+  _setVoicePrefs({ read: engine });
+  _ttsMenuOpen = false;
+  _ttsSpeak(_ttsNow.at);
 }
 
 // ── Reader View (Safari-Reader-style clean typography) ──

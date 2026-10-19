@@ -9,16 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Download ZIMs to your phone or laptop and use them off-grid, from a ZIM's menu or About: they open, show their pictures and search with no server, in the browser or added to your home screen. A download resumes, shows a ring on its card while it comes and a check once it is here, and its menu shows the progress with Pause and Cancel.
+- Download ZIMs to your phone or laptop and use them off-grid, from a ZIM's menu or About: they open, show their pictures and search with no server (a PDF library's list and its PDFs too), in the browser or added to your home screen. A download resumes, shows a ring on its card while it comes and a check once it is here, and its menu shows the progress with Pause and Cancel.
 - Library cards carry one button, ⋯, which opens the card's menu (Favorite, Keep offline, About and the rest); on a phone it comes up from the bottom as a sheet. A favorite's star sits beside it.
 - With no connection, Zimi opens on what still works: your downloaded ZIMs, saved articles and the Discover cards that open, with a small Offline pill in place of the warning bar.
 - Zimi reads ZIMs from folders another program owns, in place: `ZIMI_EXTRA_ZIM_DIRS`, or Settings, Server, Storage. ZIMs added or removed there appear or leave within about a minute.
 - Project NOMAD: Zimi can be NOMAD's Information Library, its downloads, updates and deletes can go through NOMAD, and old Kiwix links keep working ([guide](docs/integrations/project-nomad.md)).
 - Create turns pages saved from Firefox, Chrome or Safari (including `.mhtml` and `.webarchive`) into a ZIM that looks like the original, with its pictures and the links between pages.
 - The Docker image carries the capture tools (browsertrix-behaviors 0.15.0, AGPL, and the warc2zim sidecar), so every Create engine works with no install; the image is about 343 MB larger.
-- Read aloud uses the server's voices (Kokoro, Piper) when it has one for the article's language, with the browser's voice as the fallback, and has its own voice in Settings, Voices ([#117](https://github.com/epheterson/Zimi/pull/117)).
+- Read aloud uses the server's voices (Kokoro, Piper) when it has one for the article's language, with the browser's voice as the fallback, and has its own voice in Settings, Voices. While it reads, a bar at the foot of the page shows it starting, which voice reads (tap to change it) and Stop ([#117](https://github.com/epheterson/Zimi/pull/117)).
 - Red, a theme beside Light and Dark, to keep night vision: deep red on black on every screen and over the page you are reading.
-- Search finds the articles a question is about ("how tall is mount everest").
 
 ### Changed
 
