@@ -96,7 +96,7 @@ function freshReading() {
   const r = { speaking: null, device: null };
   Object.assign(ctx, {
     _ttsAudio: new FakeAudio(), _ttsRun: 1,
-    _TTS_SERVER_RETRY_MS: 2000, _TTS_START_WAIT_MS: 6000,
+    _TTS_SERVER_RETRY_MS: 2000, _TTS_START_WAIT_MS: 6000, _TTS_AHEAD: 2,
     setTimeout: (f, ms) => { timers.push({ f, ms }); return timers.length; },
     clearTimeout: id => { if (id) timers[id - 1] = null; },
     authedFetch: u => { fetched.push(u); return new Promise(() => {}); }, // never answers: the server is still saying it
@@ -120,7 +120,7 @@ timers.filter(Boolean).pop().f(); // six seconds and still silent
 ok('silent too long: the next engine says it', engineOf(a.src) === 'piper' && textOf(a.src) === 'one.', a.src);
 ok('...and the slow one is remembered', store.zimi_tts_slow === '["kokoro"]', store.zimi_tts_slow);
 a.paused = false; a.onplaying();
-ok('while a chunk plays the next is asked for, in the engine now reading', fetched.length === 1 && engineOf(fetched[0]) === 'piper' && textOf(fetched[0]) === 'two.', fetched[0]);
+ok('while a chunk plays the next two are asked for, in the engine now reading', fetched.length === 2 && fetched.every(u => engineOf(u) === 'piper') && fetched.map(textOf).join() === 'two.,three.', fetched.join(' '));
 a.onended(); a.onplaying(); a.onended();
 ok('chunks play in turn', textOf(a.src) === 'three.', a.src);
 a.onplaying(); a.onended();

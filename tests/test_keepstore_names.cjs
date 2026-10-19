@@ -38,6 +38,16 @@ const KeepStore = require(path.join(__dirname, '..', 'zimi', 'static', 'keepstor
   ok('the read under way still finds the ZIM that arrived during it', await asking);
   ok('and the next question is not answered by the old list', await KeepStore.has('zimgit-water'));
   ok('a ZIM never kept is not kept', !(await KeepStore.has('nope')));
+  // And the other way: one removed while the list is read is not kept.
+  KeepStore.forgetNames(); await KeepStore.has('wiki');
+  KeepStore.forgetNames();
+  hold = new Promise((r) => { release = r; });
+  const asking2 = KeepStore.has('wiki');
+  await new Promise((r) => setImmediate(r));
+  files.delete('wiki.json');
+  KeepStore.forgetNames();
+  hold = null; release();
+  ok('a ZIM removed during the read is not reported kept', !(await asking2));
   if (failures) { console.log(failures + ' failed'); process.exit(1); }
   console.log('\nall kept-names checks passed');
 })();

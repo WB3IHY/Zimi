@@ -19739,6 +19739,8 @@ var _TTS_SERVER_RETRY_MS = 2000; // voices.RETRY_AFTER_S: the server was busy
 // Piper says a 240-character chunk in 1 to 3 s on an Intel N150; Kokoro takes
 // 18 to 24 s there (2026-10-17), longer than the chunk plays.
 var _TTS_START_WAIT_MS = 6000;
+var _TTS_CHUNK_MAX = 240, _TTS_FIRST_CHUNK_MAX = 120; // characters
+var _TTS_AHEAD = 2; // chunks asked for ahead of the one playing, so the voice never waits
 var _ttsVoices = null; // /dictionary/voices (its page payload), or null
 var _ttsAudio = null;
 var _ttsRun = 0; // bumped by every start and stop: callbacks of an older run do nothing
@@ -19860,9 +19862,12 @@ function _ttsSpeakUrl(text, lang, engine) {
     '&engine=' + encodeURIComponent(engine) + '&text=' + encodeURIComponent(text);
 }
 
-function _ttsChunkText(text, maxLen) {
+// ``first`` caps the first chunk alone: a voice says nothing until a whole
+// chunk is made, so a short one starts the reading sooner.
+function _ttsChunkText(text, maxLen, first) {
   maxLen = maxLen || 240;
   var out = [];
+  function cap() { return out.length || !first ? maxLen : first; }
   if (!text) return out;
   // Collapse whitespace so newlines don't confuse sentence detection.
   var clean = String(text).replace(/\s+/g, ' ').trim();
@@ -19874,19 +19879,19 @@ function _ttsChunkText(text, maxLen) {
     var s = sentences[i].trim();
     if (!s) continue;
     // A single sentence longer than maxLen: hard-split on word boundaries.
-    if (s.length > maxLen) {
+    if (s.length > cap()) {
       if (buf) { out.push(buf); buf = ''; }
       var words = s.split(' ');
       var line = '';
       for (var w = 0; w < words.length; w++) {
         var word = words[w];
-        if (line && (line.length + 1 + word.length) > maxLen) { out.push(line); line = word; }
+        if (line && (line.length + 1 + word.length) > cap()) { out.push(line); line = word; }
         else { line = line ? (line + ' ' + word) : word; }
       }
       if (line) buf = line; // carry remainder to pack with the next sentence
       continue;
     }
-    if (buf && (buf.length + 1 + s.length) > maxLen) { out.push(buf); buf = s; }
+    if (buf && (buf.length + 1 + s.length) > cap()) { out.push(buf); buf = s; }
     else { buf = buf ? (buf + ' ' + s) : s; }
   }
   if (buf) out.push(buf);
@@ -19959,7 +19964,7 @@ function _ttsSpeak(from) {
   if (!_ttsCanSpeak()) return;
   var doc = _ttsFrameDoc();
   if (!doc) return;
-  var chunks = _ttsChunkText(_ttsExtractText(doc), 240);
+  var chunks = _ttsChunkText(_ttsExtractText(doc), _TTS_CHUNK_MAX, _TTS_FIRST_CHUNK_MAX);
   if (!chunks.length) return;
   var lang = _ttsLang(doc);
   _ttsStop(); // clear any residual queue or audio before starting fresh
@@ -20065,7 +20070,8 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
   }
   audio.onplaying = function() {
     if (!live()) return;
-    clearTimeout(waiting); retried = false; ask(i + 1);
+    clearTimeout(waiting); retried = false;
+    for (var k = 1; k <= _TTS_AHEAD; k++) ask(i + k);
     _ttsNow.playing = true; _ttsBarSync();
   };
   audio.onended = function() {
