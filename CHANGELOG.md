@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Download ZIMs to your phone or laptop and use them off-grid, from a ZIM's menu or About: they open, show their pictures and search with no server, in the home-screen app too. A download resumes, shows a ring on its card while it comes and a check once it is here, and its menu shows the progress with Pause and Cancel.
+- Download ZIMs to your phone or laptop and use them off-grid, from a ZIM's menu or About: they open, show their pictures and search with no server, in the browser or added to your home screen. A download resumes, shows a ring on its card while it comes and a check once it is here, and its menu shows the progress with Pause and Cancel.
 - Library cards carry one button, ⋯, which opens the card's menu (Favorite, Keep offline, About and the rest); on a phone it comes up from the bottom as a sheet. A favorite's star sits beside it.
-- Offline is a mode, not a fault: a small Offline pill replaces the warning bar, and Discover shows only cards that open.
+- With no connection, Zimi opens on what still works: your downloaded ZIMs, saved articles and the Discover cards that open, with a small Offline pill in place of the warning bar.
 - Zimi reads ZIMs from folders another program owns, in place: `ZIMI_EXTRA_ZIM_DIRS`, or Settings, Server, Storage. ZIMs added or removed there appear or leave within about a minute.
 - Project NOMAD: Zimi can be NOMAD's Information Library, its downloads, updates and deletes can go through NOMAD, and old Kiwix links keep working ([guide](docs/integrations/project-nomad.md)).
 - Create turns pages saved from Firefox, Chrome or Safari (including `.mhtml` and `.webarchive`) into a ZIM that looks like the original, with its pictures and the links between pages.
