@@ -32,7 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import wiki_fixture as wf  # noqa: E402
-from test_offline_truth_live import Server, _free_port  # noqa: E402
+from test_offline_truth_live import Server, _free_port, poll  # noqa: E402
 
 SHOTS = os.environ.get("ZIMI_SHOTS", "")
 ZIM = "wikipedia"
@@ -89,17 +89,6 @@ def keep_from_about(pg, zim=ZIM, timeout=90000):
     )
     shot(pg, "3-about-kept")
     return size_label, time.time() - t0
-
-
-def poll(pg, js, timeout_s=60):
-    """Ask an async page function until it says yes (wait_for_function does not
-    await the promise an async function returns: it is truthy at once)."""
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        if pg.evaluate(js):
-            return
-        pg.wait_for_timeout(250)
-    raise AssertionError("never became true: " + js[:80])
 
 
 def wait_shell_kept(pg):

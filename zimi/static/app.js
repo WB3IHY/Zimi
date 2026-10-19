@@ -3388,7 +3388,7 @@ async function init() {
   }
   _rebuildZimsMap();
   _keepProbeStorage();
-  _keepRefreshNames();
+  _keepRefreshNames().then(function() { if (_keepNames.size) _keepPrimeOffline(); });
   // A kept answer marked the connection offline while the words were still
   // loading: say it again now they are here.
   if (_connState !== CONN_OK) _renderConnBanner();
@@ -6008,12 +6008,13 @@ function _keepLoad() {
         KeepStore.subscribe(function(st) {
           // A pull that ends in an error says why at once, wherever it was started (a tile's ring alone turns grey).
           if (wasPulling && st.phase === 'idle' && st.error) _keepNotice(t('keep_err_' + st.error));
+          if (!wasPulling && st.phase === 'pulling') _keepPrimeOffline();
           wasPulling = st.phase === 'pulling';
           _keepRenderOpen();
           _keepImportRender();
           _keepIconSync();
-          if (st.importing && st.done) _keepRefreshNames().then(function() { if (homeScope && homeScope.type === 'phone') renderHome(); _keepImportRender(); });
-          if (st.phase === 'idle' && !st.error && st.size && st.written === st.size) { _keepPrimeSearch(); _keepRefreshNames(); }
+          if (st.importing && st.done) _keepRefreshNames().then(function() { _keepPrimeOffline(); if (homeScope && homeScope.type === 'phone') renderHome(); _keepImportRender(); });
+          if (st.phase === 'idle' && !st.error && st.size && st.written === st.size) _keepRefreshNames();
           else if (st.phase === 'idle') _keepRefreshNames();
         });
       }
@@ -6025,11 +6026,20 @@ function _keepLoad() {
   return _keepLoading;
 }
 
-// The full-text engine (2.3 MB) is fetched through the service worker once a
-// ZIM is kept, so it is on the phone when the signal is not.
-function _keepPrimeSearch() {
-  ['/static/libzim/libzim-wasm.js', '/static/libzim/libzim-wasm.wasm'].forEach(function(u) {
-    fetch(u).catch(function() {});
+// What a kept ZIM needs that is not in it, fetched through the service worker
+// so the phone has it when the signal is not: the full-text engine (2.3 MB)
+// and the PDF viewer (3.7 MB) for a document library's PDFs. A deploy empties
+// the worker's cache, so this runs when a ZIM starts coming (done long before
+// the ZIM is) and on every start that has one; only what is missing is fetched.
+var _KEEP_OFFLINE_FILES = ['/static/libzim/libzim-wasm.js', '/static/libzim/libzim-wasm.wasm',
+  '/static/pdfjs/web/viewer.html', '/static/pdfjs/web/viewer.mjs', '/static/pdfjs/web/viewer.css',
+  '/static/pdfjs/build/pdf.mjs', '/static/pdfjs/build/pdf.worker.mjs', '/static/pdfjs/web/locale/locale.json',
+  '/static/pdfjs/web/images/loading-icon.gif'];
+function _keepPrimeOffline() {
+  var files = _KEEP_OFFLINE_FILES.concat(['/static/pdfjs/web/locale/' + (_pdfLocale() || 'en-US') + '/viewer.ftl']);
+  files.forEach(function(u) {
+    var have = window.caches ? caches.match(u, { ignoreSearch: true }).catch(function() { return null; }) : Promise.resolve(null);
+    have.then(function(hit) { if (!hit) fetch(u).catch(function() {}); });
   });
 }
 
@@ -19517,15 +19527,19 @@ async function refreshLibrary() {
 // the address no such copy was stored under; the page is now asked for each
 // time, so the mark never needs to change.
 var _PDF_VIEWER_MARK = 'zr=1';
+// pdf.js's name for the interface language ('' is its own default, en-US).
+var _PDF_LOCALES = { 'fr': 'fr', 'de': 'de', 'es': 'es-ES', 'pt': 'pt-BR', 'ru': 'ru', 'zh': 'zh-CN', 'ar': 'ar', 'he': 'he', 'hi': 'hi-IN' };
+function _pdfLocale() {
+  var lang = (typeof _currentLang !== 'undefined' && _currentLang) ? _currentLang : '';
+  return _PDF_LOCALES[lang] || '';
+}
 function _pdfViewerUrl(pdfUrl) {
   // pdfUrl is already percent-encoded (/w/zim/path%20name.pdf).
   // PDF.js viewer fetches via XHR (Sec-Fetch-Dest: empty), so the server
   // serves raw content without needing ?raw=1 (that's only for browser navigation).
   // Don't append ?raw=1 — it gets parsed as a separate query param by URLSearchParams
   // and breaks the file path extraction in PDF.js's parseQueryString.
-  var lang = (typeof _currentLang !== 'undefined' && _currentLang) ? _currentLang : '';
-  var localeMap = { 'fr': 'fr', 'de': 'de', 'es': 'es-ES', 'pt': 'pt-BR', 'ru': 'ru', 'zh': 'zh-CN', 'ar': 'ar', 'he': 'he', 'hi': 'hi-IN' };
-  var locale = localeMap[lang] || '';
+  var locale = _pdfLocale();
   return '/static/pdfjs/web/viewer.html?' + _PDF_VIEWER_MARK + '&file=' + pdfUrl + (locale ? '#locale=' + locale : '');
 }
 // Single-page docs (devdocs) surface result paths like 'index#backslash' where

@@ -182,17 +182,21 @@ def warm(ctx, pg, base):
         timeout=30000,
     )
     pg.wait_for_function("() => !!navigator.serviceWorker.controller", timeout=30000)
-    pg.wait_for_function(
-        """async () => {
+    # The guide's offline copy is kept only when the guide is on (ZIMI_FIELDGUIDE).
+    guide = "fieldguide-offline.json" if os.environ.get("ZIMI_FIELDGUIDE") == "1" else "/static/app.js"
+    poll(
+        pg,
+        """async (guide) => {
           const keys = await caches.keys();
           for (const k of keys) {
             const urls = (await (await caches.open(k)).keys()).map(r => r.url);
-            if (urls.some(u => u.includes('/static/almanac.js')) && urls.some(u => u.includes('fieldguide-offline.json'))
+            if (urls.some(u => u.includes('/static/almanac.js')) && urls.some(u => u.includes(guide))
                 && urls.some(u => u.includes('/static/app.js'))) return true;
           }
           return false;
         }""",
-        timeout=60000,
+        timeout_s=60,
+        arg=guide,
     )
     # Read a page: the reader's frame asks for it, the worker keeps it.
     pg.evaluate("([z, p]) => openArticle(z, p, 'Hypothermia')", [ZIM, ARTICLE])
@@ -204,16 +208,28 @@ def warm(ctx, pg, base):
         "([z, p]) => Saved.save({ kind: 'article', zim: z, path: p, title: 'Hypothermia' })",
         [ZIM, ARTICLE],
     )
-    pg.wait_for_function(
+    poll(
+        pg,
         """async () => {
           for (const k of await caches.keys()) {
             if ((await (await caches.open(k)).keys()).some(r => r.url.includes('/w/wikipedia_en_top/Hypothermia'))) return true;
           }
           return false;
         }""",
-        timeout=30000,
+        timeout_s=30,
     )
     drop_kept_answers(pg)
+
+
+def poll(pg, js, timeout_s=60, arg=None):
+    """Ask an async page function until it says yes (wait_for_function does not
+    await the promise an async function returns: it is truthy at once)."""
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if pg.evaluate(js, arg):
+            return
+        pg.wait_for_timeout(250)
+    raise AssertionError("never became true: " + js[:80])
 
 
 def drop_kept_answers(pg):

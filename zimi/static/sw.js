@@ -188,8 +188,9 @@ let networkDownUntil = 0;
 // Non-identity API/data (article reads, health, manage, language lists). These
 // do not expose the library index and tolerate a cached fallback when offline.
 // /almanac-satellites too: the freshest orbital elements when the server
-// answers, the last ones seen when it does not.
-const NETWORK_FIRST_PREFIXES = ['/read', '/health', '/manage', '/article-languages', '/languages', '/almanac-satellites', '/almanac-ages'];
+// answers, the last ones seen when it does not. /catalog (a document library's
+// listing) too: a ZIM carried on this phone answers it from its own database.js.
+const NETWORK_FIRST_PREFIXES = ['/read', '/health', '/manage', '/article-languages', '/languages', '/almanac-satellites', '/almanac-ages', '/catalog'];
 
 function _hasPrefix(path, prefixes) {
   for (let i = 0; i < prefixes.length; i++) {
@@ -417,10 +418,16 @@ function zimAndPath(url) {
   try { return [decodeURIComponent(rest.slice(0, slash)), decodeURIComponent(rest.slice(slash + 1))]; } catch (e) { return null; }
 }
 
-// True when the page asked for is in a ZIM kept on this phone.
+// /catalog?zim=<zim>: the ZIM whose document listing is asked for, or null.
+function catalogZim(url) {
+  return url.pathname === '/catalog' ? url.searchParams.get('zim') : null;
+}
+
+// True when the page (or listing) asked for is in a ZIM kept on this phone.
 async function carriedZim(request) {
-  const zp = zimAndPath(new URL(request.url));
-  try { return !!(zp && zp[1] && self.KeepStore && await KeepStore.has(zp[0])); } catch (e) { return false; }
+  const url = new URL(request.url), zp = zimAndPath(url);
+  const zim = zp ? (zp[1] && zp[0]) : catalogZim(url);
+  try { return !!(zim && self.KeepStore && await KeepStore.has(zim)); } catch (e) { return false; }
 }
 
 function wLocation(zim, path) {
@@ -481,15 +488,84 @@ async function answerFromKeptZim(r, zim, path) {
 }
 
 async function keptZimResponse(request) {
-  const zp = zimAndPath(new URL(request.url));
-  if (!zp || !self.KeepStore) return null;
+  const url = new URL(request.url), zp = zimAndPath(url), cat = catalogZim(url);
+  if (!(zp || cat) || !self.KeepStore) return null;
   try {
-    const r = await KeepStore.reader(zp[0]);
-    return r ? await answerFromKeptZim(r, zp[0], zp[1]) : null;
+    const r = await KeepStore.reader(zp ? zp[0] : cat);
+    if (!r) return null;
+    return zp ? await answerFromKeptZim(r, zp[0], zp[1]) : await keptCatalog(r, cat);
   } catch (e) {
     return null;   // unreadable: the kept copy or the offline page speaks instead
   }
 }
+
+// The listing /catalog answers (search.get_catalog), from a carried ZIM's
+// database.js (zimi/nautilus.py). Sizes are left out: they would mean reading
+// every document. null when the ZIM has no listing.
+const LISTING_PATH = 'database.js';
+async function keptCatalog(r, zim) {
+  const e = await r.lookup(LISTING_PATH);
+  const target = e && (e.redirect >= 0 ? await r.resolve(e) : e);
+  if (!target) return null;
+  const text = new TextDecoder('utf-8').decode(await r.read(target));
+  const start = text.indexOf('['), end = text.lastIndexOf(']');
+  let items = [];
+  try { items = start >= 0 && end > start ? parsePyLiteral(text.slice(start, end + 1)) : []; } catch (err) { return null; }
+  const docs = (Array.isArray(items) ? items : []).filter(d => d && typeof d === 'object').map(d => {
+    const fp = typeof d.fp === 'string' ? [d.fp] : (Array.isArray(d.fp) ? d.fp : []);
+    return { title: d.ti || '?', description: d.dsc || '', author: d.aut || '', path: fp.length ? 'files/' + fp[0] : null, size: null };
+  });
+  return docs.length ? jsonResponse({ zim: zim, documents: docs, count: docs.length }) : null;
+}
+
+// A Python literal as nautilus writes its listing (repr: single-quoted strings,
+// True/False/None), read the way the server's ast.literal_eval reads it.
+const PY_ESCAPES = { n: '\n', t: '\t', r: '\r', '\\': '\\', "'": "'", '"': '"', '0': '\0' };
+function parsePyLiteral(s) {
+  let i = 0;
+  function ws() { while (/\s/.test(s[i] || '')) i++; if (i >= s.length) throw new Error('unterminated literal'); }
+  function hex(n) { const v = parseInt(s.substr(i, n), 16); i += n; return v; }
+  function str(q) {
+    let out = '';
+    for (i++; s[i] !== q; ) {
+      if (i >= s.length) throw new Error('unterminated string');
+      if (s[i] !== '\\') { out += s[i++]; continue; }
+      const c = s[i + 1]; i += 2;
+      if (c === 'x') out += String.fromCharCode(hex(2));
+      else if (c === 'u') out += String.fromCharCode(hex(4));
+      else if (c === 'U') out += String.fromCodePoint(hex(8));
+      else out += c in PY_ESCAPES ? PY_ESCAPES[c] : '\\' + c;
+    }
+    i++;
+    return out;
+  }
+  function seq(close, add) {
+    for (i++; ; ) {
+      ws();
+      if (s[i] === close) { i++; return; }
+      add();
+      ws();
+      if (s[i] === ',') i++;
+    }
+  }
+  function val() {
+    ws();
+    const c = s[i];
+    if (c === '[' || c === '(') { const a = []; seq(c === '[' ? ']' : ')', () => a.push(val())); return a; }
+    if (c === '{') {
+      const o = {};
+      seq('}', () => { const k = val(); ws(); if (s[i++] !== ':') throw new Error('expected :'); o[k] = val(); });
+      return o;
+    }
+    if (c === "'" || c === '"') return str(c);
+    const m = /^(?:True|False|None|-?[0-9][0-9.eE+-]*)/.exec(s.slice(i, i + 40));
+    if (!m) throw new Error('unexpected ' + c);
+    i += m[0].length;
+    return m[0] === 'True' ? true : m[0] === 'False' ? false : m[0] === 'None' ? null : +m[0];
+  }
+  return val();
+}
+self.parsePyLiteral = parsePyLiteral;  // test hook
 
 function jsonResponse(obj) {
   return new Response(JSON.stringify(obj), { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
