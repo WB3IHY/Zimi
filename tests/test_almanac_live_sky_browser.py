@@ -592,7 +592,10 @@ def test_the_light_clock_on_a_ride(browser, served):
         )
         # Halfway along the 1 g trip the ship is at its peak (gamma 3.26 to
         # Alpha Centauri): the light clock shows that speed, not a cruise speed.
+        # The orrery is stopped first, or a slow runner's next frame flies on
+        # past the peak before the text is read.
         pg.evaluate(
+            "cancelAnimationFrame(_almanacOrreryRAF); _almanacOrreryRAF = null; _orreryPlaying = false;"
             "_orreryRockets[0].elapsed = _orreryRockets[0].duration / 2; _orreryUpdateRide()"
         )
         peak = pg.evaluate("_orreryTwinClocks(_orreryRockets[0], 1, 0.5).gamma")
