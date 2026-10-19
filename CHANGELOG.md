@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Keep offline: a ZIM's menu or About keeps it on the phone. It resumes, shows a ring in the card's foot while it comes and a check once it is here, and the menu shows its progress with Pause and Cancel. Kept ZIMs open, show their pictures and search with no server, in the home-screen app too. It needs an HTTPS connection, and says so where it cannot work.
+- Download ZIMs to your phone or laptop and use them off-grid, from a ZIM's menu or About: they open, show their pictures and search with no server, in the home-screen app too. A download resumes, shows a ring on its card while it comes and a check once it is here, and its menu shows the progress with Pause and Cancel.
 - Library cards carry one button, ⋯, which opens the card's menu (Favorite, Keep offline, About and the rest); on a phone it comes up from the bottom as a sheet. A favorite's star sits beside it.
 - Offline is a mode, not a fault: a small Offline pill replaces the warning bar, and Discover shows only cards that open.
 - Zimi reads ZIMs from folders another program owns, in place: `ZIMI_EXTRA_ZIM_DIRS`, or Settings, Server, Storage. ZIMs added or removed there appear or leave within about a minute.
