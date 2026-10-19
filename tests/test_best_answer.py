@@ -436,16 +436,27 @@ class TestQuestionWordsAreNotSearched(unittest.TestCase):
     def test_every_question_word_of_every_language_is_left_out_of_the_search(self):
         import zimi.search as search
 
-        left_in = [w for w in sorted(ba.QUESTION_WORDS) if search._clean_query(w + " xyzzy") != "xyzzy"]
+        left_in = [w for w in sorted(ba.QUESTION_WORDS) if search._clean_query(w + " xyzzy plugh") != "xyzzy plugh"]
         self.assertEqual(left_in, [])
 
     def test_the_auxiliaries_of_a_question_are_left_out(self):
         import zimi.search as search
 
         for w in "did does do can could should would shall may might must had were been whom whose why".split():
-            self.assertEqual(search._clean_query(w + " xyzzy"), "xyzzy", w)
+            self.assertEqual(search._clean_query(w + " xyzzy plugh frob"), "xyzzy plugh frob", w)
         self.assertEqual(search._clean_query("when did the berlin wall fall"), "berlin wall fall")
         self.assertEqual(search._clean_query("what does insulin do"), "insulin")
+
+    def test_a_name_that_opens_with_one_keeps_it(self):
+        # Only a question loses them: "Wat Arun", "Que Sera", "May Day" and
+        # "Tai Chi" are names, and the library-wide search has no second try.
+        import zimi.search as search
+
+        for q in ("tai chi", "lake como", "wat arun", "que sera", "may day", "May Day parade", "why rain"):
+            self.assertEqual(search._clean_query(q), q)
+        self.assertEqual(search._clean_query("how to purify water"), "purify water")
+        self.assertEqual(search._clean_query("can dogs eat grapes"), "dogs eat grapes")
+        self.assertEqual(search._clean_query("wat is water?"), "water")
 
     def test_a_search_of_nothing_but_them_still_runs(self):
         import zimi.search as search

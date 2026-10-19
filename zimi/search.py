@@ -1710,8 +1710,11 @@ STOP_WORDS = _interlang_stopwords.get("en", set()) | {
     "will",
     "with",
     "you",
-    # The auxiliaries of a question: "when did the Berlin Wall fall" asked
-    # the index for a page holding "did" and found none.
+}
+# The auxiliaries of a question: "when did the Berlin Wall fall" asked the
+# index for a page holding "did" and found none. Left out only when the query
+# is a question (_clean_query): "May Day" and "Can-can" keep their words.
+QUESTION_AUX = {
     "am",
     "been",
     "being",
@@ -1734,16 +1737,44 @@ STOP_WORDS = _interlang_stopwords.get("en", set()) | {
 }
 
 
+# Fewer words than these, with no question mark, are a name, not a question:
+# "Wat Arun" and "Que Sera" open with a question word, "May Day parade" with
+# an auxiliary ("can dogs eat grapes" is four).
+_QUESTION_MIN_WORDS = 3
+_AUX_QUESTION_MIN_WORDS = 4
+
+
+def _is_question(parts):
+    """Whether these words ask: opened by a question word in any language
+    ("how", "wann") or an auxiliary ("did", "can"), with enough words after it
+    to be a question, or ending in a question mark."""
+    if not parts:
+        return False
+    if parts[-1].endswith("?"):
+        return True
+    first = parts[0].lower()
+    if _query.fold(first) in _query.QUESTION_WORDS:
+        return len(parts) >= _QUESTION_MIN_WORDS
+    return first in QUESTION_AUX and len(parts) >= _AUX_QUESTION_MIN_WORDS
+
+
 def _clean_query(q):
-    """Strip stop words for better Xapian matching; the query as it was when
+    """Strip stop words for better Xapian matching, and a question's own words
+    (question words, auxiliaries) when it is one; the query as it was when
     every word is one. Quotes never reach here: a query with a phrase is an
     operator query, and the index is given its words (query.term_words)."""
+    parts = q.split()
+    asking = _is_question(parts)
     words = [
         w
-        for w in q.split()
-        if w.lower() not in STOP_WORDS and _query.fold(w) not in _query.QUESTION_WORDS
+        for w in parts
+        if w.lower() not in STOP_WORDS
+        and not (
+            asking
+            and (w.lower().rstrip("?") in QUESTION_AUX or _query.fold(w.rstrip("?")) in _query.QUESTION_WORDS)
+        )
     ]
-    return " ".join(words) or q
+    return " ".join(w.rstrip("?") for w in words) or q
 
 
 # ZIM-name → SearXNG category. Heuristic prefix match, lowercase.
