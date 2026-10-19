@@ -31,7 +31,7 @@ dependencies = [
 [project.optional-dependencies]
 # Text out of the PDFs in zimgit ZIMs. Without it a PDF reads as one line
 # saying PyMuPDF would extract its text.
-pdf = ["PyMuPDF>=1.23.0"]
+pdf = ["PyMuPDF>=1.23.0,<2"]
 
 [project.scripts]
 zimi-mcp = "zimi.server:mcp_main"

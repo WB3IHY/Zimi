@@ -66,7 +66,7 @@ dependencies = [
 
 [project.optional-dependencies]
 bt = ["libtorrent==2.0.*"]
-pdf = ["PyMuPDF>=1.23.0"]
+pdf = ["PyMuPDF>=1.23.0,<2"]
 # `zimi desktop`: the native window. On Linux it also needs the distro's
 # WebKitGTK and PyGObject (see README); without them it opens the browser.
 desktop = ["pywebview>=4.0.0"]
@@ -88,7 +88,7 @@ browser = ["playwright>=1.40"]
 # Docker image's pins). Without them Zimi sets them up itself, in a venv under
 # its data directory, the first time someone downloads a voice.
 voices = ["piper-tts>=1.8,<2", "kokoro-onnx>=0.6,<0.7", "misaki[zh]>=0.9.4,<0.10", "num2words>=0.5.14,<0.6"]
-all = ["PyMuPDF>=1.23.0", "mcp>=1.0,<2.0", "libtorrent==2.0.*"]
+all = ["PyMuPDF>=1.23.0,<2", "mcp>=1.0,<2.0", "libtorrent==2.0.*"]
 
 [project.scripts]
 zimi = "zimi.server:main"
