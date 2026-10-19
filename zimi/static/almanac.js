@@ -210,6 +210,7 @@ var _almReturnScroll = null;
 
 function _openAlmanacInner(replaceState) {
   _almanacOpen = true;
+  _almanacLoopsHeld = false; // the last close (_cancelAllRAF) held them
   document.body.classList.add('almanac-mode');
   // The reload-into-almanac boot gate (stamped by the head bootstrap before
   // first paint) has done its job once the real almanac chrome is up.
@@ -7171,7 +7172,14 @@ function _almDayMonthYear(day, monthName, yearStr) {
   try { parts = _tzFmt('UTC', { day: 'numeric', month: 'long', year: 'numeric' }, lang).formatToParts(new Date(Date.UTC(2000, 0, 17))); }
   catch (e) { return monthName + ' ' + day + ', ' + yearStr; }
   var fill = { day: day, month: monthName, year: yearStr };
-  return parts.map(function (p) { return fill[p.type] != null ? fill[p.type] : p.value; }).join('');
+  // Chinese and Japanese write a numbered month as 1 + 月; a named month
+  // (一月) already ends in it, so the literal after it is dropped.
+  return parts.map(function (p, i) {
+    var prev = parts[i - 1];
+    if (p.type === 'literal' && prev && prev.type === 'month' && /^\d+$/.test(prev.value) &&
+        p.value.trim() && String(monthName).slice(-p.value.trim().length) === p.value.trim()) return '';
+    return fill[p.type] != null ? fill[p.type] : p.value;
+  }).join('');
 }
 function _almRenderCrossRef(jdn) {
   var greg = _jdnToGregorian(jdn);

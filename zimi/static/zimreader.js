@@ -1,8 +1,7 @@
 // A ZIM file read in JavaScript, written from the openZIM format description
 // (https://wiki.openzim.org/wiki/ZIM_file_format): the 80-byte header, the
 // MIME list, the URL and title pointer lists, directory entries, clusters.
-// No Kiwix code is used (kiwix-js and libzim's WASM build are GPL; Zimi is
-// MIT). Clusters compressed with zstd are decoded by fzstd (MIT, bundled
+// No Kiwix code is used. Clusters compressed with zstd are decoded by fzstd (MIT, bundled
 // beside this file as fzstd.js); uncompressed clusters are read in place.
 // xz clusters are refused with a ZimUnsupported error, not guessed at.
 //

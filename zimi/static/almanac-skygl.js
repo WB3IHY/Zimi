@@ -549,7 +549,10 @@ function _sgProgram(gl, vs, fs) {
 }
 function _sgFinishProgram(gl, p) {
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
-    throw new Error('sky program: ' + gl.getProgramInfoLog(p) + ' ' + p.shaders.map(function (s) { return gl.getShaderInfoLog(s); }).join(' '));
+    var why = 'sky program: ' + gl.getProgramInfoLog(p) + ' ' + p.shaders.map(function (s) { return gl.getShaderInfoLog(s); }).join(' ');
+    p.shaders.forEach(function (s) { gl.deleteShader(s); }); // a refused program is not left on the GPU
+    gl.deleteProgram(p);
+    throw new Error(why);
   }
   p.u = {};
   var n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
@@ -721,7 +724,8 @@ function _sgLoadData(onReady) {
       if (_sg !== sg) return;
       _sgUploadStars(sg, stars);
       onReady();
-    }).catch(function () {}).then(function () { sg.starsLoading = false; });
+    }).catch(function () { _sgFailed.stars = true; }) // until _sgRetryLoads, not every paint
+      .then(function () { sg.starsLoading = false; });
   }
   if (!sg.mwReady && !sg.mwLoading && !_sgFailed.mw) {
     sg.mwLoading = true;

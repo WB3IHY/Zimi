@@ -363,6 +363,9 @@ def test_german_almanac_speaks_german(browser, served):
               elong: t('alm_event_elongation', { planet: 'Merkur', event: t('alm_greatest_elongation') }),
             })""")
         assert got["date"] == "17. Oktober 2026", got
+        # A numbered month is written 1 + 月; a named one already ends in it.
+        zh = pg.evaluate("() => { const was = _currentLang; _currentLang = 'zh'; try { return _almDayMonthYear(17, '一月', '2000'); } finally { _currentLang = was; } }")
+        assert zh == "2000年一月17日", zh
         assert got["holiday"] == "Weltwassertag", got
         assert got["num"] == "3,5", got
         # The hour cycle is German's own (24 hours), as the header's is: no AM or PM on any clock.
@@ -616,6 +619,9 @@ def test_reopening_the_almanac_opens_at_the_top(browser, served):
             pg.evaluate("() => document.getElementById('almanac-content').scrollTop")
             < 5
         )
+        # Closing held the loops; a fresh open lets the orrery run again
+        # when it scrolls back into view.
+        assert pg.evaluate("() => _almanacLoopsHeld") is False
     finally:
         ctx.close()
 
