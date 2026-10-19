@@ -6460,7 +6460,12 @@ def _handle_library_folders(handler, data):
     except libfolders.FolderError as e:
         return handler._json(400, {"error": e.key, "error_key": e.key})
     except ValueError as e:
-        return handler._json(400, {"error": str(e), "error_key": str(e)})
+        # nomad_bad_url is the one ValueError raised on purpose; anything else
+        # (a path with a NUL in it) is logged here and not sent back.
+        key = "nomad_bad_url" if str(e) == "nomad_bad_url" else "save_failed"
+        if key == "save_failed":
+            log.info("library-folders %s refused: %s", action, e)
+        return handler._json(400, {"error": key, "error_key": key})
     if action == "add":
         libfolders.ensure_watch()
     return handler._json(200, _library_folders_view())

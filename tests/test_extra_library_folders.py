@@ -463,6 +463,25 @@ class TestRoutes(unittest.TestCase):
             [{"label": "Project NOMAD", "incoming_files": 0, "incoming_bytes": 0}],
         )
 
+    def test_an_unexpected_refusal_names_no_detail(self):
+        # Only nomad_bad_url is a ValueError raised on purpose; any other's
+        # text (a path, an OS detail) stays in the log.
+        real = libfolders.add
+
+        def boom(path, label=""):
+            raise ValueError("/secret/place: embedded null byte")
+
+        libfolders.add = boom
+        try:
+            st, d = self._req("/manage/library-folders", {"action": "add", "path": "x"})
+        finally:
+            libfolders.add = real
+        self.assertEqual((st, d), (400, {"error": "save_failed", "error_key": "save_failed"}))
+        st, d = self._req(
+            "/manage/library-folders", {"action": "nomad", "enabled": True, "url": "nope"}
+        )
+        self.assertEqual(d.get("error_key"), "nomad_bad_url")
+
     def test_the_layout_list_without_other_folders_has_none(self):
         _, wrapped = self._req("/list?layout=1")
         self.assertEqual(wrapped["folders"], [])
