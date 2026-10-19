@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import fieldguide_fixture as fx  # noqa: E402
 import test_offline_truth_live as _live  # noqa: E402
-from test_offline_truth_live import Server, _free_port  # noqa: E402
+from test_offline_truth_live import Server, _free_port, poll  # noqa: E402
 
 # ZIMI_ROOT=<checkout> measures another tree (a baseline) with the same harness.
 _live.ROOT = os.environ.get("ZIMI_ROOT", _live.ROOT)
@@ -123,12 +123,13 @@ def main():
         pg.wait_for_function(
             "() => !!navigator.serviceWorker.controller", timeout=30000
         )
-        pg.wait_for_function(
+        pg.evaluate("() => _keepAlmanac()")  # as a kept ZIM or the Almanac opened asks
+        poll(
+            pg,
             """async () => { for (const k of await caches.keys()) {
               const u = (await (await caches.open(k)).keys()).map(r => r.url);
               if (u.some(x => x.includes('/static/app.js')) && u.some(x => x.includes('/static/almanac.js'))) return true; }
               return false; }""",
-            timeout=60000,
         )
         pg.wait_for_timeout(1500)
         pg.close()

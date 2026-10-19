@@ -791,10 +791,11 @@ def test_the_release_gate_leaves_an_offline_install_months_of_satellites():
     )
 
 
-def test_the_satellites_are_kept_with_the_shell():
+def test_the_satellites_are_kept_with_the_almanac():
     """Offline, the 3D Earth drew no satellites: their elements and SGP4 were
     kept only once the Earth had been opened online since the last deploy
-    (a deploy empties the worker's cache). Both are kept with the shell."""
-    urls = _http._offline_shell_urls()
+    (a deploy empties the worker's cache). Both come with the Almanac's pack,
+    which a kept ZIM or the Almanac opened asks the worker for."""
+    urls = _http._almanac_pack_urls()
     assert _http.SATELLITES_PATH in urls
     assert any(re.fullmatch(r"/static/earth/satellite-[\d.]+\.min\.js(\?v=\w+)?", u) for u in urls), urls

@@ -1150,28 +1150,31 @@ if os.path.isdir(_STATIC_DIR):
     ).hexdigest()[:8]
 
 
-# What the service worker keeps at install so the shell, the Almanac and the
-# Field Guide run with no server (sw.js SHELL_URLS). Read from the pages
-# themselves, so the addresses carry the content hashes the pages ask for;
-# only the files named here are kept (the 3D Earth's textures and three.js are
-# large, and /static/ keeps them the first time they are opened).
+# What the service worker keeps so the shell, the Almanac and the Field Guide
+# run with no server. Read from the pages themselves, so the addresses carry
+# the content hashes the pages ask for; only the files named here are kept.
 _OFFLINE_SHELL_FILE = re.compile(
     r"/static/((?:app\.(?:js|css)|almanac[\w-]*\.(?:js|css)|zone-places\.js"
     r"|world-map\.svg|tz-borders\.json|fieldguide[\w-]*\.(?:html|json|js)|highlights\.js|find\.js"
     r"|keepstore\.js|keepworker\.js|zimreader\.js|fzstd\.js|rosetta/manifest\.json"
     r"|earth/(?:moon-v1\.webp|stars-v1\.bin|stars-names-v1\.json|constellations-v1\.json|milkyway-v1\.webp"
-    r"|satellite-[\d.]+\.min\.js))"
+    r"|satellite-[\d.]+\.min\.js|three-r\d+\.min\.js|earth-(?:day|night)-v1\.webp))"
     r"(?:\?v=[0-9a-z]+)?)"
 )
-
+# Of those, the Almanac's own and its 3D Earth's (~1 MB compressed): kept on a
+# device only once it has a reason to want them offline, a ZIM kept there or
+# the Almanac opened (sw.js ALMANAC_URLS), not on every visit after a deploy.
+# The 4096 Moon map is left to the first time it is shown.
+_ALMANAC_PACK_FILE = re.compile(
+    r"^/static/(?:almanac[\w-]*\.(?:js|css)|world-map\.svg|tz-borders\.json|rosetta/|earth/)"
+)
 
 SATELLITES_PATH = "/almanac-satellites"
 
 
-def _offline_shell_urls():
-    """The /static/ addresses (with their ?v= hashes) the shell and the
-    pages it opens ask for, among the files kept for offline, and the
-    satellites' answer, sorted."""
+def _offline_urls():
+    """Every /static/ address (with its ?v= hash) the shell and the pages it
+    opens ask for, among the files kept for offline, sorted."""
     # The pages as they are served: the shell and app.js rewritten, the
     # Field Guide page and the Almanac's scripts as written. An address in a
     # comment is not asked for; one with a version is, so a bare address is
@@ -1195,15 +1198,24 @@ def _offline_shell_urls():
     }
     versioned = {u.split("?")[0] for u in found if "?" in u}
     found = {u for u in found if "?" in u or u not in versioned}
-    # The 3D Earth's satellites: their orbital elements (an answer, not a
-    # file: the server's freshest, kept as the worker keeps it) beside SGP4
-    # above, so the GPS shell and the ISS are drawn with no server.
-    found.add(SATELLITES_PATH)
     if _srv.fieldguide_enabled():
         found.add("/static/" + FIELDGUIDE_OFFLINE)
     else:
         found = {u for u in found if not u.startswith("/static/fieldguide")}
     return sorted(found)
+
+
+def _offline_shell_urls():
+    """What the worker keeps when it installs (sw.js SHELL_URLS): the shell,
+    and the Field Guide when it is on."""
+    return [u for u in _offline_urls() if not _ALMANAC_PACK_FILE.match(u)]
+
+
+def _almanac_pack_urls():
+    """What the worker keeps when asked to (sw.js ALMANAC_URLS): the
+    Almanac's files, the 3D Earth's, and the satellites' orbital elements
+    (an answer, not a file: the server's freshest when it was kept)."""
+    return [u for u in _offline_urls() if _ALMANAC_PACK_FILE.match(u)] + [SATELLITES_PATH]
 
 
 def _asset_version():
@@ -5176,6 +5188,13 @@ class ZimHandler(BaseHTTPRequestHandler):
                         rb"const SHELL_URLS = \[[^\]]*\];",
                         b"const SHELL_URLS = "
                         + json.dumps(_offline_shell_urls()).encode()
+                        + b";",
+                        body,
+                    )
+                    body = re.sub(
+                        rb"const ALMANAC_URLS = \[[^\]]*\];",
+                        b"const ALMANAC_URLS = "
+                        + json.dumps(_almanac_pack_urls()).encode()
                         + b";",
                         body,
                     )

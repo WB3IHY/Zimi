@@ -175,13 +175,16 @@ def shot(pg, name):
 
 def warm(ctx, pg, base):
     """The app opened online: the worker is in control and has kept the
-    shell, the Almanac and the guide; one article is read and saved."""
+    shell, the Almanac (asked for, as opening it does) and the guide; one
+    article is read and saved."""
     pg.goto(base + "/", wait_until="load")
     pg.wait_for_function(
         "() => typeof openAlmanac === 'function' && typeof Saved === 'object'",
         timeout=30000,
     )
     pg.wait_for_function("() => !!navigator.serviceWorker.controller", timeout=30000)
+    # The Almanac comes once it has been opened (or a ZIM kept), as here.
+    pg.evaluate("() => _keepAlmanac()")
     # The guide's offline copy is kept only when the guide is on (ZIMI_FIELDGUIDE).
     guide = "fieldguide-offline.json" if os.environ.get("ZIMI_FIELDGUIDE") == "1" else "/static/app.js"
     poll(

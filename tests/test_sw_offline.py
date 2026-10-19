@@ -41,6 +41,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const src = fs.readFileSync(process.argv[1], 'utf8').replace(
   /const SHELL_URLS = \[\];/, 'const SHELL_URLS = ' + JSON.stringify(SHELL) + ';')
+  .replace(/const ALMANAC_URLS = \[\];/, 'const ALMANAC_URLS = ' + JSON.stringify(ALMANAC) + ';')
   // The deadlines in tenths, so a slow server can be played in real time.
   .replace(/(const DEADLINE_\w+_MS = )(\d+)/g, (m, k, v) => k + Math.round(v / 10))
   .replace(/(const NETWORK_DOWN_MS = )(\d+)/, (m, k, v) => k + Math.round(v / 10));
@@ -125,6 +126,11 @@ async function request(url, o) {
   const r = await responded;
   return { status: r.status, body: r.body, offline: r.headers.get('X-Zimi-Offline'), passed: false };
 }
+async function message(data) {
+  let waited = Promise.resolve();
+  listeners.message({ data, waitUntil: (x) => { waited = x; } });
+  await waited;
+}
 const keptPaths = () => [...store(CV).keys()].map((u) => u.replace(ORIGIN, ''));
 
 // SCENARIO is a string literal written in this test file, never input.
@@ -133,14 +139,15 @@ eval('(async () => {' + SCENARIO + '})()').then((out) => process.stdout.write(JS
 """
 
 
-def _run(scenario, shell=(), offline=False):
+def _run(scenario, shell=(), offline=False, almanac=()):
     node = shutil.which("node")
     if not node:
         raise unittest.SkipTest("node not available")
     driver = (
-        "const SHELL = %s;\nlet OFFLINE = %s;\nconst SCENARIO = %s;\n"
+        "const SHELL = %s;\nconst ALMANAC = %s;\nlet OFFLINE = %s;\nconst SCENARIO = %s;\n"
         % (
             json.dumps(list(shell)),
+            json.dumps(list(almanac)),
             "true" if offline else "false",
             json.dumps(scenario),
         )
@@ -159,30 +166,48 @@ def _run(scenario, shell=(), offline=False):
 
 SHELL = [
     "/static/app.js?v=a1",
-    "/static/almanac.js?v=a2",
     "/static/fieldguide-offline.json",
 ]
+ALMANAC = ["/static/almanac.js?v=a2", "/almanac-satellites"]
 
 
 class TestInstall(unittest.TestCase):
-    def test_install_keeps_the_shell_and_what_the_almanac_and_guide_need(self):
+    def test_install_keeps_the_shell_and_what_the_guide_needs(self):
         out = _run(
-            "const r = await install(); return { r, kept: keptPaths() };", shell=SHELL
+            "const r = await install(); return { r, kept: keptPaths() };",
+            shell=SHELL,
+            almanac=ALMANAC,
         )
         self.assertEqual(out["r"], "installed")
         for u in ["/"] + SHELL:
             self.assertIn(u, out["kept"])
+        # Not the Almanac (~1 MB): a deploy reinstalls for every visitor.
+        for u in ALMANAC:
+            self.assertNotIn(u, out["kept"])
+
+    def test_the_almanac_is_kept_when_the_page_asks(self):
+        # A ZIM kept here, or the Almanac opened: keep-almanac.
+        out = _run(
+            "await install(); await message({ type: 'keep-almanac' });"
+            "const first = asked.length; await message({ type: 'keep-almanac' });"
+            "return { kept: keptPaths(), again: asked.length - first };",
+            shell=SHELL,
+            almanac=ALMANAC,
+        )
+        for u in ALMANAC:
+            self.assertIn(u, out["kept"])
+        self.assertEqual(out["again"], 0, "what is kept is not fetched again")
 
     def test_one_file_that_cannot_be_had_does_not_stop_the_install(self):
         # Failing the install would leave a phone with no worker at all.
         out = _run(
-            "network['/static/almanac.js'] = { status: 404 };"
+            "network['/static/app.js'] = { status: 404 };"
             "const r = await install(); return { r, kept: keptPaths() };",
             shell=SHELL,
         )
         self.assertEqual(out["r"], "installed")
-        self.assertIn("/static/app.js?v=a1", out["kept"])
-        self.assertNotIn("/static/almanac.js?v=a2", out["kept"])
+        self.assertIn("/static/fieldguide-offline.json", out["kept"])
+        self.assertNotIn("/static/app.js?v=a1", out["kept"])
 
 
 class TestNavigationWithNoServer(unittest.TestCase):
@@ -413,29 +438,23 @@ class TestServerFillsTheShellList(unittest.TestCase):
         with open(_SW, encoding="utf-8") as f:
             raw = f.read()
         self.assertIn("const SHELL_URLS = [];", raw, "the source file is the template")
-        urls = http._offline_shell_urls()
-        # The Almanac's scripts at the addresses the shell asks for, with their hashes.
-        for name in (
-            "almanac.js",
-            "almanac-sky.js",
-            "app.js",
-            "app.css",
-            "fieldguide.html",
-            "zone-places.js",
-        ):
-            self.assertTrue(
-                any(
-                    re.match(r"/static/%s\?v=[0-9a-f]{8}$" % re.escape(name), u)
-                    for u in urls
-                ),
-                name,
-            )
-        self.assertIn("/static/fieldguide-offline.json", urls)
-        self.assertIn("/static/earth/moon-v1.webp", urls)
-        # The big pictures are kept the first time they are opened, not at install.
-        self.assertFalse(
-            [u for u in urls if "three" in u or "earth-day" in u or "moon-4k" in u]
+        shell, pack = http._offline_shell_urls(), http._almanac_pack_urls()
+        hashed = lambda name, urls: any(
+            re.match(r"/static/%s\?v=[0-9a-f]{8}$" % re.escape(name), u) for u in urls
         )
+        # The shell at install, at the addresses the pages ask for, with their hashes.
+        for name in ("app.js", "app.css", "fieldguide.html", "zone-places.js"):
+            self.assertTrue(hashed(name, shell), name)
+        self.assertIn("/static/fieldguide-offline.json", shell)
+        # The Almanac only when asked: its scripts, its 3D Earth, the satellites.
+        for name in ("almanac.js", "almanac-sky.js", "almanac-earth.js"):
+            self.assertTrue(hashed(name, pack), name)
+            self.assertFalse(hashed(name, shell), name)
+        for u in ("/static/earth/moon-v1.webp", "/almanac-satellites"):
+            self.assertIn(u, pack)
+        self.assertTrue([u for u in pack if "three-r" in u] and [u for u in pack if "earth-day" in u])
+        # The 4096 Moon map waits for the first time it is shown.
+        self.assertFalse([u for u in shell + pack if "moon-4k" in u])
 
     def test_the_worker_a_browser_is_sent_carries_the_list_and_this_deploys_version(
         self,
@@ -457,6 +476,8 @@ class TestServerFillsTheShellList(unittest.TestCase):
         m = re.search(r"const SHELL_URLS = (\[[^\]]*\]);", served)
         self.assertTrue(m, "the served worker has its list")
         self.assertEqual(json.loads(m.group(1)), http._offline_shell_urls())
+        m = re.search(r"const ALMANAC_URLS = (\[[^\]]*\]);", served)
+        self.assertTrue(m and json.loads(m.group(1)) == http._almanac_pack_urls(), "and the Almanac's")
         self.assertIn(http._asset_version(), served)
         self.assertNotIn("const SHELL_URLS = [];", served)
 

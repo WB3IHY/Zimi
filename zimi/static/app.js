@@ -6029,11 +6029,21 @@ function _keepLoad() {
 // and the PDF viewer (3.7 MB) for a document library's PDFs. A deploy empties
 // the worker's cache, so this runs when a ZIM starts coming (done long before
 // the ZIM is) and on every start that has one; only what is missing is fetched.
+// The Almanac and its 3D Earth (~1 MB) are kept by the worker, which knows
+// their addresses (sw.js ALMANAC_URLS): when a ZIM is kept here, and when the
+// Almanac is opened, someone may well want it with no signal next time.
+function _keepAlmanac() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.ready.then(function(reg) {
+    if (reg.active) reg.active.postMessage({ type: 'keep-almanac' });
+  }).catch(function() {});
+}
 var _KEEP_OFFLINE_FILES = ['/static/libzim/libzim-wasm.js', '/static/libzim/libzim-wasm.wasm',
   '/static/pdfjs/web/viewer.html', '/static/pdfjs/web/viewer.mjs', '/static/pdfjs/web/viewer.css',
   '/static/pdfjs/build/pdf.mjs', '/static/pdfjs/build/pdf.worker.mjs', '/static/pdfjs/web/locale/locale.json',
   '/static/pdfjs/web/images/loading-icon.gif'];
 function _keepPrimeOffline() {
+  _keepAlmanac();
   var files = _KEEP_OFFLINE_FILES.concat(['/static/pdfjs/web/locale/' + (_pdfLocale() || 'en-US') + '/viewer.ftl']);
   files.forEach(function(u) {
     var have = window.caches ? caches.match(u, { ignoreSearch: true }).catch(function() { return null; }) : Promise.resolve(null);
@@ -7694,6 +7704,7 @@ function openAlmanac(replaceState) {
     _loadAlmanacModules().then(function() {
       _almanacLoaded = true;
       _openAlmanacInner(replaceState);
+      _keepAlmanac(); // opened once, here next time with no signal too
       // The 3D Earth's module follows the open instead of delaying it; the
       // orrery draws the Earth's glow (the way in) once it has landed.
       // The ephemeris first (the Sun, the Moon, the planets: no GL), then the Earth view; in order.

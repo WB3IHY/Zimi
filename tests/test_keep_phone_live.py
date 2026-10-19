@@ -253,6 +253,12 @@ def test_the_shell_features_need_no_server_and_no_file_is_missing(pw, world):
     pg.goto(world.base + "/", wait_until="load")
     pg.wait_for_selector(".stat-card", timeout=30000)
     wait_shell_kept(pg)
+    # The Almanac comes once asked for: a ZIM kept here, or the Almanac opened.
+    pg.evaluate("() => _keepAlmanac()")
+    poll(pg, """async () => { for (const k of await caches.keys()) {
+        const u = (await (await caches.open(k)).keys()).map(r => r.url);
+        if (u.some(x => x.includes('/static/almanac.js')) && u.some(x => x.includes('/almanac-satellites'))) return true; }
+        return false; }""")
     world.stop()
     ctx.set_offline(True)
     pg.close()

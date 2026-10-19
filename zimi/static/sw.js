@@ -19,15 +19,18 @@ try {
 const PRECACHE_URLS = ['/', '/favicon.png', '/apple-touch-icon.png',
                        '/static/fonts/DSEG14Classic-Bold.woff2'];
 
-// What the shell, the Almanac and the Field Guide need to run with no
-// server, at the addresses this deploy's pages ask for (they carry a content
-// hash, so only the server can list them): filled in at serve time by
-// http.py from the pages themselves. Kept separately from PRECACHE_URLS: a
-// file that fails to fetch is skipped rather than failing the whole install,
-// which would leave the phone with no service worker at all. The big
-// pictures (the 3D Earth's textures, three.js) are not here; /static/ keeps
-// them the first time they are opened.
+// What the shell and the Field Guide need to run with no server, at the
+// addresses this deploy's pages ask for (they carry a content hash, so only
+// the server can list them): filled in at serve time by http.py from the
+// pages themselves. Kept separately from PRECACHE_URLS: a file that fails to
+// fetch is skipped rather than failing the whole install, which would leave
+// the phone with no service worker at all.
 const SHELL_URLS = [];
+// The Almanac, its 3D Earth and the satellites' elements (~1 MB compressed),
+// filled in the same way, and kept only when the page asks (keep-almanac): a
+// ZIM is kept on this device, or the Almanac was opened. Not at every install,
+// which a deploy makes for every visitor.
+const ALMANAC_URLS = [];
 
 // The page shown when nothing can be served at all: the shell was never kept
 // (the app has not been opened with a connection since it was installed).
@@ -604,7 +607,14 @@ async function keepLocal(request) {
 
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'keep-changed' && self.KeepStore) KeepStore.forgetNames();
+  if (event.data && event.data.type === 'keep-almanac') event.waitUntil(keepAlmanac());
 });
+
+// Only what this cache does not have yet is fetched; one that fails is skipped.
+async function keepAlmanac() {
+  const cache = await caches.open(CACHE_VERSION);
+  await Promise.allSettled(ALMANAC_URLS.map(async u => { if (!(await cache.match(u))) await cache.add(u); }));
+}
 
 // Only the last few searches are kept, newest first.
 async function trimSearches() {
