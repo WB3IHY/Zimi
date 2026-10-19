@@ -2026,6 +2026,7 @@
   "try_specific": "अधिक विशिष्ट कीवर्ड आज़माएं",
   "tts_speak": "ज़ोर से पढ़ें",
   "tts_stop": "पढ़ना रोकें",
+  "tts_speed": "पढ़ने की गति",
   "tts_slow_suggest": "इस सर्वर पर {slow} धीमा है। {fast} आज़माएँ?",
   "tts_slow_use": "{fast} चुनें",
   "uncaptured_back": "वापस जाएँ",

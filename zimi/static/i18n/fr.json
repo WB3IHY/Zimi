@@ -2026,6 +2026,7 @@
   "try_specific": "Essayez des mots-clés plus précis",
   "tts_speak": "Lire à voix haute",
   "tts_stop": "Arrêter la lecture",
+  "tts_speed": "Vitesse de lecture",
   "tts_slow_suggest": "{slow} est lent sur ce serveur. Essayer {fast} ?",
   "tts_slow_use": "Utiliser {fast}",
   "uncaptured_back": "Retour",

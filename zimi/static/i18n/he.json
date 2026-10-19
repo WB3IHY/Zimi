@@ -2026,6 +2026,7 @@
   "try_specific": "נסו מילות מפתח מדויקות יותר",
   "tts_speak": "הקראה",
   "tts_stop": "הפסקת ההקראה",
+  "tts_speed": "מהירות ההקראה",
   "tts_slow_suggest": "{slow} איטי בשרת הזה. לנסות את {fast}?",
   "tts_slow_use": "להשתמש ב{fast}",
   "uncaptured_back": "חזרה",

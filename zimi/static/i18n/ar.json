@@ -2026,6 +2026,7 @@
   "try_specific": "جرّب كلمات أكثر تحديدًا",
   "tts_speak": "قراءة بصوت عالٍ",
   "tts_stop": "إيقاف القراءة",
+  "tts_speed": "سرعة القراءة",
   "tts_slow_suggest": "{slow} بطيء على هذا الخادم. جرّب {fast}؟",
   "tts_slow_use": "استخدم {fast}",
   "uncaptured_back": "رجوع",

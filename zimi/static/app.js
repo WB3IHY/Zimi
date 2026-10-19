@@ -123,6 +123,8 @@ var SK = {
   // Read aloud: engines already suggested as a faster choice ([engines]),
   // each said once.
   TTS_SUGGESTED: 'zimi_tts_suggested',
+  // Read aloud: how fast it reads (one of _TTS_RATES), set in the reading bar.
+  TTS_RATE: 'zimi_tts_rate',
   // Reader font scale (percent, one of READER_FONT_LEVELS), applied as a `zoom`
   // on the iframe body and reapplied on every article load.
   READER_FONT: 'zimi_reader_font_scale',
@@ -19940,6 +19942,7 @@ function _ttsSetSpeaking(on) {
 }
 function _ttsStop() {
   _ttsRun++;
+  _ttsPaused = false;
   if (_ttsAudio) {
     try { _ttsAudio.pause(); _ttsAudio.removeAttribute('src'); _ttsAudio.load(); } catch(e) {}
   }
@@ -19975,6 +19978,7 @@ function _ttsSpeakDevice(chunks, lang, from) {
   chunks.slice(from).forEach(function(chunk, idx, rest) {
     var u = new SpeechSynthesisUtterance(chunk);
     if (lang) u.lang = lang;
+    u.rate = _ttsRate();
     u.onstart = function() { _ttsNow.at = from + idx; _ttsNow.engine = _DEVICE_VOICE; _ttsNow.playing = true; _ttsBarSync(); };
     if (idx === rest.length - 1) u.onend = function() { _ttsSetSpeaking(false); };
     u.onerror = function() { _ttsSetSpeaking(false); };
@@ -20023,7 +20027,9 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
     if (idx > 0 && asked[idx] === false) {
       if (eng + 1 < engines.length) slower(); else tooSlow();
     }
+    audio.defaultPlaybackRate = _ttsRate(); // a new src starts at this rate
     audio.src = _ttsSpeakUrl(chunks[idx], lang, engines[eng]);
+    audio.playbackRate = _ttsRate();
     _ttsNow.at = idx; _ttsNow.engine = engines[eng]; _ttsNow.playing = false;
     _ttsBarSync();
     var p = audio.play();
@@ -20035,7 +20041,7 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
     clearTimeout(waiting);
     if (eng + 1 < engines.length || onSlow) {
       waiting = setTimeout(function() {
-        if (!live() || i !== idx || !audio.paused) return;
+        if (!live() || i !== idx || !audio.paused || _ttsPaused) return;
         if (eng + 1 < engines.length) { slower(); play(idx); } else tooSlow();
       }, _TTS_START_WAIT_MS);
     }
@@ -20079,8 +20085,16 @@ function _ttsToggle() {
 // (remembered as Read aloud's own, Settings > Voices), and stops it.
 var _ttsNow = { at: 0, engine: '', playing: false, lang: '' };
 var _ttsMenuOpen = false;
+var _ttsPaused = false;
+var _TTS_RATES = [1, 1.25, 1.5, 2];
+function _ttsRate() {
+  var r = _getStorageJSON(SK.TTS_RATE, 1);
+  return _TTS_RATES.indexOf(r) >= 0 ? r : 1;
+}
 var _TTS_CHEVRON = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>';
-var _TTS_STOP_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/></svg>';
+var _TTS_PAUSE_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+var _TTS_PLAY_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10-6.5a1 1 0 0 0 0-1.7l-10-6.6A1 1 0 0 0 8 5.5z"/></svg>';
+var _TTS_CLOSE_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 // The voices this article's language can be read in: the server's, in its
 // order (none Settings turned off), then this browser's.
 function _ttsVoicesFor(lang) {
@@ -20089,17 +20103,28 @@ function _ttsVoicesFor(lang) {
   if (_TTS_AVAILABLE) out.push(_DEVICE_VOICE);
   return out;
 }
+function _ttsRateLabel(r) {
+  var n = String(r);
+  try { n = r.toLocaleString((typeof _currentLang !== 'undefined' && _currentLang) || undefined); } catch (e) {}
+  return n + '\u00d7';
+}
 function _ttsBarHtml() {
   var pick = _voicePrefs().read || '';
   var voices = _ttsVoicesFor(_ttsNow.lang);
-  var h = '<span class="tts-bar-state' + (_ttsNow.playing ? ' playing' : '') + '" aria-hidden="true"><i></i><i></i><i></i></span>';
+  var btn = function(cls, label, onclick, inner, extra) {
+    return '<button type="button" class="' + cls + '" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '" onclick="' + onclick + '"' + (extra || '') + '>' + inner + '</button>';
+  };
+  var h = '<span class="tts-bar-state' + (_ttsPaused ? ' paused' : _ttsNow.playing ? ' playing' : '') + '" aria-hidden="true"><i></i><i></i><i></i></span>';
   if (voices.length > 1) {
     h += '<button type="button" class="tts-bar-voice" aria-haspopup="menu" aria-expanded="' + _ttsMenuOpen + '" onclick="_ttsMenuToggle()">' +
       '<span>' + esc(_voiceEngineName(_ttsNow.engine)) + '</span>' + _TTS_CHEVRON + '</button>';
   } else {
     h += '<span class="tts-bar-voice">' + esc(_voiceEngineName(_ttsNow.engine)) + '</span>';
   }
-  h += '<button type="button" class="tts-bar-stop" aria-label="' + escAttr(t('tts_stop')) + '" title="' + escAttr(t('tts_stop')) + '" onclick="_ttsStop()">' + _TTS_STOP_ICON + '</button>';
+  h += btn('tts-bar-speed', t('tts_speed'), '_ttsSpeedNext()', esc(_ttsRateLabel(_ttsRate())));
+  h += btn('tts-bar-btn', t(_ttsPaused ? 'resume' : 'pause'), '_ttsPauseToggle()', _ttsPaused ? _TTS_PLAY_ICON : _TTS_PAUSE_ICON,
+    ' aria-pressed="' + _ttsPaused + '"');
+  h += btn('tts-bar-btn', t('tts_stop'), '_ttsStop()', _TTS_CLOSE_ICON);
   if (_ttsMenuOpen && voices.length > 1) {
     var item = function(e, label) {
       return '<button type="button" role="menuitemradio" aria-checked="' + (e === pick) + '" onclick="' + escAttr('_ttsPickVoice(' + JSON.stringify(e) + ')') + '">' + esc(label) + '</button>';
@@ -20130,6 +20155,39 @@ function _ttsBarSync() {
 }
 function _ttsMenuToggle() {
   _ttsMenuOpen = !_ttsMenuOpen;
+  _ttsBarSync();
+}
+// A tap anywhere else, or Escape, closes the voices. A tap in the article
+// never reaches this page, but it takes the focus: the window's blur.
+function _ttsMenuAway(e) {
+  if (!_ttsMenuOpen) return;
+  if (e.type === 'keydown' && e.key !== 'Escape') return;
+  if (e.type === 'pointerdown' && e.target && e.target.closest && e.target.closest('#tts-bar')) return;
+  _ttsMenuOpen = false;
+  _ttsBarSync();
+}
+document.addEventListener('pointerdown', _ttsMenuAway, true);
+document.addEventListener('keydown', _ttsMenuAway, true);
+window.addEventListener('blur', _ttsMenuAway);
+// Pause keeps the place; Resume goes on from it. The engine's "still silent"
+// switch waits while paused (_ttsSpeakServer).
+function _ttsPauseToggle() {
+  _ttsPaused = !_ttsPaused;
+  var device = _ttsNow.engine === _DEVICE_VOICE;
+  try {
+    if (device) { if (_ttsPaused) window.speechSynthesis.pause(); else window.speechSynthesis.resume(); }
+    else if (_ttsAudio) { if (_ttsPaused) _ttsAudio.pause(); else _ttsAudio.play().catch(function() {}); }
+  } catch (e) {}
+  _ttsBarSync();
+}
+// 1x, 1.25x, 1.5x, 2x and round: remembered on this device. The server's
+// audio changes speed where it is (its pitch kept); the browser's voice takes
+// a rate per sentence, so it starts again from the sentence it is on.
+function _ttsSpeedNext() {
+  var r = _TTS_RATES[(_TTS_RATES.indexOf(_ttsRate()) + 1) % _TTS_RATES.length];
+  _setStorageJSON(SK.TTS_RATE, r);
+  if (_ttsNow.engine === _DEVICE_VOICE) { if (!_ttsPaused) _ttsSpeak(_ttsNow.at); }
+  else if (_ttsAudio) { _ttsAudio.defaultPlaybackRate = r; _ttsAudio.playbackRate = r; }
   _ttsBarSync();
 }
 // A voice picked while it reads: remembered, and the reading goes on from the

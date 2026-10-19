@@ -101,7 +101,7 @@ function freshReading() {
     clearTimeout: id => { if (id) timers[id - 1] = null; },
     authedFetch: u => { fetched.push(u); return new Promise(() => {}); }, // never answers: the server is still saying it
     _ttsSetSpeaking: on => { r.speaking = on; },
-    _ttsNow: {}, _ttsBarSync: () => {},
+    _ttsNow: {}, _ttsBarSync: () => {}, _ttsRate: () => 1, _ttsPaused: false,
     _ttsSpeakDevice: (c, l, from) => { r.device = from; },
   });
   return r;
@@ -125,6 +125,15 @@ a.onended(); a.onplaying(); a.onended();
 ok('chunks play in turn', textOf(a.src) === 'three.', a.src);
 a.onplaying(); a.onended();
 ok('the last chunk ends the reading', r.speaking === false);
+
+r = freshReading();
+a = ctx._ttsAudio;
+ctx._ttsSpeakServer(chunks, 'en', ['kokoro', 'piper'], 1);
+ctx._ttsPaused = true; // Pause before the first sound
+a.paused = true;
+timers.filter(Boolean).pop().f();
+ok('paused is not slow: the engine is kept', engineOf(a.src) === 'kokoro' && !store.zimi_tts_slow, a.src);
+ctx._ttsPaused = false;
 
 r = freshReading();
 a = ctx._ttsAudio;
