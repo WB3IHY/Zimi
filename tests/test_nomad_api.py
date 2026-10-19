@@ -249,6 +249,20 @@ def test_read_only_until_the_owner_turns_it_on(box):
     assert OLD not in names
 
 
+def test_the_storage_card_does_not_ask_nomad_at_every_open(box):
+    # Probing every candidate can take ~48 s when none answers; the card reads
+    # the last answer and asks again only after a change forgot it.
+    fake, url, nomad = box
+    _turn_on(url)
+    asked = len(fake.calls)
+    assert nomadapi.view()["reason"] == nomadapi.REASON_OK
+    assert nomadapi.view()["reason"] == nomadapi.REASON_OK
+    assert len(fake.calls) == asked
+    nomadapi.save(True, url)
+    assert nomadapi.view()["reason"] == nomadapi.REASON_OK
+    assert len(fake.calls) > asked
+
+
 def test_the_environment_turns_it_on_and_locks_the_page(box, monkeypatch):
     fake, url, nomad = box
     monkeypatch.setenv(nomadapi.ENV, url)

@@ -218,9 +218,12 @@ def managed():
 
 
 def view():
-    """What the Storage card draws about NOMAD mode, probing now."""
+    """What the Storage card draws about NOMAD mode: the last probe, fresh
+    within a minute (the watcher keeps it so), asked again after a settings or
+    folder change forgot it. Probing every candidate can take ~48 s when none
+    answers, too long for the card to wait on at every open."""
     cfg = settings()
-    state = probe(force=True)
+    state = probe()
     return {
         "available": has_folder(),
         "enabled": cfg["enabled"],

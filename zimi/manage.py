@@ -6468,6 +6468,8 @@ def _handle_library_folders(handler, data):
         return handler._json(400, {"error": key, "error_key": key})
     if action == "add":
         libfolders.ensure_watch()
+    # A folder added or gone changes whether NOMAD can be the back end.
+    nomadapi._forget_probe()
     return handler._json(200, _library_folders_view())
 
 
