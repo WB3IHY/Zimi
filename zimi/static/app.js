@@ -23790,9 +23790,8 @@ var _REDDIT_ADDRESS_START = 'https://www.reddit.com/r/Kiwix';
 // this signed-in person turned it off for their account. Never per
 // browser (Eric: "Not per browser only per user or server").
 var APP_NAMES = ['maps', 'tube', 'exchange', 'reddot', 'wiki', 'books', 'dictionary'];
-// Offered only when the server names them (a preview, while it is built):
-// Reddot since 1.13.1. Mirrors server.APPS_OPT_IN.
-var APPS_OPT_IN = ['reddot'];
+// Offered only when the server names them (none now). Mirrors server.APPS_OPT_IN.
+var APPS_OPT_IN = [];
 function _appOptIn(app) { return APPS_OPT_IN.indexOf(app) >= 0; }
 var APPS_DEFAULT = APP_NAMES.filter(function(a) { return !_appOptIn(a); });
 var _userPrefs = { apps: true, shown: null };

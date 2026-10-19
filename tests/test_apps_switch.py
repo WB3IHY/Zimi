@@ -53,19 +53,18 @@ def test_the_shell_is_stamped_only_when_off():
     some = http._index_content(frozenset(["reddot", "maps"]))
     assert some.count('<body data-zimi-apps="maps,reddot">') == 1
     assert http._index_content(srv.APPS_DEFAULT) == on
-    # Every app is not the default now (Reddot is opt-in), so it is named.
-    assert http._index_content(frozenset(srv.APP_NAMES)).count(
-        '<body data-zimi-apps="maps,tube,exchange,reddot,wiki,books,dictionary">'
-    ) == 1
+    # Every app is the default again (Reddot is on since 1.14.0): no stamp.
+    assert http._index_content(frozenset(srv.APP_NAMES)) == on
 
 
 # Zimipedia, with its reader, is on by default like the others (1.12);
-# Reddot is opt-in since 1.13.1.
-DEFAULT = set(srv.APP_NAMES) - {"reddot"}
+# Reddot was opt-in from 1.13.1 and is on again from 1.14.0 (home shows an
+# app only when a ZIM gives it something).
+DEFAULT = set(srv.APP_NAMES)
 
 
-def test_zimipedia_is_on_by_default_and_reddot_is_not():
-    assert srv.APPS_OPT_IN == frozenset({"reddot"})
+def test_every_app_is_on_by_default_reddot_included():
+    assert srv.APPS_OPT_IN == frozenset()
     assert srv.APPS_DEFAULT == frozenset(DEFAULT)
 
 

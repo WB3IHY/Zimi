@@ -2339,8 +2339,9 @@ def fieldguide_enabled():
 APP_NAMES = ("maps", "tube", "exchange", "reddot", "wiki", "books", "dictionary")
 # Apps offered only when named: a comma list in ZIMI_APPS (or a saved list)
 # that names one turns it on; "1", "all", the default and a saved True leave
-# it off. Reddot since 1.13.1 (Eric: "kinda niche in hindsight").
-APPS_OPT_IN = frozenset({"reddot"})
+# it off. None now: Reddot was one from 1.13.1 to 1.14.0, and home shows an
+# app only when a ZIM gives it something to show.
+APPS_OPT_IN = frozenset()
 APPS_ALL = frozenset(APP_NAMES)
 APPS_DEFAULT = APPS_ALL - APPS_OPT_IN
 _APPS_OFF = ("0", "false", "no", "off", "none")
@@ -2416,7 +2417,7 @@ def apps_shown():
     """The apps (Maps, ZimiTube, ZimiExchange, Reddot, Zimipedia, Bookshelf) offered on this server:
     ``ZIMI_APPS`` when set (``0``, ``1`` or a comma list of names), else the
     setting saved from Server settings, else all of them but the opt-in ones
-    (``APPS_OPT_IN``: Reddot). A signed-in user
+    (``APPS_OPT_IN``). A signed-in user
     can also hide any of them for themselves (their account's preferences).
     Never per browser (Eric: "Not per browser only per user or server")."""
     verdict = _apps_env()

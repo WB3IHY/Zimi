@@ -17,12 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Create turns pages saved from Firefox, Chrome or Safari (including `.mhtml` and `.webarchive`) into a ZIM that looks like the original, with its pictures and the links between pages.
 - The Docker image carries the capture tools (browsertrix-behaviors 0.15.0, AGPL, and the warc2zim sidecar), so every Create engine works with no install; the image is about 343 MB larger.
 - Read aloud uses the server's voices (Kokoro, Piper) when it has one for the article's language, with the browser's voice as the fallback, and has its own voice in Settings, Voices. While it reads, a bar at the foot of the page shows it starting and which voice reads (tap to change it), with its speed (1×, 1.25×, 1.5×, 2×), Pause and Close ([#117](https://github.com/epheterson/Zimi/pull/117)).
-- Red, a theme beside Light and Dark, to keep night vision: deep red on black on every screen and over the page you are reading.
+- A Red theme beside Light and Dark: deep red on black that keeps your night vision, in the app and in the articles you read.
 
 ### Changed
 
 - Zimi is GPL-3.0-or-later from this release; 1.13.3 and earlier stay MIT.
 - Home shows only the apps with something inside; the Apps page and Settings list them all.
+- Reddot is on by default again, and like every app it shows on home only once a ZIM gives it something to show.
 - The catalog shows its icons at once, from the copy Zimi ships, and leads each category with its most complete edition.
 - A connection that accepts and never answers no longer hangs the app.
 
