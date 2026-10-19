@@ -497,6 +497,8 @@ def walk(root, only=None, exclude=()):
         if os.path.islink(fs_path):
             continue
         if os.path.isdir(fs_path):
+            if fs_path in exclude:
+                continue
             found = list(_walk_dir(fs_path, rel, exclude))
         elif os.path.isfile(fs_path):
             found = [(fs_path, rel)]
@@ -504,6 +506,10 @@ def walk(root, only=None, exclude=()):
             # pictures are in the folder beside it, not something to tick.
             if posixpath.splitext(rel.lower())[1] in PAGE_EXTS:
                 for comp in disk_companions(fs_path):
+                    # os.walk walks its starting folder even when it is a
+                    # link, and checks exclusions only below it.
+                    if os.path.islink(comp) or comp in exclude:
+                        continue
                     name = os.path.basename(comp)
                     found.extend(
                         _walk_dir(comp, posixpath.join(posixpath.dirname(rel), name), exclude)

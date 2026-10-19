@@ -416,3 +416,22 @@ def test_saved_pages_unpack_beside_the_output_not_in_temp(tmp_path, monkeypatch)
     out = tmp_path / "out"
     creator.create_folder_zim(str(tmp_path), out_dir=str(out))
     assert os.path.dirname(seen["stage"]) == str(out)
+
+
+def test_a_picked_page_never_takes_a_linked_or_excluded_parts_folder(tmp_path):
+    # Page_files as a link to somewhere else, or Zimi's own data folder,
+    # must not be walked into the ZIM.
+    root, outside = tmp_path / "share", tmp_path / "private"
+    root.mkdir()
+    outside.mkdir()
+    (outside / "secret.txt").write_text("no")
+    (root / "a.html").write_text("<img src='a_files/x.png'>")
+    os.symlink(outside, root / "a_files")
+    (root / "b.html").write_text("<img src='b_files/y.png'>")
+    (root / "b_files").mkdir()
+    (root / "b_files" / "y.png").write_bytes(b"png")
+    rels = [r for _, r in folderfiles.walk(str(root), only=["a.html", "b.html"])]
+    assert rels == ["a.html", "b.html", "b_files/y.png"]
+    real = os.path.realpath(root)
+    rels = [r for _, r in folderfiles.walk(str(root), only=["b.html"], exclude={os.path.join(real, "b_files")})]
+    assert rels == ["b.html"]
