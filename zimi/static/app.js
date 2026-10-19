@@ -3327,9 +3327,7 @@ async function _renderOfflineHome() {
     '<div class="desc">' + esc(t('offline_works_saved_n', { n: w.saved })) + '</div></div></a>' : '';
   _keepWarmWhenIdle(w.carried);
   box.innerHTML = '<div class="keep-view-actions">' + _keepFilesBtnHtml() + '</div><div id="keep-import"></div>' +
-    (tiles.length ? renderCardGrid(tiles, false, false, noCount) : '') +
-    ((w.almanac || w.help) ? _keepSurvivalTilesHtml() : '') +
-    (saved ? '<div class="' + (_getLibraryView() === 'tiles' ? 'stats-grid tiles' : 'stats-grid') + ' keep-apps">' + saved + '</div>' : '');
+    renderCardGrid(tiles, false, false, noCount, ((w.almanac || w.help) ? _keepSurvivalTiles() : '') + saved);
   const none = document.getElementById('offline-none');
   if (none) none.hidden = tiles.length > 0;
 }
@@ -4887,7 +4885,7 @@ function renderHome(filter) {
   // Offline, what is on this phone is what the page is, and comes right after Discover, which is always first.
   if (!homeScope && !filter && _keepNames.size && _connState !== CONN_OK) {
     const keptNow = sorted.filter(z => _keepNames.has(z.name)).concat(_keepSyntheticZims());
-    if (keptNow.length) h += _keepSectionHtml(keptNow) + _keepSurvivalTilesHtml(false);
+    if (keptNow.length) h += _keepSectionHtml(keptNow, _keepSurvivalTiles(false));
   }
 
   // Language welcome card (non-English UI, no matching ZIMs installed)
@@ -4965,7 +4963,7 @@ function renderHome(filter) {
   } else if (homeScope && homeScope.type === 'apps') {
     h += _appsPageHtml(_homeShown);
   } else if (homeScope && homeScope.type === 'phone') {
-    h += renderCardGrid(_sortLibrary(zims.filter(z => _keepNames.has(z.name))), true, true) + _keepSurvivalTilesHtml();
+    h += renderCardGrid(_sortLibrary(zims.filter(z => _keepNames.has(z.name))), true, true, null, _keepSurvivalTiles());
   } else if (homeScope) {
     // Scoped view: plain category headings, no reordering or collections.
     cats.forEach(cat => {
@@ -6471,29 +6469,27 @@ async function _keepFillStorageBar() {
   document.getElementById('keep-s-free').textContent = t('keep_bar_free', { size: _fmtBytes(room.free) });
 }
 function _keepToggleManage() { _keepManaging = !_keepManaging; renderHome(); }
-function _keepSectionHtml(zims) {
+function _keepSectionHtml(zims, tail) {
   return '<div class="cat-heading clickable"' + _CAT_HEAD_OPENS + ' onclick="_keepOpenView()"><span class="keep-head-glyph">' + _KEEP_GLYPH + '</span>' + tH('keep_kept') + '</div>' +
-    renderCardGrid(zims, true, true);
+    renderCardGrid(zims, true, true, null, tail);
 }
 function _keepOpenView() {
   enterScope('phone', t('keep_kept'), Array.from(_keepNames), true);
 }
 
-// Almanac and Help now work with no server: tiles beside the ZIMs, in the
-// library's own look, on this view and on the offline home.
+// Almanac and Help now work with no server: cards among the ZIMs, in the
+// library's own look and the same grid (in tiles, one more tile, not a row of
+// its own), on this view and on the offline home.
 // withHelp false: the page already has Help now (its chip in the Apps row).
-function _keepSurvivalTilesHtml(withHelp) {
-  var isTiles = _getLibraryView() === 'tiles';
+function _keepSurvivalTiles(withHelp) {
   var tile = function(href, onclick, svg, name, desc) {
     return '<a class="stat-card keep-tile-app" href="' + escAttr(href) + '" onclick="return _spaNav(event, function() { ' + onclick + ' })">' +
       '<div class="card-icon"><span class="icon-letter">' + svg + '</span></div><div class="card-info"><div class="name"><span class="zt">' + esc(name) + '</span></div>' +
       '<div class="desc">' + esc(desc) + '</div></div></a>';
   };
   var almanac = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>';
-  return '<div class="' + (isTiles ? 'stats-grid tiles' : 'stats-grid') + ' keep-apps">' +
-    tile('/#almanac', 'openAlmanac()', almanac, t('almanac'), t('offline_works_almanac_desc')) +
-    (withHelp === false || !_fieldguideOn() ? '' : tile(_fieldguideUrl(''), 'openFieldguide(false)', _HELP_NOW_SVG, t('fieldguide_help_now'), t('offline_works_help_desc'))) +
-    '</div>';
+  return tile('/#almanac', 'openAlmanac()', almanac, t('almanac'), t('offline_works_almanac_desc')) +
+    (withHelp === false || !_fieldguideOn() ? '' : tile(_fieldguideUrl(''), 'openFieldguide(false)', _HELP_NOW_SVG, t('fieldguide_help_now'), t('offline_works_help_desc')));
 }
 
 // Titles that begin with the words, from every ZIM on this phone, and then the
@@ -6671,8 +6667,10 @@ function _cardMore(btn) {
 
 // ``countOf(z)``: the count on a card's line, _zimCountHtml's by default (the
 // Apps page counts what each app shows, _appItemsHtml); '' leaves it out.
-function renderCardGrid(items, showStars, showCategory, countOf) {
-  if (!items || !items.length) return '';
+// tail: cards that are not ZIMs (the Almanac offline), drawn in the same grid.
+function renderCardGrid(items, showStars, showCategory, countOf, tail) {
+  items = items || [];
+  if (!items.length && !tail) return '';
   countOf = countOf || _zimCountHtml;
   const favs = (collectionsCache && collectionsCache.favorites) || [];
   const isTiles = _getLibraryView() === 'tiles';
@@ -6732,7 +6730,7 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
       (_keepManaging && homeScope && homeScope.type === 'phone'
         ? '<button type="button" class="keep-rm" aria-label="' + escAttr(t('keep_remove')) + '" title="' + escAttr(t('keep_remove')) + '" onclick="event.preventDefault();event.stopPropagation();_keepAskRemove(\'' + escAttr(z.name) + '\')">\u00D7</button>' : '') +
       '</' + cardTag + '>';
-  }).join('') + '</div>';
+  }).join('') + (tail || '') + '</div>';
 }
 
 // ── Discover: computed cards first, random fill to ~4 ──

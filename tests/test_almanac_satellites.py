@@ -789,3 +789,12 @@ def test_the_release_gate_leaves_an_offline_install_months_of_satellites():
         f"a {SNAPSHOT_MAX_AGE_DAYS}-day-old snapshot leaves only "
         f"{window - SNAPSHOT_MAX_AGE_DAYS} of the view's {window} days"
     )
+
+
+def test_the_satellites_are_kept_with_the_shell():
+    """Offline, the 3D Earth drew no satellites: their elements and SGP4 were
+    kept only once the Earth had been opened online since the last deploy
+    (a deploy empties the worker's cache). Both are kept with the shell."""
+    urls = _http._offline_shell_urls()
+    assert _http.SATELLITES_PATH in urls
+    assert any(re.fullmatch(r"/static/earth/satellite-[\d.]+\.min\.js(\?v=\w+)?", u) for u in urls), urls

@@ -1159,14 +1159,19 @@ _OFFLINE_SHELL_FILE = re.compile(
     r"/static/((?:app\.(?:js|css)|almanac[\w-]*\.(?:js|css)|zone-places\.js"
     r"|world-map\.svg|tz-borders\.json|fieldguide[\w-]*\.(?:html|json|js)|highlights\.js|find\.js"
     r"|keepstore\.js|keepworker\.js|zimreader\.js|fzstd\.js|rosetta/manifest\.json"
-    r"|earth/(?:moon-v1\.webp|stars-v1\.bin|stars-names-v1\.json|constellations-v1\.json|milkyway-v1\.webp))"
+    r"|earth/(?:moon-v1\.webp|stars-v1\.bin|stars-names-v1\.json|constellations-v1\.json|milkyway-v1\.webp"
+    r"|satellite-[\d.]+\.min\.js))"
     r"(?:\?v=[0-9a-z]+)?)"
 )
 
 
+SATELLITES_PATH = "/almanac-satellites"
+
+
 def _offline_shell_urls():
     """The /static/ addresses (with their ?v= hashes) the shell and the
-    pages it opens ask for, among the files kept for offline, sorted."""
+    pages it opens ask for, among the files kept for offline, and the
+    satellites' answer, sorted."""
     # The pages as they are served: the shell and app.js rewritten, the
     # Field Guide page and the Almanac's scripts as written. An address in a
     # comment is not asked for; one with a version is, so a bare address is
@@ -1190,6 +1195,10 @@ def _offline_shell_urls():
     }
     versioned = {u.split("?")[0] for u in found if "?" in u}
     found = {u for u in found if "?" in u or u not in versioned}
+    # The 3D Earth's satellites: their orbital elements (an answer, not a
+    # file: the server's freshest, kept as the worker keeps it) beside SGP4
+    # above, so the GPS shell and the ISS are drawn with no server.
+    found.add(SATELLITES_PATH)
     if _srv.fieldguide_enabled():
         found.add("/static/" + FIELDGUIDE_OFFLINE)
     else:
@@ -2778,7 +2787,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                 langs = [x for x in (param("langs") or "").split(",") if x]
                 return _almanac_links_response(self, qids, langs)
 
-            elif parsed.path == "/almanac-satellites":
+            elif parsed.path == SATELLITES_PATH:
                 # Orbital elements for the Almanac's Earth view: answered at
                 # once from the snapshot or cache. A stale set is refreshed in
                 # the background only when "Satellite data from the internet"

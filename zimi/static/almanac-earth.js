@@ -2357,6 +2357,12 @@ function _aeUpdateText(ms) {
   var note = _aeNoteParts();
   _aeRenderAsk(note.ask);
   _aeSetText(_aeById('ae-note'), note.note);
+  // No orbital data reached this device (offline before it was ever kept):
+  // the Satellites view would frame an empty shell, so it is not offered;
+  // the note says why.
+  var satsBtn = document.querySelector('#ae-views [data-ae-view="sats"]');
+  var noSats = !!(_ae.satsFailed || (_ae.sats && !_ae.sats.list.length));
+  if (satsBtn && satsBtn.disabled !== noSats) satsBtn.disabled = noSats;
   var canvas = _aeById('ae-canvas');
   if (canvas && sc) {
     var aria = _aeT('alm_earth_aria', { when: whenText, place: _aeFmtLatLon(_aeSubsolarPoint(sc)) });

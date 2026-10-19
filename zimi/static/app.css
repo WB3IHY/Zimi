@@ -361,7 +361,6 @@
   .keep-sheet-alt { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--text2); }
   .keep-sheet-pick { font: inherit; font-size: 13.5px; text-align: start; padding: 10px 12px; min-height: 44px; color: var(--text); background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
   .keep-sheet-pick i { font-style: normal; color: var(--text2); margin-inline-start: 6px; }
-  .keep-apps { margin-bottom: 20px; }
   .offline-none { color: var(--text2); font-size: 13px; line-height: 1.5; margin: 12px 0; max-width: 34em; }
   .keep-search-note { font-size: 12.5px; color: var(--text2); margin: 0 0 10px; }
   .conn-retry-inline { margin-top: 16px; padding: 6px 16px; font-size: 13px; }
