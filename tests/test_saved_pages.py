@@ -424,10 +424,10 @@ def test_a_picked_page_never_takes_a_linked_or_excluded_parts_folder(tmp_path):
     root, outside = tmp_path / "share", tmp_path / "private"
     root.mkdir()
     outside.mkdir()
-    (outside / "secret.txt").write_text("no")
-    (root / "a.html").write_text("<img src='a_files/x.png'>")
+    (outside / "secret.txt").write_text("no", encoding="utf-8")
+    (root / "a.html").write_text("<img src='a_files/x.png'>", encoding="utf-8")
     os.symlink(outside, root / "a_files")
-    (root / "b.html").write_text("<img src='b_files/y.png'>")
+    (root / "b.html").write_text("<img src='b_files/y.png'>", encoding="utf-8")
     (root / "b_files").mkdir()
     (root / "b_files" / "y.png").write_bytes(b"png")
     rels = [r for _, r in folderfiles.walk(str(root), only=["a.html", "b.html"])]

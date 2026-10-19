@@ -44,7 +44,7 @@ LISTINGS = {
 def test_service_worker_reads_a_listing_as_the_server_does(label):
     text = LISTINGS[label]
     out = subprocess.run(
-        ["node", "-e", _NODE, _SW], input=text, capture_output=True, text=True, timeout=30
+        ["node", "-e", _NODE, _SW], input=text, capture_output=True, text=True, encoding="utf-8", timeout=30
     )
     assert out.returncode == 0, out.stderr
     want = json.loads(json.dumps(nautilus.parse(text)))

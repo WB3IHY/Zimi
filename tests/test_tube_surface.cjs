@@ -82,7 +82,7 @@ ok('the ZimiTube tile names the video ZIMs', /<span class="zt">ZimiTube<\/span>/
 ctx.zimsCache = ctx.zimsCache.filter(z => z.kind !== 'video');
 ok('no video ZIM: home leaves ZimiTube out, its tile still the door to the Video category', !/tube-tile/.test(ctx._appsRowHtml()) && /No videos yet/.test(ctx._tubeTileHtml()) && /_openCategory\(_APP_CATEGORY\.tube\)/.test(ctx._tubeTileHtml()));
 ctx.zimsCache = [];
-ok('a fresh install: nothing inside any app, so home has no apps row; Zimipedia offered, Reddot (opt-in) not', ctx._appsRowHtml() === '' && ctx._shownApps().includes('wiki') && !ctx._shownApps().includes('reddot'));
+ok('a fresh install: nothing inside any app, so home has no apps row; Zimipedia and Reddot offered', ctx._appsRowHtml() === '' && ctx._shownApps().includes('wiki') && ctx._shownApps().includes('reddot'));
 ctx.document.body.dataset.zimiApps = 'maps,tube,exchange,reddot,wiki,books';
 ok('a server that names wiki offers it', ctx._shownApps().length === 6 && ctx._shownApps().includes('wiki'));
 delete ctx.document.body.dataset.zimiApps;
