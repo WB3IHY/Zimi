@@ -11,7 +11,7 @@ behind a proxy that makes the download slow enough to interrupt:
     the NEW file, byte for byte.
 
 Uses a real 70 MB ZIM from this Mac when there is one (else a generated one of
-the same shape, ~20 MB).
+the same shape, ~50 MB).
 
 Run: pytest tests/test_keep_resume_live.py -v -s
 """
@@ -99,6 +99,31 @@ class SlowProxy:
         self.httpd.server_close()
 
 
+# The stand-in for the real ZIM: enough bytes that a slow pull is still
+# coming when the tests pause it at 15 MB, and incompressible, so the ZIM is
+# that size on disk too. Under ~40 MB the browser has the rest buffered
+# before the blink test can cut the line.
+STAND_IN_PARTS = 48
+STAND_IN_PART_BYTES = 1024 * 1024
+
+
+def _build_stand_in(path):
+    import random
+
+    import books_sources_fixture as fx
+
+    rng = random.Random(70)
+    entries = {"home": ("text/html", "<html><body>Medicine</body></html>", "Home")}
+    for i in range(STAND_IN_PARTS):
+        entries["files/part%02d.bin" % i] = ("application/octet-stream", rng.randbytes(STAND_IN_PART_BYTES), "")
+    fx.build_zim(
+        path,
+        {"Name": "zimgit-medicine_en", "Title": "Medicine Library", "Scraper": "nautiluszim 1.1.1"},
+        entries,
+        "home",
+    )
+
+
 def _sha(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -115,11 +140,11 @@ def world(tmp_path):
     target = zims / os.path.basename(REAL)
     if os.path.exists(REAL):
         shutil.copy(REAL, target)
-    else:  # pragma: no cover - a Mac without it
+    else:
+        _build_stand_in(str(target))
         import wiki_fixture as wf
 
-        wf.build_library(str(zims))
-        pytest.skip("the real ZIM is not here")
+        wf.build_library(str(zims))  # more than one ZIM: home is not this one's
     srv = Server(str(zims), str(data), _free_port())
     srv.start()
     proxy = SlowProxy(srv.port, _free_port())
