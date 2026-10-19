@@ -1158,8 +1158,10 @@ def _folder_icon(root, meta):
 def create_folder_zim(folder, **kwargs):
     """Package a folder of files into one ZIM (see ``_create_folder_zim``).
     Pages a browser saved as one file are unpacked into a scratch folder that
-    lives exactly as long as the build."""
-    with tempfile.TemporaryDirectory(prefix="zimi-saved-") as stage:
+    lives exactly as long as the build, beside the output (scratch_dir), never
+    in a temp folder that may be RAM: each page can hold 256 MiB."""
+    parent = scratch_dir(kwargs.get("out_dir"), kwargs.get("out_path"))
+    with tempfile.TemporaryDirectory(prefix="zimi-saved-", dir=parent) as stage:
         return _create_folder_zim(folder, stage=stage, **kwargs)
 
 

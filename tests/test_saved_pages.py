@@ -405,3 +405,14 @@ def test_companion_dirs_names_the_folder_a_page_owns():
     assert folderfiles.companion_dirs(
         "A b.html", ["A b_Dateien", "A b_other"], said
     ) == ["A b_Dateien"]
+
+
+def test_saved_pages_unpack_beside_the_output_not_in_temp(tmp_path, monkeypatch):
+    # A saved page can hold 256 MiB and /tmp is RAM on some hosts.
+    from zimi import creator
+
+    seen = {}
+    monkeypatch.setattr(creator, "_create_folder_zim", lambda folder, stage, **kw: seen.setdefault("stage", stage))
+    out = tmp_path / "out"
+    creator.create_folder_zim(str(tmp_path), out_dir=str(out))
+    assert os.path.dirname(seen["stage"]) == str(out)
