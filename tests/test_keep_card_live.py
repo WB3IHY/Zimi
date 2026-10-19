@@ -1,8 +1,8 @@
 """A library card at 390 px: its state on its icon, its one control ⋯.
 
-  - a ZIM the phone holds carries a mark on the icon's bottom-right corner (the
-    ring while it comes, the disc once here); it is a mark, never a button, and
-    a ZIM the phone does not hold has none; the only button on a card is ⋯;
+  - a card's foot holds its marks (a favorite's star; the ring while a ZIM comes
+    to the phone, the check once here) and, in the corner, its one button ⋯;
+    marks are never buttons, and a ZIM the phone does not hold has none;
   - ⋯ opens the card's menu: Keep offline there is the ring at once; too big
     for the phone still refuses plainly; Remove asks first;
   - a 74 GB pull shows movement: a sliver of ring from the first byte, a line in
@@ -146,8 +146,9 @@ def mark(pg, zim):
     """The keep mark on a card's icon, or None."""
     return pg.evaluate(
         """(z) => { const c = document.querySelector(`.stat-card[data-zim='${z}']`), b = c && c.querySelector('.keep-ico'); if (!b) return null;
-          const r = b.getBoundingClientRect(), i = c.querySelector('.card-icon').getBoundingClientRect();
-          return { k: b.dataset.k, tag: b.tagName, events: getComputedStyle(b).pointerEvents, right: r.right - i.right, bottom: r.bottom - i.bottom,
+          const r = b.getBoundingClientRect(), m = c.querySelector('.card-more').getBoundingClientRect();
+          return { k: b.dataset.k, tag: b.tagName, events: getComputedStyle(b).pointerEvents, foot: !!b.closest('.card-foot'),
+                   line: Math.abs((r.top + r.bottom) / 2 - (m.top + m.bottom) / 2), left_of_more: r.right <= m.left,
                    dash: (b.querySelector('.kr-arc') || document.body).getAttribute('stroke-dasharray') }; }""",
         zim,
     )
@@ -191,7 +192,7 @@ def spy_pull(pg):
     )
 
 
-def test_a_card_marks_its_icon_and_has_one_control(pw, world):
+def test_a_card_marks_its_state_in_its_foot_beside_its_one_control(pw, world):
     br, ctx, pg = library(pw, world)
     keep_one(pg)
     for view in ("list", "tiles"):
@@ -204,10 +205,16 @@ def test_a_card_marks_its_icon_and_has_one_control(pw, world):
             SMALL,
         )
         assert kinds == ["card-more"], kinds
-        # The disc sits on the icon's bottom-right corner, and it is a mark, not a target.
+        # The check sits in the card's foot, on ⋯'s line and before it, and it is a mark, not a target.
         m = mark(pg, "wikipedia")
         assert m["k"] == "kept" and m["tag"] == "SPAN" and m["events"] == "none", m
-        assert 0 < m["right"] <= 10 and 0 < m["bottom"] <= 10, m
+        assert m["foot"] and m["line"] <= 3 and m["left_of_more"], m
+        # ⋯ is the bottom-right corner of every card, with marks or without.
+        corner = pg.evaluate(
+            "(z) => { const c = document.querySelector(`.stat-card[data-zim='${z}']`).getBoundingClientRect(), b = document.querySelector(`.stat-card[data-zim='${z}'] .card-more`).getBoundingClientRect(); return [c.right - b.right, c.bottom - b.bottom]; }",
+            SMALL,
+        )
+        assert 0 <= corner[0] <= 8 and 0 <= corner[1] <= 8, (view, corner)
         w = pg.evaluate("(z) => document.querySelector(`.stat-card[data-zim='${z}'] .card-more`).getBoundingClientRect().width", SMALL)
         assert w >= (44 if view == "list" else 34), (view, w)
     # ⋯ opens the card's menu and goes nowhere.

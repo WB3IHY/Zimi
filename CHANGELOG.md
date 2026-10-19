@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Keep offline: a ZIM's menu or About keeps it on the phone. It resumes, shows a ring on the card's icon while it comes and a check once it is here, and the menu shows its progress with Pause and Cancel. Kept ZIMs open, show their pictures and search with no server, in the home-screen app too. It needs an HTTPS connection, and says so where it cannot work.
-- Library cards carry one button, ⋯, which opens the card's menu (Favorite, Keep offline, About and the rest); on a phone it comes up from the bottom as a sheet. A favorite is a star on the icon.
+- Keep offline: a ZIM's menu or About keeps it on the phone. It resumes, shows a ring in the card's foot while it comes and a check once it is here, and the menu shows its progress with Pause and Cancel. Kept ZIMs open, show their pictures and search with no server, in the home-screen app too. It needs an HTTPS connection, and says so where it cannot work.
+- Library cards carry one button, ⋯, which opens the card's menu (Favorite, Keep offline, About and the rest); on a phone it comes up from the bottom as a sheet. A favorite's star sits beside it.
 - Offline is a mode, not a fault: a small Offline pill replaces the warning bar, and Discover shows only cards that open.
 - Zimi reads ZIMs from folders another program owns, in place: `ZIMI_EXTRA_ZIM_DIRS`, or Settings, Server, Storage. ZIMs added or removed there appear or leave within about a minute.
 - Project NOMAD: Zimi can be NOMAD's Information Library, its downloads, updates and deletes can go through NOMAD, and old Kiwix links keep working ([guide](docs/integrations/project-nomad.md)).

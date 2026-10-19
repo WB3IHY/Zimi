@@ -128,6 +128,8 @@ def test_one_tap_from_the_menu_then_remove(pw, world):
     pg.click("[data-action='keep-remove']")
     pg.click("#ac-ok")   # it asks first (test_keep_files_live holds the wording)
     pg.wait_for_function("(z) => !document.querySelector(`.stat-card[data-zim='${z}'] .keep-ico`)", arg=ZIM, timeout=15000)
+    pg.wait_for_function("(z) => !_keepNames.has(z)", arg=ZIM, timeout=15000)
+    pg.wait_for_timeout(500)   # the home redraws once the phone's list has changed
     # The other goes the same way, from its ⋯: the last kept ZIM leaves no mark anywhere.
     pg.evaluate("(z) => document.querySelector(`.stat-card[data-zim='${z}']`).scrollIntoView({block: 'center'})", OTHER)
     pg.click(".stat-card[data-zim='%s'] .card-more" % OTHER)

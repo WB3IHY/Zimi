@@ -295,21 +295,17 @@
   /* .ctx-item (later in the file) sets nowrap at the same weight: the doubled class is what lets the hint wrap. */
   .ctx-item.ctx-info { pointer-events: none; color: var(--text2); max-width: 230px; white-space: normal; line-height: 1.4; }
   /* Keeping offline: one glyph language on the tile, in the menu, About and the view. */
-  /* A card's state sits on its icon's corners, never as a button: on this phone
-     bottom right (the ring while it comes, the disc once here), a favorite top left.
-     The card's one control is ⋯ (.card-more). */
-  .card-icon-box { position: relative; flex-shrink: 0; align-self: center; display: flex; }
-  .card-icon-box > .keep-ico, .card-icon-box > .fav-mark {
-    position: absolute; z-index: 1; display: flex; border-radius: 50%; background: var(--surface); padding: 1px; pointer-events: none;
-  }
-  .card-icon-box > .keep-ico { right: -7px; bottom: -7px; color: var(--amber); }
-  .card-icon-box > .fav-mark { left: -7px; top: -7px; color: var(--amber); }
-  .keep-ico svg { width: 20px; height: 20px; flex: none; }
-  .fav-mark svg { width: 16px; height: 16px; }
-  .keep-ico.kept { color: var(--amber); }
-  /* Once it is here the mark only confirms: small and quiet. The ring, while a download moves, keeps the accent. */
-  .card-icon-box > .keep-ico.kept { color: var(--text2); right: -5px; bottom: -5px; }
-  .card-icon-box > .keep-ico.kept svg { width: 15px; height: 15px; }
+  /* A card's foot: its marks (a favorite, on this phone) and its one control, ⋯, on one line.
+     Marks are quiet and the same size; the accent is kept for a download that is moving. */
+  .card-foot { display: flex; align-items: center; gap: 2px; flex-shrink: 0; align-self: flex-end; }
+  .card-marks { display: flex; align-items: center; gap: 6px; color: var(--text2); }
+  .card-marks:empty { display: none; }
+  .card-marks > .keep-ico, .card-marks > .fav-mark { display: flex; pointer-events: none; color: var(--text2); }
+  .card-marks svg { width: 15px; height: 15px; flex: none; }
+  .keep-ico.kept { color: var(--text2); }
+  /* In the foot the check is drawn in line, the weight of the star beside it. */
+  .card-marks .keep-ico.kept circle { fill: none; stroke: currentColor; stroke-width: 1.8; }
+  .card-marks .keep-ico.kept path { stroke: currentColor; }
   .keep-ico.pull, .keep-ico.failed { color: var(--amber); }
   .keep-ico.failed { color: var(--error); }
   .keep-ico.stalled { color: var(--text2); }
@@ -1338,10 +1334,7 @@
   [dir="rtl"] .lang-dropdown-item.switchable:hover { border-right-color: var(--amber); }
   [dir="rtl"] .stat-card { direction: rtl; }
   [dir="rtl"] .card-more { margin: -10px 0 -10px -10px; }
-  [dir="rtl"] .stats-grid.tiles .card-more { right: auto; left: 0; }
-  [dir="rtl"] .card-icon-box > .keep-ico { right: auto; left: -7px; }
-  [dir="rtl"] .card-icon-box > .keep-ico.kept { left: -5px; }
-  [dir="rtl"] .card-icon-box > .fav-mark { left: auto; right: -7px; }
+  [dir="rtl"] .stats-grid.tiles .card-foot { left: 0; right: 10px; }
   [dir="rtl"] .manage-tab { direction: rtl; }
   [dir="rtl"] .empty { direction: rtl; }
 
@@ -1547,7 +1540,7 @@
     flex-direction: column; align-items: center; justify-content: flex-start;
     gap: 8px; padding: 20px 12px 12px; text-align: center;
   }
-  .stats-grid.tiles .card-icon-box { align-self: center; }
+
   .stats-grid.tiles .card-info { align-items: center; padding-right: 0; gap: 6px; flex: 0 0 auto; }
   .stats-grid.tiles .desc, .stats-grid.tiles .detail, .stats-grid.tiles .card-cat, .stats-grid.tiles .qid-badge { display: none; }
   /* The name row becomes a centred column: the title (.zt) on top, the language
@@ -1572,8 +1565,10 @@
   .stats-grid.tiles .new-badge { position: absolute; top: 6px; left: 8px; margin: 0; z-index: 1; }
   /* Bottom right, as in the list. A tile is 112px wide, so the button is 34px, not 44,
      and the tile keeps a band at its foot so the language chip never runs under it. */
-  .stats-grid.tiles .card-more { position: absolute; bottom: 0; right: 0; width: 34px; height: 32px; margin: 0; }
-  .stats-grid.tiles .stat-card:has(> .card-more) { padding-bottom: 30px; }
+  .stats-grid.tiles .card-foot { position: absolute; left: 10px; right: 0; bottom: 0; height: 32px; justify-content: space-between; }
+  .stats-grid.tiles .card-more { width: 34px; height: 32px; margin: 0 0 0 auto; }
+  [dir="rtl"] .stats-grid.tiles .card-more { margin: 0 auto 0 0; }
+  .stats-grid.tiles .stat-card:has(> .card-foot .card-more), .stats-grid.tiles .stat-card:has(> .card-foot .card-marks:not(:empty)) { padding-bottom: 30px; }
   /* The chip owns its own line under the title and spells the language out in
      full ("Français") — no letter-spacing tracking (that's for the terse code
      form in list rows), and allow it to wrap rather than overflow the tile. */
@@ -3338,7 +3333,7 @@
 
   /* ── The card's one control: ⋯ opens its menu ── */
   .card-more {
-    flex-shrink: 0; align-self: flex-end; width: 44px; height: 44px; margin: -10px -10px -10px 0; padding: 0;
+    flex-shrink: 0; width: 44px; height: 44px; margin: -10px -10px -10px 0; padding: 0;
     display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 22px; background: none;
     color: var(--text2); opacity: 0.6; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   }

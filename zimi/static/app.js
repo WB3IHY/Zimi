@@ -6057,7 +6057,7 @@ function _keepState(zim) {
   return null;
 }
 
-// The card's mark on its icon's corner says what the phone holds of it: a ring
+// The card's mark in its foot says what the phone holds of it: a ring
 // while it comes (paused or failed, still the ring), the disc once it is here.
 // Nothing is drawn for a ZIM the phone does not hold. It is a mark, not a button:
 // everything that can be done is in the card's menu (⋯ or a long press).
@@ -6102,8 +6102,8 @@ function _keepIconSync() {
       return;
     }
     if (cur) cur.remove();
-    var box = card.querySelector('.card-icon-box');
-    if (box) box.insertAdjacentHTML('beforeend', _keepIconHtml(zim));
+    var marks = card.querySelector('.card-marks');
+    if (marks) marks.insertAdjacentHTML('beforeend', _keepIconHtml(zim));
   });
   _keepTickWhilePulling();
 }
@@ -6677,8 +6677,8 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
     const isFav = favs.includes(z.name);
     // A card has one control, ⋯, and it opens the card's menu (Favorite, Keep
     // offline, About...), the same one a long press or a right click opens.
-    // What the card IS (a favorite, on this phone) is drawn on its icon's
-    // corners, never as a second button. preventDefault too: the card is an
+    // What the card IS (a favorite, on this phone) are marks beside it in the
+    // card's foot, never second buttons. preventDefault too: the card is an
     // anchor (#49), and a click inside a link otherwise follows its href.
     const favMark = showStars && isFav
       ? '<span class="fav-mark" role="img" aria-label="' + escAttr(t('favorites')) + '" title="' + escAttr(t('favorites')) + '">' + _FAV_MARK_SVG + '</span>' : '';
@@ -6703,7 +6703,7 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
     const cardNav = ' href="/w/' + encodeURIComponent(z.name) + '" onclick="return _spaSourceClick(event, this)"';
     const onPhone = _keepNames.has(z.name);
     return '<' + cardTag + ' class="stat-card' + (newHtml ? ' is-new' : '') + (onPhone ? ' kept' : '') + '" data-zim="' + escAttr(z.name) + '"' + cardNav + '>' +
-      '<div class="card-icon-box"><div class="card-icon">' + icon + '</div>' + favMark + _keepIconHtml(z.name) + '</div>' +
+      '<div class="card-icon">' + icon + '</div>' +
       '<div class="card-info">' +
         // new-badge lives in the title row (list) — never over the left icon;
         // CSS lifts it to a tile corner in compact view (icon is centred there).
@@ -6718,7 +6718,7 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
         // in-place re-sort swap them without rebuilding the card.
         _cardOwnDateHtml(z) + _sortedByDateHtml(z) +
         '</div>' +
-      '</div>' + moreBtn +
+      '</div>' + '<span class="card-foot"><span class="card-marks">' + favMark + _keepIconHtml(z.name) + '</span>' + moreBtn + '</span>' +
       (_keepManaging && homeScope && homeScope.type === 'phone'
         ? '<button type="button" class="keep-rm" aria-label="' + escAttr(t('keep_remove')) + '" title="' + escAttr(t('keep_remove')) + '" onclick="event.preventDefault();event.stopPropagation();_keepAskRemove(\'' + escAttr(z.name) + '\')">\u00D7</button>' : '') +
       '</' + cardTag + '>';
