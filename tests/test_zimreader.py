@@ -234,11 +234,8 @@ class _Base:
         )  # the spelling that was typed finds its own
         self.assertIn("Mars", s["mars"])
         self.assertIn("Marsupial", s["mars"])
-        (
-            self.assertIn("Éclair", s["ECLAIR"] + got["search"]["ECLAIR"])
-            if False
-            else None
-        )
+        # Title search folds case, not accents: "ECLAIR" is not "Éclair".
+        self.assertEqual(s["ECLAIR"], [])
         self.assertEqual(s["東"], ["東京"])
         self.assertEqual(s["моск"], ["Москва"])
         self.assertEqual(len(s["Article 00"]), 20)  # capped, in title order

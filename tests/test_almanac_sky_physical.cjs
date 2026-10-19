@@ -61,9 +61,13 @@ check(ordered && stars.mag[stars.n - 1] > 7.5, 'brightest first, down to magnitu
 const wrong = new Uint8Array(bin.length); wrong.set(bin); wrong[2] = 9;
 S.__bad = wrong.buffer;
 check(run('_sgDecodeStars(__bad)') === null && run('_sgDecodeStars(new ArrayBuffer(3))') === null, 'a file that is not this format is refused');
-let noBv = 0;
-for (let i = 0; i < stars.n; i++) if (stars.bv[i] === 0.6) noBv++;
-check(noBv >= 0, 'a star with no B-V reads as the neutral 0.6 (' + noBv + ' have it)');
+// The file marks a star with no B-V by its own byte; each such star reads
+// as the neutral 0.6 (a float32, so compared as one).
+const rawBv = new Int8Array(buf, run('SG_STARS_HEADER_BYTES') + 5 * stars.n, stars.n);
+const BV_NONE = run('SG_STARS_BV_NONE');
+let noBv = 0, neutral = 0;
+for (let i = 0; i < stars.n; i++) if (rawBv[i] === BV_NONE) { noBv++; if (stars.bv[i] === Math.fround(0.6)) neutral++; }
+check(noBv > 0 && neutral === noBv, 'a star with no B-V reads as the neutral 0.6 (' + neutral + ' of ' + noBv + ')');
 
 const scint = (a) => run('_sgScintillation(' + a + ')');
 check(scint(90) > 0.03 && scint(90) < 0.06, 'a star at the zenith is steady (' + scint(90).toFixed(3) + ')');
