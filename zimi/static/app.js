@@ -8459,7 +8459,43 @@ function _moveZimTo(zim, category) {
   // machinery is reused verbatim rather than duplicated per menu.
   let _ctxCustomAction = null;
 
-  function closeCtx() { menu.classList.remove('visible'); _ctxZim = null; _ctxCard = null; _kbSub = null; _ctxCustomAction = null; }
+  function closeCtx() {
+    menu.classList.remove('visible', 'sheet');
+    var bd = document.getElementById('ctx-backdrop');
+    if (bd) bd.hidden = true;
+    _ctxZim = null; _ctxCard = null; _kbSub = null; _ctxCustomAction = null;
+  }
+
+  // On a phone a ZIM's menu is a sheet that comes up from the bottom, with the
+  // ZIM it is about at its head; its submenus open in place under their row
+  // instead of flying out. A pointer and a wide screen keep the menu at the click.
+  var CTX_SHEET_MQ = '(max-width: 600px) and (pointer: coarse)';
+  function _ctxSheetWanted() { return !!_ctxZim && !!(window.matchMedia && matchMedia(CTX_SHEET_MQ).matches); }
+  function _ctxSheetHeadHtml(zim) {
+    var z = _zimInfo(zim) || { name: zim };
+    var icon = z.has_icon
+      ? '<img src="/w/' + encodeURIComponent(zim) + '/-/icon" alt="" width="36" height="36">'
+      : '<span class="icon-letter">' + esc((z.title || zim)[0].toUpperCase()) + '</span>';
+    var sub = z.size_gb ? fmtSize(z.size_gb) : '';
+    return '<div class="ctx-head"><span class="ctx-head-icon">' + icon + '</span><span class="ctx-head-text"><b>' + esc(z.title || zim) + '</b>' +
+      (sub ? '<span>' + sub + '</span>' : '') + '</span></div>';
+  }
+  function _ctxShowSheet() {
+    var bd = document.getElementById('ctx-backdrop');
+    if (!bd) {
+      bd = document.createElement('div');
+      bd.id = 'ctx-backdrop';
+      bd.className = 'ctx-backdrop';
+      document.body.appendChild(bd);
+    }
+    bd.hidden = false;
+    menu.insertAdjacentHTML('afterbegin', _ctxSheetHeadHtml(_ctxZim));
+    menu.style.left = ''; menu.style.top = ''; menu.style.maxHeight = ''; menu.style.overflowY = '';
+    menu.classList.add('visible', 'sheet');
+    _ctxItems(menu).forEach(function(item) { var sub = _ctxSubOf(item); if (sub) sub.style.cssText = ''; });
+    menu.style.visibility = '';
+    _prepMenuA11y();
+  }
 
   // ── Keyboard navigation (ARIA menu pattern) ──
   // The menu + its Move to…/Collections submenus are reachable by keyboard:
@@ -8586,6 +8622,8 @@ function _moveZimTo(zim, category) {
     return { x: x, y: y, w: w, h: h, pinned: pinned };
   }
   function posMenu(x, y) {
+    if (_ctxSheetWanted()) { _ctxShowSheet(); return; }
+    menu.classList.remove('sheet');
     // Measure off-paint: reveal for layout but keep it invisible until it sits at
     // its final spot, so it never flashes at (0,0) before we know its size — the
     // "flaky open"/edge-flash the two-step position used to show for a frame.
@@ -8847,6 +8885,16 @@ function _moveZimTo(zim, category) {
   }, true);
 
   menu.addEventListener('click', function(e) {
+    // In the sheet a row with a submenu opens it in place, under the row.
+    var row = e.target.closest('.ctx-item');
+    if (menu.classList.contains('sheet') && row && !row.dataset.action && _ctxSubOf(row) && !e.target.closest('.ctx-sub')) {
+      e.stopPropagation();
+      var open = !row.classList.contains('sub-open');
+      _ctxItems(menu).forEach(function(it) { it.classList.remove('sub-open'); });
+      row.classList.toggle('sub-open', open);
+      row.setAttribute('aria-expanded', open ? 'true' : 'false');
+      return;
+    }
     var item = e.target.closest('[data-action]');
     if (!item) return;
     var action = item.dataset.action;

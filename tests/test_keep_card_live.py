@@ -507,3 +507,29 @@ def test_the_menu_opens_on_a_part_kept_zim_after_a_reload(pw, world):
     assert not errors, errors
     ctx.close()
     br.close()
+
+
+def test_on_a_phone_the_menu_is_a_sheet_from_the_bottom(pw, world):
+    br, ctx, pg = library(pw, world)
+    more(pg, SMALL)
+    pg.wait_for_timeout(350)
+    r = pg.evaluate(
+        """() => { const m = document.getElementById('zim-ctx-menu'), b = m.getBoundingClientRect();
+          return { sheet: m.classList.contains('sheet'), left: b.left, right: b.right, bottom: b.bottom, w: innerWidth, h: innerHeight,
+                   head: (m.querySelector('.ctx-head') || {}).innerText || '', backdrop: !document.getElementById('ctx-backdrop').hidden }; }"""
+    )
+    assert r["sheet"] and r["left"] == 0 and r["right"] == r["w"] and abs(r["bottom"] - r["h"]) <= 1, r
+    assert "Wikiquote" in r["head"] and r["backdrop"], r
+    # A submenu opens in place under its row, inside the sheet.
+    pg.click("#zim-ctx-menu > .ctx-item:has(> .ctx-sub)")
+    sub = pg.evaluate(
+        """() => { const s = document.querySelector('#zim-ctx-menu .sub-open > .ctx-sub'), b = s && s.getBoundingClientRect();
+          return s && { pos: getComputedStyle(s).position, left: b.left, right: b.right, w: innerWidth }; }"""
+    )
+    assert sub and sub["pos"] == "static" and sub["left"] >= 0 and sub["right"] <= sub["w"], sub
+    # The backdrop closes it.
+    pg.mouse.click(195, 40)
+    pg.wait_for_function("() => !document.getElementById('zim-ctx-menu').classList.contains('visible')", timeout=3000)
+    assert pg.evaluate("() => document.getElementById('ctx-backdrop').hidden")
+    ctx.close()
+    br.close()

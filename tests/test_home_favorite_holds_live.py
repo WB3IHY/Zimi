@@ -82,6 +82,7 @@ def test_star_and_unstar_hold_the_card(served):
             pg.touchscreen.tap(
                 box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
             )
+            pg.wait_for_timeout(350)  # the phone's sheet slides up first
             fav = pg.locator("#zim-ctx-menu [data-action='favorite']").bounding_box()
             pg.touchscreen.tap(fav["x"] + fav["width"] / 2, fav["y"] + fav["height"] / 2)
             pg.wait_for_function(FAV_COUNT + " === %d" % want, timeout=5000)

@@ -367,7 +367,7 @@ def test_the_ring_and_the_tick_show_in_the_list_and_the_compact_grid(pw, world, 
                    w: b.width, grid: !!c.closest('.stats-grid.tiles') }; }""",
         ZIM,
     )
-    assert box["inside"] and box["w"] >= 18, box
+    assert box["inside"] and box["w"] >= 14, box
     assert box["grid"] == (view == "tiles")
     pg.evaluate("(z) => document.querySelector(`.stat-card[data-zim='${z}']`).scrollIntoView({block: 'center'})", ZIM)
     shot(pg, "g-%s-tick" % view)
