@@ -3389,6 +3389,11 @@ async function init() {
   _rebuildZimsMap();
   _keepProbeStorage();
   _keepRefreshNames().then(function() { if (_keepNames.size) _keepPrimeOffline(); });
+  // A new deploy's worker takes over with an empty cache (the Almanac it
+  // carries itself): what a kept ZIM needs offline comes again.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('controllerchange', function() { if (_keepNames.size) _keepPrimeOffline(); });
+  }
   // A kept answer marked the connection offline while the words were still
   // loading: say it again now they are here.
   if (_connState !== CONN_OK) _renderConnBanner();

@@ -86,6 +86,8 @@ self.addEventListener('install', event => {
     caches.open(CACHE_VERSION)
       .then(cache => cache.addAll(PRECACHE_URLS)
         .then(() => Promise.allSettled(SHELL_URLS.map(u => cache.add(u)))))
+      .then(() => hadAlmanac())
+      .then(had => had && keepAlmanac())
       .then(() => self.skipWaiting())
   );
 });
@@ -609,6 +611,16 @@ self.addEventListener('message', event => {
   if (event.data && event.data.type === 'keep-changed' && self.KeepStore) KeepStore.forgetNames();
   if (event.data && event.data.type === 'keep-almanac') event.waitUntil(keepAlmanac());
 });
+
+// A device that kept the Almanac keeps each new deploy's too, before activate
+// drops the old cache: a page asking later may be gone, or gone offline.
+async function hadAlmanac() {
+  if (!ALMANAC_URLS.length) return false;
+  for (const k of await caches.keys()) {
+    if (k !== CACHE_VERSION && await (await caches.open(k)).match(ALMANAC_URLS[0], { ignoreSearch: true })) return true;
+  }
+  return false;
+}
 
 // Only what this cache does not have yet is fetched; one that fails is skipped.
 async function keepAlmanac() {

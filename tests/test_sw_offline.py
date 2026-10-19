@@ -75,6 +75,8 @@ const stores = {};           // cache name -> Map(url -> response)
 const store = (n) => stores[n] || (stores[n] = new Map());
 const mkCache = (n) => ({
   match: (r, o) => { const u = typeof r === 'string' ? ORIGIN + r : r.url;
+    if (o && o.ignoreSearch) { const bare = u.split('?')[0];
+      for (const [k, v] of store(n)) if (k.split('?')[0] === bare) return Promise.resolve(v); }
     return Promise.resolve(store(n).get(u)); },
   put: (r, resp) => { store(n).set(r.url, resp); return Promise.resolve(); },
   add: (u) => net(new FakeRequest(u)).then((resp) => { if (!resp.ok) throw new TypeError('bad status'); store(n).set(ORIGIN + u, resp); }),
@@ -197,6 +199,17 @@ class TestInstall(unittest.TestCase):
         for u in ALMANAC:
             self.assertIn(u, out["kept"])
         self.assertEqual(out["again"], 0, "what is kept is not fetched again")
+
+    def test_a_new_deploy_keeps_the_almanac_a_device_had(self):
+        # Activate drops the old cache; the new pack comes before it does.
+        out = _run(
+            "store('zimi-old').set(ORIGIN + '/static/almanac.js?v=a1', new FakeResponse('old'));"
+            "await install(); return { kept: keptPaths() };",
+            shell=SHELL,
+            almanac=ALMANAC,
+        )
+        for u in ALMANAC:
+            self.assertIn(u, out["kept"])
 
     def test_one_file_that_cannot_be_had_does_not_stop_the_install(self):
         # Failing the install would leave a phone with no worker at all.
