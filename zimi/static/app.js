@@ -6043,8 +6043,12 @@ function _keepIsInstalled() {
 // {kind:'pull', pct} while it comes, {kind:'failed', pct, error} when it stopped
 // for a reason, {kind:'paused', pct} part-way. pct has a tenth of a percent.
 function _keepPct(written, size) { return size ? Math.min(100, Math.round(written * 1000 / size) / 10) : 0; }
+// What the download worker is doing; before the keep scripts load (a reload with a
+// part-kept ZIM on screen) nothing is running, and that is the answer.
+var _KEEP_IDLE = { name: '', phase: 'idle', written: 0, size: 0, error: '' };
+function _keepLive() { return typeof KeepStore !== 'undefined' ? KeepStore.state() : _KEEP_IDLE; }
 function _keepState(zim) {
-  var st = (typeof KeepStore !== 'undefined') ? KeepStore.state() : null;
+  var st = _keepLive();
   if (st && st.name === zim && st.phase === 'pulling') return { kind: 'pull', pct: _keepPct(st.written, st.size) };
   var m = _keepMetas[zim];
   if (m && m.complete) return { kind: 'kept' };
@@ -6075,7 +6079,7 @@ function _keepMarkSvg(zim, s) {
 }
 // A ring that has had no bytes for a while (or is asking again after a break) stops saying it is moving.
 function _keepIsStalled(zim, s) {
-  var st = KeepStore.state();
+  var st = _keepLive();
   return s.kind === 'pull' && st.name === zim && st.phase === 'pulling' && (st.retrying || Date.now() - st.at > KEEP_STALL_MS);
 }
 function _keepIconHtml(zim) {
@@ -6107,7 +6111,7 @@ function _keepIconSync() {
 // progress line are redrawn each second so it is plain that it is alive.
 var _keepTicker = null;
 function _keepTickWhilePulling() {
-  var pulling = typeof KeepStore !== 'undefined' && KeepStore.state().phase === 'pulling';
+  var pulling = _keepLive().phase === 'pulling';
   if (pulling && !_keepTicker) _keepTicker = setInterval(function() { _keepIconSync(); _keepMenuNoteSync(); }, KEEP_TICK_MS);
   else if (!pulling && _keepTicker) { clearInterval(_keepTicker); _keepTicker = null; }
 }
@@ -6124,7 +6128,7 @@ function _keepNoteText(zim) {
   var s = _keepState(zim);
   if (!s || s.kind === 'kept') return '';
   if (s.kind === 'failed') return t('keep_err_' + s.error);
-  var st = KeepStore.state(), m = _keepMetas[zim] || {}, live = st.name === zim;
+  var st = _keepLive(), m = _keepMetas[zim] || {}, live = st.name === zim;
   var size = (live && st.size) || m.size || _keepZimBytes(zim);
   var written = live ? st.written : (m.written || 0);
   var pct = (s.pct >= 10 ? Math.floor(s.pct) : s.pct) + '%';

@@ -481,3 +481,29 @@ def test_an_insecure_address_says_https_is_needed(pw, world):
     assert "HTTPS" in _about_keep_note(pg, SMALL)
     ctx.close()
     br.close()
+
+
+def test_the_menu_opens_on_a_part_kept_zim_after_a_reload(pw, world):
+    # A big pull left part-way (the app closed): after a reload the card shows the
+    # paused ring before the keep scripts have loaded, and its ⋯ must still open.
+    srv, proxy = world
+    br, ctx, pg = library(pw, world)
+    keep_one(pg)
+    pg.evaluate(
+        "([z, b]) => { _zimInfo(z).size_bytes = b; KeepStore.room = async () => ({ quota: 0, usage: 0, free: 5e11 }); }",
+        [BIG_NAME, BIG],
+    )
+    more(pg, BIG_NAME)
+    pick(pg, "keep-start")
+    pg.wait_for_function("() => KeepStore.state().written > 2e6", timeout=20000)
+    pg.evaluate("() => KeepStore.stop()")
+    pg.wait_for_timeout(1000)
+    pg.reload(wait_until="load")
+    pg.wait_for_selector(".stat-card[data-zim='%s'] .keep-ico.paused" % BIG_NAME, timeout=20000)
+    errors = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    lines = more(pg, BIG_NAME)
+    assert "Resume" in lines and "Cancel download" in lines, lines
+    assert not errors, errors
+    ctx.close()
+    br.close()
