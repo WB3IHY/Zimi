@@ -1566,8 +1566,10 @@
      overlap the icon's top corners, which reads as intentional and reclaims a
      few px of tile height. */
   .stats-grid.tiles .new-badge { position: absolute; top: 6px; left: 8px; margin: 0; z-index: 1; }
-  /* Top right, clear of the centred icon: a tile is 112px, so the button is 34px, not 44. */
-  .stats-grid.tiles .card-more { position: absolute; top: 0; right: 0; width: 34px; height: 34px; margin: 0; }
+  /* Bottom right, as in the list. A tile is 112px wide, so the button is 34px, not 44,
+     and the tile keeps a band at its foot so the language chip never runs under it. */
+  .stats-grid.tiles .card-more { position: absolute; bottom: 0; right: 0; width: 34px; height: 32px; margin: 0; }
+  .stats-grid.tiles .stat-card:has(> .card-more) { padding-bottom: 30px; }
   /* The chip owns its own line under the title and spells the language out in
      full ("Français") — no letter-spacing tracking (that's for the terse code
      form in list rows), and allow it to wrap rather than overflow the tile. */
@@ -3332,7 +3334,7 @@
 
   /* ── The card's one control: ⋯ opens its menu ── */
   .card-more {
-    flex-shrink: 0; align-self: center; width: 44px; height: 44px; margin: -10px -10px -10px 0; padding: 0;
+    flex-shrink: 0; align-self: flex-end; width: 44px; height: 44px; margin: -10px -10px -10px 0; padding: 0;
     display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 22px; background: none;
     color: var(--text2); opacity: 0.6; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   }
