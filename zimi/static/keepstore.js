@@ -97,14 +97,19 @@ var KeepStore = (function() {
 
   // Which ZIMs are kept, remembered for a little so a page of fifty requests
   // asks the file system once.
-  var names = { at: 0, set: null };
+  // A list read while a ZIM finished arriving is already old: forgetNames
+  // during the read wins, and that read answers its own caller only.
+  var names = { at: 0, set: null }, namesGen = 0;
   async function has(name) {
     if (!names.set || Date.now() - names.at > NAMES_TTL_MS) {
-      names = { at: Date.now(), set: new Set((await kept()).map(function(m) { return m.name; })) };
+      var gen = namesGen, at = Date.now();
+      var set = new Set((await kept()).map(function(m) { return m.name; }));
+      if (gen === namesGen) names = { at: at, set: set };
+      return set.has(name) || (gen !== namesGen && has(name));
     }
     return names.set.has(name);
   }
-  function forgetNames() { names = { at: 0, set: null }; }
+  function forgetNames() { namesGen++; names = { at: 0, set: null }; }
 
   async function remove(name) {
     readers.delete(name);

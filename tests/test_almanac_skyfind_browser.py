@@ -196,7 +196,12 @@ def test_a_thing_under_the_horizon_is_found_in_look_and_ringed(browser, served):
             polling=POLL_MS,
             timeout=30000,
         )
-        assert "In view" in pg.inner_text("#sf-look-chip")
+        # The view glides there: a slow runner reads the chip on the way.
+        pg.wait_for_function(
+            "() => (document.getElementById('sf-look-chip') || {}).innerText.indexOf('In view') >= 0",
+            polling=POLL_MS,
+            timeout=30000,
+        )
         assert not errors, errors
     finally:
         ctx.close()
