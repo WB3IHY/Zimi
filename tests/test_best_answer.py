@@ -457,6 +457,8 @@ class TestQuestionWordsAreNotSearched(unittest.TestCase):
         self.assertEqual(search._clean_query("how to purify water"), "purify water")
         self.assertEqual(search._clean_query("can dogs eat grapes"), "dogs eat grapes")
         self.assertEqual(search._clean_query("wat is water?"), "water")
+        # Inside a question, a capital is a name, not its auxiliary.
+        self.assertEqual(search._clean_query("What happened in May 2026?"), "happened May 2026")
 
     def test_a_search_of_nothing_but_them_still_runs(self):
         import zimi.search as search

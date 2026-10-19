@@ -88,6 +88,12 @@ sandbox.__home = 'Asia/Kolkata'; sandbox.__device = 'Asia/Kolkata';
 cards = _almClockCards('Asia/Kolkata', JAN);
 check('a curated place adds no card of its own', cards.length === _TZ_CITIES.length, cards.length);
 check('and its card is named for the place', cards.find((c) => c.tz === 'Asia/Kolkata').label === 'Mumbai');
+sandbox.__loc = { name: 'Vancouver, Canada', lat: 49.28, lon: -123.12, stored: true };
+sandbox.__home = 'America/Vancouver'; sandbox.__device = 'America/Vancouver';
+cards = _almClockCards('America/Vancouver', JAN);
+const lit = cards.find((c) => c.local);
+check('a place sharing a curated city\'s time is that card, named and lit for the place',
+  cards.length === _TZ_CITIES.length && lit && lit.tz === 'America/Vancouver' && lit.label === 'Vancouver', lit && lit.label);
 
 // --- 2. every map dot lights a card keeping its time -----------------------
 let missing = [];

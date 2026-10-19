@@ -1765,15 +1765,16 @@ def _clean_query(q):
     operator query, and the index is given its words (query.term_words)."""
     parts = q.split()
     asking = _is_question(parts)
-    words = [
-        w
-        for w in parts
-        if w.lower() not in STOP_WORDS
-        and not (
-            asking
-            and (w.lower().rstrip("?") in QUESTION_AUX or _query.fold(w.rstrip("?")) in _query.QUESTION_WORDS)
-        )
-    ]
+
+    def own(i, w):
+        """A question's own word; a capital after the first word is a name
+        ("What happened in May 2026?")."""
+        if not asking or (i and w[:1].isupper()):
+            return False
+        bare = w.rstrip("?")
+        return bare.lower() in QUESTION_AUX or _query.fold(bare) in _query.QUESTION_WORDS
+
+    words = [w for i, w in enumerate(parts) if w.lower() not in STOP_WORDS and not own(i, w)]
     return " ".join(w.rstrip("?") for w in words) or q
 
 

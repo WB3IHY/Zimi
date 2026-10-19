@@ -982,10 +982,12 @@ function _almTmChLen(s) {
 // Cached default-locale number formatter for the km distance readout — it is
 // rewritten on every travel frame, and bare Number.toLocaleString builds a
 // fresh Intl.NumberFormat per call.
-var _almNumFmtCache = null;
+var _almNumFmtCache = null, _almNumFmtLang = null; // remade when the language changes
 function _almFmtNum(n) {
-  if (!_almNumFmtCache) {
-    try { _almNumFmtCache = new Intl.NumberFormat((typeof _currentLang !== 'undefined') ? _currentLang : undefined); }
+  var lang = (typeof _currentLang !== 'undefined') ? _currentLang : undefined;
+  if (!_almNumFmtCache || _almNumFmtLang !== lang) {
+    _almNumFmtLang = lang;
+    try { _almNumFmtCache = new Intl.NumberFormat(lang); }
     catch (e) { _almNumFmtCache = { format: String }; }
   }
   return _almNumFmtCache.format(n);
@@ -4456,7 +4458,15 @@ function _almClockCards(targetTz, now) {
     if (!tz || seen[tz]) return;
     var off = 0;
     try { off = _tzUtcOffsetMin(tz, now); } catch (e) { return; }
-    if (onlyIfNewOffset && offs[off]) return;
+    if (onlyIfNewOffset && offs[off]) {
+      // The chosen place keeps its name on the card for its time, not a
+      // curated city's that happens to share the offset.
+      if (tz === home && named) {
+        for (var i = 0; i < out.length; i++) if (out[i].off === off) { out[i].tz = tz; out[i].label = _almTzCardLabel(tz); break; }
+        seen[tz] = 1;
+      }
+      return;
+    }
     seen[tz] = 1; offs[off] = 1;
     out.push({ tz: tz, saved: saved.indexOf(tz) >= 0, off: off,
       label: tz === home && named ? _almTzCardLabel(tz) : _almTzCityLabel(tz) });
@@ -6697,13 +6707,14 @@ function _almSeasonText(ms, lat) {
   return t('alm_season_day_' + ss.key, { n: ss.day }) + ' · ' + tPlural('alm_season_to_' + ss.nextKind, ss.toNext);
 }
 
-var _seasonCache = { year: 0, events: [] };
+var _seasonCache = { key: '', events: [] };
 
 function _seasonEventsForYear(year) {
-  if (_seasonCache.year === year) return _seasonCache.events;
   // Hemisphere-aware names: October IS spring in Sydney. Chosen location
   // decides; no location defaults to the northern names.
   var loc = _getLocation();
+  var key = year + (loc.known ? (loc.lat < 0 ? 'S' : 'N') : '?');
+  if (_seasonCache.key === key) return _seasonCache.events;
   var names = !loc.known
     ? ['March Equinox', 'June Solstice', 'September Equinox', 'December Solstice']
     : loc.lat < 0
@@ -6715,7 +6726,7 @@ function _seasonEventsForYear(year) {
     var d = new Date((_seasonInstantJDE(year, k) - 2440587.5) * 86400000);
     events.push({ month: d.getMonth() + 1, day: d.getDate(), label: names[k], link: k % 2 ? 'term:solstice' : 'term:equinox' });
   }
-  _seasonCache = { year: year, events: events };
+  _seasonCache = { key: key, events: events };
   return events;
 }
 

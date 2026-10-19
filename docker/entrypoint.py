@@ -52,7 +52,9 @@ def note_port(argv, environ):
     port = folder_from(argv, environ, "--port", "ZIMI_PORT")
     try:
         if port:
-            with open(PORT_FILE, "w", encoding="utf-8") as f:
+            # Written as root before the drop: never through a link left there.
+            fd = os.open(PORT_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0), 0o644)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(port)
         elif os.path.exists(PORT_FILE):
             os.remove(PORT_FILE)
