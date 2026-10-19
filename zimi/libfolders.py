@@ -248,6 +248,7 @@ def note_shadowed(loser, winner):
 
 def forget(path):
     _shadowed.pop(os.path.normpath(path), None)
+    _unreadable.pop(os.path.normpath(path), None)
 
 
 def also_in():
@@ -262,11 +263,19 @@ def also_in():
     return out
 
 
+# path -> its why_unreadable verdict: /list asks on every call, and the disk
+# once per file is enough until the file leaves or arrives again (forget).
+_unreadable = {}
+
+
 def why_unreadable(path):
     """Why a ZIM will not open: nobody told Zimi's user it may be read (a
     container running as another user), or the file itself is damaged or still
     arriving."""
-    return "permission" if not os.access(path, os.R_OK) else "corrupt"
+    key = os.path.normpath(path)
+    if key not in _unreadable:
+        _unreadable[key] = "permission" if not os.access(path, os.R_OK) else "corrupt"
+    return _unreadable[key]
 
 
 def audit(folder):
@@ -492,7 +501,7 @@ def reconcile(added, gone):
     by their full paths, without reading the rest of it. An arrival takes over
     from a departed edition of the same name in one swap. A full rescan is the
     last resort, only for a file that cannot be read. Returns True when it ran."""
-    for g in gone:
+    for g in list(gone) + list(added):
         forget(g)
     swapped = set()
     readable = True

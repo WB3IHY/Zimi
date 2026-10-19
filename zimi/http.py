@@ -1440,7 +1440,7 @@ def _mark_external(entries):
     ``external`` is that folder's label (the page hides Delete and Update: the
     file is not Zimi's to change); ``unreadable`` says why such a ZIM will not
     open; ``also_in`` marks one of Zimi's own that a copy there lost its name
-    to. Strings and a dict, no disk."""
+    to. Strings and dicts, no disk (why_unreadable asks once per file)."""
     from zimi import libfolders
 
     folder_labels = libfolders.labels()

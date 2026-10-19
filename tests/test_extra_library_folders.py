@@ -962,3 +962,18 @@ def test_a_copy_that_stalls_is_registered_again_when_it_finishes(lib):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_why_a_zim_will_not_open_is_asked_of_the_disk_once(tmp_path, monkeypatch):
+    # /list marks every unreadable ZIM in another program's folder on every
+    # call; the disk is asked once per file, again once it leaves or arrives.
+    path = str(tmp_path / "broken.zim")
+    asked = []
+    monkeypatch.setattr(libfolders.os, "access", lambda p, m: asked.append(p) or False)
+    assert libfolders.why_unreadable(path) == "permission"
+    assert libfolders.why_unreadable(path) == "permission"
+    assert len(asked) == 1
+    libfolders.forget(path)
+    libfolders.why_unreadable(path)
+    assert len(asked) == 2
+    libfolders.forget(path)
