@@ -295,20 +295,20 @@
   /* .ctx-item (later in the file) sets nowrap at the same weight: the doubled class is what lets the hint wrap. */
   .ctx-item.ctx-info { pointer-events: none; color: var(--text2); max-width: 230px; white-space: normal; line-height: 1.4; }
   /* Keeping offline: one glyph language on the tile, in the menu, About and the view. */
-  /* Bottom right of the tile, one spot for "on this phone" in every view: the arrow, the ring and the check share it.
-     The button is a 44px target; the mark inside is small and faded until it is touched or has something to say. */
-  .keep-ico {
-    position: absolute; right: 0; bottom: 0; z-index: 2; min-width: 44px; height: 44px; padding: 0 11px;
-    display: inline-flex; align-items: center; justify-content: flex-end; border: none; background: none; color: var(--text2); cursor: pointer;
-    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  /* A card's state sits on its icon's corners, never as a button: on this phone
+     bottom right (the ring while it comes, the disc once here), a favorite top left.
+     The card's one control is ⋯ (.card-more). */
+  .card-icon-box { position: relative; flex-shrink: 0; align-self: center; display: flex; }
+  .card-icon-box > .keep-ico, .card-icon-box > .fav-mark {
+    position: absolute; z-index: 1; display: flex; border-radius: 50%; background: var(--surface); padding: 1px; pointer-events: none;
   }
-  .keep-ico svg { width: 22px; height: 22px; flex: none; }
-  .keep-ico.can { opacity: 0.45; }
-  .keep-ico.can:hover, .keep-ico.can:focus-visible, .keep-ico.can:active { opacity: 1; color: var(--amber); }
-  .keep-ico.kept { color: var(--amber); opacity: 0.8; }
+  .card-icon-box > .keep-ico { right: -7px; bottom: -7px; color: var(--amber); }
+  .card-icon-box > .fav-mark { left: -7px; top: -7px; color: var(--amber); }
+  .keep-ico svg { width: 20px; height: 20px; flex: none; }
+  .fav-mark svg { width: 16px; height: 16px; }
+  .keep-ico.kept { color: var(--amber); }
   .keep-ico.pull, .keep-ico.failed { color: var(--amber); }
   .keep-ico.failed { color: var(--error); }
-  .keep-ico.trash { color: var(--error); }
   .keep-ico.stalled { color: var(--text2); }
   .keep-ico .kr-track { fill: none; stroke: var(--border); stroke-width: 2; }
   .keep-ico .kr-arc { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; transition: stroke-dasharray 0.25s linear; }
@@ -317,27 +317,6 @@
   .keep-ico.pull:not(.stalled) .kr-glyph { animation: keep-breathe 1.6s ease-in-out infinite; }
   @keyframes keep-breathe { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .keep-ico.pull .kr-glyph { animation: none; } }
-  /* The size, in the button's own place: it grows leftward from the corner. */
-  .keep-pill {
-    display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 13px;
-    background: var(--amber); color: var(--on-amber); font-size: 12.5px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums;
-  }
-  .keep-detail {
-    position: fixed; z-index: 9999; width: 270px; padding: 12px 14px 8px; border: 1px solid var(--border); border-radius: var(--radius);
-    background: var(--surface); box-shadow: var(--shadow-popup); color: var(--text);
-  }
-  .keep-detail[hidden] { display: none; }
-  .keep-d-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-variant-numeric: tabular-nums; }
-  .keep-d-top b { font-size: 20px; font-weight: 700; }
-  .keep-d-top span, .keep-d-speed { font-size: 12.5px; color: var(--text2); font-variant-numeric: tabular-nums; }
-  .keep-d-speed, .keep-d-err { margin-top: 6px; min-height: 17px; }
-  .keep-d-err { font-size: 12.5px; line-height: 1.4; color: var(--error); }
-  .keep-d-actions { display: flex; gap: 6px; margin: 8px -6px 0; }
-  .keep-d-actions button {
-    flex: 1; min-height: 44px; border: none; background: none; font: inherit; font-size: 14px; white-space: nowrap; font-weight: 600; color: var(--amber); cursor: pointer; border-radius: 8px;
-  }
-  .keep-d-actions button.keep-quiet { color: var(--text2); font-weight: 500; }
-  .keep-d-actions button:active { background: var(--amber-glow); }
   .ctx-keep { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
   .ctx-keep .keep-glyph { flex-shrink: 0; opacity: 0.8; }
   .keep-btn .keep-glyph { vertical-align: -3px; margin-inline-end: 6px; }
@@ -1355,7 +1334,10 @@
   [dir="rtl"] .lang-dropdown-item.switchable { border-left: none; border-right: 2px solid transparent; }
   [dir="rtl"] .lang-dropdown-item.switchable:hover { border-right-color: var(--amber); }
   [dir="rtl"] .stat-card { direction: rtl; }
-  [dir="rtl"] .star-btn { right: auto; left: 8px; }
+  [dir="rtl"] .card-more { margin: -10px 0 -10px -10px; }
+  [dir="rtl"] .stats-grid.tiles .card-more { right: auto; left: 0; }
+  [dir="rtl"] .card-icon-box > .keep-ico { right: auto; left: -7px; }
+  [dir="rtl"] .card-icon-box > .fav-mark { left: auto; right: -7px; }
   [dir="rtl"] .manage-tab { direction: rtl; }
   [dir="rtl"] .empty { direction: rtl; }
 
@@ -1528,7 +1510,7 @@
   :root[data-theme="light"] .card-icon { box-shadow: inset 0 0 0 1px rgba(20, 15, 5, 0.10); }
   :root[data-theme="light"] .card-icon img { box-shadow: inset 0 0 0 1px rgba(20, 15, 5, 0.06); }
   .icon-letter { font-size: 20px; font-weight: 700; background: linear-gradient(135deg, var(--amber), #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  .card-info { flex: 1; min-width: 0; display: flex; flex-direction: column; padding-right: 28px; }
+  .card-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .stat-card .name { font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 2px; }
   .stat-card .desc { font-size: 12px; color: var(--text2); line-height: 1.4; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   /* Removed opacity here — multiplying the already-secondary --text2
@@ -1561,9 +1543,7 @@
     flex-direction: column; align-items: center; justify-content: flex-start;
     gap: 8px; padding: 20px 12px 12px; text-align: center;
   }
-  /* The tile's bottom band is the mark's (arrow, size, ring, check): the title never runs under it. */
-  .stats-grid.tiles .stat-card:has(> .keep-ico) { padding-bottom: 38px; }
-  .stats-grid.tiles .card-icon { align-self: center; }
+  .stats-grid.tiles .card-icon-box { align-self: center; }
   .stats-grid.tiles .card-info { align-items: center; padding-right: 0; gap: 6px; flex: 0 0 auto; }
   .stats-grid.tiles .desc, .stats-grid.tiles .detail, .stats-grid.tiles .card-cat, .stats-grid.tiles .qid-badge { display: none; }
   /* The name row becomes a centred column: the title (.zt) on top, the language
@@ -1586,18 +1566,13 @@
      overlap the icon's top corners, which reads as intentional and reclaims a
      few px of tile height. */
   .stats-grid.tiles .new-badge { position: absolute; top: 6px; left: 8px; margin: 0; z-index: 1; }
-  .stats-grid.tiles .star-btn { top: 5px; right: 6px; z-index: 1; }
+  /* Top right, clear of the centred icon: a tile is 112px, so the button is 34px, not 44. */
+  .stats-grid.tiles .card-more { position: absolute; top: 0; right: 0; width: 34px; height: 34px; margin: 0; }
   /* The chip owns its own line under the title and spells the language out in
      full ("Français") — no letter-spacing tracking (that's for the terse code
      form in list rows), and allow it to wrap rather than overflow the tile. */
   .stats-grid.tiles .lang-badge { margin: 0; }
   .stats-grid.tiles .lang-badge-full { letter-spacing: 0; white-space: normal; max-width: 100%; }
-  /* Compact view hides the empty (unfavorited) star — only a filled star or a
-     hover (pointer devices) reveals it, so tiles aren't peppered with grey stars. */
-  .stats-grid.tiles .star-btn:not(.starred) { opacity: 0; pointer-events: none; }
-  @media (hover: hover) {
-    .stats-grid.tiles .stat-card:hover .star-btn:not(.starred) { opacity: 0.4; pointer-events: auto; }
-  }
   /* Desktop has the width for roomier tiles — bump the min column so titles get
      more room; mobile keeps the tighter ~3-across from the base rule. */
   @media (min-width: 601px) {
@@ -3355,17 +3330,14 @@
   .dl-lang-badge { flex-shrink: 0; }
   .qid-badge { display: inline-block; margin-left: 5px; vertical-align: middle; color: var(--text3); opacity: 0.5; }
 
-  /* ── Star (favorite) toggle ── */
-  .star-btn {
-    position: absolute; top: 4px; right: 4px; z-index: 2;
-    background: none; border: none; cursor: pointer; font-size: 18px; line-height: 1;
-    color: var(--text2); opacity: 0.3; transition: all 0.2s;
-    /* WCAG 2.5.5 minimum touch target — 24×24 on top of the visual icon */
-    min-width: 24px; min-height: 24px; padding: 4px;
-    display: inline-flex; align-items: center; justify-content: center;
+  /* ── The card's one control: ⋯ opens its menu ── */
+  .card-more {
+    flex-shrink: 0; align-self: center; width: 44px; height: 44px; margin: -10px -10px -10px 0; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 22px; background: none;
+    color: var(--text2); opacity: 0.6; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   }
-  .star-btn:hover { opacity: 1; color: var(--amber); transform: scale(1.2); }
-  .star-btn.starred { opacity: 1; color: var(--amber); }
+  .card-more svg { width: 20px; height: 20px; fill: currentColor; }
+  .card-more:hover, .card-more:focus-visible { opacity: 1; color: var(--amber); background: var(--amber-glow); }
   .stat-card { position: relative; }
   /* While a long-press is armed/fired (#37), suppress text selection on the
      pressed cards so the hold opens the menu instead of highlighting a label.
@@ -4259,7 +4231,7 @@
 :root.night-red .dc-today, :root.night-red .dice { filter: var(--red-picture) brightness(.55); }
 :root.night-red .dc-today :is(img, canvas) { filter: none; }
 /* Quiet things stay readable: no 30% stars or faded close marks at night. */
-:root.night-red .dc-dismiss, :root.night-red .star-btn, :root.night-red .cat-heading-other { opacity: 1; }
+:root.night-red .dc-dismiss, :root.night-red .card-more, :root.night-red .cat-heading-other { opacity: 1; }
 :root.night-red #reader-frame { background: #000; }
 /* Proportion bars: hue can't tell segments apart in Red, so brightness does, in segment
    order, the legend's swatches in the same order (the legend still names each one). */

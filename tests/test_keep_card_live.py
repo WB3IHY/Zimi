@@ -1,18 +1,19 @@
-"""Keep offline is one button in the tile's bottom-right corner, at 390 px.
+"""A library card at 390 px: its state on its icon, its one control ⋯.
 
-  - the mark sits bottom right, a 44px target, faded until touched;
-  - under 1 GB one tap starts and the mark is the ring at once; from 1 GB the
-    same button grows into the size and a second tap starts (it goes back to the
-    arrow on a tap elsewhere or after a few seconds);
-  - the check turns into a trash can on the first tap and the second deletes;
-  - a ring opens the detail (percent, bytes, speed; Pause or Resume, Cancel); a
-    failed pull says so on the ring and offers Retry;
-  - a 74 GB pull shows movement: a sliver of ring from the first byte, numbers
-    in the detail, and a total even when the proxy sends no length;
+  - a ZIM the phone holds carries a mark on the icon's bottom-right corner (the
+    ring while it comes, the disc once here); it is a mark, never a button, and
+    a ZIM the phone does not hold has none; the only button on a card is ⋯;
+  - ⋯ opens the card's menu: Keep offline there is the ring at once; too big
+    for the phone still refuses plainly; Remove asks first;
+  - a 74 GB pull shows movement: a sliver of ring from the first byte, a line in
+    the menu that moves while it is open, and a total even when the proxy sends
+    no length; a failed pull says why on the ring, in a notice and in the menu,
+    which offers Retry;
   - offline: Discover first, the pill's hint wraps inside its popover, and an
-    app's back arrow leads home; online: On this phone opens the categories.
+    app's back arrow leads home; online: On this phone opens the categories;
+  - storage the browser refuses, or a page without HTTPS, offers nothing.
 
-Run: pytest tests/test_keep_one_button_live.py -v
+Run: pytest tests/test_keep_card_live.py -v
 """
 
 import http.client
@@ -142,32 +143,41 @@ def world(tmp_path):
 
 
 def mark(pg, zim):
+    """The keep mark on a card's icon, or None."""
     return pg.evaluate(
-        """(z) => { const b = document.querySelector(`.stat-card[data-zim='${z}'] .keep-ico`); if (!b) return null;
-          const r = b.getBoundingClientRect(), c = b.closest('.stat-card').getBoundingClientRect();
-          return { k: b.dataset.k, w: r.width, h: r.height, right: c.right - r.right, bottom: c.bottom - r.bottom,
-                   opacity: +getComputedStyle(b).opacity, text: b.innerText.trim(),
+        """(z) => { const c = document.querySelector(`.stat-card[data-zim='${z}']`), b = c && c.querySelector('.keep-ico'); if (!b) return null;
+          const r = b.getBoundingClientRect(), i = c.querySelector('.card-icon').getBoundingClientRect();
+          return { k: b.dataset.k, tag: b.tagName, events: getComputedStyle(b).pointerEvents, right: r.right - i.right, bottom: r.bottom - i.bottom,
                    dash: (b.querySelector('.kr-arc') || document.body).getAttribute('stroke-dasharray') }; }""",
         zim,
     )
 
 
-def tap(pg, zim):
+def more(pg, zim):
+    """Tap the card's ⋯ and return the menu's lines."""
     pg.evaluate(
         "(z) => document.querySelector(`.stat-card[data-zim='${z}']`).scrollIntoView({block: 'center'})",
         zim,
     )
     pg.wait_for_timeout(250)
     b = pg.evaluate(
-        "(z) => { const r = document.querySelector(`.stat-card[data-zim='${z}'] .keep-ico`).getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }",
+        "(z) => { const r = document.querySelector(`.stat-card[data-zim='${z}'] .card-more`).getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }",
         zim,
     )
     pg.mouse.click(b[0], b[1])
+    pg.wait_for_selector("#zim-ctx-menu.visible", timeout=5000)
+    return pg.evaluate(
+        "() => [...document.querySelectorAll('#zim-ctx-menu > .ctx-item')].map(e => e.innerText.trim())"
+    )
+
+
+def pick(pg, action):
+    pg.click("#zim-ctx-menu [data-action='%s']" % action)
     pg.wait_for_timeout(200)
 
 
 def keep_one(pg):
-    """One ZIM kept, so every tile carries the arrow; the pull spy is installed after it."""
+    """One ZIM kept; the pull spy is installed after it."""
     pg.evaluate("(z) => _keepStart(z)", "wikipedia")
     pg.wait_for_selector(
         ".stat-card[data-zim='wikipedia'] .keep-ico.kept", timeout=30000
@@ -181,92 +191,47 @@ def spy_pull(pg):
     )
 
 
-def test_the_mark_is_bottom_right_a_44px_target_and_faded(pw, world):
+def test_a_card_marks_its_icon_and_has_one_control(pw, world):
     br, ctx, pg = library(pw, world)
     keep_one(pg)
-    pg.evaluate(
-        "(z) => document.querySelector(`.stat-card[data-zim='${z}']`).scrollIntoView({block: 'center'})",
-        SMALL,
-    )
-    m = mark(pg, SMALL)
-    assert m["k"] == "can" and m["w"] >= 44 and m["h"] >= 44, m
-    assert m["right"] <= 8 and m["bottom"] <= 8, m
-    assert m["opacity"] < 0.7, "faded until touched: %r" % m
-    kept = mark(pg, "wikipedia")
-    assert kept["right"] <= 8 and kept["bottom"] <= 8, (
-        "the check shares the spot: %r" % kept
-    )
-    # In the compact grid too, and clear of the corner badges at the top.
-    pg.evaluate(
-        "() => { localStorage.setItem('zimi_library_view', 'tiles'); renderHome(); }"
-    )
-    pg.wait_for_timeout(500)
-    pg.evaluate(
-        "(z) => document.querySelector(`.stat-card[data-zim='${z}']`).scrollIntoView({block: 'center'})",
-        SMALL,
-    )
-    m = mark(pg, SMALL)
-    assert m["right"] <= 8 and m["bottom"] <= 8, m
+    for view in ("list", "tiles"):
+        pg.evaluate("(v) => { localStorage.setItem('zimi_library_view', v); renderHome(); }", view)
+        pg.wait_for_timeout(500)
+        # A ZIM the phone does not hold has no mark at all, and nothing on any card but ⋯ is a button.
+        assert mark(pg, SMALL) is None
+        kinds = pg.evaluate(
+            "(z) => [...document.querySelector(`.stat-card[data-zim='${z}']`).querySelectorAll('button')].map(b => b.className)",
+            SMALL,
+        )
+        assert kinds == ["card-more"], kinds
+        # The disc sits on the icon's bottom-right corner, and it is a mark, not a target.
+        m = mark(pg, "wikipedia")
+        assert m["k"] == "kept" and m["tag"] == "SPAN" and m["events"] == "none", m
+        assert 0 < m["right"] <= 10 and 0 < m["bottom"] <= 10, m
+        w = pg.evaluate("(z) => document.querySelector(`.stat-card[data-zim='${z}'] .card-more`).getBoundingClientRect().width", SMALL)
+        assert w >= (44 if view == "list" else 34), (view, w)
+    # ⋯ opens the card's menu and goes nowhere.
+    lines = more(pg, SMALL)
+    assert "Keep offline" in lines and "Add to favorites" in lines and "About this ZIM" in lines, lines
+    assert pg.evaluate("() => location.pathname") == "/"
     ctx.close()
     br.close()
 
 
-def test_a_small_zim_starts_on_one_tap_and_is_the_ring_at_once(pw, world):
+def test_keep_offline_from_the_menu_is_the_ring_at_once(pw, world):
     br, ctx, pg = library(pw, world)
     keep_one(pg)
     spy_pull(pg)
     pg.evaluate(
         "() => { KeepStore.probe = async () => { await new Promise(r => setTimeout(r, 1500)); return { ok: true, size: 60000 }; }; }"
     )
-    tap(pg, SMALL)
+    more(pg, SMALL)
+    pick(pg, "keep-start")
     # The probe has not answered yet and the mark is already the ring.
     assert mark(pg, SMALL)["k"] == "pull", mark(pg, SMALL)
     assert pg.evaluate("() => window.__pulls.length") == 0
     pg.wait_for_function("() => window.__pulls.length === 1", timeout=10000)
-    assert not pg.query_selector(".pw-overlay.open"), "no sheet on the way"
-    ctx.close()
-    br.close()
-
-
-def test_a_big_zim_grows_into_its_size_and_the_same_button_starts_it(pw, world):
-    br, ctx, pg = library(pw, world)
-    keep_one(pg)
-    spy_pull(pg)
-    pg.evaluate(
-        "([z, b]) => { _zimInfo(z).size_bytes = b; _zimInfo(z).size_gb = b / 1e9; }",
-        [SMALL, BIG],
-    )
-    pg.evaluate(
-        "() => { KeepStore.probe = async () => ({ ok: true, size: 74e9 }); KeepStore.pull = function() { window.__pulls.push([...arguments]); return true; }; }"
-    )
-    tap(pg, SMALL)
-    m = mark(pg, SMALL)
-    assert m["k"] == "ask" and m["text"] == "74 GB", m
-    assert (
-        pg.evaluate("() => window.__pulls.length") == 0
-    ), "the first tap starts nothing"
-    assert m["right"] <= 8 and m["bottom"] <= 8 and m["w"] > 44, m
-    # A tap elsewhere puts the arrow back.
-    pg.mouse.click(195, 8)
-    pg.wait_for_timeout(250)
-    assert mark(pg, SMALL)["k"] == "can"
-    # So does waiting.
-    pg.evaluate("() => { KEEP_ARM_MS = 400; }")
-    tap(pg, SMALL)
-    assert mark(pg, SMALL)["k"] == "ask"
-    pg.wait_for_function(
-        "(z) => document.querySelector(`.stat-card[data-zim='${z}'] .keep-ico`).dataset.k === 'can'",
-        arg=SMALL,
-        timeout=5000,
-    )
-    # Same button again, then again: it starts, with the size it showed.
-    pg.evaluate("() => { KEEP_ARM_MS = 4000; }")
-    tap(pg, SMALL)
-    assert mark(pg, SMALL)["k"] == "ask"
-    tap(pg, SMALL)
-    pg.wait_for_function("() => window.__pulls.length === 1", timeout=10000)
-    assert pg.evaluate("() => window.__pulls[0][5]") == BIG
-    assert not pg.query_selector(".pw-overlay.open")
+    assert not pg.query_selector(".pw-overlay.open"), "no question for a small ZIM"
     ctx.close()
     br.close()
 
@@ -278,14 +243,14 @@ def test_too_big_for_the_phone_still_refuses_plainly(pw, world):
         "([z, b]) => { _zimInfo(z).size_bytes = b; KeepStore.room = async () => ({ quota: 0, usage: 0, free: 38e9 }); KeepStore.probe = async () => ({ ok: true, size: b }); KeepStore.estimateIsFuzzy = () => false; }",
         [SMALL, BIG],
     )
-    tap(pg, SMALL)
-    tap(pg, SMALL)
+    more(pg, SMALL)
+    pick(pg, "keep-start")
     pg.wait_for_selector(".keep-sheet", timeout=10000)
     rows = pg.inner_text(".keep-sheet-rows")
     assert "Needs 74 GB" in rows and "38 GB" in rows, rows
     pg.click(".keep-sheet [data-act='cancel']")
     pg.wait_for_function(
-        "(z) => document.querySelector(`.stat-card[data-zim='${z}'] .keep-ico`).dataset.k === 'can'",
+        "(z) => !document.querySelector(`.stat-card[data-zim='${z}'] .keep-ico`)",
         arg=SMALL,
         timeout=5000,
     )
@@ -293,26 +258,21 @@ def test_too_big_for_the_phone_still_refuses_plainly(pw, world):
     br.close()
 
 
-def test_the_check_turns_into_a_trash_can_and_the_second_tap_deletes(pw, world):
+def test_removing_a_kept_zim_asks_first(pw, world):
     br, ctx, pg = library(pw, world)
     keep_one(pg)
-    tap(pg, "wikipedia")
-    assert mark(pg, "wikipedia")["k"] == "trash"
-    assert "wikipedia" in pg.evaluate(
-        "() => [..._keepNames]"
-    ), "the first tap deletes nothing"
-    pg.mouse.click(195, 8)  # elsewhere: back to the check
-    pg.wait_for_timeout(250)
-    assert mark(pg, "wikipedia")["k"] == "kept"
-    tap(pg, "wikipedia")
-    tap(pg, "wikipedia")
-    assert not pg.query_selector(".pw-overlay.open"), "no sheet"
+    lines = more(pg, "wikipedia")
+    assert "Remove from this phone" in lines, lines
+    pick(pg, "keep-remove")
+    pg.wait_for_selector(".pw-overlay.open", timeout=5000)
+    assert "wikipedia" in pg.evaluate("() => [..._keepNames]"), "nothing goes before the answer"
+    pg.click("#ac-ok")
     pg.wait_for_function("() => !document.querySelector('.keep-ico')", timeout=15000)
     ctx.close()
     br.close()
 
 
-def test_a_74gb_pull_visibly_moves_and_the_ring_opens_a_detail(pw, world):
+def test_a_74gb_pull_visibly_moves_in_the_menu(pw, world):
     srv, proxy = world
     br, ctx, pg = library(pw, world)
     keep_one(pg)
@@ -320,8 +280,8 @@ def test_a_74gb_pull_visibly_moves_and_the_ring_opens_a_detail(pw, world):
         "([z, b]) => { _zimInfo(z).size_bytes = b; KeepStore.room = async () => ({ quota: 0, usage: 0, free: 5e11 }); }",
         [BIG_NAME, BIG],
     )
-    tap(pg, BIG_NAME)
-    tap(pg, BIG_NAME)
+    more(pg, BIG_NAME)
+    pick(pg, "keep-start")
     pg.wait_for_function(
         "(z) => { const b = document.querySelector(`.stat-card[data-zim='${z}'] .keep-ico`); return b && b.dataset.k === 'pull'; }",
         arg=BIG_NAME,
@@ -331,37 +291,24 @@ def test_a_74gb_pull_visibly_moves_and_the_ring_opens_a_detail(pw, world):
     # At this size a percent is 740 MB: the arc still shows from the first byte.
     m = mark(pg, BIG_NAME)
     assert float(m["dash"].split()[0]) >= 4, m
-    st = pg.evaluate("() => KeepStore.state()")
-    assert st["size"] == BIG and st["speed"] > 0, st
-    tap(pg, BIG_NAME)
-    pg.wait_for_selector("#keep-detail:not([hidden])")
-    acts = pg.evaluate(
-        "() => [...document.querySelectorAll('#keep-detail button')].map(b => b.innerText.trim())"
-    )
-    assert acts == ["Pause", "Cancel download"], acts
-    text = pg.inner_text("#keep-detail")
-    assert "74 GB" in text and "/s" in text, text
-    first = pg.evaluate("() => KeepStore.state().written")
-    pg.wait_for_timeout(1500)
-    assert pg.evaluate("() => KeepStore.state().written") > first
-    box = pg.evaluate(
-        "() => { const r = document.getElementById('keep-detail').getBoundingClientRect(); return [r.left, r.right, innerWidth]; }"
-    )
-    assert box[0] >= 0 and box[1] <= box[2], box
+    lines = more(pg, BIG_NAME)
+    assert "Pause" in lines and "Cancel download" in lines, lines
+    note = pg.inner_text("#zim-ctx-menu .ctx-keep-note")
+    assert "74 GB" in note and "/s" in note, note
+    pg.wait_for_timeout(2200)
+    assert pg.inner_text("#zim-ctx-menu .ctx-keep-note") != note, "the line moves while the menu is open"
     # Pause keeps it as a ring that offers Resume.
-    pg.click("#keep-detail [data-act='pause']")
+    pick(pg, "keep-pause")
     pg.wait_for_function(
         "(z) => document.querySelector(`.stat-card[data-zim='${z}'] .keep-ico`).dataset.k === 'paused'",
         arg=BIG_NAME,
         timeout=10000,
     )
-    tap(pg, BIG_NAME)
-    assert pg.evaluate(
-        "() => [...document.querySelectorAll('#keep-detail button')].map(b => b.innerText.trim())"
-    ) == ["Resume", "Cancel download"]
-    pg.click("#keep-detail [data-act='cancel']")
+    lines = more(pg, BIG_NAME)
+    assert "Resume" in lines and "Cancel download" in lines, lines
+    pick(pg, "keep-cancel")
     pg.wait_for_function(
-        "(z) => document.querySelector(`.stat-card[data-zim='${z}'] .keep-ico`).dataset.k === 'can'",
+        "(z) => !document.querySelector(`.stat-card[data-zim='${z}'] .keep-ico`)",
         arg=BIG_NAME,
         timeout=10000,
     )
@@ -378,8 +325,8 @@ def test_a_proxy_that_sends_no_length_still_gives_the_ring_a_total(pw, world):
         "([z, b]) => { _zimInfo(z).size_bytes = b; KeepStore.room = async () => ({ quota: 0, usage: 0, free: 5e11 }); KeepStore.probe = async () => ({ ok: true, size: 0 }); }",
         [BIG_NAME, BIG],
     )
-    tap(pg, BIG_NAME)
-    tap(pg, BIG_NAME)
+    more(pg, BIG_NAME)
+    pick(pg, "keep-start")
     pg.wait_for_function("() => KeepStore.state().written > 1e6", timeout=20000)
     assert (
         pg.evaluate("() => KeepStore.state().size") == BIG
@@ -395,19 +342,37 @@ def test_a_proxy_that_sends_no_length_still_gives_the_ring_a_total(pw, world):
     br.close()
 
 
-def test_a_failed_pull_shows_on_the_ring_and_offers_retry(pw, world):
+def test_a_failed_pull_shows_on_the_ring_and_the_menu_offers_retry(pw, world):
     br, ctx, pg = library(pw, world)
     keep_one(pg)
     pg.evaluate(
-        """(z) => { const real = KeepStore.state; KeepStore.state = () => ({ name: z, phase: 'idle', written: 5e9, size: 74e9, error: 'network', speed: 0, at: 0, retrying: false });
-                   window.__real = real; _keepIconSync(); }""",
+        """(z) => { KeepStore.state = () => ({ name: z, phase: 'idle', written: 5e9, size: 74e9, error: 'network', speed: 0, at: 0, retrying: false });
+                   _keepIconSync(); }""",
         BIG_NAME,
     )
     assert mark(pg, BIG_NAME)["k"] == "failed"
-    tap(pg, BIG_NAME)
-    pg.wait_for_selector("#keep-detail:not([hidden])")
-    text = pg.inner_text("#keep-detail")
-    assert "connection dropped" in text and "Retry" in text and "6.8%" in text, text
+    lines = more(pg, BIG_NAME)
+    note = pg.inner_text("#zim-ctx-menu .ctx-keep-note")
+    assert "connection dropped" in note and "Retry" in lines, (note, lines)
+    ctx.close()
+    br.close()
+
+
+def test_a_pull_that_fails_says_why(pw, world):
+    br, ctx, pg = library(pw, world)
+    keep_one(pg)
+    pg.evaluate(
+        "() => { KeepStore.room = async () => ({ quota: 0, usage: 0, free: 5e11 }); KeepStore.probe = async () => ({ ok: true, size: 60000 }); }"
+    )
+    # The server goes away between the size and the bytes.
+    pg.route("**/keep/" + SMALL, lambda route: route.fulfill(status=410, body=""))
+    more(pg, SMALL)
+    pick(pg, "keep-start")
+    pg.wait_for_function(
+        "() => { const n = document.getElementById('keep-notice'); return n && !n.hidden && n.textContent.length > 0; }",
+        timeout=60000,
+    )
+    assert mark(pg, SMALL)["k"] == "failed"
     ctx.close()
     br.close()
 
@@ -514,23 +479,5 @@ def test_an_insecure_address_says_https_is_needed(pw, world):
     br, ctx, pg = _page_with(pw, world, "Object.defineProperty(window, 'isSecureContext', { value: false });")
     assert pg.evaluate("() => _keepAvailable()") is False
     assert "HTTPS" in _about_keep_note(pg, SMALL)
-    ctx.close()
-    br.close()
-
-
-def test_a_pull_that_fails_says_why(pw, world):
-    br, ctx, pg = library(pw, world)
-    keep_one(pg)
-    pg.evaluate(
-        "() => { KeepStore.room = async () => ({ quota: 0, usage: 0, free: 5e11 }); KeepStore.probe = async () => ({ ok: true, size: 60000 }); }"
-    )
-    # The server goes away between the size and the bytes.
-    pg.route("**/keep/" + SMALL, lambda route: route.fulfill(status=410, body=""))
-    tap(pg, SMALL)
-    pg.wait_for_function(
-        "() => { const n = document.getElementById('keep-notice'); return n && !n.hidden && n.textContent.length > 0; }",
-        timeout=60000,
-    )
-    assert mark(pg, SMALL)["k"] == "failed"
     ctx.close()
     br.close()

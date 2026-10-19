@@ -5947,15 +5947,9 @@ function _keepRingSvg(pct) {
 function _keepFailedSvg(pct) {
   return _keepRingSvg(pct).replace(/<g class="kr-glyph">.*<\/g>/, '<g class="kr-glyph"><path d="M12 7v6.5M12 17v.01" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></g>');
 }
-// The kept disc turns into this on its first tap; the second deletes.
-var _KEEP_TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.5h14M10 7.5V5.5h4v2M7 7.5l.8 11h8.4l.8-11M10.3 11v4.8M13.7 11v4.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-// Under this size one tap starts the download; from here up the button first grows into the size and a second tap
-// on the same pill starts it. Four seconds without that tap (or a tap anywhere else) and it is the arrow again.
-var KEEP_ONE_TAP_MAX_BYTES = 1e9;
-var KEEP_ARM_MS = 4000;
 var KEEP_RING_MIN_PCT = 4;
 var KEEP_STALL_MS = 8000;       // no bytes for this long: the ring stops saying it is moving
-var KEEP_TICK_MS = 1000;        // while a pull runs, the ring and the detail are redrawn this often
+var KEEP_TICK_MS = 1000;        // while a pull runs, the ring and the menu's progress are redrawn this often
 var _KEEP_DISC = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="currentColor"/>' +
   '<path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="var(--on-amber)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
@@ -6018,7 +6012,6 @@ function _keepLoad() {
           _keepRenderOpen();
           _keepImportRender();
           _keepIconSync();
-          _keepDetailRender();
           if (st.importing && st.done) _keepRefreshNames().then(function() { if (homeScope && homeScope.type === 'phone') renderHome(); _keepImportRender(); });
           if (st.phase === 'idle' && !st.error && st.size && st.written === st.size) { _keepPrimeSearch(); _keepRefreshNames(); }
           else if (st.phase === 'idle') _keepRefreshNames();
@@ -6060,37 +6053,24 @@ function _keepState(zim) {
   return null;
 }
 
-// The tile's one mark, bottom right, muted until touched: the arrow where a ZIM
-// can come, a ring while it does, the disc once it is here. Once this phone
-// keeps one, every other tile carries the bare arrow, so the next is a tap
-// away; before that, tiles stay calm. Tapped, one button does everything:
-//   arrow   under 1 GB: starts, and is the ring at once. From 1 GB: grows into
-//           the size ('ask'); the same pill, tapped again, starts
-//   disc    turns into a trash can ('trash'); tapped again, deletes
-//   ring    opens the detail: progress, Pause or Resume, Cancel
-// 'ask' and 'trash' are the armed states: they last KEEP_ARM_MS or until a tap
-// anywhere else.
-var _keepArmed = null;          // {zim, kind: 'ask' | 'trash'}
-var _keepArmTimer = null;
-var _keepStarting = new Set();  // tapped, not yet pulling: the ring shows at once
+// The card's mark on its icon's corner says what the phone holds of it: a ring
+// while it comes (paused or failed, still the ring), the disc once it is here.
+// Nothing is drawn for a ZIM the phone does not hold. It is a mark, not a button:
+// everything that can be done is in the card's menu (⋯ or a long press).
+var _keepStarting = new Set();  // chosen, not yet pulling: the ring shows at once
 function _keepTileState(zim) {
   if (_keepStarting.has(zim)) return { kind: 'pull', pct: 0 };
-  var s = _keepState(zim) || (_keepNames.size ? { kind: 'can' } : null);
-  if (s && _keepArmed && _keepArmed.zim === zim && (s.kind === 'can' || s.kind === 'kept')) return { kind: _keepArmed.kind };
-  return s;
+  return _keepState(zim);
 }
 // How many bytes a ZIM is: the library's own count (a stat of the file), the meta of a part-way copy otherwise.
 function _keepZimBytes(zim) {
   var info = _zimInfo(zim), m = _keepMetas[zim];
   return (info && info.size_bytes) || (m && m.size) || ((info && info.size_gb) || 0) * BYTES_PER_GB;
 }
-var _KEEP_TILE_LABEL = { kept: 'keep_kept', pull: 'keep_pulling', paused: 'keep_paused', can: 'keep_btn', ask: 'keep_btn', trash: 'keep_remove', failed: 'keep_pulling' };
+var _KEEP_TILE_LABEL = { kept: 'keep_kept', pull: 'keep_pulling', paused: 'keep_paused', failed: 'keep_pulling' };
 function _keepMarkSvg(zim, s) {
   if (s.kind === 'kept') return _KEEP_DISC;
-  if (s.kind === 'trash') return _KEEP_TRASH;
-  if (s.kind === 'ask') return '<span class="keep-pill">' + esc(_fmtBytes(_keepZimBytes(zim))) + '</span>';
   if (s.kind === 'failed') return _keepFailedSvg(s.pct);
-  if (s.kind === 'can') return '<svg viewBox="0 0 24 24" aria-hidden="true">' + _KEEP_ARROW + '</svg>';
   return _keepRingSvg(s.pct);
 }
 // A ring that has had no bytes for a while (or is asking again after a break) stops saying it is moving.
@@ -6103,11 +6083,9 @@ function _keepIconHtml(zim) {
   if (!s) return '';
   var label = t(_KEEP_TILE_LABEL[s.kind]);
   var stalled = typeof KeepStore !== 'undefined' && _keepIsStalled(zim, s);
-  return '<button type="button" class="keep-ico ' + s.kind + (stalled ? ' stalled' : '') + '" data-k="' + s.kind + '" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '"' +
-    ' onclick="event.preventDefault();event.stopPropagation();_keepIconTap(event,this)">' + _keepMarkSvg(zim, s) + '</button>';
+  return '<span class="keep-ico ' + s.kind + (stalled ? ' stalled' : '') + '" data-k="' + s.kind + '" role="img" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '">' + _keepMarkSvg(zim, s) + '</span>';
 }
-// Bring every tile on screen in step with what the phone holds, in place (a
-// rebuild under a thumb swallows the tap).
+// Bring every card on screen in step with what the phone holds, in place.
 function _keepIconSync() {
   document.querySelectorAll('.stat-card[data-zim]').forEach(function(card) {
     var zim = card.getAttribute('data-zim'), s = _keepAvailable() && _keepTileState(zim), cur = card.querySelector('.keep-ico');
@@ -6120,35 +6098,19 @@ function _keepIconSync() {
       return;
     }
     if (cur) cur.remove();
-    card.insertAdjacentHTML('beforeend', _keepIconHtml(zim));
+    var box = card.querySelector('.card-icon-box');
+    if (box) box.insertAdjacentHTML('beforeend', _keepIconHtml(zim));
   });
   _keepTickWhilePulling();
 }
-// A pull on a big ZIM moves a few bytes in a tick: the ring and the detail's
-// numbers are redrawn each second so it is plain that it is alive (or stopped).
+// A pull on a big ZIM moves a few bytes in a tick: the ring and the menu's
+// progress line are redrawn each second so it is plain that it is alive.
 var _keepTicker = null;
 function _keepTickWhilePulling() {
   var pulling = typeof KeepStore !== 'undefined' && KeepStore.state().phase === 'pulling';
-  if (pulling && !_keepTicker) _keepTicker = setInterval(function() { _keepIconSync(); _keepDetailRender(); }, KEEP_TICK_MS);
+  if (pulling && !_keepTicker) _keepTicker = setInterval(function() { _keepIconSync(); _keepMenuNoteSync(); }, KEEP_TICK_MS);
   else if (!pulling && _keepTicker) { clearInterval(_keepTicker); _keepTicker = null; }
 }
-
-function _keepDisarm() {
-  var was = _keepArmed;
-  _keepArmed = null;
-  clearTimeout(_keepArmTimer);
-  if (was) _keepIconSync();
-}
-function _keepArm(zim, kind) {
-  clearTimeout(_keepArmTimer);
-  _keepArmed = { zim: zim, kind: kind };
-  _keepArmTimer = setTimeout(_keepDisarm, KEEP_ARM_MS);
-  _keepIconSync();
-}
-// A touch anywhere but on a mark puts the armed mark back (the mark's own tap decides for itself).
-document.addEventListener('pointerdown', function(e) {
-  if (_keepArmed && !(e.target.closest && e.target.closest('.keep-ico'))) _keepDisarm();
-}, true);
 
 // The same line drawing for each thing that can be done.
 function _keepGlyphFor(action) {
@@ -6157,90 +6119,47 @@ function _keepGlyphFor(action) {
   return '<svg class="keep-glyph" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="' + d + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 }
 
-// What the tile's icon does when tapped: the few things that can be done.
+// Where a copy on this phone stands, in one line: how far, how fast, or why it stopped.
+function _keepNoteText(zim) {
+  var s = _keepState(zim);
+  if (!s || s.kind === 'kept') return '';
+  if (s.kind === 'failed') return t('keep_err_' + s.error);
+  var st = KeepStore.state(), m = _keepMetas[zim] || {}, live = st.name === zim;
+  var size = (live && st.size) || m.size || _keepZimBytes(zim);
+  var written = live ? st.written : (m.written || 0);
+  var pct = (s.pct >= 10 ? Math.floor(s.pct) : s.pct) + '%';
+  var line = [pct, _fmtBytes(written) + ' / ' + _fmtBytes(size)];
+  if (s.kind === 'pull' && live && st.speed) line.push(_fmtBytes(st.speed) + '/s');
+  if (s.kind === 'paused') line.unshift(t('keep_paused'));
+  return line.join(' \u00B7 ');
+}
+function _keepMenuNoteSync() {
+  var el = document.querySelector('#zim-ctx-menu .ctx-keep-note');
+  if (el) el.textContent = _keepNoteText(el.getAttribute('data-zim'));
+}
+// The card menu's keep group: where it stands, then the few things that can be done.
 function _keepMenuHtml(zim) {
   var s = _keepState(zim);
   var item = function(action, label) { return '<div class="ctx-item ctx-keep" data-action="' + action + '"><span>' + tH(label) + '</span>' + _keepGlyphFor(action) + '</div>'; };
   if (!s) return item('keep-start', 'keep_btn');
   if (s.kind === 'kept') return item('keep-remove', 'keep_remove');
-  if (s.kind === 'pull') return item('keep-pause', 'keep_pause') + item('keep-cancel', 'keep_cancel_pull');
-  return item('keep-resume', 'keep_resume') + item('keep-cancel', 'keep_cancel_pull');
+  var note = '<div class="ctx-item ctx-info ctx-keep-note" data-zim="' + escAttr(zim) + '">' + esc(_keepNoteText(zim)) + '</div>';
+  if (s.kind === 'pull') return note + item('keep-pause', 'keep_pause') + item('keep-cancel', 'keep_cancel_pull');
+  return note + item('keep-resume', s.kind === 'failed' ? 'retry' : 'keep_resume') + item('keep-cancel', 'keep_cancel_pull');
 }
 function _keepDo(action, zim) {
-  if (action === 'keep-start' || action === 'keep-resume') _keepStart(zim);
+  if (action === 'keep-start') _keepBegin(zim);
+  else if (action === 'keep-resume') _keepStart(zim, true);
   else if (action === 'keep-pause') _keepPause();
   else if (action === 'keep-remove') _keepAskRemove(zim);
   else if (action === 'keep-cancel') _keepRemove(zim);
 }
-function _keepIconTap(e, btn) {
-  var card = btn.closest('[data-zim]'), zim = card && card.getAttribute('data-zim'), kind = btn.dataset.k;
-  if (!zim) return;
-  if (kind === 'pull' || kind === 'paused' || kind === 'failed') _keepDetailOpen(zim, btn);
-  else if (kind === 'kept') _keepArm(zim, 'trash');
-  else if (kind === 'trash') { _keepDisarm(); _keepRemove(zim); }
-  else if (kind === 'can' && _keepZimBytes(zim) >= KEEP_ONE_TAP_MAX_BYTES) _keepArm(zim, 'ask');
-  else _keepBegin(zim);   // 'can' under the size, or the 'ask' pill tapped again
-}
-// The mark is the ring from the tap on, before the probe and the room check have answered; a refusal puts it back.
+// The mark is the ring from the choice on, before the probe and the room check have answered; a refusal puts it back.
 async function _keepBegin(zim) {
-  _keepDisarm();
   _keepStarting.add(zim);
   _keepIconSync();
-  try { await _keepStart(zim, true); }
+  try { await _keepStart(zim); }
   finally { _keepStarting.delete(zim); _keepIconSync(); }
-}
-
-// ── The detail: a small sheet over a ring ──
-// Real progress and two actions. It is the one place a tens-of-GB download can be followed: the ring moves a pixel
-// in a minute at that size, the numbers move every second.
-var _keepDetailZim = '';
-function _keepDetailEl() {
-  var el = document.getElementById('keep-detail');
-  if (el) return el;
-  el = document.createElement('div');
-  el.id = 'keep-detail';
-  el.className = 'keep-detail';
-  el.setAttribute('role', 'dialog');
-  el.addEventListener('click', function(e) {
-    var b = e.target.closest('[data-act]');
-    if (!b) return;
-    var act = b.getAttribute('data-act'), zim = _keepDetailZim;
-    _keepDetailClose();
-    if (act === 'pause') _keepPause();
-    else if (act === 'resume') _keepStart(zim, true);
-    else if (act === 'cancel') _keepRemove(zim);
-  });
-  document.body.appendChild(el);
-  document.addEventListener('pointerdown', function(e) {
-    if (_keepDetailZim && !(e.target.closest && e.target.closest('#keep-detail, .keep-ico'))) _keepDetailClose();
-  }, true);
-  return el;
-}
-function _keepDetailClose() { _keepDetailZim = ''; var el = document.getElementById('keep-detail'); if (el) el.hidden = true; }
-function _keepDetailOpen(zim, btn) {
-  var el = _keepDetailEl(), r = btn.getBoundingClientRect();
-  _keepDetailZim = zim;
-  el.hidden = false;
-  _keepDetailRender();
-  // Above the mark, right edges together, kept inside the window.
-  var w = el.offsetWidth, h = el.offsetHeight;
-  el.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + 'px';
-  el.style.top = (r.top - h - 6 > 8 ? r.top - h - 6 : Math.min(r.bottom + 6, innerHeight - h - 8)) + 'px';
-}
-function _keepDetailRender() {
-  var el = document.getElementById('keep-detail'), zim = _keepDetailZim;
-  if (!el || !zim || el.hidden) return;
-  var s = _keepState(zim);
-  if (!s || s.kind === 'kept') { _keepDetailClose(); return; }
-  var st = KeepStore.state(), m = _keepMetas[zim] || {}, live = st.name === zim;
-  var size = (live && st.size) || m.size || _keepZimBytes(zim);
-  var written = live ? st.written : (m.written || 0);
-  var side = s.kind === 'failed' ? '<div class="keep-d-err">' + tH('keep_err_' + s.error) + '</div>'
-    : '<div class="keep-d-speed">' + (s.kind === 'pull' && live && st.speed ? esc(_fmtBytes(st.speed)) + '/s' : '&nbsp;') + '</div>';
-  var primary = s.kind === 'pull' ? ['pause', 'keep_pause'] : (s.kind === 'failed' ? ['resume', 'retry'] : ['resume', 'keep_resume']);
-  el.innerHTML = '<div class="keep-d-top"><b>' + (s.pct >= 10 ? Math.floor(s.pct) : s.pct) + '%</b><span>' + esc(_fmtBytes(written)) + ' / ' + esc(_fmtBytes(size)) + '</span></div>' +
-    '<div class="keep-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.floor(s.pct) + '"><i style="width:' + Math.max(s.pct, 1) + '%"></i></div>' + side +
-    '<div class="keep-d-actions"><button type="button" data-act="' + primary[0] + '">' + tH(primary[1]) + '</button><button type="button" data-act="cancel" class="keep-quiet">' + tH('keep_cancel_pull') + '</button></div>';
 }
 
 // ── The About panel's block ──
@@ -6728,6 +6647,14 @@ function _shortAge(tsSec) {
   return t('just_now');
 }
 
+var _FAV_MARK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="currentColor"/></svg>';
+var _CARD_MORE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg>';
+// The card's ⋯: its menu, opened under the button.
+function _cardMore(btn) {
+  var card = btn.closest('[data-zim]'), r = btn.getBoundingClientRect();
+  if (card) _openZimMenu(card.getAttribute('data-zim'), r.left, r.bottom + 4, false, card);
+}
+
 // ``countOf(z)``: the count on a card's line, _zimCountHtml's by default (the
 // Apps page counts what each app shows, _appItemsHtml); '' leaves it out.
 function renderCardGrid(items, showStars, showCategory, countOf) {
@@ -6744,10 +6671,15 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
       ? '<img src="/w/' + encodeURIComponent(z.name) + '/-/icon" alt="" width="48" height="48" loading="lazy">'
       : '<span class="icon-letter">' + esc(z.title || z.name)[0].toUpperCase() + '</span>';
     const isFav = favs.includes(z.name);
-    // preventDefault too: the card is now an anchor (#49), and a button click
-    // inside a link otherwise still follows the link's href.
-    const starHtml = showStars
-      ? '<button class="star-btn' + (isFav ? ' starred' : '') + '" onclick="event.preventDefault();event.stopPropagation();toggleFavorite(\'' + escAttr(z.name) + '\', this)" title="' + escAttr(isFav ? t('remove_from_favorites') : t('add_to_favorites')) + '">' + (isFav ? '\u2605' : '\u2606') + '</button>'
+    // A card has one control, ⋯, and it opens the card's menu (Favorite, Keep
+    // offline, About...), the same one a long press or a right click opens.
+    // What the card IS (a favorite, on this phone) is drawn on its icon's
+    // corners, never as a second button. preventDefault too: the card is an
+    // anchor (#49), and a click inside a link otherwise follows its href.
+    const favMark = showStars && isFav
+      ? '<span class="fav-mark" role="img" aria-label="' + escAttr(t('favorites')) + '" title="' + escAttr(t('favorites')) + '">' + _FAV_MARK_SVG + '</span>' : '';
+    const moreBtn = showStars
+      ? '<button type="button" class="card-more" aria-label="' + escAttr(t('more_actions')) + '" title="' + escAttr(t('more_actions')) + '" onclick="event.preventDefault();event.stopPropagation();_cardMore(this)">' + _CARD_MORE_SVG + '</button>'
       : '';
     const catPrefix = showCategory && z.category ? '<span class="card-cat">' + esc(z.category) + '</span> &middot; ' : '';
     const badge = _langBadge(z, false, isTiles);
@@ -6767,8 +6699,7 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
     const cardNav = ' href="/w/' + encodeURIComponent(z.name) + '" onclick="return _spaSourceClick(event, this)"';
     const onPhone = _keepNames.has(z.name);
     return '<' + cardTag + ' class="stat-card' + (newHtml ? ' is-new' : '') + (onPhone ? ' kept' : '') + '" data-zim="' + escAttr(z.name) + '"' + cardNav + '>' +
-      starHtml +
-      '<div class="card-icon">' + icon + '</div>' +
+      '<div class="card-icon-box"><div class="card-icon">' + icon + '</div>' + favMark + _keepIconHtml(z.name) + '</div>' +
       '<div class="card-info">' +
         // new-badge lives in the title row (list) — never over the left icon;
         // CSS lifts it to a tile corner in compact view (icon is centred there).
@@ -6783,7 +6714,7 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
         // in-place re-sort swap them without rebuilding the card.
         _cardOwnDateHtml(z) + _sortedByDateHtml(z) +
         '</div>' +
-      '</div>' + _keepIconHtml(z.name) +
+      '</div>' + moreBtn +
       (_keepManaging && homeScope && homeScope.type === 'phone'
         ? '<button type="button" class="keep-rm" aria-label="' + escAttr(t('keep_remove')) + '" title="' + escAttr(t('keep_remove')) + '" onclick="event.preventDefault();event.stopPropagation();_keepAskRemove(\'' + escAttr(z.name) + '\')">\u00D7</button>' : '') +
       '</' + cardTag + '>';
@@ -8760,8 +8691,9 @@ function _moveZimTo(zim, category) {
   }
 
   // Exposed so the manage-row gear can raise the same menu (compact variant).
-  window._openZimMenu = function(zim, x, y, compact) {
-    _ctxZim = zim; _ctxCard = null; _ctxCompact = !!compact;
+  // `card`: the card it was opened from, so Favorite holds the page on it.
+  window._openZimMenu = function(zim, x, y, compact, card) {
+    _ctxZim = zim; _ctxCard = card || null; _ctxCompact = !!compact;
     _ctxCustomAction = null;
     _ctxX = x; _ctxY = y;
     showMainMenu();

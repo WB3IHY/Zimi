@@ -110,12 +110,16 @@ def test_one_tap_from_the_menu_then_remove(pw, world):
         ".stat-card[data-zim='%s'] .keep-ico.kept" % ZIM, timeout=30000
     )
     assert not pg.query_selector(".stat-card[data-zim='%s'] .keep-ico.pull" % OTHER)
-    # One is kept: every other tile carries the bare arrow, and it offers the keep.
-    shot(pg, "f1-arrows")
-    # The arrow is the whole control: a small ZIM starts on one tap, no menu, no question.
+    # One is kept: the others stay plain (no arrow on every card), and the card's ⋯ offers the keep.
+    shot(pg, "f1-kept")
+    # The home redraws once the phone's list has it: act on the cards after that.
+    pg.wait_for_function("(z) => _keepNames.has(z)", arg=ZIM, timeout=15000)
+    pg.wait_for_timeout(500)
+    assert not pg.query_selector(".stat-card[data-zim='%s'] .keep-ico" % OTHER)
     pg.evaluate("(z) => document.querySelector(`.stat-card[data-zim='${z}']`).scrollIntoView({block: 'center'})", OTHER)
-    pg.click(".stat-card[data-zim='%s'] .keep-ico.can" % OTHER)
-    assert not pg.query_selector("#zim-ctx-menu.visible") and not pg.query_selector(".pw-overlay.open")
+    pg.click(".stat-card[data-zim='%s'] .card-more" % OTHER)
+    pg.click("#zim-ctx-menu [data-action='keep-start']")
+    assert not pg.query_selector(".pw-overlay.open")
     pg.wait_for_selector(".stat-card[data-zim='%s'] .keep-ico.kept" % OTHER, timeout=30000)
     open_menu(pg, ZIM)
     assert "Remove from this phone" in menu_labels(
@@ -123,16 +127,12 @@ def test_one_tap_from_the_menu_then_remove(pw, world):
     ) and "Keep offline" not in menu_labels(pg)
     pg.click("[data-action='keep-remove']")
     pg.click("#ac-ok")   # it asks first (test_keep_files_live holds the wording)
-    pg.wait_for_selector(".stat-card[data-zim='%s'] .keep-ico.can" % ZIM, timeout=15000)
-    # The check turns into a trash can on the first tap, and the second deletes: no sheet, and the
-    # last kept ZIM going takes the arrows off every tile.
+    pg.wait_for_function("(z) => !document.querySelector(`.stat-card[data-zim='${z}'] .keep-ico`)", arg=ZIM, timeout=15000)
+    # The other goes the same way, from its ⋯: the last kept ZIM leaves no mark anywhere.
     pg.evaluate("(z) => document.querySelector(`.stat-card[data-zim='${z}']`).scrollIntoView({block: 'center'})", OTHER)
-    pg.click(".stat-card[data-zim='%s'] .keep-ico.kept" % OTHER)
-    pg.wait_for_selector(".stat-card[data-zim='%s'] .keep-ico.trash" % OTHER)
-    assert OTHER in pg.evaluate("() => _keepNames && [..._keepNames].join()"), "the first tap deletes nothing"
-    shot(pg, "f1-trash")
-    pg.click(".stat-card[data-zim='%s'] .keep-ico.trash" % OTHER)
-    assert not pg.query_selector(".pw-overlay.open"), "the second tap asks nothing"
+    pg.click(".stat-card[data-zim='%s'] .card-more" % OTHER)
+    pg.click("#zim-ctx-menu [data-action='keep-remove']")
+    pg.click("#ac-ok")
     pg.wait_for_function("() => !document.querySelector('.keep-ico')", timeout=15000)
     ctx.close()
     br.close()
@@ -199,14 +199,14 @@ def test_ring_while_it_comes_the_view_and_manage(pw, world):
         rs.NAME,
     )
     assert re.match(r"^[\d.]+ 100$", arc) and not arc.startswith("0 "), arc
-    # Tap the ring: the detail, real numbers and only Pause / Cancel download.
-    pg.click(".stat-card[data-zim='%s'] .keep-ico" % rs.NAME)
-    pg.wait_for_selector("#keep-detail:not([hidden])")
-    acts = pg.evaluate("() => [...document.querySelectorAll('#keep-detail button')].map(b => b.innerText.trim())")
-    assert acts == ["Pause", "Cancel download"], acts
-    assert re.search(r"[\d.]+%", pg.inner_text("#keep-detail")) and " / " in pg.inner_text("#keep-detail")
-    shot(pg, "f4-ring-detail")
-    pg.click("#keep-detail [data-act='pause']")
+    # The card's ⋯: where it stands in real numbers, then Pause and Cancel download.
+    pg.click(".stat-card[data-zim='%s'] .card-more" % rs.NAME)
+    pg.wait_for_selector("#zim-ctx-menu .ctx-keep-note")
+    note = pg.inner_text("#zim-ctx-menu .ctx-keep-note")
+    assert re.search(r"[\d.]+%", note) and " / " in note, note
+    assert pg.query_selector("#zim-ctx-menu [data-action='keep-pause']") and pg.query_selector("#zim-ctx-menu [data-action='keep-cancel']")
+    shot(pg, "f4-ring-menu")
+    pg.click("#zim-ctx-menu [data-action='keep-pause']")
     pg.wait_for_selector(
         ".stat-card[data-zim='%s'] .keep-ico.paused" % rs.NAME, timeout=15000
     )
@@ -367,7 +367,7 @@ def test_the_ring_and_the_tick_show_in_the_list_and_the_compact_grid(pw, world, 
                    w: b.width, grid: !!c.closest('.stats-grid.tiles') }; }""",
         ZIM,
     )
-    assert box["inside"] and box["w"] >= 24, box
+    assert box["inside"] and box["w"] >= 18, box
     assert box["grid"] == (view == "tiles")
     pg.evaluate("(z) => document.querySelector(`.stat-card[data-zim='${z}']`).scrollIntoView({block: 'center'})", ZIM)
     shot(pg, "g-%s-tick" % view)

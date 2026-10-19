@@ -77,11 +77,13 @@ def test_star_and_unstar_hold_the_card(served):
                 "(z) => window.scrollBy(0, (" + CARD_TOP + ")(z) - 300)", "water"
             )
             before = pg.evaluate(CARD_TOP, "water")
-            star = pg.locator('.stat-card[data-zim="water"]').last.locator(".star-btn")
-            box = star.bounding_box()
+            more = pg.locator('.stat-card[data-zim="water"]').last.locator(".card-more")
+            box = more.bounding_box()
             pg.touchscreen.tap(
                 box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
             )
+            fav = pg.locator("#zim-ctx-menu [data-action='favorite']").bounding_box()
+            pg.touchscreen.tap(fav["x"] + fav["width"] / 2, fav["y"] + fav["height"] / 2)
             pg.wait_for_function(FAV_COUNT + " === %d" % want, timeout=5000)
             pg.wait_for_timeout(200)
             after = pg.evaluate(CARD_TOP, "water")

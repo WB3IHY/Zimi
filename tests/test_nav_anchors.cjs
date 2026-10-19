@@ -121,8 +121,8 @@ check(/const cardTag = 'a'/.test(appSrc),
   'every tile is a real anchor');
 check(!/cardTag \+ '[^']*"' \+[\s\S]{0,400}?dlHtml/.test(appSrc),
   'the tile embeds no download <a> — HTML forbids nested links');
-check(/event\.preventDefault\(\);event\.stopPropagation\(\);toggleFavorite/.test(appSrc),
-  'the star button inside anchor tiles preventDefaults (a button in a link otherwise follows the href)');
+check(/event\.preventDefault\(\);event\.stopPropagation\(\);_cardMore/.test(appSrc),
+  'the card\'s ⋯ button inside anchor tiles preventDefaults (a button in a link otherwise follows the href)');
 
 // ── 4. auxclick fallback skips real anchors ──────────────────────────────
 // (The reader iframe has its own auxclick handler — target the document-level
