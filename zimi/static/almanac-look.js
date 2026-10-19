@@ -144,7 +144,7 @@ function _lookScreenAngle() {
 function _lookNeedsPermission() {
   return typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function';
 }
-// Motion events need a secure address (https or localhost) on every phone.
+// Motion events need an HTTPS connection (or localhost) on every phone.
 function _lookHasSensors() { return typeof DeviceOrientationEvent !== 'undefined' && window.isSecureContext !== false; }
 
 // iOS asks, once, in answer to a tap; everything else just listens.

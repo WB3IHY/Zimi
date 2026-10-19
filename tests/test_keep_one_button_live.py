@@ -513,7 +513,7 @@ def test_storage_the_browser_refuses_is_never_offered(pw, world):
 def test_an_insecure_address_says_https_is_needed(pw, world):
     br, ctx, pg = _page_with(pw, world, "Object.defineProperty(window, 'isSecureContext', { value: false });")
     assert pg.evaluate("() => _keepAvailable()") is False
-    assert "https" in _about_keep_note(pg, SMALL)
+    assert "HTTPS" in _about_keep_note(pg, SMALL)
     ctx.close()
     br.close()
 
