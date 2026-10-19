@@ -176,7 +176,9 @@ EXPOSE 6881/udp
 # for every ZIM (Wikipedia EN can take 5+ min on a fragile host). Without a long
 # enough grace period the orchestrator marks the container unhealthy and may
 # crash-loop, restarting the same expensive build over and over.
+# The port is the one the entrypoint chose (docker/entrypoint.py PORT_FILE):
+# NOMAD's command runs Zimi on kiwix-serve's 8080, not 8899.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10m --retries=3 \
-  CMD python3 -c "import os, urllib.request; urllib.request.urlopen('http://localhost:%s/health' % os.environ.get('ZIMI_PORT', '8899'))"
+  CMD python3 -c "import os, urllib.request; f = '/tmp/zimi-port'; p = open(f).read().strip() if os.path.exists(f) else os.environ.get('ZIMI_PORT', '8899'); urllib.request.urlopen('http://localhost:%s/health' % p)"
 
 CMD ["python3", "-m", "zimi", "serve", "--port", "8899"]

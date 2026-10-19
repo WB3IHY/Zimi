@@ -41,6 +41,25 @@ def folder_from(argv, environ, flag, variable):
     return environ.get(variable) or None
 
 
+#: Where the server's port is written for the health check, which runs as its
+#: own process and cannot see which port this chose (NOMAD's is kiwix-serve's).
+PORT_FILE = "/tmp/zimi-port"
+
+
+def note_port(argv, environ):
+    """Write the port the server will listen on to PORT_FILE (the flag beats
+    ZIMI_PORT); with neither, the health check's own default stands."""
+    port = folder_from(argv, environ, "--port", "ZIMI_PORT")
+    try:
+        if port:
+            with open(PORT_FILE, "w", encoding="utf-8") as f:
+                f.write(port)
+        elif os.path.exists(PORT_FILE):
+            os.remove(PORT_FILE)
+    except OSError:
+        pass
+
+
 def data_dir_from(argv, environ):
     """The data folder the server will use, or None when it derives its own."""
     return folder_from(argv, environ, "--data-dir", "ZIMI_DATA_DIR")
@@ -191,6 +210,7 @@ def main(argv=None, environ=None):
             ]
             if folder not in held:
                 environ["ZIMI_EXTRA_ZIM_DIRS"] = os.pathsep.join(held + [folder])
+    note_port(argv, environ)
     path = data_dir_from(argv, environ)
     if os.geteuid() == 0:
         user = pwd.getpwnam(RUN_AS)

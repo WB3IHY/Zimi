@@ -268,3 +268,18 @@ def test_a_folder_already_named_is_not_named_twice(ep, root_run):
 def test_the_healthcheck_follows_the_port_the_owner_set():
     text = open(os.path.join(ROOT, "Dockerfile"), encoding="utf-8").read()
     assert "ZIMI_PORT" in text.split("HEALTHCHECK", 1)[1].split("CMD [", 1)[0]
+
+
+def test_the_port_the_server_uses_is_written_for_the_healthcheck(ep, root_run, tmp_path, monkeypatch):
+    # NOMAD's command names no port: Zimi takes kiwix-serve's 8080, and the
+    # health check (its own process) must probe that, not 8899.
+    monkeypatch.setattr(ep, "PORT_FILE", str(tmp_path / "port"))
+    ep.main(NOMAD_KIWIX, {})
+    assert open(ep.PORT_FILE).read() == "8080"
+    ep.main(["python3", "-m", "zimi", "serve", "--port", "8899"], {})
+    assert open(ep.PORT_FILE).read() == "8899"
+    ep.main(["zimi"], {})
+    assert not os.path.exists(ep.PORT_FILE)
+    text = open(os.path.join(ROOT, "Dockerfile"), encoding="utf-8").read()
+    assert "/tmp/zimi-port" in text.split("HEALTHCHECK", 1)[1].split("CMD [", 1)[0]
+    assert ep.PORT_FILE != "/tmp/zimi-port" and _load().PORT_FILE == "/tmp/zimi-port"
