@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import test_keep_phone_live as kp  # noqa: E402
 from test_keep_flow_live import library  # noqa: E402
+from test_keep_flow_live import phone as kp_phone  # noqa: E402
 from test_keep_phone_live import _device, pw, wait_shell_kept  # noqa: E402,F401
 from test_offline_truth_live import Server, _free_port  # noqa: E402
 import wiki_fixture as wf  # noqa: E402
@@ -477,5 +478,59 @@ def test_online_on_this_phone_opens_the_categories(pw, world):
     )
     # Directly below the collections, before the big library flow.
     assert heads.index("mine") + 1 == heads.index("on this phone") < heads.index("encyclopedias"), heads
+    ctx.close()
+    br.close()
+
+
+def _page_with(pw, world, init_js):
+    """A phone page whose browser is changed by `init_js` before any script of the app runs."""
+    srv, proxy = world
+    br, ctx = kp_phone(pw)
+    ctx.add_init_script(init_js)
+    pg = ctx.new_page()
+    pg.goto(proxy.base + "/", wait_until="load")
+    pg.wait_for_selector(".stat-card", timeout=30000)
+    pg.wait_for_function("() => typeof _keepStart === 'function'")
+    return br, ctx, pg
+
+
+def _about_keep_note(pg, zim):
+    pg.evaluate("(z) => _openZimAbout(z)", zim)
+    pg.wait_for_selector("#zi-keep .keep-note", timeout=15000)
+    return pg.inner_text("#zi-keep .keep-note")
+
+
+def test_storage_the_browser_refuses_is_never_offered(pw, world):
+    # Safari's Private Browsing: getDirectory is there and throws when used.
+    br, ctx, pg = _page_with(pw, world, "navigator.storage.getDirectory = () => Promise.reject(new DOMException('no', 'UnknownError'));")
+    pg.wait_for_function("() => _keepStorageOk === false", timeout=10000)
+    assert not pg.query_selector(".keep-ico"), "no mark a tap cannot keep"
+    assert "cannot keep files" in _about_keep_note(pg, SMALL)
+    ctx.close()
+    br.close()
+
+
+def test_an_insecure_address_says_https_is_needed(pw, world):
+    br, ctx, pg = _page_with(pw, world, "Object.defineProperty(window, 'isSecureContext', { value: false });")
+    assert pg.evaluate("() => _keepAvailable()") is False
+    assert "https" in _about_keep_note(pg, SMALL)
+    ctx.close()
+    br.close()
+
+
+def test_a_pull_that_fails_says_why(pw, world):
+    br, ctx, pg = library(pw, world)
+    keep_one(pg)
+    pg.evaluate(
+        "() => { KeepStore.room = async () => ({ quota: 0, usage: 0, free: 5e11 }); KeepStore.probe = async () => ({ ok: true, size: 60000 }); }"
+    )
+    # The server goes away between the size and the bytes.
+    pg.route("**/keep/" + SMALL, lambda route: route.fulfill(status=410, body=""))
+    tap(pg, SMALL)
+    pg.wait_for_function(
+        "() => { const n = document.getElementById('keep-notice'); return n && !n.hidden && n.textContent.length > 0; }",
+        timeout=60000,
+    )
+    assert mark(pg, SMALL)["k"] == "failed"
     ctx.close()
     br.close()

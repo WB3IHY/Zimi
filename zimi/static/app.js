@@ -3387,6 +3387,7 @@ async function init() {
     _renderConnBanner();
   }
   _rebuildZimsMap();
+  _keepProbeStorage();
   _keepRefreshNames();
   // A kept answer marked the connection offline while the words were still
   // loading: say it again now they are here.
@@ -5976,8 +5977,28 @@ async function _keepRefreshNames() {
 }
 function _keepMeta(name) { return _keepMetas[name] || null; }
 
+// Keeping needs a secure page (the private file system and service workers
+// exist only there) and storage the browser will really write: Safari's
+// Private Browsing and a site-data block have getDirectory and throw on use.
+// One write at start-up decides (_keepProbeStorage); until it answers, the
+// offer stands, and a refusal takes it back off every tile and menu.
+var _keepStorageOk = null;
 function _keepAvailable() {
-  return !!(navigator.storage && navigator.storage.getDirectory && window.Worker);
+  return !!(window.isSecureContext && navigator.storage && navigator.storage.getDirectory && window.Worker) && _keepStorageOk !== false;
+}
+// Why Keep is not offered here, in the reader's words.
+function _keepWhyNot() { return t(window.isSecureContext ? 'keep_unsupported' : 'keep_needs_https'); }
+async function _keepProbeStorage() {
+  if (_keepStorageOk !== null || !window.isSecureContext || !(navigator.storage && navigator.storage.getDirectory)) return;
+  try {
+    var d = await navigator.storage.getDirectory();
+    await d.getFileHandle('.zimi-probe', { create: true });
+    await d.removeEntry('.zimi-probe');
+    _keepStorageOk = true;
+  } catch (e) {
+    _keepStorageOk = false;
+    _keepIconSync();
+  }
 }
 function _keepLoad() {
   if (typeof KeepStore !== 'undefined' && KeepStore.workerUrl === _KEEP_WORKER) return Promise.resolve();
@@ -5989,7 +6010,11 @@ function _keepLoad() {
       KeepStore.workerUrl = _KEEP_WORKER;
       if (!_keepSubscribed) {
         _keepSubscribed = true;
+        var wasPulling = false;
         KeepStore.subscribe(function(st) {
+          // A pull that ends in an error says why at once, wherever it was started (a tile's ring alone turns grey).
+          if (wasPulling && st.phase === 'idle' && st.error) _keepNotice(t('keep_err_' + st.error));
+          wasPulling = st.phase === 'pulling';
           _keepRenderOpen();
           _keepImportRender();
           _keepIconSync();
@@ -6074,7 +6099,7 @@ function _keepIsStalled(zim, s) {
   return s.kind === 'pull' && st.name === zim && st.phase === 'pulling' && (st.retrying || Date.now() - st.at > KEEP_STALL_MS);
 }
 function _keepIconHtml(zim) {
-  var s = _keepTileState(zim);
+  var s = _keepAvailable() && _keepTileState(zim);
   if (!s) return '';
   var label = t(_KEEP_TILE_LABEL[s.kind]);
   var stalled = typeof KeepStore !== 'undefined' && _keepIsStalled(zim, s);
@@ -6085,7 +6110,7 @@ function _keepIconHtml(zim) {
 // rebuild under a thumb swallows the tap).
 function _keepIconSync() {
   document.querySelectorAll('.stat-card[data-zim]').forEach(function(card) {
-    var zim = card.getAttribute('data-zim'), s = _keepTileState(zim), cur = card.querySelector('.keep-ico');
+    var zim = card.getAttribute('data-zim'), s = _keepAvailable() && _keepTileState(zim), cur = card.querySelector('.keep-ico');
     card.classList.toggle('kept', !!(s && s.kind === 'kept'));
     if (!s) { if (cur) cur.remove(); return; }
     if (cur && cur.dataset.k === s.kind) {
@@ -6241,7 +6266,7 @@ function _keepRenderOpen() {
 async function _keepRender(zim) {
   var box = document.getElementById('zi-keep');
   if (!box || box.getAttribute('data-zim') !== zim) return;
-  if (!_keepAvailable()) { box.innerHTML = '<div class="keep-note">' + tH('keep_unsupported') + '</div>'; return; }
+  if (!_keepAvailable()) { box.innerHTML = '<div class="keep-note">' + esc(_keepWhyNot()) + '</div>'; return; }
   try { await _keepLoad(); } catch (e) { box.innerHTML = '<div class="keep-note">' + tH('keep_err_worker') + '</div>'; return; }
   await _keepRefreshMetasOnly();
   var s = _keepState(zim), meta = _keepMetas[zim] || null, st = KeepStore.state();
@@ -6359,7 +6384,7 @@ function _keepNotice(msg) {
 // `sized`: asked from the tile's own button, which already showed the size (a 1 GB+ ZIM took its second tap), so the
 // big-share question is not asked on top of it.
 async function _keepStart(zim, sized) {
-  if (!_keepAvailable()) { _keepNotice(t('keep_unsupported')); return; }
+  if (!_keepAvailable()) { _keepNotice(_keepWhyNot()); return; }
   try { await _keepLoad(); } catch (e) { _keepNotice(t('keep_err_worker')); return; }
   if (KeepStore.state().phase === 'pulling') { _keepNotice(t('keep_one_at_a_time')); return; }
   var meta = _keepMetas[zim];
@@ -6452,7 +6477,7 @@ async function _keepImportPicked(input) {
   var file = input.files && input.files[0];
   input.value = '';
   if (!file) return;
-  if (!_keepAvailable()) { _keepNotice(t('keep_unsupported')); return; }
+  if (!_keepAvailable()) { _keepNotice(_keepWhyNot()); return; }
   try { await _keepLoad(); } catch (e) { _keepNotice(t('keep_err_worker')); return; }
   if (KeepStore.state().phase === 'pulling') { _keepNotice(t('keep_one_at_a_time')); return; }
   var name = KeepStore.nameFromFile(file.name), ex = _keepMetas[name];

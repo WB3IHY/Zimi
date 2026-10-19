@@ -18,7 +18,8 @@
 //               {type: 'stopped', written, size}   {type: 'error', code, written, size}
 // Error codes:  auth (not allowed to keep it), gone (no such ZIM), xz (this
 // reader cannot open that compression), quota (the phone is full), locked
-// (another copy of this pull holds the file), network (gave up after retries;
+// (another copy of this pull holds the file), storage (the browser will not
+// store files: Private Browsing, site data blocked), network (gave up after retries;
 // the partial stays for a resume), corrupt (arrived whole but would not open).
 var V = (self.location.search || '');   // the worker's own ?v= is the imports' too
 importScripts('/static/fzstd.js' + V, '/static/zimreader.js' + V, '/static/keepstore.js' + V);
@@ -71,7 +72,7 @@ async function checkCompression(r) {
 async function pull(m) {
   var name = m.name, url = '/keep/' + encodeURIComponent(name), h = null, d = null;
   try {
-    d = await KeepStore.dir(true);
+    try { d = await KeepStore.dir(true); } catch (e) { throw coded('storage'); }
     var meta = await KeepStore.readMeta(d, name);
     if (meta && meta.complete) { say({ type: 'done', meta: meta }); return; }
     var fresh = !meta || !meta.written;
@@ -191,7 +192,7 @@ async function importFile(m) {
   importStop = false;
   current = { written: 0, size: file.size };
   try {
-    d = await KeepStore.dir(true);
+    try { d = await KeepStore.dir(true); } catch (e) { throw coded('storage'); }
     var r0;
     try { r0 = await ZimReader.open(ZimReader.fileSource(file)); } catch (e) { throw coded('notzim'); }
     await checkCompression(r0);
