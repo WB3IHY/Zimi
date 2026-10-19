@@ -3382,6 +3382,7 @@
   "keep_btn": "Manter offline",
   "keep_install_note": "Adicione o Zimi à Tela de Início primeiro. O Safari apaga os arquivos de um site após uma semana sem uso; um app instalado os mantém.",
   "keep_unsupported": "Este navegador não pode manter arquivos no dispositivo.",
+  "keep_not_in_copy": "Esta página não está na cópia deste ZIM neste dispositivo.",
   "keep_needs_https": "Requer uma conexão HTTPS.",
   "keep_no_room": "Não há espaço suficiente neste telefone.",
   "keep_pulling": "Baixando para este telefone",

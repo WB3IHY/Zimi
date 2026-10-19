@@ -197,6 +197,11 @@ let networkDownUntil = 0;
 // listing) too: a ZIM carried on this phone answers it from its own database.js.
 const NETWORK_FIRST_PREFIXES = ['/read', '/health', '/manage', '/article-languages', '/languages', '/almanac-satellites', '/almanac-ages', '/catalog'];
 
+// The reconnect probe: /health with a cache-busting ping.
+function _isProbe(path, search) {
+  return path === '/health' && /(^|[?&])ping=/.test(search || '');
+}
+
 function _hasPrefix(path, prefixes) {
   for (let i = 0; i < prefixes.length; i++) {
     if (path === prefixes[i] || path.startsWith(prefixes[i] + '/') ||
@@ -211,7 +216,10 @@ function routeStrategy(path, requestMode, destination, search) {
   // The reconnect probe asks /health with a cache-busting query: its answer
   // is the point, so it is never kept (it filled the cache on every probe).
   if (_hasPrefix(path, ['/keep-local'])) return 'keepLocal';
-  if (path === '/health' && /(^|[?&])ping=/.test(search || '')) return 'networkOnly';
+  if (_isProbe(path, search)) return 'networkOnly';
+  // A whole .zim for a peer or a download link: the browser's own, never
+  // through the worker (a navigation here once got the shell instead).
+  if (path.startsWith('/dl/')) return 'passthrough';
   if (_hasPrefix(path, KEPT_ANSWER_PREFIXES)) return 'networkFirst';
   if (_hasPrefix(path, NETWORK_ONLY_PREFIXES)) return 'networkOnly';
   if (_hasPrefix(path, NETWORK_FIRST_PREFIXES)) return 'networkFirst';
@@ -230,10 +238,12 @@ function routeStrategy(path, requestMode, destination, search) {
     return requestMode === 'navigate' && destination !== 'iframe' ? 'navigateShell' : 'networkFirst';
   }
   if (path.startsWith('/static/')) return 'staleWhileRevalidate';
-  // The shell (and any address the app answers for): the latest after a
-  // deploy; when the server cannot be reached, the shell last kept, which says
-  // what is true and what still works.
-  if (path === '/' || requestMode === 'navigate') return 'shell';
+  // The shell: the latest after a deploy; when the server cannot be reached,
+  // the shell last kept, which says what is true and what still works.
+  if (path === '/') return 'shell';
+  // Any other page is the server's to answer (an old Kiwix link it redirects,
+  // a printed PDF): asked first, a kept copy only when it does not answer.
+  if (requestMode === 'navigate') return 'networkFirst';
   return 'staleWhileRevalidate';
 }
 self.routeStrategy = routeStrategy;  // test hook
@@ -247,6 +257,8 @@ self.addEventListener('fetch', event => {
   if (event.request.headers.has('range')) return;
   const url = new URL(event.request.url);
   switch (routeStrategy(url.pathname, event.request.mode, event.request.destination, url.search)) {
+    case 'passthrough':
+      return;
     case 'networkOnly':
       event.respondWith(networkOnly(event.request));
       return;
@@ -281,10 +293,13 @@ self.addEventListener('fetch', event => {
 // Network-only: never read or write the cache. Identity/auth-scoped endpoints
 // use this so a stale response can never stand in for the live, correctly
 // authorized one. Offline → the offline page, never a wrong-identity cache hit.
+// Only the probe has a deadline: the rest have nothing to stand in for them,
+// so a slow answer (a voice still speaking, a busy /random) is waited for.
 async function networkOnly(request) {
+  const url = new URL(request.url);
   try {
-    const resp = await fetchWithin(request, DEADLINE_PROBE_MS);
-    if (resp.ok && _hasPrefix(new URL(request.url).pathname, IDENTITY_CHANGE_PATHS)) {
+    const resp = _isProbe(url.pathname, url.search) ? await fetchWithin(request, DEADLINE_PROBE_MS) : await fetch(request);
+    if (resp.ok && _hasPrefix(url.pathname, IDENTITY_CHANGE_PATHS)) {
       await purgeKeptContent();
     }
     return resp;
@@ -461,7 +476,11 @@ const ZIM_HTML_CSP = "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blo
 function notInKeptZim(zim, path) {
   return new Response('<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<body style="font-family:-apple-system,system-ui,sans-serif;padding:24px;color:#999;background:#0a0a0b">' +
-    '<p>This page is not in the copy of this ZIM on your phone.</p></body>',
+    '<p id="m">This page is not in the copy of this ZIM on this device.</p>' +
+    // In the reader's language, from the words the app keeps (as OFFLINE_HTML).
+    '<script>try{var l=localStorage.getItem("zimi_ui_lang")||(navigator.language||"en").split("-")[0],' +
+    'w=JSON.parse(localStorage.getItem("zimi_i18n_kept_"+l)||"{}").keep_not_in_copy;' +
+    'if(w)document.getElementById("m").textContent=w}catch(e){}</script></body>',
     { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Zimi-Kept': '1', 'Cache-Control': 'no-store' } });
 }
 

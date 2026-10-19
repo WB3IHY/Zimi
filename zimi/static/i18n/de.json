@@ -3382,6 +3382,7 @@
   "keep_btn": "Offline behalten",
   "keep_install_note": "Füge Zimi zuerst zum Home-Bildschirm hinzu. Safari löscht die Dateien einer Website nach einer Woche ohne Nutzung; eine installierte App behält sie.",
   "keep_unsupported": "Dieser Browser kann keine Dateien auf dem Gerät behalten.",
+  "keep_not_in_copy": "Diese Seite ist nicht in der Kopie dieses ZIM auf diesem Gerät.",
   "keep_needs_https": "Erfordert eine HTTPS-Verbindung.",
   "keep_no_room": "Nicht genug Platz auf diesem Telefon.",
   "keep_pulling": "Wird auf dieses Telefon geladen",

@@ -3382,6 +3382,7 @@
   "keep_btn": "离线保存",
   "keep_install_note": "请先把 Zimi 添加到主屏幕。Safari 会在网站一周未使用后清除其文件；已安装的应用则会保留。",
   "keep_unsupported": "此浏览器无法在设备上保存文件。",
+  "keep_not_in_copy": "此设备上的这个 ZIM 副本中没有此页面。",
   "keep_needs_https": "需要 HTTPS 连接。",
   "keep_no_room": "这部手机空间不足。",
   "keep_pulling": "正在下载到此手机",

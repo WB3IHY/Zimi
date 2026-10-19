@@ -239,6 +239,25 @@ class TestNavigationWithNoServer(unittest.TestCase):
             self.assertEqual(r["body"], "live /", "the kept shell, not an offline page")
             self.assertIsNone(r["offline"])
 
+    def test_only_the_apps_own_address_is_the_shell(self):
+        # A download link, an old Kiwix link, a printed PDF: the server's.
+        out = _run(
+            "return ['/', '/dl/wiki.zim', '/viewer', '/content/wiki/A/Water', '/almanac/pdf/x/y.pdf']"
+            ".map(p => ctx.self.routeStrategy(p, 'navigate', 'document', ''));",
+            shell=SHELL,
+        )
+        self.assertEqual(out, ["shell", "passthrough", "networkFirst", "networkFirst", "networkFirst"])
+
+    def test_a_slow_answer_with_nothing_kept_is_waited_for(self):
+        # A voice still speaking is not a dead network; the probe is.
+        out = _run(
+            "network['/dictionary/speak'] = { delay: 700, body: 'audio' };"
+            "network['/health'] = { delay: 700, body: 'ok' };"
+            "return [await request('/dictionary/speak?text=a'), await request('/health?ping=1')];",
+        )
+        self.assertEqual(out[0]["body"], "audio")
+        self.assertEqual(out[1]["offline"], "1")
+
     def test_a_proxy_answering_for_a_dead_server_is_not_the_server(self):
         for status in (502, 503, 504):
             out = _run(

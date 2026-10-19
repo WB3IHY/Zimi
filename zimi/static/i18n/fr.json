@@ -3382,6 +3382,7 @@
   "keep_btn": "Garder hors ligne",
   "keep_install_note": "Ajoutez d'abord Zimi à l'écran d'accueil. Safari efface les fichiers d'un site après une semaine sans usage ; une app installée les garde.",
   "keep_unsupported": "Ce navigateur ne peut pas garder de fichiers sur l'appareil.",
+  "keep_not_in_copy": "Cette page n’est pas dans la copie de ce ZIM sur cet appareil.",
   "keep_needs_https": "Nécessite une connexion HTTPS.",
   "keep_no_room": "Pas assez de place sur ce téléphone.",
   "keep_pulling": "Téléchargement sur ce téléphone",

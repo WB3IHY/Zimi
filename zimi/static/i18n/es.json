@@ -3382,6 +3382,7 @@
   "keep_btn": "Guardar sin conexión",
   "keep_install_note": "Añade Zimi primero a la pantalla de inicio. Safari borra los archivos de un sitio tras una semana sin uso; una app instalada los conserva.",
   "keep_unsupported": "Este navegador no puede guardar archivos en el dispositivo.",
+  "keep_not_in_copy": "Esta página no está en la copia de este ZIM en este dispositivo.",
   "keep_needs_https": "Requiere una conexión HTTPS.",
   "keep_no_room": "No hay espacio suficiente en este teléfono.",
   "keep_pulling": "Descargando en este teléfono",
