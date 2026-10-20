@@ -21,7 +21,7 @@ so the asset is rebuildable bit-for-bit from the same input.
 
 The data is ODbL 1.0, (c) OpenStreetMap contributors — see
 zimi/static/tz-borders-LICENSE.txt, which ships next to the emitted asset.
-ODbL covers the DATA only; it does not affect Zimi's MIT code license, but the
+ODbL covers the DATA only; it does not affect Zimi's code license, but the
 attribution notice and the license file must travel with tz-borders.json.
 
 v2 was built from Natural Earth 10m Time Zones (public domain, zero license

@@ -1,5 +1,5 @@
-// Reddot is opt-in since 1.13.1: off unless the server names it, still listed
-// in Server settings so an admin can switch it on. Zimipedia was opt-in until
+// No app is opt-in: Reddot was from 1.13.1 to 1.14.0, and is on by default
+// again now that home shows an app only with a ZIM inside. Zimipedia was opt-in until
 // its reader (1.12) and is on by default, like every other app. A server that
 // leaves Zimipedia out (ZIMI_APPS, a saved list) stamps the shell without it,
 // the pickers still list it, and /#wiki goes home. The server half is
@@ -48,8 +48,8 @@ vm.runInContext([
 ].join('\n'), ctx);
 
 // ── the shell's stamp ────────────────────────────────────────────────────
-ok('Reddot is the one opt-in app', ctx.APPS_OPT_IN.join() === 'reddot' && ctx.APPS_DEFAULT.join() === 'maps,tube,exchange,wiki,books,dictionary');
-ok('no stamp: every app but Reddot, Zimipedia too', ctx.APP_NAMES.filter(ctx._appsAllowedByServer).join() === 'maps,tube,exchange,wiki,books,dictionary');
+ok('no app is opt-in', ctx.APPS_OPT_IN.length === 0 && ctx.APPS_DEFAULT.join() === ctx.APP_NAMES.join());
+ok('no stamp: every app, Reddot and Zimipedia too', ctx.APP_NAMES.filter(ctx._appsAllowedByServer).join() === 'maps,tube,exchange,reddot,wiki,books,dictionary');
 ctx.document.body.dataset.zimiApps = 'reddot,maps';
 ok('a stamp naming Reddot offers it', ctx._appsAllowedByServer('reddot'));
 delete ctx.document.body.dataset.zimiApps;

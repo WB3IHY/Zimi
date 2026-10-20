@@ -64,18 +64,27 @@ def test_star_and_unstar_hold_the_card(served):
         pg.goto(served + "/")
         pg.wait_for_function(HOME, timeout=15000)
         # Home draws again as Discover and the counts arrive; star a settled page.
-        pg.wait_for_load_state("networkidle")
+        # Not networkidle: Chrome never reports the boot's priming requests
+        # finished to Playwright (test_dictionary_live), so it waits forever.
+        pg.wait_for_function("() => _swPrimed && collectionsCache", timeout=15000)
         pg.wait_for_timeout(500)
         # Room to scroll either way, so a held position is always reachable.
         pg.evaluate("document.body.style.minHeight = '4000px'")
         for want in (1, 0):
             # Mid-screen, and tapped where it is: a locator click scrolls on
             # its own whenever the hit test is unsure, which is not a finger.
-            pg.evaluate("(z) => window.scrollBy(0, (" + CARD_TOP + ")(z) - 300)", "water")
+            pg.evaluate(
+                "(z) => window.scrollBy(0, (" + CARD_TOP + ")(z) - 300)", "water"
+            )
             before = pg.evaluate(CARD_TOP, "water")
-            star = pg.locator('.stat-card[data-zim="water"]').last.locator(".star-btn")
-            box = star.bounding_box()
-            pg.touchscreen.tap(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+            more = pg.locator('.stat-card[data-zim="water"]').last.locator(".card-more")
+            box = more.bounding_box()
+            pg.touchscreen.tap(
+                box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+            )
+            pg.wait_for_timeout(350)  # the phone's sheet slides up first
+            fav = pg.locator("#zim-ctx-menu [data-action='favorite']").bounding_box()
+            pg.touchscreen.tap(fav["x"] + fav["width"] / 2, fav["y"] + fav["height"] / 2)
             pg.wait_for_function(FAV_COUNT + " === %d" % want, timeout=5000)
             pg.wait_for_timeout(200)
             after = pg.evaluate(CARD_TOP, "water")

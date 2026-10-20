@@ -124,13 +124,13 @@ def test_offline_forces_never_over_everything(data_dir, github, monkeypatch):
 
 
 def test_the_choice_keeps_its_neighbours_in_the_prefs_file(data_dir):
-    manage.set_update_channel("beta")
+    manage.set_update_delay_days(7)
     from zimi import satellites
 
     satellites.set_update_mode("never")
     manage.UPDATE_CHECK.set("ask")
     assert manage._read_app_update_prefs() == {
-        "channel": "beta",
+        "delay_days": 7,
         "satellite_updates": "never",
         "update_check": "ask",
     }

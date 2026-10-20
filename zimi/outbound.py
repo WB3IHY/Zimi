@@ -118,6 +118,8 @@ class FetchPolicy:
 # accounts for it. The coverage test reads this.
 SOURCES = {
     "library": ("catalog", "downloads", "bittorrent"),
+    # The NOMAD box's own admin, on the LAN, when the owner turned it on.
+    "nomadapi": ("nomad",),
     # The operator's own client, as the BitTorrent engine (#53).
     "qbittorrent": ("bittorrent",),
     "transmission": ("bittorrent",),
@@ -142,6 +144,8 @@ SOURCES = {
     "importer": ("create",),
     "video": ("create",),
     "reddot": ("create",),
+    # The Field Guide's field manual: three Army PDFs, fetched when someone taps Build.
+    "fieldguide": ("create",),
 }
 
 
@@ -157,7 +161,7 @@ def inventory():
     ``hosts`` are names nobody translates. ``control`` says where the switch
     is: a setting in Server settings, "offline" when only ZIMI_OFFLINE turns
     it off, or "" when the person's own action is the control."""
-    from zimi import library, manage, p2p, p2p_discovery, satellites, sso, voices
+    from zimi import library, manage, nomadapi, p2p, p2p_discovery, satellites, sso, voices
     from zimi import server as _srv
 
     offline = _offline()
@@ -233,6 +237,12 @@ def inventory():
             "control": "",
         },
         {"id": "create", "hosts": [], "state": asked(), "control": ""},
+        {
+            "id": "nomad",
+            "hosts": [],
+            "state": STATE_LAN if nomadapi.settings()["enabled"] else STATE_OFF,
+            "control": "",
+        },
         {
             "id": "nearby",
             "hosts": [],

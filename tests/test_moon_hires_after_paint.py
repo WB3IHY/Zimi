@@ -49,7 +49,8 @@ TIMELINE = """() => {
   var at = {};
   performance.getEntriesByType('resource').forEach(function (e) {
     var m = e.name.match(/static\\/(earth\\/moon[\\w.-]*)/);
-    if (m) at[m[1]] = e.startTime;
+    // The first ask: the Almanac's 3D Moon (almanac-earth.js) asks again later.
+    if (m && !(m[1] in at)) at[m[1]] = e.startTime;
   });
   return { fcp: fcp ? fcp.startTime : null, at: at };
 }"""

@@ -952,13 +952,49 @@ def _settings_voices(pg, served):
     pg.eval_on_selector(VOICES_WRAP, "e => e.scrollIntoView({ block: 'center' })")
 
 
+def _in_flight(pg):
+    """The requests the page has started and not finished, kept as they go
+    (one record per page, however often it is asked for)."""
+    if hasattr(pg, "_zimi_flying"):
+        return pg._zimi_flying
+    flying = pg._zimi_flying = {}
+    pg.on("request", lambda r: flying.__setitem__(id(r), r.url))
+    for ev in ("requestfinished", "requestfailed"):
+        pg.on(ev, lambda r: flying.pop(id(r), None))
+    return flying
+
+
+# The first visit's kept answers, asked for once the worker takes charge
+# (app.js boot). Chrome 156 never reports those requests finished to
+# Playwright although the page has its answers (_swPrimed), so networkidle
+# alone waits forever on a first visit.
+PRIMING = ("/list?layout=1", "/whoami", "/manage/has-password")
+
+
+def _quiet(pg, flying, timeout=30.0, ms=500):
+    """Nothing still coming: the boot's priming done (_swPrimed) and no other
+    request in flight for `ms`. On a timeout, says which never finished."""
+    import time
+
+    pg.wait_for_function("() => _swPrimed", timeout=timeout * 1000)
+    end, calm = time.time() + timeout, None
+    while time.time() < end:
+        busy = [u for u in flying.values() if not u.split("/", 3)[-1].startswith(tuple(p[1:] for p in PRIMING))]
+        calm = None if busy else (calm or time.time())
+        if calm and time.time() - calm >= ms / 1000:
+            return
+        pg.wait_for_timeout(50)
+    raise AssertionError("still in flight: %s" % sorted(set(flying.values())))
+
+
 def _settings_languages(pg, served, open_list=True):
     """Settings > Languages, the checklist open."""
+    flying = _in_flight(pg)
     pg.goto(served + "/?manage=preferences")
     pg.wait_for_function("() => window._voicesHere", timeout=20000)
     # Settings draws again as its answers come in (a slow runner sees the
     # fold replaced under a click): wait until nothing is still coming.
-    pg.wait_for_load_state("networkidle")
+    _quiet(pg, flying)
     if open_list and pg.get_attribute(FOLD, "aria-expanded") != "true":
         pg.click(FOLD)
     pg.eval_on_selector("#ms-languages", "e => e.scrollIntoView({ block: 'start' })")
@@ -1136,7 +1172,7 @@ def test_the_checklist_is_the_top_bar_menu_and_zimis_own_stays_checked(
     pg.wait_for_function("() => _currentLang === 'en' && document.documentElement.lang === 'en'")
     # Two switches back to back redraw Settings twice; wait for the last one
     # (a slow CI runner saw the row before the redraw took it away).
-    pg.wait_for_load_state("networkidle")
+    _quiet(pg, _in_flight(pg))
     try:
         pg.wait_for_selector(FOLD, state="attached", timeout=20000)
     except Exception:

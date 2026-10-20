@@ -116,6 +116,19 @@ def built_at() -> str:
     return _built_at
 
 
+_icon_by_name: dict[str, str] | None = None
+
+
+def icon_for(name: str) -> str:
+    """The shipped icon's hash for a catalog name, or empty: a live catalog
+    shows these instead of fetching each picture from Kiwix's server."""
+    global _icon_by_name
+    if _icon_by_name is None:
+        _load()
+        _icon_by_name = {e["name"]: e["icon"] for e in _entries if e.get("name") and e.get("icon")}
+    return _icon_by_name.get(name, "")
+
+
 def icon_names() -> set[str]:
     _load()
     return set(_icon_offsets)

@@ -317,13 +317,13 @@ def test_zimi_offline_forces_never(data_dir, monkeypatch):
 
 def test_the_choice_keeps_the_other_server_settings_in_its_file(data_dir):
     """Saved in the app-update prefs file, like the Apps switch: setting it
-    must never drop the update channel stored beside it."""
+    must never drop the update delay stored beside it."""
     from zimi import manage
 
-    manage._write_app_update_prefs(channel="beta")
+    manage._write_app_update_prefs(delay_days=7)
     satellites.set_update_mode("never")
     prefs = manage._read_app_update_prefs()
-    assert prefs == {"channel": "beta", satellites.PREFS_KEY: "never"}
+    assert prefs == {"delay_days": 7, satellites.PREFS_KEY: "never"}
     assert satellites.set_update_mode("sometimes") == (None, "invalid")
     assert manage._read_app_update_prefs() == prefs
 
@@ -789,3 +789,13 @@ def test_the_release_gate_leaves_an_offline_install_months_of_satellites():
         f"a {SNAPSHOT_MAX_AGE_DAYS}-day-old snapshot leaves only "
         f"{window - SNAPSHOT_MAX_AGE_DAYS} of the view's {window} days"
     )
+
+
+def test_the_satellites_are_kept_with_the_almanac():
+    """Offline, the 3D Earth drew no satellites: their elements and SGP4 were
+    kept only once the Earth had been opened online since the last deploy
+    (a deploy empties the worker's cache). Both come with the Almanac's pack,
+    which a kept ZIM or the Almanac opened asks the worker for."""
+    urls = _http._almanac_pack_urls()
+    assert _http.SATELLITES_PATH in urls
+    assert any(re.fullmatch(r"/static/earth/satellite-[\d.]+\.min\.js(\?v=\w+)?", u) for u in urls), urls

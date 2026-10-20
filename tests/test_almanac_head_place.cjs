@@ -72,14 +72,14 @@ sandbox.__placeTz = 'America/Los_Angeles';
 cp = sandbox._almClockParts(when);
 check('a place in the device\'s own zone: the header is unchanged', cp.time === '1:39 AM' && cp.place === '', cp.time + ' / ' + cp.place);
 
-const btn = sandbox._almHereBtnHtml('alm-head-here');
-check('"Where I am" is the geolocation action, labelled', /onclick="_shareAlmanacLocation\(\)"/.test(btn) && /alm_place_here/.test(btn) && /aria-label/.test(btn) && /alm-head-here/.test(btn), btn);
+const btn = sandbox._almHereBtnHtml('alm-here-icon');
+check('"Where I am" is the geolocation action, labelled', /onclick="_shareAlmanacLocation\(\)"/.test(btn) && /alm_place_here/.test(btn) && /aria-label/.test(btn) && /alm-here-icon/.test(btn), btn);
 
 // Every place it is wanted uses that one function.
 const uses = (src.match(/_almHereBtnHtml\(/g) || []).length;
 check('the map\'s place line, the header hint and the invitation share it (' + uses + ' uses, one definition)',
   uses === 4 && !/title="' \+ t\('alm_use_location'\) \+ '">\\uD83D\\uDCCD/.test(src));
-check('the header shows it with the hint', /cp\.place \? [^\n]*_almHereBtnHtml\('alm-head-here'\)/.test(src));
+check('the header shows it with the hint', /cp\.place \? [^\n]*_almHereBtnHtml\('alm-here-icon'\)/.test(src));
 
 if (failed) { console.log(failed + ' failed'); process.exit(1); }
 console.log('all passed');

@@ -9,14 +9,14 @@ name = "zimi-mcp"
 version = "@VERSION@"
 description = "Zimi's MCP server and search alone: search and read Wikipedia, Stack Overflow and other ZIM files offline, for AI agents"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "GPL-3.0-or-later"}
 requires-python = ">=3.10,<3.15"
 authors = [{name = "Eric Pheterson"}]
 keywords = ["zim", "kiwix", "offline", "wikipedia", "search", "mcp", "rag", "llm"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Topic :: Text Processing :: Indexing",
@@ -31,7 +31,7 @@ dependencies = [
 [project.optional-dependencies]
 # Text out of the PDFs in zimgit ZIMs. Without it a PDF reads as one line
 # saying PyMuPDF would extract its text.
-pdf = ["PyMuPDF>=1.23.0"]
+pdf = ["PyMuPDF>=1.23.0,<2"]
 
 [project.scripts]
 zimi-mcp = "zimi.server:mcp_main"

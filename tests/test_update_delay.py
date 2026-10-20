@@ -35,7 +35,6 @@ _DAY = 86400
 def delay_env(monkeypatch, tmp_path):
     monkeypatch.setattr(server, "ZIMI_DATA_DIR", str(tmp_path))
     monkeypatch.delenv(manage.APP_UPDATE_DELAY_ENV, raising=False)
-    monkeypatch.delenv(manage.APP_UPDATE_CHANNEL_ENV, raising=False)
     monkeypatch.delenv("ZIMI_OFFLINE", raising=False)
     return monkeypatch
 
@@ -73,13 +72,15 @@ def test_saved_delay_survives(delay_env, tmp_path):
     assert saved["delay_days"] == 7
 
 
-def test_channel_and_delay_share_a_file_without_clobbering(delay_env):
-    manage.set_update_channel("beta")
+def test_a_pref_written_by_an_older_build_is_left_alone(delay_env, tmp_path):
+    """Builds with an update channel wrote {"channel": ...} beside the delay.
+    That key is ignored now, and writing the delay must not drop it."""
+    with open(os.path.join(str(tmp_path), "app_update_channel.json"), "w") as f:
+        json.dump({"channel": "beta"}, f)
+    assert manage.get_update_delay_days() == 0
     manage.set_update_delay_days(3)
-    assert manage.get_update_channel() == "beta"
     assert manage.get_update_delay_days() == 3
-    manage.set_update_channel("latest")
-    assert manage.get_update_delay_days() == 3  # the delay survived the write
+    assert manage._read_app_update_prefs()["channel"] == "beta"
 
 
 def test_env_beats_saved_delay_and_locks_it(delay_env):
@@ -247,13 +248,11 @@ def test_a_release_without_a_publish_date_is_never_held(fake_github, delay_env):
     assert body["update_held"] is False
 
 
-def test_delay_composes_with_the_beta_channel(fake_github):
-    manage.set_update_channel("beta")
+def test_a_fresh_release_is_held_and_asked_for_once(fake_github):
     manage.set_update_delay_days(3)
     body = _payload()
-    assert body["channel"] == "beta"
     assert body["update_held"] is True
-    assert fake_github["calls"] == [manage._APP_UPDATE_LIST_URL]
+    assert fake_github["calls"] == [manage._APP_UPDATE_URL]
 
 
 def test_no_update_at_all_is_never_reported_as_held(fake_github, delay_env):

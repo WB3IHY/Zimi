@@ -48,11 +48,23 @@
     el.classList.add('theme-boot');
     try {
       var m = localStorage.getItem('zimi_app_theme') || 'auto';
-      var dark = m === 'dark' || (m !== 'light' && !(window.matchMedia &&
+      // Red used to be its own switch under 'zimi.night'; someone who had it on
+      // keeps it, as the theme, with what it sat on top of remembered.
+      if (localStorage.getItem('zimi.night') === 'red') {
+        localStorage.removeItem('zimi.night');
+        if (m !== 'red') { localStorage.setItem('zimi_app_theme_before_red', m); m = 'red'; localStorage.setItem('zimi_app_theme', m); }
+      }
+      var red = m === 'red';
+      var dark = red || m === 'dark' || (m !== 'light' && !(window.matchMedia &&
         window.matchMedia('(prefers-color-scheme: light)').matches));
       var t = dark ? 'dark' : 'light';
       el.setAttribute('data-theme', t);
       el.style.colorScheme = t;
+      // Red (app.js _applyAppTheme): the class, and the browser's own chrome black.
+      el.classList.toggle('night-red', red);
+      var tc = document.querySelector('meta[name="theme-color"]');
+      if (red && !tc) { tc = document.createElement('meta'); tc.name = 'theme-color'; document.head.appendChild(tc); }
+      if (tc) { if (red) tc.content = '#000000'; else tc.remove(); }
     } catch(e) {
       el.setAttribute('data-theme', 'dark');
       el.style.colorScheme = 'dark';
@@ -79,7 +91,6 @@
 })();
 </script>
 <link rel="stylesheet" href="/static/app.css?v=1">
-<link rel="stylesheet" href="/static/almanac.css?v=3">
 </head>
 <body>
 
@@ -88,6 +99,7 @@
 <nav class="topbar" aria-label="Main navigation" data-i18n-aria="aria_main_nav">
   <div class="topbar-breadcrumb" onclick="bcClick(event)">
     <a id="logo" class="logo" href="/" onclick="goHome(event)" title="Home" data-i18n-title="home" aria-label="Home" data-i18n-aria="home">Zimi</a>
+    <button type="button" id="conn-pill" class="conn-pill" hidden onclick="_connPillTap(event)" aria-haspopup="menu"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M8.5 6.2A6 6 0 0 1 18 11h.5a3.5 3.5 0 0 1 2.2 6.2M5.5 18A4.5 4.5 0 0 1 4.7 9.3"/></svg><span class="conn-pill-text"></span></button>
     <span id="bc-sep" class="bc-sep" style="display:none">/</span>
     <a id="bc-icon" class="bc-icon" style="display:none"></a>
   </div>
@@ -108,6 +120,8 @@
        library. updateTopbar() owns the visibility; it ships hidden so a
        non-admin never sees it flash during boot. -->
   <a href="#" id="random-btn" class="random-btn" title="Random article (R)" data-i18n-title="random_article" aria-label="Random article" data-i18n-aria="random_article" onclick="randomArticle(event)"><span class="dice" aria-hidden="true">&#x1F3B2;</span></a>
+  <!-- Red night light, in the bar while the Field Guide is open (updateTopbar owns the visibility). -->
+  <button type="button" id="night-btn" class="night-btn" style="display:none" aria-pressed="false" title="Red night light" data-i18n-title="fieldguide_red_night" aria-label="Red night light" data-i18n-aria="fieldguide_red_night" onclick="_nightToggle()"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
   <!-- History (the clock) and Saved (a list with a ribbon) are two panels. Off the
        reader library-btn is the clock; in it library-btn saves the page and
        history-btn is the clock. updateTopbar() owns which show. -->
@@ -145,6 +159,7 @@
      Cancel and Esc remain the explicit ways out. -->
 <div id="pw-overlay" class="pw-overlay" role="dialog" aria-modal="true" aria-labelledby="pw-title">
   <form class="pw-box" onsubmit="event.preventDefault();submitPw()">
+    <div class="pw-brand" aria-hidden="true"><span>Zimi</span></div>
     <h3 id="pw-title" data-i18n="enter_password">Enter password</h3>
     <!-- Optional username (v1.8): purely optional identifier, not a secret.
          When the server has no username configured it accepts any value (the
@@ -167,9 +182,12 @@
     <div class="pw-actions">
       <button type="button" id="pw-remove-btn" onclick="_confirmRemovePassword(this)" style="display:none;color:var(--text2);font-size:12px;margin-right:auto" data-i18n="remove">Remove</button>
       <button type="button" id="pw-cancel" onclick="closePwModal()" data-i18n="cancel">Cancel</button>
-      <button type="submit" class="pw-primary" data-i18n="ok">OK</button>
+      <button type="submit" class="pw-primary"><span class="pw-ok-label" data-i18n="ok">OK</span><span class="pw-gate-label" data-i18n="sign_in">Sign in</span></button>
     </div>
   </form>
+  <!-- The Field Guide, where the app itself is out of reach (the sign-in gate): _enterLoginGate fills it.
+       Below the card, not in it: it is the other way in, not a step of signing in. -->
+  <p class="gate-help" id="pw-helpnow" hidden></p>
 </div>
 
 <!-- Desktop: Onboarding overlay (first-run) -->
@@ -241,7 +259,7 @@
 <!-- Live region for toast notifications. Updated dynamically by _showToast(). -->
 <div id="a11y-toast-region" role="status" aria-live="polite" class="sr-only"></div>
 
-<script>var __ZIMI_CONFIG = {discoverStamp:'disc6',i18nHash:'0'};</script>
+<script>var __ZIMI_CONFIG = {discoverStamp:'disc6',i18nHash:'0',bestAnswer:0};</script>
 <script src="/static/app.js?v=1"></script>
 </body>
 </html>

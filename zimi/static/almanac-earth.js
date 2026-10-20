@@ -46,218 +46,10 @@ var AE_GM_EARTH = 398600.4418;                // km^3/s^2, WGS84 / IERS
 var AE_L_G = 6.969290134e-10;
 var AE_MICRO = 1e6;
 var AE_NANO = 1e9;
-var AE_ARCSEC_TO_DEG = 1 / 3600;
 var AE_TWO_PI = 2 * Math.PI;
 // The Earth's shadow is wider than the solid Earth: the atmosphere blocks
 // sunlight too. Chauvenet's rule enlarges it by 1/50 (Meeus ch. 54).
 var AE_SHADOW_ENLARGE = 1.02;
-// Aberration of the Sun: the constant of aberration over the Sun's distance
-// in AU (Meeus 25.10).
-var AE_SUN_ABERRATION_ARCSEC = 20.4898;
-// Moon mean distance, the constant of Meeus 47 (km).
-var AE_MOON_MEAN_DIST_KM = 385000.56;
-// The mean motions of Meeus 47.1-47.5, degrees per Julian century of TT, and
-// the mean obliquity of Meeus 22.2 at J2000 and its rate (arcseconds). Named
-// so the Almanac's Constants tables read the very numbers the Moon is built on.
-var AE_MOON_MEAN_LON_RATE = 481267.88123421;   // the Moon's mean longitude
-var AE_MOON_ELONG_RATE = 445267.1114034;       // its mean elongation from the Sun
-var AE_SUN_ANOMALY_RATE = 35999.0502909;       // the Sun's mean anomaly
-var AE_MOON_ANOMALY_RATE = 477198.8675055;     // the Moon's mean anomaly
-var AE_MOON_ARGLAT_RATE = 483202.0175233;      // its argument of latitude
-var AE_OBLIQUITY_J2000_ARCSEC = 23 * 3600 + 26 * 60 + 21.448;
-var AE_OBLIQUITY_RATE_ARCSEC = -46.8150;
-
-function _aeDeg(x) { return x * 180 / Math.PI; }
-function _aeRad(x) { return x * Math.PI / 180; }
-function _aeNormDeg(x) { return ((x % 360) + 360) % 360; }
-
-// TT - UT in days for a UT Julian Day. The Almanac's own Espenak-Meeus fit
-// (almanac.js _cnDeltaTdays) when it is loaded, which it always is in the app.
-function _aeDeltaTDays(jdUT) {
-  return (typeof _cnDeltaTdays === 'function') ? _cnDeltaTdays(jdUT) : 0;
-}
-
-// ── Nutation and obliquity (Meeus ch. 22, the 0.5" series) ──
-// T in Julian centuries of TT from J2000. Returns degrees.
-function _aeNutation(T) {
-  var omega = _aeRad(125.04452 - 1934.136261 * T);   // Moon's ascending node
-  var Ls = _aeRad(280.4665 + 36000.7698 * T);        // Sun's mean longitude
-  var Lm = _aeRad(218.3165 + 481267.8813 * T);       // Moon's mean longitude
-  var dpsi = (-17.20 * Math.sin(omega) - 1.32 * Math.sin(2 * Ls) - 0.23 * Math.sin(2 * Lm) + 0.21 * Math.sin(2 * omega)) * AE_ARCSEC_TO_DEG;
-  var deps = (9.20 * Math.cos(omega) + 0.57 * Math.cos(2 * Ls) + 0.10 * Math.cos(2 * Lm) - 0.09 * Math.cos(2 * omega)) * AE_ARCSEC_TO_DEG;
-  // Mean obliquity of the ecliptic (Meeus 22.2).
-  var eps0 = (AE_OBLIQUITY_J2000_ARCSEC + AE_OBLIQUITY_RATE_ARCSEC * T - 0.00059 * T * T + 0.001813 * T * T * T) / 3600;
-  return { dpsi: dpsi, deps: deps, eps0: eps0, eps: eps0 + deps };
-}
-
-// Ecliptic (longitude, latitude, degrees) to equatorial RA/Dec (radians) for
-// obliquity eps (degrees). Meeus 13.3 / 13.4.
-function _aeEclipticToEquatorial(lonDeg, latDeg, epsDeg) {
-  var l = _aeRad(lonDeg), b = _aeRad(latDeg), e = _aeRad(epsDeg);
-  var ra = Math.atan2(Math.sin(l) * Math.cos(e) - Math.tan(b) * Math.sin(e), Math.cos(l));
-  var dec = Math.asin(Math.sin(b) * Math.cos(e) + Math.cos(b) * Math.sin(e) * Math.sin(l));
-  return { ra: ra, dec: dec };
-}
-
-// ── The Sun: the Earth's orbit from VSOP87 (version D), apparent place ──
-// Meeus ch. 25's short series is good to ~30" against JPL DE421, which moves
-// the Moon's shadow on the Earth by up to ~50 km. These are the largest terms
-// of VSOP87D (Bretagnon & Francou 1988, CDS catalogue VI/81, file
-// VSOP87D.ear): every term of L above 3e-6 rad, of B above 1e-6 rad, of R
-// above 1e-5 AU, the way Meeus's Appendix III truncates it. Measured against
-// DE421 over 1950-2050: 2.2" at worst. Each term is [A, B, C]: A cos(B + C tau),
-// tau in Julian millennia of TT from J2000; row i is multiplied by tau^i.
-var AE_VSOP_L = [
-  [[1.75347045673,0,0],[0.03341656456,4.66925680417,6283.0758499914],[0.00034894275,4.62610241759,12566.1516999828],[3.417571e-05,2.82886579606,3.523118349],[3.497056e-05,2.74411800971,5753.3848848968],[3.135896e-05,3.62767041758,77713.7714681205],[2.676218e-05,4.41808351397,7860.4193924392],[2.342687e-05,6.13516237631,3930.2096962196],[1.273166e-05,2.03709655772,529.6909650946],[1.324292e-05,0.74246356352,11506.7697697936],[9.01855e-06,2.04505443513,26.2983197998],[1.199167e-05,1.10962944315,1577.3435424478],[8.57223e-06,3.50849156957,398.1490034082],[7.79786e-06,1.17882652114,5223.6939198022],[9.9025e-06,5.23268129594,5884.9268465832],[7.53141e-06,2.53339053818,5507.5532386674],[5.05264e-06,4.58292563052,18849.2275499742],[4.92379e-06,4.20506639861,775.522611324],[3.56655e-06,2.91954116867,0.0673103028],[3.17087e-06,5.84901952218,11790.6290886588]],
-  [[6283.31966747491,0,0],[0.00206058863,2.67823455584,6283.0758499914],[4.30343e-05,2.63512650414,12566.1516999828],[4.25264e-06,1.59046980729,3.523118349]],
-  [[0.0005291887,0,0],[8.719837e-05,1.07209665242,6283.0758499914],[3.09125e-06,0.86728818832,12566.1516999828]],
-  [[2.89226e-06,5.84384198723,6283.0758499914]],
-  [[1.14084e-06,3.14159265359,0]]
-];
-var AE_VSOP_B = [
-  [[2.7962e-06,3.19870156017,84334.66158130829],[1.01643e-06,5.42248619256,5507.5532386674]],
-  [[9.03e-08,3.8972906189,5507.5532386674]]
-];
-var AE_VSOP_R = [
-  [[1.00013988799,0,0],[0.01670699626,3.09846350771,6283.0758499914],[0.00013956023,3.0552460962,12566.1516999828],[3.08372e-05,5.19846674381,77713.7714681205],[1.628461e-05,1.17387749012,5753.3848848968],[1.575568e-05,2.84685245825,7860.4193924392]],
-  [[0.00103018608,1.10748969588,6283.0758499914],[1.721238e-05,1.06442301418,12566.1516999828]],
-  [[4.359385e-05,5.78455133738,6283.0758499914]],
-  [[1.44595e-06,4.27319435148,6283.0758499914]]
-];
-var AE_DAYS_PER_JULIAN_MILLENNIUM = 365250;
-// VSOP's dynamical frame to FK5 (Meeus 32.3), arcseconds.
-var AE_FK5_DLON_ARCSEC = -0.09033;
-var AE_FK5_DLAT_ARCSEC = 0.03916;
-
-function _aeVsopSum(series, tau) {
-  var total = 0, tp = 1;
-  for (var p = 0; p < series.length; p++) {
-    var s = 0, row = series[p];
-    for (var i = 0; i < row.length; i++) s += row[i][0] * Math.cos(row[i][1] + row[i][2] * tau);
-    total += s * tp;
-    tp *= tau;
-  }
-  return total;
-}
-
-// Geocentric apparent place of the Sun at jde (TT): RA/Dec (radians),
-// ecliptic longitude (degrees), distance (km).
-function _aeSun(jde) {
-  var tau = (jde - JD_J2000) / AE_DAYS_PER_JULIAN_MILLENNIUM;
-  var T = (jde - JD_J2000) / JULIAN_CENTURY;
-  var R = _aeVsopSum(AE_VSOP_R, tau);                              // AU
-  // The Sun is where the Earth is not: geocentric = heliocentric + 180 deg.
-  var lon = _aeDeg(_aeVsopSum(AE_VSOP_L, tau)) + 180;
-  var lat = -_aeDeg(_aeVsopSum(AE_VSOP_B, tau));
-  var lp = _aeRad(lon - 1.397 * T - 0.00031 * T * T);
-  lon += AE_FK5_DLON_ARCSEC * AE_ARCSEC_TO_DEG;
-  lat += AE_FK5_DLAT_ARCSEC * AE_ARCSEC_TO_DEG * (Math.cos(lp) - Math.sin(lp));
-  var nut = _aeNutation(T);
-  lon += nut.dpsi - AE_SUN_ABERRATION_ARCSEC / R * AE_ARCSEC_TO_DEG;
-  var eq = _aeEclipticToEquatorial(lon, lat, nut.eps);
-  return { ra: eq.ra, dec: eq.dec, distKm: R * AU_KM, lon: _aeNormDeg(lon), nut: nut };
-}
-
-// ── The Moon (Meeus ch. 47, the full tables 47.A and 47.B) ──
-// Rows: [D, M, M', F, sum-l coefficient (1e-6 deg), sum-r coefficient (1e-3 km)].
-var AE_MOON_LR = [
-  [0,0,1,0,6288774,-20905355],[2,0,-1,0,1274027,-3699111],[2,0,0,0,658314,-2955968],
-  [0,0,2,0,213618,-569925],[0,1,0,0,-185116,48888],[0,0,0,2,-114332,-3149],
-  [2,0,-2,0,58793,246158],[2,-1,-1,0,57066,-152138],[2,0,1,0,53322,-170733],
-  [2,-1,0,0,45758,-204586],[0,1,-1,0,-40923,-129620],[1,0,0,0,-34720,108743],
-  [0,1,1,0,-30383,104755],[2,0,0,-2,15327,10321],[0,0,1,2,-12528,0],
-  [0,0,1,-2,10980,79661],[4,0,-1,0,10675,-34782],[0,0,3,0,10034,-23210],
-  [4,0,-2,0,8548,-21636],[2,1,-1,0,-7888,24208],[2,1,0,0,-6766,30824],
-  [1,0,-1,0,-5163,-8379],[1,1,0,0,4987,-16675],[2,-1,1,0,4036,-12831],
-  [2,0,2,0,3994,-10445],[4,0,0,0,3861,-11650],[2,0,-3,0,3665,14403],
-  [0,1,-2,0,-2689,-7003],[2,0,-1,2,-2602,0],[2,-1,-2,0,2390,10056],
-  [1,0,1,0,-2348,6322],[2,-2,0,0,2236,-9884],[0,1,2,0,-2120,5751],
-  [0,2,0,0,-2069,0],[2,-2,-1,0,2048,-4950],[2,0,1,-2,-1773,4130],
-  [2,0,0,2,-1595,0],[4,-1,-1,0,1215,-3958],[0,0,2,2,-1110,0],
-  [3,0,-1,0,-892,3258],[2,1,1,0,-810,2616],[4,-1,-2,0,759,-1897],
-  [0,2,-1,0,-713,-2117],[2,2,-1,0,-700,2354],[2,1,-2,0,691,0],
-  [2,-1,0,-2,596,0],[4,0,1,0,549,-1423],[0,0,4,0,537,-1117],
-  [4,-1,0,0,520,-1571],[1,0,-2,0,-487,-1739],[2,1,0,-2,-399,0],
-  [0,0,2,-2,-381,-4421],[1,1,1,0,351,0],[3,0,-2,0,-340,0],
-  [4,0,-3,0,330,0],[2,-1,2,0,327,0],[0,2,1,0,-323,1165],
-  [1,1,-1,0,299,0],[2,0,3,0,294,0],[2,0,-1,-2,0,8752]
-];
-// Rows: [D, M, M', F, sum-b coefficient (1e-6 deg)].
-var AE_MOON_B = [
-  [0,0,0,1,5128122],[0,0,1,1,280602],[0,0,1,-1,277693],[2,0,0,-1,173237],
-  [2,0,-1,1,55413],[2,0,-1,-1,46271],[2,0,0,1,32573],[0,0,2,1,17198],
-  [2,0,1,-1,9266],[0,0,2,-1,8822],[2,-1,0,-1,8216],[2,0,-2,-1,4324],
-  [2,0,1,1,4200],[2,1,0,-1,-3359],[2,-1,-1,1,2463],[2,-1,0,1,2211],
-  [2,-1,-1,-1,2065],[0,1,-1,-1,-1870],[4,0,-1,-1,1828],[0,1,0,1,-1794],
-  [0,0,0,3,-1749],[0,1,-1,1,-1565],[1,0,0,1,-1491],[0,1,1,1,-1475],
-  [0,1,1,-1,-1410],[0,1,0,-1,-1344],[1,0,0,-1,-1335],[0,0,3,1,1107],
-  [4,0,0,-1,1021],[4,0,-1,1,833],[0,0,1,-3,777],[4,0,-2,1,671],
-  [2,0,0,-3,607],[2,0,2,-1,596],[2,-1,1,-1,491],[2,0,-2,1,-451],
-  [0,0,3,-1,439],[2,0,2,1,422],[2,0,-3,-1,421],[2,1,-1,1,-366],
-  [2,1,0,1,-351],[4,0,0,1,331],[2,-1,1,1,315],[2,-2,0,-1,302],
-  [0,0,1,3,-283],[2,1,1,-1,-229],[1,1,0,-1,223],[1,1,0,1,223],
-  [0,1,-2,-1,-220],[2,1,-1,-1,-220],[1,0,1,1,-185],[2,-1,-2,-1,181],
-  [0,1,2,1,-177],[4,0,-2,-1,176],[4,-1,-1,-1,166],[1,0,1,-1,-164],
-  [4,0,1,-1,132],[1,0,-1,-1,-119],[4,-1,0,-1,115],[2,-2,0,1,107]
-];
-var AE_MOON_COEF_SCALE = 1e-6;   // table units: 1e-6 degree
-var AE_MOON_DIST_SCALE = 1e-3;   // table units: 1e-3 km
-
-// Geocentric apparent place of the Moon at jde (TT): RA/Dec (radians),
-// ecliptic longitude/latitude (degrees) and distance (km).
-function _aeMoon(jde) {
-  var T = (jde - JD_J2000) / JULIAN_CENTURY;
-  var T2 = T * T, T3 = T2 * T, T4 = T3 * T;
-  var Lp = 218.3164477 + AE_MOON_MEAN_LON_RATE * T - 0.0015786 * T2 + T3 / 538841 - T4 / 65194000;   // mean longitude
-  var D = 297.8501921 + AE_MOON_ELONG_RATE * T - 0.0018819 * T2 + T3 / 545868 - T4 / 113065000;     // mean elongation
-  var M = 357.5291092 + AE_SUN_ANOMALY_RATE * T - 0.0001536 * T2 + T3 / 24490000;                     // Sun's mean anomaly
-  var Mp = 134.9633964 + AE_MOON_ANOMALY_RATE * T + 0.0087414 * T2 + T3 / 69699 - T4 / 14712000;       // Moon's mean anomaly
-  var F = 93.2720950 + AE_MOON_ARGLAT_RATE * T - 0.0036539 * T2 - T3 / 3526000 + T4 / 863310000;      // argument of latitude
-  var A1 = 119.75 + 131.849 * T;      // action of Venus
-  var A2 = 53.09 + 479264.290 * T;    // action of Jupiter
-  var A3 = 313.45 + 481266.484 * T;   // flattening of the Earth
-  var E = 1 - 0.002516 * T - 0.0000074 * T2;   // decreasing eccentricity of the Earth's orbit
-  var Dr = _aeRad(D), Mr = _aeRad(M), Mpr = _aeRad(Mp), Fr = _aeRad(F);
-  var sl = 0, sr = 0, sb = 0, i, row, arg, ef;
-  for (i = 0; i < AE_MOON_LR.length; i++) {
-    row = AE_MOON_LR[i];
-    arg = row[0] * Dr + row[1] * Mr + row[2] * Mpr + row[3] * Fr;
-    ef = Math.abs(row[1]) === 1 ? E : (Math.abs(row[1]) === 2 ? E * E : 1);
-    sl += row[4] * ef * Math.sin(arg);
-    sr += row[5] * ef * Math.cos(arg);
-  }
-  for (i = 0; i < AE_MOON_B.length; i++) {
-    row = AE_MOON_B[i];
-    arg = row[0] * Dr + row[1] * Mr + row[2] * Mpr + row[3] * Fr;
-    ef = Math.abs(row[1]) === 1 ? E : (Math.abs(row[1]) === 2 ? E * E : 1);
-    sb += row[4] * ef * Math.sin(arg);
-  }
-  sl += 3958 * Math.sin(_aeRad(A1)) + 1962 * Math.sin(_aeRad(Lp - F)) + 318 * Math.sin(_aeRad(A2));
-  sb += -2235 * Math.sin(_aeRad(Lp)) + 382 * Math.sin(_aeRad(A3)) + 175 * Math.sin(_aeRad(A1 - F)) +
-        175 * Math.sin(_aeRad(A1 + F)) + 127 * Math.sin(_aeRad(Lp - Mp)) - 115 * Math.sin(_aeRad(Lp + Mp));
-  var nut = _aeNutation(T);
-  var lon = _aeNormDeg(Lp + sl * AE_MOON_COEF_SCALE + nut.dpsi);
-  var lat = sb * AE_MOON_COEF_SCALE;
-  var eq = _aeEclipticToEquatorial(lon, lat, nut.eps);
-  return { ra: eq.ra, dec: eq.dec, lon: lon, lat: lat, distKm: AE_MOON_MEAN_DIST_KM + sr * AE_MOON_DIST_SCALE };
-}
-
-// ── The Earth's turning (Meeus 12.4, and 12 for apparent time) ──
-// Greenwich apparent sidereal time, radians, for a UT Julian Day. Nutation
-// (the equation of the equinoxes) puts it on the same true equinox the Sun
-// and Moon above are referred to.
-function _aeGast(jdUT, nut) {
-  var T = (jdUT - JD_J2000) / JULIAN_CENTURY;
-  var gmst = 280.46061837 + 360.98564736629 * (jdUT - JD_J2000) + 0.000387933 * T * T - T * T * T / 38710000;
-  return _aeRad(_aeNormDeg(gmst + nut.dpsi * Math.cos(_aeRad(nut.eps))));
-}
-
-// Unit vector (or scaled by r) from RA/Dec in radians.
-function _aeEqVec(ra, dec, r) {
-  var c = Math.cos(dec);
-  return [r * c * Math.cos(ra), r * c * Math.sin(ra), r * Math.sin(dec)];
-}
-
 // Everything the view draws for one instant, in scene units (Earth radii).
 // ms is a JS time (UTC).
 function _aeSceneAt(ms) {
@@ -276,22 +68,6 @@ function _aeSceneAt(ms) {
 // Where the Sun is drawn (AE_SUN_SHOW_DIST): its true direction, nearer.
 function _aeSunShown(scene) {
   return _aeScale(_aeNorm(scene.sun), AE_SUN_SHOW_DIST);
-}
-
-// ── Small vector helpers ──
-function _aeDot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
-function _aeSub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
-function _aeLen(a) { return Math.sqrt(_aeDot(a, a)); }
-function _aeScale(a, s) { return [a[0] * s, a[1] * s, a[2] * s]; }
-function _aeNorm(a) { return _aeScale(a, 1 / _aeLen(a)); }
-function _aeCross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
-// Angle between two directions, stable for tiny angles (atan2 of the cross and
-// dot products; acos loses everything below ~1e-4 rad in float arithmetic).
-function _aeAngle(a, b) { return Math.atan2(_aeLen(_aeCross(a, b)), _aeDot(a, b)); }
-// Rotate about the z axis.
-function _aeRotZ(v, ang) {
-  var c = Math.cos(ang), s = Math.sin(ang);
-  return [c * v[0] - s * v[1], s * v[0] + c * v[1], v[2]];
 }
 
 // ── Geodesy (WGS84): Earth-fixed position <-> latitude and longitude ──
@@ -549,7 +325,6 @@ function _aeEclipseNow(scene) {
 // the old one.
 var AE_THREE_URL = '/static/earth/three-r186.min.js';
 var AE_SGP4_URL = '/static/earth/satellite-7.1.0.min.js';
-var AE_STARS_URL = '/static/earth/stars-v1.bin';   // scripts/build_star_catalog.py documents the format
 var AE_TEX_DAY = '/static/earth/earth-day-v1.webp';
 var AE_TEX_NIGHT = '/static/earth/earth-night-v1.webp';
 var AE_TEX_MOON = _MOON_MAP_URL;        // app.js: the 2D Moons' maps, the 1024 one first
@@ -670,13 +445,7 @@ var AE_MOON_PATH_COLOR = 0xffffff, AE_MOON_PATH_ALPHA = 0.16;
 // dust at a low alpha, so they texture the dark rather than read as dots.
 var AE_STAR_SIZE0 = 3.4, AE_STAR_SIZE_PER_MAG = 0.55, AE_STAR_SIZE_MIN = 1.0;
 var AE_STAR_ALPHA0 = 1.15, AE_STAR_ALPHA_PER_MAG = 0.14, AE_STAR_ALPHA_MIN = 0.24;
-var AE_STAR_COLOR_DEFAULT = 0.6;      // B-V where a star has none (the Sun's is 0.65)
 var AE_STAR_CI_MIN = -0.3, AE_STAR_CI_SPAN = 1.9;   // colour index -0.3 (blue) .. 1.6 (orange)
-// stars-v1.bin (scripts/build_star_catalog.py): header, then planar arrays.
-var AE_STARS_HEADER_BYTES = 4, AE_STARS_VERSION = 1, AE_STARS_BYTES_EACH = 6;
-var AE_STARS_U16_STEPS = 65536, AE_STARS_U16_MAX = 65535;
-var AE_STARS_MAG_OFFSET = 2, AE_STARS_MAG_SCALE = 25;
-var AE_STARS_BV_SCALE = 50, AE_STARS_BV_NONE = -128;
 var AE_HOURS_TO_RAD = Math.PI / 12;
 
 var _ae = null;          // view state, built on first open
@@ -785,6 +554,12 @@ var AE_CSS = [
   '.ae-label-sub{display:block;font-size:10px;color:var(--text2)}',
   '.ae-label-you{color:#f5c16c}',
   '.ae-label-shadow{color:#ffb4a0}',
+  // Red night light (the Red theme, app.css): the labels' warm and cool tints are one red, the views' bright
+  // overlays go black, and the globe is recoloured by the canvas filter.
+  '.night-red .ae-label,.night-red .ae-label-you,.night-red .ae-label-shadow,.night-red .ae-status,.night-red .ae-live{color:var(--text)}',
+  '.night-red .ae-btn,.night-red .ae-set,.night-red .ae-card{background:rgba(0,0,0,.9)}',
+  '.night-red .ae-btn[aria-pressed="true"]{background:var(--amber-glow)}',
+  '.night-red .ae-set-choice:hover{background:var(--amber-glow)}',
   // A label that marks a place carries its dot ON the place: the dot hangs
   // off the label by the label's own gap (AE_LABEL_DX), on whichever side
   // the label hangs from its point, in either writing direction.
@@ -963,7 +738,7 @@ var AE_ECL_LINE_W = 0.08;    // a line's half-width, in quarters
 var AE_EARTH_FRAG = [
   'precision highp float;',
   'uniform sampler2D dayMap; uniform sampler2D nightMap;',
-  'uniform vec3 sunPos; uniform float sunR; uniform vec3 moonPos; uniform float moonR;',
+  'uniform vec3 sunPos; uniform float sunR; uniform vec3 moonPos; uniform float moonR; uniform float dim;',
   'varying vec2 vUv; varying vec3 vWorld; varying vec3 vNormal;',
   AE_GLSL_OVERLAP,
   'void main() {',
@@ -986,6 +761,8 @@ var AE_EARTH_FRAG = [
   '  vec3 haze = vec3(0.05, 0.09, 0.16);',
   '  vec3 col = day * (0.035 + 1.05 * sun) + haze * sun + vec3(1.0, 0.92, 0.8) * glint * sun;',
   '  col += vec3(1.0, 0.78, 0.45) * pow(lights, 1.6) * 1.25 * night;',
+  // Dimmed in Red (AE_RED_EARTH_LIGHT): the ground, not the air's glow at the limb, which keeps its edge.
+  '  col *= dim;',
   '  float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);',
   '  col += vec3(0.30, 0.55, 1.0) * rim * 0.55 * smoothstep(-0.25, 0.4, mu) * max(light, 0.35);',
   // Where the Moon covers some of the Sun, the map says so, as an eclipse
@@ -999,6 +776,12 @@ var AE_EARTH_FRAG = [
   '  gl_FragColor = vec4(col, 1.0);',
   '}'
 ].join('\n');
+
+// In Red the Earth's ground is drawn at this share of its light: a night light's red is kept for what is read, and a
+// sunlit Earth filling half the screen would be the brightest thing on it. Its limb and the air's glow stay as they are.
+var AE_RED_EARTH_LIGHT = 0.1;
+// Red is on: the page's class, which is what the CSS reads too (a page without a root, as in the tests, is not Red).
+function _aeRedOn() { var r = document.documentElement; return !!r && r.classList.contains('night-red'); }
 
 // The atmosphere's glow past the limb, on the sunlit side.
 var AE_ATMO_FRAG = [
@@ -1438,24 +1221,7 @@ function _aeStarList() {
   return { count: all.length, at: function (i, out) {
     var s = all[i];
     out.ra = s[0] * AE_HOURS_TO_RAD; out.dec = _aeRad(s[1]); out.mag = s[2];
-    out.ci = s.length > 3 ? s[3] : AE_STAR_COLOR_DEFAULT;
-  } };
-}
-// stars-v1.bin as typed-array views over the one buffer; null if the bytes
-// are not this format.
-function _aeDecodeStars(buf) {
-  if (!buf || buf.byteLength < AE_STARS_HEADER_BYTES) return null;
-  var head = new Uint16Array(buf.slice(0, AE_STARS_HEADER_BYTES)), n = head[0];
-  if (head[1] !== AE_STARS_VERSION || buf.byteLength !== AE_STARS_HEADER_BYTES + AE_STARS_BYTES_EACH * n) return null;
-  var ra = new Uint16Array(buf, AE_STARS_HEADER_BYTES, n);
-  var dec = new Uint16Array(buf, AE_STARS_HEADER_BYTES + 2 * n, n);
-  var mag = new Uint8Array(buf, AE_STARS_HEADER_BYTES + 4 * n, n);
-  var bv = new Int8Array(buf, AE_STARS_HEADER_BYTES + 5 * n, n);
-  return { count: n, at: function (i, out) {
-    out.ra = ra[i] / AE_STARS_U16_STEPS * 2 * Math.PI;
-    out.dec = (dec[i] / AE_STARS_U16_MAX - 0.5) * Math.PI;
-    out.mag = mag[i] / AE_STARS_MAG_SCALE - AE_STARS_MAG_OFFSET;
-    out.ci = bv[i] === AE_STARS_BV_NONE ? AE_STAR_COLOR_DEFAULT : bv[i] / AE_STARS_BV_SCALE;
+    out.ci = s.length > 3 ? s[3] : SG_STAR_BV_DEFAULT;
   } };
 }
 function _aeStarField(THREE, dpr, stars) {
@@ -1475,17 +1241,20 @@ function _aeStarField(THREE, dpr, stars) {
 // The whole catalogue, fetched with the other Earth assets: one fetch, one
 // pass over the bytes, one draw call. A failure keeps the first sky and the
 // next open asks again. The old points leave in the frame the new ones come.
+// The catalogue as the 3D views read it (count and at(i, out)), from the sky's one
+// decoder and request (almanac-skygl.js _sgLoadStars); rejects if it is not there.
+function _aeFetchStars() {
+  return _sgLoadStars().then(_sgStarList);
+}
 function _aeLoadStars(S) {
   if (S.starsLoaded || S.starsLoading) return;
   S.starsLoading = true;
-  fetch(AE_STARS_URL).then(function (r) {
-    if (!r.ok) throw new Error('stars');
-    return r.arrayBuffer();
-  }).then(function (buf) {
-    var stars = _aeDecodeStars(buf);
-    if (!stars || _ae.gl !== S) throw new Error('stars');
+  _sgRetryLoads();   // an open asks again for what failed before
+  // The catalogue's one decoder and one request are the sky's (almanac-skygl.js _sgLoadStars).
+  _sgLoadStars().then(function (stars) {
+    if (_ae.gl !== S) throw new Error('stars');
     var old = S.starCloud;
-    S.starCloud = _aeStarField(S.THREE, S.dpr, stars);
+    S.starCloud = _aeStarField(S.THREE, S.dpr, _sgStarList(stars));
     S.sky.add(S.starCloud);
     S.sky.remove(old);
     old.geometry.dispose(); old.material.dispose();
@@ -1533,7 +1302,8 @@ function _aeBuildGl(THREE, canvas) {
   var earthUni = {
     dayMap: { value: null }, nightMap: { value: null },
     sunPos: shared.sunPos, sunR: shared.sunR,
-    moonPos: { value: new THREE.Vector3() }, moonR: { value: AE_MOON_RADIUS_RE }
+    moonPos: { value: new THREE.Vector3() }, moonR: { value: AE_MOON_RADIUS_RE },
+    dim: { value: 1 }
   };
   var earth = new THREE.Mesh(earthGeo, new THREE.ShaderMaterial({
     uniforms: earthUni, vertexShader: AE_SPHERE_VERT, fragmentShader: AE_EARTH_FRAG
@@ -1693,7 +1463,7 @@ function _aeFocusSet() { return typeof _almFocus !== 'undefined' && !!_almFocus;
 // Live: the clock is now, and running at its own pace.
 function _aeIsLive() { return !_aeFocusSet() && !!_ae && _ae.speed === 1; }
 // While a faster speed runs the clock, the page's clock text and cards
-// follow at this cadence (the view covers them; landing makes them exact).
+// follow at this cadence (the view covers them; the settle makes them exact).
 var AE_PAGE_TICK_MS = 250;
 function _aeRunClock(dms) {
   var next = new Date(_aeDisplayMs() + dms);
@@ -2267,6 +2037,7 @@ function _aeUpdate(ms) {
   S.earth.rotation.z = sc.gast;
   S.shared.sunPos.value.set(sc.sun[0], sc.sun[1], sc.sun[2]);
   S.earthUni.moonPos.value.set(sc.moon[0], sc.moon[1], sc.moon[2]);
+  S.earthUni.dim.value = _aeRedOn() ? AE_RED_EARTH_LIGHT : 1;
   // The Moon's phase angle, Sun-Moon-Earth, sets the earthshine.
   S.moonUni.earthshine.value = _moonEarthshine(_aeDot(_aeNorm(_aeSub(sc.sun, sc.moon)), _aeNorm(_aeScale(sc.moon, -1))));
   _aeOrientMoon(sc);
@@ -2586,6 +2357,12 @@ function _aeUpdateText(ms) {
   var note = _aeNoteParts();
   _aeRenderAsk(note.ask);
   _aeSetText(_aeById('ae-note'), note.note);
+  // No orbital data reached this device (offline before it was ever kept):
+  // the Satellites view would frame an empty shell, so it is not offered;
+  // the note says why.
+  var satsBtn = document.querySelector('#ae-views [data-ae-view="sats"]');
+  var noSats = !!(_ae.satsFailed || (_ae.sats && !_ae.sats.list.length));
+  if (satsBtn && satsBtn.disabled !== noSats) satsBtn.disabled = noSats;
   var canvas = _aeById('ae-canvas');
   if (canvas && sc) {
     var aria = _aeT('alm_earth_aria', { when: whenText, place: _aeFmtLatLon(_aeSubsolarPoint(sc)) });
@@ -3170,7 +2947,35 @@ function openAlmanacEarth(opts) {
     _aeShow(true);
   });
 }
+// The view is a step in history, as Look's overlay is: the phone's back
+// gesture closes it and the Almanac stays; a second one leaves the Almanac.
+var _aeStepped = false, _aeStepSwallow = false;
+function _aeStepIn() {
+  if (_aeStepped) return;
+  history.pushState({ mode: 'almanac', aeView: 1 }, '', location.href);
+  _aeStepped = true;
+}
+// Closed by the person (its button, Escape): the step it made is taken back,
+// and the router is told (_aeStepPop) to let that one go by.
+function _aeStepOut() {
+  if (!_aeStepped) return;
+  _aeStepped = false;
+  if (history.state && history.state.aeView) { _aeStepSwallow = true; history.back(); }
+}
+// The router (app.js) asks first of every history step: true when it was this
+// view's, which is then not the router's to act on.
+function _aeStepPop(e) {
+  if (_aeStepSwallow) { _aeStepSwallow = false; return true; }
+  if (_aeStepped && !(e.state && e.state.aeView)) {
+    _aeStepped = false;
+    if (_aeIsOpen) _aeClose();
+    return true;
+  }
+  return false;
+}
+window._aeStepPop = _aeStepPop;
 function _aeShow(fromHero) {
+  _aeStepIn();
   // From the orrery, its chosen moment; from the hero or the sky, the moment
   // they show.
   if (_aeFrom === 'orrery') _aeAdoptOrreryClock();
@@ -3220,6 +3025,7 @@ function _aeFinishClose() {
   if (!_aeIsOpen) return;
   _aeLandClock();
   _aeIsOpen = false;
+  _aeStepOut();
   if (_ae.raf) { cancelAnimationFrame(_ae.raf); _ae.raf = 0; }
   if (_ae.idleTimer) { clearTimeout(_ae.idleTimer); _ae.idleTimer = 0; }
   _ae.hand = null;
@@ -3283,6 +3089,16 @@ function _aeDisposeGl() {
   _ae.ready = false;
   _ae.scene = null;
   _ae.ringsAt = _ae.issRingAt = _ae.moonPathAt = null;
+  _aeFreeGl(S);
+  // The labels were pinned to that scene; the next one's frames pin them again.
+  ['ae-lbl-moon', 'ae-lbl-iss', 'ae-lbl-you', 'ae-lbl-shadow'].forEach(function (id) {
+    var label = _aeById(id);
+    if (label) label.hidden = true;
+  });
+  _aeFreshCanvas('ae-canvas', _aeBindCanvas);
+}
+// Every geometry, material and map of a scene, then the context itself.
+function _aeFreeGl(S) {
   S.scene.traverse(function (o) {
     if (o.geometry) o.geometry.dispose();
     if (!o.material) return;
@@ -3292,16 +3108,14 @@ function _aeDisposeGl() {
   });
   S.renderer.dispose();
   S.renderer.forceContextLoss();
-  // The labels were pinned to that scene; the next one's frames pin them again.
-  ['ae-lbl-moon', 'ae-lbl-iss', 'ae-lbl-you', 'ae-lbl-shadow'].forEach(function (id) {
-    var label = _aeById(id);
-    if (label) label.hidden = true;
-  });
-  var old = _aeById('ae-canvas');
+}
+// A lost context cannot be had again from its canvas: a clone takes its place, with the same listeners bound.
+function _aeFreshCanvas(id, bind) {
+  var old = _aeById(id);
   if (old && old.parentNode) {
     var fresh = old.cloneNode(false);
     old.parentNode.replaceChild(fresh, old);
-    _aeBindCanvas(fresh);
+    bind(fresh);
   }
 }
 
@@ -3310,6 +3124,8 @@ function _aeDisposeGl() {
 function _aeRelease() {
   if (!_ae) return;
   _ae.wanted = false;
+  // Released with the Almanac: its history step is not its to take back.
+  _aeStepped = false;
   _aeFinishClose();
   _aeDisposeGl();
 }

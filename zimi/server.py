@@ -126,7 +126,7 @@ except ImportError:
 # SSL context using certifi CA bundle (PyInstaller bundles lack system certs)
 SSL_CTX = ssl.create_default_context(cafile=certifi.where())
 
-ZIMI_VERSION = "1.13.3"
+ZIMI_VERSION = "1.14.0"
 
 
 def bundled(module):
@@ -738,7 +738,7 @@ def announce_ready(port):
 # (a frozen build on a USB stick), the folder a macOS .app bundle sits in, and
 # the working directory, for `*.zim` files or a `zims/` child holding them.
 #
-# The compatibility contract (docs/plans/2026-08-07-v19-plan.md) is why this
+# The compatibility contract is why this
 # is a separate, explicitly-passed layer rather than a smarter default: an
 # explicit ZIM_DIR, --zim-dir, config-file zim_dir, or a desktop-configured
 # folder must ALWAYS beat a discovered one, and the precedence tests pin that.
@@ -884,6 +884,13 @@ CONFIG_ENV_SETTINGS = (
     # it is not a filter that starts wide open. The CLI is unaffected: someone
     # at a shell on the machine already has the filesystem.
     ConfigSetting("create_root", "ZIMI_CREATE_ROOT", "str", "", "web off", False),
+    # Folders another program owns (Project NOMAD, a Kiwix box), read in place
+    # and never changed: a path list, os.pathsep separated (zimi/libfolders.py).
+    ConfigSetting("extra_zim_dirs", "ZIMI_EXTRA_ZIM_DIRS", "str", "", "none", False),
+    # Project NOMAD's admin address: turns on "Zimi manages NOMAD's library
+    # through NOMAD's API" for a NOMAD folder (zimi/nomadapi.py). Unset, the
+    # page's own opt-in decides, and the default is read-only.
+    ConfigSetting("nomad_api", "ZIMI_NOMAD_API", "str", "", "read-only", False),
     # Trusted-header SSO (zimi/sso.py). Both the team domain and the audience
     # tag must be present for the feature to switch on at all, which is what
     # keeps a bare install from trusting an identity header anyone can send.
@@ -1323,8 +1330,7 @@ def resolve_data_paths(
 #   * If `<zim_dir>/.zimi` already EXISTS but is unwritable, its contents are
 #     ignored and the cache dir is used wholesale. Reading stick indexes while
 #     writing new state elsewhere would be a two-layer overlay; the simple
-#     rule (documented in docs/plans/2026-08-07-zero-config-portable.md) is
-#     one data dir at a time.
+#     rule is one data dir at a time.
 # ---------------------------------------------------------------------------
 
 
@@ -2016,7 +2022,7 @@ _DOC_MIMETYPES = ("application/pdf", "application/epub+zip")
 _MEDIA_MIME_PREFIXES = ("video/", "audio/")
 # ZIMs that are one book each, by Name: a textbook or a guide captured whole
 # by zimit, with nothing in its metadata that says "book" (from the 1.12
-# coverage audit, docs/plans/2026-09-28-app-coverage.md). Any other ZIM can
+# coverage audit). Any other ZIM can
 # be put on the shelf by hand (books.set_whole).
 WHOLE_BOOK_NAMES = frozenset(
     (
@@ -2318,11 +2324,24 @@ def _read_map_facts(path):
 
 
 APPS_ENV = "ZIMI_APPS"
+# The Field Guide and Help now are out of the shipped release until they come
+# back as "How to (anything)". The code stays in
+# the tree; this switch (default off) is the one thing that reaches it.
+FIELDGUIDE_ENV = "ZIMI_FIELDGUIDE"
+
+
+def fieldguide_enabled():
+    """Whether the Field Guide, Help now and their search card are offered.
+    Read on every call, so a server and its tests agree on what is on."""
+    return os.environ.get(FIELDGUIDE_ENV, "").strip().lower() in ("1", "true", "yes", "on")
+
+
 APP_NAMES = ("maps", "tube", "exchange", "reddot", "wiki", "books", "dictionary")
 # Apps offered only when named: a comma list in ZIMI_APPS (or a saved list)
 # that names one turns it on; "1", "all", the default and a saved True leave
-# it off. Reddot since 1.13.1 (Eric: "kinda niche in hindsight").
-APPS_OPT_IN = frozenset({"reddot"})
+# it off. None now: Reddot was one from 1.13.1 to 1.14.0, and home shows an
+# app only when a ZIM gives it something to show.
+APPS_OPT_IN = frozenset()
 APPS_ALL = frozenset(APP_NAMES)
 APPS_DEFAULT = APPS_ALL - APPS_OPT_IN
 _APPS_OFF = ("0", "false", "no", "off", "none")
@@ -2398,7 +2417,7 @@ def apps_shown():
     """The apps (Maps, ZimiTube, ZimiExchange, Reddot, Zimipedia, Bookshelf) offered on this server:
     ``ZIMI_APPS`` when set (``0``, ``1`` or a comma list of names), else the
     setting saved from Server settings, else all of them but the opt-in ones
-    (``APPS_OPT_IN``: Reddot). A signed-in user
+    (``APPS_OPT_IN``). A signed-in user
     can also hide any of them for themselves (their account's preferences).
     Never per browser (Eric: "Not per browser only per user or server")."""
     verdict = _apps_env()
@@ -2991,8 +3010,17 @@ def _scan_zim_files():
             log.info("Skipping %s (has %s marker)", base, _SCAN_IGNORE_MARKER)
             continue
         sub_paths.extend(sorted(glob.glob(os.path.join(sub, "*.zim"))))
+    # Folders another program owns (libfolders) are the last tier: read where
+    # they are, and never shadowing a ZIM of Zimi's own.
+    from zimi import libfolders
+
+    libfolders.refresh()
     groups = {}  # base name -> [(tier, path)], in scan order
-    for tier, paths in ((0, root_paths), (1, sub_paths)):
+    for tier, paths in (
+        (0, root_paths),
+        (1, sub_paths),
+        (2, libfolders.zim_paths()),
+    ):
         for path in paths:
             name = _zim_base_name(os.path.basename(path))
             groups.setdefault(name, []).append((tier, path))
@@ -3000,7 +3028,26 @@ def _scan_zim_files():
     for name, cands in groups.items():
         if len(cands) > 1:
             _split_languages(name, cands, zims, groups)
+    served = set(zims.values())
+    libfolders.set_shadowed(
+        {
+            path: zims[name]
+            for name, cands in groups.items()
+            for tier, path in cands
+            if tier == 2 and path not in served
+        }
+    )
     return zims
+
+
+def _rel_or_abs(path, start):
+    """``path`` relative to ``start`` for a log line; the path itself when they
+    are on different drives (Windows raises ValueError there) so a log line can
+    never break a scan."""
+    try:
+        return os.path.relpath(path, start)
+    except ValueError:
+        return path
 
 
 def _split_languages(name, cands, zims, groups):
@@ -3025,16 +3072,16 @@ def _split_languages(name, cands, zims, groups):
                 log.info(
                     "ZIM name collision '%s': keeping %s, serving %s as '%s'",
                     name,
-                    os.path.relpath(keeper, ZIM_DIR),
-                    os.path.relpath(path, ZIM_DIR),
+                    _rel_or_abs(keeper, ZIM_DIR),
+                    _rel_or_abs(path, ZIM_DIR),
                     lang_name,
                 )
                 continue
             log.info(
                 "ZIM name collision '%s': keeping %s, ignoring %s",
                 lang_name if own else name,
-                os.path.relpath(zims[lang_name] if own else keeper, ZIM_DIR),
-                os.path.relpath(path, ZIM_DIR),
+                _rel_or_abs(zims[lang_name] if own else keeper, ZIM_DIR),
+                _rel_or_abs(path, ZIM_DIR),
             )
 
 
@@ -4007,22 +4054,37 @@ def _zim_live_holder(name, path):
     return held
 
 
+def _note_shadowed(loser, winner):
+    from zimi import libfolders
+
+    libfolders.note_shadowed(loser, winner)
+
+
+def _zim_tier(path):
+    """Where a ZIM sits in the collision rule: 0 the library root, 1 one of its
+    subfolders, 2 a folder another program owns (libfolders)."""
+    from zimi import libfolders
+
+    if libfolders.owner(path) is not None:
+        return 2
+    return 0 if os.path.dirname(os.path.realpath(path)) == os.path.realpath(ZIM_DIR) else 1
+
+
 def _zim_holder_keeps(held, path):
     """register_zim_file's mirror of _scan_zim_files' rule: True when `held`,
     already serving a name, keeps it against the arriving `path`. A root file
-    beats a subfolder one whatever its build; within a tier the richer build
+    beats a subfolder one, and that beats another program's folder, whatever
+    the build; within a tier the richer build
     (_zim_build_rank) holds, and an equal one yields to the arrival."""
-    root = os.path.realpath(ZIM_DIR)
-    held_in_root = os.path.dirname(os.path.realpath(held)) == root
-    new_in_root = os.path.dirname(os.path.realpath(path)) == root
-    if held_in_root != new_in_root:
-        return held_in_root
+    held_tier, new_tier = _zim_tier(held), _zim_tier(path)
+    if held_tier != new_tier:
+        return held_tier < new_tier
     return _zim_build_rank(os.path.basename(held)) > _zim_build_rank(
         os.path.basename(path)
     )
 
 
-def register_zim_file(path, removed_files=()):
+def register_zim_file(path, removed_files=(), removed_paths=()):
     """Incrementally register ONE just-downloaded ZIM into the live library.
 
     Replaces the post-download ``load_cache(force=True)`` full rebuild, which
@@ -4043,6 +4105,10 @@ def register_zim_file(path, removed_files=()):
     ``removed_files``: basenames of older versions the caller already deleted
     from disk; they are dropped from the registry and disk cache in the same
     splice.
+    ``removed_paths``: full paths of older editions that are gone from disk
+    (another program replaced them). The name each one served is dropped in
+    the same splice, so an update is one swap with no gap and no rescan; a
+    file with the same name in another folder is not touched.
 
     Returns True when the library reflects the file; False when the file
     could not be read — the caller should fall back to a full load_cache().
@@ -4101,6 +4167,7 @@ def register_zim_file(path, removed_files=()):
                 os.path.basename(existing_path),
                 filename,
             )
+            _note_shadowed(path, existing_path)
             return True  # library correctly unchanged
     if existing_path and _zim_holder_keeps(existing_path, path):
         # A root file against a subfolder one, or a richer build in the same
@@ -4112,6 +4179,7 @@ def register_zim_file(path, removed_files=()):
             os.path.basename(existing_path),
             filename,
         )
+        _note_shadowed(path, existing_path)
         return True  # library correctly unchanged
 
     # ---- Phase 1: metadata extraction, deliberately WITHOUT _zim_lock ----
@@ -4179,21 +4247,41 @@ def register_zim_file(path, removed_files=()):
             new_cached[_opt] = entry[_opt]
 
     removed = {os.path.basename(f) for f in removed_files}
+    swapped = {os.path.normpath(p) for p in removed_paths}
 
     # ---- Phase 2: splice under _zim_lock — dict surgery + a small json ----
     with _zim_lock:
         # Rebind fresh containers instead of mutating: readers iterate these
         # without the lock, and an atomic rebind can never trip them mid-walk.
         files = dict(_zim_files_cache)
+        replaced = name in files  # a file already served this name
+        # Names whose registered file was one of the swapped-out editions.
+        left = {
+            n
+            for n, p in files.items()
+            if n != name and os.path.normpath(p) in swapped
+        }
+        for n in left:
+            del files[n]
         files[name] = path
         _zim_files_cache = files
+        # A file's basename is a disk-cache key, so it is only dead when no
+        # surviving file carries it (the same name can live in two folders).
+        kept = {os.path.basename(p) for p in files.values()}
+        removed |= {os.path.basename(p) for p in swapped} - kept
         listing = [
             z
             for z in (_zim_list_cache or [])
-            if z.get("name") != name and z.get("file") not in removed
+            if z.get("name") != name
+            and z.get("name") not in left
+            and z.get("file") not in removed
         ]
         listing.append(entry)
         _zim_list_cache = listing
+        if replaced or left:
+            # The file under a served name changed (replaced in place, or an
+            # edition swapped out): drop every handle still on the old one.
+            release_zim_handles({name} | left)
         with _archive_lock:
             # Hand the already-open archive to the pool (and drop any handle
             # still pointing at a replaced file) so nothing re-opens it.
@@ -4266,6 +4354,73 @@ def release_zim_handles(names):
             _fts_zim_locks.pop(n, None)
 
 
+def _drop_registered(gone, dead_files):
+    """Splice names that left the library out of the live registry: the
+    caches, the pooled handles, the disk-cache rows of ``dead_files`` and the
+    domain map. Rebinds rather than mutates, for the lock-free readers."""
+    global _zim_files_cache, _zim_list_cache, _cache_generation
+    with _zim_lock:
+        if gone:
+            _zim_files_cache = {
+                n: p for n, p in _zim_files_cache.items() if n not in gone
+            }
+            _zim_list_cache = [
+                z for z in (_zim_list_cache or []) if z.get("name") not in gone
+            ]
+            # Evict the pooled handles for the deleted files. Dropping them
+            # from the dicts only stops FUTURE use: a search thread already
+            # holding one keeps a valid mapping of an unlinked file until it
+            # finishes, which is why this needs no per-ZIM lock.
+            release_zim_handles(gone)
+        # Invalidates /w/ entry ETags and the interlang resolution caches —
+        # cross-ZIM answers genuinely change when a ZIM leaves.
+        _cache_generation += 1
+
+        # Re-read under the lock: a concurrent load_cache may have rewritten
+        # the file since phase 1, so mutate the freshest version.
+        def _apply(disk_now):
+            dropped = [
+                fn for fn in disk_now if fn in dead_files or _zim_short_name(fn) in gone
+            ]
+            for fn in dropped:
+                disk_now.pop(fn, None)
+            return bool(dropped)
+
+        _update_disk_cache(_apply)
+        if gone:
+            # Drop this ZIM's domain claims so _resolve_url_to_zim stops
+            # answering with a name that no longer resolves. Rebound, not
+            # mutated, for the same reason as the caches above.
+            import zimi.interlang as _interlang
+
+            pruned = {
+                d: n for d, n in _interlang._domain_zim_map.items() if n not in gone
+            }
+            _interlang._domain_zim_map = pruned
+
+
+def unregister_zim_paths(paths):
+    """Drop the ZIMs whose REGISTERED file is one of ``paths`` (full paths, a
+    folder another program owns that went away, or a file it removed), from the
+    registry alone: no scan, no archive open. A path that is not what some name
+    is registered under (a same-named file in another folder, a shadowed copy)
+    is none of this function's business. Returns the names dropped."""
+    _init()
+    if _zim_files_cache is None or _zim_list_cache is None:
+        load_cache()
+        return []
+    paths = {os.path.normpath(p) for p in paths}
+    current = _zim_files_cache
+    gone = {n for n, p in current.items() if os.path.normpath(p) in paths}
+    if not gone:
+        return []
+    kept = {os.path.basename(p) for n, p in current.items() if n not in gone}
+    dead = {os.path.basename(current[n]) for n in gone} - kept
+    _drop_registered(gone, dead)
+    log.info("Unregistered %s without a library rescan", ", ".join(sorted(gone)))
+    return sorted(gone)
+
+
 def unregister_zim_file(filename):
     """Incrementally drop ONE just-deleted ZIM from the live library.
 
@@ -4319,45 +4474,7 @@ def unregister_zim_file(filename):
     # check above proved no surviving file on disk still claims one.
     dead_files = {filename} | {os.path.basename(current[n]) for n in gone}
 
-    # ---- Phase 2: splice under _zim_lock — dict surgery + a small json ----
-    with _zim_lock:
-        if gone:
-            _zim_files_cache = {
-                n: p for n, p in _zim_files_cache.items() if n not in gone
-            }
-            _zim_list_cache = [
-                z for z in (_zim_list_cache or []) if z.get("name") not in gone
-            ]
-            # Evict the pooled handles for the deleted files. Dropping them
-            # from the dicts only stops FUTURE use: a search thread already
-            # holding one keeps a valid mapping of an unlinked file until it
-            # finishes, which is why this needs no per-ZIM lock.
-            release_zim_handles(gone)
-        # Invalidates /w/ entry ETags and the interlang resolution caches —
-        # cross-ZIM answers genuinely change when a ZIM leaves.
-        _cache_generation += 1
-
-        # Re-read under the lock: a concurrent load_cache may have rewritten
-        # the file since phase 1, so mutate the freshest version.
-        def _apply(disk_now):
-            dropped = [
-                fn for fn in disk_now if fn in dead_files or _zim_short_name(fn) in gone
-            ]
-            for fn in dropped:
-                disk_now.pop(fn, None)
-            return bool(dropped)
-
-        _update_disk_cache(_apply)
-        if gone:
-            # Drop this ZIM's domain claims so _resolve_url_to_zim stops
-            # answering with a name that no longer resolves. Rebound, not
-            # mutated, for the same reason as the caches above.
-            import zimi.interlang as _interlang
-
-            pruned = {
-                d: n for d, n in _interlang._domain_zim_map.items() if n not in gone
-            }
-            _interlang._domain_zim_map = pruned
+    _drop_registered(gone, dead_files)
     log.info(
         "Unregistered %s without a library rescan%s",
         filename,
@@ -5214,6 +5331,9 @@ def main():
             for p in (_cache_file_path(), os.path.join(ZIM_DIR, ".zimi_cache.json"))
         )
         load_cache()
+        from zimi import libfolders
+
+        libfolders.ensure_watch()
         # Startup partial-download sweep. Keep partials that a download record
         # still wants (resume_pending_downloads() picks those up via Range).
         # For the rest (orphaned), auto-delete only the stale ones (>24h) — a
@@ -5687,6 +5807,7 @@ from zimi.search import (  # noqa: E402, F401
     search_all,
     read_article,
     chunk_article,
+    best_answer_for,
     CHUNK_SIZE_MIN,
     CHUNK_SIZE_MAX,
     CHUNK_SIZE_DEFAULT,

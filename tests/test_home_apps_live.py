@@ -140,7 +140,10 @@ LAYOUT = r"""() => {
   const range = document.createRange();
   range.selectNodeContents(head.firstChild);
   return { heading: head.firstChild.textContent, clickable: head.classList.contains('clickable'),
-    aboveApps: head.nextElementSibling === grid, sort: !!(ctl && ctl.querySelector('.lib-sort')),
+    aboveApps: (head.nextElementSibling && head.nextElementSibling.classList.contains('apps-help')
+      ? head.nextElementSibling.nextElementSibling : head.nextElementSibling) === grid,
+    helpFirst: !!head.nextElementSibling && head.nextElementSibling.classList.contains('apps-help')
+      && !!head.nextElementSibling.querySelector('a.help-now'), sort: !!(ctl && ctl.querySelector('.lib-sort')),
     view: !!(ctl && ctl.querySelector('.lib-view-toggle')), controls: document.querySelectorAll('#output .lib-controls').length,
     ctl: ctl ? r(ctl) : null, grid: r(grid), text: r(range), vw: document.documentElement.clientWidth,
     scrollW: document.documentElement.scrollWidth };
@@ -182,6 +185,7 @@ def _sort(pg, key):
     ids=["desktop", "phone"],
 )
 @pytest.mark.parametrize("scheme", ["dark", "light"])
+@pytest.mark.fieldguide_on
 @pytest.mark.parametrize("lang", ["en", "he"])
 def test_the_order_governs_the_apps_and_their_title_opens_their_page(
     served, size, phone, scheme, lang
@@ -215,6 +219,8 @@ def test_the_order_governs_the_apps_and_their_title_opens_their_page(
             # The controls on the Apps heading, above the row, clear of its name.
             at = pg.evaluate(LAYOUT)
             assert at["heading"] == apps and at["clickable"] and at["aboveApps"], at
+            # Help now is its own pill between the heading and the row of apps.
+            assert at["helpFirst"], at
             assert at["sort"] and at["view"] and at["controls"] == 1, at
             ctl, text, grid = at["ctl"], at["text"], at["grid"]
             assert ctl["b"] <= grid["t"], "the controls sit above the apps"
@@ -223,12 +229,14 @@ def test_the_order_governs_the_apps_and_their_title_opens_their_page(
             ), "the controls are on the screen"
             assert ctl["l"] >= text["r"] or ctl["r"] <= text["l"], "clear of the name"
             assert at["scrollW"] <= at["vw"], "nothing pushes the page sideways"
-            # An app with nothing inside is outlined in dots, not set up yet.
+            # Home shows only the apps with something inside; an empty one waits
+            # on the Apps page (Eric, 2026-10-17: "hide apps that have no
+            # backing zims").
             borders = pg.evaluate(
                 "() => Object.fromEntries(Array.from(document.querySelectorAll('#output .apps-grid .app-tile'))"
                 ".map(a => [a.dataset.app, getComputedStyle(a).borderTopStyle]))"
             )
-            assert borders["reddot"] == borders["maps"] == "dotted", borders
+            assert "reddot" not in borders and "maps" not in borders, borders
             assert borders["tube"] == borders["books"] == "solid", borders
 
             # The apps follow the order, sliding into place: Ask Ubuntu arrived

@@ -379,7 +379,7 @@ shasum -a 256 -c SHA256SUMS
 
 ## Updates
 
-An air-gapped instance never sees a new release on its own, and \`ZIMI_OFFLINE=1\` disables the check entirely. To upgrade, build a new bundle on the connected machine and run its \`install.sh\` over here. On a connected machine, \`ZIMI_UPDATE_CHANNEL\` picks which releases the check considers: \`stable\` (default, final releases only) or \`latest\` (also betas and release candidates).
+An air-gapped instance never sees a new release on its own, and \`ZIMI_OFFLINE=1\` disables the check entirely. To upgrade, build a new bundle on the connected machine and run its \`install.sh\` over here.
 EOF
 
 # ---------------------------------------------------------------------------

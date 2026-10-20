@@ -11,20 +11,22 @@ the sites everybody archives, plus a generic autoscroll that is better than
 ours. It is real domain expertise accumulated over years of archiving, and it
 is the single thing our capture engines most obviously lack.
 
-**Not shipped, only used.** The bundle is AGPL-3.0 and Zimi is MIT, so Zimi
-neither vendors it nor installs it: it looks for a copy the operator installed,
-uses it when it is there, and falls back to the plain scroll when it is not.
-Same arrangement as warc2zim, zimit and SingleFile — the dependency boundary
-and the license boundary are the same boundary — with one extra wrinkle worth
-naming, which is that this code runs INSIDE the captured page rather than
-beside Zimi. That makes the fallback load-bearing rather than polite: a capture
-must never depend on a file Zimi is not allowed to distribute.
+**Shipped, unmodified.** Release 0.15.0 rides in ``zimi/assets/browsertrix-behaviors/``
+(``dist/behaviors.js``, ``package.json``, and the AGPL text as ``LICENSE.md``),
+so every build has it: Docker, desktop and pip. It is AGPL-3.0-or-later and
+Zimi is GPL-3.0-or-later; section 13 of both licences lets the two be combined.
+The file is the unmodified upstream release, whose source is at
+https://github.com/webrecorder/browsertrix-behaviors (THIRD_PARTY_NOTICES.md
+has the pinned checksum). This code runs INSIDE the captured page rather than
+beside Zimi, so the fallback stays load-bearing: when no copy can be read the
+capture falls back to the plain scroll.
 
-Install it with::
+Which copy is used, first match wins:
 
-    npm install -g browsertrix-behaviors
-
-or point ``ZIMI_BEHAVIORS`` at a ``behaviors.js`` anywhere on disk.
+1. ``ZIMI_BEHAVIORS`` pointing at a ``behaviors.js`` anywhere on disk (pin a
+   version or use a checkout);
+2. a copy the operator installed with ``npm install -g browsertrix-behaviors``;
+3. the bundled one.
 """
 
 import logging
@@ -37,6 +39,10 @@ log = logging.getLogger("zimi.behaviors")
 #: var wins so an operator can pin a version or use a checkout.
 _ENV_VAR = "ZIMI_BEHAVIORS"
 _REL_PATH = os.path.join("browsertrix-behaviors", "dist", "behaviors.js")
+_BUNDLED = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "assets", "browsertrix-behaviors", "dist", "behaviors.js",
+)
 _NODE_ROOTS = (
     "/usr/local/lib/node_modules",
     "/usr/lib/node_modules",
@@ -52,8 +58,9 @@ _cached: list = [None]  # (path, source) once read; ('', '') once known absent
 
 
 def behaviors_path():
-    """Where the bundle is, or ''. Checks the env var, then npm's global roots,
-    then whatever ``npm root -g`` reports for an unusual install."""
+    """Where the bundle is, or ''. Checks the env var, then an operator's npm
+    install (global roots, then whatever ``npm root -g`` reports), then the copy
+    Zimi ships."""
     override = os.environ.get(_ENV_VAR, "").strip()
     if override:
         return override if os.path.isfile(override) else ""
@@ -76,7 +83,7 @@ def behaviors_path():
                     return candidate
         except (OSError, subprocess.SubprocessError):
             pass
-    return ""
+    return _BUNDLED if os.path.isfile(_BUNDLED) else ""
 
 
 def behaviors_available():

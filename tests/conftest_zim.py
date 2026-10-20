@@ -11,6 +11,8 @@ import os
 
 from libzim.writer import Creator, Item, ContentProvider, Hint
 
+from zimi.zimwriter import _sweep_creator_scratch
+
 
 class _StringProvider(ContentProvider):
     def __init__(self, content: bytes):
@@ -130,6 +132,10 @@ def build_fixture_zim(
         meta.update(metadata or {})
         for key, value in meta.items():
             creator.add_metadata(key, value)
+    # Windows leaves libzim's index scratch beside the file it built (it cannot
+    # unlink what it still has open); a fixture in a folder a test then lists must
+    # not carry it.
+    _sweep_creator_scratch(path)
     assert os.path.exists(path)
     return path
 
@@ -170,6 +176,67 @@ def build_wiki_fixture_zim(path: str) -> str:
         creator.add_metadata("Language", "eng")
         creator.add_metadata("Description", "tiny wiki fixture")
     assert os.path.exists(path)
+    return path
+
+
+ANSWER_ARTICLES = {
+    "Water_purification": (
+        "Water purification",
+        "<p>Water purification is the process of removing undesirable "
+        "chemicals, biological contaminants and suspended solids from raw "
+        "water.</p><p>To purify water in the field, boil it for one minute, "
+        "or longer at altitude. Filters remove sediment and some bacteria. "
+        "Chemical treatment with chlorine or iodine kills most pathogens.</p>",
+    ),
+    "Mona_Lisa": (
+        "Mona Lisa",
+        "<p>The Mona Lisa is a half-length portrait painting by Italian "
+        "artist Leonardo da Vinci. It is considered an archetypal "
+        "masterpiece of the Italian Renaissance.</p><p>The painting hangs "
+        "in the Louvre in Paris, where it is seen by millions.</p>",
+    ),
+    "Paris": (
+        "Paris",
+        "<p>Paris is the capital and most populous city of France. The city "
+        "sits on the Seine and has been a centre of finance and culture.</p>",
+    ),
+    "Danube": (
+        "Danube",
+        "<p>The Danube is the second-longest river in Europe. It flows "
+        "through ten countries before reaching the Black Sea.</p>",
+    ),
+    # Long enough that the sentence is far below the fold: opening it must scroll.
+    "Tides": (
+        "Tides",
+        "".join(
+            "<p>Harbours keep tables of the hours. Sailors have read the sea "
+            "for centuries, paragraph %d of the old almanac.</p>" % i
+            for i in range(60)
+        )
+        + "<p>Tides are caused by the gravity of the Moon and the Sun acting "
+        "on the oceans.</p>"
+        + "".join("<p>Closing remarks %d about harbours and boats.</p>" % i for i in range(30)),
+    ),
+    "Mona_Lisa_de": (
+        "Mona Lisa (Gemälde)",
+        "<p>Die Mona Lisa ist ein Gemälde, das Leonardo da Vinci gemalt hat. "
+        "Es hängt im Louvre in Paris.</p>",
+    ),
+}
+
+
+def build_answer_fixture_zim(path: str) -> str:
+    """A small encyclopedia whose articles answer the questions the best
+    answer tests ask ("how to purify water", "who painted the mona lisa"),
+    with a German article for a German question."""
+    with Creator(path).config_indexing(True, "eng") as c:
+        c.set_mainpath("A/Paris")
+        page = "<html><head><title>%s</title></head><body><h1>%s</h1>%s</body></html>"
+        for p, (title, body) in ANSWER_ARTICLES.items():
+            c.add_item(_Article("A/" + p, title, (page % (title, title, body)).encode()))
+        c.add_metadata("Title", "Wikipedia")
+        c.add_metadata("Language", "eng")
+        c.add_metadata("Description", "fixture")
     return path
 
 

@@ -24,7 +24,13 @@ neither (cleared in memory only; the server's own clear also writes the
 suggest cache to whatever data dir the last test left behind).
 """
 
+import os
+
 import pytest
+
+# The best answer card is off unless the operator turns it on; its tests are
+# about the card, so the suite runs with it on (set before zimi.http reads it).
+os.environ.setdefault("ZIMI_BEST_ANSWER", "1")
 
 
 @pytest.fixture(autouse=True)
@@ -81,6 +87,18 @@ def _fresh_search_state():
         _search._suggest_cache.clear()
     for name in list(_search._title_db_pool):
         _search._close_title_db(name)
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _fieldguide_switch(request, monkeypatch):
+    """The Field Guide is off by default (ZIMI_FIELDGUIDE); a test whose
+    premise is the guide opts in with @pytest.mark.fieldguide_on (or a
+    module-level pytestmark). Every other test runs with it off."""
+    if request.node.get_closest_marker("fieldguide_on"):
+        monkeypatch.setenv("ZIMI_FIELDGUIDE", "1")
+    else:
+        monkeypatch.delenv("ZIMI_FIELDGUIDE", raising=False)
     yield
 
 

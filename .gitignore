@@ -53,6 +53,10 @@ ui-review/
 # Working docs (not shipped)
 PLAN.md
 CLAUDE.md
+docs/plans
+docs/drafts
+docs/superpowers
+docs/roadmap-*.md
 .claude/
 
 # Build/tooling artifacts. uv is not this project's package manager — the

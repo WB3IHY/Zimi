@@ -1,0 +1,23 @@
+libzim-wasm.js and libzim-wasm.wasm
+===================================
+
+The release build of javascript-libzim v0.95 (published 2026-08-06), shipped
+unmodified, the WORKERFS variant. It is libzim compiled to WebAssembly with
+Xapian, which gives Zimi's "Keep on this phone" its full-text search over a ZIM
+kept in the browser's private storage. It runs in a Web Worker the page starts
+on first use (zimi/static/keepstore.js); the service worker never loads it.
+
+  javascript-libzim   GPL-3.0-or-later   https://github.com/openzim/javascript-libzim
+  libzim              GPL-2.0-or-later   https://github.com/openzim/libzim
+  Xapian 1.4.31       GPL-2.0-or-later   https://xapian.org/
+  zstd                BSD-3-Clause / GPL-2.0   https://github.com/facebook/zstd
+  xz / liblzma        public domain      https://tukaani.org/xz/
+  ICU                 Unicode licence    https://icu.unicode.org/
+  zlib                zlib licence       https://zlib.net/
+
+Corresponding source: the repository and tag above (the build recipe is its
+Makefile; the libzim it links is the release kiwix-build publishes, named in
+that Makefile). The binary is the one from
+https://github.com/openzim/javascript-libzim/releases/tag/v0.95 (libzim_wasm_0.95.zip).
+
+Zimi is GPL-3.0-or-later (LICENSE at the root of this repository).

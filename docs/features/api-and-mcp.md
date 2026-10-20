@@ -22,6 +22,7 @@ By default it serves three tools, about 360 tokens of schema, sized for small lo
 | `GET /suggest` | Title autocomplete |
 | `GET /read` | Article as stripped plain text |
 | `GET /chunks` | Deterministic, embedding-free RAG chunking |
+| `GET /bestanswer` | The sentence in the library that answers a question, quoted with its passage, plus up to two more; `answer` is null for a keyword search or when nothing answers well. Off (`answer` always null) unless `ZIMI_BEST_ANSWER=1`. Not yet in the stable set |
 | `GET /w/{zim}/{path}` | Raw article bytes (original HTML/assets) |
 | `GET /list` | Installed ZIM sources |
 | `GET /random` | Random article |

@@ -8,7 +8,12 @@ anonymous ``/whoami`` and re-showed the login screen ("sign in twice"); and a
 cached full-library ``/list`` could be served on a network blip to a
 now-anonymous visitor of a private instance (library leak).
 
-The fix makes those endpoints network-only. This test loads the REAL
+The fix made those endpoints network-only. Since then /whoami, /list and /search
+(and the password question) may be answered from a kept copy, but only when the
+network has not answered at all (no connection, or lie-fi), marked
+X-Zimi-Stale, and a sign-in or sign-out empties them; the network's own answer
+is never replaced by a kept one. Every other identity endpoint stays
+network-only. This test loads the REAL
 ``zimi/static/sw.js`` in a stubbed ServiceWorker global via ``node`` and asserts
 (a) ``routeStrategy`` classifies each identity endpoint as ``networkOnly`` and
 (b) dispatching a fetch for them NEVER touches the Cache API. It is a loop over
@@ -28,11 +33,8 @@ _SW = os.path.join(_HERE, "..", "zimi", "static", "sw.js")
 # Every endpoint whose response varies by authenticated identity or public-access
 # mode. These MUST be network-only in the SW.
 IDENTITY_ENDPOINTS = [
-    "/whoami",
     "/login",
     "/logout",
-    "/list",
-    "/search",
     "/suggest",
     "/random",
     "/collections",
@@ -42,26 +44,48 @@ IDENTITY_ENDPOINTS = [
     # Who may fetch a voice, and audio asked for by range.
     "/dictionary/voices",
     "/dictionary/speak",
+    # The Field Guide's answers name the installed ZIMs; offline the page
+    # reads its own copy (/static/fieldguide-offline.json) instead.
+    "/fieldguide",
+    "/fieldguide/home",
+    "/fieldguide/situation",
+    "/fieldguide/match",
+    "/fieldguide/print",
+    "/fieldguide/library",
 ]
 
 # Query strings must not change the classification (the SW keys off pathname).
-IDENTITY_WITH_QUERY = ["/search?q=water", "/list?layout=1", "/suggest?q=wa"]
+IDENTITY_WITH_QUERY = ["/suggest?q=wa", "/fieldguide/situation?id=choking"]
+
+# Answered by the network when it answers; a marked, kept copy when it does not.
+KEPT_ANSWERS = [
+    "/whoami",
+    "/list",
+    "/list?layout=1",
+    "/search?q=water",
+    "/manage/has-password",
+]
 
 _DRIVER = r"""
 const fs = require('node:fs');
 const vm = require('node:vm');
 const src = fs.readFileSync(process.argv[1], 'utf8');
+// A response as the kept copy, with a body the stand-in Response can carry.
+function KEPT_RESPONSE() {
+  return { ok: true, status: 200, statusText: 'OK', body: 'kept', headers: new Headers({ 'Content-Type': 'application/json' }) };
+}
 
 function makeEnv() {
   const cacheReads = [], cacheWrites = [];
   const fakeCache = {
-    match: (r) => { cacheReads.push(r.url); return Promise.resolve(undefined); },
+    match: (r) => { cacheReads.push(r.url); return Promise.resolve(KEPT ? KEPT_RESPONSE() : undefined); },
     put: (r) => { cacheWrites.push(r.url); return Promise.resolve(); },
     addAll: () => Promise.resolve(),
+    keys: () => Promise.resolve([]),
   };
   const caches = {
     open: () => Promise.resolve(fakeCache),
-    match: (r) => { cacheReads.push(r.url); return Promise.resolve(undefined); },
+    match: (r) => { cacheReads.push(r.url); return Promise.resolve(KEPT ? KEPT_RESPONSE() : undefined); },
     keys: () => Promise.resolve([]), delete: () => Promise.resolve(true),
   };
   const listeners = {};
@@ -79,11 +103,12 @@ function makeEnv() {
     Response: class { constructor(b, o) { this.body = b; Object.assign(this, o || {});
       const h = (o && o.headers) || {};
       this.headers = { get: (k) => {
+        if (typeof h.get === 'function') return h.get(k);
         for (const key of Object.keys(h)) if (key.toLowerCase() === k.toLowerCase()) return h[key];
         return null;
       } };
     } },
-    setInterval: () => {}, console,
+    setInterval: () => {}, setTimeout, clearTimeout, AbortController, Headers, console,
   };
   vm.createContext(ctx);
   vm.runInContext(src, ctx);
@@ -92,12 +117,13 @@ function makeEnv() {
 
 async function probe(path, mode) {
   const env = makeEnv();
-  const strategy = env.self.routeStrategy(new URL('http://x' + path).pathname, mode);
+  const u = new URL('http://x' + path);
+  const strategy = env.self.routeStrategy(u.pathname, mode, undefined, u.search);
   let responded = null;
   const reqHeaders = REQ_HEADERS;
-  env.listeners.fetch({ request: { url: 'http://x' + path, mode: mode || 'cors',
+  env.listeners.fetch({ request: { url: 'http://x' + path, method: 'GET', mode: mode || 'cors',
                                    headers: { has: (k) => Object.prototype.hasOwnProperty.call(reqHeaders, k.toLowerCase()) } },
-                        respondWith: (p) => { responded = p; } });
+                        respondWith: (p) => { responded = p; }, waitUntil: () => {} });
   let resp = null;
   try { resp = await responded; } catch (e) {}
   return {
@@ -107,6 +133,7 @@ async function probe(path, mode) {
     touchedCache: env.cacheReads.length + env.cacheWrites.length,
     status: resp ? resp.status : null,
     offlineHeader: resp && resp.headers ? resp.headers.get('X-Zimi-Offline') : null,
+    staleHeader: resp && resp.headers ? resp.headers.get('X-Zimi-Stale') : null,
   };
 }
 
@@ -119,19 +146,24 @@ async function probe(path, mode) {
 """
 
 
-def _run_driver(paths, fetch_fails=False, req_headers=None, resp_type="text/css"):
+def _run_driver(
+    paths, fetch_fails=False, req_headers=None, resp_type="text/css", kept=False
+):
     node = shutil.which("node")
     if not node:
         raise unittest.SkipTest("node not available")
     driver = (
         "const FETCH_FAILS = %s;\n" % ("true" if fetch_fails else "false")
+        + "const KEPT = %s;\n" % ("true" if kept else "false")
         + "const REQ_HEADERS = %s;\n" % json.dumps(req_headers or {})
         + "const RESP_TYPE = %s;\n" % json.dumps(resp_type)
     ) + _DRIVER
     proc = subprocess.run(
         [node, "-e", driver, os.path.abspath(_SW), json.dumps(paths)],
         capture_output=True,
-        text=True, encoding="utf-8", errors="replace",
+        text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=30,
     )
     if proc.returncode != 0:
@@ -163,22 +195,50 @@ class TestSwRouteClassification(unittest.TestCase):
             self.assertEqual(res[p]["strategy"], "networkOnly", p)
             self.assertEqual(res[p]["touchedCache"], 0, p)
 
+    def test_kept_answers_prefer_the_network(self):
+        """/whoami, /list and /search ask the server first and hand its answer
+        back as it is: a kept copy is never put in place of an answer."""
+        res = _run_driver(KEPT_ANSWERS, kept=True)
+        for p in KEPT_ANSWERS:
+            self.assertEqual(res[p]["strategy"], "networkFirst", p)
+            self.assertEqual(res[p]["status"], 200, p)
+            self.assertIsNone(
+                res[p]["staleHeader"], f"{p}: the live answer is not stale"
+            )
+
+    def test_a_kept_answer_stands_in_only_when_the_network_does_not_answer(self):
+        res = _run_driver(KEPT_ANSWERS, fetch_fails=True, kept=True)
+        for p in KEPT_ANSWERS:
+            self.assertEqual(res[p]["status"], 200, p)
+            self.assertEqual(
+                res[p]["staleHeader"], "1", f"{p} must say it is a kept copy"
+            )
+
     def test_offline_fallback_is_labelled_as_synthetic(self):
         """A response the SW invented because the network died must announce
         itself.
 
         Without the ``X-Zimi-Offline`` marker the client cannot tell "the server
-        answered: you have zero ZIMs" from "we never reached the server" — a
+        answered: you have zero ZIMs" from "we never reached the server": a
         ``/list`` that resolves to the offline HTML fails ``.json()`` and lands
         in the same catch as an empty library, which is how the app came to
-        claim "No knowledge sources found" during an outage.
+        claim "No knowledge sources found" during an outage. With nothing kept
+        the answer is still the labelled page; a kept copy says so instead.
         """
-        res = _run_driver(["/list", "/whoami", "/search?q=x"], fetch_fails=True)
-        for p in ["/list", "/whoami", "/search?q=x"]:
+        paths = KEPT_ANSWERS + IDENTITY_ENDPOINTS
+        res = _run_driver(paths, fetch_fails=True)
+        for p in paths:
             self.assertEqual(res[p]["status"], 503, p)
             self.assertEqual(
                 res[p]["offlineHeader"], "1", f"{p} must be labelled offline"
             )
+
+    def test_the_reconnect_probe_is_never_kept(self):
+        """/health?ping=... is asked to learn whether the server is there; a kept
+        answer to it would say yes forever, and it filled the cache per probe."""
+        res = _run_driver(["/health?ping=1"], kept=True)
+        self.assertEqual(res["/health?ping=1"]["strategy"], "networkOnly")
+        self.assertEqual(res["/health?ping=1"]["cacheWrites"], 0)
 
     def test_static_assets_still_cache(self):
         # Guard the negative: static assets must remain cacheable (offline PWA),
@@ -200,13 +260,14 @@ class TestSwRouteClassification(unittest.TestCase):
             res["/w/apple/www.apple.com/style.css"]["strategy"], "networkFirst"
         )
 
-
     def test_ranged_requests_bypass_the_worker(self):
         """A video, ogv.js or Say asks by range; the worker stays out of it.
 
         Through networkFirst every 206 was cloned for a cache that refuses
         partial responses, on the phone, while the video played."""
-        res = _run_driver(["/w/ted/videos/1/video.webm"], req_headers={"range": "bytes=0-"})
+        res = _run_driver(
+            ["/w/ted/videos/1/video.webm"], req_headers={"range": "bytes=0-"}
+        )
         self.assertFalse(res["/w/ted/videos/1/video.webm"]["responded"])
         self.assertEqual(res["/w/ted/videos/1/video.webm"]["touchedCache"], 0)
 

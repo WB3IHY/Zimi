@@ -22,7 +22,7 @@ import urllib.request
 from datetime import datetime, timezone
 
 import zimi.server as _srv
-from zimi import outbound
+from zimi import libfolders, nomadapi, outbound
 
 log = logging.getLogger("zimi")
 
@@ -805,12 +805,6 @@ def _creator_denial(handler):
 # ============================================================================
 
 _APP_UPDATE_URL = "https://api.github.com/repos/epheterson/Zimi/releases/latest"
-# The "beta" channel needs the full list: GitHub's /releases/latest endpoint
-# deliberately skips pre-releases, so a beta is only reachable by listing.
-# Newest-first, one page is far more history than a version check needs.
-_APP_UPDATE_LIST_URL = (
-    "https://api.github.com/repos/epheterson/Zimi/releases?per_page=20"
-)
 _APP_RELEASES_PAGE = "https://github.com/epheterson/Zimi/releases"
 # Passive reads (opening the Manage server pane) reuse the cached answer for
 # a day; a failed check backs off only an hour so one DNS hiccup doesn't
@@ -822,33 +816,6 @@ _APP_UPDATE_TTL = 24 * 3600
 _APP_UPDATE_ERROR_TTL = 3600
 _APP_UPDATE_FORCE_GUARD = 60
 _app_update_lock = threading.Lock()  # single-flight: concurrent admins share one fetch
-
-# Update channels. "latest" (the default, and what every install had before
-# channels existed) only ever sees finished releases, the day they ship;
-# "beta" takes whatever is newest — a pre-release or a final, whichever is
-# higher-versioned. Deliberately NOT called "stable": that word promises a
-# validation program this project does not run, and the two channels ship the
-# same code with the same testing, only at different times.
-APP_UPDATE_CHANNELS = ("latest", "beta")
-APP_UPDATE_CHANNEL_DEFAULT = "latest"
-APP_UPDATE_CHANNEL_ENV = "ZIMI_UPDATE_CHANNEL"
-# Names people reach for that mean one of the two real channels. Accepting
-# them beats rejecting a deploy because someone wrote the obvious word —
-# "stable" most of all, since it is the word everyone types for a default
-# channel and the one an earlier build of this feature wrote to disk.
-_APP_UPDATE_CHANNEL_ALIASES = {
-    "stable": "latest",
-    "stable-only": "latest",
-    "release": "latest",
-    "releases": "latest",
-    "final": "latest",
-    "betas": "beta",
-    "pre": "beta",
-    "prerelease": "beta",
-    "pre-release": "beta",
-    "edge": "beta",
-    "newest": "beta",
-}
 
 # Whether this server looks for new Zimi releases on its own (Eric,
 # 2026-09-28: "i'm not positive how i feel about unexpected network calls from
@@ -885,10 +852,10 @@ def _app_update_cache_path():
 
 
 def _app_update_prefs_path(data_dir=None):
-    """Both app-update preferences (channel + delay) share one small file. The
-    name is the one the channel-only build wrote, so an existing preference
-    survives the upgrade untouched. ``data_dir`` is for a reader that runs
-    before this server has one (the desktop app's updater)."""
+    """The app-update preferences share one small file. The name is the one
+    the channel-era builds wrote, so an existing preference survives.
+    ``data_dir`` is for a reader that runs before this server has one (the
+    desktop app's updater)."""
     return os.path.join(data_dir or _srv.ZIMI_DATA_DIR, "app_update_channel.json")
 
 
@@ -915,20 +882,11 @@ def _read_app_update_prefs(data_dir=None):
 
 
 def _write_app_update_prefs(**updates):
-    """Merge into the prefs file — writing the channel must never drop the
-    delay, and vice versa."""
+    """Merge into the prefs file — writing one preference must never drop
+    another."""
     prefs = _read_app_update_prefs()
     prefs.update(updates)
     _srv._atomic_write_json(_app_update_prefs_path(), prefs)
-
-
-def normalize_update_channel(value):
-    """'Beta ' → 'beta', 'latest' → 'latest', 'stable' → 'latest' (the word
-    for this channel that the API, the env var and an earlier build all
-    accept), junk → None."""
-    name = (value or "").strip().lower()
-    name = _APP_UPDATE_CHANNEL_ALIASES.get(name, name)
-    return name if name in APP_UPDATE_CHANNELS else None
 
 
 def normalize_update_delay_days(value):
@@ -944,25 +902,9 @@ def normalize_update_delay_days(value):
     return days if 0 <= days <= APP_UPDATE_DELAY_MAX else None
 
 
-def is_update_channel_env_locked():
-    """True when ZIMI_UPDATE_CHANNEL names a real channel. Same contract as
-    every other env-locked setting: the environment wins and the UI says so
-    rather than offering a control that silently does nothing."""
-    return normalize_update_channel(os.environ.get(APP_UPDATE_CHANNEL_ENV)) is not None
-
-
 def is_update_delay_env_locked():
     """True when ZIMI_UPDATE_DELAY_DAYS holds a usable number of days."""
     return normalize_update_delay_days(os.environ.get(APP_UPDATE_DELAY_ENV)) is not None
-
-
-def get_update_channel():
-    """The channel in force: env var, then the saved preference, then latest."""
-    from_env = normalize_update_channel(os.environ.get(APP_UPDATE_CHANNEL_ENV))
-    if from_env:
-        return from_env
-    saved = normalize_update_channel(_read_app_update_prefs().get("channel"))
-    return saved or APP_UPDATE_CHANNEL_DEFAULT
 
 
 def get_update_delay_days():
@@ -974,20 +916,9 @@ def get_update_delay_days():
     return APP_UPDATE_DELAY_DEFAULT if saved is None else saved
 
 
-def set_update_channel(value):
-    """Persist the channel preference. Returns (channel, error) — error is a
-    short code the caller turns into an HTTP status."""
-    channel = normalize_update_channel(value)
-    if not channel:
-        return None, "invalid_channel"
-    if is_update_channel_env_locked():
-        return None, "env_locked"
-    _write_app_update_prefs(channel=channel)
-    return channel, None
-
-
 def set_update_delay_days(value):
-    """Persist the update delay. Same (value, error) contract as the channel."""
+    """Persist the update delay. Returns (days, error) — error is a short code
+    the caller turns into an HTTP status."""
     days = normalize_update_delay_days(value)
     if days is None:
         return None, "invalid_delay"
@@ -1033,25 +964,19 @@ def _app_version_sort_key(tag):
     return (nums + (0,) * 4)[:4], _prerelease_rank(suffix)
 
 
-def _app_version_newer(remote, current, allow_prerelease=False):
+def _app_version_newer(remote, current):
     """True only when `remote` is a strictly newer release than `current`.
 
-    Same-number comparisons are conservative by default: a final release
-    outranks its own pre-releases, but beta-vs-beta never reports an update —
-    better to miss an edge case than nag someone already current. On the
-    "beta" channel `allow_prerelease` turns that ordering on, because
-    telling an rc1 user about rc2 is the entire point of the channel."""
+    Same-number comparisons are conservative: a final release outranks its own
+    pre-releases, but pre-vs-pre never reports an update — better to miss an
+    edge case than nag someone already current."""
     r, c = _app_version_sort_key(remote), _app_version_sort_key(current)
     if not r or not c:
         return False
     if r[0] != c[0]:
         return r[0] > c[0]
     r_final, c_final = r[1][0] == _FINAL_STAGE, c[1][0] == _FINAL_STAGE
-    if r_final != c_final:
-        return r_final  # a final beats its own pre-release, never the reverse
-    if not allow_prerelease:
-        return False  # pre-vs-pre off the beta channel: stay quiet
-    return r[1] > c[1]
+    return r_final and not c_final  # a final beats its own pre-release, never the reverse
 
 
 def detect_install_type():
@@ -1114,23 +1039,6 @@ def _github_json(url):
         return json.loads(resp.read().decode("utf-8", "replace"))
 
 
-def _pick_newest_release(releases):
-    """The highest-versioned published release in a GitHub /releases list.
-
-    Sorting by version rather than trusting the list order matters: GitHub
-    orders by publish date, so a final patch cut after a beta would otherwise
-    hide the beta from the channel that exists to show it. Drafts and
-    unparseable tags are skipped."""
-    best, best_key = None, None
-    for rel in releases if isinstance(releases, list) else []:
-        if not isinstance(rel, dict) or rel.get("draft"):
-            continue
-        key = _app_version_sort_key(rel.get("tag_name"))
-        if key and (best_key is None or key > best_key):
-            best, best_key = rel, key
-    return best
-
-
 def _parse_release_timestamp(value):
     """GitHub's `published_at` ('2026-08-01T12:00:00Z') → epoch seconds, or
     None when it is missing or unparseable. A release with no usable stamp
@@ -1161,17 +1069,14 @@ def _update_hold_until(published_ts, delay_days, now=None):
     return ready_at if (now or time.time()) < ready_at else None
 
 
-def check_app_update(force=False, channel=None):
-    """Return {latest, checked_at, url, channel, error?}, hitting GitHub only
+def check_app_update(force=False):
+    """Return {latest, checked_at, url, error?}, hitting GitHub only
     when the cached answer is stale (or `force`, for the Check-now button).
 
-    ZIMI_OFFLINE outranks everything including force and channel — zero
+    ZIMI_OFFLINE outranks everything including force — zero
     network calls. Network failures are silent by contract: one debug line,
     the last good answer keeps serving, and the failure is stamped so passive
     reads back off instead of re-probing a dead link on every pane visit.
-
-    A cached answer from the other channel is never reused: switching channel
-    is exactly when the admin wants a fresh look.
 
     "Check for Zimi updates" decides the rest: Ask first answers a passive
     read from the cache alone and fetches only for `force`; Never fetches
@@ -1183,16 +1088,9 @@ def check_app_update(force=False, channel=None):
     mode = UPDATE_CHECK.mode()[0]
     if mode == outbound.NEVER or (mode == outbound.ASK and not force):
         return _read_app_update_cache()
-    channel = normalize_update_channel(channel) or get_update_channel()
     now = time.time()
 
     def _fresh(entry):
-        # Raw comparison against the canonical name we write, deliberately not
-        # run through the alias table: a cached entry labelled with a name this
-        # build no longer writes came from a build whose channel names meant
-        # something else, and re-checking is cheaper than trusting it.
-        if entry.get("channel") != channel:
-            return False
         age = now - entry.get("checked_at", 0)
         if force:
             return age < _APP_UPDATE_FORCE_GUARD
@@ -1206,12 +1104,9 @@ def check_app_update(force=False, channel=None):
         if _fresh(cached):
             return cached
         try:
-            if channel == "latest":
-                # /releases/latest is already "newest final release" — one
-                # request, and GitHub does the pre-release filtering.
-                rel = _github_json(_APP_UPDATE_URL)
-            else:
-                rel = _pick_newest_release(_github_json(_APP_UPDATE_LIST_URL))
+            # /releases/latest is already "newest final release" — one
+            # request, and GitHub does the pre-release filtering.
+            rel = _github_json(_APP_UPDATE_URL)
             if not isinstance(rel, dict):
                 raise ValueError("no usable release in feed")
             entry = {
@@ -1219,15 +1114,13 @@ def check_app_update(force=False, channel=None):
                 # Tags arrive as "v1.9.0" — store the bare version the UI shows.
                 "latest": (rel.get("tag_name") or "").strip().lstrip("vV"),
                 "url": rel.get("html_url") or _APP_RELEASES_PAGE,
-                "channel": channel,
-                "prerelease": bool(rel.get("prerelease")),
                 # Kept raw (epoch) so the update delay is re-evaluated on every
                 # read instead of the cache freezing a "too fresh" verdict.
                 "published_ts": _parse_release_timestamp(rel.get("published_at")),
             }
         except Exception as e:
             log.debug("app-update check failed: %s", e)
-            entry = dict(cached, checked_at=now, channel=channel, error=True)
+            entry = dict(cached, checked_at=now, error=True)
         _srv._atomic_write_json(_app_update_cache_path(), entry)
         return entry
 
@@ -1238,23 +1131,13 @@ def _app_update_payload(force=False):
     A newer release that hasn't been public long enough for the configured
     delay reports `update_held` + `held_until` instead of `update_available`,
     so the UI can say "1.9.1 is out, offering it in 3 days" rather than
-    pretending the release doesn't exist.
-
-    Note the two unrelated meanings of the word in this payload: the `latest`
-    field is the newest version string on whichever channel is in force, while
-    the `channel` field being "latest" names the finished-releases channel."""
+    pretending the release doesn't exist."""
     from zimi import p2p
 
-    channel = get_update_channel()
     delay_days = get_update_delay_days()
-    state = check_app_update(force=force, channel=channel)
+    state = check_app_update(force=force)
     latest = state.get("latest") or None
-    newer = bool(
-        latest
-        and _app_version_newer(
-            latest, _srv.ZIMI_VERSION, allow_prerelease=(channel == "beta")
-        )
-    )
+    newer = bool(latest and _app_version_newer(latest, _srv.ZIMI_VERSION))
     held_until = (
         _update_hold_until(state.get("published_ts"), delay_days) if newer else None
     )
@@ -1274,11 +1157,6 @@ def _app_update_payload(force=False):
         "offline": p2p.is_offline(),
         "install_type": detect_install_type(),
         "releases_url": state.get("url") or _APP_RELEASES_PAGE,
-        "channel": channel,
-        "channels": list(APP_UPDATE_CHANNELS),
-        "channel_locked": is_update_channel_env_locked(),
-        "channel_env": APP_UPDATE_CHANNEL_ENV,
-        "prerelease": bool(state.get("prerelease")),
         # "Check for Zimi updates": ask, auto or never, and what locks it.
         "check_mode": check_mode,
         "check_locked": check_locked,
@@ -3641,6 +3519,10 @@ def _create_run(job, opts):
     stack and yt-dlp are heavy, and a server that never creates a ZIM should
     never pay for them. (Folder capture never reaches here — the web refuses
     it at validation; `zimi create <folder>` is its only door.)"""
+    if job.mode == "fieldmanual":
+        from zimi import fieldguide
+
+        return fieldguide.build_field_manual(progress=job.note)
     if job.mode == "page":
         # create_pages_zim hands a single URL to create_page_zim itself, so one
         # entry point covers both shapes — and it takes a progress callback,
@@ -3910,6 +3792,10 @@ def _create_finish(job, **outcome):
         # this lock is what makes the two truths one truth.
         job.done = True
         _create_journal_put(job)
+        # The done event goes up with the flag, under the same lock: a poll that
+        # sees done reads its events next and expects the last one to be done.
+        # Published after the lock, one poll could land in the gap (CI did).
+        job._push_events([{"t": "phase", "phase": "done", "detail": _create_job_state(job)}])
         tail = list(job.lines[-CREATE_SERVER_LOG_LINES:]) if not job.ok else []
     if tail:
         # The server's log (docker logs) has it too, for whoever reads there.
@@ -3917,15 +3803,10 @@ def _create_finish(job, **outcome):
             "Create %s failed (%s): %s\n  %s",
             job.mode, job.source, job.error, "\n  ".join(tail),
         )
-    _create_emit(job, {"t": "phase", "phase": "done", "detail": _create_job_state(job)})
     # The create journal serves the Create page; the activity journal serves the
     # operator asking what has been happening to this library. A settled job is
-    # one line in each — but this one is written HERE, after the done event is
-    # published and before waiters are released. Between the done FLAG going up
-    # (under the lock, with the create journal) and the done EVENT reaching the
-    # stream there must be nothing: a poll that sees done and then reads the
-    # events expects the last one to be there, and a file write in that gap is
-    # long enough to lose the race.
+    # one line in each; this one is written after the done event is published
+    # and before waiters are released.
     _create_activity(job)
     job.settled.set()
     _create_start_next()
@@ -4040,10 +3921,16 @@ def _create_start(data, actor=None):
     ``actor`` is whoever submitted it — captured here because the job outlives
     its request by an hour, and the activity journal is written at the end.
     """
-    try:
-        mode, source, title, opts = _create_validate(data)
-    except ValueError as e:
-        return {"error": str(e)}, 400
+    if data.get("mode") == "fieldmanual":
+        if not _srv.fieldguide_enabled():
+            return {"error": "not found"}, 404
+        # The Field Guide's own recipe: nothing is typed, so nothing is validated.
+        mode, source, title, opts = "fieldmanual", "Field manual", "Field manual", {}
+    else:
+        try:
+            mode, source, title, opts = _create_validate(data)
+        except ValueError as e:
+            return {"error": str(e)}, 400
     global _create_job
     job = _CreateJob(mode, source, title)
     job.limits = _create_limits(mode, opts)
@@ -4088,6 +3975,26 @@ def _create_start(data, actor=None):
         }, 200
     _create_launch(job, opts)
     return {"status": "started", "id": job.id, "mode": mode}, 200
+
+
+def _fieldmanual_status(fieldguide):
+    """The field-manual build as the Field Guide page polls it: the Create
+    job's state (idle, running, done, error) with the build's own progress.
+    Only text Create already sends the client reaches it."""
+    out = fieldguide.manual_status()
+    with _create_lock:
+        job = _create_job if (_create_job and _create_job.mode == "fieldmanual") else None
+        queued = any(j.mode == "fieldmanual" for j, _o in _create_queue)
+    if (job is not None and not job.done) or queued:
+        out["state"] = "running"
+    elif job is not None:
+        out["state"] = "done" if job.ok else "error"
+        out["message"] = "" if job.ok else job.error
+    elif out["state"] == "running":
+        out["state"] = "idle"
+    if job is not None:
+        out["id"] = job.id
+    return out
 
 
 def _create_queue_view():
@@ -5435,7 +5342,7 @@ def handle_manage_get(handler, parsed, params):
         if denial:
             return handler._json(*denial)
         if not _primary_admin_authorized(handler):
-            return handler._json(403, {"error": "reading the server's disk is for the primary admin"})
+            return handler._json(403, _DISK_PRIMARY_ONLY)
         payload, status = _create_tree(param("path", ""), _create_int(param("offset"), 0, 2**31) or 0)
         return handler._json(status, payload)
     challenge = _manage_auth_challenge(handler)
@@ -5451,6 +5358,7 @@ def handle_manage_get(handler, parsed, params):
             {
                 "zim_count": zim_count,
                 "total_size_gb": round(total_gb, 6),  # as each ZIM's size_gb: 0.1 GB read 0 B for small libraries
+                "from_folders": libfolders.shares(),
                 "manage_enabled": True,
                 "linked_zims": linked_zims,
                 "domain_count": len(_srv._domain_zim_map),
@@ -5662,6 +5570,12 @@ def handle_manage_get(handler, parsed, params):
 
     elif parsed.path == "/manage/downloads":
         return handler._json(200, {"downloads": _srv._get_downloads()})
+
+    elif parsed.path == "/manage/fieldmanual" and _srv.fieldguide_enabled():
+        # The Field Guide's field-manual ZIM: how far its build is.
+        from zimi import fieldguide
+
+        return handler._json(200, _fieldmanual_status(fieldguide))
 
     elif parsed.path == "/manage/activity":
         # Aggregated background-activity snapshot for the topbar status row.
@@ -6016,6 +5930,11 @@ def handle_manage_get(handler, parsed, params):
             200,
             {"items": mapregions.annotate(list(items)), "source": source, "as_of": as_of, "refreshing": refreshing},
         )
+
+    elif parsed.path == "/manage/library-folders":
+        if not _primary_admin_authorized(handler):
+            return handler._json(403, _FOLDERS_PRIMARY_ONLY)
+        return handler._json(200, _library_folders_view())
 
     elif parsed.path == "/manage/env":
         # What the environment is overriding, so an admin can SEE it rather
@@ -6468,6 +6387,92 @@ def _btc_view():
     }
 
 
+_DISK_PRIMARY_ONLY = {"error": "reading the server's disk is for the primary admin"}
+_FOLDERS_PRIMARY_ONLY = {**_DISK_PRIMARY_ONLY, "error_key": "folder_primary_only"}
+
+
+def _delete_through_nomad(handler, filename):
+    """Delete a ZIM in Project NOMAD's folder by asking NOMAD (its database,
+    Kiwix library and knowledge base follow), journalled like any delete."""
+    title = filename
+    for z in _srv._zim_list_cache or []:
+        if z.get("file") == filename:
+            title = z.get("title") or z.get("name") or filename
+            break
+    # Let go of it first, as the own-library delete does: Windows refuses to
+    # remove a file anyone holds open, and on POSIX an open handle would keep
+    # the deleted ZIM's space on NOMAD's disk until something else closed it.
+    try:
+        _srv.release_zim_handles([_srv._zim_short_name(filename)])
+    except Exception as e:
+        log.debug("Handle release before NOMAD deletes %s: %s", filename, e)
+    try:
+        nomadapi.delete(filename)
+    except nomadapi.NomadError as e:
+        log.warning("Project NOMAD would not delete %s: %s", filename, e)
+        status = 404 if e.status == 404 else 502
+        return handler._json(status, {"error": "Project NOMAD did not delete it"})
+    record_activity("delete", title, actor=activity_actor(handler))
+    _srv._append_history({"event": "deleted", "ts": time.time(), "filename": filename, "title": title})
+    return handler._json(200, {"status": "deleted", "filename": filename})
+
+
+def _library_folders_view():
+    """What the Storage card draws: the folders read in place, and the one
+    offer, if there is one. Asked when the card opens, so a listing per folder
+    is fine."""
+    rows = [
+        {**f, **libfolders.audit(f["path"]), "present": os.path.isdir(f["path"])}
+        for f in libfolders.folders()
+    ]
+    return {
+        "folders": rows,
+        "suggestions": libfolders.suggestions(),
+        "nomad": nomadapi.view(),
+    }
+
+
+def _handle_library_folders(handler, data):
+    """POST /manage/library-folders: {action: add|remove|dismiss, path, label?},
+    or {action: nomad, enabled, url?} for the Project NOMAD opt-in.
+
+    Adding or removing splices just that folder's ZIMs into the live library
+    and answers once it has; the files in the folder are never touched."""
+    if not _primary_admin_authorized(handler):
+        return handler._json(403, _FOLDERS_PRIMARY_ONLY)
+    action = data.get("action")
+    path = str(data.get("path") or "")
+    try:
+        if action == "add":
+            libfolders.reconcile(libfolders.add(path, str(data.get("label") or "")), [])
+        elif action == "label":
+            libfolders.rename(path, str(data.get("label") or ""))
+        elif action == "remove":
+            libfolders.reconcile([], libfolders.registered_in(libfolders.remove(path)))
+        elif action == "dismiss":
+            libfolders.dismiss(path)
+        elif action == "nomad":
+            if nomadapi.settings()["locked"]:
+                return handler._json(403, {"error": "env_locked", "error_key": "configured_via_env"})
+            nomadapi.save(bool(data.get("enabled")), str(data.get("url") or ""))
+        else:
+            return handler._json(400, {"error": "bad_action"})
+    except libfolders.FolderError as e:
+        return handler._json(400, {"error": e.key, "error_key": e.key})
+    except ValueError as e:
+        # nomad_bad_url is the one ValueError raised on purpose; anything else
+        # (a path with a NUL in it) is logged here and not sent back.
+        key = "nomad_bad_url" if str(e) == "nomad_bad_url" else "save_failed"
+        if key == "save_failed":
+            log.info("library-folders %s refused: %s", action, e)
+        return handler._json(400, {"error": key, "error_key": key})
+    if action == "add":
+        libfolders.ensure_watch()
+    # A folder added or gone changes whether NOMAD can be the back end.
+    nomadapi._forget_probe()
+    return handler._json(200, _library_folders_view())
+
+
 def _handle_bt_client(handler, data):
     """POST /manage/bt-client: {kind, url, user, password?, category, paths,
     test?}.
@@ -6656,7 +6661,7 @@ def handle_manage_post(handler, parsed, data):
             and data.get("mode") in CREATE_DISK_MODES
             and not _primary_admin_authorized(handler)
         ):
-            return handler._json(403, {"error": "reading the server's disk is for the primary admin"})
+            return handler._json(403, _DISK_PRIMARY_ONLY)
         if parsed.path == "/manage/create/cancel":
             # With an id: that job, wherever it is — the running one or one
             # still waiting. Without: whatever is running.
@@ -6723,6 +6728,28 @@ def handle_manage_post(handler, parsed, data):
         if err:
             return handler._json(400, {"error": err})
         return handler._json(200, {"status": "started", "id": dl_id})
+
+    elif parsed.path == "/manage/fieldmanual" and _srv.fieldguide_enabled():
+        # Build a ZIM of the Army's public-domain manuals (zimi.fieldguide.build_field_manual).
+        from zimi import fieldguide, p2p
+
+        if p2p.is_offline():
+            return handler._json(
+                409,
+                {
+                    "error": "offline",
+                    "message": "Offline mode is on: nothing is fetched from the internet.",
+                },
+            )
+        if fieldguide.installed_manual():
+            return handler._json(
+                409,
+                {"error": "installed", "message": "The field manual is already in the library."},
+            )
+        payload, status = _create_start(
+            {"mode": "fieldmanual"}, actor=activity_actor(handler)
+        )
+        return handler._json(status, payload)
 
     elif parsed.path == "/manage/download-batch":
         urls = data.get("urls")
@@ -6997,6 +7024,14 @@ def handle_manage_post(handler, parsed, data):
             for candidate in (_srv.get_zim_files() or {}).values():
                 if os.path.basename(candidate) != filename:
                     continue
+                label = libfolders.owner(candidate)
+                if label is not None and nomadapi.managed() and nomadapi.is_nomad_path(candidate):
+                    return _delete_through_nomad(handler, filename)
+                if label is not None:
+                    return handler._json(
+                        403,
+                        {"error": "not_ours", "error_key": "folder_not_ours", "label": label},
+                    )
                 resolved = os.path.realpath(candidate)
                 if resolved == root or not resolved.startswith(root + os.sep):
                     continue  # outside the library — not ours to delete
@@ -7179,7 +7214,7 @@ def handle_manage_post(handler, parsed, data):
 
     elif parsed.path == "/manage/app-update-delay":
         # How long a release must have been public before this instance is
-        # offered it. Same env-lock contract as the channel above.
+        # offered it. Same env-lock contract as the other settings.
         days, err = set_update_delay_days(data.get("delay_days"))
         if err == "env_locked":
             return handler._json(
@@ -7334,29 +7369,6 @@ def handle_manage_post(handler, parsed, data):
             )
         if err:
             return handler._json(500, {"error": "Could not save the setting"})
-        return handler._json(200, _app_update_payload())
-
-    elif parsed.path == "/manage/app-update-channel":
-        # Latest vs beta for the APP release check. Same env-lock contract
-        # as the other settings endpoints: ZIMI_UPDATE_CHANNEL wins and the
-        # write is refused rather than silently ignored.
-        channel, err = set_update_channel(data.get("channel"))
-        if err == "env_locked":
-            return handler._json(
-                403,
-                {
-                    "error": "Update channel is controlled by the %s env var"
-                    % APP_UPDATE_CHANNEL_ENV
-                },
-            )
-        if err:
-            return handler._json(
-                400,
-                {"error": "Invalid channel. Use: %s" % ", ".join(APP_UPDATE_CHANNELS)},
-            )
-        log.info("App update channel set to %s", channel)
-        # Answer with the full payload so the pane repaints from one response;
-        # the channel switch invalidates the cache, so this re-checks.
         return handler._json(200, _app_update_payload())
 
     elif parsed.path == "/manage/download-schedule":
@@ -7521,6 +7533,9 @@ def handle_manage_post(handler, parsed, data):
 
     elif parsed.path == "/manage/bt-client":
         return _handle_bt_client(handler, data)
+
+    elif parsed.path == "/manage/library-folders":
+        return _handle_library_folders(handler, data)
 
     elif parsed.path == "/manage/bt-settings":
         # Seed/mirror toggles. An env var locks its field — UI changes would

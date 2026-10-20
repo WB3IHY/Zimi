@@ -4,6 +4,7 @@
 // Loaded before almanac.js; all almanac scripts share one global scope.
 
 var _almanacOrreryRAF = null;
+var _almanacLoopsHeld = false;   // the Almanac's loops are stopped by _cancelAllRAF (the Earth view, the phone's Look, a hidden tab) until _resumeAllRAF
 
 // Planet visual radius is now a fraction of canvas width — much bigger, Apple Watch style
 var _PLANETS = {
@@ -14,7 +15,7 @@ var _PLANETS = {
   Jupiter: { a: 5.20260, e: 0.04849, I: 1.303, L: 34.351, LP: 14.331, N: 100.464, da: -0.00002, de: 0.00018, dI: -0.0055, dL: 3034.906, dLP: 0.215, dN: 0.177, color: '#c49868', glow: '#e0b888', vr: 0.032, mb: -0.00012452, mc: 0.06064060, ms: -0.35635438, mf: 38.35125 },
   Saturn:  { a: 9.55491, e: 0.05551, I: 2.489, L: 50.077, LP: 93.057, N: 113.665, da: -0.00003, de: -0.00035, dI: 0.0033, dL: 1222.114, dLP: 0.752, dN: -0.250, color: '#d4b878', glow: '#f0da98', vr: 0.026, rings: true, mb: 0.00025899, mc: -0.13434469, ms: 0.87320147, mf: 38.35125 },
   Uranus:  { a: 19.1884, e: 0.04638, I: 0.773, L: 314.055, LP: 173.005, N: 74.006, da: -0.00002, de: -0.00002, dI: -0.0023, dL: 428.467, dLP: 0.009, dN: 0.074, color: '#78c8c8', glow: '#a0e8e8', vr: 0.018, mb: 0.00058331, mc: -0.97731848, ms: 0.17689245, mf: 7.67025 },
-  Neptune: { a: 30.0699, e: 0.00895, I: 1.770, L: 304.223, LP: 46.682, N: 131.784, da: 0.00003, de: 0.00001, dI: 0.0001, dL: 218.460, dLP: 0.010, dN: -0.005, color: '#3868c8', glow: '#5888f0', vr: 0.016, mb: -0.00041348, mc: 0.68346318, ms: -0.10162547, mf: 7.67025 }
+  Neptune: { a: 30.0699, e: 0.00895, I: 1.770, L: 304.223, LP: 46.682, N: 131.784, da: 0.00003, de: 0.00001, dI: 0.0001, dL: 218.460, dLP: 0.010, dN: -0.005, color: '#3868c8', glow: '#5888f0', vr: 0.016, mb: -0.00041348, mc: 0.68346318, ms: -0.10162547, mf: 7.67025 },
 };
 
 // The Sun's limb darkening, shared by every Sun the Almanac draws (the live
@@ -118,8 +119,39 @@ function _timeDilationLag(sec, beta) {
 // The moving clock's own reading (proper time) over `sec` of rest-frame time.
 function _properTime(sec, beta) { return sec - _timeDilationLag(sec, beta); }
 
-// Rest-frame duration of a straight trip of `au` at beta * c.
-function _tripSecondsAtBeta(au, beta) { return _lightDelaySeconds(au) / beta; }
+// A ship that burns at constant proper acceleration `a` (m/s^2) from rest, the
+// relativistic rocket: after covering x metres its gamma is 1 + a x / c^2, the
+// Earth-frame time is (c / a) sqrt(gamma^2 - 1) and the ship's own clock reads
+// (c / a) acosh(gamma). Nothing here assumes a cruise speed: the speed is what
+// the burn has built up so far.
+var STANDARD_GRAVITY_M_S2 = 9.80665;
+var LIGHT_YEAR_M = SPEED_OF_LIGHT_M_S * SECONDS_PER_JULIAN_YEAR;
+function _rocketBurn(x, a) {
+  var g = 1 + a * x / (SPEED_OF_LIGHT_M_S * SPEED_OF_LIGHT_M_S), k = SPEED_OF_LIGHT_M_S / a;
+  return { gamma: g, earth: k * Math.sqrt(g * g - 1), ship: k * Math.acosh(g) };
+}
+
+// A one-way trip of `distM` metres that speeds up at `a` to the halfway point
+// and slows down at `a` the rest of the way, at the share `frac` of the
+// distance: both clocks so far, the gamma and beta there, and the trip's
+// totals and peak gamma (at the halfway point).
+function _rocketTripAt(distM, a, frac) {
+  var half = _rocketBurn(distM / 2, a), x = frac * distM;
+  var total = { earth: 2 * half.earth, ship: 2 * half.ship };
+  var out = {
+    earthTotal: total.earth, shipTotal: total.ship, peakGamma: half.gamma,
+    earth: 0, ship: 0, gamma: 1, beta: 0
+  };
+  if (x <= distM / 2) {
+    var up = _rocketBurn(x, a);
+    out.earth = up.earth; out.ship = up.ship; out.gamma = up.gamma;
+  } else {
+    var down = _rocketBurn(distM - x, a);
+    out.earth = total.earth - down.earth; out.ship = total.ship - down.ship; out.gamma = down.gamma;
+  }
+  out.beta = Math.sqrt(1 - 1 / (out.gamma * out.gamma));
+  return out;
+}
 
 // Heliocentric ecliptic position (AU) of a body at a sim instant; the Sun is the origin.
 function _orreryBodyAU(name, simMs) {
@@ -219,6 +251,14 @@ function _orrFmtAU(au) { return _orrNum(au, null, 2); }
 // Speed as a fraction of light: "0.90c".
 function _orrFmtBeta(beta) { return _orrNum(beta, null, 2) + 'c'; }
 
+// A top speed as a fraction of light with enough decimals to tell it from 1:
+// "0.95c" to Alpha Centauri, "0.9999999972c" to the galactic centre.
+function _orrFmtTopBeta(beta) {
+  var gap = 1 - beta;
+  var d = gap > 0 && gap < 0.01 ? Math.ceil(-Math.log10(gap)) + 1 : 2;
+  return _orrNum(beta, null, Math.min(d, _ORR_MAX_FRACTION_DIGITS)) + 'c';
+}
+
 // Gamma with enough decimals to show two significant digits past the 1:
 // "2.29" at 0.9c, "1.0000000038" for a real rocket.
 var _ORR_MAX_FRACTION_DIGITS = 20; // Intl's ceiling
@@ -293,36 +333,47 @@ function _orrFmtTransitDays(rk) {
 }
 
 // ── The twin paradox, on the ride ──
-// Slider 0 is the rocket as flown: its average speed along the drawn path over
-// the transfer time (tens of km/s, some 0.0001c). Above 0 is a what-if: a
-// straight line to where the planet stood at launch, at that fraction of c.
-// Both clocks run with the ride's progress and stop at arrival.
-var _TWIN_SLIDER_STEPS_PER_C = 100;
-var _TWIN_MAX_BETA = 0.99;
-var _orreryTwinBeta = 0;
+// Stop 0 is the rocket as flown: its average speed along the drawn path over
+// the transfer time (tens of km/s, some 0.0001c). The other stops are what-ifs:
+// a ship that burns at 1 g, half the way accelerating and half decelerating, to
+// a star. A planet is too close for that to build up any relativistic speed
+// (1 g to Mars peaks near 0.0001c), so the what-ifs are the stars. Both clocks
+// run with the ride's progress, as a share of the distance, and stop at arrival.
+var _TWIN_TRIPS = [null,
+  { name: 'alm_orr_twin_dest_alpha', ly: 4.37 },
+  { name: 'alm_orr_twin_dest_core', ly: 26000 }];
+var _TWIN_MAX_BETA = 0.99;     // the light clock's drawing stops here, however fast the ship
+var _orreryTwinTrip = 0;
+var _orreryTwinOpen = false;   // the twins and the light clock, shown behind a quiet link
 
-function _twinSliderToBeta(v) {
-  return Math.min(_TWIN_MAX_BETA, Math.max(0, v / _TWIN_SLIDER_STEPS_PER_C));
+function _twinSliderToTrip(v) {
+  return Math.min(_TWIN_TRIPS.length - 1, Math.max(0, Math.round(v) || 0));
 }
 
 function _orreryRealSpeedKmS(rk) { return rk.pathAU * AU_KM / (rk.duration / 1000); }
 
-function _orreryTwinClocks(rk, whatIfBeta, frac) {
-  var total, beta;
-  if (whatIfBeta > 0) {
-    beta = whatIfBeta;
-    total = _tripSecondsAtBeta(rk.straightAU, beta);
-  } else {
-    total = rk.duration / 1000;
-    beta = _orreryRealSpeedKmS(rk) * 1000 / SPEED_OF_LIGHT_M_S;
+function _orreryTwinClocks(rk, trip, frac) {
+  if (trip > 0) {
+    var r = _rocketTripAt(_TWIN_TRIPS[trip].ly * LIGHT_YEAR_M, STANDARD_GRAVITY_M_S2, frac);
+    return { beta: r.beta, gamma: r.gamma, earth: r.earth, ship: r.ship, lag: r.earth - r.ship, peakGamma: r.peakGamma };
   }
-  var earth = total * frac;
+  var beta = _orreryRealSpeedKmS(rk) * 1000 / SPEED_OF_LIGHT_M_S;
+  var earth = rk.duration / 1000 * frac;
   return { beta: beta, gamma: _lorentzFactor(beta), earth: earth,
            ship: _properTime(earth, beta), lag: _timeDilationLag(earth, beta) };
 }
 
+// Opened or closed in place: the panel is not built again, so the slider keeps its hold.
+function _orreryTwinToggle() {
+  _orreryTwinOpen = !_orreryTwinOpen;
+  var box = document.getElementById('orrery-twin'), btn = document.getElementById('orrery-twin-link');
+  if (box) box.hidden = !_orreryTwinOpen;
+  if (btn) btn.setAttribute('aria-expanded', String(_orreryTwinOpen));
+  _orreryLcStart = 0;
+  _orreryUpdateRide();
+}
 function _orreryTwinInput(val) {
-  _orreryTwinBeta = _twinSliderToBeta(parseInt(val, 10) || 0);
+  _orreryTwinTrip = _twinSliderToTrip(parseInt(val, 10));
   _orreryUpdateRide();
 }
 
@@ -633,8 +684,11 @@ function _initOrrery() {
   if (typeof IntersectionObserver === 'function') {
     _orreryViewObs = new IntersectionObserver(function (entries) {
       _orreryInView = entries[entries.length - 1].isIntersecting;
+      // Back on screen: the loop that parked itself (_orreryAnimate) starts again, unless something else holds it (the Earth view over the page).
+      if (_orreryInView && !_almanacOrreryRAF && _orreryPlaying && _almanacOpen && !_almanacLoopsHeld) _orreryAnimate();
     });
-    _orreryViewObs.observe(canvas);
+    // The whole section, its controls and readout as well as the canvas: any of them on screen is the orrery in view.
+    _orreryViewObs.observe(canvas.closest('.almanac-section') || canvas);
   } else {
     _orreryInView = true;
   }
@@ -1309,7 +1363,8 @@ function _drawOrrery(canvas, dpr) {
 
 var _orreryPlaying = true;
 
-var _orrerySpeed = 100000;
+var ORRERY_SCENERY_SPEED = 100000;
+var _orrerySpeed = ORRERY_SCENERY_SPEED;
 
 var _orreryTimeOffset = 0;       // milliseconds offset from real time
 // Whether the offset is a moment someone chose (the speed slider, a ride)
@@ -1455,6 +1510,13 @@ function _orrerySetSlider(speed) {
   if (label) label.textContent = _formatSpeed(speed);
 }
 
+// How the orrery opens: spinning fast as scenery, or, where motion is reduced, still at now until someone asks.
+function _orreryStartState() {
+  var still = typeof _almReduceMotion === 'function' && _almReduceMotion();
+  _orreryPlaying = !still;
+  _orrerySetSlider(still ? 1 : ORRERY_SCENERY_SPEED);
+}
+
 function _orrerySnapToNow() {
   _orreryAutoTransit = false;
   _orreryTimeOffset = 0;
@@ -1543,14 +1605,15 @@ function _orreryUpdateMissions() {
 // Built once per ride panel and then only its text nodes change, so the twin
 // slider keeps working while the readout updates every frame.
 function _orreryRidePanelHtml() {
-  var slider = Math.round(_orreryTwinBeta * _TWIN_SLIDER_STEPS_PER_C);
-  var max = Math.round(_TWIN_MAX_BETA * _TWIN_SLIDER_STEPS_PER_C);
+  var slider = _orreryTwinTrip, max = _TWIN_TRIPS.length - 1;
   return '<div class="orrery-ride-head"><span id="orrery-ride-where" class="orrery-ride-where"></span>' +
       '<span id="orrery-ride-dist" class="orrery-ride-dist"></span></div>' +
     '<div id="orrery-ride-delay" class="orrery-ride-delay"></div>' +
-    '<div class="orrery-twin">' +
-      '<div class="orrery-twin-head"><span class="orrery-twin-title">' + _lterm('twin_paradox', _almEsc(t('alm_orr_twin_title'))) + '</span>' +
-        '<span class="orrery-twin-whatif">' + _almEsc(t('alm_orr_twin_whatif')) + '</span></div>' +
+    // The message home is the answer; the twins and the light clock are behind one quiet link.
+    '<button type="button" id="orrery-twin-link" class="orrery-twin-link" aria-expanded="' + _orreryTwinOpen + '" aria-controls="orrery-twin"' +
+      ' onclick="_orreryTwinToggle()">' + _almEsc(t('alm_orr_twin_whatif')) + '</button>' +
+    '<div class="orrery-twin" id="orrery-twin"' + (_orreryTwinOpen ? '' : ' hidden') + '>' +
+      '<div class="orrery-twin-head"><span class="orrery-twin-title">' + _lterm('twin_paradox', _almEsc(t('alm_orr_twin_title'))) + '</span></div>' +
       '<div class="orrery-twin-ctl"><input id="orrery-twin-slider" type="range" min="0" max="' + max + '" value="' + slider + '"' +
         ' class="orrery-slider" aria-label="' + _almEsc(t('alm_orr_twin_whatif')) + '" oninput="_orreryTwinInput(this.value)" />' +
         '<span id="orrery-twin-speed" class="orrery-twin-speed"></span></div>' +
@@ -1677,13 +1740,22 @@ function _orreryUpdateRide() {
   _orrSetText('orrery-ride-where', t(arrived ? 'alm_orr_arrived' : 'alm_orr_ride_to', { planet: planet }));
   _orrSetText('orrery-ride-dist', t('alm_orr_au_from_earth', { d: _orrFmtAU(st.au) }));
   _orrSetText('orrery-ride-delay', t(arrived ? 'alm_orr_msg_home_now' : 'alm_orr_msg_home', { t: span }));
-  var tw = _orreryTwinClocks(rk, _orreryTwinBeta, st.frac);
-  var speed = _orreryTwinBeta > 0 ? _orrFmtBeta(_orreryTwinBeta) : _orrNum(_orreryRealSpeedKmS(rk), 'kilometer-per-second');
-  _orrSetText('orrery-twin-speed', t(_orreryTwinBeta > 0 ? 'alm_orr_twin_whatif_at' : 'alm_orr_twin_real', { v: speed }));
+  var tw = _orreryTwinClocks(rk, _orreryTwinTrip, st.frac);
+  var whatIf = _orreryTwinTrip > 0, speed, lcBeta = tw.beta;
+  if (whatIf) {
+    speed = _orrFmtTopBeta(Math.sqrt(1 - 1 / (tw.peakGamma * tw.peakGamma)));
+    _orrSetText('orrery-twin-speed', t('alm_orr_twin_whatif_at', { dest: t(_TWIN_TRIPS[_orreryTwinTrip].name), v: speed }));
+    lcBeta = Math.min(tw.beta, _TWIN_MAX_BETA);
+    speed = _orrFmtBeta(lcBeta);
+  } else {
+    speed = _orrNum(_orreryRealSpeedKmS(rk), 'kilometer-per-second');
+    _orrSetText('orrery-twin-speed', t('alm_orr_twin_real', { v: speed }));
+  }
   _orrSetText('orrery-twin-earth', _orrFmtSpan(tw.earth));
   _orrSetText('orrery-twin-ship', _orrFmtSpan(tw.ship));
-  _orrSetText('orrery-twin-note', t('alm_orr_twin_explain', { g: _orrFmtGamma(tw.gamma), lag: _orrFmtSpan(_orreryShownLag(tw)) }));
-  _orreryLightClock(tw.beta, speed, performance.now());
+  _orrSetText('orrery-twin-note', t('alm_orr_twin_explain', { lag: _orrFmtSpan(_orreryShownLag(tw)) }) +
+    (whatIf ? ' ' + t('alm_orr_twin_burn') : ''));
+  if (_orreryTwinOpen) _orreryLightClock(lcBeta, speed, performance.now());
 }
 
 function _orreryUpdateDate() {
@@ -1705,6 +1777,9 @@ function _orreryAnimate() {
     _almanacOrreryRAF = null;
     return;
   }
+  // Out of view the loop parks, keeping _orreryLastFrame: the first frame back on screen takes the whole gap in one
+  // step, so the simulated clock and the rockets are where they would have been, and nothing woke the page meanwhile.
+  if (!_orreryInView) { _almanacOrreryRAF = null; return; }
   var now = performance.now();
   var dt = now - _orreryLastFrame;
   _orreryLastFrame = now;
@@ -1865,18 +1940,33 @@ function _orreryLaunchRocket(targetName) {
   }
 }
 
-var _PLANET_V0 = { Mercury: -0.61, Venus: -4.40, Mars: -1.60, Jupiter: -9.40, Saturn: -8.88, Uranus: -7.19, Neptune: -6.87 };
+var _PLANET_V0 = { Saturn: -8.88, Uranus: -7.19, Neptune: -6.87 };   // the outer planets: magnitude at 1 AU from both, full phase
 
 // A planet's apparent magnitude from its distances in AU: to the Sun r, to
-// the Earth delta, and the Earth's own from the Sun R. Mercury and Venus,
-// whose phase changes most, dim by the share of the disc that is lit (rough).
+// the Earth delta, and the Earth's own from the Sun R. Mercury, Venus, Mars
+// and Jupiter by Mallama and Hilton (2018, Astronomy and Computing 25): the
+// distance term plus a polynomial in the phase angle (degrees) fitted to the
+// planet's own brightness curve; the three distant planets, whose phase hardly
+// changes, by their magnitude at 1 AU.
+var _MALLAMA_MERCURY = [-0.613, 6.3280e-2, -1.6336e-3, 3.3644e-5, -3.4265e-7, 1.6893e-9, -3.0334e-12];
+var _MALLAMA_VENUS = [-4.384, -1.044e-3, 3.687e-4, -2.814e-6, 8.938e-9];
+var _MALLAMA_VENUS_NEAR_NEW = [236.05828, -2.81914, 8.39034e-3];   // beyond 163.7 degrees
+var _MALLAMA_VENUS_NEAR_NEW_FROM = 163.7;
+var _MALLAMA_MARS_LOW = [-1.601, 0.02267, -0.0001302], _MALLAMA_MARS_HIGH = [-0.367, -0.02573, 0.0003445], _MALLAMA_MARS_SPLIT = 50;
+var _MALLAMA_JUPITER_LOW = [-9.395, -3.7e-4, 6.16e-4], _MALLAMA_JUPITER_SPLIT = 12;
+function _polyAt(c, x) { var v = 0; for (var i = c.length - 1; i >= 0; i--) v = v * x + c[i]; return v; }
 function _planetMagnitude(name, r, delta, R) {
-  var mag = _PLANET_V0[name] + 5 * Math.log10(r * delta);
-  if (name === 'Venus' || name === 'Mercury') {
-    var cosPA = Math.max(-1, Math.min(1, (r * r + delta * delta - R * R) / (2 * r * delta)));
-    mag += -2.5 * Math.log10(Math.max(0.01, (1 + cosPA) / 2));
+  var cosPA = Math.max(-1, Math.min(1, (r * r + delta * delta - R * R) / (2 * r * delta))), a = Math.acos(cosPA) * 180 / Math.PI;
+  var dist = 5 * Math.log10(r * delta);
+  if (name === 'Mercury') return _polyAt(_MALLAMA_MERCURY, a) + dist;
+  if (name === 'Venus') return (a > _MALLAMA_VENUS_NEAR_NEW_FROM ? _polyAt(_MALLAMA_VENUS_NEAR_NEW, a) : _polyAt(_MALLAMA_VENUS, a)) + dist;
+  if (name === 'Mars') return _polyAt(a <= _MALLAMA_MARS_SPLIT ? _MALLAMA_MARS_LOW : _MALLAMA_MARS_HIGH, a) + dist;
+  if (name === 'Jupiter') {
+    if (a <= _MALLAMA_JUPITER_SPLIT) return _polyAt(_MALLAMA_JUPITER_LOW, a) + dist;
+    var f = a / 180;
+    return -9.428 - 2.5 * Math.log10(1 - 1.507 * f - 0.363 * f * f - 0.062 * f * f * f + 2.809 * Math.pow(f, 4) - 1.876 * Math.pow(f, 5)) + dist;
   }
-  return mag;
+  return _PLANET_V0[name] + dist;
 }
 
 var _VISIBLE_PLANETS = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'];

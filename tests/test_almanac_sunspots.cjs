@@ -33,6 +33,7 @@ vm.runInContext(
   'function t(k) { return k; } function _dateToJD(ms) { return JD_UNIX_EPOCH + ms / MS_PER_DAY; }', S);
 vm.runInContext(fs.readFileSync(path.join(STATIC, 'almanac-orrery.js'), 'utf8'), S);
 vm.runInContext(require('./moon_model.cjs')(), S);
+vm.runInContext(fs.readFileSync(path.join(STATIC, 'almanac-ephem.js'), 'utf8'), S);
 vm.runInContext(fs.readFileSync(path.join(STATIC, 'almanac-earth.js'), 'utf8'), S);
 
 const ssn = (y) => vm.runInContext('_aeSunspotNumber(' + y + ').r', S);

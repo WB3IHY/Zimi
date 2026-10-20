@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.14.0] - 2026-10-19
+
+### Added
+
+- Download ZIMs to your phone or laptop and use them off-grid, from a ZIM's menu or About: they open, show their pictures and search with no server (a PDF library's list and its PDFs too), in the browser or added to your home screen. A download resumes, shows a ring on its card while it comes and a check once it is here, and its menu shows the progress with Pause and Cancel.
+- Library cards carry one button, ⋯, which opens the card's menu (Favorite, Keep offline, About and the rest); on a phone it comes up from the bottom as a sheet. A favorite's star sits beside it.
+- With no connection, Zimi opens on what still works: your downloaded ZIMs, saved articles and the Discover cards that open, with a small Offline pill in place of the warning bar.
+- Zimi reads ZIMs from folders another program owns, in place: `ZIMI_EXTRA_ZIM_DIRS`, or Settings, Server, Storage. ZIMs added or removed there appear or leave within about a minute.
+- Project NOMAD: Zimi can be NOMAD's Information Library, its downloads, updates and deletes can go through NOMAD, and old Kiwix links keep working ([guide](docs/integrations/project-nomad.md)).
+- Create turns pages saved from Firefox, Chrome or Safari (including `.mhtml` and `.webarchive`) into a ZIM that looks like the original, with its pictures and the links between pages.
+- The Docker image carries the capture tools (browsertrix-behaviors 0.15.0, AGPL, and the warc2zim sidecar), so every Create engine works with no install; the image is about 343 MB larger.
+- Read aloud uses the server's voices (Kokoro, Piper) when it has one for the article's language, with the browser's voice as the fallback, and has its own voice in Settings, Voices. While it reads, a bar at the foot of the page shows it starting and which voice reads (tap to change it), with its speed (1×, 1.25×, 1.5×, 2×), Pause and Close ([#117](https://github.com/epheterson/Zimi/pull/117)).
+- A Red theme: deep red on black that keeps your night vision, in every view.
+
+### Changed
+
+- Zimi is GPL-3.0-or-later from this release; 1.13.3 and earlier stay MIT.
+- Home shows only the apps with something inside; the Apps page and Settings list them all.
+- Reddot is on by default again, and like every app it shows on home only once a ZIM gives it something to show.
+- The catalog shows its icons at once, from the copy Zimi ships, and leads each category with its most complete edition.
+- A connection that accepts and never answers no longer hangs the app.
+
+### Removed
+
+- The app update channel (Latest or Beta) and `ZIMI_UPDATE_CHANNEL`: Zimi has one release track. An old saved choice is ignored.
+
+### Fixed
+
+- A search inside one ZIM found nothing for questions like "how to purify water".
+- Searches beginning "when did", "what does" or "how do I" found nothing.
+
 ## [1.13.3] - 2026-10-12
 
 ### Added
@@ -12,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - BitTorrent can use a qBittorrent or Transmission you already run, set up the way Sonarr and Radarr do: address, login, category and folders ([#53](https://github.com/epheterson/Zimi/issues/53)).
 - Changing the BitTorrent engine takes effect at once: downloads carry on with the new engine and seeds follow it.
 - In a client you run, Zimi's torrents follow Zimi's seed ratio, not the client's own seeding limits, and Zimi never touches a torrent outside its category.
-- The password to manage Zimi can be turned off, from anywhere, confirmed with the current password and reversible: the password is kept for when it comes back on ([#112](https://github.com/epheterson/Zimi/issues/112)).
+- The password to manage Zimi can be turned off, confirmed with the current password and reversible: the password is kept for when it comes back on ([#112](https://github.com/epheterson/Zimi/issues/112)).
 - The BitTorrent card closes to one line, the engine and whether its port is open or its client connected; the settings open beneath it.
 - `zimi doctor` lists the optional features, whether each is ready, and how this kind of install gets the rest.
 
@@ -22,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Who can manage Zimi is one switch, Require a password to manage. The switch for managing from outside your network is gone, and Zimi no longer guesses where a visitor is: behind a reverse proxy the password could not be turned off. A saved "anyone on my network" keeps working. A saved "manage only from inside my network" is no longer read: with a password, settings are reachable from anywhere, and `ZIMI_MANAGE_EXTERNAL=0` keeps the old wall.
 - `ZIMI_MANAGE_EXTERNAL` is deprecated: it still applies, with a warning at startup. Keep `/manage/` off the internet at your proxy instead.
 - Turning the password off asks for it, and an API token no longer stands in the way. The token row shows only while a password is on.
-- While anyone can manage Zimi, no API token, account or password can be made.
+- While the password is off, no API token, account or password can be made.
 - `source:` and `lang:` filter the library as they do the catalog; `source:` also reads file names (`source:nopic`).
 
 ### Fixed

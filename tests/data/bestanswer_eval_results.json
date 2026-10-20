@@ -1,0 +1,328 @@
+{
+ "library": "wikipedia_en_top_mini 2026-09, wikipedia_en_medicine_mini 2026-10, cooking/outdoors/diy.stackexchange",
+ "limit": 10,
+ "rows": [
+  {
+   "id": 1,
+   "q": "what is the capital of australia",
+   "cat": "factual",
+   "expect": "Canberra",
+   "verdict": "wrong",
+   "note": "quotes the COVID-19 in the ACT lead; Canberra's article exists",
+   "quote": {
+    "sentence": "The COVID-19 pandemic in the Australian Capital Territory is part of the ongoing worldwide pandemic of the coronavirus disease 2019 ( COVID-19 ) caused by severe acute respiratory syndrome coronavirus 2 ( SARS-CoV-2 ).",
+    "zim": "wikipedia_en_medicine",
+    "title": "COVID-19 pandemic in the Australian Capital Territory"
+   }
+  },
+  {
+   "id": 2,
+   "q": "how tall is mount everest",
+   "cat": "factual",
+   "expect": "8,849 m / 29,032 ft (8,848.86)",
+   "verdict": "wrong",
+   "note": "a sentence about climbing Everest from the coast; no height",
+   "quote": {
+    "sentence": "To approximate a climb of the entire height of Mount Everest, one would need to start from this coastline, a feat accomplished by Tim Macartney-Snape's team in 1990.",
+    "zim": "wikipedia_en",
+    "title": "Mount Everest"
+   }
+  },
+  {
+   "id": 3,
+   "q": "when did the berlin wall fall",
+   "cat": "factual",
+   "expect": "9 November 1989",
+   "verdict": "correct",
+   "note": "",
+   "quote": {
+    "sentence": "The Berlin Wall fell on 9 November 1989 during the Peaceful Revolution, marking the beginning of the destruction of the figurative Iron Curtain , as East Berlin transit restrictions were overwhelmed and discarded.",
+    "zim": "wikipedia_en",
+    "title": "Fall of the Berlin Wall"
+   }
+  },
+  {
+   "id": 4,
+   "q": "what causes tides",
+   "cat": "factual",
+   "expect": "gravity of Moon (and Sun)",
+   "verdict": "silent-missed",
+   "note": "Tide article is in the library",
+   "quote": null
+  },
+  {
+   "id": 5,
+   "q": "how many bones are in the human body",
+   "cat": "factual",
+   "expect": "206 in adults",
+   "verdict": "silent-missed",
+   "note": "",
+   "quote": null
+  },
+  {
+   "id": 6,
+   "q": "what is the speed of light",
+   "cat": "factual",
+   "expect": "299,792,458 m/s",
+   "verdict": "partial",
+   "note": "sunlight travel time, not the speed",
+   "quote": {
+    "sentence": "Speed of light in vacuum Due to its finite speed, sunlight takes 8 minutes and 10 to 27 seconds to reach Earth, depending on the time of year.",
+    "zim": "wikipedia_en",
+    "title": "Speed of light"
+   }
+  },
+  {
+   "id": 7,
+   "q": "who was the first person to walk on the moon",
+   "cat": "factual",
+   "expect": "Neil Armstrong",
+   "verdict": "silent-missed",
+   "note": "",
+   "quote": null
+  },
+  {
+   "id": 8,
+   "q": "why is the sky blue",
+   "cat": "factual",
+   "expect": "Rayleigh scattering",
+   "verdict": "wrong",
+   "note": "blue-sky sprites in the eye (medicine ZIM)",
+   "quote": {
+    "sentence": "The dots, nicknamed blue-sky sprites , are an optical illusion resulting from larger white blood cells displacing smaller blue light-absorbing red blood cells , as they flow in the capillaries in front of the retina of the eye .",
+    "zim": "wikipedia_en_medicine",
+    "title": "Blue field entoptic phenomenon"
+   }
+  },
+  {
+   "id": 9,
+   "q": "what is photosynthesis",
+   "cat": "factual",
+   "expect": "plants convert light into chemical energy",
+   "verdict": "wrong",
+   "note": "a figure caption, says nothing",
+   "quote": {
+    "sentence": "Schematic of photosynthesis in plants.",
+    "zim": "wikipedia_en",
+    "title": "Photosynthesis"
+   }
+  },
+  {
+   "id": 10,
+   "q": "which is the second largest country by area",
+   "cat": "hard-factual",
+   "expect": "Canada",
+   "verdict": "silent-missed",
+   "note": "",
+   "quote": null
+  },
+  {
+   "id": 11,
+   "q": "what is the difference between a virus and a bacterium",
+   "cat": "hard-factual",
+   "expect": "bacteria are cells; viruses need host cells",
+   "verdict": "silent-missed",
+   "note": "",
+   "quote": null
+  },
+  {
+   "id": 12,
+   "q": "how does a vaccine work",
+   "cat": "hard-factual",
+   "expect": "trains the immune system to recognise a pathogen",
+   "verdict": "wrong",
+   "note": "vaccine hesitancy, not how a vaccine works",
+   "quote": {
+    "sentence": "Vaccine hesitancy is a delay in acceptance or refusal of vaccines despite availability and supporting evidence of effectivity.",
+    "zim": "wikipedia_en",
+    "title": "Vaccine hesitancy"
+   }
+  },
+  {
+   "id": 13,
+   "q": "how to treat a burn",
+   "cat": "medical",
+   "expect": "cool running water; no ice/butter",
+   "verdict": "wrong",
+   "note": "burning treated wood (DIY); safety-critical topic",
+   "quote": {
+    "sentence": "Do not burn treated wood.",
+    "zim": "diy.stackexchange",
+    "title": "Yakisugi (burning) pressure treated wood?"
+   }
+  },
+  {
+   "id": 14,
+   "q": "what is the normal resting heart rate for adults",
+   "cat": "medical",
+   "expect": "60 to 100 bpm",
+   "verdict": "silent-missed",
+   "note": "",
+   "quote": null
+  },
+  {
+   "id": 15,
+   "q": "how much ibuprofen can i take",
+   "cat": "medical",
+   "expect": "dosing question: any card must not state a single wrong dose; ideally silent",
+   "verdict": "silent-correct",
+   "note": "dosing",
+   "quote": null
+  },
+  {
+   "id": 16,
+   "q": "what are the symptoms of a stroke",
+   "cat": "medical",
+   "expect": "face drooping, arm weakness, speech difficulty, sudden numbness/confusion",
+   "verdict": "wrong",
+   "note": "silent stroke: 'does not have any outward symptoms'; misleading for a symptoms question",
+   "quote": {
+    "sentence": "A silent stroke (or asymptomatic cerebral infarction ) is a stroke that does not have any outward symptoms associated with stroke , and the patient is typically unaware they have suffered a stroke.",
+    "zim": "wikipedia_en_medicine",
+    "title": "Silent stroke"
+   }
+  },
+  {
+   "id": 17,
+   "q": "what to do if someone is choking",
+   "cat": "medical",
+   "expect": "back blows / abdominal thrusts; call emergency",
+   "verdict": "silent-missed",
+   "note": "",
+   "quote": null
+  },
+  {
+   "id": 18,
+   "q": "what is the lethal dose of paracetamol",
+   "cat": "medical",
+   "expect": "safety critical: a quoted dose must be accurate; ideally silent",
+   "verdict": "silent-correct",
+   "note": "dosing",
+   "quote": null
+  },
+  {
+   "id": 19,
+   "q": "is it safe to drink urine in a survival situation",
+   "cat": "medical",
+   "expect": "no, dehydration worsens; must not say yes",
+   "verdict": "silent-correct",
+   "note": "",
+   "quote": null
+  },
+  {
+   "id": 20,
+   "q": "how to purify water",
+   "cat": "survival",
+   "expect": "boil / filter / disinfect",
+   "verdict": "partial",
+   "note": "restates the question, no method",
+   "quote": {
+    "sentence": "When you're asking for the safest way to purify water, you're asking for the method that removes the most harmful stuff from the water, like bacteria, viruses and larger impurities like mud or sand.",
+    "zim": "outdoors.stackexchange",
+    "title": "What is the safest way to purify water?"
+   }
+  },
+  {
+   "id": 21,
+   "q": "how long can a person survive without water",
+   "cat": "survival",
+   "expect": "about 3 days",
+   "verdict": "silent-missed",
+   "note": "",
+   "quote": null
+  },
+  {
+   "id": 22,
+   "q": "how to tell if a mushroom is poisonous",
+   "cat": "survival",
+   "expect": "cannot by simple rules; must not give a folk rule as safe",
+   "verdict": "correct",
+   "note": "folk tests are wrong; right message",
+   "quote": {
+    "sentence": "All the old wives\u2019 tales about how to tell if a mushroom is poisonous \u2013 such as whether it tarnishes silverware or turns blue when bruised \u2013 are dead wrong.",
+    "zim": "cooking.stackexchange",
+    "title": "How can I tell if a mushroom is poisonous?"
+   }
+  },
+  {
+   "id": 23,
+   "q": "how to change a flat tire",
+   "cat": "how-to",
+   "expect": "steps",
+   "verdict": "silent-missed",
+   "note": "",
+   "quote": null
+  },
+  {
+   "id": 24,
+   "q": "how to unclog a drain",
+   "cat": "how-to",
+   "expect": "plunger/snake/etc",
+   "verdict": "partial",
+   "note": "a snake, but for one asker's garage drain",
+   "quote": {
+    "sentence": "As to how to unclog it, your best bet may be a high-pressure water jet snake.",
+    "zim": "diy.stackexchange",
+    "title": "Where does my garage drain go and how can I unclog it?"
+   }
+  },
+  {
+   "id": 25,
+   "q": "how do i undo the last git commit",
+   "cat": "how-to",
+   "expect": "git reset HEAD~1 / revert",
+   "verdict": "silent-missed",
+   "note": "no Stack Overflow in the test library",
+   "quote": null
+  },
+  {
+   "id": 26,
+   "q": "how to install packages with pacman",
+   "cat": "how-to",
+   "expect": "pacman -S",
+   "verdict": "silent-correct",
+   "note": "no Arch ZIM in the test library",
+   "quote": null
+  },
+  {
+   "id": 27,
+   "q": "mercury",
+   "cat": "ambiguous",
+   "expect": "keyword: element vs planet vs god; silent, or a definition, not a wrong specific",
+   "verdict": "silent-correct",
+   "note": "one word: never asked",
+   "quote": null
+  },
+  {
+   "id": 28,
+   "q": "is a tomato a fruit",
+   "cat": "ambiguous",
+   "expect": "botanically a fruit, culinary vegetable",
+   "verdict": "wrong",
+   "note": "tomato leaf spot disease",
+   "quote": {
+    "sentence": "It causes symptoms throughout the above-ground portion of the plant including leaf spots, fruit spots and stem cankers.",
+    "zim": "wikipedia_en_medicine",
+    "title": "Bacterial leaf spot of peppers and tomato"
+   }
+  },
+  {
+   "id": 29,
+   "q": "what is the weather in paris today",
+   "cat": "unanswerable",
+   "expect": "no library can answer; card must be silent",
+   "verdict": "silent-correct",
+   "note": "",
+   "quote": null
+  },
+  {
+   "id": 30,
+   "q": "who won the world cup in 2090",
+   "cat": "unanswerable",
+   "expect": "future; card must be silent",
+   "verdict": "silent-correct",
+   "note": "",
+   "quote": null
+  }
+ ]
+}

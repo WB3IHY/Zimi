@@ -25,6 +25,7 @@ from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, unquote, quote
 
 import zimi.server as _srv
+from zimi import bestanswer as _bestanswer
 from zimi import bookpages as _bookpages
 from zimi import manage as _manage_mod
 from zimi import netguard as _netguard
@@ -234,11 +235,13 @@ _RATE_LIMITED_API_PATHS = (
     "/wiki",
     "/books",
     "/dictionary",
+    "/fieldguide",
     "/map-home",
     "/read",
     "/suggest",
     "/random",
     "/chunks",
+    "/bestanswer",
     "/openapi.json",
     "/almanac-links",
     "/almanac-satellites",
@@ -255,6 +258,7 @@ _RATE_LIMITED_API_PREFIXES = (
     "/wiki/",
     "/books/",
     "/dictionary/",
+    "/fieldguide/",
 )
 
 # High-frequency read-only manage polls. While a download runs the manage UI
@@ -315,9 +319,36 @@ _PRIVATE_LOGIN_SURFACE_EXACT = frozenset(
         "/apple-touch-icon.png",
     )
 )
+# The Field Guide's quotes: public-domain text, open to whoever is at the door
+# (the library behind them is not; see _fieldguide_is_bare). /match names a
+# situation from the guide's own phrase lists; it reads no ZIM, so the "What's
+# happening?" box works at the door too. On the door's and the setup's lists
+# only while ZIMI_FIELDGUIDE is on (_open_at_the_door).
+_FIELDGUIDE_DOOR = frozenset(
+    (
+        "/fieldguide",
+        "/fieldguide/home",
+        "/fieldguide/situation",
+        "/fieldguide/print",
+        "/fieldguide/match",
+    )
+)
 _PRIVATE_LOGIN_SURFACE_PREFIX = ("/static/", "/manage/")
 # What a fresh install answers before its setup is done: the page itself.
-_SETUP_SURFACE = frozenset(("/manage/has-password", "/manage/access", "/manifest.json", "/sw.js"))
+_SETUP_SURFACE = frozenset(
+    (
+        "/manage/has-password",
+        "/manage/access",
+        "/manifest.json",
+        "/sw.js",
+    )
+)
+
+
+def _open_at_the_door(path, surface):
+    """Whether a path is on a pre-sign-in list: the list itself, or the Field
+    Guide's quotes while that feature is on."""
+    return path in surface or (path in _FIELDGUIDE_DOOR and _srv.fieldguide_enabled())
 
 
 # Asked by the shell once for every wiki article opened (its language menu,
@@ -484,6 +515,12 @@ _metrics_lock = threading.Lock()
 _METRIC_ENDPOINT_CAP = 64
 
 
+def _zim_scope(zim_param):
+    """A ?zim= value as search takes it: None (every ZIM), one name, or a list."""
+    names = [z.strip() for z in (zim_param or "").split(",") if z.strip()]
+    return names[0] if len(names) == 1 else (names or None)
+
+
 def _search_answer(result, filter_zim, fast):
     """A full /search answer with `incomplete`: the searched sources whose
     title index is still building or that have no full-text index (see
@@ -497,6 +534,29 @@ def _search_answer(result, filter_zim, fast):
     scope = [filter_zim] if isinstance(filter_zim, str) else filter_zim
     gaps = index_gaps(scope, {r["zim"] for r in result.get("results", [])})
     return dict(result, incomplete=gaps) if gaps else result
+
+
+def _fieldguide_hint(query, lang="en"):
+    """The Field Guide's hint for a typed query in the reader's language (and
+    English), or None. Never fails a search; None while the guide is off."""
+    if not _srv.fieldguide_enabled():
+        return None
+    try:
+        from zimi import fieldguide
+
+        return fieldguide.hint(query, lang)
+    except Exception:
+        log.exception("field guide hint failed")
+        return None
+
+
+def _with_fieldguide(answer, guide):
+    """A search answer with the Field Guide's hint beside its results (a
+    copy: the answer may be a cached one). A situation's own word is not a
+    misspelling: "lost" is not offered "lit"."""
+    if not guide or answer.get("error"):
+        return answer
+    return {k: v for k, v in answer.items() if k != "did_you_mean"} | {"fieldguide": guide}
 
 
 def _record_metric(endpoint, latency, error=False):
@@ -970,6 +1030,14 @@ if os.path.isdir(_STATIC_DIR):
             return hashlib.md5(open(p, "rb").read()).hexdigest()[:8]
         return "0"
 
+    def _keep_scripts_version():
+        """One token for the files the service worker imports to read ZIMs kept
+        on a phone (the decoder, the reader, the storage): a change to any of
+        them is a different worker."""
+        return "".join(
+            _static_hash(f) for f in ("fzstd.js", "zimreader.js", "keepstore.js")
+        )
+
     # Replace versioned references: /static/foo.js?v=39 → /static/foo.js?v=a1b2c3d4
     def _replace_static_ver(m):
         fname = m.group(1)
@@ -1024,6 +1092,9 @@ if os.path.isdir(_STATIC_DIR):
     SEARCH_UI_HTML = SEARCH_UI_HTML.replace(
         "discoverStamp:'disc6'", f"discoverStamp:'d{_build_stamp}'"
     ).replace("i18nHash:'0'", f"i18nHash:'{_i18n_hash}'")
+    SEARCH_UI_HTML = SEARCH_UI_HTML.replace(
+        "bestAnswer:0", f"bestAnswer:{int(_bestanswer.enabled())}"
+    )
 
     # Content token for the service worker's cache key (and /health). It
     # changes whenever ANY app asset changes, so every deploy — even within
@@ -1041,6 +1112,10 @@ if os.path.isdir(_STATIC_DIR):
             # bundle hash or a change to one ships behind a stale SW cache.
             + _static_hash("almanac-orrery.js")
             + _static_hash("almanac-sky.js")
+            + _static_hash("almanac-skygl.js")
+            + _static_hash("almanac-skyfacts.js")
+            + _static_hash("zone-places.js")
+            + _static_hash("almanac-ephem.js")
             + _static_hash("almanac-earth.js")
             + _static_hash("almanac-reference.js")
             + _static_hash("almanac-tables.js")
@@ -1058,6 +1133,12 @@ if os.path.isdir(_STATIC_DIR):
             + _static_hash("wiki-reader.js")
             + _static_hash("books.html")
             + _static_hash("dictionary.html")
+            + _static_hash("almanac-look.js")
+            + _static_hash("almanac-skyfind.js")
+            + _static_hash("fieldguide.html")
+            + _static_hash("fieldguide-card.js")
+            + _static_hash("fieldguide-offline.js")
+            + _keep_scripts_version()
             + _static_hash("apps.css")
             + _static_hash("apps.js")
             # The PDF viewer and Zimi's reader inlined into it.
@@ -1067,6 +1148,74 @@ if os.path.isdir(_STATIC_DIR):
             + _i18n_hash
         ).encode()
     ).hexdigest()[:8]
+
+
+# What the service worker keeps so the shell, the Almanac and the Field Guide
+# run with no server. Read from the pages themselves, so the addresses carry
+# the content hashes the pages ask for; only the files named here are kept.
+_OFFLINE_SHELL_FILE = re.compile(
+    r"/static/((?:app\.(?:js|css)|almanac[\w-]*\.(?:js|css)|zone-places\.js"
+    r"|world-map\.svg|tz-borders\.json|fieldguide[\w-]*\.(?:html|json|js)|highlights\.js|find\.js"
+    r"|keepstore\.js|keepworker\.js|zimreader\.js|fzstd\.js|rosetta/manifest\.json"
+    r"|earth/(?:moon-v1\.webp|stars-v1\.bin|stars-names-v1\.json|constellations-v1\.json|milkyway-v1\.webp"
+    r"|satellite-[\d.]+\.min\.js|three-r\d+\.min\.js|earth-(?:day|night)-v1\.webp))"
+    r"(?:\?v=[0-9a-z]+)?)"
+)
+# Of those, the Almanac's own and its 3D Earth's (~1 MB compressed): kept on a
+# device only once it has a reason to want them offline, a ZIM kept there or
+# the Almanac opened (sw.js ALMANAC_URLS), not on every visit after a deploy.
+# The 4096 Moon map is left to the first time it is shown.
+_ALMANAC_PACK_FILE = re.compile(
+    r"^/static/(?:almanac[\w-]*\.(?:js|css)|world-map\.svg|tz-borders\.json|rosetta/|earth/)"
+)
+
+SATELLITES_PATH = "/almanac-satellites"
+
+
+def _offline_urls():
+    """Every /static/ address (with its ?v= hash) the shell and the pages it
+    opens ask for, among the files kept for offline, sorted."""
+    # The pages as they are served: the shell and app.js rewritten, the
+    # Field Guide page and the Almanac's scripts as written. An address in a
+    # comment is not asked for; one with a version is, so a bare address is
+    # dropped when a versioned one of the same file exists.
+    sources = [SEARCH_UI_HTML]
+    for name in sorted(os.listdir(_STATIC_DIR)):
+        if name == "app.js" and APP_JS_REWRITTEN is not None:
+            sources.append(APP_JS_REWRITTEN)
+        elif name in ("app.js", "fieldguide.html") or (
+            name.startswith("almanac") and name.endswith(".js")
+        ):
+            try:
+                with open(os.path.join(_STATIC_DIR, name), encoding="utf-8") as f:
+                    sources.append(f.read())
+            except OSError:
+                pass
+    found = {
+        "/static/" + m.group(1)
+        for src in sources
+        for m in _OFFLINE_SHELL_FILE.finditer(src)
+    }
+    versioned = {u.split("?")[0] for u in found if "?" in u}
+    found = {u for u in found if "?" in u or u not in versioned}
+    if _srv.fieldguide_enabled():
+        found.add("/static/" + FIELDGUIDE_OFFLINE)
+    else:
+        found = {u for u in found if not u.startswith("/static/fieldguide")}
+    return sorted(found)
+
+
+def _offline_shell_urls():
+    """What the worker keeps when it installs (sw.js SHELL_URLS): the shell,
+    and the Field Guide when it is on."""
+    return [u for u in _offline_urls() if not _ALMANAC_PACK_FILE.match(u)]
+
+
+def _almanac_pack_urls():
+    """What the worker keeps when asked to (sw.js ALMANAC_URLS): the
+    Almanac's files, the 3D Earth's, and the satellites' orbital elements
+    (an answer, not a file: the server's freshest when it was kept)."""
+    return [u for u in _offline_urls() if _ALMANAC_PACK_FILE.match(u)] + [SATELLITES_PATH]
 
 
 def _asset_version():
@@ -1192,6 +1341,132 @@ def _public_zim_entry(entry):
     if not any(k in entry for k in _PRIVATE_ZIM_FIELDS):
         return entry
     return {k: v for k, v in entry.items() if k not in _PRIVATE_ZIM_FIELDS}
+
+
+def _library_folders():
+    """The other programs' folders for /list?layout=1, no paths."""
+    from zimi import libfolders
+
+    return libfolders.summary()
+
+
+# kiwix-serve addresses that are in links people already have. Project NOMAD's
+# Information Library is kiwix-serve, and what it shows in the address bar
+# (/content/<book>/<page>, /viewer#<book>/<page>, a search) is what gets
+# bookmarked and pasted; its translation add-on forwards the same paths. Each
+# lands on the Zimi address that does the same job. Nothing else of Kiwix's is
+# imitated: nothing in NOMAD calls its OPDS catalog or /raw.
+_KIWIX_CONTENT = "/content/"
+
+# The page at /viewer. The book and page ride in the URL's fragment, which a
+# server never sees, so this hands them to the /w/ address in the browser.
+# `#<book>/<page>` opens the page, `#<book>` the book, and Kiwix's
+# `#search?content=<book>&pattern=<words>` the search. The page goes through
+# /content/, which says the book's name the way Zimi does.
+_VIEWER_PAGE = """<!doctype html><meta charset="utf-8"><title>Zimi</title>
+<script>
+(function () {
+  var h = location.hash.replace(/^#/, ''), to = '/';
+  var m = /^search\\?(.*)$/.exec(h);
+  if (m) {
+    var q = new URLSearchParams(m[1]), words = q.get('pattern') || '', book = q.get('content') || q.get('books.name') || '';
+    to = words ? '/search?pattern=' + encodeURIComponent(words) + (book ? '&content=' + encodeURIComponent(book) : '') : (book ? '/content/' + encodeURIComponent(book) : '/');
+  } else if (h) {
+    to = '/content/' + h;
+  }
+  location.replace(to);
+})();
+</script>
+<noscript><a href="/">Zimi</a></noscript>
+"""
+
+
+def _opens_as_page(headers):
+    """A browser opening an address as a page, not a script or a frame
+    fetching it. ``Sec-Fetch-Dest`` says so, but browsers send it only to https
+    and localhost: a LAN address over plain http (a NOMAD box) carries just
+    Accept, which for a page starts with text/html and for curl or a script is
+    ``*/*`` or JSON."""
+    dest = (headers.get("Sec-Fetch-Dest") or "").lower()
+    if dest:
+        return dest == "document"
+    return "text/html" in (headers.get("Accept") or "").lower()
+
+
+def _kiwix_book(book):
+    """Zimi's name for a book as Kiwix names it. Kiwix's is the file's name
+    with its date (``wikipedia_en_100_2026-08``); Zimi's is the same without
+    the date, and a name that is already Zimi's stays."""
+    names = _srv.get_zim_files()
+    book = unquote(book)
+    if book in names:
+        return book
+    for name, path in names.items():
+        if os.path.basename(path)[: -len(".zim")] == book:
+            return name
+    base = _srv._zim_base_name(book + ".zim")
+    return base if base in names else book
+
+
+def _kiwix_alias(parsed, params, document, resolve=lambda book: book):
+    """What to do with a kiwix-serve address: ``("redirect", location)``,
+    ``("path", new_path)`` to serve as the /w/ address it stands for, or None
+    when it is not one. ``document`` is a browser opening it as a page, which
+    belongs in the shell at /w/; anything else (an iframe, a script, curl) is
+    given the page itself."""
+    path = parsed.path
+    if path.startswith(_KIWIX_CONTENT):
+        rest = path[len(_KIWIX_CONTENT):]
+        book, _, entry = rest.partition("/")
+        if not book:
+            return None
+        book = quote(resolve(book), safe="")
+        if not entry:  # the book's own address: its main page, as Kiwix does
+            return "redirect", "/w/" + book
+        if document:
+            return "redirect", "/w/%s/%s" % (book, entry) + (
+                "?" + parsed.query if parsed.query else ""
+            )
+        return "path", "/w/%s/%s" % (book, entry)
+    if document and path == "/search" and "q" not in params and "pattern" in params:
+        book = resolve((params.get("content") or params.get("books.name") or [""])[0])
+        words = quote(params["pattern"][0], safe="")
+        return "redirect", ("/w/" + quote(book, safe="") if book else "/") + "?q=" + words
+    return None
+
+
+def _mark_external(entries):
+    """What the page needs to know about ZIMs in a folder another program owns.
+    ``external`` is that folder's label (the page hides Delete and Update: the
+    file is not Zimi's to change); ``unreadable`` says why such a ZIM will not
+    open; ``also_in`` marks one of Zimi's own that a copy there lost its name
+    to. Strings and dicts, no disk (why_unreadable asks once per file)."""
+    from zimi import libfolders
+
+    folder_labels = libfolders.labels()
+    if not folder_labels:
+        return entries
+    from zimi import nomadapi
+
+    through_nomad = nomadapi.managed()
+    paths = _srv.get_zim_files()
+    twins = libfolders.also_in()
+    out = []
+    for z in entries:
+        path = paths.get(z.get("name"), "")
+        label = libfolders.owner(path, folder_labels)
+        extra = {}
+        if label:
+            # Through NOMAD the page treats the ZIM as its own (Delete and
+            # Update work, NOMAD does them); elsewhere it is read-only.
+            key = "via" if through_nomad and label == libfolders.NOMAD_LABEL else "external"
+            extra[key] = label
+            if z.get("entries") == "?":
+                extra["unreadable"] = libfolders.why_unreadable(path)
+        elif os.path.normpath(path) in twins:
+            extra["also_in"] = twins[os.path.normpath(path)]
+        out.append({**z, **extra} if extra else z)
+    return out
 
 
 def _zim_file_sig(entry):
@@ -1639,6 +1914,8 @@ _UNCAPTURED_PAGE = """<!DOCTYPE html>
   :root {{ color-scheme: dark;
     --bg:#0a0a0b; --surface:#141416; --border:#27272b;
     --text:#e8e8ed; --text2:#8a8a94; --amber:#f59e0b; --on-amber:#000; }}
+  html.night-red {{ --bg:#000; --surface:#0d0000; --border:#5c0e06;
+    --text:#ff2a14; --text2:#f01a0a; --amber:#ff2010; --on-amber:#000; }}
   html[data-theme="light"] {{ color-scheme: light;
     --bg:#f2efe8; --surface:#fbfaf6; --border:#e4dfd4;
     --text:#26241f; --text2:#6a675e; --amber:#9d4a08; --on-amber:#fff; }}
@@ -1723,7 +2000,10 @@ _UNCAPTURED_PAGE = """<!DOCTYPE html>
   // was already sent.
   try {{
     var theme = localStorage.getItem('{theme_key}');
-    if (theme === 'light' || theme === 'dark') {{
+    if (theme === 'red') {{
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.classList.add('night-red');
+    }} else if (theme === 'light' || theme === 'dark') {{
       document.documentElement.setAttribute('data-theme', theme);
     }} else if (window.matchMedia &&
                window.matchMedia('(prefers-color-scheme: light)').matches) {{
@@ -1824,6 +2104,7 @@ APP_PAGES = (
     "wiki.html",
     "books.html",
     "dictionary.html",
+    "fieldguide.html",
 )
 # Pages that show a ZIM's own HTML may load only from Zimi: inline styles and
 # scripts run (ZIM content uses them), anything on another host is refused,
@@ -1837,8 +2118,14 @@ ZIM_HTML_CSP = (
 )
 _APPS_CSS_MARK = b"<!--@apps.css@-->"
 _APPS_JS_MARK = b"<!--@apps.js@-->"
+# Red night light, stamped in the head before the first paint (apps.js keeps
+# it in step afterwards): an app page opened at night never flashes white.
+_NIGHT_STAMP = (
+    b"<script>try{document.documentElement.classList.toggle('night-red',"
+    b"localStorage.getItem('zimi_app_theme')==='red')}catch(e){}</script>\n"
+)
 _APP_ASSETS = (
-    (_APPS_CSS_MARK, "apps.css", b"<style>\n", b"</style>"),
+    (_APPS_CSS_MARK, "apps.css", _NIGHT_STAMP + b"<style>\n", b"</style>"),
     (_APPS_JS_MARK, "apps.js", b"<script>\n", b"</script>"),
 )
 # The PDF viewer (pdf.js's page) with Zimi's own reading chrome, inlined the
@@ -1846,6 +2133,8 @@ _APP_ASSETS = (
 # is loaded at its bare address, so it is asked for each time (no-cache)
 # rather than kept a year on a phone that then never sees a fix.
 PDF_VIEWER = "pdfjs/web/viewer.html"
+# The Field Guide's quotes and phrase tables as one file (built, not stored).
+FIELDGUIDE_OFFLINE = "fieldguide-offline.json"
 _PDF_ASSETS = (
     (b"<!--@pdfreader.css@-->", "pdfreader.css", b"<style>\n", b"</style>"),
     (b"<!--@pdfreader.js@-->", "pdfreader.js", b"<script>\n", b"</script>"),
@@ -1853,6 +2142,17 @@ _PDF_ASSETS = (
 # Pages whose shared parts are put in as they are served: never from the
 # in-memory cache, always revalidated by the browser.
 _INLINED_PAGES = {name: _APP_ASSETS for name in APP_PAGES}
+# The Field Guide page also carries its card renderer, which the shell loads on its own
+# to draw a situation above search results.
+_INLINED_PAGES["fieldguide.html"] = (
+    (b"<!--@fieldguide-card.js@-->", "fieldguide-card.js", b"<script>\n", b"</script>"),
+    (
+        b"<!--@fieldguide-offline.js@-->",
+        "fieldguide-offline.js",
+        b"<script>\n",
+        b"</script>",
+    ),
+) + _APP_ASSETS
 _INLINED_PAGES[PDF_VIEWER] = _PDF_ASSETS
 
 
@@ -1870,14 +2170,27 @@ def _inline_apps_assets(body, assets=_APP_ASSETS):
     return body
 
 
+def _shell_html():
+    """The shell as served: stamped ``data-zimi-fieldguide`` on <html> while
+    the Field Guide is on, so the client draws no Help now and no guide card
+    when it is not. Every shell response (sign-in, setup and home) goes
+    through here."""
+    if not _srv.fieldguide_enabled():
+        return SEARCH_UI_HTML
+    return SEARCH_UI_HTML.replace(
+        '<html lang="en">', '<html lang="en" data-zimi-fieldguide="1">', 1
+    )
+
+
 def _index_content(apps=True):
     """The shell, stamped when the server offers fewer than all the apps
     (``0`` for none, else the names), so the client knows before it draws
     the home page."""
+    html = _shell_html()
     stamp = _srv.apps_stamp(apps)
     if stamp is None:
-        return SEARCH_UI_HTML
-    return SEARCH_UI_HTML.replace("<body>", '<body data-zimi-apps="%s">' % stamp, 1)
+        return html
+    return html.replace("<body>", '<body data-zimi-apps="%s">' % stamp, 1)
 
 
 def _prefs_reply(prefs):
@@ -2086,6 +2399,18 @@ class ZimHandler(BaseHTTPRequestHandler):
         self._json(401, {"error": "authentication required"})
         return True
 
+    def _fieldguide_is_bare(self):
+        """True when the Field Guide may show its quotes and nothing of the
+        library: a fresh install still being set up, or a private server's
+        anonymous visitor at the sign-in screen. In an emergency the words
+        must be there; what the library holds is not theirs yet."""
+        if _manage_mod.setup_pending():
+            return True
+        mode, _ = _users.get_public_access()
+        return mode == "private" and not (
+            _users.resolve_request_user(self) or _users._request_is_admin(self)
+        )
+
     def _private_access_block(self, parsed):
         """Enforce ``private`` public-access mode. Returns True (and sends a 401)
         when an ANONYMOUS request targets anything outside the login surface;
@@ -2098,7 +2423,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         if mode != "private":
             return False
         path = parsed.path
-        if path in _PRIVATE_LOGIN_SURFACE_EXACT or path.startswith(
+        if _open_at_the_door(path, _PRIVATE_LOGIN_SURFACE_EXACT) or path.startswith(
             _PRIVATE_LOGIN_SURFACE_PREFIX
         ):
             return False
@@ -2122,7 +2447,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         # whoever asked. `Vary` because the same URL genuinely has two correct
         # answers depending on how it was requested.
         if self._wants_html():
-            self._html(401, SEARCH_UI_HTML, vary="Accept, Sec-Fetch-Dest")
+            self._html(401, _shell_html(), vary="Accept, Sec-Fetch-Dest")
             return True
         self._json(401, {"error": "authentication required", "login_required": True})
         return True
@@ -2139,15 +2464,15 @@ class ZimHandler(BaseHTTPRequestHandler):
             return False
         path = parsed.path
         if (
-            path in _PRIVATE_LOGIN_SURFACE_EXACT
+            _open_at_the_door(path, _PRIVATE_LOGIN_SURFACE_EXACT)
             or path.startswith("/static/")
-            or path in _SETUP_SURFACE
+            or _open_at_the_door(path, _SETUP_SURFACE)
         ):
             return False
         if _manage_mod._owner_proof(self):
             return False
         if self._wants_html():
-            self._html(503, SEARCH_UI_HTML, vary="Accept, Sec-Fetch-Dest")
+            self._html(503, _shell_html(), vary="Accept, Sec-Fetch-Dest")
             return True
         self._json(503, {"error": "setup_pending"})
         return True
@@ -2170,6 +2495,21 @@ class ZimHandler(BaseHTTPRequestHandler):
 
         def param(key, default=None):
             return params.get(key, [default])[0]
+
+        alias = _kiwix_alias(
+            parsed,
+            params,
+            _opens_as_page(self.headers),
+            _kiwix_book,
+        )
+        if alias and alias[0] == "redirect":
+            self.send_response(302)
+            self.send_header("Location", alias[1])
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if alias:  # /content/... is the /w/ address, for everything the gates ask
+            parsed = parsed._replace(path=alias[1])
 
         # Trusted-header SSO: verify (once per request — a keep-alive connection
         # reuses this handler) before any identity is resolved from it.
@@ -2238,12 +2578,8 @@ class ZimHandler(BaseHTTPRequestHandler):
                             400, {"error": f"Collection '{collection}' not found"}
                         )
                     filter_zim = coll.get("zims", []) or None
-                elif zim_param:
-                    filter_zim = [z.strip() for z in zim_param.split(",") if z.strip()]
-                    if len(filter_zim) == 1:
-                        filter_zim = filter_zim[0]
                 else:
-                    filter_zim = None
+                    filter_zim = _zim_scope(zim_param)
                 # Apply language filter: restrict to ZIMs matching the given language
                 if lang_filter:
                     lang_zims = [
@@ -2330,13 +2666,17 @@ class ZimHandler(BaseHTTPRequestHandler):
                     return result
 
                 _record_usage("search", query=q)
+                # Typed words that name a situation: the Field Guide's hint,
+                # in memory (see fieldguide.hint); not for a search inside
+                # one ZIM, which is not asking for help.
+                guide = _fieldguide_hint(q, param("ui") or "en") if filter_zim is None else None
                 if param("stream") == "1":
-                    return self._search_stream(run)
+                    return self._search_stream(run, guide)
                 result = run(fast)
                 # Scoped to a ZIM that is not here: 404, as /read and /chunks.
                 return self._json(
                     404 if result.get("error") else 200,
-                    _search_answer(result, filter_zim, fast),
+                    _with_fieldguide(_search_answer(result, filter_zim, fast), guide),
                 )
 
             elif parsed.path == "/read":
@@ -2388,6 +2728,32 @@ class ZimHandler(BaseHTTPRequestHandler):
                 _record_usage("read", zim)
                 return self._json(200, result)
 
+            elif parsed.path == "/bestanswer":
+                # The card above a question's results. Its own request, made
+                # after the search has filled its cache, so a search never
+                # waits for it and a changed query cancels it.
+                q = param("q")
+                if not q:
+                    return self._json(400, {"error": "missing ?q= parameter"})
+                if not _bestanswer.enabled():  # off by default (ZIMI_BEST_ANSWER)
+                    return self._json(200, {"answer": None})
+                try:
+                    limit = max(
+                        1, min(int(param("limit", "10")), _srv.MAX_SEARCH_LIMIT)
+                    )
+                except (ValueError, TypeError):
+                    limit = 10
+                filter_zim = _zim_scope(param("zim"))
+                scope_str = (
+                    ",".join(sorted(filter_zim))
+                    if isinstance(filter_zim, list)
+                    else (filter_zim or "")
+                )
+                t0 = time.time()
+                result = _srv.best_answer_for(q, scope_str, filter_zim, limit)
+                _record_metric("/bestanswer", time.time() - t0)
+                return self._json(200, result)
+
             elif parsed.path == "/suggest":
                 q = param("q")
                 if not q:
@@ -2433,7 +2799,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                 langs = [x for x in (param("langs") or "").split(",") if x]
                 return _almanac_links_response(self, qids, langs)
 
-            elif parsed.path == "/almanac-satellites":
+            elif parsed.path == SATELLITES_PATH:
                 # Orbital elements for the Almanac's Earth view: answered at
                 # once from the snapshot or cache. A stale set is refreshed in
                 # the background only when "Satellite data from the internet"
@@ -2482,6 +2848,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                         for z in result
                     ]
                 result = [_public_zim_entry(z) for z in result]
+                result = _mark_external(result)
                 # Additive envelope: ?layout=1 carries the top-level section_order
                 # alongside the ZIMs. The bare array shape stays the default so
                 # existing API consumers are unaffected.
@@ -2492,6 +2859,9 @@ class ZimHandler(BaseHTTPRequestHandler):
                             "zims": result,
                             "section_order": layout.get("section_order", []),
                             "sections": layout.get("sections", []),
+                            # Folders another program owns, for the empty and
+                            # "still downloading" states. Memory only.
+                            "folders": _library_folders(),
                         },
                     )
                 return self._json(200, result)
@@ -2733,6 +3103,44 @@ class ZimHandler(BaseHTTPRequestHandler):
                 if events is None:
                     return self._json(503, {"error": "unavailable"})
                 return self._json(200, {"events": events})
+            elif parsed.path == "/fieldguide" or parsed.path.startswith("/fieldguide/"):
+                # Field Guide: situations, their quoted sources and the
+                # library behind them (zimi/fieldguide.py).
+                if not _srv.fieldguide_enabled():
+                    return self._json(404, {"error": "not found"})
+                from zimi import fieldguide as _fg
+
+                sub = parsed.path[len("/fieldguide") :].strip("/")
+                bare = self._fieldguide_is_bare()
+                if sub in ("", "home"):
+                    return self._json(200, _fg.home(bare=bare))
+                if sub == "situation":
+                    got = (
+                        _fg.situation_bare(param("id") or "")
+                        if bare
+                        else _fg.situation(param("id") or "", param("lang") or "en")
+                    )
+                    return (
+                        self._json(200, got)
+                        if got
+                        else self._json(404, {"error": "not found"})
+                    )
+                if sub == "library":
+                    return self._json(200, _fg.library())
+                if sub == "print":
+                    return self._json(200, _fg.print_all())
+                if sub == "match":
+                    q, ui = param("q") or "", param("ui") or "en"
+                    got = _fg.lookup(q, ui)
+                    return self._json(
+                        200,
+                        {
+                            "id": got[0] if got else None,
+                            "kind": got[1] if got else None,
+                            "who": _fg.who(q, ui) if got and got[1] == "card" else None,
+                        },
+                    )
+                return self._json(404, {"error": "not found"})
             elif parsed.path == "/books" or parsed.path.startswith("/books/"):
                 # Bookshelf: every Project Gutenberg ZIM in the library, as one shelf.
                 from zimi import books as _books
@@ -3116,6 +3524,9 @@ class ZimHandler(BaseHTTPRequestHandler):
             elif parsed.path == "/apple-touch-icon.png":
                 return self._serve_apple_touch_icon()
 
+            elif parsed.path == "/viewer":
+                return self._uncached(lambda: self._html(200, _VIEWER_PAGE))
+
             elif parsed.path == "/":
                 return self._serve_index()
 
@@ -3130,6 +3541,14 @@ class ZimHandler(BaseHTTPRequestHandler):
                     unquote(parsed.path[4:]),
                     ticket=(_dl_q.get("t") or [""])[0],
                 )
+
+            elif parsed.path.startswith("/keep/"):
+                # /keep/<zim> — the raw .zim for the phone's own private
+                # storage (keep.js), by HTTP Range so a pull resumes. Same
+                # bytes as /dl/, a different door: /dl/ is LAN peer sharing
+                # (private clients, the sharing switch); this one is for a
+                # person signed in over any network (see _keep_allowed).
+                return self._serve_zim_file(unquote(parsed.path[6:]), keep=True)
 
             elif parsed.path.startswith("/w/"):
                 # /w/<zim_name>/<entry_path> — serve raw ZIM content
@@ -3178,6 +3597,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                             "/search",
                             "/read",
                             "/chunks",
+                            "/bestanswer",
                             "/suggest",
                             "/list",
                             "/zim-info",
@@ -4381,7 +4801,20 @@ class ZimHandler(BaseHTTPRequestHandler):
             return RATE_LIMIT_TRUSTED
         return RATE_LIMIT
 
-    def _serve_zim_file(self, name, ticket=""):
+    def _keep_allowed(self):
+        """True if this request may pull a whole ZIM to keep on a phone.
+
+        Whole-file pulls are not what an anonymous visitor to a public
+        instance needs, and they are the most bandwidth a request can ask for,
+        so the door opens to: a signed-in user (an account, or the edge's
+        verified identity, which resolves to one), an admin, a direct client
+        on the private network, or whoever /dl/'s own sharing rules admit.
+        The ZIM must also be in this request's allowlist (get_zim_files)."""
+        if _users.resolve_request_user(self) or _users._request_is_admin(self):
+            return True
+        return self._is_direct_private_client() or self._peer_share_allowed()
+
+    def _serve_zim_file(self, name, ticket="", keep=False):
         """Stream a whole local .zim file to a LAN peer with Range support.
 
         Resolves `name` strictly against the known ZIM set (by ZIM name or
@@ -4395,7 +4828,10 @@ class ZimHandler(BaseHTTPRequestHandler):
         file, for two minutes. No ticket → the normal sharing gates."""
         from zimi import manage as _manage
 
-        if (
+        if keep:
+            if not self._keep_allowed():
+                return self._json(403, {"error": "sign in to keep this on your phone"})
+        elif (
             not (ticket and _manage.spend_dl_ticket(ticket, name))
             and not self._peer_share_allowed()
         ):
@@ -4416,9 +4852,17 @@ class ZimHandler(BaseHTTPRequestHandler):
         except OSError:
             return self._json(404, {"error": "ZIM not found"})
 
+        # The file's identity (size + mtime): a pull resumed after the ZIM
+        # was replaced in place (auto-update) must start over, not append the
+        # new file's tail to the old one's head. If-Range carries it back.
+        try:
+            etag = '"%d-%d"' % (total_size, int(os.path.getmtime(path)))
+        except OSError:
+            return self._json(404, {"error": "ZIM not found"})
+
         range_start = range_end = None
         range_header = self.headers.get("Range")
-        if range_header:
+        if range_header and self.headers.get("If-Range", etag) == etag:
             range_start, range_end = self._parse_range(range_header, total_size)
 
         if range_start is not None and range_end is not None:
@@ -4431,6 +4875,9 @@ class ZimHandler(BaseHTTPRequestHandler):
             range_start, send_len = 0, total_size
             self.send_response(200)
 
+        self.send_header("ETag", etag)
+        if keep:
+            self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Type", "application/octet-stream")
         self.send_header("Content-Length", str(send_len))
         self.send_header("Accept-Ranges", "bytes")
@@ -4657,12 +5104,23 @@ class ZimHandler(BaseHTTPRequestHandler):
         rel_path = rel_path.lstrip("/")
         if os.path.isabs(rel_path):
             return self._json(400, {"error": "invalid path"})
+        # The Field Guide's page, card, script and offline bundle: in the tree,
+        # unreachable while ZIMI_FIELDGUIDE is off.
+        if rel_path.startswith("fieldguide") and not _srv.fieldguide_enabled():
+            return self._json(404, {"error": "not found"})
 
         # app.js gets the in-memory rewrite when present (auto-versioned ?v=
         # references inside the file). Avoids touching the read-only filesystem.
         if rel_path == "app.js" and APP_JS_REWRITTEN is not None:
             body = _app_js_bytes()
             content_type = "application/javascript"
+        elif rel_path == FIELDGUIDE_OFFLINE:
+            # Built from the guide's own data, not a file: what the page reads
+            # when the server cannot be reached (zimi/fieldguide.py).
+            from zimi import fieldguide as _fg
+
+            body = _fg.offline_bundle_bytes()
+            content_type = "application/json"
         else:
             # The cache is validated against the file's mtime: one stat per
             # request instead of one read. Without it, an edited JS/CSS file
@@ -4717,6 +5175,29 @@ class ZimHandler(BaseHTTPRequestHandler):
                         b"const CACHE_VERSION = '" + _asset_version().encode() + b"'",
                         body,
                     )
+                    body = re.sub(
+                        rb"const KEEP_V = '[^']*'",
+                        b"const KEEP_V = '"
+                        + hashlib.md5(_keep_scripts_version().encode())
+                        .hexdigest()[:8]
+                        .encode()
+                        + b"'",
+                        body,
+                    )
+                    body = re.sub(
+                        rb"const SHELL_URLS = \[[^\]]*\];",
+                        b"const SHELL_URLS = "
+                        + json.dumps(_offline_shell_urls()).encode()
+                        + b";",
+                        body,
+                    )
+                    body = re.sub(
+                        rb"const ALMANAC_URLS = \[[^\]]*\];",
+                        b"const ALMANAC_URLS = "
+                        + json.dumps(_almanac_pack_urls()).encode()
+                        + b";",
+                        body,
+                    )
                 # Cache in memory (vendor files are immutable, ~8MB total for pdf.js)
                 with ZimHandler._static_cache_lock:
                     try:
@@ -4738,6 +5219,10 @@ class ZimHandler(BaseHTTPRequestHandler):
         # Service worker needs scope override; i18n files change between versions
         if rel_path == "sw.js":
             self.send_header("Service-Worker-Allowed", "/")
+            self.send_header("Cache-Control", "no-cache")
+        elif rel_path == FIELDGUIDE_OFFLINE:
+            # Public text that changes with a release, kept by the service
+            # worker: asked each time, so the copy it holds is the latest seen.
             self.send_header("Cache-Control", "no-cache")
         elif rel_path in APP_PAGES:
             # The reader loads an app page at its bare address (no version
@@ -4872,6 +5357,8 @@ class ZimHandler(BaseHTTPRequestHandler):
                 '"', '-apps-%s"' % stamp.replace(",", "-"), 1
             )
         )
+        if _srv.fieldguide_enabled():
+            etag = etag.replace('"', '-fg"', 1)
         # Cache strategy:
         #   max-age=0, must-revalidate — browser always revalidates (Safari-safe)
         #   s-maxage=60 — an edge (Cloudflare) may hold it a minute: the shell
@@ -4948,7 +5435,7 @@ class ZimHandler(BaseHTTPRequestHandler):
 
         return send, end
 
-    def _search_stream(self, run):
+    def _search_stream(self, run, guide=None):
         """A search's two passes in one response, a line each as it is ready:
         the quick title matches, the snippets of the cards they put on the
         first screen, the full-text results, then the snippets those add.
@@ -4985,11 +5472,11 @@ class ZimHandler(BaseHTTPRequestHandler):
 
         send, end = self._ndjson_stream()
         try:
-            send({"phase": "fast", "result": quick})
+            send({"phase": "fast", "result": _with_fieldguide(quick, guide)})
             send(snippets(quick))
             worker.join()
             result = full.get("result") or dict(quick, partial=False)
-            send({"phase": "full", "result": result})
+            send({"phase": "full", "result": _with_fieldguide(result, guide)})
             send(snippets(result))
             end()
         except (BrokenPipeError, ConnectionResetError):

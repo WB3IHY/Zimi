@@ -114,6 +114,17 @@ var SK = {
   VOICE_PREFS: 'zimi_voice_prefs',
   // Hear's sample words, {lang: [words]}: SESSION-scoped, the same all session.
   VOICE_SAMPLE: 'zimi_voice_sample',
+  // Read aloud: server engines that could not keep up with reading on this
+  // server ([engines]), tried last from then on.
+  TTS_SLOW: 'zimi_tts_slow',
+  // Read aloud: when it was last used (ms), so a Reader View opened within a
+  // week of it gets the voice list and the engine warmed ahead of the tap.
+  TTS_LAST_USE: 'zimi_tts_last_use',
+  // Read aloud: engines already suggested as a faster choice ([engines]),
+  // each said once.
+  TTS_SUGGESTED: 'zimi_tts_suggested',
+  // Read aloud: how fast it reads (one of _TTS_RATES), set in the reading bar.
+  TTS_RATE: 'zimi_tts_rate',
   // Reader font scale (percent, one of READER_FONT_LEVELS), applied as a `zoom`
   // on the iframe body and reapplied on every article load.
   READER_FONT: 'zimi_reader_font_scale',
@@ -151,9 +162,12 @@ var SK = {
   WIKI_TRAIL: 'zimi_wiki_trail',
   WIKI_TRAILS: 'zimi_wiki_trails',
   // Whole-app theme: 'auto' (follow prefers-color-scheme, dark fallback) |
-  // 'dark' | 'light'. Default auto. Read/written via _appTheme/_setAppTheme;
+  // 'dark' | 'light' | 'red' (night vision: deep red on black everywhere). Default auto. Read/written via _appTheme/_setAppTheme;
   // the head bootstrap in index.html stamps the resolved value pre-paint.
   APP_THEME: 'zimi_app_theme',
+  // What Red replaced, so switching Red off (the sky's and the Field Guide's
+  // switches do) puts the person back where they were rather than on Auto.
+  APP_THEME_BEFORE_RED: 'zimi_app_theme_before_red',
   // Auto-darken raw (non-Reader-View) ZIM articles when the app is dark, so a
   // blinding-white ZIM page doesn't break dark mode. Tri-state: unset = follow
   // the app theme (on when dark); '1'/'0' = explicit override once toggled.
@@ -177,6 +191,52 @@ function _getSessionJSON(key, fallback) {
 function _almChosenPlace() {
   return _getStorageJSON(SK.ALMANAC_PLACE, null) || _getSessionJSON(SK.ALMANAC_LOC, null);
 }
+// Which hemisphere the Almanac's sky is drawn for: the chosen place, else the
+// device's time zone (zone-places.js, the table the sky uses), else null: the
+// sky does not know, so nothing season-shaped is said. The table is fetched
+// on first need and the Discover row drawn again when it lands.
+var _zonePlacesLoading = false, _discoverDrawn = null;
+function _almHemisphere() {
+  var p = _almChosenPlace();
+  if (p) return p.lat < 0 ? 'south' : 'north';
+  if (typeof _skyZonePlace !== 'function') {
+    if (!_zonePlacesLoading) {
+      _zonePlacesLoading = true;
+      var sc = document.createElement('script');
+      sc.src = '/static/zone-places.js?v=45';
+      sc.onload = function() {
+        var d = _discoverDrawn;
+        if (d && d.el.isConnected) _renderDiscover(d.el, d.items);
+      };
+      document.head.appendChild(sc);
+    }
+    return null;
+  }
+  var tz = null;
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch(e) {}
+  var z = _skyZonePlace(tz);
+  return z ? (z[0] < 0 ? 'south' : 'north') : null;
+}
+// "Spring 41%": the season the Today card names and how far through it is,
+// from the hemisphere the sky is drawn for. Null hemisphere (the place is not
+// known): no season, rather than the wrong one.
+var _SEASONS_NORTH = ['winter', 'spring', 'summer', 'autumn', 'winter'];
+var _SEASONS_SOUTH = ['summer', 'autumn', 'winter', 'spring', 'summer'];
+function _todaySeason(now, hemi) {
+  if (!hemi) return '';
+  var y = now.getFullYear(), keys = hemi === 'south' ? _SEASONS_SOUTH : _SEASONS_NORTH;
+  var bounds = [
+    { k: 0, s: new Date(y - 1, 11, 21), e: new Date(y, 2, 20) },
+    { k: 1, s: new Date(y, 2, 20), e: new Date(y, 5, 21) },
+    { k: 2, s: new Date(y, 5, 21), e: new Date(y, 8, 22) },
+    { k: 3, s: new Date(y, 8, 22), e: new Date(y, 11, 21) },
+    { k: 4, s: new Date(y, 11, 21), e: new Date(y + 1, 2, 20) }
+  ];
+  for (var i = 0; i < bounds.length; i++) {
+    if (now >= bounds[i].s && now < bounds[i].e) return t('season_' + keys[bounds[i].k]) + ' ' + Math.round((now - bounds[i].s) / (bounds[i].e - bounds[i].s) * 100) + '%';
+  }
+  return '';
+}
 function _setStorageJSON(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch(e) {}
 }
@@ -184,50 +244,90 @@ function _getStorageFlag(key) {
   return localStorage.getItem(key) === '1';
 }
 
-// ── Whole-app theme (Auto / Dark / Light) ──
+// ── Whole-app theme (Auto / Dark / Light / Red) ──
 // The token palette in app.css is driven by data-theme on <html>. Auto mode
 // resolves the OS preference to a concrete 'dark'|'light' and stamps the SAME
 // attribute, so the CSS has one code path (no reliance on prefers-color-scheme
 // in the stylesheet). The head bootstrap sets it pre-paint; this re-applies on
 // load and, in Auto, live-tracks the media query.
-var APP_THEMES = ['auto', 'dark', 'light'];
+//
+// Red is a theme like the others, kept under the same key: it is Dark with the
+// night-red class on <html>, which app.css / apps.css turn into deep red on
+// black so looking at the phone does not cost night vision. Every view reads
+// that one class; the sky's and the Field Guide's switches are shortcuts that
+// choose this theme (_nightSet).
+var APP_THEMES = ['auto', 'dark', 'light', 'red'];
+var APP_THEME_RED = 'red', NIGHT_CLASS = 'night-red';
+// The browser's own chrome (address bar, status area) follows this while Red is on.
+var NIGHT_THEME_COLOR = '#000000';
 function _appTheme() {
   var v = localStorage.getItem(SK.APP_THEME);
   return APP_THEMES.indexOf(v) >= 0 ? v : 'auto';
 }
+function _nightRedOn() { return _appTheme() === APP_THEME_RED; }
 function _prefersLight() {
   return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
 }
 // Resolve a stored mode to the concrete theme actually painted. Auto → the OS
-// preference, dark fallback (matches the index.html bootstrap exactly).
+// preference, dark fallback (matches the index.html bootstrap exactly). Red is
+// dark underneath: every dark-only rule still holds, then night-red recolours.
 function _resolveAppTheme(mode) {
   mode = mode || _appTheme();
   if (mode === 'light') return 'light';
-  if (mode === 'dark') return 'dark';
+  if (mode === 'dark' || mode === APP_THEME_RED) return 'dark';
   return _prefersLight() ? 'light' : 'dark';
 }
 function _appThemeIsDark() { return _resolveAppTheme() === 'dark'; }
 function _applyAppTheme() {
   var t = _resolveAppTheme();
   var el = document.documentElement;
+  var red = _nightRedOn();
   el.setAttribute('data-theme', t);
   // Keep the UA surface (scrollbars, form controls, Safari's tab backdrop) in
   // sync with the app theme — this is what prevents the dark compositor flash
   // on tab re-activation. Mirrors the head bootstrap.
   el.style.colorScheme = t;
+  el.classList.toggle(NIGHT_CLASS, red);
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (red && !meta) {
+    meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    document.head.appendChild(meta);
+  }
+  if (meta) { if (red) meta.content = NIGHT_THEME_COLOR; else meta.remove(); }
+  var btn = document.getElementById('night-btn');
+  if (btn) btn.setAttribute('aria-pressed', red ? 'true' : 'false');
+  _syncFrameNight(null);
 }
+// The sky's, the Field Guide's and the header's switch: Red on, or back to what
+// it replaced. The one door a switch uses, so there is one key and one apply.
+function _nightSet(on) {
+  var back = localStorage.getItem(SK.APP_THEME_BEFORE_RED);
+  _setAppTheme(on ? APP_THEME_RED : (APP_THEMES.indexOf(back) >= 0 && back !== APP_THEME_RED ? back : 'auto'));
+}
+function _nightToggle() { _nightSet(!_nightRedOn()); }
 function _setAppTheme(mode) {
   if (APP_THEMES.indexOf(mode) < 0) mode = 'auto';
+  var cur = _appTheme();
+  if (mode === APP_THEME_RED && cur !== APP_THEME_RED) localStorage.setItem(SK.APP_THEME_BEFORE_RED, cur);
   if (mode === 'auto') localStorage.removeItem(SK.APP_THEME);
   else localStorage.setItem(SK.APP_THEME, mode);
+  _appThemeChanged();
+}
+// Everything that follows a theme change, whoever made it (the selector here,
+// a switch in an app page's frame, another tab: the storage event below).
+function _appThemeChanged() {
   _applyAppTheme();
   // Repaint the segmented control's active state in place, and re-apply the
   // article appearance: on Match Zimi, this is the setting it matches.
   var seg = document.getElementById('app-theme-seg');
   if (seg) seg.innerHTML = _appThemeSegInner();
+  var hint = document.getElementById('app-theme-hint');
+  if (hint) hint.innerHTML = _appThemeHintHtml();
   try { _applyArticleDarken(_readerFrameDoc()); } catch (e) {}
   _reapplyReaderThemeIfAuto();
 }
+window.addEventListener('storage', function(e) { if (e.key === SK.APP_THEME || e.key === null) _appThemeChanged(); });
 // When the reader theme is set to Auto, it follows the app theme — so an app
 // theme change (manual or OS flip) must re-stamp an open reader. Hoisted, so it
 // can be called from the app-theme handlers above the reader definitions.
@@ -270,6 +370,7 @@ function _articleTheme() {
   return ARTICLE_THEMES.indexOf(v) < 0 ? 'match' : v;
 }
 function _articlesAreDark() {
+  if (_nightRedOn()) return true; // no white page anywhere in Red, whatever was pinned
   var m = _articleTheme();
   return m === 'match' ? _appThemeIsDark() : m === 'dark';
 }
@@ -326,11 +427,13 @@ function _setDarkenArticles(on) {
 }
 
 // ── App-theme segmented control (Display settings) ──
-// Auto / Dark / Light, matching the reader palette's control language (pills).
+// Auto / Dark / Light / Red, matching the reader palette's control language (pills).
 var _APP_THEME_ICONS = {
   auto: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>',
   dark: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
-  light: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>'
+  light: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  // An eye adjusted to the dark: Red is for night vision.
+  red: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>'
 };
 // A segmented control's buttons: one per value, the current one on. `setter`
 // is the global each button calls with its value; `keyPrefix` + value is its
@@ -365,6 +468,8 @@ function _articleThemeSegInner() {
 function _articleThemeSegHtml() {
   return _segHtml('article-theme-seg', 'article_theme', _articleThemeSegInner());
 }
+// What the choice means, in the person's words: Auto's line by default, Red's while Red is on.
+function _appThemeHintHtml() { return tH(_nightRedOn() ? 'app_theme_hint_red' : 'app_theme_hint'); }
 function _appThemeSegHtml() {
   return _segHtml('app-theme-seg', 'app_theme', _appThemeSegInner());
 }
@@ -376,7 +481,14 @@ var _ARTICLE_DARKEN_STYLE_ID = 'zimi-article-darken';
 // own background image is counter-inverted so photos/diagrams/formulas stay true.
 // A slightly-off-white root background gives the invert a clean white to flip to
 // pure near-black, so transparent pages don't leave a grey haze.
-var _ARTICLE_DARKEN_CSS = [
+// In Red a white picture would be the brightest thing on the screen: media is dimmed before it is flipped
+// back (the root's flip then turns the dimming into dimming, not into a brighter page).
+var _NIGHT_MEDIA_DIM = 'brightness(.5) ';
+// And on a page that was not flipped (it has a dark of its own, or is Reader View).
+var _NIGHT_MEDIA_CSS = 'img,video,canvas{filter:brightness(.5) !important}';
+function _articleDarkenCss(dimMedia) {
+  var flipBack = (dimMedia ? _NIGHT_MEDIA_DIM : '') + 'invert(1) hue-rotate(180deg)';
+  return [
   'html{background:#ffffff !important;filter:invert(1) hue-rotate(180deg) !important;',
     '-webkit-filter:invert(1) hue-rotate(180deg) !important}',
   // Counter-invert media + anything painting its own image so photos, diagrams,
@@ -389,8 +501,8 @@ var _ARTICLE_DARKEN_CSS = [
   // are marked by _applyArticleDarken, since a selector cannot see computed
   // style.
   'img,video,canvas,svg,image,embed,object,iframe,',
-  '[style*="background-image"],[data-zimi-bgimg]{filter:invert(1) hue-rotate(180deg) !important;',
-    '-webkit-filter:invert(1) hue-rotate(180deg) !important}',
+  '[style*="background-image"],[data-zimi-bgimg]{filter:' + flipBack + ' !important;',
+    '-webkit-filter:' + flipBack + ' !important}',
   '[style*="background-image"] img,[style*="background-image"] video,[style*="background-image"] svg,',
   '[style*="background-image"] canvas,[data-zimi-bgimg] img,[data-zimi-bgimg] video,',
   '[data-zimi-bgimg] svg,[data-zimi-bgimg] canvas,[data-zimi-bgimg] [data-zimi-bgimg],',
@@ -403,7 +515,8 @@ var _ARTICLE_DARKEN_CSS = [
   '.mwe-math-element,.mwe-math-element img,.mwe-math-element svg,',
   '.mwe-math-fallback-image-inline,.mwe-math-fallback-image-display{',
     'filter:none !important;-webkit-filter:none !important}'
-].join('');
+  ].join('');
+}
 // A page "declares its own dark scheme" (so we must NOT invert it, or we'd flip it
 // back to blinding white) when it opts into dark via <meta name="color-scheme">
 // or its body already paints a dark background.
@@ -533,16 +646,18 @@ function _applyArticleDarken(doc) {
   // turned light) would show the reader frame's white through it: white on
   // white. It gets the scheme's own page colour instead.
   if (scheme === 'dark' && paintsDark && _articleHasNoBackground(doc)) _setCanvasBackground(doc);
-  if (!_shouldSimulateDark(dark, _darkenArticlesOn(), _darkenArticlesExplicit(),
-                           _readerViewOn, loc, _articleIsWebCapture(),
-                           paintsDark)) return;
-  if (doc.head) {
+  // Red is for night vision: a page that has no dark mode is darkened whatever
+  // the setting says, a captured site included, and its pictures are dimmed.
+  var red = _nightRedOn() && loc.indexOf('/static/') !== 0 && !_docIsOurOwnPage(doc);
+  var simulate = _shouldSimulateDark(dark, _darkenArticlesOn() || red, _darkenArticlesExplicit() || red,
+                                     _readerViewOn, loc, _articleIsWebCapture(), paintsDark);
+  if (doc.head && (simulate || red)) {
     var st = doc.createElement('style');
     st.id = _ARTICLE_DARKEN_STYLE_ID;
-    st.textContent = _ARTICLE_DARKEN_CSS;
+    st.textContent = simulate ? _articleDarkenCss(red) : _NIGHT_MEDIA_CSS;
     doc.head.appendChild(st);
   }
-  _markStylesheetPictures(doc);
+  if (simulate) _markStylesheetPictures(doc);
 }
 
 // Ask the page itself for a face. Passing '' hands it back its own judgement.
@@ -899,6 +1014,7 @@ function _voicePrefs() {
   var out = { voice: typeof p.voice === 'string' ? p.voice : '',
     off: Array.isArray(p.off) ? p.off.filter(function(e) { return _VOICE_ENGINES.indexOf(e) >= 0; }) : [] };
   if (p.quiet === true) out.quiet = true; // kept only when it says something
+  if (typeof p.read === 'string' && p.read) out.read = p.read; // Read aloud's own voice; absent = Automatic
   return out;
 }
 // Speaking, Settings > Voices' first switch (Eric, 2026-10-06: "a Speaking
@@ -925,8 +1041,10 @@ _markSpeaking();
 function _setVoicePrefs(change) {
   var p = Object.assign(_voicePrefs(), change);
   if (p.voice && p.off.indexOf(p.voice) >= 0) p.voice = '';
+  if (p.read && p.off.indexOf(p.read) >= 0) p.read = '';
   if (!p.quiet) delete p.quiet;
-  if (!p.voice && !p.off.length && !p.quiet) { try { localStorage.removeItem(SK.VOICE_PREFS); } catch (e) {} }
+  if (!p.read) delete p.read;
+  if (!p.voice && !p.off.length && !p.quiet && !p.read) { try { localStorage.removeItem(SK.VOICE_PREFS); } catch (e) {} }
   else _setStorageJSON(SK.VOICE_PREFS, p);
   _voicesTellDictionary();
   _paintVoices();
@@ -1250,16 +1368,25 @@ function _clearGet(btn, tags) {
 // the server's choice per language; a voice that cannot say a language
 // gives way to it there. Picking in the Dictionary's Say menu sets it too.
 function _voiceDefaultHtml(on) {
+  return _voicePickHtml(on, 'voices_default', _voicePrefs().voice, 'voice', 'voice-default');
+}
+// Read aloud's own voice, beside it: Automatic follows the default above.
+function _voiceReadHtml(on) {
+  return _voicePickHtml(on, 'tts_speak', _voicePrefs().read || '', 'read', 'voice-read');
+}
+// One row of voice choices: Automatic and every voice here, ``cur`` marked,
+// a pick saved as prefs[field].
+function _voicePickHtml(on, labelKey, cur, field, cls) {
   if (on.length < 2) return '';
-  var cur = _voicePrefs().voice;
   if (cur && !on.some(function(x) { return x.engine === cur; })) cur = '';
   var opt = function(e, label) {
-    var sel = e === cur;
+    var sel = e === cur, change = {};
+    change[field] = e;
     return '<button type="button" class="app-theme-btn' + (sel ? ' active' : '') + '" role="radio" aria-checked="' + sel + '"' +
-      ' onclick="' + escAttr('_setVoicePrefs({ voice: ' + JSON.stringify(e) + ' })') + '"><span>' + esc(label) + '</span></button>';
+      ' onclick="' + escAttr('_setVoicePrefs(' + JSON.stringify(change) + ')') + '"><span>' + esc(label) + '</span></button>';
   };
-  return '<div class="ms-theme-label">' + tH('voices_default') + '</div>' +
-    '<div class="app-theme-seg voice-default" role="radiogroup" aria-label="' + escAttr(t('voices_default')) + '">' +
+  return '<div class="ms-theme-label">' + tH(labelKey) + '</div>' +
+    '<div class="app-theme-seg voice-default ' + cls + '" role="radiogroup" aria-label="' + escAttr(t(labelKey)) + '">' +
     opt('', t('voices_default_auto')) + on.map(function(x) { return opt(x.engine, _voiceEngineName(x.engine)); }).join('') + '</div>';
 }
 // The Speaking switch, and with it off, the voices downloaded here offered
@@ -1300,7 +1427,7 @@ function _voicePrefsHtml() {
   here.sort(function(a, b) { return _VOICE_ENGINES.indexOf(a.engine) - _VOICE_ENGINES.indexOf(b.engine); });
   var on = here.filter(function(x) { return !x.absent && off.indexOf(x.engine) < 0; });
   // One row per engine here; the last one on stays on.
-  var h = _speakingHtml() + _voiceDefaultHtml(on) + '<div class="share-rows set-rows voice-prefs">' + here.map(function(x) {
+  var h = _speakingHtml() + _voiceDefaultHtml(on) + _voiceReadHtml(on) + '<div class="share-rows set-rows voice-prefs">' + here.map(function(x) {
     return _voiceRowHtml(x, !x.absent && off.indexOf(x.engine) < 0, on.length === 1);
   }).join('') + '</div>' + _voiceGridHtml();
   if (_voicesHere && _voicesHere.can_change && _voicesHere.setting) h += _voicesModeHtml(_voicesHere.setting);
@@ -1609,10 +1736,28 @@ let _pendingMsSection = null;
 // ({zims, section_order}) back to the bare ZIM array every caller expects, and
 // stashes the section order as a side effect. Older/plain array responses still
 // work (section order simply stays empty).
+// Folders another program owns (Project NOMAD): `{label, incoming_files,
+// incoming_bytes}`, from /list. The words for an empty library and for a
+// download that is still arriving there.
+let _libFolders = [];
+function _libFoldersNoteHtml() {
+  var parts = _libFolders.filter(function(f) { return f.incoming_files > 0; }).map(function(f) {
+    return tPluralH('ext_folder_incoming', f.incoming_files, { label: f.label, size: fmtBytes(f.incoming_bytes) });
+  });
+  return parts.length ? '<div class="folder-note" role="status">' + parts.join('<br>') + '</div>' : '';
+}
+// The empty library, said for the folder it is waiting on when there is one.
+function _emptyLibraryHtml() {
+  var f = _libFolders[0];
+  var what = f ? '<p>' + tH('ext_folder_empty', { label: f.label }) + '</p><p class="hint">' + tH('ext_folder_empty_hint') + '</p>'
+    : '<p>' + tH('no_sources_found') + '</p><p class="hint">' + tH('add_zims') + '</p>';
+  return what + _libFoldersNoteHtml();
+}
 async function _fetchList() {
   const r = await serverFetch('/list?layout=1');
   const data = await r.json();
-  if (Array.isArray(data)) { _sectionOrder = []; _declaredSections = []; return data; }
+  if (Array.isArray(data)) { _sectionOrder = []; _declaredSections = []; _libFolders = []; return data; }
+  _libFolders = Array.isArray(data.folders) ? data.folders : [];
   _sectionOrder = Array.isArray(data.section_order) ? data.section_order : [];
   _declaredSections = Array.isArray(data.sections) ? data.sections : [];
   return Array.isArray(data.zims) ? data.zims : [];
@@ -1710,7 +1855,7 @@ function _loadingHtml(key) { return '<div class="loading"><span class="spinner-i
 function _appConfirm(message, okLabel) {
   return new Promise(function(resolve) {
     var overlay = document.createElement('div');
-    overlay.className = 'pw-overlay open';
+    overlay.className = 'pw-overlay open pw-confirm';
     overlay.innerHTML =
       '<div class="pw-box" role="alertdialog" aria-modal="true">' +
         '<h3>' + esc(message) + '</h3>' +
@@ -1897,6 +2042,7 @@ function _appPlaceholder() {
   if (_isWikiPage()) return t('wiki_search_placeholder');
   if (_isBooksPage()) return t('books_search_placeholder');
   if (_isDictPage()) return t('dictionary_search_placeholder');
+  if (_isFieldguidePage()) return t('fieldguide_search_placeholder');
   if (_isReddotPage()) return t('reddot_search_placeholder');
   if (_isExchangePage()) return t('exchange_search_placeholder');
   if (_isTubePage()) return t('tube_search_placeholder');
@@ -2188,7 +2334,7 @@ async function _refreshAfterAuthChange() {
   catch (e) {
     zimsCache = [];
     _libraryKnown = false;
-    _noteConn(_isOfflineError(e) ? CONN_OFFLINE : CONN_ERROR);
+    _noteConnFailure(e);
     _renderConnBanner();
   }
   if (typeof goHome === 'function') goHome();
@@ -2266,11 +2412,15 @@ var _loginRequired = false;
 function _enterLoginGate() {
   _loginRequired = true;
   document.body.classList.add('login-gate');
+  var help = document.getElementById('pw-helpnow');
+  if (help) { help.innerHTML = _gateHelpHtml(); help.hidden = !help.innerHTML; }
   openLoginModal();
 }
 function _exitLoginGate() {
   _loginRequired = false;
   document.body.classList.remove('login-gate');
+  var help = document.getElementById('pw-helpnow');
+  if (help) help.hidden = true;
 }
 
 // Token-adding fetch for *ambient* /manage/* calls (activity bar, peer
@@ -2543,7 +2693,7 @@ var _CREATE_BC_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="non
 // or an app. Stamped on the page's history entry as it is pushed, so the
 // header's arrow and the browser's Back go to the same place, and named on
 // the arrow ("Almanac", "Search"). Read from the entry being left.
-var _FROM_APPS = ['tube', 'exchange', 'reddot', 'wiki', 'books'];
+var _FROM_APPS = ['tube', 'exchange', 'reddot', 'wiki', 'books', 'fieldguide', 'dictionary'];
 function _openedFrom() {
   var s = history.state || {};
   if (s.mode === 'almanac' || s.mode === 'search') return s.mode;
@@ -2597,8 +2747,13 @@ function updateTopbar() {
   // On an app page the arrow is always there: a step back inside the app
   // (a video, a question, a post, a list), and from its home, out.
   const backTo = _backLabel();
-  const showBack = !!backTo || articleHistory.length > 0 || mode === 'search' || homeScope || (_isAppPage() && !_appTop);
+  // Offline an app's page may not be here at all (the worker answers with its own "You're offline" page, which never
+  // tells the topbar it is at the app's top or not): the arrow stays so there is always a way back to where you were.
+  const showBack = !!backTo || articleHistory.length > 0 || mode === 'search' || homeScope || (_isAppPage() && (!_appTop || _connState !== CONN_OK));
   backBtn.style.display = showBack ? 'flex' : 'none';
+  var nightBtn = document.getElementById('night-btn');
+  // The red night light where it is used in the dark: the Field Guide and the Almanac's sky.
+  if (nightBtn) nightBtn.style.display = _isFieldguidePage() || _almanacOpen ? 'flex' : 'none';
   backBtn.setAttribute('aria-label', backTo ? t('back_to', {place: backTo}) : t('go_back'));
   backBtn.title = backTo ? t('back_to', {place: backTo}) : '';
 
@@ -2629,6 +2784,12 @@ function updateTopbar() {
     bcIcon.title = t(hashApp);
     bcIcon.innerHTML = _appIcon(hashApp).replace('width="26" height="26"', 'width="20" height="20"');
     bcIcon.setAttribute('href', '/#' + hashApp);
+  } else if (_isFieldguidePage()) {
+    bcSep.style.display = 'inline';
+    bcIcon.style.display = 'inline-flex';
+    bcIcon.title = t('fieldguide');
+    bcIcon.innerHTML = _FIELDGUIDE_SVG.replace('width="26" height="26"', 'width="20" height="20"');
+    bcIcon.setAttribute('href', '/#fieldguide');
   } else if (_isReddotPage()) {
     bcSep.style.display = 'inline';
     bcIcon.style.display = 'inline-flex';
@@ -2750,7 +2911,7 @@ function updateTopbar() {
     if (!showMapSrc) _closeMapSourceDropdown();
   }
   var ttsBtn = document.getElementById('tts-btn');
-  if (ttsBtn) ttsBtn.style.display = (_readingText && _TTS_AVAILABLE && _speakingOn() && !_foldReaderExtras) ? 'flex' : 'none';
+  if (ttsBtn) ttsBtn.style.display = (_readingText && _ttsCanSpeak() && _speakingOn() && !_foldReaderExtras) ? 'flex' : 'none';
   // The dice on a map roll a place, and say so.
   var randomLabel = t(_isMapPage() ? 'random_place' : 'random_article');
   randomBtn.title = randomLabel;
@@ -2874,6 +3035,12 @@ const CONN_OK = 'online', CONN_OFFLINE = 'offline', CONN_ERROR = 'error';
 // 30s heartbeat rather than hammering a server that may be mid-restart.
 const CONN_PROBE_STEPS = [3000, 5000, 10000, 20000, 30000];
 let _connState = CONN_OK;
+// Why we are offline, so the words say what is true: 'nonet' (this device has no
+// connection), 'server' (it has one and the server does not answer) or
+// 'restarting' (a proxy in front of the server answered for it). Only
+// meaningful while _connState is not online.
+const WHY_NONET = 'nonet', WHY_SERVER = 'server', WHY_RESTARTING = 'restarting';
+let _connWhy = WHY_SERVER;
 // False once an attempt to load /list failed for ANY reason. Gates every
 // "no ZIMs" claim in the UI: we only assert an empty library when the server
 // actually told us it was empty.
@@ -2885,9 +3052,10 @@ let _connRecovering = false;
 
 // Tagged error meaning "never reached the server". Thrown by serverFetch so
 // callers can branch on cause without re-sniffing the failure.
-function _offlineError() {
+function _offlineError(why) {
   const e = new Error('zimi-offline');
   e.zimiOffline = true;
+  e.why = why;
   return e;
 }
 function _isOfflineError(e) { return !!(e && e.zimiOffline); }
@@ -2900,6 +3068,15 @@ function _isOfflineResponse(res) {
     // Older cached SW without the header: its offline page is the only 503 that
     // returns HTML from an endpoint the app only ever asks for JSON.
     return res.status === 503 && (res.headers.get('Content-Type') || '').indexOf('text/html') === 0;
+  } catch (e) { return false; }
+}
+
+// A proxy or tunnel answering for a server that is down or restarting (its own
+// 502/503/504 page, never the app's JSON): the server did not speak.
+function _isGatewayDown(res) {
+  try {
+    return (res.status === 502 || res.status === 503 || res.status === 504) &&
+      (res.headers.get('Content-Type') || '').indexOf('json') < 0;
   } catch (e) { return false; }
 }
 
@@ -2936,13 +3113,34 @@ async function serverFetch(url, opts) {
     _noteConn(CONN_OFFLINE);
     throw _offlineError();
   }
+  // A kept answer the worker gave because the server did not answer in time:
+  // good to draw from, and proof of nothing about the server.
+  if (res.headers.get('X-Zimi-Stale') === '1') {
+    _noteConn(CONN_OFFLINE);
+    return res;
+  }
+  if (_isGatewayDown(res)) {
+    _noteConn(CONN_OFFLINE, WHY_RESTARTING);
+    throw _offlineError(WHY_RESTARTING);
+  }
   if (_isLiveProof(url)) _noteConn(CONN_OK);
   return res;
 }
 
 // Record the outcome of a server exchange. Transitions drive the banner and,
 // on a fall to offline, start the reconnect probe.
-function _noteConn(state) {
+// A failed exchange, from the error it threw: never reached the server (and,
+// when it says, why), or reached it and could not use the answer.
+function _noteConnFailure(e) {
+  if (_isOfflineError(e)) _noteConn(CONN_OFFLINE, e.why); else _noteConn(CONN_ERROR);
+}
+
+function _noteConn(state, why) {
+  if (state !== CONN_OK) {
+    const was = _connWhy;
+    _connWhy = why || (navigator.onLine === false ? WHY_NONET : WHY_SERVER);
+    if (state === _connState && was !== _connWhy) { _renderConnBanner(); _renderOfflineHome(); return; }
+  }
   if (state === _connState) {
     // Still online and the library is stale-unknown from an earlier outage
     // (e.g. only /list failed): keep probing until the library is back.
@@ -2963,45 +3161,36 @@ function _noteConn(state) {
 // Calm, persistent, non-blocking. Sits between the topbar and the content (it
 // pushes rather than overlays, so cached articles and the almanac stay fully
 // readable) and offers an explicit Retry alongside the automatic probe.
-function _connBannerEl() {
-  let el = document.getElementById('conn-banner');
-  if (el) return el;
-  el = document.createElement('div');
-  el.id = 'conn-banner';
-  el.className = 'conn-banner';
-  el.setAttribute('role', 'status');
-  el.setAttribute('aria-live', 'polite');
-  document.body.appendChild(el);
-  return el;
-}
 
 function _renderConnBanner() {
-  const offline = _connState !== CONN_OK;
-  if (!offline && _libraryKnown) {
-    const existing = document.getElementById('conn-banner');
-    if (existing) existing.remove();
-    document.documentElement.style.setProperty('--conn-h', '0px');
-    return;
-  }
-  const el = _connBannerEl();
-  // Server answered but we still can't show the library: a different, honest
-  // sentence from "no network at all".
-  const msgKey = _connState === CONN_OFFLINE ? 'conn_offline_msg'
-    : (_connState === CONN_ERROR ? 'conn_error_msg' : 'conn_library_stale_msg');
-  el.innerHTML =
-    '<span class="conn-dot" aria-hidden="true"></span>' +
-    '<span class="conn-msg">' + tH(msgKey) + '</span>' +
-    '<button type="button" class="conn-retry" onclick="_connRetryClick(this)">' + tH('conn_retry') + '</button>';
-  _syncConnBannerHeight();
+  // Offline is a mode, not a fault: a small neutral pill by the logo, no Retry
+  // (the check is automatic and silent). Tapping it says what is shown and
+  // offers a manual check. It leaves, quietly, when the server is back.
+  const away = _connState !== CONN_OK || !_libraryKnown;
+  document.documentElement.classList.toggle('conn-away', _connState !== CONN_OK);
+  document.documentElement.style.setProperty('--conn-h', '0px');
+  if (_isAppPage()) updateTopbar();   // an app's back arrow depends on the connection
+  const el = document.getElementById('conn-pill');
+  if (!el) return;
+  if (!away) { el.hidden = true; return; }
+  const key = _connState === CONN_OFFLINE ? (_connWhy === WHY_NONET ? 'nonet' : 'server') : 'error';
+  el.dataset.why = key;
+  el.querySelector('.conn-pill-text').textContent = t('conn_pill_' + key);
+  // Icon-only where there is no room for words: the words ride the label.
+  el.setAttribute('aria-label', t('conn_pill_' + key));
+  el.title = t('conn_pill_' + key);
+  el.hidden = false;
+}
+function _connPillTap(e) {
+  e.preventDefault(); e.stopPropagation();
+  const el = document.getElementById('conn-pill'), r = el.getBoundingClientRect();
+  window._openMenuAt('<div class="ctx-item ctx-info">' + tH('conn_pill_' + el.dataset.why + '_hint') + '</div>' +
+    '<div class="ctx-sep"></div><div class="ctx-item" data-action="check">' + tH('conn_check') + '</div>',
+    r.left, r.bottom + 4, function() { _connProbeStep = 0; _connProbeNow(); });
 }
 
-// The banner's height is content-dependent (it wraps on narrow screens), so the
-// layout offset every under-topbar surface uses is measured, not assumed.
-function _syncConnBannerHeight() {
-  const el = document.getElementById('conn-banner');
-  const h = el ? el.offsetHeight : 0;
-  document.documentElement.style.setProperty('--conn-h', h + 'px');
-}
+// The banner's height was content-dependent; the pill takes no room.
+function _syncConnBannerHeight() { document.documentElement.style.setProperty('--conn-h', '0px'); }
 
 function _connRetryClick(btn) {
   if (btn) { btn.disabled = true; btn.textContent = t('conn_retrying'); }
@@ -3053,7 +3242,7 @@ async function _connRecover() {
     _rebuildZimsMap();
     _libraryKnown = true;
   } catch (e) {
-    _noteConn(_isOfflineError(e) ? CONN_OFFLINE : CONN_ERROR);
+    _noteConnFailure(e);
     _scheduleConnProbe();
     return;
   }
@@ -3061,7 +3250,6 @@ async function _connRecover() {
   _renderConnBanner();
   if (!hadLibrary) {
     // Only announce when something actually changed on screen.
-    _showToast(t('conn_restored'));
     if (mode === 'manage') renderInstalled();
     else if (!readerOpen && !currentSource && !readerSource) renderHome();
   }
@@ -3088,11 +3276,62 @@ function _bindConnEvents() {
 // Shared honest-empty markup for any surface that would otherwise assert "no
 // ZIMs" while _libraryKnown is false.
 function _libraryUnavailableHtml() {
+  // Cannot reach the server (not "it answered and the library would not
+  // load"): that is a mode, not a fault. Lead with what is on the phone.
+  const unreachable = _connState === CONN_OFFLINE;
+  if (unreachable) {
+    return '<div class="offline-home" id="offline-home"><div class="cat-heading">' + tH('keep_kept') + '</div>' +
+      '<div id="offline-works"></div><p class="offline-none" id="offline-none" hidden>' + tH('offline_none_hint') + '</p></div>';
+  }
   return '<div class="empty conn-empty">' +
     '<p>' + tH('library_unavailable') + '</p>' +
     '<p class="hint">' + tH('library_unavailable_hint') + '</p>' +
     '<button type="button" class="conn-retry conn-retry-inline" onclick="_connRetryClick(this)">' + tH('conn_retry') + '</button>' +
     '</div>';
+}
+
+// What this device can do with no server, from what it actually holds: the
+// Almanac when its scripts are kept, Help now when the page and the guide's
+// own copy are, and the saved pages whose text is kept. Asked of the cache, not
+// assumed, so the list is true (an app opened once with no connection has none).
+async function _offlineWorks() {
+  const kept = async function(url, bare) {
+    try { return !!(await caches.match(url, bare ? { ignoreSearch: true } : undefined)); } catch (e) { return false; }
+  };
+  const works = {
+    carried: await _keepLocalList(),
+    almanac: await kept(_ALMANAC_MODULES[_ALMANAC_MODULES.length - 1]),
+    help: _fieldguideOn() && (await kept(_FIELDGUIDE_PAGE)) && (await kept(_FIELDGUIDE_OFFLINE_URL)),
+    saved: 0
+  };
+  const items = Saved.all().filter(function(it) { return it.kind === 'article' && !it.app; });
+  const hits = await Promise.all(items.map(function(it) { return kept(_articleUrl(it.zim, it.path), true); }));
+  works.saved = hits.filter(Boolean).length;
+  return works;
+}
+
+// The panel's list, filled in once the cache has answered (only when the panel
+// is on screen).
+async function _renderOfflineHome() {
+  const box = document.getElementById('offline-works');
+  if (!box) return;
+  const w = await _offlineWorks();
+  if (!document.getElementById('offline-works')) return;
+  w.carried.forEach(function(m) { _keepMetas[m.name] = m; });
+  _keepNames = new Set(w.carried.map(function(m) { return m.name; }));
+  // The ZIMs on this phone as the library draws them: tiles, with their icons.
+  const tiles = w.carried.map(function(m) {
+    return { name: m.name, title: m.title || m.name, size_gb: (m.size || 0) / BYTES_PER_GB, has_icon: !!m.icon, description: '', entries: '' };
+  });
+  const noCount = function() { return ''; };
+  const saved = w.saved ? '<a class="stat-card keep-tile-app" href="/" onclick="return _spaNav(event, function() { toggleLibraryPanel(\'bookmarks\') })">' +
+    '<div class="card-icon"><span class="icon-letter">\u2605</span></div><div class="card-info"><div class="name"><span class="zt">' + esc(t('saved_tab')) + '</span></div>' +
+    '<div class="desc">' + esc(t('offline_works_saved_n', { n: w.saved })) + '</div></div></a>' : '';
+  _keepWarmWhenIdle(w.carried);
+  box.innerHTML = '<div class="keep-view-actions">' + _keepFilesBtnHtml() + '</div><div id="keep-import"></div>' +
+    renderCardGrid(tiles, false, false, noCount, ((w.almanac || w.help) ? _keepSurvivalTiles() : '') + saved);
+  const none = document.getElementById('offline-none');
+  if (none) none.hidden = tiles.length > 0;
 }
 
 // ── Init ──
@@ -3144,20 +3383,47 @@ async function init() {
   } catch(e) {
     zimsCache = [];
     _libraryKnown = false;
-    _noteConn(_isOfflineError(e) ? CONN_OFFLINE : CONN_ERROR);
+    _noteConnFailure(e);
     _renderConnBanner();
   }
   _rebuildZimsMap();
+  _keepProbeStorage();
+  _keepRefreshNames().then(function() { if (_keepNames.size) _keepPrimeOffline(); });
+  // A new deploy's worker takes over with an empty cache (the Almanac it
+  // carries itself): what a kept ZIM needs offline comes again.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('controllerchange', function() { if (_keepNames.size) _keepPrimeOffline(); });
+  }
+  // A kept answer marked the connection offline while the words were still
+  // loading: say it again now they are here.
+  if (_connState !== CONN_OK) _renderConnBanner();
   // Render immediately with what we have
   if (!history.state) history.replaceState({ mode: 'home' }, '', location.href);
   _applyI18nToDOM();
   // The shell is live during the load: a search or Manage opened meanwhile
   // is what is on screen now, and drawing the address's page would wipe it.
-  if (mode === 'home') route(false);
+  // Nor the Almanac, open or on its way: route() would open it a second time
+  // and rewrite its history entry, dropping a step Look had pushed on top.
+  if (mode === 'home' && !_almanacOpen && !_almanacModulesLoading) route(false);
   _desktopCheckOnboarding();
   // Register service worker
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/static/sw.js', { scope: '/' }).catch(function() {});
+    navigator.serviceWorker.register('/static/sw.js', { scope: '/' }).catch(function() { _swPrimed = true; });
+    // The first visit's answers went by before the worker was in charge: ask
+    // for the ones the next start cannot do without once it is, so that start
+    // can draw the library from the phone when the server does not answer.
+    // Only then: a start the worker already controls kept them on the way in,
+    // and asking again would cost every start three requests for nothing.
+    // _swPrimed says when that is done (tests wait for the boot to go quiet).
+    if (!navigator.serviceWorker.controller) {
+      navigator.serviceWorker.addEventListener('controllerchange', function() {
+        Promise.all(['/list?layout=1', '/whoami', '/manage/has-password'].map(function(u) {
+          return fetch(u, { credentials: 'same-origin', headers: _manageToken ? _authHeaders() : {} }).catch(function() {});
+        })).then(function() { _swPrimed = true; });
+      }, { once: true });
+    } else {
+      _swPrimed = true;
+    }
   }
   // Fetch secondary data in parallel, update UI as each arrives
   _initSecondary();
@@ -3172,6 +3438,8 @@ let _manageProbe = null;
 // tell "manage genuinely disabled" (bail) apart from "state not known yet"
 // (open on demand). See #44.
 let _manageProbed = false;
+// The first visit's kept answers are asked for once the worker is in charge (boot).
+let _swPrimed = !('serviceWorker' in navigator);
 
 async function _probeManageAuth() {
   try {
@@ -3302,6 +3570,11 @@ function route(push) {
   if (params.get('exchange') !== null) { enterHome(false); openExchange(true, params.get('exchange') || ''); return; }
   if (params.get('reddot') !== null) { enterHome(false); openReddot(true, params.get('reddot') || ''); return; }
   if (params.get('dictionary') !== null) { enterHome(false); openDictionary(true, params.get('dictionary') || ''); return; }
+  if (location.hash === '#fieldguide' || location.hash.indexOf('#fieldguide/') === 0) {
+    enterHome(false);
+    openFieldguide(true, location.hash.slice('#fieldguide/'.length));
+    return;
+  }
   if (location.hash === '#wiki') { enterHome(false); openWiki(true); return; }
   if (location.hash === '#books') { enterHome(false); openBooks(true); return; }
   if (location.hash === '#dictionary') { enterHome(false); openDictionary(true, ''); return; }
@@ -3457,10 +3730,11 @@ async function _bootDeepLinkArticle(zim, path) {
 }
 
 // `undo`: a toast for something just taken away carries its way back, and
-// stays long enough to reach it.
+// stays long enough to reach it. ``actionLabel`` names that button when it is
+// an offer rather than an undo.
 var _TOAST_UNDO_MS = 6000;
 var _toastUndoLast = null;
-function _showToast(msg, duration, undo) {
+function _showToast(msg, duration, undo, actionLabel) {
   var toast = document.createElement('div');
   toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;font-size:13px;color:var(--text2);z-index:300;box-shadow:0 4px 16px rgba(0,0,0,0.3)';
   toast.textContent = msg;
@@ -3471,7 +3745,7 @@ function _showToast(msg, duration, undo) {
     toast.className = 'toast-undo';
     var b = document.createElement('button');
     b.type = 'button';
-    b.textContent = t('undo');
+    b.textContent = actionLabel || t('undo');
     b.onclick = function() { toast.remove(); undo(); };
     toast.appendChild(b);
     duration = duration || _TOAST_UNDO_MS;
@@ -3680,7 +3954,7 @@ function _appReady(source) {
 }
 
 function _isAppPage() {
-  return _isTubePage() || _isExchangePage() || _isReddotPage() || _isWikiPage() || _isBooksPage() || _isDictPage();
+  return _isTubePage() || _isExchangePage() || _isReddotPage() || _isWikiPage() || _isBooksPage() || _isDictPage() || _isFieldguidePage();
 }
 // The reader is on the PDF viewer: nothing to read aloud, no type size.
 function _isPdfPage() {
@@ -3691,7 +3965,8 @@ function _isPdfPage() {
 // The app's home, in place of the item a shared link landed on.
 function _appEntryHome() {
   var app = _tubeOpen ? ['tube', 'play', _tubeUrl('')] : _exchangeOpen ? ['exchange', 'q', _exchangeUrl('')]
-    : _wikiOpen ? ['wiki', 'q', '/#wiki'] : _booksOpen ? ['books', 'q', '/#books'] : _dictOpen ? ['dictionary', 'w', _dictUrl('')] : ['reddot', 'p', _reddotUrl('')];
+    : _wikiOpen ? ['wiki', 'q', '/#wiki'] : _booksOpen ? ['books', 'q', '/#books'] : _dictOpen ? ['dictionary', 'w', _dictUrl('')]
+    : _fieldguideOpen ? ['fieldguide', 'fg', _fieldguideUrl('')] : ['reddot', 'p', _reddotUrl('')];
   var st = { mode: 'reader' }; st[app[0]] = true; st[app[1]] = '';
   _appHome(st, app[2], app[1]);
   // "home", not a route to nothing: a route only closes the thing on
@@ -3714,7 +3989,7 @@ function goBack() {
     // Opened from somewhere else (a search), it goes back there.
     var st = history.state;
     if (st && st.from && !st.entry) { history.back(); return; }
-    if (st && (st.play || st.q || st.p)) { if (st.entry) _appEntryHome(); else history.back(); return; }
+    if (st && (st.play || st.q || st.p || st.fg)) { if (st.entry) _appEntryHome(); else history.back(); return; }
     var f = document.getElementById('reader-frame');
     if (f && f.contentWindow) { try { f.contentWindow.postMessage({ zimi: 'back-request' }, location.origin); return; } catch (e) {} }
     closeReader();
@@ -3871,6 +4146,7 @@ window.addEventListener('blur', function() {
 });
 
 function enterHome(push) {
+  _searchCardClear();
   mode = 'home';
   currentSource = null;
   readerSource = null;
@@ -3906,6 +4182,7 @@ function _resolveScopeZims(type, label) {
     return coll ? (coll.zims || []) : [];
   }
   if (type === 'apps') return _appsZimNames();
+  if (type === 'phone') return Array.from(_keepNames);
   return [];
 }
 
@@ -3934,7 +4211,13 @@ function enterScope(type, label, zimNames, push) {
 
 async function enterSource(name, push) {
   const info = _zimInfo(name);
-  if (!info) { enterHome(push); return; }
+  if (!info) {
+    // The library is not known (no server, nothing kept of its list) but the
+    // ZIM is on the phone: open it at its front page from there.
+    const km = _keepMeta(name);
+    if (km && km.complete && km.main) { openArticle(name, km.main, km.mainTitle || km.title || name); return; }
+    enterHome(push); return;
+  }
   _markZimOpened(name);  // opening a source clears its New/Updated badge (#34)
   // Modifier-click: open in new browser tab
   if (_isModClick()) {
@@ -4399,6 +4682,7 @@ document.addEventListener('keydown', function(e) {
   }
 });
 function renderHome(filter) {
+  _searchCardClear();
   // We could not ask the server. Say so — never "No knowledge sources found",
   // which reads as "your library was wiped". Discover is skipped too: its cards
   // are drawn from the (unknown) installed set.
@@ -4406,19 +4690,20 @@ function renderHome(filter) {
     statsBar.innerHTML = ''; statsBar.style.display = 'none';
     pillsBar.innerHTML = ''; pillsBar.style.display = 'none'; pillsBar.className = 'pills';
     output.innerHTML = _libraryUnavailableHtml();
+    _renderOfflineHome();
     return;
   }
   if (!zimsCache || zimsCache.length === 0) {
     statsBar.innerHTML = ''; statsBar.style.display = 'none';
     pillsBar.innerHTML = ''; pillsBar.style.display = 'none'; pillsBar.className = 'pills';
     output.innerHTML = '<div id="discover-row"></div>'
-      + '<div class="empty"><p>' + tH('no_sources_found') + '</p><p class="hint">' + tH('add_zims') + '</p>'
+      + '<div class="empty">' + _emptyLibraryHtml()
       + (manageEnabled ? '<a href="/?manage" onclick="event.preventDefault();enterManage().then(function(ok){if(ok)switchManageTab(\'browse\')})" style="display:inline-block;margin-top:16px;color:var(--amber);font-weight:500;font-size:14px;text-decoration:none;border-bottom:1px solid var(--amber-border)">' + tH('catalog_link') + '</a>' : '')
       + '</div>'
       // The apps on a fresh install too, each tile saying what it needs and
       // opening its catalog category (docs/features/apps.md). The empty
       // library returned before the row was ever built.
-      + _appsRowHtml();
+      + _appsRowHtml(true);
     _loadDiscover();
     return;
   }
@@ -4429,8 +4714,10 @@ function renderHome(filter) {
     // The Apps page holds what is inside the apps now, so a ZIM that lands
     // while it is open joins its app there.
     if (homeScope.type === 'apps') homeScope.zimNames = _appsZimNames();
+    if (homeScope.type === 'phone') homeScope.zimNames = Array.from(_keepNames);
     const scopeSet = new Set(homeScope.zimNames);
     baseZims = zimsCache.filter(z => scopeSet.has(z.name));
+    if (homeScope.type === 'phone') baseZims = baseZims.concat(_keepSyntheticZims());
   }
 
   // Filter ZIMs by title/name/description when filter text provided
@@ -4568,6 +4855,9 @@ function renderHome(filter) {
   }
 
   let h = '';
+  if (!homeScope && !filter) h += _libFoldersNoteHtml();
+  // Help now sits first in the Apps row; where that row is not drawn (a filter is narrowing home) it stands alone.
+  if (!homeScope && !filter && (homeRecentFilter || homeLangFilter.size)) h += _helpNowHtml();
 
   // Scope header with back link — Favorites, a category or a collection all
   // drill in here, so keep a way back to "All sources".
@@ -4577,6 +4867,7 @@ function renderHome(filter) {
       '<span style="color:var(--border)">/</span>' +
       '<span style="font-size:13px;font-weight:600;color:var(--amber)">' + esc(homeScope.label) + '</span>' +
     '</div>';
+    if (homeScope.type === 'phone') h += _keepViewHeadHtml();
   }
 
   // The compact/full layout toggle is injected onto the first section header
@@ -4597,6 +4888,11 @@ function renderHome(filter) {
   var _showDiscover = !homeScope && !filter && !homeRecentFilter && !homeLangFilter.size && !discoverHidden;
   if (_showDiscover) {
     h += '<div id="discover-row"></div>';
+  }
+  // Offline, what is on this phone is what the page is, and comes right after Discover, which is always first.
+  if (!homeScope && !filter && _keepNames.size && _connState !== CONN_OK) {
+    const keptNow = sorted.filter(z => _keepNames.has(z.name)).concat(_keepSyntheticZims());
+    if (keptNow.length) h += _keepSectionHtml(keptNow, _keepSurvivalTiles(false));
   }
 
   // Language welcome card (non-English UI, no matching ZIMs installed)
@@ -4632,7 +4928,7 @@ function renderHome(filter) {
   // Zimi Maps, first, as a source sits: one tile whenever a map is installed.
   // Eric: "a Maps tile that sits with the sources grid like a source does."
   if (!homeScope && !filter && !homeRecentFilter && !homeLangFilter.size) {
-    h += _appsRowHtml();
+    h += _appsRowHtml(true);
   }
 
   // Favorites section at top (only on unscoped home)
@@ -4673,6 +4969,8 @@ function renderHome(filter) {
     h += '<div class="empty"><p>' + tH('no_sources_matching', {query: filter}) + '</p></div>';
   } else if (homeScope && homeScope.type === 'apps') {
     h += _appsPageHtml(_homeShown);
+  } else if (homeScope && homeScope.type === 'phone') {
+    h += renderCardGrid(_sortLibrary(zims.filter(z => _keepNames.has(z.name))), true, true, null, _keepSurvivalTiles());
   } else if (homeScope) {
     // Scoped view: plain category headings, no reordering or collections.
     cats.forEach(cat => {
@@ -4717,7 +5015,15 @@ function renderHome(filter) {
         '<div class="cat-heading cat-heading-other">' + tH('cat_other') + '</div>' +
         renderCardGrid(_otherItems, true) });
     }
-    h += _orderSections(_sections).map(function(s) { return s.html; }).join('');
+    var _ordered = _orderSections(_sections);
+    // On this phone: the ZIMs kept offline, its heading the way into the view with the storage bar and Manage. Online it
+    // opens the categories: directly below the collections, before the big library flow.
+    if (!filter && _keepNames.size && _connState === CONN_OK) {
+      const keptZims = sorted.filter(z => _keepNames.has(z.name)).concat(_keepSyntheticZims());
+      var _keptAt = _ordered.findIndex(function(sec) { return sec.key.indexOf('col:') !== 0; });
+      if (keptZims.length) _ordered.splice(_keptAt < 0 ? _ordered.length : _keptAt, 0, { key: 'keep', html: _keepSectionHtml(keptZims) });
+    }
+    h += _ordered.map(function(sec) { return sec.html; }).join('');
   }
 
   // Counts at the bottom whenever the top bar is suppressed: a stable anchor
@@ -4745,6 +5051,7 @@ function renderHome(filter) {
     }
   }
   output.innerHTML = h;
+  if (homeScope && homeScope.type === 'phone') _keepFillStorageBar();
   _placeViewToggle();
   // The library is on screen; only now go find out what made each of these
   // ZIMs. Deliberately after the paint — reading provenance opens archives, and
@@ -5613,6 +5920,643 @@ function _ziUnlockPage() {
   window.scrollTo({ top: _ziScrollY, behavior: 'instant' });
 }
 
+// ── Keep on this phone ──
+//
+// A ZIM carried in the browser's private storage reads and searches with no
+// server (keepstore.js stores it, the service worker reads it). One control per
+// ZIM, in its About panel: Keep on this phone, then what it needs and what the
+// phone has, then progress with Pause, then Remove. The storage code loads the
+// first time the panel is opened.
+var _KEEP_JS = '/static/keepstore.js?v=1';
+var _KEEP_WORKER = '/static/keepworker.js?v=1';
+// What the download worker imports: named here so the install keeps them (the
+// worker itself builds its import addresses at run time, where no scan sees them).
+var _KEEP_DEPS = ['/static/fzstd.js?v=1', '/static/zimreader.js?v=1'];
+var _keepLoading = null;
+var _keepSubscribed = false;
+var _keepManaging = false;     // the On this phone view's Manage mode: a remove button on each tile
+
+// The glyph language of keeping offline, one set for the tile, the menu, About
+// and the view: a download arrow; the same arrow in a ring that fills as it
+// comes; a filled disc with a tick once it is here.
+var _KEEP_ARROW = '<path d="M12 6.5v8M8.5 11.5l3.5 3.5 3.5-3.5M7 18h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+var _KEEP_GLYPH = '<svg class="keep-glyph" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' + _KEEP_ARROW + '</svg>';
+function _keepRingSvg(pct) {
+  // A sliver always shows (KEEP_RING_MIN_PCT): at 70 GB one percent is 700 MB, and an empty ring reads as stuck.
+  var shown = Math.max(pct, KEEP_RING_MIN_PCT);
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="kr-track" cx="12" cy="12" r="9.5"/>' +
+    '<circle class="kr-arc" cx="12" cy="12" r="9.5" pathLength="100" stroke-dasharray="' + shown + ' 100" transform="rotate(-90 12 12)"/>' +
+    '<g class="kr-glyph">' + _KEEP_ARROW.replace('M7 18h10', 'M8.5 17.5h7').replace('M12 6.5v8', 'M12 7.5v6.5') + '</g></svg>';
+}
+// The ring when it failed: the same ring, a bang where the arrow was.
+function _keepFailedSvg(pct) {
+  return _keepRingSvg(pct).replace(/<g class="kr-glyph">.*<\/g>/, '<g class="kr-glyph"><path d="M12 7v6.5M12 17v.01" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></g>');
+}
+var KEEP_RING_MIN_PCT = 4;
+var KEEP_STALL_MS = 8000;       // no bytes for this long: the ring stops saying it is moving
+var KEEP_TICK_MS = 1000;        // while a pull runs, the ring and the menu's progress are redrawn this often
+var _KEEP_DISC = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="currentColor"/>' +
+  '<path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="var(--on-amber)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+// ZIMs on this phone: every one the service worker knows (kept or part-way),
+// by name. Cards, the menu and the view draw from these; the worker answers
+// with no network, so they are the same offline.
+var _keepNames = new Set();    // kept, whole
+var _keepMetas = {};           // every meta, kept or part-way
+async function _keepRefreshNames() {
+  var all = await _keepLocalList(true);
+  var kept = all.filter(function(m) { return m.complete; });
+  var names = new Set(kept.map(function(m) { return m.name; }));
+  var same = names.size === _keepNames.size && kept.every(function(m) { return _keepNames.has(m.name); });
+  _keepNames = names;
+  _keepMetas = {};
+  all.forEach(function(m) { _keepMetas[m.name] = m; });
+  if (!same && mode === 'home' && !readerOpen && !currentSource && !readerSource && !_almanacOpen) renderHome();
+  else _keepIconSync();
+}
+function _keepMeta(name) { return _keepMetas[name] || null; }
+
+// Keeping needs a secure page (the private file system and service workers
+// exist only there) and storage the browser will really write: Safari's
+// Private Browsing and a site-data block have getDirectory and throw on use.
+// One write at start-up decides (_keepProbeStorage); until it answers, the
+// offer stands, and a refusal takes it back off every tile and menu.
+var _keepStorageOk = null;
+function _keepAvailable() {
+  return !!(window.isSecureContext && navigator.storage && navigator.storage.getDirectory && window.Worker) && _keepStorageOk !== false;
+}
+// Why Keep is not offered here, in the reader's words.
+function _keepWhyNot() { return t(window.isSecureContext ? 'keep_unsupported' : 'keep_needs_https'); }
+async function _keepProbeStorage() {
+  if (_keepStorageOk !== null || !window.isSecureContext || !(navigator.storage && navigator.storage.getDirectory)) return;
+  try {
+    var d = await navigator.storage.getDirectory();
+    await d.getFileHandle('.zimi-probe', { create: true });
+    await d.removeEntry('.zimi-probe');
+    _keepStorageOk = true;
+  } catch (e) {
+    _keepStorageOk = false;
+    _keepIconSync();
+  }
+}
+function _keepLoad() {
+  if (typeof KeepStore !== 'undefined' && KeepStore.workerUrl === _KEEP_WORKER) return Promise.resolve();
+  if (_keepLoading) return _keepLoading;
+  _keepLoading = new Promise(function(resolve, reject) {
+    var el = document.createElement('script');
+    el.src = _KEEP_JS;
+    el.onload = function() {
+      KeepStore.workerUrl = _KEEP_WORKER;
+      if (!_keepSubscribed) {
+        _keepSubscribed = true;
+        var wasPulling = false;
+        KeepStore.subscribe(function(st) {
+          // A pull that ends in an error says why at once, wherever it was started (a tile's ring alone turns grey).
+          if (wasPulling && st.phase === 'idle' && st.error) _keepNotice(t('keep_err_' + st.error));
+          if (!wasPulling && st.phase === 'pulling') _keepPrimeOffline();
+          wasPulling = st.phase === 'pulling';
+          _keepRenderOpen();
+          _keepImportRender();
+          _keepIconSync();
+          if (st.importing && st.done) _keepRefreshNames().then(function() { _keepPrimeOffline(); if (homeScope && homeScope.type === 'phone') renderHome(); _keepImportRender(); });
+          if (st.phase === 'idle' && !st.error && st.size && st.written === st.size) _keepRefreshNames();
+          else if (st.phase === 'idle') _keepRefreshNames();
+        });
+      }
+      resolve();
+    };
+    el.onerror = function() { _keepLoading = null; reject(new Error('keepstore')); };
+    document.head.appendChild(el);
+  });
+  return _keepLoading;
+}
+
+// What a kept ZIM needs that is not in it, fetched through the service worker
+// so the phone has it when the signal is not: the full-text engine (2.3 MB)
+// and the PDF viewer (3.7 MB) for a document library's PDFs. A deploy empties
+// the worker's cache, so this runs when a ZIM starts coming (done long before
+// the ZIM is) and on every start that has one; only what is missing is fetched.
+// The Almanac and its 3D Earth (~1 MB) are kept by the worker, which knows
+// their addresses (sw.js ALMANAC_URLS): when a ZIM is kept here, and when the
+// Almanac is opened, someone may well want it with no signal next time.
+function _keepAlmanac() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.ready.then(function(reg) {
+    if (reg.active) reg.active.postMessage({ type: 'keep-almanac' });
+  }).catch(function() {});
+}
+var _KEEP_OFFLINE_FILES = ['/static/libzim/libzim-wasm.js', '/static/libzim/libzim-wasm.wasm',
+  '/static/pdfjs/web/viewer.html', '/static/pdfjs/web/viewer.mjs', '/static/pdfjs/web/viewer.css',
+  '/static/pdfjs/build/pdf.mjs', '/static/pdfjs/build/pdf.worker.mjs', '/static/pdfjs/web/locale/locale.json',
+  '/static/pdfjs/web/images/loading-icon.gif'];
+function _keepPrimeOffline() {
+  _keepAlmanac();
+  var files = _KEEP_OFFLINE_FILES.concat(['/static/pdfjs/web/locale/' + (_pdfLocale() || 'en-US') + '/viewer.ftl']);
+  files.forEach(function(u) {
+    var have = window.caches ? caches.match(u, { ignoreSearch: true }).catch(function() { return null; }) : Promise.resolve(null);
+    have.then(function(hit) { if (!hit) fetch(u).catch(function() {}); });
+  });
+}
+
+// An installed home-screen app keeps its files; a tab in Safari is cleared
+// after a week unused.
+function _keepIsInstalled() {
+  return !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
+}
+
+// What a ZIM is to the phone right now: null (nothing), {kind:'kept'},
+// {kind:'pull', pct} while it comes, {kind:'failed', pct, error} when it stopped
+// for a reason, {kind:'paused', pct} part-way. pct has a tenth of a percent.
+function _keepPct(written, size) { return size ? Math.min(100, Math.round(written * 1000 / size) / 10) : 0; }
+// What the download worker is doing; before the keep scripts load (a reload with a
+// part-kept ZIM on screen) nothing is running, and that is the answer.
+var _KEEP_IDLE = { name: '', phase: 'idle', written: 0, size: 0, error: '' };
+function _keepLive() { return typeof KeepStore !== 'undefined' ? KeepStore.state() : _KEEP_IDLE; }
+function _keepState(zim) {
+  var st = _keepLive();
+  if (st && st.name === zim && st.phase === 'pulling') return { kind: 'pull', pct: _keepPct(st.written, st.size) };
+  var m = _keepMetas[zim];
+  if (m && m.complete) return { kind: 'kept' };
+  if (st && st.name === zim && st.phase === 'idle' && st.error) return { kind: 'failed', pct: _keepPct(st.written, st.size || (m && m.size)), error: st.error };
+  if (m) return { kind: 'paused', pct: _keepPct(m.written || 0, m.size) };
+  return null;
+}
+
+// The card's mark in its foot says what the phone holds of it: a ring
+// while it comes (paused or failed, still the ring), the disc once it is here.
+// Nothing is drawn for a ZIM the phone does not hold. It is a mark, not a button:
+// everything that can be done is in the card's menu (⋯ or a long press).
+var _keepStarting = new Set();  // chosen, not yet pulling: the ring shows at once
+function _keepTileState(zim) {
+  if (_keepStarting.has(zim)) return { kind: 'pull', pct: 0 };
+  return _keepState(zim);
+}
+// How many bytes a ZIM is: the library's own count (a stat of the file), the meta of a part-way copy otherwise.
+function _keepZimBytes(zim) {
+  var info = _zimInfo(zim), m = _keepMetas[zim];
+  return (info && info.size_bytes) || (m && m.size) || ((info && info.size_gb) || 0) * BYTES_PER_GB;
+}
+var _KEEP_TILE_LABEL = { kept: 'keep_kept', pull: 'keep_pulling', paused: 'keep_paused', failed: 'keep_pulling' };
+function _keepMarkSvg(zim, s) {
+  if (s.kind === 'kept') return _KEEP_DISC;
+  if (s.kind === 'failed') return _keepFailedSvg(s.pct);
+  return _keepRingSvg(s.pct);
+}
+// A ring that has had no bytes for a while (or is asking again after a break) stops saying it is moving.
+function _keepIsStalled(zim, s) {
+  var st = _keepLive();
+  return s.kind === 'pull' && st.name === zim && st.phase === 'pulling' && (st.retrying || Date.now() - st.at > KEEP_STALL_MS);
+}
+function _keepIconHtml(zim) {
+  var s = _keepAvailable() && _keepTileState(zim);
+  if (!s) return '';
+  var label = t(_KEEP_TILE_LABEL[s.kind]);
+  var stalled = typeof KeepStore !== 'undefined' && _keepIsStalled(zim, s);
+  return '<span class="keep-ico ' + s.kind + (stalled ? ' stalled' : '') + '" data-k="' + s.kind + '" role="img" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '">' + _keepMarkSvg(zim, s) + '</span>';
+}
+// Bring every card on screen in step with what the phone holds, in place.
+function _keepIconSync() {
+  document.querySelectorAll('.stat-card[data-zim]').forEach(function(card) {
+    var zim = card.getAttribute('data-zim'), s = _keepAvailable() && _keepTileState(zim), cur = card.querySelector('.keep-ico');
+    card.classList.toggle('kept', !!(s && s.kind === 'kept'));
+    if (!s) { if (cur) cur.remove(); return; }
+    if (cur && cur.dataset.k === s.kind) {
+      var arc = cur.querySelector('.kr-arc');
+      if (arc) arc.setAttribute('stroke-dasharray', Math.max(s.pct, KEEP_RING_MIN_PCT) + ' 100');
+      cur.classList.toggle('stalled', _keepIsStalled(zim, s));
+      return;
+    }
+    if (cur) cur.remove();
+    var marks = card.querySelector('.card-marks');
+    if (marks) marks.insertAdjacentHTML('beforeend', _keepIconHtml(zim));
+  });
+  _keepTickWhilePulling();
+}
+// A pull on a big ZIM moves a few bytes in a tick: the ring and the menu's
+// progress line are redrawn each second so it is plain that it is alive.
+var _keepTicker = null;
+function _keepTickWhilePulling() {
+  var pulling = _keepLive().phase === 'pulling';
+  if (pulling && !_keepTicker) _keepTicker = setInterval(function() { _keepIconSync(); _keepMenuNoteSync(); }, KEEP_TICK_MS);
+  else if (!pulling && _keepTicker) { clearInterval(_keepTicker); _keepTicker = null; }
+}
+
+// The same line drawing for each thing that can be done.
+function _keepGlyphFor(action) {
+  var d = { 'keep-pause': 'M9 7v10M15 7v10', 'keep-cancel': 'M7.5 7.5l9 9M16.5 7.5l-9 9', 'keep-remove': 'M7.5 7.5l9 9M16.5 7.5l-9 9' }[action];
+  if (!d) return _KEEP_GLYPH;
+  return '<svg class="keep-glyph" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="' + d + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+}
+
+// Where a copy on this phone stands, in one line: how far, how fast, or why it stopped.
+function _keepNoteText(zim) {
+  var s = _keepState(zim);
+  if (!s || s.kind === 'kept') return '';
+  if (s.kind === 'failed') return t('keep_err_' + s.error);
+  var st = _keepLive(), m = _keepMetas[zim] || {}, live = st.name === zim;
+  var size = (live && st.size) || m.size || _keepZimBytes(zim);
+  var written = live ? st.written : (m.written || 0);
+  var pct = (s.pct >= 10 ? Math.floor(s.pct) : s.pct) + '%';
+  var line = [pct, _fmtBytes(written) + ' / ' + _fmtBytes(size)];
+  if (s.kind === 'pull' && live && st.speed) line.push(_fmtBytes(st.speed) + '/s');
+  if (s.kind === 'paused') line.unshift(t('keep_paused'));
+  return line.join(' \u00B7 ');
+}
+function _keepMenuNoteSync() {
+  var el = document.querySelector('#zim-ctx-menu .ctx-keep-note');
+  if (el) el.textContent = _keepNoteText(el.getAttribute('data-zim'));
+}
+// The card menu's keep group: where it stands, then the few things that can be done.
+function _keepMenuHtml(zim) {
+  var s = _keepState(zim);
+  var item = function(action, label) { return '<div class="ctx-item ctx-keep" data-action="' + action + '"><span>' + tH(label) + '</span>' + _keepGlyphFor(action) + '</div>'; };
+  if (!s) return item('keep-start', 'keep_btn');
+  if (s.kind === 'kept') return item('keep-remove', 'keep_remove');
+  var note = '<div class="ctx-item ctx-info ctx-keep-note" data-zim="' + escAttr(zim) + '">' + esc(_keepNoteText(zim)) + '</div>';
+  if (s.kind === 'pull') return note + item('keep-pause', 'keep_pause') + item('keep-cancel', 'keep_cancel_pull');
+  return note + item('keep-resume', s.kind === 'failed' ? 'retry' : 'keep_resume') + item('keep-cancel', 'keep_cancel_pull');
+}
+function _keepDo(action, zim) {
+  if (action === 'keep-start') _keepBegin(zim);
+  else if (action === 'keep-resume') _keepStart(zim, true);
+  else if (action === 'keep-pause') _keepPause();
+  else if (action === 'keep-remove') _keepAskRemove(zim);
+  else if (action === 'keep-cancel') _keepRemove(zim);
+}
+// The mark is the ring from the choice on, before the probe and the room check have answered; a refusal puts it back.
+async function _keepBegin(zim) {
+  _keepStarting.add(zim);
+  _keepIconSync();
+  try { await _keepStart(zim); }
+  finally { _keepStarting.delete(zim); _keepIconSync(); }
+}
+
+// ── The About panel's block ──
+// Quiet: the ZIM's own size beside the one button, a bar once it is coming,
+// and a line only when something is wrong. No sentence carries a number.
+function _keepBoxHtml(zim, size) {
+  return '<div class="zi-keep" id="zi-keep" data-zim="' + escAttr(zim) + '" data-size="' + (size || 0) + '"></div>';
+}
+function _keepRenderOpen() {
+  var box = document.getElementById('zi-keep');
+  if (!box) return;
+  var st = KeepStore.state(), bar = box.querySelector('.keep-bar');
+  if (bar && st.phase === 'pulling' && st.name === box.getAttribute('data-zim')) {
+    var pct = st.size ? Math.min(100, Math.floor(st.written * 100 / st.size)) : 0;
+    bar.firstChild.style.width = pct + '%';
+    bar.setAttribute('aria-valuenow', pct);
+    box.querySelector('.keep-line span').textContent = _fmtBytes(st.written) + ' / ' + _fmtBytes(st.size);
+    return;
+  }
+  _keepRender(box.getAttribute('data-zim'));
+}
+
+async function _keepRender(zim) {
+  var box = document.getElementById('zi-keep');
+  if (!box || box.getAttribute('data-zim') !== zim) return;
+  if (!_keepAvailable()) { box.innerHTML = '<div class="keep-note">' + esc(_keepWhyNot()) + '</div>'; return; }
+  try { await _keepLoad(); } catch (e) { box.innerHTML = '<div class="keep-note">' + tH('keep_err_worker') + '</div>'; return; }
+  await _keepRefreshMetasOnly();
+  var s = _keepState(zim), meta = _keepMetas[zim] || null, st = KeepStore.state();
+  var mine = st.name === zim, busyElsewhere = st.phase === 'pulling' && !mine;
+  var size = +box.getAttribute('data-size') || (meta && meta.size) || 0;
+  var room = await KeepStore.room();
+  var persisted = false;
+  try { persisted = !!(navigator.storage.persisted && await navigator.storage.persisted()); } catch (e) {}
+  box = document.getElementById('zi-keep');
+  if (!box || box.getAttribute('data-zim') !== zim) return;
+  var z = esc(zim).replace(/'/g, '&#39;');
+  var btn = function(label, fn, cls, disabled) {
+    var act = label === 'keep_remove' ? 'keep-remove' : (label === 'keep_pause' ? 'keep-pause' : (label === 'keep_cancel_pull' ? 'keep-cancel' : 'keep-start'));
+    return '<button type="button" class="conn-retry keep-btn' + (cls ? ' ' + cls : '') + '"' + (disabled ? ' disabled' : '') + ' onclick="' + fn + '">' + _keepGlyphFor(act) + tH(label) + '</button>';
+  };
+  var err = (mine && st.error) ? '<div class="keep-note keep-err">' + tH('keep_err_' + st.error) + '</div>' : '';
+  var html;
+  if (s && s.kind === 'kept') {
+    html = '<div class="keep-line"><b>' + _keepMark('kept') + tH('keep_kept') + '</b><span>' + esc(_fmtBytes(meta.size)) + '</span></div>' +
+      (meta.who ? '<div class="keep-note">' + tH('keep_signout_note') + '</div>' : '') +
+      (meta.source === 'files' ? '<div class="keep-note">' + tH('keep_from_files_note') + '</div>' : '') +
+      (persisted ? '' : '<div class="keep-note">' + tH('keep_persist_no') + '</div>') +
+      '<div class="keep-actions">' + btn('keep_remove', "_keepAskRemove('" + z + "')", 'keep-quiet') + '</div>';
+  } else if (s && s.kind === 'pull') {
+    html = '<div class="keep-line"><b>' + tH('keep_pulling') + '</b><span>' + esc(_fmtBytes(st.written) + ' / ' + _fmtBytes(st.size)) + '</span></div>' +
+      '<div class="keep-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + s.pct + '"><i style="width:' + s.pct + '%"></i></div>' +
+      '<div class="keep-note">' + tH('keep_stay_open') + '</div>' +
+      '<div class="keep-actions">' + btn('keep_pause', '_keepPause()', 'keep-quiet') + '</div>';
+  } else if (s) {
+    html = '<div class="keep-line"><b>' + tH('keep_paused') + '</b><span>' + esc(_fmtBytes(meta.written || 0) + ' / ' + _fmtBytes(meta.size || 0)) + '</span></div>' + err +
+      '<div class="keep-actions">' + btn('keep_resume', "_keepStart('" + z + "')") + btn('keep_cancel_pull', "_keepRemove('" + z + "')", 'keep-quiet') + '</div>';
+    err = '';
+  } else {
+    var fits = !size || size <= room.free || KeepStore.estimateIsFuzzy();
+    html = '<div class="keep-actions keep-row">' + btn('keep_btn', "_keepStart('" + z + "')", '', !fits || busyElsewhere) +
+      (size ? '<span class="keep-size">' + esc(_fmtBytes(size)) + '</span>' : '') + '</div>' +
+      (fits ? '' : '<div class="keep-note keep-err">' + tH('keep_no_room') + '</div>') +
+      (busyElsewhere ? '<div class="keep-note">' + tH('keep_one_at_a_time') + '</div>' : '') +
+      (_keepIsInstalled() ? '' : '<div class="keep-note">' + tH('keep_install_note') + '</div>');
+  }
+  box.innerHTML = '<div class="keep-head">' + tH('keep_title') + '</div>' + html + err;
+}
+function _keepMark(kind) { return '<span class="keep-mark ' + kind + '">' + (kind === 'kept' ? _KEEP_DISC : '') + '</span>'; }
+// The About block needs the metas fresh from the worker (a partial pull is a
+// state of its own); the tiles' copy is refreshed with them.
+async function _keepRefreshMetasOnly() {
+  var all = await _keepLocalList(true);
+  _keepMetas = {};
+  all.forEach(function(m) { _keepMetas[m.name] = m; });
+  _keepNames = new Set(all.filter(function(m) { return m.complete; }).map(function(m) { return m.name; }));
+}
+
+// One tap: "Keep offline" starts at once. The only questions are the two that
+// change the answer, asked in a line with no numbers: it will not fit, or it is
+// a big share of the room that is left.
+var KEEP_BIG_SHARE = 0.25;
+// A sheet over the page (a toast under the bottom bar is not seen on a phone):
+// what it needs and what Zimi may use, as labels; a rough-figure note on Safari
+// with Try anyway; and a smaller version of the same title when the library
+// has one that fits. Resolves 'try', 'cancel' or 'other:<zim>'.
+function _keepSmaller(zim, size, free) {
+  var info = _zimInfo(zim), family = String(zim).split('_').slice(0, 2).join('_');
+  return (zimsCache || []).filter(function(z) {
+    var b = (z.size_gb || 0) * BYTES_PER_GB;
+    return z.name !== zim && String(z.name).split('_').slice(0, 2).join('_') === family && b > 0 && b < size && b <= free && !_keepNames.has(z.name);
+  }).sort(function(a, b) { return (b.size_gb || 0) - (a.size_gb || 0); }).slice(0, 3);
+}
+function _keepTooBig(zim, size, room, fuzzy) {
+  return new Promise(function(resolve) {
+    var smaller = _keepSmaller(zim, size, room.free);
+    var overlay = document.createElement('div');
+    overlay.className = 'pw-overlay open pw-confirm';
+    overlay.innerHTML = '<div class="pw-box keep-sheet" role="alertdialog" aria-modal="true">' +
+      '<h3>' + tH('keep_toobig_title') + '</h3>' +
+      '<div class="keep-sheet-rows"><div><b>' + tH('keep_toobig_needs', { size: _fmtBytes(size) }) + '</b></div>' +
+      '<div>' + tH('keep_toobig_have', { size: _fmtBytes(room.free) }) + '</div></div>' +
+      (fuzzy ? '<p class="keep-sheet-note">' + tH('keep_toobig_guess') + '</p>' : '') +
+      (smaller.length ? '<div class="keep-sheet-alt"><span>' + tH('keep_smaller') + '</span>' + smaller.map(function(z) {
+        return '<button type="button" class="keep-sheet-pick" data-act="other:' + escAttr(z.name) + '">' + esc(z.title || z.name) + ' <i>' + esc(_fmtBytes((z.size_gb || 0) * BYTES_PER_GB)) + '</i></button>';
+      }).join('') + '</div>' : '') +
+      '<div class="pw-actions"><button type="button" data-act="cancel">' + tH(fuzzy ? 'cancel' : 'ok') + '</button>' +
+      (fuzzy ? '<button type="button" class="pw-primary" data-act="try">' + tH('keep_try_anyway') + '</button>' : '') + '</div></div>';
+    function done(act) { overlay.remove(); document.removeEventListener('keydown', onKey, true); resolve(act); }
+    function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); done('cancel'); } }
+    overlay.addEventListener('click', function(e) {
+      var b = e.target.closest('[data-act]');
+      if (b) done(b.getAttribute('data-act')); else if (e.target === overlay) done('cancel');
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(overlay);
+    var first = overlay.querySelector('[data-act]');
+    if (first) first.focus();
+  });
+}
+
+// Feedback for keeping that is seen on a phone: pinned under the top bar (a
+// toast at the bottom sits behind the home indicator and the browser's bar),
+// one line, gone in a few seconds or on a tap.
+var _keepNoticeTimer = null;
+function _keepNotice(msg) {
+  var el = document.getElementById('keep-notice');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'keep-notice';
+    el.className = 'keep-notice';
+    el.setAttribute('role', 'status');
+    el.onclick = function() { el.hidden = true; };
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(_keepNoticeTimer);
+  _keepNoticeTimer = setTimeout(function() { el.hidden = true; }, 5000);
+}
+// `sized`: asked from the tile's own button, which already showed the size (a 1 GB+ ZIM took its second tap), so the
+// big-share question is not asked on top of it.
+async function _keepStart(zim, sized) {
+  if (!_keepAvailable()) { _keepNotice(_keepWhyNot()); return; }
+  try { await _keepLoad(); } catch (e) { _keepNotice(t('keep_err_worker')); return; }
+  if (KeepStore.state().phase === 'pulling') { _keepNotice(t('keep_one_at_a_time')); return; }
+  var meta = _keepMetas[zim];
+  var size = meta && meta.size, headers = _manageToken ? _authHeaders() : {};
+  if (!size) {
+    try {
+      var p = await KeepStore.probe(zim, headers);
+      if (!p.ok) { _keepNotice(t('keep_err_' + (p.status === 401 || p.status === 403 ? 'auth' : 'gone'))); return; }
+      size = p.size || _keepZimBytes(zim);
+    } catch (e) { _keepNotice(t('keep_err_network')); return; }
+  }
+  var room = await KeepStore.room();
+  var left = size - ((meta && meta.written) || 0);
+  var fuzzy = KeepStore.estimateIsFuzzy();
+  if (left > room.free) {
+    // Safari rounds and moves its figure on purpose (WebKit's storage policy:
+    // up to 60% of the disk for an installed app, but quota "might change based
+    // on usage and visit frequency"), so there it is a guess to try past; where
+    // the figure is real, this is the end of it.
+    var act = await _keepTooBig(zim, size, room, fuzzy);
+    if (act !== 'try') { if (act && act.indexOf('other:') === 0) _keepStart(act.slice(6)); return; }
+  } else if (!sized && !meta && !fuzzy && size > room.free * KEEP_BIG_SHARE && !(await _appConfirm(t('keep_big'), t('keep_btn')))) return;
+  _keepPersisted = await KeepStore.persist();
+  var info = _zimInfo(zim);
+  var who = (typeof _userSession !== 'undefined' && _userSession && _userSession.name) || '';
+  KeepStore.pull(zim, (info && info.title) || (meta && meta.title) || zim, headers, who, !!(info && info.has_icon), size);
+  _keepIconSync();
+  _keepRenderOpen();
+}
+function _keepPause() { KeepStore.stop(); }
+// Removing a kept ZIM asks first, in one line, in the app's own dialog: a ZIM
+// can be gigabytes and a tap is easy. Cancelling a download part-way does not.
+async function _keepAskRemove(zim) {
+  var m = _keepMetas[zim], info = _zimInfo(zim);
+  var title = (m && m.title) || (info && info.title) || zim;
+  if (!(await _appConfirm(t('keep_remove_confirm', { title: title }), t('keep_remove_ok')))) return;
+  _keepRemove(zim);
+}
+async function _keepRemove(zim) {
+  await _keepLoad();
+  await KeepStore.removeKept(zim);
+  await _keepRefreshNames();
+  _keepRenderOpen();
+  if (homeScope && homeScope.type === 'phone') renderHome();
+}
+var _keepPersisted = null;
+
+// ── ZIMs on this phone, with no server ──
+
+// The metas of what is on the phone, from the service worker's answer (it works
+// with no network); [] where there is no worker or nothing kept. `all`: part-way
+// ones too.
+async function _keepLocalList(all) {
+  // The list is the service worker's to answer: with none in charge of the page (the first visit, a browser with
+  // workers off) the server is asked and says 404 in the console, for an answer that is [] either way.
+  if (!(navigator.serviceWorker && navigator.serviceWorker.controller)) return [];
+  try {
+    var r = await fetch('/keep-local/list', { cache: 'no-store' });
+    if (!r.ok) return [];
+    var zims = (await r.json()).zims || [];
+    return all ? zims : zims.filter(function(m) { return m.complete; });
+  } catch (e) { return []; }
+}
+
+// ── The On this phone view ──
+
+// The storage bar, as a phone shows it: what the kept ZIMs take against the
+// room left for Zimi, the room as a short label under it. Filled once the
+// browser has said what the room is.
+function _keepViewHeadHtml() {
+  return '<div class="keep-view-head"><div class="keep-storage" id="keep-storage"><div class="keep-sbar"><i style="width:0%"></i></div>' +
+    '<div class="keep-slabels"><span id="keep-s-used"></span><span id="keep-s-free"></span></div></div></div>' +
+    '<div class="keep-view-actions">' + _keepFilesBtnHtml() +
+    '<button type="button" class="keep-manage-btn" onclick="_keepToggleManage()">' + tH(_keepManaging ? 'keep_done' : 'keep_manage') + '</button></div>' +
+    '<div id="keep-import"></div>';
+}
+
+// ── Add from Files ──
+// iOS Safari has no way to write a file the Files app can see, so Files cannot
+// be the storage; but it can be a source. A ZIM picked there (Files, iCloud
+// Drive, a USB stick) is copied into the phone's storage in slices, with
+// progress, and is then a kept ZIM like any other: it opens and searches with
+// no signal even if the server never had it, and the copy never touches the
+// network.
+function _keepFilesBtnHtml() {
+  return '<label class="keep-manage-btn keep-add">' + _KEEP_GLYPH + '<span>' + tH('keep_add_files') + '</span>' +
+    '<input type="file" accept=".zim" class="keep-file-input" onchange="_keepImportPicked(this)"></label>';
+}
+async function _keepImportPicked(input) {
+  var file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  if (!_keepAvailable()) { _keepNotice(_keepWhyNot()); return; }
+  try { await _keepLoad(); } catch (e) { _keepNotice(t('keep_err_worker')); return; }
+  if (KeepStore.state().phase === 'pulling') { _keepNotice(t('keep_one_at_a_time')); return; }
+  var name = KeepStore.nameFromFile(file.name), ex = _keepMetas[name];
+  if (ex && ex.complete && ex.source !== 'files') name += '-files';   // never replace a ZIM the server gave
+  var room = await KeepStore.room();
+  if (file.size > room.free && !KeepStore.estimateIsFuzzy()) { _keepNotice(t('keep_no_room')); return; }
+  _keepPersisted = await KeepStore.persist();
+  KeepStore.importFile(file, name, name);
+  _keepImportRender();
+}
+var _keepImportShown = '';
+function _keepImportRender() {
+  var el = document.getElementById('keep-import');
+  if (!el || typeof KeepStore === 'undefined') return;
+  var st = KeepStore.state();
+  if (!st.importing) { el.innerHTML = ''; return; }
+  if (st.phase === 'pulling') {
+    var pct = st.size ? Math.min(100, Math.floor(st.written * 100 / st.size)) : 0;
+    var bar = el.querySelector('.keep-bar');
+    if (bar) {
+      bar.firstChild.style.width = pct + '%';
+      el.querySelector('.keep-line span').textContent = _fmtBytes(st.written) + ' / ' + _fmtBytes(st.size);
+      return;
+    }
+    el.innerHTML = '<div class="keep-import-box"><div class="keep-line"><b>' + tH('keep_importing') + '</b><span>' +
+      esc(_fmtBytes(st.written) + ' / ' + _fmtBytes(st.size)) + '</span></div>' +
+      '<div class="keep-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="keep-actions"><button type="button" class="conn-retry keep-btn keep-quiet" onclick="KeepStore.stop()">' + tH('keep_cancel_pull') + '</button></div></div>';
+  } else if (st.error) {
+    el.innerHTML = '<div class="keep-note keep-err">' + tH('keep_err_' + st.error) + '</div>';
+  } else {
+    el.innerHTML = '';
+  }
+}
+// ZIMs on the phone the server does not list (copied from Files, or one the
+// server has since lost) drawn as tiles like any other.
+function _keepSyntheticZims() {
+  return Object.keys(_keepMetas).map(function(n) { return _keepMetas[n]; }).filter(function(m) {
+    return m.complete && !_zimInfo(m.name);
+  }).map(function(m) {
+    return { name: m.name, title: m.title || m.name, size_gb: (m.size || 0) / BYTES_PER_GB, has_icon: !!m.icon,
+             description: m.source === 'files' ? t('keep_from_files') : '', entries: '' };
+  });
+}
+async function _keepFillStorageBar() {
+  var el = document.getElementById('keep-storage');
+  if (!el || !_keepAvailable()) return;
+  try { await _keepLoad(); } catch (e) { return; }
+  var room = await KeepStore.room();
+  var used = 0;
+  (zimsCache || []).forEach(function(z) { if (_keepNames.has(z.name)) { var m = _keepMetas[z.name]; used += (m && m.size) || 0; } });
+  Object.keys(_keepMetas).forEach(function(n) { if (!(zimsCache || []).some(function(z) { return z.name === n; })) used += _keepMetas[n].size || 0; });
+  el = document.getElementById('keep-storage');
+  if (!el) return;
+  var total = used + room.free, pct = total ? Math.max(used ? 2 : 0, Math.round(used * 100 / total)) : 0;
+  el.querySelector('.keep-sbar i').style.width = pct + '%';
+  document.getElementById('keep-s-used').textContent = t('keep_bar_used', { size: _fmtBytes(used) });
+  document.getElementById('keep-s-free').textContent = t('keep_bar_free', { size: _fmtBytes(room.free) });
+}
+function _keepToggleManage() { _keepManaging = !_keepManaging; renderHome(); }
+function _keepSectionHtml(zims, tail) {
+  return '<div class="cat-heading clickable"' + _CAT_HEAD_OPENS + ' onclick="_keepOpenView()"><span class="keep-head-glyph">' + _KEEP_GLYPH + '</span>' + tH('keep_kept') + '</div>' +
+    renderCardGrid(zims, true, true, null, tail);
+}
+function _keepOpenView() {
+  enterScope('phone', t('keep_kept'), Array.from(_keepNames), true);
+}
+
+// Almanac and Help now work with no server: cards among the ZIMs, in the
+// library's own look and the same grid (in tiles, one more tile, not a row of
+// its own), on this view and on the offline home.
+// withHelp false: the page already has Help now (its chip in the Apps row).
+function _keepSurvivalTiles(withHelp) {
+  var tile = function(href, onclick, svg, name, desc) {
+    return '<a class="stat-card keep-tile-app" href="' + escAttr(href) + '" onclick="return _spaNav(event, function() { ' + onclick + ' })">' +
+      '<div class="card-icon"><span class="icon-letter">' + svg + '</span></div><div class="card-info"><div class="name"><span class="zt">' + esc(name) + '</span></div>' +
+      '<div class="desc">' + esc(desc) + '</div></div></a>';
+  };
+  var almanac = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>';
+  return tile('/#almanac', 'openAlmanac()', almanac, t('almanac'), t('offline_works_almanac_desc')) +
+    (withHelp === false || !_fieldguideOn() ? '' : tile(_fieldguideUrl(''), 'openFieldguide(false)', _HELP_NOW_SVG, t('fieldguide_help_now'), t('offline_works_help_desc')));
+}
+
+// Titles that begin with the words, from every ZIM on this phone, and then the
+// full-text hits of the ones whose index has started, said plainly: the first
+// is instant and the second is not.
+async function _keepSearchOffline(query, scope, output) {
+  var kept = await _keepLocalList();
+  if (!kept.length) return false;
+  var names = scope ? kept.filter(function(m) { return m.name === scope; }) : kept;
+  if (!names.length) return false;
+  var seq = ++_keepSearchSeq;
+  var url = '/keep-local/search?q=' + encodeURIComponent(query) + (scope ? '&zim=' + encodeURIComponent(scope) : '');
+  var r = await (await fetch(url, { cache: 'no-store' })).json();
+  if (seq !== _keepSearchSeq || mode !== 'search') return true;
+  var seen = {};
+  var card = function(h, i) {
+    seen[h.zim + '/' + h.path] = 1;
+    return '<a class="result" href="' + escAttr(_articleDeepLinkPath(h.zim, h.path)) + '" data-zim="' + escAttr(h.zim) +
+      '" data-path="' + escAttr(h.path) + '" data-title="' + escAttr(h.title || '') + '" onclick="return _spaCardClick(event, this)">' +
+      '<div class="result-body"><div class="result-source">' + esc(h.zim_title || h.zim) + '</div><div class="title">' + esc(h.title) + '</div></div></a>';
+  };
+  var paint = function(full, state) {
+    var cards = r.results.map(card).join('') + (full || []).filter(function(h) { return !seen[h.zim + '/' + h.path]; }).map(card).join('');
+    output.innerHTML = '<div class="keep-search-note">' + tH(state === 'ready' ? 'keep_search_full' : (state === 'failed' ? 'keep_search_titles' : 'keep_search_warming')) + '</div>' +
+      '<div class="results">' + (cards || '<div class="empty"><p>' + tH('keep_search_none', { q: esc(query) }) + '</p></div>') + '</div>';
+  };
+  paint(null, 'warming');
+  // The full-text index of each ZIM, as it comes up.
+  try { await _keepLoad(); } catch (e) { paint(null, 'failed'); return true; }
+  var all = [];
+  var pending = names.map(function(m) {
+    return KeepStore.ftsSearch(m.name, query, 20).then(function(hits) {
+      hits.forEach(function(h) { all.push({ zim: m.name, zim_title: m.title, title: h.title, path: h.path }); });
+    }, function() { /* that ZIM's index would not start: its titles are shown */ });
+  });
+  await Promise.all(pending);
+  if (seq !== _keepSearchSeq || mode !== 'search') return true;
+  paint(all, names.some(function(m) { return KeepStore.ftsState(m.name) === 'ready'; }) ? 'ready' : 'failed');
+  return true;
+}
+var _keepSearchSeq = 0;
+
+// Start the full-text index of the first kept ZIM while the page is idle and
+// the server is not there, so the first search is not the one that waits.
+function _keepWarmWhenIdle(kept) {
+  if (!kept.length || !_keepAvailable()) return;
+  var go = function() { _keepLoad().then(function() { KeepStore.ftsWarm(kept[0].name).catch(function() {}); }, function() {}); };
+  if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 1500);
+}
+
 function _closeZimAbout() {
   var ov = document.getElementById(_ZI_OVERLAY_ID);
   if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
@@ -5645,12 +6589,24 @@ function _openZimAbout(zim) {
     var body = document.querySelector('#' + _ZI_OVERLAY_ID + ' .zi-body');
     if (body) body.innerHTML = html;
   };
+  // A ZIM only the phone has (copied from Files): its About is the phone's own.
+  var local = !_zimInfo(zim) && _keepMeta(zim);
+  if (local && local.complete) {
+    write(_keepBoxHtml(zim, local.size) +
+      '<div class="zi-id"><span class="zi-icon"><span class="zi-letter">' + (esc(local.title || zim)[0] || '?').toUpperCase() + '</span></span>' +
+      '<div class="zi-id-text"><div class="zi-title">' + esc(local.title || zim) + '</div>' +
+      (local.source === 'files' ? '<div class="zi-desc">' + tH('keep_from_files') + '</div>' : '') + '</div></div>' +
+      '<div class="zi-rows">' + _ziRow('zi_identifier', esc(zim)) + _ziRow('zi_size', esc(_fmtBytes(local.size))) +
+      _ziRow('keep_about_source', local.source === 'files' ? tH('keep_from_files') : '') + '</div>');
+    _keepRender(zim);
+    return;
+  }
   serverFetch('/zim-info?zim=' + encodeURIComponent(zim))
     .then(function (r) {
       if (!r.ok) throw new Error('zim-info ' + r.status);
       return r.json();
     })
-    .then(function (info) { write(_ziBodyHtml(info)); })
+    .then(function (info) { write(_keepBoxHtml(info.name, info.size_bytes) + _ziBodyHtml(info)); _keepRender(info.name); })
     .catch(function () { write('<div class="zi-none">' + tH('zi_load_failed') + '</div>'); });
 }
 
@@ -5718,10 +6674,20 @@ function _shortAge(tsSec) {
   return t('just_now');
 }
 
+var _FAV_MARK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="currentColor"/></svg>';
+var _CARD_MORE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg>';
+// The card's ⋯: its menu, opened under the button.
+function _cardMore(btn) {
+  var card = btn.closest('[data-zim]'), r = btn.getBoundingClientRect();
+  if (card) _openZimMenu(card.getAttribute('data-zim'), r.left, r.bottom + 4, false, card);
+}
+
 // ``countOf(z)``: the count on a card's line, _zimCountHtml's by default (the
 // Apps page counts what each app shows, _appItemsHtml); '' leaves it out.
-function renderCardGrid(items, showStars, showCategory, countOf) {
-  if (!items || !items.length) return '';
+// tail: cards that are not ZIMs (the Almanac offline), drawn in the same grid.
+function renderCardGrid(items, showStars, showCategory, countOf, tail) {
+  items = items || [];
+  if (!items.length && !tail) return '';
   countOf = countOf || _zimCountHtml;
   const favs = (collectionsCache && collectionsCache.favorites) || [];
   const isTiles = _getLibraryView() === 'tiles';
@@ -5734,14 +6700,19 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
       ? '<img src="/w/' + encodeURIComponent(z.name) + '/-/icon" alt="" width="48" height="48" loading="lazy">'
       : '<span class="icon-letter">' + esc(z.title || z.name)[0].toUpperCase() + '</span>';
     const isFav = favs.includes(z.name);
-    // preventDefault too: the card is now an anchor (#49), and a button click
-    // inside a link otherwise still follows the link's href.
-    const starHtml = showStars
-      ? '<button class="star-btn' + (isFav ? ' starred' : '') + '" onclick="event.preventDefault();event.stopPropagation();toggleFavorite(\'' + escAttr(z.name) + '\', this)" title="' + escAttr(isFav ? t('remove_from_favorites') : t('add_to_favorites')) + '">' + (isFav ? '\u2605' : '\u2606') + '</button>'
+    // A card has one control, ⋯, and it opens the card's menu (Favorite, Keep
+    // offline, About...), the same one a long press or a right click opens.
+    // What the card IS (a favorite, on this phone) are marks beside it in the
+    // card's foot, never second buttons. preventDefault too: the card is an
+    // anchor (#49), and a click inside a link otherwise follows its href.
+    const favMark = showStars && isFav
+      ? '<span class="fav-mark" role="img" aria-label="' + escAttr(t('favorites')) + '" title="' + escAttr(t('favorites')) + '">' + _FAV_MARK_SVG + '</span>' : '';
+    const moreBtn = showStars
+      ? '<button type="button" class="card-more" aria-label="' + escAttr(t('more_actions')) + '" title="' + escAttr(t('more_actions')) + '" onclick="event.preventDefault();event.stopPropagation();_cardMore(this)">' + _CARD_MORE_SVG + '</button>'
       : '';
     const catPrefix = showCategory && z.category ? '<span class="card-cat">' + esc(z.category) + '</span> &middot; ' : '';
     const badge = _langBadge(z, false, isTiles);
-    const qidIcon = z.has_qids
+    const qidIcon = _canSwitchLanguage(z)
       ? '<span class="qid-badge" title="' + escAttr(t('cross_lang_linking')) + '"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l-3 3 3 3"/><path d="M1 9h10"/><path d="M12 10l3-3-3-3"/><path d="M15 7H5"/></svg></span>'
       : '';
     const badgeInfo = _zimBadge(z);
@@ -5755,8 +6726,8 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
     // taking space on the card (Eric: "no big buttons... it's rare to need").
     const cardTag = 'a';
     const cardNav = ' href="/w/' + encodeURIComponent(z.name) + '" onclick="return _spaSourceClick(event, this)"';
-    return '<' + cardTag + ' class="stat-card' + (newHtml ? ' is-new' : '') + '" data-zim="' + escAttr(z.name) + '"' + cardNav + '>' +
-      starHtml +
+    const onPhone = _keepNames.has(z.name);
+    return '<' + cardTag + ' class="stat-card' + (newHtml ? ' is-new' : '') + (onPhone ? ' kept' : '') + '" data-zim="' + escAttr(z.name) + '"' + cardNav + '>' +
       '<div class="card-icon">' + icon + '</div>' +
       '<div class="card-info">' +
         // new-badge lives in the title row (list) — never over the left icon;
@@ -5772,8 +6743,11 @@ function renderCardGrid(items, showStars, showCategory, countOf) {
         // in-place re-sort swap them without rebuilding the card.
         _cardOwnDateHtml(z) + _sortedByDateHtml(z) +
         '</div>' +
-      '</div></' + cardTag + '>';
-  }).join('') + '</div>';
+      '</div>' + '<span class="card-foot"><span class="card-marks">' + favMark + _keepIconHtml(z.name) + '</span>' + moreBtn + '</span>' +
+      (_keepManaging && homeScope && homeScope.type === 'phone'
+        ? '<button type="button" class="keep-rm" aria-label="' + escAttr(t('keep_remove')) + '" title="' + escAttr(t('keep_remove')) + '" onclick="event.preventDefault();event.stopPropagation();_keepAskRemove(\'' + escAttr(z.name) + '\')">\u00D7</button>' : '') +
+      '</' + cardTag + '>';
+  }).join('') + (tail || '') + '</div>';
 }
 
 // ── Discover: computed cards first, random fill to ~4 ──
@@ -6246,17 +7220,36 @@ function _repaintMoons() {
 var _MOON_LON_TERMS = [
   [0, 0, 1, 0, 6.288774], [2, 0, -1, 0, 1.274027], [2, 0, 0, 0, 0.658314], [0, 0, 2, 0, 0.213618],
   [0, 1, 0, 0, -0.185116], [0, 0, 0, 2, -0.114332], [2, 0, -2, 0, 0.058793], [2, -1, -1, 0, 0.057066],
-  [2, 0, 1, 0, 0.053322], [2, -1, 0, 0, 0.045758], [0, 1, -1, 0, -0.040923], [1, 0, 0, 0, -0.034720],
-  [0, 1, 1, 0, -0.030383], [2, 0, 0, -2, 0.015327], [0, 0, 1, 2, -0.012528], [0, 0, 1, -2, 0.010980],
+  [2, 0, 1, 0, 0.053322], [2, -1, 0, 0, 0.045758], [0, 1, -1, 0, -0.040923], [1, 0, 0, 0, -0.03472],
+  [0, 1, 1, 0, -0.030383], [2, 0, 0, -2, 0.015327], [0, 0, 1, 2, -0.012528], [0, 0, 1, -2, 0.01098],
   [4, 0, -1, 0, 0.010675], [0, 0, 3, 0, 0.010034], [4, 0, -2, 0, 0.008548], [2, 1, -1, 0, -0.007888],
   [2, 1, 0, 0, -0.006766], [1, 0, -1, 0, -0.005163], [1, 1, 0, 0, 0.004987], [2, -1, 1, 0, 0.004036],
-  [2, 0, 2, 0, 0.003994], [4, 0, 0, 0, 0.003861], [2, 0, -3, 0, 0.003665]
+  [2, 0, 2, 0, 0.003994], [4, 0, 0, 0, 0.003861], [2, 0, -3, 0, 0.003665], [0, 1, -2, 0, -0.002689],
+  [2, 0, -1, 2, -0.002602], [2, -1, -2, 0, 0.00239], [1, 0, 1, 0, -0.002348], [2, -2, 0, 0, 0.002236],
+  [0, 1, 2, 0, -0.00212], [0, 2, 0, 0, -0.002069], [2, -2, -1, 0, 0.002048], [2, 0, 1, -2, -0.001773],
+  [2, 0, 0, 2, -0.001595], [4, -1, -1, 0, 0.001215], [0, 0, 2, 2, -0.00111], [3, 0, -1, 0, -0.000892],
+  [2, 1, 1, 0, -0.00081], [4, -1, -2, 0, 0.000759], [0, 2, -1, 0, -0.000713], [2, 2, -1, 0, -0.0007],
+  [2, 1, -2, 0, 0.000691], [2, -1, 0, -2, 0.000596], [4, 0, 1, 0, 0.000549], [0, 0, 4, 0, 0.000537],
+  [4, -1, 0, 0, 0.00052], [1, 0, -2, 0, -0.000487], [2, 1, 0, -2, -0.000399], [0, 0, 2, -2, -0.000381],
+  [1, 1, 1, 0, 0.000351], [3, 0, -2, 0, -0.00034], [4, 0, -3, 0, 0.00033], [2, -1, 2, 0, 0.000327],
+  [0, 2, 1, 0, -0.000323], [1, 1, -1, 0, 0.000299], [2, 0, 3, 0, 0.000294]
 ];
 var _MOON_LAT_TERMS = [
   [0, 0, 0, 1, 5.128122], [0, 0, 1, 1, 0.280602], [0, 0, 1, -1, 0.277693], [2, 0, 0, -1, 0.173237],
   [2, 0, -1, 1, 0.055413], [2, 0, -1, -1, 0.046271], [2, 0, 0, 1, 0.032573], [0, 0, 2, 1, 0.017198],
   [2, 0, 1, -1, 0.009266], [0, 0, 2, -1, 0.008822], [2, -1, 0, -1, 0.008216], [2, 0, -2, -1, 0.004324],
-  [2, 0, 1, 1, 0.004200]
+  [2, 0, 1, 1, 0.0042], [2, 1, 0, -1, -0.003359], [2, -1, -1, 1, 0.002463], [2, -1, 0, 1, 0.002211],
+  [2, -1, -1, -1, 0.002065], [0, 1, -1, -1, -0.00187], [4, 0, -1, -1, 0.001828], [0, 1, 0, 1, -0.001794],
+  [0, 0, 0, 3, -0.001749], [0, 1, -1, 1, -0.001565], [1, 0, 0, 1, -0.001491], [0, 1, 1, 1, -0.001475],
+  [0, 1, 1, -1, -0.00141], [0, 1, 0, -1, -0.001344], [1, 0, 0, -1, -0.001335], [0, 0, 3, 1, 0.001107],
+  [4, 0, 0, -1, 0.001021], [4, 0, -1, 1, 0.000833], [0, 0, 1, -3, 0.000777], [4, 0, -2, 1, 0.000671],
+  [2, 0, 0, -3, 0.000607], [2, 0, 2, -1, 0.000596], [2, -1, 1, -1, 0.000491], [2, 0, -2, 1, -0.000451],
+  [0, 0, 3, -1, 0.000439], [2, 0, 2, 1, 0.000422], [2, 0, -3, -1, 0.000421], [2, 1, -1, 1, -0.000366],
+  [2, 1, 0, 1, -0.000351], [4, 0, 0, 1, 0.000331], [2, -1, 1, 1, 0.000315], [2, -2, 0, -1, 0.000302],
+  [0, 0, 1, 3, -0.000283], [2, 1, 1, -1, -0.000229], [1, 1, 0, -1, 0.000223], [1, 1, 0, 1, 0.000223],
+  [0, 1, -2, -1, -0.00022], [2, 1, -1, -1, -0.00022], [1, 0, 1, 1, -0.000185], [2, -1, -2, -1, 0.000181],
+  [0, 1, 2, 1, -0.000177], [4, 0, -2, -1, 0.000176], [4, -1, -1, -1, 0.000166], [1, 0, 1, -1, -0.000164],
+  [4, 0, 1, -1, 0.000132], [1, 0, -1, -1, -0.000119], [4, -1, 0, -1, 0.000115], [2, -2, 0, 1, 0.000107]
 ];
 function _moonSeries(terms, D, M, Mp, F, E) {
   var D2R = Math.PI / 180, s = 0;
@@ -6276,20 +7269,32 @@ function _moonEcliptic(T) {
   var M = 134.9633964 + 477198.8675055 * T;     // the Moon's mean anomaly
   var F = 93.2720950 + 483202.0175233 * T;      // argument of latitude
   var E = 1 - 0.002516 * T;
+  // Meeus 47's additive terms (Venus, Jupiter and the Earth's flattening), 1e-6 degree: 14 arcseconds in longitude, 8 in latitude.
+  var D2R = Math.PI / 180, A1 = (119.75 + 131.849 * T) * D2R, A2 = (53.09 + 479264.290 * T) * D2R, A3 = (313.45 + 481266.484 * T) * D2R;
+  var Lp = L0 * D2R, Mp = M * D2R, Fr = F * D2R;
+  var addLng = 3958 * Math.sin(A1) + 1962 * Math.sin(Lp - Fr) + 318 * Math.sin(A2);
+  var addLat = -2235 * Math.sin(Lp) + 382 * Math.sin(A3) + 175 * Math.sin(A1 - Fr) + 175 * Math.sin(A1 + Fr) + 127 * Math.sin(Lp - Mp) - 115 * Math.sin(Lp + Mp);
   return {
-    lng: ((L0 + _moonSeries(_MOON_LON_TERMS, D, Ms, M, F, E)) % 360 + 360) % 360,
-    lat: _moonSeries(_MOON_LAT_TERMS, D, Ms, M, F, E),
+    lng: ((L0 + (_moonSeries(_MOON_LON_TERMS, D, Ms, M, F, E) + addLng * 1e-6)) % 360 + 360) % 360,
+    lat: _moonSeries(_MOON_LAT_TERMS, D, Ms, M, F, E) + addLat * 1e-6,
     D: D, Ms: Ms % 360, M: M, F: F % 360
   };
 }
 
 function _moonEqCoords(date) {
   var JD = 2440587.5 + date.getTime() / 86400000;
-  var T = (JD - 2451545.0) / 36525;
+  // The series are in dynamical time: the clock's UT plus ΔT (about a minute, which is 0.01 degree of the Moon's own motion).
+  // almanac.js holds ΔT; before it has loaded the clock's time stands.
+  var T = (JD + (typeof _cnDeltaTdays === 'function' ? _cnDeltaTdays(JD) : 0) - 2451545.0) / 36525;
   var D2R = Math.PI / 180;
   var ec = _moonEcliptic(T);
   var Ms = ec.Ms, F = ec.F, lng = ec.lng, lat_ec = ec.lat;
-  var eps = (23.439291 - 0.0130042 * T) * D2R;
+  // Apparent: nutation (Meeus 22, to 0.5 arcsecond) in longitude and in the obliquity.
+  var om = (125.04452 - 1934.136261 * T) * D2R, Ls = (280.4665 + 36000.7698 * T) * D2R, Lm = (218.3165 + 481267.8813 * T) * D2R;
+  var dPsi = (-17.20 * Math.sin(om) - 1.32 * Math.sin(2 * Ls) - 0.23 * Math.sin(2 * Lm) + 0.21 * Math.sin(2 * om)) / 3600;
+  var dEps = (9.20 * Math.cos(om) + 0.57 * Math.cos(2 * Ls) + 0.10 * Math.cos(2 * Lm) - 0.09 * Math.cos(2 * om)) / 3600;
+  lng += dPsi;
+  var eps = (23.439291 - 0.0130042 * T + dEps) * D2R;
   var lngR = lng * D2R, latR = lat_ec * D2R;
   var dec = Math.asin(Math.sin(latR) * Math.cos(eps) + Math.cos(latR) * Math.sin(eps) * Math.sin(lngR));
   var ra = Math.atan2(Math.sin(lngR) * Math.cos(eps) - Math.tan(latR) * Math.sin(eps), Math.cos(lngR));
@@ -6436,13 +7441,13 @@ function _todayTeaser() {
     events.push({ days: days, name: s[2], extra: ' \u00b7 ZHR ' + s[3], tonight: true });
   }
   // Equinoxes & solstices — use season-aware names for Southern Hemisphere
-  var _tLoc = _almChosenPlace();
-  var _tSouth = _tLoc && _tLoc.lat < 0;
+  var _tHemi = _almHemisphere();
+  var _tSouth = _tHemi === 'south';
   var eqNames = _tSouth
     ? [t('season_autumn') + ' ' + t('alm_equinox'), t('season_winter') + ' ' + t('alm_solstice'), t('season_spring') + ' ' + t('alm_equinox'), t('season_summer') + ' ' + t('alm_solstice')]
     : [t('season_spring') + ' ' + t('alm_equinox'), t('season_summer') + ' ' + t('alm_solstice'), t('season_autumn') + ' ' + t('alm_equinox'), t('season_winter') + ' ' + t('alm_solstice')];
   var eqs = [[3,20,eqNames[0]],[6,21,eqNames[1]],[9,22,eqNames[2]],[12,21,eqNames[3]]];
-  for (var j = 0; j < eqs.length; j++) {
+  for (var j = 0; _tHemi && j < eqs.length; j++) {
     var eq = eqs[j], eqDate = new Date(y, eq[0]-1, eq[1]);
     if (eqDate < todayMidnight) eqDate = new Date(y+1, eq[0]-1, eq[1]);
     events.push({ days: Math.round((eqDate - todayMidnight) / 86400000), name: eq[2], extra: '' });
@@ -6627,6 +7632,74 @@ var _ALMANAC_REF_ASSETS = [
   '/static/almanac-tables.js?v=1'
 ];
 
+// The Almanac's modules. They share a global scope, so they must run in
+// order, and the Almanac opens (or the Field Guide's sky strip reads them)
+// only once the last one has run: opening early would call into functions not
+// yet defined. async=false keeps that order while all download at once, one
+// round trip instead of six on a phone away from home. One load, however many
+// ask: the promise is kept, and dropped when it fails so the next ask tries again.
+var _ALMANAC_MODULES = [
+  '/static/almanac-links.js?v=45',
+  '/static/almanac-orrery.js?v=45',
+  '/static/almanac-sky.js?v=45',
+  '/static/almanac-skygl.js?v=45',
+  '/static/zone-places.js?v=45',
+  '/static/almanac-skyfacts.js?v=45',
+  '/static/almanac.js?v=45'
+];
+// Its stylesheet comes with them, not on the home page's first paint; the
+// Almanac opens once both are in, so it never draws unstyled.
+var _ALMANAC_CSS = '/static/almanac.css?v=3';
+var _almanacModulesLoading = null;
+var _almanacCssLoading = null;
+function _loadAlmanacCss() {
+  if (!_almanacCssLoading) {
+    _almanacCssLoading = new Promise(function(resolve, reject) {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = _ALMANAC_CSS;
+      l.onload = resolve;
+      l.onerror = function() {
+        l.remove();
+        _almanacCssLoading = null;
+        reject(new Error(_ALMANAC_CSS));
+      };
+      document.head.appendChild(l);
+    });
+  }
+  return _almanacCssLoading;
+}
+function _loadAlmanacModules() {
+  if (_almanacLoaded) return Promise.resolve();
+  if (!_almanacModulesLoading) {
+    var css = _loadAlmanacCss();
+    var scripts = new Promise(function(resolve, reject) {
+      var failed = false;
+      _ALMANAC_MODULES.forEach(function(src, i) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.async = false;
+        if (i === _ALMANAC_MODULES.length - 1) s.onload = function() { if (!failed) resolve(); };
+        // Offline with a cold cache: these modules were never fetched, so there is
+        // nothing to serve.
+        s.onerror = function() {
+          console.error('Failed to load ' + src);
+          if (failed) return;
+          failed = true;
+          _almanacModulesLoading = null;
+          reject(new Error(src));
+        };
+        document.head.appendChild(s);
+      });
+    });
+    _almanacModulesLoading = Promise.all([css, scripts]).catch(function(e) {
+      _almanacModulesLoading = null;
+      throw e;
+    });
+  }
+  return _almanacModulesLoading;
+}
+
 function openAlmanac(replaceState) {
   // Modifier-click: open Almanac in new browser tab
   if (_isModClick()) {
@@ -6635,50 +7708,70 @@ function openAlmanac(replaceState) {
     return;
   }
   if (!_almanacLoaded) {
-    // The almanac is split across sibling modules (it outgrew one file). They
-    // share a global scope, so they must run in order, and it opens only once
-    // the last one has run: opening early would call into functions not yet
-    // defined. async=false keeps that order while all four download at once,
-    // one round trip instead of four on a phone away from home.
-    var almanacModules = [
-      '/static/almanac-links.js?v=45',
-      '/static/almanac-orrery.js?v=45',
-      '/static/almanac-sky.js?v=45',
-      '/static/almanac.js?v=45'
-    ];
-    var failed = false;
-    almanacModules.forEach(function(src, i) {
-      var s = document.createElement('script');
-      s.src = src;
-      s.async = false;
-      if (i === almanacModules.length - 1) s.onload = function() {
-        if (failed) return;
-        _almanacLoaded = true;
-        _openAlmanacInner(replaceState);
-        // The 3D Earth's module follows the open instead of delaying it; the
-        // orrery draws the Earth's glow (the way in) once it has landed.
-        var earth = document.createElement('script');
-        earth.src = '/static/almanac-earth.js?v=45';
-        document.head.appendChild(earth);
-      };
-      // Offline with a cold cache: these modules were never fetched, so there is
-      // nothing to serve. Say so — a console line and a button that appears to
-      // do nothing is the same "silent absence" the connection banner exists to
-      // eliminate.
-      s.onerror = function() {
-        console.error('Failed to load ' + src);
-        if (failed) return;
-        failed = true;
-        // Drop the reload-into-almanac boot gate so the library becomes
-        // visible again instead of an empty dark shell.
-        document.documentElement.classList.remove('almanac-boot');
-        _showToast(t('almanac_unavailable_offline'));
-      };
-      document.head.appendChild(s);
+    _loadAlmanacModules().then(function() {
+      _almanacLoaded = true;
+      _openAlmanacInner(replaceState);
+      _keepAlmanac(); // opened once, here next time with no signal too
+      // The 3D Earth's module follows the open instead of delaying it; the
+      // orrery draws the Earth's glow (the way in) once it has landed.
+      // The ephemeris first (the Sun, the Moon, the planets: no GL), then the Earth view; in order.
+      ['/static/almanac-ephem.js?v=45', '/static/almanac-earth.js?v=45'].forEach(function(src) {
+        var el = document.createElement('script');
+        el.src = src;
+        el.async = false;
+        document.head.appendChild(el);
+      });
+    }, function() {
+      // A console line and a button that appears to do nothing is the same
+      // "silent absence" the connection banner exists to eliminate. Drop the
+      // reload-into-almanac boot gate so the library becomes visible again
+      // instead of an empty dark shell.
+      document.documentElement.classList.remove('almanac-boot');
+      _showToast(t('almanac_unavailable_offline'));
     });
     return;
   }
   _openAlmanacInner(replaceState);
+}
+
+// Point the phone at the sky (almanac-look.js): loaded on the first tap of the sky's Look button, never with the
+// Almanac. opts: {lat, lon, name} for a place other than the Almanac's.
+var _almLookLoading = null;
+function openAlmanacLook(opts) {
+  // iOS answers a motion request only from inside a tap, and the view's files load after this one ends: asked here,
+  // in the tap's own turn, the answer is waiting when the view is up (almanac-look.js _lookUsePermission).
+  var Orientation = window.DeviceOrientationEvent;
+  if (Orientation && typeof Orientation.requestPermission === 'function' && window.isSecureContext !== false) {
+    window._lookPermission = Orientation.requestPermission().then(function(r) { return r === 'granted' ? 'granted' : 'denied'; }, function() { return 'denied'; });
+  }
+  if (!_almLookLoading) {
+    _almLookLoading = new Promise(function(resolve, reject) {
+      var s = document.createElement('script');
+      s.src = '/static/almanac-look.js?v=45';
+      s.onload = function() { resolve(); };
+      s.onerror = function() { _almLookLoading = null; reject(new Error(s.src)); };
+      document.head.appendChild(s);
+    });
+  }
+  _almLookLoading.then(function() { window.openAlmanacLookNow(opts); }, function() { _showToast(t('almanac_unavailable_offline')); });
+}
+
+// Find in the sky (almanac-skyfind.js): the phone's Look window only, loaded on the first tap of its Find button.
+// where: 'look'; pickId: a thing to lead to at once.
+var _almFindLoading = null;
+function openAlmanacFind(where, pickId) {
+  if (!_almFindLoading) {
+    _almFindLoading = new Promise(function(resolve, reject) {
+      var s = document.createElement('script');
+      s.src = '/static/almanac-skyfind.js?v=45';
+      s.onload = function() { resolve(); };
+      s.onerror = function() { _almFindLoading = null; reject(new Error(s.src)); };
+      document.head.appendChild(s);
+    });
+  }
+  _almFindLoading.then(function() {
+    if (pickId) window.AlmanacFind.pickId(pickId, where); else window.AlmanacFind.open(where);
+  }, function() { _showToast(t('almanac_unavailable_offline')); });
 }
 
 // (Almanac rendering code lives in /static/almanac.js)
@@ -6810,6 +7903,25 @@ function _loadDiscover() {
   // another language's picks.
   var yours = _getPrefLanguages().map(_normLang).filter(_isValidLangCode).join('.');
   var cacheKey = 'zimi_' + (window.__ZIMI_CONFIG && __ZIMI_CONFIG.discoverStamp || 'disc6') + '-' + _currentLang + (yours ? '-' + yours : '') + '_' + today;
+  // Offline: the last copy drawn online, whatever day it was, and only the
+  // cards whose ZIM is on this phone (every card shown opens). No server is
+  // asked, and the day's cache is left as it is.
+  if (_connState !== CONN_OK) {
+    var lastKey = null;
+    try {
+      for (var oi = 0; oi < localStorage.length; oi++) {
+        var ok = localStorage.key(oi);
+        if (ok && _DISCOVER_CACHE_KEY_RE.test(ok) && ok.indexOf('-' + _currentLang) >= 0 && (!lastKey || ok > lastKey)) lastKey = ok;
+      }
+      var lastCopy = lastKey ? JSON.parse(localStorage.getItem(lastKey)) : null;
+      var offlineCards = (lastCopy || []).filter(function(it) {
+        return it && (it.type === 'today' || (it.zim && _keepNames.has(it.zim)));
+      });
+      if (!offlineCards.some(function(it) { return it.type === 'today'; })) offlineCards.unshift({ type: 'today' });
+      _renderDiscover(el, offlineCards);
+    } catch (e) { _renderDiscover(el, [{ type: 'today' }]); }
+    return;
+  }
   // Clean up old Discover cache keys (from previous days or old versions).
   //
   // Matched on SHAPE, not on a prefix. This used to delete anything starting
@@ -6961,9 +8073,12 @@ function _loadDiscover() {
 }
 // Which library a drawn Discover row was chosen from.
 function _discoverLibKey() {
-  return String((zimsCache || []).length);
+  // Offline the row is drawn from what is on the phone: a change to that is a
+  // different row.
+  return String((zimsCache || []).length) + (_connState !== CONN_OK ? ':off:' + Array.from(_keepNames).sort().join(',') : '');
 }
 function _renderDiscover(el, items) {
+  _discoverDrawn = { el: el, items: items };
   el.dataset.lib = _discoverLibKey();
   var h = '<div class="discover-section"><div class="discover-label"><span>' + tH('discover') + '</span><button class="dc-dismiss" onclick="event.stopPropagation();_dismissDiscover()" title="' + escAttr(t('hide_discover')) + '" aria-label="' + escAttr(t('hide_discover')) + '">\u00D7</button></div><div class="discover-scroll">';
   for (var i = 0; i < items.length; i++) {
@@ -6990,27 +8105,7 @@ function _renderDiscover(el, items) {
       var _now = new Date();
       var _lang = (typeof _currentLang !== 'undefined') ? _currentLang : 'en';
       var _dateTitle = _now.toLocaleDateString(_lang, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-      var _y = _now.getFullYear();
-      // Season detection — flip for Southern Hemisphere if location is set
-      var _nSeasons = ['winter', 'spring', 'summer', 'autumn', 'winter'];
-      var _sSeasons = ['summer', 'autumn', 'winter', 'spring', 'summer']; // Southern Hemisphere
-      var _storedLoc = _almChosenPlace();
-      var _isSouth = _storedLoc && _storedLoc.lat < 0;
-      var _seasonKeys = _isSouth ? _sSeasons : _nSeasons;
-      var _sBounds = [
-        { k: 0, s: new Date(_y - 1, 11, 21), e: new Date(_y, 2, 20) },
-        { k: 1, s: new Date(_y, 2, 20), e: new Date(_y, 5, 21) },
-        { k: 2, s: new Date(_y, 5, 21), e: new Date(_y, 8, 22) },
-        { k: 3, s: new Date(_y, 8, 22), e: new Date(_y, 11, 21) },
-        { k: 4, s: new Date(_y, 11, 21), e: new Date(_y + 1, 2, 20) }
-      ];
-      var _seasonStr = '';
-      for (var _si = 0; _si < _sBounds.length; _si++) {
-        if (_now >= _sBounds[_si].s && _now < _sBounds[_si].e) {
-          _seasonStr = t('season_' + _seasonKeys[_sBounds[_si].k]) + ' ' + Math.round((_now - _sBounds[_si].s) / (_sBounds[_si].e - _sBounds[_si].s) * 100) + '%';
-          break;
-        }
-      }
+      var _seasonStr = _todaySeason(_now, _almHemisphere());
       var _teaser = _todayTeaser();
       h += '<a class="discover-card" href="/#almanac" onclick="return _spaNav(event, openAlmanac)">' +
         _renderTodayCard() +
@@ -7390,7 +8485,43 @@ function _moveZimTo(zim, category) {
   // machinery is reused verbatim rather than duplicated per menu.
   let _ctxCustomAction = null;
 
-  function closeCtx() { menu.classList.remove('visible'); _ctxZim = null; _ctxCard = null; _kbSub = null; _ctxCustomAction = null; }
+  function closeCtx() {
+    menu.classList.remove('visible', 'sheet');
+    var bd = document.getElementById('ctx-backdrop');
+    if (bd) bd.hidden = true;
+    _ctxZim = null; _ctxCard = null; _kbSub = null; _ctxCustomAction = null;
+  }
+
+  // On a phone a ZIM's menu is a sheet that comes up from the bottom, with the
+  // ZIM it is about at its head; its submenus open in place under their row
+  // instead of flying out. A pointer and a wide screen keep the menu at the click.
+  var CTX_SHEET_MQ = '(max-width: 600px) and (pointer: coarse)';
+  function _ctxSheetWanted() { return !!_ctxZim && !!(window.matchMedia && matchMedia(CTX_SHEET_MQ).matches); }
+  function _ctxSheetHeadHtml(zim) {
+    var z = _zimInfo(zim) || { name: zim };
+    var icon = z.has_icon
+      ? '<img src="/w/' + encodeURIComponent(zim) + '/-/icon" alt="" width="36" height="36">'
+      : '<span class="icon-letter">' + esc((z.title || zim)[0].toUpperCase()) + '</span>';
+    var sub = z.size_gb ? fmtSize(z.size_gb) : '';
+    return '<div class="ctx-head"><span class="ctx-head-icon">' + icon + '</span><span class="ctx-head-text"><b>' + esc(z.title || zim) + '</b>' +
+      (sub ? '<span>' + sub + '</span>' : '') + '</span></div>';
+  }
+  function _ctxShowSheet() {
+    var bd = document.getElementById('ctx-backdrop');
+    if (!bd) {
+      bd = document.createElement('div');
+      bd.id = 'ctx-backdrop';
+      bd.className = 'ctx-backdrop';
+      document.body.appendChild(bd);
+    }
+    bd.hidden = false;
+    menu.insertAdjacentHTML('afterbegin', _ctxSheetHeadHtml(_ctxZim));
+    menu.style.left = ''; menu.style.top = ''; menu.style.maxHeight = ''; menu.style.overflowY = '';
+    menu.classList.add('visible', 'sheet');
+    _ctxItems(menu).forEach(function(item) { var sub = _ctxSubOf(item); if (sub) sub.style.cssText = ''; });
+    menu.style.visibility = '';
+    _prepMenuA11y();
+  }
 
   // ── Keyboard navigation (ARIA menu pattern) ──
   // The menu + its Move to…/Collections submenus are reachable by keyboard:
@@ -7517,6 +8648,8 @@ function _moveZimTo(zim, category) {
     return { x: x, y: y, w: w, h: h, pinned: pinned };
   }
   function posMenu(x, y) {
+    if (_ctxSheetWanted()) { _ctxShowSheet(); return; }
+    menu.classList.remove('sheet');
     // Measure off-paint: reveal for layout but keep it invisible until it sits at
     // its final spot, so it never flashes at (0,0) before we know its size — the
     // "flaky open"/edge-flash the two-step position used to show for a frame.
@@ -7580,15 +8713,18 @@ function _moveZimTo(zim, category) {
     // About belongs on EVERY library card, so both menu shapes carry it — the
     // compact gear menu (an Installed row) as much as the full card menu.
     var aboutItem = '<div class="ctx-item" data-action="about">' + tH('about_zim') + '</div>';
+    var keepItems = _keepAvailable() ? _keepMenuHtml(zim) : '';
     // Download the raw .zim — the plainest way to carry a made-here ZIM to
     // another machine. Admin-gated like delete: /dl/ answers the admin
     // regardless of the sharing switches.
     var dlItem = manageEnabled
       ? '<div class="ctx-item" data-action="download-zim">' + tH('ctx_download_zim') + '</div>'
       : '';
+    // The file's own group: take it with you, as a file or as a copy on the phone.
+    var fileGroup = dlItem + keepItems;
     if (_ctxCompact) {
       var layout = _layoutItemsHtml(zim);
-      menu.innerHTML = aboutItem + dlItem + (layout ? '<div class="ctx-sep"></div>' + layout : '');
+      menu.innerHTML = aboutItem + (fileGroup ? '<div class="ctx-sep"></div>' + fileGroup : '') + (layout ? '<div class="ctx-sep"></div>' + layout : '');
       posMenu(_ctxX, _ctxY);
       return;
     }
@@ -7610,9 +8746,10 @@ function _moveZimTo(zim, category) {
     if (Object.keys(colls).length > 0) h += '<div class="ctx-sep"></div>';
     h += '<div class="ctx-item" data-action="new-collection">' + tH('new_collection') + '</div>';
     h += '</div></div>';
+    h += '<div class="ctx-sep"></div>' + aboutItem;
+    if (fileGroup) h += '<div class="ctx-sep"></div>' + fileGroup;
     var layoutItems = _layoutItemsHtml(zim);
     if (layoutItems) { h += '<div class="ctx-sep"></div>' + layoutItems; }
-    h += '<div class="ctx-sep"></div>' + aboutItem + dlItem;
     if (manageEnabled) {
       h += '<div class="ctx-sep"></div>';
       h += '<div class="ctx-item danger" data-action="delete">' + tH('delete') + '</div>';
@@ -7622,8 +8759,9 @@ function _moveZimTo(zim, category) {
   }
 
   // Exposed so the manage-row gear can raise the same menu (compact variant).
-  window._openZimMenu = function(zim, x, y, compact) {
-    _ctxZim = zim; _ctxCard = null; _ctxCompact = !!compact;
+  // `card`: the card it was opened from, so Favorite holds the page on it.
+  window._openZimMenu = function(zim, x, y, compact, card) {
+    _ctxZim = zim; _ctxCard = card || null; _ctxCompact = !!compact;
     _ctxCustomAction = null;
     _ctxX = x; _ctxY = y;
     showMainMenu();
@@ -7773,6 +8911,16 @@ function _moveZimTo(zim, category) {
   }, true);
 
   menu.addEventListener('click', function(e) {
+    // In the sheet a row with a submenu opens it in place, under the row.
+    var row = e.target.closest('.ctx-item');
+    if (menu.classList.contains('sheet') && row && !row.dataset.action && _ctxSubOf(row) && !e.target.closest('.ctx-sub')) {
+      e.stopPropagation();
+      var open = !row.classList.contains('sub-open');
+      _ctxItems(menu).forEach(function(it) { it.classList.remove('sub-open'); });
+      row.classList.toggle('sub-open', open);
+      row.setAttribute('aria-expanded', open ? 'true' : 'false');
+      return;
+    }
     var item = e.target.closest('[data-action]');
     if (!item) return;
     var action = item.dataset.action;
@@ -7791,6 +8939,8 @@ function _moveZimTo(zim, category) {
       closeCtx(); enterSource(zim, true);
     } else if (action === 'about') {
       closeCtx(); _openZimAbout(zim);
+    } else if (action.indexOf('keep-') === 0) {
+      closeCtx(); _keepDo(action, zim);
     } else if (action === 'newtab') {
       closeCtx(); window.open('/w/' + encodeURIComponent(zim), '_blank');
     } else if (action === 'move-to') {
@@ -8272,6 +9422,7 @@ async function doSearch(query, push, perSource) {
   const more = !!perSource;
   perSource = perSource || SEARCH_PER_SOURCE;
   if (!query) return;
+  if (!more) _searchCardClear(); // a new question: the old card goes, its request with it
   _currentSearchQuery = query;
   clearTimeout(suggestTimer);
   hideSuggest();
@@ -8347,15 +9498,17 @@ async function doSearch(query, push, perSource) {
     pushSearchState();
     renderSearchResults(allResults, scope);
     _histPushSearch(query, scope, (kept.results || []).length);
+    _searchCardStart(query, scope, zimParam, perSource, kept);
     return;
   }
 
+  if (!more) _fieldguideEarly(query, scope, zimParam, perSource, searchSeq);
   let d1 = null, gotFull = false, timerInterval = null;
   try {
     // ── One request, both passes: the server sends the title matches, the
     // snippets of the cards they draw, the full-text results, then theirs,
     // a line of JSON each as it is ready (_searchStream in http.py).
-    const res = await serverFetch('/search?q=' + encodeURIComponent(query) + '&limit=' + perSource + zimParam + '&stream=1',
+    const res = await serverFetch('/search?q=' + encodeURIComponent(query) + '&limit=' + perSource + zimParam + '&ui=' + encodeURIComponent(_uiLangPrimary()) + '&stream=1',
       { signal: searchController.signal });
     _throwIfRateLimited(res);
     _snippetsStreamSeq = searchSeq;
@@ -8403,6 +9556,8 @@ async function doSearch(query, push, perSource) {
       clearInterval(timerInterval);
       d._clientElapsed = ((performance.now() - searchT0) / 1000).toFixed(1);
       allResults = d1 ? mergeSearchResults(d1, d) : d;
+      // The merge is the answer's own results; the Field Guide's hint rides beside them and is kept with them.
+      if (d.fieldguide && !allResults.fieldguide) allResults.fieldguide = d.fieldguide;
       gotFull = true;
       renderSearchResults(allResults, scope);
       _histPushSearch(query, scope, (allResults.results || []).length);
@@ -8411,6 +9566,8 @@ async function doSearch(query, push, perSource) {
     if (searchSeq !== _searchSeq) return;
     _snippetsStreamSeq = 0;
     if (gotFull) _searchKeptPut(keptKey, allResults);
+    // The card comes after the results, never with them.
+    if (gotFull || (d1 && !d1.partial)) _searchCardStart(query, scope, zimParam, perSource, allResults);
     // Any card the answer brought no snippet for asks on its own.
     if (mode === 'search') loadSnippets();
   } catch(e) {
@@ -8420,6 +9577,8 @@ async function doSearch(query, push, perSource) {
     // "Search failed / try again" implies the server tried and something went
     // wrong there. If we never reached it, say that instead and offer Retry.
     if (_isOfflineError(e)) {
+      // ZIMs carried on this phone are searched where they are.
+      try { if (await _keepSearchOffline(query, scope, output)) return; } catch (x) { /* say it is offline */ }
       output.innerHTML = '<div class="empty conn-empty"><p>' + tH('search_offline') + '</p>' +
         '<p class="hint">' + tH('search_offline_hint') + '</p>' +
         '<button type="button" class="conn-retry conn-retry-inline" onclick="_connRetryClick(this)">' + tH('conn_retry') + '</button></div>';
@@ -8734,7 +9893,11 @@ function renderSearchResults(data, scope) {
     // A query of only exclusions and filters ("-ted") asks for nothing, so
     // the library finds nothing: say what it needs, not "try other words".
     const asksNothing = !!data._query && !parseSearchQuery(data._query).groups.length;
-    output.innerHTML = chipsHtml + '<div class="empty">' + dymHtml + '<p>' + tH('no_results') + '</p><p class="hint">' + tH(asksNothing ? 'search_needs_word' : 'try_different') + '</p></div>';
+    // Under the Field Guide's answer, "No results found" would be the louder
+    // line on a page that has just helped: the answer stands alone.
+    const guided = !!(!scope && data.fieldguide) || !!(_searchCard && _searchCard.el && _searchCard.el.dataset.card === 'fieldguide');
+    output.innerHTML = chipsHtml + (guided ? dymHtml : '<div class="empty">' + dymHtml + '<p>' + tH('no_results') + '</p><p class="hint">' + tH(asksNothing ? 'search_needs_word' : 'try_different') + '</p></div>');
+    _searchCardMount();
     return;
   }
 
@@ -8826,6 +9989,7 @@ function renderSearchResults(data, scope) {
   // The count and the time are said once, over the results ("Found 1
   // results in 0.3s" said them again under them).
   output.innerHTML = html;
+  _searchCardMount();
 
   loadSnippets();
 }
@@ -8911,6 +10075,117 @@ function _zimTitleWithLang(name) {
     title += ' (' + _langDisplayName(info.language) + ')';
   }
   return title;
+}
+
+// ── The card above a search's results ──
+// One slot over the results, for whatever answers the search best. Cards take
+// turns by priority and the first with something to say fills it; the rest are
+// never asked (a Pi should not read articles for a card that will not show).
+//
+// A card is registered as
+//   { id, priority,          lower asks first
+//     ask(ctx),              a payload, or null for "nothing from me"; may be
+//                            sync (read from the search's own answer) or a
+//                            promise; ctx = { query, scope, zimParam, limit,
+//                            data (the search's answer), signal }
+//     html(payload, ctx),    the card, complete, as a string
+//     mounted(el, payload, ctx) }   optional: once the card is in the page, to wire
+//                            it and fill what it fetches (ctx.signal ends with it)
+// The slot is cleared the moment a search starts, a card's request is aborted
+// with it, and a card that arrives for an older search is dropped. A card that
+// needs a request of its own should make it here, after the results: results
+// first, always. Sync cards go before async ones.
+var SEARCH_CARDS = [];
+function registerSearchCard(card) {
+  SEARCH_CARDS.push(card);
+  SEARCH_CARDS.sort(function(a, b) { return a.priority - b.priority; });
+}
+var _searchCard = null; // { key, ctrl, el } for the search on screen
+
+function _searchCardClear() {
+  if (!_searchCard) return;
+  _searchCard.ctrl.abort();
+  if (_searchCard.el) _searchCard.el.remove();
+  _searchCard = null;
+}
+// Put the slot back first in the results after they are drawn again.
+function _searchCardMount() {
+  if (_searchCard && _searchCard.el && output.firstChild !== _searchCard.el) output.prepend(_searchCard.el);
+}
+async function _searchCardStart(query, scope, zimParam, limit, data) {
+  const key = query + '\n' + zimParam;
+  if (_searchCard && _searchCard.key === key) return; // "More results": the card stands
+  _searchCardClear();
+  const card = _searchCard = { key: key, ctrl: new AbortController(), el: null };
+  const ctx = { query: query, scope: scope, zimParam: zimParam, limit: limit, data: data, signal: card.ctrl.signal };
+  for (const r of SEARCH_CARDS) {
+    let payload = null;
+    try { payload = await r.ask(ctx); } catch (e) { payload = null; }
+    if (card !== _searchCard || card.ctrl.signal.aborted || mode !== 'search') return;
+    if (payload == null) continue;
+    const el = document.createElement('div');
+    el.className = 'search-card-slot';
+    el.dataset.card = r.id;
+    try { el.innerHTML = r.html(payload, ctx); } catch (e) { continue; } // a card that cannot draw leaves the slot to the next
+    card.el = el;
+    _searchCardMount();
+    if (r.mounted) { try { r.mounted(el, payload, ctx); } catch (e) {} }
+    return;
+  }
+}
+
+// The best passage for a question. A query of one or two words is a keyword
+// search and is never asked: the server would only say no (it is the judge;
+// this only spares it the request).
+const BEST_MIN_WORDS = 3;
+const BEST_ASKING = /[?？؟]|[぀-ヿ㐀-鿿]{4}/;
+function _bestMayHelp(query) {
+  if (!_cfg.bestAnswer) return false; // off unless the server runs with ZIMI_BEST_ANSWER=1
+  return BEST_ASKING.test(query) || query.trim().split(/\s+/).length >= BEST_MIN_WORDS;
+}
+function _bestQuoteHtml(q, primary) {
+  const source = tH('best_from').replace(/\{(title|source)\}/g, function(m, k) {
+    return '<bdi>' + esc(k === 'title' ? q.title : _zimTitle(q.zim)) + '</bdi>';
+  });
+  const text = primary
+    ? '<span class="bq-ctx">' + esc(q.before) + '</span><mark class="bq-hit">' + esc(q.sentence) + '</mark><span class="bq-ctx">' + esc(q.after) + '</span>'
+    : esc(q.sentence);
+  return '<a class="best-quote' + (primary ? '' : ' more') + '" href="' + escAttr(_articleDeepLinkPath(q.zim, q.path)) +
+    '" data-zim="' + escAttr(q.zim) + '" data-path="' + escAttr(q.path) + '" data-title="' + escAttr(q.title) +
+    '" data-quote="' + escAttr(q.sentence) + '" onclick="return _bestQuoteClick(event, this)">' +
+    '<blockquote dir="auto">' + text + '</blockquote><span class="bq-src">' + source + '</span></a>';
+}
+function _bestQuoteClick(e, el) {
+  return _spaNav(e, function() {
+    _openResult(el.dataset.zim, el.dataset.path, el.dataset.title, { quote: el.dataset.quote });
+  });
+}
+registerSearchCard({
+  id: 'best',
+  priority: 100,
+  async ask(ctx) {
+    if (!_bestMayHelp(ctx.query)) return null;
+    const res = await fetch('/bestanswer?q=' + encodeURIComponent(ctx.query) + '&limit=' + ctx.limit + ctx.zimParam, { signal: ctx.signal });
+    if (!res.ok) return null;
+    const d = await res.json();
+    return d && d.answer ? d : null;
+  },
+  html(d) {
+    return '<aside class="best-card" aria-label="' + escAttr(t('best_label')) + '">' +
+      _bestQuoteHtml(d.answer, true) + (d.more || []).map(function(m) { return _bestQuoteHtml(m, false); }).join('') + '</aside>';
+  },
+});
+
+// The sentence a quote was tapped for, shown in the article once it is up.
+var _pendingQuote = null;
+function _quoteReveal(frame) {
+  const want = _pendingQuote;
+  _pendingQuote = null;
+  if (!want || !currentArticle || currentArticle.zim !== want.zim || !_findApplies()) return;
+  let doc = null;
+  try { doc = frame.contentDocument; } catch (e) {}
+  if (!doc || !doc.body) return;
+  _findLoad().then(function(F) { F.show(doc, want.text); }, function() {});
 }
 
 // ── Async Snippets + Thumbnails ──
@@ -9342,6 +10617,7 @@ function _restoreSavedReader() {
 
 async function enterManage(e, section) {
   if (e && e.preventDefault) e.preventDefault();
+  _searchCardClear();
   if (!manageEnabled) {
     // The gear must respond from first paint. On a large library the boot's
     // /list call blocks for seconds, and if the user clicks before the
@@ -10447,6 +11723,7 @@ function _enrichCatalogInstalled(items) {
         item.installed = true;
         item._installedDate = hit.date || null;
         item._installedFile = hit.file;
+        item._installedExternal = hit.external || null;
         item._installedName = hit.name;
         item._installedSizeGb = hit.size_gb;
         claimed.add(hit.file);
@@ -10461,6 +11738,7 @@ function _enrichCatalogInstalled(items) {
       const m = fb.match(/(\d{4}-\d{2})$/);
       item._installedDate = m ? m[1] : null;
       item._installedFile = z.file;
+      item._installedExternal = z.external || null;
       item._installedName = z.name;
       item._installedSizeGb = z.size_gb;
       claimed.add(z.file);
@@ -10472,6 +11750,7 @@ function _enrichCatalogInstalled(items) {
     item.installed = false;
     item._installedDate = null;
     item._installedFile = null;
+    item._installedExternal = null;
     item._installedName = null;
     item._installedSizeGb = null;
     tryMatch(item, true);
@@ -10540,6 +11819,15 @@ function _newestPer(list, key) {
 }
 
 // The installed ZIMs of one kind, by title; with a key, one per identity.
+// The cross-language mark shows only where it can take you somewhere: another
+// ZIM in a different language that links by the same Q-IDs.
+function _canSwitchLanguage(z) {
+  if (!z.has_qids) return false;
+  var lang = _normLang(_langPrimary(z.language || ''));
+  return (zimsCache || []).some(function(o) {
+    return o !== z && o.has_qids && _normLang(_langPrimary(o.language || '')) !== lang;
+  });
+}
 function _installedOfKind(kind, key) {
   return _installedFor(kind, '', key);
 }
@@ -10906,8 +12194,9 @@ function drillCategory(catKey, namePrefix) {
       filtered = filtered.filter(function(item) { return _zimMatchesLang(item, manageLangFilter); });
     }
     const grouped = groupVariants(filtered);
-    // Sort: installed first, then alphabetical
-    grouped.sort((a, b) => (a.title || a.name || '').localeCompare(b.title || b.name || ''));
+    // The most complete edition of a project leads its category; the rest
+    // go alphabetically.
+    grouped.sort((a, b) => _mostComplete(b) - _mostComplete(a) || (a.title || a.name || '').localeCompare(b.title || b.name || ''));
     let h = '<div class="browse-drilldown-header">' +
       '<button class="browse-back" onclick="renderBrowseGallery()">' + tH('back_to_catalog') + '</button>' +
       '<span class="browse-drilldown-title">' + (catMeta ? '<span class="browse-drilldown-icon">' + catMeta.icon + '</span>' : '') + esc(catName) + '</span>' +
@@ -11400,6 +12689,7 @@ const _DL_ARROW_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="non
 // for something new — collapse them behind a count button at the list end.
 let _showHiddenCatalog = false;
 
+function _mostComplete(g) { return g.hierarchy && g.hierarchy.coverage_advantage_bundle ? 1 : 0; }
 function _catalogItemDemoted(g) {
   const variants = g.variants || [g];
   if (variants.some(v => v.installed)) return true;
@@ -11551,17 +12841,16 @@ function renderCatalogItem(group) {
     // ALONGSIDE the existing one instead of replacing it (#50, echoes #16).
     const instTok = _flavorToken(instVariant._installedFile || '');
     const updVariant = variants.find(v => v.download_url && _flavorToken(v.download_url) === instTok) || instVariant;
-    const hasUpdate = instVariant._installedDate && updVariant.date && updVariant.download_url
-      && instVariant._installedDate < updVariant.date.substring(0, 7);
+    const hasUpdate = _catalogHasUpdate(instVariant, updVariant);
     if (hasUpdate) {
       // Update available — show update button (same style as manage view)
       actionsHtml = '<button class="ci-update-btn" onclick="downloadZim(\'' + escAttr(updVariant.download_url) + '\', this, true)" title="' + escAttr(t('from_to_update', {from: instVariant._installedDate, to: updVariant.date})) + '">' +
         tH('update') + '</button>';
     } else {
-      actionsHtml = '<span class="ci-installed-badge">' + tH('installed_badge') + '</span>';
+      actionsHtml = instVariant._installedExternal ? '' : '<span class="ci-installed-badge">' + tH('installed_badge') + '</span>';
     }
     if (instVariant._installedFile) {
-      actionsHtml += '<button class="ci-delete-btn" onclick="deleteZim(\'' + escAttr(instVariant._installedFile) + '\', this)" title="' + escAttr(t('delete_zim')) + '">\u00D7</button>';
+      actionsHtml += _zimDeleteBtn(instVariant._installedFile, instVariant._installedExternal);
     }
   } else {
     // Sibling URLs disambiguate colliding labels (unsuffixed vs maxi → both
@@ -12637,6 +13926,8 @@ function _openSetup(st) {
   card.innerHTML = st.inside === false
     ? '<h2>' + tH('setup_waiting_title') + '</h2><p class="subtitle">' + tH('setup_waiting_body') + '</p>'
     : '<h2>' + tH('welcome') + '</h2><p class="subtitle">' + tH('setup_body') + '</p>' + _setupFormHtml(st, 'setup');
+  var gateHelp = _gateHelpHtml();
+  if (gateHelp) card.innerHTML += '<p class="gate-help">' + gateHelp + '</p>';
   document.getElementById('setup-overlay').classList.add('open');
   var first = card.querySelector('input:not([type=checkbox])');
   if (first && first.id === 'setup-key') first.focus();
@@ -13966,12 +15257,36 @@ function _libSplitHtml(coverage) {
     '<div class="mc-row mc-sub"><span class="mc-label">' + tH('au_local') + '</span><span class="mc-value">' + esc(String(local)) + '</span></div>';
 }
 
+// What each folder another program owns contributes, one quiet line under the
+// total it is part of: "Project NOMAD  9" under the ZIM count, its size
+// under the total size.
+function _libShareRowsHtml(shares, size) {
+  return (shares || []).map(function(f) {
+    return '<div class="mc-row mc-sub"><span class="mc-label">' + esc(f.label) + '</span><span class="mc-value">' +
+      esc(size ? fmtSize(f.size_gb) : String(f.zims)) + '</span></div>';
+  }).join('');
+}
+function _paintLibShares(d) {
+  var c = document.getElementById('ms-share-count'), z = document.getElementById('ms-share-size');
+  if (c) c.innerHTML = _libShareRowsHtml(d.from_folders, false);
+  if (z) z.innerHTML = _libShareRowsHtml(d.from_folders, true);
+}
+
 function _autoUpdateHtml(au) {
   // Frequency alone. The last-run / next-run clock rows are gone: operational
   // noise the operator did not ask for. How much of the library the updater
   // can check reads under the ZIM count (_libSplitHtml).
   return '<div class="ms-section-label">' + tH('auto_update') + '</div>' +
-    _mcRow(tH('au_frequency'), _autoUpdateSelectHtml(au));
+    _mcRow(tH('au_frequency'), _autoUpdateSelectHtml(au)) + _autoUpdateScopeHtml(au);
+}
+// Which ZIMs the updater leaves alone, said once under the frequency, only
+// when there are some: local ones, and those another program looks after.
+function _autoUpdateScopeHtml(au) {
+  var folders = ((_manageStatusData && _manageStatusData.from_folders) || []).map(function(f) { return f.label; });
+  var local = au.coverage && (au.coverage.skipped || []).length;
+  if (!folders.length && !local) return '';
+  var line = folders.length ? tH('au_scope_folders', { label: folders.join(', ') }) : tH('au_scope_local');
+  return '<div class="ms-hint">' + line + '</div>';
 }
 
 // Repaint the section from server truth. The library pane draws it once from
@@ -13993,7 +15308,9 @@ function _msLibraryHtml() {
   if (!d) return '<div class="loading"><span class="spinner-inline"></span>Loading\u2026</div>';
   var h = '<div class="mc-row"><span class="mc-label">' + tH('zim_files') + '</span><span class="mc-value" id="ms-zim-count">' + esc(String(d.zim_count)) + '</span></div>' +
     '<div id="ms-lib-split"></div>' +
+    '<div id="ms-share-count">' + _libShareRowsHtml(d.from_folders, false) + '</div>' +
     '<div class="mc-row"><span class="mc-label">' + tH('total_size') + '</span><span class="mc-value" id="ms-total-size">' + fmtSize(d.total_size_gb) + '</span></div>' +
+    '<div id="ms-share-size">' + _libShareRowsHtml(d.from_folders, true) + '</div>' +
     // Summary line + (only when updates exist) an expandable detail panel. The
     // row's state, clickability and detail are all driven by _renderUpdatesSummary
     // — the single writer — so the top-level label never strands on "Checking…".
@@ -14329,7 +15646,7 @@ function _msPreferencesHtml() {
     '<div class="ms-section-label">' + tH('ms_display_section') + '</div>' +
     '<div class="ms-theme-label">' + tH('app_theme') + '</div>' +
     _appThemeSegHtml() +
-    '<div class="ms-hint">' + tH('app_theme_hint') + '</div>' +
+    '<div class="ms-hint" id="app-theme-hint">' + _appThemeHintHtml() + '</div>' +
 
     // Reading: everything about how an article reads, in one place. The two
     // choices first, then the switches.
@@ -14403,28 +15720,23 @@ function _appUpdateHowHtml(d) {
   return '<div class="ms-hint">' + tH('app_update_how_releases') + ' ' + _appUpdateReleasesLink(d) + '</div>';
 }
 
-// Latest vs beta, and how long a release must have been public before this
-// instance is offered it. Locked (ZIMI_UPDATE_CHANNEL / ZIMI_UPDATE_DELAY_DAYS)
-// renders the same select, disabled with the standard env-controlled note, so
-// the setting stays visible instead of vanishing on the deployments most
-// likely to set it.
-var _APP_UPDATE_CHANNEL_LABELS = {
-  latest: 'app_update_channel_latest',
-  beta: 'app_update_channel_beta'
-};
-
-// One row shape for the update selects: label, <select>, and either the
-// setting's hint or, locked, why (the env-controlled note unless the caller
-// names another reason in o.lockNote).
+// How long a release must have been public before this instance is offered
+// it. Locked (ZIMI_UPDATE_DELAY_DAYS) renders the same select, disabled with
+// the standard env-controlled note, so the setting stays visible instead of
+// vanishing on the deployments most likely to set it.
+//
+// One row: label and <select>. The setting's explanation is the select's
+// tooltip; only a lock earns a visible line, because it says why the control
+// does nothing.
 function _appUpdateSelectRow(o) {
-  var lockNote = o.lockNote || t('env_controlled', { v: o.envVar });
+  var lockNote = t('env_controlled', { v: o.envVar });
   return '<div class="mc-row" style="align-items:center">' +
       '<span class="mc-label">' + esc(t(o.labelKey)) + '</span>' +
       // Styled as every Settings select is (.ms-pane select).
       '<span class="mc-value"><select id="' + escAttr(o.id) + '"' +
-        (o.locked ? ' disabled title="' + escAttr(lockNote) + '"' : '') +
+        ' title="' + escAttr(o.locked ? lockNote : t(o.hintKey)) + '"' + (o.locked ? ' disabled' : '') +
         ' onchange="' + escAttr(o.onchange) + '">' + o.options + '</select></span></div>' +
-    '<div class="ms-hint">' + esc(o.locked ? lockNote : t(o.hintKey)) + '</div>';
+    (o.locked ? '<div class="ms-hint">' + esc(lockNote) + '</div>' : '');
 }
 
 // String(value) matters: escAttr() turns a falsy value into '', which would
@@ -14432,23 +15744,6 @@ function _appUpdateSelectRow(o) {
 function _appUpdateOption(value, label, selected) {
   return '<option value="' + escAttr(String(value)) + '"' + (selected ? ' selected' : '') + '>' +
     esc(label) + '</option>';
-}
-
-function _appUpdateChannelHtml(d) {
-  var cur = d.channel || 'latest';
-  var opts = (d.channels || ['latest', 'beta']).map(function(c) {
-    var key = _APP_UPDATE_CHANNEL_LABELS[c];
-    return _appUpdateOption(c, key ? t(key) : c, c === cur);
-  }).join('');
-  return _appUpdateSelectRow({
-    id: 'app-update-channel',
-    labelKey: 'app_update_channel',
-    hintKey: 'app_update_channel_hint',
-    envVar: d.channel_env || 'ZIMI_UPDATE_CHANNEL',
-    locked: !!d.channel_locked,
-    onchange: '_appUpdateSetChannel(this.value)',
-    options: opts
-  });
 }
 
 // A saved delay the presets don't cover (set over the API or by an env var)
@@ -14532,7 +15827,7 @@ function _appUpdateHowSlot(d) {
 // Offline mode does no checking at all, so these would be controls with
 // nothing behind them.
 function _appUpdateSettingsSlot(d) {
-  return d.offline ? '' : _appUpdateCheckHtml(d) + _appUpdateChannelHtml(d) + _appUpdateDelayHtml(d);
+  return d.offline ? '' : _appUpdateCheckHtml(d) + _appUpdateDelayHtml(d);
 }
 
 // "Check for updates": Ask first / Automatically / Never, the choice the
@@ -14547,8 +15842,8 @@ function _appUpdateCheckHtml(d) {
       (locked ? ' disabled' : '') + ' onclick="_appUpdateSetCheck(\'' + escAttr(m) + '\')"><span>' + tH('alm_earth_sat_' + m) + '</span></button>';
   }).join('');
   return '<div class="ms-theme-label">' + tH('app_update_check') + '</div>' +
-    '<div class="app-theme-seg" id="' + _APP_UPDATE_CHECK_ID + '" role="radiogroup" tabindex="-1" aria-label="' + escAttr(t('app_update_check')) + '">' + btns + '</div>' +
-    '<div class="ms-hint">' + esc(locked ? t('env_controlled', { v: d.check_env || 'ZIMI_UPDATE_CHECK' }) : t('app_update_check_hint')) + '</div>';
+    '<div class="app-theme-seg" id="' + _APP_UPDATE_CHECK_ID + '" role="radiogroup" tabindex="-1" aria-label="' + escAttr(t('app_update_check')) + '" title="' + escAttr(t('app_update_check_hint')) + '">' + btns + '</div>' +
+    (locked ? '<div class="ms-hint">' + esc(t('env_controlled', { v: d.check_env || 'ZIMI_UPDATE_CHECK' })) + '</div>' : '');
 }
 var _APP_UPDATE_CHECK_ID = 'app-update-check';
 
@@ -14578,8 +15873,7 @@ function _appUpdatePaint(d) {
 function _appUpdateVerdictHtml(d) {
   var status;
   if (d.update_available) {
-    status = '<span class="app-update-badge">' + tH('app_update_available', { v: d.latest }) + '</span>' +
-      (d.prerelease ? ' <span class="app-update-quiet">' + tH('app_update_prerelease') + '</span>' : '');
+    status = '<span class="app-update-badge">' + tH('app_update_available', { v: d.latest }) + '</span>';
   } else if (d.update_held) {
     // The release exists and we know it — say so quietly instead of showing
     // "up to date", which would be a lie the user could check.
@@ -14609,8 +15903,8 @@ function _appUpdateShowChecking() {
 }
 
 // A failed check must not take the settings down with it. The verdict line
-// says so and everything else stays put — the channel and delay the admin set
-// are still true, whatever the network did.
+// says so and everything else stays put — the choices the admin made are
+// still true, whatever the network did.
 function _appUpdateShowError() {
   var host = document.getElementById(_APP_UPDATE_ID);
   if (!host) return;
@@ -14636,7 +15930,7 @@ function _renderAppUpdate(force) {
 
 function _appUpdateCheckNow() { _renderAppUpdate(true); }
 
-// Both update settings answer with the full app-update payload, so the
+// The update settings answer with the full app-update payload, so the
 // response IS the repainted state. The only reachable error is the env lock
 // (the select is disabled then, so that means a second browser raced a config
 // change) — say so and repaint from server truth.
@@ -14651,13 +15945,6 @@ function _appUpdateSaveSetting(path, body, envVar) {
     if (d && d.error) { _showToast(t('env_controlled', { v: envVar })); _renderAppUpdate(false); return; }
     _appUpdatePaint(d);
   }).catch(function() { _renderAppUpdate(false); });
-}
-
-// Switching channel re-checks server-side (the cached answer belongs to the
-// other channel); the delay is applied when the payload is built, so neither
-// needs a follow-up fetch.
-function _appUpdateSetChannel(channel) {
-  _appUpdateSaveSetting('/manage/app-update-channel', { channel: channel }, 'ZIMI_UPDATE_CHANNEL');
 }
 
 function _appUpdateSetCheck(mode) {
@@ -14869,6 +16156,9 @@ function _msServerHtml() {
   // Storage owns its desktop variant so the section can move freely — the old
   // reorder-fragile string split is gone.
   var storageSec = '<div class="ms-section-label">' + tH('storage_section') + '</div>';
+  // Other programs' libraries (Project NOMAD), read where they are. Painted by
+  // _renderLibFolders once the card is in the DOM.
+  var _libFoldersSlot = '<div id="ms-libfolders" class="ms-libfolders"></div>';
   if (IS_DESKTOP) {
     storageSec +=
       '<div class="ms-field"><label>' + tH('zim_folder') + '</label>' +
@@ -14882,13 +16172,13 @@ function _msServerHtml() {
         '<button class="manage-btn-action" onclick="settingsSaveInline()" style="margin-inline-start:auto">' + tH('save') + '</button></div>' +
       '<div class="ms-hint">' + tH('restart_hint') + '</div>' +
       // Painted by _renderDesktopLan from the app's own config, not /manage.
-      '<div id="ms-lan"></div>';
+      '<div id="ms-lan"></div>' + _libFoldersSlot;
     setTimeout(_renderDesktopLan, 0);
   } else {
     storageSec +=
       '<div class="ms-field"><label>' + tH('zim_folder') + '</label><input type="text" id="ms-zim-dir" dir="ltr" readonly value="' + escAttr(t('loading')) + '"></div>' +
       '<div class="ms-field"><label>' + tH('data_folder') + '</label><input type="text" id="ms-data-dir" dir="ltr" readonly value="' + escAttr(t('loading')) + '"></div>' +
-      '<div class="ms-hint">' + tH('configured_via_env') + '</div>';
+      '<div class="ms-hint">' + tH('configured_via_env') + '</div>' + _libFoldersSlot;
   }
 
   // The server's backup; My data, this browser's, is under Preferences.
@@ -14929,6 +16219,7 @@ function _msServerHtml() {
     _renderSeedingSection();
     _renderMirrorSection();
     _renderDownloadSchedule();
+    _renderLibFolders();
     _renderAppUpdate();
   }, 0);
   _msFetch('/manage/cache-info').then(function(d) {
@@ -14996,12 +16287,13 @@ async function _renderBackgroundWork() {
   const ix = a.indexing || {};
   if (ix.state === 'building') {
     rows.push(_bgWorkRow(tH('title_indexes'),
-      tH('n_of_total', {n: ix.ready || 0, total: ix.total || 0}) + (ix.current ? ' · ' + esc(ix.current) + '&hellip;' : '')));
+      (ix.current ? esc(_zimTitleWithLang(ix.current)) + ' · ' : '') + tH('n_of_total', {n: ix.ready || 0, total: ix.total || 0})));
   }
   for (const job of (a.background || [])) {
-    const where = job.current ? esc(job.current) + '&hellip;' : tH('in_progress');
-    const count = job.total ? tH('n_of_total', {n: Math.min(job.done + 1, job.total), total: job.total}) + ' · ' : '';
-    rows.push(_bgWorkRow(tH(_BG_WORK_LABEL[job.kind] || job.kind), count + where));
+    // The ZIM by its title, then how far along: "Wikipedia (Español) · 1 of 1".
+    const where = job.current ? esc(_zimTitleWithLang(job.current)) : tH('in_progress');
+    const count = job.total ? ' · ' + tH('n_of_total', {n: Math.min(job.done + 1, job.total), total: job.total}) : '';
+    rows.push(_bgWorkRow(tH(_BG_WORK_LABEL[job.kind] || job.kind), where + count));
   }
   // What failed stays on screen: a ZIM whose rebuild failed keeps its old
   // index, and "up to date" would say otherwise.
@@ -15903,6 +17195,126 @@ async function _btcSubmit(test) {
   out.innerHTML = lines.map(function(l) { return '<div class="' + l[1] + '">' + esc(l[0]) + '</div>'; }).join('');
 }
 
+// ── Other library folders: another program's ZIMs, read where they are ──
+// The folder stays that program's. Zimi never deletes, renames or updates a
+// file in it, so there is nothing here to confirm, only to add or to stop reading.
+const LIB_FOLDERS_URL = '/manage/library-folders';
+async function _libFoldersPost(body) {
+  var r = await manageFetch(LIB_FOLDERS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  return { ok: r.ok, d: await r.json().catch(function() { return {}; }) };
+}
+function _libFolderRowHtml(title, desc, right, notes) {
+  return '<div class="share-row set-row lf-row"><span class="share-row-text"><span class="share-row-title">' + title + '</span>' +
+    '<span class="share-row-desc lf-path" dir="ltr">' + desc + '</span>' +
+    (notes || []).map(function(n) { return '<span class="share-row-desc lf-note">' + esc(n) + '</span>'; }).join('') +
+    '</span>' + right + '</div>';
+}
+function _libFolderCountHtml(count) { return ' <span class="lf-count">' + esc(count) + '</span>'; }
+// What the folder holds that the library does not show, in a quiet line each.
+function _libFolderNotes(f) {
+  var notes = [];
+  if ((f.shadowed || []).length) notes.push(t('lib_folders_shadowed', { n: f.shadowed.length }));
+  if ((f.unreadable || []).length) notes.push(t('lib_folders_unreadable', { n: f.unreadable.length }) + ': ' +
+    f.unreadable.map(function(u) { return u.file + ' (' + t('zim_unreadable_' + u.why) + ')'; }).join(', '));
+  return notes;
+}
+const LIB_FOLDER_PLACEHOLDER = '/opt/project-nomad/storage/zim';
+// Project NOMAD mode: Zimi asks NOMAD's own API to download, update and delete
+// in NOMAD's library, so NOMAD's records, Kiwix and assistant stay in step.
+// Off until the owner turns it on; read-only is what the page says otherwise.
+const NOMAD_URL_PLACEHOLDER = 'http://nomad_admin:8080';
+function _nomadModeHtml(n) {
+  if (!n || !n.available) return '';
+  var status = '';
+  if (n.enabled) {
+    status = n.reason === 'ok'
+      ? t('nomad_mode_ok', { version: n.version })
+      : t('nomad_mode_why_' + n.reason, { version: n.version, supported: (n.supported || []).join(', ') });
+  }
+  var url = n.enabled && !n.locked
+    ? '<div class="lf-add"><input type="text" id="lf-nomad-url" dir="ltr" class="peer-name-input" value="' + escAttr(n.url || '') +
+      '" placeholder="' + escAttr(NOMAD_URL_PLACEHOLDER) + '" aria-label="' + escAttr(t('nomad_mode_url')) +
+      '" onkeydown="if(event.key===\'Enter\')_setNomadMode(true)">' +
+      '<button type="button" class="set-btn" onclick="_setNomadMode(true)">' + tH('save') + '</button></div>'
+    : '';
+  return '<div class="ms-section-label">' + tH('nomad_mode_title') + '</div>' +
+    _switchRowsHtml([{ id: 'ms-nomad-mode', title: tH('nomad_mode_toggle'), desc: tH('nomad_mode_desc'),
+      on: !!n.enabled, disabled: !!n.locked, onchange: '_setNomadMode(this.checked)' }]) +
+    (status ? '<div class="ms-hint nomad-status ' + (n.reason === 'ok' ? 'ok' : 'warn') + '">' + esc(status) + '</div>' : '') + url;
+}
+function _setNomadMode(on) {
+  var inp = document.getElementById('lf-nomad-url');
+  return _libFolderSend({ action: 'nomad', enabled: !!on, url: inp ? inp.value.trim() : '' });
+}
+async function _renderLibFolders() {
+  var el = document.getElementById('ms-libfolders');
+  if (!el) return;
+  var d;
+  try {
+    var r = await manageFetch(LIB_FOLDERS_URL);
+    // Naming a folder on the server's disk is for the primary admin; anyone
+    // else sees no card at all, not a field that answers with a refusal.
+    if (!r.ok) { el.innerHTML = ''; return; }
+    d = await r.json();
+  } catch (e) { return; }
+  window._libFolders = d;
+  var rows = (d.folders || []).map(function(f, i) {
+    var count = f.present ? tPlural('lib_folders_zims', f.zims) : t('lib_folders_missing');
+    var drop = f.source === 'env'
+      ? '<button type="button" class="set-btn" onclick="_showToast(t(\'configured_via_env\'))">env</button>'
+      : '<span class="lf-btns"><button type="button" class="set-btn" onclick="_libFolderRename(' + i + ')">' + tH('lib_folders_rename') + '</button>' +
+        '<button type="button" class="set-btn" onclick="_libFolderAct(\'remove\', ' + i + ')">' + tH('lib_folders_stop') + '</button></span>';
+    return _libFolderRowHtml(esc(f.label) + _libFolderCountHtml(count), esc(f.path), drop, _libFolderNotes(f));
+  });
+  // The offer comes once, ahead of the list, and leaves for good on either answer.
+  var offers = (d.suggestions || []).map(function(sg, i) {
+    return _libFolderRowHtml(tH('lib_folders_offer', { label: sg.label }) + _libFolderCountHtml(tPlural('lib_folders_zims', sg.zims)),
+      esc(sg.path),
+      '<span class="lf-btns"><button type="button" class="set-btn primary" onclick="_libFolderAct(\'add\', ' + i + ', true)">' + tH('lib_folders_add') + '</button>' +
+      '<button type="button" class="set-btn" onclick="_libFolderAct(\'dismiss\', ' + i + ', true)">' + tH('lib_folders_not_now') + '</button></span>');
+  });
+  var add = '<div class="lf-add"><input type="text" id="lf-path" dir="ltr" class="peer-name-input" placeholder="' + escAttr(LIB_FOLDER_PLACEHOLDER) +
+    '" aria-label="' + escAttr(t('lib_folders_title')) + '" onkeydown="if(event.key===\'Enter\')_libFolderAdd()">' +
+    '<button type="button" class="set-btn" onclick="_libFolderAdd()">' + tH('lib_folders_add_folder') + '</button></div>';
+  el.innerHTML = '<div class="ms-section-label">' + tH('lib_folders_title') + '</div>' +
+    (offers.concat(rows).length ? '<div class="share-rows set-rows">' + offers.concat(rows).join('') + '</div>' : '') +
+    add + '<div id="lf-msg" class="ms-hint">' + tH('lib_folders_hint') + '</div>' + _nomadModeHtml(d.nomad);
+}
+async function _libFolderRename(i) {
+  var f = ((window._libFolders || {}).folders || [])[i];
+  if (!f) return;
+  var name = window.prompt(t('lib_folders_rename_prompt'), f.label);
+  if (name === null) return;
+  await _libFolderSend({ action: 'label', path: f.path, label: name });
+}
+async function _libFolderAct(action, i, offer) {
+  var d = window._libFolders || {};
+  var f = (offer ? d.suggestions : d.folders)[i];
+  if (!f) return;
+  await _libFolderSend({ action: action, path: f.path, label: f.label });
+}
+async function _libFolderAdd() {
+  var inp = document.getElementById('lf-path');
+  if (!inp || !inp.value.trim()) return;
+  await _libFolderSend({ action: 'add', path: inp.value.trim() });
+}
+async function _libFolderSend(body) {
+  var msg = document.getElementById('lf-msg');
+  if (msg) msg.textContent = t('saving');
+  var res;
+  try { res = await _libFoldersPost(body); } catch (e) { if (msg) msg.textContent = t('error'); return; }
+  if (!res.ok) { if (msg) msg.textContent = res.d.error_key ? t(res.d.error_key) : (res.d.error || t('error')); return; }
+  // The library changed under the page: the lists that draw it start over.
+  if (body.action !== 'dismiss') {
+    zimsCache = await _fetchList();
+    _rebuildZimsMap();
+    _catalogCache = null;
+    var count = document.getElementById('ms-zim-count');
+    if (count) count.textContent = String(zimsCache ? zimsCache.length : 0);
+  }
+  _renderLibFolders();
+}
+
 // ── Download scheduling card (nightly window + global download speed cap) ──
 async function _renderDownloadSchedule() {
   var el = document.getElementById('ms-dl-schedule');
@@ -15973,7 +17385,9 @@ async function _renderDownloadSchedule() {
       '" title="' + escAttr(t('bt_max_dl_hint')) + '" onchange="_setBtMaxDl(this)">' +
     '</span></div>';
 
-  el.innerHTML = toggle + lockNote + windowBlock + maxRow + speedRow + uploadRow;
+  // Limits first (how many, how fast), then the nightly window with the
+  // upload restriction that shares its times right under it.
+  el.innerHTML = maxRow + speedRow + toggle + lockNote + windowBlock + uploadRow;
 }
 
 async function _postDownloadSchedule(body) {
@@ -16567,7 +17981,7 @@ function renderInstalled(filterText) {
   if (!el) return;
   const zims = zimsCache || [];
   // Same rule as home: only claim "nothing installed" when the server said so.
-  if (!_libraryKnown) { el.innerHTML = _libraryUnavailableHtml(); return; }
+  if (!_libraryKnown) { el.innerHTML = _libraryUnavailableHtml(); _renderOfflineHome(); return; }
   if (!zims.length) {
     el.innerHTML = '<div class="empty"><p>' + tH('no_zims_installed') + '</p><div class="hint">' + tH('switch_to_catalog') + '</div></div>';
     return;
@@ -16625,6 +18039,9 @@ function renderInstalled(filterText) {
       // stay on the YYYY-MM release stamp.
       const dateStr = z.date ? (_isZimiExport(z) ? z.date : z.date.substring(0, 7)) : null;
       if (dateStr) meta.push(dateStr);
+      if (z.unreadable) meta.push('<span class="ci-bad">' + esc(t('zim_unreadable_' + z.unreadable)) + '</span>');
+      if (z.also_in) meta.push('<span>' + esc(t('zim_also_in', { label: z.also_in })) + '</span>');
+      if (z.via) meta.push('<span>' + esc(t('zim_via', { label: z.via })) + '</span>');
       // Flavor badge from filename. When catalog variants exist, the current
       // variant's label is group-aware — an installed unsuffixed build shows
       // "Full + video" next to a maxi sibling instead of a second "Full" (#50).
@@ -16648,10 +18065,10 @@ function renderInstalled(filterText) {
       if (upd) {
         actionsHtml = '<button class="ci-update-btn" onclick="downloadZim(\'' + escAttr(upd.download_url) + '\', this, true)" title="' + escAttr(t('from_to_update', {from: dateStr || '?', to: upd.latest_date})) + '">' +
           tH('update') + '</button>' +
-          '<button class="ci-delete-btn" onclick="deleteZim(\'' + escAttr(z.file) + '\', this)" title="' + escAttr(t('delete_zim')) + '">\u00D7</button>';
+          _zimDeleteBtn(z.file, z.external);
       } else {
-        actionsHtml = '<span class="ci-installed-badge">' + tH('installed_badge') + '</span>' +
-          '<button class="ci-delete-btn" onclick="deleteZim(\'' + escAttr(z.file) + '\', this)" title="' + escAttr(t('delete_zim')) + '">\u00D7</button>';
+        actionsHtml = (z.external ? '' : '<span class="ci-installed-badge">' + tH('installed_badge') + '</span>') +
+          _zimDeleteBtn(z.file, z.external);
       }
       // No inline download pill: the raw .zim lives on the row's \u22ef menu
       // (Download ZIM file), which the peer-share gate still governs.
@@ -17097,6 +18514,22 @@ async function downloadZim(url, btn, isUpdate) {
   }
 }
 
+// A catalog row offers Update when its catalog edition is newer than the file
+// installed. Never for a ZIM in a folder another program owns: an update would
+// download a second full copy into Zimi's own library beside the original.
+function _catalogHasUpdate(inst, upd) {
+  return !inst._installedExternal && !!(inst._installedDate && upd.date && upd.download_url
+    && inst._installedDate < upd.date.substring(0, 7));
+}
+// A ZIM in a folder another program owns (Project NOMAD) is Zimi's to read and
+// not to delete: the row says whose it is where the delete button would be.
+function _zimDeleteBtn(file, external) {
+  if (external) return '<button type="button" class="ci-installed-badge ci-from" data-label="' + escAttr(external) +
+    '" onclick="event.stopPropagation();_ownedNote(this)">' + esc(t('in_folder', { label: external })) + '</button>';
+  return '<button class="ci-delete-btn" onclick="deleteZim(\'' + escAttr(file) + '\', this)" title="' + escAttr(t('delete_zim')) + '">\u00D7</button>';
+}
+// Touch has no hover: a tap on the badge says why there is no Delete.
+function _ownedNote(el) { _showToast(t('folder_not_ours', { label: el.getAttribute('data-label') })); }
 async function deleteZim(filename, btn) {
   if (!btn) return;
   // Two-click confirmation: first click shows "Delete?", second click confirms
@@ -17121,6 +18554,18 @@ async function deleteZim(filename, btn) {
       body: JSON.stringify({filename})
     });
     const data = await res.json();
+    if (data.error_key) {
+      // Refused: not Zimi's file (a page from before it knew). Put the card
+      // back and say so in words.
+      zimsCache = await _fetchList();
+      _rebuildZimsMap();
+      if (card) card.style.display = '';
+      btn.disabled = false;
+      btn.classList.remove('confirming');
+      btn.textContent = '\u00D7';
+      _showToast(t(data.error_key, { label: data.label || '' }));
+      return;
+    }
     if (data.error) {
       // Restore card on error
       if (card) card.style.display = '';
@@ -17779,6 +19224,7 @@ async function _refreshDownloadsInner(useCache) {
         if (countVal) countVal.textContent = String(sd.zim_count);
         const sizeVal = document.getElementById('ms-total-size');
         if (sizeVal) sizeVal.textContent = fmtSize(sd.total_size_gb);
+        _paintLibShares(sd);
         _renderAutoUpdateSection();
         // Update tab count
         const tabBtn = document.querySelector('.manage-tab[data-tab="installed"]');
@@ -18097,15 +19543,19 @@ async function refreshLibrary() {
 // the address no such copy was stored under; the page is now asked for each
 // time, so the mark never needs to change.
 var _PDF_VIEWER_MARK = 'zr=1';
+// pdf.js's name for the interface language ('' is its own default, en-US).
+var _PDF_LOCALES = { 'fr': 'fr', 'de': 'de', 'es': 'es-ES', 'pt': 'pt-BR', 'ru': 'ru', 'zh': 'zh-CN', 'ar': 'ar', 'he': 'he', 'hi': 'hi-IN' };
+function _pdfLocale() {
+  var lang = (typeof _currentLang !== 'undefined' && _currentLang) ? _currentLang : '';
+  return _PDF_LOCALES[lang] || '';
+}
 function _pdfViewerUrl(pdfUrl) {
   // pdfUrl is already percent-encoded (/w/zim/path%20name.pdf).
   // PDF.js viewer fetches via XHR (Sec-Fetch-Dest: empty), so the server
   // serves raw content without needing ?raw=1 (that's only for browser navigation).
   // Don't append ?raw=1 — it gets parsed as a separate query param by URLSearchParams
   // and breaks the file path extraction in PDF.js's parseQueryString.
-  var lang = (typeof _currentLang !== 'undefined' && _currentLang) ? _currentLang : '';
-  var localeMap = { 'fr': 'fr', 'de': 'de', 'es': 'es-ES', 'pt': 'pt-BR', 'ru': 'ru', 'zh': 'zh-CN', 'ar': 'ar', 'he': 'he', 'hi': 'hi-IN' };
-  var locale = localeMap[lang] || '';
+  var locale = _pdfLocale();
   return '/static/pdfjs/web/viewer.html?' + _PDF_VIEWER_MARK + '&file=' + pdfUrl + (locale ? '#locale=' + locale : '');
 }
 // Single-page docs (devdocs) surface result paths like 'index#backslash' where
@@ -18121,11 +19571,17 @@ function _articleUrl(zim, path) {
   var p = _splitPathFragment(path);
   return '/w/' + encodeURIComponent(zim) + '/' + p.base.split('/').map(encodeURIComponent).join('/') + p.frag;
 }
+// decodeURIComponent that keeps what it cannot decode. A saved page's own file
+// names can hold a bare '%' ("50% off.html"), and a path that is already decoded
+// or half-encoded must not stop a page from opening.
+function _decodeSafe(s) {
+  try { return decodeURIComponent(s); } catch (e) { return s; }
+}
 function _titleFromPath(path) {
   // Drop any in-page '#fragment' — a title should name the article, not the anchor
   // (single-page devdocs links carry 'index#section' style paths).
   var base = _splitPathFragment(path).base;
-  return decodeURIComponent(base.split('/').pop() || '').replace(/_/g, ' ');
+  return _decodeSafe(base.split('/').pop() || '').replace(/_/g, ' ');
 }
 function _saveCurrentFile() {
   // Desktop: save the currently viewed file (PDF, EPUB) to disk
@@ -18266,9 +19722,152 @@ function _cycleReaderFont() {
 var _TTS_AVAILABLE = (typeof window !== 'undefined') && ('speechSynthesis' in window);
 var _ttsSpeaking = false;
 
-function _ttsChunkText(text, maxLen) {
+// Read aloud in the server's voices (voices.py: Kokoro, Piper, ...) when it
+// has one for the article's language, as the Dictionary's Say does: the same
+// voice on every device, and a natural one where the browser's own is robotic
+// or missing (a Linux browser often has only espeak, or none at all). The
+// browser's speechSynthesis stays the fallback, and is used as before when the
+// server can say nothing or the viewer chose Device in Settings > Voices.
+// Each chunk is one /dictionary/speak?kind=sentence request (chunks are 240
+// characters, under voices.SENTENCE_MAX), played by one <audio> element; the
+// next chunk is asked for while this one plays, so the server has said it by
+// the time it is needed. An engine too slow for that on this server (Kokoro on
+// a small NAS takes longer to say a chunk than to play it) gives way to the
+// next engine for the language for the rest of the article.
+var _TTS_SERVER_RETRY_MS = 2000; // voices.RETRY_AFTER_S: the server was busy
+// How long a chunk may take to start before the next engine says it instead.
+// Piper says a 240-character chunk in 1 to 3 s on an Intel N150; Kokoro takes
+// 18 to 24 s there (2026-10-17), longer than the chunk plays.
+var _TTS_START_WAIT_MS = 6000;
+var _TTS_CHUNK_MAX = 240, _TTS_FIRST_CHUNK_MAX = 120; // characters
+var _TTS_AHEAD = 2; // chunks asked for ahead of the one playing, so the voice never waits
+var _ttsVoices = null; // /dictionary/voices (its page payload), or null
+var _ttsAudio = null;
+var _ttsRun = 0; // bumped by every start and stop: callbacks of an older run do nothing
+// The list is asked for when Read aloud may be used soon, never at page load
+// (most people rarely or never read aloud): when the ... menu opens, and when
+// Reader View opens for someone who read aloud this week. Kept a minute, so
+// a voice downloaded since is found without a request per tap.
+var _TTS_VOICES_FRESH_MS = 60000;
+var _TTS_RECENT_MS = 7 * 86400000; // "uses Read aloud": the last time was within a week
+var _TTS_SUGGEST_MS = 9000;
+var _ttsVoicesAt = 0;
+var _ttsVoicesBusy = null;
+function _ttsLoadVoices() {
+  if (_ttsVoicesBusy) return _ttsVoicesBusy;
+  if (_ttsVoices && Date.now() - _ttsVoicesAt < _TTS_VOICES_FRESH_MS) return Promise.resolve(_ttsVoices);
+  _ttsVoicesBusy = authedFetch('/dictionary/voices').then(function(r) { return r.ok ? r.json() : null; })
+    .catch(function() { return null; })
+    .then(function(d) {
+      _ttsVoices = d; _ttsVoicesAt = Date.now(); _ttsVoicesBusy = null;
+      updateTopbar();
+      _rebuildTopbarMenu(); // Read aloud's row, if the list changed whether it shows
+      return d;
+    });
+  return _ttsVoicesBusy;
+}
+function _ttsUsedRecently() {
+  var at = _getStorageJSON(SK.TTS_LAST_USE, 0);
+  return typeof at === 'number' && Date.now() - at < _TTS_RECENT_MS;
+}
+function _ttsFrameDoc() {
+  var frame = document.getElementById('reader-frame');
+  try { return (frame && frame.contentDocument) || null; } catch(e) { return null; }
+}
+// Read aloud may be used soon: have the voice list; and for someone who reads
+// aloud (this week), have the server load the article's voice now, so the
+// first chunk does not wait for the model (the Dictionary does the same on
+// opening). Nothing is fetched or downloaded for it.
+var _TTS_WARM_ENGINES = ['kokoro', 'piper']; // the voices that load a model
+var _ttsWarmed = {};
+function _ttsPrepare() {
+  if (!readerOpen || !_speakingOn()) return;
+  _ttsLoadVoices().then(function() {
+    if (!_ttsUsedRecently()) return;
+    var doc = _ttsFrameDoc();
+    var lang = doc ? _ttsLang(doc) : '';
+    var engines = lang ? _ttsServerEngines(lang) : [];
+    var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
+    // warm loads the server's own pick for the language: worth asking only
+    // when that is what reads.
+    if (!row || engines[0] !== row.engine || _TTS_WARM_ENGINES.indexOf(row.engine) < 0) return;
+    var tag = _normLang(_langPrimary(lang)), key = tag + ' ' + row.engine;
+    if (_ttsWarmed[key]) return;
+    _ttsWarmed[key] = true;
+    authedFetch('/dictionary/voices/warm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ langs: [tag], words: [] }) })
+      .catch(function() { delete _ttsWarmed[key]; });
+  });
+}
+// The voice Read aloud reads in when the person chose one: its own (Settings >
+// Voices) or else the default there. '' is Automatic.
+function _ttsChosenVoice() {
+  var p = _voicePrefs();
+  return p.read || p.voice;
+}
+// The server's engines for a language, best first. A chosen voice reads
+// alone: it is the person's setting, so it neither gives way mid-read nor is
+// marked slow (a slow one is suggested against, _ttsSuggestFaster). Only when
+// it cannot say the language does Automatic pick: the server's own choice, then
+// the rest, none that Settings turned off, an engine too slow to read with
+// here last. Empty when the chosen voice is Device, or the server cannot say
+// the language.
+function _ttsServerEngines(lang) {
+  var langs = (_ttsVoices && _ttsVoices.langs) || {};
+  var row = langs[_normLang(_langPrimary(lang))];
+  var prefs = _voicePrefs(), chosen = _ttsChosenVoice();
+  if (!row || chosen === _DEVICE_VOICE) return [];
+  var order = _ttsRowOrder(row, prefs);
+  if (chosen && order.indexOf(chosen) >= 0) return [chosen];
+  var slow = _ttsSlowEngines();
+  var quick = order.filter(function(e) { return slow.indexOf(e) < 0; });
+  return quick.concat(order.filter(function(e) { return quick.indexOf(e) < 0; }));
+}
+// The engines the server has for a language row, its own choice first, none
+// that Settings turned off.
+function _ttsRowOrder(row, prefs) {
+  var order = [row.engine].concat(row.engines || []);
+  return order.filter(function(e, i) {
+    return e && order.indexOf(e) === i && (row.engines || []).indexOf(e) >= 0 && prefs.off.indexOf(e) < 0;
+  });
+}
+// Chosen, and not keeping up: once per engine, a quiet offer of another.
+function _ttsSuggestFaster(lang, slowEngine) {
+  var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
+  var said = _getStorageJSON(SK.TTS_SUGGESTED, []);
+  if (!Array.isArray(said)) said = [];
+  if (!row || said.indexOf(slowEngine) >= 0) return;
+  var slow = _ttsSlowEngines();
+  var faster = _ttsRowOrder(row, _voicePrefs()).filter(function(e) { return e !== slowEngine && slow.indexOf(e) < 0; })[0];
+  if (!faster) return;
+  said.push(slowEngine);
+  _setStorageJSON(SK.TTS_SUGGESTED, said);
+  _showToast(t('tts_slow_suggest', { slow: _voiceEngineName(slowEngine), fast: _voiceEngineName(faster) }), _TTS_SUGGEST_MS,
+    function() { _setVoicePrefs({ read: faster }); }, t('tts_slow_use', { fast: _voiceEngineName(faster) }));
+}
+function _ttsSlowEngines() {
+  var s = _getStorageJSON(SK.TTS_SLOW, []);
+  return Array.isArray(s) ? s : [];
+}
+function _ttsMarkSlow(engine) {
+  var s = _ttsSlowEngines();
+  if (s.indexOf(engine) < 0) { s.push(engine); _setStorageJSON(SK.TTS_SLOW, s); }
+}
+function _ttsServerSays() {
+  return Object.keys((_ttsVoices && _ttsVoices.langs) || {}).length > 0;
+}
+// The Read aloud button shows when the server or this browser can speak.
+function _ttsCanSpeak() { return _TTS_AVAILABLE || _ttsServerSays(); }
+function _ttsSpeakUrl(text, lang, engine) {
+  return '/dictionary/speak?kind=sentence&lang=' + encodeURIComponent(_normLang(_langPrimary(lang))) +
+    '&engine=' + encodeURIComponent(engine) + '&text=' + encodeURIComponent(text);
+}
+
+// ``first`` caps the first chunk alone: a voice says nothing until a whole
+// chunk is made, so a short one starts the reading sooner.
+function _ttsChunkText(text, maxLen, first) {
   maxLen = maxLen || 240;
   var out = [];
+  function cap() { return out.length || !first ? maxLen : first; }
   if (!text) return out;
   // Collapse whitespace so newlines don't confuse sentence detection.
   var clean = String(text).replace(/\s+/g, ' ').trim();
@@ -18280,19 +19879,19 @@ function _ttsChunkText(text, maxLen) {
     var s = sentences[i].trim();
     if (!s) continue;
     // A single sentence longer than maxLen: hard-split on word boundaries.
-    if (s.length > maxLen) {
+    if (s.length > cap()) {
       if (buf) { out.push(buf); buf = ''; }
       var words = s.split(' ');
       var line = '';
       for (var w = 0; w < words.length; w++) {
         var word = words[w];
-        if (line && (line.length + 1 + word.length) > maxLen) { out.push(line); line = word; }
+        if (line && (line.length + 1 + word.length) > cap()) { out.push(line); line = word; }
         else { line = line ? (line + ' ' + word) : word; }
       }
       if (line) buf = line; // carry remainder to pack with the next sentence
       continue;
     }
-    if (buf && (buf.length + 1 + s.length) > maxLen) { out.push(buf); buf = s; }
+    if (buf && (buf.length + 1 + s.length) > cap()) { out.push(buf); buf = s; }
     else { buf = buf ? (buf + ' ' + s) : s; }
   }
   if (buf) out.push(buf);
@@ -18342,6 +19941,7 @@ function _ttsLang(doc) {
 function _ttsSetSpeaking(on) {
   _ttsSpeaking = on;
   _syncTopbarMenuReaderItems(); // mobile: reflect speaking-state on the ... menu row
+  _ttsBarSync();
   var btn = document.getElementById('tts-btn');
   if (!btn) return;
   btn.classList.toggle('speaking', on);
@@ -18351,32 +19951,268 @@ function _ttsSetSpeaking(on) {
   btn.setAttribute('aria-label', label);
 }
 function _ttsStop() {
-  if (!_TTS_AVAILABLE) return;
-  try { window.speechSynthesis.cancel(); } catch(e) {}
+  _ttsRun++;
+  _ttsPaused = false;
+  if (_ttsAudio) {
+    try { _ttsAudio.pause(); _ttsAudio.removeAttribute('src'); _ttsAudio.load(); } catch(e) {}
+  }
+  if (_TTS_AVAILABLE) { try { window.speechSynthesis.cancel(); } catch(e) {} }
   if (_ttsSpeaking) _ttsSetSpeaking(false);
 }
-function _ttsSpeak() {
-  if (!_TTS_AVAILABLE) return;
-  var frame = document.getElementById('reader-frame');
-  var doc; try { doc = frame && frame.contentDocument; } catch(e) { doc = null; }
+function _ttsSpeak(from) {
+  from = from || 0;
+  if (!_ttsCanSpeak()) return;
+  var doc = _ttsFrameDoc();
   if (!doc) return;
-  var chunks = _ttsChunkText(_ttsExtractText(doc), 240);
+  var chunks = _ttsChunkText(_ttsExtractText(doc), _TTS_CHUNK_MAX, _TTS_FIRST_CHUNK_MAX);
   if (!chunks.length) return;
   var lang = _ttsLang(doc);
-  var synth = window.speechSynthesis;
-  synth.cancel(); // clear any residual queue before starting fresh
+  _ttsStop(); // clear any residual queue or audio before starting fresh
+  var engines = _ttsServerEngines(lang);
+  if (!engines.length && !_TTS_AVAILABLE) return;
   _ttsSetSpeaking(true);
-  chunks.forEach(function(chunk, idx) {
+  _setStorageJSON(SK.TTS_LAST_USE, Date.now());
+  // A chosen voice reads alone and, if it cannot keep up, is offered a faster
+  // one; only Automatic moves on to the next engine by itself.
+  var chosen = engines.length === 1 && engines[0] === _ttsChosenVoice();
+  from = Math.min(from, chunks.length - 1);
+  _ttsNow = { at: from, engine: engines[0] || _DEVICE_VOICE, playing: false, lang: lang };
+  _ttsBarSync();
+  if (engines.length) _ttsSpeakServer(chunks, lang, engines, ++_ttsRun, chosen ? function(e) { _ttsSuggestFaster(lang, e); } : null, from);
+  else _ttsSpeakDevice(chunks, lang, from);
+}
+// This browser's own voices, from chunk ``from`` on.
+function _ttsSpeakDevice(chunks, lang, from) {
+  var synth = window.speechSynthesis;
+  synth.cancel();
+  chunks.slice(from).forEach(function(chunk, idx, rest) {
     var u = new SpeechSynthesisUtterance(chunk);
     if (lang) u.lang = lang;
-    if (idx === chunks.length - 1) u.onend = function() { _ttsSetSpeaking(false); };
+    u.rate = _ttsRate();
+    u.onstart = function() { _ttsNow.at = from + idx; _ttsNow.engine = _DEVICE_VOICE; _ttsNow.playing = true; _ttsBarSync(); };
+    if (idx === rest.length - 1) u.onend = function() { _ttsSetSpeaking(false); };
     u.onerror = function() { _ttsSetSpeaking(false); };
     synth.speak(u);
   });
 }
+// The server's voices: one <audio> element plays the chunks in turn. Its src
+// is set and played inside the tap for the first chunk, as iOS requires (an
+// element started in a tap may play again from its own events).
+function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
+  var audio = _ttsAudio || (_ttsAudio = new Audio());
+  var i = from || 0, eng = 0, retried = false, waiting = null, told = false;
+  var asked = {}; // chunk index -> true once the server has said it (or failed to)
+  function live() { return run === _ttsRun; }
+  // Too slow here: the next engine for the language says the rest, and this
+  // one is tried last from now on.
+  function slower() {
+    _ttsMarkSlow(engines[eng]);
+    eng++;
+    asked = {};
+  }
+  // Ask for chunk ``idx`` ahead of time; the server keeps what it said, so
+  // the <audio> element then gets it at once.
+  // A chosen voice (``onSlow``) keeps reading; the person is told once.
+  function tooSlow() {
+    if (onSlow && !told) { told = true; onSlow(engines[eng]); }
+  }
+  function ask(idx) {
+    if (idx >= chunks.length || asked[idx] !== undefined) return;
+    var engine = engines[eng];
+    asked[idx] = false;
+    authedFetch(_ttsSpeakUrl(chunks[idx], lang, engine)).then(function(r) {
+      if (!live()) return;
+      if (r.status === 503) {
+        delete asked[idx]; // busy: ask again shortly
+        setTimeout(function() { if (live()) ask(idx); }, _TTS_SERVER_RETRY_MS);
+        return;
+      }
+      if (engines[eng] === engine) asked[idx] = true;
+    }).catch(function() { if (live()) delete asked[idx]; });
+  }
+  function play(idx) {
+    // Not ready when it is needed: this engine is too slow here, so the next
+    // one for the language says the rest (what was asked of the slow one
+    // still plays if it arrives first).
+    if (idx > 0 && asked[idx] === false) {
+      if (eng + 1 < engines.length) slower(); else tooSlow();
+    }
+    audio.defaultPlaybackRate = _ttsRate(); // a new src starts at this rate
+    audio.src = _ttsSpeakUrl(chunks[idx], lang, engines[eng]);
+    audio.playbackRate = _ttsRate();
+    _ttsNow.at = idx; _ttsNow.engine = engines[eng]; _ttsNow.playing = false;
+    _ttsBarSync();
+    var p = audio.play();
+    // AbortError: this play() was cut short by the next src (a switch of
+    // engine, or the next chunk), which is not a failure.
+    if (p && p.catch) p.catch(function(e) { if (live() && !(e && e.name === 'AbortError')) fail(); });
+    // Still silent after a while (the first chunk, or one asked too late):
+    // say it with the next engine instead.
+    clearTimeout(waiting);
+    if (eng + 1 < engines.length || onSlow) {
+      waiting = setTimeout(function() {
+        if (!live() || i !== idx || !audio.paused || _ttsPaused) return;
+        if (eng + 1 < engines.length) { slower(); play(idx); } else tooSlow();
+      }, _TTS_START_WAIT_MS);
+    }
+  }
+  function fail() {
+    // Once more after a moment (the server may have been busy), then this
+    // browser's voices for the rest, or stop when it has none.
+    if (!retried) {
+      retried = true;
+      setTimeout(function() { if (live()) play(i); }, _TTS_SERVER_RETRY_MS);
+      return;
+    }
+    _ttsRun++;
+    if (_TTS_AVAILABLE) _ttsSpeakDevice(chunks, lang, i);
+    else _ttsSetSpeaking(false);
+  }
+  audio.onplaying = function() {
+    if (!live()) return;
+    clearTimeout(waiting); retried = false;
+    for (var k = 1; k <= _TTS_AHEAD; k++) ask(i + k);
+    _ttsNow.playing = true; _ttsBarSync();
+  };
+  audio.onended = function() {
+    if (!live()) return;
+    i++;
+    if (i >= chunks.length) { _ttsRun++; _ttsSetSpeaking(false); return; }
+    play(i);
+  };
+  audio.onerror = function() { if (live() && audio.getAttribute('src')) fail(); };
+  play(i);
+}
 function _ttsToggle() {
   if (_ttsSpeaking) _ttsStop();
   else _ttsSpeak();
+}
+
+// ── While it reads: a bar at the foot of the reader ──
+// On a phone Read aloud is a row in the ⋯ menu, so once the menu closed
+// nothing said a reading had begun, that it waited for the server's voice, or
+// which voice it was. The bar says all three (a turning ring until the first
+// sound, then the voice), offers this language's voices where it plays
+// (remembered as Read aloud's own, Settings > Voices), and stops it.
+var _ttsNow = { at: 0, engine: '', playing: false, lang: '' };
+var _ttsMenuOpen = ''; // the bar's open menu: '', 'voice' or 'speed'
+var _ttsPaused = false;
+var _TTS_RATES = [1, 1.25, 1.5, 2];
+function _ttsRate() {
+  var r = _getStorageJSON(SK.TTS_RATE, 1);
+  return _TTS_RATES.indexOf(r) >= 0 ? r : 1;
+}
+var _TTS_CHEVRON = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>';
+var _TTS_PAUSE_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+var _TTS_PLAY_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10-6.5a1 1 0 0 0 0-1.7l-10-6.6A1 1 0 0 0 8 5.5z"/></svg>';
+var _TTS_CLOSE_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+// The voices this article's language can be read in: the server's, in its
+// order (none Settings turned off), then this browser's.
+function _ttsVoicesFor(lang) {
+  var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
+  var out = row ? _ttsRowOrder(row, _voicePrefs()) : [];
+  if (_TTS_AVAILABLE) out.push(_DEVICE_VOICE);
+  return out;
+}
+function _ttsRateLabel(r) {
+  var n = String(r);
+  try { n = r.toLocaleString((typeof _currentLang !== 'undefined' && _currentLang) || undefined); } catch (e) {}
+  return n + '\u00d7';
+}
+function _ttsBarHtml() {
+  var pick = _voicePrefs().read || '';
+  var voices = _ttsVoicesFor(_ttsNow.lang);
+  var btn = function(cls, label, onclick, inner, extra) {
+    return '<button type="button" class="' + cls + '" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '" onclick="' + onclick + '"' + (extra || '') + '>' + inner + '</button>';
+  };
+  var h = '<span class="tts-bar-state' + (_ttsPaused ? ' paused' : _ttsNow.playing ? ' playing' : '') + '" aria-hidden="true"><i></i><i></i><i></i></span>';
+  // A menu opens above the button it belongs to, its choices radio items.
+  var menu = function(which, items) {
+    if (_ttsMenuOpen !== which) return '';
+    return '<div class="tts-bar-menu tts-bar-menu-' + which + '" role="menu">' + items.map(function(it) {
+      return '<button type="button" role="menuitemradio" aria-checked="' + it[0] + '" onclick="' + escAttr(it[1]) + '">' + esc(it[2]) + '</button>';
+    }).join('') + '</div>';
+  };
+  if (voices.length > 1) {
+    h += '<span class="tts-bar-anchor"><button type="button" class="tts-bar-voice" aria-haspopup="menu" aria-expanded="' + (_ttsMenuOpen === 'voice') + '" onclick="_ttsMenuToggle(\'voice\')">' +
+      '<span>' + esc(_voiceEngineName(_ttsNow.engine)) + '</span>' + _TTS_CHEVRON + '</button>' +
+      menu('voice', [['' === pick, '_ttsPickVoice("")', t('voices_default_auto')]].concat(voices.map(function(e) {
+        return [e === pick, '_ttsPickVoice(' + JSON.stringify(e) + ')', _voiceEngineName(e)];
+      }))) + '</span>';
+  } else {
+    h += '<span class="tts-bar-voice">' + esc(_voiceEngineName(_ttsNow.engine)) + '</span>';
+  }
+  var rate = _ttsRate();
+  h += '<span class="tts-bar-anchor">' + btn('tts-bar-speed', t('tts_speed'), "_ttsMenuToggle('speed')", esc(_ttsRateLabel(rate)),
+    ' aria-haspopup="menu" aria-expanded="' + (_ttsMenuOpen === 'speed') + '"') +
+    menu('speed', _TTS_RATES.map(function(r) { return [r === rate, '_ttsPickSpeed(' + r + ')', _ttsRateLabel(r)]; })) + '</span>';
+  h += btn('tts-bar-btn', t(_ttsPaused ? 'resume' : 'pause'), '_ttsPauseToggle()', _ttsPaused ? _TTS_PLAY_ICON : _TTS_PAUSE_ICON,
+    ' aria-pressed="' + _ttsPaused + '"');
+  h += btn('tts-bar-btn', t('tts_stop'), '_ttsStop()', _TTS_CLOSE_ICON);
+  return h;
+}
+function _ttsBarSync() {
+  var bar = document.getElementById('tts-bar');
+  if (!_ttsSpeaking) {
+    _ttsMenuOpen = '';
+    if (bar) bar.hidden = true;
+    return;
+  }
+  if (!bar) {
+    var reader = document.getElementById('reader');
+    if (!reader) return;
+    bar = document.createElement('div');
+    bar.id = 'tts-bar';
+    bar.className = 'tts-bar';
+    reader.appendChild(bar);
+  }
+  var html = _ttsBarHtml();
+  if (bar._painted !== html) bar.innerHTML = bar._painted = html;
+  bar.hidden = false;
+}
+function _ttsMenuToggle(which) {
+  _ttsMenuOpen = _ttsMenuOpen === which ? '' : which;
+  _ttsBarSync();
+}
+// A tap anywhere else, or Escape, closes the menu. A tap in the article
+// never reaches this page, but it takes the focus: the window's blur.
+function _ttsMenuAway(e) {
+  if (!_ttsMenuOpen) return;
+  if (e.type === 'keydown' && e.key !== 'Escape') return;
+  if (e.type === 'pointerdown' && e.target && e.target.closest && e.target.closest('#tts-bar')) return;
+  _ttsMenuOpen = '';
+  _ttsBarSync();
+}
+document.addEventListener('pointerdown', _ttsMenuAway, true);
+document.addEventListener('keydown', _ttsMenuAway, true);
+window.addEventListener('blur', _ttsMenuAway);
+// Pause keeps the place; Resume goes on from it. The engine's "still silent"
+// switch waits while paused (_ttsSpeakServer).
+function _ttsPauseToggle() {
+  _ttsPaused = !_ttsPaused;
+  var device = _ttsNow.engine === _DEVICE_VOICE;
+  try {
+    if (device) { if (_ttsPaused) window.speechSynthesis.pause(); else window.speechSynthesis.resume(); }
+    else if (_ttsAudio) { if (_ttsPaused) _ttsAudio.pause(); else _ttsAudio.play().catch(function() {}); }
+  } catch (e) {}
+  _ttsBarSync();
+}
+// 1x, 1.25x, 1.5x or 2x, picked from the menu: remembered on this device. The
+// server's audio changes speed where it is (its pitch kept); the browser's
+// voice takes a rate per sentence, so it starts again from the sentence it is on.
+function _ttsPickSpeed(r) {
+  _ttsMenuOpen = '';
+  _setStorageJSON(SK.TTS_RATE, r);
+  if (_ttsNow.engine === _DEVICE_VOICE) { if (!_ttsPaused) _ttsSpeak(_ttsNow.at); }
+  else if (_ttsAudio) { _ttsAudio.defaultPlaybackRate = r; _ttsAudio.playbackRate = r; }
+  _ttsBarSync();
+}
+// A voice picked while it reads: remembered, and the reading goes on from the
+// sentence it was at, in the new voice (inside this tap, as iOS needs).
+function _ttsPickVoice(engine) {
+  _setVoicePrefs({ read: engine });
+  _ttsMenuOpen = '';
+  _ttsSpeak(_ttsNow.at);
 }
 
 // ── Reader View (Safari-Reader-style clean typography) ──
@@ -18480,6 +20316,7 @@ function _readerThemeMode() {
 // white page). Articles, not the app: on Match Zimi they are the same answer,
 // and when someone has pinned articles dark they meant this one too.
 function _readerTheme() {
+  if (_nightRedOn()) return 'dark'; // a pinned light or sepia page would be the brightest thing on screen
   var m = _readerThemeMode();
   if (m === 'auto') return _articlesAreDark() ? 'dark' : 'sepia';
   return READER_THEMES.indexOf(m) >= 0 ? m : 'dark';
@@ -19200,6 +21037,7 @@ function _readerViewApply(doc) {
   // Measuring every picture lays the whole article out: after the text is
   // on screen, not before (a long article paid it before its first paint).
   if (!_isBookDoc(doc)) _afterPaint(function() { _readerBindLightbox(shell, doc); });
+  if (_ttsUsedRecently()) _ttsPrepare(); // someone who reads aloud: its voices ready before the tap
   return true;
 }
 // Work that can wait until the page has painted: the next frame, then a task.
@@ -19544,17 +21382,7 @@ function _readerPrint() {
   var lb = clone.querySelectorAll('.' + _READER_LIGHTBOX_CLASS + ',.zimi-lightbox-close');
   for (var j = 0; j < lb.length; j++) if (lb[j].parentNode) lb[j].parentNode.removeChild(lb[j]);
 
-  _readerPrintCleanup(); // clear any prior run
-  var style = document.createElement('style');
-  style.id = _READER_PRINT_STYLE_ID;
-  style.textContent = [
-    // On screen the print root is never shown; it only exists for @media print.
-    '#' + _READER_PRINT_ROOT_ID + '{display:none}',
-    '@media print{',
-      // Hide the entire app; reveal only the print root, black-on-white.
-      'body>*{display:none !important}',
-      'body>#' + _READER_PRINT_ROOT_ID + '{display:block !important}',
-      'html,body{background:#fff !important;margin:0 !important;padding:0 !important}',
+  _printNode(clone, [
       '#' + _READER_PRINT_ROOT_ID + '{color:#000;background:#fff;font-size:12pt;line-height:1.6;',
         'font-family:Georgia,"Times New Roman",serif;max-width:100%;padding:0 4mm}',
       '#' + _READER_PRINT_ROOT_ID + ' .zimi-reader-title{font-size:20pt;font-weight:700;margin:0 0 0.6em;line-height:1.25}',
@@ -19566,13 +21394,30 @@ function _readerPrint() {
         'page-break-inside:avoid;break-inside:avoid;max-width:100% !important;height:auto}',
       '#' + _READER_PRINT_ROOT_ID + ' th,#' + _READER_PRINT_ROOT_ID + ' td{border:1px solid #bbb;padding:6px 10px;text-align:left}',
       '#' + _READER_PRINT_ROOT_ID + ' pre,#' + _READER_PRINT_ROOT_ID + ' code{background:#f2f2f2;white-space:pre-wrap;word-wrap:break-word}',
+  ].join(''));
+}
+// Print a node on its own: the whole app steps aside and the node prints black
+// on white from this top-level window. `css` is the node's own print styling.
+function _printNode(node, css) {
+  _readerPrintCleanup(); // clear any prior run
+  var style = document.createElement('style');
+  style.id = _READER_PRINT_STYLE_ID;
+  style.textContent = [
+    // On screen the print root is never shown; it only exists for @media print.
+    '#' + _READER_PRINT_ROOT_ID + '{display:none}',
+    '@media print{',
+      // Hide the entire app; reveal only the print root, black-on-white.
+      'body>*{display:none !important}',
+      'body>#' + _READER_PRINT_ROOT_ID + '{display:block !important}',
+      'html,body{background:#fff !important;margin:0 !important;padding:0 !important}',
+      css,
     '}'
   ].join('');
   document.head.appendChild(style);
 
   var root = document.createElement('div');
   root.id = _READER_PRINT_ROOT_ID;
-  root.appendChild(clone);
+  root.appendChild(node);
   document.body.appendChild(root);
 
   // Tear down after printing. afterprint covers desktop + most mobile; a timeout
@@ -20005,8 +21850,8 @@ function _wikiUrl(url) {
 function _wikiArticleDoc(frame) {
   var m = null; try { m = /^\/w\/([^\/]+)\/(.+)$/.exec(frame.contentWindow.location.pathname); } catch (e) { return false; }
   if (!m || !_wikiUrl(m[0])) return false;
-  var z = _zimInfo(decodeURIComponent(m[1]));
-  if (decodeURIComponent(m[2]) === z.main_path) return false;
+  var z = _zimInfo(_decodeSafe(m[1]));
+  if (_decodeSafe(m[2]) === z.main_path) return false;
   try { return !!frame.contentDocument.querySelector('#mw-content-text,.mw-parser-output'); } catch (e) { return false; }
 }
 // What Zimipedia's reader shows beside a wiki's article (wiki.article on the
@@ -20079,11 +21924,11 @@ function _appFrameCall(fn, val) {
 // No app is on screen: an article, the home page, or another app about to
 // say it is.
 function _appsOff() {
-  _tubeOpen = false; _exchangeOpen = false; _reddotOpen = false; _wikiOpen = false; _booksOpen = false; _dictOpen = false;
+  _tubeOpen = false; _exchangeOpen = false; _reddotOpen = false; _wikiOpen = false; _booksOpen = false; _dictOpen = false; _fieldguideOpen = false;
   _chromeReset();
 }
 function _anyAppOpen() {
-  return _tubeOpen || _exchangeOpen || _reddotOpen || _wikiOpen || _booksOpen || _dictOpen;
+  return _tubeOpen || _exchangeOpen || _reddotOpen || _wikiOpen || _booksOpen || _dictOpen || _fieldguideOpen;
 }
 
 // ── Bookshelf ──
@@ -20125,6 +21970,262 @@ function openBooks(replaceState) {
   _openHashApp('books', replaceState, function() { _booksOpen = true; return _BOOKS_PAGE + '#' + _booksStrings(); });
 }
 function _booksSearch(val) { _appFrameCall('booksSearch', val); }
+
+// ── Field Guide ──
+// What is happening, then what the open sources say, in their own words
+// (/static/fieldguide.html, zimi/fieldguide.py): situations, each a list of
+// quotations with their source, edition, licence and a link, and the library
+// behind them. Not one of the apps in the row: it needs no ZIM, cannot be
+// switched off, and is reached by "Help now" on the home page and by search
+// (a situation above the results, see the card below). Eric, 2026-09-28:
+// "build first aid and or a whole like how to live and survive bucket."
+var _fieldguideOpen = false;
+// The server stamps <html data-zimi-fieldguide="1"> when the guide is on
+// (ZIMI_FIELDGUIDE); without it nothing here draws an entry to it.
+function _fieldguideOn() {
+  try { return document.documentElement.dataset.zimiFieldguide === '1'; } catch (e) { return false; }
+}
+var _FIELDGUIDE_PAGE = '/static/fieldguide.html?v=1';
+// The guide's own copy of its quotes and phrase tables (fieldguide-offline.js).
+var _FIELDGUIDE_OFFLINE_URL = '/static/fieldguide-offline.json';
+// Help now's own mark, a red cross: not the Field Guide's compass, which is the app's.
+var _HELP_NOW_SVG = '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>';
+var _FIELDGUIDE_SVG = '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M5.6 5.6l3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9"/></svg>';
+var _FIELDGUIDE_SITUATIONS = ['emergency_call', 'bleeding', 'not_breathing', 'choking', 'heart_attack', 'shock', 'recovery_position', 'cold', 'burns', 'heat',
+  'broken_bone', 'bites', 'allergic', 'poison', 'lost', 'signal', 'shelter', 'water', 'flood', 'earthquake', 'wildfire', 'storm', 'power_out',
+  'carbon_monoxide', 'food'];
+var _FIELDGUIDE_WORDS = ['fieldguide_help_now', 'fieldguide_disclaimer', 'fieldguide_group_hurt', 'fieldguide_group_survive', 'fieldguide_group_disaster',
+  'fieldguide_order_march', 'fieldguide_print', 'fieldguide_english_only', 'fieldguide_get_library', 'fieldguide_library_note',
+  'fieldguide_red_night', 'fieldguide_more_in_library', 'fieldguide_add_to_library', 'fieldguide_installed', 'fieldguide_get_all', 'fieldguide_started',
+  'fieldguide_needs_admin', 'fieldguide_failed', 'fieldguide_loading', 'fieldguide_building', 'fieldguide_built', 'fieldguide_set_core', 'fieldguide_set_more',
+  'fieldguide_nothing', 'fieldguide_confirm_big', 'fieldguide_from', 'fieldguide_licence', 'fieldguide_original', 'fieldguide_in_library', 'fieldguide_read_full', 'fieldguide_add_for_full',
+  'fieldguide_build', 'fieldguide_get', 'fieldguide_search_in', 'fieldguide_dated', 'fieldguide_open_card', 'fieldguide_lic_US_PD',
+  'fieldguide_superseded', 'fieldguide_your_library', 'fieldguide_yes_download', 'fieldguide_cancel', 'fieldguide_print_all', 'fieldguide_build_note',
+  'fieldguide_help_link', 'fieldguide_show_all', 'fieldguide_covers', 'fieldguide_as_of', 'fieldguide_see_also', 'fieldguide_sky_place',
+  'fieldguide_num_here', 'fieldguide_nums_here', 'fieldguide_num_unknown', 'fieldguide_num_police', 'fieldguide_num_ambulance', 'fieldguide_num_fire', 'fieldguide_num_mobile', 'fieldguide_num_source',
+  'fieldguide_ask', 'fieldguide_search_library'];
+function _isFieldguidePage() {
+  return !!(_fieldguideOpen && readerOpen && !_almanacOpen && !_createOpen);
+}
+function _fieldguideUrl(id) {
+  return '/#fieldguide' + (id ? '/' + id : '');
+}
+// A situation's id from the address: only the names the guide has.
+function _fieldguideId(id) {
+  return _FIELDGUIDE_SITUATIONS.indexOf(id) >= 0 ? id : '';
+}
+// The words as the card and the page use them: the shell's fieldguide_*
+// strings without the prefix, one situation's name each.
+function _fieldguideWords() {
+  var out = {};
+  _FIELDGUIDE_WORDS.forEach(function(k) { out[k.slice('fieldguide_'.length)] = t(k); });
+  _FIELDGUIDE_SITUATIONS.forEach(function(id) { out['s_' + id] = t('fieldguide_s_' + id); });
+  out.lang = (typeof _currentLang !== 'undefined' && _currentLang) || 'en';
+  return out;
+}
+function _fieldguideStrings(id) {
+  var keys = _FIELDGUIDE_WORDS.concat(_FIELDGUIDE_SITUATIONS.map(function(s) { return 'fieldguide_s_' + s; }));
+  // Where the reader is, when the Almanac knows it: the sky of that hemisphere leads.
+  var place = _almChosenPlace();
+  var lat = place && isFinite(parseFloat(place.lat)) && isFinite(parseFloat(place.lon)) ? String(place.lat) : '';
+  return _appStrings('fieldguide', keys, { open: id || '', lat: lat, lon: lat ? String(place.lon) : '', place: lat ? String(place.name || '') : '' });
+}
+function openFieldguide(replaceState, id) {
+  if (!_fieldguideOn()) return;
+  id = _fieldguideId(id);
+  if (_isModClick()) { _lastMouseEvent = null; window.open(_fieldguideUrl(id), '_blank'); return; }
+  if (_createOpen) closeCreate();
+  if (_almanacOpen) closeAlmanac();
+  if (mode === 'manage') { mode = 'home'; updateTopbar(); }
+  if (_mapWatched) { _mapWatched = null; clearTimeout(_mapHashTimer); }
+  if (currentArticle) _pushArticleHistory(currentArticle.zim, currentArticle.path);
+  currentArticle = null;
+  readerSource = null;
+  _appsOff();
+  _fieldguideOpen = true;
+  _appTop = !id;
+  var st = { mode: 'reader', fieldguide: true, fg: id };
+  // Arrived at a situation by address: nothing beneath it to step back to.
+  if (replaceState && id) st.entry = true;
+  if (replaceState) history.replaceState(_keepFrom(st), '', _fieldguideUrl(id));
+  else history.pushState(_stampFrom(st), '', _fieldguideUrl(id));
+  openReader(_FIELDGUIDE_PAGE + '#' + _fieldguideStrings(id));
+  document.title = t('fieldguide') + ' — Zimi';
+  _setWindowTitle(document.title);
+  updateTopbar();
+}
+// Home's entry to the Field Guide, a plain button anyone can find when it
+// counts; with a situation it is the small link a bare word gets ("Help now:
+// Water") in place of the card.
+function _helpNowPillHtml(id) {
+  if (!_fieldguideOn()) return '';
+  id = _fieldguideId(id);
+  var label = id ? t('fieldguide_help_link', { name: t('fieldguide_s_' + id) }) : t('fieldguide_help_now');
+  return '<a class="help-now" href="' + escAttr(_fieldguideUrl(id)) + '" onclick="return _spaNav(event, function() { openFieldguide(false, \'' + id + '\'); })">' +
+    _HELP_NOW_SVG + '<span>' + esc(label) + '</span></a>';
+}
+function _helpNowHtml(id) {
+  if (!_fieldguideOn()) return '';
+  return '<div class="help-now-row">' + _helpNowPillHtml(id) + '</div>';
+}
+// The same entry where the app cannot be reached: the first-run setup and
+// the sign-in screen. A plain address to the page, which needs no shell.
+function _gateHelpHtml() {
+  if (!_fieldguideOn()) return '';
+  return '<a class="help-now help-now-gate" href="' + escAttr(_FIELDGUIDE_PAGE + '#' + _fieldguideStrings('')) + '">' +
+    _HELP_NOW_SVG + '<span>' + tH('fieldguide_help_now') + '</span></a>';
+}
+// True only for a message from the Field Guide page itself: the reader frame
+// also holds ZIM pages (scripts of their own, the same origin), which must
+// not be able to ask the shell to search or print.
+function _fromFieldguide(e) {
+  var f = document.getElementById('reader-frame');
+  if (!_fieldguideOpen || !f || !e.source || e.source !== f.contentWindow) return false;
+  try { return f.contentWindow.location.pathname === '/static/fieldguide.html'; } catch (x) { return false; }
+}
+// Print what the Field Guide page built (a sheet of quotes): from this
+// window, since a sandboxed frame cannot print and iOS standalone ignores it.
+function _fieldguidePrint(win) {
+  var html = '';
+  try { html = win.__sheet; win.__sheet = ''; } catch (x) {}
+  if (typeof html !== 'string' || !html) return;
+  _fieldguideLoadCard(function() {
+    FieldGuideCard.ensureStyle(document);
+    var box = document.createElement('div');
+    box.className = 'fg-sheet-root';
+    box.innerHTML = html;
+    _printNode(box, '');
+  });
+}
+// The sky strip of the Field Guide's Lost, Signal, Shelter, Flood and Cold
+// cards: daylight left, when it is dark, the Moon, true north (or south). The
+// page asks (window.fieldguideSky) with the place it read: {lat, lon, guessed,
+// city}. The Almanac's own functions work it out (almanac-skyfacts.js), loaded
+// here on first use, after the card has drawn, never before. While the place
+// is a guess every figure rounds the safe way: less daylight left, the dark
+// from earlier and until later, the Moon up for less, and it is said to be a
+// guess. Answers {place, guessed, rows: [[label, value]]} to the page, or
+// nothing when the modules cannot be loaded.
+var FG_SKY_ROUND_MS = 15 * 60000;
+function _fgRound(ms, dir, guessed) {
+  if (!guessed) return ms;
+  return (dir < 0 ? Math.floor(ms / FG_SKY_ROUND_MS) : Math.ceil(ms / FG_SKY_ROUND_MS)) * FG_SKY_ROUND_MS;
+}
+function _fgSkyRows(p, now) {
+  var f = _skyFactsAt(now, p.lat, p.lon), g = !!p.guessed, rows = [];
+  var about = function(v) { return g ? t('alm_sky_f_about', { v: v }) : v; };
+  // dir -1: toward now / earlier (the safe way for what ends the light), +1: later.
+  var span = function(ms, dir) { return _skySpan(_fgRound(ms - now, dir, g), false); };
+  var clock = function(ms, dir, az) { return _skyClock(_fgRound(ms, dir, g), false) + (az == null ? '' : ' · ' + _skyBearing(az)); };
+  if (f.sunUp) rows.push([t('alm_sky_f_daylight_left'), f.sunset ? about(span(f.sunset, -1) + ' · ' + clock(f.sunset, -1, f.sunsetAz)) : t('alm_midnight_sun')]);
+  else rows.push([t('alm_sky_f_sunrise_in'), f.sunrise ? about(span(f.sunrise, 1) + ' · ' + clock(f.sunrise, 1, f.sunriseAz)) : t('alm_polar_night')]);
+  if (f.fullyDark) rows.push([t('alm_sky_f_dark_until'), f.darkUntil ? about(clock(f.darkUntil, 1)) : t('alm_polar_night')]);
+  else rows.push([t('alm_sky_f_dark_from'), f.darkFrom ? about(clock(f.darkFrom, -1)) : t('alm_sky_f_not_dark')]);
+  var lit = t('alm_sky_f_moon_lit', { p: _orrNum(_moonPhase(new Date(now)).illumination, null, 0) + '%' });
+  var next = f.moonUp ? (f.moonset ? t('alm_sky_f_sets', { t: about(clock(f.moonset, -1, f.moonsetAz)) }) : '') : (f.moonrise ? t('alm_sky_f_rises', { t: about(clock(f.moonrise, 1, f.moonriseAz)) }) : '');
+  rows.push([t('alm_moon'), lit + (next ? ' \u00b7 ' + next : '')]);
+  var a = _skyDeg(Math.abs(p.lat));
+  if (Math.abs(p.lat) < 2) rows.push([t('alm_sky_f_north'), t('alm_sky_f_equator_val')]);
+  else if (p.lat > 0) rows.push([t('alm_sky_f_north'), t('alm_sky_f_north_val', { a: a })]);
+  else rows.push([t('alm_sky_f_south'), t('alm_sky_f_south_val', { a: a })]);
+  return rows;
+}
+function fieldguideSky(p, done) {
+  if (!p || !isFinite(p.lat) || !isFinite(p.lon)) { done(null); return; }
+  _loadAlmanacModules().then(function() {
+    var out = { guessed: !!p.guessed, rows: [] };
+    try { out.rows = _fgSkyRows(p, Date.now()); } catch (e) { console.error(e); }
+    out.place = p.guessed
+      ? t(p.city ? 'alm_sky_f_guess' : 'alm_sky_f_guess_nocity', { city: p.city || '' })
+      : t('fieldguide_sky_place', { place: p.name || (_skyDeg(Math.abs(p.lat)) + (p.lat < 0 ? ' S ' : ' N ') + _skyDeg(Math.abs(p.lon)) + (p.lon < 0 ? ' W' : ' E')) });
+    done(out.rows.length ? out : null);
+  }, function() { done(null); });
+}
+// A search of the whole library, asked from the Field Guide's box.
+function _searchAll(query) {
+  if (readerOpen) closeReader();
+  currentSource = null;
+  q.value = query;
+  doSearch(query);
+}
+// A search inside one ZIM, asked from the Field Guide ("Search X for ...").
+function _searchInZim(zim, query) {
+  if (!_zimInfo(zim)) return;
+  if (readerOpen) closeReader();
+  currentSource = zim;
+  q.value = query;
+  doSearch(query);
+}
+// The Field Guide's answer above a search's results when the words name a
+// situation (search's `fieldguide` field: {id, kind, href, installed, who}; id ""
+// is the guide itself). It is the first card of the slot above the results
+// (registerSearchCard), so when it answers, no other card is asked: no
+// /bestanswer request and no Wikipedia passage under a government quote. A
+// clear emergency gets a compact card, its first plain passage (the one for
+// whoever the words named: a baby's, for "baby choking"); a bare word
+// that could be about anything gets the small "Help now: ..." link and no
+// quote. Filled from /fieldguide/situation after the card is up, and asked
+// for from /fieldguide/match as the search starts (_fieldguideEarly): the
+// words are looked up in memory, so Help now does not wait for the search.
+// Searching inside one ZIM is not asking for help: no answer.
+var FIELDGUIDE_CARD_PRIORITY = 50; // before the best answer (100)
+function _fieldguideCardHtml(h) {
+  if (h.kind === 'link' || !h.id) return _helpNowHtml(h.id);
+  var S = _fieldguideWords();
+  return '<section class="fg-q fg-answer"><h3>' + esc(S['s_' + h.id]) + '</h3><div class="fg-where">' + esc(S.disclaimer) + '</div><div class="fg-answer-body"></div>' +
+    '<div class="fg-lib"><button type="button" class="fg-btn on" data-act="situation" data-id="' + escAttr(h.id) + '">' + esc(S.open_card) + '</button>' +
+    '<button type="button" class="fg-btn" data-act="more" hidden>' + esc(S.show_all) + '</button></div></section>';
+}
+// Wire the card's buttons and bring in the situation's first passage.
+function _fieldguideCardMounted(el, h, ctx) {
+  if (h.kind === 'link' || !h.id) return;
+  var S = _fieldguideWords();
+  FieldGuideCard.ensureStyle(document);
+  FieldGuideCard.wire(el, function(act, btn) {
+    if (act === 'more') { el.firstChild.classList.add('fg-open'); btn.hidden = true; return; }
+    openFieldguide(false, h.id);
+  });
+  fetch('/fieldguide/situation?id=' + encodeURIComponent(h.id) + '&lang=' + encodeURIComponent(_uiLangPrimary()), { signal: ctx.signal }).then(function(r) { return r.ok ? r.json() : null; }).then(function(sit) {
+    var body = el.querySelector('.fg-answer-body');
+    if (!sit || !sit.quotes.length || !body) return;
+    var first = FieldGuideCard.forWho(sit.quotes, h.who);
+    body.innerHTML = '<div class="fg-body" lang="en" dir="ltr"><h4>' + esc(first.heading) + '</h4>' + FieldGuideCard.bodyHtml(first.lines) + FieldGuideCard.tableHtml(first.table) + '</div>' +
+      FieldGuideCard.footHtml(first, S);
+    var passage = body.firstChild, more = el.querySelector('[data-act=more]');
+    if (passage.scrollHeight > passage.clientHeight + 4) { passage.classList.add('fg-fold'); more.hidden = false; }
+  }).catch(function() {});
+}
+registerSearchCard({
+  id: 'fieldguide',
+  priority: FIELDGUIDE_CARD_PRIORITY,
+  ask(ctx) {
+    var h = _fieldguideOn() && !ctx.scope && ctx.data && ctx.data.fieldguide;
+    if (!h) return null;
+    if (h.kind === 'link' || !h.id) return h;
+    return new Promise(function(resolve) { _fieldguideLoadCard(function() { resolve(h); }); });
+  },
+  html: _fieldguideCardHtml,
+  mounted: _fieldguideCardMounted
+});
+// The words just typed, looked up in memory on the server (/fieldguide/match),
+// so the card is up in a moment rather than when a library-wide search ends.
+function _fieldguideEarly(query, scope, zimParam, limit, searchSeq) {
+  if (scope || !_fieldguideOn()) return;
+  fetch('/fieldguide/match?q=' + encodeURIComponent(query) + '&ui=' + encodeURIComponent(_uiLangPrimary()), { signal: searchController && searchController.signal })
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(m) {
+      if (!m || !m.kind || mode !== 'search' || searchSeq !== _searchSeq) return;
+      _searchCardStart(query, scope, zimParam, limit, { fieldguide: { id: m.id || '', kind: m.kind, who: m.who } });
+    }).catch(function() {});
+}
+var _fieldguideCardLoaded = false;
+function _fieldguideLoadCard(then) {
+  if (_fieldguideCardLoaded || typeof FieldGuideCard !== 'undefined') { _fieldguideCardLoaded = true; then(); return; }
+  var el = document.createElement('script');
+  el.src = '/static/fieldguide-card.js?v=1';
+  el.onload = function() { _fieldguideCardLoaded = true; then(); };
+  document.head.appendChild(el);
+}
 
 // ── Dictionary ──
 // One word across every Wiktionary in the library (/static/dictionary.html,
@@ -20174,7 +22275,7 @@ function openDictionary(replaceState, w) {
   var st = { mode: 'reader', dictionary: true, w: w };
   if (replaceState && w) st.entry = true;
   if (replaceState) history.replaceState(st, '', _dictUrl(w));
-  else history.pushState(st, '', _dictUrl(w));
+  else history.pushState(_stampFrom(st), '', _dictUrl(w));
   openReader(_DICT_PAGE + '#' + _dictStrings(w));
   document.title = (w ? w + ' — ' : '') + t('dictionary') + (w ? '' : ' — Zimi');
   _setWindowTitle(document.title);
@@ -20711,7 +22812,7 @@ function _bookLay(frame) {
   if (!shell || !article) return false;
   var loc = win.location.pathname.match(/^\/w\/([^\/]+)\/(.+)$/);
   if (!loc) return false;
-  var zim = decodeURIComponent(loc[1]), path = decodeURIComponent(loc[2]);
+  var zim = _decodeSafe(loc[1]), path = _decodeSafe(loc[2]);
   var html = doc.documentElement, uiRtl = document.documentElement.getAttribute('dir') === 'rtl';
   var st = doc.createElement('style');
   st.id = 'zb-style';
@@ -21416,12 +23517,12 @@ function _resultApp(zim, path) {
 // A Gutenberg book's cover page (<title>_cover.<id>) is the way to the book
 // (<title>.<id>, zimi/books.py): Bookshelf opens the book.
 function _bookOfCover(path) { return String(path).replace(/_cover(\.\d+(?:\.html)?)$/, '$1'); }
-function _openResult(zim, path, title) {
+function _openResult(zim, path, title, opts) {
   var app = _resultApp(zim, path);
-  if (app === 'wiki') { _wikiFromApp = true; openArticle(zim, path, title); }
-  else if (app === 'books') openArticle(zim, _bookOfCover(path), title);
+  if (app === 'wiki') { _wikiFromApp = true; openArticle(zim, path, title, opts); }
+  else if (app === 'books') openArticle(zim, _bookOfCover(path), title, opts);
   else if (app) _openAppItem(app, zim, path);
-  else openArticle(zim, path, title);
+  else openArticle(zim, path, title, opts);
 }
 // The apps whose things (a video, a question, a post) open in the app, not
 // the reader; each thing's kind is the one Saved.KIND_APP gives the app.
@@ -21513,7 +23614,7 @@ window.addEventListener('message', function(e) {
     });
   } else if (d.zimi === 'back') {
     // The page's own back arrow: the step the shell took for it.
-    if (history.state && (history.state.play || history.state.q || history.state.p || history.state.w)) history.back();
+    if (history.state && (history.state.play || history.state.q || history.state.p || history.state.w || history.state.fg)) history.back();
   } else if (d.zimi === 'open' && typeof d.zim === 'string' && typeof d.path === 'string' && d.zim && d.path) {
     // "Open the original page" from an app: an article with the app as the
     // step behind it, so the header's arrow returns to the video, the
@@ -21572,6 +23673,19 @@ window.addEventListener('message', function(e) {
     _appItemClosed();
     document.title = t('dictionary') + ' \u2014 Zimi';
     _setWindowTitle(document.title);
+  } else if (d.zimi === 'fieldguide-card' && _fromFieldguide(e) && typeof d.id === 'string') {
+    _appStep({ mode: 'reader', fieldguide: true, fg: d.id }, _fieldguideUrl(d.id), 'fg');
+    if (d.title) { document.title = d.title + ' \u2014 ' + t('fieldguide'); _setWindowTitle(document.title); }
+  } else if (d.zimi === 'fieldguide-home' && _fromFieldguide(e)) {
+    _appHome({ mode: 'reader', fieldguide: true, fg: '' }, _fieldguideUrl(''), 'fg');
+    document.title = t('fieldguide') + ' \u2014 Zimi';
+    _setWindowTitle(document.title);
+  } else if (d.zimi === 'search' && _fromFieldguide(e) && typeof d.q === 'string' && d.q) {
+    _searchAll(d.q);
+  } else if (d.zimi === 'search-in' && _fromFieldguide(e) && typeof d.zim === 'string' && typeof d.q === 'string' && d.zim && d.q) {
+    _searchInZim(d.zim, d.q);
+  } else if (d.zimi === 'print-sheet' && _fromFieldguide(e)) {
+    _fieldguidePrint(e.source);
   } else if (d.zimi === 'voices') {
     _openSettingsAt('ms-voices');
   } else if (d.zimi === 'catalog' && typeof d.category === 'string' && _APP_CATEGORY_KEYS.indexOf(d.category) >= 0) {
@@ -21682,9 +23796,8 @@ var _REDDIT_ADDRESS_START = 'https://www.reddit.com/r/Kiwix';
 // this signed-in person turned it off for their account. Never per
 // browser (Eric: "Not per browser only per user or server").
 var APP_NAMES = ['maps', 'tube', 'exchange', 'reddot', 'wiki', 'books', 'dictionary'];
-// Offered only when the server names them (a preview, while it is built):
-// Reddot since 1.13.1. Mirrors server.APPS_OPT_IN.
-var APPS_OPT_IN = ['reddot'];
+// Offered only when the server names them (none now). Mirrors server.APPS_OPT_IN.
+var APPS_OPT_IN = [];
 function _appOptIn(app) { return APPS_OPT_IN.indexOf(app) >= 0; }
 var APPS_DEFAULT = APP_NAMES.filter(function(a) { return !_appOptIn(a); });
 var _userPrefs = { apps: true, shown: null };
@@ -21745,7 +23858,7 @@ function _setUserApp(app, on) {
 // and a name, lit when offered (Eric: "the lil app tiles with icons and i
 // can select or deselect which to show").
 function _appIcon(app) {
-  return app === 'maps' ? _MAPS_SVG : app === 'tube' ? _TUBE_PLAY_SVG : app === 'exchange' ? _EXCHANGE_SVG : app === 'wiki' ? _WIKI_SVG : app === 'books' ? _BOOKS_SVG : app === 'dictionary' ? _DICT_SVG : _REDDOT_SVG;
+  return app === 'fieldguide' ? _FIELDGUIDE_SVG : app === 'maps' ? _MAPS_SVG : app === 'tube' ? _TUBE_PLAY_SVG : app === 'exchange' ? _EXCHANGE_SVG : app === 'wiki' ? _WIKI_SVG : app === 'books' ? _BOOKS_SVG : app === 'dictionary' ? _DICT_SVG : _REDDOT_SVG;
 }
 // The ZIMs inside each app: the ones its tile names and its page reads.
 function _appZims(app) {
@@ -21831,17 +23944,24 @@ function _appsGridHtml(tiles) {
   return '<div class="' + (_getLibraryView() === 'tiles' ? 'stats-grid tiles' : 'stats-grid') + ' apps-grid">' + tiles + '</div>';
 }
 
-function _appsRowHtml() {
-  if (!_appsEnabled()) return '';
-  var tiles = _shownApps().map(function(app) { return _APP_TILES[app](); }).join('');
-  if (!tiles) return '';
+function _appsRowHtml(withHelp) {
+  // Help now leads the row, as its own kind of pill (a red cross): it is the
+  // one thing here that must be found by a person who is not looking for apps.
+  if (!_appsEnabled()) return withHelp ? _helpNowHtml() : '';
+  // Home shows the apps that have something inside; the Apps page and
+  // Settings list every app, with how to fill an empty one.
+  var tiles = _shownApps().filter(function(app) { return _appZims(app).length > 0; })
+    .map(function(app) { return _APP_TILES[app](); }).join('');
+  if (!tiles) return withHelp ? _helpNowHtml() : '';
+  var pill = withHelp ? _helpNowPillHtml() : '';
+  var help = pill ? '<div class="apps-help">' + pill + '</div>' : '';
   // Labelled like every section around it (Discover above, the categories
   // below): a row without a name between rows with names reads as lost. And
   // like theirs, its name opens its page (#100): the Apps page. An empty
   // library has nothing to show there, so its name is only a name.
   var open = zimsCache && zimsCache.length;
   return '<div class="cat-heading' + (open ? ' clickable"' + _CAT_HEAD_OPENS + ' onclick="openAppsPage()"' : '"') + '>' + tH('apps_section') + '</div>' +
-    _appsGridHtml(tiles);
+    help + _appsGridHtml(tiles);
 }
 
 // The Apps page (#100): each app, in the library's order, with the ZIMs
@@ -22575,7 +24695,9 @@ function openReader(url) {
   // it can't be trusted to fully mask the raw white ZIM paint — hiding the frame
   // outright guarantees the first painted frame is the reader, never the original.
   // (visibility:hidden preserves layout + load, so extraction still works.)
-  var _maskFrame = _readerViewOn || _readerAuto() || _bookLoading || _wikiFromApp;
+  // Red over a page we do not write is a filter on the frame: held back with the
+  // rest until the page has been darkened, so no raw white page is ever lit red.
+  var _maskFrame = _syncFrameNight(url) || _readerViewOn || _readerAuto() || _bookLoading || _wikiFromApp;
   // A wiki's article: the reader's code comes alongside the page (it is
   // usually here already), never before it.
   // Not a wiki's article: Zimi's header offers saving again from the start.
@@ -22618,6 +24740,7 @@ function openReader(url) {
     var _d0 = null; try { _d0 = frame.contentDocument; } catch (e) {}
     if (_d0) { if (_d0.__zimiShown) return; _d0.__zimiShown = true; }
     _frameDocShown(frame, loading);
+    _quoteReveal(frame);
   };
   if (_earlyOk) _whenFrameDocReady(frame, _prevDoc, _onDoc);
   frame.onload = _onDoc;
@@ -22663,6 +24786,7 @@ function openReader(url) {
     var _wikiOn = _wikiDoc && _readerViewOn;
     if (_wikiOn) _wikiReaderAttach(frame); else _wikiChrome(false);
     _tintReaderChrome(); // reset frame bg to app.css's if reader ended up off
+    _syncFrameNight(null); // now the page is known: Zimi's own pages bring their own Red
     _syncReaderViewBtn();
     // Auto-darken a raw (non-Reader-View) ZIM page when the app is dark, so the
     // white page doesn't break dark mode. No-op under Reader View / dark pages.
@@ -22814,7 +24938,7 @@ function openReader(url) {
       // keys correctly even after in-iframe navigation (not just openArticle).
       try {
         var _vm = _frameLoc.match(/^\/w\/([^\/]+)\/(.+)$/);
-        if (_vm) _bindVideoResume(frame, decodeURIComponent(_vm[1]), decodeURIComponent(_vm[2]));
+        if (_vm) _bindVideoResume(frame, _decodeSafe(_vm[1]), _decodeSafe(_vm[2]));
       } catch(e) {}
       // Dead-player affordance for broken-scrape ZIMs (0-byte / missing media).
       // Independent of the resume binding above — runs for any /w/ article frame.
@@ -22867,8 +24991,8 @@ function openReader(url) {
         var wMatch = fullUrl.startsWith(location.origin) && fullUrl.match(/\/w\/([^\/]+)\/(.+)/);
         if (wMatch) {
           e.preventDefault();
-          var linkZim = decodeURIComponent(wMatch[1]);
-          var linkPath = decodeURIComponent(wMatch[2]).replace(/\?.*$/, ''); // strip query params, keep hash
+          var linkZim = _decodeSafe(wMatch[1]);
+          var linkPath = _decodeSafe(wMatch[2]).replace(/\?.*$/, ''); // strip query params, keep hash
           openArticle(linkZim, linkPath);
           return;
         }
@@ -22987,8 +25111,8 @@ function openReader(url) {
       var _fPath = frame.contentWindow.location.pathname;
       var _wm = _fPath.match(/^\/w\/([^\/]+)\/(.+)/);
       if (_wm) {
-        var _navZim = decodeURIComponent(_wm[1]);
-        var _navPath = decodeURIComponent(_wm[2]);
+        var _navZim = _decodeSafe(_wm[1]);
+        var _navPath = _decodeSafe(_wm[2]);
         currentArticle = { zim: _navZim, path: _navPath };
         // The page's own title, now that it is here: a visit recorded before
         // the page loaded (a deep link, a link inside an article) carried
@@ -25422,7 +27546,7 @@ function _findLoad() {
     _findLoading = new Promise(function (resolve, reject) {
       var el = document.createElement('script');
       // The version moves with the file: /static is cached for a year.
-      el.src = '/static/find.js?v=1';
+      el.src = '/static/find.js?v=2';
       el.onload = function () { if (window.ZimiFind) resolve(window.ZimiFind); else { _findLoading = null; reject(); } };
       el.onerror = function () { _findLoading = null; reject(); };
       document.head.appendChild(el);
@@ -25970,6 +28094,8 @@ function _fallbackTitle(zim, path) {
 
 function openArticle(zim, path, title, opts) {
   _appsOff();
+  // A sentence to be shown in the article once it is up (a quoted passage).
+  _pendingQuote = (opts && opts.quote) ? { zim: zim, text: opts.quote } : null;
   // A place on the map already on screen: fly there. Reloading an 800,000
   // entry map to move within it is a second of grey; the map is right here.
   // History gets the place (Back returns to the last one), the address gets
@@ -25982,6 +28108,7 @@ function openArticle(zim, path, title, opts) {
       _histPushArticle(zim, path, flyTitle, opts.pos);
       history.pushState({ mode: 'reader', zim: zim, path: path }, '', _articleDeepLinkPath(zim, path) + '#' + opts.pos);
       _restoreMapPosition(flyPos, 0);
+      _pendingQuote = null; // no page loads here, so a quote has nothing to find
       document.title = flyTitle + ' \u2014 Zimi';
       _setWindowTitle(document.title);
       return;
@@ -26433,7 +28560,7 @@ function _buildTopbarMenuHtml() {
         ' <span class="tbm-label">' + tH('find_in_page') + '</span></button>';
     }
     // 4. Read aloud.
-    if (_TTS_AVAILABLE && !_isMapPage() && !_isAppPage() && !_isPdfPage() && _speakingOn()) {
+    if (_ttsCanSpeak() && !_isMapPage() && !_isAppPage() && !_isPdfPage() && _speakingOn()) {
       readerGroup += '<button class="topbar-menu-item" id="tbm-tts" aria-pressed="' + (_ttsSpeaking ? 'true' : 'false') +
         '" onclick="event.stopPropagation();_ttsToggle()">' + _TBM_TTS_ICON +
         ' <span class="tbm-label">' + tH(_ttsSpeaking ? 'tts_stop' : 'tts_speak') + '</span></button>';
@@ -26577,6 +28704,7 @@ function _toggleTopbarMenu(event) {
   if (!html) return; // nothing to show (e.g. desktop reader with no foldable controls)
   menu.innerHTML = html;
   menu.classList.add('visible');
+  _ttsPrepare(); // Read aloud may be next: its voices, asked for now, not at page load
   // Close on outside interaction — including a tap inside the reader iframe,
   // which a plain document listener never sees. The ⋯ trigger is kept "inside"
   // so a second tap toggles the menu shut via its own handler.
@@ -26749,6 +28877,10 @@ window.addEventListener('popstate', async (e) => {
   if (_urlIsOpenMapPage()) return;
   // The Almanac's tables and calculations are a step inside it (almanac-tables.js).
   if (typeof _almTablesPop === 'function' && _almTablesPop(e)) return;
+  // Pointing the phone is a step too (almanac-look.js): Back closes it, not the Almanac.
+  if (typeof _lookPop === 'function' && _lookPop(e)) return;
+  // So are the 3D Earth and the flown solar system (almanac-earth.js).
+  if (typeof _aeStepPop === 'function' && _aeStepPop(e)) return;
   hideSuggest();
   _hideHistoryTrail();
   if (_createOpen) { closeCreate(); return; }
@@ -26796,11 +28928,12 @@ window.addEventListener('popstate', async (e) => {
     if (app.wiki && _appFrameRoute(_wikiOpen, '')) return;
     if (app.books && _appFrameRoute(_booksOpen, '')) return;
     if (app.dictionary && _appFrameRoute(_dictOpen, app.w)) return;
+    if (app.fieldguide && _appFrameRoute(_fieldguideOpen, app.fg)) return;
   }
   // Landing on an app's address from the article opened out of it: the app
   // is reopened below, not stepped past. (The article history's own copy of
   // that step would otherwise take a second step back.)
-  var toApp = app && app.mode === 'reader' && (app.tube || app.exchange || app.reddot || app.wiki || app.books || app.dictionary);
+  var toApp = app && app.mode === 'reader' && (app.tube || app.exchange || app.reddot || app.wiki || app.books || app.dictionary || app.fieldguide);
   // Step through article history when reader is open (mirrors in-app back button)
   if (readerOpen && articleHistory.length > 0 && !toApp) {
     _stepBackToArticle(articleHistory.pop(), false);
@@ -26839,6 +28972,8 @@ window.addEventListener('popstate', async (e) => {
     if (!_appFrameRoute(_wikiOpen, '')) openWiki(true);
   } else if (s && s.mode === 'reader' && s.books) {
     if (!_appFrameRoute(_booksOpen, '')) openBooks(true);
+  } else if (s && s.mode === 'reader' && s.fieldguide) {
+    if (!_appFrameRoute(_fieldguideOpen, s.fg)) openFieldguide(true, s.fg || '');
   } else if (s && s.mode === 'reader' && s.dictionary) {
     if (!_appFrameRoute(_dictOpen, s.w)) openDictionary(true, s.w || '');
   } else if (s && s.mode === 'reader' && s.reddot) {
@@ -26981,7 +29116,12 @@ function _spaCardClick(e, el) {
   });
 }
 function _spaSourceClick(e, el) {
-  return _spaNav(e, function () { enterSource(el.getAttribute('data-zim'), true); });
+  return _spaNav(e, function () {
+    var zim = el.getAttribute('data-zim');
+    // Offline, a ZIM that is not on the phone cannot open: say why, in a line.
+    if (_connState !== CONN_OK && !_keepNames.has(zim)) { _keepNotice(t('keep_not_here')); return; }
+    enterSource(zim, true);
+  });
 }
 
 // ── Middle-click (auxclick) handler for search results, discover cards, etc. ──
@@ -27836,6 +29976,26 @@ function _isHollow(el) {
 // a consent wall is not left standing while somebody reads.
 var REPLAY_SETTLE_MS = 2500;
 
+// Red over a page we do not write. A ZIM's article is arbitrary HTML and CSS,
+// so Red is a filter over the frame (app.css .night-filter) instead of a
+// palette: the page is darkened as in Dark (_applyArticleDarken), then every
+// pixel is turned to red light. Zimi's own pages bring their own Red and are
+// left alone (the PDF viewer's pages are pictures and are reddened by its own
+// stylesheet). `url` is the page about to load; null reads the one loaded, which
+// also knows a page Zimi wrote under /w/. Returns whether the filter is on.
+function _syncFrameNight(url) {
+  var frame = document.getElementById('reader-frame');
+  if (!frame) return false;
+  var on = false;
+  if (_nightRedOn()) {
+    try {
+      var path = url ? new URL(url, location.origin).pathname : frame.contentWindow.location.pathname;
+      on = path.indexOf('/static/') !== 0 && (url ? true : !_docIsOurOwnPage(frame.contentDocument));
+    } catch (e) { on = true; } // unreadable: filtered, never a bright page
+  }
+  frame.classList.toggle('night-filter', on);
+  return on;
+}
 // Whether what the reader frame is showing is Zimi's own page rather than
 // something out of a ZIM. Everything that edits a captured page's DOM has to
 // ask first: our own pages are not captures, and the cleanup meant for one

@@ -84,7 +84,7 @@ vm.runInContext([
   extract(/var _DICT_SVG = [^\n]*\n/, '_DICT_SVG'),
   extract(/function _installedDictZims\(\) \{[\s\S]*?\n\}/, '_installedDictZims'),
   extract(/function _dictionaryTileHtml\(\) \{[\s\S]*?\n\}/, '_dictionaryTileHtml'),
-  extract(/function _appsRowHtml\(\) \{[\s\S]*?\n\}/, '_appsRowHtml'),
+  extract(/function _appsRowHtml\(withHelp\) \{[\s\S]*?\n\}/, '_appsRowHtml'),
   extract(/function _appsPageHtml\(shown\) \{[\s\S]*?\n\}/, '_appsPageHtml'),
   extract(/function _appSectionHtml\(app, n, grid\) \{[\s\S]*?\n\}/, '_appSectionHtml'),
   extract(/function _cardsInOrder\(cards, compare\) \{[\s\S]*?\n\}/, '_cardsInOrder'),
@@ -97,14 +97,14 @@ const zim = name => ctx.zimsCache.find(z => z.name === name);
 
 // ── the order ────────────────────────────────────────────────────────────
 ok('alphabetical: the apps by their names, as the sources go by their titles', order('alpha') === 'books maps reddot exchange tube', order('alpha'));
-ok('the row draws them in that order', rowOrder() === 'books maps reddot exchange tube', rowOrder());
+ok('the row draws them in that order, the empty one (Reddot) left for the Apps page', rowOrder() === 'books maps exchange tube', rowOrder());
 ok('recently added: the app whose newest ZIM arrived last first, an empty app last', order('added') === 'exchange books maps tube reddot', order('added'));
 ok('most articles: the app whose ZIMs hold the most, together', order('entries') === 'books exchange tube maps reddot', order('entries'));
 
 // A TED build updated this morning: ZimiTube holds the newest change in the library.
 zim('ted_en_all').updated_at = NOW - 3600;
 ok('recently updated: an app with a just-updated ZIM rises to the front', order('updated') === 'tube exchange books maps reddot', order('updated'));
-ok('and the row follows it', rowOrder() === 'tube exchange books maps reddot', rowOrder());
+ok('and the row follows it', rowOrder() === 'tube exchange books maps', rowOrder());
 ok('an update does not make an app newly added', order('added') === 'exchange books maps tube reddot');
 // A ZIM added today counts as a change for Recently updated too (Eric: "updated, added, etc.").
 ctx.zimsCache.push({ name: 'nautilus_books', title: 'Water', kind: 'books', main_path: 'i', first_seen: NOW, entries: 7 });
@@ -123,10 +123,10 @@ ok('ordering reads only the library list: no fetch, no disk', !/serverFetch|fetc
 const row = vm.runInContext('_appsRowHtml()', ctx);
 ok('the Apps heading is a clickable section heading like the categories\', a link for the keyboard too', /^<div class="cat-heading clickable" role="link" tabindex="0" onclick="openAppsPage\(\)">Apps<\/div><div class="stats-grid apps-grid">/.test(row), row.slice(0, 120));
 ok('Enter or Space on a clickable section heading opens it', /document\.addEventListener\('keydown', function\(e\) \{\n\s*var h = e\.target;\n\s*if \(\(e\.key === 'Enter' \|\| e\.key === ' '\) && h && h\.classList && h\.classList\.contains\('cat-heading'\) && h\.classList\.contains\('clickable'\)\)/.test(src));
-ok('the order and view controls ride the first section heading, which is now the Apps heading above the row', /function _placeViewToggle\(\) \{[\s\S]*?output\.querySelector\('\.cat-heading'\)/.test(src) && src.indexOf('h += _appsRowHtml();') < src.indexOf("const favNames = (collectionsCache && collectionsCache.favorites)"));
+ok('the order and view controls ride the first section heading, which is now the Apps heading above the row', /function _placeViewToggle\(\) \{[\s\S]*?output\.querySelector\('\.cat-heading'\)/.test(src) && src.indexOf('h += _appsRowHtml(true);') < src.indexOf("const favNames = (collectionsCache && collectionsCache.favorites)"));
 const saved = ctx.zimsCache;
 ctx.zimsCache = [];
-ok('an empty library: the name is only a name, there is no page behind it yet', /^<div class="cat-heading">Apps<\/div>/.test(vm.runInContext('_appsRowHtml()', ctx)));
+ok('an empty library: no app has anything inside, so home has no apps row', vm.runInContext('_appsRowHtml()', ctx) === '');
 ctx.zimsCache = saved;
 ok('the Apps page is a scope of the library, restored from its address', /function openAppsPage\(\) \{\n\s*enterScope\('apps', t\('apps_section'\), _appsZimNames\(\), true\);/.test(src) && /if \(type === 'apps'\) return _appsZimNames\(\);/.test(src) && /\} else if \(homeScope && homeScope\.type === 'apps'\) \{\n\s*h \+= _appsPageHtml\(_homeShown\);/.test(src));
 ok('its library is every ZIM inside an offered app, once', vm.runInContext('_appsZimNames()', ctx).sort().join(' ') === 'askubuntu blender gutenberg_en_all nautilus_books osm-hawaii ted_en_all');
@@ -167,7 +167,7 @@ ok('the apps\' tiles are put in the apps\' order, the same cards moved',
 const alpha = vm.runInContext('_LIBRARY_SORTERS.alpha', ctx);
 ok('a grid of sources still goes by its ZIMs', ctx._cardsInOrder([card('', 'wikipedia_en_all'), card('', 'askubuntu')], alpha).map(c => c.dataset.zim).join(' ') === 'askubuntu wikipedia_en_all');
 ok('a card whose ZIM is gone asks for a rebuild', ctx._cardsInOrder([card('', 'gone'), card('', 'askubuntu')], alpha) === null);
-ok('app tiles carry their app, so they can be moved rather than rebuilt', (row.match(/data-app="/g) || []).length === 5);
+ok('app tiles carry their app, so they can be moved rather than rebuilt', (row.match(/data-app="/g) || []).length === 4);
 
 console.log(failures ? failures + ' FAILED' : 'all passed');
 process.exit(failures ? 1 : 0);

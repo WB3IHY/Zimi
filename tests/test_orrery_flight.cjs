@@ -122,11 +122,30 @@ check(near(run('_lorentzFactor(0.6)'), 1.25, 1e-12), 'gamma(0.6c) = 1.25');
 check(near(run('_lorentzFactor(0.8)'), 5 / 3, 1e-12), 'gamma(0.8c) = 5/3');
 check(near(run('_lorentzFactor(0.9)'), 2.294157, 1e-6), 'gamma(0.9c) = 2.294157');
 check(near(run('_lorentzFactor(0.99)'), 7.088812, 1e-6), 'gamma(0.99c) = 7.088812');
-const LY_AU = 63241.077;
-const proxEarth = run('_tripSecondsAtBeta(' + 4.2465 * LY_AU + ', 0.9)') / run('SECONDS_PER_JULIAN_YEAR');
-const proxShip = run('_properTime(' + proxEarth + ', 0.9)');
-check(near(proxEarth, 4.72, 0.01), 'Proxima at 0.9c: 4.7 years on Earth, got ' + proxEarth.toFixed(3));
-check(near(proxShip, 2.06, 0.01), 'Proxima at 0.9c: about 2 years aboard, got ' + proxShip.toFixed(3));
+// A ship that burns at 1 g, half the way speeding up and half slowing down
+// (the relativistic rocket). Known values: Alpha Centauri, 4.37 ly, takes about
+// 6 years by Earth's clock and 3.6 aboard; the galactic centre, 26,000 ly,
+// about 26,000 years on Earth and 20 aboard.
+const trip = (ly, frac) => run('_rocketTripAt(' + ly + ' * LIGHT_YEAR_M, STANDARD_GRAVITY_M_S2, ' + frac + ')');
+const YR = run('SECONDS_PER_JULIAN_YEAR');
+const alpha = trip(4.37, 1), core = trip(26000, 1);
+check(near(alpha.earthTotal / YR, 6.0, 0.02), '1 g to Alpha Centauri: about 6.0 years on Earth, got ' + (alpha.earthTotal / YR).toFixed(3));
+check(near(alpha.shipTotal / YR, 3.59, 0.01), '1 g to Alpha Centauri: about 3.6 years aboard, got ' + (alpha.shipTotal / YR).toFixed(3));
+check(near(alpha.peakGamma, 3.2557, 1e-3), 'Alpha Centauri peak gamma 3.26 (0.95c), got ' + alpha.peakGamma.toFixed(4));
+check(near(core.earthTotal / YR, 26001.9, 0.5), '1 g to the galactic centre: about 26,000 years on Earth, got ' + (core.earthTotal / YR).toFixed(0));
+check(near(core.shipTotal / YR, 19.76, 0.01), '1 g to the galactic centre: about 20 years aboard, got ' + (core.shipTotal / YR).toFixed(2));
+// The numbers behind it, independent of the trip code: gamma after x is 1 + a x / c^2, and the
+// closed forms t = (c/a) sinh(phi), tau = (c/a) phi hold for the rapidity phi = acosh(gamma).
+const burn = run('_rocketBurn(2.185 * LIGHT_YEAR_M, STANDARD_GRAVITY_M_S2)');
+const phi = Math.acosh(burn.gamma), cOverA = 299792458 / 9.80665;
+check(near(burn.ship / (cOverA * phi), 1, 1e-12) && near(burn.earth / (cOverA * Math.sinh(phi)), 1, 1e-12), 'burn: tau = (c/a) phi and t = (c/a) sinh phi');
+check(burn.ship < burn.earth, 'the ship\'s clock is the one that runs behind');
+const start = trip(4.37, 0), mid = trip(4.37, 0.5), end = trip(4.37, 1), q = trip(4.37, 0.25), q3 = trip(4.37, 0.75);
+check(start.earth === 0 && start.ship === 0 && start.beta === 0 && start.gamma === 1, 'at launch both clocks read 0 and the ship is at rest');
+check(near(mid.gamma, alpha.peakGamma, 1e-12) && near(mid.earth / (alpha.earthTotal / 2), 1, 1e-12), 'halfway is the peak speed, at half the time');
+check(near(end.earth / alpha.earthTotal, 1, 1e-12) && near(end.ship / alpha.shipTotal, 1, 1e-12) && end.beta === 0, 'at arrival it has stopped and the clocks read the totals');
+check(near((q.earth + q3.earth) / alpha.earthTotal, 1, 1e-9) && near((q.ship + q3.ship) / alpha.shipTotal, 1, 1e-9), 'the slowing half mirrors the speeding half');
+check(run('_orrFmtTopBeta(0.9999999972)') === '0.9999999972c' && run('_orrFmtTopBeta(0.95)') === '0.95c', 'a top speed keeps its first digits past 0.99...');
 // A real rocket: beta ~1e-4. The lag must match beta^2/2 + beta^4/8 (series),
 // which the naive sec * (1 - sqrt(1 - beta^2)) gets wrong in the 8th digit.
 const beta = 8.75e-5, sec = 2.237e7;
@@ -184,11 +203,12 @@ const real = run('_orreryTwinClocks(_orreryRockets[0], 0, 1)');
 check(real.gamma > 1 && real.gamma - 1 < 1e-7, 'the real rocket\'s gamma is barely above 1');
 check(real.lag > 0.01 && real.lag < 1, 'the real crew ages about a tenth of a second less, got ' + real.lag.toFixed(4) + ' s');
 check(near(real.earth, r1.duration / 1000, 1e-6), 'the real trip takes the transfer time on Earth\'s clock');
-const fast = run('_orreryTwinClocks(_orreryRockets[0], 0.99, 1)');
-check(near(fast.earth, r1.straightAU * 499.004784 / 0.99, 1e-3), 'at 0.99c the trip takes the light time / 0.99 on Earth\'s clock');
-check(near(fast.ship, fast.earth / 7.088812, 1e-3), 'and 7.09 times less on the ship\'s');
-check(run('_twinSliderToBeta(99)') === 0.99 && run('_twinSliderToBeta(150)') === 0.99 && run('_twinSliderToBeta(0)') === 0,
-  'the speed control tops out at 0.99c; 0 is the real rocket');
+const fast = run('_orreryTwinClocks(_orreryRockets[0], 1, 1)');
+check(fast.earth === alpha.earthTotal && fast.ship === alpha.shipTotal, 'the what-if stop 1 is the 1 g trip to Alpha Centauri');
+check(fast.lag === alpha.earthTotal - alpha.shipTotal && fast.lag / YR > 2.3, 'the twin who flew is about 2.4 years younger');
+check(run('_orreryTwinClocks(_orreryRockets[0], 2, 0.5).peakGamma') > 13000, 'to the galactic centre the peak gamma is in the thousands');
+check(run('_twinSliderToTrip(0)') === 0 && run('_twinSliderToTrip(2)') === 2 && run('_twinSliderToTrip(9)') === 2 && run('_twinSliderToTrip(NaN)') === 0,
+  'the control picks the real rocket or a star; anything else is held to its ends');
 
 // ── 5. Taps ─────────────────────────────────────────────────────────────
 run('_orreryCanvas = { clientWidth: 400, width: 400 }; _orreryDpr = 1; _orreryCamReset();');

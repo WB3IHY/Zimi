@@ -62,6 +62,23 @@ def build_openapi():
     """Return the OpenAPI 3.1 document as a plain dict (version from VERSION)."""
     error = _error_schema()
 
+    quote_schema = {
+        "type": "object",
+        "properties": {
+            "zim": {"type": "string"},
+            "path": {"type": "string"},
+            "title": {"type": "string"},
+            "before": {
+                "type": "string",
+                "description": "The passage up to the sentence, cut at a word with an ellipsis when long",
+            },
+            "sentence": {"type": "string"},
+            "after": {"type": "string"},
+            "score": {"type": "number"},
+        },
+        "required": ["zim", "path", "title", "before", "sentence", "after", "score"],
+    }
+
     chunk_schema = {
         "type": "object",
         "properties": {
@@ -296,6 +313,50 @@ def build_openapi():
                 },
             }
         },
+        "/bestanswer": {
+            "get": {
+                "summary": "The sentence in the library that answers a question, quoted",
+                "description": (
+                    "Reads the search's top articles and returns the passage "
+                    "that answers, with the answering sentence set apart, plus "
+                    "up to two more. Never writes a word: every string is the "
+                    "article's own text. `answer` is null for a keyword search "
+                    "(one or two words, or the search grammar) and when no "
+                    "sentence covers the question well enough. Always null unless the "
+                    "server runs with ZIMI_BEST_ANSWER=1."
+                ),
+                "operationId": "bestanswer",
+                "parameters": [
+                    _param("q", {"type": "string"}, required=True),
+                    _param(
+                        "zim",
+                        {"type": "string"},
+                        description="One ZIM, or several separated by commas",
+                    ),
+                    _param(
+                        "limit",
+                        {"type": "integer", "minimum": 1, "default": 10},
+                        description="The search's per-source limit; the same as the search it follows reads that search's cached results",
+                    ),
+                ],
+                "responses": {
+                    **_json_response(
+                        "200",
+                        {
+                            "type": "object",
+                            "properties": {
+                                "answer": {
+                                    "oneOf": [quote_schema, {"type": "null"}],
+                                },
+                                "more": {"type": "array", "items": quote_schema},
+                            },
+                            "required": ["answer"],
+                        },
+                    ),
+                    **_json_response("400", error),
+                },
+            }
+        },
         "/w/{zim}/{path}": {
             "get": {
                 "summary": "Raw article content (original HTML/asset bytes) for the reader",
@@ -366,6 +427,16 @@ def build_openapi():
                                         ),
                                     },
                                     "size_gb": {"type": "number"},
+                                    "external": {
+                                        "type": "string",
+                                        "description": (
+                                            "Present when the file lives in a "
+                                            "folder another program owns (Project "
+                                            "NOMAD, ZIMI_EXTRA_ZIM_DIRS): that "
+                                            "folder's label. Zimi reads it in "
+                                            "place and never deletes or updates it."
+                                        ),
+                                    },
                                     "language": {"type": "string"},
                                     "first_seen": {
                                         "type": "number",

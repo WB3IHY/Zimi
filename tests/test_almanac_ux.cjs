@@ -15,6 +15,10 @@
 //      ("5.0 ms", not "4,993,540 ns").
 //   6. A place inside a right-to-left sentence keeps its order (bidi
 //      isolate), and Next eclipse never lands on a day with no eclipse.
+//   7. The ride card answers one thing: "A message home now takes ...". The
+//      twin paradox and the light clock sit behind one quiet link ("What if
+//      it flew faster?"), closed until asked for, and nothing is drawn for
+//      them while they are closed.
 //
 // The layout half (the card above the controls, a place's dot on the place,
 // the orrery's tip letting the planets under it through) needs a browser:
@@ -113,6 +117,7 @@ const auToVis = extractFn(almSrc, '_auToVis');
 vm.runInContext(almSrc.slice(almSrc.indexOf('var _AU_VIS_X'), almSrc.indexOf(auToVis) + auToVis.length), S);
 vm.runInContext(read('almanac-orrery.js'), S);
 vm.runInContext(require('./moon_model.cjs')(), S);   // app.js's Moon model, which the shader is written from
+vm.runInContext(read('almanac-ephem.js'), S);
 vm.runInContext(read('almanac-earth.js'), S);
 const run = (code) => vm.runInContext(code, S);
 
@@ -217,5 +222,32 @@ check(next === null || !!run('_aeEclipseNow(_aeSceneAt(' + next.ms + '))'),
   'Next eclipse, 38 millennia out, lands on an eclipse or says there is none');
 const near2026 = run('_aeNextEclipse(' + Date.UTC(2026, 8, 28) + ')');
 check(near2026 && run('_aeEclipseNow(_aeSceneAt(' + near2026.ms + '))'), 'from today it lands on a real eclipse');
+
+// ── 7. The ride card: one line, the twins behind a link ─────────────────
+run('_orreryRockets = []; _orreryLaunchRocket("Saturn"); rk = _orreryRockets[0]; rk.elapsed = rk.duration; rk.arrived = true;');
+run('var __lc = 0, __lcOrig = _orreryLightClock; _orreryLightClock = function () { __lc++; return __lcOrig.apply(this, arguments); };');
+run('_orreryTwinOpen = false; _orreryUpdateRide();');
+const card = el('orrery-ride').innerHTML;
+check(el('orrery-ride-where').textContent === 'Arrived at Saturn' && /^A message home now takes /.test(el('orrery-ride-delay').textContent),
+  'the card says where it is and "A message home now takes ...": ' + el('orrery-ride-delay').textContent);
+check(/id="orrery-twin-link"[^>]*aria-expanded="false"[^>]*aria-controls="orrery-twin"/.test(card) && card.indexOf('>' + EN.alm_orr_twin_whatif + '</button>') > 0,
+  'one quiet link, "' + EN.alm_orr_twin_whatif + '", closed and controlling the twins');
+check(/<div class="orrery-twin" id="orrery-twin" hidden>/.test(card), 'the twin paradox and the light clock are hidden until asked for');
+check(run('__lc') === 0, 'no light clock is drawn while it is closed');
+// The link opens them in place, and shuts them again.
+const attrs = {};
+el('orrery-twin').hidden = true;
+el('orrery-twin-link').setAttribute = (k, v) => { attrs[k] = v; };
+run('_orreryTwinToggle();');
+check(el('orrery-twin').hidden === false && attrs['aria-expanded'] === 'true', 'the link opens the twins and says so');
+check(run('__lc') > 0, 'and the light clock is drawn once they are open');
+run('_orreryTwinToggle();');
+check(el('orrery-twin').hidden === true && attrs['aria-expanded'] === 'false', 'the link closes them again');
+run('_orreryTwinOpen = true;');
+els.delete('orrery-ride'); el('orrery-ride');
+run('_orreryUpdateRide();');
+check(/<div class="orrery-twin" id="orrery-twin">/.test(el('orrery-ride').innerHTML) && /aria-expanded="true"/.test(el('orrery-ride').innerHTML),
+  'a panel built while they are open keeps them open');
+run('_orreryTwinOpen = false;');
 
 process.exit(failures ? 1 : 0);

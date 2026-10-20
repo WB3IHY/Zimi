@@ -36,6 +36,26 @@ The Dictionary's Say runs Piper and Kokoro as a separate program, `zimi-voice` (
 - misaki: https://github.com/hexgrad/misaki
 - Kokoro-82M (weights, Apache-2.0, downloaded): https://huggingface.co/hexgrad/Kokoro-82M
 
+## browsertrix-behaviors
+
+Capture engines that drive a browser inject Webrecorder's browsertrix-behaviors 0.15.0 into the page being captured, to reveal what it hides (infinite feeds, "show more", per-site expanders). It is shipped unmodified in `zimi/assets/browsertrix-behaviors/` (`dist/behaviors.js`, `package.json`, and the licence text as `LICENSE.md`) in every build, and runs inside the captured page, not inside Zimi's process. It is AGPL-3.0-or-later; Zimi is GPL-3.0-or-later, and section 13 of both licences allows the two to be combined. The file is the unmodified upstream release, so its source is upstream's.
+
+- Project: https://github.com/webrecorder/browsertrix-behaviors (Webrecorder Software)
+- License: AGPL-3.0-or-later
+- Pinned: npm release 0.15.0, tarball sha512 `Gm9Ni/yq68k3ub7S0JT4muZWGj++fkFVQ95RFczc29hFZYmyX1yMfUs7UrApMZ+1uPW6q6JpBmjRcsC+sHN6lg==`; shipped `dist/behaviors.js` sha256 `82c60aae18588aa6c1a6e54d75887a72c970d840c54cb8b36eb9c9ccf946d7da`
+- An operator can replace it with `ZIMI_BEHAVIORS` or a global npm install.
+
+## ZIMs kept on the phone: libzim for the browser, fzstd, and the ZIM reader
+
+"Keep on this phone" stores a ZIM in the browser's private file system and reads it with no server. Three pieces, none of them loaded until a ZIM is kept:
+
+- `zimi/static/libzim/libzim-wasm.js` and `libzim-wasm.wasm`: the release build of javascript-libzim v0.95, unmodified (libzim and Xapian compiled to WebAssembly), for full-text search in a Web Worker. License: GPL-3.0-or-later (javascript-libzim), GPL-2.0-or-later (libzim, Xapian); zstd, xz, ICU and zlib are linked in under their own licences. Its licence text and source pointers are in `zimi/static/libzim/NOTICE.txt`.
+  - Project: https://github.com/openzim/javascript-libzim
+  - Source code: https://github.com/openzim/javascript-libzim/tree/v0.95
+- `zimi/static/fzstd.js`: fzstd 0.1.1, unmodified, decodes zstd-compressed ZIM clusters in the service worker. License: MIT, Copyright (c) 2020 Arjun Barrett.
+  - Project: https://github.com/101arrowz/fzstd
+- `zimi/static/zimreader.js`: Zimi's own reader for the ZIM file format, written from the openZIM format description (https://wiki.openzim.org/wiki/ZIM_file_format). No Kiwix code is in it.
+
 # Data shipped with Zimi
 
 ## NOAA CO-OPS tide stations (`zimi/assets/tides-snapshot.json.gz`)
@@ -44,6 +64,11 @@ Harmonic constants, tidal datums and subordinate-station offsets for every NOAA 
 
 - Source: NOAA Center for Operational Oceanographic Products and Services, https://tidesandcurrents.noaa.gov/
 - Terms: work of the U.S. Government, public domain in the United States (17 U.S.C. 105). NOAA asks that it be credited as the source and that its data not be presented as an official NOAA product; Zimi's predictions are its own computation and say so.
+
+## The live sky's Milky Way and constellations (`zimi/static/earth/`)
+
+- Milky Way panorama (`milkyway-v1.webp`): ESO / S. Brunier, "The Milky Way panorama" (eso0932a), CC BY 4.0, https://www.eso.org/public/images/eso0932a/ . Zimi removed the point stars, resized it and recompressed it; the stars drawn over it are the Yale Bright Star Catalogue's (`stars-v1.bin`, public domain).
+- Constellation figures (`constellations-v1.json`): d3-celestial, Copyright (c) 2015 Olaf Frohn, BSD 3-Clause License, https://github.com/ofrohn/d3-celestial . Built by `scripts/build_constellations.py`. The lines follow the IAU's constellation pages. Stellarium's GPL data is not used.
 
 ## Checked and not shipped
 

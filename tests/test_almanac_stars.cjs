@@ -1,4 +1,4 @@
-// The 3D Earth view's star sky (zimi/static/almanac-earth.js _aeDecodeStars,
+// The 3D Earth view's star sky (zimi/static/almanac-skygl.js _sgDecodeStars, the one decoder,
 // _aeStarField; the data is zimi/static/earth/stars-v1.bin, packed by
 // scripts/build_star_catalog.py from the Yale Bright Star Catalogue).
 //
@@ -12,8 +12,8 @@
 //      August, the Moon beside Spica on 2025-04-13 and past Regulus in May.
 //   4. Faint stars read as dust: size and alpha fall with magnitude, the
 //      brightest stay dominant, and no size is below one CSS pixel.
-//   5. The 2D Almanac never asks for the catalogue: only the 3D view's loader
-//      names the file.
+//   5. Who asks for the catalogue: the 3D view's loader and the GPU sky's, never
+//      the 2D fallback.
 //
 // Run: node tests/test_almanac_stars.cjs   (exit 0 = pass)
 
@@ -45,13 +45,16 @@ function extractFn(src, name) {
 }
 for (const fn of ['_dateToJD', '_jdnToGregorian', '_cnDeltaTdays']) vm.runInContext(extractFn(almSrc, fn), S);
 vm.runInContext(read('almanac-orrery.js'), S);
+vm.runInContext(read('almanac-sky.js'), S);
+vm.runInContext(read('almanac-skygl.js'), S);
 vm.runInContext(require('./moon_model.cjs')(), S);
+vm.runInContext(read('almanac-ephem.js'), S);
 vm.runInContext(read('almanac-earth.js'), S);
 
 const DEG = 180 / Math.PI;
 const file = fs.readFileSync(path.join(STATIC, 'earth', 'stars-v1.bin'));
 const buf = file.buffer.slice(file.byteOffset, file.byteOffset + file.length);
-const cat = S._aeDecodeStars(buf);
+const cat = S._sgStarList(S._sgDecodeStars(buf));
 const star = {};
 const dirOf = (i) => { cat.at(i, star); return S._aeEqVec(star.ra, star.dec, 1); };
 const sepDeg = (a, b) => S._aeAngle(a, b) * DEG;
@@ -75,17 +78,17 @@ for (const [name, hours, dec, mag] of [
   const n = nearest(radec(hours, dec));
   check(n.sep < 0.1 && Math.abs(n.mag - mag) < 0.1, name + ' decodes within 0.1 degree (' + n.sep.toFixed(4) + ') at magnitude ' + n.mag.toFixed(2));
 }
-check(S._aeDecodeStars(buf.slice(0, buf.byteLength - 1)) === null, 'a truncated file is refused');
-check(S._aeDecodeStars(new ArrayBuffer(2)) === null && S._aeDecodeStars(null) === null, 'a stub or nothing is refused');
+check(S._sgDecodeStars(buf.slice(0, buf.byteLength - 1)) === null, 'a truncated file is refused');
+check(S._sgDecodeStars(new ArrayBuffer(2)) === null && S._sgDecodeStars(null) === null, 'a stub or nothing is refused');
 {
   const wrong = new Uint8Array(buf.slice(0)); wrong[2] = 9;
-  check(S._aeDecodeStars(wrong.buffer) === null, 'another format version is refused');
+  check(S._sgDecodeStars(wrong.buffer) === null, 'another format version is refused');
 }
 {
   let none = 0, ok = true;
   for (let i = 0; i < cat.count; i++) {
     cat.at(i, star);
-    if (star.ci === S.AE_STAR_COLOR_DEFAULT) none++;
+    if (Math.abs(star.ci - S.SG_STAR_BV_DEFAULT) < 1e-6) none++;
     if (!(star.ci > -1 && star.ci < 3)) ok = false;
   }
   check(ok && none > 0 && none < 500, 'every colour index is plausible; the few with none read as neutral (' + none + ')');
@@ -164,15 +167,21 @@ function closest(fromMs, toMs, target) {
   check(monotone, 'brighter is never smaller or dimmer');
 }
 
-// ── 5. Only the 3D view asks ─────────────────────────────────────────────
+// ── 5. Who asks ──────────────────────────────────────────────────────────
+// The 3D view's loader and the GPU sky's (almanac-skygl.js, which draws all of
+// them in the live sky). The Canvas 2D sky, the fallback, never asks.
 {
   const dirs = fs.readdirSync(STATIC).filter((f) => /\.(js|html|css)$/.test(f));
-  const named = dirs.concat(['../templates/index.html']).filter((f) => /stars-v1/.test(read(f)));
-  check(named.length === 1 && named[0] === 'almanac-earth.js', 'only almanac-earth.js names the catalogue (' + named.join(', ') + ')');
+  const named = dirs.concat(['../templates/index.html']).filter((f) => /stars-v1/.test(read(f))).sort();
+  check(named.join(',') === 'almanac-skygl.js', 'only almanac-skygl.js names the catalogue: one request and one decoder for the sky and the 3D view (' + named.join(', ') + ')');
   const src = read('almanac-earth.js');
   const callers = src.split('\n').filter((l) => /_aeLoadStars\(/.test(l) && !/^function/.test(l));
   check(callers.length === 1 && /function _aeLoadMaps\(S\) \{\n  _aeLoadStars\(S\);/.test(src),
-    'and only the 3D view\'s map loader calls its loader');
+    'only the 3D view\'s map loader calls its loader');
+  check(/_sgLoadStars\(\)/.test(src) && !/_aeDecodeStars|AE_STARS_/.test(src), 'which asks the sky\'s loader and keeps no decoder of its own');
+  const sky = read('almanac-sky.js'), asks = sky.split('\n').filter((l) => /_sgLoadData\(/.test(l));
+  check(asks.length === 1 && /function _skyGLSky[\s\S]*?_sgLoadData\(_skyKickDirty\)/.test(sky),
+    'and the live sky asks only from the GPU sky, never in the 2D fallback');
   check(!/stars-v1/.test(read('sw.js')), 'and the service worker does not precache it');
 }
 

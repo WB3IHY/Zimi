@@ -59,7 +59,7 @@
     books_contents: 'Contents', books_mode_pages: 'Pages', download: 'Download', save: 'Save', saved: 'Saved',
     pdf_print: 'Print', pdf_fit_width: 'Fit width', pdf_fit_page: 'Fit page', pdf_zoom_in: 'Zoom in',
     pdf_first_page: 'First page', pdf_last_page: 'Last page', pdf_page_by_page: 'Page by page', pdf_scroll: 'Scroll',
-    pdf_zoom_out: 'Zoom out', pdf_dark_pages: 'Dark pages', pdf_single_page: 'Single page', pdf_two_pages: 'Two pages', pdf_rotate: 'Rotate',
+    pdf_zoom_out: 'Zoom out', pdf_dark_pages: 'Dark pages', pdf_dark_in_red: 'Always on in Red', pdf_single_page: 'Single page', pdf_two_pages: 'Two pages', pdf_rotate: 'Rotate',
     pdf_about: 'About this PDF', pdf_keywords: 'Keywords', pdf_created: 'Created', pdf_modified: 'Modified',
     pdf_application: 'Application', pdf_producer: 'PDF producer', pdf_version: 'PDF version', pdf_page_size: 'Page size',
     pdf_library: 'Library', books_author: 'Author', books_subject: 'Subject', zi_size: 'Size', zi_file: 'File', pdf_page: 'Page', pdf_failed: 'This PDF could not be opened.'
@@ -98,6 +98,7 @@
     TOKENS.forEach(function (k) { var v = cs.getPropertyValue(k).trim(); if (v) html.style.setProperty(k, v); });
     var theme = shellTheme();
     if (theme) { html.setAttribute('data-zp-theme', theme); html.style.colorScheme = theme; }
+    try { html.classList.toggle('night-red', shell._nightRedOn()); } catch (e) {} // Red: the pages are pictures, reddened below
     paintDark();
   }
   // The screen's safe-area insets: a framed page is told none (env() is 0
@@ -117,7 +118,11 @@
   }
 
   // ── dark pages: chosen here, or as the articles are (Simulate dark mode) ──
+  function redOn() {
+    try { return !!(shell && shell._nightRedOn()); } catch (e) { return false; }
+  }
   function darkWanted() {
+    if (redOn()) return true; // no white page in Red, whatever was chosen
     var v = store(DARK_KEY);
     if (v === '1' || v === '0') return v === '1';
     try { if (shell) return !!(shell._articlesAreDark() && shell._darkenArticlesOn()); } catch (e) {}
@@ -229,7 +234,7 @@
       shell.addEventListener('resize', syncInsets);
       window.addEventListener('pagehide', function () { shell.removeEventListener('resize', syncInsets); });
     } catch (e) {}
-    try { new shell.MutationObserver(syncTheme).observe(shell.document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }); } catch (e) {}
+    try { new shell.MutationObserver(syncTheme).observe(shell.document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] }); } catch (e) {}
   }
 
   // ── pdf.js: its options before it starts, its bus once it has ──
@@ -723,7 +728,10 @@
       '<button type="button" role="menuitemradio" data-zp="fitw" aria-checked="' + fw + '">' + I.width + '<span class="zp-grow">' + esc(t('pdf_fit_width')) + '</span></button>' +
       '<button type="button" role="menuitemradio" data-zp="fitp" aria-checked="' + fp + '">' + I.page + '<span class="zp-grow">' + esc(t('pdf_fit_page')) + '</span></button></div>';
     h += '<button type="button" role="menuitem" data-zp="rotate">' + I.rotate + '<span class="zp-grow">' + esc(t('pdf_rotate')) + '</span></button>';
-    h += '<button type="button" role="menuitemcheckbox" data-zp="dark" aria-checked="' + darkWanted() + '">' + I.moon + '<span class="zp-grow">' + esc(t('pdf_dark_pages')) + '</span><span class="zp-switch" aria-hidden="true"></span></button>' +
+    // In Red the pages are always dark: the switch shows it, says why, and can't be turned off there.
+    var red = redOn();
+    h += '<button type="button" role="menuitemcheckbox" data-zp="dark" aria-checked="' + darkWanted() + '"' + (red ? ' aria-disabled="true"' : '') + '>' + I.moon +
+      '<span class="zp-grow">' + esc(t('pdf_dark_pages')) + (red ? '<span class="zp-why">' + esc(t('pdf_dark_in_red')) + '</span>' : '') + '</span><span class="zp-switch" aria-hidden="true"></span></button>' +
       '<hr>' +
       '<button type="button" role="menuitem" data-zp="download">' + I.dl + '<span class="zp-grow">' + esc(t('download')) + '</span></button>' +
       '<button type="button" role="menuitem" data-zp="print">' + I.print + '<span class="zp-grow">' + esc(t('pdf_print')) + '</span></button>' +
@@ -744,6 +752,7 @@
     if (!b) return;
     var what = b.getAttribute('data-zp');
     if (what === 'dark') {
+      if (b.getAttribute('aria-disabled') === 'true') return;   // Red decides; the choice is kept for after
       store(DARK_KEY, darkWanted() ? '0' : '1');
       paintDark();
       return;   // a switch: the menu stays, showing it

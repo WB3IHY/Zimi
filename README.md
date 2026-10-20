@@ -2,12 +2,12 @@
 
 [![CI](https://github.com/epheterson/Zimi/actions/workflows/ci.yml/badge.svg)](https://github.com/epheterson/Zimi/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-4343-brightgreen)](#)
-[![Lighthouse Accessibility](https://img.shields.io/badge/Lighthouse%20a11y-100%2F100-success?logo=lighthouse&logoColor=white)](docs/plans/2026-04-26-accessibility.md)
-[![WCAG 2.1 AA](https://img.shields.io/badge/WCAG%202.1-AA-blue)](docs/plans/2026-04-26-accessibility.md)
+[![Lighthouse Accessibility](https://img.shields.io/badge/Lighthouse%20a11y-100%2F100-success?logo=lighthouse&logoColor=white)](docs/features/reading.md)
+[![WCAG 2.1 AA](https://img.shields.io/badge/WCAG%202.1-AA-blue)](docs/features/reading.md)
 [![i18n](https://img.shields.io/badge/i18n-10%20languages-blueviolet)](#languages)
 [![Docker Pulls](https://img.shields.io/docker/pulls/epheterson/zimi)](https://hub.docker.com/r/epheterson/zimi)
 [![PyPI](https://img.shields.io/pypi/v/zimi)](https://pypi.org/project/zimi/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/epheterson/Zimi/badge)](https://scorecard.dev/viewer/?uri=github.com/epheterson/Zimi)
 
 A modern experience for your ZIM files.
@@ -92,10 +92,12 @@ Most people configure nothing. Everything is in Settings; `zimi config` prints e
 - [Apps](docs/features/apps.md): Zimipedia, Bookshelf, ZimiTube, ZimiExchange, Reddot and Maps.
 - [Saving](docs/features/saving.md): bookmarks, lists, likes, highlights, sync.
 - [Making ZIMs](docs/features/making-zims.md): every capture mode, folders and their metadata files, web archives.
+- [Saved web pages](docs/features/saved-pages.md): pages saved from Firefox, Chrome and Safari (complete, single file, web archive) as a ZIM.
 - [Getting & sharing](docs/features/getting-and-sharing.md): the catalog, downloads, auto-update, BitTorrent, Nearby.
 - [Access](docs/features/access.md): public access, accounts, per-ZIM allowlists, single sign-on.
 - [Operations](docs/features/operations.md): configuration, backup, air-gapped use, monitoring, updates.
 - [API & MCP](docs/features/api-and-mcp.md): the JSON API (`/openapi.json`), RAG chunks, the MCP server and its tools.
+- [Project NOMAD](docs/integrations/project-nomad.md): read NOMAD's Information Library in Zimi without copying it, and an offline research agent over the same files.
 
 ## MCP server
 
@@ -120,7 +122,7 @@ Issues and ideas are welcome, and every one gets answered. See [CONTRIBUTING.md]
 
 ## License
 
-[MIT](LICENSE). Desktop and Docker builds bundle [libtorrent-rasterbar](https://libtorrent.org/) (BSD-3-Clause), see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[GPL-3.0-or-later](LICENSE), like the Kiwix and openZIM libraries it builds on; 1.13.3 and earlier were MIT. Desktop and Docker builds bundle [libtorrent-rasterbar](https://libtorrent.org/) (BSD-3-Clause), see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ---
 

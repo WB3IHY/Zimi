@@ -24,8 +24,9 @@
 //   6. Taps: what a tap reaches, which wins, and what it does (the Sun and
 //      the Moon open the 3D view on themselves; a planet is named).
 //   7. One clock: live, a timer keeps the sky at now; scrubbed, no live
-//      timer; motion reduced, no twinkle and no breeze; and no frame loop
-//      once nothing moves.
+//      timer; the true horizon moves nothing (the beach scene breezes and
+//      has things cross, unless motion is reduced); and no frame loop once
+//      nothing moves.
 //
 // Run: node tests/test_almanac_live_sky.cjs   (exit 0 = pass)
 
@@ -78,6 +79,9 @@ for (const fn of ['_dateToJD', '_jdToJulianCentury', '_solveKepler', '_moonPosit
 vm.runInContext(require('./moon_model.cjs')(), S);
 vm.runInContext(read('almanac-orrery.js'), S);
 vm.runInContext(read('almanac-sky.js'), S);
+vm.runInContext(read('almanac-skygl.js'), S);
+vm.runInContext(read('zone-places.js'), S);
+vm.runInContext(read('almanac-skyfacts.js'), S);
 
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
 // Great-circle distance between two alt/az directions, degrees.
@@ -114,6 +118,86 @@ for (const [place, lon, lat, iso, ref] of HORIZONS) {
   }
 }
 console.log('worst per body (deg): ' + Object.keys(worst).map((b) => b + ' ' + worst[b].toFixed(3)).join(', '));
+
+// The sky under the horizon (the phone's Look view, the ground as dim glass) is the same sky: its planets, Sun and stars
+// come from the ephemeris above and below the horizon alike, so the ones Horizons puts under it are the ones drawn there.
+{
+  const [place, lon, lat, iso, ref] = HORIZONS[1];
+  const eph = vm.runInContext('_skyEphemeris(new Date(' + JSON.stringify(iso) + '), ' + lat + ', ' + lon + ')', S);
+  S.__s = { nowTime: Date.parse(iso), lat, lon, eph };
+  const b = vm.runInContext('_skyBelowBodies(__s)', S);
+  const names = b.planets.map((p) => p.name).sort().join(',');
+  const want = Object.keys(ref).filter((n) => !['Sun', 'Moon'].includes(n) && ref[n][1] < 0).sort().join(',');
+  check(names === want, 'the planets under the horizon at 23:00 in San Francisco are the ones Horizons has there (' + names + ')');
+  check(b.sun && sep(b.sun.alt, b.sun.az, ref.Sun[1], ref.Sun[0]) < 1, 'the Sun is under it, where Horizons has it (' + (b.sun && b.sun.alt.toFixed(1)) + ' deg)');
+  check(b.moon === null, 'the Moon, up at 17 degrees, is not under it');
+  check(b.stars.length > 20 && b.stars.every((st) => st.alt < 0 && st.mag <= 4.6), 'the stars under it are all under it, to the limit (' + b.stars.length + ')');
+  // Above and below together are the whole catalogue to the limit: nothing is lost or counted twice at the horizon.
+  const all = vm.runInContext('_skyCatalogue().filter(function (c) { return c.mag <= SKY_BELOW_MAG; }).length', S);
+  const full = b.stars.length;
+  const up = eph.stars.filter((st) => st.mag <= 4.6).length;
+  check(up + full === all, 'stars above (' + up + ') and below (' + full + ') are all ' + all + ' of the catalogue');
+}
+
+// Below the horizon is the phone's Look view and nowhere else: the page's sky and the star chart show the sky above it.
+{
+  const code = fs.readFileSync(path.join(STATIC, 'almanac-sky.js'), 'utf8').replace(/\/\/.*$/gm, '');
+  check(!/_skyBelowOn|_skyBelowToggle|data-sky-below|SKY_CHART_HORIZON_SHARE|_starChartRot|_skyChartBelowZone|_skyEnsureBelowButton/.test(code), 'the live sky and the star chart have nothing for below the horizon');
+  check(!/below: \[/.test(code), 'and no setting for it');
+  check(/s\.hosted\) _skyPaintBelowLens/.test(code), "the look-around view paints what is under the ground");
+}
+
+// Every named star of the catalogue is the star it is named for: its place within half a degree of
+// the Hipparcos position the navigation tables carry for that name (Shaula once sat on Sargas).
+{
+  vm.runInContext(read('almanac-navdata.js') + '; var _navStars = AR_NAV_STARS;', S);
+  const nav = {};
+  for (const n of vm.runInContext('_navStars', S)) nav[n[1].toLowerCase()] = n;
+  const names = vm.runInContext('_STAR_NAMES', S), stars = vm.runInContext('_STARS', S);
+  let checked = 0;
+  for (const idx of Object.keys(names)) {
+    const want = nav[names[idx].toLowerCase().replace('rigil kent.', 'rigil kentaurus')];
+    if (!want) continue;
+    const ra = stars[idx][0] * 15, dec = stars[idx][1];
+    const d = sep(dec, ra, want[3], want[2]);   // alt/az sep is the great-circle distance of (lat, lon)
+    checked++;
+    check(d < 0.5, names[idx] + ' (_STARS[' + idx + ']) is within half a degree of its Hipparcos place (' + d.toFixed(2) + ' deg)');
+  }
+  check(checked >= 18, 'most named stars were found in the tables to be checked (' + checked + ')');
+}
+
+// An airliner's trail stays where it was laid: with no wind, the point laid `age` seconds ago, looked at `dt` seconds
+// later (the age grown by dt), is the same point of the sky. The wind then carries it, and nothing else does.
+{
+  vm.runInContext('SKY_CONTRAIL_SHEAR = 0;', S);
+  const a = { theta: 170, dir: 1, b: 14, h: 10.5, L0: -30, L1: 60, dur: 240000, wind: [0, 0] };
+  S.__a = a;
+  const at = (p, age) => vm.runInContext('_skyContrailAt(__a, ' + p + ', ' + age + ')', S);
+  const dp = 20 / (a.dur / 1000);                                 // 20 seconds on
+  const x = at(0.4, 30), y = at(0.4 + dp, 50);
+  check(sep(x.alt, x.az, y.alt, y.az) < 1e-6, 'with no wind a trail point stays where it was laid (' + sep(x.alt, x.az, y.alt, y.az).toExponential(1) + ' deg)');
+  const still = at(0.4, 100);
+  S.__a.wind = [0.02, 0];                                         // 72 km/h from the west
+  const blown = at(0.4, 100), moved = Math.hypot(blown.E - still.E, blown.N - still.N);
+  check(moved > 1.9 && moved < 2.1, 'a 72 km/h wind has taken a 100 s old trail 2 km (' + moved.toFixed(2) + ')');
+  // By night there is no trail at all, and by day it is drawn in strokes.
+  const strokes = [];
+  const ctx = new Proxy({}, {
+    get: (t, k) => (k === 'stroke' ? () => strokes.push(1) : k === 'createLinearGradient' || k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : typeof t[k] === 'undefined' ? () => {} : t[k]),
+    set: (t, k, val) => { t[k] = val; return true; },
+  });
+  S.__ctx = ctx;
+  function painted(sunAlt) {
+    strokes.length = 0;
+    vm.runInContext('(function () { var s = { W: 716, H: 550, dpr: 2, scale: 1, center: 180, span: 240, eph: { sunGeoAlt: ' + sunAlt + ', sun: { alt: ' + sunAlt + ', az: 250 } }, bodies: [] };' +
+      'var a = { type: "plane", start: 0, dur: 240000, dir: 1, h: 10.5, b: 14, theta: 170, L0: -30, L1: 60, contrail: true, wind: [0.01, 0.005], phase: 1 };' +
+      '_skyPaintPlane(__ctx, s, a, 90000); })()', S);
+    return strokes.length;
+  }
+  vm.runInContext('SKY_CONTRAIL_SHEAR = 0.00015;', S);
+  const day = painted(40), night = painted(-30);
+  check(day > 3 && night === 0, 'a trail by day (' + day + ' strokes), none by night (' + night + ')');
+}
 
 // Twilight is counted on the Sun's geometric altitude; the drawn Sun is lifted
 // by the air only near the horizon.
@@ -230,19 +314,38 @@ check(vm.runInContext('_skyAct({ type: "sun", x: 100, y: 100, r: 9, alt: 30, az:
 delete S.window.openAlmanacEarth.unsupported;
 
 // ── 7. One clock ──
-vm.runInContext('var _almFocus = null; var _heroMoonAnim = null; var __reduce = false; function _almReduceMotion() { return __reduce; }' +
+vm.runInContext('var __store = {}; var localStorage = { getItem: function (k) { return k in __store ? __store[k] : null; }, setItem: function (k, v) { __store[k] = String(v); }, removeItem: function (k) { delete __store[k]; } };' +
+  'var _almFocus = null; var _heroMoonAnim = null; var __reduce = false; function _almReduceMotion() { return __reduce; }' +
   'var __painted = 0; _skyPaint = function () { __painted++; };' +
-  '_skyState = { inView: true, eph: { sunGeoAlt: -30 }, actors: [], bodies: [], moonAnim: null, nowTime: Date.now() };', S);
-const MOVING = '_skySpawnBirds,_skySpawnMeteor,_skySpawnPlane,_skySpawnWhale,_skySwayTick';   // the spawners and the palms' breeze
+  '_skyState = { inView: true, eph: { sunGeoAlt: -30 }, lm: 7, actors: [], bodies: [], moonAnim: null, nowTime: Date.now() };' +
+  'function _skySolarMinutes() { return 360; };' +
+  '_skyRand = function () { return 0.99; };', S);   // a meteor's wait is drawn at random: here always a short one, so the timer is the meteor's own
+const MOVING = '_skyPollSatsTick,_skySpawnBirds,_skySpawnMeteor,_skySpawnPlane,_skySpawnWhale,_skySwayTick';   // the beach's: the spawners, the palms' breeze, and the wait for the ISS's elements
 const armed = () => { timers.length = 0; vm.runInContext('_skyArm()', S); return timers.map((x) => x.fn.name).sort().join(','); };
-check(armed() === '_skyLiveTick,' + MOVING + ',_skyTwinkleTick', 'live at night: the clock\'s drift, the twinkle, the planes, birds and meteors');
+// The true horizon, chosen: nothing but the clock's drift, at night or by day, and no twinkle at all.
+vm.runInContext('_skySettings = { skin: "horizon", lines: "off", size: "auto", dial: 0 }', S);
+check(armed() === '_skyLiveTick', 'live at night: the clock\'s drift and nothing else (no twinkle, no breeze, nothing crossing)');
 vm.runInContext('_almFocus = new Date(0)', S);
-check(armed() === MOVING + ',_skyTwinkleTick', 'scrubbed: no live timer, the sky holds the focused instant');
+check(armed() === '', 'scrubbed: no live timer, the sky holds the focused instant');
 vm.runInContext('_almFocus = null; _skyState.eph.sunGeoAlt = 20', S);
-check(armed() === '_skyLiveTick,' + MOVING, 'by day no twinkle (no stars out)');
+check(armed() === '_skyLiveTick', 'by day the same');
+// The beach is the default: its palms sway and its planes, birds, whales and meteors cross, with nothing chosen.
+vm.runInContext('_skySettings = null; localStorage.removeItem("zimi_sky_settings")', S);
+check(vm.runInContext('_skySetting("skin")', S) === 'beach', 'nothing chosen: the scene is the beach with its life');
+check(armed() === '_skyLiveTick,' + MOVING, 'the default scene: the clock, the palms and the moving things');
+// A viewer who chose the true horizon keeps it, and one who chose something else is not made to choose the scene.
+vm.runInContext('_skySettings = null; localStorage.setItem("zimi_sky_settings", JSON.stringify({ skin: "horizon" }))', S);
+check(vm.runInContext('_skySetting("skin")', S) === 'horizon' && armed() === '_skyLiveTick', 'a saved true horizon stays the true horizon');
+vm.runInContext('_skySettings = null; localStorage.setItem("zimi_sky_settings", JSON.stringify({ lines: "lines" })); _skySetting("lines")', S);
+check(vm.runInContext('_skySetting("skin")', S) === 'beach', 'saving another choice does not save the scene with it');
+vm.runInContext('_skySet("lines", "names")', S);
+check(JSON.parse(vm.runInContext('localStorage.getItem("zimi_sky_settings")', S)).skin === undefined, 'only what was chosen is kept');
+vm.runInContext('_skySettings = null; localStorage.removeItem("zimi_sky_settings")', S);
 vm.runInContext('__reduce = true', S);
-check(armed() === '_skyLiveTick', 'motion reduced: no twinkle or breeze (the palms stand still)');
-vm.runInContext('__reduce = false; _skyState.inView = false', S);
+check(armed() === '_skyLiveTick', 'motion reduced: no breeze and nothing crossing, even on the beach');
+vm.runInContext('__reduce = false; _skySettings = null; _skyState.lens = { az: 0, alt: 0, fov: 60 };', S);
+check(armed() === '_skyLiveTick', 'looking through a lens the beach is not drawn, so nothing moves');
+vm.runInContext('_skyState.lens = null; _skyState.eph.sunGeoAlt = -30; _skyState.inView = false', S);
 check(armed() === '', 'scrolled out of sight: nothing runs');
 vm.runInContext('_skyState.inView = true; document.hidden = true', S);
 check(armed() === '', 'tab hidden: nothing runs');
@@ -257,21 +360,25 @@ vm.runInContext('_almanacSkyRAF = null; _skyKick(); _skyKick();', S);
 check(frames.length === 1, 'two asks while a frame is pending make one frame, never a second loop');
 frames[0](2000);
 check(frames.length === 1 && vm.runInContext('_almanacSkyRAF', S) === null, 'still: after painting, no frame loop');
-// A plane crossing: the loop runs while it is on screen, painting at most
-// every SKY_ACTOR_FRAME_MS (thirty a second, not sixty), and stops once it has gone.
-frames.length = 0;
-vm.runInContext('_almanacSkyRAF = null; __painted = 0; _skyState.baseDirty = false; _skyState.paintedAt = 0;' +
+// A plane crossing: no vsync loop. A timer asks for each frame at
+// SKY_ACTOR_FRAME_MS (thirty a second, not sixty wakes for thirty paints), and
+// stops once the plane has gone.
+frames.length = 0; timers.length = 0;
+vm.runInContext('_almanacSkyRAF = null; __painted = 0; _skyState.baseDirty = false; _skyState.paintedAt = 0; _skyTimers.actor = 0;' +
   '_skyState.actors = [{ type: "plane", start: 0, dur: 1000 }];', S);
 const step = vm.runInContext('SKY_ACTOR_FRAME_MS', S);
 // _skyPaint is the counter here; a real paint drops the plane once its time is up.
 vm.runInContext('_skyPaint = function (ts) { __painted++; _skyState.actors = _skyState.actors.filter((a) => ts - a.start <= a.dur); };', S);
-for (const ts of [100, 100 + step / 2, 100 + step + 1, 100 + step * 1.5 + 1, 100 + step * 2 + 2]) {
-  vm.runInContext('_almanacSkyRAF = null; _skyLoop(' + ts + ')', S);
-}
-check(vm.runInContext('__painted', S) === 3 && frames.length === 5, 'a plane: a frame each vsync, a paint every other one (' + vm.runInContext('__painted', S) + ' of 5)');
-frames.length = 0;
-vm.runInContext('_almanacSkyRAF = null; _skyLoop(1200)', S);
-check(frames.length === 0 && vm.runInContext('_skyState.actors.length', S) === 0, 'gone from the sky, the loop stops');
+vm.runInContext('_skyLoop(100)', S);
+const tick = timers.filter((x) => x.fn.name === '_skyActorTick');
+check(vm.runInContext('__painted', S) === 1 && frames.length === 0 && tick.length === 1 && tick[0].ms === step, 'a plane: one paint, no vsync loop, the next frame asked for by a timer ' + step + ' ms on');
+timers.length = 0; tick[0].fn();
+check(frames.length === 1 && vm.runInContext('_skyTimers.actor', S) === 0, 'the timer asks for exactly one frame');
+frames[0](100 + step + 1);
+check(vm.runInContext('__painted', S) === 2 && timers.some((x) => x.fn.name === '_skyActorTick'), 'which paints, and asks for the next');
+frames.length = 0; timers.length = 0;
+vm.runInContext('_skyTimers.actor = 0; _almanacSkyRAF = null; _skyLoop(1200)', S);
+check(frames.length === 0 && !timers.some((x) => x.fn.name === '_skyActorTick') && vm.runInContext('_skyState.actors.length', S) === 0, 'gone from the sky, nothing is asked for');
 // The time machine's frames move the instant without a new loop.
 frames.length = 0;
 vm.runInContext('_almanacSkyRAF = null; _skyState.moonData = null; _skySetInstant(new Date("2026-10-01T06:00:00Z"))', S);

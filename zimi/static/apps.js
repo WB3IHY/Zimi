@@ -2,6 +2,24 @@
 // ZimiExchange, Reddot), inlined into each page by the server beside
 // apps.css (see http._inline_apps_assets), so a page is still one document
 // and a fix here reaches every app.
+// Red night light: Red is one of the shell's themes (Light, Dark, Red), kept in this browser under the
+// theme's own key (app.js _applyAppTheme). It puts night-red on <html>, which apps.css and app.css turn
+// into deep red on black, so looking at the phone does not cost night vision. A page that draws a
+// switch (the Field Guide's) asks the shell to choose the theme; the storage event below is how a
+// change made anywhere else reaches this page.
+var APP_THEME_KEY = 'zimi_app_theme', NIGHT_RED = 'red';
+function nightApply() {
+  var on = false;
+  try { on = localStorage.getItem(APP_THEME_KEY) === NIGHT_RED; document.documentElement.classList.toggle('night-red', on); } catch (e) {}
+}
+// Red on, or back to the theme it replaced: the shell's _nightSet, the one door. A page opened with no
+// shell around it has nothing else to change, so it only follows the key.
+function nightSet(on) {
+  try { window.parent._nightSet(on); } catch (e) {}
+  nightApply();
+}
+nightApply();
+window.addEventListener('storage', function(e) { if (e.key === APP_THEME_KEY || e.key === null) nightApply(); });
 function esc(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 // A ZIM entry's address in Zimi.
 function zpath(zim, p) { return '/w/' + encodeURIComponent(zim) + '/' + String(p).split('/').map(encodeURIComponent).join('/'); }

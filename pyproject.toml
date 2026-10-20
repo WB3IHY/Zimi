@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zimi"
-version = "1.13.3"
+version = "1.14.0"
 description = "Offline knowledge server for ZIM files — search and read Wikipedia, Stack Overflow and 50+ sources with no internet"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "GPL-3.0-or-later"}
 # Matches libzim, which is not optional and is the real constraint: it
 # publishes >=3.10,<3.15. mcp wants >=3.10 too, and the package itself uses
 # `X | Y` type syntax in fifteen places, which is 3.10 and up.
@@ -24,7 +24,7 @@ classifiers = [
     "Environment :: Web Environment",
     "Intended Audience :: End Users/Desktop",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -66,7 +66,7 @@ dependencies = [
 
 [project.optional-dependencies]
 bt = ["libtorrent==2.0.*"]
-pdf = ["PyMuPDF>=1.23.0"]
+pdf = ["PyMuPDF>=1.23.0,<2"]
 # `zimi desktop`: the native window. On Linux it also needs the distro's
 # WebKitGTK and PyGObject (see README); without them it opens the browser.
 desktop = ["pywebview>=4.0.0"]
@@ -88,7 +88,7 @@ browser = ["playwright>=1.40"]
 # Docker image's pins). Without them Zimi sets them up itself, in a venv under
 # its data directory, the first time someone downloads a voice.
 voices = ["piper-tts>=1.8,<2", "kokoro-onnx>=0.6,<0.7", "misaki[zh]>=0.9.4,<0.10", "num2words>=0.5.14,<0.6"]
-all = ["PyMuPDF>=1.23.0", "mcp>=1.0,<2.0", "libtorrent==2.0.*"]
+all = ["PyMuPDF>=1.23.0,<2", "mcp>=1.0,<2.0", "libtorrent==2.0.*"]
 
 [project.scripts]
 zimi = "zimi.server:main"
@@ -119,5 +119,6 @@ addopts = "--ignore=tests/test_article_languages.py"
 # Naming it explicitly still runs it.
 testpaths = ["tests"]
 markers = [
+    "fieldguide_on: runs with ZIMI_FIELDGUIDE=1 (the Field Guide and Help now are off by default)",
     "real_engine: opts a test out of the autouse libtorrent guard (may start a live libtorrent session)",
 ]

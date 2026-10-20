@@ -45,6 +45,12 @@ def served(tmp_path, monkeypatch):
     # Two ZIMs, so the home page is the home page (one opens itself).
     build_wiki_fixture_zim(str(zdir / "wiki.zim"))
     build_fixture_zim(str(zdir / "water.zim"))
+    # A Gutenberg ZIM, so Bookshelf has something inside and its tile is on
+    # home (an empty app waits on the Apps page).
+    build_fixture_zim(
+        str(zdir / "gutenberg_en_all_2026-01.zim"),
+        {"Scraper": "gutenberg2zim 3.0.1", "Name": "gutenberg_en_all", "Title": "Project Gutenberg Library"},
+    )
     monkeypatch.delenv("ZIMI_APPS", raising=False)
     monkeypatch.setattr(srv, "ZIM_DIR", str(zdir))
     monkeypatch.setattr(srv, "ZIMI_DATA_DIR", str(tmp_path / "data"))

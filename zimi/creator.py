@@ -55,6 +55,7 @@ from zimi import capturegate as _gate
 from zimi import netguard as _netguard
 from zimi import folderfiles as _folderfiles
 from zimi import nautilus as _nautilus
+from zimi import savedpages as _saved
 from zimi.blocklist import blocked_phrase
 from zimi.zimwriter import (
     SHOT_DIMS_METADATA_KEY,
@@ -118,6 +119,7 @@ class CreateError(Exception):
 MAX_SOURCE_FILE_BYTES = 1024**3  # 1 GiB per raw file
 MAX_TOTAL_SOURCE_BYTES = 8 * 1024**3  # 8 GiB per ZIM
 MAX_TEXT_SOURCE_BYTES = 16 * 1024**2  # 16 MiB per HTML/Markdown file
+MAX_ARCHIVE_PAGE_BYTES = 256 * 1024**2  # a single-file saved page is read whole
 MAX_PAGE_FETCH_BYTES = 10 * 1024**2  # 10 MiB fetched page document
 MAX_FAVICON_BYTES = 512 * 1024  # a site icon; anything larger is not one
 DEFAULT_FETCH_TIMEOUT = 30.0
@@ -263,7 +265,9 @@ OTHER_FACE_PATH = "A/index~other"
 FACES_METADATA_KEY = _srv.FACES_METADATA_KEY
 
 
-def _store_other_face(creator, static_cls, capture, title, final_url, note, unlink=None):
+def _store_other_face(
+    creator, static_cls, capture, title, final_url, note, unlink=None
+):
     """Keep the site's other face when it has one, as a second entry.
 
     A site with a dark mode serves a different page depending on the reader's
@@ -739,6 +743,85 @@ _MAIN_CANDIDATES = (
 )
 
 
+# A page saved from a browser ("Web page, complete") names the address it came
+# from: Chrome and Edge in a comment at the top, SingleFile in its own comment,
+# and most pages themselves in a canonical link or og:url. Read from the head.
+_SAVED_URL_HEAD_BYTES = 1024 * 1024
+_SAVED_URL_RES = (
+    re.compile(r"<!--\s*saved from url=\(\d+\)(\S+?)\s*-->", re.I),
+    re.compile(r"<!--\s*Page saved with SingleFile\s*\n\s*url:\s*(\S+)", re.I),
+    re.compile(r"<link\b[^>]*\brel=[\"']?canonical\b[^>]*\bhref=[\"']([^\"']+)", re.I),
+    re.compile(
+        r"<link\b[^>]*\bhref=[\"']([^\"']+)[\"'][^>]*\brel=[\"']?canonical\b", re.I
+    ),
+    re.compile(
+        r"<meta\b[^>]*\bproperty=[\"']og:url[\"'][^>]*\bcontent=[\"']([^\"']+)", re.I
+    ),
+)
+_A_HREF_RE = re.compile(r"(<a\b[^>]*?\bhref\s*=\s*)([\"'])(.*?)\2", re.I | re.S)
+
+
+def _web_page_key(url):
+    """One key per web page, whichever way a link spells it: http or https,
+    the host's case, a trailing slash and the fragment don't make another page."""
+    p = urllib.parse.urlsplit(_html.unescape(url).strip())
+    if p.scheme.lower() not in ("http", "https") or not p.netloc:
+        return None
+    path = urllib.parse.unquote(p.path).rstrip("/") or "/"
+    return (p.netloc.lower(), path, p.query)
+
+
+def _saved_page_key(text):
+    head = text[:_SAVED_URL_HEAD_BYTES]
+    # Wikipedia's canonical link comes after 160 KB of inline script and style.
+    end = head.lower().find("</head>")
+    if end > 0:
+        head = head[:end]
+    for rx in _SAVED_URL_RES:
+        m = rx.search(head)
+        if m:
+            key = _web_page_key(m.group(1))
+            if key:
+                return key
+    return None
+
+
+def _link_saved_pages(text, zim_path, saved):
+    """Point links at a page that was saved too at its copy in the folder,
+    relative to this page, keeping the fragment. Every other link is left as is."""
+    here = posixpath.dirname(zim_path)
+
+    def fix(m):
+        href = m.group(3)
+        target = saved.get(_web_page_key(href))
+        if not target or target == zim_path:
+            return m.group(0)
+        frag = urllib.parse.urlsplit(_html.unescape(href)).fragment
+        rel = urllib.parse.quote(posixpath.relpath(target, here or "."))
+        return '%s"%s"' % (m.group(1), attr_quote(rel + ("#" + frag if frag else "")))
+
+    return _A_HREF_RE.sub(fix, text)
+
+
+def _saved_pages(items):
+    """{page key: zim path} for the folder's pages that name where they were saved from."""
+    saved = {}
+    for fs_path, zim_path, fam in items:
+        if (
+            fam != "page"
+            or posixpath.splitext(zim_path)[1].lower() not in _folderfiles.PAGE_EXTS
+        ):
+            continue
+        try:
+            with open(fs_path, encoding="utf-8", errors="replace") as f:
+                key = _saved_page_key(f.read(_SAVED_URL_HEAD_BYTES))
+        except OSError:
+            continue
+        if key:
+            saved.setdefault(key, zim_path)
+    return saved
+
+
 def _pick_main(zim_paths):
     root_files = {p.lower(): p for p in zim_paths if "/" not in p}
     for cand in _MAIN_CANDIDATES:
@@ -832,31 +915,39 @@ def _folder_videos_json(assets, sidecars=None):
     return json.dumps(rows, ensure_ascii=False).encode("utf-8") if rows else None
 
 
+def _href(path):
+    """A ZIM path as a link target: a name may hold a space, ``%``, ``?`` or
+    ``#``, which a bare href would read as an escape, a query or a fragment."""
+    return _html.escape(urllib.parse.quote(path, safe="/"), quote=True)
+
+
 def _index_tree_html(title, pages, assets, gallery=None):
     """The generated main page: the content tree as nested lists, pages
-    first (with their real titles), assets after; the pictures' gallery
-    first of all when there is one."""
+    first (with their real titles, and the site a saved page came from),
+    assets after; the pictures' gallery first of all when there is one."""
     tree = {}
-    for zim_path, page_title in pages:
+    for zim_path, page_title, *site in pages:
         tree.setdefault(posixpath.dirname(zim_path), []).append(
-            (zim_path, page_title, True)
+            (zim_path, page_title, True, site[0] if site else "")
         )
     for zim_path in assets:
         tree.setdefault(posixpath.dirname(zim_path), []).append(
-            (zim_path, posixpath.basename(zim_path), False)
+            (zim_path, posixpath.basename(zim_path), False, "")
         )
     body = [f"<h1>{_html.escape(title)}</h1>"]
     body.append(
         "<p style='color:#666'>"
-        + _plural(len(pages), "page")
-        + ", "
-        + _plural(len(assets), "file")
+        + " and ".join(
+            _plural(n, word)
+            for n, word in ((len(pages), "page"), (len(assets), "file"))
+            if n
+        )
         + " packaged by Zimi</p>"
     )
     if gallery:
         path, count = gallery
         body.append(
-            f"<p><a href='{_html.escape(path)}'>Pictures</a> "
+            f"<p><a href='{_href(path)}'>Pictures</a> "
             f"<span style='color:#666'>({_plural(count, 'picture')})</span></p>"
         )
     for folder in sorted(tree):
@@ -864,11 +955,12 @@ def _index_tree_html(title, pages, assets, gallery=None):
             body.append(f"<h2 class='zimi-section'>{_html.escape(folder)}/</h2>")
         items = sorted(tree[folder], key=lambda e: (not e[2], e[1].lower()))
         body.append("<ol class='zimi-index'>")
-        for zim_path, label, is_page in items:
+        for zim_path, label, is_page, site in items:
             style = "" if is_page else " style='color:#999'"
+            where = f" <span style='color:#666'>{_html.escape(site)}</span>" if site else ""
             body.append(
-                f"<li{style}><a href='{_html.escape(zim_path)}'>"
-                f"{_html.escape(label)}</a></li>"
+                f"<li{style}><a href='{_href(zim_path)}'>"
+                f"{_html.escape(label)}</a>{where}</li>"
             )
         body.append("</ol>")
     return (
@@ -893,7 +985,7 @@ def _gallery_html(title, images, sidecars):
         meta = sidecars.get(path) or {}
         caption = meta.get("title") or _nautilus.title_from_name(path)
         alt = meta.get("description") or caption
-        src = _html.escape(path)
+        src = _href(path)
         cells.append(
             f"<li><figure><a href='{src}'><img src='{src}' loading='lazy' alt='{_html.escape(alt)}'></a>"
             f"<figcaption>{_html.escape(caption)}</figcaption></figure></li>"
@@ -995,6 +1087,23 @@ def _folder_documents(files, sidecars=None, have=None):
 FOLDER_PROGRESS_LINES = 500
 
 
+_REMOTE_PICTURE_RE = re.compile(
+    r"<(?:img|source)\b[^>]*?\s(?:src|srcset)\s*=\s*[\"']?\s*https?://", re.I
+)
+
+
+def _note_unsaved_pictures(progress, rel, text):
+    """Say so when a page's pictures still point at the web: the browser did not
+    save them (it had not loaded them yet), and the ZIM cannot show what it
+    does not have."""
+    n = len(_REMOTE_PICTURE_RE.findall(text))
+    if n:
+        progress(
+            f"note: {rel}: {_plural(n, 'picture')} not saved with the page "
+            "(the browser had not loaded them), so they will not show"
+        )
+
+
 def _folder_progress(progress, n_done, n_total, zim_path):
     if progress is None:
         return
@@ -1046,9 +1155,52 @@ def _folder_icon(root, meta):
         return None
 
 
-def create_folder_zim(
+def create_folder_zim(folder, **kwargs):
+    """Package a folder of files into one ZIM (see ``_create_folder_zim``).
+    Pages a browser saved as one file are unpacked into a scratch folder that
+    lives exactly as long as the build, beside the output (scratch_dir), never
+    in a temp folder that may be RAM: each page can hold 256 MiB."""
+    parent = scratch_dir(kwargs.get("out_dir"), kwargs.get("out_path"))
+    with tempfile.TemporaryDirectory(prefix="zimi-saved-", dir=parent) as stage:
+        return _create_folder_zim(folder, stage=stage, **kwargs)
+
+
+def _expand_saved_archives(items, stage, progress):
+    """``items`` with each single-file saved page (.mhtml, .webarchive) replaced
+    by the page and parts it holds, unpacked under ``stage``."""
+    out = []
+    for fs, rel, fam in items:
+        if os.path.splitext(rel.lower())[1] not in _folderfiles.ARCHIVE_PAGE_EXTS:
+            out.append((fs, rel, fam))
+            continue
+        if os.path.getsize(fs) > MAX_ARCHIVE_PAGE_BYTES:
+            if progress:
+                progress(
+                    f"left out {rel}: over {_fmt_bytes(MAX_ARCHIVE_PAGE_BYTES)}; "
+                    "save the page as a folder instead"
+                )
+            continue
+        try:
+            unpacked = _saved.expand(fs, rel, stage)
+        except (_saved.ArchiveError, OSError) as e:
+            if progress:
+                progress(f"left out {rel}: {e}")
+            continue
+        if progress:
+            progress(f"unpacked {rel}: {_plural(len(unpacked) - 1, 'part')}")
+        out.extend((f, r, _folderfiles.family(r)[0]) for f, r in unpacked)
+    return out
+
+
+def _read_text(fs_path):
+    with open(fs_path, encoding="utf-8", errors="replace") as f:
+        return f.read()
+
+
+def _create_folder_zim(
     folder,
     *,
+    stage,
     out_dir=None,
     out_path=None,
     title=None,
@@ -1092,8 +1244,15 @@ def create_folder_zim(
     items = [(fs, rel, fam) for fs, rel, fam in plan["items"]] + [
         (fs, rel, "image") for fs, rel in plan["covers"]
     ]
+    items = _expand_saved_archives(items, stage, progress)
     if not items:
         raise CreateError(f"nothing to package — no files found in {folder}")
+    # Pages first: what they load as a stylesheet or a script names the
+    # mimetype of a file a browser saved without an extension.
+    items.sort(key=lambda it: it[2] != "page")
+    # The parts of a page a browser saved are that page's, not articles.
+    owned = _saved.owners(items, _read_text)
+    use_hints = {}
     meta = plan["folder"]
     sidecars = plan["sidecars"]
     files = [(fs, rel) for fs, rel, _fam in items]
@@ -1112,6 +1271,7 @@ def create_folder_zim(
     mimetypes = set()  # evidence for the _pictures:/_videos: tags
     main_path = _pick_main(rel for _f, rel in files)
     taken = {rel for _f, rel in files}
+    saved = _saved_pages(items)
     # Pictures on a page of their own, unless the folder is a site (its own
     # index.html is the main page) whose pages already show them. A cover,
     # poster or icon is part of what it belongs to, not a picture in its own
@@ -1119,7 +1279,7 @@ def create_folder_zim(
     is_site = main_path is not None and (
         posixpath.splitext(main_path)[1].lower() in _folderfiles.PAGE_EXTS
     )
-    belongs = plan["belongs"]
+    belongs = plan["belongs"] | set(owned)
     gallery_images = (
         []
         if is_site
@@ -1167,21 +1327,37 @@ def create_folder_zim(
                     # whole folder ships at its original paths. Only the
                     # charset declaration is rewritten, because the file was
                     # just read as UTF-8 and is stored as UTF-8, and the ZIM
-                    # entry's bare text/html mimetype no longer says so.
+                    # entry's bare text/html mimetype no longer says so, and
+                    # links to another page saved from the web point at its copy.
                     page_title = named or _page_title_from_html(text, fallback)
+                    text, hints = _saved.prepare(text, zim_path, taken)
+                    use_hints.update(hints)
+                    if saved:
+                        text = _link_saved_pages(text, zim_path, saved)
                     content = _normalize_charset(text).encode("utf-8")
+                    if progress and zim_path not in owned:
+                        _note_unsaved_pictures(progress, zim_path, text)
                 elif ext in _folderfiles.TEXT_EXTS:
                     page_title = named or fallback
                     content = _render_text_page(text, page_title)
                 else:
                     content, page_title = _render_markdown_page(text, fallback)
                     page_title = named or page_title
+                part_of_page = zim_path in owned
                 creator.add_item(
-                    static_cls(zim_path, page_title, content, mimetype=_HTML_MIME)
+                    static_cls(
+                        zim_path,
+                        page_title,
+                        content,
+                        mimetype=_HTML_MIME,
+                        front=not part_of_page,
+                    )
                 )
-                pages.append((zim_path, page_title))
+                if not part_of_page:
+                    key = _saved_page_key(text) if ext in _folderfiles.PAGE_EXTS else None
+                    pages.append((zim_path, page_title, key[0] if key else ""))
             else:
-                mime = _guess_mime(zim_path)
+                mime = _saved.mime_for(zim_path, fs_path, use_hints)
                 creator.add_item(file_cls(zim_path, named or stem, fs_path, mime))
                 assets.append(zim_path)
                 mimetypes.add(mime)
@@ -1223,7 +1399,12 @@ def create_folder_zim(
                 static_cls(
                     main_path,
                     zim_title,
-                    _index_tree_html(zim_title, pages, assets, gallery),
+                    _index_tree_html(
+                        zim_title,
+                        pages,
+                        [a for a in assets if a not in owned],
+                        gallery,
+                    ),
                 )
             )
         creator.set_mainpath(main_path)
@@ -1479,7 +1660,11 @@ class _GuardedHTTPSHandler(urllib.request.HTTPSHandler):
 def _peer_handlers():
     """The handlers that check the connected peer, when a private-address rule
     is in force and nothing otherwise."""
-    return [_GuardedHTTPHandler, _GuardedHTTPSHandler] if _PRIVATE_GUARD.get() is not None else []
+    return (
+        [_GuardedHTTPHandler, _GuardedHTTPSHandler]
+        if _PRIVATE_GUARD.get() is not None
+        else []
+    )
 
 
 class _CaptureCookieScope(urllib.request.BaseHandler):
@@ -2175,7 +2360,9 @@ def _externalize_links(page, base_url, resolve=None):
 # walked in order over the masked markup (a script's "<a href=" is a string).
 # Anchors do not nest in HTML, which is what makes "the next </a>" the close.
 _A_OPEN_CLOSE_RE = re.compile(r"<a\b[^>]*>|</a\s*>", re.IGNORECASE)
-_LINK_ONLY_ATTR_RE = attr_re("href", "target", "rel", "ping", "hreflang", "referrerpolicy")
+_LINK_ONLY_ATTR_RE = attr_re(
+    "href", "target", "rel", "ping", "hreflang", "referrerpolicy"
+)
 
 
 def _site_host(url):
@@ -2206,7 +2393,10 @@ def unlink_other_sites(page, page_url):
         if ":" in head and not val.lower().startswith(("http:", "https:")):
             return tag  # mailto:, tel:, javascript: are not another site
         target = urllib.parse.urljoin(page_url, val)
-        if not target.lower().startswith(("http:", "https:")) or _site_host(target) == site:
+        if (
+            not target.lower().startswith(("http:", "https:"))
+            or _site_host(target) == site
+        ):
             return tag
         state["open"] = True
         state["removed"] += 1
@@ -3114,7 +3304,9 @@ def create_page_zim(
             # the wrong heading (Eric: "growing on the package step not fetch
             # step? Fetch is all download steps"). The packaging line moves to
             # where the writing actually starts.
-            page = unlink(capture.render(creator_target(creator), page, final_url), final_url)
+            page = unlink(
+                capture.render(creator_target(creator), page, final_url), final_url
+            )
             _gate.report_left_out(note)
             note(f"packaging {final_url}")
             creator.add_item(static_cls("A/index", zim_title, page.encode("utf-8")))
@@ -3628,16 +3820,20 @@ def _probe_icon_data_uri(final_url, timeout, page):
 PROBE_FOLDER_DEPTH = 2
 PROBE_FOLDER_MAX_ENTRIES = 4000
 _DOC_EXTS = _nautilus.BOOK_EXTS | {".txt", ".rst"}
-_MEDIA_EXTS = {
-    ".png",
-    ".jpg",
-    ".jpeg",
-    ".gif",
-    ".webp",
-    ".svg",
-    ".bmp",
-    ".ico",
-} | _nautilus.VIDEO_EXTS | _nautilus.AUDIO_EXTS
+_MEDIA_EXTS = (
+    {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".svg",
+        ".bmp",
+        ".ico",
+    }
+    | _nautilus.VIDEO_EXTS
+    | _nautilus.AUDIO_EXTS
+)
 
 
 def _file_kind(name):
@@ -3834,7 +4030,9 @@ def _detail_kwargs(args):
     ``_apply_cli_defaults``), as keyword arguments."""
     from zimi import crawler
 
-    return crawler.detail_kwargs({k: getattr(args, k, None) for k in crawler.DETAIL_KEYS})
+    return crawler.detail_kwargs(
+        {k: getattr(args, k, None) for k in crawler.DETAIL_KEYS}
+    )
 
 
 def _apply_cli_defaults(args, sources, folder):
@@ -3908,7 +4106,9 @@ def _build_from_args(args, src, is_url):
             raise CreateError(f"{', '.join(named)} {because}")
 
     if is_url and getattr(args, "only", None):
-        raise CreateError("--only picks files inside a folder — give a folder to use it")
+        raise CreateError(
+            "--only picks files inside a folder — give a folder to use it"
+        )
     if not is_url:
         refuse(crawl_flags, f"only applies to a URL capture — {src} is a folder")
         return create_folder_zim(
@@ -3964,7 +4164,9 @@ def _build_from_args(args, src, is_url):
             max_pages=wanted.get("max_pages"),
             max_depth=wanted.get("max_depth"),
             scope=crawler.CrawlScope(**_scope_kwargs(args, wanted)) if site else None,
-            capture_options={k: wanted[k] for k in crawler.NEW_OPTION_KEYS if k in wanted},
+            capture_options={
+                k: wanted[k] for k in crawler.NEW_OPTION_KEYS if k in wanted
+            },
             engine_args=getattr(args, "engine_arg", None) or (),
             progress=_note,
             **common,
@@ -4043,7 +4245,11 @@ def cli_create(args):
     """`zimi create <folder-or-url> [<url>…]` — dispatch, then print a short
     honest summary. Exit 2 with a one-line message on any user-fixable failure,
     matching the backup/restore CLI convention."""
-    sources = list(args.source) if isinstance(args.source, list) else ([args.source] if args.source else [])
+    sources = (
+        list(args.source)
+        if isinstance(args.source, list)
+        else ([args.source] if args.source else [])
+    )
     if not sources:
         # The one thing the command does without a source: install the
         # Reddit maker ahead of time (docs: `zimi create --setup-reddit`).
@@ -4057,7 +4263,10 @@ def cli_create(args):
                 sys.exit(2)
             print(f"Reddit maker ready at {_reddot.sidecar_dir()}")
             return
-        print("zimi create: a source is required (a folder, a page, a site, a video or a subreddit)", file=sys.stderr)
+        print(
+            "zimi create: a source is required (a folder, a page, a site, a video or a subreddit)",
+            file=sys.stderr,
+        )
         sys.exit(2)
     src = sources[0]
     # ONE source restores the exact pre-multi-URL contract for everything
@@ -4171,7 +4380,9 @@ def cli_create(args):
             f"{_plural(info['assets'], 'file')}; main page: {info['main']}"
         )
         if info.get("unsupported"):
-            print(f"  left out: {_plural(len(info['unsupported']), 'file')} (listed above)")
+            print(
+                f"  left out: {_plural(len(info['unsupported']), 'file')} (listed above)"
+            )
     if info["registered"]:
         print("  registered in the library — no rescan needed")
     elif not args.out:

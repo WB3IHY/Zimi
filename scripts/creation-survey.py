@@ -14,7 +14,7 @@ Environment:
   ZIMI_SURVEY_ZIM_DIR   where the server writes captures (default scratchpad/zims/created)
   ZIMI_SURVEY_RELEASED  where released ZIMs are downloaded (default scratchpad/zims/released)
 
-Writes docs/plans/2026-09-03-creation-survey.md after every job; the report is
+Writes survey/creation-survey.md after every job; the report is
 regenerated, never edited by hand.
 """
 
@@ -35,7 +35,7 @@ BASE = os.environ.get("ZIMI_SURVEY_BASE", "http://127.0.0.1:8901")
 OUT = os.environ.get("ZIMI_SURVEY_OUT", "scratchpad/survey")
 ZIM_DIR = os.environ.get("ZIMI_SURVEY_ZIM_DIR", "scratchpad/zims/created")
 RELEASED_DIR = os.environ.get("ZIMI_SURVEY_RELEASED", "scratchpad/zims/released")
-REPORT = "docs/plans/2026-09-03-creation-survey.md"
+REPORT = "survey/creation-survey.md"
 JOB_CAP_S = 1800
 RELEASED_CAP_BYTES = 2_000_000_000
 PHONE = {"width": 390, "height": 844}
@@ -255,6 +255,7 @@ def write_report(results):
                 (r.get("error") or "")[:80].replace("|", "/"),
             )
         )
+    os.makedirs(os.path.dirname(REPORT), exist_ok=True)
     with open(REPORT, "w") as f:
         f.write("\n".join(rows) + "\n")
 

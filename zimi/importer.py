@@ -52,7 +52,7 @@ from zimi import subproc
 from zimi.p2p import is_offline
 from zimi.zimwriter import _slug, scraper_string
 
-# warc2zim's own pin (see docs/plans/2026-08-10-zim-creation-landscape.md §5):
+# warc2zim's own pin:
 # a single Python minor version. Bump both bounds together when upstream moves.
 WARC2ZIM_PY_MIN = (3, 14)
 WARC2ZIM_PY_MAX_EXCL = (3, 15)
@@ -207,8 +207,19 @@ def _run_stream(cmd, sink, heartbeat_s=HEARTBEAT_SECONDS, watch=None):
 # ── sidecar venv management ─────────────────────────────────────────────────
 
 
+# Where an image that carries its own sidecar keeps it (the Docker image: the
+# data folder is a volume the venv must not live in, or every volume would need
+# a 230 MB copy). A sidecar of the same name in the data folder wins, so an
+# operator who ran `zimi import --setup` or updated one keeps theirs.
+BUNDLED_SIDECARS_DIR = "/opt/zimi-sidecars"
+
+
 def sidecar_dir():
-    return os.path.join(_srv.ZIMI_DATA_DIR, "tools", "warc2zim")
+    own = os.path.join(_srv.ZIMI_DATA_DIR, "tools", "warc2zim")
+    bundled = os.path.join(BUNDLED_SIDECARS_DIR, "warc2zim")
+    if not _installed(own) and _installed(bundled):
+        return bundled
+    return own
 
 
 def _venv_bin(venv, name):

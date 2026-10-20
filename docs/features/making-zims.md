@@ -26,7 +26,7 @@ A capture is also **refused rather than packaged** when the site does not return
 
 **Resource hints are dropped.** `<link rel="preload">` and friends are advice to a live browser about what to fetch early. In an archive they are requests for addresses that do not exist, so all of them — `preload`, `modulepreload`, `prefetch`, `preconnect`, `dns-prefetch` — are removed. The files themselves are still carried through the stylesheets and markup that actually use them.
 
-**Making a page reveal itself.** The browser engines (rendered, alive, zimit) drive the page before serialising it, because a modern site holds most of its content back until something asks. Zimi's own pass is a scroll. When [browsertrix-behaviors](https://github.com/webrecorder/browsertrix-behaviors) is installed (`npm install -g browsertrix-behaviors`, or point `ZIMI_BEHAVIORS` at a `behaviors.js`), Zimi runs Webrecorder's catalogue first — per-site scripts for the sites people archive most, plus a better generic autoscroll — and then still runs its own scroll, because adopting somebody else's coverage should never subtract from your own. Zimi does not ship the bundle: it is AGPL, so it is used when present and never distributed. Without it every engine works exactly as before.
+**Making a page reveal itself.** The browser engines (rendered, alive, zimit) drive the page before serialising it, because a modern site holds most of its content back until something asks. Zimi's own pass is a scroll. Zimi ships [browsertrix-behaviors](https://github.com/webrecorder/browsertrix-behaviors) 0.15.0 unmodified (AGPL-3.0-or-later, combinable with Zimi's GPL-3.0-or-later; licence and checksum in THIRD_PARTY_NOTICES.md), and runs Webrecorder's catalogue first (per-site scripts for the sites people archive most, plus a better generic autoscroll), and then still runs its own scroll, because adopting somebody else's coverage should never subtract from your own. To use another version, install it (`npm install -g browsertrix-behaviors`) or point `ZIMI_BEHAVIORS` at a `behaviors.js`; either wins over the bundled copy.
 
 **Capture defaults.** Ad, tracker, and consent-manager requests are blocked during capture by default (`--block-ads`, on for the rendered and alive engines) — smaller ZIMs, and pages that gate on those endpoints render their real content. `--no-block-ads` captures everything. The blocklist snapshot ships in `zimi/assets/blocklist-snapshot.txt.gz` (StevenBlack/hosts, MIT) and is not auto-refreshed. Image-variant capture is a Manage/Creator toggle (`capture_variants`) and a `create` internal option.
 
@@ -113,7 +113,7 @@ The rendered and alive engines take them on the page they already have open. The
 | Setting | Where | Default | Effect |
 | --- | --- | --- | --- |
 | `--engine` | flag | stored default, else `builtin` | `builtin` / `rendered` / `singlefile` / `alive` / `zimit` |
-| `ZIMI_BEHAVIORS` | env | unset | Path to a `behaviors.js`. Zimi otherwise looks in npm's global roots; without it the browser engines fall back to a plain scroll |
+| `ZIMI_BEHAVIORS` | env | unset | Path to a `behaviors.js`. Zimi otherwise uses a global npm install, then the copy it ships |
 | `--block-ads` / `--no-block-ads` | flag | on (rendered/alive) | Block ad/tracker/consent requests at capture time |
 | `--max-bytes` | flag | 4G (site) / 16G (video) | Total size budget |
 | `--max-pages` | flag | 10,000 (site) | Page cap for `--site` |

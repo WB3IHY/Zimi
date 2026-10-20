@@ -27,9 +27,11 @@ A text file is a sidecar only when it says at least one of those keys, so a
 ``notes.txt`` of prose beside ``notes.pdf`` stays a page.
 """
 
+import html as _html
 import json
 import os
 import posixpath
+import urllib.parse
 
 from zimi import nautilus as _nautilus
 
@@ -40,6 +42,9 @@ DOCUMENT_EXTS = _nautilus.BOOK_EXTS
 IMAGE_EXTS = frozenset(
     (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif", ".bmp")
 )
+# A page a browser saved as ONE file: Chrome's "Single File" (.mhtml), Safari's
+# "Web Archive". Unpacked at build time (zimi.savedpages) into a page and its parts.
+ARCHIVE_PAGE_EXTS = frozenset((".mhtml", ".mht", ".webarchive"))
 VIDEO_EXTS = _nautilus.VIDEO_EXTS
 AUDIO_EXTS = _nautilus.AUDIO_EXTS
 
@@ -94,6 +99,7 @@ _UNSUPPORTED = {
     ".tmp": "partial",
     ".part": "partial",
     ".crdownload": "partial",
+    ".download": "partial",
     ".exe": "program",
     ".dll": "program",
     ".msi": "program",
@@ -150,7 +156,12 @@ def family(name):
     ext = posixpath.splitext(lower)[1]
     if lower.endswith(".zim.tmp"):
         return "unsupported", "partial"
-    if ext in PAGE_EXTS or ext in MARKDOWN_EXTS or ext in TEXT_EXTS:
+    if (
+        ext in PAGE_EXTS
+        or ext in MARKDOWN_EXTS
+        or ext in TEXT_EXTS
+        or ext in ARCHIVE_PAGE_EXTS
+    ):
         return "page", None
     if ext in DOCUMENT_EXTS:
         return "document", None
@@ -418,6 +429,59 @@ def normalize_only(root, only, exclude=()):
     return out
 
 
+# The folder a browser saves a page's parts into, beside the page: "Page.html"
+# and "Page_files". Firefox before 2025 and Chrome in other languages spell the
+# suffix in the user's language ("Seite_Dateien", "Page_fichiers"), so any
+# sibling folder that starts with the page's name and is named by the page counts.
+FILES_SUFFIX = "_files"
+# Reading a page to see which folder it names is bounded: a saved page is
+# a few MB, and a megabyte-sized head is where its references live too.
+COMPANION_READ_BYTES = 32 * 1024 * 1024
+
+
+def companion_dirs(page_name, sibling_dirs, read_text=None):
+    """The names among ``sibling_dirs`` that hold the parts of the saved page
+    ``page_name``. ``Page_files`` is one on its name alone; a folder with another
+    suffix is one when the page names it (``read_text()`` gives the page's text;
+    only asked when such a folder exists)."""
+    stem = posixpath.splitext(page_name)[0]
+    exact = (stem + FILES_SUFFIX).lower()
+    prefix = stem.lower() + "_"
+    out, others = [], []
+    for d in sibling_dirs:
+        low = d.lower()
+        if low == exact:
+            out.append(d)
+        elif low.startswith(prefix):
+            others.append(d)
+    if others and read_text is not None:
+        # References are percent-encoded (and, from Firefox, sometimes only
+        # half so), the markup entity-escaped: compare what they say, decoded.
+        said = urllib.parse.unquote(_html.unescape(read_text()))
+        out.extend(d for d in others if d in said)
+    return out
+
+
+def disk_companions(fs_page):
+    """Full paths of the folders beside the saved page ``fs_page`` that hold its parts."""
+    parent = os.path.dirname(fs_page)
+
+    def text():
+        with open(fs_page, encoding="utf-8", errors="replace") as f:
+            return f.read(COMPANION_READ_BYTES)
+
+    try:
+        names = [
+            n
+            for n in sorted(os.listdir(parent)[:LIST_READ_CAP])
+            if not skip_name(n) and os.path.isdir(os.path.join(parent, n))
+        ]
+        found = companion_dirs(os.path.basename(fs_page), names, text)
+    except OSError:
+        return []
+    return [os.path.join(parent, d) for d in found]
+
+
 def walk(root, only=None, exclude=()):
     """``(fs_path, rel)`` for every regular file a build would consider,
     depth first and sorted. With ``only``, just those files and folders,
@@ -427,14 +491,35 @@ def walk(root, only=None, exclude=()):
     if not only:
         yield from _walk_dir(real_root, "", exclude)
         return
+    seen = set()
     for rel in only:
         fs_path = os.path.join(real_root, *rel.split("/"))
         if os.path.islink(fs_path):
             continue
         if os.path.isdir(fs_path):
-            yield from _walk_dir(fs_path, rel, exclude)
+            if fs_path in exclude:
+                continue
+            found = list(_walk_dir(fs_path, rel, exclude))
         elif os.path.isfile(fs_path):
-            yield fs_path, rel
+            found = [(fs_path, rel)]
+            # A saved page picked on its own takes its parts with it: the
+            # pictures are in the folder beside it, not something to tick.
+            if posixpath.splitext(rel.lower())[1] in PAGE_EXTS:
+                for comp in disk_companions(fs_path):
+                    # os.walk walks its starting folder even when it is a
+                    # link, and checks exclusions only below it.
+                    if os.path.islink(comp) or comp in exclude:
+                        continue
+                    name = os.path.basename(comp)
+                    found.extend(
+                        _walk_dir(comp, posixpath.join(posixpath.dirname(rel), name), exclude)
+                    )
+        else:
+            continue
+        for fs, r in found:
+            if r not in seen:
+                seen.add(r)
+                yield fs, r
 
 
 def _walk_dir(fs_dir, prefix, exclude=()):
