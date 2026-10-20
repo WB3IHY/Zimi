@@ -26,7 +26,7 @@ function fn(name) { return extract(new RegExp('function ' + name + '\\([^)]*\\) 
 const store = {};
 let prefs = { voice: '', off: [] };
 const ctx = {
-  SK: { TTS_SLOW: 'zimi_tts_slow' },
+  SK: { TTS_SLOW: 'zimi_tts_slow', TTS_DEVICE_TIMES: 'zimi_tts_device_times' },
   _DEVICE_VOICE: 'device',
   _TTS_AVAILABLE: false,
   _ttsVoices: { langs: { en: { engine: 'kokoro', engines: ['kokoro', 'piper'] }, fr: { engine: 'kokoro', engines: ['kokoro'] } } },
@@ -40,7 +40,7 @@ const ctx = {
   _TTS_GAP_OK_S: 0.5,
 };
 vm.createContext(ctx);
-vm.runInContext(['_ttsServerEngines', '_ttsChosenVoice', '_ttsRowOrder', '_ttsSlowEngines', '_ttsMarkSlow', '_ttsKeepsUp', '_ttsTooSlow', '_ttsServerSays', '_ttsCanSpeak', '_ttsSpeakUrl'].map(fn).join('\n'), ctx);
+vm.runInContext(['_voiceTimings', '_ttsServerEngines', '_ttsChosenVoice', '_ttsRowOrder', '_ttsSlowEngines', '_ttsMarkSlow', '_ttsKeepsUp', '_ttsTooSlow', '_ttsServerSays', '_ttsCanSpeak', '_ttsSpeakUrl'].map(fn).join('\n'), ctx);
 const engines = lang => JSON.stringify(ctx._ttsServerEngines(lang));
 
 ok('Automatic: the server\'s choice first, then the rest', engines('en') === '["kokoro","piper"]', engines('en'));
@@ -80,8 +80,7 @@ delete ctx._ttsVoices.timings;
 
 // Each voice's one word under its name: the usual one until it was measured
 // here, then from its first words, or that it cannot keep up at 1x.
-ctx.SK.TTS_DEVICE_TIMES = 'zimi_tts_device_times';
-vm.runInContext(['_voiceTimings', '_voicePaceKey'].map(fn).join('\n') + '\n' + extract(/var _VOICE_PACES = [^\n]*/, '_VOICE_PACES'), ctx);
+vm.runInContext(['_voicePaceKey'].map(fn).join('\n') + '\n' + extract(/var _VOICE_PACES = [^\n]*/, '_VOICE_PACES'), ctx);
 ctx._voicesHere = { timings: {
   piper: { first_s: 1.1, gaps: { '1': 0.2 } },
   kokoro: { first_s: 6.3, gaps: { '1': 4 } },
@@ -94,6 +93,12 @@ ok('...a few hundredths of a second, "instant"', pace('espeak') === 'voices_pace
 ok('...one that pauses in a reading at 1x says it is too slow to read aloud', pace('kokoro') === 'voices_pace_behind', pace('kokoro'));
 ok('this device\'s own voice, from what this browser timed', (store.zimi_tts_device_times = JSON.stringify({ first_s: 3, gaps: { '1': 0.3 } }), pace('device') === 'voices_pace_slow'), pace('device'));
 delete ctx._voicesHere;
+// Read aloud's own voice: what this browser timed counts too, so its speed
+// menu can say which speeds pause.
+store.zimi_tts_device_times = JSON.stringify({ first_s: 0.2, gaps: { '1': 0.1, '1.25': 0.1, '1.5': 0.8, '2': 0.8 } });
+ok('this device\'s voice keeps up where its pauses are short', ctx._ttsKeepsUp('device', 1) === true);
+ok('...and is too slow at a speed whose pauses are long', ctx._ttsKeepsUp('device', 1.5) === false);
+delete store.zimi_tts_device_times;
 
 ok('the button shows when only the server can speak', ctx._ttsCanSpeak() === true);
 ctx._ttsVoices = { langs: {} };
@@ -344,7 +349,7 @@ const tick = () => new Promise(r => setImmediate(r));
   ok('a voice Settings turned off is not read with, whatever was picked', engines('en') === '["kokoro"]', engines('en'));
 
   // the preference itself: kept, shown, saved
-  const sandbox = { SK: { VOICE_PREFS: 'zimi_voice_prefs' }, _VOICE_ENGINES: ['kokoro', 'piper', 'say', 'espeak', 'device'], _getStorageJSON: (k, fb) => (k in store ? JSON.parse(store[k]) : fb), _setStorageJSON: (k, v) => { store[k] = JSON.stringify(v); }, localStorage: { removeItem: k => delete store[k] }, _voicesTellDictionary() {}, _paintVoices() {}, esc: x => x, escAttr: x => x, tH: k => k, t: k => k, _voiceEngineName: e => e };
+  const sandbox = { SK: { VOICE_PREFS: 'zimi_voice_prefs' }, _VOICE_ENGINES: ['kokoro', 'piper', 'say', 'espeak', 'device'], _getStorageJSON: (k, fb) => (k in store ? JSON.parse(store[k]) : fb), _setStorageJSON: (k, v) => { store[k] = JSON.stringify(v); }, localStorage: { removeItem: k => delete store[k] }, _voicesTellDictionary() {}, _paintVoices() {}, _voicesHere: null, _voiceTimings: () => ({}), _ttsKeepsUp: e => (e === 'kokoro' ? false : null), _ttsRate: () => 1, esc: x => x, escAttr: x => x, tH: k => k, t: k => k, _voiceEngineName: e => e };
   vm.createContext(sandbox);
   vm.runInContext(['_voicePrefs', '_setVoicePrefs', '_voicePickHtml', '_voiceReadHtml', '_voiceDefaultHtml'].map(fn).join('\n'), sandbox);
   for (const k of Object.keys(store)) delete store[k];
@@ -361,6 +366,7 @@ const tick = () => new Promise(r => setImmediate(r));
   ok('a voice turned off cannot stay Read aloud\'s', sandbox._voicePrefs().read === undefined);
   const html = sandbox._voiceReadHtml([{ engine: 'kokoro' }, { engine: 'piper' }]);
   ok('Settings > Voices has a Read aloud row: Automatic and each voice', /tts_speak/.test(html) && (html.match(/role="radio"/g) || []).length === 3 && /voice-read/.test(html) && /read/.test(html), html.slice(0, 120));
+  ok('...a voice measured too slow at Read aloud\'s speed is dimmed and says so', /data-slow title="voices_pace_behind"[^>]*>[\s\S]*?<span>kokoro/.test(html) && (html.match(/data-slow/g) || []).length === 1, html);
   ok('...hidden with only one voice to choose', sandbox._voiceReadHtml([{ engine: 'piper' }]) === '');
   ok('...and the default row is as it was', /voices_default/.test(sandbox._voiceDefaultHtml([{ engine: 'kokoro' }, { engine: 'piper' }])));
 

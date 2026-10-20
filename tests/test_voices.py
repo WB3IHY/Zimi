@@ -32,6 +32,7 @@ import os
 import stat
 import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 import wave
@@ -1587,7 +1588,11 @@ def test_test_all_needs_its_texts_and_runs_once_at_a_time(piper):
 
 def test_test_all_starts_with_the_quickest_voice(three, monkeypatch):
     order = []
-    monkeypatch.setattr(voices, "_test_engine", lambda engine, lang, texts: order.append(engine))
+    seen = []
+    monkeypatch.setattr(voices, "_test_engine", lambda engine, lang, texts: order.append(engine) or seen.append(voices.testing()))
+    before = int(time.time())
     assert voices.start_test("en", READING) is True
     _finish_test()
     assert order[0] == "espeak" and order[-1] == "kokoro", order
+    # When it began, so the page can tell a voice's new numbers from its old ones.
+    assert all(s["engine"] == e and s["started"] >= before for s, e in zip(seen, order)), seen

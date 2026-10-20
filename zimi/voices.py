@@ -878,7 +878,7 @@ def _srv_write(t):
     _srv._atomic_write_json(_dir(TIMINGS), t)
 
 
-_testing = {}  # the Test in flight: {"engine", "done", "total"}; {"error"} after one failed
+_testing = {}  # the Test in flight: {"engine", "done", "total", "started"}; {"error"} after one failed
 
 
 def testing():
@@ -909,7 +909,7 @@ def start_test(lang, chunks):
         if _testing.get("engine"):
             return None
         _testing.clear()
-        _testing.update(engine=todo[0][0] if todo else "", done=0, total=len(todo))
+        _testing.update(engine=todo[0][0] if todo else "", done=0, total=len(todo), started=int(time.time()))
 
     def run():
         try:

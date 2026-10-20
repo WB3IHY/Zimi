@@ -545,7 +545,7 @@
   .tts-bar-menu { position: absolute; bottom: calc(100% + 8px); left: 0; min-width: 180px; padding: 6px; display: flex; flex-direction: column;
                   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-popup); }
   .tts-bar-menu button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; text-align: start; cursor: pointer; }
-  .tts-bar-menu-speed { min-width: 96px; font-variant-numeric: tabular-nums; }
+  .tts-bar-menu-speed { min-width: 96px; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .tts-bar-menu button[aria-checked="true"] { color: var(--amber); font-weight: 600; }
   .tts-bar-menu button:hover { background: var(--surface2); }
   [dir="rtl"] .tts-bar { padding: 4px 14px 4px 4px; }
@@ -1892,7 +1892,8 @@
   .reader-loading .spinner,
   .loading .spinner-inline,
   .create-status .spinner-inline,
-  .content-search-indicator .spinner-inline { border: 2px solid var(--border); border-top-color: var(--amber); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  .content-search-indicator .spinner-inline,
+  .vg-t .spinner-inline { border: 2px solid var(--border); border-top-color: var(--amber); border-radius: 50%; animation: spin 0.7s linear infinite; }
   .reader-loading .spinner { width: 24px; height: 24px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -2938,7 +2939,10 @@
   .vg-time { min-height: 30px; }
   .vg-time-name { font-size: 11.5px; color: var(--text3); }
   .vg-t { height: 30px; font-size: 11.5px; color: var(--text2); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .vg-test { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .voice-foot.vg-test { display: flex; align-items: center; justify-content: flex-start; gap: 10px; flex-wrap: wrap; }
+  .vg-t.stale { opacity: 0.4; }
+  .vg-t .spinner-inline { display: inline-block; width: 12px; height: 12px; }
+  .tts-bar-menu button[data-slow], .voice-read [data-slow] { color: var(--text3); }
   .vg-h { font-size: 10.5px; font-weight: 600; color: var(--text2); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .vg-name { min-width: 0; padding: 6px 0; }
   .vg-own, .vg-zimi { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1373,12 +1373,25 @@ function _voiceGridHtml() {
 // first words, first words after a rest (the model loading), and the
 // fastest speed it reads at without pausing. Measured by Test all voices and
 // by every reading; a release, an engine or a machine change clears them.
+// While a Test runs, the voice it is timing turns, and numbers from before it
+// stay dimmed until their voice's new ones come (Eric, 2026-10-20: "a
+// spinner on the ones currently being gathered ... old values dimmed").
 function _vgTimingRowsHtml(flavors) {
-  var tm = _voiceTimings(_voicesHere && _voicesHere.timings);
-  if (!flavors.some(function(e) { return tm[e]; })) return '';
+  var tm = _voiceTimings(_voicesHere && _voicesHere.timings), run = (_voicesHere && _voicesHere.testing) || {};
+  if (!run.engine && !_voiceDeviceTesting && !flavors.some(function(e) { return tm[e]; })) return '';
+  var state = function(e) {
+    if (e === _DEVICE_VOICE) return _voiceDeviceTesting ? 'busy' : '';
+    if (!run.engine) return '';
+    if (e === run.engine) return 'busy';
+    return tm[e] && tm[e].tested >= run.started ? '' : 'stale';
+  };
   var row = function(label, cell) {
     return '<div class="vg-row vg-time" role="row"><span class="vg-name vg-time-name" role="rowheader">' + tH(label) + '</span>' +
-      flavors.map(function(e) { return '<span class="vg-cell vg-t" role="cell">' + esc(tm[e] ? cell(tm[e], e) || '–' : '–') + '</span>'; }).join('') + '</div>';
+      flavors.map(function(e) {
+        var st = state(e);
+        return '<span class="vg-cell vg-t' + (st ? ' ' + st : '') + '" role="cell">' +
+          (st === 'busy' ? '<span class="spinner-inline" aria-hidden="true"></span>' : esc(tm[e] ? cell(tm[e], e) || '–' : '–')) + '</span>';
+      }).join('') + '</div>';
   };
   var secs = function(s) { return typeof s === 'number' ? t('voices_secs', { s: _voiceSecs(s) }) : ''; };
   return row('voices_t_first', function(x) { return secs(x.first_s); }) +
@@ -1409,13 +1422,19 @@ function _voicePaceKey(e) {
 // how far it is.
 function _voiceTestHtml() {
   if (!_voicesHere || !_voicesHere.can_change) return '';
-  var run = _voicesHere.testing || {};
-  var label = run.engine
-    ? t('voices_testing_one', { voice: _voiceEngineName(run.engine), n: (run.done || 0) + 1, total: run.total || 1 })
-    : t('voices_test_all');
+  var run = _voicesHere.testing || {}, tm = _voiceTimings(_voicesHere.timings);
+  // When it was last tested, beside the button (Eric, 2026-10-20); the table
+  // shows how far a Test is.
+  var last = Object.keys(tm).reduce(function(n, e) { return Math.max(n, tm[e].tested || 0); }, 0);
+  var note = run.error ? '<span class="voice-failed">' + tH('voices_test_failed') + '</span>'
+    : !run.engine && last ? '<span class="share-row-desc">' + tH('voices_tested_on', { date: _voiceTestedDate(last) }) + '</span>' : '';
   return '<div class="voice-foot vg-test"><button type="button" class="set-btn"' + (run.engine ? ' disabled' : '') +
-    ' onclick="_voiceTestAll()">' + esc(label) + '</button>' +
-    (run.error ? '<span class="voice-failed">' + tH('voices_test_failed') + '</span>' : '') + '</div>';
+    ' onclick="_voiceTestAll()">' + tH(run.engine ? 'voices_testing' : 'voices_test_all') + '</button>' + note + '</div>';
+}
+function _voiceTestedDate(sec) {
+  var d = new Date(sec * 1000), o = { month: 'short', day: 'numeric' };
+  if (d.getFullYear() !== new Date().getFullYear()) o.year = 'numeric';
+  try { return d.toLocaleDateString(_currentLang || undefined, o); } catch (e) { return d.toDateString(); }
 }
 // A reading's paragraph, with what makes speech slow (numbers, units, a
 // name, an abbreviation), cut as Read aloud cuts an article.
@@ -1426,6 +1445,7 @@ function _voiceTestAll() {
     t('voices_test_failed'));
 }
 var _VOICE_SECS_MIN = 0.1; // quicker than this reads as "<0.1 s", never "0 s"
+var _voiceDeviceTesting = false; // this device's voice is being timed
 // This device's own voice, timed in the same tap while the server tests its
 // voices: one word, then another queued behind it, at no volume (iOS may say
 // them anyway). The first is after a rest; the wait between the two is both
@@ -1436,6 +1456,7 @@ function _voiceTestDevice(joins) {
   var synth = _TTS_AVAILABLE && window.speechSynthesis;
   if (!synth) return;
   synth.cancel();
+  _voiceDeviceTesting = true;
   var asked = performance.now(), ended = 0, cold = 0;
   [0, 1].forEach(function(i) {
     var u = new SpeechSynthesisUtterance('Zimi');
@@ -1446,7 +1467,8 @@ function _voiceTestDevice(joins) {
       if (!i) { cold = (now - asked) / 1000; return; }
       var warm = Math.max(0, (now - ended) / 1000), gaps = {};
       _TTS_RATES.forEach(function(r) { gaps[String(r)] = Math.round(warm * joins * 10) / 10; });
-      _setStorageJSON(SK.TTS_DEVICE_TIMES, { first_s: warm, cold_s: cold, gaps: gaps });
+      _setStorageJSON(SK.TTS_DEVICE_TIMES, { first_s: warm, cold_s: cold, gaps: gaps, tested: Math.round(Date.now() / 1000) });
+      _voiceDeviceTesting = false;
       _paintVoices();
     };
     if (!i) u.onend = function() { ended = performance.now(); };
@@ -1502,17 +1524,20 @@ function _voiceDefaultHtml(on) {
 }
 // Read aloud's own voice, beside it: Automatic follows the default above.
 function _voiceReadHtml(on) {
-  return _voicePickHtml(on, 'tts_speak', _voicePrefs().read || '', 'read', 'voice-read');
+  return _voicePickHtml(on, 'tts_speak', _voicePrefs().read || '', 'read', 'voice-read', true);
 }
 // One row of voice choices: Automatic and every voice here, ``cur`` marked,
 // a pick saved as prefs[field].
-function _voicePickHtml(on, labelKey, cur, field, cls) {
+// ``reads``: a voice measured too slow at Read aloud's speed is dimmed and says so.
+function _voicePickHtml(on, labelKey, cur, field, cls, reads) {
   if (on.length < 2) return '';
   if (cur && !on.some(function(x) { return x.engine === cur; })) cur = '';
   var opt = function(e, label) {
     var sel = e === cur, change = {};
+    var slow = reads && e && _ttsKeepsUp(e, _ttsRate(), _voiceTimings(_voicesHere && _voicesHere.timings)) === false;
     change[field] = e;
     return '<button type="button" class="app-theme-btn' + (sel ? ' active' : '') + '" role="radio" aria-checked="' + sel + '"' +
+      (slow ? ' data-slow title="' + escAttr(t('voices_pace_behind')) + '"' : '') +
       ' onclick="' + escAttr('_setVoicePrefs(' + JSON.stringify(change) + ')') + '"><span>' + esc(label) + '</span></button>';
   };
   return '<div class="ms-theme-label">' + tH(labelKey) + '</div>' +
@@ -19994,7 +20019,7 @@ function _ttsMarkSlow(engine) {
 // Whether an engine keeps up at ``rate`` on this server, as measured there
 // (voices.timings); null until something was read aloud or tested with it.
 function _ttsKeepsUp(engine, rate, timings) {
-  var tm = (timings || (_ttsVoices && _ttsVoices.timings) || {})[engine];
+  var tm = (timings || _voiceTimings(_ttsVoices && _ttsVoices.timings))[engine];
   if (!tm) return null;
   // A Test read a page back to back: the pauses it heard at this speed.
   var gap = tm.gaps && tm.gaps[String(rate)];
@@ -20292,7 +20317,8 @@ function _ttsBarHtml() {
   var menu = function(which, items) {
     if (_ttsMenuOpen !== which) return '';
     return '<div class="tts-bar-menu tts-bar-menu-' + which + '" role="menu">' + items.map(function(it) {
-      return '<button type="button" role="menuitemradio" aria-checked="' + it[0] + '" onclick="' + escAttr(it[1]) + '">' + esc(it[2]) + '</button>';
+      return '<button type="button" role="menuitemradio" aria-checked="' + it[0] + '"' + (it[3] ? ' data-slow' : '') +
+        ' onclick="' + escAttr(it[1]) + '">' + esc(it[2] + (it[3] ? ' ' + t('tts_too_slow') : '')) + '</button>';
     }).join('') + '</div>';
   };
   if (voices.length > 1) {
@@ -20300,7 +20326,7 @@ function _ttsBarHtml() {
       '<span>' + esc(_voiceEngineName(_ttsNow.engine)) + '</span>' + _TTS_CHEVRON + '</button>' +
       menu('voice', [['' === pick, '_ttsPickVoice("")', t('voices_default_auto')]].concat(voices.map(function(e) {
         // Still pickable, but said (Eric, 2026-10-19: "a lil (Too Slow) beside the previous voice").
-        return [e === pick, '_ttsPickVoice(' + JSON.stringify(e) + ')', _voiceEngineName(e) + (_ttsTooSlow(e) ? ' ' + t('tts_too_slow') : '')];
+        return [e === pick, '_ttsPickVoice(' + JSON.stringify(e) + ')', _voiceEngineName(e), _ttsTooSlow(e)];
       }))) + '</span>';
   } else {
     h += '<span class="tts-bar-voice">' + esc(_voiceEngineName(_ttsNow.engine)) + '</span>';
@@ -20308,7 +20334,11 @@ function _ttsBarHtml() {
   var rate = _ttsRate();
   h += '<span class="tts-bar-anchor">' + btn('tts-bar-speed', t('tts_speed'), "_ttsMenuToggle('speed')", esc(_ttsRateLabel(rate)),
     ' aria-haspopup="menu" aria-expanded="' + (_ttsMenuOpen === 'speed') + '"') +
-    menu('speed', _TTS_RATES.map(function(r) { return [r === rate, '_ttsPickSpeed(' + r + ')', _ttsRateLabel(r)]; })) + '</span>';
+    // A speed this voice pauses at, said, as a voice too slow is (Eric,
+    // 2026-10-20: "say too slow in selector when speed choices can't keep up").
+    menu('speed', _TTS_RATES.map(function(r) {
+      return [r === rate, '_ttsPickSpeed(' + r + ')', _ttsRateLabel(r), _ttsKeepsUp(_ttsNow.engine, r) === false];
+    })) + '</span>';
   h += btn('tts-bar-btn', t(_ttsPaused ? 'resume' : 'pause'), '_ttsPauseToggle()', _ttsPaused ? _TTS_PLAY_ICON : _TTS_PAUSE_ICON,
     ' aria-pressed="' + _ttsPaused + '"');
   h += btn('tts-bar-btn', t('tts_stop'), '_ttsStop()', _TTS_CLOSE_ICON);
