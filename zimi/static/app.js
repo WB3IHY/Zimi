@@ -117,6 +117,9 @@ var SK = {
   // Read aloud: server engines that could not keep up with reading on this
   // server ([engines]), tried last from then on.
   TTS_SLOW: 'zimi_tts_slow',
+  // Read aloud: how quick this device's own voice is, as Test voice speed
+  // timed it here ({first_s, cold_s, gaps}); the server's are the server's.
+  TTS_DEVICE_TIMES: 'zimi_tts_device_times',
   // Read aloud: when it was last used (ms), so a Reader View opened within a
   // week of it gets the voice list and the engine warmed ahead of the tap.
   TTS_LAST_USE: 'zimi_tts_last_use',
@@ -1336,13 +1339,13 @@ function _voiceGridHtml() {
 // fastest speed it reads at without pausing. Measured by Test all voices and
 // by every reading; a release, an engine or a machine change clears them.
 function _vgTimingRowsHtml(flavors) {
-  var tm = (_voicesHere && _voicesHere.timings) || {};
+  var tm = _voiceTimings(_voicesHere && _voicesHere.timings);
   if (!flavors.some(function(e) { return tm[e]; })) return '';
   var row = function(label, cell) {
     return '<div class="vg-row vg-time" role="row"><span class="vg-name vg-time-name" role="rowheader">' + tH(label) + '</span>' +
       flavors.map(function(e) { return '<span class="vg-cell vg-t" role="cell">' + esc(tm[e] ? cell(tm[e], e) || '–' : '–') + '</span>'; }).join('') + '</div>';
   };
-  var secs = function(s) { return s ? t('voices_secs', { s: _voiceSecs(s) }) : ''; };
+  var secs = function(s) { return typeof s === 'number' ? t('voices_secs', { s: _voiceSecs(s) }) : ''; };
   return row('voices_t_first', function(x) { return secs(x.first_s); }) +
     row('voices_t_rest', function(x) { return secs(x.cold_s); }) +
     row('voices_t_keeps', function(x, e) {
@@ -1352,6 +1355,7 @@ function _vgTimingRowsHtml(flavors) {
     });
 }
 function _voiceSecs(s) {
+  if (s < _VOICE_SECS_MIN) return '<' + _voiceSecs(_VOICE_SECS_MIN);
   try { return s.toLocaleString(_currentLang || undefined, { maximumFractionDigits: s < 10 ? 1 : 0 }); } catch (e) { return String(Math.round(s)); }
 }
 // One button tests every voice as a reading uses it: after a rest, warm,
@@ -1368,8 +1372,45 @@ function _voiceTestHtml() {
     (run.error ? '<span class="voice-failed">' + tH('voices_test_failed') + '</span>' : '') + '</div>';
 }
 function _voiceTestAll() {
+  _voiceTestDevice();
   _voicesSend('/manage/voices/test', { lang: _langPrimary(_currentLang || 'en'), first: t('voices_test_first'), passage: t('voices_test_passage') },
     t('voices_test_failed'));
+}
+var _VOICE_SECS_MIN = 0.1; // quicker than this reads as "<0.1 s", never "0 s"
+// A Test's reading joins four chunks (voices.TEST_PASSAGES after the first):
+// three places a voice may pause.
+var _VOICE_TEST_JOINS = 3;
+// This device's own voice, timed in the same tap while the server tests its
+// voices: one word, then another queued behind it, at no volume (iOS may say
+// them anyway). The first is after a rest; the wait between the two is both
+// its first words warm and each pause a reading's chunks would have. It
+// speaks as it goes, so those pauses are all that could slow it, at any speed.
+function _voiceTestDevice() {
+  var synth = _TTS_AVAILABLE && window.speechSynthesis;
+  if (!synth) return;
+  synth.cancel();
+  var asked = performance.now(), ended = 0, cold = 0;
+  [0, 1].forEach(function(i) {
+    var u = new SpeechSynthesisUtterance('Zimi');
+    u.lang = _langPrimary(_currentLang || 'en');
+    u.volume = 0;
+    u.onstart = function() {
+      var now = performance.now();
+      if (!i) { cold = (now - asked) / 1000; return; }
+      var warm = Math.max(0, (now - ended) / 1000), gaps = {};
+      _TTS_RATES.forEach(function(r) { gaps[String(r)] = Math.round(warm * _VOICE_TEST_JOINS * 10) / 10; });
+      _setStorageJSON(SK.TTS_DEVICE_TIMES, { first_s: warm, cold_s: cold, gaps: gaps });
+      _paintVoices();
+    };
+    if (!i) u.onend = function() { ended = performance.now(); };
+    synth.speak(u);
+  });
+}
+// The server's timings, with this device's own voice as this browser timed it.
+function _voiceTimings(server) {
+  var tm = Object.assign({}, server || {}), own = _getStorageJSON(SK.TTS_DEVICE_TIMES, null);
+  if (own && own.first_s !== undefined) tm[_DEVICE_VOICE] = own;
+  return tm;
 }
 // ✕ on a Clear voice: a pointer's hover showed it, a touch's first tap (or a
 // long press) shows it; then once asked, it goes.

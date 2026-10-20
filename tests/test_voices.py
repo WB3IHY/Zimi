@@ -1556,6 +1556,7 @@ def test_test_all_reads_like_a_reading_and_leaves_the_audio_cache_alone(piper, m
     # The first chunk after a rest, again warm, then the passages back to back.
     assert len(runs) == 2 + voices.TEST_PASSAGES and got["n"] == len(runs)
     assert set(got["gaps"]) == {"1", "1.25", "1.5", "2"} and got["tested"] and got["first_s"] > 0
+    assert got["cold_s"] > 0, "after a rest, though Piper here has no warm worker"
     folder = voices._cache_dir("piper", "en_US-ljspeech-medium")
     assert not os.path.isdir(folder) or not [f for f in os.listdir(folder) if f.endswith(".wav")]
     assert not [f for f in os.listdir(voices._dir(voices.TEST_DIR)) if f.endswith(".wav")]
@@ -1578,3 +1579,11 @@ def test_test_all_needs_its_texts_and_runs_once_at_a_time(piper):
     voices._testing.update(engine="piper", done=0, total=1)
     assert voices.start_test("en", "Hello.", SENTENCE) is None
     voices._testing.clear()
+
+
+def test_test_all_starts_with_the_quickest_voice(three, monkeypatch):
+    order = []
+    monkeypatch.setattr(voices, "_test_engine", lambda engine, lang, texts: order.append(engine))
+    assert voices.start_test("en", "Hello.", SENTENCE) is True
+    _finish_test()
+    assert order[0] == "espeak" and order[-1] == "kokoro", order

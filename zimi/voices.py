@@ -861,6 +861,9 @@ def _test_engine(engine, lang, texts):
     with _timings_lock:
         t = _timings_now()
         rec = t["engines"].setdefault(engine, {"n": 0})
+        # The first chunk came after a rest, also for an engine with no
+        # model to load (eSpeak): then a rest costs it nothing.
+        rec["cold_s"] = round(said[0][0], 3)
         if audio:
             rec["rtf"] = round(work / audio, 3)
         rec["gaps"] = {_rate_key(r): round(_gaps(reading, r), 1) for r in TEST_RATES}
@@ -896,7 +899,7 @@ def start_test(lang, first, passage):
         return False
     said = can_say()
     todo = []
-    for engine in ENGINES:
+    for engine in reversed(ENGINES):  # quickest first: numbers come in soonest
         langs = [p for p, row in said.items() if engine in row["engines"]]
         if langs:
             todo.append((engine, _primary(lang) if _primary(lang) in langs else langs[0]))
