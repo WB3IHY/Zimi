@@ -78,6 +78,23 @@ ok('...a long one does not, though its average speed would', ctx._ttsKeepsUp('ko
 ctx._ttsRate = () => 1;
 delete ctx._ttsVoices.timings;
 
+// Each voice's one word under its name: the usual one until it was measured
+// here, then from its first words, or that it cannot keep up at 1x.
+ctx.SK.TTS_DEVICE_TIMES = 'zimi_tts_device_times';
+vm.runInContext(['_voiceTimings', '_voicePaceKey'].map(fn).join('\n') + '\n' + extract(/var _VOICE_PACES = [^\n]*/, '_VOICE_PACES'), ctx);
+ctx._voicesHere = { timings: {
+  piper: { first_s: 1.1, gaps: { '1': 0.2 } },
+  kokoro: { first_s: 6.3, gaps: { '1': 4 } },
+  espeak: { first_s: 0.03, gaps: { '1': 0 } },
+} };
+const pace = e => ctx._voicePaceKey(e);
+ok('not measured yet: the word it usually earns', pace('say') === 'voices_speed_say', pace('say'));
+ok('measured: quick first words and keeping up read "fast"', pace('piper') === 'voices_pace_fast', pace('piper'));
+ok('...a few hundredths of a second, "instant"', pace('espeak') === 'voices_pace_instant', pace('espeak'));
+ok('...one that pauses in a reading at 1x says it is too slow to read aloud', pace('kokoro') === 'voices_pace_behind', pace('kokoro'));
+ok('this device\'s own voice, from what this browser timed', (store.zimi_tts_device_times = JSON.stringify({ first_s: 3, gaps: { '1': 0.3 } }), pace('device') === 'voices_pace_slow'), pace('device'));
+delete ctx._voicesHere;
+
 ok('the button shows when only the server can speak', ctx._ttsCanSpeak() === true);
 ctx._ttsVoices = { langs: {} };
 ok('...and not when nothing can', ctx._ttsCanSpeak() === false);

@@ -238,7 +238,7 @@ FIRST_CHARS_MAX = 120  # the page's first chunk (_TTS_FIRST_CHUNK_MAX): "first w
 RTF_MIN_AUDIO_S = 2.0  # shorter speech is mostly start-up, not speed
 TIMING_WEIGHT = 0.3  # a read's sample in the moving average; a Test replaces it
 TEST_DIR = "test"  # a Test's audio, said and deleted, never the cache
-TEST_PASSAGES = 3  # passages a Test says back to back after the first chunk
+TEST_CHUNKS_MAX = 8  # a Test's reading: a paragraph, as the page chunks it
 TEST_RATES = (1, 1.25, 1.5, 2)  # the page's speeds (_TTS_RATES)
 SAY_FORMAT = ("--file-format=WAVE", "--data-format=LEI16@22050")
 PIPER_CMD_ENV = "ZIMI_PIPER"  # a piper command to use instead of finding one
@@ -828,7 +828,7 @@ def _rate_key(rate):
 
 def _test_engine(engine, lang, texts):
     """One engine, as a reading uses it: the first chunk with nothing
-    loaded, again warm, then the passages back to back. Its timings."""
+    loaded, again warm, then the rest back to back. Its timings."""
     picked = choose(lang, "", engine)
     if not picked or picked[0] != engine:
         return
@@ -855,7 +855,7 @@ def _test_engine(engine, lang, texts):
                 raise Busy("%s did not answer" % engine)
     finally:
         _synth_lock.release()
-    reading = said[1:]  # warm first chunk, then the passages
+    reading = said[1:]  # warm first chunk, then the rest
     work = sum(w for w, _a in reading[1:])
     audio = sum(a for _w, a in reading[1:])
     with _timings_lock:
@@ -886,16 +886,18 @@ def testing():
         return dict(_testing)
 
 
-def start_test(lang, first, passage):
+def start_test(lang, chunks):
     """Test every engine here, one after another, in the background: what
-    a reading does (_test_engine). ``first`` and ``passage`` are in the
-    page's language; an engine that does not say it uses one it does, as
-    only its speed is measured. False when the texts will not do, None when
-    a Test is already running."""
-    first = clean_text(first, FIRST_CHARS_MAX)
-    passage = clean_text(passage, SENTENCE_MAX)
+    a reading does (_test_engine). ``chunks`` are a real paragraph in the
+    page's language, cut as the page cuts an article (a short first chunk,
+    then longer ones); an engine that does not say the language uses one it
+    does, as only its speed is measured. False when the chunks will not do,
+    None when a Test is already running."""
+    if not isinstance(chunks, list) or not 2 <= len(chunks) <= TEST_CHUNKS_MAX:
+        return False
+    texts = [clean_text(c, FIRST_CHARS_MAX if not i else SENTENCE_MAX) for i, c in enumerate(chunks)]
     lang = lang if isinstance(lang, str) and valid_lang(lang) else "en"
-    if not first or not passage:
+    if not all(texts):
         return False
     said = can_say()
     todo = []
@@ -908,7 +910,6 @@ def start_test(lang, first, passage):
             return None
         _testing.clear()
         _testing.update(engine=todo[0][0] if todo else "", done=0, total=len(todo))
-    texts = [first] + [passage] * TEST_PASSAGES
 
     def run():
         try:

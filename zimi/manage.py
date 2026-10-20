@@ -7330,14 +7330,13 @@ def handle_manage_post(handler, parsed, data):
         return handler._json(200, _voices.manage_payload())
 
     elif parsed.path == "/manage/voices/test":
-        # Settings' Test all voices: {"lang", "first", "passage"}, the texts
-        # in the page's language. Runs in the background; the payload's
-        # "testing" says how far it is, "timings" what it found.
+        # Settings' Test voice speed: {"lang", "chunks"}, a paragraph in
+        # the page's language cut as a reading cuts it. Runs in the
+        # background; the payload's "testing" says how far it is, "timings"
+        # what it found.
         from zimi import voices as _voices
 
-        started = _voices.start_test(
-            data.get("lang"), data.get("first") or "", data.get("passage") or ""
-        )
+        started = _voices.start_test(data.get("lang"), data.get("chunks"))
         if started is False:
             return handler._json(400, {"error": "bad request"})
         return handler._json(200, _voices.manage_payload())

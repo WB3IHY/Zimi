@@ -1482,6 +1482,7 @@ def test_a_cancel_during_setup_stops_pip_and_leaves_nothing(bare, monkeypatch):
 # ── how fast each engine is here ──────────────────────────────────────────
 
 SENTENCE = "Water boils at a lower temperature high in the mountains."
+READING = ["Water boils at about 100 °C (212 °F) at sea level.", SENTENCE, "Keep the pot covered: a lid saves fuel."]
 
 
 def test_a_sentence_read_aloud_is_timed_and_a_word_is_not(piper, monkeypatch):
@@ -1550,40 +1551,43 @@ def test_test_all_reads_like_a_reading_and_leaves_the_audio_cache_alone(piper, m
     runs = []
     real = voices._run
     monkeypatch.setattr(voices, "_run", lambda *a, **k: runs.append(a) or real(*a, **k))
-    assert voices.start_test("en", "Hello there.", SENTENCE) is True
+    assert voices.start_test("en", READING) is True
     assert _finish_test() == {}, "done, no error"
     got = voices.timings()["piper"]
     # The first chunk after a rest, again warm, then the passages back to back.
-    assert len(runs) == 2 + voices.TEST_PASSAGES and got["n"] == len(runs)
+    assert len(runs) == 1 + len(READING) and got["n"] == len(runs)
     assert set(got["gaps"]) == {"1", "1.25", "1.5", "2"} and got["tested"] and got["first_s"] > 0
     assert got["cold_s"] > 0, "after a rest, though Piper here has no warm worker"
     folder = voices._cache_dir("piper", "en_US-ljspeech-medium")
     assert not os.path.isdir(folder) or not [f for f in os.listdir(folder) if f.endswith(".wav")]
     assert not [f for f in os.listdir(voices._dir(voices.TEST_DIR)) if f.endswith(".wav")]
     voices.speak(SENTENCE, "en", limit=voices.SENTENCE_MAX)
-    assert len(runs) == 3 + voices.TEST_PASSAGES, "a Test's sentence was never the cache's"
+    assert len(runs) == 2 + len(READING), "a Test's sentence was never the cache's"
     assert voices.manage_payload()["timings"]["piper"]["gaps"] == got["gaps"]
 
 
 def test_test_all_says_a_language_the_voice_has(piper):
     install("en-US")
-    assert voices.start_test("de", "Hallo.", SENTENCE) is True  # no German voice: English, for its speed
+    assert voices.start_test("de", ["Hallo.", "Wasser kocht in den Bergen früher."]) is True  # no German voice: English, for its speed
     _finish_test()
     assert "gaps" in voices.timings()["piper"]
 
 
 def test_test_all_needs_its_texts_and_runs_once_at_a_time(piper):
     install("en-US")
-    assert voices.start_test("en", "", SENTENCE) is False
-    assert voices.start_test("en", "x" * (voices.FIRST_CHARS_MAX + 1), SENTENCE) is False
+    assert voices.start_test("en", ["", SENTENCE]) is False
+    assert voices.start_test("en", ["x" * (voices.FIRST_CHARS_MAX + 1), SENTENCE]) is False
+    assert voices.start_test("en", [SENTENCE]) is False, "one chunk is no reading"
+    assert voices.start_test("en", [SENTENCE] * (voices.TEST_CHUNKS_MAX + 1)) is False
+    assert voices.start_test("en", "Hello. " + SENTENCE) is False, "chunks, not a string"
     voices._testing.update(engine="piper", done=0, total=1)
-    assert voices.start_test("en", "Hello.", SENTENCE) is None
+    assert voices.start_test("en", READING) is None
     voices._testing.clear()
 
 
 def test_test_all_starts_with_the_quickest_voice(three, monkeypatch):
     order = []
     monkeypatch.setattr(voices, "_test_engine", lambda engine, lang, texts: order.append(engine))
-    assert voices.start_test("en", "Hello.", SENTENCE) is True
+    assert voices.start_test("en", READING) is True
     _finish_test()
     assert order[0] == "espeak" and order[-1] == "kokoro", order

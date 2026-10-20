@@ -1149,7 +1149,7 @@ function _voiceRowHtml(x, isOn, last) {
   // 2026-10-05: "gently suggest which are faster or slower for their quality").
   // One word for speed (Eric: "one word each ... instant fast slow"); System
   // and Device add what tells them apart.
-  var what = '<span class="share-row-desc voice-what">' + tH('voices_speed_' + e) +
+  var what = '<span class="share-row-desc voice-what">' + tH(_voicePaceKey(e)) +
     (e === 'say' || e === _DEVICE_VOICE ? ' · ' + tH('voices_desc_' + e) : '') +
     // iOS mutes a page's speech under the ring switch, as no page can undo;
     // the server's voices are audio, and play.
@@ -1358,6 +1358,17 @@ function _voiceSecs(s) {
   if (s < _VOICE_SECS_MIN) return '<' + _voiceSecs(_VOICE_SECS_MIN);
   try { return s.toLocaleString(_currentLang || undefined, { maximumFractionDigits: s < 10 ? 1 : 0 }); } catch (e) { return String(Math.round(s)); }
 }
+// The one word, from what was measured here once it was (Eric, 2026-10-20:
+// "when we have the data ... still use relative terms? It's hard data to
+// convey"): how soon the first words come, or that it cannot keep up with a
+// reading at 1×. Before then, the word each engine usually earns.
+var _VOICE_PACES = [[0.5, 'instant'], [2, 'fast'], [5, 'slow'], [Infinity, 'slower']]; // first words up to (s), the word
+function _voicePaceKey(e) {
+  var tm = _voiceTimings(_voicesHere && _voicesHere.timings);
+  if (!tm[e] || typeof tm[e].first_s !== 'number') return 'voices_speed_' + e;
+  if (_ttsKeepsUp(e, 1, tm) === false) return 'voices_pace_behind';
+  return 'voices_pace_' + _VOICE_PACES.filter(function(p) { return tm[e].first_s <= p[0]; })[0][1];
+}
 // One button tests every voice as a reading uses it: after a rest, warm,
 // then a page back to back. An admin's; it runs on the server, the pane asks
 // how far it is.
@@ -1371,21 +1382,22 @@ function _voiceTestHtml() {
     ' onclick="_voiceTestAll()">' + esc(label) + '</button>' +
     (run.error ? '<span class="voice-failed">' + tH('voices_test_failed') + '</span>' : '') + '</div>';
 }
+// A reading's paragraph, with what makes speech slow (numbers, units, a
+// name, an abbreviation), cut as Read aloud cuts an article.
 function _voiceTestAll() {
-  _voiceTestDevice();
-  _voicesSend('/manage/voices/test', { lang: _langPrimary(_currentLang || 'en'), first: t('voices_test_first'), passage: t('voices_test_passage') },
+  var chunks = _ttsChunkText(t('voices_test_reading'), _TTS_CHUNK_MAX, _TTS_FIRST_CHUNK_MAX);
+  _voiceTestDevice(chunks.length - 1);
+  _voicesSend('/manage/voices/test', { lang: _langPrimary(_currentLang || 'en'), chunks: chunks },
     t('voices_test_failed'));
 }
 var _VOICE_SECS_MIN = 0.1; // quicker than this reads as "<0.1 s", never "0 s"
-// A Test's reading joins four chunks (voices.TEST_PASSAGES after the first):
-// three places a voice may pause.
-var _VOICE_TEST_JOINS = 3;
 // This device's own voice, timed in the same tap while the server tests its
 // voices: one word, then another queued behind it, at no volume (iOS may say
 // them anyway). The first is after a rest; the wait between the two is both
 // its first words warm and each pause a reading's chunks would have. It
-// speaks as it goes, so those pauses are all that could slow it, at any speed.
-function _voiceTestDevice() {
+// speaks as it goes, so those pauses (``joins`` of them, where the Test's
+// reading meets its next chunk) are all that could slow it, at any speed.
+function _voiceTestDevice(joins) {
   var synth = _TTS_AVAILABLE && window.speechSynthesis;
   if (!synth) return;
   synth.cancel();
@@ -1398,7 +1410,7 @@ function _voiceTestDevice() {
       var now = performance.now();
       if (!i) { cold = (now - asked) / 1000; return; }
       var warm = Math.max(0, (now - ended) / 1000), gaps = {};
-      _TTS_RATES.forEach(function(r) { gaps[String(r)] = Math.round(warm * _VOICE_TEST_JOINS * 10) / 10; });
+      _TTS_RATES.forEach(function(r) { gaps[String(r)] = Math.round(warm * joins * 10) / 10; });
       _setStorageJSON(SK.TTS_DEVICE_TIMES, { first_s: warm, cold_s: cold, gaps: gaps });
       _paintVoices();
     };
