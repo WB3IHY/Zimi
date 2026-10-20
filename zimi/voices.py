@@ -239,7 +239,9 @@ RTF_MIN_AUDIO_S = 2.0  # shorter speech is mostly start-up, not speed
 TIMING_WEIGHT = 0.3  # a read's sample in the moving average; a Test replaces it
 TEST_DIR = "test"  # a Test's audio, said and deleted, never the cache
 TEST_CHUNKS_MAX = 8  # a Test's reading: a paragraph, as the page chunks it
-TEST_RATES = (1, 1.25, 1.5, 2)  # the page's speeds (_TTS_RATES)
+# The speeds a Test works out the pauses for: the page's presets and steps
+# up to its fastest (_TTS_GAP_RATES). Any speed between reads the next one up.
+TEST_RATES = (0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3)
 SAY_FORMAT = ("--file-format=WAVE", "--data-format=LEI16@22050")
 PIPER_CMD_ENV = "ZIMI_PIPER"  # a piper command to use instead of finding one
 HELPER_NAME = "zimi-voice"  # the desktop builds' engines, beside Zimi

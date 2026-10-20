@@ -126,7 +126,7 @@ var SK = {
   // Read aloud: engines already suggested as a faster choice ([engines]),
   // each said once.
   TTS_SUGGESTED: 'zimi_tts_suggested',
-  // Read aloud: how fast it reads (one of _TTS_RATES), set in the reading bar.
+  // Read aloud: how fast it reads (_TTS_RATE_MIN to _TTS_RATE_MAX), set in the reading bar.
   TTS_RATE: 'zimi_tts_rate',
   // Reader font scale (percent, one of READER_FONT_LEVELS), applied as a `zoom`
   // on the iframe body and reapplied on every article load.
@@ -1398,7 +1398,7 @@ function _vgTimingRowsHtml(flavors) {
     row('voices_t_warm', function(x) { return secs(x.first_s); }) +
     row('voices_t_top', function(x, e) {
       if (!x.gaps && !x.rtf) return '';
-      var top = _TTS_RATES.filter(function(r) { return _ttsKeepsUp(e, r, tm); }).pop();
+      var top = _TTS_GAP_RATES.filter(function(r) { return r >= 1 && _ttsKeepsUp(e, r, tm); }).pop();
       return top ? _ttsRateLabel(top) : '<' + _ttsRateLabel(1);
     });
 }
@@ -1466,7 +1466,7 @@ function _voiceTestDevice(joins) {
       var now = performance.now();
       if (!i) { cold = (now - asked) / 1000; return; }
       var warm = Math.max(0, (now - ended) / 1000), gaps = {};
-      _TTS_RATES.forEach(function(r) { gaps[String(r)] = Math.round(warm * joins * 10) / 10; });
+      _TTS_GAP_RATES.forEach(function(r) { gaps[String(r)] = Math.round(warm * joins * 10) / 10; });
       _setStorageJSON(SK.TTS_DEVICE_TIMES, { first_s: warm, cold_s: cold, gaps: gaps, tested: Math.round(Date.now() / 1000) });
       _voiceDeviceTesting = false;
       _paintVoices();
@@ -20023,12 +20023,17 @@ function _ttsMarkSlow(engine) {
 }
 // Whether an engine keeps up at ``rate`` on this server, as measured there
 // (voices.timings); null until something was read aloud or tested with it.
+function _ttsGapAt(gaps, rate) {
+  var at = _TTS_GAP_RATES.filter(function(r) { return r >= rate - _TTS_RATE_EPS && gaps && typeof gaps[String(r)] === 'number'; })[0];
+  return at === undefined ? null : gaps[String(at)];
+}
 function _ttsKeepsUp(engine, rate, timings) {
   var tm = (timings || _voiceTimings(_ttsVoices && _ttsVoices.timings))[engine];
   if (!tm) return null;
-  // A Test read a page back to back: the pauses it heard at this speed.
-  var gap = tm.gaps && tm.gaps[String(rate)];
-  if (typeof gap === 'number') return gap <= _TTS_GAP_OK_S;
+  // A Test read a page back to back: the pauses it heard at this speed, or
+  // at the next measured one up (a reading pauses no less as it speeds up).
+  var gap = _ttsGapAt(tm.gaps, rate);
+  if (gap !== null) return gap <= _TTS_GAP_OK_S;
   return tm.rtf ? tm.rtf * rate <= _TTS_KEEP_UP : null;
 }
 // Too slow to read with at this speed: as the server measured it, else as
@@ -20289,11 +20294,20 @@ function _ttsToggle() {
 var _ttsNow = { at: 0, engine: '', playing: false, lang: '' };
 var _ttsMenuOpen = ''; // the bar's open menu: '', 'voice' or 'speed'
 var _ttsPaused = false;
-var _TTS_RATES = [1, 1.25, 1.5, 2];
-function _ttsRate() {
-  var r = _getStorageJSON(SK.TTS_RATE, 1);
-  return _TTS_RATES.indexOf(r) >= 0 ? r : 1;
+// Any speed from half to three times, in steps of 0.05 (Eric, 2026-10-20:
+// "read faster and slower than our options and in between"); the menu's
+// presets are one tap, its - and + step between and beyond them.
+var _TTS_RATES = [0.75, 1, 1.25, 1.5, 2];
+var _TTS_RATE_MIN = 0.5, _TTS_RATE_MAX = 3, _TTS_RATE_STEP = 0.05;
+var _TTS_RATE_EPS = 1e-6;
+var _TTS_GAP_RATES = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3]; // voices.TEST_RATES
+var _TTS_NUDGE_SETTLE_MS = 700; // - and + taps in a row ask about the voice once
+function _ttsRateClamp(r) {
+  if (typeof r !== 'number' || !isFinite(r)) return 1;
+  r = Math.round(r / _TTS_RATE_STEP) * _TTS_RATE_STEP;
+  return Math.round(Math.min(_TTS_RATE_MAX, Math.max(_TTS_RATE_MIN, r)) * 100) / 100;
 }
+function _ttsRate() { return _ttsRateClamp(_getStorageJSON(SK.TTS_RATE, 1)); }
 var _TTS_CHEVRON = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>';
 var _TTS_PAUSE_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
 var _TTS_PLAY_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10-6.5a1 1 0 0 0 0-1.7l-10-6.6A1 1 0 0 0 8 5.5z"/></svg>';
@@ -20317,6 +20331,19 @@ function _ttsVoiceLabel() {
   var e = _ttsNow.engine;
   return _voiceEngineName(e) + (e && _ttsKeepsUp(e, _ttsRate()) === false ? ' ' + t('tts_too_slow') : '');
 }
+// The speed menu's foot: - the speed + , a step of 0.05 each, the speed
+// lit when it is none of the presets.
+function _ttsNudgeHtml(rate) {
+  var step = function(dir, key, glyph, off) {
+    return '<button type="button" role="menuitem" class="tts-nudge-btn" aria-label="' + escAttr(t(key)) + '" title="' + escAttr(t(key)) + '"' +
+      (off ? ' disabled' : '') + ' onclick="_ttsNudgeSpeed(' + dir + ')">' + glyph + '</button>';
+  };
+  var custom = _TTS_RATES.indexOf(rate) < 0;
+  return '<div class="tts-nudge" role="group" aria-label="' + escAttr(t('tts_speed')) + '">' +
+    step(-1, 'tts_slower', '\u2212', rate <= _TTS_RATE_MIN + _TTS_RATE_EPS) +
+    '<output class="tts-nudge-rate' + (custom ? ' on' : '') + '" aria-live="polite">' + esc(_ttsRateLabel(rate)) + '</output>' +
+    step(1, 'tts_faster', '+', rate >= _TTS_RATE_MAX - _TTS_RATE_EPS) + '</div>';
+}
 function _ttsBarHtml() {
   var pick = _voicePrefs().read || '';
   var voices = _ttsVoicesFor(_ttsNow.lang);
@@ -20325,12 +20352,12 @@ function _ttsBarHtml() {
   };
   var h = '<span class="tts-bar-state' + (_ttsPaused ? ' paused' : _ttsNow.playing ? ' playing' : '') + '" aria-hidden="true"><i></i><i></i><i></i></span>';
   // A menu opens above the button it belongs to, its choices radio items.
-  var menu = function(which, items) {
+  var menu = function(which, items, foot) {
     if (_ttsMenuOpen !== which) return '';
     return '<div class="tts-bar-menu tts-bar-menu-' + which + '" role="menu">' + items.map(function(it) {
       return '<button type="button" role="menuitemradio" aria-checked="' + it[0] + '"' + (it[3] ? ' data-slow' : '') +
         ' onclick="' + escAttr(it[1]) + '">' + esc(it[2] + (it[3] ? ' ' + t('tts_too_slow') : '')) + '</button>';
-    }).join('') + '</div>';
+    }).join('') + (foot || '') + '</div>';
   };
   if (voices.length > 1) {
     h += '<span class="tts-bar-anchor"><button type="button" class="tts-bar-voice" aria-haspopup="menu" aria-expanded="' + (_ttsMenuOpen === 'voice') + '" onclick="_ttsMenuToggle(\'voice\')">' +
@@ -20345,7 +20372,8 @@ function _ttsBarHtml() {
   var rate = _ttsRate();
   h += '<span class="tts-bar-anchor">' + btn('tts-bar-speed', t('tts_speed'), "_ttsMenuToggle('speed')", esc(_ttsRateLabel(rate)),
     ' aria-haspopup="menu" aria-expanded="' + (_ttsMenuOpen === 'speed') + '"') +
-    menu('speed', _TTS_RATES.map(function(r) { return [r === rate, '_ttsPickSpeed(' + r + ')', _ttsRateLabel(r)]; })) + '</span>';
+    menu('speed', _TTS_RATES.map(function(r) { return [r === rate, '_ttsPickSpeed(' + r + ')', _ttsRateLabel(r)]; }),
+      _ttsNudgeHtml(rate)) + '</span>';
   h += btn('tts-bar-btn', t(_ttsPaused ? 'resume' : 'pause'), '_ttsPauseToggle()', _ttsPaused ? _TTS_PLAY_ICON : _TTS_PAUSE_ICON,
     ' aria-pressed="' + _ttsPaused + '"');
   h += btn('tts-bar-btn', t('tts_stop'), '_ttsStop()', _TTS_CLOSE_ICON);
@@ -20397,7 +20425,7 @@ function _ttsPauseToggle() {
   } catch (e) {}
   _ttsBarSync();
 }
-// 1x, 1.25x, 1.5x or 2x, picked from the menu: remembered on this device. The
+// A preset picked from the menu, or a step of - or +: remembered on this device. The
 // server's audio changes speed where it is (its pitch kept); the browser's
 // voice takes a rate per sentence, so it starts again from the sentence it is on.
 // Any speed with any voice (Eric, 2026-10-20: "the info, ability to try any
@@ -20407,8 +20435,29 @@ function _ttsPauseToggle() {
 // and one that keeps up is offered.
 function _ttsPickSpeed(r) {
   _ttsMenuOpen = '';
+  clearTimeout(_ttsNudgeTimer);
+  _ttsApplySpeed(r);
+  _ttsSpeedSettled();
+}
+// The speed takes hold at once where the audio plays; the browser's own voice
+// and the voice that keeps up wait for the last of a run of - and + taps.
+var _ttsNudgeTimer = 0;
+function _ttsNudgeSpeed(dir) {
+  _ttsApplySpeed(_ttsRateClamp(_ttsRate() + dir * _TTS_RATE_STEP));
+  // The bar was drawn afresh: the key or the finger stays on its button.
+  var again = document.querySelectorAll('#tts-bar .tts-nudge-btn')[dir < 0 ? 0 : 1];
+  if (again && !again.disabled) again.focus();
+  clearTimeout(_ttsNudgeTimer);
+  _ttsNudgeTimer = setTimeout(_ttsSpeedSettled, _TTS_NUDGE_SETTLE_MS);
+}
+function _ttsApplySpeed(r) {
   _setStorageJSON(SK.TTS_RATE, r);
-  var e = _ttsNow.engine;
+  if (_ttsAudio && _ttsNow.engine !== _DEVICE_VOICE) { _ttsAudio.defaultPlaybackRate = r; _ttsAudio.playbackRate = r; }
+  _ttsBarSync();
+}
+function _ttsSpeedSettled() {
+  if (!_ttsSpeaking) return; // stopped while the taps settled
+  var r = _ttsRate(), e = _ttsNow.engine;
   if (e && _ttsKeepsUp(e, r) === false) {
     var next = _ttsServerEngines(_ttsNow.lang)[0];
     if (next && next !== e) { _ttsSpeak(_ttsNow.at); _ttsBarSync(); return; }
@@ -20418,8 +20467,7 @@ function _ttsPickSpeed(r) {
         function() { _ttsPickVoice(faster); }, t('tts_slow_use', { fast: _voiceEngineName(faster) }));
     }
   }
-  if (_ttsNow.engine === _DEVICE_VOICE) { if (!_ttsPaused) _ttsSpeak(_ttsNow.at); }
-  else if (_ttsAudio) { _ttsAudio.defaultPlaybackRate = r; _ttsAudio.playbackRate = r; }
+  if (_ttsNow.engine === _DEVICE_VOICE && !_ttsPaused) _ttsSpeak(_ttsNow.at);
   _ttsBarSync();
 }
 // A voice picked while it reads: remembered, and the reading goes on from the

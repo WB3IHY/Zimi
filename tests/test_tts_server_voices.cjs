@@ -38,9 +38,11 @@ const ctx = {
   _ttsRate: () => 1,
   _TTS_KEEP_UP: 0.8,
   _TTS_GAP_OK_S: 0.5,
+  _TTS_GAP_RATES: [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3],
+  _TTS_RATE_EPS: 1e-6,
 };
 vm.createContext(ctx);
-vm.runInContext(['_voiceTimings', '_ttsServerEngines', '_ttsChosenVoice', '_ttsRowOrder', '_ttsSlowEngines', '_ttsMarkSlow', '_ttsKeepsUp', '_ttsTooSlow', '_ttsServerSays', '_ttsCanSpeak', '_ttsSpeakUrl'].map(fn).join('\n'), ctx);
+vm.runInContext(['_voiceTimings', '_ttsServerEngines', '_ttsChosenVoice', '_ttsRowOrder', '_ttsSlowEngines', '_ttsMarkSlow', '_ttsGapAt', '_ttsKeepsUp', '_ttsTooSlow', '_ttsServerSays', '_ttsCanSpeak', '_ttsSpeakUrl'].map(fn).join('\n'), ctx);
 const engines = lang => JSON.stringify(ctx._ttsServerEngines(lang));
 
 ok('Automatic: the server\'s choice first, then the rest', engines('en') === '["kokoro","piper"]', engines('en'));
@@ -75,6 +77,8 @@ ctx._ttsVoices.timings = { kokoro: { rtf: 0.3, gaps: { '1': 0, '1.25': 0.2, '1.5
 ctx._ttsRate = () => 1.25;
 ok('a tested reading\'s pauses decide: a short one still keeps up', ctx._ttsKeepsUp('kokoro', 1.25) === true);
 ok('...a long one does not, though its average speed would', ctx._ttsKeepsUp('kokoro', 1.5) === false && 0.3 * 1.5 <= 0.8);
+ok('a speed between two measured ones reads the next one up', ctx._ttsKeepsUp('kokoro', 1.2) === true && ctx._ttsKeepsUp('kokoro', 1.3) === false);
+ok('...and past the fastest measured, the average speed decides', ctx._ttsKeepsUp('kokoro', 2.5) === true);
 ctx._ttsRate = () => 1;
 delete ctx._ttsVoices.timings;
 
@@ -345,7 +349,10 @@ const tick = () => new Promise(r => setImmediate(r));
   ctx._ttsRate = () => rate;
   ctx._setStorageJSON = (k, v) => { store[k] = JSON.stringify(v); if (k === 'zimi_tts_rate') rate = v; };
   ctx.SK.TTS_RATE = 'zimi_tts_rate';
-  vm.runInContext(['_ttsPickSpeed', '_ttsVoiceLabel'].map(fn).join('\n'), ctx);
+  Object.assign(ctx, { _ttsSpeaking: true, _ttsNudgeTimer: 0, _DEVICE_VOICE: 'device', _TTS_RATE_STEP: 0.05, _TTS_RATE_MIN: 0.5, _TTS_RATE_MAX: 3,
+    _TTS_NUDGE_SETTLE_MS: 700, setTimeout: f => { ctx._settle = f; return 1; }, clearTimeout: () => { ctx._settle = null; },
+    document: { querySelectorAll: () => [] } });
+  vm.runInContext(['_ttsPickSpeed', '_ttsApplySpeed', '_ttsSpeedSettled', '_ttsNudgeSpeed', '_ttsRateClamp', '_ttsVoiceLabel'].map(fn).join('\n'), ctx);
   ctx._ttsVoices = { langs: { en: { engine: 'kokoro', engines: ['kokoro', 'piper'] } },
     timings: { kokoro: { gaps: { '1': 0, '1.25': 0, '1.5': 3, '2': 6 } }, piper: { gaps: { '1': 0, '1.25': 0, '1.5': 0, '2': 0 } } } };
   ctx._ttsNow = { engine: 'kokoro', lang: 'en', at: 7 };
@@ -364,6 +371,25 @@ const tick = () => new Promise(r => setImmediate(r));
   ok('...and the voice\'s name says it is too slow, not the speed', /KOKORO tts_too_slow/.test(ctx._ttsVoiceLabel()), ctx._ttsVoiceLabel());
   rate = 1;
   ok('...until a speed it keeps up at', ctx._ttsVoiceLabel() === 'KOKORO', ctx._ttsVoiceLabel());
+
+  // - and + (Eric, 2026-10-20: "read faster and slower than our options and in between").
+  restarts.length = 0; toasts.length = 0; prefs = { voice: '', off: [] };
+  rate = 1.25;
+  ctx._ttsNudgeSpeed(1); ctx._ttsNudgeSpeed(1);
+  ok('+ steps by 0.05, between the presets', rate === 1.35, rate);
+  ok('...and asks nothing of the voice while the taps come', restarts.length === 0 && typeof ctx._settle === 'function');
+  ctx._settle();
+  ok('...the last tap settles once: a speed this voice pauses at goes on in one that keeps up', restarts.join() === '7', restarts.join());
+  restarts.length = 0; rate = 2.95;
+  ctx._ttsNudgeSpeed(1); ctx._ttsNudgeSpeed(1);
+  ok('three times is the fastest', rate === 3, rate);
+  rate = 0.55; ctx._ttsNudgeSpeed(-1); ctx._ttsNudgeSpeed(-1);
+  ok('half is the slowest', rate === 0.5, rate);
+  ctx._ttsSpeaking = false; ctx._settle();
+  ok('stopped before the taps settled: nothing starts again', restarts.length === 0, restarts.join());
+  ctx._ttsSpeaking = true;
+  ok('a stored speed off the steps comes back on one', ctx._ttsRateClamp(1.333) === 1.35 && ctx._ttsRateClamp(9) === 3 && ctx._ttsRateClamp('x') === 1);
+  rate = 1;
   delete ctx._ttsVoices.timings;
   prefs = { voice: '', off: [] };
 

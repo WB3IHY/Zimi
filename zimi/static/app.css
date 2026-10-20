@@ -545,7 +545,12 @@
   .tts-bar-menu { position: absolute; bottom: calc(100% + 8px); left: 0; min-width: 180px; padding: 6px; display: flex; flex-direction: column;
                   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-popup); }
   .tts-bar-menu button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; text-align: start; cursor: pointer; }
-  .tts-bar-menu-speed { min-width: 96px; font-variant-numeric: tabular-nums; }
+  .tts-bar-menu-speed { min-width: 140px; font-variant-numeric: tabular-nums; }
+  .tts-nudge { display: flex; align-items: center; gap: 4px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--border); }
+  .tts-bar-menu .tts-nudge-btn { flex: none; width: 44px; padding: 0; text-align: center; font-size: 18px; }
+  .tts-bar-menu .tts-nudge-btn:disabled { color: var(--text3); cursor: default; background: none; }
+  .tts-nudge-rate { flex: 1; text-align: center; color: var(--text2); }
+  .tts-nudge-rate.on { color: var(--amber); font-weight: 600; }
   .tts-bar-menu button[aria-checked="true"] { color: var(--amber); font-weight: 600; }
   .tts-bar-menu button:hover { background: var(--surface2); }
   [dir="rtl"] .tts-bar { padding: 4px 14px 4px 4px; }

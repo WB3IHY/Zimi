@@ -1557,7 +1557,7 @@ def test_test_all_reads_like_a_reading_and_leaves_the_audio_cache_alone(piper, m
     got = voices.timings()["piper"]
     # The first chunk after a rest, again warm, then the passages back to back.
     assert len(runs) == 1 + len(READING) and got["n"] == len(runs)
-    assert set(got["gaps"]) == {"1", "1.25", "1.5", "2"} and got["tested"] and got["first_s"] > 0
+    assert set(got["gaps"]) == {"0.75", "1", "1.25", "1.5", "1.75", "2", "2.5", "3"} and got["tested"] and got["first_s"] > 0
     assert got["cold_s"] > 0, "after a rest, though Piper here has no warm worker"
     folder = voices._cache_dir("piper", "en_US-ljspeech-medium")
     assert not os.path.isdir(folder) or not [f for f in os.listdir(folder) if f.endswith(".wav")]

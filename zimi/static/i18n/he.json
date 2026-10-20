@@ -2027,6 +2027,8 @@
   "tts_speak": "הקראה",
   "tts_stop": "הפסקת ההקראה",
   "tts_speed": "מהירות ההקראה",
+  "tts_slower": "לאט יותר",
+  "tts_faster": "מהר יותר",
   "tts_slow_suggest": "{slow} איטי בשרת הזה. לנסות את {fast}?",
   "tts_slow_at": "{slow} לא עומד בקצב {rate}. לנסות את {fast}?",
   "tts_slow_use": "להשתמש ב{fast}",
