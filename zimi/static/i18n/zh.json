@@ -3192,7 +3192,7 @@
   "voices_pace_behind": "太慢，无法朗读",
   "voices_t_warm": "热启动",
   "voices_t_cold": "冷启动",
-  "voices_t_keeps": "最高跟上",
+  "voices_t_top": "最高语速",
   "voices_secs": "{s} 秒",
   "voices_test_all": "测试声音速度",
   "voices_testing": "正在测试…",

@@ -3192,7 +3192,7 @@
   "voices_pace_behind": "Zu langsam zum Vorlesen",
   "voices_t_warm": "Warmstart",
   "voices_t_cold": "Kaltstart",
-  "voices_t_keeps": "Hält mit bis",
+  "voices_t_top": "Höchsttempo",
   "voices_secs": "{s} s",
   "voices_test_all": "Geschwindigkeit der Stimmen testen",
   "voices_testing": "Wird getestet…",

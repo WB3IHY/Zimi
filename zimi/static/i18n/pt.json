@@ -3192,7 +3192,7 @@
   "voices_pace_behind": "Lenta demais para ler em voz alta",
   "voices_t_warm": "Início a quente",
   "voices_t_cold": "Início a frio",
-  "voices_t_keeps": "Acompanha até",
+  "voices_t_top": "Velocidade máx.",
   "voices_secs": "{s} s",
   "voices_test_all": "Testar a velocidade das vozes",
   "voices_testing": "Testando…",

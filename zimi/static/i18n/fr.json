@@ -3192,7 +3192,7 @@
   "voices_pace_behind": "Trop lente pour la lecture à voix haute",
   "voices_t_warm": "Démarrage à chaud",
   "voices_t_cold": "Démarrage à froid",
-  "voices_t_keeps": "Suit jusqu’à",
+  "voices_t_top": "Vitesse max.",
   "voices_secs": "{s} s",
   "voices_test_all": "Tester la vitesse des voix",
   "voices_testing": "Test en cours…",

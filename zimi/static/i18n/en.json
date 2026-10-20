@@ -3192,7 +3192,7 @@
   "voices_pace_behind": "Too slow to read aloud",
   "voices_t_warm": "Warm start",
   "voices_t_cold": "Cold start",
-  "voices_t_keeps": "Keeps up to",
+  "voices_t_top": "Top speed",
   "voices_secs": "{s} s",
   "voices_test_all": "Test voice speed",
   "voices_testing": "Testing…",

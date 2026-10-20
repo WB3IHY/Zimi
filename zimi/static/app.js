@@ -1394,9 +1394,9 @@ function _vgTimingRowsHtml(flavors) {
       }).join('') + '</div>';
   };
   var secs = function(s) { return typeof s === 'number' ? t('voices_secs', { s: _voiceSecs(s) }) : ''; };
-  return row('voices_t_warm', function(x) { return secs(x.first_s); }) +
-    row('voices_t_cold', function(x) { return secs(x.cold_s); }) +
-    row('voices_t_keeps', function(x, e) {
+  return row('voices_t_cold', function(x) { return secs(x.cold_s); }) +
+    row('voices_t_warm', function(x) { return secs(x.first_s); }) +
+    row('voices_t_top', function(x, e) {
       if (!x.gaps && !x.rtf) return '';
       var top = _TTS_RATES.filter(function(r) { return _ttsKeepsUp(e, r, tm); }).pop();
       return top ? _ttsRateLabel(top) : '<' + _ttsRateLabel(1);

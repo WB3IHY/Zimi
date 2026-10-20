@@ -3192,7 +3192,7 @@
   "voices_pace_behind": "Слишком медленный для чтения вслух",
   "voices_t_warm": "Горячий запуск",
   "voices_t_cold": "Холодный запуск",
-  "voices_t_keeps": "Успевает до",
+  "voices_t_top": "Макс. скорость",
   "voices_secs": "{s} с",
   "voices_test_all": "Проверить скорость голосов",
   "voices_testing": "Проверка…",
