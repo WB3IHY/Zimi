@@ -238,6 +238,8 @@ FIRST_CHARS_MAX = 120  # the page's first chunk (_TTS_FIRST_CHUNK_MAX): "first w
 RTF_MIN_AUDIO_S = 2.0  # shorter speech is mostly start-up, not speed
 TIMING_WEIGHT = 0.3  # a read's sample in the moving average; a Test replaces it
 TEST_DIR = "test"  # a Test's audio, said and deleted, never the cache
+TEST_PASSAGES = 3  # passages a Test says back to back after the first chunk
+TEST_RATES = (1, 1.25, 1.5, 2)  # the page's speeds (_TTS_RATES)
 SAY_FORMAT = ("--file-format=WAVE", "--data-format=LEI16@22050")
 PIPER_CMD_ENV = "ZIMI_PIPER"  # a piper command to use instead of finding one
 HELPER_NAME = "zimi-voice"  # the desktop builds' engines, beside Zimi
@@ -319,6 +321,7 @@ def _reset_for_tests():
         _choices = None
     with _timings_lock:
         _timings = None
+    _testing.clear()
 
 
 # ── where things are ──────────────────────────────────────────────────────
@@ -753,8 +756,6 @@ def timings():
 
 def _note_timing(engine, seconds, audio_s, chars, cold, weight=TIMING_WEIGHT):
     """One synthesis: ``seconds`` of work for ``audio_s`` of speech."""
-    from zimi import server as _srv
-
     with _timings_lock:
         t = _timings_now()
         rec = t["engines"].setdefault(engine, {"n": 0})
@@ -768,8 +769,7 @@ def _note_timing(engine, seconds, audio_s, chars, cold, weight=TIMING_WEIGHT):
         if not cold and audio_s >= RTF_MIN_AUDIO_S:
             mix("rtf", seconds / audio_s)
         rec["n"] += 1
-        os.makedirs(_dir(), exist_ok=True)
-        _srv._atomic_write_json(_dir(TIMINGS), t)
+        _srv_write(t)
 
 
 def _wav_seconds(path):
@@ -806,43 +806,123 @@ def _timed(engine, voice, text, out, weight=TIMING_WEIGHT):
     return done
 
 
-def test(engine, lang, first, passage):
-    """Say ``first`` (a short sentence) and ``passage`` with ``engine`` in
-    ``lang`` to scratch files, never the audio cache, and keep what they
-    took as this engine's timings. The engine's timings, or None when it
-    cannot say the language. Busy as speak()."""
-    first = clean_text(first, FIRST_CHARS_MAX)
-    passage = clean_text(passage, SENTENCE_MAX)
-    lang = lang if isinstance(lang, str) else ""
-    if engine not in ENGINES or not first or not passage or not valid_lang(lang):
-        return None
+def _gaps(chunks, rate):
+    """Seconds of silence a reading of ``chunks`` [(work_s, audio_s)] has at
+    ``rate`` once it has started: the chunks are made one after another
+    (one synthesis at a time) while the earlier ones play."""
+    ready = gap = 0.0
+    ends = None
+    for work, audio in chunks:
+        ready += work
+        if ends is not None:
+            gap += max(0.0, ready - ends)
+            ends = max(ready, ends) + audio / rate
+        else:
+            ends = ready + audio / rate
+    return gap
+
+
+def _rate_key(rate):
+    return "%g" % rate  # "1", "1.25": as the page writes its speeds
+
+
+def _test_engine(engine, lang, texts):
+    """One engine, as a reading uses it: the first chunk with nothing
+    loaded, again warm, then the passages back to back. Its timings."""
     picked = choose(lang, "", engine)
     if not picked or picked[0] != engine:
-        return None
+        return
     voice = picked[1]
-    if not _synth_slots.acquire(blocking=False):
-        raise Busy("queue full")
+    if not _synth_lock.acquire(timeout=SYNTH_WAIT_S):
+        raise Busy("waited %ss" % SYNTH_WAIT_S)
     try:
-        if not _synth_lock.acquire(timeout=SYNTH_WAIT_S):
-            raise Busy("waited %ss" % SYNTH_WAIT_S)
-        try:
-            os.makedirs(_dir(TEST_DIR), exist_ok=True)
-            for text in (first, passage):
-                out = _dir(TEST_DIR, "%s.wav" % engine)
-                try:
-                    done = _timed(engine, voice, text, out, weight=1.0)
-                finally:
-                    if os.path.exists(out):
-                        os.remove(out)
-                if done == FAILED:
-                    raise Failed(engine)
-                if done != OK:
-                    raise Busy("%s did not answer" % engine)
-        finally:
-            _synth_lock.release()
+        if engine in DOWNLOADED:
+            _stop_workers([engine])  # after a rest: the model loads again
+        os.makedirs(_dir(TEST_DIR), exist_ok=True)
+        out = _dir(TEST_DIR, "%s.wav" % engine)
+        said = []
+        for text in [texts[0]] + list(texts):
+            try:
+                start = time.monotonic()
+                done = _timed(engine, voice, text, out, weight=1.0)
+                said.append((time.monotonic() - start, _wav_seconds(out)))
+            finally:
+                if os.path.exists(out):
+                    os.remove(out)
+            if done == FAILED:
+                raise Failed(engine)
+            if done != OK:
+                raise Busy("%s did not answer" % engine)
     finally:
-        _synth_slots.release()
-    return timings().get(engine, {})
+        _synth_lock.release()
+    reading = said[1:]  # warm first chunk, then the passages
+    work = sum(w for w, _a in reading[1:])
+    audio = sum(a for _w, a in reading[1:])
+    with _timings_lock:
+        t = _timings_now()
+        rec = t["engines"].setdefault(engine, {"n": 0})
+        if audio:
+            rec["rtf"] = round(work / audio, 3)
+        rec["gaps"] = {_rate_key(r): round(_gaps(reading, r), 1) for r in TEST_RATES}
+        rec["tested"] = int(time.time())
+        _srv_write(t)
+
+
+def _srv_write(t):
+    from zimi import server as _srv
+
+    os.makedirs(_dir(), exist_ok=True)
+    _srv._atomic_write_json(_dir(TIMINGS), t)
+
+
+_testing = {}  # the Test in flight: {"engine", "done", "total"}; {"error"} after one failed
+
+
+def testing():
+    with _lock:
+        return dict(_testing)
+
+
+def start_test(lang, first, passage):
+    """Test every engine here, one after another, in the background: what
+    a reading does (_test_engine). ``first`` and ``passage`` are in the
+    page's language; an engine that does not say it uses one it does, as
+    only its speed is measured. False when the texts will not do, None when
+    a Test is already running."""
+    first = clean_text(first, FIRST_CHARS_MAX)
+    passage = clean_text(passage, SENTENCE_MAX)
+    lang = lang if isinstance(lang, str) and valid_lang(lang) else "en"
+    if not first or not passage:
+        return False
+    said = can_say()
+    todo = []
+    for engine in ENGINES:
+        langs = [p for p, row in said.items() if engine in row["engines"]]
+        if langs:
+            todo.append((engine, _primary(lang) if _primary(lang) in langs else langs[0]))
+    with _lock:
+        if _testing.get("engine"):
+            return None
+        _testing.clear()
+        _testing.update(engine=todo[0][0] if todo else "", done=0, total=len(todo))
+    texts = [first] + [passage] * TEST_PASSAGES
+
+    def run():
+        try:
+            for i, (engine, l) in enumerate(todo):
+                with _lock:
+                    _testing.update(engine=engine, done=i)
+                _test_engine(engine, l, texts)
+            with _lock:
+                _testing.clear()
+        except (Busy, Failed) as e:
+            log.warning("Voices: the speed test stopped: %s", e)
+            with _lock:
+                _testing.clear()
+                _testing["error"] = True
+
+    threading.Thread(target=run, daemon=True, name="voice-test").start()
+    return True
 
 
 # ── the warm workers ──────────────────────────────────────────────────────
@@ -1893,6 +1973,7 @@ def page_payload():
         "mode": mode,
         "locked": locked,
         "timings": timings(),
+        "testing": testing(),
     }
 
 
@@ -1991,4 +2072,5 @@ def manage_payload():
         "langs": langs,
         "downloading": downloading(),
         "timings": timings(),
+        "testing": testing(),
     }

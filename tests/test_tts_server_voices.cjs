@@ -35,9 +35,12 @@ const ctx = {
   _normLang: c => ({ eng: 'en', fra: 'fr' })[c] || c,
   _getStorageJSON: (k, fb) => (k in store ? JSON.parse(store[k]) : fb),
   _setStorageJSON: (k, v) => { store[k] = JSON.stringify(v); },
+  _ttsRate: () => 1,
+  _TTS_KEEP_UP: 0.8,
+  _TTS_GAP_OK_S: 0.5,
 };
 vm.createContext(ctx);
-vm.runInContext(['_ttsServerEngines', '_ttsChosenVoice', '_ttsRowOrder', '_ttsSlowEngines', '_ttsMarkSlow', '_ttsServerSays', '_ttsCanSpeak', '_ttsSpeakUrl'].map(fn).join('\n'), ctx);
+vm.runInContext(['_ttsServerEngines', '_ttsChosenVoice', '_ttsRowOrder', '_ttsSlowEngines', '_ttsMarkSlow', '_ttsKeepsUp', '_ttsTooSlow', '_ttsServerSays', '_ttsCanSpeak', '_ttsSpeakUrl'].map(fn).join('\n'), ctx);
 const engines = lang => JSON.stringify(ctx._ttsServerEngines(lang));
 
 ok('Automatic: the server\'s choice first, then the rest', engines('en') === '["kokoro","piper"]', engines('en'));
@@ -59,6 +62,21 @@ ok('...and still reads when it is the only one', engines('fr') === '["kokoro"]')
 prefs = { voice: 'kokoro', off: [] };
 ok('a slow engine that was chosen still reads, alone', engines('en') === '["kokoro"]', engines('en'));
 prefs = { voice: '', off: [] };
+
+
+// What the server measured wins over this browser's own mark, at this speed.
+ctx._ttsVoices.timings = { kokoro: { rtf: 0.3 }, piper: { rtf: 0.6 } };
+ok('measured as keeping up: a browser\'s old slow mark no longer sends it last', engines('en') === '["kokoro","piper"]', engines('en'));
+ctx._ttsRate = () => 2;
+ok('at 2x the engine that cannot keep up reads last', engines('en') === '["kokoro","piper"]' && ctx._ttsTooSlow('piper') && !ctx._ttsTooSlow('kokoro'), engines('en'));
+ctx._ttsVoices.timings = { kokoro: { rtf: 1.5 }, piper: { rtf: 0.3 } };
+ok('...and a slow model is passed over before it says a word', engines('en') === '["piper","kokoro"]', engines('en'));
+ctx._ttsVoices.timings = { kokoro: { rtf: 0.3, gaps: { '1': 0, '1.25': 0.2, '1.5': 2.4, '2': 9 } } };
+ctx._ttsRate = () => 1.25;
+ok('a tested reading\'s pauses decide: a short one still keeps up', ctx._ttsKeepsUp('kokoro', 1.25) === true);
+ok('...a long one does not, though its average speed would', ctx._ttsKeepsUp('kokoro', 1.5) === false && 0.3 * 1.5 <= 0.8);
+ctx._ttsRate = () => 1;
+delete ctx._ttsVoices.timings;
 
 ok('the button shows when only the server can speak', ctx._ttsCanSpeak() === true);
 ctx._ttsVoices = { langs: {} };
@@ -125,6 +143,17 @@ a.onended(); a.onplaying(); a.onended();
 ok('chunks play in turn', textOf(a.src) === 'three.', a.src);
 a.onplaying(); a.onended();
 ok('the last chunk ends the reading', r.speaking === false);
+
+r = freshReading();
+a = ctx._ttsAudio;
+ctx._ttsSpeakServer(chunks, 'en', ['kokoro', 'piper'], 1);
+a.paused = false; a.onplaying(); // words are heard in Natural
+a.onended(); // "two." was asked for and is not back yet
+ok('a late chunk after words were heard keeps the voice', engineOf(a.src) === 'kokoro' && textOf(a.src) === 'two.', a.src);
+ok('...and marks it slow, for the next reading', store.zimi_tts_slow === '["kokoro"]', store.zimi_tts_slow);
+a.paused = true;
+timers.filter(Boolean).pop().f(); // and still silent six seconds later
+ok('...still the same voice, no switch mid-article', engineOf(a.src) === 'kokoro' && textOf(a.src) === 'two.', a.src);
 
 r = freshReading();
 a = ctx._ttsAudio;

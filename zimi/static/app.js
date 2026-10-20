@@ -1323,11 +1323,53 @@ function _voiceGridHtml() {
     }).join('') + '</div>';
   var rows = function(codes) { return codes.map(function(c) { return _vgRowHtml(c, flavors, state); }).join(''); };
   return '<div class="share-rows vg" role="table" aria-label="' + escAttr(t('voices_section')) + '" style="--vg-n:' + flavors.length + '">' +
-    head + rows(main) +
+    head + _vgTimingRowsHtml(flavors) + rows(main) +
     (rest.length ? '<button type="button" class="share-row lang-fold vg-all" aria-expanded="' + _vgAllOpen + '" onclick="_toggleVgAll()">' +
       '<span class="lang-chev" aria-hidden="true">›</span><span class="share-row-text"><span class="share-row-title">' +
       tH('languages_all', { n: rest.length }) + '</span></span></button>' + (_vgAllOpen ? rows(rest) : '') : '') +
-    '</div>';
+    '</div>' + _voiceTestHtml();
+}
+// How quick each voice is on this server, under its name in the table (Eric,
+// 2026-10-19: "show time to first word and all that? Set expectations but
+// also understand ourselves based on the hardware"; "add to the table"):
+// first words, first words after a rest (the model loading), and the
+// fastest speed it reads at without pausing. Measured by Test all voices and
+// by every reading; a release, an engine or a machine change clears them.
+function _vgTimingRowsHtml(flavors) {
+  var tm = (_voicesHere && _voicesHere.timings) || {};
+  if (!flavors.some(function(e) { return tm[e]; })) return '';
+  var row = function(label, cell) {
+    return '<div class="vg-row vg-time" role="row"><span class="vg-name vg-time-name" role="rowheader">' + tH(label) + '</span>' +
+      flavors.map(function(e) { return '<span class="vg-cell vg-t" role="cell">' + esc(tm[e] ? cell(tm[e], e) || '–' : '–') + '</span>'; }).join('') + '</div>';
+  };
+  var secs = function(s) { return s ? t('voices_secs', { s: _voiceSecs(s) }) : ''; };
+  return row('voices_t_first', function(x) { return secs(x.first_s); }) +
+    row('voices_t_rest', function(x) { return secs(x.cold_s); }) +
+    row('voices_t_keeps', function(x, e) {
+      if (!x.gaps && !x.rtf) return '';
+      var top = _TTS_RATES.filter(function(r) { return _ttsKeepsUp(e, r, tm); }).pop();
+      return top ? _ttsRateLabel(top) : '<' + _ttsRateLabel(1);
+    });
+}
+function _voiceSecs(s) {
+  try { return s.toLocaleString(_currentLang || undefined, { maximumFractionDigits: s < 10 ? 1 : 0 }); } catch (e) { return String(Math.round(s)); }
+}
+// One button tests every voice as a reading uses it: after a rest, warm,
+// then a page back to back. An admin's; it runs on the server, the pane asks
+// how far it is.
+function _voiceTestHtml() {
+  if (!_voicesHere || !_voicesHere.can_change) return '';
+  var run = _voicesHere.testing || {};
+  var label = run.engine
+    ? t('voices_testing_one', { voice: _voiceEngineName(run.engine), n: (run.done || 0) + 1, total: run.total || 1 })
+    : t('voices_test_all');
+  return '<div class="voice-foot vg-test"><button type="button" class="set-btn"' + (run.engine ? ' disabled' : '') +
+    ' onclick="_voiceTestAll()">' + esc(label) + '</button>' +
+    (run.error ? '<span class="voice-failed">' + tH('voices_test_failed') + '</span>' : '') + '</div>';
+}
+function _voiceTestAll() {
+  _voicesSend('/manage/voices/test', { lang: _langPrimary(_currentLang || 'en'), first: t('voices_test_first'), passage: t('voices_test_passage') },
+    t('voices_test_failed'));
 }
 // ✕ on a Clear voice: a pointer's hover showed it, a touch's first tap (or a
 // long press) shows it; then once asked, it goes.
@@ -1460,7 +1502,8 @@ function _paintVoices() {
   _paintKept(document.getElementById(_VOICES_WRAP_ID), _voicePrefsHtml());
   // A download in flight: ask how it is going until it is done.
   clearTimeout(_voicesTimer);
-  if (_voicesDl().tag && document.getElementById(_VOICES_WRAP_ID)) _voicesTimer = setTimeout(_renderVoicePrefs, _VOICES_POLL_MS);
+  var testing = _voicesHere && _voicesHere.testing && _voicesHere.testing.engine;
+  if ((_voicesDl().tag || testing) && document.getElementById(_VOICES_WRAP_ID)) _voicesTimer = setTimeout(_renderVoicePrefs, _VOICES_POLL_MS);
 }
 var _voicesHeard = false;
 function _renderVoicePrefs() {
@@ -19747,6 +19790,10 @@ var _TTS_SERVER_RETRY_MS = 2000; // voices.RETRY_AFTER_S: the server was busy
 var _TTS_START_WAIT_MS = 6000;
 var _TTS_CHUNK_MAX = 240, _TTS_FIRST_CHUNK_MAX = 120; // characters
 var _TTS_AHEAD = 2; // chunks asked for ahead of the one playing, so the voice never waits
+// An engine keeps up when it makes a second of speech in this share of a
+// second at the speed it plays (voices.timings' rtf, measured on the server).
+var _TTS_KEEP_UP = 0.8;
+var _TTS_GAP_OK_S = 0.5; // pauses in a tested reading too short to hear as waiting
 var _ttsVoices = null; // /dictionary/voices (its page payload), or null
 var _ttsAudio = null;
 var _ttsRun = 0; // bumped by every start and stop: callbacks of an older run do nothing
@@ -19824,8 +19871,7 @@ function _ttsServerEngines(lang) {
   if (!row || chosen === _DEVICE_VOICE) return [];
   var order = _ttsRowOrder(row, prefs);
   if (chosen && order.indexOf(chosen) >= 0) return [chosen];
-  var slow = _ttsSlowEngines();
-  var quick = order.filter(function(e) { return slow.indexOf(e) < 0; });
+  var quick = order.filter(function(e) { return !_ttsTooSlow(e); });
   return quick.concat(order.filter(function(e) { return quick.indexOf(e) < 0; }));
 }
 // The engines the server has for a language row, its own choice first, none
@@ -19842,8 +19888,7 @@ function _ttsSuggestFaster(lang, slowEngine) {
   var said = _getStorageJSON(SK.TTS_SUGGESTED, []);
   if (!Array.isArray(said)) said = [];
   if (!row || said.indexOf(slowEngine) >= 0) return;
-  var slow = _ttsSlowEngines();
-  var faster = _ttsRowOrder(row, _voicePrefs()).filter(function(e) { return e !== slowEngine && slow.indexOf(e) < 0; })[0];
+  var faster = _ttsRowOrder(row, _voicePrefs()).filter(function(e) { return e !== slowEngine && !_ttsTooSlow(e); })[0];
   if (!faster) return;
   said.push(slowEngine);
   _setStorageJSON(SK.TTS_SUGGESTED, said);
@@ -19857,6 +19902,22 @@ function _ttsSlowEngines() {
 function _ttsMarkSlow(engine) {
   var s = _ttsSlowEngines();
   if (s.indexOf(engine) < 0) { s.push(engine); _setStorageJSON(SK.TTS_SLOW, s); }
+}
+// Whether an engine keeps up at ``rate`` on this server, as measured there
+// (voices.timings); null until something was read aloud or tested with it.
+function _ttsKeepsUp(engine, rate, timings) {
+  var tm = (timings || (_ttsVoices && _ttsVoices.timings) || {})[engine];
+  if (!tm) return null;
+  // A Test read a page back to back: the pauses it heard at this speed.
+  var gap = tm.gaps && tm.gaps[String(rate)];
+  if (typeof gap === 'number') return gap <= _TTS_GAP_OK_S;
+  return tm.rtf ? tm.rtf * rate <= _TTS_KEEP_UP : null;
+}
+// Too slow to read with at this speed: as the server measured it, else as
+// this browser found it (a reading that waited for it).
+function _ttsTooSlow(engine) {
+  var k = _ttsKeepsUp(engine, _ttsRate());
+  return k === null ? _ttsSlowEngines().indexOf(engine) >= 0 : !k;
 }
 function _ttsServerSays() {
   return Object.keys((_ttsVoices && _ttsVoices.langs) || {}).length > 0;
@@ -20007,6 +20068,7 @@ function _ttsSpeakDevice(chunks, lang, from) {
 function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
   var audio = _ttsAudio || (_ttsAudio = new Audio());
   var i = from || 0, eng = 0, retried = false, waiting = null, told = false;
+  var started = false; // a word has been heard: from then on the voice stays
   var asked = {}; // chunk index -> true once the server has said it (or failed to)
   function live() { return run === _ttsRun; }
   // Too slow here: the next engine for the language says the rest, and this
@@ -20021,6 +20083,12 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
   // A chosen voice (``onSlow``) keeps reading; the person is told once.
   function tooSlow() {
     if (onSlow && !told) { told = true; onSlow(engines[eng]); }
+  }
+  // Late once words were heard: Automatic remembers the engine as slow for
+  // the next reading; a chosen voice is offered a faster one instead.
+  function late() {
+    if (!onSlow) _ttsMarkSlow(engines[eng]);
+    tooSlow();
   }
   function ask(idx) {
     if (idx >= chunks.length || asked[idx] !== undefined) return;
@@ -20037,12 +20105,11 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
     }).catch(function() { if (live()) delete asked[idx]; });
   }
   function play(idx) {
-    // Not ready when it is needed: this engine is too slow here, so the next
-    // one for the language says the rest (what was asked of the slow one
-    // still plays if it arrives first).
-    if (idx > 0 && asked[idx] === false) {
-      if (eng + 1 < engines.length) slower(); else tooSlow();
-    }
+    // Not ready when it is needed: this engine is too slow here. Once words
+    // were heard the voice stays (a new voice mid-article is worse than a
+    // pause, Eric 2026-10-19: "can sound different between them"); it is
+    // marked slow, so the next reading starts with one that keeps up.
+    if (started && asked[idx] === false) late();
     audio.defaultPlaybackRate = _ttsRate(); // a new src starts at this rate
     audio.src = _ttsSpeakUrl(chunks[idx], lang, engines[eng]);
     audio.playbackRate = _ttsRate();
@@ -20052,13 +20119,14 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
     // AbortError: this play() was cut short by the next src (a switch of
     // engine, or the next chunk), which is not a failure.
     if (p && p.catch) p.catch(function(e) { if (live() && !(e && e.name === 'AbortError')) fail(); });
-    // Still silent after a while (the first chunk, or one asked too late):
-    // say it with the next engine instead.
+    // Still silent after a while: before the first word, the next engine
+    // says it instead; after, the voice stays and is marked slow.
     clearTimeout(waiting);
     if (eng + 1 < engines.length || onSlow) {
       waiting = setTimeout(function() {
         if (!live() || i !== idx || !audio.paused || _ttsPaused) return;
-        if (eng + 1 < engines.length) { slower(); play(idx); } else tooSlow();
+        if (!started && eng + 1 < engines.length) { slower(); play(idx); }
+        else if (started) late(); else tooSlow();
       }, _TTS_START_WAIT_MS);
     }
   }
@@ -20076,7 +20144,7 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
   }
   audio.onplaying = function() {
     if (!live()) return;
-    clearTimeout(waiting); retried = false;
+    clearTimeout(waiting); retried = false; started = true;
     for (var k = 1; k <= _TTS_AHEAD; k++) ask(i + k);
     _ttsNow.playing = true; _ttsBarSync();
   };
@@ -20143,7 +20211,8 @@ function _ttsBarHtml() {
     h += '<span class="tts-bar-anchor"><button type="button" class="tts-bar-voice" aria-haspopup="menu" aria-expanded="' + (_ttsMenuOpen === 'voice') + '" onclick="_ttsMenuToggle(\'voice\')">' +
       '<span>' + esc(_voiceEngineName(_ttsNow.engine)) + '</span>' + _TTS_CHEVRON + '</button>' +
       menu('voice', [['' === pick, '_ttsPickVoice("")', t('voices_default_auto')]].concat(voices.map(function(e) {
-        return [e === pick, '_ttsPickVoice(' + JSON.stringify(e) + ')', _voiceEngineName(e)];
+        // Still pickable, but said (Eric, 2026-10-19: "a lil (Too Slow) beside the previous voice").
+        return [e === pick, '_ttsPickVoice(' + JSON.stringify(e) + ')', _voiceEngineName(e) + (_ttsTooSlow(e) ? ' ' + t('tts_too_slow') : '')];
       }))) + '</span>';
   } else {
     h += '<span class="tts-bar-voice">' + esc(_voiceEngineName(_ttsNow.engine)) + '</span>';

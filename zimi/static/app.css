@@ -2934,6 +2934,11 @@
   [dir="rtl"] .vg-row { padding: 0 14px 0 8px; }
   .vg-row + .vg-row, .vg-all, .vg-all + .vg-row { border-top: 1px solid var(--border); }
   .vg-head { min-height: 32px; }
+  /* How quick each voice is here: three quiet rows under the names. */
+  .vg-time { min-height: 30px; }
+  .vg-time-name { font-size: 11.5px; color: var(--text3); }
+  .vg-t { height: 30px; font-size: 11.5px; color: var(--text2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .vg-test { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .vg-h { font-size: 10.5px; font-weight: 600; color: var(--text2); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .vg-name { min-width: 0; padding: 6px 0; }
   .vg-own, .vg-zimi { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

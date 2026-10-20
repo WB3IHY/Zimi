@@ -1529,25 +1529,52 @@ def test_the_fingerprint_follows_the_release_engines_and_machine(data, monkeypat
     assert voices._fingerprint() != base
 
 
-def test_a_test_times_the_engine_and_leaves_the_audio_cache_alone(piper, monkeypatch):
+def test_the_pauses_of_a_reading_follow_how_fast_chunks_are_made():
+    # Each chunk is made after the one before it, while those play.
+    chunks = [(1.0, 5.0), (6.0, 5.0)]
+    assert voices._gaps(chunks, 1) == 1.0  # ready at 7, the first ended at 6
+    assert voices._gaps(chunks, 2) == 3.5  # at 2x the first ends at 3.5
+    assert voices._gaps([(1.0, 5.0), (1.0, 5.0), (1.0, 5.0)], 2) == 0.0
+
+
+def _finish_test():
+    for _ in range(200):
+        if not voices.testing().get("engine"):
+            return voices.testing()
+        threading.Event().wait(0.05)
+    raise AssertionError("the test never finished")
+
+
+def test_test_all_reads_like_a_reading_and_leaves_the_audio_cache_alone(piper, monkeypatch):
     install("en-US")
     runs = []
     real = voices._run
     monkeypatch.setattr(voices, "_run", lambda *a, **k: runs.append(a) or real(*a, **k))
-    got = voices.test("piper", "en", "Hello there.", SENTENCE)
-    assert got["first_s"] > 0 and got["n"] == 2 and len(runs) == 2
+    assert voices.start_test("en", "Hello there.", SENTENCE) is True
+    assert _finish_test() == {}, "done, no error"
+    got = voices.timings()["piper"]
+    # The first chunk after a rest, again warm, then the passages back to back.
+    assert len(runs) == 2 + voices.TEST_PASSAGES and got["n"] == len(runs)
+    assert set(got["gaps"]) == {"1", "1.25", "1.5", "2"} and got["tested"] and got["first_s"] > 0
     folder = voices._cache_dir("piper", "en_US-ljspeech-medium")
     assert not os.path.isdir(folder) or not [f for f in os.listdir(folder) if f.endswith(".wav")]
     assert not [f for f in os.listdir(voices._dir(voices.TEST_DIR)) if f.endswith(".wav")]
     voices.speak(SENTENCE, "en", limit=voices.SENTENCE_MAX)
-    assert len(runs) == 3, "a Test's sentence was never the cache's"
-    assert voices.page_payload()["timings"]["piper"]["n"] == 3
-    assert voices.manage_payload()["timings"]["piper"]["n"] == 3
+    assert len(runs) == 3 + voices.TEST_PASSAGES, "a Test's sentence was never the cache's"
+    assert voices.manage_payload()["timings"]["piper"]["gaps"] == got["gaps"]
 
 
-def test_a_test_needs_an_engine_that_says_the_language(piper):
+def test_test_all_says_a_language_the_voice_has(piper):
     install("en-US")
-    assert voices.test("kokoro", "en", "Hello.", SENTENCE) is None
-    assert voices.test("piper", "xx", "Hello.", SENTENCE) is None
-    assert voices.test("piper", ["en"], "Hello.", SENTENCE) is None
-    assert voices.test("piper", "en", "x" * (voices.FIRST_CHARS_MAX + 1), SENTENCE) is None
+    assert voices.start_test("de", "Hallo.", SENTENCE) is True  # no German voice: English, for its speed
+    _finish_test()
+    assert "gaps" in voices.timings()["piper"]
+
+
+def test_test_all_needs_its_texts_and_runs_once_at_a_time(piper):
+    install("en-US")
+    assert voices.start_test("en", "", SENTENCE) is False
+    assert voices.start_test("en", "x" * (voices.FIRST_CHARS_MAX + 1), SENTENCE) is False
+    voices._testing.update(engine="piper", done=0, total=1)
+    assert voices.start_test("en", "Hello.", SENTENCE) is None
+    voices._testing.clear()
