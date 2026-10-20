@@ -6013,7 +6013,7 @@ function _keepLoad() {
         KeepStore.subscribe(function(st) {
           // A pull that ends in an error says why at once, wherever it was started (a tile's ring alone turns grey).
           if (wasPulling && st.phase === 'idle' && st.error) _keepNotice(t('keep_err_' + st.error));
-          if (!wasPulling && st.phase === 'pulling') _keepPrimeOffline();
+          if (!wasPulling && st.phase === 'pulling') _keepPrimeOffline(st.name);
           wasPulling = st.phase === 'pulling';
           _keepRenderOpen();
           _keepImportRender();
@@ -6049,12 +6049,18 @@ var _KEEP_OFFLINE_FILES = ['/static/libzim/libzim-wasm.js', '/static/libzim/libz
   '/static/pdfjs/web/viewer.html', '/static/pdfjs/web/viewer.mjs', '/static/pdfjs/web/viewer.css',
   '/static/pdfjs/build/pdf.mjs', '/static/pdfjs/build/pdf.worker.mjs', '/static/pdfjs/web/locale/locale.json',
   '/static/pdfjs/web/images/loading-icon.gif'];
-function _keepPrimeOffline() {
+function _keepPrimeOffline(pulling) {
   _keepAlmanac();
   var files = _KEEP_OFFLINE_FILES.concat(['/static/pdfjs/web/locale/' + (_pdfLocale() || 'en-US') + '/viewer.ftl']);
-  files.forEach(function(u) {
-    var have = window.caches ? caches.match(u, { ignoreSearch: true }).catch(function() { return null; }) : Promise.resolve(null);
+  var fetchMissing = function(u, exact) {
+    var have = window.caches ? caches.match(u, exact ? undefined : { ignoreSearch: true }).catch(function() { return null; }) : Promise.resolve(null);
     have.then(function(hit) { if (!hit) fetch(u).catch(function() {}); });
+  };
+  files.forEach(function(u) { fetchMissing(u, false); });
+  // A document library's list as the app draws it, sizes and all: the
+  // server's own answer, kept (the phone's copy of the ZIM has no sizes).
+  Array.from(_keepNames).concat(pulling ? [pulling] : []).forEach(function(n) {
+    if (n.indexOf('zimgit-') === 0) fetchMissing('/catalog?zim=' + encodeURIComponent(n), true);
   });
 }
 

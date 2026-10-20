@@ -421,7 +421,9 @@ async function networkFirst(event) {
   clearTimeout(timer);
   if (!resp) networkDownUntil = Date.now() + NETWORK_DOWN_MS;
   if (resp && !(_gatewayDown(resp) && kept)) return resp;
-  if (carried) {
+  // A kept ZIM answers before a kept copy, except a document library's list:
+  // the server's own (sizes and all) beats the one read off the phone's copy.
+  if (carried && !(keptCopy && catalogZim(new URL(request.url)))) {
     const local = await keptZimResponse(request);
     if (local) return local;
   }
