@@ -1,14 +1,12 @@
 # Zimi
 
 [![CI](https://github.com/epheterson/Zimi/actions/workflows/ci.yml/badge.svg)](https://github.com/epheterson/Zimi/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-4343-brightgreen)](#)
 [![Lighthouse Accessibility](https://img.shields.io/badge/Lighthouse%20a11y-100%2F100-success?logo=lighthouse&logoColor=white)](docs/features/reading.md)
 [![WCAG 2.1 AA](https://img.shields.io/badge/WCAG%202.1-AA-blue)](docs/features/reading.md)
 [![i18n](https://img.shields.io/badge/i18n-10%20languages-blueviolet)](#languages)
 [![Docker Pulls](https://img.shields.io/docker/pulls/epheterson/zimi)](https://hub.docker.com/r/epheterson/zimi)
 [![PyPI](https://img.shields.io/pypi/v/zimi)](https://pypi.org/project/zimi/)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/epheterson/Zimi/badge)](https://scorecard.dev/viewer/?uri=github.com/epheterson/Zimi)
 
 A modern experience for your ZIM files.
 
