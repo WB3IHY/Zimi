@@ -12,7 +12,7 @@ A modern experience for your ZIM files.
 
 [Kiwix](https://kiwix.org) packages the world's knowledge into ZIM files. Zimi makes them feel like the real internet with a rich web UI, fast JSON API, and an MCP server for AI agents. Everything works offline, in your language.
 
-**If you ❤️ using Zimi, leave a ⭐️ to help others find it.**
+**If you ❤️ Zimi, leave a ⭐️ to help others find it.**
 
 Use as much as you need:
 
