@@ -1477,3 +1477,77 @@ def test_a_cancel_during_setup_stops_pip_and_leaves_nothing(bare, monkeypatch):
     assert not os.path.exists(voices.engines_dir())
     assert voices.downloading() == {} and "fr" not in voices.installed()
     assert voices.piper_command() is None
+
+
+# ── how fast each engine is here ──────────────────────────────────────────
+
+SENTENCE = "Water boils at a lower temperature high in the mountains."
+
+
+def test_a_sentence_read_aloud_is_timed_and_a_word_is_not(piper, monkeypatch):
+    install("en-US")
+    monkeypatch.setattr(voices, "RTF_MIN_AUDIO_S", 0.1)  # the stand-in says a quarter second
+    voices.speak("water", "en")
+    assert voices.timings() == {}, "a Dictionary word is mostly start-up"
+    voices.speak(SENTENCE, "en", limit=voices.SENTENCE_MAX)
+    got = voices.timings()["piper"]
+    assert got["n"] == 1 and got["first_s"] > 0 and got["rtf"] > 0
+    assert "cold_s" not in got, "an engine run afresh each time is never cold"
+
+
+def test_timings_are_a_moving_average_and_a_test_replaces_them(data):
+    voices._note_timing("piper", 1.0, 0, 50, cold=False)
+    voices._note_timing("piper", 2.0, 0, 50, cold=False)
+    assert voices.timings()["piper"]["first_s"] == 1.3
+    voices._note_timing("piper", 5.0, 0, 50, cold=True)
+    voices._note_timing("piper", 0.5, 0, 50, cold=False, weight=1.0)
+    got = voices.timings()["piper"]
+    assert got["first_s"] == 0.5 and got["cold_s"] == 5.0 and got["n"] == 4
+    voices._note_timing("piper", 9.0, 0, voices.FIRST_CHARS_MAX + 1, cold=False)
+    assert voices.timings()["piper"]["first_s"] == 0.5, "only a first chunk's length counts"
+
+
+def test_timings_outlive_a_restart_and_start_over_on_a_new_fingerprint(data, monkeypatch):
+    monkeypatch.setattr(voices, "_fingerprint", lambda: "this-machine")
+    voices._note_timing("kokoro", 2.0, 4.0, 200, cold=False)
+    voices._reset_for_tests()  # a restart: read back from disk
+    assert voices.timings()["kokoro"]["rtf"] == 0.5
+    monkeypatch.setattr(voices, "_fingerprint", lambda: "a-new-release-or-machine")
+    assert voices.timings() == {}
+
+
+def test_the_fingerprint_follows_the_release_engines_and_machine(data, monkeypatch):
+    base = voices._fingerprint()
+    monkeypatch.setattr(server, "ZIMI_VERSION", "99.0.0")
+    assert voices._fingerprint() != base
+    monkeypatch.undo()
+    monkeypatch.setattr(voices, "versions", lambda: {"piper": "Piper 9"})
+    assert voices._fingerprint() != base
+    monkeypatch.undo()
+    hw = dict(voices._hardware(), cpus=voices._hardware()["cpus"] + 1)
+    monkeypatch.setattr(voices, "_hardware", lambda: hw)
+    assert voices._fingerprint() != base
+
+
+def test_a_test_times_the_engine_and_leaves_the_audio_cache_alone(piper, monkeypatch):
+    install("en-US")
+    runs = []
+    real = voices._run
+    monkeypatch.setattr(voices, "_run", lambda *a, **k: runs.append(a) or real(*a, **k))
+    got = voices.test("piper", "en", "Hello there.", SENTENCE)
+    assert got["first_s"] > 0 and got["n"] == 2 and len(runs) == 2
+    folder = voices._cache_dir("piper", "en_US-ljspeech-medium")
+    assert not os.path.isdir(folder) or not [f for f in os.listdir(folder) if f.endswith(".wav")]
+    assert not [f for f in os.listdir(voices._dir(voices.TEST_DIR)) if f.endswith(".wav")]
+    voices.speak(SENTENCE, "en", limit=voices.SENTENCE_MAX)
+    assert len(runs) == 3, "a Test's sentence was never the cache's"
+    assert voices.page_payload()["timings"]["piper"]["n"] == 3
+    assert voices.manage_payload()["timings"]["piper"]["n"] == 3
+
+
+def test_a_test_needs_an_engine_that_says_the_language(piper):
+    install("en-US")
+    assert voices.test("kokoro", "en", "Hello.", SENTENCE) is None
+    assert voices.test("piper", "xx", "Hello.", SENTENCE) is None
+    assert voices.test("piper", ["en"], "Hello.", SENTENCE) is None
+    assert voices.test("piper", "en", "x" * (voices.FIRST_CHARS_MAX + 1), SENTENCE) is None

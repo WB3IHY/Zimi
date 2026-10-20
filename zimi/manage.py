@@ -7329,6 +7329,24 @@ def handle_manage_post(handler, parsed, data):
         _voices.cancel_download()
         return handler._json(200, _voices.manage_payload())
 
+    elif parsed.path == "/manage/voices/test":
+        # Settings' Test: {"engine", "lang", "first", "passage"}, the two
+        # texts in the page's language. Says both, keeps the timings.
+        from zimi import voices as _voices
+
+        try:
+            got = _voices.test(
+                data.get("engine"), data.get("lang") or "",
+                data.get("first") or "", data.get("passage") or "",
+            )
+        except _voices.Busy:
+            return handler._json(503, {"error": "busy"}, retry_after=_voices.RETRY_AFTER_S)
+        except _voices.Failed:
+            return handler._json(500, {"error": "could not say it"})
+        if got is None:
+            return handler._json(404, {"error": "That voice cannot say this language here"})
+        return handler._json(200, _voices.manage_payload())
+
     elif parsed.path == "/manage/voices/remove":
         # {"lang": tag}: the voice and its audio go; the language falls back.
         from zimi import voices as _voices
