@@ -321,7 +321,7 @@ const tick = () => new Promise(r => setImmediate(r));
     _TTS_SUGGEST_MS: 9000,
     _setVoicePrefs: ch => { prefs = Object.assign({}, prefs, ch); },
   });
-  vm.runInContext(fn('_ttsSuggestFaster'), ctx);
+  vm.runInContext(['_ttsFasterThan', '_ttsSuggestFaster'].map(fn).join('\n'), ctx);
   for (const k of Object.keys(store)) delete store[k];
   ctx._ttsVoices = { langs: { en: { engine: 'kokoro', engines: ['kokoro', 'piper'] } } };
   prefs = { voice: 'kokoro', off: [] };
@@ -335,6 +335,37 @@ const tick = () => new Promise(r => setImmediate(r));
   ctx._ttsVoices = { langs: { en: { engine: 'kokoro', engines: ['kokoro'] } } };
   ctx._ttsSuggestFaster('en', 'kokoro');
   ok('nothing faster to offer: nothing said', toasts.length === 1);
+
+  // A speed picked mid-reading that the voice pauses at (Eric, 2026-10-20:
+  // "Let me still select 2x and then pop to a faster one?").
+  const restarts = [];
+  let rate = 1;
+  Object.assign(ctx, { _ttsMenuOpen: '', _ttsAudio: null, _ttsBarSync() {}, _ttsRateLabel: r => r + 'x',
+    _ttsSpeak: at => restarts.push(at), _ttsPickVoice: e => restarts.push('pick:' + e) });
+  ctx._ttsRate = () => rate;
+  ctx._setStorageJSON = (k, v) => { store[k] = JSON.stringify(v); if (k === 'zimi_tts_rate') rate = v; };
+  ctx.SK.TTS_RATE = 'zimi_tts_rate';
+  vm.runInContext(['_ttsPickSpeed', '_ttsVoiceLabel'].map(fn).join('\n'), ctx);
+  ctx._ttsVoices = { langs: { en: { engine: 'kokoro', engines: ['kokoro', 'piper'] } },
+    timings: { kokoro: { gaps: { '1': 0, '1.25': 0, '1.5': 3, '2': 6 } }, piper: { gaps: { '1': 0, '1.25': 0, '1.5': 0, '2': 0 } } } };
+  ctx._ttsNow = { engine: 'kokoro', lang: 'en', at: 7 };
+  prefs = { voice: '', off: [] };
+  toasts.length = 0;
+  ctx._ttsPickSpeed(1.25);
+  ok('a speed the voice keeps up at: it reads on as it was', restarts.length === 0 && toasts.length === 0);
+  ctx._ttsPickSpeed(2);
+  ok('Automatic, at a speed its voice pauses at: the reading goes on from its sentence in one that keeps up', restarts.join() === '7' && toasts.length === 0, restarts.join());
+  restarts.length = 0;
+  prefs = { voice: '', read: 'kokoro', off: [] };
+  ctx._ttsPickSpeed(2);
+  ok('a voice picked by name keeps reading at any speed, and one that keeps up is offered', restarts.length === 0 && toasts.length === 1 && /tts_slow_at/.test(toasts[0].msg) && /PIPER/.test(toasts[0].label), JSON.stringify(toasts));
+  toasts[0].undo();
+  ok('...taking it switches now, from the sentence it is at', restarts.join() === 'pick:piper', restarts.join());
+  ok('...and the voice\'s name says it is too slow, not the speed', /KOKORO tts_too_slow/.test(ctx._ttsVoiceLabel()), ctx._ttsVoiceLabel());
+  rate = 1;
+  ok('...until a speed it keeps up at', ctx._ttsVoiceLabel() === 'KOKORO', ctx._ttsVoiceLabel());
+  delete ctx._ttsVoices.timings;
+  prefs = { voice: '', off: [] };
 
   // ── c: Read aloud's own voice ──────────────────────────────────────────
   prefs = { voice: 'kokoro', off: [] };

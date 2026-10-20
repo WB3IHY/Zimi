@@ -2028,6 +2028,7 @@
   "tts_stop": "停止朗读",
   "tts_speed": "朗读速度",
   "tts_slow_suggest": "{slow}在此服务器上较慢。试试{fast}？",
+  "tts_slow_at": "{slow} 跟不上 {rate}。试试 {fast}？",
   "tts_slow_use": "改用{fast}",
   "tts_too_slow": "（太慢）",
   "uncaptured_back": "返回",

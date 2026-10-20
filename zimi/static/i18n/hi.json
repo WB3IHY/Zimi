@@ -2028,6 +2028,7 @@
   "tts_stop": "पढ़ना रोकें",
   "tts_speed": "पढ़ने की गति",
   "tts_slow_suggest": "इस सर्वर पर {slow} धीमा है। {fast} आज़माएँ?",
+  "tts_slow_at": "{slow} {rate} पर साथ नहीं दे पाती। {fast} आज़माएँ?",
   "tts_slow_use": "{fast} चुनें",
   "tts_too_slow": "(बहुत धीमी)",
   "uncaptured_back": "वापस जाएँ",

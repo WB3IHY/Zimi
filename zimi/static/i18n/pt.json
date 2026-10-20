@@ -2028,6 +2028,7 @@
   "tts_stop": "Parar leitura",
   "tts_speed": "Velocidade de leitura",
   "tts_slow_suggest": "{slow} está lento neste servidor. Experimentar {fast}?",
+  "tts_slow_at": "{slow} não acompanha a {rate}. Experimentar {fast}?",
   "tts_slow_use": "Usar {fast}",
   "tts_too_slow": "(Lenta demais)",
   "uncaptured_back": "Voltar",

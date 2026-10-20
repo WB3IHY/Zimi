@@ -19995,13 +19995,18 @@ function _ttsRowOrder(row, prefs) {
     return e && order.indexOf(e) === i && (row.engines || []).indexOf(e) >= 0 && prefs.off.indexOf(e) < 0;
   });
 }
+// A server voice for ``lang`` that keeps up at this speed, other than ``slow``; '' when none.
+function _ttsFasterThan(lang, slow) {
+  var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
+  if (!row) return '';
+  return _ttsRowOrder(row, _voicePrefs()).filter(function(e) { return e !== slow && !_ttsTooSlow(e); })[0] || '';
+}
 // Chosen, and not keeping up: once per engine, a quiet offer of another.
 function _ttsSuggestFaster(lang, slowEngine) {
-  var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
   var said = _getStorageJSON(SK.TTS_SUGGESTED, []);
   if (!Array.isArray(said)) said = [];
-  if (!row || said.indexOf(slowEngine) >= 0) return;
-  var faster = _ttsRowOrder(row, _voicePrefs()).filter(function(e) { return e !== slowEngine && !_ttsTooSlow(e); })[0];
+  if (said.indexOf(slowEngine) >= 0) return;
+  var faster = _ttsFasterThan(lang, slowEngine);
   if (!faster) return;
   said.push(slowEngine);
   _setStorageJSON(SK.TTS_SUGGESTED, said);
@@ -20306,6 +20311,12 @@ function _ttsRateLabel(r) {
   try { n = r.toLocaleString((typeof _currentLang !== 'undefined' && _currentLang) || undefined); } catch (e) {}
   return n + '\u00d7';
 }
+// The voice reading, and (Too slow) when it pauses at this speed: the voice's
+// name says it, not the speed (Eric, 2026-10-20).
+function _ttsVoiceLabel() {
+  var e = _ttsNow.engine;
+  return _voiceEngineName(e) + (e && _ttsKeepsUp(e, _ttsRate()) === false ? ' ' + t('tts_too_slow') : '');
+}
 function _ttsBarHtml() {
   var pick = _voicePrefs().read || '';
   var voices = _ttsVoicesFor(_ttsNow.lang);
@@ -20323,22 +20334,18 @@ function _ttsBarHtml() {
   };
   if (voices.length > 1) {
     h += '<span class="tts-bar-anchor"><button type="button" class="tts-bar-voice" aria-haspopup="menu" aria-expanded="' + (_ttsMenuOpen === 'voice') + '" onclick="_ttsMenuToggle(\'voice\')">' +
-      '<span>' + esc(_voiceEngineName(_ttsNow.engine)) + '</span>' + _TTS_CHEVRON + '</button>' +
+      '<span>' + esc(_ttsVoiceLabel()) + '</span>' + _TTS_CHEVRON + '</button>' +
       menu('voice', [['' === pick, '_ttsPickVoice("")', t('voices_default_auto')]].concat(voices.map(function(e) {
         // Still pickable, but said (Eric, 2026-10-19: "a lil (Too Slow) beside the previous voice").
         return [e === pick, '_ttsPickVoice(' + JSON.stringify(e) + ')', _voiceEngineName(e), _ttsTooSlow(e)];
       }))) + '</span>';
   } else {
-    h += '<span class="tts-bar-voice">' + esc(_voiceEngineName(_ttsNow.engine)) + '</span>';
+    h += '<span class="tts-bar-voice">' + esc(_ttsVoiceLabel()) + '</span>';
   }
   var rate = _ttsRate();
   h += '<span class="tts-bar-anchor">' + btn('tts-bar-speed', t('tts_speed'), "_ttsMenuToggle('speed')", esc(_ttsRateLabel(rate)),
     ' aria-haspopup="menu" aria-expanded="' + (_ttsMenuOpen === 'speed') + '"') +
-    // A speed this voice pauses at, said, as a voice too slow is (Eric,
-    // 2026-10-20: "say too slow in selector when speed choices can't keep up").
-    menu('speed', _TTS_RATES.map(function(r) {
-      return [r === rate, '_ttsPickSpeed(' + r + ')', _ttsRateLabel(r), _ttsKeepsUp(_ttsNow.engine, r) === false];
-    })) + '</span>';
+    menu('speed', _TTS_RATES.map(function(r) { return [r === rate, '_ttsPickSpeed(' + r + ')', _ttsRateLabel(r)]; })) + '</span>';
   h += btn('tts-bar-btn', t(_ttsPaused ? 'resume' : 'pause'), '_ttsPauseToggle()', _ttsPaused ? _TTS_PLAY_ICON : _TTS_PAUSE_ICON,
     ' aria-pressed="' + _ttsPaused + '"');
   h += btn('tts-bar-btn', t('tts_stop'), '_ttsStop()', _TTS_CLOSE_ICON);
@@ -20393,9 +20400,24 @@ function _ttsPauseToggle() {
 // 1x, 1.25x, 1.5x or 2x, picked from the menu: remembered on this device. The
 // server's audio changes speed where it is (its pitch kept); the browser's
 // voice takes a rate per sentence, so it starts again from the sentence it is on.
+// Any speed with any voice (Eric, 2026-10-20: "the info, ability to try any
+// combo, and convenience of staying inside the lines"). On Automatic, a
+// speed its voice pauses at hands the reading to one that keeps up, from the
+// sentence it is at; a voice picked by name keeps reading, named (Too slow),
+// and one that keeps up is offered.
 function _ttsPickSpeed(r) {
   _ttsMenuOpen = '';
   _setStorageJSON(SK.TTS_RATE, r);
+  var e = _ttsNow.engine;
+  if (e && _ttsKeepsUp(e, r) === false) {
+    var next = _ttsServerEngines(_ttsNow.lang)[0];
+    if (next && next !== e) { _ttsSpeak(_ttsNow.at); _ttsBarSync(); return; }
+    var faster = _ttsFasterThan(_ttsNow.lang, e);
+    if (faster) {
+      _showToast(t('tts_slow_at', { slow: _voiceEngineName(e), rate: _ttsRateLabel(r), fast: _voiceEngineName(faster) }), _TTS_SUGGEST_MS,
+        function() { _ttsPickVoice(faster); }, t('tts_slow_use', { fast: _voiceEngineName(faster) }));
+    }
+  }
   if (_ttsNow.engine === _DEVICE_VOICE) { if (!_ttsPaused) _ttsSpeak(_ttsNow.at); }
   else if (_ttsAudio) { _ttsAudio.defaultPlaybackRate = r; _ttsAudio.playbackRate = r; }
   _ttsBarSync();
