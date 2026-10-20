@@ -3188,7 +3188,7 @@
   "voices_t_rest": "Tras un descanso",
   "voices_t_keeps": "Sigue hasta",
   "voices_secs": "{s} s",
-  "voices_test_all": "Probar todas las voces",
+  "voices_test_all": "Probar la velocidad de las voces",
   "voices_testing_one": "Probando {voice}… {n} de {total}",
   "voices_test_first": "Hola. Así de rápido empieza a leer esta voz.",
   "voices_test_passage": "En lo alto de las montañas el agua hierve a menos temperatura, así que la comida tarda más en cocinarse. Tapa la olla y deja que hierva un poco más que al nivel del mar.",

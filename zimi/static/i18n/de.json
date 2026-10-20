@@ -3188,7 +3188,7 @@
   "voices_t_rest": "Nach einer Pause",
   "voices_t_keeps": "Hält mit bis",
   "voices_secs": "{s} s",
-  "voices_test_all": "Alle Stimmen testen",
+  "voices_test_all": "Geschwindigkeit der Stimmen testen",
   "voices_testing_one": "Teste {voice}… {n} von {total}",
   "voices_test_first": "Hallo. So schnell beginnt diese Stimme zu lesen.",
   "voices_test_passage": "Hoch in den Bergen kocht Wasser bei niedrigerer Temperatur, darum dauert das Kochen dort länger. Lass den Topf zugedeckt und lass ihn etwas länger kochen als am Meer.",

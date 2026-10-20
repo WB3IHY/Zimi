@@ -3188,7 +3188,7 @@
   "voices_t_rest": "After a rest",
   "voices_t_keeps": "Keeps up to",
   "voices_secs": "{s} s",
-  "voices_test_all": "Test all voices",
+  "voices_test_all": "Test voice speed",
   "voices_testing_one": "Testing {voice}… {n} of {total}",
   "voices_test_first": "Hello. This is how quickly this voice starts to read.",
   "voices_test_passage": "Water boils at a lower temperature high in the mountains, so food takes longer to cook there. Keep a pot covered, and let it boil a little longer than you would at sea level.",

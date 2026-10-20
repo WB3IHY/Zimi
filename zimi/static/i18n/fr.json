@@ -3188,7 +3188,7 @@
   "voices_t_rest": "Après une pause",
   "voices_t_keeps": "Suit jusqu’à",
   "voices_secs": "{s} s",
-  "voices_test_all": "Tester toutes les voix",
+  "voices_test_all": "Tester la vitesse des voix",
   "voices_testing_one": "Test de {voice}… {n} sur {total}",
   "voices_test_first": "Bonjour. Voici à quelle vitesse cette voix commence à lire.",
   "voices_test_passage": "En haute montagne, l’eau bout à une température plus basse, donc la cuisson y prend plus de temps. Couvrez la casserole et laissez bouillir un peu plus longtemps qu’au niveau de la mer.",
