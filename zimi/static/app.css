@@ -4285,8 +4285,10 @@
 :root.night-red:has(> body.almanac-mode), :root.night-red.almanac-boot { background: #000; }
 /* Pictures to red monochrome with CSS filter functions only: iOS Safari drops an SVG url() filter on
    any layer it composites on the GPU (the Today card's moon), so the picture shows in its own colours.
-   Dimmed first so white saturates to pure red instead of a pink. One chain, everywhere (--red-picture). */
-:root.night-red { --red-picture: brightness(.6) grayscale(1) sepia(1) hue-rotate(-42deg) saturate(12) brightness(1.5); }
+   Dimmed first so white saturates to pure red instead of a pink, and so the mapping is linear: each
+   grey keeps its place between black and full red. One chain, everywhere (--red-picture). The chain
+   before sent every grey from 30% up to full red: a dark grey page and its white text were one red (#119). */
+:root.night-red { --red-picture: grayscale(1) brightness(.22) sepia(1) hue-rotate(-42deg) saturate(12); }
 :root.night-red img { filter: var(--red-picture); }
 /* Moving pictures take the GPU's own filter chain (the SVG one is a pass the page pays every frame);
    a canvas that paints its own red (the sky) takes none, or its red would be halved. */

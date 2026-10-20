@@ -548,6 +548,39 @@ function _setCanvasBackground(doc) {
   html.style.backgroundColor = 'Canvas';
   html.dataset.zimiCanvasBg = '1';
 }
+// A page's own dark mode turns its text light but cannot reach a colour
+// written on an element (a MediaWiki template's style="background-color:
+// #FEC2DC"): light text on a light box, unreadable in Dark and in Red (#119,
+// the LGBTQIA+ Wiki). Such a box keeps its hue and goes dark like the page's
+// own surfaces; its colour comes back with the light face.
+var _ISLAND_DARK_L = 0.2; // the box's lightness (HSL) once dark
+function _darkenLightIslands(doc) {
+  var win = doc.defaultView;
+  doc.querySelectorAll('body [style*="background"]').forEach(function(el) {
+    var cs = win.getComputedStyle(el), bg = _cssColorLum(cs.backgroundColor), text = _cssColorLum(cs.color);
+    if (!bg || !text || bg.alpha < _OPAQUE_MIN_ALPHA || bg.lum < _DARK_BG_MAX_LUM || text.lum < _DARK_BG_MAX_LUM) return;
+    el.dataset.zimiBg = el.style.backgroundColor;
+    el.style.setProperty('background-color', _cssColorWithLightness(cs.backgroundColor, _ISLAND_DARK_L), 'important');
+  });
+}
+function _restoreLightIslands(doc) {
+  if (!doc || !doc.querySelectorAll) return;
+  doc.querySelectorAll('[data-zimi-bg]').forEach(function(el) {
+    el.style.removeProperty('background-color');
+    if (el.dataset.zimiBg) el.style.backgroundColor = el.dataset.zimiBg;
+    delete el.dataset.zimiBg;
+  });
+}
+// An rgb()/rgba() colour, its hue and saturation kept, at lightness ``l`` (0-1).
+function _cssColorWithLightness(css, l) {
+  var p = css.match(/rgba?\(([^)]+)\)/)[1].split(',').map(parseFloat);
+  var r = p[0] / 255, g = p[1] / 255, b = p[2] / 255, max = Math.max(r, g, b), min = Math.min(r, g, b);
+  var L = (max + min) / 2, d = max - min, s = d ? d / (1 - Math.abs(2 * L - 1)) : 0, h = 0;
+  if (d) h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  var c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(h % 2 - 1)), m = l - c / 2;
+  var rgb = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][Math.floor(h) % 6];
+  return 'rgb(' + rgb.map(function(v) { return Math.round((v + m) * 255); }).join(', ') + ')';
+}
 function _dropCanvasBackground(doc) {
   var html = doc && doc.documentElement;
   if (!html || !html.dataset.zimiCanvasBg) return;
@@ -639,6 +672,7 @@ function _applyArticleDarken(doc) {
   // the browser paints between tasks, not inside one.
   _dropArticleDarken(doc);
   _dropCanvasBackground(doc);
+  _restoreLightIslands(doc);
   _askArticleFor(doc, scheme);
   // Asked for dark and STILL painting light: this page has no dark mode of its
   // own. Measured rather than assumed — an unstyled ZIM article, a MediaWiki
@@ -649,6 +683,7 @@ function _applyArticleDarken(doc) {
   // turned light) would show the reader frame's white through it: white on
   // white. It gets the scheme's own page colour instead.
   if (scheme === 'dark' && paintsDark && _articleHasNoBackground(doc)) _setCanvasBackground(doc);
+  if (scheme === 'dark' && paintsDark) _darkenLightIslands(doc);
   // Red is for night vision: a page that has no dark mode is darkened whatever
   // the setting says, a captured site included, and its pictures are dimmed.
   var red = _nightRedOn() && loc.indexOf('/static/') !== 0 && !_docIsOurOwnPage(doc);

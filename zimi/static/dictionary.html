@@ -54,6 +54,9 @@
   .spk svg { width: 16px; height: 16px; flex: none; }
   .spk.on { filter: brightness(1.12); box-shadow: 0 0 0 4px var(--amber-glow); }
   .spk.sm { height: 26px; min-width: 26px; padding: 0 8px; background: var(--amber-glow); color: var(--amber); }
+  /* Red: no white on the screen, and the largest lit area is not a button (#119). A lit outline, as Zimi's chosen pill. */
+  :root.night-red .spk:not(.sm) { background: var(--amber-glow); color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber-border); }
+  :root.night-red .spk.caret { border-inline-start-color: var(--amber-border); }
   .spk.sm svg { width: 13px; height: 13px; }
   .ipa { font-family: var(--ipa); font-size: 16px; color: var(--text); unicode-bidi: isolate; direction: ltr; }
   .ipas { display: flex; flex-direction: column; gap: 4px; margin: 0 0 14px; }
