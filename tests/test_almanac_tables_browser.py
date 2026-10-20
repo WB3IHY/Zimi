@@ -918,8 +918,9 @@ def test_one_tile_prints_and_copies_as_its_own_book(page):
     assert not page.errors, page.errors
 
 
+# The reader open on a PDF: a closed reader keeps the last one in its frame.
 PDF_SHOWN = (
-    "() => { const f = document.getElementById('reader-frame'); try {"
+    "() => { const f = document.getElementById('reader-frame'); if (!readerOpen) return false; try {"
     " const a = f.contentWindow.PDFViewerApplication; return !!(a && a.pagesCount > 0); } catch (e) { return false; } }"
 )
 
@@ -1110,6 +1111,14 @@ def test_the_whole_book_as_a_pdf_has_parts_chapters_and_page_numbers(page):
     assert not page.errors, page.errors
 
 
+def _reader_closed(pg):
+    """Back to the Almanac, whatever a test left open, so one failure stays
+    its own and does not fail the tests after it."""
+    if pg.evaluate("readerOpen"):
+        pg.evaluate("goBack()")
+        pg.wait_for_function("() => !readerOpen", timeout=10000)
+
+
 def test_a_busy_server_is_asked_once_more_and_a_slow_pdf_says_so(page):
     """The server is drawing someone else's PDF (a 503 naming its wait):
     the icons keep spinning, the page asks once more after the wait, and the
@@ -1121,9 +1130,11 @@ def test_a_busy_server_is_asked_once_more_and_a_slow_pdf_says_so(page):
     def busy_once(route):
         seen.append(route.request.method)
         if len(seen) == 1:
+            # A wait well past the checks below: at 1 s the retry came 0.14 s
+            # after them, and a slower page (after the whole book) saw it.
             route.fulfill(
                 status=503,
-                headers={"Retry-After": "1", "Content-Type": "application/json"},
+                headers={"Retry-After": "3", "Content-Type": "application/json"},
                 body='{"error": "busy"}',
             )
         else:
@@ -1143,11 +1154,10 @@ def test_a_busy_server_is_asked_once_more_and_a_slow_pdf_says_so(page):
         assert len(seen) == 2
         assert not page.evaluate(toast)
         assert page.evaluate("document.querySelectorAll('.alm-busy').length") == 0
-        page.evaluate("goBack()")
-        page.wait_for_function("() => !readerOpen", timeout=10000)
     finally:
         page.unroute("**/almanac/pdf")
         page.evaluate("() => { TB_PDF_SLOW_MS = window.__slow; }")
+        _reader_closed(page)
     assert not page.errors, page.errors
 
 
