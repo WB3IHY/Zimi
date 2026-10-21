@@ -137,7 +137,7 @@ class AbortingAudio extends FakeAudio {
 function freshReading() {
   for (const k of Object.keys(store)) delete store[k];
   timers.length = 0; fetched.length = 0;
-  const r = { speaking: null, device: null };
+  const r = { speaking: null, device: null, along: [] };
   Object.assign(ctx, {
     _ttsAudio: new FakeAudio(), _ttsRun: 1,
     _TTS_SERVER_RETRY_MS: 2000, _TTS_START_WAIT_MS: 6000, _TTS_AHEAD: 2,
@@ -145,6 +145,8 @@ function freshReading() {
     clearTimeout: id => { if (id) timers[id - 1] = null; },
     authedFetch: u => { fetched.push(u); return new Promise(() => {}); }, // never answers: the server is still saying it
     _ttsSetSpeaking: on => { r.speaking = on; },
+    _ttsAlongAudio: (idx, audio) => { r.along.push([idx, audio.currentTime]); },
+    _ttsAlongAt: () => {},
     _ttsNow: {}, _ttsBarSync: () => {}, _ttsRate: () => 1, _ttsPaused: false,
     _ttsSpeakDevice: (c, l, from) => { r.device = from; },
   });
@@ -230,6 +232,7 @@ Object.assign(ctx, {
   _TTS_RECENT_MS: 7 * 86400000,
   _TTS_WARM_ENGINES: ['kokoro', 'piper'],
   updateTopbar: () => { intent.topbar++; },
+  _bookReadSync: () => {},
   _rebuildTopbarMenu: () => { intent.rebuilt++; },
   _speakingOn: () => intent.speakingOn,
   _ttsFrameDoc: () => ({}),
@@ -446,6 +449,219 @@ const tick = () => new Promise(r => setImmediate(r));
   ok('switching engines is not a failure: no retry, no browser voice',
     !timers.some(t => t && t.ms === 2000) && r.device === null && engineOf(a.src) === 'piper',
     JSON.stringify({ device: r.device, retry: timers.filter(t => t && t.ms === 2000).length, src: engineOf(a.src) }));
+
+
+  // ── read along: the text, its sentences, where the voice is, following ────
+  {
+    const BLOCK = ' ';
+    const ax = { Node: { DOCUMENT_POSITION_FOLLOWING: 4 }, Map, isFinite, window: { matchMedia: () => ({ matches: false }) },
+      _TTS_CHUNK_MAX: 240, _TTS_FIRST_CHUNK_MAX: 120, _BOOK_EDGE: 0.3, _nightRedOn: () => false, _ttsBarSync: () => {} };
+    vm.createContext(ax);
+    vm.runInContext(extract(/var _TTS_BLOCK = [^\n]*\n/, '_TTS_BLOCK') + extract(/var _TTS_ABBREV = [^\n]*\n/, '_TTS_ABBREV') +
+      extract(/var _TTS_SKIP_TAGS[\s\S]*?var _ttsRead = null;/, 'the read-along constants'), ax);
+    vm.runInContext(['_ttsSentenceSpans', '_ttsPlanChunks', '_ttsReadModel', '_ttsPieceAt', '_ttsRange', '_ttsOffsetOf', '_ttsSelectedSpan', '_ttsSpanAtChar',
+      '_ttsSentenceAt', '_ttsScrollBy', '_ttsOnText', '_ttsMakePlan', '_ttsPlanFrom', '_ttsHlOk', '_ttsPaint', '_ttsAlongAt', '_ttsAlongAudio', '_ttsAlongChar',
+      '_ttsScroller', '_ttsFollow', '_ttsLose', '_ttsFollowResume', '_ttsTap', '_ttsAlongBegin', '_ttsAlongEnd'].map(fn).join('\n'), ax);
+
+    // A DOM of just what the reading looks at: elements with a display, text nodes, document order.
+    const BLOCKS = ['div', 'p', 'h1', 'h2', 'ul', 'li', 'main', 'article', 'section', 'body'];
+    let order = 0;
+    function node(spec, parent) {
+      if (typeof spec === 'string') { const t = { nodeType: 3, data: spec, parentNode: parent, parentElement: parent, order: order++ }; return t; }
+      const [tag, attrs, ...kids] = spec;
+      const el = { nodeType: 1, localName: tag, parentNode: parent, parentElement: parent, order: order++, classes: attrs.cls || [], style: attrs.style || {}, childNodes: [] };
+      el.classList = { contains: c => el.classes.includes(c) };
+      el.contains = n => { for (let x = n; x; x = x.parentNode) if (x === el) return true; return false; };
+      el.compareDocumentPosition = n => (n.order > el.order ? 4 | (el.contains(n) ? 16 : 0) : 2);
+      kids.forEach(k => el.childNodes.push(node(k, el)));
+      el.firstChild = el.childNodes[0] || null;
+      el.childNodes.forEach((k, i) => { k.nextSibling = el.childNodes[i + 1] || null; });
+      return el;
+    }
+    const textNode = (root, s) => { let hit; (function w(n) { if (n.nodeType === 3 && n.data.indexOf(s) >= 0 && !hit) hit = n; (n.childNodes || []).forEach(w); })(root); return hit; };
+    function mkDoc(rootSpec, sel) {
+      order = 0;
+      const main = node(rootSpec, null);
+      const doc = { addEventListener() {}, removeEventListener() {}, main, documentElement: { classList: { contains: () => false, toggle() {} } }, head: { appendChild() {} }, getElementById: () => null, createElement: () => ({}),
+        createRange: () => ({ setStart(n, o) { this.startContainer = n; this.startOffset = o; }, setEnd(n, o) { this.endContainer = n; this.endOffset = o; },
+          getBoundingClientRect() { return doc.rect(this); }, getClientRects() { return [doc.rect(this)]; } }),
+        rect: () => ({ top: 100, bottom: 120, left: 10, right: 90, width: 80, height: 20 }) };
+      doc.defaultView = {
+        getComputedStyle: el => ({ display: el.style.display || (BLOCKS.includes(el.localName) ? 'block' : 'inline'), visibility: el.style.visibility || 'visible', overflowY: 'visible' }),
+        getSelection: () => sel || { isCollapsed: true, rangeCount: 0 }, innerHeight: 800, innerWidth: 400, scrollBy(o) { this.scrolled = o; },
+        CSS: { highlights: new Map() }, Highlight: class { constructor() { this.s = []; } add(r) { this.s.push(r); } },
+      };
+      doc.defaultView.document = doc;
+      return doc;
+    }
+    const article = ['main', {}, ['h1', {}, 'Tides'], ['p', {}, 'Hello ', ['b', {}, 'big'], ' world. Dr. Smith paid 3.5 dollars. Next one.'],
+      ['div', { style: { display: 'none' } }, 'HIDDEN TEXT'], ['script', {}, 'var s = 1;'], ['div', { style: { visibility: 'hidden' } }, 'INVISIBLE'],
+      ['ul', {}, ['li', {}, 'One'], ['li', {}, 'Two']], ['p', {}, 'A', ['br', {}], 'B'], ['section', { cls: ['zb-sec'], style: { display: 'none' } }, ['p', {}, 'Later page.']]];
+    const doc = mkDoc(article);
+    const model = ax._ttsReadModel(doc, doc.main);
+    const flat = model.text.replace(new RegExp(BLOCK, 'g'), '|').replace(/\|$/, '');
+    ok('the read text is the article\'s own text nodes, a block mark between blocks', flat === 'Tides|Hello big world. Dr. Smith paid 3.5 dollars. Next one.|One|Two|A|B|Later page.', flat);
+    ok('no hidden, invisible or script text; a book\'s other pages still are read', !/HIDDEN|INVISIBLE|var s/.test(model.text) && /Later page/.test(model.text));
+    const bigAt = model.text.indexOf('big');
+    const bigRange = ax._ttsRange(model, bigAt, bigAt + 3);
+    ok('an offset maps back to its node and place in it', bigRange.startContainer.data === 'big' && bigRange.startOffset === 0 && bigRange.endOffset === 3);
+    const crossAt = model.text.indexOf('world'), cross = ax._ttsRange(model, bigAt, crossAt + 5);
+    ok('a range may run across nodes', cross.startContainer.data === 'big' && cross.endContainer.data === ' world. Dr. Smith paid 3.5 dollars. Next one.' && cross.endOffset === 6, JSON.stringify([cross.endOffset]));
+    ok('a point in a text node is its offset', ax._ttsOffsetOf(model, bigRange.startContainer, 1) === bigAt + 1);
+    const li2 = textNode(doc.main, 'Two').parentNode;
+    ok('an element\'s boundary is the next text from it', ax._ttsOffsetOf(model, li2.parentNode, 1) === model.text.indexOf('Two'));
+    ok('...and past the last text it is the end', ax._ttsOffsetOf(model, doc.main, doc.main.childNodes.length) === model.text.length);
+
+    // sentences and chunks
+    const spans = ax._ttsSentenceSpans(model.text, 0, model.text.length).map(([s, e]) => model.text.slice(s, e));
+    ok('no sentence crosses a block, a title and a list item stand alone', spans[0] === 'Tides' && spans.includes('One') && spans.includes('Two') && spans.includes('A') && spans.includes('B'), JSON.stringify(spans));
+    ok('"Dr." and a decimal do not end a sentence', spans.includes('Hello big world.') && spans.includes('Dr. Smith paid 3.5 dollars.') && spans.includes('Next one.'), JSON.stringify(spans));
+    const chunks = ax._ttsPlanChunks(model.text, 240, 120);
+    const said = chunks.map(c => c.text).join(' ');
+    ok('chunks hold every sentence once, in order', said === 'Tides Hello big world. Dr. Smith paid 3.5 dollars. Next one. One Two A B Later page.', said);
+    ok('each span in a chunk is where its words are in the text', chunks.every(c => c.text === c.spans.map(sp => model.text.slice(sp.s, sp.e).replace(/\s+/g, ' ')).join(' ') && c.spans.every(sp => sp.n === model.text.slice(sp.s, sp.e).replace(/\s+/g, ' ').length)));
+    const long = ('word '.repeat(70)).trim() + '. Tail.';
+    const lc = ax._ttsPlanChunks(long, 100, 0);
+    ok('a sentence longer than a chunk is cut at words, each piece a span of its own', lc.length > 2 && lc.every(c => c.text.length <= 100 && c.spans.length >= 1) && lc[0].spans[0].s === 0 && lc.map(c => c.text).join(' ') === long);
+    const from = model.text.indexOf('Next one.');
+    const part = ax._ttsPlanChunks(model.text, 240, 0, from, from + 9);
+    ok('a part of the text reads only that, spans kept in the whole text\'s offsets', part.length === 1 && part[0].text === 'Next one.' && part[0].spans[0].s === from);
+
+    // where in a chunk
+    const two = { text: 'First one. Second one is longer.', spans: [{ s: 0, e: 10, n: 10 }, { s: 11, e: 32, n: 21 }] };
+    ok('a character of what is said is in its sentence, the joining space too', [0, 9, 10, 11, 31, 99].map(c => ax._ttsSpanAtChar(two, c)).join() === '0,0,1,1,1,1');
+    ok('a share of the audio is a share of the characters', ax._ttsSpanAtChar(two, 0.2 * two.text.length) === 0 && ax._ttsSpanAtChar(two, 0.6 * two.text.length) === 1);
+    const small = ax._ttsPlanChunks(model.text, 20, 0);
+    const plan = { doc, model, chunks: small, b: model.text.length, sel: false };
+    const sa = ax._ttsSentenceAt(model, model.text.indexOf('Smith'));
+    ok('the sentence at an offset', model.text.slice(sa.s, sa.e) === 'Dr. Smith paid 3.5 dollars.');
+    const gap = ax._ttsSentenceAt(model, model.text.indexOf('Hello big world.') + 'Hello big world.'.length);
+    ok('between two sentences it is the next', model.text.slice(gap.s, gap.e) === 'Dr. Smith paid 3.5 dollars.');
+    ok('past the end it is the last', model.text.slice(ax._ttsSentenceAt(model, 1e6).s).startsWith('Later'));
+
+    // geometry
+    ok('a sentence in view needs no scroll', ax._ttsScrollBy({ top: 300, bottom: 340 }, 800) === 0);
+    ok('near the foot (the reading bar floats there) it is brought up to 28%', ax._ttsScrollBy({ top: 700, bottom: 740 }, 800) === Math.round(700 - 800 * 0.28));
+    ok('above the top it is brought down, a negative scroll', ax._ttsScrollBy({ top: -50, bottom: -10 }, 800) === Math.round(-50 - 224));
+    ok('a tap near a sentence\'s text is on it, a tap far from it is not', ax._ttsOnText([{ left: 10, right: 200, top: 100, bottom: 120 }], 205, 128) && !ax._ttsOnText([{ left: 10, right: 200, top: 100, bottom: 120 }], 300, 110));
+
+    // selection
+    const bigNode = bigRange.startContainer, worldNode = textNode(doc.main, ' world.');
+    let selection = { isCollapsed: false, rangeCount: 1, getRangeAt: () => ({ startContainer: bigNode, startOffset: 0, endContainer: worldNode, endOffset: 6 }), removeAllRanges() { this.cleared = true; } };
+    doc.defaultView.getSelection = () => selection;
+    const sel = ax._ttsSelectedSpan(model);
+    ok('a selection is a span of the text', sel && model.text.slice(sel[0], sel[1]) === 'big world', JSON.stringify(sel));
+    selection.isCollapsed = true;
+    ok('a collapsed selection is none', ax._ttsSelectedSpan(model) === null);
+    selection = { isCollapsed: false, rangeCount: 1, getRangeAt: () => ({ startContainer: doc.main, startOffset: 0, endContainer: doc.main, endOffset: 1 }) };
+    doc.defaultView.getSelection = () => selection;
+    const hsel = ax._ttsSelectedSpan(model);
+    ok('a selection by element boundaries (a triple click) is the text between them', hsel && model.text.slice(hsel[0], hsel[1]).replace(BLOCK, '') === 'Tides', JSON.stringify(hsel));
+
+    // the reading marks, follows and is seeked
+    ax._readerMainContent = d => d.main;
+    selection = { isCollapsed: false, rangeCount: 1, getRangeAt: () => ({ startContainer: bigNode, startOffset: 0, endContainer: worldNode, endOffset: 6 }), removeAllRanges() { this.cleared = true; } };
+    doc.defaultView.getSelection = () => selection;
+    const selPlan = ax._ttsMakePlan(doc);
+    ok('with a selection Read aloud reads the selection and stops', selPlan.sel && selPlan.chunks.length === 1 && selPlan.chunks[0].text === 'big world', JSON.stringify(selPlan.chunks));
+    selection.isCollapsed = true;
+    const allPlan = ax._ttsMakePlan(doc);
+    ok('without one it reads the whole article', !allPlan.sel && allPlan.chunks.map(c => c.text).join(' ') === said);
+    doc.__zbHere = () => ({ startContainer: textNode(doc.main, 'One'), startOffset: 0 });
+    ok('in a book it begins at the page that is open', ax._ttsMakePlan(doc).chunks.map(c => c.text).join(' ') === 'One Two A B Later page.');
+    delete doc.__zbHere;
+
+    const listeners = [];
+    doc.addEventListener = (t, f) => listeners.push(t); doc.removeEventListener = (t) => { listeners.splice(listeners.indexOf(t), 1); };
+    selection = { isCollapsed: false, rangeCount: 1, getRangeAt: () => ({ startContainer: bigNode, startOffset: 0, endContainer: worldNode, endOffset: 6 }), removeAllRanges() { this.cleared = true; } };
+    doc.defaultView.getSelection = () => selection;
+    ax._ttsAlongBegin(selPlan);
+    ok('the selection gives way to the mark, and the article is listened to', selection.cleared && ['wheel', 'touchmove', 'keydown', 'mousedown', 'click', 'scroll'].every(t => listeners.includes(t)));
+    ax._ttsAlongEnd();
+    ok('when it ends the listeners go', listeners.length === 0 && ax._ttsRead === null);
+
+    ax._ttsAlongBegin(plan);
+    const hls = doc.defaultView.CSS.highlights;
+    ax._ttsAlongAt(0, null);
+    ok('before the voice says where it is, the whole chunk is marked', hls.get('zimi-tts').s.length === small[0].spans.length);
+    ax._ttsAlongAt(1, 0);
+    ok('then the sentence, one range', hls.get('zimi-tts').s.length === 1);
+    ax._ttsAlongAudio(1, { duration: NaN, currentTime: 0 });
+    ok('audio of unknown length marks the whole chunk', hls.get('zimi-tts').s.length === small[1].spans.length);
+    ax._ttsAlongAudio(1, { duration: 10, currentTime: 5 });
+    ok('audio half played marks the sentence half way through the chunk', hls.get('zimi-tts').s.length === 1);
+    ax._ttsAlongChar(0, 0);
+    ok('the browser\'s voice marks by the character it reached', hls.get('zimi-tts').s.length === 1);
+    const win = doc.defaultView;
+    doc.documentElement.classList.toggle = (c, on) => { doc.night = [c, on]; };
+    ax._nightRedOn = () => true; ax._ttsRead.key = ''; ax._ttsAlongAt(0, 0);
+    ok('a night-red page gets its own, fainter mark', /zimi-tts-night ::highlight/.test(ax._TTS_HL_CSS) && doc.night && doc.night[0] === 'zimi-tts-night' && doc.night[1] === true);
+    ax._nightRedOn = () => false;
+
+    // follow
+    doc.rect = () => ({ top: 700, bottom: 740, left: 0, right: 50, width: 50, height: 40 });
+    ax._ttsRead.key = ''; ax._ttsAlongAt(1, 0);
+    ok('near the foot the page scrolls smoothly to bring it up', win.scrolled && win.scrolled.top === Math.round(700 - 224) && win.scrolled.behavior === 'smooth', JSON.stringify(win.scrolled));
+    win.scrolled = null; doc.rect = () => ({ top: 300, bottom: 340, left: 0, right: 50, width: 50, height: 40 });
+    ax._ttsAlongAt(1, 1);
+    ok('in view: no scroll', !win.scrolled);
+    ax._ttsLose();
+    ok('a hand on the page stops following', ax._ttsRead.following === false);
+    doc.rect = () => ({ top: 700, bottom: 740, left: 0, right: 50, width: 50, height: 40 });
+    ax._ttsAlongAt(2, 0);
+    ok('...and the page stays where the person left it', !win.scrolled && ax._ttsRead.following === false);
+    doc.rect = () => ({ top: 300, bottom: 340, left: 0, right: 50, width: 50, height: 40 });
+    ax._ttsAlongAt(3, 0);
+    ok('...until the sentence is back in view', ax._ttsRead.following === true);
+    ax._ttsLose();
+    doc.rect = () => ({ top: 700, bottom: 740, left: 0, right: 50, width: 50, height: 40 });
+    ax._ttsRead.key = ''; ax._ttsAlongAt(3, 0);
+    ax._ttsFollowResume();
+    ok('tapping the voice state follows again, at once', ax._ttsRead.following === true && win.scrolled && win.scrolled.top === Math.round(700 - 224));
+    ax.window.matchMedia = () => ({ matches: true });
+    win.scrolled = null; ax._ttsRead.key = ''; ax._ttsAlongAt(3, 0);
+    ok('reduced motion: it jumps, not glides', win.scrolled && win.scrolled.behavior === 'auto');
+    // a book on pages turns the page
+    doc.documentElement.classList.contains = c => c === 'zb-paged';
+    let shown = null; doc.__zbShowRange = r => { shown = r; };
+    doc.rect = () => ({ top: 100, bottom: 120, left: 900, right: 990, width: 90, height: 20 });
+    ax._ttsRead.key = ''; ax._ttsAlongAt(4, 0);
+    ok('on pages a sentence off the open page turns the page', shown !== null);
+    shown = null; doc.rect = () => ({ top: 100, bottom: 120, left: 20, right: 90, width: 70, height: 20 });
+    ax._ttsRead.key = ''; ax._ttsAlongAt(4, 1);
+    ok('...and one on the open page turns nothing', shown === null);
+    doc.documentElement.classList.contains = () => false;
+    ax.window.matchMedia = () => ({ matches: false });
+
+    // a tap
+    let spoken = null;
+    ax._ttsSpeak = (from, p) => { spoken = p; };
+    ax._bookCaretAt = () => ({ node: textNode(doc.main, 'Smith'), off: 8 });
+    doc.rect = () => ({ top: 100, bottom: 120, left: 10, right: 200, width: 190, height: 20 });
+    const tap = (over) => Object.assign({ defaultPrevented: false, button: 0, clientX: 100, clientY: 110, target: { closest: () => null } }, over);
+    win.getSelection = () => ({ isCollapsed: true, rangeCount: 0 });
+    ax._ttsTap(tap());
+    ok('a tap on a sentence moves the reading there, to the end of what was being read', spoken && spoken.chunks[0].text.startsWith('Dr. Smith paid 3.5 dollars.') && spoken.b === plan.b, spoken && spoken.chunks[0].text);
+    spoken = null; ax._ttsTap(tap({ target: { closest: () => ({}) } }));
+    ok('never a link, a button or an image to enlarge', spoken === null);
+    win.getSelection = () => ({ isCollapsed: false, toString: () => 'some words', rangeCount: 1 });
+    ax._ttsTap(tap());
+    ok('never a text selection', spoken === null);
+    win.getSelection = () => ({ isCollapsed: true, rangeCount: 0 });
+    ax._ttsTap(tap({ clientY: 400 }));
+    ok('never a tap far from the text', spoken === null);
+    ax._ttsTap(tap({ defaultPrevented: true }));
+    ok('never one something else took', spoken === null);
+    doc.documentElement.classList.contains = c => c === 'zb-paged';
+    ax._ttsTap(tap({ clientX: 20 }));
+    ok('on pages the edge turns the page, it does not seek, and following stops', spoken === null && ax._ttsRead.following === false);
+    ax._ttsAlongEnd();
+    // no highlight API: nothing marked, nothing breaks
+    const bare = mkDoc(article); delete bare.defaultView.CSS;
+    ax._ttsAlongBegin(ax._ttsPlanFrom(ax._ttsReadModel(bare, bare.main), 0, 99999, false));
+    let threw = false; try { ax._ttsAlongAt(0, null); ax._ttsAlongEnd(); } catch (e) { threw = true; }
+    ok('where the highlight API is missing nothing is marked and nothing breaks', !threw);
+  }
 
   if (failures) { console.log(failures + ' failed'); process.exit(1); }
   console.log('all passed');

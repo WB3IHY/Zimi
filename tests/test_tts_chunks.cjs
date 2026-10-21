@@ -8,7 +8,11 @@ const path = require('path');
 
 const src = fs.readFileSync(path.join(__dirname, '..', 'zimi', 'static', 'app.js'), 'utf8');
 const pick = (re, name) => { const m = src.match(re); if (!m) throw new Error('not found: ' + name); return m[0]; };
-eval(pick(/function _ttsChunkText[\s\S]*?\n}/, '_ttsChunkText'));
+eval(pick(/var _TTS_BLOCK = [^\n]*/, '_TTS_BLOCK'));
+eval(pick(/var _TTS_ABBREV = [^\n]*/, '_TTS_ABBREV'));
+for (const name of ['_ttsSentenceSpans', '_ttsPlanChunks', '_ttsChunkText']) {
+  eval(pick(new RegExp('function ' + name + '\\([\\s\\S]*?\\n}'), name));
+}
 eval(pick(/var _TTS_CHUNK_MAX = [^\n]*/, '_TTS_CHUNK_MAX'));
 
 let failures = 0;
