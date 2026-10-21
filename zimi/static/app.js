@@ -7711,6 +7711,23 @@ function _renderTodayCard() {
     '</div>';
 }
 
+// A module fetched when first needed (Create, Read aloud): one <script> per
+// file however many ask, resolving true once it ran, false when it could not
+// be fetched (offline before it was ever cached), so the next ask tries again.
+var _scriptsLoading = {};
+function _loadScript(src) {
+  if (!_scriptsLoading[src]) {
+    _scriptsLoading[src] = new Promise(function(resolve) {
+      var el = document.createElement('script');
+      el.src = src;
+      el.onload = function() { resolve(true); };
+      el.onerror = function() { delete _scriptsLoading[src]; el.remove(); resolve(false); };
+      document.head.appendChild(el);
+    });
+  }
+  return _scriptsLoading[src];
+}
+
 // -- Create a ZIM (lazy-loaded from /static/create.js) --
 // Same shape as the Almanac below: a full-page surface over the library, its
 // module fetched only when an admin actually opens it. The module overrides
@@ -7756,18 +7773,15 @@ function openCreate(replaceState) {
     return;
   }
   if (_createLoaded) { _openCreateInner(replaceState); return; }
-  var el = document.createElement('script');
-  el.src = '/static/create.js?v=1';
-  el.onload = function() { _createLoaded = true; _openCreateInner(replaceState); };
-  // Offline with a cold cache: the module was never fetched. Say so rather
-  // than leaving a button that appears to do nothing.
-  el.onerror = function() {
-    // Drop the boot gate too, or a cold load of /#create leaves the library
-    // hidden behind a shell that is never going to fill in.
+  _loadScript('/static/create.js?v=1').then(function(ok) {
+    if (ok) { _createLoaded = true; _openCreateInner(replaceState); return; }
+    // Offline with a cold cache: the module was never fetched. Say so rather
+    // than leaving a button that appears to do nothing. Drop the boot gate
+    // too, or a cold load of /#create leaves the library hidden behind a
+    // shell that is never going to fill in.
     document.documentElement.classList.remove('create-boot');
     _showToast(t('create_unavailable_offline'));
-  };
-  document.head.appendChild(el);
+  });
 }
 
 // Both overridden by create.js once it loads.
@@ -15082,19 +15096,13 @@ function _creatorDefaultsHtml(d) {
   return _loadingHtml();
 }
 function _creatorLoadForm() {
-  if (_creatorFormLoading) return;
-  _creatorFormLoading = true;
-  var el = document.createElement('script');
-  el.src = '/static/create.js?v=1';
-  el.onload = function() {
+  _loadScript('/static/create.js?v=1').then(function(ok) {
+    if (!ok) return;
     _createLoaded = true;
     var slot = document.getElementById('ms-cr-defaults');
     if (slot && _creatorData) slot.innerHTML = _createDefaultsFormHtml(_creatorData);
-  };
-  el.onerror = function() { _creatorFormLoading = false; };
-  document.head.appendChild(el);
+  });
 }
-var _creatorFormLoading = false;
 
 function _creatorQueueHtml(queue) {
   return queue
