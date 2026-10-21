@@ -484,7 +484,7 @@ const tick = () => new Promise(r => setImmediate(r));
       extract(/var _TTS_SKIP_TAGS[\s\S]*?var _ttsRead = null;/, 'the read-along constants'), ax);
     vm.runInContext(['_ttsPlanChunks', '_ttsReadModel', '_ttsPieceAt', '_ttsRange', '_ttsOffsetOf', '_ttsSelectedSpan', '_ttsSpanAtChar',
       '_ttsSentenceAt', '_ttsScrollBy', '_ttsOnText', '_ttsMakePlan', '_ttsPlanFrom', '_ttsHlOk', '_ttsPaint', '_ttsAlongAt', '_ttsAlongAudio', '_ttsAlongChar',
-      '_ttsScroller', '_ttsFollow', '_ttsLose', '_ttsFollowResume', '_ttsTap', '_ttsAlongBegin', '_ttsAlongEnd'].map(fn).join('\n'), ax);
+      '_ttsScroller', '_ttsFollow', '_ttsLose', '_ttsFollowResume', '_ttsTap', '_ttsStep', '_ttsAlongBegin', '_ttsAlongEnd'].map(fn).join('\n'), ax);
 
     // A DOM of just what the reading looks at: elements with a display, text nodes, document order.
     const BLOCKS = ['div', 'p', 'h1', 'h2', 'ul', 'li', 'main', 'article', 'section', 'body'];
@@ -677,6 +677,20 @@ const tick = () => new Promise(r => setImmediate(r));
     win.getSelection = () => ({ isCollapsed: true, rangeCount: 0 });
     ax._ttsTap(tap());
     ok('a tap on a sentence moves the reading there, to the end of what was being read', spoken && spoken.chunks[0].text.startsWith('Dr. Smith paid 3.5 dollars.') && spoken.b === plan.b, spoken && spoken.chunks[0].text);
+    // a sentence back and on
+    const rp = ax._ttsRead.plan, keyOf = (want) => {
+      for (let i = 0; i < rp.chunks.length; i++) for (let k = 0; k < rp.chunks[i].spans.length; k++) {
+        const sp = rp.chunks[i].spans[k];
+        if (rp.model.text.slice(sp.s, sp.e).startsWith(want)) return i + ':' + k;
+      }
+    };
+    const step = (from, dir) => { spoken = null; ax._ttsRead.key = from; ax._ttsStep(dir); return spoken && spoken.chunks[0].text; };
+    ok('on: the next sentence, from any piece of a long one', /^Next one\./.test(step(keyOf('Dr. Smith'), 1) || '') && /^Next one\./.test(step(keyOf('dollars'), 1) || ''), step(keyOf('dollars'), 1));
+    ok('back from a piece: the sentence before the whole sentence', /^Hello big world\./.test(step(keyOf('dollars'), -1) || ''), step(keyOf('dollars'), -1));
+    ok('back: the sentence before', /^Hello big world\./.test(step(keyOf('Dr. Smith'), -1) || ''), step(keyOf('Dr. Smith'), -1));
+    ok('back across a block: the heading before it', /^Tides\./.test(step(keyOf('Hello'), -1) || ''), step(keyOf('Hello'), -1));
+    ok('on across a block: the list item after it', /^One\./.test(step(keyOf('Next one'), 1) || ''), step(keyOf('Next one'), 1));
+    ok('before the voice says where it is, from the chunk\'s first sentence', /^Next one\./.test(step('2:null', 1) || ''), step('2:null', 1));
     spoken = null; ax._ttsTap(tap({ target: { closest: () => ({}) } }));
     ok('never a link, a button or an image to enlarge', spoken === null);
     win.getSelection = () => ({ isCollapsed: false, toString: () => 'some words', rangeCount: 1 });

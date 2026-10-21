@@ -494,6 +494,25 @@ function _ttsTap(e) {
   var plan = _ttsPlanFrom(model, sp.s, st.plan.b, false);
   if (plan) _ttsSpeak(0, plan);
 }
+// The reading one sentence back (``dir`` -1) or on (1) from the one being
+// read, as a tap on that sentence would move it. Back from the first, it
+// starts that one again; on from the last, nothing.
+function _ttsStep(dir) {
+  var st = _ttsRead;
+  if (!st) return;
+  var key = String(st.key).split(':'), chunk = st.plan.chunks[+key[0] || 0];
+  var cur = chunk && chunk.spans[key[1] === 'null' || key[1] == null ? 0 : +key[1]];
+  if (!cur) return;
+  // The whole sentence: a long one is said in pieces, each a span of its own.
+  var model = st.plan.model, t = model.text;
+  cur = _ttsSentenceAt(model, cur.s) || cur;
+  var o = dir < 0 ? cur.s - 1 : cur.e;
+  while (o >= 0 && o < t.length && /\s/.test(t[o])) o += dir < 0 ? -1 : 1;
+  if (o >= st.plan.b) return;
+  var sp = o < 0 ? cur : _ttsSentenceAt(model, o);
+  var plan = sp && _ttsPlanFrom(model, sp.s, st.plan.b, false);
+  if (plan) _ttsSpeak(0, plan);
+}
 // While it reads, the article is listened to: a hand on the page (wheel,
 // finger, scroll keys, the scrollbar) is the person moving it; a tap seeks.
 function _ttsAlongBegin(plan) {
@@ -700,6 +719,8 @@ var _ttsSliding = false; // a finger is on the slider: the bar is not redrawn un
 var _TTS_CHEVRON = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>';
 var _TTS_PAUSE_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
 var _TTS_PLAY_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10-6.5a1 1 0 0 0 0-1.7l-10-6.6A1 1 0 0 0 8 5.5z"/></svg>';
+var _TTS_BACK_ICON = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 6.5v11a1 1 0 0 1-1.6.8l-7-5.5a1 1 0 0 1 0-1.6l7-5.5a1 1 0 0 1 1.6.8zM21 6.5v11a1 1 0 0 1-1.6.8l-7-5.5a1 1 0 0 1 0-1.6l7-5.5a1 1 0 0 1 1.6.8z"/></svg>';
+var _TTS_ON_ICON = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13 6.5v11a1 1 0 0 0 1.6.8l7-5.5a1 1 0 0 0 0-1.6l-7-5.5a1 1 0 0 0-1.6.8zM3 6.5v11a1 1 0 0 0 1.6.8l7-5.5a1 1 0 0 0 0-1.6l-7-5.5A1 1 0 0 0 3 6.5z"/></svg>';
 var _TTS_CLOSE_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 // The voices this article's language can be read in: the server's, in its
 // order (none Settings turned off), then this browser's.
@@ -758,8 +779,11 @@ function _ttsBarHtml() {
   h += '<span class="tts-bar-anchor">' + btn('tts-bar-speed', t('tts_speed'), "_ttsMenuToggle('speed')", esc(_ttsRateLabel(rate)),
     ' aria-haspopup="true" aria-expanded="' + (_ttsMenuOpen === 'speed') + '"') +
     (_ttsMenuOpen === 'speed' ? _ttsSpeedHtml(rate) : '') + '</span>';
+  // A sentence back and on, around pause (Eric, 2026-10-21: "go forward/backward sentences").
+  h += btn('tts-bar-btn tts-bar-step', t('tts_prev_sentence'), '_ttsStep(-1)', _TTS_BACK_ICON);
   h += btn('tts-bar-btn', t(_ttsPaused ? 'resume' : 'pause'), '_ttsPauseToggle()', _ttsPaused ? _TTS_PLAY_ICON : _TTS_PAUSE_ICON,
     ' aria-pressed="' + _ttsPaused + '"');
+  h += btn('tts-bar-btn tts-bar-step', t('tts_next_sentence'), '_ttsStep(1)', _TTS_ON_ICON);
   h += btn('tts-bar-btn', t('tts_stop'), '_ttsStop()', _TTS_CLOSE_ICON);
   return h;
 }
