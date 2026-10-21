@@ -11151,6 +11151,7 @@ var _langDisplayCacheLang = '';
 var _SPECIAL_LANG = { mul:'Multilingual', mis:'Other', und:'Unknown', zxx:'No language' };
 // Fallback names for ISO 639-3 codes that Intl.DisplayNames doesn't handle
 var _LANG3_NAMES = {
+  hyw:'Western Armenian',mto:'Totontepec Mixe',nci:'Classical Nahuatl',
   stq:'Saterland Frisian',nds:'Low German',szl:'Silesian',lmo:'Lombard',scn:'Sicilian',
   vec:'Venetian',pms:'Piedmontese',nap:'Neapolitan',eml:'Emilian-Romagnol',lij:'Ligurian',
   frr:'North Frisian',bar:'Bavarian',ksh:'Colognian',pfl:'Palatinate German',als:'Alemannic',
@@ -28430,7 +28431,7 @@ function _buildTopbarMenuHtml() {
     // 4. Read aloud.
     if (_ttsOffered() && !_isMapPage() && !_isAppPage() && !_isPdfPage()) {
       readerGroup += '<button class="topbar-menu-item" id="tbm-tts" aria-pressed="' + (_ttsSpeaking ? 'true' : 'false') +
-        '" onclick="event.stopPropagation();_ttsToggle()">' + _TBM_TTS_ICON +
+        '" onclick="_closeTopbarMenu();_ttsToggle()">' + _TBM_TTS_ICON +
         ' <span class="tbm-label">' + tH(_ttsSpeaking ? 'tts_stop' : 'tts_speak') + '</span></button>';
     }
     // 5. Open in browser — LAST, and only where it's meaningful: the desktop app
