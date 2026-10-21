@@ -33,8 +33,12 @@ Before tagging, verify these on the feature branch:
 - [ ] `node -c zimi/static/app.js` passes (no syntax errors)
 - [ ] `python3 -m pytest tests/ -q` passes
 - [ ] `./scripts/release-gate.sh` passes — boots real servers against real ZIM files and drives every headline feature over HTTP, which is the only way to catch a feature that is correct in every module and still dead end to end (cross-ZIM link resolution once shipped serving an empty domain map, and no unit test noticed)
-- [ ] CHANGELOG updated, README current, screenshots current
+- [ ] CHANGELOG updated (with a `### Highlights` block, see Release notes below), README current, screenshots current
 - [ ] No debug print statements or console.logs that shouldn't ship
+
+### Release notes
+
+Auto Release builds the draft's body from the version's `## [X.Y.Z]` section in `CHANGELOG.md` (`scripts/release_notes.py`). The section may open with a `### Highlights` block of one to three short sentences, before `### Added` and the rest. When it does, the release body is those sentences plus a link to the full entry in the CHANGELOG at the version's tag. Without the block the whole section is the body. Highlights are plain prose, no bullets or headings; the CHANGELOG itself keeps them as its first subsection. A draft that already exists is never overwritten, so a curated body wins.
 
 ### Phase 1: Tag and build
 

@@ -3,7 +3,7 @@ name: Auto Release
 # ── Single-draft release flow (there must be exactly ONE draft per tag) ──────
 # When a push to main changes the version in pyproject.toml:
 #   1. this workflow tags vX.Y.Z and creates/updates the draft release, with
-#      notes pulled from CHANGELOG.md;
+#      notes pulled from CHANGELOG.md (scripts/release_notes.py);
 #   2. the tag push triggers desktop-release.yml, which builds every platform,
 #      signs the update enclosures, refreshes the appcasts, and attaches the
 #      built assets to the SAME draft (softprops matches the release by tag).
@@ -75,26 +75,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Extract the section for this version from CHANGELOG.md
-          NOTES=$(awk "/^## \[${VERSION}\]/{found=1; next} /^## \[/{if(found) exit} found{print}" CHANGELOG.md)
-          if [ -z "$NOTES" ]; then
-            NOTES="Release v${VERSION}"
-          fi
+          # The Highlights block (or, without one, the whole section) for this
+          # version; the rules live in scripts/release_notes.py.
+          python3 scripts/release_notes.py "${VERSION}" > /tmp/release-notes.md
           # Append upgrade instructions
-          cat > /tmp/release-notes.md << ENDNOTES
-          ${NOTES}
+          cat >> /tmp/release-notes.md << 'ENDNOTES'
 
           ### Upgrade
 
-          \`\`\`bash
+          ```bash
           docker pull epheterson/zimi:latest
           docker compose down && docker compose up -d
-          \`\`\`
+          ```
 
-          Or \`pip install --upgrade zimi\` for Python installs.
+          Or `pip install --upgrade zimi` for Python installs.
           ENDNOTES
-          # Trim leading whitespace from heredoc
-          sed -i 's/^          //' /tmp/release-notes.md
           # One draft per tag: update an existing release (curated draft or a
           # re-run) instead of creating a duplicate. `gh release view` finds
           # drafts by tag too.
