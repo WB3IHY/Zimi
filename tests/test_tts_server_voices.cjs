@@ -221,7 +221,7 @@ ok('Reader View opening is the other, for someone who read aloud lately',
   /function _readerViewApply[\s\S]*?if \(_ttsUsedRecently\(\)\) _ttsPrepare\(\)/.test(src));
 ok('speaking does not ask again on every start', !/_ttsLoadVoices\(\)/.test(fn('_ttsSpeak')));
 
-const intent = { calls: [], now: 1e12, answer: null, rebuilt: 0, topbar: 0, readerOpen: true, speakingOn: true, lang: 'en', posts: [] };
+const intent = { loads: 0, calls: [], now: 1e12, answer: null, rebuilt: 0, topbar: 0, readerOpen: true, speakingOn: true, lang: 'en', posts: [] };
 Object.assign(ctx, {
   Date: { now: () => intent.now },
   Promise,
@@ -239,6 +239,8 @@ Object.assign(ctx, {
   _speakingOn: () => intent.speakingOn,
   _ttsFrameDoc: () => ({}),
   _ttsLang: () => intent.lang,
+  // readaloud.js, fetched: counted, never fetched here.
+  _ttsLoad: () => { intent.loads++; return Promise.resolve(true); },
   authedFetch: (u, o) => {
     if (o && o.method === 'POST') { intent.posts.push([u, JSON.parse(o.body)]); return Promise.resolve({ ok: true }); }
     intent.calls.push(u);
@@ -246,8 +248,8 @@ Object.assign(ctx, {
   },
 });
 Object.assign(ctx.SK, { TTS_LAST_USE: 'zimi_tts_last_use', TTS_SUGGESTED: 'zimi_tts_suggested' });
-vm.runInContext(['_ttsLoadVoices', '_ttsUsedRecently', '_ttsPrepare'].map(fn).join('\n'), ctx);
-const reset = () => { for (const k of Object.keys(store)) delete store[k]; Object.assign(intent, { calls: [], posts: [], rebuilt: 0, topbar: 0, speakingOn: true }); ctx._ttsVoices = null; ctx._ttsVoicesAt = 0; ctx._ttsVoicesBusy = null; ctx._ttsWarmed = {}; };
+vm.runInContext(['_ttsLoadVoices', '_ttsUsedRecently', '_ttsPrepare', '_ttsWarm'].map(fn).join('\n') + '\n' + extract(/function _ttsOffered\(\) \{[^\n]*\n/, '_ttsOffered'), ctx);
+const reset = () => { for (const k of Object.keys(store)) delete store[k]; Object.assign(intent, { loads: 0, calls: [], posts: [], rebuilt: 0, topbar: 0, speakingOn: true }); ctx._ttsVoices = null; ctx._ttsVoicesAt = 0; ctx._ttsVoicesBusy = null; ctx._ttsWarmed = {}; };
 const row = { engine: 'piper', engines: ['piper'] };
 const tick = () => new Promise(r => setImmediate(r));
 
@@ -264,6 +266,7 @@ const tick = () => new Promise(r => setImmediate(r));
   ctx._ttsPrepare(); await tick();
   ok('later it asks again (a voice downloaded since is found)', intent.calls.length === 2);
   ok('someone who never read aloud: no warm', intent.posts.length === 0);
+  ok('...and the reading itself is never fetched for them', intent.loads === 0);
 
   reset();
   intent.answer = { langs: { en: row } };
@@ -272,6 +275,7 @@ const tick = () => new Promise(r => setImmediate(r));
   ok('read aloud yesterday: the article\'s voice is warmed', intent.posts.length === 1 && intent.posts[0][0] === '/dictionary/voices/warm' && JSON.stringify(intent.posts[0][1].langs) === '["en"]', JSON.stringify(intent.posts));
   ctx._ttsPrepare(); await tick(); await tick();
   ok('...once per language and voice', intent.posts.length === 1);
+  ok('someone who reads aloud has the reading fetched with the article', intent.loads >= 1);
 
   reset();
   intent.answer = { langs: { en: row } };

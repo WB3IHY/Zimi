@@ -28,10 +28,6 @@ var _TTS_AHEAD = 2; // chunks asked for ahead of the one playing, so the voice n
 var _ttsAudio = null;
 var _ttsRun = 0; // bumped by every start and stop: callbacks of an older run do nothing
 var _TTS_SUGGEST_MS = 9000;
-// Read aloud may be used soon: have the voice list; and for someone who reads
-// aloud (this week), have the server load the article's voice now, so the
-// first chunk does not wait for the model (the Dictionary does the same on
-// opening). Nothing is fetched or downloaded for it.
 var _TTS_WARM_ENGINES = ['kokoro', 'piper']; // the voices that load a model
 var _ttsWarmed = {};
 // The voice Read aloud reads in when the person chose one: its own (Settings >
@@ -646,4 +642,227 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
   };
   audio.onerror = function() { if (live() && audio.getAttribute('src')) fail(); };
   play(i);
+}
+function _ttsToggle() {
+  if (_ttsSpeaking) _ttsStop();
+  else _ttsSpeak();
+}
+
+// ── While it reads: a bar at the foot of the reader ──
+// On a phone Read aloud is a row in the ⋯ menu, so once the menu closed
+// nothing said a reading had begun, that it waited for the server's voice, or
+// which voice it was. The bar says all three (a turning ring until the first
+// sound, then the voice), offers this language's voices where it plays
+// (remembered as Read aloud's own, Settings > Voices), and stops it.
+var _ttsNow = { at: 0, engine: '', playing: false, lang: '' };
+var _ttsMenuOpen = ''; // the bar's open menu: '', 'voice' or 'speed'
+var _ttsPaused = false;
+var _TTS_RATE_STOPS = [1, 1.5, 2]; // a finger within _TTS_RATE_SNAP of one lands on it
+var _TTS_RATE_SNAP = 0.05;
+var _TTS_RATE_MARKS = [0.5, 1, 1.5, 2, 3]; // named under the slider, a tap each
+var _TTS_SPEED_SETTLE_MS = 700; // the voice is asked about once the speed stops moving
+var _ttsSliding = false; // a finger is on the slider: the bar is not redrawn under it
+var _TTS_CHEVRON = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>';
+var _TTS_PAUSE_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+var _TTS_PLAY_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10-6.5a1 1 0 0 0 0-1.7l-10-6.6A1 1 0 0 0 8 5.5z"/></svg>';
+var _TTS_CLOSE_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+// The voices this article's language can be read in: the server's, in its
+// order (none Settings turned off), then this browser's.
+function _ttsVoicesFor(lang) {
+  var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
+  var out = row ? _ttsRowOrder(row, _voicePrefs()) : [];
+  if (_TTS_AVAILABLE) out.push(_DEVICE_VOICE);
+  return out;
+}
+// The voice reading, and (Too slow) when it pauses at this speed: the voice's
+// name says it, not the speed (Eric, 2026-10-20).
+function _ttsVoiceLabel() {
+  var e = _ttsNow.engine;
+  return _voiceEngineName(e) + (e && _ttsKeepsUp(e, _ttsRate()) === false ? ' ' + t('tts_too_slow') : '');
+}
+// The speed sheet: a slider (the bar's button says the speed), the marks
+// under it each a tap away. Arrow keys step 0.05 and never snap.
+function _ttsSpeedHtml(rate) {
+  var at = function(r) { return ((r - _TTS_RATE_MIN) / (_TTS_RATE_MAX - _TTS_RATE_MIN)).toFixed(4); };
+  return '<div class="tts-bar-menu tts-speed" role="group" aria-label="' + escAttr(t('tts_speed')) + '">' +
+    '<input type="range" class="tts-speed-range" style="--fill:' + at(rate) + '" min="' + _TTS_RATE_MIN + '" max="' + _TTS_RATE_MAX + '" step="' + _TTS_RATE_STEP +
+      '" value="' + rate + '" aria-label="' + escAttr(t('tts_speed')) + '" aria-valuetext="' + escAttr(_ttsRateLabel(rate)) + '"' +
+      ' onpointerdown="_ttsSliding = true" onpointerup="_ttsSliding = false" onpointercancel="_ttsSliding = false"' +
+      ' oninput="_ttsSlideSpeed(this)" onchange="_ttsSpeedChanged()">' +
+    '<div class="tts-speed-marks">' + _TTS_RATE_MARKS.map(function(r) {
+      return '<button type="button" style="--at:' + at(r) + '"' + (Math.abs(r - rate) < _TTS_RATE_EPS ? ' aria-current="true"' : '') +
+        ' onclick="_ttsPickSpeed(' + r + ')">' + esc(_ttsRateLabel(r)) + '</button>';
+    }).join('') + '</div></div>';
+}
+function _ttsBarHtml() {
+  var pick = _voicePrefs().read || '';
+  var voices = _ttsVoicesFor(_ttsNow.lang);
+  var btn = function(cls, label, onclick, inner, extra) {
+    return '<button type="button" class="' + cls + '" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '" onclick="' + onclick + '"' + (extra || '') + '>' + inner + '</button>';
+  };
+  var h = '<span class="tts-bar-state' + (_ttsPaused ? ' paused' : _ttsNow.playing ? ' playing' : '') + '" aria-hidden="true"><i></i><i></i><i></i></span>';
+  // A menu opens above the button it belongs to, its choices radio items.
+  var menu = function(which, items) {
+    if (_ttsMenuOpen !== which) return '';
+    return '<div class="tts-bar-menu tts-bar-menu-' + which + '" role="menu">' + items.map(function(it) {
+      return '<button type="button" role="menuitemradio" aria-checked="' + it[0] + '"' + (it[3] ? ' data-slow' : '') +
+        ' onclick="' + escAttr(it[1]) + '">' + esc(it[2] + (it[3] ? ' ' + t('tts_too_slow') : '')) + '</button>';
+    }).join('') + '</div>';
+  };
+  if (voices.length > 1) {
+    h += '<span class="tts-bar-anchor"><button type="button" class="tts-bar-voice" aria-haspopup="menu" aria-expanded="' + (_ttsMenuOpen === 'voice') + '" onclick="_ttsMenuToggle(\'voice\')">' +
+      '<span>' + esc(_ttsVoiceLabel()) + '</span>' + _TTS_CHEVRON + '</button>' +
+      menu('voice', [['' === pick, '_ttsPickVoice("")', t('voices_default_auto')]].concat(voices.map(function(e) {
+        // Still pickable, but said (Eric, 2026-10-19: "a lil (Too Slow) beside the previous voice").
+        return [e === pick, '_ttsPickVoice(' + JSON.stringify(e) + ')', _voiceEngineName(e), _ttsTooSlow(e)];
+      }))) + '</span>';
+  } else {
+    h += '<span class="tts-bar-voice">' + esc(_ttsVoiceLabel()) + '</span>';
+  }
+  var rate = _ttsRate();
+  h += '<span class="tts-bar-anchor">' + btn('tts-bar-speed', t('tts_speed'), "_ttsMenuToggle('speed')", esc(_ttsRateLabel(rate)),
+    ' aria-haspopup="true" aria-expanded="' + (_ttsMenuOpen === 'speed') + '"') +
+    (_ttsMenuOpen === 'speed' ? _ttsSpeedHtml(rate) : '') + '</span>';
+  h += btn('tts-bar-btn', t(_ttsPaused ? 'resume' : 'pause'), '_ttsPauseToggle()', _ttsPaused ? _TTS_PLAY_ICON : _TTS_PAUSE_ICON,
+    ' aria-pressed="' + _ttsPaused + '"');
+  h += btn('tts-bar-btn', t('tts_stop'), '_ttsStop()', _TTS_CLOSE_ICON);
+  return h;
+}
+function _ttsBarSync() {
+  var bar = document.getElementById('tts-bar');
+  if (!_ttsSpeaking) {
+    _ttsMenuOpen = '';
+    if (bar) bar.hidden = true;
+    return;
+  }
+  if (!bar) {
+    var reader = document.getElementById('reader');
+    if (!reader) return;
+    bar = document.createElement('div');
+    bar.id = 'tts-bar';
+    bar.className = 'tts-bar';
+    // The voice-state mark is also the way back to the sentence, once the page was moved.
+    bar.addEventListener('click', function(e) { if (e.target.closest('.tts-bar-state.tts-lost')) _ttsFollowResume(); });
+    reader.appendChild(bar);
+  }
+  if (_ttsSliding) return; // drawn when the finger lifts
+  var html = _ttsBarHtml();
+  if (bar._painted !== html) bar.innerHTML = bar._painted = html;
+  var mark = bar.querySelector('.tts-bar-state'), lost = !!(_ttsRead && !_ttsRead.following);
+  if (mark) {
+    mark.classList.toggle('tts-lost', lost);
+    if (lost) { mark.setAttribute('role', 'button'); mark.setAttribute('title', t('tts_follow')); mark.setAttribute('aria-label', t('tts_follow')); mark.removeAttribute('aria-hidden'); }
+    else { ['role', 'title', 'aria-label'].forEach(function(a) { mark.removeAttribute(a); }); mark.setAttribute('aria-hidden', 'true'); }
+  }
+  bar.hidden = false;
+}
+function _ttsMenuToggle(which) {
+  _ttsMenuOpen = _ttsMenuOpen === which ? '' : which;
+  _ttsBarSync();
+}
+// A tap anywhere else, or Escape, closes the menu. A tap in the article
+// never reaches this page, but it takes the focus: the window's blur.
+function _ttsMenuAway(e) {
+  if (!_ttsMenuOpen) return;
+  if (e.type === 'keydown' && e.key !== 'Escape') return;
+  if (e.type === 'pointerdown' && e.target && e.target.closest && e.target.closest('#tts-bar')) return;
+  _ttsMenuOpen = '';
+  _ttsBarSync();
+}
+document.addEventListener('pointerdown', _ttsMenuAway, true);
+document.addEventListener('keydown', _ttsMenuAway, true);
+window.addEventListener('blur', _ttsMenuAway);
+// Pause keeps the place; Resume goes on from it. The engine's "still silent"
+// switch waits while paused (_ttsSpeakServer).
+function _ttsPauseToggle() {
+  _ttsPaused = !_ttsPaused;
+  var device = _ttsNow.engine === _DEVICE_VOICE;
+  try {
+    if (device) { if (_ttsPaused) window.speechSynthesis.pause(); else window.speechSynthesis.resume(); }
+    else if (_ttsAudio) { if (_ttsPaused) _ttsAudio.pause(); else _ttsAudio.play().catch(function() {}); }
+  } catch (e) {}
+  _ttsBarSync();
+}
+// A speed slid to or a mark tapped: remembered on this device. The
+// server's audio changes speed where it is (its pitch kept); the browser's
+// voice takes a rate per sentence, so it starts again from the sentence it is on.
+// Any speed with any voice (Eric, 2026-10-20: "the info, ability to try any
+// combo, and convenience of staying inside the lines"). On Automatic, a
+// speed its voice pauses at hands the reading to one that keeps up, from the
+// sentence it is at; a voice picked by name keeps reading, named (Too slow),
+// and one that keeps up is offered.
+function _ttsPickSpeed(r) {
+  clearTimeout(_ttsSpeedTimer);
+  _ttsApplySpeed(r);
+  _ttsBarSync();
+  _ttsSpeedSettled();
+}
+// While the slider moves, the speed takes hold at once where the audio plays
+// and only the numbers change (a redrawn bar would drop the finger); the
+// browser's own voice and the voice that keeps up wait for it to settle.
+var _ttsSpeedTimer = 0;
+function _ttsSlideSpeed(input) {
+  var r = _ttsSnapRate(parseFloat(input.value));
+  if (Math.abs(parseFloat(input.value) - r) > _TTS_RATE_EPS) input.value = r;
+  _ttsApplySpeed(r);
+  var label = _ttsRateLabel(r);
+  input.setAttribute('aria-valuetext', label);
+  if (input.style) input.style.setProperty('--fill', ((r - _TTS_RATE_MIN) / (_TTS_RATE_MAX - _TTS_RATE_MIN)).toFixed(4));
+  document.querySelectorAll('#tts-bar .tts-bar-speed').forEach(function(el) { el.textContent = label; });
+}
+function _ttsSpeedChanged() {
+  _ttsSliding = false;
+  clearTimeout(_ttsSpeedTimer);
+  _ttsSpeedTimer = setTimeout(function() { _ttsBarSync(); _ttsSpeedSettled(); }, _TTS_SPEED_SETTLE_MS);
+}
+// Under a finger a speed near a stop lands on it; keys reach every step.
+function _ttsSnapRate(v) {
+  var r = _ttsRateClamp(v);
+  if (!_ttsSliding) return r;
+  var stop = _TTS_RATE_STOPS.filter(function(s) { return Math.abs(s - r) <= _TTS_RATE_SNAP + _TTS_RATE_EPS; })[0];
+  return stop === undefined ? r : stop;
+}
+function _ttsApplySpeed(r) {
+  _setStorageJSON(SK.TTS_RATE, r);
+  if (_ttsAudio && _ttsNow.engine !== _DEVICE_VOICE) { _ttsAudio.defaultPlaybackRate = r; _ttsAudio.playbackRate = r; }
+}
+function _ttsSpeedSettled() {
+  if (!_ttsSpeaking) return; // stopped while the taps settled
+  var r = _ttsRate(), e = _ttsNow.engine;
+  if (e && _ttsKeepsUp(e, r) === false) {
+    var next = _ttsServerEngines(_ttsNow.lang)[0];
+    if (next && next !== e) { _ttsSpeak(_ttsNow.at); _ttsBarSync(); return; }
+    var faster = _ttsFasterThan(_ttsNow.lang, e);
+    if (faster) {
+      _showToast(t('tts_slow_at', { slow: _voiceEngineName(e), rate: _ttsRateLabel(r), fast: _voiceEngineName(faster) }), _TTS_SUGGEST_MS,
+        function() { _ttsPickVoice(faster); }, t('tts_slow_use', { fast: _voiceEngineName(faster) }));
+    }
+  }
+  if (_ttsNow.engine === _DEVICE_VOICE && !_ttsPaused) _ttsSpeak(_ttsNow.at);
+  _ttsBarSync();
+}
+// A voice picked while it reads: remembered, and the reading goes on from the
+// sentence it was at, in the new voice (inside this tap, as iOS needs).
+function _ttsPickVoice(engine) {
+  _setVoicePrefs({ read: engine });
+  _ttsMenuOpen = '';
+  _ttsSpeak(_ttsNow.at);
+}
+
+// For someone who reads aloud: the server loads the article's voice now, so
+// the first chunk does not wait for the model (the Dictionary does the same
+// on opening). Nothing is downloaded for it.
+function _ttsWarm() {
+  var doc = _ttsFrameDoc();
+  var lang = doc ? _ttsLang(doc) : '';
+  var engines = lang ? _ttsServerEngines(lang) : [];
+  var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
+  // warm loads the server's own pick for the language: worth asking only
+  // when that is what reads.
+  if (!row || engines[0] !== row.engine || _TTS_WARM_ENGINES.indexOf(row.engine) < 0) return;
+  var tag = _normLang(_langPrimary(lang)), key = tag + ' ' + row.engine;
+  if (_ttsWarmed[key]) return;
+  _ttsWarmed[key] = true;
+  authedFetch('/dictionary/voices/warm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ langs: [tag], words: [] }) })
+    .catch(function() { delete _ttsWarmed[key]; });
 }

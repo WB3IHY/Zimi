@@ -1106,6 +1106,7 @@ if os.path.isdir(_STATIC_DIR):
         (
             _static_hash("app.js")
             + _static_hash("app.css")
+            + _static_hash("readaloud.js")  # Read aloud, fetched on first use
             + _static_hash("almanac.js")
             + _static_hash("almanac.css")
             # Almanac was split into sibling modules; all of them must feed the
