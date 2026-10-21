@@ -910,7 +910,7 @@ def test_the_page_asks_the_server_to_load_its_voices(piper_here, monkeypatch):
     tv.install("fr")
     monkeypatch.setattr(voices, "_espeak_voices", lambda: {"en": {"US": "en-us"}})
     asked = []
-    monkeypatch.setattr(voices, "warm", lambda langs: asked.append(list(langs)) or [])
+    monkeypatch.setattr(voices, "warm", lambda langs, engine=None: asked.append(list(langs)) or [])
     f = open_eau()
     f.wait_for_timeout(500)
     langs = [lang for call in asked for lang in call]
