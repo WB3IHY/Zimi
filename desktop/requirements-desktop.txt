@@ -1,10 +1,11 @@
 libzim>=3.1.0
 PyMuPDF>=1.23.0,<2
-certifi>=2024.1.1
+certifi>=2026.10.19
 pywebview>=4.0.0
-Pillow>=10.0.0
+Pillow>=13.0.0; python_version >= "3.11"
+Pillow>=12.3.0; python_version < "3.11"
 pyinstaller>=6.0.0
-zeroconf>=0.130.0
+zeroconf>=0.149.16
 # Windows desktop backend. pywebview 5.x/6.x drives the native Edge WebView2
 # runtime through .NET, which it reaches via pythonnet (+ clr_loader). pywebview
 # declares `pythonnet` transitively, but we pin both explicitly with an env

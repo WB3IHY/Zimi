@@ -36,10 +36,10 @@ classifiers = [
 ]
 dependencies = [
     "libzim>=3.1.0",
-    "certifi>=2024.1.1",
+    "certifi>=2026.10.19",
     # LAN peer discovery (mDNS/Zeroconf). Pure-Python; the peer ZIM-sharing
     # transport runs over plain HTTP so it needs no extra binary.
-    "zeroconf>=0.130.0",
+    "zeroconf>=0.149.16",
     # BitTorrent accelerator: attempted at install, optional at runtime.
     #
     # libtorrent publishes NO sdist. So on any platform where a wheel is
@@ -75,7 +75,7 @@ desktop = ["pywebview>=4.0.0"]
 # distribution. Without the ceiling, `pip install zimi[mcp]` resolves to 2.x and
 # the MCP server refuses to start -- issue #52, which was fixed in
 # requirements.txt and missed HERE, where PyPI users actually get their pins.
-mcp = ["mcp>=1.0,<2.0"]
+mcp = ["mcp>=1.30.0,<2.0"]
 # The rendered capture engine (zimi/renderer.py): a headless Chromium run as a
 # CHILD PROCESS of the server, for pages whose content is built in JavaScript.
 # Deliberately not in `all`: this package is only half the install — the browser
@@ -88,7 +88,7 @@ browser = ["playwright>=1.40"]
 # Docker image's pins). Without them Zimi sets them up itself, in a venv under
 # its data directory, the first time someone downloads a voice.
 voices = ["piper-tts>=1.8,<2", "kokoro-onnx>=0.6,<0.7", "misaki[zh]>=0.9.4,<0.10", "num2words>=0.5.14,<0.6"]
-all = ["PyMuPDF>=1.23.0,<2", "mcp>=1.0,<2.0", "libtorrent==2.0.*"]
+all = ["PyMuPDF>=1.23.0,<2", "mcp>=1.30.0,<2.0", "libtorrent==2.0.*"]
 
 [project.scripts]
 zimi = "zimi.server:main"
