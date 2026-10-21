@@ -1596,3 +1596,30 @@ def test_test_all_starts_with_the_quickest_voice(three, monkeypatch):
     assert order[0] == "espeak" and order[-1] == "kokoro", order
     # When it began, so the page can tell a voice's new numbers from its old ones.
     assert all(s["engine"] == e and s["started"] >= before for s, e in zip(seen, order)), seen
+
+
+def test_espeak_leaves_out_its_fictional_and_test_voices(monkeypatch):
+    """espeak-ng lists Klingon, Quenya, Sindarin, Pyash, Lang Belta and a
+    test voice beside real languages; nothing in a library is written in
+    them and no browser can name them, so Settings > Voices showed bare
+    codes (Eric, 2026-10-20: "a few unmatched languages"). Constructed
+    languages with a Wikipedia stay."""
+    listing = "\n".join([
+        "Pty Language       Age/Gender VoiceName          File                 Other Languages",
+        " 5  eo              --/M      Esperanto          art/eo",
+        " 5  jbo             --/M      Lojban             art/jbo",
+        " 5  piqd            --/M      Klingon            art/piqd",
+        " 5  qya             --/M      Quenya             art/qya",
+        " 5  sjn             --/M      Sindarin           art/sjn",
+        " 5  py              --/M      Pyash              art/py",
+        " 5  qdb             --/M      Lang_Belta         art/qdb",
+        " 5  xex             --/M      xextan-test        art/xex",
+        " 5  hyw             --/M      Armenian_(West_Armenia) ine/hyw              (hy-arevmda 5)(hy 8)",
+        " 2  en-gb           --/M      English_(Great_Britain) gmw/en               (en 2)",
+    ])
+    monkeypatch.setattr(voices.shutil, "which", lambda name: "/usr/bin/espeak-ng")
+    monkeypatch.setattr(voices, "_list_output", lambda cmd: listing)
+    monkeypatch.setattr(voices, "_found", {})
+    langs = voices._espeak_voices()
+    assert {"eo", "jbo", "hyw", "en"} <= set(langs)
+    assert not {"piqd", "qya", "sjn", "py", "qdb", "xex"} & set(langs)

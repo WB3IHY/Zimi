@@ -297,6 +297,11 @@ _SAY_SKIP_RE = re.compile(
 )
 # One name for a language, as the page's speechTag gives it.
 _ALIASES = {"no": "nb", "nn": "nb", "cmn": "zh", "yue": "zh", "iw": "he", "in": "id"}
+# espeak-ng's constructed languages that a library can be written in (each
+# has a Wikipedia). Its fictional ones (Klingon, Quenya, Sindarin, Pyash,
+# Lang Belta) and its test voice (xextan-test) have nothing to read, and no
+# browser can name them: they are left out.
+_ESPEAK_CONSTRUCTED = {"eo", "ia", "ie", "io", "jbo", "lfn", "nov", "vo"}
 # espeak-ng's own codes for languages the page names by region.
 _ESPEAK_REGIONS = {"cmn": ("zh", "CN"), "yue": ("zh", "HK")}
 # The region a language is said in when no accent asks for another.
@@ -1179,6 +1184,8 @@ def _espeak_voices():
             if len(cols) < 2:
                 continue
             code = cols[1]
+            if len(cols) > 4 and cols[4].startswith("art/") and code not in _ESPEAK_CONSTRUCTED:
+                continue
             parts = code.split("-")
             if code in _ESPEAK_REGIONS:
                 primary, region = _ESPEAK_REGIONS[code]
