@@ -3960,6 +3960,7 @@ async function _bootDeepLinkArticle(zim, path) {
 // an offer rather than an undo.
 var _TOAST_UNDO_MS = 6000;
 var _toastUndoLast = null;
+var _TOAST_GAP_PX = 12;
 function _showToast(msg, duration, undo, actionLabel) {
   var toast = document.createElement('div');
   toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;font-size:13px;color:var(--text2);z-index:300;box-shadow:0 4px 16px rgba(0,0,0,0.3)';
@@ -3976,6 +3977,9 @@ function _showToast(msg, duration, undo, actionLabel) {
     toast.appendChild(b);
     duration = duration || _TOAST_UNDO_MS;
   }
+  // Above Read aloud's bar while it is up, never over it.
+  var bar = document.getElementById('tts-bar');
+  if (bar && !bar.hidden) toast.style.bottom = (window.innerHeight - bar.getBoundingClientRect().top + _TOAST_GAP_PX) + 'px';
   document.body.appendChild(toast);
   // Mirror to the screen-reader live region so non-sighted users hear it too.
   var live = document.getElementById('a11y-toast-region');

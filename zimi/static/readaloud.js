@@ -35,7 +35,7 @@ function _ttsStartWait(engine) {
   return Math.min(_TTS_START_WAIT_MAX_MS, Math.max(_TTS_START_WAIT_MS, cold));
 }
 var _TTS_CHUNK_MAX = 240, _TTS_FIRST_CHUNK_MAX = 120; // characters
-var _TTS_AHEAD = 2; // chunks asked for ahead of the one playing, so the voice never waits
+var _TTS_AHEAD = 3; // chunks asked for ahead of the one playing, so the voice never waits
 var _ttsAudio = null;
 var _ttsRun = 0; // bumped by every start and stop: callbacks of an older run do nothing
 var _TTS_SUGGEST_MS = 9000;
@@ -643,11 +643,12 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
     }).catch(function() { if (live()) delete asked[idx]; });
   }
   function play(idx) {
-    // Not ready when it is needed: this engine is too slow here. Once words
-    // were heard the voice stays (a new voice mid-article is worse than a
-    // pause, Eric 2026-10-19: "can sound different between them"); it is
-    // marked slow, so the next reading starts with one that keeps up.
-    if (started && asked[idx] === false) late();
+    // Not ready when it is needed: the voice waits. Once words were heard
+    // it stays (a new voice mid-article is worse than a pause, Eric
+    // 2026-10-19: "can sound different between them"), and only a silence
+    // as long as the start wait marks it slow: a heading is a clip of a
+    // second, often over before the next is made (Eric, 2026-10-21: "clear
+    // was fine it didn't even take that long before I got that message").
     audio.defaultPlaybackRate = _ttsRate(); // a new src starts at this rate
     audio.src = _ttsSpeakUrl(chunks[idx], lang, engines[eng]);
     audio.playbackRate = _ttsRate();

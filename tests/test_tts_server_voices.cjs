@@ -196,10 +196,11 @@ ctx._ttsSpeakServer(chunks, 'en', ['kokoro', 'piper'], 1);
 a.paused = false; a.onplaying(); // words are heard in Natural
 a.onended(); // "two." was asked for and is not back yet
 ok('a late chunk after words were heard keeps the voice', engineOf(a.src) === 'kokoro' && textOf(a.src) === 'two.', a.src);
-ok('...and marks it slow, for the next reading', store.zimi_tts_slow === '["kokoro"]', store.zimi_tts_slow);
+ok('...and a short wait is not slow (a heading is over in a second)', !store.zimi_tts_slow, store.zimi_tts_slow);
 a.paused = true;
 timers.filter(Boolean).pop().f(); // and still silent six seconds later
 ok('...still the same voice, no switch mid-article', engineOf(a.src) === 'kokoro' && textOf(a.src) === 'two.', a.src);
+ok('...and six silent seconds mark it slow, for the next reading', store.zimi_tts_slow === '["kokoro"]', store.zimi_tts_slow);
 
 r = freshReading();
 a = ctx._ttsAudio;
@@ -332,7 +333,10 @@ const tick = () => new Promise(r => setImmediate(r));
   ctx._ttsSpeakServer(chunks, 'en', ['kokoro'], 1, e => told2.push(e));
   au.onplaying(); // chunk 1 plays; two. is asked for and does not come
   au.onended();
-  ok('the next chunk late on a chosen voice: offered, still reading it', told2.length === 1 && textOf(au.src) === 'two.' && engineOf(au.src) === 'kokoro' && store.zimi_tts_slow === undefined);
+  ok('the next chunk a moment late on a chosen voice: nothing is said, it waits', told2.length === 0 && textOf(au.src) === 'two.' && engineOf(au.src) === 'kokoro');
+  au.paused = true;
+  timers.filter(Boolean).pop().f(); // six silent seconds
+  ok('...six silent seconds: offered, still reading it', told2.length === 1 && textOf(au.src) === 'two.' && engineOf(au.src) === 'kokoro' && store.zimi_tts_slow === undefined, JSON.stringify(told2));
 
   r2 = freshReading();
   au = ctx._ttsAudio;
