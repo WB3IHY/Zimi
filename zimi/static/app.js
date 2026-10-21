@@ -3067,7 +3067,7 @@ function updateTopbar() {
     if (!showMapSrc) _closeMapSourceDropdown();
   }
   var ttsBtn = document.getElementById('tts-btn');
-  if (ttsBtn) ttsBtn.style.display = (_readingText && _ttsCanSpeak() && _speakingOn() && !_foldReaderExtras) ? 'flex' : 'none';
+  if (ttsBtn) ttsBtn.style.display = (_readingText && _ttsOffered() && !_foldReaderExtras) ? 'flex' : 'none';
   // The dice on a map roll a place, and say so.
   var randomLabel = t(_isMapPage() ? 'random_place' : 'random_article');
   randomBtn.title = randomLabel;
@@ -19928,6 +19928,7 @@ function _ttsLoadVoices() {
       _ttsVoices = d; _ttsVoicesAt = Date.now(); _ttsVoicesBusy = null;
       updateTopbar();
       _rebuildTopbarMenu(); // Read aloud's row, if the list changed whether it shows
+      _bookReadSync(_ttsFrameDoc());
       return d;
     });
   return _ttsVoicesBusy;
@@ -20042,6 +20043,17 @@ function _ttsTooSlow(engine) {
   var k = _ttsKeepsUp(engine, _ttsRate());
   return k === null ? _ttsSlowEngines().indexOf(engine) >= 0 : !k;
 }
+// Read aloud is offered: something can speak, and Settings > Voices has speaking on.
+function _ttsOffered() { return _ttsCanSpeak() && _speakingOn(); }
+// The book's header button follows: shown when it is offered, pressed while it reads.
+function _bookReadSync(doc) {
+  var b = doc && doc.querySelector('.zb-read');
+  if (!b) return;
+  var label = t(_ttsSpeaking ? 'tts_stop' : 'tts_speak');
+  b.hidden = !_ttsOffered();
+  b.setAttribute('aria-pressed', _ttsSpeaking ? 'true' : 'false');
+  b.setAttribute('aria-label', label); b.title = label;
+}
 function _ttsServerSays() {
   return Object.keys((_ttsVoices && _ttsVoices.langs) || {}).length > 0;
 }
@@ -20054,38 +20066,62 @@ function _ttsSpeakUrl(text, lang, engine) {
 
 // ``first`` caps the first chunk alone: a voice says nothing until a whole
 // chunk is made, so a short one starts the reading sooner.
-function _ttsChunkText(text, maxLen, first) {
+var _TTS_BLOCK = ' '; // between two blocks of the text that is read: no sentence runs across it
+// The sentences of text[from, to) as [start, end) spans, trimmed.
+var _TTS_ABBREV = /(?:^|[\s("'])(?:Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St|Mt|vs|Fig|No|[B-HJ-Z])\.$/;
+function _ttsSentenceSpans(text, from, to) {
+  var out = [], first = 0;
+  for (var a = from; a < to;) {
+    var b = text.indexOf(_TTS_BLOCK, a);
+    if (b < 0 || b > to) b = to;
+    first = out.length;
+    // A full stop before a digit (3.5) is not the end of one.
+    var re = /(?:[^.!?。！？]|\.(?=\d))+[.!?。！？]+(?!\d)|\S(?:[^.!?。！？]|\.(?=\d))*$/g, m, seg = text.slice(a, b);
+    while ((m = re.exec(seg))) {
+      var s = a + m.index, e = s + m[0].length;
+      while (s < e && /\s/.test(text[s])) s++;
+      while (e > s && /\s/.test(text[e - 1])) e--;
+      if (s >= e) continue;
+      var prev = out.length > first ? out[out.length - 1] : null;
+      // "Dr." and an initial do not end a sentence.
+      if (prev && _TTS_ABBREV.test(text.slice(prev[0], prev[1]))) prev[1] = e; else out.push([s, e]);
+    }
+    a = b + 1;
+  }
+  return out;
+}
+// text[from, to) as chunks: {text, spans}, the text a voice says and the
+// spans {s, e, n} of the sentences in it (n: characters said, whitespace
+// collapsed), so a chunk can be followed back to where it is in ``text``.
+function _ttsPlanChunks(text, maxLen, first, from, to) {
   maxLen = maxLen || 240;
-  var out = [];
+  to = to == null ? text.length : to;
+  var out = [], buf = null;
   function cap() { return out.length || !first ? maxLen : first; }
-  if (!text) return out;
-  // Collapse whitespace so newlines don't confuse sentence detection.
-  var clean = String(text).replace(/\s+/g, ' ').trim();
-  if (!clean) return out;
-  // Split into sentences, keeping terminal punctuation (Latin + CJK).
-  var sentences = clean.match(/[^.!?。！？]+[.!?。！？]+|\S[^.!?。！？]*$/g) || [clean];
-  var buf = '';
-  for (var i = 0; i < sentences.length; i++) {
-    var s = sentences[i].trim();
-    if (!s) continue;
+  function flush() { if (buf) { out.push(buf); buf = null; } }
+  _ttsSentenceSpans(text, from || 0, to).forEach(function(sp) {
+    var piece = text.slice(sp[0], sp[1]), s = piece.replace(/\s+/g, ' ');
     // A single sentence longer than maxLen: hard-split on word boundaries.
     if (s.length > cap()) {
-      if (buf) { out.push(buf); buf = ''; }
-      var words = s.split(' ');
-      var line = '';
-      for (var w = 0; w < words.length; w++) {
-        var word = words[w];
-        if (line && (line.length + 1 + word.length) > cap()) { out.push(line); line = word; }
-        else { line = line ? (line + ' ' + word) : word; }
+      flush();
+      var line = null, re = /\S+/g, w;
+      while ((w = re.exec(piece))) {
+        if (line && line.text.length + 1 + w[0].length > cap()) { out.push(line); line = null; }
+        if (line) { line.text += ' ' + w[0]; line.spans[0].e = sp[0] + re.lastIndex; line.spans[0].n = line.text.length; }
+        else line = { text: w[0], spans: [{ s: sp[0] + w.index, e: sp[0] + re.lastIndex, n: w[0].length }] };
       }
-      if (line) buf = line; // carry remainder to pack with the next sentence
-      continue;
+      buf = line; // carry remainder to pack with the next sentence
+      return;
     }
-    if (buf && (buf.length + 1 + s.length) > cap()) { out.push(buf); buf = s; }
-    else { buf = buf ? (buf + ' ' + s) : s; }
-  }
-  if (buf) out.push(buf);
+    if (buf && buf.text.length + 1 + s.length > cap()) flush();
+    var span = { s: sp[0], e: sp[1], n: s.length };
+    if (buf) { buf.text += ' ' + s; buf.spans.push(span); } else buf = { text: s, spans: [span] };
+  });
+  flush();
   return out;
+}
+function _ttsChunkText(text, maxLen, first) {
+  return text ? _ttsPlanChunks(String(text), maxLen, first).map(function(c) { return c.text; }) : [];
 }
 
 // Shared main-content locator for a ZIM article document. Returns the element
@@ -20111,13 +20147,272 @@ function _isBookDoc(doc) {
 function _readerViewReadable(doc, main) {
   return !!main && (main !== doc.body || _isBookDoc(doc));
 }
-function _ttsExtractText(doc) {
-  if (!doc) return '';
-  // Prefer the article's main content element — that alone drops surrounding
-  // nav/chrome cheaply. Fall back to the whole body (acceptable v1).
+// ── Read along: the sentence being read, marked in the article ──
+// The text to read is taken from the article's own text nodes (not innerText),
+// each piece keeping its node, so every chunk and sentence maps back to a DOM
+// Range. The mark is the CSS Custom Highlight API: the article's DOM is never
+// changed, and where the API is missing nothing is marked and nothing breaks.
+// Nothing here runs until Read aloud starts.
+var _TTS_SKIP_TAGS = ' script style noscript template svg canvas iframe object audio video select ';
+var _TTS_HL = 'zimi-tts', _TTS_HL_STYLE = 'zimi-tts-style';
+// A quiet amber tint, never the selection's blue: Reader View's own link
+// colour of its theme where there is one (light, dark, sepia, black), else amber.
+var _TTS_HL_CSS = '::highlight(' + _TTS_HL + '){background-color:rgba(245,158,11,.3)}' +
+  '@supports (background-color:color-mix(in srgb,red 50%,transparent)){' +
+  '.zimi-reader-active ::highlight(' + _TTS_HL + '){background-color:color-mix(in srgb,var(--rv-link) 26%,transparent)}}' +
+  // Night red is a filter on the frame that turns an amber tint into a solid red under red text: a faint light veil instead.
+  'html.zimi-tts-night ::highlight(' + _TTS_HL + '){background-color:rgba(255,255,255,.05)}';
+var _TTS_NIGHT_CLASS = 'zimi-tts-night';
+var _TTS_VIEW_TOP = 56;     // px: a sentence above this has left the view
+var _TTS_VIEW_BOTTOM = 120; // px kept clear at the foot, where the reading bar floats
+var _TTS_VIEW_AT = 0.28;    // share of the height a sentence is brought up to
+var _TTS_HIT_X = 10, _TTS_HIT_Y = 14; // px: a tap this near a sentence's text is on it
+var _TTS_SCROLL_KEYS = ' ArrowUp ArrowDown ArrowLeft ArrowRight PageUp PageDown Home End  ';
+// Not a tap on text: what a tap does something else with.
+var _TTS_TAP_SKIP = 'a[href],button,input,select,textarea,label,summary,video,audio,[contenteditable],.zimi-zoomable,.zimi-img-lightbox,.zb-bar,.zb-sheet,.zb-scrim';
+var _ttsRead = null; // the reading in progress: its plan, its document, whether the page follows
+
+// The text of ``main`` as it is read: the text nodes in order (none of script,
+// style or hidden text), a _TTS_BLOCK between blocks and at each <br>. A
+// piece is a text node and where it starts in the text.
+function _ttsReadModel(doc, main) {
+  var win = doc.defaultView, parts = [], pieces = [], index = new Map(), len = 0;
+  function split() { if (len && parts[parts.length - 1] !== _TTS_BLOCK) { parts.push(_TTS_BLOCK); len++; } }
+  function walk(el) {
+    var cs = win.getComputedStyle(el), tag = el.localName;
+    // A book lays out one section at a time and hides the others: they are still its text.
+    if (_TTS_SKIP_TAGS.indexOf(' ' + tag + ' ') >= 0 || (cs.display === 'none' && !el.classList.contains('zb-sec'))) return;
+    var block = cs.display.indexOf('inline') !== 0 && cs.display !== 'contents', shown = cs.visibility === 'visible';
+    if (block || tag === 'br') split();
+    for (var n = el.firstChild; n; n = n.nextSibling) {
+      if (n.nodeType === 1) walk(n);
+      else if (n.nodeType === 3 && shown && n.data) {
+        index.set(n, pieces.length);
+        pieces.push({ node: n, at: len });
+        parts.push(n.data); len += n.data.length;
+      }
+    }
+    if (block) split();
+  }
+  walk(main);
+  return { doc: doc, main: main, text: parts.join(''), pieces: pieces, index: index };
+}
+// The piece holding offset ``off`` of the text: the last that starts at or before it.
+function _ttsPieceAt(model, off) {
+  var p = model.pieces, lo = 0, hi = p.length - 1;
+  while (lo < hi) { var mid = (lo + hi + 1) >> 1; if (p[mid].at <= off) lo = mid; else hi = mid - 1; }
+  return p[lo];
+}
+// The DOM Range of text[s, e).
+function _ttsRange(model, s, e) {
+  var a = _ttsPieceAt(model, s), b = _ttsPieceAt(model, e - 1), r = model.doc.createRange();
+  r.setStart(a.node, s - a.at); r.setEnd(b.node, e - b.at);
+  return r;
+}
+// Where a point of the DOM is in the text: a text node's own offset, else the
+// start of the first text from that point on (the end of the text past it).
+function _ttsOffsetOf(model, node, off) {
+  var i = model.index.get(node);
+  if (i !== undefined) return model.pieces[i].at + off;
+  var ref = node.nodeType === 1 ? node.childNodes[off] : node;
+  function from(n) {
+    if (ref) return ref === n || ref.contains(n) || !!(ref.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING);
+    return !node.contains(n) && !!(node.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING);
+  }
+  var p = model.pieces, lo = 0, hi = p.length;
+  while (lo < hi) { var mid = (lo + hi) >> 1; if (from(p[mid].node)) hi = mid; else lo = mid + 1; }
+  return lo < p.length ? p[lo].at : model.text.length;
+}
+// What is selected in the article, as [start, end) of the text, or null.
+function _ttsSelectedSpan(model) {
+  var win = model.doc.defaultView, sel = win && win.getSelection && win.getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+  var r = sel.getRangeAt(0);
+  var a = _ttsOffsetOf(model, r.startContainer, r.startOffset), b = _ttsOffsetOf(model, r.endContainer, r.endOffset);
+  return a < b && /\S/.test(model.text.slice(a, b).replace(_TTS_BLOCK, '')) ? [a, b] : null;
+}
+// Which sentence of a chunk is being said ``ch`` characters into what the
+// voice says of it.
+function _ttsSpanAtChar(chunk, ch) {
+  var pos = 0;
+  for (var i = 0; i < chunk.spans.length; i++) {
+    pos += chunk.spans[i].n;
+    if (ch < pos) return i;
+    pos++; // the space the chunk joins its sentences with
+  }
+  return chunk.spans.length - 1;
+}
+// The sentence of the text at offset ``off`` (the next, when it is between two),
+// as {s, e}: the sentences of its block, so a tap costs one block, not the article.
+function _ttsSentenceAt(model, off) {
+  var t = model.text, hit = null;
+  off = Math.min(off, t.length - 1);
+  var a = t.lastIndexOf(_TTS_BLOCK, off - 1) + 1, b = t.indexOf(_TTS_BLOCK, off);
+  var sp = _ttsSentenceSpans(t, a, b < 0 ? t.length : b);
+  for (var i = 0; i < sp.length; i++) {
+    hit = { s: sp[i][0], e: sp[i][1] };
+    if (sp[i][1] > off) break;
+  }
+  return hit;
+}
+// How far to scroll (px, down is positive) to keep a sentence in view of a
+// ``h`` px tall window: none while it is inside, else its top is brought up
+// to a quarter or so of the way down (so the page moves once per screenful,
+// not once per sentence).
+function _ttsScrollBy(rect, h) {
+  if (rect.top >= _TTS_VIEW_TOP && rect.bottom <= h - _TTS_VIEW_BOTTOM) return 0;
+  return Math.round(rect.top - h * _TTS_VIEW_AT);
+}
+// Whether a point is on the text of a sentence's rects, give or take a line's gap.
+function _ttsOnText(rects, x, y) {
+  for (var i = 0; i < rects.length; i++) {
+    var r = rects[i];
+    if (x >= r.left - _TTS_HIT_X && x <= r.right + _TTS_HIT_X && y >= r.top - _TTS_HIT_Y && y <= r.bottom + _TTS_HIT_Y) return true;
+  }
+  return false;
+}
+
+// What to read: the selection if there is one, else (in a book) from the
+// page that is open, else all of the article.
+function _ttsMakePlan(doc) {
   var main = _readerMainContent(doc) || doc.body;
-  if (!main) return '';
-  return (main.innerText || main.textContent || '').trim();
+  if (!main) return null;
+  var model = _ttsReadModel(doc, main), sel = _ttsSelectedSpan(model), a = 0, b = model.text.length;
+  if (sel) { a = sel[0]; b = sel[1]; }
+  else if (doc.__zbHere) {
+    var at = doc.__zbHere();
+    if (at) a = Math.max(0, _ttsOffsetOf(model, at.startContainer, at.startOffset));
+  }
+  return _ttsPlanFrom(model, a, b, !!sel);
+}
+function _ttsPlanFrom(model, a, b, sel) {
+  var chunks = _ttsPlanChunks(model.text, _TTS_CHUNK_MAX, _TTS_FIRST_CHUNK_MAX, a, b);
+  return chunks.length ? { doc: model.doc, model: model, chunks: chunks, b: b, sel: sel } : null;
+}
+
+// ── marking and following ──
+function _ttsHlOk(win) { return !!(win && win.CSS && win.CSS.highlights && win.Highlight); }
+function _ttsPaint(ranges) {
+  var st = _ttsRead, win = st && st.win;
+  if (!_ttsHlOk(win)) return;
+  try {
+    if (!ranges.length) { win.CSS.highlights.delete(_TTS_HL); return; }
+    if (!st.doc.getElementById(_TTS_HL_STYLE)) {
+      var style = st.doc.createElement('style');
+      style.id = _TTS_HL_STYLE; style.textContent = _TTS_HL_CSS;
+      st.doc.head.appendChild(style);
+    }
+    st.doc.documentElement.classList.toggle(_TTS_NIGHT_CLASS, _nightRedOn());
+    var hl = new win.Highlight();
+    ranges.forEach(function(r) { hl.add(r); });
+    win.CSS.highlights.set(_TTS_HL, hl);
+  } catch (e) {}
+}
+// The reading is at chunk ``idx``, in its sentence ``k`` (null: not known
+// yet, so the whole chunk is marked).
+function _ttsAlongAt(idx, k) {
+  var st = _ttsRead, chunk = st && st.plan.chunks[idx];
+  if (!chunk || st.key === idx + ':' + k) return;
+  st.key = idx + ':' + k;
+  try {
+    st.ranges = (k == null ? chunk.spans : [chunk.spans[k]]).map(function(sp) { return _ttsRange(st.plan.model, sp.s, sp.e); });
+  } catch (e) { return; }
+  _ttsPaint(st.ranges);
+  _ttsFollow(false);
+}
+// Where in a chunk the audio is, by the share of it played.
+function _ttsAlongAudio(idx, audio) {
+  var st = _ttsRead, chunk = st && st.plan.chunks[idx], d = audio.duration;
+  if (chunk) _ttsAlongAt(idx, d > 0 && isFinite(d) ? _ttsSpanAtChar(chunk, audio.currentTime / d * chunk.text.length) : null);
+}
+// The browser's voice says where it is by the character it reached
+// (``boundary``); where it never does, the whole chunk stays marked. A word
+// highlight would plug in here: neither engine's audio carries word times.
+function _ttsAlongChar(idx, ch) {
+  var st = _ttsRead, chunk = st && st.plan.chunks[idx];
+  if (chunk) _ttsAlongAt(idx, _ttsSpanAtChar(chunk, ch));
+}
+// The nearest ancestor that scrolls by itself, or null (the page scrolls).
+function _ttsScroller(el, win) {
+  for (; el && el.nodeType === 1; el = el.parentElement) {
+    var oy = win.getComputedStyle(el).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1 && el !== el.ownerDocument.body && el !== el.ownerDocument.documentElement) return el;
+  }
+  return null;
+}
+// Keep the sentence in view. Only while following; once the person has moved
+// the page, the reading follows again when it comes back to what is in view.
+function _ttsFollow(force) {
+  var st = _ttsRead, rs = st && st.ranges;
+  if (!rs || !rs.length) return;
+  var win = st.win, doc = st.doc, paged = doc.documentElement.classList.contains('zb-paged'), moved = false;
+  try {
+    if (paged) {
+      var rc = rs[0].getClientRects()[0], seen = !!rc && rc.width > 0 && rc.left >= 0 && rc.left < win.innerWidth;
+      if (seen) { st.following = true; return; }
+      if (!force && !st.following) return;
+      if (doc.__zbShowRange) { doc.__zbShowRange(rs[0]); moved = true; }
+    } else {
+      var box = rs[0].getBoundingClientRect(), end = rs[rs.length - 1].getBoundingClientRect();
+      var scr = _ttsScroller(rs[0].startContainer.parentElement, win), cr = scr ? scr.getBoundingClientRect() : { top: 0, height: win.innerHeight };
+      var by = _ttsScrollBy({ top: box.top - cr.top, bottom: end.bottom - cr.top }, cr.height);
+      if (!by && !force) { st.following = true; return; }
+      if (!force && !st.following) return;
+      if (by) {
+        var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        (scr || win).scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
+      }
+      moved = true;
+    }
+  } catch (e) { return; }
+  if (moved) { st.following = true; _ttsBarSync(); }
+}
+// The person moved the page: stop following until they ask or it comes back.
+function _ttsLose() {
+  if (_ttsRead && _ttsRead.following) { _ttsRead.following = false; _ttsBarSync(); }
+}
+function _ttsFollowResume() {
+  if (_ttsRead) { _ttsRead.following = true; _ttsFollow(true); _ttsBarSync(); }
+}
+// A tap on a sentence moves the reading there.
+function _ttsTap(e) {
+  var st = _ttsRead, t = e.target;
+  if (!st || e.defaultPrevented || e.button || !t || !t.closest || t.closest(_TTS_TAP_SKIP)) return;
+  var win = st.win, sel = win.getSelection && win.getSelection();
+  if (sel && !sel.isCollapsed && String(sel).trim()) return;
+  // A book on pages turns them with a tap at either edge.
+  if (st.doc.documentElement.classList.contains('zb-paged') && (e.clientX < win.innerWidth * _BOOK_EDGE || e.clientX > win.innerWidth * (1 - _BOOK_EDGE))) { _ttsLose(); return; }
+  var at = _bookCaretAt(st.doc, e.clientX, e.clientY);
+  if (!at) return;
+  var model = st.plan.model, off = _ttsOffsetOf(model, at.node, at.off), sp = _ttsSentenceAt(model, off);
+  if (!sp) return;
+  var rects;
+  try { rects = _ttsRange(st.plan.model, sp.s, sp.e).getClientRects(); } catch (err) { return; }
+  if (!_ttsOnText(rects, e.clientX, e.clientY)) return;
+  var plan = _ttsPlanFrom(model, sp.s, st.plan.b, false);
+  if (plan) _ttsSpeak(0, plan);
+}
+// While it reads, the article is listened to: a hand on the page (wheel,
+// finger, scroll keys, the scrollbar) is the person moving it; a tap seeks.
+function _ttsAlongBegin(plan) {
+  var doc = plan.doc, win = doc.defaultView, off = [];
+  function on(type, fn, opts) { doc.addEventListener(type, fn, opts); off.push(function() { doc.removeEventListener(type, fn, opts); }); }
+  var moved = { passive: true, capture: true };
+  on('wheel', _ttsLose, moved);
+  on('touchmove', _ttsLose, moved);
+  on('keydown', function(e) { if (_TTS_SCROLL_KEYS.indexOf(' ' + e.key + ' ') >= 0) _ttsLose(); }, moved);
+  on('mousedown', function(e) { if (e.clientX >= doc.documentElement.clientWidth) _ttsLose(); }, moved);
+  on('click', _ttsTap, false);
+  on('scroll', function() { if (_ttsRead && !_ttsRead.following) _ttsFollow(false); }, moved);
+  _ttsRead = { plan: plan, doc: doc, win: win, following: true, ranges: null, key: '', off: off };
+  if (plan.sel) { try { win.getSelection().removeAllRanges(); } catch (e) {} } // the mark takes its place
+}
+function _ttsAlongEnd() {
+  var st = _ttsRead;
+  if (!st) return;
+  _ttsPaint([]);
+  st.off.forEach(function(f) { f(); });
+  _ttsRead = null;
 }
 function _ttsLang(doc) {
   var l = '';
@@ -20130,6 +20425,8 @@ function _ttsLang(doc) {
 }
 function _ttsSetSpeaking(on) {
   _ttsSpeaking = on;
+  if (!on) _ttsAlongEnd();
+  _bookReadSync(_ttsFrameDoc());
   _syncTopbarMenuReaderItems(); // mobile: reflect speaking-state on the ... menu row
   _ttsBarSync();
   var btn = document.getElementById('tts-btn');
@@ -20149,15 +20446,20 @@ function _ttsStop() {
   if (_TTS_AVAILABLE) { try { window.speechSynthesis.cancel(); } catch(e) {} }
   if (_ttsSpeaking) _ttsSetSpeaking(false);
 }
-function _ttsSpeak(from) {
-  from = from || 0;
+// ``from``: a chunk of the reading in progress (a new voice or speed goes on
+// from it); none starts afresh, with the selection if there is one. ``plan``:
+// what to read, when it is not that (a tap on a sentence).
+function _ttsSpeak(from, plan) {
   if (!_ttsCanSpeak()) return;
   var doc = _ttsFrameDoc();
   if (!doc) return;
-  var chunks = _ttsChunkText(_ttsExtractText(doc), _TTS_CHUNK_MAX, _TTS_FIRST_CHUNK_MAX);
-  if (!chunks.length) return;
+  plan = plan || (from != null && _ttsRead && _ttsRead.doc === doc && _ttsRead.plan) || _ttsMakePlan(doc);
+  if (!plan) return;
+  from = from || 0;
+  var chunks = plan.chunks.map(function(c) { return c.text; });
   var lang = _ttsLang(doc);
   _ttsStop(); // clear any residual queue or audio before starting fresh
+  _ttsAlongBegin(plan);
   var engines = _ttsServerEngines(lang);
   if (!engines.length && !_TTS_AVAILABLE) return;
   _ttsSetSpeaking(true);
@@ -20179,7 +20481,8 @@ function _ttsSpeakDevice(chunks, lang, from) {
     var u = new SpeechSynthesisUtterance(chunk);
     if (lang) u.lang = lang;
     u.rate = _ttsRate();
-    u.onstart = function() { _ttsNow.at = from + idx; _ttsNow.engine = _DEVICE_VOICE; _ttsNow.playing = true; _ttsBarSync(); };
+    u.onstart = function() { _ttsNow.at = from + idx; _ttsNow.engine = _DEVICE_VOICE; _ttsNow.playing = true; _ttsAlongAt(from + idx, null); _ttsBarSync(); };
+    u.onboundary = function(e) { _ttsAlongChar(from + idx, e.charIndex); };
     if (idx === rest.length - 1) u.onend = function() { _ttsSetSpeaking(false); };
     u.onerror = function() { _ttsSetSpeaking(false); };
     synth.speak(u);
@@ -20270,7 +20573,9 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
     clearTimeout(waiting); retried = false; started = true;
     for (var k = 1; k <= _TTS_AHEAD; k++) ask(i + k);
     _ttsNow.playing = true; _ttsBarSync();
+    _ttsAlongAudio(i, audio);
   };
+  audio.ontimeupdate = function() { if (live()) _ttsAlongAudio(i, audio); };
   audio.onended = function() {
     if (!live()) return;
     i++;
@@ -20395,11 +20700,19 @@ function _ttsBarSync() {
     bar = document.createElement('div');
     bar.id = 'tts-bar';
     bar.className = 'tts-bar';
+    // The voice-state mark is also the way back to the sentence, once the page was moved.
+    bar.addEventListener('click', function(e) { if (e.target.closest('.tts-bar-state.tts-lost')) _ttsFollowResume(); });
     reader.appendChild(bar);
   }
   if (_ttsSliding) return; // drawn when the finger lifts
   var html = _ttsBarHtml();
   if (bar._painted !== html) bar.innerHTML = bar._painted = html;
+  var mark = bar.querySelector('.tts-bar-state'), lost = !!(_ttsRead && !_ttsRead.following);
+  if (mark) {
+    mark.classList.toggle('tts-lost', lost);
+    if (lost) { mark.setAttribute('role', 'button'); mark.setAttribute('title', t('tts_follow')); mark.setAttribute('aria-label', t('tts_follow')); mark.removeAttribute('aria-hidden'); }
+    else { ['role', 'title', 'aria-label'].forEach(function(a) { mark.removeAttribute(a); }); mark.setAttribute('aria-hidden', 'true'); }
+  }
   bar.hidden = false;
 }
 function _ttsMenuToggle(which) {
@@ -22628,6 +22941,7 @@ var _READING_CSS = [
   '.zb-foot .zb-remote{align-self:center;height:auto;min-height:34px;max-width:100%;padding:6px 14px;border:1px solid var(--rv-border);',
     'border-radius:17px;font-size:13px;color:var(--rv-link);text-align:center;white-space:normal}',
   '.zb-aa{font:600 17px/1 Georgia,serif!important;letter-spacing:.02em}',
+  '.zb-read[aria-pressed="true"]{color:var(--rv-link)}',
   '.zb-title{flex:1;min-width:0;text-align:center;line-height:1.2}',
   '.zb-title b,.zb-title span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;unicode-bidi:plaintext}',
   '.zb-title b{font-weight:600;font-size:14.5px}.zb-title span{font-size:12px;color:var(--rv-muted)}',
@@ -22817,6 +23131,7 @@ var _BOOK_CSS = [
   '@media (prefers-reduced-motion:reduce){.zb-mini{transition:none!important}}'
 ].join('');
 var _BOOK_SVG_BACK = '<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
+var _BOOK_SVG_READ = '<svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>';
 var _BOOK_SVG_TOC = '<svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r=".6" fill="currentColor"/><circle cx="4.5" cy="12" r=".6" fill="currentColor"/><circle cx="4.5" cy="18" r=".6" fill="currentColor"/></svg>';
 
 // Keep a book's place, as a position in Saved (Bookshelf's Continue reading,
@@ -23149,7 +23464,10 @@ function _bookLay(frame) {
       (uiRtl ? ' style="transform:scaleX(-1)"' : '') + '>' + _BOOK_SVG_BACK + '</button>' +
     '<div class="zb-title"><b></b><span></span></div>' +
     '<button type="button" class="zb-toc" aria-label="' + tH('books_contents') + '" title="' + tH('books_contents') + '" aria-haspopup="dialog">' + _BOOK_SVG_TOC + '</button>' +
+    '<button type="button" class="zb-read" hidden>' + _BOOK_SVG_READ + '</button>' +
     '<button type="button" class="zb-aa" aria-label="' + tH('books_settings') + '" title="' + tH('books_settings') + '" aria-haspopup="dialog">Aa</button>';
+  // Zimi's own header is held away over a book, and Read aloud is in it: the book's header has it too.
+  head.querySelector('.zb-read').onclick = function() { _ttsToggle(); };
   head.querySelector('.zb-title b').textContent = bookTitle;
   head.querySelector('.zb-title span').textContent = author;
   if (!author) head.querySelector('.zb-title span').style.display = 'none';
@@ -23173,6 +23491,7 @@ function _bookLay(frame) {
   tocSheet.setAttribute('aria-label', t('books_contents'));
   setSheet.setAttribute('aria-label', t('books_settings'));
   [head, foot, mini, scrim, tocSheet, setSheet].forEach(function(n) { doc.body.appendChild(n); });
+  _bookReadSync(doc);
 
   // ── how you read: the settings, laid onto the page ──
   var prefs = _bookPrefs(), paged = false, W = 0, H = 0;
@@ -23637,6 +23956,12 @@ function _bookLay(frame) {
     showBars(false);
     paint();
     settleSoon();
+  };
+
+  // Where the reader is now, as a range: Read aloud begins here, not at the book's first page.
+  doc.__zbHere = function() {
+    var a = held ? anchor : readAnchor();
+    return secs[a.s] ? _bookRangeAt(doc, secs[a.s], a.o) : null;
   };
 
   // ── open where you left it (or where the link points) ──
@@ -28840,7 +29165,7 @@ function _buildTopbarMenuHtml() {
         ' <span class="tbm-label">' + tH('find_in_page') + '</span></button>';
     }
     // 4. Read aloud.
-    if (_ttsCanSpeak() && !_isMapPage() && !_isAppPage() && !_isPdfPage() && _speakingOn()) {
+    if (_ttsOffered() && !_isMapPage() && !_isAppPage() && !_isPdfPage()) {
       readerGroup += '<button class="topbar-menu-item" id="tbm-tts" aria-pressed="' + (_ttsSpeaking ? 'true' : 'false') +
         '" onclick="event.stopPropagation();_ttsToggle()">' + _TBM_TTS_ICON +
         ' <span class="tbm-label">' + tH(_ttsSpeaking ? 'tts_stop' : 'tts_speak') + '</span></button>';

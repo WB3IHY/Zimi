@@ -532,6 +532,7 @@
   .tts-bar-state.playing i, .tts-bar-state.paused i { display: block; }
   .tts-bar-state.paused i { animation: none; transform: scaleY(0.35); }
   .tts-bar-state:not(.playing):not(.paused) { border: 2px solid var(--border); border-top-color: currentColor; border-radius: 50%; width: 14px; height: 14px; animation: spin 0.8s linear infinite; }
+  .tts-bar-state.tts-lost { cursor: pointer; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--amber); }
   @keyframes tts-bars { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
   .tts-bar-voice { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   button.tts-bar-voice { cursor: pointer; border-radius: 22px; }
