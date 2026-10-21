@@ -455,11 +455,12 @@ const tick = () => new Promise(r => setImmediate(r));
   {
     const BLOCK = ' ';
     const ax = { Node: { DOCUMENT_POSITION_FOLLOWING: 4 }, Map, isFinite, window: { matchMedia: () => ({ matches: false }) },
-      _TTS_CHUNK_MAX: 240, _TTS_FIRST_CHUNK_MAX: 120, _BOOK_EDGE: 0.3, _nightRedOn: () => false, _ttsBarSync: () => {} };
+      _TTS_CHUNK_MAX: 240, _TTS_FIRST_CHUNK_MAX: 120, _BOOK_EDGE: 0.3, _nightRedOn: () => false, _ttsBarSync: () => {},
+      _langPrimary: l => String(l || '').split(/[-_]/)[0].toLowerCase(), _ttsLang: () => 'en' };
     vm.createContext(ax);
-    vm.runInContext(extract(/var _TTS_BLOCK = [^\n]*\n/, '_TTS_BLOCK') + extract(/var _TTS_ABBREV = [^\n]*\n/, '_TTS_ABBREV') +
+    vm.runInContext(extract(/var _TTS_BLOCK = [^\n]*\n/, '_TTS_BLOCK') + extract(/var _TTS_ABBREVS[\s\S]*?\nfunction _ttsSentenceSpans[\s\S]*?\n}\n/, 'the sentence splitter') +
       extract(/var _TTS_SKIP_TAGS[\s\S]*?var _ttsRead = null;/, 'the read-along constants'), ax);
-    vm.runInContext(['_ttsSentenceSpans', '_ttsPlanChunks', '_ttsReadModel', '_ttsPieceAt', '_ttsRange', '_ttsOffsetOf', '_ttsSelectedSpan', '_ttsSpanAtChar',
+    vm.runInContext(['_ttsPlanChunks', '_ttsReadModel', '_ttsPieceAt', '_ttsRange', '_ttsOffsetOf', '_ttsSelectedSpan', '_ttsSpanAtChar',
       '_ttsSentenceAt', '_ttsScrollBy', '_ttsOnText', '_ttsMakePlan', '_ttsPlanFrom', '_ttsHlOk', '_ttsPaint', '_ttsAlongAt', '_ttsAlongAudio', '_ttsAlongChar',
       '_ttsScroller', '_ttsFollow', '_ttsLose', '_ttsFollowResume', '_ttsTap', '_ttsAlongBegin', '_ttsAlongEnd'].map(fn).join('\n'), ax);
 
@@ -518,8 +519,12 @@ const tick = () => new Promise(r => setImmediate(r));
     ok('"Dr." and a decimal do not end a sentence', spans.includes('Hello big world.') && spans.includes('Dr. Smith paid 3.5 dollars.') && spans.includes('Next one.'), JSON.stringify(spans));
     const chunks = ax._ttsPlanChunks(model.text, 240, 120);
     const said = chunks.map(c => c.text).join(' ');
-    ok('chunks hold every sentence once, in order', said === 'Tides Hello big world. Dr. Smith paid 3.5 dollars. Next one. One Two A B Later page.', said);
-    ok('each span in a chunk is where its words are in the text', chunks.every(c => c.text === c.spans.map(sp => model.text.slice(sp.s, sp.e).replace(/\s+/g, ' ')).join(' ') && c.spans.every(sp => sp.n === model.text.slice(sp.s, sp.e).replace(/\s+/g, ' ').length)));
+    ok('chunks hold every sentence once, in order', said === 'Tides. Hello big world. Dr. Smith paid 3.5 dollars. Next one. One. Two. A. B. Later page.', said);
+    ok('...a heading or list item is given a stop to say, so it does not run on', /^Tides\. /.test(said) && / One\. Two\. /.test(said), said);
+    // A span says its words, and a stop where its block ended without one.
+    const spanSaid = sp => model.text.slice(sp.s, sp.e).replace(/\s+/g, ' ');
+    const pieces = c => { let at = 0; return c.spans.map(sp => { const p = c.text.slice(at, at + sp.n); at += sp.n + 1; return p; }); };
+    ok('each span in a chunk is where its words are in the text', chunks.every(c => pieces(c).every((p, i) => p === spanSaid(c.spans[i]) || p === spanSaid(c.spans[i]) + '.') && pieces(c).join(' ') === c.text));
     const long = ('word '.repeat(70)).trim() + '. Tail.';
     const lc = ax._ttsPlanChunks(long, 100, 0);
     ok('a sentence longer than a chunk is cut at words, each piece a span of its own', lc.length > 2 && lc.every(c => c.text.length <= 100 && c.spans.length >= 1) && lc[0].spans[0].s === 0 && lc.map(c => c.text).join(' ') === long);
@@ -563,12 +568,12 @@ const tick = () => new Promise(r => setImmediate(r));
     selection = { isCollapsed: false, rangeCount: 1, getRangeAt: () => ({ startContainer: bigNode, startOffset: 0, endContainer: worldNode, endOffset: 6 }), removeAllRanges() { this.cleared = true; } };
     doc.defaultView.getSelection = () => selection;
     const selPlan = ax._ttsMakePlan(doc);
-    ok('with a selection Read aloud reads the selection and stops', selPlan.sel && selPlan.chunks.length === 1 && selPlan.chunks[0].text === 'big world', JSON.stringify(selPlan.chunks));
+    ok('with a selection Read aloud reads the selection and stops', selPlan.sel && selPlan.chunks.length === 1 && selPlan.chunks[0].text === 'big world.', JSON.stringify(selPlan.chunks));
     selection.isCollapsed = true;
     const allPlan = ax._ttsMakePlan(doc);
     ok('without one it reads the whole article', !allPlan.sel && allPlan.chunks.map(c => c.text).join(' ') === said);
     doc.__zbHere = () => ({ startContainer: textNode(doc.main, 'One'), startOffset: 0 });
-    ok('in a book it begins at the page that is open', ax._ttsMakePlan(doc).chunks.map(c => c.text).join(' ') === 'One Two A B Later page.');
+    ok('in a book it begins at the page that is open', ax._ttsMakePlan(doc).chunks.map(c => c.text).join(' ') === 'One. Two. A. B. Later page.');
     delete doc.__zbHere;
 
     const listeners = [];

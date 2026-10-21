@@ -1439,7 +1439,7 @@ function _voiceTestedDate(sec) {
 // A reading's paragraph, with what makes speech slow (numbers, units, a
 // name, an abbreviation), cut as Read aloud cuts an article.
 function _voiceTestAll() {
-  var chunks = _ttsChunkText(t('voices_test_reading'), _TTS_CHUNK_MAX, _TTS_FIRST_CHUNK_MAX);
+  var chunks = _ttsChunkText(t('voices_test_reading'), _TTS_CHUNK_MAX, _TTS_FIRST_CHUNK_MAX, _currentLang || 'en');
   _voiceTestDevice(chunks.length - 1);
   _voicesSend('/manage/voices/test', { lang: _langPrimary(_currentLang || 'en'), chunks: chunks },
     t('voices_test_failed'));
@@ -20067,25 +20067,77 @@ function _ttsSpeakUrl(text, lang, engine) {
 // ``first`` caps the first chunk alone: a voice says nothing until a whole
 // chunk is made, so a short one starts the reading sooner.
 var _TTS_BLOCK = ' '; // between two blocks of the text that is read: no sentence runs across it
-// The sentences of text[from, to) as [start, end) spans, trimmed.
-var _TTS_ABBREV = /(?:^|[\s("'])(?:Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St|Mt|vs|Fig|No|[B-HJ-Z])\.$/;
-function _ttsSentenceSpans(text, from, to) {
-  var out = [], first = 0;
+// The sentences of text[from, to) as [start, end) spans, trimmed. They are
+// cut as the platform cuts them (Intl.Segmenter: Unicode's sentence rules, so
+// quotes, ellipses, ?! and decimals, and CJK, Arabic and Indic marks), then a
+// cut after an abbreviation is joined back, as ICU's suppressions and Punkt
+// do: those rules alone read "Dr. | Smith", "J. | R. | R. | Tolkien" and
+// "Jan. | 3" as sentences (Eric, 2026-10-20: "Dr. Smith isn't two sentences").
+// Joining by mistake costs one longer mark; cutting by mistake, a pause.
+var _TTS_ABBREVS = (function(lists) {
+  var out = {};
+  Object.keys(lists).forEach(function(l) { out[l] = {}; lists[l].split(' ').forEach(function(w) { out[l][w] = 1; }); });
+  return out;
+})({
+  en: 'mr mrs ms mx dr prof sr jr st mt ft vs etc approx ca no nos fig figs vol vols ch pp ed eds inc ltd co corp bros gen col lt sgt capt cmdr adm gov sen rep rev hon pres ave blvd rd jan feb mar apr jun jul aug sep sept oct nov dec mon tue wed thu fri sat sun dept univ est op cit al ibid',
+  de: 'dr prof nr bzw usw ca evtl ggf vgl sog str abs hr fr jh jhd mio mrd bd',
+  fr: 'm mme mlle mm dr pr st ste cf env etc vol chap av bd',
+  es: 'sr sra srta dr dra ud uds pág núm av etc vol cap',
+  pt: 'sr sra dr dra prof etc pág av vol cap',
+  it: 'sig sigra dott prof ecc pag vol cap',
+  nl: 'dhr mevr dr prof blz nr bijv enz',
+  ru: 'г гг др им ул см тыс млн млрд руб стр т е'
+});
+var _TTS_INITIAL_NOT = { en: 'I' }; // a one-letter word that ends sentences, not an initial
+var _TTS_SAID_END = /[.!?。！？।؟…:;,"'”’»)\]]$/; // a sentence the voice already hears end
+var _TTS_SENTENCE_RE = /(?:[^.!?。！？।؟]|\.(?=\d))+[.!?。！？।؟]+(?!\d)["'”’»)\]]*|\S(?:[^.!?。！？।؟]|\.(?=\d))*$/g;
+var _ttsSegmenters = {};
+function _ttsSegmenter(lang) {
+  var key = lang || '';
+  if (!(key in _ttsSegmenters)) {
+    try { _ttsSegmenters[key] = new Intl.Segmenter(lang || undefined, { granularity: 'sentence' }); }
+    catch (e) { _ttsSegmenters[key] = null; } // no Intl.Segmenter (older browsers): the pattern below
+  }
+  return _ttsSegmenters[key];
+}
+// [start, end) of each sentence of ``seg``, untrimmed.
+function _ttsSegments(seg, lang) {
+  var sg = _ttsSegmenter(lang), out = [], m;
+  if (sg) {
+    for (var it = sg.segment(seg)[Symbol.iterator](), x = it.next(); !x.done; x = it.next()) out.push([x.value.index, x.value.index + x.value.segment.length]);
+    return out;
+  }
+  _TTS_SENTENCE_RE.lastIndex = 0;
+  while ((m = _TTS_SENTENCE_RE.exec(seg))) out.push([m.index, m.index + m[0].length]);
+  return out;
+}
+// Whether sentence ``next`` goes on the one before (``prev``, both trimmed):
+// it opens in lower case, or ``prev`` ends at one full stop after an
+// initial, a dotted abbreviation (U.S., e.g., p.m.) or a listed one.
+function _ttsJoinsNext(prev, next, lang) {
+  if (!/[^.]\.$/.test(prev)) return false; // "?", "!", "..." and a closing quote end a sentence
+  if (/^\p{Ll}/u.test(next)) return true;
+  var tok = (prev.match(/(\S+)\.$/) || ['', ''])[1].replace(/^[("'\[«„“‘]+/, '');
+  var l = _langPrimary(lang || 'en');
+  if (/^\p{Lu}$/u.test(tok)) return tok !== (_TTS_INITIAL_NOT[l] || '');
+  if (/\p{L}\.\p{L}/u.test(tok)) return true;
+  tok = tok.toLowerCase();
+  return !!((_TTS_ABBREVS[l] && _TTS_ABBREVS[l][tok]) || _TTS_ABBREVS.en[tok]);
+}
+function _ttsSentenceSpans(text, from, to, lang) {
+  var out = [];
   for (var a = from; a < to;) {
     var b = text.indexOf(_TTS_BLOCK, a);
     if (b < 0 || b > to) b = to;
-    first = out.length;
-    // A full stop before a digit (3.5) is not the end of one.
-    var re = /(?:[^.!?。！？]|\.(?=\d))+[.!?。！？]+(?!\d)|\S(?:[^.!?。！？]|\.(?=\d))*$/g, m, seg = text.slice(a, b);
-    while ((m = re.exec(seg))) {
-      var s = a + m.index, e = s + m[0].length;
+    var first = out.length, seg = text.slice(a, b);
+    _ttsSegments(seg, lang).forEach(function(r) {
+      var s = a + r[0], e = a + r[1];
       while (s < e && /\s/.test(text[s])) s++;
       while (e > s && /\s/.test(text[e - 1])) e--;
-      if (s >= e) continue;
+      if (s >= e) return;
       var prev = out.length > first ? out[out.length - 1] : null;
-      // "Dr." and an initial do not end a sentence.
-      if (prev && _TTS_ABBREV.test(text.slice(prev[0], prev[1]))) prev[1] = e; else out.push([s, e]);
-    }
+      if (prev && _ttsJoinsNext(text.slice(prev[0], prev[1]), text.slice(s, e), lang)) prev[1] = e; else out.push([s, e]);
+    });
     a = b + 1;
   }
   return out;
@@ -20093,14 +20145,19 @@ function _ttsSentenceSpans(text, from, to) {
 // text[from, to) as chunks: {text, spans}, the text a voice says and the
 // spans {s, e, n} of the sentences in it (n: characters said, whitespace
 // collapsed), so a chunk can be followed back to where it is in ``text``.
-function _ttsPlanChunks(text, maxLen, first, from, to) {
+function _ttsPlanChunks(text, maxLen, first, from, to, lang) {
   maxLen = maxLen || 240;
   to = to == null ? text.length : to;
   var out = [], buf = null;
   function cap() { return out.length || !first ? maxLen : first; }
   function flush() { if (buf) { out.push(buf); buf = null; } }
-  _ttsSentenceSpans(text, from || 0, to).forEach(function(sp) {
+  var stop = /^(zh|ja)$/.test(_langPrimary(lang || '')) ? '\u3002' : '.';
+  _ttsSentenceSpans(text, from || 0, to, lang).forEach(function(sp) {
     var piece = text.slice(sp[0], sp[1]), s = piece.replace(/\s+/g, ' ');
+    // A heading or list item ends where its block does, with no stop of its
+    // own: the voice is given one, or it runs on into the next block.
+    var gap = text.slice(sp[1], to).match(/^\s*/)[0];
+    if (!_TTS_SAID_END.test(s) && (sp[1] + gap.length >= to || gap.indexOf(_TTS_BLOCK) >= 0)) s += stop;
     // A single sentence longer than maxLen: hard-split on word boundaries.
     if (s.length > cap()) {
       flush();
@@ -20120,8 +20177,8 @@ function _ttsPlanChunks(text, maxLen, first, from, to) {
   flush();
   return out;
 }
-function _ttsChunkText(text, maxLen, first) {
-  return text ? _ttsPlanChunks(String(text), maxLen, first).map(function(c) { return c.text; }) : [];
+function _ttsChunkText(text, maxLen, first, lang) {
+  return text ? _ttsPlanChunks(String(text), maxLen, first, 0, null, lang).map(function(c) { return c.text; }) : [];
 }
 
 // Shared main-content locator for a ZIM article document. Returns the element
@@ -20248,7 +20305,7 @@ function _ttsSentenceAt(model, off) {
   var t = model.text, hit = null;
   off = Math.min(off, t.length - 1);
   var a = t.lastIndexOf(_TTS_BLOCK, off - 1) + 1, b = t.indexOf(_TTS_BLOCK, off);
-  var sp = _ttsSentenceSpans(t, a, b < 0 ? t.length : b);
+  var sp = _ttsSentenceSpans(t, a, b < 0 ? t.length : b, _ttsLang(model.doc));
   for (var i = 0; i < sp.length; i++) {
     hit = { s: sp[i][0], e: sp[i][1] };
     if (sp[i][1] > off) break;
@@ -20286,7 +20343,7 @@ function _ttsMakePlan(doc) {
   return _ttsPlanFrom(model, a, b, !!sel);
 }
 function _ttsPlanFrom(model, a, b, sel) {
-  var chunks = _ttsPlanChunks(model.text, _TTS_CHUNK_MAX, _TTS_FIRST_CHUNK_MAX, a, b);
+  var chunks = _ttsPlanChunks(model.text, _TTS_CHUNK_MAX, _TTS_FIRST_CHUNK_MAX, a, b, _ttsLang(model.doc));
   return chunks.length ? { doc: model.doc, model: model, chunks: chunks, b: b, sel: sel } : null;
 }
 
