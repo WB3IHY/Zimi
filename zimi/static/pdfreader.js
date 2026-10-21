@@ -37,6 +37,7 @@
   var ROT_KEY = 'zimi_pdf_rot:';           // + the file: its pages turned, 0 / 90 / 180 / 270
   var REACH_MS = 4000;         // ms a page brought in for a highlight has to draw its text
   var SPREAD_MIN_PX = 1000;    // px of window wide enough for two pages side by side
+  var SPREAD_CHOICE_PX = 600;  // px: below this two pages are too small to read, so not offered
   var RESIZE_MS = 150;
   var SHOW_AT = 1 / 3;         // a highlight opened from Saved lands a third of the way down
   var TOKENS = ['--bg', '--surface', '--surface2', '--border', '--text', '--text2', '--amber', '--amber-glow', '--on-amber'];
@@ -389,16 +390,26 @@
   // than wide (a book, a paper), unless one or two was chosen in the menu.
   // One choice for every document: the way this reader likes to read.
   function wide() { return !!container && container.clientWidth >= SPREAD_MIN_PX; }
-  function portrait() {
+  function roomForTwo() { return !!container && container.clientWidth >= SPREAD_CHOICE_PX; }
+  // The first page's width over its height (a US letter page: 0.77).
+  function pageShape() {
     var pv = null;
     try { pv = app.pdfViewer.getPageView(0); } catch (e) { pv = null; }
     var vp = pv && pv.viewport;
-    return !vp || vp.height > vp.width;
+    return vp && vp.height ? vp.width / vp.height : 0;
+  }
+  function portrait() { var a = pageShape(); return !a || a < 1; }
+  // Two whole pages, each as tall as the window, fit across it: a phone
+  // held sideways, a wide tablet (Eric, 2026-10-20: "PDF viewer needs two up").
+  function twoFitTall() {
+    var a = pageShape();
+    return !!container && a > 0 && 2 * container.clientHeight * a <= container.clientWidth;
   }
   function spreadWanted() {
-    if (!wide() || pages < 2) return false;
+    if (!roomForTwo() || pages < 2) return false;
     var v = store(SPREAD_KEY);
-    return v === '1' || v === '2' ? v === '2' : portrait();
+    if (v === '1' || v === '2') return v === '2';
+    return portrait() && (wide() || twoFitTall());
   }
   function applySpread() {
     if (!app || !pages) return;
@@ -715,7 +726,7 @@
       h += '<button type="button" role="menuitem" data-zp="save" aria-pressed="' + on + '">' + I.mark + '<span class="zp-grow">' + esc(t(on ? 'saved' : 'save')) + '</span></button>';
     }
     // One page or two: only where two fit.
-    if (wide() && pages > 1) {
+    if (roomForTwo() && pages > 1) {
       var two = !!(app && app.pdfViewer.spreadMode);
       h += '<div role="group" class="zp-choice">' +
         '<button type="button" role="menuitemradio" data-zp="one" aria-checked="' + !two + '">' + I.one + '<span class="zp-grow">' + esc(t('pdf_single_page')) + '</span></button>' +

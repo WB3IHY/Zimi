@@ -513,6 +513,29 @@ def test_two_pages_side_by_side_on_a_wide_screen(shell):
             ctx.browser.close()
 
 
+def test_a_phone_held_sideways_reads_two_pages(shell):
+    """Two whole pages as tall as the window fit across a phone on its side:
+    it opens two at a time, and the menu offers one or two (Eric,
+    2026-10-20: "PDF viewer needs two up")."""
+    _skip_without_browser()
+    from playwright.sync_api import sync_playwright
+
+    base, name = shell
+    with sync_playwright() as pw:
+        sideways = dict(pw.devices["iPhone 13 landscape"])
+        pg, fr, ctx = _open(pw, base, name, sideways)
+        try:
+            fr.wait_for_function(
+                "() => PDFViewerApplication.pdfViewer.spreadMode === 1"
+            )
+            fr.click(".zp-more")
+            assert fr.evaluate(
+                "() => !!document.querySelector('.zp-menu [data-zp=\"one\"]')"
+            )
+        finally:
+            ctx.browser.close()
+
+
 def test_rotate_turns_the_pages_and_is_kept_for_the_document(shell):
     """A sideways scan: Rotate in the menu turns every page a quarter, the
     menu staying for another; the document opens turned again."""
