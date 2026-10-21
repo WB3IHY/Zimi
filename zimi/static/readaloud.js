@@ -202,7 +202,8 @@ function _ttsPlanChunks(text, maxLen, first, from, to, lang) {
     // A heading or list item ends where its block does, with no stop of its
     // own: the voice is given one, or it runs on into the next block.
     var gap = text.slice(sp[1], to).match(/^\s*/)[0];
-    if (!_TTS_SAID_END.test(s) && (sp[1] + gap.length >= to || gap.indexOf(_TTS_BLOCK) >= 0)) s += stop;
+    var blockEnds = sp[1] + gap.length >= to || gap.indexOf(_TTS_BLOCK) >= 0;
+    if (!_TTS_SAID_END.test(s) && blockEnds) s += stop;
     // A single sentence longer than maxLen: hard-split on word boundaries.
     if (s.length > cap()) {
       flush();
@@ -218,6 +219,10 @@ function _ttsPlanChunks(text, maxLen, first, from, to, lang) {
     if (buf && buf.text.length + 1 + s.length > cap()) flush();
     var span = { s: sp[0], e: sp[1], n: s.length };
     if (buf) { buf.text += ' ' + s; buf.spans.push(span); } else buf = { text: s, spans: [span] };
+    // A chunk ends with its block: a heading is said on its own, with the
+    // pause between two clips, not run into the sentence after it (Eric,
+    // 2026-10-21: "blends headers into sentences").
+    if (blockEnds) flush();
   });
   flush();
   return out;
@@ -232,6 +237,12 @@ function _ttsChunkText(text, maxLen, first, lang) {
 // changed, and where the API is missing nothing is marked and nothing breaks.
 // Nothing here runs until Read aloud starts.
 var _TTS_SKIP_TAGS = ' script style noscript template svg canvas iframe object audio video select ';
+// What a voice should not say though the page shows it: citation marks
+// ("[3]", which also cut sentences in two), edit links, the hatnote, the
+// infobox and other tables, captions, navigation boxes, the reference list
+// (Eric, 2026-10-21: "reads the citation numbers").
+var _TTS_SKIP_SEL = 'sup.reference,.mw-ref,.mw-editsection,.hatnote,.metadata,.ambox,.navbox,.sidebar,' +
+  'table,figure,.thumb,.mw-references-wrap,ol.references,.reflist,.catlinks,.zim-footer';
 var _TTS_HL = 'zimi-tts', _TTS_HL_STYLE = 'zimi-tts-style';
 // A quiet amber tint, never the selection's blue: Reader View's own link
 // colour of its theme where there is one (light, dark, sepia, black), else amber.
@@ -260,6 +271,7 @@ function _ttsReadModel(doc, main) {
     var cs = win.getComputedStyle(el), tag = el.localName;
     // A book lays out one section at a time and hides the others: they are still its text.
     if (_TTS_SKIP_TAGS.indexOf(' ' + tag + ' ') >= 0 || (cs.display === 'none' && !el.classList.contains('zb-sec'))) return;
+    if (el !== main && el.matches && el.matches(_TTS_SKIP_SEL)) return;
     var block = cs.display.indexOf('inline') !== 0 && cs.display !== 'contents', shown = cs.visibility === 'visible';
     if (block || tag === 'br') split();
     for (var n = el.firstChild; n; n = n.nextSibling) {
@@ -374,11 +386,12 @@ function _ttsPaint(ranges) {
   var st = _ttsRead, win = st && st.win;
   if (!_ttsHlOk(win)) return;
   try {
-    // One Highlight for the reading, emptied and filled: Safari repaints a
-    // Highlight that changes, but could leave the text of one replaced by a
-    // new one still marked (Eric, 2026-10-20: "It keeps previous sections
-    // highlighted").
-    if (st.hl) st.hl.clear();
+    // One Highlight for the reading, its old ranges taken out one by one:
+    // Safari repaints the text of a range it is told to remove, but neither a
+    // replaced Highlight nor clear() repaints what was marked, which stays
+    // tinted (Eric, 2026-10-20: "It keeps previous sections highlighted";
+    // 2026-10-21, after clear(): three sentences still marked).
+    if (st.hl) Array.from(st.hl).forEach(function(r) { st.hl.delete(r); });
     if (!ranges.length) { win.CSS.highlights.delete(_TTS_HL); return; }
     if (!st.doc.getElementById(_TTS_HL_STYLE)) {
       var style = st.doc.createElement('style');

@@ -27,6 +27,8 @@ ok('the first chunk is short', c[0].length <= _TTS_FIRST_CHUNK_MAX, c.map((x) =>
 ok('and ends where its sentence does', /\.$/.test(c[0]), c[0]);
 ok('the rest are packed up to the full size', c.slice(1, -1).every((x) => x.length > _TTS_FIRST_CHUNK_MAX && x.length <= _TTS_CHUNK_MAX), c.map((x) => x.length));
 ok('nothing is lost or repeated', c.join(' ') === text.replace(/\s+/g, ' ').trim());
+const sectioned = 'His papacy was marked by reconciliation.' + _TTS_BLOCK + 'Early life' + _TTS_BLOCK + 'John was born in Antioch. He was named legate.';
+ok('a chunk ends with its block: a heading is said alone, with its own stop', JSON.stringify(_ttsChunkText(sectioned, _TTS_CHUNK_MAX)) === JSON.stringify(['His papacy was marked by reconciliation.', 'Early life.', 'John was born in Antioch. He was named legate.']), _ttsChunkText(sectioned, _TTS_CHUNK_MAX));
 ok('without a first cap every chunk is full size', _ttsChunkText(text, _TTS_CHUNK_MAX)[0].length > _TTS_FIRST_CHUNK_MAX);
 
 // Sentences as people read them (Eric, 2026-10-20: "Dr. Smith isn't two

@@ -494,6 +494,7 @@ const tick = () => new Promise(r => setImmediate(r));
       const [tag, attrs, ...kids] = spec;
       const el = { nodeType: 1, localName: tag, parentNode: parent, parentElement: parent, order: order++, classes: attrs.cls || [], style: attrs.style || {}, childNodes: [] };
       el.classList = { contains: c => el.classes.includes(c) };
+      el.matches = sel => sel.split(',').some(x => { const [t, c] = x.trim().split('.'); return (!t || t === tag) && (!c || el.classes.includes(c)); });
       el.contains = n => { for (let x = n; x; x = x.parentNode) if (x === el) return true; return false; };
       el.compareDocumentPosition = n => (n.order > el.order ? 4 | (el.contains(n) ? 16 : 0) : 2);
       kids.forEach(k => el.childNodes.push(node(k, el)));
@@ -512,7 +513,7 @@ const tick = () => new Promise(r => setImmediate(r));
       doc.defaultView = {
         getComputedStyle: el => ({ display: el.style.display || (BLOCKS.includes(el.localName) ? 'block' : 'inline'), visibility: el.style.visibility || 'visible', overflowY: 'visible' }),
         getSelection: () => sel || { isCollapsed: true, rangeCount: 0 }, innerHeight: 800, innerWidth: 400, scrollBy(o) { this.scrolled = o; },
-        CSS: { highlights: new Map() }, Highlight: class { constructor() { this.s = []; } add(r) { this.s.push(r); } clear() { this.s = []; } },
+        CSS: { highlights: new Map() }, Highlight: class { constructor() { this.s = []; this.gone = 0; } add(r) { this.s.push(r); } delete(r) { const i = this.s.indexOf(r); if (i >= 0) { this.s.splice(i, 1); this.gone++; } return i >= 0; } [Symbol.iterator]() { return this.s.slice()[Symbol.iterator](); } },
       };
       doc.defaultView.document = doc;
       return doc;
@@ -525,6 +526,11 @@ const tick = () => new Promise(r => setImmediate(r));
     const flat = model.text.replace(new RegExp(BLOCK, 'g'), '|').replace(/\|$/, '');
     ok('the read text is the article\'s own text nodes, a block mark between blocks', flat === 'Tides|Hello big world. Dr. Smith paid 3.5 dollars. Next one.|One|Two|A|B|Later page.', flat);
     ok('no hidden, invisible or script text; a book\'s other pages still are read', !/HIDDEN|INVISIBLE|var s/.test(model.text) && /Later page/.test(model.text));
+    const wiki = mkDoc(['main', {}, ['div', { cls: ['hatnote'] }, 'For the other pope, see X.'], ['table', {}, ['tr', {}, ['td', {}, 'Born']]],
+      ['p', {}, 'John was born in Antioch', ['sup', { cls: ['reference'] }, '[3]'], ' and was of Syrian origin.', ['sup', { cls: ['reference'] }, '[4]'], ' He was named legate.']]);
+    const wikiText = ax._ttsReadModel(wiki, wiki.main).text.replace(new RegExp(BLOCK, 'g'), '|');
+    ok('no citation marks, hatnote or infobox: the prose, sentence by sentence', wikiText === 'John was born in Antioch and was of Syrian origin. He was named legate.|', wikiText);
+    order = 0; // back to the article's own document order
     const bigAt = model.text.indexOf('big');
     const bigRange = ax._ttsRange(model, bigAt, bigAt + 3);
     ok('an offset maps back to its node and place in it', bigRange.startContainer.data === 'big' && bigRange.startOffset === 0 && bigRange.endOffset === 3);
@@ -614,7 +620,7 @@ const tick = () => new Promise(r => setImmediate(r));
     const firstHl = hls.get('zimi-tts');
     ax._ttsAlongAt(1, 0);
     ok('then the sentence, one range', hls.get('zimi-tts').s.length === 1);
-    ok('...in the same Highlight, emptied and filled (Safari left a replaced one painted)', hls.get('zimi-tts') === firstHl);
+    ok('...in the same Highlight, its old ranges deleted one by one (Safari repaints only a deleted range)', hls.get('zimi-tts') === firstHl && firstHl.gone === small[0].spans.length);
     ax._ttsAlongAudio(1, { duration: NaN, currentTime: 0 });
     ok('audio of unknown length marks the whole chunk', hls.get('zimi-tts').s.length === small[1].spans.length);
     ax._ttsAlongAudio(1, { duration: 10, currentTime: 5 });
