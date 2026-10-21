@@ -67,6 +67,7 @@ function makeSandbox(kinds) {
     return sandbox.t(key, Object.assign({ n: n }, vars || {}));
   };
   vm.createContext(sandbox);
+  vm.runInContext(require("./app_source.cjs").localeHelpers(src), sandbox);
   vm.runInContext(
     extract(/var _PROV_MODE_KEYS = \{[\s\S]*?\n\};/, '_PROV_MODE_KEYS') +
     extract(/var _ZI_COUNT_KEYS = \{[^\n]*\};/, '_ZI_COUNT_KEYS') +

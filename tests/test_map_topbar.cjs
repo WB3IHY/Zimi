@@ -46,7 +46,7 @@ ok('type size and read-aloud follow the reading-text rule', /_readingText = _rea
 ok('Reader View is never offered on a map', /_readerViewAvailable\(\) && !_createOpen && !_isMapPage\(\)/.test(fn('_syncReaderViewBtn')));
 const menu = fn('_buildTopbarMenuHtml');
 ok('the ⋯ menu drops Reader View and Read aloud on a map', /rvAvail = _readerViewAvailable\(\) && !_isMapPage\(\)/.test(menu) &&
-  /_ttsCanSpeak\(\) && !_isMapPage\(\)/.test(menu));
+  /_ttsOffered\(\) && !_isMapPage\(\)/.test(menu));
 ok('Open in browser stays', /_openInBrowser\(\)/.test(menu));
 ok('the bookmarks panel and the map switcher stay in the bar', /getElementById\('bm-panel-btn'\)\.style\.display = libraryChromeOff \? 'none' : 'flex'/.test(topbar) &&
   /showMapSrc = !!\(_readingArticle && currentArticle && _isMapZim/.test(topbar));

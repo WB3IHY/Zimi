@@ -18,3 +18,16 @@ module.exports = function appSource() {
   const table = JSON.parse(fs.readFileSync(path.join(root, 'assets', 'lang-codes.json'), 'utf8'));
   return src.replace(MARK, JSON.stringify(table));
 };
+
+// localeHelpers(src): app.js's number, date, sort and week helpers (fmtNum,
+// fmtDate, cmpText, cmpTitle, _weekFirstDay), to run in a vm context before
+// any part that formats or sorts. Zimi's language is the context's
+// _currentLang, English when it has none.
+module.exports.localeHelpers = function localeHelpers(src) {
+  const a = src.indexOf('function _uiLocale()'), b = src.indexOf('// Localized pluralization: picks');
+  if (a < 0 || b < a) throw new Error('app.js locale helpers moved');
+  return "if (typeof _currentLang === 'undefined') var _currentLang = 'en';\n" +
+    "var _uiLangPrimary = typeof _uiLangPrimary === 'function' ? _uiLangPrimary : function() { return String(_currentLang || 'en').split('-')[0]; };\n" +
+    "var _langPrimary = typeof _langPrimary === 'function' ? _langPrimary : function(t) { return String(t || '').split('-')[0]; };\n" +
+    src.slice(a, b);
+};

@@ -53,6 +53,7 @@ const ctx = {
   _zimInfo: name => ctx.zimsCache.find(z => z.name === name) || null,
 };
 vm.createContext(ctx);
+vm.runInContext(require("./app_source.cjs").localeHelpers(src), ctx);
 vm.runInContext([
   'var _MAPS_SVG = "", _TUBE_PLAY_SVG = "", _EXCHANGE_SVG = "", _REDDOT_SVG = "", _WIKI_SVG = "", _BOOKS_SVG = "";',
   extract(/function _newestPer\(list, key\) \{[\s\S]*?\n\}/, '_newestPer'),

@@ -66,6 +66,7 @@ function mkComposeSandbox() {
     t: (k) => ({ saved_liked: 'Liked' }[k] || k),
   };
   vm.createContext(sandbox);
+  vm.runInContext(require("./app_source.cjs").localeHelpers(src), sandbox);
   vm.runInContext(
     extract(/function _savedListName\(l\)\s*\{[^\n]*\}/, '_savedListName') + '\n' +
     extract(/function _bmSanitizeZimName\(s\)\s*\{[\s\S]*?\n\}/, '_bmSanitizeZimName') +
@@ -126,6 +127,7 @@ function mkComposeSandbox() {
     _currentLang: 'en',
   };
   vm.createContext(sandbox);
+  vm.runInContext(require("./app_source.cjs").localeHelpers(src), sandbox);
   vm.runInContext(
     extract(/function t\(key, vars\)\s*\{[\s\S]*?\n\}/, 't') +
     extract(/function tPlural\(base, n, vars\)\s*\{[\s\S]*?\n\}/, 'tPlural'),

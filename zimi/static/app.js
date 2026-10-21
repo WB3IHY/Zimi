@@ -236,7 +236,7 @@ function _todaySeason(now, hemi) {
     { k: 4, s: new Date(y, 11, 21), e: new Date(y + 1, 2, 20) }
   ];
   for (var i = 0; i < bounds.length; i++) {
-    if (now >= bounds[i].s && now < bounds[i].e) return t('season_' + keys[bounds[i].k]) + ' ' + Math.round((now - bounds[i].s) / (bounds[i].e - bounds[i].s) * 100) + '%';
+    if (now >= bounds[i].s && now < bounds[i].e) return t('season_' + keys[bounds[i].k]) + ' ' + fmtPct((now - bounds[i].s) / (bounds[i].e - bounds[i].s) * 100);
   }
   return '';
 }
@@ -1165,7 +1165,7 @@ function _voiceBarHtml() {
 }
 // Languages by their own names, in their alphabet.
 function _langNamesSorted(codes) {
-  return codes.map(_langOwnName).sort(function(a, b) { return a.localeCompare(b); });
+  return codes.map(_langOwnName).sort(cmpText);
 }
 // An engine's "N languages" lists them: in its title (a hover), and on a
 // tap as a line under the row (a phone has no hover).
@@ -1312,7 +1312,7 @@ function _vgMainLangs(flavors) {
   return zimi;
 }
 function _vgByName(codes) {
-  return codes.slice().sort(function(a, b) { return (_langDisplayName(a) || a).localeCompare(_langDisplayName(b) || b); });
+  return codes.slice().sort(function(a, b) { return cmpText(_langDisplayName(a) || a, _langDisplayName(b) || b); });
 }
 function _vgCellHtml(lang, e, name) {
   var x = _voiceCell(lang, e), off = _voicePrefs().off.indexOf(e) >= 0;
@@ -1985,17 +1985,72 @@ function t(key, vars) {
 function tH(key, vars) {
   return t(key, vars).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+// Zimi's language, not the phone's: a German Zimi on an English phone reads
+// 20.10.2026 and 1.234 everywhere, so every number, date and sorted list goes
+// through these. Each Intl object is kept per language and options: building
+// one costs more than using it, and lists call these once a row.
+// The locale is Zimi's language in the phone's region when the phone speaks
+// that language (en-GB: 20/10/2026, weeks from Monday), else the language.
+function _uiLocale() {
+  var lang = _uiLangPrimary(), phone = (typeof navigator !== 'undefined' && navigator.language) || '';
+  return _langPrimary(phone).toLowerCase() === lang ? phone : lang;
+}
+var _intlKept = {};
+function _intl(kind, opts) {
+  var lang = _uiLocale(), key = kind + ' ' + lang + ' ' + JSON.stringify(opts || {});
+  if (!_intlKept[key]) {
+    try { _intlKept[key] = new Intl[kind](lang, opts); } catch (e) { _intlKept[key] = new Intl[kind]('en', opts); }
+  }
+  return _intlKept[key];
+}
+function fmtNum(n, opts) { return _intl('NumberFormat', opts).format(Number(n) || 0); }
+// A share of 100 as the language writes one (73,6 %, %73).
+function fmtPct(of100, digits) {
+  return fmtNum((Number(of100) || 0) / 100, { style: 'percent', maximumFractionDigits: digits || 0 });
+}
+// A date as the language writes it; with no options, the short numeric date.
+function fmtDate(d, opts) {
+  if (!(d instanceof Date)) d = new Date(d);
+  return isNaN(d.getTime()) ? '' : _intl('DateTimeFormat', opts).format(d);
+}
+// Text in the order a reader of the language expects, numbers by value
+// ("Part 2" before "Part 10").
+var _COLLATE_OPTS = { numeric: true };
+var _collators = {};
+function cmpText(a, b) {
+  var lang = _uiLocale();
+  var c = _collators[lang] || (_collators[lang] = _intl('Collator', _COLLATE_OPTS));
+  return c.compare(a == null ? '' : String(a), b == null ? '' : String(b));
+}
+// A library's things by their title, or their name where they have none.
+function cmpTitle(a, b) { return cmpText(a.title || a.name, b.title || b.name); }
+// The first day of the week, 0 = Sunday, for _uiLocale (en-GB starts on
+// Monday, en-US on Sunday, a bare language in its usual region). Intl's week
+// info where the browser has it (not Firefox yet), CLDR's table where not.
+var _WEEK_SUN = /^(AG|AS|BD|BR|BS|BT|BW|BZ|CA|CO|DM|DO|ET|GT|GU|HK|HN|ID|IL|IN|JM|JP|KE|KH|KR|LA|MH|MM|MO|MT|MX|MZ|NI|NP|PA|PE|PH|PK|PR|PT|PY|SA|SG|SV|TH|TT|TW|UM|US|VE|VI|WS|YE|ZA|ZW)$/;
+var _WEEK_SAT = /^(AE|AF|BH|DJ|DZ|EG|IQ|IR|JO|KW|LY|OM|QA|SD|SY)$/;
+var _LANG_HOME_REGION = { en: 'US', ar: 'EG', he: 'IL', hi: 'IN', pt: 'BR', zh: 'CN' };
+function _weekFirstDay() {
+  var lang = _uiLangPrimary(), tag = _uiLocale();
+  try {
+    var loc = new Intl.Locale(tag), wi = loc.getWeekInfo ? loc.getWeekInfo() : loc.weekInfo;
+    if (wi && wi.firstDay) return wi.firstDay % 7;
+  } catch (e) {}
+  var m = /[-_]([A-Za-z]{2})\b/.exec(tag), region = m ? m[1].toUpperCase() : (_LANG_HOME_REGION[lang] || '');
+  return _WEEK_SUN.test(region) ? 0 : _WEEK_SAT.test(region) ? 6 : 1;
+}
 // Localized pluralization: picks "<base>_<category>" via Intl.PluralRules for
 // the active UI language, falling back to "<base>_other" when that category
 // key does not exist. Locale files currently ship only _one/_other; languages
 // with richer plural categories (ru few/many, ar, he...) resolve to _other
-// until per-category keys are added. {n} is injected automatically.
+// until per-category keys are added. {n} is injected automatically, written
+// as the language writes numbers (1.234 in German).
 function tPlural(base, n, vars) {
   var cat = 'other';
-  try { cat = new Intl.PluralRules(_currentLang).select(Number(n) || 0); } catch (e) {}
+  try { cat = _intl('PluralRules').select(Number(n) || 0); } catch (e) {}
   var key = base + '_' + cat;
   if (_i18n[key] === undefined && _i18nFallback[key] === undefined) key = base + '_other';
-  var v = { n: n };
+  var v = { n: typeof n === 'number' ? fmtNum(n) : n };
   if (vars) for (var k in vars) v[k] = vars[k];
   return t(key, v);
 }
@@ -2298,18 +2353,30 @@ var BYTES_PER_GB = 1000 * 1000 * 1000;
 // ZIM, above it "115 GB" reads better than "115.5 GB" down a list.
 var GB_WHOLE_FROM = 10;
 
+// Biggest unit first. English keeps the units Finder and the server print
+// (KB, not CLDR's kB); every other language takes its own (1,5 Go, 1,5 ГБ).
+var _SIZE_UNITS = [
+  { per: BYTES_PER_GB, unit: 'gigabyte', en: 'GB' }, { per: BYTES_PER_MB, unit: 'megabyte', en: 'MB' },
+  { per: BYTES_PER_KB, unit: 'kilobyte', en: 'KB' }, { per: 1, unit: 'byte', en: 'B' }];
+var _SIZE_NUMBER_PART = /^(integer|decimal|fraction|minusSign)$/;
+
 function fmtBytes(bytes, html) {
   var b = Math.max(0, Number(bytes) || 0);
-  var n, u;
-  if (b < BYTES_PER_KB) { n = String(Math.round(b)); u = ' B'; }
-  else if (b < BYTES_PER_MB) { n = (b / BYTES_PER_KB).toFixed(1); u = ' KB'; }
-  else if (b < BYTES_PER_GB) { n = (b / BYTES_PER_MB).toFixed(1); u = ' MB'; }
-  else {
-    var gb = b / BYTES_PER_GB;
-    n = gb >= GB_WHOLE_FROM ? String(Math.round(gb)) : gb.toFixed(1);
-    u = ' GB';
-  }
-  return html ? '<span class="num">' + n + '</span>' + u : n + u;
+  var u = _SIZE_UNITS.filter(function(x) { return b >= x.per; })[0] || _SIZE_UNITS[_SIZE_UNITS.length - 1];
+  var v = b / u.per;
+  var tenths = u.per === 1 || (u.per === BYTES_PER_GB && v >= GB_WHOLE_FROM) ? 0 : 1;
+  var en = String(_currentLang || 'en').split('-')[0] === 'en';
+  var parts = _intl('NumberFormat', { style: 'unit', unit: u.unit, minimumFractionDigits: tenths,
+    maximumFractionDigits: tenths, useGrouping: false }).formatToParts(v);
+  var out = '', num = '';
+  var flush = function() { if (num) out += html ? '<span class="num">' + num + '</span>' : num; num = ''; };
+  parts.forEach(function(p) {
+    if (_SIZE_NUMBER_PART.test(p.type)) { num += p.value; return; }
+    flush();
+    out += !en ? p.value : p.type === 'unit' ? u.en : ' ';
+  });
+  flush();
+  return out;
 }
 
 // The same size, for the callers that only ever held a GB figure (the API's
@@ -2329,7 +2396,7 @@ function _zimCountHtml(z) {
   // single-article library — a 67MB medical collection announcing itself with
   // a grammar mistake. The helper has been here the whole time and this was
   // the one count that did not use it.
-  return typeof n === 'number' ? tPlural('n_entries', n, {n: n.toLocaleString()}) : '';
+  return typeof n === 'number' ? tPlural('n_entries', n, {n: fmtNum(n)}) : '';
 }
 
 // How many things a ZIM holds, as a person would count them.
@@ -4558,7 +4625,7 @@ function _orderCatsBySaved(cats) {
     if (pa == null && pb == null) {
       if (a === OTHER_CAT) return 1;   // unlisted Other defaults last, like home
       if (b === OTHER_CAT) return -1;
-      return a.localeCompare(b);
+      return cmpText(a, b);
     }
     if (pa == null) return 1;
     if (pb == null) return -1;
@@ -4904,7 +4971,7 @@ function renderHome(filter) {
     // The Apps page counts what each app shows on its own cards: a sum of
     // ZIM entries across books, videos and maps would count none of them.
     statsHtml = t('sources_count', {n: '<span class="num">' + n + '</span>'}) + ' &middot; ' +
-      (homeScope && homeScope.type === 'apps' ? '' : t('articles_count', {n: '<span class="num">' + totalEntries.toLocaleString() + '</span>'}) + ' &middot; ') +
+      (homeScope && homeScope.type === 'apps' ? '' : t('articles_count', {n: '<span class="num">' + fmtNum(totalEntries) + '</span>'}) + ' &middot; ') +
       fmtSize(totalGb, true);
   }
 
@@ -5034,7 +5101,7 @@ function renderHome(filter) {
     const scopeEntries = baseZims.reduce((s, z) => s + (typeof z.entries === 'number' ? z.entries : 0), 0);
     h += '<div class="search-deeper" onclick="doSearch(\'' + escAttr(filter) + '\')" tabindex="0" ' +
       'onkeydown="if(event.key===\'Enter\')doSearch(\'' + escAttr(filter) + '\')">' +
-      tH('search_articles', {n: scopeEntries.toLocaleString(), query: filter}) + '</div>';
+      tH('search_articles', {n: fmtNum(scopeEntries), query: filter}) + '</div>';
   }
 
   // Discover (only on unscoped, unfiltered, unfiltered-by-language home)
@@ -5265,7 +5332,7 @@ function _langBadge(z, force, full) {
   var name = _langDisplayName(z.language) || info.code;
   if (full) {
     var lc = (z.language || '').toLowerCase().slice(0, 2);
-    var native = _NATIVE_LANG_NAMES[lc] || name;
+    var native = _langOwnName(lc);
     return '<span class="lang-badge lang-badge-full" title="' + escAttr(name) + '">' + esc(native) + '</span>';
   }
   return '<span class="lang-badge" title="' + escAttr(name) + '">' + esc(info.code) + '</span>';
@@ -5362,8 +5429,7 @@ function filterHomeRecent(kind) {
 }
 
 // One language filter pill for the home library. Multi-select toggle; the
-// native language name matches the search-results lang pills (reusing the
-// existing _NATIVE_LANG_NAMES map, with _langDisplayName as fallback).
+// native language name matches the search-results lang pills (_langOwnName).
 // A label and how many: one form everywhere (home pills, the Library's
 // groups, the apps' chips): the label, then the number, quieter. Never
 // "(1)", never "· 1".
@@ -5371,7 +5437,7 @@ function _countedLabelHtml(label, n) {
   return esc(label) + ' <span class="label-n">' + n + '</span>';
 }
 function _homeLangPill(code, count, active) {
-  var name = _NATIVE_LANG_NAMES[code] || _langDisplayName(code) || code.toUpperCase();
+  var name = _langOwnName(code);
   return '<button class="pill' + (active ? ' active' : '') + '"' +
     ' aria-pressed="' + (active ? 'true' : 'false') + '"' +
     // escJs, not escAttr: an entity-escaped quote decodes back to a live quote
@@ -5550,7 +5616,7 @@ var _LIBRARY_SORTERS = {
   alpha: function(a, b) {
     // The title a person reads on the card, not the file name they never see.
     var at = (a.title || a.name || ''), bt = (b.title || b.name || '');
-    return at.localeCompare(bt, undefined, {sensitivity: 'base', numeric: true});
+    return cmpText(at, bt);
   },
   added: _byFirstSeenDesc,
   updated: _byUpdatedDesc,
@@ -5561,7 +5627,7 @@ var _LIBRARY_SORTERS = {
   // largest first within each.
   type: function(a, b) {
     var at = a.category || 'zz', bt = b.category || 'zz';
-    return at === bt ? (b.size_gb || 0) - (a.size_gb || 0) : at.localeCompare(bt);
+    return at === bt ? (b.size_gb || 0) - (a.size_gb || 0) : cmpText(at, bt);
   },
 };
 function _sortLibrary(list) {
@@ -5779,13 +5845,7 @@ var _ZI_HISTORY_MODE = 'history';
 // Absolute local date-time for a provenance timestamp. The relative form rides
 // in the tooltip, where it explains the absolute one instead of replacing it.
 function _ziWhen(tsSec) {
-  var d = new Date(tsSec * 1000);
-  try {
-    return d.toLocaleString(_currentLang || 'en',
-      { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  } catch (e) {
-    return d.toLocaleString();
-  }
+  return fmtDate(tsSec * 1000, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function _ziRow(labelKey, valueHtml) {
@@ -5892,11 +5952,11 @@ function captureStopText(stopped) {
   var why = String(stopped || '');
   if (!why) return '';
   var m = why.match(/^page cap \((\d+)\)/);
-  if (m) return t('create_stopped_page_cap', {n: Number(m[1]).toLocaleString()});
+  if (m) return t('create_stopped_page_cap', {n: fmtNum(m[1])});
   m = why.match(/^byte budget \((.+)\)/);
   if (m) return t('create_stopped_byte_budget', {size: m[1]});
   m = why.match(/^depth limit \((\d+)\)/);
-  if (m) return t('create_stopped_depth', {n: Number(m[1]).toLocaleString()});
+  if (m) return t('create_stopped_depth', {n: fmtNum(m[1])});
   m = why.match(/^nothing under (\S+)/);
   if (m) return t('create_stopped_nothing_under', {path: m[1]});
   return t('create_stopped_early');
@@ -5929,7 +5989,7 @@ function _ziBodyHtml(info) {
     '</span>';
   // Articles and entries are different numbers (entries count redirects and
   // assets too), and the panel is the one place precise enough to say both.
-  var num = function (v) { return typeof v === 'number' ? esc(v.toLocaleString()) : ''; };
+  var num = function (v) { return typeof v === 'number' ? esc(fmtNum(v)) : ''; };
   var head = '<div class="zi-id">' + iconHtml +
     // From the kind this fetch returned, not the cards' map: the panel opens
     // from surfaces the map was never loaded for.
@@ -6025,8 +6085,8 @@ function _ziShapeHtml(shape) {
   if (!bar) return '';
   var note = shape.sampled
     ? '<div class="zi-shape-note">' + tH('zi_shape_sampled', {
-        n: (shape.sampled_entries || 0).toLocaleString(),
-        total: (shape.total_entries || 0).toLocaleString()
+        n: fmtNum(shape.sampled_entries || 0),
+        total: fmtNum(shape.total_entries || 0)
       }) + '</div>'
     : '';
   return '<div class="zi-sec">' + tH('create_inside_title') + '</div>' + bar + note;
@@ -6318,7 +6378,7 @@ function _keepNoteText(zim) {
   var st = _keepLive(), m = _keepMetas[zim] || {}, live = st.name === zim;
   var size = (live && st.size) || m.size || _keepZimBytes(zim);
   var written = live ? st.written : (m.written || 0);
-  var pct = (s.pct >= 10 ? Math.floor(s.pct) : s.pct) + '%';
+  var pct = fmtPct(s.pct >= 10 ? Math.floor(s.pct) : s.pct, 1);
   var line = [pct, _fmtBytes(written) + ' / ' + _fmtBytes(size)];
   if (s.kind === 'pull' && live && st.speed) line.push(_fmtBytes(st.speed) + '/s');
   if (s.kind === 'paused') line.unshift(t('keep_paused'));
@@ -8275,7 +8335,7 @@ function _renderDiscover(el, items) {
           '<div class="dc-source"><span>' + tH('today') + '</span></div>' +
           '<div class="dc-title">' + esc(_dateTitle) + '</div>' +
           '<div class="dc-blurb">' + _localMoonName(_m.name) + (_seasonStr ? ' \u00b7 ' + _seasonStr : '') + '</div>' +
-          '<div class="dc-blurb">' + _m.illumination + '% ' + tH('alm_illuminated') + '</div>' +
+          '<div class="dc-blurb">' + fmtPct(_m.illumination, 1) + ' ' + tH('alm_illuminated') + '</div>' +
           (_teaser ? '<div class="dc-blurb" style="color:var(--amber)">' + _teaser + '</div>' : '') +
         '</div></a>';
       continue;
@@ -9974,7 +10034,7 @@ function renderSearchResults(data, scope) {
     langPillsHtml = '<div class="lang-pills" role="group" aria-label="' + escAttr(t('filter_by_language')) + '">' +
       _allResetPill(activeLanguageFilters.size === 0, 'clearLanguageFilter()') +
       langCodes.sort(function(a, b) { return (byLanguage[b] || 0) - (byLanguage[a] || 0); }).map(function(lang) {
-      var name = _NATIVE_LANG_NAMES[lang] || lang;
+      var name = _langOwnName(lang);
       // Dim language pills when a source filter is active and that source has no results in this language
       var dimmed = activeSourceFilters.size > 0 && ![...activeSourceFilters].some(function(s) { return langsBySource[s] && langsBySource[s].has(lang); });
       // While a language filter is on, the other languages stay in view,
@@ -11164,32 +11224,6 @@ function _isValidLangCode(code) {
   return code && code.length >= 2 && /[a-z]/i.test(code);
 }
 
-// Language display: "Multilingual (24 langs)" or "French" instead of raw codes
-const LANG_NAMES = {
-  en:'English',fr:'French',de:'German',es:'Spanish',pt:'Portuguese',it:'Italian',
-  ru:'Russian',ar:'Arabic',zh:'Chinese',ja:'Japanese',ko:'Korean',hi:'Hindi',
-  tr:'Turkish',pl:'Polish',nl:'Dutch',sv:'Swedish',vi:'Vietnamese',th:'Thai',
-  he:'Hebrew',el:'Greek',ro:'Romanian',hu:'Hungarian',fa:'Persian',id:'Indonesian',
-  uk:'Ukrainian',cs:'Czech',da:'Danish',fi:'Finnish',no:'Norwegian',ca:'Catalan',
-  mul:'Multilingual',
-  // 3-letter fallbacks for any un-normalized legacy data
-  eng:'English',fra:'French',deu:'German',spa:'Spanish',por:'Portuguese',ita:'Italian',
-  rus:'Russian',ara:'Arabic',zho:'Chinese',jpn:'Japanese',kor:'Korean',hin:'Hindi',
-  heb:'Hebrew'
-};
-function formatLanguage(langStr) {
-  if (!langStr) return '';
-  const codes = langStr.toLowerCase().split(',').map(c => c.trim()).filter(Boolean);
-  if (codes.length === 0) return '';
-  if (codes.length === 1) {
-    if (codes[0] === 'en' || codes[0] === 'eng') return ''; // Don't show English when it's the only language
-    return LANG_NAMES[codes[0]] || _langDisplayName(codes[0]) || codes[0].toUpperCase();
-  }
-  // Multilingual
-  if (codes.length <= 3) return codes.map(c => LANG_NAMES[c] || _langDisplayName(c) || c.toUpperCase()).join(', ');
-  return t('multilingual', {n: codes.length});
-}
-
 // ISO 639-3 (ZIM metadata, the catalog) → 639-1: the server's own table
 // (zimi/assets/lang-codes.json), put in here as app.js is served
 // (http._inline_lang_codes), so lang: means the same in the library and the
@@ -11349,13 +11383,13 @@ function _catalogStaleNote() {
     // before, which is the classic way a date-only string slips backwards.
     var parts = _catalogAsOf.split('-');
     var day = new Date(Date.UTC(+parts[0], +parts[1] - 1, +parts[2], 12));
-    var shown = isNaN(day.getTime()) ? _catalogAsOf : day.toLocaleDateString();
+    var shown = isNaN(day.getTime()) ? _catalogAsOf : fmtDate(day);
     return '<div class="ms-hint" style="text-align:center;margin:4px 0 10px">' +
       tH('catalog_snapshot_note', {d: shown}) + '</div>';
   }
   var at = _catalogStaleAt || (_catalogAsOf ? Date.parse(_catalogAsOf) / 1000 : 0);
   if (!at) return '';
-  var when = new Date(at * 1000).toLocaleDateString();
+  var when = fmtDate(at * 1000);
   return '<div class="ms-hint" style="text-align:center;margin:4px 0 10px">' +
     tH('catalog_offline_note', {d: when}) + '</div>';
 }
@@ -11625,7 +11659,7 @@ function _peerOnlyEntries() {
     if (!g.peers.includes(e.peer)) g.peers.push(e.peer);
   }
   return [...byFile.values()]
-    .sort((a, b) => (a.title || a.file).localeCompare(b.title || b.file));
+    .sort((a, b) => cmpText(a.title || a.file, b.title || b.file));
 }
 
 // "Nearby" catalog section: rows for peer-only ZIMs, pullable over the LAN
@@ -11998,7 +12032,7 @@ function _installedOfKind(kind, key) {
 // library's videos in ZimiTube).
 function _installedFor(kind, app, key) {
   var all = (zimsCache || []).filter(function(z) { return z.main_path && (z.kind === kind || !!(app && z.feeds && z.feeds[app])); })
-    .sort(function(a, b) { return (a.title || a.name).localeCompare(b.title || b.name); });
+    .sort(cmpTitle);
   return key ? _newestPer(all, key) : all;
 }
 
@@ -12219,7 +12253,7 @@ function renderBrowseGallery() {
       ? groupVariants(items.filter(function(it) { return _zimMatchesLang(it, manageLangFilter); })).length
       : groupVariants(items).length;
     h += '<div class="browse-footer">' +
-      '<div class="browse-footer-count">' + totalSources.toLocaleString() + ' sources \u00B7 ' + activeCats + ' categories</div>' +
+      '<div class="browse-footer-count">' + esc(tPlural('n_sources', totalSources) + ' \u00B7 ' + tPlural('n_categories', activeCats)) + '</div>' +
     '</div>';
     h += '</div>';
     results.innerHTML = _catalogStaleNote() + h;
@@ -12286,7 +12320,7 @@ async function _renderStreetZimMaps(results, catMeta, catName, attempt) {
   var items = (data.items || []).map(function(it) { return Object.assign({}, it, {category: 'maps'}); });
   if (_catalogCache) _enrichCatalogInstalled(items);
   var grouped = groupVariants(items);
-  grouped.sort(function(a, b) { return (a.title || a.name || '').localeCompare(b.title || b.name || ''); });
+  grouped.sort(cmpTitle);
   var h = '<div class="browse-drilldown-header">' +
     '<button class="browse-back" onclick="renderBrowseGallery()">' + tH('back_to_catalog') + '</button>' +
     '<span class="browse-drilldown-title">' + (catMeta ? '<span class="browse-drilldown-icon">' + catMeta.icon + '</span>' : '') + esc(catName) + '</span>' +
@@ -12358,7 +12392,7 @@ function drillCategory(catKey, namePrefix) {
     const grouped = groupVariants(filtered);
     // The most complete edition of a project leads its category; the rest
     // go alphabetically.
-    grouped.sort((a, b) => _mostComplete(b) - _mostComplete(a) || (a.title || a.name || '').localeCompare(b.title || b.name || ''));
+    grouped.sort((a, b) => _mostComplete(b) - _mostComplete(a) || cmpTitle(a, b));
     let h = '<div class="browse-drilldown-header">' +
       '<button class="browse-back" onclick="renderBrowseGallery()">' + tH('back_to_catalog') + '</button>' +
       '<span class="browse-drilldown-title">' + (catMeta ? '<span class="browse-drilldown-icon">' + catMeta.icon + '</span>' : '') + esc(catName) + '</span>' +
@@ -12795,7 +12829,7 @@ function browseCatalogFilter(query) {
       const aDemoted = a.installed || (a.hierarchy && (a.hierarchy.is_subset_of || []).some(n => _catalogInstalledNames.has(n)));
       const bDemoted = b.installed || (b.hierarchy && (b.hierarchy.is_subset_of || []).some(n => _catalogInstalledNames.has(n)));
       if (aDemoted !== bDemoted) return aDemoted ? 1 : -1;
-      return (a.title || a.name || '').localeCompare(b.title || b.name || '');
+      return cmpTitle(a, b);
     });
     // Back to the category it searched in, or to the catalog. The query is
     // in the box; under the count, what its operators did.
@@ -12968,7 +13002,7 @@ function renderCatalogItem(group) {
   const item = group;
   const variants = group.variants || [item];
   const metaTags = [];
-  if (item.article_count) metaTags.push(item.article_count.toLocaleString() + ' ' + t('articles'));
+  if (item.article_count) metaTags.push(fmtNum(item.article_count) + ' ' + t('articles'));
   if (item.date) metaTags.push(item.date);
   const sizes = variants.map(v => v.size_bytes).sort((a, b) => a - b);
   if (sizes.length > 1) {
@@ -13266,7 +13300,7 @@ async function renderCollectionsTab() {
     h += '<div class="coll-item" style="flex-direction:column;align-items:stretch" onclick="toggleCollExpand(\'' + escAttr(name) + '\')">';
     h += '<div style="display:flex;align-items:center;gap:12px">' +
       '<span class="coll-name" style="flex:1">' + esc(label) +
-      ' <span style="font-weight:400;color:var(--text2);font-size:12px">(' + tH('n_sources', {n: collZims.length}) + ')</span></span>' +
+      ' <span style="font-weight:400;color:var(--text2);font-size:12px">(' + tPluralH('n_sources', collZims.length) + ')</span></span>' +
       '<button class="coll-del" onclick="event.stopPropagation();deleteCollection(\'' + escAttr(name) + '\', this)" title="' + escAttr(t('delete_collection')) + '">\u00D7</button>' +
     '</div>';
     if (expanded) {
@@ -13281,7 +13315,7 @@ async function renderCollectionsTab() {
       }
       h += '<div class="coll-picker" onclick="event.stopPropagation()">';
       for (const cat of Object.keys(catMap).sort()) {
-        const catZims = catMap[cat].slice().sort((a, b) => (a.title || a.name).localeCompare(b.title || b.name));
+        const catZims = catMap[cat].slice().sort(cmpTitle);
         h += '<div class="manage-installed-group"><div class="ci-section-label">' + _countedLabelHtml(_catDisplayName(cat), catZims.length) + '</div>';
         for (const z of catZims) {
           const inColl = collZims.includes(z.name);
@@ -13752,13 +13786,13 @@ async function renderActivityTab() {
       } else if (ti.ready < totalZims) {
         h += '<div class="mc-row"><span class="mc-label">' + tH('title_index') + '</span><span class="mc-value">' + tH('n_of_total', {n: ti.ready, total: totalZims}) + '</span></div>';
       } else {
-        h += '<div class="mc-row"><span class="mc-label">' + tH('title_index') + '</span><span class="mc-value">' + t('n_sources', {n: totalZims}) + '</span></div>';
+        h += '<div class="mc-row"><span class="mc-label">' + tH('title_index') + '</span><span class="mc-value">' + tPlural('n_sources', totalZims) + '</span></div>';
       }
 
       // Full-text index row — denominator is total ZIMs, not just ones with title indexes
       const ftsTotal = building ? totalZims : totalZims;  // always use total ZIMs
       if (withFts.length >= ftsTotal && ftsTotal > 0 && !building) {
-        h += '<div class="mc-row"><span class="mc-label">' + tH('fulltext_index') + '</span><span class="mc-value">' + t('n_sources', {n: ftsTotal}) + '</span></div>';
+        h += '<div class="mc-row"><span class="mc-label">' + tH('fulltext_index') + '</span><span class="mc-value">' + tPlural('n_sources', ftsTotal) + '</span></div>';
       } else {
         h += '<div class="mc-row"><span class="mc-label">' + tH('fulltext_index') + '</span><span class="mc-value">' + tH('n_of_total', {n: withFts.length, total: ftsTotal}) + '</span></div>';
       }
@@ -14574,7 +14608,7 @@ function _relTime(tsSec) {
     }
     return rtf.format(0, 'second');  // within the last second
   } catch (e) {
-    return new Date(tsSec * 1000).toLocaleDateString();
+    return fmtDate(tsSec * 1000);
   }
 }
 
@@ -14664,7 +14698,7 @@ function _allowlistPicker(selected) {
     var lang = o.language
       ? '<span class="ms-allow-lang">' + esc(String(o.language).toUpperCase()) + '</span>' : '';
     var count = (o.article_count != null)
-      ? '<span class="ms-allow-count">' + Number(o.article_count).toLocaleString() + '</span>' : '';
+      ? '<span class="ms-allow-count">' + fmtNum(o.article_count) + '</span>' : '';
     var hay = ((o.title || '') + ' ' + o.name + ' ' + (o.language || '')).toLowerCase();
     return '<label class="ms-allow-row" data-hay="' + escAttr(hay) + '">' +
       '<input type="checkbox" class="allowlist-cb" value="' + escAttr(o.name) + '"' +
@@ -15614,7 +15648,7 @@ function _renderHealthReport(st) {
     var ra = rank[a.status] != null ? rank[a.status] : 1;
     var rb = rank[b.status] != null ? rank[b.status] : 1;
     if (ra !== rb) return ra - rb;
-    return (a.name || '').localeCompare(b.name || '');
+    return cmpText(a.name, b.name);
   });
   var body = rows.map(function(r) {
     if (r.kind === 'torrent_meta') {
@@ -15624,7 +15658,7 @@ function _renderHealthReport(st) {
         '<span class="health-detail">' + esc(t('health_torrent_meta')) + '</span></div>';
     }
     var issues = (r.issues && r.issues.length) ? esc(r.issues.join(', ')) :
-      (r.entries != null ? esc(t('health_entries', { n: Number(r.entries).toLocaleString() })) : '');
+      (r.entries != null ? esc(t('health_entries', { n: fmtNum(r.entries) })) : '');
     // Which indexes this ZIM has, as small labelled badges (not bare "title"/
     // "Q-ID" tokens, which read as leftover garbage next to the entry count).
     var idx = [];
@@ -18184,7 +18218,7 @@ function renderInstalled(filterText) {
   for (const cat of catOrder) {
     const items = groups[cat];
     if (!items || !items.length) continue;
-    items.sort((a, b) => (a.title || a.name).localeCompare(b.title || b.name));
+    items.sort(cmpTitle);
     items_h += '<div class="manage-installed-group' + (cat === '__updates__' ? ' mig-updates' : '') + '">';
     const groupLabel = cat === '__updates__' ? t('updates_available_section') : _catDisplayName(cat);
     // Real-category headers are drop targets for the row DnD (#37) — data-cat
@@ -22771,7 +22805,7 @@ function _fgSkyRows(p, now) {
   else rows.push([t('alm_sky_f_sunrise_in'), f.sunrise ? about(span(f.sunrise, 1) + ' · ' + clock(f.sunrise, 1, f.sunriseAz)) : t('alm_polar_night')]);
   if (f.fullyDark) rows.push([t('alm_sky_f_dark_until'), f.darkUntil ? about(clock(f.darkUntil, 1)) : t('alm_polar_night')]);
   else rows.push([t('alm_sky_f_dark_from'), f.darkFrom ? about(clock(f.darkFrom, -1)) : t('alm_sky_f_not_dark')]);
-  var lit = t('alm_sky_f_moon_lit', { p: _orrNum(_moonPhase(new Date(now)).illumination, null, 0) + '%' });
+  var lit = t('alm_sky_f_moon_lit', { p: fmtPct(_moonPhase(new Date(now)).illumination) });
   var next = f.moonUp ? (f.moonset ? t('alm_sky_f_sets', { t: about(clock(f.moonset, -1, f.moonsetAz)) }) : '') : (f.moonrise ? t('alm_sky_f_rises', { t: about(clock(f.moonrise, 1, f.moonriseAz)) }) : '');
   rows.push([t('alm_moon'), lit + (next ? ' \u00b7 ' + next : '')]);
   var a = _skyDeg(Math.abs(p.lat));
@@ -22889,7 +22923,7 @@ var _DICT_SVG = '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 
 // The Wiktionaries: Zimipedia reads them as wikis; Dictionary reads their words.
 function _installedDictZims() {
   return (zimsCache || []).filter(function(z) { return z.main_path && z.kind === 'wiki' && z.project === 'wiktionary'; })
-    .sort(function(a, b) { return (a.title || a.name).localeCompare(b.title || b.name); });
+    .sort(cmpTitle);
 }
 function _isDictPage() {
   return !!(_dictOpen && readerOpen && !_almanacOpen && !_createOpen);
@@ -24669,7 +24703,7 @@ function _appItemsCount(app, z) {
 function _appItemsHtml(app, z) {
   if (app === 'maps') return esc(_mapSourceLabel(z));
   var n = _appItemsCount(app, z);
-  return n ? esc(tPlural('app_items_' + app, n, {n: n.toLocaleString()})) : '';
+  return n ? esc(tPlural('app_items_' + app, n, {n: fmtNum(n)})) : '';
 }
 // One app's section: its tile drawn as a banner (the count of what it reads
 // in place of their names, which follow under it: a map app's maps), then its ZIMs.
@@ -26306,7 +26340,7 @@ function _bkSourceMissing(b) {
 // Where you were, in a word: how far into a book, how far into a video.
 function _savedWhereLabel(it) {
   var w = it.where || {};
-  if (it.kind === 'book' && w.f > 0) return Math.round(w.f * 100) + '%';
+  if (it.kind === 'book' && w.f > 0) return fmtPct(w.f * 100);
   if (it.kind === 'video' && w.t > 0) return _fmtClock(w.t);
   return '';
 }

@@ -30,6 +30,7 @@ function context(lang) {
     return s;
   };
   vm.createContext(ctx);
+  vm.runInContext(require("./app_source.cjs").localeHelpers(src), ctx);
   vm.runInContext(extract(/function tPlural\(base, n, vars\) \{[\s\S]*?\n\}/, 'tPlural'), ctx);
   vm.runInContext(extract(/function tPluralH\(base, n, vars\) \{[\s\S]*?\n\}/, 'tPluralH'), ctx);
   vm.runInContext(extract(/var _CREATOR_TYPE_KEYS = \{[\s\S]*?\n\};/, 'the types'), ctx);

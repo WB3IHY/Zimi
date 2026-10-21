@@ -240,7 +240,7 @@ function card(v, i, from, f) {
 // what is loaded, with what a source did not say (a date, a length) last.
 function sorted(items) {
   var a = items.slice();
-  if (_sort === 'title') a.sort(function(x, y) { return String(x.title).localeCompare(String(y.title), STR.lang || undefined); });
+  if (_sort === 'title') a.sort(function(x, y) { return String(x.title).localeCompare(String(y.title), STR.lang || undefined, { numeric: true }); });
   else if (_sort === 'newest') a.sort(function(x, y) { return String(y.date || '').localeCompare(String(x.date || '')); });
   else if (_sort === 'longest') a.sort(function(x, y) { return secs(y.duration) - secs(x.duration); });
   return a;

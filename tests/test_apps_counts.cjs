@@ -35,6 +35,7 @@ const ctx = {
   },
 };
 vm.createContext(ctx);
+vm.runInContext(require("./app_source.cjs").localeHelpers(src), ctx);
 vm.runInContext([
   extract(/function _mapSourceLabel\(z\) \{[\s\S]*?\n\}/, '_mapSourceLabel'),
   extract(/function _appItemsCount\(app, z\) \{[\s\S]*?\n\}/, '_appItemsCount'),

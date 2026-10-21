@@ -32,6 +32,7 @@ run('function _skyClock(ms) { return "CLK:" + Math.round(ms); }');
 run('function _skyBearing(az) { return "AZ"; }');
 run('function _skyDeg(x) { return Math.round(x) + "d"; }');
 run('function _orrNum(n) { return String(Math.round(n)); }');
+run('function fmtPct(n) { return Math.round(n) + "%"; }');
 run(pull(/var FG_SKY_ROUND_MS = [^;]+;/, 'round'));
 run(fn('_fgRound'));
 run(fn('_fgSkyRows'));

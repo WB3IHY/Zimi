@@ -4383,7 +4383,7 @@ function _almClockZones(now) {
   }
   _TZ_CITIES.forEach(function (c) { add(c.tz); });
   _TZ_ANCHORS.forEach(function (a) { add(a[2]); });
-  return out.sort(function (a, b) { return a.off - b.off || a.label.localeCompare(b.label); });
+  return out.sort(function (a, b) { return a.off - b.off || cmpText(a.label, b.label); });
 }
 function _almClockSheetOpen(btn) {
   _almClockSheetClose();
@@ -6956,7 +6956,10 @@ function _drawAlmanacGrid() {
 
   var daysInMonth = _calDaysInMonth(_almSystem, _almYear, _almMonth);
   var firstJDN = _calFirstDayJDN(_almSystem, _almYear, _almMonth);
-  var firstDow = ((firstJDN + 1) % 7); // 0=Sun
+  // Columns start on the reader's first day of the week (Monday in most of
+  // Europe, Saturday across much of the Arab world), not always Sunday.
+  var weekStart = (typeof _weekFirstDay === 'function') ? _weekFirstDay() : 0; // 0=Sun
+  var firstDow = ((firstJDN + 1) % 7 - weekStart + 7) % 7; // empty cells before the 1st
   var monthName = _calMonthName(_almSystem, _almYear, _almMonth);
 
   // Today's JDN for highlighting
@@ -6990,7 +6993,7 @@ function _drawAlmanacGrid() {
   var _dlLocale = (typeof _currentLang !== 'undefined') ? _currentLang : 'en';
   var dayLabels = [];
   for (var di = 0; di < 7; di++) {
-    var _d = new Date(2023, 0, di + 1); // Jan 1, 2023 = Sunday
+    var _d = new Date(2023, 0, 1 + (weekStart + di) % 7); // Jan 1, 2023 = Sunday
     dayLabels.push(_d.toLocaleDateString(_dlLocale, { weekday: 'short' }));
   }
   for (var i = 0; i < 7; i++) {
