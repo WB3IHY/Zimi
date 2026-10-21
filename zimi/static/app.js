@@ -22377,7 +22377,8 @@ var _BOOK_CSS = [
   'html.zb-paged .zimi-reader img{max-height:var(--zb-colh)!important;width:auto;object-fit:contain;break-inside:avoid}',
   'html.zb-paged .zimi-reader h1,html.zb-paged .zimi-reader h2,html.zb-paged .zimi-reader h3{break-after:avoid}',
   '.zb-row{display:flex;align-items:center;gap:2px}',
-  '.zb-info{flex:1;min-width:0;text-align:center;line-height:1.3}',
+  // The chapter under the scrubber opens the contents, as the head's button does.
+  '.zb-bar .zb-info{flex:1;min-width:0;height:auto;min-height:44px;padding:2px 8px;flex-direction:column;align-items:stretch;text-align:center;line-height:1.3}',
   '.zb-info .zb-ch{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;unicode-bidi:plaintext}',
   '.zb-info .zb-left{display:block;font-size:12px;color:var(--rv-muted);font-variant-numeric:tabular-nums}',
   '.zb-scrub{width:100%;margin:2px 0 0;height:24px;accent-color:var(--rv-link);cursor:pointer;touch-action:none}',
@@ -22740,7 +22741,7 @@ function _bookLay(frame) {
   foot.innerHTML = '<button type="button" class="zb-remote" hidden></button>' +
     '<input type="range" class="zb-scrub" min="0" max="1000" step="1" value="0" aria-label="' + tH('books_position') + '">' +
     '<div class="zb-row"><button type="button" class="zb-pv" aria-label="' + tH('books_prev_chapter') + '" title="' + tH('books_prev_chapter') + '"></button>' +
-    '<div class="zb-info"><span class="zb-ch"></span><span class="zb-left"></span></div>' +
+    '<button type="button" class="zb-info" aria-haspopup="dialog" title="' + tH('books_contents') + '"><span class="zb-ch"></span><span class="zb-left"></span></button>' +
     '<button type="button" class="zb-nx" aria-label="' + tH('books_next_chapter') + '" title="' + tH('books_next_chapter') + '"></button></div>';
   var pv = foot.querySelector('.zb-pv'), nx = foot.querySelector('.zb-nx'), scrub = foot.querySelector('.zb-scrub');
   pv.innerHTML = _BOOK_SVG_BACK; nx.innerHTML = _BOOK_SVG_BACK;
@@ -23049,7 +23050,7 @@ function _bookLay(frame) {
     closeSheets();
     if (b.hasAttribute('data-k')) { goChapter(Number(b.getAttribute('data-k'))); showBars(false); }
   });
-  head.querySelector('.zb-toc').onclick = function() {
+  head.querySelector('.zb-toc').onclick = foot.querySelector('.zb-info').onclick = function() {
     renderToc();
     openSheet(tocSheet);
     var on = tocSheet.querySelector('[aria-current="true"]');
