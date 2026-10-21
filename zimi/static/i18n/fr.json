@@ -2035,6 +2035,7 @@
   "tts_slow_at": "{slow} ne suit pas à {rate}. Essayer {fast} ?",
   "tts_slow_use": "Utiliser {fast}",
   "tts_too_slow": "(Trop lente)",
+  "tts_unavailable_offline": "La lecture à voix haute n'est pas encore en cache. Connectez-vous une fois pour l'utiliser hors ligne.",
   "uncaptured_back": "Retour",
   "zim_gone_title": "Cette source n'est pas dans la bibliothèque",
   "zim_gone_body": "La source à laquelle appartenait cette page a été supprimée ou renommée. Les anciens favoris et l'historique pointent encore ici ; le reste de la bibliothèque va bien.",
