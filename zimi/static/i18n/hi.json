@@ -2031,6 +2031,8 @@
   "tts_stop": "पढ़ना रोकें",
   "tts_speed": "पढ़ने की गति",
   "tts_follow": "पढ़ने के साथ चलें",
+  "tts_prev_sentence": "पिछला वाक्य",
+  "tts_next_sentence": "अगला वाक्य",
   "tts_slow_suggest": "इस सर्वर पर {slow} धीमा है। {fast} आज़माएँ?",
   "tts_slow_at": "{slow} {rate} पर साथ नहीं दे पाती। {fast} आज़माएँ?",
   "tts_slow_use": "{fast} चुनें",
