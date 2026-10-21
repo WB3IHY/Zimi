@@ -511,6 +511,8 @@
 .alm-nav { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 16px 0 10px; position: relative; }
 .alm-arrow { background: none; border: none; color: var(--amber); font-size: 13px; cursor: pointer; padding: 6px 10px; border-radius: 6px; opacity: 0.7; transition: opacity 0.15s, background 0.15s; }
 .alm-arrow:hover { opacity: 1; background: var(--surface2); }
+/* Back points the way the line reads from: right, in Arabic and Hebrew. */
+[dir="rtl"] .alm-arrow { transform: scaleX(-1); }
 .alm-title { font-size: 17px; font-weight: 600; color: var(--text); min-width: 200px; text-align: center; }
 .alm-today-btn { position: absolute; right: 0; background: none; border: 1px solid var(--border); color: var(--amber); font-size: 11px; cursor: pointer; padding: 3px 10px; border-radius: 10px; opacity: 0.7; transition: opacity 0.15s; }
 .alm-today-btn:hover { opacity: 1; background: var(--surface2); }
