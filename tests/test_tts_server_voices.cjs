@@ -512,7 +512,7 @@ const tick = () => new Promise(r => setImmediate(r));
       doc.defaultView = {
         getComputedStyle: el => ({ display: el.style.display || (BLOCKS.includes(el.localName) ? 'block' : 'inline'), visibility: el.style.visibility || 'visible', overflowY: 'visible' }),
         getSelection: () => sel || { isCollapsed: true, rangeCount: 0 }, innerHeight: 800, innerWidth: 400, scrollBy(o) { this.scrolled = o; },
-        CSS: { highlights: new Map() }, Highlight: class { constructor() { this.s = []; } add(r) { this.s.push(r); } },
+        CSS: { highlights: new Map() }, Highlight: class { constructor() { this.s = []; } add(r) { this.s.push(r); } clear() { this.s = []; } },
       };
       doc.defaultView.document = doc;
       return doc;
@@ -611,8 +611,10 @@ const tick = () => new Promise(r => setImmediate(r));
     const hls = doc.defaultView.CSS.highlights;
     ax._ttsAlongAt(0, null);
     ok('before the voice says where it is, the whole chunk is marked', hls.get('zimi-tts').s.length === small[0].spans.length);
+    const firstHl = hls.get('zimi-tts');
     ax._ttsAlongAt(1, 0);
     ok('then the sentence, one range', hls.get('zimi-tts').s.length === 1);
+    ok('...in the same Highlight, emptied and filled (Safari left a replaced one painted)', hls.get('zimi-tts') === firstHl);
     ax._ttsAlongAudio(1, { duration: NaN, currentTime: 0 });
     ok('audio of unknown length marks the whole chunk', hls.get('zimi-tts').s.length === small[1].spans.length);
     ax._ttsAlongAudio(1, { duration: 10, currentTime: 5 });
@@ -688,6 +690,26 @@ const tick = () => new Promise(r => setImmediate(r));
     ax._ttsAlongBegin(ax._ttsPlanFrom(ax._ttsReadModel(bare, bare.main), 0, 99999, false));
     let threw = false; try { ax._ttsAlongAt(0, null); ax._ttsAlongEnd(); } catch (e) { threw = true; }
     ok('where the highlight API is missing nothing is marked and nothing breaks', !threw);
+  }
+
+  // ── the page that scrolls: on an iPhone the reader's body does ──────
+  {
+    const sc = {};
+    vm.createContext(sc);
+    vm.runInContext(fn('_ttsScroller'), sc);
+    const mk = (tag, oy, sh, ch) => ({ nodeType: 1, tag, oy, scrollHeight: sh, clientHeight: ch, parentElement: null });
+    const page = (rootOy) => {
+      const root = mk('html', rootOy, 608, 608), body = mk('body', 'auto', 20000, 608), p = mk('p', 'visible', 40, 40);
+      const doc = { documentElement: root, body };
+      [root, body, p].forEach(e => { e.ownerDocument = doc; });
+      p.parentElement = body; body.parentElement = root;
+      const win = { getComputedStyle: e => ({ overflowY: e.oy }) };
+      return { p, body, win };
+    };
+    let pg = page('auto');
+    ok('a body that scrolls itself (the root\'s overflow set) is the scroller', sc._ttsScroller(pg.p, pg.win) === pg.body);
+    pg = page('visible');
+    ok('...but with the root left visible the window scrolls', sc._ttsScroller(pg.p, pg.win) === null);
   }
 
   if (failures) { console.log(failures + ' failed'); process.exit(1); }

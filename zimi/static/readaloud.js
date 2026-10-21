@@ -374,6 +374,11 @@ function _ttsPaint(ranges) {
   var st = _ttsRead, win = st && st.win;
   if (!_ttsHlOk(win)) return;
   try {
+    // One Highlight for the reading, emptied and filled: Safari repaints a
+    // Highlight that changes, but could leave the text of one replaced by a
+    // new one still marked (Eric, 2026-10-20: "It keeps previous sections
+    // highlighted").
+    if (st.hl) st.hl.clear();
     if (!ranges.length) { win.CSS.highlights.delete(_TTS_HL); return; }
     if (!st.doc.getElementById(_TTS_HL_STYLE)) {
       var style = st.doc.createElement('style');
@@ -381,9 +386,9 @@ function _ttsPaint(ranges) {
       st.doc.head.appendChild(style);
     }
     st.doc.documentElement.classList.toggle(_TTS_NIGHT_CLASS, _nightRedOn());
-    var hl = new win.Highlight();
-    ranges.forEach(function(r) { hl.add(r); });
-    win.CSS.highlights.set(_TTS_HL, hl);
+    if (!st.hl) st.hl = new win.Highlight();
+    ranges.forEach(function(r) { st.hl.add(r); });
+    if (win.CSS.highlights.get(_TTS_HL) !== st.hl) win.CSS.highlights.set(_TTS_HL, st.hl);
   } catch (e) {}
 }
 // The reading is at chunk ``idx``, in its sentence ``k`` (null: not known
@@ -411,10 +416,16 @@ function _ttsAlongChar(idx, ch) {
   if (chunk) _ttsAlongAt(idx, _ttsSpanAtChar(chunk, ch));
 }
 // The nearest ancestor that scrolls by itself, or null (the page scrolls).
+// The body counts only when it scrolls itself: with the root's overflow left
+// visible, the body's is the window's (the window scrolls, null); the reader
+// on an iPhone sets the root's, and there the body is what scrolls (Eric,
+// 2026-10-20: "highlight and scroll isn't done").
 function _ttsScroller(el, win) {
-  for (; el && el.nodeType === 1; el = el.parentElement) {
+  var doc = el && el.ownerDocument, root = doc && doc.documentElement;
+  for (; el && el.nodeType === 1 && el !== root; el = el.parentElement) {
     var oy = win.getComputedStyle(el).overflowY;
-    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1 && el !== el.ownerDocument.body && el !== el.ownerDocument.documentElement) return el;
+    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1 &&
+        (el !== doc.body || win.getComputedStyle(root).overflowY !== 'visible')) return el;
   }
   return null;
 }
