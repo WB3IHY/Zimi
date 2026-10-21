@@ -1156,7 +1156,7 @@ if os.path.isdir(_STATIC_DIR):
 # the content hashes the pages ask for; only the files named here are kept.
 _OFFLINE_SHELL_FILE = re.compile(
     r"/static/((?:app\.(?:js|css)|almanac[\w-]*\.(?:js|css)|zone-places\.js"
-    r"|world-map\.svg|tz-borders\.json|fieldguide[\w-]*\.(?:html|json|js)|highlights\.js|find\.js"
+    r"|world-map\.svg|tz-borders\.json|fieldguide[\w-]*\.(?:html|json|js)|highlights\.js|find\.js|readaloud\.js"
     r"|keepstore\.js|keepworker\.js|zimreader\.js|fzstd\.js|rosetta/manifest\.json"
     r"|earth/(?:moon-v1\.webp|stars-v1\.bin|stars-names-v1\.json|constellations-v1\.json|milkyway-v1\.webp"
     r"|satellite-[\d.]+\.min\.js|three-r\d+\.min\.js|earth-(?:day|night)-v1\.webp))"
