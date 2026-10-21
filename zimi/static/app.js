@@ -2789,7 +2789,13 @@ function openPwModal(title, opts) {
   const overlay = document.getElementById('pw-overlay');
   overlay.classList.add('open');
   document.addEventListener('keydown', _pwKeyHandler);
-  setTimeout(function() { document.getElementById('pw-input').focus(); }, 50);
+  // Focus the password, unless a field in the sheet already has it: the private-mode gate is typed into
+  // as it opens, and taking focus here sent the name just typed into the password field.
+  setTimeout(function() {
+    var at = document.activeElement;
+    if (at && at !== overlay && overlay.contains(at)) return;
+    document.getElementById('pw-input').focus();
+  }, 50);
 }
 
 function closePwModal() {
