@@ -2027,8 +2027,6 @@
   "tts_speak": "Leer en voz alta",
   "tts_stop": "Detener lectura",
   "tts_speed": "Velocidad de lectura",
-  "tts_slower": "Más lento",
-  "tts_faster": "Más rápido",
   "tts_slow_suggest": "{slow} va lento en este servidor. ¿Probar {fast}?",
   "tts_slow_at": "{slow} no puede seguir a {rate}. ¿Probar {fast}?",
   "tts_slow_use": "Usar {fast}",

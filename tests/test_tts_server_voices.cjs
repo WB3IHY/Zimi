@@ -349,10 +349,11 @@ const tick = () => new Promise(r => setImmediate(r));
   ctx._ttsRate = () => rate;
   ctx._setStorageJSON = (k, v) => { store[k] = JSON.stringify(v); if (k === 'zimi_tts_rate') rate = v; };
   ctx.SK.TTS_RATE = 'zimi_tts_rate';
-  Object.assign(ctx, { _ttsSpeaking: true, _ttsNudgeTimer: 0, _DEVICE_VOICE: 'device', _TTS_RATE_STEP: 0.05, _TTS_RATE_MIN: 0.5, _TTS_RATE_MAX: 3,
-    _TTS_NUDGE_SETTLE_MS: 700, setTimeout: f => { ctx._settle = f; return 1; }, clearTimeout: () => { ctx._settle = null; },
+  Object.assign(ctx, { _ttsSpeaking: true, _ttsSpeedTimer: 0, _ttsSliding: false, _DEVICE_VOICE: 'device', _TTS_RATE_STEP: 0.05, _TTS_RATE_MIN: 0.5, _TTS_RATE_MAX: 3,
+    _TTS_RATE_STOPS: [1, 1.5, 2], _TTS_RATE_SNAP: 0.05, _TTS_SPEED_SETTLE_MS: 700,
+    setTimeout: f => { ctx._settle = f; return 1; }, clearTimeout: () => { ctx._settle = null; },
     document: { querySelectorAll: () => [] } });
-  vm.runInContext(['_ttsPickSpeed', '_ttsApplySpeed', '_ttsSpeedSettled', '_ttsNudgeSpeed', '_ttsRateClamp', '_ttsVoiceLabel'].map(fn).join('\n'), ctx);
+  vm.runInContext(['_ttsPickSpeed', '_ttsApplySpeed', '_ttsSpeedSettled', '_ttsSlideSpeed', '_ttsSpeedChanged', '_ttsSnapRate', '_ttsRateClamp', '_ttsVoiceLabel'].map(fn).join('\n'), ctx);
   ctx._ttsVoices = { langs: { en: { engine: 'kokoro', engines: ['kokoro', 'piper'] } },
     timings: { kokoro: { gaps: { '1': 0, '1.25': 0, '1.5': 3, '2': 6 } }, piper: { gaps: { '1': 0, '1.25': 0, '1.5': 0, '2': 0 } } } };
   ctx._ttsNow = { engine: 'kokoro', lang: 'en', at: 7 };
@@ -372,21 +373,30 @@ const tick = () => new Promise(r => setImmediate(r));
   rate = 1;
   ok('...until a speed it keeps up at', ctx._ttsVoiceLabel() === 'KOKORO', ctx._ttsVoiceLabel());
 
-  // - and + (Eric, 2026-10-20: "read faster and slower than our options and in between").
+  // The slider (Eric, 2026-10-20: "read faster and slower than our options and in between").
   restarts.length = 0; toasts.length = 0; prefs = { voice: '', off: [] };
-  rate = 1.25;
-  ctx._ttsNudgeSpeed(1); ctx._ttsNudgeSpeed(1);
-  ok('+ steps by 0.05, between the presets', rate === 1.35, rate);
-  ok('...and asks nothing of the voice while the taps come', restarts.length === 0 && typeof ctx._settle === 'function');
+  const slider = v => { const el = { value: String(v), setAttribute() {} }; ctx._ttsSlideSpeed(el); return el; };
+  rate = 1;
+  slider(1.35);
+  ok('the slider reaches a speed between the marks', rate === 1.35, rate);
+  ok('...and asks nothing of the voice while it moves', restarts.length === 0 && !ctx._settle);
+  ctx._ttsSpeedChanged();
   ctx._settle();
-  ok('...the last tap settles once: a speed this voice pauses at goes on in one that keeps up', restarts.join() === '7', restarts.join());
-  restarts.length = 0; rate = 2.95;
-  ctx._ttsNudgeSpeed(1); ctx._ttsNudgeSpeed(1);
-  ok('three times is the fastest', rate === 3, rate);
-  rate = 0.55; ctx._ttsNudgeSpeed(-1); ctx._ttsNudgeSpeed(-1);
-  ok('half is the slowest', rate === 0.5, rate);
+  ok('...once it settles: a speed this voice pauses at goes on in one that keeps up', restarts.join() === '7', restarts.join());
+  restarts.length = 0;
+  ctx._ttsSliding = true;
+  let el = slider(1.45);
+  ok('under a finger, a speed near a stop lands on it', rate === 1.5 && String(el.value) === '1.5', rate + ' ' + el.value);
+  slider(1.75);
+  ok('...and one between stops stays where it is', rate === 1.75, rate);
+  ctx._ttsSliding = false;
+  slider(1.45);
+  ok('keys reach every step, stops or not', rate === 1.45, rate);
+  slider(9); ok('three times is the fastest', rate === 3, rate);
+  slider(0.1); ok('half is the slowest', rate === 0.5, rate);
+  ctx._ttsSpeedChanged();
   ctx._ttsSpeaking = false; ctx._settle();
-  ok('stopped before the taps settled: nothing starts again', restarts.length === 0, restarts.join());
+  ok('stopped before the speed settled: nothing starts again', restarts.length === 0, restarts.join());
   ctx._ttsSpeaking = true;
   ok('a stored speed off the steps comes back on one', ctx._ttsRateClamp(1.333) === 1.35 && ctx._ttsRateClamp(9) === 3 && ctx._ttsRateClamp('x') === 1);
   rate = 1;

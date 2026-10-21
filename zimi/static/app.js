@@ -20295,13 +20295,16 @@ var _ttsNow = { at: 0, engine: '', playing: false, lang: '' };
 var _ttsMenuOpen = ''; // the bar's open menu: '', 'voice' or 'speed'
 var _ttsPaused = false;
 // Any speed from half to three times, in steps of 0.05 (Eric, 2026-10-20:
-// "read faster and slower than our options and in between"); the menu's
-// presets are one tap, its - and + step between and beyond them.
-var _TTS_RATES = [0.75, 1, 1.25, 1.5, 2];
+// "read faster and slower than our options and in between"), on one slider
+// that a finger feels settle at 1x, 1.5x and 2x.
 var _TTS_RATE_MIN = 0.5, _TTS_RATE_MAX = 3, _TTS_RATE_STEP = 0.05;
 var _TTS_RATE_EPS = 1e-6;
+var _TTS_RATE_STOPS = [1, 1.5, 2]; // a finger within _TTS_RATE_SNAP of one lands on it
+var _TTS_RATE_SNAP = 0.05;
+var _TTS_RATE_MARKS = [0.5, 1, 1.5, 2, 3]; // named under the slider, a tap each
 var _TTS_GAP_RATES = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3]; // voices.TEST_RATES
-var _TTS_NUDGE_SETTLE_MS = 700; // - and + taps in a row ask about the voice once
+var _TTS_SPEED_SETTLE_MS = 700; // the voice is asked about once the speed stops moving
+var _ttsSliding = false; // a finger is on the slider: the bar is not redrawn under it
 function _ttsRateClamp(r) {
   if (typeof r !== 'number' || !isFinite(r)) return 1;
   r = Math.round(r / _TTS_RATE_STEP) * _TTS_RATE_STEP;
@@ -20331,18 +20334,19 @@ function _ttsVoiceLabel() {
   var e = _ttsNow.engine;
   return _voiceEngineName(e) + (e && _ttsKeepsUp(e, _ttsRate()) === false ? ' ' + t('tts_too_slow') : '');
 }
-// The speed menu's foot: - the speed + , a step of 0.05 each, the speed
-// lit when it is none of the presets.
-function _ttsNudgeHtml(rate) {
-  var step = function(dir, key, glyph, off) {
-    return '<button type="button" role="menuitem" class="tts-nudge-btn" aria-label="' + escAttr(t(key)) + '" title="' + escAttr(t(key)) + '"' +
-      (off ? ' disabled' : '') + ' onclick="_ttsNudgeSpeed(' + dir + ')">' + glyph + '</button>';
-  };
-  var custom = _TTS_RATES.indexOf(rate) < 0;
-  return '<div class="tts-nudge" role="group" aria-label="' + escAttr(t('tts_speed')) + '">' +
-    step(-1, 'tts_slower', '\u2212', rate <= _TTS_RATE_MIN + _TTS_RATE_EPS) +
-    '<output class="tts-nudge-rate' + (custom ? ' on' : '') + '" aria-live="polite">' + esc(_ttsRateLabel(rate)) + '</output>' +
-    step(1, 'tts_faster', '+', rate >= _TTS_RATE_MAX - _TTS_RATE_EPS) + '</div>';
+// The speed sheet: a slider (the bar's button says the speed), the marks
+// under it each a tap away. Arrow keys step 0.05 and never snap.
+function _ttsSpeedHtml(rate) {
+  var at = function(r) { return ((r - _TTS_RATE_MIN) / (_TTS_RATE_MAX - _TTS_RATE_MIN)).toFixed(4); };
+  return '<div class="tts-bar-menu tts-speed" role="group" aria-label="' + escAttr(t('tts_speed')) + '">' +
+    '<input type="range" class="tts-speed-range" style="--fill:' + at(rate) + '" min="' + _TTS_RATE_MIN + '" max="' + _TTS_RATE_MAX + '" step="' + _TTS_RATE_STEP +
+      '" value="' + rate + '" aria-label="' + escAttr(t('tts_speed')) + '" aria-valuetext="' + escAttr(_ttsRateLabel(rate)) + '"' +
+      ' onpointerdown="_ttsSliding = true" onpointerup="_ttsSliding = false" onpointercancel="_ttsSliding = false"' +
+      ' oninput="_ttsSlideSpeed(this)" onchange="_ttsSpeedChanged()">' +
+    '<div class="tts-speed-marks">' + _TTS_RATE_MARKS.map(function(r) {
+      return '<button type="button" style="--at:' + at(r) + '"' + (Math.abs(r - rate) < _TTS_RATE_EPS ? ' aria-current="true"' : '') +
+        ' onclick="_ttsPickSpeed(' + r + ')">' + esc(_ttsRateLabel(r)) + '</button>';
+    }).join('') + '</div></div>';
 }
 function _ttsBarHtml() {
   var pick = _voicePrefs().read || '';
@@ -20352,12 +20356,12 @@ function _ttsBarHtml() {
   };
   var h = '<span class="tts-bar-state' + (_ttsPaused ? ' paused' : _ttsNow.playing ? ' playing' : '') + '" aria-hidden="true"><i></i><i></i><i></i></span>';
   // A menu opens above the button it belongs to, its choices radio items.
-  var menu = function(which, items, foot) {
+  var menu = function(which, items) {
     if (_ttsMenuOpen !== which) return '';
     return '<div class="tts-bar-menu tts-bar-menu-' + which + '" role="menu">' + items.map(function(it) {
       return '<button type="button" role="menuitemradio" aria-checked="' + it[0] + '"' + (it[3] ? ' data-slow' : '') +
         ' onclick="' + escAttr(it[1]) + '">' + esc(it[2] + (it[3] ? ' ' + t('tts_too_slow') : '')) + '</button>';
-    }).join('') + (foot || '') + '</div>';
+    }).join('') + '</div>';
   };
   if (voices.length > 1) {
     h += '<span class="tts-bar-anchor"><button type="button" class="tts-bar-voice" aria-haspopup="menu" aria-expanded="' + (_ttsMenuOpen === 'voice') + '" onclick="_ttsMenuToggle(\'voice\')">' +
@@ -20371,9 +20375,8 @@ function _ttsBarHtml() {
   }
   var rate = _ttsRate();
   h += '<span class="tts-bar-anchor">' + btn('tts-bar-speed', t('tts_speed'), "_ttsMenuToggle('speed')", esc(_ttsRateLabel(rate)),
-    ' aria-haspopup="menu" aria-expanded="' + (_ttsMenuOpen === 'speed') + '"') +
-    menu('speed', _TTS_RATES.map(function(r) { return [r === rate, '_ttsPickSpeed(' + r + ')', _ttsRateLabel(r)]; }),
-      _ttsNudgeHtml(rate)) + '</span>';
+    ' aria-haspopup="true" aria-expanded="' + (_ttsMenuOpen === 'speed') + '"') +
+    (_ttsMenuOpen === 'speed' ? _ttsSpeedHtml(rate) : '') + '</span>';
   h += btn('tts-bar-btn', t(_ttsPaused ? 'resume' : 'pause'), '_ttsPauseToggle()', _ttsPaused ? _TTS_PLAY_ICON : _TTS_PAUSE_ICON,
     ' aria-pressed="' + _ttsPaused + '"');
   h += btn('tts-bar-btn', t('tts_stop'), '_ttsStop()', _TTS_CLOSE_ICON);
@@ -20394,6 +20397,7 @@ function _ttsBarSync() {
     bar.className = 'tts-bar';
     reader.appendChild(bar);
   }
+  if (_ttsSliding) return; // drawn when the finger lifts
   var html = _ttsBarHtml();
   if (bar._painted !== html) bar.innerHTML = bar._painted = html;
   bar.hidden = false;
@@ -20425,7 +20429,7 @@ function _ttsPauseToggle() {
   } catch (e) {}
   _ttsBarSync();
 }
-// A preset picked from the menu, or a step of - or +: remembered on this device. The
+// A speed slid to or a mark tapped: remembered on this device. The
 // server's audio changes speed where it is (its pitch kept); the browser's
 // voice takes a rate per sentence, so it starts again from the sentence it is on.
 // Any speed with any voice (Eric, 2026-10-20: "the info, ability to try any
@@ -20434,26 +20438,39 @@ function _ttsPauseToggle() {
 // sentence it is at; a voice picked by name keeps reading, named (Too slow),
 // and one that keeps up is offered.
 function _ttsPickSpeed(r) {
-  _ttsMenuOpen = '';
-  clearTimeout(_ttsNudgeTimer);
+  clearTimeout(_ttsSpeedTimer);
   _ttsApplySpeed(r);
+  _ttsBarSync();
   _ttsSpeedSettled();
 }
-// The speed takes hold at once where the audio plays; the browser's own voice
-// and the voice that keeps up wait for the last of a run of - and + taps.
-var _ttsNudgeTimer = 0;
-function _ttsNudgeSpeed(dir) {
-  _ttsApplySpeed(_ttsRateClamp(_ttsRate() + dir * _TTS_RATE_STEP));
-  // The bar was drawn afresh: the key or the finger stays on its button.
-  var again = document.querySelectorAll('#tts-bar .tts-nudge-btn')[dir < 0 ? 0 : 1];
-  if (again && !again.disabled) again.focus();
-  clearTimeout(_ttsNudgeTimer);
-  _ttsNudgeTimer = setTimeout(_ttsSpeedSettled, _TTS_NUDGE_SETTLE_MS);
+// While the slider moves, the speed takes hold at once where the audio plays
+// and only the numbers change (a redrawn bar would drop the finger); the
+// browser's own voice and the voice that keeps up wait for it to settle.
+var _ttsSpeedTimer = 0;
+function _ttsSlideSpeed(input) {
+  var r = _ttsSnapRate(parseFloat(input.value));
+  if (Math.abs(parseFloat(input.value) - r) > _TTS_RATE_EPS) input.value = r;
+  _ttsApplySpeed(r);
+  var label = _ttsRateLabel(r);
+  input.setAttribute('aria-valuetext', label);
+  if (input.style) input.style.setProperty('--fill', ((r - _TTS_RATE_MIN) / (_TTS_RATE_MAX - _TTS_RATE_MIN)).toFixed(4));
+  document.querySelectorAll('#tts-bar .tts-bar-speed').forEach(function(el) { el.textContent = label; });
+}
+function _ttsSpeedChanged() {
+  _ttsSliding = false;
+  clearTimeout(_ttsSpeedTimer);
+  _ttsSpeedTimer = setTimeout(function() { _ttsBarSync(); _ttsSpeedSettled(); }, _TTS_SPEED_SETTLE_MS);
+}
+// Under a finger a speed near a stop lands on it; keys reach every step.
+function _ttsSnapRate(v) {
+  var r = _ttsRateClamp(v);
+  if (!_ttsSliding) return r;
+  var stop = _TTS_RATE_STOPS.filter(function(s) { return Math.abs(s - r) <= _TTS_RATE_SNAP + _TTS_RATE_EPS; })[0];
+  return stop === undefined ? r : stop;
 }
 function _ttsApplySpeed(r) {
   _setStorageJSON(SK.TTS_RATE, r);
   if (_ttsAudio && _ttsNow.engine !== _DEVICE_VOICE) { _ttsAudio.defaultPlaybackRate = r; _ttsAudio.playbackRate = r; }
-  _ttsBarSync();
 }
 function _ttsSpeedSettled() {
   if (!_ttsSpeaking) return; // stopped while the taps settled
