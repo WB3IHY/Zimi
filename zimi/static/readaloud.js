@@ -23,6 +23,17 @@ var _TTS_SERVER_RETRY_MS = 2000; // voices.RETRY_AFTER_S: the server was busy
 // Piper says a 240-character chunk in 1 to 3 s on an Intel N150; Kokoro takes
 // 18 to 24 s there (2026-10-17), longer than the chunk plays.
 var _TTS_START_WAIT_MS = 6000;
+// Before the first word a voice may take as long as this server measured it
+// taking after a rest (its model loading), with this margin: Clear takes 7.6 s
+// cold on a NAS, and gave way to Basic for the whole article at 6 s (Eric,
+// 2026-10-20: "Automatic was on basic/robot and clear works fine").
+var _TTS_START_MARGIN = 1.25;
+var _TTS_START_WAIT_MAX_MS = 20000;
+function _ttsStartWait(engine) {
+  var tm = _voiceTimings(_ttsVoices && _ttsVoices.timings)[engine];
+  var cold = tm && typeof tm.cold_s === 'number' ? tm.cold_s * 1000 * _TTS_START_MARGIN : 0;
+  return Math.min(_TTS_START_WAIT_MAX_MS, Math.max(_TTS_START_WAIT_MS, cold));
+}
 var _TTS_CHUNK_MAX = 240, _TTS_FIRST_CHUNK_MAX = 120; // characters
 var _TTS_AHEAD = 2; // chunks asked for ahead of the one playing, so the voice never waits
 var _ttsAudio = null;
@@ -611,7 +622,7 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
         if (!live() || i !== idx || !audio.paused || _ttsPaused) return;
         if (!started && eng + 1 < engines.length) { slower(); play(idx); }
         else if (started) late(); else tooSlow();
-      }, _TTS_START_WAIT_MS);
+      }, started ? _TTS_START_WAIT_MS : _ttsStartWait(engines[eng]));
     }
   }
   function fail() {
@@ -856,13 +867,13 @@ function _ttsWarm() {
   var doc = _ttsFrameDoc();
   var lang = doc ? _ttsLang(doc) : '';
   var engines = lang ? _ttsServerEngines(lang) : [];
-  var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
-  // warm loads the server's own pick for the language: worth asking only
-  // when that is what reads.
-  if (!row || engines[0] !== row.engine || _TTS_WARM_ENGINES.indexOf(row.engine) < 0) return;
-  var tag = _normLang(_langPrimary(lang)), key = tag + ' ' + row.engine;
+  // The voice that will read (Automatic passes over one too slow here), when
+  // it is one that loads a model.
+  var engine = engines[0];
+  if (!engine || _TTS_WARM_ENGINES.indexOf(engine) < 0) return;
+  var tag = _normLang(_langPrimary(lang)), key = tag + ' ' + engine;
   if (_ttsWarmed[key]) return;
   _ttsWarmed[key] = true;
-  authedFetch('/dictionary/voices/warm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ langs: [tag], words: [] }) })
+  authedFetch('/dictionary/voices/warm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ langs: [tag], words: [], engine: engine }) })
     .catch(function() { delete _ttsWarmed[key]; });
 }

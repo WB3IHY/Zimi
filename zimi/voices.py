@@ -1541,8 +1541,9 @@ def _synthesize(engine, voice, text, out):
     )
 
 
-def warm(langs):
-    """Have the worker of the engine that says each language load it now,
+def warm(langs, engine=None):
+    """Have the worker of the engine that says each language (``engine``
+    when given: the one Read aloud will read with) load it now,
     in the background, so the first word is not the slow one. Downloads
     nothing (no _maybe_fetch); a voice already loaded, or loading, is left
     alone. Returns the engines asked to load something."""
@@ -1550,7 +1551,7 @@ def warm(langs):
     for lang in list(langs or [])[:WARM_LANGS_MAX]:
         if not isinstance(lang, str) or not valid_lang(lang):
             continue
-        picked = choose(lang)
+        picked = choose(lang, engine=engine)
         if not picked or picked[0] not in DOWNLOADED:
             continue
         worker = _worker(picked[0])

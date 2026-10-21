@@ -143,6 +143,7 @@ function freshReading() {
   Object.assign(ctx, {
     _ttsAudio: new FakeAudio(), _ttsRun: 1,
     _TTS_SERVER_RETRY_MS: 2000, _TTS_START_WAIT_MS: 6000, _TTS_AHEAD: 2,
+    _TTS_START_MARGIN: 1.25, _TTS_START_WAIT_MAX_MS: 20000, _ttsVoices: null,
     setTimeout: (f, ms) => { timers.push({ f, ms }); return timers.length; },
     clearTimeout: id => { if (id) timers[id - 1] = null; },
     authedFetch: u => { fetched.push(u); return new Promise(() => {}); }, // never answers: the server is still saying it
@@ -154,7 +155,7 @@ function freshReading() {
   });
   return r;
 }
-vm.runInContext(fn('_ttsSpeakServer'), ctx);
+vm.runInContext(fn('_ttsSpeakServer') + '\n' + fn('_ttsStartWait'), ctx);
 const engineOf = u => (u.match(/engine=(\w+)/) || [])[1];
 const textOf = u => decodeURIComponent((u.match(/text=([^&]*)$/) || [])[1] || '');
 const chunks = ['one.', 'two.', 'three.'];
@@ -173,6 +174,21 @@ a.onended(); a.onplaying(); a.onended();
 ok('chunks play in turn', textOf(a.src) === 'three.', a.src);
 a.onplaying(); a.onended();
 ok('the last chunk ends the reading', r.speaking === false);
+
+// A voice is given the start this server measured for it after a rest: a
+// cold Clear took 7.6 s on the NAS, and at a flat 6 s Automatic read the
+// whole article in Basic (Eric, 2026-10-20).
+r = freshReading();
+a = ctx._ttsAudio;
+ctx._ttsVoices = { timings: { piper: { cold_s: 7.6 } } };
+ctx._ttsSpeakServer(chunks, 'en', ['piper', 'espeak'], 1);
+ok('a voice slow to start after a rest is waited for as long as it was measured taking', timers.filter(Boolean).pop().ms === 9500, timers.filter(Boolean).map(x => x.ms));
+a.paused = false; a.onplaying(); a.onended();
+ok('...and once it has spoken, the usual wait again', timers.filter(Boolean).pop().ms === 6000, timers.filter(Boolean).map(x => x.ms));
+ctx._ttsVoices = { timings: { piper: { cold_s: 60 } } };
+ok('...never more than twenty seconds', ctx._ttsStartWait('piper') === 20000);
+ctx._ttsVoices = null;
+ok('...and unmeasured, six', ctx._ttsStartWait('piper') === 6000);
 
 r = freshReading();
 a = ctx._ttsAudio;
@@ -288,7 +304,7 @@ const tick = () => new Promise(r => setImmediate(r));
   store.zimi_tts_last_use = JSON.stringify(intent.now);
   prefs = { voice: 'kokoro', off: [] };
   ctx._ttsPrepare(); await tick(); await tick();
-  ok('warm loads the server\'s own pick, so a different chosen voice is not warmed', intent.posts.length === 0);
+  ok('the voice that will read is the one warmed, a chosen one too', intent.posts.length === 1 && intent.posts[0][1].engine === 'kokoro', JSON.stringify(intent.posts));
   prefs = { voice: '', off: [] };
 
   reset();

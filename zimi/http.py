@@ -3665,10 +3665,13 @@ class ZimHandler(BaseHTTPRequestHandler):
                 if not isinstance(langs, list):
                     return self._json(400, {"error": "'langs' must be a list"})
                 words = data.get("words") or []
+                engine = data.get("engine")
+                if engine is not None and engine not in _voices.ENGINES:
+                    return self._json(400, {"error": "unknown engine"})
                 return self._json(
                     200,
                     {
-                        "warming": _voices.warm(langs),
+                        "warming": _voices.warm(langs, engine),
                         "saying": _voices.presay(words) if isinstance(words, list) else 0,
                     },
                 )

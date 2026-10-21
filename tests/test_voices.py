@@ -1189,7 +1189,7 @@ def test_prewarm_loads_once_and_downloads_nothing(worker, monkeypatch):
 
 def test_prewarm_over_http(served, monkeypatch):
     asked = []
-    monkeypatch.setattr(voices, "warm", lambda langs: asked.append(langs) or ["piper"])
+    monkeypatch.setattr(voices, "warm", lambda langs, engine=None: asked.append((langs, engine)) or ["piper"])
 
     def post(body):
         req = urllib.request.Request(
@@ -1205,8 +1205,13 @@ def test_prewarm_over_http(served, monkeypatch):
             return e.code, None
 
     assert post({"langs": ["en"]}) == (200, {"warming": ["piper"], "saying": 0})
-    assert asked == [["en"]]
+    assert asked == [(["en"], None)]
     assert post({"langs": "en"})[0] == 400
+    # Read aloud warms the voice that will read, which may not be the
+    # server's own pick (Natural too slow here, so Clear reads).
+    assert post({"langs": ["en"], "engine": "piper"})[0] == 200
+    assert asked[-1] == (["en"], "piper")
+    assert post({"langs": ["en"], "engine": "nope"})[0] == 400
 
 
 def test_the_helper_answers_line_by_line_until_stdin_ends():
