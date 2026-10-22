@@ -498,6 +498,8 @@ const tick = () => new Promise(r => setImmediate(r));
       const [tag, attrs, ...kids] = spec;
       const el = { nodeType: 1, localName: tag, parentNode: parent, parentElement: parent, order: order++, classes: attrs.cls || [], style: attrs.style || {}, childNodes: [] };
       el.classList = { contains: c => el.classes.includes(c) };
+      el.tagName = tag.toUpperCase();
+      el.querySelector = t => { const find = e => (e.childNodes || []).find(k => k.localName === t || (k.nodeType === 1 && find(k))); return find(el) || null; };
       el.matches = sel => sel.split(',').some(x => { const [t, c] = x.trim().split('.'); return (!t || t === tag) && (!c || el.classes.includes(c)); });
       el.contains = n => { for (let x = n; x; x = x.parentNode) if (x === el) return true; return false; };
       el.compareDocumentPosition = n => (n.order > el.order ? 4 | (el.contains(n) ? 16 : 0) : 2);
@@ -534,6 +536,9 @@ const tick = () => new Promise(r => setImmediate(r));
       ['p', {}, 'John was born in Antioch', ['sup', { cls: ['reference'] }, '[3]'], ' and was of Syrian origin.', ['sup', { cls: ['reference'] }, '[4]'], ' He was named legate.']]);
     const wikiText = ax._ttsReadModel(wiki, wiki.main).text.replace(new RegExp(BLOCK, 'g'), '|');
     ok('no citation marks, hatnote or infobox: the prose, sentence by sentence', wikiText === 'John was born in Antioch and was of Syrian origin. He was named legate.|', wikiText);
+    const laid = mkDoc(['main', {}, ['table', {}, ['tr', {}, ['td', {}, ['p', {}, 'The whole page sits in a table.']]]]]);
+    const laidText = ax._ttsReadModel(laid, laid.main).text.replace(new RegExp(BLOCK, 'g'), '|');
+    ok('a table that holds paragraphs is the page\'s layout, and is read', laidText === 'The whole page sits in a table.|', laidText);
     order = 0; // back to the article's own document order
     const bigAt = model.text.indexOf('big');
     const bigRange = ax._ttsRange(model, bigAt, bigAt + 3);
@@ -734,6 +739,50 @@ const tick = () => new Promise(r => setImmediate(r));
     ok('a body that scrolls itself (the root\'s overflow set) is the scroller', sc._ttsScroller(pg.p, pg.win) === pg.body);
     pg = page('visible');
     ok('...but with the root left visible the window scrolls', sc._ttsScroller(pg.p, pg.win) === null);
+  }
+
+  {
+    // The device voice: a cancelled utterance reports its end or error after the
+    // next reading has begun (a seek, a sentence step, a new speed). Taken as the
+    // new reading's end, it hid the bar while the voice went on talking.
+    const said = [];
+    const dv = { _ttsRun: 5, r: { speaking: null }, _DEVICE_VOICE: 'device', _ttsNow: {}, _ttsRate: () => 1,
+      _ttsAlongAt() {}, _ttsAlongChar() {}, _ttsBarSync() {},
+      SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } },
+      window: { speechSynthesis: { cancel() {}, speak(u) { said.push(u); } } } };
+    dv._ttsSetSpeaking = on => { dv.r.speaking = on; };
+    vm.createContext(dv);
+    vm.runInContext(fn('_ttsSpeakDevice'), dv);
+    dv._ttsSpeakDevice(['One.', 'Two.'], 'en', 0);
+    dv._ttsRun = 6; // the next reading starts
+    said[0].onerror({ error: 'interrupted' }); said[1].onend();
+    ok('an older reading\'s end and error leave the new one alone', dv.r.speaking === null, dv.r.speaking);
+    said.length = 0;
+    dv._ttsSpeakDevice(['Three.'], 'en', 0);
+    said[0].onerror({ error: 'interrupted' });
+    ok('...and its own cancel ("interrupted") is not taken for a failure', dv.r.speaking === null, dv.r.speaking);
+    said[0].onerror({ error: 'synthesis-failed' });
+    ok('...but a real failure of the reading now ends it', dv.r.speaking === false, dv.r.speaking);
+  }
+
+  {
+    // Before readaloud.js has loaded, a tap (the Read aloud button, or Read on the
+    // selection bar) starts the audio inside the tap, as iOS requires, then loads
+    // the module and runs its own function with the same arguments.
+    const appSrc = fs.readFileSync(path.join(__dirname, '..', 'zimi', 'static', 'app.js'), 'utf8');
+    const grab = name => { const m = appSrc.match(new RegExp('\\nfunction ' + name + '\\([^]*?\\n}\\n')); return m ? m[0] : ''; };
+    const events = [];
+    const st = { _ttsUnlockedAudio: null, _TTS_SILENCE: 'data:x', _showToast() {}, t: k => k,
+      Audio: class { constructor(src) { this.src = src; } play() { events.push('play ' + this.src); return Promise.resolve(); } },
+      SpeechSynthesisUtterance: class {}, window: { speechSynthesis: { speak() { events.push('speak'); } } } };
+    st._ttsLoad = () => { events.push('load'); return Promise.resolve(true).then(ok => { st.window._ttsSpeak = (...a) => events.push('real speak ' + a.join(',')); return ok; }); };
+    vm.createContext(st);
+    vm.runInContext(['_ttsUnlock', '_ttsThen', '_ttsSpeak'].map(grab).join('\n'), st);
+    st._ttsSpeak(0, 'plan');
+    ok('the tap itself starts the audio and the device voice, before the module loads', events.join('|') === 'play data:x|speak|load', events.join('|'));
+    await new Promise(r => setTimeout(r, 0));
+    ok('...then the module\'s own Speak runs, with the same arguments', events[3] === 'real speak 0,plan', events.join('|'));
+    ok('...and the started element is what readaloud.js plays from', st._ttsUnlockedAudio && st._ttsUnlockedAudio.src === 'data:x' && /typeof _ttsUnlockedAudio/.test(src));
   }
 
   if (failures) { console.log(failures + ' failed'); process.exit(1); }

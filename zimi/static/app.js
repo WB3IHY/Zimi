@@ -20076,17 +20076,32 @@ function _ttsRateLabel(r) {
 // The reading itself (chunks, voices, the bar, read-along) is readaloud.js,
 // fetched the first time something is read, not with the page: most people
 // rarely or never read aloud. Until it loads nothing is reading, so stopping
-// is nothing, and the first Toggle loads it and then reads. readaloud.js
-// replaces all three.
+// is nothing, and the first Toggle (or Speak, from the selection bar) loads it
+// and then reads. readaloud.js replaces all four.
 function _ttsLoad() {
   return _loadScript('/static/readaloud.js?v=1').then(function(ok) { return ok && typeof _ttsWarm === 'function'; });
 }
-function _ttsToggle() {
+// iOS lets audio start only inside the tap, and the tap is over by the time
+// readaloud.js has loaded. So the tap itself starts the <audio> element (on a
+// silent clip) and the device voice (on an empty utterance); readaloud.js adopts
+// the element, and both may then play from later events.
+var _TTS_SILENCE = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+var _ttsUnlockedAudio = null;
+function _ttsUnlock() {
+  if (_ttsUnlockedAudio) return;
+  try { _ttsUnlockedAudio = new Audio(_TTS_SILENCE); _ttsUnlockedAudio.play().catch(function() {}); } catch (e) {}
+  try { if (window.speechSynthesis) window.speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {}
+}
+// Called in the tap: unlock, load, then run the real one (readaloud.js's, by then).
+function _ttsThen(name, args) {
+  _ttsUnlock();
   _ttsLoad().then(function(ok) {
-    if (ok) _ttsToggle();
+    if (ok) window[name].apply(null, args);
     else _showToast(t('tts_unavailable_offline'));
   });
 }
+function _ttsToggle() { _ttsThen('_ttsToggle', arguments); }
+function _ttsSpeak() { _ttsThen('_ttsSpeak', arguments); }
 function _ttsStop() {}
 function _ttsSetSpeaking(on) { _ttsSpeaking = on; }
 

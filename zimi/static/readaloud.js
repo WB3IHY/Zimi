@@ -36,7 +36,7 @@ function _ttsStartWait(engine) {
 }
 var _TTS_CHUNK_MAX = 240, _TTS_FIRST_CHUNK_MAX = 120; // characters
 var _TTS_AHEAD = 3; // chunks asked for ahead of the one playing, so the voice never waits
-var _ttsAudio = null;
+var _ttsAudio = (typeof _ttsUnlockedAudio !== 'undefined' && _ttsUnlockedAudio) || null; // started in the first tap (app.js)
 var _ttsRun = 0; // bumped by every start and stop: callbacks of an older run do nothing
 var _TTS_SUGGEST_MS = 9000;
 var _TTS_WARM_ENGINES = ['kokoro', 'piper']; // the voices that load a model
@@ -243,6 +243,9 @@ var _TTS_SKIP_TAGS = ' script style noscript template svg canvas iframe object a
 // (Eric, 2026-10-21: "reads the citation numbers").
 var _TTS_SKIP_SEL = 'sup.reference,.mw-ref,.mw-editsection,.hatnote,.metadata,.ambox,.navbox,.sidebar,' +
   'table,figure,.thumb,.mw-references-wrap,ol.references,.reflist,.catlinks,.zim-footer';
+// A table that holds paragraphs is the page's layout (older captures, some
+// crawled sites put the whole article in one), not a table of facts: it is read.
+function _ttsLayoutTable(el) { return el.tagName === 'TABLE' && !!el.querySelector('p'); }
 var _TTS_HL = 'zimi-tts', _TTS_HL_STYLE = 'zimi-tts-style';
 // A quiet amber tint, never the selection's blue: Reader View's own link
 // colour of its theme where there is one (light, dark, sepia, black), else amber.
@@ -271,7 +274,7 @@ function _ttsReadModel(doc, main) {
     var cs = win.getComputedStyle(el), tag = el.localName;
     // A book lays out one section at a time and hides the others: they are still its text.
     if (_TTS_SKIP_TAGS.indexOf(' ' + tag + ' ') >= 0 || (cs.display === 'none' && !el.classList.contains('zb-sec'))) return;
-    if (el !== main && el.matches && el.matches(_TTS_SKIP_SEL)) return;
+    if (el !== main && el.matches && el.matches(_TTS_SKIP_SEL) && !_ttsLayoutTable(el)) return;
     var block = cs.display.indexOf('inline') !== 0 && cs.display !== 'contents', shown = cs.visibility === 'visible';
     if (block || tag === 'br') split();
     for (var n = el.firstChild; n; n = n.nextSibling) {
@@ -589,14 +592,18 @@ function _ttsSpeak(from, plan) {
 function _ttsSpeakDevice(chunks, lang, from) {
   var synth = window.speechSynthesis;
   synth.cancel();
+  // A cancelled utterance reports its end or error later, after the next reading
+  // has begun (a seek, a sentence step, a new speed): those belong to an older run.
+  var run = _ttsRun;
+  function live() { return run === _ttsRun; }
   chunks.slice(from).forEach(function(chunk, idx, rest) {
     var u = new SpeechSynthesisUtterance(chunk);
     if (lang) u.lang = lang;
     u.rate = _ttsRate();
-    u.onstart = function() { _ttsNow.at = from + idx; _ttsNow.engine = _DEVICE_VOICE; _ttsNow.playing = true; _ttsAlongAt(from + idx, null); _ttsBarSync(); };
-    u.onboundary = function(e) { _ttsAlongChar(from + idx, e.charIndex); };
-    if (idx === rest.length - 1) u.onend = function() { _ttsSetSpeaking(false); };
-    u.onerror = function() { _ttsSetSpeaking(false); };
+    u.onstart = function() { if (!live()) return; _ttsNow.at = from + idx; _ttsNow.engine = _DEVICE_VOICE; _ttsNow.playing = true; _ttsAlongAt(from + idx, null); _ttsBarSync(); };
+    u.onboundary = function(e) { if (live()) _ttsAlongChar(from + idx, e.charIndex); };
+    if (idx === rest.length - 1) u.onend = function() { if (live()) _ttsSetSpeaking(false); };
+    u.onerror = function(e) { if (live() && !(e && (e.error === 'interrupted' || e.error === 'canceled'))) _ttsSetSpeaking(false); };
     synth.speak(u);
   });
 }
