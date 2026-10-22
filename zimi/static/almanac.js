@@ -3149,8 +3149,8 @@ function _hideVoyagerCard() {
 // for a card that has no other way out).
 var _almDismissables = {};
 var _almDismissBound = false;
-function _almDismissable(id, hide, inside) {
-  _almDismissables[id] = { hide: hide, inside: inside || null };
+function _almDismissable(id, hide, inside, returnId) {
+  _almDismissables[id] = { hide: hide, inside: inside || null, returnId: returnId || null };
   if (_almDismissBound) return;
   _almDismissBound = true;
   document.addEventListener('pointerdown', function (e) {
@@ -3159,18 +3159,24 @@ function _almDismissable(id, hide, inside) {
   // The Escape that puts an overlay away is that overlay's alone: it must not
   // also close the Almanac behind it.
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && _almDismissShown(function () { return true; })) { e.preventDefault(); e.stopPropagation(); }
+    if (e.key === 'Escape' && _almDismissShown(function () { return true; }, true)) { e.preventDefault(); e.stopPropagation(); }
   }, true);
   document.addEventListener('click', function (e) {
     var x = e.target && e.target.closest && e.target.closest('[data-alm-dismiss]');
     if (x) _almDismissShown(function (el) { return el.contains(x); });
   });
 }
-function _almDismissShown(wanted) {
+function _almDismissShown(wanted, restoreFocus) {
   var n = 0;
   for (var id in _almDismissables) {
     var el = document.getElementById(id), d = _almDismissables[id];
-    if (el && el.getClientRects().length && wanted(el, d)) { d.hide(); n++; }
+    if (el && el.getClientRects().length && wanted(el, d)) {
+      // Escape from inside the overlay: focus goes back to what opened it, not to a hidden panel.
+      var held = restoreFocus && d.returnId && el.contains(document.activeElement);
+      d.hide(); n++;
+      var back = held && document.getElementById(d.returnId);
+      if (back) back.focus({ preventScroll: true });
+    }
   }
   return n;
 }
