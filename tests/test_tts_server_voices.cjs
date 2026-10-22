@@ -741,7 +741,7 @@ const tick = () => new Promise(r => setImmediate(r));
     ok('never one something else took', spoken === null);
     // A phone: the tap is read from the touch (iOS sends many pages no click),
     // and a click that does follow it is the same tap.
-    Object.assign(ax, { _TTS_TAP_MS: 600, _TTS_TAP_SLOP: 10, _ttsTouchedAt: 0 });
+    Object.assign(ax, { _TTS_TAP_MS: 600, _TTS_TAP_SLOP: 10, _TTS_TAP_CLICK_MS: 700, _ttsTouchedAt: 0 });
     const on = {}, keepAdd = doc.addEventListener;
     doc.addEventListener = (t, f) => { on[t] = f; };
     ax._ttsAlongBegin(plan);
@@ -753,6 +753,8 @@ const tick = () => new Promise(r => setImmediate(r));
     ax._ttsTouchedAt = 0;
     spoken = null; on.touchstart(touch(100, 110)); on.touchend(touch(100, 160));
     ok('a touch that moved is a scroll, not a tap', spoken === null);
+    spoken = null; on.touchstart(touch(100, 110)); on.touchend(Object.assign(touch(101, 110), { defaultPrevented: true }));
+    ok('a touch the page took for itself (its own control) is not a tap', spoken === null);
     doc.addEventListener = keepAdd;
     doc.documentElement.classList.contains = c => c === 'zb-paged';
     ax._ttsTap(tap({ clientX: 20 }));

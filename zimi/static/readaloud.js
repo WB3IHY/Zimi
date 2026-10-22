@@ -104,8 +104,8 @@ function _ttsSlowEngines() {
   return Object.keys(s).filter(function(e) { return typeof s[e] === 'number' && now - s[e] < _TTS_SLOW_FOR_MS; });
 }
 function _ttsMarkSlow(engine) {
-  var s = {};
-  _ttsSlowEngines().forEach(function(e) { s[e] = _getStorageJSON(SK.TTS_SLOW, {})[e]; });
+  var kept = _getStorageJSON(SK.TTS_SLOW, {}), s = {};
+  _ttsSlowEngines().forEach(function(e) { s[e] = kept[e]; });
   if (!(engine in s)) { s[engine] = Date.now(); _setStorageJSON(SK.TTS_SLOW, s); }
 }
 // Too slow to read with at this speed: as the server measured it, else as
@@ -272,7 +272,8 @@ function _ttsStyle(doc) {
   doc.head.appendChild(style);
 }
 var _TTS_TAP_MS = 600, _TTS_TAP_SLOP = 10; // a touch this short and this still (px) is a tap
-var _ttsTouchedAt = 0; // when a touch was last read as a tap: the click after it is the same tap
+var _TTS_TAP_CLICK_MS = 700; // a click this soon after a touch read as a tap is that tap
+var _ttsTouchedAt = 0; // when a touch was last read as a tap
 var _TTS_VIEW_TOP = 56;     // px: a sentence above this has left the view
 var _TTS_VIEW_BOTTOM = 120; // px kept clear at the foot, where the reading bar floats
 var _TTS_VIEW_AT = 0.28;    // share of the height a sentence is brought up to
@@ -517,9 +518,6 @@ function _ttsTap(e) {
   var plan = _ttsPlanFrom(model, sp.s, st.plan.b, false);
   if (plan) _ttsSpeak(0, plan);
 }
-// The reading one sentence back (``dir`` -1) or on (1) from the one being
-// read, as a tap on that sentence would move it. Back from the first, it
-// starts that one again; on from the last, nothing.
 // The bar's back button, as a player's: the first tap starts this sentence
 // again, a second soon after goes to the one before (Eric, 2026-10-21).
 var _TTS_BACK_AGAIN_MS = 3000, _ttsBackAt = 0;
@@ -528,7 +526,9 @@ function _ttsBack() {
   _ttsBackAt = now;
   _ttsStep(again ? -1 : 0);
 }
-// ``dir``: -1 the sentence before, 1 the next, 0 this one again.
+// The reading moved a sentence from the one being read, as a tap on that
+// sentence would move it: ``dir`` -1 the one before (the first starts again),
+// 1 the next (none after the last), 0 this one again.
 function _ttsStep(dir) {
   var st = _ttsRead;
   if (!st) return;
@@ -558,7 +558,7 @@ function _ttsAlongBegin(plan) {
   on('touchmove', _ttsLose, moved);
   on('keydown', function(e) { if (_TTS_SCROLL_KEYS.indexOf(' ' + e.key + ' ') >= 0) _ttsLose(); }, moved);
   on('mousedown', function(e) { if (e.clientX >= doc.documentElement.clientWidth) _ttsLose(); }, moved);
-  on('click', function(e) { if (Date.now() - _ttsTouchedAt > _TTS_TAP_MS) _ttsTap(e); }, false);
+  on('click', function(e) { if (Date.now() - _ttsTouchedAt > _TTS_TAP_CLICK_MS) _ttsTap(e); }, false);
   on('scroll', function() { if (_ttsRead && !_ttsRead.following) _ttsFollow(false); }, moved);
   // A tap on a phone is read from the touch itself: iOS sends a tap on plain
   // text no click on many pages (Wikivoyage's), so a click was never heard
@@ -571,7 +571,7 @@ function _ttsAlongBegin(plan) {
     if (!was || !c || Date.now() - was.at > _TTS_TAP_MS || Math.abs(c.clientX - was.x) > _TTS_TAP_SLOP || Math.abs(c.clientY - was.y) > _TTS_TAP_SLOP) return;
     _ttsTouchedAt = Date.now();
     _ttsTap({ target: e.target, clientX: c.clientX, clientY: c.clientY, button: 0, defaultPrevented: e.defaultPrevented });
-  }, moved);
+  }, false); // bubbling, as the click was: a page that took the tap (preventDefault) keeps it
   _ttsStyle(doc);
   _ttsRead = { plan: plan, doc: doc, win: win, following: true, ranges: null, key: '', off: off };
   if (plan.sel) { try { win.getSelection().removeAllRanges(); } catch (e) {} } // the mark takes its place

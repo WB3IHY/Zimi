@@ -1506,8 +1506,9 @@ def _audio(text, lang, accent="", engine=None, limit=TEXT_MAX):
 def say_ahead(text, lang):
     """Say a word now, in the background, so its first tap plays at once: in
     the voice a tap would get (no engine named, no accent), into the same
-    cache. Never fetches a voice and never waits: with no voice here for the
-    language, or one busy reading, it is left for the tap. True once made."""
+    cache. Never fetches a voice, and skips when a voice is busy reading (a
+    reading that starts in that instant waits behind one word). No voice here
+    for the language: left for the tap. True once made."""
     where = _audio(text, lang)
     if where is None:
         return False
