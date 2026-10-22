@@ -520,6 +520,15 @@ function _ttsTap(e) {
 // The reading one sentence back (``dir`` -1) or on (1) from the one being
 // read, as a tap on that sentence would move it. Back from the first, it
 // starts that one again; on from the last, nothing.
+// The bar's back button, as a player's: the first tap starts this sentence
+// again, a second soon after goes to the one before (Eric, 2026-10-21).
+var _TTS_BACK_AGAIN_MS = 3000, _ttsBackAt = 0;
+function _ttsBack() {
+  var now = Date.now(), again = now - _ttsBackAt < _TTS_BACK_AGAIN_MS;
+  _ttsBackAt = now;
+  _ttsStep(again ? -1 : 0);
+}
+// ``dir``: -1 the sentence before, 1 the next, 0 this one again.
 function _ttsStep(dir) {
   var st = _ttsRead;
   if (!st) return;
@@ -529,10 +538,13 @@ function _ttsStep(dir) {
   // The whole sentence: a long one is said in pieces, each a span of its own.
   var model = st.plan.model, t = model.text;
   cur = _ttsSentenceAt(model, cur.s) || cur;
-  var o = dir < 0 ? cur.s - 1 : cur.e;
-  while (o >= 0 && o < t.length && /\s/.test(t[o])) o += dir < 0 ? -1 : 1;
-  if (o >= st.plan.b) return;
-  var sp = o < 0 ? cur : _ttsSentenceAt(model, o);
+  var sp = cur;
+  if (dir) {
+    var o = dir < 0 ? cur.s - 1 : cur.e;
+    while (o >= 0 && o < t.length && /\s/.test(t[o])) o += dir < 0 ? -1 : 1;
+    if (o >= st.plan.b) return;
+    sp = o < 0 ? cur : _ttsSentenceAt(model, o);
+  }
   var plan = sp && _ttsPlanFrom(model, sp.s, st.plan.b, false);
   if (plan) _ttsSpeak(0, plan);
 }
@@ -824,8 +836,8 @@ function _ttsBarHtml() {
   h += '<span class="tts-bar-anchor">' + btn('tts-bar-speed', t('tts_speed'), "_ttsMenuToggle('speed')", esc(_ttsRateLabel(rate)),
     ' aria-haspopup="true" aria-expanded="' + (_ttsMenuOpen === 'speed') + '"') +
     (_ttsMenuOpen === 'speed' ? _ttsSpeedHtml(rate) : '') + '</span>';
-  // One way back, before pause: the sentence before this one, read again.
-  h += btn('tts-bar-btn tts-bar-step', t('tts_prev_sentence'), '_ttsStep(-1)', _TTS_BACK_ICON);
+  // One way back, before pause: this sentence again, then the one before.
+  h += btn('tts-bar-btn tts-bar-step', t('tts_prev_sentence'), '_ttsBack()', _TTS_BACK_ICON);
   h += btn('tts-bar-btn', t(_ttsPaused ? 'resume' : 'pause'), '_ttsPauseToggle()', _ttsPaused ? _TTS_PLAY_ICON : _TTS_PAUSE_ICON,
     ' aria-pressed="' + _ttsPaused + '"');
   h += btn('tts-bar-btn', t('tts_stop'), '_ttsStop()', _TTS_CLOSE_ICON);

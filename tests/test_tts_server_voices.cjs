@@ -500,7 +500,7 @@ const tick = () => new Promise(r => setImmediate(r));
       extract(/var _TTS_SKIP_TAGS[\s\S]*?var _ttsRead = null;/, 'the read-along constants'), ax);
     vm.runInContext(['_ttsPlanChunks', '_ttsReadModel', '_ttsPieceAt', '_ttsRange', '_ttsOffsetOf', '_ttsSelectedSpan', '_ttsSpanAtChar',
       '_ttsSentenceAt', '_ttsScrollBy', '_ttsOnText', '_ttsMakePlan', '_ttsPlanFrom', '_ttsHlOk', '_ttsPaint', '_ttsAlongAt', '_ttsAlongAudio', '_ttsAlongChar',
-      '_ttsScroller', '_ttsFollow', '_ttsLose', '_ttsFollowResume', '_ttsTap', '_ttsStep', '_ttsAlongBegin', '_ttsAlongEnd'].map(fn).join('\n'), ax);
+      '_ttsScroller', '_ttsFollow', '_ttsLose', '_ttsFollowResume', '_ttsTap', '_ttsStep', '_ttsBack', '_ttsAlongBegin', '_ttsAlongEnd'].map(fn).join('\n'), ax);
 
     // A DOM of just what the reading looks at: elements with a display, text nodes, document order.
     const BLOCKS = ['div', 'p', 'h1', 'h2', 'ul', 'li', 'main', 'article', 'section', 'body'];
@@ -721,6 +721,14 @@ const tick = () => new Promise(r => setImmediate(r));
     ok('back across a block: the heading before it', /^Tides\./.test(step(keyOf('Hello'), -1) || ''), step(keyOf('Hello'), -1));
     ok('on across a block: the list item after it', /^One\./.test(step(keyOf('Next one'), 1) || ''), step(keyOf('Next one'), 1));
     ok('before the voice says where it is, from the chunk\'s first sentence', /^Next one\./.test(step('2:null', 1) || ''), step('2:null', 1));
+    ok('0: this sentence again, from its start', /^Dr\. Smith/.test(step(keyOf('dollars'), 0) || ''), step(keyOf('dollars'), 0));
+    // the bar's back: once, this sentence again; again soon after, the one before
+    Object.assign(ax, { _TTS_BACK_AGAIN_MS: 3000, _ttsBackAt: 0 });
+    spoken = null; ax._ttsRead.key = keyOf('Dr. Smith'); ax._ttsBack();
+    const once = spoken && spoken.chunks[0].text;
+    spoken = null; ax._ttsRead.key = keyOf('Dr. Smith'); ax._ttsBack();
+    ok('back once restarts the sentence; back again goes to the one before', /^Dr\. Smith/.test(once || '') && /^Hello big world\./.test((spoken && spoken.chunks[0].text) || ''), once + ' | ' + (spoken && spoken.chunks[0].text));
+    ax._ttsBackAt = 0;
     spoken = null; ax._ttsTap(tap({ target: { closest: () => ({}) } }));
     ok('never a link, a button or an image to enlarge', spoken === null);
     win.getSelection = () => ({ isCollapsed: false, toString: () => 'some words', rangeCount: 1 });
