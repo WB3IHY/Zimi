@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Red and Dark themes: text never takes its background's colour ([#119](https://github.com/epheterson/Zimi/issues/119)).
 - In private mode, a name typed while the sign-in sheet opened could be lost, and the right password refused.
+- A user who signs in sees their own library straight away, not the one shown before they signed in.
 - Read aloud from the ⋯ menu closes the menu.
 - Read aloud no longer calls a voice slow after a moment's wait, and its messages sit above the reading bar.
 - Read along follows the page on an iPhone, and the previous sentence's mark clears.
