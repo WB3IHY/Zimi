@@ -17898,8 +17898,9 @@ async function saveMyDataToServer() {
     var res = await fetch('/userdata', {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(_collectBrowserData()),
+      body: JSON.stringify(Object.assign(_collectBrowserData(), { account: _accountId })),
     });
+    if (res.status === 401 || res.status === 409) _accountRecheck();
     if (!res.ok) throw new Error('http ' + res.status);
     // The account merged this browser's store with its own: take the result.
     var back = await res.json().catch(function() { return null; });
@@ -17912,7 +17913,8 @@ async function restoreMyDataFromServer() {
   _setBackupStatus('ms-mydata-status', 'working');
   var data;
   try {
-    var res = await fetch('/userdata', { credentials: 'same-origin' });
+    var res = await fetch(_accountUrl('/userdata'), { credentials: 'same-origin' });
+    if (res.status === 401 || res.status === 409) _accountRecheck();
     if (!res.ok) throw new Error('http ' + res.status);
     data = await res.json();
   } catch (e) { _setBackupStatus('ms-mydata-status', 'error'); return; }
@@ -27384,6 +27386,18 @@ function _accountSet(id, boot) {
   if (st.owner !== id) _prefSaveState({ owner: id, pending: {}, seeded: st.seeded || !!st.owner });
   if (id && !boot) _savedPull();
 }
+// /userdata's address, naming the account this browser follows.
+function _accountUrl(path) { return path + '?account=' + encodeURIComponent(_accountId || ''); }
+// Refused (401: no account; 409: not this one): whose it is now, from the
+// server, and this tab follows that (or none). One asking at a time.
+var _accountRechecking = false;
+function _accountRecheck() {
+  if (_accountRechecking) return;
+  _accountRechecking = true;
+  serverFetch('/whoami', { credentials: 'same-origin', headers: _manageToken ? _authHeaders() : {} })
+    .then(function (r) { return r.json(); }).then(function (j) { _accountSet(j && j.account); })
+    .catch(function () {}).then(function () { _accountRechecking = false; });
+}
 // After an admin's sign-in: whose account the server says this is.
 function _accountRefresh() {
   serverFetch('/whoami', { credentials: 'same-origin', headers: _manageToken ? _authHeaders() : {} })
@@ -27443,7 +27457,7 @@ function _savedPush(leaving) {
   if (_savedPushing && !leaving) { _savedPushAgain = true; return _savedPushing; }
   var delta = _savedDelta();
   if (!delta) return _savedPushing || Promise.resolve(true);
-  var account = Saved.account(), body = JSON.stringify({ saved: delta });
+  var account = Saved.account(), body = JSON.stringify({ saved: delta, account: _accountId });
   if (leaving) {
     if (body === _savedLeftBody) return _savedPushing || Promise.resolve(true);
     _savedLeftBody = body;
@@ -27455,9 +27469,12 @@ function _savedPush(leaving) {
     // Too large: paused until something is let go (the next change sends it),
     // not re-sent on a timer.
     if (r.status === 413) { _savedSetPaused(true); return 'too-large'; }
+    // Not this account's any more (signed out, or another tab signed in as
+    // someone else): asked again whose, never written into the wrong one.
+    if (r.status === 401 || r.status === 409) { _accountRecheck(); return 'not-ours'; }
     return r.ok ? r.json() : null;
   }).then(function (d) {
-    if (d === 'too-large') return false;
+    if (d === 'too-large' || d === 'not-ours') return false;
     if (!d || !d.saved) { if (!leaving) _savedSetBehind(true); return false; }
     _savedSetPaused(false);
     _savedSetBehind(false);
@@ -27476,7 +27493,10 @@ function _savedPull() {
   if (!_savedSignedIn()) return;
   _savedPulledAt = Date.now();
   var account = Saved.account();
-  fetch('/userdata', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+  fetch(_accountUrl('/userdata'), { credentials: 'same-origin' }).then(function (r) {
+    if (r.status === 401 || r.status === 409) { _accountRecheck(); return null; }
+    return r.ok ? r.json() : null;
+  }).then(function (d) {
     if (!d || Saved.account() !== account) return;
     if (d.saved && typeof d.saved === 'object') _savedBase = Saved.stamps(d.saved);
     _savedTake(d, false, true);
@@ -27492,9 +27512,16 @@ function _savedPull() {
 // follows, if it never held a setting, takes this browser's own (its settings
 // from before sync), on the keys it lacks (fill). Separate from the saved
 // store's sync: a change sends a few hundred bytes.
-var _prefPushTimer = null, _prefPushing = null;
+var _prefPushTimer = null, _prefPushing = null, _prefFilling = false;
+// The server out of reach or failing: tried again after a while, as the saved
+// store's push is (_SAVED_PUSH_OFTEN_MS), not on every change's short wait.
+var _prefRetryTimer = null;
+function _prefRetryLater() {
+  if (_prefRetryTimer) return;
+  _prefRetryTimer = setTimeout(function () { _prefRetryTimer = null; _prefPush(); }, _SAVED_PUSH_OFTEN_MS);
+}
 function _prefPushSoon() {
-  if (!_accountId) return;
+  if (!_accountId || _prefRetryTimer) return;
   clearTimeout(_prefPushTimer);
   _prefPushTimer = setTimeout(_prefPush, _SAVED_PUSH_MS);
 }
@@ -27510,12 +27537,17 @@ function _prefPush(leaving, fill) {
     if (fill ? _rawGet(k) !== null : st.pending[k]) { changes[k] = { v: _rawGet(k) }; n++; }
   });
   if (!n) return Promise.resolve(true);
-  var account = _accountId, body = JSON.stringify(fill ? { changes: changes, fill: true } : { changes: changes });
+  var account = _accountId, body = JSON.stringify(fill ? { changes: changes, fill: true, account: account } : { changes: changes, account: account });
   var sent = fetch('/userdata/settings', {
     method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body,
     keepalive: !!leaving && new Blob([body]).size < _SAVED_KEEPALIVE_MAX,
-  }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+  }).then(function (r) {
+    if (r.status === 401 || r.status === 409) { _accountRecheck(); return null; }
+    if (!r.ok) { _prefRetryLater(); return null; }
+    return r.json();
+  }, function () { _prefRetryLater(); return null; }).then(function (d) {
     if (!d || account !== _accountId) return false;
+    clearTimeout(_prefRetryTimer); _prefRetryTimer = null;
     // Taken: no longer pending, unless it changed again since it was sent.
     var now = _prefState();
     Object.keys(changes).forEach(function (k) { if (_rawGet(k) === changes[k].v) delete now.pending[k]; });
@@ -27526,7 +27558,9 @@ function _prefPush(leaving, fill) {
   if (leaving) return sent;
   _prefPushing = sent.then(function (ok) {
     _prefPushing = null;
-    if (Object.keys(_prefState().pending).length) _prefPushSoon();
+    // Taken, and more changed meanwhile: that goes next. A failure waits for
+    // its retry (_prefRetryLater), never a push every moment.
+    if (ok && Object.keys(_prefState().pending).length) _prefPushSoon();
     return ok;
   });
   return _prefPushing;
@@ -27534,8 +27568,10 @@ function _prefPush(leaving, fill) {
 function _prefPull() {
   if (!_accountId) return;
   var account = _accountId;
-  fetch('/userdata/settings', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (d) { if (d && account === _accountId) _prefTake(d); }).catch(function () {});
+  fetch(_accountUrl('/userdata/settings'), { credentials: 'same-origin' }).then(function (r) {
+    if (r.status === 401 || r.status === 409) { _accountRecheck(); return null; }
+    return r.ok ? r.json() : null;
+  }).then(function (d) { if (d && account === _accountId) _prefTake(d); }).catch(function () {});
 }
 // The account's settings ({rev, settings: {key: {v, r}}}) come in.
 function _prefTake(d) {
@@ -27552,9 +27588,21 @@ function _prefTake(d) {
   });
   if (changed.length) _prefApplied(changed);
   if (!st.seeded) {
-    st.seeded = true;
-    _prefSaveState(st);
-    if (!d.rev) { _prefPush(false, true); return; }
+    if (d.rev) { st.seeded = true; _prefSaveState(st); }
+    else {
+      // Seeded once the account has taken this browser's own; tried again
+      // at the next pull if it did not.
+      if (!_prefFilling) {
+        _prefFilling = true;
+        _prefPush(false, true).then(function (ok) {
+          _prefFilling = false;
+          if (!ok) return;
+          var now = _prefState();
+          if (now.owner === _accountId) { now.seeded = true; _prefSaveState(now); }
+        });
+      }
+      return;
+    }
   }
   // Changed here and not yet taken (the page closed before it went): it goes.
   if (Object.keys(st.pending).length && !_prefPushing) _prefPushSoon();
@@ -27642,8 +27690,13 @@ function _savedStart() {
   // page in the reader): shown here too. Whoever wrote it marked it pending
   // (_prefChanged, apps.js's prefTouched); one this page did not send yet goes.
   window.addEventListener('storage', function (e) {
-    if (e.key && _isPrefKey(e.key)) _prefApplied([e.key]);
-    else if (e.key === SK.PREF_SYNC && _accountId && Object.keys(_prefState().pending).length) _prefPushSoon();
+    if (e.key && _isPrefKey(e.key)) { _prefApplied([e.key]); return; }
+    if (e.key !== SK.PREF_SYNC) return;
+    // Another tab signed in as someone else, or out: this tab follows it, and
+    // never sends the last account's things into the next one's.
+    var owner = _prefState().owner;
+    if (owner !== _accountId) { _accountSet(owner); return; }
+    if (_accountId && Object.keys(_prefState().pending).length) _prefPushSoon();
   });
   // Another tab of this browser wrote the store: merged in, not overwritten
   // the next time this tab writes (the other tab sends its own change up).

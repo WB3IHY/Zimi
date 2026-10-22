@@ -51,7 +51,13 @@ first account a browser ever follows, if it has never held a setting, takes
 that browser's own, on the keys it lacks. Settings are
 kept apart from the saved store (``usersettings/<key>.json``), so a change
 costs a write of a few hundred bytes, and none when nothing changed. With the
-password switched off every browser is the admin's (one person's server).
+password switched off (the setting, or ZIMI_MANAGE_OPEN) every browser is the
+admin's: the owner chose that anyone reaching Zimi manages it, and where a
+client sits on the network cannot be known (Eric, 2026-10-22: "Stop with the
+local network carve out we can't know just let him do it"). Every call
+names the account the browser follows; one that is no longer the session's
+(another tab signed in as someone else) is refused, and the browser asks
+again whose it is rather than write into the wrong one.
 """
 
 import hashlib
@@ -1768,11 +1774,11 @@ def request_data_owner(handler):
 
     A signed-in account (a named user, a secondary admin) is its own name; the
     primary admin, signed in (its session, the password, the API token), is
-    PRIMARY_ADMIN_DATA. With the password switched off everyone is the admin,
-    the server is one person's, and every browser is the admin's (Eric,
-    2026-10-22: "Password off should still sync"). Never a name from the
-    request body. No one on an install with no password yet: who reaches it
-    as the admin there (the host, a trusted LAN) is not one person.
+    PRIMARY_ADMIN_DATA. With the password switched off every browser is the
+    admin's (Eric, 2026-10-22: "Password off should still sync"; no network
+    carve-out). Never a name from the request body. No one on an install with no
+    password yet and not switched open: who reaches it as the admin there (the
+    host, a trusted LAN) is not one person.
     """
     name = resolve_request_user(handler)
     if name:

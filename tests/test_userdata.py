@@ -140,6 +140,7 @@ class _Handler(http.ZimHandler):
 
     def __init__(self, session_user=None):
         self._session_user = session_user
+        self.path = "/userdata"
         self.status = None
         self.body = None
         self.headers = {}
