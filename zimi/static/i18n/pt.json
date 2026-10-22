@@ -1866,6 +1866,7 @@
   "saved_storage_full": "O armazenamento deste navegador está cheio: o que você salvar agora só dura até esta aba ser fechada.",
   "saved_full": "Não há mais espaço em Salvos. Remova algo para salvar mais.",
   "saved_legacy_offer": "Este navegador tem favoritos de uma versão anterior do Zimi.",
+  "saved_signedout_offer": "Este navegador tem itens guardados sem sessão iniciada.",
   "saved_legacy_add": "Adicionar à minha conta",
   "saved_legacy_skip": "Não, obrigado",
   "saving": "Salvando…",

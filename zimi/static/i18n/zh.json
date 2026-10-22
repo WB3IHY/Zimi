@@ -1866,6 +1866,7 @@
   "saved_storage_full": "此浏览器的存储空间已满：现在保存的内容只保留到这个标签页关闭为止。",
   "saved_full": "已保存的空间已满。删除一些内容才能继续保存。",
   "saved_legacy_offer": "此浏览器中有 Zimi 早期版本的书签。",
+  "saved_signedout_offer": "此浏览器中有未登录时保存的内容。",
   "saved_legacy_add": "添加到我的账户",
   "saved_legacy_skip": "不用了",
   "saving": "保存中…",
