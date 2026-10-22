@@ -9,41 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Highlights
 
-- Read aloud reads along: the sentence being read is marked and the page follows it. Tap a sentence or select text to start there, go back a sentence, and pick any speed from 0.5× to 3×.
-- Settings, Voices measures how fast each voice is on this server, and Automatic reads with one that keeps up.
-- Signed in, your settings follow you: languages, theme, reading and voice settings changed in one browser appear in your others.
+- Read aloud marks the sentence being read and follows it.
+- Settings follow your account across browsers.
 
 ### Added
 
-- Read along: the sentence being read is marked and the page follows it; a tap on a sentence or a selection sets where it reads; the reading bar's back button reads the sentence before again.
-- Signed in, settings follow the account to every browser, each setting's latest change kept; the admin has an account too, so saved articles follow the admin as well.
-- The Dictionary's word of the day is said ahead by the server's voice, so Say plays at once.
-- Read aloud's speed is a slider from 0.5× to 3×, with any voice; a voice too slow for the chosen speed says so.
-- Settings, Voices tests each voice as a reading uses it (Cold start, Warm start, Top speed), this device's voice too.
-- PDFs show two pages side by side wherever two fit.
-- In a book, the chapter in the footer opens the contents.
-- The PyPI wheels and sdists carry build provenance attestations.
+- Read aloud: the sentence being read is marked and followed; tap a sentence or select text to start there.
+- Read aloud: back button (once: this sentence again; twice: the one before).
+- Read aloud: speed slider, 0.5× to 3×.
+- Settings, Voices: speed test for each voice.
+- Settings follow the signed-in account to every browser; the admin has an account.
+- PDFs: two pages side by side when they fit.
+- Books: the chapter in the footer opens the contents.
+- Discover's word of the day is voiced in advance.
+- Build provenance for PyPI wheels and sdists.
 
 ### Changed
 
-- Numbers, dates, sizes, sorting and the first day of the week follow Zimi's language.
-- Read aloud cuts sentences as people read them, reads a heading on its own, and leaves out citation marks, the infobox, tables of facts, captions and reference lists.
-- Read aloud is fetched the first time it is used, not with every page, and is kept for offline use.
-- Dependency floors are raised past known vulnerabilities.
+- Numbers, dates, sizes, sorting and week start follow Zimi's language.
+- Read aloud skips citation marks, infoboxes, tables, captions and references.
+- Read aloud loads on first use.
+- Dependency floors raised for known vulnerabilities.
 
 ### Fixed
 
-- Red and Dark themes: text never takes its background's colour ([#119](https://github.com/epheterson/Zimi/issues/119)).
-- In private mode, a name typed while the sign-in sheet opened could be lost, and the right password refused.
-- A user who signs in sees their own library straight away, not the one shown before they signed in.
-- Read aloud from the ⋯ menu closes the menu.
-- Read aloud no longer calls a voice slow after a moment's wait, and its messages sit above the reading bar.
-- Read along follows the page on an iPhone, and the previous sentence's mark clears.
-- On a phone, a tap on a sentence moves the reading there on every page, and the sentence is marked at once, not when a slow voice gets to it.
-- Automatic no longer reads with a voice the server measured too slow, and the reading bar names the voice without (Too slow).
-- Arabic and Hebrew: spacing and arrows follow the reading direction, in the Almanac calendar and the reading bar.
-- The offline PDF library list matches the app's, sizes included.
-- espeak's test voices are no longer offered.
+- Red and Dark: text no longer matches its background ([#119](https://github.com/epheterson/Zimi/issues/119)).
+- Private mode: sign-in could refuse the right password.
+- Signing in shows your own library without a reload.
+- Change password could keep the old password in the field.
+- Read aloud: first tap on iPhone, taps on every page, menu closes, no false "slow" message.
+- Read aloud: Automatic avoids voices measured too slow.
+- Arabic and Hebrew: spacing and arrow direction.
+- Offline PDF library list matches the app's.
+- espeak's test voices are hidden.
 
 ## [1.14.0] - 2026-10-19
 
