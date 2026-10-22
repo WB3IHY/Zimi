@@ -1866,6 +1866,7 @@
   "saved_storage_full": "Der Speicher dieses Browsers ist voll: Was Sie jetzt speichern, bleibt nur, bis dieser Tab geschlossen wird.",
   "saved_full": "Kein Platz mehr unter „Gespeichert“. Entfernen Sie etwas, um mehr zu speichern.",
   "saved_legacy_offer": "In diesem Browser gibt es Lesezeichen aus einer früheren Version von Zimi.",
+  "saved_signedout_offer": "In diesem Browser gibt es Gespeichertes aus der Zeit ohne Anmeldung.",
   "saved_legacy_add": "Meinem Konto hinzufügen",
   "saved_legacy_skip": "Nein, danke",
   "saving": "Speichern…",

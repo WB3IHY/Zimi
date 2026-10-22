@@ -1866,6 +1866,7 @@
   "saved_storage_full": "This browser's storage is full: what you save now lasts only until this tab closes.",
   "saved_full": "Saved is full. Remove something to save more.",
   "saved_legacy_offer": "This browser has bookmarks from an earlier version of Zimi.",
+  "saved_signedout_offer": "This browser has things saved while signed out.",
   "saved_legacy_add": "Add them to my account",
   "saved_legacy_skip": "No, thanks",
   "saving": "Saving…",
