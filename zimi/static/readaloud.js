@@ -252,7 +252,9 @@ var _TTS_SKIP_TAGS = ' script style noscript template svg canvas iframe object a
 // infobox and other tables, captions, navigation boxes, the reference list
 // (Eric, 2026-10-21: "reads the citation numbers").
 var _TTS_SKIP_SEL = 'sup.reference,.mw-ref,.mw-editsection,.hatnote,.metadata,.ambox,.navbox,.sidebar,' +
-  'table,figure,.thumb,.mw-references-wrap,ol.references,.reflist,.catlinks,.zim-footer';
+  'table,figure,.thumb,.mw-references-wrap,ol.references,.reflist,.catlinks,.zim-footer,' +
+  // Zimipedia's own: the folded Quick facts (its infobox) and its bars and sheets.
+  '.zw-facts,.zb-bar,.zb-sheet';
 // A table that holds paragraphs is the page's layout (older captures, some
 // crawled sites put the whole article in one), not a table of facts: it is read.
 function _ttsLayoutTable(el) { return el.tagName === 'TABLE' && !!el.querySelector('p'); }
