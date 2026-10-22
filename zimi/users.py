@@ -962,7 +962,11 @@ def _saved_merge_item(r, x, y, gone, g):
     from the newer of the copies' sv and its tombstone (a tie keeps ``x``'s, a
     tombstone as new wins). Not saved, it stays for its like, as likeOnly;
     _saved_normalize lets it go when there is none."""
-    w = y if x is None else x if y is None else (y if _saved_sv_of(y) > _saved_sv_of(x) else x)
+    w = (
+        y
+        if x is None
+        else x if y is None else (y if _saved_sv_of(y) > _saved_sv_of(x) else x)
+    )
     sv, saved = _saved_sv_of(w), not w.get("likeOnly")
     if g in gone:
         if gone[g] >= sv:
@@ -1111,7 +1115,9 @@ _SETTINGS_VALUE_MAX = 16 * 1024
 
 
 def _settings_path(name):
-    return os.path.join(_srv.ZIMI_DATA_DIR, "usersettings", _safe_userdata_key(name) + ".json")
+    return os.path.join(
+        _srv.ZIMI_DATA_DIR, "usersettings", _safe_userdata_key(name) + ".json"
+    )
 
 
 def _settings_doc(raw):
@@ -1124,7 +1130,11 @@ def _settings_doc(raw):
     for k, ent in (got.items() if isinstance(got, dict) else ()):
         if len(out) >= _SETTINGS_MAX_KEYS:
             break
-        if not isinstance(k, str) or not _SETTINGS_KEY_RE.match(k) or not isinstance(ent, dict):
+        if (
+            not isinstance(k, str)
+            or not _SETTINGS_KEY_RE.match(k)
+            or not isinstance(ent, dict)
+        ):
             continue
         v, r = ent.get("v"), ent.get("r")
         if v is not None and (not isinstance(v, str) or len(v) > _SETTINGS_VALUE_MAX):
@@ -1174,10 +1184,16 @@ def change_settings(name, changes, fill_only=False):
             return True, None, doc
         kept, rev, moved = doc["settings"], doc["rev"], False
         for k, ent in changes.items():
-            if not isinstance(k, str) or not _SETTINGS_KEY_RE.match(k) or not isinstance(ent, dict):
+            if (
+                not isinstance(k, str)
+                or not _SETTINGS_KEY_RE.match(k)
+                or not isinstance(ent, dict)
+            ):
                 continue
             v = ent.get("v")
-            if v is not None and (not isinstance(v, str) or len(v) > _SETTINGS_VALUE_MAX):
+            if v is not None and (
+                not isinstance(v, str) or len(v) > _SETTINGS_VALUE_MAX
+            ):
                 continue
             cur = kept.get(k)
             if cur is not None and cur["v"] == v:
@@ -1786,11 +1802,14 @@ def request_data_owner(handler):
     try:
         from zimi import manage as _manage
 
-        if _manage.manage_open():
+        # Open mode makes every browser the admin only where management exists.
+        if _srv.ZIMI_MANAGE and _manage.manage_open():
             return PRIMARY_ADMIN_DATA
         if not _manage._get_manage_password_hash():
             return None
-        return PRIMARY_ADMIN_DATA if _manage._primary_admin_authorized(handler) else None
+        return (
+            PRIMARY_ADMIN_DATA if _manage._primary_admin_authorized(handler) else None
+        )
     except Exception:
         return None
 

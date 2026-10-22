@@ -1866,7 +1866,7 @@
   "saved_storage_full": "Le stockage de ce navigateur est plein : ce que vous enregistrez maintenant ne sera conservé que jusqu'à la fermeture de cet onglet.",
   "saved_full": "Plus de place dans les éléments enregistrés. Supprimez-en pour en enregistrer d'autres.",
   "saved_legacy_offer": "Ce navigateur contient des signets d'une version précédente de Zimi.",
-  "saved_signedout_offer": "Ce navigateur contient des éléments enregistrés hors connexion.",
+  "saved_signedout_offer": "Ce navigateur contient des éléments enregistrés sans être connecté à un compte.",
   "saved_legacy_add": "Les ajouter à mon compte",
   "saved_legacy_skip": "Non merci",
   "saving": "Enregistrement…",

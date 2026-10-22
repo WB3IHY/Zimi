@@ -2643,7 +2643,7 @@ function _aeBindControls() {
   // A press outside the settings puts them away (the gear is its own toggle).
   if (typeof _almDismissable === 'function') {
     _almDismissable('ae-set', function () { _aeShowSettings(false); },
-      function (target) { return !!target.closest && !!target.closest('#ae-gear'); });
+      function (target) { return !!target.closest && !!target.closest('#ae-gear'); }, 'ae-gear');
   }
   var views = document.querySelectorAll('#ae-views [data-ae-view]');
   for (var i = 0; i < views.length; i++) {

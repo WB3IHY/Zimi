@@ -556,7 +556,6 @@
   .tts-speed-range { -webkit-appearance: none; appearance: none; width: 100%; height: 32px; margin: 0; cursor: pointer; touch-action: none;
     background: linear-gradient(var(--amber), var(--amber)) no-repeat left center / calc(var(--tts-thumb) / 2 + var(--fill) * (100% - var(--tts-thumb))) var(--tts-track),
                 linear-gradient(var(--border), var(--border)) no-repeat center / 100% var(--tts-track); border-radius: 2px; }
-  [dir="rtl"] .tts-speed-range { background-position: right center, center; }
   .tts-speed-range::-webkit-slider-runnable-track { background: none; }
   .tts-speed-range::-moz-range-track { background: none; }
   .tts-speed-range::-webkit-slider-thumb { -webkit-appearance: none; width: var(--tts-thumb); height: var(--tts-thumb); border-radius: 50%; border: 0; background: var(--amber); }
@@ -566,7 +565,6 @@
   .tts-bar-menu .tts-speed-marks button { position: absolute; top: 0; min-height: 28px; min-width: 40px; padding: 0 4px; transform: translateX(-50%);
                                           left: calc(var(--tts-thumb) / 2 + var(--at) * (100% - var(--tts-thumb))); text-align: center;
                                           font-size: 12px; color: var(--text2); }
-  [dir="rtl"] .tts-bar-menu .tts-speed-marks button { left: auto; right: calc(var(--tts-thumb) / 2 + var(--at) * (100% - var(--tts-thumb))); transform: translateX(50%); }
   .tts-bar-menu .tts-speed-marks button[aria-current] { color: var(--amber); font-weight: 600; }
   .tts-bar-menu button[aria-checked="true"] { color: var(--amber); font-weight: 600; }
   .tts-bar-menu button:hover { background: var(--surface2); }

@@ -604,6 +604,7 @@ function _ttsSetSpeaking(on) {
 }
 function _ttsStop() {
   _ttsRun++;
+  _ttsLetGoAll();
   _ttsPaused = false;
   if (_ttsAudio) {
     try { _ttsAudio.pause(); _ttsAudio.removeAttribute('src'); _ttsAudio.load(); } catch(e) {}
@@ -664,7 +665,17 @@ function _ttsSpeakDevice(chunks, lang, from) {
 // The server's voices: one <audio> element plays the chunks in turn. Its src
 // is set and played inside the tap for the first chunk, as iOS requires (an
 // element started in a tap may play again from its own events).
+// The blob URLs of the reading in progress, given back when it is superseded
+// (a stop, a seek, a step, a new voice or speed all end a run without its own
+// chunk-by-chunk cleanup running): each is a clip of several hundred KB.
+var _ttsLetGo = null;
+function _ttsLetGoAll() {
+  var f = _ttsLetGo;
+  _ttsLetGo = null;
+  if (f) f();
+}
 function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
+  _ttsLetGoAll();
   var audio = _ttsAudio || (_ttsAudio = new Audio());
   var i = from || 0, eng = 0, retried = false, waiting = null, told = false;
   var started = false; // a word has been heard: from then on the voice stays
@@ -677,6 +688,7 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
   function letGo(below) {
     Object.keys(ready).forEach(function(k) { if (below == null || +k < below) { try { URL.revokeObjectURL(ready[k]); } catch (e) {} delete ready[k]; } });
   }
+  _ttsLetGo = function() { letGo(); };
   // Too slow here: the next engine for the language says the rest, and this
   // one is tried last from now on.
   function slower() {
@@ -753,6 +765,7 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
       return;
     }
     _ttsRun++;
+    letGo();
     if (_TTS_AVAILABLE) _ttsSpeakDevice(chunks, lang, i);
     else _ttsSetSpeaking(false);
   }

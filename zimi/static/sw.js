@@ -628,8 +628,23 @@ async function keepLocal(request) {
   return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
 }
 
+// A carried ZIM that arrives again (an import, a re-download) is a new archive
+// under the same name: a /catalog?zim= listing cached from the old one would
+// outrank it offline, so the cached listings go with the change.
+async function dropCachedCatalogs() {
+  try {
+    const cache = await caches.open(CACHE_VERSION);
+    for (const req of await cache.keys()) {
+      if (catalogZim(new URL(req.url))) await cache.delete(req);
+    }
+  } catch (e) { /* nothing cached to drop */ }
+}
+
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'keep-changed' && self.KeepStore) KeepStore.forgetNames();
+  if (event.data && event.data.type === 'keep-changed') {
+    if (self.KeepStore) KeepStore.forgetNames();
+    event.waitUntil(dropCachedCatalogs());
+  }
   if (event.data && event.data.type === 'keep-almanac') event.waitUntil(keepAlmanac());
 });
 

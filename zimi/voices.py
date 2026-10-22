@@ -237,6 +237,7 @@ TIMINGS = "timings.json"  # how fast each engine is here (timings())
 FIRST_CHARS_MAX = 120  # the page's first chunk (_TTS_FIRST_CHUNK_MAX): "first words"
 RTF_MIN_AUDIO_S = 2.0  # shorter speech is mostly start-up, not speed
 TIMING_WEIGHT = 0.3  # a read's sample in the moving average; a Test replaces it
+TIMINGS_FLUSH_S = 15  # a reading's samples reach timings.json this long after the first
 TEST_DIR = "test"  # a Test's audio, said and deleted, never the cache
 TEST_CHUNKS_MAX = 8  # a Test's reading: a paragraph, as the page chunks it
 # The speeds a Test works out the pauses for: the page's presets and steps
@@ -316,10 +317,12 @@ _fetcher = None  # the thread fetching a voice, while one is
 _choices = None  # CHOICES_KEY as last read or written: no file read per word
 _timings = None  # {"fp", "engines"} as last read or written (timings())
 _timings_lock = threading.Lock()
+_timings_dirty = False  # samples in _timings not yet in timings.json
+_timings_timer = None  # the pending flush, while one is
 
 
 def _reset_for_tests():
-    global _choices, _timings
+    global _choices, _timings, _timings_dirty, _timings_timer
     _stop_workers()
     with _lock:
         _found.clear()
@@ -328,6 +331,10 @@ def _reset_for_tests():
         _choices = None
     with _timings_lock:
         _timings = None
+        _timings_dirty = False
+        if _timings_timer:
+            _timings_timer.cancel()
+        _timings_timer = None
     _testing.clear()
 
 
@@ -738,11 +745,18 @@ def _fingerprint():
     return hashlib.sha1(json.dumps(what, sort_keys=True).encode("utf-8")).hexdigest()[:16]
 
 
+def _forget_fingerprint():
+    """The engines' versions changed (a voice installed or removed): the
+    fingerprint is worked out again at the next sample."""
+    with _lock:
+        _found.pop("fingerprint", None)
+
+
 def _timings_now():
     """The timings for this fingerprint (call under _timings_lock): read
     once, emptied when the fingerprint has changed."""
     global _timings
-    fp = _fingerprint()
+    fp = _memo("fingerprint", _fingerprint)
     if _timings is None:
         try:
             with open(_dir(TIMINGS), encoding="utf-8") as f:
@@ -782,7 +796,31 @@ def _note_timing(engine, seconds, audio_s, chars, cold, weight=TIMING_WEIGHT):
         if not cold and audio_s >= RTF_MIN_AUDIO_S:
             mix("rtf", seconds / audio_s)
         rec["n"] += 1
-        _srv_write(t)
+        _save_timings_soon()
+
+
+def _save_timings_soon():
+    """Call under _timings_lock. A sentence's sample is in memory at once;
+    the file is written once in a while by a timer, not by every sentence
+    (that would be a disk write inside the synthesis lock)."""
+    global _timings_dirty, _timings_timer
+    _timings_dirty = True
+    if _timings_timer is None:
+        _timings_timer = threading.Timer(TIMINGS_FLUSH_S, _flush_timings)
+        _timings_timer.daemon = True
+        _timings_timer.start()
+
+
+def _flush_timings():
+    """Write the samples taken since the last write, if any. Also at exit."""
+    global _timings_dirty, _timings_timer
+    with _timings_lock:
+        _timings_timer = None
+        if not (_timings_dirty and isinstance(_timings, dict)):
+            return
+        _timings_dirty = False
+        t = json.loads(json.dumps(_timings))
+    _srv_write(t)  # outside the lock: a sample taken meanwhile waits for no disk
 
 
 def _wav_seconds(path):
@@ -1156,6 +1194,7 @@ def _ensure_janitor():
 
 
 atexit.register(_stop_workers)
+atexit.register(_flush_timings)
 
 
 def _say_voices():
@@ -1734,7 +1773,9 @@ def _set_installed(engine, tag, rec):
     else:
         data[tag] = rec
     os.makedirs(_engine_dir(engine), exist_ok=True)
-    return _srv._atomic_write_json(os.path.join(_engine_dir(engine), MANIFEST), data)
+    done = _srv._atomic_write_json(os.path.join(_engine_dir(engine), MANIFEST), data)
+    _forget_fingerprint()  # Kokoro's model is part of it
+    return done
 
 
 _KOKORO_PRIMARIES = {_primary(t) for t in KOKORO_LANGS}

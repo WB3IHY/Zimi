@@ -168,7 +168,7 @@ function freshReading() {
   });
   return r;
 }
-vm.runInContext(fn('_ttsSpeakServer') + '\n' + fn('_ttsStartWait'), ctx);
+vm.runInContext('var _ttsLetGo = null;\n' + fn('_ttsLetGoAll') + '\n' + fn('_ttsStop') + '\n' + fn('_ttsSpeakServer') + '\n' + fn('_ttsStartWait'), ctx);
 const engineOf = u => (u.match(/engine=(\w+)/) || [])[1];
 const textOf = u => decodeURIComponent((u.match(/text=([^&]*)$/) || [])[1] || '');
 const chunks = ['one.', 'two.', 'three.'];
@@ -878,6 +878,31 @@ const tick = () => new Promise(r => setImmediate(r));
     for (let k = 0; k < 4; k++) await new Promise(res => setImmediate(res));
     au.onended();
     ok('the next sentence plays from what was fetched ahead, not a new request', /^blob:/.test(au.src) && textOf(made[0]) === 'two.', au.src + ' ' + made.join());
+    delete ctx.URL;
+  }
+
+  {
+    // A run ended by a stop or by the next run gives its prefetched clips back.
+    const revoked = [], made = [];
+    ctx.URL = { createObjectURL: b => { made.push(b.of); return 'blob:' + made.length; }, revokeObjectURL: u => { revoked.push(u); } };
+    ctx._ttsSpeaking = false; ctx._TTS_AVAILABLE = false;
+    const prefetch = async (run) => {
+      freshReading(); ctx._ttsRun = run; ctx._TTS_AHEAD = 2;
+      ctx.authedFetch = u => Promise.resolve({ ok: true, status: 200, blob: () => Promise.resolve({ of: u }) });
+      ctx._ttsSpeakServer(['one.', 'two.', 'three.'], 'en', ['piper'], run);
+      ctx._ttsAudio.onplaying();
+      for (let k = 0; k < 4; k++) await new Promise(res => setImmediate(res));
+    };
+    await prefetch(1);
+    const held = made.length;
+    revoked.length = 0; // the previous test's reading, given back as this one began
+    ctx._ttsStop();
+    ok('Stop revokes the clips fetched ahead', held === 2 && revoked.length === 2, held + ' ' + revoked.length);
+    revoked.length = 0; made.length = 0;
+    await prefetch(1);
+    revoked.length = 0;
+    ctx._ttsSpeakServer(['x.'], 'en', ['piper'], 2);
+    ok('the next run revokes the superseded run\'s clips', revoked.length === 2, String(revoked.length));
     delete ctx.URL;
   }
 
