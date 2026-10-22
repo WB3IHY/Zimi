@@ -821,6 +821,20 @@ const tick = () => new Promise(r => setImmediate(r));
     ok('...and the started element is what readaloud.js plays from', st._ttsUnlockedAudio && st._ttsUnlockedAudio.src === 'data:x' && /typeof _ttsUnlockedAudio/.test(src));
   }
 
+  {
+    // A reading started or moved is marked at once, not when the voice gets
+    // there: a slow voice takes seconds over a sentence and the page sat unmarked.
+    const marks = [], order = [];
+    const sp = { _ttsCanSpeak: () => true, _ttsFrameDoc: () => ({}), _ttsLang: () => 'en', _ttsStop() {}, _ttsAlongBegin() { order.push('begin'); },
+      _ttsAlongAt: (i, k) => { marks.push(i + ':' + k); order.push('mark'); }, _ttsServerEngines: () => ['kokoro'], _TTS_AVAILABLE: true,
+      _ttsSetSpeaking() {}, _setStorageJSON() {}, SK: {}, _ttsChosenVoice: () => '', _DEVICE_VOICE: 'device', _ttsBarSync() {},
+      _ttsRun: 0, _ttsRead: null, _ttsSpeakServer() { order.push('voice'); }, _ttsSpeakDevice() {}, Math, Date };
+    vm.createContext(sp);
+    vm.runInContext(fn('_ttsSpeak'), sp);
+    sp._ttsSpeak(2, { doc: {}, chunks: [{ text: 'a' }, { text: 'b' }, { text: 'c' }] });
+    ok('started at a sentence, it is marked before the voice is even asked', marks.join() === '2:0' && order.join() === 'begin,mark,voice', order.join() + ' ' + marks.join());
+  }
+
   if (failures) { console.log(failures + ' failed'); process.exit(1); }
   console.log('all passed');
 })();

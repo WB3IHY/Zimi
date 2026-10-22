@@ -616,6 +616,10 @@ function _ttsSpeak(from, plan) {
   // one; only Automatic moves on to the next engine by itself.
   var chosen = engines.length === 1 && engines[0] === _ttsChosenVoice();
   from = Math.min(from, chunks.length - 1);
+  // Marked now, where it starts or was moved to, not when the voice gets there:
+  // a slow voice can take seconds over a sentence, and the page sat unmarked
+  // (Eric, 2026-10-21: "tapping to another spot highlight is gone").
+  _ttsAlongAt(from, 0);
   _ttsNow = { at: from, engine: engines[0] || _DEVICE_VOICE, playing: false, lang: lang };
   _ttsBarSync();
   if (engines.length) _ttsSpeakServer(chunks, lang, engines, ++_ttsRun, chosen ? function(e) { _ttsSuggestFaster(lang, e); } : null, from);
