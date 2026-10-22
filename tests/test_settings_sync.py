@@ -47,14 +47,19 @@ def data(monkeypatch, tmp_path):
 class _Handler(http.ZimHandler):
     """No socket: headers in, the JSON answer captured."""
 
-    def __init__(self, headers=None):
+    def __init__(self, headers=None, lan=True, path="/userdata"):
         self.headers = headers or {}
         self.status = None
         self.body = None
         self.client_address = ("127.0.0.1", 0)
+        self.path = path
+        self._lan = lan
 
     def _is_private_client(self):
-        return True
+        return self._lan
+
+    def _is_direct_private_client(self):
+        return self._lan
 
     def _json(self, status, body):
         self.status = status
@@ -69,8 +74,8 @@ def _cookie(token):
     return {"Cookie": "zimi_session=" + token}
 
 
-def _whoami(headers=None):
-    h = _Handler(headers)
+def _whoami(headers=None, lan=True):
+    h = _Handler(headers, lan=lan)
     h._handle_whoami()
     return h.body
 
@@ -256,3 +261,57 @@ def test_deleting_an_account_takes_its_settings(data):
     _change("Kid", {"zimi_reader_theme": {"v": "sepia"}})
     users.delete_user("Kid")
     assert not os.path.exists(users._settings_path("Kid"))
+
+
+# ── a call names the account it is for ──
+
+
+def test_a_call_for_another_account_is_refused(data):
+    # A tab still on Kid's account, while the session is now Other's.
+    users.create_user("Kid", "pw123")
+    users.create_user("Other", "pw123")
+    other = _cookie(users.create_session("Other"))
+    p = _Handler(other)
+    p._handle_settings_post({"account": "Kid", "changes": {"zimi_reader_theme": {"v": "dark"}}})
+    assert p.status == 409
+    assert users.load_settings("Other")["rev"] == 0, "nothing of Kid's went into Other's"
+    u = _Handler(other)
+    u._handle_userdata_post({"account": "Kid", "saved": {"items": {}}})
+    assert u.status == 409
+    for path, get in (("/userdata/settings?account=Kid", "_handle_settings_get"), ("/userdata?account=Kid", "_handle_userdata_get")):
+        g = _Handler(other, path=path)
+        getattr(g, get)()
+        assert g.status == 409, path
+    ok = _Handler(other, path="/userdata/settings?account=other")
+    ok._handle_settings_get()
+    assert ok.status == 200, "the account's own name, in any case"
+    p2 = _Handler(other)
+    p2._handle_settings_post({"account": "Other", "changes": {"zimi_reader_theme": {"v": "dark"}}})
+    assert p2.status == 200 and users.load_settings("Other")["settings"]["zimi_reader_theme"]["v"] == "dark"
+
+
+# ── password off: every browser is the admin's, wherever it is ──
+
+
+def test_password_off_every_client_is_the_admins_wherever_it_is(data, monkeypatch):
+    # Eric, 2026-10-22: "Stop with the local network carve out we can't know
+    # just let him do it."
+    manage._set_manage_password(ADMIN_PW)
+    monkeypatch.setenv("ZIMI_MANAGE_OPEN", "1")
+    for lan in (True, False):
+        assert _whoami(lan=lan)["account"] == users.PRIMARY_ADMIN_DATA, lan
+    p = _Handler(lan=False)
+    p._handle_settings_post({"changes": {"zimi_reader_theme": {"v": "dark"}}})
+    assert p.status == 200
+    g = _Handler(lan=True, path="/userdata/settings")
+    g._handle_settings_get()
+    assert g.status == 200 and g.body["settings"]["zimi_reader_theme"]["v"] == "dark"
+
+
+def test_switched_open_with_no_password_whoami_and_userdata_agree(data, monkeypatch):
+    monkeypatch.setenv("ZIMI_MANAGE_OPEN", "1")
+    for lan in (True, False):
+        assert _whoami(lan=lan)["account"] == users.PRIMARY_ADMIN_DATA, lan
+        g = _Handler(lan=lan, path="/userdata/settings")
+        g._handle_settings_get()
+        assert g.status == 200, lan

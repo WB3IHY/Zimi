@@ -5674,7 +5674,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         # Anonymous. Expose a first-login hint ONLY when the default username
         # applies — no custom username AND no named users configured. This is
         # not an info leak: "the default username is admin" is in the docs.
-        resp = {"role": "anonymous", "account": None, "apps": apps}
+        resp = {"role": "anonymous", "account": _users.request_data_owner(self), "apps": apps}
         if not _manage._get_manage_user() and not _users.list_users():
             resp["default_username"] = "admin"
         # Tell the SPA how the public-access policy shapes its view: ``private``
@@ -5688,14 +5688,32 @@ class ZimHandler(BaseHTTPRequestHandler):
                 resp["login_required"] = True
         return self._json(200, resp)
 
+    def _data_owner(self, sent):
+        """Whose /userdata this request reaches (users.request_data_owner), and
+        the refusal when there is none (401) or it is not the account the
+        browser says it follows (409: a tab still on an account another tab
+        signed out of; it asks /whoami again rather than write into this one)."""
+        name = _users.request_data_owner(self)
+        if not name:
+            return None, (401, {"error": "sign in required"})
+        if sent is not None and str(sent).casefold() != name.casefold():
+            return None, (409, {"error": "account_changed"})
+        return name, None
+
+    def _query_account(self):
+        from urllib.parse import parse_qs, urlparse
+
+        got = parse_qs(urlparse(self.path).query).get("account")
+        return got[0] if got else None
+
     def _handle_userdata_get(self):
         """GET /userdata — the signed-in user's own server-stored My-data blob
         (saved store, settings, bookmarks/history/preferences). Every signed-in
         account has one, the primary admin included (users.request_data_owner);
         an anonymous visitor gets 401 and keeps their data in the browser."""
-        name = _users.request_data_owner(self)
-        if not name:
-            return self._json(401, {"error": "sign in required"})
+        name, refused = self._data_owner(self._query_account())
+        if refused:
+            return self._json(*refused)
         return self._json(200, _users.load_user_data(name))
 
     def _handle_userdata_post(self, data):
@@ -5707,12 +5725,11 @@ class ZimHandler(BaseHTTPRequestHandler):
         left alone; ``saved`` (1.12) is merged with the kept store
         (users.sync_user_data), and the merged store comes back, so a device
         takes in what the others wrote in the same trip."""
-        name = _users.request_data_owner(self)
-        if not name:
-            return self._json(401, {"error": "sign in required"})
-        ok, err, doc = _users.sync_user_data(
-            name, data if isinstance(data, dict) else {}
-        )
+        data = data if isinstance(data, dict) else {}
+        name, refused = self._data_owner(data.pop("account", None))
+        if refused:
+            return self._json(*refused)
+        ok, err, doc = _users.sync_user_data(name, data)
         if not ok:
             # Too large is the account's to fix (the device says sync is paused).
             # A file that could not be read is the server's, and passes.
@@ -5727,9 +5744,9 @@ class ZimHandler(BaseHTTPRequestHandler):
     def _handle_settings_get(self):
         """GET /userdata/settings — the signed-in account's settings, each
         with the revision the server gave it (users.load_settings)."""
-        name = _users.request_data_owner(self)
-        if not name:
-            return self._json(401, {"error": "sign in required"})
+        name, refused = self._data_owner(self._query_account())
+        if refused:
+            return self._json(*refused)
         return self._json(200, _users.load_settings(name))
 
     def _handle_settings_post(self, data):
@@ -5737,10 +5754,10 @@ class ZimHandler(BaseHTTPRequestHandler):
         account takes each change at its next revision; ``fill`` (a browser's
         first sync into an account that never held one) only fills what it
         lacks. Answers with the account's settings as kept."""
-        name = _users.request_data_owner(self)
-        if not name:
-            return self._json(401, {"error": "sign in required"})
         data = data if isinstance(data, dict) else {}
+        name, refused = self._data_owner(data.get("account"))
+        if refused:
+            return self._json(*refused)
         ok, err, doc = _users.change_settings(
             name, data.get("changes") or {}, fill_only=bool(data.get("fill"))
         )
