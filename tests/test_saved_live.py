@@ -487,7 +487,7 @@ def test_a_shared_browser_offers_its_old_bookmarks_and_keeps_nothing_after_sign_
         ), "an account took the shared browser's bookmarks by itself"
         assert users.load_user_data("alice")["saved"]["items"] == {}
         pg.evaluate("() => toggleLibraryPanel('bookmarks')")
-        assert "earlier version" in pg.locator(".bm-note").inner_text()
+        assert "saved while signed out" in pg.locator(".bm-note").inner_text()  # 1.11's came into the signed-out store
         pg.locator(".bm-note button", has_text="No, thanks").click()
         pg.wait_for_timeout(200)
         assert pg.locator(".bm-note").count() == 0

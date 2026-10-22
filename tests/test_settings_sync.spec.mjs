@@ -1,8 +1,12 @@
 // Settings follow the account (Eric, 2026-10-21: "Things a user changes while
-// signed in should sync to all sessions all browsers"). Two browsers signed in
-// to one account: a setting changed in one is in the other, for the admin and
-// for a named user; two browsers changing different settings keep both; a
-// browser that changed nothing sends nothing; and boot waits on none of it.
+// signed in should sync to all sessions all browsers"), on users.py's
+// convention. Two browsers signed in to one account: a setting changed in one
+// is in the other, for the admin and for a named user, and two browsers
+// changing different settings keep both. A browser that changed nothing sends
+// nothing, and boot waits on none of it. A second account on the same browser
+// is never handed the first one's changes. The admin's saved things are its
+// own and leave with it. With the password switched off nobody has an account
+// and nothing is asked for.
 //
 // Start it on a brand-new data dir (beforeAll sets the password and users):
 //   ZIM_DIR=<a few zims> ZIMI_DATA_DIR=<fresh dir> ZIMI_MANAGE=1 \
@@ -13,6 +17,7 @@
 import { test, expect } from '@playwright/test';
 
 test.use({ serviceWorkers: 'block' });
+test.describe.configure({ mode: 'serial' });
 const BASE = process.env.BASE_URL || 'http://localhost:9701';
 const ADMIN_PW = 'sync-admin-pw';
 const USER = 'reader';
@@ -47,7 +52,7 @@ test.beforeAll(async ({ request, browser }) => {
   for (const name of [USER, FRESH]) {
     await request.post(`${BASE}/manage/users`, { headers: auth, data: { action: 'create', name, password: USER_PW } });
   }
-  for (const who of ['admin', USER]) states[who] = [await signIn(browser, who), await signIn(browser, who)];
+  for (const who of ['admin', USER]) states[who] = [await signIn(browser, who), await signIn(browser, who), await signIn(browser, who)];
   states[FRESH] = [await signIn(browser, FRESH)];
 });
 
@@ -59,7 +64,8 @@ async function signedIn(browser, who, slot) {
   await page.waitForFunction(() => typeof _savedSignedIn === 'function' && _savedSignedIn());
   return { context, page };
 }
-const account = (page) => page.evaluate(async () => (await (await fetch('/userdata', { credentials: 'same-origin' })).json()).settings || {});
+const account = (page) => page.evaluate(async () => (await (await fetch('/userdata/settings', { credentials: 'same-origin' })).json()).settings || {});
+const value = async (page, k) => ((await account(page))[k] || {}).v;
 const raw = (page, k) => page.evaluate((key) => localStorage.getItem(key), k);
 // Comes back to the tab: the account's copy is fetched again.
 const refocus = (page) => page.evaluate(() => { _savedPulledAt = 0; document.dispatchEvent(new Event('visibilitychange')); });
@@ -69,13 +75,11 @@ for (const who of ['admin', USER]) {
     const a = await signedIn(browser, who, 0);
     const b = await signedIn(browser, who, 1);
     await a.page.evaluate(() => { _setPrefLanguages(['en', 'es']); _setReaderTheme('sepia'); });
-    await expect.poll(async () => ((await account(a.page)).zimi_pref_languages || {}).v, { timeout: 10000 }).toBe('["en","es"]');
-    // B, open all along, picks it up on coming back to it
+    await expect.poll(() => value(a.page, 'zimi_pref_languages'), { timeout: 10000 }).toBe('["en","es"]');
     await refocus(b.page);
     await expect.poll(() => raw(b.page, 'zimi_pref_languages'), { timeout: 10000 }).toBe('["en","es"]');
     expect(await raw(b.page, 'zimi_reader_theme')).toBe('sepia');
     expect(await b.page.evaluate(() => _getPrefLanguages())).toEqual(['en', 'es']);
-    // and a fresh page of B starts with it
     await b.page.reload();
     expect(await b.page.evaluate(() => _getPrefLanguages())).toEqual(['en', 'es']);
     await a.context.close(); await b.context.close();
@@ -87,26 +91,24 @@ for (const who of ['admin', USER]) {
     await a.page.evaluate(() => _setLibraryView('tiles'));
     await b.page.evaluate(() => _setReaderFontStep(3));
     const font = await b.page.evaluate(() => String(READER_FONT_LEVELS[3]));
-    await expect.poll(async () => {
-      const s = await account(a.page);
-      return [(s.zimi_library_view || {}).v, (s.zimi_reader_font_scale || {}).v];
-    }, { timeout: 10000 }).toEqual(['tiles', font]);
+    await expect.poll(async () => [await value(a.page, 'zimi_library_view'), await value(a.page, 'zimi_reader_font_scale')], { timeout: 10000 }).toEqual(['tiles', font]);
     await refocus(a.page); await refocus(b.page);
     await expect.poll(() => raw(a.page, 'zimi_reader_font_scale'), { timeout: 10000 }).toBe(font);
     await expect.poll(() => raw(b.page, 'zimi_library_view'), { timeout: 10000 }).toBe('tiles');
-    expect(await raw(a.page, 'zimi_library_view')).toBe('tiles');
     await a.context.close(); await b.context.close();
   });
 }
 
-test('the interface language follows too, switching the page it lands on', async ({ browser }) => {
+test('the interface language and the reading speed follow, into the page that is open', async ({ browser }) => {
   const a = await signedIn(browser, USER, 0);
   const b = await signedIn(browser, USER, 1);
-  await a.page.evaluate(() => setLanguage('es'));
-  await expect.poll(async () => ((await account(a.page)).zimi_ui_lang || {}).v, { timeout: 10000 }).toBe('es');
+  await a.page.evaluate(() => { setLanguage('es'); _setStorageJSON(SK.TTS_RATE, 1.5); });
+  await expect.poll(() => value(a.page, 'zimi_ui_lang'), { timeout: 10000 }).toBe('es');
   await refocus(b.page);
   await expect.poll(() => b.page.evaluate(() => document.documentElement.lang), { timeout: 10000 }).toBe('es');
+  expect(await b.page.evaluate(() => _ttsRate())).toBe(1.5);
   await a.page.evaluate(() => setLanguage('en'));
+  await expect.poll(() => value(a.page, 'zimi_ui_lang'), { timeout: 10000 }).toBe('en');
   await a.context.close(); await b.context.close();
 });
 
@@ -114,32 +116,106 @@ test('a browser that changed nothing sends nothing, and boot waits on none of it
   const context = await browser.newContext({ storageState: states[FRESH][0] });
   const page = await context.newPage();
   const seen = [];
-  page.on('request', (r) => { const u = new URL(r.url()); if (u.pathname === '/userdata' || u.pathname === '/list') seen.push([u.pathname, r.method(), Date.now()]); });
-  const listDone = page.waitForResponse((r) => new URL(r.url()).pathname === '/list');
+  page.on('request', (r) => { const u = new URL(r.url()); if (u.pathname.startsWith('/userdata') || u.pathname === '/list') seen.push([u.pathname, r.method()]); });
   await page.goto(BASE);
-  await listDone;
-  const listAt = Date.now();
   await page.waitForFunction(() => _savedSignedIn());
   await page.waitForTimeout(3500); // past the push's wait
   expect(await account(page)).toEqual({});
-  expect(seen.filter((s) => s[0] === '/userdata' && s[1] === 'POST')).toHaveLength(0);
-  const firstData = seen.find((s) => s[0] === '/userdata');
-  expect(firstData, 'the account is fetched once the page is up').toBeTruthy();
-  expect(firstData[2], 'not before the library').toBeGreaterThanOrEqual(seen.find((s) => s[0] === '/list')[2]);
-  expect(listAt).toBeGreaterThan(0);
+  expect(seen.filter((s) => s[1] === 'POST'), 'nothing goes up').toHaveLength(0);
+  const firstList = seen.findIndex((s) => s[0] === '/list'), firstData = seen.findIndex((s) => s[0].startsWith('/userdata'));
+  expect(firstData, 'the account is fetched once the page is up').toBeGreaterThan(firstList);
   await context.close();
 });
 
-// Last: it ends that browser's session.
+test('a second account on this browser is never handed the first one\'s changes', async ({ browser }) => {
+  const a = await signedIn(browser, USER, 2);
+  // a change that never got out (the server out of reach) when the next
+  // account takes over this browser
+  await a.page.route('**/userdata/settings', (route) => route.abort());
+  await a.page.evaluate(() => _setReaderFamily('sans'));
+  expect(await a.page.evaluate(() => _prefState().pending.zimi_reader_family)).toBe(1);
+  await a.page.goto('about:blank');
+  await a.page.unroute('**/userdata/settings');
+  const fresh = states[FRESH][0].cookies.filter((c) => c.name === 'zimi_session');
+  await a.context.addCookies(fresh);
+  await a.page.goto(BASE);
+  await a.page.waitForFunction(() => _savedSignedIn());
+  await a.page.waitForTimeout(3500);
+  expect(await a.page.evaluate(() => _prefState())).toEqual({ owner: 'fresh', pending: {}, seeded: true });
+  expect(await value(a.page, 'zimi_reader_family'), 'the first account\'s change is not the second\'s').toBeUndefined();
+  await a.context.close();
+});
+
+test('the admin\'s saved things are its own, and leave with it', async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.goto(BASE);
+  await page.evaluate(() => Saved.save({ zim: 'w', path: 'A/Anon', title: 'Saved signed out' }));
+  const res = await page.request.post(`${BASE}/login`, { headers: { 'Content-Type': 'application/json' }, data: { username: 'admin', password: ADMIN_PW, remember: true } });
+  const tok = (await res.json()).token;
+  await page.evaluate((t) => localStorage.setItem('zimi_manage_token', t), tok);
+  await page.reload();
+  await page.waitForFunction(() => _savedSignedIn());
+  expect(await page.evaluate(() => Saved.all().map((i) => i.title)), 'signed in, the signed-out things are not the admin\'s').not.toContain('Saved signed out');
+  expect(await page.evaluate(() => Saved.legacyOffered() && Saved.offerKind()), 'they are offered instead').toBe('signedout');
+  await page.evaluate(() => Saved.save({ zim: 'w', path: 'A/Admin', title: 'Saved as admin' }));
+  await page.evaluate(() => _savedFlush());
+  const kept = await page.evaluate(async () => Object.values(((await (await fetch('/userdata')).json()).saved || {}).items || {}).map((i) => i.title));
+  expect(kept).toContain('Saved as admin');
+  expect(kept, 'nothing saved signed out went to the admin\'s account').not.toContain('Saved signed out');
+  await page.evaluate(() => manageLogout());
+  await page.waitForURL(BASE + '/');
+  await page.waitForFunction(() => typeof _savedSignedIn === 'function' && !_savedSignedIn());
+  const after = await page.evaluate(() => ({ titles: Saved.all().map((i) => i.title), keys: Object.keys(localStorage).filter((k) => k.startsWith('zimi_saved') && k.includes(':admin')) }));
+  expect(after.titles, 'signed out, the admin\'s things are gone from this browser').not.toContain('Saved as admin');
+  expect(after.titles).toContain('Saved signed out');
+  expect(after.keys).toEqual([]);
+  await context.close();
+});
+
 test('signed out, nothing goes to any account and the browser keeps its settings', async ({ browser }) => {
   const a = await signedIn(browser, USER, 0);
   await a.page.evaluate(() => _setReaderTheme('light'));
-  await expect.poll(async () => ((await account(a.page)).zimi_reader_theme || {}).v, { timeout: 10000 }).toBe('light');
+  await expect.poll(() => value(a.page, 'zimi_reader_theme'), { timeout: 10000 }).toBe('light');
   await a.page.evaluate(() => userLogout());
   await a.page.waitForURL(BASE + '/');
   await a.page.waitForFunction(() => typeof _savedSignedIn === 'function' && !_savedSignedIn());
   expect(await raw(a.page, 'zimi_reader_theme')).toBe('light');
-  const r = await a.page.evaluate(async () => (await fetch('/userdata')).status);
-  expect(r).toBe(401);
+  await a.page.evaluate(() => _setReaderTheme('dark'));
+  expect(await a.page.evaluate(() => _prefState())).toEqual({ owner: null, pending: {}, seeded: true });
   await a.context.close();
+});
+
+// Last: it switches the password off.
+test('with the password switched off every browser is the admin\'s, and they sync', async ({ browser, request }) => {
+  const off = await request.post(`${BASE}/manage/access`, {
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + ADMIN_PW },
+    data: { require_password: false, open_confirm: true, current_password: ADMIN_PW },
+  });
+  expect(off.status(), await off.text()).toBe(200);
+  const open = async () => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    const bad = [];
+    page.on('response', (r) => { if (new URL(r.url()).pathname.startsWith('/userdata') && !r.ok()) bad.push(r.status() + ' ' + r.url()); });
+    await page.goto(BASE);
+    await page.waitForFunction(() => typeof _savedSignedIn === 'function' && _savedSignedIn());
+    return { context, page, bad };
+  };
+  const a = await open(), b = await open();
+  const me = await a.page.evaluate(async () => (await fetch('/whoami')).json());
+  expect(me.role).toBe('admin');
+  expect(me.account).toBe('admin');
+  await a.page.evaluate(() => _setLibrarySort('size'));
+  await expect.poll(() => value(a.page, 'zimi_library_sort'), { timeout: 10000 }).toBe('size');
+  await refocus(b.page);
+  await expect.poll(() => raw(b.page, 'zimi_library_sort'), { timeout: 10000 }).toBe('size');
+  await a.page.evaluate(() => { Saved.save({ zim: 'w', path: 'A/Open', title: 'Kept with the password off' }); return _savedFlush(); });
+  await refocus(b.page);
+  await expect.poll(() => b.page.evaluate(() => Saved.all().map((i) => i.title)), { timeout: 10000 }).toContain('Kept with the password off');
+  for (const x of [a, b]) {
+    expect(await x.page.evaluate(() => _savedBehind), 'nothing reports being behind').toBe(false);
+    expect(x.bad, 'no /userdata request fails').toEqual([]);
+  }
+  await a.context.close(); await b.context.close();
 });

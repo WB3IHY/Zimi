@@ -178,9 +178,12 @@ var SK = {
   // articles that have none. It used to decide darkness outright.
   DARKEN_ARTICLES: 'zimi_darken_articles',
   ARTICLE_THEME: 'zimi_article_theme',
-  // When each of _PREF_KEYS last changed in this browser ({key: ms}), so the
-  // account keeps each one's newest (_prefTake). A value never stamped is 0.
-  PREF_STAMPS: 'zimi_pref_stamps',
+  // Settings sync's state in this browser: {owner: the account it follows, or
+  // null; pending: {key: 1} changed here while signed in to it and not yet
+  // taken by it; seeded: this browser has followed an account before, so its
+  // settings are no longer the ones it had before sync}. apps.js marks a
+  // page's change pending under this same name.
+  PREF_SYNC: 'zimi_pref_sync',
 };
 
 // What a person sets for themselves: carried by My data, and while signed in
@@ -198,19 +201,23 @@ var _PREF_KEYS = [
 ];
 function _isPrefKey(k) { return _PREF_KEYS.indexOf(k) >= 0; }
 function _rawGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-function _prefStamps() {
-  var st = _getStorageJSON(SK.PREF_STAMPS, {});
-  return st && typeof st === 'object' && !Array.isArray(st) ? st : {};
+function _prefState() {
+  var st = _getStorageJSON(SK.PREF_SYNC, null);
+  if (!st || typeof st !== 'object' || Array.isArray(st)) st = {};
+  return { owner: typeof st.owner === 'string' && st.owner ? st.owner : null,
+    pending: st.pending && typeof st.pending === 'object' ? st.pending : {}, seeded: !!st.seeded };
 }
-function _prefSaveStamps(st) { try { localStorage.setItem(SK.PREF_STAMPS, JSON.stringify(st)); } catch (e) {} }
-// One of them changed here (``before``: its raw value a moment ago): stamped
-// now, and the account told soon. A write of the same value is no change.
+function _prefSaveState(st) { try { localStorage.setItem(SK.PREF_SYNC, JSON.stringify(st)); } catch (e) {} }
+// One of them changed here (``before``: its raw value a moment ago). Signed
+// in, it is the account's to take: pending, and sent soon. Signed out, it is
+// this browser's alone (users.py's convention). The same value is no change.
 function _prefChanged(k, before) {
   if (!_isPrefKey(k) || _rawGet(k) === before) return;
-  var st = _prefStamps();
-  st[k] = Date.now();
-  _prefSaveStamps(st);
-  if (typeof _prefPushSoon === 'function') _prefPushSoon();
+  var st = _prefState();
+  if (!_accountId || st.owner !== _accountId) return;
+  st.pending[k] = 1;
+  _prefSaveState(st);
+  _prefPushSoon();
 }
 // Every write of one of _PREF_KEYS: ``v`` a string, or null for the default.
 function _prefWrite(k, v) {
@@ -910,7 +917,7 @@ function _saveManageToken(token, remember) {
   if (!token) return;
   var store = remember ? localStorage : sessionStorage;
   store.setItem(SK.MANAGE_PW, token);
-  if (typeof _accountAdminIn === 'function') _accountAdminIn();
+  if (typeof _accountRefresh === 'function') _accountRefresh();
   // Persist the username alongside so it rides with the same remember scope.
   if (_manageUser) store.setItem(SK.MANAGE_USER, _manageUser);
 }
@@ -918,7 +925,6 @@ function _readManageUser() {
   return localStorage.getItem(SK.MANAGE_USER) || sessionStorage.getItem(SK.MANAGE_USER) || '';
 }
 function _clearManageToken() {
-  if (typeof _accountAdminOut === 'function') _accountAdminOut();
   localStorage.removeItem(SK.MANAGE_PW);
   sessionStorage.removeItem(SK.MANAGE_PW);
   localStorage.removeItem(SK.MANAGE_USER);
@@ -2576,7 +2582,7 @@ function _applyUserSession(name, canCreate) {
   // A user is never admin — drop any admin token so ambient manage polls stop.
   _manageToken = ''; _clearManageToken();
   if (manageBtnEl) manageBtnEl.style.display = 'none';
-  _savedUseSession();
+  _accountSet(name);
   _refreshAfterAuthChange();
 }
 
@@ -2585,8 +2591,7 @@ function userLogout() {
   // once the account has everything, its copy leaves this browser (a shared
   // screen keeps nothing of it, highlights and notes included). One that
   // could not go stays, to go up at the next sign-in.
-  _savedFlush().then(function(ok) {
-    if (ok && !_savedDelta()) Saved.forget();
+  _accountLeave().then(function() {
     return fetch('/logout', { method: 'POST', credentials: 'same-origin' });
   }).catch(function(){}).then(function() {
     _userSession = null;
@@ -2652,17 +2657,17 @@ async function _bootAuthGate() {
   // ("admin") applies (no custom username, no named users). The login modal
   // reads it to show "Default username: admin".
   _defaultUsernameHint = (j && j.default_username) || '';
+  // Whose account this browser follows, from the server's word only: the
+  // account's own saved things and settings, from the browser's copy of them
+  // (the account's arrives in the background once the page is up: _savedStart).
+  _accountSet(j && j.account, true);
   if (j && j.role === 'user') {
     _userSession = { name: j.name, restricted: !!j.restricted, canCreate: !!j.can_create };
     if (manageBtnEl) manageBtnEl.style.display = 'none';
     _loadUserPrefs();
-    // The account's own saved things, from the browser's copy of them (the
-    // account's arrives in the background once the page is up: _savedStart).
-    Saved.use(j.name);
     return false;
   }
   if (j && j.role === 'admin') {
-    _accountAdmin = true;  // the account's copy comes once the page is up (_savedStart)
     return false;  // token-authed admin — proceed to the full library.
   }
   // Private public-access mode: an anonymous visitor (no valid cookie or token)
@@ -2789,6 +2794,11 @@ function manageFetch(url, opts) {
 }
 
 function manageLogout() {
+  // The admin's account leaves this browser the way a user's does (userLogout):
+  // what it has not had goes up first, then its copy goes.
+  _accountLeave().then(_manageLogoutNow, _manageLogoutNow);
+}
+function _manageLogoutNow() {
   _manageToken = '';
   _clearManageToken();
   // Drop any server-side session too — a SECONDARY admin authenticates to a
@@ -25428,7 +25438,7 @@ function _savedNotesHtml() {
   if (_savedPaused) html += '<div class="bm-note bm-warn" role="status">' + tH('saved_sync_paused') + '</div>';
   else if (_savedBehind && _savedSignedIn()) html += '<div class="bm-note" role="status">' + tH('saved_sync_behind') + '</div>';
   if (Saved.legacyOffered()) {
-    html += '<div class="bm-note" role="group">' + tH('saved_legacy_offer') + '<div class="bm-note-actions">' +
+    html += '<div class="bm-note" role="group">' + tH(Saved.offerKind() === 'signedout' ? 'saved_signedout_offer' : 'saved_legacy_offer') + '<div class="bm-note-actions">' +
       '<button class="hp-action-btn primary" onclick="Saved.legacyAnswer(true)">' + tH('saved_legacy_add') + '</button>' +
       '<button class="hp-action-btn" onclick="Saved.legacyAnswer(false)">' + tH('saved_legacy_skip') + '</button></div></div>';
   }
@@ -26718,24 +26728,38 @@ var Saved = (function () {
   // 1.11 kept bookmarks per browser, not per account. They come into the
   // signed-out store on its first use; into an account only when its person
   // says so, asked once in the Saved panel (a shared screen's bookmarks are
-  // not every account's that signs in on it).
+  // not every account's that signs in on it). What this browser saved signed
+  // out (the admin's, before the admin had an account of its own) is asked
+  // about the same way.
+  function signedOutStore() {
+    var main = _getStorageJSON(SK.SAVED, null), pos = _getStorageJSON(SK.SAVED_POS, null);
+    var some = function (o, c) { return !!(o && o[c] && typeof o[c] === 'object' && Object.keys(o[c]).length); };
+    return { main: main, pos: pos, any: some(main, 'items') || some(main, 'lists') || some(main, 'highlights') || some(pos, 'positions') };
+  }
   function legacyOffered() {
     if (!_ns) return false;
     if (_offer === null) {
       var old = readLegacy();
       _offer = (_getStorageJSON(SK.SAVED_LEGACY_ASKED, []) || []).indexOf(_ns) < 0 &&
-        !!(old.bookmarks.length || old.folders.length || Object.keys(old.places).length);
+        !!(old.bookmarks.length || old.folders.length || Object.keys(old.places).length || signedOutStore().any);
     }
     return _offer;
   }
+  // What is offered: 'signedout' when this browser saved things signed out,
+  // else 'legacy' (bookmarks from before 1.12), for the panel's words.
+  function offerKind() { return signedOutStore().any ? 'signedout' : 'legacy'; }
   function legacyAnswer(take) {
     if (!legacyOffered()) return;
     var asked = _getStorageJSON(SK.SAVED_LEGACY_ASKED, []) || [];
     asked.push(_ns);
     _setStorageJSON(SK.SAVED_LEGACY_ASKED, asked);
     _offer = false;
-    if (take) merge(fromLegacy(readLegacy(), zimKind));
-    else if (typeof _savedChanged === 'function') _savedChanged(true);
+    if (take) {
+      var old = readLegacy(), out = signedOutStore();
+      if (old.bookmarks.length || old.folders.length || Object.keys(old.places).length) merge(fromLegacy(old, zimKind));
+      if (out.main) merge(out.main);
+      if (out.pos) merge(out.pos);
+    } else if (typeof _savedChanged === 'function') _savedChanged(true);
   }
 
   // ── the store ──
@@ -27261,7 +27285,7 @@ var Saved = (function () {
     data: function () { return copy(load()); }, merge: merge, mergeLegacy: mergeLegacy,
     // stamps(copy): what a copy holds (this store's without one); since(stamps): what this store has beyond it.
     stamps: function (x) { return stamps(x ? clean(x) : load()); }, since: since,
-    legacyOffered: legacyOffered, legacyAnswer: legacyAnswer,
+    offerKind: offerKind, legacyOffered: legacyOffered, legacyAnswer: legacyAnswer,
     use: use, forget: forget, account: function () { return _ns || ''; },
     ownsKey: function (k) { return _ns !== null && (k === storeKey() || k === posKey()); },
     // For the tests: the pure parts.
@@ -27333,7 +27357,6 @@ var _SAVED_PUSH_MS = 2000;           // a change goes up this long after it is m
 var _SAVED_PUSH_OFTEN_MS = 20000;    // a place moving while reading: at most this often
 var _SAVED_PULL_EVERY_MS = 60000;    // coming back to the tab, at most this often
 var _SAVED_KEEPALIVE_MAX = 60000;    // bytes a request sent while leaving may carry
-var _PREF_STAMP_FRESH_MS = 2000;     // a setting another tab wrote and stamped this recently was stamped there
 var _savedPushTimer = null, _savedPushDue = 0, _savedPushing = null, _savedPushAgain = false, _savedPulledAt = 0;
 // What the account held when it last answered (Saved.stamps of its copy),
 // null until it has; the body last sent while leaving; whether the account
@@ -27342,6 +27365,43 @@ var _savedBase = null, _savedLeftBody = '', _savedPaused = false;
 // Signed in, a change the account has not taken (the server did not answer):
 // the panel says the account's copy is behind, and it is sent again.
 var _savedBehind = false, _savedRetryTimer = null;
+// Signed in to an account: whose (users.request_data_owner's name for it, as
+// /whoami says it), or null. A named user, a secondary admin, or the primary
+// admin ("admin"); never an admin with the password switched off.
+var _accountId = null;
+function _savedSignedIn() { return !!_accountId; }
+// This browser now follows ``id``'s account (null: none). Its saved things
+// are the account's own store here; its settings, if it is not the account
+// this browser followed last, are the account's on every key it holds (the
+// convention in users.py), nothing of the last one's pending. ``boot``: the
+// account's copy is fetched once the page is up (_savedStart), not now.
+function _accountSet(id, boot) {
+  id = typeof id === 'string' && id ? id : null;
+  if (id === _accountId && !boot) return;
+  _accountId = id;
+  if (Saved.use(id || '')) { _savedBase = null; _savedChanged(true); }
+  var st = _prefState();
+  if (st.owner !== id) _prefSaveState({ owner: id, pending: {}, seeded: st.seeded || !!st.owner });
+  if (id && !boot) _savedPull();
+}
+// After an admin's sign-in: whose account the server says this is.
+function _accountRefresh() {
+  serverFetch('/whoami', { credentials: 'same-origin', headers: _manageToken ? _authHeaders() : {} })
+    .then(function (r) { return r.json(); }).then(function (j) { _accountSet(j && j.account); })
+    .catch(function () {});
+}
+// Signing out: what the account has not had goes up, then its copy leaves this
+// browser (a shared screen keeps nothing of it, highlights and notes included;
+// one that could not go stays, to go up at the next sign-in). The settings stay
+// as they are on this screen, the browser's own from now on.
+function _accountLeave() {
+  if (!_accountId) return Promise.resolve();
+  return Promise.all([_savedFlush(), _prefPush()]).then(function (got) {
+    if (got[0] && !_savedDelta()) Saved.forget();
+    _prefSaveState({ owner: null, pending: {}, seeded: true });
+    _accountId = null;
+  }, function () {});
+}
 function _savedSetBehind(on) {
   clearTimeout(_savedRetryTimer);
   _savedRetryTimer = on ? setTimeout(function () { _savedPush(); }, _SAVED_PUSH_OFTEN_MS) : null;
@@ -27349,19 +27409,6 @@ function _savedSetBehind(on) {
   _savedBehind = on;
   _savedRefreshPanel();
 }
-// Signed in to an account: a named user, or an admin (who has one too, on the
-// server: users.request_data_owner). What is kept and what is set follow it.
-var _accountAdmin = false;
-function _savedSignedIn() { return !!((_userSession && _userSession.name) || _accountAdmin); }
-// An admin signed in (a sign-in here, or the boot's /whoami): the account's
-// copy is fetched, and this browser's goes up. Out: nothing more goes up.
-function _accountAdminIn() {
-  if (_accountAdmin) return;
-  _accountAdmin = true;
-  _savedBase = null; _prefBase = null;
-  if (typeof _savedPull === 'function' && _savedPulledAt !== undefined) _savedPull();
-}
-function _accountAdminOut() { _accountAdmin = false; _prefBase = null; }
 // What the account has not had: null when it has everything.
 function _savedDelta() {
   var d = Saved.since(_savedBase), n = 0;
@@ -27433,75 +27480,84 @@ function _savedPull() {
     if (!d || Saved.account() !== account) return;
     if (d.saved && typeof d.saved === 'object') _savedBase = Saved.stamps(d.saved);
     _savedTake(d, false, true);
-    _prefTake(d.settings || {});
   }).catch(function () {});
+  _prefPull();
 }
 
 // ── Settings: what is set in one browser, in every one signed in to the account ──
-// Each of _PREF_KEYS goes up with when it changed here (SK.PREF_STAMPS); the
-// account keeps each key's newest (users._merge_settings) and hands back what
-// it holds. Coming down, a setting the account changed later is taken, and
-// what depends on it drawn again (_prefApplied). A browser's setting never
-// stamped (from before this) fills only what the account lacks; a setting at
-// its default that was never changed here does not go up at all.
-var _prefBase = null; // {key: t} the account held when it last answered, or null
-var _prefPushTimer = null, _prefLeftBody = '';
-// What the account has not had: {key: {v, t}}, or null.
-function _prefDelta() {
-  var st = _prefStamps(), out = {}, n = 0;
-  _PREF_KEYS.forEach(function (k) {
-    var t = st[k] || 0, v = _rawGet(k);
-    if (!t && v === null) return;
-    if (_prefBase && k in _prefBase && _prefBase[k] >= t) return;
-    out[k] = { v: v, t: t }; n++;
-  });
-  return n ? out : null;
-}
+// The convention is users.py's: the server orders changes, no clock here is
+// asked. A change made signed in is pending until the account has taken it;
+// coming down, the account wins every key it holds that is not pending here;
+// a key it lacks stays this browser's. The first account a browser ever
+// follows, if it never held a setting, takes this browser's own (its settings
+// from before sync), on the keys it lacks (fill). Separate from the saved
+// store's sync: a change sends a few hundred bytes.
+var _prefPushTimer = null, _prefPushing = null;
 function _prefPushSoon() {
-  if (!_savedSignedIn()) return;
+  if (!_accountId) return;
   clearTimeout(_prefPushTimer);
   _prefPushTimer = setTimeout(_prefPush, _SAVED_PUSH_MS);
 }
-// leaving: while the page goes, in a request that outlives it.
-function _prefPush(leaving) {
+// The pending changes, sent. leaving: while the page goes, in a request that
+// outlives it. fill: this browser's settings, into an account that has none.
+function _prefPush(leaving, fill) {
   clearTimeout(_prefPushTimer); _prefPushTimer = null;
-  if (!_savedSignedIn()) return Promise.resolve(true);
-  var delta = _prefDelta();
-  if (!delta) return Promise.resolve(true);
-  var body = JSON.stringify({ settings: delta });
-  if (leaving) { if (body === _prefLeftBody) return Promise.resolve(true); _prefLeftBody = body; }
-  return fetch('/userdata', {
+  var st = _prefState();
+  if (!_accountId || st.owner !== _accountId) return Promise.resolve(true);
+  if (_prefPushing && !leaving) return _prefPushing.then(function () { return _prefPush(); });
+  var changes = {}, n = 0;
+  _PREF_KEYS.forEach(function (k) {
+    if (fill ? _rawGet(k) !== null : st.pending[k]) { changes[k] = { v: _rawGet(k) }; n++; }
+  });
+  if (!n) return Promise.resolve(true);
+  var account = _accountId, body = JSON.stringify(fill ? { changes: changes, fill: true } : { changes: changes });
+  var sent = fetch('/userdata/settings', {
     method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body,
     keepalive: !!leaving && new Blob([body]).size < _SAVED_KEEPALIVE_MAX,
   }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
-    if (!d || !d.settings) return false;
-    _prefTake(d.settings);
+    if (!d || account !== _accountId) return false;
+    // Taken: no longer pending, unless it changed again since it was sent.
+    var now = _prefState();
+    Object.keys(changes).forEach(function (k) { if (_rawGet(k) === changes[k].v) delete now.pending[k]; });
+    _prefSaveState(now);
+    _prefTake(d);
     return true;
   }).catch(function () { return false; });
-}
-// The account's settings ({key: {v, t}}) come in.
-function _prefTake(settings) {
-  if (!settings || typeof settings !== 'object') return;
-  var st = _prefStamps(), changed = [], ahead = false, base = {};
-  _PREF_KEYS.forEach(function (k) {
-    var acc = settings[k], mine = st[k] || 0, local = _rawGet(k);
-    if (!acc || typeof acc !== 'object' || typeof acc.t !== 'number') {
-      if (mine || local !== null) ahead = true; // the account lacks it: it goes up
-      return;
-    }
-    base[k] = acc.t;
-    if (mine > acc.t) { ahead = true; return; } // changed here since: it goes up
-    var v = typeof acc.v === 'string' ? acc.v : null;
-    if (local !== v) {
-      try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {}
-      changed.push(k);
-    }
-    st[k] = acc.t;
+  if (leaving) return sent;
+  _prefPushing = sent.then(function (ok) {
+    _prefPushing = null;
+    if (Object.keys(_prefState().pending).length) _prefPushSoon();
+    return ok;
   });
-  _prefSaveStamps(st);
-  _prefBase = base;
+  return _prefPushing;
+}
+function _prefPull() {
+  if (!_accountId) return;
+  var account = _accountId;
+  fetch('/userdata/settings', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { if (d && account === _accountId) _prefTake(d); }).catch(function () {});
+}
+// The account's settings ({rev, settings: {key: {v, r}}}) come in.
+function _prefTake(d) {
+  if (!d || typeof d !== 'object' || !d.settings || typeof d.settings !== 'object') return;
+  var st = _prefState(), changed = [];
+  if (!_accountId || st.owner !== _accountId) return;
+  _PREF_KEYS.forEach(function (k) {
+    var acc = d.settings[k];
+    if (!acc || typeof acc !== 'object' || st.pending[k]) return;
+    var v = typeof acc.v === 'string' ? acc.v : null;
+    if (_rawGet(k) === v) return;
+    try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {}
+    changed.push(k);
+  });
   if (changed.length) _prefApplied(changed);
-  if (ahead) _prefPushSoon();
+  if (!st.seeded) {
+    st.seeded = true;
+    _prefSaveState(st);
+    if (!d.rev) { _prefPush(false, true); return; }
+  }
+  // Changed here and not yet taken (the page closed before it went): it goes.
+  if (Object.keys(st.pending).length && !_prefPushing) _prefPushSoon();
 }
 // Settings that changed underneath this page (the account's, or another tab's):
 // what shows them is drawn again.
@@ -27530,6 +27586,18 @@ function _prefApplied(keys) {
     try { _markSpeaking(); } catch (e) {}
     if (typeof _paintVoices === 'function') try { _paintVoices(); } catch (e) {}
   }
+  if (has(SK.TTS_RATE) && typeof _ttsPickSpeed === 'function' && _ttsSpeaking) {
+    try { _ttsPickSpeed(_ttsRate()); } catch (e) {}
+  }
+  if (has(SK.EXT_LINKS)) {
+    var ext = document.getElementById('ext-links-seg');
+    if (ext) ext.innerHTML = _extLinksSegInner();
+    try { _extRemarkOpen(); } catch (e) {}
+  }
+  if (has(SK.PREF_FLAVOR)) {
+    var fl = document.getElementById('ms-flavor-seg');
+    if (fl) fl.innerHTML = _flavorSegInner();
+  }
   var home = [SK.PREF_LANGUAGES, SK.HIDE_LANG_CHOOSER, SK.HIDE_DISCOVER, SK.LIBRARY_VIEW, SK.LIBRARY_SORT, SK.OPEN_IN_APPS];
   if (mode === 'home' && !readerOpen && home.some(has)) { try { renderHome(); } catch (e) {} }
 }
@@ -27553,13 +27621,6 @@ function _savedTake(d, overwrite, fromAccount) {
   }
   return res;
 }
-// Whose store the page shows: the account's once signed in (the browser
-// keeps a copy of each), the browser's own signed out.
-function _savedUseSession() {
-  if (Saved.use(_userSession && _userSession.name ? _userSession.name : '')) { _savedBase = null; _savedChanged(true); }
-  _prefBase = null;
-  _savedPull();
-}
 // What the account has not had, sent now; the promise says whether it has it
 // all. leaving: while the page closes (or hides, which on a phone may be the
 // last it hears), in a request that outlives it.
@@ -27577,14 +27638,12 @@ function _savedStart() {
     else if (Date.now() - _savedPulledAt > _SAVED_PULL_EVERY_MS) _savedPull();
   });
   window.addEventListener('pagehide', function () { _savedFlush(true); _prefPush(true); });
-  // A setting written in another page of this browser: another tab of Zimi
-  // (it stamps what it writes), or a page that does not stamp (an app page in
-  // the reader, the dictionary), whose change is stamped here and sent.
+  // A setting written in another page of this browser (another tab, an app
+  // page in the reader): shown here too. Whoever wrote it marked it pending
+  // (_prefChanged, apps.js's prefTouched); one this page did not send yet goes.
   window.addEventListener('storage', function (e) {
-    if (!e.key || !_isPrefKey(e.key)) return;
-    var st = _prefStamps();
-    if (Date.now() - (st[e.key] || 0) > _PREF_STAMP_FRESH_MS) { st[e.key] = Date.now(); _prefSaveStamps(st); _prefPushSoon(); }
-    _prefApplied([e.key]);
+    if (e.key && _isPrefKey(e.key)) _prefApplied([e.key]);
+    else if (e.key === SK.PREF_SYNC && _accountId && Object.keys(_prefState().pending).length) _prefPushSoon();
   });
   // Another tab of this browser wrote the store: merged in, not overwritten
   // the next time this tab writes (the other tab sends its own change up).
