@@ -50,5 +50,11 @@ ok('Hindi and Arabic sentence marks cut', said('यह एक है। यह �
   [said('यह एक है। यह दो है।', 'hi'), said('ما هذا؟ هذا كتاب.', 'ar')]);
 ok('a spoken chunk never ends at "Dr."', _ttsChunkText('It is. Dr. Smith was sure. '.repeat(12), _TTS_CHUNK_MAX, _TTS_FIRST_CHUNK_MAX, 'en').every((x) => !/\bDr\.$/.test(x)));
 
+// A first sentence longer than the first chunk's cap, but one chunk's worth,
+// is said whole: the cap keeps a second sentence out, it never cuts one.
+const longFirst = 'A widely reported anecdote about this eclipse, one of the earliest recorded in history, found in the Book of Documents, involves two Chinese court astronomers, named Hsi and Ho. They failed.';
+const lf = _ttsChunkText(longFirst, _TTS_CHUNK_MAX, _TTS_FIRST_CHUNK_MAX, 'en');
+ok('a long first sentence is not cut at the first cap', lf[0].endsWith('named Hsi and Ho.') && lf[1] === 'They failed.', lf);
+
 if (failures) { console.log(failures + ' failed'); process.exit(1); }
 console.log('\nall chunk checks passed');

@@ -214,12 +214,15 @@ function _ttsPlanChunks(text, maxLen, first, from, to, lang) {
     var gap = text.slice(sp[1], to).match(/^\s*/)[0];
     var blockEnds = sp[1] + gap.length >= to || gap.indexOf(_TTS_BLOCK) >= 0;
     if (!_TTS_SAID_END.test(s) && blockEnds) s += stop;
-    // A single sentence longer than maxLen: hard-split on word boundaries.
-    if (s.length > cap()) {
+    // A single sentence longer than maxLen: hard-split on word boundaries. The
+    // first chunk's smaller cap only keeps a second sentence out of it (a
+    // quicker start); it never cuts a sentence in two (Eric, 2026-10-22: "Why
+    // did this sentence split?").
+    if (s.length > maxLen) {
       flush();
       var line = null, re = /\S+/g, w;
       while ((w = re.exec(piece))) {
-        if (line && line.text.length + 1 + w[0].length > cap()) { out.push(line); line = null; }
+        if (line && line.text.length + 1 + w[0].length > maxLen) { out.push(line); line = null; }
         if (line) { line.text += ' ' + w[0]; line.spans[0].e = sp[0] + re.lastIndex; line.spans[0].n = line.text.length; }
         else line = { text: w[0], spans: [{ s: sp[0] + w.index, e: sp[0] + re.lastIndex, n: w[0].length }] };
       }
