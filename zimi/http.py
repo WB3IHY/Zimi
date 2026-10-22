@@ -2894,6 +2894,8 @@ class ZimHandler(BaseHTTPRequestHandler):
                 return self._uncached(lambda: self._json(200, _prefs_reply(prefs)))
             elif parsed.path == "/userdata":
                 return self._uncached(self._handle_userdata_get)
+            elif parsed.path == "/userdata/settings":
+                return self._uncached(self._handle_settings_get)
 
             elif parsed.path == "/languages":
                 # Installed language summary with native names and ZIM counts
@@ -3714,6 +3716,8 @@ class ZimHandler(BaseHTTPRequestHandler):
                 return self._json(200, _prefs_reply(prefs))
             if parsed.path == "/userdata":
                 return self._handle_userdata_post(data)
+            if parsed.path == "/userdata/settings":
+                return self._handle_settings_post(data)
 
             if parsed.path == "/resolve":
                 retry_after = _check_rate_limit(
@@ -5602,7 +5606,10 @@ class ZimHandler(BaseHTTPRequestHandler):
     def _handle_whoami(self):
         """GET /whoami — the current identity for the client to shape its UI.
         role ∈ {user, admin, anonymous}. Server-side filtering is independent
-        of this — it keys off the cookie/token, not the client's belief."""
+        of this — it keys off the cookie/token, not the client's belief.
+        ``account``: whose /userdata this request has (users.request_data_owner),
+        or None; the client follows an account only when this names one (with
+        the password switched off, every browser is the admin's)."""
         from zimi import manage as _manage
 
         # The apps this server offers, as the shell stamps them. A browser can
@@ -5617,7 +5624,13 @@ class ZimHandler(BaseHTTPRequestHandler):
             if _users.is_admin_user(name):
                 return self._json(
                     200,
-                    {"role": "admin", "name": name, "secondary": True, "apps": apps},
+                    {
+                        "role": "admin",
+                        "name": name,
+                        "secondary": True,
+                        "account": name,
+                        "apps": apps,
+                    },
                 )
             rec = _users.get_user(name)
             allowlist = rec.get("allowlist") if rec else None
@@ -5630,6 +5643,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                     # Per-user create permission — the client's + button and
                     # Create page consult this (the server gates regardless).
                     "can_create": _users.user_can_create(name),
+                    "account": name,
                     "apps": apps,
                 },
             )
@@ -5642,6 +5656,7 @@ class ZimHandler(BaseHTTPRequestHandler):
             resp: dict[str, object] = {
                 "role": "admin",
                 "name": _manage._get_manage_user() or "admin",
+                "account": _users.request_data_owner(self),
                 "apps": apps,
             }
             # Ensure the header-less transports (reader iframe, plain-fetch data
@@ -5659,7 +5674,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         # Anonymous. Expose a first-login hint ONLY when the default username
         # applies — no custom username AND no named users configured. This is
         # not an info leak: "the default username is admin" is in the docs.
-        resp = {"role": "anonymous", "apps": apps}
+        resp = {"role": "anonymous", "account": None, "apps": apps}
         if not _manage._get_manage_user() and not _users.list_users():
             resp["default_username"] = "admin"
         # Tell the SPA how the public-access policy shapes its view: ``private``
@@ -5707,9 +5722,31 @@ class ZimHandler(BaseHTTPRequestHandler):
                 else 503 if err == "read failed" else 400
             )
             return self._json(status, {"error": err})
-        return self._json(
-            200, {"status": "ok", "saved": doc["saved"], "settings": doc["settings"]}
+        return self._json(200, {"status": "ok", "saved": doc["saved"]})
+
+    def _handle_settings_get(self):
+        """GET /userdata/settings — the signed-in account's settings, each
+        with the revision the server gave it (users.load_settings)."""
+        name = _users.request_data_owner(self)
+        if not name:
+            return self._json(401, {"error": "sign in required"})
+        return self._json(200, _users.load_settings(name))
+
+    def _handle_settings_post(self, data):
+        """POST /userdata/settings — {changes: {key: {v}}, fill: bool}: the
+        account takes each change at its next revision; ``fill`` (a browser's
+        first sync into an account that never held one) only fills what it
+        lacks. Answers with the account's settings as kept."""
+        name = _users.request_data_owner(self)
+        if not name:
+            return self._json(401, {"error": "sign in required"})
+        data = data if isinstance(data, dict) else {}
+        ok, err, doc = _users.change_settings(
+            name, data.get("changes") or {}, fill_only=bool(data.get("fill"))
         )
+        if not ok:
+            return self._json(503 if err == "write failed" else 400, {"error": err})
+        return self._json(200, doc)
 
     def log_message(self, format, *args):
         # Light logging: errors + slow requests. Suppress 200/304 noise.

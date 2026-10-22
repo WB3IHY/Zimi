@@ -1,11 +1,14 @@
 """Settings follow the account (Eric, 2026-10-21: "Things a user changes while
-signed in should sync to all sessions all browsers").
+signed in should sync to all sessions all browsers"), on the convention in
+users.py's docstring.
 
-Two parts:
-  • whose /userdata a request is (users.request_data_owner): a named user's
-    own, the primary admin's, nobody's for an anonymous visitor, and never a
-    name from the body; and
-  • the account's settings, merged key by key, the newer change winning.
+  • whose settings a request has (users.request_data_owner, and /whoami's
+    ``account``): a named user's own, the primary admin's, nobody's for an
+    anonymous visitor or where the password is switched off, never a name from
+    the body; and
+  • the account's settings: the server orders changes with its own revision
+    (no device clock), the same value again is no change and no write, and a
+    browser's first sync fills only an account that never held one.
 """
 
 import os
@@ -27,6 +30,7 @@ def data(monkeypatch, tmp_path):
     d = tmp_path / "data"
     d.mkdir()
     monkeypatch.setattr(server, "ZIMI_DATA_DIR", str(d))
+    monkeypatch.setattr(server, "ZIMI_MANAGE", True)
     for var in (
         "ZIMI_MANAGE_PASSWORD",
         "ZIMI_MANAGE_USER",
@@ -47,6 +51,7 @@ class _Handler(http.ZimHandler):
         self.headers = headers or {}
         self.status = None
         self.body = None
+        self.client_address = ("127.0.0.1", 0)
 
     def _is_private_client(self):
         return True
@@ -56,56 +61,73 @@ class _Handler(http.ZimHandler):
         self.body = body
         return None
 
+    def _json_cookie(self, status, body, cookie):
+        return self._json(status, body)
+
 
 def _cookie(token):
     return {"Cookie": "zimi_session=" + token}
 
 
-# ── whose data ──
+def _whoami(headers=None):
+    h = _Handler(headers)
+    h._handle_whoami()
+    return h.body
+
+
+# ── whose settings ──
 
 
 def test_a_named_user_is_their_own(data):
     users.create_user("Kid", "pw123")
     tok = users.create_session("Kid")
     assert users.request_data_owner(_Handler(_cookie(tok))) == "Kid"
+    assert _whoami(_cookie(tok))["account"] == "Kid"
 
 
 def test_the_primary_admin_has_an_account_of_its_own(data):
     manage._set_manage_password(ADMIN_PW)
     tok = users.create_admin_session()
     assert users.request_data_owner(_Handler(_cookie(tok))) == users.PRIMARY_ADMIN_DATA
-    # signed in with the password itself too
+    assert _whoami(_cookie(tok))["account"] == users.PRIMARY_ADMIN_DATA
     h = _Handler({"Authorization": "Bearer " + ADMIN_PW})
     assert users.request_data_owner(h) == users.PRIMARY_ADMIN_DATA
-    # and no account can be named for it
     ok, _ = users.create_user(users.PRIMARY_ADMIN_DATA, "pw123")
-    assert not ok
+    assert not ok, "no account may take the admin's name"
+
+
+def test_a_secondary_admin_is_their_own(data):
+    manage._set_manage_password(ADMIN_PW)
+    users.create_user("Deputy", "pw123", role="admin")
+    tok = users.create_session("Deputy")
+    assert _whoami(_cookie(tok))["account"] == "Deputy"
 
 
 def test_an_anonymous_visitor_has_none(data):
     manage._set_manage_password(ADMIN_PW)
     assert users.request_data_owner(_Handler()) is None
     assert users.request_data_owner(_Handler({"Authorization": "Bearer wrong"})) is None
+    assert _whoami()["account"] is None
+
+
+def test_password_switched_off_every_browser_is_the_admins(data, monkeypatch):
+    # Eric, 2026-10-22: "Password off should still sync."
+    manage._set_manage_password(ADMIN_PW)
+    monkeypatch.setenv("ZIMI_MANAGE_OPEN", "1")
+    me = _whoami()
+    assert me["role"] == "admin" and me["account"] == users.PRIMARY_ADMIN_DATA
+    p = _Handler()
+    p._handle_settings_post({"changes": {"zimi_reader_theme": {"v": "sepia"}}})
+    g = _Handler()
+    g._handle_settings_get()
+    assert g.status == 200 and g.body["settings"]["zimi_reader_theme"]["v"] == "sepia"
+    # a named user signed in there is still their own
+    users.create_user("Kid", "pw123")
+    assert _whoami(_cookie(users.create_session("Kid")))["account"] == "Kid"
 
 
 def test_no_password_no_admin_account(data):
-    # Every private visitor counts as the admin here: one shared account would
-    # hand each the others' settings.
     assert users.request_data_owner(_Handler()) is None
-
-
-def test_admin_userdata_round_trips(data):
-    manage._set_manage_password(ADMIN_PW)
-    tok = users.create_admin_session()
-    h = _Handler(_cookie(tok))
-    h._handle_userdata_post({"settings": {"zimi_reader_theme": {"v": "sepia", "t": 5}}})
-    assert h.status == 200 and h.body["settings"]["zimi_reader_theme"]["v"] == "sepia"
-    g = _Handler(_cookie(tok))
-    g._handle_userdata_get()
-    assert g.status == 200 and g.body["settings"]["zimi_reader_theme"] == {
-        "v": "sepia",
-        "t": 5,
-    }
 
 
 def test_a_name_in_the_body_is_ignored(data):
@@ -113,105 +135,124 @@ def test_a_name_in_the_body_is_ignored(data):
     users.create_user("Other", "pw123")
     tok = users.create_session("Kid")
     h = _Handler(_cookie(tok))
-    h._handle_userdata_post(
+    h._handle_settings_post(
         {
             "name": "Other",
             "user": "Other",
-            "settings": {"zimi_reader_theme": {"v": "dark", "t": 9}},
+            "changes": {"zimi_reader_theme": {"v": "dark"}},
         }
     )
     assert h.status == 200
-    assert users.load_user_data("Kid")["settings"]["zimi_reader_theme"]["v"] == "dark"
-    assert users.load_user_data("Other")["settings"] == {}
-    # anonymous, a body name changes nothing either
+    assert users.load_settings("Kid")["settings"]["zimi_reader_theme"]["v"] == "dark"
+    assert users.load_settings("Other") == {"rev": 0, "settings": {}}
     a = _Handler()
-    a._handle_userdata_post(
-        {"name": "Kid", "settings": {"zimi_reader_theme": {"v": "x", "t": 99}}}
+    a._handle_settings_post(
+        {"name": "Kid", "changes": {"zimi_reader_theme": {"v": "x"}}}
     )
     assert a.status == 401
 
 
-# ── the merge ──
+# ── the account's settings ──
 
 
-def _sync(name, settings):
-    ok, err, doc = users.sync_user_data(name, {"settings": settings})
+def _change(name, changes, fill=False):
+    ok, err, doc = users.change_settings(name, changes, fill_only=fill)
     assert ok, err
-    return doc["settings"]
+    return doc
 
 
-def test_settings_merge_key_by_key_newer_wins(data):
-    _sync("kid", {"zimi_pref_languages": {"v": '["en","es"]', "t": 100}})
-    # another browser changes a different setting: both stay
-    got = _sync("kid", {"zimi_reader_theme": {"v": "sepia", "t": 200}})
-    assert got["zimi_pref_languages"]["v"] == '["en","es"]'
-    assert got["zimi_reader_theme"]["v"] == "sepia"
-    # an older change loses, a newer one wins, a tie keeps what is kept
-    assert (
-        _sync("kid", {"zimi_reader_theme": {"v": "dark", "t": 150}})[
-            "zimi_reader_theme"
-        ]["v"]
-        == "sepia"
-    )
-    assert (
-        _sync("kid", {"zimi_reader_theme": {"v": "dark", "t": 200}})[
-            "zimi_reader_theme"
-        ]["v"]
-        == "sepia"
-    )
-    assert (
-        _sync("kid", {"zimi_reader_theme": {"v": "dark", "t": 201}})[
-            "zimi_reader_theme"
-        ]["v"]
-        == "dark"
-    )
+def test_the_server_orders_changes_with_its_own_revision(data):
+    d = _change("kid", {"zimi_pref_languages": {"v": '["en","es"]'}})
+    assert d["rev"] == 1 and d["settings"]["zimi_pref_languages"] == {
+        "v": '["en","es"]',
+        "r": 1,
+    }
+    # another browser changes another key: both stay; the last change to arrive wins
+    d = _change("kid", {"zimi_reader_theme": {"v": "sepia"}, "t": 10**15})
+    assert d["rev"] == 2 and d["settings"]["zimi_pref_languages"]["v"] == '["en","es"]'
+    d = _change("kid", {"zimi_reader_theme": {"v": "dark", "t": 0, "r": 999}})
+    assert d["settings"]["zimi_reader_theme"] == {
+        "v": "dark",
+        "r": 3,
+    }, "a device's numbers are never taken"
 
 
-def test_a_value_from_before_sync_fills_only_a_gap(data):
-    _sync("kid", {"zimi_ui_lang": {"v": "es", "t": 50}})
-    got = _sync(
-        "kid",
-        {
-            "zimi_ui_lang": {"v": "de", "t": 0},
-            "zimi_reader_font_scale": {"v": "120", "t": 0},
-        },
-    )
+def test_the_same_value_again_is_no_change_and_no_write(data):
+    _change("kid", {"zimi_reader_theme": {"v": "sepia"}})
+    path = users._settings_path("kid")
+    before = os.stat(path).st_mtime_ns
+    os.utime(path, ns=(before - 10**9, before - 10**9))
+    d = _change("kid", {"zimi_reader_theme": {"v": "sepia"}})
+    assert d["rev"] == 1
     assert (
-        got["zimi_ui_lang"]["v"] == "es"
-    ), "an unstamped value never outranks the account's"
-    assert (
-        got["zimi_reader_font_scale"]["v"] == "120"
-    ), "but fills a setting the account lacks"
+        os.stat(path).st_mtime_ns == before - 10**9
+    ), "nothing changed, nothing written"
 
 
 def test_a_setting_back_at_its_default_travels_as_none(data):
-    _sync("kid", {"zimi_pref_languages": {"v": '["en","es"]', "t": 10}})
-    assert _sync("kid", {"zimi_pref_languages": {"v": None, "t": 20}})[
+    _change("kid", {"zimi_pref_languages": {"v": '["en","es"]'}})
+    assert _change("kid", {"zimi_pref_languages": {"v": None}})["settings"][
         "zimi_pref_languages"
-    ] == {"v": None, "t": 20}
+    ] == {"v": None, "r": 2}
+
+
+def test_a_first_sync_fills_only_an_account_that_never_held_one(data):
+    d = _change(
+        "kid",
+        {"zimi_ui_lang": {"v": "es"}, "zimi_reader_font_scale": {"v": "120"}},
+        fill=True,
+    )
+    assert d["rev"] == 2
+    d = _change(
+        "kid",
+        {"zimi_ui_lang": {"v": "de"}, "zimi_reader_theme": {"v": "dark"}},
+        fill=True,
+    )
+    assert (
+        d["rev"] == 2
+        and d["settings"]["zimi_ui_lang"]["v"] == "es"
+        and "zimi_reader_theme" not in d["settings"]
+    )
 
 
 def test_settings_are_cleaned(data):
-    now = users._now_ms()
-    got = _sync(
+    d = _change(
         "kid",
         {
-            "zimi_reader_theme": {"v": "sepia", "t": now + 10**12},  # a clock far ahead
-            "not_ours": {"v": "x", "t": 1},
-            "zimi_bad": {"v": 5, "t": 1},
-            "zimi_neg": {"v": "x", "t": -1},
-            "zimi_big": {"v": "x" * (users._SETTINGS_VALUE_MAX + 1), "t": 1},
+            "zimi_reader_theme": {"v": "sepia"},
+            "not_ours": {"v": "x"},
+            "zimi_bad": {"v": 5},
+            "zimi_big": {"v": "x" * (users._SETTINGS_VALUE_MAX + 1)},
+            "zimi_shape": "x",
         },
     )
-    assert set(got) == {"zimi_reader_theme"}
-    assert got["zimi_reader_theme"]["t"] <= now + users._SAVED_FUTURE_MS + 1000
+    assert set(d["settings"]) == {"zimi_reader_theme"}
 
 
-def test_saved_and_other_fields_are_untouched_by_a_settings_sync(data):
+def test_settings_change_leaves_the_saved_store_alone(data):
     users.save_user_data("kid", {"history": [{"zim": "a", "path": "b"}]})
-    _sync("kid", {"zimi_reader_theme": {"v": "sepia", "t": 1}})
-    blob = users.load_user_data("kid")
-    assert blob["history"] == [{"zim": "a", "path": "b"}]
-    # and a sync without settings keeps them
-    users.sync_user_data("kid", {"history": []})
-    assert users.load_user_data("kid")["settings"]["zimi_reader_theme"]["v"] == "sepia"
+    blob = os.path.join(server.ZIMI_DATA_DIR, "userdata", "kid.json")
+    before = os.stat(blob).st_mtime_ns
+    _change("kid", {"zimi_reader_theme": {"v": "sepia"}})
+    assert (
+        os.stat(blob).st_mtime_ns == before
+    ), "a setting never rewrites the saved store"
+    assert users.load_user_data("kid")["history"] == [{"zim": "a", "path": "b"}]
+
+
+def test_settings_ride_the_server_backup(data):
+    users.save_user_data("kid", {"history": []})
+    _change("kid", {"zimi_reader_theme": {"v": "sepia"}})
+    snap = users.all_user_data()
+    assert snap["kid"]["settings"]["settings"]["zimi_reader_theme"]["v"] == "sepia"
+    users.restore_user_data({"kid": {"settings": {"rev": 0}}}, overwrite=True)
+    assert users.load_settings("kid")["rev"] == 0
+    users.restore_user_data(snap, overwrite=True)
+    assert users.load_settings("kid")["settings"]["zimi_reader_theme"]["v"] == "sepia"
+
+
+def test_deleting_an_account_takes_its_settings(data):
+    users.create_user("Kid", "pw123")
+    _change("Kid", {"zimi_reader_theme": {"v": "sepia"}})
+    users.delete_user("Kid")
+    assert not os.path.exists(users._settings_path("Kid"))
