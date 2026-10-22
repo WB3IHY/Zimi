@@ -601,6 +601,54 @@ _USERDATA_VERSION = 2
 #: heavy bookmarks+history set. Measured as the file is written: UTF-8, compact.
 _USERDATA_MAX_BYTES = 4 * 1024 * 1024
 
+# ── Settings: what a person sets in one browser follows them to the rest ──
+# Each setting (app.js's _PREF_KEYS, a localStorage key and its raw value, or
+# None for a setting left at its default) carries t, when it was changed (ms).
+# The account keeps each key's newest; a tie keeps the kept one, so a browser
+# with a value it never stamped (t 0, from before sync) fills only a key the
+# account lacks. Nothing from the client is trusted beyond that shape.
+_SETTINGS_KEY_RE = re.compile(r"^zimi_[a-z0-9_]{1,59}$")
+_SETTINGS_MAX_KEYS = 64
+_SETTINGS_VALUE_MAX = 16 * 1024
+
+
+def _clean_settings(raw, future_ms=None):
+    """``raw`` as {key: {"v": str|None, "t": int}}, anything else dropped; a
+    time past ``future_ms`` is held to it."""
+    out = {}
+    if not isinstance(raw, dict):
+        return out
+    for k, ent in raw.items():
+        if len(out) >= _SETTINGS_MAX_KEYS:
+            break
+        if not isinstance(k, str) or not _SETTINGS_KEY_RE.match(k) or not isinstance(ent, dict):
+            continue
+        v, t = ent.get("v"), ent.get("t")
+        if v is not None and (not isinstance(v, str) or len(v) > _SETTINGS_VALUE_MAX):
+            continue
+        if isinstance(t, bool) or not isinstance(t, (int, float)) or t < 0:
+            continue
+        t = int(t)
+        if future_ms is not None and t > future_ms:
+            t = future_ms
+        out[k] = {"v": v, "t": t}
+    return out
+
+
+def _merge_settings(kept, sent):
+    """Each key's newer copy; on a tie the kept one stays, and a key only one
+    side has is taken from it."""
+    out = dict(kept)
+    for k, ent in sent.items():
+        cur = out.get(k)
+        if cur is None:
+            if len(out) < _SETTINGS_MAX_KEYS:
+                out[k] = ent
+        elif ent["t"] > cur["t"]:
+            out[k] = ent
+    return out
+
+
 # ── Saved: the account's copy of the store (app.js's Saved is the twin) ──
 # Every record carries ts (ms); the newer copy of a record wins, a tie keeps
 # the kept one. A deletion leaves a tombstone in ``gone`` (i:item, l:list,
@@ -1104,6 +1152,7 @@ def _empty_user_data():
         "folders": [],
         "history": [],
         "preferences": {},
+        "settings": {},
         "saved": _saved_empty(),
     }
 
@@ -1157,6 +1206,7 @@ def _user_data_doc(blob, now_ms, saved=None):
         "folders": folders if isinstance(folders, list) else [],
         "history": history if isinstance(history, list) else [],
         "preferences": prefs if isinstance(prefs, dict) else {},
+        "settings": _clean_settings(blob.get("settings")),
         "saved": saved,
         "updated": int(time.time()),
     }
@@ -1210,6 +1260,11 @@ def sync_user_data(name, patch, now_ms=None):
         for field in ("bookmarks", "folders", "history", "preferences"):
             if field in patch:
                 blob[field] = patch[field]
+        if "settings" in patch:
+            blob["settings"] = _merge_settings(
+                _clean_settings(cur.get("settings")),
+                _clean_settings(patch.get("settings"), now_ms + _SAVED_FUTURE_MS),
+            )
         kept = _clean_saved(cur.get("saved"))
         if "saved" in patch:
             # A device whose clock runs ahead is held to the server's.
@@ -1619,6 +1674,33 @@ def resolve_request_user(handler):
     if name:
         return name
     return resolve_session(_cookie_token(handler))
+
+
+#: Whose data the primary admin's is: a name no account may take (_RESERVED_NAMES).
+PRIMARY_ADMIN_DATA = "admin"
+
+
+def request_data_owner(handler):
+    """Whose per-user data (/userdata) a request reads and writes, or None.
+
+    A signed-in account (a named user, a secondary admin) is its own name; the
+    primary admin, signed in (its session, the password, the API token), is
+    PRIMARY_ADMIN_DATA. Never a name from the request body. No one where there
+    is no password to sign in with, or where the operator turned it off: there
+    every visitor counts as the admin, and one shared account would hand each
+    visitor the others' settings.
+    """
+    name = resolve_request_user(handler)
+    if name:
+        return name
+    try:
+        from zimi import manage as _manage
+
+        if _manage.manage_open() or not _manage._get_manage_password_hash():
+            return None
+        return PRIMARY_ADMIN_DATA if _manage._primary_admin_authorized(handler) else None
+    except Exception:
+        return None
 
 
 def _request_is_admin(handler):
