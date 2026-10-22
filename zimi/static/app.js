@@ -2570,7 +2570,10 @@ async function _refreshAfterAuthChange() {
     _noteConnFailure(e);
     _renderConnBanner();
   }
-  if (typeof goHome === 'function') goHome();
+  // goHome() on a clean home page only scrolls to the top, so a sign-in made while home was already
+  // drawn (the gate opens over it) kept the anonymous library on screen until a reload: draw it again.
+  if (mode === 'home' && !readerOpen && !currentSource && !homeScope && typeof renderHome === 'function') renderHome();
+  else if (typeof goHome === 'function') goHome();
   else route(false);
 }
 
