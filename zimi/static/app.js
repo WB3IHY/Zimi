@@ -17697,7 +17697,7 @@ function _setUploadTrickle(input) {
 //   • "My data"      — this browser's bookmarks, history and preferences. Always
 //                      exportable/importable to a file; a signed-in NAMED user
 //                      also gets Save-to / Restore-from their own server account
-//                      (POST/GET /userdata). Admin-without-a-user stays file-only.
+//                      (POST/GET /userdata). Settings and the saved store follow any signed-in account, the admin too, on their own (_prefTake, _savedPull).
 //   • "Server backup"— ADMIN-only, the full server bundle (/manage/backup
 //                      scope=server): library list, collections, layout, users
 //                      with hashes, access policy, schedule, sharing prefs, seed
