@@ -164,6 +164,7 @@ function freshReading() {
     _ttsAlongAt: () => {},
     _ttsNow: {}, _ttsBarSync: () => {}, _ttsRate: () => 1, _ttsPaused: false,
     _ttsSpeakDevice: (c, l, from) => { r.device = from; },
+    _ttsHold() {}, _ttsSpinTimer: 0,
   });
   return r;
 }
@@ -838,11 +839,43 @@ const tick = () => new Promise(r => setImmediate(r));
     const sp = { _ttsCanSpeak: () => true, _ttsFrameDoc: () => ({}), _ttsLang: () => 'en', _ttsStop() {}, _ttsAlongBegin() { order.push('begin'); },
       _ttsAlongAt: (i, k) => { marks.push(i + ':' + k); order.push('mark'); }, _ttsServerEngines: () => ['kokoro'], _TTS_AVAILABLE: true,
       _ttsSetSpeaking() {}, _setStorageJSON() {}, SK: {}, _ttsChosenVoice: () => '', _DEVICE_VOICE: 'device', _ttsBarSync() {},
-      _ttsRun: 0, _ttsRead: null, _ttsSpeakServer() { order.push('voice'); }, _ttsSpeakDevice() {}, Math, Date };
+      _ttsRun: 0, _ttsRead: null, _ttsSpeakServer() { order.push('voice'); }, _ttsSpeakDevice() {}, _ttsHold() {}, Math, Date };
     vm.createContext(sp);
     vm.runInContext(fn('_ttsSpeak'), sp);
     sp._ttsSpeak(2, { doc: {}, chunks: [{ text: 'a' }, { text: 'b' }, { text: 'c' }] });
     ok('started at a sentence, it is marked before the voice is even asked', marks.join() === '2:0' && order.join() === 'begin,mark,voice', order.join() + ' ' + marks.join());
+  }
+
+  {
+    // Between sentences the bar holds still; the ring turns only after a wait
+    // long enough to notice.
+    const timersH = [];
+    const hv = { _ttsNow: { playing: true, spin: false }, _ttsSpeaking: true, _TTS_SPIN_AFTER_MS: 700, _ttsSpinTimer: 0, synced: 0,
+      clearTimeout() {}, setTimeout: (f, ms) => { timersH.push({ f, ms }); return timersH.length; } };
+    hv._ttsBarSync = () => { hv.synced++; };
+    vm.createContext(hv);
+    vm.runInContext(fn('_ttsHold'), hv);
+    hv._ttsHold();
+    ok('the next sentence on its way: no ring at once', hv._ttsNow.playing === false && hv._ttsNow.spin === false && timersH[0].ms === 700);
+    timersH[0].f();
+    ok('...a wait that goes on: the ring', hv._ttsNow.spin === true);
+    hv._ttsNow.spin = false; hv._ttsHold(); hv._ttsNow.playing = true; timersH[1].f();
+    ok('...one that ended in time: none', hv._ttsNow.spin === false);
+  }
+
+  {
+    // The chunks asked for ahead are kept in the page: the next sentence starts
+    // from memory, with no request of its own between sentences.
+    const rr = freshReading(), au = ctx._ttsAudio, made = [];
+    ctx.authedFetch = u => { fetched.push(u); return Promise.resolve({ ok: true, status: 200, blob: () => Promise.resolve({ of: u }) }); };
+    ctx.URL = { createObjectURL: b => { made.push(b.of); return 'blob:' + made.length; }, revokeObjectURL() {} };
+    ctx._TTS_AHEAD = 2;
+    ctx._ttsSpeakServer(['one.', 'two.', 'three.'], 'en', ['piper'], 1);
+    au.onplaying();
+    for (let k = 0; k < 4; k++) await new Promise(res => setImmediate(res));
+    au.onended();
+    ok('the next sentence plays from what was fetched ahead, not a new request', /^blob:/.test(au.src) && textOf(made[0]) === 'two.', au.src + ' ' + made.join());
+    delete ctx.URL;
   }
 
   if (failures) { console.log(failures + ' failed'); process.exit(1); }
