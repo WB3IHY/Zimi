@@ -265,6 +265,14 @@ var _TTS_HL_CSS = '::highlight(' + _TTS_HL + '){background-color:rgba(245,158,11
   // Night red is a filter on the frame that turns an amber tint into a solid red under red text: a faint light veil instead.
   'html.zimi-tts-night ::highlight(' + _TTS_HL + '){background-color:rgba(255,255,255,.05)}';
 var _TTS_NIGHT_CLASS = 'zimi-tts-night';
+function _ttsStyle(doc) {
+  if (doc.getElementById(_TTS_HL_STYLE) || !doc.head) return;
+  var style = doc.createElement('style');
+  style.id = _TTS_HL_STYLE; style.textContent = _TTS_HL_CSS;
+  doc.head.appendChild(style);
+}
+var _TTS_TAP_MS = 600, _TTS_TAP_SLOP = 10; // a touch this short and this still (px) is a tap
+var _ttsTouchedAt = 0; // when a touch was last read as a tap: the click after it is the same tap
 var _TTS_VIEW_TOP = 56;     // px: a sentence above this has left the view
 var _TTS_VIEW_BOTTOM = 120; // px kept clear at the foot, where the reading bar floats
 var _TTS_VIEW_AT = 0.28;    // share of the height a sentence is brought up to
@@ -412,11 +420,7 @@ function _ttsPaint(ranges) {
     // 2026-10-21, after clear(): three sentences still marked).
     if (st.hl) Array.from(st.hl).forEach(function(r) { st.hl.delete(r); });
     if (!ranges.length) { win.CSS.highlights.delete(_TTS_HL); return; }
-    if (!st.doc.getElementById(_TTS_HL_STYLE)) {
-      var style = st.doc.createElement('style');
-      style.id = _TTS_HL_STYLE; style.textContent = _TTS_HL_CSS;
-      st.doc.head.appendChild(style);
-    }
+    _ttsStyle(st.doc);
     st.doc.documentElement.classList.toggle(_TTS_NIGHT_CLASS, _nightRedOn());
     if (!st.hl) st.hl = new win.Highlight();
     ranges.forEach(function(r) { st.hl.add(r); });
@@ -542,8 +546,21 @@ function _ttsAlongBegin(plan) {
   on('touchmove', _ttsLose, moved);
   on('keydown', function(e) { if (_TTS_SCROLL_KEYS.indexOf(' ' + e.key + ' ') >= 0) _ttsLose(); }, moved);
   on('mousedown', function(e) { if (e.clientX >= doc.documentElement.clientWidth) _ttsLose(); }, moved);
-  on('click', _ttsTap, false);
+  on('click', function(e) { if (Date.now() - _ttsTouchedAt > _TTS_TAP_MS) _ttsTap(e); }, false);
   on('scroll', function() { if (_ttsRead && !_ttsRead.following) _ttsFollow(false); }, moved);
+  // A tap on a phone is read from the touch itself: iOS sends a tap on plain
+  // text no click on many pages (Wikivoyage's), so a click was never heard
+  // there. One that does follow the touch is the same tap, and passes.
+  var touch = null;
+  on('touchstart', function(e) { var c = e.touches && e.touches.length === 1 && e.touches[0]; touch = c ? { x: c.clientX, y: c.clientY, at: Date.now() } : null; }, moved);
+  on('touchend', function(e) {
+    var c = e.changedTouches && e.changedTouches[0], was = touch;
+    touch = null;
+    if (!was || !c || Date.now() - was.at > _TTS_TAP_MS || Math.abs(c.clientX - was.x) > _TTS_TAP_SLOP || Math.abs(c.clientY - was.y) > _TTS_TAP_SLOP) return;
+    _ttsTouchedAt = Date.now();
+    _ttsTap({ target: e.target, clientX: c.clientX, clientY: c.clientY, button: 0, defaultPrevented: e.defaultPrevented });
+  }, moved);
+  _ttsStyle(doc);
   _ttsRead = { plan: plan, doc: doc, win: win, following: true, ranges: null, key: '', off: off };
   if (plan.sel) { try { win.getSelection().removeAllRanges(); } catch (e) {} } // the mark takes its place
 }
@@ -743,8 +760,9 @@ var _ttsSliding = false; // a finger is on the slider: the bar is not redrawn un
 var _TTS_CHEVRON = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>';
 var _TTS_PAUSE_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
 var _TTS_PLAY_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10-6.5a1 1 0 0 0 0-1.7l-10-6.6A1 1 0 0 0 8 5.5z"/></svg>';
-var _TTS_BACK_ICON = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 6.5v11a1 1 0 0 1-1.6.8l-7-5.5a1 1 0 0 1 0-1.6l7-5.5a1 1 0 0 1 1.6.8zM21 6.5v11a1 1 0 0 1-1.6.8l-7-5.5a1 1 0 0 1 0-1.6l7-5.5a1 1 0 0 1 1.6.8z"/></svg>';
-var _TTS_ON_ICON = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13 6.5v11a1 1 0 0 0 1.6.8l7-5.5a1 1 0 0 0 0-1.6l-7-5.5a1 1 0 0 0-1.6.8zM3 6.5v11a1 1 0 0 0 1.6.8l7-5.5a1 1 0 0 0 0-1.6l-7-5.5A1 1 0 0 0 3 6.5z"/></svg>';
+// Back a sentence: a turning arrow, as a player's replay, not a skip (Eric,
+// 2026-10-21: "just one back rewindish circle to restart from previous sentence").
+var _TTS_BACK_ICON = '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4v6h6"/><path d="M3.5 15a8.5 8.5 0 1 0 2-8.8L3 10"/></svg>';
 var _TTS_CLOSE_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 // The voices this article's language can be read in: the server's, in its
 // order (none Settings turned off), then this browser's.
@@ -802,11 +820,10 @@ function _ttsBarHtml() {
   h += '<span class="tts-bar-anchor">' + btn('tts-bar-speed', t('tts_speed'), "_ttsMenuToggle('speed')", esc(_ttsRateLabel(rate)),
     ' aria-haspopup="true" aria-expanded="' + (_ttsMenuOpen === 'speed') + '"') +
     (_ttsMenuOpen === 'speed' ? _ttsSpeedHtml(rate) : '') + '</span>';
-  // A sentence back and on, around pause (Eric, 2026-10-21: "go forward/backward sentences").
+  // One way back, before pause: the sentence before this one, read again.
   h += btn('tts-bar-btn tts-bar-step', t('tts_prev_sentence'), '_ttsStep(-1)', _TTS_BACK_ICON);
   h += btn('tts-bar-btn', t(_ttsPaused ? 'resume' : 'pause'), '_ttsPauseToggle()', _ttsPaused ? _TTS_PLAY_ICON : _TTS_PAUSE_ICON,
     ' aria-pressed="' + _ttsPaused + '"');
-  h += btn('tts-bar-btn tts-bar-step', t('tts_next_sentence'), '_ttsStep(1)', _TTS_ON_ICON);
   h += btn('tts-bar-btn', t('tts_stop'), '_ttsStop()', _TTS_CLOSE_ICON);
   return h;
 }

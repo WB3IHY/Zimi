@@ -524,7 +524,7 @@ const tick = () => new Promise(r => setImmediate(r));
     function mkDoc(rootSpec, sel) {
       order = 0;
       const main = node(rootSpec, null);
-      const doc = { addEventListener() {}, removeEventListener() {}, main, documentElement: { classList: { contains: () => false, toggle() {} } }, head: { appendChild() {} }, getElementById: () => null, createElement: () => ({}),
+      const doc = { addEventListener() {}, removeEventListener() {}, main, documentElement: { classList: { contains: () => false, toggle() {}, add(c) { doc.on = c; }, remove(c) { if (doc.on === c) doc.on = null; } } }, head: { appendChild() {} }, getElementById: () => null, createElement: () => ({}),
         createRange: () => ({ setStart(n, o) { this.startContainer = n; this.startOffset = o; }, setEnd(n, o) { this.endContainer = n; this.endOffset = o; },
           getBoundingClientRect() { return doc.rect(this); }, getClientRects() { return [doc.rect(this)]; } }),
         rect: () => ({ top: 100, bottom: 120, left: 10, right: 90, width: 80, height: 20 }) };
@@ -639,7 +639,7 @@ const tick = () => new Promise(r => setImmediate(r));
     selection = { isCollapsed: false, rangeCount: 1, getRangeAt: () => ({ startContainer: bigNode, startOffset: 0, endContainer: worldNode, endOffset: 6 }), removeAllRanges() { this.cleared = true; } };
     doc.defaultView.getSelection = () => selection;
     ax._ttsAlongBegin(selPlan);
-    ok('the selection gives way to the mark, and the article is listened to', selection.cleared && ['wheel', 'touchmove', 'keydown', 'mousedown', 'click', 'scroll'].every(t => listeners.includes(t)));
+    ok('the selection gives way to the mark, and the article is listened to', selection.cleared && ['wheel', 'touchmove', 'keydown', 'mousedown', 'click', 'scroll', 'touchstart', 'touchend'].every(t => listeners.includes(t)));
     ax._ttsAlongEnd();
     ok('when it ends the listeners go', listeners.length === 0 && ax._ttsRead === null);
 
@@ -731,6 +731,21 @@ const tick = () => new Promise(r => setImmediate(r));
     ok('never a tap far from the text', spoken === null);
     ax._ttsTap(tap({ defaultPrevented: true }));
     ok('never one something else took', spoken === null);
+    // A phone: the tap is read from the touch (iOS sends many pages no click),
+    // and a click that does follow it is the same tap.
+    Object.assign(ax, { _TTS_TAP_MS: 600, _TTS_TAP_SLOP: 10, _ttsTouchedAt: 0 });
+    const on = {}, keepAdd = doc.addEventListener;
+    doc.addEventListener = (t, f) => { on[t] = f; };
+    ax._ttsAlongBegin(plan);
+    const touch = (x, y) => ({ touches: [{ clientX: x, clientY: y }], changedTouches: [{ clientX: x, clientY: y }], target: { closest: () => null }, defaultPrevented: false });
+    spoken = null; on.touchstart(touch(100, 110)); on.touchend(touch(102, 111));
+    ok('a touch that stays put is a tap: the reading moves there', spoken && spoken.chunks[0].text.startsWith('Dr. Smith paid'), spoken && spoken.chunks[0].text);
+    spoken = null; on.click(tap());
+    ok('...and the click after it is the same tap, not a second', spoken === null);
+    ax._ttsTouchedAt = 0;
+    spoken = null; on.touchstart(touch(100, 110)); on.touchend(touch(100, 160));
+    ok('a touch that moved is a scroll, not a tap', spoken === null);
+    doc.addEventListener = keepAdd;
     doc.documentElement.classList.contains = c => c === 'zb-paged';
     ax._ttsTap(tap({ clientX: 20 }));
     ok('on pages the edge turns the page, it does not seek, and following stops', spoken === null && ax._ttsRead.following === false);
