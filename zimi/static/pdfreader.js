@@ -360,6 +360,7 @@
   function paint() {
     pageBtn.innerHTML = esc(t('n_of_total', { n: '\u0000', total: num(pages) })).replace('\u0000', '<b>' + num(page) + '</b>');
     if (!scrubbing) scrub.value = String(page);
+    fillScrub();
     scrub.setAttribute('aria-valuetext', t('n_of_total', { n: num(page), total: num(pages) }));
     prevBtn.disabled = firstBtn.disabled = !stepTo(-1);
     nextBtn.disabled = lastBtn.disabled = !stepTo(1);
@@ -442,8 +443,14 @@
   var resizeTimer = null;
   window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(applySpread, RESIZE_MS); });
   var scrubbing = false;
+  // How far through the document, as the track's amber part (the CSS draws it).
+  function fillScrub() {
+    var max = Number(scrub.max) || 1;
+    scrub.style.setProperty('--fill', max > 1 ? ((Number(scrub.value) - 1) / (max - 1)).toFixed(4) : '0');
+  }
   scrub.addEventListener('input', function () {
     scrubbing = true;
+    fillScrub();
     pageBtn.innerHTML = esc(t('n_of_total', { n: '\u0000', total: num(pages) })).replace('\u0000', '<b>' + num(Number(scrub.value)) + '</b>');
   });
   scrub.addEventListener('change', function () { scrubbing = false; goPage(Number(scrub.value)); });
