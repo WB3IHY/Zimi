@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.14.1] - 2026-10-22
+
+### Highlights
+
+- Read aloud reads along: the sentence being read is marked and the page follows it. Tap a sentence or select text to start there, step back or on a sentence, and pick any speed from 0.5× to 3×.
+- Settings, Voices measures how fast each voice is on this server, and Automatic reads with one that keeps up.
+
+### Added
+
+- Read along: the sentence being read is marked and the page follows it; a tap on a sentence or a selection sets where it reads; Back and On in the reading bar step a sentence.
+- Read aloud's speed is a slider from 0.5× to 3×, with any voice; a voice too slow for the chosen speed says so.
+- Settings, Voices tests each voice as a reading uses it (Cold start, Warm start, Top speed), this device's voice too.
+- PDFs show two pages side by side wherever two fit.
+- In a book, the chapter in the footer opens the contents.
+- The PyPI wheels and sdists carry build provenance attestations.
+
+### Changed
+
+- Numbers, dates, sizes, sorting and the first day of the week follow Zimi's language.
+- Read aloud cuts sentences as people read them, reads a heading on its own, and leaves out citation marks, the infobox, tables of facts, captions and reference lists.
+- Read aloud is fetched the first time it is used, not with every page, and is kept for offline use.
+- Dependency floors are raised past known vulnerabilities.
+
+### Fixed
+
+- Red and Dark themes: text never takes its background's colour ([#119](https://github.com/epheterson/Zimi/issues/119)).
+- In private mode, a name typed while the sign-in sheet opened could be lost, and the right password refused.
+- Read aloud from the ⋯ menu closes the menu.
+- Read aloud no longer calls a voice slow after a moment's wait, and its messages sit above the reading bar.
+- Read along follows the page on an iPhone, and the previous sentence's mark clears.
+- Arabic and Hebrew: spacing and arrows follow the reading direction, in the Almanac calendar and the reading bar.
+- The offline PDF library list matches the app's, sizes included.
+- espeak's test voices are no longer offered.
+
 ## [1.14.0] - 2026-10-19
 
 ### Added
