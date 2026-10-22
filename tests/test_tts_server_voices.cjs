@@ -42,10 +42,12 @@ const ctx = {
   _TTS_GAP_OK_S: 0.5,
   _TTS_GAP_RATES: [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3],
   _TTS_RATE_EPS: 1e-6,
+  _TTS_SLOW_FOR_MS: 24 * 3600 * 1000,
 };
 vm.createContext(ctx);
 vm.runInContext(['_voiceTimings', '_ttsServerEngines', '_ttsChosenVoice', '_ttsRowOrder', '_ttsSlowEngines', '_ttsMarkSlow', '_ttsGapAt', '_ttsKeepsUp', '_ttsTooSlow', '_ttsServerSays', '_ttsCanSpeak', '_ttsSpeakUrl'].map(fn).join('\n'), ctx);
 const engines = lang => JSON.stringify(ctx._ttsServerEngines(lang));
+const slowOnes = () => JSON.stringify(Object.keys(JSON.parse(store.zimi_tts_slow || '{}')));
 
 ok('Automatic: the server\'s choice first, then the rest', engines('en') === '["kokoro","piper"]', engines('en'));
 ok('a ZIM\'s three-letter code and a region find the language', engines('eng') === '["kokoro","piper"]' && engines('en-GB') === '["kokoro","piper"]');
@@ -58,14 +60,24 @@ ok('Device: no server voice, the browser reads as before', engines('en') === '[]
 prefs = { voice: '', off: [] };
 ok('a language the server cannot say: none', engines('de') === '[]');
 
+store.zimi_tts_slow = '["piper","espeak"]'; // kept before 1.14.1, when a moment's wait was called slow
+ok('a list of slow voices from before 1.14.1 is forgotten', JSON.stringify(ctx._ttsSlowEngines()) === '[]');
 ctx._ttsMarkSlow('kokoro');
+const markedAt = JSON.parse(store.zimi_tts_slow).kokoro;
 ctx._ttsMarkSlow('kokoro');
-ok('a slow engine is remembered once', store.zimi_tts_slow === '["kokoro"]', store.zimi_tts_slow);
+ok('a slow engine is remembered once, with when', JSON.stringify(Object.keys(JSON.parse(store.zimi_tts_slow))) === '["kokoro"]' && JSON.parse(store.zimi_tts_slow).kokoro === markedAt, store.zimi_tts_slow);
 ok('Automatic: a slow engine reads last', engines('en') === '["piper","kokoro"]', engines('en'));
 ok('...and still reads when it is the only one', engines('fr') === '["kokoro"]');
 prefs = { voice: 'kokoro', off: [] };
 ok('a slow engine that was chosen still reads, alone', engines('en') === '["kokoro"]', engines('en'));
 prefs = { voice: '', off: [] };
+store.zimi_tts_slow = JSON.stringify({ kokoro: Date.now() - 25 * 3600 * 1000 });
+ok('a browser\'s slow mark holds a day, not for good', engines('en') === '["kokoro","piper"]', engines('en'));
+store.zimi_tts_slow = JSON.stringify({ piper: Date.now() });
+ctx._ttsVoices.timings = { kokoro: { rtf: 2.9 } };
+ok('Automatic: a voice the server measured too slow reads after one only this browser thought slow', engines('en') === '["piper","kokoro"]', engines('en'));
+ctx._ttsVoices.timings = {};
+store.zimi_tts_slow = JSON.stringify({ kokoro: Date.now() });
 
 
 // What the server measured wins over this browser's own mark, at this speed.
@@ -167,7 +179,7 @@ ok('the first chunk plays in the first engine', engineOf(a.src) === 'kokoro' && 
 a.paused = true;
 timers.filter(Boolean).pop().f(); // six seconds and still silent
 ok('silent too long: the next engine says it', engineOf(a.src) === 'piper' && textOf(a.src) === 'one.', a.src);
-ok('...and the slow one is remembered', store.zimi_tts_slow === '["kokoro"]', store.zimi_tts_slow);
+ok('...and the slow one is remembered', slowOnes() === '["kokoro"]', store.zimi_tts_slow);
 a.paused = false; a.onplaying();
 ok('while a chunk plays the next two are asked for, in the engine now reading', fetched.length === 2 && fetched.every(u => engineOf(u) === 'piper') && fetched.map(textOf).join() === 'two.,three.', fetched.join(' '));
 a.onended(); a.onplaying(); a.onended();
@@ -200,7 +212,7 @@ ok('...and a short wait is not slow (a heading is over in a second)', !store.zim
 a.paused = true;
 timers.filter(Boolean).pop().f(); // and still silent six seconds later
 ok('...still the same voice, no switch mid-article', engineOf(a.src) === 'kokoro' && textOf(a.src) === 'two.', a.src);
-ok('...and six silent seconds mark it slow, for the next reading', store.zimi_tts_slow === '["kokoro"]', store.zimi_tts_slow);
+ok('...and six silent seconds mark it slow, for the next reading', slowOnes() === '["kokoro"]', store.zimi_tts_slow);
 
 r = freshReading();
 a = ctx._ttsAudio;
@@ -343,7 +355,7 @@ const tick = () => new Promise(r => setImmediate(r));
   ctx._ttsSpeakServer(chunks, 'en', ['kokoro', 'piper'], 1, null);
   au.paused = true;
   timers.filter(Boolean).pop().f();
-  ok('Automatic keeps the switch: the next engine says it', engineOf(au.src) === 'piper' && store.zimi_tts_slow === '["kokoro"]', au.src);
+  ok('Automatic keeps the switch: the next engine says it', engineOf(au.src) === 'piper' && slowOnes() === '["kokoro"]', au.src);
 
   // the offer itself
   const toasts = [];
@@ -398,7 +410,7 @@ const tick = () => new Promise(r => setImmediate(r));
   ok('a voice picked by name keeps reading at any speed, and one that keeps up is offered', restarts.length === 0 && toasts.length === 1 && /tts_slow_at/.test(toasts[0].msg) && /PIPER/.test(toasts[0].label), JSON.stringify(toasts));
   toasts[0].undo();
   ok('...taking it switches now, from the sentence it is at', restarts.join() === 'pick:piper', restarts.join());
-  ok('...and the voice\'s name says it is too slow, not the speed', /KOKORO tts_too_slow/.test(ctx._ttsVoiceLabel()), ctx._ttsVoiceLabel());
+  ok('...and the bar names the voice alone: (Too slow) is for the voice list, where there is room', ctx._ttsVoiceLabel() === 'KOKORO', ctx._ttsVoiceLabel());
   rate = 1;
   ok('...until a speed it keeps up at', ctx._ttsVoiceLabel() === 'KOKORO', ctx._ttsVoiceLabel());
 

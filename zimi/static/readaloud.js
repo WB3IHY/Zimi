@@ -61,8 +61,11 @@ function _ttsServerEngines(lang) {
   if (!row || chosen === _DEVICE_VOICE) return [];
   var order = _ttsRowOrder(row, prefs);
   if (chosen && order.indexOf(chosen) >= 0) return [chosen];
+  // Those that keep up, then those only this browser found slow, and last those
+  // the server measured too slow: a guess never outranks a measurement.
   var quick = order.filter(function(e) { return !_ttsTooSlow(e); });
-  return quick.concat(order.filter(function(e) { return quick.indexOf(e) < 0; }));
+  var measured = order.filter(function(e) { return quick.indexOf(e) < 0 && _ttsKeepsUp(e, _ttsRate()) === false; });
+  return quick.concat(order.filter(function(e) { return quick.indexOf(e) < 0 && measured.indexOf(e) < 0; }), measured);
 }
 // The engines the server has for a language row, its own choice first, none
 // that Settings turned off.
@@ -90,13 +93,20 @@ function _ttsSuggestFaster(lang, slowEngine) {
   _showToast(t('tts_slow_suggest', { slow: _voiceEngineName(slowEngine), fast: _voiceEngineName(faster) }), _TTS_SUGGEST_MS,
     function() { _setVoicePrefs({ read: faster }); }, t('tts_slow_use', { fast: _voiceEngineName(faster) }));
 }
+// This browser's own finding that a voice kept a reading waiting holds for a
+// day: a busy hour on the server is not the voice's nature. Kept as {engine:
+// when}; the list kept before 1.14.1 is dropped, since a reading then called a
+// voice slow after a moment's wait.
+var _TTS_SLOW_FOR_MS = 24 * 3600 * 1000;
 function _ttsSlowEngines() {
-  var s = _getStorageJSON(SK.TTS_SLOW, []);
-  return Array.isArray(s) ? s : [];
+  var s = _getStorageJSON(SK.TTS_SLOW, {}), now = Date.now();
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return [];
+  return Object.keys(s).filter(function(e) { return typeof s[e] === 'number' && now - s[e] < _TTS_SLOW_FOR_MS; });
 }
 function _ttsMarkSlow(engine) {
-  var s = _ttsSlowEngines();
-  if (s.indexOf(engine) < 0) { s.push(engine); _setStorageJSON(SK.TTS_SLOW, s); }
+  var s = {};
+  _ttsSlowEngines().forEach(function(e) { s[e] = _getStorageJSON(SK.TTS_SLOW, {})[e]; });
+  if (!(engine in s)) { s[engine] = Date.now(); _setStorageJSON(SK.TTS_SLOW, s); }
 }
 // Too slow to read with at this speed: as the server measured it, else as
 // this browser found it (a reading that waited for it).
@@ -744,11 +754,10 @@ function _ttsVoicesFor(lang) {
   if (_TTS_AVAILABLE) out.push(_DEVICE_VOICE);
   return out;
 }
-// The voice reading, and (Too slow) when it pauses at this speed: the voice's
-// name says it, not the speed (Eric, 2026-10-20).
+// The voice reading, by its name alone: (Too slow) is for choosing one, in
+// the voice list, not the bar, where it has no room (Eric, 2026-10-21).
 function _ttsVoiceLabel() {
-  var e = _ttsNow.engine;
-  return _voiceEngineName(e) + (e && _ttsKeepsUp(e, _ttsRate()) === false ? ' ' + t('tts_too_slow') : '');
+  return _voiceEngineName(_ttsNow.engine);
 }
 // The speed sheet: a slider (the bar's button says the speed), the marks
 // under it each a tap away. Arrow keys step 0.05 and never snap.
