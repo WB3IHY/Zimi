@@ -758,7 +758,13 @@ def timings():
     """{engine: {"first_s", "cold_s", "rtf", "n"}} measured on this machine,
     as far as they are known."""
     with _timings_lock:
-        return json.loads(json.dumps(_timings_now()["engines"]))
+        got = json.loads(json.dumps(_timings_now()["engines"]))
+    # An engine with no model to load (eSpeak) is never cold: after a rest it
+    # starts as fast as ever, so its cold start is its warm one, not unknown.
+    for engine, rec in got.items():
+        if engine not in DOWNLOADED and "cold_s" not in rec and "first_s" in rec:
+            rec["cold_s"] = rec["first_s"]
+    return got
 
 
 def _note_timing(engine, seconds, audio_s, chars, cold, weight=TIMING_WEIGHT):

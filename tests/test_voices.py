@@ -1658,3 +1658,13 @@ def test_espeak_leaves_out_its_fictional_and_test_voices(monkeypatch):
     langs = voices._espeak_voices()
     assert {"eo", "jbo", "hyw", "en"} <= set(langs)
     assert not {"piqd", "qya", "sjn", "py", "qdb", "xex"} & set(langs)
+
+
+def test_an_engine_with_no_model_is_never_cold_so_its_cold_start_is_its_warm(data):
+    with voices._timings_lock:
+        t = voices._timings_now()
+        t["engines"]["espeak"] = {"first_s": 0.04, "n": 3}
+        t["engines"]["kokoro"] = {"first_s": 17.0, "n": 3}
+    got = voices.timings()
+    assert got["espeak"]["cold_s"] == 0.04, "eSpeak after a rest is eSpeak warm"
+    assert "cold_s" not in got["kokoro"], "a model that loads keeps its own, unknown until timed"
