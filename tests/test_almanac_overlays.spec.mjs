@@ -4,7 +4,7 @@
 // and on a phone by a 44px x; and the tip's button is always where a finger
 // can reach it (the whole tip is on the screen, nothing over it).
 //
-// Start a server first, on its own folders (no ZIMs needed):
+// Start a server first, on its own fresh folders (no ZIMs needed):
 //   ZIMI_TORRENT=0 ZIMI_OFFLINE=1 ZIM_DIR=/tmp/zimi-empty ZIMI_DATA_DIR=/tmp/zimi-empty-data \
 //     python3 -m zimi serve --port 8877
 // Run (SHOTS_DIR keeps the screenshots somewhere to read them):
@@ -14,6 +14,11 @@
 import { test, expect } from '@playwright/test';
 
 const BASE = process.env.BASE_URL || 'http://localhost:8877';
+// A fresh data dir greets with "Welcome to Zimi" until a password is set;
+// loopback may set it, as the other specs do.
+test.beforeAll(async ({ request }) => {
+  await request.post(`${BASE}/manage/set-password`, { headers: { 'Content-Type': 'application/json' }, data: { password: 'overlay-spec-pw' } });
+});
 const SHOTS = process.env.SHOTS_DIR || 'test-results/overlays';
 test.use({ serviceWorkers: 'block' });
 const PHONE = { width: 390, height: 664 };   // a phone's page under Safari's bars
