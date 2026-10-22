@@ -122,8 +122,16 @@
   function redOn() {
     try { return !!(shell && shell._nightRedOn()); } catch (e) { return false; }
   }
+  // Zimi itself dark: dark pages are a choice only then (Eric, 2026-10-22:
+  // "Dark pages option only when in dark mode"); a light Zimi shows the page as printed.
+  function zimiDark() {
+    var th = shell ? shellTheme() : '';
+    if (th) return th === 'dark';
+    try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; }
+  }
   function darkWanted() {
     if (redOn()) return true; // no white page in Red, whatever was chosen
+    if (!zimiDark()) return false;
     var v = store(DARK_KEY);
     if (v === '1' || v === '0') return v === '1';
     try { if (shell) return !!(shell._articlesAreDark() && shell._darkenArticlesOn()); } catch (e) {}
@@ -763,9 +771,9 @@
     h += '<button type="button" role="menuitem" data-zp="rotate">' + I.rotate + '<span class="zp-grow">' + esc(t('pdf_rotate')) + '</span></button>';
     // In Red the pages are always dark: the switch shows it, says why, and can't be turned off there.
     var red = redOn();
-    h += '<button type="button" role="menuitemcheckbox" data-zp="dark" aria-checked="' + darkWanted() + '"' + (red ? ' aria-disabled="true"' : '') + '>' + I.moon +
-      '<span class="zp-grow">' + esc(t('pdf_dark_pages')) + (red ? '<span class="zp-why">' + esc(t('pdf_dark_in_red')) + '</span>' : '') + '</span><span class="zp-switch" aria-hidden="true"></span></button>' +
-      '<hr>' +
+    if (red || zimiDark()) h += '<button type="button" role="menuitemcheckbox" data-zp="dark" aria-checked="' + darkWanted() + '"' + (red ? ' aria-disabled="true"' : '') + '>' + I.moon +
+      '<span class="zp-grow">' + esc(t('pdf_dark_pages')) + (red ? '<span class="zp-why">' + esc(t('pdf_dark_in_red')) + '</span>' : '') + '</span><span class="zp-switch" aria-hidden="true"></span></button>';
+    h += '<hr>' +
       '<button type="button" role="menuitem" data-zp="download">' + I.dl + '<span class="zp-grow">' + esc(t('download')) + '</span></button>' +
       '<button type="button" role="menuitem" data-zp="print">' + I.print + '<span class="zp-grow">' + esc(t('pdf_print')) + '</span></button>' +
       '<hr>' +

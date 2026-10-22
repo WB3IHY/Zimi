@@ -536,6 +536,32 @@ def test_a_phone_held_sideways_reads_two_pages(shell):
             ctx.browser.close()
 
 
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_dark_pages_is_offered_only_in_a_dark_zimi(shell, theme):
+    """Dark pages is a choice in a dark Zimi only; a light one shows the page
+    as printed, even with Dark pages chosen before (Eric, 2026-10-22: "Dark
+    pages option only when in dark mode")."""
+    _skip_without_browser()
+    from playwright.sync_api import sync_playwright
+
+    base, name = shell
+    with sync_playwright() as pw:
+        br = pw.chromium.launch()
+        ctx = br.new_context(**pw.devices["iPhone 13"])
+        ctx.add_init_script(
+            "try { localStorage.setItem('zimi_app_theme', '%s'); localStorage.setItem('zimi_pdf_dark', '1'); } catch (e) {}" % theme
+        )
+        pg, fr, _ = _open(pw, base, name, None, ctx=ctx)
+        try:
+            fr.click(".zp-more")
+            offered = fr.evaluate("() => !!document.querySelector('.zp-menu [data-zp=\"dark\"]')")
+            dark = fr.evaluate("() => document.documentElement.classList.contains('zp-dark')")
+            assert offered == (theme == "dark"), "offered only in a dark Zimi"
+            assert dark == (theme == "dark"), "a light Zimi shows the page as printed"
+        finally:
+            br.close()
+
+
 def test_turning_the_phone_brings_the_bars_back_at_the_top(shell):
     """Turned sideways and back with the bars away and the shell's page left
     scrolled (as iOS can leave it), the bars are back, on the screen, where
