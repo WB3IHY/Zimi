@@ -445,7 +445,7 @@ const tick = () => new Promise(r => setImmediate(r));
   ok('a voice Settings turned off is not read with, whatever was picked', engines('en') === '["kokoro"]', engines('en'));
 
   // the preference itself: kept, shown, saved
-  const sandbox = { SK: { VOICE_PREFS: 'zimi_voice_prefs' }, _VOICE_ENGINES: ['kokoro', 'piper', 'say', 'espeak', 'device'], _getStorageJSON: (k, fb) => (k in store ? JSON.parse(store[k]) : fb), _setStorageJSON: (k, v) => { store[k] = JSON.stringify(v); }, localStorage: { removeItem: k => delete store[k] }, _voicesTellDictionary() {}, _paintVoices() {}, _voicesHere: null, _voiceTimings: () => ({}), _ttsKeepsUp: e => (e === 'kokoro' ? false : null), _ttsRate: () => 1, esc: x => x, escAttr: x => x, tH: k => k, t: k => k, _voiceEngineName: e => e };
+  const sandbox = { SK: { VOICE_PREFS: 'zimi_voice_prefs' }, _VOICE_ENGINES: ['kokoro', 'piper', 'say', 'espeak', 'device'], _getStorageJSON: (k, fb) => (k in store ? JSON.parse(store[k]) : fb), _setStorageJSON: (k, v) => { store[k] = JSON.stringify(v); }, localStorage: { removeItem: k => delete store[k] }, _prefWrite: (k, v) => { if (v == null) delete store[k]; else store[k] = v; }, _voicesTellDictionary() {}, _paintVoices() {}, _voicesHere: null, _voiceTimings: () => ({}), _ttsKeepsUp: e => (e === 'kokoro' ? false : null), _ttsRate: () => 1, esc: x => x, escAttr: x => x, tH: k => k, t: k => k, _voiceEngineName: e => e };
   vm.createContext(sandbox);
   vm.runInContext(['_voicePrefs', '_setVoicePrefs', '_voicePickHtml', '_voiceReadHtml', '_voiceDefaultHtml'].map(fn).join('\n'), sandbox);
   for (const k of Object.keys(store)) delete store[k];
