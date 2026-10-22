@@ -46,6 +46,7 @@ function device(seed, opts) {
     Math, JSON, Object, Array, String, Number, isFinite, Infinity,
     changes: [], full: 0, storageFull: 0,
     _zimInfo: opts.zimInfo,
+    _isPrefKey: () => false, // the store is not a setting
   };
   ctx.clock = opts.clock || 1700000000000;
   ctx.Date = { now: () => ctx.clock };

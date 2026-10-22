@@ -39,6 +39,7 @@ const zims = {
 const shown = { wiki: true, books: true, tube: true, exchange: true, reddot: true, maps: true };
 const ctx = {
   SK: { OPEN_IN_APPS: 'zimi_open_in_apps' },
+  _prefWrite: (k, v) => { if (v == null) delete store[k]; else store[k] = String(v); },
   localStorage: {
     getItem: k => (k in store ? store[k] : null),
     setItem: (k, v) => { store[k] = String(v); },

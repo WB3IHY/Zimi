@@ -178,7 +178,46 @@ var SK = {
   // articles that have none. It used to decide darkness outright.
   DARKEN_ARTICLES: 'zimi_darken_articles',
   ARTICLE_THEME: 'zimi_article_theme',
+  // When each of _PREF_KEYS last changed in this browser ({key: ms}), so the
+  // account keeps each one's newest (_prefTake). A value never stamped is 0.
+  PREF_STAMPS: 'zimi_pref_stamps',
 };
+
+// What a person sets for themselves: carried by My data, and while signed in
+// kept by the account and followed in every browser (Eric, 2026-10-21:
+// "Things a user changes while signed in should sync to all sessions all
+// browsers"). Not here: what belongs to this device or this server (the
+// Almanac's place, timed voices, a highlight's colour), or to this tab.
+var _PREF_KEYS = [
+  SK.UI_LANG, SK.HIDE_DISCOVER, SK.HIDE_LANG_CHOOSER, SK.HIDE_XZIM_LINKS,
+  SK.LIBRARY_VIEW, SK.PREF_LANGUAGES, SK.VOICE_PREFS, SK.PREF_FLAVOR,
+  SK.READER_FONT, SK.READER_FAMILY, SK.READER_THEME, SK.READER_AUTO,
+  SK.EXT_LINKS, SK.OPEN_IN_APPS,
+  SK.APP_THEME, SK.APP_THEME_BEFORE_RED, SK.ARTICLE_THEME, SK.DARKEN_ARTICLES,
+  SK.LIBRARY_SORT, SK.TTS_RATE, SK.BOOK_PREFS, SK.WIKI_PREFS,
+];
+function _isPrefKey(k) { return _PREF_KEYS.indexOf(k) >= 0; }
+function _rawGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function _prefStamps() {
+  var st = _getStorageJSON(SK.PREF_STAMPS, {});
+  return st && typeof st === 'object' && !Array.isArray(st) ? st : {};
+}
+function _prefSaveStamps(st) { try { localStorage.setItem(SK.PREF_STAMPS, JSON.stringify(st)); } catch (e) {} }
+// One of them changed here (``before``: its raw value a moment ago): stamped
+// now, and the account told soon. A write of the same value is no change.
+function _prefChanged(k, before) {
+  if (!_isPrefKey(k) || _rawGet(k) === before) return;
+  var st = _prefStamps();
+  st[k] = Date.now();
+  _prefSaveStamps(st);
+  if (typeof _prefPushSoon === 'function') _prefPushSoon();
+}
+// Every write of one of _PREF_KEYS: ``v`` a string, or null for the default.
+function _prefWrite(k, v) {
+  var before = _rawGet(k);
+  try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, String(v)); } catch (e) {}
+  _prefChanged(k, before);
+}
 
 // ── Storage Helpers ──
 function _getStorageJSON(key, fallback, session) {
@@ -241,6 +280,7 @@ function _todaySeason(now, hemi) {
   return '';
 }
 function _setStorageJSON(key, value) {
+  if (_isPrefKey(key)) { _prefWrite(key, JSON.stringify(value)); return; }
   try { localStorage.setItem(key, JSON.stringify(value)); } catch(e) {}
 }
 function _getStorageFlag(key) {
@@ -312,9 +352,8 @@ function _nightToggle() { _nightSet(!_nightRedOn()); }
 function _setAppTheme(mode) {
   if (APP_THEMES.indexOf(mode) < 0) mode = 'auto';
   var cur = _appTheme();
-  if (mode === APP_THEME_RED && cur !== APP_THEME_RED) localStorage.setItem(SK.APP_THEME_BEFORE_RED, cur);
-  if (mode === 'auto') localStorage.removeItem(SK.APP_THEME);
-  else localStorage.setItem(SK.APP_THEME, mode);
+  if (mode === APP_THEME_RED && cur !== APP_THEME_RED) _prefWrite(SK.APP_THEME_BEFORE_RED, cur);
+  _prefWrite(SK.APP_THEME, mode === 'auto' ? null : mode);
   _appThemeChanged();
 }
 // Everything that follows a theme change, whoever made it (the selector here,
@@ -379,8 +418,7 @@ function _articlesAreDark() {
 }
 function _setArticleTheme(mode) {
   if (ARTICLE_THEMES.indexOf(mode) < 0) mode = 'match';
-  if (mode === 'match') localStorage.removeItem(SK.ARTICLE_THEME);
-  else localStorage.setItem(SK.ARTICLE_THEME, mode);
+  _prefWrite(SK.ARTICLE_THEME, mode === 'match' ? null : mode);
   var seg = document.getElementById('article-theme-seg');
   if (seg) seg.innerHTML = _articleThemeSegInner();
   try { _applyArticleDarken(_readerFrameDoc()); } catch (e) {}
@@ -425,7 +463,7 @@ function _shouldSimulateDark(articlesDark, simulate, explicit, readerViewOn, loc
   return true;
 }
 function _setDarkenArticles(on) {
-  localStorage.setItem(SK.DARKEN_ARTICLES, on ? '1' : '0');
+  _prefWrite(SK.DARKEN_ARTICLES, on ? '1' : '0');
   try { _applyArticleDarken(_readerFrameDoc()); } catch (e) {}
 }
 
@@ -872,6 +910,7 @@ function _saveManageToken(token, remember) {
   if (!token) return;
   var store = remember ? localStorage : sessionStorage;
   store.setItem(SK.MANAGE_PW, token);
+  if (typeof _accountAdminIn === 'function') _accountAdminIn();
   // Persist the username alongside so it rides with the same remember scope.
   if (_manageUser) store.setItem(SK.MANAGE_USER, _manageUser);
 }
@@ -879,6 +918,7 @@ function _readManageUser() {
   return localStorage.getItem(SK.MANAGE_USER) || sessionStorage.getItem(SK.MANAGE_USER) || '';
 }
 function _clearManageToken() {
+  if (typeof _accountAdminOut === 'function') _accountAdminOut();
   localStorage.removeItem(SK.MANAGE_PW);
   sessionStorage.removeItem(SK.MANAGE_PW);
   localStorage.removeItem(SK.MANAGE_USER);
@@ -918,7 +958,7 @@ function _getPrefLanguages() {
 }
 function _setPrefLanguages(langs) {
   if (langs.length && langs.length < _AVAILABLE_LANGS.length) _setStorageJSON(SK.PREF_LANGUAGES, langs);
-  else { try { localStorage.removeItem(SK.PREF_LANGUAGES); } catch (e) {} }
+  else _prefWrite(SK.PREF_LANGUAGES, null);
 }
 // Where your languages rank a language: its place among them, or after them.
 function _prefLangRank(code) {
@@ -1082,7 +1122,7 @@ function _setVoicePrefs(change) {
   if (p.read && p.off.indexOf(p.read) >= 0) p.read = '';
   if (!p.quiet) delete p.quiet;
   if (!p.read) delete p.read;
-  if (!p.voice && !p.off.length && !p.quiet && !p.read) { try { localStorage.removeItem(SK.VOICE_PREFS); } catch (e) {} }
+  if (!p.voice && !p.off.length && !p.quiet && !p.read) _prefWrite(SK.VOICE_PREFS, null);
   else _setStorageJSON(SK.VOICE_PREFS, p);
   _voicesTellDictionary();
   _paintVoices();
@@ -1826,7 +1866,7 @@ function _getPrefFlavor() {
 var PREF_FLAVORS = ['full', 'nopic', 'mini'];
 var _NO_ICONS = { full: '', nopic: '', mini: '' };
 function _setPrefFlavor(f) {
-  try { localStorage.setItem(SK.PREF_FLAVOR, f); } catch (e) {}
+  _prefWrite(SK.PREF_FLAVOR, f);
   var seg = document.getElementById('ms-flavor-seg');
   if (seg) seg.innerHTML = _flavorSegInner();
 }
@@ -2152,7 +2192,7 @@ function _applyRTL(lang) {
 var _langLoadId = 0; // Guard against race conditions on rapid language switching
 async function setLanguage(lang) {
   _currentLang = lang;
-  localStorage.setItem(SK.UI_LANG, lang);
+  _prefWrite(SK.UI_LANG, lang);
   _keepUiLangChecked(lang);
   var myId = ++_langLoadId;
   await _loadI18n(lang);
@@ -2622,6 +2662,7 @@ async function _bootAuthGate() {
     return false;
   }
   if (j && j.role === 'admin') {
+    _accountAdmin = true;  // the account's copy comes once the page is up (_savedStart)
     return false;  // token-authed admin — proceed to the full library.
   }
   // Private public-access mode: an anonymous visitor (no valid cookie or token)
@@ -5513,7 +5554,7 @@ function _librarySort() {
 }
 function _setLibrarySort(mode) {
   if (LIBRARY_SORTS.indexOf(mode) < 0) return;
-  localStorage.setItem(SK.LIBRARY_SORT, mode);
+  _prefWrite(SK.LIBRARY_SORT, mode);
   // Move the cards rather than rebuild them. Changing the order changes only
   // the order: the same cards, in a different sequence. Rebuilding threw the
   // whole library away and made it again, which reads as the page flashing
@@ -5667,7 +5708,7 @@ function _sortLibrary(list) {
 
 function _setLibraryView(mode) {
   if (mode !== 'tiles') mode = 'list';
-  try { localStorage.setItem(SK.LIBRARY_VIEW, mode); } catch (e) {}
+  _prefWrite(SK.LIBRARY_VIEW, mode);
   renderHome();  // scope/recency filters are module state, so this re-renders in place
 }
 // The grid/list segmented toggle. Both glyphs are always shown; the active one
@@ -11054,7 +11095,7 @@ function _langChooserCtxMenu(e) {
 }
 
 function _hideLangChooser() {
-  localStorage.setItem(SK.HIDE_LANG_CHOOSER, '1');
+  _prefWrite(SK.HIDE_LANG_CHOOSER, '1');
   manageLangFilter = null;
   var ctx = document.getElementById('lang-chooser-ctx');
   if (ctx) ctx.remove();
@@ -15841,6 +15882,7 @@ function _msReorderHtml() {
 
 // A local flag that is either set ('1') or absent.
 function _setStorageFlag(key, on) {
+  if (_isPrefKey(key)) { _prefWrite(key, on ? '1' : null); return; }
   try { if (on) localStorage.setItem(key, '1'); else localStorage.removeItem(key); } catch (e) {}
 }
 
@@ -17655,7 +17697,7 @@ function _setUploadTrickle(input) {
 //   • "My data"      — this browser's bookmarks, history and preferences. Always
 //                      exportable/importable to a file; a signed-in NAMED user
 //                      also gets Save-to / Restore-from their own server account
-//                      (POST/GET /userdata). Admin-without-a-user stays file-only.
+//                      (POST/GET /userdata). Settings and the saved store follow any signed-in account, the admin too, on their own (_prefTake, _savedPull).
 //   • "Server backup"— ADMIN-only, the full server bundle (/manage/backup
 //                      scope=server): library list, collections, layout, users
 //                      with hashes, access policy, schedule, sharing prefs, seed
@@ -17666,12 +17708,7 @@ function _setUploadTrickle(input) {
 // _BACKUP_SCHEMA_VERSION in lockstep with the server.
 var _BACKUP_SCHEMA = 'zimi-backup';
 var _BACKUP_SCHEMA_VERSION = 3;
-var _PREF_KEYS = [
-  SK.UI_LANG, SK.HIDE_DISCOVER, SK.HIDE_LANG_CHOOSER, SK.HIDE_XZIM_LINKS,
-  SK.LIBRARY_VIEW, SK.PREF_LANGUAGES, SK.VOICE_PREFS, SK.PREF_FLAVOR,
-  SK.READER_FONT, SK.READER_FAMILY, SK.READER_THEME, SK.READER_AUTO,
-  SK.EXT_LINKS, SK.OPEN_IN_APPS,
-];
+// _PREF_KEYS is defined with SK, at the top.
 
 function _collectPreferences() {
   var out = {};
@@ -17790,7 +17827,7 @@ function _applyBrowserData(data, overwrite, fromAccount) {
   if (data && data.preferences && typeof data.preferences === 'object') {
     Object.keys(data.preferences).forEach(function(k) {
       if (_PREF_KEYS.indexOf(k) === -1) return;  // ignore unknown/foreign keys
-      try { localStorage.setItem(k, data.preferences[k]); } catch (e) {}
+      _prefWrite(k, data.preferences[k]);
     });
   }
   if (data) res.bm = _savedTake(data, overwrite, fromAccount);
@@ -21061,13 +21098,13 @@ function _readerViewButtonAction() {
 // re-renders the open palette so its active states stay truthful.
 function _setReaderFamily(fam) {
   if (READER_FAMILIES.indexOf(fam) < 0) return;
-  try { localStorage.setItem(SK.READER_FAMILY, fam); } catch(e) {}
+  _prefWrite(SK.READER_FAMILY, fam);
   var doc = _readerFrameDoc(); if (doc && _readerViewOn) _applyReaderTheme(doc);
   _renderReaderPalette();
 }
 function _setReaderTheme(theme) {
   if (READER_THEME_MODES.indexOf(theme) < 0) return;
-  try { localStorage.setItem(SK.READER_THEME, theme); } catch(e) {}
+  _prefWrite(SK.READER_THEME, theme);
   var doc = _readerFrameDoc(); if (doc && _readerViewOn) _applyReaderTheme(doc);
   // Keep the iframe/chrome tint in step so scroll-past-content shows theme bg.
   _tintReaderChrome();
@@ -21075,7 +21112,7 @@ function _setReaderTheme(theme) {
 }
 // One of the five text-size steps (an index into READER_FONT_LEVELS).
 function _setReaderFontStep(step) {
-  try { localStorage.setItem(SK.READER_FONT, String(READER_FONT_LEVELS[step])); } catch(e) {}
+  _prefWrite(SK.READER_FONT, String(READER_FONT_LEVELS[step]));
   var doc = _readerFrameDoc();
   try { if (doc) _applyReaderFont(doc); } catch(e) {}
   _syncFontBtnGlyph();
@@ -21086,7 +21123,7 @@ function _setReaderFontStep(step) {
 // two controls always drive the one localStorage key with identical behavior.
 function _setReaderAuto(on) {
   on = !!on;
-  try { localStorage.setItem(SK.READER_AUTO, on ? '1' : '0'); } catch(e) {}
+  _prefWrite(SK.READER_AUTO, on ? '1' : '0');
   // Turning AUTO on while a readerable article sits in raw view: apply immediately
   // so the toggle has visible effect, not just on the next article.
   if (on && !_readerViewOn && _readerViewAvailable()) _readerViewToggle();
@@ -23417,7 +23454,7 @@ function _syncOpenInAppsRow() {
   var row = box.closest('label');
   if (row) row.classList.toggle('share-locked', !ok);
 }
-function _setOpenInApps(on) { try { if (on) localStorage.removeItem(SK.OPEN_IN_APPS); else localStorage.setItem(SK.OPEN_IN_APPS, '0'); } catch (e) {} }
+function _setOpenInApps(on) { _prefWrite(SK.OPEN_IN_APPS, on ? null : '0'); }
 function _resultApp(zim, path) {
   if (!_openInApps()) return '';
   var z = _zimInfo(zim), app = z && _RESULT_APP[z.kind];
@@ -27296,6 +27333,7 @@ var _SAVED_PUSH_MS = 2000;           // a change goes up this long after it is m
 var _SAVED_PUSH_OFTEN_MS = 20000;    // a place moving while reading: at most this often
 var _SAVED_PULL_EVERY_MS = 60000;    // coming back to the tab, at most this often
 var _SAVED_KEEPALIVE_MAX = 60000;    // bytes a request sent while leaving may carry
+var _PREF_STAMP_FRESH_MS = 2000;     // a setting another tab wrote and stamped this recently was stamped there
 var _savedPushTimer = null, _savedPushDue = 0, _savedPushing = null, _savedPushAgain = false, _savedPulledAt = 0;
 // What the account held when it last answered (Saved.stamps of its copy),
 // null until it has; the body last sent while leaving; whether the account
@@ -27311,7 +27349,19 @@ function _savedSetBehind(on) {
   _savedBehind = on;
   _savedRefreshPanel();
 }
-function _savedSignedIn() { return !!(_userSession && _userSession.name); }
+// Signed in to an account: a named user, or an admin (who has one too, on the
+// server: users.request_data_owner). What is kept and what is set follow it.
+var _accountAdmin = false;
+function _savedSignedIn() { return !!((_userSession && _userSession.name) || _accountAdmin); }
+// An admin signed in (a sign-in here, or the boot's /whoami): the account's
+// copy is fetched, and this browser's goes up. Out: nothing more goes up.
+function _accountAdminIn() {
+  if (_accountAdmin) return;
+  _accountAdmin = true;
+  _savedBase = null; _prefBase = null;
+  if (typeof _savedPull === 'function' && _savedPulledAt !== undefined) _savedPull();
+}
+function _accountAdminOut() { _accountAdmin = false; _prefBase = null; }
 // What the account has not had: null when it has everything.
 function _savedDelta() {
   var d = Saved.since(_savedBase), n = 0;
@@ -27383,7 +27433,105 @@ function _savedPull() {
     if (!d || Saved.account() !== account) return;
     if (d.saved && typeof d.saved === 'object') _savedBase = Saved.stamps(d.saved);
     _savedTake(d, false, true);
+    _prefTake(d.settings || {});
   }).catch(function () {});
+}
+
+// ── Settings: what is set in one browser, in every one signed in to the account ──
+// Each of _PREF_KEYS goes up with when it changed here (SK.PREF_STAMPS); the
+// account keeps each key's newest (users._merge_settings) and hands back what
+// it holds. Coming down, a setting the account changed later is taken, and
+// what depends on it drawn again (_prefApplied). A browser's setting never
+// stamped (from before this) fills only what the account lacks; a setting at
+// its default that was never changed here does not go up at all.
+var _prefBase = null; // {key: t} the account held when it last answered, or null
+var _prefPushTimer = null, _prefLeftBody = '';
+// What the account has not had: {key: {v, t}}, or null.
+function _prefDelta() {
+  var st = _prefStamps(), out = {}, n = 0;
+  _PREF_KEYS.forEach(function (k) {
+    var t = st[k] || 0, v = _rawGet(k);
+    if (!t && v === null) return;
+    if (_prefBase && k in _prefBase && _prefBase[k] >= t) return;
+    out[k] = { v: v, t: t }; n++;
+  });
+  return n ? out : null;
+}
+function _prefPushSoon() {
+  if (!_savedSignedIn()) return;
+  clearTimeout(_prefPushTimer);
+  _prefPushTimer = setTimeout(_prefPush, _SAVED_PUSH_MS);
+}
+// leaving: while the page goes, in a request that outlives it.
+function _prefPush(leaving) {
+  clearTimeout(_prefPushTimer); _prefPushTimer = null;
+  if (!_savedSignedIn()) return Promise.resolve(true);
+  var delta = _prefDelta();
+  if (!delta) return Promise.resolve(true);
+  var body = JSON.stringify({ settings: delta });
+  if (leaving) { if (body === _prefLeftBody) return Promise.resolve(true); _prefLeftBody = body; }
+  return fetch('/userdata', {
+    method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body,
+    keepalive: !!leaving && new Blob([body]).size < _SAVED_KEEPALIVE_MAX,
+  }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+    if (!d || !d.settings) return false;
+    _prefTake(d.settings);
+    return true;
+  }).catch(function () { return false; });
+}
+// The account's settings ({key: {v, t}}) come in.
+function _prefTake(settings) {
+  if (!settings || typeof settings !== 'object') return;
+  var st = _prefStamps(), changed = [], ahead = false, base = {};
+  _PREF_KEYS.forEach(function (k) {
+    var acc = settings[k], mine = st[k] || 0, local = _rawGet(k);
+    if (!acc || typeof acc !== 'object' || typeof acc.t !== 'number') {
+      if (mine || local !== null) ahead = true; // the account lacks it: it goes up
+      return;
+    }
+    base[k] = acc.t;
+    if (mine > acc.t) { ahead = true; return; } // changed here since: it goes up
+    var v = typeof acc.v === 'string' ? acc.v : null;
+    if (local !== v) {
+      try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {}
+      changed.push(k);
+    }
+    st[k] = acc.t;
+  });
+  _prefSaveStamps(st);
+  _prefBase = base;
+  if (changed.length) _prefApplied(changed);
+  if (ahead) _prefPushSoon();
+}
+// Settings that changed underneath this page (the account's, or another tab's):
+// what shows them is drawn again.
+function _prefApplied(keys) {
+  var has = function (k) { return keys.indexOf(k) >= 0; };
+  if (has(SK.UI_LANG)) {
+    var lang = _rawGet(SK.UI_LANG);
+    if (lang && lang !== _currentLang && _AVAILABLE_LANGS.some(function (l) { return l.code === lang; })) setLanguage(lang);
+  }
+  if (has(SK.APP_THEME) || has(SK.ARTICLE_THEME) || has(SK.DARKEN_ARTICLES)) {
+    try { _appThemeChanged(); } catch (e) {}
+  }
+  if (has(SK.READER_FAMILY) || has(SK.READER_THEME) || has(SK.READER_FONT)) {
+    try {
+      var doc = _readerFrameDoc();
+      if (doc && _readerViewOn) _applyReaderTheme(doc);
+      if (doc) _applyReaderFont(doc);
+      _tintReaderChrome(); _syncFontBtnGlyph(); _renderReaderPalette();
+    } catch (e) {}
+  }
+  if (has(SK.PREF_LANGUAGES) || has(SK.HIDE_LANG_CHOOSER)) {
+    try { _renderLangDropdown(); } catch (e) {}
+    if (typeof _paintLangPrefs === 'function') try { _paintLangPrefs(); } catch (e) {}
+  }
+  if (has(SK.VOICE_PREFS) || has(SK.PREF_LANGUAGES)) {
+    try { _markSpeaking(); } catch (e) {}
+    if (typeof _paintVoices === 'function') try { _paintVoices(); } catch (e) {}
+  }
+  var home = [SK.PREF_LANGUAGES, SK.HIDE_LANG_CHOOSER, SK.HIDE_DISCOVER, SK.LIBRARY_VIEW, SK.LIBRARY_SORT, SK.OPEN_IN_APPS];
+  if (mode === 'home' && !readerOpen && home.some(has)) { try { renderHome(); } catch (e) {} }
 }
 // Data that holds a store (the account's copy, a My data file) comes in: the
 // store merged, and bookmarks and folders in the pre-1.12 shape migrated. An
@@ -27408,7 +27556,8 @@ function _savedTake(d, overwrite, fromAccount) {
 // Whose store the page shows: the account's once signed in (the browser
 // keeps a copy of each), the browser's own signed out.
 function _savedUseSession() {
-  if (Saved.use(_savedSignedIn() ? _userSession.name : '')) { _savedBase = null; _savedChanged(true); }
+  if (Saved.use(_userSession && _userSession.name ? _userSession.name : '')) { _savedBase = null; _savedChanged(true); }
+  _prefBase = null;
   _savedPull();
 }
 // What the account has not had, sent now; the promise says whether it has it
@@ -27424,10 +27573,19 @@ function _savedFlush(leaving) {
 // what it has not had is sent on leaving it.
 function _savedStart() {
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden) _savedFlush(true);
+    if (document.hidden) { _savedFlush(true); _prefPush(true); }
     else if (Date.now() - _savedPulledAt > _SAVED_PULL_EVERY_MS) _savedPull();
   });
-  window.addEventListener('pagehide', function () { _savedFlush(true); });
+  window.addEventListener('pagehide', function () { _savedFlush(true); _prefPush(true); });
+  // A setting written in another page of this browser: another tab of Zimi
+  // (it stamps what it writes), or a page that does not stamp (an app page in
+  // the reader, the dictionary), whose change is stamped here and sent.
+  window.addEventListener('storage', function (e) {
+    if (!e.key || !_isPrefKey(e.key)) return;
+    var st = _prefStamps();
+    if (Date.now() - (st[e.key] || 0) > _PREF_STAMP_FRESH_MS) { st[e.key] = Date.now(); _prefSaveStamps(st); _prefPushSoon(); }
+    _prefApplied([e.key]);
+  });
   // Another tab of this browser wrote the store: merged in, not overwritten
   // the next time this tab writes (the other tab sends its own change up).
   window.addEventListener('storage', function (e) {
@@ -29100,10 +29258,7 @@ function _extLinkMode() {
 }
 function _setExtLinkMode(mode) {
   if (EXT_LINK_MODES.indexOf(mode) < 0) mode = 'mark';
-  try {
-    if (mode === 'mark') localStorage.removeItem(SK.EXT_LINKS);
-    else localStorage.setItem(SK.EXT_LINKS, mode);
-  } catch (e) {}
+  _prefWrite(SK.EXT_LINKS, mode === 'mark' ? null : mode);
   var seg = document.getElementById('ext-links-seg');
   if (seg) seg.innerHTML = _extLinksSegInner();
   _extRemarkOpen();

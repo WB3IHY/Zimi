@@ -5675,10 +5675,10 @@ class ZimHandler(BaseHTTPRequestHandler):
 
     def _handle_userdata_get(self):
         """GET /userdata — the signed-in user's own server-stored My-data blob
-        (bookmarks/history/preferences). Only a NAMED user resolves here; an
-        admin-without-a-user or an anonymous visitor gets 401 and keeps their
-        data in the browser."""
-        name = _users.resolve_request_user(self)
+        (saved store, settings, bookmarks/history/preferences). Every signed-in
+        account has one, the primary admin included (users.request_data_owner);
+        an anonymous visitor gets 401 and keeps their data in the browser."""
+        name = _users.request_data_owner(self)
         if not name:
             return self._json(401, {"error": "sign in required"})
         return self._json(200, _users.load_user_data(name))
@@ -5692,7 +5692,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         left alone; ``saved`` (1.12) is merged with the kept store
         (users.sync_user_data), and the merged store comes back, so a device
         takes in what the others wrote in the same trip."""
-        name = _users.resolve_request_user(self)
+        name = _users.request_data_owner(self)
         if not name:
             return self._json(401, {"error": "sign in required"})
         ok, err, doc = _users.sync_user_data(
@@ -5707,7 +5707,9 @@ class ZimHandler(BaseHTTPRequestHandler):
                 else 503 if err == "read failed" else 400
             )
             return self._json(status, {"error": err})
-        return self._json(200, {"status": "ok", "saved": doc["saved"]})
+        return self._json(
+            200, {"status": "ok", "saved": doc["saved"], "settings": doc["settings"]}
+        )
 
     def log_message(self, format, *args):
         # Light logging: errors + slow requests. Suppress 200/304 noise.

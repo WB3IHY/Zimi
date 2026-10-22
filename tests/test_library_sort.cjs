@@ -35,6 +35,7 @@ const sandbox = {
     setItem: (k, v) => { store[k] = String(v); },
   },
   SK: { LIBRARY_SORT: 'zimi_library_sort' },
+  _prefWrite: (k, v) => { if (v == null) delete store[k]; else store[k] = String(v); },
   // Changing the order moves the cards in place; when it cannot, the caller
   // rebuilds. Both are recorded so the fallback is a fact rather than a hope.
   renderHome: () => { sandboxCalls.rebuilt++; },
