@@ -9,12 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Highlights
 
-- Read aloud reads along: the sentence being read is marked and the page follows it. Tap a sentence or select text to start there, step back or on a sentence, and pick any speed from 0.5× to 3×.
+- Read aloud reads along: the sentence being read is marked and the page follows it. Tap a sentence or select text to start there, go back a sentence, and pick any speed from 0.5× to 3×.
 - Settings, Voices measures how fast each voice is on this server, and Automatic reads with one that keeps up.
+- Signed in, your settings follow you: languages, theme, reading and voice settings changed in one browser appear in your others.
 
 ### Added
 
-- Read along: the sentence being read is marked and the page follows it; a tap on a sentence or a selection sets where it reads; Back and On in the reading bar step a sentence.
+- Read along: the sentence being read is marked and the page follows it; a tap on a sentence or a selection sets where it reads; the reading bar's back button reads the sentence before again.
+- Signed in, settings follow the account to every browser, each setting's latest change kept; the admin has an account too, so saved articles follow the admin as well.
+- The Dictionary's word of the day is said ahead by the server's voice, so Say plays at once.
 - Read aloud's speed is a slider from 0.5× to 3×, with any voice; a voice too slow for the chosen speed says so.
 - Settings, Voices tests each voice as a reading uses it (Cold start, Warm start, Top speed), this device's voice too.
 - PDFs show two pages side by side wherever two fit.
@@ -36,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Read aloud from the ⋯ menu closes the menu.
 - Read aloud no longer calls a voice slow after a moment's wait, and its messages sit above the reading bar.
 - Read along follows the page on an iPhone, and the previous sentence's mark clears.
+- On a phone, a tap on a sentence moves the reading there on every page, and the sentence is marked at once, not when a slow voice gets to it.
+- Automatic no longer reads with a voice the server measured too slow, and the reading bar names the voice without (Too slow).
 - Arabic and Hebrew: spacing and arrows follow the reading direction, in the Almanac calendar and the reading bar.
 - The offline PDF library list matches the app's, sizes included.
 - espeak's test voices are no longer offered.
