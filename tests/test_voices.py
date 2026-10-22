@@ -1517,9 +1517,11 @@ def test_timings_are_a_moving_average_and_a_test_replaces_them(data):
 def test_timings_outlive_a_restart_and_start_over_on_a_new_fingerprint(data, monkeypatch):
     monkeypatch.setattr(voices, "_fingerprint", lambda: "this-machine")
     voices._note_timing("kokoro", 2.0, 4.0, 200, cold=False)
+    voices._flush_timings()  # what exit does
     voices._reset_for_tests()  # a restart: read back from disk
     assert voices.timings()["kokoro"]["rtf"] == 0.5
     monkeypatch.setattr(voices, "_fingerprint", lambda: "a-new-release-or-machine")
+    voices._forget_fingerprint()
     assert voices.timings() == {}
 
 
@@ -1668,3 +1670,30 @@ def test_an_engine_with_no_model_is_never_cold_so_its_cold_start_is_its_warm(dat
     got = voices.timings()
     assert got["espeak"]["cold_s"] == 0.04, "eSpeak after a rest is eSpeak warm"
     assert "cold_s" not in got["kokoro"], "a model that loads keeps its own, unknown until timed"
+
+
+def test_a_sentences_timing_costs_no_disk_and_no_fingerprint_work(data, monkeypatch):
+    """The per-sentence path holds no disk read or write: the fingerprint is
+    found once, the samples sit in memory, and one flush writes them."""
+    made, wrote = [], []
+    monkeypatch.setattr(voices, "_fingerprint", lambda: made.append(1) or "fp")
+    monkeypatch.setattr(voices, "_srv_write", lambda t: wrote.append(json.loads(json.dumps(t))))
+    for _ in range(5):
+        voices._note_timing("piper", 1.0, 0, 50, cold=False)
+    assert len(made) == 1, "the fingerprint is cached"
+    assert wrote == [], "no write on the sentence's path"
+    voices._flush_timings()
+    assert len(wrote) == 1 and wrote[0]["engines"]["piper"]["n"] == 5
+    voices._flush_timings()
+    assert len(wrote) == 1, "nothing new, nothing written"
+
+
+def test_a_voice_installed_or_removed_changes_the_cached_fingerprint(data, monkeypatch):
+    seen = {"v": "Piper 1"}
+    monkeypatch.setattr(voices, "versions", lambda: {"piper": seen["v"]})
+    voices._note_timing("piper", 1.0, 0, 50, cold=False)
+    first = voices._timings["fp"]
+    seen["v"] = "Piper 2"
+    voices._set_installed(voices.PIPER, "en-US", None)
+    voices._note_timing("piper", 1.0, 0, 50, cold=False)
+    assert voices._timings["fp"] != first and voices.timings()["piper"]["n"] == 1
