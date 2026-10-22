@@ -146,6 +146,23 @@ test('a second account on this browser is never handed the first one\'s changes'
   await a.context.close();
 });
 
+test('a tab left on one account never sends its things into the next one\'s', async ({ browser }) => {
+  // Two tabs of one browser on the reader's account; the session becomes
+  // another account's underneath the second (a sign-in elsewhere).
+  const context = await browser.newContext({ storageState: states[USER][2] });
+  const one = await context.newPage(), two = await context.newPage();
+  for (const p of [one, two]) { await p.goto(BASE); await p.waitForFunction(() => typeof _savedSignedIn === 'function' && _savedSignedIn()); }
+  await context.addCookies(states[FRESH][0].cookies.filter((c) => c.name === 'zimi_session'));
+  // the second tab, still on the reader's account, saves and sends
+  await two.evaluate(() => { Saved.save({ zim: 'w', path: 'A/Stale', title: 'From a stale tab' }); return _savedFlush(); });
+  await expect.poll(() => two.evaluate(() => _accountId), { timeout: 10000 }).toBe('fresh');
+  const freshSaved = await two.evaluate(async () => Object.values(((await (await fetch('/userdata?account=fresh')).json()).saved || {}).items || {}).map((i) => i.title));
+  expect(freshSaved, 'refused (409), not written into the next account').not.toContain('From a stale tab');
+  // the first tab learns from the second's switch at once (the storage event)
+  await expect.poll(() => one.evaluate(() => _accountId), { timeout: 5000 }).toBe('fresh');
+  await context.close();
+});
+
 test('the admin\'s saved things are its own, and leave with it', async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
