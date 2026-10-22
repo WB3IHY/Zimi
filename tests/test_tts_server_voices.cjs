@@ -494,7 +494,7 @@ const tick = () => new Promise(r => setImmediate(r));
     const BLOCKS = ['div', 'p', 'h1', 'h2', 'ul', 'li', 'main', 'article', 'section', 'body'];
     let order = 0;
     function node(spec, parent) {
-      if (typeof spec === 'string') { const t = { nodeType: 3, data: spec, parentNode: parent, parentElement: parent, order: order++ }; return t; }
+      if (typeof spec === 'string') { const t = { nodeType: 3, data: spec, parentNode: parent, parentElement: parent, order: order++ }; t.contains = n => n === t; t.compareDocumentPosition = n => (n.order > t.order ? 4 : 2); return t; }
       const [tag, attrs, ...kids] = spec;
       const el = { nodeType: 1, localName: tag, parentNode: parent, parentElement: parent, order: order++, classes: attrs.cls || [], style: attrs.style || {}, childNodes: [] };
       el.classList = { contains: c => el.classes.includes(c) };
@@ -612,6 +612,15 @@ const tick = () => new Promise(r => setImmediate(r));
     doc.__zbHere = () => ({ startContainer: textNode(doc.main, 'One'), startOffset: 0 });
     ok('in a book it begins at the page that is open', ax._ttsMakePlan(doc).chunks.map(c => c.text).join(' ') === 'One. Two. A. B. Later page.');
     delete doc.__zbHere;
+    // what a reading skips is read when it is chosen, or when it is all there is
+    const facts = mkDoc(['main', {}, ['table', { cls: ['infobox'] }, ['tr', {}, ['td', {}, 'Born in Antioch.']]], ['p', {}, 'Prose here.']]);
+    const cell = textNode(facts.main, 'Born in Antioch.');
+    facts.defaultView.getSelection = () => ({ isCollapsed: false, rangeCount: 1, getRangeAt: () => ({ startContainer: cell, startOffset: 0, endContainer: cell, endOffset: 16 }) });
+    const cellPlan = ax._ttsMakePlan(facts);
+    ok('a selection in a table cell reads that cell, not the article from the top', cellPlan && cellPlan.sel && cellPlan.chunks.map(c => c.text).join(' ') === 'Born in Antioch.', cellPlan && JSON.stringify(cellPlan.chunks.map(c => c.text)));
+    const onlyFacts = mkDoc(['main', {}, ['table', { cls: ['infobox'] }, ['tr', {}, ['td', {}, 'Nothing but a table.']]]]);
+    const factsPlan = ax._ttsMakePlan(onlyFacts);
+    ok('a page that is nothing but what is skipped is read whole, not silence', factsPlan && factsPlan.chunks.map(c => c.text).join(' ') === 'Nothing but a table.', factsPlan && JSON.stringify(factsPlan.chunks.map(c => c.text)));
 
     const listeners = [];
     doc.addEventListener = (t, f) => listeners.push(t); doc.removeEventListener = (t) => { listeners.splice(listeners.indexOf(t), 1); };

@@ -1449,6 +1449,7 @@ function _voiceTestAll() {
 }
 var _VOICE_SECS_MIN = 0.1; // quicker than this reads as "<0.1 s", never "0 s"
 var _voiceDeviceTesting = false; // this device's voice is being timed
+var _VOICE_DEVICE_TEST_MS = 10000; // two words take a second or two; past this the device has no voice to give
 // This device's own voice, timed in the same tap while the server tests its
 // voices: one word, then another queued behind it, at no volume (iOS may say
 // them anyway). The first is after a rest; the wait between the two is both
@@ -1461,6 +1462,10 @@ function _voiceTestDevice(joins) {
   synth.cancel();
   _voiceDeviceTesting = true;
   var asked = performance.now(), ended = 0, cold = 0;
+  // No voice for the language, or the browser refusing to speak: the column
+  // stops spinning instead of spinning until a reload.
+  function giveUp() { if (!_voiceDeviceTesting) return; _voiceDeviceTesting = false; synth.cancel(); _paintVoices(); }
+  var limit = setTimeout(giveUp, _VOICE_DEVICE_TEST_MS);
   [0, 1].forEach(function(i) {
     var u = new SpeechSynthesisUtterance('Zimi');
     u.lang = _langPrimary(_currentLang || 'en');
@@ -1471,10 +1476,12 @@ function _voiceTestDevice(joins) {
       var warm = Math.max(0, (now - ended) / 1000), gaps = {};
       _TTS_GAP_RATES.forEach(function(r) { gaps[String(r)] = Math.round(warm * joins * 10) / 10; });
       _setStorageJSON(SK.TTS_DEVICE_TIMES, { first_s: warm, cold_s: cold, gaps: gaps, tested: Math.round(Date.now() / 1000) });
+      clearTimeout(limit);
       _voiceDeviceTesting = false;
       _paintVoices();
     };
     if (!i) u.onend = function() { ended = performance.now(); };
+    u.onerror = function() { clearTimeout(limit); giveUp(); };
     synth.speak(u);
   });
 }

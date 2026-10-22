@@ -521,7 +521,8 @@
   #tts-btn.speaking .tts-icon-stop { display: inline; }
   /* While it reads: a pill at the reader's foot. A ring turns until the first
      sound, then three bars move; the voice opens its menu upward. */
-  .tts-bar { position: absolute; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 20;
+  /* A media control: Back, Pause, On read left to right in every language, as on any player. */
+  .tts-bar { direction: ltr; position: absolute; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 20;
              display: flex; align-items: center; gap: 4px; padding-block: 4px; padding-inline: 14px 4px; max-width: calc(100% - 32px); box-sizing: border-box;
              background: var(--surface); border: 1px solid var(--border); border-radius: 26px; box-shadow: var(--shadow-popup); color: var(--text); font-size: 14px; }
   .tts-bar[hidden] { display: none; }
@@ -534,7 +535,7 @@
   .tts-bar-state:not(.playing):not(.paused) { border: 2px solid var(--border); border-top-color: currentColor; border-radius: 50%; width: 14px; height: 14px; animation: spin 0.8s linear infinite; }
   .tts-bar-state.tts-lost { cursor: pointer; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--amber); }
   @keyframes tts-bars { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
-  .tts-bar-voice { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tts-bar-voice { unicode-bidi: plaintext; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   button.tts-bar-voice { cursor: pointer; border-radius: 22px; }
   button.tts-bar-voice svg { color: var(--text2); flex: none; }
   .tts-bar-btn, .tts-bar-speed { width: 44px; height: 44px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; background: none; color: var(--text); cursor: pointer; }

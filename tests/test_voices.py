@@ -1591,6 +1591,19 @@ def test_test_all_needs_its_texts_and_runs_once_at_a_time(piper):
     voices._testing.clear()
 
 
+def test_test_all_ends_on_an_unexpected_error_instead_of_testing_for_good(piper, monkeypatch):
+    install("en-US")
+
+    def full_disk(*a, **k):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(voices, "_test_engine", full_disk)
+    assert voices.start_test("en", READING) is True
+    assert _finish_test() == {"error": True}, "the button comes back, with the error"
+    assert voices.start_test("en", READING) is True, "and a second Test may start"
+    _finish_test()
+
+
 def test_test_all_starts_with_the_quickest_voice(three, monkeypatch):
     order = []
     seen = []

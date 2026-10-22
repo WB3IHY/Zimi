@@ -267,14 +267,14 @@ var _ttsRead = null; // the reading in progress: its plan, its document, whether
 // The text of ``main`` as it is read: the text nodes in order (none of script,
 // style or hidden text), a _TTS_BLOCK between blocks and at each <br>. A
 // piece is a text node and where it starts in the text.
-function _ttsReadModel(doc, main) {
+function _ttsReadModel(doc, main, all) {
   var win = doc.defaultView, parts = [], pieces = [], index = new Map(), len = 0;
   function split() { if (len && parts[parts.length - 1] !== _TTS_BLOCK) { parts.push(_TTS_BLOCK); len++; } }
   function walk(el) {
     var cs = win.getComputedStyle(el), tag = el.localName;
     // A book lays out one section at a time and hides the others: they are still its text.
     if (_TTS_SKIP_TAGS.indexOf(' ' + tag + ' ') >= 0 || (cs.display === 'none' && !el.classList.contains('zb-sec'))) return;
-    if (el !== main && el.matches && el.matches(_TTS_SKIP_SEL) && !_ttsLayoutTable(el)) return;
+    if (!all && el !== main && el.matches && el.matches(_TTS_SKIP_SEL) && !_ttsLayoutTable(el)) return;
     var block = cs.display.indexOf('inline') !== 0 && cs.display !== 'contents', shown = cs.visibility === 'visible';
     if (block || tag === 'br') split();
     for (var n = el.firstChild; n; n = n.nextSibling) {
@@ -371,6 +371,12 @@ function _ttsMakePlan(doc) {
   var main = _readerMainContent(doc) || doc.body;
   if (!main) return null;
   var model = _ttsReadModel(doc, main), sel = _ttsSelectedSpan(model), a = 0, b = model.text.length;
+  // A selection inside what a reading skips (a table cell, a caption), or a page
+  // that is nothing else: then those are read too, rather than the wrong thing or nothing.
+  var win = doc.defaultView, picked = win && win.getSelection && win.getSelection();
+  if ((picked && !picked.isCollapsed && picked.rangeCount && !sel) || !/[^\s\u2029]/.test(model.text)) {
+    model = _ttsReadModel(doc, main, true); sel = _ttsSelectedSpan(model); b = model.text.length;
+  }
   if (sel) { a = sel[0]; b = sel[1]; }
   else if (doc.__zbHere) {
     var at = doc.__zbHere();

@@ -926,8 +926,11 @@ def start_test(lang, chunks):
                 _test_engine(engine, l, texts)
             with _lock:
                 _testing.clear()
-        except (Busy, Failed) as e:
-            log.warning("Voices: the speed test stopped: %s", e)
+        except Exception as e:  # anything (a full disk, say): never leave "Testing" on for good
+            if isinstance(e, (Busy, Failed)):
+                log.warning("Voices: the speed test stopped: %s", e)
+            else:
+                log.exception("Voices: the speed test failed")
             with _lock:
                 _testing.clear()
                 _testing["error"] = True
