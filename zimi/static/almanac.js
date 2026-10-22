@@ -3116,7 +3116,7 @@ function _updateVoyagerCard() {
   var html = '<div class="voyager-card-inner">';
   html += '<div class="voyager-card-header">';
   html += '<span class="voyager-card-name">' + v.name + '</span>';
-  html += '<button class="voyager-card-close" onclick="_hideVoyagerCard()">×</button>';
+  html += _almDismissX(true);
   html += '</div>';
   html += '<div class="voyager-card-stats">';
   html += '<div class="voyager-stat"><span class="voyager-stat-val">' + _orrNum(dist, null, 1) + ' AU</span><span class="voyager-stat-lbl">' + t('alm_from_sun') + '</span></div>';
@@ -3137,6 +3137,48 @@ function _hideVoyagerCard() {
   var el = document.getElementById('voyager-card');
   if (el) { el.style.display = 'none'; el.innerHTML = ''; }
 }
+
+// ── Putting an overlay away ──
+// Every Almanac overlay (the orrery's tip, a probe's card, the Earth view's
+// settings) is registered once by its element's id with the function that
+// hides it. One pair of listeners then closes any that is showing when a
+// press lands outside it (`inside(target)` names more places that count as
+// inside: the canvas that raises the tip, the button that toggles a panel)
+// or Escape is pressed; and _almDismissX() is the × a phone gets (a 44px
+// target round a small glyph, shown for a coarse pointer by CSS; `always`
+// for a card that has no other way out).
+var _almDismissables = {};
+var _almDismissBound = false;
+function _almDismissable(id, hide, inside) {
+  _almDismissables[id] = { hide: hide, inside: inside || null };
+  if (_almDismissBound) return;
+  _almDismissBound = true;
+  document.addEventListener('pointerdown', function (e) {
+    _almDismissShown(function (el, d) { return !el.contains(e.target) && !(d.inside && d.inside(e.target)); });
+  }, true);
+  // The Escape that puts an overlay away is that overlay's alone: it must not
+  // also close the Almanac behind it.
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && _almDismissShown(function () { return true; })) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+  document.addEventListener('click', function (e) {
+    var x = e.target && e.target.closest && e.target.closest('[data-alm-dismiss]');
+    if (x) _almDismissShown(function (el) { return el.contains(x); });
+  });
+}
+function _almDismissShown(wanted) {
+  var n = 0;
+  for (var id in _almDismissables) {
+    var el = document.getElementById(id), d = _almDismissables[id];
+    if (el && el.getClientRects().length && wanted(el, d)) { d.hide(); n++; }
+  }
+  return n;
+}
+function _almDismissX(always) {
+  return '<button type="button" class="alm-dismiss-x' + (always ? ' alm-dismiss-always' : '') +
+    '" data-alm-dismiss aria-label="' + _almEsc(t('alm_tm_close')) + '">\u00d7</button>';
+}
+_almDismissable('voyager-card', _hideVoyagerCard);
 
 
 

@@ -328,7 +328,7 @@
    open while the pointer crosses the box toward the link or the button (the
    traversal a pointer-transparent box once lost; almanac-orrery.js _overTip). */
 #orrery-tooltip { position: absolute; display: none; z-index: 10; pointer-events: none; background: rgba(0,0,0,0.78); color: #ccc; font-size: 11px; line-height: 1.5; padding: 4px 8px; border-radius: 5px; white-space: nowrap; backdrop-filter: blur(4px); }
-#orrery-tooltip .alm-link, #orrery-tooltip .orrery-tip-btn { pointer-events: auto; }
+#orrery-tooltip .alm-link, #orrery-tooltip .orrery-tip-btn, #orrery-tooltip .alm-dismiss-x { pointer-events: auto; }
 .orrery-tip-info { display: block; }
 .orrery-tip-line { display: block; color: #bbb; white-space: normal; max-width: 230px; }
 /* The tip's one action (Fly there, See the Earth up close) is the loudest
@@ -337,7 +337,13 @@
 .orrery-tip-btn { display: block; width: 100%; margin-top: 6px; padding: 3px 12px; background: var(--amber); border: 1px solid var(--amber); border-radius: 999px; color: #000; font: inherit; font-weight: 600; cursor: pointer; }
 .orrery-tip-btn:focus-visible { outline: 2px solid var(--amber-border); outline-offset: 2px; }
 @media (hover: hover) { .orrery-tip-btn:hover { filter: brightness(1.1); } }
+/* The x every overlay gets on a phone (almanac.js _almDismissX): a 44px target round a small glyph. */
+.alm-dismiss-x { display: none; position: absolute; top: 0; inset-inline-end: 0; width: 44px; height: 44px; padding: 0; background: none; border: 0; color: var(--text3); font: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+.alm-dismiss-x:focus-visible { color: var(--amber); outline: 2px solid var(--amber-border); outline-offset: -4px; border-radius: 8px; }
+.alm-dismiss-always { display: block; }
 @media (pointer: coarse) {
+  .alm-dismiss-x { display: block; }
+  .orrery-tip-info { padding-inline-end: 30px; }
   #orrery-tooltip { font-size: 12px; padding: 6px 10px; border-radius: 8px; }
   .orrery-tip-btn { min-height: 40px; padding: 6px 16px; font-size: 14px; }
 }
@@ -498,10 +504,9 @@
 .voyager-record-btn { display: block; width: 100%; margin-top: 10px; padding: 8px 0; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--amber); font-size: 12px; font-weight: 600; cursor: pointer; letter-spacing: 0.03em; transition: background 0.2s, border-color 0.2s; }
 .voyager-record-btn:hover { border-color: var(--amber-border); background: var(--amber-glow); }
 /* Voyager detail card */
-.voyager-card-inner { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-top: 10px; }
+.voyager-card-inner { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-top: 10px; }
 .voyager-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .voyager-card-name { font-size: 14px; font-weight: 600; color: var(--amber); letter-spacing: 0.04em; }
-.voyager-card-close { background: none; border: none; color: var(--text3); font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1; }
 .voyager-card-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
 .voyager-stat { text-align: center; }
 .voyager-stat-val { display: block; font-size: 14px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }

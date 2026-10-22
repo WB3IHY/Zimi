@@ -526,6 +526,7 @@ var AE_CSS = [
   '.ae-set{position:absolute;top:56px;inset-inline-end:16px;width:min(300px,calc(100% - 32px));box-sizing:border-box;background:rgba(14,14,16,.96);border:1px solid var(--border);border-radius:12px;padding:12px 10px 10px;font-size:13px;line-height:1.45;color:var(--text2);z-index:1}',
   '.ae-set[hidden]{display:none}',
   '.ae-set h3{margin:0 4px 6px;font-size:13px;font-weight:600;color:var(--text)}',
+  '@media (pointer:coarse){.ae-set h3{padding-inline-end:40px}}',
   '.ae-set-choice{display:flex;gap:10px;align-items:flex-start;padding:7px 4px;border-radius:8px;cursor:pointer}',
   '.ae-set-choice:hover{background:rgba(255,255,255,.04)}',
   '.ae-set-choice input{margin:3px 0 0;flex:0 0 auto;accent-color:var(--amber)}',
@@ -1844,7 +1845,7 @@ function _aeRenderSettings() {
   if (!panel || !_ae.setOpen) return;
   var m = _ae.satMeta || {};
   var editable = !!m.canChange && !m.locked && !_ae.setBusy;
-  var html = '<h3 id="ae-set-title">' + _almEsc(_aeT('alm_earth_sat_setting')) + '</h3>' +
+  var html = (typeof _almDismissX === 'function' ? _almDismissX() : '') + '<h3 id="ae-set-title">' + _almEsc(_aeT('alm_earth_sat_setting')) + '</h3>' +
     '<div role="radiogroup" aria-labelledby="ae-set-title">';
   AE_SAT_MODES.forEach(function (mode) {
     var key = AE_SAT_MODE_KEY + mode;
@@ -2639,6 +2640,11 @@ function _aeJumpToNextEclipse() {
 
 function _aeBindControls() {
   _aeById('ae-back').onclick = _aeClose;
+  // A press outside the settings puts them away (the gear is its own toggle).
+  if (typeof _almDismissable === 'function') {
+    _almDismissable('ae-set', function () { _aeShowSettings(false); },
+      function (target) { return !!target.closest && !!target.closest('#ae-gear'); });
+  }
   var views = document.querySelectorAll('#ae-views [data-ae-view]');
   for (var i = 0; i < views.length; i++) {
     views[i].onclick = function () { _aePreset(this.getAttribute('data-ae-view')); };
