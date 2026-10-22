@@ -2032,7 +2032,6 @@
   "tts_speed": "מהירות ההקראה",
   "tts_follow": "לעקוב אחרי ההקראה",
   "tts_prev_sentence": "המשפט הקודם",
-  "tts_next_sentence": "המשפט הבא",
   "tts_slow_suggest": "{slow} איטי בשרת הזה. לנסות את {fast}?",
   "tts_slow_at": "{slow} לא עומד בקצב {rate}. לנסות את {fast}?",
   "tts_slow_use": "להשתמש ב{fast}",
