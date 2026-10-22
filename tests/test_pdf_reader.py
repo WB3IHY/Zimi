@@ -536,6 +536,34 @@ def test_a_phone_held_sideways_reads_two_pages(shell):
             ctx.browser.close()
 
 
+def test_turning_the_phone_brings_the_bars_back_at_the_top(shell):
+    """Turned sideways and back with the bars away and the shell's page left
+    scrolled (as iOS can leave it), the bars are back, on the screen, where
+    Back is reached (Eric, 2026-10-22: "I rotated to landscape and back to
+    portrait", and could not reach the top bar)."""
+    _skip_without_browser()
+    from playwright.sync_api import sync_playwright
+
+    base, name = shell
+    with sync_playwright() as pw:
+        pg, fr, ctx = _open(pw, base, name, dict(pw.devices["iPhone 13"]))
+        try:
+            fr.evaluate("() => zimiPdf.showBars ? zimiPdf.showBars(false) : document.documentElement.classList.add('zp-away')")
+            pg.evaluate("() => { document.documentElement.style.minHeight = '3000px'; window.scrollTo(0, 120); }")
+            pg.set_viewport_size({"width": 844, "height": 390})
+            pg.wait_for_timeout(400)
+            fr.evaluate("() => document.documentElement.classList.add('zp-away')")
+            pg.evaluate("() => window.scrollTo(0, 120)")
+            pg.set_viewport_size({"width": 390, "height": 664})
+            fr.wait_for_function("() => zimiPdf.barsShown()", timeout=5000)
+            assert pg.evaluate("() => window.scrollY") == 0, "the shell is back at its top"
+            back = fr.locator(".zp-back").bounding_box()
+            frame_top = pg.locator("#reader-frame").bounding_box()["y"]
+            assert frame_top + back["y"] >= 0, "Back is on the screen"
+        finally:
+            ctx.browser.close()
+
+
 def test_rotate_turns_the_pages_and_is_kept_for_the_document(shell):
     """A sideways scan: Rotate in the menu turns every page a quarter, the
     menu staying for another; the document opens turned again."""

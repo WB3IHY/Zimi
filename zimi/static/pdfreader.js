@@ -231,9 +231,24 @@
   if (shell) {
     // A turn of the phone moves the notch, and the shell's viewport-fit
     // taking effect arrives as its resize too.
+    // A turn (the width changes) also brings the bars back, and puts the
+    // shell's page back at its top: iOS can leave it scrolled after a turn,
+    // the bars above the screen, and a tap where Back was then only hid them
+    // (Eric, 2026-10-22: "I rotated to landscape and back to portrait").
+    var shellW = 0;
+    var onShellResize = function () {
+      syncInsets();
+      var w = shell.innerWidth;
+      if (shellW && w !== shellW) {
+        showBars(true);
+        try { if (shell.scrollY || shell.scrollX) shell.scrollTo(0, 0); } catch (e) {}
+      }
+      shellW = w;
+    };
     try {
-      shell.addEventListener('resize', syncInsets);
-      window.addEventListener('pagehide', function () { shell.removeEventListener('resize', syncInsets); });
+      shellW = shell.innerWidth;
+      shell.addEventListener('resize', onShellResize);
+      window.addEventListener('pagehide', function () { shell.removeEventListener('resize', onShellResize); });
     } catch (e) {}
     try { new shell.MutationObserver(syncTheme).observe(shell.document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] }); } catch (e) {}
   }
