@@ -2765,7 +2765,10 @@ function openPwModal(title, opts) {
   // once named users exist the field starts blank so a user types their own name
   // rather than a misleading 'admin'.
   var uEl = document.getElementById('pw-username');
-  if (uEl) uEl.value = _manageUser || _defaultUsernameHint || '';
+  // What is already in the fields stays: the private-mode gate is on screen (and typed
+  // into) a moment before the boot gets round to opening the modal, and wiping it then
+  // sent a name that was no longer there. The fields are emptied when the modal closes.
+  if (uEl && !uEl.value) uEl.value = _manageUser || _defaultUsernameHint || '';
   // First-login hint ("Default username: admin") — only in sign-in mode and
   // only when the server says the default applies (no custom username/users).
   var hintEl = document.getElementById('pw-username-hint');
@@ -2774,7 +2777,6 @@ function openPwModal(title, opts) {
     hintEl.style.display = showHint ? 'block' : 'none';
     if (showHint) hintEl.textContent = t('default_username_hint').replace('{name}', _defaultUsernameHint);
   }
-  document.getElementById('pw-input').value = '';
   document.getElementById('pw-input').placeholder = (opts && opts.placeholder) || t('password');
   document.getElementById('pw-input').autocomplete = (opts && opts.hideRemember) ? 'new-password' : 'current-password';
   document.getElementById('pw-error').style.display = 'none';
@@ -2803,6 +2805,9 @@ function closePwModal() {
   // path is a no-op, since there is nothing behind it but 401s. Only a
   // successful sign-in (which calls _exitLoginGate) can leave.
   if (_loginRequired) return;
+  document.getElementById('pw-input').value = '';
+  var uClear = document.getElementById('pw-username');
+  if (uClear) uClear.value = '';
   document.getElementById('pw-overlay').classList.remove('open');
   document.removeEventListener('keydown', _pwKeyHandler);
   if (_pwReject) { _pwReject(); _pwReject = null; }
