@@ -884,9 +884,31 @@ def _warm(day, names):
         for name in names:
             _day_of(name, day)
             words(name, day)
+        for name in names:
+            _say_word_ahead(name, day)
     finally:
         with _lock:
             _warming.discard(day)
+
+
+def _say_word_ahead(name, day):
+    """A Wiktionary's word of the day, said by the server's voice once the
+    day is worked out, so Say plays at once (Eric, 2026-10-21: "cache Word of
+    the day so it's instant in best voice"). Only with a voice already here
+    for its language, and never while one is busy reading."""
+    if not _srv.bundled("voices"):
+        return
+    z = next((z for z in _srv._zim_list_cache or [] if z.get("name") == name), None)
+    if z is None or _project(z) != "wiktionary":
+        return
+    try:
+        card = daily_card(name, day)
+        if card and card.get("title"):
+            from zimi import voices
+
+            voices.say_ahead(card["title"], _language(z))
+    except Exception as e:
+        log.debug("Word of the day for %s not said ahead: %s", name, e)
 
 
 def _start_warm(day, names):

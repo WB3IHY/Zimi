@@ -1591,6 +1591,23 @@ def test_test_all_needs_its_texts_and_runs_once_at_a_time(piper):
     voices._testing.clear()
 
 
+def test_say_ahead_makes_the_word_a_tap_would_get_and_never_fetches_or_waits(piper, monkeypatch):
+    install("en-US")
+    fetched = []
+    monkeypatch.setattr(voices, "_maybe_fetch", lambda *a: fetched.append(a))
+    runs = []
+    real = voices._run
+    monkeypatch.setattr(voices, "_run", lambda *a, **k: runs.append(a) or real(*a, **k))
+    assert voices.say_ahead("water", "en") is True
+    assert len(runs) == 1 and not fetched, "said once, nothing fetched"
+    assert voices.speak("water", "en") and len(runs) == 1, "a tap finds it made"
+    assert voices.say_ahead("water", "en") is True and len(runs) == 1, "made already: nothing again"
+    assert voices.say_ahead("Wasser", "de") is False, "no voice here for it: left alone"
+    with voices._synth_lock:
+        assert voices.say_ahead("river", "en") is False, "a voice busy reading: left for the tap"
+    assert len(runs) == 1
+
+
 def test_test_all_ends_on_an_unexpected_error_instead_of_testing_for_good(piper, monkeypatch):
     install("en-US")
 

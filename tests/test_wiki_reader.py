@@ -1010,3 +1010,20 @@ def test_a_word_is_found_in_the_dictionary_in_lower_case(library):
     ]
     assert wiki.article("wikipedia", "No_such_page") is None
     assert wiki.article("not_a_wiki", "Albert_Einstein") is None
+
+
+def test_the_word_of_the_day_is_said_ahead_only_for_a_wiktionary(monkeypatch):
+    """Once the day is worked out, a Wiktionary's word of the day is said by
+    the server's voice, so Say plays at once; no other wiki's pick is."""
+    from zimi import voices
+
+    said = []
+    monkeypatch.setattr(voices, "say_ahead", lambda text, lang: said.append((text, lang)) or True)
+    monkeypatch.setattr(srv, "_zim_list_cache", [
+        {"name": "wiktionary_en_all", "project": "wiktionary", "language": "eng"},
+        {"name": "wikipedia_en_all", "project": "wikipedia", "language": "eng"},
+    ])
+    monkeypatch.setattr(wiki, "daily_card", lambda name, day: {"title": "serendipity" if "wiktionary" in name else "Moon"})
+    wiki._say_word_ahead("wiktionary_en_all", "20261022")
+    wiki._say_word_ahead("wikipedia_en_all", "20261022")
+    assert said == [("serendipity", "en")]

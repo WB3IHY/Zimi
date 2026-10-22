@@ -1432,16 +1432,18 @@ class Failed(Exception):
 _failures = collections.OrderedDict()  # audio path -> True, the latest last
 
 
-def speak(text, lang, accent="", engine=None, limit=TEXT_MAX):
+def speak(text, lang, accent="", engine=None, limit=TEXT_MAX, fetch=True):
     """WAV bytes of ``text`` said in ``lang``, or None when no engine can
     say it. ``engine``: that engine or none. Raises Busy when one can but
     did not get to it, Failed when it tried and could not. Cached by engine,
-    voice and text; one synthesis at a time, SYNTH_QUEUE more waiting."""
+    voice and text; one synthesis at a time, SYNTH_QUEUE more waiting.
+    ``fetch``: a voice not here may be fetched for next time (Automatically)."""
     if clean_text(text, limit) is None or not valid_lang(lang, accent):
         return None
     if engine is not None and engine not in ENGINES:
         return None
-    _maybe_fetch(lang, accent)
+    if fetch:
+        _maybe_fetch(lang, accent)
     where = _audio(text, lang, accent, engine, limit)
     if where is None:
         return None
@@ -1499,6 +1501,25 @@ def _audio(text, lang, accent="", engine=None, limit=TEXT_MAX):
     folder = _cache_dir(engine, _cache_voice(engine, voice))
     name = hashlib.sha1(text.encode("utf-8")).hexdigest() + ".wav"
     return engine, voice, text, os.path.join(folder, name)
+
+
+def say_ahead(text, lang):
+    """Say a word now, in the background, so its first tap plays at once: in
+    the voice a tap would get (no engine named, no accent), into the same
+    cache. Never fetches a voice and never waits: with no voice here for the
+    language, or one busy reading, it is left for the tap. True once made."""
+    where = _audio(text, lang)
+    if where is None:
+        return False
+    if _cached(where[3]) is not None:
+        return True
+    if _synth_lock.locked():
+        return False
+    try:
+        return speak(text, lang, fetch=False) is not None
+    except (Busy, Failed) as e:
+        log.debug("Voices: %r not said ahead: %s", text, e)
+        return False
 
 
 def said(text, lang, accent="", engine=None, limit=TEXT_MAX):
