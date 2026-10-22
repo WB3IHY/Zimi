@@ -2777,6 +2777,9 @@ function openPwModal(title, opts) {
     hintEl.style.display = showHint ? 'block' : 'none';
     if (showHint) hintEl.textContent = t('default_username_hint').replace('{name}', _defaultUsernameHint);
   }
+  // The password starts empty every time the sheet opens (a change-password flow reopens it for the
+  // new one), except under the private-mode gate, where it may already be being typed into.
+  if (!_loginRequired) document.getElementById('pw-input').value = '';
   document.getElementById('pw-input').placeholder = (opts && opts.placeholder) || t('password');
   document.getElementById('pw-input').autocomplete = (opts && opts.hideRemember) ? 'new-password' : 'current-password';
   document.getElementById('pw-error').style.display = 'none';
