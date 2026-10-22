@@ -884,18 +884,33 @@ def _warm(day, names):
         for name in names:
             _day_of(name, day)
             words(name, day)
-        for name in names:
-            _say_word_ahead(name, day)
+        lead = _discover_wiktionary(names)
+        if lead:
+            _say_word_ahead(lead, day)
     finally:
         with _lock:
             _warming.discard(day)
 
 
+def _discover_wiktionary(names):
+    """The Wiktionary whose word Discover's Word of the day shows by default,
+    ranked as the page ranks it (_featuredZimFor) for a reader with no
+    languages set: English, then a Simple one, then the most entries."""
+    best, rank = None, None
+    for z in _srv._zim_list_cache or []:
+        if z.get("name") not in names or _project(z) != "wiktionary":
+            continue
+        r = (_language(z) == "en", "simple" in z["name"].lower(), z.get("entries") or 0)
+        if rank is None or r > rank:
+            best, rank = z["name"], r
+    return best
+
+
 def _say_word_ahead(name, day):
-    """A Wiktionary's word of the day, said by the server's voice once the
-    day is worked out, so Say plays at once (Eric, 2026-10-21: "cache Word of
-    the day so it's instant in best voice"). Only with a voice already here
-    for its language, and never while one is busy reading."""
+    """Discover's word of the day, said by the server's voice once the day is
+    worked out, so Say plays at once (Eric, 2026-10-21: "Just the discover row
+    word ... One word"). Only with a voice already here for its language, and
+    never while one is busy reading."""
     if not _srv.bundled("voices"):
         return
     z = next((z for z in _srv._zim_list_cache or [] if z.get("name") == name), None)
