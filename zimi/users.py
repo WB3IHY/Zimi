@@ -565,7 +565,7 @@ def create_federated_user(name, role, identity):
             "last_login": int(time.time()),
         }
         _save_users(users)
-    log.info("Federated user created: %s (role=%s)", name.strip(), role)
+    log.info("Federated user created: %r (role=%r)", name.strip(), role)
     return True, None
 
 
@@ -1115,8 +1115,8 @@ _SETTINGS_VALUE_MAX = 16 * 1024
 
 
 def _settings_path(name):
-    return os.path.join(
-        _srv.ZIMI_DATA_DIR, "usersettings", _safe_userdata_key(name) + ".json"
+    return _contained(
+        os.path.join(_srv.ZIMI_DATA_DIR, "usersettings"), _safe_userdata_key(name)
     )
 
 
@@ -1158,7 +1158,7 @@ def load_settings(name):
     except FileNotFoundError:
         return _settings_doc(None)
     except (ValueError, OSError) as e:
-        log.warning("Could not read settings for %s: %s", name, e)
+        log.warning("Could not read settings for %r: %s", name, e)
         return _settings_doc(None)
 
 
@@ -1217,7 +1217,7 @@ def delete_settings(name):
     except FileNotFoundError:
         pass
     except OSError as e:
-        log.warning("Could not delete settings for %s: %s", name, e)
+        log.warning("Could not delete settings for %r: %s", name, e)
 
 
 def _safe_userdata_key(name):
@@ -1235,8 +1235,21 @@ def _safe_userdata_key(name):
     return key
 
 
+def _contained(folder, key):
+    """``folder``/``key``.json, and never outside ``folder``: the key is
+    already a single safe name (_safe_userdata_key); this is the last word
+    before a path reaches the disk."""
+    if key is None:
+        raise ValueError("no safe file name")
+    base = os.path.realpath(folder)
+    path = os.path.realpath(os.path.join(base, key + ".json"))
+    if os.path.dirname(path) != base:
+        raise ValueError("outside its folder")
+    return path
+
+
 def _userdata_path(name):
-    return os.path.join(_userdata_dir(), _safe_userdata_key(name) + ".json")
+    return _contained(_userdata_dir(), _safe_userdata_key(name))
 
 
 def _empty_user_data():
@@ -1266,7 +1279,7 @@ def _read_user_data(name):
     except FileNotFoundError:
         return _empty_user_data()
     except (ValueError, OSError) as e:
-        log.warning("Could not read user data for %s: %s", name, e)
+        log.warning("Could not read user data for %r: %s", name, e)
         raise UserDataUnreadable(name) from e
     return data if isinstance(data, dict) else _empty_user_data()
 
