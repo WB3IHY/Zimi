@@ -701,8 +701,8 @@ def versions():
 # between releases and or hardware changes or changes to these components)".
 # Per engine: ``first_s``, a first chunk said with its model loaded;
 # ``cold_s``, the same while the model loads; ``rtf``, seconds of work per
-# second of speech. Every sentence read aloud adds a sample, a Test replaces
-# them. Kept under a fingerprint of Zimi's version, the engines and their
+# second of speech; ``cps``, characters said per second of speech. Every
+# sentence read aloud adds a sample, a Test replaces them. Kept under a fingerprint of Zimi's version, the engines and their
 # models, and the machine: any of those changes and they start over.
 
 
@@ -769,7 +769,7 @@ def _timings_now():
 
 
 def timings():
-    """{engine: {"first_s", "cold_s", "rtf", "n"}} measured on this machine,
+    """{engine: {"first_s", "cold_s", "rtf", "cps", "n"}} measured on this machine,
     as far as they are known."""
     with _timings_lock:
         got = json.loads(json.dumps(_timings_now()["engines"]))
@@ -795,6 +795,7 @@ def _note_timing(engine, seconds, audio_s, chars, cold, weight=TIMING_WEIGHT):
             mix("cold_s" if cold else "first_s", seconds)
         if not cold and audio_s >= RTF_MIN_AUDIO_S:
             mix("rtf", seconds / audio_s)
+            mix("cps", chars / audio_s)
         rec["n"] += 1
         _save_timings_soon()
 
@@ -919,6 +920,7 @@ def _test_engine(engine, lang, texts):
         rec["cold_s"] = round(said[0][0], 3)
         if audio:
             rec["rtf"] = round(work / audio, 3)
+            rec["cps"] = round(sum(len(x) for x in texts[1:]) / audio, 3)
         rec["gaps"] = {_rate_key(r): round(_gaps(reading, r), 1) for r in TEST_RATES}
         rec["tested"] = int(time.time())
         _srv_write(t)

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Settings and saved things changed on one device appear in the account's other open windows right away, without a reload.
+- Settings > Voices > Wait for the best voice: Read aloud keeps a slow natural voice, gets ahead before it starts (the bar counts down) and pauses to catch up, instead of switching to a faster voice.
 
 ### Changed
 

@@ -1520,6 +1520,7 @@ def test_timings_outlive_a_restart_and_start_over_on_a_new_fingerprint(data, mon
     voices._flush_timings()  # what exit does
     voices._reset_for_tests()  # a restart: read back from disk
     assert voices.timings()["kokoro"]["rtf"] == 0.5
+    assert voices.timings()["kokoro"]["cps"] == 50, "how fast it speaks: Read aloud's wait"
     monkeypatch.setattr(voices, "_fingerprint", lambda: "a-new-release-or-machine")
     voices._forget_fingerprint()
     assert voices.timings() == {}

@@ -43,9 +43,10 @@ const ctx = {
   _TTS_GAP_RATES: [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3],
   _TTS_RATE_EPS: 1e-6,
   _TTS_SLOW_FOR_MS: 24 * 3600 * 1000,
+  _TTS_WAIT_MAX_S: 60, _TTS_WAIT_KEEP_S: 300, _TTS_CPS: 14, _TTS_WORK_MIN_S: 0.3, _TTS_WORK_MIN_CHARS: 200,
 };
 vm.createContext(ctx);
-vm.runInContext(['_voiceTimings', '_ttsServerEngines', '_ttsChosenVoice', '_ttsRowOrder', '_ttsSlowEngines', '_ttsMarkSlow', '_ttsGapAt', '_ttsKeepsUp', '_ttsTooSlow', '_ttsServerSays', '_ttsCanSpeak', '_ttsSpeakUrl'].map(fn).join('\n'), ctx);
+vm.runInContext(['_ttsWaits', '_ttsPace', '_ttsLeadEnd', '_voiceTimings', '_ttsServerEngines', '_ttsChosenVoice', '_ttsRowOrder', '_ttsSlowEngines', '_ttsMarkSlow', '_ttsGapAt', '_ttsKeepsUp', '_ttsTooSlow', '_ttsServerSays', '_ttsCanSpeak', '_ttsSpeakUrl'].map(fn).join('\n'), ctx);
 const engines = lang => JSON.stringify(ctx._ttsServerEngines(lang));
 const slowOnes = () => JSON.stringify(Object.keys(JSON.parse(store.zimi_tts_slow || '{}')));
 
@@ -78,6 +79,26 @@ ctx._ttsVoices.timings = { kokoro: { rtf: 2.9 } };
 ok('Automatic: a voice the server measured too slow reads after one only this browser thought slow', engines('en') === '["piper","kokoro"]', engines('en'));
 ctx._ttsVoices.timings = {};
 store.zimi_tts_slow = JSON.stringify({ kokoro: Date.now() });
+prefs = { voice: '', off: [], wait: true };
+ok('waiting for the best voice: Automatic keeps the server\'s order, a slow one first', engines('en') === '["kokoro","piper"]', engines('en'));
+prefs = { voice: 'piper', off: [], wait: true };
+ok('...and a chosen voice still reads alone', engines('en') === '["piper"]', engines('en'));
+prefs = { voice: '', off: [] };
+
+// How far ahead a slow voice gets before it plays: 140 characters is ten
+// seconds of speech at 14 a second; at rtf 1.5 each takes fifteen to make.
+const lens = n => Array.from({ length: n }, () => 'x'.repeat(140));
+const slowPace = { work: 1.5 / 14, audio: 1 / 14 };
+ok('a slow voice gets far enough ahead that the rest plays without a pause', ctx._ttsLeadEnd(lens(4), 0, slowPace, 1) === 1);
+ok('...counted from where it starts', ctx._ttsLeadEnd(lens(6), 2, slowPace, 1) === 3);
+ok('...a long article waits a minute at most, then pauses to catch up', ctx._ttsLeadEnd(lens(100), 0, slowPace, 1) === 3);
+ok('...faster speech needs more ahead', ctx._ttsLeadEnd(lens(4), 0, slowPace, 2) === 2);
+ok('a voice that keeps up starts with its first chunk', ctx._ttsLeadEnd(lens(50), 0, { work: 0.5 / 14, audio: 1 / 14 }, 1) === 0);
+ok('...and so does one not measured yet', ctx._ttsLeadEnd(lens(50), 0, { work: null, audio: 1 / 14 }, 1) === 0);
+ctx._ttsVoices.timings = { kokoro: { rtf: 1.5, cps: 12 } };
+ok('a voice\'s pace is what the server measured', Math.abs(ctx._ttsPace('kokoro').work - 0.125) < 1e-9 && Math.abs(ctx._ttsPace('kokoro').audio - 1 / 12) < 1e-9);
+ok('...unmeasured, its work is unknown', ctx._ttsPace('piper').work === null && Math.abs(ctx._ttsPace('piper').audio - 1 / 14) < 1e-9);
+ctx._ttsVoices.timings = {};
 
 
 // What the server measured wins over this browser's own mark, at this speed.
@@ -460,7 +481,7 @@ const tick = () => new Promise(r => setImmediate(r));
   // the preference itself: kept, shown, saved
   const sandbox = { SK: { VOICE_PREFS: 'zimi_voice_prefs' }, _VOICE_ENGINES: ['kokoro', 'piper', 'say', 'espeak', 'device'], _getStorageJSON: (k, fb) => (k in store ? JSON.parse(store[k]) : fb), _setStorageJSON: (k, v) => { store[k] = JSON.stringify(v); }, localStorage: { removeItem: k => delete store[k] }, _prefWrite: (k, v) => { if (v == null) delete store[k]; else store[k] = v; }, _voicesTellDictionary() {}, _paintVoices() {}, _voicesHere: null, _voiceTimings: () => ({}), _ttsKeepsUp: e => (e === 'kokoro' ? false : null), _ttsRate: () => 1, esc: x => x, escAttr: x => x, tH: k => k, t: k => k, _voiceEngineName: e => e };
   vm.createContext(sandbox);
-  vm.runInContext(['_voicePrefs', '_setVoicePrefs', '_voicePickHtml', '_voiceReadHtml', '_voiceDefaultHtml'].map(fn).join('\n'), sandbox);
+  vm.runInContext(['_voicePrefs', '_setVoicePrefs', '_voicePickHtml', '_voiceReadHtml', '_voiceDefaultHtml', '_voiceSwitchRow'].map(fn).join('\n'), sandbox);
   for (const k of Object.keys(store)) delete store[k];
   ok('no Read aloud voice by default (Automatic)', sandbox._voicePrefs().read === undefined);
   sandbox._setVoicePrefs({ read: 'piper' });
@@ -477,6 +498,14 @@ const tick = () => new Promise(r => setImmediate(r));
   ok('Settings > Voices has a Read aloud row: Automatic and each voice', /tts_speak/.test(html) && (html.match(/role="radio"/g) || []).length === 3 && /voice-read/.test(html) && /read/.test(html), html.slice(0, 120));
   ok('...a voice measured too slow at Read aloud\'s speed is dimmed and says so', /data-slow title="voices_pace_behind"[^>]*>[\s\S]*?<span>kokoro/.test(html) && (html.match(/data-slow/g) || []).length === 1, html);
   ok('...hidden with only one voice to choose', sandbox._voiceReadHtml([{ engine: 'piper' }]) === '');
+  ok('a voice that may not keep up brings the switch to wait for it, off', /id="voices-wait"/.test(html) && !/id="voices-wait"[^>]* checked onchange/.test(html), html);
+  ok('...not when every voice here keeps up', !/voices-wait/.test(sandbox._voiceReadHtml([{ engine: 'piper' }, { engine: 'espeak' }])));
+  sandbox._setVoicePrefs({ wait: true });
+  const waiting = sandbox._voiceReadHtml([{ engine: 'kokoro' }, { engine: 'piper' }]);
+  ok('...on, it is kept and shown on', sandbox._voicePrefs().wait === true && /id="voices-wait"[^>]* checked onchange/.test(waiting), store.zimi_voice_prefs);
+  ok('...and a slow voice is no longer dimmed: it is waited for', !/data-slow/.test(waiting));
+  sandbox._setVoicePrefs({ wait: false });
+  ok('...off again, nothing is kept for it', sandbox._voicePrefs().wait === undefined && !/wait/.test(store.zimi_voice_prefs || ''));
   ok('...and the default row is as it was', /voices_default/.test(sandbox._voiceDefaultHtml([{ engine: 'kokoro' }, { engine: 'piper' }])));
 
   // The switch's AbortError settles on a later tick.
@@ -903,6 +932,43 @@ const tick = () => new Promise(r => setImmediate(r));
     revoked.length = 0;
     ctx._ttsSpeakServer(['x.'], 'en', ['piper'], 2);
     ok('the next run revokes the superseded run\'s clips', revoked.length === 2, String(revoked.length));
+    delete ctx.URL;
+  }
+
+  // Waiting for the best voice: one chunk asked for at a time, nothing played
+  // until enough is ready ahead, and no switch, slow mark or offer on the way.
+  {
+    r = freshReading();
+    a = ctx._ttsAudio;
+    prefs = { voice: '', off: [], wait: true };
+    ctx._ttsVoices = { timings: { kokoro: { rtf: 1.5, cps: 14 } } };
+    const answers = [];
+    ctx.authedFetch = u => { fetched.push(u); return new Promise(res => answers.push(() => res({ status: 200, ok: true, blob: () => Promise.resolve('clip:' + textOf(u)) }))); };
+    ctx.URL = { createObjectURL: b => b, revokeObjectURL() {} };
+    const say = async () => { answers.shift()(); for (let k = 0; k < 4; k++) await tick(); };
+    const four = lens(4).map((x, k) => k + x);
+    ctx._ttsSpeakServer(four, 'en', ['kokoro', 'piper'], 1, null);
+    ok('waiting: the first chunk is asked for, and nothing plays yet', fetched.length === 1 && a.played.length === 0, JSON.stringify(a.played));
+    ok('...with no switch to another voice armed', timers.filter(Boolean).length === 0, timers.filter(Boolean).map(x => x.ms));
+    await say();
+    ok('...one at a time: the next is asked for once the first is made', fetched.length === 2 && a.played.length === 0);
+    await say();
+    ok('...far enough ahead: it plays, from what was made', a.played.length === 1 && a.src === 'clip:' + four[0], a.src);
+    a.onplaying(); a.onended();
+    ok('the next plays straight from memory', a.src === 'clip:' + four[1], a.src);
+    a.onplaying(); a.onended();
+    ok('ran dry: it waits to get ahead again, still in the same voice', a.played.length === 2 && fetched.every(u => engineOf(u) === 'kokoro'), JSON.stringify(a.played));
+    ctx._ttsPaused = true;
+    await say();
+    ok('...paused while it waited: made, not played', a.played.length === 2);
+    ctx._ttsPaused = false;
+    ctx._ttsHeld();
+    ok('...Resume goes on waiting while the last chunk is still being made', a.played.length === 2);
+    await say();
+    ok('...then plays the chunk that was waited for, not the one that ended', a.played.length === 3 && a.src === 'clip:' + four[2], a.src);
+    ok('nothing was marked slow', !store.zimi_tts_slow, store.zimi_tts_slow);
+    prefs = { voice: '', off: [] };
+    ctx._ttsVoices = null;
     delete ctx.URL;
   }
 

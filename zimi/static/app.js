@@ -1099,6 +1099,7 @@ function _voicePrefs() {
     off: Array.isArray(p.off) ? p.off.filter(function(e) { return _VOICE_ENGINES.indexOf(e) >= 0; }) : [] };
   if (p.quiet === true) out.quiet = true; // kept only when it says something
   if (typeof p.read === 'string' && p.read) out.read = p.read; // Read aloud's own voice; absent = Automatic
+  if (p.wait === true) out.wait = true; // Read aloud waits for a slow voice to get ahead (readaloud.js _ttsWaits)
   return out;
 }
 // Speaking, Settings > Voices' first switch (Eric, 2026-10-06: "a Speaking
@@ -1128,7 +1129,8 @@ function _setVoicePrefs(change) {
   if (p.read && p.off.indexOf(p.read) >= 0) p.read = '';
   if (!p.quiet) delete p.quiet;
   if (!p.read) delete p.read;
-  if (!p.voice && !p.off.length && !p.quiet && !p.read) _prefWrite(SK.VOICE_PREFS, null);
+  if (!p.wait) delete p.wait;
+  if (!p.voice && !p.off.length && !p.quiet && !p.read && !p.wait) _prefWrite(SK.VOICE_PREFS, null);
   else _setStorageJSON(SK.VOICE_PREFS, p);
   _voicesTellDictionary();
   _paintVoices();
@@ -1579,8 +1581,22 @@ function _voiceDefaultHtml(on) {
   return _voicePickHtml(on, 'voices_default', _voicePrefs().voice, 'voice', 'voice-default');
 }
 // Read aloud's own voice, beside it: Automatic follows the default above.
+// Under it, once a voice here may not keep up (Natural, or one measured too
+// slow), whether a reading waits for it to get ahead instead of giving way.
 function _voiceReadHtml(on) {
-  return _voicePickHtml(on, 'tts_speak', _voicePrefs().read || '', 'read', 'voice-read', true);
+  var h = _voicePickHtml(on, 'tts_speak', _voicePrefs().read || '', 'read', 'voice-read', true);
+  var tm = _voiceTimings(_voicesHere && _voicesHere.timings);
+  if (!on.some(function(x) { return x.engine === 'kokoro' || _ttsKeepsUp(x.engine, _ttsRate(), tm) === false; })) return h;
+  return h + '<div class="share-rows set-rows voice-prefs">' +
+    _voiceSwitchRow('voices_wait', 'voices-wait', !!_voicePrefs().wait, '_setVoicePrefs({ wait: this.checked })') + '</div>';
+}
+// A switch row of Settings > Voices: its title, what it covers, the switch.
+function _voiceSwitchRow(key, id, on, onchange) {
+  return '<div class="share-row set-row">' +
+    '<span class="share-row-text"><span class="share-row-title">' + tH(key) + '</span>' +
+    '<span class="share-row-desc">' + tH(key + '_desc') + '</span></span>' +
+    '<label class="switch"><input type="checkbox" role="switch" id="' + id + '" aria-label="' + escAttr(t(key)) + '"' +
+    (on ? ' checked' : '') + ' onchange="' + onchange + '"><span class="switch-slider"></span></label></div>';
 }
 // One row of voice choices: Automatic and every voice here, ``cur`` marked,
 // a pick saved as prefs[field].
@@ -1590,7 +1606,7 @@ function _voicePickHtml(on, labelKey, cur, field, cls, reads) {
   if (cur && !on.some(function(x) { return x.engine === cur; })) cur = '';
   var opt = function(e, label) {
     var sel = e === cur, change = {};
-    var slow = reads && e && _ttsKeepsUp(e, _ttsRate(), _voiceTimings(_voicesHere && _voicesHere.timings)) === false;
+    var slow = reads && e && !_voicePrefs().wait && _ttsKeepsUp(e, _ttsRate(), _voiceTimings(_voicesHere && _voicesHere.timings)) === false;
     change[field] = e;
     return '<button type="button" class="app-theme-btn' + (sel ? ' active' : '') + '" role="radio" aria-checked="' + sel + '"' +
       (slow ? ' data-slow title="' + escAttr(t('voices_pace_behind')) + '"' : '') +
@@ -1604,11 +1620,7 @@ function _voicePickHtml(on, labelKey, cur, field, cls, reads) {
 // for removal (an admin's): nothing else of Voices shows.
 function _speakingHtml() {
   var on = _speakingOn();
-  var h = '<div class="share-rows set-rows voice-prefs"><div class="share-row set-row">' +
-    '<span class="share-row-text"><span class="share-row-title">' + tH('voices_speaking') + '</span>' +
-    '<span class="share-row-desc">' + tH('voices_speaking_desc') + '</span></span>' +
-    '<label class="switch"><input type="checkbox" role="switch" id="voices-speaking" aria-label="' + escAttr(t('voices_speaking')) + '"' +
-    (on ? ' checked' : '') + ' onchange="_setSpeaking(this.checked)"><span class="switch-slider"></span></label></div>';
+  var h = '<div class="share-rows set-rows voice-prefs">' + _voiceSwitchRow('voices_speaking', 'voices-speaking', on, '_setSpeaking(this.checked)');
   var kept = ((_voicesHere && _voicesHere.voices) || []).filter(function(v) { return v.installed; });
   if (!on && kept.length && _voicesHere.can_change) {
     var mb = _voiceMb(kept.reduce(function(n, v) { return n + (v.bytes || 0); }, 0));
