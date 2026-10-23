@@ -8,7 +8,7 @@ const path = require('path');
 
 // Read aloud's reading is readaloud.js (fetched on first use), the rest app.js;
 // readaloud.js first, so its functions are found before app.js's stand-ins.
-const src = ['readaloud.js', 'app.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', 'zimi', 'static', f), 'utf8')).join('\n');
+const src = ['readaloud.js', 'app.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', 'zimi', 'static', f), 'utf8')).join('\n').replace(/\r\n/g, '\n'); // a Windows checkout's line ends
 const pick = (re, name) => { const m = src.match(re); if (!m) throw new Error('not found: ' + name); return m[0]; };
 eval(pick(/var _TTS_BLOCK = [^\n]*/, '_TTS_BLOCK'));
 const _langPrimary = (l) => String(l || '').split(/[-_]/)[0].toLowerCase();

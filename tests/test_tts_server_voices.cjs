@@ -11,7 +11,7 @@ const vm = require('vm');
 
 // Read aloud's reading is readaloud.js (fetched on first use), the rest app.js;
 // readaloud.js first, so its functions are found before app.js's stand-ins.
-const src = ['readaloud.js', 'app.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', 'zimi', 'static', f), 'utf8')).join('\n');
+const src = ['readaloud.js', 'app.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', 'zimi', 'static', f), 'utf8')).join('\n').replace(/\r\n/g, '\n'); // a Windows checkout's line ends
 function extract(re, label) {
   const m = src.match(re);
   if (!m) throw new Error('could not extract ' + label + ' from app.js');
@@ -819,7 +819,7 @@ const tick = () => new Promise(r => setImmediate(r));
     // Before readaloud.js has loaded, a tap (the Read aloud button, or Read on the
     // selection bar) starts the audio inside the tap, as iOS requires, then loads
     // the module and runs its own function with the same arguments.
-    const appSrc = fs.readFileSync(path.join(__dirname, '..', 'zimi', 'static', 'app.js'), 'utf8');
+    const appSrc = fs.readFileSync(path.join(__dirname, '..', 'zimi', 'static', 'app.js'), 'utf8').replace(/\r\n/g, '\n');
     const grab = name => { const m = appSrc.match(new RegExp('\\nfunction ' + name + '\\([^]*?\\n}\\n')); return m ? m[0] : ''; };
     const events = [];
     const st = { _ttsUnlockedAudio: null, _TTS_SILENCE: 'data:x', _showToast() {}, t: k => k,

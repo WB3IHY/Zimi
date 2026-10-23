@@ -3,7 +3,7 @@
 // on screen until a reload.
 const fs = require('fs');
 const path = require('path');
-const src = fs.readFileSync(path.join(__dirname, '..', 'zimi', 'static', 'app.js'), 'utf8');
+const src = fs.readFileSync(path.join(__dirname, '..', 'zimi', 'static', 'app.js'), 'utf8').replace(/\r\n/g, '\n'); // a Windows checkout's line ends
 const m = src.match(/async function _refreshAfterAuthChange\(\) \{[\s\S]*?\n\}\n/);
 if (!m) { console.log('FAIL _refreshAfterAuthChange not found'); process.exit(1); }
 let failures = 0;
