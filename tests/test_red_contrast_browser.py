@@ -53,7 +53,7 @@ def page():
 
 
 def test_red_keeps_every_grey_in_its_place(page):
-    from PIL import Image
+    Image = pytest.importorskip("PIL.Image")  # optional in pyproject; CI's test job may not have it
 
     levels = [i / 10 for i in range(11)]
     for chain in _red_pictures():
