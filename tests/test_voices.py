@@ -1697,3 +1697,15 @@ def test_a_voice_installed_or_removed_changes_the_cached_fingerprint(data, monke
     voices._set_installed(voices.PIPER, "en-US", None)
     voices._note_timing("piper", 1.0, 0, 50, cold=False)
     assert voices._timings["fp"] != first and voices.timings()["piper"]["n"] == 1
+
+
+def test_a_flush_outside_the_timer_disarms_the_timer(data):
+    with voices._timings_lock:
+        voices._timings_now()
+    voices._save_timings_soon()
+    armed = voices._timings_timer
+    assert armed is not None
+    voices._flush_timings()
+    assert voices._timings_timer is None
+    armed.join(1)
+    assert not armed.is_alive() and armed.finished.is_set(), "the armed timer was cancelled, not left to fire later"

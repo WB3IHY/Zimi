@@ -815,6 +815,8 @@ def _flush_timings():
     """Write the samples taken since the last write, if any. Also at exit."""
     global _timings_dirty, _timings_timer
     with _timings_lock:
+        if _timings_timer is not None:
+            _timings_timer.cancel()  # run from exit or a test: the one still armed has nothing left to do
         _timings_timer = None
         if not (_timings_dirty and isinstance(_timings, dict)):
             return

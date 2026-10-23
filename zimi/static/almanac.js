@@ -3163,7 +3163,8 @@ function _almDismissable(id, hide, inside, returnId) {
   }, true);
   document.addEventListener('click', function (e) {
     var x = e.target && e.target.closest && e.target.closest('[data-alm-dismiss]');
-    if (x) _almDismissShown(function (el) { return el.contains(x); });
+    // The x, a press or a key: the opener has the focus back, as with Escape.
+    if (x) _almDismissShown(function (el) { return el.contains(x); }, true);
   });
 }
 function _almDismissShown(wanted, restoreFocus) {
