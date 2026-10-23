@@ -377,13 +377,35 @@ def test_release_files_are_named_version_platform_chip(tmp_path):
         "Zimi-1.2.3-x86_64.AppImage",
         "Zimi-1.2.3-x86_64.AppImage.zsync",
     ]
-    text = (WORKFLOWS / "desktop-release.yml").read_text(encoding="utf-8")
-    # The release publishes every renamed file (beside the SBOM, when one was made).
-    assert re.search(r"files:[ |]*\n?\s*release/\*", text)
-    assert 'arch arm: "arm64", intel: "x64"' in text
-    assert 'Zimi-#{version}-mac-#{arch}.dmg' in text
+    text = _commands("desktop-release.yml")
+    # The release gets every renamed file (beside the SBOM, when one was made).
+    assert 'gh release create "$TAG" release/*' in text and 'gh release upload "$TAG" release/*' in text
+    feeds = _commands("publish-release.yml")
+    assert 'arch arm: "arm64", intel: "x64"' in feeds
+    assert 'Zimi-#{version}-mac-#{arch}.dmg' in feeds
     for asset in ("mac-x64.dmg", "mac-arm64.dmg", "windows-x64-setup.exe"):
-        assert f'"release/$ZIMI_STEM-{asset}" "$ZIMI_STEM-{asset}"' in text, f"the appcast signs and links {asset}"
+        assert f'"release/$ZIMI_STEM-{asset}" "$ZIMI_STEM-{asset}"' in feeds, f"the appcast signs and links {asset}"
+        assert f'-p "$STEM-{asset}"' in feeds, f"the feeds job downloads {asset} from the release"
+
+
+def test_the_draft_appears_with_its_files_and_the_feeds_after_publishing():
+    """1.14.1 was published as an empty draft, and not the first: Auto Release made the
+    draft at merge and the builds attached their files half an hour later.
+    Only the tag is made at merge; the draft is made by the build's release
+    job, in the same command that attaches the files. The appcasts and the
+    cask, which point at the release's downloads, change only once it is
+    published, never from the build."""
+    auto = _commands("auto-release.yml")
+    assert "git push origin" in auto
+    assert "gh release" not in auto, "Auto Release makes the tag only"
+    desktop = _commands("desktop-release.yml")
+    assert desktop.count("gh release create") == 1 and "--draft" in desktop
+    assert "softprops" not in desktop, "one step makes the draft, with its files"
+    for feed in ("appcast-", "Casks/zimi.rb", "git push"):
+        assert feed not in desktop, f"{feed} changes before the release is published"
+    publish = _commands("publish-release.yml")
+    assert "types: [published]" in publish
+    assert "git push origin main" in publish and "Casks/zimi.rb" in publish
 
 
 def test_the_appimage_carries_update_information_and_its_zsync():
@@ -415,7 +437,7 @@ def test_a_release_missing_a_build_stops(tmp_path):
 
 
 def test_the_changelog_has_a_section_for_this_version():
-    """Auto Release copies the ``## [<version>]`` section into the draft's
+    """Desktop Release copies the ``## [<version>]`` section into the draft's
     notes, and falls back to a bare "Release v<version>" when there is none.
     1.11.0 was tagged with its notes still under ``[Unreleased]`` and its
     draft went out empty; bumping the version means naming its section."""

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- The draft release appears only once every build is attached to it.
+- The apps' update feeds and the Homebrew cask change when the release is published, not while it is a draft.
+
 ## [1.14.1] - 2026-10-22
 
 ### Highlights
