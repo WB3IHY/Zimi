@@ -76,9 +76,13 @@ class TestTheBrowserAgrees(unittest.TestCase):
         block = src[start:end]
         self.assertIn("function fmtBytes", block, "fmtBytes moved — update this test")
 
+        # fmtBytes formats through the shared Intl helpers, in Zimi's language.
+        helpers = src[src.index("function _uiLocale()"):src.index("function fmtNum(")]
         cases = _cases()
         script = (
-            block
+            "let _currentLang = 'en';\nconst _uiLangPrimary = () => _currentLang.split('-')[0];\nconst _langPrimary = (t) => String(t || '').split('-')[0];\n"
+            + helpers
+            + block
             + "\nconst cases = "
             + json.dumps([[n, s] for n, s in cases])
             + ";\n"
@@ -94,6 +98,31 @@ class TestTheBrowserAgrees(unittest.TestCase):
         self.assertEqual(
             mismatches, [], "browser and server disagree: " + str(mismatches)
         )
+
+    def test_fmtBytes_speaks_zimis_language(self):
+        """English keeps the server's units; other languages write sizes their
+        own way, decimal comma and unit name included."""
+        if not _have_node():
+            self.skipTest("node not available")
+        with open(APP_JS, encoding="utf-8") as f:
+            src = f.read()
+        helpers = src[src.index("function _uiLocale()"):src.index("function fmtNum(")]
+        block = src[src.index("var BYTES_PER_KB"):src.index("function fmtSize(")]
+        script = (
+            "let _currentLang = 'en';\nconst _uiLangPrimary = () => _currentLang.split('-')[0];\nconst _langPrimary = (t) => String(t || '').split('-')[0];\n" + helpers + block
+            + "const out = {};\n"
+            + "for (const l of ['en', 'de', 'fr']) { _currentLang = l; out[l] = [fmtBytes(1500000000), fmtBytes(1500000000, true)]; }\n"
+            + "console.log(JSON.stringify(out));\n"
+        )
+        out = subprocess.run(
+            ["node", "-e", script], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60
+        )
+        self.assertEqual(out.returncode, 0, out.stderr)
+        got = json.loads(out.stdout.strip())
+        self.assertEqual(got["en"], ["1.5 GB", '<span class="num">1.5</span> GB'])
+        self.assertEqual(got["de"][0].replace("\u00a0", " "), "1,5 GB")
+        self.assertEqual(got["fr"][0].replace("\u00a0", " ").replace("\u202f", " "), "1,5 Go")
+        self.assertTrue(got["fr"][1].startswith('<span class="num">1,5</span>'))
 
 
 class TestNobodyDividesByHand(unittest.TestCase):

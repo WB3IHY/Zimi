@@ -293,6 +293,8 @@
 .orrery-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--amber); border: none; cursor: pointer; box-shadow: 0 0 4px rgba(255,180,60,0.3); }
 .orrery-slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--amber); border: none; cursor: pointer; }
 .orrery-speed-end { color: var(--text3); font-size: 9px; flex-shrink: 0; user-select: none; }
+/* The slider runs right to left in Arabic and Hebrew: its ends point that way too. */
+[dir="rtl"] .orrery-speed-end { transform: scaleX(-1); }
 .orrery-speed-label { color: var(--amber); font-size: 11px; min-width: 56px; text-align: center; font-variant-numeric: tabular-nums; flex-shrink: 0; font-family: 'SF Mono', 'Fira Code', monospace; }
 .orrery-date { color: var(--text-dim); font-size: 12px; margin-left: auto; font-variant-numeric: tabular-nums; flex-shrink: 0; min-width: 90px; text-align: right; }
 #almanac-sunmap { position: relative; }
@@ -328,7 +330,7 @@
    open while the pointer crosses the box toward the link or the button (the
    traversal a pointer-transparent box once lost; almanac-orrery.js _overTip). */
 #orrery-tooltip { position: absolute; display: none; z-index: 10; pointer-events: none; background: rgba(0,0,0,0.78); color: #ccc; font-size: 11px; line-height: 1.5; padding: 4px 8px; border-radius: 5px; white-space: nowrap; backdrop-filter: blur(4px); }
-#orrery-tooltip .alm-link, #orrery-tooltip .orrery-tip-btn { pointer-events: auto; }
+#orrery-tooltip .alm-link, #orrery-tooltip .orrery-tip-btn, #orrery-tooltip .alm-dismiss-x { pointer-events: auto; }
 .orrery-tip-info { display: block; }
 .orrery-tip-line { display: block; color: #bbb; white-space: normal; max-width: 230px; }
 /* The tip's one action (Fly there, See the Earth up close) is the loudest
@@ -337,7 +339,13 @@
 .orrery-tip-btn { display: block; width: 100%; margin-top: 6px; padding: 3px 12px; background: var(--amber); border: 1px solid var(--amber); border-radius: 999px; color: #000; font: inherit; font-weight: 600; cursor: pointer; }
 .orrery-tip-btn:focus-visible { outline: 2px solid var(--amber-border); outline-offset: 2px; }
 @media (hover: hover) { .orrery-tip-btn:hover { filter: brightness(1.1); } }
+/* The x every overlay gets on a phone (almanac.js _almDismissX): a 44px target round a small glyph. */
+.alm-dismiss-x { display: none; position: absolute; top: 0; inset-inline-end: 0; width: 44px; height: 44px; padding: 0; background: none; border: 0; color: var(--text3); font: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+.alm-dismiss-x:focus-visible { color: var(--amber); outline: 2px solid var(--amber-border); outline-offset: -4px; border-radius: 8px; }
+.alm-dismiss-always { display: block; }
 @media (pointer: coarse) {
+  .alm-dismiss-x { display: block; }
+  .orrery-tip-info { padding-inline-end: 30px; }
   #orrery-tooltip { font-size: 12px; padding: 6px 10px; border-radius: 8px; }
   .orrery-tip-btn { min-height: 40px; padding: 6px 16px; font-size: 14px; }
 }
@@ -498,10 +506,9 @@
 .voyager-record-btn { display: block; width: 100%; margin-top: 10px; padding: 8px 0; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--amber); font-size: 12px; font-weight: 600; cursor: pointer; letter-spacing: 0.03em; transition: background 0.2s, border-color 0.2s; }
 .voyager-record-btn:hover { border-color: var(--amber-border); background: var(--amber-glow); }
 /* Voyager detail card */
-.voyager-card-inner { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-top: 10px; }
+.voyager-card-inner { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-top: 10px; }
 .voyager-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .voyager-card-name { font-size: 14px; font-weight: 600; color: var(--amber); letter-spacing: 0.04em; }
-.voyager-card-close { background: none; border: none; color: var(--text3); font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1; }
 .voyager-card-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
 .voyager-stat { text-align: center; }
 .voyager-stat-val { display: block; font-size: 14px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
@@ -511,6 +518,8 @@
 .alm-nav { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 16px 0 10px; position: relative; }
 .alm-arrow { background: none; border: none; color: var(--amber); font-size: 13px; cursor: pointer; padding: 6px 10px; border-radius: 6px; opacity: 0.7; transition: opacity 0.15s, background 0.15s; }
 .alm-arrow:hover { opacity: 1; background: var(--surface2); }
+/* Back points the way the line reads from: right, in Arabic and Hebrew. */
+[dir="rtl"] .alm-arrow { transform: scaleX(-1); }
 .alm-title { font-size: 17px; font-weight: 600; color: var(--text); min-width: 200px; text-align: center; }
 .alm-today-btn { position: absolute; right: 0; background: none; border: 1px solid var(--border); color: var(--amber); font-size: 11px; cursor: pointer; padding: 3px 10px; border-radius: 10px; opacity: 0.7; transition: opacity 0.15s; }
 .alm-today-btn:hover { opacity: 1; background: var(--surface2); }
@@ -525,7 +534,7 @@
 .alm-hdr { font-size: 11px; color: var(--text3); padding: 8px 0; font-weight: 500; text-align: center; background: var(--surface); }
 .alm-cell { position: relative; background: var(--surface); min-height: 64px; padding: 4px 5px; font-size: 12px; overflow: hidden; }
 /* Daily moon phase, tucked in the corner — a quiet lunar rhythm down the month. */
-.cal-moon-wrap { position: absolute; top: 3px; right: 3px; line-height: 0; opacity: 0.82; pointer-events: none; }
+.cal-moon-wrap { position: absolute; top: 3px; inset-inline-end: 3px; line-height: 0; opacity: 0.82; pointer-events: none; }
 .alm-today .cal-moon-wrap, .alm-selected .cal-moon-wrap { opacity: 1; }
 .alm-empty { background: transparent; }
 .alm-day { cursor: pointer; transition: background 0.15s; }

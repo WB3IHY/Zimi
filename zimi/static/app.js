@@ -117,13 +117,16 @@ var SK = {
   // Read aloud: server engines that could not keep up with reading on this
   // server ([engines]), tried last from then on.
   TTS_SLOW: 'zimi_tts_slow',
+  // Read aloud: how quick this device's own voice is, as Test voice speed
+  // timed it here ({first_s, cold_s, gaps}); the server's are the server's.
+  TTS_DEVICE_TIMES: 'zimi_tts_device_times',
   // Read aloud: when it was last used (ms), so a Reader View opened within a
   // week of it gets the voice list and the engine warmed ahead of the tap.
   TTS_LAST_USE: 'zimi_tts_last_use',
   // Read aloud: engines already suggested as a faster choice ([engines]),
   // each said once.
   TTS_SUGGESTED: 'zimi_tts_suggested',
-  // Read aloud: how fast it reads (one of _TTS_RATES), set in the reading bar.
+  // Read aloud: how fast it reads (_TTS_RATE_MIN to _TTS_RATE_MAX), set in the reading bar.
   TTS_RATE: 'zimi_tts_rate',
   // Reader font scale (percent, one of READER_FONT_LEVELS), applied as a `zoom`
   // on the iframe body and reapplied on every article load.
@@ -175,7 +178,53 @@ var SK = {
   // articles that have none. It used to decide darkness outright.
   DARKEN_ARTICLES: 'zimi_darken_articles',
   ARTICLE_THEME: 'zimi_article_theme',
+  // Settings sync's state in this browser: {owner: the account it follows, or
+  // null; pending: {key: 1} changed here while signed in to it and not yet
+  // taken by it; seeded: this browser has followed an account before, so its
+  // settings are no longer the ones it had before sync}. apps.js marks a
+  // page's change pending under this same name.
+  PREF_SYNC: 'zimi_pref_sync',
 };
+
+// What a person sets for themselves: carried by My data, and while signed in
+// kept by the account and followed in every browser (Eric, 2026-10-21:
+// "Things a user changes while signed in should sync to all sessions all
+// browsers"). Not here: what belongs to this device or this server (the
+// Almanac's place, timed voices, a highlight's colour), or to this tab.
+var _PREF_KEYS = [
+  SK.UI_LANG, SK.HIDE_DISCOVER, SK.HIDE_LANG_CHOOSER, SK.HIDE_XZIM_LINKS,
+  SK.LIBRARY_VIEW, SK.PREF_LANGUAGES, SK.VOICE_PREFS, SK.PREF_FLAVOR,
+  SK.READER_FONT, SK.READER_FAMILY, SK.READER_THEME, SK.READER_AUTO,
+  SK.EXT_LINKS, SK.OPEN_IN_APPS,
+  SK.APP_THEME, SK.APP_THEME_BEFORE_RED, SK.ARTICLE_THEME, SK.DARKEN_ARTICLES,
+  SK.LIBRARY_SORT, SK.TTS_RATE, SK.BOOK_PREFS, SK.WIKI_PREFS,
+];
+function _isPrefKey(k) { return _PREF_KEYS.indexOf(k) >= 0; }
+function _rawGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function _prefState() {
+  var st = _getStorageJSON(SK.PREF_SYNC, null);
+  if (!st || typeof st !== 'object' || Array.isArray(st)) st = {};
+  return { owner: typeof st.owner === 'string' && st.owner ? st.owner : null,
+    pending: st.pending && typeof st.pending === 'object' ? st.pending : {}, seeded: !!st.seeded };
+}
+function _prefSaveState(st) { try { localStorage.setItem(SK.PREF_SYNC, JSON.stringify(st)); } catch (e) {} }
+// One of them changed here (``before``: its raw value a moment ago). Signed
+// in, it is the account's to take: pending, and sent soon. Signed out, it is
+// this browser's alone (users.py's convention). The same value is no change.
+function _prefChanged(k, before) {
+  if (!_isPrefKey(k) || _rawGet(k) === before) return;
+  var st = _prefState();
+  if (!_accountId || st.owner !== _accountId) return;
+  st.pending[k] = 1;
+  _prefSaveState(st);
+  _prefPushSoon();
+}
+// Every write of one of _PREF_KEYS: ``v`` a string, or null for the default.
+function _prefWrite(k, v) {
+  var before = _rawGet(k);
+  try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, String(v)); } catch (e) {}
+  _prefChanged(k, before);
+}
 
 // ── Storage Helpers ──
 function _getStorageJSON(key, fallback, session) {
@@ -233,11 +282,12 @@ function _todaySeason(now, hemi) {
     { k: 4, s: new Date(y, 11, 21), e: new Date(y + 1, 2, 20) }
   ];
   for (var i = 0; i < bounds.length; i++) {
-    if (now >= bounds[i].s && now < bounds[i].e) return t('season_' + keys[bounds[i].k]) + ' ' + Math.round((now - bounds[i].s) / (bounds[i].e - bounds[i].s) * 100) + '%';
+    if (now >= bounds[i].s && now < bounds[i].e) return t('season_' + keys[bounds[i].k]) + ' ' + fmtPct((now - bounds[i].s) / (bounds[i].e - bounds[i].s) * 100);
   }
   return '';
 }
 function _setStorageJSON(key, value) {
+  if (_isPrefKey(key)) { _prefWrite(key, JSON.stringify(value)); return; }
   try { localStorage.setItem(key, JSON.stringify(value)); } catch(e) {}
 }
 function _getStorageFlag(key) {
@@ -309,9 +359,8 @@ function _nightToggle() { _nightSet(!_nightRedOn()); }
 function _setAppTheme(mode) {
   if (APP_THEMES.indexOf(mode) < 0) mode = 'auto';
   var cur = _appTheme();
-  if (mode === APP_THEME_RED && cur !== APP_THEME_RED) localStorage.setItem(SK.APP_THEME_BEFORE_RED, cur);
-  if (mode === 'auto') localStorage.removeItem(SK.APP_THEME);
-  else localStorage.setItem(SK.APP_THEME, mode);
+  if (mode === APP_THEME_RED && cur !== APP_THEME_RED) _prefWrite(SK.APP_THEME_BEFORE_RED, cur);
+  _prefWrite(SK.APP_THEME, mode === 'auto' ? null : mode);
   _appThemeChanged();
 }
 // Everything that follows a theme change, whoever made it (the selector here,
@@ -376,8 +425,7 @@ function _articlesAreDark() {
 }
 function _setArticleTheme(mode) {
   if (ARTICLE_THEMES.indexOf(mode) < 0) mode = 'match';
-  if (mode === 'match') localStorage.removeItem(SK.ARTICLE_THEME);
-  else localStorage.setItem(SK.ARTICLE_THEME, mode);
+  _prefWrite(SK.ARTICLE_THEME, mode === 'match' ? null : mode);
   var seg = document.getElementById('article-theme-seg');
   if (seg) seg.innerHTML = _articleThemeSegInner();
   try { _applyArticleDarken(_readerFrameDoc()); } catch (e) {}
@@ -422,7 +470,7 @@ function _shouldSimulateDark(articlesDark, simulate, explicit, readerViewOn, loc
   return true;
 }
 function _setDarkenArticles(on) {
-  localStorage.setItem(SK.DARKEN_ARTICLES, on ? '1' : '0');
+  _prefWrite(SK.DARKEN_ARTICLES, on ? '1' : '0');
   try { _applyArticleDarken(_readerFrameDoc()); } catch (e) {}
 }
 
@@ -545,6 +593,39 @@ function _setCanvasBackground(doc) {
   html.style.backgroundColor = 'Canvas';
   html.dataset.zimiCanvasBg = '1';
 }
+// A page's own dark mode turns its text light but cannot reach a colour
+// written on an element (a MediaWiki template's style="background-color:
+// #FEC2DC"): light text on a light box, unreadable in Dark and in Red (#119,
+// the LGBTQIA+ Wiki). Such a box keeps its hue and goes dark like the page's
+// own surfaces; its colour comes back with the light face.
+var _ISLAND_DARK_L = 0.2; // the box's lightness (HSL) once dark
+function _darkenLightIslands(doc) {
+  var win = doc.defaultView;
+  doc.querySelectorAll('body [style*="background"]').forEach(function(el) {
+    var cs = win.getComputedStyle(el), bg = _cssColorLum(cs.backgroundColor), text = _cssColorLum(cs.color);
+    if (!bg || !text || bg.alpha < _OPAQUE_MIN_ALPHA || bg.lum < _DARK_BG_MAX_LUM || text.lum < _DARK_BG_MAX_LUM) return;
+    el.dataset.zimiBg = el.style.backgroundColor;
+    el.style.setProperty('background-color', _cssColorWithLightness(cs.backgroundColor, _ISLAND_DARK_L), 'important');
+  });
+}
+function _restoreLightIslands(doc) {
+  if (!doc || !doc.querySelectorAll) return;
+  doc.querySelectorAll('[data-zimi-bg]').forEach(function(el) {
+    el.style.removeProperty('background-color');
+    if (el.dataset.zimiBg) el.style.backgroundColor = el.dataset.zimiBg;
+    delete el.dataset.zimiBg;
+  });
+}
+// An rgb()/rgba() colour, its hue and saturation kept, at lightness ``l`` (0-1).
+function _cssColorWithLightness(css, l) {
+  var p = css.match(/rgba?\(([^)]+)\)/)[1].split(',').map(parseFloat);
+  var r = p[0] / 255, g = p[1] / 255, b = p[2] / 255, max = Math.max(r, g, b), min = Math.min(r, g, b);
+  var L = (max + min) / 2, d = max - min, s = d ? d / (1 - Math.abs(2 * L - 1)) : 0, h = 0;
+  if (d) h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  var c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(h % 2 - 1)), m = l - c / 2;
+  var rgb = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][Math.floor(h) % 6];
+  return 'rgb(' + rgb.map(function(v) { return Math.round((v + m) * 255); }).join(', ') + ')';
+}
 function _dropCanvasBackground(doc) {
   var html = doc && doc.documentElement;
   if (!html || !html.dataset.zimiCanvasBg) return;
@@ -636,6 +717,7 @@ function _applyArticleDarken(doc) {
   // the browser paints between tasks, not inside one.
   _dropArticleDarken(doc);
   _dropCanvasBackground(doc);
+  _restoreLightIslands(doc);
   _askArticleFor(doc, scheme);
   // Asked for dark and STILL painting light: this page has no dark mode of its
   // own. Measured rather than assumed — an unstyled ZIM article, a MediaWiki
@@ -646,6 +728,7 @@ function _applyArticleDarken(doc) {
   // turned light) would show the reader frame's white through it: white on
   // white. It gets the scheme's own page colour instead.
   if (scheme === 'dark' && paintsDark && _articleHasNoBackground(doc)) _setCanvasBackground(doc);
+  if (scheme === 'dark' && paintsDark) _darkenLightIslands(doc);
   // Red is for night vision: a page that has no dark mode is darkened whatever
   // the setting says, a captured site included, and its pictures are dimmed.
   var red = _nightRedOn() && loc.indexOf('/static/') !== 0 && !_docIsOurOwnPage(doc);
@@ -834,6 +917,7 @@ function _saveManageToken(token, remember) {
   if (!token) return;
   var store = remember ? localStorage : sessionStorage;
   store.setItem(SK.MANAGE_PW, token);
+  if (typeof _accountRefresh === 'function') _accountRefresh();
   // Persist the username alongside so it rides with the same remember scope.
   if (_manageUser) store.setItem(SK.MANAGE_USER, _manageUser);
 }
@@ -880,7 +964,7 @@ function _getPrefLanguages() {
 }
 function _setPrefLanguages(langs) {
   if (langs.length && langs.length < _AVAILABLE_LANGS.length) _setStorageJSON(SK.PREF_LANGUAGES, langs);
-  else { try { localStorage.removeItem(SK.PREF_LANGUAGES); } catch (e) {} }
+  else _prefWrite(SK.PREF_LANGUAGES, null);
 }
 // Where your languages rank a language: its place among them, or after them.
 function _prefLangRank(code) {
@@ -1044,7 +1128,7 @@ function _setVoicePrefs(change) {
   if (p.read && p.off.indexOf(p.read) >= 0) p.read = '';
   if (!p.quiet) delete p.quiet;
   if (!p.read) delete p.read;
-  if (!p.voice && !p.off.length && !p.quiet && !p.read) { try { localStorage.removeItem(SK.VOICE_PREFS); } catch (e) {} }
+  if (!p.voice && !p.off.length && !p.quiet && !p.read) _prefWrite(SK.VOICE_PREFS, null);
   else _setStorageJSON(SK.VOICE_PREFS, p);
   _voicesTellDictionary();
   _paintVoices();
@@ -1127,7 +1211,7 @@ function _voiceBarHtml() {
 }
 // Languages by their own names, in their alphabet.
 function _langNamesSorted(codes) {
-  return codes.map(_langOwnName).sort(function(a, b) { return a.localeCompare(b); });
+  return codes.map(_langOwnName).sort(cmpText);
 }
 // An engine's "N languages" lists them: in its title (a hover), and on a
 // tap as a line under the row (a phone has no hover).
@@ -1146,7 +1230,7 @@ function _voiceRowHtml(x, isOn, last) {
   // 2026-10-05: "gently suggest which are faster or slower for their quality").
   // One word for speed (Eric: "one word each ... instant fast slow"); System
   // and Device add what tells them apart.
-  var what = '<span class="share-row-desc voice-what">' + tH('voices_speed_' + e) +
+  var what = '<span class="share-row-desc voice-what">' + tH(_voicePaceKey(e)) +
     (e === 'say' || e === _DEVICE_VOICE ? ' · ' + tH('voices_desc_' + e) : '') +
     // iOS mutes a page's speech under the ring switch, as no page can undo;
     // the server's voices are audio, and play.
@@ -1274,7 +1358,7 @@ function _vgMainLangs(flavors) {
   return zimi;
 }
 function _vgByName(codes) {
-  return codes.slice().sort(function(a, b) { return (_langDisplayName(a) || a).localeCompare(_langDisplayName(b) || b); });
+  return codes.slice().sort(function(a, b) { return cmpText(_langDisplayName(a) || a, _langDisplayName(b) || b); });
 }
 function _vgCellHtml(lang, e, name) {
   var x = _voiceCell(lang, e), off = _voicePrefs().off.indexOf(e) >= 0;
@@ -1323,11 +1407,135 @@ function _voiceGridHtml() {
     }).join('') + '</div>';
   var rows = function(codes) { return codes.map(function(c) { return _vgRowHtml(c, flavors, state); }).join(''); };
   return '<div class="share-rows vg" role="table" aria-label="' + escAttr(t('voices_section')) + '" style="--vg-n:' + flavors.length + '">' +
-    head + rows(main) +
+    head + _vgTimingRowsHtml(flavors) + rows(main) +
     (rest.length ? '<button type="button" class="share-row lang-fold vg-all" aria-expanded="' + _vgAllOpen + '" onclick="_toggleVgAll()">' +
       '<span class="lang-chev" aria-hidden="true">›</span><span class="share-row-text"><span class="share-row-title">' +
       tH('languages_all', { n: rest.length }) + '</span></span></button>' + (_vgAllOpen ? rows(rest) : '') : '') +
-    '</div>';
+    '</div>' + _voiceTestHtml();
+}
+// How quick each voice is on this server, under its name in the table (Eric,
+// 2026-10-19: "show time to first word and all that? Set expectations but
+// also understand ourselves based on the hardware"; "add to the table"):
+// first words, first words after a rest (the model loading), and the
+// fastest speed it reads at without pausing. Measured by Test all voices and
+// by every reading; a release, an engine or a machine change clears them.
+// While a Test runs, the voice it is timing turns, and numbers from before it
+// stay dimmed until their voice's new ones come (Eric, 2026-10-20: "a
+// spinner on the ones currently being gathered ... old values dimmed").
+function _vgTimingRowsHtml(flavors) {
+  var tm = _voiceTimings(_voicesHere && _voicesHere.timings), run = (_voicesHere && _voicesHere.testing) || {};
+  if (!run.engine && !_voiceDeviceTesting && !flavors.some(function(e) { return tm[e]; })) return '';
+  var state = function(e) {
+    if (e === _DEVICE_VOICE) return _voiceDeviceTesting ? 'busy' : '';
+    if (!run.engine) return '';
+    if (e === run.engine) return 'busy';
+    return tm[e] && tm[e].tested >= run.started ? '' : 'stale';
+  };
+  var row = function(label, cell) {
+    return '<div class="vg-row vg-time" role="row"><span class="vg-name vg-time-name" role="rowheader">' + tH(label) + '</span>' +
+      flavors.map(function(e) {
+        var st = state(e);
+        return '<span class="vg-cell vg-t' + (st ? ' ' + st : '') + '" role="cell">' +
+          (st === 'busy' ? '<span class="spinner-inline" aria-hidden="true"></span>' : esc(tm[e] ? cell(tm[e], e) || '–' : '–')) + '</span>';
+      }).join('') + '</div>';
+  };
+  var secs = function(s) { return typeof s === 'number' ? t('voices_secs', { s: _voiceSecs(s) }) : ''; };
+  return row('voices_t_cold', function(x) { return secs(x.cold_s); }) +
+    row('voices_t_warm', function(x) { return secs(x.first_s); }) +
+    row('voices_t_top', function(x, e) {
+      if (!x.gaps && !x.rtf) return '';
+      var top = _TTS_GAP_RATES.filter(function(r) { return r >= 1 && _ttsKeepsUp(e, r, tm); }).pop();
+      return top ? _ttsRateLabel(top) : '<' + _ttsRateLabel(1);
+    });
+}
+function _voiceSecs(s) {
+  if (s < _VOICE_SECS_MIN) return '<' + _voiceSecs(_VOICE_SECS_MIN);
+  try { return s.toLocaleString(_currentLang || undefined, { maximumFractionDigits: s < 10 ? 1 : 0 }); } catch (e) { return String(Math.round(s)); }
+}
+// The one word, from what was measured here once it was (Eric, 2026-10-20:
+// "when we have the data ... still use relative terms? It's hard data to
+// convey"): how soon the first words come, or that it cannot keep up with a
+// reading at 1×. Before then, the word each engine usually earns.
+var _VOICE_PACES = [[0.5, 'instant'], [2, 'fast'], [5, 'slow'], [Infinity, 'slower']]; // first words up to (s), the word
+function _voicePaceKey(e) {
+  var tm = _voiceTimings(_voicesHere && _voicesHere.timings);
+  if (!tm[e] || typeof tm[e].first_s !== 'number') return 'voices_speed_' + e;
+  if (_ttsKeepsUp(e, 1, tm) === false) return 'voices_pace_behind';
+  return 'voices_pace_' + _VOICE_PACES.filter(function(p) { return tm[e].first_s <= p[0]; })[0][1];
+}
+// One button tests every voice as a reading uses it: after a rest, warm,
+// then a page back to back. An admin's; it runs on the server, the pane asks
+// how far it is.
+function _voiceTestHtml() {
+  if (!_voicesHere || !_voicesHere.can_change) return '';
+  var run = _voicesHere.testing || {}, tm = _voiceTimings(_voicesHere.timings);
+  // When it was last tested, beside the button (Eric, 2026-10-20); the table
+  // shows how far a Test is.
+  var last = Object.keys(tm).reduce(function(n, e) { return Math.max(n, tm[e].tested || 0); }, 0);
+  var note = run.error ? '<span class="voice-failed">' + tH('voices_test_failed') + '</span>'
+    : !run.engine && last ? '<span class="share-row-desc">' + tH('voices_tested_on', { date: _voiceTestedDate(last) }) + '</span>' : '';
+  return '<div class="voice-foot vg-test"><button type="button" class="set-btn"' + (run.engine ? ' disabled' : '') +
+    ' onclick="_voiceTestAll()">' + tH(run.engine ? 'voices_testing' : 'voices_test_all') + '</button>' + note + '</div>';
+}
+function _voiceTestedDate(sec) {
+  var d = new Date(sec * 1000), o = { month: 'short', day: 'numeric' };
+  if (d.getFullYear() !== new Date().getFullYear()) o.year = 'numeric';
+  try { return d.toLocaleDateString(_currentLang || undefined, o); } catch (e) { return d.toDateString(); }
+}
+// A reading's paragraph, with what makes speech slow (numbers, units, a
+// name, an abbreviation), cut as Read aloud cuts an article (readaloud.js).
+function _voiceTestAll() {
+  _ttsLoad().then(function(ok) {
+    if (!ok) { _showToast(t('tts_unavailable_offline')); return; }
+    var chunks = _ttsChunkText(t('voices_test_reading'), _TTS_CHUNK_MAX, _TTS_FIRST_CHUNK_MAX, _currentLang || 'en');
+    _voiceTestDevice(chunks.length - 1);
+    _voicesSend('/manage/voices/test', { lang: _langPrimary(_currentLang || 'en'), chunks: chunks },
+      t('voices_test_failed'));
+  });
+}
+var _VOICE_SECS_MIN = 0.1; // quicker than this reads as "<0.1 s", never "0 s"
+var _voiceDeviceTesting = false; // this device's voice is being timed
+var _VOICE_DEVICE_TEST_MS = 10000; // two words take a second or two; past this the device has no voice to give
+// This device's own voice, timed in the same tap while the server tests its
+// voices: one word, then another queued behind it, at no volume (iOS may say
+// them anyway). The first is after a rest; the wait between the two is both
+// its first words warm and each pause a reading's chunks would have. It
+// speaks as it goes, so those pauses (``joins`` of them, where the Test's
+// reading meets its next chunk) are all that could slow it, at any speed.
+function _voiceTestDevice(joins) {
+  var synth = _TTS_AVAILABLE && window.speechSynthesis;
+  if (!synth) return;
+  synth.cancel();
+  _voiceDeviceTesting = true;
+  var asked = performance.now(), ended = 0, cold = 0;
+  // No voice for the language, or the browser refusing to speak: the column
+  // stops spinning instead of spinning until a reload.
+  function giveUp() { if (!_voiceDeviceTesting) return; _voiceDeviceTesting = false; synth.cancel(); _paintVoices(); }
+  var limit = setTimeout(giveUp, _VOICE_DEVICE_TEST_MS);
+  [0, 1].forEach(function(i) {
+    var u = new SpeechSynthesisUtterance('Zimi');
+    u.lang = _langPrimary(_currentLang || 'en');
+    u.volume = 0;
+    u.onstart = function() {
+      var now = performance.now();
+      if (!i) { cold = (now - asked) / 1000; return; }
+      var warm = Math.max(0, (now - ended) / 1000), gaps = {};
+      _TTS_GAP_RATES.forEach(function(r) { gaps[String(r)] = Math.round(warm * joins * 10) / 10; });
+      _setStorageJSON(SK.TTS_DEVICE_TIMES, { first_s: warm, cold_s: cold, gaps: gaps, tested: Math.round(Date.now() / 1000) });
+      clearTimeout(limit);
+      _voiceDeviceTesting = false;
+      _paintVoices();
+    };
+    if (!i) u.onend = function() { ended = performance.now(); };
+    u.onerror = function() { clearTimeout(limit); giveUp(); };
+    synth.speak(u);
+  });
+}
+// The server's timings, with this device's own voice as this browser timed it.
+function _voiceTimings(server) {
+  var tm = Object.assign({}, server || {}), own = _getStorageJSON(SK.TTS_DEVICE_TIMES, null);
+  if (own && own.first_s !== undefined) tm[_DEVICE_VOICE] = own;
+  return tm;
 }
 // ✕ on a Clear voice: a pointer's hover showed it, a touch's first tap (or a
 // long press) shows it; then once asked, it goes.
@@ -1372,17 +1580,20 @@ function _voiceDefaultHtml(on) {
 }
 // Read aloud's own voice, beside it: Automatic follows the default above.
 function _voiceReadHtml(on) {
-  return _voicePickHtml(on, 'tts_speak', _voicePrefs().read || '', 'read', 'voice-read');
+  return _voicePickHtml(on, 'tts_speak', _voicePrefs().read || '', 'read', 'voice-read', true);
 }
 // One row of voice choices: Automatic and every voice here, ``cur`` marked,
 // a pick saved as prefs[field].
-function _voicePickHtml(on, labelKey, cur, field, cls) {
+// ``reads``: a voice measured too slow at Read aloud's speed is dimmed and says so.
+function _voicePickHtml(on, labelKey, cur, field, cls, reads) {
   if (on.length < 2) return '';
   if (cur && !on.some(function(x) { return x.engine === cur; })) cur = '';
   var opt = function(e, label) {
     var sel = e === cur, change = {};
+    var slow = reads && e && _ttsKeepsUp(e, _ttsRate(), _voiceTimings(_voicesHere && _voicesHere.timings)) === false;
     change[field] = e;
     return '<button type="button" class="app-theme-btn' + (sel ? ' active' : '') + '" role="radio" aria-checked="' + sel + '"' +
+      (slow ? ' data-slow title="' + escAttr(t('voices_pace_behind')) + '"' : '') +
       ' onclick="' + escAttr('_setVoicePrefs(' + JSON.stringify(change) + ')') + '"><span>' + esc(label) + '</span></button>';
   };
   return '<div class="ms-theme-label">' + tH(labelKey) + '</div>' +
@@ -1460,7 +1671,8 @@ function _paintVoices() {
   _paintKept(document.getElementById(_VOICES_WRAP_ID), _voicePrefsHtml());
   // A download in flight: ask how it is going until it is done.
   clearTimeout(_voicesTimer);
-  if (_voicesDl().tag && document.getElementById(_VOICES_WRAP_ID)) _voicesTimer = setTimeout(_renderVoicePrefs, _VOICES_POLL_MS);
+  var testing = _voicesHere && _voicesHere.testing && _voicesHere.testing.engine;
+  if ((_voicesDl().tag || testing) && document.getElementById(_VOICES_WRAP_ID)) _voicesTimer = setTimeout(_renderVoicePrefs, _VOICES_POLL_MS);
 }
 var _voicesHeard = false;
 function _renderVoicePrefs() {
@@ -1660,7 +1872,7 @@ function _getPrefFlavor() {
 var PREF_FLAVORS = ['full', 'nopic', 'mini'];
 var _NO_ICONS = { full: '', nopic: '', mini: '' };
 function _setPrefFlavor(f) {
-  try { localStorage.setItem(SK.PREF_FLAVOR, f); } catch (e) {}
+  _prefWrite(SK.PREF_FLAVOR, f);
   var seg = document.getElementById('ms-flavor-seg');
   if (seg) seg.innerHTML = _flavorSegInner();
 }
@@ -1829,17 +2041,72 @@ function t(key, vars) {
 function tH(key, vars) {
   return t(key, vars).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+// Zimi's language, not the phone's: a German Zimi on an English phone reads
+// 20.10.2026 and 1.234 everywhere, so every number, date and sorted list goes
+// through these. Each Intl object is kept per language and options: building
+// one costs more than using it, and lists call these once a row.
+// The locale is Zimi's language in the phone's region when the phone speaks
+// that language (en-GB: 20/10/2026, weeks from Monday), else the language.
+function _uiLocale() {
+  var lang = _uiLangPrimary(), phone = (typeof navigator !== 'undefined' && navigator.language) || '';
+  return _langPrimary(phone).toLowerCase() === lang ? phone : lang;
+}
+var _intlKept = {};
+function _intl(kind, opts) {
+  var lang = _uiLocale(), key = kind + ' ' + lang + ' ' + JSON.stringify(opts || {});
+  if (!_intlKept[key]) {
+    try { _intlKept[key] = new Intl[kind](lang, opts); } catch (e) { _intlKept[key] = new Intl[kind]('en', opts); }
+  }
+  return _intlKept[key];
+}
+function fmtNum(n, opts) { return _intl('NumberFormat', opts).format(Number(n) || 0); }
+// A share of 100 as the language writes one (73,6 %, %73).
+function fmtPct(of100, digits) {
+  return fmtNum((Number(of100) || 0) / 100, { style: 'percent', maximumFractionDigits: digits || 0 });
+}
+// A date as the language writes it; with no options, the short numeric date.
+function fmtDate(d, opts) {
+  if (!(d instanceof Date)) d = new Date(d);
+  return isNaN(d.getTime()) ? '' : _intl('DateTimeFormat', opts).format(d);
+}
+// Text in the order a reader of the language expects, numbers by value
+// ("Part 2" before "Part 10").
+var _COLLATE_OPTS = { numeric: true };
+var _collators = {};
+function cmpText(a, b) {
+  var lang = _uiLocale();
+  var c = _collators[lang] || (_collators[lang] = _intl('Collator', _COLLATE_OPTS));
+  return c.compare(a == null ? '' : String(a), b == null ? '' : String(b));
+}
+// A library's things by their title, or their name where they have none.
+function cmpTitle(a, b) { return cmpText(a.title || a.name, b.title || b.name); }
+// The first day of the week, 0 = Sunday, for _uiLocale (en-GB starts on
+// Monday, en-US on Sunday, a bare language in its usual region). Intl's week
+// info where the browser has it (not Firefox yet), CLDR's table where not.
+var _WEEK_SUN = /^(AG|AS|BD|BR|BS|BT|BW|BZ|CA|CO|DM|DO|ET|GT|GU|HK|HN|ID|IL|IN|JM|JP|KE|KH|KR|LA|MH|MM|MO|MT|MX|MZ|NI|NP|PA|PE|PH|PK|PR|PT|PY|SA|SG|SV|TH|TT|TW|UM|US|VE|VI|WS|YE|ZA|ZW)$/;
+var _WEEK_SAT = /^(AE|AF|BH|DJ|DZ|EG|IQ|IR|JO|KW|LY|OM|QA|SD|SY)$/;
+var _LANG_HOME_REGION = { en: 'US', ar: 'EG', he: 'IL', hi: 'IN', pt: 'BR', zh: 'CN' };
+function _weekFirstDay() {
+  var lang = _uiLangPrimary(), tag = _uiLocale();
+  try {
+    var loc = new Intl.Locale(tag), wi = loc.getWeekInfo ? loc.getWeekInfo() : loc.weekInfo;
+    if (wi && wi.firstDay) return wi.firstDay % 7;
+  } catch (e) {}
+  var m = /[-_]([A-Za-z]{2})\b/.exec(tag), region = m ? m[1].toUpperCase() : (_LANG_HOME_REGION[lang] || '');
+  return _WEEK_SUN.test(region) ? 0 : _WEEK_SAT.test(region) ? 6 : 1;
+}
 // Localized pluralization: picks "<base>_<category>" via Intl.PluralRules for
 // the active UI language, falling back to "<base>_other" when that category
 // key does not exist. Locale files currently ship only _one/_other; languages
 // with richer plural categories (ru few/many, ar, he...) resolve to _other
-// until per-category keys are added. {n} is injected automatically.
+// until per-category keys are added. {n} is injected automatically, written
+// as the language writes numbers (1.234 in German).
 function tPlural(base, n, vars) {
   var cat = 'other';
-  try { cat = new Intl.PluralRules(_currentLang).select(Number(n) || 0); } catch (e) {}
+  try { cat = _intl('PluralRules').select(Number(n) || 0); } catch (e) {}
   var key = base + '_' + cat;
   if (_i18n[key] === undefined && _i18nFallback[key] === undefined) key = base + '_other';
-  var v = { n: n };
+  var v = { n: typeof n === 'number' ? fmtNum(n) : n };
   if (vars) for (var k in vars) v[k] = vars[k];
   return t(key, v);
 }
@@ -1931,7 +2198,7 @@ function _applyRTL(lang) {
 var _langLoadId = 0; // Guard against race conditions on rapid language switching
 async function setLanguage(lang) {
   _currentLang = lang;
-  localStorage.setItem(SK.UI_LANG, lang);
+  _prefWrite(SK.UI_LANG, lang);
   _keepUiLangChecked(lang);
   var myId = ++_langLoadId;
   await _loadI18n(lang);
@@ -2142,18 +2409,30 @@ var BYTES_PER_GB = 1000 * 1000 * 1000;
 // ZIM, above it "115 GB" reads better than "115.5 GB" down a list.
 var GB_WHOLE_FROM = 10;
 
+// Biggest unit first. English keeps the units Finder and the server print
+// (KB, not CLDR's kB); every other language takes its own (1,5 Go, 1,5 ГБ).
+var _SIZE_UNITS = [
+  { per: BYTES_PER_GB, unit: 'gigabyte', en: 'GB' }, { per: BYTES_PER_MB, unit: 'megabyte', en: 'MB' },
+  { per: BYTES_PER_KB, unit: 'kilobyte', en: 'KB' }, { per: 1, unit: 'byte', en: 'B' }];
+var _SIZE_NUMBER_PART = /^(integer|decimal|fraction|minusSign)$/;
+
 function fmtBytes(bytes, html) {
   var b = Math.max(0, Number(bytes) || 0);
-  var n, u;
-  if (b < BYTES_PER_KB) { n = String(Math.round(b)); u = ' B'; }
-  else if (b < BYTES_PER_MB) { n = (b / BYTES_PER_KB).toFixed(1); u = ' KB'; }
-  else if (b < BYTES_PER_GB) { n = (b / BYTES_PER_MB).toFixed(1); u = ' MB'; }
-  else {
-    var gb = b / BYTES_PER_GB;
-    n = gb >= GB_WHOLE_FROM ? String(Math.round(gb)) : gb.toFixed(1);
-    u = ' GB';
-  }
-  return html ? '<span class="num">' + n + '</span>' + u : n + u;
+  var u = _SIZE_UNITS.filter(function(x) { return b >= x.per; })[0] || _SIZE_UNITS[_SIZE_UNITS.length - 1];
+  var v = b / u.per;
+  var tenths = u.per === 1 || (u.per === BYTES_PER_GB && v >= GB_WHOLE_FROM) ? 0 : 1;
+  var en = String(_currentLang || 'en').split('-')[0] === 'en';
+  var parts = _intl('NumberFormat', { style: 'unit', unit: u.unit, minimumFractionDigits: tenths,
+    maximumFractionDigits: tenths, useGrouping: false }).formatToParts(v);
+  var out = '', num = '';
+  var flush = function() { if (num) out += html ? '<span class="num">' + num + '</span>' : num; num = ''; };
+  parts.forEach(function(p) {
+    if (_SIZE_NUMBER_PART.test(p.type)) { num += p.value; return; }
+    flush();
+    out += !en ? p.value : p.type === 'unit' ? u.en : ' ';
+  });
+  flush();
+  return out;
 }
 
 // The same size, for the callers that only ever held a GB figure (the API's
@@ -2173,7 +2452,7 @@ function _zimCountHtml(z) {
   // single-article library — a 67MB medical collection announcing itself with
   // a grammar mistake. The helper has been here the whole time and this was
   // the one count that did not use it.
-  return typeof n === 'number' ? tPlural('n_entries', n, {n: n.toLocaleString()}) : '';
+  return typeof n === 'number' ? tPlural('n_entries', n, {n: fmtNum(n)}) : '';
 }
 
 // How many things a ZIM holds, as a person would count them.
@@ -2303,7 +2582,7 @@ function _applyUserSession(name, canCreate) {
   // A user is never admin — drop any admin token so ambient manage polls stop.
   _manageToken = ''; _clearManageToken();
   if (manageBtnEl) manageBtnEl.style.display = 'none';
-  _savedUseSession();
+  _accountSet(name);
   _refreshAfterAuthChange();
 }
 
@@ -2312,8 +2591,7 @@ function userLogout() {
   // once the account has everything, its copy leaves this browser (a shared
   // screen keeps nothing of it, highlights and notes included). One that
   // could not go stays, to go up at the next sign-in.
-  _savedFlush().then(function(ok) {
-    if (ok && !_savedDelta()) Saved.forget();
+  _accountLeave().then(function() {
     return fetch('/logout', { method: 'POST', credentials: 'same-origin' });
   }).catch(function(){}).then(function() {
     _userSession = null;
@@ -2337,7 +2615,10 @@ async function _refreshAfterAuthChange() {
     _noteConnFailure(e);
     _renderConnBanner();
   }
-  if (typeof goHome === 'function') goHome();
+  // goHome() on a clean home page only scrolls to the top, so a sign-in made while home was already
+  // drawn (the gate opens over it) kept the anonymous library on screen until a reload: draw it again.
+  if (mode === 'home' && !readerOpen && !currentSource && !homeScope && typeof renderHome === 'function') renderHome();
+  else if (typeof goHome === 'function') goHome();
   else route(false);
 }
 
@@ -2376,13 +2657,14 @@ async function _bootAuthGate() {
   // ("admin") applies (no custom username, no named users). The login modal
   // reads it to show "Default username: admin".
   _defaultUsernameHint = (j && j.default_username) || '';
+  // Whose account this browser follows, from the server's word only: the
+  // account's own saved things and settings, from the browser's copy of them
+  // (the account's arrives in the background once the page is up: _savedStart).
+  _accountSet(j && j.account, true);
   if (j && j.role === 'user') {
     _userSession = { name: j.name, restricted: !!j.restricted, canCreate: !!j.can_create };
     if (manageBtnEl) manageBtnEl.style.display = 'none';
     _loadUserPrefs();
-    // The account's own saved things, from the browser's copy of them (the
-    // account's arrives in the background once the page is up: _savedStart).
-    Saved.use(j.name);
     return false;
   }
   if (j && j.role === 'admin') {
@@ -2512,6 +2794,11 @@ function manageFetch(url, opts) {
 }
 
 function manageLogout() {
+  // The admin's account leaves this browser the way a user's does (userLogout):
+  // what it has not had goes up first, then its copy goes.
+  _accountLeave().then(_manageLogoutNow, _manageLogoutNow);
+}
+function _manageLogoutNow() {
   _manageToken = '';
   _clearManageToken();
   // Drop any server-side session too — a SECONDARY admin authenticates to a
@@ -2539,7 +2826,10 @@ function openPwModal(title, opts) {
   // once named users exist the field starts blank so a user types their own name
   // rather than a misleading 'admin'.
   var uEl = document.getElementById('pw-username');
-  if (uEl) uEl.value = _manageUser || _defaultUsernameHint || '';
+  // What is already in the fields stays: the private-mode gate is on screen (and typed
+  // into) a moment before the boot gets round to opening the modal, and wiping it then
+  // sent a name that was no longer there. The fields are emptied when the modal closes.
+  if (uEl && !uEl.value) uEl.value = _manageUser || _defaultUsernameHint || '';
   // First-login hint ("Default username: admin") — only in sign-in mode and
   // only when the server says the default applies (no custom username/users).
   var hintEl = document.getElementById('pw-username-hint');
@@ -2548,7 +2838,9 @@ function openPwModal(title, opts) {
     hintEl.style.display = showHint ? 'block' : 'none';
     if (showHint) hintEl.textContent = t('default_username_hint').replace('{name}', _defaultUsernameHint);
   }
-  document.getElementById('pw-input').value = '';
+  // The password starts empty every time the sheet opens (a change-password flow reopens it for the
+  // new one), except under the private-mode gate, where it may already be being typed into.
+  if (!_loginRequired) document.getElementById('pw-input').value = '';
   document.getElementById('pw-input').placeholder = (opts && opts.placeholder) || t('password');
   document.getElementById('pw-input').autocomplete = (opts && opts.hideRemember) ? 'new-password' : 'current-password';
   document.getElementById('pw-error').style.display = 'none';
@@ -2563,7 +2855,13 @@ function openPwModal(title, opts) {
   const overlay = document.getElementById('pw-overlay');
   overlay.classList.add('open');
   document.addEventListener('keydown', _pwKeyHandler);
-  setTimeout(function() { document.getElementById('pw-input').focus(); }, 50);
+  // Focus the password, unless a field in the sheet already has it: the private-mode gate is typed into
+  // as it opens, and taking focus here sent the name just typed into the password field.
+  setTimeout(function() {
+    var at = document.activeElement;
+    if (at && at !== overlay && overlay.contains(at)) return;
+    document.getElementById('pw-input').focus();
+  }, 50);
 }
 
 function closePwModal() {
@@ -2571,6 +2869,9 @@ function closePwModal() {
   // path is a no-op, since there is nothing behind it but 401s. Only a
   // successful sign-in (which calls _exitLoginGate) can leave.
   if (_loginRequired) return;
+  document.getElementById('pw-input').value = '';
+  var uClear = document.getElementById('pw-username');
+  if (uClear) uClear.value = '';
   document.getElementById('pw-overlay').classList.remove('open');
   document.removeEventListener('keydown', _pwKeyHandler);
   if (_pwReject) { _pwReject(); _pwReject = null; }
@@ -2911,7 +3212,7 @@ function updateTopbar() {
     if (!showMapSrc) _closeMapSourceDropdown();
   }
   var ttsBtn = document.getElementById('tts-btn');
-  if (ttsBtn) ttsBtn.style.display = (_readingText && _ttsCanSpeak() && _speakingOn() && !_foldReaderExtras) ? 'flex' : 'none';
+  if (ttsBtn) ttsBtn.style.display = (_readingText && _ttsOffered() && !_foldReaderExtras) ? 'flex' : 'none';
   // The dice on a map roll a place, and say so.
   var randomLabel = t(_isMapPage() ? 'random_place' : 'random_article');
   randomBtn.title = randomLabel;
@@ -3734,6 +4035,7 @@ async function _bootDeepLinkArticle(zim, path) {
 // an offer rather than an undo.
 var _TOAST_UNDO_MS = 6000;
 var _toastUndoLast = null;
+var _TOAST_GAP_PX = 12;
 function _showToast(msg, duration, undo, actionLabel) {
   var toast = document.createElement('div');
   toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;font-size:13px;color:var(--text2);z-index:300;box-shadow:0 4px 16px rgba(0,0,0,0.3)';
@@ -3750,6 +4052,9 @@ function _showToast(msg, duration, undo, actionLabel) {
     toast.appendChild(b);
     duration = duration || _TOAST_UNDO_MS;
   }
+  // Above Read aloud's bar while it is up, never over it.
+  var bar = document.getElementById('tts-bar');
+  if (bar && !bar.hidden) toast.style.bottom = (window.innerHeight - bar.getBoundingClientRect().top + _TOAST_GAP_PX) + 'px';
   document.body.appendChild(toast);
   // Mirror to the screen-reader live region so non-sighted users hear it too.
   var live = document.getElementById('a11y-toast-region');
@@ -4402,7 +4707,7 @@ function _orderCatsBySaved(cats) {
     if (pa == null && pb == null) {
       if (a === OTHER_CAT) return 1;   // unlisted Other defaults last, like home
       if (b === OTHER_CAT) return -1;
-      return a.localeCompare(b);
+      return cmpText(a, b);
     }
     if (pa == null) return 1;
     if (pb == null) return -1;
@@ -4748,7 +5053,7 @@ function renderHome(filter) {
     // The Apps page counts what each app shows on its own cards: a sum of
     // ZIM entries across books, videos and maps would count none of them.
     statsHtml = t('sources_count', {n: '<span class="num">' + n + '</span>'}) + ' &middot; ' +
-      (homeScope && homeScope.type === 'apps' ? '' : t('articles_count', {n: '<span class="num">' + totalEntries.toLocaleString() + '</span>'}) + ' &middot; ') +
+      (homeScope && homeScope.type === 'apps' ? '' : t('articles_count', {n: '<span class="num">' + fmtNum(totalEntries) + '</span>'}) + ' &middot; ') +
       fmtSize(totalGb, true);
   }
 
@@ -4878,7 +5183,7 @@ function renderHome(filter) {
     const scopeEntries = baseZims.reduce((s, z) => s + (typeof z.entries === 'number' ? z.entries : 0), 0);
     h += '<div class="search-deeper" onclick="doSearch(\'' + escAttr(filter) + '\')" tabindex="0" ' +
       'onkeydown="if(event.key===\'Enter\')doSearch(\'' + escAttr(filter) + '\')">' +
-      tH('search_articles', {n: scopeEntries.toLocaleString(), query: filter}) + '</div>';
+      tH('search_articles', {n: fmtNum(scopeEntries), query: filter}) + '</div>';
   }
 
   // Discover (only on unscoped, unfiltered, unfiltered-by-language home)
@@ -5109,7 +5414,7 @@ function _langBadge(z, force, full) {
   var name = _langDisplayName(z.language) || info.code;
   if (full) {
     var lc = (z.language || '').toLowerCase().slice(0, 2);
-    var native = _NATIVE_LANG_NAMES[lc] || name;
+    var native = _langOwnName(lc);
     return '<span class="lang-badge lang-badge-full" title="' + escAttr(name) + '">' + esc(native) + '</span>';
   }
   return '<span class="lang-badge" title="' + escAttr(name) + '">' + esc(info.code) + '</span>';
@@ -5206,8 +5511,7 @@ function filterHomeRecent(kind) {
 }
 
 // One language filter pill for the home library. Multi-select toggle; the
-// native language name matches the search-results lang pills (reusing the
-// existing _NATIVE_LANG_NAMES map, with _langDisplayName as fallback).
+// native language name matches the search-results lang pills (_langOwnName).
 // A label and how many: one form everywhere (home pills, the Library's
 // groups, the apps' chips): the label, then the number, quieter. Never
 // "(1)", never "· 1".
@@ -5215,7 +5519,7 @@ function _countedLabelHtml(label, n) {
   return esc(label) + ' <span class="label-n">' + n + '</span>';
 }
 function _homeLangPill(code, count, active) {
-  var name = _NATIVE_LANG_NAMES[code] || _langDisplayName(code) || code.toUpperCase();
+  var name = _langOwnName(code);
   return '<button class="pill' + (active ? ' active' : '') + '"' +
     ' aria-pressed="' + (active ? 'true' : 'false') + '"' +
     // escJs, not escAttr: an entity-escaped quote decodes back to a live quote
@@ -5260,7 +5564,7 @@ function _librarySort() {
 }
 function _setLibrarySort(mode) {
   if (LIBRARY_SORTS.indexOf(mode) < 0) return;
-  localStorage.setItem(SK.LIBRARY_SORT, mode);
+  _prefWrite(SK.LIBRARY_SORT, mode);
   // Move the cards rather than rebuild them. Changing the order changes only
   // the order: the same cards, in a different sequence. Rebuilding threw the
   // whole library away and made it again, which reads as the page flashing
@@ -5394,7 +5698,7 @@ var _LIBRARY_SORTERS = {
   alpha: function(a, b) {
     // The title a person reads on the card, not the file name they never see.
     var at = (a.title || a.name || ''), bt = (b.title || b.name || '');
-    return at.localeCompare(bt, undefined, {sensitivity: 'base', numeric: true});
+    return cmpText(at, bt);
   },
   added: _byFirstSeenDesc,
   updated: _byUpdatedDesc,
@@ -5405,7 +5709,7 @@ var _LIBRARY_SORTERS = {
   // largest first within each.
   type: function(a, b) {
     var at = a.category || 'zz', bt = b.category || 'zz';
-    return at === bt ? (b.size_gb || 0) - (a.size_gb || 0) : at.localeCompare(bt);
+    return at === bt ? (b.size_gb || 0) - (a.size_gb || 0) : cmpText(at, bt);
   },
 };
 function _sortLibrary(list) {
@@ -5414,7 +5718,7 @@ function _sortLibrary(list) {
 
 function _setLibraryView(mode) {
   if (mode !== 'tiles') mode = 'list';
-  try { localStorage.setItem(SK.LIBRARY_VIEW, mode); } catch (e) {}
+  _prefWrite(SK.LIBRARY_VIEW, mode);
   renderHome();  // scope/recency filters are module state, so this re-renders in place
 }
 // The grid/list segmented toggle. Both glyphs are always shown; the active one
@@ -5623,13 +5927,7 @@ var _ZI_HISTORY_MODE = 'history';
 // Absolute local date-time for a provenance timestamp. The relative form rides
 // in the tooltip, where it explains the absolute one instead of replacing it.
 function _ziWhen(tsSec) {
-  var d = new Date(tsSec * 1000);
-  try {
-    return d.toLocaleString(_currentLang || 'en',
-      { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  } catch (e) {
-    return d.toLocaleString();
-  }
+  return fmtDate(tsSec * 1000, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function _ziRow(labelKey, valueHtml) {
@@ -5736,11 +6034,11 @@ function captureStopText(stopped) {
   var why = String(stopped || '');
   if (!why) return '';
   var m = why.match(/^page cap \((\d+)\)/);
-  if (m) return t('create_stopped_page_cap', {n: Number(m[1]).toLocaleString()});
+  if (m) return t('create_stopped_page_cap', {n: fmtNum(m[1])});
   m = why.match(/^byte budget \((.+)\)/);
   if (m) return t('create_stopped_byte_budget', {size: m[1]});
   m = why.match(/^depth limit \((\d+)\)/);
-  if (m) return t('create_stopped_depth', {n: Number(m[1]).toLocaleString()});
+  if (m) return t('create_stopped_depth', {n: fmtNum(m[1])});
   m = why.match(/^nothing under (\S+)/);
   if (m) return t('create_stopped_nothing_under', {path: m[1]});
   return t('create_stopped_early');
@@ -5773,7 +6071,7 @@ function _ziBodyHtml(info) {
     '</span>';
   // Articles and entries are different numbers (entries count redirects and
   // assets too), and the panel is the one place precise enough to say both.
-  var num = function (v) { return typeof v === 'number' ? esc(v.toLocaleString()) : ''; };
+  var num = function (v) { return typeof v === 'number' ? esc(fmtNum(v)) : ''; };
   var head = '<div class="zi-id">' + iconHtml +
     // From the kind this fetch returned, not the cards' map: the panel opens
     // from surfaces the map was never loaded for.
@@ -5869,8 +6167,8 @@ function _ziShapeHtml(shape) {
   if (!bar) return '';
   var note = shape.sampled
     ? '<div class="zi-shape-note">' + tH('zi_shape_sampled', {
-        n: (shape.sampled_entries || 0).toLocaleString(),
-        total: (shape.total_entries || 0).toLocaleString()
+        n: fmtNum(shape.sampled_entries || 0),
+        total: fmtNum(shape.total_entries || 0)
       }) + '</div>'
     : '';
   return '<div class="zi-sec">' + tH('create_inside_title') + '</div>' + bar + note;
@@ -6013,7 +6311,7 @@ function _keepLoad() {
         KeepStore.subscribe(function(st) {
           // A pull that ends in an error says why at once, wherever it was started (a tile's ring alone turns grey).
           if (wasPulling && st.phase === 'idle' && st.error) _keepNotice(t('keep_err_' + st.error));
-          if (!wasPulling && st.phase === 'pulling') _keepPrimeOffline();
+          if (!wasPulling && st.phase === 'pulling') _keepPrimeOffline(st.name);
           wasPulling = st.phase === 'pulling';
           _keepRenderOpen();
           _keepImportRender();
@@ -6049,12 +6347,18 @@ var _KEEP_OFFLINE_FILES = ['/static/libzim/libzim-wasm.js', '/static/libzim/libz
   '/static/pdfjs/web/viewer.html', '/static/pdfjs/web/viewer.mjs', '/static/pdfjs/web/viewer.css',
   '/static/pdfjs/build/pdf.mjs', '/static/pdfjs/build/pdf.worker.mjs', '/static/pdfjs/web/locale/locale.json',
   '/static/pdfjs/web/images/loading-icon.gif'];
-function _keepPrimeOffline() {
+function _keepPrimeOffline(pulling) {
   _keepAlmanac();
   var files = _KEEP_OFFLINE_FILES.concat(['/static/pdfjs/web/locale/' + (_pdfLocale() || 'en-US') + '/viewer.ftl']);
-  files.forEach(function(u) {
-    var have = window.caches ? caches.match(u, { ignoreSearch: true }).catch(function() { return null; }) : Promise.resolve(null);
+  var fetchMissing = function(u, exact) {
+    var have = window.caches ? caches.match(u, exact ? undefined : { ignoreSearch: true }).catch(function() { return null; }) : Promise.resolve(null);
     have.then(function(hit) { if (!hit) fetch(u).catch(function() {}); });
+  };
+  files.forEach(function(u) { fetchMissing(u, false); });
+  // A document library's list as the app draws it, sizes and all: the
+  // server's own answer, kept (the phone's copy of the ZIM has no sizes).
+  Array.from(_keepNames).concat(pulling ? [pulling] : []).forEach(function(n) {
+    if (n.indexOf('zimgit-') === 0) fetchMissing('/catalog?zim=' + encodeURIComponent(n), true);
   });
 }
 
@@ -6156,7 +6460,7 @@ function _keepNoteText(zim) {
   var st = _keepLive(), m = _keepMetas[zim] || {}, live = st.name === zim;
   var size = (live && st.size) || m.size || _keepZimBytes(zim);
   var written = live ? st.written : (m.written || 0);
-  var pct = (s.pct >= 10 ? Math.floor(s.pct) : s.pct) + '%';
+  var pct = fmtPct(s.pct >= 10 ? Math.floor(s.pct) : s.pct, 1);
   var line = [pct, _fmtBytes(written) + ' / ' + _fmtBytes(size)];
   if (s.kind === 'pull' && live && st.speed) line.push(_fmtBytes(st.speed) + '/s');
   if (s.kind === 'paused') line.unshift(t('keep_paused'));
@@ -7489,6 +7793,23 @@ function _renderTodayCard() {
     '</div>';
 }
 
+// A module fetched when first needed (Create, Read aloud): one <script> per
+// file however many ask, resolving true once it ran, false when it could not
+// be fetched (offline before it was ever cached), so the next ask tries again.
+var _scriptsLoading = {};
+function _loadScript(src) {
+  if (!_scriptsLoading[src]) {
+    _scriptsLoading[src] = new Promise(function(resolve) {
+      var el = document.createElement('script');
+      el.src = src;
+      el.onload = function() { resolve(true); };
+      el.onerror = function() { delete _scriptsLoading[src]; el.remove(); resolve(false); };
+      document.head.appendChild(el);
+    });
+  }
+  return _scriptsLoading[src];
+}
+
 // -- Create a ZIM (lazy-loaded from /static/create.js) --
 // Same shape as the Almanac below: a full-page surface over the library, its
 // module fetched only when an admin actually opens it. The module overrides
@@ -7534,18 +7855,15 @@ function openCreate(replaceState) {
     return;
   }
   if (_createLoaded) { _openCreateInner(replaceState); return; }
-  var el = document.createElement('script');
-  el.src = '/static/create.js?v=1';
-  el.onload = function() { _createLoaded = true; _openCreateInner(replaceState); };
-  // Offline with a cold cache: the module was never fetched. Say so rather
-  // than leaving a button that appears to do nothing.
-  el.onerror = function() {
-    // Drop the boot gate too, or a cold load of /#create leaves the library
-    // hidden behind a shell that is never going to fill in.
+  _loadScript('/static/create.js?v=1').then(function(ok) {
+    if (ok) { _createLoaded = true; _openCreateInner(replaceState); return; }
+    // Offline with a cold cache: the module was never fetched. Say so rather
+    // than leaving a button that appears to do nothing. Drop the boot gate
+    // too, or a cold load of /#create leaves the library hidden behind a
+    // shell that is never going to fill in.
     document.documentElement.classList.remove('create-boot');
     _showToast(t('create_unavailable_offline'));
-  };
-  document.head.appendChild(el);
+  });
 }
 
 // Both overridden by create.js once it loads.
@@ -8113,7 +8431,7 @@ function _renderDiscover(el, items) {
           '<div class="dc-source"><span>' + tH('today') + '</span></div>' +
           '<div class="dc-title">' + esc(_dateTitle) + '</div>' +
           '<div class="dc-blurb">' + _localMoonName(_m.name) + (_seasonStr ? ' \u00b7 ' + _seasonStr : '') + '</div>' +
-          '<div class="dc-blurb">' + _m.illumination + '% ' + tH('alm_illuminated') + '</div>' +
+          '<div class="dc-blurb">' + fmtPct(_m.illumination, 1) + ' ' + tH('alm_illuminated') + '</div>' +
           (_teaser ? '<div class="dc-blurb" style="color:var(--amber)">' + _teaser + '</div>' : '') +
         '</div></a>';
       continue;
@@ -9812,7 +10130,7 @@ function renderSearchResults(data, scope) {
     langPillsHtml = '<div class="lang-pills" role="group" aria-label="' + escAttr(t('filter_by_language')) + '">' +
       _allResetPill(activeLanguageFilters.size === 0, 'clearLanguageFilter()') +
       langCodes.sort(function(a, b) { return (byLanguage[b] || 0) - (byLanguage[a] || 0); }).map(function(lang) {
-      var name = _NATIVE_LANG_NAMES[lang] || lang;
+      var name = _langOwnName(lang);
       // Dim language pills when a source filter is active and that source has no results in this language
       var dimmed = activeSourceFilters.size > 0 && ![...activeSourceFilters].some(function(s) { return langsBySource[s] && langsBySource[s].has(lang); });
       // While a language filter is on, the other languages stay in view,
@@ -10787,7 +11105,7 @@ function _langChooserCtxMenu(e) {
 }
 
 function _hideLangChooser() {
-  localStorage.setItem(SK.HIDE_LANG_CHOOSER, '1');
+  _prefWrite(SK.HIDE_LANG_CHOOSER, '1');
   manageLangFilter = null;
   var ctx = document.getElementById('lang-chooser-ctx');
   if (ctx) ctx.remove();
@@ -10912,6 +11230,7 @@ var _langDisplayCacheLang = '';
 var _SPECIAL_LANG = { mul:'Multilingual', mis:'Other', und:'Unknown', zxx:'No language' };
 // Fallback names for ISO 639-3 codes that Intl.DisplayNames doesn't handle
 var _LANG3_NAMES = {
+  hyw:'Western Armenian',mto:'Totontepec Mixe',nci:'Classical Nahuatl',
   stq:'Saterland Frisian',nds:'Low German',szl:'Silesian',lmo:'Lombard',scn:'Sicilian',
   vec:'Venetian',pms:'Piedmontese',nap:'Neapolitan',eml:'Emilian-Romagnol',lij:'Ligurian',
   frr:'North Frisian',bar:'Bavarian',ksh:'Colognian',pfl:'Palatinate German',als:'Alemannic',
@@ -11000,32 +11319,6 @@ function _langDisplayName(code) {
 // Filter out truly invalid language entries (empty, single char, numeric)
 function _isValidLangCode(code) {
   return code && code.length >= 2 && /[a-z]/i.test(code);
-}
-
-// Language display: "Multilingual (24 langs)" or "French" instead of raw codes
-const LANG_NAMES = {
-  en:'English',fr:'French',de:'German',es:'Spanish',pt:'Portuguese',it:'Italian',
-  ru:'Russian',ar:'Arabic',zh:'Chinese',ja:'Japanese',ko:'Korean',hi:'Hindi',
-  tr:'Turkish',pl:'Polish',nl:'Dutch',sv:'Swedish',vi:'Vietnamese',th:'Thai',
-  he:'Hebrew',el:'Greek',ro:'Romanian',hu:'Hungarian',fa:'Persian',id:'Indonesian',
-  uk:'Ukrainian',cs:'Czech',da:'Danish',fi:'Finnish',no:'Norwegian',ca:'Catalan',
-  mul:'Multilingual',
-  // 3-letter fallbacks for any un-normalized legacy data
-  eng:'English',fra:'French',deu:'German',spa:'Spanish',por:'Portuguese',ita:'Italian',
-  rus:'Russian',ara:'Arabic',zho:'Chinese',jpn:'Japanese',kor:'Korean',hin:'Hindi',
-  heb:'Hebrew'
-};
-function formatLanguage(langStr) {
-  if (!langStr) return '';
-  const codes = langStr.toLowerCase().split(',').map(c => c.trim()).filter(Boolean);
-  if (codes.length === 0) return '';
-  if (codes.length === 1) {
-    if (codes[0] === 'en' || codes[0] === 'eng') return ''; // Don't show English when it's the only language
-    return LANG_NAMES[codes[0]] || _langDisplayName(codes[0]) || codes[0].toUpperCase();
-  }
-  // Multilingual
-  if (codes.length <= 3) return codes.map(c => LANG_NAMES[c] || _langDisplayName(c) || c.toUpperCase()).join(', ');
-  return t('multilingual', {n: codes.length});
 }
 
 // ISO 639-3 (ZIM metadata, the catalog) → 639-1: the server's own table
@@ -11187,13 +11480,13 @@ function _catalogStaleNote() {
     // before, which is the classic way a date-only string slips backwards.
     var parts = _catalogAsOf.split('-');
     var day = new Date(Date.UTC(+parts[0], +parts[1] - 1, +parts[2], 12));
-    var shown = isNaN(day.getTime()) ? _catalogAsOf : day.toLocaleDateString();
+    var shown = isNaN(day.getTime()) ? _catalogAsOf : fmtDate(day);
     return '<div class="ms-hint" style="text-align:center;margin:4px 0 10px">' +
       tH('catalog_snapshot_note', {d: shown}) + '</div>';
   }
   var at = _catalogStaleAt || (_catalogAsOf ? Date.parse(_catalogAsOf) / 1000 : 0);
   if (!at) return '';
-  var when = new Date(at * 1000).toLocaleDateString();
+  var when = fmtDate(at * 1000);
   return '<div class="ms-hint" style="text-align:center;margin:4px 0 10px">' +
     tH('catalog_offline_note', {d: when}) + '</div>';
 }
@@ -11463,7 +11756,7 @@ function _peerOnlyEntries() {
     if (!g.peers.includes(e.peer)) g.peers.push(e.peer);
   }
   return [...byFile.values()]
-    .sort((a, b) => (a.title || a.file).localeCompare(b.title || b.file));
+    .sort((a, b) => cmpText(a.title || a.file, b.title || b.file));
 }
 
 // "Nearby" catalog section: rows for peer-only ZIMs, pullable over the LAN
@@ -11836,7 +12129,7 @@ function _installedOfKind(kind, key) {
 // library's videos in ZimiTube).
 function _installedFor(kind, app, key) {
   var all = (zimsCache || []).filter(function(z) { return z.main_path && (z.kind === kind || !!(app && z.feeds && z.feeds[app])); })
-    .sort(function(a, b) { return (a.title || a.name).localeCompare(b.title || b.name); });
+    .sort(cmpTitle);
   return key ? _newestPer(all, key) : all;
 }
 
@@ -12057,7 +12350,7 @@ function renderBrowseGallery() {
       ? groupVariants(items.filter(function(it) { return _zimMatchesLang(it, manageLangFilter); })).length
       : groupVariants(items).length;
     h += '<div class="browse-footer">' +
-      '<div class="browse-footer-count">' + totalSources.toLocaleString() + ' sources \u00B7 ' + activeCats + ' categories</div>' +
+      '<div class="browse-footer-count">' + esc(tPlural('n_sources', totalSources) + ' \u00B7 ' + tPlural('n_categories', activeCats)) + '</div>' +
     '</div>';
     h += '</div>';
     results.innerHTML = _catalogStaleNote() + h;
@@ -12124,7 +12417,7 @@ async function _renderStreetZimMaps(results, catMeta, catName, attempt) {
   var items = (data.items || []).map(function(it) { return Object.assign({}, it, {category: 'maps'}); });
   if (_catalogCache) _enrichCatalogInstalled(items);
   var grouped = groupVariants(items);
-  grouped.sort(function(a, b) { return (a.title || a.name || '').localeCompare(b.title || b.name || ''); });
+  grouped.sort(cmpTitle);
   var h = '<div class="browse-drilldown-header">' +
     '<button class="browse-back" onclick="renderBrowseGallery()">' + tH('back_to_catalog') + '</button>' +
     '<span class="browse-drilldown-title">' + (catMeta ? '<span class="browse-drilldown-icon">' + catMeta.icon + '</span>' : '') + esc(catName) + '</span>' +
@@ -12196,7 +12489,7 @@ function drillCategory(catKey, namePrefix) {
     const grouped = groupVariants(filtered);
     // The most complete edition of a project leads its category; the rest
     // go alphabetically.
-    grouped.sort((a, b) => _mostComplete(b) - _mostComplete(a) || (a.title || a.name || '').localeCompare(b.title || b.name || ''));
+    grouped.sort((a, b) => _mostComplete(b) - _mostComplete(a) || cmpTitle(a, b));
     let h = '<div class="browse-drilldown-header">' +
       '<button class="browse-back" onclick="renderBrowseGallery()">' + tH('back_to_catalog') + '</button>' +
       '<span class="browse-drilldown-title">' + (catMeta ? '<span class="browse-drilldown-icon">' + catMeta.icon + '</span>' : '') + esc(catName) + '</span>' +
@@ -12633,7 +12926,7 @@ function browseCatalogFilter(query) {
       const aDemoted = a.installed || (a.hierarchy && (a.hierarchy.is_subset_of || []).some(n => _catalogInstalledNames.has(n)));
       const bDemoted = b.installed || (b.hierarchy && (b.hierarchy.is_subset_of || []).some(n => _catalogInstalledNames.has(n)));
       if (aDemoted !== bDemoted) return aDemoted ? 1 : -1;
-      return (a.title || a.name || '').localeCompare(b.title || b.name || '');
+      return cmpTitle(a, b);
     });
     // Back to the category it searched in, or to the catalog. The query is
     // in the box; under the count, what its operators did.
@@ -12806,7 +13099,7 @@ function renderCatalogItem(group) {
   const item = group;
   const variants = group.variants || [item];
   const metaTags = [];
-  if (item.article_count) metaTags.push(item.article_count.toLocaleString() + ' ' + t('articles'));
+  if (item.article_count) metaTags.push(fmtNum(item.article_count) + ' ' + t('articles'));
   if (item.date) metaTags.push(item.date);
   const sizes = variants.map(v => v.size_bytes).sort((a, b) => a - b);
   if (sizes.length > 1) {
@@ -13104,7 +13397,7 @@ async function renderCollectionsTab() {
     h += '<div class="coll-item" style="flex-direction:column;align-items:stretch" onclick="toggleCollExpand(\'' + escAttr(name) + '\')">';
     h += '<div style="display:flex;align-items:center;gap:12px">' +
       '<span class="coll-name" style="flex:1">' + esc(label) +
-      ' <span style="font-weight:400;color:var(--text2);font-size:12px">(' + tH('n_sources', {n: collZims.length}) + ')</span></span>' +
+      ' <span style="font-weight:400;color:var(--text2);font-size:12px">(' + tPluralH('n_sources', collZims.length) + ')</span></span>' +
       '<button class="coll-del" onclick="event.stopPropagation();deleteCollection(\'' + escAttr(name) + '\', this)" title="' + escAttr(t('delete_collection')) + '">\u00D7</button>' +
     '</div>';
     if (expanded) {
@@ -13119,7 +13412,7 @@ async function renderCollectionsTab() {
       }
       h += '<div class="coll-picker" onclick="event.stopPropagation()">';
       for (const cat of Object.keys(catMap).sort()) {
-        const catZims = catMap[cat].slice().sort((a, b) => (a.title || a.name).localeCompare(b.title || b.name));
+        const catZims = catMap[cat].slice().sort(cmpTitle);
         h += '<div class="manage-installed-group"><div class="ci-section-label">' + _countedLabelHtml(_catDisplayName(cat), catZims.length) + '</div>';
         for (const z of catZims) {
           const inColl = collZims.includes(z.name);
@@ -13590,13 +13883,13 @@ async function renderActivityTab() {
       } else if (ti.ready < totalZims) {
         h += '<div class="mc-row"><span class="mc-label">' + tH('title_index') + '</span><span class="mc-value">' + tH('n_of_total', {n: ti.ready, total: totalZims}) + '</span></div>';
       } else {
-        h += '<div class="mc-row"><span class="mc-label">' + tH('title_index') + '</span><span class="mc-value">' + t('n_sources', {n: totalZims}) + '</span></div>';
+        h += '<div class="mc-row"><span class="mc-label">' + tH('title_index') + '</span><span class="mc-value">' + tPlural('n_sources', totalZims) + '</span></div>';
       }
 
       // Full-text index row — denominator is total ZIMs, not just ones with title indexes
       const ftsTotal = building ? totalZims : totalZims;  // always use total ZIMs
       if (withFts.length >= ftsTotal && ftsTotal > 0 && !building) {
-        h += '<div class="mc-row"><span class="mc-label">' + tH('fulltext_index') + '</span><span class="mc-value">' + t('n_sources', {n: ftsTotal}) + '</span></div>';
+        h += '<div class="mc-row"><span class="mc-label">' + tH('fulltext_index') + '</span><span class="mc-value">' + tPlural('n_sources', ftsTotal) + '</span></div>';
       } else {
         h += '<div class="mc-row"><span class="mc-label">' + tH('fulltext_index') + '</span><span class="mc-value">' + tH('n_of_total', {n: withFts.length, total: ftsTotal}) + '</span></div>';
       }
@@ -14412,7 +14705,7 @@ function _relTime(tsSec) {
     }
     return rtf.format(0, 'second');  // within the last second
   } catch (e) {
-    return new Date(tsSec * 1000).toLocaleDateString();
+    return fmtDate(tsSec * 1000);
   }
 }
 
@@ -14502,7 +14795,7 @@ function _allowlistPicker(selected) {
     var lang = o.language
       ? '<span class="ms-allow-lang">' + esc(String(o.language).toUpperCase()) + '</span>' : '';
     var count = (o.article_count != null)
-      ? '<span class="ms-allow-count">' + Number(o.article_count).toLocaleString() + '</span>' : '';
+      ? '<span class="ms-allow-count">' + fmtNum(o.article_count) + '</span>' : '';
     var hay = ((o.title || '') + ' ' + o.name + ' ' + (o.language || '')).toLowerCase();
     return '<label class="ms-allow-row" data-hay="' + escAttr(hay) + '">' +
       '<input type="checkbox" class="allowlist-cb" value="' + escAttr(o.name) + '"' +
@@ -14886,19 +15179,14 @@ function _creatorDefaultsHtml(d) {
   return _loadingHtml();
 }
 function _creatorLoadForm() {
-  if (_creatorFormLoading) return;
-  _creatorFormLoading = true;
-  var el = document.createElement('script');
-  el.src = '/static/create.js?v=1';
-  el.onload = function() {
+  _loadScript('/static/create.js?v=1').then(function(ok) {
+    if (!ok) return;
     _createLoaded = true;
     var slot = document.getElementById('ms-cr-defaults');
     if (slot && _creatorData) slot.innerHTML = _createDefaultsFormHtml(_creatorData);
-  };
-  el.onerror = function() { _creatorFormLoading = false; };
-  document.head.appendChild(el);
+  });
 }
-var _creatorFormLoading = false;
+
 
 function _creatorQueueHtml(queue) {
   return queue
@@ -15452,7 +15740,7 @@ function _renderHealthReport(st) {
     var ra = rank[a.status] != null ? rank[a.status] : 1;
     var rb = rank[b.status] != null ? rank[b.status] : 1;
     if (ra !== rb) return ra - rb;
-    return (a.name || '').localeCompare(b.name || '');
+    return cmpText(a.name, b.name);
   });
   var body = rows.map(function(r) {
     if (r.kind === 'torrent_meta') {
@@ -15462,7 +15750,7 @@ function _renderHealthReport(st) {
         '<span class="health-detail">' + esc(t('health_torrent_meta')) + '</span></div>';
     }
     var issues = (r.issues && r.issues.length) ? esc(r.issues.join(', ')) :
-      (r.entries != null ? esc(t('health_entries', { n: Number(r.entries).toLocaleString() })) : '');
+      (r.entries != null ? esc(t('health_entries', { n: fmtNum(r.entries) })) : '');
     // Which indexes this ZIM has, as small labelled badges (not bare "title"/
     // "Q-ID" tokens, which read as leftover garbage next to the entry count).
     var idx = [];
@@ -15604,6 +15892,7 @@ function _msReorderHtml() {
 
 // A local flag that is either set ('1') or absent.
 function _setStorageFlag(key, on) {
+  if (_isPrefKey(key)) { _prefWrite(key, on ? '1' : null); return; }
   try { if (on) localStorage.setItem(key, '1'); else localStorage.removeItem(key); } catch (e) {}
 }
 
@@ -17418,7 +17707,7 @@ function _setUploadTrickle(input) {
 //   • "My data"      — this browser's bookmarks, history and preferences. Always
 //                      exportable/importable to a file; a signed-in NAMED user
 //                      also gets Save-to / Restore-from their own server account
-//                      (POST/GET /userdata). Admin-without-a-user stays file-only.
+//                      (POST/GET /userdata). Settings and the saved store follow any signed-in account, the admin too, on their own (_prefTake, _savedPull).
 //   • "Server backup"— ADMIN-only, the full server bundle (/manage/backup
 //                      scope=server): library list, collections, layout, users
 //                      with hashes, access policy, schedule, sharing prefs, seed
@@ -17429,12 +17718,7 @@ function _setUploadTrickle(input) {
 // _BACKUP_SCHEMA_VERSION in lockstep with the server.
 var _BACKUP_SCHEMA = 'zimi-backup';
 var _BACKUP_SCHEMA_VERSION = 3;
-var _PREF_KEYS = [
-  SK.UI_LANG, SK.HIDE_DISCOVER, SK.HIDE_LANG_CHOOSER, SK.HIDE_XZIM_LINKS,
-  SK.LIBRARY_VIEW, SK.PREF_LANGUAGES, SK.VOICE_PREFS, SK.PREF_FLAVOR,
-  SK.READER_FONT, SK.READER_FAMILY, SK.READER_THEME, SK.READER_AUTO,
-  SK.EXT_LINKS, SK.OPEN_IN_APPS,
-];
+// _PREF_KEYS is defined with SK, at the top.
 
 function _collectPreferences() {
   var out = {};
@@ -17553,7 +17837,7 @@ function _applyBrowserData(data, overwrite, fromAccount) {
   if (data && data.preferences && typeof data.preferences === 'object') {
     Object.keys(data.preferences).forEach(function(k) {
       if (_PREF_KEYS.indexOf(k) === -1) return;  // ignore unknown/foreign keys
-      try { localStorage.setItem(k, data.preferences[k]); } catch (e) {}
+      _prefWrite(k, data.preferences[k]);
     });
   }
   if (data) res.bm = _savedTake(data, overwrite, fromAccount);
@@ -17614,8 +17898,9 @@ async function saveMyDataToServer() {
     var res = await fetch('/userdata', {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(_collectBrowserData()),
+      body: JSON.stringify(Object.assign(_collectBrowserData(), { account: _accountId })),
     });
+    if (res.status === 401 || res.status === 409) _accountRecheck();
     if (!res.ok) throw new Error('http ' + res.status);
     // The account merged this browser's store with its own: take the result.
     var back = await res.json().catch(function() { return null; });
@@ -17628,7 +17913,8 @@ async function restoreMyDataFromServer() {
   _setBackupStatus('ms-mydata-status', 'working');
   var data;
   try {
-    var res = await fetch('/userdata', { credentials: 'same-origin' });
+    var res = await fetch(_accountUrl('/userdata'), { credentials: 'same-origin' });
+    if (res.status === 401 || res.status === 409) _accountRecheck();
     if (!res.ok) throw new Error('http ' + res.status);
     data = await res.json();
   } catch (e) { _setBackupStatus('ms-mydata-status', 'error'); return; }
@@ -18022,7 +18308,7 @@ function renderInstalled(filterText) {
   for (const cat of catOrder) {
     const items = groups[cat];
     if (!items || !items.length) continue;
-    items.sort((a, b) => (a.title || a.name).localeCompare(b.title || b.name));
+    items.sort(cmpTitle);
     items_h += '<div class="manage-installed-group' + (cat === '__updates__' ? ' mig-updates' : '') + '">';
     const groupLabel = cat === '__updates__' ? t('updates_available_section') : _catDisplayName(cat);
     // Real-category headers are drop targets for the row DnD (#37) — data-cat
@@ -19721,36 +20007,17 @@ function _cycleReaderFont() {
 // the whole queue.
 var _TTS_AVAILABLE = (typeof window !== 'undefined') && ('speechSynthesis' in window);
 var _ttsSpeaking = false;
-
-// Read aloud in the server's voices (voices.py: Kokoro, Piper, ...) when it
-// has one for the article's language, as the Dictionary's Say does: the same
-// voice on every device, and a natural one where the browser's own is robotic
-// or missing (a Linux browser often has only espeak, or none at all). The
-// browser's speechSynthesis stays the fallback, and is used as before when the
-// server can say nothing or the viewer chose Device in Settings > Voices.
-// Each chunk is one /dictionary/speak?kind=sentence request (chunks are 240
-// characters, under voices.SENTENCE_MAX), played by one <audio> element; the
-// next chunk is asked for while this one plays, so the server has said it by
-// the time it is needed. An engine too slow for that on this server (Kokoro on
-// a small NAS takes longer to say a chunk than to play it) gives way to the
-// next engine for the language for the rest of the article.
-var _TTS_SERVER_RETRY_MS = 2000; // voices.RETRY_AFTER_S: the server was busy
-// How long a chunk may take to start before the next engine says it instead.
-// Piper says a 240-character chunk in 1 to 3 s on an Intel N150; Kokoro takes
-// 18 to 24 s there (2026-10-17), longer than the chunk plays.
-var _TTS_START_WAIT_MS = 6000;
-var _TTS_CHUNK_MAX = 240, _TTS_FIRST_CHUNK_MAX = 120; // characters
-var _TTS_AHEAD = 2; // chunks asked for ahead of the one playing, so the voice never waits
+// An engine keeps up when it makes a second of speech in this share of a
+// second at the speed it plays (voices.timings' rtf, measured on the server).
+var _TTS_KEEP_UP = 0.8;
+var _TTS_GAP_OK_S = 0.5; // pauses in a tested reading too short to hear as waiting
 var _ttsVoices = null; // /dictionary/voices (its page payload), or null
-var _ttsAudio = null;
-var _ttsRun = 0; // bumped by every start and stop: callbacks of an older run do nothing
 // The list is asked for when Read aloud may be used soon, never at page load
 // (most people rarely or never read aloud): when the ... menu opens, and when
 // Reader View opens for someone who read aloud this week. Kept a minute, so
 // a voice downloaded since is found without a request per tap.
 var _TTS_VOICES_FRESH_MS = 60000;
 var _TTS_RECENT_MS = 7 * 86400000; // "uses Read aloud": the last time was within a week
-var _TTS_SUGGEST_MS = 9000;
 var _ttsVoicesAt = 0;
 var _ttsVoicesBusy = null;
 function _ttsLoadVoices() {
@@ -19762,6 +20029,7 @@ function _ttsLoadVoices() {
       _ttsVoices = d; _ttsVoicesAt = Date.now(); _ttsVoicesBusy = null;
       updateTopbar();
       _rebuildTopbarMenu(); // Read aloud's row, if the list changed whether it shows
+      _bookReadSync(_ttsFrameDoc());
       return d;
     });
   return _ttsVoicesBusy;
@@ -19774,129 +20042,46 @@ function _ttsFrameDoc() {
   var frame = document.getElementById('reader-frame');
   try { return (frame && frame.contentDocument) || null; } catch(e) { return null; }
 }
-// Read aloud may be used soon: have the voice list; and for someone who reads
-// aloud (this week), have the server load the article's voice now, so the
-// first chunk does not wait for the model (the Dictionary does the same on
-// opening). Nothing is fetched or downloaded for it.
-var _TTS_WARM_ENGINES = ['kokoro', 'piper']; // the voices that load a model
-var _ttsWarmed = {};
+// Read aloud may be used soon (an article opened, the ... menu): have the
+// voice list, which says whether the button shows. Someone who read aloud this
+// week also gets the reading itself (readaloud.js) and the voice warmed.
 function _ttsPrepare() {
   if (!readerOpen || !_speakingOn()) return;
   _ttsLoadVoices().then(function() {
-    if (!_ttsUsedRecently()) return;
-    var doc = _ttsFrameDoc();
-    var lang = doc ? _ttsLang(doc) : '';
-    var engines = lang ? _ttsServerEngines(lang) : [];
-    var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
-    // warm loads the server's own pick for the language: worth asking only
-    // when that is what reads.
-    if (!row || engines[0] !== row.engine || _TTS_WARM_ENGINES.indexOf(row.engine) < 0) return;
-    var tag = _normLang(_langPrimary(lang)), key = tag + ' ' + row.engine;
-    if (_ttsWarmed[key]) return;
-    _ttsWarmed[key] = true;
-    authedFetch('/dictionary/voices/warm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ langs: [tag], words: [] }) })
-      .catch(function() { delete _ttsWarmed[key]; });
+    if (_ttsUsedRecently() && _ttsOffered()) _ttsLoad().then(function(ok) { if (ok) _ttsWarm(); });
   });
 }
-// The voice Read aloud reads in when the person chose one: its own (Settings >
-// Voices) or else the default there. '' is Automatic.
-function _ttsChosenVoice() {
-  var p = _voicePrefs();
-  return p.read || p.voice;
+// Whether an engine keeps up at ``rate`` on this server, as measured there
+// (voices.timings); null until something was read aloud or tested with it.
+function _ttsGapAt(gaps, rate) {
+  var at = _TTS_GAP_RATES.filter(function(r) { return r >= rate - _TTS_RATE_EPS && gaps && typeof gaps[String(r)] === 'number'; })[0];
+  return at === undefined ? null : gaps[String(at)];
 }
-// The server's engines for a language, best first. A chosen voice reads
-// alone: it is the person's setting, so it neither gives way mid-read nor is
-// marked slow (a slow one is suggested against, _ttsSuggestFaster). Only when
-// it cannot say the language does Automatic pick: the server's own choice, then
-// the rest, none that Settings turned off, an engine too slow to read with
-// here last. Empty when the chosen voice is Device, or the server cannot say
-// the language.
-function _ttsServerEngines(lang) {
-  var langs = (_ttsVoices && _ttsVoices.langs) || {};
-  var row = langs[_normLang(_langPrimary(lang))];
-  var prefs = _voicePrefs(), chosen = _ttsChosenVoice();
-  if (!row || chosen === _DEVICE_VOICE) return [];
-  var order = _ttsRowOrder(row, prefs);
-  if (chosen && order.indexOf(chosen) >= 0) return [chosen];
-  var slow = _ttsSlowEngines();
-  var quick = order.filter(function(e) { return slow.indexOf(e) < 0; });
-  return quick.concat(order.filter(function(e) { return quick.indexOf(e) < 0; }));
+function _ttsKeepsUp(engine, rate, timings) {
+  var tm = (timings || _voiceTimings(_ttsVoices && _ttsVoices.timings))[engine];
+  if (!tm) return null;
+  // A Test read a page back to back: the pauses it heard at this speed, or
+  // at the next measured one up (a reading pauses no less as it speeds up).
+  var gap = _ttsGapAt(tm.gaps, rate);
+  if (gap !== null) return gap <= _TTS_GAP_OK_S;
+  return tm.rtf ? tm.rtf * rate <= _TTS_KEEP_UP : null;
 }
-// The engines the server has for a language row, its own choice first, none
-// that Settings turned off.
-function _ttsRowOrder(row, prefs) {
-  var order = [row.engine].concat(row.engines || []);
-  return order.filter(function(e, i) {
-    return e && order.indexOf(e) === i && (row.engines || []).indexOf(e) >= 0 && prefs.off.indexOf(e) < 0;
-  });
-}
-// Chosen, and not keeping up: once per engine, a quiet offer of another.
-function _ttsSuggestFaster(lang, slowEngine) {
-  var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
-  var said = _getStorageJSON(SK.TTS_SUGGESTED, []);
-  if (!Array.isArray(said)) said = [];
-  if (!row || said.indexOf(slowEngine) >= 0) return;
-  var slow = _ttsSlowEngines();
-  var faster = _ttsRowOrder(row, _voicePrefs()).filter(function(e) { return e !== slowEngine && slow.indexOf(e) < 0; })[0];
-  if (!faster) return;
-  said.push(slowEngine);
-  _setStorageJSON(SK.TTS_SUGGESTED, said);
-  _showToast(t('tts_slow_suggest', { slow: _voiceEngineName(slowEngine), fast: _voiceEngineName(faster) }), _TTS_SUGGEST_MS,
-    function() { _setVoicePrefs({ read: faster }); }, t('tts_slow_use', { fast: _voiceEngineName(faster) }));
-}
-function _ttsSlowEngines() {
-  var s = _getStorageJSON(SK.TTS_SLOW, []);
-  return Array.isArray(s) ? s : [];
-}
-function _ttsMarkSlow(engine) {
-  var s = _ttsSlowEngines();
-  if (s.indexOf(engine) < 0) { s.push(engine); _setStorageJSON(SK.TTS_SLOW, s); }
+// Read aloud is offered: something can speak, and Settings > Voices has speaking on.
+function _ttsOffered() { return _ttsCanSpeak() && _speakingOn(); }
+// The book's header button follows: shown when it is offered, pressed while it reads.
+function _bookReadSync(doc) {
+  var b = doc && doc.querySelector('.zb-read');
+  if (!b) return;
+  var label = t(_ttsSpeaking ? 'tts_stop' : 'tts_speak');
+  b.hidden = !_ttsOffered();
+  b.setAttribute('aria-pressed', _ttsSpeaking ? 'true' : 'false');
+  b.setAttribute('aria-label', label); b.title = label;
 }
 function _ttsServerSays() {
   return Object.keys((_ttsVoices && _ttsVoices.langs) || {}).length > 0;
 }
 // The Read aloud button shows when the server or this browser can speak.
 function _ttsCanSpeak() { return _TTS_AVAILABLE || _ttsServerSays(); }
-function _ttsSpeakUrl(text, lang, engine) {
-  return '/dictionary/speak?kind=sentence&lang=' + encodeURIComponent(_normLang(_langPrimary(lang))) +
-    '&engine=' + encodeURIComponent(engine) + '&text=' + encodeURIComponent(text);
-}
-
-// ``first`` caps the first chunk alone: a voice says nothing until a whole
-// chunk is made, so a short one starts the reading sooner.
-function _ttsChunkText(text, maxLen, first) {
-  maxLen = maxLen || 240;
-  var out = [];
-  function cap() { return out.length || !first ? maxLen : first; }
-  if (!text) return out;
-  // Collapse whitespace so newlines don't confuse sentence detection.
-  var clean = String(text).replace(/\s+/g, ' ').trim();
-  if (!clean) return out;
-  // Split into sentences, keeping terminal punctuation (Latin + CJK).
-  var sentences = clean.match(/[^.!?。！？]+[.!?。！？]+|\S[^.!?。！？]*$/g) || [clean];
-  var buf = '';
-  for (var i = 0; i < sentences.length; i++) {
-    var s = sentences[i].trim();
-    if (!s) continue;
-    // A single sentence longer than maxLen: hard-split on word boundaries.
-    if (s.length > cap()) {
-      if (buf) { out.push(buf); buf = ''; }
-      var words = s.split(' ');
-      var line = '';
-      for (var w = 0; w < words.length; w++) {
-        var word = words[w];
-        if (line && (line.length + 1 + word.length) > cap()) { out.push(line); line = word; }
-        else { line = line ? (line + ' ' + word) : word; }
-      }
-      if (line) buf = line; // carry remainder to pack with the next sentence
-      continue;
-    }
-    if (buf && (buf.length + 1 + s.length) > cap()) { out.push(buf); buf = s; }
-    else { buf = buf ? (buf + ' ' + s) : s; }
-  }
-  if (buf) out.push(buf);
-  return out;
-}
 
 // Shared main-content locator for a ZIM article document. Returns the element
 // that holds the article body (dropping surrounding nav/chrome) or null when no
@@ -19921,14 +20106,6 @@ function _isBookDoc(doc) {
 function _readerViewReadable(doc, main) {
   return !!main && (main !== doc.body || _isBookDoc(doc));
 }
-function _ttsExtractText(doc) {
-  if (!doc) return '';
-  // Prefer the article's main content element — that alone drops surrounding
-  // nav/chrome cheaply. Fall back to the whole body (acceptable v1).
-  var main = _readerMainContent(doc) || doc.body;
-  if (!main) return '';
-  return (main.innerText || main.textContent || '').trim();
-}
 function _ttsLang(doc) {
   var l = '';
   try { l = (doc && doc.documentElement && doc.documentElement.lang) || ''; } catch(e) {}
@@ -19938,282 +20115,54 @@ function _ttsLang(doc) {
   }
   return l || '';
 }
-function _ttsSetSpeaking(on) {
-  _ttsSpeaking = on;
-  _syncTopbarMenuReaderItems(); // mobile: reflect speaking-state on the ... menu row
-  _ttsBarSync();
-  var btn = document.getElementById('tts-btn');
-  if (!btn) return;
-  btn.classList.toggle('speaking', on);
-  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-  var label = on ? t('tts_stop') : t('tts_speak');
-  btn.title = label;
-  btn.setAttribute('aria-label', label);
+// Any speed from half to three times, in steps of 0.05 (Eric, 2026-10-20:
+// "read faster and slower than our options and in between"), on one slider
+// that a finger feels settle at 1x, 1.5x and 2x.
+var _TTS_RATE_MIN = 0.5, _TTS_RATE_MAX = 3, _TTS_RATE_STEP = 0.05;
+var _TTS_RATE_EPS = 1e-6;
+var _TTS_GAP_RATES = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3]; // voices.TEST_RATES
+function _ttsRateClamp(r) {
+  if (typeof r !== 'number' || !isFinite(r)) return 1;
+  r = Math.round(r / _TTS_RATE_STEP) * _TTS_RATE_STEP;
+  return Math.round(Math.min(_TTS_RATE_MAX, Math.max(_TTS_RATE_MIN, r)) * 100) / 100;
 }
-function _ttsStop() {
-  _ttsRun++;
-  _ttsPaused = false;
-  if (_ttsAudio) {
-    try { _ttsAudio.pause(); _ttsAudio.removeAttribute('src'); _ttsAudio.load(); } catch(e) {}
-  }
-  if (_TTS_AVAILABLE) { try { window.speechSynthesis.cancel(); } catch(e) {} }
-  if (_ttsSpeaking) _ttsSetSpeaking(false);
-}
-function _ttsSpeak(from) {
-  from = from || 0;
-  if (!_ttsCanSpeak()) return;
-  var doc = _ttsFrameDoc();
-  if (!doc) return;
-  var chunks = _ttsChunkText(_ttsExtractText(doc), _TTS_CHUNK_MAX, _TTS_FIRST_CHUNK_MAX);
-  if (!chunks.length) return;
-  var lang = _ttsLang(doc);
-  _ttsStop(); // clear any residual queue or audio before starting fresh
-  var engines = _ttsServerEngines(lang);
-  if (!engines.length && !_TTS_AVAILABLE) return;
-  _ttsSetSpeaking(true);
-  _setStorageJSON(SK.TTS_LAST_USE, Date.now());
-  // A chosen voice reads alone and, if it cannot keep up, is offered a faster
-  // one; only Automatic moves on to the next engine by itself.
-  var chosen = engines.length === 1 && engines[0] === _ttsChosenVoice();
-  from = Math.min(from, chunks.length - 1);
-  _ttsNow = { at: from, engine: engines[0] || _DEVICE_VOICE, playing: false, lang: lang };
-  _ttsBarSync();
-  if (engines.length) _ttsSpeakServer(chunks, lang, engines, ++_ttsRun, chosen ? function(e) { _ttsSuggestFaster(lang, e); } : null, from);
-  else _ttsSpeakDevice(chunks, lang, from);
-}
-// This browser's own voices, from chunk ``from`` on.
-function _ttsSpeakDevice(chunks, lang, from) {
-  var synth = window.speechSynthesis;
-  synth.cancel();
-  chunks.slice(from).forEach(function(chunk, idx, rest) {
-    var u = new SpeechSynthesisUtterance(chunk);
-    if (lang) u.lang = lang;
-    u.rate = _ttsRate();
-    u.onstart = function() { _ttsNow.at = from + idx; _ttsNow.engine = _DEVICE_VOICE; _ttsNow.playing = true; _ttsBarSync(); };
-    if (idx === rest.length - 1) u.onend = function() { _ttsSetSpeaking(false); };
-    u.onerror = function() { _ttsSetSpeaking(false); };
-    synth.speak(u);
-  });
-}
-// The server's voices: one <audio> element plays the chunks in turn. Its src
-// is set and played inside the tap for the first chunk, as iOS requires (an
-// element started in a tap may play again from its own events).
-function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
-  var audio = _ttsAudio || (_ttsAudio = new Audio());
-  var i = from || 0, eng = 0, retried = false, waiting = null, told = false;
-  var asked = {}; // chunk index -> true once the server has said it (or failed to)
-  function live() { return run === _ttsRun; }
-  // Too slow here: the next engine for the language says the rest, and this
-  // one is tried last from now on.
-  function slower() {
-    _ttsMarkSlow(engines[eng]);
-    eng++;
-    asked = {};
-  }
-  // Ask for chunk ``idx`` ahead of time; the server keeps what it said, so
-  // the <audio> element then gets it at once.
-  // A chosen voice (``onSlow``) keeps reading; the person is told once.
-  function tooSlow() {
-    if (onSlow && !told) { told = true; onSlow(engines[eng]); }
-  }
-  function ask(idx) {
-    if (idx >= chunks.length || asked[idx] !== undefined) return;
-    var engine = engines[eng];
-    asked[idx] = false;
-    authedFetch(_ttsSpeakUrl(chunks[idx], lang, engine)).then(function(r) {
-      if (!live()) return;
-      if (r.status === 503) {
-        delete asked[idx]; // busy: ask again shortly
-        setTimeout(function() { if (live()) ask(idx); }, _TTS_SERVER_RETRY_MS);
-        return;
-      }
-      if (engines[eng] === engine) asked[idx] = true;
-    }).catch(function() { if (live()) delete asked[idx]; });
-  }
-  function play(idx) {
-    // Not ready when it is needed: this engine is too slow here, so the next
-    // one for the language says the rest (what was asked of the slow one
-    // still plays if it arrives first).
-    if (idx > 0 && asked[idx] === false) {
-      if (eng + 1 < engines.length) slower(); else tooSlow();
-    }
-    audio.defaultPlaybackRate = _ttsRate(); // a new src starts at this rate
-    audio.src = _ttsSpeakUrl(chunks[idx], lang, engines[eng]);
-    audio.playbackRate = _ttsRate();
-    _ttsNow.at = idx; _ttsNow.engine = engines[eng]; _ttsNow.playing = false;
-    _ttsBarSync();
-    var p = audio.play();
-    // AbortError: this play() was cut short by the next src (a switch of
-    // engine, or the next chunk), which is not a failure.
-    if (p && p.catch) p.catch(function(e) { if (live() && !(e && e.name === 'AbortError')) fail(); });
-    // Still silent after a while (the first chunk, or one asked too late):
-    // say it with the next engine instead.
-    clearTimeout(waiting);
-    if (eng + 1 < engines.length || onSlow) {
-      waiting = setTimeout(function() {
-        if (!live() || i !== idx || !audio.paused || _ttsPaused) return;
-        if (eng + 1 < engines.length) { slower(); play(idx); } else tooSlow();
-      }, _TTS_START_WAIT_MS);
-    }
-  }
-  function fail() {
-    // Once more after a moment (the server may have been busy), then this
-    // browser's voices for the rest, or stop when it has none.
-    if (!retried) {
-      retried = true;
-      setTimeout(function() { if (live()) play(i); }, _TTS_SERVER_RETRY_MS);
-      return;
-    }
-    _ttsRun++;
-    if (_TTS_AVAILABLE) _ttsSpeakDevice(chunks, lang, i);
-    else _ttsSetSpeaking(false);
-  }
-  audio.onplaying = function() {
-    if (!live()) return;
-    clearTimeout(waiting); retried = false;
-    for (var k = 1; k <= _TTS_AHEAD; k++) ask(i + k);
-    _ttsNow.playing = true; _ttsBarSync();
-  };
-  audio.onended = function() {
-    if (!live()) return;
-    i++;
-    if (i >= chunks.length) { _ttsRun++; _ttsSetSpeaking(false); return; }
-    play(i);
-  };
-  audio.onerror = function() { if (live() && audio.getAttribute('src')) fail(); };
-  play(i);
-}
-function _ttsToggle() {
-  if (_ttsSpeaking) _ttsStop();
-  else _ttsSpeak();
-}
-
-// ── While it reads: a bar at the foot of the reader ──
-// On a phone Read aloud is a row in the ⋯ menu, so once the menu closed
-// nothing said a reading had begun, that it waited for the server's voice, or
-// which voice it was. The bar says all three (a turning ring until the first
-// sound, then the voice), offers this language's voices where it plays
-// (remembered as Read aloud's own, Settings > Voices), and stops it.
-var _ttsNow = { at: 0, engine: '', playing: false, lang: '' };
-var _ttsMenuOpen = ''; // the bar's open menu: '', 'voice' or 'speed'
-var _ttsPaused = false;
-var _TTS_RATES = [1, 1.25, 1.5, 2];
-function _ttsRate() {
-  var r = _getStorageJSON(SK.TTS_RATE, 1);
-  return _TTS_RATES.indexOf(r) >= 0 ? r : 1;
-}
-var _TTS_CHEVRON = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>';
-var _TTS_PAUSE_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
-var _TTS_PLAY_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10-6.5a1 1 0 0 0 0-1.7l-10-6.6A1 1 0 0 0 8 5.5z"/></svg>';
-var _TTS_CLOSE_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-// The voices this article's language can be read in: the server's, in its
-// order (none Settings turned off), then this browser's.
-function _ttsVoicesFor(lang) {
-  var row = ((_ttsVoices && _ttsVoices.langs) || {})[_normLang(_langPrimary(lang))];
-  var out = row ? _ttsRowOrder(row, _voicePrefs()) : [];
-  if (_TTS_AVAILABLE) out.push(_DEVICE_VOICE);
-  return out;
-}
+function _ttsRate() { return _ttsRateClamp(_getStorageJSON(SK.TTS_RATE, 1)); }
 function _ttsRateLabel(r) {
   var n = String(r);
   try { n = r.toLocaleString((typeof _currentLang !== 'undefined' && _currentLang) || undefined); } catch (e) {}
   return n + '\u00d7';
 }
-function _ttsBarHtml() {
-  var pick = _voicePrefs().read || '';
-  var voices = _ttsVoicesFor(_ttsNow.lang);
-  var btn = function(cls, label, onclick, inner, extra) {
-    return '<button type="button" class="' + cls + '" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '" onclick="' + onclick + '"' + (extra || '') + '>' + inner + '</button>';
-  };
-  var h = '<span class="tts-bar-state' + (_ttsPaused ? ' paused' : _ttsNow.playing ? ' playing' : '') + '" aria-hidden="true"><i></i><i></i><i></i></span>';
-  // A menu opens above the button it belongs to, its choices radio items.
-  var menu = function(which, items) {
-    if (_ttsMenuOpen !== which) return '';
-    return '<div class="tts-bar-menu tts-bar-menu-' + which + '" role="menu">' + items.map(function(it) {
-      return '<button type="button" role="menuitemradio" aria-checked="' + it[0] + '" onclick="' + escAttr(it[1]) + '">' + esc(it[2]) + '</button>';
-    }).join('') + '</div>';
-  };
-  if (voices.length > 1) {
-    h += '<span class="tts-bar-anchor"><button type="button" class="tts-bar-voice" aria-haspopup="menu" aria-expanded="' + (_ttsMenuOpen === 'voice') + '" onclick="_ttsMenuToggle(\'voice\')">' +
-      '<span>' + esc(_voiceEngineName(_ttsNow.engine)) + '</span>' + _TTS_CHEVRON + '</button>' +
-      menu('voice', [['' === pick, '_ttsPickVoice("")', t('voices_default_auto')]].concat(voices.map(function(e) {
-        return [e === pick, '_ttsPickVoice(' + JSON.stringify(e) + ')', _voiceEngineName(e)];
-      }))) + '</span>';
-  } else {
-    h += '<span class="tts-bar-voice">' + esc(_voiceEngineName(_ttsNow.engine)) + '</span>';
-  }
-  var rate = _ttsRate();
-  h += '<span class="tts-bar-anchor">' + btn('tts-bar-speed', t('tts_speed'), "_ttsMenuToggle('speed')", esc(_ttsRateLabel(rate)),
-    ' aria-haspopup="menu" aria-expanded="' + (_ttsMenuOpen === 'speed') + '"') +
-    menu('speed', _TTS_RATES.map(function(r) { return [r === rate, '_ttsPickSpeed(' + r + ')', _ttsRateLabel(r)]; })) + '</span>';
-  h += btn('tts-bar-btn', t(_ttsPaused ? 'resume' : 'pause'), '_ttsPauseToggle()', _ttsPaused ? _TTS_PLAY_ICON : _TTS_PAUSE_ICON,
-    ' aria-pressed="' + _ttsPaused + '"');
-  h += btn('tts-bar-btn', t('tts_stop'), '_ttsStop()', _TTS_CLOSE_ICON);
-  return h;
+// The reading itself (chunks, voices, the bar, read-along) is readaloud.js,
+// fetched the first time something is read, not with the page: most people
+// rarely or never read aloud. Until it loads nothing is reading, so stopping
+// is nothing, and the first Toggle (or Speak, from the selection bar) loads it
+// and then reads. readaloud.js replaces all four.
+function _ttsLoad() {
+  return _loadScript('/static/readaloud.js?v=1').then(function(ok) { return ok && typeof _ttsWarm === 'function'; });
 }
-function _ttsBarSync() {
-  var bar = document.getElementById('tts-bar');
-  if (!_ttsSpeaking) {
-    _ttsMenuOpen = '';
-    if (bar) bar.hidden = true;
-    return;
-  }
-  if (!bar) {
-    var reader = document.getElementById('reader');
-    if (!reader) return;
-    bar = document.createElement('div');
-    bar.id = 'tts-bar';
-    bar.className = 'tts-bar';
-    reader.appendChild(bar);
-  }
-  var html = _ttsBarHtml();
-  if (bar._painted !== html) bar.innerHTML = bar._painted = html;
-  bar.hidden = false;
+// iOS lets audio start only inside the tap, and the tap is over by the time
+// readaloud.js has loaded. So the tap itself starts the <audio> element (on a
+// silent clip) and the device voice (on an empty utterance); readaloud.js adopts
+// the element, and both may then play from later events.
+var _TTS_SILENCE = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+var _ttsUnlockedAudio = null;
+function _ttsUnlock() {
+  if (_ttsUnlockedAudio) return;
+  try { _ttsUnlockedAudio = new Audio(_TTS_SILENCE); _ttsUnlockedAudio.play().catch(function() {}); } catch (e) {}
+  try { if (window.speechSynthesis) window.speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {}
 }
-function _ttsMenuToggle(which) {
-  _ttsMenuOpen = _ttsMenuOpen === which ? '' : which;
-  _ttsBarSync();
+// Called in the tap: unlock, load, then run the real one (readaloud.js's, by then).
+function _ttsThen(name, args) {
+  _ttsUnlock();
+  _ttsLoad().then(function(ok) {
+    if (ok) window[name].apply(null, args);
+    else _showToast(t('tts_unavailable_offline'));
+  });
 }
-// A tap anywhere else, or Escape, closes the menu. A tap in the article
-// never reaches this page, but it takes the focus: the window's blur.
-function _ttsMenuAway(e) {
-  if (!_ttsMenuOpen) return;
-  if (e.type === 'keydown' && e.key !== 'Escape') return;
-  if (e.type === 'pointerdown' && e.target && e.target.closest && e.target.closest('#tts-bar')) return;
-  _ttsMenuOpen = '';
-  _ttsBarSync();
-}
-document.addEventListener('pointerdown', _ttsMenuAway, true);
-document.addEventListener('keydown', _ttsMenuAway, true);
-window.addEventListener('blur', _ttsMenuAway);
-// Pause keeps the place; Resume goes on from it. The engine's "still silent"
-// switch waits while paused (_ttsSpeakServer).
-function _ttsPauseToggle() {
-  _ttsPaused = !_ttsPaused;
-  var device = _ttsNow.engine === _DEVICE_VOICE;
-  try {
-    if (device) { if (_ttsPaused) window.speechSynthesis.pause(); else window.speechSynthesis.resume(); }
-    else if (_ttsAudio) { if (_ttsPaused) _ttsAudio.pause(); else _ttsAudio.play().catch(function() {}); }
-  } catch (e) {}
-  _ttsBarSync();
-}
-// 1x, 1.25x, 1.5x or 2x, picked from the menu: remembered on this device. The
-// server's audio changes speed where it is (its pitch kept); the browser's
-// voice takes a rate per sentence, so it starts again from the sentence it is on.
-function _ttsPickSpeed(r) {
-  _ttsMenuOpen = '';
-  _setStorageJSON(SK.TTS_RATE, r);
-  if (_ttsNow.engine === _DEVICE_VOICE) { if (!_ttsPaused) _ttsSpeak(_ttsNow.at); }
-  else if (_ttsAudio) { _ttsAudio.defaultPlaybackRate = r; _ttsAudio.playbackRate = r; }
-  _ttsBarSync();
-}
-// A voice picked while it reads: remembered, and the reading goes on from the
-// sentence it was at, in the new voice (inside this tap, as iOS needs).
-function _ttsPickVoice(engine) {
-  _setVoicePrefs({ read: engine });
-  _ttsMenuOpen = '';
-  _ttsSpeak(_ttsNow.at);
-}
+function _ttsToggle() { _ttsThen('_ttsToggle', arguments); }
+function _ttsSpeak() { _ttsThen('_ttsSpeak', arguments); }
+function _ttsStop() {}
+function _ttsSetSpeaking(on) { _ttsSpeaking = on; }
 
 // ── Reader View (Safari-Reader-style clean typography) ──
 // Re-renders the current ZIM article as a single, distraction-free reading column
@@ -21161,13 +21110,13 @@ function _readerViewButtonAction() {
 // re-renders the open palette so its active states stay truthful.
 function _setReaderFamily(fam) {
   if (READER_FAMILIES.indexOf(fam) < 0) return;
-  try { localStorage.setItem(SK.READER_FAMILY, fam); } catch(e) {}
+  _prefWrite(SK.READER_FAMILY, fam);
   var doc = _readerFrameDoc(); if (doc && _readerViewOn) _applyReaderTheme(doc);
   _renderReaderPalette();
 }
 function _setReaderTheme(theme) {
   if (READER_THEME_MODES.indexOf(theme) < 0) return;
-  try { localStorage.setItem(SK.READER_THEME, theme); } catch(e) {}
+  _prefWrite(SK.READER_THEME, theme);
   var doc = _readerFrameDoc(); if (doc && _readerViewOn) _applyReaderTheme(doc);
   // Keep the iframe/chrome tint in step so scroll-past-content shows theme bg.
   _tintReaderChrome();
@@ -21175,7 +21124,7 @@ function _setReaderTheme(theme) {
 }
 // One of the five text-size steps (an index into READER_FONT_LEVELS).
 function _setReaderFontStep(step) {
-  try { localStorage.setItem(SK.READER_FONT, String(READER_FONT_LEVELS[step])); } catch(e) {}
+  _prefWrite(SK.READER_FONT, String(READER_FONT_LEVELS[step]));
   var doc = _readerFrameDoc();
   try { if (doc) _applyReaderFont(doc); } catch(e) {}
   _syncFontBtnGlyph();
@@ -21186,7 +21135,7 @@ function _setReaderFontStep(step) {
 // two controls always drive the one localStorage key with identical behavior.
 function _setReaderAuto(on) {
   on = !!on;
-  try { localStorage.setItem(SK.READER_AUTO, on ? '1' : '0'); } catch(e) {}
+  _prefWrite(SK.READER_AUTO, on ? '1' : '0');
   // Turning AUTO on while a readerable article sits in raw view: apply immediately
   // so the toggle has visible effect, not just on the next article.
   if (on && !_readerViewOn && _readerViewAvailable()) _readerViewToggle();
@@ -22121,7 +22070,7 @@ function _fgSkyRows(p, now) {
   else rows.push([t('alm_sky_f_sunrise_in'), f.sunrise ? about(span(f.sunrise, 1) + ' · ' + clock(f.sunrise, 1, f.sunriseAz)) : t('alm_polar_night')]);
   if (f.fullyDark) rows.push([t('alm_sky_f_dark_until'), f.darkUntil ? about(clock(f.darkUntil, 1)) : t('alm_polar_night')]);
   else rows.push([t('alm_sky_f_dark_from'), f.darkFrom ? about(clock(f.darkFrom, -1)) : t('alm_sky_f_not_dark')]);
-  var lit = t('alm_sky_f_moon_lit', { p: _orrNum(_moonPhase(new Date(now)).illumination, null, 0) + '%' });
+  var lit = t('alm_sky_f_moon_lit', { p: fmtPct(_moonPhase(new Date(now)).illumination) });
   var next = f.moonUp ? (f.moonset ? t('alm_sky_f_sets', { t: about(clock(f.moonset, -1, f.moonsetAz)) }) : '') : (f.moonrise ? t('alm_sky_f_rises', { t: about(clock(f.moonrise, 1, f.moonriseAz)) }) : '');
   rows.push([t('alm_moon'), lit + (next ? ' \u00b7 ' + next : '')]);
   var a = _skyDeg(Math.abs(p.lat));
@@ -22239,7 +22188,7 @@ var _DICT_SVG = '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 
 // The Wiktionaries: Zimipedia reads them as wikis; Dictionary reads their words.
 function _installedDictZims() {
   return (zimsCache || []).filter(function(z) { return z.main_path && z.kind === 'wiki' && z.project === 'wiktionary'; })
-    .sort(function(a, b) { return (a.title || a.name).localeCompare(b.title || b.name); });
+    .sort(cmpTitle);
 }
 function _isDictPage() {
   return !!(_dictOpen && readerOpen && !_almanacOpen && !_createOpen);
@@ -22348,6 +22297,7 @@ var _READING_CSS = [
   '.zb-foot .zb-remote{align-self:center;height:auto;min-height:34px;max-width:100%;padding:6px 14px;border:1px solid var(--rv-border);',
     'border-radius:17px;font-size:13px;color:var(--rv-link);text-align:center;white-space:normal}',
   '.zb-aa{font:600 17px/1 Georgia,serif!important;letter-spacing:.02em}',
+  '.zb-read[aria-pressed="true"]{color:var(--rv-link)}',
   '.zb-title{flex:1;min-width:0;text-align:center;line-height:1.2}',
   '.zb-title b,.zb-title span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;unicode-bidi:plaintext}',
   '.zb-title b{font-weight:600;font-size:14.5px}.zb-title span{font-size:12px;color:var(--rv-muted)}',
@@ -22519,7 +22469,8 @@ var _BOOK_CSS = [
   'html.zb-paged .zimi-reader img{max-height:var(--zb-colh)!important;width:auto;object-fit:contain;break-inside:avoid}',
   'html.zb-paged .zimi-reader h1,html.zb-paged .zimi-reader h2,html.zb-paged .zimi-reader h3{break-after:avoid}',
   '.zb-row{display:flex;align-items:center;gap:2px}',
-  '.zb-info{flex:1;min-width:0;text-align:center;line-height:1.3}',
+  // The chapter under the scrubber opens the contents, as the head's button does.
+  '.zb-bar .zb-info{flex:1;min-width:0;height:auto;min-height:44px;padding:2px 8px;flex-direction:column;align-items:stretch;text-align:center;line-height:1.3}',
   '.zb-info .zb-ch{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;unicode-bidi:plaintext}',
   '.zb-info .zb-left{display:block;font-size:12px;color:var(--rv-muted);font-variant-numeric:tabular-nums}',
   '.zb-scrub{width:100%;margin:2px 0 0;height:24px;accent-color:var(--rv-link);cursor:pointer;touch-action:none}',
@@ -22537,6 +22488,7 @@ var _BOOK_CSS = [
   '@media (prefers-reduced-motion:reduce){.zb-mini{transition:none!important}}'
 ].join('');
 var _BOOK_SVG_BACK = '<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
+var _BOOK_SVG_READ = '<svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>';
 var _BOOK_SVG_TOC = '<svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r=".6" fill="currentColor"/><circle cx="4.5" cy="12" r=".6" fill="currentColor"/><circle cx="4.5" cy="18" r=".6" fill="currentColor"/></svg>';
 
 // Keep a book's place, as a position in Saved (Bookshelf's Continue reading,
@@ -22869,7 +22821,10 @@ function _bookLay(frame) {
       (uiRtl ? ' style="transform:scaleX(-1)"' : '') + '>' + _BOOK_SVG_BACK + '</button>' +
     '<div class="zb-title"><b></b><span></span></div>' +
     '<button type="button" class="zb-toc" aria-label="' + tH('books_contents') + '" title="' + tH('books_contents') + '" aria-haspopup="dialog">' + _BOOK_SVG_TOC + '</button>' +
+    '<button type="button" class="zb-read" hidden>' + _BOOK_SVG_READ + '</button>' +
     '<button type="button" class="zb-aa" aria-label="' + tH('books_settings') + '" title="' + tH('books_settings') + '" aria-haspopup="dialog">Aa</button>';
+  // Zimi's own header is held away over a book, and Read aloud is in it: the book's header has it too.
+  head.querySelector('.zb-read').onclick = function() { _ttsToggle(); };
   head.querySelector('.zb-title b').textContent = bookTitle;
   head.querySelector('.zb-title span').textContent = author;
   if (!author) head.querySelector('.zb-title span').style.display = 'none';
@@ -22878,7 +22833,7 @@ function _bookLay(frame) {
   foot.innerHTML = '<button type="button" class="zb-remote" hidden></button>' +
     '<input type="range" class="zb-scrub" min="0" max="1000" step="1" value="0" aria-label="' + tH('books_position') + '">' +
     '<div class="zb-row"><button type="button" class="zb-pv" aria-label="' + tH('books_prev_chapter') + '" title="' + tH('books_prev_chapter') + '"></button>' +
-    '<div class="zb-info"><span class="zb-ch"></span><span class="zb-left"></span></div>' +
+    '<button type="button" class="zb-info" aria-haspopup="dialog" title="' + tH('books_contents') + '"><span class="zb-ch"></span><span class="zb-left"></span></button>' +
     '<button type="button" class="zb-nx" aria-label="' + tH('books_next_chapter') + '" title="' + tH('books_next_chapter') + '"></button></div>';
   var pv = foot.querySelector('.zb-pv'), nx = foot.querySelector('.zb-nx'), scrub = foot.querySelector('.zb-scrub');
   pv.innerHTML = _BOOK_SVG_BACK; nx.innerHTML = _BOOK_SVG_BACK;
@@ -22893,6 +22848,7 @@ function _bookLay(frame) {
   tocSheet.setAttribute('aria-label', t('books_contents'));
   setSheet.setAttribute('aria-label', t('books_settings'));
   [head, foot, mini, scrim, tocSheet, setSheet].forEach(function(n) { doc.body.appendChild(n); });
+  _bookReadSync(doc);
 
   // ── how you read: the settings, laid onto the page ──
   var prefs = _bookPrefs(), paged = false, W = 0, H = 0;
@@ -23186,7 +23142,7 @@ function _bookLay(frame) {
     closeSheets();
     if (b.hasAttribute('data-k')) { goChapter(Number(b.getAttribute('data-k'))); showBars(false); }
   });
-  head.querySelector('.zb-toc').onclick = function() {
+  head.querySelector('.zb-toc').onclick = foot.querySelector('.zb-info').onclick = function() {
     renderToc();
     openSheet(tocSheet);
     var on = tocSheet.querySelector('[aria-current="true"]');
@@ -23359,6 +23315,12 @@ function _bookLay(frame) {
     settleSoon();
   };
 
+  // Where the reader is now, as a range: Read aloud begins here, not at the book's first page.
+  doc.__zbHere = function() {
+    var a = held ? anchor : readAnchor();
+    return secs[a.s] ? _bookRangeAt(doc, secs[a.s], a.o) : null;
+  };
+
   // ── open where you left it (or where the link points) ──
   paged = prefs.mode === 'pages';
   applyVars();
@@ -23504,7 +23466,7 @@ function _syncOpenInAppsRow() {
   var row = box.closest('label');
   if (row) row.classList.toggle('share-locked', !ok);
 }
-function _setOpenInApps(on) { try { if (on) localStorage.removeItem(SK.OPEN_IN_APPS); else localStorage.setItem(SK.OPEN_IN_APPS, '0'); } catch (e) {} }
+function _setOpenInApps(on) { _prefWrite(SK.OPEN_IN_APPS, on ? null : '0'); }
 function _resultApp(zim, path) {
   if (!_openInApps()) return '';
   var z = _zimInfo(zim), app = z && _RESULT_APP[z.kind];
@@ -24007,7 +23969,7 @@ function _appItemsCount(app, z) {
 function _appItemsHtml(app, z) {
   if (app === 'maps') return esc(_mapSourceLabel(z));
   var n = _appItemsCount(app, z);
-  return n ? esc(tPlural('app_items_' + app, n, {n: n.toLocaleString()})) : '';
+  return n ? esc(tPlural('app_items_' + app, n, {n: fmtNum(n)})) : '';
 }
 // One app's section: its tile drawn as a banner (the count of what it reads
 // in place of their names, which follow under it: a map app's maps), then its ZIMs.
@@ -25478,7 +25440,7 @@ function _savedNotesHtml() {
   if (_savedPaused) html += '<div class="bm-note bm-warn" role="status">' + tH('saved_sync_paused') + '</div>';
   else if (_savedBehind && _savedSignedIn()) html += '<div class="bm-note" role="status">' + tH('saved_sync_behind') + '</div>';
   if (Saved.legacyOffered()) {
-    html += '<div class="bm-note" role="group">' + tH('saved_legacy_offer') + '<div class="bm-note-actions">' +
+    html += '<div class="bm-note" role="group">' + tH(Saved.offerKind() === 'signedout' ? 'saved_signedout_offer' : 'saved_legacy_offer') + '<div class="bm-note-actions">' +
       '<button class="hp-action-btn primary" onclick="Saved.legacyAnswer(true)">' + tH('saved_legacy_add') + '</button>' +
       '<button class="hp-action-btn" onclick="Saved.legacyAnswer(false)">' + tH('saved_legacy_skip') + '</button></div></div>';
   }
@@ -25644,7 +25606,7 @@ function _bkSourceMissing(b) {
 // Where you were, in a word: how far into a book, how far into a video.
 function _savedWhereLabel(it) {
   var w = it.where || {};
-  if (it.kind === 'book' && w.f > 0) return Math.round(w.f * 100) + '%';
+  if (it.kind === 'book' && w.f > 0) return fmtPct(w.f * 100);
   if (it.kind === 'video' && w.t > 0) return _fmtClock(w.t);
   return '';
 }
@@ -26768,24 +26730,38 @@ var Saved = (function () {
   // 1.11 kept bookmarks per browser, not per account. They come into the
   // signed-out store on its first use; into an account only when its person
   // says so, asked once in the Saved panel (a shared screen's bookmarks are
-  // not every account's that signs in on it).
+  // not every account's that signs in on it). What this browser saved signed
+  // out (the admin's, before the admin had an account of its own) is asked
+  // about the same way.
+  function signedOutStore() {
+    var main = _getStorageJSON(SK.SAVED, null), pos = _getStorageJSON(SK.SAVED_POS, null);
+    var some = function (o, c) { return !!(o && o[c] && typeof o[c] === 'object' && Object.keys(o[c]).length); };
+    return { main: main, pos: pos, any: some(main, 'items') || some(main, 'lists') || some(main, 'highlights') || some(pos, 'positions') };
+  }
   function legacyOffered() {
     if (!_ns) return false;
     if (_offer === null) {
       var old = readLegacy();
       _offer = (_getStorageJSON(SK.SAVED_LEGACY_ASKED, []) || []).indexOf(_ns) < 0 &&
-        !!(old.bookmarks.length || old.folders.length || Object.keys(old.places).length);
+        !!(old.bookmarks.length || old.folders.length || Object.keys(old.places).length || signedOutStore().any);
     }
     return _offer;
   }
+  // What is offered: 'signedout' when this browser saved things signed out,
+  // else 'legacy' (bookmarks from before 1.12), for the panel's words.
+  function offerKind() { return signedOutStore().any ? 'signedout' : 'legacy'; }
   function legacyAnswer(take) {
     if (!legacyOffered()) return;
     var asked = _getStorageJSON(SK.SAVED_LEGACY_ASKED, []) || [];
     asked.push(_ns);
     _setStorageJSON(SK.SAVED_LEGACY_ASKED, asked);
     _offer = false;
-    if (take) merge(fromLegacy(readLegacy(), zimKind));
-    else if (typeof _savedChanged === 'function') _savedChanged(true);
+    if (take) {
+      var old = readLegacy(), out = signedOutStore();
+      if (old.bookmarks.length || old.folders.length || Object.keys(old.places).length) merge(fromLegacy(old, zimKind));
+      if (out.main) merge(out.main);
+      if (out.pos) merge(out.pos);
+    } else if (typeof _savedChanged === 'function') _savedChanged(true);
   }
 
   // ── the store ──
@@ -27311,7 +27287,7 @@ var Saved = (function () {
     data: function () { return copy(load()); }, merge: merge, mergeLegacy: mergeLegacy,
     // stamps(copy): what a copy holds (this store's without one); since(stamps): what this store has beyond it.
     stamps: function (x) { return stamps(x ? clean(x) : load()); }, since: since,
-    legacyOffered: legacyOffered, legacyAnswer: legacyAnswer,
+    offerKind: offerKind, legacyOffered: legacyOffered, legacyAnswer: legacyAnswer,
     use: use, forget: forget, account: function () { return _ns || ''; },
     ownsKey: function (k) { return _ns !== null && (k === storeKey() || k === posKey()); },
     // For the tests: the pure parts.
@@ -27391,6 +27367,55 @@ var _savedBase = null, _savedLeftBody = '', _savedPaused = false;
 // Signed in, a change the account has not taken (the server did not answer):
 // the panel says the account's copy is behind, and it is sent again.
 var _savedBehind = false, _savedRetryTimer = null;
+// Signed in to an account: whose (users.request_data_owner's name for it, as
+// /whoami says it), or null. A named user, a secondary admin, or the primary
+// admin ("admin"); never an admin with the password switched off.
+var _accountId = null;
+function _savedSignedIn() { return !!_accountId; }
+// This browser now follows ``id``'s account (null: none). Its saved things
+// are the account's own store here; its settings, if it is not the account
+// this browser followed last, are the account's on every key it holds (the
+// convention in users.py), nothing of the last one's pending. ``boot``: the
+// account's copy is fetched once the page is up (_savedStart), not now.
+function _accountSet(id, boot) {
+  id = typeof id === 'string' && id ? id : null;
+  if (id === _accountId && !boot) return;
+  _accountId = id;
+  if (Saved.use(id || '')) { _savedBase = null; _savedChanged(true); }
+  var st = _prefState();
+  if (st.owner !== id) _prefSaveState({ owner: id, pending: {}, seeded: st.seeded || !!st.owner });
+  if (id && !boot) _savedPull();
+}
+// /userdata's address, naming the account this browser follows.
+function _accountUrl(path) { return path + '?account=' + encodeURIComponent(_accountId || ''); }
+// Refused (401: no account; 409: not this one): whose it is now, from the
+// server, and this tab follows that (or none). One asking at a time.
+var _accountRechecking = false;
+function _accountRecheck() {
+  if (_accountRechecking) return;
+  _accountRechecking = true;
+  serverFetch('/whoami', { credentials: 'same-origin', headers: _manageToken ? _authHeaders() : {} })
+    .then(function (r) { return r.json(); }).then(function (j) { _accountSet(j && j.account); })
+    .catch(function () {}).then(function () { _accountRechecking = false; });
+}
+// After an admin's sign-in: whose account the server says this is.
+function _accountRefresh() {
+  serverFetch('/whoami', { credentials: 'same-origin', headers: _manageToken ? _authHeaders() : {} })
+    .then(function (r) { return r.json(); }).then(function (j) { _accountSet(j && j.account); })
+    .catch(function () {});
+}
+// Signing out: what the account has not had goes up, then its copy leaves this
+// browser (a shared screen keeps nothing of it, highlights and notes included;
+// one that could not go stays, to go up at the next sign-in). The settings stay
+// as they are on this screen, the browser's own from now on.
+function _accountLeave() {
+  if (!_accountId) return Promise.resolve();
+  return Promise.all([_savedFlush(), _prefPush()]).then(function (got) {
+    if (got[0] && !_savedDelta()) Saved.forget();
+    _prefSaveState({ owner: null, pending: {}, seeded: true });
+    _accountId = null;
+  }, function () {});
+}
 function _savedSetBehind(on) {
   clearTimeout(_savedRetryTimer);
   _savedRetryTimer = on ? setTimeout(function () { _savedPush(); }, _SAVED_PUSH_OFTEN_MS) : null;
@@ -27398,7 +27423,6 @@ function _savedSetBehind(on) {
   _savedBehind = on;
   _savedRefreshPanel();
 }
-function _savedSignedIn() { return !!(_userSession && _userSession.name); }
 // What the account has not had: null when it has everything.
 function _savedDelta() {
   var d = Saved.since(_savedBase), n = 0;
@@ -27433,7 +27457,7 @@ function _savedPush(leaving) {
   if (_savedPushing && !leaving) { _savedPushAgain = true; return _savedPushing; }
   var delta = _savedDelta();
   if (!delta) return _savedPushing || Promise.resolve(true);
-  var account = Saved.account(), body = JSON.stringify({ saved: delta });
+  var account = Saved.account(), body = JSON.stringify({ saved: delta, account: _accountId });
   if (leaving) {
     if (body === _savedLeftBody) return _savedPushing || Promise.resolve(true);
     _savedLeftBody = body;
@@ -27445,9 +27469,12 @@ function _savedPush(leaving) {
     // Too large: paused until something is let go (the next change sends it),
     // not re-sent on a timer.
     if (r.status === 413) { _savedSetPaused(true); return 'too-large'; }
+    // Not this account's any more (signed out, or another tab signed in as
+    // someone else): asked again whose, never written into the wrong one.
+    if (r.status === 401 || r.status === 409) { _accountRecheck(); return 'not-ours'; }
     return r.ok ? r.json() : null;
   }).then(function (d) {
-    if (d === 'too-large') return false;
+    if (d === 'too-large' || d === 'not-ours') return false;
     if (!d || !d.saved) { if (!leaving) _savedSetBehind(true); return false; }
     _savedSetPaused(false);
     _savedSetBehind(false);
@@ -27466,11 +27493,161 @@ function _savedPull() {
   if (!_savedSignedIn()) return;
   _savedPulledAt = Date.now();
   var account = Saved.account();
-  fetch('/userdata', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+  fetch(_accountUrl('/userdata'), { credentials: 'same-origin' }).then(function (r) {
+    if (r.status === 401 || r.status === 409) { _accountRecheck(); return null; }
+    return r.ok ? r.json() : null;
+  }).then(function (d) {
     if (!d || Saved.account() !== account) return;
     if (d.saved && typeof d.saved === 'object') _savedBase = Saved.stamps(d.saved);
     _savedTake(d, false, true);
   }).catch(function () {});
+  _prefPull();
+}
+
+// ── Settings: what is set in one browser, in every one signed in to the account ──
+// The convention is users.py's: the server orders changes, no clock here is
+// asked. A change made signed in is pending until the account has taken it;
+// coming down, the account wins every key it holds that is not pending here;
+// a key it lacks stays this browser's. The first account a browser ever
+// follows, if it never held a setting, takes this browser's own (its settings
+// from before sync), on the keys it lacks (fill). Separate from the saved
+// store's sync: a change sends a few hundred bytes.
+var _prefPushTimer = null, _prefPushing = null, _prefFilling = false;
+// The server out of reach or failing: tried again after a while, as the saved
+// store's push is (_SAVED_PUSH_OFTEN_MS), not on every change's short wait.
+var _prefRetryTimer = null;
+function _prefRetryLater() {
+  if (_prefRetryTimer) return;
+  _prefRetryTimer = setTimeout(function () { _prefRetryTimer = null; _prefPush(); }, _SAVED_PUSH_OFTEN_MS);
+}
+function _prefPushSoon() {
+  if (!_accountId || _prefRetryTimer) return;
+  clearTimeout(_prefPushTimer);
+  _prefPushTimer = setTimeout(_prefPush, _SAVED_PUSH_MS);
+}
+// The pending changes, sent. leaving: while the page goes, in a request that
+// outlives it. fill: this browser's settings, into an account that has none.
+function _prefPush(leaving, fill) {
+  clearTimeout(_prefPushTimer); _prefPushTimer = null;
+  var st = _prefState();
+  if (!_accountId || st.owner !== _accountId) return Promise.resolve(true);
+  if (_prefPushing && !leaving) return _prefPushing.then(function () { return _prefPush(); });
+  var changes = {}, n = 0;
+  _PREF_KEYS.forEach(function (k) {
+    if (fill ? _rawGet(k) !== null : st.pending[k]) { changes[k] = { v: _rawGet(k) }; n++; }
+  });
+  if (!n) return Promise.resolve(true);
+  var account = _accountId, body = JSON.stringify(fill ? { changes: changes, fill: true, account: account } : { changes: changes, account: account });
+  var sent = fetch('/userdata/settings', {
+    method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body,
+    keepalive: !!leaving && new Blob([body]).size < _SAVED_KEEPALIVE_MAX,
+  }).then(function (r) {
+    if (r.status === 401 || r.status === 409) { _accountRecheck(); return null; }
+    if (!r.ok) { _prefRetryLater(); return null; }
+    return r.json();
+  }, function () { _prefRetryLater(); return null; }).then(function (d) {
+    if (!d || account !== _accountId) return false;
+    clearTimeout(_prefRetryTimer); _prefRetryTimer = null;
+    // Taken: no longer pending, unless it changed again since it was sent.
+    var now = _prefState();
+    Object.keys(changes).forEach(function (k) { if (_rawGet(k) === changes[k].v) delete now.pending[k]; });
+    _prefSaveState(now);
+    _prefTake(d);
+    return true;
+  }).catch(function () { return false; });
+  if (leaving) return sent;
+  _prefPushing = sent.then(function (ok) {
+    _prefPushing = null;
+    // Taken, and more changed meanwhile: that goes next. A failure waits for
+    // its retry (_prefRetryLater), never a push every moment.
+    if (ok && Object.keys(_prefState().pending).length) _prefPushSoon();
+    return ok;
+  });
+  return _prefPushing;
+}
+function _prefPull() {
+  if (!_accountId) return;
+  var account = _accountId;
+  fetch(_accountUrl('/userdata/settings'), { credentials: 'same-origin' }).then(function (r) {
+    if (r.status === 401 || r.status === 409) { _accountRecheck(); return null; }
+    return r.ok ? r.json() : null;
+  }).then(function (d) { if (d && account === _accountId) _prefTake(d); }).catch(function () {});
+}
+// The account's settings ({rev, settings: {key: {v, r}}}) come in.
+function _prefTake(d) {
+  if (!d || typeof d !== 'object' || !d.settings || typeof d.settings !== 'object') return;
+  var st = _prefState(), changed = [];
+  if (!_accountId || st.owner !== _accountId) return;
+  _PREF_KEYS.forEach(function (k) {
+    var acc = d.settings[k];
+    if (!acc || typeof acc !== 'object' || st.pending[k]) return;
+    var v = typeof acc.v === 'string' ? acc.v : null;
+    if (_rawGet(k) === v) return;
+    try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {}
+    changed.push(k);
+  });
+  if (changed.length) _prefApplied(changed);
+  if (!st.seeded) {
+    if (d.rev) { st.seeded = true; _prefSaveState(st); }
+    else {
+      // Seeded once the account has taken this browser's own; tried again
+      // at the next pull if it did not.
+      if (!_prefFilling) {
+        _prefFilling = true;
+        _prefPush(false, true).then(function (ok) {
+          _prefFilling = false;
+          if (!ok) return;
+          var now = _prefState();
+          if (now.owner === _accountId) { now.seeded = true; _prefSaveState(now); }
+        });
+      }
+      return;
+    }
+  }
+  // Changed here and not yet taken (the page closed before it went): it goes.
+  if (Object.keys(st.pending).length && !_prefPushing) _prefPushSoon();
+}
+// Settings that changed underneath this page (the account's, or another tab's):
+// what shows them is drawn again.
+function _prefApplied(keys) {
+  var has = function (k) { return keys.indexOf(k) >= 0; };
+  if (has(SK.UI_LANG)) {
+    var lang = _rawGet(SK.UI_LANG);
+    if (lang && lang !== _currentLang && _AVAILABLE_LANGS.some(function (l) { return l.code === lang; })) setLanguage(lang);
+  }
+  if (has(SK.APP_THEME) || has(SK.ARTICLE_THEME) || has(SK.DARKEN_ARTICLES)) {
+    try { _appThemeChanged(); } catch (e) {}
+  }
+  if (has(SK.READER_FAMILY) || has(SK.READER_THEME) || has(SK.READER_FONT)) {
+    try {
+      var doc = _readerFrameDoc();
+      if (doc && _readerViewOn) _applyReaderTheme(doc);
+      if (doc) _applyReaderFont(doc);
+      _tintReaderChrome(); _syncFontBtnGlyph(); _renderReaderPalette();
+    } catch (e) {}
+  }
+  if (has(SK.PREF_LANGUAGES) || has(SK.HIDE_LANG_CHOOSER)) {
+    try { _renderLangDropdown(); } catch (e) {}
+    if (typeof _paintLangPrefs === 'function') try { _paintLangPrefs(); } catch (e) {}
+  }
+  if (has(SK.VOICE_PREFS) || has(SK.PREF_LANGUAGES)) {
+    try { _markSpeaking(); } catch (e) {}
+    if (typeof _paintVoices === 'function') try { _paintVoices(); } catch (e) {}
+  }
+  if (has(SK.TTS_RATE) && typeof _ttsPickSpeed === 'function' && _ttsSpeaking) {
+    try { _ttsPickSpeed(_ttsRate()); } catch (e) {}
+  }
+  if (has(SK.EXT_LINKS)) {
+    var ext = document.getElementById('ext-links-seg');
+    if (ext) ext.innerHTML = _extLinksSegInner();
+    try { _extRemarkOpen(); } catch (e) {}
+  }
+  if (has(SK.PREF_FLAVOR)) {
+    var fl = document.getElementById('ms-flavor-seg');
+    if (fl) fl.innerHTML = _flavorSegInner();
+  }
+  var home = [SK.PREF_LANGUAGES, SK.HIDE_LANG_CHOOSER, SK.HIDE_DISCOVER, SK.LIBRARY_VIEW, SK.LIBRARY_SORT, SK.OPEN_IN_APPS];
+  if (mode === 'home' && !readerOpen && home.some(has)) { try { renderHome(); } catch (e) {} }
 }
 // Data that holds a store (the account's copy, a My data file) comes in: the
 // store merged, and bookmarks and folders in the pre-1.12 shape migrated. An
@@ -27492,12 +27669,6 @@ function _savedTake(d, overwrite, fromAccount) {
   }
   return res;
 }
-// Whose store the page shows: the account's once signed in (the browser
-// keeps a copy of each), the browser's own signed out.
-function _savedUseSession() {
-  if (Saved.use(_savedSignedIn() ? _userSession.name : '')) { _savedBase = null; _savedChanged(true); }
-  _savedPull();
-}
 // What the account has not had, sent now; the promise says whether it has it
 // all. leaving: while the page closes (or hides, which on a phone may be the
 // last it hears), in a request that outlives it.
@@ -27511,10 +27682,22 @@ function _savedFlush(leaving) {
 // what it has not had is sent on leaving it.
 function _savedStart() {
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden) _savedFlush(true);
+    if (document.hidden) { _savedFlush(true); _prefPush(true); }
     else if (Date.now() - _savedPulledAt > _SAVED_PULL_EVERY_MS) _savedPull();
   });
-  window.addEventListener('pagehide', function () { _savedFlush(true); });
+  window.addEventListener('pagehide', function () { _savedFlush(true); _prefPush(true); });
+  // A setting written in another page of this browser (another tab, an app
+  // page in the reader): shown here too. Whoever wrote it marked it pending
+  // (_prefChanged, apps.js's prefTouched); one this page did not send yet goes.
+  window.addEventListener('storage', function (e) {
+    if (e.key && _isPrefKey(e.key)) { _prefApplied([e.key]); return; }
+    if (e.key !== SK.PREF_SYNC) return;
+    // Another tab signed in as someone else, or out: this tab follows it, and
+    // never sends the last account's things into the next one's.
+    var owner = _prefState().owner;
+    if (owner !== _accountId) { _accountSet(owner); return; }
+    if (_accountId && Object.keys(_prefState().pending).length) _prefPushSoon();
+  });
   // Another tab of this browser wrote the store: merged in, not overwritten
   // the next time this tab writes (the other tab sends its own change up).
   window.addEventListener('storage', function (e) {
@@ -28560,9 +28743,9 @@ function _buildTopbarMenuHtml() {
         ' <span class="tbm-label">' + tH('find_in_page') + '</span></button>';
     }
     // 4. Read aloud.
-    if (_ttsCanSpeak() && !_isMapPage() && !_isAppPage() && !_isPdfPage() && _speakingOn()) {
+    if (_ttsOffered() && !_isMapPage() && !_isAppPage() && !_isPdfPage()) {
       readerGroup += '<button class="topbar-menu-item" id="tbm-tts" aria-pressed="' + (_ttsSpeaking ? 'true' : 'false') +
-        '" onclick="event.stopPropagation();_ttsToggle()">' + _TBM_TTS_ICON +
+        '" onclick="_closeTopbarMenu();_ttsToggle()">' + _TBM_TTS_ICON +
         ' <span class="tbm-label">' + tH(_ttsSpeaking ? 'tts_stop' : 'tts_speak') + '</span></button>';
     }
     // 5. Open in browser — LAST, and only where it's meaningful: the desktop app
@@ -29187,10 +29370,7 @@ function _extLinkMode() {
 }
 function _setExtLinkMode(mode) {
   if (EXT_LINK_MODES.indexOf(mode) < 0) mode = 'mark';
-  try {
-    if (mode === 'mark') localStorage.removeItem(SK.EXT_LINKS);
-    else localStorage.setItem(SK.EXT_LINKS, mode);
-  } catch (e) {}
+  _prefWrite(SK.EXT_LINKS, mode === 'mark' ? null : mode);
   var seg = document.getElementById('ext-links-seg');
   if (seg) seg.innerHTML = _extLinksSegInner();
   _extRemarkOpen();

@@ -1010,3 +1010,24 @@ def test_a_word_is_found_in_the_dictionary_in_lower_case(library):
     ]
     assert wiki.article("wikipedia", "No_such_page") is None
     assert wiki.article("not_a_wiki", "Albert_Einstein") is None
+
+
+def test_only_discovers_word_of_the_day_is_said_ahead(monkeypatch):
+    """Once the day is worked out, the one word Discover shows (English, a
+    Simple one first, then the most entries) is said by the server's voice,
+    so Say plays at once. No other Wiktionary's word, no other wiki's pick."""
+    from zimi import voices
+
+    said = []
+    monkeypatch.setattr(voices, "say_ahead", lambda text, lang: said.append((text, lang)) or True)
+    monkeypatch.setattr(srv, "_zim_list_cache", [
+        {"name": "wiktionary_fr_all", "project": "wiktionary", "language": "fra", "entries": 9000000},
+        {"name": "wiktionary_en_all", "project": "wiktionary", "language": "eng", "entries": 8000000},
+        {"name": "wiktionary_en_simple_all", "project": "wiktionary", "language": "eng", "entries": 50000},
+        {"name": "wikipedia_en_all", "project": "wikipedia", "language": "eng", "entries": 7000000},
+    ])
+    monkeypatch.setattr(wiki, "daily_card", lambda name, day: {"title": name})
+    monkeypatch.setattr(wiki, "_day_of", lambda name, day: None)
+    monkeypatch.setattr(wiki, "words", lambda name, day: [])
+    wiki._warm("20261022", [z["name"] for z in srv._zim_list_cache])
+    assert said == [("wiktionary_en_simple_all", "en")]

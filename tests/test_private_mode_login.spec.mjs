@@ -48,6 +48,10 @@ test.beforeAll(async ({ request }) => {
 // Sample every animation frame from first paint, recording whether library
 // chrome (loading spinner / home output) is ever visible WITHOUT the opaque
 // login gate covering the page — i.e. the "empty flash".
+// Whether the sign-in gate is still up. submitPw reloads the page, and an evaluate
+// that lands mid-reload throws; that moment counts as "still up", and the poll goes on.
+const gateUp = (page) => page.evaluate(() => window._loginRequired).catch(() => 'reloading');
+
 async function armFlashSampler(page) {
   await page.addInitScript(() => {
     window.__frames = [];
@@ -80,7 +84,7 @@ test('named-user sign-in sticks across reload (session cookie, plain http)', asy
   await page.fill('#pw-input', USER_PW);
   await page.evaluate(() => submitPw());
   // submitPw reloads on a gate sign-in; wait until the gate is gone.
-  await expect.poll(() => page.evaluate(() => window._loginRequired), { timeout: 8000 }).toBeFalsy();
+  await expect.poll(() => gateUp(page), { timeout: 8000 }).toBeFalsy();
   await page.goto(BASE);  // explicit reopen
   await page.waitForFunction(() => typeof _loginRequired !== 'undefined', { timeout: 8000 });
   await page.waitForTimeout(500);
@@ -94,7 +98,7 @@ test('admin sign-in sticks across reload (Bearer token, not re-gated)', async ({
   await page.fill('#pw-username', 'admin');
   await page.fill('#pw-input', ADMIN_PW);
   await page.evaluate(() => submitPw());
-  await expect.poll(() => page.evaluate(() => window._loginRequired), { timeout: 8000 }).toBeFalsy();
+  await expect.poll(() => gateUp(page), { timeout: 8000 }).toBeFalsy();
   await page.goto(BASE);  // reload: boot gate must recognise the token-admin
   await page.waitForFunction(() => typeof _loginRequired !== 'undefined', { timeout: 8000 });
   await page.waitForTimeout(500);
@@ -126,7 +130,7 @@ test('named-user sign-in authenticates on the FIRST try (no re-gate, live access
   await page.fill('#pw-input', USER_PW);
   await page.evaluate(() => submitPw());
   // Gate must clear and STAY clear — no second prompt.
-  await expect.poll(() => page.evaluate(() => window._loginRequired), { timeout: 8000 }).toBeFalsy();
+  await expect.poll(() => gateUp(page), { timeout: 8000 }).toBeFalsy();
   await page.waitForTimeout(500);
   expect(await page.evaluate(() => window._loginRequired)).toBeFalsy();
   await expect(page.locator('#pw-overlay.open')).toHaveCount(0);
@@ -148,7 +152,7 @@ test('logout in private mode returns to the gate and cuts off access', async ({ 
   await page.fill('#pw-username', USER);
   await page.fill('#pw-input', USER_PW);
   await page.evaluate(() => submitPw());
-  await expect.poll(() => page.evaluate(() => window._loginRequired), { timeout: 8000 }).toBeFalsy();
+  await expect.poll(() => gateUp(page), { timeout: 8000 }).toBeFalsy();
   expect((await serverView(page)).role).toBe('user');
   // Log out (userLogout reloads); the boot gate must re-show the login overlay.
   await page.evaluate(() => userLogout());

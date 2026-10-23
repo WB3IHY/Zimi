@@ -730,6 +730,11 @@ function _initOrrery() {
   function _tipHasAction() { return !!tooltip.querySelector('.alm-link, .orrery-tip-btn'); }
   function _scheduleTipHide(ms) { _cancelTipHide(); _tipHideTimer = setTimeout(function () { tooltip.style.display = 'none'; }, ms); }
   function _releaseTip() { if (_tipHasAction()) _scheduleTipHide(_ORRERY_TIP_GRACE_MS); else _hideTip(); }
+  // Put away by the person (a press outside it, Escape, its x): the body's
+  // selection goes with it, so the next tap on the body shows the tip again.
+  // The canvas raises and lowers the tip itself, so a press on it is not "outside".
+  _almDismissable('orrery-tooltip', function () { _orrerySelectedKey = null; _hideTip(); },
+    function (target) { return target === canvas; });
 
   // Info for a hit, split so the NAME can carry the link idiom while the trailing
   // stats stay plain text: { name, rest } where `rest` includes its leading ' · '.
@@ -769,6 +774,16 @@ function _initOrrery() {
     return '';
   }
 
+  // The part of the orrery's box that is on the screen, below the top bar,
+  // in the box's own coordinates; the whole box when the screen cannot hold a tip.
+  var _ORRERY_TIP_EDGE_PX = 12;
+  function _tipVisibleBand() {
+    var box = wrap.getBoundingClientRect(), bar = document.querySelector('.topbar');
+    var top = Math.max(2, (bar ? bar.getBoundingClientRect().bottom : 0) - box.top + _ORRERY_TIP_EDGE_PX);
+    var bottom = Math.min(wrap.clientHeight - 2, window.innerHeight - box.top - _ORRERY_TIP_EDGE_PX);
+    return bottom - top >= tooltip.offsetHeight ? { top: top, bottom: bottom } : { top: 2, bottom: wrap.clientHeight - 2 };
+  }
+
   // Render + place the tip next to the target on the side away from the Sun,
   // clamped inside the orrery box. The inner planets crowd the middle, and on
   // a phone the tip is wide enough that beside-placement buried them (and the
@@ -783,7 +798,7 @@ function _initOrrery() {
     // acts on data-alm-key / data-orr-* targets, so the rest of the box is inert.
     var nameHtml = _almEsc(info.name);
     if (linkKey) nameHtml = window.AlmanacLinks.wrap(linkKey, nameHtml);
-    var html = '<span class="orrery-tip-info">' + nameHtml + _almEsc(info.rest) + '</span>';
+    var html = '<span class="orrery-tip-info">' + nameHtml + _almEsc(info.rest) + '</span>' + _almDismissX();
     var lines = _orreryDelayLines(hit, _orrerySimTime());
     for (var i = 0; i < lines.length; i++) html += '<span class="orrery-tip-line">' + _almEsc(lines[i]) + '</span>';
     tooltip.innerHTML = html + _tipButtonHtml(hit);
@@ -794,8 +809,16 @@ function _initOrrery() {
     var at = _orreryWorldToScreen(hit.data.x, hit.data.y), r = hit.data.r * _orreryCam.zoom;
     var gap = r + _ORRERY_TIP_GAP_PX;
     var above = at.y - gap - th, below = at.y + gap;
-    var ty = at.y < maxY / 2 ? (above >= 2 ? above : below) : (below + th <= maxY - 2 ? below : above);
-    ty = Math.max(2, Math.min(ty, maxY - th - 2));
+    // Above or below the body, away from the centre; and on the side where
+    // the whole tip, its button too, is on the screen (the orrery is often
+    // half below the fold, and a button under the phone's edge is no button).
+    var band = _tipVisibleBand();
+    var order = at.y < maxY / 2 ? [above, below] : [below, above];
+    var ty = order[0];
+    for (var oi = 0; oi < order.length; oi++) {
+      if (order[oi] >= band.top && order[oi] + th <= band.bottom) { ty = order[oi]; break; }
+    }
+    ty = Math.max(band.top, Math.min(ty, band.bottom - th));
     var lx = Math.max(2, Math.min(at.x - tw / 2, maxX - tw - 2));
     tooltip.style.left = lx + 'px';
     tooltip.style.top = ty + 'px';

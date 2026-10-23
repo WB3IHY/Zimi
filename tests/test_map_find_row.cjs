@@ -37,6 +37,7 @@ const ctx = {
   _articleDeepLinkPath: (z, p) => '/?a=' + encodeURIComponent(z + '/' + p),
 };
 vm.createContext(ctx);
+vm.runInContext(require("./app_source.cjs").localeHelpers(src), ctx);
 vm.runInContext([
   extract(/function _newestPer\(list, key\) \{[\s\S]*?\n\}/, '_newestPer'),
   extract(/function _installedOfKind\(kind, key\) \{[\s\S]*?\n\}/, '_installedOfKind'),

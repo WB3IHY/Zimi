@@ -37,6 +37,7 @@
   var ROT_KEY = 'zimi_pdf_rot:';           // + the file: its pages turned, 0 / 90 / 180 / 270
   var REACH_MS = 4000;         // ms a page brought in for a highlight has to draw its text
   var SPREAD_MIN_PX = 1000;    // px of window wide enough for two pages side by side
+  var SPREAD_CHOICE_PX = 600;  // px: below this two pages are too small to read, so not offered
   var RESIZE_MS = 150;
   var SHOW_AT = 1 / 3;         // a highlight opened from Saved lands a third of the way down
   var TOKENS = ['--bg', '--surface', '--surface2', '--border', '--text', '--text2', '--amber', '--amber-glow', '--on-amber'];
@@ -121,8 +122,16 @@
   function redOn() {
     try { return !!(shell && shell._nightRedOn()); } catch (e) { return false; }
   }
+  // Zimi itself dark: dark pages are a choice only then (Eric, 2026-10-22:
+  // "Dark pages option only when in dark mode"); a light Zimi shows the page as printed.
+  function zimiDark() {
+    var th = shell ? shellTheme() : '';
+    if (th) return th === 'dark';
+    try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; }
+  }
   function darkWanted() {
     if (redOn()) return true; // no white page in Red, whatever was chosen
+    if (!zimiDark()) return false;
     var v = store(DARK_KEY);
     if (v === '1' || v === '0') return v === '1';
     try { if (shell) return !!(shell._articlesAreDark() && shell._darkenArticlesOn()); } catch (e) {}
@@ -230,9 +239,24 @@
   if (shell) {
     // A turn of the phone moves the notch, and the shell's viewport-fit
     // taking effect arrives as its resize too.
+    // A turn (the width changes) also brings the bars back, and puts the
+    // shell's page back at its top: iOS can leave it scrolled after a turn,
+    // the bars above the screen, and a tap where Back was then only hid them
+    // (Eric, 2026-10-22: "I rotated to landscape and back to portrait").
+    var shellW = 0;
+    var onShellResize = function () {
+      syncInsets();
+      var w = shell.innerWidth;
+      if (shellW && w !== shellW) {
+        showBars(true);
+        try { if (shell.scrollY || shell.scrollX) shell.scrollTo(0, 0); } catch (e) {}
+      }
+      shellW = w;
+    };
     try {
-      shell.addEventListener('resize', syncInsets);
-      window.addEventListener('pagehide', function () { shell.removeEventListener('resize', syncInsets); });
+      shellW = shell.innerWidth;
+      shell.addEventListener('resize', onShellResize);
+      window.addEventListener('pagehide', function () { shell.removeEventListener('resize', onShellResize); });
     } catch (e) {}
     try { new shell.MutationObserver(syncTheme).observe(shell.document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] }); } catch (e) {}
   }
@@ -344,6 +368,7 @@
   function paint() {
     pageBtn.innerHTML = esc(t('n_of_total', { n: '\u0000', total: num(pages) })).replace('\u0000', '<b>' + num(page) + '</b>');
     if (!scrubbing) scrub.value = String(page);
+    fillScrub();
     scrub.setAttribute('aria-valuetext', t('n_of_total', { n: num(page), total: num(pages) }));
     prevBtn.disabled = firstBtn.disabled = !stepTo(-1);
     nextBtn.disabled = lastBtn.disabled = !stepTo(1);
@@ -389,16 +414,26 @@
   // than wide (a book, a paper), unless one or two was chosen in the menu.
   // One choice for every document: the way this reader likes to read.
   function wide() { return !!container && container.clientWidth >= SPREAD_MIN_PX; }
-  function portrait() {
+  function roomForTwo() { return !!container && container.clientWidth >= SPREAD_CHOICE_PX; }
+  // The first page's width over its height (a US letter page: 0.77).
+  function pageShape() {
     var pv = null;
     try { pv = app.pdfViewer.getPageView(0); } catch (e) { pv = null; }
     var vp = pv && pv.viewport;
-    return !vp || vp.height > vp.width;
+    return vp && vp.height ? vp.width / vp.height : 0;
+  }
+  function portrait() { var a = pageShape(); return !a || a < 1; }
+  // Two whole pages, each as tall as the window, fit across it: a phone
+  // held sideways, a wide tablet (Eric, 2026-10-20: "PDF viewer needs two up").
+  function twoFitTall() {
+    var a = pageShape();
+    return !!container && a > 0 && 2 * container.clientHeight * a <= container.clientWidth;
   }
   function spreadWanted() {
-    if (!wide() || pages < 2) return false;
+    if (!roomForTwo() || pages < 2) return false;
     var v = store(SPREAD_KEY);
-    return v === '1' || v === '2' ? v === '2' : portrait();
+    if (v === '1' || v === '2') return v === '2';
+    return portrait() && (wide() || twoFitTall());
   }
   function applySpread() {
     if (!app || !pages) return;
@@ -416,8 +451,14 @@
   var resizeTimer = null;
   window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(applySpread, RESIZE_MS); });
   var scrubbing = false;
+  // How far through the document, as the track's amber part (the CSS draws it).
+  function fillScrub() {
+    var max = Number(scrub.max) || 1;
+    scrub.style.setProperty('--fill', max > 1 ? ((Number(scrub.value) - 1) / (max - 1)).toFixed(4) : '0');
+  }
   scrub.addEventListener('input', function () {
     scrubbing = true;
+    fillScrub();
     pageBtn.innerHTML = esc(t('n_of_total', { n: '\u0000', total: num(pages) })).replace('\u0000', '<b>' + num(Number(scrub.value)) + '</b>');
   });
   scrub.addEventListener('change', function () { scrubbing = false; goPage(Number(scrub.value)); });
@@ -715,7 +756,7 @@
       h += '<button type="button" role="menuitem" data-zp="save" aria-pressed="' + on + '">' + I.mark + '<span class="zp-grow">' + esc(t(on ? 'saved' : 'save')) + '</span></button>';
     }
     // One page or two: only where two fit.
-    if (wide() && pages > 1) {
+    if (roomForTwo() && pages > 1) {
       var two = !!(app && app.pdfViewer.spreadMode);
       h += '<div role="group" class="zp-choice">' +
         '<button type="button" role="menuitemradio" data-zp="one" aria-checked="' + !two + '">' + I.one + '<span class="zp-grow">' + esc(t('pdf_single_page')) + '</span></button>' +
@@ -730,9 +771,9 @@
     h += '<button type="button" role="menuitem" data-zp="rotate">' + I.rotate + '<span class="zp-grow">' + esc(t('pdf_rotate')) + '</span></button>';
     // In Red the pages are always dark: the switch shows it, says why, and can't be turned off there.
     var red = redOn();
-    h += '<button type="button" role="menuitemcheckbox" data-zp="dark" aria-checked="' + darkWanted() + '"' + (red ? ' aria-disabled="true"' : '') + '>' + I.moon +
-      '<span class="zp-grow">' + esc(t('pdf_dark_pages')) + (red ? '<span class="zp-why">' + esc(t('pdf_dark_in_red')) + '</span>' : '') + '</span><span class="zp-switch" aria-hidden="true"></span></button>' +
-      '<hr>' +
+    if (red || zimiDark()) h += '<button type="button" role="menuitemcheckbox" data-zp="dark" aria-checked="' + darkWanted() + '"' + (red ? ' aria-disabled="true"' : '') + '>' + I.moon +
+      '<span class="zp-grow">' + esc(t('pdf_dark_pages')) + (red ? '<span class="zp-why">' + esc(t('pdf_dark_in_red')) + '</span>' : '') + '</span><span class="zp-switch" aria-hidden="true"></span></button>';
+    h += '<hr>' +
       '<button type="button" role="menuitem" data-zp="download">' + I.dl + '<span class="zp-grow">' + esc(t('download')) + '</span></button>' +
       '<button type="button" role="menuitem" data-zp="print">' + I.print + '<span class="zp-grow">' + esc(t('pdf_print')) + '</span></button>' +
       '<hr>' +

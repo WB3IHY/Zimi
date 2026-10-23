@@ -521,36 +521,54 @@
   #tts-btn.speaking .tts-icon-stop { display: inline; }
   /* While it reads: a pill at the reader's foot. A ring turns until the first
      sound, then three bars move; the voice opens its menu upward. */
-  .tts-bar { position: absolute; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 20;
-             display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 14px; max-width: calc(100% - 32px); box-sizing: border-box;
+  /* A media control: Back, Pause, On read left to right in every language, as on any player. */
+  .tts-bar { direction: ltr; position: absolute; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 20;
+             display: flex; align-items: center; gap: 4px; padding-block: 4px; padding-inline: 14px 4px; max-width: calc(100% - 32px); box-sizing: border-box;
              background: var(--surface); border: 1px solid var(--border); border-radius: 26px; box-shadow: var(--shadow-popup); color: var(--text); font-size: 14px; }
   .tts-bar[hidden] { display: none; }
   .tts-bar-state { display: inline-flex; align-items: center; justify-content: center; gap: 2px; width: 18px; height: 18px; flex: none; color: var(--amber); }
   .tts-bar-state i { display: none; width: 3px; height: 12px; border-radius: 2px; background: currentColor; transform-origin: bottom; animation: tts-bars 0.9s ease-in-out infinite; }
   .tts-bar-state i:nth-child(2) { animation-delay: -0.3s; }
   .tts-bar-state i:nth-child(3) { animation-delay: -0.6s; }
-  .tts-bar-state.playing i, .tts-bar-state.paused i { display: block; }
-  .tts-bar-state.paused i { animation: none; transform: scaleY(0.35); }
-  .tts-bar-state:not(.playing):not(.paused) { border: 2px solid var(--border); border-top-color: currentColor; border-radius: 50%; width: 14px; height: 14px; animation: spin 0.8s linear infinite; }
+  .tts-bar-state.playing i, .tts-bar-state.paused i, .tts-bar-state.hold i { display: block; }
+  .tts-bar-state.paused i, .tts-bar-state.hold i { animation: none; transform: scaleY(0.35); }
+  .tts-bar-state:not(.playing):not(.paused):not(.hold) { border: 2px solid var(--border); border-top-color: currentColor; border-radius: 50%; width: 14px; height: 14px; animation: spin 0.8s linear infinite; }
+  .tts-bar-state.tts-lost { cursor: pointer; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--amber); }
   @keyframes tts-bars { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
-  .tts-bar-voice { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tts-bar-voice { unicode-bidi: plaintext; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   button.tts-bar-voice { cursor: pointer; border-radius: 22px; }
   button.tts-bar-voice svg { color: var(--text2); flex: none; }
   .tts-bar-btn, .tts-bar-speed { width: 44px; height: 44px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; background: none; color: var(--text); cursor: pointer; }
-  .tts-bar-speed { width: auto; min-width: 44px; padding: 0 8px; border-radius: 22px; font: inherit; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text2); }
+  .tts-bar-speed { width: 5.2em; padding: 0; white-space: nowrap; /* as wide as 2.95x: dragging the speed never moves the bar */ border-radius: 22px; font: inherit; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text2); }
   .tts-bar-btn:last-of-type { background: var(--surface2); }
   button.tts-bar-voice:hover, .tts-bar-btn:hover, .tts-bar-speed:hover { color: var(--amber); }
   .tts-bar button:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
   .tts-bar-anchor { position: relative; display: inline-flex; min-width: 0; }
-  .tts-bar-menu { position: absolute; bottom: calc(100% + 8px); left: 0; min-width: 180px; padding: 6px; display: flex; flex-direction: column;
+  .tts-bar-menu { position: absolute; bottom: calc(100% + 8px); inset-inline-start: 0; min-width: 180px; padding: 6px; display: flex; flex-direction: column;
                   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-popup); }
   .tts-bar-menu button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; text-align: start; cursor: pointer; }
-  .tts-bar-menu-speed { min-width: 96px; font-variant-numeric: tabular-nums; }
+  /* The speed sheet: a slider and its marks (a tap each). The track and its
+     filled part are the input's own background, so no pseudo-element needs
+     the fill; the thumb's centre runs from --tts-thumb/2 to 100% minus that,
+     and the marks sit under it at the same places. */
+  .tts-speed { --tts-thumb: 16px; --tts-track: 3px; width: min(240px, calc(100vw - 48px)); padding: 6px 14px 4px; gap: 0;
+               inset-inline-start: auto; left: 50%; transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+  .tts-speed-range { -webkit-appearance: none; appearance: none; width: 100%; height: 32px; margin: 0; cursor: pointer; touch-action: none;
+    background: linear-gradient(var(--amber), var(--amber)) no-repeat left center / calc(var(--tts-thumb) / 2 + var(--fill) * (100% - var(--tts-thumb))) var(--tts-track),
+                linear-gradient(var(--border), var(--border)) no-repeat center / 100% var(--tts-track); border-radius: 2px; }
+  .tts-speed-range::-webkit-slider-runnable-track { background: none; }
+  .tts-speed-range::-moz-range-track { background: none; }
+  .tts-speed-range::-webkit-slider-thumb { -webkit-appearance: none; width: var(--tts-thumb); height: var(--tts-thumb); border-radius: 50%; border: 0; background: var(--amber); }
+  .tts-speed-range::-moz-range-thumb { width: var(--tts-thumb); height: var(--tts-thumb); border-radius: 50%; border: 0; background: var(--amber); }
+  .tts-speed-range:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  .tts-speed-marks { position: relative; height: 28px; margin-top: -4px; }
+  .tts-bar-menu .tts-speed-marks button { position: absolute; top: 0; min-height: 28px; min-width: 40px; padding: 0 4px; transform: translateX(-50%);
+                                          left: calc(var(--tts-thumb) / 2 + var(--at) * (100% - var(--tts-thumb))); text-align: center;
+                                          font-size: 12px; color: var(--text2); }
+  .tts-bar-menu .tts-speed-marks button[aria-current] { color: var(--amber); font-weight: 600; }
   .tts-bar-menu button[aria-checked="true"] { color: var(--amber); font-weight: 600; }
   .tts-bar-menu button:hover { background: var(--surface2); }
-  [dir="rtl"] .tts-bar { padding: 4px 14px 4px 4px; }
-  [dir="rtl"] .tts-bar-menu { left: auto; right: 0; }
-  @media (prefers-reduced-motion: reduce) { .tts-bar-state i, .tts-bar-state:not(.playing):not(.paused) { animation: none; } .tts-bar-state.playing i { transform: scaleY(0.7); } }
+  @media (prefers-reduced-motion: reduce) { .tts-bar-state i, .tts-bar-state:not(.playing):not(.paused):not(.hold) { animation: none; } .tts-bar-state.playing i { transform: scaleY(0.7); } }
   .manage-btn { position: relative; }
   .random-btn .dice { display: inline-block; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
   .random-btn:hover .dice { transform: rotate(20deg) scale(1.15); }
@@ -879,7 +897,7 @@
     background-image: linear-gradient(45deg, transparent 50%, var(--text3) 50%), linear-gradient(135deg, var(--text3) 50%, transparent 50%);
     background-position: calc(100% - 16px) 52%, calc(100% - 11px) 52%; background-size: 5px 5px; background-repeat: no-repeat;
   }
-  [dir="rtl"] .create-form select.create-field { padding: 8px 10px 8px 30px; background-position: 16px 52%, 11px 52%; }
+  [dir="rtl"] .create-form select.create-field { padding: 8px 10px 8px 30px; background-position: 11px 52%, 16px 52%; }
   @media (max-width: 720px) { .create-form select.create-field { font-size: 16px; } }
   /* Several kinds, each picked or not: the mode tiles' chip, its box hidden. */
   .create-pick-chip { position: relative; padding: 4px 12px; }
@@ -1315,10 +1333,9 @@
   .mp-save { color: var(--amber); font-weight: 600; }
   .mp-save svg { flex: none; }
   .mp-lists {
-    display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; margin: -6px -8px -6px 0;
+    display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; margin-block: -6px; margin-inline: 0 -8px;
     border: 0; border-radius: 8px; background: none; color: var(--text2); cursor: pointer; padding: 0;
   }
-  [dir="rtl"] .mp-lists { margin: -6px 0 -6px -8px; }
   .mp-lists:hover, .mp-lists:focus-visible { color: var(--amber); background: var(--amber-glow); outline: none; }
   @media (pointer: coarse) {
     .map-picker .mp-row { min-height: 44px; box-sizing: border-box; }
@@ -1329,8 +1346,8 @@
   .lang-dropdown-item .ld-switch { display: flex; align-items: center; }
   .ld-switch-icon { opacity: 0.5; transition: opacity 0.15s; }
   .lang-dropdown-item.switchable:hover .ld-switch-icon { opacity: 1; color: var(--amber); }
-  .lang-dropdown-item.switchable { border-left: 2px solid transparent; padding: 8px 14px; }
-  .lang-dropdown-item.switchable:hover { border-left-color: var(--amber); }
+  .lang-dropdown-item.switchable { border-inline-start: 2px solid transparent; padding: 8px 14px; }
+  .lang-dropdown-item.switchable:hover { border-inline-start-color: var(--amber); }
   .ld-switch-label { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
   .ld-switch-lang { font-weight: 500; }
   .ld-switch-article { font-size: 11px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1342,15 +1359,12 @@
   .ld-download:hover svg { opacity: 1; color: var(--amber); }
 
   /* ── RTL support ── */
-  [dir="rtl"] .topbar { direction: rtl; }
   [dir="rtl"] .back-btn .back-arrow { display: inline-block; transform: scaleX(-1); }
   /* Article/ZIM titles can be RTL (Arabic, Hebrew, Farsi) inside LTR
      chrome (and vice versa) — isolate so neighboring punctuation and
      counts don't reshuffle around them. */
   .title, .sg-title, .ci-title, .dc-title, .dl-item .dl-name, .browse-drilldown-title { unicode-bidi: isolate; }
   [dir="rtl"] .bc-sep { transform: scaleX(-1); }
-  [dir="rtl"] .result { direction: rtl; }
-  [dir="rtl"] .result-body { text-align: right; }
   /* A result's lines read in their own direction, still set from the
      interface's side: an English snippet under a Hebrew interface ended
      in "…" at its start. (Its source row needs no reversing: the result
@@ -1358,16 +1372,7 @@
      left, away from its title.) */
   .result .snippet { unicode-bidi: plaintext; }
   [dir="rtl"] .result-thumb { order: 1; }
-  [dir="rtl"] .footer { direction: rtl; }
   [dir="rtl"] .footer-sub { direction: ltr; } /* keep kbd hints LTR */
-  [dir="rtl"] .lang-dropdown { direction: rtl; text-align: right; }
-  [dir="rtl"] .lang-dropdown-item.switchable { border-left: none; border-right: 2px solid transparent; }
-  [dir="rtl"] .lang-dropdown-item.switchable:hover { border-right-color: var(--amber); }
-  [dir="rtl"] .stat-card { direction: rtl; }
-  [dir="rtl"] .card-more { margin: -10px 0 -10px -10px; }
-  [dir="rtl"] .stats-grid.tiles .card-foot { left: 0; right: 10px; }
-  [dir="rtl"] .manage-tab { direction: rtl; }
-  [dir="rtl"] .empty { direction: rtl; }
 
   /* ── Category headings ── */
   .cat-heading {
@@ -1596,9 +1601,8 @@
   .stats-grid.tiles .new-badge { position: absolute; top: 6px; left: 8px; margin: 0; z-index: 1; }
   /* Bottom right, as in the list. A tile is 112px wide, so the button is 34px, not 44,
      and the tile keeps a band at its foot so the language chip never runs under it. */
-  .stats-grid.tiles .card-foot { position: absolute; left: 10px; right: 0; bottom: 0; height: 32px; justify-content: space-between; }
-  .stats-grid.tiles .card-more { width: 34px; height: 32px; margin: 0 0 0 auto; }
-  [dir="rtl"] .stats-grid.tiles .card-more { margin: 0 auto 0 0; }
+  .stats-grid.tiles .card-foot { position: absolute; inset-inline: 10px 0; bottom: 0; height: 32px; justify-content: space-between; }
+  .stats-grid.tiles .card-more { width: 34px; height: 32px; margin: 0; margin-inline-start: auto; }
   .stats-grid.tiles .stat-card:has(> .card-foot .card-more), .stats-grid.tiles .stat-card:has(> .card-foot .card-marks:not(:empty)) { padding-bottom: 30px; }
   /* The chip owns its own line under the title and spells the language out in
      full ("Français") — no letter-spacing tracking (that's for the terse code
@@ -1892,7 +1896,8 @@
   .reader-loading .spinner,
   .loading .spinner-inline,
   .create-status .spinner-inline,
-  .content-search-indicator .spinner-inline { border: 2px solid var(--border); border-top-color: var(--amber); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  .content-search-indicator .spinner-inline,
+  .vg-t .spinner-inline { border: 2px solid var(--border); border-top-color: var(--amber); border-radius: 50%; animation: spin 0.7s linear infinite; }
   .reader-loading .spinner { width: 24px; height: 24px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -2069,7 +2074,7 @@
     background-image: linear-gradient(45deg, transparent 50%, var(--text2) 50%), linear-gradient(135deg, var(--text2) 50%, transparent 50%);
     background-position: calc(100% - 16px) 52%, calc(100% - 11px) 52%; background-size: 5px 5px; background-repeat: no-repeat;
   }
-  [dir="rtl"] .ms-pane select { padding: 0 12px 0 30px; background-position: 16px 52%, 11px 52%; }
+  [dir="rtl"] .ms-pane select { padding: 0 12px 0 30px; background-position: 11px 52%, 16px 52%; }
   .ms-pane select:hover:not(:disabled) { border-color: var(--amber-border); }
   .ms-pane select:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
   .ms-pane select:disabled { opacity: 0.55; cursor: default; }
@@ -2191,7 +2196,7 @@
      keeps every line — title, description AND meta — clear of it with a
      breathing gap, at any viewport. (Padding only the title let long
      descriptions run under the box.) */
-  .catalog-grid .catalog-item .ci-info { grid-area: info; min-width: 0; padding-right: 24px; }
+  .catalog-grid .catalog-item .ci-info { grid-area: info; min-width: 0; padding-inline-end: 24px; }
   .catalog-grid .catalog-item .ci-title { font-size: 13px; margin-bottom: 1px; }
   .catalog-grid .catalog-item .ci-meta { font-size: 11px; }
   .catalog-grid .catalog-item .ci-actions {
@@ -2213,7 +2218,7 @@
      nearly invisible. */
   .catalog-grid .catalog-item .ci-select {
     appearance: none; -webkit-appearance: none;
-    position: absolute; top: 0; right: 0; margin: 0; padding: 0;
+    position: absolute; top: 0; inset-inline-end: 0; margin: 0; padding: 0;
     width: 40px; height: 40px; box-sizing: border-box;
     background: none; border: none; cursor: pointer;
     display: grid; place-content: center;
@@ -2252,8 +2257,6 @@
   :root[data-theme="light"] .catalog-grid .catalog-item .ci-select:focus-visible::before {
     border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-glow);
   }
-  [dir="rtl"] .catalog-grid .catalog-item .ci-select { right: auto; left: 0; }
-  [dir="rtl"] .catalog-grid .catalog-item .ci-info { padding-right: 0; padding-left: 24px; }
   .mc-row-clickable:hover, .mc-row-clickable:focus-visible { color: var(--amber); }
   /* Caret hints the Updates line expands; nudges right on hover. */
   .mc-caret { vertical-align: -2px; margin-left: 4px; opacity: 0.7; transition: transform 0.12s; }
@@ -2512,9 +2515,9 @@
   .bt-summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; font-size: 12px; color: var(--text2); padding: 2px 0; width: fit-content; }
   .bt-summary::-webkit-details-marker { display: none; }
   .bt-summary b { font-weight: 600; color: var(--text); }
-  .bt-summary::after { content: ''; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); margin-left: 2px; transition: transform 150ms; }
+  .bt-summary::after { content: ''; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); margin-inline-start: 2px; transition: transform 150ms; }
   .bt-more[open] > .bt-summary::after { transform: rotate(45deg); }
-  [dir="rtl"] .bt-summary::after { transform: rotate(135deg); margin-left: 0; margin-right: 2px; }
+  [dir="rtl"] .bt-summary::after { transform: rotate(135deg); }
   [dir="rtl"] .bt-more[open] > .bt-summary::after { transform: rotate(45deg); }
   .bt-summary:hover { color: var(--text); }
   .bt-summary .share-port-dot { width: 8px; height: 8px; }
@@ -2929,11 +2932,19 @@
   .vg { margin-top: 12px; }
   .vg-row {
     display: grid; grid-template-columns: minmax(0, 1fr) repeat(var(--vg-n), 44px); align-items: center;
-    min-height: 44px; padding: 0 8px 0 14px; box-sizing: border-box;
+    min-height: 44px; padding-block: 0; padding-inline: 14px 8px; box-sizing: border-box;
   }
-  [dir="rtl"] .vg-row { padding: 0 14px 0 8px; }
   .vg-row + .vg-row, .vg-all, .vg-all + .vg-row { border-top: 1px solid var(--border); }
   .vg-head { min-height: 32px; }
+  /* How quick each voice is here: three quiet rows under the names. */
+  .vg-time { min-height: 30px; }
+  .vg-time-name { font-size: 11.5px; color: var(--text3); }
+  .vg-t { height: 30px; font-size: 11.5px; color: var(--text2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .voice-foot.vg-test { display: flex; align-items: center; justify-content: flex-start; gap: 10px; flex-wrap: wrap; }
+  .vg-t.stale { opacity: 0.4; }
+  .vg-t .spinner-inline { display: inline-block; width: 12px; height: 12px; }
+  .tts-bar-menu button[data-slow], .voice-read [data-slow] { color: var(--text3); }
+  .tts-bar-menu button[data-slow][aria-checked="true"] { color: var(--amber); }
   .vg-h { font-size: 10.5px; font-weight: 600; color: var(--text2); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .vg-name { min-width: 0; padding: 6px 0; }
   .vg-own, .vg-zimi { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3364,7 +3375,7 @@
 
   /* ── The card's one control: ⋯ opens its menu ── */
   .card-more {
-    flex-shrink: 0; width: 44px; height: 44px; margin: -10px -10px -10px 0; padding: 0;
+    flex-shrink: 0; width: 44px; height: 44px; margin-block: -10px; margin-inline: 0 -10px; padding: 0;
     display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 22px; background: none;
     color: var(--text2); opacity: 0.6; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   }
@@ -3433,7 +3444,7 @@
      each submenu against the viewport; these are the pre-measurement defaults.
      Move-to can list many categories, so it always scrolls inside its cap. */
   .ctx-sub {
-    display: none; position: absolute; left: 100%; top: -4px;
+    display: none; position: absolute; inset-inline-start: 100%; top: -4px;
     min-width: 170px; max-height: 60vh; overflow-y: auto;
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); box-shadow: var(--shadow-popup);
@@ -3584,10 +3595,9 @@
   /* Each panel's header: its name and its close, one short band. */
   .library-panel-header {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    padding: 6px 8px 6px 16px; border-bottom: 1px solid var(--border); position: sticky; top: 0;
+    padding-block: 6px; padding-inline: 16px 8px; border-bottom: 1px solid var(--border); position: sticky; top: 0;
     background: var(--surface); z-index: 1;
   }
-  [dir="rtl"] .library-panel-header { padding: 6px 16px 6px 8px; }
   .library-panel-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); }
   .library-panel-header .hp-clear { border-color: transparent; font-size: 14px; }
   /* Continue, at the head of History: its tree sits on the day groups' edge. */
@@ -3711,8 +3721,7 @@
     /* The targets stay a thumb's size; the room around them goes, so the
        header and the actions under it take one short band, not a third of
        the phone. The close is a bare mark, as the sheets' are. */
-    .library-panel-header { padding: 0 0 0 16px; }
-    [dir="rtl"] .library-panel-header { padding: 0 16px 0 0; }
+    .library-panel-header { padding: 0; padding-inline-start: 16px; }
     .library-panel-header .hp-clear { font-size: 15px; }
     .bm-actions { padding-top: 0; }
     .bm-actions + .bm-tree, .bm-actions ~ .bm-tree { padding-top: 0; }
@@ -4004,6 +4013,7 @@
   .dc-word-card .dc-body, .dc-quote-card .dc-body { position: relative; }
   .dc-word-card .dc-header, .dc-quote-card .dc-header { padding-inline-end: 44px; }
   .dc-say { position: absolute; top: 12px; inset-inline-end: 12px; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; margin: 0; border-radius: 50%; color: var(--amber); background: var(--amber-glow); border: 1px solid var(--amber-border); cursor: pointer; }
+  .dc-say::after { content: ''; position: absolute; inset: -8px; border-radius: 50%; } /* a 48px target, the circle stays 32px */
   .dc-say > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .dc-say:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   .zimi-quiet .dc-say { display: none; } /* Speaking off (Settings > Voices) */
@@ -4099,7 +4109,7 @@
    carries the full detail string. Zero downloads but other work → a bare
    dot. Matches the .dl-tab-badge amber-on-black convention. */
   .topbar-badge {
-    position: absolute; top: -5px; right: -5px;
+    position: absolute; top: -5px; inset-inline-end: -5px;
     min-width: 17px; height: 17px; padding: 0 4px; box-sizing: border-box;
     display: none; align-items: center; justify-content: center;
     background: var(--amber); color: var(--on-amber);
@@ -4108,9 +4118,7 @@
     font-variant-numeric: tabular-nums; cursor: pointer;
   }
   /* Ambient-only work (no downloads): shrink to a plain dot, no number. */
-  .topbar-badge.dot { min-width: 9px; width: 9px; height: 9px; padding: 0; top: -2px; right: -2px; }
-  [dir="rtl"] .topbar-badge { right: auto; left: -5px; }
-  [dir="rtl"] .topbar-badge.dot { right: auto; left: -2px; }
+  .topbar-badge.dot { min-width: 9px; width: 9px; height: 9px; padding: 0; top: -2px; inset-inline-end: -2px; }
   .topbar-more { position: relative; }
   /* Download count shown on the ⋯-menu's Manage row (mobile). */
   .topbar-menu-item .tbm-count {
@@ -4280,8 +4288,10 @@
 :root.night-red:has(> body.almanac-mode), :root.night-red.almanac-boot { background: #000; }
 /* Pictures to red monochrome with CSS filter functions only: iOS Safari drops an SVG url() filter on
    any layer it composites on the GPU (the Today card's moon), so the picture shows in its own colours.
-   Dimmed first so white saturates to pure red instead of a pink. One chain, everywhere (--red-picture). */
-:root.night-red { --red-picture: brightness(.6) grayscale(1) sepia(1) hue-rotate(-42deg) saturate(12) brightness(1.5); }
+   Dimmed first so white saturates to pure red instead of a pink, and so the mapping is linear: each
+   grey keeps its place between black and full red. One chain, everywhere (--red-picture). The chain
+   before sent every grey from 30% up to full red: a dark grey page and its white text were one red (#119). */
+:root.night-red { --red-picture: grayscale(1) brightness(.22) sepia(1) hue-rotate(-42deg) saturate(12); }
 :root.night-red img { filter: var(--red-picture); }
 /* Moving pictures take the GPU's own filter chain (the SVG one is a pass the page pays every frame);
    a canvas that paints its own red (the sky) takes none, or its red would be halved. */

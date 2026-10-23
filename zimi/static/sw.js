@@ -421,7 +421,9 @@ async function networkFirst(event) {
   clearTimeout(timer);
   if (!resp) networkDownUntil = Date.now() + NETWORK_DOWN_MS;
   if (resp && !(_gatewayDown(resp) && kept)) return resp;
-  if (carried) {
+  // A kept ZIM answers before a kept copy, except a document library's list:
+  // the server's own (sizes and all) beats the one read off the phone's copy.
+  if (carried && !(keptCopy && catalogZim(new URL(request.url)))) {
     const local = await keptZimResponse(request);
     if (local) return local;
   }
@@ -626,8 +628,29 @@ async function keepLocal(request) {
   return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
 }
 
+// A carried ZIM that arrives again (an import, a re-download) is a new archive
+// under the same name: a /catalog?zim= listing cached from the old one would
+// outrank it offline, so each cached listing is fetched again. Only a fresh
+// answer replaces one: the listing a library was just kept with is what reads
+// it offline, and dropping it (as first done here) left a kept library empty.
+async function refreshCachedCatalogs() {
+  try {
+    const cache = await caches.open(CACHE_VERSION);
+    for (const req of await cache.keys()) {
+      if (!catalogZim(new URL(req.url))) continue;
+      try {
+        const fresh = await fetch(req.url, { credentials: 'same-origin', cache: 'no-store' });
+        if (fresh.ok) await cache.put(req, fresh);
+      } catch (e) { /* offline: the cached listing stays */ }
+    }
+  } catch (e) { /* nothing cached */ }
+}
+
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'keep-changed' && self.KeepStore) KeepStore.forgetNames();
+  if (event.data && event.data.type === 'keep-changed') {
+    if (self.KeepStore) KeepStore.forgetNames();
+    event.waitUntil(refreshCachedCatalogs());
+  }
   if (event.data && event.data.type === 'keep-almanac') event.waitUntil(keepAlmanac());
 });
 

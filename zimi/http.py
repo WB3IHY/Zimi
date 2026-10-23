@@ -1106,6 +1106,7 @@ if os.path.isdir(_STATIC_DIR):
         (
             _static_hash("app.js")
             + _static_hash("app.css")
+            + _static_hash("readaloud.js")  # Read aloud, fetched on first use
             + _static_hash("almanac.js")
             + _static_hash("almanac.css")
             # Almanac was split into sibling modules; all of them must feed the
@@ -1155,7 +1156,7 @@ if os.path.isdir(_STATIC_DIR):
 # the content hashes the pages ask for; only the files named here are kept.
 _OFFLINE_SHELL_FILE = re.compile(
     r"/static/((?:app\.(?:js|css)|almanac[\w-]*\.(?:js|css)|zone-places\.js"
-    r"|world-map\.svg|tz-borders\.json|fieldguide[\w-]*\.(?:html|json|js)|highlights\.js|find\.js"
+    r"|world-map\.svg|tz-borders\.json|fieldguide[\w-]*\.(?:html|json|js)|highlights\.js|find\.js|readaloud\.js"
     r"|keepstore\.js|keepworker\.js|zimreader\.js|fzstd\.js|rosetta/manifest\.json"
     r"|earth/(?:moon-v1\.webp|stars-v1\.bin|stars-names-v1\.json|constellations-v1\.json|milkyway-v1\.webp"
     r"|satellite-[\d.]+\.min\.js|three-r\d+\.min\.js|earth-(?:day|night)-v1\.webp))"
@@ -2893,6 +2894,8 @@ class ZimHandler(BaseHTTPRequestHandler):
                 return self._uncached(lambda: self._json(200, _prefs_reply(prefs)))
             elif parsed.path == "/userdata":
                 return self._uncached(self._handle_userdata_get)
+            elif parsed.path == "/userdata/settings":
+                return self._uncached(self._handle_settings_get)
 
             elif parsed.path == "/languages":
                 # Installed language summary with native names and ZIM counts
@@ -3664,10 +3667,13 @@ class ZimHandler(BaseHTTPRequestHandler):
                 if not isinstance(langs, list):
                     return self._json(400, {"error": "'langs' must be a list"})
                 words = data.get("words") or []
+                engine = data.get("engine")
+                if engine is not None and engine not in _voices.ENGINES:
+                    return self._json(400, {"error": "unknown engine"})
                 return self._json(
                     200,
                     {
-                        "warming": _voices.warm(langs),
+                        "warming": _voices.warm(langs, engine),
                         "saying": _voices.presay(words) if isinstance(words, list) else 0,
                     },
                 )
@@ -3710,6 +3716,8 @@ class ZimHandler(BaseHTTPRequestHandler):
                 return self._json(200, _prefs_reply(prefs))
             if parsed.path == "/userdata":
                 return self._handle_userdata_post(data)
+            if parsed.path == "/userdata/settings":
+                return self._handle_settings_post(data)
 
             if parsed.path == "/resolve":
                 retry_after = _check_rate_limit(
@@ -5598,7 +5606,10 @@ class ZimHandler(BaseHTTPRequestHandler):
     def _handle_whoami(self):
         """GET /whoami — the current identity for the client to shape its UI.
         role ∈ {user, admin, anonymous}. Server-side filtering is independent
-        of this — it keys off the cookie/token, not the client's belief."""
+        of this — it keys off the cookie/token, not the client's belief.
+        ``account``: whose /userdata this request has (users.request_data_owner),
+        or None; the client follows an account only when this names one (with
+        the password switched off, every browser is the admin's)."""
         from zimi import manage as _manage
 
         # The apps this server offers, as the shell stamps them. A browser can
@@ -5613,7 +5624,13 @@ class ZimHandler(BaseHTTPRequestHandler):
             if _users.is_admin_user(name):
                 return self._json(
                     200,
-                    {"role": "admin", "name": name, "secondary": True, "apps": apps},
+                    {
+                        "role": "admin",
+                        "name": name,
+                        "secondary": True,
+                        "account": name,
+                        "apps": apps,
+                    },
                 )
             rec = _users.get_user(name)
             allowlist = rec.get("allowlist") if rec else None
@@ -5626,6 +5643,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                     # Per-user create permission — the client's + button and
                     # Create page consult this (the server gates regardless).
                     "can_create": _users.user_can_create(name),
+                    "account": name,
                     "apps": apps,
                 },
             )
@@ -5638,6 +5656,7 @@ class ZimHandler(BaseHTTPRequestHandler):
             resp: dict[str, object] = {
                 "role": "admin",
                 "name": _manage._get_manage_user() or "admin",
+                "account": _users.request_data_owner(self),
                 "apps": apps,
             }
             # Ensure the header-less transports (reader iframe, plain-fetch data
@@ -5655,7 +5674,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         # Anonymous. Expose a first-login hint ONLY when the default username
         # applies — no custom username AND no named users configured. This is
         # not an info leak: "the default username is admin" is in the docs.
-        resp = {"role": "anonymous", "apps": apps}
+        resp = {"role": "anonymous", "account": _users.request_data_owner(self), "apps": apps}
         if not _manage._get_manage_user() and not _users.list_users():
             resp["default_username"] = "admin"
         # Tell the SPA how the public-access policy shapes its view: ``private``
@@ -5669,14 +5688,32 @@ class ZimHandler(BaseHTTPRequestHandler):
                 resp["login_required"] = True
         return self._json(200, resp)
 
+    def _data_owner(self, sent):
+        """Whose /userdata this request reaches (users.request_data_owner), and
+        the refusal when there is none (401) or it is not the account the
+        browser says it follows (409: a tab still on an account another tab
+        signed out of; it asks /whoami again rather than write into this one)."""
+        name = _users.request_data_owner(self)
+        if not name:
+            return None, (401, {"error": "sign in required"})
+        if sent is not None and str(sent).casefold() != name.casefold():
+            return None, (409, {"error": "account_changed"})
+        return name, None
+
+    def _query_account(self):
+        from urllib.parse import parse_qs, urlparse
+
+        got = parse_qs(urlparse(self.path).query).get("account")
+        return got[0] if got else None
+
     def _handle_userdata_get(self):
         """GET /userdata — the signed-in user's own server-stored My-data blob
-        (bookmarks/history/preferences). Only a NAMED user resolves here; an
-        admin-without-a-user or an anonymous visitor gets 401 and keeps their
-        data in the browser."""
-        name = _users.resolve_request_user(self)
-        if not name:
-            return self._json(401, {"error": "sign in required"})
+        (saved store, settings, bookmarks/history/preferences). Every signed-in
+        account has one, the primary admin included (users.request_data_owner);
+        an anonymous visitor gets 401 and keeps their data in the browser."""
+        name, refused = self._data_owner(self._query_account())
+        if refused:
+            return self._json(*refused)
         return self._json(200, _users.load_user_data(name))
 
     def _handle_userdata_post(self, data):
@@ -5688,12 +5725,11 @@ class ZimHandler(BaseHTTPRequestHandler):
         left alone; ``saved`` (1.12) is merged with the kept store
         (users.sync_user_data), and the merged store comes back, so a device
         takes in what the others wrote in the same trip."""
-        name = _users.resolve_request_user(self)
-        if not name:
-            return self._json(401, {"error": "sign in required"})
-        ok, err, doc = _users.sync_user_data(
-            name, data if isinstance(data, dict) else {}
-        )
+        data = data if isinstance(data, dict) else {}
+        name, refused = self._data_owner(data.pop("account", None))
+        if refused:
+            return self._json(*refused)
+        ok, err, doc = _users.sync_user_data(name, data)
         if not ok:
             # Too large is the account's to fix (the device says sync is paused).
             # A file that could not be read is the server's, and passes.
@@ -5704,6 +5740,30 @@ class ZimHandler(BaseHTTPRequestHandler):
             )
             return self._json(status, {"error": err})
         return self._json(200, {"status": "ok", "saved": doc["saved"]})
+
+    def _handle_settings_get(self):
+        """GET /userdata/settings — the signed-in account's settings, each
+        with the revision the server gave it (users.load_settings)."""
+        name, refused = self._data_owner(self._query_account())
+        if refused:
+            return self._json(*refused)
+        return self._json(200, _users.load_settings(name))
+
+    def _handle_settings_post(self, data):
+        """POST /userdata/settings — {changes: {key: {v}}, fill: bool}: the
+        account takes each change at its next revision; ``fill`` (a browser's
+        first sync into an account that never held one) only fills what it
+        lacks. Answers with the account's settings as kept."""
+        data = data if isinstance(data, dict) else {}
+        name, refused = self._data_owner(data.get("account"))
+        if refused:
+            return self._json(*refused)
+        ok, err, doc = _users.change_settings(
+            name, data.get("changes") or {}, fill_only=bool(data.get("fill"))
+        )
+        if not ok:
+            return self._json(503 if err == "write failed" else 400, {"error": err})
+        return self._json(200, doc)
 
     def log_message(self, format, *args):
         # Light logging: errors + slow requests. Suppress 200/304 noise.

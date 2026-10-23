@@ -3902,14 +3902,14 @@ function _createSyncMetrics(s) {
     // being cancelled, or the reader has asked for less motion, they are the
     // same thing, because there is nothing left to smooth toward.
     var shown = _createCountShownValue(what, _createChipTarget(what, c.n, s), s);
-    var value = what === 'bytes' ? _fmtBytes(shown) : Number(shown).toLocaleString();
+    var value = what === 'bytes' ? _fmtBytes(shown) : fmtNum(shown);
     // The bound it runs against: the server's total, or for bytes the size
     // budget the job was started with (0 is none, and shows no bound).
     var bound = (typeof c.total === 'number' && c.total > 0) ? c.total
       : (what === 'bytes' && s.active && s.limits && s.limits.bytes > 0 ? s.limits.bytes : 0);
     var of = bound
       ? '<span class="create-metric-of">/ ' +
-        (what === 'bytes' ? esc(_fmtBytes(bound)) : esc(bound.toLocaleString())) + '</span>'
+        (what === 'bytes' ? esc(_fmtBytes(bound)) : esc(fmtNum(bound))) + '</span>'
       : '';
     html += '<div class="create-metric">' +
       '<span class="create-metric-n" data-count="' + escAttr(what) + '">' +
@@ -3985,7 +3985,7 @@ function _createCountsAnimate(s) {
       var next = _createCountStep(_createCountShown[what], c.n, dt);
       _createCountShown[what] = next;
       var text = what === 'bytes'
-        ? _fmtBytes(next) : Number(Math.round(next)).toLocaleString();
+        ? _fmtBytes(next) : fmtNum(Math.round(next));
       if (spans[i].textContent !== text) spans[i].textContent = text;
       if (next < c.n) moving = true;
     }
@@ -4090,7 +4090,7 @@ function _createSyncTreeMore() {
   if (!more) return;
   more.hidden = _createTreeElided <= 0;
   if (_createTreeElided > 0) {
-    var text = t('create_tree_more', { n: _createTreeElided.toLocaleString() });
+    var text = t('create_tree_more', { n: fmtNum(_createTreeElided) });
     if (more.textContent !== text) more.textContent = text;
   }
 }
@@ -4175,7 +4175,7 @@ function _createFoldTree(wrap, s) {
   var over = !!(s && s.done);
   if (over) {
     var n = _createViz.counts.entries && _createViz.counts.entries.n;
-    var text = n ? Number(n).toLocaleString() + ' ' + _createCountLabel('entries', n, s.mode) : tH('create_log');
+    var text = n ? fmtNum(n) + ' ' + _createCountLabel('entries', n, s.mode) : tH('create_log');
     if (summary.textContent !== text) summary.textContent = text;
     summary.hidden = false;
     if (wrap.open && !wrap._foldedOnce) { wrap.open = false; wrap._foldedOnce = true; }
@@ -4346,7 +4346,7 @@ function _createMountDone(s) {
   var facts = '';
   if (entries && entries.n) {
     facts += '<span class="create-done-fact">' +
-      esc(Number(entries.n).toLocaleString()) + ' ' + _createCountLabel('entries', entries.n, s.mode) + '</span>';
+      esc(fmtNum(entries.n)) + ' ' + _createCountLabel('entries', entries.n, s.mode) + '</span>';
   }
   // The file's size, final at once. It used to roll up from 0 B over most of a
   // second while WHAT'S INSIDE beneath it already showed the total, so for that
@@ -4385,7 +4385,7 @@ function _createMountDone(s) {
         // nobody opens the server log of a job that finished green.
         (r.thin_page
           ? '<div class="create-caption create-done-warn">' +
-              esc(_createT('create_warn_thin_page').replace('{n}', Number(r.text_chars || 0).toLocaleString())) +
+              esc(_createT('create_warn_thin_page').replace('{n}', fmtNum(r.text_chars || 0))) +
               ' ' + _createReportLinkHtml(s, 'Only ' + Number(r.text_chars || 0) + ' characters of text came back.') +
             '</div>'
           : '') +

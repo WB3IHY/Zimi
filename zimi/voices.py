@@ -233,6 +233,16 @@ CACHE_MAX_BYTES = 64 * 1024 * 1024  # a word is ~40 KB: well over a thousand
 FETCH_TIMEOUT_S = 30
 FETCH_CHUNK = 256 * 1024
 WAV_HEADER_BYTES = 44
+TIMINGS = "timings.json"  # how fast each engine is here (timings())
+FIRST_CHARS_MAX = 120  # the page's first chunk (_TTS_FIRST_CHUNK_MAX): "first words"
+RTF_MIN_AUDIO_S = 2.0  # shorter speech is mostly start-up, not speed
+TIMING_WEIGHT = 0.3  # a read's sample in the moving average; a Test replaces it
+TIMINGS_FLUSH_S = 15  # a reading's samples reach timings.json this long after the first
+TEST_DIR = "test"  # a Test's audio, said and deleted, never the cache
+TEST_CHUNKS_MAX = 8  # a Test's reading: a paragraph, as the page chunks it
+# The speeds a Test works out the pauses for: the page's presets and steps
+# up to its fastest (_TTS_GAP_RATES). Any speed between reads the next one up.
+TEST_RATES = (0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3)
 SAY_FORMAT = ("--file-format=WAVE", "--data-format=LEI16@22050")
 PIPER_CMD_ENV = "ZIMI_PIPER"  # a piper command to use instead of finding one
 HELPER_NAME = "zimi-voice"  # the desktop builds' engines, beside Zimi
@@ -288,6 +298,11 @@ _SAY_SKIP_RE = re.compile(
 )
 # One name for a language, as the page's speechTag gives it.
 _ALIASES = {"no": "nb", "nn": "nb", "cmn": "zh", "yue": "zh", "iw": "he", "in": "id"}
+# espeak-ng's constructed languages that a library can be written in (each
+# has a Wikipedia). Its fictional ones (Klingon, Quenya, Sindarin, Pyash,
+# Lang Belta) and its test voice (xextan-test) have nothing to read, and no
+# browser can name them: they are left out.
+_ESPEAK_CONSTRUCTED = {"eo", "ia", "ie", "io", "jbo", "lfn", "nov", "vo"}
 # espeak-ng's own codes for languages the page names by region.
 _ESPEAK_REGIONS = {"cmn": ("zh", "CN"), "yue": ("zh", "HK")}
 # The region a language is said in when no accent asks for another.
@@ -300,16 +315,27 @@ _found = {}
 _download = {}
 _fetcher = None  # the thread fetching a voice, while one is
 _choices = None  # CHOICES_KEY as last read or written: no file read per word
+_timings = None  # {"fp", "engines"} as last read or written (timings())
+_timings_lock = threading.Lock()
+_timings_dirty = False  # samples in _timings not yet in timings.json
+_timings_timer = None  # the pending flush, while one is
 
 
 def _reset_for_tests():
-    global _choices
+    global _choices, _timings, _timings_dirty, _timings_timer
     _stop_workers()
     with _lock:
         _found.clear()
         _download.clear()
         _failures.clear()
         _choices = None
+    with _timings_lock:
+        _timings = None
+        _timings_dirty = False
+        if _timings_timer:
+            _timings_timer.cancel()
+        _timings_timer = None
+    _testing.clear()
 
 
 # ── where things are ──────────────────────────────────────────────────────
@@ -669,6 +695,296 @@ def versions():
     return out
 
 
+# ── how fast each engine is here ──────────────────────────────────────────
+# Eric, 2026-10-19: "show time to first word and all that? Set expectations
+# but also understand ourselves based on the hardware (maybe invalidate
+# between releases and or hardware changes or changes to these components)".
+# Per engine: ``first_s``, a first chunk said with its model loaded;
+# ``cold_s``, the same while the model loads; ``rtf``, seconds of work per
+# second of speech. Every sentence read aloud adds a sample, a Test replaces
+# them. Kept under a fingerprint of Zimi's version, the engines and their
+# models, and the machine: any of those changes and they start over.
+
+
+def _hardware():
+    """What the machine is, found once: its kind, CPU model and count, and
+    memory to the GB."""
+
+    def find():
+        import platform
+
+        cpu = ""
+        try:
+            with open("/proc/cpuinfo", encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    if line.startswith("model name"):
+                        cpu = line.split(":", 1)[1].strip()
+                        break
+        except OSError:
+            pass
+        if not cpu and sys.platform == "darwin":
+            cpu = _list_output(["sysctl", "-n", "machdep.cpu.brand_string"]).strip()
+        try:
+            mem = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+        except (AttributeError, ValueError, OSError):
+            mem = 0
+        return {
+            "machine": platform.machine(),
+            "cpu": cpu or platform.processor(),
+            "cpus": os.cpu_count() or 0,
+            "mem_gb": round(mem / 2**30),
+        }
+
+    return _memo("hardware", find)
+
+
+def _fingerprint():
+    from zimi import server as _srv
+
+    what = dict(_hardware(), zimi=_srv.ZIMI_VERSION, engines=versions())
+    return hashlib.sha1(json.dumps(what, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+
+
+def _forget_fingerprint():
+    """The engines' versions changed (a voice installed or removed): the
+    fingerprint is worked out again at the next sample."""
+    with _lock:
+        _found.pop("fingerprint", None)
+
+
+def _timings_now():
+    """The timings for this fingerprint (call under _timings_lock): read
+    once, emptied when the fingerprint has changed."""
+    global _timings
+    fp = _memo("fingerprint", _fingerprint)
+    if _timings is None:
+        try:
+            with open(_dir(TIMINGS), encoding="utf-8") as f:
+                _timings = json.load(f)
+        except (OSError, ValueError):
+            _timings = {}
+    if not isinstance(_timings, dict) or _timings.get("fp") != fp:
+        _timings = {"fp": fp, "engines": {}}
+    return _timings
+
+
+def timings():
+    """{engine: {"first_s", "cold_s", "rtf", "n"}} measured on this machine,
+    as far as they are known."""
+    with _timings_lock:
+        got = json.loads(json.dumps(_timings_now()["engines"]))
+    # An engine with no model to load (eSpeak) is never cold: after a rest it
+    # starts as fast as ever, so its cold start is its warm one, not unknown.
+    for engine, rec in got.items():
+        if engine not in DOWNLOADED and "cold_s" not in rec and "first_s" in rec:
+            rec["cold_s"] = rec["first_s"]
+    return got
+
+
+def _note_timing(engine, seconds, audio_s, chars, cold, weight=TIMING_WEIGHT):
+    """One synthesis: ``seconds`` of work for ``audio_s`` of speech."""
+    with _timings_lock:
+        t = _timings_now()
+        rec = t["engines"].setdefault(engine, {"n": 0})
+
+        def mix(key, value):
+            old = rec.get(key)
+            rec[key] = round(value if old is None else old + weight * (value - old), 3)
+
+        if chars <= FIRST_CHARS_MAX:
+            mix("cold_s" if cold else "first_s", seconds)
+        if not cold and audio_s >= RTF_MIN_AUDIO_S:
+            mix("rtf", seconds / audio_s)
+        rec["n"] += 1
+        _save_timings_soon()
+
+
+def _save_timings_soon():
+    """Call under _timings_lock. A sentence's sample is in memory at once;
+    the file is written once in a while by a timer, not by every sentence
+    (that would be a disk write inside the synthesis lock)."""
+    global _timings_dirty, _timings_timer
+    _timings_dirty = True
+    if _timings_timer is None:
+        _timings_timer = threading.Timer(TIMINGS_FLUSH_S, _flush_timings)
+        _timings_timer.daemon = True
+        _timings_timer.start()
+
+
+def _flush_timings():
+    """Write the samples taken since the last write, if any. Also at exit."""
+    global _timings_dirty, _timings_timer
+    with _timings_lock:
+        if _timings_timer is not None:
+            _timings_timer.cancel()  # run from exit or a test: the one still armed has nothing left to do
+        _timings_timer = None
+        if not (_timings_dirty and isinstance(_timings, dict)):
+            return
+        _timings_dirty = False
+        t = json.loads(json.dumps(_timings))
+    _srv_write(t)  # outside the lock: a sample taken meanwhile waits for no disk
+
+
+def _wav_seconds(path):
+    """How long a WAV plays, from its byte rate; 0 when it cannot tell."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(WAV_HEADER_BYTES)
+        rate = int.from_bytes(head[28:32], "little")
+        return max(0, os.path.getsize(path) - WAV_HEADER_BYTES) / rate if rate else 0
+    except OSError:
+        return 0
+
+
+def _is_cold(engine, voice):
+    """Whether saying something now waits for the engine's model to load:
+    its warm worker is not running, or has not loaded this voice. An engine
+    run afresh each time is never cold: every run is alike."""
+    if engine not in DOWNLOADED or not _worker_command(engine):
+        return False
+    with _workers_lock:
+        w = _workers.get(engine)
+    if w is None or w.serves is False:
+        return w is None
+    return not w.alive() or _load_key(_request(engine, voice)) not in w.loaded
+
+
+def _timed(engine, voice, text, out, weight=TIMING_WEIGHT):
+    """_synthesize, timed and noted. Call under _synth_lock."""
+    cold = _is_cold(engine, voice)
+    start = time.monotonic()
+    done = _synthesize(engine, voice, text, out)
+    if done == OK:
+        _note_timing(engine, time.monotonic() - start, _wav_seconds(out), len(text), cold, weight)
+    return done
+
+
+def _gaps(chunks, rate):
+    """Seconds of silence a reading of ``chunks`` [(work_s, audio_s)] has at
+    ``rate`` once it has started: the chunks are made one after another
+    (one synthesis at a time) while the earlier ones play."""
+    ready = gap = 0.0
+    ends = None
+    for work, audio in chunks:
+        ready += work
+        if ends is not None:
+            gap += max(0.0, ready - ends)
+            ends = max(ready, ends) + audio / rate
+        else:
+            ends = ready + audio / rate
+    return gap
+
+
+def _rate_key(rate):
+    return "%g" % rate  # "1", "1.25": as the page writes its speeds
+
+
+def _test_engine(engine, lang, texts):
+    """One engine, as a reading uses it: the first chunk with nothing
+    loaded, again warm, then the rest back to back. Its timings."""
+    picked = choose(lang, "", engine)
+    if not picked or picked[0] != engine:
+        return
+    voice = picked[1]
+    if not _synth_lock.acquire(timeout=SYNTH_WAIT_S):
+        raise Busy("waited %ss" % SYNTH_WAIT_S)
+    try:
+        if engine in DOWNLOADED:
+            _stop_workers([engine])  # after a rest: the model loads again
+        os.makedirs(_dir(TEST_DIR), exist_ok=True)
+        out = _dir(TEST_DIR, "%s.wav" % engine)
+        said = []
+        for text in [texts[0]] + list(texts):
+            try:
+                start = time.monotonic()
+                done = _timed(engine, voice, text, out, weight=1.0)
+                said.append((time.monotonic() - start, _wav_seconds(out)))
+            finally:
+                if os.path.exists(out):
+                    os.remove(out)
+            if done == FAILED:
+                raise Failed(engine)
+            if done != OK:
+                raise Busy("%s did not answer" % engine)
+    finally:
+        _synth_lock.release()
+    reading = said[1:]  # warm first chunk, then the rest
+    work = sum(w for w, _a in reading[1:])
+    audio = sum(a for _w, a in reading[1:])
+    with _timings_lock:
+        t = _timings_now()
+        rec = t["engines"].setdefault(engine, {"n": 0})
+        # The first chunk came after a rest, also for an engine with no
+        # model to load (eSpeak): then a rest costs it nothing.
+        rec["cold_s"] = round(said[0][0], 3)
+        if audio:
+            rec["rtf"] = round(work / audio, 3)
+        rec["gaps"] = {_rate_key(r): round(_gaps(reading, r), 1) for r in TEST_RATES}
+        rec["tested"] = int(time.time())
+        _srv_write(t)
+
+
+def _srv_write(t):
+    from zimi import server as _srv
+
+    os.makedirs(_dir(), exist_ok=True)
+    _srv._atomic_write_json(_dir(TIMINGS), t)
+
+
+_testing = {}  # the Test in flight: {"engine", "done", "total", "started"}; {"error"} after one failed
+
+
+def testing():
+    with _lock:
+        return dict(_testing)
+
+
+def start_test(lang, chunks):
+    """Test every engine here, one after another, in the background: what
+    a reading does (_test_engine). ``chunks`` are a real paragraph in the
+    page's language, cut as the page cuts an article (a short first chunk,
+    then longer ones); an engine that does not say the language uses one it
+    does, as only its speed is measured. False when the chunks will not do,
+    None when a Test is already running."""
+    if not isinstance(chunks, list) or not 2 <= len(chunks) <= TEST_CHUNKS_MAX:
+        return False
+    texts = [clean_text(c, FIRST_CHARS_MAX if not i else SENTENCE_MAX) for i, c in enumerate(chunks)]
+    lang = lang if isinstance(lang, str) and valid_lang(lang) else "en"
+    if not all(texts):
+        return False
+    said = can_say()
+    todo = []
+    for engine in reversed(ENGINES):  # quickest first: numbers come in soonest
+        langs = [p for p, row in said.items() if engine in row["engines"]]
+        if langs:
+            todo.append((engine, _primary(lang) if _primary(lang) in langs else langs[0]))
+    with _lock:
+        if _testing.get("engine"):
+            return None
+        _testing.clear()
+        _testing.update(engine=todo[0][0] if todo else "", done=0, total=len(todo), started=int(time.time()))
+
+    def run():
+        try:
+            for i, (engine, l) in enumerate(todo):
+                with _lock:
+                    _testing.update(engine=engine, done=i)
+                _test_engine(engine, l, texts)
+            with _lock:
+                _testing.clear()
+        except Exception as e:  # anything (a full disk, say): never leave "Testing" on for good
+            if isinstance(e, (Busy, Failed)):
+                log.warning("Voices: the speed test stopped: %s", e)
+            else:
+                log.exception("Voices: the speed test failed")
+            with _lock:
+                _testing.clear()
+                _testing["error"] = True
+
+    threading.Thread(target=run, daemon=True, name="voice-test").start()
+    return True
+
+
 # ── the warm workers ──────────────────────────────────────────────────────
 # Started afresh, an engine spends most of a word loading: its model, and
 # Kokoro's dictionaries (7 to 13 s a word on Eric's NAS, 2026-10-03). So the
@@ -880,6 +1196,7 @@ def _ensure_janitor():
 
 
 atexit.register(_stop_workers)
+atexit.register(_flush_timings)
 
 
 def _say_voices():
@@ -917,6 +1234,8 @@ def _espeak_voices():
             if len(cols) < 2:
                 continue
             code = cols[1]
+            if len(cols) > 4 and cols[4].startswith("art/") and code not in _ESPEAK_CONSTRUCTED:
+                continue
             parts = code.split("-")
             if code in _ESPEAK_REGIONS:
                 primary, region = _ESPEAK_REGIONS[code]
@@ -1160,16 +1479,18 @@ class Failed(Exception):
 _failures = collections.OrderedDict()  # audio path -> True, the latest last
 
 
-def speak(text, lang, accent="", engine=None, limit=TEXT_MAX):
+def speak(text, lang, accent="", engine=None, limit=TEXT_MAX, fetch=True):
     """WAV bytes of ``text`` said in ``lang``, or None when no engine can
     say it. ``engine``: that engine or none. Raises Busy when one can but
     did not get to it, Failed when it tried and could not. Cached by engine,
-    voice and text; one synthesis at a time, SYNTH_QUEUE more waiting."""
+    voice and text; one synthesis at a time, SYNTH_QUEUE more waiting.
+    ``fetch``: a voice not here may be fetched for next time (Automatically)."""
     if clean_text(text, limit) is None or not valid_lang(lang, accent):
         return None
     if engine is not None and engine not in ENGINES:
         return None
-    _maybe_fetch(lang, accent)
+    if fetch:
+        _maybe_fetch(lang, accent)
     where = _audio(text, lang, accent, engine, limit)
     if where is None:
         return None
@@ -1190,7 +1511,11 @@ def speak(text, lang, accent="", engine=None, limit=TEXT_MAX):
             os.makedirs(folder, exist_ok=True)
             tmp = path + ".part"
             try:
-                done = _synthesize(engine, voice, text, tmp)
+                # A sentence (Read aloud) is timed; a word is mostly start-up.
+                if limit == SENTENCE_MAX:
+                    done = _timed(engine, voice, text, tmp)
+                else:
+                    done = _synthesize(engine, voice, text, tmp)
                 _note_failure(path, done == FAILED)
                 if done == FAILED:
                     raise Failed(engine)
@@ -1223,6 +1548,26 @@ def _audio(text, lang, accent="", engine=None, limit=TEXT_MAX):
     folder = _cache_dir(engine, _cache_voice(engine, voice))
     name = hashlib.sha1(text.encode("utf-8")).hexdigest() + ".wav"
     return engine, voice, text, os.path.join(folder, name)
+
+
+def say_ahead(text, lang):
+    """Say a word now, in the background, so its first tap plays at once: in
+    the voice a tap would get (no engine named, no accent), into the same
+    cache. Never fetches a voice, and skips when a voice is busy reading (a
+    reading that starts in that instant waits behind one word). No voice here
+    for the language: left for the tap. True once made."""
+    where = _audio(text, lang)
+    if where is None:
+        return False
+    if _cached(where[3]) is not None:
+        return True
+    if _synth_lock.locked():
+        return False
+    try:
+        return speak(text, lang, fetch=False) is not None
+    except (Busy, Failed) as e:
+        log.debug("Voices: %r not said ahead: %s", text, e)
+        return False
 
 
 def said(text, lang, accent="", engine=None, limit=TEXT_MAX):
@@ -1268,8 +1613,9 @@ def _synthesize(engine, voice, text, out):
     )
 
 
-def warm(langs):
-    """Have the worker of the engine that says each language load it now,
+def warm(langs, engine=None):
+    """Have the worker of the engine that says each language (``engine``
+    when given: the one Read aloud will read with) load it now,
     in the background, so the first word is not the slow one. Downloads
     nothing (no _maybe_fetch); a voice already loaded, or loading, is left
     alone. Returns the engines asked to load something."""
@@ -1277,7 +1623,7 @@ def warm(langs):
     for lang in list(langs or [])[:WARM_LANGS_MAX]:
         if not isinstance(lang, str) or not valid_lang(lang):
             continue
-        picked = choose(lang)
+        picked = choose(lang, engine=engine)
         if not picked or picked[0] not in DOWNLOADED:
             continue
         worker = _worker(picked[0])
@@ -1429,7 +1775,9 @@ def _set_installed(engine, tag, rec):
     else:
         data[tag] = rec
     os.makedirs(_engine_dir(engine), exist_ok=True)
-    return _srv._atomic_write_json(os.path.join(_engine_dir(engine), MANIFEST), data)
+    done = _srv._atomic_write_json(os.path.join(_engine_dir(engine), MANIFEST), data)
+    _forget_fingerprint()  # Kokoro's model is part of it
+    return done
 
 
 _KOKORO_PRIMARIES = {_primary(t) for t in KOKORO_LANGS}
@@ -1712,6 +2060,8 @@ def page_payload():
         "downloading": downloading(),
         "mode": mode,
         "locked": locked,
+        "timings": timings(),
+        "testing": testing(),
     }
 
 
@@ -1809,4 +2159,6 @@ def manage_payload():
         "voices": rows,
         "langs": langs,
         "downloading": downloading(),
+        "timings": timings(),
+        "testing": testing(),
     }

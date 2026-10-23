@@ -32,6 +32,7 @@ import os
 import stat
 import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 import wave
@@ -1188,7 +1189,7 @@ def test_prewarm_loads_once_and_downloads_nothing(worker, monkeypatch):
 
 def test_prewarm_over_http(served, monkeypatch):
     asked = []
-    monkeypatch.setattr(voices, "warm", lambda langs: asked.append(langs) or ["piper"])
+    monkeypatch.setattr(voices, "warm", lambda langs, engine=None: asked.append((langs, engine)) or ["piper"])
 
     def post(body):
         req = urllib.request.Request(
@@ -1204,8 +1205,13 @@ def test_prewarm_over_http(served, monkeypatch):
             return e.code, None
 
     assert post({"langs": ["en"]}) == (200, {"warming": ["piper"], "saying": 0})
-    assert asked == [["en"]]
+    assert asked == [(["en"], None)]
     assert post({"langs": "en"})[0] == 400
+    # Read aloud warms the voice that will read, which may not be the
+    # server's own pick (Natural too slow here, so Clear reads).
+    assert post({"langs": ["en"], "engine": "piper"})[0] == 200
+    assert asked[-1] == (["en"], "piper")
+    assert post({"langs": ["en"], "engine": "nope"})[0] == 400
 
 
 def test_the_helper_answers_line_by_line_until_stdin_ends():
@@ -1477,3 +1483,229 @@ def test_a_cancel_during_setup_stops_pip_and_leaves_nothing(bare, monkeypatch):
     assert not os.path.exists(voices.engines_dir())
     assert voices.downloading() == {} and "fr" not in voices.installed()
     assert voices.piper_command() is None
+
+
+# ── how fast each engine is here ──────────────────────────────────────────
+
+SENTENCE = "Water boils at a lower temperature high in the mountains."
+READING = ["Water boils at about 100 °C (212 °F) at sea level.", SENTENCE, "Keep the pot covered: a lid saves fuel."]
+
+
+def test_a_sentence_read_aloud_is_timed_and_a_word_is_not(piper, monkeypatch):
+    install("en-US")
+    monkeypatch.setattr(voices, "RTF_MIN_AUDIO_S", 0.1)  # the stand-in says a quarter second
+    voices.speak("water", "en")
+    assert voices.timings() == {}, "a Dictionary word is mostly start-up"
+    voices.speak(SENTENCE, "en", limit=voices.SENTENCE_MAX)
+    got = voices.timings()["piper"]
+    assert got["n"] == 1 and got["first_s"] > 0 and got["rtf"] > 0
+    assert "cold_s" not in got, "an engine run afresh each time is never cold"
+
+
+def test_timings_are_a_moving_average_and_a_test_replaces_them(data):
+    voices._note_timing("piper", 1.0, 0, 50, cold=False)
+    voices._note_timing("piper", 2.0, 0, 50, cold=False)
+    assert voices.timings()["piper"]["first_s"] == 1.3
+    voices._note_timing("piper", 5.0, 0, 50, cold=True)
+    voices._note_timing("piper", 0.5, 0, 50, cold=False, weight=1.0)
+    got = voices.timings()["piper"]
+    assert got["first_s"] == 0.5 and got["cold_s"] == 5.0 and got["n"] == 4
+    voices._note_timing("piper", 9.0, 0, voices.FIRST_CHARS_MAX + 1, cold=False)
+    assert voices.timings()["piper"]["first_s"] == 0.5, "only a first chunk's length counts"
+
+
+def test_timings_outlive_a_restart_and_start_over_on_a_new_fingerprint(data, monkeypatch):
+    monkeypatch.setattr(voices, "_fingerprint", lambda: "this-machine")
+    voices._note_timing("kokoro", 2.0, 4.0, 200, cold=False)
+    voices._flush_timings()  # what exit does
+    voices._reset_for_tests()  # a restart: read back from disk
+    assert voices.timings()["kokoro"]["rtf"] == 0.5
+    monkeypatch.setattr(voices, "_fingerprint", lambda: "a-new-release-or-machine")
+    voices._forget_fingerprint()
+    assert voices.timings() == {}
+
+
+def test_the_fingerprint_follows_the_release_engines_and_machine(data, monkeypatch):
+    base = voices._fingerprint()
+    monkeypatch.setattr(server, "ZIMI_VERSION", "99.0.0")
+    assert voices._fingerprint() != base
+    monkeypatch.undo()
+    monkeypatch.setattr(voices, "versions", lambda: {"piper": "Piper 9"})
+    assert voices._fingerprint() != base
+    monkeypatch.undo()
+    hw = dict(voices._hardware(), cpus=voices._hardware()["cpus"] + 1)
+    monkeypatch.setattr(voices, "_hardware", lambda: hw)
+    assert voices._fingerprint() != base
+
+
+def test_the_pauses_of_a_reading_follow_how_fast_chunks_are_made():
+    # Each chunk is made after the one before it, while those play.
+    chunks = [(1.0, 5.0), (6.0, 5.0)]
+    assert voices._gaps(chunks, 1) == 1.0  # ready at 7, the first ended at 6
+    assert voices._gaps(chunks, 2) == 3.5  # at 2x the first ends at 3.5
+    assert voices._gaps([(1.0, 5.0), (1.0, 5.0), (1.0, 5.0)], 2) == 0.0
+
+
+def _finish_test():
+    for _ in range(200):
+        if not voices.testing().get("engine"):
+            return voices.testing()
+        threading.Event().wait(0.05)
+    raise AssertionError("the test never finished")
+
+
+def test_test_all_reads_like_a_reading_and_leaves_the_audio_cache_alone(piper, monkeypatch):
+    install("en-US")
+    runs = []
+    real = voices._run
+    monkeypatch.setattr(voices, "_run", lambda *a, **k: runs.append(a) or real(*a, **k))
+    assert voices.start_test("en", READING) is True
+    assert _finish_test() == {}, "done, no error"
+    got = voices.timings()["piper"]
+    # The first chunk after a rest, again warm, then the passages back to back.
+    assert len(runs) == 1 + len(READING) and got["n"] == len(runs)
+    assert set(got["gaps"]) == {"0.75", "1", "1.25", "1.5", "1.75", "2", "2.5", "3"} and got["tested"] and got["first_s"] > 0
+    assert got["cold_s"] > 0, "after a rest, though Piper here has no warm worker"
+    folder = voices._cache_dir("piper", "en_US-ljspeech-medium")
+    assert not os.path.isdir(folder) or not [f for f in os.listdir(folder) if f.endswith(".wav")]
+    assert not [f for f in os.listdir(voices._dir(voices.TEST_DIR)) if f.endswith(".wav")]
+    voices.speak(SENTENCE, "en", limit=voices.SENTENCE_MAX)
+    assert len(runs) == 2 + len(READING), "a Test's sentence was never the cache's"
+    assert voices.manage_payload()["timings"]["piper"]["gaps"] == got["gaps"]
+
+
+def test_test_all_says_a_language_the_voice_has(piper):
+    install("en-US")
+    assert voices.start_test("de", ["Hallo.", "Wasser kocht in den Bergen früher."]) is True  # no German voice: English, for its speed
+    _finish_test()
+    assert "gaps" in voices.timings()["piper"]
+
+
+def test_test_all_needs_its_texts_and_runs_once_at_a_time(piper):
+    install("en-US")
+    assert voices.start_test("en", ["", SENTENCE]) is False
+    assert voices.start_test("en", ["x" * (voices.FIRST_CHARS_MAX + 1), SENTENCE]) is False
+    assert voices.start_test("en", [SENTENCE]) is False, "one chunk is no reading"
+    assert voices.start_test("en", [SENTENCE] * (voices.TEST_CHUNKS_MAX + 1)) is False
+    assert voices.start_test("en", "Hello. " + SENTENCE) is False, "chunks, not a string"
+    voices._testing.update(engine="piper", done=0, total=1)
+    assert voices.start_test("en", READING) is None
+    voices._testing.clear()
+
+
+def test_say_ahead_makes_the_word_a_tap_would_get_and_never_fetches_or_waits(piper, monkeypatch):
+    install("en-US")
+    fetched = []
+    monkeypatch.setattr(voices, "_maybe_fetch", lambda *a: fetched.append(a))
+    runs = []
+    real = voices._run
+    monkeypatch.setattr(voices, "_run", lambda *a, **k: runs.append(a) or real(*a, **k))
+    assert voices.say_ahead("water", "en") is True
+    assert len(runs) == 1 and not fetched, "said once, nothing fetched"
+    assert voices.speak("water", "en") and len(runs) == 1, "a tap finds it made"
+    assert voices.say_ahead("water", "en") is True and len(runs) == 1, "made already: nothing again"
+    assert voices.say_ahead("Wasser", "de") is False, "no voice here for it: left alone"
+    with voices._synth_lock:
+        assert voices.say_ahead("river", "en") is False, "a voice busy reading: left for the tap"
+    assert len(runs) == 1
+
+
+def test_test_all_ends_on_an_unexpected_error_instead_of_testing_for_good(piper, monkeypatch):
+    install("en-US")
+
+    def full_disk(*a, **k):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(voices, "_test_engine", full_disk)
+    assert voices.start_test("en", READING) is True
+    assert _finish_test() == {"error": True}, "the button comes back, with the error"
+    assert voices.start_test("en", READING) is True, "and a second Test may start"
+    _finish_test()
+
+
+def test_test_all_starts_with_the_quickest_voice(three, monkeypatch):
+    order = []
+    seen = []
+    monkeypatch.setattr(voices, "_test_engine", lambda engine, lang, texts: order.append(engine) or seen.append(voices.testing()))
+    before = int(time.time())
+    assert voices.start_test("en", READING) is True
+    _finish_test()
+    assert order[0] == "espeak" and order[-1] == "kokoro", order
+    # When it began, so the page can tell a voice's new numbers from its old ones.
+    assert all(s["engine"] == e and s["started"] >= before for s, e in zip(seen, order)), seen
+
+
+def test_espeak_leaves_out_its_fictional_and_test_voices(monkeypatch):
+    """espeak-ng lists Klingon, Quenya, Sindarin, Pyash, Lang Belta and a
+    test voice beside real languages; nothing in a library is written in
+    them and no browser can name them, so Settings > Voices showed bare
+    codes (Eric, 2026-10-20: "a few unmatched languages"). Constructed
+    languages with a Wikipedia stay."""
+    listing = "\n".join([
+        "Pty Language       Age/Gender VoiceName          File                 Other Languages",
+        " 5  eo              --/M      Esperanto          art/eo",
+        " 5  jbo             --/M      Lojban             art/jbo",
+        " 5  piqd            --/M      Klingon            art/piqd",
+        " 5  qya             --/M      Quenya             art/qya",
+        " 5  sjn             --/M      Sindarin           art/sjn",
+        " 5  py              --/M      Pyash              art/py",
+        " 5  qdb             --/M      Lang_Belta         art/qdb",
+        " 5  xex             --/M      xextan-test        art/xex",
+        " 5  hyw             --/M      Armenian_(West_Armenia) ine/hyw              (hy-arevmda 5)(hy 8)",
+        " 2  en-gb           --/M      English_(Great_Britain) gmw/en               (en 2)",
+    ])
+    monkeypatch.setattr(voices.shutil, "which", lambda name: "/usr/bin/espeak-ng")
+    monkeypatch.setattr(voices, "_list_output", lambda cmd: listing)
+    monkeypatch.setattr(voices, "_found", {})
+    langs = voices._espeak_voices()
+    assert {"eo", "jbo", "hyw", "en"} <= set(langs)
+    assert not {"piqd", "qya", "sjn", "py", "qdb", "xex"} & set(langs)
+
+
+def test_an_engine_with_no_model_is_never_cold_so_its_cold_start_is_its_warm(data):
+    with voices._timings_lock:
+        t = voices._timings_now()
+        t["engines"]["espeak"] = {"first_s": 0.04, "n": 3}
+        t["engines"]["kokoro"] = {"first_s": 17.0, "n": 3}
+    got = voices.timings()
+    assert got["espeak"]["cold_s"] == 0.04, "eSpeak after a rest is eSpeak warm"
+    assert "cold_s" not in got["kokoro"], "a model that loads keeps its own, unknown until timed"
+
+
+def test_a_sentences_timing_costs_no_disk_and_no_fingerprint_work(data, monkeypatch):
+    """The per-sentence path holds no disk read or write: the fingerprint is
+    found once, the samples sit in memory, and one flush writes them."""
+    made, wrote = [], []
+    monkeypatch.setattr(voices, "_fingerprint", lambda: made.append(1) or "fp")
+    monkeypatch.setattr(voices, "_srv_write", lambda t: wrote.append(json.loads(json.dumps(t))))
+    for _ in range(5):
+        voices._note_timing("piper", 1.0, 0, 50, cold=False)
+    assert len(made) == 1, "the fingerprint is cached"
+    assert wrote == [], "no write on the sentence's path"
+    voices._flush_timings()
+    assert len(wrote) == 1 and wrote[0]["engines"]["piper"]["n"] == 5
+    voices._flush_timings()
+    assert len(wrote) == 1, "nothing new, nothing written"
+
+
+def test_a_voice_installed_or_removed_changes_the_cached_fingerprint(data, monkeypatch):
+    seen = {"v": "Piper 1"}
+    monkeypatch.setattr(voices, "versions", lambda: {"piper": seen["v"]})
+    voices._note_timing("piper", 1.0, 0, 50, cold=False)
+    first = voices._timings["fp"]
+    seen["v"] = "Piper 2"
+    voices._set_installed(voices.PIPER, "en-US", None)
+    voices._note_timing("piper", 1.0, 0, 50, cold=False)
+    assert voices._timings["fp"] != first and voices.timings()["piper"]["n"] == 1
+
+
+def test_a_flush_outside_the_timer_disarms_the_timer(data):
+    with voices._timings_lock:
+        voices._timings_now()
+    voices._save_timings_soon()
+    armed = voices._timings_timer
+    assert armed is not None
+    voices._flush_timings()
+    assert voices._timings_timer is None
+    armed.join(1)
+    assert not armed.is_alive() and armed.finished.is_set(), "the armed timer was cancelled, not left to fire later"

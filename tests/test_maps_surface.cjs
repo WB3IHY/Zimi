@@ -33,6 +33,7 @@ const ctx = {
   esc: escf, t: k => ({ cat_maps: 'Maps', app_empty_maps: 'No map yet. Get one from the catalog.' })[k] || k, _getLibraryView: () => 'list',
 };
 vm.createContext(ctx);
+vm.runInContext(require("./app_source.cjs").localeHelpers(src), ctx);
 vm.runInContext([
   extract(/var _MAPS_SVG = [^\n]*\n/, '_MAPS_SVG'),
   extract(/function _newestPer\(list, key\) \{[\s\S]*?\n\}/, '_newestPer'),

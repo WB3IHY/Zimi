@@ -20,6 +20,18 @@ function nightSet(on) {
 }
 nightApply();
 window.addEventListener('storage', function(e) { if (e.key === APP_THEME_KEY || e.key === null) nightApply(); });
+// A setting this page changed (one of app.js's _PREF_KEYS): signed in, the
+// account takes it as it takes the shell's (app.js _prefChanged), so the
+// shell sends it; signed out it stays this browser's.
+function prefTouched(key) {
+  try {
+    var st = JSON.parse(localStorage.getItem('zimi_pref_sync') || 'null');
+    if (!st || !st.owner) return;
+    st.pending = st.pending && typeof st.pending === 'object' ? st.pending : {};
+    st.pending[key] = 1;
+    localStorage.setItem('zimi_pref_sync', JSON.stringify(st));
+  } catch (e) {}
+}
 function esc(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 // A ZIM entry's address in Zimi.
 function zpath(zim, p) { return '/w/' + encodeURIComponent(zim) + '/' + String(p).split('/').map(encodeURIComponent).join('/'); }

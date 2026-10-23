@@ -46,6 +46,7 @@ function device(seed, opts) {
     Math, JSON, Object, Array, String, Number, isFinite, Infinity,
     changes: [], full: 0, storageFull: 0,
     _zimInfo: opts.zimInfo,
+    _isPrefKey: () => false, // the store is not a setting
   };
   ctx.clock = opts.clock || 1700000000000;
   ctx.Date = { now: () => ctx.clock };
@@ -322,9 +323,9 @@ const LEGACY = {
   ok('use(name) switches store', d.Saved.use('Alice') === true && d.Saved.account() === 'alice');
   ok('an account\'s first store in this browser starts empty: a shared screen\'s old bookmarks are not every account\'s',
     d.Saved.all().length === 0 && d.Saved.lists().length === 1 && d.Saved.continued().length === 0);
-  ok('...they are offered to it instead', d.Saved.legacyOffered() === true);
+  ok('...they are offered to it instead, as what this browser saved signed out', d.Saved.legacyOffered() === true && d.Saved.offerKind() === 'signedout');
   d.Saved.legacyAnswer(true);
-  ok('asked for, they come in, and are not offered again', d.Saved.all().length === 10 && d.Saved.continued().length === 2 && !d.Saved.legacyOffered());
+  ok('asked for, they come in (the signed-out store\'s own too), and are not offered again', d.Saved.all().length === 11 && d.Saved.continued().length === 2 && !d.Saved.legacyOffered());
   d.Saved.save({ zim: 'w', path: 'A/Hers', title: 'Hers' });
   ok('kept under its own key', !!d.localStorage.getItem('zimi_saved:alice') && d.localStorage.getItem('zimi_saved').indexOf('A/Hers') < 0);
   d.Saved.use('bob');

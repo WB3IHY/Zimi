@@ -46,6 +46,7 @@ const ctx = {
   openArticle: (zim, p, title, opts) => { opened = { zim, path: p, title, opts }; },
 };
 vm.createContext(ctx);
+vm.runInContext(require("./app_source.cjs").localeHelpers(src), ctx);
 vm.runInContext([
   extract(/function _newestPer\(list, key\) \{[\s\S]*?\n\}/, '_newestPer'),
   extract(/function _installedOfKind\(kind, key\) \{[\s\S]*?\n\}/, '_installedOfKind'),

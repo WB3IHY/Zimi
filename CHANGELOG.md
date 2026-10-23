@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.14.1] - 2026-10-22
+
+### Highlights
+
+- Read aloud marks the sentence being read and follows it.
+- Settings follow your account across browsers.
+
+### Added
+
+- Read aloud: the sentence being read is marked and followed; tap a sentence or select text to start there.
+- Read aloud: back button (once: this sentence again; twice: the one before).
+- Read aloud: speed slider, 0.5× to 3×.
+- Settings, Voices: speed test for each voice.
+- Settings follow the signed-in account to every browser; the admin has an account.
+- PDFs: two pages side by side when they fit.
+- Books: the chapter in the footer opens the contents.
+- Discover's word of the day is voiced in advance.
+- Build provenance for PyPI wheels and sdists.
+
+### Changed
+
+- Numbers, dates, sizes, sorting and week start follow Zimi's language.
+- Read aloud skips citation marks, infoboxes, tables, captions and references.
+- Read aloud loads on first use.
+- Dependency floors raised for known vulnerabilities.
+
+### Fixed
+
+- Red and Dark: text no longer matches its background ([#119](https://github.com/epheterson/Zimi/issues/119)).
+- Private mode: sign-in could refuse the right password.
+- Signing in shows your own library without a reload.
+- Change password could keep the old password in the field.
+- Read aloud: first tap on iPhone, taps on every page, menu closes, no false "slow" message.
+- Read aloud: Automatic avoids voices measured too slow.
+- Arabic and Hebrew: spacing and arrow direction.
+- Offline PDF library list matches the app's.
+- espeak's test voices are hidden.
+
 ## [1.14.0] - 2026-10-19
 
 ### Added

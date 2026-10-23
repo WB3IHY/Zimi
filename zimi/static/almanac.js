@@ -3116,7 +3116,7 @@ function _updateVoyagerCard() {
   var html = '<div class="voyager-card-inner">';
   html += '<div class="voyager-card-header">';
   html += '<span class="voyager-card-name">' + v.name + '</span>';
-  html += '<button class="voyager-card-close" onclick="_hideVoyagerCard()">×</button>';
+  html += _almDismissX(true);
   html += '</div>';
   html += '<div class="voyager-card-stats">';
   html += '<div class="voyager-stat"><span class="voyager-stat-val">' + _orrNum(dist, null, 1) + ' AU</span><span class="voyager-stat-lbl">' + t('alm_from_sun') + '</span></div>';
@@ -3137,6 +3137,55 @@ function _hideVoyagerCard() {
   var el = document.getElementById('voyager-card');
   if (el) { el.style.display = 'none'; el.innerHTML = ''; }
 }
+
+// ── Putting an overlay away ──
+// Every Almanac overlay (the orrery's tip, a probe's card, the Earth view's
+// settings) is registered once by its element's id with the function that
+// hides it. One pair of listeners then closes any that is showing when a
+// press lands outside it (`inside(target)` names more places that count as
+// inside: the canvas that raises the tip, the button that toggles a panel)
+// or Escape is pressed; and _almDismissX() is the × a phone gets (a 44px
+// target round a small glyph, shown for a coarse pointer by CSS; `always`
+// for a card that has no other way out).
+var _almDismissables = {};
+var _almDismissBound = false;
+function _almDismissable(id, hide, inside, returnId) {
+  _almDismissables[id] = { hide: hide, inside: inside || null, returnId: returnId || null };
+  if (_almDismissBound) return;
+  _almDismissBound = true;
+  document.addEventListener('pointerdown', function (e) {
+    _almDismissShown(function (el, d) { return !el.contains(e.target) && !(d.inside && d.inside(e.target)); });
+  }, true);
+  // The Escape that puts an overlay away is that overlay's alone: it must not
+  // also close the Almanac behind it.
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && _almDismissShown(function () { return true; }, true)) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+  document.addEventListener('click', function (e) {
+    var x = e.target && e.target.closest && e.target.closest('[data-alm-dismiss]');
+    // The x, a press or a key: the opener has the focus back, as with Escape.
+    if (x) _almDismissShown(function (el) { return el.contains(x); }, true);
+  });
+}
+function _almDismissShown(wanted, restoreFocus) {
+  var n = 0;
+  for (var id in _almDismissables) {
+    var el = document.getElementById(id), d = _almDismissables[id];
+    if (el && el.getClientRects().length && wanted(el, d)) {
+      // Escape from inside the overlay: focus goes back to what opened it, not to a hidden panel.
+      var held = restoreFocus && d.returnId && el.contains(document.activeElement);
+      d.hide(); n++;
+      var back = held && document.getElementById(d.returnId);
+      if (back) back.focus({ preventScroll: true });
+    }
+  }
+  return n;
+}
+function _almDismissX(always) {
+  return '<button type="button" class="alm-dismiss-x' + (always ? ' alm-dismiss-always' : '') +
+    '" data-alm-dismiss aria-label="' + _almEsc(t('alm_tm_close')) + '">\u00d7</button>';
+}
+_almDismissable('voyager-card', _hideVoyagerCard);
 
 
 
@@ -4383,7 +4432,7 @@ function _almClockZones(now) {
   }
   _TZ_CITIES.forEach(function (c) { add(c.tz); });
   _TZ_ANCHORS.forEach(function (a) { add(a[2]); });
-  return out.sort(function (a, b) { return a.off - b.off || a.label.localeCompare(b.label); });
+  return out.sort(function (a, b) { return a.off - b.off || cmpText(a.label, b.label); });
 }
 function _almClockSheetOpen(btn) {
   _almClockSheetClose();
@@ -6956,7 +7005,10 @@ function _drawAlmanacGrid() {
 
   var daysInMonth = _calDaysInMonth(_almSystem, _almYear, _almMonth);
   var firstJDN = _calFirstDayJDN(_almSystem, _almYear, _almMonth);
-  var firstDow = ((firstJDN + 1) % 7); // 0=Sun
+  // Columns start on the reader's first day of the week (Monday in most of
+  // Europe, Saturday across much of the Arab world), not always Sunday.
+  var weekStart = (typeof _weekFirstDay === 'function') ? _weekFirstDay() : 0; // 0=Sun
+  var firstDow = ((firstJDN + 1) % 7 - weekStart + 7) % 7; // empty cells before the 1st
   var monthName = _calMonthName(_almSystem, _almYear, _almMonth);
 
   // Today's JDN for highlighting
@@ -6990,7 +7042,7 @@ function _drawAlmanacGrid() {
   var _dlLocale = (typeof _currentLang !== 'undefined') ? _currentLang : 'en';
   var dayLabels = [];
   for (var di = 0; di < 7; di++) {
-    var _d = new Date(2023, 0, di + 1); // Jan 1, 2023 = Sunday
+    var _d = new Date(2023, 0, 1 + (weekStart + di) % 7); // Jan 1, 2023 = Sunday
     dayLabels.push(_d.toLocaleDateString(_dlLocale, { weekday: 'short' }));
   }
   for (var i = 0; i < 7; i++) {

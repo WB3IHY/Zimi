@@ -45,6 +45,7 @@ const sandbox = { localStorage: { getItem: () => null, setItem() {}, removeItem(
                     return s;
                   } };
 vm.createContext(sandbox);
+vm.runInContext(require("./app_source.cjs").localeHelpers(APP), sandbox);
 vm.runInContext(STOP_BLOCK[0] + '\n', sandbox);
 vm.runInContext(SRC.slice(0, cut), sandbox);
 const { _createDoneBytes, _createMetricLive, _createRowGone, _createChipTarget, _createEngineFor } = sandbox;

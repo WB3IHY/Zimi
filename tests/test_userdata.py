@@ -140,6 +140,7 @@ class _Handler(http.ZimHandler):
 
     def __init__(self, session_user=None):
         self._session_user = session_user
+        self.path = "/userdata"
         self.status = None
         self.body = None
         self.headers = {}
@@ -505,3 +506,18 @@ def test_a_merge_restore_keeps_what_was_saved_since_the_backup(monkeypatch, tmp_
     users.restore_user_data(backup, overwrite=True)
     assert set(users.load_user_data("alice")["saved"]["items"]) == {"w\nA/A"}
     assert set(users.all_user_data()) == {"alice"}
+
+
+def test_open_mode_owns_the_admins_data_only_where_management_is_on(monkeypatch, tmp_path):
+    """Password off makes every browser the admin's, but with ZIMI_MANAGE=0
+    there is no admin to be: an anonymous request owns nothing."""
+    from zimi import manage
+
+    _setup(monkeypatch, tmp_path)
+    monkeypatch.setattr(users, "resolve_request_user", lambda h: None)
+    monkeypatch.setattr(manage, "manage_open", lambda: True)
+    monkeypatch.setattr(manage, "_get_manage_password_hash", lambda: None)
+    monkeypatch.setattr(server, "ZIMI_MANAGE", True)
+    assert users.request_data_owner(object()) == users.PRIMARY_ADMIN_DATA
+    monkeypatch.setattr(server, "ZIMI_MANAGE", False)
+    assert users.request_data_owner(object()) is None

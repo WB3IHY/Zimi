@@ -217,6 +217,15 @@ def test_a_book_reads_like_an_e_reader_on_a_phone(served):
             # A tap in the middle brings the bars, again sends them away.
             _tap(pg, 195)
             assert not st()["away"]
+            # The chapter named in the footer opens the contents too, at that chapter.
+            frame.locator(".zb-foot .zb-info").click()
+            pg.wait_for_timeout(300)
+            on = frame.locator('.zb-toc-sheet [aria-current="true"] button')
+            assert on.count() == 1 and on.get_attribute("data-k") == "2"
+            frame.locator(".zb-toc-sheet .zb-x").click()
+            pg.wait_for_timeout(300)
+            if st()["away"]:
+                _tap(pg, 195)
             _tap(pg, 195)
             assert st()["away"]
             # Turning: the right edge on, a swipe left on, a swipe right back, the left edge back.

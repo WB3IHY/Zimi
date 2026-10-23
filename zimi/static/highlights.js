@@ -369,8 +369,10 @@ var ZimiHighlightsEngine = (function () {
     if (mode === 'new') {
       var word = ui.text.trim();
       var define = typeof _defineCanDefine === 'function' && _defineCanDefine(word, h.doc);
+      var readAloud = typeof _ttsOffered === 'function' && _ttsOffered();
       el.innerHTML = button('add', _HL_SVG, t('hl_highlight')) + button('note', ICON.note, t('hl_note')) +
-        button('copy', ICON.copy, t('copy')) + (define ? button('define', _DEFINE_BOOK_ICON, t('define')) : '');
+        button('copy', ICON.copy, t('copy')) + (define ? button('define', _DEFINE_BOOK_ICON, t('define')) : '') +
+        (readAloud ? iconButton('read', _TBM_TTS_ICON, t('tts_speak')) : '');
     } else {
       var hl = Saved.getHighlight(id);
       if (!hl) { hideBar(); return; }
@@ -393,6 +395,8 @@ var ZimiHighlightsEngine = (function () {
     var a = b.getAttribute('data-a');
     if (ui.mode === 'new') {
       if (a === 'copy') { _copyText(ui.text); hideBar(); return; }
+      // Reads what is selected (the page's selection is still there: the bar keeps it).
+      if (a === 'read') { hideBar(); _ttsSpeak(); return; }
       if (a === 'define') {
         var rect = _defineRangeRect(h.frame(), ui.range);
         var word = ui.text.trim(), doc = h.doc;

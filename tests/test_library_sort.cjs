@@ -35,12 +35,14 @@ const sandbox = {
     setItem: (k, v) => { store[k] = String(v); },
   },
   SK: { LIBRARY_SORT: 'zimi_library_sort' },
+  _prefWrite: (k, v) => { if (v == null) delete store[k]; else store[k] = String(v); },
   // Changing the order moves the cards in place; when it cannot, the caller
   // rebuilds. Both are recorded so the fallback is a fact rather than a hope.
   renderHome: () => { sandboxCalls.rebuilt++; },
   _reorderLibraryInPlace: () => { sandboxCalls.reordered++; return sandboxCalls.canReorder; },
 };
 vm.createContext(sandbox);
+vm.runInContext(require("./app_source.cjs").localeHelpers(src), sandbox);
 for (const fn of ['_zimChangedAt', '_byFirstSeenDesc', '_byUpdatedDesc']) vm.runInContext(grab(fn), sandbox);
 vm.runInContext(grab('LIBRARY_SORTS', 'var'), sandbox);
 for (const fn of ['_librarySort', '_setLibrarySort', '_sortLibrary']) {
@@ -184,6 +186,7 @@ check(sandboxCalls.reordered === 0 && sandboxCalls.rebuilt === 0,
   const ctx = { esc: (s) => s, escAttr: (s) => s, t: (k) => ({ sort_alpha: 'Alphabetical', sort_added: 'Recently added', library_sort: 'Order' })[k] || k,
     LIBRARY_SORTS: ['alpha', 'added'], _librarySort: () => 'added' };
   vm.createContext(ctx);
+  vm.runInContext(require("./app_source.cjs").localeHelpers(src), ctx);
   vm.runInContext(grab('_LIBRARY_SORT_LABELS', 'var') + '\n' + src.match(/var _LIB_SORT_SVG = '[^\n]*';/)[0] + '\n' + grab('_libSortHtml'), ctx);
   const html = ctx._libSortHtml();
   check(/^<label class="lib-sort-wrap"/.test(html) && /<span class="lib-sort-now">Recently added<\/span>/.test(html) && /<select class="lib-sort"/.test(html),

@@ -513,6 +513,83 @@ def test_two_pages_side_by_side_on_a_wide_screen(shell):
             ctx.browser.close()
 
 
+def test_a_phone_held_sideways_reads_two_pages(shell):
+    """Two whole pages as tall as the window fit across a phone on its side:
+    it opens two at a time, and the menu offers one or two (Eric,
+    2026-10-20: "PDF viewer needs two up")."""
+    _skip_without_browser()
+    from playwright.sync_api import sync_playwright
+
+    base, name = shell
+    with sync_playwright() as pw:
+        sideways = dict(pw.devices["iPhone 13 landscape"])
+        pg, fr, ctx = _open(pw, base, name, sideways)
+        try:
+            fr.wait_for_function(
+                "() => PDFViewerApplication.pdfViewer.spreadMode === 1"
+            )
+            fr.click(".zp-more")
+            assert fr.evaluate(
+                "() => !!document.querySelector('.zp-menu [data-zp=\"one\"]')"
+            )
+        finally:
+            ctx.browser.close()
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_dark_pages_is_offered_only_in_a_dark_zimi(shell, theme):
+    """Dark pages is a choice in a dark Zimi only; a light one shows the page
+    as printed, even with Dark pages chosen before (Eric, 2026-10-22: "Dark
+    pages option only when in dark mode")."""
+    _skip_without_browser()
+    from playwright.sync_api import sync_playwright
+
+    base, name = shell
+    with sync_playwright() as pw:
+        br = pw.chromium.launch()
+        ctx = br.new_context(**pw.devices["iPhone 13"])
+        ctx.add_init_script(
+            "try { localStorage.setItem('zimi_app_theme', '%s'); localStorage.setItem('zimi_pdf_dark', '1'); } catch (e) {}" % theme
+        )
+        pg, fr, _ = _open(pw, base, name, None, ctx=ctx)
+        try:
+            fr.click(".zp-more")
+            offered = fr.evaluate("() => !!document.querySelector('.zp-menu [data-zp=\"dark\"]')")
+            dark = fr.evaluate("() => document.documentElement.classList.contains('zp-dark')")
+            assert offered == (theme == "dark"), "offered only in a dark Zimi"
+            assert dark == (theme == "dark"), "a light Zimi shows the page as printed"
+        finally:
+            br.close()
+
+
+def test_turning_the_phone_brings_the_bars_back_at_the_top(shell):
+    """Turned sideways and back with the bars away and the shell's page left
+    scrolled (as iOS can leave it), the bars are back, on the screen, where
+    Back is reached (Eric, 2026-10-22: "I rotated to landscape and back to
+    portrait", and could not reach the top bar)."""
+    _skip_without_browser()
+    from playwright.sync_api import sync_playwright
+
+    base, name = shell
+    with sync_playwright() as pw:
+        pg, fr, ctx = _open(pw, base, name, dict(pw.devices["iPhone 13"]))
+        try:
+            fr.evaluate("() => zimiPdf.showBars ? zimiPdf.showBars(false) : document.documentElement.classList.add('zp-away')")
+            pg.evaluate("() => { document.documentElement.style.minHeight = '3000px'; window.scrollTo(0, 120); }")
+            pg.set_viewport_size({"width": 844, "height": 390})
+            pg.wait_for_timeout(400)
+            fr.evaluate("() => document.documentElement.classList.add('zp-away')")
+            pg.evaluate("() => window.scrollTo(0, 120)")
+            pg.set_viewport_size({"width": 390, "height": 664})
+            fr.wait_for_function("() => zimiPdf.barsShown()", timeout=5000)
+            assert pg.evaluate("() => window.scrollY") == 0, "the shell is back at its top"
+            back = fr.locator(".zp-back").bounding_box()
+            frame_top = pg.locator("#reader-frame").bounding_box()["y"]
+            assert frame_top + back["y"] >= 0, "Back is on the screen"
+        finally:
+            ctx.browser.close()
+
+
 def test_rotate_turns_the_pages_and_is_kept_for_the_document(shell):
     """A sideways scan: Rotate in the menu turns every page a quarter, the
     menu staying for another; the document opens turned again."""

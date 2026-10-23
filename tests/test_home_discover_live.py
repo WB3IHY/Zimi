@@ -192,6 +192,12 @@ def test_the_quote_card_says_its_quote_and_stays(served, scheme):
             say = pg.locator(".dc-quote-card .dc-say")
             assert say.count() == 1
             say.scroll_into_view_if_needed()
+            # A finger's target: a tap just outside the 32px circle still lands on it.
+            assert pg.evaluate(
+                """() => { const b = document.querySelector('.dc-quote-card .dc-say').getBoundingClientRect();
+                  const at = document.elementFromPoint(b.left - 6, b.top + b.height / 2);
+                  return !!(at && at.closest('.dc-say')); }"""
+            ), "the speaker's target reaches past its circle"
             if os.environ.get("ZIMI_SHOTS"):
                 pg.locator(".dc-quote-card").screenshot(
                     path=os.path.join(

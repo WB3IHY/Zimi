@@ -194,6 +194,10 @@ def test_the_picture_shows_large(served):
         # Larger than in its column, whole: the picture fitted into the
         # screen, never cut to fill it.
         big_img = fr.locator("#big img")
+        # The large copy is its own load: measured once it has arrived.
+        big_img.evaluate(
+            "i => i.complete && i.naturalWidth ? 1 : new Promise(r => i.addEventListener('load', r, { once: true }))"
+        )
         fit, nw, nh = big_img.evaluate("i => [getComputedStyle(i).objectFit, i.naturalWidth, i.naturalHeight]")
         box = big_img.bounding_box()
         assert fit == "contain"

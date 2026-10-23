@@ -64,6 +64,8 @@ def test_a_kept_document_library_reads_offline(pw, world):
         "async () => { for (const u of _KEEP_OFFLINE_FILES) if (!(await caches.match(u, {ignoreSearch: true}))) return false; return true; }",
         timeout_s=30,
     )
+    # And the library's list as the server draws it, though it was never opened.
+    poll(pg, "async (z) => !!(await caches.match('/catalog?zim=' + encodeURIComponent(z)))", timeout_s=30, arg=NAME)
     world.stop()
     pg.goto(world.base + "/", wait_until="load")
     pg.wait_for_function("() => typeof enterSource === 'function'")
@@ -71,6 +73,10 @@ def test_a_kept_document_library_reads_offline(pw, world):
     pg.wait_for_selector("a.zg-doc", timeout=15000)
     titles = pg.eval_on_selector_all("a.zg-doc .title", "els => els.map(e => e.innerText)")
     assert titles[0] == "Distillation For Home Water Treatment" and len(titles) == 7, titles
+    # The same list the app shows online, with the sizes the server knows
+    # (the one read off the phone's copy has none).
+    metas = pg.eval_on_selector_all("a.zg-doc", "els => els.map(e => e.innerText)")
+    assert any(" KB" in m or " MB" in m for m in metas), metas
     pg.click("a.zg-doc[data-path='%s']" % DOC)
     pg.wait_for_function(
         """() => { const f = document.getElementById('reader-frame');

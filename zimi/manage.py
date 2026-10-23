@@ -7329,6 +7329,18 @@ def handle_manage_post(handler, parsed, data):
         _voices.cancel_download()
         return handler._json(200, _voices.manage_payload())
 
+    elif parsed.path == "/manage/voices/test":
+        # Settings' Test voice speed: {"lang", "chunks"}, a paragraph in
+        # the page's language cut as a reading cuts it. Runs in the
+        # background; the payload's "testing" says how far it is, "timings"
+        # what it found.
+        from zimi import voices as _voices
+
+        started = _voices.start_test(data.get("lang"), data.get("chunks"))
+        if started is False:
+            return handler._json(400, {"error": "bad request"})
+        return handler._json(200, _voices.manage_payload())
+
     elif parsed.path == "/manage/voices/remove":
         # {"lang": tag}: the voice and its audio go; the language falls back.
         from zimi import voices as _voices

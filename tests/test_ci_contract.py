@@ -427,3 +427,11 @@ def test_the_changelog_has_a_section_for_this_version():
     assert any(line.startswith(head) for line in lines), (
         "CHANGELOG.md has no %s section; rename [Unreleased] when bumping the version" % head
     )
+
+
+def test_a_failed_attestation_stops_the_pypi_upload():
+    """The release promises build provenance, so a file is never published
+    without it: neither attestation step may carry ``continue-on-error``."""
+    body = _commands("publish-release.yml")
+    assert body.count("actions/attest-build-provenance") == 2
+    assert "continue-on-error" not in body

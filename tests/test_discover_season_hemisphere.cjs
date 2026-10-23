@@ -11,7 +11,7 @@ function ctx(tz, place) {
   const S = {
     Math, Date, JSON, Object, console, String, Number,
     Intl: { DateTimeFormat: () => ({ resolvedOptions: () => ({ timeZone: tz }) }) },
-    _almChosenPlace: () => place, t: (k) => k,
+    _almChosenPlace: () => place, t: (k) => k, fmtPct: (n) => Math.round(n) + '%',
     document: { head: { appendChild: () => {} }, createElement: () => ({}) },
     _renderDiscover() {},
   };

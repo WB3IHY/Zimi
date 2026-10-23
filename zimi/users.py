@@ -35,6 +35,29 @@ Roles: every account carries a ``role`` ∈ {``admin``, ``user``,
 The role determines the allowlist shape: ``admin``/``user`` are all-access
 (allowlist ``None``); ``limited`` carries a list. Legacy records without a role
 are migrated in-memory on load: an allowlist present → ``limited``, else ``user``.
+
+Settings sync (Eric, 2026-10-21: "Things a user changes while signed in should
+sync to all sessions all browsers"), on the convention Firefox Sync, Chrome
+Sync and iCloud's key-value store share. The account is the record, and the
+server orders changes: every account's settings carry a revision the server
+counts, each key the revision it last changed at, and a device's clock is
+never asked. A change made while signed in goes up and wins (last writer to
+reach the server, as iCloud's store does); the same value again is no change.
+On signing in (and whenever the account is not the one this browser last
+followed) the account wins every key it holds; a change made while signed out
+stays in that browser and never counts against an account. The one exception
+is Chrome's first-sync merge, for a browser's settings from before sync: the
+first account a browser ever follows, if it has never held a setting, takes
+that browser's own, on the keys it lacks. Settings are
+kept apart from the saved store (``usersettings/<key>.json``), so a change
+costs a write of a few hundred bytes, and none when nothing changed. With the
+password switched off (the setting, or ZIMI_MANAGE_OPEN) every browser is the
+admin's: the owner chose that anyone reaching Zimi manages it, and where a
+client sits on the network cannot be known (Eric, 2026-10-22: "Stop with the
+local network carve out we can't know just let him do it"). Every call
+names the account the browser follows; one that is no longer the session's
+(another tab signed in as someone else) is refused, and the browser asks
+again whose it is rather than write into the wrong one.
 """
 
 import hashlib
@@ -334,6 +357,7 @@ def delete_user(name):
         _save_users(users)
         _drop_user_sessions_locked(_key(name))
     delete_user_data(name)  # their server-side bookmarks/history go with them
+    delete_settings(name)
     log.info("User deleted: %s", name)
     return True, None
 
@@ -541,7 +565,7 @@ def create_federated_user(name, role, identity):
             "last_login": int(time.time()),
         }
         _save_users(users)
-    log.info("Federated user created: %s (role=%s)", name.strip(), role)
+    log.info("Federated user created: %r (role=%r)", name.strip(), role)
     return True, None
 
 
@@ -938,7 +962,11 @@ def _saved_merge_item(r, x, y, gone, g):
     from the newer of the copies' sv and its tombstone (a tie keeps ``x``'s, a
     tombstone as new wins). Not saved, it stays for its like, as likeOnly;
     _saved_normalize lets it go when there is none."""
-    w = y if x is None else x if y is None else (y if _saved_sv_of(y) > _saved_sv_of(x) else x)
+    w = (
+        y
+        if x is None
+        else x if y is None else (y if _saved_sv_of(y) > _saved_sv_of(x) else x)
+    )
     sv, saved = _saved_sv_of(w), not w.get("likeOnly")
     if g in gone:
         if gone[g] >= sv:
@@ -1078,6 +1106,120 @@ def _userdata_dir():
     return os.path.join(_srv.ZIMI_DATA_DIR, "userdata")
 
 
+# ── Settings: the account's copy (app.js's _PREF_KEYS; see the docstring) ──
+# {"rev": n, "settings": {key: {"v": raw value or None for its default,
+# "r": the rev it last changed at}}}. rev 0: the account never held one.
+_SETTINGS_KEY_RE = re.compile(r"^zimi_[a-z0-9_]{1,59}$")
+_SETTINGS_MAX_KEYS = 64
+_SETTINGS_VALUE_MAX = 16 * 1024
+
+
+def _settings_path(name):
+    return _contained(
+        os.path.join(_srv.ZIMI_DATA_DIR, "usersettings"), _safe_userdata_key(name)
+    )
+
+
+def _settings_doc(raw):
+    """``raw`` as kept: a whole rev, and only well-formed keys."""
+    raw = raw if isinstance(raw, dict) else {}
+    rev = raw.get("rev")
+    rev = rev if isinstance(rev, int) and not isinstance(rev, bool) and rev > 0 else 0
+    out = {}
+    got = raw.get("settings")
+    for k, ent in (got.items() if isinstance(got, dict) else ()):
+        if len(out) >= _SETTINGS_MAX_KEYS:
+            break
+        if (
+            not isinstance(k, str)
+            or not _SETTINGS_KEY_RE.match(k)
+            or not isinstance(ent, dict)
+        ):
+            continue
+        v, r = ent.get("v"), ent.get("r")
+        if v is not None and (not isinstance(v, str) or len(v) > _SETTINGS_VALUE_MAX):
+            continue
+        if not isinstance(r, int) or isinstance(r, bool) or r < 1 or r > rev:
+            continue
+        out[k] = {"v": v, "r": r}
+    return {"rev": rev, "settings": out}
+
+
+def load_settings(name):
+    """An account's settings; empty (rev 0) when it has none or they cannot
+    be read."""
+    import json
+
+    if _safe_userdata_key(name) is None:
+        return _settings_doc(None)
+    try:
+        with open(_settings_path(name), encoding="utf-8") as f:
+            return _settings_doc(json.load(f))
+    except FileNotFoundError:
+        return _settings_doc(None)
+    except (ValueError, OSError) as e:
+        log.warning("Could not read settings for %r: %s", name, e)
+        return _settings_doc(None)
+
+
+def _write_settings(name, doc):
+    with _lock:
+        os.makedirs(os.path.dirname(_settings_path(name)), exist_ok=True)
+        return bool(_srv._atomic_write_json(_settings_path(name), doc))
+
+
+def change_settings(name, changes, fill_only=False):
+    """What POST /userdata/settings does: each change ({key: {"v": value}})
+    is taken and given the account's next rev; the same value again is no
+    change. ``fill_only`` (a browser's first sync into an account that never
+    held a setting): only keys the account lacks. Written only when something
+    changed. Returns (ok, error, doc)."""
+    if _safe_userdata_key(name) is None:
+        return False, "invalid user", None
+    if not isinstance(changes, dict):
+        return False, "invalid data", None
+    with _lock:
+        doc = load_settings(name)
+        if fill_only and doc["rev"]:
+            return True, None, doc
+        kept, rev, moved = doc["settings"], doc["rev"], False
+        for k, ent in changes.items():
+            if (
+                not isinstance(k, str)
+                or not _SETTINGS_KEY_RE.match(k)
+                or not isinstance(ent, dict)
+            ):
+                continue
+            v = ent.get("v")
+            if v is not None and (
+                not isinstance(v, str) or len(v) > _SETTINGS_VALUE_MAX
+            ):
+                continue
+            cur = kept.get(k)
+            if cur is not None and cur["v"] == v:
+                continue
+            if cur is None and len(kept) >= _SETTINGS_MAX_KEYS:
+                continue
+            rev += 1
+            kept[k] = {"v": v, "r": rev}
+            moved = True
+        doc = {"rev": rev, "settings": kept}
+        if moved and not _write_settings(name, doc):
+            return False, "write failed", None
+    return True, None, doc
+
+
+def delete_settings(name):
+    if _safe_userdata_key(name) is None:
+        return
+    try:
+        os.remove(_settings_path(name))
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        log.warning("Could not delete settings for %r: %s", name, e)
+
+
 def _safe_userdata_key(name):
     """Casefold key for a user's data file, or None if it can't be a safe
     filename. Names are validated on creation, but this is the last gate before
@@ -1093,8 +1235,21 @@ def _safe_userdata_key(name):
     return key
 
 
+def _contained(folder, key):
+    """``folder``/``key``.json, and never outside ``folder``: the key is
+    already a single safe name (_safe_userdata_key); this is the last word
+    before a path reaches the disk."""
+    if key is None:
+        raise ValueError("no safe file name")
+    base = os.path.realpath(folder)
+    path = os.path.normpath(os.path.join(base, key + ".json"))
+    if not path.startswith(base + os.sep) or os.path.dirname(path) != base:
+        raise ValueError("outside its folder")
+    return path
+
+
 def _userdata_path(name):
-    return os.path.join(_userdata_dir(), _safe_userdata_key(name) + ".json")
+    return _contained(_userdata_dir(), _safe_userdata_key(name))
 
 
 def _empty_user_data():
@@ -1124,7 +1279,7 @@ def _read_user_data(name):
     except FileNotFoundError:
         return _empty_user_data()
     except (ValueError, OSError) as e:
-        log.warning("Could not read user data for %s: %s", name, e)
+        log.warning("Could not read user data for %r: %s", name, e)
         raise UserDataUnreadable(name) from e
     return data if isinstance(data, dict) else _empty_user_data()
 
@@ -1259,6 +1414,18 @@ def all_user_data():
                 out[fn[: -len(".json")]] = data
         except (ValueError, OSError):
             pass
+    # Each account's settings ride in its blob (kept apart on disk).
+    sd = os.path.join(_srv.ZIMI_DATA_DIR, "usersettings")
+    try:
+        setting_names = os.listdir(sd) if os.path.isdir(sd) else []
+    except OSError:
+        setting_names = []
+    for fn in setting_names:
+        if fn.endswith(".json"):
+            key = fn[: -len(".json")]
+            doc = load_settings(key)
+            if doc["rev"]:
+                out.setdefault(key, {})["settings"] = doc
     return out
 
 
@@ -1275,9 +1442,15 @@ def restore_user_data(blobs, overwrite=False):
     if overwrite:
         for key in list(all_user_data().keys()):
             delete_user_data(key)
+            delete_settings(key)
     written = 0
     for key, blob in blobs.items():
         # key is already casefold; _key is idempotent
+        # Settings as backed up, unless (merging) the account has its own since.
+        got = blob.get("settings") if isinstance(blob, dict) else None
+        if isinstance(got, dict) and _safe_userdata_key(key) is not None:
+            if overwrite or not load_settings(key)["rev"]:
+                _write_settings(key, _settings_doc(got))
         if overwrite:
             ok, err = save_user_data(key, blob)
         else:
@@ -1619,6 +1792,39 @@ def resolve_request_user(handler):
     if name:
         return name
     return resolve_session(_cookie_token(handler))
+
+
+#: Whose data the primary admin's is: a name no account may take (_RESERVED_NAMES).
+PRIMARY_ADMIN_DATA = "admin"
+
+
+def request_data_owner(handler):
+    """Whose per-user data (/userdata) a request reads and writes, or None.
+
+    A signed-in account (a named user, a secondary admin) is its own name; the
+    primary admin, signed in (its session, the password, the API token), is
+    PRIMARY_ADMIN_DATA. With the password switched off every browser is the
+    admin's (Eric, 2026-10-22: "Password off should still sync"; no network
+    carve-out). Never a name from the request body. No one on an install with no
+    password yet and not switched open: who reaches it as the admin there (the
+    host, a trusted LAN) is not one person.
+    """
+    name = resolve_request_user(handler)
+    if name:
+        return name
+    try:
+        from zimi import manage as _manage
+
+        # Open mode makes every browser the admin only where management exists.
+        if _srv.ZIMI_MANAGE and _manage.manage_open():
+            return PRIMARY_ADMIN_DATA
+        if not _manage._get_manage_password_hash():
+            return None
+        return (
+            PRIMARY_ADMIN_DATA if _manage._primary_admin_authorized(handler) else None
+        )
+    except Exception:
+        return None
 
 
 def _request_is_admin(handler):
