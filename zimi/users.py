@@ -1242,8 +1242,8 @@ def _contained(folder, key):
     if key is None:
         raise ValueError("no safe file name")
     base = os.path.realpath(folder)
-    path = os.path.realpath(os.path.join(base, key + ".json"))
-    if os.path.dirname(path) != base:
+    path = os.path.normpath(os.path.join(base, key + ".json"))
+    if not path.startswith(base + os.sep) or os.path.dirname(path) != base:
         raise ValueError("outside its folder")
     return path
 
