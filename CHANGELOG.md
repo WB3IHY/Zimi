@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Settings and saved things changed on one device appear in the account's other open windows right away, without a reload.
+
 ### Changed
 
 - Python 3.11 or newer is required (3.10 reaches end of life this month). On 3.10, pip keeps installing 1.14.1.

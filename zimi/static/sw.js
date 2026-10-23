@@ -220,6 +220,9 @@ function routeStrategy(path, requestMode, destination, search) {
   // A whole .zim for a peer or a download link: the browser's own, never
   // through the worker (a navigation here once got the shell instead).
   if (path.startsWith('/dl/')) return 'passthrough';
+  // The live change stream (GET /events) is open for as long as the page:
+  // the browser's own, never held or kept by the worker.
+  if (path === '/events') return 'passthrough';
   if (_hasPrefix(path, KEPT_ANSWER_PREFIXES)) return 'networkFirst';
   if (_hasPrefix(path, NETWORK_ONLY_PREFIXES)) return 'networkOnly';
   if (_hasPrefix(path, NETWORK_FIRST_PREFIXES)) return 'networkFirst';

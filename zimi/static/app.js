@@ -27385,6 +27385,7 @@ function _accountSet(id, boot) {
   var st = _prefState();
   if (st.owner !== id) _prefSaveState({ owner: id, pending: {}, seeded: st.seeded || !!st.owner });
   if (id && !boot) _savedPull();
+  _liveRestart();
 }
 // /userdata's address, naming the account this browser follows.
 function _accountUrl(path) { return path + '?account=' + encodeURIComponent(_accountId || ''); }
@@ -27457,7 +27458,7 @@ function _savedPush(leaving) {
   if (_savedPushing && !leaving) { _savedPushAgain = true; return _savedPushing; }
   var delta = _savedDelta();
   if (!delta) return _savedPushing || Promise.resolve(true);
-  var account = Saved.account(), body = JSON.stringify({ saved: delta, account: _accountId });
+  var account = Saved.account(), body = JSON.stringify({ saved: delta, account: _accountId, client: _liveClient });
   if (leaving) {
     if (body === _savedLeftBody) return _savedPushing || Promise.resolve(true);
     _savedLeftBody = body;
@@ -27537,7 +27538,7 @@ function _prefPush(leaving, fill) {
     if (fill ? _rawGet(k) !== null : st.pending[k]) { changes[k] = { v: _rawGet(k) }; n++; }
   });
   if (!n) return Promise.resolve(true);
-  var account = _accountId, body = JSON.stringify(fill ? { changes: changes, fill: true, account: account } : { changes: changes, account: account });
+  var account = _accountId, body = JSON.stringify({ changes: changes, fill: fill ? true : undefined, account: account, client: _liveClient });
   var sent = fetch('/userdata/settings', {
     method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body,
     keepalive: !!leaving && new Blob([body]).size < _SAVED_KEEPALIVE_MAX,
@@ -27682,8 +27683,11 @@ function _savedFlush(leaving) {
 // what it has not had is sent on leaving it.
 function _savedStart() {
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden) { _savedFlush(true); _prefPush(true); }
-    else if (Date.now() - _savedPulledAt > _SAVED_PULL_EVERY_MS) _savedPull();
+    if (document.hidden) { _savedFlush(true); _prefPush(true); _liveClose(); return; }
+    // Back on the page: the stream picks up where it left off (since), so a
+    // change made meanwhile on another device arrives as it reopens.
+    if (Date.now() - _savedPulledAt > _SAVED_PULL_EVERY_MS) _savedPull();
+    _liveOpen();
   });
   window.addEventListener('pagehide', function () { _savedFlush(true); _prefPush(true); });
   // A setting written in another page of this browser (another tab, an app
@@ -27707,10 +27711,53 @@ function _savedStart() {
   // The store is read while the page is idle, so the first app home or
   // article that asks what is kept does not wait on reading it.
   (window.requestIdleCallback || setTimeout)(function () { Saved.lists(); });
+  _liveOpen();
   if (!_savedSignedIn()) return;
   if (window.requestIdleCallback) requestIdleCallback(_savedPull, { timeout: 2000 });
   else setTimeout(_savedPull, 500);
 }
+
+// ── Live: what changes for the account elsewhere, heard while this page shows ──
+// One stream (GET /events) per page while it is visible and signed in. A
+// change names its topic and the page that made it; this page re-reads only
+// that topic, and skips its own. Other tabs of this browser follow through
+// the storage events above. The stream resumes from the last change it heard
+// (since), across the server's own recycling of it and a hidden spell alike.
+var _liveClient = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+var _liveSource = null, _liveSince = '', _liveRetryTimer = null;
+var _LIVE_RETRY_MS = 60000;  // a refused or failed stream: tried again after this
+function _liveOpen() {
+  if (_liveSource || !_accountId || document.hidden || typeof EventSource !== 'function') return;
+  clearTimeout(_liveRetryTimer); _liveRetryTimer = null;
+  var src = new EventSource(_accountUrl('/events') + (_liveSince ? '&since=' + encodeURIComponent(_liveSince) : ''));
+  _liveSource = src;
+  src.addEventListener('change', function (e) {
+    if (e.lastEventId) _liveSince = e.lastEventId;
+    var c = null;
+    try { c = JSON.parse(e.data); } catch (err) {}
+    if (!c || c.by === _liveClient) return;
+    if (c.topic === 'settings') _prefPull();
+    else if (c.topic === 'saved') _savedPull();
+  });
+  // Each write says where the stream is (lastEventId): kept for reopening.
+  src.addEventListener('tick', function (e) { if (e.lastEventId) _liveSince = e.lastEventId; });
+  src.onerror = function () {
+    // Closed by the server's answer (401/409: not this account any more, or an
+    // error page): asked whose this is, and tried again later. A dropped
+    // connection is the browser's to reopen (readyState CONNECTING).
+    if (src.readyState !== 2 || _liveSource !== src) return;
+    _liveSource = null;
+    _accountRecheck();
+    _liveRetryTimer = setTimeout(_liveOpen, _LIVE_RETRY_MS);
+  };
+}
+function _liveClose() {
+  if (!_liveSource) return;
+  _liveSource.close();
+  _liveSource = null;
+}
+// Another account (or none): its stream, from now on.
+function _liveRestart() { _liveClose(); _liveSince = ''; _liveOpen(); }
 
 // ── Find in page ───────────────────────────────────────────────────────────
 // The open article's words: Cmd/Ctrl+F while an article is open (in Zimi's

@@ -27,6 +27,7 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 import zimi.server as _srv
 from zimi import bestanswer as _bestanswer
 from zimi import bookpages as _bookpages
+from zimi import changes as _changes
 from zimi import manage as _manage_mod
 from zimi import netguard as _netguard
 from zimi import sso as _sso
@@ -117,6 +118,13 @@ def _is_trusted_net(ip):
         return True
     return False
 
+
+# GET /events: a comment this often on a quiet stream (well inside proxies'
+# idle limits: Cloudflare closes at 100 s), a new stream this often, and the
+# browser's wait before opening it again after the server went away.
+_EVENTS_HEARTBEAT_S = 25
+_EVENTS_MAX_S = 15 * 60
+_EVENTS_RETRY_MS = 5000
 
 RATE_LIMIT = int(
     os.environ.get("ZIMI_RATE_LIMIT", "60")
@@ -2896,6 +2904,8 @@ class ZimHandler(BaseHTTPRequestHandler):
                 return self._uncached(self._handle_userdata_get)
             elif parsed.path == "/userdata/settings":
                 return self._uncached(self._handle_settings_get)
+            elif parsed.path == "/events":
+                return self._handle_events()
 
             elif parsed.path == "/languages":
                 # Installed language summary with native names and ZIM counts
@@ -5700,11 +5710,14 @@ class ZimHandler(BaseHTTPRequestHandler):
             return None, (409, {"error": "account_changed"})
         return name, None
 
-    def _query_account(self):
+    def _query_param(self, key):
         from urllib.parse import parse_qs, urlparse
 
-        got = parse_qs(urlparse(self.path).query).get("account")
+        got = parse_qs(urlparse(self.path).query).get(key)
         return got[0] if got else None
+
+    def _query_account(self):
+        return self._query_param("account")
 
     def _handle_userdata_get(self):
         """GET /userdata — the signed-in user's own server-stored My-data blob
@@ -5729,7 +5742,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         name, refused = self._data_owner(data.pop("account", None))
         if refused:
             return self._json(*refused)
-        ok, err, doc = _users.sync_user_data(name, data)
+        ok, err, doc = _users.sync_user_data(name, data, by=data.pop("client", None))
         if not ok:
             # Too large is the account's to fix (the device says sync is paused).
             # A file that could not be read is the server's, and passes.
@@ -5759,11 +5772,52 @@ class ZimHandler(BaseHTTPRequestHandler):
         if refused:
             return self._json(*refused)
         ok, err, doc = _users.change_settings(
-            name, data.get("changes") or {}, fill_only=bool(data.get("fill"))
+            name,
+            data.get("changes") or {},
+            fill_only=bool(data.get("fill")),
+            by=data.get("client"),
         )
         if not ok:
             return self._json(503 if err == "write failed" else 400, {"error": err})
         return self._json(200, doc)
+
+    def _handle_events(self):
+        """GET /events — the signed-in account's changes as server-sent
+        events, one ``change`` event ({"topic", "by"}) per change, for as long
+        as the window keeps it open (changes.py). A comment every
+        _EVENTS_HEARTBEAT_S keeps proxies from closing a quiet stream and
+        finds a window that went away; the stream ends after _EVENTS_MAX_S and
+        the browser opens a new one (``retry``), so no thread waits forever
+        on a client that vanished without a word."""
+        name, refused = self._data_owner(self._query_account())
+        if refused:
+            return self._json(*refused)
+        after = _changes.resume_from(
+            self._query_param("since") or self.headers.get("Last-Event-ID")
+        )
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store, no-transform")
+        self.send_header("X-Accel-Buffering", "no")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.close_connection = True
+        # Every write carries the stream's place (``id``), which the window
+        # keeps and sends back on reopening; a ``tick`` says only that.
+        place = _changes.place(max(after, 0)).encode()
+        self.wfile.write(b"retry: %d\nid: %s\nevent: tick\ndata: 1\n\n" % (_EVENTS_RETRY_MS, place))
+        self.wfile.flush()
+        ends = time.monotonic() + _EVENTS_MAX_S
+        while time.monotonic() < ends:
+            after, got = _changes.wait(after, name, _EVENTS_HEARTBEAT_S)
+            place = _changes.place(after).encode()
+            out = b"".join(
+                b"id: %s\nevent: change\ndata: %s\n\n"
+                % (place, json.dumps(c, separators=(",", ":")).encode())
+                for c in got
+            )
+            self.wfile.write(out or b"id: %s\nevent: tick\ndata: 1\n\n" % place)
+            self.wfile.flush()
 
     def log_message(self, format, *args):
         # Light logging: errors + slow requests. Suppress 200/304 noise.
