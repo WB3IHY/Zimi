@@ -630,20 +630,26 @@ async function keepLocal(request) {
 
 // A carried ZIM that arrives again (an import, a re-download) is a new archive
 // under the same name: a /catalog?zim= listing cached from the old one would
-// outrank it offline, so the cached listings go with the change.
-async function dropCachedCatalogs() {
+// outrank it offline, so each cached listing is fetched again. Only a fresh
+// answer replaces one: the listing a library was just kept with is what reads
+// it offline, and dropping it (as first done here) left a kept library empty.
+async function refreshCachedCatalogs() {
   try {
     const cache = await caches.open(CACHE_VERSION);
     for (const req of await cache.keys()) {
-      if (catalogZim(new URL(req.url))) await cache.delete(req);
+      if (!catalogZim(new URL(req.url))) continue;
+      try {
+        const fresh = await fetch(req.url, { credentials: 'same-origin', cache: 'no-store' });
+        if (fresh.ok) await cache.put(req, fresh);
+      } catch (e) { /* offline: the cached listing stays */ }
     }
-  } catch (e) { /* nothing cached to drop */ }
+  } catch (e) { /* nothing cached */ }
 }
 
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'keep-changed') {
     if (self.KeepStore) KeepStore.forgetNames();
-    event.waitUntil(dropCachedCatalogs());
+    event.waitUntil(refreshCachedCatalogs());
   }
   if (event.data && event.data.type === 'keep-almanac') event.waitUntil(keepAlmanac());
 });
