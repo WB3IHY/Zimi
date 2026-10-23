@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Python 3.11 or newer is required (3.10 reaches end of life this month). On 3.10, pip keeps installing 1.14.1.
+
+### Security
+
+- Pillow 13.0 or newer everywhere, which fixes 39 advisories in the 12.x line.
+
 ### Fixed
 
 - The draft release appears only once every build is attached to it.

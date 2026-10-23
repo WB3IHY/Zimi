@@ -457,3 +457,15 @@ def test_a_failed_attestation_stops_the_pypi_upload():
     body = _commands("publish-release.yml")
     assert body.count("actions/attest-build-provenance") == 2
     assert "continue-on-error" not in body
+
+
+def test_no_requirement_admits_a_pillow_with_known_holes():
+    """Scorecard counted 39 advisories against a ``Pillow>=12.3.0`` kept for
+    Python 3.10; their fixes are in Pillow 13, which needs 3.11. Both packages
+    start at 3.11, so every Pillow requirement can start at 13."""
+    for name in ("pyproject.toml", "packaging/zimi-mcp/pyproject.toml"):
+        text = (ROOT / name).read_text(encoding="utf-8")
+        assert 'requires-python = ">=3.11,' in text, name
+    for name in ("requirements.txt", "desktop/requirements-desktop.txt"):
+        pins = re.findall(r"(?im)^pillow\s*>=\s*([\d.]+)", (ROOT / name).read_text(encoding="utf-8"))
+        assert pins and all(int(v.split(".")[0]) >= 13 for v in pins), (name, pins)
