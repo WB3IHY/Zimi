@@ -13003,7 +13003,7 @@ const MANAGE_CATEGORIES = [
 const _CAT_TO_BROWSE_KEY = {
   'Wikimedia': 'wikipedia', 'Stack Exchange': 'stack_exchange', 'Dev Docs': 'devdocs',
   'Education': 'education', 'Medical': 'medical', 'How-To': 'survival',
-  'Books': 'gutenberg', 'Maps': 'maps', 'Other': 'other'
+  'Books': 'gutenberg', 'Maps': 'maps', 'Games': 'gaming', 'Other': 'other'
 };
 
 function categorizeZim(name) {

@@ -1572,6 +1572,7 @@ def _zimi_kind(meta):
     alive engine writes ``zimi:alive``. Neither leaves an X-Zimi-History, so the
     Scraper suffix Zimi appends is the whole signal that Zimi was involved —
     matched with its trailing space so the unrelated "zimit" scraper cannot."""
+    from zimi import ownzims as _ownzims
     from zimi import zimwriter as _zw
 
     history = _zw.parse_history(meta.get(_zw.HISTORY_METADATA_KEY, ""))
@@ -1580,7 +1581,8 @@ def _zimi_kind(meta):
     alive = _ALIVE_TAG in tags
     converted = _ALIVE_SCRAPER_MARKER in scraper.lower()
     made_by_zimi = bool(history) or alive or "Zimi " in scraper
-    if not made_by_zimi:
+    # Zimi's own ZIMs (the Arcade) ship with Zimi; nobody here made them.
+    if not made_by_zimi or _ownzims.OWN_TAG in tags:
         return None
     created = _creation_record(history)
     kind = {

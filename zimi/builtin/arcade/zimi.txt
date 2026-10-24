@@ -3,5 +3,5 @@ Description: Solitaire, FreeCell and Minesweeper, played offline
 Language: eng
 Creator: Zimi
 Publisher: Zimi
-Tags: _category:games;games;zimi
+Tags: _category:games;games;zimi;zimi:own
 Icon: icon.png

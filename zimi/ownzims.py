@@ -22,11 +22,14 @@ import threading
 
 log = logging.getLogger("zimi")
 
-Own = collections.namedtuple("Own", "folder name")
+Own = collections.namedtuple("Own", "folder name category")
 
-#: Each one: the folder under zimi/builtin/ and the file it becomes. The
-#: folder's zimi.txt names it (title, description, language, tags, icon).
-OWN = (Own("arcade", "zimi_arcade"),)
+#: Each one: the folder under zimi/builtin/, the file it becomes, and the
+#: Home section it sits in. The folder's zimi.txt names it (title,
+#: description, language, tags, icon) and tags it OWN_TAG, so the library
+#: never mistakes it for something the person made.
+OWN = (Own("arcade", "zimi_arcade", "Games"),)
+OWN_TAG = "zimi:own"
 
 SOURCE_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "builtin")
 _STAMP_EXT = ".source"  # beside the ZIM: the hash of the folder it was built from
@@ -61,6 +64,14 @@ def zim_paths():
     if not enabled():
         return []
     return [p for p in (zim_path(o) for o in OWN) if os.path.isfile(p)]
+
+
+def category_of(path):
+    """The Home section of one of these ZIMs, by its path; None for any other."""
+    if not path or os.path.dirname(os.path.abspath(path)) != os.path.abspath(out_dir()):
+        return None
+    name = os.path.splitext(os.path.basename(path))[0]
+    return next((o.category for o in OWN if o.name == name), None)
 
 
 def source_hash(folder):

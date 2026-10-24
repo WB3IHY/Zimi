@@ -2527,8 +2527,11 @@ def _effective_category(name, path, kind=None):
     what the ZIM says it is (``kind``, from its metadata): a map is a map
     whatever the file was renamed to.
     """
+    from zimi import ownzims
+
     return (
         _folder_category(_zim_folder(path))
+        or ownzims.category_of(path)
         or ("Maps" if kind == "map" else "Reddit" if kind == "reddit" else None)
         or _categorize_zim(name)
     )

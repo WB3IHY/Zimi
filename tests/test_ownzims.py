@@ -114,3 +114,19 @@ def test_every_own_folder_is_in_the_package():
         os.path.join(os.path.dirname(server.__file__), "..", "pyproject.toml")
     ) as f:
         assert '"builtin/**"' in f.read(), "pip installs must carry the sources"
+
+
+def test_on_home_under_its_own_section_never_as_something_you_made(home):
+    """The Arcade sat under Created with a Folder badge, as if the person had
+    packed it: its section comes from OWN, and its tag tells provenance it
+    ships with Zimi."""
+    from zimi import http as zhttp
+
+    path = ownzims.build(home["own"])
+    assert ownzims.category_of(path) == "Games"
+    assert server._effective_category("zimi_arcade", path) == "Games"
+    assert ownzims.category_of(str(home["zims"] / "zimi_arcade.zim")) is None, "only Zimi's own copy"
+    a = Archive(path)
+    meta = {k: a.get_metadata(k).decode() for k in ("Tags", "Scraper") if k in a.metadata_keys}
+    assert ownzims.OWN_TAG in meta["Tags"].split(";")
+    assert zhttp._zimi_kind(meta) is None
