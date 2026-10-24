@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Minesweeper - Zimi Arcade</title>
+<link rel="stylesheet" href="arcade.css">
+<link rel="stylesheet" href="minesweeper.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to the Arcade">&lsaquo;</a>
+  <h1>Minesweeper</h1>
+  <button class="ar-btn" id="ms-level" type="button" aria-haspopup="dialog">Beginner</button>
+  <button class="ar-btn ms-flagbtn" id="ms-flagmode" type="button" aria-pressed="false" title="Flag mode: taps place flags"><span>Flag</span></button>
+</header>
+
+<main class="ms-main">
+  <div class="ms-win" id="ms-win">
+    <div class="ms-panel">
+      <div class="ms-led" id="ms-mines" role="img" aria-label="Mines left"></div>
+      <button class="ms-face" id="ms-face" type="button" aria-label="New game"></button>
+      <div class="ms-led" id="ms-time" role="img" aria-label="Time"></div>
+    </div>
+    <div class="ms-box">
+      <div class="ms-board" id="ms-board" role="grid"></div>
+    </div>
+  </div>
+  <p class="ms-msg" id="ms-msg" role="status" aria-live="polite"></p>
+  <p class="ms-help">Click to open. Right click or long press to flag. Click a number to open around it once its flags match. Keys: arrows, Space, F, C, N.</p>
+</main>
+
+<div class="ar-sheet" id="ms-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="ms-menu-title">
+  <div class="ar-sheet-card">
+    <h2 id="ms-menu-title">New game</h2>
+    <div class="ms-levels">
+      <label class="ms-lv"><input type="radio" name="level" id="ms-lv-beginner" value="beginner"><span><b>Beginner</b><small>9 x 9, 10 mines</small></span><em id="ms-best-beginner"></em></label>
+      <label class="ms-lv"><input type="radio" name="level" id="ms-lv-intermediate" value="intermediate"><span><b>Intermediate</b><small>16 x 16, 40 mines</small></span><em id="ms-best-intermediate"></em></label>
+      <label class="ms-lv"><input type="radio" name="level" id="ms-lv-expert" value="expert"><span><b>Expert</b><small>30 x 16, 99 mines</small></span><em id="ms-best-expert"></em></label>
+      <label class="ms-lv"><input type="radio" name="level" id="ms-lv-custom" value="custom"><span><b>Custom</b><small>Your own board</small></span></label>
+      <div class="ms-custom">
+        <label>Rows<input class="ms-num" id="ms-rows" type="number" inputmode="numeric" min="5" max="24"></label>
+        <label>Columns<input class="ms-num" id="ms-cols" type="number" inputmode="numeric" min="5" max="30"></label>
+        <label>Mines<input class="ms-num" id="ms-nmines" type="number" inputmode="numeric" min="1"></label>
+      </div>
+      <p class="ms-error" id="ms-error" role="alert"></p>
+    </div>
+    <label class="ms-check"><input type="checkbox" id="ms-marks"> Question marks (flag, then ?, then clear)</label>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="ms-cancel" type="button">Cancel</button>
+      <button class="ar-btn" id="ms-start" type="button" aria-pressed="true">Start</button>
+    </div>
+  </div>
+</div>
+<script src="minesweeper.js"></script>
+</body>
+</html>
