@@ -1,0 +1,71 @@
+/* Zimi Arcade: one stylesheet for the shelf and every game. Self-contained:
+   the ZIM opens in Kiwix too, where nothing of Zimi's own styles exists. */
+:root {
+  --ink: #1d2433; --ink2: #4b5568; --ink3: #7c8698;
+  --ground: #eef0f3; --surface: #ffffff; --line: #d5d9e0;
+  --accent: #d97706; --accent-ink: #ffffff;
+  --felt: #1f6f43; --felt-deep: #155233; --felt-line: rgba(255, 255, 255, 0.14);
+  --card: #fdfcf8; --card-edge: #c9c4b8; --suit-red: #c62828; --suit-black: #1b1b1b;
+  --bevel-hi: #ffffff; --bevel-lo: #8a8f99; --tile: #c8ccd3;
+  --radius: 10px; --gap: 12px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #e8ebf1; --ink2: #b3bac7; --ink3: #8a93a3;
+    --ground: #12151b; --surface: #1b1f27; --line: #2c323d;
+    --accent: #f59e0b; --accent-ink: #111111;
+    --felt: #17563a; --felt-deep: #0f3d29;
+    --bevel-hi: #5a606b; --bevel-lo: #0c0e12; --tile: #333944;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ink: #e8ebf1; --ink2: #b3bac7; --ink3: #8a93a3;
+  --ground: #12151b; --surface: #1b1f27; --line: #2c323d;
+  --accent: #f59e0b; --accent-ink: #111111;
+  --felt: #17563a; --felt-deep: #0f3d29;
+  --bevel-hi: #5a606b; --bevel-lo: #0c0e12; --tile: #333944;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--ground); color: var(--ink); font: 15px/1.45 var(--font); -webkit-tap-highlight-color: transparent; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* A game's bar: back to the shelf, the game's name, its controls. */
+.ar-bar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; min-height: 52px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.ar-bar h1 { flex: 1; margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ar-back { text-decoration: none; color: var(--ink2); font-size: 22px; line-height: 1; padding: 6px 8px; border-radius: 8px; }
+.ar-back:hover { color: var(--accent); }
+.ar-btn { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); cursor: pointer; white-space: nowrap; }
+.ar-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ar-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.ar-btn:disabled { opacity: 0.45; cursor: default; }
+.ar-stat { font: 600 13px var(--mono); font-variant-numeric: tabular-nums; color: var(--ink2); white-space: nowrap; }
+
+/* A sheet over the game: a menu, a win, a choice of backs. */
+.ar-sheet { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(10, 12, 16, 0.5); z-index: 50; }
+.ar-sheet[hidden] { display: none; }
+.ar-sheet-card { width: min(420px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 20px; border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35); }
+.ar-sheet-card h2 { margin: 0 0 12px; font-size: 19px; }
+.ar-sheet-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+/* The shelf (the Arcade's main page). */
+.ar-shelf { max-width: 880px; margin: 0 auto; padding: 24px 16px 48px; }
+.ar-shelf header h1 { margin: 0; font-size: 30px; letter-spacing: -0.02em; text-wrap: balance; }
+.ar-shelf header p { margin: 6px 0 24px; color: var(--ink2); max-width: 60ch; }
+.ar-games { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.ar-game { display: flex; flex-direction: column; text-decoration: none; color: inherit; border-radius: 14px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); transition: transform 0.15s, border-color 0.15s; }
+.ar-game:hover { transform: translateY(-2px); border-color: var(--accent); }
+.ar-game-art { aspect-ratio: 16 / 9; display: block; width: 100%; }
+.ar-game-text { padding: 12px 14px 14px; }
+.ar-game-text strong { display: block; font-size: 16px; }
+.ar-game-text span { color: var(--ink2); font-size: 13px; }
+.ar-foot { margin-top: 32px; color: var(--ink3); font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) { .ar-game { transition: none; } .ar-game:hover { transform: none; } }
