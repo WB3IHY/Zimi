@@ -1,0 +1,99 @@
+/* Zimi Arcade cards: the table, the cards, the animated backs, the sheets'
+   extras. Colours come from arcade.css tokens; the felt stays green and the
+   cards stay cream in both themes. */
+
+/* ── The page: a bar over a felt table ─────────────────────────────────── */
+body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hidden; overscroll-behavior: none; }
+.ar-bar h1 { line-height: 1.1; min-width: 0; }
+.ar-bar h1 small { display: block; font-size: 11px; font-weight: 500; color: var(--ink3); letter-spacing: 0; }
+.ar-bar { flex: none; }
+.ar-bar .ar-stat { min-width: 5.2em; text-align: right; }
+@media (max-width: 440px) {
+  .ar-bar { padding: 6px 8px; gap: 4px; }
+  .ar-bar .ar-btn { padding: 0 9px; }
+  .ar-bar .ar-stat { min-width: 0; font-size: 12px; }
+  .ar-bar .ar-back { padding: 6px 6px; }
+}
+
+.zc-table { position: relative; isolation: isolate; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; touch-action: pan-y;
+  background: radial-gradient(ellipse at 50% 30%, var(--felt) 0%, var(--felt-deep) 100%); -webkit-user-select: none; user-select: none; }
+.zc-stage { position: relative; width: 100%; min-height: 100%; }
+
+/* ── Piles ─────────────────────────────────────────────────────────────── */
+.zc-slot { position: absolute; left: 0; top: 0; z-index: 0; outline: none; -webkit-tap-highlight-color: transparent; }
+.zc-slot::before { content: ""; position: absolute; left: 0; top: 0; width: var(--cw); height: calc(var(--cw) * 1.4);
+  border-radius: calc(var(--cw) * 0.075); border: 2px solid var(--felt-line); background: rgba(0, 0, 0, 0.08); }
+.zc-slot:focus-visible::before { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.zc-slot[data-mark]::after { content: attr(data-mark); position: absolute; left: 0; top: 0; width: var(--cw); height: calc(var(--cw) * 1.4);
+  display: grid; place-items: center; color: rgba(255, 255, 255, 0.28); font: 700 calc(var(--cw) * 0.5)/1 Georgia, serif; pointer-events: none; }
+.zc-slot[data-mark="\21BB"]::after { font-family: var(--font); font-weight: 400; }
+
+/* ── A card ────────────────────────────────────────────────────────────── */
+.zc-card { position: absolute; left: 0; top: 0; width: var(--cw); height: calc(var(--cw) * 1.4); z-index: 1;
+  border-radius: calc(var(--cw) * 0.075); background: var(--card); color: var(--suit-black);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--card-edge);
+  transition: transform 0.17s cubic-bezier(0.25, 0.8, 0.35, 1); touch-action: none; cursor: grab; overflow: hidden; }
+.zc-card.zc-red { color: var(--suit-red); }
+.zc-card.zc-off { visibility: hidden; }
+.zc-card.zc-instant, .zc-instant .zc-card { transition: none; }
+.zc-card.zc-drag { transition: none; cursor: grabbing; box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--card-edge); }
+.zc-card.zc-sel { box-shadow: 0 0 0 3px var(--accent), 0 4px 10px rgba(0, 0, 0, 0.4); }
+.zc-card.zc-flip { animation: zc-flip 0.2s ease-out; }
+.zc-card.zc-hint { animation: zc-nudge 0.28s ease-in-out; }
+@keyframes zc-flip { from { transform: var(--zc-t) scaleX(0.05); } to { transform: var(--zc-t) scaleX(1); } }
+@keyframes zc-nudge { 0%, 100% { margin-left: 0; } 30% { margin-left: -4px; } 70% { margin-left: 4px; } }
+.zc-face, .zc-back { position: absolute; inset: 0; }
+.zc-face svg, .zc-back svg { display: block; width: 100%; height: 100%; }
+.zc-card.zc-down .zc-face { display: none; }
+.zc-card:not(.zc-down) .zc-back { display: none; }
+
+/* ── Animated backs: transforms and opacity only, paused with the tab ──── */
+.zc-bk * { transform-box: fill-box; }
+.zc-paused .zc-bk * { animation-play-state: paused !important; }
+.zc-tw { animation: zc-twinkle 3.4s ease-in-out infinite; }
+.zc-tw2 { animation-delay: -1.1s; animation-duration: 4.1s; }
+.zc-tw3 { animation-delay: -2.3s; animation-duration: 2.8s; }
+@keyframes zc-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+.zc-wv { animation: zc-wave 5s linear infinite; }
+.zc-wv2 { animation-duration: 7s; animation-direction: reverse; }
+.zc-wv3 { animation-duration: 3.6s; }
+@keyframes zc-wave { from { transform: translateX(0); } to { transform: translateX(-46px); } }
+.zc-boat { animation: zc-bob 3.2s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes zc-bob { 0%, 100% { transform: rotate(-4deg) translateY(0); } 50% { transform: rotate(4deg) translateY(-1.5px); } }
+.zc-eye { animation: zc-blink 5s infinite; transform-origin: 50% 50%; }
+@keyframes zc-blink { 0%, 90%, 100% { transform: scaleY(1); } 94% { transform: scaleY(0.08); } }
+.zc-arm { animation: zc-wave-arm 7s ease-in-out infinite; transform-origin: 8% 10%; }
+@keyframes zc-wave-arm { 0%, 60%, 100% { transform: rotate(0); } 66% { transform: rotate(-38deg); } 72% { transform: rotate(8deg); } 78% { transform: rotate(-38deg); } 84% { transform: rotate(0); } }
+.zc-bulb { animation: zc-twinkle 1.6s ease-in-out infinite; }
+.zc-bat { animation: zc-fly 11s linear infinite; }
+.zc-bat2 { animation-delay: -5.5s; animation-duration: 13s; }
+@keyframes zc-fly { 0% { transform: translate(-16px, 34px); } 18% { transform: translate(30px, 16px); } 34% { transform: translate(112px, 30px); } 100% { transform: translate(112px, 30px); } }
+.zc-wing { animation: zc-flap 0.32s ease-in-out infinite alternate; transform-origin: 50% 50%; }
+@keyframes zc-flap { from { transform: scaleY(1); } to { transform: scaleY(0.35); } }
+.zc-lit { animation: zc-twinkle 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .zc-bk *, .zc-card, .zc-card.zc-flip { animation: none !important; transition: none !important; }
+}
+
+/* ── Sheets: backs picker, menus, the win ──────────────────────────────── */
+.ar-sheet { animation: zc-fadein 0.18s ease-out; }
+@keyframes zc-fadein { from { opacity: 0; } to { opacity: 1; } }
+.zc-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+.zc-row > label { flex: 1 1 100%; font-size: 12px; font-weight: 600; color: var(--ink2); text-transform: uppercase; letter-spacing: 0.04em; }
+.zc-note { margin: 6px 0 0; font-size: 12px; color: var(--ink3); }
+.zc-stats { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--ground); font: 13px var(--mono); color: var(--ink2); }
+.zc-input { min-height: 36px; width: 8em; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: 15px var(--mono); }
+.zc-backs { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 12px; margin: 4px 0; }
+.zc-pick { display: grid; justify-items: center; gap: 6px; padding: 8px 4px; border: 2px solid transparent; border-radius: 10px; background: none; cursor: pointer; color: var(--ink2); font-size: 12px; }
+.zc-pick:hover { border-color: var(--line); }
+.zc-pick[aria-pressed="true"] { border-color: var(--accent); color: var(--ink); }
+.zc-pick .zc-card { position: relative; --cw: 64px; cursor: pointer; }
+.zc-win-big { margin: 0 0 4px; font-size: 26px; letter-spacing: -0.02em; }
+.zc-seg { display: inline-flex; }
+.zc-seg .ar-btn:first-child { border-radius: 8px 0 0 8px; }
+.zc-seg .ar-btn:last-child { border-radius: 0 8px 8px 0; margin-left: -1px; }
+.zc-seg .ar-btn:not(:first-child):not(:last-child) { border-radius: 0; margin-left: -1px; }
+
+/* The cascade's canvas, above the table and below the sheets. */
+.zc-cascade { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 40; touch-action: none; }
+.zc-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
