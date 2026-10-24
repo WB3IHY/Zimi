@@ -3164,7 +3164,7 @@
   "voices_section": "语音",
   "voices_speaking": "语音",
   "voices_speaking_desc": "“朗读”按钮、语音菜单和文章朗读",
-  "voices_wait": "等待最佳语音",
+  "voices_wait": "耐心",
   "voices_wait_desc": "朗读会等较慢的语音提前准备好再开始，跟不上时暂停等待，而不是换成更快的语音",
   "voices_downloaded_here": "此处已下载的语音：{mb} MB",
   "voices_hear": "试听",

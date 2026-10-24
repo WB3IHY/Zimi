@@ -3164,7 +3164,7 @@
   "voices_section": "Stimmen",
   "voices_speaking": "Sprechen",
   "voices_speaking_desc": "Aussprechen-Tasten, Stimmenmenüs und Vorlesen",
-  "voices_wait": "Auf die beste Stimme warten",
+  "voices_wait": "Geduld",
   "voices_wait_desc": "Vorlesen beginnt, sobald eine langsame Stimme genug Vorsprung hat, und pausiert zum Aufholen, statt zu einer schnelleren zu wechseln",
   "voices_downloaded_here": "Hier geladene Stimmen: {mb} MB",
   "voices_hear": "Anhören",

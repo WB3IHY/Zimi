@@ -13,11 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - An open window or the installed app updates itself to a new version of Zimi: right away on the home page, otherwise the next time it is in the background, with an open article back where it was.
 - ZIMs added or removed show up in every open window without a reload.
 - Discover shows the next day's cards in a window left open overnight.
-- Settings > Voices > Wait for the best voice: Read aloud keeps a slow natural voice, gets ahead before it starts (the bar counts down) and pauses to catch up, instead of switching to a faster voice.
+- Patience, in Settings > Languages > Voices and in Read aloud's voice menu while Natural reads: Read aloud keeps a slow voice, gets ahead before it starts (the bar counts down) and pauses to catch up, instead of switching to a faster voice.
 
 ### Changed
 
 - Discover's cards are the same on every device for the day.
+- Settings has a Languages tab: the languages shown and the voices, moved out of Preferences.
 - Python 3.11 or newer is required (3.10 reaches end of life this month). On 3.10, pip keeps installing 1.14.1.
 
 ### Security

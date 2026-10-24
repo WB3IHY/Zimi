@@ -3164,7 +3164,7 @@
   "voices_section": "Voix",
   "voices_speaking": "Voix",
   "voices_speaking_desc": "Boutons Prononcer, menus des voix et Lire à voix haute",
-  "voices_wait": "Attendre la meilleure voix",
+  "voices_wait": "Patience",
   "voices_wait_desc": "La lecture à voix haute commence quand une voix lente a pris de l'avance et fait une pause pour rattraper, au lieu de passer à une voix plus rapide",
   "voices_downloaded_here": "Voix téléchargées ici : {mb} Mo",
   "voices_hear": "Écouter",

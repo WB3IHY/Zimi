@@ -1581,13 +1581,14 @@ function _voiceDefaultHtml(on) {
   return _voicePickHtml(on, 'voices_default', _voicePrefs().voice, 'voice', 'voice-default');
 }
 // Read aloud's own voice, beside it: Automatic follows the default above.
-// Under it, once a voice here may not keep up (Natural, or one measured too
-// slow), whether a reading waits for it to get ahead instead of giving way.
+// Under it, always, Patience: a reading keeps a voice that may not keep up
+// (Natural, or one measured too slow) and waits for it to get ahead instead
+// of giving way (Eric, 2026-10-23: "a Patience toggle ... when I want the
+// good audio but need patience to get it" and "No hidden toggle in voices
+// always show it").
 function _voiceReadHtml(on) {
-  var h = _voicePickHtml(on, 'tts_speak', _voicePrefs().read || '', 'read', 'voice-read', true);
-  var tm = _voiceTimings(_voicesHere && _voicesHere.timings);
-  if (!on.some(function(x) { return x.engine === 'kokoro' || _ttsKeepsUp(x.engine, _ttsRate(), tm) === false; })) return h;
-  return h + '<div class="share-rows set-rows voice-prefs">' +
+  return _voicePickHtml(on, 'tts_speak', _voicePrefs().read || '', 'read', 'voice-read', true) +
+    '<div class="share-rows set-rows voice-prefs">' +
     _voiceSwitchRow('voices_wait', 'voices-wait', !!_voicePrefs().wait, '_setVoicePrefs({ wait: this.checked })') + '</div>';
 }
 // A switch row of Settings > Voices: its title, what it covers, the switch.
@@ -1745,18 +1746,18 @@ function _voicesPost(path, tag, btn) {
 function _voicesSetMode(mode) {
   _voicesSend('/manage/voices', { mode: mode }, t('env_controlled', { v: 'ZIMI_VOICE_DOWNLOADS' }));
 }
-// Settings > Voices (or Languages), from elsewhere: the Dictionary's
-// Voices… and its front's speaker, /?manage=preferences#voices (or
-// #languages), the network list's row.
+// Settings > Languages, at Voices or Languages, from elsewhere: the
+// Dictionary's Voices… and its front's speaker, /?manage=languages#voices
+// (or #languages; Preferences' old address too), the network list's row.
 var _msScrollTo = null;
 var _MS_HASH_TARGETS = { '#voices': 'ms-voices', '#languages': 'ms-languages' };
 function _openSettingsAt(id) {
   _msScrollTo = id;
-  if (mode === 'manage') switchMs('preferences');
-  else enterManage(null, 'preferences');
+  if (mode === 'manage') switchMs('languages');
+  else enterManage(null, 'languages');
 }
 // The boot's own address changes drop the fragment before Settings draws.
-if (_MS_HASH_TARGETS[location.hash] && new URLSearchParams(location.search).get('manage') === 'preferences') {
+if (_MS_HASH_TARGETS[location.hash] && ['preferences', 'languages'].indexOf(new URLSearchParams(location.search).get('manage')) >= 0) {
   _msScrollTo = _MS_HASH_TARGETS[location.hash];
 }
 function _msScrollPending() {
@@ -14299,6 +14300,7 @@ async function renderManage() {
       '<div class="ms-nav" id="ms-nav">' +
         '<button class="ms-nav-item active" data-ms="library" onclick="switchMs(\'library\')">' + tH('ms_library') + '</button>' +
         '<button class="ms-nav-item" data-ms="preferences" onclick="switchMs(\'preferences\')">' + tH('ms_display') + '</button>' +
+        '<button class="ms-nav-item" data-ms="languages" onclick="switchMs(\'languages\')">' + tH('languages_section') + '</button>' +
         '<button class="ms-nav-item" data-ms="creator" onclick="switchMs(\'creator\')">' + tH('ms_creator') + '</button>' +
         '<button class="ms-nav-item" data-ms="server" onclick="switchMs(\'server\')">' + tH('ms_server') + '</button>' +
         // Access: who can manage Zimi, your account, who can read, the users
@@ -14454,8 +14456,12 @@ function _prefetchServerSettings() {
 
 // Manage settings sections + the URL/session plumbing that lets a reload (or a
 // fresh tap on Manage) land back on the section the user last had open.
-var _MS_SECTIONS = ['library', 'preferences', 'creator', 'server', 'users'];
-function _validMsSection(s) { return _MS_SECTIONS.indexOf(s) >= 0 ? s : null; }
+var _MS_SECTIONS = ['library', 'preferences', 'languages', 'creator', 'server', 'users'];
+function _validMsSection(s) {
+  // Languages and Voices were in Preferences: its old links still land on them.
+  if (s === 'preferences' && _MS_HASH_TARGETS[location.hash]) return 'languages';
+  return _MS_SECTIONS.indexOf(s) >= 0 ? s : null;
+}
 function _msSectionUrl(section) { return (!section || section === 'library') ? '/?manage' : '/?manage=' + section; }
 function _lastMsSection() {
   try { return _validMsSection(sessionStorage.getItem(SK.MANAGE_SECTION)); } catch (e) { return null; }
@@ -14479,7 +14485,9 @@ function switchMs(section) {
   switch(section) {
     case 'library': pane.innerHTML = _msLibraryHtml(); break;
     case 'preferences':
-      pane.innerHTML = _msPreferencesHtml(); _renderAppsSection(); _paintLangPrefs(); _renderVoicePrefs(); _msScrollPending(); break;
+      pane.innerHTML = _msPreferencesHtml(); _renderAppsSection(); break;
+    case 'languages':
+      pane.innerHTML = _msLanguagesHtml(); _paintLangPrefs(); _renderVoicePrefs(); _msScrollPending(); break;
     case 'creator': pane.innerHTML = _msCreatorHtml(); break;
     case 'server': pane.innerHTML = _msServerHtml(); break;
     case 'users': _renderMsUsers(); break;
@@ -15959,8 +15967,17 @@ function _switchRowsHtml(rows) {
   return '<div class="share-rows set-rows">' + rows.map(_switchRowHtml).join('') + '</div>';
 }
 
-function _msPreferencesHtml() {
+// Languages: the languages shown, and the voices that say them (Eric,
+// 2026-10-23: "a Languages tab under settings and group all this stuff,
+// it's getting large").
+function _msLanguagesHtml() {
   _vgAllOpen = false;
+  return _languagesCardHtml() +
+    '<div class="ms-section-label" id="ms-voices">' + tH('voices_section') + '</div>' +
+    '<div id="' + _VOICES_WRAP_ID + '">' + _voicePrefsHtml() + '</div>';
+}
+
+function _msPreferencesHtml() {
   // Apps: every app a row of the same shape, and whether results open in
   // them right under it. The rows offered to everyone (the server's choice)
   // paint from its answer into #ms-apps; an account that may not set them
@@ -16002,14 +16019,10 @@ function _msPreferencesHtml() {
         onchange: '_setStorageFlag(SK.HIDE_XZIM_LINKS, !this.checked)' },
     ]) +
 
-    // Default download flavor (above languages: reached more often): one
-    // selector row, like the theme.
+    // Default download flavor: one selector row, like the theme.
     '<div class="ms-section-label">' + tH('default_flavor') + '</div>' +
     _segHtml('ms-flavor-seg', 'default_flavor', _flavorSegInner()) +
-    '<div class="ms-hint">' + tH('default_flavor_hint') + '</div>' +
-    _languagesCardHtml() +
-    '<div class="ms-section-label" id="ms-voices">' + tH('voices_section') + '</div>' +
-    '<div id="' + _VOICES_WRAP_ID + '">' + _voicePrefsHtml() + '</div>';
+    '<div class="ms-hint">' + tH('default_flavor_hint') + '</div>';
   // My data is this browser's (bookmarks, history, these preferences): it
   // lives with the preferences, not with the server's settings.
   h += '<div class="ms-mydata" style="margin-top:24px">' + _myDataCardHtml() + '</div>';

@@ -950,7 +950,7 @@ function _ttsBarHtml() {
   var menu = function(which, items) {
     if (_ttsMenuOpen !== which) return '';
     return '<div class="tts-bar-menu tts-bar-menu-' + which + '" role="menu">' + items.map(function(it) {
-      return '<button type="button" role="menuitemradio" aria-checked="' + it[0] + '"' + (it[3] ? ' data-slow' : '') +
+      return '<button type="button" role="' + (it[4] || 'menuitemradio') + '" aria-checked="' + it[0] + '"' + (it[3] ? ' data-slow' : '') + (it[4] ? ' class="tts-menu-check"' : '') +
         ' onclick="' + escAttr(it[1]) + '">' + esc(it[2] + (it[3] ? ' ' + t('tts_too_slow') : '')) + '</button>';
     }).join('') + '</div>';
   };
@@ -960,7 +960,9 @@ function _ttsBarHtml() {
       menu('voice', [['' === pick, '_ttsPickVoice("")', t('voices_default_auto')]].concat(voices.map(function(e) {
         // Still pickable, but said (Eric, 2026-10-19: "a lil (Too Slow) beside the previous voice").
         return [e === pick, '_ttsPickVoice(' + JSON.stringify(e) + ')', _voiceEngineName(e), !_ttsWaits() && _ttsTooSlow(e)];
-      }))) + '</span>';
+      }).concat(_ttsNow.engine === 'kokoro' || pick === 'kokoro'
+        // Natural reading or picked: Patience, beside it (Eric, 2026-10-23).
+        ? [[_ttsWaits(), '_ttsPickPatience(' + !_ttsWaits() + ')', t('voices_wait'), false, 'menuitemcheckbox']] : []))) + '</span>';
   } else {
     h += '<span class="tts-bar-voice">' + esc(_ttsVoiceLabel()) + '</span>';
   }
@@ -1097,6 +1099,12 @@ function _ttsSpeedSettled() {
 // sentence it was at, in the new voice (inside this tap, as iOS needs).
 function _ttsPickVoice(engine) {
   _setVoicePrefs({ read: engine });
+  _ttsMenuOpen = '';
+  _ttsSpeak(_ttsNow.at);
+}
+// Patience from the bar: the reading starts again from here, keeping its voice.
+function _ttsPickPatience(on) {
+  _setVoicePrefs({ wait: on });
   _ttsMenuOpen = '';
   _ttsSpeak(_ttsNow.at);
 }
