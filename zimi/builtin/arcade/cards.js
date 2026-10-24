@@ -305,7 +305,8 @@
     api.el.addEventListener('pointerdown', function (e) { if (e.target === api.el) api.close(); });
     d.addEventListener('keydown', onKey, true);
     d.body.appendChild(api.el);
-    var first = card.querySelector('button, input');
+    // Focus starts on the current choice, so its ring never reads as a second pick.
+    var first = card.querySelector('[aria-pressed="true"]') || card.querySelector('button, input');
     if (first) first.focus();
     return api;
   }
