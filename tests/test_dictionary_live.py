@@ -969,6 +969,9 @@ def _in_flight(pg):
 # Playwright although the page has its answers (_swPrimed), so networkidle
 # alone waits forever on a first visit.
 PRIMING = ("/list?layout=1", "/whoami", "/manage/has-password")
+# The page's live stream (/events) stays open while it is shown, by design:
+# never "finished", so never waited for.
+STREAMS = ("/events",)
 
 
 def _quiet(pg, flying, timeout=30.0, ms=500):
@@ -979,7 +982,7 @@ def _quiet(pg, flying, timeout=30.0, ms=500):
     pg.wait_for_function("() => _swPrimed", timeout=timeout * 1000)
     end, calm = time.time() + timeout, None
     while time.time() < end:
-        busy = [u for u in flying.values() if not u.split("/", 3)[-1].startswith(tuple(p[1:] for p in PRIMING))]
+        busy = [u for u in flying.values() if not u.split("/", 3)[-1].startswith(tuple(p[1:] for p in PRIMING + STREAMS))]
         calm = None if busy else (calm or time.time())
         if calm and time.time() - calm >= ms / 1000:
             return

@@ -530,7 +530,7 @@ const tick = () => new Promise(r => setImmediate(r));
       extract(/var _TTS_SKIP_TAGS[\s\S]*?var _ttsRead = null;/, 'the read-along constants'), ax);
     vm.runInContext(['_ttsPlanChunks', '_ttsReadModel', '_ttsPieceAt', '_ttsRange', '_ttsOffsetOf', '_ttsSelectedSpan', '_ttsSpanAtChar',
       '_ttsSentenceAt', '_ttsScrollBy', '_ttsOnText', '_ttsMakePlan', '_ttsPlanFrom', '_ttsHlOk', '_ttsPaint', '_ttsAlongAt', '_ttsAlongAudio', '_ttsAlongChar',
-      '_ttsScroller', '_ttsFollow', '_ttsLose', '_ttsFollowResume', '_ttsTap', '_ttsStep', '_ttsBack', '_ttsAlongBegin', '_ttsAlongEnd'].map(fn).join('\n'), ax);
+      '_scrollerOf', '_ttsFollow', '_ttsLose', '_ttsFollowResume', '_ttsTap', '_ttsStep', '_ttsBack', '_ttsAlongBegin', '_ttsAlongEnd'].map(fn).join('\n'), ax);
 
     // A DOM of just what the reading looks at: elements with a display, text nodes, document order.
     const BLOCKS = ['div', 'p', 'h1', 'h2', 'ul', 'li', 'main', 'article', 'section', 'body'];
@@ -804,7 +804,7 @@ const tick = () => new Promise(r => setImmediate(r));
   {
     const sc = {};
     vm.createContext(sc);
-    vm.runInContext(fn('_ttsScroller'), sc);
+    vm.runInContext(fn('_scrollerOf'), sc);
     const mk = (tag, oy, sh, ch) => ({ nodeType: 1, tag, oy, scrollHeight: sh, clientHeight: ch, parentElement: null });
     const page = (rootOy) => {
       const root = mk('html', rootOy, 608, 608), body = mk('body', 'auto', 20000, 608), p = mk('p', 'visible', 40, 40);
@@ -815,9 +815,9 @@ const tick = () => new Promise(r => setImmediate(r));
       return { p, body, win };
     };
     let pg = page('auto');
-    ok('a body that scrolls itself (the root\'s overflow set) is the scroller', sc._ttsScroller(pg.p, pg.win) === pg.body);
+    ok('a body that scrolls itself (the root\'s overflow set) is the scroller', sc._scrollerOf(pg.p, pg.win) === pg.body);
     pg = page('visible');
-    ok('...but with the root left visible the window scrolls', sc._ttsScroller(pg.p, pg.win) === null);
+    ok('...but with the root left visible the window scrolls', sc._scrollerOf(pg.p, pg.win) === null);
   }
 
   {

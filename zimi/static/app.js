@@ -8215,6 +8215,37 @@ function _featuredZimFor(feat, names) {
   }
   return best;
 }
+// The LOCAL date as YYYY-MM-DD, not toISOString's (UTC): an evening render
+// used to store today's cards under tomorrow-UTC's key, serving yesterday's
+// Picture of the Day all the next day.
+function _localDay(d) {
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+// A seed's own dice (FNV-1a into mulberry32): the same numbers on every device.
+function _dayRandom(seed) {
+  var h = 2166136261;
+  for (var i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  return function() {
+    h = (h + 0x6D2B79F5) | 0;
+    var x = Math.imul(h ^ (h >>> 15), h | 1);
+    x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+// The day the Discover row was drawn for. A window left open across
+// midnight draws the new day's: at midnight, and on coming back to it.
+var _discoverDay = '';
+var _MIDNIGHT_SLACK_MS = 5000; // past midnight, so the clock reads the new day
+function _discoverDayCheck() {
+  if (_discoverDay && _discoverDay !== _localDay(new Date()) && document.getElementById('discover-row')) _loadDiscover();
+}
+function _discoverAtMidnight() {
+  var n = new Date();
+  setTimeout(function() { _discoverDayCheck(); _discoverAtMidnight(); },
+    new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1) - n + _MIDNIGHT_SLACK_MS);
+}
+document.addEventListener('visibilitychange', function() { if (!document.hidden) _discoverDayCheck(); });
+_discoverAtMidnight();
 function _loadDiscover() {
   if (_discoverLoading) return;
   var el = document.getElementById('discover-row');
@@ -8224,10 +8255,8 @@ function _loadDiscover() {
   }
   if (!el) return;
   var now = new Date();
-  // LOCAL date, not toISOString (UTC): an evening render used to store
-  // today's cards under tomorrow-UTC's key, serving yesterday's Picture
-  // of the Day all the next day.
-  var today = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2);
+  var today = _localDay(now);
+  _discoverDay = today;
   // The cards are chosen for the interface's language, so the day's cache is
   // kept per language: switching it chooses again rather than showing
   // another language's picks.
@@ -8316,9 +8345,13 @@ function _loadDiscover() {
     return typeof z.entries === 'number' && z.entries > 100 && z.kind !== 'map'
       && !skipPattern.test(z.name) && !skipCats[z.category] && !usedNames[z.name];
   });
-  // Shuffle and pick
+  // Shuffled with the day's own dice, from the library's order by name: the
+  // same library shows the same cards on every device all day (Eric,
+  // 2026-10-23: "EVERYTHING should always be the same everywhere").
+  visualZims.sort(function(a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+  var dice = _dayRandom(today);
   for (var ri = visualZims.length - 1; ri > 0; ri--) {
-    var rj = Math.floor(Math.random() * (ri + 1));
+    var rj = Math.floor(dice() * (ri + 1));
     var tmp = visualZims[ri]; visualZims[ri] = visualZims[rj]; visualZims[rj] = tmp;
   }
   for (var k = 0; k < randomNeeded && k < visualZims.length; k++) {
@@ -24894,6 +24927,7 @@ function openReader(url) {
       _topBtn.innerHTML = '\u2191';
       _topBtn.onclick = function() { frame.contentWindow.scrollTo({top:0,behavior:'smooth'}); };
       frame.contentDocument.body.appendChild(_topBtn);
+      _updateResumeApply(frame.contentWindow);
       var _scrollTicking = false;
       frame.contentWindow.addEventListener('scroll', function() {
         if (!_scrollTicking) { _scrollTicking = true; requestAnimationFrame(function() {
@@ -27738,10 +27772,14 @@ function _savedStart() {
 var _liveClient = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 var _liveSource = null, _liveSince = '', _liveRetryTimer = null;
 var _LIVE_RETRY_MS = 60000;  // a refused or failed stream: tried again after this
+// Every window holds one while it is shown: the library and a new build are
+// everyone's to hear, an account's own changes its signed-in windows'.
 function _liveOpen() {
-  if (_liveSource || !_accountId || document.hidden || typeof EventSource !== 'function') return;
+  if (_liveSource || document.hidden || typeof EventSource !== 'function') return;
   clearTimeout(_liveRetryTimer); _liveRetryTimer = null;
-  var src = new EventSource(_accountUrl('/events') + (_liveSince ? '&since=' + encodeURIComponent(_liveSince) : ''));
+  var url = _accountId ? _accountUrl('/events') : '/events';
+  if (_liveSince) url += (_accountId ? '&' : '?') + 'since=' + encodeURIComponent(_liveSince);
+  var src = new EventSource(url);
   _liveSource = src;
   src.addEventListener('change', function (e) {
     if (e.lastEventId) _liveSince = e.lastEventId;
@@ -27750,16 +27788,23 @@ function _liveOpen() {
     if (!c || c.by === _liveClient) return;
     if (c.topic === 'settings') _prefPull();
     else if (c.topic === 'saved') _savedPull();
+    else if (c.topic === 'library') _libraryHeard();
   });
-  // Each write says where the stream is (lastEventId): kept for reopening.
-  src.addEventListener('tick', function (e) { if (e.lastEventId) _liveSince = e.lastEventId; });
+  // Each write says where the stream is (lastEventId): kept for reopening,
+  // and which build the server serves now.
+  src.addEventListener('tick', function (e) {
+    if (e.lastEventId) _liveSince = e.lastEventId;
+    var d = null;
+    try { d = JSON.parse(e.data); } catch (err) {}
+    if (d && d.build) _buildHeard(d.build);
+  });
   src.onerror = function () {
     // Closed by the server's answer (401/409: not this account any more, or an
     // error page): asked whose this is, and tried again later. A dropped
     // connection is the browser's to reopen (readyState CONNECTING).
     if (src.readyState !== 2 || _liveSource !== src) return;
     _liveSource = null;
-    _accountRecheck();
+    if (_accountId) _accountRecheck();
     _liveRetryTimer = setTimeout(_liveOpen, _LIVE_RETRY_MS);
   };
 }
@@ -27770,6 +27815,118 @@ function _liveClose() {
 }
 // Another account (or none): its stream, from now on.
 function _liveRestart() { _liveClose(); _liveSince = ''; _liveOpen(); }
+
+// A ZIM added, removed or replaced on the server: the library this window
+// draws is fetched again, and drawn again where it is on screen.
+function _libraryHeard() {
+  _fetchList().then(function (list) {
+    zimsCache = list;
+    _rebuildZimsMap();
+    _libraryKnown = true;
+    _catalogCache = null;
+    if (mode === 'manage') { if (manageTab === 'installed') renderInstalled(); }
+    else if (mode === 'home' && !readerOpen && !currentSource && !readerSource) renderHome();
+  }).catch(function () {});
+}
+
+// ── A new build, while a window is open ──
+// Eric, 2026-10-23: "I like leave tabs open ... EVERYTHING should always be
+// the same everywhere regardless of whether i reload the page ... Maybe you
+// can even handle like site deployments" and "the pwa relaunch dance gets
+// annoying". A window still on the build it was opened with hears another in
+// /events' ticks (the stream reopens by itself after the server restarts):
+// the new service worker is fetched and takes charge (sw.js: skipWaiting,
+// claim), then the page reloads itself where nobody loses anything. Hidden,
+// at once; shown, only on the home page with nothing in hand, else the next
+// time it is hidden. An article open keeps its place (_updateResume).
+var _BUILD = (window.__ZIMI_CONFIG && __ZIMI_CONFIG.build) || '';
+var _buildWaiting = ''; // the newer build heard: the page reloads when it may
+var _BUILD_SW_WAIT_MS = 15000; // a worker that never takes charge does not hold the reload
+var _UPDATE_RESUME_KEY = 'zimi_update_resume'; // sessionStorage: the article's place across the reload
+// sessionStorage: the build this tab last reloaded for. Reloaded and still on
+// the old one (a worker that never took charge served the old page), it does
+// not reload again for the same build: one try, never a loop.
+var _UPDATE_TRIED_KEY = 'zimi_update_tried';
+function _buildHeard(build) {
+  if (!_BUILD || build === _BUILD || _buildWaiting) return;
+  try { if (sessionStorage.getItem(_UPDATE_TRIED_KEY) === build) return; } catch (e) {}
+  _buildWaiting = build;
+  _buildWorker().then(_buildReload);
+}
+// The new build's worker in charge (its cache is the new page), or a moment's wait for it.
+function _buildWorker() {
+  var sw = navigator.serviceWorker;
+  if (!sw || !sw.controller) return Promise.resolve();
+  return new Promise(function (done) {
+    sw.addEventListener('controllerchange', done, { once: true });
+    setTimeout(done, _BUILD_SW_WAIT_MS);
+    sw.getRegistration().then(function (reg) { if (reg) return reg.update(); done(); }).catch(done);
+  });
+}
+// Now if nothing is lost by it; else the next time the page is hidden.
+function _buildReload() {
+  var go = function () {
+    try { sessionStorage.setItem(_UPDATE_TRIED_KEY, _buildWaiting); } catch (e) {}
+    _updateResumeKeep();
+    location.reload();
+  };
+  if (document.hidden || _buildQuiet()) { go(); return; }
+  document.addEventListener('visibilitychange', function () { if (document.hidden) go(); }, { once: true });
+}
+// Shown, with nothing in hand: the home page or a ZIM's (the reload draws
+// the same one again), no field being typed in, no reading aloud, no media
+// playing, nothing open over it.
+function _buildQuiet() {
+  if ((mode !== 'home' && mode !== 'source') || readerOpen || _almanacOpen || _createOpen || _ttsSpeaking) return false;
+  var el = document.activeElement;
+  if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) && el.value) return false;
+  return !Array.prototype.some.call(document.querySelectorAll('audio, video'), function (m) { return !m.paused; });
+}
+// The nearest ancestor that scrolls by itself, or null (the page scrolls).
+// The body counts only when it scrolls itself: with the root's overflow left
+// visible, the body's is the window's (the window scrolls, null); the reader
+// on an iPhone sets the root's, and there the body is what scrolls (Eric,
+// 2026-10-20: "highlight and scroll isn't done").
+function _scrollerOf(el, win) {
+  var doc = el && el.ownerDocument, root = doc && doc.documentElement;
+  for (; el && el.nodeType === 1 && el !== root; el = el.parentElement) {
+    var oy = win.getComputedStyle(el).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1 &&
+        (el !== doc.body || win.getComputedStyle(root).overflowY !== 'visible')) return el;
+  }
+  return null;
+}
+// What scrolls an article: the page (null) when it scrolls, else the
+// tallest box that scrolls by itself (a DevDocs page scrolls its ._content,
+// beside a sidebar that scrolls too). Looked for only around a reload.
+function _articleScroller(win) {
+  var root = win.document.scrollingElement || win.document.documentElement, best = null;
+  if (root.scrollHeight > root.clientHeight + 1) return null;
+  win.document.querySelectorAll('body *').forEach(function (el) {
+    if (el.scrollHeight - el.clientHeight > (best ? best.scrollHeight - best.clientHeight : 1) && _scrollerOf(el, win) === el) best = el;
+  });
+  return best;
+}
+// The open article's place, kept for the page the reload brings back.
+function _updateResumeKeep() {
+  if (!readerOpen) return;
+  try {
+    var w = document.getElementById('reader-frame').contentWindow, box = _articleScroller(w);
+    sessionStorage.setItem(_UPDATE_RESUME_KEY, JSON.stringify({ at: location.href, y: box ? box.scrollTop : w.scrollY }));
+  } catch (e) {}
+}
+// The article opened again after an update: back where it was read, once
+// it is drawn and again once its pictures have their size.
+function _updateResumeApply(win) {
+  var kept = null;
+  try { kept = JSON.parse(sessionStorage.getItem(_UPDATE_RESUME_KEY)); sessionStorage.removeItem(_UPDATE_RESUME_KEY); } catch (e) {}
+  if (!kept || kept.at !== location.href || !(kept.y > 0)) return;
+  var go = function () {
+    try { var box = _articleScroller(win); if (box) box.scrollTop = kept.y; else win.scrollTo(0, kept.y); } catch (e) {}
+  };
+  go();
+  if (win.document.readyState !== 'complete') win.addEventListener('load', go, { once: true });
+}
 
 // ── Find in page ───────────────────────────────────────────────────────────
 // The open article's words: Cmd/Ctrl+F while an article is open (in Zimi's

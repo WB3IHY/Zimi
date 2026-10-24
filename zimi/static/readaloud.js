@@ -502,20 +502,6 @@ function _ttsAlongChar(idx, ch) {
   var st = _ttsRead, chunk = st && st.plan.chunks[idx];
   if (chunk) _ttsAlongAt(idx, _ttsSpanAtChar(chunk, ch));
 }
-// The nearest ancestor that scrolls by itself, or null (the page scrolls).
-// The body counts only when it scrolls itself: with the root's overflow left
-// visible, the body's is the window's (the window scrolls, null); the reader
-// on an iPhone sets the root's, and there the body is what scrolls (Eric,
-// 2026-10-20: "highlight and scroll isn't done").
-function _ttsScroller(el, win) {
-  var doc = el && el.ownerDocument, root = doc && doc.documentElement;
-  for (; el && el.nodeType === 1 && el !== root; el = el.parentElement) {
-    var oy = win.getComputedStyle(el).overflowY;
-    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1 &&
-        (el !== doc.body || win.getComputedStyle(root).overflowY !== 'visible')) return el;
-  }
-  return null;
-}
 // Keep the sentence in view. Only while following; once the person has moved
 // the page, the reading follows again when it comes back to what is in view.
 function _ttsFollow(force) {
@@ -530,7 +516,7 @@ function _ttsFollow(force) {
       if (doc.__zbShowRange) { doc.__zbShowRange(rs[0]); moved = true; }
     } else {
       var box = rs[0].getBoundingClientRect(), end = rs[rs.length - 1].getBoundingClientRect();
-      var scr = _ttsScroller(rs[0].startContainer.parentElement, win), cr = scr ? scr.getBoundingClientRect() : { top: 0, height: win.innerHeight };
+      var scr = _scrollerOf(rs[0].startContainer.parentElement, win), cr = scr ? scr.getBoundingClientRect() : { top: 0, height: win.innerHeight };
       var by = _ttsScrollBy({ top: box.top - cr.top, bottom: end.bottom - cr.top }, cr.height);
       if (!by && !force) { st.following = true; return; }
       if (!force && !st.following) return;
