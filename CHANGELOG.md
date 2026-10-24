@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - An open window or the installed app updates itself to a new version of Zimi: right away on the home page, otherwise the next time it is in the background, with an open article back where it was.
 - ZIMs added or removed show up in every open window without a reload.
 - Discover shows the next day's cards in a window left open overnight.
-- Patience, in Settings > Languages > Voices and in Read aloud's voice menu while Natural reads: Read aloud keeps a slow voice, gets ahead before it starts (the bar counts down) and pauses to catch up, instead of switching to a faster voice.
+- Patience, in Settings > Languages > Voices and in Read aloud's voice menu while Natural reads: Read aloud keeps a slow voice, gets ahead before it starts (the bar counts down with a closing ring) and pauses to catch up, instead of switching to a faster voice.
 
 ### Changed
 

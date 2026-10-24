@@ -670,7 +670,7 @@ function _ttsSpeak(from, plan) {
   // a slow voice can take seconds over a sentence, and the page sat unmarked
   // (Eric, 2026-10-21: "tapping to another spot highlight is gone").
   _ttsAlongAt(from, 0);
-  _ttsNow = { at: from, engine: engines[0] || _DEVICE_VOICE, playing: false, spin: false, lang: lang, ahead: 0 };
+  _ttsNow = { at: from, engine: engines[0] || _DEVICE_VOICE, playing: false, spin: false, lang: lang, ahead: 0, readyAt: 0, aheadOf: 0 };
   _ttsHold();
   if (engines.length) _ttsSpeakServer(chunks, lang, engines, ++_ttsRun, chosen ? function(e) { _ttsSuggestFaster(lang, e); } : null, from);
   else _ttsSpeakDevice(chunks, lang, from);
@@ -799,13 +799,19 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
     var end = _ttsLeadEnd(chunks, idx, pace, _ttsRate()), left = 0;
     for (var k = idx; k <= end; k++) if (!ready[k] && asked[k] !== true) left += (pace.work || 0) * chunks[k].length;
     if (left > 0 || (!ready[idx] && asked[idx] !== true) || _ttsPaused) {
+      // The wait from here: counted down each second between chunks, and
+      // the whole of it kept, so the ring says how much is done.
+      var fresh = holding !== idx || !_ttsNow.readyAt;
+      _ttsNow.readyAt = Date.now() + left * 1000;
+      _ttsNow.aheadOf = fresh ? left : Math.max(_ttsNow.aheadOf, left);
       holding = idx; _ttsHeld = function() { hold(idx); };
       if (_ttsNow.at !== idx || _ttsNow.playing || _ttsNow.ahead !== Math.ceil(left)) {
         _ttsNow.at = idx; _ttsNow.ahead = Math.ceil(left); _ttsHold();
       }
+      _ttsAheadTick();
       return;
     }
-    holding = -1; _ttsHeld = null; _ttsNow.ahead = 0;
+    holding = -1; _ttsHeld = null; _ttsNow.ahead = 0; _ttsNow.readyAt = 0;
     play(idx);
   }
   function play(idx) {
@@ -873,6 +879,21 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
 // Waiting for the voice to get ahead: what Resume does instead of playing
 // the clip that ended (set by _ttsSpeakServer while it holds).
 var _ttsHeld = null;
+// The countdown between chunks: a second at a time toward readyAt, never
+// below 1 s until the chunks say it is ready.
+var _ttsAheadTimer = 0;
+function _ttsAheadTick() {
+  clearTimeout(_ttsAheadTimer);
+  if (!_ttsSpeaking || _ttsNow.playing || !_ttsNow.readyAt) return;
+  _ttsNow.ahead = Math.max(1, Math.ceil((_ttsNow.readyAt - Date.now()) / 1000));
+  _ttsBarSync();
+  _ttsAheadTimer = setTimeout(_ttsAheadTick, 1000);
+}
+// How much of the wait is done, 0 to 1, for the ring.
+function _ttsAheadDone() {
+  if (!_ttsNow.aheadOf) return 0;
+  return Math.min(1, Math.max(0, 1 - (_ttsNow.readyAt - Date.now()) / 1000 / _ttsNow.aheadOf));
+}
 function _ttsToggle() {
   if (_ttsSpeaking) _ttsStop();
   else _ttsSpeak();
@@ -884,7 +905,7 @@ function _ttsToggle() {
 // which voice it was. The bar says all three (a turning ring until the first
 // sound, then the voice), offers this language's voices where it plays
 // (remembered as Read aloud's own, Settings > Voices), and stops it.
-var _ttsNow = { at: 0, engine: '', playing: false, spin: false, lang: '', ahead: 0 }; // ahead: seconds until it has got far enough ahead
+var _ttsNow = { at: 0, engine: '', playing: false, spin: false, lang: '', ahead: 0, readyAt: 0, aheadOf: 0 }; // ahead: seconds until it has got far enough ahead (at readyAt, of aheadOf in all)
 // Between sentences, or a sentence started again, the bar holds still; the
 // ring turns only for a wait long enough to notice (Eric, 2026-10-22:
 // "should hide unless it's a longer wait (seamless ui)").
@@ -945,7 +966,9 @@ function _ttsBarHtml() {
   var btn = function(cls, label, onclick, inner, extra) {
     return '<button type="button" class="' + cls + '" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '" onclick="' + onclick + '"' + (extra || '') + '>' + inner + '</button>';
   };
-  var h = '<span class="tts-bar-state' + (_ttsPaused ? ' paused' : _ttsNow.playing ? ' playing' : _ttsNow.spin ? '' : ' hold') + '" aria-hidden="true"><i></i><i></i><i></i></span>';
+  var ahead = _ttsNow.ahead > 0 && !_ttsNow.playing;
+  var h = '<span class="tts-bar-state' + (ahead ? ' ahead' : _ttsPaused ? ' paused' : _ttsNow.playing ? ' playing' : _ttsNow.spin ? '' : ' hold') + '"' +
+    (ahead ? ' style="--p:' + _ttsAheadDone().toFixed(3) + '"' : '') + ' aria-hidden="true"><i></i><i></i><i></i></span>';
   // A menu opens above the button it belongs to, its choices radio items.
   var menu = function(which, items) {
     if (_ttsMenuOpen !== which) return '';

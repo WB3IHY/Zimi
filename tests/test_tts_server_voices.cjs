@@ -93,6 +93,20 @@ ok('a slow voice gets far enough ahead that the rest plays without a pause', ctx
 ok('...counted from where it starts', ctx._ttsLeadEnd(lens(6), 2, slowPace, 1) === 3);
 ok('...a long article waits a minute at most, then pauses to catch up', ctx._ttsLeadEnd(lens(100), 0, slowPace, 1) === 3);
 ok('...faster speech needs more ahead', ctx._ttsLeadEnd(lens(4), 0, slowPace, 2) === 2);
+{
+  // The ring while it gets ahead: how much of the wait is done.
+  const now = { t: 100000 };
+  const rc = { _ttsNow: { readyAt: 0, aheadOf: 0 }, Math, Date: { now: () => now.t } };
+  vm.createContext(rc);
+  vm.runInContext(fn('_ttsAheadDone'), rc);
+  ok('no wait yet: the ring is empty', rc._ttsAheadDone() === 0);
+  rc._ttsNow.aheadOf = 40; rc._ttsNow.readyAt = now.t + 40000;
+  ok('...the wait just begun: still empty', rc._ttsAheadDone() === 0);
+  now.t += 30000;
+  ok('...three quarters of it gone: three quarters closed', Math.abs(rc._ttsAheadDone() - 0.75) < 1e-9);
+  now.t += 20000;
+  ok('...past the estimate: closed, never more', rc._ttsAheadDone() === 1);
+}
 ok('a voice that keeps up starts with its first chunk', ctx._ttsLeadEnd(lens(50), 0, { work: 0.5 / 14, audio: 1 / 14 }, 1) === 0);
 ok('...and so does one not measured yet', ctx._ttsLeadEnd(lens(50), 0, { work: null, audio: 1 / 14 }, 1) === 0);
 ctx._ttsVoices.timings = { kokoro: { rtf: 1.5, cps: 12 } };
@@ -185,7 +199,7 @@ function freshReading() {
     _ttsAlongAt: () => {},
     _ttsNow: {}, _ttsBarSync: () => {}, _ttsRate: () => 1, _ttsPaused: false,
     _ttsSpeakDevice: (c, l, from) => { r.device = from; },
-    _ttsHold() {}, _ttsSpinTimer: 0,
+    _ttsHold() {}, _ttsAheadTick() {}, _ttsSpinTimer: 0,
   });
   return r;
 }
