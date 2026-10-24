@@ -97,6 +97,8 @@ import certifi
 from libzim.reader import Archive
 from libzim.suggestion import SuggestionSearcher
 
+from zimi import changes as _changes
+
 # PyMuPDF, for reading PDFs embedded in ZIM files.
 #
 # `pymupdf` is the module's real name; `fitz` is the historical alias, and
@@ -2700,6 +2702,25 @@ _MASS_STAMP_WINDOW = 120.0  # seconds
 _MASS_STAMP_MTIME_TOL = 3600.0  # first_seen must be within 1h of file mtime to be real
 _zim_list_cache = None
 _zim_files_cache = None  # {name: path} — cached at startup, ZIM dir is read-only
+_listing_seen = None  # what _set_listing last saw in the listing
+
+
+def _set_listing(listing):
+    """The library's listing, replaced. When what it holds changed (a ZIM
+    added, removed or replaced), every open window is told (changes.py
+    "library") and draws the library again, without a reload; a rescan that
+    found the same files tells nobody. Call under _zim_lock, or at load."""
+    global _zim_list_cache, _listing_seen
+    _zim_list_cache = listing
+    seen = frozenset(
+        (z.get("name"), z.get("file"), z.get("size_bytes"), z.get("entries"))
+        for z in listing or []
+    )
+    if seen != _listing_seen:
+        told = _listing_seen is not None  # the first listing is no change
+        _listing_seen = seen
+        if told:
+            _changes.announce("library", None)
 
 
 # ── Per-request ZIM allow context (multi-user v1) ────────────────────────────
@@ -3916,7 +3937,7 @@ def load_cache(force=False):
     # the dated-filename inherit fix (pre-fix updates mis-stamped them 'New').
     healed_updates = _self_heal_update_stamps(info, file_cache)
 
-    _zim_list_cache = info
+    _set_listing(info)
     elapsed = time.time() - t0
 
     # Persist cache if we scanned anything new, backfilled a legacy first_seen
@@ -4277,7 +4298,7 @@ def register_zim_file(path, removed_files=(), removed_paths=()):
             and z.get("file") not in removed
         ]
         listing.append(entry)
-        _zim_list_cache = listing
+        _set_listing(listing)
         if replaced or left:
             # The file under a served name changed (replaced in place, or an
             # edition swapped out): drop every handle still on the old one.
@@ -4364,9 +4385,9 @@ def _drop_registered(gone, dead_files):
             _zim_files_cache = {
                 n: p for n, p in _zim_files_cache.items() if n not in gone
             }
-            _zim_list_cache = [
-                z for z in (_zim_list_cache or []) if z.get("name") not in gone
-            ]
+            _set_listing(
+                [z for z in (_zim_list_cache or []) if z.get("name") not in gone]
+            )
             # Evict the pooled handles for the deleted files. Dropping them
             # from the dicts only stops FUTURE use: a search thread already
             # holding one keeps a valid mapping of an unlinked file until it

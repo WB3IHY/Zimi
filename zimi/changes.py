@@ -16,7 +16,10 @@ import secrets
 import threading
 
 # Topics: "settings" (an account's settings, users.change_settings) and
-# "saved" (its saved store, users.sync_user_data).
+# "saved" (its saved store, users.sync_user_data), each an account's own;
+# "library" (a ZIM added, removed or replaced, server._set_listing), every
+# window's (announced for owner None).
+TOPICS = ("settings", "saved", "library")
 _LOG_MAX = 256  # announcements kept for a stream that was busy writing
 
 # This run of the server: a window's place in the log ("<boot>.<seq>") from
@@ -47,8 +50,8 @@ def place(seq):
 
 
 def announce(topic, owner, by=None):
-    """``topic`` changed for ``owner`` (an account's data name), made by the
-    window ``by`` (its own id, or None)."""
+    """``topic`` changed for ``owner`` (an account's data name, or None for
+    every window), made by the window ``by`` (its own id, or None)."""
     global _seq
     with _cond:
         _seq += 1
@@ -59,19 +62,21 @@ def announce(topic, owner, by=None):
 
 
 def wait(after, owner, timeout):
-    """Changes for ``owner`` announced after ``after``, waiting up to
-    ``timeout`` seconds for one: (latest number, [{"topic", "by"}]). A stream
-    that fell further behind than the log keeps is told every topic changed."""
+    """Changes for ``owner`` (None: a window no one is signed in to) and for
+    every window, announced after ``after``, waiting up to ``timeout`` seconds
+    for one: (latest number, [{"topic", "by"}]). A stream that fell further
+    behind than the log keeps is told every topic changed."""
     with _cond:
         _cond.wait_for(lambda: _seq > after, timeout)
         latest = _seq
         if latest == after:
             return latest, []
         if not _log or _log[0][0] > after + 1:
-            return latest, [{"topic": t, "by": None} for t in ("settings", "saved")]
+            mine = TOPICS if owner else ("library",)
+            return latest, [{"topic": t, "by": None} for t in mine]
         out, seen = [], set()
         for seq, topic, who, by in _log:
-            if seq > after and who == owner and (topic, by) not in seen:
+            if seq > after and who in (owner, None) and (topic, by) not in seen:
                 seen.add((topic, by))
                 out.append({"topic": topic, "by": by})
         return latest, out

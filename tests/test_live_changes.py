@@ -63,14 +63,15 @@ def test_a_place_from_before_a_restart_hears_everything_once():
     after = changes.resume_from("feedface.3")
     assert after == -1
     topics = {c["topic"] for c in _heard(after, "alice")}
-    assert topics == {"settings", "saved"}
+    assert topics == {"settings", "saved", "library"}
+    assert {c["topic"] for c in _heard(after, None)} == {"library"}, "a signed-out window has no account to read"
 
 
 def test_a_stream_further_behind_than_the_log_hears_everything():
     start = changes.resume_from(None)
     for _ in range(changes._LOG_MAX + 5):
         changes.announce("settings", "bob")
-    assert {c["topic"] for c in _heard(start, "alice")} == {"settings", "saved"}
+    assert {c["topic"] for c in _heard(start, "alice")} == {"settings", "saved", "library"}
 
 
 def test_one_change_said_once_however_often_it_was_announced():
@@ -78,3 +79,34 @@ def test_one_change_said_once_however_often_it_was_announced():
     for _ in range(3):
         changes.announce("settings", "alice", "tab-1")
     assert _heard(start, "alice") == [{"topic": "settings", "by": "tab-1"}]
+
+
+def test_the_library_is_everyone_s_to_hear():
+    start = changes.resume_from(None)
+    changes.announce("library", None)
+    assert _heard(start, "alice") == [{"topic": "library", "by": None}]
+    assert _heard(start, None) == [{"topic": "library", "by": None}]
+
+
+def test_a_signed_out_window_never_hears_an_account_s_changes():
+    start = changes.resume_from(None)
+    changes.announce("saved", "alice")
+    assert _heard(start, None) == []
+
+
+def test_the_library_is_announced_only_when_what_it_holds_changed(monkeypatch):
+    from zimi import server
+
+    monkeypatch.setattr(server, "_listing_seen", None)
+    monkeypatch.setattr(server, "_zim_list_cache", None)
+    one = [{"name": "a", "file": "a.zim", "size_bytes": 1, "entries": 5, "title": "A"}]
+    start = changes.resume_from(None)
+    server._set_listing(one)
+    assert _heard(start, None) == [], "the first listing at startup is no change"
+    server._set_listing([dict(one[0], title="A, retitled")])
+    assert _heard(start, None) == [], "a rescan that found the same files"
+    server._set_listing(one + [{"name": "b", "file": "b.zim", "size_bytes": 2, "entries": 9}])
+    assert _heard(start, None) == [{"topic": "library", "by": None}]
+    again = changes.resume_from(None)
+    server._set_listing(one)
+    assert _heard(again, None) == [{"topic": "library", "by": None}], "a ZIM removed"

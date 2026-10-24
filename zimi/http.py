@@ -1234,6 +1234,11 @@ def _asset_version():
     return f"zimi-v{_srv.ZIMI_VERSION}-{_ASSET_BUNDLE_HASH}"
 
 
+# The build the page is, beside the build /events' ticks say this server
+# serves: a window open across a deploy hears a different one and updates.
+SEARCH_UI_HTML = SEARCH_UI_HTML.replace("build:''", "build:'%s'" % _asset_version())
+
+
 # ============================================================================
 # About this ZIM — the file's own metadata, and the provenance it carries
 # ============================================================================
@@ -5782,16 +5787,25 @@ class ZimHandler(BaseHTTPRequestHandler):
         return self._json(200, doc)
 
     def _handle_events(self):
-        """GET /events — the signed-in account's changes as server-sent
+        """GET /events — what an open window should hear as server-sent
         events, one ``change`` event ({"topic", "by"}) per change, for as long
-        as the window keeps it open (changes.py). A comment every
+        as the window keeps it open (changes.py): every window hears the
+        library change, a signed-in one its account's changes too (sent with
+        ``account``, which must be the one signed in). A ``tick`` every
         _EVENTS_HEARTBEAT_S keeps proxies from closing a quiet stream and
-        finds a window that went away; the stream ends after _EVENTS_MAX_S and
-        the browser opens a new one (``retry``), so no thread waits forever
-        on a client that vanished without a word."""
-        name, refused = self._data_owner(self._query_account())
-        if refused:
-            return self._json(*refused)
+        finds a window that went away; each says which build of the page this
+        server serves (``build``), so a window still on an older one, after a
+        deploy, knows to update. The stream ends after _EVENTS_MAX_S and the
+        browser opens a new one (``retry``), so no thread waits forever on a
+        client that vanished without a word. A private library refuses an
+        anonymous window before it gets here (_private_access_block)."""
+        account = self._query_account()
+        if account is None:
+            name = _users.request_data_owner(self)
+        else:
+            name, refused = self._data_owner(account)
+            if refused:
+                return self._json(*refused)
         after = _changes.resume_from(
             self._query_param("since") or self.headers.get("Last-Event-ID")
         )
@@ -5804,8 +5818,11 @@ class ZimHandler(BaseHTTPRequestHandler):
         self.close_connection = True
         # Every write carries the stream's place (``id``), which the window
         # keeps and sends back on reopening; a ``tick`` says only that.
+        tick = json.dumps({"build": _asset_version()}).encode()
         place = _changes.place(max(after, 0)).encode()
-        self.wfile.write(b"retry: %d\nid: %s\nevent: tick\ndata: 1\n\n" % (_EVENTS_RETRY_MS, place))
+        self.wfile.write(
+            b"retry: %d\nid: %s\nevent: tick\ndata: %s\n\n" % (_EVENTS_RETRY_MS, place, tick)
+        )
         self.wfile.flush()
         ends = time.monotonic() + _EVENTS_MAX_S
         while time.monotonic() < ends:
@@ -5816,7 +5833,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                 % (place, json.dumps(c, separators=(",", ":")).encode())
                 for c in got
             )
-            self.wfile.write(out or b"id: %s\nevent: tick\ndata: 1\n\n" % place)
+            self.wfile.write(out or b"id: %s\nevent: tick\ndata: %s\n\n" % (place, tick))
             self.wfile.flush()
 
     def log_message(self, format, *args):
