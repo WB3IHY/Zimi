@@ -34,6 +34,7 @@ MODULES = (
     "server",
     "changes",
     "libfolders",
+    "ownzims",
     "mcp_server",
     "search",
     "query",

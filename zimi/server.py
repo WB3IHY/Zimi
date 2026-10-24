@@ -288,6 +288,10 @@ def start_background_services(http_port):
     threading.Thread(target=_maintenance_loop, daemon=True, name="maintenance").start()
     threading.Thread(target=_shape_backfill, daemon=True, name="zim-shapes").start()
     threading.Thread(target=_sweep_working_files, daemon=True, name="zim-sweep").start()
+    # Zimi's own ZIMs, built when their folder changed.
+    from zimi import ownzims
+
+    ownzims.start()
     # Zimipedia's Today, worked out before anyone opens it.
     from zimi import wiki as _wiki
 
@@ -880,6 +884,8 @@ CONFIG_ENV_SETTINGS = (
     # zimi.mcp_server`, which kept the full set for configs written before.
     ConfigSetting("mcp_tools", "ZIMI_MCP_TOOLS", "str", "", "lean", False),
     ConfigSetting("index_throttle", "ZIMI_INDEX_THROTTLE", "bool", "1", None, False),
+    # Zimi's own ZIMs (zimi/ownzims.py: the Arcade), built in its data folder.
+    ConfigSetting("builtin_zims", "ZIMI_BUILTIN_ZIMS", "bool", "1", None, False),
     # The one directory tree the WEB may package a ZIM from (zimi.manage's
     # folder and import modes, and the directory picker that feeds them).
     # Unset — the default — means the web cannot package a server path at all;
@@ -3036,11 +3042,16 @@ def _scan_zim_files():
     from zimi import libfolders
 
     libfolders.refresh()
+    # Zimi's own ZIMs (the Arcade) come last: built in its data folder, and
+    # never shadowing a file the operator put in the library.
+    from zimi import ownzims
+
     groups = {}  # base name -> [(tier, path)], in scan order
     for tier, paths in (
         (0, root_paths),
         (1, sub_paths),
         (2, libfolders.zim_paths()),
+        (3, ownzims.zim_paths()),
     ):
         for path in paths:
             name = _zim_base_name(os.path.basename(path))

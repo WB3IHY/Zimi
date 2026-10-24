@@ -1955,11 +1955,18 @@ def zim_name(scope, language="eng"):
     return f"zimi_{lang}_{_slug(text, 'zim')}"
 
 
+_CATEGORY_TAG = "_category:"
+
+
 def tags_string(extra=()):
     """The ``Tags`` value: the defaults every Zimi ZIM can honestly claim,
-    plus whatever the engine knows, deduped and semicolon-joined."""
+    plus whatever the engine knows, deduped and semicolon-joined. A
+    ``_category:`` given replaces the default one: readers take the first."""
+    extra = [str(t).strip() for t in (extra or ())]
+    given = next((t for t in extra if t.startswith(_CATEGORY_TAG)), None)
+    defaults = [given if given and t.startswith(_CATEGORY_TAG) else t for t in DEFAULT_TAGS]
     tags = []
-    for tag in list(DEFAULT_TAGS) + list(extra or ()):
+    for tag in defaults + [t for t in extra if not t.startswith(_CATEGORY_TAG)]:
         tag = str(tag).strip()
         if tag and tag not in tags:
             tags.append(tag)

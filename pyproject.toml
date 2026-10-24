@@ -105,7 +105,7 @@ Changelog = "https://github.com/epheterson/Zimi/blob/main/CHANGELOG.md"
 include = ["zimi*"]
 
 [tool.setuptools.package-data]
-zimi = ["templates/**", "static/**", "assets/**"]
+zimi = ["templates/**", "static/**", "assets/**", "builtin/**"]
 
 [tool.pytest.ini_options]
 # test_article_languages is a data-integrity suite — it asserts against real
