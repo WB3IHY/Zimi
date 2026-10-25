@@ -7,3 +7,27 @@
 .c2-tag.c2-dealer b::after { content: " D"; color: var(--accent); }
 .c2-tag.c2-turn.c2-dealer b::after { color: inherit; }
 .c2-me { display: flex; gap: 8px; justify-content: center; align-items: baseline; padding-top: 1px; padding-bottom: 1px; } .c2-me b { display: inline; flex: none; } .c2-me span { overflow: hidden; text-overflow: ellipsis; }
+
+/* Bridge: the auction as it goes round, and the bidding box. */
+.br-auction { position: absolute; z-index: 24; box-sizing: border-box; padding: 6px 8px; border-radius: 10px; background: rgba(0, 0, 0, 0.34); color: #fff; font: 12px/1.3 var(--mono); pointer-events: none; }
+.br-auction[hidden], .br-box[hidden] { display: none; }
+.br-cap { margin: 0 0 4px; font: 11px/1.3 var(--font); text-align: center; opacity: 0.9; }
+.br-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 3px; text-align: center; }
+.br-head { font: 600 11px/1.4 var(--font); }
+.br-head.br-you { color: var(--accent); }
+.br-call { min-height: 18px; border-radius: 4px; }
+.br-call.br-latest { background: var(--accent); color: var(--accent-ink); }
+.br-auction .br-red { color: #ff9e94; }
+.br-auction .br-latest .br-red { color: #8f1d1d; }
+.br-box { position: absolute; left: 50%; transform: translateX(-50%); z-index: 35; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; width: min(100% - 16px, 400px); padding: 8px; border-radius: 12px; background: rgba(8, 24, 16, 0.9); }
+.br-levels { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.br-bid { min-width: 0; min-height: 40px; padding: 0 2px; font-weight: 600; }
+.br-bid .br-red { color: var(--suit-red); }
+.br-row { display: flex; gap: 6px; }
+.br-wide { flex: 1; min-height: 44px; }
+
+/* Canasta: the action bar above your hand. */
+.cn-bar { position: absolute; left: 50%; transform: translateX(-50%); z-index: 36; display: flex; gap: 8px; justify-content: center; width: min(100% - 16px, 520px); }
+.cn-bar[hidden] { display: none; }
+.cn-btn { min-width: 64px; min-height: 44px; padding: 0 12px; font-weight: 600; }
+.cn-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }

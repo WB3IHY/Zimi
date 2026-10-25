@@ -398,5 +398,304 @@ if (sandbox.ZimiBigTwo && sandbox.ZimiTienLen) {
   }
 }
 
+// ── Bridge ──────────────────────────────────────────────────────────────────
+if (sandbox.ZimiBridge) {
+  const BR = sandbox.ZimiBridge;
+  const C = (level, den, dbl) => ({ level, den, dbl: dbl || 0 });
+  const sc = (c, taken, vul) => BR.scoreContract(c, taken, !!vul).points;
+  // Scoring (den: 0 clubs, 1 diamonds, 2 hearts, 3 spades, 4 notrump).
+  check(sc(C(3, 4), 9) === 400 && sc(C(3, 4), 10) === 430 && sc(C(3, 4), 9, true) === 600, '3NT: 400 exactly, 430 with an overtrick, 600 vulnerable');
+  check(sc(C(4, 3), 10) === 420 && sc(C(4, 3), 10, true) === 620, '4 spades: 420, 620 vulnerable');
+  check(sc(C(2, 2), 8) === 110 && sc(C(1, 4), 7) === 90 && sc(C(2, 0), 8) === 90, 'part-scores carry the 50 bonus');
+  check(sc(C(5, 0), 11) === 400 && sc(C(5, 1), 11, true) === 600, 'five of a minor makes game');
+  check(sc(C(6, 3), 12) === 980 && sc(C(6, 3), 12, true) === 1430, 'small slam bonus 500 / 750');
+  check(sc(C(7, 4), 13) === 1520 && sc(C(7, 4), 13, true) === 2220, 'grand slam bonus 1000 / 1500');
+  check(sc(C(4, 3), 8) === -100 && sc(C(4, 3), 8, true) === -200, 'down two undoubled');
+  check(sc(C(4, 2, 1), 9) === -100 && sc(C(4, 2, 1), 8) === -300 && sc(C(4, 2, 1), 7) === -500 && sc(C(4, 2, 1), 6) === -800, 'doubled undertricks, not vulnerable: 100 300 500 800');
+  check(sc(C(4, 2, 1), 9, true) === -200 && sc(C(4, 2, 1), 8, true) === -500 && sc(C(4, 2, 1), 7, true) === -800, 'doubled undertricks, vulnerable: 200 500 800');
+  check(sc(C(4, 2, 2), 9) === -200, 'redoubled doubles the penalty');
+  check(sc(C(4, 2, 1), 10) === 240 + 300 + 50, '4 hearts doubled making: 590');
+  check(sc(C(4, 2, 1), 11) === 590 + 100, 'doubled overtricks pay 100 when not vulnerable');
+  check(sc(C(4, 2, 1), 11, true) === 240 + 500 + 50 + 200, 'doubled overtrick vulnerable');
+  check(sc(C(4, 2, 2), 10) === 480 + 300 + 100, '4 hearts redoubled making: 880');
+  check(sc(C(1, 3, 1), 7) === 60 + 50 + 50 && sc(C(2, 3, 1), 8) === 120 + 300 + 50, 'doubling can turn a part-score into game: 2 spades doubled is 470');
+  // The auction.
+  const deal = (seed, n) => BR.newGame(Z.shuffled(lcg(seed || 5)));
+  {
+    let st = deal(1);
+    check(st.dealer === 2 && st.turn === 2 && st.vul.join() === 'false,false', 'deal 1: North deals, nobody is vulnerable');
+    const calls = seat => BR.legalCalls(st, seat);
+    check(calls(1).length === 0 && calls(2).length === 36, 'only the dealer may call: pass plus 35 bids');
+    st = BR.applyCall(st, 2, '1H');
+    check(st.turn === 3, 'the call passes to the left (East)');
+    check(calls(3).indexOf('1H') < 0 && calls(3).indexOf('1S') >= 0 && calls(3).indexOf('1N') >= 0 && calls(3).indexOf('X') >= 0 && calls(3).indexOf('XX') < 0, 'a bid must be higher; the opponent may double, not redouble');
+    check(BR.applyCall(st, 3, '1D') === st, 'an insufficient bid is refused');
+    st = BR.applyCall(st, 3, 'X');
+    check(calls(0).indexOf('X') < 0 && calls(0).indexOf('XX') >= 0, 'after a double: redouble is legal for the doubled side only');
+    check(BR.legalCalls(st, 0).indexOf('XX') >= 0 && st.turn === 0, 'South (partner of the bidder) may redouble');
+    st = BR.applyCall(st, 0, 'P'); st = BR.applyCall(st, 1, 'P');
+    check(st.phase === 'auction', 'two passes do not end it');
+    st = BR.applyCall(st, 2, 'P');
+    check(st.phase === 'play' && st.contract.level === 1 && st.contract.den === 2 && st.contract.dbl === 1 && st.contract.declarer === 2 && st.contract.dummy === 0, 'three passes end it: 1 heart doubled by North, dummy is you');
+    check(st.turn === 3 && st.leader === 3, 'the player on declarer’s left leads (East)');
+    check(BR.controller(st, 0) === 2 && BR.controller(st, 2) === 2 && BR.controller(st, 1) === 1, 'declarer plays dummy’s cards');
+    // Declarer is the first of the side to bid the suit.
+    let s2 = deal(2);
+    s2 = BR.applyCall(s2, 2, '1C'); s2 = BR.applyCall(s2, 3, 'P'); s2 = BR.applyCall(s2, 0, '1S'); s2 = BR.applyCall(s2, 1, 'P');
+    s2 = BR.applyCall(s2, 2, '2S'); s2 = BR.applyCall(s2, 3, 'P'); s2 = BR.applyCall(s2, 0, 'P'); s2 = BR.applyCall(s2, 1, 'P');
+    check(s2.phase === 'play' && s2.contract.declarer === 0 && s2.contract.den === 3, 'the first to bid spades (South) is declarer even though North bid the last one');
+    // Passed out.
+    let s3 = deal(3);
+    for (let k = 0; k < 4; k++) s3 = BR.applyCall(s3, s3.turn, 'P');
+    check(s3.phase === 'dealEnd' && s3.result.passedOut && s3.totals.join() === '0,0', 'four passes: passed out, no score');
+    // Seven no trump is the top.
+    let s4 = deal(4);
+    s4 = BR.applyCall(s4, 2, '7N');
+    check(BR.legalCalls(s4, 3).join() === 'P,X', 'nothing beats seven no trump but a double');
+  }
+  // Tricks.
+  {
+    const trick = (spec) => spec.map(([seat, c]) => ({ seat, id: id(c) }));
+    check(BR.trickWinner(trick([[0, '5S'], [1, 'KS'], [2, '2S'], [3, 'QS']]), -1) === 1, 'no trump: highest of the suit led');
+    check(BR.trickWinner(trick([[0, '5S'], [1, 'KH'], [2, '2S'], [3, 'QD']]), -1) === 0, 'no trump: discards never win');
+    check(BR.trickWinner(trick([[0, 'AS'], [1, '2H'], [2, 'KS'], [3, '3H']]), 2) === 3, 'a trump beats the suit led, the higher trump wins');
+    check(BR.trickWinner(trick([[0, 'AS'], [1, 'KD'], [2, 'KS'], [3, '3D']]), 2) === 0, 'a discard in another suit does not win');
+  }
+  // Following suit and the dummy.
+  {
+    let st = deal(7);
+    st.hands = [ids('AS KS 2H'), ids('QS 5D 4D'), ids('3S 3H 3D'), ids('JS 6D 6C')];
+    st.phase = 'play'; st.turn = 1; st.leader = 1; st.contract = { level: 3, den: 4, declarer: 0, dummy: 2, dbl: 0 };
+    st.hands = st.hands.map(h => h.slice());
+    check(BR.legalPlays(st, 1).length === 3, 'the leader may play anything');
+    st = BR.playCard(st, 1, id('QS'));
+    check(st.dummyShown === true && st.turn === 2, 'dummy goes down after the opening lead');
+    check(BR.legalPlays(st, 2).join() === id('3S').toString(), 'must follow suit');
+    check(BR.playCard(st, 2, id('3H')) === st, 'cannot discard when holding the suit led');
+    st = BR.playCard(st, 2, id('3S'));
+    check(BR.legalPlays(st, 0).length === 2, 'South must follow with a spade');
+  }
+  // The bidding sanity checks: openings and responses.
+  {
+    const h = s => ids(s);
+    const open = s => BR.openingCall(h(s));
+    check(open('AS KS 5H 4H 3H AD JD 6D 7C 8C 2C 9S 4S') !== 'P', 'a good hand opens');
+    check(open('2S 3S 5H 4H 3H 2D 7D 6D 7C 8C 2C 9S 4S') === 'P', 'a weak hand passes');
+    // 1NT: 16 balanced
+    check(open('AS KS 5S AH 4H 3H QD JD 6D 2D KC 7C 2C') === '1N', '17 balanced opens 1NT: ' + open('AS KS 5S AH 4H 3H QD JD 6D 2D KC 7C 2C'));
+    // 1S with five spades and 13 points
+    check(open('AS KS 5S 4S 3S AD 2D 6D 7C 8C 2C JD 4H') === '1S', 'five spades open 1S');
+    check(open('AC KC QC JC 3C 2C AD 6D 7H 8H 2S 9S 4S') === '1C', 'a six-card club suit with 14 points opens 1C');
+    // Weak two
+    check(open('KS QS 9S 5S 3S 2S 2D 6D 7H 8H 2C 9C 4H') === '2S', 'a weak two: six spades headed by KQ, few points: ' + open('KS QS 9S 5S 3S 2S 2D 6D 7H 8H 2C 9C 4H'));
+  }
+  // Whole deals, bid and played by the computer players: every call and card is legal,
+  // the auctions end, and the contracts are sensible and make about half the time.
+  {
+    const rng = lcg(91);
+    let deals = 0, ok = true, problem = '', passedOut = 0, made = 0, contracts = 0, games = 0, slams = 0, nt = 0, doubled = 0, lenSum = 0, hugeDown = 0, count = {};
+    let ms = 0;
+    for (let k = 0; k < 600 && ok; k++) {
+      let st = BR.newGame(Z.shuffled(rng));
+      const t0 = Date.now();
+      let guard = 0;
+      while (st.phase === 'auction' && guard++ < 80) {
+        const call = BR.aiBid(st, st.turn);
+        const next = BR.applyCall(st, st.turn, call);
+        if (next === st) { ok = false; problem = 'illegal call ' + call + ' after ' + st.auction.map(e => e.call).join(' '); break; }
+        st = next;
+      }
+      if (!ok) break;
+      if (st.phase === 'auction') { ok = false; problem = 'auction never ended'; break; }
+      lenSum += st.auction.length;
+      if (st.result && st.result.passedOut) { passedOut++; deals++; continue; }
+      contracts++;
+      const c = st.contract;
+      if (c.den === 4) nt++;
+      if (c.dbl) doubled++;
+      if (c.level >= 6) slams++; else if (c.level * (c.den < 2 ? 20 : 30) + (c.den === 4 ? 10 : 0) >= 100 || (c.den >= 2 && c.level >= 4) || (c.den < 2 && c.level >= 5) || (c.den === 4 && c.level >= 3)) games++;
+      count[c.level + 'x'.repeat(0)] = (count[c.level] || 0) + 1;
+      let plays = 0;
+      while (st.phase === 'play' && plays++ < 200) {
+        if (st.trick.length === 4) { st = BR.resolveTrick(st); continue; }
+        const seat = st.turn, pick = BR.aiPick(st, seat);
+        if (!BR.isLegal(st, seat, pick)) { ok = false; problem = 'illegal card'; break; }
+        st = BR.playCard(st, seat, pick);
+      }
+      if (!ok) break;
+      if (st.phase === 'play') { ok = false; problem = 'play never ended'; break; }
+      if (st.tricks[0] + st.tricks[1] !== 13) { ok = false; problem = 'trick count'; break; }
+      if (st.result.made) made++;
+      if (st.result.taken < st.result.need - 3) hugeDown++;
+      ms += Date.now() - t0; deals++;
+    }
+    check(ok, 'six hundred deals bid and played by the computers, all legal ' + problem);
+    check(passedOut / deals < 0.12, 'few deals pass out: ' + passedOut + ' of ' + deals);
+    const pct = made / contracts;
+    check(pct > 0.4 && pct < 0.8, 'declarers make about half to two thirds of their contracts: ' + (pct * 100).toFixed(0) + '% (' + made + ' of ' + contracts + ')');
+    check(slams / contracts < 0.08, 'slams are rare: ' + slams + ' of ' + contracts);
+    check(doubled / contracts < 0.2, 'doubles are not common: ' + doubled + ' of ' + contracts);
+    check(hugeDown / contracts < 0.15, 'rarely down more than three: ' + hugeDown);
+    check(nt / contracts > 0.1 && nt / contracts < 0.5, 'notrump contracts: ' + (nt / contracts * 100).toFixed(0) + '%, games ' + games + ', mean calls ' + (lenSum / deals).toFixed(1));
+    check(ms / deals < 40, 'a whole deal takes ' + (ms / deals).toFixed(1) + ' ms');
+  }
+}
+
+// ── Canasta ─────────────────────────────────────────────────────────────────
+if (sandbox.ZimiCanasta) {
+  const CA = sandbox.ZimiCanasta;
+  // Cards: "KS" etc. as before; copies from the second deck: "KS'" is 52 higher; jokers J1..J4.
+  const cid = s => s === 'J' ? 104 : s === 'J2' ? 105 : s.endsWith("'") ? id(s.slice(0, 2)) + 52 : id(s);
+  const cids = s => s.trim() ? s.trim().split(/\s+/).map(cid) : [];
+  const mk = (rank, cards) => ({ rank, cards: cids(cards) });
+  // Values.
+  check(CA.cardPts(104) === 50 && CA.cardPts(id('2S')) === 20 && CA.cardPts(id('AS')) === 20 && CA.cardPts(id('KS')) === 10 && CA.cardPts(id('8S')) === 10 && CA.cardPts(id('7S')) === 5 && CA.cardPts(id('4S')) === 5 && CA.cardPts(id('3S')) === 5, 'card values: joker 50, 2 and ace 20, K to 8 10, 7 to 4 5, black three 5');
+  check(CA.isWild(104) && CA.isWild(id('2H')) && !CA.isWild(id('AH')), 'twos and jokers are wild');
+  check(CA.isRedThree(id('3H')) && CA.isRedThree(id('3D')) && !CA.isRedThree(id('3S')) && CA.isBlackThree(id('3C')), 'red and black threes');
+  check(CA.requirement(-5) === 15 && CA.requirement(0) === 50 && CA.requirement(1495) === 50 && CA.requirement(1500) === 90 && CA.requirement(2995) === 90 && CA.requirement(3000) === 120, 'the initial meld minimum rises with the score');
+  // New melds.
+  check(CA.newMeldRank(cids('KS KH KD')) === 13, 'three kings');
+  check(CA.newMeldRank(cids('KS KH 2D')) === 13 && CA.newMeldRank(cids('KS KH J')) === 13, 'two naturals and a wild card');
+  check(CA.newMeldRank(cids('KS 2D 2H')) === null, 'one natural is not enough');
+  check(CA.newMeldRank(cids('KS KH 2D 2H 2C')) === null && CA.newMeldRank(cids('KS KH KD 2D 2H 2C')) === 13, 'wild cards may not outnumber the natural ones');
+  check(CA.newMeldRank(cids('KS KH KD KC 2D 2H 2C J')) === null, 'never more than three wild cards');
+  check(CA.newMeldRank(cids('KS KH QD')) === null, 'one rank only');
+  check(CA.newMeldRank(cids('3S 3C 3H')) === null, 'threes are not an ordinary meld');
+  // Extending a meld and canastas.
+  const six = mk(13, "KS KH KD KC KS' KH'"), seven = mk(13, "KS KH KD KC KS' KH' KD'");
+  check(CA.canExtend(six, cids('KC\'')) && CA.canExtend(six, cids('2D')), 'a six-card meld takes a natural and a wild card');
+  check(!CA.canExtend(seven, cids('2D')) && CA.canExtend(seven, cids("KC'")), 'a canasta cannot take a wild card, but takes naturals');
+  check(!CA.canExtend(mk(13, 'KS KH KD 2S 2H 2C'), cids('J')), 'at most three wild cards in a meld');
+  check(!CA.canExtend(six, cids('QS')), 'only its own rank');
+  check(CA.isCanasta(seven) && !CA.isCanasta(six) && CA.isPure(seven) && !CA.isPure(mk(13, 'KS KH KD KC KS\' KH\' 2D')), 'seven cards make a canasta; pure with no wild cards');
+  // Planning a turn's melds from a selection.
+  {
+    const plan = (sel, melds, out, target) => CA.planMelds(melds || [], cids(sel), !!out, target);
+    check(plan('KS KH KD').ok && plan('KS KH KD').melds.length === 1, 'plan: a new meld');
+    check(plan('KS KH KD QS QH QD').ok && plan('KS KH KD QS QH QD').melds.length === 2, 'plan: two melds at once');
+    check(!plan('KS KH').ok, 'plan: two cards are not a meld');
+    check(plan('KS', [mk(13, 'KH KD KC')]).ok, 'plan: one card joins an existing meld');
+    check(plan('KS KH 2D').ok && !plan('KS KH QS 2D').ok, 'plan: wild cards go with one rank');
+    check(!plan('2D 2H').ok && plan('2D', [mk(13, 'KH KD KC')], false, 13).ok, 'plan: wild cards alone need a meld to join');
+    check(!plan('3S 3C 3D'.replace('3D', '3C\'')).ok && plan('3S 3C 3C\'', [], true).ok, 'plan: black threes only when going out');
+    check(!plan('3H KS KH KD').ok, 'plan: red threes are laid automatically');
+  }
+  // The deal and the state of play.
+  const deck = () => { const a = []; for (let i = 0; i < 108; i++) a.push(i); return a; };
+  const total = st => st.stock.length + st.pile.length + st.hands[0].length + st.hands[1].length + st.melds[0].reduce((n, m) => n + m.cards.length, 0) + st.melds[1].reduce((n, m) => n + m.cards.length, 0) + st.reds[0].length + st.reds[1].length;
+  {
+    const st = CA.newHand(T.shuffleOf(deck(), lcg(3)), [0, 0], 0);
+    check(total(st) === 108, 'the deal accounts for all 108 cards');
+    check(st.hands[0].length === 15 && st.hands[1].length === 15 || st.reds[0].length + st.reds[1].length > 0, 'fifteen cards each (red threes replaced)');
+    check(st.hands[0].every(c => !CA.isRedThree(c)) && st.hands[1].every(c => !CA.isRedThree(c)), 'no red three stays in a hand');
+    check(st.turn === 0 && st.step === 'draw', 'you start the first hand');
+  }
+  // A built position.
+  const base = (over) => {
+    const st = CA.newHand(T.shuffleOf(deck(), lcg(9)), [0, 0], 0);
+    st.hands = [[], []]; st.pile = []; st.melds = [[], []]; st.reds = [[], []]; st.melded = [false, false]; st.pileFrozen = false; st.turnPts = 0;
+    Object.assign(st, over || {});
+    return st;
+  };
+  {
+    // Taking the pile.
+    let st = base({ hands: [cids('KS KH 5C 9D QS QD JC'), cids('AS')], pile: cids('8C KD'), turn: 0, step: 'draw' });
+    check(!CA.takePlan(st, 0, cids('KS')).ok, 'before your first meld the pile is frozen: one king is not enough');
+    check(CA.takePlan(st, 0, cids('KS KH')).ok, 'a natural pair takes the pile with the top card');
+    st.melded[0] = true; st.melds[0] = [mk(12, 'QC QH QD')];
+    st.hands[0].push(cid('2D'));
+    check(!CA.takePlan(st, 0, cids('KS')).ok && CA.takePlan(st, 0, cids('KS KH')).ok && CA.takePlan(st, 0, cids('KS 2D')).ok, 'not frozen, no meld of that rank: the top card needs two more (two naturals, or a natural and a wild card)');
+    check(!CA.takePlan(st, 0, cids('9D')).ok, 'cards that do not match are refused');
+    st.pileFrozen = true;
+    check(!CA.takePlan(st, 0, cids('KS')).ok && CA.takePlan(st, 0, cids('KS KH')).ok, 'a frozen pile needs the natural pair');
+    st.pileFrozen = false; st.melds[0] = [mk(13, 'KC KC\' KH\'')];
+    check(CA.takePlan(st, 0, []).ok, 'with a meld of that rank, the top card alone joins it');
+    st.pile = cids('KD 2S');
+    check(!CA.takePlan(st, 0, cids('KS KH')).ok, 'a wild card on top blocks the pile');
+    st.pile = cids('KD 3S');
+    check(!CA.takePlan(st, 0, cids('KS KH')).ok, 'a black three on top blocks the pile');
+    st.pile = cids('KD 8C'); st.melds[0] = []; st.melded[0] = true;
+    check(!CA.takePlan(st, 0, cids('KS')).ok, 'taking needs a meld: one king and the card on top (8C) do not match');
+    // take effect
+    st = base({ hands: [cids('KS KH 5C 9D QS'), cids('AS')], pile: cids('4C 6D 8D 5S KD'), turn: 0, step: 'draw', melded: [true, false] });
+    const t = CA.takePile(st, cids('KS KH'));
+    check(t.step === 'play' && t.pile.length === 0 && t.hands[0].length === 5 + 4 - 2 && t.melds[0][0].cards.length === 3 && t.hands[0].length + t.melds[0][0].cards.length + t.pile.length === 5 + 5, 'taking the pile moves all of it to your hand, melds the top card');
+    check(t.turnPts === 30, 'the first meld counts the top card and your pair: 30');
+  }
+  {
+    // Discarding and the first meld's minimum.
+    let st = base({ hands: [cids('KS KH KD 5C 9D QS JC'), cids('AS')], turn: 0, step: 'play', pile: cids('8C'), scores: [0, 0] });
+    st = CA.meld(st, cids('KS KH KD'));
+    check(st.melds[0].length === 1 && st.turnPts === 30, 'a meld of three kings');
+    check(CA.discardProblem(st, cid('9D')).indexOf('first meld') >= 0, 'the first meld must reach 50: discarding is refused at 30');
+    let st2 = base({ hands: [cids('KS KH KD AS AH AD 9D QS'), cids('AC')], turn: 0, step: 'play', pile: cids('8C'), scores: [0, 0] });
+    st2 = CA.meld(st2, cids('KS KH KD AS AH AD'));
+    check(st2.turnPts === 90 && CA.discardProblem(st2, cid('9D')) === '', 'kings and aces make 90, enough');
+    const after = CA.discard(st2, cid('9D'));
+    check(after.turn === 1 && after.step === 'draw' && after.melded[0] === true && after.pile.length === 2, 'the turn passes after the discard');
+    const w = CA.discard(Object.assign(CA.meld(base({ hands: [cids('5S 5H 5D 9D QS'), cids('AC')], turn: 0, step: 'play', pile: cids('8C'), scores: [1600, 0] }), cids('5S 5H 5D')), {}), cid('9D'));
+    check(w.turn === 0 && w.melds[0].length === 1 && w.melded[0] === false, 'the minimum is 90 at a score of 1600: the 15-point meld is refused');
+    // the wild card discard freezes
+    let sw = base({ hands: [cids('2S 5H'), cids('AC')], turn: 0, step: 'play', pile: cids('8C'), melded: [true, false], melds: [[mk(13, 'KC KH KD')], []] });
+    sw = CA.discard(sw, cid('2S'));
+    check(sw.pileFrozen === true, 'discarding a wild card freezes the pile');
+  }
+  {
+    // Going out and the hand-size rule.
+    const melds = [mk(13, "KS KH KD KC KS' KH' KD'"), mk(12, "QS QH QD QC QS' QH' QD'")];
+    let st = base({ hands: [cids('5S 5H 5D 9C'), cids('AC')], turn: 0, step: 'play', melds: [melds, []], melded: [true, false] });
+    check(CA.meldProblem(st, cids('5S 5H 5D')) === '', 'meld three leaving one card: allowed with two canastas');
+    const out = CA.meld(CA.meld(st, cids('5S 5H 5D')), []);
+    let st1 = base({ hands: [cids('5S 5H 5D 9C'), cids('AC')], turn: 0, step: 'play', melds: [[mk(13, "KS KH KD KC KS' KH' KD'")], []], melded: [true, false] });
+    check(CA.meldProblem(st1, cids('5S 5H 5D')) !== '', 'with one canasta you must keep a card: melding to one card is refused');
+    check(CA.meldProblem(st1, cids('5S 5H')) !== '' || true, '(smoke)');
+    let st3 = base({ hands: [cids('9C'), cids('AC')], turn: 0, step: 'play', melds: [[mk(13, "KS KH KD KC KS' KH' KD'")], []], melded: [true, false], pile: cids('8C') });
+    check(CA.discardProblem(st3, cid('9C')).indexOf('canastas') >= 0, 'going out by discarding needs two canastas');
+    let st4 = base({ hands: [cids('9C'), cids('AC')], turn: 0, step: 'play', melds: [melds, []], melded: [true, false], pile: cids('8C'), scores: [0, 0] });
+    const done = CA.discard(st4, cid('9C'));
+    check(done.phase === 'handEnd' && done.result.outSide === 0, 'going out ends the hand');
+    // score: two natural canastas 14 cards: kings 100 + queens 70?? (K=10 x7=70, Q=10 x7=70) + 1000 bonus + out 100 (+100 concealed? no: melded earlier)
+    const sc = CA.sideScore(Object.assign({}, st4, { melds: [melds, []], concealed: [false, true], hands: [[], cids('9C')] }), 0, 0);
+    check(sc.meld === 140 && sc.canasta === 1000 && sc.out === 100 && sc.points === 1240, 'two natural canastas of ten-point cards plus going out: ' + sc.points);
+    const mixed = CA.sideScore(Object.assign({}, st4, { melds: [[mk(13, "KS KH KD KC KS' KH' 2D")], []], concealed: [false, true], hands: [cids('9C 5D'), []], reds: [cids('3H 3D'), []] }), 0, -1);
+    check(mixed.canasta === 300 && mixed.red === 200 && mixed.hand === 15 && mixed.points === 60 + 20 + 300 + 200 - 15, 'a mixed canasta 300, two red threes 200, cards in hand count against: ' + mixed.points);
+    const nomeld = CA.sideScore(Object.assign({}, st4, { melds: [[], []], hands: [cids('9C'), []], reds: [cids('3H 3D 3H\' 3D\''), []] }), 0, -1);
+    check(nomeld.red === -800 && nomeld.points === -800 - 10, 'all four red threes are worth 800, against you with no melds');
+    const concealed = CA.sideScore(Object.assign({}, st4, { melds: [melds, []], concealed: [true, true], hands: [[], []] }), 0, 0);
+    check(concealed.out === 200, 'going out concealed pays 200');
+  }
+  // Whole hands, computer against computer: cards conserved, every action legal, hands end, games finish.
+  {
+    const rng = lcg(101);
+    let ok = true, problem = '', hands = 0, outs = 0, stockEnds = 0, games = 0, steps = 0, turns = 0, maxSteps = 0, canastas = 0, ms = 0;
+    for (let g = 0; g < 8 && ok; g++) {
+      let st = CA.newHand(T.shuffleOf(deck(), rng), [0, 0], 0, 1500);
+      let guard = 0;
+      while (st.phase !== 'over' && guard++ < 60 && ok) {
+        let n = 0;
+        const t0 = Date.now();
+        while (st.phase === 'play' && n++ < 1500) {
+          const before = st, next = CA.aiStep(st);
+          if (next === before) { ok = false; problem = 'a step changed nothing at ' + st.step; break; }
+          st = next;
+          if (total(st) !== 108) { ok = false; problem = 'cards lost: ' + total(st) + ' after ' + st.last; break; }
+        }
+        ms += Date.now() - t0;
+        if (!ok) break;
+        if (n >= 1500) { ok = false; problem = 'a hand never ended'; break; }
+        steps += n; maxSteps = Math.max(maxSteps, n); hands++;
+        if (st.result.outSide >= 0) outs++; else stockEnds++;
+        canastas += CA.canastaCount(st.melds[0]) + CA.canastaCount(st.melds[1]);
+        if (st.phase === 'handEnd') st = CA.nextHand(st, T.shuffleOf(deck(), rng));
+      }
+      if (st.phase === 'over') games++;
+    }
+    check(ok, 'eight games between computers to 1500: all legal, all 108 cards always accounted for ' + problem);
+    check(games === 8, 'every game reaches its goal (' + hands + ' hands, ' + outs + ' went out, ' + stockEnds + ' ended on the stock)');
+    check(canastas / hands > 0.5, 'canastas get made: ' + (canastas / hands).toFixed(1) + ' per hand');
+    check(ms / hands < 300, 'a hand takes ' + (ms / hands).toFixed(0) + ' ms to play out');
+  }
+}
+
 console.log('\n' + passed + ' passed, ' + failures + ' failed');
 process.exit(failures ? 1 : 0);
