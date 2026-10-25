@@ -142,6 +142,9 @@
     J: { d: 'M8 0V9.6C8 12.6 6.4 14 4.2 14 2.2 14 .8 13 .3 11' },
     Q: { d: 'M5 0C2 0 .8 3 .8 7S2 14 5 14 9.2 11 9.2 7 8 0 5 0zM6 10.4 10.2 15.4' },
     K: { d: 'M1 0V14M9.6 0 1 8M3.8 6 10 14' },
+    // Spanish courts' 11 and 12.
+    '11': { d: 'M1.2 3.2 5 0V14M8.2 3.2 12 0V14', w: 13 },
+    '12': { d: 'M1.2 3.2 5 0V14M8 4.6C8 1.6 10 0 12 0S16.2 1.6 16.2 4.2C16.2 7 13 9.6 8 14H17', w: 17.2 },
     // Only the wordmark uses these.
     Z: { d: 'M0 1.2H10L0 12.8H10' },
     I: { d: 'M0 0V14', w: 0 },
@@ -171,7 +174,7 @@
   var IDX_X = 10.5, IDX_Y = 5, IDX_SCALE = 1.35, IDX_SCALE_TEN = 1.05, IDX_TEN_DROP = 1.5, IDX_SUIT_Y = 38, IDX_SUIT_SCALE = 0.7;
   var ROW_Y = 5, ROW_SCALE = 2.1, ROW_SUIT_X = 60, ROW_SUIT_Y = 21, ROW_SUIT_SCALE = 1.25, ROW_RANK_X = 4;
   function indexMarkup(label, s, standalone, shapes, prefix) {
-    var ten = label === '10';
+    var ten = label.length > 1;
     var one = function (turn) {
       return '<g class="zc-idx-std"' + (turn ? ' transform="rotate(180 50 70)"' : '') + '>' + glyph(label, IDX_X, IDX_Y + (ten ? IDX_TEN_DROP : 0), ten ? IDX_SCALE_TEN : IDX_SCALE) +
         placed(s, IDX_X, IDX_SUIT_Y, IDX_SUIT_SCALE, false, standalone, shapes, prefix) + '</g>';
@@ -270,10 +273,10 @@
   // Fante, a page in parti-coloured hose; Cavallo, a rider on his horse; Re, a
   // crowned king in his mantle. Each holds his suit's own emblem (the sprite).
   var ITALIAN_BASE = 99, ITALIAN_HELD_SCALE = [0.85, 0.95, 1.5, 1.35], ITALIAN_HELD_LIFT = [8, 9.5, 8, 9];
-  function heldItalian(s, x, y, standalone, compact) {
-    return compact ? '' : '<g paint-order="stroke"' + CUT + '>' + placed(s, x, y - ITALIAN_HELD_LIFT[s], ITALIAN_HELD_SCALE[s], false, standalone, ITALIAN_SHAPES, ITALIAN_PREFIX) + '</g>';
+  function heldItalian(s, x, y, standalone, compact, set) {
+    return compact ? '' : '<g paint-order="stroke"' + CUT + '>' + placed(s, x, y - ITALIAN_HELD_LIFT[s], ITALIAN_HELD_SCALE[s], false, standalone, set ? set.shapes : ITALIAN_SHAPES, set ? set.prefix : ITALIAN_PREFIX) + '</g>';
   }
-  function italianFigure(kind, s, standalone, compact) {
+  function italianFigure(kind, s, standalone, compact, set) {
     var hand = function (x, y) { return '<circle cx="' + x + '" cy="' + y + '" r="2.3" fill="' + CARD_CREAM + '" stroke="currentColor" stroke-width="1.2"/>'; };
     var limb = function (d, w) { return '<path d="' + d + '"' + LINE + ' stroke-width="' + w + '"/>'; };
     if (kind === 'fante') {
@@ -283,7 +286,7 @@
         '<path d="M43.2 48.6 50 55.6 56.8 48.6" fill="none" stroke="' + GOLD + '" stroke-width="1.8"/>' +
         '<path d="M43.6 42V36C43.6 29 56.4 29 56.4 36V42C55.4 41.6 55 40.4 55 39H45C45 40.4 44.6 41.6 43.6 42z"/>' + head(37.8, 6.2) +
         '<path d="M42 35.6C41 27.6 49 24.4 57.4 27.4 60.6 28.8 60.2 33.6 58.4 35.2 54 33 46.4 33 42 35.6z"/><path d="M42.4 35C46.6 32.8 53.6 32.8 57.6 34.8" fill="none" stroke="' + GOLD + '" stroke-width="1.5"/>' +
-        gold('M56.6 28.4C61.4 27.4 64 25.6 64.6 23.6 62 24.8 60.4 25 55.8 26.6z') + eyes(38.4, 1) + '<path d="M47.6 42Q50 43.6 52.4 42"' + LINE + ' stroke-width="1"/>' + heldItalian(s, 68.6, 63.6, standalone, compact);
+        gold('M56.6 28.4C61.4 27.4 64 25.6 64.6 23.6 62 24.8 60.4 25 55.8 26.6z') + eyes(38.4, 1) + '<path d="M47.6 42Q50 43.6 52.4 42"' + LINE + ' stroke-width="1"/>' + heldItalian(s, 68.6, 63.6, standalone, compact, set);
     }
     if (kind === 'cavallo') {
       return '<path d="M28.4 66C23 66 21.4 78 25.6 88 26 80 28.6 74.6 31 72z" fill="' + GOLD + '"/>' +
@@ -296,7 +299,7 @@
         '<path d="M45.2 39.2V36C45.2 31 53 31 53 36V39.2C52 39.4 51.6 38.2 51.6 37H46.6C46.6 38.2 46.2 39.4 45.2 39.2z"/>' + head(38.8, 5.4) +
         '<path d="M43.4 37.2C42.6 31 48.4 28.6 54.4 30.6 56.6 31.6 56.4 35 55 36.2 52 34.4 46.6 34.4 43.4 37.2z"/>' +
         gold('M53.6 30.4C58 29.4 60.6 27.4 61 24.6 58.6 26 57.4 26.4 53.6 28z') + dot(48.2, 39.2, 0.95) + dot(51.6, 39.2, 0.95) +
-        heldItalian(s, 36.4, 44.4, standalone, compact);
+        heldItalian(s, 36.4, 44.4, standalone, compact, set);
     }
     return '<path d="M31 99 36 54C37 49.6 63 49.6 64 54L69 99z" fill="currentColor" fill-opacity="0.2" stroke="currentColor" stroke-width="0.9"/>' + // re: the king in his mantle
       '<path d="M35 99 39 53C40 48 60 48 61 53L65 99z"/><path d="M35.4 94.4H64.6V99H35.4z" fill="' + CARD_CREAM + '" stroke="currentColor" stroke-width="1.1"/>' +
@@ -308,7 +311,7 @@
       '<path d="M43.8 41C43 49 46 53 50 53.6S57 49 56.2 41C55 43.6 52.8 44.8 50 44.8S45 43.6 43.8 41z"' + CUT + '/>' +
       '<path d="M45.6 42.4Q47.8 41 50 42.4Q52.2 41 54.4 42.4Q52.4 44.6 50 43.6Q47.6 44.6 45.6 42.4z"' + CUT + '/>' +
       eyes(37.4, 1.1) + '<path d="M44.8 34.8 48.4 35.4M55.2 34.8 51.6 35.4"' + LINE + ' stroke-width="1"/>' +
-      gold('M43 32 41.4 24.4 46 27.6 50 22.4 54 27.6 58.6 24.4 57 32z') + '<path d="M43 30.2H57" stroke="currentColor" stroke-width="1" fill="none"/>' + heldItalian(s, 67, 65.6, standalone, compact);
+      gold('M43 32 41.4 24.4 46 27.6 50 22.4 54 27.6 58.6 24.4 57 32z') + '<path d="M43 30.2H57" stroke="currentColor" stroke-width="1" fill="none"/>' + heldItalian(s, 67, 65.6, standalone, compact, set);
   }
 
   var COURT_PIP_X = 31.5, COURT_PIP_Y = 27, COURT_PIP_SCALE = 0.55, COURT_BAND = 7, COURT_MID_PIP = 0.62;
@@ -389,6 +392,280 @@
     var inner = star(11, 18, 0.95) + '<g transform="rotate(180 50 70)">' + star(11, 18, 0.95) + '</g>' +
       '<rect x="24" y="22" width="52" height="96" rx="3.5" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.2"/>' + figure;
     return faceFrame(inner, red ? CARD_RED : CARD_BLACK, standalone);
+  }
+
+  // ── The Spanish deck, 40 cards ──────────────────────────────────────────
+  // id = suit * 10 + k, suits oros, copas, espadas, bastos; k 0..9 is the
+  // ace to the 7, then sota (10), caballo (11) and rey (12), the way a
+  // Spanish baraja prints them. Same index, pips and size rules as the
+  // others; the suits are drawn in the same hand (a sunburst coin, a lidded
+  // goblet, a straight sword, a knotted baton) and the courts are the Italian
+  // figures holding these emblems.
+  var SPANISH_SUITS = ['oros', 'copas', 'espadas', 'bastos'];
+  var SPANISH_NAMES = ['ace', '2', '3', '4', '5', '6', '7', 'sota', 'caballo', 'rey'];
+  var SPANISH_LABELS = ['1', '2', '3', '4', '5', '6', '7', '10', '11', '12'];
+  var SPANISH_PREFIX = 'zc-e-';
+  var SPANISH_SHAPES = [
+    '<path fill-rule="evenodd" d="M-9.5 0a9.5 9.5 0 1 0 19 0 9.5 9.5 0 1 0-19 0zM0-6.4 1.2-2.2 5-4.6 2.6-1 6.4 0 2.6 1 5 4.6 1.2 2.2 0 6.4-1.2 2.2-5 4.6-2.6 1-6.4 0-2.6-1-5-4.6-1.2-2.2z"/><circle r="1.7"/>',
+    '<path d="M-6.4-9.6H6.4V-3.6C6.4-0.2 3.4 1.8 0 1.8S-6.4-0.2-6.4-3.6z"/><path d="M-6.4-6.8C-11.4-6.8-11.4-1.2-6-1.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M6.4-6.8C11.4-6.8 11.4-1.2 6-1.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M-1.3 1.8H1.3V6.2H-1.3z"/><path d="M-4.4 7.2H4.4L5.4 10H-5.4z"/>',
+    '<g transform="rotate(-24)"><path d="M0-11 2.2-8.6V3.2H-2.2V-8.6z"/><path d="M-7 3.2Q0 0.4 7 3.2V5.6Q0 3.2-7 5.6z"/><path d="M-1.2 5.6H1.2V8.6H-1.2z"/><circle cy="9.7" r="1.5"/></g>',
+    '<g transform="rotate(-34)"><path d="M-3.8-8.6a3.8 3.8 0 0 1 7.6 0L2.2 9.2a2.2 2.2 0 0 1-4.4 0z"/><circle cx="4.4" cy="-2.6" r="2.3"/><circle cx="-4.2" cy="2.4" r="2.3"/><circle cx="3.6" cy="6" r="1.8"/></g>'
+  ];
+  function spanishName(id) { return SPANISH_NAMES[id % 10] + ' of ' + SPANISH_SUITS[Math.floor(id / 10) % 4]; }
+  function spanishFaceMarkup(id, standalone) {
+    var k = id % 10, r = k + 1, s = Math.floor(id / 10) % 4, body, p = SPANISH_PREFIX, set = { shapes: SPANISH_SHAPES, prefix: p };
+    if (r === 1) body = '<g class="zc-big">' + placed(s, 50, 70, 3.4, false, standalone, SPANISH_SHAPES, p) + '</g>' + smallSuit(s, standalone, SPANISH_SHAPES, p);
+    else if (r <= 7) {
+      var pips = '';
+      PIPS[r].forEach(function (pt) { pips += placed(s, pt[0], pt[1], ITALIAN_PIP_SCALE, false, standalone, SPANISH_SHAPES, p); });
+      body = '<g class="zc-big">' + pips + '</g>' + smallSuit(s, standalone, SPANISH_SHAPES, p);
+    } else {
+      var kind = COURT_KINDS[r - 5]; // 8 sota (fante), 9 caballo, 10 rey
+      body = '<g class="zc-big"><rect x="20" y="20" width="60" height="100" rx="3.5" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.2"/>' +
+        '<rect class="zc-fine" x="22.6" y="22.6" width="54.8" height="94.8" rx="1.8" fill="none" stroke="' + GOLD + '" stroke-width="0.7"/>' +
+        italianFigure(kind, s, standalone, false, set) + '<path d="M20 ' + ITALIAN_BASE + 'H80" stroke="currentColor" stroke-width="0.8" opacity="0.5"/>' +
+        placed(s, 50, 109.5, 0.75, false, standalone, SPANISH_SHAPES, p) + '</g>' +
+        (standalone ? '' : '<g class="zc-small" display="none" transform="translate(50 134) scale(1.1) translate(-50 -' + ITALIAN_BASE + ')">' + italianFigure(kind, s, false, true, set) + '</g>');
+    }
+    return faceFrame(indexMarkup(SPANISH_LABELS[k], s, standalone, SPANISH_SHAPES, p) + body, ITALIAN_COLOURS[s], standalone);
+  }
+
+  // ── The Hanafuda deck, 48 cards ─────────────────────────────────────────
+  // id = month * 4 + k (months January to December, k 0..3). Each month has
+  // its plant, drawn flat in one colour; the special card of a month (a
+  // bright, an animal, a ribbon) is laid over it. A card is told by its
+  // month number and a corner badge: a gold disc for a bright, an ink diamond
+  // for an animal, a ribbon for a ribbon, a dot for chaff. Ribbons keep their
+  // own red or blue so a game can be read at a glance. The art sits outside
+  // `zc-big`, so a 33 px card still shows it under the large row index.
+  var HANA_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  var HANA_PLANTS = ['pine', 'plum', 'cherry', 'wisteria', 'iris', 'peony', 'bush clover', 'pampas', 'chrysanthemum', 'maple', 'willow', 'paulownia'];
+  var HANA_COLOURS = ['#2f7d4f', '#c93a5e', '#e5628a', '#8b5fc7', '#3c4fb0', '#c2185b', '#b8324a', '#a97a2c', '#e07b00', '#d1451b', '#3a9a6a', '#6b3f8c'];
+  // [kind, name, ribbon] for k = 0..3 of each month; kind: bright, animal, ribbon, chaff. The sake cup also counts as chaff in Koi-Koi.
+  var HANA_CARDS = [
+    [['bright', 'crane and sun'], ['ribbon', 'poetry ribbon', 'poetry'], ['chaff', 'pine'], ['chaff', 'pine']],
+    [['animal', 'bush warbler'], ['ribbon', 'poetry ribbon', 'poetry'], ['chaff', 'plum'], ['chaff', 'plum']],
+    [['bright', 'curtain'], ['ribbon', 'poetry ribbon', 'poetry'], ['chaff', 'cherry'], ['chaff', 'cherry']],
+    [['animal', 'cuckoo'], ['ribbon', 'red ribbon', 'red'], ['chaff', 'wisteria'], ['chaff', 'wisteria']],
+    [['animal', 'bridge'], ['ribbon', 'red ribbon', 'red'], ['chaff', 'iris'], ['chaff', 'iris']],
+    [['animal', 'butterflies'], ['ribbon', 'blue ribbon', 'blue'], ['chaff', 'peony'], ['chaff', 'peony']],
+    [['animal', 'boar'], ['ribbon', 'red ribbon', 'red'], ['chaff', 'bush clover'], ['chaff', 'bush clover']],
+    [['bright', 'moon'], ['animal', 'geese'], ['chaff', 'pampas'], ['chaff', 'pampas']],
+    [['animal', 'sake cup'], ['ribbon', 'blue ribbon', 'blue'], ['chaff', 'chrysanthemum'], ['chaff', 'chrysanthemum']],
+    [['animal', 'deer'], ['ribbon', 'blue ribbon', 'blue'], ['chaff', 'maple'], ['chaff', 'maple']],
+    [['bright', 'rain man'], ['animal', 'swallow'], ['ribbon', 'red ribbon', 'red'], ['chaff', 'lightning']],
+    [['bright', 'phoenix'], ['chaff', 'paulownia'], ['chaff', 'paulownia'], ['chaff', 'paulownia']]
+  ];
+  function hanafudaCard(id) {
+    var m = Math.floor(id / 4) % 12, k = id % 4, c = HANA_CARDS[m][k];
+    return { month: m, k: k, kind: c[0], name: c[1], ribbon: c[2] || null, sake: m === 8 && k === 0 };
+  }
+  function hanafudaName(id) {
+    var c = hanafudaCard(id);
+    return c.name + (c.kind === 'chaff' ? ' chaff' : '') + ', ' + HANA_MONTHS[c.month];
+  }
+
+  var HANA_LEAF = '#2f7d4f', HANA_WOOD = '#7a5230', HANA_SKY = '#2c4a86';
+  var rd1 = function (n) { return Math.round(n * 10) / 10; };
+  var inkP = function (d, extra) { return '<path d="' + d + '" fill="' + CARD_BLACK + '"' + (extra || '') + '/>'; };
+  var leafP = function (d) { return '<path d="' + d + '" fill="' + HANA_LEAF + '"/>'; };
+  var strokeP = function (d, w, col) { return '<path d="' + d + '" fill="none" stroke="' + (col || CARD_BLACK) + '" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round"/>'; };
+  var ellipseP = function (cx, cy, rx, ry, fill, rot, extra) {
+    return '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + rx + '" ry="' + ry + '" fill="' + fill + '"' + (rot ? ' transform="rotate(' + rot + ' ' + cx + ' ' + cy + ')"' : '') + (extra || '') + '/>';
+  };
+  // Five round petals round a gold heart; cherry's get a notch cut in each tip.
+  function hanaBlossom(x, y, r, notch) {
+    var o = '', i, a;
+    for (i = 0; i < 5; i++) {
+      a = (i * 72 - 90) * Math.PI / 180;
+      o += dot(rd1(x + Math.cos(a) * r * 0.95), rd1(y + Math.sin(a) * r * 0.95), rd1(r * 0.72));
+      if (notch) o += dot(rd1(x + Math.cos(a) * r * 1.62), rd1(y + Math.sin(a) * r * 1.62), rd1(r * 0.24), CARD_CREAM);
+    }
+    return o + dot(x, y, rd1(r * 0.36), GOLD);
+  }
+  function hanaMaple(x, y, s, rot) {
+    return '<g transform="translate(' + x + ' ' + y + ') rotate(' + rot + ') scale(' + s + ')"><path d="M0-14 3-7 9-9 6-2 13 0 5 4 7 11 0 8-7 11-5 4-13 0-6-2-9-9-3-7z"/><path d="M0 8V15" fill="none" stroke="' + CARD_BLACK + '" stroke-width="1.4"/></g>';
+  }
+  // One bird in flight, wings up, for the geese and the cuckoo.
+  var bird = function (x, y, s, fill) { return '<path transform="translate(' + x + ' ' + y + ') scale(' + s + ')" d="M-10 2C-7-5-2-6 0 0 2-6 7-5 10 2 6 0 2 1 0 4-2 1-6 0-10 2z" fill="' + (fill || CARD_BLACK) + '"/>'; };
+
+  function hanaPlant(m) {
+    var i, o = '';
+    switch (m) {
+      case 0: return '<g' + CUT + '><path d="M50 24 70 54H30z"/><path d="M50 42 77 78H23z"/><path d="M50 62 84 104H16z"/></g>' + inkP('M46 104H54V124H46z');
+      case 1:
+        return strokeP('M18 122C34 100 36 82 52 66S74 44 82 26', 3.2) + strokeP('M44 78 30 74M62 56 76 62', 2) +
+          hanaBlossom(50, 68, 8.4) + hanaBlossom(30, 74, 6.6) + hanaBlossom(75, 60, 7) + hanaBlossom(70, 38, 6.2) + hanaBlossom(40, 102, 6.4);
+      case 2:
+        return strokeP('M16 30C40 26 62 36 84 52', 3) + strokeP('M50 34C50 50 44 56 40 60M64 42C66 56 62 64 60 70', 1.8) +
+          hanaBlossom(26, 38, 7, true) + hanaBlossom(46, 38, 7.4, true) + hanaBlossom(68, 48, 7.4, true) + hanaBlossom(40, 66, 7.6, true) + hanaBlossom(60, 76, 7.6, true) +
+          hanaBlossom(34, 94, 6.4, true) + hanaBlossom(70, 104, 6.4, true) + leafP('M24 118C34 108 46 108 52 112 44 120 32 122 24 118z');
+      case 3:
+        o = strokeP('M14 28C40 18 66 20 88 34', 3) + leafP('M20 30C26 36 36 34 40 28 34 24 24 24 20 30z') + leafP('M60 24C66 32 76 32 82 28 76 22 66 20 60 24z');
+        [[30, 5], [52, 7], [72, 6]].forEach(function (c) {
+          for (i = 0; i < c[1]; i++) { var w = 6.2 - i * 0.62, yy = 40 + i * 10 + (c[0] === 52 ? 4 : 0); o += dot(rd1(c[0] - w * 0.7), yy, rd1(w * 0.82)) + dot(rd1(c[0] + w * 0.7), yy + 4, rd1(w * 0.82)); }
+        });
+        return o;
+      case 4:
+        return leafP('M38 126C34 96 40 66 46 38 54 66 54 98 50 126z') + leafP('M52 126C52 100 62 76 74 56 76 84 68 108 62 126z') + leafP('M30 126C26 108 32 92 24 78 38 92 42 110 40 126z') +
+          '<path d="M50 24C42 32 42 46 50 52 58 46 58 32 50 24z"/><path d="M50 52C38 44 26 48 24 58 36 62 44 60 50 52z"/><path d="M50 52C62 44 74 48 76 58 64 62 56 60 50 52z"/>' +
+          '<path d="M50 52C46 66 38 70 34 80 46 78 54 68 50 52z"/><path d="M50 52C54 66 62 70 66 80 54 78 46 68 50 52z" fill-opacity="0.8"/>' + strokeP('M50 34V50', 1.6, GOLD);
+      case 5:
+        o = '<g' + CUT + '>';
+        for (i = 0; i < 8; i++) o += dot(rd1(52 + Math.cos(i * Math.PI / 4) * 17), rd1(58 + Math.sin(i * Math.PI / 4) * 17), 11.5);
+        for (i = 0; i < 6; i++) o += dot(rd1(52 + Math.cos(i * Math.PI / 3 + 0.5) * 8.6), rd1(58 + Math.sin(i * Math.PI / 3 + 0.5) * 8.6), 8);
+        return o + '</g>' + dot(52, 58, 5.2, GOLD) + dot(52, 58, 2, CARD_CREAM) + leafP('M52 126C34 118 24 104 20 92 36 94 48 106 52 126z') + leafP('M52 126C70 118 80 104 84 92 68 94 56 106 52 126z');
+      case 6:
+        o = strokeP('M22 126C18 90 34 56 72 38', 2.4, HANA_LEAF) + strokeP('M44 126C46 96 58 76 84 66', 2.4, HANA_LEAF) + strokeP('M30 126C34 108 40 96 40 84', 2, HANA_LEAF);
+        [[24, 104, -70], [28, 84, -50], [34, 66, -40], [48, 54, -30], [62, 44, -20], [48, 108, 70], [58, 90, 60], [72, 76, 40], [40, 92, -90]].forEach(function (l) {
+          o += ellipseP(l[0], l[1], 3, 5.4, HANA_LEAF, l[2]) + ellipseP(l[0] + 4, l[1] - 3, 3, 5.4, HANA_LEAF, l[2] + 40) + ellipseP(l[0] - 4, l[1] - 3, 3, 5.4, HANA_LEAF, l[2] - 40);
+        });
+        [[26, 76], [34, 58], [44, 48], [58, 38], [50, 100], [66, 84], [78, 70], [22, 94]].forEach(function (f) { o += dot(f[0], f[1], 2.6) + dot(f[0] + 4, f[1] + 3, 2.2); });
+        return o;
+      case 7:
+        o = inkP('M16 128C24 98 76 98 84 128z');
+        [[28, 26, -8], [42, 22, -2], [56, 24, 4], [70, 30, 10], [36, 48, -10], [64, 50, 8]].forEach(function (g) {
+          o += strokeP('M' + (g[0] + (g[0] < 50 ? 8 : -8)) + ' 100Q' + g[0] + ' ' + (g[1] + 40) + ' ' + g[0] + ' ' + g[1], 1.8, HANA_COLOURS[7]) + ellipseP(g[0], g[1] + 8, 3.4, 11, 'currentColor', g[2]);
+        });
+        return o;
+      case 8:
+        o = '<g fill-opacity="1">';
+        for (i = 0; i < 16; i++) o += '<ellipse cx="50" cy="48" rx="3.2" ry="13" transform="rotate(' + i * 22.5 + ' 50 62)"' + CUT + '/>';
+        for (i = 0; i < 12; i++) o += '<ellipse cx="50" cy="55" rx="2.8" ry="7.8" transform="rotate(' + (i * 30 + 15) + ' 50 62)"' + CUT + '/>';
+        return o + '</g>' + dot(50, 62, 5.4, GOLD) + dot(50, 62, 2, CARD_CREAM) + strokeP('M50 80C50 96 52 110 54 126', 2.4, HANA_LEAF) + leafP('M52 112C40 106 30 108 24 114 34 122 46 122 52 112z') + leafP('M52 100C62 92 74 92 80 98 72 108 60 108 52 100z');
+      case 9:
+        return strokeP('M20 120C40 100 56 70 84 40', 2.6) + hanaMaple(36, 50, 1.25, -18) + hanaMaple(66, 78, 1.45, 18) + hanaMaple(38, 100, 1.2, 190) + hanaMaple(70, 38, 0.9, 30);
+      case 10:
+        o = strokeP('M14 24H86', 3.4);
+        [[22, 4], [36, -4], [50, 3], [64, -4], [78, 4]].forEach(function (s) {
+          o += strokeP('M' + s[0] + ' 24C' + (s[0] + s[1]) + ' 56 ' + (s[0] - s[1]) + ' 90 ' + (s[0] + s[1] / 2) + ' 122', 1.8, HANA_LEAF);
+          for (i = 0; i < 7; i++) o += ellipseP(s[0] + (i % 2 ? 3.4 : -3.4) + s[1] * (i % 2 ? 0.2 : -0.1), 34 + i * 12, 2.2, 6, 'currentColor', i % 2 ? -20 : 20);
+        });
+        return o;
+      default:
+        o = leafP('M50 126C30 118 22 100 30 88 38 92 46 100 50 112 54 100 62 92 70 88 78 100 70 118 50 126z') + strokeP('M50 112V30', 2.4, HANA_LEAF);
+        [[34, 30], [50, 22], [66, 30]].forEach(function (c) {
+          for (i = 0; i < 5; i++) o += dot(c[0], c[1] + i * 9, rd1(5.6 - i * 0.55));
+          o += strokeP('M' + c[0] + ' ' + (c[1] + 40) + 'L50 ' + (c[1] + 54), 1.6, HANA_LEAF);
+        });
+        return o;
+    }
+  }
+
+  // A ribbon laid down the middle: poetry (red, with writing), red or blue.
+  function hanaRibbon(kind) {
+    var col = kind === 'blue' ? HANA_SKY : CARD_RED, o = '<path d="M38 12H62V124L50 117 38 124z" fill="' + col + '" stroke="' + CARD_CREAM + '" stroke-width="1.6" stroke-linejoin="round"/>';
+    if (kind === 'poetry') o += '<g fill="none" stroke="' + GOLD + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M45 24Q50 28 45 33T50 42M45 56Q50 60 45 65T50 74M45 88Q50 92 45 97T50 106"/></g>';
+    else o += '<path class="zc-fine" d="M43 12V120M57 12V120" stroke="' + CARD_CREAM + '" stroke-width="0.8" opacity="0.7"/>';
+    return o;
+  }
+
+  // The special cards, laid over their month's plant.
+  function hanaSpecial(m, k) {
+    var o;
+    if (m === 0 && k === 0) { // crane and sun
+      return '<g opacity="0.35"><g transform="translate(36 40) scale(0.62)">' + hanaPlant(0) + '</g></g>' + dot(64, 36, 15, CARD_RED) +
+        strokeP('M56 78C68 70 64 58 58 54', 7.6) + strokeP('M56 78C68 70 64 58 58 54', 4.6, CARD_CREAM) +
+        ellipseP(44, 84, 16, 9.6, CARD_CREAM, -10, ' stroke="' + CARD_BLACK + '" stroke-width="1.6"') + inkP('M30 84 22 76 22 91z') + inkP('M28 86Q42 70 58 80L42 91z', ' fill-opacity="0.88"') +
+        '<circle cx="58" cy="51" r="4.4" fill="' + CARD_CREAM + '" stroke="' + CARD_BLACK + '" stroke-width="1.5"/>' + dot(59, 48.4, 2, CARD_RED) + gold('M62 50 74 53.4 62 55z') + dot(58.4, 50.6, 0.9, CARD_BLACK) +
+        strokeP('M42 92 40 118M50 92 51 118M36 118H44M46 118H55', 1.8);
+    }
+    if (m === 2 && k === 0) { // curtain
+      return '<g transform="translate(11 40) scale(0.78)">' + hanaPlant(2) + '</g>' + strokeP('M16 20H84', 2.4, GOLD) + dot(18, 24, 2.4, GOLD) + dot(82, 24, 2.4, GOLD) +
+        '<path d="M18 24H82V66L76.4 62 70.8 66 65.2 62 59.6 66 54 62 48.4 66 42.8 62 37.2 66 31.6 62 26 66 18 62z" fill="' + CARD_BLACK + '"/>' +
+        '<g fill="' + CARD_CREAM + '"><path d="M28 24H32V64H28z"/><path d="M44 24H48V64H44z"/><path d="M60 24H64V64H60z"/><path d="M74 24H78V64H74z"/></g>' + '<path class="zc-fine" d="M18 34H82" stroke="' + GOLD + '" stroke-width="1.4"/>';
+    }
+    if (m === 7 && k === 0) { // moon over the pampas hill
+      return dot(50, 48, 27, GOLD) + '<circle class="zc-fine" cx="50" cy="48" r="21" fill="none" stroke="' + CARD_CREAM + '" stroke-width="1.2" opacity="0.7"/>' +
+        '<g transform="translate(0 14) scale(1 0.8)">' + hanaPlant(7) + '</g>';
+    }
+    if (m === 10 && k === 0) { // rain man
+      o = '<g opacity="0.7">' + hanaPlant(10) + '</g>';
+      for (var i = 0; i < 9; i++) o += strokeP('M' + (22 + i * 7) + ' ' + (60 + (i % 3) * 14) + 'l-4 9', 1.6, HANA_SKY);
+      return o + '<path d="M26 56A25 22 0 0 1 74 56z" fill="' + CARD_BLACK + '"/><path class="zc-fine" d="M50 34V56M38 38 42 56M62 38 58 56" stroke="' + GOLD + '" stroke-width="1.1" fill="none"/>' +
+        strokeP('M50 56V84', 1.8) + '<circle cx="46" cy="70" r="4.6" fill="' + CARD_CREAM + '" stroke="' + CARD_BLACK + '" stroke-width="1.5"/>' +
+        '<path d="M40 76H58L62 106H36z" fill="' + CARD_RED + '"/><path d="M38 90H60" stroke="' + GOLD + '" stroke-width="2.2"/>' + strokeP('M43 106V118M55 106V118M38 119H46M52 119H60', 2.2);
+    }
+    if (m === 11 && k === 0) { // phoenix
+      return '<g opacity="0.45">' + hanaPlant(11) + '</g>' +
+        strokeP('M46 70C28 80 22 100 30 124', 5, CARD_RED) + strokeP('M50 72C46 92 48 108 58 126', 5, GOLD) + strokeP('M54 70C66 84 74 100 72 124', 5, CARD_BLACK) +
+        '<path d="M34 54C22 40 24 30 32 26 34 38 44 44 56 46z" fill="' + CARD_RED + '"/><path d="M40 60C22 62 14 50 12 44 28 46 40 50 52 58z" fill="' + GOLD + '"/>' +
+        ellipseP(56, 62, 17, 11, GOLD, -18, ' stroke="' + CARD_BLACK + '" stroke-width="1.4"') + '<path d="M54 56C62 50 74 54 78 62 70 62 62 66 54 56z" fill="' + CARD_RED + '"/>' +
+        strokeP('M66 54C68 44 66 38 62 34', 6) + '<circle cx="63" cy="32" r="5" fill="' + GOLD + '" stroke="' + CARD_BLACK + '" stroke-width="1.4"/>' + gold('M67 30 76 33 67 35z') +
+        '<path d="M58 28 56 20 62 25 64 17 68 25 72 20 70 29z" fill="' + CARD_RED + '"/>' + dot(64, 31, 1, CARD_BLACK);
+    }
+    return '';
+  }
+  // The animals, over their plant.
+  function hanaAnimal(m) {
+    var o;
+    if (m === 1) return '<g transform="translate(0 4)">' + strokeP('M20 120C36 100 38 84 54 70', 3) + '</g>' + '<g opacity="0.9"><g transform="translate(8 8) scale(0.86)">' + hanaBlossom(30, 78, 6) + hanaBlossom(70, 60, 6.4) + hanaBlossom(70, 38, 6) + '</g></g>' +
+      inkP('M32 60 20 66 24 70 38 66z', ' fill="' + HANA_WOOD + '"') + ellipseP(46, 52, 14, 9.6, '#7d8a2a', -14) + ellipseP(54, 50, 8, 5.6, '#5a6420', -14) + dot(60, 44, 6.2, '#7d8a2a') + gold('M65 42 74 45 65 47z') + dot(62, 43, 1.1, CARD_CREAM);
+    if (m === 3) return '<g opacity="0.8">' + hanaPlant(3) + '</g>' + dot(70, 28, 6, GOLD) + ellipseP(50, 90, 15, 8, CARD_BLACK, -36) + '<path d="M48 80C38 64 30 66 24 52 40 54 50 66 56 80z" fill="' + CARD_BLACK + '"/><path d="M54 82C62 64 72 60 82 52 80 68 70 80 62 90z" fill="' + CARD_BLACK + '"/>' +
+      inkP('M34 104 20 122 30 120 42 108z') + dot(60, 78, 5.6, CARD_BLACK) + gold('M63 76 72 80 63 82z') + dot(61, 77, 1, CARD_CREAM) + '<path d="M44 92Q50 98 56 90" fill="none" stroke="' + CARD_CREAM + '" stroke-width="1.6"/>';
+    if (m === 4) {
+      o = '<g opacity="0.9">' + hanaPlant(4) + '</g>';
+      for (var i = 0; i < 6; i++) {
+        var t = i / 5, x = 20 + t * 56, y = 112 - t * 52;
+        o += '<g transform="translate(' + rd1(x) + ' ' + rd1(y) + ') rotate(-34)"><path d="M-9-4H9L8 4H-8z" fill="' + (i % 2 ? HANA_WOOD : '#97683a') + '" stroke="' + CARD_CREAM + '" stroke-width="0.9"/></g>';
+      }
+      return o + strokeP('M16 116 28 108M36 94 48 86M60 74 74 64', 2, CARD_BLACK);
+    }
+    if (m === 5) return '<g opacity="0.95">' + hanaPlant(5) + '</g>' + hanaButterfly(30, 36, 1, -20) + hanaButterfly(72, 80, 0.9, 25);
+    if (m === 6) return '<g opacity="0.85">' + hanaPlant(6) + '</g>' +
+      ellipseP(50, 86, 23, 14, CARD_BLACK) + '<path d="M26 78 32 70 36 77 42 69 46 76 52 68 56 76 62 70 66 78z" fill="' + CARD_BLACK + '"/>' + ellipseP(72, 88, 12, 10.6, CARD_BLACK, -8) + '<path d="M78 82Q92 84 90 94 86 98 78 96z" fill="' + CARD_BLACK + '"/>' +
+      '<path d="M66 78 64 68 72 74z" fill="' + CARD_BLACK + '"/>' + gold('M80 94 87 88 84 98z') + dot(70, 85, 1.5, CARD_CREAM) + dot(86, 91, 1, CARD_CREAM) + dot(89, 93, 1, CARD_CREAM) +
+      strokeP('M34 98 32 116M44 99 44 118M58 98 60 116M66 98 70 116', 4) + strokeP('M28 82C22 82 20 90 24 96', 2.4);
+    if (m === 7) return '<g transform="translate(0 14) scale(1 0.8)"><g opacity="0.9">' + hanaPlant(7) + '</g></g>' + dot(70, 30, 12, GOLD) + bird(34, 50, 1.3) + bird(52, 40, 1.1) + bird(26, 66, 1);
+    if (m === 8) return '<g transform="translate(0 -6) scale(1)">' + hanaPlant(8) + '</g>' +
+      '<path d="M22 78C26 108 74 108 78 78z" fill="' + CARD_RED + '"/>' + '<ellipse cx="50" cy="78" rx="28" ry="8.6" fill="' + CARD_CREAM + '" stroke="' + GOLD + '" stroke-width="2.6"/>' + '<ellipse cx="50" cy="80" rx="20" ry="4.6" fill="' + CARD_RED + '" fill-opacity="0.35"/>' +
+      '<circle cx="50" cy="92" r="6" fill="' + GOLD + '"/><circle cx="50" cy="92" r="2.6" fill="' + CARD_RED + '"/>' + inkP('M40 104H60L62 109H38z');
+    if (m === 9) return '<g opacity="0.9">' + hanaPlant(9) + '</g>' + ellipseP(46, 94, 18, 9.6, '#6b4a2b') + '<path d="M58 90C64 78 64 70 62 62L72 60C72 72 70 82 66 94z" fill="#6b4a2b"/>' +
+      ellipseP(68, 58, 8, 5.4, '#6b4a2b', -14) + strokeP('M64 54C58 46 54 40 52 32M60 46 52 44M58 40 50 36M68 52C74 46 76 40 78 32M72 44 80 42', 2, CARD_BLACK) + strokeP('M32 100 30 124M40 102 40 124M54 102 56 124M62 100 66 122', 2.6, '#6b4a2b') +
+      '<g fill="' + CARD_CREAM + '"><circle cx="40" cy="91" r="1.5"/><circle cx="48" cy="88" r="1.5"/><circle cx="54" cy="94" r="1.5"/><circle cx="44" cy="97" r="1.4"/></g>' + dot(76, 61, 1.2, CARD_CREAM) + strokeP('M30 88 24 82', 3, '#6b4a2b');
+    if (m === 10) { // swallow under the willow and the rain
+      o = '<g opacity="0.85">' + hanaPlant(10) + '</g>';
+      for (var j = 0; j < 7; j++) o += strokeP('M' + (22 + j * 9) + ' ' + (52 + (j % 3) * 16) + 'l-3 8', 1.5, HANA_SKY);
+      return o + ellipseP(52, 82, 14, 7, CARD_BLACK, 24) + ellipseP(54, 85, 8, 4, CARD_CREAM, 24) + '<path d="M50 76C40 62 30 60 22 58 34 70 42 80 50 84z" fill="' + CARD_BLACK + '"/>' + dot(64, 88, 5, CARD_BLACK) + gold('M67 90 74 94 66 94z') +
+        inkP('M40 90 26 108 34 106 38 114 46 96z') + dot(65, 87, 0.9, CARD_CREAM);
+    }
+    return '';
+  }
+  function hanaButterfly(x, y, s, rot) {
+    var w = function (cx, cy, rx, ry, r) { return ellipseP(cx, cy, rx, ry, GOLD, r, ' stroke="' + CARD_BLACK + '" stroke-width="1.2"'); };
+    return '<g transform="translate(' + x + ' ' + y + ') rotate(' + rot + ') scale(' + s + ')">' + w(-9, -6, 9, 6, -30) + w(9, -6, 9, 6, 30) + w(-7, 6, 6, 4.4, 25) + w(7, 6, 6, 4.4, -25) +
+      '<g fill="' + CARD_CREAM + '"><circle cx="-10" cy="-6" r="2"/><circle cx="10" cy="-6" r="2"/></g>' + ellipseP(0, 0, 1.8, 8.6, CARD_BLACK) + strokeP('M0-7C-2-12-5-13-6-13M0-7C2-12 5-13 6-13', 1, CARD_BLACK) + '</g>';
+  }
+
+  // The month number (two digits turned into one path run) and the kind badge.
+  var HANA_BADGE_Y = 31;
+  function hanaBadge(c, x, y, k) {
+    if (c.kind === 'bright') return '<circle cx="' + x + '" cy="' + y + '" r="' + 4.6 * k + '" fill="' + GOLD + '"/>';
+    if (c.kind === 'animal') return '<path d="M' + x + ' ' + (y - 5.4 * k) + ' ' + (x + 4.4 * k) + ' ' + y + ' ' + x + ' ' + (y + 5.4 * k) + ' ' + (x - 4.4 * k) + ' ' + y + 'z" fill="' + CARD_BLACK + '"/>';
+    if (c.kind === 'ribbon') return '<path d="M' + (x - 2.6 * k) + ' ' + (y - 5.4 * k) + 'H' + (x + 2.6 * k) + 'V' + (y + 5.4 * k) + 'L' + x + ' ' + (y + 3.8 * k) + ' ' + (x - 2.6 * k) + ' ' + (y + 5.4 * k) + 'z" fill="' + (c.ribbon === 'blue' ? HANA_SKY : CARD_RED) + '"/>';
+    return '<circle cx="' + x + '" cy="' + y + '" r="' + 2.2 * k + '" fill="currentColor"/>';
+  }
+  function hanaIndex(c) {
+    var label = String(c.month + 1), two = label.length > 1;
+    var one = function (turn) {
+      return '<g class="zc-idx-std"' + (turn ? ' transform="rotate(180 50 70)"' : '') + '><rect x="2" y="3" width="17" height="42" rx="3" fill="' + CARD_CREAM + '" fill-opacity="0.95"/>' +
+        glyph(label, 10.5, 6 + (two ? 1.5 : 0), two ? 0.88 : 1.2) + hanaBadge(c, 10.5, HANA_BADGE_Y + 3, 1) + '</g>';
+    };
+    var row = '<g class="zc-idx-row" display="none"><rect x="1.5" y="2" width="' + (two ? 55 : 42) + '" height="36" rx="5" fill="' + CARD_CREAM + '" fill-opacity="0.95"/>' + glyph(label, 4 + glyphWidth(label) * (two ? 1.5 : 2.1) / 2 + (two ? 2 : 0), 6, two ? 1.5 : 2.1) +
+      hanaBadge(c, two ? 47 : 33, 20, 1.5) + '</g>';
+    return one(false) + one(true) + row;
+  }
+  function hanafudaFaceMarkup(id, standalone) {
+    var c = hanafudaCard(id), m = c.month, art, bright = c.kind === 'bright', frame;
+    if (c.kind === 'bright') art = hanaSpecial(m, c.k);
+    else if (c.kind === 'animal') art = c.sake ? hanaAnimal(8) : hanaAnimal(m);
+    else if (c.kind === 'ribbon') art = '<g opacity="0.9">' + hanaPlant(m) + '</g>' + hanaRibbon(c.ribbon);
+    else art = c.name === 'lightning' ? '<g opacity="0.85">' + hanaPlant(10) + '</g>' + '<path d="M58 28 44 66H56L46 106 72 56H58L68 28z" fill="' + GOLD + '" stroke="' + CARD_BLACK + '" stroke-width="1.2" stroke-linejoin="round"/>' :
+      (c.k === 3 && m !== 11 ? '<g transform="translate(100 0) scale(-1 1)">' + hanaPlant(m) + '</g>' : hanaPlant(m));
+    if (bright && !art) art = hanaPlant(m);
+    frame = '<rect x="14" y="8" width="72" height="124" rx="3.5" fill="' + (bright ? GOLD : 'currentColor') + '" fill-opacity="' + (bright ? 0.14 : 0.07) + '" stroke="' + (bright ? GOLD : 'currentColor') + '" stroke-width="' + (bright ? 2.2 : 1.2) + '"/>' +
+      '<rect class="zc-fine" x="16.6" y="10.6" width="66.8" height="118.8" rx="1.8" fill="none" stroke="' + GOLD + '" stroke-width="0.7"/>';
+    return faceFrame(frame + '<g>' + art + '</g>' + hanaIndex(c), HANA_COLOURS[m], standalone);
   }
 
   // ── Backs ─────────────────────────────────────────────────────────────
@@ -608,7 +885,8 @@
     var holder = d.createElement('div');
     holder.innerHTML = '<svg id="zc-sprite" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>' +
       SUIT_SHAPES.map(function (shape, s) { return '<symbol id="zc-s-' + s + '" overflow="visible">' + shape + '</symbol>'; }).join('') +
-      ITALIAN_SHAPES.map(function (shape, s) { return '<symbol id="' + ITALIAN_PREFIX + s + '" overflow="visible">' + shape + '</symbol>'; }).join('') + SPRITE_DEFS + '</defs></svg>';
+      ITALIAN_SHAPES.map(function (shape, s) { return '<symbol id="' + ITALIAN_PREFIX + s + '" overflow="visible">' + shape + '</symbol>'; }).join('') +
+      SPANISH_SHAPES.map(function (shape, s) { return '<symbol id="' + SPANISH_PREFIX + s + '" overflow="visible">' + shape + '</symbol>'; }).join('') + SPRITE_DEFS + '</defs></svg>';
     d.body.insertBefore(holder.firstChild, d.body.firstChild);
   }
   function segmented(options, value, onPick) {
@@ -1148,7 +1426,8 @@
     rank: rank, suit: suit, isRed: isRed, make: make, cardName: cardName, clone: clone,
     foundationAccepts: foundationAccepts, stacksOn: stacksOn, isRun: isRun, shuffled: shuffled, msDeal: msDeal,
     moonPhase: moonPhase, moonLitPath: moonLitPath, faceMarkup: faceMarkup, backMarkup: backMarkup,
-    italianFaceMarkup: italianFaceMarkup, italianName: italianName, jokerMarkup: jokerMarkup, markSvg: markSvg, wordmarkSvg: wordmarkSvg,
+    italianFaceMarkup: italianFaceMarkup, italianName: italianName,
+    spanishFaceMarkup: spanishFaceMarkup, spanishName: spanishName, hanafudaFaceMarkup: hanafudaFaceMarkup, hanafudaCard: hanafudaCard, hanafudaName: hanafudaName, HANA_MONTHS: HANA_MONTHS, jokerMarkup: jokerMarkup, markSvg: markSvg, wordmarkSvg: wordmarkSvg,
     fmtTime: fmtTime, plural: plural, describePile: describePile, fanStep: fanStep, pageEls: pageEls, idsOf: idsOf, restShare: restShare,
     store: store, createStats: createStats, h: h, sheet: sheet, segmented: segmented, backsSheet: backsSheet, backsRow: backsRow,
     createBoard: createBoard, createSession: createSession, ensureSprite: ensureSprite,
