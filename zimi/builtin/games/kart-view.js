@@ -83,7 +83,7 @@
     if (k.bonk > 0.15) c.translate((Math.floor(t * 40) % 2 ? 1 : -1) * 0.6, 0);
     if (k.boost > 0 && !o.ghost && !o.still) { // a flame out of the back
       c.fillStyle = '#ff9a1f'; var fl = 6 + (Math.floor(t * 30) % 3) * 2.2;
-      c.beginPath(); c.moveTo(-2.2, -4); c.lineTo(0, -4 + (view === 'front' ? -fl : fl) * 0.1 + fl * (view === 'front' ? 0 : 0.9)); c.lineTo(2.2, -4); c.fill();
+      c.beginPath(); c.moveTo(-2.2, -4); c.lineTo(0, -4 + (view === 'front' ? 0 : fl * 0.6)); c.lineTo(2.2, -4); c.fill();
     }
     A.kartSprite(c, d, view, { lean: k.drift ? k.drift * 1.6 : k.steer, flip: rel > 0 ? 1 : -1, bob: k.spin > 0 ? 0 : 0 });
     if (k.drift && !o.ghost) { // sparks off the back wheels, by how far the drift has charged
@@ -170,11 +170,13 @@
     c.strokeStyle = k.item ? '#ff9a1f' : 'rgba(255,255,255,0.35)'; c.lineWidth = 2; c.stroke();
     if (k.roll > 0) A.itemIcon(c, ROLL[Math.floor(o.t * 14) % 5], x + sz / 2, y + sz / 2, sz * 0.36);
     else if (k.item) A.itemIcon(c, k.item, x + sz / 2, y + sz / 2, sz * 0.36);
-    // place
-    var place = k.place || 1, big = 30 * u;
-    label(c, E.ordinal(place), x + sz + 8 * u, y + sz * 0.72, big, 'left');
-    c.font = '800 ' + big + 'px ' + FONT; var wTxt = c.measureText(E.ordinal(place)).width;
-    label(c, '/' + race.karts.length, x + sz + 8 * u + wTxt + 2, y + sz * 0.72, 13 * u, 'left', '#d6dcea');
+    // place (not when racing alone)
+    if (race.karts.length > 1) {
+      var place = k.place || 1, big = 30 * u;
+      label(c, E.ordinal(place), x + sz + 8 * u, y + sz * 0.72, big, 'left');
+      c.font = '800 ' + big + 'px ' + FONT; var wTxt = c.measureText(E.ordinal(place)).width;
+      label(c, '/' + race.karts.length, x + sz + 8 * u + wTxt + 2, y + sz * 0.72, 13 * u, 'left', '#d6dcea');
+    }
     // lap and clock
     var lap = Math.min(race.laps, k.lap + 1);
     label(c, 'Lap ' + lap + '/' + race.laps, rect.x + rect.w / 2, y + 18 * u, 16 * u, 'center');

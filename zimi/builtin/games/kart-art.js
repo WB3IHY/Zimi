@@ -51,7 +51,7 @@
     for (k = 0; k < 12; k++) for (i = 0; i < 2; i++) { var p0 = E.pointAt(T, i * 4, -half + k * half / 6), p1 = E.pointAt(T, i * 4 + 4, -half + (k + 1) * half / 6); c.fillStyle = (k + i) % 2 ? '#111' : '#f5f5f5'; strip(c, T, i * 4 - 4, i * 4, -half + k * half / 6, -half + (k + 1) * half / 6, c.fillStyle); }
     // speed pads: orange chevrons
     T.pads.forEach(function (pd) {
-      strip(c, T, pd.s - pd.len / 2, pd.s + pd.len / 2, -half * 0.75, half * 0.75, 'rgba(255,140,20,0.35)');
+      strip(c, T, pd.s - pd.len / 2, pd.s + pd.len / 2, -half * 0.75, half * 0.75, 'rgba(255,150,30,0.14)');
       for (k = 0; k < 3; k++) {
         var s = pd.s - 10 + k * 9, a = E.pointAt(T, s - 3, -half * 0.55), b = E.pointAt(T, s + 3, 0), d = E.pointAt(T, s - 3, half * 0.55);
         c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.lineTo(d.x, d.y); c.lineWidth = 3.2; c.strokeStyle = '#ff9a1f'; c.lineJoin = 'miter'; c.stroke();

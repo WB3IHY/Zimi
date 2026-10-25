@@ -766,5 +766,13 @@
   "title": "Road Rush",
   "blurb": "Hills, curves and traffic against the clock",
   "why": "Arcade racers of the 1980s faked a 3D road by scaling flat strips of it."
+ },
+ {
+  "qid": "Q18759108",
+  "wiki": "Kart racing game",
+  "path": "kart.html",
+  "title": "ZimiKart",
+  "blurb": "Eight critters, six tracks, drift for a boost",
+  "why": "Kart racers fake a 3D road by tilting one flat picture of the track, a trick the 1990s consoles did in hardware."
  }
 ]

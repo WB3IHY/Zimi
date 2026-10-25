@@ -9,8 +9,8 @@
   // ── tuning ───────────────────────────────────────────────────────────────
   var STEP = 1 / 60, WORLD = 1024, DS = 6, VMAX = 72, ACCEL = 44, BRAKE = 120, COAST = 14, REVERSE_MAX = 16, ROUGH_V = 0.55, ROUGH_DRAG = 30;
   var TURN = 2.05, TURN_FALLOFF = 0.34, STEER_RATE = 6.5, GRIP = 16, SCRUB = 0.22;
-  var DRIFT_TURN = 1.3, DRIFT_PULL = 0.55, DRIFT_GRIP = 5, DRIFT_MIN_V = VMAX * 0.45;
-  var CHARGE = [0.75, 1.5, 2.4], MINI = [0.5, 0.95, 1.45], BOOST_CAP = 1.4, BOOST_PUSH = 140, ITEM_BOOST_S = 1.5, PAD_BOOST_S = 0.9;
+  var DRIFT_TURN = 1.3, DRIFT_PULL = 0.55, DRIFT_GRIP = 7, DRIFT_MIN_V = VMAX * 0.45, DRIFT_SPEED = 1.06;
+  var CHARGE = [0.6, 1.2, 2.0], MINI = [0.6, 1.1, 1.7], BOOST_CAP = 1.4, BOOST_PUSH = 140, ITEM_BOOST_S = 1.5, PAD_BOOST_S = 0.9;
   var SHOULDER = 14, WALL_W = 9, KART_R = 5.5, WALL_KEEP = 0.45, LOCATE_WIN = 20;
   var JUMP_REACH = 56, JUMP_MIN_V = 34, AIR_H = 16, RAMP_LEN = 36, GAP_LEN = 42, FALL_PENALTY_S = 1.2;
   var SPIN_S = 1.1, INVULN_S = 2, SHIELD_S = 9, MAGNET_S = 3.5, MAGNET_CAP = 1.18, MAGNET_PULL = 22, OIL_S = 28, OIL_R = 11, BOX_R = 11, BOX_AGAIN_S = 4;
@@ -225,6 +225,7 @@
     var cap = VMAX * k.speedScale, push = ACCEL;
     if (k.rough && !air) cap *= ROUGH_V;
     if (k.magnet > 0) cap *= MAGNET_CAP;
+    if (k.drift) cap *= DRIFT_SPEED;
     if (k.boost > 0) { cap = VMAX * BOOST_CAP; push = BOOST_PUSH; k.boost -= dt; }
     if (inp.gas && k.spin <= 0) { if (k.v < cap) k.v = Math.min(cap, k.v + push * dt); else k.v += (cap - k.v) * Math.min(1, 3 * dt); }
     else if (k.v > 0) k.v = Math.max(0, k.v - (inp.brake ? BRAKE : COAST) * dt);
@@ -346,15 +347,16 @@
     // speed
     var tv = T.cornerV[j] * p.skill * k.speedScale * (k.finished != null ? 0.8 : 1), ahead2 = T.cornerV[(k.idx + Math.round(40 / T.ds)) % N];
     tv = Math.min(tv, ahead2 * 1.08);
+    if (k.boost > 0.15 && ahead2 > 48) tv = Math.max(tv, VMAX * BOOST_CAP * 0.95); // a driver rides its boost down a straight
     var inp = { steer: steer, gas: k.v < tv, brake: k.v > tv * 1.12, drift: false };
     // drifting a corner: start where the bend is and the driver likes it, hold it while it turns, let go on the straight
     var bend = 0, m;
     for (m = 4; m <= 20; m += 4) bend += T.curv[(k.idx + m) % N] * T.ds * 4;
     if (k.drift) {
       var ours = k.drift > 0 ? bend : -bend;
-      inp.drift = ours > 0.12 && Math.abs(k.d) < T.halfW * 0.8;
-      inp.steer = clamp(steer, -1, 1);
-    } else if (p.drift > 0 && Math.abs(bend) > 0.55 && k.v > DRIFT_MIN_V * 1.2 && Math.abs(k.d) < T.halfW * 0.5 && k.air <= 0 && rng() < p.drift * 0.15) {
+      inp.drift = ours > 0.5 && Math.abs(k.d) < T.halfW * 0.8;
+      inp.steer = clamp((steer - DRIFT_PULL * k.drift) / (1 - DRIFT_PULL), -1, 1); // a drift already turns: ask only for the rest
+    } else if (p.drift > 0 && Math.abs(bend) > 1.2 && T.cornerV[(k.idx + 10) % N] > 52 && k.v > DRIFT_MIN_V * 1.2 && Math.abs(k.d) < T.halfW * 0.5 && k.air <= 0 && rng() < p.drift * 0.15) {
       inp.drift = true; inp.steer = bend > 0 ? Math.max(0.5, steer) : Math.min(-0.5, steer);
     }
     // the rubber band: gentle, and only when a person is racing
@@ -490,9 +492,10 @@
     race.karts.forEach(function (c) { if (c.shield > 0) c.shield -= dt; });
     // the end: when every person is across the line, and the rest have had their chance
     var people = race.karts.filter(function (c) { return c.human >= 0; });
-    if (!race.over && (race.trial ? people.every(function (c) { return c.finished != null; }) : people.length && people.every(function (c) { return c.finished != null; }))) {
+    var everyone = race.karts.every(function (c) { return c.finished != null; });
+    if (!race.over && (people.length ? people.every(function (c) { return c.finished != null; }) : everyone)) {
       if (race.doneAt == null) race.doneAt = clock;
-      if (race.karts.every(function (c) { return c.finished != null; }) || clock - race.doneAt > FINISH_WAIT_S || race.trial) race.over = true;
+      if (everyone || clock - race.doneAt > FINISH_WAIT_S || race.trial) race.over = true;
     }
     if (race.over && !race.order) race.order = rankKarts(race);
     return ev;
