@@ -181,7 +181,7 @@
   function pause() {
     if (mode !== 'playing' && mode !== 'ready') return;
     var was = mode; mode = 'paused'; pausedFrom = was; loop.stop(); releaseAll();
-    sheet('Paused', function (b) { note(b, 'The car waits.'); }, [['Resume', resume, true], ['Quit', setup, false]]);
+    sheet('Paused', function (b) { note(b, 'Resume when you are ready.'); }, [['Resume', resume, true], ['Quit', setup, false]]);
   }
   var pausedFrom = 'playing';
   function resume() { mode = pausedFrom; Play.closeSheet(els.sheet); loop.start(); }
@@ -193,8 +193,8 @@
     if (fresh) { prefs.best = sc; savePrefs(); }
     sheet('Out of time', function (b) {
       note(b, 'Score ' + sc + (fresh ? '. A new best.' : '. Best ' + prefs.best + '.'));
-      note(b, 'You reached ' + game.stage.name + (game.lap ? ', second time round.' : '.'));
-    }, [['Drive again', begin, true], ['Setup', setup, false]]);
+      note(b, 'You reached ' + game.stage.name + (game.lap ? ', on your second lap.' : '.'));
+    }, [['Play again', begin, true], ['Setup', setup, false]]);
   }
 
   // ── sheets ───────────────────────────────────────────────────────────────

@@ -331,7 +331,7 @@
   }
   function pause() {
     if (mode !== 'playing') return;
-    mode = 'paused'; loop.stop(); releaseAll(); showSheet('Paused', 'The ball waits.', 'Resume');
+    mode = 'paused'; loop.stop(); releaseAll(); showSheet('Paused', 'Resume when you are ready.', 'Resume');
   }
   function resume() { mode = 'playing'; Play.closeSheet(els.sheet); startLoop(); }
   function finish() {

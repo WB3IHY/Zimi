@@ -114,7 +114,7 @@
   function say() {
     if (over) return;
     if (settings.opp === 'two') els.msg.textContent = (turn === 'X' ? 'Crosses' : 'Noughts') + ' to play.';
-    else els.msg.textContent = turn === cpu ? 'The computer is thinking.' : 'Your turn.';
+    else els.msg.textContent = turn === cpu ? 'Computer is thinking' : 'Your turn.';
   }
   function end() {
     var w = winner(board);

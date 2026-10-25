@@ -256,7 +256,7 @@
     st = createState(); mode = 'playing'; els.msg.textContent = ''; clearHeld();
     Play.closeSheet(els.sheet); els.pause.disabled = false; hud(); draw(); loop.start();
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); showSheet('Paused', 'The rocks wait.', 'Resume'); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); showSheet('Paused', 'Resume when you are ready.', 'Resume'); }
   function resume() { mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
   function finish() {
     mode = 'over'; loop.stop(); els.pause.disabled = true; clearHeld();

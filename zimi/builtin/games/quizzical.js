@@ -93,7 +93,7 @@
 
   function verdict(score, total) {
     var r = total ? score / total : 0;
-    return r === 1 ? 'Flawless.' : r >= 0.75 ? 'Very well read.' : r >= 0.5 ? 'A good round.' : r >= 0.25 ? 'Room to wander.' : 'Plenty still to discover.';
+    return r === 1 ? 'Flawless.' : r >= 0.75 ? 'Very good.' : r >= 0.5 ? 'Good.' : 'Keep playing to learn more.';
   }
 
   var Engine = { kindOf: kindOf, maskTitle: maskTitle, distractors: distractors, question: question, makeRound: makeRound, miniRound: miniRound, verdict: verdict, same: same, QUESTIONS: QUESTIONS, CHOICES: CHOICES };

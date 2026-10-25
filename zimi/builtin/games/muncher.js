@@ -418,7 +418,7 @@
     var carry = { score: st.score, lives: st.lives, nextLife: st.nextLife }, lvl = st.level + 1;
     st = createState(lvl, undefined, carry); want = null; els.msg.textContent = 'Maze ' + lvl;
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); want = null; showSheet('Paused', 'The maze waits.', 'Resume'); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); want = null; showSheet('Paused', 'Resume when you are ready.', 'Resume'); }
   function resume() { mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
   function finish() {
     mode = 'over'; loop.stop(); els.pause.disabled = true;

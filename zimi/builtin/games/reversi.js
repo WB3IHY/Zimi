@@ -245,7 +245,7 @@
     var passed = next === p ? other(p) : 0;
     state.turn = next;
     paint();
-    var base = watch || settings.mode === 'two' ? (next === BLACK ? 'Black' : 'White') + ' to move' : human(next) ? 'Your move' : 'Computer is thinking';
+    var base = watch || settings.mode === 'two' ? (next === BLACK ? 'Black' : 'White') + ' to move' : human(next) ? 'Your turn' : 'Computer is thinking';
     say((passed ? name(passed) + (settings.mode === 'cpu' && human(passed) ? ' have' : ' has') + ' no move and passes. ' : '') + base, !human(next) && !watch);
     if (root.ZimiShell) root.ZimiShell.turn(human(next), timeUp, history.length);
     if (!human(next)) scheduleComputer();
@@ -299,7 +299,7 @@
     do { h = history.pop(); } while (history.length && settings.mode === 'cpu' && !human(h.turn));
     state = { board: h.board, turn: h.turn }; lastMove = h.last;
     paint();
-    say(settings.mode === 'two' ? (state.turn === BLACK ? 'Black' : 'White') + ' to move' : 'Your move');
+    say(settings.mode === 'two' ? (state.turn === BLACK ? 'Black' : 'White') + ' to move' : 'Your turn');
     if (!human(state.turn)) scheduleComputer();
   }
 
@@ -308,7 +308,7 @@
     state = { board: initial(), turn: BLACK };
     resultSheet.close();
     paint(); showStats();
-    if (human(BLACK)) say(settings.mode === 'two' ? 'Black to move' : 'Your move, you play black');
+    if (human(BLACK)) say(settings.mode === 'two' ? 'Black to move' : 'Your turn. You play black');
     else { say('Computer is thinking', true); scheduleComputer(); }
   }
 
@@ -358,7 +358,7 @@
         watch = null; thinking = 0;
         var turn = state.turn;
         settings.mode = 'cpu'; settings.level = watchSaved.level; settings.side = watchSaved.side;
-        if (kind === 'takeover') { settings.side = turn === BLACK ? 'black' : 'white'; paint(); say('Your move'); if (root.ZimiShell) root.ZimiShell.turn(true, timeUp); }
+        if (kind === 'takeover') { settings.side = turn === BLACK ? 'black' : 'white'; paint(); say('Your turn'); if (root.ZimiShell) root.ZimiShell.turn(true, timeUp); }
         else { settings.mode = watchSaved.mode; if (kind === 'stop') newGame(); }
       }
     }

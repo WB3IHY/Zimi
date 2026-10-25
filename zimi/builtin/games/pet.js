@@ -278,8 +278,8 @@
     }
   }
   var LINES = {
-    hatched: function (n) { return n + ' hatched.'; }, sulk: function (n) { return n + ' is upset and has turned away. A meal, a wash and some company will help.'; }, recovered: function (n) { return n + ' is feeling better.'; },
-    mess: function (n) { return n + ' made a mess.'; }, dozed: function (n) { return n + ' was so tired that it dozed off.'; }, woke: function (n) { return n + ' woke up.'; }
+    hatched: function (n) { return n + ' hatched.'; }, sulk: function (n) { return n + ' is sad. A meal, a wash and some play will help.'; }, recovered: function (n) { return n + ' is feeling better.'; },
+    mess: function (n) { return n + ' made a mess.'; }, dozed: function (n) { return n + ' was so tired that it fell asleep.'; }, woke: function (n) { return n + ' woke up.'; }
   };
   function report(ev, away) {
     var out = [];
@@ -302,7 +302,7 @@
   function result(r, kind) {
     var n = pet.name, M = { egg: 'It is still an egg.', asleep: n + ' is asleep. Wake it first.', full: n + ' is not hungry.', snacks: 'No more snacks for now. A proper meal?', sulk: n + ' will not play right now. Try a meal or a wash first.', tired: n + ' is too tired to play.' };
     if (!r.ok) { say(M[r.msg] || ''); return; }
-    var T = { meal: n + ' ate a meal.', snack: n + ' munched a snack.', played: n + ' had fun.', clean: n + ' is sparkling clean.', sleep: 'Lights out. ' + n + ' is asleep.', wake: n + ' is awake.' };
+    var T = { meal: n + ' ate a meal.', snack: n + ' munched a snack.', played: n + ' had fun.', clean: n + ' is sparkling clean.', sleep: 'Good night. ' + n + ' is asleep.', wake: n + ' is awake.' };
     say(T[r.msg] || '');
   }
   function animate(kind, ms) { if (reduced) return; doing = { kind: kind, at: now(), ms: ms }; setTimeout(function () { if (doing && doing.kind === kind) doing = null; }, ms); }
@@ -327,7 +327,7 @@
       status.textContent = 'Round 1 of ' + ROUNDS + '. Pick a side.'; line.textContent = 'Guess where it looks, five times. Each right guess makes it happier.';
       function pick(g) {
         var res = round(rng, g); played++; if (res.win) wins++;
-        status.textContent = pet.name + ' looked ' + res.look + (res.win ? '. You win this one.' : '. Not this time.') + (played < ROUNDS ? ' Round ' + (played + 1) + ' of ' + ROUNDS + '.' : '');
+        status.textContent = pet.name + ' looked ' + res.look + (res.win ? '. You win.' : '. You lose.') + (played < ROUNDS ? ' Round ' + (played + 1) + ' of ' + ROUNDS + '.' : '');
         if (played >= ROUNDS) {
           r.textContent = ''; var res2 = play(pet, wins); status.textContent += ' ' + wins + ' of ' + ROUNDS + '.';
           r.appendChild(btn('Done', function () { closeSheet(); result(res2); animate('play', 600); save(); hud(); }, true));
