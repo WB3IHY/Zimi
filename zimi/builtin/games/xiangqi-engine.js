@@ -66,7 +66,7 @@ function ZimiXiangqiEngine() {
       }
       rows.push(row + (gap || ''));
     }
-    return rows.join('/') + ' ' + (pos.turn === RED ? 'w' : 'b');
+    return rows.join('/').replace(/G/g, 'K').replace(/g/g, 'k') + ' ' + (pos.turn === RED ? 'w' : 'b');   // the general is written K, as in every xiangqi FEN
   }
   function clone(pos) {
     var p = emptyPosition();
