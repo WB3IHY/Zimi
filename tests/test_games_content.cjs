@@ -138,5 +138,61 @@ const check = (ok, label) => {
   check(last.moves && last.moves.length === 1 && FC.legalMove(won, last.moves[0].from, last.moves[0].idx, last.moves[0].to), 'freecell hints: one move from a win gives that move');
 }
 
+// ── Go problems ──
+{
+  const sb = load(['go-engine.js', 'tsumego-solver.js', 'data/go-problems.js']);
+  const G = sb.makeGoEngine(), T = sb.makeTsumegoSolver(G), D = sb.ZimiTsumego;
+  const N = 19, NODE_CAP = 80000, MAX_PLIES = 9;
+  let bad = 0, firstBad = '', reproved = 0, wrongChecked = 0, wrongBad = 0;
+  const seen = new Set();
+  D.problems.forEach((p, n) => {
+    const key = p.c + ':' + p.id;
+    let ok = !seen.has(key) && p.r.length === p.h && p.r.every(r => r.length === p.w && /^[xo.]+$/.test(r));
+    seen.add(key);
+    const goal = { kind: p.k, target: p.t };
+    const b0 = T.boardFromRows(p.r);
+    // the target is the right colour, and the problem is not solved at the start
+    ok = ok && p.t.length >= 2 && p.t.every(i => b0[i] === (p.k === 'kill' ? 2 : 1)) && T.verdict(b0, goal) === 0;
+    // the stated line is legal move by move (black first, then alternately; -1 is a pass) and ends with the goal reached
+    let cur = { b: b0, ko: -1 };
+    for (let i = 0; ok && i < p.v.length; i++) {
+      const color = i % 2 === 0 ? 1 : 2, pt = p.v[i];
+      if (pt === -1 && color === 1) { ok = false; break; }
+      if (pt >= 0 && (cur.b[pt] !== 0 || pt === cur.ko)) { ok = false; break; }
+      cur = T.after(cur.b, pt, color);
+      if (!cur) ok = false;
+    }
+    if (ok) ok = T.verdict(cur.b, goal) > 0 && p.f.indexOf(p.v[0]) >= 0 && p.v.length <= p.d + 1;
+    // search again from scratch: black's first move wins; for a sample, points outside the answer list do not
+    if (ok && n % 3 === 0) {
+      const a = T.analyse(p.r, goal, { nodeCap: NODE_CAP, maxPlies: MAX_PLIES, reach: p.y });
+      const nx = T.after(a.board, p.v[0], 1);
+      ok = !!nx && T.minDepth(a.search, nx.b, 2, nx.ko, MAX_PLIES - 1) > 0;
+      reproved++;
+      if (ok && n % 9 === 0) {
+        for (let pt = 0, tried = 0; pt < N * N && tried < 3; pt++) {
+          const r = (pt / N) | 0, c = pt % N;
+          if (r >= p.h || c >= p.w || a.board[pt] || p.f.indexOf(pt) >= 0 || !a.search.zone[pt]) continue;
+          const bn = T.after(a.board, pt, 1);
+          if (!bn) continue;
+          a.search.nodes = 0; a.search.out = false;
+          const won = T.minDepth(a.search, bn.b, 2, bn.ko, MAX_PLIES - 1) > 0;
+          if (!a.search.out) { tried++; wrongChecked++; if (won) wrongBad++; }
+        }
+      }
+    }
+    if (!ok) { bad++; if (!firstBad) firstBad = key; }
+  });
+  check(D.problems.length >= 50, 'go problems: ' + D.problems.length + ' shipped (' + D.collections.map(c => c.name + ' ' + D.problems.filter(p => p.c === c.id).length).join(', ') + ')');
+  check(bad === 0, 'go problems: every one has a legal line from its position that reaches the goal, and a first move that is in the list' + (bad ? ' (' + bad + ' bad, first ' + firstBad + ')' : ''));
+  check(reproved >= 15, 'go problems: ' + reproved + ' searched again from scratch and still won');
+  check(wrongBad === 0 && wrongChecked > 0, 'go problems: points outside the answer list do not win (' + wrongChecked + ' checked)');
+  // a hand-made one: the vital point of straight three kills
+  const rows = ['...ox.', 'oooox.', 'xxxxx.', '......'];
+  const a = T.analyse(rows, { kind: 'kill', target: [3, 19, 20, 21, 22] }, { nodeCap: 20000, maxPlies: 9, reach: 0 });
+  const fm = T.firstMoves(a, a.board, -1);
+  check(fm && fm.length === 1 && fm[0].p === 1, 'go solver: the vital point of straight three is the only killing move');
+}
+
 console.log(failures ? failures + ' FAILED' : 'all passed');
 process.exit(failures ? 1 : 0);
