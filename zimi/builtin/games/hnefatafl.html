@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hnefatafl - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="world.css">
+<link rel="stylesheet" href="hnefatafl.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Hnefatafl</h1>
+  <button class="ar-btn" id="wk-undo" type="button" disabled>Undo</button>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog">New game</button>
+</header>
+
+<main class="bg-main">
+  <div class="bg-score" id="wk-score" aria-label="Pieces"></div>
+  <div class="hn-board" id="hn-board" role="group" aria-label="Hnefatafl board"></div>
+  <p class="bg-status" id="wk-status" role="status" aria-live="polite"></p>
+  <div class="bg-controls"><button class="ar-btn" id="wk-hint" type="button" disabled>Hint</button></div>
+  <p class="bg-stats" id="wk-stats"></p>
+  <p class="bg-help">Copenhagen rules. The attackers (dark) move first and try to take the king; the defenders (light) try to bring the king to a corner. Pieces slide like rooks and take an enemy by sandwiching it between two of their own; the corners and the empty throne count as enemies, and only the king may stop there. The king is taken by four attackers (three and the throne). Arrow keys move, Enter selects, U undoes, H hints, N starts a new game.</p>
+</main>
+<script src="boardkit.js"></script>
+<script src="worldkit.js"></script>
+<script src="enginekit.js"></script>
+<script src="hnefatafl-engine.js"></script>
+<script src="hnefatafl.js"></script>
+<!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
+<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q750693">About Hnefatafl</a></footer><!-- /zimi-about -->
+</body>
+</html>

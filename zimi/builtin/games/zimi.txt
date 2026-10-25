@@ -1,5 +1,5 @@
 Title: ZimiGames
-Description: 66 games from around the world and 41 puzzles, offline: cards, chess, go, shogi, mahjong, backgammon, arcade, kids, and games made from your own library
+Description: 74 games from around the world and 41 puzzles, offline: cards, chess, go, shogi, mahjong, backgammon, arcade, kids, and games made from your own library
 Language: eng
 Creator: Zimi
 Publisher: Zimi

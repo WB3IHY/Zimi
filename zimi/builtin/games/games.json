@@ -678,5 +678,77 @@
   "title": "Tien Len",
   "blurb": "Runs, pairs in a row and chops",
   "why": "Tien Len, Vietnam's national card game, where the two is the highest card."
+ },
+ {
+  "qid": "Q715883",
+  "wiki": "Janggi",
+  "path": "janggi.html",
+  "title": "Janggi",
+  "blurb": "Korean chess: palaces, cannons that need a screen, bikjang",
+  "why": "Korean chess, where the generals stay in their palaces and cannons need a screen to jump."
+ },
+ {
+  "qid": "Q631557",
+  "wiki": "Makruk",
+  "path": "makruk.html",
+  "title": "Makruk",
+  "blurb": "Thai chess: Khon, Met and Bia, a move-limit count",
+  "why": "Thai chess, close to the Indian game that chess grew from."
+ },
+ {
+  "qid": "Q989473",
+  "wiki": "International draughts",
+  "path": "draughts.html",
+  "title": "International Draughts",
+  "blurb": "Flying kings, take the most pieces, men capture backwards",
+  "why": "International draughts on 10 by 10, the version played across Europe and Africa."
+ },
+ {
+  "qid": "Q750693",
+  "wiki": "Tafl games",
+  "path": "hnefatafl.html",
+  "title": "Hnefatafl",
+  "blurb": "Copenhagen rules: the king runs for a corner",
+  "why": "The Viking board game: the king escapes to a corner or is captured."
+ },
+ {
+  "qid": "Q17663922",
+  "wiki": "Hnefatafl",
+  "path": "hnefatafl.html",
+  "title": "Hnefatafl",
+  "blurb": "Copenhagen rules: the king runs for a corner",
+  "why": "The Viking board game: the king escapes to a corner or is captured."
+ },
+ {
+  "qid": "Q937315",
+  "wiki": "Royal Game of Ur",
+  "path": "ur.html",
+  "title": "Royal Game of Ur",
+  "blurb": "Four dice, rosettes, a race 4,500 years old",
+  "why": "Played in Mesopotamia 4,500 years ago; its rules survive on a clay tablet."
+ },
+ {
+  "qid": "Q697302",
+  "wiki": "Snakes and ladders",
+  "path": "snakesandladders.html",
+  "title": "Snakes and Ladders",
+  "blurb": "Two to four players, our own drawn board",
+  "why": "Snakes and Ladders began in India as Moksha Patam, a game about virtue and vice."
+ },
+ {
+  "qid": "Q900489",
+  "wiki": "Carrom",
+  "path": "carrom.html",
+  "title": "Carrom",
+  "blurb": "Flick the striker, pocket your coins, cover the queen",
+  "why": "Flick and pocket on a wooden board, played in homes across South Asia."
+ },
+ {
+  "qid": "Q12263",
+  "wiki": "Mahjong",
+  "path": "mahjong4.html",
+  "title": "Mahjong for Four",
+  "blurb": "Hong Kong old style against three computers",
+  "why": "Mahjong for four, the tile game played at tables across China and beyond."
  }
 ]
