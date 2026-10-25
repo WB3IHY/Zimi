@@ -16,7 +16,8 @@
   var KING = 13;
 
   function rank(id) { return id % 13 + 1; }
-  function suit(id) { return Math.floor(id / 13); }
+  // Ids past 51 are further copies of the same 52 faces (Spider deals two decks).
+  function suit(id) { return Math.floor((id % DECK) / 13); }
   function isRed(id) { var s = suit(id); return s === 1 || s === 2; }
   function make(r, s) { return s * 13 + r - 1; }
   function cardName(id) { return RANK_NAMES[rank(id) - 1] + ' of ' + SUITS[suit(id)]; }
@@ -227,6 +228,7 @@
     currentBack = BACKS.some(function (b) { return b.id === id; }) ? id : DEFAULT_BACK;
   }
 
+  function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
   function fmtTime(s) {
     s = Math.max(0, Math.floor(s));
     var m = Math.floor(s / 60), r = s % 60;
@@ -234,14 +236,28 @@
   }
   // A game's lifetime figures: played counts the games begun, so quitting
   // mid-game still shows up as a loss.
-  function createStats(game) {
+  // `lowScore` is for games where fewer points is better (Hearts); a game
+  // that reports a score also keeps its best, win or not.
+  function createStats(game, lowScore) {
     var key = 'stats.' + game;
     var read = function () { var v = store.get(key, null); return v && typeof v === 'object' ? v : { played: 0, won: 0, best: 0 }; };
+    var keepScore = function (v, score) {
+      if (typeof score !== 'number') return;
+      if (typeof v.bestScore !== 'number' || (lowScore ? score < v.bestScore : score > v.bestScore)) v.bestScore = score;
+    };
     return {
       get: read,
       began: function () { var v = read(); v.played++; store.set(key, v); },
-      won: function (seconds) { var v = read(); v.won++; seconds = Math.max(1, seconds); if (!v.best || seconds < v.best) v.best = seconds; store.set(key, v); return v; },
-      line: function () { var v = read(); return 'Played ' + v.played + '   Won ' + v.won + '   Best ' + (v.best ? fmtTime(v.best) : '-'); }
+      won: function (seconds, score) {
+        var v = read(); v.won++; seconds = Math.max(1, seconds);
+        if (!v.best || seconds < v.best) v.best = seconds;
+        keepScore(v, score); store.set(key, v); return v;
+      },
+      scored: function (score) { var v = read(); keepScore(v, score); store.set(key, v); return v; },
+      line: function () {
+        var v = read();
+        return 'Played ' + v.played + '   Won ' + v.won + '   Best ' + (v.best ? fmtTime(v.best) : '-') + (typeof v.bestScore === 'number' ? '   Best score ' + v.bestScore : '');
+      }
     };
   }
 
@@ -340,19 +356,24 @@
   // [{id, pile, idx, x, y, up, hidden}] in stacking order.
   var MAX_CARD_W = 120, CARD_ASPECT = 1.4, CARD_H_SHARE = 0.14, DRAG_SLOP = 6, SETTLE_MS = 300, Z_HOT = 500, Z_DRAG = 1000;
   var DEAL_STAGGER_MS = 16, MIN_CARD_W = 24;
+  // More o: heightShare (how much of the table's height a card may take, for
+  // layouts shorter than Klondike's columns), enterTaps (Enter on a pile taps
+  // its top card: for games where one tap is the whole move), and per card in
+  // place(): mark (the game's own highlight), glow (a soft one) and dim (not playable now); a
+  // slot may be quiet (a drop area with no outline and no tab stop).
 
   function createBoard(o) {
     var d = root.document, table = o.table, stage = h('div', { class: 'zc-stage' });
     var live = h('div', { class: 'zc-live', 'aria-live': 'polite' });
     table.appendChild(stage); table.appendChild(live);
     var els = {}, slotEls = {}, cardPos = {}, byPile = {}, slotRects = {};
-    var lastState = null, metrics = null, drag = null, sel = null, settleTimer = 0;
+    var lastState = null, metrics = null, drag = null, sel = null, settleTimer = 0, focusPile = null, slotOrder = [];
 
     function measure() {
       var W = table.clientWidth, H = table.clientHeight;
       var pad = Math.max(6, Math.min(16, Math.round(W * 0.02))), gap = Math.max(4, Math.round(W * 0.014));
       var cw = Math.floor((W - 2 * pad - (o.cols - 1) * gap) / o.cols);
-      cw = Math.max(MIN_CARD_W, Math.min(cw, MAX_CARD_W, Math.floor(H * CARD_H_SHARE)));
+      cw = Math.max(MIN_CARD_W, Math.min(cw, MAX_CARD_W, Math.floor(H * (o.heightShare || CARD_H_SHARE))));
       // `left` centres the columns when the cards stop growing before the width does.
       var left = Math.floor((W - (o.cols * cw + (o.cols - 1) * gap)) / 2);
       metrics = { cw: cw, ch: Math.round(cw * CARD_ASPECT), gap: gap, pad: pad, left: left, step: cw + gap, W: W, H: H, cols: o.cols };
@@ -391,9 +412,26 @@
       if (!e) {
         e = slotEls[s.id] = h('div', { class: 'zc-slot', tabindex: '0', role: 'group', 'data-pile': s.id });
         e.addEventListener('keydown', function (ev) { onKey(ev, s.id); });
+        // Only a keyboard focus shows the ring: a mouse click on empty felt should not.
+        e.addEventListener('focus', function () {
+          var visible = true;
+          try { visible = e.matches(':focus-visible'); } catch (err) { /* old engine: show it */ }
+          if (visible) { focusPile = s.id; paintSelection(); }
+        });
+        e.addEventListener('blur', function () { focusPile = null; paintSelection(); });
         stage.insertBefore(e, stage.firstChild);
       }
       return e;
+    }
+    // A pile that is gone (a pyramid card taken) loses its slot; a keyboard
+    // player's focus moves to the nearest pile that is left.
+    function pruneSlots(prevOrder, hadFocus) {
+      var lost = prevOrder.indexOf(hadFocus && hadFocus.getAttribute && hadFocus.getAttribute('data-pile')), moveTo = null, i;
+      Object.keys(slotEls).forEach(function (id) { if (!slotRects[id]) { slotEls[id].remove(); delete slotEls[id]; } });
+      if (lost < 0 || (hadFocus && hadFocus.isConnected)) return;
+      for (i = lost; i < prevOrder.length && !moveTo; i++) moveTo = slotEls[prevOrder[i]];
+      for (i = lost - 1; i >= 0 && !moveTo; i--) moveTo = slotEls[prevOrder[i]];
+      if (moveTo) moveTo.focus();
     }
     function scheduleSettle() {
       clearTimeout(settleTimer);
@@ -408,15 +446,20 @@
       lastState = state;
       var m = metrics || measure(), p = o.place(state, m), anyMoved = false;
       stage.style.height = Math.max(p.height, m.H) + 'px';
-      slotRects = {};
+      var prevOrder = slotOrder, hadFocus = d.activeElement;
+      slotRects = {}; slotOrder = [];
       p.slots.forEach(function (s) {
+        slotOrder.push(s.id);
         var e = slotEl(s);
         e.style.transform = 'translate(' + s.x + 'px,' + s.y + 'px)';
         e.style.width = s.w + 'px'; e.style.height = s.h + 'px';
         e.setAttribute('aria-label', s.label);
         if (s.mark) e.setAttribute('data-mark', s.mark); else e.removeAttribute('data-mark');
+        // quiet: a drop area, not a pile: no outline, not in the tab order.
+        if (s.quiet) { e.setAttribute('data-quiet', ''); e.setAttribute('tabindex', '-1'); }
         slotRects[s.id] = s;
       });
+      pruneSlots(prevOrder, hadFocus);
       cardPos = {}; byPile = {};
       var origin = p.slots[0], dealing = mode === 'deal';
       p.cards.forEach(function (c, i) {
@@ -424,6 +467,10 @@
         cardPos[c.id] = { pile: c.pile, idx: c.idx };
         (byPile[c.pile] = byPile[c.pile] || []).push(c.id);
         dress(e, c.id, c.up, c.hidden);
+        e._mark = !!c.mark;
+        e.classList.toggle('zc-sel', e._mark);
+        e.classList.toggle('zc-dim', !!c.dim);
+        e.classList.toggle('zc-glow', !!c.glow);
         e.classList.remove('zc-drag');
         var moved = e._x !== c.x || e._y !== c.y;
         anyMoved = anyMoved || moved;
@@ -448,6 +495,10 @@
         });
         setTimeout(function () { p.cards.forEach(function (c) { els[c.id].style.transitionDelay = ''; }); }, p.cards.length * DEAL_STAGGER_MS + 250);
       }
+      // A pile with cards shows its focus on its top card; only an empty one rings its outline.
+      Object.keys(slotEls).forEach(function (k) { slotEls[k].toggleAttribute('data-cards', !!byPile[k]); });
+      // A card the layout no longer places has left the game (a debug state, a short deal).
+      Object.keys(els).forEach(function (k) { if (!cardPos[k]) els[k].classList.add('zc-off'); });
       if (anyMoved) scheduleSettle();
       paintSelection();
     }
@@ -526,9 +577,17 @@
     // ── Keyboard: Tab to a pile, Enter/Space picks up, again drops ──────
     function say(text) { live.textContent = text; }
     function paintSelection() {
-      Object.keys(els).forEach(function (k) { els[k].classList.remove('zc-sel'); });
+      Object.keys(els).forEach(function (k) { els[k].classList.remove('zc-focus'); if (!els[k]._mark) els[k].classList.remove('zc-sel'); });
+      var focused = focusPile && byPile[focusPile];
+      if (focused && focused.length) els[focused[focused.length - 1]].classList.add('zc-focus');
       if (!sel || !byPile[sel.pile]) return;
       byPile[sel.pile].slice(sel.idx).forEach(function (id) { els[id].classList.add('zc-sel'); });
+    }
+    // Left and right walk the piles in layout order, for hands and pyramids.
+    function walk(pile, step) {
+      var at = slotOrder.indexOf(pile) + step, next = slotEls[slotOrder[at]];
+      while (next && next.hasAttribute('data-quiet')) { at += step; next = slotEls[slotOrder[at]]; }
+      if (next) next.focus();
     }
     function onKey(ev, pile) {
       var ids = byPile[pile] || [], key = ev.key;
@@ -539,8 +598,13 @@
         if (next >= 0 && next < ids.length && o.canPick(lastState, pile, next)) { sel.idx = next; paintSelection(); say(ids.length - next + ' cards'); }
         return;
       }
+      if (o.enterTaps && (key === 'ArrowLeft' || key === 'ArrowRight')) { ev.preventDefault(); walk(pile, key === 'ArrowLeft' ? -1 : 1); return; }
       if (key !== 'Enter' && key !== ' ') return;
       ev.preventDefault();
+      if (o.enterTaps) {
+        if (ids.length) { if (!o.tap(pile, ids.length - 1)) say('No move'); } else if (o.slotTap) o.slotTap(pile);
+        return;
+      }
       if (sel) {
         var from = sel; sel = null; paintSelection();
         if (from.pile === pile) { if (!o.tap(from.pile, from.idx)) say('No move'); return; }
@@ -644,8 +708,9 @@
   //        statText(sec, state), cascadeOrder(state), winLines(sec, state) }
   var TICK_MS = 1000;
   function createSession(cfg) {
-    var d = root.document, board = cfg.board, stats = createStats(cfg.id);
-    var s = { state: null, history: [], won: false, stats: stats }, begun = false;
+    var d = root.document, board = cfg.board;
+    // s.stats can be swapped by a game whose variants keep separate records (Spider's suits).
+    var s = { state: null, history: [], won: false, stats: createStats(cfg.id, cfg.lowScore) }, begun = false;
     var started = 0, banked = 0, ticker = 0, timers = [], running = false, resume = false;
 
     function seconds() { return Math.floor((banked + (running ? Date.now() - started : 0)) / 1000); }
@@ -662,7 +727,7 @@
     s.later = function (fn, ms) { timers.push(setTimeout(fn, ms)); };
     s.commit = function (next) {
       if (s.won) return;
-      if (!begun) { begun = true; stats.began(); run(); }
+      if (!begun) { begun = true; s.stats.began(); run(); }
       s.history.push(s.state); s.state = next;
       board.render(next); paint();
     };
@@ -678,13 +743,23 @@
       clearLater(); halt(); banked = 0; s.history = []; s.won = false; begun = false; board.clearSelection();
       s.state = state; board.render(state, 'deal'); paint();
     };
-    s.win = function () {
+    // A finished game that was not won (Hearts lost, Golf stuck): the clock
+    // stops, the score is kept if it is a best, and the sheet says how it went.
+    s.lose = function (title, lines, score) {
       s.won = true; halt(); clearLater();
-      var sec = seconds(), best = stats.won(sec);
+      if (typeof score === 'number') s.stats.scored(score);
+      paint();
+      var body = lines.map(function (t) { return h('p', { class: 'zc-note', text: t }); });
+      body.push(h('p', { class: 'zc-stats', text: s.stats.line() }));
+      sheet({ title: title, body: body, actions: [{ label: 'Close' }, { label: 'New game', primary: true, onclick: cfg.newGame }] });
+    };
+    s.win = function (score) {
+      s.won = true; halt(); clearLater();
+      var sec = seconds(), best = s.stats.won(sec, score);
       paint();
       board.cascade(cfg.cascadeOrder(s.state), function () {
         var body = cfg.winLines(sec, s.state).map(function (t) { return h('p', { class: 'zc-note', text: t }); });
-        body.push(h('p', { class: 'zc-stats', text: 'Won ' + best.won + ' of ' + best.played + '   Best ' + fmtTime(best.best) }));
+        body.push(h('p', { class: 'zc-stats', text: 'Won ' + best.won + ' of ' + best.played + '   Best ' + fmtTime(best.best) + (typeof best.bestScore === 'number' ? '   Best score ' + best.bestScore : '') }));
         sheet({ title: 'You won', body: body, actions: [{ label: 'Close' }, { label: 'New game', primary: true, onclick: cfg.newGame }] });
       });
     };
@@ -706,6 +781,19 @@
     return s;
   }
 
+  // A compact layout on a tall table sits a little above the middle: this much
+  // of the room left over goes above it.
+  var REST_ABOVE_SHARE = 0.3;
+  function restShare(room) { return Math.max(0, Math.floor(room * REST_ABOVE_SHARE)); }
+
+  // The page's fixed parts, by the ids every game page uses.
+  function pageEls() {
+    var g = function (id) { return root.document.getElementById(id); };
+    return { table: g('zc-table'), sub: g('zc-sub'), undo: g('zc-undo'), newBtn: g('zc-new'), menu: g('zc-menu'), stat: g('zc-stat') };
+  }
+  // A pile's cards as plain ids (for games whose piles hold {id, up}).
+  function idsOf(pile) { return pile.map(function (c) { return c.id; }); }
+
   // Describe a pile for assistive tech: "Tableau 3, 5 cards, top 7 of hearts".
   function describePile(name, ids, topVisible) {
     var n = ids.length;
@@ -723,7 +811,7 @@
     rank: rank, suit: suit, isRed: isRed, make: make, cardName: cardName, clone: clone,
     foundationAccepts: foundationAccepts, stacksOn: stacksOn, isRun: isRun, shuffled: shuffled, msDeal: msDeal,
     moonPhase: moonPhase, moonLitPath: moonLitPath, faceMarkup: faceMarkup, backMarkup: backMarkup,
-    fmtTime: fmtTime, describePile: describePile, fanStep: fanStep,
+    fmtTime: fmtTime, plural: plural, describePile: describePile, fanStep: fanStep, pageEls: pageEls, idsOf: idsOf, restShare: restShare,
     store: store, createStats: createStats, h: h, sheet: sheet, segmented: segmented, backsSheet: backsSheet, backsRow: backsRow,
     createBoard: createBoard, createSession: createSession, ensureSprite: ensureSprite,
     currentBack: function () { return currentBack; }
