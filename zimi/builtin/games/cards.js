@@ -573,15 +573,10 @@
   var MAX_CARD_W = 120, CARD_ASPECT = 1.4, CARD_H_SHARE = 0.14, DRAG_SLOP = 6, SETTLE_MS = 300, Z_HOT = 500, Z_DRAG = 1000;
   var DEAL_STAGGER_MS = 16, MIN_CARD_W = 24;
   // More o: heightShare (how much of the table's height a card may take, for
-<<<<<<< HEAD
-  // layouts shorter than Klondike's columns), enterTaps (Enter on a pile taps
-  // its top card: for games where one tap is the whole move), centerY (the share of
-  // spare height put above a short layout), and per card in
-=======
   // layouts shorter than Klondike's columns), face(id, standalone) (a deck of
   // its own: Scopa's), enterTaps (Enter on a pile taps
-  // its top card: for games where one tap is the whole move), and per card in
->>>>>>> worktree-agent-a3436846f762b8470
+  // its top card: for games where one tap is the whole move), centerY (the share of
+  // spare height put above a short layout), and per card in
   // place(): mark (the game's own highlight), glow (a soft one) and dim (not playable now); a
   // slot may be quiet (a drop area with no outline and no tab stop).
 
