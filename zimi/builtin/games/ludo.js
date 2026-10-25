@@ -301,7 +301,7 @@
       var waiting = state.tokens[seat].every(function (p) { return p === -1 || p === HOME; });   // nothing on the board: three tries to roll a six
       var again = die === EXIT_ROLL || (waiting && state.tries < MAX_TRIES - 1);
       if (waiting && die !== EXIT_ROLL) state.tries++;
-      say(who(seat) + ' rolled ' + die + ', and cannot move' + (again ? ', so rolls again' : ''));
+      say(who(seat) + ' rolled ' + die + ' and cannot move.' + (again ? ' Roll again.' : ''));
       timer = setTimeout(function () { if (again) startTurn(); else { nextSeat(); startTurn(); } }, PASS_MS); return;
     }
     phase = 'move';
