@@ -404,5 +404,47 @@
   "path": "puzzles/unruly.html",
   "title": "Unruly",
   "blurb": "Two colours, no three in a row, balanced lines"
+ },
+ {
+  "qid": "Q188966",
+  "wiki": "Contract bridge",
+  "path": "bridge.html",
+  "title": "Bridge",
+  "blurb": "Bid, play and defend with a computer partner"
+ },
+ {
+  "qid": "Q214536",
+  "wiki": "Texas hold 'em",
+  "path": "holdem.html",
+  "title": "Texas Hold’em",
+  "blurb": "Chips, blinds, all in and side pots"
+ },
+ {
+  "qid": "Q228044",
+  "wiki": "Blackjack",
+  "path": "blackjack.html",
+  "title": "Blackjack",
+  "blurb": "Beat the dealer to 21, split and double"
+ },
+ {
+  "qid": "Q278854",
+  "wiki": "Canasta",
+  "path": "canasta.html",
+  "title": "Canasta",
+  "blurb": "Meld, freeze the pile, go out to 5000"
+ },
+ {
+  "qid": "Q2334025",
+  "wiki": "Big Two",
+  "path": "bigtwo.html",
+  "title": "Big Two",
+  "blurb": "Climb with pairs and fives, twos are high"
+ },
+ {
+  "qid": "Q7801040",
+  "wiki": "Tiến lên",
+  "path": "tienlen.html",
+  "title": "Tien Len",
+  "blurb": "Runs, pairs in a row and chops"
  }
 ]
