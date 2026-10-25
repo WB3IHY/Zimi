@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mahjong - Zimi Arcade</title>
+<link rel="stylesheet" href="arcade.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="mahjong.css">
+</head>
+<body class="mj-body">
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to the Arcade">&lsaquo;</a>
+  <h1>Mahjong</h1>
+  <span class="ar-stat" id="mj-time" aria-label="Time">0:00</span>
+  <button class="ar-btn" id="mj-new" type="button" aria-haspopup="dialog">New game</button>
+</header>
+
+<main class="mj-main">
+  <p class="bg-status" id="mj-status" role="status" aria-live="polite"></p>
+  <div class="mj-table" id="mj-scroll"><div class="mj-stage" id="mj-stage" role="group" aria-label="Tiles"></div></div>
+  <div class="bg-controls">
+    <button class="ar-btn" id="mj-undo" type="button" disabled>Undo</button>
+    <button class="ar-btn" id="mj-hint" type="button">Hint</button>
+    <button class="ar-btn" id="mj-shuffle" type="button">Shuffle</button>
+    <button class="ar-btn" id="mj-zoom" type="button" aria-pressed="false">Zoom</button>
+  </div>
+  <p class="bg-score"><span>Tiles left <b id="mj-left">144</b></span></p>
+  <p class="bg-stats" id="mj-stats"></p>
+  <p class="bg-help">Match two free tiles: nothing on top, and an open left or right side. Flowers match any flower, seasons any season. Arrow keys move, Enter picks, H hint, S shuffle, U undo.</p>
+</main>
+
+<div class="ar-sheet" id="mj-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="mj-menu-title">
+  <div class="ar-sheet-card">
+    <h2 id="mj-menu-title">New game</h2>
+    <fieldset class="bg-field"><legend>Layout</legend><div class="bg-chips" id="mj-f-layout">
+      <label class="bg-chip"><input type="radio" name="mj-layout" value="turtle"><span>Turtle</span></label>
+      <label class="bg-chip"><input type="radio" name="mj-layout" value="pyramid"><span>Pyramid</span></label>
+      <label class="bg-chip"><input type="radio" name="mj-layout" value="towers"><span>Twin towers</span></label>
+    </div></fieldset>
+    <p class="bg-note">Every deal can be cleared.</p>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="mj-cancel" type="button">Cancel</button>
+      <button class="ar-btn" id="mj-start" type="button" aria-pressed="true">Deal</button>
+    </div>
+  </div>
+</div>
+
+<div class="ar-sheet" id="mj-result" hidden role="dialog" aria-modal="true" aria-labelledby="mj-result-title">
+  <div class="ar-sheet-card">
+    <h2 id="mj-result-title">Cleared</h2>
+    <p id="mj-result-text"></p>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="mj-close" type="button">Close</button>
+      <button class="ar-btn" id="mj-again" type="button" aria-pressed="true">Deal again</button>
+    </div>
+  </div>
+</div>
+<script src="boardkit.js"></script>
+<script src="mahjong.js"></script>
+</body>
+</html>
