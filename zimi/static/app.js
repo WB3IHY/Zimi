@@ -12135,6 +12135,7 @@ const FEATURED_ZIMS = [
   { match: 'wikiquote',     type: 'random',    i18nLabel: 'quote_of_day',       icon: _FEAT_SVG.quote, promo: 'Wikiquote' },
   { match: 'ted',           type: 'random',    i18nLabel: 'talk_of_day',        icon: _FEAT_SVG.play, promo: 'TED Talks' },
   { match: 'xkcd',          type: 'random',    i18nLabel: 'comic_of_day',       icon: _FEAT_SVG.pen, promo: 'xkcd' },
+  { match: 'zimi_games',  type: 'random',    i18nLabel: 'game_of_day',        icon: _FEAT_SVG.play, promo: 'ZimiGames' },
   { match: 'theworldfactbook', type: 'country', i18nLabel: 'country_of_day',    icon: _FEAT_SVG.map, promo: 'CIA World Factbook' },
 ];
 

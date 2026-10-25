@@ -3353,6 +3353,14 @@ class ZimHandler(BaseHTTPRequestHandler):
                     # The day's card from a wiki is Zimipedia's pick for
                     # that day, worked out once and kept (wiki.daily_card):
                     # the home page and Today show one word of the day.
+                    if param("day") and zim == "zimi_games":
+                        # Zimi's own games: the game of the day, the one the
+                        # shelf shows (gamelinks.game_of_day).
+                        from zimi import gamelinks
+
+                        card = gamelinks.day_card(param("day"))
+                        if card:
+                            return self._json(200, card)
                     if param("day"):
                         from zimi import wiki as _wiki
 
