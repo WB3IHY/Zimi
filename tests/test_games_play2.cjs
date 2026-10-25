@@ -582,6 +582,65 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check(counts.every(n => n > 60), 'echo: every pad turns up in a long sequence');
 }
 
+// ── Noughts and Crosses ─────────────────────────────────────────────────────
+{
+  const N = load(['playkit.js', 'noughts.js']).NoughtsEngine;
+  const b = (s) => s.split('').map(c => c === '.' ? null : c);
+  check(N.winner(b('XXX......')) === 'X' && N.winner(b('O..O..O..')) === 'O' && N.winner(b('X...X...X')) === 'X' && N.winner(b('..O.O.O..')) === 'O' && N.winner(b('XOXXOOOXX')) === null, 'noughts: every kind of line wins, a full board with none is a draw');
+  check(N.winLine(b('XO.XO.X..'))[2] === 6 && N.winLine(b('XOXOXOOXO')) === null, 'noughts: the winning line is reported');
+
+  // It takes a win and blocks a loss.
+  const mv = (s, me, level) => N.bestMove(b(s), me, level || 'perfect', N.mulberry(1));
+  check(mv('XX.OO....', 'X') === 2 && mv('XX.OO....', 'O') === 5, 'noughts: perfect takes its own win before blocking');
+  check(mv('XX.O.....', 'O') === 2, 'noughts: perfect blocks a loss');
+  check(N.bestMove(N.emptyBoard(), 'X', 'perfect', N.mulberry(3)) >= 0 && N.bestMove(b('XOXOXOOXO'), 'X', 'perfect') === -1, 'noughts: no move on a full board');
+  // A fork: O in the corners against X in the middle: X must take an edge, not a corner.
+  check([1, 3, 5, 7].includes(mv('O...X...O', 'X')), 'noughts: perfect X takes an edge against opposite corners');
+
+  // Perfect play never loses: against every possible sequence of moves by the other side, either mark.
+  function everyGame(computer, level) {
+    let lost = 0, games = 0;
+    const rng = N.mulberry(computer === 'X' ? 11 : 22);
+    (function walk(board, turn) {
+      if (N.winner(board)) { games++; if (N.winner(board) !== computer) lost++; return; }
+      if (N.full(board)) { games++; return; }
+      if (turn === computer) { const nb = board.slice(); N.play(nb, N.bestMove(nb, computer, level, rng), turn); walk(nb, N.other(turn)); }
+      else N.moves(board).forEach(i => { const nb = board.slice(); N.play(nb, i, turn); walk(nb, N.other(turn)); });
+    })(N.emptyBoard(), 'X');
+    return { lost, games };
+  }
+  const asO = everyGame('O', 'perfect'), asX = everyGame('X', 'perfect');
+  check(asO.lost === 0 && asO.games > 100, 'noughts: perfect as noughts never loses, in any of ' + asO.games + ' games');
+  check(asX.lost === 0 && asX.games > 50, 'noughts: perfect as crosses never loses, in any of ' + asX.games + ' games');
+  // Perfect against perfect is a draw.
+  let drawn = true;
+  for (let seed = 1; seed <= 30; seed++) { const bd = N.emptyBoard(), r = N.mulberry(seed); let t = 'X'; while (!N.winner(bd) && !N.full(bd)) { N.play(bd, N.bestMove(bd, t, 'perfect', r), t); t = N.other(t); } drawn = drawn && !N.winner(bd); }
+  check(drawn, 'noughts: perfect against perfect is always a draw');
+  // Perfect does not always play the same game (several moves are equally good).
+  const firsts = new Set(); for (let s = 1; s <= 40; s++) firsts.add(N.bestMove(N.emptyBoard(), 'X', 'perfect', N.mulberry(s)));
+  check(firsts.size > 1, 'noughts: it varies among equally good moves');
+
+  // The easy computer is legal and can be beaten; a perfect player beats it often.
+  let illegal = 0, wins = 0, total = 200;
+  for (let seed = 1; seed <= total; seed++) {
+    const bd = N.emptyBoard(), r = N.mulberry(seed * 13); let t = 'X';
+    while (!N.winner(bd) && !N.full(bd)) {
+      const m = t === 'X' ? N.bestMove(bd, 'X', 'perfect', r) : N.bestMove(bd, 'O', 'easy', r);
+      if (bd[m] !== null || m < 0) { illegal++; break; }
+      N.play(bd, m, t); t = N.other(t);
+    }
+    if (N.winner(bd) === 'X') wins++;
+  }
+  check(illegal === 0 && wins > total * 0.5, 'noughts: the easy computer never cheats, and a perfect player beats it ' + wins + ' of ' + total);
+  let easyWins = 0;
+  for (let seed = 1; seed <= total; seed++) {
+    const bd = N.emptyBoard(), r = N.mulberry(seed * 7); let t = 'X';
+    while (!N.winner(bd) && !N.full(bd)) { const m = t === 'X' ? N.bestMove(bd, 'X', 'easy', r) : N.bestMove(bd, 'O', 'easy', r); N.play(bd, m, t); t = N.other(t); }
+    if (N.winner(bd)) easyWins++;
+  }
+  check(easyWins > total * 0.5, 'noughts: easy against easy is usually decided, not drawn (' + easyWins + ' of ' + total + ')');
+}
+
 // END
 if (failures) { console.error(failures + ' failed'); process.exit(1); }
 console.log('all passed');
