@@ -499,6 +499,22 @@
     root.addEventListener('pagehide', function () { root.parent.postMessage({ zimi: 'game-gone' }, root.location.origin); });
   }
 
+  // ── controllers ──
+  // A controller (USB or Bluetooth) is read by gamepad.js, loaded the first time one reports in: nothing here until then.
+  var shellSrc = d.currentScript && d.currentScript.src;
+  function padsReady() { return !!(root.ZimiGamepad || d.querySelector('script[data-gamepad]')); }
+  function loadPads() {
+    if (padsReady() || !shellSrc) return;
+    var s = d.createElement('script'); s.src = new root.URL('gamepad.js', shellSrc).href; s.setAttribute('data-gamepad', '');
+    d.head.appendChild(s);
+  }
+  if (root.navigator && root.navigator.getGamepads) {
+    root.addEventListener('gamepadconnected', loadPads);
+    // Already connected before this page loaded: the browser reports it again on the first button press.
+    var early = root.navigator.getGamepads();
+    for (var gi = 0; early && gi < early.length; gi++) if (early[gi] && early[gi].connected) { loadPads(); break; }
+  }
+
   // ── start ──
   function ready() {
     // The shelf, About and the puzzles list only tell Zimi their name: no Menu of their own.

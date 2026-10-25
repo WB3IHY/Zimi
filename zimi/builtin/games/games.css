@@ -379,3 +379,6 @@ dl.gs-meta { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--lin
 /* The bar's second line gives way (with an ellipsis) before the clock or the buttons do. */
 .gs-ready .ar-bar h1 { min-width: 0; }
 .gs-ready .ar-bar h1 small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* A controller is in use: show where focus is, whatever moved it. */
+html.gs-pad :focus { outline: 3px solid var(--accent, #e8710a); outline-offset: 2px; }
