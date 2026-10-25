@@ -144,6 +144,7 @@
     // outcome: 'w' (a person won against the computer), 'l', 'd', or undefined (not recorded)
     G.finish = function (msg, outcome, title) {
       G.over = true;
+      if (els.hint) els.hint.disabled = true;
       if (G.vsComputer() && outcome) {
         var key = cfg.statKey ? cfg.statKey(settings) : settings.level;
         var s = stats[key] = stats[key] || { w: 0, l: 0, d: 0 };
