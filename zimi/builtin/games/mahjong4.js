@@ -270,6 +270,6 @@
   G.newGame();
 
   if (new URLSearchParams(location.search).has('debug')) {
-    root.__m4 = { engine: E, table: function () { return t; }, game: function () { return game; }, discard: discardTile, shown: function () { return shown; } };
+    root.__m4 = { engine: E, table: function () { return t; }, game: function () { return game; }, discard: discardTile, begin: beginTurn, shown: function () { return shown; } };
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this);
