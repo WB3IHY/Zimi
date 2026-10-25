@@ -141,16 +141,24 @@
   var els = { opps: $('ld-opps'), who: $('ld-who'), bid: $('ld-bid'), msg: $('ld-msg'), mine: $('ld-mine'), ctl: $('ld-ctl'), qty: $('ld-qty'), faces: $('ld-faces'), bidbtn: $('ld-bidbtn'), liar: $('ld-liar'), plus: $('ld-plus'), minus: $('ld-minus'),
     reveal: $('ld-reveal'), rtext: $('ld-reveal-text'), cups: $('ld-cups'), next: $('ld-next'), sheet: $('ld-sheet'), title: $('ld-sheet-title'), text: $('ld-sheet-text'), go: $('ld-go'), n: $('ld-n'), nu: $('ld-new') };
   var settings = Play.load(SETTINGS_KEY, { players: 3 }), stats = Play.load(STATS_KEY, { played: 0, won: 0 });
-  var g = createGame(settings.players), timer = null, sel = { q: 1, f: 2 };
+  var g, seats, timer = null, sel = { q: 1, f: 2 };
+  // Each seat is the Computer or a Person; with two or more people the dice hide behind a handoff.
+  function newTable() {
+    seats = root.ZimiSeats.create({ id: 'liarsdice', seats: settings.players, onChange: function () { paint(); } });
+    g = createGame(settings.players);
+    g.players.forEach(function (p, i) { p.ai = !seats.person(i); p.name = seats.person(i) ? seats.name(i) : (i === 0 ? 'Zed' : NAMES[i]); });
+  }
+  function nm(i) { return seats.isYou(i) ? 'You' : g.players[i].name; }
+  newTable();
 
   function dieEl(n, cls) { var d = document.createElement('div'); d.className = 'pl-die ' + (cls || ''); Play.pips(d, n); return d; }
   function bidText(b) { return b.q + ' × ' + (b.f === 1 ? 'ones' : b.f + 's'); }
-  function myTurn() { return !g.over && g.turn === 0 && g.players[0].n > 0; }
+  function myTurn() { return !g.over && seats.person(g.turn) && g.players[g.turn].n > 0 && (!seats.hotseat() || seats.view() === g.turn); }
 
   function paintOpps() {
     els.opps.textContent = '';
     g.players.forEach(function (p, i) {
-      if (i === 0) return;
+      if (i === seats.view()) return;
       var d = document.createElement('div'); d.className = 'ld-opp' + (i === g.turn && !g.over ? ' ld-turn' : '') + (p.n === 0 ? ' ld-out' : ''); d.setAttribute('role', 'listitem');
       var dots = '', k; for (k = 0; k < p.n; k++) dots += '<i></i>';
       var said = g.bid && g.bid.by === i ? 'bid ' + bidText(g.bid) : p.n === 0 ? 'out' : '';
@@ -162,15 +170,17 @@
   }
   function paintBid() {
     els.bid.textContent = '';
-    if (!g.bid) { els.who.textContent = g.over ? 'Game over' : g.players[g.turn].name + (g.turn === 0 ? ' open the bidding' : ' opens the bidding'); return; }
-    els.who.textContent = (g.bid.by === 0 ? 'You' : g.players[g.bid.by].name) + (g.bid.by === 0 ? ' bid' : ' bids');
+    if (!g.bid) { els.who.textContent = g.over ? 'Game over' : nm(g.turn) + (seats.isYou(g.turn) ? ' open the bidding' : ' opens the bidding'); return; }
+    els.who.textContent = nm(g.bid.by) + (seats.isYou(g.bid.by) ? ' bid' : ' bids');
     var q = document.createElement('span'); q.textContent = g.bid.q; els.bid.appendChild(q);
     var x = document.createElement('span'); x.textContent = '×'; x.setAttribute('aria-hidden', 'true'); els.bid.appendChild(x);
     var d = dieEl(g.bid.f); d.setAttribute('role', 'img'); d.setAttribute('aria-label', g.bid.f === 1 ? 'ones' : g.bid.f + 's'); els.bid.appendChild(d);
   }
   function paintMine() {
     els.mine.textContent = '';
-    g.players[0].dice.forEach(function (v) { els.mine.appendChild(dieEl(v)); });
+    var V = seats.view(), hide = seats.hotseat() && (seats.viewer < 0 || g.turn !== V);
+    g.players[V].dice.forEach(function (v) { els.mine.appendChild(dieEl(hide ? 0 : v, hide ? 'ld-hid' : '')); });
+    els.mine.setAttribute('aria-label', (seats.hotseat() ? nm(V) + "'s dice" : 'Your dice') + (hide ? ' (hidden until their turn)' : ', hidden from the others'));
   }
   function clampSel() {
     var total = totalDice(g), m = minQty(g.bid, sel.f, total);
@@ -195,11 +205,11 @@
     }
     els.bidbtn.disabled = !on || !isLegal(g.bid, sel.q, sel.f, total); els.liar.disabled = !on || !g.bid;
     els.minus.disabled = !on || sel.q <= 1; els.plus.disabled = !on || sel.q >= total;
-    if (on) els.msg.textContent = g.bid ? 'Your turn. Raise, or call Liar.' : 'Your turn. Open the bidding.';
+    if (on) els.msg.textContent = (seats.isYou(g.turn) ? 'Your turn' : nm(g.turn) + ', your turn') + (g.bid ? '. Raise, or call Liar.' : '. Open the bidding.');
   }
   function paint() {
     paintOpps(); paintBid(); paintMine(); paintCtl();
-    if (!myTurn() && !g.over) els.msg.textContent = g.players[g.turn].name + ' is thinking.';
+    if (!myTurn() && !g.over) els.msg.textContent = nm(g.turn) + (g.players[g.turn].ai ? ' is thinking.' : ': pass the device.');
   }
 
   function play(move) {
@@ -210,14 +220,15 @@
   }
   function schedule() {
     if (timer) timer.cancel();
-    if (g.over || !g.players[g.turn].ai) return;
+    if (g.over) return;
+    if (!g.players[g.turn].ai) { if (g.players[g.turn].n > 0) seats.ensure(g.turn, paint, 'Hand the device over. Your dice stay hidden until you tap.'); return; }
     timer = Play.later(function () { var m = aiMove(g); if (m.type === 'bid' || g.bid) play(m); }, AI_DELAY_MS);
   }
 
   function showReveal(res) {
-    var caller = res.challenger === 0 ? 'You call' : g.players[res.challenger].name + ' calls';
+    var caller = seats.isYou(res.challenger) ? 'You call' : nm(res.challenger) + ' calls';
     els.rtext.textContent = caller + ' Liar on ' + bidText(res.bid) + '. There were ' + res.actual + '. ' +
-      (res.bidTrue ? 'The bid stands: ' : 'It was a lie: ') + (res.loser === 0 ? 'you lose a die.' : g.players[res.loser].name + ' loses a die.');
+      (res.bidTrue ? 'The bid stands: ' : 'It was a lie: ') + (seats.isYou(res.loser) ? 'you lose a die.' : nm(res.loser) + ' loses a die.');
     els.cups.textContent = '';
     res.dice.forEach(function (ds, i) {
       var r = document.createElement('div'); r.className = 'ld-cup';
@@ -238,14 +249,19 @@
   });
 
   function finish() {
-    stats.played++;
-    var won = g.winner === 0;
-    if (won) stats.won++;
-    Play.save(STATS_KEY, stats);
-    var text = won ? 'You are the last with dice. You win.' : (g.players[0].n === 0 ? 'You are out of dice. ' : '') + g.players[g.winner].name + ' wins.';
-    text += ' You have won ' + stats.won + ' of ' + stats.played + '.';
+    var won = seats.isYou(g.winner), text;
+    if (seats.hotseat()) { text = nm(g.winner) + ' is the last with dice and wins.'; won = false; }
+    else {
+      stats.played++;
+      if (seats.person(g.winner)) stats.won++;
+      Play.save(STATS_KEY, stats);
+      var me = seats.people()[0];
+      won = seats.person(g.winner);
+      text = won ? 'You are the last with dice. You win.' : (g.players[me].n === 0 ? 'You are out of dice. ' : '') + g.players[g.winner].name + ' wins.';
+      text += ' You have won ' + stats.won + ' of ' + stats.played + '.';
+    }
     els.msg.textContent = text;
-    showSheet(won ? 'You win' : 'Game over', text, 'Play again');
+    showSheet(won ? 'You win' : seats.hotseat() ? nm(g.winner) + ' wins' : 'Game over', text, 'Play again');
   }
 
   function paintN() {
@@ -256,12 +272,14 @@
       (function (k) { b.addEventListener('click', function () { settings.players = k; Play.save(SETTINGS_KEY, settings); paintN(); }); })(n);
       els.n.appendChild(b);
     }
+    var host = $('ld-seats'); host.textContent = '';
+    host.appendChild(root.ZimiSeats.create({ id: 'liarsdice', seats: settings.players }).block());
   }
   function showSheet(title, text, label) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; paintN(); Play.openSheet(els.sheet, '#ld-go'); }
   function begin() {
     if (timer) timer.cancel();
-    g = createGame(settings.players); sel = { q: 1, f: 2 };
-    Play.closeSheet(els.sheet); paint(); schedule();
+    newTable(); sel = { q: 1, f: 2 };
+    Play.closeSheet(els.sheet); paint(); seats.begin(function () { paint(); schedule(); });
   }
   els.go.addEventListener('click', begin);
   els.nu.addEventListener('click', function () { if (timer) timer.cancel(); showSheet('New game', 'Start over with fresh dice?', 'Start'); });
