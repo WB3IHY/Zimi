@@ -310,7 +310,7 @@
       statusText.textContent = text;
       statusBtn.textContent = label; statusBtn.hidden = !label;
       statusBtn.disabled = !action; statusAction = action;
-      el.sub.textContent = 'Hand ' + (st.handNo + 1) + ' \u00b7 ' + PASS_SHORT[st.passDir];
+      el.sub.textContent = 'Hand ' + (st.handNo + 1) + ' \u00b7 ' + (st.phase === 'pass' ? PASS_SHORT[st.passDir] : st.broken ? 'hearts broken' : 'hearts not broken');
     }
     function flash(text) { view.flash = text; board.say(text); paintHud(); session.later(function () { view.flash = ''; paintHud(); }, FLASH_MS); }
 
