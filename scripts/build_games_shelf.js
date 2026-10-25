@@ -133,10 +133,12 @@ const brand = '<h1 class="ar-brand">' + lockup + '</h1>';
 html = html.replace(/<h1 class="ar-brand">[\s\S]*?<\/h1>/, () => brand);
 
 let redrawn = [];
-html = html.replace(/(<a class="ar-game" href="([a-z0-9]+)\.html">\s*)<svg class="ar-game-art"[\s\S]*?<\/svg>/g, (all, head, name) => {
+// The art runs to the tile's text: a redrawn tile holds card svgs of its own,
+// so stopping at the first </svg> would leave the rest behind on a second run.
+html = html.replace(/(<a class="ar-game" href="([a-z0-9]+)\.html">\s*)<svg class="ar-game-art"[\s\S]*?(\s*<span class="ar-game-text">)/g, (all, head, name, text) => {
   if (!TILES[name]) return all;
   redrawn.push(name);
-  return head + TILES[name]();
+  return head + TILES[name]() + text;
 });
 fs.writeFileSync(file, html);
 console.log('redrawn: ' + redrawn.join(', '));
