@@ -71,7 +71,8 @@ const tile = (felt, inner) => '<svg class="ar-game-art" viewBox="0 0 320 180" ar
 const TILES = {
   solitaire: () => tile(FELT, face(cid('KS'), 70, 38, 76, -14) + face(cid('QH'), 122, 34, 76, 0) + face(cid('JC'), 176, 38, 76, 14)),
   freecell: () => tile(FELT_DEEP, slot(24, 22, 56) + slot(92, 22, 56) + face(cid('AD'), 172, 22, 56) + face(cid('AS'), 240, 22, 56) +
-    '<text x="160" y="150" font-size="30" font-weight="700" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-family="ui-monospace,Menlo,monospace">#11982</text>'),
+    [[52, ['9C', '8H']], [138, ['KS', 'QH', 'JC']], [224, ['7D', '6S']]].map(([x, col]) =>
+      col.map((c, i) => face(cid(c), x, 106 + i * 18, 44)).join('')).join('')),
   spider: () => tile(FELT, ['KS', 'QS', 'JS', 'TS', '9S'].map((c, k) => face(cid(c), 56 + 24 * k, 24 + 18 * k, 56)).join('') +
     [214, 223, 232].map((x) => edge(x, 104, 40)).join('') + face(cid('AS'), 241, 104, 40)),
   hearts: () => tile(FELT_DEEP, back(20, 30, 40) + back(140, -30, 40) + back(260, 30, 40) + face(cid('QS'), 100, 48, 58, -8) + face(cid('AH'), 160, 44, 58, 8)),
