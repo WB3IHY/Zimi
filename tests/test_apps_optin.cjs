@@ -49,7 +49,7 @@ vm.runInContext([
 
 // ── the shell's stamp ────────────────────────────────────────────────────
 ok('no app is opt-in', ctx.APPS_OPT_IN.length === 0 && ctx.APPS_DEFAULT.join() === ctx.APP_NAMES.join());
-ok('no stamp: every app, Reddot and Zimipedia too', ctx.APP_NAMES.filter(ctx._appsAllowedByServer).join() === 'maps,tube,exchange,reddot,wiki,books,dictionary');
+ok('no stamp: every app, Reddot and Zimipedia too', ctx.APP_NAMES.filter(ctx._appsAllowedByServer).join() === ctx.APP_NAMES.join() && ctx.APP_NAMES.indexOf('games') >= 0 && ctx.APP_NAMES.indexOf('almanac') >= 0);
 ctx.document.body.dataset.zimiApps = 'reddot,maps';
 ok('a stamp naming Reddot offers it', ctx._appsAllowedByServer('reddot'));
 delete ctx.document.body.dataset.zimiApps;
