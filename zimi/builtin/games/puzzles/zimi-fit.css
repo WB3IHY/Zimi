@@ -1,0 +1,55 @@
+/* ZimiGames: makes Simon Tatham's puzzle pages fit a phone and follow the
+   theme, without touching the puzzle code. Loaded by one line in each page.
+   Selectors start with "html body" to win over each page's own <style>. */
+@import url("../games.css");
+
+html body { height: auto; min-height: 100%; background: var(--ground); color: var(--ink); font: 15px/1.5 var(--font); }
+html body > h1, html body > hr, html body #puzzle > p { display: none; }
+html body > h2 { margin: 12px 16px 0; text-align: center; font-size: 12px; font-weight: 400; color: var(--ink3); }
+html body > p, html body > hr ~ p { max-width: 62ch; margin: 12px auto; padding: 0 16px; }
+html body a { color: var(--accent); }
+html body > p[align="center"] { text-align: center; }
+html body main { padding: 8px 0 0; }
+
+/* The puzzle fits this box: the page's own script sizes the canvas to it. */
+html body #puzzlecanvascontain { width: min(100%, 760px); height: min(calc(100svh - 190px), 100vw, 760px); min-height: 280px; margin: 0 auto; }
+html body #resizable { margin: 0 auto; }
+html body #resizehandle { display: none; }
+html body #statusbar { height: auto; min-height: 1.6em; padding: 2px 6px; font: 600 13px var(--mono); background: var(--surface); color: var(--ink2); border: 1px solid var(--line); border-top: 0; }
+
+/* The menu: touch-sized, themed. */
+html body #gamemenu { font-size: 15px; font-weight: 500; margin: 0 8px 8px; }
+html body #gamemenu ul { gap: 6px; padding: 0; }
+html body #gamemenu li { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 0; }
+html body #gamemenu li[role=separator] { display: none; }
+html body #gamemenu li > * { min-height: 44px; line-height: 44px; padding: 0 14px; display: block; text-align: center; }
+html body #gamemenu li li > * { text-align: left; }
+html body #gamemenu ul ul { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 4px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); max-width: calc(100vw - 16px); max-height: 70vh; overflow-y: auto; color: var(--ink); }
+html body #gamemenu ul ul li { border: 0; }
+html body #gamemenu li > :hover:not(:disabled), html body #gamemenu li > .focus-within { background: var(--accent); color: var(--accent-ink); }
+html body #gamemenu :disabled { color: var(--ink3); opacity: 0.55; }
+html body #gamemenu li > div::after, html body #gamemenu li li > div::after { filter: none; }
+@media (prefers-color-scheme: dark) { html:not([data-theme="light"]) body #gamemenu li > div::after { filter: invert(1); } }
+@media (max-width: 520px) { html body #gamemenu ul ul ul { position: static; box-shadow: none; } }
+
+/* Dialogs (game id, preferences, custom size). */
+html body #dlgform { width: min(92vw, 520px); left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; }
+html body #dlgform input, html body #dlgform select, html body #dlgform button, html body #dlgform textarea { font: inherit; min-height: 36px; color: var(--ink); background: var(--ground); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; }
+html body #dlgform input[type="checkbox"], html body #dlgform input[type="radio"] { min-height: 0; }
+
+/* Our additions: bar, tap mode, keypad. */
+.zf-bar { position: sticky; top: 0; z-index: 40; }
+.zf-tools { display: none; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 8px 8px 0; }
+.zf-touch .zf-tools { display: flex; }
+.zf-tools .ar-btn { min-height: 44px; min-width: 44px; padding: 0 14px; font-weight: 600; }
+.zf-keys[hidden] { display: none; }
+.zf-keys { max-width: 460px; margin: 8px auto 0; justify-content: center; }
+.zf-keys .ar-btn { min-width: 40px; padding: 0 10px; }
+
+/* Canvas colours stay the puzzle's own (they carry meaning); only dim them a touch in dark mode. */
+@media (prefers-color-scheme: dark) { html:not([data-theme="light"]) body #puzzlecanvas { filter: brightness(0.88); } }
+html body #puzzlecanvas:focus-visible { outline: none; }
+@media (max-width: 600px) { html body #gamemenu .verbiage { display: none; } html body #gamemenu ul { gap: 4px; } html body #gamemenu li > * { padding: 0 10px; } }
+/* Shown from the start so the fit box has a real size when the puzzle first measures it. */
+html body #puzzle { display: block !important; }
+html body #puzzlecanvascontain { margin-bottom: 34px; }
