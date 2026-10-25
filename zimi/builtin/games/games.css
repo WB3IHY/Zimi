@@ -189,6 +189,43 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 }
 .ar-foot { margin-top: 32px; color: var(--ink3); font-size: 12px; }
 
+/* The order control: Zimi's Home sort (a mark, the order it is in; the native select lies over it unseen). */
+.sh-sort-wrap { position: relative; flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 2px 4px; border-radius: 5px; font-size: 12px; font-weight: 500; color: var(--ink2); cursor: pointer; white-space: nowrap; }
+.sh-sort-wrap[hidden] { display: none; }
+.sh-sort-wrap:hover, .sh-sort-wrap:focus-within { color: var(--ink); }
+.sh-sort-wrap:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sh-sort { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; font-size: 16px; border: 0; }
+.ar-shelf:not([data-sort="sections"]) .sh-sort-wrap { color: var(--accent); }
+@media (pointer: coarse) { .sh-sort-wrap { min-height: 44px; } }
+/* A phone's lobby header has room for the mark only. */
+@media (max-width: 699px) { [data-view="lobby"] .sh-sort-now { display: none; } [data-view="lobby"] .sh-sort-wrap { padding: 2px 2px; } [data-view="lobby"] .ar-view-btn { width: 38px; } [data-view="lobby"] .sh-search input { padding-right: 6px; } }
+@media (max-width: 899px) { [data-view="index"] .sh-sort-wrap { margin-left: auto; } [data-view="index"] .ar-view-toggle { margin-left: 0; } }
+.sh-wait .sh-list { visibility: hidden; }
+
+/* What and when, on a tile: small chips. Index shows them on every row; any other order shows them in Lobby too. */
+.sh-meta { display: none; flex-wrap: wrap; gap: 4px; margin-top: 6px; font-size: 11px; line-height: 1.3; }
+[data-view="index"] .sh-meta, .ar-shelf:not([data-sort="sections"]) .sh-meta { display: flex; }
+[data-view="index"] .sh-meta { flex-wrap: nowrap; overflow: hidden; margin-top: 3px; }
+.sh-meta em { font-style: normal; padding: 1px 7px; border-radius: 999px; background: var(--ground); border: 1px solid var(--line); color: var(--ink2); white-space: nowrap; }
+.sh-meta .sh-m-age { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+[data-sort="oldest"] .sh-m-age, [data-sort="quick"] .sh-m-length { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+[data-sort="region"] .sh-m-region, [data-sort="players"] .sh-m-players { display: none; }
+.ar-today .sh-meta { display: flex; }
+
+/* Groups of an order: a header with a note, and for Oldest first a spine with a dot per era; for By region the world with the region lit. */
+.sh-group h2 { position: relative; display: flex; align-items: center; gap: 8px; }
+.sh-group .sh-count { margin-left: 0; }
+.sh-gt { color: var(--ink); }
+.sh-note { font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink3); }
+[data-sort="oldest"] .sh-group { margin-left: 6px; padding-left: 18px; border-left: 2px solid var(--line); }
+[data-sort="oldest"] .sh-group h2::before { content: ""; position: absolute; left: -26px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--ground); }
+[data-sort="oldest"] .sh-gt, [data-sort="region"] .sh-gt { font-size: 15px; letter-spacing: 0; text-transform: none; }
+[data-sort="region"] .sh-group h2 { gap: 12px; }
+.sh-map { flex: none; width: 120px; height: 60px; color: var(--ink3); border-radius: 6px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.sh-land { fill: currentColor; opacity: 0.45; }
+.sh-spot { fill: var(--accent); opacity: 0.75; stroke: var(--accent); stroke-width: 10; stroke-opacity: 0.35; }
+.sh-map-all .sh-land { fill: var(--accent); opacity: 0.4; }
+
 @media (prefers-reduced-motion: reduce) { .ar-game { transition: none; } .ar-game:hover { transform: none; } }
 
 /* The game table: what was played lately, as boxes left out after game night.
