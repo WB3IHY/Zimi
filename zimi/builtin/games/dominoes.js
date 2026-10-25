@@ -218,7 +218,7 @@
       b.addEventListener('click', function () { onHandTile(i, playable[i]); });
       handEl.appendChild(b);
     });
-    $('dm-hand-count').textContent = mine.length ? mine.length + (mine.length === 1 ? ' tile' : ' tiles') + ' in ' + (you(V) ? 'your' : nameOf(V) + "'s") + ' hand' + (shown ? ', ' + handPips(mine) + ' pips' : ', hidden until their turn') : '';
+    $('dm-hand-count').textContent = mine.length ? mine.length + (mine.length === 1 ? ' tile' : ' tiles') + ' in ' + (you(V) ? 'your' : nameOf(V) + "'s") + ' hand' + (shown ? ', ' + handPips(mine) + ' dots' : ', hidden until their turn') : '';
   }
 
   function paintOpponents() {
@@ -319,7 +319,7 @@
     if (r.winner < 0) lines.push('The game is blocked and two hands tie for the lowest count. No one scores.');
     else if (r.how === 'out') lines.push(nameOf(r.winner) + ' went out and ' + (you(r.winner) ? 'score' : 'scores') + ' ' + r.points + '.');
     else lines.push('The game is blocked. ' + nameOf(r.winner) + (you(r.winner) ? ' have' : ' has') + ' the lowest count and ' + (you(r.winner) ? 'score' : 'scores') + ' ' + r.points + '.');
-    st.hands.forEach(function (h, p) { if (p !== r.winner || r.how !== 'out') lines.push(nameOf(p) + ' held ' + handPips(h) + ' pips.'); });
+    st.hands.forEach(function (h, p) { if (p !== r.winner || r.how !== 'out') lines.push(nameOf(p) + ' held ' + handPips(h) + ' dots.'); });
     var top = Math.max.apply(null, scores);
     matchOver = top >= settings.target;
     render();

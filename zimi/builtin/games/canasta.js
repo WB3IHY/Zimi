@@ -188,7 +188,7 @@
   // Why a meld action cannot be made now (or '').
   function meldProblem(st, selection, target) {
     var side = st.turn;
-    if (st.phase !== 'play' || st.step !== 'play') return 'Draw first';
+    if (st.phase !== 'play' || st.step !== 'play') return 'Draw a card first';
     if (!selection.every(function (c) { return st.hands[side].indexOf(c) >= 0; })) return 'Those cards are not in your hand';
     var left = st.hands[side].length - selection.length;
     var probe = Z.clone(st);
@@ -213,7 +213,7 @@
   // Why this card cannot be discarded (or '').
   function discardProblem(st, id) {
     var side = st.turn;
-    if (st.phase !== 'play' || st.step !== 'play') return 'Draw first';
+    if (st.phase !== 'play' || st.step !== 'play') return 'Draw a card first';
     if (st.hands[side].indexOf(id) < 0) return 'That card is not in your hand';
     if (!st.melded[side] && st.melds[side].length && st.turnPts < requirement(st.scores[side]) && !(st.hands[side].length === 1 && canGoOut(st, side))) return 'Your first meld needs ' + requirement(st.scores[side]) + ' points (you have ' + st.turnPts + ')';
     if (st.hands[side].length === 1 && !canGoOut(st, side)) return 'You need ' + GO_OUT_CANASTAS + ' canastas to go out';
@@ -540,7 +540,7 @@
       var st = session.state, kind = pile.charAt(0);
       if (st.phase !== 'play') return false;
       var mine = st.turn === seats.view();
-      if (pile === 'stock') { if (mine && st.step === 'draw') drawTurn(); else t.flash(mine ? 'Draw first' : 'Wait for your turn'); return true; }
+      if (pile === 'stock') { if (mine && st.step === 'draw') drawTurn(); else t.flash(mine ? 'Draw a card first' : 'Wait for your turn'); return true; }
       if (pile === 'pile') { if (mine && st.step === 'draw') takeSelected(); else if (mine) t.flash('Pick a card, then Discard'); return true; }
       if (pile.slice(0, 3) === 'm' + seats.view() + '-') { var rk = parseInt(pile.slice(3), 10); view.target = view.target === rk ? null : rk; board.refresh(); t.paint(); return true; }
       if (kind !== 'h' || view.hideHand) return false;
