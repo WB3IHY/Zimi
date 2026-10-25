@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crossing - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="pixel.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Crossing</h1>
+  <button class="ar-btn" id="cr-pause" type="button" disabled>Pause</button>
+</header>
+
+<main class="px-main">
+  <div class="pl-hud">
+    <div class="pl-stat"><small>Score</small><b id="cr-score">0</b></div>
+    <div class="pl-stat"><small>Best</small><b id="cr-best">0</b></div>
+    <div class="pl-stat"><small>Lives</small><b id="cr-lives" role="img">&#9679;&#9679;&#9679;</b></div>
+    <div class="pl-stat"><small>Level</small><b id="cr-level">1</b></div>
+  </div>
+  <canvas class="px-screen" id="cr-screen" role="img" aria-label="The crossing: a chick at the bottom, five lanes of traffic, a grass strip, five lanes of river with logs and turtles, and five nests at the top"></canvas>
+  <div class="px-pad" role="group" aria-label="Controls">
+    <div class="px-dpad">
+      <button class="pl-key px-up" id="cr-up" type="button" aria-label="Hop forward">&#9650;</button>
+      <button class="pl-key px-left" id="cr-left" type="button" aria-label="Hop left">&#9664;</button>
+      <button class="pl-key px-down" id="cr-down" type="button" aria-label="Hop back">&#9660;</button>
+      <button class="pl-key px-right" id="cr-right" type="button" aria-label="Hop right">&#9654;</button>
+    </div>
+  </div>
+  <p class="pl-msg" id="cr-msg" role="status" aria-live="polite"></p>
+  <p class="pl-help">Arrow keys or W, A, S, D hop one tile; P pauses. On a phone, swipe or tap the screen, or use the pad. Stay off the road traffic, ride the logs and turtles (turtles flash before they dive), and land in an empty nest. The clock runs along the bottom.</p>
+</main>
+
+<div class="ar-sheet" id="cr-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="cr-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="cr-sheet-title">Crossing</h2>
+    <p id="cr-sheet-text"></p>
+    <div class="ar-sheet-actions"><button class="ar-btn" id="cr-go" type="button" aria-pressed="true">Start</button></div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="pixelkit.js"></script>
+<script src="crossing.js"></script>
+<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q524267">About Crossing</a></footer><!-- /zimi-about -->
+<!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
+</body>
+</html>
