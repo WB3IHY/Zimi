@@ -78,7 +78,7 @@
     G.setUndo(played.length > 0); G.setHint(open);
   }
 
-  var WHY = { stalemate: 'Stalemate: the side to move has no legal move and is not in check. A draw.', repetition: 'A draw: the same position came up three times.', limit: 'A draw: sixty-four moves each without a capture or a Bia move.' };
+  var WHY = { stalemate: 'Stalemate: the side to move has no legal move and is not in check. A draw.', repetition: 'A draw: the same position came up three times.', limit: 'A draw: 64 moves each without a capture or a Bia move.' };
   function finish(st) {
     sel = -1; targets = {}; tip = null;
     var msg, out, title;
