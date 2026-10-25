@@ -218,6 +218,31 @@ class GameOfTheDayTests(unittest.TestCase):
                 assert gamelinks.day_card("20261024") is None
         assert gamelinks.day_card("20261024") is None, "Zimi's own ZIMs are off"
 
+    def test_every_days_card_says_the_shelf_title_not_wikipedias(self):
+        shelf = {}
+        for r in gamelinks.rows():
+            shelf.setdefault(r["path"], r)
+        with mock.patch.object(gamelinks.ownzims, "enabled", lambda: True):
+            for n in range(366):
+                day = "%04d%02d%02d" % (2026 + (n + 300) // 366, 1 + ((n + 300) % 366) // 31 % 12, 1 + n % 28)
+                card = gamelinks.day_card(day)
+                assert card["title"] == shelf[card["path"]]["title"], (day, card)
+        # "Checkers" is the shelf's name for what Wikipedia calls "English draughts"
+        assert shelf["checkers.html"]["title"] == "Checkers" != shelf["checkers.html"]["wiki"]
+
+    def test_random_is_always_a_game_of_the_shelf(self):
+        shelf = {r["path"]: r["title"] for r in gamelinks.rows()}
+        with mock.patch.object(gamelinks.ownzims, "enabled", lambda: True):
+            picks = [gamelinks.random_card() for _ in range(300)]
+            assert {c["path"] for c in picks} <= set(shelf), "never about.html, a stylesheet or a script"
+            assert all(c["title"] == shelf[c["path"]] for c in picks), "the shelf's title, not the wiki's"
+            assert len({c["path"] for c in picks}) > 20, "a roll, not one game"
+            # the dice move on from the game being played
+            assert all(gamelinks.random_card(exclude="chess.html")["path"] != "chess.html" for _ in range(100))
+            with mock.patch.object(_srv, "zim_allowed", lambda name: False):
+                assert gamelinks.random_card() is None
+        assert gamelinks.random_card() is None, "Zimi's own ZIMs are off"
+
 
 if __name__ == "__main__":
     unittest.main()
