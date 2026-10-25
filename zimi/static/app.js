@@ -8152,6 +8152,14 @@ function _dismissDiscover() {
 // each card type is a separate file with its own render/fetch logic.
 // See FEATURED_ZIMS for the content slot registry.
 // ─────────────────────────────────────────────────────────────────────────
+// A page root that never scrolls sideways and, on a touch screen, does not
+// spring past an edge. Only touch: Safari on macOS stops wheel scrolling
+// altogether when a root's vertical overscroll-behavior is not auto (Eric,
+// 2026-10-24: "scroll isn't working in my safari on macos").
+function _noBounceCss(root) {
+  return root + '{overscroll-behavior-x:none}@media (hover:none) and (pointer:coarse){' + root + '{overscroll-behavior:none}}';
+}
+
 // Only a dated cache key, never a setting that happens to share a prefix.
 // The stamp is a hex build fragment today. The class is wider than that on
 // purpose: if its shape ever changes, a too-narrow pattern stops matching
@@ -20506,7 +20514,8 @@ function _readerViewInjectStyle(doc) {
     'body.zimi-reader-active.rv-font-sans{--rv-font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}',
     // Pulled past the top or an edge, the page shows the theme under it (the
     // ZIM's skin paints html white), and does not spring or scroll sideways.
-    'html:has(> body.zimi-reader-active){overscroll-behavior:none;overflow-x:hidden}',
+    'html:has(> body.zimi-reader-active){overflow-x:hidden}',
+    _noBounceCss('html:has(> body.zimi-reader-active)'),
   ].concat(READER_THEMES.map(function(th) {
     return 'html:has(> body.zimi-reader-active.rv-theme-' + th + '){background:' + READER_THEME_BG[th] + '!important}';
   })).concat([
@@ -24919,7 +24928,8 @@ function openReader(url) {
         MW_DESKTOP_SKIN_CSS
       ]).concat([
         // No bounce past the top or an edge: it showed white under a dark page.
-        'html{overscroll-behavior:none}',
+        // On touch screens only: with a wheel, Safari would not scroll at all (app.css).
+        _noBounceCss('html'),
         '#zimi-top{position:fixed;bottom:20px;right:20px;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;font-size:20px;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:9999;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}'
       ]).join('');
       // A page with no viewport meta was laid out for a desktop: scaled to

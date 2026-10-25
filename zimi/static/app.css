@@ -167,9 +167,13 @@
   html.manage-boot #main-view { visibility: hidden; }
 
   /* Pulled past an edge, the page shows its own background, not the
-     browser's white, and does not spring: no bounce either way, no sideways
-     scroll. */
-  html { height: 100%; overflow-y: auto; overflow-x: hidden; overscroll-behavior: none; background: var(--bg); }
+     browser's white, and never scrolls sideways. On a touch screen it does
+     not spring either. Not with a mouse or trackpad: Safari on macOS stops
+     wheel scrolling altogether when the root's vertical overscroll-behavior
+     is anything but auto (Eric, 2026-10-24: "scroll isn't working in my
+     safari on macos"). */
+  html { height: 100%; overflow-y: auto; overflow-x: hidden; overscroll-behavior-x: none; background: var(--bg); }
+  @media (hover: none) and (pointer: coarse) { html { overscroll-behavior: none; } }
   /* A pinch zooms; nothing zooms on its own. A double tap is a tap, not a
      zoom; the text keeps its size when the
      phone turns; and a field or menu gets 16px type on a touch screen,
