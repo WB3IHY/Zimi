@@ -181,44 +181,147 @@
     return one(false) + one(true) + row;
   }
 
-  // A court figure's top half: head, headwear and shoulders in the box
-  // x 24..76, y 17..63, standing on y = 63. The card's other half is the same
-  // turned round, with the suit between them. `kind` picks the headwear.
+  // ── The courts ───────────────────────────────────────────────────────
+  // Flat, two-way, one hand: the suit's colour is the figure, cream the faces
+  // and the gaps cut between overlapping parts, Zimi's gold the one accent
+  // (crowns, belts, collars and what each figure holds). Jack, Queen and
+  // King differ in silhouette (cap and feather / long hair, tiara and veil /
+  // broad shoulders, tall crown and beard); the suit is told by what is held.
   var COURT_KINDS = ['jack', 'queen', 'king', 'fante', 'cavallo', 're'];
   var COURT_BASE = 63;
-  function bust(kind) {
-    var gold = function (d, extra) { return '<path d="' + d + '" fill="' + GOLD + '"' + (extra || '') + '/>'; };
-    var pearls = function (pts) { return '<g class="zc-fine">' + pts.map(function (p) { return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="1.5"/>'; }).join('') + '</g>'; };
-    var rim = ' stroke="currentColor" stroke-width="1.1"';
-    var hat;
-    if (kind === 'jack' || kind === 'fante') {
-      hat = '<path d="M41.4 38.6C41 30 59 30 58.6 38.6z"/><path d="M39.2 39.2H60.8" stroke="currentColor" stroke-width="2.2"/>' +
-        '<path d="M57.4 32.4C64 30 67.8 25 65.6 18.6" fill="none" stroke="' + GOLD + '" stroke-width="2.6"/>';
+  var CUT = ' stroke="' + CARD_CREAM + '" stroke-width="0.9" stroke-linejoin="round"'; // a cream edge keeps parts of one colour apart
+  var LINE = ' fill="none" stroke="currentColor" stroke-linecap="round"';
+  var HAND_X = 70, HAND_Y = 61.5;
+  function gold(d, extra) { return '<path d="' + d + '" fill="' + GOLD + '"' + (extra || '') + '/>'; }
+  function dot(x, y, r, fill) { return '<circle cx="' + x + '" cy="' + y + '" r="' + r + '"' + (fill ? ' fill="' + fill + '"' : '') + '/>'; }
+  function pearls(pts) { return '<g class="zc-fine">' + pts.map(function (p) { return dot(p[0], p[1], 1.4); }).join('') + '</g>'; }
+  function eyes(y, r) { return dot(46.6, y, r || 1.2) + dot(53.4, y, r || 1.2); }
+  function head(cy, r) { return '<circle cx="50" cy="' + cy + '" r="' + r + '" fill="' + CARD_CREAM + '" stroke="currentColor" stroke-width="1.5"/>'; }
+  function shaft(top, w) { return '<path d="M' + HAND_X + ' ' + HAND_Y + 'V' + top + '" stroke="currentColor" stroke-width="' + (w || 1.9) + '" fill="none"/>'; }
+  function round3(cx, cy, r) { return gold('M' + cx + ' ' + (cy - r) + 'a' + r + ' ' + r + ' 0 1 1 0 ' + 2 * r + ' ' + r + ' ' + r + ' 0 1 1 0-' + 2 * r + 'z'); }
+  // What each figure holds, by suit (clubs, diamonds, hearts, spades) then
+  // kind (jack, queen, king): gold heads on suit-coloured shafts.
+  var HELD = [
+    [ // clubs: a trefoil staff, a flower, an orb and cross
+      shaft(31) + round3(70, 26.8, 2.5) + round3(67.2, 31.4, 2.5) + round3(72.8, 31.4, 2.5),
+      shaft(33, 1.5) + [[70, 24], [73.6, 26.8], [66.4, 26.8], [68, 31], [72, 31]].map(function (c) { return round3(c[0], c[1], 2.4); }).join('') + dot(70, 28.4, 1.4, CARD_CREAM),
+      dot(HAND_X, 54, 4.8, GOLD) + '<path d="M65.2 54H74.8" stroke="currentColor" stroke-width="1" fill="none"/>' + '<path d="M70 43.6V49.4M67.6 46H72.4" stroke="' + GOLD + '" stroke-width="1.9" fill="none"/>'
+    ],
+    [ // diamonds: a spear, a hand mirror, an axe
+      shaft(30) + gold('M70 17.6 73.6 25 70 32.8 66.4 25z'),
+      '<path d="M70 62V44" stroke="currentColor" stroke-width="1.7" fill="none"/><circle cx="70" cy="35.4" r="7.4" fill="' + CARD_CREAM + '" stroke="' + GOLD + '" stroke-width="2.4"/>',
+      shaft(26, 1.8) + gold('M70.6 24.4C77.4 22.4 78 35.4 70.6 36.6z')
+    ],
+    [ // hearts: a leaf, a rose, a sword
+      shaft(32, 1.6) + gold('M70 38.4C63.6 34.4 64.8 25.4 70 28.8 75.2 25.4 76.4 34.4 70 38.4z'),
+      shaft(38, 1.4) + gold('M70 35.6C64.6 35 62.6 29.4 63.2 25.8 68.8 25.4 71.6 29.6 70 35.6zM70 40C75.6 39.4 77.8 33.4 77 29.8 71.6 29.4 68.4 33.6 70 40z') + dot(70, 28.6, 4.3, GOLD) + dot(70, 28.6, 2, CARD_CREAM),
+      '<path d="M70 62V28" stroke="currentColor" stroke-width="2.8" fill="none"/><path d="M70 21 72.4 28H67.6z" fill="currentColor"/>' + gold('M64.4 55.6H75.6L74.6 52.4H65.4z') + gold('M68.8 52.4H71.2V59H68.8z')
+    ],
+    [ // spades: a halberd, a crescent wand, a fleur sceptre
+      shaft(25, 1.7) + gold('M70 25.6C74.6 23 77.4 24.2 76.6 28.4L73.6 30.8 70 32.6z') + '<path d="M70 19.6 71.8 25H68.2z" fill="currentColor"/>',
+      shaft(32, 1.5) + gold('M70 21.4a6.4 6.4 0 1 0 6.4 6.4 5 5 0 1 1-6.4-6.4z'),
+      shaft(34, 2.2) + gold('M70 21C66.8 24.8 64.8 26.8 64.8 29 64.8 31.2 66.6 32 68.2 31.2 67.6 33.6 66.2 35 64.2 36H75.8C73.8 35 72.4 33.6 71.8 31.2 73.4 32 75.2 31.2 75.2 29 75.2 26.8 73.2 24.8 70 21z')
+    ]
+  ];
+  var HELD_KIND = { jack: 0, queen: 1, king: 2 };
+  var HELD_SCALE = 1.18, HELD_SHAFT_X = 67.5;
+  function held(kind, s) { return '<g transform="translate(' + HELD_SHAFT_X + ' ' + HAND_Y + ') scale(' + HELD_SCALE + ') translate(-' + HAND_X + ' -' + HAND_Y + ')">' + HELD[s][HELD_KIND[kind]] + '</g>'; }
+
+  var BODIES = {
+    jack: '<path d="M29 63 31.4 55.4C34.6 52.2 41 51 50 51S65.4 52.2 68.6 55.4L71 63z"/>',
+    queen: '<path d="M31 63 33.4 56C37 52.4 43 51.4 50 51.4S63 52.4 66.6 56L69 63z"/>',
+    king: '<path d="M24.6 63 27.6 55C32 51.2 41 50 50 50S68 51.2 72.4 55L75.4 63z"/>'
+  };
+  // A court figure's top half in the box x 24..76, y 17..63, standing on
+  // y = 63. The card's other half is the same turned round, the suit between.
+  // `compact` leaves out what a 33 px card cannot show: what is held, trims.
+  function bust(kind, s, compact) {
+    var out = BODIES[kind], fine = function (m) { return compact ? '' : m; };
+    if (kind === 'jack') {
+      out += '<path d="M41.2 46V39.6C41.2 31 58.8 31 58.8 39.6V46C57.6 45.8 57 45 56.8 44H43.2C43 45 42.4 45.8 41.2 46z"/>' + head(41.4, 7.2) +
+        '<path d="M40.2 38.6C39 29.6 49 26 58.6 29.2 62.8 30.6 62.2 36.4 60 38.2 55 35.4 46 35.4 40.2 38.6z"/>' +
+        '<path d="M40.8 38C46 35.4 55 35.4 59.8 37.8" fill="none" stroke="' + GOLD + '" stroke-width="1.7"/>' +
+        gold('M58 29.6C63.4 28.4 67.8 24 68.4 18.8 64.6 21.2 62.2 22 56.4 26.4z') +
+        eyes(41.8) + '<path d="M48.2 45.8Q50 47 51.8 45.8"' + LINE + ' stroke-width="1"/>' +
+        '<path d="M31 59.6H69" stroke="' + GOLD + '" stroke-width="2.2"/>' +
+        fine('<path d="M43.4 51.6 50 58.4 56.6 51.6" fill="none" stroke="' + GOLD + '" stroke-width="1.9"/><rect x="47.2" y="57.6" width="5.6" height="4" fill="' + CARD_CREAM + '" stroke="currentColor" stroke-width="0.9"/>');
     } else if (kind === 'queen') {
-      hat = gold('M41.6 34 40.4 23 45.6 28 50 21 54.4 28 59.6 23 58.4 34z', rim) + pearls([[40.4, 22.4], [50, 20], [59.6, 22.4]]);
-    } else if (kind === 'king' || kind === 're') {
-      hat = gold('M41 34 38.6 21.6 44.8 27 50 19 55.2 27 61.4 21.6 59 34z', rim) + pearls([[38.6, 21], [50, 18.2], [61.4, 21]]) +
-        '<path d="M42.2 40C42.2 52 57.8 52 57.8 40 55.6 44.4 44.4 44.4 42.2 40z"/>';
-    } else { // cavallo: a helm with a plume
-      hat = '<path d="M41 41C40 29 60 29 59 41z"/><path d="M42.6 38.6H57.4" stroke="' + GOLD + '" stroke-width="1.8"/>' +
-        gold('M50 31C54.6 22 63.6 23.4 65.6 31 61.4 27.4 56 28.6 53 33.6z');
+      out = '<path d="M41.6 29C33.8 35 33.4 49 31 63H40.4C41 55 41.4 44 42.6 36z" fill="currentColor" fill-opacity="0.2" stroke="currentColor" stroke-width="0.9"/>' +
+        '<path d="M58.4 29C66.2 35 66.6 49 69 63H59.6C59 55 58.6 44 57.4 36z" fill="currentColor" fill-opacity="0.2" stroke="currentColor" stroke-width="0.9"/>' + out +
+        '<path d="M41 40C41 31 59 31 59 40C60.6 47 60.4 54 58.4 58.4L55.6 55.6C56.6 51 56.4 47.2 56.8 44.6H43.2C43.6 47.2 43.4 51 44.4 55.6L41.6 58.4C39.6 54 39.4 47 41 40z"' + CUT + '/>' + head(41.6, 7) +
+        gold('M42.4 34.6 41.2 25.4 46 29.4 50 22.6 54 29.4 58.8 25.4 57.6 34.6z') + dot(50, 28.6, 1.3, CARD_CREAM) + pearls([[41.2, 24.8], [58.8, 24.8], [50, 21.8]]) +
+        eyes(42, 1.15) + '<path d="M44.8 40.2 48 40M52 40 55.2 40.2"' + LINE + ' stroke-width="0.8"/>' + '<ellipse cx="50" cy="46.2" rx="1.9" ry="1" fill="' + GOLD + '"/>' +
+        '<path d="M43 53.2C44.6 61 55.4 61 57 53.2" fill="none" stroke="' + GOLD + '" stroke-width="1.8"/>' +
+        fine(dot(46.2, 59.4, 1.2, GOLD) + dot(50, 60.6, 1.3, GOLD) + dot(53.8, 59.4, 1.2, GOLD));
+    } else {
+      out += '<path d="M28 59C36 53 45 54.6 50 58.6 55 54.6 64 53 72 59L73.4 63H26.6z" fill="' + CARD_CREAM + '" stroke="currentColor" stroke-width="1.1"/>' +
+        fine('<g fill="currentColor"><circle cx="33" cy="59.4" r="1.1"/><circle cx="39" cy="57.2" r="1.1"/><circle cx="61" cy="57.2" r="1.1"/><circle cx="67" cy="59.4" r="1.1"/></g>') +
+        '<path d="M40.4 41C40.4 34 59.6 34 59.6 41V48H40.4z"/>' + head(41.4, 7.4) +
+        '<path d="M42 43C41 52.8 45 58 50 58.8S59 52.8 58 43C56.6 46.4 53.6 48 50 48S43.4 46.4 42 43z"' + CUT + '/>' +
+        '<path d="M44 46.4Q47 44.6 50 46.4Q53 44.6 56 46.4Q53.4 49.2 50 47.8Q46.6 49.2 44 46.4z"' + CUT + '/>' +
+        eyes(40.8, 1.2) + '<path d="M44.4 37.8 48.6 38.6M55.6 37.8 51.4 38.6"' + LINE + ' stroke-width="1.1"/>' +
+        gold('M40.6 33.8 38.2 20.4 44.6 26 50 18.4 55.4 26 61.8 20.4 59.4 33.8z') + '<path d="M40.8 31.4H59.2" stroke="currentColor" stroke-width="1.1" fill="none"/>' +
+        pearls([[38.2, 19.8], [50, 17.6], [61.8, 19.8]]);
     }
-    return '<path d="M26 63 29.6 55C34 51 42 50 50 50S66 51 70.4 55L74 63z"/>' +
-      '<circle cx="50" cy="40" r="8.2" fill="' + CARD_CREAM + '" stroke="currentColor" stroke-width="1.5"/>' + hat +
-      '<g class="zc-fine"><path d="M43.6 51.2 50 58.4 56.4 51.2" fill="none" stroke="' + GOLD + '" stroke-width="1.9"/></g>';
+    return out + (compact ? '' : held(kind, s));
+  }
+
+  // The Italian courts: one upright figure to a card, in the same hand.
+  // Fante, a page in parti-coloured hose; Cavallo, a rider on his horse; Re, a
+  // crowned king in his mantle. Each holds his suit's own emblem (the sprite).
+  var ITALIAN_BASE = 99, ITALIAN_HELD_SCALE = [0.85, 0.95, 1.5, 1.35], ITALIAN_HELD_LIFT = [8, 9.5, 8, 9];
+  function heldItalian(s, x, y, standalone, compact) {
+    return compact ? '' : '<g paint-order="stroke"' + CUT + '>' + placed(s, x, y - ITALIAN_HELD_LIFT[s], ITALIAN_HELD_SCALE[s], false, standalone, ITALIAN_SHAPES, ITALIAN_PREFIX) + '</g>';
+  }
+  function italianFigure(kind, s, standalone, compact) {
+    var hand = function (x, y) { return '<circle cx="' + x + '" cy="' + y + '" r="2.3" fill="' + CARD_CREAM + '" stroke="currentColor" stroke-width="1.2"/>'; };
+    var limb = function (d, w) { return '<path d="' + d + '"' + LINE + ' stroke-width="' + w + '"/>'; };
+    if (kind === 'fante') {
+      return limb('M38.4 50 34 65', 4.4) + '<path d="M40 70H49.2L48.2 93H42z"/>' + '<path d="M50.8 70H60L58 93H51.8z" fill="' + CARD_CREAM + '" stroke="currentColor" stroke-width="1.3"/>' +
+        gold('M40.8 93H48.4V96.4H39.4zM51.8 93H59.2L60.6 96.4H51.8z') +
+        '<path d="M37 72 38.6 50C40 46.4 60 46.4 61.4 50L63 72z"/><path d="M38.4 63H61.6" stroke="' + GOLD + '" stroke-width="2.2" fill="none"/>' + limb('M62 50 66.8 62', 4.4) + hand(34, 66) + hand(67.4, 63.6) +
+        '<path d="M43.2 48.6 50 55.6 56.8 48.6" fill="none" stroke="' + GOLD + '" stroke-width="1.8"/>' +
+        '<path d="M43.6 42V36C43.6 29 56.4 29 56.4 36V42C55.4 41.6 55 40.4 55 39H45C45 40.4 44.6 41.6 43.6 42z"/>' + head(37.8, 6.2) +
+        '<path d="M42 35.6C41 27.6 49 24.4 57.4 27.4 60.6 28.8 60.2 33.6 58.4 35.2 54 33 46.4 33 42 35.6z"/><path d="M42.4 35C46.6 32.8 53.6 32.8 57.6 34.8" fill="none" stroke="' + GOLD + '" stroke-width="1.5"/>' +
+        gold('M56.6 28.4C61.4 27.4 64 25.6 64.6 23.6 62 24.8 60.4 25 55.8 26.6z') + eyes(38.4, 1) + '<path d="M47.6 42Q50 43.6 52.4 42"' + LINE + ' stroke-width="1"/>' + heldItalian(s, 68.6, 63.6, standalone, compact);
+    }
+    if (kind === 'cavallo') {
+      return '<path d="M28.4 66C23 66 21.4 78 25.6 88 26 80 28.6 74.6 31 72z" fill="' + GOLD + '"/>' +
+        '<path d="M33.6 76 31.6 93M40 77 41.4 93M57.4 78 63.4 85.6 60.8 93M62.8 76 69.6 82 69.4 92" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<path d="M28 71C27.4 64 34 61.6 41 61.6H59C62.6 61.6 64.4 65 64.4 69.4 64.4 75.8 60.4 80 56 80H34.4C30.6 80 28.4 76.6 28 71z"/>' +
+        '<path d="M56 64C58.8 57 60.6 49.4 64 43.4L66.4 36.6 69 41.6 76 43.4C78.6 44.4 79.4 48 77 49.6L72.6 48.6C70 48.2 67.8 49.6 67 53C66 58 65.4 63.4 66.6 70z"/>' +
+        gold('M59.6 50.4C58.4 56 57.8 60.6 57 64.4 54.4 62.4 54 60.8 54.6 58.4 57 56.6 58.2 53.4 59.6 50.4zM64.2 40.6 66.4 36.6 66.8 42z') + dot(72.4, 46.4, 1.1, CARD_CREAM) +
+        '<path d="M39 63H55L56.4 77H37.6z" fill="' + CARD_CREAM + '" stroke="currentColor" stroke-width="1.2"/><path d="M38.2 73.4H55.8" stroke="' + GOLD + '" stroke-width="2.2" fill="none"/>' +
+        '<path d="M44 47.4C44 44 53 44 53 47.4L55 63H42z"/>' + limb('M45 50 37.4 45', 3.8) + hand(36.4, 44.4) + '<path d="M44.4 62 50 64.4 49.4 78.4 45 77z"/>' +
+        '<path d="M45.2 39.2V36C45.2 31 53 31 53 36V39.2C52 39.4 51.6 38.2 51.6 37H46.6C46.6 38.2 46.2 39.4 45.2 39.2z"/>' + head(38.8, 5.4) +
+        '<path d="M43.4 37.2C42.6 31 48.4 28.6 54.4 30.6 56.6 31.6 56.4 35 55 36.2 52 34.4 46.6 34.4 43.4 37.2z"/>' +
+        gold('M53.6 30.4C58 29.4 60.6 27.4 61 24.6 58.6 26 57.4 26.4 53.6 28z') + dot(48.2, 39.2, 0.95) + dot(51.6, 39.2, 0.95) +
+        heldItalian(s, 36.4, 44.4, standalone, compact);
+    }
+    return '<path d="M31 99 36 54C37 49.6 63 49.6 64 54L69 99z" fill="currentColor" fill-opacity="0.2" stroke="currentColor" stroke-width="0.9"/>' + // re: the king in his mantle
+      '<path d="M35 99 39 53C40 48 60 48 61 53L65 99z"/><path d="M35.4 94.4H64.6V99H35.4z" fill="' + CARD_CREAM + '" stroke="currentColor" stroke-width="1.1"/>' +
+      '<g class="zc-fine" fill="currentColor"><circle cx="40.5" cy="96.7" r="1"/><circle cx="46.5" cy="96.7" r="1"/><circle cx="53.5" cy="96.7" r="1"/><circle cx="59.5" cy="96.7" r="1"/></g>' +
+      '<path d="M50 61V94" stroke="' + GOLD + '" stroke-width="1.8" fill="none"/><path d="M37.4 74H62.6" stroke="' + GOLD + '" stroke-width="2.2" fill="none"/>' +
+      limb('M39.4 52 36 70', 4.6) + hand(36, 71.6) + limb('M60.6 52 66 64', 4.6) + hand(67, 65.6) +
+      '<path d="M37 53C41 49.4 59 49.4 63 53L65 58C58 54 53 56.6 50 60 47 56.6 42 54 35 58z" fill="' + CARD_CREAM + '" stroke="currentColor" stroke-width="1.1"/>' +
+      '<path d="M43 40V34H57V40C56.4 41.4 56 42.6 56 44H44C44 42.6 43.6 41.4 43 40z"/>' + head(38.8, 6.8) +
+      '<path d="M43.8 41C43 49 46 53 50 53.6S57 49 56.2 41C55 43.6 52.8 44.8 50 44.8S45 43.6 43.8 41z"' + CUT + '/>' +
+      '<path d="M45.6 42.4Q47.8 41 50 42.4Q52.2 41 54.4 42.4Q52.4 44.6 50 43.6Q47.6 44.6 45.6 42.4z"' + CUT + '/>' +
+      eyes(37.4, 1.1) + '<path d="M44.8 34.8 48.4 35.4M55.2 34.8 51.6 35.4"' + LINE + ' stroke-width="1"/>' +
+      gold('M43 32 41.4 24.4 46 27.6 50 22.4 54 27.6 58.6 24.4 57 32z') + '<path d="M43 30.2H57" stroke="currentColor" stroke-width="1" fill="none"/>' + heldItalian(s, 67, 65.6, standalone, compact);
   }
 
   var COURT_PIP_X = 31.5, COURT_PIP_Y = 27, COURT_PIP_SCALE = 0.55, COURT_BAND = 7, COURT_MID_PIP = 0.62;
   var SMALL_COURT = '<g class="zc-small" display="none" transform="translate(50 128) scale(1.55) translate(-50 -' + COURT_BASE + ')">';
   function courtMarkup(kind, s, standalone) {
-    var half = bust(kind) + placed(s, COURT_PIP_X, COURT_PIP_Y, COURT_PIP_SCALE, false, standalone);
+    var half = bust(kind, s) + placed(s, COURT_PIP_X, COURT_PIP_Y, COURT_PIP_SCALE, false, standalone);
     var line = function (y) { return '<path d="M21 ' + y + 'H79" stroke="currentColor" stroke-width="0.8" opacity="0.55"/>'; };
     return '<g class="zc-big"><rect x="21" y="15" width="58" height="110" rx="3.5" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.2"/>' +
       '<rect class="zc-fine" x="23.6" y="17.6" width="52.8" height="104.8" rx="1.8" fill="none" stroke="' + GOLD + '" stroke-width="0.7"/>' +
       line(COURT_BASE) + line(140 - COURT_BASE) + '<path d="M26 70H40M60 70H74" stroke="' + GOLD + '" stroke-width="1"/>' +
       placed(s, 50, 70, COURT_MID_PIP, false, standalone) +
       '<g>' + half + '</g><g transform="rotate(180 50 70)">' + half + '</g></g>' +
-      (standalone ? '' : SMALL_COURT + bust(kind) + '</g>');
+      (standalone ? '' : SMALL_COURT + bust(kind, s, true) + '</g>');
   }
 
   // The same pip for the small card's simplified body.
@@ -256,7 +359,7 @@
   // cups, swords, clubs; 1 to 7, then Fante (8), Cavallo (9), Re (10). The
   // court figures stand upright, one to a card, in the suit's own colour.
   function italianName(id) { return ITALIAN_NAMES[id % 10] + ' of ' + ITALIAN_SUITS[Math.floor(id / 10) % 4]; }
-  var ITALIAN_PREFIX = 'zc-i-', ITALIAN_BASE = 90, ITALIAN_PIP_SCALE = 1.05;
+  var ITALIAN_PREFIX = 'zc-i-', ITALIAN_PIP_SCALE = 1.05;
   function italianFaceMarkup(id, standalone) {
     var r = id % 10 + 1, s = Math.floor(id / 10) % 4, body, p = ITALIAN_PREFIX;
     if (r === 1) body = '<g class="zc-big">' + placed(s, 50, 70, 3.4, false, standalone, ITALIAN_SHAPES, p) + '</g>' + smallSuit(s, standalone, ITALIAN_SHAPES, p);
@@ -266,10 +369,11 @@
       body = '<g class="zc-big">' + pips + '</g>' + smallSuit(s, standalone, ITALIAN_SHAPES, p);
     } else {
       var kind = COURT_KINDS[r - 5]; // 8 fante, 9 cavallo, 10 re
-      body = '<g class="zc-big"><rect x="20" y="22" width="60" height="96" rx="3.5" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.2"/>' +
-        '<rect class="zc-fine" x="22.6" y="24.6" width="54.8" height="90.8" rx="1.8" fill="none" stroke="' + GOLD + '" stroke-width="0.7"/>' +
-        '<g transform="translate(50 ' + ITALIAN_BASE + ') scale(1.2) translate(-50 -' + COURT_BASE + ')">' + bust(kind) + '</g><path d="M20 ' + ITALIAN_BASE + 'H80" stroke="currentColor" stroke-width="0.8" opacity="0.5"/>' +
-        placed(s, 50, 106, 1, false, standalone, ITALIAN_SHAPES, p) + '</g>' + (standalone ? '' : SMALL_COURT + bust(kind) + '</g>');
+      body = '<g class="zc-big"><rect x="20" y="20" width="60" height="100" rx="3.5" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.2"/>' +
+        '<rect class="zc-fine" x="22.6" y="22.6" width="54.8" height="94.8" rx="1.8" fill="none" stroke="' + GOLD + '" stroke-width="0.7"/>' +
+        italianFigure(kind, s, standalone) + '<path d="M20 ' + ITALIAN_BASE + 'H80" stroke="currentColor" stroke-width="0.8" opacity="0.5"/>' +
+        placed(s, 50, 109.5, 0.75, false, standalone, ITALIAN_SHAPES, p) + '</g>' +
+        (standalone ? '' : '<g class="zc-small" display="none" transform="translate(50 134) scale(1.1) translate(-50 -' + ITALIAN_BASE + ')">' + italianFigure(kind, s, false, true) + '</g>');
     }
     return faceFrame(indexMarkup(String(r), s, standalone, ITALIAN_SHAPES, p) + body, ITALIAN_COLOURS[s], standalone);
   }
@@ -394,24 +498,35 @@
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs>' + MARK_GRADIENT.replace('zc-g-mark', 'zm-g') + '</defs>' +
       (opts.tile ? '<rect width="100" height="100" rx="22" fill="' + c.ink + '"/><g transform="translate(10 10) scale(0.8)">' + art + '</g>' : art) + '</svg>';
   }
-  // Z, then IMI over GAMES on one line: the Z is the mark's own, IMI a bold
-  // stroke, GAMES a light one. Ink comes from `currentColor`.
-  var WORD_BOLD = 3.1, WORD_LIGHT = 1.7, WORD_H = 14, WORD_Z_GAP = 3.4, WORD_BOLD_GAP = 4.4, WORD_LIGHT_GAP = 3.6, WORD_BREAK = 6;
+  // The lockup: the mark's Z, on its dark card with the second card fanned
+  // behind, is the first letter, then IMI in a bold stroke and GAMES in a
+  // light one, so the Z is drawn once and the line reads ZimiGames. The
+  // letters are paths on the Z's own 14-high grid; ink is `currentColor`.
+  var WORD_BOLD = 3.1, WORD_LIGHT = 1.7, WORD_H = 14, WORD_BOLD_GAP = 4.4, WORD_LIGHT_GAP = 3.6, WORD_BREAK = 6, WORD_S_KERN = 1.2;
+  var WORD_CHIP = { padX: 3.6, padY: 5, r: 2.6, fan: 8, fanDx: 1.2, fanDy: 0.8, gap: 3.4 };
   function wordmarkSvg() {
-    var x = 0, out = '', k = WORD_H / MARK_Z_H, gap = 0;
+    var c = WORD_CHIP, k = WORD_H / MARK_Z_H, zw = MARK_Z_W * k, x, out = '', gapAfter = 0;
+    var w = zw + 2 * c.padX, h = WORD_H + 2 * c.padY, y0 = -c.padY;
+    var rect = function (extra) { return '<rect x="' + -c.padX + '" y="' + y0 + '" width="' + w + '" height="' + h + '" rx="' + c.r + '" ' + extra + '/>'; };
+    var cx = w / 2 - c.padX, cy = WORD_H / 2;
+    out += '<g transform="translate(' + c.fanDx + ' ' + c.fanDy + ') rotate(' + c.fan + ' ' + cx + ' ' + cy + ')">' + rect('fill="url(#zw-g)"') + '</g>' +
+      rect('fill="' + MARK_CARD.ink + '" stroke="rgba(255,255,255,0.22)" stroke-width="0.5"') + '<path d="' + MARK_Z + '" transform="scale(' + k + ')" fill="url(#zw-g)"/>';
+    var fanEdge = cx + c.fanDx + (w * Math.cos(c.fan * Math.PI / 180) + h * Math.sin(c.fan * Math.PI / 180)) / 2;
+    x = Math.max(w - c.padX, fanEdge) + c.gap;
+    var minX = cx + c.fanDx - (w * Math.cos(c.fan * Math.PI / 180) + h * Math.sin(c.fan * Math.PI / 180)) / 2;
     var run = function (text, stroke, between) {
       text.split('').forEach(function (ch) {
+        if (ch === 'S') x -= WORD_S_KERN;
         out += '<path transform="translate(' + x + ' 0)" d="' + GLYPHS[ch].d + '" fill="none" stroke="currentColor" stroke-width="' + stroke + '" stroke-miterlimit="8"/>';
         x += glyphWidth(ch) + between;
       });
-      gap = between;
+      gapAfter = between;
     };
-    out += '<path d="' + MARK_Z + '" transform="scale(' + k + ')" fill="url(#zw-g)"/>';
-    x += MARK_Z_W * k + WORD_Z_GAP;
     run('IMI', WORD_BOLD, WORD_BOLD_GAP);
     x += WORD_BREAK - WORD_BOLD_GAP;
     run('GAMES', WORD_LIGHT, WORD_LIGHT_GAP);
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 ' + (x - gap + 4) + ' ' + (WORD_H + 4) + '" role="img" aria-label="ZimiGames"><defs>' +
+    var pad = 1.5, top = y0 - 2, bottom = y0 + h + 2;
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + (minX - pad) + ' ' + top + ' ' + (x - gapAfter - minX + 2 * pad) + ' ' + (bottom - top) + '" role="img" aria-label="ZimiGames"><defs>' +
       MARK_GRADIENT.replace('zc-g-mark', 'zw-g') + '</defs>' + out + '</svg>';
   }
 

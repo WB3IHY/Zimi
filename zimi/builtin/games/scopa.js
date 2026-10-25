@@ -1,5 +1,5 @@
 /* ZimiGames: Scopa, the Italian fishing game. You (south) against North, with
-   the 40-card Italian deck drawn here: coins, cups, swords and clubs, 1 to 7
+   the 40-card Italian deck (drawn by ZimiCards): coins, cups, swords and clubs, 1 to 7
    then Fante (8), Cavallo (9) and Re (10). Three cards each, four on the
    table. Play a card: if a table card has its value you must take that one,
    otherwise you may take a set of table cards that adds up to it, otherwise
@@ -158,54 +158,9 @@
     return best;
   }
 
-  // ── The Italian deck, drawn here ────────────────────────────────────────
-  var SUIT_COLORS = ['#d99a1b', '#c0392b', '#2f6fa3', '#2e7d32'], SUIT_DARK = ['#8c5d08', '#7d1f16', '#173f63', '#154a19'];
-  var SUIT_ART = [
-    function (c, d) { return '<circle r="9" fill="' + c + '" stroke="' + d + '" stroke-width="1.4"/><circle r="5.6" fill="none" stroke="' + d + '" stroke-width="1.1"/><circle r="1.6" fill="' + d + '"/>'; },
-    function (c, d) { return '<path d="M-8-9H8C8-1 4 3 1.2 4V8H5.5V10H-5.5V8H-1.2V4C-4 3-8-1-8-9Z" fill="' + c + '" stroke="' + d + '" stroke-width="1.1" stroke-linejoin="round"/><path d="M-8-9H8" stroke="' + d + '" stroke-width="2"/>'; },
-    function (c, d) { return '<g transform="rotate(32)"><path d="M0-11 3 -8V4H-3V-8Z" fill="' + c + '" stroke="' + d + '" stroke-width="1"/><rect x="-6.5" y="4" width="13" height="2.6" rx="1.2" fill="' + d + '"/><rect x="-1.6" y="6.6" width="3.2" height="4.6" rx="1" fill="' + d + '"/></g>'; },
-    function (c, d) { return '<g transform="rotate(32)"><path d="M-3.4-10Q0-12.4 3.4-10L4.6 8Q0 10.6-4.6 8Z" fill="' + c + '" stroke="' + d + '" stroke-width="1.1" stroke-linejoin="round"/><circle cx="-1.2" cy="-4" r="1.2" fill="' + d + '"/><circle cx="1.4" cy="1" r="1.2" fill="' + d + '"/></g>'; }
-  ];
-  var SCOPA_SERIF = "Georgia,'Times New Roman',serif";
-  var PIP_X = [34, 66], PIP_Y3 = [32, 70, 108], PIP_LAYOUT = {
-    1: [[50, 70]], 2: [[50, 38], [50, 102]], 3: [[50, 34], [50, 70], [50, 106]], 4: [[34, 38], [66, 38], [34, 102], [66, 102]],
-    5: [[34, 38], [66, 38], [50, 70], [34, 102], [66, 102]], 6: [[34, 34], [66, 34], [34, 70], [66, 70], [34, 106], [66, 106]],
-    7: [[34, 34], [66, 34], [34, 70], [66, 70], [34, 106], [66, 106], [50, 52]]
-  };
-  function figure(v, s) {
-    var c = SUIT_COLORS[s], d = SUIT_DARK[s], skin = '#f1d2b0', ink = '#2a2118';
-    if (v === 8) { // Fante: a page in a feathered cap
-      return '<path d="M34 112V88Q34 76 50 74Q66 76 66 88V112Z" fill="' + c + '" stroke="' + d + '" stroke-width="1.4"/><circle cx="50" cy="58" r="11" fill="' + skin + '" stroke="' + ink + '" stroke-width="1.2"/>' +
-        '<path d="M38 55Q38 41 52 41Q63 42 62 55Q52 48 38 55Z" fill="' + d + '"/><path d="M58 44Q70 34 68 24Q62 34 54 41Z" fill="' + c + '" stroke="' + d + '" stroke-width="1"/>' +
-        '<circle cx="46" cy="60" r="1.2" fill="' + ink + '"/><circle cx="54" cy="60" r="1.2" fill="' + ink + '"/><path d="M45 66Q50 69 55 66" fill="none" stroke="' + ink + '" stroke-width="1.1"/><path d="M42 90H58" stroke="' + d + '" stroke-width="2"/>';
-    }
-    if (v === 9) { // Cavallo: a horse's head and mane
-      return '<path d="M30 112 36 76Q38 56 54 48L62 34 66 40 64 48Q76 52 76 66L68 70Q60 62 54 66L58 112Z" fill="' + skin + '" stroke="' + ink + '" stroke-width="1.4" stroke-linejoin="round"/>' +
-        '<path d="M54 48Q44 54 40 72L34 100Q48 80 46 58Z" fill="' + d + '"/><path d="M62 34 60 26 66 32" fill="' + d + '"/><circle cx="64" cy="58" r="1.8" fill="' + ink + '"/><path d="M48 96H72" stroke="' + c + '" stroke-width="4"/>';
-    }
-    return '<path d="M30 112V86Q30 74 50 72Q70 74 70 86V112Z" fill="' + c + '" stroke="' + d + '" stroke-width="1.4"/><circle cx="50" cy="56" r="11" fill="' + skin + '" stroke="' + ink + '" stroke-width="1.2"/>' + // Re: a crowned king with a beard
-      '<path d="M37 49 38 34 44 42 50 32 56 42 62 34 63 49Z" fill="#e0a82e" stroke="' + d + '" stroke-width="1.2" stroke-linejoin="round"/><path d="M40 62Q50 80 60 62Q50 70 40 62Z" fill="#d8d3c8" stroke="' + ink + '" stroke-width="1"/>' +
-      '<circle cx="46" cy="55" r="1.2" fill="' + ink + '"/><circle cx="54" cy="55" r="1.2" fill="' + ink + '"/><path d="M34 98H66" stroke="#e0a82e" stroke-width="2.4"/>';
-  }
-  // One card face as SVG markup; `standalone` adds a card body and size for the cascade's bitmaps.
-  function scopaFace(id, standalone) {
-    var v = value(id), s = suitOf(id), c = SUIT_COLORS[s], d = SUIT_DARK[s], label = v > 7 ? ['F', 'C', 'R'][v - 8] : String(v), body = '', k;
-    var glyph = function (x, y, sc, turn) { return '<g transform="translate(' + x + ' ' + y + ')' + (turn ? ' rotate(180)' : '') + ' scale(' + sc + ')">' + SUIT_ART[s](c, d) + '</g>'; };
-    var index = function (turn) {
-      return '<g' + (turn ? ' transform="rotate(180 50 70)"' : '') + '><text x="11" y="21" font-size="' + (v === 10 ? 17 : 21) + '" font-weight="700" text-anchor="middle" font-family="' + SCOPA_SERIF + '" fill="' + d + '">' + label + '</text>' + glyph(11, 33, 0.55, false) + '</g>';
-    };
-    if (v <= 7) {
-      var pips = PIP_LAYOUT[v], size = v === 1 ? 2.8 : v >= 6 ? 1.15 : 1.4;
-      for (k = 0; k < pips.length; k++) body += glyph(pips[k][0], pips[k][1], size, pips[k][1] > 70);
-      if (v === 1 && s === 0) body += '<circle cx="50" cy="70" r="33" fill="none" stroke="' + d + '" stroke-width="1.2" stroke-dasharray="3 3"/>';
-    } else {
-      body = '<rect x="22" y="26" width="56" height="88" rx="5" fill="' + c + '" fill-opacity="0.12" stroke="' + d + '" stroke-width="1.6"/>' + figure(v, s) + glyph(30, 36, 0.5, false) + glyph(70, 104, 0.5, true);
-    }
-    var head = standalone
-      ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140"><rect x="0.5" y="0.5" width="99" height="139" rx="7.5" fill="#fdfcf8" stroke="#c9c4b8"/>'
-      : '<svg viewBox="0 0 100 140" aria-hidden="true">';
-    return head + index(false) + index(true) + body + '</svg>';
-  }
+  // ── The Italian deck ────────────────────────────────────────────────────
+  // Drawn by the shared deck (ZimiCards.italianFaceMarkup), ids 0 to 39 as here.
+  function scopaFace(id, standalone) { return Z.italianFaceMarkup(id, standalone); }
 
   // ── Layout ──────────────────────────────────────────────────────────────
   var ROW_GAP = 8, TABLE_GAP_SHARE = 0.12, HAND_STEP = 1.1;
