@@ -243,7 +243,7 @@
   function useHint() {
     if (busy || !game) return;
     var k = hint(game);
-    if (k) { say('One letter turned over, at the price of a breath.'); afterMove(); }
+    if (k) { say('One letter shown. It cost some air.'); afterMove(); }
   }
 
   function openSheet() {

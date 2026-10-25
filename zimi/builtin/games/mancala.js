@@ -227,7 +227,7 @@
   function turnText() {
     var p = state.turn;
     if (!G.vsComputer()) return NAMES[p] + ' to play';
-    return G.human(p) ? 'Your move' : 'Computer is thinking';
+    return G.human(p) ? 'Your turn' : 'Computer is thinking';
   }
 
   function onPit(i) {
@@ -296,7 +296,7 @@
 
   function hint() {
     hintPit = chooseMove(G.settings.rules, state, 'hard');
-    paint(); G.say('A good pit is ringed. ' + turnText());
+    paint(); G.say('Hint: try the ringed pit. ' + turnText());
   }
 
   function undo() {

@@ -221,7 +221,7 @@
   function schedule() {
     if (timer) timer.cancel();
     if (g.over) return;
-    if (!g.players[g.turn].ai) { if (g.players[g.turn].n > 0) seats.ensure(g.turn, paint, 'Hand the device over. Your dice stay hidden until you tap.'); return; }
+    if (!g.players[g.turn].ai) { if (g.players[g.turn].n > 0) seats.ensure(g.turn, paint, 'Pass the device. Your dice stay hidden until you tap.'); return; }
     timer = Play.later(function () { var m = aiMove(g); if (m.type === 'bid' || g.bid) play(m); }, AI_DELAY_MS);
   }
 

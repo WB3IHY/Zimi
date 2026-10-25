@@ -199,7 +199,7 @@
       say(event + (seats.isYou(q) ? ' You may claim it.' : ' ' + nameOf(q) + ' may claim it.'));
       showClaims(t.claims[q], tile);
       pending.picks = picks; pending.asking = asking; pending.tile = tile;
-    }, 'Hand the device over. You may claim the last discard, and your tiles stay hidden until you tap.');
+    }, 'Pass the device. You may claim the last discard, and your tiles stay hidden until you tap.');
   }
   function choose(pick) {
     var wait = pending, q = wait.asking[0];

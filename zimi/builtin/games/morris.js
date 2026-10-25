@@ -234,8 +234,8 @@
   function turnText() {
     var p = state.turn, nm = NAMES[p], ph = phase(state, p), you = G.vsComputer() && G.human(p);
     if (G.vsComputer() && !you) return 'Computer is thinking';
-    var lead = G.vsComputer() ? 'Your move' : nm + ' to play';
-    if (pending && pending.removing) return 'A mill! Take one of the other side\'s men';
+    var lead = G.vsComputer() ? 'Your turn' : nm + ' to play';
+    if (pending && pending.removing) return 'You made a mill. Take one of the other side\'s men';
     if (ph === 'place') return lead + ': place a man (' + state.hand[p] + ' left to place)';
     if (ph === 'fly') return lead + ': you may fly a man anywhere';
     return lead + ': slide a man along a line';
@@ -309,7 +309,7 @@
 
   function hint() {
     hintMove = chooseMove(state, 'hard');
-    paint(); G.say('A good move is marked. ' + turnText());
+    paint(); G.say('Hint: try the marked move. ' + turnText());
   }
 
   function undo() {

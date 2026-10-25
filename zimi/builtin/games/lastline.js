@@ -281,7 +281,7 @@
     st = createState(); mode = 'playing'; els.msg.textContent = ''; clearHeld();
     Play.closeSheet(els.sheet); els.pause.disabled = false; hud(); draw(); loop.start();
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); showSheet('Paused', 'The drones wait.', 'Resume'); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); showSheet('Paused', 'Resume when you are ready.', 'Resume'); }
   function resume() { mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
   function finish() {
     mode = 'over'; loop.stop(); els.pause.disabled = true; clearHeld();
@@ -309,6 +309,6 @@
 
   window.addEventListener('resize', layout);
   layout(); hud();
-  showSheet('Last Line', 'Hold the line. Move, fire, shelter behind the shields. Arrow keys and Space, or the buttons below the screen.', 'Start');
+  showSheet('Last Line', 'Stop the drones. Move, fire and hide behind the shields. Arrow keys and Space, or the buttons below the screen.', 'Start');
   root.__lastline = { get st() { return st; }, get mode() { return mode; } };
 })(this);
