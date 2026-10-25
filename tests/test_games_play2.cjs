@@ -556,6 +556,32 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check(g.over && g.moves >= 6, 'memory: trial and error finishes (' + g.moves + ' moves)');
 }
 
+// ── Echo ────────────────────────────────────────────────────────────────────
+{
+  const E = load(['playkit.js', 'echo.js']).EchoEngine;
+  let g = E.createGame(5);
+  check(g.seq.length === 1 && g.seq[0] >= 0 && g.seq[0] < 4, 'echo: a game starts with one pad');
+  check(JSON.stringify(E.createGame(5).seq) === JSON.stringify(g.seq), 'echo: the sequence follows the seed');
+  // Repeat it right, round after round: each round is one longer and ends in "done".
+  let ok = true;
+  for (let round = 1; round <= 12; round++) {
+    ok = ok && g.seq.length === round;
+    for (let i = 0; i < g.seq.length; i++) { const r = E.press(g, g.seq[i]); ok = ok && r === (i === g.seq.length - 1 ? 'done' : 'ok'); }
+    ok = ok && g.done === round;
+    E.extend(g);
+  }
+  check(ok && g.seq.length === 13, 'echo: twelve right rounds, one longer each time');
+  g = E.createGame(7); E.extend(g); E.extend(g);
+  check(E.press(g, g.seq[0]) === 'ok' && E.press(g, (g.seq[1] + 1) % 4) === 'wrong' && g.pos === 0, 'echo: a wrong pad is wrong, and you start the sequence again');
+  check(E.press(g, (g.seq[0] + 1) % 4) === 'wrong', 'echo: wrong on the first pad too');
+  // Longer sequences play faster, but never faster than a person can follow.
+  const t1 = E.timing(1), t10 = E.timing(10), t40 = E.timing(40);
+  check(t10.gap < t1.gap && t40.gap === 240 && t1.on < t1.gap && t40.on >= 100, 'echo: it speeds up with length, to a floor (' + t1.gap + ' to ' + t40.gap + ' ms)');
+  check(E.FREQ.length === 4 && new Set(E.FREQ).size === 4 && E.FREQ.every((f, i, a) => i === 0 || f > a[i - 1]), 'echo: four different notes, rising');
+  const counts = [0, 0, 0, 0]; g = E.createGame(9); for (let i = 0; i < 400; i++) E.extend(g); g.seq.forEach(p => counts[p]++);
+  check(counts.every(n => n > 60), 'echo: every pad turns up in a long sequence');
+}
+
 // END
 if (failures) { console.error(failures + ' failed'); process.exit(1); }
 console.log('all passed');
