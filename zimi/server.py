@@ -2340,7 +2340,7 @@ def fieldguide_enabled():
     return os.environ.get(FIELDGUIDE_ENV, "").strip().lower() in ("1", "true", "yes", "on")
 
 
-APP_NAMES = ("maps", "tube", "exchange", "reddot", "wiki", "books", "dictionary")
+APP_NAMES = ("maps", "tube", "exchange", "reddot", "wiki", "books", "dictionary", "games", "almanac")
 # Apps offered only when named: a comma list in ZIMI_APPS (or a saved list)
 # that names one turns it on; "1", "all", the default and a saved True leave
 # it off. None now: Reddot was one from 1.13.1 to 1.14.0, and home shows an
