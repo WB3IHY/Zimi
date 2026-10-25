@@ -1,0 +1,31 @@
+/* Wiki Race: the target, the path, the article pane. Shared tokens: games.css, play.css, library.css. */
+.rc-main { width: min(720px, 100%); margin: 0 auto; }
+.rc-target { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; justify-content: center; min-height: 1.5em; font-size: 16px; text-align: center; }
+.rc-target .rc-from { color: var(--ink2); }
+.rc-arrow { color: var(--ink3); }
+.rc-to { color: var(--accent); }
+.rc-trail { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 32px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+.rc-trail::-webkit-scrollbar { display: none; }
+.rc-chip { flex: none; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 12px; color: var(--ink2); }
+.rc-chip.here { border-color: var(--accent); color: var(--ink); font-weight: 600; }
+.rc-sep { flex: none; color: var(--ink3); }
+.rc-pane { width: 100%; height: clamp(260px, calc(100svh - 360px), 620px); overflow: auto; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overscroll-behavior: contain; }
+.rc-pane .rc-title { margin: 0 0 10px; font-size: 22px; letter-spacing: -0.01em; }
+.rc-article { font: 16px/1.6 var(--font); }
+.rc-article p { margin: 0 0 12px; }
+.rc-article h2, .rc-article h3, .rc-article h4 { margin: 16px 0 6px; font-size: 17px; }
+.rc-article ul, .rc-article ol { padding-left: 22px; margin: 0 0 12px; }
+.rc-link { color: var(--accent); cursor: pointer; border-bottom: 1px solid transparent; text-decoration: none; border-radius: 2px; }
+.rc-link:hover { border-bottom-color: currentColor; }
+.rc-link:active { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.rc-card { max-width: 440px; margin: 8px auto; padding: 8px 0; text-align: center; }
+.rc-card h2 { margin: 0 0 12px; font-size: 20px; }
+.rc-card p { margin: 0 0 12px; color: var(--ink2); }
+.rc-card .gm-play { min-height: 44px; padding: 0 28px; }
+.rc-pair { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; align-items: baseline; font-size: 18px; color: var(--ink) !important; }
+.rc-pair b { color: var(--accent); }
+.rc-hint { font-style: italic; font-size: 14px; }
+.rc-best { color: var(--ok) !important; font-weight: 600; }
+.rc-note { margin: 0 0 10px; padding: 6px 10px; border-radius: 8px; background: var(--cell); color: var(--ink2); font-size: 13px; }
+.rc-route { margin: 8px 0 0; padding-left: 22px; color: var(--ink2); }
+.rc-route li::marker { color: var(--ink3); }
