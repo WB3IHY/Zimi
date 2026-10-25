@@ -456,6 +456,75 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check(nl.level === 2 && nl.score === 500 && nl.fuel < N.FUEL_START, 'lander: after a landing the next level, a little less fuel');
 }
 
+// ── Paddles ─────────────────────────────────────────────────────────────────
+{
+  const D = load(['playkit.js', 'paddles.js']).PaddlesEngine;
+  const DT = 1 / 60;
+  const live = (mode, level, seed) => { const st = D.createState(mode, level, seed); st.status = 'playing'; return st; };
+  const ball = (st, x, y, vx, vy, speed) => { Object.assign(st.ball, { x, y, vx, vy, speed: speed || Math.hypot(vx, vy) }); };
+
+  // A ball that meets the middle of the paddle goes straight back; one that meets the edge goes out at a wide angle.
+  let st = live('two', 'medium', 1); st.bottom.x = 180;
+  ball(st, 180, D.BOTTOM_Y - 40, 0, 300); for (let i = 0; i < 30 && st.ball.vy > 0; i++) D.step(st, DT, {});
+  check(st.ball.vy < 0 && Math.abs(st.ball.vx) < 1, 'paddles: a ball on the middle goes straight back');
+  st = live('two', 'medium', 1); st.bottom.x = 180;
+  ball(st, 180 + 36, D.BOTTOM_Y - 40, 0, 300); for (let i = 0; i < 30 && st.ball.vy > 0; i++) D.step(st, DT, {});
+  const edge = Math.atan2(Math.abs(st.ball.vx), -st.ball.vy);
+  check(st.ball.vy < 0 && st.ball.vx > 0 && edge > 0.7 && edge <= D.MAX_ANGLE + 1e-6, 'paddles: a ball on the right edge leaves to the right at ' + Math.round(edge * 57.3) + ' degrees');
+  st = live('two', 'medium', 1); st.bottom.x = 180;
+  ball(st, 180 - 20, D.BOTTOM_Y - 40, 0, 300); for (let i = 0; i < 30 && st.ball.vy > 0; i++) D.step(st, DT, {});
+  check(st.ball.vx < 0, 'paddles: left of centre goes left');
+  // Every hit adds speed, up to a limit.
+  st = live('two', 'medium', 2); st.bottom.x = 180; const s0 = D.SERVE_SPEED; ball(st, 180, D.BOTTOM_Y - 40, 0, s0);
+  for (let i = 0; i < 30 && st.ball.vy > 0; i++) D.step(st, DT, {});
+  check(st.ball.speed > s0 && Math.abs(Math.hypot(st.ball.vx, st.ball.vy) - st.ball.speed) < 1e-6, 'paddles: a hit speeds the ball up');
+  st = live('two', 'medium', 2); st.bottom.x = 180; ball(st, 180, D.BOTTOM_Y - 40, 0, 600, D.MAX_SPEED);
+  for (let i = 0; i < 30 && st.ball.vy > 0; i++) D.step(st, DT, {});
+  check(st.ball.speed === D.MAX_SPEED, 'paddles: but never past the top speed');
+  // Side walls.
+  st = live('two', 'medium', 3); ball(st, 20, 250, -400, 0.01, 400); D.step(st, DT, {}); D.step(st, DT, {});
+  check(st.ball.vx > 0 && st.ball.x >= 7, 'paddles: the side walls bounce the ball');
+  // A fast ball does not pass through a paddle.
+  st = live('two', 'medium', 4); st.bottom.x = 180; ball(st, 180, D.BOTTOM_Y - 60, 0, D.MAX_SPEED);
+  let through = false; for (let i = 0; i < 60; i++) { D.step(st, DT, {}); if (st.ball.y > D.BOTTOM_Y + 12) through = true; }
+  check(!through && st.score.top === 0, 'paddles: a fast ball is stopped by the paddle, not through it');
+  // Missing scores for the other side, and the ball is served to the one who missed.
+  st = live('two', 'medium', 5); st.bottom.x = 30; ball(st, 300, D.BOTTOM_Y - 40, 0, 300);
+  for (let i = 0; i < 60 && st.status === 'playing'; i++) D.step(st, DT, {});
+  check(st.score.top === 1 && st.status === 'serving' && st.serveTo === 'bottom', 'paddles: a miss gives the other side the point and the serve comes back to the one who missed');
+  // First to 7.
+  st = live('two', 'medium', 6); st.score.bottom = D.WIN_SCORE - 1; st.top.x = 30; ball(st, 300, D.TOP_Y + 40, 0, -300);
+  for (let i = 0; i < 60 && st.status === 'playing'; i++) D.step(st, DT, {});
+  check(st.status === 'over' && st.winner === 'bottom' && st.score.bottom === D.WIN_SCORE, 'paddles: the seventh point wins');
+  // The serve starts after a pause, towards whoever it should.
+  st = D.createState('two', 'easy', 7); st.serveTo = 'top'; for (let i = 0; i < 80; i++) D.step(st, DT, {});
+  check(st.status === 'playing' && st.ball.vy < 0, 'paddles: the ball is served after a short pause');
+  // Paddles move at a limited speed, by key or by finger, and stay inside the court.
+  st = live('two', 'medium', 8); st.bottom.x = 180; D.step(st, 0.1, { bottom: { dir: 1 } });
+  check(Math.abs(st.bottom.x - (180 + D.PAD_SPEED * 0.1)) < 1e-9, 'paddles: a key moves the paddle at its speed');
+  D.step(st, 0.1, { bottom: { target: 0 } }); st.bottom.x = 180; D.step(st, 0.1, { bottom: { target: 0 } });
+  check(Math.abs(st.bottom.x - (180 - D.PAD_SPEED * 0.1)) < 1e-9, 'paddles: following a finger is capped at the same speed');
+  for (let i = 0; i < 100; i++) D.step(st, DT, { bottom: { dir: -1 } });
+  check(st.bottom.x === D.PAD_W / 2, 'paddles: the paddle stops at the wall');
+
+  // The computer: it follows a ball it can reach and returns it, but a wide shot beats the easy one.
+  st = live('cpu', 'hard', 9); st.top.x = 100; ball(st, 260, 250, 0, -300); st.aiming = false;
+  let returned = false; for (let i = 0; i < 150; i++) { D.step(st, DT, {}); if (st.ball.vy > 0 && st.hits > 0) { returned = true; break; } }
+  check(returned && st.score.bottom === 0, 'paddles: the hard computer reaches a ball across the court and returns it');
+  let easyBeaten = 0, hardBeaten = 0;
+  for (let seed = 1; seed <= 12; seed++) {
+    ['easy', 'hard'].forEach(level => {
+      const s = live('cpu', level, seed); s.top.x = 40; ball(s, 330, 300, 120, -330);
+      for (let i = 0; i < 200 && s.status === 'playing' && s.score.bottom === 0 && !(s.ball.vy > 0); i++) D.step(s, DT, {});
+      if (s.score.bottom === 1) { if (level === 'easy') easyBeaten++; else hardBeaten++; }
+    });
+  }
+  check(easyBeaten >= 8 && easyBeaten >= hardBeaten, 'paddles: a ball into the far corner beats the easy computer (' + easyBeaten + ' of 12) more than the hard one (' + hardBeaten + ' of 12)');
+  const slow = live('cpu', 'easy', 10); slow.top.x = 100; ball(slow, 300, 300, 0, -300);
+  let maxMove = 0, px = slow.top.x; for (let i = 0; i < 60; i++) { D.step(slow, DT, {}); maxMove = Math.max(maxMove, Math.abs(slow.top.x - px)); px = slow.top.x; }
+  check(maxMove <= D.LEVELS.easy.speed * DT + 1e-9, 'paddles: the computer moves no faster than its level allows');
+}
+
 // END
 if (failures) { console.error(failures + ' failed'); process.exit(1); }
 console.log('all passed');

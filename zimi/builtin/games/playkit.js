@@ -185,6 +185,8 @@
     cv.width = Math.floor(w * s * dpr); cv.height = Math.floor(h * s * dpr);
     var ctx = cv.getContext('2d');
     ctx.setTransform(s * dpr, 0, 0, s * dpr, 0, 0);
+    // A browser can drop a canvas's drawing surface (a GPU hiccup); when it gives one back, fit and draw again.
+    if (!cv.zgWatched) { cv.zgWatched = true; cv.addEventListener('contextrestored', function () { window.dispatchEvent(new Event('resize')); }); }
     return { scale: s, ctx: ctx };
   };
 
