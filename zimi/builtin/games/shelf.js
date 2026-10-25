@@ -5,7 +5,7 @@
    listed, so a game added to the shelf shows in both views, in the section chips
    and in search with no change here. Lobby is a feed of art tiles; Index is
    search first, one section at a time as thumbnail rows. The choice is kept in
-   localStorage ("zimi.games.view"). recent.js draws Continue and Game of the
+   localStorage ("zimi.games.view"). recent.js draws the game table and Game of the
    day; this file only says where they sit. */
 (function (root) {
   'use strict';
@@ -85,7 +85,7 @@
   tools.appendChild(toggle);
   header.appendChild(tools);
 
-  // ── Body: the rail (section chips), the top (Continue, Game of the day), the list ──
+  // ── Body: the rail (section chips), the top (the game table, Game of the day), the list ──
   var body = el('div', 'sh-body');
   var rail = el('div', 'sh-rail');
   var nav = el('nav', 'sh-nav');
@@ -135,7 +135,7 @@
       if (art) art.setAttribute('preserveAspectRatio', 'xMidYMid slice');
       if (state.view === 'index') rail.appendChild(t); else top.appendChild(t);
     }
-    var n = c ? c.querySelectorAll('a.ar-game').length : 0;
+    var n = c && !c.classList.contains('ar-table-idle') ? c.querySelectorAll('.ar-box').length : 0;
     recentChip.hidden = !n;
     chips.recent.n.textContent = String(n);
     if (!n && state.sec === 'recent') state.sec = defaultSection();
@@ -165,7 +165,7 @@
       if (inSec) shown += n;
     });
     var c = doc.querySelector('.ar-continue'), t = today();
-    // The feed shows Continue and the day's game on All only; Index keeps a resume row on every tab.
+    // The feed shows the table and the day's game on All only; Index keeps a resume row on every tab.
     var feedAll = state.sec === 'all';
     if (c) c.hidden = searching || (state.view === 'lobby' && !feedAll);
     if (t) t.hidden = searching || (state.view === 'lobby' && !feedAll);

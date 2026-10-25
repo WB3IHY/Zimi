@@ -7,6 +7,7 @@
   --felt: #1f6f43; --felt-deep: #155233; --felt-line: rgba(255, 255, 255, 0.14);
   --card: #fdfcf8; --card-edge: #c9c4b8; --suit-red: #c62828; --suit-black: #1b1b1b;
   --bevel-hi: #ffffff; --bevel-lo: #8a8f99; --tile: #c8ccd3;
+  --wood: #b88a58; --wood-dark: #8f6538; --wood-grain: 70, 40, 14; --wood-veil: transparent;
   --radius: 10px; --gap: 12px;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -17,7 +18,7 @@
     --ink: #e8ebf1; --ink2: #b3bac7; --ink3: #8a93a3;
     --ground: #12151b; --surface: #1b1f27; --line: #2c323d;
     --accent: #f59e0b; --accent-ink: #111111;
-    --felt: #17563a; --felt-deep: #0f3d29;
+    --felt: #17563a; --felt-deep: #0f3d29; --wood: #4a3524; --wood-dark: #2e2015; --wood-grain: 0, 0, 0; --wood-veil: rgba(18, 10, 4, 0.5);
     --bevel-hi: #5a606b; --bevel-lo: #0c0e12; --tile: #333944;
     color-scheme: dark;
   }
@@ -26,7 +27,7 @@
   --ink: #e8ebf1; --ink2: #b3bac7; --ink3: #8a93a3;
   --ground: #12151b; --surface: #1b1f27; --line: #2c323d;
   --accent: #f59e0b; --accent-ink: #111111;
-  --felt: #17563a; --felt-deep: #0f3d29;
+  --felt: #17563a; --felt-deep: #0f3d29; --wood: #4a3524; --wood-dark: #2e2015; --wood-grain: 0, 0, 0; --wood-veil: rgba(18, 10, 4, 0.5);
   --bevel-hi: #5a606b; --bevel-lo: #0c0e12; --tile: #333944;
   color-scheme: dark;
 }
@@ -127,11 +128,6 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 .sh-top { display: flex; flex-wrap: wrap; align-items: stretch; gap: 18px; margin-bottom: 26px; }
 .sh-top[hidden] { display: none; }
 .sh-top .ar-section { margin: 0; }
-.ar-continue { flex: 1 1 360px; min-width: 0; }
-.ar-continue .ar-games { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; padding-bottom: 2px; }
-.ar-continue .ar-games::-webkit-scrollbar { display: none; }
-.ar-continue .ar-game { flex: 0 0 156px; scroll-snap-align: start; }
-@media (min-width: 700px) { .ar-continue .ar-game { flex-basis: 176px; } }
 .ar-today { flex: 1 1 340px; max-width: 460px; display: flex; flex-direction: column; }
 .ar-today[hidden], .ar-continue[hidden] { display: none; }
 .ar-today .ar-games { display: block; flex: 1; }
@@ -165,9 +161,6 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 [data-view="index"] .ar-game-text strong { font-size: 15px; }
 [data-view="index"] .ar-game-text span { display: block; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 [data-view="index"] .ar-game::after { content: ""; flex: none; width: 7px; height: 7px; margin: 0 4px 0 2px; border-top: 2px solid var(--ink3); border-right: 2px solid var(--ink3); transform: rotate(45deg); }
-[data-view="index"]:not([data-sec="recent"]) .ar-continue .ar-game:nth-child(n+2) { display: none; }
-[data-view="index"] .ar-continue .ar-games { display: grid; overflow: visible; }
-[data-view="index"] .ar-continue .ar-game { flex: initial; border-color: var(--accent); }
 /* The day's game, under the tabs on a phone: one row, on All only. */
 [data-view="index"] .ar-today { max-width: none; margin-bottom: 14px; }
 [data-view="index"] .ar-today .ar-game { height: auto; align-items: center; }
@@ -186,7 +179,6 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
   [data-view="index"] .sh-chip-recent:not([hidden]) { display: inline-flex; }
   [data-view="index"] .sh-rail-head { display: block; margin: 14px 12px 6px; font-size: 11px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3); }
   [data-view="index"] .ar-games { grid-template-columns: 1fr 1fr; }
-  [data-view="index"] .ar-continue .ar-games { grid-template-columns: 1fr; }
   [data-view="index"] .ar-today { margin: 0; display: flex !important; }
   [data-view="index"] .ar-today[hidden] { display: none !important; }
   [data-view="index"] .ar-today .ar-game { flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
@@ -198,6 +190,43 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 .ar-foot { margin-top: 32px; color: var(--ink3); font-size: 12px; }
 
 @media (prefers-reduced-motion: reduce) { .ar-game { transition: none; } .ar-game:hover { transform: none; } }
+
+/* The game table: what was played lately, as boxes left out after game night.
+   recent.js draws it over the shelf's own tiles; each box lies at an angle that
+   is a function of its page, so it is the same every visit. */
+.ar-table { --bw: 128px; --ov: 34px; position: relative; display: block; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; border-radius: 16px; padding: 24px 20px 28px; color: #2a2118;
+  background:
+    radial-gradient(120% 140% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.28)),
+    linear-gradient(var(--wood-veil), var(--wood-veil)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='240'%3E%3Cfilter id='w' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .09' numOctaves='3' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.27 0 0 0 0 0.157 0 0 0 0 0.055 3 0 0 0 -1.15'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E") 0 0 / 360px 240px,
+    repeating-linear-gradient(180deg, transparent 0 79px, rgba(var(--wood-grain), 0.22) 79px 80px),
+    linear-gradient(180deg, var(--wood), var(--wood-dark));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.22), inset 0 3px 14px rgba(0, 0, 0, 0.3); }
+.ar-table::-webkit-scrollbar { display: none; }
+.ar-table-in { display: flex; width: max-content; margin: 0 auto; padding-right: var(--ov); }
+.ar-box { position: relative; flex: none; display: block; width: var(--bw); margin-right: calc(var(--ov) * -1); padding: 5px; border-radius: 5px; text-decoration: none; color: inherit; background: #f7f2e7;
+  z-index: var(--z); transform: translateY(var(--dy)) rotate(var(--rot)) scale(var(--s));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7), 0 3px 0 #b8ad96, 0 5px 9px rgba(0, 0, 0, 0.38), 3px 8px 16px rgba(0, 0, 0, 0.18);
+  transition: transform 0.18s cubic-bezier(0.25, 1, 0.5, 1); }
+.ar-box:hover, .ar-box:focus-visible { z-index: 20; transform: translateY(calc(var(--dy) - 6px)) rotate(0deg) scale(1.04); }
+.ar-box:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.ar-box-lid { display: block; overflow: hidden; border-radius: 2px; box-shadow: 0 0 0 1px rgba(42, 33, 24, 0.25); }
+.ar-box-lid .ar-game-art { display: block; width: 100%; aspect-ratio: 16 / 9; height: auto; }
+.ar-box-lid .ar-game-icon { padding: 4px; }
+.ar-box-label { display: block; padding: 6px 2px 2px; }
+.ar-box:not(:first-child) .ar-box-label { padding-left: calc(var(--ov) + 2px); }
+.ar-box-label strong { display: block; font-size: 13px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ar-box-label small { display: block; margin-top: 1px; font-size: 10px; line-height: 1.3; color: #6b5d4a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.ar-continue h2 { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 600; color: var(--ink2); }
+.ar-continue.ar-table-idle h2 { font-weight: 500; color: var(--ink3); }
+.ar-continue { flex: 1 1 360px; min-width: 0; }
+@media (max-width: 699px) { .ar-box-label small { white-space: normal; min-height: 2.6em; } }
+@media (min-width: 700px) { .ar-table { --bw: 168px; --ov: 36px; padding: 30px 32px 34px; } }
+@media (prefers-reduced-motion: no-preference) {
+  .ar-box.ar-settle { animation: ar-settle 0.45s cubic-bezier(0.25, 1, 0.5, 1) backwards; animation-delay: calc(var(--i) * 70ms); }
+  @keyframes ar-settle { from { opacity: 0; transform: translateY(calc(var(--dy) - 18px)) rotate(calc(var(--rot) * 2.5)) scale(1.05); } }
+}
+@media (prefers-reduced-motion: reduce) { .ar-box { transition: none; } }
 
 /* The "About <game>" link at the foot of a page (scripts/games_links.py writes it). */
 .gm-about { flex: none; margin-top: auto; padding: 10px 16px max(14px, env(safe-area-inset-bottom)); text-align: center; font-size: 13px; }

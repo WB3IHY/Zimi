@@ -2,8 +2,8 @@
 
    Every game page includes this file (scripts/games_recent.py writes the tag).
    On a game it notes the page in localStorage ("zimi.games.recent"); on the
-   shelf it draws two sections from the shelf's own tiles: Continue (the last
-   six games, newest first) and Game of the day. Nothing here leaves the device.
+   shelf it draws two sections from the shelf's own tiles: the game table (the last
+   six games lying on it, newest on top) and Game of the day. Nothing here leaves the device.
 
    The day's game is a function of the date and games.json alone, so it is the
    same for everyone on that day, and the same one Zimi's Discover shows:
@@ -66,7 +66,32 @@
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
 
-  var api = { KEY: KEY, CAP: CAP, fnv1a: fnv1a, uniqueByPath: uniqueByPath, dayPick: dayPick, record: record, read: read, localDay: localDay };
+  // How a box lies on the table: a small angle and a nudge up or down, both a
+  // function of the page, so the same box lies the same way on every visit.
+  var TILT_MAX = 5, TILT_MIN = 1.2, NUDGE = 5;
+  function tilt(path) {
+    var h = fnv1a(path);
+    var rot = ((h % 1000) / 999 * 2 - 1) * TILT_MAX;
+    if (Math.abs(rot) < TILT_MIN) rot = rot < 0 ? -TILT_MIN : TILT_MIN;
+    return { rot: Math.round(rot * 10) / 10, dy: ((h >>> 10) % (2 * NUDGE + 1)) - NUDGE };
+  }
+
+  // "just now", "5 min ago", "2 h ago", "yesterday", "3 d ago", "2 w ago".
+  function ago(now, at) {
+    var m = Math.floor(Math.max(0, now - at) / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return m + ' min ago';
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + ' h ago';
+    var d = Math.floor(h / 24);
+    if (d === 1) return 'yesterday';
+    return d < 14 ? d + ' d ago' : Math.floor(d / 7) + ' w ago';
+  }
+
+  // With nothing played yet the table offers these, in this order.
+  var CLASSICS = ['chess.html', 'solitaire.html', 'checkers.html'];
+
+  var api = { KEY: KEY, CAP: CAP, fnv1a: fnv1a, uniqueByPath: uniqueByPath, dayPick: dayPick, record: record, read: read, localDay: localDay, tilt: tilt, ago: ago };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   root.ZimiRecent = api;
 
@@ -125,6 +150,80 @@
     return el;
   }
 
+  // A tile's art with its ids made its own: the original tile may be hidden
+  // (a filtered section), and a hidden svg's gradients do not paint a clone.
+  var boxes = 0;
+  function ownIds(node) {
+    var n = ++boxes;
+    Array.prototype.forEach.call(node.querySelectorAll('[id]'), function (e) {
+      var old = e.id, fresh = old + '-b' + n;
+      e.id = fresh;
+      Array.prototype.forEach.call(node.querySelectorAll('*'), function (x) {
+        Array.prototype.forEach.call(x.attributes, function (a) {
+          if (a.value.indexOf('#' + old + ')') >= 0) a.value = a.value.split('#' + old + ')').join('#' + fresh + ')');
+        });
+      });
+    });
+    return node;
+  }
+
+  // A game box lying on the table: the lid is the tile's art, the label its name and a small tag.
+  function box(game, i, tag) {
+    var tile = tileFor(game);
+    if (!tile) return null;
+    var art = tile.querySelector('.ar-game-art');
+    if (!art) return null;
+    var t = tilt(game.path);
+    var a = doc.createElement('a');
+    a.className = 'ar-box ar-settle';
+    a.setAttribute('href', tile.getAttribute('href'));
+    a.setAttribute('style', '--rot:' + t.rot + 'deg;--dy:' + t.dy + 'px;--z:' + (CAP - i) + ';--i:' + i + ';--s:' + (i ? 0.95 : 1));
+    var lid = doc.createElement('span');
+    lid.className = 'ar-box-lid';
+    lid.appendChild(ownIds(art));
+    var label = doc.createElement('span');
+    label.className = 'ar-box-label';
+    var name = doc.createElement('strong');
+    name.textContent = tile.querySelector('.ar-game-text strong').textContent;
+    var small = doc.createElement('small');
+    // "Last played:" may wrap on a narrow box, the time itself does not.
+    var cut = tag.indexOf(': ');
+    small.appendChild(doc.createTextNode(cut < 0 ? tag : tag.slice(0, cut + 1) + ' '));
+    if (cut >= 0) {
+      var when = doc.createElement('span');
+      when.style.whiteSpace = 'nowrap';
+      when.textContent = tag.slice(cut + 2);
+      small.appendChild(when);
+    }
+    label.appendChild(name);
+    label.appendChild(small);
+    a.appendChild(lid);
+    a.appendChild(label);
+    a.addEventListener('animationend', function () { a.classList.remove('ar-settle'); });
+    return a;
+  }
+
+  // The table: the games played lately, newest on top and nearest. Idle, a few classics.
+  function table(games, idle, now) {
+    var s = doc.createElement('section');
+    s.className = 'ar-section ar-continue' + (idle ? ' ar-table-idle' : '');
+    var h = doc.createElement('h2');
+    h.textContent = idle ? 'Start something' : 'On the table';
+    var tbl = doc.createElement('nav');
+    tbl.className = 'ar-table';
+    tbl.setAttribute('aria-label', h.textContent);
+    var inner = doc.createElement('div');
+    inner.className = 'ar-table-in';
+    games.forEach(function (g, i) {
+      var b = box(g, i, idle ? 'A classic' : 'Last played: ' + ago(now, g.at));
+      if (b) inner.appendChild(b);
+    });
+    tbl.appendChild(inner);
+    s.appendChild(h);
+    s.appendChild(tbl);
+    return inner.children.length ? s : null;
+  }
+
   function section(cls, label, tiles) {
     var s = doc.createElement('section');
     s.className = 'ar-section ' + cls;
@@ -150,13 +249,17 @@
     };
     // games.json is the shelf's own data (a file of this ZIM): the day's game
     // and the lines of games that have no tile. Without it (a page opened from
-    // a place that cannot fetch) Continue is still drawn, and Game of the day is left out.
+    // a place that cannot fetch) the table is still drawn, and Game of the day is left out.
     fetch(new URL('games.json', base).href).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }).then(function (rows) {
       var byPath = {};
       uniqueByPath(rows).forEach(function (r) { byPath[r.path] = r; });
-      put('ar-continue', 'Continue', read(root.localStorage).slice(0, CAP).map(function (e) {
-        return { path: e.path, title: e.title, line: byPath[e.path] ? byPath[e.path].blurb : '' };
-      }));
+      var now = Date.now();
+      var played = read(root.localStorage).filter(function (e) { return e && e.path; }).slice(0, CAP).map(function (e) {
+        return { path: e.path, title: e.title, at: e.at };
+      });
+      var idle = !played.length;
+      var t = table(idle ? CLASSICS.map(function (p) { return { path: p, title: (byPath[p] || {}).title }; }) : played, idle, now);
+      if (t) first.parentNode.insertBefore(t, first);
       var g = dayPick(rows, localDay(new Date()));
       if (g) put('ar-today', 'Game of the day', [{ path: g.path, title: g.title, line: g.why || g.blurb || '' }], true);
       // shelf.js lays the two sections out per view; it is told when both are in.

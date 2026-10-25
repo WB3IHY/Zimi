@@ -63,5 +63,21 @@ check(seen.size === 3, 'over a month every game comes up');
 
 check(R.localDay(new Date(2026, 0, 5)) === '2026-01-05', 'localDay pads month and day');
 
+// tilt: a small angle and nudge, the same every time, different between games.
+const t1 = R.tilt('chess.html'), t2 = R.tilt('hearts.html');
+check(JSON.stringify(t1) === JSON.stringify(R.tilt('chess.html')), 'tilt is stable');
+check(JSON.stringify(t1) !== JSON.stringify(t2), 'tilt differs between games');
+check(['chess', 'hearts', 'go', 'a', 'b', 'c', 'puzzles/x'].every(g => { const t = R.tilt(g + '.html'); return Math.abs(t.rot) >= 1.2 && Math.abs(t.rot) <= 5 && Math.abs(t.dy) <= 5; }), 'tilt stays within a few degrees and pixels');
+
+// ago: how long since a play.
+const NOW = 10 * 86400000;
+check(R.ago(NOW, NOW - 20000) === 'just now', 'ago: seconds');
+check(R.ago(NOW, NOW - 5 * 60000) === '5 min ago', 'ago: minutes');
+check(R.ago(NOW, NOW - 2 * 3600000) === '2 h ago', 'ago: hours');
+check(R.ago(NOW, NOW - 30 * 3600000) === 'yesterday', 'ago: a day');
+check(R.ago(NOW, NOW - 3 * 86400000) === '3 d ago', 'ago: days');
+check(R.ago(NOW, NOW - 20 * 86400000) === '2 w ago', 'ago: weeks');
+check(R.ago(NOW, NOW + 5000) === 'just now', 'ago: a clock set back');
+
 if (failures) { console.log(failures + ' failed'); process.exit(1); }
 console.log('games recent: ok');
