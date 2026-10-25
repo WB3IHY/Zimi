@@ -630,5 +630,53 @@
   "title": "Teen Patti",
   "blurb": "Blind or seen, side show and show, with chips",
   "why": "India's three-card game, a close cousin of three-card brag."
+ },
+ {
+  "qid": "Q188966",
+  "wiki": "Contract bridge",
+  "path": "bridge.html",
+  "title": "Bridge",
+  "blurb": "Bid, play and defend with a computer partner",
+  "why": "Contract bridge, settled in its modern form by Harold Vanderbilt in 1925."
+ },
+ {
+  "qid": "Q214536",
+  "wiki": "Texas hold 'em",
+  "path": "holdem.html",
+  "title": "Texas Hold’em",
+  "blurb": "Chips, blinds, all in and side pots",
+  "why": "Texas Hold'em, played here for chips only."
+ },
+ {
+  "qid": "Q228044",
+  "wiki": "Blackjack",
+  "path": "blackjack.html",
+  "title": "Blackjack",
+  "blurb": "Beat the dealer to 21, split and double",
+  "why": "Twenty-one against the dealer, with a basic-strategy hint if you want one."
+ },
+ {
+  "qid": "Q278854",
+  "wiki": "Canasta",
+  "path": "canasta.html",
+  "title": "Canasta",
+  "blurb": "Meld, freeze the pile, go out to 5000",
+  "why": "Canasta came from Uruguay in the 1940s and swept the world within a decade."
+ },
+ {
+  "qid": "Q2334025",
+  "wiki": "Big Two",
+  "path": "bigtwo.html",
+  "title": "Big Two",
+  "blurb": "Climb with pairs and fives, twos are high",
+  "why": "Big Two, the climbing game played across southern China and Taiwan."
+ },
+ {
+  "qid": "Q7801040",
+  "wiki": "Tiến lên",
+  "path": "tienlen.html",
+  "title": "Tien Len",
+  "blurb": "Runs, pairs in a row and chops",
+  "why": "Tien Len, Vietnam's national card game, where the two is the highest card."
  }
 ]

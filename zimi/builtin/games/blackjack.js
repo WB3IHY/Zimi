@@ -1,0 +1,333 @@
+/* ZimiGames: Blackjack. You against the dealer, with a shoe of six decks (or
+   one or two). Get closer to 21 than the dealer without going over. Cards
+   count their pips, faces count 10, an ace 11 or 1. Blackjack (an ace and a
+   ten-card on the deal) pays 3 to 2. The dealer stands on every 17, soft ones
+   too. You may double (one card more, bet doubled) on any two cards, split
+   a pair (each half gets its own bet; split aces take one card each) up to
+   four hands, and take insurance when the dealer shows an ace (off unless
+   you turn it on: it pays 2 to 1 and is a losing bet in the long run). The
+   dealer checks for blackjack before you play. The hint button says what
+   basic strategy would do. Chips only: you start with 1000.
+
+   State: shoe (ids), pos, cut (reshuffle when pos passes it), chips, bet,
+   hands [{cards, bet, done, doubled, split}], active, dealer [ids],
+   phase ('bet' | 'insurance' | 'play'), hole (dealer's second card shown),
+   insurance (chips staked), last (lines of the last round), opts.
+   Pure functions; the page wiring at the bottom only runs in a browser. */
+(function (root) {
+  'use strict';
+  var Z = root.ZimiCards, T = root.ZimiTable;
+
+  var START_CHIPS = 1000, MIN_BET = 10, MAX_BET = 500, BET_STEPS = [10, 50, 100, 500], MAX_HANDS = 4;
+  var TARGET = 21, DEALER_STANDS = 17, CUT_SHARE = 0.75, BLACKJACK_PAYS = 1.5, INSURANCE_PAYS = 2, DECK_CHOICES = [1, 2, 6];
+  var HINT_NAME = { hit: 'hit', stand: 'stand', double: 'double', split: 'split' };
+
+  // ── Rules ───────────────────────────────────────────────────────────────
+  var cardValue = function (id) { var r = Z.rank(id); return r === 1 ? 11 : Math.min(r, 10); };
+  var isAce = function (id) { return Z.rank(id) === 1; };
+  function handValue(cards) {
+    var total = 0, aces = 0;
+    cards.forEach(function (c) { total += cardValue(c); if (isAce(c)) aces++; });
+    while (total > TARGET && aces > 0) { total -= 10; aces--; }
+    return { total: total, soft: aces > 0 };
+  }
+  var total = function (cards) { return handValue(cards).total; };
+  var isBlackjack = function (hand) { return !hand.split && hand.cards.length === 2 && total(hand.cards) === TARGET; };
+  var dealerBlackjack = function (dealer) { return dealer.length === 2 && total(dealer) === TARGET; };
+  var busted = function (cards) { return total(cards) > TARGET; };
+
+  // A shoe of `decks` decks: ids 0..51 then further copies (52 and up show the same faces).
+  function newShoe(decks, rng) {
+    var ids = [], i;
+    for (i = 0; i < decks * 52; i++) ids.push(i);
+    return { shoe: T.shuffleOf(ids, rng), pos: 0, cut: Math.floor(decks * 52 * CUT_SHARE) };
+  }
+  function draw(s) { return s.shoe[s.pos++]; }
+
+  // Net chips a hand wins (negative: loses) against the dealer's finished hand,
+  // not counting the stake coming back. Doubled hands carry the doubled bet.
+  function net(hand, dealer) {
+    var mine = total(hand.cards);
+    if (mine > TARGET) return -hand.bet;
+    if (isBlackjack(hand)) return dealerBlackjack(dealer) ? 0 : hand.bet * BLACKJACK_PAYS;
+    var theirs = total(dealer);
+    if (dealerBlackjack(dealer)) return -hand.bet;
+    if (theirs > TARGET || mine > theirs) return hand.bet;
+    return mine === theirs ? 0 : -hand.bet;
+  }
+
+  function freshGame(rng, opts) {
+    var o = opts || {}, sh = newShoe(o.decks || 6, rng);
+    return {
+      shoe: sh.shoe, pos: 0, cut: sh.cut, chips: o.chips === undefined ? START_CHIPS : o.chips, bet: Math.min(o.bet || MIN_BET * 2, MAX_BET),
+      hands: [], active: -1, dealer: [], phase: 'bet', hole: false, insurance: 0, last: [], round: 0, shuffled: false,
+      opts: { decks: o.decks || 6, insurance: !!o.insurance }
+    };
+  }
+  var clampBet = function (st, bet) { return Math.max(MIN_BET, Math.min(MAX_BET, st.chips, bet)); };
+  function setBet(st, bet) { var s = Z.clone(st); s.bet = Math.max(0, Math.min(MAX_BET, s.chips, bet)); return s; }
+  var canDeal = function (st) { return st.phase === 'bet' && st.bet >= MIN_BET && st.bet <= st.chips; };
+
+  // Deal a round: you, dealer, you, dealer (the dealer's second card is the hole card).
+  function deal(st, rng) {
+    if (!canDeal(st)) return st;
+    var s = Z.clone(st);
+    if (s.pos >= s.cut) { var sh = newShoe(s.opts.decks, rng); s.shoe = sh.shoe; s.pos = 0; s.cut = sh.cut; s.shuffled = true; } else s.shuffled = false;
+    s.chips -= s.bet; s.round++; s.last = []; s.insurance = 0; s.hole = false;
+    var a = draw(s), b = draw(s), c = draw(s), d = draw(s);
+    s.hands = [{ cards: [a, c], bet: s.bet, done: false, doubled: false, split: false }];
+    s.dealer = [b, d]; s.active = 0;
+    if (isAce(b) && s.opts.insurance && s.chips >= Math.floor(s.bet / 2)) { s.phase = 'insurance'; return s; }
+    return afterPeek(s);
+  }
+  function takeInsurance(st, yes) {
+    if (st.phase !== 'insurance') return st;
+    var s = Z.clone(st), cost = Math.floor(s.hands[0].bet / 2);
+    if (yes && s.chips >= cost) { s.chips -= cost; s.insurance = cost; }
+    return afterPeek(s);
+  }
+  // The dealer peeks with an ace or ten showing: a blackjack ends the round here.
+  function afterPeek(s) {
+    s.phase = 'play';
+    var up = cardValue(s.dealer[0]);
+    if ((up === 11 || up === 10) && dealerBlackjack(s.dealer)) return settle(s);
+    if (isBlackjack(s.hands[0])) return settle(s);
+    return s;
+  }
+
+  function canHit(st) { return st.phase === 'play' && st.active >= 0 && !st.hands[st.active].done; }
+  function canDouble(st) {
+    if (!canHit(st)) return false;
+    var h = st.hands[st.active];
+    return h.cards.length === 2 && st.chips >= h.bet;
+  }
+  function canSplit(st) {
+    if (!canHit(st)) return false;
+    var h = st.hands[st.active];
+    return h.cards.length === 2 && cardValue(h.cards[0]) === cardValue(h.cards[1]) && st.chips >= h.bet && st.hands.length < MAX_HANDS && !(h.split && isAce(h.cards[0]));
+  }
+
+  // Move to the next hand still to play; when none is left the dealer plays.
+  function advance(s) {
+    var i;
+    for (i = s.active; i < s.hands.length; i++) {
+      var h = s.hands[i];
+      if (!h.done && total(h.cards) >= TARGET) h.done = true;
+      if (!h.done) { s.active = i; return s; }
+    }
+    return dealerPlay(s);
+  }
+  function hit(st, rng) {
+    if (!canHit(st)) return st;
+    var s = Z.clone(st), h = s.hands[s.active];
+    h.cards.push(draw(s));
+    return advance(s);
+  }
+  function stand(st) {
+    if (!canHit(st)) return st;
+    var s = Z.clone(st);
+    s.hands[s.active].done = true; s.active++;
+    return advance(s);
+  }
+  function double(st) {
+    if (!canDouble(st)) return st;
+    var s = Z.clone(st), h = s.hands[s.active];
+    s.chips -= h.bet; h.bet *= 2; h.doubled = true; h.cards.push(draw(s)); h.done = true;
+    s.active++;
+    return advance(s);
+  }
+  function split(st) {
+    if (!canSplit(st)) return st;
+    var s = Z.clone(st), h = s.hands[s.active], aces = isAce(h.cards[0]);
+    var other = { cards: [h.cards.pop()], bet: h.bet, done: false, doubled: false, split: true };
+    s.chips -= h.bet; h.split = true;
+    h.cards.push(draw(s)); other.cards.push(draw(s));
+    s.hands.splice(s.active + 1, 0, other);
+    if (aces) { h.done = true; other.done = true; s.active += 2; }
+    return advance(s);
+  }
+
+  // The dealer draws to 17 (standing on soft 17) unless every hand is already lost or won outright.
+  function dealerPlay(s) {
+    s.hole = true; s.active = -1;
+    var live = s.hands.some(function (h) { return !busted(h.cards) && !isBlackjack(h); });
+    if (live) while (total(s.dealer) < DEALER_STANDS) s.dealer.push(draw(s));
+    return settle(s);
+  }
+  function resultWord(h, n) { return busted(h.cards) ? 'bust' : isBlackjack(h) && n > 0 ? 'blackjack' : n > 0 ? 'win' : n < 0 ? 'lose' : 'push'; }
+  function settle(s) {
+    s.hole = true; s.active = -1; s.phase = 'bet';
+    var lines = [], dv = total(s.dealer), dealerBJ = dealerBlackjack(s.dealer);
+    s.hands.forEach(function (h, i) {
+      var n = net(h, s.dealer), word = resultWord(h, n);
+      s.chips += h.bet + n;
+      lines.push((s.hands.length > 1 ? 'Hand ' + (i + 1) + ': ' : 'You: ') + total(h.cards) + ' ' + word + (n === 0 ? '' : ', ' + (n > 0 ? '+' : '-') + Math.abs(n)));
+    });
+    if (s.insurance) {
+      if (dealerBJ) { s.chips += s.insurance * (1 + INSURANCE_PAYS); lines.push('Insurance pays +' + s.insurance * INSURANCE_PAYS); } else lines.push('Insurance lost, -' + s.insurance);
+    }
+    lines.unshift('Dealer: ' + (dealerBJ ? 'blackjack' : dv > TARGET ? dv + ' bust' : dv));
+    s.last = lines; s.insurance = 0;
+    s.bet = Math.max(0, Math.min(s.bet, s.chips));
+    return s;
+  }
+  var broke = function (st) { return st.phase === 'bet' && st.chips < MIN_BET; };
+
+  // ── Basic strategy (dealer stands on soft 17, double after split, 4+ decks) ──
+  // Returns 'hit' | 'stand' | 'double' | 'split' for what is allowed.
+  function basicAction(cards, upcard, allow) {
+    var up = cardValue(upcard), hv = handValue(cards), t = hv.total, a = allow || {}, pick;
+    function dbl(otherwise) { return a.double ? 'double' : otherwise; }
+    if (cards.length === 2 && cardValue(cards[0]) === cardValue(cards[1]) && a.split) {
+      var p = cardValue(cards[0]);
+      var yes = p === 11 || p === 8 || (p === 9 && up !== 7 && up < 10) || ((p === 2 || p === 3 || p === 7) && up >= 2 && up <= 7) || (p === 6 && up >= 2 && up <= 6) || (p === 4 && (up === 5 || up === 6));
+      if (yes) return 'split';
+    }
+    if (hv.soft && t <= 21) {
+      if (t >= 20) return 'stand';
+      if (t === 19) return 'stand';
+      if (t === 18) { if (up >= 3 && up <= 6) return dbl('stand'); return up <= 8 && up !== 9 ? 'stand' : 'hit'; }
+      if (t === 17) return up >= 3 && up <= 6 ? dbl('hit') : 'hit';
+      if (t === 15 || t === 16) return up >= 4 && up <= 6 ? dbl('hit') : 'hit';
+      return up === 5 || up === 6 ? dbl('hit') : 'hit';
+    }
+    if (t >= 17) return 'stand';
+    if (t >= 13) return up <= 6 ? 'stand' : 'hit';
+    if (t === 12) return up >= 4 && up <= 6 ? 'stand' : 'hit';
+    if (t === 11) return up === 11 ? 'hit' : dbl('hit');
+    if (t === 10) return up <= 9 ? dbl('hit') : 'hit';
+    if (t === 9) return up >= 3 && up <= 6 ? dbl('hit') : 'hit';
+    pick = 'hit';
+    return pick;
+  }
+  function hint(st) {
+    if (!canHit(st)) return null;
+    return basicAction(st.hands[st.active].cards, st.dealer[0], { double: canDouble(st), split: canSplit(st) });
+  }
+
+  // ── Layout ──────────────────────────────────────────────────────────────
+  var STEP_SHARE = 0.6, ROW_GAP = 12, CHIP_ROW = 24;
+  function handSpots(g, n) {
+    var rows = n > 2 ? 2 : 1, perRow = rows === 2 ? 2 : n, spots = [], i;
+    for (i = 0; i < n; i++) {
+      var r = Math.floor(i / perRow), c = i % perRow, inRow = Math.min(perRow, n - r * perRow);
+      var cell = (g.W - 2 * g.pad) / inRow;
+      spots.push({ x: g.pad + c * cell, w: cell, y: g.southY - (rows - 1 - r) * (g.ch + ROW_GAP) });
+    }
+    return spots;
+  }
+  function place(st, m) {
+    var g = T.geometry(m, 1), slots = [], cards = [], n = Math.max(1, st.hands.length), spots = handSpots(g, n);
+    if (n > 2) { g.southY += 0; }
+    slots.push({ id: 'table', x: g.pad, y: g.northY, w: g.W - 2 * g.pad, h: g.southY - g.northY + g.ch, quiet: true, label: 'Table' });
+    function row(ids, x0, w, y, pile, upFn, glow) {
+      var step = ids.length > 1 ? Math.min(g.cw * STEP_SHARE, (w - g.cw) / (ids.length - 1)) : 0, span = g.cw + (ids.length - 1) * step;
+      ids.forEach(function (id, k) { cards.push({ id: id, pile: pile, idx: k, x: Math.round(x0 + (w - span) / 2 + k * step), y: Math.round(y), up: upFn(k), glow: glow }); });
+    }
+    row(st.dealer, g.pad, g.W - 2 * g.pad, g.northY + (n > 1 ? CHIP_ROW : 0), 'd', function (k) { return k === 0 || st.hole; });
+    st.hands.forEach(function (h, i) { row(h.cards, spots[i].x, spots[i].w, spots[i].y, 'p' + i, function () { return true; }, st.active === i && st.phase === 'play'); });
+    return { height: m.H, slots: slots, cards: cards };
+  }
+  function geo(m) { return T.geometry(m, 1); }
+
+  var api = {
+    START_CHIPS: START_CHIPS, MIN_BET: MIN_BET, MAX_BET: MAX_BET, handValue: handValue, isBlackjack: isBlackjack, net: net, newGame: freshGame, newShoe: newShoe,
+    setBet: setBet, canDeal: canDeal, deal: deal, takeInsurance: takeInsurance, canHit: canHit, canDouble: canDouble, canSplit: canSplit,
+    hit: hit, stand: stand, double: double, split: split, basicAction: basicAction, hint: hint, broke: broke, place: place, cardValue: cardValue
+  };
+  root.ZimiBlackjack = api;
+
+  // ── The page ────────────────────────────────────────────────────────────
+  function boot() {
+    var t, session, view = { flash: '' }, DECK_KEY = 'blackjack.decks', INS_KEY = 'blackjack.insurance', HINT_KEY = 'blackjack.hint', CHIPS_KEY = 'blackjack.chips', BET_KEY = 'blackjack.bet';
+    var showHint = Z.store.get(HINT_KEY, false) === true;
+    var rng = Math.random;
+    function opts() {
+      var decks = Z.store.get(DECK_KEY, 6);
+      return { decks: DECK_CHOICES.indexOf(decks) >= 0 ? decks : 6, insurance: Z.store.get(INS_KEY, false) === true };
+    }
+    function save(st) { Z.store.set(CHIPS_KEY, st.chips); Z.store.set(BET_KEY, st.bet); }
+    function show(st) { save(st); session.follow(st); if (broke(st)) outOfChips(st); }
+    function outOfChips(st) {
+      session.lose('Out of chips', ['You are out of chips after ' + Z.plural(st.round, 'round') + '. A new game starts you again with ' + START_CHIPS + '.'], 0);
+    }
+    function handChip(st, h, i) {
+      var v = handValue(h.cards), label = (st.hands.length > 1 ? 'Hand ' + (i + 1) : 'You');
+      return { name: label, text: (v.soft && v.total < 21 ? 'soft ' : '') + v.total + ' (' + h.bet + ')', turn: st.phase === 'play' && st.active === i };
+    }
+    function hud(st) {
+      var chips = [], out = { sub: st.chips + ' chips', text: '' };
+      if (st.dealer.length) chips.push({ name: 'Dealer', text: st.hole ? String(handValue(st.dealer).total) : String(cardValue(st.dealer[0]) === 11 ? 'A' : cardValue(st.dealer[0])) });
+      st.hands.forEach(function (h, i) { chips.push(handChip(st, h, i)); });
+      out.chips = chips;
+      if (st.phase === 'bet') {
+        out.text = st.last.length ? '' : 'Place your bet, then deal';
+        out.lines = st.last.map(function (x) { return { text: x }; });
+        if (st.shuffled) out.lines.push({ text: 'The shoe was shuffled.' });
+        out.choices = BET_STEPS.map(function (v) { return { label: '+' + v, disabled: st.bet + v > Math.min(MAX_BET, st.chips), onclick: function () { show(setBet(session.state, session.state.bet + v)); } }; });
+        out.choices.push({ label: 'Clear', disabled: st.bet === 0, onclick: function () { show(setBet(session.state, 0)); } });
+        out.choices.push({ label: 'Deal ' + st.bet, primary: true, disabled: !canDeal(st), onclick: dealIt });
+      } else if (st.phase === 'insurance') {
+        out.text = 'Dealer shows an ace. Insurance costs ' + Math.floor(st.hands[0].bet / 2) + ' and pays 2 to 1';
+        out.choices = [{ label: 'Insure', onclick: function () { move(takeInsurance(session.state, true)); } }, { label: 'No thanks', onclick: function () { move(takeInsurance(session.state, false)); } }];
+      } else {
+        out.text = st.hands.length > 1 ? 'Playing hand ' + (st.active + 1) : 'Your move';
+        out.choices = [
+          { label: 'Hit', onclick: function () { move(hit(session.state, rng)); } },
+          { label: 'Stand', onclick: function () { move(stand(session.state)); } },
+          { label: 'Double', disabled: !canDouble(st), onclick: function () { move(double(session.state)); } },
+          { label: 'Split', disabled: !canSplit(st), onclick: function () { move(split(session.state)); } },
+          { label: 'Hint', pressed: showHint, onclick: toggleHint }
+        ];
+        var hn = hint(st);
+        out.lines = showHint && hn ? [{ text: 'Basic strategy: ' + HINT_NAME[hn] + '.' }] : [];
+      }
+      return out;
+    }
+    function toggleHint() { showHint = !showHint; Z.store.set(HINT_KEY, showHint); t.paint(); }
+    function dealIt() {
+      var st = session.state;
+      if (!canDeal(st)) return;
+      show(deal(st, rng));
+    }
+    function move(next) { if (next !== session.state) show(next); }
+    function newGame() {
+      var o = opts();
+      o.chips = START_CHIPS; o.bet = 20;
+      show(freshGame(rng, o));
+      session.reset(session.state);
+    }
+    function start() {
+      var o = opts(), chips = Z.store.get(CHIPS_KEY, START_CHIPS), bet = Z.store.get(BET_KEY, 20);
+      o.chips = typeof chips === 'number' && chips >= MIN_BET ? chips : START_CHIPS; o.bet = typeof bet === 'number' ? Math.min(bet, o.chips) : 20;
+      session.reset(freshGame(rng, o));
+    }
+    t = T.create({
+      id: 'blackjack', name: 'Blackjack', view: view, geo: geo, place: function (st, m) { return place(st, m); }, hud: hud, newGame: newGame, cols: 5, heightShare: 0.15,
+      stat: function (sec, st) { return st.chips + ' chips'; },
+      cascadeOrder: function () { return []; }, winLines: function () { return []; },
+      menuExtra: function () {
+        return [
+          T.choiceRow('Decks', DECK_KEY, DECK_CHOICES.map(function (n) { return { label: String(n), value: n }; }), 6, function () { /* next shuffle */ }),
+          T.choiceRow('Insurance', INS_KEY, [{ label: 'Off', value: false }, { label: 'On', value: true }], false, function (v) { var st = session.state; if (st) { var s = Z.clone(st); s.opts.insurance = v; session.follow(s); } }),
+          Z.h('p', { class: 'zc-note', text: 'A new shoe uses the number of decks chosen here.' })
+        ];
+      },
+      rules: 'Beat the dealer to 21 without going over. Blackjack pays 3 to 2; the dealer stands on every 17. Double on any two cards, split pairs up to four hands (split aces take one card each). Insurance is off unless you turn it on. Hint shows what basic strategy would do. Keys: H hit, S stand, D double, P split. Chips only: you start with ' + START_CHIPS + '.'
+    });
+    session = t.session; api.session = session; api.board = t.board;
+    if (root.ResizeObserver) new root.ResizeObserver(function () { t.paint(); }).observe(root.document.getElementById('zc-table'));
+    root.document.addEventListener('keydown', function (e) {
+      if (e.ctrlKey || e.metaKey || e.altKey || root.document.querySelector('.ar-sheet')) return;
+      var st = session.state, k = e.key.toLowerCase();
+      if (!st) return;
+      if (st.phase === 'play') {
+        if (k === 'h') move(hit(st, rng)); else if (k === 's') move(stand(st)); else if (k === 'd') move(double(st)); else if (k === 'p') move(split(st)); else return;
+        e.preventDefault();
+      } else if (st.phase === 'bet' && k === 'enter' && root.document.activeElement === root.document.body) { dealIt(); e.preventDefault(); }
+    });
+    start();
+  }
+
+  if (root.document && root.document.getElementById('zc-table')) boot();
+})(typeof globalThis !== 'undefined' ? globalThis : window);

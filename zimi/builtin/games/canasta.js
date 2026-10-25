@@ -1,0 +1,596 @@
+/* ZimiGames: Canasta, the classic two-handed game: you against the
+   computer, two decks and four jokers (108 cards), 15 cards each. On your
+   turn draw two cards from the stock, or take the whole discard pile; lay
+   down melds (three or more cards of one rank); discard one card. Twos and
+   jokers are wild: a meld needs at least two natural cards, never more than
+   three wild cards and never more wild cards than natural ones. Seven cards
+   of a rank make a canasta (500 if all natural, 300 with a wild); a canasta
+   cannot take wild cards. Red threes are bonus cards (100 each, 800 for all
+   four): you lay them at once and draw a card to replace each. Black threes
+   can only be melded to go out. Your first meld must be worth a minimum (50
+   points, or more once your score is up: 15 below zero, 90 from 1500, 120
+   from 3000); card values: joker 50, two and ace 20, king down to eight 10,
+   seven down to four 5, black three 5. The discard pile is frozen after a
+   wild card is discarded (or before your side has melded): you may take it
+   only with a natural pair from your hand that matches the top card; when it
+   is not frozen you may take it with one card to add to a meld you already
+   have. A wild card or black three on top stops the next player taking it.
+   You may go out when you hold two canastas: for 100, or 200 if you laid
+   every card in one turn. The hand ends when someone goes out or the stock
+   runs dry. Each side scores melds plus bonuses minus the cards left in
+   hand. First side to 5000 wins.
+
+   State: stock, pile (top last), pileFrozen, hands[2], melds[2]
+   ([{rank, cards}], rank 14 for aces, 3 for black threes), reds[2], melded[2]
+   (has made its first meld), turn (0 you, 1 computer), step ('draw' | 'play'),
+   turnPts, scores[2], handNo, phase ('play' | 'handEnd' | 'over'), result,
+   last (what just happened, for the status line). Card ids: 0..51 and 52..103
+   are two decks, 104..107 jokers. Pure functions; the page wiring at the
+   bottom only runs in a browser. */
+(function (root) {
+  'use strict';
+  var Z = root.ZimiCards, T = root.ZimiTable;
+
+  var JOKER_BASE = 104, TOTAL = 108, DEAL = 15, DRAW = 2, GO_OUT_CANASTAS = 2, CANASTA_SIZE = 7, MAX_WILD = 3;
+  var NAMES = ['You', 'Computer'], TARGETS = [1500, 3000, 5000], DEFAULT_TARGET = 5000;
+  var BONUS = { natural: 500, mixed: 300, red: 100, allReds: 800, out: 100, concealed: 100 };
+  var rankKey = function (id) { if (id >= JOKER_BASE) return 0; var r = Z.rank(id); return r === 1 ? 14 : r; };
+  var isJoker = function (id) { return id >= JOKER_BASE; };
+  var isWild = function (id) { return isJoker(id) || Z.rank(id) === 2; };
+  var isRedThree = function (id) { return !isJoker(id) && Z.rank(id) === 3 && Z.suit(id) % 4 >= 1 && Z.suit(id) <= 2; };
+  var isBlackThree = function (id) { return !isJoker(id) && Z.rank(id) === 3 && !isRedThree(id); };
+  function cardPts(id) {
+    if (isJoker(id)) return 50;
+    var r = Z.rank(id);
+    return r === 2 || r === 1 ? 20 : r >= 8 ? 10 : r >= 4 ? 5 : r === 3 ? 5 : 0;
+  }
+  var sumPts = function (ids) { return ids.reduce(function (n, c) { return n + cardPts(c); }, 0); };
+  var last = function (list) { return list[list.length - 1]; };
+  var RANK_NAMES = { 14: 'aces', 13: 'kings', 12: 'queens', 11: 'jacks', 10: 'tens', 9: 'nines', 8: 'eights', 7: 'sevens', 6: 'sixes', 5: 'fives', 4: 'fours', 3: 'threes' };
+  var rankName = function (r) { return RANK_NAMES[r]; };
+  // Order in a hand: by rank, wild cards last.
+  var handOrder = function (id) { return isWild(id) ? 100 + (isJoker(id) ? 1 : 0) : rankKey(id) * 4 + Z.suit(id) % 4; };
+  var sortHand = function (ids) { return ids.slice().sort(function (a, b) { return handOrder(a) - handOrder(b) || a - b; }); };
+  var requirement = function (score) { return score < 0 ? 15 : score < 1500 ? 50 : score < 3000 ? 90 : 120; };
+
+  // ── Melds ───────────────────────────────────────────────────────────────
+  var wildCount = function (cards) { return cards.filter(isWild).length; };
+  var isCanasta = function (m) { return m.cards.length >= CANASTA_SIZE; };
+  var isPure = function (m) { return wildCount(m.cards) === 0; };
+  var canastaCount = function (melds) { return melds.filter(isCanasta).length; };
+  // Whether these cards make a meld of one rank by themselves: {rank} or null.
+  function newMeldRank(cards) {
+    var nat = cards.filter(function (c) { return !isWild(c); }), w = cards.length - nat.length;
+    if (cards.length < 3 || nat.length < 2 || w > MAX_WILD || w > nat.length) return null;
+    var r = rankKey(nat[0]);
+    if (r === 3 || !nat.every(function (c) { return rankKey(c) === r; })) return null;
+    return r;
+  }
+  // Can `cards` join the meld `m` (same rank naturals, wilds that fit)?
+  function canExtend(m, cards) {
+    var all = m.cards.concat(cards), nat = all.filter(function (c) { return !isWild(c); });
+    if (!cards.every(function (c) { return isWild(c) || rankKey(c) === m.rank; })) return false;
+    var addW = wildCount(cards);
+    if (addW && isCanasta(m)) return false;
+    return wildCount(all) <= MAX_WILD && wildCount(all) <= nat.length;
+  }
+  // Turn a selection of cards into melds: {ok, error, melds: [{rank, cards, add}]}.
+  function planMelds(melds, selection, goingOut, target) {
+    var fail = function (e) { return { ok: false, error: e }; };
+    if (!selection.length) return fail('Pick the cards to meld');
+    if (selection.some(isRedThree)) return fail('Red threes are laid down for you');
+    var wilds = selection.filter(isWild), nat = selection.filter(function (c) { return !isWild(c); }), groups = {};
+    nat.forEach(function (c) { (groups[rankKey(c)] = groups[rankKey(c)] || []).push(c); });
+    var ranks = Object.keys(groups).map(Number);
+    if (!ranks.length) {
+      var tm = target && melds.filter(function (m) { return m.rank === target; })[0];
+      if (!tm) return fail('Tap a meld, then add wild cards to it');
+      if (!canExtend(tm, wilds)) return fail(isCanasta(tm) ? 'A canasta cannot take wild cards' : 'Too many wild cards for ' + rankName(target));
+      return { ok: true, melds: [{ rank: target, cards: wilds, add: true }] };
+    }
+    if (wilds.length && ranks.length > 1) return fail('Meld wild cards one rank at a time');
+    var plan = [];
+    for (var i = 0; i < ranks.length; i++) {
+      var r = ranks[i], cards = groups[r].concat(i === 0 ? wilds : []), existing = melds.filter(function (m) { return m.rank === r; })[0];
+      if (r === 3) {
+        if (!goingOut) return fail('Black threes can only be melded to go out');
+        if (cards.length < 3) return fail('Three or more black threes make a meld');
+        plan.push({ rank: 3, cards: cards, add: !!existing });
+      } else if (existing) {
+        if (!canExtend(existing, cards)) return fail(isCanasta(existing) && wilds.length ? 'A canasta cannot take wild cards' : 'Too many wild cards for ' + rankName(r));
+        plan.push({ rank: r, cards: cards, add: true });
+      } else if (newMeldRank(cards) !== r) {
+        return fail(groups[r].length < 2 ? 'A new meld needs two natural ' + rankName(r) + ' at least' : 'A meld cannot have more wild cards than natural ones');
+      } else plan.push({ rank: r, cards: cards, add: false });
+    }
+    return { ok: true, melds: plan };
+  }
+  function addToMelds(melds, plan) {
+    plan.forEach(function (p) {
+      var m = melds.filter(function (x) { return x.rank === p.rank; })[0];
+      if (m) m.cards = m.cards.concat(p.cards); else melds.push({ rank: p.rank, cards: p.cards.slice() });
+    });
+    melds.sort(function (a, b) { return b.rank - a.rank; });
+  }
+
+  // ── The deal ────────────────────────────────────────────────────────────
+  function newHand(order, scores, handNo, target) {
+    var s = {
+      stock: order.slice(), pile: [], pileFrozen: false, hands: [[], []], melds: [[], []], reds: [[], []], melded: [false, false],
+      turn: handNo % 2 === 0 ? 0 : 1, step: 'draw', turnPts: 0, scores: scores.slice(), handNo: handNo, phase: 'play', result: null, last: '', target: target || DEFAULT_TARGET, moves: 0, concealed: [true, true]
+    }, side, k;
+    for (k = 0; k < DEAL; k++) for (side = 0; side < 2; side++) s.hands[side].push(s.stock.pop());
+    for (side = 0; side < 2; side++) layReds(s, side);
+    s.pile.push(s.stock.pop());
+    while (isWild(last(s.pile)) || isRedThree(last(s.pile))) { s.pileFrozen = true; s.pile.push(s.stock.pop()); }
+    s.hands = s.hands.map(sortHand);
+    return s;
+  }
+  // Red threes in a hand go face up at once and are replaced from the stock.
+  function layReds(s, side, replace) {
+    var again = true;
+    while (again) {
+      again = false;
+      s.hands[side].slice().forEach(function (c) {
+        if (isRedThree(c)) { s.hands[side].splice(s.hands[side].indexOf(c), 1); s.reds[side].push(c); if (replace !== false && s.stock.length) s.hands[side].push(s.stock.pop()); again = true; }
+      });
+    }
+  }
+
+  // ── A turn ──────────────────────────────────────────────────────────────
+  function draw(st) {
+    if (st.phase !== 'play' || st.step !== 'draw') return st;
+    var s = Z.clone(st), side = s.turn, got = [];
+    if (!s.stock.length) return endHand(s, -1, 'The stock is empty');
+    for (var k = 0; k < DRAW && s.stock.length; k++) { var c = s.stock.pop(); s.hands[side].push(c); got.push(c); }
+    layReds(s, side);
+    s.hands[side] = sortHand(s.hands[side]);
+    s.step = 'play'; s.turnPts = 0; s.moves++; s.last = side === 0 ? '' : 'Computer drew two cards';
+    return s;
+  }
+  // Can this side take the pile now with `sel` from its hand? {ok, error, plan}
+  function takePlan(st, side, sel) {
+    var fail = function (e) { return { ok: false, error: e }; };
+    if (st.phase !== 'play' || st.step !== 'draw' || st.turn !== side) return fail('Not your turn to draw');
+    if (!st.pile.length) return fail('The discard pile is empty');
+    var top = last(st.pile);
+    if (isWild(top) || isBlackThree(top)) return fail(isWild(top) ? 'A wild card on top: the pile cannot be taken' : 'A black three on top stops the pile');
+    if (!sel.every(function (c) { return st.hands[side].indexOf(c) >= 0; })) return fail('Those cards are not in your hand');
+    var frozen = st.pileFrozen || !st.melded[side], r = rankKey(top), existing = st.melds[side].filter(function (m) { return m.rank === r; })[0];
+    var natSel = sel.filter(function (c) { return !isWild(c); });
+    if (natSel.some(function (c) { return rankKey(c) !== r; })) return fail('Pick cards that match the ' + rankName(r).replace(/s$/, ''));
+    var cards = [top].concat(sel);
+    if (frozen && natSel.length < 2) return fail('A frozen pile needs two natural ' + rankName(r) + ' from your hand');
+    if (existing) {
+      if (!canExtend(existing, cards)) return fail('Those cards do not fit your meld of ' + rankName(r));
+      return { ok: true, plan: [{ rank: r, cards: cards, add: true }] };
+    }
+    if (newMeldRank(cards) !== r) return fail('Two natural ' + rankName(r) + ' (or one and a wild card) go with the top card');
+    return { ok: true, plan: [{ rank: r, cards: cards, add: false }] };
+  }
+  function takePile(st, sel) {
+    var side = st.turn, tp = takePlan(st, side, sel);
+    if (!tp.ok) return st;
+    var s = Z.clone(st), taken = s.pile.slice(), top = last(taken);
+    s.pile = []; s.pileFrozen = false;
+    s.hands[side] = s.hands[side].concat(taken.slice(0, -1));
+    s.hands[side] = s.hands[side].filter(function (c) { return sel.indexOf(c) < 0; });
+    layReds(s, side, false); // a red three that was under the first discard: laid, no replacement
+    addToMelds(s.melds[side], tp.plan);
+    s.turnPts = sumPts([top].concat(sel)); s.step = 'play'; s.moves++; s.concealed[side] = false;
+    s.hands[side] = sortHand(s.hands[side]);
+    s.last = (side === 1 ? 'Computer took the pile (' + Z.plural(taken.length, 'card') + ')' : '');
+    return s;
+  }
+  var canGoOut = function (s, side) { return canastaCount(s.melds[side]) >= GO_OUT_CANASTAS; };
+  // Why a meld action cannot be made now (or '').
+  function meldProblem(st, selection, target) {
+    var side = st.turn;
+    if (st.phase !== 'play' || st.step !== 'play') return 'Draw first';
+    if (!selection.every(function (c) { return st.hands[side].indexOf(c) >= 0; })) return 'Those cards are not in your hand';
+    var left = st.hands[side].length - selection.length;
+    var probe = Z.clone(st);
+    var plan = planMelds(st.melds[side], selection, left <= 1, target);
+    if (!plan.ok) return plan.error;
+    addToMelds(probe.melds[side], plan.melds);
+    if (left <= 1 && !canGoOut(probe, side)) return left === 0 ? 'You need ' + GO_OUT_CANASTAS + ' canastas to go out' : 'Keep a card to discard (going out needs ' + GO_OUT_CANASTAS + ' canastas)';
+    return '';
+  }
+  function meld(st, selection, target) {
+    if (meldProblem(st, selection, target)) return st;
+    var s = Z.clone(st), side = s.turn, left = s.hands[side].length - selection.length;
+    var plan = planMelds(s.melds[side], selection, left <= 1, target);
+    s.hands[side] = s.hands[side].filter(function (c) { return selection.indexOf(c) < 0; });
+    addToMelds(s.melds[side], plan.melds);
+    s.turnPts += sumPts(selection); s.moves++;
+    s.hands[side] = sortHand(s.hands[side]);
+    s.last = side === 1 ? 'Computer melded ' + plan.melds.map(function (p) { return rankName(p.rank); }).join(' and ') : '';
+    if (!s.hands[side].length) return endHand(s, side, '');
+    return s;
+  }
+  // Why this card cannot be discarded (or '').
+  function discardProblem(st, id) {
+    var side = st.turn;
+    if (st.phase !== 'play' || st.step !== 'play') return 'Draw first';
+    if (st.hands[side].indexOf(id) < 0) return 'That card is not in your hand';
+    if (!st.melded[side] && st.melds[side].length && st.turnPts < requirement(st.scores[side]) && !(st.hands[side].length === 1 && canGoOut(st, side))) return 'Your first meld needs ' + requirement(st.scores[side]) + ' points (you have ' + st.turnPts + ')';
+    if (st.hands[side].length === 1 && !canGoOut(st, side)) return 'You need ' + GO_OUT_CANASTAS + ' canastas to go out';
+    return '';
+  }
+  function discard(st, id) {
+    if (discardProblem(st, id)) return st;
+    var s = Z.clone(st), side = s.turn;
+    s.hands[side].splice(s.hands[side].indexOf(id), 1);
+    s.pile.push(id); s.moves++;
+    if (isWild(id)) s.pileFrozen = true;
+    if (s.melds[side].length) s.melded[side] = true;
+    s.last = side === 1 ? 'Computer discarded the ' + cardName(id) : '';
+    if (!s.hands[side].length) return endHand(s, side, '');
+    s.turn = 1 - side; s.step = 'draw'; s.turnPts = 0;
+    return s;
+  }
+
+  // ── Scoring ─────────────────────────────────────────────────────────────
+  function sideScore(s, side, outSide) {
+    var melds = s.melds[side], lines = [], pts = 0, cardsPts = 0;
+    melds.forEach(function (m) { cardsPts += sumPts(m.cards); });
+    var canasta = 0;
+    melds.forEach(function (m) { if (isCanasta(m)) canasta += isPure(m) ? BONUS.natural : BONUS.mixed; });
+    var reds = s.reds[side].length, redPts = reds === 4 ? BONUS.allReds : reds * BONUS.red;
+    if (!melds.length) redPts = -redPts;
+    var out = outSide === side ? (s.concealed[side] ? BONUS.out + BONUS.concealed : BONUS.out) : 0;
+    var hand = sumPts(s.hands[side]);
+    pts = cardsPts + canasta + redPts + out - hand;
+    lines.push('Cards melded ' + cardsPts);
+    if (canasta) lines.push('Canastas ' + canasta);
+    if (reds) lines.push('Red threes ' + (redPts >= 0 ? '+' : '') + redPts);
+    if (out) lines.push((s.concealed[side] ? 'Going out concealed ' : 'Going out ') + out);
+    if (hand) lines.push('Cards left in hand -' + hand);
+    return { points: pts, lines: lines, meld: cardsPts, canasta: canasta, red: redPts, out: out, hand: hand };
+  }
+  function endHand(s, outSide, why) {
+    var r = [sideScore(s, 0, outSide), sideScore(s, 1, outSide)];
+    s.result = { sides: r, outSide: outSide, why: why };
+    s.scores = [s.scores[0] + r[0].points, s.scores[1] + r[1].points];
+    s.phase = gameWinner(s.scores, s.target) >= 0 ? 'over' : 'handEnd';
+    s.turn = outSide >= 0 ? outSide : s.turn;
+    return s;
+  }
+  function gameWinner(scores, target) {
+    var lim = target || DEFAULT_TARGET, hi = Math.max(scores[0], scores[1]);
+    if (hi < lim) return -1;
+    return scores[0] === scores[1] ? -1 : scores[0] > scores[1] ? 0 : 1;
+  }
+  function nextHand(st, order) { return newHand(order, st.scores, st.handNo + 1, st.target); }
+
+  // ── The computer player ─────────────────────────────────────────────────
+  function naturalsByRank(hand) {
+    var g = {};
+    hand.forEach(function (c) { if (!isWild(c) && !isRedThree(c)) (g[rankKey(c)] = g[rankKey(c)] || []).push(c); });
+    return g;
+  }
+  // Which cards from the hand the computer would pair with the top of the pile, or null.
+  function aiTake(st, side) {
+    if (!st.pile.length) return null;
+    var top = last(st.pile), r = rankKey(top), hand = st.hands[side];
+    if (isWild(top) || isBlackThree(top)) return null;
+    var nat = hand.filter(function (c) { return !isWild(c) && rankKey(c) === r; }), existing = st.melds[side].filter(function (m) { return m.rank === r; })[0];
+    var tries = [];
+    if (nat.length >= 2) tries.push(nat);
+    if (existing && !(st.pileFrozen || !st.melded[side])) tries.push(nat.slice(0, 1).length ? nat.slice(0, 1) : []);
+    for (var i = 0; i < tries.length; i++) {
+      var tp = takePlan(st, side, tries[i]);
+      if (!tp.ok) continue;
+      var pts = sumPts([top].concat(tries[i]));
+      if (!st.melded[side]) {
+        // The first meld must reach the minimum, with what the pile adds to the hand.
+        var all = hand.concat(st.pile.slice(0, -1)).filter(function (c) { return tries[i].indexOf(c) < 0; }), extra = 0, g = naturalsByRank(all);
+        Object.keys(g).forEach(function (k) { if (g[k].length >= 3) extra += sumPts(g[k]); });
+        if (pts + extra < requirement(st.scores[side])) continue;
+      }
+      var value = st.pile.length * 1.5 + pts / 5 + (existing ? 3 : 0);
+      if (st.pile.length >= 3 || existing || value >= 6) return tries[i];
+    }
+    return null;
+  }
+  // The next meld the computer lays: {cards, target?} or null.
+  function aiMeldStep(st, side) {
+    var hand = st.hands[side], melds = st.melds[side], g = naturalsByRank(hand), wilds = hand.filter(isWild), groups = [], r;
+    var ranks = Object.keys(g).map(Number).filter(function (x) { return x !== 3; }).sort(function (a, b) { return b - a; });
+    ranks.forEach(function (rk) { if (g[rk].length >= 3 || melds.some(function (m) { return m.rank === rk; })) groups.push(g[rk].slice()); });
+    // The first meld needs enough points: pairs with a wild card help to reach it.
+    if (!st.melded[side]) {
+      var req = requirement(st.scores[side]), have = st.turnPts + groups.reduce(function (n, p) { return n + sumPts(p); }, 0), spare = wilds.slice();
+      ranks.filter(function (rk) { return g[rk].length === 2 && !melds.some(function (m) { return m.rank === rk; }); }).forEach(function (rk) {
+        if (have < req && spare.length) { var p = g[rk].concat(spare.splice(0, 1)); groups.push(p); have += sumPts(p); }
+      });
+      if (have < req) return null;
+    }
+    for (var n = groups.length; n >= 1; n--) {
+      var flat = [].concat.apply([], groups.slice(0, n));
+      if (!meldProblem(st, flat)) return { cards: flat };
+    }
+    // Wild cards that finish a canasta already close.
+    for (var k = 0; k < melds.length; k++) {
+      var mm = melds[k], need = CANASTA_SIZE - mm.cards.length;
+      if (isCanasta(mm) || wildCount(mm.cards) + need > MAX_WILD || need > wilds.length || mm.cards.length < 5) continue;
+      var add = wilds.slice(0, need);
+      if (!meldProblem(st, add, mm.rank)) return { cards: add, target: mm.rank };
+    }
+    return null;
+  }
+  function aiDiscard(st, side) {
+    var hand = st.hands[side].filter(function (c) { return !isRedThree(c); }), opp = st.melds[1 - side], mine = st.melds[side], best = null, bs = 1e9;
+    var groups = naturalsByRank(hand);
+    // A black three stops the pile: a good thing to throw when the opponent has been taking it.
+    var feeding = function (c) { return opp.some(function (m) { return m.rank === rankKey(c); }); };
+    hand.forEach(function (c) {
+      var score = 0, r = rankKey(c);
+      if (isWild(c)) score += 200;
+      else if (isBlackThree(c)) score -= 25;
+      else {
+        score += cardPts(c) * 0.4;
+        if (feeding(c)) score += 40;
+        if (mine.some(function (m) { return m.rank === r; })) score += 30;
+        score += ((groups[r] || []).length - 1) * 12;
+      }
+      if (st.hands[side].length > 1 && st.hands[1 - side].length <= 4) score -= cardPts(c) * 0.8;
+      if (score < bs) { bs = score; best = c; }
+    });
+    return best;
+  }
+  // One action for the side to move: returns the new state (draw or take, a meld, or the discard).
+  function aiStep(st) {
+    var side = st.turn;
+    if (st.step === 'draw') {
+      var sel = aiTake(st, side);
+      return sel ? takePile(st, sel) : draw(st);
+    }
+    var m = aiMeldStep(st, side);
+    if (m) { var next = meld(st, m.cards, m.target); if (next !== st) return next; }
+    var c = aiDiscard(st, side);
+    if (c !== null && discardProblem(st, c)) {
+      var alts = st.hands[side].filter(function (x) { return !isRedThree(x) && !discardProblem(st, x); });
+      c = alts.length ? alts[0] : null;
+    }
+    return c === null ? discardFallback(st) : discard(st, c);
+  }
+  // A state the rules leave stuck (no card can be thrown): the hand ends where it is.
+  function discardFallback(st) { return endHand(Z.clone(st), -1, 'Nothing more can be played'); }
+
+  // ── Layout ──────────────────────────────────────────────────────────────
+  var BAR_H = 46, TAG_H = 15, CELL_SHARE = 1.5, PILE_GAP = 1.7, TAG_SHARE = 2.6;
+  function perRow(m) { return Math.max(1, Math.floor((m.W - 2 * m.pad) / (m.cw * CELL_SHARE))); }
+  function meldRows(m, n) { return Math.max(1, Math.ceil(n / perRow(m))); }
+  function geo(m, st) {
+    var n = st.hands[0].length, g = T.geometry(m, T.rowsFor(m, n));
+    var myRows = meldRows(m, st.melds[0].length), oppRows = meldRows(m, st.melds[1].length);
+    g.barY = g.southY - g.raise - 4 - BAR_H;
+    g.statusY = g.barY - 4 - T.STATUS_H;
+    g.myMeldY = g.statusY - 4 - myRows * (g.ch + TAG_H + 4);
+    g.oppMeldY = g.northY + g.ch + 8;
+    g.centreY = Math.round((g.oppMeldY + oppRows * (g.ch + TAG_H + 4) + g.myMeldY) / 2 - g.ch / 2);
+    g.perRow = perRow(m);
+    return g;
+  }
+  function meldSpot(g, side, k) {
+    var row = Math.floor(k / g.perRow), col = k % g.perRow, cell = g.cw * CELL_SHARE, inRow = Math.min(g.perRow, 99);
+    var x = g.pad + col * cell, y = (side === 0 ? g.myMeldY : g.oppMeldY) + row * (g.ch + TAG_H + 4);
+    return { x: Math.round(x), y: Math.round(y) };
+  }
+  function repCard(m) { return m.cards.filter(function (c) { return !isWild(c); })[0] || m.cards[0]; }
+  function place(st, m, view) {
+    var g = geo(m, st), slots = [], cards = [], sel = ((view && view.sel) || []).filter(function (c) { return st.hands[0].indexOf(c) >= 0; });
+    slots.push({ id: 'table', x: g.pad, y: g.northY, w: g.W - 2 * g.pad, h: g.southY - g.northY + g.ch, quiet: true, label: 'Table' });
+    var hand = T.handCards(g, st.hands[0], function (id) { return { raise: sel.indexOf(id) >= 0, glow: sel.indexOf(id) >= 0, label: cardName(id) + (sel.indexOf(id) >= 0 ? ', picked' : '') }; }, null);
+    slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
+    if (st.hands[1].length) cards = cards.concat(T.fan(g, 2, st.hands[1], false));
+    [0, 1].forEach(function (side) {
+      st.melds[side].forEach(function (mm, k) {
+        var sp = meldSpot(g, side, k);
+        cards.push({ id: repCard(mm), pile: 'm' + side + '-' + mm.rank, idx: 0, x: sp.x, y: sp.y, up: true, glow: isCanasta(mm), mark: side === 0 && view && view.target === mm.rank });
+        slots.push({ id: 'm' + side + '-' + mm.rank, x: sp.x, y: sp.y, w: g.cw, h: g.ch, quiet: true, label: (side === 0 ? 'Your ' : 'Their ') + rankName(mm.rank) + ', ' + mm.cards.length + ' cards' });
+      });
+    });
+    var gap = Math.round(g.cw * PILE_GAP), sx = Math.round(g.cx - g.cw - gap / 2), px = Math.round(g.cx + gap / 2);
+    if (st.stock.length) cards.push({ id: last(st.stock), pile: 'stock', idx: 0, x: sx, y: g.centreY, up: false });
+    if (st.pile.length) cards.push({ id: last(st.pile), pile: 'pile', idx: 0, x: px, y: g.centreY, up: true });
+    slots.push({ id: 'stock', x: sx, y: g.centreY, w: g.cw, h: g.ch, label: 'Stock, ' + st.stock.length + ' cards' });
+    slots.push({ id: 'pile', x: px, y: g.centreY, w: g.cw, h: g.ch, label: 'Discard pile, ' + st.pile.length + ' cards' });
+    return { height: m.H, slots: slots, cards: cards };
+  }
+  var cardName = function (id) { return isJoker(id) ? 'joker' : Z.cardName(id); };
+  var face = function (id, standalone) { return isJoker(id) ? Z.jokerMarkup(id % 2 === 0, standalone) : Z.faceMarkup(id, standalone); };
+
+  var api = {
+    TARGETS: TARGETS, NAMES: NAMES, requirement: requirement, cardPts: cardPts, isWild: isWild, isRedThree: isRedThree, isBlackThree: isBlackThree, rankKey: rankKey,
+    newMeldRank: newMeldRank, canExtend: canExtend, planMelds: planMelds, takePlan: takePlan, newHand: newHand, draw: draw, takePile: takePile, meld: meld, meldProblem: meldProblem,
+    discard: discard, discardProblem: discardProblem, sideScore: sideScore, canastaCount: canastaCount, isCanasta: isCanasta, isPure: isPure, aiStep: aiStep, aiTake: aiTake, aiMeldStep: aiMeldStep, aiDiscard: aiDiscard,
+    gameWinner: gameWinner, nextHand: nextHand, geo: geo, place: place, face: face, sumPts: sumPts, JOKER_BASE: JOKER_BASE, TOTAL: TOTAL, GO_OUT_CANASTAS: GO_OUT_CANASTAS
+  };
+  root.ZimiCanasta = api;
+  if (!(root.document && root.document.getElementById('zc-table'))) return;
+
+  // ── The page ────────────────────────────────────────────────────────────
+  var AI_MS = 750, TARGET_KEY = 'canasta.target';
+  function boot() {
+    var d = root.document, t, board, session, view = { sel: [], target: null, flash: '' }, tags = [];
+    var table = d.getElementById('zc-table'), bar = Z.h('div', { class: 'cn-bar', role: 'group', 'aria-label': 'Actions' });
+    table.appendChild(bar);
+    var targetNow = function () { var v = Z.store.get(TARGET_KEY, DEFAULT_TARGET); return TARGETS.indexOf(v) >= 0 ? v : DEFAULT_TARGET; };
+    var mySel = function (st) { return view.sel.filter(function (c) { return st.hands[0].indexOf(c) >= 0; }); };
+    function meldTag(mm) {
+      var w = wildCount(mm.cards);
+      if (isCanasta(mm)) return '★' + mm.cards.length + (w ? ' mix' : ' pure');
+      return '×' + mm.cards.length + (w ? '+' + w + 'w' : '');
+    }
+    var tagSig = '';
+    function layTags(st, m) {
+      var g = geo(m, st);
+      var sig = JSON.stringify([st.melds.map(function (l) { return l.map(function (mm) { return [mm.rank, mm.cards.length, wildCount(mm.cards)]; }); }), st.stock.length, st.pile.length, st.pileFrozen, st.pile.length ? last(st.pile) : -1, g.W, g.myMeldY, g.centreY]);
+      if (sig === tagSig) return;
+      tagSig = sig;
+      tags.forEach(function (e) { e.remove(); }); tags = [];
+      var add = function (txt, x, y, w, cls) { if (!txt) return; var e = Z.h('div', { class: 'c2-tag ' + (cls || ''), style: 'left:' + Math.round(x) + 'px;top:' + Math.round(y) + 'px;width:' + Math.round(w) + 'px;height:' + (TAG_H - 1) + 'px' }, [Z.h('span', { text: txt })]); table.appendChild(e); tags.push(e); };
+      [0, 1].forEach(function (side) {
+        st.melds[side].forEach(function (mm, k) { var sp = meldSpot(g, side, k); add(meldTag(mm), sp.x, sp.y + g.ch + 1, g.cw * CELL_SHARE - 3, isCanasta(mm) ? 'c2-turn' : ''); });
+      });
+      var gap = Math.round(g.cw * PILE_GAP), sx = Math.round(g.cx - g.cw - gap / 2), px = Math.round(g.cx + gap / 2), w = Math.round(g.cw * TAG_SHARE), off = (w - g.cw) / 2;
+      add('Stock ' + st.stock.length, sx - off, g.centreY + g.ch + 2, w);
+      var state = st.pile.length ? (st.pileFrozen ? 'frozen' : '') : '';
+      if (st.pile.length && isBlackThree(last(st.pile))) state = 'stopped'; else if (st.pile.length && isWild(last(st.pile))) state = 'wild: no';
+      add('Pile ' + st.pile.length + (state ? ' ' + state : ''), px - off, g.centreY + g.ch + 2, w, st.pileFrozen ? 'c2-out' : '');
+    }
+    var redText = function (reds) { return reds.length ? ' · ' + reds.length + ' red 3' + (reds.length > 1 ? 's' : '') : ''; };
+    function describeSelection(st) {
+      var sel = mySel(st);
+      if (!sel.length) return '';
+      return Z.plural(sel.length, 'card') + ' picked, ' + sumPts(sel) + ' points' + (view.target ? ', adding to ' + rankName(view.target) : '');
+    }
+    function hud(st) {
+      var m = board.metrics();
+      layTags(st, m);
+      var req = requirement(st.scores[0]), out = { sub: 'You ' + st.scores[0] + ' · them ' + st.scores[1], text: '' };
+      out.chips = [{ name: 'You', text: st.scores[0] + redText(st.reds[0]) + (st.melds[0].length && !st.melded[0] && st.turn === 0 ? ' · first meld ' + st.turnPts + '/' + req : ''), turn: st.turn === 0 && st.phase === 'play' }, { name: 'Computer', text: st.scores[1] + redText(st.reds[1]), turn: st.turn === 1 && st.phase === 'play' }, { name: 'Goal', text: String(st.target) }];
+      if (st.phase === 'handEnd') { out.text = 'Hand over'; out.label = 'Next hand'; out.action = startNextHand; }
+      else if (st.phase === 'over') { out.text = 'Game over'; out.label = 'New game'; out.action = newGame; }
+      else if (st.turn === 1) out.text = st.last || 'Computer is thinking';
+      else if (st.step === 'draw') out.text = 'Your turn: draw two cards, or take the pile' + (st.pileFrozen || !st.melded[0] ? ' (frozen: pick a natural pair that matches the top card)' : '');
+      else {
+        var sel = mySel(st), mp = sel.length ? meldProblem(st, sel, view.target) : '', info = describeSelection(st);
+        out.text = sel.length ? (info + (mp && sel.length > 1 ? '. ' + mp : '')) : 'Pick cards to meld, or one card to discard' + (st.melds[0].length && !st.melded[0] ? ' (first meld ' + st.turnPts + '/' + req + ')' : (!st.melded[0] ? ' (first meld needs ' + req + ')' : ''));
+      }
+      paintBar(st);
+      return out;
+    }
+    var barSig = '';
+    function paintBar(st) {
+      var m = board.metrics(), g = geo(m, st), sel = mySel(st), draw = st.step === 'draw';
+      var mine = st.phase === 'play' && st.turn === 0;
+      var tp = mine && draw ? takePlan(st, 0, sel) : null, mp = mine && !draw && sel.length ? meldProblem(st, sel, view.target) : 'x', dp = mine && !draw && sel.length === 1 ? discardProblem(st, sel[0]) : 'x';
+      var sig = JSON.stringify([mine, draw, sel.length > 0, !!(tp && tp.ok), !mp, !dp, Math.round(g.barY)]);
+      if (sig === barSig) return; // rebuilt only when it changes, so a tap is never lost to a repaint
+      barSig = sig;
+      bar.textContent = '';
+      bar.hidden = !mine;
+      if (bar.hidden) return;
+      bar.style.top = Math.round(g.barY) + 'px';
+      var btn = function (label, enabled, fn, primary, aria) {
+        var b = Z.h('button', { class: 'ar-btn cn-btn', type: 'button', text: label });
+        if (primary) b.setAttribute('aria-pressed', 'true');
+        if (aria) b.setAttribute('aria-label', aria);
+        b.disabled = !enabled; b.addEventListener('click', fn); bar.appendChild(b);
+      };
+      if (draw) {
+        btn('Draw 2', true, drawTurn, true);
+        btn('Take pile', !!(tp && tp.ok), takeSelected, false);
+      } else {
+        btn('Meld', !mp, meldSelected, true);
+        btn('Discard', !dp, discardSelected, false);
+      }
+      btn('Clear', sel.length > 0, clearSel);
+    }
+    function reveal(next) { session.follow(next); drive(); }
+    function drive() {
+      var st = session.state;
+      if (st.phase === 'handEnd') { handOver(); return; }
+      if (st.phase === 'over') { gameOver(); return; }
+      if (st.turn === 1) session.later(aiTurn, AI_MS);
+    }
+    function aiTurn() {
+      var st = session.state;
+      if (st.phase !== 'play' || st.turn !== 1) return;
+      var next = aiStep(st);
+      if (next === st) next = discardFallback(st);
+      session.follow(next); drive();
+    }
+    function drawTurn() { var st = session.state; if (st.turn !== 0 || st.step !== 'draw') return; view.sel = []; session.commit(draw(st)); afterMe(); }
+    function takeSelected() {
+      var st = session.state, sel = mySel(st), tp = takePlan(st, 0, sel);
+      if (!tp.ok) { t.flash(tp.error); return; }
+      view.sel = []; session.commit(takePile(st, sel)); afterMe();
+    }
+    function meldSelected() {
+      var st = session.state, sel = mySel(st), why = meldProblem(st, sel, view.target);
+      if (why) { t.flash(why); return; }
+      var target = view.target; view.sel = []; view.target = null; session.commit(meld(st, sel, target)); afterMe();
+    }
+    function discardSelected() {
+      var st = session.state, sel = mySel(st);
+      if (sel.length !== 1) { t.flash('Pick one card to discard'); return; }
+      var why = discardProblem(st, sel[0]);
+      if (why) { t.flash(why); return; }
+      view.sel = []; session.commit(discard(st, sel[0])); afterMe();
+    }
+    function clearSel() { view.sel = []; view.target = null; board.refresh(); t.paint(); }
+    function afterMe() { board.refresh(); t.paint(); drive(); }
+    function tap(pile) {
+      var st = session.state, kind = pile.charAt(0);
+      if (st.phase !== 'play') return false;
+      if (pile === 'stock') { if (st.turn === 0 && st.step === 'draw') drawTurn(); else t.flash(st.turn === 0 ? 'Draw first' : 'Wait for your turn'); return true; }
+      if (pile === 'pile') { if (st.turn === 0 && st.step === 'draw') takeSelected(); else if (st.turn === 0) t.flash('Pick a card, then Discard'); return true; }
+      if (pile.slice(0, 3) === 'm0-') { var rk = parseInt(pile.slice(3), 10); view.target = view.target === rk ? null : rk; board.refresh(); t.paint(); return true; }
+      if (kind !== 'h') return false;
+      var id = parseInt(pile.slice(1), 10);
+      if (isNaN(id)) return false;
+      var at = view.sel.indexOf(id);
+      if (at >= 0) view.sel.splice(at, 1); else view.sel.push(id);
+      board.refresh(); t.paint();
+      return true;
+    }
+    function resultLines(st) {
+      var r = st.result, lines = [];
+      if (r.why) lines.push(r.why + '.');
+      lines.push(r.outSide === 0 ? 'You went out.' : r.outSide === 1 ? 'The computer went out.' : 'Nobody went out.');
+      [0, 1].forEach(function (side) { lines.push(NAMES[side] + ': ' + (r.sides[side].points >= 0 ? '+' : '') + r.sides[side].points + ' (' + r.sides[side].lines.join(', ') + '), total ' + st.scores[side]); });
+      return lines;
+    }
+    function handOver() {
+      var st = session.state;
+      T.lineSheet('Hand ' + (st.handNo + 1), resultLines(st), [{ label: 'Next hand', primary: true, onclick: startNextHand }]);
+    }
+    function gameOver() {
+      var st = session.state, w = gameWinner(st.scores, st.target), lines = resultLines(st);
+      if (w === 0) session.win(st.scores[0]); else session.lose('The computer wins', lines.concat(['Final: ' + st.scores[0] + ' to ' + st.scores[1] + '.']), st.scores[0]);
+    }
+    function startNextHand() {
+      var st = session.state;
+      if (st.phase !== 'handEnd') return;
+      session.history = []; view.sel = [];
+      session.follow(nextHand(st, T.shuffleOf(allIds(), Math.random)));
+      drive();
+    }
+    function allIds() { var a = [], i; for (i = 0; i < TOTAL; i++) a.push(i); return a; }
+    function newGame() {
+      view.sel = []; view.flash = '';
+      session.reset(newHand(T.shuffleOf(allIds(), Math.random), [0, 0], 0, targetNow()));
+      drive();
+    }
+    t = T.create({
+      id: 'canasta', name: 'Canasta', view: view, geo: geo, place: place, hud: hud, newGame: newGame, tap: tap, cols: 8, heightShare: 0.085, face: face,
+      canPick: function () { return false; },
+      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0]; },
+      cascadeOrder: function (st) { return st.melds[0].map(function (mm) { return { id: repCard(mm) }; }); },
+      winLines: function (sec, st) { return ['You win, ' + st.scores[0] + ' to ' + st.scores[1] + ', after ' + Z.plural(st.handNo + 1, 'hand') + '.']; },
+      menuExtra: function () {
+        return [T.choiceRow('Play to', TARGET_KEY, TARGETS.map(function (n) { return { label: String(n), value: n }; }), DEFAULT_TARGET, function () { /* next game */ }), Z.h('p', { class: 'zc-note', text: 'A new target applies to the next new game.' })];
+      },
+      rules: 'Two-handed Canasta against the computer. Draw two cards, or take the discard pile; lay down melds of three or more of a rank; discard one card. Twos and jokers are wild (a meld needs two natural cards, at most three wild, never more wild than natural). Seven cards make a canasta: 500 pure, 300 mixed. Red threes score 100 each and are laid at once; black threes only go out. Your first meld needs 50 points (more as your score rises). The pile is frozen after a wild discard, or before you have melded: take it only with a natural pair matching the top card. Going out needs two canastas (100, or 200 if you laid everything in one turn). Pick cards by tapping them, then Meld, Discard or Take pile (or tap the stock to draw). Keys: D draw, T take, M meld, X discard, Esc clear. First to the goal wins.'
+    });
+    board = t.board; session = t.session;
+    api.session = session; api.board = board;
+    if (root.ResizeObserver) new root.ResizeObserver(function () { t.paint(); }).observe(table);
+    d.addEventListener('keydown', function (e) {
+      if (e.ctrlKey || e.metaKey || e.altKey || d.querySelector('.ar-sheet')) return;
+      var st = session.state, k = e.key.toLowerCase();
+      if (!st || st.turn !== 0 || st.phase !== 'play') return;
+      if (k === 'd' && st.step === 'draw') { drawTurn(); e.preventDefault(); }
+      else if (k === 't' && st.step === 'draw') { takeSelected(); e.preventDefault(); }
+      else if (k === 'm' && st.step === 'play') { meldSelected(); e.preventDefault(); }
+      else if ((k === 'x' || k === 'delete') && st.step === 'play') { discardSelected(); e.preventDefault(); }
+      else if (k === 'escape') clearSel();
+    });
+    newGame();
+  }
+  boot();
+})(typeof globalThis !== 'undefined' ? globalThis : window);
