@@ -360,9 +360,15 @@
   var MAX_CARD_W = 120, CARD_ASPECT = 1.4, CARD_H_SHARE = 0.14, DRAG_SLOP = 6, SETTLE_MS = 300, Z_HOT = 500, Z_DRAG = 1000;
   var DEAL_STAGGER_MS = 16, MIN_CARD_W = 24;
   // More o: heightShare (how much of the table's height a card may take, for
+<<<<<<< HEAD
   // layouts shorter than Klondike's columns), enterTaps (Enter on a pile taps
   // its top card: for games where one tap is the whole move), centerY (the share of
   // spare height put above a short layout), and per card in
+=======
+  // layouts shorter than Klondike's columns), face(id, standalone) (a deck of
+  // its own: Scopa's), enterTaps (Enter on a pile taps
+  // its top card: for games where one tap is the whole move), and per card in
+>>>>>>> worktree-agent-a3436846f762b8470
   // place(): mark (the game's own highlight), glow (a soft one) and dim (not playable now); a
   // slot may be quiet (a drop area with no outline and no tab stop).
 
@@ -403,7 +409,7 @@
         e.classList.toggle('zc-down', !up);
         if (flipping) { e.classList.remove('zc-flip'); void e.offsetWidth; e.classList.add('zc-flip'); }
       }
-      if (up && !e._face) { e.firstChild.innerHTML = faceMarkup(id, false); e._face = true; }
+      if (up && !e._face) { e.firstChild.innerHTML = (o.face || faceMarkup)(id, false); e._face = true; }
       if (!up && !hidden && e._back !== currentBack) { e.lastChild.innerHTML = backMarkup(currentBack); e._back = currentBack; }
     }
     function put(e, x, y) {
@@ -631,6 +637,7 @@
     // BASE_CARD_W wide, scaled to the card size on screen.
     var GRAVITY = 0.55, BOUNCE = 0.82, LAUNCH_FRAMES = 11, FRAME_MS = 1000 / 60, MAX_DT = 3;
     var VX_MIN = 2, VX_SPAN = 5, VY_MIN = 2, VY_SPAN = 7, BASE_CARD_W = 71, END_PAUSE_MS = 600, MAX_DPR = 2;
+    function faceOf(id, standalone) { return (o.face || faceMarkup)(id, standalone); }
     function bitmap(id, w, hh, dpr) {
       return new Promise(function (resolve) {
         var img = new root.Image();
@@ -641,7 +648,7 @@
           resolve(c);
         };
         img.onerror = function () { resolve(null); };
-        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(faceMarkup(id, true));
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(faceOf(id, true));
       });
     }
     function cascade(order, done) {
