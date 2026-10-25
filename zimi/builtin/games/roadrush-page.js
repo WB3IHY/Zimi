@@ -185,7 +185,7 @@
   }
   var pausedFrom = 'playing';
   function resume() { mode = pausedFrom; Play.closeSheet(els.sheet); loop.start(); }
-  function releaseAll() { held = {}; pad.gas = pad.brake = false; touchSteer = {}; padCtl.forEach(function (h) { h.release(); }); }
+  function releaseAll() { clearKeys(); pad.gas = pad.brake = false; touchSteer = {}; padCtl.forEach(function (h) { h.release(); }); }
 
   function finish() {
     mode = 'over'; loop.stop(); els.pause.disabled = true; releaseAll(); render();
@@ -245,8 +245,9 @@
     else if (k === 'p' || k === 'Escape') { e.preventDefault(); pause(); }
   });
   document.addEventListener('keyup', function (e) { var k = keyName(e); held[k === ' ' ? 's' : k] = false; });
-  window.addEventListener('blur', function () { held = {}; touchSteer = {}; });
+  window.addEventListener('blur', function () { clearKeys(); touchSteer = {}; });
   // Touch and mouse: hold the left or right half of the picture to steer that way.
+  function clearKeys() { Object.keys(held).forEach(function (k) { held[k] = false; }); }
   var pointers = {};
   function sideOf(e) { var r = els.cv.getBoundingClientRect(); return e.clientX < r.left + r.width / 2 ? 'l' : 'r'; }
   function syncTouch() { touchSteer = {}; Object.keys(pointers).forEach(function (id) { touchSteer[pointers[id]] = true; }); }

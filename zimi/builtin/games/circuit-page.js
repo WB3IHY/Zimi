@@ -309,7 +309,7 @@
     sheet('Paused', function (b) { note(b, 'The cars wait.'); }, [['Resume', resume, true], ['Quit race', goSetup, false]]);
   }
   function resume() { g.mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
-  function releaseAll() { held = {}; pad.left = pad.right = pad.gas = pad.brake = false; padCtl.forEach(function (h) { h.release(); }); }
+  function releaseAll() { clearKeys(); pad.left = pad.right = pad.gas = pad.brake = false; padCtl.forEach(function (h) { h.release(); }); }
 
   // ── sheets ───────────────────────────────────────────────────────────────
   function sheet(title, build, actions) {
@@ -424,7 +424,8 @@
     else if (k === 'r' && g.mode === 'playing') { e.preventDefault(); resetCar(); }
   });
   document.addEventListener('keyup', function (e) { held[keyName(e)] = false; });
-  window.addEventListener('blur', function () { held = {}; });
+  window.addEventListener('blur', function () { clearKeys(); });
+  function clearKeys() { Object.keys(held).forEach(function (k) { held[k] = false; }); }
   function resetCar() { var c = g.humans[0]; if (c && !c.finished) Engine.respawn(g.T, c); }
   els.reset.addEventListener('click', resetCar);
   els.pause.addEventListener('click', pause);
