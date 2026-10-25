@@ -96,8 +96,29 @@ const TILES = {
     return tile(FELT, out);
   }
 };
-// More tiles register here (the world card games).
-try { Object.assign(TILES, require('./games_shelf_world.js')({ cid, face, italian, back, edge, slot, tile, FELT, FELT_DEEP, Z })); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; }
+// The world card games.
+const pill = (x, y, w, label) => '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="22" rx="11" fill="rgba(0,0,0,0.3)"/><text x="' + (x + w / 2) + '" y="' + (y + 16) + '" font-size="15" font-weight="700" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-family="ui-monospace,Menlo,monospace">' + label + '</text>';
+const label = (x, y, size, text) => '<text x="' + x + '" y="' + y + '" font-size="' + size + '" font-weight="700" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-family="system-ui,sans-serif">' + text + '</text>';
+function cribBoard() {
+  const groups = (x0, n) => Array.from({ length: n }, (_, k) => x0 + 12 * k);
+  const top = [].concat(groups(40, 5), groups(106, 5), groups(172, 5), groups(238, 4)), low = [].concat(groups(40, 5), groups(106, 5), groups(172, 5));
+  const holes = (xs, y) => xs.map((x) => '<circle cx="' + x + '" cy="' + y + '" r="1.8"/>').join('');
+  return '<rect x="24" y="22" width="272" height="64" rx="9" fill="#8a5a2e" stroke="#5e3b1a"/><g fill="rgba(30,16,4,0.7)">' + holes(top, 38) + holes(top, 50) + holes(low, 66) + holes(low, 78) + '</g>' +
+    '<circle cx="196" cy="38" r="4.4" fill="#f59e0b" stroke="#fff" stroke-width="1.2"/><circle cx="172" cy="38" r="3.2" fill="#f59e0b" stroke="#000" stroke-opacity=".5"/>' +
+    '<circle cx="130" cy="50" r="4.4" fill="#38bdf8" stroke="#fff" stroke-width="1.2"/><circle cx="106" cy="50" r="3.2" fill="#38bdf8" stroke="#000" stroke-opacity=".5"/>';
+}
+Object.assign(TILES, {
+  spades: () => tile(FELT_DEEP, face(cid('KS'), 78, 40, 62, -12) + face(cid('AS'), 130, 32, 62) + face(cid('QS'), 182, 40, 62, 12) + pill(106, 142, 48, 'Nil') + pill(166, 142, 48, '500')),
+  euchre: () => tile(FELT_DEEP, face(cid('JD'), 66, 34, 72, -12) + face(cid('JH'), 124, 30, 72) + face(cid('AH'), 182, 34, 72, 12) + label(160, 164, 14, 'right bower, left bower, trump')),
+  gin: () => tile(FELT, face(cid('5H'), 54, 40, 58, -10) + face(cid('6H'), 100, 34, 58) + face(cid('7H'), 146, 36, 58, 10) + face(cid('KS'), 236, 52, 46, 6) +
+    '<rect x="96" y="136" width="128" height="26" rx="13" fill="rgba(0,0,0,0.35)"/><text x="160" y="154" font-size="15" font-weight="700" text-anchor="middle" fill="#fff" font-family="ui-monospace,Menlo,monospace">GIN  0</text>'),
+  cribbage: () => tile(FELT_DEEP, cribBoard() + face(cid('5H'), 70, 102, 52) + face(cid('JS'), 134, 102, 52) + face(cid('5D'), 198, 102, 52) +
+    '<text x="272" y="150" font-size="30" font-weight="700" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-family="ui-monospace,Menlo,monospace">29</text>'),
+  crazyeights: () => tile(FELT, back(28, 48, 56) + face(cid('8S'), 112, 32, 76, -8) + face(cid('8H'), 176, 34, 76, 8) +
+    [[1, 56], [0, 92]].map((p) => '<g transform="translate(270 ' + p[1] + ') scale(1.2)" fill="rgba(255,255,255,0.85)"><use href="#zc-s-' + p[0] + '"/></g>').join('')),
+  durak: () => tile(FELT_DEEP, back(96, -34, 40) + back(142, -34, 40) + back(188, -34, 40) + face(cid('7C'), 112, 44, 58) + face(cid('9S'), 132, 58, 58, 8) + face(cid('AH'), 26, 92, 46) + back(46, 92, 46)),
+  scopa: () => tile(FELT, italian(0, 56, 34, 64, -12) + italian(19, 128, 28, 64) + italian(26, 200, 34, 64, 12) + label(160, 160, 22, 'Scopa!'))
+});
 
 // ── Write ──────────────────────────────────────────────────────────────────
 let html = fs.readFileSync(file, 'utf8');
