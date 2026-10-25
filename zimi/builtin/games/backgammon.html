@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Backgammon - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="world.css">
+<link rel="stylesheet" href="backgammon.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Backgammon</h1>
+  <button class="ar-btn" id="wk-undo" type="button" disabled>Undo</button>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog">New game</button>
+</header>
+
+<main class="bg-main">
+  <div class="bg-score" id="wk-score" aria-label="Score"></div>
+  <div class="wk-board bk-board" id="wk-board" role="group" aria-label="Backgammon board"></div>
+  <p class="bg-status" id="wk-status" role="status" aria-live="polite"></p>
+  <div class="bg-controls" id="wk-controls"><button class="ar-btn" id="bk-roll" type="button">Roll</button><button class="ar-btn" id="bk-double" type="button" hidden>Double</button><button class="ar-btn" id="bk-take" type="button" hidden>Take</button><button class="ar-btn" id="bk-drop" type="button" hidden>Drop</button><button class="ar-btn" id="wk-hint" type="button" disabled>Hint</button></div>
+  <p class="bg-stats" id="wk-stats"></p>
+  <p class="bg-help">Race your fifteen checkers home and bear them off. Roll, tap a checker, then tap where it goes. Hit a lone checker to send it to the bar. Arrow keys move, Enter selects, U undoes the last step, N starts a new game.</p>
+</main>
+<script src="boardkit.js"></script>
+<script src="worldkit.js"></script>
+<script src="backgammon.js"></script>
+</body>
+</html>
