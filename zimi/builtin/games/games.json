@@ -292,28 +292,32 @@
   "wiki": "Wikiracing",
   "path": "wikirace.html",
   "title": "Wiki Race",
-  "blurb": "Get from one article to another by links alone, in your own Wikipedia"
+  "blurb": "Get from one article to another by links alone, in your own Wikipedia",
+  "why": "Players race between Wikipedia articles using only links; here it runs on your own library."
  },
  {
   "qid": "Q460875",
   "wiki": "Hangman (game)",
   "path": "letterbyletter.html",
   "title": "Letter by Letter",
-  "blurb": "Guess the word, keep the balloon up; words from your Wiktionary"
+  "blurb": "Guess the word, keep the balloon up; words from your Wiktionary",
+  "why": "Guess the word a letter at a time, with words and meanings from your Wiktionary."
  },
  {
   "qid": "Q274079",
   "wiki": "Quiz",
   "path": "quizzical.html",
   "title": "Quizzical",
-  "blurb": "Questions made from the articles and words in your library"
+  "blurb": "Questions made from the articles and words in your library",
+  "why": "Questions made from the articles in your own library."
  },
  {
   "qid": "Q181008",
   "wiki": "Jigsaw puzzle",
   "path": "jigsaw.html",
   "title": "Jigsaw",
-  "blurb": "A picture from your Wikipedia, 12 to 100 pieces"
+  "blurb": "A picture from your Wikipedia, 12 to 100 pieces",
+  "why": "Jigsaw puzzles began as maps cut into pieces to teach geography, in the 1760s."
  },
  {
   "qid": "Q125177944",
