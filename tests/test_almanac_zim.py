@@ -54,7 +54,7 @@ def test_the_stage_is_a_whole_folder(staged):
         "almanac.css",
     ):
         assert (staged / name).is_file(), name
-    shell = (staged / "shell.js").read_text()
+    shell = (staged / "shell.js").read_text(encoding="utf-8")
     for name in stage.SHELL_SEEDS:
         assert re.search(
             r"(?m)^(?:function|var|let|const) %s\b" % re.escape(name), shell
@@ -71,7 +71,7 @@ def test_no_absolute_static_url_is_left(staged):
         ):
             bad.append((os.path.relpath(path, staged), m.group(0)))
     assert bad == []
-    assert "earth/moon-v1.webp" in (staged / "shell.js").read_text()
+    assert "earth/moon-v1.webp" in (staged / "shell.js").read_text(encoding="utf-8")
 
 
 def test_shell_js_is_valid_javascript(staged):
@@ -161,5 +161,5 @@ def test_it_builds_into_a_real_zim_and_rebuilds_when_a_source_changes(
     ):
         assert a.has_entry_by_path(p), p
     assert ownzims.build(ALMANAC) is None, "unchanged: nothing is built"
-    (host / "index.html").write_text(_read(HOST_HTML) + "\n<!-- changed -->\n")
+    (host / "index.html").write_text(_read(HOST_HTML) + "\n<!-- changed -->\n", encoding="utf-8")
     assert ownzims.build(ALMANAC) == path, "a changed source builds it again"

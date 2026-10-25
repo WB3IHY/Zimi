@@ -59,7 +59,7 @@ def test_built_once_then_skipped_until_the_folder_changes(home):
     stamp = open(first + ".source").read()
     assert ownzims.build(own) is None, "same folder: nothing is built"
     (home["src"] / "index.html").write_text(
-        "<!doctype html><title>Changed</title><p>changed</p>"
+        "<!doctype html><title>Changed</title><p>changed</p>", encoding="utf-8"
     )
     assert not ownzims.fresh(own), "a changed source makes the built file stale"
     assert ownzims.build(own) == first, "a changed file builds it again"
@@ -82,7 +82,7 @@ def test_the_hash_is_the_same_everywhere_and_sees_names_and_bytes(home):
 def test_a_failed_build_leaves_the_last_good_one_serving(home, monkeypatch):
     path = ownzims.build(home["own"])
     good = os.path.getsize(path)
-    (home["src"] / "index.html").write_text("<p>new</p>")
+    (home["src"] / "index.html").write_text("<p>new</p>", encoding="utf-8")
 
     def boom(*a, **k):
         raise RuntimeError("disk full")

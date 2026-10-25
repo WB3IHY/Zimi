@@ -349,7 +349,14 @@ _BUILDS = [
 ]
 
 
+# Zimi's own ZIMs, committed in the package: the release attaches them as they are.
+_OWN_ZIMS = ["zimi_almanac.zim", "zimi_games.zim"]
+
+
 def _run_release_naming(tmp, builds):
+    (tmp / "zimi" / "builtin").mkdir(parents=True, exist_ok=True)
+    for name in _OWN_ZIMS:
+        (tmp / "zimi" / "builtin" / name).write_text("x", encoding="utf-8")
     for folder, name in builds:
         (tmp / folder).mkdir(parents=True, exist_ok=True)
         (tmp / folder / name).write_text("x", encoding="utf-8")
@@ -376,7 +383,7 @@ def test_release_files_are_named_version_platform_chip(tmp_path):
         "Zimi-1.2.3-windows-x64.zip",
         "Zimi-1.2.3-x86_64.AppImage",
         "Zimi-1.2.3-x86_64.AppImage.zsync",
-    ]
+    ] + _OWN_ZIMS
     text = _commands("desktop-release.yml")
     # The release gets every renamed file (beside the SBOM, when one was made).
     assert 'gh release create "$TAG" release/*' in text and 'gh release upload "$TAG" release/*' in text
@@ -427,7 +434,7 @@ def test_the_appimage_carries_update_information_and_its_zsync():
 def test_a_release_without_its_snap_still_ships_the_rest(tmp_path):
     done = _run_release_naming(tmp_path, _BUILDS)
     assert done.returncode == 0, done.stderr
-    assert len(list((tmp_path / "release").iterdir())) == 6
+    assert len(list((tmp_path / "release").iterdir())) == 6 + len(_OWN_ZIMS)
 
 
 @pytest.mark.skipif(os.name == "nt" or not shutil.which("bash"), reason="the release job runs on macOS")
