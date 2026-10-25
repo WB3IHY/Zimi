@@ -11,7 +11,7 @@
    handNo, result. Pure functions; the page wiring only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
 
   var MAX_RECYCLES = 3, END_SCORE = 100, EIGHT = 8, EIGHT_POINTS = 50, FACE_POINTS = 10, POS_NAMES = ['You', 'West', 'North', 'East'];
   var GLYPH = T.SUIT_GLYPH, SUIT_NAMES = ['clubs', 'diamonds', 'hearts', 'spades'];
@@ -115,13 +115,13 @@
     return { stock: { x: Math.round(g.cx - g.cw * 1.1), y: y }, discard: { x: Math.round(g.cx + g.cw * 0.1), y: y } };
   }
   function place(st, m, view) {
-    var g = geo(m, st), p = piles(g), slots = [], cards = [], myTurn = st.phase === 'play' && st.turn === 0;
+    var g = geo(m, st), p = piles(g), slots = [], cards = [], V = (view && view.viewer) || 0, up = !(view && view.hideHand), myTurn = st.phase === 'play' && st.turn === V;
     slots.push({ id: 'stock', x: p.stock.x, y: p.stock.y, w: g.cw, h: g.ch, label: 'Stock, ' + Z.plural(st.stock.length, 'card') });
     slots.push({ id: 'discard', x: p.discard.x, y: p.discard.y, w: g.cw, h: g.ch, label: 'Discard pile, top ' + Z.cardName(top(st)) });
     var pend = view && view.pending;
-    var hand = T.handCards(g, st.hands[0], function (id) { return { dim: myTurn && !pend && !isLegal(st, 0, id), raise: id === pend, mark: id === pend }; });
+    var hand = T.handCards(g, st.hands[V], function (id) { return { up: up, dim: up && myTurn && !pend && !isLegal(st, V, id), raise: up && id === pend, mark: up && id === pend }; });
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
-    for (var seat = 1; seat < st.players; seat++) cards = cards.concat(T.fan(g, T.SEAT_POS[st.players][seat], st.hands[seat], false));
+    for (var r = 1; r < st.players; r++) cards = cards.concat(T.fan(g, T.SEAT_POS[st.players][r], st.hands[(V + r) % st.players], false));
     st.stock.forEach(function (id, k) { cards.push({ id: id, pile: 'stock', idx: k, x: p.stock.x, y: p.stock.y, up: false, hidden: k < st.stock.length - SHOW_STOCK }); });
     st.discard.forEach(function (id, k) {
       var from = st.discard.length - SHOW_DISCARD, off = Math.max(0, k - from) * DISCARD_FAN;
@@ -146,7 +146,19 @@
     marker.appendChild(markerGlyph); marker.appendChild(markerText);
     var count = Z.h('div', { class: 'ce-suit ce-count' });
     Z.pageEls().table.appendChild(marker); Z.pageEls().table.appendChild(count);
-    var name = function (st, seat) { return seatName(st.players, seat); };
+    // Seats are the Computer or a Person. The count of seats follows the table size, so a new
+    // game builds a fresh ZimiSeats and the facade below hands out its methods.
+    var seats = {};
+    function buildSeats(n) {
+      var cur = Seats.create({ id: 'crazyeights', seats: n, onChange: function () { if (t) t.paint(); if (board) board.refresh(); } });
+      Object.keys(cur).forEach(function (k) { seats[k] = cur[k]; });
+    }
+    buildSeats(players);
+    var name = function (st, seat) { return seats.name(seat); };
+    var mine = function (seat) { return seats.person(seat) && seat === seats.view(); };
+    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.turn !== view.viewer; }
+    function repaint() { board.refresh(); t.paint(); }
+
 
     function paintMarker(st) {
       var m = board.metrics();
@@ -167,12 +179,13 @@
       if (st.phase === 'handEnd') { out.text = 'Hand over'; out.label = 'Next hand'; out.action = startNextHand; return out; }
       if (st.phase === 'over') { out.text = 'Game over'; out.label = 'New game'; out.action = newGame; return out; }
       var note = view.note ? ' ' + view.note : '';
-      if (st.turn !== 0) { out.text = name(st, st.turn) + ' is thinking.' + note; return out; }
+      if (!seats.person(st.turn)) { out.text = name(st, st.turn) + ' is thinking.' + note; return out; }
+      if (!mine(st.turn)) { out.text = name(st, st.turn) + ' is next.' + note; return out; }
       if (view.pending !== null) {
         out.text = 'Choose the suit';
         out.choices = [0, 1, 2, 3].map(function (s) { return { label: GLYPH[s], aria: SUIT_NAMES[s], cls: s === 1 || s === 2 ? 'ct-red' : '', onclick: function () { chooseSuit(s); } }; });
         out.choices.push({ label: 'Cancel', onclick: function () { view.pending = null; board.refresh(); t.paint(); } });
-      } else if (legalPlays(st, 0).length) out.text = 'Your turn.' + note;
+      } else if (legalPlays(st, st.turn).length) out.text = (seats.isYou(st.turn) ? 'Your turn.' : name(st, st.turn) + ', your turn.') + note;
       else out.text = (canDraw(st) ? 'No play: tap the stock to draw.' : 'No play and nothing to draw.') + note;
       return out;
     }
@@ -180,8 +193,8 @@
     function drive() {
       var st = session.state;
       if (st.phase !== 'play') return;
-      if (st.turn !== 0) session.later(aiTurn, AI_MS);
-      else if (mustPass(st, 0)) session.later(passNow, PASS_MS);
+      if (!seats.person(st.turn)) session.later(aiTurn, AI_MS);
+      else seats.ensure(st.turn, function () { repaint(); if (mustPass(st, st.turn)) session.later(passNow, PASS_MS); });
     }
     function finish() {
       var st = session.state;
@@ -189,7 +202,7 @@
     }
     function aiTurn() {
       var st = session.state, seat = st.turn;
-      if (st.phase !== 'play' || seat === 0) return;
+      if (st.phase !== 'play' || seats.person(seat)) return;
       var mv = aiPlay(st, seat), me = name(st, seat);
       if (mv) {
         view.note = me + ' played ' + T.short(mv.id) + (rankOf(mv.id) === EIGHT ? ' and called ' + SUIT_NAMES[mv.suit] : '') + '.';
@@ -201,30 +214,32 @@
     }
     function resultLines(st) {
       var r = st.result, me = name(st, r.winner);
-      return [(r.blocked ? 'Nobody can move: ' + (r.winner === 0 ? 'you hold' : me + ' holds') + ' the fewest points, and ' : (r.winner === 0 ? 'You went out' : me + ' went out') + ' and ') + (r.winner === 0 ? 'score ' : 'scores ') + r.points + '.', scoreLine(st, true)];
+      return [(r.blocked ? 'Nobody can move: ' + (seats.isYou(r.winner) ? 'you hold' : me + ' holds') + ' the fewest points, and ' : (seats.isYou(r.winner) ? 'You went out' : me + ' went out') + ' and ') + (seats.isYou(r.winner) ? 'score ' : 'scores ') + r.points + '.', scoreLine(st, true)];
     }
     function handOver() { T.lineSheet('Hand ' + (session.state.handNo + 1), resultLines(session.state), [{ label: 'Next hand', primary: true, onclick: startNextHand }]); }
     function gameOver() {
-      var st = session.state, w = gameWinner(st.scores), lines = resultLines(st).concat([w === 0 ? 'You win with ' + st.scores[0] + '.' : name(st, w) + ' wins with ' + st.scores[w] + '.']);
-      if (w === 0) session.win(st.scores[0]); else session.lose('Game over', lines, st.scores[0]);
+      var st = session.state, w = gameWinner(st.scores), me = seats.view(), hot = seats.hotseat();
+      var lines = resultLines(st).concat([w === me && !hot ? 'You win with ' + st.scores[me] + '.' : name(st, w) + ' wins with ' + st.scores[w] + '.']);
+      if (w === me && !hot) session.win(st.scores[me]); else session.lose(hot ? name(st, w) + ' wins' : 'Game over', lines, hot ? undefined : st.scores[me]);
     }
     function startNextHand() {
       var st = session.state;
       if (st.phase !== 'handEnd') return;
       session.history = []; view.note = '';
       session.follow(nextHand(st, Z.shuffled(Math.random)));
-      drive();
+      deal();
     }
     function passNow() {
       var st = session.state;
-      if (!mustPass(st, 0)) return;
-      view.note = 'You passed.'; session.follow(pass(st, 0)); t.flash('Nothing to play or draw: you pass'); drive();
+      if (!mustPass(st, st.turn)) return;
+      var who = name(st, st.turn), you = seats.isYou(st.turn);
+      view.note = (you ? 'You' : who) + ' passed.'; session.follow(pass(st, st.turn)); t.flash(you ? 'Nothing to play or draw: you pass' : 'Nothing to play or draw: ' + who + ' passes'); drive();
     }
     function play(id, suit) {
       var st = session.state;
-      if (!isLegal(st, 0, id)) return false;
+      if (!isLegal(st, seats.view(), id)) return false;
       view.note = '';
-      session.commit(playCard(st, 0, id, suit));
+      session.commit(playCard(st, seats.view(), id, suit));
       finish();
       return true;
     }
@@ -232,17 +247,17 @@
     // An 8 asks for its suit first; any other card plays at once.
     function tryPlay(id) {
       var st = session.state;
-      if (!isLegal(st, 0, id)) return false;
+      if (!isLegal(st, seats.view(), id)) return false;
       if (rankOf(id) === EIGHT) { view.pending = id; board.refresh(); t.paint(); return true; }
       return play(id);
     }
     var idOf = function (pile) { return parseInt(pile.slice(1), 10); };
     function drawTap() {
       var st = session.state;
-      if (st.phase !== 'play' || st.turn !== 0) { t.flash('Wait for your turn'); return; }
-      if (legalPlays(st, 0).length) { t.flash('You have a card to play'); return; }
+      if (st.phase !== 'play' || st.turn !== seats.view()) { t.flash('Wait for your turn'); return; }
+      if (legalPlays(st, st.turn).length) { t.flash(seats.isYou(st.turn) ? 'You have a card to play' : 'There is a card to play'); return; }
       if (!canDraw(st)) return;
-      view.note = ''; session.commit(draw(st, 0)); drive();
+      view.note = ''; session.commit(draw(st, st.turn)); drive();
     }
     function tap(pile) {
       var st = session.state;
@@ -251,27 +266,30 @@
       var id = idOf(pile);
       if (pile.charAt(0) !== 'h' || isNaN(id) || st.phase !== 'play') return false;
       view.pending = null;
-      if (st.turn !== 0) { t.flash('Wait for your turn'); return false; }
-      if (!isLegal(st, 0, id)) { t.flash(whyNot(st)); return false; }
+      if (st.turn !== seats.view()) { t.flash('Wait for your turn'); return false; }
+      if (!isLegal(st, st.turn, id)) { t.flash(whyNot(st)); return false; }
       return tryPlay(id);
     }
     function newGame() {
       players = Z.store.get(PLAYERS_KEY, DEFAULT_PLAYERS);
       if (players !== 2 && players !== 3 && players !== 4) players = DEFAULT_PLAYERS;
+      buildSeats(players);
       view.flash = ''; view.pending = null; view.note = '';
       session.reset(freshGame(Z.shuffled(Math.random), players, Math.floor(Math.random() * players)));
-      drive();
+      deal();
     }
+    // A fresh deal: nobody has seen it, so a table of people starts at a handoff.
+    function deal() { seats.begin(function () { repaint(); drive(); }, session.state.turn); }
     t = T.create({
-      id: 'crazyeights', name: 'Crazy Eights', view: view, geo: geo, place: place, hud: hud, newGame: newGame, tap: tap, slotTap: drawTap, cols: 7, heightShare: 0.11,
-      canPick: function (st, pile) { return st.phase === 'play' && pile.charAt(0) === 'h' && isLegal(st, 0, idOf(pile)); },
+      id: 'crazyeights', name: 'Crazy Eights', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, tap: tap, slotTap: drawTap, cols: 7, heightShare: 0.11,
+      canPick: function (st, pile) { return st.phase === 'play' && pile.charAt(0) === 'h' && isLegal(st, seats.view(), idOf(pile)); },
       move: function (pile, idx, to) { return (to === 'discard' || to === 'stock') && pile.charAt(0) === 'h' ? tryPlay(idOf(pile)) : false; },
-      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0]; },
+      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[seats.view()]; },
       cascadeOrder: function (st) { return st.discard.map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return resultLines(st).concat(['You win with ' + st.scores[0] + '.']); },
+      winLines: function (sec, st) { return resultLines(st).concat(['You win with ' + st.scores[seats.view()] + '.']); },
       menuExtra: function () {
-        return [T.choiceRow('Players', PLAYERS_KEY, [{ value: 2, label: '2' }, { value: 3, label: '3' }, { value: 4, label: '4' }], DEFAULT_PLAYERS, function () {}),
-          Z.h('p', { class: 'zc-note', text: 'The number of players applies to the next new game.' })];
+        return [T.choiceRow('Seats at the table', PLAYERS_KEY, [{ value: 2, label: '2' }, { value: 3, label: '3' }, { value: 4, label: '4' }], DEFAULT_PLAYERS, function () {}),
+          Z.h('p', { class: 'zc-note', text: 'The number of seats applies to the next new game.' })];
       },
       rules: 'Play a card that matches the top card’s suit or rank. An 8 is wild: you name the suit. No play? Tap the stock to draw until you can. Go out first to score the points left in the other hands (8 = 50, K Q J = 10, ace = 1). First to 100 wins. Tap a card to play it, or drag it to the discard pile.'
     });
