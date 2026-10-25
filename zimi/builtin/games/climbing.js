@@ -27,9 +27,9 @@
    at the bottom of each game's file only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
 
-  var SEATS = 4, HAND = 13, NAMES = ['You', 'West', 'North', 'East'];
+  var SEATS = 4, HAND = 13, COMPASS = ['South', 'West', 'North', 'East'];
   var TWO = 12, ACE = 11, MAX_STRAIGHT_TOP = 11, SUIT_WEIGHT = 4, CAP = 80, FLUSH_SUIT = 1e7;
   var rankC = function (id) { var r = Z.rank(id); return r === 1 ? ACE : r === 2 ? TWO : r - 3; };
   var RANK_NAME = ['three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'jack', 'queen', 'king', 'ace', 'two'];
@@ -285,15 +285,16 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var mySel = function (st, view) { return ((view && view.sel) || []).filter(function (id) { return st.hands[0].indexOf(id) >= 0; }); };
-  function geo(m, st) { return T.geometry(m, T.rowsFor(m, st.hands[0].length)); }
+  // The person looking sits south (view.viewer); their hand is face down while it is not their turn.
+  var viewerOf = function (view) { return (view && view.viewer) || 0; };
+  var mySel = function (st, view) { return ((view && view.sel) || []).filter(function (id) { return st.hands[viewerOf(view)].indexOf(id) >= 0; }); };
+  function geo(m, st, V) { return T.geometry(m, T.rowsFor(m, st.hands[V || 0].length)); }
   function place(st, m, view) {
-    var g = geo(m, st), slots = [], cards = [], sel = mySel(st, view);
-    var myTurn = st.phase === 'play' && st.turn === 0;
+    var V = viewerOf(view), up = !(view && view.hideHand), g = geo(m, st, V), slots = [], cards = [], sel = up ? mySel(st, view) : [];
     slots.push({ id: 'table', x: g.cx - 2 * g.cw, y: g.cy - g.ch / 2 - 4, w: 4 * g.cw, h: g.ch + 8, quiet: true, label: 'Table' });
-    var hand = T.handCards(g, st.hands[0], function (id) { return { raise: sel.indexOf(id) >= 0, glow: sel.indexOf(id) >= 0, label: Z.cardName(id) + (sel.indexOf(id) >= 0 ? ', picked' : '') }; }, null);
+    var hand = T.handCards(g, st.hands[V], function (id) { return { up: up, raise: sel.indexOf(id) >= 0, glow: sel.indexOf(id) >= 0, label: up ? Z.cardName(id) + (sel.indexOf(id) >= 0 ? ', picked' : '') : 'Hidden card' }; }, null);
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
-    [1, 2, 3].forEach(function (seat) { if (st.hands[seat].length) cards = cards.concat(T.fan(g, seat, st.hands[seat], false)); });
+    [1, 2, 3].forEach(function (r) { var seat = (V + r) % SEATS; if (st.hands[seat].length) cards = cards.concat(T.fan(g, r, st.hands[seat], false)); });
     var n = st.table.length, avail = g.W - 2 * g.pad - g.cw, step = n > 1 ? Math.min(g.cw * 0.62, avail / (n - 1)) : 0, x0 = g.cx - (g.cw + (n - 1) * step) / 2;
     st.table.forEach(function (id, k) { cards.push({ id: id, pile: 'trick', idx: k, x: Math.round(x0 + k * step), y: Math.round(g.cy - g.ch / 2), up: true, dim: !st.top }); });
     return { height: m.H, slots: slots, cards: cards };
@@ -314,94 +315,105 @@
   var AI_MS = 700, HOLD_MS = 900;
   function boot(game) {
     var R = game.rules, d = root.document, t, board, session, view = { sel: [], flash: '' };
+    // Seats are the Computer or a Person; two or more people share the screen behind a handoff.
+    var seats = Seats.create({ id: R.id, seats: SEATS, cpuNames: COMPASS, onChange: function () { view.sel = []; repaint(); } });
+    var nm = function (seat) { return seats.name(seat); };
+    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.turn !== view.viewer; }
+    function repaint() { if (board) board.refresh(); if (t) t.paint(); }
     var describeTop = function (st) { return st.top ? describe(R, st.top.combo) : ''; };
     function counts(st) {
-      return NAMES.map(function (name, seat) {
-        var n = st.hands[seat].length, done = n === 0 && st.order.indexOf(seat) >= 0;
-        return { name: name, text: done ? 'out, ' + ordinal(st.order.indexOf(seat) + 1) : (st.passed[seat] && R.passOut && st.top ? 'passed' : Z.plural(n, 'card')), turn: st.phase === 'play' && st.turn === seat };
+      return st.hands.map(function (h, seat) {
+        var n = h.length, done = n === 0 && st.order.indexOf(seat) >= 0;
+        return { name: nm(seat), text: done ? 'out, ' + ordinal(st.order.indexOf(seat) + 1) : (st.passed[seat] && R.passOut && st.top ? 'passed' : Z.plural(n, 'card')), turn: st.phase === 'play' && st.turn === seat };
       });
     }
     function ordinal(n) { return ['first', 'second', 'third', 'fourth'][n - 1]; }
     function hud(st) {
-      var out = { chips: counts(st), sub: 'You ' + st.scores[0] + ' · target ' + R.target, text: '' };
+      var V = seats.view(), out = { chips: counts(st), sub: (seats.hotseat() ? nm(V) : 'You') + ' ' + st.scores[V] + ' · target ' + R.target, text: '' };
       if (st.phase === 'handEnd' || st.phase === 'over') {
         if (st.phase === 'handEnd') { out.text = 'Hand over'; out.label = 'Next hand'; out.action = startNextHand; }
-        else { out.text = game.gameWinner(st.scores) === 0 ? 'You win the match' : NAMES[game.gameWinner(st.scores)] + ' wins the match'; out.label = 'New game'; out.action = newGame; }
+        else { var w = game.gameWinner(st.scores); out.text = seats.isYou(w) ? 'You win the match' : nm(w) + ' wins the match'; out.label = 'New game'; out.action = newGame; }
         return out;
       }
-      if (st.turn === 0) {
-        var sel = mySel(st, view), why = sel.length ? game.whyNot(st, 0, sel) : '', combo = sel.length ? game.classify(sel) : null;
-        out.text = st.top ? NAMES[st.top.seat] + ' played ' + describeTop(st) + '. Your turn' : (st.opening ? 'You lead: include the ' + Z.cardName(openingCard(R)) : 'You lead anything');
+      var played = st.top ? nm(st.top.seat) + ' played ' + describeTop(st) + '. ' : '';
+      if (seats.person(st.turn) && st.turn !== V) out.text = played + nm(st.turn) + ' is next';
+      else if (st.turn === V) {
+        var sel = mySel(st, view), why = sel.length ? game.whyNot(st, V, sel) : '', combo = sel.length ? game.classify(sel) : null, who = seats.isYou(V) ? 'You' : nm(V);
+        out.text = st.top ? played + (who === 'You' ? 'Your turn' : who + ', your turn') : (st.opening ? who + ' lead: include the ' + Z.cardName(openingCard(R)) : who + ' lead anything');
         out.choices = [
           { label: combo && !why ? 'Play ' + game.describe(combo) : 'Play', disabled: !!why || !sel.length, onclick: playSelected },
           { label: 'Pass', disabled: !st.top, onclick: passTurn },
           { label: 'Hint', onclick: hint }
         ];
         if (sel.length && why) out.lines = [{ text: why }];
-        else if (!sel.length && st.top && !game.legalPlays(st, 0).length) out.lines = [{ text: 'Nothing you hold beats that: pass.' }];
-      } else out.text = (st.top ? NAMES[st.top.seat] + ' played ' + describeTop(st) + '. ' : '') + NAMES[st.turn] + ' is thinking';
+        else if (!sel.length && st.top && !game.legalPlays(st, V).length) out.lines = [{ text: 'Nothing you hold beats that: pass.' }];
+      } else out.text = played + nm(st.turn) + ' is thinking';
       return out;
     }
     function drive() {
       var st = session.state;
       if (st.phase === 'handEnd') { handOver(); return; }
       if (st.phase === 'over') { gameOver(); return; }
-      if (st.turn !== 0) session.later(aiTurn, st.hands[0].length ? AI_MS : 350);
+      if (seats.person(st.turn)) { seats.ensure(st.turn, repaint); return; }
+      session.later(aiTurn, seats.people().some(function (p) { return st.hands[p].length; }) ? AI_MS : 350);
     }
     function aiTurn() {
       var st = session.state;
-      if (st.phase !== 'play' || st.turn === 0) return;
+      if (st.phase !== 'play' || seats.person(st.turn)) return;
       var pick = game.aiPlay(st, st.turn);
       session.follow(pick ? game.play(st, st.turn, pick) : game.pass(st, st.turn));
       drive();
     }
     function playSelected() {
       var st = session.state;
-      if (st.turn !== 0 || game.whyNot(st, 0, view.sel)) return;
+      var V = seats.view();
+      if (st.turn !== V || game.whyNot(st, V, view.sel)) return;
       var ids = view.sel.slice(); view.sel = [];
-      session.commit(game.play(st, 0, ids)); drive();
+      session.commit(game.play(st, V, ids)); drive();
     }
     function passTurn() {
       var st = session.state;
-      if (st.turn !== 0 || !st.top) return;
-      view.sel = []; session.commit(game.pass(st, 0)); drive();
+      if (st.turn !== seats.view() || !st.top) return;
+      view.sel = []; session.commit(game.pass(st, st.turn)); drive();
     }
     function hint() {
-      var st = session.state, legal = game.legalPlays(st, 0);
+      var st = session.state, V = seats.view(), legal = game.legalPlays(st, V);
       if (!legal.length) { t.flash('Nothing beats it: pass'); return; }
-      var c = legal.slice().sort(function (a, b) { return cost(R, st, 0, a, true) - cost(R, st, 0, b, true); })[0];
+      var c = legal.slice().sort(function (a, b) { return cost(R, st, V, a, true) - cost(R, st, V, b, true); })[0];
       view.sel = c.cards.slice(); board.refresh(); t.paint();
     }
     function tap(pile) {
       var st = session.state, id = parseInt(pile.slice(1), 10);
-      if (pile.charAt(0) !== 'h' || isNaN(id) || st.phase !== 'play') return false;
+      if (pile.charAt(0) !== 'h' || isNaN(id) || st.phase !== 'play' || view.hideHand) return false;
       var at = view.sel.indexOf(id);
       if (at >= 0) view.sel.splice(at, 1); else view.sel.push(id);
       board.refresh(); t.paint();
       return true;
     }
-    function lineFor(st) { var r = st.result; return NAMES.map(function (n, i) { return n + ' ' + (r.points[i] > 0 ? '+' : '') + r.points[i] + ' (' + st.scores[i] + ')'; }).join(' · '); }
+    function lineFor(st) { var r = st.result; return st.hands.map(function (h, i) { return nm(i) + ' ' + (r.points[i] > 0 ? '+' : '') + r.points[i] + ' (' + st.scores[i] + ')'; }).join(' · '); }
     function handOver() { var st = session.state; T.lineSheet('Hand ' + (st.handNo + 1), [lineFor(st), R.firstOut ? 'Others pay a point a card left in their hands.' : 'Order of finishing scores 4, 1, -1, -4.'], [{ label: 'Next hand', primary: true, onclick: startNextHand }]); }
     function gameOver() {
-      var st = session.state, w = game.gameWinner(st.scores);
-      if (w === 0) session.win(st.scores[0]); else session.lose('Game over', [NAMES[w] + ' reached ' + R.target + ' first.', lineFor(st)], st.scores[0]);
+      var st = session.state, w = game.gameWinner(st.scores), V = seats.view(), hot = seats.hotseat();
+      if (w === V && !hot) session.win(st.scores[V]); else session.lose(hot ? nm(w) + ' wins' : 'Game over', [nm(w) + ' reached ' + R.target + ' first.', lineFor(st)], hot ? undefined : st.scores[V]);
     }
     function startNextHand() {
       var st = session.state;
       if (st.phase !== 'handEnd') return;
       session.history = []; view.sel = [];
       session.follow(game.nextHand(st, Z.shuffled(Math.random)));
-      drive();
+      deal();
     }
     function newGame() {
       view.sel = []; view.flash = '';
       session.reset(game.newHand(Z.shuffled(Math.random), [0, 0, 0, 0], 0, 0));
-      drive();
+      deal();
     }
+    // A fresh deal: nobody has seen it, so a table of people starts at a handoff.
+    function deal() { seats.begin(function () { repaint(); drive(); }, session.state.turn); }
     t = T.create({
-      id: R.id, name: R.name, view: view, geo: geo, place: function (st, m, v) { return place(st, m, v); }, hud: hud, newGame: newGame, tap: tap, cols: 7, heightShare: 0.11,
+      id: R.id, name: R.name, seats: seats, view: view, geo: function (m, st) { return geo(m, st, seats.view()); }, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, tap: tap, cols: 7, heightShare: 0.11,
       canPick: function () { return false; },
-      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0]; },
+      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[seats.view()]; },
       cascadeOrder: function (st) { return st.table.map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { return ['You reached ' + R.target + ' first: ' + st.scores.join(', ') + '.']; },
       rules: game.rulesText
@@ -412,7 +424,7 @@
     d.addEventListener('keydown', function (e) {
       if (e.ctrlKey || e.metaKey || e.altKey || d.querySelector('.ar-sheet')) return;
       var k = e.key.toLowerCase(), st = session.state;
-      if (!st || st.turn !== 0 || st.phase !== 'play') return;
+      if (!st || st.turn !== seats.view() || st.phase !== 'play' || seats.covering) return;
       if (k === 'p') { playSelected(); e.preventDefault(); } else if (k === 's') { passTurn(); e.preventDefault(); } else if (k === 'h') { hint(); e.preventDefault(); } else if (k === 'escape') { view.sel = []; board.refresh(); t.paint(); }
     });
     newGame();
