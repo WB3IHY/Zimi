@@ -404,5 +404,89 @@
   "path": "puzzles/unruly.html",
   "title": "Unruly",
   "blurb": "Two colours, no three in a row, balanced lines"
+ },
+ {
+  "qid": "Q8046426",
+  "wiki": "Yacht (dice game)",
+  "path": "yacht.html",
+  "title": "Yacht",
+  "blurb": "Thirteen rows, five dice, solo or against computers"
+ },
+ {
+  "qid": "Q20825977",
+  "wiki": "Liar's dice",
+  "path": "liarsdice.html",
+  "title": "Liar's Dice",
+  "blurb": "Bid, bluff and call the lie, two to six players"
+ },
+ {
+  "qid": "Q953491",
+  "wiki": "Battleship (game)",
+  "path": "fleet.html",
+  "title": "Fleet",
+  "blurb": "Hide your ships, hunt the computer's"
+ },
+ {
+  "qid": "Q6498850",
+  "wiki": "Bulls and cows",
+  "path": "codebreaker.html",
+  "title": "Code Breaker",
+  "blurb": "Crack the four-peg code, with shapes as well as colours"
+ },
+ {
+  "qid": "Q653928",
+  "wiki": "Pinball",
+  "path": "pinball.html",
+  "title": "Pinball",
+  "blurb": "Flippers, bumpers, lanes and multiball on one table"
+ },
+ {
+  "qid": "Q748890",
+  "wiki": "Asteroids (video game)",
+  "path": "rocks.html",
+  "title": "Rocks",
+  "blurb": "Drift, turn and shoot; rocks split, a saucer shoots back"
+ },
+ {
+  "qid": "Q220665",
+  "wiki": "Space Invaders",
+  "path": "lastline.html",
+  "title": "Last Line",
+  "blurb": "Drone rows descend, shields wear away, hold the line"
+ },
+ {
+  "qid": "Q2590391",
+  "wiki": "Lunar Lander (1979 video game)",
+  "path": "lander.html",
+  "title": "Lander",
+  "blurb": "Thrust and rotate down onto a pad before the fuel is gone"
+ },
+ {
+  "qid": "Q216293",
+  "wiki": "Pong",
+  "path": "paddles.html",
+  "title": "Paddles",
+  "blurb": "Two-paddle tennis, against the computer or a friend"
+ },
+ {
+  "qid": "Q20825866",
+  "wiki": "Concentration (card game)",
+  "path": "memory.html",
+  "title": "Memory",
+  "blurb": "Match the pairs; animals and shapes"
+ },
+ {
+  "qid": "Q813197",
+  "wiki": "Simon (game)",
+  "path": "echo.html",
+  "title": "Echo",
+  "blurb": "Repeat the growing sequence of pads"
+ },
+ {
+  "qid": "Q210339",
+  "wiki": "Tic-tac-toe",
+  "path": "noughts.html",
+  "title": "Noughts and Crosses",
+  "blurb": "Three in a row, against an easy or a perfect computer"
  }
 ]
