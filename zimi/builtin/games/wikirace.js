@@ -378,7 +378,7 @@
     Lib.isZimi().then(function (yes) { return yes ? Lib.zims() : []; }).then(function (list) {
       var found = Lib.pickZim(list, 'wikipedia', Lib.uiLang());
       provider = found ? zimiProvider(found.zim) : miniProvider();
-      els.sub.textContent = found ? 'Racing on ' + (found.zim.title || found.zim.name) + ' (' + found.zim.language + '), from your library.' + (found.exact ? '' : ' No Wikipedia in your language yet.') : 'Built-in articles. Open ZimiGames inside Zimi to race on your own Wikipedia.';
+      els.sub.textContent = found ? 'Racing on ' + (found.zim.title || found.zim.name) + ' (' + found.zim.language + ').' + (found.exact ? '' : ' No Wikipedia in your language yet.') : 'Built-in articles. Open ZimiGames inside Zimi to race on your own Wikipedia.';
       newRace('daily');
     });
   }

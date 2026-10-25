@@ -181,7 +181,7 @@
 
   function newRound() {
     if (building) return; building = true; at = 0; score = 0; round = [];
-    say('Choosing questions from your library...');
+    say('Choosing questions from your Wikipedia...');
     els.kind.classList.add('gl-loading');
     var work;
     if (wikiZim) {
