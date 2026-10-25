@@ -66,17 +66,18 @@
     for (var i = 0; i < inputs.length; i++) inputs[i].checked = inputs[i].value === String(value);
   }
 
-  // Arrow keys move focus over a square grid of buttons (display order); one is the tab stop.
+  // Arrow keys move focus over a grid of buttons (display order); one is the tab stop. n is the width
+  // (and the height, unless rows says otherwise).
   var ARROWS = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] };
-  function gridNav(board, cells, n) {
-    var cur = 0;
+  function gridNav(board, cells, n, rows) {
+    var cur = 0, h = rows || n;
     function mark(i) { cells[cur].tabIndex = -1; cur = i; cells[cur].tabIndex = 0; }
     cells.forEach(function (c, i) { c.tabIndex = i ? -1 : 0; c.addEventListener('focus', function () { mark(i); }); });
     board.addEventListener('keydown', function (e) {
       var d = ARROWS[e.key];
       if (!d || e.ctrlKey || e.metaKey || e.altKey) return;
       e.preventDefault();
-      var r = Math.min(n - 1, Math.max(0, Math.floor(cur / n) + d[0])), c = Math.min(n - 1, Math.max(0, (cur % n) + d[1]));
+      var r = Math.min(h - 1, Math.max(0, Math.floor(cur / n) + d[0])), c = Math.min(n - 1, Math.max(0, (cur % n) + d[1]));
       cells[r * n + c].focus();
     });
   }
