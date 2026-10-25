@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Echo - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="echo.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Echo</h1>
+  <button class="ar-btn" id="ec-sound" type="button" aria-pressed="false">Sound: off</button>
+  <button class="ar-btn" id="ec-pause" type="button" disabled>Pause</button>
+</header>
+
+<main class="pl-main">
+  <div class="pl-hud">
+    <div class="pl-stat"><small>Length</small><b id="ec-len">0</b></div>
+    <div class="pl-stat"><small>Best</small><b id="ec-best">0</b></div>
+  </div>
+  <p class="pl-msg ec-msg" id="ec-msg" role="status" aria-live="polite"></p>
+  <div class="ec-board" id="ec-board" role="group" aria-label="Four pads"></div>
+  <p class="pl-help">Watch the pads light up, then tap them in the same order. Each round adds one more. Keys: 1 to 4, or Q W A S for the four corners. Turn Sound on to hear a note with each pad.</p>
+</main>
+
+<div class="ar-sheet" id="ec-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="ec-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="ec-sheet-title">Echo</h2>
+    <p id="ec-sheet-text"></p>
+    <p class="pl-row"><span id="ec-mode-label">If you slip</span><span class="pl-seg" id="ec-mode" role="group" aria-labelledby="ec-mode-label"></span></p>
+    <div class="ar-sheet-actions"><button class="ar-btn" id="ec-go" type="button" aria-pressed="true">Start</button></div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="echo.js"></script>
+<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q813197">About Echo</a></footer><!-- /zimi-about -->
+<!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
+</body>
+</html>

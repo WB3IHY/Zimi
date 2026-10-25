@@ -494,5 +494,101 @@
   "title": "Unruly",
   "blurb": "Two colours, no three in a row, balanced lines",
   "why": "Also called Binairo or Takuzu."
+ },
+ {
+  "qid": "Q8046426",
+  "wiki": "Yacht (dice game)",
+  "path": "yacht.html",
+  "title": "Yacht",
+  "blurb": "Thirteen rows, five dice, solo or against computers",
+  "why": "The public-domain dice game that later became Yahtzee."
+ },
+ {
+  "qid": "Q20825977",
+  "wiki": "Liar's dice",
+  "path": "liarsdice.html",
+  "title": "Liar's Dice",
+  "blurb": "Bid, bluff and call the lie, two to six players",
+  "why": "Bluffing with dice under cups, played across South America as Perudo."
+ },
+ {
+  "qid": "Q953491",
+  "wiki": "Battleship (game)",
+  "path": "fleet.html",
+  "title": "Fleet",
+  "blurb": "Hide your ships, hunt the computer's",
+  "why": "Hunting hidden ships on a grid began as a pencil-and-paper game before the First World War."
+ },
+ {
+  "qid": "Q6498850",
+  "wiki": "Bulls and cows",
+  "path": "codebreaker.html",
+  "title": "Code Breaker",
+  "blurb": "Crack the four-peg code, with shapes as well as colours",
+  "why": "Guessing a hidden code from clues goes back to the paper game Bulls and Cows."
+ },
+ {
+  "qid": "Q653928",
+  "wiki": "Pinball",
+  "path": "pinball.html",
+  "title": "Pinball",
+  "blurb": "Flippers, bumpers, lanes and multiball on one table",
+  "why": "Flippers arrived in 1947; before that, pinball was mostly luck."
+ },
+ {
+  "qid": "Q748890",
+  "wiki": "Asteroids (video game)",
+  "path": "rocks.html",
+  "title": "Rocks",
+  "blurb": "Drift, turn and shoot; rocks split, a saucer shoots back",
+  "why": "Drift, turn and fire as every rock you hit splits into smaller ones."
+ },
+ {
+  "qid": "Q220665",
+  "wiki": "Space Invaders",
+  "path": "lastline.html",
+  "title": "Last Line",
+  "blurb": "Drone rows descend, shields wear away, hold the line",
+  "why": "Rows of invaders marching down the screen made the shooter a genre in 1978."
+ },
+ {
+  "qid": "Q2590391",
+  "wiki": "Lunar Lander (1979 video game)",
+  "path": "lander.html",
+  "title": "Lander",
+  "blurb": "Thrust and rotate down onto a pad before the fuel is gone",
+  "why": "Land softly with the fuel you have, as Apollo crews did on the Moon."
+ },
+ {
+  "qid": "Q216293",
+  "wiki": "Pong",
+  "path": "paddles.html",
+  "title": "Paddles",
+  "blurb": "Two-paddle tennis, against the computer or a friend",
+  "why": "Two paddles and a ball: the game that started the video game industry in 1972."
+ },
+ {
+  "qid": "Q20825866",
+  "wiki": "Concentration (card game)",
+  "path": "memory.html",
+  "title": "Memory",
+  "blurb": "Match the pairs; animals and shapes",
+  "why": "Concentration, the card game of turning over pairs, is played by children everywhere."
+ },
+ {
+  "qid": "Q813197",
+  "wiki": "Simon (game)",
+  "path": "echo.html",
+  "title": "Echo",
+  "blurb": "Repeat the growing sequence of pads",
+  "why": "Repeat the growing sequence of colours and tones."
+ },
+ {
+  "qid": "Q210339",
+  "wiki": "Tic-tac-toe",
+  "path": "noughts.html",
+  "title": "Noughts and Crosses",
+  "blurb": "Three in a row, against an easy or a perfect computer",
+  "why": "Played perfectly, noughts and crosses is always a draw."
  }
 ]

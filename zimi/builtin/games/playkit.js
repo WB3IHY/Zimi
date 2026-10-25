@@ -91,5 +91,104 @@
     return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
   };
 
+  // ── dice, symbols, loop and hold buttons (the dice, arcade and kids games) ──
+  Play.mulberry32 = function (seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+  Play.randomSeed = function () { return Math.floor(Math.random() * 4294967296); };
+  Play.shuffle = function (arr, rng) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rng() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  };
+
+  // Fill a die element with nine pip cells, lit for the face n (0 = blank).
+  var PIPS = { 0: [], 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+  Play.pips = function (el, n) {
+    if (!el.firstChild) { for (var i = 0; i < 9; i++) el.appendChild(document.createElement('i')); }
+    var on = PIPS[n] || [];
+    for (var k = 0; k < 9; k++) el.children[k].className = on.indexOf(k) >= 0 ? 'on' : '';
+  };
+
+  // Six shapes that tell colours apart without colour: circle, square, triangle, diamond, star, cross.
+  var SYMBOLS = [
+    '<circle cx="12" cy="12" r="7.5"/>',
+    '<rect x="5" y="5" width="14" height="14" rx="1.5"/>',
+    '<path d="M12 4.5 20 19H4z"/>',
+    '<path d="M12 3.5 20.5 12 12 20.5 3.5 12z"/>',
+    '<path d="m12 3.5 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 17l-5.4 3 1.2-6-4.5-4.2 6.1-.7z"/>',
+    '<path d="M9.5 4h5v5.5H20v5h-5.5V20h-5v-5.5H4v-5h5.5z"/>'
+  ];
+  Play.SYMBOL_COUNT = SYMBOLS.length;
+  Play.symbolSVG = function (i, size) {
+    return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" aria-hidden="true" fill="currentColor" stroke="rgba(0,0,0,.55)" stroke-width="1.2" stroke-linejoin="round">' + SYMBOLS[i % SYMBOLS.length] + '</svg>';
+  };
+
+  // A timer for turn-based games: fn runs after ms, but never while the tab is hidden
+  // (it waits for the tab to come back). Returns {cancel}.
+  Play.later = function (fn, ms) {
+    var h = { dead: false, id: 0, cancel: function () { h.dead = true; clearTimeout(h.id); } };
+    function run() {
+      if (h.dead) return;
+      if (!document.hidden) { fn(); return; }
+      var wait = function () { if (document.hidden) return; document.removeEventListener('visibilitychange', wait); run(); };
+      document.addEventListener('visibilitychange', wait);
+    }
+    h.id = setTimeout(run, ms);
+    return h;
+  };
+
+  // A fixed-step loop: update(dt) in whole steps of 1/hz, render() once per frame.
+  // Stops by itself when the tab is hidden (the caller pauses its own state with Play.onHidden).
+  Play.loop = function (update, render, hz) {
+    var step = 1 / (hz || 60), acc = 0, last = 0, raf = 0, running = false, MAX_FRAME = 0.1;
+    function frame(t) {
+      if (!running) return;
+      acc += Math.min(MAX_FRAME, (t - last) / 1000); last = t;
+      while (acc >= step) { acc -= step; update(step); if (!running) return; }
+      render();
+      raf = requestAnimationFrame(frame);
+    }
+    return {
+      start: function () { if (running) return; running = true; acc = 0; last = performance.now(); raf = requestAnimationFrame(frame); },
+      stop: function () { running = false; cancelAnimationFrame(raf); },
+      get running() { return running; }
+    };
+  };
+
+  // A button that is "down" while held, by pointer or by key; fn(true|false).
+  Play.hold = function (el, fn) {
+    var down = false;
+    function set(v) { if (v !== down) { down = v; el.setAttribute('aria-pressed', String(v)); fn(v); } }
+    el.addEventListener('pointerdown', function (e) { e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (err) { /* synthetic */ } set(true); });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (n) { el.addEventListener(n, function () { set(false); }); });
+    el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    el.addEventListener('keydown', function (e) { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); set(true); } });
+    el.addEventListener('keyup', function (e) { if (e.key === ' ' || e.key === 'Enter') set(false); });
+    el.addEventListener('blur', function () { set(false); });
+    return { release: function () { set(false); } };
+  };
+
+  // Fit a canvas of logical size w x h into the room left on screen (chrome = pixels used by everything else).
+  Play.fitCanvas = function (cv, w, h, chrome, maxW) {
+    var vw = document.documentElement.clientWidth - 24, vh = window.innerHeight - chrome;
+    var s = Math.min(vw / w, vh / h, (maxW || w) / w);
+    s = Math.max(0.4, s);
+    var dpr = window.devicePixelRatio || 1;
+    cv.style.width = Math.floor(w * s) + 'px'; cv.style.height = Math.floor(h * s) + 'px';
+    cv.width = Math.floor(w * s * dpr); cv.height = Math.floor(h * s * dpr);
+    var ctx = cv.getContext('2d');
+    ctx.setTransform(s * dpr, 0, 0, s * dpr, 0, 0);
+    // A browser can drop a canvas's drawing surface (a GPU hiccup); when it gives one back, fit and draw again.
+    if (!cv.zgWatched) { cv.zgWatched = true; cv.addEventListener('contextrestored', function () { window.dispatchEvent(new Event('resize')); }); }
+    return { scale: s, ctx: ctx };
+  };
+
   root.ArcadePlay = Play;
 })(this);

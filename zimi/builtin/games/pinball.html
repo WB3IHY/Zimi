@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pinball - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="pinball.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Pinball</h1>
+  <button class="ar-btn" id="pb-pause" type="button" disabled>Pause</button>
+</header>
+
+<main class="pl-main">
+  <div class="pl-hud">
+    <div class="pl-stat"><small>Score</small><b id="pb-score">0</b></div>
+    <div class="pl-stat"><small>Best</small><b id="pb-best">0</b></div>
+    <div class="pl-stat"><small>Balls</small><b id="pb-balls">3</b></div>
+    <div class="pl-stat"><small>Bonus</small><b id="pb-mult">&times;1</b></div>
+  </div>
+  <canvas class="pl-arena" id="pb-board" role="img" aria-label="The pinball table: plunger lane on the right, three bumpers, two flippers at the bottom"></canvas>
+  <button class="pl-key pb-launch" id="pb-launch" type="button" aria-pressed="false">Hold to launch</button>
+  <p class="pl-msg" id="pb-msg" role="status" aria-live="polite"></p>
+  <p class="pl-help">Z or the left arrow flips the left flipper; / or the right arrow the right one. Hold Space (or the Launch button) and let go to shoot. On a phone, touch the left or right half of the table. Light the three top lanes for a bonus multiplier; clear a bank of three side targets for multiball.</p>
+</main>
+
+<div class="ar-sheet" id="pb-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="pb-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="pb-sheet-title">Pinball</h2>
+    <p id="pb-sheet-text"></p>
+    <div class="ar-sheet-actions"><button class="ar-btn" id="pb-go" type="button" aria-pressed="true">Start</button></div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="pinball.js"></script>
+<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q653928">About Pinball</a></footer><!-- /zimi-about -->
+<!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
+</body>
+</html>

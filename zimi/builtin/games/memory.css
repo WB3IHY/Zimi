@@ -1,0 +1,15 @@
+/* Memory: the card grid. A card is a button with a face and a back; the turn is a short flip, skipped when motion is reduced. */
+.mm-grid { --cols: 4; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 10px; width: min(100%, 440px); }
+.mm-card { position: relative; aspect-ratio: 1; padding: 0; border: 0; background: transparent; cursor: pointer; perspective: 600px; touch-action: manipulation; border-radius: 14px; }
+.mm-inner { position: absolute; inset: 0; transition: transform 0.28s; transform-style: preserve-3d; }
+.mm-card[data-up="true"] .mm-inner { transform: rotateY(180deg); }
+.mm-face, .mm-back { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 14px; display: grid; place-items: center; }
+.mm-back { background: var(--accent); border: 2px solid var(--accent); background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.22) 0 7px, transparent 7px 14px); }
+.mm-back::after { content: "?"; font: 800 clamp(22px, 8vw, 34px) var(--font); color: var(--accent-ink); }
+.mm-face { transform: rotateY(180deg); background: #fffdf6; border: 2px solid var(--line); padding: 10%; }
+.mm-face svg { width: 100%; height: 100%; display: block; }
+.mm-card[data-done="true"] .mm-face { border-color: var(--ok); background: #f2fbf4; }
+.mm-card:disabled { cursor: default; }
+.mm-card:not(:disabled):hover .mm-back { filter: brightness(1.08); }
+@media (prefers-reduced-motion: reduce) { .mm-inner { transition: none; } }
+@media (max-width: 380px) { .mm-grid { gap: 8px; } }
