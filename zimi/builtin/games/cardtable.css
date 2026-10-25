@@ -17,3 +17,4 @@
 .ct-lines p { margin: 1px 0; }
 .ct-lines .ct-total { font-weight: 700; color: var(--accent); }
 @media (max-width: 440px) { .ct-chip { padding: 2px 7px; gap: 4px; font-size: 11px; } .ct-chip b { font-size: 11px; } .ct-scores { gap: 4px; padding: 0 4px; } }
+.ct-status-text:empty { display: none; }

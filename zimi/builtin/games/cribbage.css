@@ -1,0 +1,13 @@
+/* Cribbage: the peg board and the little labels under the piles. */
+:root { --cb-wood: #8a5a2e; --cb-wood-edge: #5e3b1a; --cb-hole: rgba(30, 16, 4, 0.7); --cb-tick: rgba(255, 240, 210, 0.55); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --cb-wood: #5a3a1c; --cb-wood-edge: #2f1d0d; --cb-hole: rgba(0, 0, 0, 0.75); --cb-tick: rgba(255, 230, 190, 0.5); } }
+:root[data-theme="dark"] { --cb-wood: #5a3a1c; --cb-wood-edge: #2f1d0d; --cb-hole: rgba(0, 0, 0, 0.75); --cb-tick: rgba(255, 230, 190, 0.5); }
+.cb-board { position: absolute; z-index: 20; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35)); }
+.cb-svg { display: block; width: 100%; height: auto; }
+.cb-wood { fill: var(--cb-wood); stroke: var(--cb-wood-edge); }
+.cb-holes circle { fill: var(--cb-hole); }
+.cb-tick { fill: var(--cb-tick); font: 600 6px var(--font); }
+.cb-peg { stroke: rgba(0, 0, 0, 0.55); stroke-width: 0.8; }
+.cb-front { stroke: #fff; stroke-width: 0.9; }
+.cb-tag { position: absolute; z-index: 5; text-align: center; font-size: 11px; color: rgba(255, 255, 255, 0.78); pointer-events: none; white-space: nowrap; }
+.cb-tag[hidden] { display: none; }
