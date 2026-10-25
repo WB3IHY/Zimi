@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"><defs><linearGradient id="jg-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7c873"/><stop offset=".6" stop-color="#e9786b"/><stop offset="1" stop-color="#503a77"/></linearGradient><clipPath id="jg-pic"><rect x="40" y="24" width="180" height="132" rx="4"/></clipPath></defs>
+      <rect width="320" height="180" fill="#1d2433"/>
+      <g clip-path="url(#jg-pic)"><rect x="40" y="24" width="180" height="132" fill="url(#jg-sky)"/><circle cx="160" cy="70" r="16" fill="#fff6c9"/><path d="M40 156V110Q90 80 140 112T220 100V156Z" fill="#4d3566"/><path d="M40 156V130Q100 108 160 132T220 126V156Z" fill="#2f2250"/></g>
+      <g stroke="#1d2433" stroke-width="2.5" fill="none"><path d="M100 24V156M160 24V156M40 68H220M40 112H220"/></g>
+      <g transform="translate(232 98) rotate(8)"><rect width="46" height="44" rx="3" fill="#e9786b"/><rect width="46" height="44" rx="3" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="2"/></g>
+      <g transform="translate(246 40) rotate(-10)"><rect width="46" height="44" rx="3" fill="#503a77" stroke="#fff" stroke-opacity=".6" stroke-width="2"/></g></svg>
