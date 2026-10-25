@@ -226,7 +226,6 @@ if (sandbox.ZimiHoldem) {
     st.dealer = 0;
     st = H.startHand(st, lcg(22));
     st.players[0].hole = ids('2C 3D'); st.players[1].hole = ids('2H 3S');
-    const bd = ids('9C AS KS QS 8D JS 7D TS').filter(c => c !== id('9C') || true);
     st.deck = ids('9C AS KS QS 8D JS 7D TS').concat(st.deck.filter(c => ids('9C AS KS QS 8D JS 7D TS 2C 3D 2H 3S').indexOf(c) < 0)); st.pos = 0;
     let guard = 0;
     while (st.phase !== 'between' && guard++ < 40) {
@@ -645,10 +644,8 @@ if (sandbox.ZimiCanasta) {
     const melds = [mk(13, "KS KH KD KC KS' KH' KD'"), mk(12, "QS QH QD QC QS' QH' QD'")];
     let st = base({ hands: [cids('5S 5H 5D 9C'), cids('AC')], turn: 0, step: 'play', melds: [melds, []], melded: [true, false] });
     check(CA.meldProblem(st, cids('5S 5H 5D')) === '', 'meld three leaving one card: allowed with two canastas');
-    const out = CA.meld(CA.meld(st, cids('5S 5H 5D')), []);
     let st1 = base({ hands: [cids('5S 5H 5D 9C'), cids('AC')], turn: 0, step: 'play', melds: [[mk(13, "KS KH KD KC KS' KH' KD'")], []], melded: [true, false] });
     check(CA.meldProblem(st1, cids('5S 5H 5D')) !== '', 'with one canasta you must keep a card: melding to one card is refused');
-    check(CA.meldProblem(st1, cids('5S 5H')) !== '' || true, '(smoke)');
     let st3 = base({ hands: [cids('9C'), cids('AC')], turn: 0, step: 'play', melds: [[mk(13, "KS KH KD KC KS' KH' KD'")], []], melded: [true, false], pile: cids('8C') });
     check(CA.discardProblem(st3, cid('9C')).indexOf('canastas') >= 0, 'going out by discarding needs two canastas');
     let st4 = base({ hands: [cids('9C'), cids('AC')], turn: 0, step: 'play', melds: [melds, []], melded: [true, false], pile: cids('8C'), scores: [0, 0] });

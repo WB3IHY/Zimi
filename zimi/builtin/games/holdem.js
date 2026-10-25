@@ -350,8 +350,12 @@
       var p = st.players[0];
       return p.hole.length && !p.folded ? evaluate(p.hole.concat(st.board)).name : '';
     }
+    var tagSig = '';
     function layTags(st, m) {
       var g = geo(m), boxes = seatBoxes(g, st.players.length - 1);
+      var sig = JSON.stringify([st.players.map(function (p) { return [p.chips, p.bet, p.folded, p.out, p.last]; }), st.toAct, st.dealer, st.phase, st.board.length, totalPot(st), st.result && st.result.winners, g.W, g.northY, g.southY]);
+      if (sig === tagSig) return;
+      tagSig = sig;
       tags.forEach(function (e) { e.remove(); }); tags = [];
       st.players.forEach(function (p, i) {
         var box = i === 0 ? { x: g.pad, w: g.W - 2 * g.pad, y: g.southY - ME_H - 2 } : boxes[i - 1];
@@ -448,6 +452,7 @@
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;
+    if (root.ResizeObserver) new root.ResizeObserver(function () { t.paint(); }).observe(d.getElementById('zc-table'));
     newGame();
     // Keyboard: F fold, C check or call.
     d.addEventListener('keydown', function (e) {

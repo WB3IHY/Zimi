@@ -270,7 +270,7 @@
         var top = honorsIn(hand, d, 12);
         if (len[d] >= 8 && d >= 2) return '4' + DEN_CHAR[d];
         if (len[d] === 7 && top >= 1) return '3' + DEN_CHAR[d];
-        if (len[d] === 6 && top >= 2 && H >= 5 && !(len[2] >= 4 && d === 3 && false)) return '2' + DEN_CHAR[d];
+        if (len[d] === 6 && top >= 2 && H >= 5) return '2' + DEN_CHAR[d];
       }
     }
     var twoLongest = len.slice().sort(function (a, b) { return b - a; });
@@ -600,9 +600,12 @@
       if (!c) return '';
       return c.level + DEN_LABEL[c.den] + (c.dbl === 1 ? ' doubled' : c.dbl === 2 ? ' redoubled' : '') + ' by ' + NAMES[c.declarer];
     }
+    var auctionSig = '', boxSig = '';
     function paintAuction(st, m) {
+      var g = geo(m), sig = JSON.stringify([st.auction, st.phase, st.turn, st.dealNo, g.W, g.northY, g.cw]);
+      if (sig === auctionSig) return;
+      auctionSig = sig;
       auctionEl.textContent = '';
-      var g = geo(m);
       if (st.phase === 'play' && st.contract) { auctionEl.hidden = true; return; }
       if (st.phase !== 'auction' && !st.auction.length) { auctionEl.hidden = true; return; }
       auctionEl.hidden = false;
@@ -621,11 +624,14 @@
       auctionEl.appendChild(grid);
     }
     function paintBox(st, m) {
+      var g = geo(m), mine = st.phase === 'auction' && st.turn === 0, legal = mine ? legalCalls(st, 0) : [];
+      var sig = JSON.stringify([mine, legal, Math.round(g.statusY), g.W]);
+      if (sig === boxSig) return;
+      boxSig = sig;
       boxEl.textContent = '';
-      var g = geo(m), mine = st.phase === 'auction' && st.turn === 0;
       boxEl.hidden = !mine;
       if (!mine) return;
-      var legal = legalCalls(st, 0), grid = Z.h('div', { class: 'br-levels' }), level, den;
+      var grid = Z.h('div', { class: 'br-levels' }), level, den;
       for (den = 0; den <= NT; den++) for (level = 1; level <= MAX_LEVEL; level++) {
         var call = bidCall(level, den), b = Z.h('button', { class: 'ar-btn br-bid', type: 'button', 'aria-label': level + ' ' + DEN_NAME[den] }, [callNode(call)]);
         b.disabled = legal.indexOf(call) < 0;
@@ -772,6 +778,7 @@
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;
+    if (root.ResizeObserver) new root.ResizeObserver(function () { t.paint(); }).observe(table);
     newGame();
   }
   boot();

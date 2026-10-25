@@ -316,6 +316,7 @@
       rules: 'Beat the dealer to 21 without going over. Blackjack pays 3 to 2; the dealer stands on every 17. Double on any two cards, split pairs up to four hands (split aces take one card each). Insurance is off unless you turn it on. Hint shows what basic strategy would do. Keys: H hit, S stand, D double, P split. Chips only: you start with ' + START_CHIPS + '.'
     });
     session = t.session; api.session = session; api.board = t.board;
+    if (root.ResizeObserver) new root.ResizeObserver(function () { t.paint(); }).observe(root.document.getElementById('zc-table'));
     root.document.addEventListener('keydown', function (e) {
       if (e.ctrlKey || e.metaKey || e.altKey || root.document.querySelector('.ar-sheet')) return;
       var st = session.state, k = e.key.toLowerCase();

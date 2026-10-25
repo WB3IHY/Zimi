@@ -333,7 +333,7 @@
         var sel = mySel(st, view), why = sel.length ? game.whyNot(st, 0, sel) : '', combo = sel.length ? game.classify(sel) : null;
         out.text = st.top ? NAMES[st.top.seat] + ' played ' + describeTop(st) + '. Your turn' : (st.opening ? 'You lead: include the ' + Z.cardName(openingCard(R)) : 'You lead anything');
         out.choices = [
-          { label: combo && !why ? 'Play ' + game.describe(combo).replace(/^(a|the) /, '') : 'Play', disabled: !!why || !sel.length, onclick: playSelected },
+          { label: combo && !why ? 'Play ' + game.describe(combo) : 'Play', disabled: !!why || !sel.length, onclick: playSelected },
           { label: 'Pass', disabled: !st.top, onclick: passTurn },
           { label: 'Hint', onclick: hint }
         ];
@@ -408,6 +408,7 @@
     });
     board = t.board; session = t.session;
     game.session = session; game.board = board;
+    if (root.ResizeObserver) new root.ResizeObserver(function () { t.paint(); }).observe(d.getElementById('zc-table'));
     d.addEventListener('keydown', function (e) {
       if (e.ctrlKey || e.metaKey || e.altKey || d.querySelector('.ar-sheet')) return;
       var k = e.key.toLowerCase(), st = session.state;
