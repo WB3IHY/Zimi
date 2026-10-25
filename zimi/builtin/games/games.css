@@ -205,3 +205,81 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 .gm-about a:hover { color: var(--accent); border-bottom-color: var(--accent); }
 .gm-about-page { max-width: 62ch; margin: 0 auto; padding: 24px 16px; }
 .gm-play { display: inline-flex; align-items: center; text-decoration: none; background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+/* ── The shell (shell.js): one bar, one Menu sheet, the settings it applies ── */
+.gs-ready .ar-bar { gap: 8px; }
+.gs-ready .ar-bar .ar-stat { flex: none; }
+html[data-timer="hide"] [data-gs-timer], html[data-timer="hide"] #zc-stat:empty { display: none; }
+html.gs-help .bg-help { display: none; }
+
+/* Hints off: the dots, rings and ringed points a game draws, and its Hint button. */
+html[data-hints="off"] :is([id$="-hint"], .bk-hint, .cc-hint, .gm-hint, .go-hint, .hx-hint, .mc-hint, .mo-hint, .fr-hintarrow, .db-slot.hint) { display: none !important; }
+html[data-hints="off"] .hint::after { display: none !important; }
+html[data-hints="off"] .mj-t.hint { outline: 0; animation: none; }
+
+/* Animation: fast shortens every transition, off removes them (and follows reduced motion until chosen). */
+html[data-anim="fast"] :not(.bg-spin, .gs-turn i) { transition-duration: 0.1s !important; animation-duration: 0.12s !important; animation-delay: 0s !important; }
+html[data-anim="off"] :not(.bg-spin) { transition: none !important; animation-duration: 0s !important; animation-delay: 0s !important; scroll-behavior: auto !important; }
+
+.gs-turn { display: flex; align-items: center; gap: 10px; padding: 4px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.gs-turn[hidden] { display: none; }
+.gs-turn i { flex: 1; height: 4px; border-radius: 2px; background: var(--accent); transform-origin: left; transition: transform 0.25s linear; }
+.gs-turn-n { flex: none; min-width: 3ch; text-align: right; font: 600 12px var(--mono); font-variant-numeric: tabular-nums; color: var(--ink2); }
+.gs-turn.gs-low i { background: var(--danger, #c62828); }
+.gs-turn.gs-low .gs-turn-n { color: var(--danger, #c62828); }
+
+/* The Menu sheet. Same card as every sheet; panes swap inside it. */
+.gs-card { display: flex; flex-direction: column; gap: 12px; }
+.gs-head { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.gs-head h2 { flex: 1; margin: 0; font-size: 19px; letter-spacing: -0.01em; }
+.gs-head:not(.gs-head-root) h2::before { display: none; }
+.gs-back, .gs-x { flex: none; position: relative; width: 36px; height: 36px; margin: 0; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--ink2); cursor: pointer; }
+.gs-back { margin-left: -8px; }
+.gs-x { margin-right: -8px; }
+.gs-back:hover, .gs-x:hover { background: var(--ground); color: var(--ink); }
+.gs-back::before { content: ""; position: absolute; left: 14px; top: 13px; width: 8px; height: 8px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+.gs-x::before, .gs-x::after { content: ""; position: absolute; left: 11px; top: 17px; width: 14px; height: 2px; background: currentColor; border-radius: 1px; transform: rotate(45deg); }
+.gs-x::after { transform: rotate(-45deg); }
+.gs-new { width: 100%; min-height: 44px; font-weight: 650; }
+.gs-list { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.gs-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; padding: 0 16px; border: 0; background: var(--surface); text-align: left; cursor: pointer; }
+.gs-item + .gs-item { border-top: 1px solid var(--line); }
+.gs-item:hover { background: var(--ground); }
+.gs-item-l { font-weight: 600; }
+.gs-item-r { flex: 1; text-align: right; font-size: 13px; color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gs-item::after { content: ""; flex: none; width: 7px; height: 7px; border-top: 2px solid var(--ink3); border-right: 2px solid var(--ink3); transform: rotate(45deg); }
+.gs-extras { margin: 0; }
+.gs-extras .ar-btn { flex: 1 1 auto; }
+.gs-text { margin: 0; color: var(--ink2); }
+.gs-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.gs-options { display: grid; gap: 4px; }
+.gs-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.gs-row > label { flex: 1 1 100%; font-size: 12px; font-weight: 600; color: var(--ink2); text-transform: uppercase; letter-spacing: 0.04em; }
+.gs-note { flex: 1 1 100%; margin: 0; font-size: 12px; color: var(--ink3); }
+.gs-seg { display: flex; flex: 1 1 100%; }
+.gs-seg .ar-btn { flex: 1; padding: 0 8px; border-radius: 0; margin-left: -1px; }
+.gs-seg .ar-btn:first-child { border-radius: 8px 0 0 8px; margin-left: 0; }
+.gs-seg .ar-btn:last-child { border-radius: 0 8px 8px 0; }
+.gs-seg .ar-btn:only-child { border-radius: 8px; }
+.gs-scope { display: grid; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.gs-scope > span { font-size: 12px; font-weight: 600; color: var(--ink2); text-transform: uppercase; letter-spacing: 0.04em; }
+.gs-link { align-self: flex-start; padding: 0; border: 0; background: none; color: var(--ink2); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.gs-link:hover { color: var(--accent); }
+dl.gs-help { margin: 0; }
+.gs-help dt { margin: 0 0 2px; font-size: 12px; font-weight: 650; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.06em; }
+.gs-help dd { margin: 0 0 12px; }
+.gs-help dd:last-child { margin-bottom: 0; }
+.gs-stats p { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--ground); font: 13px/1.5 var(--mono); color: var(--ink2); }
+.gs-stats p + p { margin-top: 6px; }
+.gs-card .zc-row { margin: 6px 0; }
+.gs-card .zs-seats { margin: 6px 0; }
+.gs-card .zc-note { margin: 0; }
+
+/* Watch and learn: one sentence under the bar, and the controls. */
+.gs-watch { display: grid; gap: 8px; padding: 10px 16px 12px; background: color-mix(in srgb, var(--accent) 9%, var(--surface)); border-bottom: 1px solid var(--line); }
+.gs-watch[hidden] { display: none; }
+.gs-watch-eyebrow { font-size: 12px; font-weight: 650; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.06em; }
+.gs-watch-text { margin: 0; min-height: 2.8em; font-size: 15px; line-height: 1.4; }
+.gs-watch-ctl { display: flex; flex-wrap: wrap; gap: 6px; }
+.gs-watch-ctl .ar-btn { min-height: 34px; padding: 0 12px; }
+@media (max-width: 420px) { .gs-watch { padding: 8px 12px 10px; } }

@@ -954,7 +954,7 @@
 
   // The menu row both games share: open the backs picker.
   function backsRow() {
-    return h('div', { class: 'zc-row' }, [h('label', { text: 'Look' }), h('button', { class: 'ar-btn', type: 'button', text: 'Card backs\u2026', onclick: backsSheet })]);
+    return h('div', { class: 'zc-row', 'data-gs': 'backs' }, [h('label', { text: 'Look' }), h('button', { class: 'ar-btn', type: 'button', text: 'Card backs\u2026', onclick: backsSheet })]);
   }
 
   // ── The board ─────────────────────────────────────────────────────────
@@ -1254,7 +1254,7 @@
     }
     function cascade(order, done) {
       var m = metrics;
-      if (root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches) { done(); return; }
+      if ((root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches) || (root.ZimiShell && root.ZimiShell.anim() === 'off')) { done(); return; }
       var dpr = Math.min(MAX_DPR, root.devicePixelRatio || 1), W = root.innerWidth, H = root.innerHeight;
       var canvas = h('canvas', { class: 'zc-cascade', 'aria-hidden': 'true' });
       canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
@@ -1322,6 +1322,16 @@
   // cfg: { id, els: {undo, newBtn, menu, stat}, board, newGame(), openMenu(),
   //        statText(sec, state), cascadeOrder(state), winLines(sec, state) }
   var TICK_MS = 1000;
+  // Run a game's openMenu without showing its sheet and hand back the parts that are options.
+  function menuOptions(openMenu) {
+    var real = root.ZimiCards.sheet, taken = null;
+    root.ZimiCards.sheet = function (opts) { taken = opts; return { el: null, close: function () {} }; };
+    try { openMenu(); } finally { root.ZimiCards.sheet = real; }
+    return ((taken && taken.body) || []).filter(function (n, i) {
+      var cls = n.className || '';
+      return !(i === 0 && /\bzc-note\b/.test(cls)) && !/\bzc-stats\b/.test(cls) && n.getAttribute('data-gs') !== 'backs';
+    });
+  }
   function createSession(cfg) {
     var d = root.document, board = cfg.board;
     // s.stats can be swapped by a game whose variants keep separate records (Spider's suits).
@@ -1330,7 +1340,8 @@
 
     function seconds() { return Math.floor((banked + (running ? Date.now() - started : 0)) / 1000); }
     function paint() {
-      cfg.els.stat.textContent = cfg.statText(seconds(), s.state);
+      var text = cfg.statText(seconds(), s.state);
+      cfg.els.stat.textContent = root.ZimiShell ? root.ZimiShell.stripClock(text) : text;
       cfg.els.undo.disabled = !s.history.length || s.won || !!(cfg.undoOff && cfg.undoOff());
     }
     function run() { if (running) return; running = true; started = Date.now(); ticker = setInterval(paint, TICK_MS); }
@@ -1382,6 +1393,14 @@
     cfg.els.undo.addEventListener('click', s.undo);
     cfg.els.newBtn.addEventListener('click', cfg.newGame);
     cfg.els.menu.addEventListener('click', cfg.openMenu);
+    if (root.ZimiShell) root.ZimiShell.game({
+      stats: function () { return s.stats.line(); },
+      // The game's own menu sheet, taken apart: its options go into the shell's New game pane,
+      // while its rules note, its card backs and its stats line are the shell's own rows.
+      menu: function () { return { options: menuOptions(cfg.openMenu) }; },
+      inProgress: function () { return begun && !s.won; },
+      paint: paint
+    });
     d.addEventListener('keydown', function (e) {
       var t = e.target && e.target.tagName;
       if (e.ctrlKey || e.metaKey || e.altKey || t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;

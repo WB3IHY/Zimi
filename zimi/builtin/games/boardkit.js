@@ -23,6 +23,7 @@
   }
 
   function reducedMotion() {
+    if (root.ZimiShell && root.ZimiShell.anim() === 'off') return true;
     try { return !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; }
   }
 

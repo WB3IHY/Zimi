@@ -15,6 +15,7 @@
   };
 
   Play.reducedMotion = function () {
+    if (window.ZimiShell && window.ZimiShell.anim() === 'off') return true;
     try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
   };
 
