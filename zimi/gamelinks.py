@@ -144,3 +144,45 @@ def links():
         for q, found in articles.items()
     }
     return {"games": games, "articles": {q: a for q, a in shown.items() if a}}
+
+
+def _fnv1a(text):
+    """FNV-1a over the UTF-8 bytes, 32 bits: recent.js's fnv1a, the same number."""
+    h = 0x811C9DC5
+    for b in text.encode("utf-8"):
+        h = ((h ^ b) * 0x01000193) & 0xFFFFFFFF
+    return h
+
+
+def game_of_day(day, games=None):
+    """The game of a day ("YYYY-MM-DD" or "YYYYMMDD"): the hash of the day over
+    games.json's pages in order. The same pick as the shelf's Game of the day
+    (builtin/games/recent.js dayPick), which is how Discover's card and the
+    shelf agree without either asking the other. None for a day it cannot
+    read."""
+    digits = "".join(c for c in str(day) if c.isdigit())
+    if len(digits) != 8:
+        return None
+    day = "%s-%s-%s" % (digits[:4], digits[4:6], digits[6:])
+    seen, pages = set(), []
+    for r in games if games is not None else rows():
+        if r["path"] not in seen:
+            seen.add(r["path"])
+            pages.append(r)
+    return pages[_fnv1a(day) % len(pages)] if pages else None
+
+
+def day_card(day):
+    """The game of the day as Discover's card, in /random's shape, or None
+    (no such day, or the games ZIM is not here for this request)."""
+    if not ownzims.enabled() or not _srv.zim_allowed(_GAMES_ZIM):
+        return None
+    g = game_of_day(day)
+    if not g:
+        return None
+    return {
+        "zim": _GAMES_ZIM,
+        "path": g["path"],
+        "title": g["title"],
+        "blurb": g.get("why") or g.get("blurb"),
+    }

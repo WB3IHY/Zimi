@@ -12,6 +12,8 @@
 
 import os
 import re
+import shutil
+import subprocess
 import sys
 import unittest
 from unittest import mock
@@ -135,6 +137,81 @@ class GamesLinksTests(_QidFixtureMixin, unittest.TestCase):
             gamelinks.qids_changed(CHESS)
             gamelinks.qids_changed()
             assert refresh.call_count == 2
+
+
+_NODE_TEST = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "test_games_recent.cjs"
+)
+_DAYS = ["2026-10-24", "2026-10-25", "2026-12-31", "2027-01-01", "2028-02-29"]
+
+
+class GameOfTheDayTests(unittest.TestCase):
+    def test_every_game_says_why_in_one_line(self):
+        for r in games_links.load():
+            assert r.get("why") and "\n" not in r["why"], r["path"]
+            assert "—" not in r["why"], "no em dashes in user-facing text"
+
+    def test_every_game_page_notes_itself_as_played(self):
+        import games_recent
+
+        pages = games_recent.pages()
+        assert len(pages) > 70
+        for path in pages:
+            with open(os.path.join(games_recent.GAMES, path), encoding="utf-8") as f:
+                assert games_recent.tag(path) in f.read(), (
+                    path + ": run scripts/games_recent.py"
+                )
+        for r in games_links.load():
+            assert r["path"] in pages, r["path"]
+
+    def test_fixed_day_gives_a_fixed_game(self):
+        # The same four rows and the same answers as test_games_recent.cjs.
+        rows = [
+            {"path": "one.html"},
+            {"path": "one.html"},
+            {"path": "two.html"},
+            {"path": "three.html"},
+        ]
+        assert gamelinks.game_of_day("2026-10-24", rows)["path"] == "two.html"
+        assert gamelinks.game_of_day("20261024", rows)["path"] == "two.html"
+        assert gamelinks.game_of_day("2026-10-25", rows)["path"] == "one.html"
+        assert gamelinks.game_of_day("soon", rows) is None
+        assert gamelinks.game_of_day("2026-10-24", []) is None
+        # FNV-1a's published vectors: recent.js is held to the same ones.
+        assert gamelinks._fnv1a("") == 0x811C9DC5
+        assert gamelinks._fnv1a("a") == 0xE40C292C
+        assert gamelinks._fnv1a("foobar") == 0xBF9CF968
+
+    def test_shelf_and_discover_agree(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not installed")
+        out = subprocess.run(
+            [node, _NODE_TEST, "--days"] + _DAYS,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        shelf = dict(line.split() for line in out.splitlines())
+        assert set(shelf) == set(_DAYS)
+        for day in _DAYS:
+            assert gamelinks.game_of_day(day)["path"] == shelf[day], day
+
+    def test_discover_card_is_the_days_game(self):
+        with mock.patch.object(gamelinks.ownzims, "enabled", lambda: True):
+            card = gamelinks.day_card("20261024")
+        game = gamelinks.game_of_day("2026-10-24")
+        assert card == {
+            "zim": "zimi_games",
+            "path": game["path"],
+            "title": game["title"],
+            "blurb": game["why"],
+        }
+        with mock.patch.object(gamelinks.ownzims, "enabled", lambda: True):
+            assert gamelinks.day_card("not a day") is None
+            with mock.patch.object(_srv, "zim_allowed", lambda name: False):
+                assert gamelinks.day_card("20261024") is None
+        assert gamelinks.day_card("20261024") is None, "Zimi's own ZIMs are off"
 
 
 if __name__ == "__main__":

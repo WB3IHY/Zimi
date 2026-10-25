@@ -4,405 +4,463 @@
   "wiki": "Klondike (solitaire)",
   "path": "solitaire.html",
   "title": "Solitaire",
-  "blurb": "Klondike, draw one or three"
+  "blurb": "Klondike, draw one or three",
+  "why": "The card game that came with Windows 3.0 in 1990."
  },
  {
   "qid": "Q2056928",
   "wiki": "Solitaire",
   "path": "solitaire.html",
   "title": "Solitaire",
-  "blurb": "Klondike, draw one or three"
+  "blurb": "Klondike, draw one or three",
+  "why": "The card game that came with Windows 3.0 in 1990."
  },
  {
   "qid": "Q1050614",
   "wiki": "FreeCell",
   "path": "freecell.html",
   "title": "FreeCell",
-  "blurb": "The numbered deals, every one winnable but one"
+  "blurb": "The numbered deals, every one winnable but one",
+  "why": "Microsoft numbered its deals, and only one of the first 32,000 cannot be won."
  },
  {
   "qid": "Q648228",
   "wiki": "Spider (solitaire)",
   "path": "spider.html",
   "title": "Spider",
-  "blurb": "Two decks, runs of one suit, clear all eight"
+  "blurb": "Two decks, runs of one suit, clear all eight",
+  "why": "Two decks and one goal: build eight runs from king down to ace."
  },
  {
   "qid": "Q867799",
   "wiki": "Hearts (card game)",
   "path": "hearts.html",
   "title": "Hearts",
-  "blurb": "You against three, dodge the queen"
+  "blurb": "You against three, dodge the queen",
+  "why": "A trick-taking game where the aim is to take as few points as you can."
  },
  {
   "qid": "Q3411255",
   "wiki": "Pyramid (solitaire)",
   "path": "pyramid.html",
   "title": "Pyramid",
-  "blurb": "Pairs that make 13"
+  "blurb": "Pairs that make 13",
+  "why": "Take pairs that add to 13 from a pyramid of 28 cards."
  },
  {
   "qid": "Q5580559",
   "wiki": "Golf (patience)",
   "path": "golf.html",
   "title": "Golf",
-  "blurb": "One higher or lower, no wrap"
+  "blurb": "One higher or lower, no wrap",
+  "why": "Clear seven columns of five cards before the stock runs out."
  },
  {
   "qid": "Q27792408",
   "wiki": "Tri Peaks",
   "path": "tripeaks.html",
   "title": "TriPeaks",
-  "blurb": "Three peaks, wrap round, keep the streak"
+  "blurb": "Three peaks, wrap round, keep the streak",
+  "why": "Clear three peaks of cards, and every card in a row keeps the streak alive."
  },
  {
   "qid": "Q2121032",
   "wiki": "Spades (card game)",
   "path": "spades.html",
   "title": "Spades",
-  "blurb": "Partners, bids, Nil and bags"
+  "blurb": "Partners, bids, Nil and bags",
+  "why": "A partnership trick-taking game from 1930s America where spades are always trump."
  },
  {
   "qid": "Q3059474",
   "wiki": "Euchre",
   "path": "euchre.html",
   "title": "Euchre",
-  "blurb": "Bowers, trump and going alone, to 10"
+  "blurb": "Bowers, trump and going alone, to 10",
+  "why": "A trick-taking game of the American Midwest, played with just 24 cards."
  },
  {
   "qid": "Q11082926",
   "wiki": "Gin rummy",
   "path": "gin.html",
   "title": "Gin Rummy",
-  "blurb": "Knock, go gin or catch them with an undercut"
+  "blurb": "Knock, go gin or catch them with an undercut",
+  "why": "A two-player rummy game from the early 1900s."
  },
  {
   "qid": "Q1139885",
   "wiki": "Cribbage",
   "path": "cribbage.html",
   "title": "Cribbage",
-  "blurb": "Peg to 121 on a board drawn here"
+  "blurb": "Peg to 121 on a board drawn here",
+  "why": "Said to have been invented by the poet Sir John Suckling in the 1600s, and scored on a peg board."
  },
  {
   "qid": "Q2739146",
   "wiki": "Crazy Eights",
   "path": "crazyeights.html",
   "title": "Crazy Eights",
-  "blurb": "Match suit or rank, eights are wild"
+  "blurb": "Match suit or rank, eights are wild",
+  "why": "The shedding game behind Uno: every eight is wild."
  },
  {
   "qid": "Q911725",
   "wiki": "Durak",
   "path": "durak.html",
   "title": "Durak",
-  "blurb": "The Russian game: beat it, throw in, never be the fool"
+  "blurb": "The Russian game: beat it, throw in, never be the fool",
+  "why": "Russia's best-loved card game: whoever is left holding cards is the durak, the fool."
  },
  {
   "qid": "Q1955846",
   "wiki": "Scopa",
   "path": "scopa.html",
   "title": "Scopa",
-  "blurb": "The Italian fishing game, with an Italian deck"
+  "blurb": "The Italian fishing game, with an Italian deck",
+  "why": "Italy's national card game, played with a 40-card Italian deck."
  },
  {
   "qid": "Q748139",
   "wiki": "Reversi",
   "path": "reversi.html",
   "title": "Reversi",
-  "blurb": "Flip the board, against the computer or a friend"
+  "blurb": "Flip the board, against the computer or a friend",
+  "why": "Invented in England in 1883; Othello is its modern cousin."
  },
  {
   "qid": "Q2180601",
   "wiki": "English draughts",
   "path": "checkers.html",
   "title": "Checkers",
-  "blurb": "English draughts, captures are compulsory"
+  "blurb": "English draughts, captures are compulsory",
+  "why": "English draughts was proved in 2007 to be a draw with perfect play."
  },
  {
   "qid": "Q718",
   "wiki": "Chess",
   "path": "chess.html",
   "title": "Chess",
-  "blurb": "Our own engine, four levels, no download"
+  "blurb": "Our own engine, four levels, no download",
+  "why": "Its modern rules took shape in Europe around 1500."
  },
  {
   "qid": "Q11413",
   "wiki": "Go (game)",
   "path": "go.html",
   "title": "Go",
-  "blurb": "9x9 and 13x13, territory scoring, komi 6.5"
+  "blurb": "9x9 and 13x13, territory scoring, komi 6.5",
+  "why": "Over 2,500 years old, and one of the oldest board games still played."
  },
  {
   "qid": "Q191448",
   "wiki": "Xiangqi",
   "path": "xiangqi.html",
   "title": "Xiangqi",
-  "blurb": "Chinese chess, with the river and the flying general"
+  "blurb": "Chinese chess, with the river and the flying general",
+  "why": "China's chess, with a river across the middle of the board."
  },
  {
   "qid": "Q131375",
   "wiki": "Shogi",
   "path": "shogi.html",
   "title": "Shogi",
-  "blurb": "Japanese chess with drops, and a small 5x5 board"
+  "blurb": "Japanese chess with drops, and a small 5x5 board",
+  "why": "Japan's chess, where captured pieces change sides and can be dropped back in."
  },
  {
   "qid": "Q844874",
   "wiki": "Hex (board game)",
   "path": "hex.html",
   "title": "Hex",
-  "blurb": "Link your two sides, no draws, swap rule optional"
+  "blurb": "Link your two sides, no draws, swap rule optional",
+  "why": "Invented separately by Piet Hein in 1942 and John Nash in 1948."
  },
  {
   "qid": "Q908381",
   "wiki": "Gomoku",
   "path": "gomoku.html",
   "title": "Gomoku",
-  "blurb": "Five in a row on a 15x15 board"
+  "blurb": "Five in a row on a 15x15 board",
+  "why": "Played with Go stones: the first to make five in a row wins."
  },
  {
   "qid": "Q209669",
   "wiki": "Nine men's morris",
   "path": "morris.html",
   "title": "Nine Men's Morris",
-  "blurb": "Make mills, fly when you are down to three"
+  "blurb": "Make mills, fly when you are down to three",
+  "why": "An ancient game, with boards scratched into stone since Roman times."
  },
  {
   "qid": "Q17254",
   "wiki": "Connect Four",
   "path": "fourinarow.html",
   "title": "Four in a Row",
-  "blurb": "Drop discs, line up four"
+  "blurb": "Drop discs, line up four",
+  "why": "Sold as Connect Four since 1974, and a win for whoever moves first with perfect play."
  },
  {
   "qid": "Q1142531",
   "wiki": "Dots and boxes",
   "path": "dotsandboxes.html",
   "title": "Dots and Boxes",
-  "blurb": "Close boxes, move again, 4 to 7 dots"
+  "blurb": "Close boxes, move again, 4 to 7 dots",
+  "why": "A pencil-and-paper game that the mathematician Edouard Lucas described in 1889."
  },
  {
   "qid": "Q11411",
   "wiki": "Backgammon",
   "path": "backgammon.html",
   "title": "Backgammon",
-  "blurb": "Race home, hit blots, optional doubling cube"
+  "blurb": "Race home, hit blots, optional doubling cube",
+  "why": "Its ancestors go back about 5,000 years."
  },
  {
   "qid": "Q267989",
   "wiki": "Mancala",
   "path": "mancala.html",
   "title": "Mancala",
-  "blurb": "Oware and Kalah, sow and capture"
+  "blurb": "Oware and Kalah, sow and capture",
+  "why": "One of the oldest games still played, with sowing boards found across Africa and Asia."
  },
  {
   "qid": "Q1030283",
   "wiki": "Ludo",
   "path": "ludo.html",
   "title": "Ludo",
-  "blurb": "Roll a six, race round the cross, send rivals home"
+  "blurb": "Roll a six, race round the cross, send rivals home",
+  "why": "Descended from India's Pachisi and patented in England in 1896."
  },
  {
   "qid": "Q1045090",
   "wiki": "Chinese checkers",
   "path": "chinesecheckers.html",
   "title": "Chinese Checkers",
-  "blurb": "Hop marbles across the star, two to six players"
+  "blurb": "Hop marbles across the star, two to six players",
+  "why": "Not Chinese: it came from Germany in 1892 as Sternhalma."
  },
  {
   "qid": "Q32907",
   "wiki": "Dominoes",
   "path": "dominoes.html",
   "title": "Dominoes",
-  "blurb": "Draw and Block, against one to three computers"
+  "blurb": "Draw and Block, against one to three computers",
+  "why": "Tiles with pips, played across Europe since the 1700s."
  },
  {
   "qid": "Q953673",
   "wiki": "Mahjong solitaire",
   "path": "mahjong.html",
   "title": "Mahjong",
-  "blurb": "Three layouts, every deal can be cleared"
+  "blurb": "Three layouts, every deal can be cleared",
+  "why": "The solitaire version matches tiles from a pile; the four-player game is a different one."
  },
  {
   "qid": "Q126194",
   "wiki": "Minesweeper (video game)",
   "path": "minesweeper.html",
   "title": "Minesweeper",
-  "blurb": "Beginner to Expert, first click always safe"
+  "blurb": "Beginner to Expert, first click always safe",
+  "why": "A Windows staple since the early 1990s."
  },
  {
   "qid": "Q44914",
   "wiki": "Sudoku",
   "path": "sudoku.html",
   "title": "Sudoku",
-  "blurb": "Four levels, every puzzle has one solution"
+  "blurb": "Four levels, every puzzle has one solution",
+  "why": "Named in Japan in 1984, and every puzzle here has exactly one solution."
  },
  {
   "qid": "Q15967616",
   "wiki": "2048 (video game)",
   "path": "2048.html",
   "title": "2048",
-  "blurb": "Slide and merge tiles, one undo"
+  "blurb": "Slide and merge tiles, one undo",
+  "why": "Written in a weekend in 2014 by Gabriele Cirulli."
  },
  {
   "qid": "Q110367996",
   "wiki": "Wordle",
   "path": "fiveletters.html",
   "title": "Five Letters",
-  "blurb": "Guess the word in six tries, daily or practice"
+  "blurb": "Guess the word in six tries, daily or practice",
+  "why": "Find the five-letter word in six tries."
  },
  {
   "qid": "Q125177944",
   "wiki": "Snake (video game genre)",
   "path": "snake.html",
   "title": "Snake",
-  "blurb": "Eat, grow, speed up; walls or wrap-around"
+  "blurb": "Eat, grow, speed up; walls or wrap-around",
+  "why": "Descended from the 1976 arcade game Blockade, and on Nokia phones from 1997."
  },
  {
   "qid": "Q177491",
   "wiki": "Breakout (video game)",
   "path": "bricks.html",
   "title": "Bricks",
-  "blurb": "Paddle and ball, eight levels, angle by where it lands"
+  "blurb": "Paddle and ball, eight levels, angle by where it lands",
+  "why": "Descended from Atari's Breakout of 1976."
  },
  {
   "qid": "Q191024",
   "wiki": "15 puzzle",
   "path": "puzzles/fifteen.html",
   "title": "Fifteen",
-  "blurb": "Slide the tiles back into order"
+  "blurb": "Slide the tiles back into order",
+  "why": "The 15 puzzle craze swept America and Europe in 1880."
  },
  {
   "qid": "Q224905",
   "wiki": "SameGame",
   "path": "puzzles/samegame.html",
   "title": "Same Game",
-  "blurb": "Clear blocks of matching colour"
+  "blurb": "Clear blocks of matching colour",
+  "why": "Invented in 1985 by Kuniaki Moribe as Chain Shot!"
  },
  {
   "qid": "Q1411087",
   "wiki": "Peg solitaire",
   "path": "puzzles/pegs.html",
   "title": "Pegs",
-  "blurb": "Jump pegs over pegs until one is left"
+  "blurb": "Jump pegs over pegs until one is left",
+  "why": "Peg solitaire, a game for one that dates back to at least 17th-century France."
  },
  {
   "qid": "Q835894",
   "wiki": "Nonogram",
   "path": "puzzles/pattern.html",
   "title": "Pattern",
-  "blurb": "Use the row and column clues to reveal a picture"
+  "blurb": "Use the row and column clues to reveal a picture",
+  "why": "Nonograms, a picture puzzle that took off in Japan in the late 1980s."
  },
  {
   "qid": "Q5578074",
   "wiki": "Gokigen Naname",
   "path": "puzzles/slant.html",
   "title": "Slant",
-  "blurb": "Fill with diagonals so numbers touch that many"
+  "blurb": "Fill with diagonals so numbers touch that many",
+  "why": "Known in Japan as Gokigen Naname."
  },
  {
   "qid": "Q815412",
   "wiki": "Light Up (puzzle)",
   "path": "puzzles/lightup.html",
   "title": "Light Up",
-  "blurb": "Place lamps to light the room, none lighting another"
+  "blurb": "Place lamps to light the room, none lighting another",
+  "why": "Known in Japan as Akari."
  },
  {
   "qid": "Q2120242",
   "wiki": "Slitherlink",
   "path": "puzzles/loopy.html",
   "title": "Loopy",
-  "blurb": "Draw one loop; numbers count each cell's sides"
+  "blurb": "Draw one loop; numbers count each cell's sides",
+  "why": "Known in Japan as Slitherlink."
  },
  {
   "qid": "Q673276",
   "wiki": "Hashiwokakero",
   "path": "puzzles/bridges.html",
   "title": "Bridges",
-  "blurb": "Join the islands with bridges to match their numbers"
+  "blurb": "Join the islands with bridges to match their numbers",
+  "why": "Known in Japan as Hashiwokakero."
  },
  {
   "qid": "Q108795440",
   "wiki": "Tentai Show",
   "path": "puzzles/galaxies.html",
   "title": "Galaxies",
-  "blurb": "Split into regions that look the same turned half way"
+  "blurb": "Split into regions that look the same turned half way",
+  "why": "Known in Japan as Tentaisho, the heavenly bodies game."
  },
  {
   "qid": "Q478093",
   "wiki": "Shikaku",
   "path": "puzzles/rect.html",
   "title": "Rectangles",
-  "blurb": "One rectangle per number, with a matching area"
+  "blurb": "One rectangle per number, with a matching area",
+  "why": "Known in Japan as Shikaku, the game of squares."
  },
  {
   "qid": "Q372499",
   "wiki": "KenKen",
   "path": "puzzles/keen.html",
   "title": "Keen",
-  "blurb": "Fill the grid; each cage must make its number"
+  "blurb": "Fill the grid; each cage must make its number",
+  "why": "In the family of KenKen, invented in 2004 by Tetsuya Miyamoto."
  },
  {
   "qid": "Q1402407",
   "wiki": "Futoshiki",
   "path": "puzzles/unequal.html",
   "title": "Unequal",
-  "blurb": "Fill the grid, obeying the greater-than signs"
+  "blurb": "Fill the grid, obeying the greater-than signs",
+  "why": "Known as Futoshiki, which is Japanese for inequality."
  },
  {
   "qid": "Q477458",
   "wiki": "Masyu",
   "path": "puzzles/pearl.html",
   "title": "Pearl",
-  "blurb": "Draw a loop through the pearls as marked"
+  "blurb": "Draw a loop through the pearls as marked",
+  "why": "Known in Japan as Masyu."
  },
  {
   "qid": "Q570944",
   "wiki": "Kuromasu",
   "path": "puzzles/range.html",
   "title": "Range",
-  "blurb": "Shade squares so each number sees that many"
+  "blurb": "Shade squares so each number sees that many",
+  "why": "Known in Japan as Kuromasu."
  },
  {
   "qid": "Q971467",
   "wiki": "Hitori",
   "path": "puzzles/singles.html",
   "title": "Singles",
-  "blurb": "Shade repeats; shaded squares never touch"
+  "blurb": "Shade repeats; shaded squares never touch",
+  "why": "Known in Japan as Hitori, which means alone."
  },
  {
   "qid": "Q1414219",
   "wiki": "Fillomino",
   "path": "puzzles/filling.html",
   "title": "Filling",
-  "blurb": "Every region holds a number equal to its size"
+  "blurb": "Every region holds a number equal to its size",
+  "why": "Known in Japan as Fillomino."
  },
  {
   "qid": "Q880104",
   "wiki": "Black Box (game)",
   "path": "puzzles/blackbox.html",
   "title": "Black Box",
-  "blurb": "Find the hidden balls by firing beams in"
+  "blurb": "Find the hidden balls by firing beams in",
+  "why": "Devised by Eric Solomon in 1977."
  },
  {
   "qid": "Q17286",
   "wiki": "Mastermind (board game)",
   "path": "puzzles/guess.html",
   "title": "Guess",
-  "blurb": "Crack the hidden colour code"
+  "blurb": "Crack the hidden colour code",
+  "why": "The code-breaking game sold as Mastermind since 1972."
  },
  {
   "qid": "Q1765175",
   "wiki": "Lights Out (game)",
   "path": "puzzles/flip.html",
   "title": "Flip",
-  "blurb": "Light every square by flipping groups of them"
+  "blurb": "Light every square by flipping groups of them",
+  "why": "A cousin of Lights Out."
  },
  {
   "qid": "Q1950892",
   "wiki": "Takuzu",
   "path": "puzzles/unruly.html",
   "title": "Unruly",
-  "blurb": "Two colours, no three in a row, balanced lines"
+  "blurb": "Two colours, no three in a row, balanced lines",
+  "why": "Also called Binairo or Takuzu."
  }
 ]
