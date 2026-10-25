@@ -17,7 +17,7 @@
    only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
 
   var NAMES = ['You', 'North'], SUIT_NAMES = ['coins', 'cups', 'swords', 'clubs'], END_SCORE = 11, DECK = 40, PER_DEAL = 3, TABLE_START = 4, MAX_KINGS = 3, SETTEBELLO = 6;
   var COURT = { 8: 'Fante', 9: 'Cavallo', 10: 'Re' };
@@ -183,24 +183,25 @@
   }
   // view: { sel, build, show: {moves, stage} }
   function place(st, m, view) {
+    var V = (view && view.viewer) || 0, O = 1 - V, faceUp = !(view && view.hideHand);
     var g = geo(m), cards = [], slots = [], sh = view && view.show && view.show.moves === st.moves ? view.show : null;
     var sel = view && view.sel !== null && view.sel !== undefined ? view.sel : null, build = (view && view.build) || [];
-    var myTurn = st.phase === 'play' && st.turn === 0 && !sh;
+    var myTurn = st.phase === 'play' && st.turn === V && !sh;
     slots.push({ id: 'deck', x: g.W - g.pad - g.cw, y: g.northY, w: g.cw, h: g.ch, quiet: true, label: 'Deck' });
     slots.push({ id: 'table', x: g.pad, y: g.tableTop, w: g.W - 2 * g.pad, h: g.statusY - g.tableTop, quiet: true, label: 'Table' });
     // The cards that could be taken with the selected card.
-    var options = sel !== null && st.hands[0].indexOf(sel) >= 0 ? captureOptions(st.table, sel) : [];
+    var options = sel !== null && faceUp && st.hands[V].indexOf(sel) >= 0 ? captureOptions(st.table, sel) : [];
     var inOption = function (id) { return options.some(function (o) { return o.indexOf(id) >= 0; }); };
-    var hand = T.handCards(g, st.hands[0], function (id) {
-      var on = sel === id;
-      return { raise: on, mark: on, label: nameOf(id) + (on ? ', selected' : ''), dim: false };
+    var hand = T.handCards(g, st.hands[V], function (id) {
+      var on = sel === id && faceUp;
+      return { up: faceUp, raise: on, mark: on, label: nameOf(id) + (on ? ', selected' : ''), dim: false };
     }, null);
-    var step = Math.min(g.cw * HAND_STEP, (g.W - 2 * g.pad - g.cw) / Math.max(1, st.hands[0].length - 1));
+    var step = Math.min(g.cw * HAND_STEP, (g.W - 2 * g.pad - g.cw) / Math.max(1, st.hands[V].length - 1));
     // A hand of three spreads wider than a fan.
-    var x0 = (g.W - (g.cw + (st.hands[0].length - 1) * step)) / 2;
+    var x0 = (g.W - (g.cw + (st.hands[V].length - 1) * step)) / 2;
     hand.cards.forEach(function (c, k) { c.x = Math.round(x0 + k * step); hand.slots[k].x = c.x; });
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
-    cards = cards.concat(T.fan(g, 2, st.hands[1], false).map(function (c, k, a) { c.x = Math.round((g.W - (g.cw + (a.length - 1) * g.cw * 0.5)) / 2 + k * g.cw * 0.5); return c; }));
+    cards = cards.concat(T.fan(g, 2, st.hands[O], false).map(function (c, k, a) { c.x = Math.round((g.W - (g.cw + (a.length - 1) * g.cw * 0.5)) / 2 + k * g.cw * 0.5); return c; }));
     st.deck.slice(0, 2).forEach(function (id, k) { cards.push({ id: id, pile: 'deck', idx: k, x: g.W - g.pad - g.cw + k * 2, y: g.northY + k * 2, up: false }); });
     var pos = tablePos(g, st.table.length);
     st.table.forEach(function (id, k) {
@@ -213,7 +214,7 @@
     if (sh && st.lastPlay) {
       var lp = st.lastPlay, row = (lp.id === null ? [] : lp.taken.length ? [lp.id] : []).concat(lp.taken), n = row.length;
       var rs = n > 1 ? Math.min(g.cw * 0.7, (g.W - 2 * g.pad - g.cw) / (n - 1)) : 0, rx = (g.W - (g.cw + (n - 1) * rs)) / 2;
-      var away = T.seatSpot(g, lp.seat === 0 ? 0 : 2);
+      var away = T.seatSpot(g, lp.seat === V ? 0 : 2);
       row.forEach(function (id, k) {
         var gone = sh.stage === 1;
         cards.push({ id: id, pile: 'show', idx: k, x: Math.round(gone ? away.x : rx + k * rs), y: Math.round(gone ? away.y : g.showY), up: true, glow: !gone });
@@ -222,8 +223,11 @@
     return { height: m.H, slots: slots, cards: cards };
   }
 
+  // The page renames the seats when two people share a device.
+  function setNames(a, b) { NAMES[0] = a; NAMES[1] = b; }
+
   var api = {
-    NAMES: NAMES, END_SCORE: END_SCORE, value: value, suitOf: suitOf, nameOf: nameOf, captureOptions: captureOptions, isOption: isOption, isLegal: isLegal,
+    setNames: setNames, NAMES: NAMES, END_SCORE: END_SCORE, value: value, suitOf: suitOf, nameOf: nameOf, captureOptions: captureOptions, isOption: isOption, isLegal: isLegal,
     deal: deal, newGame: newGame, nextHand: nextHand, play: play, finishHand: finishHand, gameWinner: gameWinner, primiera: primiera, scoreHand: scoreHand,
     aiMove: aiMove, face: scopaFace, geo: geo, place: place
   };
@@ -232,7 +236,12 @@
   // ── The page ────────────────────────────────────────────────────────────
   var AI_MS = 800, HOLD_MS = 1150, HOLD_YOU_MS = 450, SWEEP_MS = 400;
   function boot() {
-    var d = root.document, t, board, session, view = { sel: null, build: [], show: null, flash: '' };
+    var d = root.document, t, board, session, view = { sel: null, build: [], show: null, flash: '', viewer: 0, hideHand: false };
+    // Each seat is the Computer or a Person; two people share the screen behind a handoff.
+    var seats = Seats.create({ id: 'scopa', seats: 2, onChange: function () { if (board) board.refresh(); if (t) t.paint(); } });
+    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.phase === 'play' && st.turn !== view.viewer; }
+    var who = function (s) { return seats.name(s); };
+    var vb = function (s, you, other) { return seats.isYou(s) ? you : other; };
     var tallies = [Z.h('div', { class: 'sc-tally' }), Z.h('div', { class: 'sc-tally' })];
     Z.pageEls().table.appendChild(tallies[0]); Z.pageEls().table.appendChild(tallies[1]);
     var busy = function () { var st = session.state; return !!(view.show && view.show.moves === st.moves); };
@@ -245,7 +254,7 @@
           el.appendChild(Z.h('div', { class: k ? '' : 'sc-name', text: line }));
         });
         el.style.left = g.pad + 'px';
-        el.style.top = (seat === 0 ? g.southY : g.northY) + 'px';
+        el.style.top = (seat === seats.view() ? g.southY : g.northY) + 'px';
       });
     }
     function optionLabel(set) { return set.map(nameOf).join(' + '); }
@@ -253,22 +262,22 @@
       var g = geo(board.metrics());
       setTally(g, st);
       var out = {
-        chips: [{ name: 'You', text: String(st.scores[0]), turn: st.phase === 'play' && st.turn === 0 && !busy() }, { name: 'North', text: String(st.scores[1]), turn: st.phase === 'play' && st.turn === 1 && !busy() }, { name: 'Deck', text: String(st.deck.length) }],
+        chips: [0, 1].map(function (c) { return { name: who(c), text: String(st.scores[c]), turn: st.phase === 'play' && st.turn === c && !busy() }; }).concat([{ name: 'Deck', text: String(st.deck.length) }]),
         sub: 'Hand ' + (st.handNo + 1) + ' · to ' + END_SCORE, text: ''
       };
       var lp = st.lastPlay, told = '';
       if (lp && lp.id !== null) {
-        told = (lp.seat === 0 ? 'You play ' : 'North plays ') + nameOf(lp.id) + (lp.taken.length ? ' and ' + (lp.seat === 0 ? 'take ' : 'takes ') + lp.taken.map(nameOf).join(', ') : '') + (lp.scopa ? '. Scopa!' : '');
-      } else if (lp) told = (lp.seat === 0 ? 'You take' : 'North takes') + ' the last cards';
+        told = who(lp.seat) + vb(lp.seat, ' play ', ' plays ') + nameOf(lp.id) + (lp.taken.length ? ' and ' + vb(lp.seat, 'take ', 'takes ') + lp.taken.map(nameOf).join(', ') : '') + (lp.scopa ? '. Scopa!' : '');
+      } else if (lp) told = who(lp.seat) + vb(lp.seat, ' take', ' takes') + ' the last cards';
       if (st.phase === 'play') {
         if (busy()) out.text = told;
-        else if (st.turn === 0) {
+        else if (seats.person(st.turn)) {
           var opts = view.sel !== null ? captureOptions(st.table, view.sel) : [];
           if (view.sel !== null && opts.length > 1) {
             out.text = 'Pick the cards to take, or choose a way below';
-            out.choices = opts.map(function (o) { return { label: optionLabel(o), onclick: function () { doMove(0, view.sel, o); } }; });
-          } else out.text = (told ? told + '. ' : '') + 'Your play';
-        } else out.text = (told ? told + '. ' : '') + 'North is thinking';
+            out.choices = opts.map(function (o) { return { label: optionLabel(o), onclick: function () { doMove(st.turn, view.sel, o); } }; });
+          } else out.text = (told ? told + '. ' : '') + (seats.isYou(st.turn) ? 'Your play' : who(st.turn) + ', your play');
+        } else out.text = (told ? told + '. ' : '') + who(st.turn) + ' is thinking';
       } else if (st.phase === 'handEnd') { out.text = 'Hand over'; out.label = 'Next hand'; out.action = startNextHand; }
       else if (st.phase === 'over') { out.text = 'Game over'; }
       return out;
@@ -277,13 +286,14 @@
     function drive() {
       var st = session.state;
       if (st.phase === 'sweep') { session.later(finish, 300); return; }
-      if (st.phase === 'play' && st.turn === 1 && !busy()) session.later(aiTurn, AI_MS);
+      if (st.phase === 'play' && !busy()) { if (seats.person(st.turn)) seats.ensure(st.turn, refresh); else session.later(aiTurn, AI_MS); }
     }
+    function refresh() { board.refresh(); t.paint(); }
     function aiTurn() {
       var st = session.state;
-      if (st.phase !== 'play' || st.turn !== 1 || busy()) return;
-      var mv = aiMove(st, 1);
-      doMove(1, mv.id, mv.set);
+      if (st.phase !== 'play' || seats.person(st.turn) || busy()) return;
+      var mv = aiMove(st, st.turn);
+      doMove(st.turn, mv.id, mv.set);
     }
     // Show the play (and what it took), sweep it to its owner, then go on.
     function doMove(seat, id, set) {
@@ -291,8 +301,8 @@
       if (!isLegal(st, seat, id, set)) return;
       var next = play(st, seat, id, set);
       view.sel = null; view.build = [];
-      if (seat === 0) session.commit(next); else session.follow(next);
-      reveal(next, seat === 0 ? HOLD_YOU_MS : HOLD_MS);
+      if (seats.person(seat)) session.commit(next); else session.follow(next);
+      reveal(next, seats.person(seat) && !seats.hotseat() ? HOLD_YOU_MS : HOLD_MS);
     }
     function reveal(st, hold) {
       view.show = { moves: st.moves, stage: 0, hasTaken: !!(st.lastPlay && st.lastPlay.taken.length) };
@@ -317,34 +327,34 @@
     }
     function resultLines(st) {
       var r = st.result;
-      return r.lines.concat(['This hand: You +' + r.points[0] + ', North +' + r.points[1] + '. Score ' + st.scores[0] + ' to ' + st.scores[1] + '.']);
+      return r.lines.concat(['This hand: ' + who(0) + ' +' + r.points[0] + ', ' + who(1) + ' +' + r.points[1] + '. Score ' + st.scores[0] + ' to ' + st.scores[1] + '.']);
     }
     function handOver() {
       var st = session.state;
       T.lineSheet('Hand ' + (st.handNo + 1), resultLines(st), [{ label: 'Next hand', primary: true, onclick: startNextHand }]);
     }
     function gameOver() {
-      var st = session.state, won = gameWinner(st.scores) === 0, lines = resultLines(st);
-      lines.push(won ? 'You win.' : 'North wins.');
-      if (won) session.win(st.scores[0]); else session.lose('North wins', lines, st.scores[0]);
+      var st = session.state, w = gameWinner(st.scores), won = seats.isYou(w), lines = resultLines(st);
+      lines.push(won ? 'You win.' : who(w) + ' wins.');
+      if (won) session.win(st.scores[0]); else session.lose(who(w) + ' wins', lines, seats.hotseat() ? undefined : st.scores[0]);
     }
     function startNextHand() {
       var st = session.state;
       if (st.phase !== 'handEnd') return;
       session.history = []; view.sel = null; view.build = [];
       session.follow(nextHand(st, Z.shuffled(Math.random).filter(function (c) { return c < DECK; })));
-      drive();
+      deal();
     }
     var idOf = function (pile) { return parseInt(pile.slice(1), 10); };
     function tap(pile) {
       var st = session.state, id = idOf(pile), kind = pile.charAt(0);
       if (st.phase !== 'play' || isNaN(id)) return false;
-      if (st.turn !== 0 || busy()) { t.flash('Wait for your turn'); return false; }
+      if (st.turn !== seats.view() || busy()) { t.flash('Wait for your turn'); return false; }
       if (kind === 'h') {
         if (view.sel === id) { view.sel = null; view.build = []; board.refresh(); t.paint(); return true; }
         var opts = captureOptions(st.table, id);
-        if (opts.length === 1) { doMove(0, id, opts[0]); return true; }
-        if (!opts.length) { doMove(0, id, []); return true; }
+        if (opts.length === 1) { doMove(st.turn, id, opts[0]); return true; }
+        if (!opts.length) { doMove(st.turn, id, []); return true; }
         view.sel = id; view.build = []; board.refresh(); t.paint();
         return true;
       }
@@ -353,7 +363,7 @@
         var at = view.build.indexOf(id);
         if (at >= 0) view.build.splice(at, 1); else view.build.push(id);
         var set = view.build.slice();
-        if (isOption(st.table, view.sel, set)) { doMove(0, view.sel, set); return true; }
+        if (isOption(st.table, view.sel, set)) { doMove(st.turn, view.sel, set); return true; }
         var fits = captureOptions(st.table, view.sel).some(function (o) { return set.every(function (c) { return o.indexOf(c) >= 0; }); });
         if (!fits) { view.build.splice(view.build.indexOf(id), 1); t.flash('That does not add up to ' + value(view.sel)); }
         board.refresh(); t.paint();
@@ -363,16 +373,19 @@
     }
     function startGame() {
       view.sel = null; view.build = []; view.show = null; view.flash = '';
+      setNames(seats.name(0), seats.name(1));
       session.reset(newGame(Z.shuffled(Math.random).filter(function (c) { return c < DECK; }), Math.floor(Math.random() * 2)));
-      drive();
+      deal();
     }
+    // A fresh deal: nobody has seen it, so two people start at a handoff.
+    function deal() { seats.begin(function () { refresh(); drive(); }, session.state.turn); }
     var cards40 = function (st) { return [].concat(st.captured[0], st.captured[1]); };
     t = T.create({
-      id: 'scopa', name: 'Scopa', view: view, geo: geo, place: place, hud: hud, newGame: startGame, tap: tap, cols: 5, heightShare: 0.13, face: scopaFace,
+      id: 'scopa', name: 'Scopa', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: startGame, tap: tap, cols: 5, heightShare: 0.13, face: scopaFace,
       canPick: function () { return false; },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0] + '-' + st.scores[1]; },
       cascadeOrder: function (st) { return cards40(st).slice(0, 24).map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return resultLines(st).concat(['You win, ' + st.scores[0] + ' to ' + st.scores[1] + ', after ' + Z.plural(st.handNo + 1, 'hand') + '.']); },
+      winLines: function (sec, st) { return resultLines(st).concat(['You win, ' + st.scores[seats.view()] + ' to ' + st.scores[1 - seats.view()] + ', after ' + Z.plural(st.handNo + 1, 'hand') + '.']); },
       rules: 'Play a card. If a table card has the same value you take it; otherwise you may take cards that add up to it; otherwise it stays on the table. Fante is 8, Cavallo 9, Re 10. Clearing the table is a scopa (1 point, not on the last play). The last player to capture takes the rest. Points: most cards, most coins, the seven of coins, the best primiera (sevens count most), and each scopa. First to 11 wins. Tap a card to play it; when several sets would work, tap the table cards you want or pick a way from the list.'
     });
     board = t.board; session = t.session;
