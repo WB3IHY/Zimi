@@ -178,7 +178,7 @@ a = Analysis(
         (os.path.join(REPO_ROOT, 'zimi/templates'), 'zimi/templates'),
         (os.path.join(REPO_ROOT, 'zimi/assets'), 'zimi/assets'),
         (os.path.join(REPO_ROOT, 'zimi/static'), 'zimi/static'),
-        # Zimi's own ZIMs' sources (zimi/ownzims.py builds them at start).
+        # Zimi's own ZIMs (zimi/ownzims.py), committed built.
         (os.path.join(REPO_ROOT, 'zimi/builtin'), 'zimi/builtin'),
     ] + pythonnet_datas + webkit_datas,
     hiddenimports=[
@@ -198,7 +198,6 @@ a = Analysis(
         'zimi.transmission',
         'zimi.runtimes',
         'zimi.ownzims',
-        'zimi.creator',
         'libzim',
         # Soft BT dependency: guarantees the extension is bundled when a
         # wheel is present. Absent → PyInstaller warns, does not fail.

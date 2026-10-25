@@ -672,6 +672,8 @@ jobs:
           else
             echo "::warning::no SBOM this release; the builds ship without it"
           fi
+          # Zimi's own ZIMs (zimi/ownzims.py), for Kiwix and any other reader.
+          cp zimi/builtin/*.zim release/
           ls -la release
 
       # A GitHub build-provenance attestation for every file that ships.
