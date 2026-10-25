@@ -217,7 +217,7 @@
       var st = session.state, mine = watch;
       if (isWon(st)) { mine.finish('All four piles are complete: the hand is won. Press Done to play one yourself.'); return; }
       var step = root.ZimiExplain.solitaire(api, Z, st, watchCtx);
-      if (!step) { mine.finish('Nothing more can be done: no card moves and the stock has been through twice. Not every deal can be won. Press Done to play one yourself.'); return; }
+      if (!step) { mine.finish('Nothing more can be done: no card can move and the deck has been through twice. Not every deal can be won. Press Done to play one yourself.'); return; }
       watchWaiting = true;
       mine.offer(step.text, function () { watchWaiting = false; if (watch !== mine) return; session.follow(step.next); watchDrive(); });
     }

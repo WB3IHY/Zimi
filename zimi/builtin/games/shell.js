@@ -357,7 +357,7 @@
       card.appendChild(h('div', { class: 'gs-row' }, [h('label', { text: 'Card back' }), h('button', { class: 'ar-btn', type: 'button', text: 'Choose…', onclick: function () { closeMenu(); root.ZimiCards.backsSheet(); } })]));
     }
     if (settings.hasOverrides()) {
-      card.appendChild(h('button', { class: 'gs-link', type: 'button', text: 'Use the all-games settings here', onclick: function () { settings.reset(); render(); } }));
+      card.appendChild(h('button', { class: 'gs-link', type: 'button', text: 'Use the settings for all games', onclick: function () { settings.reset(); render(); } }));
     }
   }
   var paneState = {};
@@ -429,7 +429,7 @@
       card.appendChild(h('div', { class: 'gs-actions' }, [h('button', { class: 'ar-btn gs-primary', type: 'button', 'aria-pressed': 'true', text: 'Stop watching', onclick: function () { closeMenu(); stopWatching('stop'); } })]));
       return;
     }
-    card.appendChild(h('p', { class: 'gs-text', text: 'The computer plays both sides and says in a sentence why it makes each move. Pause, step or take over at any time.' }));
+    card.appendChild(h('p', { class: 'gs-text', text: 'The computer plays both sides and explains each move. You can pause, step or take over at any time.' }));
     card.appendChild(h('div', { class: 'gs-actions' }, [h('button', { class: 'ar-btn gs-primary', type: 'button', 'aria-pressed': 'true', text: 'Start watching', onclick: function () { closeMenu(); startWatching(); } })]));
   }
   function loadScript(src, done) {
