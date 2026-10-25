@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sokoban - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="sokoban.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Sokoban</h1>
+  <button class="ar-btn" id="sk-undo" type="button" title="Undo (Z)" disabled>Undo</button>
+  <button class="ar-btn" id="sk-restart" type="button" title="Restart (R)">Restart</button>
+  <button class="ar-btn" id="sk-levels" type="button" aria-haspopup="dialog">Levels</button>
+</header>
+
+<main class="pl-main sk-main">
+  <div class="pl-hud">
+    <div class="pl-stat"><small id="sk-name-l">Level</small><b id="sk-name">1</b></div>
+    <div class="pl-stat"><small>Moves</small><b id="sk-moves">0</b></div>
+    <div class="pl-stat"><small>Pushes</small><b id="sk-pushes">0</b></div>
+    <div class="pl-stat"><small>Best</small><b id="sk-best">-</b></div>
+  </div>
+  <p class="pl-msg" id="sk-msg" role="status" aria-live="polite"></p>
+  <div class="sk-board" id="sk-board" tabindex="0" role="img" aria-label="Sokoban board"></div>
+  <div class="sk-pad" id="sk-pad" aria-label="Move">
+    <button class="pl-key sk-up" type="button" data-d="u" aria-label="Up">&uarr;</button>
+    <button class="pl-key sk-left" type="button" data-d="l" aria-label="Left">&larr;</button>
+    <button class="pl-key sk-down" type="button" data-d="d" aria-label="Down">&darr;</button>
+    <button class="pl-key sk-right" type="button" data-d="r" aria-label="Right">&rarr;</button>
+  </div>
+  <button class="ar-btn" id="sk-watch" type="button">Watch a solution</button>
+  <p class="pl-help">Push every crate onto a ring. You can push one crate at a time and never pull. Swipe on the board, use the arrows, or the arrow keys. Z undoes, R restarts.</p>
+</main>
+
+<div class="ar-sheet" id="sk-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sk-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="sk-sheet-title">Levels</h2>
+    <div class="sk-tabs" id="sk-tabs" role="group" aria-label="Difficulty"></div>
+    <div class="sk-grid" id="sk-grid"></div>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="sk-close" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="ar-sheet" id="sk-win" hidden role="dialog" aria-modal="true" aria-labelledby="sk-win-title">
+  <div class="ar-sheet-card">
+    <h2 id="sk-win-title">Level complete</h2>
+    <p id="sk-win-text"></p>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="sk-win-levels" type="button">Levels</button>
+      <button class="ar-btn" id="sk-win-again" type="button">Play again</button>
+      <button class="ar-btn" id="sk-win-next" type="button" aria-pressed="true">Next level</button>
+    </div>
+  </div>
+</div>
+<script src="boardkit.js"></script>
+<script src="sokoban-engine.js"></script>
+<script src="data/sokoban-levels.js"></script>
+<script src="sokoban.js"></script>
+<!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
+<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q605445">About Sokoban</a></footer><!-- /zimi-about -->
+</body>
+</html>

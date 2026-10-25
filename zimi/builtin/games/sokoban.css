@@ -1,0 +1,23 @@
+/* Sokoban: the board is one svg drawn from the state (our own art), the pad and the level grid. Tokens come from games.css and play.css. */
+:root { --sk-floor: #e7dcc4; --sk-floor2: #dfd2b6; --sk-wall: #6c7a8c; --sk-wall-hi: #8d9bad; --sk-wall-lo: #4d5968; --sk-crate: #c98a3d; --sk-crate-hi: #e2a95c; --sk-crate-lo: #8f5c22; --sk-crate-on: #5aa469; --sk-crate-on-lo: #2f6f3f; --sk-goal: #c0392b; --sk-me: #2f6fb5; --sk-me-hi: #6fa3dc; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --sk-floor: #2b2a2e; --sk-floor2: #26252a; --sk-wall: #56657a; --sk-wall-hi: #70809a; --sk-wall-lo: #39465a; --sk-crate: #b9783a; --sk-crate-hi: #d49a58; --sk-crate-lo: #7d4d1d; --sk-crate-on: #4c9b5e; --sk-crate-on-lo: #2a6a3a; --sk-goal: #ef6a60; --sk-me: #5b95d6; --sk-me-hi: #9cc4f0; }
+}
+:root[data-theme="dark"] { --sk-floor: #2b2a2e; --sk-floor2: #26252a; --sk-wall: #56657a; --sk-wall-hi: #70809a; --sk-wall-lo: #39465a; --sk-crate: #b9783a; --sk-crate-hi: #d49a58; --sk-crate-lo: #7d4d1d; --sk-crate-on: #4c9b5e; --sk-crate-on-lo: #2a6a3a; --sk-goal: #ef6a60; --sk-me: #5b95d6; --sk-me-hi: #9cc4f0; }
+
+.sk-board { --bs: min(100vw - 24px, 100svh - 330px, 520px); width: var(--bs); height: var(--bs); display: grid; place-items: center; touch-action: none; user-select: none; -webkit-user-select: none; border-radius: 10px; }
+.sk-board:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.sk-board svg { width: 100%; height: 100%; display: block; }
+.sk-pad { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 52px); gap: 6px; justify-content: center; }
+.sk-up { grid-column: 2; grid-row: 1; } .sk-left { grid-column: 1; grid-row: 2; } .sk-down { grid-column: 2; grid-row: 2; } .sk-right { grid-column: 3; grid-row: 2; }
+@media (hover: hover) and (pointer: fine) { .sk-pad { display: none; } .sk-board { --bs: min(100vw - 24px, 100svh - 260px, 560px); } }
+
+.sk-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.sk-tab { flex: 1; min-height: 40px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); cursor: pointer; }
+.sk-tab[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 650; }
+.sk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; max-height: 46vh; overflow: auto; padding: 2px; }
+.sk-lv { position: relative; min-height: 46px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font: 600 14px var(--mono); cursor: pointer; }
+.sk-lv:hover { border-color: var(--accent); }
+.sk-lv.done { border-color: var(--ok); }
+.sk-lv.done::after { content: ""; position: absolute; top: 4px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.sk-lv.now { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
