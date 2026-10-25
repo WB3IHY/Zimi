@@ -8,7 +8,7 @@
 
   // create(el, E, onSquare): builds the 64 buttons in el. onSquare(square, event) is called with the engine's square index.
   function create(el, E, onSquare) {
-    var cells = [], flipped = false, WHITE = E.WHITE, BLACK = E.BLACK;
+    var cells = [], flipped = false, selNow = -1, WHITE = E.WHITE, BLACK = E.BLACK;
     function sqAt(d) { return flipped ? 63 - d : d; }
     el.textContent = '';
     for (var d = 0; d < 64; d++) {
@@ -18,10 +18,11 @@
       el.appendChild(c); cells.push(c);
     }
     BK.gridNav(el, cells, 8);
+    BK.dragPieces(el, cells, { grab: function (i) { if (selNow !== sqAt(i)) onSquare(sqAt(i), null); }, drop: function (i) { onSquare(sqAt(i), null); } });
 
     // v: { flipped, last (a move), sel (square or -1), targets ({square: isCapture}), cue ({from, to}) }
     function paint(pos, v) {
-      flipped = !!v.flipped;
+      flipped = !!v.flipped; selNow = v.sel;
       var kingSq = E.inCheck(pos) ? pos.king[pos.turn === WHITE ? 0 : 1] : -1, targets = v.targets || {}, cue = v.cue, last = v.last;
       for (var d = 0; d < 64; d++) {
         var s = sqAt(d), c = cells[d], p = pos.sq[s], cls = 'bg-sq' + (((s >> 3) + (s & 7)) % 2 ? ' dk' : '');

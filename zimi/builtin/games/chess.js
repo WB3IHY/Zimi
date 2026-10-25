@@ -44,6 +44,10 @@
       els.board.appendChild(c); cells.push(c);
     }
     BK.gridNav(els.board, cells, 8);
+    BK.dragPieces(els.board, cells, {
+      grab: function (i) { if (sel !== sqAt(i)) onSquare({ currentTarget: cells[i] }); },
+      drop: function (i) { if (targets.hasOwnProperty(sqAt(i))) onSquare({ currentTarget: cells[i] }); }
+    });
   }
   function sqAt(d) { return flipped ? 63 - d : d; }
 

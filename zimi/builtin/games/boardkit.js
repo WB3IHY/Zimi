@@ -83,5 +83,53 @@
     });
   }
 
-  root.BoardKit = { gridNav: gridNav, load: load, save: save, mulberry32: mulberry32, reducedMotion: reducedMotion, fmtTime: fmtTime, sheet: sheet, chipValue: chipValue, chipSet: chipSet };
+  // Drag a piece with a finger or a mouse as well as tap-tap. A press that moves DRAG_PX or more lifts the piece
+  // (a copy follows the pointer); letting go on another square drops it there. grab(i) is called with the cell index
+  // where the drag began (select the piece there, as a tap would), drop(i) with the cell index let go on. A press that
+  // never moves is left to the click, which still works. A piece is whatever the cell holds as an <svg> or .dr-pc.
+  var DRAG_PX = 7, PIECE = 'svg:not(.cs-co), .dr-pc';
+  function dragPieces(board, cells, hooks) {
+    var d = null, justDragged = 0;
+    board.style.touchAction = 'none';
+    function cellAt(x, y) {
+      var el = document.elementFromPoint(x, y), i = -1;
+      while (el && el !== board) { i = cells.indexOf(el); if (i >= 0) return i; el = el.parentNode; }
+      return -1;
+    }
+    function end(e, drop) {
+      if (!d) return;
+      var cur = d; d = null;
+      document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', cancel);
+      if (!cur.lifted) return;
+      cur.ghost.remove(); cur.piece.style.opacity = '';
+      justDragged = Date.now();
+      var to = drop ? cellAt(e.clientX, e.clientY) : -1;
+      if (to >= 0 && to !== cur.from) hooks.drop(to);
+    }
+    function move(e) {
+      if (!d || e.pointerId !== d.id) return;
+      if (!d.lifted) {
+        if (Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y) < DRAG_PX) return;
+        d.lifted = true; hooks.grab(d.from);
+        var r = d.piece.getBoundingClientRect(), g = d.piece.cloneNode(true);
+        g.style.cssText = 'position:fixed;left:0;top:0;width:' + r.width + 'px;height:' + r.height + 'px;margin:0;pointer-events:none;z-index:9999;transform:scale(1.15)';
+        d.hw = r.width / 2; d.hh = r.height / 2; d.ghost = g; document.body.appendChild(g); d.piece.style.opacity = '0.3';
+      }
+      e.preventDefault();
+      d.ghost.style.left = (e.clientX - d.hw) + 'px'; d.ghost.style.top = (e.clientY - d.hh) + 'px';
+    }
+    function up(e) { end(e, true); }
+    function cancel(e) { end(e, false); }
+    board.addEventListener('pointerdown', function (e) {
+      if (d || e.button > 0) return;
+      var from = cellAt(e.clientX, e.clientY), piece = from >= 0 ? cells[from].querySelector(PIECE) : null;
+      if (!piece) return;
+      d = { id: e.pointerId, x: e.clientX, y: e.clientY, from: from, piece: piece, lifted: false };
+      document.addEventListener('pointermove', move, { passive: false }); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', cancel);
+    });
+    // The click that follows a drop is not a tap on the square under the finger.
+    board.addEventListener('click', function (e) { if (Date.now() - justDragged < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
+  }
+
+  root.BoardKit = { dragPieces: dragPieces, gridNav: gridNav, load: load, save: save, mulberry32: mulberry32, reducedMotion: reducedMotion, fmtTime: fmtTime, sheet: sheet, chipValue: chipValue, chipSet: chipSet };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
