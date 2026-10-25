@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Muncher - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="pixel.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Muncher</h1>
+  <button class="ar-btn" id="mn-pause" type="button" disabled>Pause</button>
+</header>
+
+<main class="px-main">
+  <div class="pl-hud">
+    <div class="pl-stat"><small>Score</small><b id="mn-score">0</b></div>
+    <div class="pl-stat"><small>Best</small><b id="mn-best">0</b></div>
+    <div class="pl-stat"><small>Lives</small><b id="mn-lives" role="img">&#9679;&#9679;&#9679;</b></div>
+    <div class="pl-stat"><small>Maze</small><b id="mn-level">1</b></div>
+  </div>
+  <canvas class="px-screen" id="mn-screen" role="img" aria-label="The maze: your round muncher, dots, power pellets and four chasers"></canvas>
+  <div class="px-pad" role="group" aria-label="Controls">
+    <div class="px-dpad">
+      <button class="pl-key px-up" id="mn-up" type="button" aria-label="Up">&#9650;</button>
+      <button class="pl-key px-left" id="mn-left" type="button" aria-label="Left">&#9664;</button>
+      <button class="pl-key px-down" id="mn-down" type="button" aria-label="Down">&#9660;</button>
+      <button class="pl-key px-right" id="mn-right" type="button" aria-label="Right">&#9654;</button>
+    </div>
+  </div>
+  <p class="pl-msg" id="mn-msg" role="status" aria-live="polite"></p>
+  <p class="pl-help">Arrow keys or W, A, S, D steer; you keep going until you turn. On a phone, swipe on the maze or use the pad. P pauses. The side tunnels wrap around. The red chaser comes straight for you, the pink one cuts you off, the orange one is shy up close, the teal one wanders.</p>
+</main>
+
+<div class="ar-sheet" id="mn-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="mn-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="mn-sheet-title">Muncher</h2>
+    <p id="mn-sheet-text"></p>
+    <div class="ar-sheet-actions"><button class="ar-btn" id="mn-go" type="button" aria-pressed="true">Start</button></div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="pixelkit.js"></script>
+<script src="muncher.js"></script>
+</body>
+</html>
