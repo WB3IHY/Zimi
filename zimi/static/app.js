@@ -28182,7 +28182,7 @@ function _hlReaderAttach(frame) {
   if (_hlReader && _hlReader.doc !== doc) _hlReader.detach();
   _hlReader = null;
   var ref = currentArticle && !_frameIsOurOwnPage(frame) ? _savedRefOnScreen() : null;
-  if (!doc || !doc.body || !ref || ref.kind === 'place') return;
+  if (!doc || !doc.body || !ref || ref.kind === 'place' || _docIsApp(doc)) return;
   // Read in the book reader (an EPUB's chapters too): a book, in Bookshelf.
   if (_bookReading && ref.kind !== 'book') { ref.kind = 'book'; ref.app = 'books'; }
   var dc = doc.querySelector('meta[name="dc.title"]');
@@ -30549,6 +30549,11 @@ function _frameIsOurOwnPage(frame) {
 function _docIsOurOwnPage(doc) {
   try { return !!(doc && doc.querySelector && doc.querySelector('meta[name="zimi-page"]')); } catch (e) { return false; }
 }
+// A ZIM page that is an app, not something to read (ZimiGames, the Almanac):
+// it says so in its head, and the reader offers it no highlight, note or lookup.
+function _docIsApp(doc) {
+  try { return !!(doc && doc.querySelector && doc.querySelector('meta[name="zimi-app"]')); } catch (e) { return false; }
+}
 
 function _settleCapturedChrome(frame) {
   var doc = frame.contentDocument;
@@ -30759,7 +30764,7 @@ function _sayMissingVideos(frame) {
 
 function _defineAttachToDoc(frame) {
   var doc = frame.contentDocument;
-  if (!doc) return;
+  if (!doc || _docIsApp(doc)) return;
   var onSel = function() {
     clearTimeout(_defineDebounce);
     // Touch devices wait out the OS selection-callout's own animation before the

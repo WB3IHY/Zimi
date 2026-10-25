@@ -16,6 +16,10 @@
 (function (root) {
   'use strict';
   var d = root.document;
+  // An app, not a page to read: a reader (Zimi's) leaves out highlight, note and lookup.
+  if (d.head && !d.querySelector('meta[name="zimi-app"]')) {
+    var app = d.createElement('meta'); app.name = 'zimi-app'; d.head.appendChild(app);
+  }
   var KEY = 'zimi.games.settings';
   var DEFAULTS = { timer: 'show', moveTimer: 0, hints: 'on', anim: 'normal', sound: 'off', confirm: 'on' };
   var CHOICES = {

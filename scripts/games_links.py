@@ -59,6 +59,7 @@ ABOUT = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="zimi-app">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>About - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
