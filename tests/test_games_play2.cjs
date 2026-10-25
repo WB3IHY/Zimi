@@ -179,6 +179,96 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check(C.isValid([0, 1, 2, 3], false) && !C.isValid([0, 0, 2, 3], false) && C.isValid([0, 0, 2, 3], true) && !C.isValid([0, 1, 2], true) && !C.isValid([0, 1, 2, 6], true), 'code breaker: guess validity');
 }
 
+// ── Pinball ─────────────────────────────────────────────────────────────────
+{
+  const P = load(['playkit.js', 'pinball.js']).PinballEngine;
+  const DT = 1 / 60;
+  const run = (st, secs, each) => { for (let i = 0; i < Math.round(secs / DT); i++) { P.step(st, DT); if (each) each(st); } };
+
+  // A ball dropped on a flat wall bounces back up, a little slower.
+  const ball = { x: 100, y: 99, vx: 0, vy: 300 };
+  const c = P.contact(ball, 0, 100, 200, 100, 0);
+  const hit = c && P.bounce(ball, c.nx, c.ny, 0.45, 0, 0);
+  check(c && c.ny === -1 && ball.y <= 93.0001 && hit === 300 && Math.abs(ball.vy + 135) < 1e-9, 'pinball: a ball dropped on a wall is pushed out and bounces up slower');
+  const slow = { x: 100, y: 93.5, vx: 0, vy: 20 };
+  P.contact(slow, 0, 100, 200, 100, 0); P.bounce(slow, 0, -1, 0.45, 0, 0);
+  check(Math.abs(slow.vy) < 1e-9, 'pinball: a slow touch does not bounce, so a ball can roll');
+
+  // Gravity pulls a ball down the left inlane guide toward the flipper.
+  let st = P.createState(); st.balls = [{ x: 30, y: 480, vx: 0, vy: 0, slow: 0 }]; st.status = 'play'; st.saver = 0;
+  run(st, 0.9);
+  check(st.balls[0] && st.balls[0].x > 60 && st.balls[0].y > 530, 'pinball: a ball rolls down the inlane guide');
+
+  // The left flipper: a ball on it at rest stays; raised, it throws the ball up the table.
+  st = P.createState(); st.balls = [{ x: 133, y: 574, vx: 0, vy: 0, slow: 0 }]; st.status = 'play'; st.saver = 0;
+  run(st, 0.35);
+  const settled = st.balls[0];
+  check(settled && settled.y > 560 && settled.y < 600 && Math.abs(settled.vy) < 200, 'pinball: a ball comes to rest on a resting flipper');
+  st.balls[0].vx = 0; st.balls[0].vy = 0; st.balls[0].x = 138; st.balls[0].y = 580; st.flippers[0].on = true;
+  let upBest = 0, topY = 999;
+  run(st, 0.5, s => { const b = s.balls[0]; if (b) { upBest = Math.max(upBest, -b.vy); topY = Math.min(topY, b.y); } });
+  check(upBest > 600, 'pinball: a raised flipper throws the ball upward (' + Math.round(upBest) + ' px/s)');
+  check(topY < 300, 'pinball: a flipper shot climbs the table (reached y=' + Math.round(topY) + ')');
+
+  // The right flipper mirrors it.
+  st = P.createState(); st.balls = [{ x: 194, y: 580, vx: 0, vy: 0, slow: 0 }]; st.status = 'play'; st.saver = 0; st.flippers[1].on = true;
+  upBest = 0; run(st, 0.5, s => { const b = s.balls[0]; if (b) upBest = Math.max(upBest, -b.vy); });
+  check(upBest > 600, 'pinball: the right flipper works the same way');
+
+  // A pop bumper kicks the ball away and scores.
+  st = P.createState(); st.balls = [{ x: 118, y: 292, vx: 0, vy: -420, slow: 0 }]; st.status = 'play'; st.saver = 0;
+  let bump = false, away = 0;
+  run(st, 0.4, s => { if (!bump && s.score >= 100) { bump = true; const b = s.balls[0]; away = Math.sqrt(b.vx * b.vx + b.vy * b.vy); } });
+  check(bump && away >= P.BUMPER_KICK - 5 && st.score >= 100, 'pinball: a bumper scores 100 and kicks the ball away (' + Math.round(away) + ' px/s)');
+
+  // A ball falling out the bottom costs a ball; the saver gives one back for free.
+  st = P.createState(); st.balls = [{ x: 166, y: 700, vx: 0, vy: 100, slow: 0 }]; st.status = 'play'; st.saver = 0;
+  P.step(st, DT);
+  check(st.lives === 2 && st.status === 'ready' && st.balls.length === 1 && P.inLane(st.balls[0]), 'pinball: a drained ball costs a life and a new one waits in the lane');
+  st = P.createState(); st.balls = [{ x: 166, y: 700, vx: 0, vy: 100, slow: 0 }]; st.status = 'play'; st.saver = 3;
+  P.step(st, DT);
+  check(st.lives === 3 && st.status === 'ready', 'pinball: the ball saver returns the ball for free');
+  st = P.createState(); st.lives = 1; st.balls = [{ x: 166, y: 700, vx: 0, vy: 100, slow: 0 }]; st.status = 'play'; st.saver = 0;
+  P.step(st, DT);
+  check(st.status === 'over' && st.events.some(e => e.name === 'over'), 'pinball: the last ball ends the game');
+
+  // Nothing tunnels through a wall at top speed.
+  st = P.createState(); st.balls = [{ x: 100, y: 300, vx: -P.MAX_SPEED, vy: 0, slow: 0 }]; st.status = 'play'; st.saver = 0;
+  let minX = 999; run(st, 1, s => { if (s.balls[0]) minX = Math.min(minX, s.balls[0].x); });
+  check(minX > 14, 'pinball: a ball at top speed does not pass the left wall (closest x=' + minX.toFixed(1) + ')');
+  st = P.createState(); st.balls = [{ x: 330, y: 400, vx: P.MAX_SPEED, vy: 0, slow: 0 }]; st.status = 'play'; st.saver = 0;
+  let maxX = 0; run(st, 1, s => { if (s.balls[0]) maxX = Math.max(maxX, s.balls[0].x); });
+  check(maxX < 346, 'pinball: nor the right wall');
+
+  // The plunger: a full shot climbs the lane, goes over the top and lands on the table; a feeble one falls back.
+  st = P.createState(); st.charging = true; run(st, 1);
+  check(st.charge === 1 && P.launch(st) && st.status === 'play', 'pinball: a full plunger launches');
+  let inField = false, escaped = false;
+  run(st, 4, s => { const b = s.balls[0]; if (b) { if (b.x < 316 && b.y < 330) inField = true; if (b.x < 0 || b.x > 360 || b.y < 0) escaped = true; } });
+  check(inField && !escaped, 'pinball: the launch goes over the top onto the table and stays on it');
+  st = P.createState(); st.charging = true; run(st, 0.25);
+  P.launch(st);
+  let reached = 999; run(st, 3, s => { const b = s.balls[0]; if (b) reached = Math.min(reached, b.y); });
+  check(reached > 200 && st.status === 'ready' && st.balls.length === 1 && P.inLane(st.balls[0]), 'pinball: a weak shot falls back into the lane and can be shot again');
+  st = P.createState(); st.charging = true; run(st, 0.55); P.launch(st);
+  inField = false; run(st, 4, s => { const b = s.balls[0]; if (b && b.x < 316 && b.y < 330) inField = true; });
+  check(inField, 'pinball: a half-strength shot still makes it onto the table');
+
+  // Rollover lanes raise the multiplier; a full bank of targets starts multiball.
+  st = P.createState(); st.status = 'play'; st.saver = 99;
+  P.LANES.forEach(l => { st.balls = [{ x: l.x, y: l.y, vx: 0, vy: 0, slow: 0 }]; P.step(st, DT); });
+  check(st.mult === 2 && st.lanes.every(v => v === 0) && st.score >= P.POINTS.lane * 3 + P.POINTS.laneSet, 'pinball: three lanes raise the multiplier');
+  st = P.createState(); st.status = 'play'; st.saver = 99; st.targets = [1, 1, 0, 0, 0, 0];
+  st.balls = [{ x: 30, y: 347, vx: -10, vy: 260, slow: 0 }];
+  run(st, 0.3);
+  check(st.balls.length === 3 && st.targets.slice(0, 3).every(v => v === 0), 'pinball: the third target of a bank starts multiball');
+  // With several balls in play, losing one does not cost a life.
+  st.balls[0].y = 700; P.step(st, DT);
+  check(st.lives === 3 && st.balls.length === 2, 'pinball: a multiball loss does not cost a life');
+  // Walls close the table: no gap anywhere except the drain.
+  check(P.WALLS.length > 40, 'pinball: the table has its walls');
+}
+
 // END
 if (failures) { console.error(failures + ' failed'); process.exit(1); }
 console.log('all passed');
