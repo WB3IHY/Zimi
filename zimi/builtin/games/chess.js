@@ -30,7 +30,8 @@
   var cells = [], pos, keys, sans, played, over, sel = -1, targets = {}, lastMove = 0, flipped = false, requestId = 0, thinking = false;
   var worker = null, workerOk = true, watchdog = 0, pendingPromo = null;
 
-  function human(color) { return settings.mode === 'two' || color === (settings.side === 'white' ? WHITE : BLACK); }
+  var watch = null, watchSaved = null;   // Watch and learn: the driver's controller, and the settings to give back
+  function human(color) { if (watch) return false; return settings.mode === 'two' || color === (settings.side === 'white' ? WHITE : BLACK); }
   function colorName(c) { return c === WHITE ? 'White' : 'Black'; }
 
   // ── drawing ──
@@ -95,11 +96,13 @@
   var WHY = { stalemate: 'Stalemate, a draw.', repetition: 'A draw by threefold repetition.', fifty: 'A draw by the fifty-move rule.', material: 'A draw, neither side has enough pieces to mate.' };
   function finish(st) {
     over = true; thinking = false; sel = -1; targets = {};
+    if (root.ZimiShell) root.ZimiShell.turn(false);
     var msg, result;
     if (st.result === 'mate') {
       msg = 'Checkmate. ' + (settings.mode === 'two' ? colorName(st.winner) + ' wins.' : human(st.winner) ? 'You win.' : 'The computer wins.');
       result = human(st.winner) ? 'win' : 'loss';
     } else { msg = WHY[st.result]; result = 'draw'; }
+    if (watch) { paint(); say(msg); watch.finish(msg + ' That was the whole game. Press Done to play one yourself.'); return; }
     if (settings.mode === 'cpu') {
       var s = stats[settings.level] = stats[settings.level] || { w: 0, l: 0, d: 0 };
       if (result === 'win') s.w++; else if (result === 'loss') s.l++; else s.d++;
@@ -116,8 +119,9 @@
     paintMoves();
     if (st.over) { finish(st); return; }
     paint();
-    var line = settings.mode === 'two' ? colorName(pos.turn) + ' to move' : human(pos.turn) ? 'Your move' : 'Computer is thinking';
-    say((st.check ? 'Check. ' : '') + line, !human(pos.turn));
+    var line = watch ? colorName(pos.turn) + ' to move' : settings.mode === 'two' ? colorName(pos.turn) + ' to move' : human(pos.turn) ? 'Your move' : 'Computer is thinking';
+    say((st.check ? 'Check. ' : '') + line, !human(pos.turn) && !watch);
+    if (root.ZimiShell) root.ZimiShell.turn(human(pos.turn) && !over, timeUp, played.length);
     if (!human(pos.turn)) askComputer();
   }
 
@@ -137,28 +141,33 @@
   function makeWorker() {
     if (worker || !workerOk) return worker;
     try {
-      var src = 'var E=(' + root.ZimiChessEngine.toString() + ')();onmessage=function(e){var d=e.data,r=E.think(d.fen,{level:d.level,seen:d.seen});postMessage({id:d.id,move:r.move,depth:r.depth});};';
+      var src = 'var E=(' + root.ZimiChessEngine.toString() + ')();onmessage=function(e){var d=e.data,r=E.think(d.fen,{level:d.level,seen:d.seen});postMessage({id:d.id,move:r.move,depth:r.depth,score:r.score});};';
       var url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
       worker = new Worker(url);
-      worker.onmessage = function (e) { onAnswer(e.data.id, e.data.move); };
+      worker.onmessage = function (e) { onAnswer(e.data.id, e.data.move, e.data.score); };
       worker.onerror = function (e) { if (e && e.preventDefault) e.preventDefault(); dropWorker(); thinkHere(requestId); };
     } catch (err) { workerOk = false; worker = null; }
     return worker;
   }
   function dropWorker() { workerOk = false; if (worker) { try { worker.terminate(); } catch (e) { /* gone already */ } } worker = null; }
 
-  function onAnswer(id, move) {
+  function onAnswer(id, move, score) {
     if (id !== requestId || !thinking) return;
     clearTimeout(watchdog);
     thinking = false;
-    if (move) play(move); else afterMove();
+    if (!move) { afterMove(); return; }
+    if (!watch) { play(move); return; }
+    // Watch and learn: say why, then play it when the driver says so.
+    var why = root.ZimiExplain.chess(E, pos, move, { score: score, ply: played.length });
+    var mine = watch;
+    mine.offer(why.text, function () { if (watch === mine && !over) play(move); });
   }
 
   function thinkHere(id) { // main thread: a short, shallow search, after a paint so the page shows it is thinking
     setTimeout(function () {
       if (id !== requestId || !thinking) return;
       var r = E.think(pos, { level: settings.level, ms: FALLBACK_MS, depth: FALLBACK_DEPTH, seen: seenCounts() });
-      onAnswer(id, r.move);
+      onAnswer(id, r.move, r.score);
     }, 30);
   }
 
@@ -217,8 +226,18 @@
     for (var i = 0; i < svgs.length; i++) svgs[i].setAttribute('class', 'cs-pc ' + (pos.turn === WHITE ? 'w' : 'b'));
   }
 
+  // The move timer ran out: the computer's quickest choice is played for the person.
+  function timeUp() {
+    if (over || thinking || !human(pos.turn)) return;
+    promoSheet.close(); pendingPromo = null;
+    var r = E.think(pos, { level: 'beginner', ms: 80, depth: 1, seen: seenCounts() });
+    if (!r.move) return;
+    say('Time ran out. A move was played for you.');
+    play(r.move);
+  }
+
   function undo() {
-    if (!played.length || thinking) return;
+    if (!played.length || thinking || watch) return;
     over = false; requestId++;
     do {
       E.unmake(pos); played.pop(); sans.pop(); keys.pop();
@@ -271,6 +290,29 @@
   // the promotion sheet shows the colour of whoever is promoting
   var promoObserver = new MutationObserver(function () { if (!$('cs-promo').hidden) paintPromoColour(); });
   promoObserver.observe($('cs-promo'), { attributes: true, attributeFilter: ['hidden'] });
+
+  if (root.ZimiShell) root.ZimiShell.game({
+    moveTimer: true, hints: true,
+    stats: function () { var s = stats[settings.level] || { w: 0, l: 0, d: 0 }; return 'Against the computer, ' + settings.level + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn'; },
+    inProgress: function () { return !over && played.length > 0; },
+    watch: {
+      script: 'explain-chess.js',
+      start: function (ctl) {
+        watchSaved = { mode: settings.mode, level: settings.level, side: settings.side };
+        settings.mode = 'cpu'; settings.level = 'club'; settings.side = 'white';
+        watch = ctl; newGame();
+        ctl.say('White moves first. The computer plays both sides at club level.');
+      },
+      // takeover: play on from here as the side to move; stop: a fresh game; new: the game's own New game sheet follows.
+      stop: function (kind) {
+        watch = null; requestId++; thinking = false; clearTimeout(watchdog);
+        var turn = pos.turn;
+        settings.mode = 'cpu'; settings.level = watchSaved.level; settings.side = watchSaved.side;
+        if (kind === 'takeover') { settings.side = turn === WHITE ? 'white' : 'black'; flipped = settings.side === 'black'; afterMove(); }
+        else { settings.mode = watchSaved.mode; if (kind === 'stop') newGame(); }
+      }
+    }
+  });
 
   buildBoard();
   pos = E.startPosition(); buildPromo();
