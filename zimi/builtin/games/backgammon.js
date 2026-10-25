@@ -343,6 +343,10 @@
     var steps = humanTurnLive() ? legalSteps(s) : [];
     if (sel >= 0) steps.filter(function (st) { return st.from === sel; }).forEach(function (st) { mk += st.to === 0 ? '' : pointMark(idxOf(s.turn, st.to), 'bk-target'); });
     if (hintStep) mk += (hintStep.from < BAR ? pointMark(idxOf(s.turn, hintStep.from), 'bk-hint') : '') + (hintStep.to ? pointMark(idxOf(s.turn, hintStep.to), 'bk-hint') : '');
+    // the tray lights up when the selected checker can be borne off; its button sits at the mover's end
+    var offTop = s.turn !== bottomPlayer(), offY = offTop ? TM : H - TM - HALF;
+    if (sel > 0 && steps.some(function (st) { return st.from === sel && st.to === 0; })) mk += '<rect x="' + (W - TM - TRAY) + '" y="' + offY + '" width="' + TRAY + '" height="' + HALF + '" rx="6" class="bk-target"/>';
+    btns.off.style.top = ((offY + HALF / 2 - HALF / 2) / H * 100) + '%';
     gLayer.checkers.innerHTML = ck; gLayer.marks.innerHTML = mk; gLayer.extra.innerHTML = ex;
     // buttons
     var froms = {}, tos = {};

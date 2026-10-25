@@ -52,7 +52,7 @@
     var g = '', k, stars = '';
     for (k = 0; k < n; k++) { var o = PAD + k * cell; g += 'M' + PAD + ' ' + o + 'H' + (VIEW - PAD) + 'M' + o + ' ' + PAD + 'V' + (VIEW - PAD); }
     HOSHI[n].forEach(function (p) { stars += '<circle cx="' + (PAD + p[1] * cell) + '" cy="' + (PAD + p[0] * cell) + '" r="3.6" class="go-star"/>'; });
-    host.innerHTML = '<svg viewBox="0 0 ' + VIEW + ' ' + VIEW + '" aria-hidden="true">' + WK.STONE_DEFS + '<rect width="' + VIEW + '" height="' + VIEW + '" rx="8" class="go-wood"/><path d="' + g + '" class="go-grid"/>' + stars + '<g id="go-marks"></g><g id="go-stones"></g><g id="go-top"></g></svg>';
+    host.innerHTML = '<svg viewBox="0 0 ' + VIEW + ' ' + VIEW + '" aria-hidden="true">' + WK.STONE_DEFS + '<rect width="' + VIEW + '" height="' + VIEW + '" rx="8" class="go-wood"/><path d="' + g + '" class="go-grid"/>' + stars + '<g id="go-stones"></g><g id="go-marks"></g></svg>';
     stonesG = host.querySelector('#go-stones'); marksG = host.querySelector('#go-marks');
     var pts = [];
     for (var i = 0; i < n * n; i++) { var p = xy(i); pts.push({ x: p.x, y: p.y, w: cell }); }
@@ -111,7 +111,7 @@
     if (G.thinking || !G.human(st.turn - 1) || st.board[i]) return;
     var ns = Engine.move(st, i);
     if (!ns) { flash(i, i === st.ko ? 'That would repeat the earlier position (ko). Play somewhere else first.' : 'That point has no liberties: suicide is not allowed.'); return; }
-    commit(ns, 'You');
+    commit(ns, nameOf(st.turn - 1));
   }
   function flash(i, msg) {
     var bt = btns[i]; bt.classList.add('bad'); setTimeout(function () { bt.classList.remove('bad'); }, 350);
@@ -138,7 +138,7 @@
   }
   function pass() {
     if (G.over || G.thinking || phase !== 'play' || !G.human(st.turn - 1)) return;
-    commit(Engine.move(st, -1), 'You');
+    commit(Engine.move(st, -1), nameOf(st.turn - 1));
   }
   passBtn.addEventListener('click', pass);
 
