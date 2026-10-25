@@ -252,6 +252,34 @@
   "blurb": "Guess the word in six tries, daily or practice"
  },
  {
+  "qid": "Q7999881",
+  "wiki": "Wikiracing",
+  "path": "wikirace.html",
+  "title": "Wiki Race",
+  "blurb": "Get from one article to another by links alone, in your own Wikipedia"
+ },
+ {
+  "qid": "Q460875",
+  "wiki": "Hangman (game)",
+  "path": "letterbyletter.html",
+  "title": "Letter by Letter",
+  "blurb": "Guess the word, keep the balloon up; words from your Wiktionary"
+ },
+ {
+  "qid": "Q274079",
+  "wiki": "Quiz",
+  "path": "quizzical.html",
+  "title": "Quizzical",
+  "blurb": "Questions made from the articles and words in your library"
+ },
+ {
+  "qid": "Q181008",
+  "wiki": "Jigsaw puzzle",
+  "path": "jigsaw.html",
+  "title": "Jigsaw",
+  "blurb": "A picture from your Wikipedia, 12 to 100 pieces"
+ },
+ {
   "qid": "Q125177944",
   "wiki": "Snake (video game genre)",
   "path": "snake.html",
