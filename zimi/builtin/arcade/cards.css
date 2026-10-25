@@ -23,6 +23,7 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 .zc-slot { position: absolute; left: 0; top: 0; z-index: 0; outline: none; -webkit-tap-highlight-color: transparent; }
 .zc-slot::before { content: ""; position: absolute; left: 0; top: 0; width: var(--cw); height: calc(var(--cw) * 1.4);
   border-radius: calc(var(--cw) * 0.075); border: 2px solid var(--felt-line); background: rgba(0, 0, 0, 0.08); }
+.zc-slot[data-quiet]::before { display: none; }
 .zc-slot:focus-visible::before { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 .zc-slot[data-mark]::after { content: attr(data-mark); position: absolute; left: 0; top: 0; width: var(--cw); height: calc(var(--cw) * 1.4);
   display: grid; place-items: center; color: rgba(255, 255, 255, 0.28); font: 700 calc(var(--cw) * 0.5)/1 Georgia, serif; pointer-events: none; }
@@ -37,6 +38,8 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 .zc-card.zc-off { visibility: hidden; }
 .zc-card.zc-instant, .zc-instant .zc-card { transition: none; }
 .zc-card.zc-drag { transition: none; cursor: grabbing; box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--card-edge); }
+.zc-card.zc-focus { outline: 3px solid var(--accent); outline-offset: 2px; }
+.zc-card.zc-dim::after { content: ""; position: absolute; inset: 0; background: rgba(20, 24, 30, 0.38); pointer-events: none; }
 .zc-card.zc-sel { box-shadow: 0 0 0 3px var(--accent), 0 4px 10px rgba(0, 0, 0, 0.4); }
 .zc-card.zc-flip { animation: zc-flip 0.2s ease-out; }
 .zc-card.zc-hint { animation: zc-nudge 0.28s ease-in-out; }
