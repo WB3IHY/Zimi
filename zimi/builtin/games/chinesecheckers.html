@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chinese Checkers - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="chinesecheckers.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Chinese Checkers</h1>
+  <button class="ar-btn" id="cc-undo" type="button" disabled>Undo</button>
+  <button class="ar-btn" id="cc-new" type="button" aria-haspopup="dialog">New game</button>
+</header>
+
+<main class="bg-main">
+  <p class="bg-status" id="cc-status" role="status" aria-live="polite"></p>
+  <div class="cc-scores" id="cc-scores" aria-label="Marbles home"></div>
+  <svg class="cc-svg" id="cc-svg" tabindex="0" role="application" aria-label="Chinese Checkers board"></svg>
+  <p class="bg-stats" id="cc-stats"></p>
+  <p class="bg-help">Move a marble to a next-door hole, or jump over any marble into the hole beyond it, and keep jumping in a chain. Be first to fill the triangle across the star. Tap a marble, then a hole. With the keyboard, arrow keys move the cursor, Enter selects, U undoes, N starts a new game.</p>
+</main>
+
+<div class="ar-sheet" id="cc-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="cc-menu-title">
+  <div class="ar-sheet-card">
+    <h2 id="cc-menu-title">New game</h2>
+    <fieldset class="bg-field"><legend>Players</legend><div class="bg-chips" id="cc-f-count">
+      <label class="bg-chip"><input type="radio" name="cc-count" value="2"><span>2</span></label>
+      <label class="bg-chip"><input type="radio" name="cc-count" value="3"><span>3</span></label>
+      <label class="bg-chip"><input type="radio" name="cc-count" value="4"><span>4</span></label>
+      <label class="bg-chip"><input type="radio" name="cc-count" value="6"><span>6</span></label>
+    </div></fieldset>
+    <fieldset class="bg-field"><legend>Who plays each colour</legend><div id="cc-seats"></div></fieldset>
+    <fieldset class="bg-field" id="cc-f-level"><legend>Computer level</legend><div class="bg-chips">
+      <label class="bg-chip"><input type="radio" name="cc-level" value="easy"><span>Easy</span></label>
+      <label class="bg-chip"><input type="radio" name="cc-level" value="medium"><span>Medium</span></label>
+      <label class="bg-chip"><input type="radio" name="cc-level" value="hard"><span>Hard</span></label>
+    </div></fieldset>
+    <label class="bg-check"><input type="checkbox" id="cc-hints"> Show where a marble can go</label>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="cc-cancel" type="button">Cancel</button>
+      <button class="ar-btn" id="cc-start" type="button" aria-pressed="true">Start</button>
+    </div>
+  </div>
+</div>
+
+<div class="ar-sheet" id="cc-result" hidden role="dialog" aria-modal="true" aria-labelledby="cc-result-title">
+  <div class="ar-sheet-card">
+    <h2 id="cc-result-title">Game over</h2>
+    <p id="cc-result-text"></p>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="cc-close" type="button">Look at the board</button>
+      <button class="ar-btn" id="cc-again" type="button" aria-pressed="true">Play again</button>
+    </div>
+  </div>
+</div>
+<script src="boardkit.js"></script>
+<script src="chinesecheckers.js"></script>
+</body>
+</html>
