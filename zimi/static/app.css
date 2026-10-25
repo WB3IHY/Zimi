@@ -1505,6 +1505,10 @@
   .app-tile .card-info { justify-content: center; }
   .stat-card.app-tile .detail { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 4px; }
   .app-tile .card-icon { color: var(--amber); display: flex; align-items: center; justify-content: center; }
+  /* The Pet looking out over the games tile's top edge (_petPeekHtml): half of it above the card. */
+  .pet-peek { position: absolute; inset-inline-end: 18px; top: -15px; width: 30px; height: 26px; color: var(--text); cursor: pointer; line-height: 0; }
+  @media (prefers-reduced-motion: no-preference) { .pet-peek { animation: pet-peek-in 0.5s ease-out; } }
+  @keyframes pet-peek-in { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
   /* Quiet, like any other detail line: an empty app is not an error (Eric). */
   .app-tile.app-empty .detail { color: var(--text2); }
   /* An app with nothing inside is drawn as a place still to fill: a dotted

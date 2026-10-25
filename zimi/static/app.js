@@ -24096,7 +24096,80 @@ function openGames() {
   if (z) openArticle(z.name, z.main_path, z.title || z.name);
 }
 function _gamesTileHtml() {
-  return _installedGamesZims().length ? _appTileHtml('games', t('app_games'), _GAMES_SVG, [t('apps_count_games')], 'openGames') : '';
+  if (!_installedGamesZims().length) return '';
+  _petPeekSchedule();
+  var peek = _petPeek, html = _appTileHtml('games', t('app_games'), _GAMES_SVG, [t('apps_count_games')].concat(peek ? [peek.text] : []), 'openGames');
+  return peek ? html.replace(/<\/a>$/, _petPeekHtml(peek) + '</a>') : html;
+}
+
+// The Pet on Home (Eric's ZimiGames polish pass): once you have a pet, it peeks out of the games tile, and says what
+// it wants when you have been away. Nothing here is on the way to the first paint: the pet's own saved state (same
+// origin: localStorage "zimi.games.pet") is read when the browser is idle, and its rules, which live in the games ZIM's
+// pet.js (no DOM until it is a page), are fetched then, only if a pet exists. Nothing is written.
+var _PET_STORE_KEY = 'zimi.games.pet';
+var _PET_PEEK_TTL_MS = 5 * 60000;         // asked again after a while: hunger grows while Home stays open
+var _petPeek = null, _petPeekAt = 0, _petEnginePromise = null;
+var _PET_NEED_KIND = { feed: 'hungry', sleep: 'tired', clean: 'dirty', play: 'bored' };
+function _petEngine() {
+  if (!_petEnginePromise) {
+    // The file is a page script that stops before the page when there is no document: it is run with none.
+    _petEnginePromise = fetch('/w/' + _GAMES_ZIM + '/pet.js').then(function(r) { return r.ok ? r.text() : Promise.reject(r.status); })
+      .then(function(src) { var scope = {}; new Function('document', src).call(scope, undefined); return scope.PetEngine || null; })
+      .catch(function() { return null; });
+  }
+  return _petEnginePromise;
+}
+// What the pet wants now: {kind, text} or null (no pet). Its saved state brought up to this moment, on a copy.
+function _petPeekRead(E) {
+  var store = _getStorageJSON(_PET_STORE_KEY, null);
+  if (!E || !E.validStore(store)) return null;
+  var p = JSON.parse(JSON.stringify(store.pets[store.active] || store.pets[0]));
+  E.usePlace(localStorage);
+  E.advance(p, Date.now());
+  var mood = E.mood(p), kind = mood === 'egg' ? 'egg' : mood === 'sleep' ? 'asleep' : _PET_NEED_KIND[E.need(p)] || 'fine';
+  return { kind: kind, text: t('pet_' + kind, { name: p.name }) };
+}
+function _petPeekSchedule() {
+  if (_petPeekAt && Date.now() - _petPeekAt < _PET_PEEK_TTL_MS) return;
+  _petPeekAt = Date.now();
+  if (!_getStorageJSON(_PET_STORE_KEY, null)) return;   // never met a pet: nothing to fetch, nothing to draw
+  (window.requestIdleCallback || setTimeout)(function() {
+    _petEngine().then(function(E) {
+      _petPeek = _petPeekRead(E);
+      // Draw it on the tile that is on screen, without drawing Home again.
+      Array.prototype.forEach.call(document.querySelectorAll('.app-tile.games-tile'), function(tile) {
+        var old = tile.querySelector('.pet-peek');
+        if (old) old.remove();
+        if (_petPeek) tile.insertAdjacentHTML('beforeend', _petPeekHtml(_petPeek));
+        var detail = tile.querySelector('.detail');
+        if (detail) detail.textContent = [t('apps_count_games')].concat(_petPeek ? [_petPeek.text] : []).join(' \u00b7 ');
+      });
+    });
+  }, { timeout: 4000 });
+}
+var _PET_FACE = {
+  hungry: '<ellipse cx="15" cy="19" rx="2.2" ry="2.8"/>',
+  fine: '<path d="M11.5 18.5q3.5 3 7 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  dirty: '<path d="M11 19q1.3-1.6 2.7 0t2.6 0 2.7 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  bored: '<path d="M12 19.5h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  tired: '<path d="M12 19.5h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+};
+// A round head with the room for a face: eyes open, shut for sleep, or none for the egg, and a mouth for what it wants.
+function _petPeekHtml(peek) {
+  var eyes = peek.kind === 'asleep' ? '<path d="M9 14.2h4M17 14.2h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><text x="22" y="9" font-size="8" fill="currentColor" stroke="none">z</text>'
+    : '<circle cx="11" cy="14" r="1.7"/><circle cx="19" cy="14" r="1.7"/>';
+  var face = peek.kind === 'egg' ? '<ellipse cx="15" cy="16" rx="12" ry="15" fill="var(--amber-glow)" stroke="var(--amber)" stroke-width="1.5"/><circle cx="11" cy="14" r="1.6"/><circle cx="19" cy="19" r="1.6"/>'
+    : '<path d="M3 26C3 11 8.5 4 15 4s12 7 12 22z" fill="var(--amber-glow)" stroke="var(--amber)" stroke-width="1.5"/>' + eyes + (_PET_FACE[peek.kind] || '');
+  return '<span class="pet-peek" data-pet="' + peek.kind + '" aria-hidden="true" title="' + escAttr(peek.text) + '" onclick="_petPeekOpen(event)">' +
+    '<svg width="30" height="26" viewBox="0 0 30 26" fill="currentColor">' + face + '</svg></span>';
+}
+// The peek is a door to the pet itself, for a tap that wants it now.
+function _petPeekOpen(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (_createOpen) closeCreate();
+  if (_almanacOpen) closeAlmanac();
+  openArticle(_GAMES_ZIM, 'pet.html', t('app_games'));
 }
 function _almanacTileHtml() {
   return _appTileHtml('almanac', t('app_almanac'), _ALMANAC_SVG, [t('apps_count_almanac')], 'openAlmanac');
