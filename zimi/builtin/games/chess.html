@@ -21,6 +21,7 @@
 <main class="bg-main">
   <p class="bg-status" id="cs-status" role="status" aria-live="polite"></p>
   <div class="bg-board cs-board" id="cs-board" role="group" aria-label="Chess board"></div>
+  <p class="cs-opening" id="cs-opening" aria-live="polite"></p>
   <div class="cs-moves" id="cs-moves" role="log" aria-label="Moves"></div>
   <p class="bg-stats" id="cs-stats"></p>
   <p class="bg-help">Click a piece, then a square. Arrow keys move, Enter selects, U undoes, F flips the board, N starts a new game.</p>
@@ -71,10 +72,12 @@
   </div>
 </div>
 <script src="boardkit.js"></script>
+<script src="chess-pieces.js"></script>
 <script src="chess-engine.js"></script>
 <script src="engines/fairy.js"></script>
+<script src="chess-content.js"></script>
 <script src="chess.js"></script>
-<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q718">About Chess</a></footer><!-- /zimi-about -->
 <!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
+<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q718">About Chess</a></footer><!-- /zimi-about -->
 </body>
 </html>

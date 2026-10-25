@@ -1731,5 +1731,73 @@
   "length": "15 min",
   "kind": "arcade",
   "computer": true
+ },
+ {
+  "qid": "Q2891654",
+  "wiki": "Chess puzzle",
+  "path": "chesspuzzles.html",
+  "title": "Chess Puzzles",
+  "blurb": "15,000 rated puzzles from Lichess, with your own rating",
+  "why": "Lichess gives each puzzle a rating from how many players solved it, and publishes them all as open data.",
+  "origin": {
+   "year": 1849,
+   "era": "1840s"
+  },
+  "region": "Europe",
+  "players": "1",
+  "length": "5 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "qid": "Q103632",
+  "wiki": "Chess opening",
+  "path": "chessopenings.html",
+  "title": "Opening Trainer",
+  "blurb": "3,800 named openings: play your side of the line",
+  "why": "Opening names and their ECO codes, A00 to E99, are how chess players have filed the first moves for generations.",
+  "origin": {
+   "year": 1966,
+   "era": "1960s"
+  },
+  "region": "Europe",
+  "players": "1",
+  "length": "10 min",
+  "kind": "board",
+  "computer": true
+ },
+ {
+  "qid": "Q1058074",
+  "wiki": "Tsumego",
+  "path": "goproblems.html",
+  "title": "Go Problems",
+  "blurb": "Life and death: make a group live, or kill it",
+  "why": "Tsumego are Go's life-and-death problems, the classic way to learn to read ahead.",
+  "origin": {
+   "year": 1347,
+   "era": "1340s"
+  },
+  "region": "East Asia",
+  "players": "1",
+  "length": "5 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "qid": "Q605445",
+  "wiki": "Sokoban",
+  "path": "sokoban.html",
+  "title": "Sokoban",
+  "blurb": "Push the crates onto the rings: 300 graded levels",
+  "why": "Sokoban is Japanese for warehouse keeper, and Thinking Rabbit published the game in 1982.",
+  "origin": {
+   "year": 1982,
+   "era": "1980s"
+  },
+  "region": "East Asia",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
  }
 ]

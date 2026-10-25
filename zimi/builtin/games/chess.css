@@ -25,3 +25,4 @@
 .cs-promo-choices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .cs-promo-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 84px; padding: 6px 2px; font-size: 12px; background: var(--sq-light); }
 .cs-promo-btn svg { width: 52px; height: 52px; }
+.cs-opening { width: min(100vw - 24px, 600px); min-height: 1.3em; margin: 0; font-size: 13px; font-weight: 600; color: var(--ink2); text-align: left; }
