@@ -83,7 +83,19 @@ ok('the ZimiTube tile names the video ZIMs', /<span class="zt">ZimiTube<\/span>/
 ctx.zimsCache = ctx.zimsCache.filter(z => z.kind !== 'video');
 ok('no video ZIM: home leaves ZimiTube out, its tile still the door to the Video category', !/tube-tile/.test(ctx._appsRowHtml()) && /No videos yet/.test(ctx._tubeTileHtml()) && /_openCategory\(_APP_CATEGORY\.tube\)/.test(ctx._tubeTileHtml()));
 ctx.zimsCache = [];
-ok('a fresh install: nothing inside any app, so home has no apps row; Zimipedia and Reddot offered', ctx._appsRowHtml() === '' && ctx._shownApps().includes('wiki') && ctx._shownApps().includes('reddot'));
+ok('a fresh install: nothing inside any app, so the row holds only the Almanac; Zimipedia and Reddot offered', ctx._appsRowHtml().match(/data-app="(\w+)"/g).join() === 'data-app="almanac"' && ctx._shownApps().includes('wiki') && ctx._shownApps().includes('reddot'));
+// ZimiGames and the Zimi Almanac: Zimi's own, in the row beside the categories that list them.
+ok('the Almanac tile opens the Almanac page, not its ZIM', /openAlmanac/.test(ctx._almanacTileHtml()) && /almanac-tile/.test(ctx._almanacTileHtml()) && /apps_count_almanac/.test(ctx._almanacTileHtml()));
+ok('ZimiGames is not in the row until its ZIM is installed', !/games-tile/.test(ctx._appsRowHtml()) && ctx._gamesTileHtml() === '');
+ctx.zimsCache = [{ name: 'zimi_games', title: 'ZimiGames', main_path: 'index.html' }];
+ok('with the games ZIM installed its tile opens the shelf and the row holds both', /games-tile/.test(ctx._appsRowHtml()) && /openGames/.test(ctx._gamesTileHtml()) && /almanac-tile/.test(ctx._appsRowHtml()));
+ctx.zimsCache = [{ name: 'zimi_games', title: 'ZimiGames' }];
+ok('a ZIM the account is not allowed is not in the list, so no tile', ctx._gamesTileHtml() === '');
+ctx.zimsCache = [];
+ctx.document.body.dataset.zimiApps = 'maps';
+ok('a server that leaves the Almanac out hides it', !/almanac-tile/.test(ctx._appsRowHtml()));
+delete ctx.document.body.dataset.zimiApps;
+ok('both apps have a glyph, one 24-grid mark in the same stroke', ['_GAMES_SVG', '_ALMANAC_SVG'].every(n => new RegExp('<svg[^>]*viewBox="0 0 24 24"[^>]*stroke-width="1.8"').test(ctx[n])));
 ctx.document.body.dataset.zimiApps = 'maps,tube,exchange,reddot,wiki,books';
 ok('a server that names wiki offers it', ctx._shownApps().length === 6 && ctx._shownApps().includes('wiki'));
 delete ctx.document.body.dataset.zimiApps;

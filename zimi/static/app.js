@@ -2994,7 +2994,6 @@ function submitPw() {
 
 // Breadcrumb identity for the Almanac — a calendar-with-a-star glyph, sized to
 // match a ZIM's 22px icon, tinted by the chrome via currentColor.
-var _ALMANAC_BC_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18"/><path d="M8 2.5v4M16 2.5v4"/><path d="M12 12l.9 1.9 2 .3-1.5 1.4.4 2-1.8-1-1.8 1 .4-2-1.5-1.4 2-.3z"/></svg>';
 
 // Breadcrumb identity for the Create page — the + that opens it, at a ZIM
 // icon's 22px. Same reason the Almanac has one: it opens over whatever you
@@ -3088,7 +3087,7 @@ function updateTopbar() {
     bcSep.style.display = 'inline';
     bcIcon.style.display = 'inline-flex';
     bcIcon.title = t('almanac');
-    bcIcon.innerHTML = _ALMANAC_BC_ICON;
+    bcIcon.innerHTML = _ALMANAC_SVG.replace('width="26" height="26"', 'width="22" height="22"');
     // Identity only — no destination behind it, so no link affordance either.
     bcIcon.removeAttribute('href');
   } else if (_isWikiPage() || _isBooksPage() || _isDictPage()) {
@@ -3138,7 +3137,9 @@ function updateTopbar() {
     // Real link (#49): the source view has a true URL, so right/middle/
     // modifier clicks can open it in a new tab; bcClick keeps plain clicks SPA.
     bcIcon.setAttribute('href', '/w/' + encodeURIComponent(activeSource));
-    if (info && info.has_icon) {
+    if (activeSource === _GAMES_ZIM) {
+      bcIcon.innerHTML = _GAMES_SVG.replace('width="26" height="26"', 'width="20" height="20"');
+    } else if (info && info.has_icon) {
       bcIcon.innerHTML = '<img src="/w/' + encodeURIComponent(activeSource) + '/-/icon" alt="" width="22" height="22" alt="' + escAttr(title) + '">';
     } else {
       bcIcon.innerHTML = '<span class="bc-letter">' + (esc(title)[0] || 'Z').toUpperCase() + '</span>';
@@ -23825,7 +23826,7 @@ var _REDDIT_ADDRESS_START = 'https://www.reddit.com/r/Kiwix';
 // (ZIMI_APPS, or the switch in Server settings; stamped on the shell) or
 // this signed-in person turned it off for their account. Never per
 // browser (Eric: "Not per browser only per user or server").
-var APP_NAMES = ['maps', 'tube', 'exchange', 'reddot', 'wiki', 'books', 'dictionary'];
+var APP_NAMES = ['maps', 'tube', 'exchange', 'reddot', 'wiki', 'books', 'dictionary', 'games', 'almanac'];
 // Offered only when the server names them (none now). Mirrors server.APPS_OPT_IN.
 var APPS_OPT_IN = [];
 function _appOptIn(app) { return APPS_OPT_IN.indexOf(app) >= 0; }
@@ -23854,7 +23855,7 @@ function _appShown(app) {
 function _appsEnabled() {
   return APP_NAMES.some(_appShown);
 }
-function _appTitle(app) { return t(app === 'maps' ? 'cat_maps' : app); }
+function _appTitle(app) { return t(app === 'maps' ? 'cat_maps' : _OWN_APP_TITLE[app] || app); }
 function _readPrefs(d) {
   _userPrefs = { apps: d.apps !== false, shown: Array.isArray(d.shown) ? d.shown : null };
 }
@@ -23888,7 +23889,7 @@ function _setUserApp(app, on) {
 // and a name, lit when offered (Eric: "the lil app tiles with icons and i
 // can select or deselect which to show").
 function _appIcon(app) {
-  return app === 'fieldguide' ? _FIELDGUIDE_SVG : app === 'maps' ? _MAPS_SVG : app === 'tube' ? _TUBE_PLAY_SVG : app === 'exchange' ? _EXCHANGE_SVG : app === 'wiki' ? _WIKI_SVG : app === 'books' ? _BOOKS_SVG : app === 'dictionary' ? _DICT_SVG : _REDDOT_SVG;
+  return app === 'games' ? _GAMES_SVG : app === 'almanac' ? _ALMANAC_SVG : app === 'fieldguide' ? _FIELDGUIDE_SVG : app === 'maps' ? _MAPS_SVG : app === 'tube' ? _TUBE_PLAY_SVG : app === 'exchange' ? _EXCHANGE_SVG : app === 'wiki' ? _WIKI_SVG : app === 'books' ? _BOOKS_SVG : app === 'dictionary' ? _DICT_SVG : _REDDOT_SVG;
 }
 // The ZIMs inside each app: the ones its tile names and its page reads.
 function _appZims(app) {
@@ -23898,10 +23899,13 @@ function _appZims(app) {
     : app === 'wiki' ? _installedWikiZims()
     : app === 'books' ? _installedBookZims()
     : app === 'dictionary' ? _installedDictZims()
+    : app === 'games' ? _installedGamesZims()
+    : app === 'almanac' ? []
     : _installedRedditZims();
 }
 // What the library holds for each app, in a line under its name.
 function _appCountLine(app) {
+  if (_OWN_APP_TITLE[app]) return t('apps_count_' + app);
   var zims = _appZims(app);
   var n = app === 'reddot'
     ? zims.reduce(function(s, z) { return s + (z.subreddits && z.subreddits.length ? z.subreddits.length : 1); }, 0)
@@ -23920,7 +23924,7 @@ function _appPicksHtml(apps, checked, onchange, disabled) {
 
 // Each app's tile and its door, by name, so the row and the Apps page can
 // take the apps in any order.
-var _APP_TILES = { maps: _mapsTileHtml, tube: _tubeTileHtml, exchange: _exchangeTileHtml, reddot: _reddotTileHtml, wiki: _wikiTileHtml, books: _booksTileHtml, dictionary: _dictionaryTileHtml };
+var _APP_TILES = { maps: _mapsTileHtml, tube: _tubeTileHtml, exchange: _exchangeTileHtml, reddot: _reddotTileHtml, wiki: _wikiTileHtml, books: _booksTileHtml, dictionary: _dictionaryTileHtml, games: _gamesTileHtml, almanac: _almanacTileHtml };
 
 // The apps follow the library's order, as the sources do (#100). Eric: "sort
 // the apps by recently updated (i.e. contains zims that were recently
@@ -23980,7 +23984,7 @@ function _appsRowHtml(withHelp) {
   if (!_appsEnabled()) return withHelp ? _helpNowHtml() : '';
   // Home shows the apps that have something inside; the Apps page and
   // Settings list every app, with how to fill an empty one.
-  var tiles = _shownApps().filter(function(app) { return _appZims(app).length > 0; })
+  var tiles = _shownApps().filter(_appHasHome)
     .map(function(app) { return _APP_TILES[app](); }).join('');
   if (!tiles) return withHelp ? _helpNowHtml() : '';
   var pill = withHelp ? _helpNowPillHtml() : '';
@@ -24008,6 +24012,7 @@ function _appsPageHtml(shown) {
   var narrowed = !!(homeRecentFilter || homeLangFilter.size);
   var groups = _shownApps().map(function(app) {
     var inside = _appZims(app);
+    if (!inside.length && app === 'games') return '';
     if (!inside.length) return narrowed ? '' : _appSectionHtml(app, 0, '');
     var zims = _sortLibrary(inside.filter(function(z) { return shown.has(z.name); }));
     return zims.length ? _appSectionHtml(app, inside.length, renderCardGrid(zims, true, false, function(z) { return _appItemsHtml(app, z); })) : '';
@@ -24062,6 +24067,31 @@ function _appTileHtml(app, title, icon, names, openFn) {
     '<div class="card-icon">' + icon + '</div>' +
     '<div class="card-info"><div class="name"><span class="zt">' + esc(title) + '</span></div>' +
     '<div class="detail">' + esc(t('app_empty_' + app)) + '</div></div></a>';
+}
+
+// Two apps that are Zimi's own: the games and the Almanac. ZimiGames is the
+// games ZIM's shelf in the reader (Eric: "show there AND as apps"), so it
+// appears when that ZIM is installed and allowed for this account; the
+// Almanac is part of Zimi and always opens its own page, not the ZIM.
+// Their count lines are fixed strings: nothing is read to draw them.
+var _GAMES_ZIM = 'zimi_games';
+var _OWN_APP_TITLE = { games: 'app_games', almanac: 'app_almanac' };
+var _GAMES_SVG = '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><clipPath id="zgc"><path clip-rule="evenodd" d="M-4 -4H28V28H-4z M18.67 2.94L19.42 3.11L20.12 3.42L20.74 3.86L21.27 4.41L21.68 5.06L21.96 5.77L22.09 6.53L22.07 7.29L20.83 17.42L20.66 18.16L20.35 18.86L19.91 19.49L19.36 20.01L18.71 20.42L18.00 20.70L17.24 20.83L16.48 20.81L10.33 20.06L9.58 19.89L8.88 19.58L8.26 19.14L7.73 18.59L7.32 17.94L7.04 17.23L6.91 16.47L6.93 15.71L8.17 5.58L8.34 4.84L8.65 4.14L9.09 3.51L9.64 2.99L10.29 2.58L11.00 2.30L11.76 2.17L12.52 2.19z"/></clipPath><g clip-path="url(#zgc)"><rect x="4.5" y="5" width="11" height="15" rx="2.5" transform="rotate(-10 10 12.5)"/></g><rect x="9" y="4" width="11" height="15" rx="2.5" transform="rotate(7 14.5 11.5)"/><path d="M14.5 8.8l1.9 2.7-1.9 2.7-1.9-2.7z" fill="currentColor" stroke="none" transform="rotate(7 14.5 11.5)"/></svg>';
+var _ALMANAC_SVG = '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.2A8 8 0 0 1 9.8 4.5a8 8 0 1 0 9.7 9.7z"/><path d="M17.6 2.8l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="currentColor" stroke="none"/></svg>';
+function _installedGamesZims() {
+  return (zimsCache || []).filter(function(z) { return z.name === _GAMES_ZIM && z.main_path; });
+}
+// Whether an app has a tile on Home: one with something inside, or the Almanac.
+function _appHasHome(app) { return app === 'almanac' || _appZims(app).length > 0; }
+function openGames() {
+  var z = _installedGamesZims()[0];
+  if (z) openArticle(z.name, z.main_path, z.title || z.name);
+}
+function _gamesTileHtml() {
+  return _installedGamesZims().length ? _appTileHtml('games', t('app_games'), _GAMES_SVG, [t('apps_count_games')], 'openGames') : '';
+}
+function _almanacTileHtml() {
+  return _appTileHtml('almanac', t('app_almanac'), _ALMANAC_SVG, [t('apps_count_almanac')], 'openAlmanac');
 }
 
 function _tubeTileHtml() {
