@@ -228,6 +228,7 @@
     currentBack = BACKS.some(function (b) { return b.id === id; }) ? id : DEFAULT_BACK;
   }
 
+  function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
   function fmtTime(s) {
     s = Math.max(0, Math.floor(s));
     var m = Math.floor(s / 60), r = s % 60;
@@ -358,7 +359,7 @@
   // More o: heightShare (how much of the table's height a card may take, for
   // layouts shorter than Klondike's columns), enterTaps (Enter on a pile taps
   // its top card: for games where one tap is the whole move), and per card in
-  // place(): mark (the game's own highlight) and dim (not playable now); a
+  // place(): mark (the game's own highlight), glow (a soft one) and dim (not playable now); a
   // slot may be quiet (a drop area with no outline and no tab stop).
 
   function createBoard(o) {
@@ -469,6 +470,7 @@
         e._mark = !!c.mark;
         e.classList.toggle('zc-sel', e._mark);
         e.classList.toggle('zc-dim', !!c.dim);
+        e.classList.toggle('zc-glow', !!c.glow);
         e.classList.remove('zc-drag');
         var moved = e._x !== c.x || e._y !== c.y;
         anyMoved = anyMoved || moved;
@@ -493,6 +495,10 @@
         });
         setTimeout(function () { p.cards.forEach(function (c) { els[c.id].style.transitionDelay = ''; }); }, p.cards.length * DEAL_STAGGER_MS + 250);
       }
+      // A pile with cards shows its focus on its top card; only an empty one rings its outline.
+      Object.keys(slotEls).forEach(function (k) { slotEls[k].toggleAttribute('data-cards', !!byPile[k]); });
+      // A card the layout no longer places has left the game (a debug state, a short deal).
+      Object.keys(els).forEach(function (k) { if (!cardPos[k]) els[k].classList.add('zc-off'); });
       if (anyMoved) scheduleSettle();
       paintSelection();
     }
@@ -775,6 +781,11 @@
     return s;
   }
 
+  // A compact layout on a tall table sits a little above the middle: this much
+  // of the room left over goes above it.
+  var REST_ABOVE_SHARE = 0.3;
+  function restShare(room) { return Math.max(0, Math.floor(room * REST_ABOVE_SHARE)); }
+
   // The page's fixed parts, by the ids every game page uses.
   function pageEls() {
     var g = function (id) { return root.document.getElementById(id); };
@@ -800,7 +811,7 @@
     rank: rank, suit: suit, isRed: isRed, make: make, cardName: cardName, clone: clone,
     foundationAccepts: foundationAccepts, stacksOn: stacksOn, isRun: isRun, shuffled: shuffled, msDeal: msDeal,
     moonPhase: moonPhase, moonLitPath: moonLitPath, faceMarkup: faceMarkup, backMarkup: backMarkup,
-    fmtTime: fmtTime, describePile: describePile, fanStep: fanStep, pageEls: pageEls, idsOf: idsOf,
+    fmtTime: fmtTime, plural: plural, describePile: describePile, fanStep: fanStep, pageEls: pageEls, idsOf: idsOf, restShare: restShare,
     store: store, createStats: createStats, h: h, sheet: sheet, segmented: segmented, backsSheet: backsSheet, backsRow: backsRow,
     createBoard: createBoard, createSession: createSession, ensureSprite: ensureSprite,
     currentBack: function () { return currentBack; }
