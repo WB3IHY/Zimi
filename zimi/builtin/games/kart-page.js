@@ -78,7 +78,7 @@
     var k = e.kart, one = g.humans.length === 1;
     if (!isMine(k)) return;
     var who = one ? '' : 'Player ' + (k.human + 1) + ': ';
-    if (e.type === 'lap' && k.finished == null) { var t = e.lap + 1 === g.race.laps ? 'Final lap!' : 'Lap ' + (e.lap + 1); if (one) toast(t); say(who + t); }
+    if (e.type === 'lap' && k.finished == null) { var t = e.lap + 1 === g.race.laps ? 'Final lap' : 'Lap ' + (e.lap + 1); if (one) toast(t); say(who + t); }
     else if (e.type === 'finish') { say(who + 'Finished ' + E.ordinal(k.place)); toast('Finished ' + E.ordinal(k.place)); }
     else if (e.type === 'hit' && one) toast('Spun out');
     else if (e.type === 'blocked' && one) toast('Shield held');
@@ -110,7 +110,7 @@
       table(b, order.map(function (k, i) { return { me: isMine(k), cells: [E.ordinal(i + 1), nameOf(k), k.finished != null ? E.fmtTime(k.finished) : '-', prefs.mode === 'gp' ? '+' + (E.GP_POINTS[i] || 0) : ''] }; }));
       if (prefs.mode !== 'gp') g.humans.forEach(function (k) { if (k.laps.length) note(b, (g.humans.length > 1 ? nameOf(k) + ': best lap ' : 'Best lap ') + E.fmtTime(Math.min.apply(null, k.laps))); });
     }, prefs.mode === 'gp' ? [[last ? 'Cup result' : 'Next: ' + TRACKS[E.CUPS[prefs.cup].tracks[g.gp.race + 1]].name, function () { if (last) cupResult(); else { g.gp.race++; startRace(); } }, true]] :
-      [['Race again', startRace, true], ['Menu', goSetup, false]]);
+      [['Play again', startRace, true], ['Menu', goSetup, false]]);
   }
   function raceWinner(order) { var w = order.filter(isMine)[0]; return nameOf(w) + ' wins'; }
   function nameOf(k) { return isMine(k) ? (g.humans.length > 1 ? 'Player ' + (k.human + 1) : 'You') + ' (' + k.driver.name + ')' : k.driver.name; }
@@ -121,7 +121,7 @@
     sheet(cup.name + ': ' + (rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : E.ordinal(rank)), function (b) {
       table(b, order.map(function (di, i) { return { me: di === me || (g.humans[1] && di === g.humans[1].drvIndex), cells: [E.ordinal(i + 1), DRIVERS[di].name, '', g.gp.totals[di] + ' pts'] }; }));
       if (rank > 3) note(b, 'The top three get a cup. Try again?');
-    }, [['Another Grand Prix', startCup, true], ['Menu', goSetup, false]]);
+    }, [['Play again', startCup, true], ['Menu', goSetup, false]]);
   }
   function trialResult(me, ms) {
     var def = g.T.def, best = prefs.best[def.id], rec = !best || ms < best.ms, bestLap = Math.min.apply(null, me.laps);
@@ -137,7 +137,7 @@
   function pause() {
     if (g.mode !== 'playing') return;
     g.mode = 'paused'; loop.stop(); releaseAll();
-    sheet('Paused', function (b) { note(b, 'The karts wait.'); }, [['Resume', resume, true], ['Restart', function () { if (prefs.mode === 'gp') g.gp.totals = g.gp.totals; startRace(); }, false], ['Menu', goSetup, false]]);
+    sheet('Paused', function (b) { note(b, 'Resume when you are ready.'); }, [['Resume', resume, true], ['Restart', function () { if (prefs.mode === 'gp') g.gp.totals = g.gp.totals; startRace(); }, false], ['Menu', goSetup, false]]);
   }
   function resume() { g.mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
   function releaseAll() { Object.keys(keys).forEach(function (k) { keys[k] = false; }); pads.forEach(function (p) { Object.keys(p).forEach(function (k) { p[k] = false; }); }); holds.forEach(function (h) { h.release(); }); }

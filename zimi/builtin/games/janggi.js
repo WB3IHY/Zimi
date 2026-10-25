@@ -96,7 +96,7 @@
     var p = turnIdx();
     if (st.mustPass) return G.human(p) ? 'You have no move you can make. Press Pass.' : SIDE_NAME[p] + ' has no move and passes.';
     if (!G.vsComputer()) return SIDE_NAME[p] + ' to move';
-    return G.human(p) ? 'Your move (' + SIDE_NAME[p] + ')' : 'Computer is thinking';
+    return G.human(p) ? 'Your turn (' + SIDE_NAME[p] + ')' : 'Computer is thinking';
   }
   function afterMove(note) {
     sel = -1; targets = {}; tip = null;
@@ -140,11 +140,11 @@
   }
 
   function hint() {
-    var token = G.begin(); paint(); G.say('Thinking about a good move...', true);
+    var token = G.begin(); paint(); G.say('Thinking...', true);
     brain.ask({ cmd: 'move', fen: E.toFen(pos), level: 'hard', ms: HINT_MS }, function (r) {
       if (!G.done(token)) return;
       tip = r && r.move ? [E.from(r.move), E.to(r.move)] : null; paint();
-      G.say(tip ? 'A good move is ringed. ' : 'Nothing better than passing. ');
+      G.say(tip ? 'Hint: try the ringed move. ' : 'Hint: pass. ');
     });
   }
 
@@ -160,7 +160,7 @@
     if (sel >= 0 && targets.hasOwnProperty(s)) { play(E.findMove(pos, sel, s)); return; }
     if (v * pos.turn > 0 && s !== sel) {
       sel = s; targets = movesFrom(s); tip = null;
-      G.say(Object.keys(targets).length ? (G.vsComputer() ? 'Choose where to move' : SIDE_NAME[turnIdx()] + ' to move') : 'That piece has no legal move');
+      G.say(Object.keys(targets).length ? (G.vsComputer() ? 'Choose where to move' : SIDE_NAME[turnIdx()] + ' to move') : 'That piece cannot move');
     } else { sel = -1; targets = {}; }
     paint();
   }

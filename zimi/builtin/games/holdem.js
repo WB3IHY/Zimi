@@ -400,11 +400,11 @@
         }
         out.lines = lines;
         if (st.phase === 'over') { out.text = overText(st); out.label = 'New game'; out.action = newGame; }
-        else { out.text = st.started ? '' : 'Ready when you are'; out.choices = [{ label: st.started ? 'Next hand' : 'Deal', primary: true, onclick: nextHand }]; }
+        else { out.text = st.started ? '' : 'Tap Deal to start'; out.choices = [{ label: st.started ? 'Next hand' : 'Deal', primary: true, onclick: nextHand }]; }
         return out;
       }
       if (mine) {
-        out.text = (hot ? nm(V) + ': ' : '') + (name ? (hot ? 'you have ' : 'You have ') + name.toLowerCase() + '. ' : '') + (mine.check ? (hot ? 'your move' : 'Your move') : mine.toCall + ' to call');
+        out.text = (hot ? nm(V) + ': ' : '') + (name ? (hot ? 'you have ' : 'You have ') + name.toLowerCase() + '. ' : '') + (mine.check ? (hot ? 'your turn' : 'Your turn') : mine.toCall + ' to call');
         out.choices = [{ label: 'Fold', onclick: function () { play({ type: 'fold' }); }, disabled: mine.check, aria: 'Fold' }, { label: mine.check ? 'Check' : 'Call ' + mine.toCall, onclick: function () { play({ type: 'call' }); } }];
         if (mine.canRaise) {
           var sizes = [], seen = {}, base = st.currentBet, potNow = mine.pot + mine.toCall;

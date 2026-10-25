@@ -148,7 +148,7 @@
   var G = WK.create({
     id: 'hex',
     options: WK.standardOptions({ first: 'Red (top to bottom)', second: 'Blue (side to side)' }).concat([{ key: 'size', legend: 'Board', def: '11', choices: [['7', '7 by 7'], ['9', '9 by 9'], ['11', '11 by 11']] }]),
-    checks: [{ key: 'swap', label: 'Swap rule: the second player may take over the opening move', def: false }],
+    checks: [{ key: 'swap', label: 'Swap rule: the second player may take over the first move', def: false }],
     statKey: function (s) { return s.level + s.size + (s.swap ? 's' : ''); },
     onNew: newGame, onUndo: undo, onHint: hint
   });
@@ -212,7 +212,7 @@
     var c = state.turn;
     if (swapAsk() && isHuman(c)) return 'You may swap sides and take the first move, or play as ' + NAMES[c].toLowerCase();
     if (!G.vsComputer()) return NAMES[c] + ' to play';
-    return isHuman(c) ? 'Your move (' + NAMES[c].toLowerCase() + ', ' + (c ? 'left to right' : 'top to bottom') + ')' : 'Computer is thinking';
+    return isHuman(c) ? 'Your turn (' + NAMES[c].toLowerCase() + ', ' + (c ? 'left to right' : 'top to bottom') + ')' : 'Computer is thinking';
   }
 
   function onCell(i) { if (G.over || G.thinking || !isHuman(state.turn) || state.board[i]) return; place(i); }
@@ -246,14 +246,14 @@
   function doSwap() {
     history.push(snapshot());
     swapped = !swapped; swapDone = true; paint();
-    G.say(G.vsComputer() ? (isHuman(0) ? 'The computer swapped sides. You are red now, and it is your move.' : 'The computer swapped sides. You are blue now. Your move.') : 'Sides swapped. ' + turnText());
+    G.say(G.vsComputer() ? (isHuman(0) ? 'The computer swapped sides. You are red now, and it is your turn.' : 'The computer swapped sides. You are blue now. Your turn.') : 'Sides swapped. ' + turnText());
     if (!isHuman(state.turn)) G.later(function () { place(chooseMove(state.board, n, state.turn + 1, G.settings.level)); });
   }
   swapBtn.addEventListener('click', function () { if (swapAsk() && isHuman(state.turn) && !G.thinking) doSwap(); });
 
   function hint() {
     hintIdx = chooseMove(state.board, n, state.turn + 1, 'hard');
-    paint(); G.say('A good cell is outlined. ' + turnText());
+    paint(); G.say('Hint: try the outlined cell. ' + turnText());
   }
 
   function undo() {

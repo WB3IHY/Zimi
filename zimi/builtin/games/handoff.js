@@ -120,7 +120,7 @@
       var logo = el('img'); logo.src = 'mark.svg'; logo.alt = '';
       var go = el('button', 'zs-btn', "I'm " + who + ', show my cards'); go.type = 'button'; go.setAttribute('aria-pressed', 'true');
       card.appendChild(logo); card.appendChild(el('small', null, 'Pass to')); card.appendChild(el('h2', null, who));
-      card.appendChild(el('p', null, note || 'Hand the device over. Your cards stay hidden until you tap.'));
+      card.appendChild(el('p', null, note || 'Pass the device. Your cards stay hidden until you tap.'));
       card.appendChild(go); host.appendChild(card);
       host.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); } else if (e.key === 'Tab') { e.preventDefault(); go.focus(); }

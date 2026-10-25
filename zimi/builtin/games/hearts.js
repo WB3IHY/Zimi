@@ -320,7 +320,7 @@
         var who = seats.hotseat() ? nm(view.passer) + ': ' : '';
         text = who + (left > 0 ? 'Choose ' + left + ' more to pass ' + PASS_NAMES[st.passDir] : 'Pass them ' + PASS_NAMES[st.passDir] + '?');
         label = 'Pass'; action = left === 0 ? passNow : null;
-      } else if (st.phase === 'handEnd') { text = 'Hand over'; label = 'Next hand'; action = startNextHand; }
+      } else if (st.phase === 'handEnd') { text = 'End of hand'; label = 'Next hand'; action = startNextHand; }
       else if (st.phase === 'over') { text = 'Game over'; label = 'New game'; action = newGame; }
       else if (view.flash) text = view.flash;
       else if (st.trick.length === SEATS) text = nm(trickWinner(st.trick)) + verb(trickWinner(st.trick), ' take', ' takes') + ' the trick';

@@ -80,7 +80,7 @@
     if (st.over) { paint(); finish(st); return; }
     legal = E.moves(pos);
     paint();
-    var line = !G.vsComputer() ? SIDE_NAME[p] + ' to move' : G.human(p) ? 'Your move (' + SIDE_NAME[p].toLowerCase() + ')' : 'Computer is thinking';
+    var line = !G.vsComputer() ? SIDE_NAME[p] + ' to move' : G.human(p) ? 'Your turn (' + SIDE_NAME[p].toLowerCase() + ')' : 'Computer is thinking';
     G.say((note || '') + (st.kingThreat ? 'The king has a clear line to a corner. ' : '') + line, !G.human(p));
     if (!G.human(p)) computerTurn();
   }
@@ -105,11 +105,11 @@
     });
   }
   function hint() {
-    var token = G.begin(); paint(); G.say('Thinking about a good move...', true);
+    var token = G.begin(); paint(); G.say('Thinking...', true);
     brain.ask(request({ level: 'hard', ms: HINT_MS }), function (r) {
       if (!G.done(token)) return;
       tip = r && r.move ? [E.from(r.move), E.to(r.move)] : null; paint();
-      G.say(tip ? 'A good move is marked: ' + E.notation(pos, r.move) + '.' : 'No move to suggest.');
+      G.say(tip ? 'Hint: ' + E.notation(pos, r.move) + '.' : 'No hint.');
     });
   }
 

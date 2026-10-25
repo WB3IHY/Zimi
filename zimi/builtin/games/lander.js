@@ -185,7 +185,7 @@
       showSheet(st.status === 'landed' ? 'Landed' : 'Crashed', st.message + (st.status === 'landed' ? ' On to level ' + (st.level + 1) + '.' : ' ' + st.lives + (st.lives === 1 ? ' lander left.' : ' landers left.')), 'Next lander');
     }
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); showSheet('Paused', 'The lander hangs there.', 'Resume'); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); showSheet('Paused', 'Resume when you are ready.', 'Resume'); }
   els.go.addEventListener('click', function () {
     if (mode === 'paused') { mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
     else if (mode === 'between') { st = next(st); mode = 'playing'; els.msg.textContent = ''; Play.closeSheet(els.sheet); hud(); draw(); loop.start(); }
