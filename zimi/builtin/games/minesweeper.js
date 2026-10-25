@@ -1,4 +1,4 @@
-/* Zimi Arcade: Minesweeper. Our own code, GPL-3.0. No network, no fonts, no modules.
+/* ZimiGames: Minesweeper. Our own code, GPL-3.0. No network, no fonts, no modules.
    Two halves in one file: the game rules (pure functions, no DOM, so node can test
    them) and the page (runs only when there is a document). */
 (function (root) {
@@ -184,7 +184,7 @@
   var CELL_DESKTOP = 30, CELL_TOUCH_MIN = 32, CELL_TOUCH_MAX = 40, FRAME_PAD = 44, WIDE_VIEWPORT = 700;
   var POP_LIMIT = 60; // a big flood just appears; a small opening gets the little pop
   var TIMER_MAX = 999, TICK_MS = 200;
-  var SETTINGS_KEY = 'zimi.arcade.minesweeper.settings', BEST_KEY = 'zimi.arcade.minesweeper.best';
+  var SETTINGS_KEY = 'zimi.games.minesweeper.settings', BEST_KEY = 'zimi.games.minesweeper.best';
   var LEVEL_NAMES = { beginner: 'Beginner', intermediate: 'Intermediate', expert: 'Expert', custom: 'Custom' };
 
   function $(id) { return document.getElementById(id); }

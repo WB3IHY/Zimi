@@ -1,4 +1,4 @@
-/* Zimi Arcade: Reversi. Our own code, GPL-3.0. No network, no fonts, no modules.
+/* ZimiGames: Reversi. Our own code, GPL-3.0. No network, no fonts, no modules.
    Two halves: the rules and the computer player (pure functions, testable in node),
    then the page (runs only when there is a document). */
 (function (root) {

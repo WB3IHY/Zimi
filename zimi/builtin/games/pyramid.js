@@ -1,4 +1,4 @@
-/* Zimi Arcade: Pyramid. Twenty-eight cards in seven rows. Take cards in pairs
+/* ZimiGames: Pyramid. Twenty-eight cards in seven rows. Take cards in pairs
    that add up to 13 (ace 1 ... queen 12), kings on their own. A pyramid card
    is free once the two cards that overlap it are gone; the top of the waste
    is free too. Turn the stock one card at a time; the waste may go round

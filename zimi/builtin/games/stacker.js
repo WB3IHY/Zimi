@@ -1,4 +1,4 @@
-/* Zimi Arcade: Stacker. Our own code, GPL-3.0. No network, no fonts, no modules.
+/* ZimiGames: Stacker. Our own code, GPL-3.0. No network, no fonts, no modules.
    Two halves in one file: the rules (pure functions, no DOM, so node can test them) and the
    page (runs only when there is a document). Seven pieces, a seven-piece bag, wall kicks,
    a ghost, hold, a next queue. */
@@ -226,7 +226,7 @@
   var HOLD_UP_CELLS = 2;                    // a swipe up this long holds
   var REPEAT_FIRST_MS = 190, REPEAT_MS = 55; // press and hold on the buttons
   var MAX_CELL = 32, SIDE_W = 96, GAP = 10, MIN_CELL = 16;
-  var BEST_KEY = 'zimi.arcade.stacker.best';
+  var BEST_KEY = 'zimi.games.stacker.best';
   var NEXT_SHOWN = 3;
   Play.applyTheme();
 

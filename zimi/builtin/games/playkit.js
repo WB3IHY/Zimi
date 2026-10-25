@@ -1,4 +1,4 @@
-/* Zimi Arcade: the little helpers the puzzle and arcade pages share. Our own code, GPL-3.0.
+/* ZimiGames: the little helpers the puzzle and arcade pages share. Our own code, GPL-3.0.
    No network, no modules. Only the pages use it; the rules in each game file stand alone. */
 (function (root) {
   'use strict';

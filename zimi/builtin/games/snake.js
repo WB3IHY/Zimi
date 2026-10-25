@@ -1,4 +1,4 @@
-/* Zimi Arcade: Snake. Our own code, GPL-3.0. No network, no fonts, no modules.
+/* ZimiGames: Snake. Our own code, GPL-3.0. No network, no fonts, no modules.
    The rules (pure functions, no DOM, so node can test them) and the page (only when there is a document). */
 (function (root) {
   'use strict';
@@ -88,7 +88,7 @@
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$;
   var SWIPE_PX = 22, MAX_BOARD = 560, CHROME_PX = 190, SIDE_PAD = 24;
-  var SETTINGS_KEY = 'zimi.arcade.snake.settings', BEST_KEY = 'zimi.arcade.snake.best';
+  var SETTINGS_KEY = 'zimi.games.snake.settings', BEST_KEY = 'zimi.games.snake.best';
   Play.applyTheme();
 
   var els = { cv: $('sn-board'), score: $('sn-score'), best: $('sn-best'), msg: $('sn-msg'), sheet: $('sn-sheet'), title: $('sn-sheet-title'), text: $('sn-sheet-text'), go: $('sn-go'), wrap: $('sn-wrap'), pause: $('sn-pause') };

@@ -1,4 +1,4 @@
-/* Zimi Arcade: Spider. Two decks, 104 cards, one, two or four suits. Build
+/* ZimiGames: Spider. Two decks, 104 cards, one, two or four suits. Build
    columns downward, any suit on the next rank up; move a run only if it is
    all one suit. A king-to-ace run of one suit leaves the table. The stock
    deals a card on every column, and only when no column is empty. Clear all

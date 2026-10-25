@@ -1,4 +1,4 @@
-/* Zimi Arcade: Mahjong solitaire. Our own code and our own tile art, GPL-3.0. No network, no modules.
+/* ZimiGames: Mahjong solitaire. Our own code and our own tile art, GPL-3.0. No network, no modules.
    Two halves: the layouts, the free-tile rule and the solvable deal (pure functions, testable in
    node), then the page (runs only when there is a document). */
 (function (root) {

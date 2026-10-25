@@ -1,4 +1,4 @@
-/* Zimi Arcade: Sudoku. Our own code, GPL-3.0. No network, no fonts, no modules.
+/* ZimiGames: Sudoku. Our own code, GPL-3.0. No network, no fonts, no modules.
    The rules (pure functions, no DOM, so node can test them): a solver, a technique grader, a
    generator whose puzzles have exactly one solution. Then the page (only when there is a document).
 
@@ -260,7 +260,7 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$;
-  var GAME_KEY = 'zimi.arcade.sudoku.game', BEST_KEY = 'zimi.arcade.sudoku.best', SETTINGS_KEY = 'zimi.arcade.sudoku.settings';
+  var GAME_KEY = 'zimi.games.sudoku.game', BEST_KEY = 'zimi.games.sudoku.best', SETTINGS_KEY = 'zimi.games.sudoku.settings';
   var TICK_MS = 500, UNDO_MAX = 300, MAX_BOARD = 504, SIDE_PAD = 24, CHROME_PX = 330;
   var LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert' };
   var DESCRIPTIONS = { easy: 'Naked singles only', medium: 'Needs hidden singles', hard: 'Needs pairs or locked candidates', expert: 'Needs an X-Wing or more' };

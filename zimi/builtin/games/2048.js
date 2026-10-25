@@ -1,4 +1,4 @@
-/* Zimi Arcade: 2048 (slide the tiles, merge equal ones). Our own code, GPL-3.0.
+/* ZimiGames: 2048 (slide the tiles, merge equal ones). Our own code, GPL-3.0.
    No network, no fonts, no modules. The rules (pure functions, no DOM, so node can test them)
    and the page (only when there is a document). */
 (function (root) {
@@ -124,7 +124,7 @@
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$;
   var SWIPE_PX = 24, SLIDE_MS = 110, MAX_BOARD = 440, SIDE_PAD = 32;
-  var GAME_KEY = 'zimi.arcade.2048.game', BEST_KEY = 'zimi.arcade.2048.best';
+  var GAME_KEY = 'zimi.games.2048.game', BEST_KEY = 'zimi.games.2048.best';
   Play.applyTheme();
 
   var els = { board: $('tf-board'), score: $('tf-score'), best: $('tf-best'), msg: $('tf-msg'), undo: $('tf-undo'), fresh: $('tf-new'), sheet: $('tf-sheet'), title: $('tf-sheet-title'), text: $('tf-sheet-text'), go: $('tf-go'), more: $('tf-more') };

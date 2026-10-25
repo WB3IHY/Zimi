@@ -1,4 +1,4 @@
-/* Zimi Arcade: TriPeaks. Three peaks of cards, 28 in all. Play a free card
+/* ZimiGames: TriPeaks. Three peaks of cards, 28 in all. Play a free card
    onto the waste when it is one rank above or below the waste's top card;
    kings and aces wrap round. A card is free when the two cards that overlap
    it are gone, and it turns face up when it becomes free. Each card played

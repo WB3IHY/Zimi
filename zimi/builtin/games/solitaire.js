@@ -1,4 +1,4 @@
-/* Zimi Arcade: Klondike. The rules are pure functions on a plain state (so
+/* ZimiGames: Klondike. The rules are pure functions on a plain state (so
    node can test them); the page wiring at the bottom only runs in a browser.
 
    State: piles { stock, waste, f0..f3, t0..t6 }, each a list of {id, up}
