@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sudoku - Zimi Arcade</title>
+<link rel="stylesheet" href="arcade.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="sudoku.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to the Arcade">&lsaquo;</a>
+  <h1>Sudoku</h1>
+  <span class="ar-stat" id="su-clock" role="timer" aria-label="Time">0:00</span>
+  <button class="ar-btn" id="su-menu" type="button" aria-haspopup="dialog"><span id="su-level">Easy</span></button>
+</header>
+
+<main class="pl-main">
+  <div class="su-board" id="su-board" role="grid" aria-label="Sudoku board"></div>
+  <div class="su-pad" id="su-pad" role="group" aria-label="Digits"></div>
+  <div class="pl-keys su-tools" role="group" aria-label="Tools">
+    <button class="pl-key" id="su-pencil" type="button" aria-pressed="false" title="Pencil marks (N)">Pencil</button>
+    <button class="pl-key" id="su-erase" type="button" title="Clear the cell">Erase</button>
+    <button class="pl-key" id="su-undo" type="button" title="Undo (Z)" disabled>Undo</button>
+  </div>
+  <p class="pl-msg" id="su-msg" role="status" aria-live="polite"></p>
+  <p class="pl-help">Fill every row, column and box with 1 to 9. Arrows move, digits fill, N toggles pencil marks (or hold Shift), Backspace clears, Z undoes.</p>
+</main>
+
+<div class="ar-sheet" id="su-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="su-menu-title">
+  <div class="ar-sheet-card">
+    <h2 id="su-menu-title">New puzzle</h2>
+    <div class="pl-pick" id="su-picks"></div>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="su-cancel" type="button">Back to the puzzle</button>
+      <button class="ar-btn" id="su-start" type="button" aria-pressed="true">Start</button>
+    </div>
+  </div>
+</div>
+<div class="ar-sheet" id="su-win" hidden role="dialog" aria-modal="true" aria-labelledby="su-win-title">
+  <div class="ar-sheet-card">
+    <h2 id="su-win-title">Solved</h2>
+    <p id="su-win-text"></p>
+    <div class="ar-sheet-actions"><button class="ar-btn" id="su-win-new" type="button" aria-pressed="true">New puzzle</button></div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="sudoku.js"></script>
+</body>
+</html>

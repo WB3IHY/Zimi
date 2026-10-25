@@ -1,0 +1,32 @@
+/* Sudoku: the board, notes and the number pad. Shared tokens: arcade.css, play.css. */
+:root {
+  --su-given: var(--ink); --su-user: #2d5fc4; --su-sel: #ffe3a8; --su-same: #fbe9c4; --su-peer: #eef1f6; --su-bad-bg: #f9d6d2; --su-box: var(--ink2);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --su-user: #7fa6f5; --su-sel: #5a4310; --su-same: #3b3014; --su-peer: #232832; --su-bad-bg: #4a211d; }
+}
+:root[data-theme="dark"] { --su-user: #7fa6f5; --su-sel: #5a4310; --su-same: #3b3014; --su-peer: #232832; --su-bad-bg: #4a211d; }
+
+.su-board { display: grid; grid-template-columns: repeat(9, 1fr); width: var(--side, 360px); height: var(--side, 360px); border: 2px solid var(--su-box); border-radius: 4px; background: var(--surface); user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.su-c { position: relative; display: grid; place-items: center; min-width: 0; border: 0 solid var(--line); border-width: 0 1px 1px 0; font: 500 calc(var(--side, 360px) / 9 * 0.56)/1 var(--font); font-variant-numeric: tabular-nums; cursor: pointer; }
+.su-c:nth-child(9n) { border-right-width: 0; }
+.su-c:nth-child(n+73) { border-bottom-width: 0; }
+.su-c.rb { border-right: 2px solid var(--su-box); }
+.su-c.bb { border-bottom: 2px solid var(--su-box); }
+.su-c.given { font-weight: 700; color: var(--su-given); }
+.su-c.user { color: var(--su-user); }
+.su-c.peer { background: var(--su-peer); }
+.su-c.same { background: var(--su-same); }
+.su-c.sel { background: var(--su-sel); }
+.su-c.bad { background: var(--su-bad-bg); color: var(--bad); }
+.su-c:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; z-index: 1; }
+.su-notes { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 1px; }
+.su-notes i { display: grid; place-items: center; font: 600 calc(var(--side, 360px) / 9 * 0.27)/1 var(--font); font-style: normal; color: var(--ink2); }
+
+.su-pad { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; width: var(--side, 360px); max-width: 100%; }
+.su-board, .su-pad { margin: 0 auto; }
+.su-num { min-width: 0; min-height: 54px; padding: 4px 0 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 22px; border-radius: 8px; }
+.su-num small { font: 600 10px/1 var(--mono); color: var(--ink3); height: 10px; }
+.su-num.done { opacity: 0.35; }
+.su-tools .pl-key { min-height: 44px; font-size: 15px; min-width: 88px; }
+@media (min-width: 700px) { .su-num { min-height: 48px; } }

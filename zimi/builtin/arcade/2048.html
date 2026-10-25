@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>2048 - Zimi Arcade</title>
+<link rel="stylesheet" href="arcade.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="2048.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to the Arcade">&lsaquo;</a>
+  <h1>2048</h1>
+  <button class="ar-btn" id="tf-undo" type="button" disabled>Undo</button>
+  <button class="ar-btn" id="tf-new" type="button">New</button>
+</header>
+
+<main class="pl-main">
+  <div class="pl-hud">
+    <div class="pl-stat"><small>Score</small><b id="tf-score">0</b></div>
+    <div class="pl-stat"><small>Best</small><b id="tf-best">0</b></div>
+  </div>
+  <div class="tf-board" id="tf-board" role="grid" aria-label="The board"></div>
+  <p class="pl-msg" id="tf-msg" role="status" aria-live="polite"></p>
+  <p class="pl-help">Arrow keys or WASD slide every tile. Equal tiles merge. Z undoes one move. On a phone, swipe on the board.</p>
+</main>
+
+<div class="ar-sheet" id="tf-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="tf-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="tf-sheet-title">2048</h2>
+    <p id="tf-sheet-text"></p>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="tf-more" type="button" hidden>New game</button>
+      <button class="ar-btn" id="tf-go" type="button" aria-pressed="true">OK</button>
+    </div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="2048.js"></script>
+</body>
+</html>

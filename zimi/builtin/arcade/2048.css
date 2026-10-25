@@ -1,0 +1,39 @@
+/* 2048: the board and the tiles. Our own colours: a cool ramp from slate to amber. */
+:root {
+  --tf-board: #c3c9d3; --tf-slot: #d9dee6;
+  --t2: #f1f3f7; --t4: #e0e8f2; --t8: #bfe0d8; --t16: #8fd0c0; --t32: #5fbfb0; --t64: #2a8f9c;
+  --t128: #f4cf6b; --t256: #f0b84a; --t512: #ec9f3a; --t1024: #e5832f; --t2048: #d9672a; --tbig: #7a4fd0;
+  --tf-ink-dark: #1d2433; --tf-ink-light: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --tf-board: #2a303b; --tf-slot: #1c2029;
+    --t2: #3a4150; --t4: #424c5e; --t8: #2f6b66; --t16: #2a8077; --t32: #23958a; --t64: #1d8aa0;
+    --t128: #c79a2a; --t256: #cf8a22; --t512: #d57a1b; --t1024: #d86a1a; --t2048: #d9552a; --tbig: #7a4fd0;
+    --tf-ink-dark: #e8ebf1;
+  }
+}
+:root[data-theme="dark"] {
+  --tf-board: #2a303b; --tf-slot: #1c2029;
+  --t2: #3a4150; --t4: #424c5e; --t8: #2f6b66; --t16: #2a8077; --t32: #23958a; --t64: #1d8aa0;
+  --t128: #c79a2a; --t256: #cf8a22; --t512: #d57a1b; --t1024: #d86a1a; --t2048: #d9552a; --tbig: #7a4fd0;
+  --tf-ink-dark: #e8ebf1;
+}
+
+.tf-board { position: relative; border-radius: 12px; background: var(--tf-board); touch-action: none; user-select: none; -webkit-user-select: none; }
+.tf-slot { position: absolute; left: 0; top: 0; width: var(--cell); height: var(--cell); border-radius: 8px; background: var(--tf-slot); }
+
+.tf-tile { position: absolute; left: 0; top: 0; z-index: 2; width: var(--cell); height: var(--cell); display: grid; place-items: center; border-radius: 8px;
+  font: 800 calc(var(--cell) * 0.4)/1 var(--font); font-variant-numeric: tabular-nums; color: var(--tf-ink-dark); transition: transform 0.11s ease-out; }
+.tf-tile.pop { animation: tf-pop 0.16s ease-out; }
+.tf-tile.new { animation: tf-in 0.16s ease-out; }
+@keyframes tf-pop { 0% { scale: 0.85; } 60% { scale: 1.12; } 100% { scale: 1; } }
+@keyframes tf-in { from { scale: 0.4; opacity: 0; } to { scale: 1; opacity: 1; } }
+.t2 { background: var(--t2); } .t4 { background: var(--t4); } .t8 { background: var(--t8); } .t16 { background: var(--t16); }
+.t32 { background: var(--t32); } .t64 { background: var(--t64); }
+.t64, .t2048, .tbig { color: var(--tf-ink-light); }
+.t128 { background: var(--t128); font-size: calc(var(--cell) * 0.34); } .t256 { background: var(--t256); font-size: calc(var(--cell) * 0.34); }
+.t512 { background: var(--t512); font-size: calc(var(--cell) * 0.34); }
+.t1024 { background: var(--t1024); font-size: calc(var(--cell) * 0.28); } .t2048 { background: var(--t2048); font-size: calc(var(--cell) * 0.28); }
+.tbig { background: var(--tbig); font-size: calc(var(--cell) * 0.26); }
+@media (prefers-reduced-motion: reduce) { .tf-tile { transition: none; } .tf-tile.pop, .tf-tile.new { animation: none; } }
