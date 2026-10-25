@@ -1,15 +1,19 @@
-"""Zimi's own ZIMs (zimi/ownzims.py): folders in the package built into real
-ZIM files in Zimi's data folder, served as the library's last tier.
+"""Zimi's own ZIMs (zimi/ownzims.py): real ZIM files committed in the package,
+built from source by ``python -m zimi.ownzims``, served as the library's last
+tier and downloadable for any reader.
 
 Eric, 2026-10-16: "When we do arcade I want that and almanac quietly converted
 to zim files in the repo that we load ... Other readers can open and use
-them."
+them." And 2026-10-24: "Why have Zimi build the game zim instead of it
+coming with the repo (ie a file others can download easily for their own
+viewers)"
 
 Run: pytest tests/test_ownzims.py -v
 """
 
 import os
 import shutil
+import sys
 
 import pytest
 from libzim.reader import Archive
@@ -21,21 +25,21 @@ ARCADE = os.path.join(ownzims.SOURCE_ROOT, "arcade")
 
 @pytest.fixture
 def home(tmp_path, monkeypatch):
-    """An empty library and data folder, and a copy of the Arcade's source to
-    change freely."""
+    """An empty library, an empty place to build into, and a copy of the
+    Arcade's source to change freely."""
     zims, data, src = tmp_path / "zims", tmp_path / "data", tmp_path / "src"
     zims.mkdir()
     shutil.copytree(ARCADE, src / "arcade")
     monkeypatch.setattr(server, "ZIM_DIR", str(zims))
-    monkeypatch.setattr(server, "ZIMI_DATA_DIR", str(data))
     monkeypatch.setattr(ownzims, "SOURCE_ROOT", str(src))
+    monkeypatch.setattr(ownzims, "OUT_DIR", str(data))
     monkeypatch.delenv("ZIMI_BUILTIN_ZIMS", raising=False)
     return {"zims": zims, "data": data, "src": src / "arcade", "own": ownzims.OWN[0]}
 
 
 def test_the_arcade_is_a_real_zim_any_reader_opens(home):
     path = ownzims.build(home["own"])
-    assert path == os.path.join(str(home["data"]), "builtin", "zimi_arcade.zim")
+    assert path == os.path.join(str(home["data"]), "zimi_arcade.zim")
     a = Archive(path)
     assert a.main_entry.get_item().path == "index.html"
     assert a.get_metadata("Title").decode() == "Zimi Arcade"
@@ -57,7 +61,9 @@ def test_built_once_then_skipped_until_the_folder_changes(home):
     (home["src"] / "index.html").write_text(
         "<!doctype html><title>Changed</title><p>changed</p>"
     )
+    assert not ownzims.fresh(own), "a changed source makes the built file stale"
     assert ownzims.build(own) == first, "a changed file builds it again"
+    assert ownzims.fresh(own)
     assert open(first + ".source").read() != stamp
     assert not [
         n
@@ -84,7 +90,8 @@ def test_a_failed_build_leaves_the_last_good_one_serving(home, monkeypatch):
     from zimi import creator
 
     monkeypatch.setattr(creator, "create_folder_zim", boom)
-    assert ownzims.build_all() == []
+    with pytest.raises(RuntimeError):
+        ownzims.build(home["own"])
     assert os.path.getsize(path) == good
 
 
@@ -97,19 +104,20 @@ def test_served_as_the_last_tier_never_over_the_operators_file(home):
     assert server._scan_zim_files()["zimi_arcade"] == str(mine)
 
 
-def test_off_builds_and_serves_none(home, monkeypatch):
+def test_off_serves_none(home, monkeypatch):
     ownzims.build(home["own"])
     monkeypatch.setenv("ZIMI_BUILTIN_ZIMS", "0")
     assert ownzims.zim_paths() == []
-    assert ownzims.build_all() == []
     assert "zimi_arcade" not in server._scan_zim_files()
 
 
-def test_every_own_folder_is_in_the_package():
+def test_every_own_zim_is_committed_in_the_package():
     for own in ownzims.OWN:
         folder = os.path.join(os.path.dirname(ownzims.__file__), "builtin", own.folder)
         assert os.path.isfile(os.path.join(folder, "index.html")), own
         assert os.path.isfile(os.path.join(folder, "zimi.txt")), own
+        assert os.path.isfile(ownzims.zim_path(own)), own
+        Archive(ownzims.zim_path(own))  # opens: a real ZIM, not an LFS pointer
     with open(
         os.path.join(os.path.dirname(server.__file__), "..", "pyproject.toml")
     ) as f:
@@ -130,3 +138,13 @@ def test_on_home_under_its_own_section_never_as_something_you_made(home):
     meta = {k: a.get_metadata(k).decode() for k in ("Tags", "Scraper") if k in a.metadata_keys}
     assert ownzims.OWN_TAG in meta["Tags"].split(";")
     assert zhttp._zimi_kind(meta) is None
+
+
+@pytest.mark.skipif(
+    not os.environ.get("CI") or sys.platform == "win32",
+    reason="CI only (a source edit need not rebuild the ZIMs until the pull request), and not on Windows, whose checkout may turn line ends into CRLF",
+)
+def test_the_committed_zims_are_built_from_the_source_as_it_is():
+    """A download, Kiwix and Zimi all get these bytes: a pull request whose
+    ZIMs are older than their source fails until python -m zimi.ownzims runs."""
+    assert ownzims.main(["--check"]) == 0
