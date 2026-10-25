@@ -22,7 +22,7 @@
    browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
 
   var SEATS = 4, HAND = 3, START_CHIPS = 1000, BOOT = 10, MAX_STAKE = 160, TARGET = 1500;
   var NAMES = ['You', 'Asha', 'Dev', 'Rani'], STYLES = [null, 'careful', 'bold', 'bluffer'];
@@ -69,7 +69,9 @@
   function nextHand(st, order) {
     var dealer = st.dealer;
     do dealer = (dealer + 1) % SEATS; while (st.chips[dealer] < BOOT && dealer !== st.dealer);
-    return deal(order, st.round + 1, st.chips, dealer);
+    var ns = deal(order, st.round + 1, st.chips, dealer);
+    if (st.people) ns.people = st.people;
+    return ns;
   }
   var active = function (s) { return [0, 1, 2, 3].filter(function (i) { return !s.folded[i] && !s.out[i]; }); };
   // The next player after `seat` who can still act.
@@ -165,7 +167,18 @@
     return settle(s);
   }
   // You win with TARGET chips or the table out of chips; you lose when you cannot pay the boot.
-  var gameWinner = function (st) { return st.chips[0] < BOOT ? 1 : st.chips[0] >= TARGET || [1, 2, 3].every(function (i) { return st.chips[i] < BOOT; }) ? 0 : -1; };
+  // st.people (set by the page) lists the seats a person plays: with several, the match runs
+  // until one seat holds TARGET chips or is the only one able to pay the boot.
+  var gameWinner = function (st) {
+    var P = st.people, h = P && P.length === 1 ? P[0] : 0, solvent;
+    if (P && P.length > 1) {
+      var top = [0, 1, 2, 3].filter(function (i) { return st.chips[i] >= TARGET; });
+      if (top.length) return top[0];
+      solvent = [0, 1, 2, 3].filter(function (i) { return st.chips[i] >= BOOT; });
+      return solvent.length === 1 ? solvent[0] : -1;
+    }
+    return st.chips[h] < BOOT ? (h === 0 ? 1 : 0) : st.chips[h] >= TARGET || [0, 1, 2, 3].every(function (i) { return i === h || st.chips[i] < BOOT; }) ? h : -1;
+  };
 
   // ── The computer players ────────────────────────────────────────────────
   // 0..1: how good a hand is.
@@ -214,17 +227,19 @@
   // view: { reveal: bool } cards of the players still in are shown at the end of a showdown.
   function place(st, m, view) {
     var g = geo(m), cards = [], slots = [], ended = st.phase === 'handEnd' || st.phase === 'over', shown = ended && st.result && (st.result.kind === 'show' || st.result.kind === 'showdown');
+    var V = (view && view.viewer) || 0, hide = !!(view && view.hideHand), look = st.seen[V] && !hide;
     slots.push({ id: 'pot', x: g.cx - g.cw, y: g.cy - g.ch / 2, w: 2 * g.cw, h: g.ch, quiet: true, label: 'Pot ' + st.pot });
-    if (!st.out[0]) {
-      var hand = T.handCards(g, st.hands[0], function (id) { return { up: st.seen[0] || shown, label: st.seen[0] || shown ? Z.cardName(id) : 'Hidden card' }; }, null);
+    if (!st.out[V]) {
+      var hand = T.handCards(g, st.hands[V], function (id) { return { up: look || shown, label: look || shown ? Z.cardName(id) : 'Hidden card' }; }, null);
       var step = Math.min(g.cw * HAND_STEP, (g.W - 2 * g.pad - g.cw) / Math.max(1, HAND - 1)), x0 = (g.W - (g.cw + (HAND - 1) * step)) / 2;
-      hand.cards.forEach(function (c, k) { c.x = Math.round(x0 + k * step); hand.slots[k].x = c.x; if (st.folded[0]) c.dim = true; });
+      hand.cards.forEach(function (c, k) { c.x = Math.round(x0 + k * step); hand.slots[k].x = c.x; if (st.folded[V]) c.dim = true; });
       slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     }
-    [1, 2, 3].forEach(function (seat) {
+    [1, 2, 3].forEach(function (pos) {
+      var seat = (V + pos) % SEATS;
       if (st.out[seat]) return;
       var up = shown && st.result.seats && st.result.seats.indexOf(seat) >= 0;
-      T.fan(g, seat, st.hands[seat], up).forEach(function (c) { if (st.folded[seat]) c.dim = true; cards.push(c); });
+      T.fan(g, pos, st.hands[seat], up).forEach(function (c) { if (st.folded[seat]) c.dim = true; cards.push(c); });
     });
     return { height: m.H, slots: slots, cards: cards };
   }
@@ -240,14 +255,22 @@
   var AI_MS = 850, END_MS = 700;
   function boot() {
     var d = root.document, t, board, session, view = { flash: '' };
-    var who = function (seat) { return NAMES[seat]; };
+    // Seats are the Computer or a Person. The computer players keep their own names and styles.
+    var seats = Seats.create({ id: 'teenpatti', seats: SEATS, cpuNames: ['Zara', 'Asha', 'Dev', 'Rani'], onChange: function () { if (t) t.paint(); if (board) board.refresh(); } });
+    var who = function (seat) { return seats.name(seat); };
+    // The seat acting now: whoever must answer a side show, else the player to bet.
+    var actor = function (st) { return st.phase === 'side' ? st.side.to : st.turn; };
+    var mine = function (seat) { return seats.person(seat) && seat === seats.view(); };
+    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && actor(st) !== view.viewer; }
+    function repaint() { board.refresh(); t.paint(); }
+    var verb = function (seat, you, other) { return seats.isYou(seat) ? you : other; };
     // What each computer player is doing (blind, seen, packed), under its cards.
     var tags = [null, Z.h('div', { class: 'tp-tag' }), Z.h('div', { class: 'tp-tag' }), Z.h('div', { class: 'tp-tag' })];
     [1, 2, 3].forEach(function (seat) { Z.pageEls().table.appendChild(tags[seat]); });
     function paintTags(g, st, over) {
       var sideH = g.ch + (HAND - 1) * T.sideStep(g, HAND);
-      [1, 2, 3].forEach(function (seat) {
-        var p = T.posOf(seat, SEATS), el = tags[seat];
+      [1, 2, 3].forEach(function (pos) {
+        var seat = (seats.view() + pos) % SEATS, p = T.posOf(pos, SEATS), el = tags[pos];
         el.textContent = who(seat) + '\n' + (st.out[seat] ? 'out' : st.folded[seat] && !over ? 'packed' : st.seen[seat] ? 'seen' : 'blind');
         el.style.left = Math.round(p === 2 ? g.cx : (p === 1 ? g.westX : g.eastX) + g.cw / 2) + 'px';
         el.style.top = Math.round(p === 2 ? g.northY + g.ch + 4 : g.yTop + sideH + 4) + 'px';
@@ -257,16 +280,17 @@
     function sayLine(st) {
       var y = st.say;
       if (!y) return '';
-      return who(y.seat) + ' ' + (y.seat === 0 ? youForm(y) : y.text) + (y.amount ? ' (' + y.amount + ')' : '') + '.';
+      if (y.type === 'accept') return who(y.seat) + ' ' + verb(y.seat, 'accept', 'accepts') + ': ' + who(y.loser) + verb(y.loser, ' pack', ' packs') + '.';
+      return who(y.seat) + ' ' + (seats.isYou(y.seat) ? youForm(y) : y.text) + (y.amount ? ' (' + y.amount + ')' : '') + '.';
     }
     function youForm(y) { return { see: 'look', blind: 'play blind', blindRaise: 'raise blind', chaal: 'play chaal', raise: 'raise', sideshow: 'ask for a side show', show: 'ask for a show', pack: 'pack', refuse: 'refuse', accept: y.text.replace(/^accepts/, 'accept') }[y.type] || y.text; }
     function resultLines(st) {
       var r = st.result, lines = [];
-      if (r.kind === 'fold') lines.push(who(r.winner) + (r.winner === 0 ? ' take' : ' takes') + ' the pot of ' + r.pot + ': everyone else packed.');
+      if (r.kind === 'fold') lines.push(who(r.winner) + verb(r.winner, ' take', ' takes') + ' the pot of ' + r.pot + ': everyone else packed.');
       else {
         var list = (r.seats || []).map(function (i) { return who(i) + ': ' + describe(st.hands[i]); });
         lines.push(list.join(', ') + '.');
-        lines.push(who(r.winner) + (r.winner === 0 ? ' win' : ' wins') + ' the pot of ' + r.pot + '.');
+        lines.push(who(r.winner) + verb(r.winner, ' win', ' wins') + ' the pot of ' + r.pot + '.');
       }
       lines.push('Chips: ' + [0, 1, 2, 3].map(function (i) { return who(i) + ' ' + st.chips[i]; }).join(', ') + '.');
       return lines;
@@ -274,7 +298,7 @@
     function hud(st) {
       var over = st.phase === 'handEnd' || st.phase === 'over';
       paintTags(geo(board.metrics()), st, over);
-      var chips = [0, 1, 2, 3].map(function (seat) {
+      var chips = [0, 1, 2, 3].map(function (i) { return (seats.view() + i) % SEATS; }).map(function (seat) {
         return { name: who(seat), text: String(st.chips[seat]), turn: !over && st.phase === 'bet' && st.turn === seat || (st.phase === 'side' && st.side.to === seat) };
       });
       var out = { chips: chips, sub: 'Pot ' + st.pot + ' · stake ' + st.stake, text: '' };
@@ -282,19 +306,19 @@
       if (st.phase === 'handEnd') { out.text = resultLines(st)[st.result.kind === 'fold' ? 0 : 1]; out.label = 'Next hand'; out.action = startNextHand; return out; }
       if (st.phase === 'over') { out.text = 'Game over'; return out; }
       if (st.phase === 'side') {
-        if (st.side.to === 0) {
-          out.text = who(st.side.from) + ' asks you for a side show. The weaker hand packs';
+        if (mine(st.side.to)) {
+          out.text = who(st.side.from) + ' asks ' + (seats.isYou(st.side.to) ? 'you' : who(st.side.to)) + ' for a side show. The weaker hand packs';
           out.choices = [{ label: 'Accept', onclick: function () { respond(true); } }, { label: 'Refuse', onclick: function () { respond(false); } }];
         } else out.text = (said ? said + ' ' : '') + who(st.side.to) + ' is deciding';
         return out;
       }
-      if (st.turn === 0) {
-        var acts = actions(st, 0);
-        out.text = (said ? said + ' ' : '') + (st.seen[0] ? 'Your bet' : 'Play blind, or look at your cards');
+      if (mine(st.turn)) {
+        var acts = actions(st, st.turn), pre = seats.hotseat() ? who(st.turn) + ': ' : '';
+        out.text = (said ? said + ' ' : '') + pre + (st.seen[st.turn] ? (pre ? 'your bet' : 'Your bet') : (pre ? 'play blind, or look at your cards' : 'Play blind, or look at your cards'));
         out.choices = acts.map(function (a) {
           return { label: LABEL[a.type] + (a.cost ? ' ' + a.cost : ''), aria: LABEL[a.type] + (a.cost ? ', ' + a.cost + ' chips' : ''), onclick: function () { go(a.type); }, disabled: false };
         });
-      } else out.text = (said ? said + ' ' : '') + who(st.turn) + ' is thinking';
+      } else out.text = (said ? said + ' ' : '') + who(st.turn) + (seats.person(st.turn) ? ' is next' : ' is thinking');
       return out;
     }
 
@@ -302,12 +326,12 @@
       var st = session.state;
       if (st.phase === 'over') { gameOver(); return; }
       if (st.phase === 'handEnd') { session.later(handOver, END_MS); return; }
-      if (st.phase === 'side') { if (st.side.to !== 0) session.later(aiRespondTurn, AI_MS); return; }
-      if (st.turn !== 0) session.later(aiTurn, AI_MS);
+      if (st.phase === 'side') { if (seats.person(st.side.to)) seats.ensure(st.side.to, repaint); else session.later(aiRespondTurn, AI_MS); return; }
+      if (seats.person(st.turn)) seats.ensure(st.turn, repaint); else session.later(aiTurn, AI_MS);
     }
     function aiTurn() {
       var st = session.state;
-      if (st.phase !== 'bet' || st.turn === 0) return;
+      if (st.phase !== 'bet' || seats.person(st.turn)) return;
       var seat = st.turn, a = aiAct(st, seat, Math.random);
       session.follow(act(st, seat, a.type));
       announce(a.type);
@@ -315,22 +339,22 @@
     }
     function aiRespondTurn() {
       var st = session.state;
-      if (st.phase !== 'side' || st.side.to === 0) return;
+      if (st.phase !== 'side' || seats.person(st.side.to)) return;
       session.follow(respondSide(st, st.side.to, aiRespond(st, st.side.to, Math.random)));
       drive();
     }
     function announce(type) { if (session.state.say && type !== 'see') t.flash(sayLine(session.state)); }
     function go(type) {
       var st = session.state;
-      if (st.phase !== 'bet' || st.turn !== 0 || !isLegal(st, 0, type)) return;
-      var next = act(st, 0, type);
+      if (st.phase !== 'bet' || !mine(st.turn) || !isLegal(st, st.turn, type)) return;
+      var next = act(st, st.turn, type);
       if (type === 'see') session.follow(next); else session.commit(next);
       drive();
     }
     function respond(accept) {
       var st = session.state;
-      if (st.phase !== 'side' || st.side.to !== 0) return;
-      session.commit(respondSide(st, 0, accept));
+      if (st.phase !== 'side' || !mine(st.side.to)) return;
+      session.commit(respondSide(st, st.side.to, accept));
       drive();
     }
     function handOver() {
@@ -339,30 +363,36 @@
       T.lineSheet('Hand ' + (st.round + 1), resultLines(st), [{ label: 'Next hand', primary: true, onclick: startNextHand }]);
     }
     function gameOver() {
-      var st = session.state, won = gameWinner(st) === 0, lines = (st.result ? resultLines(st) : []).concat([won ? 'The table is yours: ' + st.chips[0] + ' chips.' : 'You are out of chips.']);
-      session.stats.scored(st.chips[0]);
-      if (won) session.win(st.chips[0]); else session.lose('Out of chips', lines, st.chips[0]);
+      var st = session.state, me = seats.view(), hot = seats.hotseat(), w = gameWinner(st), won = w === me && !hot;
+      var lines = (st.result ? resultLines(st) : []).concat([hot ? who(w) + ' has the table: ' + st.chips[w] + ' chips.' : won ? 'The table is yours: ' + st.chips[me] + ' chips.' : 'You are out of chips.']);
+      if (hot) { session.lose(who(w) + ' wins', lines); return; }
+      session.stats.scored(st.chips[me]);
+      if (won) session.win(st.chips[me]); else session.lose('Out of chips', lines, st.chips[me]);
     }
     var order = function () { return Z.shuffled(Math.random); };
     function startNextHand() {
       var st = session.state;
       if (st.phase !== 'handEnd') return;
-      session.stats.scored(Math.max(st.chips[0], 0));
+      if (!seats.hotseat()) session.stats.scored(Math.max(st.chips[seats.view()], 0));
       session.history = [];
       session.follow(nextHand(st, order()));
-      drive();
+      deal();
     }
     function startGame() {
       view.flash = '';
-      session.reset(newGame(order(), Math.floor(Math.random() * SEATS)));
-      drive();
+      var fresh = newGame(order(), Math.floor(Math.random() * SEATS));
+      fresh.people = seats.people();
+      session.reset(fresh);
+      deal();
     }
+    // A fresh deal: nobody has seen it, so a table of people starts at a handoff.
+    function deal() { seats.begin(function () { repaint(); drive(); }, actor(session.state)); }
     t = T.create({
-      id: 'teenpatti', name: 'Teen Patti', view: view, geo: geo, place: place, hud: hud, newGame: startGame, tap: function () { return false; }, cols: 6, heightShare: 0.13,
+      id: 'teenpatti', name: 'Teen Patti', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: startGame, tap: function () { return false; }, cols: 6, heightShare: 0.13,
       canPick: function () { return false; },
-      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.chips[0]; },
-      cascadeOrder: function (st) { return st.hands[0].map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return ['You have all the chips: ' + st.chips[0] + '.']; },
+      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.chips[seats.view()]; },
+      cascadeOrder: function (st) { return st.hands[seats.view()].map(function (id) { return { id: id }; }); },
+      winLines: function (sec, st) { return ['You have all the chips: ' + st.chips[seats.view()] + '.']; },
       rules: 'Everyone puts in a boot of 10 and gets three cards face down. Play blind (without looking) or look and play seen. The stake starts at 10: a blind player pays the stake (or double to raise it); a seen player pays double (or four times to raise, which doubles the stake). Pack folds. A seen player may ask the seen player before him for a side show: the weaker hand packs (a tie packs the asker). With two players left, Show turns the hands over: the higher wins (a tie goes to the one who did not ask). Hands, best first: trail (three of a kind), pure sequence (straight flush), sequence (straight), colour (flush), pair, high card. A-2-3 is the highest sequence, then A-K-Q down to 4-3-2. Asha plays carefully, Dev boldly and Rani bluffs. If you run short you go all in and the hands are shown. Reach 1500 chips to win, or outlast the others; you lose when you cannot pay the boot.'
     });
     board = t.board; session = t.session;

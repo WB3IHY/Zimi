@@ -105,7 +105,18 @@
 
   var els = { msg: $('fl-msg'), tools: $('fl-tools'), enemy: $('fl-enemy'), enemyWrap: $('fl-enemy-wrap'), mine: $('fl-mine'), eships: $('fl-enemy-ships'), sheet: $('fl-sheet'), title: $('fl-sheet-title'), text: $('fl-sheet-text'), go: $('fl-go'), nu: $('fl-new') };
   var stats = Play.load(STATS_KEY, { played: 0, won: 0, bestShots: 0 });
+  var boards = [], lastShot = [null, null], seats, actor = 0, placeIdx = 0, shotsBy = [0, 0];
   var phase = 'place', mine, theirs, sel = 0, horiz = true, timer = null, rng, shotsFired = 0, lastMine = null, lastTheirs = null, cpuGrid;
+
+  // Seats: Player 1 and Player 2 are each the Computer or a Person. Two people place and fire in turn,
+  // each behind a handoff, so neither sees the other's fleet.
+  function setActor(i) {
+    actor = i; mine = boards[i]; theirs = boards[1 - i]; lastMine = lastShot[i]; lastTheirs = lastShot[1 - i];
+    $('fl-mine-h').textContent = seats.hotseat() ? seats.name(i) + "'s fleet" : 'Your fleet';
+    shotsFired = shotsBy[i];
+  }
+  function setMine(b) { boards[actor] = mine = b; }
+  function otherPerson() { return seats.hotseat(); }
 
   function buildGrid(el, handler) {
     el.textContent = '';
@@ -161,6 +172,12 @@
   }
   function paintTools() {
     els.tools.textContent = '';
+    if (phase === 'pass') {
+      var nx = 1 - actor;
+      var pb = document.createElement('button'); pb.type = 'button'; pb.className = 'ar-btn'; pb.setAttribute('aria-pressed', 'true');
+      pb.textContent = 'Done, pass to ' + seats.name(nx); pb.addEventListener('click', function () { handTo(nx, 'battle'); });
+      els.tools.appendChild(pb); return;
+    }
     if (phase !== 'place') return;
     FLEET.forEach(function (f, i) {
       var placed = mine.ships.some(function (s) { return s.name === f[0]; });
@@ -172,9 +189,10 @@
     });
     function tool(text, fn, dis) { var b = document.createElement('button'); b.type = 'button'; b.className = 'ar-btn'; b.textContent = text; b.disabled = !!dis; b.addEventListener('click', fn); els.tools.appendChild(b); return b; }
     tool(horiz ? 'Rotate (now across)' : 'Rotate (now down)', function () { horiz = !horiz; paintTools(); });
-    tool('Shuffle', function () { mine = randomFleet(rng); sel = FLEET.length; paintAll(); });
+    tool('Shuffle', function () { setMine(randomFleet(rng)); sel = FLEET.length; paintAll(); });
     var all = mine.ships.length === FLEET.length;
-    var go = tool('Start battle', startBattle, !all); go.setAttribute('aria-pressed', String(all));
+    var more = seats.hotseat() && placeIdx < seats.people().length - 1;
+    var go = tool(more ? 'Done, pass to ' + seats.name(seats.people()[placeIdx + 1]) : 'Start battle', startBattle, !all); go.setAttribute('aria-pressed', String(all));
   }
   function paintAll() { paintMine(); paintEnemy(); paintTools(); els.enemyWrap.hidden = phase === 'place'; els.mine.classList.toggle('fl-small', phase !== 'place'); }
 
@@ -193,34 +211,53 @@
     paintAll();
   }
 
+  // Pass the device: the cover first, then the next person's screen.
+  function handTo(i, nextPhase) {
+    phase = nextPhase;
+    seats.cover(i, function () { setActor(i); turnMessage(); paintAll(); }, 'Hand the device over. Your fleet and your shots stay hidden until you tap.');
+    setActor(i); paintAll();
+  }
+  function turnMessage() {
+    if (phase === 'place') els.msg.textContent = 'Place the Carrier (5 squares). Tap a square on your grid.' + (seats.hotseat() ? ' ' + seats.name(actor) + ' places first.' : '');
+    else els.msg.textContent = (seats.hotseat() ? seats.name(actor) + ', fire' : 'Your turn. Fire') + ' on the enemy waters.' + (seats.hotseat() && lastTheirs ? ' Last shot at you: ' + label(lastTheirs[0], lastTheirs[1]) + '.' : '');
+  }
   function startBattle() {
-    phase = 'battle'; shotsFired = 0; lastMine = lastTheirs = null;
-    els.msg.textContent = 'Your turn. Fire on the enemy waters.';
+    if (seats.hotseat() && placeIdx < seats.people().length - 1) { placeIdx++; sel = 0; horiz = true; handTo(seats.people()[placeIdx], 'place'); return; }
+    phase = 'battle'; shotsBy = [0, 0]; lastShot = [null, null];
+    if (seats.hotseat()) { handTo(seats.people()[0], 'battle'); return; }
+    setActor(seats.people()[0]); turnMessage();
     paintAll();
     enemyCells[0].focus({ preventScroll: true });
   }
   function onEnemy(x, y) {
     if (phase !== 'battle') return;
     var r = fire(theirs, x, y); if (!r) return;
-    shotsFired++; lastMine = [x, y];
+    shotsBy[actor]++; shotsFired = shotsBy[actor]; lastMine = lastShot[actor] = [x, y];
     phase = 'busy';
     els.msg.textContent = label(x, y) + ': ' + (r.result === 'miss' ? 'Miss.' : r.result === 'hit' ? 'Hit!' : 'You sank the ' + r.ship.name + '!');
     if (r.win) { phase = 'over'; paintAll(); return finish(true); }
+    if (otherPerson()) { phase = 'pass'; paintAll(); return; }
     paintAll();
     timer = Play.later(cpuTurn, CPU_DELAY_MS);
   }
   function cpuTurn() {
     var pick = aiShot(mine.shots, remainingLens(mine), rng);
     var r = fire(mine, pick[0], pick[1]);
-    lastTheirs = pick;
+    lastTheirs = lastShot[1 - actor] = pick;
     var t = els.msg.textContent;
     els.msg.textContent = t + ' Computer fires at ' + label(pick[0], pick[1]) + ': ' + (r.result === 'miss' ? 'miss.' : r.result === 'hit' ? 'hit!' : 'it sank your ' + r.ship.name + '.');
     if (r.win) { phase = 'over'; paintAll(); return finish(false); }
     phase = 'battle'; paintAll();
   }
   function finish(won) {
-    stats.played++;
     var text;
+    if (seats.hotseat()) {
+      text = seats.name(actor) + ' sank the whole fleet in ' + shotsFired + ' shots.';
+      els.msg.textContent = seats.name(actor) + ' wins.';
+      showSheet(seats.name(actor) + ' wins', text, 'Play again');
+      return;
+    }
+    stats.played++;
     if (won) { stats.won++; text = 'You sank the whole enemy fleet in ' + shotsFired + ' shots.'; if (!stats.bestShots || shotsFired < stats.bestShots) { stats.bestShots = shotsFired; text += ' A new fewest.'; } }
     else text = 'Your fleet is gone. The computer found every ship.';
     text += ' You have won ' + stats.won + ' of ' + stats.played + '.';
@@ -229,13 +266,19 @@
     showSheet(won ? 'Victory' : 'Defeat', text, 'Play again');
   }
 
-  function showSheet(title, text, label2) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label2; Play.openSheet(els.sheet, '#fl-go'); }
+  function showSheet(title, text, label2) {
+    var host = $('fl-seats'); host.textContent = ''; host.appendChild(root.ZimiSeats.create({ id: 'fleet', seats: 2 }).block(null, { labels: ['Player 1', 'Player 2'] }));
+    els.title.textContent = title; els.text.textContent = text; els.go.textContent = label2; Play.openSheet(els.sheet, '#fl-go'); }
   function begin() {
     if (timer) timer.cancel();
     rng = Engine.mulberry(Play.randomSeed());
-    mine = createBoard(); theirs = randomFleet(rng); phase = 'place'; sel = 0; horiz = true; lastMine = lastTheirs = null;
-    els.msg.textContent = 'Place the Carrier (5 squares). Tap a square on your grid.';
+    seats = root.ZimiSeats.create({ id: 'fleet', seats: 2, onChange: function () { paintAll(); } });
+    boards = [createBoard(), createBoard()];
+    seats.kinds().forEach(function (k, i) { if (k === 'cpu') boards[i] = randomFleet(rng); });
+    phase = 'place'; sel = 0; horiz = true; placeIdx = 0; shotsBy = [0, 0]; lastShot = [null, null];
+    setActor(seats.people()[0]); turnMessage();
     Play.closeSheet(els.sheet); paintAll();
+    seats.begin(function () { paintAll(); });
   }
   els.go.addEventListener('click', begin);
   els.nu.addEventListener('click', function () { if (timer) timer.cancel(); if (phase === 'busy') phase = 'battle'; showSheet('New game', 'Start over with new waters?', 'Start'); });
@@ -245,7 +288,8 @@
   });
 
   rng = Engine.mulberry(Play.randomSeed());
-  mine = createBoard(); theirs = randomFleet(rng);
+  seats = root.ZimiSeats.create({ id: 'fleet', seats: 2 });
+  boards = [createBoard(), createBoard()]; actor = 0; mine = boards[0]; theirs = boards[1];
   mineCells = buildGrid(els.mine, onMine); enemyCells = buildGrid(els.enemy, onEnemy);
   paintAll();
   showSheet('Fleet', "Hide your ships, hunt the computer's. Five ships each on a ten by ten sea.", 'Place my ships');

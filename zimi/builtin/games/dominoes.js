@@ -145,7 +145,16 @@
   var reduced = BK.reducedMotion();
 
   function players() { return settings.opponents + 1; }
-  function nameOf(p) { return p === 0 ? 'You' : 'Computer ' + p; }
+  // Seats: each is the Computer or a Person; with two or more people, hands hide behind a handoff.
+  var seats = root.ZimiSeats.create({ id: 'dominoes', seats: players(), onChange: function () { if (st) render(); } });
+  function seatsFor() { seats = root.ZimiSeats.create({ id: 'dominoes', seats: players(), onChange: function () { if (st) render(); } }); }
+  function you(p) { return seats.isYou(p); }
+  function nameOf(p) {
+    if (seats.person(p)) return seats.name(p);
+    var k = 0; for (var q = 0; q < p; q++) if (!seats.person(q)) k++;
+    return 'Computer ' + (k + 1);
+  }
+  function humanSeat(p) { return seats.person(p); }
 
   function tileEl(a, b, cls) {
     var t = document.createElement('div');
@@ -195,7 +204,7 @@
 
   function paintHand() {
     handEl.textContent = '';
-    var mine = st.hands[0], plays = humanTurn() ? legalPlays(st, 0) : [], playable = {};
+    var V = seats.view(), shown = !seats.hotseat() || (seats.viewer >= 0 && st.turn === V), mine = st.hands[V], plays = humanTurn() && shown ? legalPlays(st, V) : [], playable = {};
     plays.forEach(function (pl) { playable[pl.tile] = (playable[pl.tile] || []).concat(pl.end); });
     mine.forEach(function (t, i) {
       var b = document.createElement('button');
@@ -203,18 +212,20 @@
       var ok = !!playable[i];
       b.className = 'dm-card' + (ok ? ' can' : '') + (i === selected ? ' sel' : '');
       b.disabled = !ok;
+      if (!shown) { b.className = 'dm-card'; b.disabled = true; b.setAttribute('aria-label', 'Hidden tile'); b.appendChild(tileEl(0, 0, 'vert dm-hidden')); handEl.appendChild(b); return; }
       b.setAttribute('aria-label', 'Tile ' + t[0] + ' and ' + t[1] + (ok ? (st.chain.length ? ', can play' : ', lead with it') : ', cannot play now'));
       b.appendChild(tileEl(t[0], t[1], 'vert' + (isDouble(t) ? ' double' : '')));
       b.addEventListener('click', function () { onHandTile(i, playable[i]); });
       handEl.appendChild(b);
     });
-    $('dm-hand-count').textContent = mine.length ? mine.length + (mine.length === 1 ? ' tile' : ' tiles') + ' in your hand, ' + handPips(mine) + ' pips' : '';
+    $('dm-hand-count').textContent = mine.length ? mine.length + (mine.length === 1 ? ' tile' : ' tiles') + ' in ' + (you(V) ? 'your' : nameOf(V) + "'s") + ' hand' + (shown ? ', ' + handPips(mine) + ' pips' : ', hidden until their turn') : '';
   }
 
   function paintOpponents() {
     var box = $('dm-opps');
     box.textContent = '';
-    for (var p = 1; p < players(); p++) {
+    for (var p = 0; p < players(); p++) {
+      if (p === seats.view()) continue;
       var d = document.createElement('div');
       d.className = 'dm-opp' + (st.turn === p && !matchOver ? ' now' : '');
       var nm = document.createElement('span'); nm.className = 'dm-opp-name'; nm.textContent = nameOf(p);
@@ -245,7 +256,7 @@
     s.appendChild(document.createTextNode(text));
   }
   function render() { paintOpponents(); paintScores(); paintChain(); paintHand(); }
-  function humanTurn() { return st.turn === 0 && !busy && !matchOver; }
+  function humanTurn() { return humanSeat(st.turn) && !busy && !matchOver; }
 
   // ── a round ──
   function startRound() {
@@ -254,7 +265,7 @@
     st = deal(settings.mode, players());
     st.turn = lastWinner >= 0 ? lastWinner : firstPlayer(st);
     render();
-    say(nameOf(st.turn) + (st.turn === 0 ? ' lead' : ' leads'), false);
+    say(nameOf(st.turn) + (you(st.turn) ? ' lead' : ' leads'), false);
     timer = setTimeout(function () { // the leader's first tile is played for them
       var pl = { tile: bestLead(st.hands[st.turn]), end: 'C' };
       busy = false;
@@ -267,7 +278,7 @@
     play(st, p, pl);
     selected = -1; ghosts = null;
     render();
-    say(nameOf(p) + (p === 0 ? ' played ' : ' played ') + t[0] + '|' + t[1]);
+    say(nameOf(p) + ' played ' + t[0] + '|' + t[1]);
     if (!st.hands[p].length) { endRound(); return; }
     nextPlayer();
   }
@@ -281,20 +292,20 @@
     var p = st.turn, plays = legalPlays(st, p);
     render();
     if (plays.length) {
-      if (p === 0) { say('Your turn: pick a tile that matches an open end'); return; }
+      if (humanSeat(p)) { seats.ensure(p, function () { render(); say((you(p) ? 'Your turn' : nameOf(p) + ', your turn') + ': pick a tile that matches an open end'); }, 'Hand the device over. Your tiles stay hidden until you tap.'); return; }
       say(nameOf(p) + ' is thinking', true);
       busy = true;
       timer = setTimeout(function () { busy = false; doPlay(p, choosePlay(st, p, settings.level)); }, COMPUTER_MS);
       return;
     }
     if (canDraw(st)) {
-      say(nameOf(p) + (p === 0 ? ' have no match, and draw' : ' draws'), p !== 0);
+      say(nameOf(p) + (you(p) ? ' have no match, and draw' : ' draws'), !you(p));
       busy = true;
       timer = setTimeout(function () { draw(st, p); busy = false; render(); takeTurn(); }, DRAW_MS);
       return;
     }
     pass(st, p);
-    say(nameOf(p) + (p === 0 ? ' cannot play, and pass' : ' cannot play, and passes'));
+    say(nameOf(p) + (you(p) ? ' cannot play, and pass' : ' cannot play, and passes'));
     if (isBlocked(st)) { timer = setTimeout(endRound, PASS_MS); return; }
     busy = true;
     timer = setTimeout(function () { busy = false; nextPlayer(); }, PASS_MS);
@@ -306,8 +317,8 @@
     if (r.winner >= 0) { scores[r.winner] += r.points; lastWinner = r.winner; }
     var lines = [];
     if (r.winner < 0) lines.push('The game is blocked and two hands tie for the lowest count. No one scores.');
-    else if (r.how === 'out') lines.push(nameOf(r.winner) + (r.winner === 0 ? ' went out' : ' went out') + ' and ' + (r.winner === 0 ? 'score' : 'scores') + ' ' + r.points + '.');
-    else lines.push('The game is blocked. ' + nameOf(r.winner) + (r.winner === 0 ? ' have' : ' has') + ' the lowest count and ' + (r.winner === 0 ? 'score' : 'scores') + ' ' + r.points + '.');
+    else if (r.how === 'out') lines.push(nameOf(r.winner) + ' went out and ' + (you(r.winner) ? 'score' : 'scores') + ' ' + r.points + '.');
+    else lines.push('The game is blocked. ' + nameOf(r.winner) + (you(r.winner) ? ' have' : ' has') + ' the lowest count and ' + (you(r.winner) ? 'score' : 'scores') + ' ' + r.points + '.');
     st.hands.forEach(function (h, p) { if (p !== r.winner || r.how !== 'out') lines.push(nameOf(p) + ' held ' + handPips(h) + ' pips.'); });
     var top = Math.max.apply(null, scores);
     matchOver = top >= settings.target;
@@ -320,14 +331,16 @@
     body.appendChild(tally);
     if (matchOver) {
       var champ = scores.indexOf(top);
-      title.textContent = champ === 0 ? 'You win the match' : nameOf(champ) + ' wins the match';
-      var key = settings.mode + '.' + settings.opponents + '.' + settings.level, s = stats[key] = stats[key] || { w: 0, l: 0 };
-      if (champ === 0) s.w++; else s.l++;
-      BK.save(STATS_KEY, stats);
+      title.textContent = you(champ) ? 'You win the match' : nameOf(champ) + ' wins the match';
+      if (!seats.hotseat()) {
+        var key = settings.mode + '.' + settings.opponents + '.' + settings.level, s = stats[key] = stats[key] || { w: 0, l: 0 };
+        if (seats.person(champ)) s.w++; else s.l++;
+        BK.save(STATS_KEY, stats);
+      }
       $('dm-next').textContent = 'New match';
       say(title.textContent);
     } else {
-      title.textContent = r.winner === 0 ? 'You win the round' : r.winner < 0 ? 'Round drawn' : nameOf(r.winner) + ' wins the round';
+      title.textContent = r.winner >= 0 && you(r.winner) ? 'You win the round' : r.winner < 0 ? 'Round drawn' : nameOf(r.winner) + ' wins the round';
       $('dm-next').textContent = 'Next round';
       say(title.textContent);
     }
@@ -336,6 +349,7 @@
   }
   function showStats() {
     var s = stats[settings.mode + '.' + settings.opponents + '.' + settings.level];
+    if (seats.hotseat()) { $('dm-stats').textContent = (settings.mode === 'draw' ? 'Draw' : 'Block') + ', ' + seats.people().length + ' people on this device'; return; }
     $('dm-stats').textContent = (settings.mode === 'draw' ? 'Draw' : 'Block') + ' vs ' + settings.opponents + ' computer' + (settings.opponents > 1 ? 's' : '') + ', ' + settings.level + ': ' + (s ? s.w : 0) + ' matches won, ' + (s ? s.l : 0) + ' lost';
   }
 
@@ -348,23 +362,33 @@
   }
   function humanPlay(i, end) {
     if (!humanTurn() || i < 0) return;
-    doPlay(0, { tile: i, end: end });
+    doPlay(st.turn, { tile: i, end: end });
   }
 
   function newMatch() {
     clearTimeout(timer);
+    seatsFor();
     scores = []; for (var p = 0; p < players(); p++) scores.push(0);
     round = 0; lastWinner = -1; matchOver = false; busy = false;
     roundSheet.close();
     showStats();
     startRound();
+    // A table of people starts behind a handoff; the round already deals underneath.
+    seats.begin(function () { render(); if (!busy && !matchOver && st.turn >= 0) takeTurn(); });
   }
 
   // ── controls ──
   var menu = BK.sheet($('dm-sheet')), roundSheet = BK.sheet($('dm-round'));
+  function paintSeatsBlock() {
+    var host = $('dm-seats'); host.textContent = '';
+    var n = +BK.chipValue($('dm-f-opp')) + 1;
+    host.appendChild(root.ZimiSeats.create({ id: 'dominoes', seats: n }).block());
+  }
+  $('dm-f-opp').addEventListener('change', paintSeatsBlock);
   function syncMenu() {
     BK.chipSet($('dm-f-mode'), settings.mode); BK.chipSet($('dm-f-opp'), settings.opponents);
     BK.chipSet($('dm-f-level'), settings.level); BK.chipSet($('dm-f-target'), settings.target);
+    paintSeatsBlock();
   }
   $('dm-new').addEventListener('click', function () { syncMenu(); menu.open(); });
   $('dm-cancel').addEventListener('click', menu.close);

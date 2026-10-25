@@ -20,7 +20,7 @@
    wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
 
   var HAND = 10, KNOCK_MAX = 10, GIN_BONUS = 25, UNDERCUT_BONUS = 25, GAME_END = 100, GAME_BONUS = 100, BOX_BONUS = 25, MIN_STOCK = 2;
   var NAMES = ['You', 'North'], FACE_VALUE = 10, SET_MAX = 4, RUN_MIN = 3;
@@ -231,25 +231,26 @@
     return { ids: ids, gap: function (a, b) { return group[a] !== group[b]; } };
   }
   function place(st, m, view) {
-    var g = geo(m, st), slots = [], cards = [], show = st.phase === 'show', sel = view && st.hands[0].indexOf(view.sel) >= 0 ? view.sel : null;
-    var sx = Math.round(g.cx - g.cw - 8), dx = Math.round(g.cx + 8), y = Math.round(g.cy - g.ch / 2), turnMine = st.turn === 0 && !show;
+    var V = (view && view.viewer) || 0, O = 1 - V, faceUp = !(view && view.hideHand);
+    var g = geo(m, st), slots = [], cards = [], show = st.phase === 'show', sel = view && st.hands[V].indexOf(view.sel) >= 0 ? view.sel : null;
+    var sx = Math.round(g.cx - g.cw - 8), dx = Math.round(g.cx + 8), y = Math.round(g.cy - g.ch / 2), turnMine = st.turn === V && !show && faceUp;
     slots.push({ id: 'stock', x: sx, y: y, w: g.cw, h: g.ch, label: 'Stock, ' + Z.plural(st.stock.length, 'card') });
     slots.push({ id: 'discard', x: dx, y: y, w: g.cw, h: g.ch, label: st.discard.length ? 'Discard pile, top ' + Z.cardName(st.discard[st.discard.length - 1]) : 'Discard pile, empty' });
     var canStock = turnMine && canDraw(st, false), canUp = turnMine && ((st.phase === 'draw' && canDraw(st, true)) || st.phase === 'offer');
     st.stock.forEach(function (id, k) { cards.push({ id: id, pile: 'stock', idx: k, x: sx, y: y, up: false, glow: canStock && k === st.stock.length - 1 }); });
     st.discard.forEach(function (id, k) { cards.push({ id: id, pile: 'discard', idx: k, x: dx, y: y, up: true, glow: canUp && k === st.discard.length - 1, dim: turnMine && st.phase === 'draw' && st.upLocked && k === st.discard.length - 1 }); });
-    var mine = show ? flatten(st.result.display[0]) : flatten(arrange(st.hands[0])), laid = show ? st.result.laid : [];
+    var mine = show ? flatten(st.result.display[V]) : flatten(arrange(st.hands[V])), laid = show ? st.result.laid : [];
     var hand = T.handCards(g, mine.ids, function (id) {
       var chosen = id === sel;
-      return { raise: chosen, mark: chosen, glow: cardIn(laid, id) || (st.last && st.last.seat === 0 && st.last.id === id && st.phase === 'discard'), dim: turnMine && st.phase === 'discard' && st.drawn === id,
+      return { up: faceUp || show, raise: chosen, mark: chosen, glow: cardIn(laid, id) || (faceUp && st.last && st.last.seat === V && st.last.id === id && st.phase === 'discard'), dim: turnMine && st.phase === 'discard' && st.drawn === id,
         label: Z.cardName(id) + (chosen ? ', chosen to discard' : '') };
     }, mine.gap);
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     if (show) {
-      var theirs = flatten(st.result.display[1]), top = Object.assign({}, g, { southY: g.northY, rows: 1 });
+      var theirs = flatten(st.result.display[O]), top = Object.assign({}, g, { southY: g.northY, rows: 1 });
       var row = T.handCards(top, theirs.ids, function (id) { return { glow: cardIn(laid, id) }; }, theirs.gap, 'o');
       cards = cards.concat(row.cards); slots = slots.concat(row.slots);
-    } else cards = cards.concat(T.fan(g, 2, st.hands[1], false));
+    } else cards = cards.concat(T.fan(g, 2, st.hands[O], false));
     return { height: m.H, slots: slots, cards: cards };
   }
 
@@ -264,41 +265,49 @@
   // ── The page ────────────────────────────────────────────────────────────
   var AI_MS = 700, NOTE_MS = 1400;
   function boot() {
-    var t, board, session, view = { sel: null, flash: '' };
+    var t, board, session, view = { sel: null, flash: '', viewer: 0, hideHand: false };
+    // Each seat is the Computer or a Person; two people share the screen behind a handoff.
+    var seats = Seats.create({ id: 'gin', seats: 2, onChange: function () { if (board) board.refresh(); if (t) t.paint(); } });
+    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.phase !== 'show' && st.turn !== view.viewer; }
+    var who = function (s) { return seats.name(s); };
+    var verb = function (s, you, other) { return seats.isYou(s) ? you : other; };
     var glyphName = function (id) { return T.short(id); };
     function noteOf(st) {
       var l = st.last;
-      if (!l || l.seat !== 1) return '';
-      return { took: 'North took the ' + glyphName(l.id) + '.', drew: 'North drew from the stock.', discarded: 'North discarded the ' + glyphName(l.id) + '.', passed: 'North passed.', knocked: 'North knocks.', gin: 'North goes gin.' }[l.act] || '';
+      if (!l || seats.isYou(l.seat) || l.seat === st.turn) return '';
+      var n = who(l.seat);
+      return { took: n + ' took the ' + glyphName(l.id) + '.', drew: n + ' drew from the stock.', discarded: n + ' discarded the ' + glyphName(l.id) + '.', passed: n + ' passed.', knocked: n + ' knocks.', gin: n + ' goes gin.' }[l.act] || '';
     }
     function resultLines(st) {
-      var r = st.result, lines = [], who = function (s) { return s === 0 ? 'You' : 'North'; };
+      var r = st.result, lines = [];
       if (r.draw) return [{ text: 'The stock is down to two cards. The hand is a draw, nobody scores.' }];
-      var k = who(r.knocker), o = who(1 - r.knocker);
-      lines.push({ text: r.gin ? k + (r.knocker === 0 ? ' go' : ' goes') + ' gin.' : k + (r.knocker === 0 ? ' knock' : ' knocks') + ' with ' + r.kDw + ' deadwood.' });
-      if (!r.gin) lines.push({ text: o + (o === 'You' ? ' have ' : ' has ') + r.oDwBefore + ' deadwood' + (r.laid.length ? ', ' + r.oDw + ' after laying off ' + T.shortList(r.laid) + '.' : '.') });
-      else lines.push({ text: o + (o === 'You' ? ' have ' : ' has ') + r.oDw + ' deadwood.' });
-      lines.push({ cls: 'ct-total', text: (r.undercut ? 'Undercut! ' : '') + who(r.scorer) + (r.scorer === 0 ? ' score ' : ' scores ') + r.points + (r.gin ? ' (25 for gin)' : r.undercut ? ' (25 for the undercut)' : '') + '.' });
+      var k = who(r.knocker), o = who(1 - r.knocker), ko = 1 - r.knocker;
+      lines.push({ text: r.gin ? k + verb(r.knocker, ' go', ' goes') + ' gin.' : k + verb(r.knocker, ' knock', ' knocks') + ' with ' + r.kDw + ' deadwood.' });
+      if (!r.gin) lines.push({ text: o + verb(ko, ' have ', ' has ') + r.oDwBefore + ' deadwood' + (r.laid.length ? ', ' + r.oDw + ' after laying off ' + T.shortList(r.laid) + '.' : '.') });
+      else lines.push({ text: o + verb(ko, ' have ', ' has ') + r.oDw + ' deadwood.' });
+      lines.push({ cls: 'ct-total', text: (r.undercut ? 'Undercut! ' : '') + who(r.scorer) + verb(r.scorer, ' score ', ' scores ') + r.points + (r.gin ? ' (25 for gin)' : r.undercut ? ' (25 for the undercut)' : '') + '.' });
       return lines;
     }
     function hud(st) {
-      var sel = st.hands[0].indexOf(view.sel) >= 0 ? view.sel : null, mine = st.phase === 'show' ? null : st.hands[0];
+      syncView(st);
+      var V = view.viewer, sel = st.hands[V].indexOf(view.sel) >= 0 ? view.sel : null, mine = st.phase === 'show' || view.hideHand ? null : st.hands[V];
       var dwNow = mine ? (mine.length === HAND ? deadwood(mine) : Math.min.apply(null, discardOptions(mine).filter(function (o) { return o.id !== st.drawn; }).map(function (o) { return o.dw; }))) : null;
       var chips = [0, 1].map(function (s) {
-        return { name: NAMES[s], text: String(st.scores[s]) + (s === 0 && dwNow !== null && st.phase !== 'offer' ? ' · dw ' + dwNow : ''), turn: st.phase !== 'show' && st.turn === s };
+        return { name: who(s), text: String(st.scores[s]) + (s === V && dwNow !== null && st.phase !== 'offer' ? ' · dw ' + dwNow : ''), turn: st.phase !== 'show' && st.turn === s };
       });
       var out = { chips: chips, sub: 'Hand ' + (st.handNo + 1) + ' · won ' + st.boxes[0] + '-' + st.boxes[1], text: '' }, note = noteOf(st), top = st.discard[st.discard.length - 1];
       if (st.phase === 'show') {
         out.lines = resultLines(st);
         if (st.final) { out.label = 'See result'; out.action = gameOver; out.text = 'Game over'; } else { out.label = 'Next hand'; out.action = startNextHand; out.text = 'Hand over'; }
-      } else if (st.turn === 1) out.text = note && st.phase !== 'offer' ? note + ' North is thinking' : 'North is thinking';
+      } else if (!seats.person(st.turn)) out.text = note && st.phase !== 'offer' ? note + ' ' + who(st.turn) + ' is thinking' : who(st.turn) + ' is thinking';
+      else if (view.hideHand) out.text = who(st.turn) + ', your turn';
       else if (st.phase === 'offer') {
         out.text = (note ? note + ' ' : '') + 'Take the ' + glyphName(top) + ' or pass?';
         out.choices = [{ label: 'Take ' + glyphName(top), onclick: takeNow, cls: top && Z.isRed(top) ? 'ct-red' : '' }, { label: 'Pass', onclick: passNow }];
       } else if (st.phase === 'draw') {
         out.text = (note ? note + ' ' : '') + (st.upLocked ? 'Draw from the stock' : 'Your draw: the stock or the ' + glyphName(top));
       } else {
-        var opts = sel !== null ? deadwood(st.hands[0].filter(function (c) { return c !== sel; })) : null, can = sel !== null && canDiscard(st, sel);
+        var opts = sel !== null ? deadwood(st.hands[V].filter(function (c) { return c !== sel; })) : null, can = sel !== null && canDiscard(st, sel);
         out.text = sel === null ? 'Pick a card to discard. Best deadwood: ' + dwNow : 'Without the ' + glyphName(sel) + ' your deadwood is ' + opts + '.';
         if (sel !== null) {
           out.choices = [{ label: 'Discard ' + glyphName(sel), onclick: discardNow, disabled: !can }];
@@ -311,12 +320,13 @@
     function drive() {
       var st = session.state;
       if (st.phase === 'show') { session.later(function () { if (session.state.phase === 'show') showEnd(); }, 0); return; }
-      if (st.turn === 1) session.later(aiTurn, st.last && st.last.seat === 0 ? AI_MS : NOTE_MS / 2);
+      if (seats.person(st.turn)) seats.ensure(st.turn, refresh); else session.later(aiTurn, st.last && seats.person(st.last.seat) ? AI_MS : NOTE_MS / 2);
     }
+    function refresh() { board.refresh(); t.paint(); }
     function showEnd() { /* the table and its lines stay up; the button moves on */ }
     function aiTurn() {
       var st = session.state;
-      if (st.phase === 'show' || st.turn !== 1) return;
+      if (st.phase === 'show' || seats.person(st.turn)) return;
       session.follow(aiStep(st));
       drive();
     }
@@ -325,20 +335,21 @@
       if (st.phase !== 'show' || st.final) return;
       session.history = []; view.sel = null;
       session.follow(nextHand(st, Z.shuffled(Math.random)));
-      drive();
+      deal();
     }
     function gameOver() {
-      var st = session.state, f = st.final, lines = ['Hands won: you ' + st.boxes[0] + ', North ' + st.boxes[1] + ' (25 each).', 'Game bonus 100 to ' + (f.winner === 0 ? 'you' : 'North') + '.', 'Final: you ' + f.totals[0] + ', North ' + f.totals[1] + '.'];
-      if (f.winner === 0) session.win(f.totals[0]); else session.lose('Game over', lines, f.totals[0]);
+      var st = session.state, f = st.final, lines = ['Hands won: ' + who(0) + ' ' + st.boxes[0] + ', ' + who(1) + ' ' + st.boxes[1] + ' (25 each).', 'Game bonus 100 to ' + who(f.winner) + '.', 'Final: ' + who(0) + ' ' + f.totals[0] + ', ' + who(1) + ' ' + f.totals[1] + '.'];
+      if (seats.hotseat()) session.lose(who(f.winner) + ' wins', lines);
+      else if (f.winner === 0) session.win(f.totals[0]); else session.lose('Game over', lines, f.totals[0]);
     }
     function act(next) { view.sel = null; session.commit(next); drive(); return true; }
-    function takeNow() { var st = session.state; if (st.phase === 'offer' && st.turn === 0) act(takeUp(st)); }
-    function passNow() { var st = session.state; if (st.phase === 'offer' && st.turn === 0) act(passUp(st)); }
-    function discardNow() { var st = session.state; if (view.sel !== null && canDiscard(st, view.sel) && st.turn === 0) act(discardCard(st, view.sel)); }
-    function knockNow() { var st = session.state; if (view.sel !== null && canKnock(st, view.sel) && st.turn === 0) act(knock(st, view.sel)); }
+    function takeNow() { var st = session.state; if (st.phase === 'offer' && st.turn === seats.view()) act(takeUp(st)); }
+    function passNow() { var st = session.state; if (st.phase === 'offer' && st.turn === seats.view()) act(passUp(st)); }
+    function discardNow() { var st = session.state; if (view.sel !== null && canDiscard(st, view.sel) && st.turn === seats.view()) act(discardCard(st, view.sel)); }
+    function knockNow() { var st = session.state; if (view.sel !== null && canKnock(st, view.sel) && st.turn === seats.view()) act(knock(st, view.sel)); }
     function tap(pile) {
       var st = session.state, id = parseInt(pile.slice(1), 10);
-      if (st.phase === 'show' || st.turn !== 0) { if (st.phase !== 'show') t.flash('Wait for your turn'); return false; }
+      if (st.phase === 'show' || st.turn !== seats.view()) { if (st.phase !== 'show') t.flash('Wait for your turn'); return false; }
       if (pile === 'stock') { if (!canDraw(st, false)) { t.flash(st.phase === 'draw' ? 'The stock is empty' : 'Discard a card first'); return false; } return act(drawCard(st, false)); }
       if (pile === 'discard') {
         if (st.phase === 'offer') return act(takeUp(st));
@@ -355,19 +366,21 @@
     function newGame() {
       view.sel = null; view.flash = '';
       session.reset(freshGame(Z.shuffled(Math.random), Math.floor(Math.random() * 2)));
-      drive();
+      deal();
     }
+    // A fresh deal: nobody has seen it, so two people start at a handoff.
+    function deal() { seats.begin(function () { refresh(); drive(); }, session.state.turn); }
 
     t = T.create({
-      id: 'gin', name: 'Gin Rummy', view: view, geo: geo, place: place, hud: hud, newGame: newGame, tap: tap, cols: 7, heightShare: 0.11,
-      canPick: function (st, pile) { return st.phase === 'discard' && st.turn === 0 && pile.charAt(0) === 'h'; },
+      id: 'gin', name: 'Gin Rummy', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, tap: tap, cols: 7, heightShare: 0.11,
+      canPick: function (st, pile) { return st.phase === 'discard' && st.turn === seats.view() && pile.charAt(0) === 'h'; },
       move: function (pile, idx, to) {
         var st = session.state, id = parseInt(pile.slice(1), 10);
         if ((to !== 'discard' && to !== 'stock') || pile.charAt(0) !== 'h' || !canDiscard(st, id)) return false;
         view.sel = id; return act(discardCard(st, id));
       },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0] + '-' + st.scores[1]; },
-      cascadeOrder: function (st) { return st.hands[0].map(function (id) { return { id: id }; }); },
+      cascadeOrder: function (st) { return st.hands[seats.view()].map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { var f = st.final; return ['Hands won: you ' + st.boxes[0] + ', North ' + st.boxes[1] + ' (25 each).', 'Game bonus 100.', 'Final: you ' + f.totals[0] + ', North ' + f.totals[1] + '.']; },
       rules: 'Make sets (three or four of a rank) and runs (three or more of a suit, ace low). Each turn draw from the stock or take the top discard, then discard. When your deadwood (cards outside melds, face cards 10, ace 1) is 10 or less, select the card to discard and knock; with none, go gin. The other side lays off cards on your melds; if they end with as little or less, they undercut you for the difference plus 25. First to 100 wins, plus 100 for the game and 25 a hand won. Tap a card to select it, then Discard or Knock; tap the stock or discard pile to draw.'
     });

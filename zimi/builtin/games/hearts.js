@@ -14,7 +14,7 @@
    page wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards;
+  var Z = root.ZimiCards, Seats = root.ZimiSeats;
 
   var SEATS = 4, HAND = 13, NAMES = ['You', 'West', 'North', 'East'], END_SCORE = 100, MOON = 26, PASS_COUNT = 3;
   var PASS_NAMES = ['to the left', 'to the right', 'across', 'none'];
@@ -84,6 +84,7 @@
     s.trick.push({ seat: seat, id: id });
     if (isHeart(id)) s.broken = true;
     if (seat === 0) s.received = [];
+    if (s.recv) s.recv[seat] = [];
     s.moves++;
     if (s.trick.length < SEATS) s.turn = next(seat);
     return s;
@@ -122,6 +123,8 @@
     for (seat = 0; seat < SEATS; seat++) s.hands[seat] = s.hands[seat].filter(function (c) { return picks[seat].indexOf(c) < 0; });
     for (seat = 0; seat < SEATS; seat++) s.hands[(seat + off) % SEATS] = s.hands[(seat + off) % SEATS].concat(picks[seat]);
     s.received = picks[(SEATS - off) % SEATS].slice();
+    s.recv = [];
+    for (seat = 0; seat < SEATS; seat++) s.recv[(seat + off) % SEATS] = picks[seat].slice();
     for (seat = 0; seat < SEATS; seat++) s.hands[seat] = sortHand(s.hands[seat]);
     s.phase = 'play'; s.leader = s.turn = holderOf(s.hands, TWO_CLUBS); s.moves++;
     return s;
@@ -223,7 +226,10 @@
   function place(state, m, view) {
     var g = geometry(m), cards = [], slots = [], chosen = (view && view.chosen) || [];
     var sweep = view && state.trick.length === SEATS ? view.sweep : null;
-    var myTurn = state.phase === 'play' && state.turn === 0 && state.trick.length < SEATS;
+    // The person looking sits south (view.viewer); their hand is face down while it is not their turn to act.
+    var V = (view && view.viewer) || 0, faceUp = !(view && view.hideHand), rel = function (seat) { return (seat - V + SEATS) % SEATS; };
+    var got = state.recv ? state.recv[V] : state.received;
+    var myTurn = state.phase === 'play' && state.turn === V && state.trick.length < SEATS;
     var passing = state.phase === 'pass';
 
     // Quiet slots first: the deal comes out of the middle, and a card dropped there is played.
@@ -231,32 +237,32 @@
     slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: 'Trick' });
 
     // Your hand, left to right, a little space between suits.
-    var mine = state.hands[0], n = mine.length, gaps = 0, i;
+    var mine = state.hands[V], n = mine.length, gaps = 0, i;
     for (i = 1; i < n; i++) if (Z.suit(mine[i]) !== Z.suit(mine[i - 1])) gaps++;
     var gap = g.cw * SUIT_GAP_SHARE, avail = m.W - 2 * m.pad - g.cw - gaps * gap;
     var step = n > 1 ? Math.min(g.cw * HAND_STEP_SHARE, avail / (n - 1)) : 0;
     var x = (m.W - (g.cw + (n - 1) * step + gaps * gap)) / 2;
     mine.forEach(function (id, k) {
       if (k > 0 && Z.suit(id) !== Z.suit(mine[k - 1])) x += gap;
-      var picked = chosen.indexOf(id) >= 0, fresh = state.received.indexOf(id) >= 0;
-      cards.push({ id: id, pile: 'h' + id, idx: 0, x: Math.round(x), y: g.southY - (picked ? g.raise : 0), up: true, mark: picked, glow: fresh && !picked, dim: myTurn && !isLegal(state, 0, id) });
+      var picked = chosen.indexOf(id) >= 0, fresh = faceUp && got.indexOf(id) >= 0;
+      cards.push({ id: id, pile: 'h' + id, idx: 0, x: Math.round(x), y: g.southY - (picked ? g.raise : 0), up: faceUp, mark: picked, glow: fresh && !picked, dim: faceUp && myTurn && !isLegal(state, V, id) });
       slots.push({ id: 'h' + id, x: Math.round(x), y: g.southY - (picked ? g.raise : 0), w: g.cw, h: g.ch, label: Z.cardName(id) + (picked ? ', chosen to pass' : fresh ? ', passed to you' : '') });
       x += step;
     });
     // The others: face-down fans.
-    var west = state.hands[1], north = state.hands[2], east = state.hands[3];
+    var west = state.hands[(V + 1) % SEATS], north = state.hands[(V + 2) % SEATS], east = state.hands[(V + 3) % SEATS];
     west.forEach(function (id, k) { cards.push({ id: id, pile: 'p1', idx: k, x: g.westX, y: g.yTop + k * g.sideStep, up: false }); });
     east.forEach(function (id, k) { cards.push({ id: id, pile: 'p3', idx: k, x: g.eastX, y: g.yTop + k * g.sideStep, up: false }); });
     var nx = g.cx - (g.cw + (north.length - 1) * g.topStep) / 2;
     north.forEach(function (id, k) { cards.push({ id: id, pile: 'p2', idx: k, x: Math.round(nx + k * g.topStep), y: g.northY, up: false }); });
     // The trick, or on its way to the winner.
     state.trick.forEach(function (t, k) {
-      var spot = sweep !== null && sweep !== undefined ? seatSpot(g, sweep) : trickSpot(g, t.seat);
+      var spot = sweep !== null && sweep !== undefined ? seatSpot(g, rel(sweep)) : trickSpot(g, rel(t.seat));
       cards.push({ id: t.id, pile: 'trick', idx: k, x: Math.round(spot.x), y: Math.round(spot.y), up: true });
     });
     // Won cards wait out of sight at their winner's seat.
     state.taken.forEach(function (list, seat) {
-      var spot = seatSpot(g, seat);
+      var spot = seatSpot(g, rel(seat));
       list.forEach(function (id, k) { cards.push({ id: id, pile: 't' + seat, idx: k, x: spot.x, y: spot.y, up: false, hidden: true }); });
     });
     return { height: m.H, slots: slots, cards: cards, passing: passing };
@@ -273,8 +279,15 @@
   // ── The page ────────────────────────────────────────────────────────────
   var AI_MS = 520, HOLD_MS = 900, SWEEP_MS = 380, FLASH_MS = 1800;
   function boot() {
-    var d = root.document, el = Z.pageEls(), board, session, view = { chosen: [], sweep: null, flash: '' };
+    var d = root.document, el = Z.pageEls(), board, session, view = { chosen: [], sweep: null, flash: '', viewer: 0, hideHand: false, passer: 0, picks: [] };
     Z.ensureSprite();
+    // Seats are the Computer or a Person; two or more people share the screen behind a handoff.
+    var seats = Seats.create({ id: 'hearts', seats: SEATS, onChange: function () { if (board) board.refresh(); paintHud(); } });
+    // Who is acting now: the person picking their pass, or the player to lead or follow.
+    var actor = function (st) { return st.phase === 'pass' ? view.passer : st.turn; };
+    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && actor(st) !== view.viewer; }
+    var youTurn = function (st) { return seats.isYou(st.turn) ? 'Your turn' : seats.name(st.turn) + ', your turn'; };
+    var verb = function (seat, you, other) { return seats.isYou(seat) ? you : other; };
 
     // The table's own text: the score row and a status line with one button.
     var scoreRow = Z.h('div', { class: 'hz-scores', 'aria-live': 'off' });
@@ -290,8 +303,8 @@
       if (!st || !m) return;
       var g = geometry(m);
       scoreRow.textContent = '';
-      NAMES.forEach(function (name, seat) {
-        var live = st.phase === 'play' ? liveSoFar(st, seat) : 0, turn = st.phase === 'play' && st.turn === seat && st.trick.length < SEATS;
+      [0, 1, 2, 3].map(function (i) { return (seats.view() + i) % SEATS; }).forEach(function (seat) {
+        var name = seats.name(seat), live = st.phase === 'play' ? liveSoFar(st, seat) : 0, turn = st.phase === 'play' && st.turn === seat && st.trick.length < SEATS;
         var chip = Z.h('span', { class: 'hz-chip' + (turn ? ' hz-turn' : '') }, [Z.h('b', { text: name }), Z.h('span', { text: String(st.scores[seat]) + (live ? ' +' + live : '') })]);
         scoreRow.appendChild(chip);
       });
@@ -300,13 +313,15 @@
       var text = '', label = '', action = null;
       if (st.phase === 'pass') {
         var left = PASS_COUNT - view.chosen.length;
-        text = left > 0 ? 'Choose ' + left + ' more to pass ' + PASS_NAMES[st.passDir] : 'Pass them ' + PASS_NAMES[st.passDir] + '?';
+        var who = seats.hotseat() ? seats.name(view.passer) + ': ' : '';
+        text = who + (left > 0 ? 'Choose ' + left + ' more to pass ' + PASS_NAMES[st.passDir] : 'Pass them ' + PASS_NAMES[st.passDir] + '?');
         label = 'Pass'; action = left === 0 ? passNow : null;
       } else if (st.phase === 'handEnd') { text = 'Hand over'; label = 'Next hand'; action = startNextHand; }
       else if (st.phase === 'over') { text = 'Game over'; label = 'New game'; action = newGame; }
       else if (view.flash) text = view.flash;
-      else if (st.trick.length === SEATS) text = NAMES[trickWinner(st.trick)] + (trickWinner(st.trick) === 0 ? ' take' : ' takes') + ' the trick';
-      else text = st.turn === 0 ? (st.received.length ? 'Your turn. The glowing cards came from ' + NAMES[(SEATS - PASS_OFFSET[st.passDir]) % SEATS] : 'Your turn') : NAMES[st.turn] + ' is thinking';
+      else if (st.trick.length === SEATS) text = seats.name(trickWinner(st.trick)) + verb(trickWinner(st.trick), ' take', ' takes') + ' the trick';
+      else if (seats.person(st.turn)) text = (st.recv ? st.recv[st.turn] : st.received).length && !view.hideHand ? youTurn(st) + '. The glowing cards came from ' + seats.name((st.turn + SEATS - PASS_OFFSET[st.passDir]) % SEATS) : youTurn(st);
+      else text = seats.name(st.turn) + ' is thinking';
       statusText.textContent = text;
       statusBtn.textContent = label; statusBtn.hidden = !label;
       statusBtn.disabled = !action; statusAction = action;
@@ -317,13 +332,15 @@
     // ── Turn order ───────────────────────────────────────────────────────
     function drive() {
       var st = session.state;
+      if (st.phase === 'pass') { seats.ensure(view.passer, refresh); return; }
       if (st.phase !== 'play') return;
       if (st.trick.length === SEATS) { session.later(sweepTrick, HOLD_MS); return; }
-      if (st.turn !== 0) session.later(aiTurn, AI_MS);
+      if (seats.person(st.turn)) seats.ensure(st.turn, refresh); else session.later(aiTurn, AI_MS);
     }
+    function refresh() { board.refresh(); paintHud(); }
     function aiTurn() {
       var st = session.state;
-      if (st.phase !== 'play' || st.turn === 0 || st.trick.length === SEATS) return;
+      if (st.phase !== 'play' || seats.person(st.turn) || st.trick.length === SEATS) return;
       session.follow(playCard(st, st.turn, aiPick(st, st.turn)));
       drive();
     }
@@ -338,8 +355,8 @@
       }, SWEEP_MS);
     }
     function handLines(st) {
-      var lines = NAMES.map(function (name, seat) { return name + ': ' + (st.handPoints[seat] ? '+' + st.handPoints[seat] : '0') + ', total ' + st.scores[seat]; });
-      if (st.moon >= 0) lines.unshift(NAMES[st.moon] + (st.moon === 0 ? ' shoot' : ' shoots') + ' the moon. Everyone else takes 26.');
+      var lines = [0, 1, 2, 3].map(function (seat) { return seats.name(seat) + ': ' + (st.handPoints[seat] ? '+' + st.handPoints[seat] : '0') + ', total ' + st.scores[seat]; });
+      if (st.moon >= 0) lines.unshift(seats.name(st.moon) + verb(st.moon, ' shoot', ' shoots') + ' the moon. Everyone else takes 26.');
       return lines;
     }
     function handOver() {
@@ -351,32 +368,36 @@
       });
     }
     function gameOver() {
-      var st = session.state, lines = handLines(st), won = humanWon(st);
-      lines.push(won ? 'You have the lowest score.' : NAMES[winners(st.scores)[0]] + ' has the lowest score.');
-      if (won) session.win(st.scores[0]); else session.lose('Game over', lines, st.scores[0]);
+      var st = session.state, lines = handLines(st), low = winners(st.scores), won = !seats.hotseat() && humanWon(st);
+      lines.push(won ? 'You have the lowest score.' : seats.name(low[0]) + (seats.hotseat() ? ' wins with the lowest score.' : ' has the lowest score.'));
+      if (won) session.win(st.scores[0]); else session.lose(seats.hotseat() ? seats.name(low[0]) + ' wins' : 'Game over', lines, seats.hotseat() ? undefined : st.scores[0]);
     }
     function startNextHand() {
       var st = session.state;
       if (st.phase !== 'handEnd') return;
       session.history = [];
-      view.chosen = [];
+      view.chosen = []; view.picks = [];
       session.follow(nextHand(st, Z.shuffled(Math.random)));
-      drive();
+      deal();
     }
 
     // ── The human's choices ──────────────────────────────────────────────
     function passNow() {
       var st = session.state;
       if (st.phase !== 'pass' || view.chosen.length !== PASS_COUNT) return;
-      var picks = [view.chosen.slice(), choosePass(st.hands[1]), choosePass(st.hands[2]), choosePass(st.hands[3])];
-      view.chosen = [];
+      view.picks[view.passer] = view.chosen.slice(); view.chosen = [];
+      // The next person picks theirs behind a handoff; the computers pick once everyone has.
+      var more = seats.people().filter(function (s) { return s > view.passer; })[0];
+      if (more !== undefined) { view.passer = more; refresh(); drive(); return; }
+      var picks = [0, 1, 2, 3].map(function (s) { return view.picks[s] || choosePass(st.hands[s]); });
+      view.picks = []; view.passer = seats.people()[0];
       session.commit(applyPass(st, picks));
       drive();
     }
     function play(id) {
       var st = session.state;
-      if (!isLegal(st, 0, id)) return false;
-      session.commit(playCard(st, 0, id));
+      if (!isLegal(st, seats.view(), id)) return false;
+      session.commit(playCard(st, seats.view(), id));
       drive();
       return true;
     }
@@ -393,26 +414,32 @@
         return true;
       }
       if (st.phase !== 'play') return false;
-      if (st.turn !== 0 || st.trick.length === SEATS) { flash(st.trick.length === SEATS ? 'Wait for the trick' : 'Wait for your turn'); return false; }
-      if (!isLegal(st, 0, id)) { flash(whyNot(st, 0, id)); return false; }
+      if (st.turn !== seats.view() || st.trick.length === SEATS) { flash(st.trick.length === SEATS ? 'Wait for the trick' : 'Wait for your turn'); return false; }
+      if (!isLegal(st, st.turn, id)) { flash(whyNot(st, st.turn, id)); return false; }
       return play(id);
     }
     function newGame() {
-      view.chosen = []; view.sweep = null; view.flash = '';
+      view.chosen = []; view.picks = []; view.sweep = null; view.flash = '';
       session.reset(freshGame(Z.shuffled(Math.random)));
-      drive();
+      deal();
+    }
+    // A fresh deal: nobody has seen it, so a table of people starts at a handoff.
+    function deal() {
+      var st = session.state;
+      view.passer = seats.people()[0];
+      seats.begin(function () { refresh(); drive(); }, st.phase === 'pass' ? view.passer : st.turn);
     }
 
     board = Z.createBoard({
       table: el.table, cols: 7, heightShare: HEIGHT_SHARE, enterTaps: true,
-      place: function (st, m) { return place(st, m, view); },
-      canPick: function (st, pile) { return st.phase === 'play' && pile.charAt(0) === 'h' && isLegal(st, 0, idOf(pile)); },
+      place: function (st, m) { syncView(st); return place(st, m, view); },
+      canPick: function (st, pile) { return st.phase === 'play' && pile.charAt(0) === 'h' && isLegal(st, seats.view(), idOf(pile)); },
       move: function (pile, idx, to) { return (to === 'trick' || to === 'deck') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
       tap: tap
     });
     session = Z.createSession({
-      id: 'hearts', lowScore: true, board: board, newGame: newGame, els: el,
-      statText: function (sec, st) { paintHud(); return Z.fmtTime(sec) + ' · ' + st.scores[0]; },
+      id: 'hearts', lowScore: true, undoOff: function () { return seats.hotseat(); }, board: board, newGame: newGame, els: el,
+      statText: function (sec, st) { paintHud(); return Z.fmtTime(sec) + ' · ' + st.scores[seats.view()]; },
       cascadeOrder: function (st) { return [].concat.apply([], st.taken).map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { return handLines(st).concat(['You have the lowest score, ' + st.scores[0] + ', after ' + (st.handNo + 1) + (st.handNo ? ' hands' : ' hand') + '.']); },
       openMenu: function () {
@@ -420,6 +447,7 @@
           title: 'Hearts',
           body: [
             Z.h('p', { class: 'zc-note', text: 'Avoid hearts (1 each) and the queen of spades (13). Take all 26 to shoot the moon: you score 0 and the others 26. The game ends at 100; lowest score wins. Tap a card to play it, or drag it to the middle. Tap three cards to pass them.' }),
+            seats.block(),
             Z.backsRow(),
             Z.h('p', { class: 'zc-stats', text: session.stats.line() })
           ],

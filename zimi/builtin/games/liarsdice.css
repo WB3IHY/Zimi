@@ -26,3 +26,5 @@
 .ld-cup .pl-die { --die-size: 30px; padding: 3px; }
 .ld-cup .pl-die.ld-hit { outline: 2px solid var(--accent); outline-offset: 1px; }
 .ld-ctl.ld-wait { opacity: 0.45; }
+.ld-hid { background: var(--line); opacity: .7; }
+.ld-hid i { visibility: hidden; }

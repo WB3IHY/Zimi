@@ -37,11 +37,12 @@
       <label class="bg-chip"><input type="radio" name="dm-mode" value="draw"><span>Draw</span></label>
       <label class="bg-chip"><input type="radio" name="dm-mode" value="block"><span>Block</span></label>
     </div></fieldset>
-    <fieldset class="bg-field"><legend>Computer players</legend><div class="bg-chips" id="dm-f-opp">
-      <label class="bg-chip"><input type="radio" name="dm-opp" value="1"><span>1</span></label>
-      <label class="bg-chip"><input type="radio" name="dm-opp" value="2"><span>2</span></label>
-      <label class="bg-chip"><input type="radio" name="dm-opp" value="3"><span>3</span></label>
+    <fieldset class="bg-field"><legend>Players</legend><div class="bg-chips" id="dm-f-opp">
+      <label class="bg-chip"><input type="radio" name="dm-opp" value="1"><span>2</span></label>
+      <label class="bg-chip"><input type="radio" name="dm-opp" value="2"><span>3</span></label>
+      <label class="bg-chip"><input type="radio" name="dm-opp" value="3"><span>4</span></label>
     </div></fieldset>
+    <div id="dm-seats"></div>
     <fieldset class="bg-field"><legend>Level</legend><div class="bg-chips" id="dm-f-level">
       <label class="bg-chip"><input type="radio" name="dm-level" value="easy"><span>Easy</span></label>
       <label class="bg-chip"><input type="radio" name="dm-level" value="medium"><span>Medium</span></label>
@@ -70,6 +71,7 @@
   </div>
 </div>
 <script src="boardkit.js"></script>
+<script src="handoff.js"></script>
 <script src="dominoes.js"></script>
 <!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
 <!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q32907">About Dominoes</a></footer><!-- /zimi-about -->

@@ -20,7 +20,7 @@
    only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
 
   var NAMES = ['You', 'North'], DECK = 48, HAND = 8, TABLE_START = 8, DOUBLE_AT = 7;
   var card = function (id) { return Z.hanafudaCard(id); };
@@ -206,6 +206,7 @@
   }
   // view: { sel, show: {moves, stage, row, seat}, pick (drawn card waiting for a choice) }
   function place(st, m, view) {
+    var V = (view && view.viewer) || 0, O = 1 - V, faceUp = !(view && view.hideHand);
     var g = geo(m), cards = [], slots = [], sh = view && view.show && view.show.moves === st.moves ? view.show : null;
     var sel = view && view.sel !== null && view.sel !== undefined ? view.sel : null;
     var drawn = view && view.pick && st.step === 'draw' ? peek(st) : null;
@@ -213,12 +214,12 @@
     var pickable = drawn !== null || sel !== null;
     slots.push({ id: 'deck', x: g.W - g.pad - g.cw, y: g.northY, w: g.cw, h: g.ch, quiet: true, label: 'Deck' });
     slots.push({ id: 'table', x: g.pad, y: g.tableTop, w: g.W - 2 * g.pad, h: g.tableBottom - g.tableTop, quiet: true, label: 'Table' });
-    var hand = T.handCards(g, st.hands[0], function (id) {
-      var on = sel === id;
-      return { raise: on, mark: on, label: nameOf(id) + (on ? ', selected' : '') };
+    var hand = T.handCards(g, st.hands[V], function (id) {
+      var on = sel === id && faceUp;
+      return { up: faceUp, raise: on, mark: on, label: nameOf(id) + (on ? ', selected' : '') };
     }, null);
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
-    cards = cards.concat(T.fan(g, 2, st.hands[1], false));
+    cards = cards.concat(T.fan(g, 2, st.hands[O], false));
     st.deck.slice(drawn !== null ? 1 : 0, drawn !== null ? 3 : 2).forEach(function (id, k) { cards.push({ id: id, pile: 'deck', idx: k, x: g.W - g.pad - g.cw + k * 2, y: g.northY + k * 2, up: false }); });
     if (drawn !== null) cards.push({ id: drawn, pile: 'drawn', idx: 0, x: g.W - g.pad - 2.2 * g.cw, y: g.northY, up: true, mark: true });
     var pos = tablePos(g, st.table.length);
@@ -229,7 +230,7 @@
     });
     // What was just taken, held up for a moment and swept to its owner.
     if (sh && sh.row.length) {
-      var n = sh.row.length, rs = n > 1 ? Math.min(g.cw * 0.7, (g.W - 2 * g.pad - g.cw) / (n - 1)) : 0, rx = (g.W - (g.cw + (n - 1) * rs)) / 2, away = T.seatSpot(g, sh.seat === 0 ? 0 : 2);
+      var n = sh.row.length, rs = n > 1 ? Math.min(g.cw * 0.7, (g.W - 2 * g.pad - g.cw) / (n - 1)) : 0, rx = (g.W - (g.cw + (n - 1) * rs)) / 2, away = T.seatSpot(g, sh.seat === V ? 0 : 2);
       sh.row.forEach(function (id, k) {
         var gone = sh.stage === 1;
         cards.push({ id: id, pile: 'show', idx: k, x: Math.round(gone ? away.x : rx + k * rs), y: Math.round(gone ? away.y : g.showY), up: true, glow: !gone });
@@ -239,11 +240,14 @@
   }
 
   // ── Words ───────────────────────────────────────────────────────────────
+  // The page renames the seats when two people share a device; `youSeat` is the one called "You" (-1: none).
+  var YOU = 0;
+  function setNames(names, youSeat) { NAMES[0] = names[0]; NAMES[1] = names[1]; YOU = youSeat; }
   var count = function (ids, kind) { return ids.filter(function (c) { return kindOf(c) === kind; }).length; };
   function describeTurn(st) {
     var l = st.last;
     if (!l) return '';
-    var who = l.seat === 0 ? 'You' : 'North', s = l.seat === 0 ? '' : 's';
+    var who = NAMES[l.seat], s = l.seat === YOU ? '' : 's';
     var part = function (verb, id, took) { return took.length ? who + ' ' + verb + s + ' the ' + nameOf(id).split(',')[0] + ' and take' + s + ' ' + took.map(function (c) { return nameOf(c).split(',')[0]; }).join(', ') : who + ' ' + verb + s + ' the ' + nameOf(id).split(',')[0] + ' to the table'; };
     var out = part('play', l.played, l.took || []);
     if (l.drawn !== null && l.drawn !== undefined) out += '. ' + part('draw', l.drawn, l.drawTook || []);
@@ -254,14 +258,14 @@
     if (r.winner < 0) lines.push(r.note);
     else {
       r.yaku.forEach(function (y) { lines.push(y.name + ' ' + y.pts); });
-      lines.push((r.winner === 0 ? 'You score ' : 'North scores ') + r.points + (r.mult > 1 ? ' (' + r.base + ' doubled' + (r.mult > 2 ? ' twice' : '') + ')' : ''));
+      lines.push(NAMES[r.winner] + (r.winner === YOU ? ' score ' : ' scores ') + r.points + (r.mult > 1 ? ' (' + r.base + ' doubled' + (r.mult > 2 ? ' twice' : '') + ')' : ''));
     }
-    lines.push('Total: You ' + st.scores[0] + ', North ' + st.scores[1] + '.');
+    lines.push('Total: ' + NAMES[0] + ' ' + st.scores[0] + ', ' + NAMES[1] + ' ' + st.scores[1] + '.');
     return lines;
   }
 
   var api = {
-    NAMES: NAMES, DECK: DECK, matchesOf: matchesOf, takes: takes, needsTarget: needsTarget, isLegal: isLegal, deal: deal, newGame: newGame, nextMonth: nextMonth,
+    setNames: setNames, NAMES: NAMES, DECK: DECK, matchesOf: matchesOf, takes: takes, needsTarget: needsTarget, isLegal: isLegal, deal: deal, newGame: newGame, nextMonth: nextMonth,
     playHand: playHand, draw: draw, canDraw: canDraw, peek: peek, decide: decide, yakuOf: yakuOf, yakuTotal: yakuTotal, isNewYaku: isNewYaku, multiplier: multiplier,
     gameWinner: gameWinner, aiHand: aiHand, aiTarget: aiTarget, aiKoi: aiKoi, geo: geo, place: place, worth: worth, resultLines: resultLines
   };
@@ -270,7 +274,12 @@
   // ── The page ────────────────────────────────────────────────────────────
   var AI_MS = 750, HOLD_MS = 1000, HOLD_YOU_MS = 480, SWEEP_MS = 380, DRAW_MS = 420, MONTH_KEY = 'koikoi.months', MONTH_CHOICES = [6, 12];
   function boot() {
-    var d = root.document, t, board, session, view = { sel: null, show: null, pick: false, flash: '' };
+    var d = root.document, t, board, session, view = { sel: null, show: null, pick: false, flash: '', viewer: 0, hideHand: false };
+    // Each seat is the Computer or a Person; two people share the screen behind a handoff.
+    var seats = Seats.create({ id: 'koikoi', seats: 2, onChange: function () { if (board) board.refresh(); if (t) t.paint(); } });
+    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && (st.phase === 'play' || st.phase === 'koi') && st.turn !== view.viewer; }
+    function nameSeats() { setNames([seats.name(0), seats.name(1)], seats.isYou(0) ? 0 : seats.isYou(1) ? 1 : -1); }
+    var who = function (s) { return seats.name(s); };
     var strip = Z.h('div', { class: 'kk-strip' }), pills = [Z.h('button', { class: 'kk-pill', type: 'button' }), Z.h('button', { class: 'kk-pill', type: 'button' })];
     pills.forEach(function (p, seat) { strip.appendChild(p); p.addEventListener('click', function () { showCaptured(seat); }); });
     Z.pageEls().table.appendChild(strip);
@@ -284,12 +293,12 @@
     function paintPills(g, st) {
       [0, 1].forEach(function (seat) {
         var cap = st.captured[seat], p = pills[seat], aria = [];
-        p.innerHTML = '<b>' + (seat ? 'North' : 'You') + '</b>' + KINDS.map(function (k) { return '<span class="kk-n">' + badgeSvg(k) + count(cap, k) + '</span>'; }).join('');
+        p.innerHTML = '<b>' + who(seat) + '</b>' + KINDS.map(function (k) { return '<span class="kk-n">' + badgeSvg(k) + count(cap, k) + '</span>'; }).join('');
         KINDS.forEach(function (k) { aria.push(count(cap, k) + ' ' + KIND_WORD[k]); });
-        p.setAttribute('aria-label', (seat ? 'North' : 'Your') + ' captured cards: ' + aria.join(', ') + '. Open the list');
+        p.setAttribute('aria-label', (seats.isYou(seat) ? 'Your' : who(seat) + '\u2019s') + ' captured cards: ' + aria.join(', ') + '. Open the list');
       });
       strip.style.top = Math.round(g.statusY - STRIP_H + 2) + 'px';
-      strip.hidden = st.phase === 'koi' && st.turn === 0; // the choices sit where it does
+      strip.hidden = st.phase === 'koi' && seats.person(st.turn); // the choices sit where it does
     }
     function showCaptured(seat) {
       var st = session.state, cap = st.captured[seat], body = [];
@@ -307,7 +316,7 @@
       });
       var list = yakuOf(cap);
       body.push(Z.h('p', { class: 'zc-note', text: list.length ? list.map(function (y) { return y.name + ' ' + y.pts; }).join(' · ') : 'No yaku yet' }));
-      Z.sheet({ title: seat ? 'North captured' : 'You captured', body: body, actions: [{ label: 'Done', primary: true }] });
+      Z.sheet({ title: who(seat) + ' captured', body: body, actions: [{ label: 'Done', primary: true }] });
     }
 
     function hud(st) {
@@ -315,24 +324,24 @@
       paintPills(g, st);
       var mine = busy();
       var out = {
-        chips: [{ name: 'You', text: String(st.scores[0]), turn: st.phase === 'play' && st.turn === 0 && !mine }, { name: 'North', text: String(st.scores[1]), turn: st.phase === 'play' && st.turn === 1 && !mine },
-          { name: 'Month', text: HANA_MONTH(st.month) }, { name: 'Deck', text: String(st.deck.length) }],
-        sub: 'Month ' + (st.month + 1) + ' of ' + st.months + (st.koi[0] || st.koi[1] ? ' · koi-koi ' + (st.koi[0] ? 'you' : '') + (st.koi[0] && st.koi[1] ? ', ' : '') + (st.koi[1] ? 'North' : '') : ''), text: ''
+        chips: [0, 1].map(function (c) { return { name: who(c), text: String(st.scores[c]), turn: st.phase === 'play' && st.turn === c && !mine }; }).concat([
+          { name: 'Month', text: HANA_MONTH(st.month) }, { name: 'Deck', text: String(st.deck.length) }]),
+        sub: 'Month ' + (st.month + 1) + ' of ' + st.months + (st.koi[0] || st.koi[1] ? ' · koi-koi ' + (st.koi[0] ? who(0).toLowerCase() === 'you' ? 'you' : who(0) : '') + (st.koi[0] && st.koi[1] ? ', ' : '') + (st.koi[1] ? who(1).toLowerCase() === 'you' ? 'you' : who(1) : '') : ''), text: ''
       };
       var told = describeTurn(st);
       if (st.phase === 'koi') {
         var list = yakuOf(st.captured[st.turn]), pts = yakuTotal(list);
-        if (st.turn === 0) {
-          out.text = 'You made ' + list.map(function (y) { return y.name + ' ' + y.pts; }).join(', ') + '. Score ' + pts + ' now, or play on?';
+        if (seats.person(st.turn)) {
+          out.text = (seats.isYou(st.turn) ? 'You' : who(st.turn)) + ' made ' + list.map(function (y) { return y.name + ' ' + y.pts; }).join(', ') + '. Score ' + pts + ' now, or play on?';
           out.choices = [{ label: 'Shobu: score ' + pts, onclick: function () { choose(false); } }, { label: 'Koi-koi: play on', onclick: function () { choose(true); } }];
-        } else out.text = 'North is deciding';
+        } else out.text = who(st.turn) + ' is deciding';
       } else if (st.phase === 'play') {
         if (mine) out.text = told;
-        else if (st.turn === 0) {
-          if (st.step === 'draw' && view.pick) out.text = 'You drew ' + nameOf(peek(st)).split(',')[0] + '. Tap the card to take';
+        else if (seats.person(st.turn)) {
+          if (st.step === 'draw' && view.pick) out.text = (seats.isYou(st.turn) ? 'You' : who(st.turn)) + ' drew ' + nameOf(peek(st)).split(',')[0] + '. Tap the card to take';
           else if (view.sel !== null) out.text = 'Tap the table card to take';
-          else out.text = (told ? told + '. ' : '') + 'Your play';
-        } else out.text = (told ? told + '. ' : '') + 'North is thinking';
+          else out.text = (told ? told + '. ' : '') + (seats.isYou(st.turn) ? 'Your play' : who(st.turn) + ', your play');
+        } else out.text = (told ? told + '. ' : '') + who(st.turn) + ' is thinking';
       } else if (st.phase === 'monthEnd') { out.text = 'Month over'; out.label = 'Next month'; out.action = startNextMonth; }
       else if (st.phase === 'over') out.text = 'Game over';
       return out;
@@ -341,26 +350,27 @@
     // ── The flow ──
     function drive() {
       var st = session.state;
-      if (st.phase === 'koi') { if (st.turn === 1) session.later(aiDecide, AI_MS); return; }
+      if (st.phase === 'koi') { if (seats.person(st.turn)) seats.ensure(st.turn, refresh); else session.later(aiDecide, AI_MS); return; }
       if (st.phase !== 'play') return;
       if (st.step === 'draw') { driveDraw(); return; }
-      if (st.turn === 1) session.later(aiTurn, AI_MS);
+      if (seats.person(st.turn)) seats.ensure(st.turn, refresh); else session.later(aiTurn, AI_MS);
     }
+    function refresh() { board.refresh(); t.paint(); }
     function driveDraw() {
       var st = session.state;
-      if (st.turn === 0 && needsTarget(st.table, peek(st))) { view.pick = true; board.refresh(); t.paint(); return; }
-      session.later(function () { doDraw(st.turn, st.turn === 1 ? aiTarget(st, 1) : undefined); }, DRAW_MS);
+      if (seats.person(st.turn) && needsTarget(st.table, peek(st))) { view.pick = true; board.refresh(); t.paint(); return; }
+      session.later(function () { doDraw(st.turn, seats.person(st.turn) ? undefined : aiTarget(st, st.turn)); }, DRAW_MS);
     }
     function aiTurn() {
       var st = session.state;
-      if (st.phase !== 'play' || st.step !== 'hand' || st.turn !== 1 || busy()) return;
-      var mv = aiHand(st, 1);
-      doHand(1, mv.id, mv.target);
+      if (st.phase !== 'play' || st.step !== 'hand' || seats.person(st.turn) || busy()) return;
+      var mv = aiHand(st, st.turn);
+      doHand(st.turn, mv.id, mv.target);
     }
     function aiDecide() {
       var st = session.state;
-      if (st.phase !== 'koi' || st.turn !== 1) return;
-      choose(aiKoi(st, 1), 1);
+      if (st.phase !== 'koi' || seats.person(st.turn)) return;
+      choose(aiKoi(st, st.turn), st.turn);
     }
     function reveal(st, seat, row, hold, then) {
       view.show = { moves: st.moves, stage: 0, row: row, seat: seat };
@@ -376,9 +386,10 @@
       if (!isLegal(st, seat, id, target)) return;
       var next = playHand(st, seat, id, target), took = next.last.took;
       view.sel = null;
-      if (seat === 0) session.commit(next); else session.follow(next);
-      if (took.length) reveal(next, seat, [id].concat(took), seat === 0 ? HOLD_YOU_MS : HOLD_MS, drive);
-      else { t.paint(); board.refresh(); session.later(drive, seat === 0 ? 120 : 520); }
+      if (seats.person(seat)) session.commit(next); else session.follow(next);
+      var quick = seats.person(seat) && !seats.hotseat();
+      if (took.length) reveal(next, seat, [id].concat(took), quick ? HOLD_YOU_MS : HOLD_MS, drive);
+      else { t.paint(); board.refresh(); session.later(drive, quick ? 120 : 520); }
     }
     function doDraw(seat, target) {
       var st = session.state;
@@ -388,19 +399,19 @@
       session.follow(next);
       var after = function () {
         var cur = session.state;
-        if (cur.phase === 'koi' && cur.turn === 0) { board.refresh(); t.paint(); drive(); }
+        if (cur.phase === 'koi' && seats.person(cur.turn)) { board.refresh(); t.paint(); drive(); }
         else if (cur.phase === 'over' || cur.phase === 'monthEnd') monthOver(); else drive();
       };
-      if (l.drawTook.length) reveal(next, seat, [l.drawn].concat(l.drawTook), seat === 0 ? HOLD_YOU_MS : HOLD_MS, after);
+      if (l.drawTook.length) reveal(next, seat, [l.drawn].concat(l.drawTook), seats.person(seat) && !seats.hotseat() ? HOLD_YOU_MS : HOLD_MS, after);
       else { t.paint(); board.refresh(); session.later(after, 520); }
     }
     function choose(koi, seat) {
-      var st = session.state, who = seat === undefined ? 0 : seat;
-      if (st.phase !== 'koi' || st.turn !== who) return;
-      var next = decide(st, who, koi);
-      if (who === 0) session.commit(next); else session.follow(next);
+      var st = session.state, by = seat === undefined ? st.turn : seat;
+      if (st.phase !== 'koi' || st.turn !== by) return;
+      var next = decide(st, by, koi);
+      if (seats.person(by)) session.commit(next); else session.follow(next);
       if (next.phase === 'monthEnd' || next.phase === 'over') monthOver();
-      else if (koi) { t.flash(who === 0 ? 'Koi-koi, you play on' : 'North calls koi-koi'); drive(); }
+      else if (koi) { t.flash(seats.isYou(by) ? 'Koi-koi, you play on' : who(by) + ' calls koi-koi'); drive(); }
       else monthOver();
     }
     function monthOver() {
@@ -410,8 +421,8 @@
     }
     function gameOver() {
       var st = session.state, w = gameWinner(st.scores), lines = resultLines(st);
-      lines.push(w === 0 ? 'You win, ' + st.scores[0] + ' to ' + st.scores[1] + '.' : w === 1 ? 'North wins, ' + st.scores[1] + ' to ' + st.scores[0] + '.' : 'A tie.');
-      if (w === 0) session.win(st.scores[0]); else session.lose(w === 1 ? 'North wins' : 'A tie', lines, st.scores[0]);
+      lines.push(w < 0 ? 'A tie.' : (seats.isYou(w) ? 'You win, ' : who(w) + ' wins, ') + st.scores[w] + ' to ' + st.scores[1 - w] + '.');
+      if (seats.isYou(w)) session.win(st.scores[w]); else session.lose(w < 0 ? 'A tie' : who(w) + ' wins', lines, seats.hotseat() ? undefined : st.scores[0]);
     }
     var order = function () { return Z.shuffled(Math.random).filter(function (c) { return c < DECK; }); };
     function startNextMonth() {
@@ -419,42 +430,45 @@
       if (st.phase !== 'monthEnd') return;
       session.history = []; view.sel = null; view.pick = false;
       session.follow(nextMonth(st, order()));
-      drive();
+      deal();
     }
     var idOf = function (pile) { return parseInt(pile.slice(1), 10); };
     function tap(pile) {
       var st = session.state, id = idOf(pile), kind = pile.charAt(0);
       if (st.phase !== 'play' || isNaN(id)) return false;
-      if (st.turn !== 0 || busy()) { t.flash('Wait for your turn'); return false; }
+      if (st.turn !== seats.view() || busy()) { t.flash('Wait for your turn'); return false; }
       if (st.step === 'draw') {
         if (kind !== 't' || !view.pick) return false;
         if (matchesOf(st.table, peek(st)).indexOf(id) < 0) { t.flash('That is not the same month'); return false; }
-        doDraw(0, id); return true;
+        doDraw(st.turn, id); return true;
       }
       if (kind === 'h') {
         if (view.sel === id) { view.sel = null; board.refresh(); t.paint(); return true; }
         if (needsTarget(st.table, id)) { view.sel = id; board.refresh(); t.paint(); return true; }
-        doHand(0, id, undefined); return true;
+        doHand(st.turn, id, undefined); return true;
       }
       if (kind === 't') {
         if (view.sel === null) { t.flash('Choose a card from your hand first'); return false; }
         if (matchesOf(st.table, view.sel).indexOf(id) < 0) { t.flash('That is not the same month'); return false; }
-        doHand(0, view.sel, id); return true;
+        doHand(st.turn, view.sel, id); return true;
       }
       return false;
     }
     function startGame() {
       view.sel = null; view.show = null; view.pick = false; view.flash = '';
       var months = Z.store.get(MONTH_KEY, 6);
+      nameSeats();
       session.reset(newGame(order(), MONTH_CHOICES.indexOf(months) >= 0 ? months : 6, Math.floor(Math.random() * 2)));
-      drive();
+      deal();
     }
+    // A fresh deal: nobody has seen it, so two people start at a handoff.
+    function deal() { seats.begin(function () { refresh(); drive(); }, session.state.turn); }
     t = T.create({
-      id: 'koikoi', name: 'Koi-Koi', view: view, geo: geo, place: place, hud: hud, newGame: startGame, tap: tap, cols: 6, heightShare: 0.12, face: Z.hanafudaFaceMarkup,
+      id: 'koikoi', name: 'Koi-Koi', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: startGame, tap: tap, cols: 6, heightShare: 0.12, face: Z.hanafudaFaceMarkup,
       canPick: function () { return false; },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0] + '-' + st.scores[1]; },
       cascadeOrder: function (st) { return st.captured[0].slice(0, 24).map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return resultLines(st).concat(['You win, ' + st.scores[0] + ' to ' + st.scores[1] + ', over ' + Z.plural(st.months, 'month') + '.']); },
+      winLines: function (sec, st) { return resultLines(st).concat(['You win, ' + st.scores[seats.view()] + ' to ' + st.scores[1 - seats.view()] + ', over ' + Z.plural(st.months, 'month') + '.']); },
       menuExtra: function () {
         return [T.choiceRow('Length', MONTH_KEY, MONTH_CHOICES.map(function (n) { return { value: n, label: n + ' months' }; }), 6, function () { /* read at the next game */ }),
           Z.h('p', { class: 'zc-note', text: 'A new length starts with the next game.' })];

@@ -21,7 +21,7 @@
    functions; the page wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
 
   var HAND = 6, FIRST_CAP = 5, CAP = 6, ACE_HIGH = 14, LOW_RANK = 6, MIN_PLAYERS = 2, MAX_PLAYERS = 4, DEFAULT_PLAYERS = 3;
   var POS_NAMES = ['You', 'West', 'North', 'East'];
@@ -189,19 +189,20 @@
   }
   function place(st, m, view) {
     var g = geo(m, st), cards = [], slots = [], sx = Math.round(g.pad + 4), sy = Math.round(g.cy + g.ch * STOCK_DROP);
-    var myTurn = st.turn === 0 && st.phase !== 'clear' && st.phase !== 'over', legal = [];
-    if (myTurn) legal = st.phase === 'defend' ? legalDefences(st, 0) : legalThrows(st, 0);
+    var V = (view && view.viewer) || 0, up = !(view && view.hideHand);
+    var myTurn = st.turn === V && st.phase !== 'clear' && st.phase !== 'over', legal = [];
+    if (myTurn) legal = st.phase === 'defend' ? legalDefences(st, V) : legalThrows(st, V);
     slots.push({ id: 'stock', x: sx, y: sy, w: g.cw, h: g.ch, label: 'Stock, ' + Z.plural(st.stock.length, 'card') + ', trump ' + Z.SUITS[st.trump] });
     slots.push({ id: 'table', x: Math.round(g.pad), y: Math.round(g.cy - g.ch * 1.1), w: g.W - 2 * g.pad, h: g.ch * 1.7, quiet: true, label: 'Table' });
     st.stock.forEach(function (id, k) {
       var trumpCard = k === 0;
       cards.push({ id: id, pile: 'stock', idx: k, x: trumpCard ? sx : sx + Math.round(g.cw * STOCK_PEEK), y: sy, up: trumpCard });
     });
-    var hand = T.handCards(g, st.hands[0], function (id) {
-      return { dim: myTurn && legal.indexOf(id) < 0 };
+    var hand = T.handCards(g, st.hands[V], function (id) {
+      return { up: up, dim: up && myTurn && legal.indexOf(id) < 0 };
     }, null);
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
-    st.hands.forEach(function (h, seat) { if (seat > 0) cards = cards.concat(T.fan(g, T.posOf(seat, st.n), h, false)); });
+    for (var r = 1; r < st.n; r++) cards = cards.concat(T.fan(g, T.posOf(r, st.n), st.hands[(V + r) % st.n], false));
     var spots = tableSpots(g, Math.max(1, st.table.length)), off = view && view.sweep === 'off', to = view && typeof view.sweep === 'number' ? T.seatSpot(g, view.sweep) : null;
     st.table.forEach(function (p, k) {
       var x = spots.x0 + k * spots.pitch, y = spots.y;
@@ -227,10 +228,21 @@
   function boot() {
     var t, board, session, view = { sweep: null, flash: '' };
     var savedPlayers = function () { var v = Z.store.get(PLAYERS_KEY, DEFAULT_PLAYERS); return v >= MIN_PLAYERS && v <= MAX_PLAYERS ? v : DEFAULT_PLAYERS; };
-    var nm = function (st, seat) { return seatName(seat, st.n); };
+    // Seats are the Computer or a Person; the seat count follows the table size, so each new game
+    // builds a fresh ZimiSeats and the facade below hands out its methods.
+    var seats = {};
+    function buildSeats(n) {
+      var cur = Seats.create({ id: 'durak', seats: n, onChange: function () { if (t) t.paint(); if (board) board.refresh(); } });
+      Object.keys(cur).forEach(function (k) { seats[k] = cur[k]; });
+    }
+    buildSeats(DEFAULT_PLAYERS);
+    var nm = function (st, seat) { return seats.name(seat); };
+    var mine = function (seat) { return seats.person(seat) && seat === seats.view(); };
+    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.turn !== view.viewer; }
+    function repaint() { board.refresh(); t.paint(); }
     function noteOf(st) {
       var l = st.last;
-      if (!l || l.seat === 0) return '';
+      if (!l || seats.isYou(l.seat)) return '';
       var who = nm(st, l.seat);
       return { attack: who + ' attacks with the ' + T.short(l.id) + '.', throw: who + ' adds the ' + T.short(l.id) + '.', defend: who + ' beats it with the ' + T.short(l.id) + '.',
         take: who + ' takes.', pass: '' }[l.act] || '';
@@ -242,15 +254,16 @@
         return { name: nm(st, seat), text: st.out.indexOf(seat) >= 0 ? 'out' : h.length + role, turn: st.phase !== 'clear' && st.phase !== 'over' && st.turn === seat };
       });
       var u = unbeaten(st);
-      if (st.phase === 'over') { out.text = st.durak < 0 ? 'Nobody is the fool' : nm(st, st.durak) + (st.durak === 0 ? ' are' : ' is') + ' the durak'; out.label = 'New game'; out.action = newGame; return out; }
-      if (st.phase === 'clear') { out.text = st.taken ? nm(st, st.defender) + (st.defender === 0 ? ' take' : ' takes') + ' the cards' : 'Beaten. The cards are out of play'; return out; }
-      if (st.turn !== 0) {
+      if (st.phase === 'over') { out.text = st.durak < 0 ? 'Nobody is the fool' : nm(st, st.durak) + (seats.isYou(st.durak) ? ' are' : ' is') + ' the durak'; out.label = 'New game'; out.action = newGame; return out; }
+      if (st.phase === 'clear') { out.text = st.taken ? nm(st, st.defender) + (seats.isYou(st.defender) ? ' take' : ' takes') + ' the cards' : 'Beaten. The cards are out of play'; return out; }
+      if (!mine(st.turn)) {
         out.text = (note ? note + ' ' : '') + (st.phase === 'defend' ? nm(st, st.turn) + ' is thinking' : st.phase === 'throw' ? nm(st, st.turn) + ' may throw in' : nm(st, st.turn) + ' is thinking');
-        if (st.phase === 'throw' && st.defender === 0) out.text = (note ? note + ' ' : '') + 'You take the cards. Others may throw in';
+        if (seats.person(st.turn)) out.text = (note ? note + ' ' : '') + nm(st, st.turn) + ' is up';
+        if (st.phase === 'throw' && seats.person(st.defender)) out.text = (note ? note + ' ' : '') + (seats.isYou(st.defender) ? 'You take' : nm(st, st.defender) + ' takes') + ' the cards. Others may throw in';
         return out;
       }
       if (st.phase === 'defend') { out.text = (note ? note + ' ' : '') + 'Beat the ' + T.short(u.a) + ' or take'; out.label = 'Take'; out.action = takeNow; }
-      else if (!st.table.length) out.text = 'Your attack: lead any card';
+      else if (!st.table.length) out.text = seats.isYou(st.turn) ? 'Your attack: lead any card' : nm(st, st.turn) + ' attacks: lead any card';
       else { out.text = (note ? note + ' ' : '') + (st.phase === 'throw' ? nm(st, st.defender) + ' takes. Add a matching rank?' : 'Add a card of a rank on the table?'); out.label = 'Done'; out.action = doneNow; }
       return out;
     }
@@ -259,55 +272,62 @@
       var st = session.state;
       if (st.phase === 'over') { gameOver(); return; }
       if (st.phase === 'clear') { session.later(clearOut, HOLD_MS); return; }
-      if (st.turn !== 0) session.later(aiTurn, AI_MS);
+      if (seats.person(st.turn)) seats.ensure(st.turn, repaint); else session.later(aiTurn, AI_MS);
     }
     function clearOut() {
       var st = session.state;
       if (st.phase !== 'clear') return;
-      view.sweep = st.taken ? T.posOf(st.defender, st.n) : 'off';
+      view.sweep = st.taken ? T.posOf((st.defender - seats.view() + st.n) % st.n, st.n) : 'off';
       board.refresh();
       session.later(function () { view.sweep = null; session.follow(finishBout(session.state)); drive(); }, SWEEP_MS);
     }
     function aiTurn() {
       var st = session.state;
-      if (st.turn === 0 || st.phase === 'clear' || st.phase === 'over') return;
+      if (seats.person(st.turn) || st.phase === 'clear' || st.phase === 'over') return;
       session.follow(aiStep(st));
       drive();
     }
     function gameOver() {
-      var st = session.state, fool = st.durak, lines = [fool < 0 ? 'Nobody is left holding cards: a draw.' : (fool === 0 ? 'You are' : nm(st, fool) + ' is') + ' the durak.'];
-      if (fool === 0) session.lose('You are the durak', ['You were the last one holding cards.', 'Better luck next time.'], undefined); else session.win();
+      var st = session.state, fool = st.durak, hot = seats.hotseat();
+      if (hot || fool < 0) {
+        session.lose(fool < 0 ? 'A draw' : nm(st, fool) + ' is the durak', [fool < 0 ? 'Nobody is left holding cards.' : nm(st, fool) + ' was the last one holding cards.'], undefined);
+        return;
+      }
+      if (seats.isYou(fool)) session.lose('You are the durak', ['You were the last one holding cards.', 'Better luck next time.'], undefined); else session.win();
     }
     function act(next) { session.commit(next); drive(); return true; }
-    function takeNow() { var st = session.state; if (st.phase === 'defend' && st.turn === 0) act(take(st)); }
-    function doneNow() { var st = session.state; if (canPass(st, 0)) act(pass(st)); }
+    function takeNow() { var st = session.state; if (st.phase === 'defend' && mine(st.turn)) act(take(st)); }
+    function doneNow() { var st = session.state; if (mine(st.turn) && canPass(st, st.turn)) act(pass(st)); }
     function play(id) {
       var st = session.state;
-      if (st.turn !== 0 || st.phase === 'clear' || st.phase === 'over') { t.flash(st.phase === 'clear' ? 'Wait for the bout to finish' : 'Wait for your turn'); return false; }
+      if (st.turn !== seats.view() || st.phase === 'clear' || st.phase === 'over') { t.flash(st.phase === 'clear' ? 'Wait for the bout to finish' : 'Wait for your turn'); return false; }
       if (st.phase === 'defend') {
-        if (legalDefences(st, 0).indexOf(id) < 0) { t.flash(whyNotDefend(st, id)); return false; }
+        if (legalDefences(st, st.turn).indexOf(id) < 0) { t.flash(whyNotDefend(st, id)); return false; }
         return act(defendCard(st, id));
       }
-      if (legalThrows(st, 0).indexOf(id) < 0) { t.flash(whyNotThrow(st, 0, id)); return false; }
+      if (legalThrows(st, st.turn).indexOf(id) < 0) { t.flash(whyNotThrow(st, st.turn, id)); return false; }
       return act(attackCard(st, id));
     }
     var idOf = function (pile) { return parseInt(pile.slice(1), 10); };
     function tap(pile) { return pile.charAt(0) === 'h' && !isNaN(idOf(pile)) ? play(idOf(pile)) : false; }
     function newGame() {
+      buildSeats(savedPlayers());
       view.sweep = null; view.flash = '';
       session.reset(newGameState());
-      drive();
+      startDeal();
     }
+    // A fresh deal: nobody has seen it, so a table of people starts at a handoff.
+    function startDeal() { seats.begin(function () { repaint(); drive(); }, session.state.turn); }
     function newGameState() { return deal(T.shuffleOf(DECK, Math.random), savedPlayers()); }
 
     t = T.create({
-      id: 'durak', name: 'Durak', view: view, geo: geo, place: place, hud: hud, newGame: newGame, tap: tap, cols: 7, heightShare: 0.11,
-      canPick: function (st, pile) { return st.turn === 0 && pile.charAt(0) === 'h' && (st.phase === 'defend' ? legalDefences(st, 0) : legalThrows(st, 0)).indexOf(idOf(pile)) >= 0; },
+      id: 'durak', name: 'Durak', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, tap: tap, cols: 7, heightShare: 0.11,
+      canPick: function (st, pile) { return st.turn === seats.view() && pile.charAt(0) === 'h' && (st.phase === 'defend' ? legalDefences(st, st.turn) : legalThrows(st, st.turn)).indexOf(idOf(pile)) >= 0; },
       move: function (pile, idx, to) { return (to === 'table' || to === 'stock') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
-      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.hands[0].length; },
+      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.hands[seats.view()].length; },
       winLines: function (sec, st) { return [st.durak < 0 ? 'Nobody is left holding cards.' : nm(st, st.durak) + ' is the durak.', 'You are out of cards: you win.']; },
       menuExtra: function () {
-        return [T.choiceRow('Players', PLAYERS_KEY, [{ value: 2, label: '2' }, { value: 3, label: '3' }, { value: 4, label: '4' }], DEFAULT_PLAYERS, function () { newGame(); })];
+        return [T.choiceRow('Seats at the table', PLAYERS_KEY, [{ value: 2, label: '2' }, { value: 3, label: '3' }, { value: 4, label: '4' }], DEFAULT_PLAYERS, function () { newGame(); })];
       },
       rules: 'Beat each attacking card with a higher card of its suit or any trump (a trump only with a higher trump), or take them all. After a card is beaten the attacker and the others may add cards of any rank on the table, up to six in all (five in the first bout) and no more than the defender holds. Beat them all and you attack next; take them and the next player does. When the stock runs out, players with no cards are out. The last one holding cards is the durak, the fool. Tap a card to play it, or drag it to the middle; Take or Done are in the status line.'
     });

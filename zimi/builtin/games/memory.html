@@ -21,6 +21,7 @@
     <div class="pl-stat"><small>Pairs</small><b id="mm-pairs">0</b></div>
     <div class="pl-stat"><small>Best</small><b id="mm-best">-</b></div>
   </div>
+  <p class="pl-msg" id="mm-players" aria-live="polite" hidden></p>
   <div class="mm-grid" id="mm-grid" role="group" aria-label="The cards"></div>
   <p class="pl-msg" id="mm-msg" role="status" aria-live="polite"></p>
   <p class="pl-help">Turn two cards over. If the pictures match, they stay up. Find every pair. Tap a card, or move with the arrow keys and press Enter.</p>
@@ -32,10 +33,13 @@
     <p id="mm-sheet-text">Find the matching pairs.</p>
     <p class="pl-row"><span id="mm-set-label">Pictures</span><span class="pl-seg" id="mm-set" role="group" aria-labelledby="mm-set-label"></span></p>
     <p class="pl-row"><span id="mm-size-label">Cards</span><span class="pl-seg" id="mm-size" role="group" aria-labelledby="mm-size-label"></span></p>
+    <p class="pl-row"><span id="mm-who-label">Players</span><span class="pl-seg" id="mm-who" role="group" aria-labelledby="mm-who-label"></span></p>
+    <div id="mm-names"></div>
     <div class="ar-sheet-actions"><button class="ar-btn" id="mm-go" type="button" aria-pressed="true">Start</button></div>
   </div>
 </div>
 <script src="playkit.js"></script>
+<script src="handoff.js"></script>
 <script src="memory.js"></script>
 <!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
 <!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q20825866">About Memory</a></footer><!-- /zimi-about -->
