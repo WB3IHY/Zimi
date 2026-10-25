@@ -410,6 +410,52 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check(st.wave === 2 && L.aliveCount(st) === 45 && L.shieldCount(st.shields[0]) > 200 && L.interval(st) < 0.62, 'last line: the next wave is bigger and faster, the shields are back');
 }
 
+// ── Lander ──────────────────────────────────────────────────────────────────
+{
+  const N = load(['playkit.js', 'lander.js']).LanderEngine;
+  const t = N.makeTerrain(3, 1);
+  check(t.ys.length === 51 && t.pads.length === 3 && t.pads.map(p => p.mult).join() === '1,2,4', 'lander: terrain with three pads paying 1, 2 and 4');
+  check(t.pads.every(p => { for (let x = p.x0; x <= p.x1; x += 8) if (Math.abs(N.heightAt(t, x) - p.y) > 1e-9) return false; return p.x1 - p.x0 >= 24; }), 'lander: every pad is flat');
+  check(t.pads[0].x1 - t.pads[0].x0 > t.pads[2].x1 - t.pads[2].x0 && N.makeTerrain(3, 5).pads[0].x1 - N.makeTerrain(3, 5).pads[0].x0 < t.pads[0].x1 - t.pads[0].x0, 'lander: the pad that pays most is narrowest, and pads shrink with level');
+  const hs = [N.heightAt(t, 4), N.heightAt(t, 12)];
+  check(Math.abs(N.heightAt(t, 4) - (t.ys[0] + t.ys[1]) / 2) < 1e-9 && hs.every(h => h >= 150 && h <= 272), 'lander: ground height is interpolated');
+
+  const pad = t.pads[1], cx = (pad.x0 + pad.x1) / 2;
+  const at = (o) => Object.assign({ x: cx, y: pad.y - 9, vx: 0, vy: 10, a: 0 }, o);
+  check(N.checkLanding(at({}), t).ok, 'lander: slow, upright, on the pad is a landing');
+  check(!N.checkLanding(at({ vy: 45 }), t).ok && N.checkLanding(at({ vy: 45 }), t).reason === 'too fast', 'lander: too fast down is a crash');
+  check(!N.checkLanding(at({ vx: 30 }), t).ok && !N.checkLanding(at({ vx: -30 }), t).ok, 'lander: too much sideways speed is a crash');
+  check(!N.checkLanding(at({ a: 0.4 }), t).ok && !N.checkLanding(at({ a: -0.4 }), t).ok && N.checkLanding(at({ a: 0.15 }), t).ok, 'lander: tilted past about 12 degrees is a crash');
+  check(!N.checkLanding(at({ x: pad.x1 + 12 }), t).ok, 'lander: off the pad is a crash');
+  check(!N.checkLanding(at({ x: pad.x1 + 4 }), t).ok, 'lander: one foot over the edge is a crash');
+  check(N.checkLanding(at({ vy: 35, vx: 22 }), t).ok, 'lander: exactly at the limits still lands');
+
+  // A whole descent: gravity pulls, a pad landing scores, the same lander too fast crashes.
+  let st = N.createState(5, 1); const pd = st.terrain.pads[2];
+  st.lander = { x: (pd.x0 + pd.x1) / 2, y: pd.y - 9 - 20, vx: 0, vy: 15, a: 0 };
+  for (let i = 0; i < 600 && st.status === 'flying'; i++) N.step(st, 1 / 60, {});
+  check(st.status === 'landed' && st.score >= 4 * 100 && st.lives === 3, 'lander: a gentle drop onto the x4 pad lands and scores ' + st.score);
+  st = N.createState(5, 1); st.lander = { x: (pd.x0 + pd.x1) / 2, y: 60, vx: 0, vy: 0, a: 0 };
+  for (let i = 0; i < 600 && st.status === 'flying'; i++) N.step(st, 1 / 60, {});
+  check(st.status === 'crashed' && st.lives === 2, 'lander: free fall onto the pad crashes and costs a lander');
+  // Thrust slows a fall and burns fuel; no fuel, no thrust.
+  st = N.createState(6, 1); st.lander = { x: 200, y: 20, vx: 0, vy: 0, a: 0 };
+  const f0 = st.fuel; N.step(st, 0.5, { thrust: true });
+  check(st.lander.vy < 0 && st.fuel < f0 && Math.abs(f0 - st.fuel - N.BURN * 0.5) < 1e-9, 'lander: thrust pushes up and burns fuel');
+  st = N.createState(6, 1); st.fuel = 0; st.lander = { x: 200, y: 20, vx: 0, vy: 0, a: 0 }; N.step(st, 0.5, { thrust: true });
+  check(st.lander.vy > 0 && st.fuel === 0, 'lander: an empty tank gives no thrust');
+  st = N.createState(7, 1); st.lander = { x: 200, y: 20, vx: 0, vy: 0, a: 0 }; N.step(st, 0.5, { right: true, thrust: true });
+  check(st.lander.a > 0 && st.lander.vx > 0, 'lander: rotating right and thrusting pushes right');
+  // A tilted touchdown crashes; the next lander starts the right place.
+  st = N.createState(8, 1); st.lander = { x: (pd.x0 + pd.x1) / 2, y: pd.y - 30, vx: 0, vy: 10, a: 0.5 };
+  for (let i = 0; i < 300 && st.status === 'flying'; i++) N.step(st, 1 / 60, {});
+  const nx = N.next(st);
+  check(st.status === 'crashed' && nx.level === 1 && nx.lives === 2 && nx.status === 'flying' && nx.fuel === N.FUEL_START, 'lander: after a crash the same ground again with a full tank');
+  st = N.createState(9, 1); st.status = 'landed'; st.score = 500;
+  const nl = N.next(st);
+  check(nl.level === 2 && nl.score === 500 && nl.fuel < N.FUEL_START, 'lander: after a landing the next level, a little less fuel');
+}
+
 // END
 if (failures) { console.error(failures + ' failed'); process.exit(1); }
 console.log('all passed');
