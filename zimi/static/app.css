@@ -457,6 +457,16 @@
   }
 
   .topbar-search { flex: 1; position: relative; margin-left: 4px; }
+  /* A ZimiGames page: the game's name where the box is, its Undo or Pause and Menu beside it (_syncGameHead).
+     Plain text, not a box: nothing here can be typed into. */
+  .game-head { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; margin-left: 4px; }
+  .game-head[hidden] { display: none; }
+  .game-title { flex: 1; min-width: 0; padding-inline: 6px; font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .game-head .reader-btn[hidden] { display: none; }
+  .game-head .reader-btn:disabled { opacity: 0.35; cursor: default; }
+  body.game-page .topbar-search { display: none; }
+  /* The shelf is not a game: nothing to keep as a favorite. */
+  body.game-shelf #library-btn { display: none !important; }
   .topbar-search input {
     width: 100%; padding-block: 9px; padding-inline: 36px 14px;
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
@@ -3264,6 +3274,8 @@
     /* On a map the picker takes the panel openers' place (it keeps the
        map's places); H and B still open History and Saved. */
     body.map-page #bm-panel-btn, body.map-page #history-btn { display: none !important; }
+    /* A game gives the room to its name, Undo and Menu; H and B still open History and Saved. */
+    body.game-page #bm-panel-btn, body.game-page #history-btn { display: none !important; }
     .topbar.search-focused .lang-dropdown { display: none !important; }
     /* v1.6: Language dropdown — full width on mobile */
     .lang-dropdown { min-width: 160px; }

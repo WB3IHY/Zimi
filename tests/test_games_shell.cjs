@@ -55,7 +55,7 @@ function shellEnv(storage, path_, reduced) {
   const store = Object.assign({}, storage);
   const attrs = {};
   const doc = {
-    readyState: 'complete', body: { appendChild() {} }, head: { appendChild() {} },
+    readyState: 'complete', body: { appendChild() {} }, head: { appendChild() {} }, createElement: () => ({}),
     documentElement: { setAttribute: (k, v) => { attrs[k] = v; }, classList: { add() {}, remove() {} } },
     addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], title: 'Chess - ZimiGames'
   };

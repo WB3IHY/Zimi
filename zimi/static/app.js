@@ -3206,7 +3206,7 @@ function updateTopbar() {
   var _foldReaderExtras = _readingArticle && _isNarrow();
   // A map is read with the eyes and the hands: no type size, no read-aloud,
   // no Reader View. _syncReaderViewBtn and the ⋯ menu know the same rule.
-  var _readingText = _readingArticle && !_isMapPage() && !_isAppPage() && !_isPdfPage();
+  var _readingText = _readingArticle && !_isMapPage() && !_isAppPage() && !_isPdfPage() && !_isGamePage();
   var fontBtn = document.getElementById('font-btn');
   if (fontBtn) fontBtn.style.display = (_readingText && !_foldReaderExtras) ? 'flex' : 'none';
   // Places and maps: the places kept, and the same place on another map.
@@ -3281,6 +3281,7 @@ function updateTopbar() {
   document.getElementById('lang-selector-btn').style.display = _langMenuHidden() ? 'none' : '';
   _updateLibraryBtnIcon();
 
+  _syncGameHead();
   // Search placeholder: fitted once the ? has taken (or given back) its room.
   _syncSearchHelp();
   _updateSearchPlaceholder();
@@ -23654,6 +23655,13 @@ window.addEventListener('message', function(e) {
     if (_isWikiPage()) _wikiFromApp = true;
     openArticle(d.zim, d.path);
     if (fromApp) { articleHistory.push({ app: true }); updateTopbar(); }
+  } else if (d.zimi === 'game' && _gameFrameIs(e.source)) {
+    clearTimeout(_gameGoneTimer);
+    _gameHead = _gameHeadFrom(d);
+    updateTopbar();
+  } else if (d.zimi === 'game-gone' && _gameFrameIs(e.source)) {
+    clearTimeout(_gameGoneTimer);
+    _gameGoneTimer = setTimeout(function() { _gameHead = null; updateTopbar(); }, GAME_GONE_MS);
   } else if (d.zimi === 'ready') {
     _appReady(e.source);
   } else if (d.zimi === 'top') {
@@ -24126,6 +24134,59 @@ function _isMapZim(name) {
 // bookmarks and history are places, and its language is the map's own.
 function _isMapPage() {
   return !!(readerOpen && !_almanacOpen && !_createOpen && currentArticle && _isMapZim(currentArticle.zim));
+}
+
+// A ZimiGames page has no bar of its own in the reader (Eric: "the game zim into zimi more like almanac
+// doesn't have two headers neither should we"): its name stands where the search box is, with its Undo or
+// Pause and its Menu beside it. The page says what it has ({zimi: 'game'}, builtin/games/shell.js) and Zimi
+// asks it to act ({zimi: 'game-do'}). A page that says nothing (a Tatham puzzle) keeps its bar and the box.
+var _gameHead = null;          // {title, act: {kind, label, disabled}, menu}, from the page on screen
+var _gameGoneTimer = 0;        // a page that left: the header waits a moment for the next one's word
+var GAME_GONE_MS = 600;
+var _GAME_ICON_SIZE = ' width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+var _GAME_ACT_SVG = {
+  undo: '<svg aria-hidden="true"' + _GAME_ICON_SIZE + '><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
+  pause: '<svg aria-hidden="true"' + _GAME_ICON_SIZE + '><path d="M8 5v14M16 5v14"/></svg>',
+  resume: '<svg aria-hidden="true"' + _GAME_ICON_SIZE + '><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>'
+};
+var _GAME_ACT_KEY = { undo: 'game_undo', pause: 'game_pause', resume: 'game_resume' };
+function _isGamesZimOpen() {
+  return !!(readerOpen && !_almanacOpen && !_createOpen && mode !== 'manage' && currentArticle && currentArticle.zim === _GAMES_ZIM);
+}
+function _isGamePage() { return !!(_gameHead && _isGamesZimOpen()); }
+function _gameFrame() { return document.getElementById('reader-frame'); }
+function _gameFrameIs(win) { var f = _gameFrame(); return !!(f && win && f.contentWindow === win); }
+function _gameDo(what) {
+  var f = _gameFrame();
+  try { f.contentWindow.postMessage({ zimi: 'game-do', what: what }, location.origin); } catch (e) {}
+}
+// What the page said, as much as can be trusted: a name, an Undo or a Pause, whether there is a Menu.
+function _gameHeadFrom(d) {
+  var act = d.act && typeof d.act === 'object' && (d.act.kind === 'undo' || d.act.kind === 'pause') ? d.act : null;
+  return { title: String(d.title || '').slice(0, 120), menu: !!d.menu,
+    act: act && { kind: act.kind, label: String(act.label || ''), disabled: !!act.disabled } };
+}
+// Paint the header's game part, or take it away; the stylesheet swaps it for the search box.
+function _syncGameHead() {
+  var on = _isGamePage();
+  document.body.classList.toggle('game-page', on);
+  document.body.classList.toggle('game-shelf', on && !_gameHead.menu);
+  var head = document.getElementById('game-head');
+  if (!head) return;
+  head.hidden = !on;
+  if (!on) return;
+  document.getElementById('game-title').textContent = _gameHead.title;
+  var act = document.getElementById('game-act-btn'), a = _gameHead.act;
+  act.hidden = !a;
+  if (a) {
+    // A Pause button reads Resume while the game waits: the page's own word tells which.
+    var kind = a.kind === 'pause' && /^(resume|play|continue)/i.test(a.label) ? 'resume' : a.kind;
+    if (act.dataset.kind !== kind) { act.dataset.kind = kind; act.innerHTML = _GAME_ACT_SVG[kind]; }
+    act.title = t(_GAME_ACT_KEY[kind]);
+    act.setAttribute('aria-label', act.title);
+    act.disabled = a.disabled;
+  }
+  document.getElementById('game-menu-btn').hidden = !_gameHead.menu;
 }
 
 // Where the open map is, as a hash fragment, read from the map itself so it
@@ -28445,6 +28506,8 @@ function _savedRefOnScreen() {
   var zim = currentArticle.zim, path = _splitPathFragment(currentArticle.path).base;
   var title = document.title.replace(/ — Zimi$/, '');
   if (title === 'Zimi' || !title) title = _titleFromPath(path);
+  // A game is kept by its own name ("Checkers"), not its page's ("Checkers - ZimiGames").
+  if (_isGamePage() && _gameHead.title) title = _gameHead.title;
   if (_isMapZim(zim)) {
     // Where the map is: read from the map at this moment rather than from
     // the URL, so it is right even if the debounce has not fired yet.
@@ -28506,6 +28569,9 @@ var _libBookmarkSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="non
 // that saves the page beside it. The bookmark is the verb (Save, here and in
 // every app); this is the place, in the family of the apps' Lists glyph.
 var _libSavedSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h8M3 12h8M3 18h18"/><path d="M15 3v10l3-2.5 3 2.5V3z"/></svg>';
+// On a game the same button keeps a favorite: a heart, since a game is not something you bookmark.
+var _libHeartSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>';
+var _libHeartFilledSvg = _libHeartSvg.replace('fill="none"', 'fill="currentColor"');
 var _libBookmarkFilledSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
 function _getLibraryTab() { return localStorage.getItem(SK.LIBRARY_TAB) || 'history'; }
 function _setLibraryTab(tab) { localStorage.setItem(SK.LIBRARY_TAB, tab); }
@@ -28515,12 +28581,22 @@ function _updateLibraryBtnIcon() {
   document.body.classList.toggle('own-page', _onOwnPage());
   var ref = readerOpen ? _savedRefOnScreen() : null;
   var state = !readerOpen ? 'library' : ref && Saved.has(ref) ? 'saved' : 'save';
+  var heart = state !== 'library' && _isGamePage();
+  if (heart) state += '-game';
   // Called on every change to what is kept (a book's place moves every few
   // seconds while it is read): the button is only rebuilt when it changes.
   if (btn.dataset.state !== state || btn.dataset.lang !== _currentLang) {
     btn.dataset.state = state;
     btn.dataset.lang = _currentLang;
-    if (state === 'saved') {
+    if (state === 'saved-game') {
+      btn.innerHTML = _libHeartFilledSvg;
+      btn.style.color = 'var(--amber)';
+      btn.title = t('remove_from_favorites');
+    } else if (state === 'save-game') {
+      btn.innerHTML = _libHeartSvg;
+      btn.style.color = '';
+      btn.title = t('add_to_favorites');
+    } else if (state === 'saved') {
       btn.innerHTML = _libBookmarkFilledSvg;
       btn.style.color = 'var(--amber)';
       btn.title = t('bookmarked_remove');
@@ -29100,7 +29176,7 @@ function _buildTopbarMenuHtml() {
         ' <span class="tbm-label">' + tH('find_in_page') + '</span></button>';
     }
     // 4. Read aloud.
-    if (_ttsOffered() && !_isMapPage() && !_isAppPage() && !_isPdfPage()) {
+    if (_ttsOffered() && !_isMapPage() && !_isAppPage() && !_isPdfPage() && !_isGamePage()) {
       readerGroup += '<button class="topbar-menu-item" id="tbm-tts" aria-pressed="' + (_ttsSpeaking ? 'true' : 'false') +
         '" onclick="_closeTopbarMenu();_ttsToggle()">' + _TBM_TTS_ICON +
         ' <span class="tbm-label">' + tH(_ttsSpeaking ? 'tts_stop' : 'tts_speak') + '</span></button>';
@@ -29282,8 +29358,10 @@ async function randomArticle(event) {
   try {
     // On a map the dice stay on the map, whatever source the search bar is
     // scoped to: a random place here, not a random article from the library.
-    var randomScope = _isMapPage() ? currentArticle.zim : currentSource;
+    var randomScope = _isMapPage() || _isGamesZimOpen() ? currentArticle.zim : currentSource;
     var zimParam = randomScope ? '?zim=' + encodeURIComponent(randomScope) : '';
+    // A game's dice roll another game (the server leaves out the page being played).
+    if (_isGamesZimOpen() && randomScope === _GAMES_ZIM) zimParam += '&not=' + encodeURIComponent(_splitPathFragment(currentArticle.path).base);
     // Unscoped rolls retry a couple of times — right after startup the
     // ZIM list/archives may not be warm yet and the first roll can 500
     // or come back empty; a silent no-op reads as a dead button.

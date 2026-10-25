@@ -17,6 +17,7 @@ checks its article's path in memory: a hit shows Play; the games' "About" link
 import json
 import logging
 import os
+import random
 import threading
 
 import zimi.server as _srv
@@ -184,6 +185,30 @@ def thumbnail(game_path):
     return None
 
 
+def random_card(exclude=None):
+    """A random game from the shelf (games.json's pages, never about.html, a
+    stylesheet or a script), in /random's shape, or None. ``exclude`` is the
+    page being played: the dice move on to another game."""
+    if not ownzims.enabled() or not _srv.zim_allowed(_GAMES_ZIM):
+        return None
+    seen, pages = set(), []
+    for r in rows():
+        if r["path"] not in seen and r["path"] != exclude:
+            seen.add(r["path"])
+            pages.append(r)
+    return _card(random.choice(pages)) if pages else None
+
+
+def _card(g):
+    return {
+        "zim": _GAMES_ZIM,
+        "path": g["path"],
+        "title": g["title"],
+        "blurb": g.get("why") or g.get("blurb"),
+        "thumbnail": thumbnail(g["path"]),
+    }
+
+
 def day_card(day):
     """The game of the day as Discover's card, in /random's shape, or None
     (no such day, or the games ZIM is not here for this request)."""
@@ -192,10 +217,4 @@ def day_card(day):
     g = game_of_day(day)
     if not g:
         return None
-    return {
-        "zim": _GAMES_ZIM,
-        "path": g["path"],
-        "title": g["title"],
-        "blurb": g.get("why") or g.get("blurb"),
-        "thumbnail": thumbnail(g["path"]),
-    }
+    return _card(g)

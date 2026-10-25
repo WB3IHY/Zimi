@@ -464,9 +464,47 @@
   }
   Shell.stopWatching = stopWatching;
 
+  // ── inside Zimi: one header ──
+  // Zimi's reader (same origin) has its own top bar. There the game's name, its Undo or Pause and its
+  // Menu live in that bar and this page's own bar steps aside (a clock or score in it stays). Anywhere
+  // else (Kiwix, a browser tab) nothing here runs. The page tells Zimi what it has; Zimi asks it to act.
+  var HOST_CSS = 'html.gs-hosted .ar-bar > :not(.ar-stat):not(#ms-flagmode) { display: none !important; }' +
+    'html.gs-hosted .ar-bar:not(:has(.ar-stat, #ms-flagmode)) { display: none; }' +
+    'html.gs-hosted .ar-bar { min-height: 0; padding-block: 4px; justify-content: flex-end; }' +
+    'html.gs-hosted .ar-shelf .ar-brand, html.gs-hosted .ar-shelf > header > p { display: none; }';
+  function inZimi() {
+    try { var f = root.parent !== root && root.parent.document.getElementById('reader-frame'); return !!f && f.contentWindow === root; } catch (e) { return false; }
+  }
+  var hosted = Shell.hosted = inZimi();
+  if (hosted) {
+    d.documentElement.classList.add('gs-hosted');
+    var hostStyle = d.createElement('style'); hostStyle.textContent = HOST_CSS; d.head.appendChild(hostStyle);
+  }
+  function hostAct() { return d.querySelector('.ar-bar [id$="undo"], .ar-bar [id$="pause"]'); }
+  function hostSay() {
+    var a = hostAct(), msg = { zimi: 'game', title: titleOf(), menu: !!menuBtn };
+    if (a) msg.act = { kind: /undo$/.test(a.id) ? 'undo' : 'pause', label: a.textContent.trim(), disabled: !!a.disabled };
+    root.parent.postMessage(msg, root.location.origin);
+  }
+  function hostReady() {
+    hostSay();
+    var a = hostAct();
+    if (a && root.MutationObserver) new root.MutationObserver(hostSay).observe(a, { attributes: true, attributeFilter: ['disabled'], childList: true, characterData: true, subtree: true });
+    root.addEventListener('message', function (e) {
+      if (e.source !== root.parent || e.origin !== root.location.origin || !e.data || e.data.zimi !== 'game-do') return;
+      if (e.data.what === 'menu') openMenu();
+      else if (e.data.what === 'act') { var b = hostAct(); if (b && !b.disabled) b.click(); }
+      else if (e.data.what === 'hello') hostSay();
+    });
+    root.addEventListener('pagehide', function () { root.parent.postMessage({ zimi: 'game-gone' }, root.location.origin); });
+  }
+
   // ── start ──
   function ready() {
-    if (!buildBar()) return;
+    // The shelf, About and the puzzles list only tell Zimi their name: no Menu of their own.
+    var built = !d.querySelector('meta[name="zimi-games-host"]') && buildBar();
+    if (hosted) hostReady();
+    if (!built) return;
     DIRTY_EVENTS.forEach(function (t) { d.addEventListener(t, markDirty, true); });
     d.documentElement.classList.add('gs-ready');
     if (helpFor(ID)) d.documentElement.classList.add('gs-help');
