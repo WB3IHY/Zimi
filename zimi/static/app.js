@@ -30457,6 +30457,7 @@ function _defineConsider(frame) {
 // request is sent. The element being deleted is one whose buttons call scripts
 // that no longer exist.
 var OVERLAY_VIEWPORT_SHARE = 0.55;   // must match renderer.py's constant
+var PAGE_OUTSIDE_SHARE = 0.15;       // so must this: less page text than this outside a box, and it is the page
 var OVERLAY_WATCH_MS = 15000;        // how long a rebuilt wall still gets caught
 var OVERLAY_SWEEP_GAP_MS = 250;      // the least time between two sweeps
 
@@ -30697,6 +30698,15 @@ function _isTransparent(color) {
 // captured sites never do.
 var _ZIMI_OWN_CHROME = '[class^="zimi-"], [class*=" zimi-"]';
 
+// A big fixed box that holds the page itself (an app's or a slideshow's fixed
+// full-screen root) is not a wall over it: it contains the main content, or
+// almost none of the page's text is outside it. renderer.py asks the same.
+function _holdsThePage(doc, el, pageText) {
+  if (el.querySelector('main, article, [role="main"]')) return true;
+  var inside = (el.innerText || '').trim().length;
+  return pageText > 0 && pageText - inside < pageText * PAGE_OUTSIDE_SHARE;
+}
+
 function _sweepBlockingOverlays(frame) {
   var doc = frame.contentDocument;
   var win = frame.contentWindow;
@@ -30704,7 +30714,7 @@ function _sweepBlockingOverlays(frame) {
 
   var sweep = function() {
     var covered = win.innerWidth * win.innerHeight * OVERLAY_VIEWPORT_SHARE;
-    var hit = 0;
+    var hit = 0, pageText = -1;
     var all = doc.querySelectorAll('body *');
     for (var i = 0; i < all.length; i++) {
       var el = all[i];
@@ -30718,6 +30728,10 @@ function _sweepBlockingOverlays(frame) {
       var r = el.getBoundingClientRect();
       if (r.width < 2 || r.height < 2) continue;
       var blocking = r.width * r.height >= covered;
+      if (blocking) {
+        if (pageText < 0) pageText = (doc.body.innerText || '').trim().length;
+        if (_holdsThePage(doc, el, pageText)) blocking = false;
+      }
       if (!blocking && !_isHollow(el)) continue;
       el.remove();
       hit++;
