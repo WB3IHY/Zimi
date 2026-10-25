@@ -102,6 +102,16 @@
     if (!own && text) {
       el.setAttribute('href', game.path);
       text.querySelector('strong').textContent = game.title;
+      // A Tatham puzzle shows its own icon, not the puzzles tile's art.
+      var puzzle = /^puzzles\/([a-z0-9]+)\.html$/.exec(game.path);
+      var art = el.querySelector('.ar-game-art');
+      if (puzzle && art) {
+        var img = doc.createElement('img');
+        img.className = 'ar-game-art ar-game-icon';
+        img.alt = '';
+        img.src = new URL('puzzles/icons/' + puzzle[1] + '.png', base).href;
+        art.parentNode.replaceChild(img, art);
+      }
     }
     var line = text && text.querySelector('span');
     if (line && game.line) line.textContent = game.line;
@@ -143,6 +153,8 @@
       }));
       var g = dayPick(rows, localDay(new Date()));
       if (g) put('ar-today', 'Game of the day', [{ path: g.path, title: g.title, line: g.why || g.blurb || '' }], true);
+      // shelf.js lays the two sections out per view; it is told when both are in.
+      doc.dispatchEvent(new Event('zimi-shelf-today'));
     });
   }
 
