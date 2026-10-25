@@ -1,5 +1,5 @@
 Title: Zimi Arcade
-Description: Solitaire, FreeCell and Minesweeper, played offline
+Description: Eighteen offline games: Solitaire, Spider, Hearts, Chess, Mahjong, Sudoku and more
 Language: eng
 Creator: Zimi
 Publisher: Zimi
