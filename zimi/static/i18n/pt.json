@@ -3484,5 +3484,12 @@
   "game_menu": "Menu",
   "game_undo": "Desfazer",
   "game_pause": "Pausar",
-  "game_resume": "Retomar"
+  "game_resume": "Retomar",
+  "pet_hungry": "{name} está com fome",
+  "pet_tired": "{name} está cansado",
+  "pet_dirty": "{name} precisa de um banho",
+  "pet_bored": "{name} quer brincar",
+  "pet_asleep": "{name} está dormindo",
+  "pet_fine": "{name} está bem",
+  "pet_egg": "{name} ainda é um ovo"
 }

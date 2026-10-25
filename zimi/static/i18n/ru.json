@@ -3484,5 +3484,12 @@
   "game_menu": "Меню",
   "game_undo": "Отменить",
   "game_pause": "Пауза",
-  "game_resume": "Продолжить"
+  "game_resume": "Продолжить",
+  "pet_hungry": "{name} голоден",
+  "pet_tired": "{name} устал",
+  "pet_dirty": "{name} нужно помыться",
+  "pet_bored": "{name} хочет играть",
+  "pet_asleep": "{name} спит",
+  "pet_fine": "{name} в порядке",
+  "pet_egg": "{name} ещё яйцо"
 }

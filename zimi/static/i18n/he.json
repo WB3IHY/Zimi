@@ -3484,5 +3484,12 @@
   "game_menu": "תפריט",
   "game_undo": "ביטול",
   "game_pause": "השהיה",
-  "game_resume": "המשך"
+  "game_resume": "המשך",
+  "pet_hungry": "{name} רעב",
+  "pet_tired": "{name} עייף",
+  "pet_dirty": "{name} צריך להתרחץ",
+  "pet_bored": "{name} רוצה לשחק",
+  "pet_asleep": "{name} ישן",
+  "pet_fine": "{name} מרגיש טוב",
+  "pet_egg": "{name} עדיין ביצה"
 }

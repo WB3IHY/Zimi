@@ -3484,5 +3484,12 @@
   "game_menu": "القائمة",
   "game_undo": "تراجع",
   "game_pause": "إيقاف مؤقت",
-  "game_resume": "استئناف"
+  "game_resume": "استئناف",
+  "pet_hungry": "{name} جائع",
+  "pet_tired": "{name} متعب",
+  "pet_dirty": "{name} يحتاج إلى حمّام",
+  "pet_bored": "{name} يريد اللعب",
+  "pet_asleep": "{name} نائم",
+  "pet_fine": "{name} بخير",
+  "pet_egg": "{name} لا يزال بيضة"
 }

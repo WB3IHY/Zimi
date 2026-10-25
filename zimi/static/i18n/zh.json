@@ -3484,5 +3484,12 @@
   "game_menu": "菜单",
   "game_undo": "撤销",
   "game_pause": "暂停",
-  "game_resume": "继续"
+  "game_resume": "继续",
+  "pet_hungry": "{name} 饿了",
+  "pet_tired": "{name} 累了",
+  "pet_dirty": "{name} 该洗澡了",
+  "pet_bored": "{name} 想玩",
+  "pet_asleep": "{name} 在睡觉",
+  "pet_fine": "{name} 很好",
+  "pet_egg": "{name} 还是一颗蛋"
 }

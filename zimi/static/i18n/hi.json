@@ -3484,5 +3484,12 @@
   "game_menu": "मेनू",
   "game_undo": "पूर्ववत करें",
   "game_pause": "रोकें",
-  "game_resume": "फिर शुरू करें"
+  "game_resume": "फिर शुरू करें",
+  "pet_hungry": "{name} को भूख लगी है",
+  "pet_tired": "{name} थका हुआ है",
+  "pet_dirty": "{name} को नहलाना है",
+  "pet_bored": "{name} खेलना चाहता है",
+  "pet_asleep": "{name} सो रहा है",
+  "pet_fine": "{name} ठीक है",
+  "pet_egg": "{name} अभी अंडा है"
 }
