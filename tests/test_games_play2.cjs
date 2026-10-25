@@ -269,6 +269,83 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check(P.WALLS.length > 40, 'pinball: the table has its walls');
 }
 
+// ── Rocks ───────────────────────────────────────────────────────────────────
+{
+  const R = load(['playkit.js', 'rocks.js']).RocksEngine;
+  const DT = 1 / 60;
+  const calm = (seed) => { const st = R.createState(seed); st.rocks = []; st.saucerIn = 1e9; st.ship.inv = 0; return st; };
+  const put = (st, o) => Object.assign({ x: 0, y: 0, vx: 0, vy: 0 }, o);
+
+  check(R.wrap(-5) === R.SIZE - 5 && R.wrap(R.SIZE + 3) === 3 && R.wrap(200) === 200, 'rocks: the field wraps');
+  check(Math.abs(R.torusDist(5, 5, R.SIZE - 5, R.SIZE - 5) - Math.sqrt(200)) < 1e-9, 'rocks: distance goes the short way round the edge');
+
+  // A ship drifting off the right edge comes back on the left.
+  let st = calm(1); st.ship.x = R.SIZE - 2; st.ship.vx = 100; st.ship.vy = 0;
+  R.step(st, 0.1, {});
+  check(st.ship.x < 20 && st.ship.x >= 0, 'rocks: a ship wraps through the edge');
+  // Thrust points where the nose points; turning turns the nose.
+  st = calm(2); R.step(st, 0.5, { thrust: true });
+  check(st.ship.vy < -50 && Math.abs(st.ship.vx) < 1e-9, 'rocks: thrust goes the way the nose points (up at first)');
+  st = calm(3); R.step(st, 0.25, { right: true });
+  check(Math.abs(st.ship.a - R.TURN * 0.25) < 1e-9, 'rocks: turning right turns the nose clockwise');
+
+  // Splitting: a big rock gives two medium ones, a medium two small, a small none.
+  const rng = R.mulberry(5);
+  const big = R.makeRock(rng, 3, 100, 100, 30, 0);
+  const parts = R.splitRock(big, rng);
+  check(parts.length === 2 && parts.every(p => p.size === 2 && p.x === 100 && p.y === 100), 'rocks: a big rock splits into two medium ones');
+  check(R.splitRock(parts[0], rng).length === 2 && R.splitRock(parts[0], rng).every(p => p.size === 1) && R.splitRock(R.splitRock(parts[0], rng)[0], rng).length === 0, 'rocks: medium into two small, small into nothing');
+  check(parts[0].vx !== parts[1].vx || parts[0].vy !== parts[1].vy, 'rocks: the pieces leave in different directions');
+
+  // A bullet kills a rock: it splits, and the score is the rock\'s.
+  st = calm(4); st.ship.x = 50; st.ship.y = 350; st.ship.a = Math.PI / 2; // nose points right
+  st.rocks = [R.makeRock(R.mulberry(9), 3, 130, 350, 0, 0)];
+  R.fire(st);
+  check(st.bullets.length === 1 && st.bullets[0].vx > 400, 'rocks: the ship fires from its nose');
+  for (let i = 0; i < 30 && st.score === 0; i++) R.step(st, DT, {});
+  check(st.score === 20 && st.rocks.length === 2 && st.rocks.every(r => r.size === 2) && st.bullets.length === 0, 'rocks: a hit splits a big rock and scores 20');
+  // At most four bullets of your own.
+  st = calm(5); st.ship.a = 0;
+  let fired = 0; for (let i = 0; i < 20; i++) { st.ship.cool = 0; if (R.fire(st)) fired++; }
+  check(fired === R.MAX_BULLETS, 'rocks: four shots on the screen at a time');
+  // Bullets expire.
+  st = calm(6); R.fire(st); for (let i = 0; i < 80; i++) R.step(st, DT, {});
+  check(st.bullets.length === 0, 'rocks: a bullet runs out');
+
+  // A rock hitting the ship costs a life; a ship that has just arrived is safe; the ship comes back.
+  st = calm(7); st.rocks = [put(st, { x: R.SIZE / 2, y: R.SIZE / 2, vx: 0, vy: 0, size: 3, r: 30, shape: [1, 1, 1, 1, 1, 1], rot: 0, spin: 0 })]; st.ship.inv = 0;
+  R.step(st, DT, {});
+  check(!st.ship.alive && st.lives === R.START_LIVES - 1, 'rocks: a rock hitting the ship costs a life');
+  st = calm(8); st.rocks = [put(st, { x: R.SIZE / 2, y: R.SIZE / 2, size: 3, r: 30, shape: [1, 1, 1, 1, 1, 1], rot: 0, spin: 0 })]; st.ship.inv = 2;
+  R.step(st, DT, {});
+  check(st.ship.alive && st.lives === R.START_LIVES, 'rocks: a new ship cannot be hit for a moment');
+  st = calm(9); st.ship.inv = 0; st.rocks = [put(st, { x: R.SIZE / 2 + 5, y: R.SIZE / 2, size: 1, r: 9, shape: [1, 1, 1, 1], rot: 0, spin: 0 })];
+  R.step(st, DT, {}); st.rocks = [];
+  for (let i = 0; i < 150; i++) R.step(st, DT, {});
+  check(st.ship.alive && st.ship.inv > 0, 'rocks: the ship returns to the middle once it is clear');
+  // The last ship lost ends the game.
+  st = calm(10); st.lives = 1; st.ship.inv = 0; st.rocks = [put(st, { x: R.SIZE / 2, y: R.SIZE / 2, size: 1, r: 9, shape: [1, 1, 1, 1], rot: 0, spin: 0 })];
+  R.step(st, DT, {});
+  check(st.status === 'over' && st.events.some(e => e.name === 'over'), 'rocks: the last ship ends the game');
+
+  // The saucer: shooting it scores, it shoots back, and clearing everything starts the next wave.
+  st = calm(11); st.ship.x = 50; st.ship.y = 300; st.ship.a = Math.PI / 2; st.rocks = [put(st, { x: 380, y: 20, size: 1, r: 9, shape: [1, 1, 1, 1], rot: 0, spin: 0 })];
+  st.saucer = { x: 140, y: 300, vx: 0, vy: 0, small: false, r: 15, turnIn: 9, fireIn: 9 };
+  R.fire(st); for (let i = 0; i < 30 && st.saucer; i++) R.step(st, DT, {});
+  check(!st.saucer && st.score === R.SAUCER.big.points, 'rocks: shooting the saucer scores 200');
+  st = calm(12); st.ship.x = 50; st.ship.y = 50; st.rocks = [put(st, { x: 380, y: 380, size: 1, r: 9, shape: [1, 1, 1, 1], rot: 0, spin: 0 })];
+  st.saucer = { x: 100, y: 300, vx: 0, vy: 0, small: true, r: 10, turnIn: 9, fireIn: 0.01 };
+  R.step(st, 0.05, {});
+  check(st.bullets.some(b => !b.own), 'rocks: the saucer shoots');
+  st = calm(13); const w0 = st.wave;
+  for (let i = 0; i < 120; i++) R.step(st, DT, {});
+  check(st.wave === w0 + 1 && st.rocks.length === 3 + st.wave && st.rocks.every(r => r.size === 3), 'rocks: an empty sky brings the next, bigger wave');
+  // A new ship every 10,000.
+  st = calm(14); st.score = R.EXTRA_LIFE_EVERY - 20; st.rocks = [R.makeRock(R.mulberry(9), 3, 130, 350, 0, 0)]; st.ship.x = 50; st.ship.y = 350; st.ship.a = Math.PI / 2; R.fire(st);
+  for (let i = 0; i < 30 && st.score < R.EXTRA_LIFE_EVERY; i++) R.step(st, DT, {});
+  check(st.lives === R.START_LIVES + 1, 'rocks: 10,000 points earns a ship');
+}
+
 // END
 if (failures) { console.error(failures + ' failed'); process.exit(1); }
 console.log('all passed');
