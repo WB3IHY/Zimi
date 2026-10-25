@@ -142,7 +142,7 @@
   var WK = root.WorldKit, BK = root.BoardKit, R = 20, SQ3 = Math.sqrt(3), PAD = 22;
   var COLORS = ['#d9453b', '#2f6fdd'], NAMES = ['Red', 'Blue'];
   var host = document.getElementById('wk-board'), cellsG, marksG, btns = [], n = 11, W = 0, Hh = 0;
-  var state, history = WK.History(), last = -1, chain = null, hintIdx = -1, swapped = false, moves = 0;
+  var state, history = WK.History(), last = -1, chain = null, hintIdx = -1, swapped = false, swapDone = false, moves = 0;
   var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: COLORS[0] }, { color: COLORS[1] }]);
   var swapBtn = document.getElementById('hx-swap');
   var G = WK.create({
@@ -206,7 +206,7 @@
     G.setUndo(history.size() > 0); G.setHint(open);
   }
   // The second player may still take over the first move.
-  function swapAsk() { return G.settings.swap && moves === 1 && !G.over; }
+  function swapAsk() { return G.settings.swap && moves === 1 && !swapDone && !G.over; }
 
   function turnText() {
     var c = state.turn;
@@ -217,7 +217,7 @@
 
   function onCell(i) { if (G.over || G.thinking || !isHuman(state.turn) || state.board[i]) return; place(i); }
 
-  function snapshot() { return { board: state.board, turn: state.turn, last: last, swapped: swapped, moves: moves }; }
+  function snapshot() { return { board: state.board, turn: state.turn, last: last, swapped: swapped, swapDone: swapDone, moves: moves }; }
 
   function place(i) {
     history.push(snapshot());
@@ -245,7 +245,7 @@
   // Swap: the colours change hands, the stone stays; the other player is now to move.
   function doSwap() {
     history.push(snapshot());
-    swapped = !swapped; paint();
+    swapped = !swapped; swapDone = true; paint();
     G.say(G.vsComputer() ? (isHuman(0) ? 'The computer swapped sides. You are red now, and it is your move.' : 'The computer swapped sides. You are blue now. Your move.') : 'Sides swapped. ' + turnText());
     if (!isHuman(state.turn)) G.later(function () { place(chooseMove(state.board, n, state.turn + 1, G.settings.level)); });
   }
@@ -261,7 +261,7 @@
     G.cancel(); G.over = false; chain = null; hintIdx = -1;
     var h;
     do {
-      h = history.pop(); swapped = h.swapped; state = { board: h.board, turn: h.turn };
+      h = history.pop(); swapped = h.swapped; swapDone = h.swapDone; state = { board: h.board, turn: h.turn };
     } while (history.size() && G.vsComputer() && !isHuman(h.turn));
     last = h.last; moves = h.moves;
     paint(); G.say(turnText());
@@ -271,7 +271,7 @@
 
   function newGame() {
     if (+G.settings.size !== n || !cellsG) buildBoard();
-    history.clear(); chain = null; hintIdx = -1; last = -1; swapped = false; moves = 0;
+    history.clear(); chain = null; hintIdx = -1; last = -1; swapped = false; swapDone = false; moves = 0;
     state = { board: empty(n), turn: 0 };
     paint(); G.say(turnText(), !isHuman(0));
     if (!isHuman(0)) G.later(function () { place(G.settings.swap ? fairOpening(n) : chooseMove(state.board, n, 1, G.settings.level)); });

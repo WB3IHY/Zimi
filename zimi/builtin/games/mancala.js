@@ -160,6 +160,11 @@
       posOf[i] = { x: PAD + col * UNIT + UNIT / 2, y: side === 0 ? PAD + ROW_H * 1.5 : PAD + ROW_H * 0.5, store: false };
     }
   }
+  // A ring round a pit (a round one) or round a store (a tall one).
+  function ringFor(p, cls) {
+    if (p.store) return '<rect x="' + (p.x - 28) + '" y="' + (PAD + 3) + '" width="56" height="' + (H - 2 * PAD - 6) + '" rx="28" class="' + cls + '"/>';
+    return '<circle cx="' + p.x + '" cy="' + p.y + '" r="' + (PIT_R + 3) + '" class="' + cls + '"/>';
+  }
   function seedXY(p, k) {
     var a = k * 2.399963, r = 4.4 * Math.sqrt(k + 0.6);
     return [p.x + r * Math.cos(a), p.y + r * Math.sin(a)];
@@ -199,8 +204,8 @@
     for (i = 0; i < R.size; i++) s += seedsHtml(i, shown[i]);
     svgPits.seeds.innerHTML = s;
     legal.forEach(function (j) { if (open) { var o = posOf[j]; m += '<circle cx="' + o.x + '" cy="' + o.y + '" r="' + (PIT_R + 2) + '" class="mc-ok"/>'; } });
-    if (lastPit >= 0) { var l = posOf[lastPit]; m += '<circle cx="' + l.x + '" cy="' + l.y + '" r="' + (PIT_R + 3) + '" class="mc-last"/>'; }
-    flashed.forEach(function (j) { var f = posOf[j]; m += (f.store ? '' : '<circle cx="' + f.x + '" cy="' + f.y + '" r="' + (PIT_R + 3) + '" class="mc-cap"/>'); });
+    if (lastPit >= 0) { var l = posOf[lastPit]; m += ringFor(l, 'mc-last'); }
+    flashed.forEach(function (j) { var f = posOf[j]; if (!f.store) m += ringFor(f, 'mc-cap'); });
     if (hintPit >= 0) { var h = posOf[hintPit]; m += '<circle cx="' + h.x + '" cy="' + h.y + '" r="' + (PIT_R + 4) + '" class="mc-hint"/>'; }
     svgPits.marks.innerHTML = m;
     btns.forEach(function (bt, j) {
