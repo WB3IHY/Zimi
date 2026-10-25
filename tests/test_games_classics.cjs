@@ -716,6 +716,21 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     const m = grown(); m.t = T0; m.energy = 90; P.advance(m, T0 + 3 * H); P.lights(m); P.advance(m, T0 + 6 * H);
     check(!m.asleep, 'pet: switch the lights on at night and it stays up');
     P.isNight = () => false; }
+  // the Sun's night, where Zimi knows the place (London: sunset about 20:21 UTC on 21 June, 15:53 UTC on 21 December)
+  { const sun = P.sunNight({ lat: 51.5, lon: -0.12 }), at = (y, m, d, h, mi) => Date.UTC(y, m - 1, d, h, mi || 0);
+    check(sun(at(2026, 6, 21, 19, 30)) === false && sun(at(2026, 6, 21, 20, 40)) === true, 'pet: in June London is awake at 19:30 and asleep by 20:40 UTC');
+    check(sun(at(2026, 6, 22, 3, 30)) === true && sun(at(2026, 6, 22, 4, 30)) === false, 'pet: and up again at sunrise (about 03:43 UTC)');
+    check(sun(at(2026, 12, 21, 15, 0)) === false && sun(at(2026, 12, 21, 16, 30)) === true, 'pet: in December it sleeps from about 16:00');
+    check(sun(at(2026, 12, 22, 7, 30)) === true && sun(at(2026, 12, 22, 8, 30)) === false, 'pet: and wakes at about 08:05');
+    check(P.sunNight({ lat: 'x', lon: 1 }) === null && P.sunNight(null) === null && P.sunNight({ lat: 91, lon: 0 }) === null, 'pet: a place that is not one means the fixed hours');
+    const north = P.sunNight({ lat: 80, lon: 0 });
+    check(typeof north(at(2026, 6, 21, 12)) === 'boolean', 'pet: where the Sun does not set the fixed hours answer');
+    const local = (d, h, mi) => new Date(2026, 11, d, h, mi).getTime();
+    check(P.nightKey(local(21, 16, 30)) === P.nightKey(local(22, 7, 30)) && P.nightKey(local(22, 7, 30)) !== P.nightKey(local(22, 17, 0)), 'pet: one key for a night, from its evening to the next morning');
+    const kept = { getItem: () => JSON.stringify({ lat: 51.5, lon: -0.12, name: 'London' }) }, none = { getItem: () => null }, saved = P.isNight;
+    check(P.usePlace(kept) === true && P.isNight !== saved, 'pet: a kept place makes the Sun decide');
+    check(P.usePlace(none) === false, 'pet: no kept place, the fixed hours');
+    P.isNight = () => false; }
   // mess
   p = grown(); p.food = p.joy = p.clean = p.energy = 100; p.t = T0; P.advance(p, T0 + 4.1 * H);
   check(p.mess === 1, 'pet: a mess every four hours');

@@ -96,8 +96,37 @@
   }
   // Night is 22:00 to 07:00 where the pet lives (the device's own clock).
   function isNight(ts) { var h = new Date(ts).getHours(); return h >= NIGHT_FROM || h < NIGHT_TO; }
-  // One key for each night (a night that runs past midnight is still the same night).
-  function nightKey(ts) { return new Date(ts - NIGHT_TO * HOUR).toDateString(); }
+  // One key for each night (a night that runs past midnight is still the same night: it is dated by its evening,
+  // twelve hours before the morning that ends it, so a night of any length between noon and noon keeps one key).
+  function nightKey(ts) { return new Date(ts - 12 * HOUR).toDateString(); }
+
+  // Where the pet lives, if Zimi knows (the Almanac's chosen place, kept by the page that holds this one): night is then
+  // the Sun's, from its real sunset to its real sunrise, with the same formulas as the Almanac (_solarB, _solarDeclination,
+  // _eqOfTime in almanac.js; 90.833 degrees is refraction and the Sun's radius). Where the Sun does not set or rise that
+  // day, or there is no place, the fixed hours above stand.
+  var PLACE_KEY = 'zimi_almanac_place', SUN_HORIZON = 90.833, DAY_MS = 24 * HOUR, DEG = Math.PI / 180;
+  function sunNight(place) {
+    var lat = place ? Number(place.lat) : NaN, lon = place ? Number(place.lon) : NaN;
+    if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+    return function (ts) {
+      var solar = ts + lon * 4 * MIN, day = Math.floor(solar / DAY_MS), minutes = (solar - day * DAY_MS) / MIN;   // the place's own mean solar time
+      var d = new Date(day * DAY_MS), doy = Math.floor((day * DAY_MS - Date.UTC(d.getUTCFullYear(), 0, 1)) / DAY_MS) + 1, B = (doy - 1) * 2 * Math.PI / 365;
+      var decl = 0.006918 - 0.399912 * Math.cos(B) + 0.070257 * Math.sin(B) - 0.006758 * Math.cos(2 * B) + 0.000907 * Math.sin(2 * B) - 0.002697 * Math.cos(3 * B) + 0.00148 * Math.sin(3 * B);
+      var eot = 229.18 * (0.000075 + 0.001868 * Math.cos(B) - 0.032077 * Math.sin(B) - 0.014615 * Math.cos(2 * B) - 0.04089 * Math.sin(2 * B));
+      var cosHA = (Math.cos(SUN_HORIZON * DEG) - Math.sin(lat * DEG) * Math.sin(decl)) / (Math.cos(lat * DEG) * Math.cos(decl));
+      if (cosHA > 1 || cosHA < -1) return isNight(ts);
+      var ha = Math.acos(cosHA) / DEG * 4, noon = 720 - eot;
+      return minutes < noon - ha || minutes >= noon + ha;
+    };
+  }
+  // Use the place kept in `storage` (a localStorage), if there is one. Returns whether the Sun now decides.
+  function usePlace(storage) {
+    var place = null, fn;
+    try { place = JSON.parse(storage.getItem(PLACE_KEY)); } catch (e) { /* none kept */ }
+    fn = sunNight(place);
+    Engine.isNight = fn || isNight;
+    return !!fn;
+  }
 
   // ── what you can do ── each returns { ok, msg } and changes the pet when ok
   function feed(p, kind) {
@@ -144,7 +173,7 @@
   }
   function validStore(s) { return !!(s && s.v === 1 && Array.isArray(s.pets) && s.pets.length && s.pets.length <= MAX_PETS && s.pets.every(function (p) { return p && STAGES.indexOf(p.stage) >= 0 && typeof p.t === 'number' && typeof p.food === 'number'; })); }
   function cleanName(text) { var t = String(text == null ? '' : text).replace(/\s+/g, ' ').trim().slice(0, 12); return t || NAMES[0]; }
-  var Engine = { isNight: isNight, nightKey: nightKey, HOUR: HOUR, MIN: MIN, EGG_MS: EGG_MS, RATES: RATES, GROWTH_H: GROWTH_H, STAGES: STAGES, ROUNDS: ROUNDS, MAX_PETS: MAX_PETS, MAX_MESS: MAX_MESS, NAMES: NAMES, newPet: newPet, advance: advance, feed: feed, play: play, wash: wash, lights: lights, round: round,
+  var Engine = { isNight: isNight, nightKey: nightKey, sunNight: sunNight, usePlace: usePlace, HOUR: HOUR, MIN: MIN, EGG_MS: EGG_MS, RATES: RATES, GROWTH_H: GROWTH_H, STAGES: STAGES, ROUNDS: ROUNDS, MAX_PETS: MAX_PETS, MAX_MESS: MAX_MESS, NAMES: NAMES, newPet: newPet, advance: advance, feed: feed, play: play, wash: wash, lights: lights, round: round,
     mood: mood, need: need, average: average, lowest: lowest, ageDays: ageDays, newStore: newStore, addPet: addPet, validStore: validStore, cleanName: cleanName, mulberry: mulberry, MAX_AWAY_MS: MAX_AWAY_MS, MAX_SNACKS: MAX_SNACKS };
   root.PetEngine = Engine;
 
@@ -158,6 +187,7 @@
     bars: { food: $('pt-food'), joy: $('pt-joy'), clean: $('pt-wash'), energy: $('pt-energy') } };
   var reduced = Play.reducedMotion(), ctx, store = Play.load(SAVE_KEY, null), pet, lastSave = 0, scale = 3, doing = null, rng = mulberry(Date.now());
   if (!validStore(store)) store = newStore(Date.now());
+  try { usePlace(root.localStorage); } catch (e) { /* no storage: the fixed hours */ }
 
   function now() { return Date.now(); }
   function current() { return store.pets[store.active]; }
