@@ -498,24 +498,34 @@
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs>' + MARK_GRADIENT.replace('zc-g-mark', 'zm-g') + '</defs>' +
       (opts.tile ? '<rect width="100" height="100" rx="22" fill="' + c.ink + '"/><g transform="translate(10 10) scale(0.8)">' + art + '</g>' : art) + '</svg>';
   }
-  // Z, then IMI over GAMES on one line: the Z is the mark's own, IMI a bold
-  // stroke, GAMES a light one. Ink comes from `currentColor`.
-  var WORD_BOLD = 3.1, WORD_LIGHT = 1.7, WORD_H = 14, WORD_Z_GAP = 3.4, WORD_BOLD_GAP = 4.4, WORD_LIGHT_GAP = 3.6, WORD_BREAK = 6;
+  // The lockup: the mark's Z, on its dark card with the second card fanned
+  // behind, is the first letter, then IMI in a bold stroke and GAMES in a
+  // light one, so the Z is drawn once and the line reads ZimiGames. The
+  // letters are paths on the Z's own 14-high grid; ink is `currentColor`.
+  var WORD_BOLD = 3.1, WORD_LIGHT = 1.7, WORD_H = 14, WORD_BOLD_GAP = 4.4, WORD_LIGHT_GAP = 3.6, WORD_BREAK = 6;
+  var WORD_CHIP = { padX: 3.6, padY: 5, r: 2.6, fan: 8, fanDx: 1.2, fanDy: 0.8, gap: 3.4 };
   function wordmarkSvg() {
-    var x = 0, out = '', k = WORD_H / MARK_Z_H, gap = 0;
+    var c = WORD_CHIP, k = WORD_H / MARK_Z_H, zw = MARK_Z_W * k, x, out = '', gapAfter = 0;
+    var w = zw + 2 * c.padX, h = WORD_H + 2 * c.padY, y0 = -c.padY;
+    var rect = function (extra) { return '<rect x="' + -c.padX + '" y="' + y0 + '" width="' + w + '" height="' + h + '" rx="' + c.r + '" ' + extra + '/>'; };
+    var cx = w / 2 - c.padX, cy = WORD_H / 2;
+    out += '<g transform="translate(' + c.fanDx + ' ' + c.fanDy + ') rotate(' + c.fan + ' ' + cx + ' ' + cy + ')">' + rect('fill="url(#zw-g)"') + '</g>' +
+      rect('fill="' + MARK_CARD.ink + '" stroke="rgba(255,255,255,0.22)" stroke-width="0.5"') + '<path d="' + MARK_Z + '" transform="scale(' + k + ')" fill="url(#zw-g)"/>';
+    var fanEdge = cx + c.fanDx + (w * Math.cos(c.fan * Math.PI / 180) + h * Math.sin(c.fan * Math.PI / 180)) / 2;
+    x = Math.max(w - c.padX, fanEdge) + c.gap;
+    var minX = cx + c.fanDx - (w * Math.cos(c.fan * Math.PI / 180) + h * Math.sin(c.fan * Math.PI / 180)) / 2;
     var run = function (text, stroke, between) {
       text.split('').forEach(function (ch) {
         out += '<path transform="translate(' + x + ' 0)" d="' + GLYPHS[ch].d + '" fill="none" stroke="currentColor" stroke-width="' + stroke + '" stroke-miterlimit="8"/>';
         x += glyphWidth(ch) + between;
       });
-      gap = between;
+      gapAfter = between;
     };
-    out += '<path d="' + MARK_Z + '" transform="scale(' + k + ')" fill="url(#zw-g)"/>';
-    x += MARK_Z_W * k + WORD_Z_GAP;
     run('IMI', WORD_BOLD, WORD_BOLD_GAP);
     x += WORD_BREAK - WORD_BOLD_GAP;
     run('GAMES', WORD_LIGHT, WORD_LIGHT_GAP);
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 ' + (x - gap + 4) + ' ' + (WORD_H + 4) + '" role="img" aria-label="ZimiGames"><defs>' +
+    var pad = 1.5, top = y0 - 2, bottom = y0 + h + 2;
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + (minX - pad) + ' ' + top + ' ' + (x - gapAfter - minX + 2 * pad) + ' ' + (bottom - top) + '" role="img" aria-label="ZimiGames"><defs>' +
       MARK_GRADIENT.replace('zc-g-mark', 'zw-g') + '</defs>' + out + '</svg>';
   }
 
