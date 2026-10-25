@@ -17,7 +17,7 @@
    functions; the page wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
 
   var NAMES = ['You', 'North'], GOAL = 121, KEPT = 4, DEAL = 6, TARGET = 31, FIFTEEN = 15, HEELS_RANK = 11, SKUNK = 91;
   var cardVal = function (id) { return Math.min(10, Z.rank(id)); };
@@ -107,14 +107,17 @@
     var s = Z.clone(st);
     s.cut = true; s.kept = [s.hands[0].slice(), s.hands[1].slice()]; s.pegHands = [s.hands[0].slice(), s.hands[1].slice()];
     s.phase = 'peg'; s.turn = other(s.dealer); s.msg = 'Starter: ' + T.short(s.starter);
-    if (Z.rank(s.starter) === HEELS_RANK) { s.msg += '. His heels: ' + NAMES[s.dealer] + (s.dealer === 0 ? ' score' : ' scores') + ' 2'; award(s, s.dealer, 2); }
+    if (Z.rank(s.starter) === HEELS_RANK) { s.msg += '. His heels: ' + verb(s.dealer, 'score', 'scores') + ' 2'; award(s, s.dealer, 2); }
     return s;
   }
 
   var canPlay = function (s, seat) { return legalPeg(s, seat).length > 0; };
   function legalPeg(st, seat) { return st.pegHands[seat].filter(function (c) { return st.count + cardVal(c) <= TARGET; }); }
   function isLegalPeg(st, seat, id) { return st.phase === 'peg' && !st.roundOver && st.turn === seat && legalPeg(st, seat).indexOf(id) >= 0; }
-  var verb = function (seat, you, they) { return NAMES[seat] + ' ' + (seat === 0 ? you : they); };
+  // The page can rename the seats (two people on one device) and say which seat, if any, is "You".
+  var YOU = 0;
+  function setNames(names, youSeat) { NAMES[0] = names[0]; NAMES[1] = names[1]; YOU = youSeat; }
+  var verb = function (seat, you, they) { return NAMES[seat] + ' ' + (seat === YOU ? you : they); };
 
   function playPeg(st, seat, id) {
     var s = Z.clone(st), o = other(seat);
@@ -130,7 +133,7 @@
     else {
       s.roundOver = 'go';
       var last = !s.pegHands[0].length && !s.pegHands[1].length;
-      msg += '. ' + (o === 0 ? 'You say' : 'North says') + ' go, ' + (last ? 'last card' : (seat === 0 ? 'you take' : 'North takes') + ' the go') + ' for 1';
+      msg += '. ' + verb(o, 'say', 'says') + ' go, ' + (last ? 'last card' : seat === YOU ? 'you take the go' : verb(seat, 'take', 'takes') + ' the go') + ' for 1';
       award(s, seat, 1);
     }
     s.msg = msg;
@@ -242,19 +245,20 @@
     return ids.map(function (id, k) { return Object.assign({ id: id, pile: pile, idx: k, x: Math.round(x0 + k * st), y: y, up: up }, extra || {}); });
   }
   function place(st, m, view) {
+    var V = (view && view.viewer) || 0, O = 1 - V, faceUp = !(view && view.hideHand);
     var g = geo(m), cards = [], slots = [], chosen = (view && view.chosen) || [], showing = st.phase === 'show' || (st.phase === 'over' && st.showStep >= 0);
     slots.push({ id: 'deck', x: g.starterX, y: g.rowA, w: g.cw, h: g.ch, quiet: true, label: 'Starter' });
     slots.push({ id: 'table', x: g.pad, y: g.rowB - 4, w: g.W - 2 * g.pad, h: 2 * g.ch + ROW_GAP + 8, quiet: true, label: 'Table' });
-    var myTurn = st.phase === 'peg' && st.turn === 0 && !st.roundOver, hand, opp;
+    var myTurn = st.phase === 'peg' && st.turn === V && !st.roundOver && faceUp, hand, opp;
     var info = function (id) {
-      if (st.phase === 'discard') { var on = chosen.indexOf(id) >= 0; return { raise: on, mark: on, label: Z.cardName(id) + (on ? ', chosen for the crib' : '') }; }
-      return { dim: myTurn && !isLegalPeg(st, 0, id), glow: showing && st.showStep < 2 && st.showWho === 0 };
+      if (st.phase === 'discard') { var on = chosen.indexOf(id) >= 0; return { up: faceUp, raise: on, mark: on, label: Z.cardName(id) + (on ? ', chosen for the crib' : '') }; }
+      return { up: faceUp || showing, dim: myTurn && !isLegalPeg(st, V, id), glow: showing && st.showStep < 2 && st.showWho === V };
     };
     if (showing) {
-      cards = cards.concat(row(g, st.kept[0], g.southY, g.cw * 0.95, true, 'k0', { glow: st.showStep < 2 && st.showWho === 0 }));
-      cards = cards.concat(row(g, st.kept[1], g.northY, g.cw * 0.95, true, 'k1', { glow: st.showStep < 2 && st.showWho === 1 }));
+      cards = cards.concat(row(g, st.kept[V], g.southY, g.cw * 0.95, true, 'k0', { glow: st.showStep < 2 && st.showWho === V }));
+      cards = cards.concat(row(g, st.kept[O], g.northY, g.cw * 0.95, true, 'k1', { glow: st.showStep < 2 && st.showWho === O }));
     } else {
-      var mine = st.phase === 'peg' ? st.pegHands[0] : st.hands[0], theirs = st.phase === 'peg' ? st.pegHands[1] : st.hands[1];
+      var mine = st.phase === 'peg' ? st.pegHands[V] : st.hands[V], theirs = st.phase === 'peg' ? st.pegHands[O] : st.hands[O];
       hand = T.handCards(g, mine, info, null);
       slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
       opp = T.fan(g, 2, theirs, false); cards = cards.concat(opp);
@@ -267,7 +271,7 @@
     // The count so far, a staircase: North's plays above, yours below.
     var step = Math.min(g.cw * 0.6, (g.W - 2 * g.pad - g.cw) / 7), x0 = (g.W - (g.cw + 7 * step)) / 2;
     if (st.phase === 'peg') st.seq.forEach(function (p, k) {
-      cards.push({ id: p.id, pile: 'seq', idx: k, x: Math.round(x0 + k * step), y: p.seat === 0 ? g.rowC : g.rowB, up: true });
+      cards.push({ id: p.id, pile: 'seq', idx: k, x: Math.round(x0 + k * step), y: p.seat === V ? g.rowC : g.rowB, up: true });
     });
     return { height: m.H, slots: slots, cards: cards };
   }
@@ -275,14 +279,24 @@
   var api = {
     NAMES: NAMES, GOAL: GOAL, cardVal: cardVal, scoreHand: scoreHand, itemText: itemText, pegScore: pegScore, deal: deal, newGame: newGame, nextHand: nextHand,
     discard: discard, cutStarter: cutStarter, legalPeg: legalPeg, isLegalPeg: isLegalPeg, playPeg: playPeg, nextRound: nextRound, enterShow: enterShow,
-    aiDiscard: aiDiscard, aiPeg: aiPeg, boardSvg: boardSvg, holePos: holePos, geo: geo, place: place
+    setNames: setNames, aiDiscard: aiDiscard, aiPeg: aiPeg, boardSvg: boardSvg, holePos: holePos, geo: geo, place: place
   };
   root.ZimiCribbage = api;
 
   // ── The page ────────────────────────────────────────────────────────────
   var AI_MS = 850, HOLD_MS = 1300, CUT_MS = 800, OVER_MS = 1500;
   function boot() {
-    var d = root.document, t, board, session, view = { chosen: [], flash: '' };
+    var d = root.document, t, board, session, view = { chosen: [], flash: '', viewer: 0, hideHand: false, chooser: 0 };
+    // Each seat is the Computer or a Person; two people share the screen behind a handoff.
+    var seats = Seats.create({ id: 'cribbage', seats: 2, onChange: function () { if (board) board.refresh(); if (t) t.paint(); } });
+    function syncView(st) {
+      view.viewer = seats.view();
+      var actor = st.phase === 'discard' ? view.chooser : st.phase === 'peg' ? st.turn : view.viewer;
+      view.hideHand = seats.hotseat() && actor !== view.viewer;
+    }
+    function nameSeats() { setNames([seats.name(0), seats.name(1)], seats.isYou(0) ? 0 : seats.isYou(1) ? 1 : -1); }
+    var who = function (s) { return seats.name(s); };
+    var poss = function (s) { return seats.isYou(s) ? 'your' : who(s) + '\u2019s'; };
     var boardEl = Z.h('div', { class: 'cb-board' }), tagCrib = Z.h('div', { class: 'cb-tag' }), tagStarter = Z.h('div', { class: 'cb-tag', text: 'Starter' });
     var tableEl = Z.pageEls().table;
     tableEl.appendChild(boardEl); tableEl.appendChild(tagCrib); tableEl.appendChild(tagStarter);
@@ -297,7 +311,7 @@
     }
     function tags(st, g) {
       var showing = st.phase === 'show' || st.showStep >= 0;
-      tagCrib.textContent = showing && st.showStep === 2 ? '' : (st.dealer === 0 ? 'Your crib' : 'North’s crib');
+      tagCrib.textContent = showing && st.showStep === 2 ? '' : (seats.isYou(st.dealer) ? 'Your' : who(st.dealer) + '\u2019s') + ' crib';
       tagCrib.style.left = g.cribX + 'px'; tagCrib.style.top = (g.rowA + g.ch + 3) + 'px'; tagCrib.style.width = g.cw + 'px';
       tagStarter.hidden = showing; tagStarter.style.left = g.starterX + 'px'; tagStarter.style.top = (g.rowA + g.ch + 3) + 'px'; tagStarter.style.width = g.cw + 'px';
       tagCrib.hidden = showing && st.showStep >= 2;
@@ -310,25 +324,25 @@
       return lines;
     }
     var showTitle = function (st) {
-      var who = st.showWho === 0 ? 'Your' : 'North’s';
-      return st.showStep === 2 ? who + ' crib' : who + ' hand';
+      var w = seats.isYou(st.showWho) ? 'Your' : who(st.showWho) + '\u2019s';
+      return st.showStep === 2 ? w + ' crib' : w + ' hand';
     };
     function hud(st) {
       var g = geo(board.metrics());
       drawBoard(st, g); tags(st, g);
       var chips = [0, 1].map(function (seat) {
-        return { name: NAMES[seat], text: st.scores[seat] + (st.dealer === seat ? ' · deals' : ''), turn: st.phase === 'peg' && st.turn === seat && !st.roundOver };
+        return { name: who(seat), text: st.scores[seat] + (st.dealer === seat ? ' · deals' : ''), turn: st.phase === 'peg' && st.turn === seat && !st.roundOver };
       });
       if (st.phase === 'peg') chips.push({ name: 'Count', text: String(st.count) });
       var out = { chips: chips, sub: 'Hand ' + (st.handNo + 1) + ' · to ' + GOAL, text: '' };
       if (st.phase === 'discard') {
         var left = 2 - view.chosen.length;
-        out.text = left > 0 ? 'Choose ' + left + ' more for ' + (st.dealer === 0 ? 'your' : 'North’s') + ' crib' : 'Send these two to the crib?';
+        out.text = (seats.hotseat() ? who(view.chooser) + ': ' : '') + (left > 0 ? 'Choose ' + left + ' more for ' + poss(st.dealer) + ' crib' : 'Send these two to the crib?');
         out.label = 'To the crib'; out.action = left === 0 ? sendCrib : null;
       } else if (st.phase === 'cut') out.text = 'Cutting the starter';
       else if (st.phase === 'peg') {
         if (st.roundOver) out.text = st.msg;
-        else out.text = (st.msg ? st.msg + '. ' : '') + (st.turn === 0 ? 'Your play' : 'North is thinking');
+        else out.text = (st.msg ? st.msg + '. ' : '') + (!seats.person(st.turn) ? who(st.turn) + ' is thinking' : seats.isYou(st.turn) ? 'Your play' : who(st.turn) + ', your play');
       } else if (st.showStep >= 0) {
         out.lines = itemLines(st.showRes, showTitle(st) + ' (starter ' + T.short(st.starter) + ')');
         out.text = st.phase === 'over' ? 'Game over' : '';
@@ -342,16 +356,18 @@
       var st = session.state;
       if (st.phase === 'over') { if (st.showStep < 0) session.later(gameOver, OVER_MS); return; }
       if (st.phase === 'cut') { session.later(doCut, CUT_MS); return; }
+      if (st.phase === 'discard') { seats.ensure(view.chooser, refresh); return; }
       if (st.phase === 'peg') {
         if (st.roundOver) { session.later(endRound, HOLD_MS); return; }
-        if (st.turn === 1) session.later(aiTurn, AI_MS);
+        if (seats.person(st.turn)) seats.ensure(st.turn, refresh); else session.later(aiTurn, AI_MS);
       }
     }
+    function refresh() { board.refresh(); t.paint(); }
     function doCut() { var st = session.state; if (st.phase !== 'cut') return; session.follow(cutStarter(st)); drive(); }
     function aiTurn() {
       var st = session.state;
-      if (st.phase !== 'peg' || st.turn !== 1 || st.roundOver) return;
-      session.follow(playPeg(st, 1, aiPeg(st, 1)));
+      if (st.phase !== 'peg' || seats.person(st.turn) || st.roundOver) return;
+      session.follow(playPeg(st, st.turn, aiPeg(st, st.turn)));
       drive();
     }
     function endRound() {
@@ -371,27 +387,33 @@
       var st = session.state;
       session.history = []; view.chosen = [];
       session.follow(nextHand(st, Z.shuffled(Math.random)));
-      drive();
+      deal();
     }
     function sendCrib() {
       var st = session.state;
       if (st.phase !== 'discard' || view.chosen.length !== 2) return;
-      var mine = view.chosen.slice(), s = discard(st, 0, mine);
+      var mine = view.chosen.slice(), s = discard(st, view.chooser, mine);
       view.chosen = [];
       session.commit(s);
-      session.follow(discard(session.state, 1, aiDiscard(session.state.hands[1], st.dealer === 1)));
+      // The next person chooses behind a handoff; the computer discards once the people have.
+      var more = seats.people().filter(function (p) { return p > view.chooser; })[0];
+      if (more !== undefined) { view.chooser = more; refresh(); drive(); return; }
+      [0, 1].forEach(function (c) {
+        if (!seats.person(c) && session.state.phase === 'discard') session.follow(discard(session.state, c, aiDiscard(session.state.hands[c], st.dealer === c)));
+      });
+      view.chooser = seats.people()[0];
       drive();
     }
     function gameOver() {
-      var st = session.state, won = st.winner === 0, lines = ['You ' + st.scores[0] + ', North ' + st.scores[1] + '.'];
+      var st = session.state, won = seats.isYou(st.winner), lines = [who(0) + ' ' + st.scores[0] + ', ' + who(1) + ' ' + st.scores[1] + '.'];
       if (st.scores[other(st.winner)] < SKUNK) lines.push('A skunk: the loser finished below ' + SKUNK + '.');
-      if (won) session.win(st.scores[0]); else session.lose('North wins', lines, st.scores[0]);
+      if (won) session.win(st.scores[st.winner]); else session.lose(who(st.winner) + ' wins', lines, seats.hotseat() ? undefined : st.scores[0]);
     }
     var idOf = function (pile) { return parseInt(pile.slice(1), 10); };
     function play(id) {
       var st = session.state;
-      if (!isLegalPeg(st, 0, id)) return false;
-      session.commit(playPeg(st, 0, id));
+      if (!isLegalPeg(st, st.turn, id) || st.turn !== seats.view()) return false;
+      session.commit(playPeg(st, st.turn, id));
       drive();
       return true;
     }
@@ -407,22 +429,25 @@
         return true;
       }
       if (st.phase !== 'peg') return false;
-      if (st.turn !== 0 || st.roundOver) { t.flash('Wait for your turn'); return false; }
-      if (!isLegalPeg(st, 0, id)) { t.flash('That would go past 31'); return false; }
+      if (st.turn !== seats.view() || st.roundOver) { t.flash('Wait for your turn'); return false; }
+      if (!isLegalPeg(st, st.turn, id)) { t.flash('That would go past 31'); return false; }
       return play(id);
     }
     function startGame() {
       view.chosen = []; view.flash = '';
+      nameSeats();
       session.reset(api.newGame(Z.shuffled(Math.random), Math.floor(Math.random() * 2)));
-      drive();
+      deal();
     }
+    // A fresh deal: nobody has seen it, so two people start at a handoff.
+    function deal() { view.chooser = seats.people()[0]; seats.begin(function () { refresh(); drive(); }, view.chooser); }
 
     t = T.create({
-      id: 'cribbage', name: 'Cribbage', view: view, geo: geo, place: place, hud: hud, newGame: startGame, tap: tap, cols: 6, heightShare: 0.11,
-      canPick: function (st, pile) { return st.phase === 'peg' && pile.charAt(0) === 'h' && isLegalPeg(st, 0, idOf(pile)); },
+      id: 'cribbage', name: 'Cribbage', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: startGame, tap: tap, cols: 6, heightShare: 0.11,
+      canPick: function (st, pile) { return st.phase === 'peg' && pile.charAt(0) === 'h' && isLegalPeg(st, seats.view(), idOf(pile)); },
       move: function (pile, idx, to) { return (to === 'table' || to === 'deck') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0] + '-' + st.scores[1]; },
-      winLines: function (sec, st) { return ['You ' + st.scores[0] + ', North ' + st.scores[1] + ', after ' + Z.plural(st.handNo + 1, 'hand') + '.'].concat(st.scores[1] < SKUNK ? ['A skunk: North finished below ' + SKUNK + '.'] : []); },
+      winLines: function (sec, st) { return [who(0) + ' ' + st.scores[0] + ', ' + who(1) + ' ' + st.scores[1] + ', after ' + Z.plural(st.handNo + 1, 'hand') + '.'].concat(st.scores[1] < SKUNK ? ['A skunk: North finished below ' + SKUNK + '.'] : []); },
       rules: 'First to 121. Each hand: keep four cards and send two to the dealer’s crib. The starter is cut (a jack gives the dealer 2). Then play cards by turns to a count of 31: 15 and 31 score 2, pairs 2, 6 or 12, runs 3 and up, a go or the last card 1. Then the show: the player who did not deal counts first, then the dealer, then the crib. Fifteens 2, pairs 2, runs 1 a card, flush 4 (5 with the starter), nobs 1. Tap a card to choose or play it.'
     });
     board = t.board; session = t.session;
