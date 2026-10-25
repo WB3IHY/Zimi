@@ -27,7 +27,7 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 .zc-slot[data-cards]:focus-visible::before { border-color: var(--felt-line); box-shadow: none; }
 .zc-slot:focus-visible::before { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 .zc-slot[data-mark]::after { content: attr(data-mark); position: absolute; left: 0; top: 0; width: var(--cw); height: calc(var(--cw) * 1.4);
-  display: grid; place-items: center; color: rgba(255, 255, 255, 0.28); font: 700 calc(var(--cw) * 0.5)/1 Georgia, serif; pointer-events: none; }
+  display: grid; place-items: center; color: rgba(255, 255, 255, 0.28); font: 650 calc(var(--cw) * 0.46)/1 var(--font); letter-spacing: -0.02em; pointer-events: none; }
 .zc-slot[data-mark="\21BB"]::after { font-family: var(--font); font-weight: 400; }
 
 /* ── A card ────────────────────────────────────────────────────────────── */
