@@ -306,7 +306,7 @@
   function pause() {
     if (g.mode !== 'playing') return;
     g.mode = 'paused'; loop.stop(); releaseAll();
-    sheet('Paused', function (b) { note(b, 'The cars wait.'); }, [['Resume', resume, true], ['Quit race', goSetup, false]]);
+    sheet('Paused', function (b) { note(b, 'Resume when you are ready.'); }, [['Resume', resume, true], ['Quit race', goSetup, false]]);
   }
   function resume() { g.mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
   function releaseAll() { clearKeys(); pad.left = pad.right = pad.gas = pad.brake = false; padCtl.forEach(function (h) { h.release(); }); }
@@ -389,14 +389,14 @@
     if (heats) {
       g.heats.push(results[0]);
       if (g.heat === 0) {
-        sheet('Player 1: ' + ordinal(results[0].pos), function (b) { standingsTable(b, r); note(b, 'Hand the phone to player 2.'); }, [['Player 2 is up', function () { g.heat = 1; startRace(); }, true]]);
+        sheet('Player 1: ' + ordinal(results[0].pos), function (b) { standingsTable(b, r); note(b, 'Pass the phone to player 2.'); }, [['Player 2 is up', function () { g.heat = 1; startRace(); }, true]]);
         return;
       }
       var a = g.heats[0], z = g.heats[1], tie = a.pos === z.pos && a.time === z.time;
       var win = a.pos !== z.pos ? (a.pos < z.pos ? a : z) : (a.time <= z.time ? a : z);
       sheet(tie ? 'A tie' : win.name + ' wins', function (b) {
         [a, z].forEach(function (x) { note(b, x.name + ': ' + ordinal(x.pos) + ', ' + (x.time ? fmt(x.time) : 'did not finish') + (x.best ? ', best lap ' + fmt(x.best) : '')); });
-      }, [['Race again', function () { g.heat = 0; g.heats = []; startRace(); }, true], ['Setup', goSetup, false]]);
+      }, [['Play again', function () { g.heat = 0; g.heats = []; startRace(); }, true], ['Setup', goSetup, false]]);
       return;
     }
     var title = g.split ? (results[0].pos < results[1].pos ? 'Player 1 wins' : 'Player 2 wins') : ordinal(results[0].pos) + ' of ' + r.cars.length;
@@ -405,7 +405,7 @@
       g.humans.forEach(function (c) { if (c.best != null) note(b, (g.split ? c.name + ': best lap ' : 'Best lap ') + fmt(c.best)); });
       var sv = prefs.best[g.T.id];
       if (sv) note(b, 'Track record on this device: ' + fmt(sv.ms) + '. Its ghost races you.');
-    }, [['Race again', startRace, true], ['Setup', goSetup, false]]);
+    }, [['Play again', startRace, true], ['Setup', goSetup, false]]);
   }
 
   // ── input ────────────────────────────────────────────────────────────────

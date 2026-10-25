@@ -297,7 +297,7 @@
     }
     state.passes = 0;
     paintAll();
-    if (isHuman(seat)) say(settings.humans.slice(0, settings.count).filter(Boolean).length > 1 ? seatName(seat) + ' to move' : 'Your move');
+    if (isHuman(seat)) say(settings.humans.slice(0, settings.count).filter(Boolean).length > 1 ? seatName(seat) + ' to move' : 'Your turn');
     else {
       say(seatName(seat) + ' is thinking', true);
       timer = setTimeout(function () { computerMove(seat); }, state.seats.some(function (c, s) { return isHuman(s); }) ? COMPUTER_DELAY_MS : FAST_DELAY_MS);
@@ -333,7 +333,7 @@
       delete targets[i];
       if (!Object.keys(targets).length) say('That marble cannot move');
       else say('Choose where it goes');
-    } else { sel = -1; targets = {}; say(settings.humans.slice(0, settings.count).filter(Boolean).length > 1 ? seatName(seat) + ' to move' : 'Your move'); }
+    } else { sel = -1; targets = {}; say(settings.humans.slice(0, settings.count).filter(Boolean).length > 1 ? seatName(seat) + ' to move' : 'Your turn'); }
     paintMarks(); paintMarbles(); paintCursor();
   }
 

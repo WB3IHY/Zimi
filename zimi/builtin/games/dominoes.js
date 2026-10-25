@@ -292,7 +292,7 @@
     var p = st.turn, plays = legalPlays(st, p);
     render();
     if (plays.length) {
-      if (humanSeat(p)) { seats.ensure(p, function () { render(); say((you(p) ? 'Your turn' : nameOf(p) + ', your turn') + ': pick a tile that matches an open end'); }, 'Hand the device over. Your tiles stay hidden until you tap.'); return; }
+      if (humanSeat(p)) { seats.ensure(p, function () { render(); say((you(p) ? 'Your turn' : nameOf(p) + ', your turn') + ': pick a tile that matches an open end'); }, 'Pass the device. Your tiles stay hidden until you tap.'); return; }
       say(nameOf(p) + ' is thinking', true);
       busy = true;
       timer = setTimeout(function () { busy = false; doPlay(p, choosePlay(st, p, settings.level)); }, COMPUTER_MS);

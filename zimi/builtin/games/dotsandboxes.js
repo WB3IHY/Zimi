@@ -170,7 +170,7 @@
   function turnText() {
     var p = state.turn;
     if (!G.vsComputer()) return NAMES[p] + ' to draw a line';
-    return G.human(p) ? 'Your move' : 'Computer is thinking';
+    return G.human(p) ? 'Your turn' : 'Computer is thinking';
   }
 
   function onEdge(e) { if (G.over || G.thinking || !G.human(state.turn) || state.edges[e]) return; move(e); }
@@ -196,7 +196,7 @@
 
   function hint() {
     hintEdge = chooseEdge(state, 'hard');
-    paint(); G.say('A good line is dashed in amber. ' + turnText());
+    paint(); G.say('Hint: try the dashed line. ' + turnText());
   }
 
   function undo() {

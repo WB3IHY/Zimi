@@ -261,7 +261,7 @@
   function showSheet(title, text, label) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; Play.openSheet(els.sheet, '#cr-go'); }
   function begin() { st = createState(1); mode = 'playing'; els.msg.textContent = ''; Play.closeSheet(els.sheet); els.pause.disabled = false; hud(); draw(); loop.start(); }
   function nextLevel() { st = createState(st.level + 1, undefined, { score: st.score, lives: st.lives, nextLife: st.nextLife }); els.msg.textContent = 'Level ' + st.level + ', a little faster.'; }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); showSheet('Paused', 'The traffic waits.', 'Resume'); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); showSheet('Paused', 'Resume when you are ready.', 'Resume'); }
   function resume() { mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
   function finish() {
     mode = 'over'; loop.stop(); els.pause.disabled = true;

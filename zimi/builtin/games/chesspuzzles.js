@@ -106,7 +106,7 @@
     els.info.textContent = '';
     paint(); paintHud(); setButtons();
     say((isDaily ? 'Daily puzzle. ' : '') + 'Watch the opponent move');
-    later(function () { opponentMove(function () { busy = false; setButtons(); say('Your move: find the best move for ' + colorName(userColor)); }); }, OPPONENT_DELAY_MS);
+    later(function () { opponentMove(function () { busy = false; setButtons(); say('Your turn: find the best move for ' + colorName(userColor)); }); }, OPPONENT_DELAY_MS);
   }
   function opponentMove(after) {
     var m = C.fromUci(E, pos, puzzle.moves[step]);
@@ -148,7 +148,7 @@
     later(function () {
       opponentMove(function () {
         if (step >= puzzle.moves.length) { solved(); return; }
-        busy = false; setButtons(); say('Your move');
+        busy = false; setButtons(); say('Your turn');
       });
     }, OPPONENT_DELAY_MS);
   }

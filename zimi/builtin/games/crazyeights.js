@@ -176,7 +176,7 @@
       paintMarker(st);
       var chips = st.hands.map(function (h, seat) { return { name: name(st, seat), text: String(h.length), turn: st.phase === 'play' && st.turn === seat }; });
       var out = { chips: chips, sub: scoreLine(st), text: '' };
-      if (st.phase === 'handEnd') { out.text = 'Hand over'; out.label = 'Next hand'; out.action = startNextHand; return out; }
+      if (st.phase === 'handEnd') { out.text = 'End of hand'; out.label = 'Next hand'; out.action = startNextHand; return out; }
       if (st.phase === 'over') { out.text = 'Game over'; out.label = 'New game'; out.action = newGame; return out; }
       var note = view.note ? ' ' + view.note : '';
       if (!seats.person(st.turn)) { out.text = name(st, st.turn) + ' is thinking.' + note; return out; }

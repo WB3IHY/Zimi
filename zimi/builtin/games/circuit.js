@@ -25,7 +25,7 @@
   var TRACKS = [
     { id: 'oval', name: 'Meridian Oval', note: 'Wide and fast: find the line and hold the throttle.', width: 150, startAt: 0.02, bridge: null, theme: 'park',
       pts: [[1100, 0], [1016, 215], [779, 396], [421, 515], [0, 560], [-421, 515], [-779, 396], [-1016, 215], [-1100, 0], [-1016, -215], [-779, -396], [-421, -515], [0, -560], [421, -515], [779, -396], [1016, -215]] },
-    { id: 'switchback', name: 'Switchback', note: 'Hairpins, a long back straight and a sweeping finish.', width: 120, startAt: 0.0, bridge: null, theme: 'park',
+    { id: 'switchback', name: 'Switchback', note: 'Sharp turns, a long straight and a wide curve at the end.', width: 120, startAt: 0.0, bridge: null, theme: 'park',
       pts: [[200, 200], [700, 120], [1100, 260], [1500, 140], [1850, 330], [1800, 650], [1450, 760], [1700, 980], [1400, 1180], [950, 1060], [600, 1200], [250, 1050], [380, 800], [150, 600], [420, 430]] },
     { id: 'crossover', name: 'Crossover', note: 'A figure eight: the road crosses itself on a bridge.', width: 130, startAt: 0.25, bridge: [0.43, 0.57], theme: 'park',
       pts: [[0, 0], [272, 260], [525, 450], [742, 520], [909, 450], [1014, 260], [1050, 0], [1014, -260], [909, -450], [742, -520], [525, -450], [272, -260], [0, 0], [-272, 260], [-525, 450], [-742, 520], [-909, 450], [-1014, 260], [-1050, 0], [-1014, -260], [-909, -450], [-742, -520], [-525, -450], [-272, -260]] },

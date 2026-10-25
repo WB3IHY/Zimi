@@ -130,7 +130,7 @@
     if (status === 'setting') {
       code = cur.slice(); cur = [-1, -1, -1, -1]; status = 'playing'; paint();
       els.msg.textContent = 'Ten guesses. Pick four pegs.';
-      seats.cover(0, paint, 'The code is set and hidden. Hand the device to the breaker.');
+      seats.cover(0, paint, 'The code is set and hidden. Pass the device to the breaker.');
       return;
     }
     var fb = feedback(code, cur);
@@ -149,7 +149,7 @@
       else if (!best[k] || rows.length < best[k]) { best[k] = rows.length; Play.save(BEST_KEY, best); text += ' A new best.'; } else text += ' Best: ' + best[k] + '.';
     } else text = seats.hotseat() ? seats.name(1) + ' wins: the code held. It is shown at the top.' : 'Out of guesses. The code is shown at the top.';
     els.msg.textContent = text;
-    showSheet(status === 'won' ? 'Cracked' : 'Not this time', text, 'New code');
+    showSheet(status === 'won' ? 'Cracked' : 'You lose', text, 'New code');
   }
 
   function paintRep() { els.rep.setAttribute('aria-pressed', String(!!settings.repeats)); els.rep.textContent = 'Colours may repeat: ' + (settings.repeats ? 'on' : 'off'); }

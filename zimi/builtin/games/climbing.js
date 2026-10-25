@@ -331,7 +331,7 @@
     function hud(st) {
       var V = seats.view(), out = { chips: counts(st), sub: (seats.hotseat() ? nm(V) : 'You') + ' ' + st.scores[V] + ' · target ' + R.target, text: '' };
       if (st.phase === 'handEnd' || st.phase === 'over') {
-        if (st.phase === 'handEnd') { out.text = 'Hand over'; out.label = 'Next hand'; out.action = startNextHand; }
+        if (st.phase === 'handEnd') { out.text = 'End of hand'; out.label = 'Next hand'; out.action = startNextHand; }
         else { var w = game.gameWinner(st.scores); out.text = seats.isYou(w) ? 'You win the match' : nm(w) + ' wins the match'; out.label = 'New game'; out.action = newGame; }
         return out;
       }
