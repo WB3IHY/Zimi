@@ -233,7 +233,14 @@ check(K.timeBonus(10) === 0 && K.timeBonus(100) === 7000 && K.timeBonus(700) ===
 
 // ── Faces, backs, the Moon ──────────────────────────────────────────────────
 check(deck.every(c => /^<svg[\s\S]*<\/svg>$/.test(Z.faceMarkup(c, false)) && !/NaN|undefined/.test(Z.faceMarkup(c, true))), 'all 52 faces draw, as page markup and as standalone images');
-check(Z.faceMarkup(id('7H'), false).split('<use').length - 1 === 7 + 2 * 1, 'a 7 shows 7 pips and a small suit in each corner');
+check(Z.faceMarkup(id('7H'), false).split('<use').length - 1 === 7 + 2 + 2, 'a 7 shows 7 pips, a small suit in each corner, and the small-card index and body');
+check(Z.faceMarkup(id('7H'), true).split('<use').length === 1, 'a standalone face has no sprite references');
+check(Z.faceMarkup(id('AS'), true).includes('zc-g-mark') && !Z.faceMarkup(id('AH'), true).includes('url(#zc-g-mark)'), 'only the Ace of Spades carries the mark');
+var italian = []; for (var ii = 0; ii < 40; ii++) italian.push(ii);
+check(italian.every(c => /^<svg[\s\S]*<\/svg>$/.test(Z.italianFaceMarkup(c, false)) && !/NaN|undefined/.test(Z.italianFaceMarkup(c, true))), 'all 40 Italian faces draw');
+check(Z.italianName(19) === 're of cups' && Z.italianName(0) === 'ace of coins', 'Italian cards are named in their own suits');
+check(!/NaN|undefined/.test(Z.jokerMarkup(true, false) + Z.jokerMarkup(false, true)), 'both jokers draw');
+check(Z.markSvg().includes('<svg') && Z.wordmarkSvg().includes('aria-label="ZimiGames"') && Z.BACKS[0].id === 'zimi', 'the mark, the wordmark and the Zimi back exist');
 check(Z.faceMarkup(id('AS'), true).includes('xmlns'), 'the standalone face is a complete SVG document');
 Z.BACKS.forEach(b => check(Z.backMarkup(b.id).includes('zc-bk') && !/NaN|undefined/.test(Z.backMarkup(b.id)), 'the ' + b.name + ' back draws'));
 check(Z.BACKS.length >= 4, 'at least four animated backs plus the classic one');

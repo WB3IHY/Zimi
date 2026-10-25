@@ -47,7 +47,16 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 .zc-card.zc-hint { animation: zc-nudge 0.28s ease-in-out; }
 @keyframes zc-flip { from { transform: var(--zc-t) scaleX(0.05); } to { transform: var(--zc-t) scaleX(1); } }
 @keyframes zc-nudge { 0%, 100% { margin-left: 0; } 30% { margin-left: -4px; } 70% { margin-left: 4px; } }
+.zc-card { container-type: inline-size; }
 .zc-face, .zc-back { position: absolute; inset: 0; }
+
+/* One face, three sizes: below ~64 px the fine detail goes, below ~41 px the
+   index becomes one large row and the body a single big suit or figure. */
+@container (max-width: 64px) { .zc-fine { display: none; } }
+@container (max-width: 41px) {
+  .zc-idx-std, .zc-big { display: none; }
+  .zc-idx-row, .zc-small { display: inline; }
+}
 .zc-face svg, .zc-back svg { display: block; width: 100%; height: 100%; }
 .zc-card.zc-down .zc-face { display: none; }
 .zc-card:not(.zc-down) .zc-back { display: none; }
@@ -75,6 +84,8 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 @keyframes zc-fly { 0% { transform: translate(-16px, 34px); } 18% { transform: translate(30px, 16px); } 34% { transform: translate(112px, 30px); } 100% { transform: translate(112px, 30px); } }
 .zc-wing { animation: zc-flap 0.32s ease-in-out infinite alternate; transform-origin: 50% 50%; }
 @keyframes zc-flap { from { transform: scaleY(1); } to { transform: scaleY(0.35); } }
+.zc-sheen { animation: zc-sheen 9s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+@keyframes zc-sheen { 0%, 62% { transform: translateX(0); } 100% { transform: translateX(190px); } }
 .zc-lit { animation: zc-twinkle 2.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .zc-bk *, .zc-card, .zc-card.zc-flip { animation: none !important; transition: none !important; }

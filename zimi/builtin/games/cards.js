@@ -77,16 +77,34 @@
     return 'M' + cx + ' ' + top + arc(r, 0, bot) + arc(rx, c > 0 ? 1 : 0, top) + 'Z';
   }
 
-  // ── Faces ─────────────────────────────────────────────────────────────
+  // ── The Zimi deck ─────────────────────────────────────────────────────
+  // Original French-suited deck. Everything is drawn: indices are stroked
+  // paths (no font is ever needed), courts are geometric busts built from a
+  // few shapes, and the Ace of Spades carries the ZimiGames mark. One face is
+  // one SVG in a 100x140 box. Detail that cannot be seen on a small card is
+  // marked `zc-fine`, a small card's own layout `zc-small` / `zc-idx-row`:
+  // cards.css switches them by the card's width (container query), so the
+  // same markup serves a phone's Spider (33 px) and a desktop's Solitaire.
   // Suit shapes centred on 0,0 inside ±10; one sprite, `use`d by every card.
   var SUIT_SHAPES = [
     '<circle cy="-5" r="4.8"/><circle cx="-5.2" cy="2.6" r="4.8"/><circle cx="5.2" cy="2.6" r="4.8"/><path d="M-1.3 2C-1 6-2.6 8-4.6 10h9.2C2.6 8 1 6 1.3 2z"/>',
-    '<path d="M0-10 7 0 0 10-7 0z"/>',
-    '<path d="M0 9C-14-1-10-10-4.5-8.5-2-7.8 0-5.5 0-4 0-5.5 2-7.8 4.5-8.5 10-10 14-1 0 9z"/>',
+    '<path d="M0-11C1.6-6 4.6-2.6 7.6 0 4.6 2.6 1.6 6 0 11-1.6 6-4.6 2.6-7.6 0-4.6-2.6-1.6-6 0-11z"/>',
+    '<path d="M0 9.5C-14-1-10-10-4.5-8.5-2-7.8 0-5.5 0-4 0-5.5 2-7.8 4.5-8.5 10-10 14-1 0 9.5z"/>',
     '<path d="M0-10C-4-5-11-1-9 3.5-7.5 7-2.5 6-1.5 3-1.5 6-2 8-4 10h8C2 8 1.5 6 1.5 3 2.5 6 7.5 7 9 3.5 11-1 4-5 0-10z"/>'
   ];
+  // The Italian suits, in the same hand: coins, cups, swords, clubs.
+  var ITALIAN_SUITS = ['coins', 'cups', 'swords', 'clubs'];
+  var ITALIAN_NAMES = ['ace', '2', '3', '4', '5', '6', '7', 'fante', 'cavallo', 're'];
+  var ITALIAN_SHAPES = [
+    '<path fill-rule="evenodd" d="M-9.5 0a9.5 9.5 0 1 0 19 0 9.5 9.5 0 1 0-19 0zM-6.6 0a6.6 6.6 0 1 1 13.2 0 6.6 6.6 0 1 1-13.2 0z"/><path d="M0-4.6 1.4-1.4 4.6 0 1.4 1.4 0 4.6-1.4 1.4-4.6 0-1.4-1.4z"/>',
+    '<path d="M-8-9.5H8C8-3 4.6 0.6 1.7 1.6V6.4H6.4V9.8H-6.4V6.4H-1.7V1.6C-4.6 0.6-8-3-8-9.5z"/>',
+    '<path d="M0-11 2.1-8.2V2.4H-2.1V-8.2z"/><path d="M-7 3H7V5.2H-7z"/><path d="M-1.2 5.2H1.2V8.2H-1.2z"/><circle cy="9.1" r="1.6"/>',
+    '<g transform="rotate(32)"><path d="M-2.5-8.4a2.5 2.5 0 0 1 5 0V7.4a2.5 2.5 0 0 1-5 0z"/><circle cx="-3.6" cy="-3.4" r="1.8"/><circle cx="3.6" cy="0.8" r="1.8"/></g>'
+  ];
+  var ITALIAN_COLOURS = ['#b87500', '#c62828', '#2c4a86', '#2f7d4f'];
   var CARD_RED = '#c62828', CARD_BLACK = '#1b1b1b', CARD_CREAM = '#fdfcf8', CARD_EDGE = '#c9c4b8'; // games.css tokens, repeated for the cascade's bitmaps
-  var FACE_W = 100, FACE_H = 140;
+  var GOLD = '#e09400', MARK_FROM = '#fb8c14', MARK_TO = '#f2582a'; // Zimi's amber, and the two ends of the Z's gradient
+  var FACE_W = 100, FACE_H = 140, ACE_SCALE = 3.3, ACE_SPADE_SCALE = 3.9;
   var PIP_SCALE = 1.15, PIP_SCALE_DENSE = 0.95, DENSE_FROM = 8, PIP_COLS = [34, 66], PIP_MID_X = 50, PIP_TOP = 32, PIP_BOTTOM = 108, PIP_CENTRE = 70, FLIP_AFTER_Y = 70;
   var PIPS = (function () {
     var sides = function (ys) { var o = []; ys.forEach(function (y) { PIP_COLS.forEach(function (x) { o.push([x, y]); }); }); return o; };
@@ -97,39 +115,176 @@
       two, two.concat([mid(PIP_CENTRE)]), three, three.concat([mid(51)]), three.concat([mid(51), mid(89)]),
       four.concat([mid(PIP_CENTRE)]), four.concat([mid(44.5), mid(95.5)])];
   })();
-  var COURT_CROWN = [
-    'M-12 6C-12-6 2-6 2-6 12-6 14-12 14-12 16 0 12 6 12 6z', // jack: a plumed cap
-    'M-14 6-16-4-8 0-4-8 0 0 4-8 8 0 16-4 14 6z',            // queen
-    'M-14 6-14-6-7 0 0-9 7 0 14-6 14 6z'                      // king
-  ];
-  var SERIF = "Georgia,'Times New Roman',serif";
 
-  function placed(s, x, y, scale, turn, standalone) {
-    var shape = standalone ? SUIT_SHAPES[s] : '<use href="#zc-s-' + s + '"/>';
+  // The Z of Zimi's icon: two bars and the diagonal, 40 wide, 52 tall.
+  var MARK_Z = 'M0 0H40V10.5L17 41.5H40V52H0V41.5L23 10.5H0z', MARK_Z_W = 40, MARK_Z_H = 52;
+  var MARK_GRADIENT = '<linearGradient id="zc-g-mark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + MARK_FROM + '"/><stop offset="1" stop-color="' + MARK_TO + '"/></linearGradient>';
+  // The Z centred on cx,cy at `k` times its drawn size, in the mark's gradient.
+  function markZ(cx, cy, k) {
+    return '<path transform="translate(' + (cx - MARK_Z_W * k / 2) + ' ' + (cy - MARK_Z_H * k / 2) + ') scale(' + k + ')" d="' + MARK_Z + '" fill="url(#zc-g-mark)"/>';
+  }
+
+  // Index glyphs: stroked paths on a 10 x 14 grid, square ends and mitred
+  // corners like the Z's. `w` is the advance for the ones that are not 10.
+  var GLYPH_STROKE = 2.4;
+  var GLYPHS = {
+    A: { d: 'M0 14 5 0 10 14M2.2 9.4H7.8' },
+    '1': { d: 'M1.2 3.2 5 0V14', w: 6 },
+    '2': { d: 'M1 4.6C1 1.6 3 0 5 0S9.2 1.6 9.2 4.2C9.2 7 6 9.6 1 14H10' },
+    '3': { d: 'M1 1H9L4.6 6C8.6 6 10 8 10 10 10 12.6 8 14 5 14 2.6 14 1.2 13 .8 11.4' },
+    '4': { d: 'M7.6 14V0L0 10H10.6' },
+    '5': { d: 'M9 0H1.8L1 6.4C2 5.6 3.4 5.2 5 5.2 8 5.2 9.6 7.4 9.6 9.7 9.6 12.4 7.6 14 5 14 2.8 14 1.4 13 .8 11.4' },
+    '6': { d: 'M8.6 1.2C7.6.4 6.4 0 5.2 0 2.4 0 .8 3 .8 8 .8 12 2.4 14 5 14 7.6 14 9.2 12.2 9.2 9.6 9.2 7.4 7.6 5.8 5.2 5.8 3.2 5.8 1.6 6.8.8 8.4' },
+    '7': { d: 'M.4 0H9.8L3.8 14' },
+    '8': { d: 'M5 0C2.6 0 1.2 1.4 1.2 3.4 1.2 5.4 2.8 6.6 5 7 7.4 7.4 9.2 8.6 9.2 10.6 9.2 12.6 7.4 14 5 14 2.6 14 .8 12.6.8 10.6.8 8.6 2.6 7.4 5 7 7.2 6.6 8.8 5.4 8.8 3.4 8.8 1.4 7.4 0 5 0z' },
+    '9': { d: 'M8.6 1.2C7.6.4 6.4 0 5.2 0 2.4 0 .8 3 .8 8 .8 12 2.4 14 5 14 7.6 14 9.2 12.2 9.2 9.6 9.2 7.4 7.6 5.8 5.2 5.8 3.2 5.8 1.6 6.8.8 8.4', turn: true },
+    '10': { d: 'M1.2 3.2 4.6 0V14M11 0C8 0 6.8 3 6.8 7S8 14 11 14 14.8 11 14.8 7 14 0 11 0z', w: 15 },
+    J: { d: 'M8 0V9.6C8 12.6 6.4 14 4.2 14 2.2 14 .8 13 .3 11' },
+    Q: { d: 'M5 0C2 0 .8 3 .8 7S2 14 5 14 9.2 11 9.2 7 8 0 5 0zM6 10.4 10.2 15.4' },
+    K: { d: 'M1 0V14M9.6 0 1 8M3.8 6 10 14' },
+    // Only the wordmark uses these.
+    Z: { d: 'M0 1.2H10L0 12.8H10' },
+    I: { d: 'M0 0V14', w: 0 },
+    M: { d: 'M0 14V0L5 8.6 10 0V14' },
+    G: { d: 'M9.6 3C8.6 1.2 7 0 5.2 0 2.4 0 .8 3 .8 7S2.4 14 5.2 14C7.8 14 9.4 12.4 9.4 9.2H5.4' },
+    E: { d: 'M10 0H0V14H10M0 7H8' },
+    S: { d: 'M9.2 3C8.6 1.2 7 0 5 0 2.8 0 1.2 1.2 1.2 3.4 1.2 5.6 3 6.4 5 7 7 7.6 9.2 8.4 9.2 10.6 9.2 12.8 7.4 14 5 14 2.8 14 1.2 12.8.6 11' }
+  };
+  function glyphWidth(label) { return GLYPHS[label].w === undefined ? 10 : GLYPHS[label].w; }
+  // A glyph, centred on x with its top at y, `s` times its grid size.
+  function glyph(label, x, y, s) {
+    var g = GLYPHS[label];
+    return '<path transform="translate(' + (x - glyphWidth(label) * s / 2) + ' ' + y + ')' + (g.turn ? ' rotate(180 ' + 5 * s + ' ' + 7 * s + ')' : '') + ' scale(' + s + ')" d="' + g.d +
+      '" fill="none" stroke="currentColor" stroke-width="' + GLYPH_STROKE + '" stroke-linejoin="miter" stroke-miterlimit="6"/>';
+  }
+
+  // Suits come from the page's sprite (`use`) or, for the cascade's bitmaps,
+  // inline. `shapes` is the set (French or Italian) and `prefix` its sprite ids.
+  function placed(s, x, y, scale, turn, standalone, shapes, prefix) {
+    var shape = standalone ? (shapes || SUIT_SHAPES)[s] : '<use href="#' + (prefix || 'zc-s-') + s + '"/>';
     return '<g transform="translate(' + x + ' ' + y + ')' + (turn ? ' rotate(180)' : '') + ' scale(' + scale + ')">' + shape + '</g>';
   }
-  // One card face as SVG markup. `standalone` inlines the suit shapes and a
-  // card body, for the bitmaps the cascade draws from.
-  function faceMarkup(id, standalone) {
-    var r = rank(id), s = suit(id), label = RANK_LABELS[r - 1], body = '';
-    var indexAt = function (turn) {
-      return '<g' + (turn ? ' transform="rotate(180 50 70)"' : '') + '><text x="11" y="21" font-size="' + (r === 10 ? 17 : 21) +
-        '" font-weight="700" text-anchor="middle" font-family="' + SERIF + '">' + label + '</text>' + placed(s, 11, 33, 0.62, false, standalone) + '</g>';
+
+  // The corner index: rank above suit, and again on the far corner. A small
+  // card gets the row version instead (rank beside suit, much larger), which
+  // still reads in the sliver a fanned pile shows.
+  var IDX_X = 10.5, IDX_Y = 5, IDX_SCALE = 1.35, IDX_SCALE_TEN = 1.05, IDX_TEN_DROP = 1.5, IDX_SUIT_Y = 38, IDX_SUIT_SCALE = 0.7;
+  var ROW_Y = 5, ROW_SCALE = 2.1, ROW_SUIT_X = 60, ROW_SUIT_Y = 21, ROW_SUIT_SCALE = 1.25, ROW_RANK_X = 4;
+  function indexMarkup(label, s, standalone, shapes, prefix) {
+    var ten = label === '10';
+    var one = function (turn) {
+      return '<g class="zc-idx-std"' + (turn ? ' transform="rotate(180 50 70)"' : '') + '>' + glyph(label, IDX_X, IDX_Y + (ten ? IDX_TEN_DROP : 0), ten ? IDX_SCALE_TEN : IDX_SCALE) +
+        placed(s, IDX_X, IDX_SUIT_Y, IDX_SUIT_SCALE, false, standalone, shapes, prefix) + '</g>';
     };
-    if (r === 1) body = placed(s, 50, 70, 3.3, false, standalone);
-    else if (r <= 10) {
-      PIPS[r].forEach(function (p) { body += placed(s, p[0], p[1], r >= DENSE_FROM ? PIP_SCALE_DENSE : PIP_SCALE, p[1] > FLIP_AFTER_Y, standalone); });
-    } else {
-      body = '<rect x="24" y="26" width="52" height="88" rx="4" fill-opacity="0.07" stroke="currentColor" stroke-width="1.6"/>' +
-        '<g transform="translate(50 50)"><path d="' + COURT_CROWN[r - 11] + '"/></g>' +
-        '<text x="50" y="94" font-size="36" font-weight="700" text-anchor="middle" font-family="' + SERIF + '">' + label + '</text>' +
-        placed(s, 36, 38, 0.6, false, standalone) + placed(s, 64, 102, 0.6, true, standalone);
+    var row = standalone ? '' : '<g class="zc-idx-row" display="none">' + glyph(label, ROW_RANK_X + glyphWidth(label) * ROW_SCALE / 2, ROW_Y, ROW_SCALE) +
+      placed(s, ROW_SUIT_X, ROW_SUIT_Y, ROW_SUIT_SCALE, false, standalone, shapes, prefix) + '</g>';
+    return one(false) + one(true) + row;
+  }
+
+  // A court figure's top half: head, headwear and shoulders in the box
+  // x 24..76, y 17..63, standing on y = 63. The card's other half is the same
+  // turned round, with the suit between them. `kind` picks the headwear.
+  var COURT_KINDS = ['jack', 'queen', 'king', 'fante', 'cavallo', 're'];
+  var COURT_BASE = 63;
+  function bust(kind) {
+    var gold = function (d, extra) { return '<path d="' + d + '" fill="' + GOLD + '"' + (extra || '') + '/>'; };
+    var pearls = function (pts) { return '<g class="zc-fine">' + pts.map(function (p) { return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="1.5"/>'; }).join('') + '</g>'; };
+    var rim = ' stroke="currentColor" stroke-width="1.1"';
+    var hat;
+    if (kind === 'jack' || kind === 'fante') {
+      hat = '<path d="M41.4 38.6C41 30 59 30 58.6 38.6z"/><path d="M39.2 39.2H60.8" stroke="currentColor" stroke-width="2.2"/>' +
+        '<path d="M57.4 32.4C64 30 67.8 25 65.6 18.6" fill="none" stroke="' + GOLD + '" stroke-width="2.6"/>';
+    } else if (kind === 'queen') {
+      hat = gold('M41.6 34 40.4 23 45.6 28 50 21 54.4 28 59.6 23 58.4 34z', rim) + pearls([[40.4, 22.4], [50, 20], [59.6, 22.4]]);
+    } else if (kind === 'king' || kind === 're') {
+      hat = gold('M41 34 38.6 21.6 44.8 27 50 19 55.2 27 61.4 21.6 59 34z', rim) + pearls([[38.6, 21], [50, 18.2], [61.4, 21]]) +
+        '<path d="M42.2 40C42.2 52 57.8 52 57.8 40 55.6 44.4 44.4 44.4 42.2 40z"/>';
+    } else { // cavallo: a helm with a plume
+      hat = '<path d="M41 41C40 29 60 29 59 41z"/><path d="M42.6 38.6H57.4" stroke="' + GOLD + '" stroke-width="1.8"/>' +
+        gold('M50 31C54.6 22 63.6 23.4 65.6 31 61.4 27.4 56 28.6 53 33.6z');
     }
-    var open = standalone
-      ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + FACE_W + ' ' + FACE_H + '" fill="currentColor" style="color:' + (isRed(id) ? CARD_RED : CARD_BLACK) + '">' +
-        '<rect x="0.5" y="0.5" width="99" height="139" rx="7.5" fill="' + CARD_CREAM + '" stroke="' + CARD_EDGE + '"/>'
-      : '<svg viewBox="0 0 ' + FACE_W + ' ' + FACE_H + '" fill="currentColor" aria-hidden="true">';
-    return open + indexAt(false) + indexAt(true) + body + '</svg>';
+    return '<path d="M26 63 29.6 55C34 51 42 50 50 50S66 51 70.4 55L74 63z"/>' +
+      '<circle cx="50" cy="40" r="8.2" fill="' + CARD_CREAM + '" stroke="currentColor" stroke-width="1.5"/>' + hat +
+      '<g class="zc-fine"><path d="M43.6 51.2 50 58.4 56.4 51.2" fill="none" stroke="' + GOLD + '" stroke-width="1.9"/></g>';
+  }
+
+  var COURT_PIP_X = 31.5, COURT_PIP_Y = 27, COURT_PIP_SCALE = 0.55, COURT_BAND = 7, COURT_MID_PIP = 0.62;
+  var SMALL_COURT = '<g class="zc-small" display="none" transform="translate(50 128) scale(1.55) translate(-50 -' + COURT_BASE + ')">';
+  function courtMarkup(kind, s, standalone) {
+    var half = bust(kind) + placed(s, COURT_PIP_X, COURT_PIP_Y, COURT_PIP_SCALE, false, standalone);
+    var line = function (y) { return '<path d="M21 ' + y + 'H79" stroke="currentColor" stroke-width="0.8" opacity="0.55"/>'; };
+    return '<g class="zc-big"><rect x="21" y="15" width="58" height="110" rx="3.5" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.2"/>' +
+      '<rect class="zc-fine" x="23.6" y="17.6" width="52.8" height="104.8" rx="1.8" fill="none" stroke="' + GOLD + '" stroke-width="0.7"/>' +
+      line(COURT_BASE) + line(140 - COURT_BASE) + '<path d="M26 70H40M60 70H74" stroke="' + GOLD + '" stroke-width="1"/>' +
+      placed(s, 50, 70, COURT_MID_PIP, false, standalone) +
+      '<g>' + half + '</g><g transform="rotate(180 50 70)">' + half + '</g></g>' +
+      (standalone ? '' : SMALL_COURT + bust(kind) + '</g>');
+  }
+
+  // The same pip for the small card's simplified body.
+  var SMALL_SUIT_Y = 92, SMALL_SUIT_SCALE = 3.1;
+  function smallSuit(s, standalone, shapes, prefix, extra) {
+    return standalone ? '' : '<g class="zc-small" display="none">' + placed(s, 50, SMALL_SUIT_Y, SMALL_SUIT_SCALE, false, false, shapes, prefix) + (extra || '') + '</g>';
+  }
+
+  // The svg around a face. `standalone` adds a card body and the defs, for
+  // the bitmaps the cascade draws from.
+  function faceFrame(inner, colour, standalone) {
+    return standalone
+      ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + FACE_W + ' ' + FACE_H + '" fill="currentColor" style="color:' + colour + '"><defs>' + MARK_GRADIENT + '</defs>' +
+        '<rect x="0.5" y="0.5" width="99" height="139" rx="7.5" fill="' + CARD_CREAM + '" stroke="' + CARD_EDGE + '"/>' + inner + '</svg>'
+      : '<svg viewBox="0 0 ' + FACE_W + ' ' + FACE_H + '" fill="currentColor" aria-hidden="true"' + (colour ? ' style="color:' + colour + '"' : '') + '>' + inner + '</svg>';
+  }
+
+  // One French-suited card face as SVG markup (ids 0..51, further decks
+  // wrap). The page's card element sets the suit colour.
+  function faceMarkup(id, standalone) {
+    var r = rank(id), s = suit(id), label = RANK_LABELS[r - 1], body;
+    if (r === 1) {
+      var spadeAce = s === 3;
+      body = '<g class="zc-big">' + placed(s, 50, 70, spadeAce ? ACE_SPADE_SCALE : ACE_SCALE, false, standalone) + (spadeAce ? markZ(50, 67, 0.52) : '') + '</g>' +
+        smallSuit(s, standalone, null, null, spadeAce ? markZ(50, SMALL_SUIT_Y - 2, 0.42) : '');
+    } else if (r <= 10) {
+      var pips = '';
+      PIPS[r].forEach(function (p) { pips += placed(s, p[0], p[1], r >= DENSE_FROM ? PIP_SCALE_DENSE : PIP_SCALE, p[1] > FLIP_AFTER_Y, standalone); });
+      body = '<g class="zc-big">' + pips + '</g>' + smallSuit(s, standalone);
+    } else body = courtMarkup(COURT_KINDS[r - 11], s, standalone);
+    return faceFrame(indexMarkup(label, s, standalone) + body, standalone ? (isRed(id) ? CARD_RED : CARD_BLACK) : '', standalone);
+  }
+
+  // The Italian deck, 40 cards: id = suit * 10 + (rank - 1), suits coins,
+  // cups, swords, clubs; 1 to 7, then Fante (8), Cavallo (9), Re (10). The
+  // court figures stand upright, one to a card, in the suit's own colour.
+  function italianName(id) { return ITALIAN_NAMES[id % 10] + ' of ' + ITALIAN_SUITS[Math.floor(id / 10) % 4]; }
+  var ITALIAN_PREFIX = 'zc-i-', ITALIAN_BASE = 90, ITALIAN_PIP_SCALE = 1.05;
+  function italianFaceMarkup(id, standalone) {
+    var r = id % 10 + 1, s = Math.floor(id / 10) % 4, body, p = ITALIAN_PREFIX;
+    if (r === 1) body = '<g class="zc-big">' + placed(s, 50, 70, 3.4, false, standalone, ITALIAN_SHAPES, p) + '</g>' + smallSuit(s, standalone, ITALIAN_SHAPES, p);
+    else if (r <= 7) {
+      var pips = '';
+      PIPS[r].forEach(function (pt) { pips += placed(s, pt[0], pt[1], ITALIAN_PIP_SCALE, false, standalone, ITALIAN_SHAPES, p); });
+      body = '<g class="zc-big">' + pips + '</g>' + smallSuit(s, standalone, ITALIAN_SHAPES, p);
+    } else {
+      var kind = COURT_KINDS[r - 5]; // 8 fante, 9 cavallo, 10 re
+      body = '<g class="zc-big"><rect x="20" y="22" width="60" height="96" rx="3.5" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.2"/>' +
+        '<rect class="zc-fine" x="22.6" y="24.6" width="54.8" height="90.8" rx="1.8" fill="none" stroke="' + GOLD + '" stroke-width="0.7"/>' +
+        '<g transform="translate(50 ' + ITALIAN_BASE + ') scale(1.2) translate(-50 -' + COURT_BASE + ')">' + bust(kind) + '</g><path d="M20 ' + ITALIAN_BASE + 'H80" stroke="currentColor" stroke-width="0.8" opacity="0.5"/>' +
+        placed(s, 50, 106, 1, false, standalone, ITALIAN_SHAPES, p) + '</g>' + (standalone ? '' : SMALL_COURT + bust(kind) + '</g>');
+    }
+    return faceFrame(indexMarkup(String(r), s, standalone, ITALIAN_SHAPES, p) + body, ITALIAN_COLOURS[s], standalone);
+  }
+
+  // A joker: a jester's three-pointed cap over a round face and a zigzag
+  // collar, in black or red. Not part of the 0..51 ids.
+  function jokerMarkup(red, standalone) {
+    var star = function (x, y, k) { return '<path transform="translate(' + x + ' ' + y + ') scale(' + k + ')" d="M0-10 2.6-2.6 10 0 2.6 2.6 0 10-2.6 2.6-10 0-2.6-2.6z"/>'; };
+    var gold = function (x, y) { return '<circle cx="' + x + '" cy="' + y + '" r="3.4" fill="' + GOLD + '"/>'; };
+    var figure = '<path d="M33 66C28 50 30 38 36 28 40 40 44 46 50 47 56 46 60 40 64 28 70 38 72 50 67 66z"/>' + gold(36, 26.6) + gold(64, 26.6) + gold(50, 40) +
+      '<circle cx="50" cy="66" r="12" fill="' + CARD_CREAM + '" stroke="currentColor" stroke-width="1.8"/>' +
+      '<path d="M30 92 36 82 42 92 50 82 58 92 64 82 70 92z" fill="' + GOLD + '"/><path d="M26 112C30 100 40 94 50 94S70 100 74 112z"/>';
+    var inner = star(11, 18, 0.95) + '<g transform="rotate(180 50 70)">' + star(11, 18, 0.95) + '</g>' +
+      '<rect x="24" y="22" width="52" height="96" rx="3.5" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.2"/>' + figure;
+    return faceFrame(inner, red ? CARD_RED : CARD_BLACK, standalone);
   }
 
   // ── Backs ─────────────────────────────────────────────────────────────
@@ -137,13 +292,14 @@
   // animation is CSS on a few groups per card; cards.css pauses it with the
   // tab and drops it under reduced motion.
   var BACKS = [
+    { id: 'zimi', name: 'Zimi' },
     { id: 'classic', name: 'Classic' },
     { id: 'night', name: 'Night sky' },
     { id: 'sea', name: 'The sea' },
     { id: 'robot', name: 'Robot' },
     { id: 'castle', name: 'Castle' }
   ];
-  var DEFAULT_BACK = 'night';
+  var DEFAULT_BACK = 'zimi';
   var ART_W = 92, ART_H = 132, ART_PAD = 4;
   var WAVE_PERIOD = 46, WAVE_REPEATS = 8;
   function wavePath(y, fill) {
@@ -155,6 +311,19 @@
     return '<g class="zc-tw ' + cls + '" fill="#fff">' + pts.map(function (p) { return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="' + p[2] + '"/>'; }).join('') + '</g>';
   }
   var BACK_ART = {
+    // The Zimi back: the mark on a dark lattice, a slow sheen across it now
+    // and then, and a glow behind the Z that breathes.
+    zimi: function () {
+      return '<rect width="92" height="132" fill="#0c0c0e"/><rect width="92" height="132" fill="url(#zc-p-zimi)"/>' +
+        '<rect x="7" y="7" width="78" height="118" rx="2" fill="none" stroke="url(#zc-g-mark)" stroke-width="1.3"/>' +
+        '<rect x="11" y="11" width="70" height="110" rx="1" fill="none" stroke="' + MARK_FROM + '" stroke-width=".5" opacity=".45"/>' +
+        '<circle class="zc-tw zc-tw2" cx="46" cy="66" r="30" fill="url(#zc-g-glow)"/>' +
+        '<path d="M46 24 76 66 46 108 16 66z" fill="#141012" stroke="url(#zc-g-mark)" stroke-width="1.4"/>' +
+        '<path d="M46 31 69 66 46 101 23 66z" fill="none" stroke="' + MARK_FROM + '" stroke-width=".5" opacity=".5"/>' +
+        markZ(46, 66, 0.62) +
+        '<g fill="' + MARK_FROM + '"><path d="M18 18l3 3-3 3-3-3zM74 18l3 3-3 3-3-3zM18 108l3 3-3 3-3-3zM74 108l3 3-3 3-3-3z"/></g>' +
+        '<g class="zc-sheen"><path d="M-60 0H-40L-14 132H-34z" fill="url(#zc-g-sheen)"/></g>';
+    },
     classic: function () {
       return '<rect width="92" height="132" fill="url(#zc-p-classic)"/><rect x="9" y="9" width="74" height="114" fill="none" stroke="#e8eefc" stroke-width="2" opacity=".85"/>' +
         '<path d="M46 34 70 66 46 98 22 66z" fill="#e8eefc" opacity=".92"/><path d="M46 44 60 66 46 88 32 66z" fill="#b3322f"/>';
@@ -197,11 +366,54 @@
   };
   // Gradients and patterns live once in the page's sprite: a reference into a
   // clone that is display:none would break.
-  var SPRITE_DEFS = '<linearGradient id="zc-g-night" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1a3d"/><stop offset="1" stop-color="#3a4f8a"/></linearGradient>' +
+  var SPRITE_DEFS = MARK_GRADIENT +
+    '<radialGradient id="zc-g-glow"><stop offset="0" stop-color="' + MARK_FROM + '" stop-opacity=".34"/><stop offset="1" stop-color="' + MARK_FROM + '" stop-opacity="0"/></radialGradient>' +
+    '<linearGradient id="zc-g-sheen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".2"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
+    '<pattern id="zc-p-zimi" width="11" height="11" patternUnits="userSpaceOnUse"><path d="M5.5 0 11 5.5 5.5 11 0 5.5z" fill="none" stroke="' + MARK_FROM + '" stroke-width=".45" opacity=".26"/></pattern>' +
+    '<linearGradient id="zc-g-night" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1a3d"/><stop offset="1" stop-color="#3a4f8a"/></linearGradient>' +
     '<linearGradient id="zc-g-sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd6f5"/><stop offset="1" stop-color="#2b8fc9"/></linearGradient>' +
     '<linearGradient id="zc-g-castle" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b1646"/><stop offset=".7" stop-color="#8a3f6b"/><stop offset="1" stop-color="#e58a4b"/></linearGradient>' +
     '<pattern id="zc-p-classic" width="10" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#1d3b7a"/><path d="M5 0 10 5 5 10 0 5z" fill="none" stroke="#c9d6f2" stroke-width=".8" opacity=".55"/></pattern>' +
     '<pattern id="zc-p-grid" width="12" height="12" patternUnits="userSpaceOnUse"><path d="M12 0H0V12" fill="none" stroke="#27e6ff" stroke-width=".4" opacity=".25"/></pattern>';
+
+
+  // ── The ZimiGames mark and wordmark ────────────────────────────────────
+  // The mark is Zimi's Z dealt onto a card, a second card in the Z's
+  // gradient fanned behind it. Built here once so the Ace of Spades, the
+  // ZIM icon, mark.svg and the shelf header cannot drift apart: `markSvg`
+  // and `wordmarkSvg` return complete SVG documents (see
+  // docs/plans/2026-10-24-zimigames-identity.md).
+  var MARK_CARD = { x: 22, y: 11, w: 56, h: 78, r: 6, fan: 14, ink: '#0a0a0b', zw: 30 };
+  function markSvg(opts) {
+    opts = opts || {};
+    var c = MARK_CARD, rect = function (extra) { return '<rect x="' + c.x + '" y="' + c.y + '" width="' + c.w + '" height="' + c.h + '" rx="' + c.r + '" ' + extra + '/>'; };
+    var k = c.zw / MARK_Z_W;
+    var art = '<g transform="translate(4 3)">' + rect('transform="rotate(' + c.fan + ' 50 50)" fill="url(#zm-g)"') + '</g>' +
+      '<g transform="translate(-4 3)">' + rect('fill="' + c.ink + '" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"') +
+      '<path transform="translate(' + (50 - c.zw / 2) + ' ' + (50 - MARK_Z_H * k / 2) + ') scale(' + k + ')" d="' + MARK_Z + '" fill="url(#zm-g)"/></g>';
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs>' + MARK_GRADIENT.replace('zc-g-mark', 'zm-g') + '</defs>' +
+      (opts.tile ? '<rect width="100" height="100" rx="22" fill="' + c.ink + '"/><g transform="translate(10 10) scale(0.8)">' + art + '</g>' : art) + '</svg>';
+  }
+  // Z, then IMI over GAMES on one line: the Z is the mark's own, IMI a bold
+  // stroke, GAMES a light one. Ink comes from `currentColor`.
+  var WORD_BOLD = 3.1, WORD_LIGHT = 1.7, WORD_H = 14, WORD_Z_GAP = 3.4, WORD_BOLD_GAP = 4.4, WORD_LIGHT_GAP = 3.6, WORD_BREAK = 6;
+  function wordmarkSvg() {
+    var x = 0, out = '', k = WORD_H / MARK_Z_H, gap = 0;
+    var run = function (text, stroke, between) {
+      text.split('').forEach(function (ch) {
+        out += '<path transform="translate(' + x + ' 0)" d="' + GLYPHS[ch].d + '" fill="none" stroke="currentColor" stroke-width="' + stroke + '" stroke-miterlimit="8"/>';
+        x += glyphWidth(ch) + between;
+      });
+      gap = between;
+    };
+    out += '<path d="' + MARK_Z + '" transform="scale(' + k + ')" fill="url(#zw-g)"/>';
+    x += MARK_Z_W * k + WORD_Z_GAP;
+    run('IMI', WORD_BOLD, WORD_BOLD_GAP);
+    x += WORD_BREAK - WORD_BOLD_GAP;
+    run('GAMES', WORD_LIGHT, WORD_LIGHT_GAP);
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 ' + (x - gap + 4) + ' ' + (WORD_H + 4) + '" role="img" aria-label="ZimiGames"><defs>' +
+      MARK_GRADIENT.replace('zc-g-mark', 'zw-g') + '</defs>' + out + '</svg>';
+  }
 
   var currentBack = DEFAULT_BACK, backListeners = [];
   function backMarkup(id) {
@@ -277,7 +489,8 @@
     if (d.getElementById('zc-sprite')) return;
     var holder = d.createElement('div');
     holder.innerHTML = '<svg id="zc-sprite" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>' +
-      SUIT_SHAPES.map(function (shape, s) { return '<symbol id="zc-s-' + s + '" overflow="visible">' + shape + '</symbol>'; }).join('') + SPRITE_DEFS + '</defs></svg>';
+      SUIT_SHAPES.map(function (shape, s) { return '<symbol id="zc-s-' + s + '" overflow="visible">' + shape + '</symbol>'; }).join('') +
+      ITALIAN_SHAPES.map(function (shape, s) { return '<symbol id="' + ITALIAN_PREFIX + s + '" overflow="visible">' + shape + '</symbol>'; }).join('') + SPRITE_DEFS + '</defs></svg>';
     d.body.insertBefore(holder.firstChild, d.body.firstChild);
   }
   function segmented(options, value, onPick) {
@@ -811,6 +1024,7 @@
     rank: rank, suit: suit, isRed: isRed, make: make, cardName: cardName, clone: clone,
     foundationAccepts: foundationAccepts, stacksOn: stacksOn, isRun: isRun, shuffled: shuffled, msDeal: msDeal,
     moonPhase: moonPhase, moonLitPath: moonLitPath, faceMarkup: faceMarkup, backMarkup: backMarkup,
+    italianFaceMarkup: italianFaceMarkup, italianName: italianName, jokerMarkup: jokerMarkup, markSvg: markSvg, wordmarkSvg: wordmarkSvg,
     fmtTime: fmtTime, plural: plural, describePile: describePile, fanStep: fanStep, pageEls: pageEls, idsOf: idsOf, restShare: restShare,
     store: store, createStats: createStats, h: h, sheet: sheet, segmented: segmented, backsSheet: backsSheet, backsRow: backsRow,
     createBoard: createBoard, createSession: createSession, ensureSprite: ensureSprite,
