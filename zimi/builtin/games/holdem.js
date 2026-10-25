@@ -404,7 +404,7 @@
         return out;
       }
       if (mine) {
-        out.text = (hot ? nm(V) + ': ' : '') + (name ? 'You have ' + name.toLowerCase() + '. ' : '') + (mine.check ? 'Your move' : mine.toCall + ' to call');
+        out.text = (hot ? nm(V) + ': ' : '') + (name ? (hot ? 'you have ' : 'You have ') + name.toLowerCase() + '. ' : '') + (mine.check ? (hot ? 'your move' : 'Your move') : mine.toCall + ' to call');
         out.choices = [{ label: 'Fold', onclick: function () { play({ type: 'fold' }); }, disabled: mine.check, aria: 'Fold' }, { label: mine.check ? 'Check' : 'Call ' + mine.toCall, onclick: function () { play({ type: 'call' }); } }];
         if (mine.canRaise) {
           var sizes = [], seen = {}, base = st.currentBet, potNow = mine.pot + mine.toCall;
