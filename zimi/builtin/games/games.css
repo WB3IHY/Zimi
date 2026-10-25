@@ -38,10 +38,12 @@ button { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* A game's bar: back to the shelf, the game's name, its controls. */
-.ar-bar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; min-height: 52px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.ar-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 16px; min-height: 52px; background: var(--surface); border-bottom: 1px solid var(--line); }
 .ar-bar h1 { flex: 1; margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ar-back { display: grid; place-items: center; min-width: 40px; min-height: 40px; margin-left: -8px; text-decoration: none; color: var(--ink2); font-size: 26px; line-height: 1; border-radius: 8px; }
+.ar-back { text-decoration: none; color: var(--ink2); font-size: 22px; line-height: 1; padding: 6px 8px; border-radius: 8px; }
 .ar-back:hover { color: var(--accent); }
+/* Tap target only (the look of the back control is the designer's): at least 40 px square. */
+.ar-back { display: inline-grid; place-items: center; min-width: 40px; min-height: 40px; margin-left: -8px; }
 .ar-btn { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); cursor: pointer; white-space: nowrap; }
 .ar-btn:hover { border-color: var(--accent); color: var(--accent); }
 .ar-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
@@ -49,7 +51,8 @@ button { font: inherit; color: inherit; }
 .ar-stat { font: 600 13px var(--mono); font-variant-numeric: tabular-nums; color: var(--ink2); white-space: nowrap; }
 
 /* Pages that are not a felt table: when the content is shorter than the screen it sits in the middle, not stuck to the bar. */
-.pl-main, .bg-main, .ms-main, .mj-main { min-height: calc(100vh - 53px); min-height: calc(100svh - 53px); justify-content: center; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+.pl-main, .bg-main, .ms-main, .mj-main { flex: 1 0 auto; justify-content: center; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+body:has(> main:is(.pl-main, .bg-main, .ms-main, .mj-main)) { display: flex; flex-direction: column; min-height: 100vh; min-height: 100svh; height: auto; }
 body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 
 /* A sheet over the game: a menu, a win, a choice of backs. */
