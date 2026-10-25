@@ -1,0 +1,20 @@
+/* Four in a Row: a slate-teal frame standing on a foot, amber and crimson discs. */
+:root { --fr-frame: #2f6f86; --fr-foot: #1f4a5b; --fr-rim: rgba(0, 0, 0, 0.18); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --fr-frame: #245568; --fr-foot: #163845; --fr-rim: rgba(0, 0, 0, 0.3); } }
+:root[data-theme="dark"] { --fr-frame: #245568; --fr-foot: #163845; --fr-rim: rgba(0, 0, 0, 0.3); }
+
+.fr-board { --bs: min(100vw - 24px, (100svh - 260px) * 1.1, 520px); }
+.fr-frame { fill: var(--fr-frame); filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.25)); }
+.fr-foot { fill: var(--fr-foot); }
+.fr-rim { fill: none; stroke: var(--fr-rim); stroke-width: 3; }
+.fr-last { fill: none; stroke: #fff; stroke-width: 3; opacity: 0.9; }
+.fr-hintarrow { fill: none; stroke: #fff; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; animation: fr-bob 0.9s ease-in-out infinite alternate; }
+.fr-disc.drop { animation: fr-drop 0.42s cubic-bezier(0.5, 0, 0.9, 0.6); }
+.fr-disc.win .fr-rim { stroke: #fff; stroke-width: 6; }
+.fr-disc.win { animation: fr-pulse 0.9s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+.fr-col:hover:not([aria-disabled="true"]), .fr-col:focus-visible { background: rgba(255, 255, 255, 0.16); }
+.fr-col:focus-visible { outline-offset: -4px; }
+@keyframes fr-drop { from { transform: translateY(var(--from)); } 82% { transform: translateY(0); } 90% { transform: translateY(-9px); } to { transform: translateY(0); } }
+@keyframes fr-pulse { from { transform: scale(1); } to { transform: scale(1.08); } }
+@keyframes fr-bob { from { transform: translateY(0); } to { transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .fr-disc.drop, .fr-disc.win, .fr-hintarrow { animation: none; } }
