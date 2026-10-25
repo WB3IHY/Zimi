@@ -232,5 +232,86 @@ const sortNum = list => list.slice().sort((a, b) => a - b);
   }
 }
 
+// ── Makruk ──
+{
+  const sb = load(['enginekit.js', 'makruk-engine.js']);
+  const E = sb.ZimiMakrukEngine(sb.ZimiSearch());
+  const at = (r, f) => r * 8 + f;
+  const mv = (fen, r, f) => { const p = E.parseFen(fen); return sortNum(E.legalMoves(p).filter(m => E.from(m) === at(r, f)).map(E.to)); };
+
+  const start = E.startPosition();
+  check(E.perft(start, 1) === 23, 'makruk: 23 moves from the start (8 Bia, 2 Ma, 3 + 3 Khon, 3 Khun, 2 Met, 2 Rua)');
+  check(E.perft(start, 2) === 23 * 23, 'makruk: the two sides do not touch at ply two (529)');
+  check(E.toFen(start) === E.START_FEN, 'makruk: the start position round-trips through its FEN');
+  check(E.START_FEN.split(' ')[0] === 'rnsmksnr/8/pppppppp/8/8/PPPPPPPP/8/RNSKMSNR', 'makruk: the Khun and the Met stand so the two Khun do not face each other');
+
+  check(same(mv('k7/8/8/8/3S4/8/8/7K w', 4, 3), sortNum([at(3, 2), at(3, 4), at(5, 2), at(5, 4), at(3, 3)])), 'makruk: a Khon steps on the four diagonals and straight ahead, never back');
+  check(same(mv('k7/8/8/8/3M4/8/8/7K w', 4, 3), sortNum([at(3, 2), at(3, 4), at(5, 2), at(5, 4)])), 'makruk: a Met takes one step on a diagonal');
+  check(mv('k7/8/8/8/3N4/8/8/7K w', 4, 3).length === 8, 'makruk: a Ma jumps like a knight');
+  check(same(mv('k7/8/8/8/8/4P3/8/7K w', 5, 4), [at(4, 4)]), 'makruk: a Bia steps one square forward only');
+  check(same(mv('k7/8/8/8/3p4/4P3/8/7K w', 5, 4), sortNum([at(4, 3), at(4, 4)])), 'makruk: a Bia takes one step on a forward diagonal');
+  check(mv('k7/8/8/8/8/8/8/R6K w', 7, 0).length === 13, 'makruk: a Rua slides along ranks and files (7 up, 6 along to the Khun)');
+
+  let pos = E.parseFen('k7/8/8/4P3/8/8/8/7K w');
+  let m = E.findMove(pos, at(3, 4), at(2, 4));
+  check(E.isPromo(m), 'makruk: a white Bia reaching the sixth rank becomes a Met');
+  E.make(pos, m);
+  check(pos.sq[at(2, 4)] === E.MET, 'makruk: ... and the board holds a Met');
+  E.unmake(pos);
+  check(pos.sq[at(3, 4)] === E.BIA && pos.sq[at(2, 4)] === 0, 'makruk: ... and unmaking brings the Bia back');
+  pos = E.parseFen('k7/8/8/8/4P3/8/8/7K w');
+  check(!E.isPromo(E.findMove(pos, at(4, 4), at(3, 4))), 'makruk: a Bia on its way, short of the sixth rank, does not promote');
+  pos = E.parseFen('k7/8/8/8/4p3/8/8/7K b');
+  check(E.isPromo(E.findMove(pos, at(4, 4), at(5, 4))), 'makruk: a black Bia promotes on the third rank');
+
+  const sq = (r, f) => at(r, f);
+  check(E.attacked(E.parseFen('k7/8/8/8/4S3/8/8/7K w'), sq(3, 4), E.WHITE) && !E.attacked(E.parseFen('k7/8/8/8/4S3/8/8/7K w'), sq(5, 4), E.WHITE), 'makruk: a Khon guards the square ahead of it but not the one behind');
+  const bp = E.parseFen('k7/8/8/8/4P3/8/8/7K w');
+  check(E.attacked(bp, sq(3, 3), E.WHITE) && E.attacked(bp, sq(3, 5), E.WHITE) && !E.attacked(bp, sq(3, 4), E.WHITE), 'makruk: a Bia guards its two forward diagonals, not the square ahead');
+
+  const mate = E.parseFen('k6R/7R/8/8/8/8/8/K7 b');
+  check(E.status(mate).result === 'mate' && E.status(mate).winner === E.WHITE, 'makruk: two Rua on the Khun\'s corner is checkmate');
+  const stale = E.parseFen('k7/1R6/2K5/8/8/8/8/8 b');
+  check(E.status(stale).result === 'stalemate', 'makruk: a Khun with no move and no check is a stalemate (a draw)');
+  pos = E.parseFen('k7/8/8/8/8/8/8/7K w'); pos.quiet = E.MOVE_LIMIT_PLIES;
+  check(E.status(pos).result === 'limit', 'makruk: sixty-four moves each without a capture or a Bia move end the game (the counting rules, simplified)');
+
+  // The attack test agrees with the move generator: a dummy enemy piece put on a square is capturable by `by`
+  // exactly when the square is attacked. Checked over every square of positions from random games.
+  {
+    const rng = seeded(11);
+    let bad = 0, n = 0;
+    for (let g = 0; g < 12; g++) {
+      const p = E.startPosition();
+      for (let ply = 0; ply < 70; ply++) {
+        const ms = E.legalMoves(p);
+        if (!ms.length) break;
+        if (ply % 5 === 0) {
+          for (let s = 0; s < 64; s++) for (const by of [E.WHITE, E.BLACK]) {
+            if (p.sq[s] * by > 0) continue;
+            const x = E.clone(p); x.sq[s] = -by * E.RUA;
+            const viaMoves = E.pseudo(x, by).some(mm => E.to(mm) === s);
+            n++;
+            if (viaMoves !== E.attacked(x, s, by)) bad++;
+          }
+        }
+        E.make(p, ms[Math.floor(rng() * ms.length)]);
+      }
+    }
+    check(bad === 0 && n > 5000, 'makruk: attacked() agrees with the move generator on ' + n + ' squares of random games');
+  }
+  {
+    const g = E.startPosition();
+    let ok = true, plies = 0;
+    for (; plies < 60; plies++) {
+      if (E.status(g).over) break;
+      const r = E.think(g, { level: 'easy', ms: 60, depth: 2 });
+      if (!E.legalMoves(g).includes(r.move)) { ok = false; break; }
+      E.make(g, r.move);
+    }
+    check(ok && plies > 20, 'makruk: the computer plays ' + plies + ' legal plies against itself');
+  }
+}
+
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
 console.log('all passed');
