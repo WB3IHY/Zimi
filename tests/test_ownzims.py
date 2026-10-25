@@ -11,6 +11,7 @@ viewers)"
 Run: pytest tests/test_ownzims.py -v
 """
 
+import datetime
 import os
 import shutil
 import sys
@@ -39,7 +40,9 @@ def home(tmp_path, monkeypatch):
 
 def test_zimigames_is_a_real_zim_any_reader_opens(home):
     path = ownzims.build(home["own"])
-    assert path == os.path.join(str(home["data"]), "zimi_games.zim")
+    month = datetime.date.today().strftime("%Y-%m")
+    assert path == os.path.join(str(home["data"]), "zimi_games_%s.zim" % month)
+    assert server._zim_base_name(os.path.basename(path)) == "zimi_games", "served without the month"
     a = Archive(path)
     assert a.main_entry.get_item().path == "index.html"
     assert a.get_metadata("Title").decode() == "ZimiGames"
@@ -70,6 +73,25 @@ def test_built_once_then_skipped_until_the_folder_changes(home):
         for n in os.listdir(os.path.dirname(first))
         if ".new" in n or n.endswith(".tmp")
     ]
+
+
+def test_a_new_month_replaces_last_months_file(home):
+    """The month is when the content changed: last month's build is current
+    until the source changes, then the new build takes this month's name and
+    the old file goes, so one file per ZIM is ever committed."""
+    own = home["own"]
+    first = ownzims.build(own)
+    old = os.path.join(str(home["data"]), "zimi_games_2000-01.zim")
+    os.rename(first, old)
+    os.rename(first + ".source", old + ".source")
+    assert ownzims.zim_path(own) == old and ownzims.fresh(own)
+    assert ownzims.build(own) is None, "an old month with the same source is current"
+    assert ownzims.category_of(old) == "Games"
+    (home["src"] / "index.html").write_text("<!doctype html><title>New</title><p>new</p>", encoding="utf-8")
+    assert ownzims.build(own) == first
+    assert sorted(os.listdir(str(home["data"]))) == sorted(
+        os.path.basename(p) for p in (first, first + ".source")
+    )
 
 
 def test_the_hash_is_the_same_everywhere_and_sees_names_and_bytes(home):

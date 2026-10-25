@@ -350,7 +350,7 @@ _BUILDS = [
 
 
 # Zimi's own ZIMs, committed in the package: the release attaches them as they are.
-_OWN_ZIMS = ["zimi_almanac.zim", "zimi_games.zim"]
+_OWN_ZIMS = ["zimi_almanac_2026-10.zim", "zimi_games_2026-10.zim"]
 
 
 def _run_release_naming(tmp, builds):

@@ -1,5 +1,5 @@
 """Zimi's own ZIMs: real ZIM files committed in the package
-(``zimi/builtin/<name>.zim``), served as the library's last tier, and attached
+(``zimi/builtin/<name>_<YYYY-MM>.zim``), served as the library's last tier, and attached
 to each release so anyone can download them for Kiwix or any other reader.
 
 Each is built from source by ``python -m zimi.ownzims``: a folder under
@@ -7,7 +7,10 @@ Each is built from source by ``python -m zimi.ownzims``: a folder under
 in the package (the Almanac's pages are the ones Zimi serves, see
 almanacstage.py). A build is skipped when the source has not changed since
 the committed file was made: the source's hash is committed beside it
-(``<name>.zim.source``), so a ZIM's bytes change only when its source did.
+(``<name>_<YYYY-MM>.zim.source``), so a ZIM's bytes change only when its source did.
+The month in the name is when the content last changed, Kiwix style, so a
+release that leaves a ZIM alone ships the same file under the same name, and
+the library serves it under its name without the month (/w/zimi_games/...).
 CI fails a pull request whose ZIMs are older than their source.
 
 Nothing is built while Zimi runs: the scan finds the committed files, so
@@ -16,8 +19,10 @@ download gets. ``ZIMI_BUILTIN_ZIMS=0`` serves none.
 """
 
 import collections
+import datetime
 import hashlib
 import os
+import re
 import sys
 import tempfile
 
@@ -58,21 +63,32 @@ def enabled():
 
 
 def zim_path(own):
-    return os.path.join(OUT_DIR, own.name + ".zim")
+    """The committed file for ``own`` (the newest month, should two be
+    around), or None when none is built."""
+    pat = re.compile(re.escape(own.name) + r"_\d{4}-\d{2}\.zim$")
+    try:
+        names = sorted(n for n in os.listdir(OUT_DIR) if pat.match(n))
+    except OSError:
+        return None
+    return os.path.join(OUT_DIR, names[-1]) if names else None
+
+
+def _new_path(own):
+    return os.path.join(OUT_DIR, "%s_%s.zim" % (own.name, datetime.date.today().strftime("%Y-%m")))
 
 
 def zim_paths():
     """The committed ZIMs, for the library scan (empty while off)."""
     if not enabled():
         return []
-    return [p for p in (zim_path(o) for o in OWN) if os.path.isfile(p)]
+    return [p for p in (zim_path(o) for o in OWN) if p]
 
 
 def category_of(path):
     """The Home section of one of these ZIMs, by its path; None for any other."""
     if not path or os.path.dirname(os.path.abspath(path)) != os.path.abspath(OUT_DIR):
         return None
-    name = os.path.splitext(os.path.basename(path))[0]
+    name = re.sub(r"_\d{4}-\d{2}\.zim$", "", os.path.basename(path))
     return next((o.category for o in OWN if o.name == name), None)
 
 
@@ -112,7 +128,7 @@ def _with_source(own, fn):
 def fresh(own):
     """Whether the committed ZIM was built from the source as it is now."""
     path = zim_path(own)
-    return os.path.isfile(path) and _with_source(own, source_hash) == _stamp(path)
+    return bool(path) and _with_source(own, source_hash) == _stamp(path)
 
 
 def build(own):
@@ -122,11 +138,12 @@ def build(own):
     def _build(folder):
         from zimi import creator
 
-        path = zim_path(own)
+        old = zim_path(own)
         want = source_hash(folder)
-        if os.path.isfile(path) and _stamp(path) == want:
+        if old and _stamp(old) == want:
             return None
         os.makedirs(OUT_DIR, exist_ok=True)
+        path = _new_path(own)
         # Built beside the old one, then swapped in: never half a file.
         new = path + ".new.zim"
         for stale in (new, new + ".tmp"):
@@ -136,6 +153,10 @@ def build(own):
         os.replace(new, path)
         with open(path + _STAMP_EXT, "w", encoding="ascii") as f:
             f.write(want + "\n")
+        if old and old != path:  # last month's build: one file per ZIM
+            for gone in (old, old + _STAMP_EXT):
+                if os.path.exists(gone):
+                    os.remove(gone)
         return path
 
     return _with_source(own, _build)
@@ -148,14 +169,14 @@ def main(argv=None):
     if "--check" in argv:
         stale = [o.name for o in OWN if not fresh(o)]
         for name in stale:
-            print("%s.zim is older than its source: run python -m zimi.ownzims" % name)
+            print("%s is older than its source: run python -m zimi.ownzims" % name)
         return 1 if stale else 0
     for own in OWN:
         path = build(own)
         print(
             "built %s (%d KB)" % (path, os.path.getsize(path) // 1024)
             if path
-            else "%s.zim is current" % own.name
+            else "%s is current" % os.path.basename(zim_path(own))
         )
     return 0
 
