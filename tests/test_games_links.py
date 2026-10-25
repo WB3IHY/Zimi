@@ -206,7 +206,12 @@ class GameOfTheDayTests(unittest.TestCase):
             "path": game["path"],
             "title": game["title"],
             "blurb": game["why"],
+            "thumbnail": gamelinks.thumbnail(game["path"]),
         }
+        assert card["thumbnail"], "the day's game has a picture inside the ZIM"
+        assert gamelinks.thumbnail("chess.html") == "/w/zimi_games/thumbs/chess.svg"
+        assert gamelinks.thumbnail("puzzles/fifteen.html") == "/w/zimi_games/puzzles/icons/fifteen.png"
+        assert gamelinks.thumbnail("nothing.html") is None
         with mock.patch.object(gamelinks.ownzims, "enabled", lambda: True):
             assert gamelinks.day_card("not a day") is None
             with mock.patch.object(_srv, "zim_allowed", lambda name: False):
