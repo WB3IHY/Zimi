@@ -110,6 +110,52 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check(strong > weak && L.chance([5, 5, 5], 3, 4, 5) === 0 && L.chance([5, 5, 5], 3, 3, 5) === 1, 'liars dice: the odds the computer works from are sane');
 }
 
+// ── Fleet ───────────────────────────────────────────────────────────────────
+{
+  const F = load(['playkit.js', 'fleet.js']).FleetEngine;
+  const b = F.createBoard();
+  check(F.addShip(b, 'Carrier', 5, 0, 0, true) && b.ships[0].cells.length === 5, 'fleet: a ship is placed across');
+  check(F.addShip(b, 'X', 3, 3, 0, true) === null && F.addShip(b, 'X', 3, 8, 3, true) === null && F.addShip(b, 'X', 3, 0, 9, false) === null && F.addShip(b, 'X', 3, -1, 2, true) === null, 'fleet: no overlap, nothing off the edge');
+  check(F.addShip(b, 'Cruiser', 4, 2, 0, false) === null && F.addShip(b, 'Cruiser', 4, 5, 0, false) !== null, 'fleet: ships may not cross');
+
+  // Firing: miss, hit, sunk, repeat, and the win.
+  const t = F.createBoard(); F.addShip(t, 'Skiff', 2, 3, 3, true); F.addShip(t, 'Sloop', 3, 0, 9, true);
+  check(F.fire(t, 0, 0).result === 'miss' && t.shots[0][0] === F.MISS, 'fleet: a shot in open water is a miss');
+  check(F.fire(t, 0, 0) === null, 'fleet: the same square twice is refused');
+  const h = F.fire(t, 3, 3);
+  check(h.result === 'hit' && h.ship.name === 'Skiff' && !h.win && t.shots[3][3] === F.HIT, 'fleet: a hit');
+  const sk = F.fire(t, 4, 3);
+  check(sk.result === 'sunk' && sk.ship.name === 'Skiff' && !sk.win && t.shots[3][3] === F.SUNK && t.shots[3][4] === F.SUNK, 'fleet: the last hit sinks it and marks every square');
+  F.fire(t, 0, 9); F.fire(t, 1, 9);
+  const last = F.fire(t, 2, 9);
+  check(last.result === 'sunk' && last.win, 'fleet: sinking the last ship wins');
+  check(F.remainingLens(t).length === 0, 'fleet: nothing left afloat');
+
+  // Random fleets are legal: five ships, right lengths, no overlap, inside the grid.
+  let legalFleets = true;
+  for (let s = 1; s <= 200; s++) {
+    const rf = F.randomFleet(F.mulberry(s)), seen = new Set();
+    legalFleets = legalFleets && rf.ships.length === 5 && rf.ships.map(x => x.len).sort().join() === '2,3,3,4,5';
+    rf.ships.forEach(sh => sh.cells.forEach(c => { const k = c[0] + ',' + c[1]; if (seen.has(k) || c[0] < 0 || c[1] < 0 || c[0] > 9 || c[1] > 9) legalFleets = false; seen.add(k); }));
+  }
+  check(legalFleets, 'fleet: 200 random fleets are all legal');
+
+  // The computer hunts: after a hit it fires next to it, and it clears random fleets in well under 100 shots.
+  const sh = F.createBoard().shots; sh[4][4] = F.HIT;
+  const pick = F.aiShot(sh, [5, 4, 3, 3, 2], F.mulberry(1));
+  check(Math.abs(pick[0] - 4) + Math.abs(pick[1] - 4) === 1, 'fleet: the computer fires beside a standing hit');
+  const sh2 = F.createBoard().shots; sh2[4][4] = F.HIT; sh2[4][5] = F.HIT;
+  const pk2 = F.aiShot(sh2, [5, 4, 3, 3, 2], F.mulberry(2));
+  check(pk2[1] === 4 && (pk2[0] === 3 || pk2[0] === 6), 'fleet: two hits in a row, it follows the line');
+  let totalShots = 0, worst = 0, ok = true;
+  for (let s = 1; s <= 60; s++) {
+    const rng = F.mulberry(s * 7), board = F.randomFleet(rng); let n = 0, win = false;
+    while (!win && n < 100) { const p = F.aiShot(board.shots, F.remainingLens(board), rng); if (!p) { ok = false; break; } win = F.fire(board, p[0], p[1]).win; n++; }
+    ok = ok && win; totalShots += n; worst = Math.max(worst, n);
+  }
+  check(ok && totalShots / 60 < 65, 'fleet: the computer clears 60 random fleets, averaging ' + (totalShots / 60).toFixed(1) + ' shots (worst ' + worst + ')');
+}
+
 // END
 if (failures) { console.error(failures + ' failed'); process.exit(1); }
 console.log('all passed');

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fleet - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="fleet.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Fleet</h1>
+  <button class="ar-btn" id="fl-new" type="button">New game</button>
+</header>
+
+<main class="pl-main">
+  <p class="pl-msg" id="fl-msg" role="status" aria-live="polite"></p>
+  <div class="fl-tools" id="fl-tools"></div>
+  <section class="fl-board" id="fl-enemy-wrap" aria-labelledby="fl-enemy-h" hidden>
+    <h2 id="fl-enemy-h">Enemy waters</h2>
+    <div class="fl-grid" id="fl-enemy" role="grid" aria-label="Enemy waters. Choose a square to fire on."></div>
+    <p class="fl-ships" id="fl-enemy-ships"></p>
+  </section>
+  <section class="fl-board" aria-labelledby="fl-mine-h">
+    <h2 id="fl-mine-h">Your fleet</h2>
+    <div class="fl-grid" id="fl-mine" role="grid" aria-label="Your fleet"></div>
+  </section>
+  <p class="pl-help">Place five ships by tapping squares on your grid (Rotate turns the ship, tap a placed ship to pick it up). Then take turns firing at hidden squares. Sink every enemy ship before yours go down. Arrow keys move between squares.</p>
+</main>
+
+<div class="ar-sheet" id="fl-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="fl-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="fl-sheet-title">Fleet</h2>
+    <p id="fl-sheet-text">Hide your ships, hunt the computer's. Five ships each on a ten by ten sea.</p>
+    <div class="ar-sheet-actions"><button class="ar-btn" id="fl-go" type="button" aria-pressed="true">Place my ships</button></div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="fleet.js"></script>
+</body>
+</html>
