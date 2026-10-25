@@ -155,7 +155,7 @@
       "fleet": "Fleet follows a pencil-and-paper game that was played in the early 1900s. A boxed plastic version appeared in the 1960s.",
       "codebreaker": "Code Breaker follows Mastermind, designed by Mordecai Meirowitz and sold from 1972. A similar game on paper, Bulls and Cows, is much older.",
       "pinball": "Pinball came from tabletop bagatelle games of the 1700s. Flippers were added in 1947, which turned it from a game of chance into a game of skill.",
-      "rocks": "Rocks follows Asteroids, an Atari arcade game of 1979.",
+      "rocks": "Rocks follows Asteroids, an Atari arcade game of 1979. In both games, a rock you shoot splits into smaller ones.",
       "lastline": "Last Line follows Space Invaders, a Japanese arcade game of 1978. A common story says it was so popular that it caused a shortage of coins.",
       "lander": "Lander follows Lunar Lander, a game that first ran on computers in 1969, the year of the Moon landing. Its arcade version of 1979 used vector graphics.",
       "paddles": "Paddles follows Pong, made by Atari in 1972. It was one of the first video games to be a commercial success.",

@@ -293,7 +293,7 @@
         session.lose(fool < 0 ? 'A draw' : nm(st, fool) + ' is the durak', [fool < 0 ? 'Nobody is left holding cards.' : nm(st, fool) + ' was the last one holding cards.'], undefined);
         return;
       }
-      if (seats.isYou(fool)) session.lose('You are the durak', ['You were the last one holding cards.', 'Better luck next time.'], undefined); else session.win();
+      if (seats.isYou(fool)) session.lose('You are the durak', ['You were the last one with cards.'], undefined); else session.win();
     }
     function act(next) { session.commit(next); drive(); return true; }
     function takeNow() { var st = session.state; if (st.phase === 'defend' && mine(st.turn)) act(take(st)); }

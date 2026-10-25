@@ -289,7 +289,7 @@
           if (canPass(st)) out.choices.push({ label: 'Pass', onclick: passNow });
         }
       } else if (st.phase === 'discard') out.text = mine(st.dealer) ? (seats.isYou(st.dealer) ? 'You pick up' : who(st.dealer) + ' picks up') + ' the ' + Z.cardName(st.upcard) + '. Tap a card to discard' : who(st.dealer) + ' picks up and discards';
-      else if (st.phase === 'handEnd') { out.text = 'Hand over'; out.label = 'Next hand'; out.action = startNextHand; }
+      else if (st.phase === 'handEnd') { out.text = 'End of hand'; out.label = 'Next hand'; out.action = startNextHand; }
       else if (st.phase === 'over') { out.text = 'Game over'; out.label = 'New game'; out.action = newGame; }
       else if (full) { var w = trickWinner(st.trick, st.trump); out.text = who(w) + (seats.isYou(w) ? ' take' : ' takes') + ' the trick'; }
       else out.text = !seats.person(st.turn) ? who(st.turn) + ' is thinking' : youOrName(st.turn, 'Your turn');

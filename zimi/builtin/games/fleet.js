@@ -214,7 +214,7 @@
   // Pass the device: the cover first, then the next person's screen.
   function handTo(i, nextPhase) {
     phase = nextPhase;
-    seats.cover(i, function () { setActor(i); turnMessage(); paintAll(); }, 'Hand the device over. Your fleet and your shots stay hidden until you tap.');
+    seats.cover(i, function () { setActor(i); turnMessage(); paintAll(); }, 'Pass the device. Your fleet and your shots stay hidden until you tap.');
     setActor(i); paintAll();
   }
   function turnMessage() {
@@ -234,7 +234,7 @@
     var r = fire(theirs, x, y); if (!r) return;
     shotsBy[actor]++; shotsFired = shotsBy[actor]; lastMine = lastShot[actor] = [x, y];
     phase = 'busy';
-    els.msg.textContent = label(x, y) + ': ' + (r.result === 'miss' ? 'Miss.' : r.result === 'hit' ? 'Hit!' : 'You sank the ' + r.ship.name + '!');
+    els.msg.textContent = label(x, y) + ': ' + (r.result === 'miss' ? 'Miss.' : r.result === 'hit' ? 'Hit.' : 'You sank the ' + r.ship.name + '.');
     if (r.win) { phase = 'over'; paintAll(); return finish(true); }
     if (otherPerson()) { phase = 'pass'; paintAll(); return; }
     paintAll();
@@ -245,7 +245,7 @@
     var r = fire(mine, pick[0], pick[1]);
     lastTheirs = lastShot[1 - actor] = pick;
     var t = els.msg.textContent;
-    els.msg.textContent = t + ' Computer fires at ' + label(pick[0], pick[1]) + ': ' + (r.result === 'miss' ? 'miss.' : r.result === 'hit' ? 'hit!' : 'it sank your ' + r.ship.name + '.');
+    els.msg.textContent = t + ' Computer fires at ' + label(pick[0], pick[1]) + ': ' + (r.result === 'miss' ? 'miss.' : r.result === 'hit' ? 'hit.' : 'it sank your ' + r.ship.name + '.');
     if (r.win) { phase = 'over'; paintAll(); return finish(false); }
     phase = 'battle'; paintAll();
   }
@@ -259,7 +259,7 @@
     }
     stats.played++;
     if (won) { stats.won++; text = 'You sank the whole enemy fleet in ' + shotsFired + ' shots.'; if (!stats.bestShots || shotsFired < stats.bestShots) { stats.bestShots = shotsFired; text += ' A new fewest.'; } }
-    else text = 'Your fleet is gone. The computer found every ship.';
+    else text = 'Your fleet is sunk. The computer wins.';
     text += ' You have won ' + stats.won + ' of ' + stats.played + '.';
     Play.save(STATS_KEY, stats);
     els.msg.textContent = won ? 'Victory.' : 'Defeat.';

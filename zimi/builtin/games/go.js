@@ -101,7 +101,7 @@
     var p = st.turn - 1, nm = NAMES[p];
     if (phase === 'mark') return 'Tap stones that are dead. Black ' + fmt(liveScore().black) + ', White ' + fmt(liveScore().white) + ' (komi ' + Engine.KOMI + ').';
     if (!G.vsComputer()) return nm + ' to play';
-    return G.human(p) ? 'Your move (' + nm.toLowerCase() + ')' : 'Computer is thinking';
+    return G.human(p) ? 'Your turn (' + nm.toLowerCase() + ')' : 'Computer is thinking';
   }
   function nameOf(p) { return G.vsComputer() ? (G.human(p) ? 'You' : 'The computer') : NAMES[p]; }
 
@@ -111,7 +111,7 @@
     if (phase === 'mark') { toggleDead(i); return; }
     if (G.thinking || !G.human(st.turn - 1) || st.board[i]) return;
     var ns = Engine.move(st, i);
-    if (!ns) { flash(i, i === st.ko ? 'That would repeat the earlier position (ko). Play somewhere else first.' : 'That point has no liberties: suicide is not allowed.'); return; }
+    if (!ns) { flash(i, i === st.ko ? 'That would repeat the earlier position (ko). Play somewhere else first.' : 'That stone would have no liberties, so it is not allowed.'); return; }
     commit(ns, nameOf(st.turn - 1));
   }
   function flash(i, msg) {
@@ -157,11 +157,11 @@
   passBtn.addEventListener('click', pass);
 
   function hint() {
-    var token = G.begin(); paint(); G.say('Thinking about a good move...', true);
+    var token = G.begin(); paint(); G.say('Thinking...', true);
     ask({ cmd: 'move', ms: HINT_MS, level: 'hard' }, function (r) {
       if (!G.done(token)) return;
       hintIdx = r && r.move >= 0 ? r.move : -1; paint();
-      G.say(hintIdx >= 0 ? 'A good point is ringed. ' + turnText() : 'The computer would pass here. ' + turnText());
+      G.say(hintIdx >= 0 ? 'Hint: try the ringed point. ' + turnText() : 'Hint: pass. ' + turnText());
     });
   }
 

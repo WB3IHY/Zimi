@@ -155,7 +155,7 @@
   function turnText() {
     var p = state.turn, nm = G.who(p, NAMES[0], NAMES[1]);
     if (!G.vsComputer()) return nm + ' to play';
-    return G.human(p) ? 'Your move (' + NAMES[p] + ')' : 'Computer is thinking';
+    return G.human(p) ? 'Your turn (' + NAMES[p] + ')' : 'Computer is thinking';
   }
 
   function playCol(c) {
@@ -191,7 +191,7 @@
 
   function hint() {
     hintCol = chooseCol(state.board, state.turn + 1, 'hard');
-    paint(); G.say('A good column is marked with an arrow. ' + turnText());
+    paint(); G.say('Hint: try the column with the arrow. ' + turnText());
   }
 
   function undo() {

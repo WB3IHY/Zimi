@@ -179,7 +179,7 @@
   function turnText() {
     var p = state.turn;
     if (!G.vsComputer()) return NAMES[p] + ' to play';
-    return G.human(p) ? 'Your move (' + NAMES[p].toLowerCase() + ')' : 'Computer is thinking';
+    return G.human(p) ? 'Your turn (' + NAMES[p].toLowerCase() + ')' : 'Computer is thinking';
   }
 
   function onPoint(i) {
@@ -206,7 +206,7 @@
 
   function hint() {
     hintIdx = chooseMove(state.board.slice(0), state.turn + 1, 'hard');
-    paint(); G.say('A good place is ringed. ' + turnText());
+    paint(); G.say('Hint: try the ringed point. ' + turnText());
   }
 
   function undo() {

@@ -83,7 +83,7 @@
     if (st.over) { finish(st); return; }
     legal = E.moves(pos);
     paint();
-    var line = !G.vsComputer() ? SIDE_NAME[p] + ' to move' : G.human(p) ? 'Your move' : 'Computer is thinking';
+    var line = !G.vsComputer() ? SIDE_NAME[p] + ' to move' : G.human(p) ? 'Your turn' : 'Computer is thinking';
     if (st.mustCapture && G.human(p)) line += ': you must capture' + (legal[0].caps.length > 1 ? ' ' + legal[0].caps.length + ' pieces' : '');
     G.say((note || '') + line, !G.human(p));
     if (!G.human(p)) computerTurn();
@@ -105,11 +105,11 @@
     });
   }
   function hint() {
-    var token = G.begin(); paint(); G.say('Thinking about a good move...', true);
+    var token = G.begin(); paint(); G.say('Thinking...', true);
     brain.ask(request({ level: 'hard', ms: HINT_MS }), function (r) {
       if (!G.done(token)) return;
       tip = r && r.index >= 0 && r.index < legal.length ? legal[r.index] : null; paint();
-      G.say(tip ? 'A good move is marked: ' + E.notation(tip) + '.' : 'No move to suggest.');
+      G.say(tip ? 'Hint: ' + E.notation(tip) + '.' : 'No hint.');
     });
   }
 
@@ -128,7 +128,7 @@
     if (v * pos.turn > 0 && s !== sel) {
       var mine = legal.filter(function (m) { return m.from === s; });
       if (mine.length) { sel = s; prefix = []; cands = mine; tip = null; G.say(mine[0].caps.length ? 'Tap where it lands' : 'Choose where to move'); }
-      else { sel = -1; prefix = []; cands = []; G.say(legal[0].caps.length ? 'A capture is compulsory: that piece cannot take' : 'That piece has no move'); }
+      else { sel = -1; prefix = []; cands = []; G.say(legal[0].caps.length ? 'A capture is compulsory: that piece cannot take' : 'That piece cannot move'); }
     } else { sel = -1; prefix = []; cands = []; }
     paint();
   }

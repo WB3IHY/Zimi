@@ -1,6 +1,6 @@
 /* ZimiGames: Go Problems, the page. Life-and-death positions, each proved by our own solver (see data/README-go-problems.txt).
    Every problem shipped was proved by tsumego-solver.js: black has a move that kills (or lives) whatever white does,
-   within the search limit. The page uses the same solver to judge your moves and to choose White's most stubborn
+   within the search limit. The page uses the same solver to judge your turns and to choose White's most stubborn
    answers, so any winning line counts, not only the one in a book. */
 (function (root) {
   'use strict';
@@ -116,7 +116,7 @@
     var nx = T.after(b, r.p, WHITE);
     b = nx.b; ko = nx.ko; plies++; last = r.p;
     if (T.verdict(b, goal()) > 0) { solved(); return; }
-    say(r.p < 0 ? 'White passes. Your move.' : 'White plays ' + pointName(r.p) + '. Your move.');
+    say(r.p < 0 ? 'White passes. Your turn.' : 'White plays ' + pointName(r.p) + '. Your turn.');
     drawBoard();
   }
 

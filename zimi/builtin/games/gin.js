@@ -285,7 +285,7 @@
       lines.push({ text: r.gin ? k + verb(r.knocker, ' go', ' goes') + ' gin.' : k + verb(r.knocker, ' knock', ' knocks') + ' with ' + r.kDw + ' deadwood.' });
       if (!r.gin) lines.push({ text: o + verb(ko, ' have ', ' has ') + r.oDwBefore + ' deadwood' + (r.laid.length ? ', ' + r.oDw + ' after laying off ' + T.shortList(r.laid) + '.' : '.') });
       else lines.push({ text: o + verb(ko, ' have ', ' has ') + r.oDw + ' deadwood.' });
-      lines.push({ cls: 'ct-total', text: (r.undercut ? 'Undercut! ' : '') + who(r.scorer) + verb(r.scorer, ' score ', ' scores ') + r.points + (r.gin ? ' (25 for gin)' : r.undercut ? ' (25 for the undercut)' : '') + '.' });
+      lines.push({ cls: 'ct-total', text: (r.undercut ? 'Undercut. ' : '') + who(r.scorer) + verb(r.scorer, ' score ', ' scores ') + r.points + (r.gin ? ' (25 for gin)' : r.undercut ? ' (25 for the undercut)' : '') + '.' });
       return lines;
     }
     function hud(st) {
@@ -298,7 +298,7 @@
       var out = { chips: chips, sub: 'Hand ' + (st.handNo + 1) + ' · won ' + st.boxes[0] + '-' + st.boxes[1], text: '' }, note = noteOf(st), top = st.discard[st.discard.length - 1];
       if (st.phase === 'show') {
         out.lines = resultLines(st);
-        if (st.final) { out.label = 'See result'; out.action = gameOver; out.text = 'Game over'; } else { out.label = 'Next hand'; out.action = startNextHand; out.text = 'Hand over'; }
+        if (st.final) { out.label = 'See result'; out.action = gameOver; out.text = 'Game over'; } else { out.label = 'Next hand'; out.action = startNextHand; out.text = 'End of hand'; }
       } else if (!seats.person(st.turn)) out.text = note && st.phase !== 'offer' ? note + ' ' + who(st.turn) + ' is thinking' : who(st.turn) + ' is thinking';
       else if (view.hideHand) out.text = who(st.turn) + ', your turn';
       else if (st.phase === 'offer') {
