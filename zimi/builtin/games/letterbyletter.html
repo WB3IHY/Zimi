@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Letter by Letter - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="library.css">
+<link rel="stylesheet" href="letterbyletter.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Letter by Letter</h1>
+  <button class="ar-btn" id="lb-rec" type="button" aria-haspopup="dialog">Record</button>
+  <button class="ar-btn" id="lb-mode" type="button" title="Switch between the daily word and practice">Daily</button>
+</header>
+
+<main class="pl-main lb-main">
+  <div class="lb-fig" id="lb-fig"></div>
+  <div class="lb-air" id="lb-air" role="img"></div>
+  <p class="lb-clue" id="lb-clue" hidden></p>
+  <div class="lb-word" id="lb-word" role="group" aria-label="The word"></div>
+  <p class="pl-msg" id="lb-msg" role="status" aria-live="polite"></p>
+  <div class="lb-keys" id="lb-keys" role="group" aria-label="Letters"></div>
+  <div class="pl-keys">
+    <button class="ar-btn" id="lb-hint" type="button" title="Turn over one letter, at the price of a breath of air">Hint</button>
+    <button class="ar-btn" id="lb-next" type="button" hidden>New word</button>
+  </div>
+  <p class="pl-help gl-source" id="lb-source"></p>
+</main>
+
+<div class="ar-sheet" id="lb-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="lb-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="lb-sheet-title">Your record</h2>
+    <p id="lb-sheet-text"></p>
+    <div class="ar-sheet-actions">
+      <a class="ar-btn" id="lb-entry" href="#" hidden>Read the entry</a>
+      <button class="ar-btn" id="lb-again" type="button">New word</button>
+      <button class="ar-btn" id="lb-close" type="button" aria-pressed="true">Close</button>
+    </div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="librarykit.js"></script>
+<script src="letterbyletter-words.js"></script>
+<script src="letterbyletter.js"></script>
+<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q460875">About Letter by Letter</a></footer><!-- /zimi-about -->
+</body>
+</html>

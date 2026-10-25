@@ -1,0 +1,13 @@
+/* Jigsaw: the board with its faint picture, the tray and the pieces. Shared tokens: games.css, play.css, library.css. */
+.jg-main { width: min(720px, 100%); margin: 0 auto; }
+.jg-area { position: relative; isolation: isolate; touch-action: none; user-select: none; -webkit-user-select: none; min-height: 200px; }
+.jg-board { position: absolute; left: 0; top: 0; border: 1px solid var(--line); border-radius: 4px; background: var(--cell); overflow: hidden; }
+.jg-ghost { position: absolute; inset: 0; background-repeat: no-repeat; opacity: 0.16; }
+.jg-board.peek { z-index: 5000; overflow: hidden; }
+.jg-board.peek .jg-ghost { opacity: 1; }
+.jg-piece { position: absolute; background-repeat: no-repeat; border-radius: 2px; box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3); cursor: grab; touch-action: none; }
+.jg-piece.lifted { cursor: grabbing; box-shadow: 0 0 0 1px var(--accent), 0 8px 18px rgba(0, 0, 0, 0.4); scale: 1.04; }
+.jg-piece.locked { cursor: default; box-shadow: none; border-radius: 0; animation: jg-click 0.16s ease-out; }
+@keyframes jg-click { 50% { filter: brightness(1.25); } }
+.jg-count button { min-width: 52px; }
+@media (prefers-reduced-motion: reduce) { .jg-piece.locked { animation: none; } .jg-piece.lifted { scale: 1; } }

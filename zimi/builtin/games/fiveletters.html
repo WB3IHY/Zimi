@@ -6,6 +6,7 @@
 <title>Five Letters - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="library.css">
 <link rel="stylesheet" href="fiveletters.css">
 </head>
 <body>
@@ -13,6 +14,7 @@
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Five Letters</h1>
   <button class="ar-btn" id="fl-stats" type="button" aria-haspopup="dialog">Record</button>
+  <button class="ar-btn" id="fl-lang" type="button" hidden title="Choose the word list: the built-in English one or a Wiktionary in your library">EN</button>
   <button class="ar-btn" id="fl-mode" type="button" title="Switch between the daily word and practice">Daily</button>
 </header>
 
@@ -20,12 +22,14 @@
   <div class="fl-board" id="fl-board" role="grid" aria-label="Guesses"></div>
   <p class="pl-msg" id="fl-msg" role="status" aria-live="polite"></p>
   <div class="fl-keys" id="fl-keys" role="group" aria-label="Keyboard"></div>
+  <p class="pl-help gl-source" id="fl-source"></p>
   <p class="pl-help">Guess the five letter word in six tries. Green is right, amber is in the word elsewhere, grey is not in it. The daily word is the same for everyone today.</p>
 </main>
 
 <div class="ar-sheet" id="fl-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="fl-sheet-title">
   <div class="ar-sheet-card">
     <h2 id="fl-sheet-title">Your record</h2>
+    <p id="fl-sheet-gloss" hidden></p>
     <p id="fl-sheet-text"></p>
     <div class="fl-dist" id="fl-dist" aria-label="Games won by number of guesses"></div>
     <div class="ar-sheet-actions">
@@ -37,6 +41,7 @@
 </div>
 <script src="fiveletters-words.js"></script>
 <script src="playkit.js"></script>
+<script src="librarykit.js"></script>
 <script src="fiveletters.js"></script>
 <!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q110367996">About Five Letters</a></footer><!-- /zimi-about -->
 <!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
