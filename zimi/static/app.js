@@ -24638,6 +24638,7 @@ function _whenFrameDocReady(frame, prevDoc, fn) {
 }
 function openReader(url) {
   _chromeReset(); // a new page starts with the header in place
+  _gamePlayHide();
   // Same-document fragment scroll fast-path. When the frame already holds the
   // target document and only the #fragment differs, a location.replace() below
   // performs a SAME-DOCUMENT scroll and fires NO load event — so the loading
@@ -25014,6 +25015,10 @@ function openReader(url) {
           e.preventDefault();
           var linkZim = _decodeSafe(wMatch[1]);
           var linkPath = _decodeSafe(wMatch[2]).replace(/\?.*$/, ''); // strip query params, keep hash
+          // A game's "About" link: the encyclopedia article when Zimi has one.
+          var aboutQid = linkPath.slice(-_GAMES_ABOUT_PAGE.length) === _GAMES_ABOUT_PAGE &&
+                         (fullUrl.match(/[?&]qid=(Q\d+)/) || [])[1];
+          if (aboutQid) { _gamesAbout(aboutQid, linkZim, linkPath); return; }
           openArticle(linkZim, linkPath);
           return;
         }
@@ -25155,6 +25160,7 @@ function openReader(url) {
     if (currentArticle) {
       _checkReaderLangBanner();
       _prefetchArticleLangs(true);
+      _gamePlayCheck();
     }
     // Reader View: reapply the session preference to the freshly-loaded article
     // (same pattern as _applyReaderFont), then sync the toggle's availability.
@@ -27837,6 +27843,8 @@ function _libraryHeard() {
     _rebuildZimsMap();
     _libraryKnown = true;
     _catalogCache = null;
+    _gamesLinks = null; // the library changed: which articles are games' may have
+    if (readerOpen) _gamePlayCheck();
     if (mode === 'manage') { if (manageTab === 'installed') renderInstalled(); }
     else if (mode === 'home' && !readerOpen && !currentSource && !readerSource) renderHome();
   }).catch(function () {});
@@ -28662,6 +28670,84 @@ function closeReader() {
   _setWindowTitle('Zimi');
 }
 
+
+// ── ZimiGames and the encyclopedia, linked both ways ──
+//
+// /games-links says which installed article carries each game's Wikidata Q-ID
+// (the server works it out in the background, zimi/gamelinks.py). It is asked
+// for the first time a wiki article is shown, never on page load, and kept in
+// memory until the library changes. A wiki article that is one of those shows
+// Play; a game page's "About" link (about.html?qid=) opens the article instead.
+var _GAMES_LINKS_URL = '/games-links';
+var _GAMES_ABOUT_PAGE = 'about.html';
+var _GAMES_WIKI_RE = /^(wikipedia|vikidia)/i;
+var _gamesLinks = null; // Promise of {games, articles}, or null until asked
+var _gamesAskedAt = 0;
+// The server learns an article's Q-ID as it is read, so a minute on, ask again.
+var _GAMES_LINKS_TTL_MS = 60 * 1000;
+
+function _gamesLoad() {
+  if (_gamesLinks && Date.now() - _gamesAskedAt > _GAMES_LINKS_TTL_MS) _gamesLinks = null;
+  if (!_gamesLinks) {
+    _gamesAskedAt = Date.now();
+    _gamesLinks = fetch(_GAMES_LINKS_URL)
+      .then(function(r) { return r.ok ? r.json() : { games: {}, articles: {} }; })
+      .catch(function() { return { games: {}, articles: {} }; });
+  }
+  return _gamesLinks;
+}
+
+// Q-ID of the article in `zim` at `path`, as the data lists it ('' when none).
+function _gamesQidOf(data, zim, path) {
+  var bare = function(p) { return p.replace(/^A\//, ''); };
+  var want = bare(_splitPathFragment(path).base);
+  for (var qid in data.articles) {
+    var found = data.articles[qid];
+    for (var i = 0; i < found.length; i++) {
+      if (found[i].zim === zim && bare(found[i].path) === want) return qid;
+    }
+  }
+  return '';
+}
+
+function _gamePlayHide() {
+  var b = document.getElementById('game-play');
+  if (b) b.hidden = true;
+}
+
+// The article on screen is a game's: offer to play it. Only wiki articles ask.
+function _gamePlayCheck() {
+  _gamePlayHide();
+  if (!currentArticle || !_GAMES_WIKI_RE.test(currentArticle.zim)) return;
+  var key = currentArticle.zim + ':' + currentArticle.path;
+  _gamesLoad().then(function(data) {
+    if (!currentArticle || currentArticle.zim + ':' + currentArticle.path !== key) return;
+    var game = data.games[_gamesQidOf(data, currentArticle.zim, currentArticle.path)];
+    var b = document.getElementById('game-play');
+    if (!game || !b) return;
+    b.onclick = function() { openArticle(game.zim, game.path, game.title); };
+    b.querySelector('.gp-label').textContent = t('games_play', { game: game.title });
+    b.querySelector('img').src = _articleUrl(game.zim, 'mark.svg');
+    b.hidden = false;
+  });
+}
+
+// The best article for `qid` in the reader's language, else English, else any.
+function _gamesArticleFor(data, qid) {
+  var found = data.articles[qid] || [];
+  return found.filter(function(a) { return a.lang === _currentLang; })[0] ||
+         found.filter(function(a) { return a.lang === 'en'; })[0] || found[0] || null;
+}
+
+// A game page's "About" link: the encyclopedia article when Zimi has one, else
+// the game's own plain About page (which is all Kiwix ever shows).
+function _gamesAbout(qid, zim, aboutPath) {
+  _gamesLoad().then(function(data) {
+    var a = _gamesArticleFor(data, qid);
+    if (a) openArticle(a.zim, a.path);
+    else openArticle(zim, aboutPath + '#qid=' + qid);
+  });
+}
 
 // ── Language selector dropdown ──
 

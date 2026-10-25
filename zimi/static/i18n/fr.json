@@ -2117,6 +2117,7 @@
   "video_not_included": "Cette vidéo n'est pas incluse dans ce ZIM",
   "video_not_playable": "Ce navigateur ne peut pas lire le format de cette vidéo.",
   "view_in_lang": "Voir en {lang}",
+  "games_play": "Jouer à {game}",
   "view_list": "Vue liste",
   "view_tiles": "Vue mosaïque",
   "warning": "Avertissement",

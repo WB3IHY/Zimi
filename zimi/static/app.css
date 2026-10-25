@@ -1698,6 +1698,10 @@
   .reader-view { position: fixed; top: var(--under-topbar); left: 0; right: 0; bottom: 0; display: none; flex-direction: column; z-index: 100; background: var(--bg); }
   .reader-view.open { display: flex; animation: fadeIn 0.15s ease; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  /* Play, over a wiki article that is a ZimiGames game (_gamePlayCheck). */
+  .game-play { position: absolute; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 2; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px 0 10px; border: 1px solid var(--amber-border); border-radius: 999px; background: var(--surface2); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); }
+  .game-play[hidden] { display: none; }
+  .game-play:hover { background: var(--amber-glow); color: var(--amber); }
   /* Find in page (find.js): floats over the article's top corner, the width
      of the reader on a phone. */
   .find-bar {

@@ -2117,6 +2117,7 @@
   "video_not_included": "此 ZIM 中未包含该视频",
   "video_not_playable": "此浏览器无法播放该视频的格式。",
   "view_in_lang": "查看{lang}版",
+  "games_play": "玩{game}",
   "view_list": "列表视图",
   "view_tiles": "平铺视图",
   "warning": "警告",

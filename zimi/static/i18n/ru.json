@@ -2117,6 +2117,7 @@
   "video_not_included": "Это видео не включено в этот ZIM",
   "video_not_playable": "Этот браузер не может воспроизвести формат этого видео.",
   "view_in_lang": "Просмотр на {lang}",
+  "games_play": "Играть: {game}",
   "view_list": "Списком",
   "view_tiles": "Плиткой",
   "warning": "Предупреждение",

@@ -2117,6 +2117,7 @@
   "video_not_included": "هذا الفيديو غير مضمّن في ملف ZIM هذا",
   "video_not_playable": "لا يستطيع هذا المتصفح تشغيل صيغة هذا الفيديو.",
   "view_in_lang": "عرض بـ{lang}",
+  "games_play": "العب {game}",
   "view_list": "عرض القائمة",
   "view_tiles": "عرض البلاطات",
   "warning": "تحذير",
