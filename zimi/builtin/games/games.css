@@ -67,27 +67,130 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 .ar-sheet-card h2::before { content: ""; display: inline-block; width: 22px; height: 22px; margin: -3px 8px 0 0; vertical-align: middle; background: url(mark.svg) center / contain no-repeat; }
 .ar-sheet-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 
-/* The shelf (ZimiGames' main page). */
-.ar-shelf { max-width: 880px; margin: 0 auto; padding: 24px 16px 48px; }
-.ar-shelf header h1 { margin: 0; font-size: 30px; letter-spacing: -0.02em; text-wrap: balance; }
-.ar-brand { display: block; }
-.ar-brand .ar-lockup { display: block; height: 42px; width: auto; max-width: 100%; }
-.ar-shelf header p { margin: 6px 0 24px; color: var(--ink2); max-width: 60ch; }
-.ar-section + .ar-section { margin-top: 32px; }
-.ar-section h2 { margin: 0 0 12px; font-size: 13px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink2); }
-.ar-games { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
-@media (max-width: 480px) { .ar-games { grid-template-columns: 1fr 1fr; gap: 12px; } .ar-game-text { padding: 10px 12px 12px; } .ar-game-text strong { font-size: 15px; } .ar-game-text span { font-size: 12px; } }
-.ar-game { display: flex; flex-direction: column; text-decoration: none; color: inherit; border-radius: 14px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); transition: transform 0.15s, border-color 0.15s; }
+/* The shelf (ZimiGames' main page). Plain HTML lists every game; shelf.js adds the
+   views: Lobby (a feed of art tiles) and Index (search first, one section at a
+   time as thumbnail rows). With no data-view the page is Lobby's grid. */
+.ar-shelf { max-width: 1180px; margin: 0 auto; padding: 16px 16px 48px; --glow: color-mix(in srgb, var(--accent) 14%, transparent); }
+.ar-shelf header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 16px; }
+.ar-brand { display: block; margin: 0; }
+.ar-brand .ar-lockup { display: block; height: 30px; width: auto; max-width: 100%; }
+.ar-shelf header p { flex: 1 0 100%; margin: 0; color: var(--ink2); max-width: 60ch; }
+.sh-on header p { display: none; }
+.sh-tools { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex: 1 1 0; min-width: 0; }
+.sh-search { position: relative; display: flex; align-items: center; flex: 1 1 auto; max-width: 340px; color: var(--ink3); }
+.sh-search svg { position: absolute; left: 11px; pointer-events: none; }
+.sh-search input { width: 100%; height: 36px; padding: 0 12px 0 33px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; -webkit-appearance: none; appearance: none; }
+.sh-search input::placeholder { color: var(--ink3); }
+.sh-search input:focus-visible { outline-offset: 0; border-color: var(--accent); }
+@media (min-width: 700px) { .sh-search input { font-size: 14px; } }
+
+/* The view toggle: Zimi's own Home control (list and grid, one pressed). */
+.ar-view-toggle { display: inline-flex; flex: none; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+.ar-view-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 34px; padding: 0; background: none; border: none; color: var(--ink2); cursor: pointer; transition: background 0.15s, color 0.15s; }
+.ar-view-btn + .ar-view-btn { border-left: 1px solid var(--line); }
+.ar-view-btn:hover { color: var(--ink); background: var(--ground); }
+.ar-view-btn[aria-pressed="true"] { color: var(--accent); background: var(--glow); }
+@media (pointer: coarse) { .ar-view-btn { width: 44px; height: 42px; } .sh-search input { height: 42px; } }
+
+/* Section chips (Lobby) and tabs (Index phone); Index desktop turns them into a rail. */
+.sh-nav { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 18px; padding: 2px 16px; }
+.sh-nav::-webkit-scrollbar { display: none; }
+.sh-chip { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 13px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.sh-chip:hover { border-color: var(--accent); }
+.sh-chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+.sh-chip-n, .sh-count { font-weight: 500; font-variant-numeric: tabular-nums; opacity: 0.6; }
+.sh-count { margin-left: 8px; letter-spacing: 0; }
+.sh-rail-head, .sh-chip-recent { display: none; }
+.sh-empty { margin: 32px 0; text-align: center; color: var(--ink2); }
+.sh-empty[hidden] { display: none; }
+
+/* Sections and tiles. */
+.ar-section[hidden] { display: none; }
+.ar-section + .ar-section { margin-top: 28px; }
+.ar-section h2 { margin: 0 0 12px; font-size: 12px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink2); }
+.ar-games { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 14px; }
+.ar-game { display: flex; flex-direction: column; text-decoration: none; color: inherit; border-radius: 12px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); transition: transform 0.15s, border-color 0.15s; }
+.ar-game[hidden] { display: none; }
 .ar-game:hover { transform: translateY(-2px); border-color: var(--accent); }
 .ar-game-art { aspect-ratio: 16 / 9; display: block; width: 100%; }
-.ar-game-text { padding: 12px 14px 14px; }
-.ar-game-text strong { display: block; font-size: 16px; }
-.ar-game-text span { color: var(--ink2); font-size: 13px; }
-/* Continue and Game of the day (recent.js builds them from the shelf's own tiles). */
-.ar-today .ar-games { grid-template-columns: minmax(0, 320px); }
-.ar-feature { border-color: var(--accent); }
-.ar-feature .ar-game-text strong { font-size: 19px; }
-.ar-feature .ar-game-text span { font-size: 14px; color: var(--ink); }
+.ar-game-icon { object-fit: contain; background: var(--tile); padding: 6px; }
+.ar-game-text { min-width: 0; padding: 10px 12px 12px; }
+.ar-game-text strong { display: block; font-size: 15px; line-height: 1.3; }
+.ar-game-text span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; color: var(--ink2); font-size: 12.5px; line-height: 1.35; }
+@media (max-width: 560px) { .ar-games { grid-template-columns: 1fr 1fr; gap: 10px; } .ar-game-text { padding: 9px 10px 11px; } }
+
+/* Lobby: Continue is a row you scroll, the day's game sits beside it. */
+.sh-top { display: flex; flex-wrap: wrap; align-items: stretch; gap: 18px; margin-bottom: 26px; }
+.sh-top[hidden] { display: none; }
+.sh-top .ar-section { margin: 0; }
+.ar-continue { flex: 1 1 360px; min-width: 0; }
+.ar-continue .ar-games { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; padding-bottom: 2px; }
+.ar-continue .ar-games::-webkit-scrollbar { display: none; }
+.ar-continue .ar-game { flex: 0 0 156px; scroll-snap-align: start; }
+@media (min-width: 700px) { .ar-continue .ar-game { flex-basis: 176px; } }
+.ar-today { flex: 1 1 340px; max-width: 460px; display: flex; flex-direction: column; }
+.ar-today[hidden], .ar-continue[hidden] { display: none; }
+.ar-today .ar-games { display: block; flex: 1; }
+.ar-today .ar-game { flex-direction: row; align-items: stretch; height: 100%; border-color: var(--accent); }
+.ar-today .ar-game-art { flex: 0 0 44%; width: 44%; height: auto; aspect-ratio: auto; min-height: 112px; }
+.ar-today .ar-game-text { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 12px 14px; }
+.ar-today .ar-game-text strong { font-size: 18px; }
+.ar-today .ar-game-text span { -webkit-line-clamp: 4; color: var(--ink); font-size: 13px; }
+.ar-today .ar-game-text::after { content: "Play"; align-self: flex-start; margin-top: 8px; padding: 5px 16px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 650; }
+@media (max-width: 699px) { .ar-today { max-width: none; } }
+
+/* Index: rows, one section at a time. */
+[data-view="index"] .sh-nav { margin-bottom: 14px; padding: 0 16px; gap: 2px; border-bottom: 1px solid var(--line); }
+[data-view="index"] .sh-chip { height: 40px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--ink2); }
+[data-view="index"] .sh-chip[aria-pressed="true"] { background: none; color: var(--ink); border-bottom-color: var(--accent); }
+[data-view="index"] .sh-chip:hover { border-bottom-color: var(--line); }
+[data-view="index"] .sh-chip[aria-pressed="true"]:hover { border-bottom-color: var(--accent); }
+@media (max-width: 899px) {
+  [data-view="index"] .sh-tools { display: contents; }
+  [data-view="index"] .ar-view-toggle { margin-left: auto; }
+  [data-view="index"] .sh-search { order: 3; flex: 1 0 100%; max-width: none; }
+}
+[data-view="index"] .sh-top { display: block; margin-bottom: 18px; }
+[data-view="index"] .sh-top[hidden] { display: none; }
+[data-view="index"] .ar-games { grid-template-columns: 1fr; gap: 8px; }
+[data-view="index"] .ar-game { flex-direction: row; align-items: center; gap: 12px; padding: 6px 12px 6px 6px; border-radius: 12px; }
+[data-view="index"] .ar-game:hover { transform: none; }
+[data-view="index"] .ar-game-art, [data-view="index"] .ar-game-icon { flex: 0 0 96px; width: 96px; height: 54px; aspect-ratio: auto; border-radius: 8px; }
+[data-view="index"] .ar-game-icon { padding: 4px; }
+[data-view="index"] .ar-game-text { flex: 1; padding: 0; }
+[data-view="index"] .ar-game-text strong { font-size: 15px; }
+[data-view="index"] .ar-game-text span { display: block; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+[data-view="index"] .ar-game::after { content: ""; flex: none; width: 7px; height: 7px; margin: 0 4px 0 2px; border-top: 2px solid var(--ink3); border-right: 2px solid var(--ink3); transform: rotate(45deg); }
+[data-view="index"]:not([data-sec="recent"]) .ar-continue .ar-game:nth-child(n+2) { display: none; }
+[data-view="index"] .ar-continue .ar-games { display: grid; overflow: visible; }
+[data-view="index"] .ar-continue .ar-game { flex: initial; border-color: var(--accent); }
+/* The day's game, under the tabs on a phone: one row, on All only. */
+[data-view="index"] .ar-today { max-width: none; margin-bottom: 14px; }
+[data-view="index"] .ar-today .ar-game { height: auto; align-items: center; }
+[data-view="index"] .ar-today .ar-game-art { flex-basis: 96px; width: 96px; min-height: 0; height: 54px; }
+[data-view="index"] .ar-today .ar-game-text { justify-content: center; padding: 0; }
+[data-view="index"] .ar-today .ar-game-text span { display: block; }
+[data-view="index"] .ar-today .ar-game-text::after { display: none; }
+[data-view="index"]:not([data-sec="all"]):not([data-sec="search"]) .ar-today { display: none; }
+@media (min-width: 900px) {
+  [data-view="index"] .sh-body { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; align-items: start; }
+  [data-view="index"] .sh-rail { position: sticky; top: 16px; }
+  [data-view="index"] .sh-nav { flex-direction: column; gap: 2px; margin: 0 0 22px; padding: 0; border: 0; overflow: visible; }
+  [data-view="index"] .sh-chip { height: 34px; width: 100%; justify-content: space-between; padding: 0 12px; border: 0; border-radius: 8px; }
+  [data-view="index"] .sh-chip[aria-pressed="true"], [data-view="index"] .sh-chip[aria-pressed="true"]:hover { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+  [data-view="index"] .sh-chip:hover { background: var(--surface); }
+  [data-view="index"] .sh-chip-recent:not([hidden]) { display: inline-flex; }
+  [data-view="index"] .sh-rail-head { display: block; margin: 14px 12px 6px; font-size: 11px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3); }
+  [data-view="index"] .ar-games { grid-template-columns: 1fr 1fr; }
+  [data-view="index"] .ar-continue .ar-games { grid-template-columns: 1fr; }
+  [data-view="index"] .ar-today { margin: 0; display: flex !important; }
+  [data-view="index"] .ar-today[hidden] { display: none !important; }
+  [data-view="index"] .ar-today .ar-game { flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
+  [data-view="index"] .ar-today .ar-game::after { display: none; }
+  [data-view="index"] .ar-today .ar-game-art { flex: none; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 0; }
+  [data-view="index"] .ar-today .ar-game-text { padding: 10px 12px 12px; }
+  [data-view="index"] .ar-today .ar-game-text span { white-space: normal; display: -webkit-box; }
+}
 .ar-foot { margin-top: 32px; color: var(--ink3); font-size: 12px; }
 
 @media (prefers-reduced-motion: reduce) { .ar-game { transition: none; } .ar-game:hover { transform: none; } }

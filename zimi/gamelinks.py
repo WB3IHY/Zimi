@@ -172,6 +172,18 @@ def game_of_day(day, games=None):
     return pages[_fnv1a(day) % len(pages)] if pages else None
 
 
+def thumbnail(game_path):
+    """The day's game as a small picture inside the ZIM, as a /w/ URL: the
+    tile's own art (thumbs/<game>.svg, scripts/build_games_shelf.js) or, for
+    one of Tatham's puzzles, its icon. None for a game with neither."""
+    stem = os.path.splitext(os.path.basename(game_path))[0]
+    folder = os.path.join(ownzims.SOURCE_ROOT, "games")
+    for rel in ("thumbs/%s.svg" % stem, "puzzles/icons/%s.png" % stem):
+        if os.path.exists(os.path.join(folder, rel)):
+            return "/w/%s/%s" % (_GAMES_ZIM, rel)
+    return None
+
+
 def day_card(day):
     """The game of the day as Discover's card, in /random's shape, or None
     (no such day, or the games ZIM is not here for this request)."""
@@ -185,4 +197,5 @@ def day_card(day):
         "path": g["path"],
         "title": g["title"],
         "blurb": g.get("why") or g.get("blurb"),
+        "thumbnail": thumbnail(g["path"]),
     }

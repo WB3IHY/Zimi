@@ -142,3 +142,32 @@ html = html.replace(/(<a class="ar-game" href="([a-z0-9]+)\.html">\s*)<svg class
 });
 fs.writeFileSync(file, html);
 console.log('redrawn: ' + redrawn.join(', '));
+
+// ── Thumbnails ─────────────────────────────────────────────────────────────
+// Each tile's art again as a standalone svg (thumbs/<game>.svg, 320x180): what
+// Zimi's Discover card loads for the day's game, a small file inside the ZIM
+// that needs nothing else. Whatever a tile points at by id (the card sprite,
+// the clip, a pattern) is copied in beside it.
+const thumbDir = path.join(dir, 'thumbs');
+fs.mkdirSync(thumbDir, { recursive: true });
+const DEF_TAGS = 'symbol|linearGradient|radialGradient|clipPath|pattern';
+const defined = (svg, id) => svg.indexOf('id="' + id + '"') >= 0;
+const grab = (id) => {
+  const m = new RegExp('<(' + DEF_TAGS + ')\\b[^>]*\\bid="' + id + '"[\\s\\S]*?</\\1>').exec(html);
+  return m ? m[0] : '';
+};
+let thumbs = 0;
+html.replace(/<a class="ar-game" href="([a-z0-9]+)\.html">\s*(<svg class="ar-game-art"[\s\S]*?<\/svg>)(?=\s*<span class="ar-game-text">)/g, (all, name, art) => {
+  let body = art.replace(/^<svg class="ar-game-art"[^>]*>/, '').replace(/<\/svg>$/, '');
+  let defs = '';
+  for (let pass = 0; pass < 2; pass++) {
+    const ids = new Set();
+    (defs + body).replace(/(?:href="#|url\(#)([\w-]+)/g, (m, id) => { ids.add(id); return m; });
+    ids.forEach((id) => { if (!defined(body + defs, id)) defs += grab(id); });
+  }
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">' + (defs ? '<defs>' + defs + '</defs>' : '') + body.trim() + '</svg>\n';
+  fs.writeFileSync(path.join(thumbDir, name + '.svg'), svg);
+  thumbs++;
+  return all;
+});
+console.log('thumbnails: ' + thumbs);
