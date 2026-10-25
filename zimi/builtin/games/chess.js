@@ -4,11 +4,12 @@
 (function (root) {
   'use strict';
   if (typeof document === 'undefined' || !root.ZimiChessEngine) return;
-  var E = root.ZimiChessEngine(), BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  var E = root.ZimiChessEngine(), F = root.ZimiFairy, BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
   var WHITE = E.WHITE, BLACK = E.BLACK, SETTINGS_KEY = 'chess.settings', STATS_KEY = 'chess.stats';
   var FALLBACK_MS = 250, FALLBACK_DEPTH = 3;   // main-thread thinking when there is no worker
   var WORKER_GRACE_MS = 5000;                  // a worker that stays silent this long past its budget is given up on
   var COMPUTER_DELAY_MS = 250;
+  var OLD_NAMES = { strong: 'advanced' };   // the chip that used to be called Strong
   var NAMES = { 1: 'pawn', 2: 'knight', 3: 'bishop', 4: 'rook', 5: 'queen', 6: 'king' };
   var PIECE_SVG = {
     1: '<circle cx="22.5" cy="12.5" r="5.4"/><path d="M16.5 36c0-8.500 2-12.500 6-15 4 2.500 6 6.500 6 15z"/><rect x="12" y="35" width="21" height="4.500" rx="2"/>',
@@ -20,7 +21,7 @@
   };
 
   var settings = BK.load(SETTINGS_KEY, {});
-  if (!E.LEVELS[settings.level]) settings.level = 'club';
+  if (!E.LEVELS[settings.level] && !F.wants(settings.level)) settings.level = 'club';
   if (settings.mode !== 'two') settings.mode = 'cpu';
   if (settings.side !== 'black') settings.side = 'white';
   if (settings.hints !== false) settings.hints = true;
@@ -31,6 +32,8 @@
   var worker = null, workerOk = true, watchdog = 0, pendingPromo = null;
 
   var watch = null, watchSaved = null;   // Watch and learn: the driver's controller, and the settings to give back
+  // The level our own engine plays at: the one chosen, or its best when Strong or Master were chosen and Fairy-Stockfish is not there.
+  function engineLevel() { return F.wants(settings.level) ? 'strong' : settings.level; }
   function human(color) { if (watch) return false; return settings.mode === 'two' || color === (settings.side === 'white' ? WHITE : BLACK); }
   function colorName(c) { return c === WHITE ? 'White' : 'Black'; }
 
@@ -80,7 +83,7 @@
   }
   function showStats() {
     var s = stats[settings.level] || { w: 0, l: 0, d: 0 };
-    els.stats.textContent = settings.mode === 'cpu' ? 'vs ' + settings.level + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
+    els.stats.textContent = settings.mode === 'cpu' ? 'vs ' + F.levelName(settings.level, OLD_NAMES) + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
   }
   function paintMoves() {
     var html = '';
@@ -166,9 +169,28 @@
   function thinkHere(id) { // main thread: a short, shallow search, after a paint so the page shows it is thinking
     setTimeout(function () {
       if (id !== requestId || !thinking) return;
-      var r = E.think(pos, { level: settings.level, ms: FALLBACK_MS, depth: FALLBACK_DEPTH, seen: seenCounts() });
+      var r = E.think(pos, { level: engineLevel(), ms: FALLBACK_MS, depth: FALLBACK_DEPTH, seen: seenCounts() });
       onAnswer(id, r.move, r.score);
     }, 30);
+  }
+
+  function askLocal(id) {
+    var w = makeWorker();
+    if (!w) { thinkHere(id); return; }
+    w.postMessage({ id: id, fen: E.toFen(pos), level: engineLevel(), seen: seenCounts() });
+    watchdog = setTimeout(function () { if (id === requestId && thinking) { dropWorker(); thinkHere(id); } }, E.LEVELS[engineLevel()].ms + WORKER_GRACE_MS);
+  }
+
+  // Strong and Master: Fairy-Stockfish in its own Worker, started by the first move that needs it. If it cannot start,
+  // say so once and play on with our own best level (engineLevel).
+  function askFairy(id) {
+    F.ask('chess', E, pos, played, settings.level, function (move, why) {
+      if (id !== requestId || !thinking) return;
+      if (move) { onAnswer(id, move); return; }
+      var note = why === 'unavailable' ? F.note() : '';
+      if (note) say(note + 'Computer is thinking', true);
+      askLocal(id);
+    });
   }
 
   function askComputer() {
@@ -176,10 +198,7 @@
     paint();
     setTimeout(function () {
       if (id !== requestId || !thinking) return;
-      var w = makeWorker();
-      if (!w) { thinkHere(id); return; }
-      w.postMessage({ id: id, fen: E.toFen(pos), level: settings.level, seen: seenCounts() });
-      watchdog = setTimeout(function () { if (id === requestId && thinking) { dropWorker(); thinkHere(id); } }, E.LEVELS[settings.level].ms + WORKER_GRACE_MS);
+      if (F.wants(settings.level)) askFairy(id); else askLocal(id);
     }, COMPUTER_DELAY_MS);
   }
 
@@ -247,7 +266,7 @@
   }
 
   function newGame() {
-    requestId++; thinking = false; over = false; sel = -1; targets = {}; lastMove = 0; clearTimeout(watchdog);
+    requestId++; thinking = false; over = false; sel = -1; targets = {}; lastMove = 0; clearTimeout(watchdog); F.cancel();
     pos = E.startPosition(); keys = [E.key(pos)]; sans = []; played = [];
     flipped = settings.mode === 'cpu' && settings.side === 'black';
     resultSheet.close();

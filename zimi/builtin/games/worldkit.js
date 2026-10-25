@@ -18,7 +18,7 @@
   function standardOptions(opts) {
     opts = opts || {};
     var out = [{ key: 'mode', legend: 'Opponent', def: 'cpu', choices: [['cpu', 'Computer'], ['two', 'Two players']] }];
-    out.push({ key: 'level', legend: 'Level', def: 'medium', cpuOnly: true, choices: [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard']] });
+    out.push({ key: 'level', legend: 'Level', def: 'medium', cpuOnly: true, choices: [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard']].concat(opts.levels || []) });
     if (opts.side !== false) out.push({ key: 'side', legend: 'You play', def: 'first', cpuOnly: true, choices: [['first', opts.first || 'First'], ['second', opts.second || 'Second']] });
     return out;
   }
@@ -120,10 +120,15 @@
       return settings.side === 'second' ? ['Computer', 'You'] : ['You', 'Computer'];
     };
     G.who = function (p, a, b) { return G.names(a, b)[p]; };
+    // The level as the chip calls it, in lower case (a level can be shown under a different name than its key).
+    function levelName() {
+      var o = options.filter(function (x) { return x.key === 'level'; })[0], c = o && o.choices.filter(function (x) { return x[0] === settings.level; })[0];
+      return c ? c[1].toLowerCase() : settings.level;
+    }
     G.showStats = function () {
       var s = stats[cfg.statKey ? cfg.statKey(settings) : settings.level];
       s = s || { w: 0, l: 0, d: 0 };
-      els.stats.textContent = G.vsComputer() ? 'vs ' + settings.level + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
+      els.stats.textContent = G.vsComputer() ? 'vs ' + levelName() + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
     };
     G.setUndo = function (on) { if (els.undo) els.undo.disabled = !on || !!G.thinking; };
     G.setHint = function (on) { if (els.hint) els.hint.disabled = !on || !!G.thinking || G.over; };

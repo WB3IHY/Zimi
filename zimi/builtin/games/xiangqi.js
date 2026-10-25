@@ -4,16 +4,17 @@
 (function (root) {
   'use strict';
   if (typeof document === 'undefined' || !root.ZimiXiangqiEngine) return;
-  var E = root.ZimiXiangqiEngine(), BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  var E = root.ZimiXiangqiEngine(), F = root.ZimiFairy, BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
   var RED = E.RED, BLACK = E.BLACK, COLS = E.COLS, ROWS = E.ROWS, N = COLS * ROWS;
   var SETTINGS_KEY = 'xiangqi.settings', STATS_KEY = 'xiangqi.stats';
   var FALLBACK_MS = 250, FALLBACK_DEPTH = 3, WORKER_GRACE_MS = 5000, COMPUTER_DELAY_MS = 250;
+  var OLD_NAMES = { strong: 'advanced' };   // the chip that used to be called Strong
   var NAMES = { 1: 'soldier', 2: 'cannon', 3: 'rook', 4: 'horse', 5: 'elephant', 6: 'advisor', 7: 'general' };
   var HAN = { 1: { r: '兵', b: '卒' }, 2: { r: '炮', b: '砲' }, 3: { r: '俥', b: '車' }, 4: { r: '傌', b: '馬' }, 5: { r: '相', b: '象' }, 6: { r: '仕', b: '士' }, 7: { r: '帥', b: '將' } };
   var LATIN = { 1: 'P', 2: 'C', 3: 'R', 4: 'H', 5: 'E', 6: 'A', 7: 'K' };
 
   var settings = BK.load(SETTINGS_KEY, {});
-  if (!E.LEVELS[settings.level]) settings.level = 'club';
+  if (!E.LEVELS[settings.level] && !F.wants(settings.level)) settings.level = 'club';
   if (settings.mode !== 'two') settings.mode = 'cpu';
   if (settings.side !== 'black') settings.side = 'red';
   if (settings.hints !== false) settings.hints = true;
@@ -24,6 +25,8 @@
   var cells = [], pos, keys, sans, played, over, sel = -1, targets = {}, lastMove = 0, flipped = false, requestId = 0, thinking = false;
   var worker = null, workerOk = true, watchdog = 0;
 
+  // The level our own engine plays at: the one chosen, or its best when Strong or Master were chosen and Fairy-Stockfish is not there.
+  function engineLevel() { return F.wants(settings.level) ? 'strong' : settings.level; }
   function human(color) { return settings.mode === 'two' || color === (settings.side === 'red' ? RED : BLACK); }
   function colorName(c) { return c === RED ? 'Red' : 'Black'; }
 
@@ -106,7 +109,7 @@
   }
   function showStats() {
     var s = stats[settings.level] || { w: 0, l: 0, d: 0 };
-    els.stats.textContent = settings.mode === 'cpu' ? 'vs ' + settings.level + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
+    els.stats.textContent = settings.mode === 'cpu' ? 'vs ' + F.levelName(settings.level, OLD_NAMES) + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
   }
   function paintMoves() {
     var html = '';
@@ -183,19 +186,35 @@
   function thinkHere(id) {
     setTimeout(function () {
       if (id !== requestId || !thinking) return;
-      var r = E.think(pos, { level: settings.level, ms: FALLBACK_MS, depth: FALLBACK_DEPTH, seen: seenCounts() });
+      var r = E.think(pos, { level: engineLevel(), ms: FALLBACK_MS, depth: FALLBACK_DEPTH, seen: seenCounts() });
       onAnswer(id, r.move);
     }, 30);
   }
+  function askLocal(id) {
+    var w = makeWorker();
+    if (!w) { thinkHere(id); return; }
+    w.postMessage({ id: id, fen: E.toFen(pos), level: engineLevel(), seen: seenCounts() });
+    watchdog = setTimeout(function () { if (id === requestId && thinking) { dropWorker(); thinkHere(id); } }, E.LEVELS[engineLevel()].ms + WORKER_GRACE_MS);
+  }
+
+  // Strong and Master: Fairy-Stockfish in its own Worker, started by the first move that needs it. If it cannot start,
+  // say so once and play on with our own best level (engineLevel).
+  function askFairy(id) {
+    F.ask('xiangqi', E, pos, played, settings.level, function (move, why) {
+      if (id !== requestId || !thinking) return;
+      if (move) { onAnswer(id, move); return; }
+      var note = why === 'unavailable' ? F.note() : '';
+      if (note) say(note + 'Computer is thinking', true);
+      askLocal(id);
+    });
+  }
+
   function askComputer() {
     var id = ++requestId; thinking = true;
     paint();
     setTimeout(function () {
       if (id !== requestId || !thinking) return;
-      var w = makeWorker();
-      if (!w) { thinkHere(id); return; }
-      w.postMessage({ id: id, fen: E.toFen(pos), level: settings.level, seen: seenCounts() });
-      watchdog = setTimeout(function () { if (id === requestId && thinking) { dropWorker(); thinkHere(id); } }, E.LEVELS[settings.level].ms + WORKER_GRACE_MS);
+      if (F.wants(settings.level)) askFairy(id); else askLocal(id);
     }, COMPUTER_DELAY_MS);
   }
 
@@ -228,7 +247,7 @@
   }
 
   function newGame() {
-    requestId++; thinking = false; over = false; sel = -1; targets = {}; lastMove = 0; clearTimeout(watchdog);
+    requestId++; thinking = false; over = false; sel = -1; targets = {}; lastMove = 0; clearTimeout(watchdog); F.cancel();
     pos = E.startPosition(); keys = [E.key(pos)]; sans = []; played = [];
     flipped = settings.mode === 'cpu' && settings.side === 'black';
     resultSheet.close();

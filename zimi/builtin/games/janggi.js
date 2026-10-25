@@ -3,7 +3,7 @@
 (function (root) {
   'use strict';
   if (typeof document === 'undefined' || !root.ZimiJanggiEngine) return;
-  var WK = root.WorldKit, BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  var F = root.ZimiFairy, WK = root.WorldKit, BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
   var E = root.ZimiJanggiEngine(root.ZimiSearch()), brain = root.EngineKit.client(root.ZimiJanggiEngine, 300);
   var CHO = E.CHO, HAN = E.HAN, COLS = E.COLS, ROWS = E.ROWS, N = COLS * ROWS, PASS = E.PASS;
   var HINT_MS = 1500;
@@ -14,7 +14,7 @@
 
   var G = WK.create({
     id: 'janggi',
-    options: WK.standardOptions({ first: 'Cho (first)', second: 'Han' }).concat([{ key: 'labels', legend: 'Pieces', def: 'han', choices: [['han', 'Characters'], ['latin', 'Letters']] }]),
+    options: WK.standardOptions({ first: 'Cho (first)', second: 'Han', levels: F.CHOICES }).concat([{ key: 'labels', legend: 'Pieces', def: 'han', choices: [['han', 'Characters'], ['latin', 'Letters']] }]),
     checks: [{ key: 'hints', label: 'Show legal moves', def: true }],
     onNew: newGame, onUndo: undo, onHint: hint
   });
@@ -114,15 +114,31 @@
   }
   function seenCounts() { var seen = {}; keys.forEach(function (k) { seen[k] = (seen[k] || 0) + 1; }); return seen; }
 
-  function computerTurn() {
-    var token = G.begin();
-    paint();
-    brain.ask({ cmd: 'move', fen: E.toFen(pos), level: G.settings.level }, function (r) {
+  // The level our own engine plays at: the one chosen, or its best when Strong or Master were chosen and Fairy-Stockfish is not there.
+  function jsLevel() { return F.wants(G.settings.level) ? 'hard' : G.settings.level; }
+  function askLocal(token) {
+    brain.ask({ cmd: 'move', fen: E.toFen(pos), level: jsLevel() }, function (r) {
       if (!G.done(token)) return;
       var legal = E.movesOrPass(pos), m = r && legal.indexOf(r.move) >= 0 ? r.move : legal[0];
       play(m);
     });
   }
+
+  // Strong and Master: Fairy-Stockfish in its own Worker, started by the first move that needs it. If it cannot start, say so
+  // once and play on with our own best level (jsLevel).
+  function computerTurn() {
+    var token = G.begin();
+    paint();
+    if (!F.wants(G.settings.level)) { askLocal(token); return; }
+    F.ask('janggi', E, pos, played, G.settings.level, function (move, why) {
+      if (!G.current(token)) return;
+      if (move !== null) { G.done(token); play(move); return; }
+      var note = why === 'unavailable' ? F.note() : '';
+      if (note) G.say(note + 'Computer is thinking', true);
+      askLocal(token);
+    });
+  }
+
   function hint() {
     var token = G.begin(); paint(); G.say('Thinking about a good move...', true);
     brain.ask({ cmd: 'move', fen: E.toFen(pos), level: 'hard', ms: HINT_MS }, function (r) {
@@ -161,7 +177,7 @@
   }
 
   function newGame() {
-    sel = -1; targets = {}; lastMove = 0; tip = null; manualFlip = false;
+    sel = -1; targets = {}; lastMove = 0; tip = null; manualFlip = false; F.cancel();
     pos = E.startPosition(); keys = [E.key(pos)]; sans = []; played = [];
     afterMove();
   }

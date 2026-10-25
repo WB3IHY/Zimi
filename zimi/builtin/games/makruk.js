@@ -5,7 +5,7 @@
   'use strict';
   if (typeof document === 'undefined' || !root.ZimiMakrukEngine) return;
   var WK = root.WorldKit, BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
-  var E = root.ZimiMakrukEngine(root.ZimiSearch()), brain = root.EngineKit.client(root.ZimiMakrukEngine, 300);
+  var F = root.ZimiFairy, E = root.ZimiMakrukEngine(root.ZimiSearch()), brain = root.EngineKit.client(root.ZimiMakrukEngine, 300);
   var WHITE = E.WHITE, SIZE = E.SIZE, N = SIZE * SIZE, HINT_MS = 1500;
   var NAMES = { 1: 'Bia', 2: 'Ma', 3: 'Khon', 4: 'Met', 5: 'Rua', 6: 'Khun' };
   var SIDE_NAME = ['White', 'Black'];
@@ -27,7 +27,7 @@
 
   var G = WK.create({
     id: 'makruk',
-    options: WK.standardOptions({ first: 'White (first)', second: 'Black' }),
+    options: WK.standardOptions({ first: 'White (first)', second: 'Black', levels: F.CHOICES }),
     checks: [{ key: 'hints', label: 'Show legal moves', def: true }],
     onNew: newGame, onUndo: undo, onHint: hint
   });
@@ -107,15 +107,31 @@
     afterMove((G.vsComputer() ? who + ' played ' : who + ': ') + text + (E.isPromo(m) ? ' (a Met now)' : '') + '. ');
   }
 
-  function computerTurn() {
-    var token = G.begin();
-    paint();
-    brain.ask({ cmd: 'move', fen: E.toFen(pos), level: G.settings.level }, function (r) {
+  // The level our own engine plays at: the one chosen, or its best when Strong or Master were chosen and Fairy-Stockfish is not there.
+  function jsLevel() { return F.wants(G.settings.level) ? 'hard' : G.settings.level; }
+  function askLocal(token) {
+    brain.ask({ cmd: 'move', fen: E.toFen(pos), level: jsLevel() }, function (r) {
       if (!G.done(token)) return;
       var legal = E.legalMoves(pos);
       play(r && legal.indexOf(r.move) >= 0 ? r.move : legal[0]);
     });
   }
+
+  // Strong and Master: Fairy-Stockfish in its own Worker, started by the first move that needs it. If it cannot start, say so
+  // once and play on with our own best level (jsLevel).
+  function computerTurn() {
+    var token = G.begin();
+    paint();
+    if (!F.wants(G.settings.level)) { askLocal(token); return; }
+    F.ask('makruk', E, pos, played, G.settings.level, function (move, why) {
+      if (!G.current(token)) return;
+      if (move !== null) { G.done(token); play(move); return; }
+      var note = why === 'unavailable' ? F.note() : '';
+      if (note) G.say(note + 'Computer is thinking', true);
+      askLocal(token);
+    });
+  }
+
   function hint() {
     var token = G.begin(); paint(); G.say('Thinking about a good move...', true);
     brain.ask({ cmd: 'move', fen: E.toFen(pos), level: 'hard', ms: HINT_MS }, function (r) {
@@ -148,7 +164,7 @@
     afterMove();
   }
   function newGame() {
-    sel = -1; targets = {}; lastMove = 0; tip = null; manualFlip = false;
+    sel = -1; targets = {}; lastMove = 0; tip = null; manualFlip = false; F.cancel();
     pos = E.startPosition(); keys = [E.key(pos)]; played = [];
     afterMove();
   }
