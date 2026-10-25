@@ -267,7 +267,7 @@
       };
       var lp = st.lastPlay, told = '';
       if (lp && lp.id !== null) {
-        told = who(lp.seat) + vb(lp.seat, ' play ', ' plays ') + nameOf(lp.id) + (lp.taken.length ? ' and ' + vb(lp.seat, 'take ', 'takes ') + lp.taken.map(nameOf).join(', ') : '') + (lp.scopa ? '. Scopa!' : '');
+        told = who(lp.seat) + vb(lp.seat, ' play ', ' plays ') + nameOf(lp.id) + (lp.taken.length ? ' and ' + vb(lp.seat, 'take ', 'takes ') + lp.taken.map(nameOf).join(', ') : '') + (lp.scopa ? '. Scopa.' : '');
       } else if (lp) told = who(lp.seat) + vb(lp.seat, ' take', ' takes') + ' the last cards';
       if (st.phase === 'play') {
         if (busy()) out.text = told;
@@ -278,7 +278,7 @@
             out.choices = opts.map(function (o) { return { label: optionLabel(o), onclick: function () { doMove(st.turn, view.sel, o); } }; });
           } else out.text = (told ? told + '. ' : '') + (seats.isYou(st.turn) ? 'Your play' : who(st.turn) + ', your play');
         } else out.text = (told ? told + '. ' : '') + who(st.turn) + ' is thinking';
-      } else if (st.phase === 'handEnd') { out.text = 'Hand over'; out.label = 'Next hand'; out.action = startNextHand; }
+      } else if (st.phase === 'handEnd') { out.text = 'End of hand'; out.label = 'Next hand'; out.action = startNextHand; }
       else if (st.phase === 'over') { out.text = 'Game over'; }
       return out;
     }

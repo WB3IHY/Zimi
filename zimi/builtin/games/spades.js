@@ -263,7 +263,7 @@
           for (var n = 1; n <= MAX_BID; n++) out.choices.push(bidChoice(n));
           out.lines = [{ text: 'Your hand looks like about ' + Math.round(estimate(st.hands[V])) + ' tricks.' + (st.bids[partnerOf(V)] !== null ? ' ' + seats.name(partnerOf(V)) + ' bid ' + bidName(st.bids[partnerOf(V)]) + '.' : '') }];
         } else out.text = seats.name(st.turn) + ' is bidding';
-      } else if (st.phase === 'handEnd') { out.text = 'Hand over'; out.label = 'Next hand'; out.action = startNextHand; }
+      } else if (st.phase === 'handEnd') { out.text = 'End of hand'; out.label = 'Next hand'; out.action = startNextHand; }
       else if (st.phase === 'over') { out.text = 'Game over'; out.label = 'New game'; out.action = newGame; }
       else if (st.trick.length === SEATS) { var w = trickWinner(st.trick); out.text = seats.name(w) + (seats.isYou(w) ? ' take' : ' takes') + ' the trick'; }
       else out.text = !seats.person(st.turn) ? seats.name(st.turn) + ' is thinking' : seats.isYou(st.turn) ? 'Your turn' : seats.name(st.turn) + ', your turn';

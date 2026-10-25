@@ -378,7 +378,7 @@
   }
   function pause() {
     if (mode !== 'playing') return;
-    mode = 'paused'; showSheet('Paused', 'Your stack waits.', 'Resume');
+    mode = 'paused'; showSheet('Paused', 'Resume when you are ready.', 'Resume');
   }
   function resume() { mode = 'playing'; Play.closeSheet(els.sheet); startLoop(); }
   function finish() {

@@ -154,7 +154,7 @@
     if (G.over) return;
     var p = st.turn;
     if (G.human(p)) { G.say((G.vsComputer() ? 'Your turn' : SIDE_NAME[p] + ' to throw') + ': roll the dice.'); }
-    else { G.say('The computer is rolling...', true); var token = G.begin(); setTimeout(function () { if (G.done(token)) doRoll(); }, COMPUTER_ROLL_DELAY_MS); }
+    else { G.say('Computer is rolling', true); var token = G.begin(); setTimeout(function () { if (G.done(token)) doRoll(); }, COMPUTER_ROLL_DELAY_MS); }
   }
   function doRoll() {
     if (G.over || phase !== 'roll' || rolling) return;
@@ -188,7 +188,7 @@
     st = E.apply(st, m); last = { p: p, to: m.to }; tip = null;
     if (st.winner >= 0) { phase = 'over'; moves = []; paint(); win(); return; }
     startTurn();
-    G.say(note + (G.human(st.turn) ? (G.vsComputer() ? 'Your turn: roll the dice.' : SIDE_NAME[st.turn] + ' to throw.') : 'The computer is rolling...'), !G.human(st.turn));
+    G.say(note + (G.human(st.turn) ? (G.vsComputer() ? 'Your turn: roll the dice.' : SIDE_NAME[st.turn] + ' to throw.') : 'Computer is rolling'), !G.human(st.turn));
   }
   function win() {
     var w = st.winner, msg = (G.vsComputer() ? (G.human(w) ? 'You win' : 'The computer wins') : SIDE_NAME[w] + ' wins') + ': all seven pieces are home.';
@@ -213,7 +213,7 @@
     if (phase !== 'move' || !moves.length) return;
     var c = E.choose(st, roll, HINT_LEVEL, function () { return 0.5; });
     tip = moves[c.index >= 0 ? c.index : 0]; paint();
-    G.say('A good move is marked.');
+    G.say('Hint: try the marked move.');
   }
   function newGame() {
     st = E.newState(); last = null; roll = null; moves = []; tip = null; rolling = false;

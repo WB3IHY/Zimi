@@ -59,7 +59,7 @@
 
   function verdict(total, max) {
     var r = max ? total / max : 0;
-    return r >= 0.9 ? 'A navigator.' : r >= 0.7 ? 'You know your way round.' : r >= 0.45 ? 'Not bad at all.' : 'The map has plenty left to show you.';
+    return r >= 0.9 ? 'A navigator.' : r >= 0.7 ? 'Very good.' : r >= 0.45 ? 'Good.' : 'Keep playing to learn more.';
   }
 
   var Engine = { project: project, unproject: unproject, haversine: haversine, points: points, clampView: clampView, zoomView: zoomView, panView: panView, fitView: fitView,

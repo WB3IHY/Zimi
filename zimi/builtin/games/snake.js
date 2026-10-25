@@ -172,7 +172,7 @@
     g = createGame(COLS, ROWS, settings.wrap); acc = 0; mode = 'playing'; els.msg.textContent = '';
     Play.closeSheet(els.sheet); els.pause.disabled = false; hud(); draw(); startLoop();
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; showSheet('Paused', 'The snake waits.', 'Resume'); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; showSheet('Paused', 'Resume when you are ready.', 'Resume'); }
   function resume() { mode = 'playing'; Play.closeSheet(els.sheet); startLoop(); }
   function finish(won) {
     mode = 'over'; els.pause.disabled = true;

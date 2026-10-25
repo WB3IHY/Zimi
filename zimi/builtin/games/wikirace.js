@@ -314,7 +314,7 @@
   function giveUp() {
     if (!race || race.done) return;
     race.done = true; pause(); saveDaily(); paintTrail();
-    els.title.textContent = 'Not this time';
+    els.title.textContent = 'You gave up';
     els.text.textContent = 'The target was ' + race.pair.end.title + ', ' + race.pair.parLabel + '.';
     els.route.innerHTML = '';
     race.steps.forEach(function (s) { els.route.appendChild(el('li', null, s.title)); });
