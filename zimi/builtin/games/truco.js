@@ -241,10 +241,12 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var COL_STEP = 1.28, ROW_DROP = 0.62;
+  var COL_STEP = 1.28, ROW_DROP = 0.62, PANEL_ROOM = 128, DUEL_LIFT = 24;
   function geo(m) {
     var g = T.geometry(m, 1);
-    g.duelY = Math.round(g.yTop + (g.statusY - g.yTop - g.ch * (1 + ROW_DROP)) * 0.22);
+    // The tricks sit above the choices (up to two rows of buttons).
+    var slack = g.statusY - PANEL_ROOM - g.yTop - g.ch * (1 + ROW_DROP);
+    g.duelY = Math.round(g.yTop + Math.max(0, Math.min(slack * 0.25, DUEL_LIFT)));
     return g;
   }
   // The tricks side by side, North's card above yours.
@@ -258,7 +260,8 @@
     cards = cards.concat(T.fan(g, 2, st.hands[1], false).map(function (c, i, a) { c.x = Math.round((g.W - (g.cw + (a.length - 1) * g.cw * 0.5)) / 2 + i * g.cw * 0.5); return c; }));
     plays.forEach(function (pair, i) {
       var cx = g.cx - g.cw / 2 + (i - 1) * g.cw * COL_STEP, won = i < st.done.length ? st.done[i].winner : -2;
-      pair.forEach(function (p) {
+      // North's card first, so yours lies over its lower edge and is whole.
+      pair.slice().sort(function (a, b) { return b.seat - a.seat; }).forEach(function (p) {
         cards.push({ id: p.id, pile: 'k' + i, idx: p.seat, x: Math.round(cx + (p.seat ? 0 : 0)), y: Math.round(g.duelY + (p.seat === 0 ? g.ch * ROW_DROP : 0)), up: true, glow: won === p.seat, dim: won >= 0 && won !== p.seat });
       });
     });

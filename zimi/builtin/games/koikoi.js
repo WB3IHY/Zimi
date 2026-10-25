@@ -349,7 +349,7 @@
     function driveDraw() {
       var st = session.state;
       if (st.turn === 0 && needsTarget(st.table, peek(st))) { view.pick = true; board.refresh(); t.paint(); return; }
-      session.later(function () { doDraw(st.turn, undefined); }, DRAW_MS);
+      session.later(function () { doDraw(st.turn, st.turn === 1 ? aiTarget(st, 1) : undefined); }, DRAW_MS);
     }
     function aiTurn() {
       var st = session.state;
