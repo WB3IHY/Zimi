@@ -750,5 +750,53 @@
   "title": "Mahjong for Four",
   "blurb": "Hong Kong old style against three computers",
   "why": "Mahjong for four, the tile game played at tables across China and beyond."
+ },
+ {
+  "qid": "Q828322",
+  "wiki": "Platform game",
+  "path": "hopper.html",
+  "title": "Hopper",
+  "blurb": "Run, jump and stomp through six short levels",
+  "why": "Platformers took a screen full of ledges and made jumping the whole game."
+ },
+ {
+  "qid": "Q13717398",
+  "wiki": "Maze video game",
+  "path": "muncher.html",
+  "title": "Muncher",
+  "blurb": "Eat every dot while four chasers hunt you",
+  "why": "Maze chases were an arcade staple by 1980, each chaser with its own way of hunting you."
+ },
+ {
+  "qid": "Q524267",
+  "wiki": "Frogger",
+  "path": "crossing.html",
+  "title": "Crossing",
+  "blurb": "Hop a critter over roads and rivers",
+  "why": "A 1981 arcade game about nothing more than getting across the road."
+ },
+ {
+  "qid": "Q2583040",
+  "wiki": "Bomberman",
+  "path": "blast.html",
+  "title": "Blast",
+  "blurb": "Grid bombers, blocks and chain reactions, up to two on one keyboard",
+  "why": "Bombs that blast in four directions and set each other off made a whole genre of grid fights."
+ },
+ {
+  "qid": "Q343568",
+  "wiki": "Action-adventure game",
+  "path": "quest.html",
+  "title": "Quest",
+  "blurb": "A tiny top-down adventure: sword, keys, a door and a boss",
+  "why": "Sword, key, locked door: the shape of top-down adventures since the early 1980s."
+ },
+ {
+  "qid": "Q1187635",
+  "wiki": "Digital pet",
+  "path": "pet.html",
+  "title": "Zimi Pet",
+  "blurb": "Hatch an egg and raise a small creature over real days",
+  "why": "Pocket pets from the late 1990s asked only that you come back and feed them."
  }
 ]

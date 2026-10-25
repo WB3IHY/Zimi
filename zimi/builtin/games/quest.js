@@ -11,7 +11,7 @@
   var HERO_W = 10, HERO_H = 10, HERO_SPEED = 56, START_HEARTS = 3, MAX_HEARTS = 8;
   var SWING_S = 0.22, SWING_COOLDOWN_S = 0.32, REACH = 15, REACH_W = 14, INVULN_S = 1.0, KNOCK_PX = 14, FAINT_S = 1.5, DROP_CHANCE = 0.25;
   var SLIME = { hp: 1, speed: 20, w: 12, h: 10 }, BAT = { hp: 1, speed: 38, w: 12, h: 8 };
-  var BOSS = { hp: 10, w: 28, h: 24, speed: 28, fast: 46, shotEvery: 2.3, shotFast: 1.5, shotSpeed: 58, spread: 0.38 };
+  var BOSS = { hp: 8, w: 28, h: 24, speed: 28, fast: 46, shotEvery: 2.3, shotFast: 1.5, shotSpeed: 58, spread: 0.38 };
   var START_SCREEN = 'D';
   var SOLID = { T: 1, R: 1, W: 1, b: 1, D: 1, N: 1, C: 1, c: 1, P: 1, p: 1, '#': 1 };
 
