@@ -448,7 +448,7 @@
       move: function (pile, idx, to) { return (to === 'table' || to === 'deck') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0] + '-' + st.scores[1]; },
       winLines: function (sec, st) { return [who(0) + ' ' + st.scores[0] + ', ' + who(1) + ' ' + st.scores[1] + ', after ' + Z.plural(st.handNo + 1, 'hand') + '.'].concat(st.scores[1] < SKUNK ? ['A skunk: North finished below ' + SKUNK + '.'] : []); },
-      rules: 'First to 121. Each hand: keep four cards and send two to the dealer’s crib. The starter is cut (a jack gives the dealer 2). Then play cards by turns to a count of 31: 15 and 31 score 2, pairs 2, 6 or 12, runs 3 and up, a go or the last card 1. Then the show: the player who did not deal counts first, then the dealer, then the crib. Fifteens 2, pairs 2, runs 1 a card, flush 4 (5 with the starter), nobs 1. Tap a card to choose or play it.'
+      rules: 'First to 121. Each hand: keep 4 cards and send 2 to the dealer’s crib. A starter card is cut (a jack gives the dealer 2). Then take turns playing cards, up to a count of 31. A count of 15 or 31 scores 2, a pair 2, three of a kind 6, four of a kind 12, a run 3 or more, a go or the last card 1. Then the show: the player who did not deal counts first, then the dealer, then the crib. Fifteens score 2, pairs 2, runs 1 a card, a flush 4 (5 with the starter), nobs 1. Tap a card to choose or play it.'
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;

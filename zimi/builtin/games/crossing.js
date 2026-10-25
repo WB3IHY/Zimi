@@ -292,6 +292,6 @@
 
   window.addEventListener('resize', layout);
   buildArt(); layout(); hud();
-  showSheet('Crossing', 'Get the chick across five lanes of traffic and five of river, into an open nest. Five nests to fill, and every level is a little faster. Arrow keys, a swipe, or the pad.', 'Start');
+  showSheet('Crossing', 'Get the chick across 5 lanes of traffic and 5 of river into an open nest. Fill all 5 nests. Each level is a little faster. Use arrow keys, a swipe or the pad.', 'Start');
   root.__crossing = { get st() { return st; }, get mode() { return mode; } };
 })(this);
