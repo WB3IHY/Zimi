@@ -1,0 +1,20 @@
+/* Road Rush: the road is a canvas (it keeps its own sky and colours in light and dark); the touch keys and the sheet are extra. */
+.pl-main:has(#rr-board) { gap: 8px; padding-top: 8px; justify-content: flex-start; }
+.pl-main:has(#rr-board) .pl-stat { padding: 3px 10px; }
+.pl-main:has(#rr-board) .pl-msg { min-height: 1.2em; }
+.pl-arena#rr-board { background: #4aa3e8; touch-action: none; }
+.rr-pad { display: none; width: 100%; max-width: 460px; justify-content: space-between; gap: 12px; }
+body.touch .rr-pad { display: flex; }
+.rr-pad .pl-key { flex: 1; min-height: 72px; font-size: 18px; user-select: none; -webkit-user-select: none; touch-action: none; }
+body.touch.rr-auto .rr-gas { display: none; }
+body.touch .pl-help { display: none; }
+.rr-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0 0; }
+.rr-row > span { font-size: 13px; color: var(--ink2); }
+.rr-check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 14px; }
+.rr-check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.rr-note { margin: 8px 0 0; font-size: 13px; color: var(--ink2); }
+.rr-note b { color: var(--ink); }
+@media (max-width: 480px) { .pl-main:has(#rr-board) .pl-hud { gap: 5px; } .pl-main:has(#rr-board) .pl-stat { min-width: 56px; padding: 3px 7px; } }
+body.touch.rr-auto .rr-pad { justify-content: center; }
+body.touch.rr-auto .rr-brake { flex: 0 1 240px; }
+.rr-pad .pl-key { min-height: 60px; }

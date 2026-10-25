@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Road Rush - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="roadrush.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Road Rush</h1>
+  <button class="ar-btn" id="rr-pause" type="button" disabled>Pause</button>
+</header>
+
+<main class="pl-main">
+  <div class="pl-hud">
+    <div class="pl-stat"><small>Speed</small><b id="rr-speed">0</b></div>
+    <div class="pl-stat"><small>Time</small><b id="rr-time">50</b></div>
+    <div class="pl-stat"><small>Score</small><b id="rr-score">0</b></div>
+    <div class="pl-stat"><small>Best</small><b id="rr-best">0</b></div>
+  </div>
+  <canvas class="pl-arena" id="rr-board" role="img" aria-label="The road ahead from behind your car, with traffic and roadside trees"></canvas>
+  <div class="rr-pad" id="rr-pad" role="group" aria-label="Controls">
+    <button class="pl-key rr-brake" type="button" id="rr-brake" aria-label="Brake" aria-pressed="false">Brake</button>
+    <button class="pl-key rr-gas" type="button" id="rr-gas" aria-label="Accelerate" aria-pressed="false">Gas</button>
+  </div>
+  <p class="pl-msg" id="rr-msg" role="status" aria-live="polite"></p>
+  <p class="pl-help" id="rr-help">Left and right arrows (or A and D) steer, up (W) accelerates, down (S) brakes, P pauses. Reach each checkpoint before the clock runs out; lift for the hard bends.</p>
+</main>
+
+<div class="ar-sheet" id="rr-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="rr-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="rr-sheet-title">Road Rush</h2>
+    <div id="rr-body"></div>
+    <div class="ar-sheet-actions" id="rr-actions"></div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="roadrush.js"></script>
+<script src="roadrush-art.js"></script>
+<script src="roadrush-page.js"></script>
+<!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
+<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q1371868">About Road Rush</a></footer><!-- /zimi-about -->
+</body>
+</html>

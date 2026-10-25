@@ -638,5 +638,13 @@
   "title": "Circuit",
   "blurb": "Four tracks, rival cars and a ghost of your best lap",
   "why": "Atari's Gran Trak 10, in 1974, put a wheel and pedals on an arcade cabinet."
+ },
+ {
+  "qid": "Q1371868",
+  "wiki": "Pseudo-3D",
+  "path": "roadrush.html",
+  "title": "Road Rush",
+  "blurb": "Hills, curves and traffic against the clock",
+  "why": "Arcade racers of the 1980s faked a 3D road by scaling flat strips of it."
  }
 ]
