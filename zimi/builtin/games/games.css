@@ -40,7 +40,11 @@ button { font: inherit; color: inherit; }
 /* A game's bar: back to the shelf, the game's name, its controls. */
 .ar-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 16px; min-height: 52px; background: var(--surface); border-bottom: 1px solid var(--line); }
 .ar-bar h1 { flex: 1; margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ar-back { text-decoration: none; color: var(--ink2); font-size: 22px; line-height: 1; padding: 6px 8px; border-radius: 8px; }
+/* The way back is the ZimiGames mark and a chevron. The page's own text
+   (a single chevron) stays for screen readers and is not drawn. */
+.ar-back { display: inline-flex; align-items: center; gap: 3px; font-size: 0; line-height: 0; text-decoration: none; color: var(--ink2); padding: 7px 8px 7px 6px; border-radius: 8px; }
+.ar-back::before { content: ""; width: 8px; height: 8px; margin-right: -1px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) scale(0.9); }
+.ar-back::after { content: ""; width: 24px; height: 24px; background: url(mark.svg) center / contain no-repeat; }
 .ar-back:hover { color: var(--accent); }
 /* Tap target only (the look of the back control is the designer's): at least 40 px square. */
 .ar-back { display: inline-grid; place-items: center; min-width: 40px; min-height: 40px; margin-left: -8px; }
@@ -60,11 +64,15 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 .ar-sheet[hidden] { display: none; }
 .ar-sheet-card { width: min(420px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 20px; border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35); }
 .ar-sheet-card h2 { margin: 0 0 12px; font-size: 19px; }
+.ar-sheet-card h2::before { content: ""; display: inline-block; width: 22px; height: 22px; margin: -3px 8px 0 0; vertical-align: middle; background: url(mark.svg) center / contain no-repeat; }
 .ar-sheet-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 
 /* The shelf (ZimiGames' main page). */
 .ar-shelf { max-width: 880px; margin: 0 auto; padding: 24px 16px 48px; }
 .ar-shelf header h1 { margin: 0; font-size: 30px; letter-spacing: -0.02em; text-wrap: balance; }
+.ar-brand { display: flex; align-items: center; gap: 12px; }
+.ar-brand .ar-mark { flex: none; width: 44px; height: 44px; }
+.ar-brand .ar-word { display: block; height: 30px; width: auto; max-width: 100%; }
 .ar-shelf header p { margin: 6px 0 24px; color: var(--ink2); max-width: 60ch; }
 .ar-section + .ar-section { margin-top: 32px; }
 .ar-section h2 { margin: 0 0 12px; font-size: 13px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink2); }
