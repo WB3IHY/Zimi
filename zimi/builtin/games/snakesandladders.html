@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Snakes and Ladders - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="world.css">
+<link rel="stylesheet" href="snakesandladders.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Snakes and Ladders</h1>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog">New game</button>
+</header>
+
+<main class="bg-main">
+  <div class="bg-score" id="wk-score" aria-label="Players"></div>
+  <div class="wk-board sl-board" id="sl-board"></div>
+  <div class="sl-roll"><div id="sl-die" aria-hidden="true"></div><button class="ar-btn" id="sl-roll" type="button" aria-pressed="true">Roll</button></div>
+  <p class="bg-status" id="wk-status" role="status" aria-live="polite"></p>
+  <p class="bg-stats" id="wk-stats"></p>
+  <p class="bg-help">Roll the die and move that many squares along the numbers. A ladder carries you up, a snake slides you down. You need the exact number to land on 100. Two to four players, on this device or against the computer. R or Space rolls, N starts a new game.</p>
+</main>
+<script src="boardkit.js"></script>
+<script src="worldkit.js"></script>
+<script src="snakesandladders.js"></script>
+<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q697302">About Snakes and ladders</a></footer><!-- /zimi-about -->
+</body>
+</html>

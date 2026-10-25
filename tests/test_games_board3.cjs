@@ -222,7 +222,7 @@ const sortNum = list => list.slice().sort((a, b) => a - b);
     for (; plies < 40; plies++) {
       const st = E.status(g);
       if (st.over) break;
-      const r = E.think(g, { level: 'easy', ms: 60, depth: 2 });
+      const r = E.think(g, { level: 'easy', ms: 60, depth: 2, noise: 0 });
       const legalNow = E.movesOrPass(g);
       if (!legalNow.includes(r.move)) { ok = false; break; }
       E.make(g, r.move);
@@ -509,6 +509,121 @@ const sortNum = list => list.slice().sort((a, b) => a - b);
       E.make(g, res.move);
     }
     check(legal && plies >= 10, 'hnefatafl: the computer plays ' + plies + ' legal plies against itself (' + E.status(g).result + ')');
+  }
+}
+
+// ── The Royal Game of Ur ──
+{
+  const E = load(['enginekit.js', 'ur-engine.js']).ZimiUrEngine();
+  const state = (a, b, turn) => { const st = E.newState(); st.pos[0] = a.concat(new Array(7 - a.length).fill(0)); st.pos[1] = b.concat(new Array(7 - b.length).fill(0)); st.turn = turn || 0; return st; };
+  const moveTo = (st, roll, from) => E.legalMoves(st, roll).find(m => m.from === from);
+
+  check(same(E.ROLL_WAYS, [1, 4, 6, 4, 1]) && E.ROLL_WAYS.reduce((a, b) => a + b) === E.ROLL_TOTAL, 'ur: four binary dice give 0 to 4 in 1, 4, 6, 4, 1 sixteenths');
+  const cells = new Set();
+  for (let p = 0; p < 2; p++) for (let k = 1; k <= 14; k++) { const c = E.cell(p, k); cells.add(c.row + ',' + c.col); }
+  check(cells.size === 20 && same(E.cell(0, 8), E.cell(1, 8)) && E.cell(0, 8).row === 1 && E.cell(0, 8).col === 3, 'ur: the two paths cover twenty squares and share the eight in the middle, the central rosette in the fourth column');
+  check(E.ROSETTES.every(k => E.isRosette(k)) && same(E.cell(0, 4), { row: 2, col: 0 }) && same(E.cell(0, 14), { row: 2, col: 6 }) && same(E.cell(1, 14), { row: 0, col: 6 }), 'ur: rosettes on the fourth, eighth and fourteenth squares');
+
+  let st = state([2], [], 0);
+  let m = moveTo(st, 2, 2);
+  check(m && m.rosette && E.apply(st, m).turn === 0, 'ur: landing on a rosette throws again');
+  m = moveTo(st, 1, 2);
+  check(m && !m.rosette && E.apply(st, m).turn === 1, 'ur: any other landing passes the dice to the other side');
+
+  // Capture and the safe rosette.
+  st = state([5], [7], 0);
+  m = moveTo(st, 2, 5);
+  check(m && m.capture, 'ur: a piece landing on an enemy in the shared lane takes it');
+  let after = E.apply(st, m);
+  check(after.pos[1].every(k => k === 0) && after.pos[0].includes(7), 'ur: the taken piece goes back to the start');
+  st = state([6], [8], 0);
+  check(!moveTo(st, 2, 6), 'ur: a piece on the central rosette cannot be taken, so nobody may land there');
+  st = state([3], [3], 0);
+  m = moveTo(st, 1, 3);
+  check(m && !m.capture && E.apply(st, m).pos[1].includes(3), 'ur: the squares in the first four and last two are private: no captures there');
+  st = state([5, 7], [], 0);
+  check(!moveTo(st, 2, 5), 'ur: a piece may not land on one of its own');
+
+  // Leaving the board takes an exact throw.
+  st = state([13], [], 0);
+  check(moveTo(st, 2, 13) && moveTo(st, 2, 13).off && !moveTo(st, 3, 13) && !moveTo(st, 4, 13), 'ur: bearing off needs an exact throw');
+  st = state([14, 15, 15, 15, 15, 15, 15], [], 0);
+  check(moveTo(st, 1, 14) && moveTo(st, 1, 14).off && E.legalMoves(st, 2).length === 0, 'ur: from the last square only a 1 takes the piece off');
+  check(E.legalMoves(state([1], [], 0), 0).length === 0, 'ur: a throw of 0 moves nothing');
+  st = state([0, 0, 0], [], 0);
+  check(E.legalMoves(st, 2).length === 1, 'ur: the waiting pieces are one choice, not many');
+  st = state([15, 15, 15, 15, 15, 15, 13], [], 0);
+  after = E.apply(st, moveTo(st, 2, 13));
+  check(after.winner === 0 && E.home(after, 0) === 7, 'ur: the seventh piece off the board wins');
+
+  // The computer takes an obvious capture, and plays complete games with legal moves only.
+  st = state([5, 10], [7, 12], 0);
+  const choice = E.choose(st, 2, 'hard', () => 0.5);
+  check(E.legalMoves(st, 2)[choice.index].capture, 'ur: the computer takes a piece when it can (hard)');
+  {
+    const rng = seeded(21);
+    let completed = 0, legalOnly = true, conserved = true;
+    for (let g = 0; g < 15 && legalOnly; g++) {
+      let s = E.newState(), guard = 0;
+      while (s.winner < 0 && guard++ < 3000) {
+        let r = 0; const x = rng() * 16; r = x < 1 ? 0 : x < 5 ? 1 : x < 11 ? 2 : x < 15 ? 3 : 4;
+        const ms = E.legalMoves(s, r);
+        if (!ms.length) { s = E.pass(s); continue; }
+        const level = ['easy', 'medium', 'hard'][(g + s.turn) % 3];
+        const idx = E.choose(s, r, level, rng).index;
+        if (idx < 0 || idx >= ms.length) { legalOnly = false; break; }
+        s = E.apply(s, ms[idx]);
+        if (s.pos[0].length !== 7 || s.pos[1].length !== 7) conserved = false;
+      }
+      if (s.winner >= 0) completed++;
+    }
+    check(legalOnly && conserved && completed === 15, 'ur: 15 games between the computer levels all finish with legal moves (' + completed + ')');
+  }
+}
+
+// ── Snakes and Ladders ──
+{
+  const E = load(['snakesandladders.js']).SnakesLaddersEngine;
+  check(same(E.cellOf(1), { row: 0, col: 0 }) && same(E.cellOf(10), { row: 0, col: 9 }) && same(E.cellOf(11), { row: 1, col: 9 }) && same(E.cellOf(20), { row: 1, col: 0 }) && same(E.cellOf(100), { row: 9, col: 0 }), 'snakes: the squares run along each row in turn from the bottom left (1 bottom left, 10 bottom right, 11 above 10, 100 top left)');
+  const all = new Set();
+  for (let n = 1; n <= 100; n++) { const c = E.cellOf(n); all.add(c.row * 10 + c.col); }
+  check(all.size === 100, 'snakes: every square has its own place');
+  const heads = Object.keys(E.SNAKES).map(Number), feet = Object.keys(E.LADDERS).map(Number);
+  check(heads.every(h => E.SNAKES[h] < h) && feet.every(f => E.LADDERS[f] > f), 'snakes: every snake goes down and every ladder goes up');
+  const ends = heads.map(h => E.SNAKES[h]).concat(feet.map(f => E.LADDERS[f]));
+  check(ends.every(e => !E.jumpOf(e) || e === 100) && !heads.some(h => feet.includes(h)) && !E.jumpOf(100), 'snakes: nothing ends on another snake or ladder, so a jump never chains');
+  check(E.jumpOf(100) === 0 && E.SNAKES[100] === undefined, 'snakes: there is no snake on the last square');
+
+  let r = E.step(0, 4);
+  check(r.moved && r.to === 14 && r.jump === 'ladder' && r.landed === 4, 'snakes: landing on a ladder foot carries the token up');
+  r = E.step(12, 4);
+  check(r.to === 6 && r.jump === 'snake' && r.landed === 16, 'snakes: landing on a snake head slides the token down');
+  r = E.step(20, 3);
+  check(r.to === 23 && r.jump === null, 'snakes: a plain square is just a move');
+  r = E.step(98, 3);
+  check(!r.moved && r.to === 98 && !r.won, 'snakes: a roll that would pass 100 leaves the token where it is');
+  r = E.step(97, 3);
+  check(r.won && r.to === 100, 'snakes: an exact roll reaches 100 and wins');
+  r = E.step(95, 5);
+  check(r.won && r.jump === null, 'snakes: 100 itself holds no snake');
+  r = E.step(94, 1);
+  check(r.to === 75 && r.jump === 'snake' && r.landed === 95, 'snakes: the snake at 95 takes a token back to 75');
+  r = E.step(94, 4);
+  check(r.to === 78 && r.jump === 'snake', 'snakes: the snake at 98 takes a token back to 78');
+  r = E.step(77, 3);
+  check(r.to === 100 && r.won, 'snakes: the long ladder from 80 reaches 100 and wins');
+  check(E.step(0, 6, { again: true }).again === true && E.step(0, 5, { again: true }).again === false && E.step(0, 6, {}).again === false, 'snakes: a six gives another roll only when that option is on');
+  check(E.step(94, 6, { again: true }).won && !E.step(94, 6, { again: true }).again, 'snakes: no extra roll after winning');
+  // Every square of the board can be reached by rolling 1 to 6 from the start (the game can always be finished).
+  const seen = new Set([0]); let frontier = [0];
+  while (frontier.length) { const next = []; frontier.forEach(f => { for (let d = 1; d <= 6; d++) { const q = E.step(f, d); if (q.moved && !seen.has(q.to)) { seen.add(q.to); next.push(q.to); } } }); frontier = next; }
+  check(seen.has(100), 'snakes: the last square can be reached from the start');
+  // A long run of random games always finishes, and the average is in the usual range.
+  {
+    const rng = seeded(5);
+    let total = 0, games = 400, finished = 0;
+    for (let g = 0; g < games; g++) { let at = 0, turns = 0; while (at < 100 && turns < 2000) { at = E.step(at, 1 + Math.floor(rng() * 6)).to; turns++; } if (at === 100) { finished++; total += turns; } }
+    check(finished === games && total / games > 20 && total / games < 90, 'snakes: random games all finish, ' + (total / games).toFixed(0) + ' turns on average');
   }
 }
 
