@@ -151,7 +151,7 @@
     function newGame() { session.reset(newState(Z.shuffled(Math.random))); }
 
     board = Z.createBoard({
-      table: el.table, cols: FIT_COLS, heightShare: HEIGHT_SHARE, enterTaps: true, place: place,
+      table: el.table, cols: FIT_COLS, heightShare: HEIGHT_SHARE, centerY: 0.4, enterTaps: true, place: place,
       canPick: canPick, move: move,
       tap: function (pile, idx) {
         if (pile === 'stock') { var next = drawStock(session.state); return next ? commit(next) : false; }

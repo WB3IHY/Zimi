@@ -343,7 +343,7 @@
     an = deal0.an; faces = deal0.faces; alive = new Uint8Array(an.n).fill(1);
     tabStop = -1;
     buildTiles(); layoutStage(); updateTimeText(); showStats(); resultSheet.close();
-    afterChange(); say('Match two free tiles. Tiles with a dimmer face are blocked.');
+    afterChange(); say('Match two free tiles. Dim tiles are blocked.');
   }
 
   // ── bar, menu, keys ──

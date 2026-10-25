@@ -177,7 +177,7 @@
     function newGame() { view.picked = null; session.reset(newState(Z.shuffled(Math.random))); paintSub(); }
 
     board = Z.createBoard({
-      table: el.table, cols: COLS, heightShare: HEIGHT_SHARE, enterTaps: true,
+      table: el.table, cols: COLS, heightShare: HEIGHT_SHARE, centerY: 0.4, enterTaps: true,
       place: function (st, m) { return place(st, m, view); },
       canPick: function (st, pile, idx) { return canPick(st, pile, idx); },
       move: move, tap: tap,
