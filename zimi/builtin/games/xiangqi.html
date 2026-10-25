@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Xiangqi - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="xiangqi.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Xiangqi</h1>
+  <button class="ar-btn" id="xq-undo" type="button" disabled>Undo</button>
+  <button class="ar-btn" id="xq-flip" type="button" aria-pressed="false" title="Turn the board around (F)">Flip</button>
+  <button class="ar-btn" id="xq-new" type="button" aria-haspopup="dialog">New game</button>
+</header>
+
+<main class="bg-main">
+  <p class="bg-status" id="xq-status" role="status" aria-live="polite"></p>
+  <div class="xq-board" id="xq-board" role="group" aria-label="Xiangqi board">
+    <svg class="xq-lines" viewBox="0 0 9 10" preserveAspectRatio="none" aria-hidden="true" id="xq-lines"></svg>
+    <div class="xq-river" aria-hidden="true"><span id="xq-river-l">楚河</span><span id="xq-river-r">漢界</span></div>
+    <div class="xq-grid" id="xq-grid"></div>
+  </div>
+  <div class="xq-moves" id="xq-moves" role="log" aria-label="Moves"></div>
+  <p class="bg-stats" id="xq-stats"></p>
+  <p class="bg-help">Red moves first. Click a piece, then a square. The generals may never face each other down an open file. Arrow keys move, Enter selects, U undoes, F flips the board, N starts a new game.</p>
+</main>
+
+<div class="ar-sheet" id="xq-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="xq-menu-title">
+  <div class="ar-sheet-card">
+    <h2 id="xq-menu-title">New game</h2>
+    <fieldset class="bg-field"><legend>Opponent</legend><div class="bg-chips" id="xq-f-mode">
+      <label class="bg-chip"><input type="radio" name="xq-mode" value="cpu"><span>Computer</span></label>
+      <label class="bg-chip"><input type="radio" name="xq-mode" value="two"><span>Two players</span></label>
+    </div></fieldset>
+    <fieldset class="bg-field" id="xq-f-level"><legend>Level</legend><div class="bg-chips">
+      <label class="bg-chip"><input type="radio" name="xq-level" value="beginner"><span>Beginner</span></label>
+      <label class="bg-chip"><input type="radio" name="xq-level" value="casual"><span>Casual</span></label>
+      <label class="bg-chip"><input type="radio" name="xq-level" value="club"><span>Club</span></label>
+      <label class="bg-chip"><input type="radio" name="xq-level" value="strong"><span>Strong</span></label>
+    </div></fieldset>
+    <fieldset class="bg-field" id="xq-f-side"><legend>You play</legend><div class="bg-chips">
+      <label class="bg-chip"><input type="radio" name="xq-side" value="red"><span>Red (first)</span></label>
+      <label class="bg-chip"><input type="radio" name="xq-side" value="black"><span>Black</span></label>
+    </div></fieldset>
+    <fieldset class="bg-field"><legend>Pieces</legend><div class="bg-chips" id="xq-f-labels">
+      <label class="bg-chip"><input type="radio" name="xq-labels" value="han"><span>Characters</span></label>
+      <label class="bg-chip"><input type="radio" name="xq-labels" value="latin"><span>Letters</span></label>
+    </div></fieldset>
+    <label class="bg-check"><input type="checkbox" id="xq-hints"> Show legal moves</label>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="xq-cancel" type="button">Cancel</button>
+      <button class="ar-btn" id="xq-start" type="button" aria-pressed="true">Start</button>
+    </div>
+  </div>
+</div>
+
+<div class="ar-sheet" id="xq-result" hidden role="dialog" aria-modal="true" aria-labelledby="xq-result-title">
+  <div class="ar-sheet-card">
+    <h2 id="xq-result-title">Game over</h2>
+    <p id="xq-result-text"></p>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="xq-close" type="button">Look at the board</button>
+      <button class="ar-btn" id="xq-again" type="button" aria-pressed="true">Play again</button>
+    </div>
+  </div>
+</div>
+<script src="boardkit.js"></script>
+<script src="xiangqi-engine.js"></script>
+<script src="xiangqi.js"></script>
+</body>
+</html>
