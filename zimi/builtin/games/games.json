@@ -766,5 +766,37 @@
   "title": "Road Rush",
   "blurb": "Hills, curves and traffic against the clock",
   "why": "Arcade racers of the 1980s faked a 3D road by scaling flat strips of it."
+ },
+ {
+  "qid": "Q2891654",
+  "wiki": "Chess puzzle",
+  "path": "chesspuzzles.html",
+  "title": "Chess Puzzles",
+  "blurb": "15,000 rated puzzles from Lichess, with your own rating",
+  "why": "Lichess gives each puzzle a rating from how many players solved it, and publishes them all as open data."
+ },
+ {
+  "qid": "Q103632",
+  "wiki": "Chess opening",
+  "path": "chessopenings.html",
+  "title": "Opening Trainer",
+  "blurb": "3,800 named openings: play your side of the line",
+  "why": "Opening names and their ECO codes, A00 to E99, are how chess players have filed the first moves for generations."
+ },
+ {
+  "qid": "Q1058074",
+  "wiki": "Tsumego",
+  "path": "goproblems.html",
+  "title": "Go Problems",
+  "blurb": "Life and death: make a group live, or kill it",
+  "why": "Tsumego are Go's life-and-death problems, the classic way to learn to read ahead."
+ },
+ {
+  "qid": "Q605445",
+  "wiki": "Sokoban",
+  "path": "sokoban.html",
+  "title": "Sokoban",
+  "blurb": "Push the crates onto the rings: 300 graded levels",
+  "why": "Sokoban is Japanese for warehouse keeper, and Thinking Rabbit published the game in 1982."
  }
 ]
