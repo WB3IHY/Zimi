@@ -1,0 +1,141 @@
+"""ZimiGames <-> encyclopedia links (zimi/gamelinks.py, builtin/games/games.json).
+
+- games.json: every page exists, every Q-ID is well formed and listed once,
+  every game page carries its About link (scripts/games_links.py wrote it).
+- build(): the background answer, over real Q-ID index tables: every
+  language's article, a ZIM with no index and no title match left out, and
+  the exact-title probe for an English ZIM with no index.
+- links(): the shape GET /games-links serves, minus ZIMs the request may not
+  see, and nothing at all without the games ZIM.
+- a learned Q-ID that is no game's does not rework anything.
+"""
+
+import os
+import re
+import sys
+import unittest
+from unittest import mock
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(
+    0,
+    os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"
+    ),
+)
+
+import zimi  # noqa: F401,E402
+from zimi import gamelinks  # noqa: E402
+from zimi import server as _srv  # noqa: E402
+from tests.test_almanac_links import _QidFixtureMixin, _make_qid_index  # noqa: E402
+import games_links  # noqa: E402
+
+CHESS, GO = 718, 11413
+
+
+class GamesJsonTests(unittest.TestCase):
+    def test_every_path_exists_and_every_qid_is_well_formed(self):
+        rows = games_links.load()
+        assert len(rows) > 40
+        for r in rows:
+            assert re.fullmatch(r"Q\d+", r["qid"]), r
+            assert os.path.isfile(os.path.join(games_links.GAMES, r["path"])), r
+            assert r["title"] and r["blurb"] and r["wiki"], r
+        qids = [r["qid"] for r in rows]
+        assert len(qids) == len(set(qids)), "one game per Q-ID"
+
+    def test_every_game_page_carries_its_about_link(self):
+        for path, row in games_links.primary_by_path(games_links.load()).items():
+            with open(os.path.join(games_links.GAMES, path), encoding="utf-8") as f:
+                assert games_links.footer(row) in f.read(), (
+                    path + ": run scripts/games_links.py"
+                )
+
+    def test_about_page_knows_every_game(self):
+        with open(os.path.join(games_links.GAMES, "about.html"), encoding="utf-8") as f:
+            page = f.read()
+        for r in games_links.load():
+            assert '"%s":{' % r["qid"] in page, r["qid"]
+
+
+class GamesLinksTests(_QidFixtureMixin, unittest.TestCase):
+    def setUp(self):
+        self._setup_qids()
+        _make_qid_index(self.tmp, "wikipedia_en_test", {"A/Chess": CHESS})
+        _make_qid_index(self.tmp, "wikipedia_fr_test", {"A/Echecs": CHESS, "A/Go": GO})
+        _srv._zim_list_cache = [
+            {"name": "wikipedia_en_test", "language": "en"},
+            {"name": "wikipedia_fr_test", "language": "fr"},
+            {"name": "wikipedia_de_noindex", "language": "de"},
+            {"name": "devdocs_en_python", "language": "en"},
+            {"name": "zimi_games", "language": "en"},
+        ]
+        self._memo = dict(gamelinks._memo)
+        # The English index lacks Go: the exact-title probe finds it.
+        self._probe = mock.patch.object(
+            gamelinks,
+            "_almanac_title_entry_path",
+            lambda zim, title: (
+                "A/Go_(game)"
+                if (zim, title) == ("wikipedia_en_test", "Go (game)")
+                else None
+            ),
+        )
+        self._probe.start()
+        # The suite turns Zimi's own ZIMs off; this one is about them. A listing
+        # the memo has not seen makes links() work the answer out.
+        self._on = mock.patch.object(gamelinks.ownzims, "enabled", lambda: True)
+        self._on.start()
+        self._seen = mock.patch.object(_srv, "_listing_seen", frozenset({"changed"}))
+        self._seen.start()
+
+    def tearDown(self):
+        self._seen.stop()
+        self._on.stop()
+        self._probe.stop()
+        gamelinks._memo.update(self._memo)
+        self._teardown_qids()
+
+    def test_build_finds_each_languages_article_and_skips_the_rest(self):
+        found = gamelinks.build()
+        assert {(a["zim"], a["lang"], a["path"]) for a in found["Q718"]} == {
+            ("wikipedia_en_test", "en", "A/Chess"),
+            ("wikipedia_fr_test", "fr", "A/Echecs"),
+        }
+        assert {(a["zim"], a["path"]) for a in found["Q11413"]} == {
+            ("wikipedia_fr_test", "A/Go"),
+            ("wikipedia_en_test", "A/Go_(game)"),
+        }
+        assert all(a["zim"].startswith("wikipedia_") for v in found.values() for a in v)
+        assert not any(
+            a["zim"] == "wikipedia_de_noindex" for v in found.values() for a in v
+        ), "no index and not English: no article rather than a guess"
+
+    def test_links_shape_and_visibility(self):
+        with mock.patch.object(
+            _srv, "zim_allowed", lambda name: name != "wikipedia_fr_test"
+        ):
+            data = gamelinks.links()
+        assert data["games"]["Q718"] == {
+            "zim": "zimi_games",
+            "path": "chess.html",
+            "title": "Chess",
+        }
+        assert [a["zim"] for a in data["articles"]["Q718"]] == ["wikipedia_en_test"]
+        assert all(set(g) == {"zim", "path", "title"} for g in data["games"].values())
+
+    def test_no_games_zim_means_no_links(self):
+        _srv._zim_list_cache = _srv._zim_list_cache[:-1]
+        assert gamelinks.links() == {"games": {}, "articles": {}}
+
+    def test_a_learned_qid_that_is_no_games_changes_nothing(self):
+        with mock.patch.object(gamelinks, "_refresh") as refresh:
+            gamelinks.qids_changed(42)
+            refresh.assert_not_called()
+            gamelinks.qids_changed(CHESS)
+            gamelinks.qids_changed()
+            assert refresh.call_count == 2
+
+
+if __name__ == "__main__":
+    unittest.main()
