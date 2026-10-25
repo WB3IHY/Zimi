@@ -404,5 +404,40 @@
   "path": "puzzles/unruly.html",
   "title": "Unruly",
   "blurb": "Two colours, no three in a row, balanced lines"
+ },
+ {
+  "qid": "Q713675",
+  "wiki": "Koi-Koi",
+  "path": "koikoi.html",
+  "title": "Koi-Koi",
+  "blurb": "Hanafuda flower cards, make yaku, call koi-koi"
+ },
+ {
+  "qid": "Q957572",
+  "wiki": "Truco",
+  "path": "truco.html",
+  "title": "Truco",
+  "blurb": "Argentine bluffing game with envido, to 15 or 30"
+ },
+ {
+  "qid": "Q6433358",
+  "wiki": "Belote",
+  "path": "belote.html",
+  "title": "Belote",
+  "blurb": "Partners, trump, belote and rebelote"
+ },
+ {
+  "qid": "Q504577",
+  "wiki": "Skat (card game)",
+  "path": "skat.html",
+  "title": "Skat",
+  "blurb": "Three players: bid, take the skat, suit, grand or null"
+ },
+ {
+  "qid": "Q7694358",
+  "wiki": "Teen patti",
+  "path": "teenpatti.html",
+  "title": "Teen Patti",
+  "blurb": "Blind or seen, side show and show, with chips"
  }
 ]
