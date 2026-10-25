@@ -20,29 +20,29 @@ from libzim.reader import Archive
 
 from zimi import ownzims, server
 
-ARCADE = os.path.join(ownzims.SOURCE_ROOT, "arcade")
+GAMES = os.path.join(ownzims.SOURCE_ROOT, "games")
 
 
 @pytest.fixture
 def home(tmp_path, monkeypatch):
     """An empty library, an empty place to build into, and a copy of the
-    Arcade's source to change freely."""
+    ZimiGames' source to change freely."""
     zims, data, src = tmp_path / "zims", tmp_path / "data", tmp_path / "src"
     zims.mkdir()
-    shutil.copytree(ARCADE, src / "arcade")
+    shutil.copytree(GAMES, src / "games")
     monkeypatch.setattr(server, "ZIM_DIR", str(zims))
     monkeypatch.setattr(ownzims, "SOURCE_ROOT", str(src))
     monkeypatch.setattr(ownzims, "OUT_DIR", str(data))
     monkeypatch.delenv("ZIMI_BUILTIN_ZIMS", raising=False)
-    return {"zims": zims, "data": data, "src": src / "arcade", "own": ownzims.OWN[0]}
+    return {"zims": zims, "data": data, "src": src / "games", "own": ownzims.OWN[0]}
 
 
-def test_the_arcade_is_a_real_zim_any_reader_opens(home):
+def test_zimigames_is_a_real_zim_any_reader_opens(home):
     path = ownzims.build(home["own"])
-    assert path == os.path.join(str(home["data"]), "zimi_arcade.zim")
+    assert path == os.path.join(str(home["data"]), "zimi_games.zim")
     a = Archive(path)
     assert a.main_entry.get_item().path == "index.html"
-    assert a.get_metadata("Title").decode() == "Zimi Arcade"
+    assert a.get_metadata("Title").decode() == "ZimiGames"
     assert a.get_metadata("Language").decode() == "eng"
     assert a.get_metadata("Creator").decode() == "Zimi"
     tags = a.get_metadata("Tags").decode().split(";")
@@ -75,7 +75,7 @@ def test_built_once_then_skipped_until_the_folder_changes(home):
 def test_the_hash_is_the_same_everywhere_and_sees_names_and_bytes(home):
     h = ownzims.source_hash(str(home["src"]))
     assert h == ownzims.source_hash(str(home["src"]))
-    (home["src"] / "arcade.css").rename(home["src"] / "arcade2.css")
+    (home["src"] / "games.css").rename(home["src"] / "games2.css")
     assert ownzims.source_hash(str(home["src"])) != h, "a renamed file is a change"
 
 
@@ -98,17 +98,17 @@ def test_a_failed_build_leaves_the_last_good_one_serving(home, monkeypatch):
 def test_served_as_the_last_tier_never_over_the_operators_file(home):
     ownzims.build(home["own"])
     zims = server._scan_zim_files()
-    assert zims["zimi_arcade"].startswith(str(home["data"]))
-    mine = home["zims"] / "zimi_arcade.zim"
+    assert zims["zimi_games"].startswith(str(home["data"]))
+    mine = home["zims"] / "zimi_games.zim"
     shutil.copy(ownzims.zim_path(home["own"]), mine)
-    assert server._scan_zim_files()["zimi_arcade"] == str(mine)
+    assert server._scan_zim_files()["zimi_games"] == str(mine)
 
 
 def test_off_serves_none(home, monkeypatch):
     ownzims.build(home["own"])
     monkeypatch.setenv("ZIMI_BUILTIN_ZIMS", "0")
     assert ownzims.zim_paths() == []
-    assert "zimi_arcade" not in server._scan_zim_files()
+    assert "zimi_games" not in server._scan_zim_files()
 
 
 def test_every_own_zim_is_committed_in_the_package():
@@ -125,15 +125,15 @@ def test_every_own_zim_is_committed_in_the_package():
 
 
 def test_on_home_under_its_own_section_never_as_something_you_made(home):
-    """The Arcade sat under Created with a Folder badge, as if the person had
+    """ZimiGames (then the Arcade) sat under Created with a Folder badge, as if the person had
     packed it: its section comes from OWN, and its tag tells provenance it
     ships with Zimi."""
     from zimi import http as zhttp
 
     path = ownzims.build(home["own"])
     assert ownzims.category_of(path) == "Games"
-    assert server._effective_category("zimi_arcade", path) == "Games"
-    assert ownzims.category_of(str(home["zims"] / "zimi_arcade.zim")) is None, "only Zimi's own copy"
+    assert server._effective_category("zimi_games", path) == "Games"
+    assert ownzims.category_of(str(home["zims"] / "zimi_games.zim")) is None, "only Zimi's own copy"
     a = Archive(path)
     meta = {k: a.get_metadata(k).decode() for k in ("Tags", "Scraper") if k in a.metadata_keys}
     assert ownzims.OWN_TAG in meta["Tags"].split(";")

@@ -2,13 +2,13 @@
 // clears; 2048 merges; Sudoku solver, uniqueness and grading; Five Letters scoring with
 // repeated letters; Snake collisions; Bricks collisions.
 //
-// Run: node tests/test_arcade_play.cjs   (exit 0 = pass)
+// Run: node tests/test_games_play.cjs   (exit 0 = pass)
 
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'arcade');
+const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'games');
 function load(files) {
   const sandbox = {};
   vm.createContext(sandbox);

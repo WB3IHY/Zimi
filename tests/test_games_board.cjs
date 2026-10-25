@@ -1,13 +1,13 @@
 // Arcade board games: the rules, with no DOM. Reversi flips, checkers forced captures,
 // chess move generation (perft), mahjong free tiles and solvable deals.
 //
-// Run: node tests/test_arcade_board.cjs   (exit 0 = pass)
+// Run: node tests/test_games_board.cjs   (exit 0 = pass)
 
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'arcade');
+const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'games');
 function load(files) {
   const sandbox = {};
   vm.createContext(sandbox);

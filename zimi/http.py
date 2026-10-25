@@ -1581,7 +1581,7 @@ def _zimi_kind(meta):
     alive = _ALIVE_TAG in tags
     converted = _ALIVE_SCRAPER_MARKER in scraper.lower()
     made_by_zimi = bool(history) or alive or "Zimi " in scraper
-    # Zimi's own ZIMs (the Arcade) ship with Zimi; nobody here made them.
+    # Zimi's own ZIMs (ZimiGames, the Almanac) ship with Zimi; nobody here made them.
     if not made_by_zimi or _ownzims.OWN_TAG in tags:
         return None
     created = _creation_record(history)

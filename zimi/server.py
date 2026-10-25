@@ -880,7 +880,7 @@ CONFIG_ENV_SETTINGS = (
     # zimi.mcp_server`, which kept the full set for configs written before.
     ConfigSetting("mcp_tools", "ZIMI_MCP_TOOLS", "str", "", "lean", False),
     ConfigSetting("index_throttle", "ZIMI_INDEX_THROTTLE", "bool", "1", None, False),
-    # Zimi's own ZIMs (zimi/ownzims.py: the Arcade, the Almanac), committed in the package.
+    # Zimi's own ZIMs (zimi/ownzims.py: ZimiGames, the Almanac), committed in the package.
     ConfigSetting("builtin_zims", "ZIMI_BUILTIN_ZIMS", "bool", "1", None, False),
     # The one directory tree the WEB may package a ZIM from (zimi.manage's
     # folder and import modes, and the directory picker that feeds them).
@@ -3041,8 +3041,8 @@ def _scan_zim_files():
     from zimi import libfolders
 
     libfolders.refresh()
-    # Zimi's own ZIMs (the Arcade) come last: built in its data folder, and
-    # never shadowing a file the operator put in the library.
+    # Zimi's own ZIMs (ZimiGames, the Almanac) come last: committed in the
+    # package, and never shadowing a file the operator put in the library.
     from zimi import ownzims
 
     groups = {}  # base name -> [(tier, path)], in scan order

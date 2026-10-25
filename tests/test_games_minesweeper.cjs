@@ -1,13 +1,13 @@
 // Arcade Minesweeper: the rules, with no DOM. First click is safe, a flood opens
 // the right region, chords open or explode correctly, a win is a win.
 //
-// Run: node tests/test_arcade_minesweeper.cjs   (exit 0 = pass)
+// Run: node tests/test_games_minesweeper.cjs   (exit 0 = pass)
 
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const src = fs.readFileSync(path.join(__dirname, '..', 'zimi', 'builtin', 'arcade', 'minesweeper.js'), 'utf8');
+const src = fs.readFileSync(path.join(__dirname, '..', 'zimi', 'builtin', 'games', 'minesweeper.js'), 'utf8');
 const sandbox = {};
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);

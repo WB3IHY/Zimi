@@ -31,7 +31,7 @@ import pytest
 # The best answer card is off unless the operator turns it on; its tests are
 # about the card, so the suite runs with it on (set before zimi.http reads it).
 os.environ.setdefault("ZIMI_BEST_ANSWER", "1")
-# Zimi's own ZIMs (the Arcade, the Almanac) would join every test library, a single-ZIM
+# Zimi's own ZIMs (ZimiGames, the Almanac) would join every test library, a single-ZIM
 # library among them; tests/test_ownzims.py turns them on for its own.
 os.environ.setdefault("ZIMI_BUILTIN_ZIMS", "0")
 

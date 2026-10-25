@@ -36,7 +36,7 @@ def _stage_almanac(dest):
 
 
 OWN = (
-    Own("arcade", "zimi_arcade", "Games"),
+    Own("games", "zimi_games", "Games"),
     Own("almanac", "zimi_almanac", "Education", _stage_almanac),
 )
 OWN_TAG = "zimi:own"

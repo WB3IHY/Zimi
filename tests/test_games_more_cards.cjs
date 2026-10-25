@@ -4,13 +4,13 @@
 // through whole games, every play checked legal). No DOM: the game files run
 // their page wiring only when a #zc-table exists.
 //
-// Run: node tests/test_arcade_more_cards.cjs   (exit 0 = pass)
+// Run: node tests/test_games_more_cards.cjs   (exit 0 = pass)
 
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'arcade');
+const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'games');
 let failures = 0, passed = 0;
 const check = (ok, label) => {
   if (ok) { passed++; console.log('ok: ' + label); } else { console.error('FAIL: ' + label); failures++; }

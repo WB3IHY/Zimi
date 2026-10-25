@@ -3,13 +3,13 @@
 // rules, scoring, undo, and the Moon on the night-sky back. No DOM: the game
 // files run their page wiring only when a #zc-table exists.
 //
-// Run: node tests/test_arcade_cards.cjs   (exit 0 = pass)
+// Run: node tests/test_games_cards.cjs   (exit 0 = pass)
 
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'arcade');
+const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'games');
 let failures = 0;
 const check = (ok, label) => {
   if (ok) console.log('ok: ' + label);
