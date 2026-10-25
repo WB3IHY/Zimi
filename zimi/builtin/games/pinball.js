@@ -393,6 +393,6 @@
 
   window.addEventListener('resize', layout);
   layout(); hud();
-  showSheet('Pinball', 'Hold Launch (or Space), let go to shoot. Z and the left arrow work the left flipper, / and the right arrow the right one. On a phone, touch the left or right half of the table.', 'Start');
+  showSheet('Pinball', 'Hold Launch (or Space) and let go to shoot. Z or the left arrow moves the left flipper. / or the right arrow moves the right flipper. On a phone, touch the left or right half of the table.', 'Start');
   root.__pinball = { get st() { return st; }, get mode() { return mode; } };
 })(this);

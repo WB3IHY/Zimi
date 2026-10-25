@@ -164,7 +164,7 @@
   function releaseAll() { keys.bl = keys.br = keys.tl = keys.tr = false; pointers = {}; }
   function begin() {
     st = createState(settings.mode, settings.level); mode = 'playing'; els.msg.textContent = ''; releaseAll();
-    els.help.textContent = st.mode === 'two' ? 'Two players on one screen: the top player drags the top half (or uses A and D), the bottom player drags the bottom half (or uses the arrow keys). First to ' + WIN_SCORE + '.' : 'Drag along the bottom half of the court, or use the arrow keys or A and D, to move your paddle. Where the ball meets the paddle sets its angle, and every hit makes it faster. First to ' + WIN_SCORE + '.';
+    els.help.textContent = st.mode === 'two' ? 'Two players on one screen. The top player drags the top half (or uses A and D). The bottom player drags the bottom half (or uses the arrow keys). First to ' + WIN_SCORE + '.' : 'Drag along the bottom half of the court, or use the arrow keys or A and D, to move your paddle. Where the ball meets the paddle sets its angle, and every hit makes it faster. First to ' + WIN_SCORE + '.';
     Play.closeSheet(els.sheet); els.pause.disabled = false; hud(); draw(); loop.start();
   }
   function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); releaseAll(); showSheet('Paused', 'Resume when you are ready.', 'Resume'); }

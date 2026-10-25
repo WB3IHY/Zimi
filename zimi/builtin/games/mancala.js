@@ -138,12 +138,12 @@
   var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: '#c8553d' }, { color: '#2a8c82' }]);
   var helpEl = document.querySelector('.bg-help');
   var HELP = {
-    oware: 'Oware (abapa): sow your pit counterclockwise, one seed in each pit. End on an opponent pit that now holds two or three and take it, and the pits before it that hold two or three. A move that would take every seed takes nothing. If the other side is empty you must feed it. First to 25 wins.',
-    kalah: 'Kalah: sow your pit counterclockwise, dropping a seed in your own store as you pass it and skipping the other store. End in your store to play again. End in an empty pit of yours to take the pit opposite. When a side runs out, the other side keeps its seeds.'
+    oware: 'Oware (abapa): sow your pit counterclockwise, one seed in each pit. If your last seed ends in an opponent pit that now holds 2 or 3 seeds, take them, and take the pits before it that also hold 2 or 3. A move that would take every seed takes nothing. If the other side is empty, you must give it seeds. First to 25 wins.',
+    kalah: 'Kalah: sow your pit counterclockwise. Drop a seed in your own store as you pass it, and skip the other store. If your last seed ends in your store, play again. If it ends in an empty pit of yours, take the pit opposite. When a side runs out, the other side keeps its seeds.'
   };
   var HELP_PARTS = {
-    oware: { turn: 'Pick one of your pits and sow it: one seed in each pit after it, counterclockwise. End on an opponent pit that now holds two or three and you take it, and the pits before it that also hold two or three.', end: 'First to 25 seeds wins. If the other side is empty you must give it seeds.' },
-    kalah: { turn: 'Pick one of your pits and sow it counterclockwise, dropping a seed in your own store as you pass. End in your store to play again. End in an empty pit of yours to take the pit opposite.', end: 'When a side runs out, the other side keeps its seeds. Most seeds in the store wins.' }
+    oware: { turn: 'Pick one of your pits and sow it counterclockwise: one seed in each pit after it. If your last seed ends in an opponent pit that now holds 2 or 3 seeds, you take them, and the pits before it that also hold 2 or 3.', end: 'First to 25 seeds wins. If the other side is empty, you must give it seeds.' },
+    kalah: { turn: 'Pick one of your pits and sow it counterclockwise. Drop a seed in your own store as you pass it. If your last seed ends in your store, play again. If it ends in an empty pit of yours, take the pit opposite.', end: 'When a side runs out, the other side keeps its seeds. Most seeds in the store wins.' }
   };
   var G = WK.create({
     id: 'mancala',

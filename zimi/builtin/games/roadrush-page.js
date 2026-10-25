@@ -211,7 +211,7 @@
   function setup() {
     mode = 'setup'; loop.stop(); els.pause.disabled = true;
     sheet('Road Rush', function (b) {
-      note(b, 'Beat the clock to each checkpoint. Weave through traffic, keep off the grass, and lift for hard bends: a bend pushes you outward the faster you go.');
+      note(b, 'Reach each checkpoint before the clock runs out. Steer around traffic and stay off the grass. Ease off the gas for sharp bends: the faster you go, the more a bend pushes you outward.');
       var row = document.createElement('div'), sp = document.createElement('span'), box = document.createElement('div');
       row.className = 'rr-row'; sp.textContent = 'Start in'; row.appendChild(sp);
       box.className = 'pl-seg'; box.setAttribute('role', 'group'); box.setAttribute('aria-label', 'Start in');
