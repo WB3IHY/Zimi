@@ -283,3 +283,6 @@ dl.gs-help { margin: 0; }
 .gs-watch-ctl { display: flex; flex-wrap: wrap; gap: 6px; }
 .gs-watch-ctl .ar-btn { min-height: 34px; padding: 0 12px; }
 @media (max-width: 420px) { .gs-watch { padding: 8px 12px 10px; } }
+.gs-history { color: var(--ink); }
+.gs-meta:empty { display: none; }
+dl.gs-meta { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--line); }

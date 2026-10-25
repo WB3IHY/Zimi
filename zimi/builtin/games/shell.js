@@ -113,11 +113,14 @@
   Shell.game = function (info) { Object.keys(info || {}).forEach(function (k) { game[k] = info[k]; }); return Shell; };
 
   // ── the narrator: one line under the bar while a demo runs ──
-  var strip = null, stripText = null;
-  Shell.narrate = function (text) { if (stripText) { stripText.textContent = text || ''; } };
+  var strip = null;
+  Shell.narrate = function (text) {
+    var el = strip && strip.querySelector('.gs-watch-text');
+    if (el) el.textContent = text || '';
+  };
 
   // ── the move timer: a thin bar under the bar, for a person's turn ──
-  var mt = { timer: 0, left: 0, total: 0, expire: null, bar: null, label: null, held: false };
+  var mt = { key: undefined, timer: 0, left: 0, total: 0, expire: null, bar: null, label: null, held: false };
   Shell.moveTimer = {
     supported: function () { return !!game.moveTimer; },
     seconds: function () { return +settings.get('moveTimer') || 0; },
@@ -134,8 +137,15 @@
         if (mt.left <= 0) { var f = mt.expire; Shell.moveTimer.stop(); if (f) f(); }
       }, MOVE_TIMER_TICK_MS);
     },
-    stop: function () { root.clearInterval(mt.timer); mt.timer = 0; mt.expire = null; if (mt.bar) mt.bar.hidden = true; },
+    stop: function () { root.clearInterval(mt.timer); mt.timer = 0; mt.key = undefined; mt.expire = null; if (mt.bar) mt.bar.hidden = true; },
     hold: function (on) { mt.held = !!on; }
+  };
+  // A person's turn begins (active) or the turn is not a person's: one call for both.
+  // `key` names the turn (a move count): the same turn asked again keeps its clock running.
+  Shell.turn = function (active, onExpire, key) {
+    if (!active) { Shell.moveTimer.stop(); return; }
+    if (mt.timer && mt.key === key && key !== undefined) return;
+    Shell.moveTimer.start(onExpire); mt.key = key;
   };
   function paintTimer() {
     var frac = Math.max(0, mt.left / mt.total);
@@ -145,7 +155,7 @@
   }
 
   // ── the bar ──
-  var bar, menuBtn, newBtn, extras = [], hasUndo = false;
+  var bar, menuBtn, newBtn, extras = [], holder, hasUndo = false;
   function isNewLike(b) { return /(^|-)(new|menu|level|newgame)$/.test(b.id) || /^new\b/i.test(b.textContent.trim()); }
   function keepInBar(b) { return /undo$/.test(b.id) || /pause$/.test(b.id) || b.id === 'ms-flagmode'; }
   function buildBar() {
@@ -160,6 +170,9 @@
       if (isNewLike(b)) { b.hidden = true; return; }
       extras.push(b);
     });
+    // Out of the bar at once; the Menu puts them back in its own sheet.
+    holder = h('div', { hidden: '' }, extras);
+    d.body.appendChild(holder);
     // Timers are only a clock: tagged here so the stylesheet can hide them.
     Array.prototype.forEach.call(d.querySelectorAll(TIMER_SELECTOR), function (t) { t.setAttribute('data-gs-timer', ''); });
     menuBtn = h('button', { class: 'ar-btn gs-menu-btn', type: 'button', 'aria-haspopup': 'dialog', text: 'Menu' });
@@ -288,6 +301,7 @@
     var list = h('div', { class: 'gs-list' });
     list.appendChild(chevronRow('Settings', summary(), function () { show(settingsPane); }));
     if (helpFor(ID)) list.appendChild(chevronRow('How to play', '', function () { show(helpPane); }));
+    if (historyFor(ID)) list.appendChild(chevronRow('History', '', function () { show(historyPane); }));
     if (game.watch) list.appendChild(chevronRow('Watch and learn', watching ? 'Running' : '', function () { show(watchPane); }));
     list.appendChild(chevronRow('Stats', '', function () { show(statsPane); }));
     card.appendChild(list);
@@ -349,7 +363,13 @@
   var paneState = {};
 
   // How to play: goal, a turn, the end, a tip; the page's old key hint last.
-  function helpFor(id) { return root.ZimiGamesHelp && root.ZimiGamesHelp[id]; }
+  // The data for this game, with any part the game itself overrides (Mancala's two rule sets).
+  function helpFor(id) {
+    var base = root.ZimiGamesHelp && root.ZimiGamesHelp[id];
+    if (!base) return null;
+    var own = game.help ? game.help() : null;
+    return own ? Object.assign({}, base, own) : base;
+  }
   var HELP_PARTS = [['goal', 'Goal'], ['turn', 'Your turn'], ['end', 'The end'], ['tip', 'Tip']];
   function keysLine() {
     var p = d.querySelector('.bg-help'), s = '';
@@ -364,6 +384,25 @@
     var keys = hp.keys || keysLine();
     if (keys) { dl.appendChild(h('dt', { text: 'Keys' })); dl.appendChild(h('dd', { text: keys })); }
     card.appendChild(dl);
+  }
+
+  // History: a few plain sentences, then the facts games.json holds about the game, if it has any.
+  var META_KEYS = [['origin', 'Origin'], ['era', 'Era'], ['year', 'Year'], ['region', 'Region'], ['players', 'Players'], ['length', 'Length']];
+  function historyFor(id) { return root.ZimiGamesHistory && root.ZimiGamesHistory[id]; }
+  function historyPane() {
+    head('History', false);
+    card.appendChild(h('p', { class: 'gs-text gs-history', text: historyFor(ID) }));
+    var facts = h('dl', { class: 'gs-help gs-meta' });
+    card.appendChild(facts);
+    if (!root.fetch) return;
+    root.fetch('games.json').then(function (r) { return r.json(); }).then(function (rows) {
+      var row = (rows || []).filter(function (x) { return x.path === ID + '.html'; })[0], m = row && (row.meta || row) || {};
+      META_KEYS.forEach(function (k) {
+        var v = m[k[0]];
+        if (v === undefined || v === null || v === '' || !facts.isConnected) return;
+        facts.appendChild(h('dt', { text: k[1] })); facts.appendChild(h('dd', { text: Array.isArray(v) ? v.join(', ') : String(v) }));
+      });
+    }).catch(function () { /* no metadata: the history stands alone */ });
   }
 
   function statsPane() {
@@ -394,7 +433,7 @@
     card.appendChild(h('div', { class: 'gs-actions' }, [h('button', { class: 'ar-btn gs-primary', type: 'button', 'aria-pressed': 'true', text: 'Start watching', onclick: function () { closeMenu(); startWatching(); } })]));
   }
   function loadScript(src, done) {
-    var s = d.createElement('script'); s.src = src; s.onload = done; s.onerror = function () { done(new Error(src)); };
+    var s = d.createElement('script'); s.src = src; s.onload = function () { done(); }; s.onerror = function () { done(new Error(src)); };
     d.head.appendChild(s);
   }
   function startWatching() {
