@@ -249,11 +249,31 @@
   // The answer as the player would write it (a Wiktionary's own spelling keeps its accents).
   function shown() { return (game.title || game.answer).toUpperCase(); }
 
+  // The built-in list brings no meanings. Inside Zimi, a library with an English Wiktionary gives them: after a round
+  // the word can be tapped for its first sense (a library list, which already comes from a Wiktionary, shows it itself).
+  var enDict = null;
+  function offerMeaning() {
+    var word = game.answer;
+    if (game.meaning) { els.gloss.textContent = shown() + ': ' + game.meaning; return; }
+    var ask = document.createElement('button');
+    ask.type = 'button'; ask.className = 'ar-btn'; ask.textContent = 'What does ' + shown() + ' mean?';
+    ask.addEventListener('click', function () {
+      ask.disabled = true;
+      Lib.json(FIVE_API + '?zim=' + encodeURIComponent(enDict.name) + '&define=' + word).then(function (r) { return r && r.blurb; }, function () { return ''; }).then(function (meaning) {
+        if (meaning) { game.meaning = meaning; persist(); }
+        els.gloss.textContent = meaning ? shown() + ': ' + meaning : 'Your English Wiktionary has no page for ' + shown() + '.';
+      });
+    });
+    els.gloss.textContent = '';
+    els.gloss.appendChild(ask);
+  }
+
   function openSheet() {
     var over = game.status !== 'playing';
     els.title.textContent = over ? (game.status === 'won' ? PRAISE[game.guesses.length - 1] : 'The word was ' + shown()) : 'Your record';
     els.gloss.textContent = over && game.blurb ? game.title + ': ' + game.blurb : '';
-    els.gloss.hidden = !els.gloss.textContent;
+    if (over && !game.blurb && !cur && enDict) offerMeaning();
+    els.gloss.hidden = !els.gloss.textContent && !els.gloss.firstChild;
     var pct = stats.played ? Math.round(100 * stats.won / stats.played) : 0;
     els.text.textContent = 'Daily games played ' + stats.played + ', won ' + pct + '%, streak ' + stats.streak + ', best streak ' + stats.max + '.';
     var most = Math.max.apply(null, stats.dist.concat(1));
@@ -338,6 +358,7 @@
   function findLists() {
     Lib.isZimi().then(function (yes) { return yes ? Lib.zims() : []; }).then(function (list) {
       var seen = {};
+      enDict = list.filter(function (z) { return z.kind === 'wiki' && z.project === 'wiktionary' && Lib.primaryLang(z.language) === 'en'; })[0] || null;
       offerLists(list.filter(function (z) {
         return z.kind === 'wiki' && z.project === 'wiktionary' && Lib.primaryLang(z.language) !== 'en' && !seen[z.name] && (seen[z.name] = true);
       }).map(function (z) { return { zim: z.name, lang: Lib.primaryLang(z.language), title: z.title || z.name }; }));
