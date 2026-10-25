@@ -525,6 +525,37 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check(maxMove <= D.LEVELS.easy.speed * DT + 1e-9, 'paddles: the computer moves no faster than its level allows');
 }
 
+// ── Memory ──────────────────────────────────────────────────────────────────
+{
+  const M = load(['playkit.js', 'memory.js']).MemoryEngine;
+  check(Object.keys(M.SETS).length >= 2 && Object.keys(M.SETS).every(k => M.SETS[k].pics.length >= 10 && M.SETS[k].pics.every(p => /^[A-Z][a-z]+$/.test(p[0]) && p[1].startsWith('<'))), 'memory: two picture sets, ten named pictures each');
+  check(Object.keys(M.SETS).every(k => new Set(M.SETS[k].pics.map(p => p[0])).size === M.SETS[k].pics.length && new Set(M.SETS[k].pics.map(p => p[1])).size === M.SETS[k].pics.length), 'memory: every picture is different');
+  let g = M.createGame(8, 3);
+  const tally = {}; g.cards.forEach(c => { tally[c.id] = (tally[c.id] || 0) + 1; });
+  check(g.cards.length === 16 && Object.values(tally).every(n => n === 2) && Object.keys(tally).length === 8, 'memory: sixteen cards, eight pairs');
+  check(JSON.stringify(M.createGame(8, 3).cards) === JSON.stringify(g.cards) && JSON.stringify(M.createGame(8, 4).cards) !== JSON.stringify(g.cards), 'memory: the shuffle follows the seed');
+  const find = (g, id, skip) => g.cards.findIndex((c, i) => c.id === id && i !== skip);
+  const a = find(g, 0), b = find(g, 0, a), other = g.cards.findIndex(c => c.id === 1);
+  check(M.flip(g, a) === 'first' && g.cards[a].up && g.moves === 0, 'memory: the first card turns up and costs nothing');
+  check(M.flip(g, a) === 'ignored', 'memory: the same card twice is ignored');
+  check(M.flip(g, b) === 'match' && g.cards[a].done && g.cards[b].done && g.moves === 1 && g.found === 1, 'memory: the second card matches, the pair stays up');
+  check(M.flip(g, a) === 'ignored', 'memory: a matched card is out of play');
+  check(M.flip(g, other) === 'first' && M.flip(g, find(g, 2)) === 'mismatch' && g.pending && g.moves === 2, 'memory: two different cards are a mismatch');
+  check(M.flip(g, find(g, 3)) === 'ignored', 'memory: no third card while a mismatch is showing');
+  check(M.resolve(g) && g.cards.filter(c => c.up && !c.done).length === 0 && !g.pending && M.resolve(g) === false, 'memory: the mismatch turns back down');
+  // Play a whole game perfectly: eight pairs, eight moves, then it is over.
+  g = M.createGame(8, 11);
+  for (let id = 0; id < 8; id++) { const x = find(g, id); M.flip(g, x); M.flip(g, find(g, id, x)); }
+  check(g.over && g.found === 8 && g.moves === 8 && M.flip(g, 0) === 'ignored', 'memory: a perfect game takes as many moves as pairs');
+  // A game of trial and error still ends: take a card, try the others in turn until it matches.
+  g = M.createGame(6, 5);
+  for (let i = 0; i < g.cards.length; i++) {
+    if (g.cards[i].done) continue;
+    for (let k = i + 1; k < g.cards.length && !g.cards[i].done; k++) { if (g.cards[k].done) continue; M.flip(g, i); if (M.flip(g, k) === 'mismatch') M.resolve(g); }
+  }
+  check(g.over && g.moves >= 6, 'memory: trial and error finishes (' + g.moves + ' moves)');
+}
+
 // END
 if (failures) { console.error(failures + ' failed'); process.exit(1); }
 console.log('all passed');
