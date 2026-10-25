@@ -23,6 +23,7 @@ import datetime
 import hashlib
 import os
 import re
+import subprocess
 import sys
 import tempfile
 
@@ -65,7 +66,7 @@ def enabled():
 def zim_path(own):
     """The committed file for ``own`` (the newest month, should two be
     around), or None when none is built."""
-    pat = re.compile(re.escape(own.name) + r"_\d{4}-\d{2}\.zim$")
+    pat = re.compile(re.escape(own.name) + _DATED)
     try:
         names = sorted(n for n in os.listdir(OUT_DIR) if pat.match(n))
     except OSError:
@@ -73,8 +74,36 @@ def zim_path(own):
     return os.path.join(OUT_DIR, names[-1]) if names else None
 
 
-def _new_path(own):
-    return os.path.join(OUT_DIR, "%s_%s.zim" % (own.name, datetime.date.today().strftime("%Y-%m")))
+#: ``_2026-10.zim``, then ``_2026-10a.zim`` for a second release that month (Kiwix's letter)
+_DATED = r"_\d{4}-\d{2}[a-z]?\.zim$"
+
+
+def _released(path):
+    """Whether a release tag already carries this file, so its name is spent."""
+    try:
+        rel = os.path.relpath(path, SOURCE_ROOT)
+        run = lambda *a: subprocess.run(
+            ("git",) + a, cwd=SOURCE_ROOT, capture_output=True, text=True, timeout=30
+        ).stdout.strip()
+        added = run("log", "--diff-filter=A", "--format=%H", "-1", "--", rel)
+        return bool(added and run("tag", "--contains", added))
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _new_path(own, old):
+    """This month's name. Within one month the name holds until a release
+    has shipped it; the next change after that takes the next letter."""
+    month = datetime.date.today().strftime("%Y-%m")
+    tag = month
+    m = old and re.search(r"_(\d{4}-\d{2})([a-z]?)\.zim$", old)
+    if m and m.group(1) == month:
+        letter = m.group(2)
+        if not _released(old):
+            tag = month + letter
+        else:
+            tag = month + chr(min(ord(letter or "`") + 1, ord("z")))
+    return os.path.join(OUT_DIR, "%s_%s.zim" % (own.name, tag))
 
 
 def zim_paths():
@@ -88,7 +117,7 @@ def category_of(path):
     """The Home section of one of these ZIMs, by its path; None for any other."""
     if not path or os.path.dirname(os.path.abspath(path)) != os.path.abspath(OUT_DIR):
         return None
-    name = re.sub(r"_\d{4}-\d{2}\.zim$", "", os.path.basename(path))
+    name = re.sub(_DATED, "", os.path.basename(path))
     return next((o.category for o in OWN if o.name == name), None)
 
 
@@ -143,7 +172,7 @@ def build(own):
         if old and _stamp(old) == want:
             return None
         os.makedirs(OUT_DIR, exist_ok=True)
-        path = _new_path(own)
+        path = _new_path(own, old)
         # Built beside the old one, then swapped in: never half a file.
         new = path + ".new.zim"
         for stale in (new, new + ".tmp"):
@@ -153,7 +182,7 @@ def build(own):
         os.replace(new, path)
         with open(path + _STAMP_EXT, "w", encoding="ascii") as f:
             f.write(want + "\n")
-        if old and old != path:  # last month's build: one file per ZIM
+        if old and old != path:  # the last build's file: one file per ZIM
             for gone in (old, old + _STAMP_EXT):
                 if os.path.exists(gone):
                     os.remove(gone)

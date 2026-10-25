@@ -94,6 +94,24 @@ def test_a_new_month_replaces_last_months_file(home):
     )
 
 
+def test_a_second_release_in_one_month_takes_the_next_letter(home, monkeypatch):
+    """Within a month the name holds while unreleased (dev rebuilds), and the
+    first change after a release takes Kiwix's next letter: 2026-10, 2026-10a."""
+    own = home["own"]
+    first = ownzims.build(own)
+    src = home["src"] / "index.html"
+    src.write_text("<!doctype html><title>Two</title><p>two</p>", encoding="utf-8")
+    monkeypatch.setattr(ownzims, "_released", lambda path: False)
+    assert ownzims.build(own) == first, "unreleased: same name, new bytes"
+    monkeypatch.setattr(ownzims, "_released", lambda path: True)
+    src.write_text("<!doctype html><title>Three</title><p>three</p>", encoding="utf-8")
+    second = ownzims.build(own)
+    assert second == first[: -len(".zim")] + "a.zim"
+    assert ownzims.zim_path(own) == second and ownzims.category_of(second) == "Games"
+    assert not os.path.exists(first), "one file per ZIM"
+    assert server._zim_base_name(os.path.basename(second)) == "zimi_games"
+
+
 def test_the_hash_is_the_same_everywhere_and_sees_names_and_bytes(home):
     h = ownzims.source_hash(str(home["src"]))
     assert h == ownzims.source_hash(str(home["src"]))
