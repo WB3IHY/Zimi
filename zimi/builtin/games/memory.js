@@ -82,8 +82,23 @@
   Play.applyTheme();
 
   var els = { grid: $('mm-grid'), moves: $('mm-moves'), pairs: $('mm-pairs'), best: $('mm-best'), msg: $('mm-msg'), sheet: $('mm-sheet'), title: $('mm-sheet-title'), text: $('mm-sheet-text'), go: $('mm-go'), set: $('mm-set'), size: $('mm-size'), nu: $('mm-new') };
-  var settings = Play.load(SETTINGS_KEY, { set: 'animals', size: 'medium' }), best = Play.load(BEST_KEY, {});
+  var settings = Play.load(SETTINGS_KEY, { set: 'animals', size: 'medium', people: 1 }), best = Play.load(BEST_KEY, {});
   var g = null, timer = null, buttons = [], pics;
+  // People sharing the screen take turns: a match keeps the turn, a miss passes it. Nothing is hidden.
+  var seats = null, turn = 0, scores = [];
+  function multi() { return seats && seats.hotseat(); }
+  function newSeats() {
+    var n = Math.max(1, Math.min(4, settings.people || 1));
+    seats = root.ZimiSeats.create({ id: 'memory', seats: n });
+    for (var i = 0; i < n; i++) if (!seats.person(i)) seats.setKind(i, 'person'); // everyone at the table is a person
+    turn = 0; scores = []; for (i = 0; i < n; i++) scores.push(0);
+  }
+  function paintPlayers() {
+    var box = $('mm-players'); box.hidden = !multi();
+    if (!multi()) return;
+    box.textContent = scores.map(function (v, i) { return (i === turn && !g.over ? '> ' : '') + seats.name(i) + ' ' + v; }).join('   ') + (g.over ? '' : '   |   ' + seats.name(turn) + ', your turn');
+  }
+  function resolveNow() { if (resolve(g) && multi()) turn = (turn + 1) % scores.length; }
   function bestKey() { return settings.set + '.' + settings.size; }
 
   function cols(n) { return n <= 12 ? 3 : 4; }
@@ -109,12 +124,13 @@
       b.disabled = c.done;
     });
     els.moves.textContent = g.moves; els.pairs.textContent = g.found + ' / ' + g.pairs;
-    els.best.textContent = best[bestKey()] || '-';
+    els.best.textContent = multi() ? '-' : best[bestKey()] || '-';
+    paintPlayers();
   }
 
   function settle() { // turn a mismatched pair back, now
     if (timer) { timer.cancel(); timer = null; }
-    if (resolve(g)) paint();
+    var had = !!g.pending; resolveNow(); if (had) paint();
   }
   function pick(i) {
     if (g.over) return;
@@ -123,16 +139,25 @@
     if (r === 'ignored') return;
     paint();
     if (r === 'match') {
-      els.msg.textContent = 'A match: ' + pics[g.cards[i].id][0] + '!';
+      if (multi()) scores[turn]++;
+      els.msg.textContent = (multi() ? seats.name(turn) + ': a match, ' : 'A match: ') + pics[g.cards[i].id][0] + '!';
+      paint();
       if (g.over) finish();
     } else if (r === 'mismatch') {
       els.msg.textContent = 'Not a match. Try again.';
-      timer = Play.later(function () { timer = null; resolve(g); paint(); }, MISMATCH_MS);
+      timer = Play.later(function () { timer = null; resolveNow(); paint(); }, MISMATCH_MS);
     } else els.msg.textContent = '';
   }
 
   function finish() {
     var k = bestKey(), text = 'All ' + g.pairs + ' pairs found in ' + g.moves + ' moves.';
+    if (multi()) {
+      var top = Math.max.apply(null, scores), win = seats.people().filter(function (s) { return scores[s] === top; });
+      text = (win.length > 1 ? 'A tie at ' + top + ' pairs: ' + win.map(seats.name).join(' and ') + '.' : seats.name(win[0]) + ' wins with ' + top + ' pairs.');
+      paint(); els.msg.textContent = text;
+      Play.later(function () { showSheet(win.length > 1 ? 'A tie' : seats.name(win[0]) + ' wins', text, 'Play again'); }, 650);
+      return;
+    }
     if (!best[k] || g.moves < best[k]) { best[k] = g.moves; Play.save(BEST_KEY, best); text += ' A new best.'; }
     paint();
     els.msg.textContent = text;
@@ -151,10 +176,23 @@
     paintSeg(els.set, Object.keys(SETS).map(function (k) { return [k, SETS[k].label]; }), settings.set, function (v) { settings.set = v; Play.save(SETTINGS_KEY, settings); paintSetup(); });
     paintSeg(els.size, [['small', '12'], ['medium', '16'], ['large', '20']], settings.size, function (v) { settings.size = v; Play.save(SETTINGS_KEY, settings); paintSetup(); });
   }
-  function showSheet(title, text, label) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; paintSetup(); Play.openSheet(els.sheet, '#mm-go'); }
+  function paintWho() {
+    var n = Math.max(1, Math.min(4, settings.people || 1));
+    paintSeg($('mm-who'), [[1, 'Solo'], [2, '2'], [3, '3'], [4, '4']], n, function (v) { settings.people = v; Play.save(SETTINGS_KEY, settings); paintWho(); });
+    var host = $('mm-names'); host.textContent = '';
+    if (n < 2) return;
+    var sx = root.ZimiSeats.create({ id: 'memory', seats: n }), names = root.ZimiSeats.loadNames(n);
+    for (var i = 0; i < n; i++) (function (i) {
+      var inp = document.createElement('input'); inp.type = 'text'; inp.className = 'zs-name'; inp.maxLength = 14; inp.value = names[i]; inp.setAttribute('aria-label', 'Name for player ' + (i + 1));
+      inp.style.cssText = 'width:100%;margin:4px 0;box-sizing:border-box;font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)';
+      inp.addEventListener('change', function () { sx.setName(i, inp.value); inp.value = root.ZimiSeats.loadNames(n)[i]; });
+      host.appendChild(inp);
+    })(i);
+  }
+  function showSheet(title, text, label) { paintWho(); els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; paintSetup(); Play.openSheet(els.sheet, '#mm-go'); }
   function begin() {
     if (timer) { timer.cancel(); timer = null; }
-    g = createGame(SIZES[settings.size]); els.msg.textContent = '';
+    g = createGame(SIZES[settings.size]); els.msg.textContent = ''; newSeats();
     Play.closeSheet(els.sheet); build();
   }
   els.go.addEventListener('click', begin);
@@ -169,7 +207,7 @@
     var k = i + d; if (k >= 0 && k < buttons.length) buttons[k].focus();
   });
 
-  g = createGame(SIZES[settings.size]); build();
+  g = createGame(SIZES[settings.size]); newSeats(); build();
   showSheet('Memory', 'Find the matching pairs. Choose the pictures and how many cards.', 'Start');
   root.__memory = { get g() { return g; } };
 })(this);
