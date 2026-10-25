@@ -185,24 +185,8 @@
     return pick;
   }
 
-  // Move an actor `dist` tiles, deciding its direction at every tile centre.
-  function advance(st, e, dist, choose) {
-    var guard = 0;
-    while (dist > 1e-7 && guard++ < 12) {
-      var atC = Math.abs(e.x - Math.round(e.x)) < 1e-6 && Math.abs(e.y - Math.round(e.y)) < 1e-6;
-      if (atC) {
-        e.x = Math.round(e.x); e.y = Math.round(e.y);
-        if (e.x <= -1 + 1e-6) e.x += st.w; if (e.x >= st.w - 1e-6) e.x -= st.w;
-        var d = choose(e);
-        if (!d) { e.dx = 0; e.dy = 0; return; }
-        e.dx = d.dx; e.dy = d.dy;
-      }
-      if (!e.dx && !e.dy) return;
-      var toNext = e.dx > 0 ? Math.floor(e.x + 1e-6) + 1 - e.x : e.dx < 0 ? e.x - (Math.ceil(e.x - 1e-6) - 1) : e.dy > 0 ? Math.floor(e.y + 1e-6) + 1 - e.y : e.y - (Math.ceil(e.y - 1e-6) - 1);
-      var s = Math.min(dist, toNext);
-      e.x += e.dx * s; e.y += e.dy * s; dist -= s;
-    }
-  }
+  // Move an actor `dist` tiles, deciding its direction at every tile centre (the shared grid walker).
+  function advance(st, e, dist, choose) { root.GridWalk.advance(e, dist, choose, st.w); }
 
   function stepPlayer(st, dt) {
     var p = st.player;
