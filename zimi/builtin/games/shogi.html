@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shogi - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="shogi.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1 id="sg-title">Shogi</h1>
+  <button class="ar-btn" id="sg-undo" type="button" disabled>Undo</button>
+  <button class="ar-btn" id="sg-flip" type="button" aria-pressed="false" title="Turn the board around (F)">Flip</button>
+  <button class="ar-btn" id="sg-new" type="button" aria-haspopup="dialog">New game</button>
+</header>
+
+<main class="bg-main">
+  <p class="bg-status" id="sg-status" role="status" aria-live="polite"></p>
+  <div class="sg-table" id="sg-table">
+    <div class="sg-hand top" id="sg-hand-top" role="group" aria-label="Pieces in hand, top player"></div>
+    <div class="sg-frame">
+      <div class="sg-files" id="sg-files" aria-hidden="true"></div>
+      <div class="sg-ranks" id="sg-ranks" aria-hidden="true"></div>
+      <div class="sg-board" id="sg-board" role="group" aria-label="Shogi board"></div>
+    </div>
+    <div class="sg-hand bottom" id="sg-hand-bottom" role="group" aria-label="Pieces in hand, bottom player"></div>
+  </div>
+  <div class="sg-moves" id="sg-moves" role="log" aria-label="Moves"></div>
+  <p class="bg-stats" id="sg-stats"></p>
+  <p class="bg-help">Sente moves first. Captured pieces go to your hand: tap one, then an empty square, to drop it. Reach the <span id="sg-zone">far three ranks</span> to promote. Arrow keys move, Enter selects, U undoes, F flips the board, N starts a new game.</p>
+</main>
+
+<div class="ar-sheet" id="sg-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sg-menu-title">
+  <div class="ar-sheet-card">
+    <h2 id="sg-menu-title">New game</h2>
+    <fieldset class="bg-field"><legend>Board</legend><div class="bg-chips" id="sg-f-variant">
+      <label class="bg-chip"><input type="radio" name="sg-variant" value="full"><span>Shogi 9x9</span></label>
+      <label class="bg-chip"><input type="radio" name="sg-variant" value="mini"><span>Minishogi 5x5</span></label>
+    </div></fieldset>
+    <fieldset class="bg-field"><legend>Opponent</legend><div class="bg-chips" id="sg-f-mode">
+      <label class="bg-chip"><input type="radio" name="sg-mode" value="cpu"><span>Computer</span></label>
+      <label class="bg-chip"><input type="radio" name="sg-mode" value="two"><span>Two players</span></label>
+    </div></fieldset>
+    <fieldset class="bg-field" id="sg-f-level"><legend>Level</legend><div class="bg-chips">
+      <label class="bg-chip"><input type="radio" name="sg-level" value="beginner"><span>Beginner</span></label>
+      <label class="bg-chip"><input type="radio" name="sg-level" value="casual"><span>Casual</span></label>
+      <label class="bg-chip"><input type="radio" name="sg-level" value="club"><span>Club</span></label>
+      <label class="bg-chip"><input type="radio" name="sg-level" value="strong"><span>Strong</span></label>
+    </div></fieldset>
+    <fieldset class="bg-field" id="sg-f-side"><legend>You play</legend><div class="bg-chips">
+      <label class="bg-chip"><input type="radio" name="sg-side" value="sente"><span>Sente (first)</span></label>
+      <label class="bg-chip"><input type="radio" name="sg-side" value="gote"><span>Gote</span></label>
+    </div></fieldset>
+    <fieldset class="bg-field"><legend>Pieces</legend><div class="bg-chips" id="sg-f-labels">
+      <label class="bg-chip"><input type="radio" name="sg-labels" value="kanji"><span>Kanji</span></label>
+      <label class="bg-chip"><input type="radio" name="sg-labels" value="latin"><span>Letters</span></label>
+    </div></fieldset>
+    <label class="bg-check"><input type="checkbox" id="sg-hints"> Show legal moves</label>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="sg-cancel" type="button">Cancel</button>
+      <button class="ar-btn" id="sg-start" type="button" aria-pressed="true">Start</button>
+    </div>
+  </div>
+</div>
+
+<div class="ar-sheet" id="sg-promo" hidden role="dialog" aria-modal="true" aria-labelledby="sg-promo-title">
+  <div class="ar-sheet-card">
+    <h2 id="sg-promo-title">Promote this piece?</h2>
+    <div class="sg-promo-choices" id="sg-promo-choices"></div>
+  </div>
+</div>
+
+<div class="ar-sheet" id="sg-result" hidden role="dialog" aria-modal="true" aria-labelledby="sg-result-title">
+  <div class="ar-sheet-card">
+    <h2 id="sg-result-title">Game over</h2>
+    <p id="sg-result-text"></p>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="sg-close" type="button">Look at the board</button>
+      <button class="ar-btn" id="sg-again" type="button" aria-pressed="true">Play again</button>
+    </div>
+  </div>
+</div>
+<script src="boardkit.js"></script>
+<script src="shogi-engine.js"></script>
+<script src="shogi.js"></script>
+</body>
+</html>
