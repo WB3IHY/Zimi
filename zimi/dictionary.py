@@ -1688,6 +1688,26 @@ def five_letters(name, day):
     return {}
 
 
+def define_five_letter_word(name, word):
+    """What a five-letter word means in this Wiktionary, for the end of a
+    round of Five Letters: ``{title, blurb}`` (the first sense, as the word of
+    the day's card gives it), or {} when the Wiktionary has no page for it.
+    None when ``name`` is not a Wiktionary this request may read."""
+    from zimi import wiki as _wiki
+
+    if not is_dictionary(name):
+        return None
+    if not _FIVE_PLAIN.fullmatch(word or ""):
+        return {}
+    archive = _wiki._archive(name)
+    with _srv._zim_lock:
+        page = _wiki._read_page(archive, word)
+    if not page:
+        return {}
+    got, _ = _wiki._judge("word", name, _wiki._language(_record(name)), page[0], word, page[2])
+    return {"title": word, "blurb": got["blurb"]} if got and got.get("blurb") else {}
+
+
 def is_five_letter_word(name, word):
     """Is ``word`` (a to z) a word of this Wiktionary: its page, or a title
     that is the word with its accents. None when ``name`` is not a

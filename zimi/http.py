@@ -3231,6 +3231,11 @@ class ZimHandler(BaseHTTPRequestHandler):
                     # ZimiGames' Five Letters: a five-letter word of a
                     # Wiktionary for the day, or whether a guess is one.
                     name = param("zim") or ""
+                    if param("define"):
+                        got = _dict.define_five_letter_word(name, param("define"))
+                        if got is None:
+                            return self._json(404, {"error": "not found"})
+                        return self._json(200, got)
                     if param("check"):
                         ok = _dict.is_five_letter_word(name, param("check"))
                         if ok is None:

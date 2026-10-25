@@ -111,6 +111,14 @@ def test_a_guess_without_accents_finds_the_accented_word(library):
     assert dic.is_five_letter_word("wiktionary_fr", "foree") is False
 
 
+def test_a_word_is_defined_by_the_wiktionary_that_has_it(library):
+    got = dic.define_five_letter_word("wiktionary", "table")
+    assert got["title"] == "table" and got["blurb"], got
+    assert dic.define_five_letter_word("wiktionary", "zzzzz") == {}
+    assert dic.define_five_letter_word("wiktionary", "TABLE") == {}, "a to z only"
+    assert dic.define_five_letter_word("wikipedia", "table") is None
+
+
 def test_a_guess_that_is_not_five_letters_a_to_z_is_refused(library):
     for bad in ("", "tabl", "tables", "TABLE", "tab1e", "tablé", "ta le"):
         assert dic.is_five_letter_word("wiktionary", bad) is False
@@ -155,6 +163,10 @@ def test_the_route(served, monkeypatch):
         200,
         {"ok": False},
     )
+    status, got = _get(served + "/dictionary/five?zim=wiktionary&define=table")
+    assert status == 200 and got["title"] == "table" and got["blurb"]
+    assert _get(served + "/dictionary/five?zim=wiktionary&define=zzzzz") == (200, {})
+    assert _get(served + "/dictionary/five?zim=wikipedia&define=table")[0] == 404
     # Only the days a browser can be on: nobody can make the server draw for a year of them.
     assert _get(served + "/dictionary/five?zim=wiktionary&day=19990101")[0] == 400
     assert _get(served + "/dictionary/five?zim=wiktionary")[0] == 400
