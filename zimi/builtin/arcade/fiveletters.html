@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Five Letters - Zimi Arcade</title>
+<link rel="stylesheet" href="arcade.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="fiveletters.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to the Arcade">&lsaquo;</a>
+  <h1>Five Letters</h1>
+  <button class="ar-btn" id="fl-stats" type="button" aria-haspopup="dialog">Record</button>
+  <button class="ar-btn" id="fl-mode" type="button" title="Switch between the daily word and practice">Daily</button>
+</header>
+
+<main class="pl-main">
+  <div class="fl-board" id="fl-board" role="grid" aria-label="Guesses"></div>
+  <p class="pl-msg" id="fl-msg" role="status" aria-live="polite"></p>
+  <div class="fl-keys" id="fl-keys" role="group" aria-label="Keyboard"></div>
+  <p class="pl-help">Guess the five letter word in six tries. Green is right, amber is in the word elsewhere, grey is not in it. The daily word is the same for everyone today.</p>
+</main>
+
+<div class="ar-sheet" id="fl-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="fl-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="fl-sheet-title">Your record</h2>
+    <p id="fl-sheet-text"></p>
+    <div class="fl-dist" id="fl-dist" aria-label="Games won by number of guesses"></div>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="fl-share" type="button" hidden>Copy result</button>
+      <button class="ar-btn" id="fl-again" type="button" hidden>New word</button>
+      <button class="ar-btn" id="fl-close" type="button" aria-pressed="true">Close</button>
+    </div>
+  </div>
+</div>
+<script src="fiveletters-words.js"></script>
+<script src="playkit.js"></script>
+<script src="fiveletters.js"></script>
+</body>
+</html>
