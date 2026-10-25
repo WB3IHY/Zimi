@@ -1714,5 +1714,22 @@
   "length": "5 min",
   "kind": "kids",
   "computer": false
+ },
+ {
+  "qid": "Q18759108",
+  "wiki": "Kart racing game",
+  "path": "kart.html",
+  "title": "ZimiKart",
+  "blurb": "Eight critters, six tracks, drift for a boost",
+  "why": "Kart racers fake a 3D road by tilting one flat picture of the track, a trick the 1990s consoles did in hardware.",
+  "origin": {
+   "year": 1992,
+   "era": "1990s"
+  },
+  "region": "East Asia",
+  "players": "1 to 2",
+  "length": "15 min",
+  "kind": "arcade",
+  "computer": true
  }
 ]
