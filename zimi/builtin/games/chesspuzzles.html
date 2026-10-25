@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chess Puzzles - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="chess.css">
+<link rel="stylesheet" href="chesspuzzles.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Chess Puzzles</h1>
+  <button class="ar-btn" id="cp-daily" type="button">Daily</button>
+  <button class="ar-btn" id="cp-choose" type="button" aria-haspopup="dialog">Choose</button>
+</header>
+
+<main class="bg-main">
+  <div class="pl-hud cp-hud" id="cp-hud"></div>
+  <p class="bg-status" id="cp-status" role="status" aria-live="polite"></p>
+  <div class="bg-board cs-board cp-board" id="cp-board" role="group" aria-label="Chess board"></div>
+  <div class="bg-controls">
+    <button class="ar-btn" id="cp-hint" type="button" title="Show the piece to move (H)">Hint</button>
+    <button class="ar-btn" id="cp-solution" type="button">Show solution</button>
+    <button class="ar-btn" id="cp-next" type="button" aria-pressed="true" title="Next puzzle (N)">Next puzzle</button>
+  </div>
+  <p class="bg-stats" id="cp-info"></p>
+  <p class="bg-help">Find the best move for your side. Click a piece, then a square. H shows a hint, N is the next puzzle.</p>
+</main>
+
+<div class="ar-sheet" id="cp-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="cp-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="cp-sheet-title">Choose puzzles</h2>
+    <label class="cp-field"><span>Level</span><select id="cp-level"></select></label>
+    <label class="cp-field"><span>Theme</span><select id="cp-theme"></select></label>
+    <p class="bg-note" id="cp-count"></p>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="cp-cancel" type="button">Cancel</button>
+      <button class="ar-btn" id="cp-start" type="button" aria-pressed="true">Start</button>
+    </div>
+  </div>
+</div>
+
+<div class="ar-sheet" id="cp-promo" hidden role="dialog" aria-modal="true" aria-labelledby="cp-promo-title">
+  <div class="ar-sheet-card">
+    <h2 id="cp-promo-title">Promote the pawn to</h2>
+    <div class="cs-promo-choices" id="cp-promo-choices"></div>
+  </div>
+</div>
+<script src="boardkit.js"></script>
+<script src="chess-pieces.js"></script>
+<script src="chess-engine.js"></script>
+<script src="chess-content.js"></script>
+<script src="chess-board.js"></script>
+<script src="data/chess-puzzles.js"></script>
+<script src="chesspuzzles.js"></script>
+<!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
+<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q1">About Chess Puzzles</a></footer><!-- /zimi-about -->
+</body>
+</html>

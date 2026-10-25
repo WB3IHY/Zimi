@@ -1,0 +1,15 @@
+/* Chess Puzzles and the Opening Trainer: the rating row, the choose sheet, a shake for a wrong move. The board and pieces are chess.css and board.css. */
+.cp-hud { margin-top: 2px; }
+.cp-field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; font-size: 12px; font-weight: 650; color: var(--ink2); text-transform: uppercase; letter-spacing: 0.04em; }
+.cp-field select, .cp-field input { min-height: 42px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: 15px var(--font); text-transform: none; letter-spacing: 0; font-weight: 400; }
+.cp-board.shake { animation: cp-shake 0.28s; }
+.cp-board.solved { box-shadow: 0 0 0 3px var(--ok), 0 6px 18px rgba(0, 0, 0, 0.22); }
+.cp-board.failed { box-shadow: 0 0 0 3px var(--bad), 0 6px 18px rgba(0, 0, 0, 0.22); }
+.cs-board .bg-sq.cue::before { background: rgba(46, 125, 79, 0.6); }
+.cs-board .bg-sq.cue-to::before { background: rgba(46, 125, 79, 0.35); }
+.cp-delta { font-weight: 700; }
+.cp-delta.up { color: var(--ok); } .cp-delta.down { color: var(--bad); }
+@keyframes cp-shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+@media (prefers-reduced-motion: reduce) { .cp-board.shake { animation: none; } }
+.co-name { width: min(100vw - 24px, 600px); margin: 0; font-size: 15px; font-weight: 650; text-align: center; }
+.cp-field input { width: 100%; }
