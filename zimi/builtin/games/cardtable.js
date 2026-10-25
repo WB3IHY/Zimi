@@ -75,7 +75,7 @@
   // `info(id, k)` -> { label, up, dim, mark, glow, y }. Returns cards and
   // slots, each card its own pile 'h<id>' so a tap or a drag names it.
   function handCards(g, ids, info, gapAfter, prefix) {
-    var n = ids.length, gap = g.cw * SUIT_GAP_SHARE, avail = g.W - 2 * g.pad - g.cw, out = { cards: [], slots: [], rows: 1 };
+    var n = ids.length, gap = g.cw * (g.gapShare || SUIT_GAP_SHARE), avail = g.W - 2 * g.pad - g.cw, out = { cards: [], slots: [], rows: 1 };
     var perRow = Math.max(1, Math.floor(avail / (g.cw * MIN_STEP_SHARE)) + 1), rows = Math.max(1, Math.ceil(n / perRow)), r;
     out.rows = rows;
     prefix = prefix || 'h';
