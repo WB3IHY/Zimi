@@ -104,7 +104,7 @@
   // the Sun's, from its real sunset to its real sunrise, with the same formulas as the Almanac (_solarB, _solarDeclination,
   // _eqOfTime in almanac.js; 90.833 degrees is refraction and the Sun's radius). Where the Sun does not set or rise that
   // day, or there is no place, the fixed hours above stand.
-  var PLACE_KEY = 'zimi_almanac_place', SUN_HORIZON = 90.833, DAY_MS = 24 * HOUR, DEG = Math.PI / 180;
+  var BED_EARLIEST_MIN = 19 * 60, WAKE_LATEST_MIN = 8 * 60, PLACE_KEY = 'zimi_almanac_place', SUN_HORIZON = 90.833, DAY_MS = 24 * HOUR, DEG = Math.PI / 180;
   function sunNight(place) {
     var lat = place ? Number(place.lat) : NaN, lon = place ? Number(place.lon) : NaN;
     if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
@@ -116,7 +116,8 @@
       var cosHA = (Math.cos(SUN_HORIZON * DEG) - Math.sin(lat * DEG) * Math.sin(decl)) / (Math.cos(lat * DEG) * Math.cos(decl));
       if (cosHA > 1 || cosHA < -1) return isNight(ts);
       var ha = Math.acos(cosHA) / DEG * 4, noon = 720 - eot;
-      return minutes < noon - ha || minutes >= noon + ha;
+      // Bed at the real sunset but not before 19:00, up at sunrise but not after 08:00: a winter night is not fifteen hours.
+      return minutes < Math.min(noon - ha, WAKE_LATEST_MIN) || minutes >= Math.max(noon + ha, BED_EARLIEST_MIN);
     };
   }
   // Use the place kept in `storage` (a localStorage), if there is one. Returns whether the Sun now decides.
