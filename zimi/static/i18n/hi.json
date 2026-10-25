@@ -3480,5 +3480,9 @@
   "alm_distance": "दूरी",
   "alm_km": "किमी",
   "alm_moon_age": "चंद्र आयु",
-  "alm_daylight": "दिन का प्रकाश"
+  "alm_daylight": "दिन का प्रकाश",
+  "game_menu": "मेनू",
+  "game_undo": "पूर्ववत करें",
+  "game_pause": "रोकें",
+  "game_resume": "फिर शुरू करें"
 }

@@ -3480,5 +3480,9 @@
   "alm_distance": "מרחק",
   "alm_km": "ק״מ",
   "alm_moon_age": "גיל הירח",
-  "alm_daylight": "אור יום"
+  "alm_daylight": "אור יום",
+  "game_menu": "תפריט",
+  "game_undo": "ביטול",
+  "game_pause": "השהיה",
+  "game_resume": "המשך"
 }

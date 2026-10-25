@@ -3480,5 +3480,9 @@
   "alm_distance": "距离",
   "alm_km": "公里",
   "alm_moon_age": "月龄",
-  "alm_daylight": "日照"
+  "alm_daylight": "日照",
+  "game_menu": "菜单",
+  "game_undo": "撤销",
+  "game_pause": "暂停",
+  "game_resume": "继续"
 }

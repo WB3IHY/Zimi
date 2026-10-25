@@ -3480,5 +3480,9 @@
   "alm_distance": "المسافة",
   "alm_km": "كم",
   "alm_moon_age": "عمر القمر",
-  "alm_daylight": "ضوء النهار"
+  "alm_daylight": "ضوء النهار",
+  "game_menu": "القائمة",
+  "game_undo": "تراجع",
+  "game_pause": "إيقاف مؤقت",
+  "game_resume": "استئناف"
 }

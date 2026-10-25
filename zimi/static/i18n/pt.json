@@ -3480,5 +3480,9 @@
   "alm_distance": "distância",
   "alm_km": "km",
   "alm_moon_age": "idade lunar",
-  "alm_daylight": "luz do dia"
+  "alm_daylight": "luz do dia",
+  "game_menu": "Menu",
+  "game_undo": "Desfazer",
+  "game_pause": "Pausar",
+  "game_resume": "Retomar"
 }

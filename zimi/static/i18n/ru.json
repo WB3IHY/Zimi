@@ -3480,5 +3480,9 @@
   "alm_distance": "расстояние",
   "alm_km": "км",
   "alm_moon_age": "возраст Луны",
-  "alm_daylight": "световой день"
+  "alm_daylight": "световой день",
+  "game_menu": "Меню",
+  "game_undo": "Отменить",
+  "game_pause": "Пауза",
+  "game_resume": "Продолжить"
 }

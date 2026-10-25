@@ -3480,5 +3480,9 @@
   "alm_distance": "Entfernung",
   "alm_km": "km",
   "alm_moon_age": "Mondalter",
-  "alm_daylight": "Tageslicht"
+  "alm_daylight": "Tageslicht",
+  "game_menu": "Menü",
+  "game_undo": "Rückgängig",
+  "game_pause": "Pause",
+  "game_resume": "Fortsetzen"
 }
