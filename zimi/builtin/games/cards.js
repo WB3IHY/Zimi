@@ -105,6 +105,8 @@
   var CARD_RED = '#c62828', CARD_BLACK = '#1b1b1b', CARD_CREAM = '#fdfcf8', CARD_EDGE = '#c9c4b8'; // games.css tokens, repeated for the cascade's bitmaps
   var GOLD = '#e09400', MARK_FROM = '#fb8c14', MARK_TO = '#f2582a'; // Zimi's amber, and the two ends of the Z's gradient
   var FACE_W = 100, FACE_H = 140, ACE_SCALE = 3.3, ACE_SPADE_SCALE = 3.9;
+  // The Z sits on the spade's bulb centroid (-0.34 of the suit's 20-unit box, measured), not the box centre.
+  var ACE_Z_Y = 70 - 0.34 * ACE_SPADE_SCALE;
   var PIP_SCALE = 1.15, PIP_SCALE_DENSE = 0.95, DENSE_FROM = 8, PIP_COLS = [34, 66], PIP_MID_X = 50, PIP_TOP = 32, PIP_BOTTOM = 108, PIP_CENTRE = 70, FLIP_AFTER_Y = 70;
   var PIPS = (function () {
     var sides = function (ys) { var o = []; ys.forEach(function (y) { PIP_COLS.forEach(function (x) { o.push([x, y]); }); }); return o; };
@@ -348,8 +350,8 @@
     var r = rank(id), s = suit(id), label = RANK_LABELS[r - 1], body;
     if (r === 1) {
       var spadeAce = s === 3;
-      body = '<g class="zc-big">' + placed(s, 50, 70, spadeAce ? ACE_SPADE_SCALE : ACE_SCALE, false, standalone) + (spadeAce ? markZ(50, 67, 0.52) : '') + '</g>' +
-        smallSuit(s, standalone, null, null, spadeAce ? markZ(50, SMALL_SUIT_Y - 2, 0.42) : '');
+      body = '<g class="zc-big">' + placed(s, 50, 70, spadeAce ? ACE_SPADE_SCALE : ACE_SCALE, false, standalone) + (spadeAce ? markZ(50, ACE_Z_Y, 0.55) : '') + '</g>' +
+        smallSuit(s, standalone, null, null, spadeAce ? markZ(50, SMALL_SUIT_Y - 1, 0.44) : '');
     } else if (r <= 10) {
       var pips = '';
       PIPS[r].forEach(function (p) { pips += placed(s, p[0], p[1], r >= DENSE_FROM ? PIP_SCALE_DENSE : PIP_SCALE, p[1] > FLIP_AFTER_Y, standalone); });
@@ -692,18 +694,17 @@
     return '<g class="zc-tw ' + cls + '" fill="#fff">' + pts.map(function (p) { return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="' + p[2] + '"/>'; }).join('') + '</g>';
   }
   var BACK_ART = {
-    // The Zimi back: the mark on a dark lattice, a slow sheen across it now
-    // and then, and a glow behind the Z that breathes.
+    // The Zimi back: the mark on a dark lattice with a still glow behind the Z
+    // (Eric, 2026-10-24: the moving sheen "gets kinda annoying").
     zimi: function () {
       return '<rect width="92" height="132" fill="#0c0c0e"/><rect width="92" height="132" fill="url(#zc-p-zimi)"/>' +
         '<rect x="7" y="7" width="78" height="118" rx="2" fill="none" stroke="url(#zc-g-mark)" stroke-width="1.3"/>' +
         '<rect x="11" y="11" width="70" height="110" rx="1" fill="none" stroke="' + MARK_FROM + '" stroke-width=".5" opacity=".45"/>' +
-        '<circle class="zc-tw zc-tw2" cx="46" cy="66" r="30" fill="url(#zc-g-glow)"/>' +
+        '<circle cx="46" cy="66" r="30" fill="url(#zc-g-glow)"/>' +
         '<path d="M46 24 76 66 46 108 16 66z" fill="#141012" stroke="url(#zc-g-mark)" stroke-width="1.4"/>' +
         '<path d="M46 31 69 66 46 101 23 66z" fill="none" stroke="' + MARK_FROM + '" stroke-width=".5" opacity=".5"/>' +
         markZ(46, 66, 0.62) +
-        '<g fill="' + MARK_FROM + '"><path d="M18 18l3 3-3 3-3-3zM74 18l3 3-3 3-3-3zM18 108l3 3-3 3-3-3zM74 108l3 3-3 3-3-3z"/></g>' +
-        '<g class="zc-sheen"><path d="M-60 0H-40L-14 132H-34z" fill="url(#zc-g-sheen)"/></g>';
+        '<g fill="' + MARK_FROM + '"><path d="M18 18l3 3-3 3-3-3zM74 18l3 3-3 3-3-3zM18 108l3 3-3 3-3-3zM74 108l3 3-3 3-3-3z"/></g>';
     },
     classic: function () {
       return '<rect width="92" height="132" fill="url(#zc-p-classic)"/><rect x="9" y="9" width="74" height="114" fill="none" stroke="#e8eefc" stroke-width="2" opacity=".85"/>' +
@@ -749,7 +750,6 @@
   // clone that is display:none would break.
   var SPRITE_DEFS = MARK_GRADIENT +
     '<radialGradient id="zc-g-glow"><stop offset="0" stop-color="' + MARK_FROM + '" stop-opacity=".34"/><stop offset="1" stop-color="' + MARK_FROM + '" stop-opacity="0"/></radialGradient>' +
-    '<linearGradient id="zc-g-sheen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".2"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
     '<pattern id="zc-p-zimi" width="11" height="11" patternUnits="userSpaceOnUse"><path d="M5.5 0 11 5.5 5.5 11 0 5.5z" fill="none" stroke="' + MARK_FROM + '" stroke-width=".45" opacity=".26"/></pattern>' +
     '<linearGradient id="zc-g-night" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1a3d"/><stop offset="1" stop-color="#3a4f8a"/></linearGradient>' +
     '<linearGradient id="zc-g-sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd6f5"/><stop offset="1" stop-color="#2b8fc9"/></linearGradient>' +

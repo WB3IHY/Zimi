@@ -84,8 +84,6 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 @keyframes zc-fly { 0% { transform: translate(-16px, 34px); } 18% { transform: translate(30px, 16px); } 34% { transform: translate(112px, 30px); } 100% { transform: translate(112px, 30px); } }
 .zc-wing { animation: zc-flap 0.32s ease-in-out infinite alternate; transform-origin: 50% 50%; }
 @keyframes zc-flap { from { transform: scaleY(1); } to { transform: scaleY(0.35); } }
-.zc-sheen { animation: zc-sheen 9s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
-@keyframes zc-sheen { 0%, 62% { transform: translateX(0); } 100% { transform: translateX(190px); } }
 .zc-lit { animation: zc-twinkle 2.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .zc-bk *, .zc-card, .zc-card.zc-flip, .ar-sheet { animation: none !important; transition: none !important; }

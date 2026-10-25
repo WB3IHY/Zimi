@@ -12,6 +12,12 @@
 (function (root) {
   'use strict';
 
+  // Shown inside Zimi's reader (its iframe is #reader-frame): the shell's own
+  // back arrow and crumb lead back, so games.css hides the page's.
+  try {
+    if (root.parent !== root && root.parent.document.getElementById('reader-frame')) root.document.documentElement.classList.add('in-zimi');
+  } catch (e) { /* another origin: not Zimi */ }
+
   var KEY = 'zimi.games.recent';
   var CAP = 6;
   var SKIP_PAGES = { 'index.html': 1, 'about.html': 1, 'puzzles.html': 1 };

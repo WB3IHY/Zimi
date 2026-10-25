@@ -47,7 +47,11 @@ button { font: inherit; color: inherit; }
 .ar-back::after { content: ""; width: 24px; height: 24px; background: url(mark.svg) center / contain no-repeat; }
 .ar-back:hover { color: var(--accent); }
 /* Tap target only (the look of the back control is the designer's): at least 40 px square. */
-.ar-back { display: inline-grid; place-items: center; min-width: 40px; min-height: 40px; margin-left: -8px; }
+.ar-back { justify-content: center; min-width: 40px; min-height: 40px; margin-left: -8px; }
+/* Inside Zimi's reader the shell already has a way back (its arrow and the ZimiGames crumb):
+   the page's own would be a second one (recent.js sets .in-zimi). */
+.in-zimi .ar-back { display: none; }
+.in-zimi .ar-bar { padding-left: 16px; }
 .ar-btn { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); cursor: pointer; white-space: nowrap; }
 .ar-btn:hover { border-color: var(--accent); color: var(--accent); }
 .ar-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
