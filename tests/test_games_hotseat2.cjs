@@ -113,5 +113,31 @@ for (const [name, G] of [['Big Two', sandbox.ZimiBigTwo], ['Tien Len', sandbox.Z
   check(H.gameState(s2) === 'won', 'Hold\'em: one person holds every chip, they win');
 }
 
+// ── Bridge: any seat can be a person; hands are hidden, except dummy once it is down ──
+{
+  const BR = sandbox.ZimiBridge, T = sandbox.ZimiTable;
+  let st = BR.newGame(Z.shuffled(lcg(5)));
+  const auction = BR.place(st, metrics(), { viewer: 1, hideHand: false });
+  const mine = auction.cards.filter(c => c.pile[0] === 'h');
+  check(mine.length === 13 && mine.every(c => c.up && st.hands[1].indexOf(c.id) >= 0), 'Bridge: West looking sees its own 13 cards at the bottom during the auction');
+  check(leaks(auction, st.hands, 1).length === 0, 'Bridge: West looking, nobody else\'s hand is face up');
+  check(BR.place(st, metrics(), { viewer: 1, hideHand: true }).cards.every(c => !c.up), 'Bridge: off West\'s turn to call their hand is face down');
+  st = BR.applyCall(st, 2, '1H'); st = BR.applyCall(st, 3, 'P'); st = BR.applyCall(st, 0, 'P'); st = BR.applyCall(st, 1, 'P');
+  st = BR.playCard(st, st.turn, BR.legalPlays(st, st.turn)[0]);
+  check(st.phase === 'play' && st.contract.declarer === 2 && st.contract.dummy === 0 && st.dummyShown, 'Bridge: North declares, South is dummy and goes down after the lead');
+  const dummyHand = st.hands[0].slice(), led = st.trick[0];
+  const defender = BR.place(st, metrics(), { viewer: 1, hideHand: true });
+  const up = defender.cards.filter(c => c.up && c.pile !== 'trick');
+  check(up.length === dummyHand.length && up.every(c => c.pile[0] === 'd' && dummyHand.indexOf(c.id) >= 0), 'Bridge: a defender off turn sees only dummy face up, not their own hand or declarer\'s');
+  check(defender.cards.filter(c => c.pile[0] === 'h').length === st.hands[1].length && defender.cards.filter(c => c.pile[0] === 'h').every(c => !c.up), 'Bridge: the defender\'s own hand stays face down');
+  const g = BR.geo(metrics()), spot = defender.cards.find(c => c.pile === 'trick');
+  const want = T.trickSpot(g, (led.seat - 1 + 4) % 4);
+  check(spot && spot.x === Math.round(want.x) && spot.y === Math.round(want.y), 'Bridge: a played card lands where its seat sits for the viewer');
+  const declarer = BR.place(st, metrics(), { viewer: 2, hideHand: false });
+  check(declarer.cards.filter(c => c.pile[0] === 'h').every(c => c.up && st.hands[2].indexOf(c.id) >= 0) && declarer.cards.filter(c => c.pile[0] === 'd').length === dummyHand.length, 'Bridge: declarer on turn sees their hand and dummy, both face up');
+  const solo = BR.place(st, metrics(), {});
+  check(solo.cards.filter(c => c.pile[0] === 'h').every(c => c.up && st.hands[0].indexOf(c.id) >= 0), 'Bridge: with no viewer set South is at the bottom');
+}
+
 console.log(failures ? failures + ' failure(s), ' + passed + ' passed' : 'all passed (' + passed + ')');
 process.exit(failures ? 1 : 0);
