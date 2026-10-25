@@ -313,5 +313,94 @@ const sortNum = list => list.slice().sort((a, b) => a - b);
   }
 }
 
+// ── International draughts ──
+{
+  const sb = load(['enginekit.js', 'draughts-engine.js']);
+  const E = sb.ZimiDraughtsEngine(sb.ZimiSearch());
+  const sqr = (r, f) => r * 10 + f;
+  // A position from lists of [row, file]: men, kings, and the side to move.
+  const setup = (w, b, wk, bk, turn) => {
+    const a = new Array(100).fill('.');
+    (w || []).forEach(p => { a[sqr(...p)] = 'w'; }); (b || []).forEach(p => { a[sqr(...p)] = 'b'; });
+    (wk || []).forEach(p => { a[sqr(...p)] = 'W'; }); (bk || []).forEach(p => { a[sqr(...p)] = 'B'; });
+    (w || []).concat(b || [], wk || [], bk || []).forEach(p => { if ((p[0] + p[1]) % 2 !== 1) throw new Error('light square ' + p); });
+    return E.fromString(a.join(''), turn);
+  };
+
+  const start = E.newPosition();
+  check([1, 2, 3, 4].map(d => E.perft(start, d)).join() === '9,81,658,4265', 'draughts: perft 1 to 4 from the start are 9, 81, 658, 4265 (the known counts)');
+  let ok = true;
+  for (let n = 1; n <= 50; n++) if (E.numberOf(E.squareOfNumber(n)) !== n || !E.isDark(E.squareOfNumber(n))) ok = false;
+  check(ok && E.squareOfNumber(1) === sqr(0, 1) && E.squareOfNumber(5) === sqr(0, 9) && E.squareOfNumber(46) === sqr(9, 0) && E.squareOfNumber(50) === sqr(9, 8), 'draughts: the squares are numbered 1 to 50 from the top left, with a dark square at the bottom left');
+  check(start.sq.filter(v => v > 0).length === 20 && start.sq.filter(v => v < 0).length === 20, 'draughts: twenty men each');
+
+  // Majority: a capture of two must be taken in preference to a capture of one.
+  let pos = setup([[8, 3], [4, 1]], [[7, 4], [3, 2], [1, 4]]);
+  let ms = E.moves(pos);
+  check(ms.length > 0 && ms.every(m => m.caps.length === 2 && m.from === sqr(4, 1)), 'draughts: the majority rule: the capture of two pieces is compulsory over a capture of one');
+  pos = setup([[8, 3]], [[7, 4]]);
+  ms = E.moves(pos);
+  check(ms.length === 1 && ms[0].caps.length === 1, 'draughts: a capture is compulsory (the quiet moves are not offered)');
+
+  // Men capture backwards.
+  pos = setup([[5, 4]], [[6, 3]]);
+  ms = E.moves(pos);
+  check(ms.length === 1 && ms[0].to === sqr(7, 2), 'draughts: a man captures backwards');
+  // ... but men only step forward.
+  pos = setup([[5, 4]], [[0, 1]]);
+  check(E.moves(pos).every(m => E.rowOf(m.to) === 4), 'draughts: men step forward only');
+
+  // Flying kings.
+  pos = setup([], [[5, 4]], [[9, 0]], []);
+  ms = E.moves(pos);
+  check(ms.length === 5 && ms.every(m => m.caps.length === 1 && m.caps[0] === sqr(5, 4)) && same(sortNum(ms.map(m => m.to)), sortNum([sqr(4, 5), sqr(3, 6), sqr(2, 7), sqr(1, 8), sqr(0, 9)])), 'draughts: a king captures from a distance and may land on any empty square beyond');
+  pos = setup([], [[5, 4], [3, 4]], [[9, 0]], []);
+  ms = E.moves(pos);
+  check(ms.length === 3 && ms.every(m => m.caps.length === 2 && m.path[0] === sqr(4, 5)), 'draughts: a king must pick the landing that continues the capture (the majority)');
+  pos = setup([], [], [[9, 0]], []);
+  check(E.moves(pos).length === 9 && E.moves(pos).every(m => m.caps.length === 0), 'draughts: a king moves any distance along a free diagonal (9 squares from the corner)');
+  pos = setup([], [[6, 3], [5, 4]], [[9, 0]], []);
+  check(E.moves(pos).every(m => m.caps.length === 0) && E.moves(pos).length === 2, 'draughts: a king cannot jump two pieces standing together');
+
+  // A loop of four captures comes back to the start square, and captured pieces stay on until the end.
+  pos = setup([[6, 3]], [[5, 4], [3, 4], [3, 2], [5, 2]]);
+  ms = E.moves(pos);
+  check(ms.length > 0 && ms.every(m => m.caps.length === 4) && ms.some(m => m.to === m.from), 'draughts: a man may finish on the square it started from (a loop of four)');
+
+  // Crowning.
+  pos = setup([[1, 2]], [[8, 1]]);
+  ms = E.moves(pos);
+  check(ms.length === 2 && ms.every(m => m.crown), 'draughts: a man reaching the far row is crowned');
+  pos = setup([[2, 1]], [[1, 2], [1, 4]]);
+  ms = E.moves(pos);
+  check(ms.length === 1 && ms[0].caps.length === 2 && ms[0].crown === false && ms[0].to === sqr(2, 5), 'draughts: a man that only passes the far row in a capture is not crowned');
+  pos = setup([[2, 1]], [[1, 2]]);
+  ms = E.moves(pos);
+  check(ms.length === 1 && ms[0].crown === true, 'draughts: a man that ends a capture on the far row is crowned');
+  E.make(pos, ms[0]);
+  check(pos.sq[sqr(0, 3)] === 2 && pos.sq[sqr(1, 2)] === 0, 'draughts: the crowned piece is a king and the captured man is gone');
+  E.unmake(pos);
+  check(pos.sq[sqr(2, 1)] === 1 && pos.sq[sqr(1, 2)] === -1 && pos.sq[sqr(0, 3)] === 0 && pos.turn === 1, 'draughts: unmaking restores everything');
+
+  // The end.
+  pos = setup([[5, 4]], [], [], [], -1);
+  check(E.status(pos).over && E.status(pos).winner === 1, 'draughts: a side with no pieces to move has lost');
+  pos = setup([], [], [[9, 0]], [[0, 9]]); pos.quiet = E.QUIET_DRAW_PLIES;
+  check(E.status(pos).result === 'quiet', 'draughts: twenty-five moves each of king moves alone is a draw');
+
+  // The computer only ever plays legal moves, and takes compulsory captures.
+  {
+    const g = E.newPosition();
+    let legal = true, plies = 0;
+    for (; plies < 70; plies++) {
+      if (E.status(g).over) break;
+      const list = E.moves(g), r = E.handle({ sq: Array.from(g.sq), turn: g.turn, quiet: g.quiet, level: 'easy', ms: 50, depth: 2 });
+      if (r.index < 0 || r.index >= list.length) { legal = false; break; }
+      E.make(g, list[r.index]);
+    }
+    check(legal && plies >= 40, 'draughts: the computer plays ' + plies + ' legal plies against itself');
+  }
+}
+
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
 console.log('all passed');
