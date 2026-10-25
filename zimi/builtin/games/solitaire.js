@@ -145,7 +145,7 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var DOWN_RATIO = 0.55, UP_STEP_SHARE = 0.3, MIN_STEP_SHARE = 0.12, WASTE_FAN_SHARE = 0.3, ROW_GAP_SHARE = 0.2;
+  var DOWN_RATIO = 0.55, UP_STEP_SHARE = 0.4, MIN_STEP_SHARE = 0.12, WASTE_FAN_SHARE = 0.3, ROW_GAP_SHARE = 0.2;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
