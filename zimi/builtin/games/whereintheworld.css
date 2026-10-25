@@ -1,0 +1,25 @@
+/* Where in the World: the map, the question, the pins. Shared tokens: games.css, play.css, library.css. */
+:root { --wm-sea: #cfe3f2; --wm-land: #a9c99a; --wm-coast: #6f9a60; --wm-grid: rgba(60, 90, 120, 0.16); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --wm-sea: #14222e; --wm-land: #3a5b45; --wm-coast: #5f8a6c; --wm-grid: rgba(160, 190, 220, 0.12); } }
+:root[data-theme="dark"] { --wm-sea: #14222e; --wm-land: #3a5b45; --wm-coast: #5f8a6c; --wm-grid: rgba(160, 190, 220, 0.12); }
+
+.wm-main { width: min(760px, 100%); margin: 0 auto; }
+.wm-n { margin: 0; min-height: 1.2em; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3); }
+.wm-q { text-align: center; }
+.wm-q h2 { margin: 0; font-size: 26px; letter-spacing: -0.01em; text-wrap: balance; }
+.wm-q p { margin: 2px 0 0; min-height: 1.3em; color: var(--ink2); font-size: 14px; }
+.wm-frame { position: relative; width: 100%; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--wm-sea); }
+.wm-svg { display: block; width: 100%; aspect-ratio: 1.6 / 1; height: auto; touch-action: none; cursor: crosshair; user-select: none; -webkit-user-select: none; }
+.wm-sea { fill: var(--wm-sea); }
+.wm-land { fill: var(--wm-land); stroke: var(--wm-coast); stroke-width: 0.4; vector-effect: non-scaling-stroke; }
+.wm-grid line { stroke: var(--wm-grid); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.wm-pin { stroke: #fff; }
+.wm-pin.guess { fill: var(--accent); }
+.wm-pin.target { fill: var(--ok); }
+.wm-line { stroke: var(--ink); opacity: 0.7; }
+.wm-zoom { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.wm-zoom .ar-btn { width: 40px; height: 40px; padding: 0; font-size: 20px; line-height: 1; }
+.wm-info { max-width: 52ch; margin: 0; text-align: center; font-size: 14px; color: var(--ink2); }
+.wm-info a { color: var(--accent); font-weight: 600; text-decoration: none; }
+.wm-frame:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 520px) { .wm-svg { aspect-ratio: 1.2 / 1; } }
