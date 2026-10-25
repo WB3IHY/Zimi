@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quest - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="pixel.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Quest</h1>
+  <button class="ar-btn" id="qs-pause" type="button" disabled>Pause</button>
+</header>
+
+<main class="px-main">
+  <div class="pl-hud">
+    <div class="pl-stat"><small>Hearts</small><b id="qs-hearts" role="img">&#9829;&#9829;&#9829;</b></div>
+    <div class="pl-stat"><small>Keys</small><b id="qs-keys">0</b></div>
+    <div class="pl-stat"><small>Sword</small><b id="qs-sword">No</b></div>
+    <div class="pl-stat"><small>Place</small><b id="qs-where" style="font-size:14px">Meadow</b></div>
+  </div>
+  <canvas class="px-screen" id="qs-screen" role="img" aria-label="Quest: a small knight exploring a screen of meadow, forest, lake, caves or castle"></canvas>
+  <div class="px-pad" role="group" aria-label="Controls">
+    <div class="px-dpad">
+      <button class="pl-key px-up" id="qs-up" type="button" aria-label="Up">&#9650;</button>
+      <button class="pl-key px-left" id="qs-left" type="button" aria-label="Left">&#9664;</button>
+      <button class="pl-key px-down" id="qs-down" type="button" aria-label="Down">&#9660;</button>
+      <button class="pl-key px-right" id="qs-right" type="button" aria-label="Right">&#9654;</button>
+    </div>
+    <div class="px-acts"><button class="pl-key" id="qs-act" type="button" aria-label="Action: swing the sword, open a chest, read a sign">Act</button></div>
+  </div>
+  <p class="pl-msg" id="qs-msg" role="status" aria-live="polite"></p>
+  <p class="pl-help">Arrow keys or W, A, S, D walk; Space (or Z) is the action button: swing the sword, open a chest, read a sign, take the sword from its pedestal. Walk off the edge of a screen to reach the next. P pauses. Your place is saved in this browser as you go.</p>
+</main>
+
+<div class="ar-sheet" id="qs-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="qs-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="qs-sheet-title">Quest</h2>
+    <p id="qs-sheet-text"></p>
+    <div class="ar-sheet-actions"><button class="ar-btn" id="qs-continue" type="button" hidden>Continue</button><button class="ar-btn" id="qs-go" type="button" aria-pressed="true">Start</button></div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="pixelkit.js"></script>
+<script src="quest.js"></script>
+<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q343568">About Quest</a></footer><!-- /zimi-about -->
+<!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
+</body>
+</html>
