@@ -24900,8 +24900,9 @@ function openReader(url) {
     var _settlePasses = function() {
       // A book is no capture: nothing of a web page's chrome to put back;
       // nor is a wiki's article in Zimipedia's reader (a style read for every
-      // element of a long one, for nothing).
-      if (_frameIsOurOwnPage(frame) || _bookDoc || _wikiOn) return;
+      // element of a long one, for nothing); nor is an app, whose menus and
+      // result sheets are fixed full-screen boxes the sweep would delete.
+      if (_frameIsOurOwnPage(frame) || _bookDoc || _wikiOn || _docIsApp(frame.contentDocument)) return;
       try { _sweepBlockingOverlays(frame); } catch(e) {}
       try { _settleCapturedChrome(frame); } catch(e) {}
     };
