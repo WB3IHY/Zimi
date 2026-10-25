@@ -402,5 +402,115 @@ const sortNum = list => list.slice().sort((a, b) => a - b);
   }
 }
 
+// ── Hnefatafl (Copenhagen) ──
+{
+  const sb = load(['enginekit.js', 'hnefatafl-engine.js']);
+  const E = sb.ZimiHnefataflEngine(sb.ZimiSearch());
+  const sqr = (r, f) => r * 11 + f;
+  // A position from lists of [row, file]: attackers, defenders, the king; and the side to move (1 attackers, 2 defenders).
+  const setup = (a, d, k, turn, rules) => {
+    const x = new Array(121).fill('.');
+    (a || []).forEach(p => { x[sqr(...p)] = 'a'; }); (d || []).forEach(p => { x[sqr(...p)] = 'd'; });
+    if (k) x[sqr(...k)] = 'k';
+    return E.fromString(x.join(''), turn || 1, rules);
+  };
+  const go = (pos, from, to) => {
+    const m = E.moves(pos).find(mm => E.from(mm) === sqr(...from) && E.to(mm) === sqr(...to));
+    if (m === undefined) return false;
+    E.make(pos, m); return true;
+  };
+  const count = (pos, v) => pos.sq.filter(x => x === v).length;
+
+  const start = E.newPosition();
+  check(count(start, 1) === 24 && count(start, 2) === 12 && count(start, 3) === 1 && start.sq[60] === 3, 'hnefatafl: 24 attackers, 12 defenders and the king on the throne');
+  check(start.turn === 1 && E.moves(start).length > 0 && E.moves(start).every(m => start.sq[E.from(m)] === 1), 'hnefatafl: the attackers move first');
+  check(E.moves(start).every(m => !E.isCorner(E.to(m)) && E.to(m) !== 60), 'hnefatafl: nobody else may stop on a corner or the throne');
+
+  // Custodial capture, and moving in between two enemies is safe.
+  let pos = setup([[2, 3], [6, 5]], [[2, 4]], [8, 8], 1);
+  go(pos, [6, 5], [2, 5]);
+  check(pos.sq[sqr(2, 4)] === 0 && same(E.lastCaptures(pos), [sqr(2, 4)]), 'hnefatafl: a piece between two enemies on a line is captured');
+  pos = setup([[2, 3], [2, 5]], [[6, 4]], [8, 8], 2);
+  go(pos, [6, 4], [2, 4]);
+  check(pos.sq[sqr(2, 4)] === 2 && E.lastCaptures(pos).length === 0, 'hnefatafl: moving in between two enemies is safe');
+
+  // The corners are hostile; the throne is hostile to attackers always and to defenders when empty.
+  pos = setup([[6, 2]], [[0, 1]], [8, 8], 1);
+  go(pos, [6, 2], [0, 2]);
+  check(pos.sq[sqr(0, 1)] === 0, 'hnefatafl: a defender beside a corner is taken by one attacker');
+  pos = setup([[5, 4]], [[9, 3]], [8, 8], 2);
+  go(pos, [9, 3], [5, 3]);
+  check(pos.sq[sqr(5, 4)] === 0, 'hnefatafl: the empty throne is hostile to attackers');
+  pos = setup([[8, 3]], [[5, 4]], [8, 8], 1);
+  go(pos, [8, 3], [5, 3]);
+  check(pos.sq[sqr(5, 4)] === 0, 'hnefatafl: the empty throne is hostile to a defender beside it');
+  pos = setup([[8, 3]], [[5, 4]], null, 1); pos.sq[60] = 3;
+  go(pos, [8, 3], [5, 3]);
+  check(pos.sq[sqr(5, 4)] === 2, 'hnefatafl: with the king on it the throne is no enemy of a defender');
+
+  // The throne: only the king stops there, others may pass over it when it is empty.
+  pos = setup([[5, 2]], [], [9, 9], 1);
+  check(E.moves(pos).some(m => E.to(m) === sqr(5, 6)) && !E.moves(pos).some(m => E.to(m) === 60), 'hnefatafl: an attacker may pass over the empty throne but not stop on it');
+  pos = setup([], [], [5, 6], 2);
+  check(E.moves(pos).some(m => E.to(m) === 60), 'hnefatafl: the king may return to the throne');
+
+  // The king: to a corner wins, and he is armed.
+  pos = setup([[8, 8]], [], [0, 4], 2);
+  go(pos, [0, 4], [0, 0]);
+  check(E.status(pos).over && E.status(pos).winner === 2 && E.status(pos).result === 'corner', 'hnefatafl: the king on a corner wins for the defenders');
+  pos = setup([[3, 6]], [[8, 8]], [3, 4], 2);
+  go(pos, [8, 8], [3, 8]);
+  check(pos.sq[sqr(3, 6)] === 1, 'hnefatafl: a plain move beside an enemy is not a capture without a second piece');
+  pos = setup([[3, 6]], [[8, 7]], [3, 4], 2);
+  pos.sq[sqr(3, 4)] = 0; pos.sq[sqr(3, 5)] = 3;
+  go(pos, [8, 7], [3, 7]);
+  check(pos.sq[sqr(3, 6)] === 0, 'hnefatafl: the king takes part in captures');
+
+  // Capturing the king: four attackers, three beside the throne, never on the edge.
+  pos = setup([[3, 4], [3, 6], [2, 5], [8, 5]], [], [3, 5], 1);
+  go(pos, [8, 5], [4, 5]);
+  check(E.status(pos).over && E.status(pos).winner === 1, 'hnefatafl: four attackers around the king take him');
+  pos = setup([[3, 5], [4, 4], [8, 6]], [], [4, 5], 1);
+  go(pos, [8, 6], [4, 6]);
+  check(E.status(pos).winner === 1, 'hnefatafl: beside the throne three attackers are enough');
+  pos = setup([[10, 4], [8, 6]], [], [10, 5], 1);
+  go(pos, [8, 6], [10, 6]);
+  check(!E.status(pos).over, 'hnefatafl: the king on the edge cannot be taken by two attackers');
+  pos = setup([[3, 4], [3, 6], [2, 5]], [[8, 5]], [3, 5], 1);
+  pos.sq[sqr(4, 5)] = 0;
+  check(E.status(pos).over === false, 'hnefatafl: three attackers in the open do not take the king');
+
+  // The shieldwall is an option, off by default.
+  const wall = rules => { const p = setup([[10, 2], [9, 3], [9, 4], [6, 5]], [[10, 3], [10, 4]], [2, 2], 1, rules); go(p, [6, 5], [10, 5]); return p; };
+  pos = wall({ shield: false });
+  check(pos.sq[sqr(10, 3)] === 2 && pos.sq[sqr(10, 4)] === 2, 'hnefatafl: with the shieldwall off a row on the edge is not taken');
+  pos = wall({ shield: true });
+  check(pos.sq[sqr(10, 3)] === 0 && pos.sq[sqr(10, 4)] === 0 && E.lastCaptures(pos).length === 2, 'hnefatafl: with the shieldwall on, the bracketed row on the edge is taken together');
+
+  // The end: a ring of attackers, and no legal move.
+  pos = setup([[2, 3], [4, 3], [3, 2], [3, 4]], [], [3, 3], 2);
+  check(E.encircled(pos) && ['ringed', 'blocked'].includes(E.status(pos).result) && E.status(pos).winner === 1, 'hnefatafl: attackers ringing in every defender win');
+  pos = setup([[2, 3], [4, 3], [3, 2], [3, 4], [8, 8]], [], [3, 3], 2);
+  check(E.status(pos).over && E.status(pos).winner === 1, 'hnefatafl: a defender side that cannot move loses');
+  pos = setup([[2, 3], [4, 3], [3, 2], [3, 4], [8, 8]], [[8, 3]], [3, 3], 2);
+  check(!E.encircled(pos), 'hnefatafl: one defender outside the ring means it is not closed');
+
+  // The computer: takes a corner when the king can reach one, and only plays legal moves.
+  pos = setup([[8, 8], [6, 1]], [[9, 9]], [0, 4], 2);
+  const r = E.think(pos, { level: 'hard', ms: 300, depth: 2, noise: 0 });
+  check(E.to(r.move) === 0, 'hnefatafl: the computer runs the king to the corner when the way is clear');
+  {
+    const g = E.newPosition();
+    let legal = true, plies = 0;
+    for (; plies < 60; plies++) {
+      if (E.status(g).over) break;
+      const res = E.handle({ sq: Array.from(g.sq), turn: g.turn, shield: false, level: 'easy', ms: 80, depth: 1 });
+      if (!E.moves(g).includes(res.move)) { legal = false; break; }
+      E.make(g, res.move);
+    }
+    check(legal && plies >= 10, 'hnefatafl: the computer plays ' + plies + ' legal plies against itself (' + E.status(g).result + ')');
+  }
+}
+
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
 console.log('all passed');
