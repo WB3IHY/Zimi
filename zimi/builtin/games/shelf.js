@@ -189,7 +189,8 @@
     var h = s.querySelector('h2');
     var tiles = Array.prototype.slice.call(s.querySelectorAll('a.ar-game'));
     h.appendChild(el('span', 'sh-count', String(tiles.length)));
-    return { id: h.id, label: h.firstChild.textContent, node: s, grid: s.querySelector('.ar-games'), tiles: tiles };
+    var grid = s.querySelector('.ar-games');
+    return { id: h.id, label: h.firstChild.textContent, node: s, grid: grid, tiles: tiles, entries: Array.prototype.slice.call(grid.children) };
   });
   var total = sections.reduce(function (n, s) { return n + s.tiles.length; }, 0);
   var tilePath = new Map(), tileTitle = new Map();
@@ -202,6 +203,42 @@
   // A tile's words, lowercased, for search: its name and its line (and, once known, where and when).
   var words = new Map();
   sections.forEach(function (s) { s.tiles.forEach(function (t) { words.set(t, t.textContent.toLowerCase()); }); });
+
+  // ── Families: Chess and its cousins, the Solitaires, Draughts ────────────
+  // The page wraps each family's tiles in <div class="ar-family" data-name data-line>. Here the wrapper
+  // gets a card (the family's name, how many, a mosaic of its games) and the tiles move into a panel the card
+  // opens. A tile is still a tile: search, the orders and the game table all go on seeing every variant.
+  var families = Array.prototype.map.call(shelf.querySelectorAll('.ar-family'), function (node) { return makeFamily(node); });
+  function makeFamily(node) {
+    var tiles = Array.prototype.slice.call(node.querySelectorAll('a.ar-game'));
+    var card = el('button', 'ar-game sh-fam-card');
+    card.type = 'button';
+    card.setAttribute('aria-expanded', 'false');
+    var art = el('span', 'ar-game-art sh-fam-art');
+    tiles.slice(0, 4).forEach(function (t) {
+      var img = el('img');
+      img.alt = '';
+      img.loading = 'lazy';
+      img.src = 'thumbs/' + t.getAttribute('href').replace(/\.html$/, '.svg');
+      art.appendChild(img);
+    });
+    var text = el('span', 'ar-game-text');
+    text.appendChild(el('strong')).textContent = node.getAttribute('data-name');
+    text.appendChild(el('span')).textContent = tiles.length + ' games. ' + node.getAttribute('data-line');
+    card.appendChild(art);
+    card.appendChild(text);
+    var panel = el('div', 'ar-games sh-fam-panel');
+    tiles.forEach(function (t) { panel.appendChild(t); });
+    node.classList.add('sh-fam');
+    node.appendChild(card);
+    node.appendChild(panel);
+    card.addEventListener('click', function () {
+      var open = node.getAttribute('data-open') !== 'true';
+      node.setAttribute('data-open', String(open));
+      card.setAttribute('aria-expanded', String(open));
+    });
+    return { node: node, tiles: tiles, panel: panel };
+  }
 
   var state = { view: stored(VIEW_KEY, VIEWS, 'lobby'), sort: stored(SORT_KEY, SORTS, 'sections'), sec: 'all', q: '' };
   var rows = null; // games.json by page, once read
@@ -392,7 +429,8 @@
   }
 
   function layout() {
-    sections.forEach(function (s) { s.tiles.forEach(function (t) { s.grid.appendChild(t); }); });
+    families.forEach(function (f) { f.tiles.forEach(function (t) { f.panel.appendChild(t); }); });
+    sections.forEach(function (s) { s.entries.forEach(function (e) { s.grid.appendChild(e); }); });
     made.forEach(function (g) { g.node.remove(); });
     made = [];
     var order = sortedNow();
@@ -407,6 +445,8 @@
         return g;
       });
     } else groups = sections;
+    // An order lays every game out on its own; the families keep to the page's own sections.
+    families.forEach(function (f) { f.node.hidden = !!defs; });
     shelf.dataset.sort = order;
     if (state.sec !== 'all' && state.sec !== 'recent' && !groups.some(function (g) { return g.id === state.sec; })) state.sec = defaultSection();
     sortSel.value = state.sort;

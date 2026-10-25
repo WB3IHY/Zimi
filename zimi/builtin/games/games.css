@@ -122,7 +122,30 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 .ar-game-text { min-width: 0; padding: 10px 12px 12px; }
 .ar-game-text strong { display: block; font-size: 15px; line-height: 1.3; }
 .ar-game-text span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; color: var(--ink2); font-size: 12.5px; line-height: 1.35; }
-@media (max-width: 560px) { .ar-games { grid-template-columns: 1fr 1fr; gap: 10px; } .ar-game-text { padding: 9px 10px 11px; } }
+@media (max-width: 560px) { .ar-games { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .ar-game-text { padding: 9px 10px 11px; } }
+
+/* Families: a card that opens to its variants. Without the shelf script the wrapper vanishes and the tiles flow as ever. */
+.ar-family, .sh-fam { display: contents; }
+.sh-fam-card { box-sizing: border-box; min-width: 0; font: inherit; text-align: left; cursor: pointer; padding: 0; position: relative; box-shadow: 5px 5px 0 -1px var(--surface), 5px 5px 0 0 var(--line); }
+.sh-fam-art { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); overflow: hidden; }
+.sh-fam-art img { display: block; width: 100%; height: 100%; object-fit: cover; aspect-ratio: 16 / 9; }
+.sh-fam-panel { display: none; }
+.sh-fam[data-open="true"] { display: block; grid-column: 1 / -1; }
+.sh-fam[data-open="true"] .sh-fam-card { flex-direction: row; align-items: center; width: 100%; margin-bottom: 14px; box-shadow: none; border-color: var(--accent); }
+.sh-fam[data-open="true"] .sh-fam-art { flex: 0 0 min(34%, 160px); width: min(34%, 160px); aspect-ratio: 16 / 9; }
+.sh-fam[data-open="true"] .sh-fam-card .ar-game-text { flex: 1; }
+.sh-fam[data-open="true"] .sh-fam-card .ar-game-text span { -webkit-line-clamp: 3; }
+.sh-fam[data-open="true"] .sh-fam-panel { display: grid; }
+[data-sec="search"] .sh-fam, [data-sec="search"] .sh-fam[data-open="true"], [data-sec="search"] .sh-fam .sh-fam-panel, [data-sec="search"] .sh-fam[data-open="true"] .sh-fam-panel { display: contents; }
+[data-sec="search"] .sh-fam .sh-fam-card { display: none; }
+[data-view="index"] .sh-fam-card { box-shadow: none; }
+[data-view="index"] .sh-fam-art { flex: 0 0 96px; width: 96px; height: 54px; aspect-ratio: auto; border-radius: 8px; }
+[data-view="index"] .sh-fam[data-open="true"] .sh-fam-art { flex-basis: 96px; width: 96px; }
+[data-view="index"] .sh-fam[data-open="true"] .sh-fam-card { margin-bottom: 8px; }
+[data-view="index"] .sh-fam-panel { padding-left: 14px; }
+[data-view="index"] .sh-fam-card { width: 100%; }
+[data-view="index"] .sh-fam[data-open="true"] .sh-fam-card::after { transform: rotate(135deg); }
+.sh-fam[hidden] { display: none; }
 
 /* Lobby: Continue is a row you scroll, the day's game sits beside it. */
 .sh-top { display: flex; flex-wrap: wrap; align-items: stretch; gap: 18px; margin-bottom: 26px; }
@@ -152,7 +175,7 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 }
 [data-view="index"] .sh-top { display: block; margin-bottom: 18px; }
 [data-view="index"] .sh-top[hidden] { display: none; }
-[data-view="index"] .ar-games { grid-template-columns: 1fr; gap: 8px; }
+[data-view="index"] .ar-games { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 [data-view="index"] .ar-game { flex-direction: row; align-items: center; gap: 12px; padding: 6px 12px 6px 6px; border-radius: 12px; }
 [data-view="index"] .ar-game:hover { transform: none; }
 [data-view="index"] .ar-game-art, [data-view="index"] .ar-game-icon { flex: 0 0 96px; width: 96px; height: 54px; aspect-ratio: auto; border-radius: 8px; }
