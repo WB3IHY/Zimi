@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Read aloud on Automatic gives way to a faster server voice when a slow one stalls after only a title or fails twice, instead of falling to the browser's voice, and asks a voice whose speed is not measured yet for one chunk ahead instead of three (#121).
 - The draft release appears only once every build is attached to it.
 - The apps' update feeds and the Homebrew cask change when the release is published, not while it is a draft.
+- Read aloud's speed is measured on the server once a voice is warm, in one fixed sentence that never goes ahead of a reading, so the first tap already has it (#121).
 
 ## [1.14.1] - 2026-10-22
 
