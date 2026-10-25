@@ -750,5 +750,152 @@ const sortNum = list => list.slice().sort((a, b) => a - b);
   }
 }
 
+// ── Mahjong for four players ──
+{
+  const E = load(['mahjong4-engine.js']).Mahjong4Engine;
+  // Hands in the usual notation: 123m (characters), 123p (circles), 123s (bamboo), 1234z winds, 567z dragons (red, green, white).
+  const tiles = str => { const out = []; let digits = []; for (const ch of str.replace(/\s+/g, '')) { if (ch >= '0' && ch <= '9') digits.push(+ch); else { const base = { p: 0, s: 9, m: 18 }[ch]; digits.forEach(d => out.push(ch === 'z' ? 26 + d : base + d - 1)); digits = []; } } return out; };
+  const counts = str => E.countsOf(tiles(str));
+  const win = (str, extra) => E.scoreHand(Object.assign({ counts: counts(str), melds: [], selfDrawn: false, seat: 1, round: 0 }, extra || {}));
+  const names = r => r.items.map(i => i.name);
+  const K = str => tiles(str)[0];
+
+  // Recognising a hand.
+  check(E.canWin(counts('123m456m789m123p11s'), 0), 'mahjong4: four sets and a pair is a hand');
+  check(!E.canWin(counts('123m456m789m123p12s'), 0), 'mahjong4: a hand one tile off is not');
+  check(E.canWin(counts('234m567m99s'), 2), 'mahjong4: with two melds taken, two sets and a pair finish');
+  check(!E.canWin(counts('123m456m789m123p111s'), 0), 'mahjong4: a wrong number of tiles is no hand');
+  check(E.canWin(counts('111222333m11p789s'), 0) && E.decompositions(counts('111222333m11p789s'), 4).length >= 2, 'mahjong4: 111 222 333 can be read as three pungs or three chows');
+  check(E.isOrphans(counts('19m19p19s1234567z1z'), 0) && E.canWin(counts('19m19p19s1234567z1z'), 0), 'mahjong4: thirteen orphans');
+  check(same(E.waits(counts('23m456m789m123p11s'), 0), [K('1m'), K('4m'), K('7m')]), 'mahjong4: 2 3 4 5 6 7 8 9 characters wait on the 1, the 4 and the 7');
+  check(same(E.waits(counts('11m456m789m123p55s'), 0), [K('5s'), K('1m')].sort((a, b) => a - b)), 'mahjong4: two pairs wait on either');
+  check(E.waits(counts('1112345678999m'), 0).length === 9, 'mahjong4: nine gates: a pure one-suit hand waits on all nine numbers');
+
+  // Scoring (the seat is South, the round is East, unless said otherwise).
+  let r = win('123m456m789m123p11s');
+  check(r.faan === 2 && same(names(r).sort(), ['Common hand', 'Concealed hand']), 'mahjong4: four chows and a plain pair is a common hand (and concealed)');
+  r = win('123m456m789m123p11s', { selfDrawn: true });
+  check(r.faan === 3 && names(r).includes('Self-drawn'), 'mahjong4: winning on your own draw adds a faan');
+  r = win('111m222p333s444m55p');
+  check(r.faan === 4 && names(r).includes('All pungs'), 'mahjong4: all pungs is three faan (four with the concealed hand)');
+  r = win('456m789m123m11z'.replace('11z', '33z'), { melds: [{ type: 'chow', k: K('1p'), open: true }] });
+  check(r.faan === 1 && same(names(r), ['Common hand']), 'mahjong4: a hand with a taken meld is scored on the whole, with no concealed bonus');
+  r = win('123m456m789m123m11z');
+  check(r.faan === 4 && names(r).includes('Mixed one suit'), 'mahjong4: one suit with honours is three faan');
+  r = win('123m456m789m123m55m');
+  check(names(r).includes('Pure one suit') && r.faan >= 6, 'mahjong4: one suit alone is six faan');
+  r = win('123m456m789s666z55p');
+  check(r.faan === 2 && names(r).includes('Dragon pung'), 'mahjong4: a dragon pung is a faan');
+  r = win('123m456m789p22s222z', { seat: 1 });
+  check(names(r).includes('Seat wind pung') && !names(r).includes('Prevailing wind pung'), 'mahjong4: a pung of your own wind (South here) is a faan');
+  r = win('123m456m789p22s111z', { seat: 0 });
+  check(names(r).filter(n => n.endsWith('wind pung')).length === 2, 'mahjong4: East pung for the East seat in the East round counts twice');
+  r = win('555z66z123m456m789p');
+  check(r && names(r).includes('Dragon pung') && !names(r).includes('Mixed one suit'), 'mahjong4: a dragon pung and a dragon pair, other suits mixed');
+  check(win('123m456m789m123p1s') === null, 'mahjong4: thirteen tiles are not a win');
+  r = win('555z666z77z123m456m');
+  check(names(r).includes('Small three dragons') && r.faan >= 5, 'mahjong4: two dragon pungs and a dragon pair are the small three dragons');
+  r = win('555z666z777z123m11p');
+  check(r.limit && r.faan === 8 && names(r).includes('Big three dragons'), 'mahjong4: three dragon pungs are a limit hand');
+  r = win('111z222z333z555z44z');
+  check(r.limit && r.faan === 8, 'mahjong4: only winds and dragons is a limit hand');
+  r = win('19m19p19s1234567z1z');
+  check(r.limit && names(r).includes('Thirteen orphans'), 'mahjong4: thirteen orphans is a limit hand');
+  r = win('123m456m789m123p11s', { last: true, selfDrawn: true });
+  check(names(r).includes('Last tile from the wall'), 'mahjong4: the last tile of the wall scores');
+  r = win('123m456m789m123p55z');
+  check(!names(r).includes('Common hand'), 'mahjong4: a dragon pair is not a plain pair, so no common hand');
+  check([3, 4, 5, 6, 7, 8, 13].map(E.pointsFor).join() === '8,16,24,32,48,64,64', 'mahjong4: the table: 3 faan 8, 4 faan 16, 5 faan 24, 6 faan 32, 7 faan 48, 8 and over 64');
+  check(E.TABLE.length >= 14 && E.TABLE.every(row => row.length === 3), 'mahjong4: there is a scoring table to show');
+
+  // Claims on a discard.
+  check(same(E.chowOptions(counts('46m'), K('5m')), [K('4m')]), 'mahjong4: 4 and 6 take the 5 as a chow in the middle');
+  check(same(E.chowOptions(counts('3467m'), K('5m')), [K('3m'), K('4m'), K('5m')]), 'mahjong4: 3 4 and 6 7 give three ways to take the 5');
+  check(E.chowOptions(counts('12m'), K('9m')).length === 0 && E.chowOptions(counts('89m'), K('1m')).length === 0, 'mahjong4: a chow does not run round the corner');
+  check(E.chowOptions(counts('12z'), K('3z')).length === 0, 'mahjong4: honours make no chows');
+
+  // A hand in play.
+  let t = E.newHand({ rnd: seeded(11), dealer: 2, min: 3 });
+  check(t.hands[2].length === 14 && [0, 1, 3].every(p => t.hands[p].length === 13) && t.dead.length === 14 && t.wall.length === 136 - 52 - 14 - 1 && E.tilesInPlay(t) === 136, 'mahjong4: the deal: 14 to the dealer, 13 to the others, a dead wall of 14, 136 tiles in all');
+  check(Array.from(E.countsOf([].concat(...t.hands, t.wall, t.dead))).every(c => c === 4), 'mahjong4: four of every tile');
+  check(E.seatOf(t, 2) === 0 && E.seatOf(t, 3) === 1 && E.seatOf(t, 1) === 3, 'mahjong4: the dealer sits East');
+  const thrown = t.hands[2][0];
+  check(E.discard(t, 2, thrown) && t.phase === 'claim' && t.lastDiscard.tile === thrown && [0, 1, 3].every(p => t.claims[p]), 'mahjong4: a discard opens the claims for the other three');
+  check(E.discard(t, 2, thrown) === false, 'mahjong4: nobody may discard out of turn');
+  check(t.claims[0].chows.length === 0 && t.claims[1].chows.length === 0, 'mahjong4: only the next player may take a chow');
+
+  const fresh = (min, seed) => { const x = E.newHand({ rnd: seeded(seed || 2), dealer: 0, min }); return x; };
+  t = fresh(3);
+  t.hands[0] = tiles('1m5m234p567s99s1z2z3z4z'); t.hands[2] = tiles('55m234p567s99s1z2z3z'); E.sortTiles(t.hands[0]); E.sortTiles(t.hands[2]);
+  E.discard(t, 0, K('5m'));
+  check(t.claims[2].pung && !t.claims[2].kong && !t.claims[1].pung, 'mahjong4: a pair in hand can claim a pung');
+  check(E.resolve(t, { 2: { type: 'pung' } }) === 'pung' && t.turn === 2 && t.melds[2].length === 1 && t.melds[2][0].type === 'pung' && t.melds[2][0].open && t.hands[2].length === 11 && t.discards[0].length === 0 && t.phase === 'discard', 'mahjong4: a pung takes the tile into three on show, and the claimant discards');
+  t = fresh(3);
+  E.discard(t, 0, t.hands[0][0]);
+  check(E.resolve(t, {}) === 'next' && t.turn === 1 && t.hands[1].length === 14 && t.lastDrawn !== null && t.phase === 'discard', 'mahjong4: with no claim, the next player draws');
+
+  // A win beats a pung; the discarder pays double.
+  t = fresh(1, 4);
+  t.hands[1] = tiles('23m456m789m123p11s'); t.hands[2] = tiles('11m234p567s99s1z2z3z');
+  t.hands[0] = tiles('1m5m234p567s99s1z2z3z4z');
+  E.discard(t, 0, K('1m'));
+  check(t.claims[1].win && t.claims[1].win.faan >= 1 && t.claims[2].pung, 'mahjong4: a waiting hand may win on the discard, and a pair may pung it');
+  const ended = E.resolve(t, { 1: { type: 'win' }, 2: { type: 'pung' } });
+  const pay = t.result.points, base = E.pointsFor(t.result.faan);
+  check(ended === 'win' && t.result.winner === 1 && t.result.from === 0 && pay[1] === 2 * base && pay[0] === -2 * base && pay[2] === 0 && pay[3] === 0, 'mahjong4: a win beats a pung, the discarder pays double and the others nothing (' + pay.join(', ') + ')');
+  // Under the three faan minimum the same hand is no win.
+  t = fresh(3, 4);
+  t.hands[1] = tiles('23m456m789m123p11s'); t.hands[0] = tiles('1m5m234p567s99s1z2z3z4z');
+  E.discard(t, 0, K('1m'));
+  check(t.claims[1].win === null, 'mahjong4: a common hand on a discard does not reach three faan');
+  // Self-drawn: all three pay.
+  t = fresh(1, 5);
+  t.hands[0] = tiles('123m456m789m123p1s1s'); t.lastDrawn = K('1s');
+  check(E.selfOptions(t, 0).win && E.selfOptions(t, 0).win.faan === 3, 'mahjong4: the player who drew the winning tile may declare it');
+  const res = E.declareWin(t, 0, false);
+  check(res.from === null && res.points[0] === 3 * E.pointsFor(3) && res.points[1] === -E.pointsFor(3) && res.points.reduce((a, b) => a + b) === 0, 'mahjong4: a self-drawn win is paid by all three');
+  // Kongs.
+  t = fresh(3, 6);
+  t.hands[0] = tiles('1111m234p567s99s1z2z'); E.sortTiles(t.hands[0]);
+  check(same(E.selfOptions(t, 0).concealedKongs, [K('1m')]), 'mahjong4: four of a kind in hand may be declared a kong');
+  const deadBefore = t.dead.length;
+  check(E.declareKong(t, 0, K('1m')) && t.melds[0][0].type === 'kong' && t.hands[0].length === 11 && t.dead.length === deadBefore - 1 && t.replacement, 'mahjong4: a kong takes a replacement tile from the dead wall');
+
+  // The computers.
+  t = fresh(3, 8);
+  t.hands[0] = tiles('1122334455m66m7m4z'); E.sortTiles(t.hands[0]);
+  check(E.aiDiscard(t, 0, 'medium') === K('4z'), 'mahjong4: the computer lets go of a lone wind from a hand of characters');
+  t = fresh(3, 9);
+  t.hands[0] = tiles('123m456m789m123p1s1s'); t.lastDrawn = K('1s');
+  check(E.aiSelf(t, 0, 'easy').type === 'win', 'mahjong4: the computer declares a win when it has one');
+  {
+    let finished = 0, wins = 0, draws = 0, sound = true, lowFaan = false, hands = 100;
+    for (let g = 0; g < hands; g++) {
+      const tb = E.newHand({ rnd: seeded(100 + g), dealer: g % 4, min: 3 }), levels = ['easy', 'medium', 'hard', 'medium'];
+      let guard = 0;
+      while (!tb.result && guard++ < 500) {
+        if (E.tilesInPlay(tb) !== 136) { sound = false; break; }
+        const p = tb.turn, lv = levels[p];
+        if (tb.phase === 'discard') {
+          const self = E.aiSelf(tb, p, lv);
+          if (self && self.type === 'win') { E.declareWin(tb, p, false); break; }
+          if (self && self.type === 'kong') { E.declareKong(tb, p, self.k); continue; }
+          if (!E.discard(tb, p, E.aiDiscard(tb, p, lv))) { sound = false; break; }
+        } else {
+          const picks = {};
+          for (let q = 0; q < 4; q++) if (q !== tb.lastDiscard.from) { const c = E.aiClaim(tb, q, levels[q]); if (c) picks[q] = c; }
+          E.resolve(tb, picks);
+        }
+      }
+      if (tb.result) {
+        finished++;
+        if (tb.result.type === 'win') { wins++; if (tb.result.faan < 3 || tb.result.points.reduce((a, b) => a + b, 0) !== 0) lowFaan = true; } else draws++;
+      }
+    }
+    check(sound && !lowFaan && finished === hands, 'mahjong4: ' + hands + ' hands between four computers all end, with tiles conserved and every win at three faan or more (' + wins + ' won, ' + draws + ' drawn)');
+    check(wins >= hands * 0.15, 'mahjong4: the computers do win hands under a three faan minimum (' + wins + ' of ' + hands + ')');
+  }
+}
+
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
 console.log('all passed');
