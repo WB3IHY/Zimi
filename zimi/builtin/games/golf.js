@@ -1,4 +1,4 @@
-/* Zimi Arcade: Golf. Seven columns of five, all face up. Play the bottom
+/* ZimiGames: Golf. Seven columns of five, all face up. Play the bottom
    card of a column onto the waste when it is one rank higher or lower; kings
    and aces do not wrap. The stock turns one card at a time onto the waste.
    Like the game it is named for, the score is what is left: fewer cards in

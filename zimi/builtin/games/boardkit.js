@@ -1,8 +1,8 @@
-/* Zimi Arcade: the little kit the board games share (storage, a seeded generator,
+/* ZimiGames: the little kit the board games share (storage, a seeded generator,
    sheets, option chips). Our own code, GPL-3.0. No network, no modules. */
 (function (root) {
   'use strict';
-  var PREFIX = 'zimi.arcade.';
+  var PREFIX = 'zimi.games.';
 
   // localStorage can throw (private mode, blocked data): every read and write is guarded.
   function load(name, fallback) {

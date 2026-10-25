@@ -1,4 +1,4 @@
-/* Zimi Arcade: FreeCell. The numbered deals are the Microsoft ones (see
+/* ZimiGames: FreeCell. The numbered deals are the Microsoft ones (see
    ZimiCards.msDeal), so deal #617 here is deal #617 on the machine you
    remember. Rules are pure functions on a plain state; the page wiring at the
    bottom only runs in a browser.

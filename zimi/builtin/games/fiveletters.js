@@ -1,4 +1,4 @@
-/* Zimi Arcade: Five Letters (guess the word in six tries). Our own code, GPL-3.0.
+/* ZimiGames: Five Letters (guess the word in six tries). Our own code, GPL-3.0.
    No network, no fonts, no modules. The rules (pure functions, no DOM, so node can test them)
    and the page (only when there is a document). The word lists are in fiveletters-words.js. */
 (function (root) {
@@ -75,7 +75,7 @@
   var Play = root.ArcadePlay, $ = Play.$;
   var FLIP_MS = 230, SHAKE_MS = 420;       // each tile turns over 230 ms after the one before
   var MAX_TILE = 62, GAP = 6, SIDE_PAD = 24;
-  var STATE_KEY = 'zimi.arcade.fiveletters.state', STATS_KEY = 'zimi.arcade.fiveletters.stats';
+  var STATE_KEY = 'zimi.games.fiveletters.state', STATS_KEY = 'zimi.games.fiveletters.stats';
   var PRAISE = ['Genius', 'Magnificent', 'Impressive', 'Splendid', 'Great', 'Phew'];
   var ROWS = ['qwertyuiop', 'asdfghjkl', '#zxcvbnm<'];
   Play.applyTheme();

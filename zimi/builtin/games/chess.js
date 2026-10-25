@@ -1,4 +1,4 @@
-/* Zimi Arcade: Chess, the page. The rules and the searcher are in chess-engine.js.
+/* ZimiGames: Chess, the page. The rules and the searcher are in chess-engine.js.
    The computer thinks in a Web Worker built from the engine's own source (no second file
    to fetch); if Workers are unavailable it thinks on the main thread for a short while. */
 (function (root) {

@@ -1,4 +1,4 @@
-/* Zimi Arcade: Hearts. You (south) against three computer players: west,
+/* ZimiGames: Hearts. You (south) against three computer players: west,
    north and east. Each hand: pass three cards (left, right, across, then
    none), the holder of the 2 of clubs leads, follow suit if you can, hearts
    cannot lead until one has been played, no points on the first trick. Each

@@ -1,4 +1,4 @@
-/* Zimi Arcade cards: the pieces every card game shares. Rules helpers and the
+/* ZimiGames cards: the pieces every card game shares. Rules helpers and the
    Microsoft deal (pure, tested in node), the card faces and animated backs
    (SVG), the board (layout, drag, tap, keyboard, the win cascade) and the
    session (undo, clock, stats, win sheet). A game supplies its rules and a
@@ -85,7 +85,7 @@
     '<path d="M0 9C-14-1-10-10-4.5-8.5-2-7.8 0-5.5 0-4 0-5.5 2-7.8 4.5-8.5 10-10 14-1 0 9z"/>',
     '<path d="M0-10C-4-5-11-1-9 3.5-7.5 7-2.5 6-1.5 3-1.5 6-2 8-4 10h8C2 8 1.5 6 1.5 3 2.5 6 7.5 7 9 3.5 11-1 4-5 0-10z"/>'
   ];
-  var CARD_RED = '#c62828', CARD_BLACK = '#1b1b1b', CARD_CREAM = '#fdfcf8', CARD_EDGE = '#c9c4b8'; // arcade.css tokens, repeated for the cascade's bitmaps
+  var CARD_RED = '#c62828', CARD_BLACK = '#1b1b1b', CARD_CREAM = '#fdfcf8', CARD_EDGE = '#c9c4b8'; // games.css tokens, repeated for the cascade's bitmaps
   var FACE_W = 100, FACE_H = 140;
   var PIP_SCALE = 1.15, PIP_SCALE_DENSE = 0.95, DENSE_FROM = 8, PIP_COLS = [34, 66], PIP_MID_X = 50, PIP_TOP = 32, PIP_BOTTOM = 108, PIP_CENTRE = 70, FLIP_AFTER_Y = 70;
   var PIPS = (function () {
@@ -216,7 +216,7 @@
   }
 
   // ── Storage: per-viewer conveniences, always in try/catch ─────────────
-  var KEY_PREFIX = 'zimi.arcade.';
+  var KEY_PREFIX = 'zimi.games.';
   var store = {
     get: function (key, fallback) {
       try { var v = root.localStorage.getItem(KEY_PREFIX + key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; }

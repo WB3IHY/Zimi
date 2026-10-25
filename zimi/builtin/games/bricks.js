@@ -1,4 +1,4 @@
-/* Zimi Arcade: Bricks (a paddle, a ball, a wall to knock down). Our own code, GPL-3.0.
+/* ZimiGames: Bricks (a paddle, a ball, a wall to knock down). Our own code, GPL-3.0.
    No network, no fonts, no modules. The rules (pure functions, no DOM, so node can test them)
    and the page (only when there is a document). The play field is 320 by 440 units; the page scales it. */
 (function (root) {
@@ -172,7 +172,7 @@
   var Play = root.ArcadePlay, $ = Play.$;
   var KEY_SPEED = 380;                 // paddle units a second on the keys
   var MAX_CSS_W = 480, CHROME_PX = 210, SIDE_PAD = 24, MAX_DT = 1 / 30;
-  var BEST_KEY = 'zimi.arcade.bricks.best';
+  var BEST_KEY = 'zimi.games.bricks.best';
   Play.applyTheme();
 
   var els = { cv: $('br-board'), score: $('br-score'), lives: $('br-lives'), level: $('br-level'), best: $('br-best'), msg: $('br-msg'), sheet: $('br-sheet'), title: $('br-sheet-title'), text: $('br-sheet-text'), go: $('br-go'), pause: $('br-pause') };

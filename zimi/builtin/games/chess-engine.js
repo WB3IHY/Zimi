@@ -1,4 +1,4 @@
-/* Zimi Arcade: the chess engine. Our own code, GPL-3.0. No network, no modules, no dependencies.
+/* ZimiGames: the chess engine. Our own code, GPL-3.0. No network, no modules, no dependencies.
    Rules (legal moves, castling, en passant, promotion, mate, stalemate, draws) and a small
    alpha-beta searcher with piece-square tables.
 
