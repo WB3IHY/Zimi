@@ -283,7 +283,7 @@
         '<path d="M43.2 48.6 50 55.6 56.8 48.6" fill="none" stroke="' + GOLD + '" stroke-width="1.8"/>' +
         '<path d="M43.6 42V36C43.6 29 56.4 29 56.4 36V42C55.4 41.6 55 40.4 55 39H45C45 40.4 44.6 41.6 43.6 42z"/>' + head(37.8, 6.2) +
         '<path d="M42 35.6C41 27.6 49 24.4 57.4 27.4 60.6 28.8 60.2 33.6 58.4 35.2 54 33 46.4 33 42 35.6z"/><path d="M42.4 35C46.6 32.8 53.6 32.8 57.6 34.8" fill="none" stroke="' + GOLD + '" stroke-width="1.5"/>' +
-        gold('M56.6 28C61.6 26.8 64.4 23.8 64.8 20.6 62 22.2 60.4 22.6 55.8 25.4z') + eyes(38.4, 1) + '<path d="M47.6 42Q50 43.6 52.4 42"' + LINE + ' stroke-width="1"/>' + heldItalian(s, 68.6, 63.6, standalone, compact);
+        gold('M56.6 28.4C61.4 27.4 64 25.6 64.6 23.6 62 24.8 60.4 25 55.8 26.6z') + eyes(38.4, 1) + '<path d="M47.6 42Q50 43.6 52.4 42"' + LINE + ' stroke-width="1"/>' + heldItalian(s, 68.6, 63.6, standalone, compact);
     }
     if (kind === 'cavallo') {
       return '<path d="M28.4 66C23 66 21.4 78 25.6 88 26 80 28.6 74.6 31 72z" fill="' + GOLD + '"/>' +
@@ -295,7 +295,7 @@
         '<path d="M44 47.4C44 44 53 44 53 47.4L55 63H42z"/>' + limb('M45 50 37.4 45', 3.8) + hand(36.4, 44.4) + '<path d="M44.4 62 50 64.4 49.4 78.4 45 77z"/>' +
         '<path d="M45.2 39.2V36C45.2 31 53 31 53 36V39.2C52 39.4 51.6 38.2 51.6 37H46.6C46.6 38.2 46.2 39.4 45.2 39.2z"/>' + head(38.8, 5.4) +
         '<path d="M43.4 37.2C42.6 31 48.4 28.6 54.4 30.6 56.6 31.6 56.4 35 55 36.2 52 34.4 46.6 34.4 43.4 37.2z"/>' +
-        gold('M53.6 30.4C58.4 29.2 61.4 26 61.6 21.8 59 23.6 57.6 24.2 53.6 27z') + dot(48.2, 39.2, 0.95) + dot(51.6, 39.2, 0.95) +
+        gold('M53.6 30.4C58 29.4 60.6 27.4 61 24.6 58.6 26 57.4 26.4 53.6 28z') + dot(48.2, 39.2, 0.95) + dot(51.6, 39.2, 0.95) +
         heldItalian(s, 36.4, 44.4, standalone, compact);
     }
     return '<path d="M31 99 36 54C37 49.6 63 49.6 64 54L69 99z" fill="currentColor" fill-opacity="0.2" stroke="currentColor" stroke-width="0.9"/>' + // re: the king in his mantle
@@ -308,7 +308,7 @@
       '<path d="M43.8 41C43 49 46 53 50 53.6S57 49 56.2 41C55 43.6 52.8 44.8 50 44.8S45 43.6 43.8 41z"' + CUT + '/>' +
       '<path d="M45.6 42.4Q47.8 41 50 42.4Q52.2 41 54.4 42.4Q52.4 44.6 50 43.6Q47.6 44.6 45.6 42.4z"' + CUT + '/>' +
       eyes(37.4, 1.1) + '<path d="M44.8 34.8 48.4 35.4M55.2 34.8 51.6 35.4"' + LINE + ' stroke-width="1"/>' +
-      gold('M43 32 41.4 21.6 46 25.8 50 19 54 25.8 58.6 21.6 57 32z') + '<path d="M43 30.2H57" stroke="currentColor" stroke-width="1" fill="none"/>' + heldItalian(s, 67, 65.6, standalone, compact);
+      gold('M43 32 41.4 24.4 46 27.6 50 22.4 54 27.6 58.6 24.4 57 32z') + '<path d="M43 30.2H57" stroke="currentColor" stroke-width="1" fill="none"/>' + heldItalian(s, 67, 65.6, standalone, compact);
   }
 
   var COURT_PIP_X = 31.5, COURT_PIP_Y = 27, COURT_PIP_SCALE = 0.55, COURT_BAND = 7, COURT_MID_PIP = 0.62;
@@ -502,7 +502,7 @@
   // behind, is the first letter, then IMI in a bold stroke and GAMES in a
   // light one, so the Z is drawn once and the line reads ZimiGames. The
   // letters are paths on the Z's own 14-high grid; ink is `currentColor`.
-  var WORD_BOLD = 3.1, WORD_LIGHT = 1.7, WORD_H = 14, WORD_BOLD_GAP = 4.4, WORD_LIGHT_GAP = 3.6, WORD_BREAK = 6;
+  var WORD_BOLD = 3.1, WORD_LIGHT = 1.7, WORD_H = 14, WORD_BOLD_GAP = 4.4, WORD_LIGHT_GAP = 3.6, WORD_BREAK = 6, WORD_S_KERN = 1.2;
   var WORD_CHIP = { padX: 3.6, padY: 5, r: 2.6, fan: 8, fanDx: 1.2, fanDy: 0.8, gap: 3.4 };
   function wordmarkSvg() {
     var c = WORD_CHIP, k = WORD_H / MARK_Z_H, zw = MARK_Z_W * k, x, out = '', gapAfter = 0;
@@ -516,6 +516,7 @@
     var minX = cx + c.fanDx - (w * Math.cos(c.fan * Math.PI / 180) + h * Math.sin(c.fan * Math.PI / 180)) / 2;
     var run = function (text, stroke, between) {
       text.split('').forEach(function (ch) {
+        if (ch === 'S') x -= WORD_S_KERN;
         out += '<path transform="translate(' + x + ' 0)" d="' + GLYPHS[ch].d + '" fill="none" stroke="currentColor" stroke-width="' + stroke + '" stroke-miterlimit="8"/>';
         x += glyphWidth(ch) + between;
       });
