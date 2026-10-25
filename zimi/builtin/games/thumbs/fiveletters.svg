@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"><rect width="320" height="180" fill="#1d2433"/>
+        <g font-family="system-ui,sans-serif" font-weight="800" font-size="26" text-anchor="middle" fill="#fff">
+          <rect x="35" y="30" width="46" height="46" rx="4" fill="#4b5568"/><text x="58" y="63">C</text>
+          <rect x="87" y="30" width="46" height="46" rx="4" fill="#4b5568"/><text x="110" y="63">R</text>
+          <rect x="139" y="30" width="46" height="46" rx="4" fill="#d4a40f"/><text x="162" y="63">A</text>
+          <rect x="191" y="30" width="46" height="46" rx="4" fill="#4b5568"/><text x="214" y="63">N</text>
+          <rect x="243" y="30" width="46" height="46" rx="4" fill="#d4a40f"/><text x="266" y="63">E</text>
+          <rect x="35" y="88" width="46" height="46" rx="4" fill="#3d9a4a"/><text x="58" y="121">A</text>
+          <rect x="87" y="88" width="46" height="46" rx="4" fill="#3d9a4a"/><text x="110" y="121">B</text>
+          <rect x="139" y="88" width="46" height="46" rx="4" fill="#3d9a4a"/><text x="162" y="121">O</text>
+          <rect x="191" y="88" width="46" height="46" rx="4" fill="#3d9a4a"/><text x="214" y="121">D</text>
+          <rect x="243" y="88" width="46" height="46" rx="4" fill="#3d9a4a"/><text x="266" y="121">E</text>
+        </g></svg>
