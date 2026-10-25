@@ -36,6 +36,14 @@ function _ttsStartWait(engine) {
 }
 var _TTS_CHUNK_MAX = 240, _TTS_FIRST_CHUNK_MAX = 120; // characters
 var _TTS_AHEAD = 3; // chunks asked for ahead of the one playing, so the voice never waits
+// Until this server has measured a voice's pace, one chunk ahead: the server
+// makes one at a time, so three asked of a voice slower than speech queue in
+// front of the one about to play until it gives up (#121).
+var _TTS_AHEAD_UNMEASURED = 1;
+// Words heard before a voice stays for the rest of the article: a title of a
+// second is not yet "mid-article", and a voice that said only that may still
+// give way to a faster one (#121: "Epistemology.", then 36 s of silence).
+var _TTS_SETTLED_CHARS = 100;
 var _ttsAudio = (typeof _ttsUnlockedAudio !== 'undefined' && _ttsUnlockedAudio) || null; // started in the first tap (app.js)
 var _ttsRun = 0; // bumped by every start and stop: callbacks of an older run do nothing
 var _TTS_SUGGEST_MS = 9000;
@@ -710,7 +718,8 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
   _ttsLetGoAll();
   var audio = _ttsAudio || (_ttsAudio = new Audio());
   var i = from || 0, eng = 0, retried = false, waiting = null, told = false;
-  var started = false; // a word has been heard: from then on the voice stays
+  var started = false; // a word has been heard in this engine
+  var heard = 0; // characters this engine has said; past _TTS_SETTLED_CHARS it stays
   var asked = {}; // chunk index -> true once the server has said it (or failed to)
   // The audio of chunks asked for ahead, kept in this page: the next sentence
   // starts from memory, not with a request of its own (Eric, 2026-10-22: "no
@@ -718,6 +727,8 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
   var ready = {};
   var waits = _ttsWaits(), pace = _ttsPace(engines[0]), making = false, holding = -1;
   var tookS = 0, tookChars = 0; // what this reading's chunks took to make, in all
+  // The requests asked of the engine reading now, called off when it gives way.
+  var calls = typeof AbortController !== 'undefined' ? new AbortController() : null;
   function live() { return run === _ttsRun; }
   function letGo(below) {
     Object.keys(ready).forEach(function(k) { if (below == null || +k < below) { try { URL.revokeObjectURL(ready[k]); } catch (e) {} delete ready[k]; } });
@@ -729,8 +740,11 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
     _ttsMarkSlow(engines[eng]);
     eng++;
     asked = {};
+    started = false; heard = 0; retried = false;
+    if (calls) { calls.abort(); calls = new AbortController(); }
     letGo();
   }
+  function settled() { return heard >= _TTS_SETTLED_CHARS; }
   // Ask for chunk ``idx`` ahead of time; the server keeps what it said, so
   // the <audio> element then gets it at once.
   // A chosen voice (``onSlow``) keeps reading; the person is told once.
@@ -751,7 +765,7 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
     var next = function() { if (done && live()) done(); };
     var later = function() { setTimeout(function() { if (!live()) return; if (done) done(); else ask(idx); }, _TTS_SERVER_RETRY_MS); };
     asked[idx] = false;
-    authedFetch(_ttsSpeakUrl(chunks[idx], lang, engine)).then(function(r) {
+    authedFetch(_ttsSpeakUrl(chunks[idx], lang, engine), calls ? { signal: calls.signal } : undefined).then(function(r) {
       if (!live()) return;
       if (r.status === 503) {
         delete asked[idx]; // busy: ask again shortly
@@ -776,7 +790,10 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
         next();
         hold();
       });
-    }).catch(function() { if (live()) { delete asked[idx]; if (done) later(); } });
+    }).catch(function(e) {
+      if (!live() || (e && e.name === 'AbortError')) return; // gave way: asked anew of the next
+      delete asked[idx]; if (done) later();
+    });
   }
   // Waiting for the voice: the server is never idle while there is a chunk
   // to make and room to keep it.
@@ -815,8 +832,8 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
     play(idx);
   }
   function play(idx) {
-    // Not ready when it is needed: the voice waits. Once words were heard
-    // it stays (a new voice mid-article is worse than a pause, Eric
+    // Not ready when it is needed: the voice waits. Once a sentence's worth
+    // was heard (_TTS_SETTLED_CHARS) it stays (a new voice mid-article is worse than a pause, Eric
     // 2026-10-19: "can sound different between them"), and only a silence
     // as long as the start wait marks it slow: a heading is a clip of a
     // second, often over before the next is made (Eric, 2026-10-21: "clear
@@ -831,13 +848,13 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
     // AbortError: this play() was cut short by the next src (a switch of
     // engine, or the next chunk), which is not a failure.
     if (p && p.catch) p.catch(function(e) { if (live() && !(e && e.name === 'AbortError')) fail(); });
-    // Still silent after a while: before the first word, the next engine
-    // says it instead; after, the voice stays and is marked slow.
+    // Still silent after a while: until it settled, the next engine says it
+    // instead; after, the voice stays and is marked slow.
     clearTimeout(waiting);
     if (!waits && (eng + 1 < engines.length || onSlow)) {
       waiting = setTimeout(function() {
         if (!live() || i !== idx || !audio.paused || _ttsPaused) return;
-        if (!started && eng + 1 < engines.length) { slower(); play(idx); }
+        if (!settled() && eng + 1 < engines.length) { slower(); play(idx); }
         else if (started) late(); else tooSlow();
       }, started ? _TTS_START_WAIT_MS : _ttsStartWait(engines[eng]));
     }
@@ -850,6 +867,9 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
       setTimeout(function() { if (live()) play(i); }, _TTS_SERVER_RETRY_MS);
       return;
     }
+    // Then the next of the server's voices, before this browser's (#121: a
+    // busy Natural gave the article to the browser while Clear was ready).
+    if (eng + 1 < engines.length) { slower(); play(i); return; }
     _ttsRun++;
     letGo();
     if (_TTS_AVAILABLE) _ttsSpeakDevice(chunks, lang, i);
@@ -859,7 +879,7 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
     if (!live()) return;
     clearTimeout(waiting); retried = false; started = true;
     if (waits) make();
-    else for (var k = 1; k <= _TTS_AHEAD; k++) ask(i + k);
+    else for (var k = 1, n = _ttsPace(engines[eng]).work === null ? _TTS_AHEAD_UNMEASURED : _TTS_AHEAD; k <= n; k++) ask(i + k);
     clearTimeout(_ttsSpinTimer);
     _ttsNow.playing = true; _ttsNow.spin = false; _ttsBarSync();
     _ttsAlongAudio(i, audio);
@@ -867,6 +887,7 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
   audio.ontimeupdate = function() { if (live()) _ttsAlongAudio(i, audio); };
   audio.onended = function() {
     if (!live()) return;
+    heard += chunks[i].length;
     i++;
     if (i >= chunks.length) { letGo(); _ttsRun++; _ttsSetSpeaking(false); return; }
     if (waits && !ready[i]) hold(i); // ran dry: get ahead again

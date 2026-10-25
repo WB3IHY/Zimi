@@ -189,7 +189,7 @@ function freshReading() {
   const r = { speaking: null, device: null, along: [] };
   Object.assign(ctx, {
     _ttsAudio: new FakeAudio(), _ttsRun: 1,
-    _TTS_SERVER_RETRY_MS: 2000, _TTS_START_WAIT_MS: 6000, _TTS_AHEAD: 2,
+    _TTS_SERVER_RETRY_MS: 2000, _TTS_START_WAIT_MS: 6000, _TTS_AHEAD: 2, _TTS_AHEAD_UNMEASURED: 1, _TTS_SETTLED_CHARS: 100,
     _TTS_START_MARGIN: 1.25, _TTS_START_WAIT_MAX_MS: 20000, _ttsVoices: null,
     setTimeout: (f, ms) => { timers.push({ f, ms }); return timers.length; },
     clearTimeout: id => { if (id) timers[id - 1] = null; },
@@ -216,7 +216,9 @@ a.paused = true;
 timers.filter(Boolean).pop().f(); // six seconds and still silent
 ok('silent too long: the next engine says it', engineOf(a.src) === 'piper' && textOf(a.src) === 'one.', a.src);
 ok('...and the slow one is remembered', slowOnes() === '["kokoro"]', store.zimi_tts_slow);
+ctx._ttsVoices = { timings: { piper: { rtf: 0.1 } } }; // Clear's pace is known here
 a.paused = false; a.onplaying();
+ctx._ttsVoices = null;
 ok('while a chunk plays the next two are asked for, in the engine now reading', fetched.length === 2 && fetched.every(u => engineOf(u) === 'piper') && fetched.map(textOf).join() === 'two.,three.', fetched.join(' '));
 a.onended(); a.onplaying(); a.onended();
 ok('chunks play in turn', textOf(a.src) === 'three.', a.src);
@@ -238,10 +240,11 @@ ok('...never more than twenty seconds', ctx._ttsStartWait('piper') === 20000);
 ctx._ttsVoices = null;
 ok('...and unmeasured, six', ctx._ttsStartWait('piper') === 6000);
 
+const sentence = 'Epistemology is the branch of philosophy that studies knowledge, how we come to know things, and what justifies a belief.';
 r = freshReading();
 a = ctx._ttsAudio;
-ctx._ttsSpeakServer(chunks, 'en', ['kokoro', 'piper'], 1);
-a.paused = false; a.onplaying(); // words are heard in Natural
+ctx._ttsSpeakServer([sentence, 'two.', 'three.'], 'en', ['kokoro', 'piper'], 1);
+a.paused = false; a.onplaying(); // a sentence is heard in Natural
 a.onended(); // "two." was asked for and is not back yet
 ok('a late chunk after words were heard keeps the voice', engineOf(a.src) === 'kokoro' && textOf(a.src) === 'two.', a.src);
 ok('...and a short wait is not slow (a heading is over in a second)', !store.zimi_tts_slow, store.zimi_tts_slow);
@@ -249,6 +252,41 @@ a.paused = true;
 timers.filter(Boolean).pop().f(); // and still silent six seconds later
 ok('...still the same voice, no switch mid-article', engineOf(a.src) === 'kokoro' && textOf(a.src) === 'two.', a.src);
 ok('...and six silent seconds mark it slow, for the next reading', slowOnes() === '["kokoro"]', store.zimi_tts_slow);
+
+// #121: on a mini PC with no speed measured yet, Natural said the title in
+// 4 s, then nothing for 36 s, then the browser's voice read the article.
+r = freshReading();
+a = ctx._ttsAudio;
+ctx._ttsSpeakServer(['Epistemology.', sentence, 'three.'], 'en', ['kokoro', 'piper'], 1);
+a.paused = false; a.onplaying(); // the title is heard
+ok('#121: a voice whose pace is unmeasured is asked one chunk ahead, not three', fetched.length === 1 && textOf(fetched[0]) === sentence, fetched.map(textOf).join(' | '));
+a.onended(); a.paused = true;
+timers.filter(Boolean).pop().f(); // six silent seconds after the title
+ok('#121: silent after only a title, the next engine says the rest', engineOf(a.src) === 'piper' && textOf(a.src) === sentence, a.src);
+ok('...and Natural is remembered as slow', slowOnes() === '["kokoro"]', store.zimi_tts_slow);
+
+r = freshReading();
+a = ctx._ttsAudio;
+let aborted = 0;
+ctx.AbortController = class { constructor() { this.signal = { aborted: false }; } abort() { this.signal.aborted = true; aborted++; } };
+ctx._ttsSpeakServer(['Epistemology.', sentence, 'three.'], 'en', ['kokoro', 'piper'], 1);
+a.paused = false; a.onplaying(); a.onended(); a.paused = true;
+timers.filter(Boolean).pop().f();
+ok('#121: giving way calls off what was asked of the slow engine', aborted === 1);
+delete ctx.AbortController;
+
+r = freshReading();
+a = ctx._ttsAudio;
+ctx._ttsSpeakServer(['Epistemology.', sentence, 'three.'], 'en', ['kokoro', 'piper'], 1);
+a.paused = false; a.onplaying(); a.onended();
+a.onerror(); // the server was busy for 30 s: 503
+timers.filter(t => t && t.ms === 2000).pop().f();
+a.onerror(); // and again
+ok('#121: a voice that failed twice gives way to the next server voice, not the browser', engineOf(a.src) === 'piper' && textOf(a.src) === sentence && r.device === null, a.src + ' ' + r.device);
+a.onerror();
+timers.filter(t => t && t.ms === 2000).pop().f();
+a.onerror();
+ok('...and only when the last one fails does the browser read', r.device === 1, String(r.device));
 
 r = freshReading();
 a = ctx._ttsAudio;
@@ -931,7 +969,7 @@ const tick = () => new Promise(r => setImmediate(r));
     ctx.URL = { createObjectURL: b => { made.push(b.of); return 'blob:' + made.length; }, revokeObjectURL: u => { revoked.push(u); } };
     ctx._ttsSpeaking = false; ctx._TTS_AVAILABLE = false;
     const prefetch = async (run) => {
-      freshReading(); ctx._ttsRun = run; ctx._TTS_AHEAD = 2;
+      freshReading(); ctx._ttsRun = run; ctx._TTS_AHEAD = 2; ctx._ttsVoices = { timings: { piper: { rtf: 0.1 } } };
       ctx.authedFetch = u => Promise.resolve({ ok: true, status: 200, blob: () => Promise.resolve({ of: u }) });
       ctx._ttsSpeakServer(['one.', 'two.', 'three.'], 'en', ['piper'], run);
       ctx._ttsAudio.onplaying();
