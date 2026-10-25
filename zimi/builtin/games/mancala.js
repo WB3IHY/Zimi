@@ -141,6 +141,10 @@
     oware: 'Oware (abapa): sow your pit counterclockwise, one seed in each pit. End on an opponent pit that now holds two or three and take it, and the pits before it that hold two or three. A move that would take every seed takes nothing. If the other side is empty you must feed it. First to 25 wins.',
     kalah: 'Kalah: sow your pit counterclockwise, dropping a seed in your own store as you pass it and skipping the other store. End in your store to play again. End in an empty pit of yours to take the pit opposite. When a side runs out, the other side keeps its seeds.'
   };
+  var HELP_PARTS = {
+    oware: { turn: 'Pick one of your pits and sow it: one seed in each pit after it, counterclockwise. End on an opponent pit that now holds two or three and you take it, and the pits before it that also hold two or three.', end: 'First to 25 seeds wins. If the other side is empty you must give it seeds.' },
+    kalah: { turn: 'Pick one of your pits and sow it counterclockwise, dropping a seed in your own store as you pass. End in your store to play again. End in an empty pit of yours to take the pit opposite.', end: 'When a side runs out, the other side keeps its seeds. Most seeds in the store wins.' }
+  };
   var G = WK.create({
     id: 'mancala',
     options: [{ key: 'rules', legend: 'Game', def: 'oware', choices: [['oware', 'Oware'], ['kalah', 'Kalah']] }].concat(WK.standardOptions({ first: 'South (first)', second: 'North' })),
@@ -216,7 +220,8 @@
       bt.classList.toggle('mc-legal', mine);
     });
     score(G.names(NAMES[0], NAMES[1]), state.score, G.over ? -1 : state.turn);
-    G.setUndo(history.size() > 0 && !animating); G.setHint(open);
+    G.setUndo(history.size() > 0 && !animating && !G.watching); G.setHint(open);
+    G.turnTimer(open, timeUp, history.size());
   }
 
   function turnText() {
@@ -251,7 +256,7 @@
       paint();
       if (state.done) { endGame(info); return; }
       G.say((info ? info + ' ' : '') + turnText(), !G.human(state.turn));
-      if (!G.human(state.turn)) G.later(function () { move(chooseMove(G.settings.rules, state, G.settings.level)); });
+      if (!G.human(state.turn)) G.later(computerMove);
     }
     if (BK.reducedMotion()) { finishMove(); return; }
     disp[p] = 0; shown = disp; lastPit = p; paint();
@@ -261,6 +266,22 @@
       disp[res.path[step++]]++; shown = disp; lastPit = res.path[step - 1]; paint();
       setTimeout(tick, delay);
     })();
+  }
+
+  // The computer's move; in Watch and learn it is explained first and made when the driver says.
+  function computerMove() {
+    var p = chooseMove(G.settings.rules, state, G.settings.level);
+    var ctl = G.watching;
+    if (!ctl) { move(p); return; }
+    var why = root.ZimiExplain.mancala(R, state, p);
+    ctl.offer(why.text, function () { if (G.watching === ctl && !G.over) move(p); });
+  }
+
+  // The move timer ran out: a quick computer choice is played for the person.
+  function timeUp() {
+    if (G.over || animating || !G.human(state.turn)) return;
+    G.say('Time ran out. A move was played for you.');
+    move(chooseMove(G.settings.rules, state, 'easy'));
   }
 
   function endGame(info) {
@@ -285,7 +306,7 @@
     do { h = history.pop(); } while (history.size() && G.vsComputer() && !G.human(h.state.turn));
     state = h.state; shown = state.pits.slice(0); lastPit = h.last;
     paint(); G.say(turnText());
-    if (!G.human(state.turn)) G.later(function () { move(chooseMove(G.settings.rules, state, G.settings.level)); });
+    if (!G.human(state.turn)) G.later(computerMove);
   }
 
   function newGame() {
@@ -295,8 +316,21 @@
     history.clear(); lastPit = -1; flashed = []; hintPit = -1;
     state = R.newState(); shown = state.pits.slice(0);
     paint(); G.say(turnText(), !G.human(0));
-    if (!G.human(0)) G.later(function () { move(chooseMove(G.settings.rules, state, G.settings.level)); });
+    if (!G.human(0)) G.later(computerMove);
   }
+
+  G.registerWatch({
+    script: 'explain-mancala.js', unit: 'move', level: 'medium',
+    intro: 'South plays first. The computer plays both sides.',
+    whoseTurn: function () { return state.turn; },
+    busy: function () { return animating; },
+    resume: function () { paint(); G.say(turnText()); }
+  });
+  if (root.ZimiShell) root.ZimiShell.game({
+    moveTimer: true,
+    help: function () { return HELP_PARTS[G.settings.rules]; },
+    inProgress: function () { return !G.over && history.size() > 0; }
+  });
 
   G.newGame();
   if (new URLSearchParams(location.search).has('debug')) root.__mc = { state: function () { return state; }, engine: root.MancalaEngine };

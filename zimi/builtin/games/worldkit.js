@@ -105,15 +105,18 @@
     // ── the page's parts ──
     G.vsComputer = function () { return settings.mode !== 'two'; };
     // Is the player to move (0 first, 1 second) a person at this screen?
-    G.human = function (p) { return !G.vsComputer() || (settings.side === 'second' ? 1 : 0) === p; };
+    G.watching = null;   // Watch and learn: the driver's controller while a demo runs
+    G.human = function (p) { if (G.watching) return false; return !G.vsComputer() || (settings.side === 'second' ? 1 : 0) === p; };
     G.say = function (text, busy) {
+      // While a demo runs nobody is "thinking": the narration above says what is happening.
+      if (G.watching && /^(Computer is thinking|Thinking about)/.test(text)) { text = 'Watching'; busy = false; }
       els.status.textContent = '';
       if (busy) els.status.appendChild(el('span', 'bg-spin'));
       els.status.appendChild(document.createTextNode(text));
     };
     // The two sides' names on screen: "You" and "Computer" against the machine.
     G.names = function (a, b) {
-      if (!G.vsComputer()) return [a, b];
+      if (G.watching || !G.vsComputer()) return [a, b];
       return settings.side === 'second' ? ['Computer', 'You'] : ['You', 'Computer'];
     };
     G.who = function (p, a, b) { return G.names(a, b)[p]; };
@@ -145,6 +148,8 @@
     G.finish = function (msg, outcome, title) {
       G.over = true;
       if (els.hint) els.hint.disabled = true;
+      if (root.ZimiShell) root.ZimiShell.turn(false);
+      if (G.watching) { G.say(msg); G.watching.finish(msg + ' That was the whole game. Press Done to play one yourself.'); return; }
       if (G.vsComputer() && outcome) {
         var key = cfg.statKey ? cfg.statKey(settings) : settings.level;
         var s = stats[key] = stats[key] || { w: 0, l: 0, d: 0 };
@@ -160,6 +165,47 @@
       G.showStats();
       cfg.onNew(settings);
     };
+    // The move timer: a person's turn starts (or the turn is not a person's), and what to do at zero.
+    G.turnTimer = function (active, onExpire) { if (root.ZimiShell) root.ZimiShell.turn(active && !G.watching && !G.over, onExpire); };
+    // Watch and learn, the part every page shares. def: { script, unit, intro, level, side (the
+    // side that moves first, 'first'), whoseTurn() -> 0 or 1, busy() -> true while a move is
+    // animating, resume() repaints and carries on after a takeover, hint, stats }.
+    G.registerWatch = function (def) {
+      if (!root.ZimiShell) return;
+      var saved = null;
+      root.ZimiShell.game({
+        watch: {
+          script: def.script, unit: def.unit,
+          start: function (ctl) {
+            saved = { mode: settings.mode, level: settings.level, side: settings.side };
+            // options that would stop a demo (the doubling cube waits for a person's answer)
+            Object.keys(def.override || {}).forEach(function (k) { saved[k] = settings[k]; settings[k] = def.override[k]; });
+            settings.mode = 'cpu'; settings.level = def.level || 'medium'; settings.side = 'first';
+            G.watching = ctl; G.newGame();
+            ctl.say(def.intro);
+          },
+          // takeover: you play whoever is to move; stop: a fresh game; new: the New game sheet follows.
+          stop: function (kind) {
+            var ctl = G.watching; G.watching = null;
+            function restore() { Object.keys(saved).forEach(function (k) { settings[k] = saved[k]; }); }
+            function settle() {
+              if (def.busy && def.busy()) { setTimeout(settle, 100); return; }
+              G.cancel();
+              var turn = def.whoseTurn();
+              if (kind === 'takeover') { restore(); settings.mode = 'cpu'; settings.side = turn === 0 ? 'first' : 'second'; def.resume(); }
+              else { restore(); if (kind === 'stop') G.newGame(); }
+            }
+            if (ctl) settle();
+          }
+        }
+      });
+    };
+    if (root.ZimiShell) root.ZimiShell.game({
+      stats: function () {
+        var s = stats[cfg.statKey ? cfg.statKey(settings) : settings.level] || { w: 0, l: 0, d: 0 };
+        return G.vsComputer() ? 'Against the computer, ' + settings.level + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
+      }
+    });
     G.openMenu = openMenu;
     G.closeResult = result.close;
 

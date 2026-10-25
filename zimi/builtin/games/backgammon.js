@@ -379,7 +379,7 @@
   function say(t, busy) { G.say(t, busy); }
   function turnText() {
     var p = s.turn;
-    if (!G.vsComputer()) return NAMES[p] + (s.rolled ? ' to move' : ' to roll');
+    if (G.watching || !G.vsComputer()) return NAMES[p] + (s.rolled ? ' to move' : ' to roll');
     if (!isHuman(p)) return 'Computer is playing';
     return s.rolled ? 'Your move: tap a checker, then where it goes' : 'Your turn: roll the dice';
   }
@@ -418,7 +418,7 @@
     // the opening roll decides who starts and is played by that side
     s.turn = Math.random() < 0.5 ? 0 : 1;
     var open = true;
-    paint(); say('Opening roll: ' + (G.vsComputer() ? (isHuman(s.turn) ? 'you start' : 'the computer starts') : NAMES[s.turn] + ' starts') + '.', false);
+    paint(); say('Opening roll: ' + (G.vsComputer() && !G.watching ? (isHuman(s.turn) ? 'you start' : 'the computer starts') : NAMES[s.turn] + ' starts') + '.', false);
     animateRoll(function () { doRoll(true); turnStart = copyState(s); afterRoll(open); });
   }
   function copyState(x) { return copy(x); }
@@ -431,7 +431,7 @@
       paint(); say(who + ' no legal move' + (rolledDice.length ? ' with ' + rolledDice.filter(function (v, k, a) { return a.indexOf(v) === k; }).join(' and ') : '') + '.', false);
       G.later(passTurn, 1300); return;
     }
-    if (!isHuman(s.turn)) { paint(); say('Computer rolled ' + rolledDice.join(' and ') + ' and is thinking', true); computerPlay(); return; }
+    if (!isHuman(s.turn)) { paint(); say(G.watching ? NAMES[s.turn] + ' rolled ' + rolledDice.join(' and ') : 'Computer rolled ' + rolledDice.join(' and ') + ' and is thinking', !G.watching); computerPlay(); return; }
     paint(); say(turnText());
     if (G.settings.auto && steps.length === 1) G.later(function () { doStep(steps[0]); }, 450);
   }
@@ -446,7 +446,7 @@
       say(turnText());
       return;
     }
-    say('Computer is rolling', true);
+    say(G.watching ? NAMES[s.turn] + ' to roll' : 'Computer is rolling', !G.watching);
     // the computer may double before it rolls
     if (G.settings.cube && (s.cube.owner < 0 || s.cube.owner === s.turn) && s.cube.value < 64 && G.settings.level !== 'easy' && winChance(s, s.turn) > 0.72 && hasContact(s)) {
       G.later(function () { offerDouble(s.turn); }, 600); return;
@@ -508,7 +508,13 @@
 
   // ── the computer's play, a step at a time so it can be followed ──
   function computerPlay() {
-    var steps = chooseTurn(s, G.settings.level);
+    var steps = chooseTurn(s, G.settings.level), ctl = G.watching;
+    if (!ctl) { playSteps(steps); return; }
+    // Watch and learn: say what the turn does, then play it when the driver says.
+    var why = root.ZimiExplain.backgammon(root.BackgammonEngine, s, steps, rolledDice);
+    ctl.offer(why.text, function () { if (G.watching === ctl && !G.over) playSteps(steps); });
+  }
+  function playSteps(steps) {
     var token = G.begin();
     lastFrom = []; lastTo = []; var hits = 0, k = 0;
     (function next() {
@@ -572,6 +578,15 @@
     var legal = legalSteps(s), pick = steps.filter(function (st) { return legal.some(function (l) { return l.from === st.from && l.to === st.to; }); })[0] || steps[0];
     hintStep = pick; sel = -1; paint(); say('A good move is marked: ' + (pick.from === BAR ? 'from the bar' : 'from point ' + (idxOf(s.turn, pick.from) + 1)) + (pick.to ? ' to point ' + (idxOf(s.turn, pick.to) + 1) : ' off the board') + '.');
   }
+
+  G.registerWatch({
+    script: 'explain-backgammon.js', unit: 'turn', level: 'medium', override: { cube: false },
+    intro: 'The opening roll decides who starts. The computer plays both sides.',
+    whoseTurn: function () { return s.turn; },
+    busy: function () { return rolling || !!G.thinking; },
+    resume: function () { paint(); say(turnText()); }
+  });
+  if (root.ZimiShell) root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && !!turnStart; } });
 
   G.newGame();
   if (new URLSearchParams(location.search).has('debug')) root.__bk = { state: function () { return s; }, engine: root.BackgammonEngine, session: function () { return session; } };
