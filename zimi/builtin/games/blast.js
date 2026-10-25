@@ -390,7 +390,7 @@
     }
     row('People', 'humans', [1, 2]); row('Computers', 'cpus', setup.humans === 1 ? [1, 2, 3] : [0, 1, 2]);
     var note = document.createElement('p'); note.className = 'pl-help'; note.style.maxWidth = 'none'; note.style.textAlign = 'left';
-    note.textContent = setup.humans === 1 ? 'You: W A S D or the arrows to move, Space or Enter to drop a bomb.' : 'Player 1: W A S D and Space. Player 2: arrow keys and Enter. Two people need a keyboard.';
+    note.textContent = setup.humans === 1 ? 'W A S D or the arrow keys move. Space or Enter drops a bomb.' : 'Player 1: W A S D and Space. Player 2: arrow keys and Enter. Two players need a keyboard.';
     els.setup.appendChild(note);
   }
   function showSheet(title, text, label, withSetup) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; els.setup.hidden = !withSetup; if (withSetup) buildSetup(); Play.openSheet(els.sheet, '#bl-go'); }
@@ -417,6 +417,6 @@
 
   window.addEventListener('resize', layout);
   st = createState(kindsOf(), 11); buildKeys(); layout(); hud();
-  showSheet('Blast', 'Drop bombs, blow open the blocks, grab the power-ups and be the last bomber standing. First to win two rounds takes the match.', 'Start', true);
+  showSheet('Blast', 'Drop bombs, break blocks, pick up power-ups and be the last bomber standing. Win 2 rounds to win the match.', 'Start', true);
   root.__blast = { get st() { return st; }, get mode() { return mode; } };
 })(this);

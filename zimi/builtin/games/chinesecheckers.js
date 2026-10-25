@@ -286,7 +286,7 @@
     if (state.rounds >= MAX_ROUNDS) {
       var best = -1, most = -1;
       state.seats.forEach(function (c, s) { var h = homeCount(state, s); if (h > most) { most = h; best = s; } });
-      finish(best, 'No one got all ten home in ' + MAX_ROUNDS + ' rounds, so the most marbles home wins.'); return;
+      finish(best, 'No one got all 10 home in ' + MAX_ROUNDS + ' rounds, so the most marbles home wins.'); return;
     }
     var moves = allMoves(state, seat);
     if (!moves.length) {

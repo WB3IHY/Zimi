@@ -344,7 +344,7 @@
     cb.addEventListener('change', function () { prefs[key] = cb.checked; savePrefs(); if (after && cb.checked) after(); });
     lab.appendChild(cb); lab.appendChild(document.createTextNode(label)); parent.appendChild(lab);
   }
-  function twoText() { return prefs.players === 2 ? (coarse ? 'Two players take turns on this phone: each races the same field, best finish wins.' : 'Split screen: WASD for player 1, the arrow keys for player 2.') : 'Arrows or WASD, or the pad on a phone.'; }
+  function twoText() { return prefs.players === 2 ? (coarse ? 'Two players take turns on this phone. Each races the same field. The best finish wins.' : 'Split screen: WASD for player 1, the arrow keys for player 2.') : 'Arrows or WASD, or the pad on a phone.'; }
 
   function goSetup() {
     g.mode = 'setup'; loop.stop(); g.heat = 0; g.heats = []; els.pause.disabled = true; els.reset.disabled = true;
