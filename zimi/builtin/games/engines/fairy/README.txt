@@ -51,6 +51,7 @@ How to re-vendor
      compares its legal moves with ours for all six variants.
 
 How it is served
-  fairy-worker.js fetches fairy.wasm as an ArrayBuffer and hands the bytes to
-  the module, so the Content-Type of the .wasm does not matter (Kiwix may send
+  fairy-worker.js fetches fairy.wasm as an ArrayBuffer and instantiates the
+  bytes itself (the module's own loader would refuse a wrong Content-Type), so
+  the type the .wasm is sent with does not matter (Kiwix may send
   application/octet-stream). Nothing is fetched from the network.

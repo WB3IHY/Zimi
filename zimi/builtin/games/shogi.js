@@ -4,9 +4,10 @@
 (function (root) {
   'use strict';
   if (typeof document === 'undefined' || !root.ZimiShogiEngine) return;
-  var BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  var F = root.ZimiFairy, BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
   var SETTINGS_KEY = 'shogi.settings', STATS_KEY = 'shogi.stats';
   var FALLBACK_MS = 250, FALLBACK_DEPTH = 2, WORKER_GRACE_MS = 5000, COMPUTER_DELAY_MS = 250;
+  var OLD_NAMES = { strong: 'advanced' };   // the chip that used to be called Strong
   var NAMES = { 1: 'pawn', 2: 'lance', 3: 'knight', 4: 'silver', 5: 'gold', 6: 'bishop', 7: 'rook', 8: 'king', 9: 'tokin', 10: 'promoted lance', 11: 'promoted knight', 12: 'promoted silver', 14: 'horse', 15: 'dragon' };
   var KANJI = { 1: '歩', 2: '香', 3: '桂', 4: '銀', 5: '金', 6: '角', 7: '飛', 8: '玉', 9: 'と', 10: '杏', 11: '圭', 12: '全', 14: '馬', 15: '龍' };
   var LATIN = { 1: 'P', 2: 'L', 3: 'N', 4: 'S', 5: 'G', 6: 'B', 7: 'R', 8: 'K', 9: '+P', 10: '+L', 11: '+N', 12: '+S', 14: '+B', 15: '+R' };
@@ -21,6 +22,9 @@
   var cells = [], pos, keys, sans, played, over, sel = -1, selDrop = 0, targets = {}, lastMove = 0, flipped = false, requestId = 0, thinking = false;
   var worker = null, workerOk = true, watchdog = 0, pendingPromo = null;
 
+  // The level our own engine plays at: the one chosen, or its best when Strong or Master were chosen and Fairy-Stockfish is not there.
+  function engineLevel() { return F.wants(settings.level) ? 'strong' : settings.level; }
+  function fairyGame() { return settings.variant === 'mini' ? 'minishogi' : 'shogi'; }
   function human(color) { return settings.mode === 'two' || color === (settings.side === 'sente' ? SENTE : GOTE); }
   function colorName(c) { return c === SENTE ? 'Sente' : 'Gote'; }
   function bottomColor() { return flipped ? GOTE : SENTE; }
@@ -110,7 +114,7 @@
   }
   function showStats() {
     var s = stats[settings.variant + '.' + settings.level] || { w: 0, l: 0, d: 0 };
-    els.stats.textContent = settings.mode === 'cpu' ? 'vs ' + settings.level + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
+    els.stats.textContent = settings.mode === 'cpu' ? 'vs ' + F.levelName(settings.level, OLD_NAMES) + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
   }
   function paintMoves() {
     var html = '';
@@ -187,19 +191,35 @@
   function thinkHere(id) {
     setTimeout(function () {
       if (id !== requestId || !thinking) return;
-      var r = E.think(pos, { level: settings.level, ms: FALLBACK_MS, depth: FALLBACK_DEPTH, seen: seenCounts() });
+      var r = E.think(pos, { level: engineLevel(), ms: FALLBACK_MS, depth: FALLBACK_DEPTH, seen: seenCounts() });
       onAnswer(id, r.move);
     }, 30);
   }
+  function askLocal(id) {
+    var w = makeWorker();
+    if (!w) { thinkHere(id); return; }
+    w.postMessage({ id: id, sfen: E.toSfen(pos), level: engineLevel(), seen: seenCounts() });
+    watchdog = setTimeout(function () { if (id === requestId && thinking) { dropWorker(); thinkHere(id); } }, E.LEVELS[engineLevel()].ms + WORKER_GRACE_MS);
+  }
+
+  // Strong and Master: Fairy-Stockfish in its own Worker, started by the first move that needs it. If it cannot start,
+  // say so once and play on with our own best level (engineLevel).
+  function askFairy(id) {
+    F.ask(fairyGame(), E, pos, played, settings.level, function (move, why) {
+      if (id !== requestId || !thinking) return;
+      if (move) { onAnswer(id, move); return; }
+      var note = why === 'unavailable' ? F.note() : '';
+      if (note) say(note + 'Computer is thinking', true);
+      askLocal(id);
+    });
+  }
+
   function askComputer() {
     var id = ++requestId; thinking = true;
     paint();
     setTimeout(function () {
       if (id !== requestId || !thinking) return;
-      var w = makeWorker();
-      if (!w) { thinkHere(id); return; }
-      w.postMessage({ id: id, sfen: E.toSfen(pos), level: settings.level, seen: seenCounts() });
-      watchdog = setTimeout(function () { if (id === requestId && thinking) { dropWorker(); thinkHere(id); } }, E.LEVELS[settings.level].ms + WORKER_GRACE_MS);
+      if (F.wants(settings.level)) askFairy(id); else askLocal(id);
     }, COMPUTER_DELAY_MS);
   }
 
@@ -269,7 +289,7 @@
   }
 
   function newGame() {
-    requestId++; thinking = false; over = false; sel = -1; selDrop = 0; targets = {}; lastMove = 0; clearTimeout(watchdog);
+    requestId++; thinking = false; over = false; sel = -1; selDrop = 0; targets = {}; lastMove = 0; clearTimeout(watchdog); F.cancel();
     var variant = settings.variant;
     if (!E || E.SIZE !== (variant === 'mini' ? 5 : 9)) {
       killWorker(); workerOk = true;
@@ -320,7 +340,7 @@
   });
 
   if (settings.variant !== 'mini') settings.variant = 'full';
-  if (!['beginner', 'casual', 'club', 'strong'].includes(settings.level)) settings.level = 'club';
+  if (!['beginner', 'casual', 'club', 'strong'].includes(settings.level) && !F.wants(settings.level)) settings.level = 'club';
   if (settings.mode !== 'two') settings.mode = 'cpu';
   if (settings.side !== 'gote') settings.side = 'sente';
   if (settings.hints !== false) settings.hints = true;

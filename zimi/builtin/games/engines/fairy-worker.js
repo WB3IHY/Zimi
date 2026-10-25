@@ -2,7 +2,7 @@
    It loads Fairy-Stockfish (engines/fairy/, a single-threaded WebAssembly build) on the first request, so
    nothing here runs until a game set to Strong or Master has to move.
    In:  { id, variant, fen, moves: [uci...], ms }     Out: { id, move, score, depth } or { id, error }
-   The module's bytes are fetched as an ArrayBuffer and handed over, so the Content-Type of fairy.wasm does not matter
+   The module's bytes are fetched as an ArrayBuffer and instantiated by hand, so the Content-Type of fairy.wasm does not matter
    (Kiwix may send application/octet-stream). */
 'use strict';
 var BASE = new URL('fairy/', self.location.href).href;
@@ -16,7 +16,14 @@ function load() {
     if (!r.ok) throw new Error('fairy.wasm ' + r.status);
     return r.arrayBuffer();
   }).then(function (bytes) {
-    return self.FairyStockfish({ wasmBinary: bytes, print: function (l) { lines.push(l); }, printErr: function () {} });
+    return self.FairyStockfish({
+      print: function (l) { lines.push(l); }, printErr: function () {},
+      // the glue would fetch fairy.wasm itself and refuse a wrong Content-Type; instantiate the bytes we already have
+      instantiateWasm: function (imports, done) {
+        WebAssembly.instantiate(bytes, imports).then(function (r) { done(r.instance, r.module); });
+        return {};
+      }
+    });
   }).then(function (m) {
     engine = m;
     m._zimi_init();

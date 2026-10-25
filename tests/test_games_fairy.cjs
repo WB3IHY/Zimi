@@ -97,7 +97,8 @@ const Module = require(path.join(wasmDir, 'fairy.js'));
 
 async function main() {
   const lines = [];
-  const M = await Module({ wasmBinary: fs.readFileSync(path.join(wasmDir, 'fairy.wasm')), print: l => lines.push(l), printErr: () => {} });
+  const bytes = fs.readFileSync(path.join(wasmDir, 'fairy.wasm'));
+  const M = await Module({ print: l => lines.push(l), printErr: () => {}, instantiateWasm: (imports, done) => { WebAssembly.instantiate(bytes, imports).then(r => done(r.instance, r.module)); return {}; } });
   M._zimi_init();
   const send = s => M.ccall('zimi_command', null, ['string'], [s]);
   send('uci'); send('setoption name Use NNUE value false'); send('setoption name Hash value 16');
