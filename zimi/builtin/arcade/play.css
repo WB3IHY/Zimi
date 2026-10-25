@@ -1,0 +1,38 @@
+/* Zimi Arcade: what the puzzle and arcade pages share (layout, the HUD, touch keys, piece colours).
+   Tokens come from arcade.css; each game's own sheet adds only what is special to it. */
+:root {
+  --p-i: #1e9ec4; --p-o: #d4a40f; --p-t: #8a55c9; --p-s: #3d9a4a; --p-z: #d1473f; --p-j: #3a63c9; --p-l: #dc7a1b;
+  --ok: #2e7d4f; --warn: #b7791f; --bad: #c0392b;
+  --cell: #e3e6eb; --cell-line: #cdd2da;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --p-i: #3fc1e8; --p-o: #f0c52e; --p-t: #b184ee; --p-s: #62c470; --p-z: #ef6a60; --p-j: #6f93f0; --p-l: #f59a45;
+    --ok: #4cae78; --warn: #e0a84a; --bad: #ec6b5c; --cell: #232832; --cell-line: #30363f;
+  }
+}
+:root[data-theme="dark"] {
+  --p-i: #3fc1e8; --p-o: #f0c52e; --p-t: #b184ee; --p-s: #62c470; --p-z: #ef6a60; --p-j: #6f93f0; --p-l: #f59a45;
+  --ok: #4cae78; --warn: #e0a84a; --bad: #ec6b5c; --cell: #232832; --cell-line: #30363f;
+}
+
+.pl-main { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 12px 20px; }
+.pl-canvas { display: block; touch-action: none; user-select: none; -webkit-user-select: none; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); }
+.pl-msg { min-height: 1.4em; margin: 0; font-weight: 600; text-align: center; }
+.pl-help { margin: 0; max-width: 46ch; text-align: center; font-size: 12px; color: var(--ink3); }
+.pl-hud { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.pl-stat { min-width: 64px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); text-align: center; }
+.pl-stat small { display: block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3); }
+.pl-stat b { font: 700 17px var(--mono); font-variant-numeric: tabular-nums; }
+.pl-keys { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.pl-key { min-width: 52px; min-height: 52px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font: 600 20px var(--font); cursor: pointer; touch-action: manipulation; }
+.pl-key:hover { border-color: var(--accent); color: var(--accent); }
+.pl-key:active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.pl-key[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.pl-key:disabled { opacity: 0.4; cursor: default; }
+.pl-pick { display: flex; flex-direction: column; gap: 6px; }
+.pl-opt { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.pl-opt:has(input:checked) { border-color: var(--accent); }
+.pl-opt span { flex: 1; display: flex; flex-direction: column; }
+.pl-opt small { color: var(--ink2); font-size: 12px; }
+.pl-opt em { font: 600 12px var(--mono); color: var(--ink3); font-style: normal; }

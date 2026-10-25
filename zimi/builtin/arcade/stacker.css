@@ -1,0 +1,12 @@
+/* Stacker: the well and its side column. Shared tokens and piece colours: arcade.css, play.css. */
+.st-wrap { display: flex; gap: 10px; align-items: flex-start; justify-content: center; }
+.st-side { width: var(--side, 96px); display: flex; flex-direction: column; gap: 8px; }
+.st-box { padding: 4px 0 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); text-align: center; }
+.st-box small { display: block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3); }
+.st-box canvas { display: block; margin: 0 auto; }
+.st-side .pl-stat { min-width: 0; padding: 4px 6px; }
+.st-side .pl-stat b { font-size: 15px; }
+.st-row { display: flex; gap: 8px; }
+.st-row .pl-stat { flex: 1; }
+.st-holdkey { font-size: 14px; }
+@media (max-width: 420px) { .pl-keys { gap: 6px; } .st-wrap { gap: 8px; } .pl-key { min-width: 48px; } }

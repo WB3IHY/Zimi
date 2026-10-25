@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stacker - Zimi Arcade</title>
+<link rel="stylesheet" href="arcade.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="stacker.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to the Arcade">&lsaquo;</a>
+  <h1>Stacker</h1>
+  <button class="ar-btn" id="st-pause" type="button" disabled>Pause</button>
+</header>
+
+<main class="pl-main">
+  <div class="st-wrap">
+    <canvas class="pl-canvas" id="st-board" aria-label="The well" role="img"></canvas>
+    <aside class="st-side">
+      <div class="st-box"><small>Hold</small><canvas id="st-hold" aria-label="Held piece" role="img"></canvas></div>
+      <div class="st-box"><small>Next</small><canvas id="st-next" aria-label="Next pieces" role="img"></canvas></div>
+      <div class="pl-stat"><small>Score</small><b id="st-score">0</b></div>
+      <div class="st-row">
+        <div class="pl-stat"><small>Rows</small><b id="st-lines">0</b></div>
+        <div class="pl-stat"><small>Level</small><b id="st-level">1</b></div>
+      </div>
+      <div class="pl-stat"><small>Best</small><b id="st-best">0</b></div>
+    </aside>
+  </div>
+  <div class="pl-keys" role="group" aria-label="Controls">
+    <button class="pl-key" type="button" data-act="left" aria-label="Move left">&larr;</button>
+    <button class="pl-key" type="button" data-act="right" aria-label="Move right">&rarr;</button>
+    <button class="pl-key" type="button" data-act="rotate" aria-label="Turn">&#8635;</button>
+    <button class="pl-key" type="button" data-act="down" aria-label="Soft drop">&darr;</button>
+    <button class="pl-key" type="button" data-act="drop" aria-label="Hard drop">&#10515;</button>
+    <button class="pl-key st-holdkey" type="button" data-act="hold" aria-label="Hold piece">Hold</button>
+  </div>
+  <p class="pl-msg" id="st-msg" role="status" aria-live="polite"></p>
+  <p class="pl-help">Arrows move, Up or X turns, Z turns back, Down drops softly, Space drops hard, C holds, P pauses.</p>
+</main>
+
+<div class="ar-sheet" id="st-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="st-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="st-sheet-title">Stacker</h2>
+    <p id="st-sheet-text"></p>
+    <div class="ar-sheet-actions"><button class="ar-btn" id="st-go" type="button" aria-pressed="true">Start</button></div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="stacker.js"></script>
+</body>
+</html>
