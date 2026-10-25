@@ -1,0 +1,121 @@
+#!/usr/bin/env node
+// Redraws the card-game tiles and the header lockup of ZimiGames' shelf
+// (zimi/builtin/games/index.html) from the deck itself, as static inline SVG,
+// so the shelf stays plain HTML for Kiwix and cannot drift from the cards.
+//
+//   node scripts/build_games_shelf.js          rewrite index.html in place
+//
+// Only each listed card tile's `ar-game-art` svg, the lockup and one hidden
+// sprite (suits, gradients, the card clip) are touched; the rest is left as is.
+
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'games');
+const file = path.join(dir, 'index.html');
+
+// The deck, loaded the way the tests load it; ensureSprite is asked for its sprite.
+let sprite = '';
+const doc = {
+  getElementById: () => null,
+  createElement: () => ({ set innerHTML(v) { sprite = v; }, get firstChild() { return {}; } }),
+  body: { insertBefore() {} },
+  addEventListener() {}, querySelector: () => null, documentElement: { classList: { toggle() {} } }, hidden: false
+};
+const sandbox = { console, Date, setTimeout, clearTimeout, setInterval, clearInterval, document: doc };
+sandbox.window = sandbox;
+vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync(path.join(dir, 'cards.js'), 'utf8'), sandbox, { filename: 'cards.js' });
+const Z = sandbox.ZimiCards;
+Z.ensureSprite();
+
+const CARD_W = 100, CARD_H = 140, CARD_R = 7.5;
+const CREAM = '#fdfcf8', EDGE = '#c9c4b8', RED = '#c62828', BLACK = '#1b1b1b';
+const FELT = '#1f6f43', FELT_DEEP = '#155233';
+const CLIP = 'zs-card';
+
+// 'KS' is the king of spades, 'TH' the ten of hearts, 'AC' the ace of clubs.
+const RANKS = 'A23456789TJQK', SUITS = 'CDHS';
+const cid = (s) => Z.make(RANKS.indexOf(s[0]) + 1, SUITS.indexOf(s[1]));
+
+const num = (n) => String(Math.round(n * 100) / 100);
+const place = (x, y, rot, w) => 'translate(' + num(x) + ' ' + num(y) + ')' + (rot ? ' rotate(' + rot + ')' : '') + ' scale(' + num(w / CARD_W) + ')';
+const sized = (svg) => svg.replace('<svg viewBox', '<svg width="' + CARD_W + '" height="' + CARD_H + '" viewBox');
+
+// One face-up card at (x, y), `w` wide, turned `rot` degrees about its corner.
+function face(id, x, y, w, rot) {
+  const colour = Z.isRed(id) ? RED : BLACK;
+  return '<g transform="' + place(x, y, rot, w) + '" style="color:' + colour + '"><rect y="1.6" width="100" height="140" rx="' + CARD_R + '" fill="rgba(0,0,0,0.32)"/>' +
+    '<rect width="100" height="140" rx="' + CARD_R + '" fill="' + CREAM + '" stroke="' + EDGE + '"/>' + sized(Z.faceMarkup(id, false)) + '</g>';
+}
+function italian(id, x, y, w, rot) {
+  return '<g transform="' + place(x, y, rot, w) + '"><rect y="1.6" width="100" height="140" rx="' + CARD_R + '" fill="rgba(0,0,0,0.32)"/>' +
+    '<rect width="100" height="140" rx="' + CARD_R + '" fill="' + CREAM + '" stroke="' + EDGE + '"/>' + sized(Z.italianFaceMarkup(id, false)) + '</g>';
+}
+// A face-down card with the Zimi back.
+function back(x, y, w, rot) {
+  return '<g transform="' + place(x, y, rot, w) + '"><rect y="1.6" width="100" height="140" rx="' + CARD_R + '" fill="rgba(0,0,0,0.32)"/>' +
+    '<g clip-path="url(#' + CLIP + ')">' + sized(Z.backMarkup('zimi')).replace(' class="zc-bk"', '') + '</g></g>';
+}
+// The edge of a card lying under another.
+function edge(x, y, w) {
+  return '<g transform="' + place(x, y, 0, w) + '"><rect width="100" height="140" rx="' + CARD_R + '" fill="' + CREAM + '" stroke="' + EDGE + '"/></g>';
+}
+// An empty slot's outline.
+function slot(x, y, w) {
+  return '<g transform="' + place(x, y, 0, w) + '"><rect x="1" y="1" width="98" height="138" rx="' + CARD_R + '" fill="rgba(0,0,0,0.12)" stroke="rgba(255,255,255,0.35)" stroke-width="3"/></g>';
+}
+const tile = (felt, inner) => '<svg class="ar-game-art" viewBox="0 0 320 180" aria-hidden="true">\n        <rect width="320" height="180" fill="' + felt + '"/>\n        ' + inner + '\n      </svg>';
+
+const TILES = {
+  solitaire: () => tile(FELT, face(cid('KS'), 70, 38, 76, -14) + face(cid('QH'), 122, 34, 76, 0) + face(cid('JC'), 176, 38, 76, 14)),
+  freecell: () => tile(FELT_DEEP, slot(24, 22, 56) + slot(92, 22, 56) + face(cid('AD'), 172, 22, 56) + face(cid('AS'), 240, 22, 56) +
+    '<text x="160" y="150" font-size="30" font-weight="700" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-family="ui-monospace,Menlo,monospace">#11982</text>'),
+  spider: () => tile(FELT, ['KS', 'QS', 'JS', 'TS', '9S'].map((c, k) => face(cid(c), 56 + 24 * k, 24 + 18 * k, 56)).join('') +
+    [214, 223, 232].map((x) => edge(x, 104, 40)).join('') + face(cid('AS'), 241, 104, 40)),
+  hearts: () => tile(FELT_DEEP, back(20, 30, 40) + back(140, -30, 40) + back(260, 30, 40) + face(cid('QS'), 100, 48, 58, -8) + face(cid('AH'), 160, 44, 58, 8)),
+  pyramid: () => {
+    const rows = [['KS'], ['QH', '6C'], ['7S', 'AD', 'KD'], ['AC', '6H', 'QD', '7C']];
+    let out = '';
+    rows.forEach((r, i) => r.forEach((c, j) => { out += face(cid(c), 138 - 22 * i + 44 * j, 22 + 34 * i, 40); }));
+    return tile(FELT, out);
+  },
+  golf: () => {
+    const cols = [['2C', '2H', '7S'], ['8H', '8S', '3D'], ['4S', '4D', 'JC'], ['KD', 'KC', '9C'], ['6C', '6S', '5H']];
+    let out = '';
+    cols.forEach((col, i) => col.forEach((c, j) => { out += face(cid(c), 28 + 54 * i, 18 + 16 * j, 46); }));
+    return tile(FELT_DEEP, out + back(110, 112, 46) + face(cid('8D'), 166, 112, 46));
+  },
+  tripeaks: () => {
+    let out = '';
+    [53, 149, 245].forEach((x) => { out += back(x, 22, 22) + back(x - 12, 44, 22) + back(x + 12, 44, 22); });
+    ['4C', '5D', '6S', '7D', '8C', '9D', 'TS', 'JH', 'QC'].forEach((c, k) => { out += face(cid(c), 30 + 30 * k, 74, 28); });
+    out += back(120, 128, 30) + face(cid('7H'), 158, 128, 30) +
+      '<circle cx="270" cy="150" r="16" fill="#d97706"/><text x="270" y="156" font-size="15" font-weight="800" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif">x5</text>';
+    return tile(FELT, out);
+  }
+};
+// More tiles register here (the world card games).
+try { Object.assign(TILES, require('./games_shelf_world.js')({ cid, face, italian, back, edge, slot, tile, FELT, FELT_DEEP, Z })); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; }
+
+// ── Write ──────────────────────────────────────────────────────────────────
+let html = fs.readFileSync(file, 'utf8');
+
+const spriteSvg = sprite.replace('</defs>', '<clipPath id="' + CLIP + '"><rect width="100" height="140" rx="' + CARD_R + '"/></clipPath></defs>');
+html = /<!-- zimi-shelf:sprite -->[\s\S]*?<!-- \/zimi-shelf:sprite -->/.test(html)
+  ? html.replace(/<!-- zimi-shelf:sprite -->[\s\S]*?<!-- \/zimi-shelf:sprite -->/, () => '<!-- zimi-shelf:sprite -->' + spriteSvg + '<!-- /zimi-shelf:sprite -->')
+  : html.replace('<main class="ar-shelf">', () => '<!-- zimi-shelf:sprite -->' + spriteSvg + '<!-- /zimi-shelf:sprite -->\n<main class="ar-shelf">');
+
+const lockup = Z.wordmarkSvg().replace('<svg ', '<svg class="ar-lockup" ').replace(' xmlns="http://www.w3.org/2000/svg"', '');
+const brand = '<h1 class="ar-brand">' + lockup + '</h1>';
+html = html.replace(/<h1 class="ar-brand">[\s\S]*?<\/h1>/, () => brand);
+
+let redrawn = [];
+html = html.replace(/(<a class="ar-game" href="([a-z0-9]+)\.html">\s*)<svg class="ar-game-art"[\s\S]*?<\/svg>/g, (all, head, name) => {
+  if (!TILES[name]) return all;
+  redrawn.push(name);
+  return head + TILES[name]();
+});
+fs.writeFileSync(file, html);
+console.log('redrawn: ' + redrawn.join(', '));
