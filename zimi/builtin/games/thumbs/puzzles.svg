@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"><rect width="320" height="180" fill="#2b3a55"/>
+      <g transform="translate(34 24)">
+      <rect width="132" height="132" rx="6" fill="#e6e6e6"/>
+      <g stroke="#9aa0aa" stroke-width="1.5"><path d="M44 0V132M88 0V132M0 44H132M0 88H132"/></g>
+      <rect width="132" height="132" rx="6" fill="none" stroke="#1d2433" stroke-width="3"/>
+      <g font-family="Georgia,serif" font-size="30" font-weight="700" text-anchor="middle" fill="#1d2433">
+      <text x="22" y="34">4</text><text x="110" y="34">1</text><text x="66" y="78">7</text><text x="22" y="122">2</text><text x="110" y="122">9</text>
+      </g>
+      <text x="66" y="122" font-family="Georgia,serif" font-size="26" text-anchor="middle" fill="#2f7d3b">3</text>
+      </g>
+      <g transform="translate(190 24)">
+      <rect width="100" height="132" rx="6" fill="#e6e6e6"/>
+      <path d="M18 112H50V66H82V28" fill="none" stroke="#1d2433" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="8" y="102" width="20" height="20" rx="2" fill="#1a3fd1"/>
+      <rect x="72" y="18" width="20" height="20" rx="2" fill="#1a3fd1"/>
+      <path d="M50 66H82" stroke="#1fb5c9" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="50" cy="66" r="9" fill="#1d2433"/>
+      </g></svg>
