@@ -1,0 +1,14 @@
+/* ZimiGames: what the library games (Wiki Race, Letter by Letter, Quizzical, Jigsaw, Where in the World) share.
+   Tokens come from games.css and play.css. */
+.gl-source { min-height: 1.2em; }
+.gl-card { width: min(520px, 100%); padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); text-align: center; }
+.gl-card h2 { margin: 0 0 8px; font-size: 19px; }
+.gl-card p { margin: 0 0 10px; color: var(--ink2); }
+.gl-card .gm-play { min-height: 44px; padding: 0 22px; }
+.gl-loading::after { content: ""; display: block; width: 22px; height: 22px; margin: 12px auto 0; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: gl-spin 0.8s linear infinite; }
+@keyframes gl-spin { to { rotate: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .gl-loading::after { animation: none; } }
+/* A hidden button stays hidden whatever else styles it (the games' accent buttons set a display). */
+.ar-btn[hidden] { display: none !important; }
+/* The accent button keeps its label on hover (the plain button turns its text accent, which would vanish on it). */
+.gm-play:hover { color: var(--accent-ink); filter: brightness(1.08); }

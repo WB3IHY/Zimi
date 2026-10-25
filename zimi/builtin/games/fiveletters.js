@@ -75,29 +75,59 @@
   var Play = root.ArcadePlay, $ = Play.$;
   var FLIP_MS = 230, SHAKE_MS = 420;       // each tile turns over 230 ms after the one before
   var MAX_TILE = 62, GAP = 6, SIDE_PAD = 24;
-  var STATE_KEY = 'zimi.games.fiveletters.state', STATS_KEY = 'zimi.games.fiveletters.stats';
+  var STATE_KEY = 'zimi.games.fiveletters.state', STATS_KEY = 'zimi.games.fiveletters.stats', LANG_KEY = 'zimi.games.fiveletters.lang';
   var PRAISE = ['Genius', 'Magnificent', 'Impressive', 'Splendid', 'Great', 'Phew'];
   var ROWS = ['qwertyuiop', 'asdfghjkl', '#zxcvbnm<'];
   Play.applyTheme();
 
   var words = makeWords(root.FIVE_ALLOWED, root.FIVE_ANSWERS);
-  var els = { board: $('fl-board'), keys: $('fl-keys'), msg: $('fl-msg'), mode: $('fl-mode'), stats: $('fl-stats'), sheet: $('fl-sheet'), title: $('fl-sheet-title'), text: $('fl-sheet-text'), grid: $('fl-dist'), share: $('fl-share'), again: $('fl-again'), close: $('fl-close') };
+  var els = { board: $('fl-board'), keys: $('fl-keys'), msg: $('fl-msg'), mode: $('fl-mode'), stats: $('fl-stats'), lang: $('fl-lang'), source: $('fl-source'), gloss: $('fl-sheet-gloss'), sheet: $('fl-sheet'), title: $('fl-sheet-title'), text: $('fl-sheet-text'), grid: $('fl-dist'), share: $('fl-share'), again: $('fl-again'), close: $('fl-close') };
   var keyEls = {}, tileEls = [];
   var stored = Play.load(STATE_KEY, {});
-  var stats = Play.load(STATS_KEY, { played: 0, won: 0, streak: 0, max: 0, dist: [0, 0, 0, 0, 0, 0], last: '' });
+  var stats = null; // each word list keeps its own record (loadStats)
   var game = null, busy = false, today = dateKey(new Date());
 
+  // The word list: the shipped English one, or (inside Zimi) a Wiktionary of the player's library, whose
+  // five-letter words and guesses come from /dictionary/five. cur is null for the shipped list, else
+  // {zim, lang, title}. Words keep their accents in the Wiktionary and lose them here: the keyboard is a to z.
+  var Lib = root.GamesLib, FIVE_API = '/dictionary/five';
+  var cur = null, libOptions = [], libKnown = {};
+  function statsKey() { return STATS_KEY + (cur ? ':' + cur.zim : ''); }
+  function loadStats() { stats = Play.load(statsKey(), { played: 0, won: 0, streak: 0, max: 0, dist: [0, 0, 0, 0, 0, 0], last: '' }); }
+  function skey(mode) { return mode + (cur ? ':' + cur.zim : ''); }
+  function sourceText() { return cur ? 'Words from ' + cur.title + ' (' + cur.lang + '), in your library.' : 'The built-in English word list.'; }
+
   function blank(mode) {
+    if (cur) return null; // a library word is asked for (fetchWord)
     if (mode === 'daily') return { mode: 'daily', date: today, answer: dailyAnswer(words, new Date()), guesses: [], current: '', status: 'playing' };
     return { mode: 'practice', answer: words.answers[Math.floor(Math.random() * words.answers.length)], guesses: [], current: '', status: 'playing' };
   }
   function load(mode) {
-    var s = stored[mode];
+    var s = stored[skey(mode)];
+    if (cur) return s && s.answer && s.zim === cur.zim && (mode !== 'daily' || s.date === today) ? s : null;
     if (mode === 'daily' && s && s.date === today && s.answer === dailyAnswer(words, new Date())) return s;
     if (mode === 'practice' && s && s.answer && words.allowed[s.answer]) return s;
     return blank(mode);
   }
-  function persist() { stored[game.mode] = game; Play.save(STATE_KEY, stored); }
+  function persist() { stored[skey(game.mode)] = game; Play.save(STATE_KEY, stored); }
+
+  // A word from the Wiktionary: the day's for the daily (the same for everyone on this Zimi), else by chance.
+  function fetchWord(mode) {
+    var day = mode === 'daily' ? Lib.dayKey(new Date()) : 'chance';
+    return Lib.json(FIVE_API + '?zim=' + encodeURIComponent(cur.zim) + '&day=' + day).then(function (w) {
+      if (!w || !w.word) throw new Error('no word');
+      libKnown[w.word] = true;
+      var g = { mode: mode, zim: cur.zim, answer: w.word, title: w.title, blurb: w.blurb || '', guesses: [], current: '', status: 'playing' };
+      if (mode === 'daily') g.date = today;
+      return g;
+    });
+  }
+  // Is this a word? The shipped list answers at once; a Wiktionary is asked (once per word).
+  function checkWord(word) {
+    if (!cur) return Promise.resolve(isWord(words, word));
+    if (libKnown[word] !== undefined) return Promise.resolve(libKnown[word]);
+    return Lib.json(FIVE_API + '?zim=' + encodeURIComponent(cur.zim) + '&check=' + word).then(function (r) { return (libKnown[word] = !!r.ok); }, function () { return false; });
+  }
 
   function build() {
     for (var r = 0; r < TRIES; r++) {
@@ -145,6 +175,8 @@
     }
     paintKeys();
     els.mode.textContent = game.mode === 'daily' ? 'Daily' : 'Practice';
+    els.source.textContent = sourceText();
+    els.lang.textContent = cur ? cur.lang.toUpperCase() : 'EN';
   }
   function say(text) { els.msg.textContent = text; }
 
@@ -170,7 +202,16 @@
     if (busy || game.status !== 'playing') return;
     var r = game.guesses.length, word = game.current;
     if (word.length < LEN) return shake(r, 'Not enough letters.');
-    if (!isWord(words, word)) return shake(r, 'Not in the word list.');
+    var g = game;
+    busy = true;
+    checkWord(word).then(function (ok) {
+      busy = false;
+      if (g !== game) return; // the list was switched while it was asked
+      if (!ok) return shake(r, 'Not in the word list.');
+      play(r, word);
+    });
+  }
+  function play(r, word) {
     var states = scoreGuess(word, game.answer);
     game.guesses.push(word); game.current = '';
     if (word === game.answer) game.status = 'won'; else if (game.guesses.length >= TRIES) game.status = 'lost';
@@ -178,7 +219,7 @@
     var done = function () {
       busy = false; paintKeys();
       if (game.status === 'won') { say(PRAISE[game.guesses.length - 1] + '.'); record(true); setTimeout(openSheet, 500); }
-      else if (game.status === 'lost') { say('The word was ' + game.answer.toUpperCase() + '.'); record(false); setTimeout(openSheet, 500); }
+      else if (game.status === 'lost') { say('The word was ' + shown() + '.'); record(false); setTimeout(openSheet, 500); }
     };
     if (Play.reducedMotion()) { paintRow(r, word, states); return done(); }
     busy = true;
@@ -201,13 +242,18 @@
       stats.max = Math.max(stats.max, stats.streak);
     } else stats.streak = 0;
     stats.last = today;
-    Play.save(STATS_KEY, stats);
+    Play.save(statsKey(), stats);
   }
   function yesterdayKey() { var d = new Date(); d.setDate(d.getDate() - 1); return dateKey(d); }
 
+  // The answer as the player would write it (a Wiktionary's own spelling keeps its accents).
+  function shown() { return (game.title || game.answer).toUpperCase(); }
+
   function openSheet() {
     var over = game.status !== 'playing';
-    els.title.textContent = over ? (game.status === 'won' ? PRAISE[game.guesses.length - 1] : 'The word was ' + game.answer.toUpperCase()) : 'Your record';
+    els.title.textContent = over ? (game.status === 'won' ? PRAISE[game.guesses.length - 1] : 'The word was ' + shown()) : 'Your record';
+    els.gloss.textContent = over && game.blurb ? game.title + ': ' + game.blurb : '';
+    els.gloss.hidden = !els.gloss.textContent;
     var pct = stats.played ? Math.round(100 * stats.won / stats.played) : 0;
     els.text.textContent = 'Daily games played ' + stats.played + ', won ' + pct + '%, streak ' + stats.streak + ', best streak ' + stats.max + '.';
     var most = Math.max.apply(null, stats.dist.concat(1));
@@ -242,23 +288,70 @@
   els.close.addEventListener('click', function () { Play.closeSheet(els.sheet); });
   els.again.addEventListener('click', function () {
     Play.closeSheet(els.sheet);
-    stored.practice = null; switchTo('practice', true);
+    stored[skey('practice')] = null; switchTo('practice', true);
   });
   els.share.addEventListener('click', function () {
-    var text = shareText('Five Letters' + (game.mode === 'daily' ? ' ' + game.date : ''), game.guesses, game.answer, game.status === 'won');
+    var text = shareText('Five Letters' + (cur ? ' (' + cur.lang + ')' : '') + (game.mode === 'daily' ? ' ' + game.date : ''), game.guesses, game.answer, game.status === 'won');
     try { navigator.clipboard.writeText(text).then(function () { say('Copied.'); }, function () { say(text); }); } catch (e) { say('Could not copy.'); }
   });
+  // Enter a mode of the current list. A library word may have to be fetched first.
   function switchTo(mode, fresh) {
+    if (busy) return Promise.resolve();
+    var have = fresh ? null : load(mode);
+    if (!cur || have) { game = have || blank(mode); persist(); say(''); paintAll(); return Promise.resolve(); }
+    busy = true; say('Finding a word...');
+    var asked = cur;
+    return fetchWord(mode).then(function (g) {
+      busy = false;
+      if (asked !== cur) return;
+      game = g; persist(); say(''); paintAll();
+    }, function () {
+      busy = false;
+      if (asked !== cur) return;
+      say('Could not read ' + asked.title + '. Back to English.');
+      return setList(null, mode);
+    });
+  }
+  // Choose the word list: null for the shipped English one.
+  function setList(option, mode) {
+    cur = option; libKnown = {}; loadStats();
+    Play.save(LANG_KEY, option ? { zim: option.zim } : { zim: '' });
+    var m = mode || (game && game.mode) || 'daily';
+    return switchTo(m, false);
+  }
+  function offerLists(options) {
+    libOptions = options;
+    els.lang.hidden = !options.length;
+    if (!options.length) return;
+    var saved = Play.load(LANG_KEY, null), pick = null;
+    if (saved && saved.zim) pick = options.filter(function (o) { return o.zim === saved.zim; })[0] || null;
+    // The player's own language, when nothing has been guessed yet today and they have not chosen.
+    else if (!saved && !game.guesses.length && !game.current) pick = options.filter(function (o) { return o.lang === Lib.uiLang(); })[0] || null;
+    if (pick && pick !== cur) setList(pick, game.mode); else paintAll();
+  }
+  els.lang.addEventListener('click', function () {
     if (busy) return;
-    game = fresh ? blank(mode) : load(mode); persist(); say(''); paintAll();
+    var all = [null].concat(libOptions), i = all.indexOf(cur);
+    setList(all[(i + 1) % all.length], game.mode);
+  });
+  // Inside Zimi: which Wiktionaries has this library? (Kiwix and plain folders: none, and nothing is asked twice.)
+  function findLists() {
+    Lib.isZimi().then(function (yes) { return yes ? Lib.zims() : []; }).then(function (list) {
+      var seen = {};
+      offerLists(list.filter(function (z) {
+        return z.kind === 'wiki' && z.project === 'wiktionary' && Lib.primaryLang(z.language) !== 'en' && !seen[z.name] && (seen[z.name] = true);
+      }).map(function (z) { return { zim: z.name, lang: Lib.primaryLang(z.language), title: z.title || z.name }; }));
+    });
   }
 
   build();
   layout();
   window.addEventListener('resize', layout);
+  loadStats();
   game = load('daily');
   paintAll();
-  if (game.status === 'won') say(PRAISE[game.guesses.length - 1] + '.'); else if (game.status === 'lost') say('The word was ' + game.answer.toUpperCase() + '.');
+  if (game.status === 'won') say(PRAISE[game.guesses.length - 1] + '.'); else if (game.status === 'lost') say('The word was ' + shown() + '.');
+  findLists();
   // A read-only window onto the live game, for the browser tests.
-  root.__five = { get game() { return game; } };
+  root.__five = { get game() { return game; }, get list() { return cur; } };
 })(this);

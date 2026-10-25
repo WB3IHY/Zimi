@@ -3227,6 +3227,24 @@ class ZimHandler(BaseHTTPRequestHandler):
                 if sub == "random":
                     langs = [x for x in (param("langs") or "").split(",") if x][:8]
                     return self._json(200, _dict.random_words(langs))
+                if sub == "five":
+                    # ZimiGames' Five Letters: a five-letter word of a
+                    # Wiktionary for the day, or whether a guess is one.
+                    name = param("zim") or ""
+                    if param("check"):
+                        ok = _dict.is_five_letter_word(name, param("check"))
+                        if ok is None:
+                            return self._json(404, {"error": "not found"})
+                        return self._json(200, {"ok": ok})
+                    from zimi import wiki as _wiki
+
+                    day = param("day") or ""
+                    if day != "chance" and not _wiki.day_open(day):
+                        return self._json(400, {"error": "day not open"})
+                    got = _dict.five_letters(name, day)
+                    if got is None:
+                        return self._json(404, {"error": "not found"})
+                    return self._json(200, got)
                 if sub in ("voices", "speak"):
                     return self._dictionary_voice(sub, param)
                 if sub == "sample":
