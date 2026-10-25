@@ -113,7 +113,17 @@
 
   var els = { dice: $('yc-dice'), roll: $('yc-roll'), rolls: $('yc-rolls'), msg: $('yc-msg'), card: $('yc-card'), sheet: $('yc-sheet'), title: $('yc-sheet-title'), text: $('yc-sheet-text'), go: $('yc-go'), opp: $('yc-opp'), nu: $('yc-new') };
   var settings = Play.load(SETTINGS_KEY, { computers: 0 }), best = Play.load(BEST_KEY, {});
-  var g = createGame(settings.computers, Play.randomSeed()), timer = null, dieEls = [];
+  var g, seats, timer = null, dieEls = [];
+  // Each seat is the Computer or a Person; people take turns at the same screen (nothing is hidden in Yacht).
+  function newTable() {
+    var n = settings.computers + 1;
+    seats = root.ZimiSeats.create({ id: 'yacht', seats: n });
+    g = createGame(settings.computers, Play.randomSeed());
+    var cpu = 0;
+    g.players.forEach(function (p, i) { p.ai = !seats.person(i); p.name = p.ai ? 'CPU ' + (++cpu) : seats.name(i); });
+    if (n === 1) g.players[0].name = 'You';
+  }
+  newTable();
 
   function mine() { return !g.players[g.turn].ai && !g.over; }
 
@@ -154,7 +164,7 @@
       row(k.label, '', function (td, pl, n) {
         var v = pl.card[k.id];
         if (v !== undefined) { td.textContent = v; return; }
-        if (n === 0 && human && rolled) {
+        if (n === g.turn && human && rolled) {
           var b = document.createElement('button'); b.type = 'button'; b.className = 'yc-can';
           b.textContent = score(k.id, g.dice);
           b.setAttribute('aria-label', k.label + ': score ' + b.textContent);
@@ -176,7 +186,7 @@
     els.roll.textContent = g.rollsLeft === ROLLS ? 'Roll' : 'Roll again';
     var p = g.players[g.turn];
     if (g.over) return;
-    els.msg.textContent = mine() ? (g.rollsLeft === 0 ? 'Choose a row to score.' : g.rollsLeft === ROLLS ? (g.players.length > 1 ? 'Your turn. Roll the dice.' : 'Roll the dice.') : 'Tap dice to keep them, or score a row.') : p.name + ' is playing.';
+    els.msg.textContent = mine() ? (g.rollsLeft === 0 ? 'Choose a row to score.' : g.rollsLeft === ROLLS ? (g.players.length > 1 ? (seats.isYou(g.turn) ? 'Your turn' : p.name + ', your turn') + '. Roll the dice.' : 'Roll the dice.') : 'Tap dice to keep them, or score a row.') : p.name + ' is playing.';
   }
 
   function pick(cat) {
@@ -208,12 +218,14 @@
   function finish() {
     var scores = g.players.map(function (p) { return total(p.card); }), top = Math.max.apply(null, scores);
     var key = String(g.players.length), text;
+    var me = seats.people()[0];
     if (g.players.length === 1) text = 'You scored ' + scores[0] + '.';
     else {
       var winners = g.players.filter(function (p, i) { return scores[i] === top; });
-      text = (winners.length > 1 ? 'A tie at ' + top + '.' : winners[0].name === 'You' ? 'You win with ' + top + '.' : winners[0].name + ' wins with ' + top + '. You scored ' + scores[0] + '.');
+      text = (winners.length > 1 ? 'A tie at ' + top + '.' : seats.isYou(g.players.indexOf(winners[0])) ? 'You win with ' + top + '.' : winners[0].name + ' wins with ' + top + (seats.hotseat() ? '.' : '. You scored ' + scores[me] + '.'));
     }
-    if (scores[0] > (best[key] || 0)) { best[key] = scores[0]; Play.save(BEST_KEY, best); text += ' A new best for this table.'; }
+    if (seats.hotseat()) text += ' ' + g.players.map(function (p, i) { return p.name + ' ' + scores[i]; }).join(', ') + '.';
+    else if (scores[me] > (best[key] || 0)) { best[key] = scores[me]; Play.save(BEST_KEY, best); text += ' A new best for this table.'; }
     else text += ' Best: ' + best[key] + '.';
     els.msg.textContent = text;
     showSheet('Game over', text, 'Play again');
@@ -222,20 +234,24 @@
   function paintOpp() {
     els.opp.textContent = '';
     [0, 1, 2, 3].forEach(function (n) {
-      var b = document.createElement('button'); b.type = 'button'; b.textContent = n === 0 ? 'Solo' : String(n);
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = n === 0 ? 'Solo' : String(n + 1);
       b.setAttribute('aria-pressed', String(settings.computers === n));
       b.addEventListener('click', function () { settings.computers = n; Play.save(SETTINGS_KEY, settings); paintOpp(); });
+      b.setAttribute('aria-label', n === 0 ? 'Solo' : n + 1 + ' players');
       els.opp.appendChild(b);
     });
   }
   function showSheet(title, text, label) {
     els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; paintOpp();
+    var host = $('yc-seats'); host.textContent = '';
+    if (settings.computers > 0) host.appendChild(root.ZimiSeats.create({ id: 'yacht', seats: settings.computers + 1 }).block());
     Play.openSheet(els.sheet, '#yc-go');
   }
   function begin() {
     if (timer) timer.cancel();
-    g = createGame(settings.computers, Play.randomSeed());
+    newTable();
     Play.closeSheet(els.sheet); els.msg.textContent = ''; paint();
+    if (g.players[g.turn].ai) cpuTurn();
   }
   els.go.addEventListener('click', begin);
   els.nu.addEventListener('click', function () { if (timer) timer.cancel(); showSheet('New game', 'Start over with a fresh card?', 'Start'); });
