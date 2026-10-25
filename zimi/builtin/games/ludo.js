@@ -124,6 +124,7 @@
   var BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
   var SETTINGS_KEY = 'ludo.settings', STATS_KEY = 'ludo.stats', SVG_NS = 'http://www.w3.org/2000/svg';
   var COLORS = ['#d32f2f', '#2e9e4f', '#f2b01e', '#1e63c9'], TINTS = ['#f6c9c9', '#c8e8d1', '#fbe6ae', '#c3d6f4'];
+  var MAX_TRIES = 3;
   var ROLL_FRAMES = 7, ROLL_FRAME_MS = 70, STEP_MS = 120, AUTO_MOVE_MS = 520, COMPUTER_ROLL_MS = 650, COMPUTER_MOVE_MS = 600, PASS_MS = 1100;
   var FINISH = [[6.6, 7.5], [7.5, 6.6], [8.4, 7.5], [7.5, 8.4]], FINISH_GAP = 0.56, FINISH_SCALE = 0.55;   // [x, y] where a colour's home tokens sit
 
@@ -161,11 +162,12 @@
     }
     RING.forEach(function (rc, a) {
       var startOf = START.indexOf(a);
-      el('rect', { x: rc[1] + 0.04, y: rc[0] + 0.04, width: 0.92, height: 0.92, rx: 0.12, class: 'ld-cell', fill: startOf >= 0 ? COLORS[startOf] : '' }, g);
+      var sq = el('rect', { x: rc[1] + 0.04, y: rc[0] + 0.04, width: 0.92, height: 0.92, rx: 0.12, class: 'ld-cell' }, g);
+      if (startOf >= 0) sq.style.fill = COLORS[startOf];
       if (startOf < 0 && STARS.indexOf(a) >= 0) el('text', { x: rc[1] + 0.5, y: rc[0] + 0.52, class: 'ld-star' }, g).textContent = '★';
     });
     HOME_CELLS.forEach(function (cells, color) {
-      cells.forEach(function (rc) { el('rect', { x: rc[1] + 0.04, y: rc[0] + 0.04, width: 0.92, height: 0.92, rx: 0.12, class: 'ld-cell', fill: COLORS[color] }, g); });
+      cells.forEach(function (rc) { el('rect', { x: rc[1] + 0.04, y: rc[0] + 0.04, width: 0.92, height: 0.92, rx: 0.12, class: 'ld-cell' }, g).style.fill = COLORS[color]; });
     });
     // the middle: one triangle per colour on its own side, Red left, Green top, Yellow right, Blue bottom
     var sides = [[[6, 6], [6, 9]], [[6, 6], [9, 6]], [[9, 6], [9, 9]], [[6, 9], [9, 9]]];
@@ -275,7 +277,7 @@
     if (isHuman(seat)) say((humansCount() > 1 ? seatName(seat) + ', roll' : 'Your turn, roll') + ' the die');
     else { say(seatName(seat) + ' is rolling', true); timer = setTimeout(function () { roll(); }, humansCount() ? COMPUTER_ROLL_MS : 300); }
   }
-  function nextSeat() { state.turn = (state.turn + 1) % state.seats.length; state.sixes = 0; }
+  function nextSeat() { state.turn = (state.turn + 1) % state.seats.length; state.sixes = 0; state.tries = 0; }
 
   function roll() {
     if (phase !== 'roll' || over) return;
@@ -296,8 +298,11 @@
     }
     legal = legalMoves(state, seat, die);
     if (!legal.length) {
-      say(who(seat) + ' rolled ' + die + ', and cannot move');
-      timer = setTimeout(function () { if (die === EXIT_ROLL) startTurn(); else { nextSeat(); startTurn(); } }, PASS_MS); return;
+      var waiting = state.tokens[seat].every(function (p) { return p === -1 || p === HOME; });   // nothing on the board: three tries to roll a six
+      var again = die === EXIT_ROLL || (waiting && state.tries < MAX_TRIES - 1);
+      if (waiting && die !== EXIT_ROLL) state.tries++;
+      say(who(seat) + ' rolled ' + die + ', and cannot move' + (again ? ', so rolls again' : ''));
+      timer = setTimeout(function () { if (again) startTurn(); else { nextSeat(); startTurn(); } }, PASS_MS); return;
     }
     phase = 'move';
     var distinct = {};
@@ -356,7 +361,7 @@
 
   function newGame() {
     clearTimeout(timer);
-    state = newState(settings.count); over = false; anim = null; last = null; die = 0; paintDie(0);
+    state = newState(settings.count); state.tries = 0; over = false; anim = null; last = null; die = 0; paintDie(0);
     resultSheet.close(); showStats();
     startTurn();
   }

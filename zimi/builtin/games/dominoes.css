@@ -24,6 +24,7 @@
 .dm-empty { margin: 0; text-align: center; color: rgba(255, 255, 255, 0.7); }
 .dm-row { display: flex; align-items: center; gap: 0; }
 .dm-row.rev { flex-direction: row-reverse; }
+.dm-row:only-child { justify-content: center; }
 
 .dm-tile { --s: 24px; display: flex; flex: none; width: calc(var(--s) * 2); height: var(--s); border-radius: 5px; background: var(--dm-tile); border: 1px solid var(--dm-tile-edge); box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4); overflow: hidden; }
 .dm-table .dm-tile { --s: inherit; }
