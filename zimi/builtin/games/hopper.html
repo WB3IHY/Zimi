@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hopper - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="pixel.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Hopper</h1>
+  <button class="ar-btn" id="hp-pause" type="button" disabled>Pause</button>
+</header>
+
+<main class="px-main">
+  <div class="pl-hud">
+    <div class="pl-stat"><small>Level</small><b id="hp-level">1</b></div>
+    <div class="pl-stat"><small>Coins</small><b id="hp-coins">0</b></div>
+    <div class="pl-stat"><small>Hearts</small><b id="hp-hearts" role="img">&#9829;&#9829;&#9829;</b></div>
+    <div class="pl-stat"><small>Time</small><b id="hp-time">0:00</b></div>
+  </div>
+  <canvas class="px-screen" id="hp-screen" role="img" aria-label="Hopper: a small teal critter running and jumping across a level of platforms, coins and crawlers"></canvas>
+  <div class="px-pad" role="group" aria-label="Controls">
+    <div class="px-lr">
+      <button class="pl-key" id="hp-left" type="button" aria-label="Run left">&#9664;</button>
+      <button class="pl-key" id="hp-right" type="button" aria-label="Run right">&#9654;</button>
+    </div>
+    <div class="px-acts"><button class="pl-key" id="hp-jump" type="button" aria-label="Jump">Jump</button></div>
+  </div>
+  <p class="pl-msg" id="hp-msg" role="status" aria-live="polite"></p>
+  <p class="pl-help">Arrow keys or A and D run; Space, Up or W jumps (hold for height); P pauses. Land on crawlers to squash them, touch a flag to save your place, and reach the tall flag to finish.</p>
+</main>
+
+<div class="ar-sheet" id="hp-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="hp-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="hp-sheet-title">Hopper</h2>
+    <p id="hp-sheet-text"></p>
+    <div class="px-levels" id="hp-levels" role="group" aria-label="Levels"></div>
+    <div class="ar-sheet-actions"><button class="ar-btn" id="hp-go" type="button" aria-pressed="true">Start</button></div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="pixelkit.js"></script>
+<script src="hopper.js"></script>
+<!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
+<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q828322">About Hopper</a></footer><!-- /zimi-about -->
+</body>
+</html>
