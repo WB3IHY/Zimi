@@ -90,22 +90,22 @@
     } catch (e) { /* private window, blocked storage: nothing to remember */ }
   }
 
-  // A tile for a game: the shelf's own, copied, so the art matches; a plain
-  // one (name and line) for a game the shelf has no tile of.
-  function tileFor(path, title, line) {
-    var tile = doc.querySelector('a.ar-game[href="' + path + '"]');
-    var el;
-    if (tile) {
-      el = tile.cloneNode(true);
-    } else {
-      el = doc.createElement('a');
-      el.className = 'ar-game';
-      el.setAttribute('href', path);
-      el.innerHTML = '<span class="ar-game-text"><strong></strong><span></span></span>';
-      el.querySelector('strong').textContent = title;
+  // A tile for a game: the shelf's own, copied, so the art matches. A game the
+  // shelf has no tile of (the puzzles sit behind one tile) borrows that
+  // tile's art under its own name and line.
+  function tileFor(game) {
+    var own = doc.querySelector('a.ar-game[href="' + game.path + '"]');
+    var tile = own || doc.querySelector('a.ar-game[href="puzzles.html"]');
+    if (!tile) return null;
+    var el = tile.cloneNode(true);
+    var text = el.querySelector('.ar-game-text');
+    if (!own && text) {
+      el.setAttribute('href', game.path);
+      text.querySelector('strong').textContent = game.title;
     }
-    var spans = el.querySelectorAll('.ar-game-text > span');
-    if (line !== null && spans.length) spans[spans.length - 1].textContent = line;
+    var line = text && text.querySelector('span');
+    if (line && game.line) line.textContent = game.line;
+    else if (line && !own) line.textContent = '';
     return el;
   }
 
@@ -126,19 +126,24 @@
   function shelf() {
     var first = doc.querySelector('.ar-section');
     if (!first) return;
-    var recent = read(root.localStorage).slice(0, CAP);
-    var cont = null;
-    if (recent.length) {
-      cont = section('ar-continue', 'Continue', recent.map(function (e) { return tileFor(e.path, e.title, null); }));
-      first.parentNode.insertBefore(cont, first);
-    }
-    fetch(new URL('games.json', base).href).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
+    var put = function (cls, label, games, feature) {
+      var tiles = games.map(tileFor).filter(Boolean);
+      if (!tiles.length) return;
+      if (feature) tiles[0].classList.add('ar-feature');
+      first.parentNode.insertBefore(section(cls, label, tiles), first);
+    };
+    // games.json is the shelf's own data (a file of this ZIM): the day's game
+    // and the lines of games that have no tile. Without it (a page opened from
+    // a place that cannot fetch) Continue is still drawn, and Game of the day is left out.
+    fetch(new URL('games.json', base).href).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }).then(function (rows) {
+      var byPath = {};
+      uniqueByPath(rows).forEach(function (r) { byPath[r.path] = r; });
+      put('ar-continue', 'Continue', read(root.localStorage).slice(0, CAP).map(function (e) {
+        return { path: e.path, title: e.title, line: byPath[e.path] ? byPath[e.path].blurb : '' };
+      }));
       var g = dayPick(rows, localDay(new Date()));
-      if (!g) return;
-      var s = section('ar-today', 'Game of the day', [tileFor(g.path, g.title, g.why || g.blurb || '')]);
-      s.querySelector('a.ar-game').classList.add('ar-feature');
-      first.parentNode.insertBefore(s, cont ? cont.nextSibling : first);
-    }).catch(function () { /* opened from a place that cannot fetch: the shelf stays as it was */ });
+      if (g) put('ar-today', 'Game of the day', [{ path: g.path, title: g.title, line: g.why || g.blurb || '' }], true);
+    });
   }
 
   if (doc.querySelector('.ar-shelf')) shelf(); else note();

@@ -84,7 +84,7 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 .ar-game-text strong { display: block; font-size: 16px; }
 .ar-game-text span { color: var(--ink2); font-size: 13px; }
 /* Continue and Game of the day (recent.js builds them from the shelf's own tiles). */
-.ar-today .ar-games { grid-template-columns: minmax(0, 440px); }
+.ar-today .ar-games { grid-template-columns: minmax(0, 320px); }
 .ar-feature { border-color: var(--accent); }
 .ar-feature .ar-game-text strong { font-size: 19px; }
 .ar-feature .ar-game-text span { font-size: 14px; color: var(--ink); }
