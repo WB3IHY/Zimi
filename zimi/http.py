@@ -255,6 +255,7 @@ _RATE_LIMITED_API_PATHS = (
     "/almanac-satellites",
     "/almanac-ages",
     "/almanac-place",
+    "/games-links",
 )
 
 # The apps' routes below their bare path (/exchange/question, /reddot/post):
@@ -2834,6 +2835,12 @@ class ZimHandler(BaseHTTPRequestHandler):
                 return _almanac_pdf_get(self, parsed.path)
             elif parsed.path == "/almanac-ages":
                 return self._json(200, _almanac_ages())
+            elif parsed.path == "/games-links":
+                # ZimiGames <-> encyclopedia: which installed article carries
+                # each game's Q-ID (zimi/gamelinks.py). Asked once, lazily.
+                from zimi import gamelinks
+
+                return self._json(200, gamelinks.links())
             elif parsed.path == "/almanac-place":
                 # Tide stations for the Almanac (zimi/placedata.py):
                 # the nearest to ?lat=&lon=, or those named like ?q=. Only

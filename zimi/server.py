@@ -2726,6 +2726,12 @@ def _set_listing(listing):
         _listing_seen = seen
         if told:
             _changes.announce("library", None)
+        try:  # the games' encyclopedia links follow the library, off the request path
+            from zimi import gamelinks
+
+            gamelinks.refresh_async()
+        except ImportError:  # zimi-mcp ships no games
+            pass
 
 
 # ── Per-request ZIM allow context (multi-user v1) ────────────────────────────
