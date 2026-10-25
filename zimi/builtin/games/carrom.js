@@ -161,7 +161,7 @@
       else if (n === 'queen down') parts.push('the queen is down: cover her with one of your own coins');
       else if (n === 'queen covered') parts.push('the queen is covered');
       else if (n === 'queen back') parts.push('the queen goes back to the middle');
-      else if (n === 'last coin back') parts.push('the last coin may not go in while the queen is on the board, it goes back');
+      else if (n === 'last coin back') parts.push('the last coin cannot go in while the queen is on the board, so it goes back');
       else if (n.indexOf('own ') === 0) parts.push(who + ' pocketed ' + n.slice(4) + (n === 'own 1' ? ' coin' : ' coins'));
       else if (n.indexOf('theirs ') === 0) parts.push('the other side\'s ' + (n === 'theirs 1' ? 'coin' : 'coins') + ' went in');
     });
@@ -170,7 +170,7 @@
     startTurn(res.again);
   }
   function win(w) {
-    var msg = (vsCpu() ? (G.human(w) ? 'You win' : 'The computer wins') : SIDE_NAME[w] + ' wins') + ': all nine ' + SIDE_NAME[w].toLowerCase() + ' coins are in.';
+    var msg = (vsCpu() ? (G.human(w) ? 'You win' : 'The computer wins') : SIDE_NAME[w] + ' wins') + ': all 9 ' + SIDE_NAME[w].toLowerCase() + ' coins are in.';
     G.finish(msg, vsCpu() ? (G.human(w) ? 'w' : 'l') : null, vsCpu() && G.human(w) ? 'You win' : 'Game over');
     draw();
   }

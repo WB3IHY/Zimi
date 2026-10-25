@@ -381,7 +381,7 @@
     var p = s.turn;
     if (G.watching || !G.vsComputer()) return NAMES[p] + (s.rolled ? ' to move' : ' to roll');
     if (!isHuman(p)) return 'Computer is playing';
-    return s.rolled ? 'Your move: tap a checker, then where it goes' : 'Your turn: roll the dice';
+    return s.rolled ? 'Your turn: tap a checker, then where it goes' : 'Your turn: roll the dice';
   }
   function setDice(list, usedList) {
     dieShown = list.map(function (v, k) { return { v: v, used: !!(usedList && usedList[k]) }; });
@@ -487,7 +487,7 @@
     if (st.to) lastTo.push(idxOf(p, st.to));
     s = applyStep(s, st); sel = -1; hintStep = null;
     syncDice();
-    var msg = s.hit ? (isHuman(p) || !G.vsComputer() ? 'Hit! ' : 'Your checker was hit. ') : '';
+    var msg = s.hit ? (isHuman(p) || !G.vsComputer() ? 'Hit. ' : 'Your checker was hit. ') : '';
     var w = winner(s);
     if (w >= 0) { paint(); finishGame(w); return; }
     var steps = s.dice.length ? legalSteps(s) : [];
@@ -576,7 +576,7 @@
     if (!steps.length) return;
     // the first step of the best play that is legal now
     var legal = legalSteps(s), pick = steps.filter(function (st) { return legal.some(function (l) { return l.from === st.from && l.to === st.to; }); })[0] || steps[0];
-    hintStep = pick; sel = -1; paint(); say('A good move is marked: ' + (pick.from === BAR ? 'from the bar' : 'from point ' + (idxOf(s.turn, pick.from) + 1)) + (pick.to ? ' to point ' + (idxOf(s.turn, pick.to) + 1) : ' off the board') + '.');
+    hintStep = pick; sel = -1; paint(); say('Hint: ' + (pick.from === BAR ? 'from the bar' : 'from point ' + (idxOf(s.turn, pick.from) + 1)) + (pick.to ? ' to point ' + (idxOf(s.turn, pick.to) + 1) : ' off the board') + '.');
   }
 
   G.registerWatch({

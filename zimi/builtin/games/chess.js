@@ -132,7 +132,7 @@
     paintMoves();
     if (st.over) { finish(st); return; }
     paint();
-    var line = watch ? colorName(pos.turn) + ' to move' : settings.mode === 'two' ? colorName(pos.turn) + ' to move' : human(pos.turn) ? 'Your move' : 'Computer is thinking';
+    var line = watch ? colorName(pos.turn) + ' to move' : settings.mode === 'two' ? colorName(pos.turn) + ' to move' : human(pos.turn) ? 'Your turn' : 'Computer is thinking';
     say((st.check ? 'Check. ' : '') + line, !human(pos.turn) && !watch);
     if (root.ZimiShell) root.ZimiShell.turn(human(pos.turn) && !over, timeUp, played.length);
     if (!human(pos.turn)) askComputer();
@@ -228,7 +228,7 @@
     }
     if (v * pos.turn > 0 && s !== sel) {
       sel = s; targets = movesFrom(s);
-      if (!Object.keys(targets).length) say('That piece has no legal move');
+      if (!Object.keys(targets).length) say('That piece cannot move');
       else say(settings.mode === 'two' ? colorName(pos.turn) + ' to move' : 'Choose where to move');
     } else { sel = -1; targets = {}; }
     paint();

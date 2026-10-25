@@ -402,7 +402,7 @@
     if (mw >= 0) { finish(mw); return; }
     st = createState(kindsOf(), undefined, { round: st.round + 1, wins: st.wins }); applyKeys();
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); showSheet('Paused', 'The fuses wait.', 'Resume', false); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); showSheet('Paused', 'Resume when you are ready.', 'Resume', false); }
   function resume() { mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
   function finish(mw) {
     mode = 'over'; loop.stop(); els.pause.disabled = true;

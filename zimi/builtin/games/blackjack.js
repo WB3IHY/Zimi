@@ -298,7 +298,7 @@
         out.text = 'Dealer shows an ace. Insurance costs ' + Math.floor(st.hands[0].bet / 2) + ' and pays 2 to 1';
         out.choices = [{ label: 'Insure', onclick: function () { move(takeInsurance(session.state, true)); } }, { label: 'No thanks', onclick: function () { move(takeInsurance(session.state, false)); } }];
       } else {
-        out.text = st.hands.length > 1 ? 'Playing hand ' + (st.active + 1) : hot ? nm() + ', your move' : 'Your move';
+        out.text = st.hands.length > 1 ? 'Playing hand ' + (st.active + 1) : hot ? nm() + ', your turn' : 'Your turn';
         out.choices = [
           { label: 'Hit', onclick: function () { move(hit(session.state, rng)); } },
           { label: 'Stand', onclick: function () { move(stand(session.state)); } },

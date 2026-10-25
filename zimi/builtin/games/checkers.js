@@ -263,7 +263,7 @@
   function turnLine() {
     var p = game.turn, mustJump = legal.length && legal[0].caps.length;
     if (!human(p)) return 'Computer is thinking';
-    return (settings.mode === 'two' ? sideName(p) + ' to move' : 'Your move') + (mustJump ? ', you must capture' : '');
+    return (settings.mode === 'two' ? sideName(p) + ' to move' : 'Your turn') + (mustJump ? ', you must capture' : '');
   }
 
   function finish(msg, result) { // result: 'win' or 'loss' for the human, or 'draw'

@@ -278,7 +278,7 @@
           if (st.phase === 'bid1') out.choices = [{ label: 'Take ' + GLYPH[up], aria: 'Take ' + SUIT_NAMES[up], cls: up === 1 || up === 2 ? 'ct-red' : '', onclick: function () { takeNow(up); } }, { label: 'Pass', onclick: passNow }];
           else out.choices = [0, 1, 2, 3].filter(function (s) { return s !== up; }).map(function (s) { return { label: GLYPH[s], aria: SUIT_NAMES[s], cls: s === 1 || s === 2 ? 'ct-red' : '', onclick: function () { takeNow(s); } }; }).concat([{ label: 'Pass', onclick: passNow }]);
         }
-      } else if (st.phase === 'handEnd') { out.text = 'Hand over'; out.label = 'Next hand'; out.action = startNextHand; }
+      } else if (st.phase === 'handEnd') { out.text = 'End of hand'; out.label = 'Next hand'; out.action = startNextHand; }
       else if (st.phase === 'over') out.text = 'Game over';
       else if (st.phase === 'redeal') out.text = 'Everyone passed: dealing again';
       else if (full) { var w = currentWinner(st.trick, st.trump).seat; out.text = who(w) + (seats.isYou(w) ? ' take' : ' takes') + ' the trick'; }

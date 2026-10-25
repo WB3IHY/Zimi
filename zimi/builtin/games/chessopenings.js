@@ -62,7 +62,7 @@
   // Play the computer's moves until it is the player's turn or the line ends.
   function advance() {
     if (step >= line.moves.length) { complete(); return; }
-    if (pos.turn === userColor) { busy = false; say('Your move: ' + (step === 0 ? 'play the first move of the line' : 'what does the line play?')); return; }
+    if (pos.turn === userColor) { busy = false; say('Your turn: ' + (step === 0 ? 'play the first move of the line' : 'what does the line play?')); return; }
     busy = true; say('The line continues');
     later(function () { play(lineMove()); advance(); }, step === 0 ? 150 : REPLY_DELAY_MS);
   }

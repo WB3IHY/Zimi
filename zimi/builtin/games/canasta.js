@@ -464,7 +464,7 @@
       out.chips = st.scores.map(function (score, seat) {
         return { name: nm(seat), text: score + redText(st.reds[seat]) + (seat === V && st.melds[seat].length && !st.melded[seat] && st.turn === seat ? ' · first meld ' + st.turnPts + '/' + req : ''), turn: st.turn === seat && st.phase === 'play' };
       }).concat([{ name: 'Goal', text: String(st.target) }]);
-      if (st.phase === 'handEnd') { out.text = 'Hand over'; out.label = 'Next hand'; out.action = startNextHand; }
+      if (st.phase === 'handEnd') { out.text = 'End of hand'; out.label = 'Next hand'; out.action = startNextHand; }
       else if (st.phase === 'over') { out.text = 'Game over'; out.label = 'New game'; out.action = newGame; }
       else if (st.turn !== V) out.text = seats.person(st.turn) ? nm(st.turn) + ' is next' : st.lastSide === st.turn && st.last ? nm(st.turn) + ' ' + st.last : nm(st.turn) + ' is thinking';
       else if (st.step === 'draw') out.text = (seats.isYou(V) ? 'Your turn' : nm(V) + ', your turn') + ': draw two cards, or take the pile' + (st.pileFrozen || !st.melded[V] ? ' (frozen: pick a natural pair that matches the top card)' : '');

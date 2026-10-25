@@ -247,7 +247,7 @@
     showSheet('Level ' + (g.level + 1) + ' cleared', g.score + ' points. On to level ' + (g.level + 2) + '.', 'Next level');
     g = next;
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; showSheet('Paused', 'The ball waits.', 'Resume'); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; showSheet('Paused', 'Resume when you are ready.', 'Resume'); }
   function resume() { mode = 'playing'; Play.closeSheet(els.sheet); startLoop(); }
   function proceed() { mode = 'playing'; Play.closeSheet(els.sheet); hud(); draw(); startLoop(); }
   function finish() {
