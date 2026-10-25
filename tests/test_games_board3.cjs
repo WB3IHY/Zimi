@@ -627,5 +627,128 @@ const sortNum = list => list.slice().sort((a, b) => a - b);
   }
 }
 
+// ── Carrom ──
+{
+  const E = load(['carrom-engine.js']).ZimiCarromEngine();
+  const only = (g, list) => { g.bodies.forEach(b => { b.alive = false; }); list.forEach(([kind, x, y]) => { const b = g.bodies.find(q => q.kind === kind && !q.alive); b.alive = true; b.x = x; b.y = y; b.vx = b.vy = 0; }); return g; };
+  const bodyOf = (g, kind, i = 0) => g.bodies.filter(b => b.kind === kind && b.alive)[i];
+
+  // The set-up.
+  let g = E.newGame();
+  const kinds = k => g.bodies.filter(b => b.kind === k).length;
+  check(g.bodies.length === 19 && kinds('w') === 9 && kinds('b') === 9 && kinds('q') === 1, 'carrom: nine white coins, nine black coins and the queen');
+  let clear = true; const all = E.allBodies(g);
+  for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) if (Math.hypot(all[i].x - all[j].x, all[i].y - all[j].y) < all[i].r + all[j].r - 0.01) clear = false;
+  check(clear && all.every(b => b.x > b.r && b.x < E.B - b.r && b.y > b.r && b.y < E.B - b.r), 'carrom: the coins stand clear of each other and of the walls');
+  const q = g.bodies.find(b => b.kind === 'q');
+  check(Math.abs(q.x - E.CENTRE) < 0.01 && Math.abs(q.y - E.CENTRE) < 0.01, 'carrom: the queen is in the middle');
+
+  // Collisions conserve momentum and send the hit coin along the line of centres.
+  g = only(E.newGame(), [['w', 300, 300], ['b', 300 + 2 * E.COIN_R - 0.5, 300]]);
+  const [a, b] = [bodyOf(g, 'w'), bodyOf(g, 'b')];
+  a.vx = 600;
+  const before = a.vx * a.m + b.vx * b.m;
+  E.step(g, E.DT);
+  const after = a.vx * a.m + b.vx * b.m;
+  check(Math.abs(after - before) / before < 0.03 && b.vx > a.vx && b.vx > 0.9 * 600 * 0.9 && Math.abs(b.vy) < 1e-6, 'carrom: a head-on collision passes the motion on and keeps the momentum (' + after.toFixed(0) + ' of ' + before + ')');
+  g = only(E.newGame(), [['w', 300, 300], ['b', 300 + 25, 300 + 25]]);
+  const hit = bodyOf(g, 'b'); const strike = bodyOf(g, 'w'); strike.vx = 700;
+  for (let i = 0; i < 6; i++) E.step(g, E.DT);
+  check(hit.vy > 0 && hit.vx > 0 && Math.abs(Math.atan2(hit.vy, hit.vx) - Math.PI / 4) < 0.25, 'carrom: a glancing hit sends the coin off along the line between the centres (' + (Math.atan2(hit.vy, hit.vx) * 180 / Math.PI).toFixed(0) + ' degrees)');
+  // A wall bounce loses a little speed, friction brings everything to rest, and the run ends.
+  g = only(E.newGame(), [['w', 60, 400]]);
+  const c = bodyOf(g, 'w'); c.vx = -500;
+  for (let i = 0; i < 100 && c.vx <= 0; i++) E.step(g, E.DT);
+  check(c.vx > 0 && c.vx < 500 && c.x >= E.COIN_R - 0.01, 'carrom: a wall bounce reverses the coin and takes a little of its speed');
+  g = only(E.newGame(), [['w', 300, 400]]);
+  bodyOf(g, 'w').vx = 330; bodyOf(g, 'w').vy = 120;
+  const dropped0 = E.run(g);
+  check(!E.moving(g) && dropped0.length === 0 && Math.hypot(bodyOf(g, 'w').x - 300, bodyOf(g, 'w').y - 400) > 20, 'carrom: friction brings a sliding coin to rest');
+  // Pockets.
+  g = only(E.newGame(), [['w', 120, 120]]);
+  const toPocket = bodyOf(g, 'w'); toPocket.vx = -420; toPocket.vy = -420;
+  const dropped1 = E.run(g);
+  check(dropped1.length === 1 && dropped1[0] === toPocket && !toPocket.alive, 'carrom: a coin rolled at a corner drops into the pocket');
+  g = only(E.newGame(), [['w', 400, 400]]);
+  g.striker.x = 60; g.striker.y = 60; g.striker.vx = -300; g.striker.vy = -300;
+  const dropped2 = E.run(g);
+  check(dropped2.length === 1 && dropped2[0].kind === 's', 'carrom: the striker can go into a pocket too');
+  // Placing the striker keeps it on its baseline and off the coins.
+  g = only(E.newGame(), [['w', 370, E.BASE_Y[0]]]);
+  const px = E.placeStriker(g, 372, 0);
+  check(Math.abs(px - 370) > E.COIN_R && g.striker.y === E.BASE_Y[0] && px >= E.BASE_X0 && px <= E.BASE_X1, 'carrom: the striker is placed on its baseline and moves aside from a coin');
+  check(E.placeStriker(E.newGame(), 5, 0) === E.BASE_X0 && E.placeStriker(E.newGame(), 9999, 1) === E.BASE_X1, 'carrom: the striker stays between the ends of the baseline');
+
+  // The rules of a turn.
+  const settle = (g, list) => E.settle(g, list);
+  g = E.newGame();
+  let r = settle(g, [g.bodies.find(x => x.kind === 'w')]);
+  check(r.again && g.turn === 0, 'carrom: pocketing one of your own coins gives another shot');
+  g = E.newGame();
+  r = settle(g, [g.bodies.find(x => x.kind === 'b')]);
+  check(!r.again && g.turn === 1, 'carrom: pocketing only the other side\'s coin ends the turn');
+  g = E.newGame();
+  r = settle(g, []);
+  check(!r.again && g.turn === 1, 'carrom: pocketing nothing ends the turn');
+  g = E.newGame();
+  const gone = g.bodies.filter(x => x.kind === 'w').slice(0, 2); gone.forEach(x => { x.alive = false; });
+  r = settle(g, [g.striker]);
+  check(!r.again && g.turn === 1 && g.bodies.filter(x => x.kind === 'w' && x.alive).length === 8 && r.notes.includes('coin back'), 'carrom: the striker in a pocket is a foul: the turn is lost and one of your pocketed coins goes back');
+  // The queen has to be covered.
+  g = E.newGame();
+  const qb = g.bodies.find(x => x.kind === 'q'); qb.alive = false;
+  r = settle(g, [qb]);
+  check(r.again && g.pendingQueen === 0 && g.turn === 0, 'carrom: the queen alone gives another shot, to cover her');
+  const w1 = g.bodies.find(x => x.kind === 'w'); w1.alive = false;
+  r = settle(g, [w1]);
+  check(g.queenBy === 0 && g.pendingQueen === -1 && r.notes.includes('queen covered') && r.again, 'carrom: pocketing your own coin on the next shot covers the queen');
+  g = E.newGame();
+  const q2 = g.bodies.find(x => x.kind === 'q'); q2.alive = false;
+  settle(g, [q2]);
+  r = settle(g, []);
+  check(q2.alive && Math.hypot(q2.x - E.CENTRE, q2.y - E.CENTRE) < 60 && g.pendingQueen === -1 && g.turn === 1, 'carrom: if the cover fails the queen goes back to the middle and the turn passes');
+  g = E.newGame();
+  const q3 = g.bodies.find(x => x.kind === 'q'), w3 = g.bodies.find(x => x.kind === 'w'); q3.alive = w3.alive = false;
+  r = settle(g, [q3, w3]);
+  check(g.queenBy === 0 && g.pendingQueen === -1, 'carrom: the queen and your own coin on one shot covers her at once');
+  // Not the last coin while the queen is on the board; and the win.
+  g = E.newGame();
+  g.bodies.filter(x => x.kind === 'w').forEach((x, i) => { if (i < 8) x.alive = false; });
+  const lastW = g.bodies.filter(x => x.kind === 'w' && x.alive)[0]; lastW.alive = false;
+  r = settle(g, [lastW]);
+  check(!g.over && lastW.alive && r.notes.includes('last coin back'), 'carrom: the last coin may not go in while the queen is on the board');
+  g = E.newGame();
+  g.bodies.find(x => x.kind === 'q').alive = false; g.queenBy = 1;
+  g.bodies.filter(x => x.kind === 'w').forEach((x, i) => { if (i < 8) x.alive = false; });
+  const lastW2 = g.bodies.filter(x => x.kind === 'w' && x.alive)[0]; lastW2.alive = false;
+  r = settle(g, [lastW2]);
+  check(g.over && g.winner === 0 && r.over, 'carrom: with the queen gone, the side that clears its coins wins');
+
+  // The computer aims sensibly: given one of its coins with a clear line to a pocket, it pockets it.
+  g = only(E.newGame(), [['w', 150, 190], ['b', 600, 300]]);
+  const shot = E.chooseShot(g, 0, 'hard', () => 0.5);
+  const sim = E.cloneGame(g); E.placeStriker(sim, shot.x, 0); E.shoot(sim, shot.angle, shot.speed);
+  const dd = E.run(sim);
+  check(dd.some(x => x.kind === 'w') && !dd.some(x => x.kind === 's'), 'carrom: the computer pockets a coin that has a clear line to a pocket (hard)');
+  g = only(E.newGame(), [['b', 590, 190], ['w', 300, 380]]);
+  const shot2 = E.chooseShot(g, 1, 'hard', () => 0.5);
+  const sim2 = E.cloneGame(g); E.placeStriker(sim2, shot2.x, 1); E.shoot(sim2, shot2.angle, shot2.speed);
+  check(E.run(sim2).some(x => x.kind === 'b') && shot2.angle > 0, 'carrom: ... and from the far baseline, shooting down the board');
+  // A whole game between the computers ends, with sound numbers all the way.
+  {
+    let game = E.newGame(), shots = 0, sound = true;
+    const rng = seeded(3);
+    while (!game.over && shots < 260) {
+      const p = game.turn, s = E.chooseShot(game, p, 'hard', rng);
+      E.placeStriker(game, s.x, p); E.shoot(game, s.angle, s.speed);
+      const d = E.run(game);
+      E.settle(game, d);
+      if (game.bodies.concat([game.striker]).some(b => !isFinite(b.x) || !isFinite(b.y))) sound = false;
+      shots++;
+    }
+    check(sound && game.over && game.winner >= 0, 'carrom: two computers play a whole game to a finish in ' + shots + ' shots');
+  }
+}
+
 if (failures) { console.error(failures + ' failure(s)'); process.exit(1); }
 console.log('all passed');
