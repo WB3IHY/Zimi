@@ -346,6 +346,70 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check(st.lives === R.START_LIVES + 1, 'rocks: 10,000 points earns a ship');
 }
 
+// ── Last Line ───────────────────────────────────────────────────────────────
+{
+  const L = load(['playkit.js', 'lastline.js']).LastLineEngine;
+  const DT = 1 / 60;
+  const quiet = (seed) => { const st = L.createState(seed); st.fireT = 1e9; st.bonusIn = 1e9; return st; };
+
+  let st = quiet(1);
+  check(st.inv.length === 45 && st.shields.length === 4 && L.shieldCount(st.shields[0]) > 200, 'last line: 45 drones, four shields');
+
+  // The formation steps sideways, and at the edge drops a row and turns round.
+  st = quiet(2); const ox0 = st.ox; st.tick = L.interval(st) + 0.001; L.step(st, DT, {});
+  check(st.ox > ox0 && st.dir === 1, 'last line: the formation steps sideways');
+  st = quiet(3); st.ox = 360 - 10 - 8 * L.GAP_X - L.INV_W - 2; const oy0 = st.oy; st.tick = L.interval(st) + 0.001; L.step(st, DT, {});
+  check(st.oy === oy0 + L.DROP && st.dir === -1, 'last line: at the edge the formation drops a row and turns');
+
+  // The fewer drones left, the faster they step.
+  st = quiet(4); const full = L.interval(st);
+  st.inv.forEach((v, i) => { if (i > 4) v.alive = false; });
+  check(L.interval(st) < full / 4, 'last line: ' + L.aliveCount(st) + ' left step much faster than 45');
+
+  // A shot kills the drone it meets and scores by row.
+  st = quiet(5); st.px = L.invPos(st, st.inv[0]).x;
+  const v0 = st.inv.find(v => v.c === 0 && v.r === 4); const p0 = L.invPos(st, v0);
+  st.px = p0.x; st.shields = []; L.fire(st);
+  for (let i = 0; i < 60 && v0.alive; i++) L.step(st, DT, {});
+  check(!v0.alive && st.score === L.ROW_POINTS[4], 'last line: a shot kills the front drone and scores 10');
+  check(L.fire(quiet(5)) && (() => { const s = quiet(5); L.fire(s); L.fire(s); return s.bullets.length === 1; })(), 'last line: a shot takes a moment to reload');
+
+  // Shields wear away: a shot from below bites a hole and the shot is spent.
+  st = quiet(6); st.inv.forEach(v => { v.alive = v.c === 8 && v.r === 0; });
+  const sh = st.shields[1], before = L.shieldCount(sh);
+  st.px = sh.x + 3 * 4 + 1; st.bullets.push({ x: st.px, y: L.SHIELD_Y + L.SHIELD_ROWS * L.CELL + 20 });
+  for (let i = 0; i < 40 && st.bullets.length; i++) L.step(st, DT, {});
+  const lost = before - L.shieldCount(sh);
+  check(st.bullets.length === 0 && lost >= 8 && lost <= 35, 'last line: a shot from below erodes the shield (' + lost + ' blocks)');
+  // And from above: an enemy bullet.
+  st = quiet(7); st.inv.forEach(v => { v.alive = v.c === 8 && v.r === 0; });
+  const sh2 = st.shields[2], b2 = L.shieldCount(sh2);
+  st.enemyBullets.push({ x: sh2.x + 33, y: L.SHIELD_Y - 20 });
+  for (let i = 0; i < 40 && st.enemyBullets.length; i++) L.step(st, DT, {});
+  check(st.enemyBullets.length === 0 && b2 - L.shieldCount(sh2) >= 8, 'last line: an enemy bullet erodes it from above');
+  // A second shot at the same spot goes deeper, so a shield is not invulnerable.
+  const holes = L.shieldCount(sh2);
+  for (let n = 0; n < 6; n++) { st.enemyBullets.push({ x: sh2.x + 33, y: L.SHIELD_Y - 20 }); for (let i = 0; i < 60 && st.enemyBullets.length; i++) L.step(st, DT, {}); }
+  check(L.shieldCount(sh2) < holes - 20, 'last line: repeated hits keep wearing it down');
+
+  // Being hit costs a life and gives a moment of safety; no lives ends the game.
+  st = quiet(8); st.enemyBullets.push({ x: st.px, y: L.PLAYER_Y - 5 }); L.step(st, DT, {});
+  check(st.lives === L.START_LIVES - 1 && st.inv_t > 1, 'last line: a hit costs a life');
+  st = quiet(9); st.lives = 1; st.enemyBullets.push({ x: st.px, y: L.PLAYER_Y - 5 }); L.step(st, DT, {});
+  check(st.status === 'over', 'last line: the last life ends the game');
+  // Drones reaching the ground end the game.
+  st = quiet(10); st.oy = L.GROUND_Y - 4 * L.GAP_Y - 10; st.tick = 10; L.step(st, DT, {});
+  check(st.status === 'over', 'last line: reaching the ground ends the game');
+  // The bonus ship scores one of the listed amounts.
+  st = quiet(11); st.bonus = { x: 180, dir: 1 }; st.px = 180; st.shields = []; st.bullets.push({ x: 180, y: 60 });
+  for (let i = 0; i < 20 && st.bonus; i++) L.step(st, DT, {});
+  check(!st.bonus && L.BONUS_POINTS.indexOf(st.score) >= 0, 'last line: the bonus ship scores ' + st.score);
+  // Clearing the field brings a faster wave and fresh shields.
+  st = quiet(12); st.inv.forEach(v => { v.alive = false; }); st.shields[0].cells.fill(0);
+  for (let i = 0; i < 100; i++) L.step(st, DT, {});
+  check(st.wave === 2 && L.aliveCount(st) === 45 && L.shieldCount(st.shields[0]) > 200 && L.interval(st) < 0.62, 'last line: the next wave is bigger and faster, the shields are back');
+}
+
 // END
 if (failures) { console.error(failures + ' failed'); process.exit(1); }
 console.log('all passed');

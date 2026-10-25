@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Last Line - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Last Line</h1>
+  <button class="ar-btn" id="ll-pause" type="button" disabled>Pause</button>
+</header>
+
+<main class="pl-main">
+  <div class="pl-hud">
+    <div class="pl-stat"><small>Score</small><b id="ll-score">0</b></div>
+    <div class="pl-stat"><small>Best</small><b id="ll-best">0</b></div>
+    <div class="pl-stat"><small>Lives</small><b id="ll-lives">3</b></div>
+    <div class="pl-stat"><small>Wave</small><b id="ll-wave">1</b></div>
+  </div>
+  <canvas class="pl-arena" id="ll-board" role="img" aria-label="Rows of drones above your shields and cannon"></canvas>
+  <div class="pl-pad-row" role="group" aria-label="Controls">
+    <button class="pl-key" id="ll-left" type="button" aria-label="Move left">&#9664;</button>
+    <button class="pl-key" id="ll-fire" type="button" aria-label="Fire">Fire</button>
+    <button class="pl-key" id="ll-right" type="button" aria-label="Move right">&#9654;</button>
+  </div>
+  <p class="pl-msg" id="ll-msg" role="status" aria-live="polite"></p>
+  <p class="pl-help">Arrow keys or A, D move; Space fires; P pauses. The drones sidestep, drop a row at each edge and speed up as they thin out. Your shields wear away from both sides. Hit the bonus ship for extra points. Do not let them reach the ground.</p>
+</main>
+
+<div class="ar-sheet" id="ll-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="ll-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="ll-sheet-title">Last Line</h2>
+    <p id="ll-sheet-text"></p>
+    <div class="ar-sheet-actions"><button class="ar-btn" id="ll-go" type="button" aria-pressed="true">Start</button></div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="lastline.js"></script>
+</body>
+</html>
