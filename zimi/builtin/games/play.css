@@ -1,5 +1,5 @@
-/* Zimi Arcade: what the puzzle and arcade pages share (layout, the HUD, touch keys, piece colours).
-   Tokens come from arcade.css; each game's own sheet adds only what is special to it. */
+/* ZimiGames: what the puzzle and arcade pages share (layout, the HUD, touch keys, piece colours).
+   Tokens come from games.css; each game's own sheet adds only what is special to it. */
 :root {
   --p-i: #1e9ec4; --p-o: #d4a40f; --p-t: #8a55c9; --p-s: #3d9a4a; --p-z: #d1473f; --p-j: #3a63c9; --p-l: #dc7a1b;
   --ok: #2e7d4f; --warn: #b7791f; --bad: #c0392b;

@@ -1,4 +1,4 @@
-/* Five Letters: tiles, keyboard, the record sheet. Shared tokens: arcade.css, play.css. */
+/* Five Letters: tiles, keyboard, the record sheet. Shared tokens: games.css, play.css. */
 :root { --fl-correct: #2e8b57; --fl-present: #d9962b; --fl-absent: #7c8698; --fl-on: #ffffff; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) { --fl-correct: #2f8a5a; --fl-present: #b8801f; --fl-absent: #3a4150; }

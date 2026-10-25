@@ -1,4 +1,4 @@
-/* Stacker: the well and its side column. Shared tokens and piece colours: arcade.css, play.css. */
+/* Stacker: the well and its side column. Shared tokens and piece colours: games.css, play.css. */
 .st-wrap { display: flex; gap: 10px; align-items: flex-start; justify-content: center; }
 .st-side { width: var(--side, 96px); display: flex; flex-direction: column; gap: 8px; }
 .st-box { padding: 4px 0 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); text-align: center; }

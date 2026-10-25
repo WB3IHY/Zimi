@@ -1,4 +1,4 @@
-/* Zimi Arcade: one stylesheet for the shelf and every game. Self-contained:
+/* ZimiGames: one stylesheet for the shelf and every game. Self-contained:
    the ZIM opens in Kiwix too, where nothing of Zimi's own styles exists. */
 :root {
   --ink: #1d2433; --ink2: #4b5568; --ink3: #7c8698;
@@ -55,7 +55,7 @@ button { font: inherit; color: inherit; }
 .ar-sheet-card h2 { margin: 0 0 12px; font-size: 19px; }
 .ar-sheet-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 
-/* The shelf (the Arcade's main page). */
+/* The shelf (ZimiGames' main page). */
 .ar-shelf { max-width: 880px; margin: 0 auto; padding: 24px 16px 48px; }
 .ar-shelf header h1 { margin: 0; font-size: 30px; letter-spacing: -0.02em; text-wrap: balance; }
 .ar-shelf header p { margin: 6px 0 24px; color: var(--ink2); max-width: 60ch; }

@@ -1,4 +1,4 @@
-Title: Zimi Arcade
+Title: ZimiGames
 Description: Eighteen offline games: Solitaire, Spider, Hearts, Chess, Mahjong, Sudoku and more
 Language: eng
 Creator: Zimi

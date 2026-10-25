@@ -1,5 +1,5 @@
 /* Minesweeper: the raised grey tiles, the sunken board, the red LEDs.
-   Our own drawing; shared tokens (--tile, --bevel-hi, --bevel-lo) come from arcade.css. */
+   Our own drawing; shared tokens (--tile, --bevel-hi, --bevel-lo) come from games.css. */
 :root {
   --ms-open: #bcc1c9; --ms-ink: #1b1b1b; --led-on: #ff2a1a; --led-off: #3d0a08; --led-bg: #170202;
   --n1: #1565c0; --n2: #2e7d32; --n3: #d32f2f; --n4: #1a237e; --n5: #8e1b1b; --n6: #00838f; --n7: #1b1b1b; --n8: #4b5563;

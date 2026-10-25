@@ -1,4 +1,4 @@
-/* Sudoku: the board, notes and the number pad. Shared tokens: arcade.css, play.css. */
+/* Sudoku: the board, notes and the number pad. Shared tokens: games.css, play.css. */
 :root {
   --su-given: var(--ink); --su-user: #2d5fc4; --su-sel: #ffe3a8; --su-same: #fbe9c4; --su-peer: #eef1f6; --su-bad-bg: #f9d6d2; --su-box: var(--ink2);
 }

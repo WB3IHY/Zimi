@@ -1,4 +1,4 @@
-/* Zimi Arcade: what the board games share. Tokens come from arcade.css. */
+/* ZimiGames: what the board games share. Tokens come from games.css. */
 :root {
   --sq-light: #ecd9b0; --sq-dark: #a97d50; --sq-edge: #6f4e2e;
   --sel: rgba(217, 119, 6, 0.55); --last: rgba(250, 204, 21, 0.42); --hint: rgba(31, 41, 55, 0.32); --danger: #c62828;
