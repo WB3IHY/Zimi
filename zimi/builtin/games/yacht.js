@@ -265,6 +265,6 @@
 
   buildDice();
   paint();
-  showSheet('Yacht', 'Thirteen rows, thirteen turns. Play alone for a high score, or against computers.', 'Start');
+  showSheet('Yacht', '13 rows, 13 turns. Play alone for a high score, or against computers.', 'Start');
   root.__yacht = { get g() { return g; } };
 })(this);
