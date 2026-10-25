@@ -1331,7 +1331,7 @@
     function seconds() { return Math.floor((banked + (running ? Date.now() - started : 0)) / 1000); }
     function paint() {
       cfg.els.stat.textContent = cfg.statText(seconds(), s.state);
-      cfg.els.undo.disabled = !s.history.length || s.won;
+      cfg.els.undo.disabled = !s.history.length || s.won || !!(cfg.undoOff && cfg.undoOff());
     }
     function run() { if (running) return; running = true; started = Date.now(); ticker = setInterval(paint, TICK_MS); }
     function halt() { if (!running) return; banked += Date.now() - started; running = false; clearInterval(ticker); }
@@ -1350,7 +1350,7 @@
     // auto-move): shown, and undone together with that move.
     s.follow = function (next) { s.state = next; board.render(next); paint(); };
     s.undo = function () {
-      if (!s.history.length || s.won) return;
+      if (!s.history.length || s.won || (cfg.undoOff && cfg.undoOff())) return;
       clearLater(); board.clearSelection();
       s.state = s.history.pop(); board.render(s.state); paint();
     };

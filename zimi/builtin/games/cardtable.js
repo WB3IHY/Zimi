@@ -69,6 +69,8 @@
     return [{ x: g.cx - g.cw / 2, y: g.southY }, { x: g.westX, y: g.yTop }, { x: g.cx - g.cw / 2, y: g.northY }, { x: g.eastX, y: g.yTop }][pos];
   }
   function posOf(seat, players) { return SEAT_POS[players][seat]; }
+  // Where a seat sits for the person looking (a ZimiSeats object): the viewer is south.
+  function posFor(seats, seat, players) { return SEAT_POS[players][seats.rel(seat)]; }
 
   // Your hand: `ids` left to right (wrapping into rows when it would be too
   // tight). `gapAfter(prevId, id)` adds a little space (between suits).
@@ -173,13 +175,14 @@
     });
     session = Z.createSession({
       id: cfg.id, lowScore: cfg.lowScore, board: board, newGame: cfg.newGame, els: el,
+      undoOff: cfg.seats ? function () { return cfg.seats.hotseat(); } : null,
       statText: function (sec, st) { paint(); return cfg.stat(sec, st); },
       cascadeOrder: cfg.cascadeOrder || function () { return []; },
       winLines: cfg.winLines,
       openMenu: function () {
         Z.sheet({
           title: cfg.name,
-          body: [Z.h('p', { class: 'zc-note', text: cfg.rules })].concat(cfg.menuExtra ? cfg.menuExtra() : [], [Z.backsRow(), Z.h('p', { class: 'zc-stats', text: session.stats.line() })]),
+          body: [Z.h('p', { class: 'zc-note', text: cfg.rules })].concat(cfg.menuExtra ? cfg.menuExtra() : [], cfg.seats ? [cfg.seats.block(null, cfg.seatsBlock)] : [], [Z.backsRow(), Z.h('p', { class: 'zc-stats', text: session.stats.line() })]),
           actions: [{ label: 'New game', onclick: cfg.newGame }, { label: 'Done', primary: true }]
         });
       }
@@ -203,7 +206,7 @@
     SEAT_POS: SEAT_POS, SUIT_GLYPH: SUIT_GLYPH, STATUS_H: STATUS_H, SCORE_BAR_H: SCORE_BAR_H,
     next: next, sortHand: sortHand, rankHigh: rankHigh, short: short, shortList: shortList, shuffleOf: shuffleOf,
     countBy: countBy, maxBy: maxBy, minBy: minBy,
-    geometry: geometry, rowsFor: rowsFor, sideStep: sideStep, trickSpot: trickSpot, seatSpot: seatSpot, posOf: posOf, handCards: handCards, fan: fan,
+    geometry: geometry, rowsFor: rowsFor, sideStep: sideStep, trickSpot: trickSpot, seatSpot: seatSpot, posOf: posOf, posFor: posFor, handCards: handCards, fan: fan,
     create: create, lineSheet: lineSheet, choiceRow: choiceRow
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
