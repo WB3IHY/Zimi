@@ -53,5 +53,22 @@ for (const [name, G] of [['Big Two', sandbox.ZimiBigTwo], ['Tien Len', sandbox.Z
   check(solo.cards.filter(c => c.pile[0] === 'h').every(c => c.up && st.hands[0].indexOf(c.id) >= 0), name + ': with no viewer set seat 0 is at the bottom, face up');
 }
 
+// ── Canasta: two people, each side's hand at the bottom for its own player ──
+{
+  const C = sandbox.ZimiCanasta, T = sandbox.ZimiTable;
+  const all = Array.from({ length: C.TOTAL }, (_, i) => i);
+  const st = C.newHand(T.shuffleOf(all, lcg(3)), [0, 0], 0, 5000);
+  for (const V of [0, 1]) {
+    const open = C.place(st, metrics(), { sel: [], viewer: V, hideHand: false });
+    const mine = open.cards.filter(c => c.pile[0] === 'h');
+    check(mine.length === st.hands[V].length && mine.every(c => c.up && st.hands[V].indexOf(c.id) >= 0), 'Canasta: side ' + V + ' looking sees its own hand face up');
+    check(leaks(open, st.hands, V).length === 0, 'Canasta: side ' + V + ' looking, the other hand stays face down');
+    const covered = C.place(st, metrics(), { sel: [], viewer: V, hideHand: true });
+    check(faceUp(covered).every(id => st.hands[0].indexOf(id) < 0 && st.hands[1].indexOf(id) < 0) && covered.slots.every(s => !CARD_WORDS.test(s.label || '') || /pile|Stock/i.test(s.label)), 'Canasta: off side ' + V + '\'s turn neither hand shows');
+  }
+  const solo = C.place(st, metrics(), { sel: [] });
+  check(solo.cards.filter(c => c.pile[0] === 'h').every(c => c.up && st.hands[0].indexOf(c.id) >= 0), 'Canasta: with no viewer set side 0 is at the bottom');
+}
+
 console.log(failures ? failures + ' failure(s), ' + passed + ' passed' : 'all passed (' + passed + ')');
 process.exit(failures ? 1 : 0);
