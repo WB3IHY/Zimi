@@ -22,25 +22,28 @@
   function play(b, i, p) { if (b[i] || winner(b)) return false; b[i] = p; return true; }
 
   // Minimax from the point of view of `me`, to move as `turn`: a win scores more the sooner it comes.
-  function value(b, turn, me, depth) {
+  function value(b, turn, me, depth, memo) {
     var w = winner(b);
     if (w) return w === me ? 10 - depth : depth - 10;
     if (full(b)) return 0;
+    var key = b.join('-') + turn, seen = memo[key]; // the same position reached by another order of moves
+    if (seen !== undefined) return seen;
     var best = turn === me ? -99 : 99;
     for (var i = 0; i < 9; i++) {
       if (b[i]) continue;
       b[i] = turn;
-      var v = value(b, other(turn), me, depth + 1);
+      var v = value(b, other(turn), me, depth + 1, memo);
       b[i] = null;
       if (turn === me ? v > best : v < best) best = v;
     }
+    memo[key] = best;
     return best;
   }
   // Every best move for `me`.
   function perfectMoves(b, me) {
-    var best = -99, out = [];
+    var best = -99, out = [], memo = {};
     moves(b).forEach(function (i) {
-      b[i] = me; var v = value(b, other(me), me, 1); b[i] = null;
+      b[i] = me; var v = value(b, other(me), me, 1, memo); b[i] = null;
       if (v > best) { best = v; out = [i]; } else if (v === best) out.push(i);
     });
     return out;
