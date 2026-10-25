@@ -590,5 +590,45 @@
   "title": "Noughts and Crosses",
   "blurb": "Three in a row, against an easy or a perfect computer",
   "why": "Played perfectly, noughts and crosses is always a draw."
+ },
+ {
+  "qid": "Q713675",
+  "wiki": "Koi-Koi",
+  "path": "koikoi.html",
+  "title": "Koi-Koi",
+  "blurb": "Hanafuda flower cards, make yaku, call koi-koi",
+  "why": "Hanafuda, Japan's flower cards, came about when Western playing cards were banned in the 1600s."
+ },
+ {
+  "qid": "Q957572",
+  "wiki": "Truco",
+  "path": "truco.html",
+  "title": "Truco",
+  "blurb": "Argentine bluffing game with envido, to 15 or 30",
+  "why": "The bluffing card game of Argentina and Uruguay, played with a Spanish deck."
+ },
+ {
+  "qid": "Q6433358",
+  "wiki": "Belote",
+  "path": "belote.html",
+  "title": "Belote",
+  "blurb": "Partners, trump, belote and rebelote",
+  "why": "France's most played card game, partners bidding for trump."
+ },
+ {
+  "qid": "Q504577",
+  "wiki": "Skat (card game)",
+  "path": "skat.html",
+  "title": "Skat",
+  "blurb": "Three players: bid, take the skat, suit, grand or null",
+  "why": "Germany's national card game, invented in Altenburg around 1810."
+ },
+ {
+  "qid": "Q7694358",
+  "wiki": "Teen patti",
+  "path": "teenpatti.html",
+  "title": "Teen Patti",
+  "blurb": "Blind or seen, side show and show, with chips",
+  "why": "India's three-card game, a close cousin of three-card brag."
  }
 ]
