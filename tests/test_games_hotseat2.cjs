@@ -70,5 +70,48 @@ for (const [name, G] of [['Big Two', sandbox.ZimiBigTwo], ['Tien Len', sandbox.Z
   check(solo.cards.filter(c => c.pile[0] === 'h').every(c => c.up && st.hands[0].indexOf(c.id) >= 0), 'Canasta: with no viewer set side 0 is at the bottom');
 }
 
+// ── Blackjack: people take a round each from one shoe, nothing but their own chips carries over ──
+{
+  const B = sandbox.ZimiBlackjack;
+  let a = B.deal(B.setBet(B.newGame(lcg(5), { decks: 2 }), 50), lcg(6));
+  while (B.canHit(a)) a = B.stand(a);
+  const b = B.carry(a, { chips: 700, bet: 30 });
+  check(b.chips === 700 && b.bet === 30 && b.phase === 'bet' && !b.hands.length && !b.dealer.length && !b.last.length, 'Blackjack: the next person starts a clean round with their own chips and bet');
+  check(b.pos === a.pos && b.shoe.length === a.shoe.length && b.round === a.round, 'Blackjack: they play from the same shoe, where the last round left it');
+  check(B.carry(a, { chips: 40, bet: 90 }).bet === 40, 'Blackjack: a bet is never more than the person\'s chips');
+  const seen = a.hands[0].cards.concat(a.dealer);
+  const c = B.deal(b, lcg(8));
+  check(c.hands[0].cards.concat(c.dealer).every(id => seen.indexOf(id) < 0) || c.shuffled, 'Blackjack: cards already dealt are not dealt again');
+  check(B.nextPlayer([0, 2], { 0: 100, 2: 100 }, 0) === 2 && B.nextPlayer([0, 2], { 0: 100, 2: 100 }, 2) === 0, 'Blackjack: the device goes round the people in seat order');
+  check(B.nextPlayer([0, 1, 2], { 0: 100, 1: 5, 2: 100 }, 0) === 2 && B.nextPlayer([0, 1], { 0: 100, 1: 0 }, 0) === 0 && B.nextPlayer([0, 1], { 0: 0, 1: 0 }, 0) === -1, 'Blackjack: people without chips are skipped; nobody left ends the game');
+}
+
+// ── Hold'em: each person's two cards sit at the bottom for them alone ──
+{
+  const H = sandbox.ZimiHoldem;
+  let st = H.startHand(H.newGame(lcg(11), 3), lcg(12));
+  st.people = [0, 2];
+  for (const V of [0, 2]) {
+    const open = H.place(st, metrics(), { viewer: V, hideHand: false });
+    const mine = open.cards.filter(c => c.pile === 'h0');
+    check(mine.length === 2 && mine.every(c => c.up && st.players[V].hole.indexOf(c.id) >= 0), 'Hold\'em: seat ' + V + ' looking sees its own two cards face up at the bottom');
+    check(open.cards.filter(c => c.up && c.pile !== 'b' && c.pile !== 'h0').length === 0, 'Hold\'em: seat ' + V + ' looking, every other hole card is face down');
+    const covered = H.place(st, metrics(), { viewer: V, hideHand: true });
+    check(covered.cards.filter(c => c.pile !== 'b' && c.up).length === 0, 'Hold\'em: off seat ' + V + '\'s turn no hole card shows');
+  }
+  const solo = H.place(st, metrics(), {});
+  check(solo.cards.filter(c => c.pile === 'h0').every(c => c.up && st.players[0].hole.indexOf(c.id) >= 0), 'Hold\'em: with no viewer set seat 0 is at the bottom');
+  const tops = H.place(st, metrics(), { viewer: 2, hideHand: true }).cards.filter(c => c.pile[0] === 'p').map(c => c.pile);
+  check(tops.indexOf('p2') < 0 && tops.indexOf('p0') >= 0, 'Hold\'em: the viewer\'s own seat is not repeated across the top; seat 0 moves up there');
+  // the game ends when no person has chips, or one player has them all
+  const s2 = JSON.parse(JSON.stringify(st));
+  s2.players.forEach((p, i) => { p.chips = i === 1 ? 500 : i === 3 ? 400 : 0; });
+  check(H.gameState(s2) === 'lost', 'Hold\'em: both people busted, the game is lost');
+  s2.players[2].chips = 300;
+  check(H.gameState(s2) === '', 'Hold\'em: a person and two computers still hold chips, play on');
+  s2.players[1].chips = 0; s2.players[3].chips = 0;
+  check(H.gameState(s2) === 'won', 'Hold\'em: one person holds every chip, they win');
+}
+
 console.log(failures ? failures + ' failure(s), ' + passed + ' passed' : 'all passed (' + passed + ')');
 process.exit(failures ? 1 : 0);
