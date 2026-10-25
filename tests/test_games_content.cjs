@@ -83,5 +83,60 @@ const check = (ok, label) => {
   check(C.family('Sicilian Defense: Najdorf Variation') === 'Sicilian Defense', 'openings: family names');
 }
 
+// ── Sokoban ──
+{
+  const sb = load(['sokoban-engine.js', 'data/sokoban-levels.js']);
+  const S = sb.ZimiSokoban, D = sb.ZimiSokobanLevels;
+  let bad = 0, firstBad = '', shape = 0;
+  const ids = new Set();
+  for (const lv of D.levels) {
+    const rows = lv.r.split('/').map(r => r.replace(/-/g, ' '));
+    const st = S.parse(rows);
+    let boxes = 0, goals = 0;
+    for (let i = 0; i < st.box.length; i++) { boxes += st.box[i]; goals += st.goal[i]; }
+    if (rows.length !== 10 || boxes !== goals || boxes < 1 || S.solved(st)) shape++;
+    const end = S.play(st, lv.m);
+    if (!end || !S.solved(end) || (lv.m.match(/[A-Z]/g) || []).length !== lv.p) { bad++; if (!firstBad) firstBad = lv.id; }
+    ids.add(lv.id);
+  }
+  check(D.levels.length >= 300 && ids.size === D.levels.length, 'sokoban: ' + D.levels.length + ' levels, ids unique');
+  check(shape === 0, 'sokoban: every level has as many goals as boxes and is not solved at the start');
+  check(bad === 0, 'sokoban: every level is solved by its stored solution, with the stated pushes' + (bad ? ' (' + bad + ' bad, first ' + firstBad + ')' : ''));
+  const st1 = S.parse(['#####', '#@$.#', '#####']);
+  check(S.move(st1, 'l') === null && S.move(st1, 'r').pushed && S.solved(S.move(st1, 'r')), 'sokoban: walls stop you, a push moves one box onto the goal');
+  const st2 = S.parse(['######', '#@$$.#', '######']);
+  check(S.move(st2, 'r') === null, 'sokoban: two boxes in a row cannot be pushed');
+}
+
+// ── FreeCell hints ──
+{
+  const sb = load(['cards.js', 'freecell.js', 'freecell-solver.js']);
+  const FC = sb.ZimiFreeCell, Solver = sb.ZimiFreeCellSolver;
+  const DEALS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 617, 1000, 31999];
+  let legal = 0, solved = 0;
+  for (const n of DEALS) {
+    const start = FC.newState(n), r = Solver.solve(start, { maxNodes: 25000 });
+    if (!r.moves) continue;
+    solved++;
+    let s = start, ok = true;
+    for (const m of r.moves) {
+      if (!FC.legalMove(s, m.from, m.idx, m.to)) { ok = false; break; }
+      s = FC.applyMove(s, m.from, m.idx, m.to);
+    }
+    if (ok && FC.isWon(s)) legal++;
+  }
+  check(solved >= DEALS.length - 1, 'freecell hints: the solver finds a line for ' + solved + ' of ' + DEALS.length + ' deals');
+  check(legal === solved, 'freecell hints: every move of every line is legal by the game\'s rules and the line wins (' + legal + ' of ' + solved + ')');
+  // the hint is the first move of such a line: from a state part-way through, too
+  const mid = FC.newState(5);
+  const first = Solver.solve(mid, { maxNodes: 25000 }).moves;
+  const after = FC.applyMove(mid, first[0].from, first[0].idx, first[0].to);
+  const again = Solver.solve(after, { maxNodes: 25000 });
+  check(again.moves && FC.legalMove(after, again.moves[0].from, again.moves[0].idx, again.moves[0].to), 'freecell hints: a hint from a state after the first move is legal');
+  const won = FC.almostWon();
+  const last = Solver.solve(won, { maxNodes: 1000 });
+  check(last.moves && last.moves.length === 1 && FC.legalMove(won, last.moves[0].from, last.moves[0].idx, last.moves[0].to), 'freecell hints: one move from a win gives that move');
+}
+
 console.log(failures ? failures + ' FAILED' : 'all passed');
 process.exit(failures ? 1 : 0);

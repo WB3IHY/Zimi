@@ -14,7 +14,8 @@
   var CELLS = ['fr0', 'fr1', 'fr2', 'fr3'];
   var FOUNDATION = ['fd0', 'fd1', 'fd2', 'fd3'];
   var MAX_DEAL = 1000000, RANDOM_DEAL_MAX = 32000, UNWINNABLE_DEAL = 11982;
-  var COLS = 8, AUTO_KEY = 'freecell.auto';
+  var COLS = 8, AUTO_KEY = 'freecell.auto', WINNABLE_KEY = 'freecell.winnable';
+  var HINT_NODES = 25000, HINT_MS = 2500, HINT_SHOW_MS = 4500;   // the hint solver's limits, and how long its note stays up
 
   var kind = function (p) { return p.charAt(0) === 'c' ? 'column' : p.charAt(1) === 'r' ? 'cell' : 'foundation'; };
   var top = function (pile) { return pile[pile.length - 1]; };
@@ -163,17 +164,54 @@
   // ── The page ────────────────────────────────────────────────────────────
   var AUTO_STEP_MS = 140;
   function boot() {
-    var d = root.document, board, session, autoOn = Z.store.get(AUTO_KEY, true) !== false;
+    var d = root.document, board, session, hintEl = d.getElementById('zc-hint'), toast = d.getElementById('zc-toast'), autoOn = Z.store.get(AUTO_KEY, true) !== false;
     Z.ensureSprite();
     var sub = d.getElementById('zc-sub'), params = new root.URLSearchParams(root.location.search);
-    var dealNo = Math.min(MAX_DEAL, Math.max(1, parseInt(params.get('deal'), 10) || 0)) || 1 + Math.floor(Math.random() * RANDOM_DEAL_MAX);
+    // Every one of the 32,000 classic deals but one can be won, so "winnable deals only" just never deals that one.
+    var winnableOnly = Z.store.get(WINNABLE_KEY, true) !== false, hint = null, hintBusy = false, noteTimer = 0;
+    function randomDealNo() {
+      var n;
+      do { n = 1 + Math.floor(Math.random() * RANDOM_DEAL_MAX); } while (winnableOnly && n === UNWINNABLE_DEAL);
+      return n;
+    }
+    var dealNo = Math.min(MAX_DEAL, Math.max(1, parseInt(params.get('deal'), 10) || 0)) || randomDealNo();
 
     function startDeal(n) {
       dealNo = n;
-      sub.textContent = 'Deal #' + n + (n === UNWINNABLE_DEAL ? ' · no winning line' : '');
+      hint = null; toast.hidden = true; sub.textContent = dealLabel();
       session.reset(newState(n));
     }
-    function randomDeal() { startDeal(1 + Math.floor(Math.random() * RANDOM_DEAL_MAX)); }
+    function randomDeal() { startDeal(randomDealNo()); }
+    function dealLabel() { return 'Deal #' + dealNo + (dealNo === UNWINNABLE_DEAL ? ' · no winning line' : ''); }
+    // ── Hint: the solver's first move, shown as a glow on the card and where it goes ──
+    function note(text) { clearTimeout(noteTimer); toast.textContent = text; toast.hidden = false; noteTimer = setTimeout(function () { toast.hidden = true; }, HINT_SHOW_MS); }
+    function showHint() {
+      if (hintBusy || session.won) return;
+      var st = session.state;
+      if (isWon(st)) return;
+      hintBusy = true; hintEl.disabled = true; note('Looking for a move');
+      setTimeout(function () {
+        var r = root.ZimiFreeCellSolver.solve(st, { maxNodes: HINT_NODES, maxMs: HINT_MS });
+        hintBusy = false; hintEl.disabled = false;
+        if (session.state !== st) return;                  // the player moved while it was thinking
+        if (!r.moves || !r.moves.length) { note('No winning line found from here. Undo a few moves?'); return; }
+        hint = { state: st, move: r.moves[0] };
+        board.render(st);
+        note('Hint: the glowing card goes to the marked place');
+      }, 30);
+    }
+    // The layout with the hint laid over it: the card glows, and so does where it lands.
+    function placeWithHint(state, m) {
+      var out = place(state, m);
+      if (!hint || hint.state !== state) return out;
+      var h = hint.move, dest = state.piles[h.to];
+      out.cards.forEach(function (c) {
+        if (c.pile === h.from && c.idx === h.idx) c.glow = true;
+        if (c.pile === h.to && c.idx === dest.length - 1) c.glow = true;
+      });
+      if (!dest.length) out.slots.forEach(function (s) { if (s.id === h.to) s.mark = '\u2193'; });
+      return out;
+    }
     function autoRun() {
       if (!autoOn) return;
       session.later(function () {
@@ -191,7 +229,7 @@
     }
 
     board = Z.createBoard({
-      table: d.getElementById('zc-table'), cols: COLS, place: place,
+      table: d.getElementById('zc-table'), cols: COLS, place: placeWithHint,
       canPick: canPick, move: move,
       tap: function (pile, idx) { var to = bestMove(session.state, pile, idx); return to ? move(pile, idx, to) : false; }
     });
@@ -215,6 +253,7 @@
           sheet.close(); startDeal(n);
         };
         input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); play(); } });
+        var winnablePick = Z.segmented([{ label: 'On', value: true }, { label: 'Off', value: false }], winnableOnly, function (v) { winnableOnly = v; Z.store.set(WINNABLE_KEY, v); });
         var autoPick = Z.segmented([{ label: 'On', value: true }, { label: 'Off', value: false }], autoOn, function (v) { autoOn = v; Z.store.set(AUTO_KEY, v); });
         sheet = Z.sheet({
           title: 'FreeCell',
@@ -222,6 +261,7 @@
             Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: 'Deal number' }), input, Z.h('button', { class: 'ar-btn', type: 'button', text: 'Play', onclick: play })]),
             note,
             Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: 'Safe cards go up by themselves' }), autoPick]),
+            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: 'Winnable random deals only' }), winnablePick]),
             Z.backsRow(),
             Z.h('p', { class: 'zc-stats', text: session.stats.line() })
           ],
@@ -230,7 +270,8 @@
       }
     });
 
-    api.session = session; api.board = board;
+    hintEl.addEventListener('click', showHint);
+    api.session = session; api.board = board; api.showHint = showHint;
     startDeal(dealNo);
     if (/[?&]debug=win/.test(root.location.search)) session.reset(almostWon());
   }
