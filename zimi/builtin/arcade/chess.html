@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chess - Zimi Arcade</title>
+<link rel="stylesheet" href="arcade.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="chess.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to the Arcade">&lsaquo;</a>
+  <h1>Chess</h1>
+  <button class="ar-btn" id="cs-undo" type="button" disabled>Undo</button>
+  <button class="ar-btn" id="cs-flip" type="button" aria-pressed="false" title="Turn the board around (F)">Flip</button>
+  <button class="ar-btn" id="cs-new" type="button" aria-haspopup="dialog">New game</button>
+</header>
+
+<main class="bg-main">
+  <p class="bg-status" id="cs-status" role="status" aria-live="polite"></p>
+  <div class="bg-board cs-board" id="cs-board" role="group" aria-label="Chess board"></div>
+  <div class="cs-moves" id="cs-moves" role="log" aria-label="Moves"></div>
+  <p class="bg-stats" id="cs-stats"></p>
+  <p class="bg-help">Click a piece, then a square. Arrow keys move, Enter selects, U undoes, F flips the board, N starts a new game.</p>
+</main>
+
+<div class="ar-sheet" id="cs-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="cs-menu-title">
+  <div class="ar-sheet-card">
+    <h2 id="cs-menu-title">New game</h2>
+    <fieldset class="bg-field"><legend>Opponent</legend><div class="bg-chips" id="cs-f-mode">
+      <label class="bg-chip"><input type="radio" name="cs-mode" value="cpu"><span>Computer</span></label>
+      <label class="bg-chip"><input type="radio" name="cs-mode" value="two"><span>Two players</span></label>
+    </div></fieldset>
+    <fieldset class="bg-field" id="cs-f-level"><legend>Level</legend><div class="bg-chips">
+      <label class="bg-chip"><input type="radio" name="cs-level" value="beginner"><span>Beginner</span></label>
+      <label class="bg-chip"><input type="radio" name="cs-level" value="casual"><span>Casual</span></label>
+      <label class="bg-chip"><input type="radio" name="cs-level" value="club"><span>Club</span></label>
+      <label class="bg-chip"><input type="radio" name="cs-level" value="strong"><span>Strong</span></label>
+    </div></fieldset>
+    <fieldset class="bg-field" id="cs-f-side"><legend>You play</legend><div class="bg-chips">
+      <label class="bg-chip"><input type="radio" name="cs-side" value="white"><span>White (first)</span></label>
+      <label class="bg-chip"><input type="radio" name="cs-side" value="black"><span>Black</span></label>
+    </div></fieldset>
+    <label class="bg-check"><input type="checkbox" id="cs-hints"> Show legal moves</label>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="cs-cancel" type="button">Cancel</button>
+      <button class="ar-btn" id="cs-start" type="button" aria-pressed="true">Start</button>
+    </div>
+  </div>
+</div>
+
+<div class="ar-sheet" id="cs-promo" hidden role="dialog" aria-modal="true" aria-labelledby="cs-promo-title">
+  <div class="ar-sheet-card">
+    <h2 id="cs-promo-title">Promote the pawn to</h2>
+    <div class="cs-promo-choices" id="cs-promo-choices"></div>
+  </div>
+</div>
+
+<div class="ar-sheet" id="cs-result" hidden role="dialog" aria-modal="true" aria-labelledby="cs-result-title">
+  <div class="ar-sheet-card">
+    <h2 id="cs-result-title">Game over</h2>
+    <p id="cs-result-text"></p>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="cs-close" type="button">Look at the board</button>
+      <button class="ar-btn" id="cs-again" type="button" aria-pressed="true">Play again</button>
+    </div>
+  </div>
+</div>
+<script src="boardkit.js"></script>
+<script src="chess-engine.js"></script>
+<script src="chess.js"></script>
+</body>
+</html>
