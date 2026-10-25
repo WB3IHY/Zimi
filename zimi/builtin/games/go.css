@@ -1,0 +1,22 @@
+/* Go: a kaya-coloured board, ink lines, slate and shell stones, territory shown as small squares. */
+:root { --go-wood: #e0b86f; --go-line: #4b3a1c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --go-wood: #a07f48; --go-line: #2a1e0c; } }
+:root[data-theme="dark"] { --go-wood: #a07f48; --go-line: #2a1e0c; }
+
+.go-board { --bs: min(100vw - 16px, 100svh - 250px, 580px); }
+.go-wood { fill: var(--go-wood); }
+.go-grid { stroke: var(--go-line); stroke-width: 1.3; fill: none; }
+.go-star { fill: var(--go-line); }
+.go-shadow { fill: rgba(0, 0, 0, 0.32); }
+.go-last.on-b { fill: #fff; }
+.go-last.on-w { fill: #111; }
+.go-ko { fill: none; stroke: #e53935; stroke-width: 2.4; }
+.go-hint { fill: none; stroke: var(--accent); stroke-width: 3.5; stroke-dasharray: 5 3; }
+.go-dead { opacity: 0.5; }
+.go-x { fill: none; stroke-width: 2.6; stroke-linecap: round; }
+.go-x.on-b { stroke: #fff; }
+.go-x.on-w { stroke: #111; }
+.go-terr.b { fill: #1c222d; opacity: 0.85; }
+.go-terr.w { fill: #fff; stroke: #1c222d; stroke-width: 1; opacity: 0.92; }
+.go-pt.bad { background: radial-gradient(circle, rgba(229, 57, 53, 0.7), rgba(229, 57, 53, 0) 70%); }
+.go-pt:hover:not([aria-disabled="true"])::after { content: ""; position: absolute; inset: 20%; border-radius: 50%; background: rgba(0, 0, 0, 0.28); }
