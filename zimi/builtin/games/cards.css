@@ -77,7 +77,7 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 @keyframes zc-flap { from { transform: scaleY(1); } to { transform: scaleY(0.35); } }
 .zc-lit { animation: zc-twinkle 2.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .zc-bk *, .zc-card, .zc-card.zc-flip { animation: none !important; transition: none !important; }
+  .zc-bk *, .zc-card, .zc-card.zc-flip, .ar-sheet { animation: none !important; transition: none !important; }
 }
 
 /* ── Sheets: backs picker, menus, the win ──────────────────────────────── */

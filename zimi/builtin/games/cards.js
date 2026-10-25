@@ -256,7 +256,10 @@
       scored: function (score) { var v = read(); keepScore(v, score); store.set(key, v); return v; },
       line: function () {
         var v = read();
-        return 'Played ' + v.played + '   Won ' + v.won + '   Best ' + (v.best ? fmtTime(v.best) : '-') + (typeof v.bestScore === 'number' ? '   Best score ' + v.bestScore : '');
+        var parts = ['Played ' + v.played, 'Won ' + v.won];
+        if (v.best) parts.push('Best time ' + fmtTime(v.best));
+        if (typeof v.bestScore === 'number') parts.push('Best score ' + v.bestScore);
+        return parts.join(' \u00b7 ');
       }
     };
   }
@@ -358,7 +361,8 @@
   var DEAL_STAGGER_MS = 16, MIN_CARD_W = 24;
   // More o: heightShare (how much of the table's height a card may take, for
   // layouts shorter than Klondike's columns), enterTaps (Enter on a pile taps
-  // its top card: for games where one tap is the whole move), and per card in
+  // its top card: for games where one tap is the whole move), centerY (the share of
+  // spare height put above a short layout), and per card in
   // place(): mark (the game's own highlight), glow (a soft one) and dim (not playable now); a
   // slot may be quiet (a drop area with no outline and no tab stop).
 
@@ -445,6 +449,9 @@
     function render(state, mode) {
       lastState = state;
       var m = metrics || measure(), p = o.place(state, m), anyMoved = false;
+      // A short layout sits a little above the middle instead of hugging the top bar.
+      var lift = o.centerY ? Math.max(0, Math.floor((m.H - p.height) * o.centerY)) : 0;
+      if (lift) { p.slots.forEach(function (s) { s.y += lift; }); p.cards.forEach(function (c) { c.y += lift; }); p.height += lift; }
       stage.style.height = Math.max(p.height, m.H) + 'px';
       var prevOrder = slotOrder, hadFocus = d.activeElement;
       slotRects = {}; slotOrder = [];

@@ -205,12 +205,15 @@
   function stopTimer() { clearInterval(timer); timer = 0; }
   function startTimer() { if (!timer) timer = setInterval(function () { seconds++; updateTimeText(); }, 1000); }
 
+  var CHROME_PX = 260;
   // The size of one half-tile so the layout fits the room, and the layout's own bounds.
   function chooseUnit() {
     var g = { minX: Infinity, minY: Infinity, maxX: 0, maxY: 0 };
     an.tiles.forEach(function (t) { g.minX = Math.min(g.minX, t.x); g.minY = Math.min(g.minY, t.y); g.maxX = Math.max(g.maxX, t.x + 2); g.maxY = Math.max(g.maxY, t.y + 2); });
     var room = Math.min(root.innerWidth, 1100) - 24, fit = Math.floor((room - SIDE_PAD_PX) / (g.maxX - g.minX + 1));
-    g.u = Math.max(MIN_UNIT, Math.min(MAX_UNIT, fit));
+    // On a short screen the layout also has to fit the height (the bar, status, buttons and notes take CHROME_PX).
+    var fitH = Math.floor((root.innerHeight - CHROME_PX - SIDE_PAD_PX) / ((g.maxY - g.minY) * ROW_RATIO + 1));
+    g.u = Math.max(MIN_UNIT, Math.min(MAX_UNIT, fit, fitH));
     if (zoomed) g.u = Math.max(g.u, ZOOM_UNIT);
     return g;
   }
@@ -343,7 +346,7 @@
     an = deal0.an; faces = deal0.faces; alive = new Uint8Array(an.n).fill(1);
     tabStop = -1;
     buildTiles(); layoutStage(); updateTimeText(); showStats(); resultSheet.close();
-    afterChange(); say('Match two free tiles. Tiles with a dimmer face are blocked.');
+    afterChange(); say('Match two free tiles. Dim tiles are blocked.');
   }
 
   // ── bar, menu, keys ──
