@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Code Breaker - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="codebreaker.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Code Breaker</h1>
+  <button class="ar-btn" id="cb-new" type="button">New code</button>
+</header>
+
+<main class="pl-main">
+  <div class="cb-secret" id="cb-secret" role="img" aria-label="The hidden code"></div>
+  <ol class="cb-rows" id="cb-rows" aria-label="Your guesses"></ol>
+  <p class="pl-msg" id="cb-msg" role="status" aria-live="polite"></p>
+  <div class="pl-row" id="cb-palette" role="group" aria-label="Colours"></div>
+  <div class="pl-row">
+    <button class="ar-btn" id="cb-undo" type="button">Back</button>
+    <button class="ar-btn" id="cb-check" type="button" aria-pressed="true" disabled>Check</button>
+  </div>
+  <p class="pl-help">Guess the hidden code of four pegs. After each guess, a solid dot means a right colour in the right place; a ring means a right colour in the wrong place. Every peg has its own shape, so colour is never the only clue. Keys: 1 to 6 place a peg, Backspace takes one back, Enter checks.</p>
+</main>
+
+<div class="ar-sheet" id="cb-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="cb-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="cb-sheet-title">Code Breaker</h2>
+    <p id="cb-sheet-text">Crack the four-peg code in ten guesses.</p>
+    <button class="ar-btn" id="cb-rep" type="button" aria-pressed="true">Colours may repeat: on</button>
+    <div class="ar-sheet-actions"><button class="ar-btn" id="cb-go" type="button" aria-pressed="true">Start</button></div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="codebreaker.js"></script>
+</body>
+</html>

@@ -156,6 +156,29 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check(ok && totalShots / 60 < 65, 'fleet: the computer clears 60 random fleets, averaging ' + (totalShots / 60).toFixed(1) + ' shots (worst ' + worst + ')');
 }
 
+// ── Code Breaker ────────────────────────────────────────────────────────────
+{
+  const C = load(['playkit.js', 'codebreaker.js']).CodeBreakerEngine;
+  const fb = (c, g) => { const r = C.feedback(c, g); return r.exact + '/' + r.colour; };
+  check(fb([0, 1, 2, 3], [0, 1, 2, 3]) === '4/0', 'code breaker: all right');
+  check(fb([0, 1, 2, 3], [3, 2, 1, 0]) === '0/4', 'code breaker: all right colours, all wrong places');
+  check(fb([0, 1, 2, 3], [4, 4, 5, 5]) === '0/0', 'code breaker: nothing');
+  check(fb([0, 0, 1, 1], [0, 1, 0, 1]) === '2/2', 'code breaker: pairs of repeats');
+  check(fb([0, 0, 1, 2], [0, 3, 0, 0]) === '1/1', 'code breaker: a repeated guess colour only counts as often as the code has it');
+  check(fb([0, 1, 2, 3], [0, 0, 0, 0]) === '1/0', 'code breaker: four of one colour against one in the code');
+  check(fb([1, 1, 1, 2], [1, 2, 2, 2]) === '2/0', 'code breaker: exact matches are taken before colour matches');
+  check(fb([2, 2, 3, 3], [3, 3, 2, 2]) === '0/4', 'code breaker: swapped pairs');
+  check(fb([5, 0, 5, 1], [0, 5, 5, 5]) === '1/2', 'code breaker: a surplus guess peg is not counted twice');
+  // symmetry: feedback of (a, b) equals feedback of (b, a)
+  let sym = true;
+  for (let i = 0; i < 300; i++) { const r = C.makeCode(Math.random, true), s = C.makeCode(Math.random, true); sym = sym && fb(r, s) === fb(s, r); }
+  check(sym, 'code breaker: the score is the same either way round');
+  let uniq = true, rng = () => Math.random();
+  for (let i = 0; i < 200; i++) { const c = C.makeCode(rng, false); uniq = uniq && new Set(c).size === 4 && c.every(x => x >= 0 && x < 6); }
+  check(uniq, 'code breaker: codes without repeats have four different colours');
+  check(C.isValid([0, 1, 2, 3], false) && !C.isValid([0, 0, 2, 3], false) && C.isValid([0, 0, 2, 3], true) && !C.isValid([0, 1, 2], true) && !C.isValid([0, 1, 2, 6], true), 'code breaker: guess validity');
+}
+
 // END
 if (failures) { console.error(failures + ' failed'); process.exit(1); }
 console.log('all passed');
