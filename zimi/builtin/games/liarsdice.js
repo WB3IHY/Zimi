@@ -298,6 +298,6 @@
   });
 
   paint();
-  showSheet("Liar's Dice", 'Bluff, read the table, call the lie. You against computers.', 'Start');
+  showSheet("Liar's Dice", 'Bluff, read the table and call the lie. You play against computers.', 'Start');
   root.__liarsdice = { get g() { return g; } };
 })(this);
