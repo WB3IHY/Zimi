@@ -86,3 +86,10 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 .ar-foot { margin-top: 32px; color: var(--ink3); font-size: 12px; }
 
 @media (prefers-reduced-motion: reduce) { .ar-game { transition: none; } .ar-game:hover { transform: none; } }
+
+/* The "About <game>" link at the foot of a page (scripts/games_links.py writes it). */
+.gm-about { flex: none; margin-top: auto; padding: 10px 16px max(14px, env(safe-area-inset-bottom)); text-align: center; font-size: 13px; }
+.gm-about a { color: var(--ink2); text-decoration: none; border-bottom: 1px dotted var(--ink3); }
+.gm-about a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.gm-about-page { max-width: 62ch; margin: 0 auto; padding: 24px 16px; }
+.gm-play { display: inline-flex; align-items: center; text-decoration: none; background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }

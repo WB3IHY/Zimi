@@ -1,0 +1,408 @@
+[
+ {
+  "qid": "Q1191033",
+  "wiki": "Klondike (solitaire)",
+  "path": "solitaire.html",
+  "title": "Solitaire",
+  "blurb": "Klondike, draw one or three"
+ },
+ {
+  "qid": "Q2056928",
+  "wiki": "Solitaire",
+  "path": "solitaire.html",
+  "title": "Solitaire",
+  "blurb": "Klondike, draw one or three"
+ },
+ {
+  "qid": "Q1050614",
+  "wiki": "FreeCell",
+  "path": "freecell.html",
+  "title": "FreeCell",
+  "blurb": "The numbered deals, every one winnable but one"
+ },
+ {
+  "qid": "Q648228",
+  "wiki": "Spider (solitaire)",
+  "path": "spider.html",
+  "title": "Spider",
+  "blurb": "Two decks, runs of one suit, clear all eight"
+ },
+ {
+  "qid": "Q867799",
+  "wiki": "Hearts (card game)",
+  "path": "hearts.html",
+  "title": "Hearts",
+  "blurb": "You against three, dodge the queen"
+ },
+ {
+  "qid": "Q3411255",
+  "wiki": "Pyramid (solitaire)",
+  "path": "pyramid.html",
+  "title": "Pyramid",
+  "blurb": "Pairs that make 13"
+ },
+ {
+  "qid": "Q5580559",
+  "wiki": "Golf (patience)",
+  "path": "golf.html",
+  "title": "Golf",
+  "blurb": "One higher or lower, no wrap"
+ },
+ {
+  "qid": "Q27792408",
+  "wiki": "Tri Peaks",
+  "path": "tripeaks.html",
+  "title": "TriPeaks",
+  "blurb": "Three peaks, wrap round, keep the streak"
+ },
+ {
+  "qid": "Q2121032",
+  "wiki": "Spades (card game)",
+  "path": "spades.html",
+  "title": "Spades",
+  "blurb": "Partners, bids, Nil and bags"
+ },
+ {
+  "qid": "Q3059474",
+  "wiki": "Euchre",
+  "path": "euchre.html",
+  "title": "Euchre",
+  "blurb": "Bowers, trump and going alone, to 10"
+ },
+ {
+  "qid": "Q11082926",
+  "wiki": "Gin rummy",
+  "path": "gin.html",
+  "title": "Gin Rummy",
+  "blurb": "Knock, go gin or catch them with an undercut"
+ },
+ {
+  "qid": "Q1139885",
+  "wiki": "Cribbage",
+  "path": "cribbage.html",
+  "title": "Cribbage",
+  "blurb": "Peg to 121 on a board drawn here"
+ },
+ {
+  "qid": "Q2739146",
+  "wiki": "Crazy Eights",
+  "path": "crazyeights.html",
+  "title": "Crazy Eights",
+  "blurb": "Match suit or rank, eights are wild"
+ },
+ {
+  "qid": "Q911725",
+  "wiki": "Durak",
+  "path": "durak.html",
+  "title": "Durak",
+  "blurb": "The Russian game: beat it, throw in, never be the fool"
+ },
+ {
+  "qid": "Q1955846",
+  "wiki": "Scopa",
+  "path": "scopa.html",
+  "title": "Scopa",
+  "blurb": "The Italian fishing game, with an Italian deck"
+ },
+ {
+  "qid": "Q748139",
+  "wiki": "Reversi",
+  "path": "reversi.html",
+  "title": "Reversi",
+  "blurb": "Flip the board, against the computer or a friend"
+ },
+ {
+  "qid": "Q2180601",
+  "wiki": "English draughts",
+  "path": "checkers.html",
+  "title": "Checkers",
+  "blurb": "English draughts, captures are compulsory"
+ },
+ {
+  "qid": "Q718",
+  "wiki": "Chess",
+  "path": "chess.html",
+  "title": "Chess",
+  "blurb": "Our own engine, four levels, no download"
+ },
+ {
+  "qid": "Q11413",
+  "wiki": "Go (game)",
+  "path": "go.html",
+  "title": "Go",
+  "blurb": "9x9 and 13x13, territory scoring, komi 6.5"
+ },
+ {
+  "qid": "Q191448",
+  "wiki": "Xiangqi",
+  "path": "xiangqi.html",
+  "title": "Xiangqi",
+  "blurb": "Chinese chess, with the river and the flying general"
+ },
+ {
+  "qid": "Q131375",
+  "wiki": "Shogi",
+  "path": "shogi.html",
+  "title": "Shogi",
+  "blurb": "Japanese chess with drops, and a small 5x5 board"
+ },
+ {
+  "qid": "Q844874",
+  "wiki": "Hex (board game)",
+  "path": "hex.html",
+  "title": "Hex",
+  "blurb": "Link your two sides, no draws, swap rule optional"
+ },
+ {
+  "qid": "Q908381",
+  "wiki": "Gomoku",
+  "path": "gomoku.html",
+  "title": "Gomoku",
+  "blurb": "Five in a row on a 15x15 board"
+ },
+ {
+  "qid": "Q209669",
+  "wiki": "Nine men's morris",
+  "path": "morris.html",
+  "title": "Nine Men's Morris",
+  "blurb": "Make mills, fly when you are down to three"
+ },
+ {
+  "qid": "Q17254",
+  "wiki": "Connect Four",
+  "path": "fourinarow.html",
+  "title": "Four in a Row",
+  "blurb": "Drop discs, line up four"
+ },
+ {
+  "qid": "Q1142531",
+  "wiki": "Dots and boxes",
+  "path": "dotsandboxes.html",
+  "title": "Dots and Boxes",
+  "blurb": "Close boxes, move again, 4 to 7 dots"
+ },
+ {
+  "qid": "Q11411",
+  "wiki": "Backgammon",
+  "path": "backgammon.html",
+  "title": "Backgammon",
+  "blurb": "Race home, hit blots, optional doubling cube"
+ },
+ {
+  "qid": "Q267989",
+  "wiki": "Mancala",
+  "path": "mancala.html",
+  "title": "Mancala",
+  "blurb": "Oware and Kalah, sow and capture"
+ },
+ {
+  "qid": "Q1030283",
+  "wiki": "Ludo",
+  "path": "ludo.html",
+  "title": "Ludo",
+  "blurb": "Roll a six, race round the cross, send rivals home"
+ },
+ {
+  "qid": "Q1045090",
+  "wiki": "Chinese checkers",
+  "path": "chinesecheckers.html",
+  "title": "Chinese Checkers",
+  "blurb": "Hop marbles across the star, two to six players"
+ },
+ {
+  "qid": "Q32907",
+  "wiki": "Dominoes",
+  "path": "dominoes.html",
+  "title": "Dominoes",
+  "blurb": "Draw and Block, against one to three computers"
+ },
+ {
+  "qid": "Q953673",
+  "wiki": "Mahjong solitaire",
+  "path": "mahjong.html",
+  "title": "Mahjong",
+  "blurb": "Three layouts, every deal can be cleared"
+ },
+ {
+  "qid": "Q126194",
+  "wiki": "Minesweeper (video game)",
+  "path": "minesweeper.html",
+  "title": "Minesweeper",
+  "blurb": "Beginner to Expert, first click always safe"
+ },
+ {
+  "qid": "Q44914",
+  "wiki": "Sudoku",
+  "path": "sudoku.html",
+  "title": "Sudoku",
+  "blurb": "Four levels, every puzzle has one solution"
+ },
+ {
+  "qid": "Q15967616",
+  "wiki": "2048 (video game)",
+  "path": "2048.html",
+  "title": "2048",
+  "blurb": "Slide and merge tiles, one undo"
+ },
+ {
+  "qid": "Q110367996",
+  "wiki": "Wordle",
+  "path": "fiveletters.html",
+  "title": "Five Letters",
+  "blurb": "Guess the word in six tries, daily or practice"
+ },
+ {
+  "qid": "Q125177944",
+  "wiki": "Snake (video game genre)",
+  "path": "snake.html",
+  "title": "Snake",
+  "blurb": "Eat, grow, speed up; walls or wrap-around"
+ },
+ {
+  "qid": "Q177491",
+  "wiki": "Breakout (video game)",
+  "path": "bricks.html",
+  "title": "Bricks",
+  "blurb": "Paddle and ball, eight levels, angle by where it lands"
+ },
+ {
+  "qid": "Q191024",
+  "wiki": "15 puzzle",
+  "path": "puzzles/fifteen.html",
+  "title": "Fifteen",
+  "blurb": "Slide the tiles back into order"
+ },
+ {
+  "qid": "Q224905",
+  "wiki": "SameGame",
+  "path": "puzzles/samegame.html",
+  "title": "Same Game",
+  "blurb": "Clear blocks of matching colour"
+ },
+ {
+  "qid": "Q1411087",
+  "wiki": "Peg solitaire",
+  "path": "puzzles/pegs.html",
+  "title": "Pegs",
+  "blurb": "Jump pegs over pegs until one is left"
+ },
+ {
+  "qid": "Q835894",
+  "wiki": "Nonogram",
+  "path": "puzzles/pattern.html",
+  "title": "Pattern",
+  "blurb": "Use the row and column clues to reveal a picture"
+ },
+ {
+  "qid": "Q5578074",
+  "wiki": "Gokigen Naname",
+  "path": "puzzles/slant.html",
+  "title": "Slant",
+  "blurb": "Fill with diagonals so numbers touch that many"
+ },
+ {
+  "qid": "Q815412",
+  "wiki": "Light Up (puzzle)",
+  "path": "puzzles/lightup.html",
+  "title": "Light Up",
+  "blurb": "Place lamps to light the room, none lighting another"
+ },
+ {
+  "qid": "Q2120242",
+  "wiki": "Slitherlink",
+  "path": "puzzles/loopy.html",
+  "title": "Loopy",
+  "blurb": "Draw one loop; numbers count each cell's sides"
+ },
+ {
+  "qid": "Q673276",
+  "wiki": "Hashiwokakero",
+  "path": "puzzles/bridges.html",
+  "title": "Bridges",
+  "blurb": "Join the islands with bridges to match their numbers"
+ },
+ {
+  "qid": "Q108795440",
+  "wiki": "Tentai Show",
+  "path": "puzzles/galaxies.html",
+  "title": "Galaxies",
+  "blurb": "Split into regions that look the same turned half way"
+ },
+ {
+  "qid": "Q478093",
+  "wiki": "Shikaku",
+  "path": "puzzles/rect.html",
+  "title": "Rectangles",
+  "blurb": "One rectangle per number, with a matching area"
+ },
+ {
+  "qid": "Q372499",
+  "wiki": "KenKen",
+  "path": "puzzles/keen.html",
+  "title": "Keen",
+  "blurb": "Fill the grid; each cage must make its number"
+ },
+ {
+  "qid": "Q1402407",
+  "wiki": "Futoshiki",
+  "path": "puzzles/unequal.html",
+  "title": "Unequal",
+  "blurb": "Fill the grid, obeying the greater-than signs"
+ },
+ {
+  "qid": "Q477458",
+  "wiki": "Masyu",
+  "path": "puzzles/pearl.html",
+  "title": "Pearl",
+  "blurb": "Draw a loop through the pearls as marked"
+ },
+ {
+  "qid": "Q570944",
+  "wiki": "Kuromasu",
+  "path": "puzzles/range.html",
+  "title": "Range",
+  "blurb": "Shade squares so each number sees that many"
+ },
+ {
+  "qid": "Q971467",
+  "wiki": "Hitori",
+  "path": "puzzles/singles.html",
+  "title": "Singles",
+  "blurb": "Shade repeats; shaded squares never touch"
+ },
+ {
+  "qid": "Q1414219",
+  "wiki": "Fillomino",
+  "path": "puzzles/filling.html",
+  "title": "Filling",
+  "blurb": "Every region holds a number equal to its size"
+ },
+ {
+  "qid": "Q880104",
+  "wiki": "Black Box (game)",
+  "path": "puzzles/blackbox.html",
+  "title": "Black Box",
+  "blurb": "Find the hidden balls by firing beams in"
+ },
+ {
+  "qid": "Q17286",
+  "wiki": "Mastermind (board game)",
+  "path": "puzzles/guess.html",
+  "title": "Guess",
+  "blurb": "Crack the hidden colour code"
+ },
+ {
+  "qid": "Q1765175",
+  "wiki": "Lights Out (game)",
+  "path": "puzzles/flip.html",
+  "title": "Flip",
+  "blurb": "Light every square by flipping groups of them"
+ },
+ {
+  "qid": "Q1950892",
+  "wiki": "Takuzu",
+  "path": "puzzles/unruly.html",
+  "title": "Unruly",
+  "blurb": "Two colours, no three in a row, balanced lines"
+ }
+]
