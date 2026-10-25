@@ -118,6 +118,7 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 .ar-game[hidden] { display: none; }
 .ar-game:hover { transform: translateY(-2px); border-color: var(--accent); }
 .ar-game-art { aspect-ratio: 16 / 9; display: block; width: 100%; }
+.ar-game-live { object-fit: cover; }
 .ar-game-icon { object-fit: contain; background: var(--tile); padding: 6px; }
 .ar-game-text { min-width: 0; padding: 10px 12px 12px; }
 .ar-game-text strong { display: block; font-size: 15px; line-height: 1.3; }

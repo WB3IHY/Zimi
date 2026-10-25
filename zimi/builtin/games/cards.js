@@ -963,6 +963,8 @@
   //      tap(pile, idx) -> bool, slotTap(pile) }
   // place() returns slots [{id, x, y, w, h, label, mark}] and cards
   // [{id, pile, idx, x, y, up, hidden}] in stacking order.
+  var SNAP_FELT = '#1f6f43', SNAP_CREAM = '#fdfcf8', SNAP_RED = '#c62828', SNAP_BLACK = '#1b1b1b', SNAP_BACK = '#23232b', SNAP_BACK_EDGE = '#e8710a', SNAP_RX = 5;
+  var SNAP_SUIT = ['\u2663', '\u2666', '\u2665', '\u2660'];
   var MAX_CARD_W = 120, CARD_ASPECT = 1.4, CARD_H_SHARE = 0.14, DRAG_SLOP = 6, SETTLE_MS = 300, Z_HOT = 500, Z_DRAG = 1000;
   var DEAL_STAGGER_MS = 16, MIN_CARD_W = 24;
   // More o: heightShare (how much of the table's height a card may take, for
@@ -978,7 +980,7 @@
     var live = h('div', { class: 'zc-live', 'aria-live': 'polite' });
     table.appendChild(stage); table.appendChild(live);
     var els = {}, slotEls = {}, cardPos = {}, byPile = {}, slotRects = {};
-    var lastState = null, metrics = null, drag = null, sel = null, settleTimer = 0, focusPile = null, slotOrder = [];
+    var lastPlace = null, lastState = null, metrics = null, drag = null, sel = null, settleTimer = 0, focusPile = null, slotOrder = [];
 
     function measure() {
       var W = table.clientWidth, H = table.clientHeight;
@@ -1056,6 +1058,7 @@
     function render(state, mode) {
       lastState = state;
       var m = metrics || measure(), p = o.place(state, m), anyMoved = false;
+      lastPlace = p;
       // A short layout sits a little above the middle instead of hugging the top bar.
       var lift = o.centerY ? Math.max(0, Math.floor((m.H - p.height) * o.centerY)) : 0;
       if (lift) { p.slots.forEach(function (s) { s.y += lift; }); p.cards.forEach(function (c) { c.y += lift; }); p.height += lift; }
@@ -1310,7 +1313,25 @@
       }).observe(table);
     }
     backListeners.push(function () { refresh('instant'); });
+    // The table as it stands, as a small svg for the shelf's live tile: plain cards (a corner label, no art), the
+    // top of the table, since the tile is wider than tall.
+    function snapshot() {
+      if (!lastPlace || !metrics) return null;
+      var m = metrics, ink = function (id) { return isRed(id) ? SNAP_RED : SNAP_BLACK; }, out = [];
+      lastPlace.slots.forEach(function (s) {
+        if (!s.quiet) out.push('<rect x="' + s.x + '" y="' + s.y + '" width="' + s.w + '" height="' + s.h + '" rx="' + SNAP_RX + '" fill="none" stroke="#fff" stroke-opacity=".22"/>');
+      });
+      lastPlace.cards.forEach(function (c) {
+        if (c.hidden) return;
+        var face = (c.up ? '<rect x="' + c.x + '" y="' + c.y + '" width="' + m.cw + '" height="' + m.ch + '" rx="' + SNAP_RX + '" fill="' + SNAP_CREAM + '" stroke="#c9c4b8"/>' +
+          '<text x="' + (c.x + m.cw * 0.12) + '" y="' + (c.y + m.cw * 0.4) + '" font-size="' + Math.round(m.cw * 0.36) + '" font-weight="700" font-family="sans-serif" fill="' + ink(c.id) + '">' + RANK_LABELS[rank(c.id) - 1] + SNAP_SUIT[suit(c.id)] + '</text>'
+          : '<rect x="' + c.x + '" y="' + c.y + '" width="' + m.cw + '" height="' + m.ch + '" rx="' + SNAP_RX + '" fill="' + SNAP_BACK + '" stroke="' + SNAP_BACK_EDGE + '"/>');
+        out.push(face);
+      });
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + m.W + ' ' + Math.round(m.W * 9 / 16) + '" preserveAspectRatio="xMidYMin slice"><rect width="' + m.W + '" height="' + m.H + '" fill="' + SNAP_FELT + '"/>' + out.join('') + '</svg>';
+    }
     return {
+      snapshot: snapshot,
       render: render, refresh: refresh, cascade: cascade, say: say, nudge: nudge,
       metrics: function () { return metrics; },
       cardEl: function (id) { return els[id]; },
@@ -1399,6 +1420,7 @@
       // while its rules note, its card backs and its stats line are the shell's own rows.
       menu: function () { return { options: menuOptions(cfg.openMenu) }; },
       inProgress: function () { return begun && !s.won; },
+      snapshot: function () { return board.snapshot(); },
       paint: paint
     });
     d.addEventListener('keydown', function (e) {

@@ -183,6 +183,8 @@
   var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$;
   var SAVE_KEY = 'zimi.games.pet', SIZE = 120, CHROME_PX = [470, 330], MAX_SCALE = 3, SAVE_EVERY_MS = 30000;
   Play.applyTheme();
+  // A pet is always under way: the shelf's tile shows it as you left it.
+  if (root.ZimiShell) root.ZimiShell.game({ inProgress: function () { return true; } });
   var els = { cv: $('pt-screen'), msg: $('pt-msg'), tabs: $('pt-tabs'), feed: $('pt-feed'), play: $('pt-play'), clean: $('pt-clean'), lights: $('pt-lights'), sheet: $('pt-sheet'), title: $('pt-sheet-title'), body: $('pt-sheet-body'), close: $('pt-close'), name: $('pt-name'), age: $('pt-age'), rename: $('pt-rename'), egg: $('pt-egg'),
     bars: { food: $('pt-food'), joy: $('pt-joy'), clean: $('pt-wash'), energy: $('pt-energy') } };
   var reduced = Play.reducedMotion(), ctx, store = Play.load(SAVE_KEY, null), pet, lastSave = 0, scale = 3, doing = null, rng = mulberry(Date.now());

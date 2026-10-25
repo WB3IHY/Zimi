@@ -499,9 +499,59 @@
     root.addEventListener('pagehide', function () { root.parent.postMessage({ zimi: 'game-gone' }, root.location.origin); });
   }
 
+  var shellSrc = d.currentScript && d.currentScript.src;
+
+  // ── live tiles ──
+  // Leaving a game in progress, the shell keeps a small picture of the table for the shelf's tile and the game table
+  // (recent.js reads it). A game may hand one over: ZimiShell.game({ snapshot: fn }) returning a canvas or an
+  // svg string. Without one, the largest canvas on the page is used. Nothing is kept for a game not under way.
+  var SNAP_KEY = 'zimi.games.snaps', SNAP_CAP = 8, SNAP_W = 320, SNAP_H = 180, SNAP_JPEG_QUALITY = 0.72, SNAP_PIXEL_ART_MAX = 200;
+  function snapPath() {
+    var base = shellSrc && new root.URL('.', shellSrc).pathname, p = decodeURIComponent(root.location.pathname);
+    return base && p.indexOf(base) === 0 ? p.slice(base.length) : '';
+  }
+  function bigCanvas() {
+    var best = null, area = 0;
+    Array.prototype.forEach.call(d.querySelectorAll('main canvas, #stage canvas, body > canvas'), function (c) {
+      var r = c.getBoundingClientRect(), a = r.width * r.height;
+      if (a > area && c.width > 8 && c.height > 8) { best = c; area = a; }
+    });
+    return best;
+  }
+  // A canvas as a 16 by 9 picture: fitted whole on its own background colour; pixel art is kept sharp and lossless.
+  function canvasPicture(c) {
+    var out = d.createElement('canvas'), x = out.getContext('2d'), pixel = Math.max(c.width, c.height) <= SNAP_PIXEL_ART_MAX;
+    out.width = SNAP_W; out.height = SNAP_H;
+    var corner = c.getContext && c.getContext('2d') ? c.getContext('2d').getImageData(0, 0, 1, 1).data : null;
+    x.fillStyle = corner && corner[3] ? 'rgb(' + corner[0] + ',' + corner[1] + ',' + corner[2] + ')' : root.getComputedStyle(d.body).backgroundColor;
+    x.fillRect(0, 0, SNAP_W, SNAP_H);
+    x.imageSmoothingEnabled = !pixel;
+    var k = Math.min(SNAP_W / c.width, SNAP_H / c.height), w = Math.round(c.width * k), hh = Math.round(c.height * k);
+    x.drawImage(c, Math.round((SNAP_W - w) / 2), Math.round((SNAP_H - hh) / 2), w, hh);
+    return pixel ? out.toDataURL('image/png') : out.toDataURL('image/jpeg', SNAP_JPEG_QUALITY);
+  }
+  function takeSnapshot() {
+    var src = game.snapshot ? game.snapshot() : bigCanvas();
+    if (!src) return null;
+    if (typeof src === 'string') return /^\s*<svg[\s>]/.test(src) ? { svg: src } : null;
+    try { return { img: canvasPicture(src) }; } catch (e) { return null; }   // a tainted or lost canvas: no picture
+  }
+  function readSnaps() { try { var v = JSON.parse(root.localStorage.getItem(SNAP_KEY)); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } }
+  function keepSnapshot() {
+    var path = snapPath();
+    if (!path) return;
+    var all = readSnaps(), snap = underway() ? takeSnapshot() : null;
+    if (snap) { snap.at = Date.now(); all[path] = snap; } else delete all[path];
+    Object.keys(all).sort(function (a, b) { return all[b].at - all[a].at; }).slice(SNAP_CAP).forEach(function (k) { delete all[k]; });
+    try { root.localStorage.setItem(SNAP_KEY, JSON.stringify(all)); } catch (e) { /* full or blocked: the tile keeps its art */ }
+  }
+  function watchSnapshots() {
+    d.addEventListener('visibilitychange', function () { if (d.hidden) keepSnapshot(); });
+    root.addEventListener('pagehide', keepSnapshot);
+  }
+
   // ── controllers ──
   // A controller (USB or Bluetooth) is read by gamepad.js, loaded the first time one reports in: nothing here until then.
-  var shellSrc = d.currentScript && d.currentScript.src;
   function padsReady() { return !!(root.ZimiGamepad || d.querySelector('script[data-gamepad]')); }
   function loadPads() {
     if (padsReady() || !shellSrc) return;
@@ -522,6 +572,7 @@
     if (hosted) hostReady();
     if (!built) return;
     DIRTY_EVENTS.forEach(function (t) { d.addEventListener(t, markDirty, true); });
+    watchSnapshots();
     d.documentElement.classList.add('gs-ready');
     if (helpFor(ID)) d.documentElement.classList.add('gs-help');
     // Settings that a game paints itself (a clock's text) are repainted when they change.

@@ -19,6 +19,7 @@
   } catch (e) { /* another origin: not Zimi */ }
 
   var KEY = 'zimi.games.recent';
+  var SNAPS_KEY = 'zimi.games.snaps';
   var CAP = 6;
   var SKIP_PAGES = { 'index.html': 1, 'about.html': 1, 'puzzles.html': 1 };
 
@@ -91,7 +92,7 @@
   // With nothing played yet the table offers these, in this order.
   var CLASSICS = ['chess.html', 'solitaire.html', 'checkers.html'];
 
-  var api = { KEY: KEY, CAP: CAP, fnv1a: fnv1a, uniqueByPath: uniqueByPath, dayPick: dayPick, record: record, read: read, localDay: localDay, tilt: tilt, ago: ago };
+  var api = { KEY: KEY, SNAPS_KEY: SNAPS_KEY, snapSrc: snapSrc, CAP: CAP, fnv1a: fnv1a, uniqueByPath: uniqueByPath, dayPick: dayPick, record: record, read: read, localDay: localDay, tilt: tilt, ago: ago };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   root.ZimiRecent = api;
 
@@ -119,6 +120,33 @@
     try {
       root.localStorage.setItem(KEY, JSON.stringify(record(read(root.localStorage), { path: path, title: pageTitle() }, Date.now(), CAP)));
     } catch (e) { /* private window, blocked storage: nothing to remember */ }
+  }
+
+  // Live tiles: a game left in progress keeps a picture of its table (shell.js writes it); the shelf's tile for that
+  // game shows the picture in place of its art. A picture is a data URL or an svg string, so nothing is fetched.
+  function snapSrc(snap) {
+    if (snap && typeof snap.img === 'string' && /^data:image\/(png|jpeg);base64,/.test(snap.img)) return snap.img;
+    if (snap && typeof snap.svg === 'string' && /^\s*<svg[\s>]/.test(snap.svg)) return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(snap.svg);
+    return '';
+  }
+  function liveTiles() {
+    var snaps;
+    try { snaps = JSON.parse(root.localStorage.getItem(SNAPS_KEY)); } catch (e) { return; }
+    if (!snaps || typeof snaps !== 'object') return;
+    Object.keys(snaps).forEach(function (path) {
+      var src = snapSrc(snaps[path]);
+      if (!src) return;
+      Array.prototype.forEach.call(doc.querySelectorAll('a.ar-game[href="' + path + '"]'), function (tile) {
+        var art = tile.querySelector('.ar-game-art');
+        if (!art || art.tagName.toLowerCase() === 'img') return;
+        var img = doc.createElement('img');
+        img.className = 'ar-game-art ar-game-live';
+        img.alt = '';
+        img.decoding = 'async';
+        img.src = src;
+        art.parentNode.replaceChild(img, art);
+      });
+    });
   }
 
   // A tile for a game: the shelf's own, copied, so the art matches. A game the
@@ -241,6 +269,7 @@
   function shelf() {
     var first = doc.querySelector('.ar-section');
     if (!first) return;
+    liveTiles();
     var put = function (cls, label, games, feature) {
       var tiles = games.map(tileFor).filter(Boolean);
       if (!tiles.length) return;

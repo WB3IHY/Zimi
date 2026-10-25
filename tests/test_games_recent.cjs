@@ -79,5 +79,14 @@ check(R.ago(NOW, NOW - 3 * 86400000) === '3 d ago', 'ago: days');
 check(R.ago(NOW, NOW - 20 * 86400000) === '2 w ago', 'ago: weeks');
 check(R.ago(NOW, NOW + 5000) === 'just now', 'ago: a clock set back');
 
+// Live tiles: only a png or jpeg data URL or an svg string becomes a picture; anything else is no picture.
+check(R.snapSrc({ img: 'data:image/png;base64,AAAA' }) === 'data:image/png;base64,AAAA', 'snapSrc: a png data URL');
+check(R.snapSrc({ img: 'data:image/jpeg;base64,AAAA' }) !== '', 'snapSrc: a jpeg data URL');
+check(R.snapSrc({ img: 'https://example.com/x.png' }) === '', 'snapSrc: no outside address');
+check(R.snapSrc({ img: 'data:text/html;base64,AAAA' }) === '', 'snapSrc: no html');
+check(/^data:image\/svg\+xml;charset=utf-8,%3Csvg/.test(R.snapSrc({ svg: '<svg xmlns="x"></svg>' })), 'snapSrc: an svg string becomes a data URL');
+check(R.snapSrc({ svg: '<script>alert(1)</script>' }) === '', 'snapSrc: a string that is not an svg');
+check(R.snapSrc(null) === '' && R.snapSrc({}) === '', 'snapSrc: nothing kept, nothing shown');
+
 if (failures) { console.log(failures + ' failed'); process.exit(1); }
 console.log('games recent: ok');
