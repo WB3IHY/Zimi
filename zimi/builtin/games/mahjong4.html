@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mahjong for Four - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="world.css">
+<link rel="stylesheet" href="mahjong4.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Mahjong for Four</h1>
+  <button class="ar-btn" id="m4-rules" type="button" aria-haspopup="dialog">Scoring</button>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog">New game</button>
+</header>
+
+<main class="bg-main m4-main">
+  <p class="m4-info" id="m4-info"></p>
+  <div class="bg-score" id="wk-score" aria-label="Players and points"></div>
+  <div class="m4-opps" id="m4-opps"></div>
+  <div class="m4-pool" id="m4-pool" aria-label="Discards"></div>
+  <p class="bg-status" id="wk-status" role="status" aria-live="polite"></p>
+  <div class="m4-claim" id="m4-claim" hidden role="group" aria-label="Your options"></div>
+  <div class="m4-me">
+    <div class="m4-melds" id="m4-melds" aria-label="Your melds"></div>
+    <div class="m4-hand" id="m4-hand" role="group" aria-label="Your hand"></div>
+  </div>
+  <div class="bg-controls"><button class="ar-btn" id="wk-hint" type="button" disabled>Hint</button></div>
+  <p class="bg-stats" id="wk-stats"></p>
+  <p class="bg-help">Hong Kong old style, simplified: no flowers, a hand needs three faan (see Scoring) and may be won on your own draw or on a discard. Tap a tile to pick it, tap it again to discard. When another player discards you may claim it for a pung or kong (any player), a chow (only the player after them) or to win. East round: the deal passes on when someone else wins. Arrow keys move over your tiles, Enter picks and discards, H hints, N starts a new game.</p>
+</main>
+
+<div class="ar-sheet" id="m4-hand-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="m4-hand-title">
+  <div class="ar-sheet-card">
+    <h2 id="m4-hand-title">Hand over</h2>
+    <div id="m4-hand-body"></div>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="m4-hand-look" type="button">Look at the table</button>
+      <button class="ar-btn" id="m4-hand-next" type="button" aria-pressed="true">Next hand</button>
+    </div>
+  </div>
+</div>
+
+<div class="ar-sheet" id="m4-rules-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="m4-rules-title">
+  <div class="ar-sheet-card">
+    <h2 id="m4-rules-title">Scoring</h2>
+    <div id="m4-rules-body"></div>
+    <div class="ar-sheet-actions"><button class="ar-btn" id="m4-rules-close" type="button" aria-pressed="true">Close</button></div>
+  </div>
+</div>
+<script src="boardkit.js"></script>
+<script src="worldkit.js"></script>
+<script src="mahjong-tiles.js"></script>
+<script src="mahjong4-engine.js"></script>
+<script src="mahjong4.js"></script>
+<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q12263">About Mahjong for Four</a></footer><!-- /zimi-about -->
+</body>
+</html>

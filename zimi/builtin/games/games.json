@@ -404,5 +404,68 @@
   "path": "puzzles/unruly.html",
   "title": "Unruly",
   "blurb": "Two colours, no three in a row, balanced lines"
+ },
+ {
+  "qid": "Q715883",
+  "wiki": "Janggi",
+  "path": "janggi.html",
+  "title": "Janggi",
+  "blurb": "Korean chess: palaces, cannons that need a screen, bikjang"
+ },
+ {
+  "qid": "Q631557",
+  "wiki": "Makruk",
+  "path": "makruk.html",
+  "title": "Makruk",
+  "blurb": "Thai chess: Khon, Met and Bia, a move-limit count"
+ },
+ {
+  "qid": "Q989473",
+  "wiki": "International draughts",
+  "path": "draughts.html",
+  "title": "International Draughts",
+  "blurb": "Flying kings, take the most pieces, men capture backwards"
+ },
+ {
+  "qid": "Q750693",
+  "wiki": "Tafl games",
+  "path": "hnefatafl.html",
+  "title": "Hnefatafl",
+  "blurb": "Copenhagen rules: the king runs for a corner"
+ },
+ {
+  "qid": "Q17663922",
+  "wiki": "Hnefatafl",
+  "path": "hnefatafl.html",
+  "title": "Hnefatafl",
+  "blurb": "Copenhagen rules: the king runs for a corner"
+ },
+ {
+  "qid": "Q937315",
+  "wiki": "Royal Game of Ur",
+  "path": "ur.html",
+  "title": "Royal Game of Ur",
+  "blurb": "Four dice, rosettes, a race 4,500 years old"
+ },
+ {
+  "qid": "Q697302",
+  "wiki": "Snakes and ladders",
+  "path": "snakesandladders.html",
+  "title": "Snakes and Ladders",
+  "blurb": "Two to four players, our own drawn board"
+ },
+ {
+  "qid": "Q900489",
+  "wiki": "Carrom",
+  "path": "carrom.html",
+  "title": "Carrom",
+  "blurb": "Flick the striker, pocket your coins, cover the queen"
+ },
+ {
+  "qid": "Q12263",
+  "wiki": "Mahjong",
+  "path": "mahjong4.html",
+  "title": "Mahjong for Four",
+  "blurb": "Hong Kong old style against three computers"
  }
 ]
