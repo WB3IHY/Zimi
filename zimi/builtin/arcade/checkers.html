@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Checkers - Zimi Arcade</title>
+<link rel="stylesheet" href="arcade.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="checkers.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to the Arcade">&lsaquo;</a>
+  <h1>Checkers</h1>
+  <button class="ar-btn" id="ck-undo" type="button" disabled>Undo</button>
+  <button class="ar-btn" id="ck-new" type="button" aria-haspopup="dialog">New game</button>
+</header>
+
+<main class="bg-main">
+  <div class="bg-score" aria-label="Score"><span><i class="bg-dot ck-r"></i> Red <b id="ck-red">12</b></span><span><i class="bg-dot ck-w"></i> White <b id="ck-white">12</b></span></div>
+  <div class="bg-board ck-board" id="ck-board" role="group" aria-label="Checkers board"></div>
+  <p class="bg-status" id="ck-status" role="status" aria-live="polite"></p>
+  <p class="bg-stats" id="ck-stats"></p>
+  <p class="bg-help">Move diagonally forward. Jump an opponent piece when you can, and you must. Reach the far row to be crowned. Arrow keys move, Enter selects, U undoes, N starts a new game.</p>
+</main>
+
+<div class="ar-sheet" id="ck-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="ck-menu-title">
+  <div class="ar-sheet-card">
+    <h2 id="ck-menu-title">New game</h2>
+    <fieldset class="bg-field"><legend>Opponent</legend><div class="bg-chips" id="ck-f-mode">
+      <label class="bg-chip"><input type="radio" name="ck-mode" value="cpu"><span>Computer</span></label>
+      <label class="bg-chip"><input type="radio" name="ck-mode" value="two"><span>Two players</span></label>
+    </div></fieldset>
+    <fieldset class="bg-field" id="ck-f-level"><legend>Level</legend><div class="bg-chips">
+      <label class="bg-chip"><input type="radio" name="ck-level" value="easy"><span>Easy</span></label>
+      <label class="bg-chip"><input type="radio" name="ck-level" value="medium"><span>Medium</span></label>
+      <label class="bg-chip"><input type="radio" name="ck-level" value="hard"><span>Hard</span></label>
+    </div></fieldset>
+    <fieldset class="bg-field" id="ck-f-side"><legend>You play</legend><div class="bg-chips">
+      <label class="bg-chip"><input type="radio" name="ck-side" value="red"><span>Red (first)</span></label>
+      <label class="bg-chip"><input type="radio" name="ck-side" value="white"><span>White</span></label>
+    </div></fieldset>
+    <label class="bg-check"><input type="checkbox" id="ck-hints"> Show legal moves</label>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="ck-cancel" type="button">Cancel</button>
+      <button class="ar-btn" id="ck-start" type="button" aria-pressed="true">Start</button>
+    </div>
+  </div>
+</div>
+
+<div class="ar-sheet" id="ck-result" hidden role="dialog" aria-modal="true" aria-labelledby="ck-result-title">
+  <div class="ar-sheet-card">
+    <h2 id="ck-result-title">Game over</h2>
+    <p id="ck-result-text"></p>
+    <div class="ar-sheet-actions">
+      <button class="ar-btn" id="ck-close" type="button">Look at the board</button>
+      <button class="ar-btn" id="ck-again" type="button" aria-pressed="true">Play again</button>
+    </div>
+  </div>
+</div>
+<script src="boardkit.js"></script>
+<script src="checkers.js"></script>
+</body>
+</html>
