@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Circuit - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="circuit.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Circuit</h1>
+  <button class="ar-btn" id="cr-reset" type="button" disabled>Reset car</button>
+  <button class="ar-btn" id="cr-pause" type="button" disabled>Pause</button>
+</header>
+
+<main class="pl-main">
+  <div class="pl-hud" id="cr-hud">
+    <div class="pl-stat"><small>Lap</small><b id="cr-lap">1/3</b></div>
+    <div class="pl-stat"><small>Place</small><b id="cr-pos">1/5</b></div>
+    <div class="pl-stat"><small>Time</small><b id="cr-time">0:00.0</b></div>
+    <div class="pl-stat"><small>Best</small><b id="cr-best">-</b></div>
+  </div>
+  <canvas class="pl-arena" id="cr-board" role="img" aria-label="The track from above, your car and the computer cars"></canvas>
+  <div class="cr-pad" id="cr-pad" role="group" aria-label="Controls">
+    <div class="cr-pair">
+      <button class="pl-key" type="button" id="cr-left" aria-label="Steer left" aria-pressed="false">&larr;</button>
+      <button class="pl-key" type="button" id="cr-right" aria-label="Steer right" aria-pressed="false">&rarr;</button>
+    </div>
+    <div class="cr-pair">
+      <button class="pl-key cr-brake" type="button" id="cr-brake" aria-label="Brake" aria-pressed="false">Brake</button>
+      <button class="pl-key cr-gas" type="button" id="cr-gas" aria-label="Accelerate" aria-pressed="false">Gas</button>
+    </div>
+  </div>
+  <p class="pl-msg" id="cr-msg" role="status" aria-live="polite"></p>
+  <p class="pl-help" id="cr-help">Arrows or WASD steer, accelerate and brake. R puts the car back on the road, P pauses. Two players: WASD and the arrows.</p>
+</main>
+
+<div class="ar-sheet" id="cr-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="cr-sheet-title">
+  <div class="ar-sheet-card">
+    <h2 id="cr-sheet-title">Circuit</h2>
+    <div id="cr-body"></div>
+    <div class="ar-sheet-actions" id="cr-actions"></div>
+  </div>
+</div>
+<script src="playkit.js"></script>
+<script src="circuit.js"></script>
+<script src="circuit-page.js"></script>
+<!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
+<!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q1054293">About Circuit</a></footer><!-- /zimi-about -->
+</body>
+</html>
