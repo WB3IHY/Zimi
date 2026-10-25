@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Four in a Row - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="world.css">
+<link rel="stylesheet" href="fourinarow.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Four in a Row</h1>
+  <button class="ar-btn" id="wk-undo" type="button" disabled>Undo</button>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog">New game</button>
+</header>
+
+<main class="bg-main">
+  <div class="bg-score" id="wk-score" aria-label="Score"></div>
+  <div class="wk-board fr-board" id="wk-board" role="group" aria-label="Four in a Row board"></div>
+  <p class="bg-status" id="wk-status" role="status" aria-live="polite"></p>
+  <div class="bg-controls" id="wk-controls"><button class="ar-btn" id="wk-hint" type="button" disabled>Hint</button></div>
+  <p class="bg-stats" id="wk-stats"></p>
+  <p class="bg-help">Drop a disc in a column. Line up four of yours in a row, a column or a diagonal. Arrow keys choose a column, Enter drops, U undoes, H gives a hint, N starts a new game.</p>
+</main>
+<script src="boardkit.js"></script>
+<script src="worldkit.js"></script>
+<script src="fourinarow.js"></script>
+</body>
+</html>
