@@ -10,9 +10,11 @@
 <main class="ar-shelf">
   <header>
     <h1>Arcade</h1>
-    <p>The classic desktop games, played offline. Your best times stay on this device.</p>
+    <p>Card, board, puzzle and arcade games, played offline. Your best times and scores stay on this device.</p>
   </header>
-  <nav class="ar-games" aria-label="Games">
+  <section class="ar-section" aria-labelledby="ar-cards">
+    <h2 id="ar-cards">Cards</h2>
+    <nav class="ar-games" aria-label="Cards">
     <a class="ar-game" href="solitaire.html">
       <svg class="ar-game-art" viewBox="0 0 320 180" aria-hidden="true">
         <rect width="320" height="180" fill="#1f6f43"/>
@@ -32,6 +34,11 @@
       </svg>
       <span class="ar-game-text"><strong>FreeCell</strong><span>The numbered deals, every one winnable but one</span></span>
     </a>
+    </nav>
+  </section>
+  <section class="ar-section" aria-labelledby="ar-puzzles">
+    <h2 id="ar-puzzles">Puzzles</h2>
+    <nav class="ar-games" aria-label="Puzzles">
     <a class="ar-game" href="minesweeper.html">
       <svg class="ar-game-art" viewBox="0 0 320 180" aria-hidden="true">
         <rect width="320" height="180" fill="#c8ccd3"/>
@@ -47,7 +54,91 @@
       </svg>
       <span class="ar-game-text"><strong>Minesweeper</strong><span>Beginner to Expert, first click always safe</span></span>
     </a>
-  </nav>
+    <a class="ar-game" href="sudoku.html">
+      <svg class="ar-game-art" viewBox="0 0 320 180" aria-hidden="true">
+        <rect width="320" height="180" fill="#ffffff"/>
+        <g transform="translate(97 27)" fill="none" stroke="#1d2433">
+          <rect width="126" height="126" stroke-width="3"/>
+          <path d="M42 0V126M84 0V126M0 42H126M0 84H126" stroke-width="2"/>
+          <path d="M14 0V126M28 0V126M56 0V126M70 0V126M98 0V126M112 0V126M0 14H126M0 28H126M0 56H126M0 70H126M0 98H126M0 112H126" stroke-width="0.6" stroke="#9aa3b2"/>
+        </g>
+        <g font-family="system-ui,sans-serif" font-weight="700" font-size="11" text-anchor="middle" fill="#1d2433">
+          <text x="104" y="38">5</text><text x="132" y="52">3</text><text x="160" y="38">7</text><text x="188" y="80">6</text><text x="146" y="94">9</text><text x="216" y="108">1</text><text x="118" y="122">8</text><text x="174" y="136">4</text><text x="202" y="150">2</text>
+          <text x="160" y="80" fill="#d97706">5</text>
+        </g>
+      </svg>
+      <span class="ar-game-text"><strong>Sudoku</strong><span>Four levels, every puzzle has one solution</span></span>
+    </a>
+    <a class="ar-game" href="2048.html">
+      <svg class="ar-game-art" viewBox="0 0 320 180" aria-hidden="true">
+        <rect width="320" height="180" fill="#d6dbe3"/>
+        <g font-family="system-ui,sans-serif" font-weight="800" text-anchor="middle">
+          <rect x="70" y="30" width="56" height="56" rx="8" fill="#eef0f3"/><text x="98" y="68" font-size="24" fill="#1d2433">2</text>
+          <rect x="132" y="30" width="56" height="56" rx="8" fill="#a8d5c6"/><text x="160" y="68" font-size="24" fill="#1d2433">8</text>
+          <rect x="194" y="30" width="56" height="56" rx="8" fill="#3fb59a"/><text x="222" y="67" font-size="20" fill="#fff">64</text>
+          <rect x="70" y="92" width="56" height="56" rx="8" fill="#eef0f3"/><text x="98" y="130" font-size="24" fill="#1d2433">4</text>
+          <rect x="132" y="92" width="118" height="56" rx="8" fill="#d97706"/><text x="191" y="130" font-size="26" fill="#fff">2048</text>
+        </g>
+      </svg>
+      <span class="ar-game-text"><strong>2048</strong><span>Slide and merge tiles, one undo</span></span>
+    </a>
+    <a class="ar-game" href="fiveletters.html">
+      <svg class="ar-game-art" viewBox="0 0 320 180" aria-hidden="true">
+        <rect width="320" height="180" fill="#1d2433"/>
+        <g font-family="system-ui,sans-serif" font-weight="800" font-size="26" text-anchor="middle" fill="#fff">
+          <rect x="35" y="30" width="46" height="46" rx="4" fill="#4b5568"/><text x="58" y="63">C</text>
+          <rect x="87" y="30" width="46" height="46" rx="4" fill="#4b5568"/><text x="110" y="63">R</text>
+          <rect x="139" y="30" width="46" height="46" rx="4" fill="#d4a40f"/><text x="162" y="63">A</text>
+          <rect x="191" y="30" width="46" height="46" rx="4" fill="#4b5568"/><text x="214" y="63">N</text>
+          <rect x="243" y="30" width="46" height="46" rx="4" fill="#d4a40f"/><text x="266" y="63">E</text>
+          <rect x="35" y="88" width="46" height="46" rx="4" fill="#3d9a4a"/><text x="58" y="121">A</text>
+          <rect x="87" y="88" width="46" height="46" rx="4" fill="#3d9a4a"/><text x="110" y="121">B</text>
+          <rect x="139" y="88" width="46" height="46" rx="4" fill="#3d9a4a"/><text x="162" y="121">O</text>
+          <rect x="191" y="88" width="46" height="46" rx="4" fill="#3d9a4a"/><text x="214" y="121">D</text>
+          <rect x="243" y="88" width="46" height="46" rx="4" fill="#3d9a4a"/><text x="266" y="121">E</text>
+        </g>
+      </svg>
+      <span class="ar-game-text"><strong>Five Letters</strong><span>Guess the word in six tries, daily or practice</span></span>
+    </a>
+    </nav>
+  </section>
+  <section class="ar-section" aria-labelledby="ar-arcade">
+    <h2 id="ar-arcade">Arcade</h2>
+    <nav class="ar-games" aria-label="Arcade">
+    <a class="ar-game" href="stacker.html">
+      <svg class="ar-game-art" viewBox="0 0 320 180" aria-hidden="true">
+        <rect width="320" height="180" fill="#1d2433"/>
+        <g stroke="#1d2433" stroke-width="3">
+          <g fill="#1e9ec4"><rect x="96" y="132" width="24" height="24"/><rect x="120" y="132" width="24" height="24"/><rect x="144" y="132" width="24" height="24"/><rect x="168" y="132" width="24" height="24"/></g>
+          <g fill="#d4a40f"><rect x="192" y="108" width="24" height="24"/><rect x="216" y="108" width="24" height="24"/><rect x="192" y="132" width="24" height="24"/><rect x="216" y="132" width="24" height="24"/></g>
+          <g fill="#8a55c9"><rect x="96" y="108" width="24" height="24"/><rect x="120" y="108" width="24" height="24"/><rect x="144" y="108" width="24" height="24"/><rect x="120" y="84" width="24" height="24"/></g>
+          <g fill="#d1473f"><rect x="150" y="24" width="24" height="24"/><rect x="174" y="24" width="24" height="24"/><rect x="174" y="48" width="24" height="24"/><rect x="198" y="48" width="24" height="24"/></g>
+        </g>
+      </svg>
+      <span class="ar-game-text"><strong>Stacker</strong><span>Fit falling pieces into rows, with hold and a ghost</span></span>
+    </a>
+    <a class="ar-game" href="snake.html">
+      <svg class="ar-game-art" viewBox="0 0 320 180" aria-hidden="true">
+        <rect width="320" height="180" fill="#16301f"/>
+        <path d="M60 130 H170 V70 H250" fill="none" stroke="#62c470" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="246" cy="64" r="3.5" fill="#16301f"/><circle cx="246" cy="76" r="3.5" fill="#16301f"/>
+        <circle cx="272" cy="118" r="11" fill="#d1473f"/><path d="M272 107 q4 -8 10 -8" stroke="#3d9a4a" stroke-width="3" fill="none"/>
+      </svg>
+      <span class="ar-game-text"><strong>Snake</strong><span>Eat, grow, speed up; walls or wrap-around</span></span>
+    </a>
+    <a class="ar-game" href="bricks.html">
+      <svg class="ar-game-art" viewBox="0 0 320 180" aria-hidden="true">
+        <rect width="320" height="180" fill="#1d2433"/>
+        <g fill="#d1473f"><rect x="24" y="22" width="50" height="14" rx="3"/><rect x="80" y="22" width="50" height="14" rx="3"/><rect x="136" y="22" width="50" height="14" rx="3"/><rect x="192" y="22" width="50" height="14" rx="3"/><rect x="248" y="22" width="50" height="14" rx="3"/></g>
+        <g fill="#dc7a1b"><rect x="24" y="42" width="50" height="14" rx="3"/><rect x="80" y="42" width="50" height="14" rx="3"/><rect x="192" y="42" width="50" height="14" rx="3"/><rect x="248" y="42" width="50" height="14" rx="3"/></g>
+        <g fill="#d4a40f"><rect x="24" y="62" width="50" height="14" rx="3"/><rect x="248" y="62" width="50" height="14" rx="3"/></g>
+        <circle cx="168" cy="112" r="7" fill="#f59a45"/>
+        <rect x="128" y="150" width="70" height="10" rx="5" fill="#e8ebf1"/>
+      </svg>
+      <span class="ar-game-text"><strong>Bricks</strong><span>Paddle and ball, eight levels, angle by where it lands</span></span>
+    </a>
+    </nav>
+  </section>
   <p class="ar-foot">Zimi Arcade. Open-source recreations, GPL-3.0. No network, ever.</p>
 </main>
 </body>
