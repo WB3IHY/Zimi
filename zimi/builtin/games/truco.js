@@ -24,9 +24,11 @@
    page wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
 
-  var NAMES = ['You', 'North'], DECK = 40, HAND = 3, FLOR_POINTS = 3, ENVIDO_BASE = 20;
+  // The page renames the seats when two people share a device; YOU is the seat called "You" (-1: none).
+  var NAMES = ['You', 'North'], YOU = 0, DECK = 40, HAND = 3, FLOR_POINTS = 3, ENVIDO_BASE = 20;
+  function setNames(names, youSeat) { NAMES[0] = names[0]; NAMES[1] = names[1]; YOU = youSeat; }
   var suitOf = function (id) { return Math.floor(id / 10); };
   var rankOf = function (id) { return [1, 2, 3, 4, 5, 6, 7, 10, 11, 12][id % 10]; };
   var other = function (seat) { return 1 - seat; };
@@ -63,7 +65,7 @@
       var fl = [hasFlor(hands[0]), hasFlor(hands[1])];
       s.florHeld = fl;
       [0, 1].forEach(function (seat) { if (fl[seat]) s.scores[seat] += FLOR_POINTS; });
-      if (fl[0] || fl[1]) s.note = (fl[0] ? 'You have flor, +' + FLOR_POINTS + '. ' : '') + (fl[1] ? 'North has flor, +' + FLOR_POINTS + '. ' : '') + 'No envido this hand.';
+      if (fl[0] || fl[1]) s.note = (fl[0] ? NAMES[0] + (YOU === 0 ? ' have' : ' has') + ' flor, +' + FLOR_POINTS + '. ' : '') + (fl[1] ? NAMES[1] + (YOU === 1 ? ' have' : ' has') + ' flor, +' + FLOR_POINTS + '. ' : '') + 'No envido this hand.';
       if (s.scores[0] >= target || s.scores[1] >= target) s.phase = 'over';
     }
     return s;
@@ -150,12 +152,12 @@
       var pts = [envidoPoints(s.orig[0]), envidoPoints(s.orig[1])], win = pts[0] === pts[1] ? s.mano : pts[0] > pts[1] ? 0 : 1, value = chainValue(s, chain);
       res = { done: true, points: pts, winner: win, value: value };
       s.scores[win] += value;
-      s.note = 'Envido: You ' + pts[0] + ', North ' + pts[1] + '. ' + (win === 0 ? 'You win ' : 'North wins ') + value + '.';
+      s.note = 'Envido: ' + NAMES[0] + ' ' + pts[0] + ', ' + NAMES[1] + ' ' + pts[1] + '. ' + NAMES[win] + (win === YOU ? ' win ' : ' wins ') + value + '.';
     } else {
       var prior = chain.slice(0, -1), value2 = prior.length ? chainValue(s, prior) : 1;
       res = { done: true, points: null, winner: by, value: value2 };
       s.scores[by] += value2;
-      s.note = (resp === 0 ? 'You refuse' : 'North refuses') + ' the envido: ' + (by === 0 ? 'you take ' : 'North takes ') + value2 + '.';
+      s.note = NAMES[resp] + (resp === YOU ? ' refuse' : ' refuses') + ' the envido: ' + (by === YOU ? 'you take ' : NAMES[by] + ' takes ') + value2 + '.';
     }
     s.envido = res; s.call = s.hold; s.hold = null; s.ask = s.call ? other(s.call.by) : -1;
     if (s.scores[0] >= s.target || s.scores[1] >= s.target) { s.phase = 'over'; s.result = { winner: res.winner, points: res.value, reason: 'envido' }; s.call = null; s.ask = -1; }
@@ -250,26 +252,27 @@
     return g;
   }
   // The tricks side by side, North's card above yours.
-  function place(st, m) {
+  function place(st, m, view) {
+    var V = (view && view.viewer) || 0, O = 1 - V, faceUp = !(view && view.hideHand);
     var g = geo(m), cards = [], slots = [], k, plays = st.done.map(function (d) { return d.plays; }).concat(st.trick.length ? [st.trick] : []);
     slots.push({ id: 'trick', x: g.cx - 2 * g.cw, y: g.duelY, w: 4 * g.cw, h: g.ch * (1 + ROW_DROP), quiet: true, label: 'Tricks' });
-    var hand = T.handCards(g, st.hands[0], function (id) { return { label: nameOf(id) + ', worth ' + power(id) }; }, null);
-    var step = Math.min(g.cw * 1.12, (g.W - 2 * g.pad - g.cw) / Math.max(1, st.hands[0].length - 1)), x0 = (g.W - (g.cw + (st.hands[0].length - 1) * step)) / 2;
+    var hand = T.handCards(g, st.hands[V], function (id) { return { up: faceUp, label: nameOf(id) + ', worth ' + power(id) }; }, null);
+    var step = Math.min(g.cw * 1.12, (g.W - 2 * g.pad - g.cw) / Math.max(1, st.hands[V].length - 1)), x0 = (g.W - (g.cw + (st.hands[V].length - 1) * step)) / 2;
     hand.cards.forEach(function (c, i) { c.x = Math.round(x0 + i * step); hand.slots[i].x = c.x; });
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
-    cards = cards.concat(T.fan(g, 2, st.hands[1], false).map(function (c, i, a) { c.x = Math.round((g.W - (g.cw + (a.length - 1) * g.cw * 0.5)) / 2 + i * g.cw * 0.5); return c; }));
+    cards = cards.concat(T.fan(g, 2, st.hands[O], false).map(function (c, i, a) { c.x = Math.round((g.W - (g.cw + (a.length - 1) * g.cw * 0.5)) / 2 + i * g.cw * 0.5); return c; }));
     plays.forEach(function (pair, i) {
       var cx = g.cx - g.cw / 2 + (i - 1) * g.cw * COL_STEP, won = i < st.done.length ? st.done[i].winner : -2;
       // North's card first, so yours lies over its lower edge and is whole.
-      pair.slice().sort(function (a, b) { return b.seat - a.seat; }).forEach(function (p) {
-        cards.push({ id: p.id, pile: 'k' + i, idx: p.seat, x: Math.round(cx + (p.seat ? 0 : 0)), y: Math.round(g.duelY + (p.seat === 0 ? g.ch * ROW_DROP : 0)), up: true, glow: won === p.seat, dim: won >= 0 && won !== p.seat });
+      pair.slice().sort(function (a, b) { return (a.seat === V) - (b.seat === V); }).forEach(function (p) {
+        cards.push({ id: p.id, pile: 'k' + i, idx: p.seat, x: Math.round(cx + (p.seat ? 0 : 0)), y: Math.round(g.duelY + (p.seat === V ? g.ch * ROW_DROP : 0)), up: true, glow: won === p.seat, dim: won >= 0 && won !== p.seat });
       });
     });
     return { height: m.H, slots: slots, cards: cards };
   }
 
   var api = {
-    NAMES: NAMES, DECK: DECK, power: power, rankOf: rankOf, suitOf: suitOf, envidoPoints: envidoPoints, hasFlor: hasFlor, dealHand: dealHand, newGame: newGame, nextHand: nextHand,
+    setNames: setNames, NAMES: NAMES, DECK: DECK, power: power, rankOf: rankOf, suitOf: suitOf, envidoPoints: envidoPoints, hasFlor: hasFlor, dealHand: dealHand, newGame: newGame, nextHand: nextHand,
     stake: stake, actions: actions, isLegal: isLegal, act: act, handWinner: handWinner, envidoRaises: envidoRaises, chainValue: chainValue, faltaPoints: faltaPoints,
     gameWinner: gameWinner, aiAct: aiAct, strength: strength, geo: geo, place: place, nameOf: nameOf
   };
@@ -278,7 +281,15 @@
   // ── The page ────────────────────────────────────────────────────────────
   var AI_MS = 900, TRICK_MS = 1100, TARGET_KEY = 'truco.target', FLOR_KEY = 'truco.flor', TARGETS = [15, 30];
   function boot() {
-    var d = root.document, t, board, session, view = { flash: '', sweep: false };
+    var d = root.document, t, board, session, view = { flash: '', sweep: false, viewer: 0, hideHand: false };
+    // Each seat is the Computer or a Person; two people share the screen behind a handoff.
+    var seats = Seats.create({ id: 'truco', seats: 2, onChange: function () { if (board) board.refresh(); if (t) t.paint(); } });
+    // Who must act: the one asked to answer a call, else the player to play.
+    var actor = function (st) { return st.call ? st.ask : st.turn; };
+    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.phase === 'play' && actor(st) !== view.viewer; }
+    function nameSeats() { setNames([seats.name(0), seats.name(1)], seats.isYou(0) ? 0 : seats.isYou(1) ? 1 : -1); }
+    var who = function (s) { return seats.name(s); };
+    var vb = function (s, you, other) { return seats.isYou(s) ? you : other; };
     var busy = function () { return view.sweep; };
     var LABEL = { envido: 'Envido', real: 'Real envido', falta: 'Falta envido', quiero: 'Quiero', noquiero: 'No quiero', mazo: 'Mazo (fold)' };
     function labelFor(st, type) {
@@ -287,28 +298,28 @@
     }
     function handLines(st) {
       var r = st.result, why = { tricks: 'took the hand', mazo: 'won as the other folded', refused: 'won as the call was refused', envido: 'won it on the envido' }[r.reason];
-      return [(r.winner === 0 ? 'You ' : 'North ') + why + ' for ' + Z.plural(r.points, 'point') + '.', 'Score: You ' + st.scores[0] + ', North ' + st.scores[1] + ', to ' + st.target + '.'];
+      return [who(r.winner) + ' ' + why + ' for ' + Z.plural(r.points, 'point') + '.', 'Score: ' + who(0) + ' ' + st.scores[0] + ', ' + who(1) + ' ' + st.scores[1] + ', to ' + st.target + '.'];
     }
     function hud(st) {
-      var mine = st.hands[0], wins = [0, 1].map(function (s) { return st.done.filter(function (x) { return x.winner === s; }).length; });
+      var V = view.viewer, mine = st.hands[actor(st)], wins = [0, 1].map(function (s) { return st.done.filter(function (x) { return x.winner === s; }).length; });
       var out = {
-        chips: [{ name: 'You', text: String(st.scores[0]), turn: st.phase === 'play' && !busy() && (st.call ? st.ask === 0 : st.turn === 0) }, { name: 'North', text: String(st.scores[1]), turn: st.phase === 'play' && !busy() && (st.call ? st.ask === 1 : st.turn === 1) },
-          { name: 'Tricks', text: wins[0] + '-' + wins[1] }, { name: 'Hand', text: 'worth ' + stake(st) }],
-        sub: 'To ' + st.target + (!st.envido.done && st.done.length === 0 && !florInPlay(st) ? ' · envido ' + envidoPoints(st.orig[0]) : ''), text: ''
+        chips: [0, 1].map(function (c) { return { name: who(c), text: String(st.scores[c]), turn: st.phase === 'play' && !busy() && actor(st) === c }; }).concat([
+          { name: 'Tricks', text: wins[0] + '-' + wins[1] }, { name: 'Hand', text: 'worth ' + stake(st) }]),
+        sub: 'To ' + st.target + (!st.envido.done && st.done.length === 0 && !florInPlay(st) && !view.hideHand ? ' \u00b7 envido ' + envidoPoints(st.orig[V]) : ''), text: ''
       };
-      var said = st.say ? (st.say.seat === 0 ? 'You: ' : 'North: ') + st.say.text : '';
+      var said = st.say ? who(st.say.seat) + ': ' + st.say.text : '';
       if (st.phase === 'handEnd') { out.text = handLines(st)[0]; out.label = 'Next hand'; out.action = startNextHand; return out; }
       if (st.phase === 'over') { out.text = 'Game over'; return out; }
-      if (busy()) { out.text = 'The trick: ' + (st.done.length && st.done[st.done.length - 1].winner >= 0 ? NAMES[st.done[st.done.length - 1].winner] + (st.done[st.done.length - 1].winner === 0 ? ' win' : ' wins') : 'tied'); return out; }
-      var acts = actions(st, 0), asked = st.call && st.ask === 0;
+      if (busy()) { out.text = 'The trick: ' + (st.done.length && st.done[st.done.length - 1].winner >= 0 ? who(st.done[st.done.length - 1].winner) + vb(st.done[st.done.length - 1].winner, ' win', ' wins') : 'tied'); return out; }
+      var me = actor(st), acts = actions(st, me), asked = st.call && seats.person(st.ask), name = seats.isYou(me) ? 'Your' : who(me) + ', your';
       if (asked) {
-        out.text = (said ? said + ' ' : '') + (st.call.kind === 'envido' ? 'Your answer?' : 'Your answer? Worth ' + (st.call.level + 1) + ' if you accept');
+        out.text = (said ? said + ' ' : '') + (st.call.kind === 'envido' ? name + ' answer?' : name + ' answer? Worth ' + (st.call.level + 1) + ' if you accept');
         out.choices = acts.filter(function (a) { return a.type !== 'play'; }).map(function (a) { return { label: labelFor(st, a.type), onclick: function () { go(a.type); } }; });
-      } else if (st.turn === 0 && !st.call) {
-        out.text = (st.note ? st.note + ' ' : said ? said + ' ' : '') + 'Your play';
+      } else if (seats.person(st.turn) && !st.call) {
+        out.text = (st.note ? st.note + ' ' : said ? said + ' ' : '') + name + ' play';
         out.choices = acts.filter(function (a) { return a.type !== 'play'; }).map(function (a) { return { label: labelFor(st, a.type), onclick: function () { go(a.type); } }; });
         if (mine.length === 0) out.choices = [];
-      } else out.text = (st.note ? st.note + ' ' : said ? said + ' ' : '') + 'North is thinking';
+      } else out.text = (st.note ? st.note + ' ' : said ? said + ' ' : '') + who(me) + ' is thinking';
       return out;
     }
 
@@ -317,33 +328,34 @@
       if (st.phase === 'over') { gameOver(); return; }
       if (st.phase === 'handEnd') { handOver(); return; }
       if (busy()) return;
-      if (st.call ? st.ask === 1 : st.turn === 1) session.later(aiTurn, AI_MS);
+      if (seats.person(actor(st))) seats.ensure(actor(st), refresh); else session.later(aiTurn, AI_MS);
     }
+    function refresh() { board.refresh(); t.paint(); }
     function aiTurn() {
       var st = session.state;
-      if (st.phase !== 'play' || busy() || !(st.call ? st.ask === 1 : st.turn === 1)) return;
-      var a = aiAct(st, 1, Math.random);
-      apply(1, a.type, a.id);
+      if (st.phase !== 'play' || busy() || seats.person(actor(st))) return;
+      var a = aiAct(st, actor(st), Math.random);
+      apply(actor(st), a.type, a.id);
     }
     // One action, then what follows: a finished trick is held a moment, a said word flashed.
     function apply(seat, type, id) {
       var st = session.state;
       if (!isLegal(st, seat, type, id)) return false;
       var next = act(st, seat, type, id), closes = type === 'play' && next.done.length > st.done.length;
-      if (seat === 0) session.commit(next); else session.follow(next);
-      if (next.say && type !== 'play') t.flash((seat === 0 ? 'You: ' : 'North: ') + next.say.text);
+      if (seats.person(seat)) session.commit(next); else session.follow(next);
+      if (next.say && type !== 'play') t.flash(who(seat) + ': ' + next.say.text);
       if (closes) { view.sweep = true; session.later(function () { view.sweep = false; board.refresh(); t.paint(); drive(); }, TRICK_MS); board.refresh(); t.paint(); return true; }
       drive();
       return true;
     }
-    function go(type) { var st = session.state; if (st.phase === 'play' && !busy()) apply(0, type); }
+    function go(type) { var st = session.state; if (st.phase === 'play' && !busy()) apply(actor(st), type); }
     function handOver() {
       var st = session.state;
       T.lineSheet('Hand ' + (st.handNo + 1), handLines(st), [{ label: 'Next hand', primary: true, onclick: startNextHand }]);
     }
     function gameOver() {
-      var st = session.state, won = gameWinner(st) === 0, lines = (st.result ? handLines(st) : []).concat([won ? 'You win, ' + st.scores[0] + ' to ' + st.scores[1] + '.' : 'North wins, ' + st.scores[1] + ' to ' + st.scores[0] + '.']);
-      if (won) session.win(st.scores[0]); else session.lose('North wins', lines, st.scores[0]);
+      var st = session.state, w = gameWinner(st), won = seats.isYou(w), lines = (st.result ? handLines(st) : []).concat([(won ? 'You win, ' : who(w) + ' wins, ') + st.scores[w] + ' to ' + st.scores[1 - w] + '.']);
+      if (won) session.win(st.scores[0]); else session.lose(who(w) + ' wins', lines, seats.hotseat() ? undefined : st.scores[0]);
     }
     var order = function () { return Z.shuffled(Math.random).filter(function (c) { return c < DECK; }); };
     function startNextHand() {
@@ -351,28 +363,31 @@
       if (st.phase !== 'handEnd') return;
       session.history = []; view.sweep = false;
       session.follow(nextHand(st, order()));
-      drive();
+      deal();
     }
     var idOf = function (pile) { return parseInt(pile.slice(1), 10); };
     function tap(pile) {
       var st = session.state, id = idOf(pile);
       if (pile.charAt(0) !== 'h' || isNaN(id)) return false;
       if (st.phase !== 'play') return false;
-      if (busy() || st.call || st.turn !== 0) { t.flash(st.call && st.ask === 0 ? 'Answer the call first' : 'Wait for your turn'); return false; }
-      return apply(0, 'play', id);
+      if (busy() || st.call || st.turn !== seats.view()) { t.flash(st.call && st.ask === seats.view() ? 'Answer the call first' : 'Wait for your turn'); return false; }
+      return apply(st.turn, 'play', id);
     }
     function startGame() {
       view.sweep = false; view.flash = '';
       var target = Z.store.get(TARGET_KEY, 15), flor = Z.store.get(FLOR_KEY, 'off') === 'on';
+      nameSeats();
       session.reset(newGame(order(), TARGETS.indexOf(target) >= 0 ? target : 15, Math.floor(Math.random() * 2), flor));
-      drive();
+      deal();
     }
+    // A fresh deal: nobody has seen it, so two people start at a handoff.
+    function deal() { var st = session.state; seats.begin(function () { refresh(); drive(); }, actor(st)); }
     t = T.create({
-      id: 'truco', name: 'Truco', view: view, geo: geo, place: place, hud: hud, newGame: startGame, tap: tap, cols: 5, heightShare: 0.13, face: Z.spanishFaceMarkup,
+      id: 'truco', name: 'Truco', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: startGame, tap: tap, cols: 5, heightShare: 0.13, face: Z.spanishFaceMarkup,
       canPick: function () { return false; },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0] + '-' + st.scores[1]; },
       cascadeOrder: function (st) { return st.orig[0].map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return ['You win, ' + st.scores[0] + ' to ' + st.scores[1] + '.']; },
+      winLines: function (sec, st) { return ['You win, ' + st.scores[seats.view()] + ' to ' + st.scores[1 - seats.view()] + '.']; },
       menuExtra: function () {
         return [T.choiceRow('Play to', TARGET_KEY, TARGETS.map(function (n) { return { value: n, label: String(n) }; }), 15, function () {}),
           T.choiceRow('Flor', FLOR_KEY, [{ value: 'off', label: 'Off' }, { value: 'on', label: 'On' }], 'off', function () {}),
