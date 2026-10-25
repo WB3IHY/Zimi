@@ -211,6 +211,16 @@
     var sub = d.getElementById('zc-sub');
     var deal = function () { return newState(Z.shuffled(Math.random), drawN); };
 
+    // Watch and learn: the computer plays the hand by explain-solitaire.js's rules, one step at a time.
+    var watch = null, watchWaiting = false, watchCtx = null, watchDraw = 0;
+    function watchDrive() {
+      var st = session.state, mine = watch;
+      if (isWon(st)) { mine.finish('All four piles are complete: the hand is won. Press Done to play one yourself.'); return; }
+      var step = root.ZimiExplain.solitaire(api, Z, st, watchCtx);
+      if (!step) { mine.finish('Nothing more can be done: no card moves and the stock has been through twice. Not every deal can be won. Press Done to play one yourself.'); return; }
+      watchWaiting = true;
+      mine.offer(step.text, function () { watchWaiting = false; if (watch !== mine) return; session.follow(step.next); watchDrive(); });
+    }
     function afterMove() {
       if (isWon(session.state)) { session.win(); return; }
       if (canAutoFinish(session.state)) autoFinish();
@@ -226,12 +236,13 @@
       }, AUTO_STEP_MS);
     }
     function move(pile, idx, to) {
-      if (!legalMove(session.state, pile, idx, to)) return false;
+      if (watch || !legalMove(session.state, pile, idx, to)) return false;
       session.commit(applyMove(session.state, pile, idx, to));
       afterMove();
       return true;
     }
     function drawCards() {
+      if (watch) return false;
       var next = drawStock(session.state);
       if (!next) return false;
       session.commit(next);
@@ -277,6 +288,21 @@
       }
     });
     api.session = session; api.board = board;
+    if (root.ZimiShell) root.ZimiShell.game({
+      watch: {
+        script: 'explain-solitaire.js', unit: 'step',
+        start: function (ctl) {
+          watchDraw = drawN; drawN = 1; watch = ctl; watchCtx = {}; newGame();
+          ctl.say('The computer plays this hand. Foundations first, then moves that turn cards over.');
+          watchDrive();
+        },
+        stop: function (kind) {
+          var waiting = watchWaiting; watch = null; watchWaiting = false; drawN = watchDraw;
+          if (kind === 'takeover') { if (!waiting) return; }
+          else if (kind === 'stop') newGame();
+        }
+      }
+    });
     newGame();
     if (/[?&]debug=win/.test(root.location.search)) session.reset(almostWon(drawN));
   }

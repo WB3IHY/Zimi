@@ -142,7 +142,7 @@
   }
 
   // The computer's move at a level (iterative deepening within the level's time).
-  function chooseMove(b, p, level, rng) {
+  function chooseMove(b, p, level, rng, info) {
     var ms = moves(b, p);
     if (!ms.length) return null;
     if (ms.length === 1) return ms[0];
@@ -158,7 +158,7 @@
           if (s > alpha) alpha = s;
         }
       } catch (e) { if (!(e instanceof Timeout)) throw e; break; }
-      scores = cur; best = ms[bestIdx];
+      scores = cur; best = ms[bestIdx]; if (info) info.score = cur[bestIdx];
       // search the best move first next time
       ms.unshift(ms.splice(bestIdx, 1)[0]); scores.unshift(scores.splice(bestIdx, 1)[0]);
       if (Math.abs(scores[0]) > WIN_SCORE / 2) break;
@@ -169,7 +169,7 @@
         var n = scores[j] + (rand() - 0.5) * 2 * cfg.noise;
         if (n > top) { top = n; pick = j; }
       }
-      best = ms[pick];
+      best = ms[pick]; if (info) info.score = scores[pick];
     }
     return best;
   }
@@ -197,7 +197,8 @@
   var els = { board: $('ck-board'), status: $('ck-status'), red: $('ck-red'), white: $('ck-white'), undo: $('ck-undo'), stats: $('ck-stats') };
   var cells = [], game, history = [], thinking = 0, over = false, sel = -1, prefix = [], legal = [], lastSquares = [], flip = false, seen = {};
 
-  function human(p) { return settings.mode === 'two' || p === (settings.side === 'red' ? RED : WHITE); }
+  var watch = null, watchSaved = null;   // Watch and learn: the driver's controller, and the settings to give back
+  function human(p) { if (watch) return false; return settings.mode === 'two' || p === (settings.side === 'red' ? RED : WHITE); }
   function sideName(p) { return p === RED ? 'Red' : 'White'; }
   function who(p) { return settings.mode === 'two' ? sideName(p) : human(p) ? 'You' : 'Computer'; }
   function sqAt(d) { return flip ? SIZE - 1 - d : d; }
@@ -267,6 +268,8 @@
 
   function finish(msg, result) { // result: 'win' or 'loss' for the human, or 'draw'
     over = true;
+    if (root.ZimiShell) root.ZimiShell.turn(false);
+    if (watch) { paint(); say(msg); watch.finish(msg + ' That was the whole game. Press Done to play one yourself.'); return; }
     if (settings.mode === 'cpu') {
       var s = stats[settings.level] = stats[settings.level] || { w: 0, l: 0, d: 0 };
       if (result === 'win') s.w++; else if (result === 'loss') s.l++; else s.d++;
@@ -290,7 +293,8 @@
     if (seen[k] >= 3) { finish('A draw by repetition.', 'draw'); return; }
     if (game.quiet >= QUIET_LIMIT) { finish('A draw: forty moves each with no capture or man move.', 'draw'); return; }
     paint();
-    say(turnLine(), !human(p));
+    say(watch ? sideName(p) + ' to move' : turnLine(), !human(p) && !watch);
+    if (root.ZimiShell) root.ZimiShell.turn(human(p), timeUp, history.length);
     if (!human(p)) scheduleComputer();
   }
 
@@ -307,10 +311,23 @@
     paint();
     setTimeout(function () {
       if (token !== thinking) return;
-      var m = chooseMove(game.board, game.turn, settings.level);
+      var info = {}, m = chooseMove(game.board, game.turn, settings.level, null, info);
       thinking = 0;
-      if (m) commit(m);
+      if (!m) return;
+      if (!watch) { commit(m); return; }
+      var mine = watch, why = root.ZimiExplain.checkers(Engine, game.board, game.turn, m, { score: info.score });
+      mine.offer(why.text, function () { if (watch === mine && !over) commit(m); });
     }, COMPUTER_DELAY_MS);
+  }
+
+  // The move timer ran out: a quick computer choice is played for the person.
+  function timeUp() {
+    if (over || thinking || !human(game.turn)) return;
+    var m = chooseMove(game.board, game.turn, 'easy');
+    if (!m) return;
+    sel = -1; prefix = [];
+    say('Time ran out. A move was played for you.');
+    commit(m);
   }
 
   function onSquare(e) {
@@ -333,7 +350,7 @@
   }
 
   function undo() {
-    if (!history.length) return;
+    if (!history.length || watch) return;
     thinking = 0; over = false;
     var h;
     do { h = history.pop(); } while (history.length && settings.mode === 'cpu' && !human(h.turn));
@@ -380,6 +397,28 @@
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet,input')) return;
     if (e.key === 'n' || e.key === 'N') { syncMenu(); menu.open(); } else if (e.key === 'u' || e.key === 'U') undo();
     else if (e.key === 'Escape' && sel >= 0 && !prefix.length) { sel = -1; paint(); }
+  });
+
+  if (root.ZimiShell) root.ZimiShell.game({
+    moveTimer: true, hints: true,
+    stats: function () { var s = stats[settings.level] || { w: 0, l: 0, d: 0 }; return 'Against the computer, ' + settings.level + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn'; },
+    inProgress: function () { return !over && history.length > 0; },
+    watch: {
+      script: 'explain-checkers.js',
+      start: function (ctl) {
+        watchSaved = { mode: settings.mode, level: settings.level, side: settings.side };
+        settings.mode = 'cpu'; settings.level = 'medium'; settings.side = 'red';
+        watch = ctl; newGame();
+        ctl.say('Red moves first. The computer plays both sides. Jumps are compulsory.');
+      },
+      stop: function (kind) {
+        watch = null; thinking = 0;
+        var turn = game.turn;
+        settings.mode = 'cpu'; settings.level = watchSaved.level; settings.side = watchSaved.side;
+        if (kind === 'takeover') { settings.side = turn === RED ? 'red' : 'white'; flip = settings.side === 'white'; buildBoard(); seen[key(game.board, turn)]--; nextPly(); }
+        else { settings.mode = watchSaved.mode; if (kind === 'stop') newGame(); }
+      }
+    }
   });
 
   newGame();

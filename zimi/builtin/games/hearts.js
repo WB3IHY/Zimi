@@ -283,11 +283,15 @@
     Z.ensureSprite();
     // Seats are the Computer or a Person; two or more people share the screen behind a handoff.
     var seats = Seats.create({ id: 'hearts', seats: SEATS, onChange: function () { if (board) board.refresh(); paintHud(); } });
+    // Watch and learn: the driver's controller. While it runs every seat is a computer and names are compass points.
+    var watch = null, watchWaiting = false, X = function () { return root.ZimiExplain.hearts; };
+    var person = function (seat) { return !watch && seats.person(seat); };
+    var nm = function (seat) { return watch ? ['South', 'West', 'North', 'East'][seat] : seats.name(seat); };
     // Who is acting now: the person picking their pass, or the player to lead or follow.
     var actor = function (st) { return st.phase === 'pass' ? view.passer : st.turn; };
     function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && actor(st) !== view.viewer; }
-    var youTurn = function (st) { return seats.isYou(st.turn) ? 'Your turn' : seats.name(st.turn) + ', your turn'; };
-    var verb = function (seat, you, other) { return seats.isYou(seat) ? you : other; };
+    var youTurn = function (st) { return seats.isYou(st.turn) ? 'Your turn' : nm(st.turn) + ', your turn'; };
+    var verb = function (seat, you, other) { return !watch && seats.isYou(seat) ? you : other; };
 
     // The table's own text: the score row and a status line with one button.
     var scoreRow = Z.h('div', { class: 'hz-scores', 'aria-live': 'off' });
@@ -304,7 +308,7 @@
       var g = geometry(m);
       scoreRow.textContent = '';
       [0, 1, 2, 3].map(function (i) { return (seats.view() + i) % SEATS; }).forEach(function (seat) {
-        var name = seats.name(seat), live = st.phase === 'play' ? liveSoFar(st, seat) : 0, turn = st.phase === 'play' && st.turn === seat && st.trick.length < SEATS;
+        var name = nm(seat), live = st.phase === 'play' ? liveSoFar(st, seat) : 0, turn = st.phase === 'play' && st.turn === seat && st.trick.length < SEATS;
         var chip = Z.h('span', { class: 'hz-chip' + (turn ? ' hz-turn' : '') }, [Z.h('b', { text: name }), Z.h('span', { text: String(st.scores[seat]) + (live ? ' +' + live : '') })]);
         scoreRow.appendChild(chip);
       });
@@ -313,15 +317,15 @@
       var text = '', label = '', action = null;
       if (st.phase === 'pass') {
         var left = PASS_COUNT - view.chosen.length;
-        var who = seats.hotseat() ? seats.name(view.passer) + ': ' : '';
+        var who = seats.hotseat() ? nm(view.passer) + ': ' : '';
         text = who + (left > 0 ? 'Choose ' + left + ' more to pass ' + PASS_NAMES[st.passDir] : 'Pass them ' + PASS_NAMES[st.passDir] + '?');
         label = 'Pass'; action = left === 0 ? passNow : null;
       } else if (st.phase === 'handEnd') { text = 'Hand over'; label = 'Next hand'; action = startNextHand; }
       else if (st.phase === 'over') { text = 'Game over'; label = 'New game'; action = newGame; }
       else if (view.flash) text = view.flash;
-      else if (st.trick.length === SEATS) text = seats.name(trickWinner(st.trick)) + verb(trickWinner(st.trick), ' take', ' takes') + ' the trick';
-      else if (seats.person(st.turn)) text = (st.recv ? st.recv[st.turn] : st.received).length && !view.hideHand ? youTurn(st) + '. The glowing cards came from ' + seats.name((st.turn + SEATS - PASS_OFFSET[st.passDir]) % SEATS) : youTurn(st);
-      else text = seats.name(st.turn) + ' is thinking';
+      else if (st.trick.length === SEATS) text = nm(trickWinner(st.trick)) + verb(trickWinner(st.trick), ' take', ' takes') + ' the trick';
+      else if (person(st.turn)) text = (st.recv ? st.recv[st.turn] : st.received).length && !view.hideHand ? youTurn(st) + '. The glowing cards came from ' + nm((st.turn + SEATS - PASS_OFFSET[st.passDir]) % SEATS) : youTurn(st);
+      else text = nm(st.turn) + (watch ? ' to play' : ' is thinking');
       statusText.textContent = text;
       statusBtn.textContent = label; statusBtn.hidden = !label;
       statusBtn.disabled = !action; statusAction = action;
@@ -332,10 +336,38 @@
     // ── Turn order ───────────────────────────────────────────────────────
     function drive() {
       var st = session.state;
+      if (root.ZimiShell) root.ZimiShell.turn(false);
+      if (watch) { watchDrive(st); return; }
       if (st.phase === 'pass') { seats.ensure(view.passer, refresh); return; }
       if (st.phase !== 'play') return;
       if (st.trick.length === SEATS) { session.later(sweepTrick, HOLD_MS); return; }
-      if (seats.person(st.turn)) seats.ensure(st.turn, refresh); else session.later(aiTurn, AI_MS);
+      if (seats.person(st.turn)) {
+        seats.ensure(st.turn, refresh);
+        if (root.ZimiShell && !seats.hotseat()) root.ZimiShell.turn(true, timeUp, st.moves);
+      } else session.later(aiTurn, AI_MS);
+    }
+    // The move timer ran out: the computer's choice is played for the person.
+    function timeUp() {
+      var st = session.state;
+      if (st.phase !== 'play' || !seats.person(st.turn) || seats.hotseat() || st.trick.length === SEATS) return;
+      flash('Time ran out. A card was played for you');
+      play(aiPick(st, st.turn));
+    }
+    // Watch and learn: each step is offered with its sentence, and taken when the driver says.
+    function watchStep(text, fn) {
+      var mine = watch; watchWaiting = true;
+      mine.offer(text, function () { watchWaiting = false; if (watch === mine) fn(); });
+    }
+    function watchDrive(st) {
+      if (st.phase === 'pass') {
+        var picks = [0, 1, 2, 3].map(function (s) { return choosePass(st.hands[s]); });
+        watchStep(X().pass(api, Z, st.hands[0], picks[0], st.passDir).text, function () { session.follow(applyPass(st, picks)); drive(); });
+      } else if (st.phase !== 'play') return;
+      else if (st.trick.length === SEATS) watchStep(X().trick(api, Z, st.trick).text, sweepTrick);
+      else {
+        var card = aiPick(st, st.turn);
+        watchStep(X().play(api, Z, st, st.turn, card).text, function () { session.follow(playCard(st, st.turn, card)); drive(); });
+      }
     }
     function refresh() { board.refresh(); paintHud(); }
     function aiTurn() {
@@ -355,12 +387,13 @@
       }, SWEEP_MS);
     }
     function handLines(st) {
-      var lines = [0, 1, 2, 3].map(function (seat) { return seats.name(seat) + ': ' + (st.handPoints[seat] ? '+' + st.handPoints[seat] : '0') + ', total ' + st.scores[seat]; });
-      if (st.moon >= 0) lines.unshift(seats.name(st.moon) + verb(st.moon, ' shoot', ' shoots') + ' the moon. Everyone else takes 26.');
+      var lines = [0, 1, 2, 3].map(function (seat) { return nm(seat) + ': ' + (st.handPoints[seat] ? '+' + st.handPoints[seat] : '0') + ', total ' + st.scores[seat]; });
+      if (st.moon >= 0) lines.unshift(nm(st.moon) + verb(st.moon, ' shoot', ' shoots') + ' the moon. Everyone else takes 26.');
       return lines;
     }
     function handOver() {
       var st = session.state;
+      if (watch) { watchStep(X().hand(api, st).text + ' The next hand follows.', startNextHand); return; }
       Z.sheet({
         title: 'Hand ' + (st.handNo + 1),
         body: handLines(st).map(function (t) { return Z.h('p', { class: 'zc-note', text: t }); }),
@@ -369,8 +402,9 @@
     }
     function gameOver() {
       var st = session.state, lines = handLines(st), low = winners(st.scores), won = !seats.hotseat() && humanWon(st);
-      lines.push(won ? 'You have the lowest score.' : seats.name(low[0]) + (seats.hotseat() ? ' wins with the lowest score.' : ' has the lowest score.'));
-      if (won) session.win(st.scores[0]); else session.lose(seats.hotseat() ? seats.name(low[0]) + ' wins' : 'Game over', lines, seats.hotseat() ? undefined : st.scores[0]);
+      if (watch) { watch.finish(lines.join(' ') + ' That was the whole game. Press Done to play one yourself.'); return; }
+      lines.push(won ? 'You have the lowest score.' : nm(low[0]) + (seats.hotseat() ? ' wins with the lowest score.' : ' has the lowest score.'));
+      if (won) session.win(st.scores[0]); else session.lose(seats.hotseat() ? nm(low[0]) + ' wins' : 'Game over', lines, seats.hotseat() ? undefined : st.scores[0]);
     }
     function startNextHand() {
       var st = session.state;
@@ -438,7 +472,7 @@
       tap: tap
     });
     session = Z.createSession({
-      id: 'hearts', lowScore: true, undoOff: function () { return seats.hotseat(); }, board: board, newGame: newGame, els: el,
+      id: 'hearts', lowScore: true, undoOff: function () { return !!watch || seats.hotseat(); }, board: board, newGame: newGame, els: el,
       statText: function (sec, st) { paintHud(); return Z.fmtTime(sec) + ' · ' + st.scores[seats.view()]; },
       cascadeOrder: function (st) { return [].concat.apply([], st.taken).map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { return handLines(st).concat(['You have the lowest score, ' + st.scores[0] + ', after ' + (st.handNo + 1) + (st.handNo ? ' hands' : ' hand') + '.']); },
@@ -456,6 +490,24 @@
       }
     });
     api.session = session; api.board = board;
+    if (root.ZimiShell) root.ZimiShell.game({
+      moveTimer: true,
+      watch: {
+        script: 'explain-hearts.js', unit: 'step',
+        start: function (ctl) {
+          watch = ctl; view.chosen = []; view.picks = []; view.sweep = null; view.flash = '';
+          session.reset(freshGame(Z.shuffled(Math.random)));
+          deal();
+          ctl.say('Four players, South at the bottom. Each hand starts with a pass of three cards.');
+        },
+        // takeover: you play South from here; stop: a fresh game; new: the game's own New game follows.
+        stop: function (kind) {
+          var waiting = watchWaiting; watch = null; watchWaiting = false;
+          if (kind === 'takeover') { view.chosen = []; view.picks = []; refresh(); if (waiting) drive(); }
+          else if (kind === 'stop') newGame();
+        }
+      }
+    });
     d.addEventListener('visibilitychange', function () { if (!d.hidden) paintHud(); });
     newGame();
     if (/[?&]debug=win/.test(root.location.search)) { session.reset(almostWon()); drive(); }

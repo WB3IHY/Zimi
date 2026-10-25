@@ -152,6 +152,7 @@
 
     // The Players rows of the New game sheet. Changes are saved at once and take effect
     // from the next game. A name box shows for each person once there are two.
+    // opts: { labels (row names), note, cpuLabel (what a seat that is not a person is called) }
     S.block = function (onChange, opts) {
       ensureStyle();
       opts = opts || {};
@@ -169,7 +170,7 @@
       for (var i = 0; i < n; i++) (function (i) {
         var row = el('div', 'zs-row'), seg = el('div', 'zs-seg'), input = el('input', 'zs-name');
         seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', (opts.labels ? opts.labels[i] : 'Seat ' + (i + 1)) + ' is');
-        [['cpu', 'Computer'], ['person', 'Person']].forEach(function (k) {
+        [['cpu', opts.cpuLabel || 'Computer'], ['person', 'Person']].forEach(function (k) {
           var b = el('button', 'zs-btn', k[1]); b.type = 'button'; b.dataset.kind = k[0];
           b.addEventListener('click', function () { S.setKind(i, k[0]); refresh(); if (onChange) onChange(); });
           seg.appendChild(b);

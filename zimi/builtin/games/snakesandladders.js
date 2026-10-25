@@ -49,18 +49,30 @@
   var G = WK.create({
     id: 'snakesandladders',
     options: [
-      { key: 'players', legend: 'Players', def: '2', choices: [['2', '2'], ['3', '3'], ['4', '4']] },
-      { key: 'mode', legend: 'Who plays', def: 'cpu', choices: [['cpu', 'You and computers'], ['two', 'People on this device']] }
+      { key: 'players', legend: 'How many', def: '2', choices: [['2', '2'], ['3', '3'], ['4', '4']] }
     ],
     checks: [{ key: 'again', label: 'A six gives another roll', def: false }],
     statKey: function () { return 'all'; },
     onNew: newGame
   });
+  // Each seat is a Computer or a Person (handoff.js). A game saved before seats existed with "People on this device"
+  // keeps every seat a person, once.
+  var SEATS_KEY = 'zimi.games.snakesandladders.seats', seats;
+  function seatsFor(n) { return root.ZimiSeats.create({ id: 'snakesandladders', seats: n, cpuNames: PLAYERS.map(function (p) { return p.name; }) }); }
+  (function migrate() {
+    var had = false;
+    try { had = root.localStorage.getItem(SEATS_KEY) !== null; } catch (e) { had = true; }
+    if (had || G.settings.mode !== 'two') return;
+    var s = seatsFor(4);
+    for (var i = 0; i < 4; i++) s.setKind(i, 'person');
+  })();
+  seats = seatsFor(playerCount());   // the stats line is drawn before the first game
   var host = $('sl-board'), dieHost = $('sl-die'), rollBtn = $('sl-roll'), roster = $('wk-score'), svg, tokens = [], pos = [], count = 2, turn = 0, busy = false, lastNote = '';
 
   function playerCount() { return +G.settings.players; }
-  function isHuman(p) { return G.settings.mode === 'two' || p === 0; }
-  function nameOf(p) { return G.settings.mode === 'two' || p > 0 ? PLAYERS[p].name : 'You'; }
+  function isHuman(p) { return seats.person(p); }
+  function nameOf(p) { return seats.name(p); }
+  G.vsComputer = function () { return !seats.hotseat(); };
   function mk(tag, attrs, text) { var e = document.createElementNS(NS, tag); Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); }); if (text != null) e.textContent = text; return e; }
   function centre(n) { var c = E.cellOf(n); return { x: c.col * CELL + CELL / 2, y: (SIZE - 1 - c.row) * CELL + CELL / 2 }; }
 
@@ -181,7 +193,8 @@
     busy = false; paintRoster();
     rollBtn.disabled = !isHuman(turn) || G.over;
     if (G.over) return;
-    if (isHuman(turn)) say(nameOf(turn) + (nameOf(turn) === 'You' ? ' roll' : ' to roll') + ': press Roll.');
+    rollBtn.textContent = seats.hotseat() && isHuman(turn) ? 'Roll for ' + nameOf(turn) : 'Roll';
+    if (isHuman(turn)) say(nameOf(turn) + (seats.isYou(turn) ? ' roll' : ' to roll') + ': press Roll.');
     else { busy = true; say(nameOf(turn) + ' is rolling...', true); var token = G.begin(); setTimeout(function () { if (G.done(token)) doRoll(); }, COMPUTER_DELAY_MS); }
   }
   function doRoll() {
@@ -228,17 +241,27 @@
   }
   function win(p) {
     var who = nameOf(p), msg = (who === 'You' ? 'You reach' : who + ' reaches') + ' square 100 and win.';
-    var outcome = G.settings.mode === 'cpu' ? (p === 0 ? 'w' : 'l') : null;
-    G.finish(msg, outcome, p === 0 && G.settings.mode === 'cpu' ? 'You win' : 'Game over');
+    var outcome = seats.hotseat() ? null : seats.person(p) ? 'w' : 'l';
+    G.finish(msg, outcome, outcome === 'w' ? 'You win' : 'Game over');
     rollBtn.disabled = true; paintRoster();
   }
 
   function newGame() {
-    count = playerCount(); turn = 0; pos = []; busy = false;
+    count = playerCount(); seats = seatsFor(count); turn = 0; pos = []; busy = false;
     for (var i = 0; i < count; i++) pos.push(0);
     buildBoard(); buildRoster(); drawTokens(); showDie(0, false);
     startTurn();
   }
+  // The Players rows join the New game sheet, ahead of its buttons; they follow the Players count.
+  (function seatRows() {
+    var card = $('wk-menu-title').parentNode, anchor = card.querySelector('.ar-sheet-actions'), chips = card.querySelector('.bg-chips'), block;
+    function build() {
+      var n = +BK.chipValue(chips) || playerCount(), next = seatsFor(n).block(null, { labels: PLAYERS.slice(0, n).map(function (p) { return p.name; }), note: 'Pass the device on when it is a person\'s turn.' });
+      if (block) card.replaceChild(next, block); else card.insertBefore(next, anchor);
+      block = next;
+    }
+    build(); chips.addEventListener('change', build);
+  })();
   rollBtn.addEventListener('click', function () { if (!busy && isHuman(turn) && !G.over) doRoll(); });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet,input')) return;

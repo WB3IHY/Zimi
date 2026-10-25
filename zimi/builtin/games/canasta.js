@@ -29,7 +29,7 @@
    bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
 
   var JOKER_BASE = 104, TOTAL = 108, DEAL = 15, DRAW = 2, GO_OUT_CANASTAS = 2, CANASTA_SIZE = 7, MAX_WILD = 3;
   var NAMES = ['You', 'Computer'], TARGETS = [1500, 3000, 5000], DEFAULT_TARGET = 5000;
@@ -46,6 +46,8 @@
   }
   var sumPts = function (ids) { return ids.reduce(function (n, c) { return n + cardPts(c); }, 0); };
   var last = function (list) { return list[list.length - 1]; };
+  // What the side to act did last, for the status line while the next one thinks.
+  function note(s, side, text) { s.last = text; s.lastSide = side; }
   var RANK_NAMES = { 14: 'aces', 13: 'kings', 12: 'queens', 11: 'jacks', 10: 'tens', 9: 'nines', 8: 'eights', 7: 'sevens', 6: 'sixes', 5: 'fives', 4: 'fours', 3: 'threes' };
   var rankName = function (r) { return RANK_NAMES[r]; };
   // Order in a hand: by rank, wild cards last.
@@ -145,7 +147,7 @@
     for (var k = 0; k < DRAW && s.stock.length; k++) { var c = s.stock.pop(); s.hands[side].push(c); got.push(c); }
     layReds(s, side);
     s.hands[side] = sortHand(s.hands[side]);
-    s.step = 'play'; s.turnPts = 0; s.moves++; s.last = side === 0 ? '' : 'Computer drew two cards';
+    s.step = 'play'; s.turnPts = 0; s.moves++; note(s, side, 'drew two cards');
     return s;
   }
   // Can this side take the pile now with `sel` from its hand? {ok, error, plan}
@@ -179,7 +181,7 @@
     addToMelds(s.melds[side], tp.plan);
     s.turnPts = sumPts([top].concat(sel)); s.step = 'play'; s.moves++; s.concealed[side] = false;
     s.hands[side] = sortHand(s.hands[side]);
-    s.last = (side === 1 ? 'Computer took the pile (' + Z.plural(taken.length, 'card') + ')' : '');
+    note(s, side, 'took the pile (' + Z.plural(taken.length, 'card') + ')');
     return s;
   }
   var canGoOut = function (s, side) { return canastaCount(s.melds[side]) >= GO_OUT_CANASTAS; };
@@ -204,7 +206,7 @@
     addToMelds(s.melds[side], plan.melds);
     s.turnPts += sumPts(selection); s.moves++;
     s.hands[side] = sortHand(s.hands[side]);
-    s.last = side === 1 ? 'Computer melded ' + plan.melds.map(function (p) { return rankName(p.rank); }).join(' and ') : '';
+    note(s, side, 'melded ' + plan.melds.map(function (p) { return rankName(p.rank); }).join(' and '));
     if (!s.hands[side].length) return endHand(s, side, '');
     return s;
   }
@@ -224,7 +226,7 @@
     s.pile.push(id); s.moves++;
     if (isWild(id)) s.pileFrozen = true;
     if (s.melds[side].length) s.melded[side] = true;
-    s.last = side === 1 ? 'Computer discarded the ' + cardName(id) : '';
+    note(s, side, 'discarded the ' + cardName(id));
     if (!s.hands[side].length) return endHand(s, side, '');
     s.turn = 1 - side; s.step = 'draw'; s.turnPts = 0;
     return s;
@@ -362,9 +364,12 @@
   var BAR_H = 46, TAG_H = 15, CELL_SHARE = 1.5, PILE_GAP = 1.7, TAG_SHARE = 2.6;
   function perRow(m) { return Math.max(1, Math.floor((m.W - 2 * m.pad) / (m.cw * CELL_SHARE))); }
   function meldRows(m, n) { return Math.max(1, Math.ceil(n / perRow(m))); }
-  function geo(m, st) {
-    var n = st.hands[0].length, g = T.geometry(m, T.rowsFor(m, n));
-    var myRows = meldRows(m, st.melds[0].length), oppRows = meldRows(m, st.melds[1].length);
+  // V is the side looking: its hand and melds sit at the bottom.
+  function geo(m, st, V) {
+    V = V || 0;
+    var n = st.hands[V].length, g = T.geometry(m, T.rowsFor(m, n));
+    var myRows = meldRows(m, st.melds[V].length), oppRows = meldRows(m, st.melds[1 - V].length);
+    g.V = V;
     g.barY = g.southY - g.raise - 4 - BAR_H;
     g.statusY = g.barY - 4 - T.STATUS_H;
     g.myMeldY = g.statusY - 4 - myRows * (g.ch + TAG_H + 4);
@@ -375,21 +380,21 @@
   }
   function meldSpot(g, side, k) {
     var row = Math.floor(k / g.perRow), col = k % g.perRow, cell = g.cw * CELL_SHARE, inRow = Math.min(g.perRow, 99);
-    var x = g.pad + col * cell, y = (side === 0 ? g.myMeldY : g.oppMeldY) + row * (g.ch + TAG_H + 4);
+    var x = g.pad + col * cell, y = (side === g.V ? g.myMeldY : g.oppMeldY) + row * (g.ch + TAG_H + 4);
     return { x: Math.round(x), y: Math.round(y) };
   }
   function repCard(m) { return m.cards.filter(function (c) { return !isWild(c); })[0] || m.cards[0]; }
   function place(st, m, view) {
-    var g = geo(m, st), slots = [], cards = [], sel = ((view && view.sel) || []).filter(function (c) { return st.hands[0].indexOf(c) >= 0; });
+    var V = (view && view.viewer) || 0, up = !(view && view.hideHand), g = geo(m, st, V), slots = [], cards = [], sel = !up ? [] : ((view && view.sel) || []).filter(function (c) { return st.hands[V].indexOf(c) >= 0; });
     slots.push({ id: 'table', x: g.pad, y: g.northY, w: g.W - 2 * g.pad, h: g.southY - g.northY + g.ch, quiet: true, label: 'Table' });
-    var hand = T.handCards(g, st.hands[0], function (id) { return { raise: sel.indexOf(id) >= 0, glow: sel.indexOf(id) >= 0, label: cardName(id) + (sel.indexOf(id) >= 0 ? ', picked' : '') }; }, null);
+    var hand = T.handCards(g, st.hands[V], function (id) { return { up: up, raise: sel.indexOf(id) >= 0, glow: sel.indexOf(id) >= 0, label: up ? cardName(id) + (sel.indexOf(id) >= 0 ? ', picked' : '') : 'Hidden card' }; }, null);
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
-    if (st.hands[1].length) cards = cards.concat(T.fan(g, 2, st.hands[1], false));
+    if (st.hands[1 - V].length) cards = cards.concat(T.fan(g, 2, st.hands[1 - V], false));
     [0, 1].forEach(function (side) {
       st.melds[side].forEach(function (mm, k) {
         var sp = meldSpot(g, side, k);
-        cards.push({ id: repCard(mm), pile: 'm' + side + '-' + mm.rank, idx: 0, x: sp.x, y: sp.y, up: true, glow: isCanasta(mm), mark: side === 0 && view && view.target === mm.rank });
-        slots.push({ id: 'm' + side + '-' + mm.rank, x: sp.x, y: sp.y, w: g.cw, h: g.ch, quiet: true, label: (side === 0 ? 'Your ' : 'Their ') + rankName(mm.rank) + ', ' + mm.cards.length + ' cards' });
+        cards.push({ id: repCard(mm), pile: 'm' + side + '-' + mm.rank, idx: 0, x: sp.x, y: sp.y, up: true, glow: isCanasta(mm), mark: side === V && view && view.target === mm.rank });
+        slots.push({ id: 'm' + side + '-' + mm.rank, x: sp.x, y: sp.y, w: g.cw, h: g.ch, quiet: true, label: (side === V ? 'Your ' : 'Their ') + rankName(mm.rank) + ', ' + mm.cards.length + ' cards' });
       });
     });
     var gap = Math.round(g.cw * PILE_GAP), sx = Math.round(g.cx - g.cw - gap / 2), px = Math.round(g.cx + gap / 2);
@@ -415,10 +420,15 @@
   var AI_MS = 750, TARGET_KEY = 'canasta.target';
   function boot() {
     var d = root.document, t, board, session, view = { sel: [], target: null, flash: '' }, tags = [];
+    // Seats are the Computer or a Person; two people share the screen behind a handoff.
+    var seats = Seats.create({ id: 'canasta', seats: 2, cpuNames: ['Computer', 'Computer'], onChange: function () { view.sel = []; view.target = null; repaint(); } });
+    var nm = function (seat) { return seats.name(seat); };
+    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.turn !== view.viewer; }
+    function repaint() { if (board) board.refresh(); if (t) t.paint(); }
     var table = d.getElementById('zc-table'), bar = Z.h('div', { class: 'cn-bar', role: 'group', 'aria-label': 'Actions' });
     table.appendChild(bar);
     var targetNow = function () { var v = Z.store.get(TARGET_KEY, DEFAULT_TARGET); return TARGETS.indexOf(v) >= 0 ? v : DEFAULT_TARGET; };
-    var mySel = function (st) { return view.sel.filter(function (c) { return st.hands[0].indexOf(c) >= 0; }); };
+    var mySel = function (st) { return view.sel.filter(function (c) { return st.hands[seats.view()].indexOf(c) >= 0; }); };
     function meldTag(mm) {
       var w = wildCount(mm.cards);
       if (isCanasta(mm)) return '★' + mm.cards.length + (w ? ' mix' : ' pure');
@@ -426,8 +436,8 @@
     }
     var tagSig = '';
     function layTags(st, m) {
-      var g = geo(m, st);
-      var sig = JSON.stringify([st.melds.map(function (l) { return l.map(function (mm) { return [mm.rank, mm.cards.length, wildCount(mm.cards)]; }); }), st.stock.length, st.pile.length, st.pileFrozen, st.pile.length ? last(st.pile) : -1, g.W, g.myMeldY, g.centreY]);
+      var g = geo(m, st, seats.view());
+      var sig = JSON.stringify([seats.view(), st.melds.map(function (l) { return l.map(function (mm) { return [mm.rank, mm.cards.length, wildCount(mm.cards)]; }); }), st.stock.length, st.pile.length, st.pileFrozen, st.pile.length ? last(st.pile) : -1, g.W, g.myMeldY, g.centreY]);
       if (sig === tagSig) return;
       tagSig = sig;
       tags.forEach(function (e) { e.remove(); }); tags = [];
@@ -450,24 +460,26 @@
     function hud(st) {
       var m = board.metrics();
       layTags(st, m);
-      var req = requirement(st.scores[0]), out = { sub: 'You ' + st.scores[0] + ' · them ' + st.scores[1], text: '' };
-      out.chips = [{ name: 'You', text: st.scores[0] + redText(st.reds[0]) + (st.melds[0].length && !st.melded[0] && st.turn === 0 ? ' · first meld ' + st.turnPts + '/' + req : ''), turn: st.turn === 0 && st.phase === 'play' }, { name: 'Computer', text: st.scores[1] + redText(st.reds[1]), turn: st.turn === 1 && st.phase === 'play' }, { name: 'Goal', text: String(st.target) }];
+      var V = seats.view(), req = requirement(st.scores[V]), hot = seats.hotseat(), out = { sub: (hot ? nm(V) : 'You') + ' ' + st.scores[V] + ' · ' + (hot ? nm(1 - V) : 'them') + ' ' + st.scores[1 - V], text: '' };
+      out.chips = st.scores.map(function (score, seat) {
+        return { name: nm(seat), text: score + redText(st.reds[seat]) + (seat === V && st.melds[seat].length && !st.melded[seat] && st.turn === seat ? ' · first meld ' + st.turnPts + '/' + req : ''), turn: st.turn === seat && st.phase === 'play' };
+      }).concat([{ name: 'Goal', text: String(st.target) }]);
       if (st.phase === 'handEnd') { out.text = 'Hand over'; out.label = 'Next hand'; out.action = startNextHand; }
       else if (st.phase === 'over') { out.text = 'Game over'; out.label = 'New game'; out.action = newGame; }
-      else if (st.turn === 1) out.text = st.last || 'Computer is thinking';
-      else if (st.step === 'draw') out.text = 'Your turn: draw two cards, or take the pile' + (st.pileFrozen || !st.melded[0] ? ' (frozen: pick a natural pair that matches the top card)' : '');
+      else if (st.turn !== V) out.text = seats.person(st.turn) ? nm(st.turn) + ' is next' : st.lastSide === st.turn && st.last ? nm(st.turn) + ' ' + st.last : nm(st.turn) + ' is thinking';
+      else if (st.step === 'draw') out.text = (seats.isYou(V) ? 'Your turn' : nm(V) + ', your turn') + ': draw two cards, or take the pile' + (st.pileFrozen || !st.melded[V] ? ' (frozen: pick a natural pair that matches the top card)' : '');
       else {
         var sel = mySel(st), mp = sel.length ? meldProblem(st, sel, view.target) : '', info = describeSelection(st);
-        out.text = sel.length ? (info + (mp && sel.length > 1 ? '. ' + mp : '')) : 'Pick cards to meld, or one card to discard' + (st.melds[0].length && !st.melded[0] ? ' (first meld ' + st.turnPts + '/' + req + ')' : (!st.melded[0] ? ' (first meld needs ' + req + ')' : ''));
+        out.text = sel.length ? (info + (mp && sel.length > 1 ? '. ' + mp : '')) : 'Pick cards to meld, or one card to discard' + (st.melds[V].length && !st.melded[V] ? ' (first meld ' + st.turnPts + '/' + req + ')' : (!st.melded[V] ? ' (first meld needs ' + req + ')' : ''));
       }
       paintBar(st);
       return out;
     }
     var barSig = '';
     function paintBar(st) {
-      var m = board.metrics(), g = geo(m, st), sel = mySel(st), draw = st.step === 'draw';
-      var mine = st.phase === 'play' && st.turn === 0;
-      var tp = mine && draw ? takePlan(st, 0, sel) : null, mp = mine && !draw && sel.length ? meldProblem(st, sel, view.target) : 'x', dp = mine && !draw && sel.length === 1 ? discardProblem(st, sel[0]) : 'x';
+      var V = seats.view(), m = board.metrics(), g = geo(m, st, V), sel = mySel(st), draw = st.step === 'draw';
+      var mine = st.phase === 'play' && st.turn === V;
+      var tp = mine && draw ? takePlan(st, V, sel) : null, mp = mine && !draw && sel.length ? meldProblem(st, sel, view.target) : 'x', dp = mine && !draw && sel.length === 1 ? discardProblem(st, sel[0]) : 'x';
       var sig = JSON.stringify([mine, draw, sel.length > 0, !!(tp && tp.ok), !mp, !dp, Math.round(g.barY)]);
       if (sig === barSig) return; // rebuilt only when it changes, so a tap is never lost to a repaint
       barSig = sig;
@@ -495,18 +507,18 @@
       var st = session.state;
       if (st.phase === 'handEnd') { handOver(); return; }
       if (st.phase === 'over') { gameOver(); return; }
-      if (st.turn === 1) session.later(aiTurn, AI_MS);
+      if (seats.person(st.turn)) seats.ensure(st.turn, repaint); else session.later(aiTurn, AI_MS);
     }
     function aiTurn() {
       var st = session.state;
-      if (st.phase !== 'play' || st.turn !== 1) return;
+      if (st.phase !== 'play' || seats.person(st.turn)) return;
       var next = aiStep(st);
       if (next === st) next = discardFallback(st);
       session.follow(next); drive();
     }
-    function drawTurn() { var st = session.state; if (st.turn !== 0 || st.step !== 'draw') return; view.sel = []; session.commit(draw(st)); afterMe(); }
+    function drawTurn() { var st = session.state; if (st.turn !== seats.view() || st.step !== 'draw') return; view.sel = []; session.commit(draw(st)); afterMe(); }
     function takeSelected() {
-      var st = session.state, sel = mySel(st), tp = takePlan(st, 0, sel);
+      var st = session.state, sel = mySel(st), tp = takePlan(st, seats.view(), sel);
       if (!tp.ok) { t.flash(tp.error); return; }
       view.sel = []; session.commit(takePile(st, sel)); afterMe();
     }
@@ -527,10 +539,11 @@
     function tap(pile) {
       var st = session.state, kind = pile.charAt(0);
       if (st.phase !== 'play') return false;
-      if (pile === 'stock') { if (st.turn === 0 && st.step === 'draw') drawTurn(); else t.flash(st.turn === 0 ? 'Draw first' : 'Wait for your turn'); return true; }
-      if (pile === 'pile') { if (st.turn === 0 && st.step === 'draw') takeSelected(); else if (st.turn === 0) t.flash('Pick a card, then Discard'); return true; }
-      if (pile.slice(0, 3) === 'm0-') { var rk = parseInt(pile.slice(3), 10); view.target = view.target === rk ? null : rk; board.refresh(); t.paint(); return true; }
-      if (kind !== 'h') return false;
+      var mine = st.turn === seats.view();
+      if (pile === 'stock') { if (mine && st.step === 'draw') drawTurn(); else t.flash(mine ? 'Draw first' : 'Wait for your turn'); return true; }
+      if (pile === 'pile') { if (mine && st.step === 'draw') takeSelected(); else if (mine) t.flash('Pick a card, then Discard'); return true; }
+      if (pile.slice(0, 3) === 'm' + seats.view() + '-') { var rk = parseInt(pile.slice(3), 10); view.target = view.target === rk ? null : rk; board.refresh(); t.paint(); return true; }
+      if (kind !== 'h' || view.hideHand) return false;
       var id = parseInt(pile.slice(1), 10);
       if (isNaN(id)) return false;
       var at = view.sel.indexOf(id);
@@ -541,8 +554,8 @@
     function resultLines(st) {
       var r = st.result, lines = [];
       if (r.why) lines.push(r.why + '.');
-      lines.push(r.outSide === 0 ? 'You went out.' : r.outSide === 1 ? 'The computer went out.' : 'Nobody went out.');
-      [0, 1].forEach(function (side) { lines.push(NAMES[side] + ': ' + (r.sides[side].points >= 0 ? '+' : '') + r.sides[side].points + ' (' + r.sides[side].lines.join(', ') + '), total ' + st.scores[side]); });
+      lines.push(r.outSide < 0 ? 'Nobody went out.' : seats.isYou(r.outSide) ? 'You went out.' : nm(r.outSide) + ' went out.');
+      [0, 1].forEach(function (side) { lines.push(nm(side) + ': ' + (r.sides[side].points >= 0 ? '+' : '') + r.sides[side].points + ' (' + r.sides[side].lines.join(', ') + '), total ' + st.scores[side]); });
       return lines;
     }
     function handOver() {
@@ -550,28 +563,30 @@
       T.lineSheet('Hand ' + (st.handNo + 1), resultLines(st), [{ label: 'Next hand', primary: true, onclick: startNextHand }]);
     }
     function gameOver() {
-      var st = session.state, w = gameWinner(st.scores, st.target), lines = resultLines(st);
-      if (w === 0) session.win(st.scores[0]); else session.lose('The computer wins', lines.concat(['Final: ' + st.scores[0] + ' to ' + st.scores[1] + '.']), st.scores[0]);
+      var st = session.state, w = gameWinner(st.scores, st.target), lines = resultLines(st), V = seats.view(), hot = seats.hotseat();
+      if (w === V && !hot) session.win(st.scores[V]); else session.lose(hot ? nm(w) + ' wins' : 'The computer wins', lines.concat(['Final: ' + st.scores[V] + ' to ' + st.scores[1 - V] + '.']), hot ? undefined : st.scores[V]);
     }
     function startNextHand() {
       var st = session.state;
       if (st.phase !== 'handEnd') return;
       session.history = []; view.sel = [];
       session.follow(nextHand(st, T.shuffleOf(allIds(), Math.random)));
-      drive();
+      deal();
     }
     function allIds() { var a = [], i; for (i = 0; i < TOTAL; i++) a.push(i); return a; }
     function newGame() {
       view.sel = []; view.flash = '';
       session.reset(newHand(T.shuffleOf(allIds(), Math.random), [0, 0], 0, targetNow()));
-      drive();
+      deal();
     }
+    // A fresh deal: nobody has seen it, so two people start at a handoff.
+    function deal() { seats.begin(function () { repaint(); drive(); }, session.state.turn); }
     t = T.create({
-      id: 'canasta', name: 'Canasta', view: view, geo: geo, place: place, hud: hud, newGame: newGame, tap: tap, cols: 8, heightShare: 0.085, face: face,
+      id: 'canasta', name: 'Canasta', seats: seats, view: view, geo: function (m, st) { return geo(m, st, seats.view()); }, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, tap: tap, cols: 8, heightShare: 0.085, face: face,
       canPick: function () { return false; },
-      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0]; },
-      cascadeOrder: function (st) { return st.melds[0].map(function (mm) { return { id: repCard(mm) }; }); },
-      winLines: function (sec, st) { return ['You win, ' + st.scores[0] + ' to ' + st.scores[1] + ', after ' + Z.plural(st.handNo + 1, 'hand') + '.']; },
+      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[seats.view()]; },
+      cascadeOrder: function (st) { return st.melds[seats.view()].map(function (mm) { return { id: repCard(mm) }; }); },
+      winLines: function (sec, st) { return ['You win, ' + st.scores[seats.view()] + ' to ' + st.scores[1 - seats.view()] + ', after ' + Z.plural(st.handNo + 1, 'hand') + '.']; },
       menuExtra: function () {
         return [T.choiceRow('Play to', TARGET_KEY, TARGETS.map(function (n) { return { label: String(n), value: n }; }), DEFAULT_TARGET, function () { /* next game */ }), Z.h('p', { class: 'zc-note', text: 'A new target applies to the next new game.' })];
       },
@@ -583,7 +598,7 @@
     d.addEventListener('keydown', function (e) {
       if (e.ctrlKey || e.metaKey || e.altKey || d.querySelector('.ar-sheet')) return;
       var st = session.state, k = e.key.toLowerCase();
-      if (!st || st.turn !== 0 || st.phase !== 'play') return;
+      if (!st || st.turn !== seats.view() || st.phase !== 'play' || seats.covering) return;
       if (k === 'd' && st.step === 'draw') { drawTurn(); e.preventDefault(); }
       else if (k === 't' && st.step === 'draw') { takeSelected(); e.preventDefault(); }
       else if (k === 'm' && st.step === 'play') { meldSelected(); e.preventDefault(); }

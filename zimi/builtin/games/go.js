@@ -92,7 +92,8 @@
     else score([names[0] + ' ' + st.caps[0] + ' taken', names[1] + ' ' + st.caps[1] + ' taken'], null, G.over ? -1 : st.turn - 1);
     passBtn.hidden = marking; doneBtn.hidden = !marking || G.over; resumeBtn.hidden = !marking || G.over;
     passBtn.disabled = !open;
-    G.setUndo(history.size() > 0); G.setHint(open && !marking);
+    G.setUndo(history.size() > 0 && !G.watching); G.setHint(open && !marking);
+    G.turnTimer(open && !marking, timeUp, st.moves);
   }
   function fmt(x) { return x % 1 ? x.toFixed(1) : String(x); }
 
@@ -132,8 +133,21 @@
     ask({ cmd: 'move', ms: thinkMs(), level: G.settings.level }, function (r) {
       if (!G.done(token)) return;
       var mv = r && typeof r.move === 'number' ? r.move : -1, ns = Engine.move(st, mv);
-      if (!ns) ns = Engine.move(st, -1);
-      commit(ns, 'The computer');
+      if (!ns) { mv = -1; ns = Engine.move(st, -1); }
+      var ctl = G.watching;
+      if (!ctl) { commit(ns, 'The computer'); return; }
+      var why = root.ZimiExplain.go(Engine, st, mv, r || {});
+      ctl.offer(why.text, function () { if (G.watching === ctl && !G.over) commit(Engine.move(st, mv), 'The computer'); });
+    });
+  }
+  // The move timer ran out: a quick computer choice is played for the person.
+  function timeUp() {
+    if (G.over || G.thinking || phase !== 'play' || !G.human(st.turn - 1)) return;
+    var token = G.begin(); paint(); G.say('Time ran out. A move was played for you.', true);
+    ask({ cmd: 'move', ms: 350, level: 'easy' }, function (r) {
+      if (!G.done(token)) return;
+      var mv = r && typeof r.move === 'number' ? r.move : -1, ns = Engine.move(st, mv) || Engine.move(st, -1);
+      commit(ns, 'You');
     });
   }
   function pass() {
@@ -160,6 +174,11 @@
       if (!G.done(token)) return;
       if (r && r.dead) dead = r.dead;
       paint(); G.say(turnText());
+      var ctl = G.watching;
+      if (ctl) {
+        var sc = liveScore();
+        ctl.offer('Both sides passed. Stones that cannot live are marked dead, and each side counts the empty points it surrounds: Black ' + fmt(sc.black) + ', White ' + fmt(sc.white) + ' (White gets ' + Engine.KOMI + ' komi for moving second).', function () { if (G.watching === ctl) accept(); });
+      }
     });
   }
   function toggleDead(i) {
@@ -202,6 +221,14 @@
     paint(); G.say(turnText(), !G.human(0));
     if (!G.human(0)) computerTurn();
   }
+
+  G.registerWatch({
+    script: 'explain-go.js', unit: 'move', level: 'medium',
+    intro: 'Black plays first. The computer plays both sides and says what each stone does.',
+    whoseTurn: function () { return st.turn - 1; },
+    resume: function () { paint(); G.say(turnText()); }
+  });
+  if (root.ZimiShell) root.ZimiShell.game({ moveTimer: true, hints: true, inProgress: function () { return !G.over && history.size() > 0; } });
 
   G.newGame();
   if (new URLSearchParams(location.search).has('debug')) root.__go = { state: function () { return st; }, engine: Engine, phase: function () { return phase; }, dead: function () { return dead; }, ask: ask };

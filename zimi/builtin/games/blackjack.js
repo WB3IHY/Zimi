@@ -16,7 +16,7 @@
    Pure functions; the page wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
 
   var START_CHIPS = 1000, MIN_BET = 10, MAX_BET = 500, BET_STEPS = [10, 50, 100, 500], MAX_HANDS = 4;
   var TARGET = 21, DEALER_STANDS = 17, CUT_SHARE = 0.75, BLACKJACK_PAYS = 1.5, INSURANCE_PAYS = 2, DECK_CHOICES = [1, 2, 6];
@@ -173,6 +173,21 @@
   }
   var broke = function (st) { return st.phase === 'bet' && st.chips < MIN_BET; };
 
+  // People sharing the device play a round each, one after another, from the same shoe.
+  // `carry` is the next person's turn: their chips and bet, the shoe where the last round left it.
+  function carry(st, bank) {
+    var s = Z.clone(st);
+    s.chips = bank.chips; s.bet = Math.max(0, Math.min(bank.bet, bank.chips, MAX_BET));
+    s.hands = []; s.dealer = []; s.active = -1; s.hole = false; s.insurance = 0; s.last = []; s.phase = 'bet'; s.shuffled = false;
+    return s;
+  }
+  // The next seat after `cur` (round the table, `cur` last) that can still afford a bet, or -1.
+  function nextPlayer(people, chips, cur) {
+    var after = people.filter(function (p) { return p > cur; }).concat(people.filter(function (p) { return p <= cur; }));
+    var able = after.filter(function (p) { return chips[p] >= MIN_BET; });
+    return able.length ? able[0] : -1;
+  }
+
   // ── Basic strategy (dealer stands on soft 17, double after split, 4+ decks) ──
   // Returns 'hit' | 'stand' | 'double' | 'split' for what is allowed.
   function basicAction(cards, upcard, allow) {
@@ -233,35 +248,47 @@
   var api = {
     START_CHIPS: START_CHIPS, MIN_BET: MIN_BET, MAX_BET: MAX_BET, handValue: handValue, isBlackjack: isBlackjack, net: net, newGame: freshGame, newShoe: newShoe,
     setBet: setBet, canDeal: canDeal, deal: deal, takeInsurance: takeInsurance, canHit: canHit, canDouble: canDouble, canSplit: canSplit,
-    hit: hit, stand: stand, double: double, split: split, basicAction: basicAction, hint: hint, broke: broke, place: place, cardValue: cardValue
+    hit: hit, stand: stand, double: double, split: split, basicAction: basicAction, hint: hint, broke: broke, place: place, cardValue: cardValue, carry: carry, nextPlayer: nextPlayer
   };
   root.ZimiBlackjack = api;
 
   // ── The page ────────────────────────────────────────────────────────────
+  var SEAT_COUNT = 3, DEFAULT_BET = 20;
   function boot() {
     var t, session, view = { flash: '' }, DECK_KEY = 'blackjack.decks', INS_KEY = 'blackjack.insurance', HINT_KEY = 'blackjack.hint', CHIPS_KEY = 'blackjack.chips', BET_KEY = 'blackjack.bet';
     var showHint = Z.store.get(HINT_KEY, false) === true;
     var rng = Math.random;
+    // Seats are a Person or empty (the dealer is always the computer); people take a round each behind a handoff.
+    var seats = Seats.create({ id: 'blackjack', seats: SEAT_COUNT, onChange: function () { if (t) t.paint(); } }), bank = {};
+    var nm = function () { return seats.isYou(seats.view()) ? 'You' : seats.name(seats.view()); };
+    var byName = function (text) { return seats.hotseat() ? text.replace(/^You: /, nm() + ': ') : text; };
     function opts() {
       var decks = Z.store.get(DECK_KEY, 6);
       return { decks: DECK_CHOICES.indexOf(decks) >= 0 ? decks : 6, insurance: Z.store.get(INS_KEY, false) === true };
     }
-    function save(st) { Z.store.set(CHIPS_KEY, st.chips); Z.store.set(BET_KEY, st.bet); }
-    function show(st) { save(st); session.follow(st); if (broke(st)) outOfChips(st); }
+    function save(st) { if (seats.hotseat()) return; Z.store.set(CHIPS_KEY, st.chips); Z.store.set(BET_KEY, st.bet); }
+    function show(st) { save(st); session.follow(st); if (broke(st) && !seats.hotseat()) outOfChips(st); }
     function outOfChips(st) {
       session.lose('Out of chips', ['You are out of chips after ' + Z.plural(st.round, 'round') + '. A new game starts you again with ' + START_CHIPS + '.'], 0);
     }
     function handChip(st, h, i) {
-      var v = handValue(h.cards), label = (st.hands.length > 1 ? 'Hand ' + (i + 1) : 'You');
+      var v = handValue(h.cards), label = (st.hands.length > 1 ? 'Hand ' + (i + 1) : nm());
       return { name: label, text: (v.soft && v.total < 21 ? 'soft ' : '') + v.total + ' (' + h.bet + ')', turn: st.phase === 'play' && st.active === i };
     }
     function hud(st) {
-      var chips = [], out = { sub: st.chips + ' chips', text: '' };
+      var chips = [], hot = seats.hotseat(), out = { sub: (hot ? nm() + ' ' : '') + st.chips + ' chips', text: '' };
       if (st.dealer.length) chips.push({ name: 'Dealer', text: st.hole ? String(handValue(st.dealer).total) : String(cardValue(st.dealer[0]) === 11 ? 'A' : cardValue(st.dealer[0])) });
       st.hands.forEach(function (h, i) { chips.push(handChip(st, h, i)); });
+      if (hot) seats.people().forEach(function (p) { if (p !== seats.view() && bank[p]) chips.push({ name: seats.name(p), text: bank[p].chips + ' chips' }); });
       out.chips = chips;
-      if (st.phase === 'bet') {
-        out.text = st.last.length ? '' : 'Place your bet, then deal';
+      if (st.phase === 'bet' && hot && st.hands.length) {
+        // The round is over: each person's result stays on screen until the device is passed on.
+        var next = nextPlayer(seats.people(), chipsBySeat(st), seats.view());
+        out.text = '';
+        out.lines = st.last.map(function (x) { return { text: byName(x) }; });
+        out.choices = [{ label: next < 0 ? 'Finish' : next === seats.view() ? 'Next round' : 'Pass to ' + seats.name(next), primary: true, onclick: passOn }];
+      } else if (st.phase === 'bet') {
+        out.text = st.last.length ? '' : (hot ? nm() + ', place your bet, then deal' : 'Place your bet, then deal');
         out.lines = st.last.map(function (x) { return { text: x }; });
         if (st.shuffled) out.lines.push({ text: 'The shoe was shuffled.' });
         out.choices = BET_STEPS.map(function (v) { return { label: '+' + v, disabled: st.bet + v > Math.min(MAX_BET, st.chips), onclick: function () { show(setBet(session.state, session.state.bet + v)); } }; });
@@ -271,7 +298,7 @@
         out.text = 'Dealer shows an ace. Insurance costs ' + Math.floor(st.hands[0].bet / 2) + ' and pays 2 to 1';
         out.choices = [{ label: 'Insure', onclick: function () { move(takeInsurance(session.state, true)); } }, { label: 'No thanks', onclick: function () { move(takeInsurance(session.state, false)); } }];
       } else {
-        out.text = st.hands.length > 1 ? 'Playing hand ' + (st.active + 1) : 'Your move';
+        out.text = st.hands.length > 1 ? 'Playing hand ' + (st.active + 1) : hot ? nm() + ', your move' : 'Your move';
         out.choices = [
           { label: 'Hit', onclick: function () { move(hit(session.state, rng)); } },
           { label: 'Stand', onclick: function () { move(stand(session.state)); } },
@@ -284,6 +311,16 @@
       }
       return out;
     }
+    // Everyone's chips by seat: the seat playing now is the live state, the others sit in the bank.
+    function chipsBySeat(st) { var out = {}; seats.people().forEach(function (p) { out[p] = bank[p] ? bank[p].chips : START_CHIPS; }); out[seats.view()] = st.chips; return out; }
+    function passOn() {
+      var st = session.state, cur = seats.view(), chips = chipsBySeat(st), next = nextPlayer(seats.people(), chips, cur);
+      bank[cur] = { chips: st.chips, bet: st.bet };
+      if (next < 0) { session.lose('Out of chips', ['Nobody has chips left after ' + Z.plural(st.round, 'round') + '. A new game starts everyone again with ' + START_CHIPS + '.'], undefined); return; }
+      session.follow(carry(st, bank[next] || { chips: START_CHIPS, bet: DEFAULT_BET }));
+      seats.ensure(next, function () { t.paint(); });
+      if (next === cur) t.paint();
+    }
     function toggleHint() { showHint = !showHint; Z.store.set(HINT_KEY, showHint); t.paint(); }
     function dealIt() {
       var st = session.state;
@@ -293,17 +330,20 @@
     function move(next) { if (next !== session.state) show(next); }
     function newGame() {
       var o = opts();
-      o.chips = START_CHIPS; o.bet = 20;
+      o.chips = START_CHIPS; o.bet = DEFAULT_BET; bank = {};
       show(freshGame(rng, o));
       session.reset(session.state);
+      seats.begin(function () { t.paint(); }, seats.people()[0]);
     }
     function start() {
-      var o = opts(), chips = Z.store.get(CHIPS_KEY, START_CHIPS), bet = Z.store.get(BET_KEY, 20);
-      o.chips = typeof chips === 'number' && chips >= MIN_BET ? chips : START_CHIPS; o.bet = typeof bet === 'number' ? Math.min(bet, o.chips) : 20;
+      if (seats.hotseat()) { newGame(); return; }
+      var o = opts(), chips = Z.store.get(CHIPS_KEY, START_CHIPS), bet = Z.store.get(BET_KEY, DEFAULT_BET);
+      o.chips = typeof chips === 'number' && chips >= MIN_BET ? chips : START_CHIPS; o.bet = typeof bet === 'number' ? Math.min(bet, o.chips) : DEFAULT_BET;
       session.reset(freshGame(rng, o));
+      seats.begin(function () { t.paint(); });
     }
     t = T.create({
-      id: 'blackjack', name: 'Blackjack', view: view, geo: geo, place: function (st, m) { return place(st, m); }, hud: hud, newGame: newGame, cols: 5, heightShare: 0.15,
+      id: 'blackjack', name: 'Blackjack', seats: seats, seatsBlock: { cpuLabel: 'Empty', note: 'Each person plays a round in turn against the dealer, from the same shoe.' }, view: view, geo: geo, place: function (st, m) { return place(st, m); }, hud: hud, newGame: newGame, cols: 5, heightShare: 0.15,
       stat: function (sec, st) { return st.chips + ' chips'; },
       cascadeOrder: function () { return []; }, winLines: function () { return []; },
       menuExtra: function () {
@@ -313,12 +353,12 @@
           Z.h('p', { class: 'zc-note', text: 'A new shoe uses the number of decks chosen here.' })
         ];
       },
-      rules: 'Beat the dealer to 21 without going over. Blackjack pays 3 to 2; the dealer stands on every 17. Double on any two cards, split pairs up to four hands (split aces take one card each). Insurance is off unless you turn it on. Hint shows what basic strategy would do. Keys: H hit, S stand, D double, P split. Chips only: you start with ' + START_CHIPS + '.'
+      rules: 'Beat the dealer to 21 without going over. Blackjack pays 3 to 2; the dealer stands on every 17. Double on any two cards, split pairs up to four hands (split aces take one card each). Insurance is off unless you turn it on. With two or more people in the Players rows, each takes a round in turn behind a handoff, from the same shoe. Hint shows what basic strategy would do. Keys: H hit, S stand, D double, P split. Chips only: you start with ' + START_CHIPS + '.'
     });
     session = t.session; api.session = session; api.board = t.board;
     if (root.ResizeObserver) new root.ResizeObserver(function () { t.paint(); }).observe(root.document.getElementById('zc-table'));
     root.document.addEventListener('keydown', function (e) {
-      if (e.ctrlKey || e.metaKey || e.altKey || root.document.querySelector('.ar-sheet')) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || seats.covering || root.document.querySelector('.ar-sheet')) return;
       var st = session.state, k = e.key.toLowerCase();
       if (!st) return;
       if (st.phase === 'play') {

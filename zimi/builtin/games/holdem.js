@@ -15,7 +15,7 @@
    Pure functions; the page wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
 
   var START_CHIPS = 1000, HANDS_PER_LEVEL = 8, SIM_COUNT = 160, CHIP_UNIT = 5;
   var BLIND_LEVELS = [[10, 20], [15, 30], [25, 50], [50, 100], [100, 200], [200, 400], [400, 800]];
@@ -255,10 +255,11 @@
     s.phase = gameState(s) ? 'over' : 'between';
     return s;
   }
-  // 'won' / 'lost' once decided, else ''.
+  // 'won' / 'lost' once decided, else ''. st.people (set by the page) lists the seats people play,
+  // seat 0 by default: lost when none of them has chips, won when one player holds every chip.
   function gameState(st) {
-    if (st.players[0].chips <= 0) return 'lost';
-    return st.players.slice(1).every(function (p) { return p.chips <= 0; }) ? 'won' : '';
+    if (!(st.people || [0]).some(function (h) { return st.players[h].chips > 0; })) return 'lost';
+    return st.players.filter(function (p) { return p.chips > 0; }).length === 1 ? 'won' : '';
   }
 
   // ── The computer players ────────────────────────────────────────────────
@@ -309,8 +310,11 @@
   }
   // The shared cards sit just under the opponents' seats, leaving the middle to the panel.
   var boardY = function (g) { return Math.round(g.northY + TAG_H + g.ch + POT_H + 14); };
-  function place(st, m) {
-    var g = geo(m), slots = [], cards = [], n = st.players.length, boxes = seatBoxes(g, n - 1);
+  // The person looking sits at the bottom (view.viewer), the others follow clockwise across the top.
+  // Their two cards are face down while it is not their turn to act, until a showdown shows them.
+  var relSeat = function (seat, V, n) { return (seat - V + n) % n; };
+  function place(st, m, view) {
+    var g = geo(m), slots = [], cards = [], n = st.players.length, boxes = seatBoxes(g, n - 1), V = (view && view.viewer) || 0;
     var showAll = handDone(st) && st.result && st.result.showdown;
     var seatCards = function (p, x0, w, y, step, up, pile, marks) {
       var span = g.cw + (p.hole.length - 1) * step, x = x0 + (w - span) / 2;
@@ -321,8 +325,8 @@
     st.players.forEach(function (p, i) {
       if (!p.hole.length) return;
       var five = fiveOf(i);
-      if (i === 0) seatCards(p, g.pad, g.W - 2 * g.pad, g.southY, g.cw * 1.08, true, 'h0', five);
-      else seatCards(p, boxes[i - 1].x, boxes[i - 1].w, g.northY + TAG_H, Math.min(g.cw * 0.5, boxes[i - 1].w * 0.28), !p.folded && showAll, 'p' + i, five);
+      if (i === V) seatCards(p, g.pad, g.W - 2 * g.pad, g.southY, g.cw * 1.08, !(view && view.hideHand) || (!p.folded && showAll), 'h0', five);
+      else { var box = boxes[relSeat(i, V, n) - 1]; seatCards(p, box.x, box.w, g.northY + TAG_H, Math.min(g.cw * 0.5, box.w * 0.28), !p.folded && showAll, 'p' + i, five); }
     });
     var bw = Math.min(g.cw + g.cw * 0.18, (g.W - 2 * g.pad) / 5.3), bx = g.W / 2 - (5 * bw - (bw - g.cw)) / 2, by = boardY(g);
     st.board.forEach(function (id, k) {
@@ -336,7 +340,7 @@
   var api = {
     START_CHIPS: START_CHIPS, STYLES: STYLES, OPPONENTS: OPPONENTS, BLIND_LEVELS: BLIND_LEVELS, evaluate: evaluate, bestFive: bestFive, sidePots: sidePots,
     newGame: freshGame, startHand: startHand, options: options, act: act, runStep: runStep, gameState: gameState, aiAction: aiAction, equity: equity,
-    totalPot: totalPot, place: place, geo: geo, seatBoxes: seatBoxes, TAG_H: TAG_H
+    totalPot: totalPot, place: place, geo: geo, seatBoxes: seatBoxes, TAG_H: TAG_H, CPU_NAMES: ['Hale'].concat(OPPONENTS.map(function (o) { return o[0]; }))
   };
   root.ZimiHoldem = api;
 
@@ -345,26 +349,37 @@
   function boot() {
     var d = root.document, t, board, session, view = { flash: '' }, tags = [], rng = Math.random, raiseTo = null;
     function opponents() { var v = Z.store.get(OPP_KEY, 3); return v >= 3 && v <= 5 ? v : 3; }
-    function chipsLeft(st) { return st.players[0].chips; }
+    // Seats are the Computer or a Person (a computer keeps its own name and style). The count follows the
+    // table size, so a new game builds a fresh ZimiSeats and the facade below hands out its methods.
+    var seats = {};
+    function buildSeats(n) {
+      var cur = Seats.create({ id: 'holdem', seats: n, cpuNames: api.CPU_NAMES, onChange: function () { repaint(); } });
+      Object.keys(cur).forEach(function (k) { seats[k] = cur[k]; });
+    }
+    buildSeats(opponents() + 1);
+    var nm = function (seat) { return seats.name(seat); };
+    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.toAct !== view.viewer; }
+    function repaint() { if (board) board.refresh(); if (t) t.paint(); }
+    function chipsLeft(st) { return st.players[seats.view()].chips; }
     function yourHand(st) {
-      var p = st.players[0];
-      return p.hole.length && !p.folded ? evaluate(p.hole.concat(st.board)).name : '';
+      var p = st.players[seats.view()];
+      return p.hole.length && !p.folded && !view.hideHand ? evaluate(p.hole.concat(st.board)).name : '';
     }
     var tagSig = '';
     function layTags(st, m) {
-      var g = geo(m), boxes = seatBoxes(g, st.players.length - 1);
-      var sig = JSON.stringify([st.players.map(function (p) { return [p.chips, p.bet, p.folded, p.out, p.last]; }), st.toAct, st.dealer, st.phase, st.board.length, totalPot(st), st.result && st.result.winners, g.W, g.northY, g.southY]);
+      var g = geo(m), n = st.players.length, boxes = seatBoxes(g, n - 1), V = seats.view();
+      var sig = JSON.stringify([V, st.players.map(function (p) { return [p.chips, p.bet, p.folded, p.out, p.last]; }), st.toAct, st.dealer, st.phase, st.board.length, totalPot(st), st.result && st.result.winners, g.W, g.northY, g.southY]);
       if (sig === tagSig) return;
       tagSig = sig;
       tags.forEach(function (e) { e.remove(); }); tags = [];
       st.players.forEach(function (p, i) {
-        var box = i === 0 ? { x: g.pad, w: g.W - 2 * g.pad, y: g.southY - ME_H - 2 } : boxes[i - 1];
-        var big = i === 0 ? 'You' : p.name, w = Math.min(box.w - SEAT_GAP, i === 0 ? 260 : 150);
-        var cls = 'c2-tag' + (i === 0 ? ' c2-me' : '') + (st.toAct === i && !handDone(st) ? ' c2-turn' : '') + (p.folded || p.out ? ' c2-out' : '') + (st.dealer === i && !p.out ? ' c2-dealer' : '');
+        var box = i === V ? { x: g.pad, w: g.W - 2 * g.pad, y: g.southY - ME_H - 2 } : boxes[relSeat(i, V, n) - 1];
+        var big = nm(i), w = Math.min(box.w - SEAT_GAP, i === V ? 260 : 150);
+        var cls = 'c2-tag' + (i === V ? ' c2-me' : '') + (st.toAct === i && !handDone(st) ? ' c2-turn' : '') + (p.folded || p.out ? ' c2-out' : '') + (st.dealer === i && !p.out ? ' c2-dealer' : '');
         var line = p.out ? 'out' : p.last && !handDone(st) || (p.last === 'fold') ? p.last : (p.bet ? 'bet ' + p.bet : '');
         if (handDone(st) && st.result && st.result.hands[i]) line = CATS[st.result.hands[i].cat] + (st.result.winners.indexOf(i) >= 0 ? ' (wins)' : '');
         if (p.chips === 0 && handDone(st) && !(st.result && st.result.winners.indexOf(i) >= 0)) line = 'out';
-        var e = Z.h('div', { class: cls, style: 'left:' + Math.round(box.x + (box.w - w) / 2) + 'px;top:' + Math.round(box.y) + 'px;width:' + w + 'px;height:' + (i === 0 ? ME_H : TAG_H - 2) + 'px' }, [
+        var e = Z.h('div', { class: cls, style: 'left:' + Math.round(box.x + (box.w - w) / 2) + 'px;top:' + Math.round(box.y) + 'px;width:' + w + 'px;height:' + (i === V ? ME_H : TAG_H - 2) + 'px' }, [
           Z.h('b', { text: big + ' ' + p.chips }), Z.h('span', { text: line })]);
         d.getElementById('zc-table').appendChild(e); tags.push(e);
       });
@@ -374,22 +389,22 @@
     function hud(st) {
       var m = board.metrics(), out = { chips: [], sub: 'Blinds ' + st.blinds[0] + '/' + st.blinds[1], text: '' };
       layTags(st, m);
-      var mine = options(st, 0), name = yourHand(st);
+      var V = seats.view(), hot = seats.hotseat(), mine = options(st, V), name = yourHand(st);
       if (handDone(st)) {
         var r = st.result, lines = [];
         if (r) {
           r.pots.forEach(function (pot) {
-            lines.push({ text: pot.name + ' ' + pot.amount + ': ' + pot.winners.map(function (i) { return st.players[i].name + (r.showdown && r.hands[i] ? ' (' + r.hands[i].name + ')' : ''); }).join(' and ') + (pot.winners.length > 1 ? ' split it' : ' wins') });
+            lines.push({ text: pot.name + ' ' + pot.amount + ': ' + pot.winners.map(function (i) { return nm(i) + (r.showdown && r.hands[i] ? ' (' + r.hands[i].name + ')' : ''); }).join(' and ') + (pot.winners.length > 1 ? ' split it' : ' wins') });
           });
-          if (r.showdown) st.players.forEach(function (p, i) { if (r.hands[i] && r.winners.indexOf(i) < 0) lines.push({ text: p.name + ': ' + r.hands[i].name }); });
+          if (r.showdown) st.players.forEach(function (p, i) { if (r.hands[i] && r.winners.indexOf(i) < 0) lines.push({ text: nm(i) + ': ' + r.hands[i].name }); });
         }
         out.lines = lines;
-        if (st.phase === 'over') { out.text = gameState(st) === 'won' ? 'You have all the chips' : 'You are out of chips'; out.label = 'New game'; out.action = newGame; }
+        if (st.phase === 'over') { out.text = overText(st); out.label = 'New game'; out.action = newGame; }
         else { out.text = st.started ? '' : 'Ready when you are'; out.choices = [{ label: st.started ? 'Next hand' : 'Deal', primary: true, onclick: nextHand }]; }
         return out;
       }
       if (mine) {
-        out.text = (name ? 'You have ' + name.toLowerCase() + '. ' : '') + (mine.check ? 'Your move' : mine.toCall + ' to call');
+        out.text = (hot ? nm(V) + ': ' : '') + (name ? (hot ? 'you have ' : 'You have ') + name.toLowerCase() + '. ' : '') + (mine.check ? (hot ? 'your move' : 'Your move') : mine.toCall + ' to call');
         out.choices = [{ label: 'Fold', onclick: function () { play({ type: 'fold' }); }, disabled: mine.check, aria: 'Fold' }, { label: mine.check ? 'Check' : 'Call ' + mine.toCall, onclick: function () { play({ type: 'call' }); } }];
         if (mine.canRaise) {
           var sizes = [], seen = {}, base = st.currentBet, potNow = mine.pot + mine.toCall;
@@ -401,18 +416,25 @@
           sizes.forEach(function (sz, k) { out.choices.push({ label: (k === 0 && sz.to < mine.maxTo ? (st.currentBet ? 'Raise to ' : 'Bet ') + sz.to : sz.label), onclick: function () { play({ type: 'raise', to: sz.to }); } }); });
         }
       } else if (st.runout) out.text = 'Everyone is all in';
-      else out.text = st.toAct > 0 ? st.players[st.toAct].name + ' is thinking' : '';
+      else out.text = st.toAct >= 0 ? nm(st.toAct) + (seats.person(st.toAct) ? ' is next' : ' is thinking') : '';
       return out;
+    }
+    function overText(st) {
+      var w = st.players.findIndex(function (p) { return p.chips > 0; });
+      if (seats.hotseat()) return gameState(st) === 'won' ? nm(w) + ' has all the chips' : 'Nobody is left with chips';
+      return gameState(st) === 'won' ? 'You have all the chips' : 'You are out of chips';
     }
     function drive() {
       var st = session.state;
       if (handDone(st)) { finish(st); return; }
       if (st.runout) { session.later(function () { session.follow(runStep(session.state)); drive(); }, STREET_MS); return; }
-      if (st.toAct > 0) session.later(aiMove, st.players[0].folded ? QUICK_MS : AI_MS);
+      if (st.toAct < 0) return;
+      if (seats.person(st.toAct)) { seats.ensure(st.toAct, repaint); return; }
+      session.later(aiMove, seats.people().every(function (p) { return st.players[p].folded || st.players[p].out; }) ? QUICK_MS : AI_MS);
     }
     function aiMove() {
       var st = session.state;
-      if (st.toAct <= 0 || handDone(st)) return;
+      if (st.toAct < 0 || seats.person(st.toAct) || handDone(st)) return;
       session.follow(act(st, st.toAct, aiAction(st, st.toAct, rng)));
       drive();
     }
@@ -424,31 +446,36 @@
     }
     function conclude(st, gs) {
       var lines = ['You played ' + Z.plural(st.handNo, 'hand') + '. ' + (gs === 'won' ? 'You have all the chips.' : 'You are out of chips.')];
+      if (seats.hotseat()) { session.lose(gs === 'won' ? overText(st) : 'Out of chips', [Z.plural(st.handNo, 'hand') + ' played. ' + overText(st) + '.'], undefined); return; }
       if (gs === 'won') session.win(chipsLeft(st)); else session.lose('Out of chips', lines, chipsLeft(st));
     }
-    function play(action) { var st = session.state; if (st.toAct !== 0) return; session.follow(act(st, 0, action)); drive(); }
+    function play(action) { var st = session.state, V = seats.view(); if (st.toAct !== V) return; session.follow(act(st, V, action)); drive(); }
     function nextHand() {
       var st = session.state;
       if (st.phase !== 'between') return;
       session.commit(startHand(st, rng)); session.history = [];
-      drive();
+      // A fresh deal: nobody has seen it, so a table of people starts at a handoff.
+      seats.begin(function () { repaint(); drive(); }, session.state.toAct);
     }
     function newGame() {
       ended = false; view.flash = '';
-      session.reset(freshGame(rng, opponents()));
+      buildSeats(opponents() + 1);
+      var fresh = freshGame(rng, opponents());
+      fresh.people = seats.people();
+      session.reset(fresh);
     }
     t = T.create({
-      id: 'holdem', name: 'Texas Hold’em', view: view, geo: geo, place: place, hud: hud, newGame: newGame, cols: 7, heightShare: 0.1,
+      id: 'holdem', name: 'Texas Hold’em', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, cols: 7, heightShare: 0.1,
       stat: function (sec, st) { return chipsLeft(st) + ' chips'; },
-      cascadeOrder: function (st) { return st.board.concat(st.players[0].hole).map(function (id) { return { id: id }; }); },
+      cascadeOrder: function (st) { return st.board.concat(st.players[seats.view()].hole).map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { return ['You took every chip in ' + Z.plural(st.handNo, 'hand') + '.']; },
       menuExtra: function () {
-        var rows = [T.choiceRow('Opponents', OPP_KEY, [3, 4, 5].map(function (n) { return { label: String(n), value: n }; }), 3, function () { /* next game */ }),
+        var rows = [T.choiceRow('Seats at the table', OPP_KEY, [3, 4, 5].map(function (n) { return { label: String(n + 1), value: n }; }), 3, function () { /* next game */ }),
           Z.h('p', { class: 'zc-note', text: 'A change applies to the next new game.' })];
-        rows.push(Z.h('p', { class: 'zc-note', text: OPPONENTS.map(function (o) { return o[0] + ' plays ' + STYLES[o[1]].label; }).join('; ') + '.' }));
+        rows.push(Z.h('p', { class: 'zc-note', text: 'Computer players: ' + OPPONENTS.map(function (o) { return o[0] + ' plays ' + STYLES[o[1]].label; }).join('; ') + '.' }));
         return rows;
       },
-      rules: 'Everyone gets two private cards; five shared cards come out in three steps (the flop, the turn, the river) with betting between. The best five-card hand wins the pot. Blinds are forced bets that grow every eight hands. All in puts every chip you have in; anything others bet beyond that goes into a side pot you cannot win. Hands from best: royal flush, straight flush, four of a kind, full house, flush, straight, three of a kind, two pair, pair, high card. Chips only, 1000 each to start; last player with chips wins.'
+      rules: 'Everyone gets two private cards; five shared cards come out in three steps (the flop, the turn, the river) with betting between. The best five-card hand wins the pot. Blinds are forced bets that grow every eight hands. All in puts every chip you have in; anything others bet beyond that goes into a side pot you cannot win. Hands from best: royal flush, straight flush, four of a kind, full house, flush, straight, three of a kind, two pair, pair, high card. Chips only, 1000 each to start; last player with chips wins. With two or more people in the Players rows, each sees only their own two cards, behind a handoff.'
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;
@@ -458,7 +485,7 @@
     d.addEventListener('keydown', function (e) {
       if (e.ctrlKey || e.metaKey || e.altKey || d.querySelector('.ar-sheet')) return;
       var st = session.state, k = e.key.toLowerCase();
-      if (!st || st.toAct !== 0) { if (st && st.phase === 'between' && k === 'enter' && d.activeElement === d.body) nextHand(); return; }
+      if (!st || st.toAct !== seats.view() || seats.covering) { if (st && st.phase === 'between' && k === 'enter' && d.activeElement === d.body) nextHand(); return; }
       if (k === 'f') { play({ type: 'fold' }); e.preventDefault(); } else if (k === 'c') { play({ type: 'call' }); e.preventDefault(); }
     });
   }
