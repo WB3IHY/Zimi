@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Go - ZimiGames</title>
+<link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="world.css">
+<link rel="stylesheet" href="go.css">
+</head>
+<body>
+<header class="ar-bar">
+  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <h1>Go</h1>
+  <button class="ar-btn" id="wk-undo" type="button" disabled>Undo</button>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog">New game</button>
+</header>
+
+<main class="bg-main">
+  <div class="bg-score" id="wk-score" aria-label="Score"></div>
+  <div class="wk-board go-board" id="wk-board" role="group" aria-label="Go board"></div>
+  <p class="bg-status" id="wk-status" role="status" aria-live="polite"></p>
+  <div class="bg-controls" id="wk-controls"><button class="ar-btn" id="go-pass" type="button">Pass</button><button class="ar-btn" id="go-done" type="button" hidden>Accept score</button><button class="ar-btn" id="go-resume" type="button" hidden>Keep playing</button><button class="ar-btn" id="wk-hint" type="button" disabled>Hint</button></div>
+  <p class="bg-stats" id="wk-stats"></p>
+  <p class="bg-help">Surround stones to capture them and space to own it. Tap a crossing to play, Pass when you are done. After two passes, tap groups that are dead, then accept the score. Arrow keys move, Enter places, U undoes, H gives a hint, N starts a new game.</p>
+</main>
+<script src="boardkit.js"></script>
+<script src="worldkit.js"></script>
+<script src="go-engine.js"></script>
+<script src="go.js"></script>
+</body>
+</html>

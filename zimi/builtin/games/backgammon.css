@@ -1,0 +1,33 @@
+/* Backgammon: a walnut frame round green felt, ochre and bone points, white and slate checkers. */
+:root { --bk-frame: #6b4528; --bk-felt: #2d6b4a; --bk-a: #d2b074; --bk-b: #8f3b30; --bk-bar: #54351d; --bk-tray: rgba(0, 0, 0, 0.22); --bk-die: #faf6ea; --bk-pip: #1d2433; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bk-frame: #4a2f1a; --bk-felt: #1d4a34; --bk-a: #a08555; --bk-b: #6c2c25; --bk-bar: #3a2412; --bk-die: #e4dfd0; } }
+:root[data-theme="dark"] { --bk-frame: #4a2f1a; --bk-felt: #1d4a34; --bk-a: #a08555; --bk-b: #6c2c25; --bk-bar: #3a2412; --bk-die: #e4dfd0; }
+
+.bk-board { --bs: min(100vw - 12px, (100svh - 250px) * 1.4, 700px); }
+.bk-frame { fill: var(--bk-frame); }
+.bk-felt { fill: var(--bk-felt); }
+.bk-tri.a { fill: var(--bk-a); }
+.bk-tri.b { fill: var(--bk-b); }
+.bk-bar { fill: var(--bk-bar); }
+.bk-tray { fill: var(--bk-tray); stroke: rgba(0, 0, 0, 0.35); stroke-width: 1.5; }
+.bk-shadow { fill: rgba(0, 0, 0, 0.35); }
+.bk-ck { stroke: rgba(0, 0, 0, 0.45); stroke-width: 1; }
+.bk-ck.sel { stroke: var(--accent); stroke-width: 3.5; }
+.bk-ring { fill: none; stroke-width: 1.4; opacity: 0.45; }
+.bk-ring.on-w { stroke: #8f8a78; }
+.bk-ring.on-b { stroke: #aab1c2; }
+.bk-n { font: 700 13px var(--mono); }
+.bk-n.on-w { fill: #1d2433; }
+.bk-n.on-b { fill: #fff; }
+.bk-off { stroke: rgba(0, 0, 0, 0.4); stroke-width: 0.8; }
+.bk-off.w { fill: #f4f0e4; }
+.bk-off.b { fill: #232a38; }
+.bk-die-face { fill: var(--bk-die); stroke: rgba(0, 0, 0, 0.4); stroke-width: 1.2; }
+.bk-pip { fill: var(--bk-pip); }
+.bk-die.used { opacity: 0.3; }
+.bk-last { fill: rgba(250, 204, 21, 0.2); stroke: rgba(250, 204, 21, 0.85); stroke-width: 2; }
+.bk-target { fill: rgba(34, 197, 94, 0.32); stroke: #86efac; stroke-width: 2.5; }
+.bk-hint { fill: none; stroke: var(--accent); stroke-width: 3; stroke-dasharray: 6 4; }
+.bk-cube rect { fill: #f7f3e6; stroke: #5a4a2a; stroke-width: 1.5; }
+.bk-cube text { font: 800 14px var(--mono); fill: #1d2433; }
+.bk-pt:hover:not([aria-disabled="true"]) { background: rgba(255, 255, 255, 0.14); }

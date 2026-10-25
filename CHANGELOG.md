@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - ZIMs added or removed show up in every open window without a reload.
 - Discover shows the next day's cards in a window left open overnight.
 - Patience, in Settings > Languages > Voices and in Read aloud's voice menu while Natural reads: Read aloud keeps a slow voice, gets ahead before it starts (the bar counts down with a closing ring) and pauses to catch up, instead of switching to a faster voice.
-- ZimiGames, 18 offline games on Home under Gaming & Fandom: Solitaire, FreeCell, Spider, Hearts, Pyramid, Golf, TriPeaks, Reversi, Checkers, Chess, Mahjong, Minesweeper, Sudoku, 2048, Five Letters, Stacker, Snake and Bricks.
+- ZimiGames, on Home under Gaming & Fandom: 38 offline games from around the world (cards from Solitaire and Hearts to Cribbage, Durak and Scopa; Chess, Go, Xiangqi, Shogi, Backgammon, Mancala, Mahjong, Ludo and more; Sudoku, Five Letters, Stacker), each with a computer opponent where the game has one, a Zimi card deck, and Simon Tatham's 41 puzzles.
 - ZimiGames and the Almanac ship as real ZIM files, attached to each release for Kiwix and other readers; `ZIMI_BUILTIN_ZIMS=0` hides them.
 
 ### Changed

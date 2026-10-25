@@ -1,0 +1,16 @@
+/* ZimiGames: what the world board games share (a drawn board with buttons over it).
+   Tokens come from games.css and board.css. */
+.wk-board { position: relative; --bs: min(100vw - 24px, 100svh - 230px, 560px); width: var(--bs); user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.wk-board > svg { display: block; width: 100%; height: auto; overflow: visible; }
+.wk-pt { position: absolute; padding: 0; margin: 0; border: 0; background: transparent; cursor: pointer; border-radius: 6px; -webkit-appearance: none; appearance: none; }
+.wk-pt:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; z-index: 3; }
+.wk-pt[aria-disabled="true"] { cursor: default; }
+.wk-board .wk-ink { fill: var(--ink); }
+.wk-board text { font-family: var(--font); pointer-events: none; }
+.bg-score .wk-who { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; border: 1px solid transparent; }
+.bg-score .wk-who.turn { border-color: var(--accent); background: var(--surface); color: var(--ink); }
+.bg-score .wk-who b { font-variant-numeric: tabular-nums; }
+.wk-pip { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--disc-edge); vertical-align: -2px; box-shadow: 0 0 0 1px rgba(128, 128, 128, 0.45); }
+.bg-controls:empty { display: none; }
+.bg-controls .ar-btn[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .wk-board * { animation-duration: 0.001s !important; transition-duration: 0.001s !important; } }

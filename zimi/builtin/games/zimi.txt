@@ -1,5 +1,5 @@
 Title: ZimiGames
-Description: Eighteen offline games: Solitaire, Spider, Hearts, Chess, Mahjong, Sudoku and more
+Description: 38 games from around the world and 41 puzzles, offline: Solitaire, Hearts, Chess, Go, Shogi, Backgammon, Mahjong, Sudoku and more
 Language: eng
 Creator: Zimi
 Publisher: Zimi
