@@ -1,5 +1,5 @@
 Title: ZimiGames
-Description: Over 150 games from around the world, offline: cards, boards, arcade, puzzles
+Description: Over 130 games from around the world, offline: cards, boards, arcade, puzzles
 Language: eng
 Creator: Zimi
 Publisher: Zimi
