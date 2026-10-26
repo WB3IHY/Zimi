@@ -111,7 +111,7 @@
   var FACE_W = 100, FACE_H = 140, ACE_SCALE = 3.3, ACE_SPADE_SCALE = 3.9;
   // The Ace of Spades carries the maker's mark: the Z alone, in the spade's belly (centre 0.3 of the spade's 20-unit box below its middle,
   // 9 units tall, clear of the outline on every side).
-  var ACE_Z_DY = 0.3, ACE_Z_UNITS = 9, ACE_Z_Y = 70 + ACE_Z_DY * ACE_SPADE_SCALE, ACE_Z_H = ACE_Z_UNITS * ACE_SPADE_SCALE, BACK_Z_H = 32.2; // and the Zimi back's
+  var ACE_Z_DY = 0.3, ACE_Z_UNITS = 5.4, ACE_Z_Y = 70 + ACE_Z_DY * ACE_SPADE_SCALE, ACE_Z_H = ACE_Z_UNITS * ACE_SPADE_SCALE, BACK_Z_H = 32.2; // and the Zimi back's
   var PIP_SCALE = 1.15, PIP_SCALE_DENSE = 0.95, DENSE_FROM = 8, PIP_COLS = [34, 66], PIP_MID_X = 50, PIP_TOP = 32, PIP_BOTTOM = 108, PIP_CENTRE = 70, FLIP_AFTER_Y = 70;
   var PIPS = (function () {
     var sides = function (ys) { var o = []; ys.forEach(function (y) { PIP_COLS.forEach(function (x) { o.push([x, y]); }); }); return o; };
@@ -173,15 +173,20 @@
   // The corner index: rank above suit, and again on the far corner. A small
   // card gets the row version instead (rank beside suit, much larger), which
   // still reads in the sliver a fanned pile shows.
-  var IDX_X = 10.5, IDX_Y = 5, IDX_SCALE = 1.35, IDX_SCALE_TEN = 1.05, IDX_TEN_DROP = 1.5, IDX_SUIT_Y = 38, IDX_SUIT_SCALE = 0.7;
-  var ROW_Y = 5, ROW_SCALE = 2.1, ROW_SUIT_X = 60, ROW_SUIT_Y = 21, ROW_SUIT_SCALE = 1.25, ROW_RANK_X = 4;
+  // The index keeps a clear margin to the card's edge, like a printed card's (IDX_MARGIN units of the 100 x 140 face to
+  // the outside of the stroke): the rank is set from the left edge in, whatever its width, and small enough to clear the
+  // courts' frame.
+  var IDX_MARGIN = 5.5, IDX_SCALE = 1.2, IDX_SCALE_TEN = 0.95, IDX_TEN_DROP = 1.4, IDX_SUIT_GAP = 12, IDX_SUIT_SCALE = 0.65;
+  var ROW_MARGIN = 6, ROW_SCALE = 2.1, ROW_SUIT_X = 63, ROW_SUIT_Y = 23, ROW_SUIT_SCALE = 1.25;
   function indexMarkup(label, s, standalone, shapes, prefix) {
-    var ten = label.length > 1;
+    var ten = label.length > 1, sc = ten ? IDX_SCALE_TEN : IDX_SCALE, half = GLYPH_STROKE * sc / 2;
+    var cx = IDX_MARGIN + half + glyphWidth(label) * sc / 2, top = IDX_MARGIN + half + (ten ? IDX_TEN_DROP : 0);
     var one = function (turn) {
-      return '<g class="zc-idx-std"' + (turn ? ' transform="rotate(180 50 70)"' : '') + '>' + glyph(label, IDX_X, IDX_Y + (ten ? IDX_TEN_DROP : 0), ten ? IDX_SCALE_TEN : IDX_SCALE) +
-        placed(s, IDX_X, IDX_SUIT_Y, IDX_SUIT_SCALE, false, standalone, shapes, prefix) + '</g>';
+      return '<g class="zc-idx-std"' + (turn ? ' transform="rotate(180 50 70)"' : '') + '>' + glyph(label, cx, top, sc) +
+        placed(s, cx, top + 14 * sc + IDX_SUIT_GAP, IDX_SUIT_SCALE, false, standalone, shapes, prefix) + '</g>';
     };
-    var row = standalone ? '' : '<g class="zc-idx-row" display="none">' + glyph(label, ROW_RANK_X + glyphWidth(label) * ROW_SCALE / 2, ROW_Y, ROW_SCALE) +
+    var rowTop = ROW_MARGIN + GLYPH_STROKE * ROW_SCALE / 2;
+    var row = standalone ? '' : '<g class="zc-idx-row" display="none">' + glyph(label, ROW_MARGIN + GLYPH_STROKE * ROW_SCALE / 2 + glyphWidth(label) * ROW_SCALE / 2, rowTop, ROW_SCALE) +
       placed(s, ROW_SUIT_X, ROW_SUIT_Y, ROW_SUIT_SCALE, false, standalone, shapes, prefix) + '</g>';
     return one(false) + one(true) + row;
   }
