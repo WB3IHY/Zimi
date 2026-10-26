@@ -151,8 +151,11 @@
     event = about('mahjong4.deals', game.dealer);
     beginTurn();
   }
+  // The table as it stood when this turn began (a claim in the air is not kept), for leaving and coming back.
+  var snap = null, restoredEnded = false;
   function beginTurn() {
     if (t.result) { endHand(); return; }
+    snap = UI.pack({ t: t, game: game, event: event, ended: false });
     picked = -1; tip = -1; render();
     var p = t.turn, my = epoch;
     if (seats.person(p)) {
@@ -250,6 +253,7 @@
     box.innerHTML = body;
     score(game.points.map(function (_, p) { return nameOf(p) + ' (' + seatInitial(p) + ')'; }), game.points, -1);
     game.last = last;
+    snap = UI.pack({ t: t, game: game, event: '', ended: true });
     root.ZimiShell.sheet({ title: title, body: [box], actions: [{ label: T('shell.close') }, { label: T(last ? 'mahjong4.finalResult' : 'mahjong4.nextHand'), primary: true, onclick: function () { if (game.last) gameOver(); else startHand(); } }] });
   }
   function gameOver() {
@@ -282,7 +286,7 @@
   $('m4-rules').addEventListener('click', function () { root.ZimiShell.sheet({ title: T('mahjong4.scoring'), body: [rulesNode()], actions: [{ label: T('shell.close'), primary: true }] }); });
 
   function newGame() {
-    epoch++; t = null;
+    epoch++; t = null; snap = null;
     seats = newSeats();
     game = { dealer: 0, rotations: 0, repeats: 0, points: [0, 0, 0, 0], last: false };
     var my = epoch;
@@ -295,6 +299,14 @@
 
   if (root.ZimiShell) root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && !!t && (game.rotations > 0 || t.discards.some(function (d) { return d.length > 1; })); } });
   G.newGame();
+  G.persist({
+    save: function () { return snap && (snap.ended || snap.game.rotations || snap.game.repeats || snap.t.discards.some(function (d) { return d.length; })) ? snap : null; },
+    load: function (d) { epoch++; hideClaims(); picked = -1; tip = -1; t = d.t; game = d.game; event = d.event || ''; restoredEnded = !!d.ended; snap = UI.pack(d); render(); },
+    resume: function () {
+      if (restoredEnded) { restoredEnded = false; if (game.last) gameOver(); else startHand(); }
+      else beginTurn();
+    }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__m4 = { engine: E, table: function () { return t; }, game: function () { return game; }, discard: discardTile, begin: beginTurn, shown: function () { return shown; } };

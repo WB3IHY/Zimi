@@ -244,6 +244,29 @@
     inProgress: function () { return !done && step > 1; }
   });
   startPuzzle(pick());
+  // Leaving and coming back: the same puzzle, played as far as it was (the position is played again from the puzzle's start).
+  UI.persist({
+    save: function () { return puzzle ? { idx: puzzle.idx, step: step, hinted: hinted, failed: failed, done: done, rated: rated, isDaily: isDaily, hintLevel: hintLevel, day: isDaily ? today() : '' } : null; },
+    load: function (d) {
+      if (d.isDaily && d.day !== today()) return false;
+      clearTimeout(timer);
+      puzzle = C.parsePuzzle(rows[d.idx], D.themes); puzzle.idx = d.idx; isDaily = d.isDaily;
+      pos = E.parseFen(puzzle.fen); userColor = -pos.turn; lastMove = 0; cue = null; pending = null; sel = -1; targets = {};
+      for (step = 0; step < d.step; step++) { var m = C.fromUci(E, pos, puzzle.moves[step]); if (!m) return false; E.make(pos, m); lastMove = m; }
+      hintLevel = d.hintLevel; hinted = d.hinted; failed = d.failed; done = d.done; rated = d.rated; busy = false;
+      flipped = userColor === BLACK;
+      els.board.classList.remove('solved', 'failed');
+      els.board.classList.toggle('failed', failed && !done); els.board.classList.toggle('solved', done);
+      els.info.textContent = done || failed ? T('puzzles.info', { n: puzzle.rating }) : '';
+      paint(); paintHud(); setButtons();
+    },
+    resume: function () {
+      if (done) { say(T(failed || hinted ? 'puzzles.solved' : 'puzzles.solvedClean')); return; }
+      if (pos.turn === userColor) { say(T(failed ? 'puzzles.notIt' : 'puzzles.findBest', { color: colorName(userColor) })); return; }
+      busy = true; setButtons();
+      later(function () { opponentMove(function () { busy = false; setButtons(); say(T('puzzles.findBest', { color: colorName(userColor) })); }); }, OPPONENT_DELAY_MS);
+    }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__cp = { puzzle: function () { return puzzle; }, pos: function () { return pos; }, state: state, step: function () { return step; }, start: startPuzzle, tryUci: function (u) { var m = C.fromUci(E, pos, u); if (m) tryMove(m); return !!m; }, busy: function () { return busy; }, done: function () { return done; } };

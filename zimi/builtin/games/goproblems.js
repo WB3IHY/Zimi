@@ -228,6 +228,19 @@
   var start = 0;
   problems.forEach(function (p, i) { if (p.c + ':' + p.id === state.last) start = i; });
   load(start);
+  // Leaving and coming back: the same problem with the moves made so far (and White's answer, if it was on its way).
+  UI.persist({
+    save: function () { return history.length || over ? { i: problems.indexOf(P), b: b, ko: ko, plies: plies, last: last, history: history.slice(-40), over: over, thinking: thinking } : null; },
+    load: function (d) {
+      if (!problems[d.i]) return false;
+      load(d.i);
+      b = d.b; ko = d.ko; plies = d.plies; last = d.last; history = d.history; over = d.over; thinking = d.thinking; cue = -1; wrongAt = -1;
+      $('gp-next').setAttribute('aria-pressed', String(over));
+      if (over) say(T(P.k === 'kill' ? 'gp.solved.kill' : 'gp.solved.live'));
+      showStats(); drawBoard();
+    },
+    resume: function () { if (thinking) { say(T('gp.whiteAnswers'), true); setTimeout(whiteReplies, REPLY_DELAY_MS); } }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__gp = { load: load, play: blackPlays, problem: function () { return P; }, over: function () { return over; }, thinking: function () { return thinking; }, problems: problems };

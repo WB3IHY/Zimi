@@ -175,6 +175,27 @@
     inProgress: function () { return !finished && step > 1; }
   });
   start(families[state.family][0]);
+  // Leaving and coming back: the same line, played as far as it was (the position is played again from the start).
+  UI.persist({
+    save: function () { return line ? { key: lineKey(line), side: state.side, step: step, mistakes: mistakes, hinted: hinted, hintLevel: hintLevel, finished: finished } : null; },
+    load: function (d) {
+      var l = lines.filter(function (x) { return lineKey(x) === d.key; })[0];
+      if (!l) return false;
+      clearTimeout(timer);
+      state.side = d.side; state.family = C.family(l.name);
+      line = l; pos = E.startPosition(); sans = []; lastMove = 0; sel = -1; targets = {}; cue = null; pending = null;
+      userColor = state.side === 'white' ? WHITE : BLACK;
+      for (step = 0; step < d.step; step++) { var m = C.fromUci(E, pos, line.moves[step]); if (!m) return false; sans.push(E.san(pos, m)); E.make(pos, m); lastMove = m; }
+      finished = d.finished; mistakes = d.mistakes; hinted = d.hinted; hintLevel = d.hintLevel; busy = false;
+      els.name.textContent = line.eco + ' · ' + line.name;
+      els.next.setAttribute('aria-pressed', String(finished));
+      paintMoves(); paintStats(); paint();
+    },
+    resume: function () {
+      if (finished) { say(T(mistakes || hinted ? 'openings.complete' : 'openings.completeClean', { name: line.name })); return; }
+      advance();
+    }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__co = { line: function () { return line; }, pos: function () { return pos; }, busy: function () { return busy; }, finished: function () { return finished; }, state: state, start: start, lines: lines, families: families, attemptUci: function (u) { var m = C.fromUci(E, pos, u); if (m) attempt(m); return !!m; } };

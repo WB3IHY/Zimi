@@ -33,6 +33,10 @@ ROWS = [
     ("janggi", (".jg-pt:has(.jg-pc.cho)", ".jg-pt.hint"), SAVE),
     ("makruk", (".bg-sq:has(.mk-pc.w)", ".bg-sq.hint"), SAVE),
     ("backgammon", [], SAVE, 6000),
+    ("chesspuzzles", [], SAVE),
+    ("chessopenings", [], SAVE),
+    ("goproblems", ["js:__gp.play(__gp.problem().f[0])"], SAVE, 2000, "?debug"),
+    ("mahjong4", [".m4-hand .m4-t", ".m4-hand .m4-t"], SAVE, 9000),
     ("chess", (".bg-sq:has(.cs-pc.w)", ".bg-sq.hint"), SAVE),
     ("xiangqi", (".xq-pt:has(.xq-pc.r)", ".xq-pt.hint"), SAVE),
     ("shogi", (".sg-sq:has(.sg-pc:not(.g))", ".sg-sq.hint"), SAVE),
@@ -42,10 +46,11 @@ ROWS = [
 @pytest.mark.parametrize("row", ROWS, ids=[r[0] for r in ROWS])
 def test_leaving_and_returning_keeps_the_position(served, browser, row):
     page_name, moves, position = row[:3]
-    settle = row[3] if len(row) > 3 else SETTLE_MS * 2   # a longer wait where a shot or a roll plays out
+    settle = row[3] if len(row) > 3 and row[3] else SETTLE_MS * 2   # a longer wait where a shot or a roll plays out
+    query = row[4] if len(row) > 4 else ""   # ?debug where the test needs the page's own hooks
     ctx = browser.new_context(viewport=VIEW)
     page = ctx.new_page()
-    url = "%s/%s.html" % (served, page_name)
+    url = "%s/%s.html%s" % (served, page_name, query)
     page.goto(url)
     page.wait_for_timeout(SETTLE_MS)
     if isinstance(moves, tuple):
@@ -60,7 +65,10 @@ def test_leaving_and_returning_keeps_the_position(served, browser, row):
         page.wait_for_timeout(300)
     else:
         for sel in moves:
-            tap(page, page.locator(sel).first)
+            if sel.startswith("js:"):
+                page.evaluate(sel[3:])
+            else:
+                tap(page, page.locator(sel).first)
             page.wait_for_timeout(300)
     page.wait_for_timeout(settle)   # the computer's reply lands
     before = page.evaluate(position)
