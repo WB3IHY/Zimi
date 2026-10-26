@@ -1,7 +1,7 @@
 /* Mahjong for four: ivory tiles with the same drawn faces as Mahjong solitaire, a green cloth, your hand along the bottom. */
-:root { --m4-cloth: #2a7a4f; --m4-cloth-deep: #1d5a38; --m4-face: #f8f3e3; --m4-edge: #2d6a46; --m4-back: #1f7a4a; --m4-back-hi: #35a066; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --m4-cloth: #174a31; --m4-cloth-deep: #0f3524; --m4-face: #ece6d2; --m4-edge: #2a6a46; --m4-back: #17603b; --m4-back-hi: #2c8556; } }
-:root[data-theme="dark"] { --m4-cloth: #174a31; --m4-cloth-deep: #0f3524; --m4-face: #ece6d2; --m4-edge: #2a6a46; --m4-back: #17603b; --m4-back-hi: #2c8556; }
+:root { --m4-cloth: var(--felt); --m4-cloth-deep: var(--felt-deep); --m4-face: #f8f3e3; --m4-edge: #2d6a46; --m4-back: #1f7a4a; --m4-back-hi: #35a066; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --m4-cloth: var(--felt); --m4-cloth-deep: var(--felt-deep); --m4-face: #ece6d2; --m4-edge: #2a6a46; --m4-back: #17603b; --m4-back-hi: #2c8556; } }
+:root[data-theme="dark"] { --m4-cloth: var(--felt); --m4-cloth-deep: var(--felt-deep); --m4-face: #ece6d2; --m4-edge: #2a6a46; --m4-back: #17603b; --m4-back-hi: #2c8556; }
 
 .m4-main { width: 100%; max-width: 620px; margin: 0 auto; }
 .m4-main .wk-pip { display: none; }

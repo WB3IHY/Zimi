@@ -1,7 +1,7 @@
 /* Backgammon: a walnut frame round green felt, ochre and bone points, white and slate checkers. */
-:root { --bk-frame: #6b4528; --bk-felt: color-mix(in srgb, #2d6b4a 75%, #5f5a52); --bk-a: #d2b074; --bk-b: #8f3b30; --bk-bar: #54351d; --bk-tray: rgba(0, 0, 0, 0.22); --bk-die: #faf6ea; --bk-pip: var(--disc-b); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bk-frame: #4a2f1a; --bk-felt: color-mix(in srgb, #1d4a34 70%, #3c3934); --bk-a: #a08555; --bk-b: #6c2c25; --bk-bar: #3a2412; --bk-die: #e4dfd0; } }
-:root[data-theme="dark"] { --bk-frame: #4a2f1a; --bk-felt: color-mix(in srgb, #1d4a34 70%, #3c3934); --bk-a: #a08555; --bk-b: #6c2c25; --bk-bar: #3a2412; --bk-die: #e4dfd0; }
+:root { --bk-frame: #6b4528; --bk-felt: var(--felt); --bk-a: #d2b074; --bk-b: #8f3b30; --bk-bar: #54351d; --bk-tray: rgba(0, 0, 0, 0.22); --bk-die: #faf6ea; --bk-pip: var(--disc-b); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bk-frame: #4a2f1a; --bk-felt: var(--felt); --bk-a: #a08555; --bk-b: #6c2c25; --bk-bar: #3a2412; --bk-die: #e4dfd0; } }
+:root[data-theme="dark"] { --bk-frame: #4a2f1a; --bk-felt: var(--felt); --bk-a: #a08555; --bk-b: #6c2c25; --bk-bar: #3a2412; --bk-die: #e4dfd0; }
 
 .bk-board { --bs: min(100vw - 12px, (100svh - 250px) * 1.4, 700px); }
 .bk-frame { fill: var(--bk-frame); }
