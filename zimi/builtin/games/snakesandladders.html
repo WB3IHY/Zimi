@@ -6,26 +6,27 @@
 <title>Snakes and Ladders - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="boardui.css">
 <link rel="stylesheet" href="world.css">
 <link rel="stylesheet" href="snakesandladders.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body>
 <header class="ar-bar">
-  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <a class="ar-back" href="index.html" data-t-aria="shell.back" aria-label="Back">&lsaquo;</a>
   <h1>Snakes and Ladders</h1>
-  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog">New game</button>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="bg-main">
-  <div class="bg-score" id="wk-score" aria-label="Players"></div>
+  <p class="bg-status" id="wk-status"></p>
+  <div class="bg-score" id="wk-score" aria-label="Players" data-t-aria="sl.players"></div>
   <div class="wk-board sl-board" id="sl-board"></div>
-  <div class="sl-roll"><div id="sl-die" aria-hidden="true"></div><button class="ar-btn" id="sl-roll" type="button" aria-pressed="true">Roll</button></div>
-  <p class="bg-status" id="wk-status" role="status" aria-live="polite"></p>
+  <div class="sl-roll"><button class="sl-dieb" id="sl-roll" type="button" aria-label="Roll the die" data-t-aria="sl.rollDie"><span id="sl-die" aria-hidden="true"></span></button></div>
   <p class="bg-stats" id="wk-stats"></p>
-  <p class="bg-help">Roll the die and move that many squares along the numbers. A ladder takes you up. A snake takes you down. You need the exact number to land on 100. 2 to 4 players, on this device or against the computer. R or Space rolls, N starts a new game.</p>
 </main>
 <script src="boardkit.js"></script>
+<script src="boardui.js"></script>
 <script src="worldkit.js"></script>
 <script src="handoff.js"></script>
 <script src="snakesandladders.js"></script>

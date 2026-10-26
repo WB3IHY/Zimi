@@ -35,13 +35,14 @@
   // ── the page ─────────────────────────────────────────────────────────────
   if (typeof document === 'undefined') return;
   var WK = root.WorldKit, BK = root.BoardKit, E = root.SnakesLaddersEngine, $ = function (id) { return document.getElementById(id); };
+  var T = function (id, vars) { return root.ZimiText ? root.ZimiText.T(id, vars) : id; };
   var NS = 'http://www.w3.org/2000/svg', CELL = 60, VIEW = SIZE * CELL, START_STRIP = 48, START_X = 90, START_STEP = 44;
   var HOP_MS = 150, SLIDE_MS = 520, ROLL_FLICKER_MS = 80, ROLL_MS = 600, COMPUTER_DELAY_MS = 650, NEXT_DELAY_MS = 450;
   var PLAYERS = [
-    { name: 'Blue', color: '#2f5aa8', dark: '#1d3a74', shape: 'circle' },
-    { name: 'Red', color: '#c0392b', dark: '#7d261b', shape: 'square' },
-    { name: 'Green', color: '#2e8b57', dark: '#1d5a38', shape: 'triangle' },
-    { name: 'Gold', color: '#d49a1a', dark: '#8a6410', shape: 'diamond' }
+    { id: 'blue', name: 'Blue', color: '#2f5aa8', dark: '#1d3a74', shape: 'circle' },
+    { id: 'red', name: 'Red', color: '#c0392b', dark: '#7d261b', shape: 'square' },
+    { id: 'green', name: 'Green', color: '#2e8b57', dark: '#1d5a38', shape: 'triangle' },
+    { id: 'gold', name: 'Gold', color: '#d49a1a', dark: '#8a6410', shape: 'diamond' }
   ];
   var SNAKE_COLORS = ['#2e8b57', '#7a4fa3', '#c47a1c', '#1f8a99', '#b5402f'];
   var PIP_LAYOUT = { 1: [[0, 0]], 2: [[-1, -1], [1, 1]], 3: [[-1, -1], [0, 0], [1, 1]], 4: [[-1, -1], [1, -1], [-1, 1], [1, 1]], 5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]], 6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]] };
@@ -49,16 +50,17 @@
   var G = WK.create({
     id: 'snakesandladders',
     options: [
-      { key: 'players', legend: 'How many', def: '2', choices: [['2', '2'], ['3', '3'], ['4', '4']] }
+      { key: 'players', legend: 'sl.players', def: '2', choices: [['2', '2'], ['3', '3'], ['4', '4']] }
     ],
-    checks: [{ key: 'again', label: 'A six gives another roll', def: false }],
+    checks: [{ key: 'again', label: 'sl.again', def: false }],
     statKey: function () { return 'all'; },
     onNew: newGame
   });
   // Each seat is a Computer or a Person (handoff.js). A game saved before seats existed with "People on this device"
   // keeps every seat a person, once.
+  function pname(p) { return T('sl.color.' + p.id); }
   var SEATS_KEY = 'zimi.games.snakesandladders.seats', seats;
-  function seatsFor(n) { return root.ZimiSeats.create({ id: 'snakesandladders', seats: n, cpuNames: PLAYERS.map(function (p) { return p.name; }) }); }
+  function seatsFor(n) { return root.ZimiSeats.create({ id: 'snakesandladders', seats: n, cpuNames: PLAYERS.map(function (p) { return pname(p); }) }); }
   (function migrate() {
     var had = false;
     try { had = root.localStorage.getItem(SEATS_KEY) !== null; } catch (e) { had = true; }
@@ -106,7 +108,7 @@
     var h0 = mid[0], h1 = mid[1], hl = Math.hypot(h1[0] - h0[0], h1[1] - h0[1]) || 1, hx = -(h1[0] - h0[0]) / hl, hy = -(h1[1] - h0[1]) / hl, hnx = -hy, hny = hx;
     var tip = [h0[0] + hx * 16, h0[1] + hy * 16], bl = [h0[0] + hnx * 12 - hx * 3, h0[1] + hny * 12 - hy * 3], br = [h0[0] - hnx * 12 - hx * 3, h0[1] - hny * 12 - hy * 3];
     g.appendChild(mk('polygon', { points: tip.join(',') + ' ' + bl.join(',') + ' ' + br.join(','), fill: color, stroke: 'rgba(0,0,0,0.4)', 'stroke-width': 1.5, 'stroke-linejoin': 'round' }));
-    [1, -1].forEach(function (s) { g.appendChild(mk('circle', { cx: h0[0] + hx * 5 + hnx * 5.5 * s, cy: h0[1] + hy * 5 + hny * 5.5 * s, r: 2.4, fill: '#fff6dc', stroke: '#1d2433', 'stroke-width': 1 })); });
+    [1, -1].forEach(function (s) { g.appendChild(mk('circle', { cx: h0[0] + hx * 5 + hnx * 5.5 * s, cy: h0[1] + hy * 5 + hny * 5.5 * s, r: 2.4, fill: '#fff6dc', stroke: '#1b1b1b', 'stroke-width': 1 })); });
     return g;
   }
   function tokenShape(p, r) {
@@ -120,8 +122,8 @@
   }
   function buildBoard() {
     host.textContent = '';
-    svg = mk('svg', { viewBox: '0 0 ' + VIEW + ' ' + (VIEW + START_STRIP), role: 'img', 'aria-label': 'Snakes and ladders board, squares 1 to 100 from the bottom left, ladders and snakes drawn between squares' });
-    var n, c, g = mk('g'); svg.appendChild(mk('rect', { x: 0, y: VIEW, width: VIEW, height: START_STRIP, class: 'sl-strip' })); svg.appendChild(mk('text', { x: 14, y: VIEW + START_STRIP / 2 + 5, class: 'sl-start' }, 'START')); svg.appendChild(g);
+    svg = mk('svg', { viewBox: '0 0 ' + VIEW + ' ' + (VIEW + START_STRIP), role: 'img', 'aria-label': T('sl.board') });
+    var n, c, g = mk('g'); svg.appendChild(mk('rect', { x: 0, y: VIEW, width: VIEW, height: START_STRIP, class: 'sl-strip' })); svg.appendChild(mk('text', { x: 14, y: VIEW + START_STRIP / 2 + 5, class: 'sl-start' }, T('sl.start'))); svg.appendChild(g);
     for (n = 1; n <= E.LAST; n++) {
       c = E.cellOf(n);
       var x = c.col * CELL, y = (SIZE - 1 - c.row) * CELL;
@@ -174,7 +176,7 @@
   var scoreFn;
   function paintRoster() {
     var names = [], vals = [], i;
-    for (i = 0; i < count; i++) { names.push(nameOf(i)); vals.push(pos[i] ? pos[i] : 'start'); }
+    for (i = 0; i < count; i++) { names.push(nameOf(i)); vals.push(pos[i] ? pos[i] : T('sl.startWord')); }
     scoreFn(names, vals, G.over ? -1 : turn);
   }
   function buildRoster() {
@@ -192,10 +194,10 @@
   function startTurn() {
     busy = false; paintRoster();
     rollBtn.disabled = !isHuman(turn) || G.over;
+    rollBtn.setAttribute('aria-label', seats.hotseat() && isHuman(turn) ? T('sl.rollFor', { name: nameOf(turn) }) : T('sl.rollDie'));
     if (G.over) return;
-    rollBtn.textContent = seats.hotseat() && isHuman(turn) ? 'Roll for ' + nameOf(turn) : 'Roll';
-    if (isHuman(turn)) say(nameOf(turn) + (seats.isYou(turn) ? ' roll' : ' to roll') + ': press Roll.');
-    else { busy = true; say(nameOf(turn) + ' is rolling...', true); var token = G.begin(); setTimeout(function () { if (G.done(token)) doRoll(); }, COMPUTER_DELAY_MS); }
+    if (isHuman(turn)) say(T(seats.isYou(turn) ? 'sl.youRoll' : 'sl.toRoll', { name: nameOf(turn) }));
+    else { busy = true; say(T('sl.rolling', { name: nameOf(turn) }), true); var token = G.begin(); setTimeout(function () { if (G.done(token)) doRoll(); }, COMPUTER_DELAY_MS); }
   }
   function doRoll() {
     var p = turn;
@@ -204,21 +206,21 @@
     rollDie(function (face) {
       if (!G.done(token)) return;
       var r = E.step(pos[p], face, { again: G.settings.again });
-      var who = nameOf(p), text = who + ' rolled ' + face + '.';
-      if (!r.moved) { say(text + ' Too many to finish: it stays on ' + pos[p] + '.'); setTimeout(function () { finishTurn(r); }, NEXT_DELAY_MS * 2); return; }
+      var who = nameOf(p), text = T('sl.rolled', { name: who, n: face });
+      if (!r.moved) { say(text + ' ' + T('sl.tooMany', { n: pos[p] })); setTimeout(function () { finishTurn(r); }, NEXT_DELAY_MS * 2); return; }
       hop(p, r.from, r.landed, function () {
         if (r.jump) {
-          text += (r.jump === 'ladder' ? ' A ladder from ' : ' A snake from ') + r.landed + ' to ' + r.to + '.';
+          text += ' ' + T(r.jump === 'ladder' ? 'sl.ladder' : 'sl.snake', { from: r.landed, to: r.to });
           say(text);
           slide(p, r.landed, r.to, function () { pos[p] = r.to; setToken(p, r.to); drawTokens(); finishTurn(r, text); });
-        } else { pos[p] = r.to; drawTokens(); finishTurn(r, text + ' On ' + r.to + '.'); }
+        } else { pos[p] = r.to; drawTokens(); finishTurn(r, text + ' ' + T('sl.on', { n: r.to })); }
       });
     });
   }
   function finishTurn(r, text) {
     paintRoster();
     if (r.won) { win(turn); return; }
-    if (text) say(text + (r.again ? ' A six: roll again.' : ''));
+    if (text) say(text + (r.again ? ' ' + T('sl.again.roll') : ''));
     setTimeout(function () { if (r.again) startTurn(); else nextTurn(); }, NEXT_DELAY_MS);
   }
   // Walk a token a square at a time, or jump straight there under reduced motion.
@@ -240,9 +242,9 @@
     })(t0);
   }
   function win(p) {
-    var who = nameOf(p), msg = (who === 'You' ? 'You reach' : who + ' reaches') + ' square 100 and win.';
+    var who = nameOf(p), msg = T(seats.isYou(p) ? 'sl.youWin' : 'sl.reaches', { name: who });
     var outcome = seats.hotseat() ? null : seats.person(p) ? 'w' : 'l';
-    G.finish(msg, outcome, outcome === 'w' ? 'You win' : 'Game over');
+    G.finish(msg, outcome, who);
     rollBtn.disabled = true; paintRoster();
   }
 
@@ -252,27 +254,36 @@
     buildBoard(); buildRoster(); drawTokens(); showDie(0, false);
     startTurn();
   }
-  // The Players rows join the New game sheet, ahead of its buttons; they follow the Players count.
+  // The seat rows (who is a person and who is the computer) follow the Players count inside the New game pane.
   (function seatRows() {
-    var card = $('wk-menu-title').parentNode, anchor = card.querySelector('.ar-sheet-actions'), chips = card.querySelector('.bg-chips'), block;
-    function build() {
-      var n = +BK.chipValue(chips) || playerCount(), next = seatsFor(n).block(null, { labels: PLAYERS.slice(0, n).map(function (p) { return p.name; }), note: 'Pass the device on when it is a person\'s turn.' });
-      if (block) card.replaceChild(next, block); else card.insertBefore(next, anchor);
-      block = next;
-    }
-    build(); chips.addEventListener('change', build);
+    var base = root.ZimiShell.gameInfo.menu;
+    root.ZimiShell.game({
+      inProgress: function () { return !G.over && pos.some(Boolean); },
+      menu: function () {
+        var out = base ? base() : { options: [] }, first = out.options[0], holder = document.createElement('div');
+        function build() {
+          var pressed = first && first.querySelector('.gs-seg [aria-pressed="true"]'), n = +(pressed && pressed.textContent) || playerCount();
+          holder.textContent = '';
+          holder.appendChild(seatsFor(n).block(null, { labels: PLAYERS.slice(0, n).map(pname), note: T('sl.pass') }));
+        }
+        build();
+        if (first) first.addEventListener('click', function () { setTimeout(build, 0); });
+        out.options.push(holder);
+        return out;
+      }
+    });
   })();
-  rollBtn.addEventListener('click', function () { if (!busy && isHuman(turn) && !G.over) doRoll(); });
+  rollBtn.addEventListener('click', function () { if (!busy && isHuman(turn) && !G.over) doRoll(); else if (!G.over) { root.ZimiShell.shake(rollBtn); } });
   document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet,input')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet,input') || document.querySelector('.ar-sheet:not([hidden])')) return;
     var k = e.key.toLowerCase();
     if ((k === 'r' || (k === ' ' && e.target === document.body)) && !rollBtn.disabled && !busy) { e.preventDefault(); rollBtn.click(); }
   });
 
-  // The stats line counts games against the computers (there is no level to name).
+  // The records line says how games against the computers went, and stays empty until the first one.
   G.showStats = function () {
     var s = BK.load('snakesandladders.stats', {}).all || { w: 0, l: 0 };
-    $('wk-stats').textContent = G.vsComputer() ? 'Against the computers: ' + s.w + ' won, ' + s.l + ' lost' : 'People on this device';
+    $('wk-stats').textContent = G.vsComputer() && s.w + s.l > 0 ? T('sl.record', { won: s.w, lost: s.l }) : '';
   };
   G.newGame();
   if (new URLSearchParams(location.search).has('debug')) root.__sl = { engine: E, positions: function () { return pos; }, turn: function () { return turn; }, setPositions: function (a) { pos = a.slice(); drawTokens(); paintRoster(); } };
