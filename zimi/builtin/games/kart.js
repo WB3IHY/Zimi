@@ -24,7 +24,7 @@
   var DRAW_LEAD = { boost: 14, slick: 38, spark: 4, shield: 40, magnet: 0 };
   var DRAW_LAST = { boost: 28, slick: 0, spark: 30, shield: 4, magnet: 38 };
 
-  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  var clamp = root.ZimiUtil.clamp;
   function angDiff(a, b) { var d = (a - b) % TAU; if (d > Math.PI) d -= TAU; else if (d <= -Math.PI) d += TAU; return d; }
   var mulberry = root.ZimiUtil.mulberry32;
 

@@ -62,7 +62,7 @@
 
   function wrap(i, N) { return ((i % N) + N) % N; }
   function angDiff(a, b) { var d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }
-  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  var clamp = root.ZimiUtil.clamp;
 
   // The fastest a car can take a bend of radius R: not past its grip, and not past what its steering can turn.
   function cornerSpeed(R, skill) {

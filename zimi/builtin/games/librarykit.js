@@ -45,10 +45,7 @@
   Lib.primaryLang = function (tag) { return String(tag || '').toLowerCase().split(/[-_]/)[0]; };
 
   // The server's day key: YYYYMMDD on the player's calendar (the server accepts yesterday to tomorrow).
-  Lib.dayKey = function (date) {
-    var d = date || new Date();
-    return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
-  };
+  Lib.dayKey = root.ZimiUtil.dayKey;
 
   // Which of the library's ZIMs to play from: the project's ZIMs (kind "wiki"), the player's language first,
   // then English, then the biggest. {zim, exact} or null when the library has none of that project.

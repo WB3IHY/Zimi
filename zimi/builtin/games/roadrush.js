@@ -51,7 +51,7 @@
   ];
 
   // ── small maths ──────────────────────────────────────────────────────────
-  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  var clamp = root.ZimiUtil.clamp;
   function easeIn(a, b, p) { return a + (b - a) * Math.pow(p, 2); }
   function easeInOut(a, b, p) { return a + (b - a) * (-Math.cos(p * Math.PI) / 2 + 0.5); }
   function interpolate(a, b, p) { return a + (b - a) * p; }

@@ -78,7 +78,7 @@
     ] }
   ];
 
-  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  var clamp = root.ZimiUtil.clamp;
   function tileAt(st, col, row) {
     if (col < 0 || col >= st.cols) return '#';
     if (row < 0 || row >= ROWS) return ' ';

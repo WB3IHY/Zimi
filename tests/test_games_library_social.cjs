@@ -11,7 +11,7 @@ const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'games');
 function load(files, extra) {
   const sandbox = Object.assign({ console, Math, URL, Set, Date, Intl, AbortController, setTimeout, clearTimeout, Promise }, extra || {});
   vm.createContext(sandbox);
-  files.forEach(f => vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sandbox, { filename: f }));
+  ['util.js'].concat(files).forEach(f => vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sandbox, { filename: f }));
   return sandbox;
 }
 let failures = 0, passes = 0;

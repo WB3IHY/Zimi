@@ -96,7 +96,7 @@
   var status = Play.status(els.msg);
   var zim = '', sets = [], at = 0, order = [], checked = false, score = 0, building = false, done = false;
 
-  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  var el = root.ZimiUtil.el;
   function yearText(y) { return y < 0 ? T('timeline.yearBc', { n: Play.num(-y) }) : y < 1000 ? T('timeline.yearAd', { n: Play.num(y) }) : String(y); }
   function ready() { return !checked && order.length === SIZE; }
 

@@ -95,7 +95,7 @@
   var provider = null, race = null, busy = false;
   var today = Lib.dayKey(new Date());
 
-  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  var el = root.ZimiUtil.el;
   function say(node) { els.pane.innerHTML = ''; els.pane.appendChild(node); els.pane.scrollTop = 0; }
   function notice(title, text, button, onClick) {
     var box = el('div', 'rc-card'); box.appendChild(el('h2', null, title));

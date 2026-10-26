@@ -20,7 +20,7 @@
   var NAMES = ['Mip', 'Pib', 'Nub', 'Tuft', 'Bim', 'Pom'];
   var MAX_PETS = 3;
 
-  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  var clamp = root.ZimiUtil.clamp;
   var mulberry = root.ZimiUtil.mulberry32;
 
   function newPet(now, name, id) {
@@ -104,7 +104,7 @@
   // the Sun's, from its real sunset to its real sunrise, with the same formulas as the Almanac (_solarB, _solarDeclination,
   // _eqOfTime in almanac.js; 90.833 degrees is refraction and the Sun's radius). Where the Sun does not set or rise that
   // day, or there is no place, the fixed hours above stand.
-  var BED_EARLIEST_MIN = 19 * 60, WAKE_LATEST_MIN = 8 * 60, PLACE_KEY = 'zimi_almanac_place', SUN_HORIZON = 90.833, DAY_MS = 24 * HOUR, DEG = Math.PI / 180;
+  var BED_EARLIEST_MIN = 19 * 60, WAKE_LATEST_MIN = 8 * 60, PLACE_KEY = 'zimi_almanac_place', SUN_HORIZON = 90.833, DAY_MS = root.ZimiUtil.DAY_MS, DEG = Math.PI / 180;
   function sunNight(place) {
     var lat = place ? Number(place.lat) : NaN, lon = place ? Number(place.lon) : NaN;
     if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;

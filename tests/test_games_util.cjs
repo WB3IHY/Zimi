@@ -46,6 +46,24 @@ check(back.rng() === game.rng() && back.turn === 2, 'restore puts the generator 
 let threw = false; try { R.restore({ turn: 1 }); } catch (e) { threw = true; }
 check(threw, 'a snapshot with no generator is refused');
 
+// The small helpers give what each game's own copy gave.
+check(R.clamp(5, 1, 3) === 3 && R.clamp(-5, 1, 3) === 1 && R.clamp(2, 1, 3) === 2 && R.clamp(1, 1, 3) === 1 && R.clamp(3, 1, 3) === 3, 'clamp holds a value between its bounds');
+check(R.DAY_MS === 24 * 60 * 60 * 1000, 'DAY_MS is a day');
+const oldKey = d => d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+const oldDashed = d => d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+const days = [new Date(2026, 0, 1), new Date(2026, 9, 26), new Date(2027, 11, 31), new Date(2024, 1, 29), new Date()];
+check(days.every(d => R.dayKey(d) === oldKey(d) && R.dayKey(d, '-') === oldDashed(d)), 'dayKey is YYYYMMDD, or YYYY-MM-DD with a dash, as before');
+check(R.dayKey() === oldKey(new Date()) || R.dayKey() === oldKey(new Date(Date.now() - 1000)), 'dayKey is today by default');
+const oldKeys = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', a: 'left', d: 'right', w: 'up', s: 'down' };
+check(JSON.stringify(Object.entries(R.DIR_KEYS).sort()) === JSON.stringify(Object.entries(oldKeys).sort()), 'DIR_KEYS is the arrows and WASD');
+check(Object.isFrozen(R.DIR_KEYS), 'DIR_KEYS is not edited in place');
+const made = [];
+const fake = { document: { createElement: tag => { const e = { tag, className: '', textContent: '' }; made.push(e); return e; } } };
+vm.createContext(fake);
+vm.runInContext(fs.readFileSync(path.join(dir, 'util.js'), 'utf8'), fake);
+const e1 = fake.ZimiUtil.el('div', 'x', 'hi'), e2 = fake.ZimiUtil.el('span'), e3 = fake.ZimiUtil.el('b', '', 0);
+check(e1.tag === 'div' && e1.className === 'x' && e1.textContent === 'hi' && e2.className === '' && e2.textContent === '' && e3.textContent === 0, 'el makes an element with a class and text, and 0 is text');
+
 // No game carries a copy of its own.
 const copies = fs.readdirSync(dir).filter(f => f.endsWith('.js') && f !== 'util.js' && fs.readFileSync(path.join(dir, f), 'utf8').includes('0x6D2B79F5'));
 check(copies.length === 0, 'no other file implements the generator: ' + copies.join(', '));

@@ -194,7 +194,7 @@
     stats: function () { return [[T('play.best'), Play.num(best.score)]]; }
   });
 
-  var KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', a: 'left', d: 'right', w: 'up', s: 'down' };
+  var KEYS = root.ZimiUtil.DIR_KEYS;
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.ar-sheet:not([hidden])')) return;
     var dir = KEYS[e.key];

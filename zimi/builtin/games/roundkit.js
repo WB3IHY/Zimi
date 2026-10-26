@@ -22,7 +22,7 @@
     var status = Play.status(els.msg);
     var zim = '', round = [], at = 0, score = 0, answered = false, building = false, picked = -1, done = false;
 
-    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    var el = root.ZimiUtil.el;
     function paintScore() {
       els.n.textContent = round.length ? T('round.question', { n: at + 1, total: round.length }) : '';
       els.score.textContent = T('round.score', { n: score });

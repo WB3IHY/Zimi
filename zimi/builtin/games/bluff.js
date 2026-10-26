@@ -84,7 +84,7 @@
   var status = Play.status(els.msg);
   var dict = '', g = null, pendingPlayers = null, building = false, done = false;
 
-  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  var el = root.ZimiUtil.el;
   function who(i) { return Pass.name(T, i); }
   function reset() { els.card.innerHTML = ''; els.actions.innerHTML = ''; status.say(''); }
   function button(label, primary, fn, disabled) {

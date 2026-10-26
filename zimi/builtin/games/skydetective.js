@@ -10,7 +10,7 @@
   // ── the rules ────────────────────────────────────────────────────────────
   var QUESTIONS = 6, CHOICES = 4, MIN_ALT = 8, NIGHT_SUN_ALT = -6, MIN_ELONGATION = 14, STAR_MAG = 2.0, TARGET_STAR_MAG = 1.6, TAP_TOLERANCE = 0.075;
   var SOUTHERN = /^(Australia\/|Pacific\/(Auckland|Fiji|Tongatapu|Chatham)|America\/(Sao_Paulo|Argentina\/|Buenos_Aires|Santiago|Lima|La_Paz|Montevideo|Asuncion|Cordoba)|Africa\/(Johannesburg|Maputo|Harare|Lusaka|Windhoek|Luanda|Gaborone|Maseru|Mbabane)|Indian\/(Mauritius|Reunion|Antananarivo)|Antarctica\/)/;
-  var DEFAULT_LAT = 40, SOUTH_LAT = -33, EVENING_HOUR = 21, DAY_MS = 86400000, HOUR_MS = 3600000;
+  var DEFAULT_LAT = 40, SOUTH_LAT = -33, EVENING_HOUR = 21, DAY_MS = root.ZimiUtil.DAY_MS, HOUR_MS = 3600000;
 
   // Where a person probably is, from their time zone alone (no request is made): the longitude the clock's offset gives, a
   // mid-latitude of the hemisphere their zone is in. Good enough for the sky to look right; "My location" is exact.
@@ -80,7 +80,7 @@
   var PLANET_COLOR = { mercury: '#b9b4a8', venus: '#fff4c8', mars: '#ff7a4a', jupiter: '#f2d9a8', saturn: '#e6cf8a' };
   var SKY_TOP = '#0b1226', SKY_EDGE = '#1c2748', STAR = '#f4f6ff', RING = '#f59e0b';
 
-  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  var el = root.ZimiUtil.el;
   function has(k) { return root.ZimiText && root.ZimiText.has ? root.ZimiText.has(k) : false; }
   function name(o) { return nameOf(o, T); }
   function q() { return g.qs[g.at]; }

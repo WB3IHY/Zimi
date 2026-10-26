@@ -80,7 +80,7 @@
   var dict = '', g = null, building = false, done = false;
   els.field.placeholder = T('babel.placeholder');
 
-  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  var el = root.ZimiUtil.el;
   function langName(c) {
     try { var n = new Intl.DisplayNames([Lib.uiLang()], { type: 'language' }).of(c.code); if (n && n !== c.code) return n; } catch (e) { /* no Intl names */ }
     return c.name || c.code;

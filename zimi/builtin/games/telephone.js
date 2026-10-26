@@ -64,7 +64,7 @@
   var status = Play.status(els.msg);
   var zim = '', mini = miniArticles(root.WIKIRACE_MINI), g = null, pendingRounds = null, building = false, swaps = 0, timer = 0, done = false;
 
-  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  var el = root.ZimiUtil.el;
   function who(i) { return Pass.name(T, i); }
   function total() { return g.points.reduce(function (a, b) { return a + b; }, 0); }
   function paint() {

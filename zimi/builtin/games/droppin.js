@@ -55,7 +55,7 @@
   var status = Play.status(els.msg), g = null, mapZim = '', mapBounds = null, building = false, done = false;
   var view = { x: 0, y: 0, w: MAP_W, h: MAP_H }, pin = null, layer = null, drag = null;
 
-  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  var el = root.ZimiUtil.el;
   function svg(tag, attrs, parent) { var e = document.createElementNS(NS, tag); Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); }); if (parent) parent.appendChild(e); return e; }
   function q() { return g.qs[g.at]; }
   function paint() { els.n.textContent = g ? T('drop.question', { n: Math.min(g.at + 1, g.qs.length), total: g.qs.length }) : ''; els.score.textContent = g ? T('round.score', { n: g.total }) : ''; }

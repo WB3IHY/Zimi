@@ -94,7 +94,7 @@
   var HINTS = { E: 'The sword rests on the pedestal. Walk up to it and press the action button.', F: 'A chest in the corner of the cave holds the key.' };
 
   var mulberry = root.ZimiUtil.mulberry32;
-  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  var clamp = root.ZimiUtil.clamp;
   function screenAt(cx, cy) { for (var k in SCREENS) if (SCREENS[k].cx === cx && SCREENS[k].cy === cy) return k; return null; }
   function flagKey(id, x, y) { return id + ':' + x + ',' + y; }
 
@@ -337,7 +337,7 @@
   var els = { cv: $('qs-screen'), hearts: $('qs-hearts'), keys: $('qs-keys'), sword: $('qs-sword'), where: $('qs-where'), msg: $('qs-msg'), pause: $('qs-pause'), newBtn: $('qs-new') };
   var st = createState(null, 1), mode = 'ready', ctx, reduced = Play.reducedMotion(), scale = 2, armed = null, status = Play.status(els.msg);
   var saved = Play.load(SAVE_KEY, null);
-  var keys = Kit.keyboard({ ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ' ': 'act', Enter: 'act', z: 'act', x: 'act' }, function (a) { if (a === 'act' && mode === 'playing') doAct(); }, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || mode !== 'playing'; });
+  var keys = Kit.keyboard(Object.assign({ ' ': 'act', Enter: 'act', z: 'act', x: 'act' }, root.ZimiUtil.DIR_KEYS), function (a) { if (a === 'act' && mode === 'playing') doAct(); }, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || mode !== 'playing'; });
   var touch = { up: false, down: false, left: false, right: false, act: false };
   var pad = Play.pad(els.cv, { dirs: ['left', 'right', 'up', 'down'], actions: [{ name: 'act', label: Tx('play.act') }], on: function (name, down) {
     if (name === 'act') { if (down && mode === 'playing') doAct(); } else touch[name] = down;

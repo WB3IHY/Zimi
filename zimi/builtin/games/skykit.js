@@ -6,7 +6,7 @@
 (function (root) {
   'use strict';
   var Sky = {};
-  var RAD = Math.PI / 180, DEG = 180 / Math.PI, J2000 = 2451545, DAY_MS = 86400000, UNIX_JD = 2440587.5, OBLIQUITY = 23.43928;
+  var RAD = Math.PI / 180, DEG = 180 / Math.PI, J2000 = 2451545, DAY_MS = root.ZimiUtil.DAY_MS, UNIX_JD = 2440587.5, OBLIQUITY = 23.43928;
   function norm(d) { d = d % 360; return d < 0 ? d + 360 : d; }
   function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
 

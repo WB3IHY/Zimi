@@ -58,7 +58,7 @@
     var from = fresh.length ? fresh : pool;
     return from[Math.floor(Math.random() * from.length)];
   }
-  function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function today() { return root.ZimiUtil.dayKey(new Date(), '-'); }
   function dailyIndex(date) {
     var h = 0x811c9dc5;
     for (var i = 0; i < date.length; i++) { h ^= date.charCodeAt(i); h = Math.imul(h, 0x01000193); }

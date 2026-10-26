@@ -113,7 +113,7 @@
 
   function kindLabel(kind) { return T('quizzical.kind.' + kind); }
 
-  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  var el = root.ZimiUtil.el;
 
   // Up to `n` random entries of a ZIM, `CONCURRENCY` at a time (each one call: title, first sentence, picture).
   function drawPool(zim, n) {

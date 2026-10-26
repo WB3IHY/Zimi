@@ -286,7 +286,7 @@
   var best = Play.load(BEST_KEY, { score: 0 }), st = createState(1), mode = 'ready', ctx, reduced = Play.reducedMotion();
   var want = null, armed = null, status = Play.status(els.msg);
   var NAMED = { up: UP, left: LEFT, down: DOWN, right: RIGHT };
-  var KEYDIR = { ArrowUp: 'up', w: 'up', ArrowLeft: 'left', a: 'left', ArrowDown: 'down', s: 'down', ArrowRight: 'right', d: 'right' };
+  var KEYDIR = root.ZimiUtil.DIR_KEYS;
   function steer(d) { want = d; }
   var pad = Play.pad(els.cv, { dirs: ['left', 'right', 'up', 'down'], on: function (name, down) { if (down) steer(NAMED[name]); } , swipe: false });
 

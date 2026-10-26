@@ -283,7 +283,7 @@
     stats: function () { return [[Tx('play.best'), Play.num(best.score)]]; }
   });
 
-  var KEYDIR = { ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ' ': 'up' };
+  var KEYDIR = Object.assign({ ' ': 'up' }, root.ZimiUtil.DIR_KEYS);
   Kit.keyboard(KEYDIR, function (a) { if (mode === 'playing') hop(st, a); }, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || mode !== 'playing'; });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
