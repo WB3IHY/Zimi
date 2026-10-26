@@ -172,13 +172,17 @@
   function pause() { if (mode !== 'playing') return; mode = 'paused'; Play.pauseLabel(els.pause, true); status.say(T('play.paused')); }
   function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); startLoop(); }
   function toggle() { if (mode === 'playing') pause(); else resume(); }
+  function showEnd(won) {
+    var k = modeKey();
+    ZimiShell.endSheet({ result: won ? 'win' : 'over', stats: [[T('snake.apples'), Play.num(g.score)], [T('play.best'), Play.num(best[k] || 0)]] });
+    setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
+  }
   function finish(won) {
     mode = 'over'; els.pause.disabled = true; Play.pauseLabel(els.pause, false);
     var k = modeKey();
     if (g.score > (best[k] || 0)) { best[k] = g.score; Play.save(BEST_KEY, best); }
     hud();
-    ZimiShell.endSheet({ result: won ? 'win' : 'over', stats: [[T('snake.apples'), Play.num(g.score)], [T('play.best'), Play.num(best[k] || 0)]] });
-    setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
+    showEnd(won);
   }
   els.newBtn.addEventListener('click', begin);
   els.pause.addEventListener('click', toggle);
@@ -217,6 +221,21 @@
     }
   });
 
+  // A game in progress or over is kept; it comes back paused, or on its end sheet.
+  function snapshot() {
+    if (mode === 'ready') return null;
+    return { over: mode === 'over', g: Play.plain(g) };
+  }
+  function restore(d) {
+    if (!d || !d.g || !d.g.snake) return false;
+    g = Play.overlay(createGame(d.g.cols, d.g.rows, d.g.wrap), d.g); acc = 0;
+    if (armed) { armed.cancel(); armed = null; }
+    hud(); draw();
+    if (d.over) { mode = 'over'; els.pause.disabled = true; setTimeout(function () { showEnd(g.snake.length >= g.cols * g.rows); }, 0); return true; }
+    mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
+    return true;
+  }
+
   readPalette();
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { readPalette(); draw(); });
   window.addEventListener('resize', layout);
@@ -224,6 +243,7 @@
   hud();
   layout();
   arm();
+  ZimiShell.persist({ save: snapshot, load: restore });
   // A read-only window onto the live game, for the browser tests.
-  root.__snake = { get g() { return g; }, get mode() { return mode; } };
+  root.__snake = { get g() { return g; }, get mode() { return mode; }, get pos() { return JSON.stringify([g.snake, g.dir, g.food, g.score, g.wrap]); } };
 })(this);
