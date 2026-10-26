@@ -239,18 +239,21 @@
   root.BackgammonEngine = { LEVELS: LEVELS, BAR: BAR, newGame: startPosition, copy: copy, pips: pips, stepsFor: stepsFor, legalSteps: legalSteps, applyStep: applyStep, endTurn: endTurn, winner: winner, outcome: outcome, turnOptions: turnOptions, chooseTurn: chooseTurn, evaluate: evaluate, winChance: winChance, idxOf: idxOf, relOf: relOf, countAt: countAt, allHome: allHome, key: key, hasContact: hasContact };
 
   // ── the page ─────────────────────────────────────────────────────────────
-  if (typeof document === 'undefined') return;
-  var WK = root.WorldKit, BK = root.BoardKit;
+  if (typeof document === 'undefined' || !root.BoardUI) return;
+  var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t;
   var PW = 34, GAP = 32, LM = 40, TM = 8, TRAY = 40, HALF = 150, MID = 46, W = LM + 12 * PW + GAP + TRAY + 2 * TM + 4, H = 2 * HALF + MID + 2 * TM, CR = 14.5;
-  var NAMES = ['White', 'Black'], COLORS = ['#f4f0e4', '#1c222d'];
+  var COLORS = ['var(--disc-w)', 'var(--disc-b)'];
+  function sideName(p) { return UI.side(p === 0 ? 'white' : 'black'); }
+  // Who a sentence is about: you or the computer against the machine, else the side's name.
+  function whoName(p) { return G.vsComputer() && !G.watching ? (isHuman(p) ? T('board.you') : T('board.theComputer')) : sideName(p); }
   var host = document.getElementById('wk-board'), btns = {}, gLayer;
   var rollBtn = document.getElementById('bk-roll'), doubleBtn = document.getElementById('bk-double'), takeBtn = document.getElementById('bk-take'), dropBtn = document.getElementById('bk-drop');
   var s, turnStart = null, sel = -1, lastFrom = [], lastTo = [], hintStep = null, rolling = false, offer = false, session = [0, 0], flipped = false, dieShown = [];
   var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: COLORS[0] }, { color: COLORS[1] }]);
   var G = WK.create({
     id: 'backgammon',
-    options: WK.standardOptions({ first: 'White', second: 'Black' }),
-    checks: [{ key: 'cube', label: 'Doubling cube', def: false }, { key: 'auto', label: 'Play forced moves automatically', def: true }],
+    options: WK.standardOptions({ first: 'board.white', second: 'board.black' }),
+    checks: [{ key: 'cube', label: 'backgammon.cube', def: false }, { key: 'auto', label: 'backgammon.auto', def: true }],
     statKey: function (st) { return st.level + (st.cube ? 'c' : ''); },
     onNew: newGame, onUndo: undo, onHint: hint
   });
@@ -353,16 +356,16 @@
     steps.forEach(function (st) { froms[st.from] = 1; if (sel >= 0 && st.from === sel) tos[st.to] = 1; });
     Object.keys(btns).forEach(function (id) {
       var ok = false, label = '';
-      if (id === 'bar') { ok = !!froms[BAR]; label = 'Bar, ' + s.bar[0] + ' white, ' + s.bar[1] + ' black'; }
-      else if (id === 'off') { ok = !!tos[0]; label = 'Bear off'; }
+      if (id === 'bar') { ok = !!froms[BAR]; label = T('backgammon.bar', { white: s.bar[0], black: s.bar[1] }); }
+      else if (id === 'off') { ok = !!tos[0]; label = T('backgammon.off'); }
       else {
         var idx = +id.slice(1), r = relOf(s.turn, idx);
         ok = !!froms[r] || !!tos[r]; var c = s.pts[idx];
-        label = 'Point ' + (idx + 1) + ', ' + (c ? Math.abs(c) + (c > 0 ? ' white' : ' black') : 'empty');
+        label = c ? T(c > 0 ? 'backgammon.point.white' : 'backgammon.point.black', { point: idx + 1, n: Math.abs(c) }) : T('backgammon.point.empty', { point: idx + 1 });
       }
       btns[id].setAttribute('aria-disabled', ok ? 'false' : 'true'); btns[id].setAttribute('aria-label', label);
     });
-    score(G.names(NAMES[0], NAMES[1]), [session[0] + ' pts', session[1] + ' pts'], G.over ? -1 : s.turn);
+    score(G.names(sideName(0), sideName(1)), [T('backgammon.pts', { n: session[0] }), T('backgammon.pts', { n: session[1] })], G.over ? -1 : s.turn);
     var canRoll = humanTurnIdle(), canDouble = G.settings.cube && canRoll && (s.cube.owner < 0 || s.cube.owner === s.turn) && s.cube.value < 64;
     rollBtn.hidden = !canRoll; doubleBtn.hidden = !canDouble; takeBtn.hidden = dropBtn.hidden = !offer;
     G.setUndo(turnStart && s.rolled && countSteps() > 0 && !G.thinking && !rolling); G.setHint(humanTurnLive());
@@ -379,9 +382,9 @@
   function say(t, busy) { G.say(t, busy); }
   function turnText() {
     var p = s.turn;
-    if (G.watching || !G.vsComputer()) return NAMES[p] + (s.rolled ? ' to move' : ' to roll');
-    if (!isHuman(p)) return 'Computer is playing';
-    return s.rolled ? 'Your turn: tap a checker, then where it goes' : 'Your turn: roll the dice';
+    if (G.watching || !G.vsComputer()) return T(s.rolled ? 'board.toMove' : 'backgammon.toRoll', { name: sideName(p) });
+    if (!isHuman(p)) return T('backgammon.computerPlaying');
+    return T(s.rolled ? 'backgammon.tapChecker' : 'backgammon.rollDice');
   }
   function setDice(list, usedList) {
     dieShown = list.map(function (v, k) { return { v: v, used: !!(usedList && usedList[k]) }; });
@@ -418,7 +421,7 @@
     // the opening roll decides who starts and is played by that side
     s.turn = Math.random() < 0.5 ? 0 : 1;
     var open = true;
-    paint(); say('Opening roll: ' + (G.vsComputer() && !G.watching ? (isHuman(s.turn) ? 'you start' : 'the computer starts') : NAMES[s.turn] + ' starts') + '.', false);
+    paint(); say(T(G.vsComputer() && !G.watching ? (isHuman(s.turn) ? 'backgammon.open.you' : 'backgammon.open.computer') : 'backgammon.open.side', { name: sideName(s.turn) }), false);
     animateRoll(function () { doRoll(true); turnStart = copyState(s); afterRoll(open); });
   }
   function copyState(x) { return copy(x); }
@@ -427,11 +430,11 @@
   function afterRoll(opening) {
     var steps = legalSteps(s);
     if (!steps.length) {
-      var who = G.vsComputer() ? (isHuman(s.turn) ? 'You have' : 'The computer has') : NAMES[s.turn] + ' has';
-      paint(); say(who + ' no legal move' + (rolledDice.length ? ' with ' + rolledDice.filter(function (v, k, a) { return a.indexOf(v) === k; }).join(' and ') : '') + '.', false);
+      var dice = rolledDice.filter(function (v, k, a) { return a.indexOf(v) === k; }).join(' ' + T('backgammon.and') + ' ');
+      paint(); say(T(dice ? 'backgammon.noMoveDice' : 'backgammon.noMove', { name: whoName(s.turn), dice: dice }), false);
       G.later(passTurn, 1300); return;
     }
-    if (!isHuman(s.turn)) { paint(); say(G.watching ? NAMES[s.turn] + ' rolled ' + rolledDice.join(' and ') : 'Computer rolled ' + rolledDice.join(' and ') + ' and is thinking', !G.watching); computerPlay(); return; }
+    if (!isHuman(s.turn)) { paint(); say(T(G.watching ? 'backgammon.rolled' : 'backgammon.computerRolled', { name: sideName(s.turn), dice: rolledDice.join(' ' + T('backgammon.and') + ' ') }), !G.watching); computerPlay(); return; }
     paint(); say(turnText());
     if (G.settings.auto && steps.length === 1) G.later(function () { doStep(steps[0]); }, 450);
   }
@@ -446,7 +449,7 @@
       say(turnText());
       return;
     }
-    say(G.watching ? NAMES[s.turn] + ' to roll' : 'Computer is rolling', !G.watching);
+    say(G.watching ? T('backgammon.toRoll', { name: sideName(s.turn) }) : T('backgammon.computerRolling'), !G.watching);
     // the computer may double before it rolls
     if (G.settings.cube && (s.cube.owner < 0 || s.cube.owner === s.turn) && s.cube.value < 64 && G.settings.level !== 'easy' && winChance(s, s.turn) > 0.72 && hasContact(s)) {
       G.later(function () { offerDouble(s.turn); }, 600); return;
@@ -475,7 +478,7 @@
     }
     if (r !== 0 && steps.some(function (st) { return st.from === r; })) {
       sel = sel === r ? -1 : r; hintStep = null; paint();
-      say(sel > 0 ? 'Tap a lit point to move there.' : turnText());
+      say(sel > 0 ? T('backgammon.tapLit') : turnText());
       // a lone destination from this checker: nothing to choose, but a tap is still the move
       return;
     }
@@ -487,12 +490,12 @@
     if (st.to) lastTo.push(idxOf(p, st.to));
     s = applyStep(s, st); sel = -1; hintStep = null;
     syncDice();
-    var msg = s.hit ? (isHuman(p) || !G.vsComputer() ? 'Hit. ' : 'Your checker was hit. ') : '';
+    var msg = s.hit ? T(isHuman(p) || !G.vsComputer() ? 'backgammon.hit' : 'backgammon.hitYou') : '';
     var w = winner(s);
     if (w >= 0) { paint(); finishGame(w); return; }
     var steps = s.dice.length ? legalSteps(s) : [];
-    if (!steps.length) { paint(); say(msg + (s.dice.length ? 'No more legal moves.' : '')); G.later(endMyTurn, s.dice.length ? 900 : 500); return; }
-    paint(); say(msg + turnText());
+    if (!steps.length) { paint(); say(s.dice.length ? (msg ? T('janggi.noted', { note: msg, line: T('backgammon.noMore') }) : T('backgammon.noMore')) : msg); G.later(endMyTurn, s.dice.length ? 900 : 500); return; }
+    paint(); say(msg ? T('janggi.noted', { note: msg, line: turnText() }) : turnText());
     if (G.settings.auto && steps.length === 1) G.later(function () { doStep(steps[0]); }, 450);
   }
   function endMyTurn() {
@@ -523,7 +526,7 @@
         G.done(token);
         var w = winner(s);
         if (w >= 0) { finishGame(w); return; }
-        G.later(function () { var note = 'Computer played' + (hits ? ' and hit your checker' : '') + '.'; passTurn(); if (isHuman(s.turn)) say(note + ' ' + turnText()); }, 450);
+        G.later(function () { var note = T(hits ? 'backgammon.playedHit' : 'backgammon.played'); passTurn(); if (isHuman(s.turn)) say(T('janggi.noted', { note: note, line: turnText() })); }, 450);
         return;
       }
       var st = steps[k++];
@@ -540,25 +543,25 @@
   function offerDouble(p) {
     offer = { by: p }; paint();
     if (G.vsComputer() && isHuman(p)) {
-      say('You double to ' + s.cube.value * 2 + '. The computer is deciding', true);
+      say(T('backgammon.youDouble', { n: s.cube.value * 2 }), true);
       G.later(function () {
         var take = winChance(s, 1 - p) >= (G.settings.level === 'hard' ? 0.27 : 0.2);
         answerDouble(take);
       }, 900);
-    } else if (G.vsComputer()) say('The computer doubles to ' + s.cube.value * 2 + '. Take it or drop?');
-    else say(NAMES[p] + ' doubles to ' + s.cube.value * 2 + '. ' + NAMES[1 - p] + ': take or drop?');
+    } else if (G.vsComputer()) say(T('backgammon.computerDoubles', { n: s.cube.value * 2 }));
+    else say(T('backgammon.doubles', { name: sideName(p), n: s.cube.value * 2, other: sideName(1 - p) }));
   }
   function answerDouble(take) {
     var p = offer.by; offer = false;
     if (take) {
       s.cube = { value: s.cube.value * 2, owner: 1 - p };
-      paint(); say('Taken: the cube is at ' + s.cube.value + '.');
-      if (isHuman(p)) { say('Taken: the cube is at ' + s.cube.value + '. Roll the dice'); paint(); }
+      paint(); say(T('backgammon.taken', { n: s.cube.value }));
+      if (isHuman(p)) { say(T('backgammon.takenRoll', { n: s.cube.value })); paint(); }
       else G.later(rollForComputer, 700);
     } else {
       var pts = s.cube.value; session[p] += pts; paint();
-      var msg = (G.vsComputer() ? (isHuman(p) ? 'The computer drops. You win ' : 'You drop. The computer wins ') : NAMES[p] + ' wins ') + pts + (pts === 1 ? ' point.' : ' points.');
-      G.finish(msg, G.vsComputer() ? (isHuman(p) ? 'w' : 'l') : null, G.vsComputer() && isHuman(p) ? 'You win' : 'Game over');
+      var msg = T(G.vsComputer() ? (isHuman(p) ? 'backgammon.dropComputer' : 'backgammon.dropYou') : 'backgammon.drop', { n: pts });
+      G.finish(msg, G.vsComputer() ? (isHuman(p) ? 'w' : 'l') : null, sideName(p));
     }
   }
   takeBtn.addEventListener('click', function () { if (offer) answerDouble(true); });
@@ -566,9 +569,7 @@
 
   function finishGame(w) {
     var o = outcome(s, w); session[w] += o.points; paint();
-    var who = G.vsComputer() ? (isHuman(w) ? 'You win' : 'The computer wins') : NAMES[w] + ' wins';
-    var what = o.kind === 'single' ? '' : ' a ' + o.kind;
-    G.finish(who + (what ? ' with' + what : '') + ': ' + o.points + (o.points === 1 ? ' point.' : ' points.'), G.vsComputer() ? (isHuman(w) ? 'w' : 'l') : null, G.vsComputer() && isHuman(w) ? 'You win' : 'Game over');
+    G.finish(T(o.kind === 'single' ? 'backgammon.win.single' : 'backgammon.win.' + o.kind, { n: o.points }), G.vsComputer() ? (isHuman(w) ? 'w' : 'l') : null, sideName(w));
   }
 
   function hint() {
@@ -576,12 +577,12 @@
     if (!steps.length) return;
     // the first step of the best play that is legal now
     var legal = legalSteps(s), pick = steps.filter(function (st) { return legal.some(function (l) { return l.from === st.from && l.to === st.to; }); })[0] || steps[0];
-    hintStep = pick; sel = -1; paint(); say('Hint: ' + (pick.from === BAR ? 'from the bar' : 'from point ' + (idxOf(s.turn, pick.from) + 1)) + (pick.to ? ' to point ' + (idxOf(s.turn, pick.to) + 1) : ' off the board') + '.');
+    hintStep = pick; sel = -1; paint(); say(T(pick.from === BAR ? (pick.to ? 'backgammon.hint.barTo' : 'backgammon.hint.barOff') : (pick.to ? 'backgammon.hint.pointTo' : 'backgammon.hint.pointOff'), { from: idxOf(s.turn, pick.from) + 1, to: pick.to ? idxOf(s.turn, pick.to) + 1 : 0 }));
   }
 
   G.registerWatch({
     script: 'explain-backgammon.js', unit: 'turn', level: 'medium', override: { cube: false },
-    intro: 'The opening roll decides who starts. The computer plays both sides.',
+    intro: 'backgammon.watch.intro',
     whoseTurn: function () { return s.turn; },
     busy: function () { return rolling || !!G.thinking; },
     resume: function () { paint(); say(turnText()); }
