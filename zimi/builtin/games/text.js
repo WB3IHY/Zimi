@@ -2289,8 +2289,6 @@
  "paddles.record": "{won} of {played} won",
  "paddles.score": "Score",
  "paddles.scoreLine": "{a} to {b}",
- "paddles.startLine": "First to {n} points wins.",
- "paddles.title": "Paddles",
  "paddles.top": "Top",
  "paddles.two": "Two players",
  "paddles.vsComputer": "One player",

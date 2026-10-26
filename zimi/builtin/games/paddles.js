@@ -107,7 +107,7 @@
 
   var els = { cv: $('pd-board'), top: $('pd-top'), bot: $('pd-bot'), topName: $('pd-top-name'), botName: $('pd-bot-name'), goal: $('pd-goal'), msg: $('pd-msg'), pause: $('pd-pause'), newBtn: $('pd-new') };
   var settings = Play.load(SETTINGS_KEY, { mode: 'cpu', level: 'medium' }), stats = Play.load(STATS_KEY, { won: 0, played: 0 });
-  var st = createState(settings.mode, settings.level), runId = 0, restored = false, mode = 'ready', ctx, status = Play.status(els.msg), armed = null, chooser = null;
+  var st = createState(settings.mode, settings.level), runId = 0, restored = false, mode = 'ready', ctx, status = Play.status(els.msg), armed = null;
   var keys = { bl: false, br: false, tl: false, tr: false }, pointers = {};
 
   function layout() { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, W * 1.3).ctx; draw(); }
@@ -149,23 +149,11 @@
 
   function releaseAll() { keys.bl = keys.br = keys.tl = keys.tr = false; pointers = {}; }
   function save() { Play.save(SETTINGS_KEY, settings); }
-  // Players and the computer's level: one choice made in the first sheet and in the New game pane.
+  // Players and the computer's level: one choice, made in the New game pane.
   function options(rebuild) {
     var rows = [Play.optionRow(T('paddles.players'), [['cpu', T('paddles.vsComputer')], ['two', T('paddles.two')]], settings.mode, function (v) { settings.mode = v; save(); if (rebuild) rebuild(); })];
     if (settings.mode === 'cpu') rows.push(Play.optionRow(T('paddles.level'), [['easy', T('paddles.easy')], ['medium', T('paddles.medium')], ['hard', T('paddles.hard')]], settings.level, function (v) { settings.level = v; save(); }));
     return rows;
-  }
-  // The first screen is the one real choice (players); the court is not drawn until Start.
-  function openChooser() {
-    var body = document.createElement('div'), api;
-    function rebuild() { body.textContent = ''; options(rebuild).forEach(function (n) { body.appendChild(n); }); }
-    rebuild();
-    els.cv.style.visibility = 'hidden';
-    api = chooser = ZimiShell.sheet({
-      title: T('paddles.title'), text: T('paddles.startLine', { n: WIN_SCORE }), body: [body],
-      actions: [{ label: T('shell.start'), primary: true, onclick: function () { begin(); } }],
-      onClose: function () { if (mode === 'ready' && !armed) { els.cv.style.visibility = ''; draw(); arm(); } }
-    });
   }
   function arm() {
     if (armed) armed.cancel();
@@ -245,6 +233,7 @@
     return true;
   }
   ZimiShell.persist({ save: snapshot, load: restore });
-  if (!restored) openChooser();
+  // It opens on the live court, ready; players and level have their last choice and live in the New game pane.
+  if (!restored) { draw(); arm(); }
   root.__paddles = { get st() { return st; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, st.mode, st.level, st.score, st.ball, st.top, st.bottom]); } };
 })(this);

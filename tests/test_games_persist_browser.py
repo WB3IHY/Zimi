@@ -50,7 +50,7 @@ ROWS = [
     ("rocks", "#rk-board", "__rocks.pos"),
     ("lastline", "#ll-board", "__lastline.pos"),
     ("lander", "#ld2-board", "__lander.pos"),
-    ("paddles", ".ar-sheet .gs-primary", "__paddles.pos"),
+    ("paddles", "#pd-board", _paused("__paddles.pos")),
     ("circuit", ".ar-sheet .gs-primary", "__circuit.pos"),
     ("roadrush", "#rr-board", "__roadrush.pos"),
     ("hopper", "#hp-screen", _paused("[__hopper.st.index, __hopper.st.x, __hopper.st.y, __hopper.st.camX, __hopper.st.time, __hopper.st.hearts, __hopper.st.coins, __hopper.st.enemies.map(e => [e.x, e.y, e.alive])]")),
