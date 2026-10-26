@@ -237,7 +237,7 @@ function _ttsSentenceSpans(text, from, to, lang) {
   for (var a = from; a < to;) {
     var b = text.indexOf(_TTS_BLOCK, a);
     if (b < 0 || b > to) b = to;
-    var first = out.length, seg = text.slice(a, b);
+    var first = out.length, seg = text.slice(a, b).replace(/[\n\r]/g, ' '); // a line break in the source is a space, not a sentence end
     _ttsSegments(seg, lang).forEach(function(r) {
       var s = a + r[0], e = a + r[1];
       while (s < e && /\s/.test(text[s])) s++;
@@ -266,6 +266,7 @@ function _ttsPlanChunks(text, maxLen, first, from, to, lang) {
     // own: the voice is given one, or it runs on into the next block.
     var gap = text.slice(sp[1], to).match(/^\s*/)[0];
     var blockEnds = sp[1] + gap.length >= to || gap.indexOf(_TTS_BLOCK) >= 0;
+    s = _ttsSpoken(s, lang);
     if (!_TTS_SAID_END.test(s) && blockEnds) s += stop;
     // A single sentence longer than maxLen: hard-split on word boundaries. The
     // first chunk's smaller cap only keeps a second sentence out of it (a
@@ -310,7 +311,36 @@ var _TTS_SKIP_TAGS = ' script style noscript template svg canvas iframe object a
 var _TTS_SKIP_SEL = 'sup.reference,.mw-ref,.mw-editsection,.hatnote,.metadata,.ambox,.navbox,.sidebar,' +
   'table,figure,.thumb,.mw-references-wrap,ol.references,.reflist,.catlinks,.zim-footer,' +
   // Zimipedia's own: the folded Quick facts (its infobox) and its bars and sheets.
-  '.zw-facts,.zb-bar,.zb-sheet';
+  '.zw-facts,.zb-bar,.zb-sheet,' +
+  // Page chrome and what only a screen reader is given: menus, buttons, a
+  // tooltip's glossary text, "Show" and "Panel - Collapsed" (Eric, 2026-10-25:
+  // the Factbook "is very rough").
+  'nav,[role="navigation"],[role="menu"],[role="search"],button,.tooltip-content,.expandcollapse-all,.sr-only,.visually-hidden,.visuallyhidden,.screen-reader-text';
+// Chrome by its class words (nav, menu, toolbar...), whatever the site calls the rest.
+var _TTS_CHROME_CLASS = /(?:^|[\s_-])(?:nav|navbar|navigation|menu|dropdown|breadcrumbs?|toolbar|pagination)(?:$|[\s_-])/i;
+function _ttsChrome(el) { return typeof el.className === 'string' && _TTS_CHROME_CLASS.test(el.className); }
+// A collapsed section (an accordion's closed panel) is still the article's text:
+// hidden by the page's script until opened, and opened when the reading gets there.
+var _TTS_PANEL_SEL = '.collapse,.collapsing,.accordion-collapse,.accordion-body,.panel-collapse';
+var _TTS_PANEL_HEAD = '.tabHead,.accordion-header,.accordion-button,summary,[aria-expanded]';
+function _ttsPanelHead(el) {
+  var head = el.previousElementSibling;
+  return head && (head.matches(_TTS_PANEL_HEAD) ? head : head.querySelector(_TTS_PANEL_HEAD));
+}
+function _ttsPanel(el) { return el.matches(_TTS_PANEL_SEL) || !!_ttsPanelHead(el); }
+// "Label:" then its value in the next block reads as one sentence, not two stops.
+var _TTS_LABEL_MAX = 60;
+var _TTS_PANEL_OPEN_MS = 450; // a panel slides open before the sentence in it can be found
+// What a voice says of a sentence: a heading in capitals is words, not letters
+// ("THE WORLD FACTBOOK" is not T-H-E), "::" a pause, "sq km" what it is.
+var _TTS_SMALL_WORDS = ' THE AND FOR OF OR IN ON TO BY AT IS AS AN ';
+var _TTS_UNITS = [[/\bsq km\b/g, 'square kilometers'], [/\bsq mi\b/g, 'square miles'], [/(\d) ?km\b/g, '$1 kilometers']]; // English, where a number gives them away
+function _ttsSpoken(s, lang) {
+  s = s.replace(/\s*::\s*/g, ', ');
+  if (_langPrimary(lang || 'en') === 'en') _TTS_UNITS.forEach(function(u) { s = s.replace(u[0], u[1]); });
+  if (/\p{Ll}/u.test(s) || !/\p{Lu}{2}/u.test(s)) return s;
+  return s.replace(/\p{Lu}+/gu, function(w) { return w.length > 3 || _TTS_SMALL_WORDS.indexOf(' ' + w + ' ') >= 0 ? w.toLowerCase() : w; });
+}
 // A table that holds paragraphs is the page's layout (older captures, some
 // crawled sites put the whole article in one), not a table of facts: it is read.
 function _ttsLayoutTable(el) { return el.tagName === 'TABLE' && !!el.querySelector('p'); }
@@ -345,13 +375,17 @@ var _ttsRead = null; // the reading in progress: its plan, its document, whether
 // style or hidden text), a _TTS_BLOCK between blocks and at each <br>. A
 // piece is a text node and where it starts in the text.
 function _ttsReadModel(doc, main, all) {
-  var win = doc.defaultView, parts = [], pieces = [], index = new Map(), len = 0;
-  function split() { if (len && parts[parts.length - 1] !== _TTS_BLOCK) { parts.push(_TTS_BLOCK); len++; } }
+  var win = doc.defaultView, parts = [], pieces = [], index = new Map(), len = 0, said = 0, blockAt = 0, fresh = true, label = false; // said: letters so far, without the page's indentation
+  function split() {
+    if (label && said - blockAt <= _TTS_LABEL_MAX) { if (len && /\S$/.test(parts[parts.length - 1])) { parts.push(' '); len++; } return; } // "Area:" and its value are one sentence
+    fresh = true;
+    if (len && parts[parts.length - 1] !== _TTS_BLOCK) { parts.push(_TTS_BLOCK); len++; }
+  }
   function walk(el) {
     var cs = win.getComputedStyle(el), tag = el.localName;
-    // A book lays out one section at a time and hides the others: they are still its text.
-    if (_TTS_SKIP_TAGS.indexOf(' ' + tag + ' ') >= 0 || (cs.display === 'none' && !el.classList.contains('zb-sec'))) return;
-    if (!all && el !== main && el.matches && el.matches(_TTS_SKIP_SEL) && !_ttsLayoutTable(el)) return;
+    // A book lays out one section at a time and hides the others: they are still its text, as is a closed panel's.
+    if (_TTS_SKIP_TAGS.indexOf(' ' + tag + ' ') >= 0 || (cs.display === 'none' && !el.classList.contains('zb-sec') && !(!all && _ttsPanel(el)))) return;
+    if (!all && el !== main && ((el.matches && el.matches(_TTS_SKIP_SEL)) || _ttsChrome(el)) && !_ttsLayoutTable(el)) return;
     var block = cs.display.indexOf('inline') !== 0 && cs.display !== 'contents', shown = cs.visibility === 'visible';
     if (block || tag === 'br') split();
     for (var n = el.firstChild; n; n = n.nextSibling) {
@@ -359,7 +393,10 @@ function _ttsReadModel(doc, main, all) {
       else if (n.nodeType === 3 && shown && n.data) {
         index.set(n, pieces.length);
         pieces.push({ node: n, at: len });
-        parts.push(n.data); len += n.data.length;
+        var solid = n.data.replace(/\s+/g, '').length;
+        if (fresh && solid) { blockAt = said; fresh = false; }
+        parts.push(n.data); len += n.data.length; said += solid;
+        if (solid) label = /:\s*$/.test(n.data);
       }
     }
     if (block) split();
@@ -510,6 +547,16 @@ function _ttsAlongChar(idx, ch) {
   var st = _ttsRead, chunk = st && st.plan.chunks[idx];
   if (chunk) _ttsAlongAt(idx, _ttsSpanAtChar(chunk, ch));
 }
+// A sentence inside a closed panel has no place on the page: open the panel as
+// a tap on its heading does. True when one was opened.
+function _ttsOpenPanel(range) {
+  var win = range.startContainer.ownerDocument.defaultView;
+  for (var el = range.startContainer.parentElement; el; el = el.parentElement) {
+    var head = _ttsPanelHead(el);
+    if (head && win.getComputedStyle(el).display === 'none') { head.click(); return true; }
+  }
+  return false;
+}
 // Keep the sentence in view. Only while following; once the person has moved
 // the page, the reading follows again when it comes back to what is in view.
 function _ttsFollow(force) {
@@ -524,6 +571,7 @@ function _ttsFollow(force) {
       if (doc.__zbShowRange) { doc.__zbShowRange(rs[0]); moved = true; }
     } else {
       var box = rs[0].getBoundingClientRect(), end = rs[rs.length - 1].getBoundingClientRect();
+      if (!box.width && !box.height && _ttsOpenPanel(rs[0])) { setTimeout(function() { if (_ttsRead === st) _ttsFollow(false); }, _TTS_PANEL_OPEN_MS); return; }
       var scr = _scrollerOf(rs[0].startContainer.parentElement, win), cr = scr ? scr.getBoundingClientRect() : { top: 0, height: win.innerHeight };
       var by = _ttsScrollBy({ top: box.top - cr.top, bottom: end.bottom - cr.top }, cr.height);
       if (!by && !force) { st.following = true; return; }
@@ -952,6 +1000,8 @@ var _TTS_PLAY_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 
 // Back a sentence: a turning arrow, as a player's replay, not a skip (Eric,
 // 2026-10-21: "just one back rewindish circle to restart from previous sentence").
 var _TTS_BACK_ICON = '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4v6h6"/><path d="M3.5 15a8.5 8.5 0 1 0 2-8.8L3 10"/></svg>';
+// Where the reading is: shown in place of the bars once the page was moved away from it.
+var _TTS_LOCATE_ICON = '<svg class="tts-locate" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>';
 var _TTS_CLOSE_ICON = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 // The voices this article's language can be read in: the server's, in its
 // order (none Settings turned off), then this browser's.
@@ -963,9 +1013,11 @@ function _ttsVoicesFor(lang) {
 }
 // The voice reading, by its name alone: (Too slow) is for choosing one, in
 // the voice list, not the bar, where it has no room (Eric, 2026-10-21).
+// Paused is paused: the bar says getting ahead only while the reading is going on.
+function _ttsAheadShown() { return _ttsNow.ahead > 0 && !_ttsNow.playing && !_ttsPaused; }
 function _ttsVoiceLabel() {
   var name = _voiceEngineName(_ttsNow.engine);
-  return _ttsNow.ahead > 0 && !_ttsNow.playing ? t('tts_getting_ahead', { voice: name, s: fmtNum(_ttsNow.ahead) }) : name;
+  return _ttsAheadShown() ? t('tts_getting_ahead', { voice: name, s: fmtNum(_ttsNow.ahead) }) : name;
 }
 // The speed sheet: a slider (the bar's button says the speed), the marks
 // under it each a tap away. Arrow keys step 0.05 and never snap.
@@ -987,9 +1039,9 @@ function _ttsBarHtml() {
   var btn = function(cls, label, onclick, inner, extra) {
     return '<button type="button" class="' + cls + '" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '" onclick="' + onclick + '"' + (extra || '') + '>' + inner + '</button>';
   };
-  var ahead = _ttsNow.ahead > 0 && !_ttsNow.playing;
+  var ahead = _ttsAheadShown();
   var h = '<span class="tts-bar-state' + (ahead ? ' ahead' : _ttsPaused ? ' paused' : _ttsNow.playing ? ' playing' : _ttsNow.spin ? '' : ' hold') + '"' +
-    (ahead ? ' style="--p:' + _ttsAheadDone().toFixed(3) + '"' : '') + ' aria-hidden="true"><i></i><i></i><i></i></span>';
+    (ahead ? ' style="--p:' + _ttsAheadDone().toFixed(3) + '"' : '') + ' aria-hidden="true"><i></i><i></i><i></i>' + _TTS_LOCATE_ICON + '</span>';
   // A menu opens above the button it belongs to, its choices radio items.
   var menu = function(which, items) {
     if (_ttsMenuOpen !== which) return '';

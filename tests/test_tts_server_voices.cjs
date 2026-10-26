@@ -468,7 +468,7 @@ const tick = () => new Promise(r => setImmediate(r));
     _TTS_RATE_STOPS: [1, 1.5, 2], _TTS_RATE_SNAP: 0.05, _TTS_SPEED_SETTLE_MS: 700,
     setTimeout: f => { ctx._settle = f; return 1; }, clearTimeout: () => { ctx._settle = null; },
     document: { querySelectorAll: () => [] } });
-  vm.runInContext(['_ttsPickSpeed', '_ttsApplySpeed', '_ttsSpeedSettled', '_ttsSlideSpeed', '_ttsSpeedChanged', '_ttsSnapRate', '_ttsRateClamp', '_ttsVoiceLabel'].map(fn).join('\n'), ctx);
+  vm.runInContext(['_ttsPickSpeed', '_ttsApplySpeed', '_ttsSpeedSettled', '_ttsSlideSpeed', '_ttsSpeedChanged', '_ttsSnapRate', '_ttsRateClamp', '_ttsVoiceLabel', '_ttsAheadShown'].map(fn).join('\n'), ctx);
   ctx._ttsVoices = { langs: { en: { engine: 'kokoro', engines: ['kokoro', 'piper'] } },
     timings: { kokoro: { gaps: { '1': 0, '1.25': 0, '1.5': 3, '2': 6 } }, piper: { gaps: { '1': 0, '1.25': 0, '1.5': 0, '2': 0 } } } };
   ctx._ttsNow = { engine: 'kokoro', lang: 'en', at: 7 };
@@ -593,14 +593,15 @@ const tick = () => new Promise(r => setImmediate(r));
       const [tag, attrs, ...kids] = spec;
       const el = { nodeType: 1, localName: tag, parentNode: parent, parentElement: parent, order: order++, classes: attrs.cls || [], style: attrs.style || {}, childNodes: [] };
       el.classList = { contains: c => el.classes.includes(c) };
+      el.className = el.classes.join(' ');
       el.tagName = tag.toUpperCase();
-      el.querySelector = t => { const find = e => (e.childNodes || []).find(k => k.localName === t || (k.nodeType === 1 && find(k))); return find(el) || null; };
+      el.querySelector = t => { const find = e => { for (const k of e.childNodes || []) { if (k.nodeType === 1 && (k.localName === t || k.matches(t))) return k; const d = k.nodeType === 1 && find(k); if (d) return d; } return null; }; return find(el); };
       el.matches = sel => sel.split(',').some(x => { const [t, c] = x.trim().split('.'); return (!t || t === tag) && (!c || el.classes.includes(c)); });
       el.contains = n => { for (let x = n; x; x = x.parentNode) if (x === el) return true; return false; };
       el.compareDocumentPosition = n => (n.order > el.order ? 4 | (el.contains(n) ? 16 : 0) : 2);
       kids.forEach(k => el.childNodes.push(node(k, el)));
       el.firstChild = el.childNodes[0] || null;
-      el.childNodes.forEach((k, i) => { k.nextSibling = el.childNodes[i + 1] || null; });
+      el.childNodes.forEach((k, i) => { k.nextSibling = el.childNodes[i + 1] || null; k.previousElementSibling = el.childNodes.slice(0, i).reverse().find(x => x.nodeType === 1) || null; });
       return el;
     }
     const textNode = (root, s) => { let hit; (function w(n) { if (n.nodeType === 3 && n.data.indexOf(s) >= 0 && !hit) hit = n; (n.childNodes || []).forEach(w); })(root); return hit; };
@@ -634,6 +635,20 @@ const tick = () => new Promise(r => setImmediate(r));
     const facts2 = mkDoc(['main', {}, ['details', { cls: ['zw-facts'] }, ['summary', {}, 'Quick facts'], ['table', { cls: ['infobox'] }, ['tr', {}, ['td', {}, 'Born']]]], ['p', {}, 'Prose.']]);
     const factsText = ax._ttsReadModel(facts2, facts2.main).text.replace(new RegExp(BLOCK, 'g'), '|');
     ok('Zimipedia\'s Quick facts label is not read with the article', factsText === 'Prose.|', factsText);
+    // Page chrome, label and value, and a closed panel (the World Factbook, 2026-10-25: "very rough").
+    const model_of = (spec) => { const d = mkDoc(spec); return ax._ttsReadModel(d, d.main).text.replace(new RegExp(BLOCK, 'g'), '|'); };
+    ok('navigation, menus, buttons, a tooltip\'s glossary and screen-reader labels are not read',
+      model_of(['main', {}, ['nav', {}, ['ul', {}, ['li', {}, 'ABOUT']]], ['div', { cls: ['site-menu'] }, 'Pick a country'], ['div', {}, ['button', {}, 'Show'], ['span', { cls: ['sr-only'] }, 'Panel - Collapsed'],
+        ['span', { cls: ['tooltip-content'] }, 'A long glossary entry.'], 'Mali is in Africa.']]) === 'Mali is in Africa.|');
+    ok('a label and its value in the next block are one sentence; a long lead-in colon keeps its stop',
+      model_of(['main', {}, ['div', {}, 'Area:'], ['div', {}, ['span', {}, 'total: '], ['span', {}, '1,240,192 sq km']], ['p', {}, 'It has the following, in this long line that goes on past the label limit of sixty characters:'], ['p', {}, 'one']]) ===
+      'Area: total: 1,240,192 sq km|It has the following, in this long line that goes on past the label limit of sixty characters:|one|');
+    ok('a closed panel after its heading is read; a hidden block with no heading is not',
+      model_of(['main', {}, ['ul', {}, ['li', { cls: ['tabHead'] }, 'Geography'], ['li', { style: { display: 'none' } }, ['p', {}, 'Landlocked.']]], ['p', {}, 'Intro.'], ['div', { style: { display: 'none' } }, 'Menu stuff']]) === 'Geography|Landlocked.|Intro.|');
+    ok('Wikipedia, Stack Exchange and Gutenberg prose is read as it was: lists, code and plain classes stay',
+      model_of(['main', {}, ['h2', {}, 'See also'], ['ul', {}, ['li', {}, ['a', {}, 'Tides']], ['li', {}, ['a', {}, 'Moons']]],
+        ['div', { cls: ['post-text'] }, ['p', {}, 'Use a loop.'], ['pre', {}, 'for x in y'], ['p', {}, 'That is all.']], ['button', {}, 'Share'],
+        ['p', { cls: ['chapter'] }, 'CHAPTER I. Down the Rabbit-Hole']]) === 'See also|Tides|Moons|Use a loop.|for x in y|That is all.|CHAPTER I. Down the Rabbit-Hole|');
     const laid = mkDoc(['main', {}, ['table', {}, ['tr', {}, ['td', {}, ['p', {}, 'The whole page sits in a table.']]]]]);
     const laidText = ax._ttsReadModel(laid, laid.main).text.replace(new RegExp(BLOCK, 'g'), '|');
     ok('a table that holds paragraphs is the page\'s layout, and is read', laidText === 'The whole page sits in a table.|', laidText);
