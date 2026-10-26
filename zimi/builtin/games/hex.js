@@ -138,17 +138,17 @@
   root.HexEngine = { RED: RED, BLUE: BLUE, LEVELS: LEVELS, neighbors: neighbors, empty: empty, winner: winner, winningChain: winningChain, dist: dist, evaluate: evaluate, chooseMove: chooseMove, worthSwapping: worthSwapping, fairOpening: fairOpening };
 
   // ── the page ─────────────────────────────────────────────────────────────
-  if (typeof document === 'undefined') return;
-  var WK = root.WorldKit, BK = root.BoardKit, R = 20, SQ3 = Math.sqrt(3), PAD = 22;
-  var COLORS = ['#d9453b', '#2f6fdd'], NAMES = ['Red', 'Blue'];
+  if (typeof document === 'undefined' || !root.BoardUI) return;
+  var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, R = 20, SQ3 = Math.sqrt(3), PAD = 22;
+  function sideName(c) { return UI.side(c === 0 ? 'red' : 'blue'); }
   var host = document.getElementById('wk-board'), cellsG, marksG, btns = [], n = 11, W = 0, Hh = 0;
   var state, history = WK.History(), last = -1, chain = null, hintIdx = -1, swapped = false, swapDone = false, moves = 0;
-  var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: COLORS[0] }, { color: COLORS[1] }]);
+  var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: 'var(--hx-red)' }, { color: 'var(--hx-blue)' }]);
   var swapBtn = document.getElementById('hx-swap');
   var G = WK.create({
     id: 'hex',
-    options: WK.standardOptions({ first: 'Red (top to bottom)', second: 'Blue (side to side)' }).concat([{ key: 'size', legend: 'Board', def: '11', choices: [['7', '7 by 7'], ['9', '9 by 9'], ['11', '11 by 11']] }]),
-    checks: [{ key: 'swap', label: 'Swap rule: the second player may take over the first move', def: false }],
+    options: WK.standardOptions({ first: 'hex.side.red', second: 'hex.side.blue' }).concat([{ key: 'size', legend: 'go.board', def: '11', choices: [['7', 'hex.board.7'], ['9', 'hex.board.9'], ['11', 'hex.board.11']] }]),
+    checks: [{ key: 'swap', label: 'hex.swap', def: false }],
     statKey: function (s) { return s.level + s.size + (s.swap ? 's' : ''); },
     onNew: newGame, onUndo: undo, onHint: hint
   });
@@ -156,8 +156,8 @@
   // Who plays colour c (0 red, 1 blue) now: the sides swap when the swap rule is used.
   function isHuman(c) { return !G.vsComputer() || ((G.settings.side === 'second' ? 1 : 0) ^ (swapped ? 1 : 0)) === c; }
   function nameOf(c) {
-    if (!G.vsComputer()) return NAMES[c] + (swapped ? '' : '');
-    return isHuman(c) ? 'You' : 'Computer';
+    if (!G.vsComputer()) return sideName(c);
+    return isHuman(c) ? T('board.you') : T('board.computer');
   }
 
   function cx(r, c) { return PAD + R * SQ3 * (c + r / 2) + R * SQ3 / 2; }
@@ -199,7 +199,7 @@
     if (chain) chain.forEach(function (j) { m += '<circle cx="' + cx((j / n) | 0, j % n) + '" cy="' + cy((j / n) | 0) + '" r="6.5" class="hx-win"/>'; });
     if (hintIdx >= 0) m += '<polygon points="' + hexPoly((hintIdx / n) | 0, hintIdx % n, 3) + '" class="hx-hint"/>';
     cellsG.innerHTML = s; marksG.innerHTML = m;
-    btns.forEach(function (bt, j) { bt.setAttribute('aria-label', coord(j) + ', ' + (b[j] === 1 ? 'red' : b[j] === 2 ? 'blue' : 'empty')); bt.setAttribute('aria-disabled', (!open || b[j]) ? 'true' : 'false'); });
+    btns.forEach(function (bt, j) { bt.setAttribute('aria-label', T('go.pt', { pt: coord(j), what: T(b[j] === 1 ? 'hex.cell.red' : b[j] === 2 ? 'hex.cell.blue' : 'go.pt.empty') })); bt.setAttribute('aria-disabled', (!open || b[j]) ? 'true' : 'false'); });
     var names = [nameOf(0), nameOf(1)];
     score(names, null, G.over ? -1 : state.turn);
     swapBtn.hidden = !(swapAsk() && isHuman(state.turn) && !G.over);
@@ -210,9 +210,9 @@
 
   function turnText() {
     var c = state.turn;
-    if (swapAsk() && isHuman(c)) return 'You may swap sides and take the first move, or play as ' + NAMES[c].toLowerCase();
-    if (!G.vsComputer()) return NAMES[c] + ' to play';
-    return isHuman(c) ? 'Your turn (' + NAMES[c].toLowerCase() + ', ' + (c ? 'left to right' : 'top to bottom') + ')' : 'Computer is thinking';
+    if (swapAsk() && isHuman(c)) return T('hex.swapAsk', { side: sideName(c).toLowerCase() });
+    if (!G.vsComputer()) return T('go.toPlay', { name: sideName(c) });
+    return isHuman(c) ? T(c ? 'hex.yourTurn.lr' : 'hex.yourTurn.tb', { side: sideName(c).toLowerCase() }) : T('shell.thinking');
   }
 
   function onCell(i) { if (G.over || G.thinking || !isHuman(state.turn) || state.board[i]) return; place(i); }
@@ -226,8 +226,7 @@
     var ch = winningChain(nb, n, c + 1);
     if (ch) {
       chain = ch; paint();
-      G.finish(G.vsComputer() ? (isHuman(c) ? 'You win: your chain links both sides.' : 'The computer wins: its chain links both sides.') : NAMES[c] + ' wins: the chain links both sides.',
-        G.vsComputer() ? (isHuman(c) ? 'w' : 'l') : null, G.vsComputer() && isHuman(c) ? 'You win' : 'Game over');
+      G.finish(T('hex.chain'), G.vsComputer() ? (isHuman(c) ? 'w' : 'l') : null, sideName(c));
       return;
     }
     afterMove();
@@ -246,14 +245,14 @@
   function doSwap() {
     history.push(snapshot());
     swapped = !swapped; swapDone = true; paint();
-    G.say(G.vsComputer() ? (isHuman(0) ? 'The computer swapped sides. You are red now, and it is your turn.' : 'The computer swapped sides. You are blue now. Your turn.') : 'Sides swapped. ' + turnText());
+    G.say(G.vsComputer() ? T(isHuman(0) ? 'hex.swapped.red' : 'hex.swapped.blue') : T('hex.swapped', { line: turnText() }));
     if (!isHuman(state.turn)) G.later(function () { place(chooseMove(state.board, n, state.turn + 1, G.settings.level)); });
   }
   swapBtn.addEventListener('click', function () { if (swapAsk() && isHuman(state.turn) && !G.thinking) doSwap(); });
 
   function hint() {
     hintIdx = chooseMove(state.board, n, state.turn + 1, 'hard');
-    paint(); G.say('Hint: try the outlined cell. ' + turnText());
+    paint(); G.say(T('hex.hint', { line: turnText() }));
   }
 
   function undo() {
@@ -277,6 +276,7 @@
     if (!isHuman(0)) G.later(function () { place(G.settings.swap ? fairOpening(n) : chooseMove(state.board, n, 1, G.settings.level)); });
   }
 
+  if (root.ZimiShell) root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && history.size() > 0; } });
   G.newGame();
   if (new URLSearchParams(location.search).has('debug')) root.__hx = { state: function () { return state; }, engine: root.HexEngine, n: function () { return n; } };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -130,13 +130,13 @@
   root.GomokuEngine = { N: N, LEVELS: LEVELS, empty: empty, lineThrough: lineThrough, isFull: isFull, chooseMove: chooseMove, evaluate: evaluate, moveScore: moveScore };
 
   // ── the page ─────────────────────────────────────────────────────────────
-  if (typeof document === 'undefined') return;
-  var WK = root.WorldKit, BK = root.BoardKit, CELL = 32, PAD = 22, W = (N - 1) * CELL + 2 * PAD;
-  var NAMES = ['Black', 'White'];
+  if (typeof document === 'undefined' || !root.BoardUI) return;
+  var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, CELL = 32, PAD = 22, W = (N - 1) * CELL + 2 * PAD;
+  function sideName(p) { return UI.side(p === 0 ? 'black' : 'white'); }
   var host = document.getElementById('wk-board'), stonesG, marksG, btns = [];
   var state, history = WK.History(), last = -1, winLine = null, hintIdx = -1;
-  var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: '#1c222d' }, { color: '#f4f0e4' }]);
-  var G = WK.create({ id: 'gomoku', options: WK.standardOptions({ first: 'Black (first)', second: 'White' }), onNew: newGame, onUndo: undo, onHint: hint });
+  var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: 'var(--disc-b)' }, { color: 'var(--disc-w)' }]);
+  var G = WK.create({ id: 'gomoku', options: WK.standardOptions({ first: 'go.side.blackFirst', second: 'board.white' }), onNew: newGame, onUndo: undo, onHint: hint });
 
   function xy(i) { return { x: PAD + (i % N) * CELL, y: PAD + ((i / N) | 0) * CELL }; }
   function coord(i) { return 'ABCDEFGHJKLMNOP'[i % N] + (N - ((i / N) | 0)); }
@@ -169,17 +169,17 @@
     if (hintIdx >= 0) { var h = xy(hintIdx); m += '<circle cx="' + h.x + '" cy="' + h.y + '" r="12" class="gm-hint"/>'; }
     stonesG.innerHTML = s; marksG.innerHTML = m;
     btns.forEach(function (bt, j) {
-      bt.setAttribute('aria-label', coord(j) + ', ' + (b[j] === 1 ? 'black' : b[j] === 2 ? 'white' : 'empty'));
+      bt.setAttribute('aria-label', T('go.pt', { pt: coord(j), what: T(b[j] === 1 ? 'go.pt.black' : b[j] === 2 ? 'go.pt.white' : 'go.pt.empty') }));
       bt.setAttribute('aria-disabled', (!open || b[j]) ? 'true' : 'false');
     });
-    score(G.names(NAMES[0], NAMES[1]), null, G.over ? -1 : state.turn);
+    score(G.names(sideName(0), sideName(1)), null, G.over ? -1 : state.turn);
     G.setUndo(history.size() > 0); G.setHint(open);
   }
 
   function turnText() {
     var p = state.turn;
-    if (!G.vsComputer()) return NAMES[p] + ' to play';
-    return G.human(p) ? 'Your turn (' + NAMES[p].toLowerCase() + ')' : 'Computer is thinking';
+    if (!G.vsComputer()) return T('go.toPlay', { name: sideName(p) });
+    return G.human(p) ? T('makruk.yourTurn', { side: sideName(p).toLowerCase() }) : T('shell.thinking');
   }
 
   function onPoint(i) {
@@ -195,18 +195,17 @@
     if (line) {
       winLine = line; paint();
       var w = p - 1;
-      G.finish(G.vsComputer() ? (G.human(w) ? 'You win with five in a row.' : 'The computer wins with five in a row.') : NAMES[w] + ' wins with five in a row.',
-        G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, G.vsComputer() && G.human(w) ? 'You win' : 'Game over');
+      G.finish(T('gomoku.five'), G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, sideName(w));
       return;
     }
-    if (isFull(nb)) { paint(); G.finish('A draw: the board is full.', 'd'); return; }
+    if (isFull(nb)) { paint(); G.finish(T('board.full'), 'd'); return; }
     paint(); G.say(turnText(), !G.human(state.turn));
     if (!G.human(state.turn)) G.later(function () { place(chooseMove(state.board.slice(0), state.turn + 1, G.settings.level)); });
   }
 
   function hint() {
     hintIdx = chooseMove(state.board.slice(0), state.turn + 1, 'hard');
-    paint(); G.say('Hint: try the ringed point. ' + turnText());
+    paint(); G.say(T('go.hint.point', { line: turnText() }));
   }
 
   function undo() {
@@ -226,6 +225,7 @@
     if (!G.human(0)) G.later(function () { place(chooseMove(state.board.slice(0), 1, G.settings.level)); });
   }
 
+  if (root.ZimiShell) root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && history.size() > 0; } });
   buildBoard();
   G.newGame();
   if (new URLSearchParams(location.search).has('debug')) root.__gm = { state: function () { return state; }, engine: root.GomokuEngine };

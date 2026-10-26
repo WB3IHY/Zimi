@@ -1,7 +1,7 @@
-/* Hex: pale cells on a slate board, red sides top and bottom, blue sides left and right. */
-:root { --hx-cell: #e4e9f0; --hx-line: #9aa6b8; --hx-red: #d9453b; --hx-blue: #2f6fdd; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --hx-cell: #2b3342; --hx-line: #121722; --hx-red: #ea5a50; --hx-blue: #5b94f0; } }
-:root[data-theme="dark"] { --hx-cell: #2b3342; --hx-line: #121722; --hx-red: #ea5a50; --hx-blue: #5b94f0; }
+/* Hex: pale cells on a warm board, red sides top and bottom, blue sides left and right. */
+:root { --hx-cell: #ece6d9; --hx-line: #a79e8b; --hx-red: #cf5248; --hx-blue: #4872c2; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --hx-cell: #2d2a26; --hx-line: #11100e; --hx-red: #de665c; --hx-blue: #6a95d9; } }
+:root[data-theme="dark"] { --hx-cell: #2d2a26; --hx-line: #11100e; --hx-red: #de665c; --hx-blue: #6a95d9; }
 
 .hx-board { --bs: min(100vw - 12px, (100svh - 250px) * 1.5, 640px); }
 .hx-cell { fill: var(--hx-cell); stroke: var(--hx-line); stroke-width: 1.4; stroke-linejoin: round; }
@@ -10,7 +10,7 @@
 .hx-side { fill: none; stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; }
 .hx-side.r { stroke: var(--hx-red); }
 .hx-side.b { stroke: var(--hx-blue); }
-.hx-last { fill: #fff; stroke: rgba(0, 0, 0, 0.45); stroke-width: 1.2; }
-.hx-win { fill: #fff; stroke: rgba(0, 0, 0, 0.4); stroke-width: 1; }
+.hx-last { fill: var(--disc-w); stroke: rgba(0, 0, 0, 0.45); stroke-width: 1.2; }
+.hx-win { fill: var(--disc-w); stroke: rgba(0, 0, 0, 0.4); stroke-width: 1; }
 .hx-hint { fill: none; stroke: var(--accent); stroke-width: 3; stroke-dasharray: 5 3; }
-.hx-pt:hover:not([aria-disabled="true"]) { background: rgba(217, 119, 6, 0.28); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+.hx-pt:hover:not([aria-disabled="true"]) { background: var(--legal); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }

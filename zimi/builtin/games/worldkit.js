@@ -258,7 +258,7 @@
   }
 
   // Gradients for round stones (Go, Gomoku, Morris): fill="url(#wk-stone-b)" and "...-w".
-  var STONE_DEFS = '<defs><radialGradient id="wk-stone-b" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#5a6275"/><stop offset="0.55" stop-color="#1c222d"/><stop offset="1" stop-color="#090b10"/></radialGradient>' +
+  var STONE_DEFS = '<defs><radialGradient id="wk-stone-b" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#5e5953"/><stop offset="0.55" stop-color="#25221f"/><stop offset="1" stop-color="#0c0b0a"/></radialGradient>' +
     '<radialGradient id="wk-stone-w" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#ffffff"/><stop offset="0.6" stop-color="#ece8dc"/><stop offset="1" stop-color="#b9b3a2"/></radialGradient></defs>';
 
   // A flat undo stack of snapshots (the snapshot is whatever the game hands in).

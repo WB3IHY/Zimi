@@ -3,19 +3,20 @@
    thread as a fallback). This file is the page. */
 (function (root) {
   'use strict';
-  if (typeof document === 'undefined') return;
-  var WK = root.WorldKit, BK = root.BoardKit, Engine = root.makeGoEngine(), BLACK = 1, WHITE = 2;
-  var VIEW = 420, PAD = 30, NAMES = ['Black', 'White'];
+  if (typeof document === 'undefined' || !root.BoardUI) return;
+  var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, Engine = root.makeGoEngine(), BLACK = 1, WHITE = 2;
+  var VIEW = 420, PAD = 30;
+  function sideName(p) { return UI.side(p === 0 ? 'black' : 'white'); }
   var THINK_MS = { easy: 350, medium: 1600, hard: 4200 }, FALLBACK_MS = 800, HINT_MS = 1800, DEAD_MS = 900;
   var HOSHI = { 9: [[2, 2], [2, 6], [6, 2], [6, 6], [4, 4]], 13: [[3, 3], [3, 9], [9, 3], [9, 9], [6, 6], [3, 6], [6, 3], [6, 9], [9, 6]] };
 
   var host = document.getElementById('wk-board'), stonesG, marksG, btns = [], n = 9, cell = 45;
   var st, history = WK.History(), phase = 'play', dead = null, hintIdx = -1, lastMsg = '';
   var passBtn = document.getElementById('go-pass'), doneBtn = document.getElementById('go-done'), resumeBtn = document.getElementById('go-resume');
-  var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: '#1c222d' }, { color: '#f4f0e4' }]);
+  var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: 'var(--disc-b)' }, { color: 'var(--disc-w)' }]);
   var G = WK.create({
     id: 'go',
-    options: WK.standardOptions({ first: 'Black (first)', second: 'White' }).concat([{ key: 'size', legend: 'Board', def: '9', choices: [['9', '9 by 9'], ['13', '13 by 13']] }]),
+    options: WK.standardOptions({ first: 'go.side.blackFirst', second: 'board.white' }).concat([{ key: 'size', legend: 'go.board', def: '9', choices: [['9', 'go.board.9'], ['13', 'go.board.13']] }]),
     statKey: function (s) { return s.size + s.level; },
     onNew: newGame, onUndo: undo, onHint: hint
   });
@@ -84,12 +85,13 @@
     stonesG.innerHTML = s; marksG.innerHTML = m;
     var open = !G.over && !G.thinking && G.human(st.turn - 1);
     btns.forEach(function (bt, j) {
-      bt.setAttribute('aria-label', coord(j) + ', ' + (b[j] === BLACK ? 'black' : b[j] === WHITE ? 'white' : 'empty') + (marking && b[j] ? (dead[j] ? ', dead' : ', alive') : ''));
+      var what = T(b[j] === BLACK ? 'go.pt.black' : b[j] === WHITE ? 'go.pt.white' : 'go.pt.empty');
+      bt.setAttribute('aria-label', marking && b[j] ? T(dead[j] ? 'go.pt.dead' : 'go.pt.alive', { pt: coord(j), what: what }) : T('go.pt', { pt: coord(j), what: what }));
       bt.setAttribute('aria-disabled', (marking ? (!b[j] || G.over) : (!open || b[j])) ? 'true' : 'false');
     });
-    var names = G.names(NAMES[0], NAMES[1]);
-    if (marking) score([names[0] + ' ' + fmt(sc.black), names[1] + ' ' + fmt(sc.white)], null, -1);
-    else score([names[0] + ' ' + st.caps[0] + ' taken', names[1] + ' ' + st.caps[1] + ' taken'], null, G.over ? -1 : st.turn - 1);
+    var names = G.names(sideName(0), sideName(1));
+    if (marking) score(names, [fmt(sc.black), fmt(sc.white)], -1);
+    else score(names, [T('go.taken', { n: st.caps[0] }), T('go.taken', { n: st.caps[1] })], G.over ? -1 : st.turn - 1);
     passBtn.hidden = marking; doneBtn.hidden = !marking || G.over; resumeBtn.hidden = !marking || G.over;
     passBtn.disabled = !open;
     G.setUndo(history.size() > 0 && !G.watching); G.setHint(open && !marking);
@@ -98,12 +100,12 @@
   function fmt(x) { return x % 1 ? x.toFixed(1) : String(x); }
 
   function turnText() {
-    var p = st.turn - 1, nm = NAMES[p];
-    if (phase === 'mark') return 'Tap stones that are dead. Black ' + fmt(liveScore().black) + ', White ' + fmt(liveScore().white) + ' (komi ' + Engine.KOMI + ').';
-    if (!G.vsComputer()) return nm + ' to play';
-    return G.human(p) ? 'Your turn (' + nm.toLowerCase() + ')' : 'Computer is thinking';
+    var p = st.turn - 1, nm = sideName(p);
+    if (phase === 'mark') return T('go.markLine', { black: fmt(liveScore().black), white: fmt(liveScore().white), komi: Engine.KOMI });
+    if (!G.vsComputer()) return T('go.toPlay', { name: nm });
+    return G.human(p) ? T('makruk.yourTurn', { side: nm.toLowerCase() }) : T('shell.thinking');
   }
-  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? 'You' : 'The computer') : NAMES[p]; }
+  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? T('board.you') : T('board.theComputer')) : sideName(p); }
 
   // ── playing ──
   function onPoint(i) {
@@ -111,43 +113,43 @@
     if (phase === 'mark') { toggleDead(i); return; }
     if (G.thinking || !G.human(st.turn - 1) || st.board[i]) return;
     var ns = Engine.move(st, i);
-    if (!ns) { flash(i, i === st.ko ? 'That would repeat the earlier position (ko). Play somewhere else first.' : 'That stone would have no liberties, so it is not allowed.'); return; }
+    if (!ns) { flash(i, T(i === st.ko ? 'go.refuse.ko' : 'go.refuse.suicide')); return; }
     commit(ns, nameOf(st.turn - 1));
   }
   function flash(i, msg) {
     var bt = btns[i]; bt.classList.add('bad'); setTimeout(function () { bt.classList.remove('bad'); }, 350);
-    G.say(msg);
+    G.refuse(bt, msg);
   }
   function commit(ns, who) {
     history.push(st); hintIdx = -1;
     var took = ns.taken ? ns.taken.length : 0, passed = ns.passes > 0;
     st = ns;
-    var note = passed ? who + ' passed. ' : took ? who + (took === 1 ? ' took a stone. ' : ' took ' + took + ' stones. ') : '';
+    var note = passed ? T('go.passed', { name: who }) : took ? T('go.took', { name: who, n: took }) : '';
     if (st.passes >= 2) { paint(); enterMark(); return; }
-    paint(); G.say(note + turnText(), !G.human(st.turn - 1));
+    paint(); G.say(note ? T('janggi.noted', { note: note, line: turnText() }) : turnText(), !G.human(st.turn - 1));
     if (!G.human(st.turn - 1)) computerTurn();
   }
   function computerTurn() {
     var token = G.begin();
-    paint(); G.say(lastMsg = 'Computer is thinking', true);
+    paint(); G.say(lastMsg = T('shell.thinking'), true);
     ask({ cmd: 'move', ms: thinkMs(), level: G.settings.level }, function (r) {
       if (!G.done(token)) return;
       var mv = r && typeof r.move === 'number' ? r.move : -1, ns = Engine.move(st, mv);
       if (!ns) { mv = -1; ns = Engine.move(st, -1); }
       var ctl = G.watching;
-      if (!ctl) { commit(ns, 'The computer'); return; }
+      if (!ctl) { commit(ns, T('board.theComputer')); return; }
       var why = root.ZimiExplain.go(Engine, st, mv, r || {});
-      ctl.offer(why.text, function () { if (G.watching === ctl && !G.over) commit(Engine.move(st, mv), 'The computer'); });
+      ctl.offer(why.text, function () { if (G.watching === ctl && !G.over) commit(Engine.move(st, mv), T('board.theComputer')); });
     });
   }
   // The move timer ran out: a quick computer choice is played for the person.
   function timeUp() {
     if (G.over || G.thinking || phase !== 'play' || !G.human(st.turn - 1)) return;
-    var token = G.begin(); paint(); G.say('Time ran out. A move was played for you.', true);
+    var token = G.begin(); paint(); G.say(T('board.timeUp'), true);
     ask({ cmd: 'move', ms: 350, level: 'easy' }, function (r) {
       if (!G.done(token)) return;
       var mv = r && typeof r.move === 'number' ? r.move : -1, ns = Engine.move(st, mv) || Engine.move(st, -1);
-      commit(ns, 'You');
+      commit(ns, T('board.you'));
     });
   }
   function pass() {
@@ -157,11 +159,11 @@
   passBtn.addEventListener('click', pass);
 
   function hint() {
-    var token = G.begin(); paint(); G.say('Thinking...', true);
+    var token = G.begin(); paint(); G.say(T('board.thinkingHint'), true);
     ask({ cmd: 'move', ms: HINT_MS, level: 'hard' }, function (r) {
       if (!G.done(token)) return;
       hintIdx = r && r.move >= 0 ? r.move : -1; paint();
-      G.say(hintIdx >= 0 ? 'Hint: try the ringed point. ' + turnText() : 'Hint: pass. ' + turnText());
+      G.say(T(hintIdx >= 0 ? 'go.hint.point' : 'go.hint.pass', { line: turnText() }));
     });
   }
 
@@ -169,7 +171,7 @@
   function enterMark() {
     var token = G.begin();
     phase = 'mark'; dead = new Array(n * n).fill(false);
-    paint(); G.say('Both passed. Working out which stones are dead...', true);
+    paint(); G.say(T('go.bothPassed'), true);
     ask({ cmd: 'dead', ms: DEAD_MS }, function (r) {
       if (!G.done(token)) return;
       if (r && r.dead) dead = r.dead;
@@ -177,7 +179,7 @@
       var ctl = G.watching;
       if (ctl) {
         var sc = liveScore();
-        ctl.offer('Both sides passed. Stones that cannot live are marked dead, and each side counts the empty points it surrounds: Black ' + fmt(sc.black) + ', White ' + fmt(sc.white) + ' (White gets ' + Engine.KOMI + ' komi for moving second).', function () { if (G.watching === ctl) accept(); });
+        ctl.offer(T('go.watch.markIntro', { black: fmt(sc.black), white: fmt(sc.white), komi: Engine.KOMI }), function () { if (G.watching === ctl) accept(); });
       }
     });
   }
@@ -190,10 +192,8 @@
   function accept() {
     if (phase !== 'mark' || G.over) return;
     var sc = liveScore(), diff = sc.black - sc.white, w = diff > 0 ? 0 : 1;
-    var detail = 'Black ' + fmt(sc.black) + ' (' + sc.terrB + ' points + ' + sc.prisB + ' prisoners), White ' + fmt(sc.white) + ' (' + sc.terrW + ' points + ' + (sc.prisW) + ' prisoners + ' + sc.komi + ' komi).';
-    var margin = fmt(Math.abs(diff));
-    var msg = (G.vsComputer() ? (G.human(w) ? 'You win' : 'The computer wins') : NAMES[w] + ' wins') + ' by ' + margin + '. ' + detail;
-    G.finish(msg, G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, G.vsComputer() && G.human(w) ? 'You win' : 'Game over');
+    var msg = T('go.result', { margin: fmt(Math.abs(diff)), black: fmt(sc.black), blackPts: sc.terrB, blackPris: sc.prisB, white: fmt(sc.white), whitePts: sc.terrW, whitePris: sc.prisW, komi: sc.komi });
+    G.finish(msg, G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, sideName(w));
     paint();
   }
   doneBtn.addEventListener('click', accept);
@@ -201,7 +201,7 @@
     if (phase !== 'mark' || G.over) return;
     phase = 'play'; dead = null;
     st = { n: st.n, board: st.board, turn: st.turn, caps: st.caps, ko: st.ko, passes: 0, last: st.last, moves: st.moves, taken: [] };
-    paint(); G.say('Play goes on. ' + turnText(), !G.human(st.turn - 1));
+    paint(); G.say(T('go.playOn', { line: turnText() }), !G.human(st.turn - 1));
     if (!G.human(st.turn - 1)) computerTurn();
   });
 
@@ -224,7 +224,7 @@
 
   G.registerWatch({
     script: 'explain-go.js', unit: 'move', level: 'medium',
-    intro: 'Black plays first. The computer plays both sides and says what each stone does.',
+    intro: 'go.watch.intro',
     whoseTurn: function () { return st.turn - 1; },
     resume: function () { paint(); G.say(turnText()); }
   });

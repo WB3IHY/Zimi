@@ -6,27 +6,28 @@
 <title>Go - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="boardui.css">
 <link rel="stylesheet" href="world.css">
 <link rel="stylesheet" href="go.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body>
 <header class="ar-bar">
-  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <a class="ar-back" href="index.html" data-t-aria="shell.back" aria-label="Back">&lsaquo;</a>
   <h1>Go</h1>
-  <button class="ar-btn" id="wk-undo" type="button" disabled>Undo</button>
-  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog">New game</button>
+  <button class="ar-btn" id="wk-undo" type="button" disabled data-t="board.undo">Undo</button>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="bg-main">
-  <div class="bg-score" id="wk-score" aria-label="Score"></div>
-  <div class="wk-board go-board" id="wk-board" role="group" aria-label="Go board"></div>
-  <p class="bg-status" id="wk-status" role="status" aria-live="polite"></p>
-  <div class="bg-controls" id="wk-controls"><button class="ar-btn" id="go-pass" type="button">Pass</button><button class="ar-btn" id="go-done" type="button" hidden>Accept score</button><button class="ar-btn" id="go-resume" type="button" hidden>Keep playing</button><button class="ar-btn" id="wk-hint" type="button" disabled>Hint</button></div>
+  <p class="bg-status" id="wk-status"></p>
+  <div class="bg-score" id="wk-score" data-t-aria="go.score" aria-label="Score"></div>
+  <div class="wk-board go-board" id="wk-board" role="group" data-t-aria="go.boardLabel" aria-label="Go board"></div>
+  <div class="bg-controls"><button class="ar-btn" id="wk-hint" type="button" disabled data-t="board.hint">Hint</button><button class="ar-btn" id="go-pass" type="button" data-t="board.pass">Pass</button><button class="ar-btn" id="go-done" type="button" hidden aria-pressed="true" data-t="go.accept">Accept score</button><button class="ar-btn" id="go-resume" type="button" hidden data-t="go.keepPlaying">Keep playing</button></div>
   <p class="bg-stats" id="wk-stats"></p>
-  <p class="bg-help">Surround stones to capture them. Surround empty space to own it. Tap a crossing to play. Tap Pass when you are done. After two passes, tap the groups that are dead, then accept the score. Arrow keys move, Enter places, U undoes, H gives a hint, N starts a new game.</p>
 </main>
 <script src="boardkit.js"></script>
+<script src="boardui.js"></script>
 <script src="worldkit.js"></script>
 <script src="go-engine.js"></script>
 <script src="go.js"></script>
