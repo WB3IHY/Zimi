@@ -276,7 +276,18 @@
     var a = Lib.pickZim(list, 'wikipedia', Lib.uiLang());
     wikiZim = a ? a.zim.name : null;
     mapZims = list.filter(function (z) { return z.kind === 'map' && z.map_search; }).map(function (z) { return z.name; });
-    newRound();
+    // Leaving and coming back keeps the round: its places, where you are, the pin and the answer just given.
+    var kept = ZimiShell.saved();
+    if (kept && kept.round && kept.round.length && (!kept.useMaps || mapZims.length)) {
+      useMaps = !!kept.useMaps; round = kept.round; at = kept.at; total = kept.total; ask();
+      if (kept.pending) {
+        setPending(kept.pending);
+        if (kept.answered) { total -= points(haversine(kept.pending, round[at])); confirmGuess(); if (kept.finished) advance(); }
+      }
+    } else { if (kept) ZimiShell.forget(); newRound(); }
+  });
+  ZimiShell.persist({
+    save: function () { return round.length && (at > 0 || pending || answered) ? { useMaps: useMaps, round: round, at: at, total: total, pending: pending, answered: answered, finished: finished } : null; }
   });
   root.__world = { get round() { return round; }, get view() { return view; }, get pending() { return pending; }, get maps() { return mapZims; } };
 })(this);
