@@ -255,7 +255,7 @@
   Play.applyTheme();
   var W_PX = W * TILE, H_PX = H * TILE;
   var els = { cv: $('bl-screen'), msg: $('bl-msg'), pause: $('bl-pause'), newBtn: $('bl-new'), wins: $('bl-wins'), round: $('bl-round') };
-  var setup = Play.load(PREF_KEY, { humans: 1, cpus: 2 }), st = null, mode = 'ready', ctx, reduced = Play.reducedMotion(), record = Play.load(SCORE_KEY, { won: 0, lost: 0 }), status = Play.status(els.msg), startSheet = null, armed = null;
+  var setup = Play.load(PREF_KEY, { humans: 1, cpus: 2 }), st = null, mode = 'ready', ctx, reduced = Play.reducedMotion(), record = Play.load(SCORE_KEY, { won: 0, lost: 0 }), status = Play.status(els.msg), armed = null;
   var pad = Play.pad(els.cv, { dirs: ['left', 'right', 'up', 'down'], actions: [{ name: 'bomb', label: Tx('play.bomb') }], on: function (name, down) {
     if (name === 'bomb') { if (down) bombFor(0); return; }
     held.p1[name] = down; if (st) applyKeys();
@@ -373,7 +373,7 @@
     if (st.status === 'roundover' && st.statusT <= 0 && mode === 'playing') nextRound();
   }, function () { draw(); hud(); }, 60);
 
-  // Who plays is the one real choice: two rows (people, computers), in the start sheet and in the New game pane.
+  // Who plays is the one real choice: two rows (people, computers), in the New game pane.
   function setupRows() {
     var box = document.createElement('div');
     function paint() {
@@ -393,7 +393,6 @@
   }
   function begin() {
     if (armed) armed.cancel();
-    if (startSheet) { var s = startSheet; startSheet = null; s.close(); }
     buildKeys(); st = createState(kindsOf()); mode = 'playing'; status.say(''); Play.pauseLabel(els.pause, false); els.pause.disabled = false; layout(); hud(); loop.start();
   }
   function nextRound() {
@@ -452,11 +451,7 @@
       return true;
     }
   });
-  // The board is not drawn until Start: who plays is chosen first.
-  if (!restored) startSheet = ZimiShell.sheet({
-    title: 'Blast', text: Tx('blast.intro'), body: [setupRows()],
-    actions: [{ label: Tx('shell.start'), primary: true, keep: true, onclick: begin }],
-    onClose: function () { if (startSheet) { startSheet = null; arm(); } }
-  });
+  // It opens on the live board, ready: who plays has defaults (the last choice) and lives in the New game pane.
+  if (!restored) arm();
   root.__blast = { get st() { return st; }, get mode() { return mode; } };
 })(this);
