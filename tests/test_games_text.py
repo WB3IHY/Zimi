@@ -15,8 +15,14 @@ GAMES = os.path.join(ROOT, "zimi", "builtin", "games")
 # Files that draw strings through T(): the shared ones.
 SHARED = ["shell.js", "cards.js", "cardtable.js", "shelf.js", "recent.js", "boardkit.js", "gamepad.js"]
 # Games that draw their strings through TX() (add a game here when its sweep is done).
-CONVERTED = ["spades.js", "euchre.js", "belote.js", "durak.js", "scopa.js"]
+CONVERTED = ["spades.js", "euchre.js", "belote.js", "durak.js", "scopa.js", "koikoi.js", "cribbage.js", "gin.js", "crazyeights.js", "skat.js"]
 _KEY = re.compile(r"""\bTX?\(\s*['"]([a-z][A-Za-z0-9_.]*)['"]""")
+# The arcade, kids, puzzle and word pages: their .js and .html (data-t, data-t-aria and data-t-title carry ids too).
+PAGES = ["snake", "bricks", "pinball", "rocks", "lastline", "lander", "paddles", "circuit", "roadrush", "hopper", "muncher",
+         "crossing", "blast", "quest", "kart", "stacker", "memory", "echo", "noughts", "snakesandladders", "pet", "2048",
+         "sudoku", "minesweeper", "sokoban", "codebreaker", "fiveletters", "letterbyletter", "quizzical", "jigsaw",
+         "wikirace", "whereintheworld"]
+_ATTR = re.compile(r'data-t(?:-aria|-title)?="([a-z][A-Za-z0-9_.]*)"')
 
 
 def table():
@@ -47,3 +53,18 @@ def test_plurals_have_one_and_other():
     for key, value in table().items():
         if isinstance(value, dict):
             assert "other" in value, key + " needs an 'other' form"
+
+
+def test_every_page_string_id_exists():
+    have, missing = table(), []
+    for name in PAGES:
+        for ext in (".js", ".html"):
+            path = os.path.join(GAMES, name + ext)
+            if not os.path.exists(path):
+                continue
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+            for key in _KEY.findall(text) + _ATTR.findall(text):
+                if not key.endswith(".") and key not in have:
+                    missing.append(name + ext + ": " + key)
+    assert not missing, "string ids with no English text: " + ", ".join(sorted(set(missing)))

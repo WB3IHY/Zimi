@@ -32,4 +32,3 @@
 /* Pencil is a toggle, so it reads as a selection (glow and amber line), never as the screen's one filled button. */
 .su-tools { width: var(--side, 360px); max-width: 100%; }
 .su-tools .ar-btn[aria-pressed="true"] { background: var(--accent-glow); border-color: var(--accent); color: var(--ink); font-weight: 650; }
-.su-tools #su-pencil::before { content: "✎"; margin-right: var(--sp-2); }
