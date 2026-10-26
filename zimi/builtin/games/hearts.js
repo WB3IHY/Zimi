@@ -197,7 +197,7 @@
 
   // ── Layout ──────────────────────────────────────────────────────────────
   // The table is the shared one (cardtable.js): its geometry, your hand in rows, the opponents' fans and their count chips.
-  var CT = root.ZimiTable, STATUS_H = CT ? CT.STATUS_H : 46, HEIGHT_SHARE = 0.11;
+  var CT = root.ZimiTable, STATUS_H = CT ? CT.STATUS_H : 46, HEIGHT_SHARE = 0.11, HAND_COLS = 5;   // five columns' width a card: the hand is one fanned row of 13, not a grid
   var TRICK_DX = 0.72, TRICK_DY = 0.62;
 
   // Where everything sits on a table of this size (the hand takes two rows from ten cards).
@@ -261,7 +261,7 @@
     var d = root.document, el = Z.pageEls(), board, session, view = { chosen: [], sweep: null, flash: '', viewer: 0, hideHand: false, passer: 0, picks: [] };
     Z.ensureSprite();
     // Seats are the Computer or a Person; two or more people share the screen behind a handoff.
-    var seats = Seats.create({ id: 'hearts', seats: SEATS, onChange: function () { if (board) board.refresh(); paintHud(); } });
+    var seats = Seats.create({ id: 'hearts', seats: SEATS, cpuNames: [0, 1, 2, 3].map(Seats.cpuName), onChange: function () { if (board) board.refresh(); paintHud(); } });
     // Watch and learn: the driver's controller. While it runs every seat is a computer and names are compass points.
     var watch = null, watchWaiting = false, X = function () { return root.ZimiExplain.hearts; };
     var person = function (seat) { return !watch && seats.person(seat); };
@@ -309,6 +309,8 @@
       statusText.textContent = text && (fact + ' \u00b7 ' + text).length <= CT.STATUS_MAX ? fact + ' \u00b7 ' + text : (text || fact);
       statusBtn.textContent = label; statusBtn.hidden = !label;
       statusBtn.disabled = !action; statusAction = action;
+      // The one thing to do next is the filled amber button (Pass once three cards are chosen); until then it is a quiet ghost.
+      statusBtn.setAttribute('aria-pressed', action ? 'true' : 'false');
       el.sub.textContent = '';
     }
     function flash(text) { view.flash = text; board.say(text); paintHud(); session.later(function () { view.flash = ''; paintHud(); }, FLASH_MS); }
@@ -448,7 +450,7 @@
     }
 
     board = Z.createBoard({
-      table: el.table, cols: 7, heightShare: HEIGHT_SHARE, enterTaps: true,
+      table: el.table, cols: HAND_COLS, heightShare: HEIGHT_SHARE, enterTaps: true,
       place: function (st, m) { syncView(st); return place(st, m, view); },
       canPick: function (st, pile) { return st.phase === 'play' && pile.charAt(0) === 'h' && isLegal(st, seats.view(), idOf(pile)); },
       move: function (pile, idx, to) { return (to === 'trick' || to === 'deck') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
@@ -457,7 +459,7 @@
     });
     session = Z.createSession({
       id: 'hearts', saveOff: function () { return !!watch; }, lowScore: true, undoOff: function () { return !!watch || seats.hotseat(); }, board: board, newGame: newGame, els: el,
-      statText: function (sec, st) { paintHud(); return Z.fmtTime(sec) + ' · ' + st.scores[seats.view()]; },
+      statText: function (sec, st) { paintHud(); return TX('cards.fact.hand', { n: st.handNo + 1 }); },
       cascadeOrder: function (st) { return [].concat.apply([], st.taken).map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { return handLines(st).concat([TX('hearts.winAfter', { n: st.scores[0], hands: Z.plural(st.handNo + 1, 'hand') })]); },
       openMenu: function () {

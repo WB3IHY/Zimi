@@ -145,21 +145,20 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  // The columns fan as far as the height allows (up to 0.95 of a card); stock, waste and the foundations sit in the bottom
-  // row, under the thumb, and the columns start right under the bar.
-  var DOWN_RATIO = 0.7, UP_STEP_SHARE = 0.95, MIN_STEP_SHARE = 0.12, WASTE_FAN_SHARE = 0.3, ROW_GAP_SHARE = 0.2;
+  // Stock, waste and the foundations are one row right under the bar; the columns start under it and fan down through
+  // all the height that is left (up to a card's height a step).
+  var DOWN_RATIO = 0.6, UP_STEP_SHARE = 0.9, MIN_STEP_SHARE = 0.12, WASTE_FAN_SHARE = 0.3;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
-    var y2 = m.pad + Z.FACT_H, y1 = m.H - m.pad - ch, slots = [], cards = [];   // y1: the bottom row; y2: the columns
+    var rows = Z.solitaireRows(m), y1 = rows.top, y2 = rows.cols, slots = [], cards = [];   // y1: the top row; y2: the columns
     var weight = function (pile) {
       var w = 0;
       for (var i = 0; i < pile.length - 1; i++) w += pile[i].up ? 1 : DOWN_RATIO;
       return w;
     };
-    var room = y1 - Math.round(ch * ROW_GAP_SHARE) - y2;
-    var step = Z.fanStep(Math.max.apply(null, TABLEAU.map(function (t) { return weight(P[t]); })), room, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
-    var bottom = y1 + ch;
+    var step = Z.fanStep(Math.max.apply(null, TABLEAU.map(function (t) { return weight(P[t]); })), rows.room, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
+    var bottom = y2 + ch;
     var ids = function (pile) { return pile.map(function (c) { return c.id; }); };
     var fan = cw * WASTE_FAN_SHARE;
 
@@ -188,10 +187,10 @@
     slots.push({ id: 'waste', x: x(1), y: y1, w: cw + fan * (SHOWN_WASTE - 1), h: ch, label: Z.describePile(TX('sol.waste'), ids(P.waste), true) });
     FOUNDATION.forEach(function (f, n) {
       var t = P[f].length ? top(P[f]).id : null;
-      slots.push({ id: f, x: x(3 + n), y: y1, w: cw, h: ch, mark: t === null ? 'A' : '', label: (t === null ? TX('sol.foundationEmpty') : TX('sol.foundation', { suit: TX('cards.suit.' + ['clubs', 'diamonds', 'hearts', 'spades'][Z.suit(t)]), cards: Z.plural(P[f].length, 'card') })) });
+      slots.push({ id: f, x: x(3 + n), y: y1, w: cw, h: ch, goal: true, mark: t === null ? 'A' : '', label: (t === null ? TX('sol.foundationEmpty') : TX('sol.foundation', { suit: TX('cards.suit.' + ['clubs', 'diamonds', 'hearts', 'spades'][Z.suit(t)]), cards: Z.plural(P[f].length, 'card') })) });
     });
     TABLEAU.forEach(function (t, n) {
-      slots.push({ id: t, x: x(n), y: y2, w: cw, h: Math.max(ch, Math.min(height, y1 - Math.round(ch * ROW_GAP_SHARE)) - y2), label: Z.describePile(TX('sol.tableau', { n: n + 1 }), ids(P[t]), P[t].length && top(P[t]).up) });
+      slots.push({ id: t, x: x(n), y: y2, w: cw, h: Math.max(ch, height - m.pad - y2), label: Z.describePile(TX('sol.tableau', { n: n + 1 }), ids(P[t]), P[t].length && top(P[t]).up) });
     });
     return { height: height, slots: slots, cards: cards };
   }
@@ -210,7 +209,6 @@
     var d = root.document, board, session;
     Z.ensureSprite();
     var drawN = Z.store.get(DRAW_KEY, 1) === 3 ? 3 : 1;
-    var sub = Z.factLine(d.getElementById('zc-table'));
     var deal = function () { return newState(Z.shuffled(Math.random), drawN); };
 
     // Watch and learn: the computer plays the hand by explain-solitaire.js's rules, one step at a time.
@@ -253,11 +251,10 @@
     function newGame() {
       session.reset(deal());
       drawN = session.state.draw === 3 ? 3 : 1;   // a game taken up again keeps the draw it was dealt with
-      sub.textContent = TX('sol.draw', { n: drawN });
     }
 
     board = Z.createBoard({
-      table: d.getElementById('zc-table'), cols: COLS, place: place,
+      table: d.getElementById('zc-table'), cols: COLS, tight: true, place: place,
       canPick: canPick, move: move,
       tap: function (pile, idx) {
         if (pile === 'stock') return drawCards();

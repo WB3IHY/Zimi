@@ -67,27 +67,26 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var UP_STEP_SHARE = 0.9, MIN_STEP_SHARE = 0.16, ROW_GAP_SHARE = 0.35, HEIGHT_SHARE = 0.19;
+  var UP_STEP_SHARE = 1, MIN_STEP_SHARE = 0.16, HEIGHT_SHARE = 0.19;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
-    // The columns start under the bar and fan as far as the room allows; stock and waste sit in the bottom row, under the thumb.
-    var gap = Math.round(ch * ROW_GAP_SHARE), y1 = m.pad + Z.FACT_H, natural = y1 + ch * (1 + (DEPTH - 1) * UP_STEP_SHARE) + gap;
-    var y2 = Math.max(m.H - m.pad - ch, natural);
-    var step = Z.fanStep(DEPTH - 1, y2 - y1 - gap, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
-    var slots = [], cards = [], height = y2 + ch + m.pad;
+    // Stock and waste are one row right under the bar; the columns start under it and fan as far as the room allows.
+    var rows = Z.solitaireRows(m), y2 = rows.top, y1 = rows.cols;
+    var step = Z.fanStep(DEPTH - 1, rows.room, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
+    var slots = [], cards = [], height = Math.max(m.H, y1 + (DEPTH - 1) * step + ch + m.pad);
 
     COLUMNS.forEach(function (c, n) {
       P[c].forEach(function (id, i) { cards.push({ id: id, pile: c, idx: i, x: x(n), y: y1 + i * step, up: true }); });
     });
-    P.stock.forEach(function (id, i) { cards.push({ id: id, pile: 'stock', idx: i, x: x(2), y: y2, up: false, hidden: i < P.stock.length - 2 }); });
-    P.waste.forEach(function (id, i) { cards.push({ id: id, pile: 'waste', idx: i, x: x(3), y: y2, up: true, hidden: i < P.waste.length - 2 }); });
+    P.stock.forEach(function (id, i) { cards.push({ id: id, pile: 'stock', idx: i, x: x(0), y: y2, up: false, hidden: i < P.stock.length - 2 }); });
+    P.waste.forEach(function (id, i) { cards.push({ id: id, pile: 'waste', idx: i, x: x(1), y: y2, up: true, hidden: i < P.waste.length - 2 }); });
 
     COLUMNS.forEach(function (c, n) {
       slots.push({ id: c, x: x(n), y: y1, w: cw, h: Math.max(ch, DEPTH * step), label: Z.describePile(TX('fc.column', { n: n + 1 }), P[c], true) });
     });
-    slots.push({ id: 'stock', x: x(2), y: y2, w: cw, h: ch, mark: P.stock.length ? '' : '∅', label: Z.describePile(TX('sol.stock'), P.stock, false) + (P.stock.length ? TX('pyr.enterTurn') : '') });
-    slots.push({ id: 'waste', x: x(3), y: y2, w: cw, h: ch, label: Z.describePile(TX('sol.waste'), P.waste, true) });
+    slots.push({ id: 'stock', x: x(0), y: y2, w: cw, h: ch, mark: P.stock.length ? '' : '∅', label: Z.describePile(TX('sol.stock'), P.stock, false) + (P.stock.length ? TX('pyr.enterTurn') : '') });
+    slots.push({ id: 'waste', x: x(1), y: y2, w: cw, h: ch, goal: true, label: Z.describePile(TX('sol.waste'), P.waste, true) });
     return { height: height, slots: slots, cards: cards };
   }
 
@@ -133,7 +132,7 @@
     function newGame() { el.sub.textContent = ''; session.reset(newState(Z.shuffled(Math.random))); }
 
     board = Z.createBoard({
-      table: el.table, cols: COLS, place: place, heightShare: HEIGHT_SHARE, enterTaps: true,
+      table: el.table, cols: COLS, tight: true, place: place, heightShare: HEIGHT_SHARE, enterTaps: true,
       canPick: canPick, move: move,
       tap: function (pile, idx) {
         if (pile === 'stock') return draw();

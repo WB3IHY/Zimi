@@ -24,6 +24,9 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 .zc-slot { position: absolute; left: 0; top: 0; z-index: 0; outline: none; -webkit-tap-highlight-color: transparent; }
 .zc-slot::before { content: ""; position: absolute; left: 0; top: 0; width: var(--cw); height: calc(var(--cw) * 1.4);
   border-radius: calc(var(--cw) * 0.075); border: 2px solid var(--felt-line); background: rgba(0, 0, 0, 0.08); }
+/* A goal pile (the foundations, Spider's finished runs) is the brightest outline on the felt, not the dimmest. */
+.zc-slot[data-goal]::before { border-color: rgba(255, 255, 255, 0.5); background: rgba(255, 255, 255, 0.1); }
+.zc-slot[data-goal][data-mark]::after { color: rgba(255, 255, 255, 0.62); }
 .zc-slot[data-quiet]::before { display: none; }
 .zc-slot[data-cards]:focus-visible::before { border-color: var(--felt-line); box-shadow: none; }
 .zc-slot:focus-visible::before { border-color: var(--select-ring); box-shadow: 0 0 0 2px var(--select-ring); }
@@ -44,6 +47,7 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 /* A card you cannot play is not greyed: the cards you can play are lifted (their layout puts them higher). */
 .zc-card.zc-glow { box-shadow: 0 0 0 1px var(--select-ring), 0 0 10px 2px var(--legal); }
 .zc-card.zc-sel { box-shadow: var(--select), 0 4px 10px rgba(0, 0, 0, 0.4); }
+.zc-dealing .zc-card { pointer-events: none; }
 .zc-card.zc-flip { animation: zc-flip 0.2s ease-out; }
 .zc-card.zc-hint { animation: zc-nudge 0.28s ease-in-out; }
 @keyframes zc-flip { from { transform: var(--zc-t) scaleX(0.05); } to { transform: var(--zc-t) scaleX(1); } }

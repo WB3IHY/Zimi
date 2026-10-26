@@ -120,15 +120,14 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var UP_STEP_SHARE = 0.85, MIN_STEP_SHARE = 0.12, ROW_GAP_SHARE = 0.2;
+  var UP_STEP_SHARE = 0.95, MIN_STEP_SHARE = 0.12;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
-    // The free cells and foundations sit in the bottom row, under the thumb; the columns start right under the bar.
-    var y2 = m.pad + Z.FACT_H, y1 = m.H - m.pad - ch, slots = [], cards = [];
-    var room = y1 - Math.round(ch * ROW_GAP_SHARE) - y2;
-    var step = Z.fanStep(Math.max.apply(null, COLUMNS.map(function (c) { return P[c].length - 1; })), room, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
-    var bottom = y1 + ch;
+    // The free cells and foundations are one row right under the bar; the columns start under it and fan through the rest.
+    var rows = Z.solitaireRows(m), y1 = rows.top, y2 = rows.cols, slots = [], cards = [];
+    var step = Z.fanStep(Math.max.apply(null, COLUMNS.map(function (c) { return P[c].length - 1; })), rows.room, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
+    var bottom = y2 + ch;
 
     CELLS.forEach(function (c, n) {
       P[c].forEach(function (id, i) { cards.push({ id: id, pile: c, idx: i, x: x(n), y: y1, up: true }); });
@@ -147,10 +146,10 @@
     });
     FOUNDATION.forEach(function (f, n) {
       var t = P[f].length ? top(P[f]) : null;
-      slots.push({ id: f, x: x(COLS / 2 + n), y: y1, w: cw, h: ch, mark: t === null ? 'A' : '', label: (t === null ? TX('sol.foundationEmpty') : TX('sol.foundation', { suit: TX('cards.suit.' + ['clubs', 'diamonds', 'hearts', 'spades'][Z.suit(t)]), cards: Z.plural(P[f].length, 'card') })) });
+      slots.push({ id: f, x: x(COLS / 2 + n), y: y1, w: cw, h: ch, goal: true, mark: t === null ? 'A' : '', label: (t === null ? TX('sol.foundationEmpty') : TX('sol.foundation', { suit: TX('cards.suit.' + ['clubs', 'diamonds', 'hearts', 'spades'][Z.suit(t)]), cards: Z.plural(P[f].length, 'card') })) });
     });
     COLUMNS.forEach(function (c, n) {
-      slots.push({ id: c, x: x(n), y: y2, w: cw, h: Math.max(ch, Math.min(height, y1 - Math.round(ch * ROW_GAP_SHARE)) - y2), label: Z.describePile(TX('fc.column', { n: n + 1 }), P[c], true) });
+      slots.push({ id: c, x: x(n), y: y2, w: cw, h: Math.max(ch, height - m.pad - y2), label: Z.describePile(TX('fc.column', { n: n + 1 }), P[c], true) });
     });
     return { height: height, slots: slots, cards: cards };
   }
@@ -167,7 +166,7 @@
   function boot() {
     var d = root.document, board, session, hintEl = d.getElementById('zc-hint'), toast = d.getElementById('zc-toast'), autoOn = Z.store.get(AUTO_KEY, true) !== false;
     Z.ensureSprite();
-    var sub = Z.factLine(d.getElementById('zc-table')), params = new root.URLSearchParams(root.location.search);
+    var params = new root.URLSearchParams(root.location.search);
     // Every one of the 32,000 classic deals but one can be won, so "winnable deals only" just never deals that one.
     var winnableOnly = Z.store.get(WINNABLE_KEY, true) !== false, hint = null, hintBusy = false, noteTimer = 0;
     function randomDealNo() {
@@ -179,12 +178,12 @@
 
     function startDeal(n) {
       dealNo = n;
-      hint = null; toast.hidden = true; sub.textContent = dealLabel();
+      hint = null; toast.hidden = true;
       session.reset(newState(n));
-      if (session.state.deal !== n) { dealNo = session.state.deal; sub.textContent = dealLabel(); }   // a game taken up again keeps its deal
+      if (session.state.deal !== n) dealNo = session.state.deal;   // a game taken up again keeps its deal
     }
-    function randomDeal() { startDeal(randomDealNo()); }
     function dealLabel() { return TX(dealNo === UNWINNABLE_DEAL ? 'fc.dealNoWin' : 'fc.deal', { n: dealNo }); }
+    function randomDeal() { startDeal(randomDealNo()); }
     // ── Hint: the solver's first move, shown as a glow on the card and where it goes ──
     function note(text) { clearTimeout(noteTimer); toast.textContent = text; toast.hidden = false; noteTimer = setTimeout(function () { toast.hidden = true; }, HINT_SHOW_MS); }
     function showHint() {
@@ -231,7 +230,7 @@
     }
 
     board = Z.createBoard({
-      table: d.getElementById('zc-table'), cols: COLS, place: placeWithHint,
+      table: d.getElementById('zc-table'), cols: COLS, tight: true, place: placeWithHint,
       canPick: canPick, move: move,
       tap: function (pile, idx) { var to = bestMove(session.state, pile, idx); return to ? move(pile, idx, to) : false; }
     });
@@ -260,6 +259,7 @@
         sheet = Z.sheet({
           title: 'FreeCell',
           body: [
+            Z.h('p', { class: 'zc-note', text: dealLabel() }),
             Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('fc.dealNumber') }), input, Z.h('button', { class: 'ar-btn', type: 'button', text: TX('fc.play'), onclick: play })]),
             note,
             Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('fc.auto') }), autoPick]),

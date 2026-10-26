@@ -10,10 +10,11 @@
   var Z = root.ZimiCards;
   var T = Z.T;
 
-  // Your hand at 390 px: no strip of a card narrower than 30 px, two rows from ten cards, a tapped card lifts 14 px
+  // Your hand at 390 px: one fanned row (no strip of a card narrower than 22 px; only a hand that cannot fit wraps into two
+  // rows), a tapped card lifts 14 px
   // (a card you can play stands 6 px proud when others cannot be played). An opponent's face-down hand of more than
   // five cards is one back and a count chip.
-  var COUNT_AT = 0.86, STATUS_MAX = 44, MIN_STRIP_PX = 30, TWO_ROWS_FROM = 10, LIFT_PX = 14, PLAYABLE_LIFT_PX = 6, COLLAPSE_FROM = 6;
+  var COUNT_AT = 0.86, STATUS_MAX = 44, MIN_STRIP_PX = 22, LIFT_PX = 14, PLAYABLE_LIFT_PX = 6, COLLAPSE_FROM = 6;
   // Games that play a card on its second tap: the first tap lifts it (amber outline), the second plays it.
   var LIFT_THEN_PLAY = { spades: 1, euchre: 1, belote: 1, crazyeights: 1, durak: 1 };
   var SCORE_BAR_H = 26, STATUS_H = 46, SUIT_GAP_SHARE = 0.18, HAND_STEP_SHARE = 0.78;
@@ -68,7 +69,7 @@
   // How many rows a hand of n cards takes on this table.
   function handRows(width, pad, cw, n) {
     var perRow = Math.max(1, Math.floor((width - 2 * pad - cw) / MIN_STRIP_PX) + 1);
-    return Math.max(n >= TWO_ROWS_FROM ? 2 : 1, Math.ceil(n / perRow));
+    return Math.max(1, Math.ceil(n / perRow));
   }
   function rowsFor(m, n) { return handRows(m.W, m.pad, m.cw, n); }
   function sideStep(g, n) { return Math.max(g.ch * SIDE_STEP_MIN, Math.min(g.ch * SIDE_STEP_MAX, (g.statusY - g.yTop - g.ch) / Math.max(1, n - 1))); }
@@ -181,7 +182,7 @@
       // The status line: one sentence. The game's one fact ("Hand 2", "To 121") leads it when both fit.
       var line = view.flash || hd.text || '';
       statusText.textContent = hd.fact && line && (hd.fact + ' \u00b7 ' + line).length <= STATUS_MAX ? hd.fact + ' \u00b7 ' + line : (line || hd.fact || '');
-      statusBtn.textContent = hd.label || ''; statusBtn.hidden = !hd.label; statusBtn.disabled = !hd.action;
+      statusBtn.textContent = hd.label || ''; statusBtn.hidden = !hd.label; statusBtn.disabled = !hd.action; statusBtn.setAttribute('aria-pressed', hd.action ? 'true' : 'false');   // the next thing to do is the filled amber button
       panel.textContent = ''; panel.hidden = !(hd.choices && hd.choices.length);
       (hd.choices || []).forEach(function (c, i) {
         var b = Z.h('button', { class: 'ar-btn ct-choice' + (c.cls ? ' ' + c.cls : ''), type: 'button', text: c.label });

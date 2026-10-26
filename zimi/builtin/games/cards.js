@@ -854,7 +854,7 @@
   var SNAP_FELT = '#285c43', SNAP_CREAM = '#fdfcf8', SNAP_RED = '#b3261e', SNAP_BLACK = '#1b1b1b', SNAP_BACK = '#23232b', SNAP_BACK_EDGE = '#e8710a', SNAP_RX = 5;
   var SNAP_SUIT = ['\u2663', '\u2666', '\u2665', '\u2660'];
   var MAX_CARD_W = 120, CARD_ASPECT = 1.4, CARD_H_SHARE = 0.14, DRAG_SLOP = 6, SETTLE_MS = 300, Z_HOT = 500, Z_DRAG = 1000;
-  var DEAL_STAGGER_MS = 16, MIN_CARD_W = 24;
+  var DEAL_STAGGER_MS = 16, MIN_CARD_W = 24, TIGHT_PAD = 4, TIGHT_GAP = 4;
   // More o: heightShare (how much of the table's height a card may take, for
   // layouts shorter than Klondike's columns), face(id, standalone) (a deck of
   // its own: Scopa's), enterTaps (Enter on a pile taps
@@ -876,6 +876,7 @@
     function measure() {
       var W = table.clientWidth, H = table.clientHeight;
       var pad = Math.max(6, Math.min(16, Math.round(W * 0.02))), gap = Math.max(4, Math.round(W * 0.014));
+      if (o.tight) { pad = Math.min(pad, TIGHT_PAD); gap = Math.min(gap, TIGHT_GAP); }   // the solitaires' columns take every pixel of the width
       var cw = Math.floor((W - 2 * pad - (o.cols - 1) * gap) / o.cols);
       cw = Math.max(MIN_CARD_W, Math.min(cw, MAX_CARD_W, Math.floor(H * (o.heightShare || CARD_H_SHARE))));
       // `left` centres the columns when the cards stop growing before the width does.
@@ -963,6 +964,7 @@
         e.style.width = s.w + 'px'; e.style.height = s.h + 'px';
         e.setAttribute('aria-label', s.label);
         if (s.mark) e.setAttribute('data-mark', s.mark); else e.removeAttribute('data-mark');
+        e.toggleAttribute('data-goal', !!s.goal);
         // quiet: a drop area, not a pile: no outline, not in the tab order.
         if (s.quiet) { e.setAttribute('data-quiet', ''); e.setAttribute('tabindex', '-1'); }
         slotRects[s.id] = s;
@@ -1001,7 +1003,9 @@
           e.style.transitionDelay = i * DEAL_STAGGER_MS + 'ms';
           put(e, c.x, c.y);
         });
-        setTimeout(function () { p.cards.forEach(function (c) { els[c.id].style.transitionDelay = ''; }); }, p.cards.length * DEAL_STAGGER_MS + 250);
+        // The cards in flight are not tappable: a tap on the pile they left reaches the pile, not a card passing over it.
+        stage.classList.add('zc-dealing');
+        setTimeout(function () { stage.classList.remove('zc-dealing'); p.cards.forEach(function (c) { els[c.id].style.transitionDelay = ''; }); }, p.cards.length * DEAL_STAGGER_MS + 250);
       }
       // A pile with cards shows its focus on its top card; only an empty one rings its outline.
       Object.keys(slotEls).forEach(function (k) { slotEls[k].toggleAttribute('data-cards', !!byPile[k]); });
@@ -1408,6 +1412,13 @@
   }
   // How far each card of a fan steps down so the tallest pile fits: `weight`
   // is the pile's step count, `room` the height under its first card.
+  // The solitaire family's frame: one row of stock, waste and goal piles right under the bar, the columns under it fanning
+  // through all the height that is left (`room`, measured from the columns' top).
+  var TOP_ROW_GAP_SHARE = 0.18;
+  function solitaireRows(m) {
+    var cols = m.pad + m.ch + Math.round(m.ch * TOP_ROW_GAP_SHARE);
+    return { top: m.pad, cols: cols, room: m.H - m.pad - cols };
+  }
   function fanStep(weight, room, ch, maxStep, minStep) {
     return Math.max(minStep, Math.min(maxStep, weight > 0 ? (room - ch) / weight : maxStep));
   }
@@ -1420,7 +1431,7 @@
     FACT_H: FACT_H, factLine: factLine, moonPhase: moonPhase, moonLitPath: moonLitPath, faceMarkup: faceMarkup, backMarkup: backMarkup,
     italianFaceMarkup: italianFaceMarkup, italianName: italianName,
     spanishFaceMarkup: spanishFaceMarkup, spanishName: spanishName, hanafudaFaceMarkup: hanafudaFaceMarkup, hanafudaCard: hanafudaCard, hanafudaName: hanafudaName, HANA_MONTHS: HANA_MONTHS, jokerMarkup: jokerMarkup, markSvg: markSvg,
-    fmtTime: fmtTime, plural: plural, describePile: describePile, fanStep: fanStep, statusTop: statusTop, pageEls: pageEls, idsOf: idsOf, restShare: restShare,
+    fmtTime: fmtTime, plural: plural, describePile: describePile, fanStep: fanStep, solitaireRows: solitaireRows, statusTop: statusTop, pageEls: pageEls, idsOf: idsOf, restShare: restShare,
     store: store, createStats: createStats, h: h, sheet: sheet, segmented: segmented, backsSheet: backsSheet, backsRow: backsRow,
     T: T, createBoard: createBoard, createSession: createSession, ensureSprite: ensureSprite,
     currentBack: function () { return currentBack; }

@@ -186,6 +186,14 @@
   Shell.ms = function (ms) { return Math.round(ms * SPEED_SCALE[settings.get('anim')]); };
   // A clock's text without its time when the timer is hidden ("0:42 · 12" becomes "12").
   Shell.stripClock = function (text) { return settings.get('timer') === 'hide' ? String(text).replace(CLOCK_PREFIX, '') : text; };
+  // The bar's one stat: a clock with something after it ("0:42 · 12", "0:42 · 3-1") is the clock alone while the timer is
+  // shown, and what follows it when the timer is hidden. A text with no clock is left as the game wrote it.
+  var STAT_SEP = ' \u00b7 ', CLOCK_TEXT = /^\d+:\d\d(:\d\d)?$/;
+  Shell.barStat = function (text) {
+    var parts = String(text).split(STAT_SEP);
+    if (parts.length < 2 || !CLOCK_TEXT.test(parts[0])) return text;
+    return settings.get('timer') === 'hide' ? parts[1] : parts[0];
+  };
   Shell.sound = function () { return settings.get('sound') === 'on'; };
 
   // ── what a game tells us ──
@@ -301,7 +309,9 @@
     menuBtn.addEventListener('click', openMenu);
     // The clock sits before the buttons, the Menu last.
     var firstBtn = Array.prototype.filter.call(bar.children, function (c) { return c.classList.contains('ar-btn') && !c.hidden; })[0];
-    Array.prototype.forEach.call(bar.querySelectorAll('.ar-stat'), function (s) { bar.insertBefore(s, firstBtn || null); });
+    Array.prototype.forEach.call(bar.querySelectorAll('.ar-stat'), function (s) { bar.insertBefore(s, firstBtn || null); keepOneStat(s); });
+    // An Undo that cannot be used (a fresh game) is absent, not ghosted.
+    Array.prototype.forEach.call(bar.querySelectorAll('[id$="undo"]'), hideWhileDisabled);
     bar.appendChild(menuBtn);
     // The move timer's thin bar, right under the header.
     mt.label = h('span', { class: 'gs-turn-n', 'aria-hidden': 'true' });
@@ -310,6 +320,19 @@
     strip = h('div', { class: 'gs-watch', hidden: '', role: 'region', 'aria-label': T('shell.menu.watch') });
     mt.bar.parentNode.insertBefore(strip, mt.bar.nextSibling);
     return true;
+  }
+
+  // The stat is rewritten to the one value whenever a game paints it (the guard stops our own write from looping).
+  function keepOneStat(el) {
+    if (!root.MutationObserver) return;
+    var fit = function () { var t = el.textContent, one = Shell.barStat(t); if (one !== t) el.textContent = one; };
+    new root.MutationObserver(fit).observe(el, { childList: true, characterData: true, subtree: true });
+    fit();
+  }
+  function hideWhileDisabled(btn) {
+    var sync = function () { btn.hidden = btn.disabled; };
+    if (root.MutationObserver) new root.MutationObserver(sync).observe(btn, { attributes: true, attributeFilter: ['disabled'] });
+    sync();
   }
 
   function titleOf() {

@@ -139,20 +139,19 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var DOWN_RATIO = 0.5, UP_STEP_SHARE = 0.8, MIN_STEP_SHARE = 0.2, ROW_GAP_SHARE = 0.2;
+  var DOWN_RATIO = 0.5, UP_STEP_SHARE = 0.95, MIN_STEP_SHARE = 0.2;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
-    // Stock and the finished runs sit in the bottom row, under the thumb; the columns start right under the bar.
-    var y2 = m.pad + Z.FACT_H, y1 = m.H - m.pad - ch, slots = [], cards = [];
+    // Stock and the finished runs are one row right under the bar; the columns start under it and fan through the rest.
+    var rows = Z.solitaireRows(m), y1 = rows.top, y2 = rows.cols, slots = [], cards = [];
     var weight = function (pile) {
       var w = 0;
       for (var i = 0; i < pile.length - 1; i++) w += pile[i].up ? 1 : DOWN_RATIO;
       return w;
     };
-    var room = y1 - Math.round(ch * ROW_GAP_SHARE) - y2;
-    var step = Z.fanStep(Math.max.apply(null, COLUMNS.map(function (c) { return weight(P[c]); })), room, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
-    var bottom = y1 + ch;
+    var step = Z.fanStep(Math.max.apply(null, COLUMNS.map(function (c) { return weight(P[c]); })), rows.room, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
+    var bottom = y2 + ch;
 
     P.stock.forEach(function (c, i) { cards.push({ id: c.id, pile: 'stock', idx: i, x: x(0), y: y1, up: false, hidden: i < P.stock.length - 2 }); });
     DONE.forEach(function (d, n) {
@@ -172,10 +171,10 @@
     slots.push({ id: 'stock', x: x(0), y: y1, w: cw, h: ch, mark: P.stock.length ? '' : '∅',
       label: P.stock.length ? TX('spider.stock', { deals: TX('spider.deals', { n: dealsLeft }) }) : TX('spider.stockEmpty') });
     DONE.forEach(function (d, n) {
-      slots.push({ id: d, x: x(2 + n), y: y1, w: cw, h: ch, label: P[d].length ? TX('spider.run', { n: n + 1, suit: TX('cards.suit.' + ['clubs', 'diamonds', 'hearts', 'spades'][Z.suit(P[d][0])]) }) : TX('spider.runEmpty', { n: n + 1 }) });
+      slots.push({ id: d, x: x(2 + n), y: y1, w: cw, h: ch, goal: true, label: P[d].length ? TX('spider.run', { n: n + 1, suit: TX('cards.suit.' + ['clubs', 'diamonds', 'hearts', 'spades'][Z.suit(P[d][0])]) }) : TX('spider.runEmpty', { n: n + 1 }) });
     });
     COLUMNS.forEach(function (c, n) {
-      slots.push({ id: c, x: x(n), y: y2, w: cw, h: Math.max(ch, Math.min(height, y1 - Math.round(ch * ROW_GAP_SHARE)) - y2), label: Z.describePile(TX('fc.column', { n: n + 1 }), Z.idsOf(P[c]), P[c].length && top(P[c]).up) });
+      slots.push({ id: c, x: x(n), y: y2, w: cw, h: Math.max(ch, height - m.pad - y2), label: Z.describePile(TX('fc.column', { n: n + 1 }), Z.idsOf(P[c]), P[c].length && top(P[c]).up) });
     });
     return { height: height, slots: slots, cards: cards };
   }
@@ -196,7 +195,7 @@
     var suits = Z.store.get(SUITS_KEY, 1);
     if (!SUIT_SETS[suits]) suits = 1;
 
-    function setSub() { el.sub.textContent = TX('spider.suits', { n: suits }); }
+    function setSub() { el.sub.textContent = ''; }   // the pill is only for the stock's refusal; the suits are in the Menu
     function commit(next) {
       session.commit(next);
       if (isWon(session.state)) session.win(session.state.score);
@@ -222,7 +221,7 @@
     }
 
     board = Z.createBoard({
-      table: el.table, cols: COLS, place: place, canPick: canPick, move: move,
+      table: el.table, cols: COLS, tight: true, place: place, canPick: canPick, move: move,
       tap: function (pile, idx) {
         if (pile === 'stock') return deal();
         var to = bestMove(session.state, pile, idx);

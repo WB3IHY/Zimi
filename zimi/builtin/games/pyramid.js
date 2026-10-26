@@ -106,16 +106,16 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var ROW_STEP_SHARE = 0.5, ROW_STEP_MAX = 0.86, ROW_GAP_SHARE = 0.3, HEIGHT_SHARE = 0.125;
+  var ROW_STEP_SHARE = 0.5, ROW_STEP_MAX = 1, HEIGHT_SHARE = 0.125;
 
   function place(state, m, view) {
     var P = state.piles, cw = m.cw, ch = m.ch, picked = view && view.picked;
     var x = function (col) { return m.left + col * m.step; };
-    // The pyramid starts under the bar; stock, waste and the taken pile sit in the bottom row, under the thumb.
-    // Rows step down to fill the height: the more of a covered card shows, the easier the pyramid reads.
-    var y1 = m.pad + Z.FACT_H, yBottom = m.H - m.pad - ch, room = yBottom - Math.round(ch * ROW_GAP_SHARE) - ch - y1;
-    var rowStep = Math.max(ch * ROW_STEP_SHARE, Math.min(ch * ROW_STEP_MAX, room / (ROWS - 1)));
-    var y2 = Math.max(yBottom, y1 + rowStep * (ROWS - 1) + ch + Math.round(ch * ROW_GAP_SHARE)), slots = [], cards = [], height = y2 + ch + m.pad;
+    // Stock, waste and the taken pile are one row right under the bar; the pyramid under it, its rows stepping down to fill
+    // the height: the more of a covered card shows, the easier the pyramid reads.
+    var rows = Z.solitaireRows(m), y2 = rows.top, y1 = rows.cols, slots = [], cards = [];
+    var rowStep = Math.max(ch * ROW_STEP_SHARE, Math.min(ch * ROW_STEP_MAX, (rows.room - ch) / (ROWS - 1)));
+    var height = Math.max(m.H, y1 + rowStep * (ROWS - 1) + ch + m.pad);
     var at = function (p) { return { x: x(COLS / 2 - 0.5 - rowOf(p) / 2 + colOf(p)), y: y1 + rowOf(p) * rowStep }; };
 
     PYRAMID.forEach(function (p) {
@@ -130,7 +130,7 @@
 
     slots.push({ id: 'stock', x: x(0), y: y2, w: cw, h: ch, mark: P.stock.length ? '' : (canDraw(state) ? '↻' : '∅'), label: Z.describePile(TX('sol.stock'), P.stock, false) + (P.stock.length ? TX('pyr.enterTurn') : canDraw(state) ? TX('pyr.enterAgain') : '') });
     slots.push({ id: 'waste', x: x(1), y: y2, w: cw, h: ch, label: Z.describePile(TX('sol.waste'), P.waste, true) });
-    slots.push({ id: 'out', x: x(COLS - 1), y: y2, w: cw, h: ch, label: TX('pyr.taken', { n: P.out.length }) });
+    slots.push({ id: 'out', x: x(COLS - 1), y: y2, w: cw, h: ch, goal: true, label: TX('pyr.taken', { n: P.out.length }) });
     return { height: height, slots: slots, cards: cards };
   }
 
@@ -181,7 +181,7 @@
     function newGame() { view.picked = null; session.reset(newState(Z.shuffled(Math.random))); paintSub(); }
 
     board = Z.createBoard({
-      table: el.table, cols: COLS, heightShare: HEIGHT_SHARE, enterTaps: true,
+      table: el.table, cols: COLS, tight: true, heightShare: HEIGHT_SHARE, enterTaps: true,
       place: function (st, m) { return place(st, m, view); },
       canPick: function (st, pile, idx) { return canPick(st, pile, idx); },
       move: move, tap: tap,

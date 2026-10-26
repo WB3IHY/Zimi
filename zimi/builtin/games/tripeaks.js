@@ -97,17 +97,17 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var ROW_STEP_SHARE = 0.56, ROW_STEP_MAX = 0.95, ROW_GAP_SHARE = 0.5, HEIGHT_SHARE = 0.17, FIT_COLS = 8.5;
+  var ROW_STEP_SHARE = 0.56, ROW_STEP_MAX = 1.1, HEIGHT_SHARE = 0.17, FIT_COLS = 8.5;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch;
     var unit = (m.W - 2 * m.pad - cw) / (BOARD_WIDTH_CARDS - 1), x0 = Math.floor((m.W - (unit * (BOARD_WIDTH_CARDS - 1) + cw)) / 2);
-    // The peaks start under the bar; stock and waste sit in the bottom row, under the thumb.
-    var y1 = m.pad + Z.FACT_H, yBottom = m.H - m.pad - ch, room = yBottom - Math.round(ch * ROW_GAP_SHARE) - ch - y1;
-    // The rows step down to fill the height: the more of a covered card shows, the easier the peaks read.
-    var rowStep = Math.max(ch * ROW_STEP_SHARE, Math.min(ch * ROW_STEP_MAX, room / 3));
-    var y2 = Math.max(yBottom, y1 + rowStep * 3 + ch + Math.round(ch * ROW_GAP_SHARE)), slots = [], cards = [], height = y2 + ch + m.pad;
-    var mid = m.W / 2, sx = Math.round(mid - cw - m.gap / 2), wx = Math.round(mid + m.gap / 2);
+    // Stock and waste are one row right under the bar; the peaks under it, their rows stepping down to fill the height:
+    // the more of a covered card shows, the easier the peaks read.
+    var rows = Z.solitaireRows(m), y2 = rows.top, y1 = rows.cols, slots = [], cards = [];
+    var rowStep = Math.max(ch * ROW_STEP_SHARE, Math.min(ch * ROW_STEP_MAX, (rows.room - ch) / 3));
+    var height = Math.max(m.H, y1 + rowStep * 3 + ch + m.pad);
+    var sx = m.left, wx = m.left + m.step;   // the pile's row is left-aligned: the fact pill sits over its middle
 
     TABLEAU.forEach(function (p) {
       if (!P[p].length) return;
@@ -118,7 +118,7 @@
     P.stock.forEach(function (id, i) { cards.push({ id: id, pile: 'stock', idx: i, x: sx, y: y2, up: false, hidden: i < P.stock.length - 2 }); });
     P.waste.forEach(function (id, i) { cards.push({ id: id, pile: 'waste', idx: i, x: wx, y: y2, up: true, hidden: i < P.waste.length - 2 }); });
     slots.push({ id: 'stock', x: sx, y: y2, w: cw, h: ch, mark: P.stock.length ? '' : '∅', label: Z.describePile(TX('sol.stock'), P.stock, false) + (P.stock.length ? TX('pyr.enterTurn') : '') });
-    slots.push({ id: 'waste', x: wx, y: y2, w: cw, h: ch, label: Z.describePile(TX('sol.waste'), P.waste, true) });
+    slots.push({ id: 'waste', x: wx, y: y2, w: cw, h: ch, goal: true, label: Z.describePile(TX('sol.waste'), P.waste, true) });
     return { height: height, slots: slots, cards: cards };
   }
 
@@ -155,7 +155,7 @@
     function newGame() { session.reset(newState(Z.shuffled(Math.random))); }
 
     board = Z.createBoard({
-      table: el.table, cols: FIT_COLS, heightShare: HEIGHT_SHARE, enterTaps: true, place: place,
+      table: el.table, cols: FIT_COLS, tight: true, heightShare: HEIGHT_SHARE, enterTaps: true, place: place,
       canPick: canPick, move: move,
       tap: function (pile, idx) {
         if (pile === 'stock') { var next = drawStock(session.state); return next ? commit(next) : false; }
