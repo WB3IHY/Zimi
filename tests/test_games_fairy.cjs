@@ -30,8 +30,8 @@ const F = sb.ZimiFairy;
 const engines = {
   chess: sb.ZimiChessEngine(),
   xiangqi: sb.ZimiXiangqiEngine(),
-  shogi: sb.ZimiShogiEngine(),
-  minishogi: sb.ZimiShogiEngine('mini'),
+  shogi: sb.ZimiShogiEngine(sb.ZimiSearch()),
+  minishogi: sb.ZimiShogiEngine(sb.ZimiSearch(), 'mini'),
   janggi: sb.ZimiJanggiEngine(sb.ZimiSearch()),
   makruk: sb.ZimiMakrukEngine()
 };

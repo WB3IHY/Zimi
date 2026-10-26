@@ -87,7 +87,7 @@ const check = (ok, label) => {
 // ── Shogi ──
 {
   const S = load('shogi-engine.js');
-  const E = S.ZimiShogiEngine('full'), M = S.ZimiShogiEngine('mini');
+  const E = S.ZimiShogiEngine(S.ZimiSearch(), 'full'), M = S.ZimiShogiEngine(S.ZimiSearch(), 'mini');
   const dropsOf = (pos, t) => E.legalMoves(pos).filter(m => E.isDrop(m) && E.from(m) === t).map(m => E.to(m));
   const start = E.startPosition();
   check(E.perft(start, 1) === 30, 'shogi: perft 1 from the start is 30');

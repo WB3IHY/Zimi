@@ -14,12 +14,12 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" data-t-aria="shell.back" aria-label="Back">&lsaquo;</a>
   <h1 id="sg-title">Shogi</h1>
-  <button class="ar-btn" id="sg-undo" type="button" disabled data-t="board.undo">Undo</button>
-  <button class="ar-btn" id="sg-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
+  <button class="ar-btn" id="wk-undo" type="button" disabled data-t="board.undo">Undo</button>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="bg-main">
-  <p class="bg-status" id="sg-status"></p>
+  <p class="bg-status" id="wk-status"></p>
   <div class="sg-table" id="sg-table">
     <div class="sg-hand top" id="sg-hand-top" role="group" data-t-aria="shogi.handTop" aria-label="Pieces in hand, top player"></div>
     <div class="sg-frame">
@@ -31,12 +31,14 @@
   </div>
   <div class="bg-controls"><button class="ar-btn" id="sg-flip" type="button" aria-pressed="false" data-t="board.flip" data-t-title="chess.flipTitle" title="Turn the board around">Flip</button></div>
   <div class="bu-quiet sg-moves" id="sg-moves" role="log" data-t-aria="chess.moves" aria-label="Moves"></div>
-  <p class="bg-stats" id="sg-stats"></p>
+  <p class="bg-stats" id="wk-stats"></p>
 </main>
 
 <script src="util.js"></script>
 <script src="boardkit.js"></script>
 <script src="boardui.js"></script>
+<script src="worldkit.js"></script>
+<script src="enginekit.js"></script>
 <script src="shogi-engine.js"></script>
 <script src="engines/fairy.js"></script>
 <script src="shogi.js"></script>

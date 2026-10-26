@@ -3,13 +3,13 @@
    pawn on a file that holds your own unpromoted pawn, no drop that leaves a piece without a move, no
    pawn drop that gives checkmate, repetition (fourfold) as a draw. A small alpha-beta searcher.
    One self-contained function so the page can hand its source to a Web Worker through a Blob. */
-function ZimiShogiEngine(variant) {
+function ZimiShogiEngine(Searcher, variant) {
   'use strict';
 
   var SENTE = 1, GOTE = -1;            // sente (black) moves first and starts at the bottom
   var P = 1, L = 2, N = 3, S = 4, G = 5, B = 6, R = 7, K = 8, PROMOTED = 8;
   var LETTERS = ' PLNSGBRK';
-  var MATE = 30000, INF = 32000, MAX_PLY = 64, CHECK_TIME_EVERY = 1023, QSEARCH_PLIES = 6;
+  var MATE = 30000, MAX_PLY = 64, CHECK_TIME_EVERY = 1023, QSEARCH_PLIES = 6;
   var MAX_PLIES = 500;                 // a game this long is called a draw
   var FOURFOLD = 4;
   var VALUE = [0, 90, 315, 405, 495, 540, 855, 990, 0, 540, 540, 540, 540, 0, 945, 1080];
@@ -321,114 +321,27 @@ function ZimiShogiEngine(variant) {
     return pos.turn * score;
   }
 
-  // ── search ──
-  function Timeout() { this.name = 'Timeout'; }
+  // ── search: the shared searcher (enginekit.js), fed this game's moves and order ──
   var MOVE_BITS = 65536;   // moves are < 2^16
-  function orderMoves(pos, moves, ply, ctx, hashMove) {
-    var scored = new Array(moves.length);
-    for (var i = 0; i < moves.length; i++) {
-      var m = moves[i], sc = 0, cap = isDrop(m) ? 0 : Math.abs(pos.sq[to(m)]);
-      if (m === hashMove) sc = 1000000;
-      else if (cap) sc = 100000 + VALUE[cap] * 4 - (VALUE[Math.abs(pos.sq[from(m)])] >> 2) + (isPromo(m) ? 500 : 0);
-      else if (isPromo(m)) sc = 90000;
-      else if (m === ctx.killers[ply * 2] || m === ctx.killers[ply * 2 + 1]) sc = 50000;
-      else sc = ctx.history[m] | 0;
-      scored[i] = sc * MOVE_BITS + m;
-    }
-    scored.sort(function (x, y) { return y - x; });
-    for (i = 0; i < moves.length; i++) moves[i] = ((scored[i] % MOVE_BITS) + MOVE_BITS) % MOVE_BITS;
-  }
-
-  function quiesce(pos, alpha, beta, plies, ctx) {
-    if ((++ctx.nodes & CHECK_TIME_EVERY) === 0 && Date.now() > ctx.deadline) throw new Timeout();
-    var stand = evaluate(pos);
-    if (plies <= 0 || stand >= beta) return stand;
-    if (stand > alpha) alpha = stand;
-    var moves = pseudoMoves(pos, true), us = pos.turn;
-    orderMoves(pos, moves, 0, ctx, 0);
-    for (var i = 0; i < moves.length; i++) {
-      make(pos, moves[i]);
-      if (attacked(pos, pos.king[sideIdx(us)], -us)) { unmake(pos); continue; }
-      var s = -quiesce(pos, -beta, -alpha, plies - 1, ctx);
-      unmake(pos);
-      if (s >= beta) return s;
-      if (s > alpha) alpha = s;
-    }
-    return alpha;
-  }
-
-  function search(pos, depth, alpha, beta, ply, ctx) {
-    if ((++ctx.nodes & CHECK_TIME_EVERY) === 0 && Date.now() > ctx.deadline) throw new Timeout();
-    var us = pos.turn, inChk = inCheck(pos, us);
-    if (inChk && ply < MAX_PLY - 1) depth++;
-    if (depth <= 0) return quiesce(pos, alpha, beta, QSEARCH_PLIES, ctx);
-    var moves = pseudoMoves(pos, false), best = -INF, legal = 0;
-    orderMoves(pos, moves, ply, ctx, 0);
-    for (var i = 0; i < moves.length; i++) {
-      var m = moves[i], quiet = isDrop(m) || !pos.sq[to(m)];
-      make(pos, m);
-      if (attacked(pos, pos.king[sideIdx(us)], -us)) { unmake(pos); continue; }
-      legal++;
-      var s = -search(pos, depth - 1, -beta, -alpha, ply + 1, ctx);
-      unmake(pos);
-      if (s > best) best = s;
-      if (s > alpha) alpha = s;
-      if (alpha >= beta) {
-        if (quiet) {
-          if (ctx.killers[ply * 2] !== m) { ctx.killers[ply * 2 + 1] = ctx.killers[ply * 2]; ctx.killers[ply * 2] = m; }
-          ctx.history[m] += depth * depth;
-        }
-        break;
-      }
-    }
-    if (!legal) return -MATE + ply;
-    return best;
-  }
-
+  var adapter = {
+    cfg: { space: MOVE_BITS, checkEvery: CHECK_TIME_EVERY, qPlies: QSEARCH_PLIES, killers: [50000, 50000], history: MOVE_BITS, repeat: FOURFOLD - 1, standAtLimit: true, checkLimit: MAX_PLY - 1 },
+    moves: legalMoves, pseudo: pseudoMoves, make: make, unmake: unmake, evaluate: evaluate, key: key, inCheck: inCheck,
+    exposed: function (pos, us) { return attacked(pos, pos.king[sideIdx(us)], -us); },
+    rank: function (pos, m) {
+      var cap = isDrop(m) ? 0 : Math.abs(pos.sq[to(m)]);
+      return cap ? 100000 + VALUE[cap] * 4 - (VALUE[Math.abs(pos.sq[from(m)])] >> 2) + (isPromo(m) ? 500 : 0) : isPromo(m) ? 90000 : 0;
+    },
+    quiet: function (pos, m) { return isDrop(m) || !pos.sq[to(m)]; },
+    histIdx: function (m) { return m; },
+    noMoves: function (pos, ply) { return -MATE + ply; }
+  };
   // Pick a move for the side to move. opts: { level, ms, depth, seen } -> { move, score, depth }.
   function think(source, opts) {
     opts = opts || {};
-    var pos = typeof source === 'string' ? parseSfen(source) : clone(source);
-    var cfg = LEVELS[opts.level] || LEVELS.club;
-    var maxDepth = opts.depth || cfg.depth, ms = opts.ms || cfg.ms, noise = opts.noise === undefined ? cfg.noise : opts.noise;
-    var ctx = { nodes: 0, deadline: Date.now() + ms, killers: new Int32Array(MAX_PLY * 2 + 4), history: new Int32Array(65536) };
-    var roots = legalMoves(pos);
-    if (!roots.length) return { move: 0, score: 0, depth: 0 };
-    if (roots.length === 1) return { move: roots[0], score: 0, depth: 0 };
-    var seen = opts.seen || {}, best = roots[0], bestScore = 0, reached = 0, scores = null;
-    for (var depth = 1; depth <= maxDepth; depth++) {
-      orderMoves(pos, roots, 0, ctx, best);
-      var cur = {}, iterBest = 0, iterScore = -INF, alpha = -INF;
-      try {
-        for (var i = 0; i < roots.length; i++) {
-          var m = roots[i], s;
-          make(pos, m);
-          if (seen[key(pos)] >= FOURFOLD - 1) s = 0;
-          else s = -search(pos, depth - 1, -INF, noise ? INF : -alpha, 1, ctx);
-          unmake(pos);
-          cur[m] = s;
-          if (s > iterScore) { iterScore = s; iterBest = m; }
-          if (s > alpha) alpha = s;
-        }
-        best = iterBest; bestScore = iterScore; reached = depth; scores = cur;
-      } catch (e) {
-        if (!(e instanceof Timeout)) throw e;
-        while (pos.undo.length > 0) unmake(pos);
-        if (iterBest && depth > 1) { best = iterBest; bestScore = iterScore; }
-        break;
-      }
-      if (Math.abs(bestScore) > MATE - MAX_PLY) break;
-    }
-    if (noise && scores) {
-      var top = -INF;
-      roots.forEach(function (mv) {
-        if (scores[mv] === undefined) return;
-        var n = scores[mv] + (Math.random() - 0.5) * 2 * noise;
-        if (n > top) { top = n; best = mv; bestScore = scores[mv]; }
-      });
-    }
-    return { move: best, score: bestScore, depth: reached, nodes: ctx.nodes };
+    var pos = typeof source === 'string' ? parseSfen(source) : clone(source), cfg = LEVELS[opts.level] || LEVELS.club;
+    return (Searcher || globalThis.ZimiSearch()).tactical(adapter, pos, { depth: opts.depth || cfg.depth, ms: opts.ms || cfg.ms, noise: opts.noise === undefined ? cfg.noise : opts.noise, seen: opts.seen });
   }
+  function handle(req) { var r = think(req.sfen, req); return { move: r.move, depth: r.depth }; }
 
   return {
     SENTE: SENTE, GOTE: GOTE, P: P, L: L, N: N, S: S, G: G, B: B, R: R, K: K, PROMOTED: PROMOTED, SIZE: SIZE, ZONE: ZONE,
@@ -436,7 +349,7 @@ function ZimiShogiEngine(variant) {
     parseSfen: parseSfen, toSfen: toSfen, clone: clone, startPosition: function () { return parseSfen(START_SFEN); },
     mk: mk, from: from, to: to, isPromo: isPromo, isDrop: isDrop, rowOf: rowOf, colOf: colOf, squareName: squareName, squareFromName: squareFromName,
     legalMoves: legalMoves, make: make, unmake: unmake, findMove: findMove, inCheck: inCheck, perft: perft, attacked: attacked,
-    san: san, key: key, status: status, evaluate: evaluate, think: think, inZone: inZone, deadRank: deadRank
+    san: san, key: key, status: status, evaluate: evaluate, think: think, handle: handle, inZone: inZone, deadRank: deadRank
   };
 }
 if (typeof globalThis !== 'undefined') globalThis.ZimiShogiEngine = ZimiShogiEngine;
