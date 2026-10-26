@@ -171,7 +171,7 @@
   }
   function persist() {
     if (g.score > best.score) { best.score = g.score; Play.save(BEST_KEY, best); }
-    Play.save(GAME_KEY, { v: values(g), score: g.score });
+    // the board itself is kept by the shell (ZimiShell.persist, below)
   }
 
   function act(dir) {
@@ -213,12 +213,13 @@
     up: function (s) { var d = Play.swipeDir(s.dx, s.dy, SWIPE_PX); if (d) act(d); }
   });
 
-  var saved = Play.load(GAME_KEY, null);
+  var saved = ZimiShell.saved() || Play.load(GAME_KEY, null);   // an older save in the game's own key is taken up once
   g = saved && Array.isArray(saved.v) && saved.v.length === SIZE * SIZE && saved.v.every(function (v) { return v === 0 || (v >= 2 && (v & (v - 1)) === 0); }) ? fromValues(saved.v, saved.score) : createGame();
   asked = g.won; // already past the goal when restored
   window.addEventListener('resize', layout);
   makeSlots(); layout(); rebuild(); hud();
   if (g.over) endSheet(g.won ? 'win' : 'lose');
+  ZimiShell.persist({ save: function () { return { v: values(g), score: g.score }; } });
   // A read-only window onto the live game, for the browser tests.
   root.__t2048 = { get g() { return g; } };
 })(this);

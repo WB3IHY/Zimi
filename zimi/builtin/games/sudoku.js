@@ -261,7 +261,7 @@
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var GAME_KEY = 'zimi.games.sudoku.game', BEST_KEY = 'zimi.games.sudoku.best', SETTINGS_KEY = 'zimi.games.sudoku.settings';
-  var TICK_MS = 500, UNDO_MAX = 300, MAX_BOARD = 504, SIDE_PAD = 24, CHROME_PX = 420, MAKE_DELAY_MS = 20, END_AFTER_MS = 600;
+  var TICK_MS = 500, UNDO_MAX = 300, UNDO_KEPT = 100, MAX_BOARD = 504, SIDE_PAD = 24, CHROME_PX = 420, MAKE_DELAY_MS = 20, END_AFTER_MS = 600;
   Play.applyTheme();
 
   var els = {
@@ -344,7 +344,7 @@
   }
 
   function persist() {
-    Play.save(GAME_KEY, { puzzle: s.puzzle, solution: s.solution, grid: s.grid, notes: s.notes, diff: s.diff, elapsed: elapsed(), done: s.done });
+    // the puzzle, notes, undo trail and clock are kept by the shell (ZimiShell.persist, below)
   }
 
   // ── the clock ──
@@ -468,17 +468,22 @@
   });
 
   function restore() {
-    var saved = Play.load(GAME_KEY, null);
+    var saved = ZimiShell.saved() || Play.load(GAME_KEY, null);   // an older save in the game's own key is taken up once
     if (!saved || !Array.isArray(saved.puzzle) || saved.puzzle.length !== CELLS || !Array.isArray(saved.grid) || saved.grid.length !== CELLS || !Array.isArray(saved.solution) || DIFFICULTIES.indexOf(saved.diff) < 0) return false;
-    s = { puzzle: saved.puzzle, solution: saved.solution, grid: saved.grid, notes: Array.isArray(saved.notes) && saved.notes.length === CELLS ? saved.notes : emptyNotes(), diff: saved.diff, elapsed: saved.elapsed || 0, hist: [], sel: -1, pencil: false, done: !!saved.done };
+    s = { puzzle: saved.puzzle, solution: saved.solution, grid: saved.grid, notes: Array.isArray(saved.notes) && saved.notes.length === CELLS ? saved.notes : emptyNotes(), diff: saved.diff, elapsed: saved.elapsed || 0, hist: Array.isArray(saved.hist) ? saved.hist.slice(-UNDO_KEPT) : [], sel: -1, pencil: false, done: !!saved.done };
     return true;
   }
 
   build();
   layout();
   window.addEventListener('resize', layout);
-  if (restore() && !s.done) { line.say(levelName(s.diff)); render(); paintClock(); startClock(); }
-  else newGame(settings.diff);
+  if (restore()) {
+    line.say(levelName(s.diff)); render(); paintClock();
+    // A solved puzzle comes back to its end sheet, not to a fresh one.
+    if (s.done) ZimiShell.endSheet({ result: 'win', after: 0, stats: [[T('play.time'), Play.fmtClock(s.elapsed)], [T('play.best'), Play.fmtClock(best[s.diff] || s.elapsed)]] });
+    else startClock();
+  } else newGame(settings.diff);
+  ZimiShell.persist({ save: function () { return !s ? null : { puzzle: s.puzzle, solution: s.solution, grid: s.grid, notes: s.notes, diff: s.diff, elapsed: elapsed(), done: s.done, hist: s.hist.slice(-UNDO_KEPT) }; } });
   // A read-only window onto the live game, for the browser tests.
   root.__sudoku = { get s() { return s; } };
 })(this);
