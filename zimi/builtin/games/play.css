@@ -87,3 +87,5 @@
 .pl-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* A dark playfield is a material (space, night road): near-black and neutral, never navy. */
 .pl-arena { display: block; touch-action: none; user-select: none; -webkit-user-select: none; border-radius: var(--radius); border: 1px solid var(--line); background: #0e0e10; max-width: 100%; }
+/* Option rows inside a sheet (players, level): the label over its segmented control, spaced. */
+.ar-sheet-card .gs-row { margin-bottom: var(--sp-2); }

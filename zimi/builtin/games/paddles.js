@@ -101,19 +101,19 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
-  var SETTINGS_KEY = 'zimi.games.paddles.settings', STATS_KEY = 'zimi.games.paddles.stats', CHROME_PX = 230;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
+  var SETTINGS_KEY = 'zimi.games.paddles.settings', STATS_KEY = 'zimi.games.paddles.stats', CHROME_PX = 190, READY_ARM_MS = 650;
   Play.applyTheme();
 
-  var els = { cv: $('pd-board'), top: $('pd-top'), bot: $('pd-bot'), topName: $('pd-top-name'), botName: $('pd-bot-name'), goal: $('pd-goal'), msg: $('pd-msg'), help: $('pd-help'), pause: $('pd-pause'), sheet: $('pd-sheet'), title: $('pd-sheet-title'), text: $('pd-sheet-text'), go: $('pd-go'), mode: $('pd-mode'), level: $('pd-level'), levelRow: $('pd-level-row') };
+  var els = { cv: $('pd-board'), top: $('pd-top'), bot: $('pd-bot'), topName: $('pd-top-name'), botName: $('pd-bot-name'), goal: $('pd-goal'), msg: $('pd-msg'), pause: $('pd-pause'), newBtn: $('pd-new') };
   var settings = Play.load(SETTINGS_KEY, { mode: 'cpu', level: 'medium' }), stats = Play.load(STATS_KEY, { won: 0, played: 0 });
-  var st = createState(settings.mode, settings.level), mode = 'ready', ctx;
+  var st = createState(settings.mode, settings.level), mode = 'ready', ctx, status = Play.status(els.msg), armed = null, chooser = null;
   var keys = { bl: false, br: false, tl: false, tr: false }, pointers = {};
 
   function layout() { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, W * 1.3).ctx; draw(); }
   function hud() {
-    els.top.textContent = st.score.top; els.bot.textContent = st.score.bottom; els.goal.textContent = WIN_SCORE;
-    els.topName.textContent = st.mode === 'two' ? 'Top' : 'Computer'; els.botName.textContent = st.mode === 'two' ? 'Bottom' : 'You';
+    els.top.textContent = Play.num(st.score.top); els.bot.textContent = Play.num(st.score.bottom); els.goal.textContent = Play.num(WIN_SCORE);
+    els.topName.textContent = T(st.mode === 'two' ? 'paddles.top' : 'paddles.computer'); els.botName.textContent = T(st.mode === 'two' ? 'paddles.bottom' : 'paddles.you');
   }
 
   function controls() {
@@ -125,8 +125,8 @@
   var loop = Play.loop(function (dt) {
     step(st, dt, controls());
     st.events.forEach(function (e) {
-      if (e.name === 'point') els.msg.textContent = (e.data === 'bottom' ? (st.mode === 'two' ? 'Bottom scores.' : 'Point to you.') : (st.mode === 'two' ? 'Top scores.' : 'Point to the computer.'));
-      else if (e.name === 'hit' && st.hits === 1) els.msg.textContent = '';
+      if (e.name === 'point') status.say(T(e.data === 'bottom' ? (st.mode === 'two' ? 'paddles.pointBottom' : 'paddles.pointYou') : (st.mode === 'two' ? 'paddles.pointTop' : 'paddles.pointComputer')));
+      else if (e.name === 'hit' && st.hits === 1) status.say('');
       else if (e.name === 'over') finish();
     });
     st.events.length = 0;
@@ -135,7 +135,7 @@
   function pill(x, y, w, h, r) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); ctx.fill(); }
   function draw() {
     if (!ctx) return;
-    ctx.fillStyle = '#0d1a14'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#0e0e10'; ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 2; ctx.setLineDash([10, 10]); ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke(); ctx.setLineDash([]);
     ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.strokeRect(1, 1, W - 2, H - 2);
     ctx.font = '700 84px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,0.07)';
@@ -147,40 +147,57 @@
     ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(b.x, b.y, BALL_R, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
   }
 
-  function paintSeg(el, items, current, set) {
-    el.textContent = '';
-    items.forEach(function (it) {
-      var b = document.createElement('button'); b.type = 'button'; b.textContent = it[1]; b.setAttribute('aria-pressed', String(current === it[0]));
-      b.addEventListener('click', function () { set(it[0]); });
-      el.appendChild(b);
+  function releaseAll() { keys.bl = keys.br = keys.tl = keys.tr = false; pointers = {}; }
+  function save() { Play.save(SETTINGS_KEY, settings); }
+  // Players and the computer's level: one choice made in the first sheet and in the New game pane.
+  function options(rebuild) {
+    var rows = [Play.optionRow(T('paddles.players'), [['cpu', T('paddles.vsComputer')], ['two', T('paddles.two')]], settings.mode, function (v) { settings.mode = v; save(); if (rebuild) rebuild(); })];
+    if (settings.mode === 'cpu') rows.push(Play.optionRow(T('paddles.level'), [['easy', T('paddles.easy')], ['medium', T('paddles.medium')], ['hard', T('paddles.hard')]], settings.level, function (v) { settings.level = v; save(); }));
+    return rows;
+  }
+  // The first screen is the one real choice (players); the court is not drawn until Start.
+  function openChooser() {
+    var body = document.createElement('div'), api;
+    function rebuild() { body.textContent = ''; options(rebuild).forEach(function (n) { body.appendChild(n); }); }
+    rebuild();
+    els.cv.style.visibility = 'hidden';
+    api = chooser = ZimiShell.sheet({
+      title: T('paddles.title'), text: T('paddles.startLine', { n: WIN_SCORE }), body: [body],
+      actions: [{ label: T('shell.start'), primary: true, onclick: function () { begin(); } }],
+      onClose: function () { if (mode === 'ready' && !armed) { els.cv.style.visibility = ''; draw(); arm(); } }
     });
   }
-  function paintSetup() {
-    paintSeg(els.mode, [['cpu', 'vs Computer'], ['two', 'Two players']], settings.mode, function (v) { settings.mode = v; Play.save(SETTINGS_KEY, settings); paintSetup(); });
-    paintSeg(els.level, [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard']], settings.level, function (v) { settings.level = v; Play.save(SETTINGS_KEY, settings); paintSetup(); });
-    els.levelRow.hidden = settings.mode === 'two';
+  function arm() {
+    if (armed) armed.cancel();
+    armed = Play.ready({ say: status.say, target: els.cv, start: begin, touch: T('paddles.readyTouch'), keys: T('paddles.readyKeys') });
   }
-  function showSheet(title, text, label) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; paintSetup(); Play.openSheet(els.sheet, '#pd-go'); }
-  function releaseAll() { keys.bl = keys.br = keys.tl = keys.tr = false; pointers = {}; }
   function begin() {
-    st = createState(settings.mode, settings.level); mode = 'playing'; els.msg.textContent = ''; releaseAll();
-    els.help.textContent = st.mode === 'two' ? 'Two players on one screen. The top player drags the top half (or uses A and D). The bottom player drags the bottom half (or uses the arrow keys). First to ' + WIN_SCORE + '.' : 'Drag along the bottom half of the court, or use the arrow keys or A and D, to move your paddle. Where the ball meets the paddle sets its angle, and every hit makes it faster. First to ' + WIN_SCORE + '.';
-    Play.closeSheet(els.sheet); els.pause.disabled = false; hud(); draw(); loop.start();
+    if (armed) armed.cancel(); armed = null;
+    st = createState(settings.mode, settings.level); mode = 'playing'; status.say(''); releaseAll();
+    els.cv.style.visibility = ''; Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); loop.start();
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); releaseAll(); showSheet('Paused', 'Resume when you are ready.', 'Resume'); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); releaseAll(); Play.pauseLabel(els.pause, true); status.say(T('play.paused')); }
+  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
+  function toggle() { if (mode === 'playing') pause(); else resume(); }
   function finish() {
-    mode = 'over'; loop.stop(); els.pause.disabled = true; releaseAll(); hud(); draw();
-    var text;
-    if (st.mode === 'two') text = (st.winner === 'top' ? 'Top' : 'Bottom') + ' player wins, ' + st.score.top + ' to ' + st.score.bottom + '.';
-    else {
+    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); releaseAll(); hud(); draw();
+    var two = st.mode === 'two', chips = [[T('paddles.score'), T('paddles.scoreLine', { a: Math.max(st.score.top, st.score.bottom), b: Math.min(st.score.top, st.score.bottom) })]];
+    if (!two) {
       stats.played++; if (st.winner === 'bottom') stats.won++; Play.save(STATS_KEY, stats);
-      text = (st.winner === 'bottom' ? 'You win, ' : 'The computer wins, ') + st.score.bottom + ' to ' + st.score.top + ' (' + st.level + '). You have won ' + stats.won + ' of ' + stats.played + '.';
+      chips.push([T('paddles.you'), T('paddles.record', { won: stats.won, played: stats.played })]);
     }
-    els.msg.textContent = text; showSheet(st.mode === 'two' || st.winner === 'bottom' ? 'Game' : 'Game over', text, 'Play again');
+    ZimiShell.endSheet(two ? { result: 'win', name: T(st.winner === 'top' ? 'paddles.top' : 'paddles.bottom'), stats: chips } : { result: st.winner === 'bottom' ? 'win' : 'lose', stats: chips });
+    setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
   }
-  els.go.addEventListener('click', function () { if (mode === 'paused') { mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); } else begin(); });
-  els.pause.addEventListener('click', pause);
+  els.newBtn.addEventListener('click', begin);
+  els.pause.addEventListener('click', toggle);
+  els.cv.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
   Play.onHidden(pause);
+  ZimiShell.game({
+    inProgress: function () { return mode === 'playing' || mode === 'paused'; },
+    stats: function () { return stats.played ? [[T('paddles.vsComputer'), T('paddles.record', { won: stats.won, played: stats.played })]] : []; },
+    menu: function () { return { options: options() }; }
+  });
 
   // Touch and mouse: the paddle follows the pointer along the court. In two-player play each half is one player's.
   function courtX(e) { var r = els.cv.getBoundingClientRect(); return (e.clientX - r.left) / r.width * W; }
@@ -203,16 +220,15 @@
   }
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (!els.sheet.hidden) { if (e.key === 'Escape' && mode === 'paused') els.go.click(); return; }
+    if (document.querySelector('.ar-sheet:not([hidden])')) return;
     var k = mapKey(e.key);
     if (k) { e.preventDefault(); keys[k] = true; }
-    else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape' || e.key === ' ') { e.preventDefault(); pause(); }
+    else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape' || e.key === ' ') { e.preventDefault(); if (mode === 'playing' || mode === 'paused') toggle(); }
   });
   document.addEventListener('keyup', function (e) { var k = mapKey(e.key); if (k) keys[k] = false; });
   window.addEventListener('blur', releaseAll);
 
   window.addEventListener('resize', layout);
-  layout(); hud();
-  showSheet('Paddles', 'Two-paddle tennis. First to ' + WIN_SCORE + ' points wins.', 'Start');
+  layout(); hud(); openChooser();
   root.__paddles = { get st() { return st; }, get mode() { return mode; } };
 })(this);

@@ -12,29 +12,20 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Paddles</h1>
-  <button class="ar-btn" id="pd-pause" type="button" disabled>Pause</button>
+  <button class="ar-btn" id="pd-new" type="button" hidden data-t="shell.menu.new">New game</button>
+  <button class="ar-btn" id="pd-pause" type="button" disabled data-t="play.pause">Pause</button>
 </header>
 
 <main class="pl-main">
   <div class="pl-hud">
-    <div class="pl-stat"><small id="pd-top-name">Computer</small><b id="pd-top">0</b></div>
-    <div class="pl-stat"><small id="pd-bot-name">You</small><b id="pd-bot">0</b></div>
-    <div class="pl-stat"><small>First to</small><b id="pd-goal">7</b></div>
+    <div class="pl-stat"><small id="pd-top-name" data-t="paddles.computer">Computer</small><b id="pd-top">0</b></div>
+    <div class="pl-stat"><small id="pd-bot-name" data-t="paddles.you">You</small><b id="pd-bot">0</b></div>
+    <div class="pl-stat"><small data-t="paddles.firstTo">First to</small><b id="pd-goal">7</b></div>
   </div>
-  <canvas class="pl-arena" id="pd-board" role="img" aria-label="A court seen from above: a paddle at the top, a paddle at the bottom, a ball between them"></canvas>
-  <p class="pl-msg" id="pd-msg" role="status" aria-live="polite"></p>
-  <p class="pl-help" id="pd-help">Drag along the bottom half of the court, or use the arrow keys, to move your paddle. Hit the ball past the other paddle. Where the ball meets the paddle sets its angle, and every hit makes it faster.</p>
+  <canvas class="pl-arena" id="pd-board" role="img" aria-label="A court seen from above: a paddle at the top, a paddle at the bottom, a ball between them" data-t-aria="paddles.board"></canvas>
+  <p class="pl-msg" id="pd-msg"></p>
 </main>
 
-<div class="ar-sheet" id="pd-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="pd-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="pd-sheet-title">Paddles</h2>
-    <p id="pd-sheet-text"></p>
-    <p class="pl-row"><span id="pd-mode-label">Players</span><span class="pl-seg" id="pd-mode" role="group" aria-labelledby="pd-mode-label"></span></p>
-    <p class="pl-row" id="pd-level-row"><span id="pd-level-label">Computer</span><span class="pl-seg" id="pd-level" role="group" aria-labelledby="pd-level-label"></span></p>
-    <div class="ar-sheet-actions"><button class="ar-btn" id="pd-go" type="button" aria-pressed="true">Start</button></div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="paddles.js"></script>
 <!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
