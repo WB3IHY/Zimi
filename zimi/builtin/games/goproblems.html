@@ -6,42 +6,34 @@
 <title>Go Problems - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="boardui.css">
 <link rel="stylesheet" href="goproblems.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body>
 <header class="ar-bar">
-  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <a class="ar-back" href="index.html" data-t-aria="shell.back" aria-label="Back">&lsaquo;</a>
   <h1>Go Problems</h1>
-  <button class="ar-btn" id="gp-undo" type="button" title="Undo (Z)" disabled>Undo</button>
-  <button class="ar-btn" id="gp-list" type="button" aria-haspopup="dialog">Problems</button>
+  <button class="ar-btn" id="gp-undo" type="button" disabled data-t="board.undo" data-t-title="gp.undoTitle" title="Undo (Z)">Undo</button>
+  <button class="ar-btn" id="gp-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="pl-main gp-main">
   <p class="gp-title" id="gp-title"></p>
   <p class="gp-goal" id="gp-goal"></p>
-  <p class="pl-msg" id="gp-msg" role="status" aria-live="polite"></p>
-  <div class="gp-board" id="gp-board" tabindex="0" role="application" aria-label="Go board. Arrow keys move, Enter plays."></div>
+  <p class="pl-msg" id="gp-msg"></p>
+  <div class="gp-board" id="gp-board" tabindex="0" role="application" data-t-aria="gp.boardKeys" aria-label="Go board. Arrow keys move, Enter plays."></div>
   <div class="bg-controls gp-controls">
-    <button class="ar-btn" id="gp-hint" type="button" title="Show the key point (H)">Hint</button>
-    <button class="ar-btn" id="gp-reset" type="button" title="Restart (R)">Restart</button>
-    <button class="ar-btn" id="gp-show" type="button">Answer</button>
-    <button class="ar-btn" id="gp-next" type="button" aria-pressed="false" title="Next problem (N)">Next</button>
+    <button class="ar-btn" id="gp-hint" type="button" data-t="board.hint" data-t-title="gp.hintTitle" title="Show the key point (H)">Hint</button>
+    <button class="ar-btn" id="gp-reset" type="button" data-t="openings.restart" data-t-title="gp.restartTitle" title="Restart (R)">Restart</button>
+    <button class="ar-btn" id="gp-show" type="button" data-t="gp.showAnswer">Show answer</button>
+    <button class="ar-btn" id="gp-next" type="button" aria-pressed="false" data-t="gp.next" data-t-title="gp.nextTitle" title="Next problem (N)">Next</button>
   </div>
-  <p class="pl-help">Black plays first. Tap a point to play. If the move works, White answers and you carry on until the group is settled. White's replies are chosen to give you the most trouble.</p>
+  <p class="bg-stats" id="gp-stats"></p>
 </main>
 
-<div class="ar-sheet" id="gp-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="gp-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="gp-sheet-title">Problems</h2>
-    <div class="gp-tabs" id="gp-colls" role="group" aria-label="Collection"></div>
-    <div class="gp-tabs" id="gp-grades" role="group" aria-label="Difficulty"></div>
-    <p class="bg-note" id="gp-coll-note"></p>
-    <div class="gp-grid" id="gp-grid"></div>
-    <div class="ar-sheet-actions"><button class="ar-btn" id="gp-close" type="button">Close</button></div>
-  </div>
-</div>
 <script src="boardkit.js"></script>
+<script src="boardui.js"></script>
 <script src="go-engine.js"></script>
 <script src="tsumego-solver.js"></script>
 <script src="data/go-problems.js"></script>

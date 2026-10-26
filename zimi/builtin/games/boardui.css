@@ -28,3 +28,4 @@ html[data-anim="off"] .bu-status.is-thinking::before { animation: none; }
 .gs-field > label { font-size: var(--fs-small); color: var(--ink2); }
 .gs-field :is(select, input) { width: 100%; min-height: 44px; padding: 0 var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: var(--fs-body) var(--font); }
 .gs-field :is(select, input):focus-visible { outline: 2px solid var(--select-ring); outline-offset: 2px; }
+.gs-options .bu-quiet { width: auto; text-align: left; }
