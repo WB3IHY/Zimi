@@ -463,8 +463,8 @@ def served():
     srv.shutdown()
 
 
-@pytest.fixture(scope="module")
-def browser():
+@pytest.fixture()
+def browser():   # (one browser per game: a canvas digest follows what the browser drew before it)
     with sync_playwright() as p:
         for kind in (p.webkit, p.chromium):
             try:
