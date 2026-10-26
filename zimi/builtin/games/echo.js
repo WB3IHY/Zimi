@@ -42,7 +42,7 @@
 
   var els = { board: $('ec-board'), len: $('ec-len'), best: $('ec-best'), msg: $('ec-msg'), pause: $('ec-pause'), nu: $('ec-new') };
   var line = Play.status(els.msg);
-  var settings = Play.load(SETTINGS_KEY, { strict: false }), best = Play.load(BEST_KEY, { length: 0 });
+  var settings = Play.load(SETTINGS_KEY, { strict: true }), best = Play.load(BEST_KEY, { length: 0 });
   var g = createGame(), status = 'idle', timer = null, pads = [], ac = null, armed = null;
 
   // ── sound: off unless asked for in Settings, made only after a tap ──
