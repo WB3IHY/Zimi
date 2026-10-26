@@ -295,17 +295,8 @@
     '<radialGradient id="wk-stone-w" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#ffffff"/><stop offset="0.6" stop-color="#ece8dc"/><stop offset="1" stop-color="#b9b3a2"/></radialGradient></defs>';
 
   // A flat undo stack of snapshots (the snapshot is whatever the game hands in).
-  // Plain-data copies of states for the save: typed arrays become {$t, a} and come back as themselves.
-  var KEEP_HISTORY = 40;
-  function pack(x) { return x == null ? x : JSON.parse(JSON.stringify(x, function (k, v) { return v && ArrayBuffer.isView(v) ? { $t: v.constructor.name, a: Array.prototype.slice.call(v) } : v; })); }
-  function unpack(x) {
-    if (Array.isArray(x)) return x.map(unpack);
-    if (x && typeof x === 'object') {
-      if (x.$t && Array.isArray(x.a)) return new root[x.$t](x.a);
-      var o = {}; Object.keys(x).forEach(function (k) { o[k] = unpack(x[k]); }); return o;
-    }
-    return x;
-  }
+  // The saved history is capped, so the save stays small.
+  var KEEP_HISTORY = 40, pack = UI.pack, unpack = UI.unpack;
   function History() { var h = []; return { all: function () { return h.slice(-KEEP_HISTORY); }, set: function (list) { h = list.slice(); }, push: function (s) { h.push(s); }, pop: function () { return h.pop(); }, clear: function () { h.length = 0; }, size: function () { return h.length; }, last: function () { return h[h.length - 1]; } }; }
 
   // Fisher-Yates with a given random function.

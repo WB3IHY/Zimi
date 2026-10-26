@@ -124,6 +124,7 @@
 
   // ── turns ──
   var WHY = { repetition: 'shogi.why.repetition', long: 'shogi.why.long' };
+  var lastEnd = null;   // how the game ended, kept so a finished game comes back to its end sheet
   function finish(st) {
     over = true; thinking = false; sel = -1; selDrop = 0; targets = {};
     var msg, result;
@@ -137,7 +138,8 @@
       BK.save(STATS_KEY, stats);
     }
     paint(); say(msg); showStats();
-    UI.end(settings.mode === 'two' && st.result === 'mate' ? { result: 'win', name: colorName(st.winner), text: msg } : { result: result === 'loss' ? 'lose' : result, text: msg });
+    lastEnd = settings.mode === 'two' && st.result === 'mate' ? { result: 'win', name: colorName(st.winner), text: msg } : { result: result === 'loss' ? 'lose' : result, text: msg };
+    UI.end(lastEnd);
   }
 
   function afterMove() {
@@ -280,8 +282,8 @@
     afterMove();
   }
 
-  function newGame() {
-    requestId++; thinking = false; over = false; sel = -1; selDrop = 0; targets = {}; lastMove = 0; clearTimeout(watchdog); F.cancel();
+  // The engine for the board in force (full or mini), and the board built for it.
+  function useVariant() {
     var variant = settings.variant;
     if (!E || E.SIZE !== (variant === 'mini' ? 5 : 9)) {
       killWorker(); workerOk = true;
@@ -290,6 +292,10 @@
       $('sg-title').textContent = T(variant === 'mini' ? 'shogi.title.mini' : 'shogi.title');
       document.title = $('sg-title').textContent + ' - ZimiGames';
     }
+  }
+  function newGame() {
+    requestId++; thinking = false; over = false; sel = -1; selDrop = 0; targets = {}; lastMove = 0; clearTimeout(watchdog); F.cancel();
+    useVariant();
     pos = E.startPosition(); keys = [E.key(pos)]; sans = []; played = [];
     flipped = settings.mode === 'cpu' && settings.side === 'gote';
     cells.forEach(function (c) { delete c.dataset.sig; });
@@ -338,6 +344,22 @@
     });
   }
   newGame();
+  // Leaving and coming back: the settings in force, the moves (the position is played again from the start), and the end.
+  UI.persist({
+    save: function () { return !played.length ? null : { cfg: { variant: settings.variant, mode: settings.mode, level: settings.level, side: settings.side, labels: settings.labels }, played: played.slice(), flipped: flipped, end: over ? lastEnd : null }; },
+    load: function (d) {
+      ['variant', 'mode', 'level', 'side', 'labels'].forEach(function (k) { settings[k] = d.cfg[k]; });
+      requestId++; thinking = false; clearTimeout(watchdog);
+      useVariant();
+      pos = E.startPosition(); keys = [E.key(pos)]; sans = []; played = [];
+      d.played.forEach(function (m) { sans.push(E.san(pos, m)); played.push(m); E.make(pos, m); keys.push(E.key(pos)); });
+      lastMove = played[played.length - 1] || 0; flipped = !!d.flipped; sel = -1; selDrop = 0; targets = {}; over = !!d.end; lastEnd = d.end;
+      cells.forEach(function (c) { delete c.dataset.sig; });
+      paintMoves(); paint(); showStats();
+      if (over) { say(d.end.text); UI.end(d.end); }
+    },
+    resume: function () { if (!over) afterMove(); }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__sg = { engine: function () { return E; }, pos: function () { return pos; }, settings: settings, play: play, usingWorker: function () { return !!worker; } };

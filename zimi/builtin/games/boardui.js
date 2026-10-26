@@ -111,5 +111,27 @@
   var SIDES = { white: 'board.white', black: 'board.black', red: 'board.red', blue: 'board.blue', green: 'board.green', yellow: 'board.yellow', you: 'board.you', computer: 'board.computer' };
   function side(color) { return T(SIDES[color] || color); }
 
-  root.BoardUI = { t: T, localize: localize, row: row, toggle: toggle, field: field, select: select, options: options, status: status, refuse: refuse, end: end, record: record, side: side, h: h };
+  // ── never lose a game (ZimiShell.persist): states kept as plain data ──
+  // Typed arrays become {$t, a} and come back as themselves.
+  function pack(x) { return x == null ? x : JSON.parse(JSON.stringify(x, function (k, v) { return v && ArrayBuffer.isView(v) ? { $t: v.constructor.name, a: Array.prototype.slice.call(v) } : v; })); }
+  function unpack(x) {
+    if (Array.isArray(x)) return x.map(unpack);
+    if (x && typeof x === 'object') {
+      if (x.$t && Array.isArray(x.a)) return new root[x.$t](x.a);
+      var o = {}; Object.keys(x).forEach(function (k) { o[k] = unpack(x[k]); }); return o;
+    }
+    return x;
+  }
+  // api: { save() -> the page's state as plain data, or null when no move was made; load(data) -> false if it no
+  // longer fits; resume() carries on (a computer's turn) }. ZimiGameSave() answers the same save, for the tests.
+  function persist(api) {
+    root.ZimiGameSave = function () { var d = api.save(); return d == null ? '' : JSON.stringify(pack(d)); };
+    if (!shell() || !shell().persist) return;
+    shell().persist({
+      save: function () { return pack(api.save()); },
+      load: function (data) { if (api.load(unpack(data)) === false) return false; if (api.resume) api.resume(); }
+    });
+  }
+
+  root.BoardUI = { pack: pack, unpack: unpack, persist: persist, t: T, localize: localize, row: row, toggle: toggle, field: field, select: select, options: options, status: status, refuse: refuse, end: end, record: record, side: side, h: h };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

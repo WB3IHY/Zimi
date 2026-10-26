@@ -107,6 +107,7 @@
 
   // ── turns ──
   var WHY = { stalemate: 'chess.why.stalemate', repetition: 'chess.why.repetition', fifty: 'chess.why.fifty', material: 'chess.why.material' };
+  var lastEnd = null;   // how the game ended, kept so a finished game comes back to its end sheet
   function finish(st) {
     over = true; thinking = false; sel = -1; targets = {};
     if (root.ZimiShell) root.ZimiShell.turn(false);
@@ -122,7 +123,8 @@
       BK.save(STATS_KEY, stats);
     }
     paint(); say(msg); showStats();
-    UI.end(settings.mode === 'two' && st.result === 'mate' ? { result: 'win', name: colorName(st.winner), text: msg } : { result: result === 'loss' ? 'lose' : result, text: msg });
+    lastEnd = settings.mode === 'two' && st.result === 'mate' ? { result: 'win', name: colorName(st.winner), text: msg } : { result: result === 'loss' ? 'lose' : result, text: msg };
+    UI.end(lastEnd);
   }
 
   function afterMove() {
@@ -334,6 +336,20 @@
   buildBoard();
   pos = E.startPosition();
   newGame();
+  // Leaving and coming back: the settings in force, the moves (the position is played again from the start), and the end.
+  UI.persist({
+    save: function () { return watch || !played.length ? null : { cfg: { mode: settings.mode, level: settings.level, side: settings.side }, played: played.slice(), flipped: flipped, end: over ? lastEnd : null }; },
+    load: function (d) {
+      settings.mode = d.cfg.mode; settings.level = d.cfg.level; settings.side = d.cfg.side;
+      requestId++; thinking = false; clearTimeout(watchdog);
+      pos = E.startPosition(); keys = [E.key(pos)]; sans = []; played = [];
+      d.played.forEach(function (m) { sans.push(E.san(pos, m)); played.push(m); E.make(pos, m); keys.push(E.key(pos)); });
+      lastMove = played[played.length - 1] || 0; flipped = !!d.flipped; sel = -1; targets = {}; over = !!d.end; lastEnd = d.end;
+      paintMoves(); paint(); showStats();
+      if (over) { say(d.end.text); UI.end(d.end); }
+    },
+    resume: function () { if (!over) afterMove(); }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__cs = { engine: E, pos: function () { return pos; }, settings: settings, play: play,

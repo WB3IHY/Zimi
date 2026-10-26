@@ -33,6 +33,9 @@ ROWS = [
     ("janggi", (".jg-pt:has(.jg-pc.cho)", ".jg-pt.hint"), SAVE),
     ("makruk", (".bg-sq:has(.mk-pc.w)", ".bg-sq.hint"), SAVE),
     ("backgammon", [], SAVE, 6000),
+    ("chess", (".bg-sq:has(.cs-pc.w)", ".bg-sq.hint"), SAVE),
+    ("xiangqi", (".xq-pt:has(.xq-pc.r)", ".xq-pt.hint"), SAVE),
+    ("shogi", (".sg-sq:has(.sg-pc:not(.g))", ".sg-sq.hint"), SAVE),
 ]
 
 
