@@ -107,8 +107,8 @@ def test_liars_dice_comes_back_after_a_bid(served, browser):  # noqa: F811
     start(page, "#ld-go")
     page.wait_for_function(truthy("!document.getElementById('ld-bidbtn').disabled"))
     page.click("#ld-bidbtn")
-    # the computer answers with a bid (my turn again) or a call (the reveal is up); either way nothing is moving
-    page.wait_for_function(truthy("(__liarsdice.g.bid && __liarsdice.g.bid.by !== 0) || !document.getElementById('ld-reveal').hidden"))
+    # every computer has answered: it is my turn again (Liar is open to me, after a bid that is not mine) or a call has put the reveal up; either way nothing is moving
+    page.wait_for_function(truthy("(!document.getElementById('ld-liar').disabled && __liarsdice.g.bid && __liarsdice.g.bid.by !== 0) || !document.getElementById('ld-reveal').hidden"))
     comes_back(page, url, LIARS, "__liarsdice.g.bid || __liarsdice.g.last")
     # then the call itself: the reveal of every die is on screen, and it is still there after coming back
     if page.locator("#ld-reveal").evaluate("e => e.hidden"):
