@@ -143,70 +143,38 @@
 
   // ── The page ────────────────────────────────────────────────────────────
   function boot() {
-    var el = Z.pageEls(), board, session, view = { picked: null };
-    el.sub = Z.factLine(el.table);
-    Z.ensureSprite();
+    var page, session, board, view = { picked: null };
 
-    function paintSub() { var st = session && session.state; if (!st) return; el.sub.textContent = isStuck(st) ? TX('cards.noMoves') : TX('pyr.redeals', { n: MAX_REDEALS - st.redeals }); }
-    function afterMove() {
-      var st = session.state;
-      view.picked = null;
-      paintSub();
-      if (isWon(st)) { session.win(st.score); return; }
-      if (isStuck(st)) {
-        session.stats.scored(st.score);
-        Z.sheet({
-          title: TX('cards.noMoves'),
-          body: [Z.h('p', { class: 'zc-note', text: TX('pyr.left', { n: pyramidLeft(st) }) }), Z.h('p', { class: 'zc-stats', text: session.stats.line() })],
-          actions: [{ label: TX('shell.undo'), onclick: session.undo }, { label: TX('shell.menu.new'), primary: true, onclick: newGame }]
-        });
-      }
-    }
-    function commit(next) { session.commit(next); afterMove(); return true; }
-    function move(pile, idx, to) {
-      if (!legalMove(session.state, pile, idx, to)) return false;
-      return commit(applyMove(session.state, pile, idx, to));
-    }
+    function paintSub() { var st = session && session.state; if (!st) return; page.el.sub.textContent = isStuck(st) ? TX('cards.noMoves') : TX('pyr.redeals', { n: MAX_REDEALS - st.redeals }); }
     function select(pile) { view.picked = pile; board.refresh(); }
     function tap(pile) {
       var st = session.state;
-      if (pile === 'stock') { var next = drawStock(st); return next ? commit(next) : false; }
+      if (pile === 'stock') return page.draw();
       if (!isFree(st, pile)) return false;
-      if (isKing(st, pile)) return commit(takeAway(st, [pile]));
+      if (isKing(st, pile)) return page.commit(takeAway(st, [pile]));
       if (view.picked === pile) { select(null); return true; }
-      if (view.picked && isPair(st, view.picked, pile)) return commit(takeAway(st, [view.picked, pile]));
+      if (view.picked && isPair(st, view.picked, pile)) return page.commit(takeAway(st, [view.picked, pile]));
       select(pile);
       return true;
     }
     function newGame() { view.picked = null; session.reset(newState(Z.shuffled(Math.random))); paintSub(); }
 
-    board = Z.createBoard({
-      table: el.table, cols: COLS, tight: true, heightShare: HEIGHT_SHARE, enterTaps: true,
+    page = Z.solitairePage({
+      rules: api, id: 'pyramid', fact: true, cols: COLS, heightShare: HEIGHT_SHARE, enterTaps: true, newGame: newGame, tap: tap, stock: drawStock,
       place: function (st, m) { return place(st, m, view); },
-      canPick: function (st, pile, idx) { return canPick(st, pile, idx); },
-      move: move, tap: tap,
-      slotTap: function (pile) { if (pile === 'stock') tap(pile); }
-    });
-    session = Z.createSession({
-      id: 'pyramid', board: board, newGame: newGame, els: el,
+      settle: function () { view.picked = null; paintSub(); },
+      score: function (st) { return st.score; },
+      stuck: {
+        is: isStuck, score: function (st) { return st.score; },
+        title: function () { return TX('cards.noMoves'); }, note: function (st) { return TX('pyr.left', { n: pyramidLeft(st) }); }
+      },
       statText: function (sec, st) { paintSub(); return Z.fmtTime(sec) + ' · ' + st.score; },
       cascadeOrder: function (st) { return st.piles.out.slice().reverse().map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return [TX('pyr.win', { score: st.score, bonus: SCORE.clear + SCORE.redealLeft * (MAX_REDEALS - st.redeals) }), TX('sol.winTime', { time: Z.fmtTime(sec), moves: Z.plural(st.moves, 'move') })]; },
-      openMenu: function () {
-        Z.sheet({
-          title: 'Pyramid',
-          body: [
-            Z.h('p', { class: 'zc-note', text: TX('pyr.rules') }),
-            Z.backsRow(),
-            Z.h('p', { class: 'zc-stats', text: session.stats.line() })
-          ],
-          actions: [{ label: TX('shell.menu.new'), onclick: newGame }, { label: TX('shell.close'), primary: true }]
-        });
-      }
+      winLines: function (sec, st) { return [TX('pyr.win', { score: st.score, bonus: SCORE.clear + SCORE.redealLeft * (MAX_REDEALS - st.redeals) }), Z.winTime(sec, st)]; },
+      openMenu: function () { page.menu('Pyramid', [Z.h('p', { class: 'zc-note', text: TX('pyr.rules') })]); }
     });
-    api.session = session; api.board = board;
-    newGame();
-    if (/[?&]debug=win/.test(root.location.search)) { session.reset(almostWon()); paintSub(); }
+    session = page.session; board = page.board;
+    page.start();
   }
 
   if (root.document && root.document.getElementById('zc-table')) boot();
