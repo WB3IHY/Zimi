@@ -1,5 +1,5 @@
 Title: Zimi Almanac
-Description: The sky, the Moon, the Sun and the planets for any place and day, offline
+Description: Explore the sky, your planet and the universe, for any place and day, offline
 Language: eng
 Creator: Zimi
 Publisher: Zimi
