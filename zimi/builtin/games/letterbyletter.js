@@ -106,12 +106,12 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$, SVGNS = 'http://www.w3.org/2000/svg';
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T, SVGNS = 'http://www.w3.org/2000/svg';
   Play.applyTheme();
   var STATE_KEY = 'zimi.games.letters.state', STATS_KEY = 'zimi.games.letters.stats';
-  var POOL_BATCH_LANGS = 1, TRIES = 6;
-  var els = { mode: $('lb-mode'), fig: $('lb-fig'), air: $('lb-air'), clue: $('lb-clue'), word: $('lb-word'), msg: $('lb-msg'), keys: $('lb-keys'), hint: $('lb-hint'),
-    next: $('lb-next'), source: $('lb-source'), sheet: $('lb-sheet'), title: $('lb-sheet-title'), text: $('lb-sheet-text'), entry: $('lb-entry'), again: $('lb-again'), close: $('lb-close'), rec: $('lb-rec') };
+  var POOL_BATCH_LANGS = 1, TRIES = 6, END_DELAY_MS = 450;
+  var els = { fig: $('lb-fig'), air: $('lb-air'), clue: $('lb-clue'), word: $('lb-word'), msg: $('lb-msg'), keys: $('lb-keys'), hint: $('lb-hint'), entry: $('lb-entry'), newBtn: $('lb-new') };
+  var line = Play.status(els.msg), pendingMode = null;   // the status line; the engine's status(game) is the round's state
   var today = Lib.dayKey(new Date());
   var source = null;            // {zim, title, lang} for a library Wiktionary, null for the built-in words
   var pool = [], mini = parseMini(root.LETTERS_MINI || []);
@@ -119,7 +119,6 @@
   var stored = Play.load(STATE_KEY, {});
   var stats = Play.load(STATS_KEY, { played: 0, won: 0, streak: 0, max: 0, last: '' });
 
-  function say(t) { els.msg.textContent = t; }
 
   // ── the balloon ──
   var fig = {};
@@ -130,7 +129,7 @@
     return e;
   }
   function buildFigure() {
-    var s = svg('svg', { viewBox: '0 0 200 240', role: 'img', 'aria-label': 'A balloon' }, els.fig);
+    var s = svg('svg', { viewBox: '0 0 200 240', role: 'img', 'aria-label': T('letters.balloon') }, els.fig);
     svg('ellipse', { cx: 100, cy: 232, rx: 70, ry: 5, fill: 'var(--cell-line)' }, s);
     fig.string = svg('path', { fill: 'none', stroke: 'var(--ink3)', 'stroke-width': 1.6, 'stroke-linecap': 'round' }, s);
     fig.basket = svg('g', {}, s);
@@ -175,7 +174,7 @@
   function paintAir() {
     els.air.innerHTML = '';
     for (var i = 0; i < LIVES; i++) { var d = document.createElement('i'); if (i >= airLeft(game)) d.className = 'gone'; els.air.appendChild(d); }
-    els.air.setAttribute('aria-label', airLeft(game) + ' of ' + LIVES + ' breaths of air left');
+    els.air.setAttribute('aria-label', T('letters.air', { n: airLeft(game), max: LIVES }));
   }
 
   // ── the word and the keys ──
@@ -183,7 +182,7 @@
     els.word.innerHTML = '';
     shown(game).forEach(function (c) {
       var d = document.createElement('span'); d.className = 'lb-slot' + (c ? ' on' : ''); d.textContent = c || '';
-      d.setAttribute('aria-label', c || 'blank');
+      d.setAttribute('aria-label', c || T('letters.blank'));
       els.word.appendChild(d);
     });
     els.word.setAttribute('dir', 'auto');
@@ -211,9 +210,8 @@
     els.clue.hidden = !game.clue;
     paintWord(); paintKeys(); paintFigure(); paintAir();
     els.hint.disabled = over || airLeft(game) < 2;
-    els.next.hidden = mode === 'daily' && !over;
-    els.mode.textContent = mode === 'daily' ? 'Daily' : 'Practice';
-    els.source.textContent = source ? 'Words from ' + source.title + ' (' + source.lang + '), in your library.' : 'The built-in words. Open ZimiGames inside Zimi to play with the words of your own Wiktionary.';
+    els.entry.hidden = !(over && source);
+    if (source) els.entry.href = '/w/' + encodeURIComponent(source.zim) + '/' + encodeURIComponent(game.word);
   }
   function persist() { stored[mode] = { word: game.word, clue: game.clue, guessed: game.guessed, misses: game.misses, hints: game.hints, date: mode === 'daily' ? today : '', zim: source ? source.zim : '', counted: game.counted || false }; Play.save(STATE_KEY, stored); }
 
@@ -228,33 +226,32 @@
       if (st === 'won') { stats.won++; stats.streak = stats.last === yesterday() ? stats.streak + 1 : 1; stats.max = Math.max(stats.max, stats.streak); } else stats.streak = 0;
       stats.last = today; Play.save(STATS_KEY, stats);
     }
-    say(st === 'won' ? 'You kept the balloon up.' : 'The balloon is flat. The word was ' + game.word + '.');
-    setTimeout(openSheet, Play.reducedMotion() ? 0 : 450);
+    line.say(overLine());
+    finish();
   }
+    function overLine() { return T(status(game) === 'won' ? 'letters.won' : 'letters.lost', { word: game.word }); }
   function yesterday() { var d = new Date(); d.setDate(d.getDate() - 1); return Lib.dayKey(d); }
 
   function press(key) {
     if (busy || !game) return;
     var r = guess(game, key);
     if (r === 'repeat') return;
-    say(r === 'hit' ? '' : 'Not in this word.');
+    line.say(r === 'hit' ? rest() : T('letters.miss'));
     afterMove();
   }
   function useHint() {
     if (busy || !game) return;
     var k = hint(game);
-    if (k) { say('One letter shown. It cost some air.'); afterMove(); }
+    if (k) { line.say(T('letters.hinted')); afterMove(); }
   }
 
-  function openSheet() {
-    var st = status(game), over = st !== 'playing';
-    els.title.textContent = over ? (st === 'won' ? 'Saved' : 'Flat') : 'Your record';
-    var pct = stats.played ? Math.round(100 * stats.won / stats.played) : 0;
-    els.text.textContent = (over ? game.word + (game.clue ? ': ' + game.clue : '') + ' ' : '') + 'Daily words played ' + stats.played + ', saved ' + pct + '%, streak ' + stats.streak + ', best streak ' + stats.max + '.';
-    els.entry.hidden = !(over && source);
-    if (source) els.entry.href = '/w/' + encodeURIComponent(source.zim) + '/' + encodeURIComponent(game.word);
-    els.again.hidden = mode === 'daily' && !over;
-    Play.openSheet(els.sheet, over ? '#lb-again' : '#lb-close');
+  // The resting line says which word this is; a finished round says how it went.
+  function rest() { return status(game) !== 'playing' ? overLine() : T(mode === 'daily' ? 'letters.daily' : 'letters.practice'); }
+  // The end of a round, on the shared end sheet: the word and its clue, the air left and, for the daily, the streak.
+  function finish() {
+    var won = status(game) === 'won', chips = [[T('letters.airLeft'), T('letters.of', { n: airLeft(game), max: LIVES })]];
+    if (mode === 'daily') chips.push([T('letters.streak'), Play.num(stats.streak)]);
+    ZimiShell.endSheet({ result: won ? 'win' : 'lose', text: game.word + (game.clue ? ': ' + game.clue : ''), stats: chips, after: Play.reducedMotion() ? 0 : END_DELAY_MS });
   }
 
   // Where the next word comes from.
@@ -300,29 +297,38 @@
   }
 
   function start(m, fresh) {
-    mode = m; busy = true; say('Finding a word...');
+    mode = m; busy = true; line.say(T('letters.finding'));
     var s = stored[m];
     var same = s && s.word && (s.zim || '') === (source ? source.zim : '') && (m === 'practice' || s.date === today);
     var ready = !fresh && same ? Promise.resolve(Object.assign(newGame(s.word, s.clue), { guessed: s.guessed, misses: s.misses, hints: s.hints || 0, counted: s.counted })) : next(m === 'daily');
     return ready.then(function (g) {
-      game = g; busy = false; say(''); buildKeys(); persist(); paint();
-      if (status(game) !== 'playing') say(status(game) === 'won' ? 'You kept the balloon up.' : 'The balloon is flat. The word was ' + game.word + '.');
+      game = g; busy = false; buildKeys(); persist(); paint(); line.say(rest());
     });
   }
 
   // ── wiring ──
   els.keys.addEventListener('click', function (e) { var b = e.target.closest('.lb-key'); if (b) { if (e.detail) b.blur(); press(b.dataset.k); } });
   document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (!els.sheet.hidden) { if (e.key === 'Escape') Play.closeSheet(els.sheet); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.ar-sheet:not([hidden])')) return;
     if (e.key.length === 1 && /\p{L}/u.test(e.key)) press(keyOf(e.key));
   });
   els.hint.addEventListener('click', useHint);
-  els.next.addEventListener('click', function () { start('practice', true); });
-  els.mode.addEventListener('click', function () { start(mode === 'daily' ? 'practice' : 'daily'); });
-  els.again.addEventListener('click', function () { Play.closeSheet(els.sheet); start('practice', true); });
-  els.close.addEventListener('click', function () { Play.closeSheet(els.sheet); });
-  els.rec.addEventListener('click', openSheet);
+  // New game: the word the New game pane chose, else the next one (after a finished daily, a practice word).
+  els.newBtn.addEventListener('click', function () {
+    var m = pendingMode || (mode === 'daily' && game && status(game) !== 'playing' ? 'practice' : mode);
+    pendingMode = null;
+    start(m, m === 'practice');
+  });
+  ZimiShell.game({
+    inProgress: function () { return !!game && status(game) === 'playing' && game.guessed.length > 0; },
+    menu: function () {
+      return { options: [Play.optionRow(T('letters.word'), [['daily', T('letters.daily')], ['practice', T('letters.practice')]], pendingMode || mode, function (v) { pendingMode = v; })] };
+    },
+    stats: function () {
+      if (!stats.played) return [];
+      return [[T('letters.played'), Play.num(stats.played)], [T('letters.saved'), Math.round(100 * stats.won / stats.played) + '%'], [T('letters.streak'), Play.num(stats.streak)], [T('letters.bestStreak'), Play.num(stats.max)]];
+    }
+  });
 
   buildFigure();
   paintFigureEmpty();

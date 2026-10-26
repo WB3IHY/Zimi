@@ -14,35 +14,22 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Letter by Letter</h1>
-  <button class="ar-btn" id="lb-rec" type="button" aria-haspopup="dialog">Record</button>
-  <button class="ar-btn" id="lb-mode" type="button" title="Switch between the daily word and practice">Daily</button>
+  <button class="ar-btn" id="lb-new" type="button" hidden data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="pl-main lb-main">
+  <p class="pl-msg" id="lb-msg"></p>
   <div class="lb-fig" id="lb-fig"></div>
   <div class="lb-air" id="lb-air" role="img"></div>
   <p class="lb-clue" id="lb-clue" hidden></p>
-  <div class="lb-word" id="lb-word" role="group" aria-label="The word"></div>
-  <p class="pl-msg" id="lb-msg" role="status" aria-live="polite"></p>
-  <div class="lb-keys" id="lb-keys" role="group" aria-label="Letters"></div>
-  <div class="pl-keys">
-    <button class="ar-btn" id="lb-hint" type="button" title="Show one letter. It costs some air.">Hint</button>
-    <button class="ar-btn" id="lb-next" type="button" hidden>New word</button>
+  <div class="lb-word" id="lb-word" role="group" aria-label="The word" data-t-aria="letters.theWord"></div>
+  <div class="gs-actionrow">
+    <button class="ar-btn" id="lb-hint" type="button" title="Show one letter. It costs some air." data-t="letters.hint" data-t-title="letters.hintTitle">Hint</button>
+    <a class="ar-btn" id="lb-entry" href="#" hidden data-t="letters.entry">Read the entry</a>
   </div>
-  <p class="pl-help gl-source" id="lb-source"></p>
+  <div class="lb-keys" id="lb-keys" role="group" aria-label="Letters" data-t-aria="letters.letters"></div>
 </main>
 
-<div class="ar-sheet" id="lb-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="lb-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="lb-sheet-title">Your record</h2>
-    <p id="lb-sheet-text"></p>
-    <div class="ar-sheet-actions">
-      <a class="ar-btn" id="lb-entry" href="#" hidden>Read the entry</a>
-      <button class="ar-btn" id="lb-again" type="button">New word</button>
-      <button class="ar-btn" id="lb-close" type="button" aria-pressed="true">Close</button>
-    </div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="librarykit.js"></script>
 <script src="letterbyletter-words.js"></script>
