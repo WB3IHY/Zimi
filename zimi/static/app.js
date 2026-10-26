@@ -28019,9 +28019,32 @@ function _liveRestart() { _liveClose(); _liveSince = ''; _liveOpen(); }
 
 // A ZIM added, removed or replaced on the server: the library this window
 // draws is fetched again, and drawn again where it is on screen.
+// What makes a ZIM the same file: the open article is stale when this changes under it.
+function _zimIdentity(z) { return [z.file, z.size_bytes, z.updated_at || 0].join('|'); }
+function _changedZims(before, after) {
+  var was = {};
+  (before || []).forEach(function (z) { was[z.name] = _zimIdentity(z); });
+  return after.filter(function (z) { return was[z.name] !== undefined && was[z.name] !== _zimIdentity(z); }).map(function (z) { return z.name; });
+}
+// The ZIM under the page on screen was replaced (auto-update, a rebuilt own ZIM): the frame is loaded again where
+// it is, quietly, with a word that it was. An article comes back to the same place; a game restores itself
+// (ZimiShell.persist); the Almanac opens again. Not while a PDF or an app's page is up (they are not this ZIM's).
+function _reloadOpenZim(changed) {
+  var f = document.getElementById('reader-frame');
+  if (!readerOpen || !currentArticle || changed.indexOf(currentArticle.zim) < 0 || !f || _isAppPage() || _isPdfPage()) return;
+  var win, y = 0;
+  try { win = f.contentWindow; y = win.scrollY || 0; win.location.reload(); } catch (e) { return; }
+  f.addEventListener('load', function () {
+    try { if (y) f.contentWindow.scrollTo(0, y); } catch (e) {}
+    _showToast(t('updated_badge'));
+  }, { once: true });
+}
 function _libraryHeard() {
+  var before = zimsCache;
   _fetchList().then(function (list) {
     zimsCache = list;
+    var changed = _changedZims(before, list);
+    if (changed.length) _reloadOpenZim(changed);
     _rebuildZimsMap();
     _libraryKnown = true;
     _catalogCache = null;
