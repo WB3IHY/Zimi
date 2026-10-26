@@ -88,7 +88,7 @@
     paint();
     var line = !G.vsComputer() ? T('board.toMove', { name: sideName(p) }) : G.human(p) ? T('board.yourTurn') : T('shell.thinking');
     if (st.mustCapture && G.human(p)) line = T('draughts.mustCapture', { n: legal[0].caps.length });
-    G.say(note ? T('janggi.noted', { note: note, line: line }) : line, !G.human(p));
+    G.say(note ? UI.noted(note, line) : line, !G.human(p));
     if (!G.human(p)) computerTurn();
   }
   function play(m) {

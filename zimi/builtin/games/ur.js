@@ -196,7 +196,7 @@
     st = E.apply(st, m); last = { p: p, to: m.to }; tip = null;
     if (st.winner >= 0) { phase = 'over'; moves = []; paint(); win(); return; }
     startTurn();
-    G.say(T('janggi.noted', { note: note, line: G.human(st.turn) ? T(G.vsComputer() ? 'ur.yourRoll' : 'ur.toRoll', { name: sideName(st.turn) }) : T('ur.computerRolling') }), !G.human(st.turn));
+    G.say(UI.noted(note, G.human(st.turn) ? T(G.vsComputer() ? 'ur.yourRoll' : 'ur.toRoll', { name: sideName(st.turn) }) : T('ur.computerRolling')), !G.human(st.turn));
   }
   function win() {
     var w = st.winner;

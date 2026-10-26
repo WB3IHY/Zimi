@@ -105,7 +105,7 @@
     els.board.classList.remove('solved', 'failed');
     els.info.textContent = '';
     paint(); paintHud(); setButtons();
-    say(isDaily ? T('janggi.noted', { note: T('puzzles.daily'), line: T('puzzles.watch') }) : T('puzzles.watch'), true);
+    say(isDaily ? UI.noted(T('puzzles.daily'), T('puzzles.watch')) : T('puzzles.watch'), true);
     later(function () { opponentMove(function () { busy = false; setButtons(); say(T('puzzles.findBest', { color: colorName(userColor) })); }); }, OPPONENT_DELAY_MS);
   }
   function opponentMove(after) {

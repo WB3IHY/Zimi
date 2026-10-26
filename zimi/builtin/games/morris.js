@@ -289,7 +289,7 @@
     var note = took ? T('morris.took', { name: G.vsComputer() ? (G.human(who) ? T('board.you') : T('board.theComputer')) : sideName(who) }) : '';
     if (state.over) { paint(); finishGame(); return; }
     if (seen[k] >= REPEAT_DRAW) { paint(); G.finish(T('xiangqi.why.repetition'), 'd'); return; }
-    paint(); G.say(note ? T('janggi.noted', { note: note, line: turnText() }) : turnText(), !G.human(state.turn));
+    paint(); G.say(note ? UI.noted(note, turnText()) : turnText(), !G.human(state.turn));
     if (!G.human(state.turn)) G.later(computerMove);
   }
 
@@ -313,7 +313,7 @@
 
   function hint() {
     hintMove = chooseMove(state, 'hard');
-    paint(); G.say(T('morris.hint', { line: turnText() }));
+    paint(); G.say(T('morris.hint'));
   }
 
   function undo() {

@@ -182,7 +182,7 @@
     aim.angle = forwardAngle(p); aim.power = 0.55; aim.show = G.human(p);
     syncSliders(); paint();
     var turn = G.human(p) ? (vsCpu() ? T(again ? 'carrom.again' : 'carrom.yourShot') : T('carrom.toShoot', { name: sideName(p) })) : T(isYou(p) ? 'carrom.aiming.you' : 'carrom.aiming', { name: nameOf(p) });
-    G.say(notesLine ? T('janggi.noted', { note: notesLine, line: turn }) : turn, !G.human(p));
+    G.say(notesLine ? UI.noted(notesLine, turn) : turn, !G.human(p));
     notesLine = '';
     snapTurn();
     if (!G.human(p)) computerShot();

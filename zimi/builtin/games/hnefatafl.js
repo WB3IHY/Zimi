@@ -84,7 +84,7 @@
     paint();
     var line = !G.vsComputer() ? T('board.toMove', { name: sideName(p) }) : G.human(p) ? T('makruk.yourTurn', { side: sideName(p).toLowerCase() }) : T('shell.thinking');
     if (st.kingThreat) line = T('hnefatafl.kingThreat', { line: line });
-    G.say(note ? T('janggi.noted', { note: note, line: line }) : line, !G.human(p));
+    G.say(note ? UI.noted(note, line) : line, !G.human(p));
     if (!G.human(p)) computerTurn();
   }
   function play(m) {

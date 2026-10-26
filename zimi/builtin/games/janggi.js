@@ -106,7 +106,7 @@
     if (st.over) { finish(st); return; }
     paint();
     var line = turnLine(st);
-    G.say(note ? T('janggi.noted', { note: note, line: st.check ? T('chess.check', { line: line }) : line }) : st.check ? T('chess.check', { line: line }) : line, !G.human(turnIdx()));
+    G.say(note ? UI.noted(note, st.check ? T('chess.check', { line: line }) : line) : st.check ? T('chess.check', { line: line }) : line, !G.human(turnIdx()));
     if (!G.human(turnIdx())) computerTurn();
   }
   function play(m) {

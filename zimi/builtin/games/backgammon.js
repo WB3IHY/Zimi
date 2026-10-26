@@ -499,8 +499,8 @@
     var w = winner(s);
     if (w >= 0) { paint(); finishGame(w); return; }
     var steps = s.dice.length ? legalSteps(s) : [];
-    if (!steps.length) { paint(); say(s.dice.length ? (msg ? T('janggi.noted', { note: msg, line: T('backgammon.noMore') }) : T('backgammon.noMore')) : msg); G.later(endMyTurn, s.dice.length ? 900 : 500); return; }
-    paint(); say(msg ? T('janggi.noted', { note: msg, line: turnText() }) : turnText());
+    if (!steps.length) { paint(); say(s.dice.length ? (msg ? UI.noted(msg, T('backgammon.noMore')) : T('backgammon.noMore')) : msg); G.later(endMyTurn, s.dice.length ? 900 : 500); return; }
+    paint(); say(msg ? UI.noted(msg, turnText()) : turnText());
     if (G.settings.auto && steps.length === 1) G.later(function () { doStep(steps[0]); }, 450);
   }
   function endMyTurn() {
@@ -531,7 +531,7 @@
         G.done(token);
         var w = winner(s);
         if (w >= 0) { finishGame(w); return; }
-        G.later(function () { var note = T(hits ? 'backgammon.playedHit' : 'backgammon.played'); passTurn(); if (isHuman(s.turn)) say(T('janggi.noted', { note: note, line: turnText() })); }, 450);
+        G.later(function () { var note = T(hits ? 'backgammon.playedHit' : 'backgammon.played'); passTurn(); if (isHuman(s.turn)) say(UI.noted(note, turnText())); }, 450);
         return;
       }
       var st = steps[k++];
