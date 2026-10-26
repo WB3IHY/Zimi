@@ -2,6 +2,7 @@
 
     GET /catalog/v2/entries           the OPDS catalog (Atom): <entry><name>, <title>, <language>, <articleCount>
     GET /random?content=<book>        a 302 to /content/<book>/<path> of a random article
+    GET /suggest?content=&term=       JSON [{value, label, path}] of titles that start with term
     GET /content/<book>/<path>        the ZIM's item, with Range; /content/<book> redirects to its main page
     GET /content/games/<file>         the games folder as one more book, so a page runs same-origin with the API as in a ZIM
 
@@ -94,6 +95,20 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 extra={"Location": "/content/%s/%s" % (name, quote(e.path))},
                 head=head,
             )
+        if path == "/suggest":
+            name = (qs.get("content") or [""])[0]
+            term = (qs.get("term") or [""])[0].lower()
+            count = int((qs.get("count") or ["10"])[0])
+            out = []
+            if name in self.books:
+                arc = self.books[name][0]
+                for i in range(arc.entry_count):
+                    e = arc._get_entry_by_id(i)
+                    if e.title.lower().startswith(term):
+                        out.append({"value": e.title, "label": e.title, "kind": "path", "path": e.path})
+                    if len(out) >= count:
+                        break
+            return self._send(200, json.dumps(out).encode(), "application/json", head=head)
         if path.startswith("/content/"):
             name, _, rest = path[len("/content/") :].partition("/")
             if name == "games":

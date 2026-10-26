@@ -329,7 +329,7 @@ def _word_page(lang, word, gloss, pos, heading):
     return page(word, body, lang=lang)
 
 
-def _wikt(path, name, title, lang, lang3, words, heading, pos):
+def _wikt(path, name, title, lang, lang3, words, heading, pos, extra=()):
     with Creator(path).config_indexing(True, lang3) as c:
         c.set_mainpath("Main_Page")
         c.add_item(
@@ -341,6 +341,8 @@ def _wikt(path, name, title, lang, lang3, words, heading, pos):
         )
         for w, gloss in words.items():
             c.add_item(_Page(w, w, _word_page(lang, w, gloss, pos, heading)))
+        for e_path, e_title, e_blob in extra:
+            c.add_item(_Page(e_path, e_title, e_blob))
         for k, v in {
             "Scraper": MW,
             "Name": name,
@@ -548,6 +550,40 @@ BOOKS = [  # title, author, id, the first line
 ]
 
 
+def bluff_fixture(games):
+    """The built-in Dictionary Bluff words as Wiktionary entries (seven letters or more, a definition that does not name the word),
+    so that the library path has a few dozen among the five-letter words the other games use."""
+    import ast
+
+    with open(os.path.join(games, "bluff-data.js"), encoding="utf-8") as f:
+        text = f.read()
+    rows = ast.literal_eval("[" + text.split("root.BLUFF_WORDS = [", 1)[1].rsplit("];", 1)[0] + "]")
+    return {w: m[0].upper() + m[1:] + " (a fixture sense)." for w, m in rows if len(w) >= 7}
+
+
+_LANGUAGE_NAMES = {"fr": "French", "es": "Spanish", "de": "German", "it": "Italian", "pt": "Portuguese", "ru": "Russian", "ja": "Japanese", "zh": "Chinese",
+                   "ar": "Arabic", "hi": "Hindi", "tr": "Turkish", "sv": "Swedish", "el": "Greek", "ko": "Korean"}
+
+
+def _translation_pages(games):
+    """Babel's library path reads <word>/translations in the English Wiktionary: one page for each built-in word, laid out as
+    Wiktionary lays a translation table out (a list of "Language: <span lang=xx><a>word</a></span>")."""
+    import ast
+
+    with open(os.path.join(games, "babel-data.js"), encoding="utf-8") as f:
+        text = f.read()
+    rows = ast.literal_eval("[" + text.split("root.BABEL_WORDS = [", 1)[1].rsplit("];", 1)[0] + "]")
+    out = []
+    for en, entries in rows:
+        items = "".join(
+            '<li>%s: <span class="Latn" lang="%s"><a rel="mw:WikiLink" href="./%s" title="%s">%s</a></span></li>\n' % (_LANGUAGE_NAMES[e[0]], e[0], e[1], e[1], e[1])
+            for e in entries
+        )
+        body = '<section><h5 id="Translations">Translations</h5><table class="translations" role="presentation"><tbody><tr><td class="translations-cell"><ul>%s</ul></td></tr></tbody></table></section>' % items
+        out.append(("%s/translations" % en, "%s/translations" % en, page(en + "/translations", body)))
+    return out
+
+
 def bee_first():
     """The first built-in Spelling Bee set as (its seven letters, its common words): the one the browser test deals."""
     with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "zimi", "builtin", "games", "spellingbee-data.js"), encoding="utf-8") as f:
@@ -572,7 +608,7 @@ def _date_events(offset):
 
 def _date_page(title, offset):
     body = (
-        '<section data-mw-section-id="0"><p>%s is a day of the year.</p></section>'
+        '<section data-mw-section-id="0"><p>%s is a day of the year, with many events in history.</p></section>'
         '<section data-mw-section-id="1"><div class="mw-heading mw-heading2"><h2 id="Events">Events</h2></div><ul>%s</ul></section>'
         '<section data-mw-section-id="2"><div class="mw-heading mw-heading2"><h2 id="Births">Births</h2></div><ul>'
         '<li>1900 – <a rel="mw:WikiLink" href="./Paris">Someone</a> is born.</li></ul></section>'
@@ -795,6 +831,7 @@ def build_more(base):
         pool = re.findall(r"^\s+([a-z]{5}): '", f.read(), re.M)
     words = {w: "Fixture sense number %d" % i for i, w in enumerate(pool)}
     words[bee_only_word()] = "A fixture word for the bee"
+    words.update(bluff_fixture(games))
     _wikt(
         os.path.join(out, "wiktionary_en_all_nopic_2026-02.zim"),
         "wiktionary_en_all",
@@ -804,8 +841,13 @@ def build_more(base):
         words,
         "English",
         "Noun",
+        extra=_translation_pages(games),
     )
     _gutenberg(os.path.join(out, "gutenberg_en_all_2026-01.zim"))
+    try:
+        _map(os.path.join(out, "osm_test_2026-01.zim"))
+    except Exception as e:  # the map is only for Drop Pin's test
+        print("no map fixture:", e)
     return out
 
 def build(base):
