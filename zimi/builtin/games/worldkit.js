@@ -17,11 +17,15 @@
     return e;
   }
 
-  // The usual options: who you play against, how strong, which side.
+  // The levels of the chess family: our own engine's four, then Fairy-Stockfish's two (Strong and Master, when it is there).
+  var CLASSIC_LEVELS = [['beginner', 'chess.level.beginner'], ['casual', 'chess.level.casual'], ['club', 'chess.level.club'], ['strong', 'chess.level.strong'], ['fairy', 'chess.level.fairy'], ['master', 'chess.level.master']];
+
+  // The usual options: who you play against, how strong, which side. opts: { base: the level list when it is not Easy to Hard (with levelDef),
+  // levels: more levels after them, first, second: what the sides are called, side: false for a game with no sides }.
   function standardOptions(opts) {
     opts = opts || {};
     var out = [{ key: 'mode', legend: 'board.opponent', def: 'cpu', choices: [['cpu', 'board.computer'], ['two', 'board.twoPlayers']] }];
-    out.push({ key: 'level', legend: 'board.level', def: 'medium', cpuOnly: true, choices: [['easy', 'board.level.easy'], ['medium', 'board.level.medium'], ['hard', 'board.level.hard']].concat(opts.levels || []) });
+    out.push({ key: 'level', legend: 'board.level', def: opts.levelDef || 'medium', cpuOnly: true, choices: (opts.base || [['easy', 'board.level.easy'], ['medium', 'board.level.medium'], ['hard', 'board.level.hard']]).concat(opts.levels || []) });
     if (opts.side !== false) out.push({ key: 'side', legend: 'board.youPlay', def: 'first', cpuOnly: true, choices: [['first', opts.first || 'board.first'], ['second', opts.second || 'board.second']] });
     return out;
   }
@@ -177,7 +181,7 @@
       cfg.onNew(settings);
     };
     // The move timer: a person's turn starts (or the turn is not a person's), and what to do at zero.
-    G.turnTimer = function (active, onExpire) { if (root.ZimiShell) root.ZimiShell.turn(active && !G.watching && !G.over, onExpire); };
+    G.turnTimer = function (active, onExpire, key) { if (root.ZimiShell) root.ZimiShell.turn(active && !G.watching && !G.over, onExpire, key); };
     // Watch and learn, the part every page shares. def: { script, unit, intro, level, side (the
     // side that moves first, 'first'), whoseTurn() -> 0 or 1, busy() -> true while a move is
     // animating, resume() repaints and carries on after a takeover, hint, stats }.
@@ -312,5 +316,5 @@
   // Wait for the page's frame before heavy work, so a "thinking" line gets painted first.
   function afterPaint(fn) { setTimeout(fn, 30); }
 
-  root.WorldKit = { pack: pack, unpack: unpack, create: create, standardOptions: standardOptions, overlay: overlay, History: History, scoreBar: scoreBar, STONE_DEFS: STONE_DEFS, shuffle: shuffle, pick: pick, afterPaint: afterPaint, el: el };
+  root.WorldKit = { CLASSIC_LEVELS: CLASSIC_LEVELS, pack: pack, unpack: unpack, create: create, standardOptions: standardOptions, overlay: overlay, History: History, scoreBar: scoreBar, STONE_DEFS: STONE_DEFS, shuffle: shuffle, pick: pick, afterPaint: afterPaint, el: el };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

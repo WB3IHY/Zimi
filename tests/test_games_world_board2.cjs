@@ -12,7 +12,7 @@ const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'games');
 function load(file) {
   const sandbox = {};
   vm.createContext(sandbox);
-  vm.runInContext(fs.readFileSync(path.join(dir, file), 'utf8'), sandbox, { filename: file });
+  for (const f of ['enginekit.js', file]) vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sandbox, { filename: f });
   return sandbox;
 }
 const seeded = seed => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -25,7 +25,7 @@ const check = (ok, label) => {
 
 // ── Xiangqi ──
 {
-  const E = load('xiangqi-engine.js').ZimiXiangqiEngine();
+  const X = load('xiangqi-engine.js'), E = X.ZimiXiangqiEngine(X.ZimiSearch());
   const at = (r, f) => r * 9 + f;
   const movesOf = (pos, r, f) => E.legalMoves(pos).filter(m => E.from(m) === at(r, f)).map(m => E.to(m));
   const sorted = list => list.slice().sort((a, b) => a - b);
