@@ -151,18 +151,26 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$, Tx = Play.T;
-  var BEST_KEY = 'zimi.games.crossing.best', CHROME_PX = 190, MAX_SCALE = 3, SWIPE_PX = 18, READY_ARM_MS = 650;
+  var BEST_KEY = 'zimi.games.crossing.best', CHROME_PX = 190, MAX_SCALE = 3, SWIPE_PX = 18;
   Play.applyTheme();
   var W_PX = COLS * TILE, H_PX = ROWS * TILE;
   var els = { cv: $('cr-screen'), score: $('cr-score'), best: $('cr-best'), lives: $('cr-lives'), level: $('cr-level'), msg: $('cr-msg'), pause: $('cr-pause'), newBtn: $('cr-new') };
-  var best = Play.load(BEST_KEY, { score: 0 }), st = createState(1), mode = 'ready', ctx, reduced = Play.reducedMotion(), armed = null, status = Play.status(els.msg);
-  var pad = Play.pad(els.cv, { dirs: ['left', 'right', 'up', 'down'], on: function (name, down) { if (down && mode === 'playing') hop(st, name); } , swipe: false });
+  var st = createState(1), ctx, reduced = Play.reducedMotion();
 
-  function layout() { ctx = Kit.fit(els.cv, W_PX, H_PX, CHROME_PX, MAX_SCALE).ctx; draw(); }
-  function hud() {
-    els.score.textContent = Play.num(st.score); els.best.textContent = Play.num(Math.max(best.score, st.score)); els.level.textContent = Play.num(st.level);
-    els.lives.textContent = Play.num(Math.max(0, st.lives));
-  }
+  // Leaving and coming back keeps the game: paused where it was, or at its end sheet.
+  var page = Play.arcadePage({
+    els: els, bestKey: BEST_KEY, ready: 'crossing', state: function () { return st; }, draw: draw, alwaysBest: true, endSaved: true, resumeOnStage: true,
+    layout: function () { ctx = Kit.fit(els.cv, W_PX, H_PX, CHROME_PX, MAX_SCALE).ctx; draw(); },
+    pad: { dirs: ['left', 'right', 'up', 'down'], on: function (name, down) { if (down && page.mode === 'playing') hop(st, name); }, swipe: false },
+    idle: function () { st = createState(1); },
+    newRun: function () { st = createState(1); },
+    snapshot: function () { return st; },
+    restore: function (saved) {
+      if (!saved.nests) return false;
+      st = saved; st.rng = mulberry(Math.floor(Math.random() * 4294967296));
+    }
+  });
+  var status = page.status;
 
   // ── art ──
   var PAL = { k: '#3a2a10', y: '#ffd84a', Y: '#fff0a0', o: '#f08a24', w: '#ffffff', e: '#1b1b1d' };
@@ -245,79 +253,30 @@
   }
 
   // ── flow ──
-  var loop = Play.loop(function (dt) {
+  page.run(function (dt) {
     step(st, dt);
     st.events.forEach(function (e) {
       if (e.name === 'die') status.say(Tx('crossing.die.' + e.data));
       else if (e.name === 'nest') status.say(Tx('crossing.nest', { n: st.nests.filter(Boolean).length }));
       else if (e.name === 'life') status.say(Tx('crossing.life'));
       else if (e.name === 'clear') status.say(Tx('crossing.clear'));
-      else if (e.name === 'over') finish();
+      else if (e.name === 'over') page.finish();
     });
     st.events.length = 0;
-    if (st.status === 'cleared' && st.statusT <= 0 && mode === 'playing') nextLevel();
-  }, function () { draw(); hud(); }, 60);
-
-  var READY = function () { return { say: status.say, target: pad.stage, start: begin, touch: Tx('crossing.readyTouch'), keys: Tx('crossing.readyKeys') }; };
-  function arm() { if (armed) armed.cancel(); st = createState(1); mode = 'ready'; hud(); draw(); armed = Play.ready(READY()); }
-  function begin() { if (armed) armed.cancel(); st = createState(1); mode = 'playing'; status.say(''); Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); loop.start(); }
-  function nextLevel() { st = createState(st.level + 1, undefined, { score: st.score, lives: st.lives, nextLife: st.nextLife }); status.say(Tx('crossing.level', { n: st.level })); }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); }
-  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
-  function toggle() { if (mode === 'playing') pause(); else resume(); }
-  var lastEnd = null;
-  function finish() {
-    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false);
-    if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); }
-    lastEnd = { stats: [[Tx('play.score'), Play.num(st.score)], [Tx('play.best'), Play.num(best.score)]] };
-    hud(); draw();
-    ZimiShell.endSheet({ result: 'over', stats: lastEnd.stats });
-    setTimeout(function () { if (mode === 'over') Play.ready(READY()); }, READY_ARM_MS);
-  }
-  els.newBtn.addEventListener('click', begin);
-  els.pause.addEventListener('click', toggle);
-  pad.stage.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
-  Play.onHidden(pause);
-  ZimiShell.game({
-    inProgress: function () { return mode === 'playing' || mode === 'paused'; },
-    stats: function () { return [[Tx('play.best'), Play.num(best.score)]]; }
+    if (st.status === 'cleared' && st.statusT <= 0 && page.mode === 'playing') nextLevel();
   });
+
+  function nextLevel() { st = createState(st.level + 1, undefined, { score: st.score, lives: st.lives, nextLife: st.nextLife }); status.say(Tx('crossing.level', { n: st.level })); }
 
   var KEYDIR = Object.assign({ ' ': 'up' }, root.ZimiUtil.DIR_KEYS);
-  Kit.keyboard(KEYDIR, function (a) { if (mode === 'playing') hop(st, a); }, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || mode !== 'playing'; });
-  document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (document.querySelector('.ar-sheet:not([hidden])')) return;
-    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (mode === 'playing' || mode === 'paused') toggle(); }
-  });
+  Kit.keyboard(KEYDIR, function (a) { if (page.mode === 'playing') hop(st, a); }, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || page.mode !== 'playing'; });
   // a swipe hops that way; a tap on the screen hops forward
   Play.gesture(els.cv, { up: function (g) {
-    if (mode !== 'playing') return;
+    if (page.mode !== 'playing') return;
     var d = Play.swipeDir(g.dx, g.dy, SWIPE_PX);
     if (d) hop(st, d); else if (g.tap) hop(st, 'up');
   } });
 
-  window.addEventListener('resize', layout);
-  buildArt(); layout(); arm();
-  // Leaving and coming back keeps the game: paused where it was, or at its end sheet.
-  ZimiShell.persist({
-    save: function () {
-      if (mode === 'over' && lastEnd) return { end: lastEnd };
-      return mode === 'playing' || mode === 'paused' ? { st: st } : null;
-    },
-    load: function (d) {
-      if (armed) armed.cancel();
-      if (d.end) {
-        st = createState(1); mode = 'over'; lastEnd = d.end; hud(); draw();
-        ZimiShell.endSheet({ result: 'over', stats: d.end.stats });
-        setTimeout(function () { if (mode === 'over') Play.ready(READY()); }, READY_ARM_MS);
-        return true;
-      }
-      if (!d.st || !d.st.nests) return false;
-      st = d.st; st.rng = mulberry(Math.floor(Math.random() * 4294967296)); mode = 'paused';
-      els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); hud(); draw();
-      return true;
-    }
-  });
-  root.__crossing = { get st() { return st; }, get mode() { return mode; } };
+  buildArt(); page.start();
+  root.__crossing = { get st() { return st; }, get mode() { return page.mode; } };
 })(this);
