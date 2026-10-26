@@ -3,35 +3,42 @@
    (handoff.js): with two or more people the screen hides each hand behind a "Pass to" cover. Our own code, GPL-3.0. */
 (function (root) {
   'use strict';
-  if (typeof document === 'undefined' || !root.Mahjong4Engine || !root.MahjongTiles) return;
-  var WK = root.WorldKit, BK = root.BoardKit, E = root.Mahjong4Engine, MT = root.MahjongTiles, $ = function (id) { return document.getElementById(id); };
+  if (typeof document === 'undefined' || !root.Mahjong4Engine || !root.MahjongTiles || !root.BoardUI) return;
+  var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, E = root.Mahjong4Engine, MT = root.MahjongTiles, $ = function (id) { return document.getElementById(id); };
   var SEATS = E.SEATS, ROTATIONS = 4, COMPUTER_DELAY_MS = 600, CLAIM_DELAY_MS = 800, HINT_LEVEL = 'hard';
 
   var G = WK.create({
     id: 'mahjong4',
     options: [
-      { key: 'level', legend: 'Computers', def: 'medium', choices: [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard']] },
-      { key: 'min', legend: 'Minimum to win', def: '3', choices: [['3', '3 faan'], ['1', '1 faan (easier)']] }
+      { key: 'level', legend: 'mahjong4.computers', def: 'medium', choices: [['easy', 'board.level.easy'], ['medium', 'board.level.medium'], ['hard', 'board.level.hard']] },
+      { key: 'min', legend: 'mahjong4.min', def: '3', choices: [['3', 'mahjong4.min3'], ['1', 'mahjong4.min1']] }
     ],
+    // The people at the table (Computer or Person for each seat) join the New game pane after the options.
+    extraOptions: function () { return [seats.block(null, { note: T('mahjong4.seat1Deals') })]; },
     statKey: function (s) { return s.level + s.min; },
     onNew: newGame, onHint: hint
   });
   var seats = newSeats();
   var score = WK.scoreBar($('wk-score'), [{}, {}, {}, {}].map(function () { return { color: 'var(--m4-cloth)' }; }));
   var els = { info: $('m4-info'), opps: $('m4-opps'), pool: $('m4-pool'), claim: $('m4-claim'), melds: $('m4-melds'), hand: $('m4-hand') };
-  var handSheet = BK.sheet($('m4-hand-sheet')), rulesSheet = BK.sheet($('m4-rules-sheet'));
   var game, t, epoch = 0, picked = -1, tip = -1, shown = [], event = '';   // event: what just happened, shown ahead of whose turn it is
 
   // ── small helpers ──
   function newSeats() { return root.ZimiSeats.create({ id: 'mahjong4', seats: SEATS, onChange: function () { if (t) render(); } }); }
   function me() { return seats.view(); }   // the seat whose hand is face up
   function level() { return G.settings.level; }
-  function seatName(p) { return E.WINDS[E.seatOf(t, p)]; }
+  function seatName(p) { return T('mahjong.wind.' + E.seatOf(t, p)); }
+  function seatInitial(p) { return T('mahjong4.initial.' + E.seatOf(t, p)); }
+  // Names go into markup built as strings: a person's typed name must not become markup.
+  function esc(x) { return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function list(names) { return root.Intl && Intl.ListFormat ? new Intl.ListFormat(undefined, { type: 'conjunction' }).format(names) : names.join(', '); }
   function nameOf(p) { return seats.person(p) ? seats.name(p) : seatName(p); }
-  function labelOf(p) { return seats.person(p) ? seats.name(p) + ' (' + seatName(p) + ')' : seatName(p) + ' (computer)'; }
-  function verb(p, you, other) { return seats.isYou(p) ? you : other; }   // "You discard" / "East discards"
-  function ownerOf(p) { return nameOf(p) + (seats.isYou(p) ? 'r' : "'s"); }
-  function tileHtml(k, cls, extra) { return '<span class="m4-t' + (cls ? ' ' + cls : '') + '"' + (extra || '') + ' title="' + MT.faceName(k) + '">' + MT.faceMarkup(k) + '</span>'; }
+  function labelOf(p) { return seats.person(p) ? T('mahjong4.label', { name: seats.name(p), wind: seatName(p) }) : T('mahjong4.label.computer', { wind: seatName(p) }); }
+  // A sentence about a player: its "you" form when the player is the person at the screen (verbs agree).
+  function about(key, p, vars) { return T(key + (seats.isYou(p) ? '.you' : ''), Object.assign({ name: nameOf(p) }, vars)); }
+  function ownerOf(p) { return T(seats.isYou(p) ? 'mahjong4.owner.you' : 'mahjong4.owner', { name: nameOf(p) }); }
+  function meldName(type) { return T('mahjong4.meld.' + type); }
+  function tileHtml(k, cls, extra) { return '<span class="m4-t' + (cls ? ' ' + cls : '') + '"' + (extra || '') + ' title="' + esc(MT.faceName(k)) + '">' + MT.faceMarkup(k) + '</span>'; }
   function backHtml(cls) { return '<span class="m4-t back ' + (cls || 'xs') + '" aria-hidden="true"></span>'; }
   function meldTiles(m) {
     if (m.type === 'chow') return [m.k, m.k + 1, m.k + 2];
@@ -39,32 +46,34 @@
   }
   function meldHtml(m, cls) {
     var hidden = m.type === 'kong' && !m.open;   // a concealed kong shows its two middle tiles face down
-    return '<span class="m4-meld" title="' + m.type + ' of ' + MT.faceName(m.k) + '">' + meldTiles(m).map(function (k, i) { return hidden && (i === 0 || i === 3) ? backHtml(cls) : tileHtml(k, cls); }).join('') + '</span>';
+    return '<span class="m4-meld" title="' + esc(T('mahjong4.meldTitle', { type: meldName(m.type), tile: MT.faceName(m.k) })) + '">' + meldTiles(m).map(function (k, i) { return hidden && (i === 0 || i === 3) ? backHtml(cls) : tileHtml(k, cls); }).join('') + '</span>';
   }
   function later(fn, ms) { var my = epoch; setTimeout(function () { if (my === epoch) fn(); }, ms); }
   function say(text, busy) { G.say(text, busy); }
+  // What just happened, then whose turn it is: one sentence each.
+  function withEvent(line) { return event ? T('janggi.noted', { note: event, line: line }) : line; }
   function human() { return t.phase === 'discard' && t.turn === me() && seats.person(t.turn) && !seats.covering && !t.result; }
 
   // ── drawing the table ──
   function render() {
     var p, i;
-    els.info.textContent = 'East round, deal ' + Math.min(ROTATIONS, game.rotations + 1) + ' of ' + ROTATIONS + (game.repeats ? ' (dealer stays)' : '') + '. ' + E.liveLeft(t) + ' tiles left in the wall.' + ' Minimum ' + t.min + ' faan.';
+    els.info.textContent = T(game.repeats ? 'mahjong4.info.again' : 'mahjong4.info', { n: Math.min(ROTATIONS, game.rotations + 1), of: ROTATIONS, left: E.liveLeft(t) });
     var names = [], vals = [];
-    for (p = 0; p < SEATS; p++) { names.push(nameOf(p) + ' (' + seatName(p).charAt(0) + ')'); vals.push(game.points[p]); }
+    for (p = 0; p < SEATS; p++) { names.push(nameOf(p) + ' (' + seatInitial(p) + ')'); vals.push(game.points[p]); }
     score(names, vals, t.result ? -1 : t.turn);
     // the three computers: tiles face down, melds face up
     var opp = '';
     for (var r = 1; r < SEATS; r++) {
       p = (me() + r) % SEATS;
       var backs = ''; for (i = 0; i < t.hands[p].length; i++) backs += backHtml('xs');
-      opp += '<div class="m4-opp' + (t.turn === p && !t.result ? ' turn' : '') + '"><span class="nm">' + labelOf(p) + (p === t.dealer ? ' · dealer' : '') + '</span><span class="row" aria-label="' + t.hands[p].length + ' tiles in hand">' + backs + '</span><span class="melds">' + t.melds[p].map(function (m) { return meldHtml(m, 'xs'); }).join('') + '</span></div>';
+      opp += '<div class="m4-opp' + (t.turn === p && !t.result ? ' turn' : '') + '"><span class="nm">' + esc(labelOf(p)) + (p === t.dealer ? ' · ' + esc(T('mahjong4.dealer')) : '') + '</span><span class="row" aria-label="' + esc(T('mahjong4.inHand', { n: t.hands[p].length })) + '">' + backs + '</span><span class="melds">' + t.melds[p].map(function (m) { return meldHtml(m, 'xs'); }).join('') + '</span></div>';
     }
     els.opps.innerHTML = opp;
     // the discards, a row for each player, the newest claim target marked
     var pool = '';
     for (p = 0; p < SEATS; p++) {
       var d = t.discards[p], tiles = d.map(function (k, j) { var isLast = t.phase === 'claim' && t.lastDiscard && t.lastDiscard.from === p && j === d.length - 1; return tileHtml(k, 'sm' + (isLast ? ' last' : '')); }).join('');
-      pool += '<div class="line"><span class="who">' + seatName(p).charAt(0) + (p === me() ? '*' : '') + '</span><span class="tiles">' + tiles + '</span></div>';
+      pool += '<div class="line"><span class="who">' + esc(seatInitial(p)) + (p === me() ? '*' : '') + '</span><span class="tiles">' + tiles + '</span></div>';
     }
     els.pool.innerHTML = pool;
     els.melds.innerHTML = t.melds[me()].map(function (m) { return meldHtml(m, 'sm'); }).join('');
@@ -81,7 +90,7 @@
     var o = handOrder(), can = human(), h = '', i;
     for (i = 0; i < shown.length; i++) {
       var isDrawn = o.drawn >= 0 && i === shown.length - 1, k = shown[i];
-      h += '<button type="button" class="m4-t' + (isDrawn ? ' drawn' : '') + (i === picked ? ' pick' : '') + (i === tip ? ' tip' : '') + '" data-i="' + i + '" tabindex="' + (i === (picked >= 0 ? picked : 0) ? 0 : -1) + '" aria-label="' + MT.faceName(k) + (isDrawn ? ', just drawn' : '') + (i === picked ? ', picked: press again to discard' : '') + '"' + (can ? '' : ' disabled') + '>' + MT.faceMarkup(k) + '</button>';
+      h += '<button type="button" class="m4-t' + (isDrawn ? ' drawn' : '') + (i === picked ? ' pick' : '') + (i === tip ? ' tip' : '') + '" data-i="' + i + '" tabindex="' + (i === (picked >= 0 ? picked : 0) ? 0 : -1) + '" aria-label="' + esc(MT.faceName(k) + (isDrawn ? ', ' + T('mahjong4.justDrawn') : '') + (i === picked ? ', ' + T('mahjong4.pickedAria') : '')) + '"' + (can ? '' : ' disabled') + '>' + MT.faceMarkup(k) + '</button>';
     }
     els.hand.innerHTML = h;
   }
@@ -91,7 +100,7 @@
     var i = +b.dataset.i;
     if (picked === i) { discardTile(shown[i]); return; }
     picked = i; tip = -1; renderHand(); focusTile(i);
-    say('Picked ' + MT.faceName(shown[i]) + '. Tap it again to discard it.');
+    say(T('mahjong4.picked', { tile: MT.faceName(shown[i]) }));
   });
   function focusTile(i) { var b = els.hand.querySelector('[data-i="' + i + '"]'); if (b) b.focus(); }
   els.hand.addEventListener('keydown', function (e) {
@@ -119,17 +128,17 @@
   function showSelfOptions(o) {
     els.claim.textContent = ''; var any = false;
     var who = me();
-    if (o.win) { any = true; addBtn('Win: ' + o.win.faan + ' faan, self-drawn', 'win', function () { hideClaims(); E.declareWin(t, who, false); endHand(); }); }
-    o.concealedKongs.concat(o.addKongs).forEach(function (k) { any = true; addBtn('Kong ' + MT.faceName(k), '', function () { hideClaims(); doKong(who, k); }, [k]); });
+    if (o.win) { any = true; addBtn(T('mahjong4.win.self', { faan: o.win.faan }), 'win', function () { hideClaims(); E.declareWin(t, who, false); endHand(); }); }
+    o.concealedKongs.concat(o.addKongs).forEach(function (k) { any = true; addBtn(T('mahjong4.kongTile', { tile: MT.faceName(k) }), '', function () { hideClaims(); doKong(who, k); }, [k]); });
     els.claim.hidden = !any; pending = any ? { kind: 'self' } : null;
   }
   function showClaims(c, tile) {
     els.claim.textContent = ''; pending = { kind: 'claim' };
-    if (c.win) addBtn('Win: ' + c.win.faan + ' faan', 'win', function () { choose({ type: 'win' }); }, [tile]);
-    if (c.kong) addBtn('Kong', '', function () { choose({ type: 'kong' }); }, [tile, tile, tile, tile]);
-    if (c.pung) addBtn('Pung', '', function () { choose({ type: 'pung' }); }, [tile, tile, tile]);
-    c.chows.forEach(function (s) { addBtn('Chow', '', function () { choose({ type: 'chow', start: s }); }, [s, s + 1, s + 2]); });
-    addBtn('Pass', '', function () { choose(null); });
+    if (c.win) addBtn(T('mahjong4.win', { faan: c.win.faan }), 'win', function () { choose({ type: 'win' }); }, [tile]);
+    if (c.kong) addBtn(T('mahjong4.kong'), '', function () { choose({ type: 'kong' }); }, [tile, tile, tile, tile]);
+    if (c.pung) addBtn(T('mahjong4.pung'), '', function () { choose({ type: 'pung' }); }, [tile, tile, tile]);
+    c.chows.forEach(function (s) { addBtn(T('mahjong4.chow'), '', function () { choose({ type: 'chow', start: s }); }, [s, s + 1, s + 2]); });
+    addBtn(T('mahjong4.pass'), '', function () { choose(null); });
     els.claim.hidden = false;
     var first = els.claim.querySelector('button'); if (first) first.focus({ preventScroll: true });
   }
@@ -139,23 +148,22 @@
     epoch++; picked = -1; tip = -1; hideClaims();
     t = E.newHand({ dealer: game.dealer, min: +G.settings.min });
     render();
-    event = (seats.isYou(game.dealer) ? 'You deal' : nameOf(game.dealer) + ' deals') + '.';
+    event = about('mahjong4.deals', game.dealer);
     beginTurn();
   }
   function beginTurn() {
     if (t.result) { endHand(); return; }
     picked = -1; tip = -1; render();
-    var p = t.turn, lead = event ? event + ' ' : '', my = epoch;
+    var p = t.turn, my = epoch;
     if (seats.person(p)) {
       // With several people the next person takes the screen first, then sees their own tiles and options.
       seats.ensure(p, function () {
         if (my !== epoch) return;
         render();
         showSelfOptions(E.selfOptions(t, p));
-        var you = seats.isYou(p), to = you ? 'Your turn' : nameOf(p) + ', your turn';
-        say(lead + (els.claim.hidden ? to + ': discard a tile.' : (you ? 'You' : nameOf(p)) + ' can declare, or discard a tile.'));
+        say(withEvent(els.claim.hidden ? T(seats.isYou(p) ? 'mahjong4.yourTurn' : 'mahjong4.turn', { name: nameOf(p) }) : about('mahjong4.canDeclare', p)));
       });
-    } else { say(lead + seatName(p) + ' is thinking...', true); later(function () { computerAct(p); }, COMPUTER_DELAY_MS); }
+    } else { say(withEvent(T('mahjong4.thinking', { name: seatName(p) })), true); later(function () { computerAct(p); }, COMPUTER_DELAY_MS); }
   }
   function computerAct(p) {
     var self = E.aiSelf(t, p, level());
@@ -166,7 +174,7 @@
   }
   function doKong(p, k) {
     E.declareKong(t, p, k);
-    event = nameOf(p) + verb(p, ' declare', ' declares') + ' a kong of ' + MT.faceName(k) + '.';
+    event = about('mahjong4.declares', p, { tile: MT.faceName(k) });
     if (t.result) { endHand(); return; }
     beginTurn();
   }
@@ -174,7 +182,7 @@
     p = p === undefined ? me() : p;
     if (!E.discard(t, p, tile)) return;
     picked = -1; tip = -1; hideClaims();
-    event = nameOf(p) + verb(p, ' discard ', ' discards ') + MT.faceName(tile) + '.';
+    event = about('mahjong4.discards', p, { tile: MT.faceName(tile) });
     render();
     // the computers' answers are known at once; each person with an option is asked in turn after the discarder
     var picks = {}, asking = [], q, d;
@@ -196,10 +204,10 @@
     seats.ensure(q, function () {
       if (my !== epoch) return;
       render();
-      say(event + (seats.isYou(q) ? ' You may claim it.' : ' ' + nameOf(q) + ' may claim it.'));
+      say(T('janggi.noted', { note: event, line: about('mahjong4.mayClaim', q) }));
       showClaims(t.claims[q], tile);
       pending.picks = picks; pending.asking = asking; pending.tile = tile;
-    }, 'Pass the device. You may claim the last discard, and your tiles stay hidden until you tap.');
+    }, T('mahjong4.coverClaim'));
   }
   function choose(pick) {
     var wait = pending, q = wait.asking[0];
@@ -212,7 +220,7 @@
     if (res === 'win' || res === 'draw') { endHand(); return; }
     if (res === 'next') { event = ''; beginTurn(); return; }
     var claimant = t.turn;   // the one who took the tile now has the turn
-    event = nameOf(claimant) + verb(claimant, ' take', ' takes') + ' the ' + MT.faceName(tile) + ' for a ' + res + '.';
+    event = about('mahjong4.takes', claimant, { tile: MT.faceName(tile), meld: meldName(res) });
     beginTurn();
   }
 
@@ -223,40 +231,32 @@
     if (r.type === 'win') {
       for (i = 0; i < SEATS; i++) game.points[i] += r.points[i];
       var w = r.winner, selfDrawn = r.from === null;
-      title = seats.isYou(w) ? 'You win the hand' : nameOf(w) + ' wins the hand';
+      title = seats.isYou(w) ? T('mahjong4.youWinHand') : T('mahjong4.winsHand', { name: nameOf(w) });
       var tilesRow = t.hands[w].slice(); if (!selfDrawn) tilesRow.push(r.tile);
       E.sortTiles(tilesRow);
-      body += '<div class="m4-result"><p>' + (selfDrawn ? nameOf(w) + verb(w, ' drew', ' draws') + ' the winning tile.' : nameOf(w) + verb(w, ' win', ' wins') + ' on ' + ownerOf(r.from) + ' ' + MT.faceName(r.tile) + '.') + '</p>';
+      body += '<div class="m4-result"><p>' + esc(selfDrawn ? about('mahjong4.drew', w) : about('mahjong4.winsOn', w, { owner: ownerOf(r.from), tile: MT.faceName(r.tile) })) + '</p>';
       body += '<div class="tiles">' + t.melds[w].map(function (m) { return meldHtml(m, 'sm'); }).join('') + tilesRow.map(function (k) { return tileHtml(k, 'sm'); }).join('') + '</div>';
-      body += '<h3>' + r.faan + ' faan' + (r.limit ? ' (limit)' : '') + ': ' + E.pointsFor(r.faan) + ' points</h3><table>' + r.items.map(function (it) { return '<tr><td>' + it.name + '</td><td class="n">' + it.faan + '</td></tr>'; }).join('') + '</table>';
-      body += '<h3>Points</h3><table><tr><th></th><th class="n">Change</th><th class="n">Total</th></tr>' + [0, 1, 2, 3].map(function (p) { return '<tr><td>' + nameOf(p) + ' (' + seatName(p) + ')</td><td class="n">' + (r.points[p] > 0 ? '+' : '') + r.points[p] + '</td><td class="n">' + game.points[p] + '</td></tr>'; }).join('') + '</table></div>';
+      body += '<h3>' + esc(T(r.limit ? 'mahjong4.scoreLimit' : 'mahjong4.score', { faan: r.faan, points: E.pointsFor(r.faan) })) + '</h3><table>' + r.items.map(function (it) { return '<tr><td>' + esc(it.key ? T('mahjong4.hand.' + it.key) : it.name) + '</td><td class="n">' + it.faan + '</td></tr>'; }).join('') + '</table>';
+      body += '<h3>' + esc(T('mahjong4.points')) + '</h3><table><tr><th></th><th class="n">' + esc(T('mahjong4.change')) + '</th><th class="n">' + esc(T('mahjong4.total')) + '</th></tr>' + [0, 1, 2, 3].map(function (p) { return '<tr><td>' + esc(labelOf(p)) + '</td><td class="n">' + (r.points[p] > 0 ? '+' : '') + r.points[p] + '</td><td class="n">' + game.points[p] + '</td></tr>'; }).join('') + '</table></div>';
       game.repeats = w === t.dealer ? game.repeats + 1 : 0;
       if (w !== t.dealer) { game.dealer = (game.dealer + 1) % SEATS; game.rotations++; }
     } else {
-      title = 'A draw';
-      body = '<div class="m4-result"><p>The wall has run out. Nobody scores, and the dealer stays.</p></div>';
+      title = T('mahjong4.draw');
+      body = '<div class="m4-result"><p>' + esc(T('mahjong4.wallOut')) + '</p></div>';
       game.repeats++;
     }
-    say(title + '.');
-    var last = game.rotations >= ROTATIONS;
-    $('m4-hand-next').textContent = last ? 'Final result' : 'Next hand';
-    $('m4-hand-title').textContent = title;
-    $('m4-hand-body').innerHTML = body;
-    handSheet.open($('m4-hand-next'));
-    score(game.points.map(function (_, p) { return nameOf(p) + ' (' + seatName(p).charAt(0) + ')'; }), game.points, -1);
+    say(title);
+    var last = game.rotations >= ROTATIONS, box = UI.h('div');
+    box.innerHTML = body;
+    score(game.points.map(function (_, p) { return nameOf(p) + ' (' + seatInitial(p) + ')'; }), game.points, -1);
     game.last = last;
+    root.ZimiShell.sheet({ title: title, body: [box], actions: [{ label: T('shell.close') }, { label: T(last ? 'mahjong4.finalResult' : 'mahjong4.nextHand'), primary: true, onclick: function () { if (game.last) gameOver(); else startHand(); } }] });
   }
-  $('m4-hand-next').addEventListener('click', function () {
-    handSheet.close();
-    if (game.last) { gameOver(); return; }
-    startHand();
-  });
-  $('m4-hand-look').addEventListener('click', function () { handSheet.close(); });
   function gameOver() {
     var order = [0, 1, 2, 3].sort(function (a, b) { return game.points[b] - game.points[a]; }), hot = seats.hotseat(), place = order.indexOf(seats.people()[0]) + 1;
-    var msg = 'Final points: ' + order.map(function (p) { return nameOf(p) + ' ' + game.points[p]; }).join(', ') + '. ' +
-      (hot ? nameOf(order[0]) + ' comes first.' : place === 1 ? 'You come first.' : 'You finish ' + ['', 'first', 'second', 'third', 'fourth'][place] + '.');
-    G.finish(msg, hot ? null : place === 1 ? 'w' : 'l', hot ? nameOf(order[0]) + ' wins' : place === 1 ? 'You win the game' : 'Game over');
+    var finalLine = T('mahjong4.final', { list: order.map(function (p) { return nameOf(p) + ' ' + game.points[p]; }).join(', ') });
+    var verdict = hot ? T('mahjong4.comesFirst', { name: nameOf(order[0]) }) : T('mahjong4.place.' + place);
+    G.finish(T('janggi.noted', { note: finalLine, line: verdict }), hot ? null : place === 1 ? 'w' : 'l', hot ? nameOf(order[0]) : undefined);
   }
 
   // ── hint, rules, new game ──
@@ -265,40 +265,35 @@
     var who = me(), k = E.aiDiscard(t, who, HINT_LEVEL), i = shown.lastIndexOf(k), c = E.countsOf(t.hands[who]);
     tip = i >= 0 ? i : -1; picked = -1; renderHand();
     c[k]--;
-    var w = E.waits(c, t.melds[who].length), text = 'Try discarding the ' + MT.faceName(k) + '.';
-    if (w.length) text += ' Then you are waiting on ' + w.map(MT.faceName).join(', ') + '.';
+    var w = E.waits(c, t.melds[who].length), text = T('mahjong4.hint', { tile: MT.faceName(k) });
+    if (w.length) text = T('janggi.noted', { note: text, line: T('mahjong4.hintWait', { tiles: list(w.map(MT.faceName)) }) });
     say(text);
   }
-  function rulesHtml() {
-    var h = '<div class="m4-rules"><p>A hand is four sets (chow, pung or kong) and a pair. It needs at least the minimum faan to win, three by default. The prevailing wind is East; the dealer is East.</p><table>';
-    E.TABLE.forEach(function (r) { h += '<tr><td>' + r[0] + '<div class="how">' + r[2] + '</div></td><td class="n">' + r[1] + '</td></tr>'; });
-    h += '</table><h3>Points</h3><table>';
-    [1, 2, 3, 4, 5, 6, 7, 8].forEach(function (f) { h += '<tr><td>' + f + (f === 8 ? ' or more (limit)' : ' faan') + '</td><td class="n">' + E.POINTS[f] + '</td></tr>'; });
-    h += '</table><p class="how">A win on your own draw is paid by all three players, a win on a discard by the player who discarded, at double. The deal passes when someone other than the dealer wins; a draw or a dealer win keeps it. Four deals make the game.</p></div>';
-    return h;
+  // The scoring table: its names and notes are keyed by the row's place in the engine's table.
+  function rulesNode() {
+    var box = UI.h('div', { class: 'm4-rules' }), h = '<p>' + esc(T('mahjong4.rules.intro')) + '</p><table>';
+    E.TABLE.forEach(function (r, i) { h += '<tr><td>' + esc(T('mahjong4.rule.' + i + '.name')) + '<div class="how">' + esc(T('mahjong4.rule.' + i + '.how')) + '</div></td><td class="n">' + r[1] + '</td></tr>'; });
+    h += '</table><h3>' + esc(T('mahjong4.points')) + '</h3><table>';
+    [1, 2, 3, 4, 5, 6, 7, 8].forEach(function (f) { h += '<tr><td>' + esc(T(f === 8 ? 'mahjong4.faanLimit' : 'mahjong4.faan', { n: f })) + '</td><td class="n">' + E.POINTS[f] + '</td></tr>'; });
+    h += '</table><p class="how">' + esc(T('mahjong4.rules.pay')) + '</p>';
+    box.innerHTML = h;
+    return box;
   }
-  $('m4-rules-body').innerHTML = rulesHtml();
-  $('m4-rules').addEventListener('click', function () { rulesSheet.open($('m4-rules-close')); });
-  $('m4-rules-close').addEventListener('click', rulesSheet.close);
+  $('m4-rules').addEventListener('click', function () { root.ZimiShell.sheet({ title: T('mahjong4.scoring'), body: [rulesNode()], actions: [{ label: T('shell.close'), primary: true }] }); });
 
   function newGame() {
     epoch++; t = null;
     seats = newSeats();
     game = { dealer: 0, rotations: 0, repeats: 0, points: [0, 0, 0, 0], last: false };
-    handSheet.close();
     var my = epoch;
     seats.begin(function () { if (my === epoch) startHand(); }, game.dealer);
   }
-  // The Players rows join the New game sheet, ahead of its buttons.
-  (function seatRows() {
-    var card = $('wk-menu-title').parentNode;
-    card.insertBefore(seats.block(null, { note: 'Seat 1 deals first.' }), card.querySelector('.ar-sheet-actions'));
-  })();
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet,input')) return;
     if (e.key === 'Escape' && picked >= 0) { picked = -1; renderHand(); }
   });
 
+  if (root.ZimiShell) root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && !!t && (game.rotations > 0 || t.discards.some(function (d) { return d.length > 1; })); } });
   G.newGame();
 
   if (new URLSearchParams(location.search).has('debug')) {

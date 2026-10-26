@@ -61,7 +61,8 @@
         rows.push({ row: UI.toggle(L(c.label), draft[c.key], function (v) { draft[c.key] = v; }) });
       });
       refreshRows();
-      return UI.options(rows.map(function (r) { return r.row; }));
+      // A page may add rows of its own after these (Mahjong's seats): cfg.extraOptions() returns nodes.
+      return UI.options(rows.map(function (r) { return r.row; }).concat(cfg.extraOptions ? cfg.extraOptions() : []));
     }
     function applyDraft() {
       if (!draft) return;

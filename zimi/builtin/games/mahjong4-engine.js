@@ -84,7 +84,7 @@
   // -> { faan, items: [{ name, faan }], limit } or null when the tiles are not a win.
   function scoreHand(ctx) {
     var melds = ctx.melds || [], best = null;
-    if (isOrphans(ctx.counts, melds.length)) return { faan: LIMIT_FAAN, items: [{ name: HAND_NAMES.orphans, faan: LIMIT_FAAN }], limit: true };
+    if (isOrphans(ctx.counts, melds.length)) return { faan: LIMIT_FAAN, items: [{ key: 'orphans', name: HAND_NAMES.orphans, faan: LIMIT_FAAN }], limit: true };
     var decs = decompositions(ctx.counts, 4 - melds.length);
     for (var i = 0; i < decs.length; i++) {
       var r = scoreDecomposition(decs[i], melds, ctx);
@@ -95,7 +95,7 @@
   function scoreDecomposition(dec, melds, ctx) {
     var sets = dec.sets.map(function (s) { return { t: s.t, k: s.k, open: false }; }).concat(melds.map(function (m) { return { t: m.type === 'chow' ? 'c' : 'p', k: m.k, open: !!m.open }; }));
     var items = [], limit = null, i;
-    function add(key, faan) { items.push({ name: HAND_NAMES[key], faan: faan }); }
+    function add(key, faan) { items.push({ key: key, name: HAND_NAMES[key], faan: faan }); }
     var pungs = sets.filter(function (s) { return s.t === 'p'; }), chows = sets.filter(function (s) { return s.t === 'c'; });
     var dragonPungs = pungs.filter(function (s) { return s.k >= DRAGON_FIRST; }), windPungs = pungs.filter(function (s) { return isHonour(s.k) && s.k < DRAGON_FIRST; });
     var kinds = [dec.pair]; sets.forEach(function (s) { kinds.push(s.k); if (s.t === 'c') kinds.push(s.k + 1, s.k + 2); });
@@ -106,7 +106,7 @@
     if (dragonPungs.length === 3) limit = 'bigDragons';
     else if (windPungs.length === 4) limit = 'bigWinds';
     else if (!suitCount && honours && !chows.length) limit = 'allHonours';
-    if (limit) { items.push({ name: HAND_NAMES[limit], faan: LIMIT_FAAN }); return { faan: LIMIT_FAAN, items: items, limit: true }; }
+    if (limit) { items.push({ key: limit, name: HAND_NAMES[limit], faan: LIMIT_FAAN }); return { faan: LIMIT_FAAN, items: items, limit: true }; }
     var smallDragons = dragonPungs.length === 2 && dec.pair >= DRAGON_FIRST, smallWinds = windPungs.length === 3 && isHonour(dec.pair) && dec.pair < DRAGON_FIRST;
     if (smallDragons) add('smallDragons', 5);
     else dragonPungs.forEach(function () { add('dragon', 1); });
