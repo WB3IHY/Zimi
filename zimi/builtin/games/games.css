@@ -77,8 +77,8 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
    time as thumbnail rows). With no data-view the page is Lobby's grid. */
 .ar-shelf { max-width: 1180px; margin: 0 auto; padding: 16px 16px 48px; --glow: color-mix(in srgb, var(--accent) 14%, transparent); }
 .ar-shelf header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 16px; }
-.ar-brand { display: block; margin: 0; }
-.ar-brand .ar-lockup { display: block; height: 30px; width: auto; max-width: 100%; }
+.ar-brand { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+.ar-brand .ar-lockup { display: block; flex: none; height: 36px; width: auto; }
 .ar-shelf header p { flex: 1 0 100%; margin: 0; color: var(--ink2); max-width: 60ch; }
 .sh-on header p { display: none; }
 .sh-tools { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex: 1 1 0; min-width: 0; }

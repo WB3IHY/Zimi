@@ -118,6 +118,7 @@ Object.assign(TILES, {
   crazyeights: () => tile(FELT, back(28, 48, 56) + face(cid('8S'), 112, 32, 76, -8) + face(cid('8H'), 176, 34, 76, 8) +
     [[1, 56], [0, 92]].map((p) => '<g transform="translate(270 ' + p[1] + ') scale(1.2)" fill="rgba(255,255,255,0.85)"><use href="#zc-s-' + p[0] + '"/></g>').join('')),
   durak: () => tile(FELT_DEEP, back(96, -34, 40) + back(142, -34, 40) + back(188, -34, 40) + face(cid('7C'), 112, 44, 58) + face(cid('9S'), 132, 58, 58, 8) + face(cid('AH'), 26, 92, 46) + back(46, 92, 46)),
+  bridge: () => tile(FELT_DEEP, back(144, 8, 32)),
   scopa: () => tile(FELT, italian(0, 56, 34, 64, -12) + italian(19, 128, 28, 64) + italian(26, 200, 34, 64, 12) + label(160, 160, 22, 'Scopa!'))
 });
 
@@ -129,8 +130,9 @@ html = /<!-- zimi-shelf:sprite -->[\s\S]*?<!-- \/zimi-shelf:sprite -->/.test(htm
   ? html.replace(/<!-- zimi-shelf:sprite -->[\s\S]*?<!-- \/zimi-shelf:sprite -->/, () => '<!-- zimi-shelf:sprite -->' + spriteSvg + '<!-- /zimi-shelf:sprite -->')
   : html.replace('<main class="ar-shelf">', () => '<!-- zimi-shelf:sprite -->' + spriteSvg + '<!-- /zimi-shelf:sprite -->\n<main class="ar-shelf">');
 
-const lockup = Z.wordmarkSvg().replace('<svg ', '<svg class="ar-lockup" ').replace(' xmlns="http://www.w3.org/2000/svg"', '');
-const brand = '<h1 class="ar-brand">' + lockup + '</h1>';
+// The header: the pebble mark, then the name as text in the page's own heading face (selectable, translatable).
+const mark = Z.markSvg().replace('<svg ', '<svg class="ar-lockup" ').replace(' xmlns="http://www.w3.org/2000/svg"', '').replace(' role="img" aria-label="ZimiGames"', ' aria-hidden="true"');
+const brand = '<h1 class="ar-brand">' + mark + '<span>ZimiGames</span></h1>';
 html = html.replace(/<h1 class="ar-brand">[\s\S]*?<\/h1>/, () => brand);
 
 let redrawn = [];
