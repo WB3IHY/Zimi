@@ -539,7 +539,7 @@
   "wiki": "Minesweeper (video game)",
   "path": "minesweeper.html",
   "title": "Minesweeper",
-  "blurb": "Beginner to Expert. The first click is always safe.",
+  "blurb": "Clear the board without hitting a mine",
   "why": "A Windows favourite since the early 1990s.",
   "origin": {
    "year": 1989,
@@ -556,7 +556,7 @@
   "wiki": "Sudoku",
   "path": "sudoku.html",
   "title": "Sudoku",
-  "blurb": "Four levels. One solution each.",
+  "blurb": "Fill every row, column and box",
   "why": "Named in Japan in 1984. Every puzzle here has exactly one solution.",
   "origin": {
    "year": 1979,
@@ -573,7 +573,7 @@
   "wiki": "2048 (video game)",
   "path": "2048.html",
   "title": "2048",
-  "blurb": "Slide and join tiles. One undo.",
+  "blurb": "Slide and join tiles to reach 2048",
   "why": "Written in a weekend in 2014 by Gabriele Cirulli.",
   "origin": {
    "year": 2014,
@@ -1100,7 +1100,7 @@
   "wiki": "Bulls and cows",
   "path": "codebreaker.html",
   "title": "Code Breaker",
-  "blurb": "Crack the four-peg code. Pegs have shapes and colours.",
+  "blurb": "Crack a hidden code from the clues",
   "why": "Guessing a hidden code from clues goes back to the paper game Bulls and Cows.",
   "origin": {
    "year": null,
@@ -1202,7 +1202,7 @@
   "wiki": "Concentration (card game)",
   "path": "memory.html",
   "title": "Memory",
-  "blurb": "Match the pairs. Animals and shapes.",
+  "blurb": "Match the pairs of pictures",
   "why": "A game of turning over cards to find pairs. Children play it everywhere.",
   "origin": {
    "year": null,
@@ -1236,7 +1236,7 @@
   "wiki": "Tic-tac-toe",
   "path": "noughts.html",
   "title": "Tic-Tac-Toe",
-  "blurb": "Also noughts and crosses. Easy or perfect computer.",
+  "blurb": "Three in a row, against the computer or a friend",
   "why": "Played perfectly, tic-tac-toe is always a draw.",
   "origin": {
    "year": 1,
@@ -1533,7 +1533,7 @@
   "wiki": "Snakes and ladders",
   "path": "snakesandladders.html",
   "title": "Snakes and Ladders",
-  "blurb": "2 to 4 players",
+  "blurb": "Race to square 100, up ladders and down snakes",
   "why": "Snakes and Ladders began in India as Moksha Patam, a game about good and bad deeds.",
   "origin": {
    "year": null,
@@ -1788,7 +1788,7 @@
   "wiki": "Sokoban",
   "path": "sokoban.html",
   "title": "Sokoban",
-  "blurb": "Push the crates onto the rings. 300 levels.",
+  "blurb": "Push the crates onto the rings",
   "why": "Sokoban is Japanese for warehouse keeper. Thinking Rabbit published it in 1982.",
   "origin": {
    "year": 1982,
