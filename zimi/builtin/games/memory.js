@@ -222,6 +222,23 @@
     var k = i + d; if (k >= 0 && k < buttons.length) buttons[k].focus();
   });
 
+  // Leaving and coming back keeps the table: the deal, what is up, the turn and the scores (a mismatched pair is turned back first).
+  function kept() {
+    if (!g || (g.moves === 0 && g.first < 0)) return null;
+    return { set: settings.set, size: settings.size, people: people(), cards: g.cards.map(function (c) { return [c.id, c.up && !(g.pending && g.pending.indexOf(g.cards.indexOf(c)) >= 0) ? 1 : 0, c.done ? 1 : 0]; }),
+      first: g.first, moves: g.moves, found: g.found, over: g.over, turn: turn, scores: scores };
+  }
+  function takeUp(d) {
+    if (!d || !SETS[d.set] || !SIZES[d.size] || !Array.isArray(d.cards) || d.cards.length !== SIZES[d.size] * 2) return false;
+    settings.set = d.set; settings.size = d.size; settings.people = d.people; save();
+    g = createGame(SIZES[d.size]); newSeats();
+    g.cards = d.cards.map(function (c) { return { id: c[0], up: !!c[1], done: !!c[2] }; });
+    g.first = d.first; g.moves = d.moves; g.found = d.found; g.over = !!d.over; turn = d.turn || 0; scores = d.scores || scores;
+    build();
+    if (g.over) finish(); else status.say(multi() ? T('memory.turn', { name: seats.name(turn) }) : T('memory.start'));
+    return true;
+  }
   begin();
+  if (root.ZimiShell.persist) root.ZimiShell.persist({ save: kept, load: takeUp });
   root.__memory = { get g() { return g; } };
 })(this);

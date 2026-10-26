@@ -150,7 +150,22 @@
     else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (status === 'paused') resume(); else pause(); }
   });
 
+  // Leaving keeps the sequence; it comes back paused (a tap or Resume plays it again). A finished game comes back to its end sheet.
+  function kept() {
+    if (status === 'idle') return null;
+    return { seq: g.seq.slice(), over: status === 'over', strict: !!settings.strict };
+  }
+  function takeUp(d) {
+    if (!d || !Array.isArray(d.seq) || !d.seq.length || d.seq.some(function (p) { return !(p >= 0 && p < PADS); })) return false;
+    if (armed) armed.cancel();
+    if (timer) timer.cancel();
+    g = createGame(); g.seq = d.seq.slice(); g.pos = 0;
+    if (d.over) { status = 'over'; finish(); return true; }
+    els.pause.disabled = false; status = 'wait'; hud(); pause();
+    return true;
+  }
   build(); hud();
   arm();
+  ZimiShell.persist({ save: kept, load: takeUp });
   root.__echo = { get g() { return g; }, get status() { return status; } };
 })(this);
