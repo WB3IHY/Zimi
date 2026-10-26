@@ -19,7 +19,7 @@
   var els = { cv: $('rr-board'), speed: $('rr-speed'), time: $('rr-time'), score: $('rr-score'), best: $('rr-best'), msg: $('rr-msg'), pause: $('rr-pause'), newBtn: $('rr-new') };
   var status = Play.status(els.msg), armed = null;
   var ctx, cssW = 0, cssH = 0, res = 1, reduce = Play.reducedMotion();
-  var runId = 0, game = null, mode = 'setup', countdown = 0, toast = '', toastT = 0, tables = {}, stars = [], bg = [0, 0], skyGrad = null, skyTheme = '', crashFlash = 0, wasBraking = false;
+  var PREVIEW_SEED = 7, runId = 0, game = null, mode = 'setup', countdown = 0, toast = '', toastT = 0, tables = {}, stars = [], bg = [0, 0], skyGrad = null, skyTheme = '', crashFlash = 0, wasBraking = false;
   var held = {}, pad = { gas: false, brake: false }, touchSteer = {};
 
   // ── the picture ──────────────────────────────────────────────────────────
@@ -264,6 +264,8 @@
     render();
   }
   window.addEventListener('resize', layout);
+  // The road is shown before the first tap: a preview run (never stepped or saved while the mode is setup).
+  game = E.newGame(PREVIEW_SEED, prefs.stage);
   layout(); arm();
   // A run in progress or over is kept: the road is rebuilt from its seed and stage, and the car, the clock and the score laid
   // back over it, with the traffic and the scenery already hit. It comes back paused, or on its end sheet.
