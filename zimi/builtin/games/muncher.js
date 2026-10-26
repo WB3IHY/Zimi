@@ -426,11 +426,13 @@
   function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); want = null; Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); }
   function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
   function toggle() { if (mode === 'playing') pause(); else resume(); }
+  var lastEnd = null;
   function finish() {
+    lastEnd = { stats: [[Tx('play.score'), Play.num(st.score)], [Tx('play.best'), Play.num(Math.max(best.score, st.score))]] };
     mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false);
     if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); }
     hud(); draw();
-    ZimiShell.endSheet({ result: 'over', stats: [[Tx('play.score'), Play.num(st.score)], [Tx('play.best'), Play.num(best.score)]] });
+    ZimiShell.endSheet({ result: 'over', stats: lastEnd.stats });
     setTimeout(function () { if (mode === 'over') { Play.ready({ say: status.say, target: pad.stage, start: begin, touch: Tx('muncher.readyTouch'), keys: Tx('muncher.readyKeys') }); } }, READY_ARM_MS);
   }
   els.newBtn.addEventListener('click', begin);
@@ -462,5 +464,25 @@
 
   window.addEventListener('resize', layout);
   layout(); arm();
+  // Leaving and coming back keeps the game: paused where it was, or at its end sheet.
+  ZimiShell.persist({
+    save: function () {
+      if (mode === 'over' && lastEnd) return { end: lastEnd };
+      return mode === 'playing' || mode === 'paused' ? { st: st } : null;
+    },
+    load: function (d) {
+      if (armed) armed.cancel();
+      if (d.end) {
+        st = createState(1); mode = 'over'; lastEnd = d.end; hud(); draw();
+        ZimiShell.endSheet({ result: 'over', stats: d.end.stats });
+        setTimeout(function () { if (mode === 'over') armed = Play.ready({ say: status.say, target: pad.stage, start: begin, touch: Tx('muncher.readyTouch'), keys: Tx('muncher.readyKeys') }); }, READY_ARM_MS);
+        return true;
+      }
+      if (!d.st || !d.st.grid) return false;
+      st = d.st; st.rng = mulberry(Math.floor(Math.random() * 4294967296)); want = null; mode = 'paused';
+      els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); hud(); draw();
+      return true;
+    }
+  });
   root.__muncher = { get st() { return st; }, get mode() { return mode; } };
 })(this);
