@@ -10,7 +10,7 @@
    clicks the originals, so every game's own code keeps working as it was.
 
    A game may tell the shell more (all optional):
-     ZimiShell.game({ stats: fn -> text or [text], sound: true, hints: true, inProgress: fn,
+     ZimiShell.game({ stats: fn -> text or [text], sound: true, hints: true, inProgress: fn, about: fn -> text,
                       menu: fn -> { options: [nodes] }, newGame: fn,
                       moveTimer: true, watch: { script, start(ctl), stop(kind) } })
    and reads the settings with ZimiShell.settings.get('anim'), etc.
@@ -680,6 +680,8 @@
       if (!row || !body.isConnected) { if (body.isConnected) body.appendChild(h('p', { class: 'gs-text', text: titleOf() })); return; }
       body.appendChild(h('p', { class: 'gs-text', text: row.blurb || row.title }));
       if (row.why) body.appendChild(h('p', { class: 'gs-text', text: row.why }));
+      var source = game.about ? game.about() : '';   // what the game is playing from right now, asked when the pane opens
+      if (source) body.appendChild(h('p', { class: 'gs-text gs-source', text: source }));
       factRows(row, ABOUT_FACTS).forEach(function (f) { facts.appendChild(h('dt', { text: T(f[0]) })); facts.appendChild(h('dd', { text: f[1] })); });
       if (facts.childNodes.length) body.appendChild(facts);
       var pz = /^puzzles\/([a-z]+)\.html$/.exec(row.path || '');
