@@ -256,7 +256,7 @@
       brain = root.EngineKit.client(root.ZimiShogiEngine, 250, { args: [variant], depth: FALLBACK_DEPTH });
       buildBoard();
       $('sg-title').textContent = T(variant === 'mini' ? 'shogi.title.mini' : 'shogi.title');
-      document.title = $('sg-title').textContent + ' - ZimiGames';
+      if (root.ZimiShell) root.ZimiShell.setTitle($('sg-title').textContent);
     }
   }
   function newGame() {

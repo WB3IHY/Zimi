@@ -112,15 +112,15 @@
   // The Ace of Spades carries the maker's mark: the Z alone, in the spade's belly (centre 0.3 of the spade's 20-unit box below its middle,
   // 9 units tall, clear of the outline on every side).
   var ACE_Z_DY = 0.3, ACE_Z_UNITS = 5.4, ACE_Z_Y = 70 + ACE_Z_DY * ACE_SPADE_SCALE, ACE_Z_H = ACE_Z_UNITS * ACE_SPADE_SCALE, BACK_Z_H = 32.2; // and the Zimi back's
-  var PIP_SCALE = 1.15, PIP_SCALE_DENSE = 0.95, DENSE_FROM = 8, PIP_COLS = [34, 66], PIP_MID_X = 50, PIP_TOP = 32, PIP_BOTTOM = 108, PIP_CENTRE = 70, FLIP_AFTER_Y = 70;
+  var PIP_SCALE = 1.15, PIP_SCALE_DENSE = 0.92, DENSE_FROM = 8, PIP_COLS = [34, 66], PIP_MID_X = 50, PIP_TOP = 34, PIP_BOTTOM = 106, PIP_CENTRE = 70, PIP_ROW_2 = 57.3, PIP_ROW_3 = 82.7, FLIP_AFTER_Y = 70;
   var PIPS = (function () {
     var sides = function (ys) { var o = []; ys.forEach(function (y) { PIP_COLS.forEach(function (x) { o.push([x, y]); }); }); return o; };
     var mid = function (y) { return [PIP_MID_X, y]; };
-    var two = sides([PIP_TOP, PIP_BOTTOM]), three = sides([PIP_TOP, PIP_CENTRE, PIP_BOTTOM]), four = sides([PIP_TOP, 57, 83, PIP_BOTTOM]);
+    var two = sides([PIP_TOP, PIP_BOTTOM]), three = sides([PIP_TOP, PIP_CENTRE, PIP_BOTTOM]), four = sides([PIP_TOP, PIP_ROW_2, PIP_ROW_3, PIP_BOTTOM]);
     return [null,
       [mid(PIP_CENTRE)], [mid(PIP_TOP), mid(PIP_BOTTOM)], [mid(PIP_TOP), mid(PIP_CENTRE), mid(PIP_BOTTOM)],
-      two, two.concat([mid(PIP_CENTRE)]), three, three.concat([mid(51)]), three.concat([mid(51), mid(89)]),
-      four.concat([mid(PIP_CENTRE)]), four.concat([mid(44.5), mid(95.5)])];
+      two, two.concat([mid(PIP_CENTRE)]), three, three.concat([mid(52)]), three.concat([mid(52), mid(88)]),
+      four.concat([mid(PIP_CENTRE)]), four.concat([mid(45.7), mid(94.3)])];
   })();
 
   // The mark's numbers (the pebble, and the Z of Zimi's icon centred on 0,0 for the cards).
@@ -1295,7 +1295,11 @@
       cfg.els.stat.textContent = root.ZimiShell ? root.ZimiShell.stripClock(text) : text;
       cfg.els.undo.disabled = !s.history.length || s.won || !!(cfg.undoOff && cfg.undoOff());
     }
-    function run() { if (running) return; running = true; started = Date.now(); ticker = setInterval(paint, TICK_MS); }
+    // The clock waits while the page is not being looked at (the tab hidden, the reader closed over it) and while the Menu or
+    // Settings is open; it picks up where it stopped. `held` says which of the two is in force.
+    var held = { page: false, menu: false };
+    function isHeld() { return held.page || held.menu; }
+    function run() { if (running) return; if (isHeld()) { resume = true; return; } running = true; started = Date.now(); ticker = setInterval(paint, TICK_MS); }
     function halt() { if (!running) return; banked += Date.now() - started; running = false; clearInterval(ticker); }
     function clearLater() { timers.forEach(clearTimeout); timers = []; }
 
@@ -1335,7 +1339,7 @@
       return kept && kept.id === (cfg.saveId || cfg.id) && kept.state && typeof kept.state === 'object' ? kept : null;
     }
     s.reset = function (state) {
-      clearLater(); halt(); banked = 0; s.history = []; s.won = false; s.ending = null; begun = false; board.clearSelection();
+      clearLater(); halt(); resume = false; banked = 0; s.history = []; s.won = false; s.ending = null; begun = false; board.clearSelection();
       var kept = restoreTried ? null : keptGame();
       restoreTried = true;
       if (kept) {
@@ -1352,7 +1356,7 @@
     // How a game that is not won ends: kind is '' (you lose), 'draw', 'over' (Game over) or { name, team } for the
     // winner of a table of people ("Sam wins", "You and Ana win").
     s.lose = function (kind, lines, score) {
-      s.won = true; halt(); clearLater();
+      s.won = true; halt(); resume = false; clearLater();
       if (typeof score === 'number') s.stats.scored(score);
       paint();
       var named = kind && typeof kind === 'object', result = named ? 'lose' : kind === 'draw' || kind === 'over' ? kind : 'lose';
@@ -1363,7 +1367,7 @@
       sheet({ title: title, body: body, actions: [{ label: T('shell.close') }, { label: T('shell.menu.new'), primary: true, onclick: cfg.newGame }] });
     };
     s.win = function (score) {
-      s.won = true; halt(); clearLater();
+      s.won = true; halt(); resume = false; clearLater();
       var sec = seconds(), best = s.stats.won(sec, score);
       paint();
       if (root.ZimiShell && root.ZimiShell.endSheet) s.ending = { result: 'win', text: cfg.winLines(sec, s.state)[0], stats: [[T('cards.stats.time'), fmtTime(sec)], [T('cards.stats.won'), T('cards.stats.wonOf', { won: best.won, played: best.played })]] };
@@ -1396,10 +1400,21 @@
       if (e.key === 'u' || e.key === 'U') { e.preventDefault(); s.undo(); } else if (e.key === 'n' || e.key === 'N') { e.preventDefault(); cfg.newGame(); }
     });
     // The clock waits while the tab is hidden, and so do the backs' animations.
+    function syncClock() {
+      if (isHeld() && running) { halt(); resume = true; } else if (!isHeld() && resume) { resume = false; run(); }
+    }
+    function hold(which, on) { held[which] = on; syncClock(); }
     d.addEventListener('visibilitychange', function () {
       d.documentElement.classList.toggle('zc-paused', d.hidden);
-      if (d.hidden && running) { halt(); resume = true; } else if (!d.hidden && resume) { resume = false; run(); }
+      hold('page', d.hidden || !shown);
     });
+    // A page whose frame is hidden (Zimi's reader closed over it) is not told it is hidden: it is seen to be out of view.
+    var shown = true;
+    if (root.IntersectionObserver) new root.IntersectionObserver(function (entries) {
+      shown = entries[entries.length - 1].isIntersecting;
+      hold('page', d.hidden || !shown);
+    }).observe(d.documentElement);
+    if (root.ZimiShell && root.ZimiShell.onHold) root.ZimiShell.onHold(function (on) { hold('menu', on); });
     return s;
   }
 

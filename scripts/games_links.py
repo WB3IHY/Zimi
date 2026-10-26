@@ -92,7 +92,7 @@ ABOUT = """<!doctype html>
   var q = new URLSearchParams(location.search).get('qid') || (location.hash.match(/Q\\d+/) || [])[0];
   var g = games[q];
   if (!g) return;
-  document.title = 'About ' + g.title + ' - ZimiGames';
+  ZimiShell.setTitle('About ' + g.title);
   document.getElementById('ab-title').textContent = g.title;
   document.getElementById('ab-blurb').textContent = g.blurb;
   var play = document.getElementById('ab-play');

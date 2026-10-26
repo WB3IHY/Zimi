@@ -67,6 +67,15 @@ function shellEnv(storage, path_, reduced) {
   const sb = load(['shell.js'], env);
   return { S: sb.ZimiShell, store, attrs, env: sb };
 }
+// ── the tab's title: one format, from one place ──
+{
+  const { S, env } = shellEnv({});
+  const title = (name) => { S.setTitle(name); return env.document.title; };
+  check(title('Chess') === 'Chess \u00b7 ZimiGames', 'a game is named "Name · ZimiGames"');
+  check(title('Chess - ZimiGames') === 'Chess \u00b7 ZimiGames' && title('Chess \u00b7 ZimiGames') === 'Chess \u00b7 ZimiGames', 'an older ending or the new one is not doubled');
+  check(title('Fifteen, an unfinished puzzle from Simon Tatham\'s Portable Puzzle Collection - ZimiGames') === 'Fifteen \u00b7 ZimiGames', 'a puzzle is its name alone');
+  check(title('ZimiGames') === 'ZimiGames' && title('') === 'ZimiGames', 'the shelf is just ZimiGames');
+}
 {
   const { S, attrs } = shellEnv({});
   check(S.id === 'chess', 'the game is named by its page');

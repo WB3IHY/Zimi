@@ -340,9 +340,19 @@
     sync();
   }
 
+  // The tab's title, one format for every page: "Chess · ZimiGames" (the shelf is just "ZimiGames"). A page may be
+  // written with its own ending (" - ZimiGames", ", an unfinished puzzle from Simon Tatham's ...") or none; the name is
+  // what is left once those are taken off, and ZimiShell.setTitle(name) is how a page that renames itself says so.
+  var TAB_SUFFIX = 'ZimiGames', TAB_SEP = ' \u00b7 ';
+  function bareName(s) { return String(s || '').replace(/\s+[-\u00b7]\s+ZimiGames$/, '').replace(/,( an unfinished puzzle)? from .*$/, '').trim(); }
+  Shell.setTitle = function (name) {
+    name = bareName(name);
+    d.title = !name || name === TAB_SUFFIX ? TAB_SUFFIX : name + TAB_SEP + TAB_SUFFIX;
+  };
+
   function titleOf() {
     var t = d.querySelector('.ar-bar h1'), s = '';
-    if (!t) return d.title.replace(/ - ZimiGames$/, '').replace(/, from .*$/, '');
+    if (!t) return bareName(d.title);
     Array.prototype.forEach.call(t.childNodes, function (n) { if (n.nodeType === 3) s += n.nodeValue; });
     return s.trim() || d.title;
   }
@@ -477,12 +487,16 @@
     sheetKeys(sheet, card, function () { if (paneStack.length > 1) back(); else closeMenu(); }, false);
     d.body.appendChild(sheet);
   }
+  // A game's own clock waits while the Menu (and Settings inside it) is open: fn(true) when it opens, fn(false) when it closes.
+  var holdListeners = [];
+  Shell.onHold = function (fn) { holdListeners.push(fn); };
+  function holdAll(on) { Shell.moveTimer.hold(on); Shell.watchHold(on); holdListeners.forEach(function (fn) { fn(on); }); }
   function openMenu() {
     ensureSheet();
     if (!sheet.hidden) return;
     opener = d.activeElement;
     pauseNow();   // a running arcade game waits while the menu is open
-    Shell.moveTimer.hold(true); Shell.watchHold(true);
+    holdAll(true);
     paneStack = [];
     sheet.hidden = false;
     show(rootPane);
@@ -490,7 +504,7 @@
   function closeMenu() {
     if (!sheet || sheet.hidden) return;
     sheet.hidden = true; paneStack = [];
-    Shell.moveTimer.hold(false); Shell.watchHold(false);
+    holdAll(false);
     if (opener && opener.focus && d.contains(opener)) try { opener.focus(); } catch (e) { /* gone */ }
   }
   Shell.openMenu = openMenu; Shell.closeMenu = closeMenu;
@@ -889,6 +903,7 @@
 
   // ── start ──
   function ready() {
+    Shell.setTitle(d.title);
     // The shelf, About and the puzzles list only tell Zimi their name: no Menu of their own.
     var built = !d.querySelector('meta[name="zimi-games-host"]') && buildBar();
     if (hosted) hostReady();
