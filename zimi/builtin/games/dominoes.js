@@ -124,10 +124,10 @@
   };
   root.DominoEngine = Engine;
 
-  if (typeof document === 'undefined') return;
+  if (typeof document === 'undefined' || !root.BoardUI) return;
 
   // ═══════════ the page ═══════════
-  var BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  var BK = root.BoardKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var SETTINGS_KEY = 'dominoes.settings', STATS_KEY = 'dominoes.stats';
   var COMPUTER_MS = 900, DRAW_MS = 520, PASS_MS = 1000, LEAD_MS = 700, NEXT_MS = 350;
   var PIP_SLOTS = { 0: [], 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
@@ -152,8 +152,11 @@
   function nameOf(p) {
     if (seats.person(p)) return seats.name(p);
     var k = 0; for (var q = 0; q < p; q++) if (!seats.person(q)) k++;
-    return 'Computer ' + (k + 1);
+    return T('dominoes.computer', { n: k + 1 });
   }
+  // A sentence about a player: its "you" form when the player is the person at the screen (verbs agree).
+  function about(key, p, vars) { return T(key + (you(p) ? '.you' : ''), Object.assign({ name: nameOf(p) }, vars)); }
+  var line = UI.status($('dm-status'));
   function humanSeat(p) { return seats.person(p); }
 
   function tileEl(a, b, cls) {
@@ -165,7 +168,7 @@
       for (var i = 0; i < 9; i++) { var c = document.createElement('i'); if (PIP_SLOTS[v].indexOf(i) >= 0) c.className = 'on'; h.appendChild(c); }
       t.appendChild(h);
     });
-    t.setAttribute('aria-label', a + ' and ' + b);
+    t.setAttribute('aria-label', T('dominoes.tile', { a: a, b: b }));
     return t;
   }
 
@@ -179,7 +182,7 @@
       if (ghosts.indexOf('L') >= 0) seq.unshift({ ghost: 'L' });
       if (ghosts.indexOf('R') >= 0) seq.push({ ghost: 'R' });
     }
-    if (!seq.length) { var e = document.createElement('p'); e.className = 'dm-empty'; e.textContent = 'No tiles yet'; chainEl.appendChild(e); return; }
+    if (!seq.length) { var e = document.createElement('p'); e.className = 'dm-empty'; e.textContent = T('dominoes.none'); chainEl.appendChild(e); return; }
     for (var r = 0; r * per < seq.length; r++) {
       var row = document.createElement('div');
       row.className = 'dm-row' + (r % 2 ? ' rev' : '');
@@ -187,8 +190,8 @@
         var node;
         if (item.ghost) {
           node = document.createElement('button');
-          node.type = 'button'; node.className = 'dm-tile ghost'; node.textContent = item.ghost === 'L' ? 'Here' : 'Here';
-          node.setAttribute('aria-label', 'Play on the ' + (item.ghost === 'L' ? 'left' : 'right') + ' end');
+          node.type = 'button'; node.className = 'dm-tile ghost'; node.textContent = T('dominoes.here');
+          node.setAttribute('aria-label', T(item.ghost === 'L' ? 'dominoes.playLeft' : 'dominoes.playRight'));
           node.addEventListener('click', function () { humanPlay(selected, item.ghost); });
         } else {
           var c = item.c, last = st.last && st.last.tile === c;
@@ -212,13 +215,13 @@
       var ok = !!playable[i];
       b.className = 'dm-card' + (ok ? ' can' : '') + (i === selected ? ' sel' : '');
       b.disabled = !ok;
-      if (!shown) { b.className = 'dm-card'; b.disabled = true; b.setAttribute('aria-label', 'Hidden tile'); b.appendChild(tileEl(0, 0, 'vert dm-hidden')); handEl.appendChild(b); return; }
-      b.setAttribute('aria-label', 'Tile ' + t[0] + ' and ' + t[1] + (ok ? (st.chain.length ? ', can play' : ', lead with it') : ', cannot play now'));
+      if (!shown) { b.className = 'dm-card'; b.disabled = true; b.setAttribute('aria-label', T('dominoes.hidden')); b.appendChild(tileEl(0, 0, 'vert dm-hidden')); handEl.appendChild(b); return; }
+      b.setAttribute('aria-label', T(ok ? (st.chain.length ? 'dominoes.tileCan' : 'dominoes.tileLead') : 'dominoes.tileNo', { a: t[0], b: t[1] }));
       b.appendChild(tileEl(t[0], t[1], 'vert' + (isDouble(t) ? ' double' : '')));
       b.addEventListener('click', function () { onHandTile(i, playable[i]); });
       handEl.appendChild(b);
     });
-    $('dm-hand-count').textContent = mine.length ? mine.length + (mine.length === 1 ? ' tile' : ' tiles') + ' in ' + (you(V) ? 'your' : nameOf(V) + "'s") + ' hand' + (shown ? ', ' + handPips(mine) + ' dots' : ', hidden until their turn') : '';
+    $('dm-hand-count').textContent = mine.length && shown ? T('dominoes.handCount', { n: mine.length, dots: handPips(mine) }) : '';
   }
 
   function paintOpponents() {
@@ -229,13 +232,11 @@
       var d = document.createElement('div');
       d.className = 'dm-opp' + (st.turn === p && !matchOver ? ' now' : '');
       var nm = document.createElement('span'); nm.className = 'dm-opp-name'; nm.textContent = nameOf(p);
-      var backs = document.createElement('span'); backs.className = 'dm-backs'; backs.setAttribute('aria-label', st.hands[p].length + ' tiles');
+      var backs = document.createElement('span'); backs.className = 'dm-backs'; backs.setAttribute('aria-label', T('dominoes.tiles', { n: st.hands[p].length }));
       for (var i = 0; i < st.hands[p].length; i++) backs.appendChild(document.createElement('i'));
       var n = document.createElement('b'); n.textContent = st.hands[p].length;
       d.appendChild(nm); d.appendChild(backs); d.appendChild(n); box.appendChild(d);
     }
-    var yard = $('dm-yard');
-    yard.textContent = settings.mode === 'draw' ? 'Boneyard ' + st.boneyard.length : 'Block game';
   }
   function paintScores() {
     var box = $('dm-scores');
@@ -247,14 +248,13 @@
       var b = document.createElement('b'); b.textContent = s; d.appendChild(b);
       box.appendChild(d);
     });
-    $('dm-target').textContent = 'Round ' + round + ', first to ' + settings.target + (st.ends ? '  /  Open ends ' + st.ends[0] + ' and ' + st.ends[1] : '');
+    // one quiet line: the round, the target, the open ends, the boneyard
+    var bits = [T('dominoes.meta', { round: round, target: settings.target })];
+    if (st.ends) bits.push(T('dominoes.ends', { a: st.ends[0], b: st.ends[1] }));
+    bits.push(settings.mode === 'draw' ? T('dominoes.boneyard', { n: st.boneyard.length }) : T('dominoes.blockGame'));
+    $('dm-target').textContent = bits.join(' · ');
   }
-  function say(text, busyDots) {
-    var s = $('dm-status');
-    s.textContent = '';
-    if (busyDots) { var sp = document.createElement('span'); sp.className = 'bg-spin'; s.appendChild(sp); }
-    s.appendChild(document.createTextNode(text));
-  }
+  function say(text, busy) { line.turn(text, !!busy); }
   function render() { paintOpponents(); paintScores(); paintChain(); paintHand(); }
   function humanTurn() { return humanSeat(st.turn) && !busy && !matchOver; }
 
@@ -265,7 +265,7 @@
     st = deal(settings.mode, players());
     st.turn = lastWinner >= 0 ? lastWinner : firstPlayer(st);
     render();
-    say(nameOf(st.turn) + (you(st.turn) ? ' lead' : ' leads'), false);
+    say(about('dominoes.leads', st.turn), false);
     timer = setTimeout(function () { // the leader's first tile is played for them
       var pl = { tile: bestLead(st.hands[st.turn]), end: 'C' };
       busy = false;
@@ -278,7 +278,7 @@
     play(st, p, pl);
     selected = -1; ghosts = null;
     render();
-    say(nameOf(p) + ' played ' + t[0] + '|' + t[1]);
+    say(T('dominoes.played', { name: nameOf(p), a: t[0], b: t[1] }));
     if (!st.hands[p].length) { endRound(); return; }
     nextPlayer();
   }
@@ -292,20 +292,20 @@
     var p = st.turn, plays = legalPlays(st, p);
     render();
     if (plays.length) {
-      if (humanSeat(p)) { seats.ensure(p, function () { render(); say((you(p) ? 'Your turn' : nameOf(p) + ', your turn') + ': pick a tile that matches an open end'); }, 'Pass the device. Your tiles stay hidden until you tap.'); return; }
-      say(nameOf(p) + ' is thinking', true);
+      if (humanSeat(p)) { seats.ensure(p, function () { render(); say(you(p) ? T('dominoes.yourTurn') : T('dominoes.turn', { name: nameOf(p) })); }, T('dominoes.cover')); return; }
+      say(T('dominoes.thinking', { name: nameOf(p) }), true);
       busy = true;
       timer = setTimeout(function () { busy = false; doPlay(p, choosePlay(st, p, settings.level)); }, COMPUTER_MS);
       return;
     }
     if (canDraw(st)) {
-      say(nameOf(p) + (you(p) ? ' have no match, and draw' : ' draws'), !you(p));
+      say(about('dominoes.draws', p), !you(p));
       busy = true;
       timer = setTimeout(function () { draw(st, p); busy = false; render(); takeTurn(); }, DRAW_MS);
       return;
     }
     pass(st, p);
-    say(nameOf(p) + (you(p) ? ' cannot play, and pass' : ' cannot play, and passes'));
+    say(about('dominoes.passes', p));
     if (isBlocked(st)) { timer = setTimeout(endRound, PASS_MS); return; }
     busy = true;
     timer = setTimeout(function () { busy = false; nextPlayer(); }, PASS_MS);
@@ -316,48 +316,43 @@
     var r = scoreRound(st);
     if (r.winner >= 0) { scores[r.winner] += r.points; lastWinner = r.winner; }
     var lines = [];
-    if (r.winner < 0) lines.push('The game is blocked and two hands tie for the lowest count. No one scores.');
-    else if (r.how === 'out') lines.push(nameOf(r.winner) + ' went out and ' + (you(r.winner) ? 'score' : 'scores') + ' ' + r.points + '.');
-    else lines.push('The game is blocked. ' + nameOf(r.winner) + (you(r.winner) ? ' have' : ' has') + ' the lowest count and ' + (you(r.winner) ? 'score' : 'scores') + ' ' + r.points + '.');
-    st.hands.forEach(function (h, p) { if (p !== r.winner || r.how !== 'out') lines.push(nameOf(p) + ' held ' + handPips(h) + ' dots.'); });
+    if (r.winner < 0) lines.push(T('dominoes.blockedTie'));
+    else if (r.how === 'out') lines.push(about('dominoes.wentOut', r.winner, { n: r.points }));
+    else lines.push(about('dominoes.blocked', r.winner, { n: r.points }));
+    st.hands.forEach(function (h, p) { if (p !== r.winner || r.how !== 'out') lines.push(T(you(p) ? 'dominoes.held.you' : 'dominoes.held', { name: nameOf(p), n: handPips(h) })); });
     var top = Math.max.apply(null, scores);
     matchOver = top >= settings.target;
     render();
-    var title = $('dm-round-title'), body = $('dm-round-text');
-    body.textContent = '';
-    lines.forEach(function (l) { var p = document.createElement('p'); p.textContent = l; body.appendChild(p); });
-    var tally = document.createElement('p'); tally.className = 'dm-tally';
-    tally.textContent = scores.map(function (s, p) { return nameOf(p) + ' ' + s; }).join('   ');
-    body.appendChild(tally);
+    var tally = scores.map(function (sc, p) { return nameOf(p) + ' ' + sc; }).join('   ');
     if (matchOver) {
-      var champ = scores.indexOf(top);
-      title.textContent = you(champ) ? 'You win the match' : nameOf(champ) + ' wins the match';
+      var champ = scores.indexOf(top), mine = seats.person(champ);
       if (!seats.hotseat()) {
-        var key = settings.mode + '.' + settings.opponents + '.' + settings.level, s = stats[key] = stats[key] || { w: 0, l: 0 };
-        if (seats.person(champ)) s.w++; else s.l++;
+        var key = settings.mode + '.' + settings.opponents + '.' + settings.level, rec = stats[key] = stats[key] || { w: 0, l: 0 };
+        if (mine) rec.w++; else rec.l++;
         BK.save(STATS_KEY, stats);
       }
-      $('dm-next').textContent = 'New match';
-      say(title.textContent);
-    } else {
-      title.textContent = r.winner >= 0 && you(r.winner) ? 'You win the round' : r.winner < 0 ? 'Round drawn' : nameOf(r.winner) + ' wins the round';
-      $('dm-next').textContent = 'Next round';
-      say(title.textContent);
+      var title = you(champ) ? T('dominoes.youWinMatch') : T('dominoes.winsMatch', { name: nameOf(champ) });
+      say(title); showStats();
+      UI.end({ result: seats.hotseat() ? 'win' : mine ? 'win' : 'lose', name: seats.hotseat() ? nameOf(champ) : undefined, text: lines.concat([tally]).join(' ') });
+      return;
     }
-    showStats();
-    roundSheet.open($('dm-next'));
+    var heading = r.winner >= 0 && you(r.winner) ? T('dominoes.youWinRound') : r.winner < 0 ? T('dominoes.drawnRound') : T('dominoes.winsRound', { name: nameOf(r.winner) });
+    say(heading); showStats();
+    var body = lines.map(function (l) { return UI.h('p', { text: l }); });
+    body.push(UI.h('p', { class: 'dm-tally', text: tally }));
+    root.ZimiShell.sheet({ title: heading, body: body, actions: [{ label: T('shell.close') }, { label: T('dominoes.nextRound'), primary: true, onclick: startRound }] });
   }
+  // Records stay hidden until the first match is played.
   function showStats() {
     var s = stats[settings.mode + '.' + settings.opponents + '.' + settings.level];
-    if (seats.hotseat()) { $('dm-stats').textContent = (settings.mode === 'draw' ? 'Draw' : 'Block') + ', ' + seats.people().length + ' people on this device'; return; }
-    $('dm-stats').textContent = (settings.mode === 'draw' ? 'Draw' : 'Block') + ' vs ' + settings.opponents + ' computer' + (settings.opponents > 1 ? 's' : '') + ', ' + settings.level + ': ' + (s ? s.w : 0) + ' matches won, ' + (s ? s.l : 0) + ' lost';
+    $('dm-stats').textContent = seats.hotseat() || !s || !(s.w + s.l) ? '' : T('dominoes.record', { mode: T('dominoes.mode.' + settings.mode), n: settings.opponents, level: T('board.level.' + settings.level), won: s.w, lost: s.l });
   }
 
   // ── input ──
   function onHandTile(i, ends) {
     if (!humanTurn() || !ends) return;
     if (ends.length === 1 || (ends.length === 2 && st.ends[0] === st.ends[1])) { humanPlay(i, ends[0]); return; }
-    if (selected === i) { selected = -1; ghosts = null; } else { selected = i; ghosts = ends; say('Which end? Tap Here on the chain'); }
+    if (selected === i) { selected = -1; ghosts = null; } else { selected = i; ghosts = ends; say(T('dominoes.whichEnd')); }
     render();
   }
   function humanPlay(i, end) {
@@ -370,44 +365,45 @@
     seatsFor();
     scores = []; for (var p = 0; p < players(); p++) scores.push(0);
     round = 0; lastWinner = -1; matchOver = false; busy = false;
-    roundSheet.close();
     showStats();
     startRound();
     // A table of people starts behind a handoff; the round already deals underneath.
     seats.begin(function () { render(); if (!busy && !matchOver && st.turn >= 0) takeTurn(); });
   }
 
-  // ── controls ──
-  var menu = BK.sheet($('dm-sheet')), roundSheet = BK.sheet($('dm-round'));
+  // ── Menu > New game: the game, the players, who plays each seat, the level, the target. Nothing applies until New game is pressed. ──
+  var draft = null, seatsBox = null;
   function paintSeatsBlock() {
-    var host = $('dm-seats'); host.textContent = '';
-    var n = +BK.chipValue($('dm-f-opp')) + 1;
-    host.appendChild(root.ZimiSeats.create({ id: 'dominoes', seats: n }).block());
+    seatsBox.textContent = '';
+    seatsBox.appendChild(root.ZimiSeats.create({ id: 'dominoes', seats: draft.opponents + 1 }).block());
   }
-  $('dm-f-opp').addEventListener('change', paintSeatsBlock);
-  function syncMenu() {
-    BK.chipSet($('dm-f-mode'), settings.mode); BK.chipSet($('dm-f-opp'), settings.opponents);
-    BK.chipSet($('dm-f-level'), settings.level); BK.chipSet($('dm-f-target'), settings.target);
+  function menuOptions() {
+    draft = { mode: settings.mode, opponents: settings.opponents, level: settings.level, target: settings.target };
+    seatsBox = UI.h('div', { class: 'gs-seats' });
+    var mode = UI.row(T('dominoes.game'), [['draw', T('dominoes.mode.draw')], ['block', T('dominoes.mode.block')]], draft.mode, function (v) { draft.mode = v; });
+    var opp = UI.row(T('dominoes.numPlayers'), [[1, '2'], [2, '3'], [3, '4']], draft.opponents, function (v) { draft.opponents = +v; paintSeatsBlock(); });
+    var level = UI.row(T('ludo.level'), [['easy', T('board.level.easy')], ['medium', T('board.level.medium')], ['hard', T('board.level.hard')]], draft.level, function (v) { draft.level = v; });
+    var target = UI.row(T('dominoes.playTo'), [[50, '50'], [100, '100'], [150, '150']], draft.target, function (v) { draft.target = +v; });
     paintSeatsBlock();
+    return UI.options([mode, opp, seatsBox, level, target]);
   }
-  $('dm-new').addEventListener('click', function () { syncMenu(); menu.open(); });
-  $('dm-cancel').addEventListener('click', menu.close);
-  $('dm-start').addEventListener('click', function () {
-    settings.mode = BK.chipValue($('dm-f-mode')); settings.opponents = +BK.chipValue($('dm-f-opp'));
-    settings.level = BK.chipValue($('dm-f-level')); settings.target = +BK.chipValue($('dm-f-target'));
-    BK.save(SETTINGS_KEY, settings);
-    menu.close(); newMatch();
+  $('dm-new').addEventListener('click', function () {
+    if (draft) { settings.mode = draft.mode; settings.opponents = draft.opponents; settings.level = draft.level; settings.target = draft.target; draft = null; BK.save(SETTINGS_KEY, settings); }
+    newMatch();
   });
-  $('dm-next').addEventListener('click', function () { roundSheet.close(); if (matchOver) newMatch(); else startRound(); });
-  $('dm-look').addEventListener('click', function () { roundSheet.close(); });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet,input')) return;
-    if (e.key.toLowerCase() === 'n') { syncMenu(); menu.open(); }
+    if (e.key.toLowerCase() === 'n') { if (root.ZimiShell) root.ZimiShell.openMenu(); }
     else if (e.key === 'Escape' && selected >= 0) { selected = -1; ghosts = null; render(); }
   });
   var resizeTimer = 0;
   window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(function () { if (st) paintChain(); }, 120); });
 
+  if (root.ZimiShell) root.ZimiShell.game({
+    menu: menuOptions,
+    stats: function () { var l = $('dm-stats').textContent; return l ? [l] : []; },
+    inProgress: function () { return !matchOver && round > 0 && (round > 1 || (st && st.chain.length > 1)); }
+  });
   newMatch();
 
   if (new URLSearchParams(location.search).has('debug')) {

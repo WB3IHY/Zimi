@@ -5,73 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Dominoes - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="boardui.css">
 <link rel="stylesheet" href="board.css">
 <link rel="stylesheet" href="dominoes.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body>
 <header class="ar-bar">
-  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <a class="ar-back" href="index.html" data-t-aria="shell.back" aria-label="Back">&lsaquo;</a>
   <h1>Dominoes</h1>
-  <span class="ar-stat" id="dm-yard"></span>
-  <button class="ar-btn" id="dm-new" type="button" aria-haspopup="dialog">New game</button>
+  <button class="ar-btn" id="dm-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="bg-main dm-main">
-  <p class="bg-status" id="dm-status" role="status" aria-live="polite"></p>
-  <div class="dm-scores" id="dm-scores" aria-label="Scores"></div>
+  <p class="bg-status" id="dm-status"></p>
+  <div class="dm-scores" id="dm-scores" data-t-aria="dominoes.scores" aria-label="Scores"></div>
   <p class="dm-meta" id="dm-target"></p>
   <div class="dm-opps" id="dm-opps"></div>
-  <div class="dm-table" id="dm-chain" role="group" aria-label="The chain of tiles"></div>
+  <div class="dm-table" id="dm-chain" role="group" data-t-aria="dominoes.chain" aria-label="The chain of tiles"></div>
   <div class="dm-mine">
-    <div class="dm-hand" id="dm-hand" role="group" aria-label="Your tiles"></div>
+    <div class="dm-hand" id="dm-hand" role="group" data-t-aria="dominoes.yourTiles" aria-label="Your tiles"></div>
     <p class="bg-stats" id="dm-hand-count"></p>
   </div>
   <p class="bg-stats" id="dm-stats"></p>
-  <p class="bg-help">Match a tile to an open end of the chain. If you cannot, you draw from the boneyard in the Draw game, or pass in the Block game. Go out first and score the dots left in the other hands. A blocked game goes to the lowest hand. Tab to a tile, Enter plays it, N starts a new game.</p>
 </main>
 
-<div class="ar-sheet" id="dm-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="dm-menu-title">
-  <div class="ar-sheet-card">
-    <h2 id="dm-menu-title">New game</h2>
-    <fieldset class="bg-field"><legend>Game</legend><div class="bg-chips" id="dm-f-mode">
-      <label class="bg-chip"><input type="radio" name="dm-mode" value="draw"><span>Draw</span></label>
-      <label class="bg-chip"><input type="radio" name="dm-mode" value="block"><span>Block</span></label>
-    </div></fieldset>
-    <fieldset class="bg-field"><legend>Players</legend><div class="bg-chips" id="dm-f-opp">
-      <label class="bg-chip"><input type="radio" name="dm-opp" value="1"><span>2</span></label>
-      <label class="bg-chip"><input type="radio" name="dm-opp" value="2"><span>3</span></label>
-      <label class="bg-chip"><input type="radio" name="dm-opp" value="3"><span>4</span></label>
-    </div></fieldset>
-    <div id="dm-seats"></div>
-    <fieldset class="bg-field"><legend>Level</legend><div class="bg-chips" id="dm-f-level">
-      <label class="bg-chip"><input type="radio" name="dm-level" value="easy"><span>Easy</span></label>
-      <label class="bg-chip"><input type="radio" name="dm-level" value="medium"><span>Medium</span></label>
-      <label class="bg-chip"><input type="radio" name="dm-level" value="hard"><span>Hard</span></label>
-    </div></fieldset>
-    <fieldset class="bg-field"><legend>Play to</legend><div class="bg-chips" id="dm-f-target">
-      <label class="bg-chip"><input type="radio" name="dm-target" value="50"><span>50</span></label>
-      <label class="bg-chip"><input type="radio" name="dm-target" value="100"><span>100</span></label>
-      <label class="bg-chip"><input type="radio" name="dm-target" value="150"><span>150</span></label>
-    </div></fieldset>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="dm-cancel" type="button">Cancel</button>
-      <button class="ar-btn" id="dm-start" type="button" aria-pressed="true">Start</button>
-    </div>
-  </div>
-</div>
-
-<div class="ar-sheet" id="dm-round" hidden role="dialog" aria-modal="true" aria-labelledby="dm-round-title">
-  <div class="ar-sheet-card">
-    <h2 id="dm-round-title">Round over</h2>
-    <div id="dm-round-text"></div>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="dm-look" type="button">Look at the table</button>
-      <button class="ar-btn" id="dm-next" type="button" aria-pressed="true">Next round</button>
-    </div>
-  </div>
-</div>
 <script src="boardkit.js"></script>
+<script src="boardui.js"></script>
 <script src="handoff.js"></script>
 <script src="dominoes.js"></script>
 <!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
