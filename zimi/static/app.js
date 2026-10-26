@@ -5065,7 +5065,7 @@ function renderHome(filter) {
   } else {
     // The Apps page counts what each app shows on its own cards: a sum of
     // ZIM entries across books, videos and maps would count none of them.
-    statsHtml = t('sources_count', {n: '<span class="num">' + n + '</span>'}) + ' &middot; ' +
+    statsHtml = _recencyDotsHtml(zims) + t('sources_count', {n: '<span class="num">' + n + '</span>'}) + ' &middot; ' +
       (homeScope && homeScope.type === 'apps' ? '' : t('articles_count', {n: '<span class="num">' + fmtNum(totalEntries) + '</span>'}) + ' &middot; ') +
       fmtSize(totalGb, true);
   }
@@ -5105,8 +5105,8 @@ function renderHome(filter) {
   // compose (AND). The counts drive the pill labels; an ACTIVE recency pill then
   // narrows `sorted` in place so the existing sections filter down to just those
   // ZIMs — exactly like a language pill — rather than spawning a separate view.
-  var _recentAdded = _langSorted.filter(_zimRecentAdded).sort(_byFirstSeenDesc);
-  var _recentUpdated = _langSorted.filter(_zimRecentUpdated).sort(_byUpdatedDesc);
+  var _recentAdded = _langSorted.filter(function(z) { return _unseenKind(z) === 'new'; }).sort(_byFirstSeenDesc);
+  var _recentUpdated = _langSorted.filter(function(z) { return _unseenKind(z) === 'updated'; }).sort(_byUpdatedDesc);
   // A language narrowing can empty the active recency list — its pill is hidden
   // then, so fall back to All rather than strand the view on an empty filter.
   if (homeRecentFilter === 'added' && !_recentAdded.length) homeRecentFilter = null;
@@ -5120,6 +5120,7 @@ function renderHome(filter) {
 
   const groups = {};
   sorted.forEach(z => {
+    if (_ownZimInApps(z.name)) return;   // the games and the Almanac are Apps tiles, not library cards
     const key = _zimCat(z);  // real category, or OTHER_CAT for the catch-all
     if (!groups[key]) groups[key] = [];
     groups[key].push(z);
@@ -5133,20 +5134,6 @@ function renderHome(filter) {
   // while a filter is active (and in the search dropdown), so un-filtering stays
   // reachable.
   var _rows = '';
-  var _hasRecency = !filter && (_recentAdded.length || _recentUpdated.length);
-  if (_hasRecency) {
-    _rows += '<div class="pills-row" role="group" aria-label="' + escAttr(t('filter_by_recency')) + '">';
-    _rows += _recentPill(null, tH('filter_all'), homeRecentFilter === null);
-    if (_recentAdded.length) {
-      _rows += _recentPill('added', tH('filter_recently_added') +
-        ' <span class="pill-count">' + _recentAdded.length + '</span>', homeRecentFilter === 'added');
-    }
-    if (_recentUpdated.length) {
-      _rows += _recentPill('updated', tH('recently_updated') +
-        ' <span class="pill-count">' + _recentUpdated.length + '</span>', homeRecentFilter === 'updated');
-    }
-    _rows += '</div>';
-  }
   if (_showLangPills) {
     _rows += '<div class="lang-pills" role="group" aria-label="' + escAttr(t('filter_by_language')) + '">';
     _rows += _allResetPill(homeLangFilter.size === 0, 'clearHomeLang()');
@@ -5168,8 +5155,7 @@ function renderHome(filter) {
     // organize home.
     pillsBar.innerHTML = ''; pillsBar.style.display = 'none'; pillsBar.className = 'pills';
     _pillsAreHomeFilters = false;
-    homeRecentFilter = null; // guard: pill row gone, so no stale filter state
-    homeLangFilter.clear();
+    homeLangFilter.clear();   // (the recency filter has its own way out: the status row's dots)
   }
 
   let h = '';
@@ -5458,6 +5444,38 @@ function _markZimOpened(name) {
 // NEW is for what came after the library's first day: on a library set up
 // this week every ZIM arrived together, and a NEW on every card and every
 // app's child said nothing. Updated is always news.
+// The games and the Almanac are Zimi's own apps: Apps tiles (with their own dot), not cards in the library grid.
+// Still in search and in Manage. Only while the Apps row shows them, so there is always a way in.
+var _OWN_ZIM_APP = { zimi_games: 'games', zimi_almanac: 'almanac' };
+function _ownZimInApps(name) {
+  var app = _OWN_ZIM_APP[name];
+  return !!app && _appsEnabled() && _shownApps().indexOf(app) >= 0;
+}
+// 'new', 'updated' or null: what has landed that you have not opened yet (the card's own badge, the dots').
+function _unseenKind(z) {
+  if (_ownZimInApps(z.name)) return null;   // theirs is on the tile
+  var b = _zimBadge(z);
+  return b ? b.label : null;
+}
+var _DOT_KINDS = [['added', 'recent_added_dot'], ['updated', 'recent_updated_dot']];
+// The status row's dots: a solid amber one for what was added, a ring for what was updated, each with its count.
+// Tapping one is the recent filter (the same lens, narrowed to what you have not opened); tapping it again lets go.
+function _recencyDotsHtml(list) {
+  var counts = { added: 0, updated: 0 };
+  list.forEach(function(z) { var k = _unseenKind(z); if (k === 'new') counts.added++; else if (k === 'updated') counts.updated++; });
+  return _DOT_KINDS.map(function(d) {
+    var n = counts[d[0]];
+    if (!n) return '';
+    var label = t(d[1], { n: n });
+    return '<button type="button" class="rc-dot ' + d[0] + (homeRecentFilter === d[0] ? ' active' : '') + '" aria-pressed="' + (homeRecentFilter === d[0]) +
+      '" title="' + escAttr(label) + '" aria-label="' + escAttr(label) + '" onclick="filterHomeRecent(\'' + d[0] + '\')"><i aria-hidden="true"></i>' + n + '</button>';
+  }).join('');
+}
+// An own app's tile wears the same mark when its ZIM is new or updated since you opened it.
+function _ownTileDotHtml(zim) {
+  var b = _zimBadge(_zimInfo(zim));
+  return b ? '<span class="rc-dot tile ' + (b.label === 'updated' ? 'updated' : 'added') + '" title="' + escAttr(t(b.label === 'updated' ? 'recently_updated' : 'recently_installed')) + '"><i aria-hidden="true"></i></span>' : '';
+}
 function _zimBadge(z) {
   if (!z) return null;
   var fresh = Math.max(z.first_seen || 0, z.updated_at || 0);
@@ -5481,24 +5499,6 @@ function _libraryFirstSeen() {
   return _libStart.at;
 }
 
-// ── #34 library filter pills: "Recently added" / "Recently updated" ──
-// A distinct window from _ZIM_BADGE_BACKSTOP_DAYS on purpose: the badge is a
-// short nudge that clears the moment you open a ZIM, whereas these pills are a
-// durable "what landed this month" lens for someone managing a large library.
-var _ZIM_RECENT_WINDOW_DAYS = 30;
-function _zimRecentAdded(z) {
-  var fs = z && z.first_seen;
-  if (!fs) return false;
-  return (Date.now() / 1000 - fs) < _ZIM_RECENT_WINDOW_DAYS * 86400;
-}
-function _zimRecentUpdated(z) {
-  // An update means the file changed after first install (updated_at > first_seen).
-  // A fresh install has updated_at unset (or == first_seen) and counts as "added",
-  // not "updated" — matching how _zimBadge distinguishes the two.
-  var ua = z && z.updated_at;
-  if (!ua || ua <= (z.first_seen || 0)) return false;
-  return (Date.now() / 1000 - ua) < _ZIM_RECENT_WINDOW_DAYS * 86400;
-}
 // When a ZIM last changed in the library: its update, or its arrival when it
 // has not been updated since. Recently updated orders the cards and the apps
 // (_APP_SORT_DATE) by it alike, so the Apps page agrees with the sources.
@@ -5506,13 +5506,6 @@ function _zimChangedAt(z) { return Math.max(z.updated_at || 0, z.first_seen || 0
 function _byFirstSeenDesc(a, b) { return (b.first_seen || 0) - (a.first_seen || 0); }
 function _byUpdatedDesc(a, b) { return _zimChangedAt(b) - _zimChangedAt(a); }
 
-// One recency filter pill. kind=null is the "All" reset; aria-pressed reflects
-// state so the row is usable from the keyboard (each pill is a real <button>).
-function _recentPill(kind, labelHtml, active) {
-  return '<button class="pill' + (active ? ' active' : '') + '"' +
-    ' aria-pressed="' + (active ? 'true' : 'false') + '"' +
-    ' onclick="filterHomeRecent(' + (kind ? "'" + kind + "'" : 'null') + ')">' + labelHtml + '</button>';
-}
 
 // Toggle the recency filter: clicking the active pill (or "All") returns to the
 // full library. Narrows the existing home sections in place — same model as the
@@ -8038,6 +8031,7 @@ function openAlmanac(replaceState) {
     window.open('/#almanac', '_blank');
     return;
   }
+  _markZimOpened(_ALMANAC_ZIM);   // the tile's dot is for what has not been opened
   if (!_almanacLoaded) {
     _loadAlmanacModules().then(function() {
       _almanacLoaded = true;
@@ -24104,7 +24098,7 @@ function openGames() {
 function _gamesTileHtml() {
   if (!_installedGamesZims().length) return '';
   _petPeekSchedule();
-  var peek = _petPeek, html = _appTileHtml('games', t('app_games'), _ownIconHtml(_GAMES_ZIM, _GAMES_SVG, OWN_TILE_ICON_PX), [t('apps_count_games')].concat(peek ? [peek.text] : []), 'openGames');
+  var peek = _petPeek, html = _appTileHtml('games', t('app_games'), _ownIconHtml(_GAMES_ZIM, _GAMES_SVG, OWN_TILE_ICON_PX) + _ownTileDotHtml(_GAMES_ZIM), [t('apps_count_games')].concat(peek ? [peek.text] : []), 'openGames');
   return peek ? html.replace(/<\/a>$/, _petPeekHtml(peek) + '</a>') : html;
 }
 
@@ -24178,7 +24172,7 @@ function _petPeekOpen(e) {
   openArticle(_GAMES_ZIM, 'pet.html', t('app_games'));
 }
 function _almanacTileHtml() {
-  return _appTileHtml('almanac', t('app_almanac'), _ownIconHtml(_ALMANAC_ZIM, _ALMANAC_SVG, OWN_TILE_ICON_PX), [t('apps_count_almanac')], 'openAlmanac');
+  return _appTileHtml('almanac', t('app_almanac'), _ownIconHtml(_ALMANAC_ZIM, _ALMANAC_SVG, OWN_TILE_ICON_PX) + _ownTileDotHtml(_ALMANAC_ZIM), [t('apps_count_almanac')], 'openAlmanac');
 }
 
 function _tubeTileHtml() {
