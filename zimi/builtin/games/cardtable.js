@@ -8,14 +8,24 @@
 (function (root) {
   'use strict';
   var Z = root.ZimiCards;
+  var T = Z.T;
 
-  var SCORE_BAR_H = 26, STATUS_H = 46, RAISE_SHARE = 0.3, SUIT_GAP_SHARE = 0.18, HAND_STEP_SHARE = 0.78;
+  // Your hand at 390 px: no strip of a card narrower than 30 px, two rows from ten cards, a tapped card lifts 14 px
+  // (a card you can play stands 6 px proud when others cannot be played). An opponent's face-down hand of more than
+  // five cards is one back and a count chip.
+  var MIN_STRIP_PX = 30, TWO_ROWS_FROM = 10, LIFT_PX = 14, PLAYABLE_LIFT_PX = 6, COLLAPSE_FROM = 6;
+  // Games that play a card on its second tap: the first tap lifts it (amber outline), the second plays it.
+  var LIFT_THEN_PLAY = { spades: 1, euchre: 1, belote: 1, crazyeights: 1 };
+  var SCORE_BAR_H = 26, STATUS_H = 46, SUIT_GAP_SHARE = 0.18, HAND_STEP_SHARE = 0.78;
   var SIDE_STEP_MIN = 0.07, SIDE_STEP_MAX = 0.2, TOP_STEP_SHARE = 0.3, SIDE_OFFSET_CARDS = 3.4, TRICK_DX = 0.72, TRICK_DY = 0.62;
   var MIN_STEP_SHARE = 0.42, ROW_STEP_SHARE = 0.5, FLASH_MS = 1800, PANEL_GAP = 8;
   // Where each seat sits on the table, by the number of players: 0 south, 1 west, 2 north, 3 east.
   var SEAT_POS = { 2: [0, 2], 3: [0, 1, 3], 4: [0, 1, 2, 3] };
   var SUIT_ORDER = [0, 1, 3, 2]; // clubs, diamonds, spades, hearts: alternating colours in a hand
   var SUIT_GLYPH = ['♣', '♦', '♥', '♠']; // by ZimiCards suit: clubs, diamonds, hearts, spades
+
+  // The count chips of the face-down hands collapsed in the layout just made (fan() adds, create() reads).
+  var counts = [];
 
   // ── Pure helpers ────────────────────────────────────────────────────────
   var next = function (seat, n) { return (seat + 1) % n; };
@@ -40,12 +50,12 @@
   // your hand takes (a long hand wraps).
   function geometry(m, rows) {
     var cw = m.cw, ch = m.ch, cx = m.W / 2, g = { cw: cw, ch: ch, cx: cx, rows: rows || 1 };
-    g.raise = Math.round(ch * RAISE_SHARE);
+    g.raise = LIFT_PX;
     g.rowStep = Math.round(ch * ROW_STEP_SHARE);
     g.northY = m.pad + SCORE_BAR_H;
-    g.southY = m.H - ch - m.pad - (g.rows - 1) * g.rowStep;
+    g.southY = m.H - ch - m.pad;                                   // your bottom row sits on the bottom
     g.yTop = g.northY + ch + 8;
-    g.yBot = g.southY - g.raise - 6;
+    g.yBot = g.southY - (g.rows - 1) * g.rowStep - g.raise - 6;    // the rows above it push the status line up
     g.statusY = g.yBot - STATUS_H;
     g.cy = (g.yTop + g.statusY) / 2;
     g.westX = Math.max(m.pad, Math.round(cx - SIDE_OFFSET_CARDS * cw));
@@ -55,10 +65,11 @@
     return g;
   }
   // How many rows a hand of n cards takes on this table.
-  function rowsFor(m, n) {
-    var perRow = Math.max(1, Math.floor((m.W - 2 * m.pad - m.cw) / (m.cw * MIN_STEP_SHARE)) + 1);
-    return Math.max(1, Math.ceil(n / perRow));
+  function handRows(width, pad, cw, n) {
+    var perRow = Math.max(1, Math.floor((width - 2 * pad - cw) / MIN_STRIP_PX) + 1);
+    return Math.max(n >= TWO_ROWS_FROM ? 2 : 1, Math.ceil(n / perRow));
   }
+  function rowsFor(m, n) { return handRows(m.W, m.pad, m.cw, n); }
   function sideStep(g, n) { return Math.max(g.ch * SIDE_STEP_MIN, Math.min(g.ch * SIDE_STEP_MAX, (g.statusY - g.yTop - g.ch) / Math.max(1, n - 1))); }
   // A card's corner in the middle for each position's play, and where a position's cards sit.
   function trickSpot(g, pos) {
@@ -78,8 +89,10 @@
   // slots, each card its own pile 'h<id>' so a tap or a drag names it.
   function handCards(g, ids, info, gapAfter, prefix) {
     var n = ids.length, gap = g.cw * (g.gapShare || SUIT_GAP_SHARE), avail = g.W - 2 * g.pad - g.cw, out = { cards: [], slots: [], rows: 1 };
-    var perRow = Math.max(1, Math.floor(avail / (g.cw * MIN_STEP_SHARE)) + 1), rows = Math.max(1, Math.ceil(n / perRow)), r;
+    var rows = handRows(g.W, g.pad, g.cw, n), r;
     out.rows = rows;
+    // With some cards unplayable (the game dims them), the ones you can play stand a little proud.
+    var anyDim = ids.some(function (id) { var f = info(id) || {}; return !!f.dim; });
     prefix = prefix || 'h';
     for (r = 0; r < rows; r++) {
       var part = ids.slice(Math.ceil(n * r / rows), Math.ceil(n * (r + 1) / rows)), gaps = 0, i;
@@ -88,7 +101,7 @@
       var x = (g.W - (g.cw + (part.length - 1) * step + gaps * gap)) / 2, base = g.southY - (rows - 1 - r) * g.rowStep;
       part.forEach(function (id, k) {
         if (k > 0 && gapAfter && gapAfter(part[k - 1], id)) x += gap;
-        var f = info(id) || {}, y = base - (f.raise ? g.raise : 0), px = Math.round(x);
+        var f = info(id) || {}, y = base - (f.raise ? g.raise : (anyDim && !f.dim && f.up !== false ? PLAYABLE_LIFT_PX : 0)), px = Math.round(x);
         out.cards.push({ id: id, pile: prefix + id, idx: 0, x: px, y: y, up: f.up !== false, mark: f.mark, glow: f.glow, dim: f.dim });
         out.slots.push({ id: prefix + id, x: px, y: y, w: g.cw, h: g.ch, label: f.label || Z.cardName(id) });
         x += step;
@@ -99,6 +112,13 @@
   // Face-down (or face-up when `up`) fan of a seat's hand at a table position.
   function fan(g, pos, ids, up) {
     var cards = [], n = ids.length, p = 'p' + pos;
+    if (!up && n >= COLLAPSE_FROM) {
+      // One back and a count: every card sits in the same place (so a played card still flies from the hand).
+      var ax = pos === 2 ? Math.round(g.cx - g.cw / 2) : pos === 1 ? g.westX : g.eastX, ay = pos === 2 ? g.northY : g.yTop;
+      ids.forEach(function (id, k) { cards.push({ id: id, pile: p, idx: k, x: ax, y: ay, up: false }); });
+      counts.push({ x: ax + g.cw / 2, y: ay + g.ch / 2, n: n });
+      return cards;
+    }
     if (pos === 2) {
       var nx = g.cx - (g.cw + (n - 1) * g.topStep) / 2, ts = Math.min(g.topStep, n > 1 ? (g.W - 2 * g.pad - g.cw) / (n - 1) : 0);
       nx = g.cx - (g.cw + (n - 1) * ts) / 2;
@@ -125,14 +145,18 @@
     var statusText = Z.h('span', { class: 'ct-status-text' });
     var statusBtn = Z.h('button', { class: 'ar-btn', type: 'button' });
     var status = Z.h('div', { class: 'ct-status', role: 'status' }, [statusText, statusBtn]);
-    var panel = Z.h('div', { class: 'ct-panel', role: 'group', 'aria-label': 'Choices' });
-    el.table.appendChild(scoreRow); el.table.appendChild(status); el.table.appendChild(panel);
+    var panel = Z.h('div', { class: 'ct-panel', role: 'group', 'aria-label': T('cards.choices') });
+    var countLayer = Z.h('div', { class: 'ct-counts', 'aria-hidden': 'true' });
+    el.table.appendChild(scoreRow); el.table.appendChild(status); el.table.appendChild(panel); el.table.appendChild(countLayer);
+    var lastCounts = [], liftedPile = null, liftPlay = cfg.liftPlay !== undefined ? !!cfg.liftPlay : !!LIFT_THEN_PLAY[cfg.id];
     var statusAction = null, last = '', choicesNow = [];
     statusBtn.addEventListener('click', function () { if (statusAction) statusAction(); });
 
     function paint() {
       var st = session && session.state, m = board && board.metrics();
       if (!st || !m) return;
+      countLayer.textContent = '';
+      lastCounts.forEach(function (c) { countLayer.appendChild(Z.h('span', { class: 'ct-count', style: 'left:' + Math.round(c.x) + 'px;top:' + Math.round(c.y) + 'px', text: String(c.n) })); });
       var g = cfg.geo ? cfg.geo(m, st) : geometry(m), hd = cfg.hud(st, view) || {};
       // Whatever the game's own layout says, the status line never sits on the hand.
       var statusY = Z.statusTop(g.statusY, board.handTop(), STATUS_H);
@@ -141,8 +165,9 @@
       if (sig === last) return;
       last = sig;
       scoreRow.textContent = '';
+      var thinking = /thinking/i.test(view.flash || hd.text || '');
       (hd.chips || []).forEach(function (c) {
-        scoreRow.appendChild(Z.h('span', { class: 'ct-chip' + (c.turn ? ' ct-turn' : '') }, [Z.h('b', { text: c.name }), Z.h('span', { text: c.text || '' })]));
+        scoreRow.appendChild(Z.h('span', { class: 'ct-chip' + (c.turn ? ' ct-turn' : '') + (c.turn && thinking ? ' ct-think' : '') }, [Z.h('b', { text: c.name }), Z.h('span', { text: c.text || '' })]));
       });
       scoreRow.style.top = m.pad + 'px';
       status.style.top = Math.round(statusY) + 'px'; status.style.height = STATUS_H + 'px';
@@ -169,10 +194,28 @@
 
     board = Z.createBoard({
       table: el.table, cols: cfg.cols || 7, heightShare: cfg.heightShare || 0.11, enterTaps: true, face: cfg.face,
-      place: function (st, m) { return cfg.place(st, m, view); },
+      place: function (st, m) {
+        counts = [];
+        var p = cfg.place(st, m, view);
+        if (liftedPile) {
+          // The card the first tap lifted: 14 px up, with the selection ring.
+          var found = false;
+          p.cards.forEach(function (c) { if (c.pile === liftedPile) { found = true; c.y -= LIFT_PX; c.mark = true; } });
+          if (!found) liftedPile = null;
+        }
+        lastCounts = counts.slice();
+        return p;
+      },
       canPick: function (st, pile) { return cfg.canPick ? cfg.canPick(st, pile) : false; },
       move: function (pile, idx, to) { return cfg.move ? cfg.move(pile, idx, to) : false; },
-      tap: function (pile, idx) { return cfg.tap ? cfg.tap(pile, idx) : false; },
+      tap: function (pile, idx) {
+        // Lift, then play: the first tap on a card you can play lifts it, the second plays it.
+        if (liftPlay && /^h\d+$/.test(pile) && session && cfg.canPick && cfg.canPick(session.state, pile)) {
+          if (liftedPile !== pile) { liftedPile = pile; board.refresh(); return true; }
+          liftedPile = null;
+        }
+        return cfg.tap ? cfg.tap(pile, idx) : false;
+      },
       slotTap: function (pile) { if (cfg.slotTap) cfg.slotTap(pile); },
       // The status line sits above the hand as it was just laid out.
       afterRender: function () { if (board) paint(); }
@@ -187,7 +230,7 @@
         Z.sheet({
           title: cfg.name,
           body: [Z.h('p', { class: 'zc-note', text: cfg.rules })].concat(cfg.menuExtra ? cfg.menuExtra() : [], cfg.seats ? [cfg.seats.block(null, cfg.seatsBlock)] : [], [Z.backsRow(), Z.h('p', { class: 'zc-stats', text: session.stats.line() })]),
-          actions: [{ label: 'New game', onclick: cfg.newGame }, { label: 'Done', primary: true }]
+          actions: [{ label: T('shell.menu.new'), onclick: cfg.newGame }, { label: T('cards.done'), primary: true }]
         });
       }
     });

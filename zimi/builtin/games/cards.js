@@ -9,6 +9,8 @@
   // ── Cards ─────────────────────────────────────────────────────────────
   // A card is 0..51: suit * 13 + (rank - 1). Suits in the Microsoft deck's
   // order, so the deal reads straight off its algorithm.
+  // Every visible and spoken string goes through ZimiText (text.js); a page that has none shows the string's id.
+  var T = function (key, vars) { return root.ZimiText ? root.ZimiText.T(key, vars) : key; };
   var SUITS = ['clubs', 'diamonds', 'hearts', 'spades'];
   var RANK_LABELS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   var RANK_NAMES = ['ace', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'jack', 'queen', 'king'];
@@ -20,7 +22,7 @@
   function suit(id) { return Math.floor((id % DECK) / 13); }
   function isRed(id) { var s = suit(id); return s === 1 || s === 2; }
   function make(r, s) { return s * 13 + r - 1; }
-  function cardName(id) { return RANK_NAMES[rank(id) - 1] + ' of ' + SUITS[suit(id)]; }
+  function cardName(id) { return T('cards.name', { rank: T('cards.rank.' + rank(id)), suit: T('cards.suit.' + SUITS[suit(id)]) }); }
   function clone(x) { return JSON.parse(JSON.stringify(x)); }
 
   // Same suit, one rank up on top of its own pile (or an ace on an empty one).
@@ -672,14 +674,9 @@
   // Original designs, drawn in a 92x132 art box inside a cream margin. The
   // animation is CSS on a few groups per card; cards.css pauses it with the
   // tab and drops it under reduced motion.
-  var BACKS = [
-    { id: 'zimi', name: 'Zimi' },
-    { id: 'classic', name: 'Classic' },
-    { id: 'night', name: 'Night sky' },
-    { id: 'sea', name: 'The sea' },
-    { id: 'robot', name: 'Robot' },
-    { id: 'castle', name: 'Castle' }
-  ];
+  var BACKS = ['zimi', 'classic', 'night', 'sea', 'robot', 'castle'].map(function (id) {
+    return { id: id, get name() { return T('cards.back.' + id); } };
+  });
   var DEFAULT_BACK = 'zimi';
   var ART_W = 92, ART_H = 132, ART_PAD = 4;
   var WAVE_PERIOD = 46, WAVE_REPEATS = 8;
@@ -789,12 +786,9 @@
     currentBack = BACKS.some(function (b) { return b.id === id; }) ? id : DEFAULT_BACK;
   }
 
-  function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
-  function fmtTime(s) {
-    s = Math.max(0, Math.floor(s));
-    var m = Math.floor(s / 60), r = s % 60;
-    return m + ':' + (r < 10 ? '0' : '') + r;
-  }
+  // "3 cards": the word's plural entry (cards.n.<word>), by the language's own rules.
+  function plural(n, word) { return root.ZimiText && root.ZimiText.has('cards.n.' + word) ? T('cards.n.' + word, { n: n }) : n + ' ' + word + (n === 1 ? '' : 's'); }
+  function fmtTime(s) { return root.ZimiText ? root.ZimiText.clock(s) : Math.floor(s / 60) + ':' + ('0' + Math.floor(s % 60)).slice(-2); }
   // A game's lifetime figures: played counts the games begun, so quitting
   // mid-game still shows up as a loss.
   // `lowScore` is for games where fewer points is better (Hearts); a game
@@ -815,13 +809,15 @@
         keepScore(v, score); store.set(key, v); return v;
       },
       scored: function (score) { var v = read(); keepScore(v, score); store.set(key, v); return v; },
-      line: function () {
+      // The record as labelled figures (the Menu's Stats list), and as one line for a sheet.
+      rows: function () {
         var v = read();
-        var parts = ['Played ' + v.played, 'Won ' + v.won];
-        if (v.best) parts.push('Best time ' + fmtTime(v.best));
-        if (typeof v.bestScore === 'number') parts.push('Best score ' + v.bestScore);
-        return parts.join(' \u00b7 ');
-      }
+        var out = [[T('cards.stats.played'), v.played], [T('cards.stats.won'), v.won]];
+        if (v.best) out.push([T('cards.stats.bestTime'), fmtTime(v.best)]);
+        if (typeof v.bestScore === 'number') out.push([T('cards.stats.bestScore'), v.bestScore]);
+        return out;
+      },
+      line: function () { return this.rows().map(function (r) { return r[0] + ' ' + r[1]; }).join(' \u00b7 '); }
     };
   }
 
@@ -862,6 +858,8 @@
   // ── Sheets ────────────────────────────────────────────────────────────
   // opts: { title, body: [nodes], actions: [{label, primary, onclick}] }
   function sheet(opts) {
+    // The one anatomy lives in the shell (title, text, options, actions; focus on the sheet, Esc closes).
+    if (root.ZimiShell && root.ZimiShell.sheet) return root.ZimiShell.sheet(opts);
     var d = root.document, prev = d.activeElement;
     var card = h('div', { class: 'ar-sheet-card', role: 'dialog', 'aria-modal': 'true', 'aria-label': opts.title });
     card.appendChild(h('h2', { text: opts.title }));
@@ -898,7 +896,7 @@
     BACKS.forEach(function (b) {
       var face = h('div', { class: 'zc-card zc-down' });
       face.innerHTML = '<div class="zc-back">' + backMarkup(b.id) + '</div>';
-      var pick = h('button', { class: 'zc-pick', type: 'button', 'aria-pressed': String(b.id === currentBack), 'aria-label': b.name + ' card back' }, [face, h('span', { text: b.name })]);
+      var pick = h('button', { class: 'zc-pick', type: 'button', 'aria-pressed': String(b.id === currentBack), 'aria-label': T('cards.backLabel', { name: b.name }) }, [face, h('span', { text: b.name })]);
       pick.addEventListener('click', function () {
         setBack(b.id);
         Object.keys(picks).forEach(function (k) { picks[k].setAttribute('aria-pressed', String(k === b.id)); });
@@ -906,12 +904,12 @@
       picks[b.id] = pick;
       grid.appendChild(pick);
     });
-    return sheet({ title: 'Card backs', body: [grid], actions: [{ label: 'Done', primary: true }] });
+    return sheet({ title: T('cards.backs'), body: [grid], actions: [{ label: T('cards.done'), primary: true }] });
   }
 
   // The menu row both games share: open the backs picker.
   function backsRow() {
-    return h('div', { class: 'zc-row', 'data-gs': 'backs' }, [h('label', { text: 'Look' }), h('button', { class: 'ar-btn', type: 'button', text: 'Card backs\u2026', onclick: backsSheet })]);
+    return h('div', { class: 'zc-row', 'data-gs': 'backs' }, [h('label', { text: T('cards.look') }), h('button', { class: 'ar-btn', type: 'button', text: T('cards.backsMore'), onclick: backsSheet })]);
   }
 
   // ── The board ─────────────────────────────────────────────────────────
@@ -1166,7 +1164,7 @@
     }
     function onKey(ev, pile) {
       var ids = byPile[pile] || [], key = ev.key;
-      if (key === 'Escape' && sel) { sel = null; paintSelection(); say('Cancelled'); return; }
+      if (key === 'Escape' && sel) { sel = null; paintSelection(); say(T('cards.cancelled')); return; }
       if (sel && (key === 'ArrowUp' || key === 'ArrowDown') && sel.pile === pile) {
         ev.preventDefault();
         var next = sel.idx + (key === 'ArrowUp' ? -1 : 1);
@@ -1177,19 +1175,19 @@
       if (key !== 'Enter' && key !== ' ') return;
       ev.preventDefault();
       if (o.enterTaps) {
-        if (ids.length) { if (!o.tap(pile, ids.length - 1)) say('No move'); } else if (o.slotTap) o.slotTap(pile);
+        if (ids.length) { if (!o.tap(pile, ids.length - 1)) say(T('cards.noMove')); } else if (o.slotTap) o.slotTap(pile);
         return;
       }
       if (sel) {
         var from = sel; sel = null; paintSelection();
-        if (from.pile === pile) { if (!o.tap(from.pile, from.idx)) say('No move'); return; }
-        if (o.move(from.pile, from.idx, pile)) say('Moved');
-        else { say('Not allowed there'); sel = from; paintSelection(); }
+        if (from.pile === pile) { if (!o.tap(from.pile, from.idx)) say(T('cards.noMove')); return; }
+        if (o.move(from.pile, from.idx, pile)) say(T('cards.moved'));
+        else { say(T('cards.notAllowed')); sel = from; paintSelection(); }
         return;
       }
       if (ids.length && o.canPick(lastState, pile, ids.length - 1)) {
         sel = { pile: pile, idx: ids.length - 1 }; paintSelection();
-        say('Picked up ' + cardName(ids[ids.length - 1]) + '. Choose a pile, Enter to drop.');
+        say(T('cards.picked', { card: cardName(ids[ids.length - 1]) }));
       } else if (o.slotTap) o.slotTap(pile);
     }
 
@@ -1366,18 +1364,24 @@
       s.won = true; halt(); clearLater();
       if (typeof score === 'number') s.stats.scored(score);
       paint();
+      if (root.ZimiShell && root.ZimiShell.endSheet) { root.ZimiShell.endSheet({ result: 'lose', text: lines[0] || title, stats: s.stats.rows().slice(0, 2), onNew: cfg.newGame }); return; }
       var body = lines.map(function (t) { return h('p', { class: 'zc-note', text: t }); });
       body.push(h('p', { class: 'zc-stats', text: s.stats.line() }));
-      sheet({ title: title, body: body, actions: [{ label: 'Close' }, { label: 'New game', primary: true, onclick: cfg.newGame }] });
+      sheet({ title: title, body: body, actions: [{ label: T('shell.close') }, { label: T('shell.menu.new'), primary: true, onclick: cfg.newGame }] });
     };
     s.win = function (score) {
       s.won = true; halt(); clearLater();
       var sec = seconds(), best = s.stats.won(sec, score);
       paint();
       board.cascade(cfg.cascadeOrder(s.state), function () {
-        var body = cfg.winLines(sec, s.state).map(function (t) { return h('p', { class: 'zc-note', text: t }); });
-        body.push(h('p', { class: 'zc-stats', text: 'Won ' + best.won + ' of ' + best.played + '   Best ' + fmtTime(best.best) + (typeof best.bestScore === 'number' ? '   Best score ' + best.bestScore : '') }));
-        sheet({ title: 'You won', body: body, actions: [{ label: 'Close' }, { label: 'New game', primary: true, onclick: cfg.newGame }] });
+        var lines = cfg.winLines(sec, s.state);
+        if (root.ZimiShell && root.ZimiShell.endSheet) {
+          root.ZimiShell.endSheet({ result: 'win', text: lines[0], stats: [[T('cards.stats.time'), fmtTime(sec)], [T('cards.stats.won'), T('cards.stats.wonOf', { won: best.won, played: best.played })]], onNew: cfg.newGame });
+          return;
+        }
+        var body = lines.map(function (t) { return h('p', { class: 'zc-note', text: t }); });
+        body.push(h('p', { class: 'zc-stats', text: s.stats.line() }));
+        sheet({ title: T('shell.end.win'), body: body, actions: [{ label: T('shell.close') }, { label: T('shell.menu.new'), primary: true, onclick: cfg.newGame }] });
       });
     };
 
@@ -1385,7 +1389,7 @@
     cfg.els.newBtn.addEventListener('click', cfg.newGame);
     cfg.els.menu.addEventListener('click', cfg.openMenu);
     if (root.ZimiShell) root.ZimiShell.game({
-      stats: function () { return s.stats.line(); },
+      stats: function () { return s.stats.rows(); },
       // The game's own menu sheet, taken apart: its options go into the shell's New game pane,
       // while its rules note, its card backs and its stats line are the shell's own rows.
       menu: function () { return { options: menuOptions(cfg.openMenu) }; },
@@ -1423,7 +1427,7 @@
   // Describe a pile for assistive tech: "Tableau 3, 5 cards, top 7 of hearts".
   function describePile(name, ids, topVisible) {
     var n = ids.length;
-    return name + ', ' + (n === 0 ? 'empty' : n + (n === 1 ? ' card' : ' cards') + (topVisible ? ', top ' + cardName(ids[n - 1]) : ''));
+    return n === 0 ? T('cards.pile.empty', { name: name }) : T(topVisible ? 'cards.pile.top' : 'cards.pile.count', { name: name, n: n, card: topVisible ? cardName(ids[n - 1]) : '' });
   }
   // How far each card of a fan steps down so the tallest pile fits: `weight`
   // is the pile's step count, `room` the height under its first card.
@@ -1441,7 +1445,7 @@
     spanishFaceMarkup: spanishFaceMarkup, spanishName: spanishName, hanafudaFaceMarkup: hanafudaFaceMarkup, hanafudaCard: hanafudaCard, hanafudaName: hanafudaName, HANA_MONTHS: HANA_MONTHS, jokerMarkup: jokerMarkup, markSvg: markSvg,
     fmtTime: fmtTime, plural: plural, describePile: describePile, fanStep: fanStep, statusTop: statusTop, pageEls: pageEls, idsOf: idsOf, restShare: restShare,
     store: store, createStats: createStats, h: h, sheet: sheet, segmented: segmented, backsSheet: backsSheet, backsRow: backsRow,
-    createBoard: createBoard, createSession: createSession, ensureSprite: ensureSprite,
+    T: T, createBoard: createBoard, createSession: createSession, ensureSprite: ensureSprite,
     currentBack: function () { return currentBack; }
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

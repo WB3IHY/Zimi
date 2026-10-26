@@ -23,7 +23,7 @@ const sandbox = {
 };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
-for (const f of ['cards.js', 'cardtable.js', 'scopa.js', 'cribbage.js', 'euchre.js', 'crazyeights.js', 'spades.js', 'gin.js', 'durak.js']) {
+for (const f of ['text.js', 'cards.js', 'cardtable.js', 'scopa.js', 'cribbage.js', 'euchre.js', 'crazyeights.js', 'spades.js', 'gin.js', 'durak.js']) {
   if (!fs.existsSync(path.join(dir, f))) continue;
   vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sandbox, { filename: f });
 }
@@ -40,7 +40,21 @@ const order = seed => Z.shuffled(lcg(seed));
 {
   const hand = T.sortHand(ids('AS 2H 5C KD 3S'), T.rankHigh);
   check(same(hand, ids('5C KD 3S AS 2H')), 'a hand sorts by alternating suit, ace high');
-  check(T.rowsFor({ W: 390, pad: 8, cw: 49 }, 13) === 1 && T.rowsFor({ W: 390, pad: 8, cw: 49 }, 26) === 2, 'a 13-card hand fits one row on a phone; 26 wrap to two');
+  check(T.rowsFor({ W: 390, pad: 8, cw: 49 }, 9) === 1 && T.rowsFor({ W: 390, pad: 8, cw: 49 }, 10) === 2 && T.rowsFor({ W: 390, pad: 8, cw: 49 }, 13) === 2 && T.rowsFor({ W: 390, pad: 8, cw: 49 }, 26) === 3, 'a hand is one row to nine cards, two rows from ten, and more when a strip would be under 30 px');
+{
+  const g = T.geometry({ W: 390, H: 700, cw: 49, ch: 69, pad: 8 }, 2);
+  const hand = T.handCards(g, ids('2C 3C 4C 5C 6C 7C 8C 9C TC JC QC KC AC'), () => ({}), null);
+  const xs = hand.cards.map(c => c.x), rows = new Set(hand.cards.map(c => c.y)).size;
+  check(hand.rows === 2 && rows === 2, 'a 13-card hand lays out in two rows');
+  check(hand.cards.slice(0, 7).every((c, i, a) => i === 0 || c.x - a[i - 1].x >= 30), 'no card strip is narrower than 30 px');
+  check(Math.max.apply(null, hand.cards.map(c => c.y)) === g.southY, 'the bottom row sits on the bottom of the table');
+  const dimmed = T.handCards(g, ids('2C 3C 4C'), id => ({ dim: id === ids('2C')[0] }), null);
+  check(dimmed.cards[0].y > dimmed.cards[1].y && dimmed.cards[1].y === dimmed.cards[2].y - 0 && dimmed.cards[1].y < g.southY, 'when some cards cannot be played, the ones you can play stand proud');
+  const down = T.fan(g, 1, ids('2C 3C 4C 5C 6C 7C 8C'), false);
+  check(down.length === 7 && new Set(down.map(c => c.x + ',' + c.y)).size === 1, 'an opponent hand of more than five collapses to one place');
+  const few = T.fan(g, 1, ids('2C 3C 4C 5C'), false);
+  check(new Set(few.map(c => c.y)).size === 4, 'five or fewer stay fanned');
+}
   const sh = T.shuffleOf([1, 2, 3, 4, 5], lcg(3));
   check(sh.length === 5 && sh.slice().sort().join() === '1,2,3,4,5', 'shuffleOf keeps the cards');
 }

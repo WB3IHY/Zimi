@@ -29,7 +29,7 @@ const sandbox = {
 };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
-for (const f of ['cards.js', 'solitaire.js', 'freecell.js']) {
+for (const f of ['text.js', 'cards.js', 'solitaire.js', 'freecell.js']) {
   vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sandbox, { filename: f });
 }
 const Z = sandbox.ZimiCards, K = sandbox.ZimiSolitaire, F = sandbox.ZimiFreeCell;
@@ -256,7 +256,7 @@ check(/^M0 -10A10 10 0 0 1 0 10A/.test(Z.moonLitPath(0.1, 0, 0, 10)) && /^M0 -10
 // ── Shared rules ────────────────────────────────────────────────────────────
 check(Z.foundationAccepts(id('AH'), null, 0) && !Z.foundationAccepts(id('2H'), null, 0), 'only an ace starts a foundation');
 check(Z.stacksOn(id('7S'), id('6H')) && !Z.stacksOn(id('7S'), id('6C')) && !Z.stacksOn(id('7S'), id('5H')), 'stacking is opposite colour, one rank down');
-check(Z.fmtTime(0) === '0:00' && Z.fmtTime(75) === '1:15' && Z.fmtTime(3600) === '60:00', 'times read m:ss');
+check(Z.fmtTime(0) === '0:00' && Z.fmtTime(75) === '1:15' && Z.fmtTime(3600) === '1:00:00' && Z.fmtTime(-5) === '0:00', 'times read m:ss, with hours from an hour');
 check(Z.shuffled(() => 0.5).length === 52 && new Set(Z.shuffled(Math.random)).size === 52, 'a shuffle keeps all 52');
 
 console.log(failures ? failures + ' failure(s)' : 'all passed');
