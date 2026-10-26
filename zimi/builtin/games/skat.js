@@ -28,7 +28,7 @@
    at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
+  var Z = root.ZimiCards, T = root.ZimiTable, TX = root.ZimiCards.T;
 
   var SEATS = 3, HAND = 10, NAMES = [TX('cards.you'), TX('cards.seat.west'), TX('cards.seat.east')], GLYPH = T.SUIT_GLYPH, SUIT_NAMES = ['clubs', 'diamonds', 'hearts', 'spades'];
   var BASE = { 0: 12, 3: 11, 2: 10, 1: 9 }, GRAND_BASE = 24, NULL_BASE = 23, NULL_HAND = 35, WIN_BONUS = 50, LOSS_BONUS = 50, DEFENDER_BONUS = 30, NEED = 61, SCHNEIDER_AT = 90, SCHNEIDER_DEF = 30;
@@ -277,11 +277,9 @@
   function geo(m, st) { return T.geometry(m, T.rowsFor(m, Math.max(st.hands[0].length, HAND))); }
   // view: { sel: [ids] chosen to put back }
   function place(st, m, view) {
-    var g = geo(m, st), slots = [], cards = [], full = st.trick.length === SEATS, sweep = view && full ? view.sweep : null, sel = (view && view.sel) || [];
-    var V = (view && view.viewer) || 0, up = !(view && view.hideHand), pos = function (seat) { return posFrom(seat, V); };
+    var g = geo(m, st), slots = T.feltSlots(g), cards = [], full = st.trick.length === SEATS, sweep = view && full ? view.sweep : null, sel = (view && view.sel) || [];
+    var L = T.looking(view), V = L.V, up = L.up, pos = function (seat) { return posFrom(seat, V); };
     var myTurn = st.phase === 'play' && st.turn === V && !full, picking = st.phase === 'discard' && st.declarer === V;
-    slots.push({ id: 'deck', x: g.cx - g.cw / 2, y: g.cy - g.ch / 2, w: g.cw, h: g.ch, quiet: true, label: TX('cards.slot.table') });
-    slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: TX('cards.slot.trick') });
     var hand = T.handCards(g, st.hands[V], function (id) {
       var on = sel.indexOf(id) >= 0;
       return { up: up, dim: up && myTurn && !isLegal(st, V, id), mark: on, raise: on, glow: up && picking && st.skat.indexOf(id) >= 0 && !on && !view.touched, label: Z.cardName(id) + (on ? TX('skat.aria.putBack') : '') };
@@ -289,11 +287,7 @@
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     [1, 2].forEach(function (k) { var seat = (V + k) % SEATS; cards = cards.concat(T.fan(g, pos(seat), st.hands[seat], false)); });
     if (st.phase === 'bid' || st.phase === 'pick' || st.phase === 'declare') st.skat.forEach(function (id, k) { cards.push({ id: id, pile: 'skat', idx: k, x: Math.round(g.cx - g.cw + k * g.cw * 1.1), y: Math.round(g.cy - g.ch / 2), up: false }); });
-    st.trick.forEach(function (t, k) {
-      var spot = sweep !== null && sweep !== undefined ? T.seatSpot(g, pos(sweep)) : T.trickSpot(g, pos(t.seat));
-      cards.push({ id: t.id, pile: 'trick', idx: k, x: Math.round(spot.x), y: Math.round(spot.y), up: true });
-    });
-    return { height: m.H, slots: slots, cards: cards };
+    return { height: m.H, slots: slots, cards: cards.concat(T.trickCards(g, st.trick, sweep, pos)) };
   }
 
   var api = {
@@ -307,16 +301,9 @@
   // ── The page ────────────────────────────────────────────────────────────
   var AI_MS = 650, HOLD_MS = 1000, SWEEP_MS = 380, ROUNDS_KEY = 'skat.rounds', ROUND_CHOICES = [6, 12];
   function boot() {
-    var d = root.document, t, board, session, view = { sweep: null, flash: '', sel: [], touched: false, note: '' };
-    var seats = Seats.create({ id: 'skat', seats: SEATS, onChange: function () { if (t) t.paint(); if (board) board.refresh(); } });
-    var who = function (seat) { return seats.name(seat); };
+    var t, board, session, view = { sweep: null, flash: '', sel: [], touched: false, note: '' }, tg, seats, who, mine;
     // Who is acting now: the declarer while picking, discarding and declaring, else the player to bid or play.
     var actor = function (st) { return st.phase === 'pick' || st.phase === 'discard' || st.phase === 'declare' ? st.declarer : st.turn; };
-    var mine = function (seat) { return seats.person(seat) && seat === seats.view(); };
-    var order = function () { return [0, 1, 2].map(function (i) { return (seats.view() + i) % SEATS; }); };
-    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && actor(st) !== view.viewer; }
-    function repaint() { board.refresh(); t.paint(); }
-    var turnText = function (seat) { return !seats.person(seat) ? TX('cards.thinking', { name: who(seat) }) : seats.isYou(seat) ? TX('cards.turn.you') : TX('cards.turn.name', { name: who(seat) }); };
     function resultLines(st) {
       var r = st.result, g = r.game, lines = [], dn = who(r.declarer), word = handWord(g);
       if (g.type === 'null') lines.push(TX('skat.line.null' + (g.hand ? 'Hand' : ''), { name: dn }) + ' ' + TX(r.won ? 'skat.line.noTrick' : r.value < r.bid ? 'skat.line.tooMuch' : 'skat.line.tookTrick', { bid: r.bid }));
@@ -325,13 +312,13 @@
         lines.push(TX(r.overbid ? 'skat.line.valueOver' : 'skat.line.value', { value: r.value, bid: r.bid }));
       }
       lines.push(r.won ? TX('skat.line.won', { name: dn, delta: (r.delta[r.declarer] > 0 ? '+' : '') + r.delta[r.declarer] }) : TX('skat.line.lost', { name: dn, delta: r.delta[r.declarer], bonus: DEFENDER_BONUS }));
-      lines.push(TX('skat.line.totals', { list: order().map(function (q) { return who(q) + ' ' + st.scores[q]; }).join(', ') }));
+      lines.push(TX('skat.line.totals', { list: tg.order().map(function (q) { return who(q) + ' ' + st.scores[q]; }).join(', ') }));
       return lines;
     }
     var bidText = function (st) { return st.bid.value ? ' ' + TX('skat.at', { n: st.bid.value }) : ''; };
     function hud(st) {
       var full = st.trick.length === SEATS;
-      var chips = order().map(function (seat) {
+      var chips = tg.order().map(function (seat) {
         var name = who(seat), text = String(st.scores[seat]);
         if (st.declarer === seat) text += ' ★';
         return { name: name, text: text, turn: st.turn === seat && !full && st.phase !== 'handEnd' && st.phase !== 'over' };
@@ -358,22 +345,20 @@
           out.text = TX(st.taken ? 'skat.nameGame' : 'skat.nameGameHand');
           out.choices = [0, 3, 2, 1].map(function (s) { return act(GLYPH[s], function () { call('suit', s); }, { aria: TX('skat.suitAria', { suit: TX('cards.suit.' + SUIT_NAMES[s]), n: BASE[s] }), cls: s === 1 || s === 2 ? 'ct-red' : '' }); }).concat([act(TX('skat.game.grand'), function () { call('grand'); }), act(TX('skat.game.null'), function () { call('null'); })]);
         } else out.text = TX('skat.choosing', { name: who(st.declarer) });
-      } else if (st.phase === 'handEnd') { out.text = TX('skat.dealOver'); out.label = TX('skat.nextDeal'); out.action = startNextHand; }
+      } else if (st.phase === 'handEnd') { out.text = TX('skat.dealOver'); out.label = TX('skat.nextDeal'); out.action = tg.startNextHand; }
       else if (st.phase === 'over') out.text = TX('skat.seriesOver');
       else if (st.phase === 'passout') out.text = TX('belote.redeal');
-      else if (full) { var w = trickWinner(st.trick, st.game); out.text = seats.isYou(w) ? TX('cards.trick.you') : TX('cards.trick.name', { name: who(w) }); }
-      else out.text = (view.note ? view.note + ' ' : '') + turnText(st.turn);
+      else if (full) out.text = tg.trickText(trickWinner(st.trick, st.game));
+      else out.text = (view.note ? view.note + ' ' : '') + tg.turnText(st.turn);
       return out;
     }
 
     function drive() {
       var st = session.state;
-      if (st.phase === 'passout') { session.later(function () { view.note = ''; session.follow(nextHand(st, Z.shuffled(Math.random), true)); deal(); }, 1100); return; }
-      if (st.phase === 'bid') { if (seats.person(st.turn)) seats.ensure(st.turn, repaint); else session.later(aiBidTurn, AI_MS); return; }
-      if (st.phase === 'pick' || st.phase === 'discard' || st.phase === 'declare') { if (seats.person(st.declarer)) seats.ensure(st.declarer, repaint); else session.later(aiDeclarerTurn, AI_MS); return; }
-      if (st.phase !== 'play') return;
-      if (st.trick.length === SEATS) { session.later(sweepTrick, HOLD_MS); return; }
-      if (seats.person(st.turn)) seats.ensure(st.turn, repaint); else session.later(aiTurn, AI_MS);
+      if (st.phase === 'passout') { session.later(function () { view.note = ''; session.follow(nextHand(st, Z.shuffled(Math.random), true)); tg.deal(); }, 1100); return; }
+      if (st.phase === 'bid') { if (seats.person(st.turn)) seats.ensure(st.turn, tg.repaint); else session.later(aiBidTurn, AI_MS); return; }
+      if (st.phase === 'pick' || st.phase === 'discard' || st.phase === 'declare') { if (seats.person(st.declarer)) seats.ensure(st.declarer, tg.repaint); else session.later(aiDeclarerTurn, AI_MS); return; }
+      tg.turn(st);
     }
     function aiBidTurn() {
       var st = session.state;
@@ -393,76 +378,39 @@
         session.follow(ns); t.flash(TX('skat.plays', { name: who(seat) }) + ' ' + handWord(ns.game)); drive();
       }
     }
-    function aiTurn() {
-      var st = session.state;
-      if (st.phase !== 'play' || seats.person(st.turn) || st.trick.length === SEATS) return;
-      session.follow(playCard(st, st.turn, aiCard(st, st.turn)));
-      drive();
-    }
-    function sweepTrick() {
-      var st0 = session.state;
-      if (st0.trick.length !== SEATS) return;
-      view.sweep = trickWinner(st0.trick, st0.game);
-      board.refresh();
-      session.later(function () {
-        view.sweep = null;
-        session.follow(resolveTrick(session.state));
-        var st = session.state;
-        if (st.phase === 'handEnd') handOver(); else if (st.phase === 'over') gameOver(); else drive();
-      }, SWEEP_MS);
-    }
-    function handOver() { T.lineSheet(TX('skat.fact', { n: session.state.round + 1, of: session.state.rounds }), resultLines(session.state), [{ label: TX('skat.nextDeal'), primary: true, onclick: startNextHand }]); }
+    function handOver() { var st = session.state; tg.handSheet(resultLines(st), TX('skat.fact', { n: st.round + 1, of: st.rounds }), TX('skat.nextDeal')); }
     function gameOver() {
       var st = session.state, w = gameWinner(st.scores), me = seats.view(), hot = seats.hotseat();
       var lines = resultLines(st).concat([w === me && !hot ? TX('skat.winYou', { n: st.scores[me] }) : w >= 0 ? TX('skat.winName', { name: who(w), n: st.scores[w] }) : TX('skat.tied')]);
       if (w === me && !hot) session.win(st.scores[me]); else session.lose(w < 0 ? 'draw' : hot ? { name: who(w) } : '', lines, hot ? undefined : st.scores[me]);
     }
-    function startNextHand() {
-      var st = session.state;
-      if (st.phase !== 'handEnd') return;
-      session.history = []; view.note = ''; view.sel = []; view.touched = false;
-      session.follow(nextHand(st, Z.shuffled(Math.random)));
-      deal();
-    }
     function bid(type) { var st = session.state; if (st.phase !== 'bid' || !mine(st.turn)) return; view.note = ''; session.commit(bidAct(st, st.turn, type)); drive(); }
     function pick(type) { var st = session.state; if (st.phase !== 'pick' || !mine(st.declarer)) return; view.sel = []; view.touched = false; session.commit(pickAct(st, st.declarer, type)); drive(); }
     function putBack() { var st = session.state; if (st.phase !== 'discard' || !mine(st.declarer) || view.sel.length !== 2) return; var ids = view.sel.slice(); view.sel = []; session.commit(discard(st, st.declarer, ids)); drive(); }
     function call(type, suit) { var st = session.state; if (st.phase !== 'declare' || !mine(st.declarer)) return; session.commit(declare(st, st.declarer, type, suit)); drive(); }
-    var idOf = function (pile) { return parseInt(pile.slice(1), 10); };
-    function play(id) {
-      var st = session.state;
-      if (!isLegal(st, seats.view(), id)) return false;
-      session.commit(playCard(st, seats.view(), id));
-      drive();
+    // The two cards to put back are picked by tapping them.
+    function tapSkat(st, id) {
+      if (st.phase !== 'discard' || !mine(st.declarer)) return undefined;
+      var at = view.sel.indexOf(id);
+      view.touched = true;
+      if (at >= 0) view.sel.splice(at, 1); else if (view.sel.length < 2) view.sel.push(id); else { t.flash(TX('skat.twoOnly')); return false; }
+      board.refresh(); t.paint();
       return true;
     }
-    function tap(pile) {
-      var st = session.state, id = idOf(pile);
-      if (pile.charAt(0) !== 'h' || isNaN(id)) return false;
-      if (st.phase === 'discard' && mine(st.declarer)) {
-        var at = view.sel.indexOf(id);
-        view.touched = true;
-        if (at >= 0) view.sel.splice(at, 1); else if (view.sel.length < 2) view.sel.push(id); else { t.flash(TX('skat.twoOnly')); return false; }
-        board.refresh(); t.paint();
-        return true;
-      }
-      if (st.phase !== 'play') return false;
-      if (st.turn !== seats.view() || st.trick.length === SEATS) { t.flash(st.trick.length === SEATS ? TX('cards.wait.trick') : TX('cards.wait.turn')); return false; }
-      if (!isLegal(st, st.turn, id)) { t.flash(effSuit(st.trick[0].id, st.game) === TRUMP ? TX('skat.followTrump') : TX('cards.follow', { suit: TX('cards.suit.' + SUIT_NAMES[effSuit(st.trick[0].id, st.game)]) })); return false; }
-      return play(id);
-    }
+    function whyNot(st) { var lead = effSuit(st.trick[0].id, st.game); return lead === TRUMP ? TX('skat.followTrump') : TX('cards.follow', { suit: TX('cards.suit.' + SUIT_NAMES[lead]) }); }
     function newSeries() {
-      view.sweep = null; view.flash = ''; view.note = ''; view.sel = []; view.touched = false;
       var rounds = Z.store.get(ROUNDS_KEY, 6);
-      session.reset(newGame(Z.shuffled(Math.random), ROUND_CHOICES.indexOf(rounds) >= 0 ? rounds : 6, Math.floor(Math.random() * SEATS)));
-      deal();
+      tg.restart(newGame(Z.shuffled(Math.random), ROUND_CHOICES.indexOf(rounds) >= 0 ? rounds : 6, Math.floor(Math.random() * SEATS)));
     }
-    // A fresh deal: nobody has seen it, so a table of people starts at a handoff.
-    function deal() { seats.begin(function () { repaint(); drive(); }, actor(session.state)); }
-    t = T.create({
-      id: 'skat', name: 'Skat', liftPlay: function (st) { return st.phase === 'play'; }, seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newSeries, tap: tap, cols: 7, heightShare: 0.13,
-      canPick: function (st, pile) { return st.phase === 'play' && pile.charAt(0) === 'h' && isLegal(st, seats.view(), idOf(pile)); },
-      move: function (pile, idx, to) { return (to === 'trick' || to === 'deck') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
+
+    tg = T.trickGame({
+      id: 'skat', n: SEATS, view: view, ms: { ai: AI_MS, hold: HOLD_MS, sweep: SWEEP_MS }, drive: drive, handEnd: 'handEnd', actor: actor, control: function (st) { return st.turn; },
+      winner: function (st) { return trickWinner(st.trick, st.game); }, resolve: resolveTrick, nextHand: nextHand, handOver: handOver, gameOver: gameOver,
+      legal: isLegal, why: whyNot, play: playCard, aiPlay: aiCard, pretap: tapSkat, clear: function () { view.note = ''; view.sel = []; view.touched = false; }
+    });
+    seats = tg.seats; mine = tg.mine; who = seats.name;
+    t = tg.create({
+      name: 'Skat', geo: geo, place: place, hud: hud, newGame: newSeries, heightShare: 0.13,
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[seats.view()]; },
       cascadeOrder: function (st) { return st.won[seats.view()].slice(0, 24).map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { return resultLines(st).concat([TX('skat.winYou', { n: st.scores[seats.view()] })]); },
