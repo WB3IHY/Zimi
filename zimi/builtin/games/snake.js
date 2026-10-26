@@ -87,11 +87,11 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
-  var SWIPE_PX = 22, MAX_BOARD = 560, CHROME_PX = 190, READY_ARM_MS = 650;
+  var SWIPE_PX = 22, MAX_BOARD = 560, CHROME_PX = 120, READY_ARM_MS = 650;
   var SETTINGS_KEY = 'zimi.games.snake.settings', BEST_KEY = 'zimi.games.snake.best';
   Play.applyTheme();
 
-  var els = { cv: $('sn-board'), score: $('sn-score'), best: $('sn-best'), msg: $('sn-msg'), pause: $('sn-pause'), newBtn: $('sn-new') };
+  var els = { cv: $('sn-board'), stat: $('sn-stat'), msg: $('sn-msg'), pause: $('sn-pause'), newBtn: $('sn-new') };
   var ctx = els.cv.getContext('2d'), status = Play.status(els.msg);
   var settings = Play.load(SETTINGS_KEY, { wrap: false }), best = Play.load(BEST_KEY, {});
   var g, cs = 18, mode = 'ready', last = 0, acc = 0, pal = {}, armed = null;
@@ -144,7 +144,8 @@
     });
   }
 
-  function hud() { els.score.textContent = Play.num(g.score); els.best.textContent = Play.num(Math.max(best[modeKey()] || 0, g.score)); }
+  // The bar's one stat: the apples this game and the best, "3 · Best 12".
+  function hud() { els.stat.textContent = Play.num(g.score) + ' \u00b7 ' + T('play.best') + ' ' + Play.num(Math.max(best[modeKey()] || 0, g.score)); }
 
   function frame(t) {
     if (mode !== 'playing') return;

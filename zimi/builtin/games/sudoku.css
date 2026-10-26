@@ -23,12 +23,12 @@
 .su-notes { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 1px; }
 .su-notes i { display: grid; place-items: center; font: 600 max(var(--fs-caption), calc(var(--side, 360px) / 9 * 0.27))/1 var(--font); font-style: normal; color: var(--ink2); }
 
-.su-pad { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-2); width: var(--side, 360px); max-width: 100%; }
+.su-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); width: var(--side, 360px); max-width: 100%; }
 .su-board, .su-pad { margin: 0 auto; }
-.su-num { min-width: 0; min-height: 48px; padding: var(--sp-1) 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: var(--fs-sheet); border-radius: var(--radius); }
+.su-num { min-width: 0; min-height: 52px; padding: var(--sp-1) 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: var(--fs-sheet); border-radius: var(--radius); }
 .su-num small { font: 600 var(--fs-small)/1 var(--font); font-variant-numeric: tabular-nums; color: var(--ink2); height: 13px; }
-.su-erase { font-size: var(--fs-body); }
 .su-num.done { opacity: 0.45; }
 /* Pencil is a toggle, so it reads as a selection (glow and amber line), never as the screen's one filled button. */
-.su-tools { width: var(--side, 360px); max-width: 100%; }
+.su-tools { width: var(--side, 360px); max-width: 100%; flex-wrap: nowrap; }
+.su-tools .ar-btn { flex: 1 1 0; min-width: 0; min-height: var(--target); padding: 0 var(--sp-2); }
 .su-tools .ar-btn[aria-pressed="true"] { background: var(--accent-glow); border-color: var(--accent); color: var(--ink); font-weight: 650; }

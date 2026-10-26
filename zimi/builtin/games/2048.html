@@ -13,15 +13,12 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>2048</h1>
+  <span class="ar-stat" id="tf-stat"></span>
   <button class="ar-btn" id="tf-undo" type="button" disabled data-t="board.undo">Undo</button>
   <button class="ar-btn" id="tf-new" type="button" hidden data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="pl-main">
-  <div class="pl-hud">
-    <div class="pl-stat"><small data-t="play.score">Score</small><b id="tf-score">0</b></div>
-    <div class="pl-stat"><small data-t="play.best">Best</small><b id="tf-best">0</b></div>
-  </div>
   <div class="tf-board" id="tf-board" role="grid" aria-label="The board" data-t-aria="play.board"></div>
   <p class="pl-msg" id="tf-msg"></p>
 </main>

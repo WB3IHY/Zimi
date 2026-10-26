@@ -84,6 +84,7 @@ button { font: inherit; color: inherit; }
 /* Buttons: ghost by default (a 1px line, radius 10); 44px on touch, 36px on a fine pointer. One filled amber button per screen. */
 .ar-btn { min-height: 36px; padding: 0 var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); cursor: pointer; white-space: nowrap; }
 @media (pointer: coarse) { .ar-btn { min-height: var(--target); } }
+.ar-btn[hidden] { display: none; }
 .ar-btn:hover { border-color: var(--accent); color: var(--accent); }
 .ar-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 /* Disabled controls keep their place: ink3 text on the line border (the state is also in disabled / aria-disabled). */
@@ -106,6 +107,8 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
    in dark the sheet is surface2 with a visible line. */
 .ar-sheet { position: fixed; inset: 0; display: grid; place-items: center; padding: var(--gutter); background: var(--scrim); z-index: 50; }
 .ar-sheet[hidden] { display: none; }
+/* The veil covers the game, never the bar: Back, the stat and Menu stay at full strength (Menu is how the sheet closes). */
+body:has(> .ar-bar) .ar-sheet { top: var(--bar-h); }
 .ar-sheet-card { width: min(420px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: var(--sp-5) 20px 20px; border: 1px solid var(--line); border-radius: var(--r-sheet); background: var(--surface2); color: var(--ink); box-shadow: var(--shadow-popup); }
 .ar-sheet-card:focus { outline: none; }
 .ar-sheet-card h2 { margin: 0 0 var(--sp-3); font-size: var(--fs-sheet); font-weight: 650; line-height: 1.25; letter-spacing: -0.01em; }

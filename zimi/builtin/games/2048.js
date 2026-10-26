@@ -123,11 +123,11 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
-  var SWIPE_PX = 24, SLIDE_MS = 110, MAX_BOARD = 440, SIDE_PAD = 32, END_AFTER_MS = 600;
+  var SWIPE_PX = 24, SLIDE_MS = 110, MAX_BOARD = 560, SIDE_PAD = 24, END_AFTER_MS = 600;
   var GAME_KEY = 'zimi.games.2048.game', BEST_KEY = 'zimi.games.2048.best';
   Play.applyTheme();
 
-  var els = { board: $('tf-board'), score: $('tf-score'), best: $('tf-best'), msg: $('tf-msg'), undo: $('tf-undo'), fresh: $('tf-new') };
+  var els = { board: $('tf-board'), stat: $('tf-stat'), msg: $('tf-msg'), undo: $('tf-undo'), fresh: $('tf-new') };
   var note = Play.status(els.msg);
   var g, els2 = {}, cell = 80, gap = 10, best = Play.load(BEST_KEY, { score: 0 }), asked = false;
 
@@ -166,7 +166,7 @@
   }
 
   function hud() {
-    els.score.textContent = Play.num(g.score); els.best.textContent = Play.num(Math.max(best.score, g.score));
+    els.stat.textContent = Play.num(g.score) + ' \u00b7 ' + T('play.best') + ' ' + Play.num(Math.max(best.score, g.score));   // the bar's one stat
     els.undo.disabled = !g.undo;
   }
   function persist() {

@@ -12,15 +12,12 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Snake</h1>
+  <span class="ar-stat" id="sn-stat" aria-live="off"></span>
   <button class="ar-btn" id="sn-new" type="button" hidden data-t="shell.menu.new">New game</button>
   <button class="ar-btn" id="sn-pause" type="button" disabled data-t="play.pause">Pause</button>
 </header>
 
 <main class="pl-main">
-  <div class="pl-hud">
-    <div class="pl-stat"><small data-t="snake.apples">Apples</small><b id="sn-score">0</b></div>
-    <div class="pl-stat"><small data-t="play.best">Best</small><b id="sn-best">0</b></div>
-  </div>
   <canvas class="pl-canvas" id="sn-board" role="img" aria-label="The board" data-t-aria="play.board"></canvas>
   <p class="pl-msg" id="sn-msg"></p>
 </main>

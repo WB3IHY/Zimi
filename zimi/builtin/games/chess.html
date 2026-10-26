@@ -18,13 +18,15 @@
   <button class="ar-btn" id="cs-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
-<main class="bg-main">
-  <p class="bg-status" id="cs-status"></p>
+<main class="bg-main is-rail">
+  <div class="bg-caps" id="cs-caps-top"></div>
   <div class="bg-board cs-board" id="cs-board" role="group" data-t-aria="chess.board" aria-label="Chess board"></div>
-  <div class="bg-controls"><button class="ar-btn" id="cs-flip" type="button" aria-pressed="false" data-t="board.flip" data-t-title="chess.flipTitle" title="Turn the board around (F)">Flip</button></div>
+  <div class="bg-caps" id="cs-caps-bot"></div>
+  <p class="bg-status" id="cs-status"></p>
   <p class="bu-quiet cs-opening" id="cs-opening" aria-live="polite"></p>
   <div class="bu-quiet cs-moves" id="cs-moves" role="log" data-t-aria="chess.moves" aria-label="Moves"></div>
   <p class="bg-stats" id="cs-stats"></p>
+  <div class="bg-controls"><button class="ar-btn" id="cs-flip" type="button" aria-pressed="false" data-t="board.flip" data-t-title="chess.flipTitle" title="Turn the board around (F)">Flip</button></div>
 </main>
 
 <script src="boardkit.js"></script>

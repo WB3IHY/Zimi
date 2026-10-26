@@ -261,7 +261,7 @@
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var GAME_KEY = 'zimi.games.sudoku.game', BEST_KEY = 'zimi.games.sudoku.best', SETTINGS_KEY = 'zimi.games.sudoku.settings';
-  var TICK_MS = 500, UNDO_MAX = 300, UNDO_KEPT = 100, MAX_BOARD = 504, SIDE_PAD = 24, CHROME_PX = 420, MAKE_DELAY_MS = 20, END_AFTER_MS = 600;
+  var TICK_MS = 500, UNDO_MAX = 300, UNDO_KEPT = 100, MAX_BOARD = 504, SIDE_PAD = 24, CHROME_PX = 440, MAKE_DELAY_MS = 20, END_AFTER_MS = 600;
   Play.applyTheme();
 
   var els = {
@@ -287,7 +287,7 @@
       cellEls.push(d); frag.appendChild(d);
     }
     els.board.appendChild(frag);
-    // The pad: 1 to 9, then Erase as the tenth key (two rows of five).
+    // The pad: 1 to 9 as a three by three; Erase sits with Hint and Pencil in the tools row, the same size.
     for (var k = 1; k <= N; k++) {
       var b = document.createElement('button');
       b.type = 'button'; b.className = 'ar-btn su-num'; b.dataset.d = k; b.innerHTML = '<span>' + Play.num(k) + '</span><small></small>';
@@ -295,8 +295,8 @@
       els.pad.appendChild(b); padEls.push(b);
     }
     var e = document.createElement('button');
-    e.type = 'button'; e.className = 'ar-btn su-num su-erase'; e.id = 'su-erase'; e.textContent = T('sudoku.erase'); e.setAttribute('aria-label', T('sudoku.eraseCell'));
-    e.addEventListener('click', erase); els.pad.appendChild(e);
+    e.type = 'button'; e.className = 'ar-btn su-erase'; e.id = 'su-erase'; e.textContent = T('sudoku.erase'); e.setAttribute('aria-label', T('sudoku.eraseCell'));
+    e.addEventListener('click', erase); els.hint.parentNode.appendChild(e);
   }
   function layout() {
     var room = Play.room(CHROME_PX);

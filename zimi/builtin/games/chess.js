@@ -19,7 +19,7 @@
   // Show legal moves is the shell's Hints setting (Menu > Settings), not a New game option.
   function hintsOn() { return !root.ZimiShell || root.ZimiShell.settings.get('hints') !== 'off'; }
 
-  var els = { board: $('cs-board'), status: $('cs-status'), undo: $('cs-undo'), moves: $('cs-moves'), opening: $('cs-opening'), stats: $('cs-stats'), flip: $('cs-flip') };
+  var els = { board: $('cs-board'), status: $('cs-status'), undo: $('cs-undo'), moves: $('cs-moves'), opening: $('cs-opening'), stats: $('cs-stats'), flip: $('cs-flip'), capsTop: $('cs-caps-top'), capsBot: $('cs-caps-bot'), capsHtml: {} };
   var cells = [], pos, keys, sans, played, over, sel = -1, targets = {}, lastMove = 0, flipped = false, requestId = 0, thinking = false;
   var worker = null, workerOk = true, watchdog = 0, pendingPromo = null;
   var status = UI.status(els.status);
@@ -71,8 +71,27 @@
       var name = E.squareName(s), label = v ? T('chess.sq.piece', { sq: name, color: colorName(v > 0 ? WHITE : BLACK).toLowerCase(), piece: T('chess.piece.' + Math.abs(v)) }) : T(targets.hasOwnProperty(s) ? 'chess.sq.target' : 'chess.sq.empty', { sq: name });
       c.setAttribute('aria-label', s === sel ? T('chess.sq.selected', { label: label }) : label);
     }
+    paintCaps();
     els.undo.disabled = !played.length || thinking;
     els.flip.setAttribute('aria-pressed', String(flipped !== (settings.mode === 'cpu' && settings.side === 'black')));
+  }
+
+  // The strips over and under the board: what each side has taken (a pawn..queen icon each, biggest first) and the lead in pawns.
+  var START_COUNT = { 1: 8, 2: 2, 3: 2, 4: 2, 5: 1 }, VALUE = { 1: 1, 2: 3, 3: 3, 4: 5, 5: 9 };
+  function takenFrom(color) {   // the pieces of `color` that are gone, as [type, ...] biggest first, and their worth
+    var have = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, out = [], worth = 0, t, n;
+    for (var s = 0; s < 64; s++) { var v = pos.sq[s]; if (v && v * color > 0 && have[Math.abs(v)] !== undefined) have[Math.abs(v)]++; }
+    for (t = 5; t >= 1; t--) for (n = START_COUNT[t] - have[t]; n > 0; n--) { out.push(t); worth += VALUE[t]; }
+    return { list: out, worth: worth };
+  }
+  function paintCaps() {
+    var bottom = (flipped ? BLACK : WHITE), top = -bottom, lead = takenFrom(top).worth - takenFrom(bottom).worth;
+    [[els.capsBot, bottom, lead], [els.capsTop, top, -lead]].forEach(function (c) {
+      var gone = takenFrom(-c[1]), html = '', prev = 0;
+      gone.list.forEach(function (t) { html += pieceSvg(t, -c[1] === WHITE).replace('class="', 'class="' + (prev && prev !== t ? 'gap ' : '')); prev = t; });
+      if (c[2] > 0) html += '<b>+' + c[2] + '</b>';
+      if (els.capsHtml[c[0].id] !== html) { c[0].innerHTML = html; els.capsHtml[c[0].id] = html; }
+    });
   }
 
   function say(text, busy) { status.turn(text, busy); }
