@@ -26,7 +26,8 @@ const doc = {
 const sandbox = { console, Date, setTimeout, clearTimeout, setInterval, clearInterval, document: doc };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
-vm.runInContext(fs.readFileSync(path.join(dir, 'cards.js'), 'utf8'), sandbox, { filename: 'cards.js' });
+// cardbacks.js draws the backs and cards.js asks it for them, so it is loaded first.
+for (const name of ['text.js', 'cardbacks.js', 'cards.js']) vm.runInContext(fs.readFileSync(path.join(dir, name), 'utf8'), sandbox, { filename: name });
 const Z = sandbox.ZimiCards;
 Z.ensureSprite();
 
@@ -52,6 +53,13 @@ function face(id, x, y, w, rot) {
 function italian(id, x, y, w, rot) {
   return '<g transform="' + place(x, y, rot, w) + '"><rect y="1.6" width="100" height="140" rx="' + CARD_R + '" fill="rgba(0,0,0,0.32)"/>' +
     '<rect width="100" height="140" rx="' + CARD_R + '" fill="' + CREAM + '" stroke="' + EDGE + '"/>' + sized(Z.italianFaceMarkup(id, false)) + '</g>';
+}
+function spanish(id, x, y, w, rot) {
+  return '<g transform="' + place(x, y, rot, w) + '"><rect y="1.6" width="100" height="140" rx="' + CARD_R + '" fill="' + CREAM + '" stroke="' + EDGE + '"/>' + sized(Z.spanishFaceMarkup(id, false)) + '</g>';
+}
+function hanafuda(id, x, y, w, rot) {
+  return '<g transform="' + place(x, y, rot, w) + '"><rect y="1.6" width="100" height="140" rx="' + CARD_R + '" fill="rgba(0,0,0,0.32)"/>' +
+    '<rect width="100" height="140" rx="' + CARD_R + '" fill="' + CREAM + '" stroke="' + EDGE + '"/>' + sized(Z.hanafudaFaceMarkup(id, false)) + '</g>';
 }
 // A face-down card with the Zimi back.
 function back(x, y, w, rot) {
@@ -119,7 +127,17 @@ Object.assign(TILES, {
     [[1, 56], [0, 92]].map((p) => '<g transform="translate(270 ' + p[1] + ') scale(1.2)" fill="rgba(255,255,255,0.85)"><use href="#zc-s-' + p[0] + '"/></g>').join('')),
   durak: () => tile(FELT_DEEP, back(96, -34, 40) + back(142, -34, 40) + back(188, -34, 40) + face(cid('7C'), 112, 44, 58) + face(cid('9S'), 132, 58, 58, 8) + face(cid('AH'), 26, 92, 46) + back(46, 92, 46)),
   bridge: () => tile(FELT_DEEP, back(144, 8, 32)),
-  scopa: () => tile(FELT, italian(0, 56, 34, 64, -12) + italian(19, 128, 28, 64) + italian(26, 200, 34, 64, 12) + label(160, 160, 22, 'Scopa!'))
+  scopa: () => tile(FELT, italian(0, 56, 34, 64, -12) + italian(19, 128, 28, 64) + italian(26, 200, 34, 64, 12) + label(160, 160, 22, 'Scopa!')),
+  belote: () => tile(FELT_DEEP, face(cid('JS'), 70, 34, 70, -12) + face(cid('9S'), 126, 30, 70) + face(cid('AS'), 182, 34, 70, 12) + label(160, 164, 14, 'jack and nine of trump')),
+  skat: () => tile(FELT_DEEP, face(cid('JC'), 66, 34, 66, -14) + face(cid('JS'), 112, 30, 66, -5) + face(cid('JH'), 158, 30, 66, 5) + face(cid('JD'), 204, 34, 66, 14) + pill(112, 142, 96, 'Grand')),
+  truco: () => tile(FELT, spanish(20, 66, 34, 66, -12) + spanish(30, 126, 28, 66) + spanish(26, 186, 34, 66, 12) + pill(120, 142, 80, 'Envido')),
+  koikoi: () => tile(FELT_DEEP, hanafuda(0, 62, 34, 62, -12) + hanafuda(8, 129, 28, 62) + hanafuda(28, 196, 34, 62, 12) + pill(110, 142, 100, 'Koi-koi!')),
+  bigtwo: () => tile(FELT, face(cid('2S'), 76, 36, 70, -12) + face(cid('2H'), 126, 30, 70) + face(cid('AS'), 176, 36, 70, 12) + label(160, 164, 14, 'twos are high')),
+  tienlen: () => tile(FELT_DEEP, face(cid('2S'), 76, 36, 70, -12) + face(cid('2C'), 126, 30, 70) + face(cid('2D'), 176, 36, 70, 12) + pill(120, 142, 80, 'Chop!')),
+  canasta: () => tile(FELT, face(cid('7C'), 66, 34, 66, -12) + face(cid('7D'), 112, 30, 66, -4) + face(cid('7H'), 158, 30, 66, 4) + face(cid('2S'), 204, 34, 66, 12) + pill(110, 142, 100, 'Canasta')),
+  holdem: () => tile(FELT_DEEP, ['QH', 'JH', 'TH', '2C', '7D'].map((c, k) => face(cid(c), 52 + 44 * k, 24, 40)).join('') + face(cid('AS'), 118, 78, 46, -8) + face(cid('KS'), 160, 78, 46, 8) + pill(110, 152, 100, 'All in')),
+  blackjack: () => tile(FELT, face(cid('AS'), 98, 34, 72, -8) + face(cid('KH'), 150, 30, 72, 8) + pill(124, 142, 72, '21')),
+  teenpatti: () => tile(FELT_DEEP, face(cid('AS'), 76, 36, 70, -12) + face(cid('AD'), 126, 30, 70) + face(cid('AH'), 176, 36, 70, 12) + pill(120, 142, 80, 'Trail'))
 });
 
 // ── Write ──────────────────────────────────────────────────────────────────
