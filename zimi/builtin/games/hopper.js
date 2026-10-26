@@ -398,7 +398,9 @@
   function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
   function toggle() { if (mode === 'playing') pause(); else resume(); }
   function clock() { return window.ZimiText ? window.ZimiText.clock(st.time) : Play.fmtClock(st.time * 1000); }
+  var lastEnd = null;
   function over(result, stats) {
+    lastEnd = { result: result, stats: stats };
     mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); clearHeld(); hud(); draw();
     ZimiShell.endSheet({ result: result, stats: stats });
     setTimeout(function () { if (mode === 'over') { st = createState(levelIndex); Play.ready({ say: status.say, target: pad.stage, start: begin }); } }, READY_ARM_MS);
@@ -439,5 +441,26 @@
   buildSprites();
   levelIndex = Math.min(save.unlocked, LEVELS.length) - 1;
   layout(); arm();
+  // Leaving and coming back keeps the run: it returns paused where it was, or at its end sheet.
+  ZimiShell.persist({
+    save: function () {
+      if (mode === 'over' && lastEnd) return { level: levelIndex, end: lastEnd };
+      return mode === 'playing' || mode === 'paused' ? { level: levelIndex, st: st } : null;
+    },
+    load: function (d) {
+      if (typeof d.level !== 'number' || d.level < 0 || d.level >= LEVELS.length) return false;
+      levelIndex = d.level;
+      if (armed) armed.cancel();
+      if (d.end) {
+        st = createState(levelIndex); mode = 'over'; lastEnd = d.end; hud(); draw();
+        ZimiShell.endSheet({ result: d.end.result, stats: d.end.stats });
+        setTimeout(function () { if (mode === 'over') armed = Play.ready({ say: status.say, target: pad.stage, start: begin }); }, READY_ARM_MS);
+        return true;
+      }
+      if (!d.st || !d.st.rows) return false;
+      st = d.st; mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); layout(); hud(); draw();
+      return true;
+    }
+  });
   root.__hopper = { draw: draw, get st() { return st; }, get mode() { return mode; }, get scale() { return scale; }, input: input };
 })(this);
