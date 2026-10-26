@@ -308,7 +308,10 @@
   }
   function giveUp() {
     if (!race || race.done || !race.begun) return;
-    race.done = true; pause(); saveDaily(); paintTrail();
+    race.done = true; race.gave = true; pause(); saveDaily(); paintTrail();
+    giveUpSheet();
+  }
+  function giveUpSheet() {
     els.share.hidden = false;
     line.say(T('race.target', { target: race.pair.end.title }));
     ZimiShell.endSheet({ result: 'lose', text: T('race.gaveUp', { target: race.pair.end.title, par: parLabel(race.pair) }), after: 0, stats: [[T('race.clicksLabel'), Play.num(clicks())]] });
@@ -372,13 +375,37 @@
     stats: function () { var best = Play.load(BEST_KEY, {}); return best.clicks ? [[T('race.bestClicks'), Play.num(best.clicks)]] : []; }
   });
 
+  // Leaving and coming back keeps the race: both articles, the path, the clicks and the clock. A finished race comes
+  // back to its end sheet; a daily race of an earlier day is not kept.
+  function snapshot() {
+    if (!race || !provider) return null;
+    if (!race.begun && !race.done) return null;
+    return { mode: race.mode, date: today, zim: provider.zim, start: race.pair.start.path, end: race.pair.end.path, par: race.pair.par, parKind: race.pair.parKind,
+      steps: race.steps, ms: Math.round(elapsed()), begun: race.begun, done: race.done, gave: !!race.gave };
+  }
+  function restore(kept) {
+    if (!kept || kept.zim !== provider.zim || !kept.steps || (kept.mode === 'daily' && kept.date !== today)) { if (kept) ZimiShell.forget(); return Promise.resolve(false); }
+    return Promise.all([provider.open(kept.start), provider.open(kept.end)]).then(function (ab) {
+      race = { mode: kept.mode, pair: { start: ab[0], end: ab[1], par: kept.par, parKind: kept.parKind }, steps: kept.steps, ms: kept.ms || 0, since: 0, begun: kept.begun, done: kept.done, gave: kept.gave, page: null, hint: firstSentence(ab[1].node) };
+      paintTarget();
+      return provider.open(race.steps[race.steps.length - 1].path).then(function (p) {
+        show(p);
+        if (race.done && race.gave) giveUpSheet();
+        else if (race.done) openResult(race.ms, clicks());
+        else { race.since = performance.now(); line.say(T('race.par', { n: race.pair.par })); }
+        return true;
+      });
+    }).catch(function () { ZimiShell.forget(); race = null; return false; });
+  }
+  ZimiShell.persist({ save: snapshot });
+
   // Which articles to race on: your Wikipedia in your language inside Zimi, else the built-in ones.
   function boot() {
     notice(T('race.looking'));
     Lib.isZimi().then(function (yes) { return yes ? Lib.zims() : []; }).then(function (list) {
       var found = Lib.pickZim(list, 'wikipedia', Lib.uiLang());
       provider = found ? zimiProvider(found.zim) : miniProvider();
-      newRace('daily');
+      restore(ZimiShell.saved()).then(function (back) { if (!back) newRace('daily'); });
     });
   }
   root.__race = { get race() { return race; }, get provider() { return provider; } };
