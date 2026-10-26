@@ -1952,5 +1952,22 @@
   "length": "5 min",
   "kind": "library",
   "computer": false
+ },
+ {
+  "qid": "Q560575",
+  "wiki": "Amateur astronomy",
+  "path": "skydetective.html",
+  "title": "Sky Detective",
+  "blurb": "Name what is in tonight’s real sky",
+  "why": "Stargazers have named the bright stars and planets for thousands of years. This game works out the real sky for your place and time.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "5 min",
+  "kind": "library",
+  "computer": false
  }
 ]
