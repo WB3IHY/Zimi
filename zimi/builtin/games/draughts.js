@@ -175,7 +175,7 @@
   });
 
   if (new URLSearchParams(location.search).has('debug')) {
-    root.__dr = { engine: E, pos: function () { return pos; }, play: play, usingWorker: function () { return brain.usingWorker(); },
+    root.__dr = { G: G, engine: E, pos: function () { return pos; }, play: play, usingWorker: function () { return brain.usingWorker(); },
       setPosition: function (str, turn) { pos = E.fromString(str, turn); keys = [E.key(pos)]; played = []; lastMove = null; G.over = false; afterMove(); } };
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this);

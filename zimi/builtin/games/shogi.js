@@ -362,6 +362,6 @@
   });
 
   if (new URLSearchParams(location.search).has('debug')) {
-    root.__sg = { engine: function () { return E; }, pos: function () { return pos; }, settings: settings, play: play, usingWorker: function () { return !!worker; } };
+    root.__sg = { finish: finish, engine: function () { return E; }, pos: function () { return pos; }, settings: settings, play: play, usingWorker: function () { return !!worker; } };
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this);

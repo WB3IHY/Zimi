@@ -302,7 +302,7 @@
   });
 
   if (new URLSearchParams(location.search).has('debug')) {
-    root.__xq = { engine: E, pos: function () { return pos; }, settings: settings, play: play,
+    root.__xq = { finish: finish, engine: E, pos: function () { return pos; }, settings: settings, play: play,
       setFen: function (fen) { pos = E.parseFen(fen); keys = [E.key(pos)]; sans = []; played = []; lastMove = 0; over = false; afterMove(); }, usingWorker: function () { return !!worker; }, noWorker: function () { dropWorker(); } };
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this);

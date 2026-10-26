@@ -378,6 +378,6 @@
   });
 
   if (new URLSearchParams(location.search).has('debug')) {
-    root.__ck = { game: function () { return game; }, engine: Engine, settings: G.settings };
+    root.__ck = { G: G, game: function () { return game; }, engine: Engine, settings: G.settings };
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this);

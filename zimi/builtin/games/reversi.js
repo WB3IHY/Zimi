@@ -306,6 +306,6 @@
   });
 
   if (new URLSearchParams(location.search).has('debug')) {
-    root.__rv = { state: function () { return state; }, engine: Engine, settings: G.settings };
+    root.__rv = { G: G, state: function () { return state; }, engine: Engine, settings: G.settings };
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this);
