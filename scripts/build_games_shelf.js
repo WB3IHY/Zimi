@@ -31,8 +31,8 @@ const Z = sandbox.ZimiCards;
 Z.ensureSprite();
 
 const CARD_W = 100, CARD_H = 140, CARD_R = 7.5;
-const CREAM = '#fdfcf8', EDGE = '#c9c4b8', RED = '#c62828', BLACK = '#1b1b1b';
-const FELT = '#1f6f43', FELT_DEEP = '#155233';
+const CREAM = '#fdfcf8', EDGE = '#c9c4b8', RED = '#b3261e', BLACK = '#1b1b1b';
+const FELT = '#285c43', FELT_DEEP = '#1a4130';
 const CLIP = 'zs-card';
 
 // 'KS' is the king of spades, 'TH' the ten of hearts, 'AC' the ace of clubs.

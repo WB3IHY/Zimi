@@ -28,6 +28,8 @@
 .bg-sq::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: transparent; }
 .bg-sq.last::before { background: var(--last); }
 .bg-sq.sel::before { background: var(--sel); }
+/* Selection is two rings, so it reads on any wood: a 3px amber ring over a dark 1px stroke inside it (games.css --select, inset). */
+.bg-sq.sel { box-shadow: inset 0 0 0 3px var(--select-ring), inset 0 0 0 4px rgba(26, 18, 9, 0.85); }
 .bg-sq:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; z-index: 2; }
 .bg-sq.hint::after { content: ""; position: absolute; width: 26%; height: 26%; border-radius: 50%; background: var(--legal); pointer-events: none; }
 .bg-sq.hint.cap::after { width: 86%; height: 86%; background: transparent; border: 4px solid var(--legal); }

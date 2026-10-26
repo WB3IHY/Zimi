@@ -106,7 +106,7 @@
     '<g transform="rotate(32)"><path d="M-2.5-8.4a2.5 2.5 0 0 1 5 0V7.4a2.5 2.5 0 0 1-5 0z"/><circle cx="-3.6" cy="-3.4" r="1.8"/><circle cx="3.6" cy="0.8" r="1.8"/></g>'
   ];
   var ITALIAN_COLOURS = ['#b87500', '#c62828', '#2c4a86', '#2f7d4f'];
-  var CARD_RED = '#c62828', CARD_BLACK = '#1b1b1b', CARD_CREAM = '#fdfcf8', CARD_EDGE = '#c9c4b8'; // games.css tokens, repeated for the cascade's bitmaps
+  var CARD_RED = '#b3261e', CARD_BLACK = '#1b1b1b', CARD_CREAM = '#fdfcf8', CARD_EDGE = '#c9c4b8'; // games.css tokens, repeated for the cascade's bitmaps
   var GOLD = '#e09400', MARK_FROM = '#fb8c14', MARK_TO = '#f2582a'; // Zimi's amber, and the two ends of the Z's gradient
   var FACE_W = 100, FACE_H = 140, ACE_SCALE = 3.3, ACE_SPADE_SCALE = 3.9;
   // The Ace of Spades carries the maker's mark: the Z alone, in the spade's belly (centre 0.3 of the spade's 20-unit box below its middle,
@@ -918,7 +918,7 @@
   //      tap(pile, idx) -> bool, slotTap(pile), afterRender() }
   // place() returns slots [{id, x, y, w, h, label, mark}] and cards
   // [{id, pile, idx, x, y, up, hidden}] in stacking order.
-  var SNAP_FELT = '#1f6f43', SNAP_CREAM = '#fdfcf8', SNAP_RED = '#c62828', SNAP_BLACK = '#1b1b1b', SNAP_BACK = '#23232b', SNAP_BACK_EDGE = '#e8710a', SNAP_RX = 5;
+  var SNAP_FELT = '#285c43', SNAP_CREAM = '#fdfcf8', SNAP_RED = '#b3261e', SNAP_BLACK = '#1b1b1b', SNAP_BACK = '#23232b', SNAP_BACK_EDGE = '#e8710a', SNAP_RX = 5;
   var SNAP_SUIT = ['\u2663', '\u2666', '\u2665', '\u2660'];
   var MAX_CARD_W = 120, CARD_ASPECT = 1.4, CARD_H_SHARE = 0.14, DRAG_SLOP = 6, SETTLE_MS = 300, Z_HOT = 500, Z_DRAG = 1000;
   var DEAL_STAGGER_MS = 16, MIN_CARD_W = 24;

@@ -392,8 +392,8 @@ html[data-anim="fast"] :not(.bg-spin, .gs-turn i) { transition-duration: 0.1s !i
 .gs-turn[hidden] { display: none; }
 .gs-turn i { flex: 1; height: 4px; border-radius: 2px; background: var(--accent); transform-origin: left; transition: transform 0.25s linear; }
 .gs-turn-n { flex: none; min-width: 3ch; text-align: right; font: 600 var(--fs-small) var(--mono); font-variant-numeric: tabular-nums; color: var(--ink2); }
-.gs-turn.gs-low i { background: var(--danger, #c62828); }
-.gs-turn.gs-low .gs-turn-n { color: var(--danger, #c62828); }
+.gs-turn.gs-low i { background: var(--danger, #b3261e); }
+.gs-turn.gs-low .gs-turn-n { color: var(--danger, #b3261e); }
 
 /* The Menu sheet. Same card as every sheet; panes swap inside it. */
 .gs-card { display: flex; flex-direction: column; gap: 12px; }
