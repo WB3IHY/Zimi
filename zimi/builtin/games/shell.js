@@ -94,6 +94,11 @@
   if (d.head && !d.querySelector('meta[name="zimi-app"]')) {
     var app = d.createElement('meta'); app.name = 'zimi-app'; d.head.appendChild(app);
   }
+  // The tab icon is the ZIM's felt with the pebble alone (favicon.svg); the full tile is mush at 16px. Found beside this script.
+  if (d.head && !d.querySelector('link[rel~="icon"]') && d.currentScript && d.currentScript.src) {
+    var fav = d.createElement('link'); fav.rel = 'icon'; fav.type = 'image/svg+xml';
+    fav.href = d.currentScript.src.replace(/shell\.js(\?.*)?$/, 'favicon.svg'); d.head.appendChild(fav);
+  }
   var KEY = 'zimi.games.settings';
   var DEFAULTS = { timer: 'show', moveTimer: 0, hints: 'on', anim: 'normal', sound: 'off', confirm: 'on' };
   // Each choice is [value, string id]; a binary setting is On and Off. A name never carries its state.

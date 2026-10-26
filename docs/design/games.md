@@ -181,16 +181,29 @@ Key hints sit in How to play, never in footnotes under the game.
 
 ## The mark
 
-The pebble mark appears in exactly these places:
-- The bar's back control (24px).
-- Sheet titles: start, end, Menu.
-- The shelf header, as the full games icon tile.
-- The ZIM icon.
+The pebble is the mark. The games tile is the product's icon and appears where the product is named or installed. The bare Z is a material and never stands alone as a logo.
 
-In dark the pebble gets a 1px ring (the ink at 28 percent; the ground is no lighter than the bar, so a ground-coloured ring was invisible) so it never vanishes into a dark bar. That is the one allowed change to it.
-- The Ace of Spades: the Z alone in the spade's belly, about as large relative to the spade as it is inside the pebble (Eric: "way too big"). The Zimi card back carries the Z too.
+| Place | Element | Size | Clear space | Light and dark |
+|---|---|---|---|---|
+| ZIM icon, Zimi Home tile, Zimi's header | Games tile | Native 48, 96, 256 | Half the pebble's width | As drawn in both (felt is a material) |
+| Shelf header | Games tile and "ZimiGames" | 40px tile, 12px gap | 16px page gutter | Tile as drawn; text in ink |
+| Game bar | Chevron and pebble, one 44px target | Pebble 24px | 8px around it | Pebble as drawn; in dark a 1px ring (ink at 28 percent) |
+| Sheet over a bar | None | n/a | n/a | n/a |
+| Sheet on a page with no bar (the shelf's) | Pebble | 20px, 8px to the title | 8px | As the bar, ring in dark |
+| End screens, empty and loading states | None | n/a | n/a | n/a |
+| Card back (Zimi) and Ace of Spades | Bare Z, same gradient and weight | Back: about 22 percent of the card width; Ace: inside the belly | Back: 25 percent margin; Ace: even margin | Same in both (the card is a material) |
+| Tab icon (favicon.svg) | Pebble on the felt, no die, card or stick | 16 and 32, full bleed | Full bleed | Same in both |
+| Kiwix and other viewers | Games tile | What the viewer imposes | n/a | n/a |
 
-It is never a watermark, never recoloured, never inside a board.
+Conflicts between the brand and product reviews, and how they were settled:
+- Bar: both said the pebble, not the tile (the tile loses the die and stick at 24px). The pebble stays beside the chevron in one 44px target, as built; product's wish to split Back from the stamp is dropped because the pebble is how a player gets home to the shelf, as in Zimi.
+- Sheets: brand kept the pebble on full-screen sheets, product dropped it. Every sheet in a game opens over the bar, so it is dropped there; only a barless page keeps it.
+- End screens: product wanted a 28px seal, brand none. None: the bar is on screen and a result is not a signature.
+- About: brand wanted a 64px tile, product a 40px pebble. Neither: the About page has the bar, and a third stamp is wallpaper.
+- Tab icon: brand said the tile, product the pebble. The pebble on the felt: the product colour and a mark that survives 16px.
+- Sizes (bar 24 or 22, shelf tile 40 or 32): the measured 24px pebble and the 40px tile on the 4px grid.
+
+Never recoloured, never a watermark, never inside a board. Below 20px the Z has no gradient to lose: use favicon.svg, not the full tile.
 
 ## Words
 

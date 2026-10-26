@@ -74,8 +74,8 @@ button { font: inherit; color: inherit; }
 /* In dark the pebble gets a 1px ring so it never vanishes into the bar: the one allowed change to it. The ground is no lighter than
    the bar, so the ring is the ink at 28 percent. */
 :root { --mark-ring: color-mix(in srgb, var(--ink) 28%, transparent); }
-:root[data-theme="dark"] .ar-back::after, :root[data-theme="dark"] .ar-sheet-card h2::before { filter: drop-shadow(1px 0 0 var(--mark-ring)) drop-shadow(-1px 0 0 var(--mark-ring)) drop-shadow(0 1px 0 var(--mark-ring)) drop-shadow(0 -1px 0 var(--mark-ring)); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ar-back::after, :root:not([data-theme="light"]) .ar-sheet-card h2::before { filter: drop-shadow(1px 0 0 var(--mark-ring)) drop-shadow(-1px 0 0 var(--mark-ring)) drop-shadow(0 1px 0 var(--mark-ring)) drop-shadow(0 -1px 0 var(--mark-ring)); } }
+:root[data-theme="dark"] .ar-back::after, :root[data-theme="dark"] body:not(:has(> .ar-bar)) .ar-sheet-card h2::before { filter: drop-shadow(1px 0 0 var(--mark-ring)) drop-shadow(-1px 0 0 var(--mark-ring)) drop-shadow(0 1px 0 var(--mark-ring)) drop-shadow(0 -1px 0 var(--mark-ring)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ar-back::after, :root:not([data-theme="light"]) body:not(:has(> .ar-bar)) .ar-sheet-card h2::before { filter: drop-shadow(1px 0 0 var(--mark-ring)) drop-shadow(-1px 0 0 var(--mark-ring)) drop-shadow(0 1px 0 var(--mark-ring)) drop-shadow(0 -1px 0 var(--mark-ring)); } }
 /* Inside Zimi's reader the shell already has a way back (its arrow and the ZimiGames crumb):
    the page's own would be a second one (recent.js sets .in-zimi). */
 .in-zimi .ar-back { display: none; }
@@ -102,7 +102,7 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
    A wood board is its own frame and gets no card around it; felt tables stay full bleed. */
 .gs-frame, .pl-main :is(.tf-board, .su-board, .sk-board), .ms-main .ms-box { padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-sheet); background: var(--surface2); }
 
-/* A sheet over the game: a menu, a start, an end, a choice of backs. One anatomy: the pebble and the title (20px), one line
+/* A sheet over the game: a menu, a start, an end, a choice of backs. One anatomy: the title (20px), one line
    of text, option rows, actions last with the primary last. The scrim is the ground at 55 percent (black at 60 in dark);
    in dark the sheet is surface2 with a visible line. */
 .ar-sheet { position: fixed; inset: 0; display: grid; place-items: center; padding: var(--gutter); background: var(--scrim); z-index: 50; }
@@ -112,7 +112,8 @@ body:has(> .ar-bar) .ar-sheet { top: var(--bar-h); }
 .ar-sheet-card { width: min(420px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: var(--sp-5) 20px 20px; border: 1px solid var(--line); border-radius: var(--r-sheet); background: var(--surface2); color: var(--ink); box-shadow: var(--shadow-popup); }
 .ar-sheet-card:focus { outline: none; }
 .ar-sheet-card h2 { margin: 0 0 var(--sp-3); font-size: var(--fs-sheet); font-weight: 650; line-height: 1.25; letter-spacing: -0.01em; }
-.ar-sheet-card h2::before { content: ""; display: inline-block; width: 22px; height: 22px; margin: -3px 8px 0 0; vertical-align: middle; background: url(mark.svg) center / contain no-repeat; }
+/* No pebble on a sheet: the bar above it already carries it, and two on one screen is wallpaper. A sheet on a page with no bar (the shelf's) keeps it, 20px. */
+body:not(:has(> .ar-bar)) .ar-sheet-card h2::before { content: ""; display: inline-block; width: 20px; height: 20px; margin: -3px 8px 0 0; vertical-align: middle; background: url(mark.svg) center / contain no-repeat; }
 .ar-sheet-card > p { margin: 0 0 var(--sp-3); color: var(--ink2); }
 /* One action anatomy on every sheet: a single 44px row across the card. The quiet actions (ghost, a third) sit left and the
    primary (amber, two thirds) last; a row with no primary shares the width equally. */
@@ -166,8 +167,8 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
    time as thumbnail rows). With no data-view the page is Lobby's grid. */
 .ar-shelf { max-width: 1180px; margin: 0 auto; padding: 16px 16px 48px; --glow: var(--accent-glow); }
 .ar-shelf header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 16px; }
-.ar-brand { display: flex; align-items: center; gap: 10px; margin: 0; font-size: var(--fs-brand); font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
-.ar-brand .ar-lockup { display: block; flex: none; width: 44px; height: 44px; }
+.ar-brand { display: flex; align-items: center; gap: 12px; margin: 0; font-size: var(--fs-brand); font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+.ar-brand .ar-lockup { display: block; flex: none; width: 40px; height: 40px; }
 /* The wordmark's cap height is centred on the icon: the line box centres the em box, and the caps sit 0.67px below it at 26px. */
 .ar-brand span { padding-bottom: 1.33px; }
 .ar-shelf header p { flex: 1 0 100%; margin: 0; color: var(--ink2); max-width: 60ch; }

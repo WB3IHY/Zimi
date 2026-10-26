@@ -752,6 +752,13 @@ save(
     ),
 )
 
+# The tab icon: felt with the pebble alone, large and centred. The full tile's die, card and stick are mush at 16 px.
+_fd, _fb = tab('f')
+save('favicon.svg', f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><clipPath id="fc"><rect width="100" height="100" rx="22.4"/></clipPath>'
+     '<radialGradient id="fa" cx=".5" cy=".52" r=".75"><stop offset="0" stop-color="#23895a"/><stop offset=".6" stop-color="#0f4a30"/><stop offset="1" stop-color="#06261a"/></radialGradient>'
+     f'{_fd}</defs><g clip-path="url(#fc)"><rect width="100" height="100" fill="url(#fa)"/>'
+     f'<svg x="9" y="{50 - 82 * BOX_H / BOX_W / 2:.2f}" width="82" height="{82 * BOX_H / BOX_W:.2f}" viewBox="{BOX}" overflow="visible">{_fb}</svg></g></svg>')
+
 # ---- Almanac: altitude through one real day, San Francisco
 LA, LO = 37.77, -122.42
 PDT = dt.timezone(dt.timedelta(hours=-7)); PST = dt.timezone(dt.timedelta(hours=-8))
@@ -877,7 +884,7 @@ def apply_to_repo():
     cj = os.path.join(GAMES, 'cards.js'); src = open(cj).read()
     src = re.sub(r'// zimi-mark:begin.*?// zimi-mark:end', lambda m: mark_data_js(), src, flags=re.S)
     open(cj, 'w').write(src)
-    for n, to in (('mark.svg', 'mark.svg'), ('zimigames.svg', 'icon.svg')):       # the pebble, and the ZimiGames tile the shelf header shows
+    for n, to in (('mark.svg', 'mark.svg'), ('zimigames.svg', 'icon.svg'), ('favicon.svg', 'favicon.svg')):       # the pebble, and the ZimiGames tile the shelf header shows
         open(os.path.join(GAMES, to), 'w').write(open(os.path.join(OUT, n)).read())
 def rasterise(svg, png, px=96, big=768):
     """Chrome draws the svg on a transparent page at `big`; ImageMagick takes it down to `px` (RGBA)."""
@@ -891,7 +898,7 @@ def rasterise(svg, png, px=96, big=768):
 def drift():
     """What in the repo no longer matches the generator (empty when clean)."""
     out = []
-    for n, to in (('mark.svg', 'mark.svg'), ('zimigames.svg', 'icon.svg')):
+    for n, to in (('mark.svg', 'mark.svg'), ('zimigames.svg', 'icon.svg'), ('favicon.svg', 'favicon.svg')):
         if open(os.path.join(GAMES, to)).read() != open(os.path.join(OUT, n)).read(): out.append('games/' + to)
     cj = open(os.path.join(GAMES, 'cards.js')).read()
     if mark_data_js() not in cj: out.append('the mark block in games/cards.js')
