@@ -100,10 +100,25 @@ function _showToast(msg) {
 // What the Almanac asks of a Zimi server is answered here, the same in every reader. The satellite tracks and
 // a place's tide stations come from files packed in this ZIM (local.js); the age table, the library links and the
 // PDF are "not here" (a 404) and the page says so. Its own files are relative.
+// Inside Zimi's own reader (the page that holds this frame is Zimi's, same origin) the PDF is Zimi's too: its headless
+// Chromium lays the book out and Zimi's reader shows the file. So there the PDF's address goes through and the
+// reader's two functions are the page's; anywhere else (Kiwix, a file, offline) the Print button is the browser's dialog.
+var HOSTED_IN_ZIMI = (function() {
+  try {
+    var f = window.parent !== window && window.parent.document.getElementById('reader-frame');
+    return !!f && f.contentWindow === window && typeof window.parent.openReader === 'function';
+  } catch (e) { return false; }
+})();
+var PDF_URL = '/almanac/pdf';
+if (HOSTED_IN_ZIMI) {
+  window.openReader = function(url) { window.parent.openReader(url); };
+  window._pdfViewerUrl = function(url) { return window.parent._pdfViewerUrl(url); };
+}
 (function() {
   var real = window.fetch;
   window.fetch = function(url, opts) {
     var u = typeof url === 'string' ? url : (url && url.url) || '';
+    if (HOSTED_IN_ZIMI && u === PDF_URL) return real.call(window, url, opts);
     if (u.charAt(0) === '/' && u.charAt(1) !== '/') {
       return window.ZimiAlmanacLocal.answer(u) || Promise.resolve(new Response('', { status: 404 }));
     }
