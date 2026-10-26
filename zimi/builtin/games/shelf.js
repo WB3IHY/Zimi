@@ -13,6 +13,7 @@
    takes. It is an enhancement: the page lists every game with or without it. */
 (function (root) {
   'use strict';
+  var T = function (key, vars) { return root.ZimiText ? root.ZimiText.T(key, vars) : key; };
 
   var VIEW_KEY = 'zimi.games.view';
   var SORT_KEY = 'zimi.games.sort';
@@ -24,8 +25,12 @@
   // shelf only reads them. A tile with no row there (a game with no page of its own, or
   // one added after this file) uses FALLBACK, and one with neither sorts last.
   var SORTS = ['sections', 'az', 'oldest', 'region', 'players', 'quick', 'recent'];
-  var SORT_LABEL = { sections: 'Sections', az: 'A to Z', oldest: 'Oldest first', region: 'By region', players: 'By players', quick: 'Quick games first', recent: 'Recently played' };
-  var SORT_HEAD = { sections: 'Sections', oldest: 'Eras', region: 'Regions', players: 'Players', quick: 'Length', recent: 'Played' };
+  // The names of the orders, and what the chips are headed in each: strings by id (shelf.sort.*, shelf.head.*).
+  var SORT_LABEL = {}, SORT_HEAD = {};
+  SORTS.forEach(function (k) {
+    Object.defineProperty(SORT_LABEL, k, { enumerable: true, get: function () { return T('shelf.sort.' + k); } });
+    Object.defineProperty(SORT_HEAD, k, { enumerable: true, get: function () { return T('shelf.head.' + k); } });
+  });
   var REGIONS = ['East Asia', 'South Asia', 'Southeast Asia', 'Middle East', 'Africa', 'Europe', 'Americas', 'Oceania', 'Worldwide/Modern'];
   var FALLBACK = {
     'puzzles.html': { origin: { year: 2004, era: '2004' }, region: 'Worldwide/Modern', players: '1', length: '10 min', kind: 'puzzle', computer: false },
@@ -34,19 +39,17 @@
   };
   // The eras of the timeline, oldest first; a game of no known age comes last.
   var ERAS = [
-    { id: 'ancient', label: 'Ancient', note: 'before AD 500', to: 500 },
-    { id: 'medieval', label: 'Medieval and after', note: 'AD 500 to 1699', to: 1700 },
-    { id: 'parlour', label: '1700s to 1800s', note: 'parlours and railways', to: 1900 },
-    { id: 'modern', label: '1900s', note: '1900 to 1969', to: 1970 },
-    { id: 'video', label: 'Video game era', note: '1970 on', to: Infinity }
+    { id: 'ancient', to: 500 },
+    { id: 'medieval', to: 1700 },
+    { id: 'parlour', to: 1900 },
+    { id: 'modern', to: 1970 },
+    { id: 'video', to: Infinity }
   ];
   var LENGTHS = [
-    { id: 'l5', label: 'About 5 minutes', to: 5 },
-    { id: 'l10', label: 'About 10 minutes', to: 10 },
-    { id: 'l15', label: 'About 15 minutes', to: 15 },
-    { id: 'l30', label: 'About 30 minutes', to: 30 },
-    { id: 'l30p', label: 'Half an hour and more', to: Infinity }
+    { id: 'l5', to: 5 }, { id: 'l10', to: 10 }, { id: 'l15', to: 15 }, { id: 'l30', to: 30 }, { id: 'l30p', to: Infinity }
   ];
+  var eraLabel = function (e) { return T('shelf.era.' + e.id); }, eraNote = function (e) { return T('shelf.era.' + e.id + '.note'); };
+  var lengthLabel = function (l) { return T('shelf.length.' + l.id); };
 
   // "c. 500 BC" is -500, "1890s" is 1890, "c. AD 1150" is 1150; nothing readable is null.
   function eraYear(era) {
@@ -58,7 +61,7 @@
     if (!m || !m.origin) return null;
     return m.origin.year != null ? m.origin.year : eraYear(m.origin.era);
   }
-  function yearText(y) { return y < 0 ? 'c. ' + (-y) + ' BC' : String(y); }
+  function yearText(y) { return y < 0 ? T('shelf.year.bc', { y: -y }) : String(y); }
   // What a chip says of a game's age.
   function ageText(m) {
     if (!m || !m.origin) return '';
@@ -71,9 +74,10 @@
   }
   function playersText(m) {
     var p = m && m.players;
-    return p ? p + (p === '1' ? ' player' : ' players') : '';
+    return p ? T('shelf.players.line', { p: p, n: maxPlayers(m) }) : '';
   }
   // Minutes from "15 min" ("30 min+" sorts just after "30 min"); 0 when unknown.
+  function lengthText(m) { var n = minutesOf(m); return n ? T('shelf.minutes' + (/\+/.test(m.length || '') ? '.plus' : ''), { n: Math.floor(n) }) : (m && m.length) || ''; }
   function minutesOf(m) {
     var n = /(\d+)\s*min(\+?)/.exec(m && m.length || '');
     return n ? Number(n[1]) + (n[2] ? 0.5 : 0) : 0;
@@ -108,19 +112,19 @@
     if (sort === 'az') {
       add('all', 'A to Z').items = sorted.sort(byTitle);
     } else if (sort === 'oldest') {
-      ERAS.forEach(function (e) { add(e.id, e.label, e.note); });
-      add('unknown', 'Age unknown', 'no one knows who first played it');
+      ERAS.forEach(function (e) { add(e.id, eraLabel(e), eraNote(e)); });
+      add('unknown', T('shelf.era.unknown'), T('shelf.era.unknown.note'));
       sorted.sort(byAge(meta)).forEach(function (it) { var e = eraOf(meta(it.path)); by[e ? e.id : 'unknown'].items.push(it); });
     } else if (sort === 'region') {
-      REGIONS.forEach(function (r) { add(r, r, '', r); });
+      REGIONS.forEach(function (r) { add(r, T('shelf.region.' + r), '', r); });
       sorted.sort(byAge(meta)).forEach(function (it) { var m = meta(it.path); by[m && by[m.region] ? m.region : 'Worldwide/Modern'].items.push(it); });
     } else if (sort === 'players') {
-      add('solo', 'Solo', 'just you');
-      add('two', 'Two', 'head to head');
-      add('many', 'Three or more', 'a table full');
+      add('solo', T('shelf.players.solo'), T('shelf.players.solo.note'));
+      add('two', T('shelf.players.two'), T('shelf.players.two.note'));
+      add('many', T('shelf.players.many'), T('shelf.players.many.note'));
       sorted.sort(byTitle).forEach(function (it) { var n = maxPlayers(meta(it.path)); by[n <= 1 ? 'solo' : n === 2 ? 'two' : 'many'].items.push(it); });
     } else if (sort === 'quick') {
-      LENGTHS.forEach(function (l) { add(l.id, l.label); });
+      LENGTHS.forEach(function (l) { add(l.id, lengthLabel(l)); });
       sorted.sort(byTitle).forEach(function (it) {
         var n = minutesOf(meta(it.path));
         for (var i = 0; i < LENGTHS.length; i++) if (n <= LENGTHS[i].to) { by[LENGTHS[i].id].items.push(it); break; }
@@ -129,8 +133,8 @@
       var order = {};
       (recent || []).forEach(function (p, i) { if (!(p in order)) order[p] = i; });
       var seen = sorted.filter(function (it) { return it.path in order; }).sort(function (a, b) { return order[a.path] - order[b.path]; });
-      add('played', 'Played lately', 'newest first').items = seen;
-      add('rest', seen.length ? 'Not played yet' : 'Nothing played yet').items = sorted.filter(function (it) { return !(it.path in order); }).sort(byTitle);
+      add('played', T('shelf.recent.played'), T('shelf.recent.played.note')).items = seen;
+      add('rest', seen.length ? T('shelf.recent.rest') : T('shelf.recent.none')).items = sorted.filter(function (it) { return !(it.path in order); }).sort(byTitle);
     } else return null;
     return out.filter(function (g) { return g.items.length; });
   }
@@ -149,7 +153,7 @@
   var SEARCH_ICON = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>';
   // Zimi's Home sort mark (static/app.js _LIB_SORT_SVG).
   var SORT_ICON = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg>';
-  var VIEW_LABEL = { lobby: 'Lobby', index: 'Index' };
+  var VIEW_LABEL = { lobby: 'shelf.view.lobby', index: 'shelf.view.index' };
   var SVG_NS = 'http://www.w3.org/2000/svg';
   // Where each region sits on world-land.js's 800 x 400 grid: [x, y, radius] spots.
   var REGION_SPOTS = {
@@ -224,7 +228,7 @@
     });
     var text = el('span', 'ar-game-text');
     text.appendChild(el('strong')).textContent = node.getAttribute('data-name');
-    text.appendChild(el('span')).textContent = tiles.length + ' games. ' + node.getAttribute('data-line');
+    text.appendChild(el('span')).textContent = T('shelf.family.line', { n: tiles.length, line: node.getAttribute('data-line') });
     card.appendChild(art);
     card.appendChild(text);
     var panel = el('div', 'ar-games sh-fam-panel');
@@ -259,17 +263,17 @@
   var search = el('label', 'sh-search', SEARCH_ICON);
   var input = el('input');
   input.type = 'search';
-  input.setAttribute('aria-label', 'Search games');
+  input.setAttribute('aria-label', T('shelf.search'));
   input.autocomplete = 'off';
   input.spellcheck = false;
   search.appendChild(input);
   // Zimi's Home control: the order it is in beside a sort mark, the native select lying over it.
   var sortWrap = el('label', 'sh-sort-wrap', SORT_ICON);
-  sortWrap.title = 'Sort games';
+  sortWrap.title = T('shelf.sortGames');
   sortWrap.hidden = true;
   var sortNow = el('span', 'sh-sort-now', SORT_LABEL[state.sort]);
   var sortSel = el('select', 'sh-sort');
-  sortSel.setAttribute('aria-label', 'Sort games');
+  sortSel.setAttribute('aria-label', T('shelf.sortGames'));
   SORTS.forEach(function (k) {
     var o = el('option', '', SORT_LABEL[k]);
     o.value = k;
@@ -281,13 +285,13 @@
   sortWrap.appendChild(sortSel);
   var toggle = el('span', 'ar-view-toggle');
   toggle.setAttribute('role', 'group');
-  toggle.setAttribute('aria-label', 'Shelf view');
+  toggle.setAttribute('aria-label', T('shelf.view'));
   var viewBtns = {};
   [['index', LIST_ICON], ['lobby', GRID_ICON]].forEach(function (v) {
     var b = el('button', 'ar-view-btn', v[1]);
     b.type = 'button';
-    b.title = VIEW_LABEL[v[0]];
-    b.setAttribute('aria-label', VIEW_LABEL[v[0]]);
+    b.title = T(VIEW_LABEL[v[0]]);
+    b.setAttribute('aria-label', T(VIEW_LABEL[v[0]]));
     b.addEventListener('click', function () { setView(v[0]); });
     viewBtns[v[0]] = b;
     toggle.appendChild(b);
@@ -301,11 +305,11 @@
   var body = el('div', 'sh-body');
   var rail = el('div', 'sh-rail');
   var nav = el('nav', 'sh-nav');
-  nav.setAttribute('aria-label', 'Sections');
+  nav.setAttribute('aria-label', T('shelf.head.sections'));
   rail.appendChild(nav);
   var main = el('div', 'sh-main');
   var top = el('div', 'sh-top');
-  var empty = el('p', 'sh-empty', 'No game matches that.');
+  var empty = el('p', 'sh-empty', T('shelf.noMatch'));
   empty.hidden = true;
   list.parentNode.insertBefore(body, list);
   main.appendChild(top);
@@ -332,11 +336,11 @@
   function buildChips() {
     nav.textContent = '';
     chips = {};
-    chip('all', 'All games', total);
-    recentChip = chip('recent', 'Recent', tableCount, 'sh-chip-recent');
+    chip('all', T('shelf.chip.all'), total);
+    recentChip = chip('recent', T('shelf.chip.recent'), tableCount, 'sh-chip-recent');
     recentChip.hidden = !tableCount;
     // One group is no choice: A to Z has no chips at all.
-    nav.setAttribute('aria-label', SORT_HEAD[sortedNow()] || 'Sections');
+    nav.setAttribute('aria-label', SORT_HEAD[sortedNow()] || T('shelf.head.sections'));
     nav.hidden = groups.length < 2;
     if (nav.hidden) return;
     nav.appendChild(el('span', 'sh-rail-head', SORT_HEAD[sortedNow()]));
@@ -349,7 +353,7 @@
     var m = meta(path);
     if (!m) return null;
     var line = el('small', 'sh-meta');
-    [[ageText(m), 'sh-m-age'], [m.region, 'sh-m-region'], [playersText(m), 'sh-m-players'], [state.sort === 'quick' ? m.length : '', 'sh-m-length']].forEach(function (c) {
+    [[ageText(m), 'sh-m-age'], [m.region, 'sh-m-region'], [playersText(m), 'sh-m-players'], [state.sort === 'quick' ? lengthText(m) : '', 'sh-m-length']].forEach(function (c) {
       if (!c[0]) return;
       var e = el('em', c[1]);
       e.textContent = c[0];
@@ -484,7 +488,7 @@
     shelf.dataset.sec = searching ? 'search' : state.sec;
     shelf.classList.add('sh-on');
     // A phone's lobby header has room for one word beside the mark and the toggle.
-    input.placeholder = state.view === 'lobby' && root.matchMedia('(max-width: 699px)').matches ? 'Search' : 'Search ' + total + ' games';
+    input.placeholder = state.view === 'lobby' && root.matchMedia('(max-width: 699px)').matches ? T('shelf.searchShort') : T('shelf.searchN', { n: total });
     VIEWS.forEach(function (v) { viewBtns[v].setAttribute('aria-pressed', String(v === state.view)); });
     Object.keys(chips).forEach(function (id) { chips[id].btn.setAttribute('aria-pressed', String(!searching && id === state.sec)); });
     var shown = 0;

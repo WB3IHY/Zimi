@@ -23,11 +23,12 @@
   }
 
   function reducedMotion() {
+    if (root.ZimiShell && root.ZimiShell.reducedMotion) return root.ZimiShell.reducedMotion();
     if (root.ZimiShell && root.ZimiShell.anim() === 'off') return true;
     try { return !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; }
   }
 
-  function fmtTime(s) { return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  function fmtTime(s) { return root.ZimiText ? root.ZimiText.clock(s) : Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
 
   // A sheet over the page: Escape and a click outside close it, focus goes back where it was.
   function sheet(el, onClose) {
@@ -45,16 +46,18 @@
       var f = el.querySelectorAll('button:not([disabled]),input:not([disabled])');
       if (!f.length) return;
       var first = f[0], last = f[f.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === el.querySelector('.ar-sheet-card'))) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     });
     return {
       el: el,
-      open: function (focusEl) {
+      // Focus goes to the sheet itself, never into a field or a button; Tab stays inside it, Esc closes it.
+      open: function () {
         from = document.activeElement;
         el.hidden = false;
-        var t = focusEl || el.querySelector('input:checked,button');
-        if (t) t.focus();
+        var card = el.querySelector('.ar-sheet-card') || el;
+        if (!card.hasAttribute('tabindex')) card.setAttribute('tabindex', '-1');
+        try { card.focus({ preventScroll: true }); } catch (e) { /* no focus */ }
       },
       close: close
     };

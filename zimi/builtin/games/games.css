@@ -142,7 +142,8 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 /* The status line is one slot: one sentence, 15px, in ink (shell.js makes it aria-live). */
 .gs-status, .bg-status, .pl-msg, .ms-msg { font-size: var(--fs-body); font-weight: 500; color: var(--ink); }
 .gs-shake { animation: gs-shake 0.12s ease-out; }
-@keyframes gs-shake { 0%, 100% { transform: translateX(0); } 30% { transform: translateX(-4px); } 70% { transform: translateX(4px); } }
+/* translate, not transform: a card keeps its place (its position is a transform) while it shakes. */
+@keyframes gs-shake { 0%, 100% { translate: 0 0; } 30% { translate: -4px 0; } 70% { translate: 4px 0; } }
 .gs-flash { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Reduced motion, once. The shell sets data-anim="off" when the device asks for less motion (unless Animation was chosen),

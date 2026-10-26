@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'games');
+globalThis.ZimiText = require(path.join(dir, 'text.js'));
 const S = require(path.join(dir, 'shelf.js'));
 const rows = require(path.join(dir, 'games.json'));
 const index = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');

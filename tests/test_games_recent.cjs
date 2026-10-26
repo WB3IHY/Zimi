@@ -5,6 +5,7 @@
 // games.json: tests/test_games_links.py compares them with gamelinks.game_of_day.
 
 const path = require('path');
+globalThis.ZimiText = require(path.join(__dirname, '..', 'zimi', 'builtin', 'games', 'text.js'));
 const R = require(path.join(__dirname, '..', 'zimi', 'builtin', 'games', 'recent.js'));
 
 const days = process.argv.indexOf('--days');
@@ -72,11 +73,11 @@ check(['chess', 'hearts', 'go', 'a', 'b', 'c', 'puzzles/x'].every(g => { const t
 // ago: how long since a play.
 const NOW = 10 * 86400000;
 check(R.ago(NOW, NOW - 20000) === 'just now', 'ago: seconds');
-check(R.ago(NOW, NOW - 5 * 60000) === '5 min ago', 'ago: minutes');
-check(R.ago(NOW, NOW - 2 * 3600000) === '2 h ago', 'ago: hours');
+check(R.ago(NOW, NOW - 5 * 60000) === '5 minutes ago', 'ago: minutes');
+check(R.ago(NOW, NOW - 2 * 3600000) === '2 hours ago', 'ago: hours');
 check(R.ago(NOW, NOW - 30 * 3600000) === 'yesterday', 'ago: a day');
-check(R.ago(NOW, NOW - 3 * 86400000) === '3 d ago', 'ago: days');
-check(R.ago(NOW, NOW - 20 * 86400000) === '2 w ago', 'ago: weeks');
+check(R.ago(NOW, NOW - 3 * 86400000) === '3 days ago', 'ago: days');
+check(R.ago(NOW, NOW - 20 * 86400000) === '2 weeks ago', 'ago: weeks');
 check(R.ago(NOW, NOW + 5000) === 'just now', 'ago: a clock set back');
 
 // Live tiles: only a png or jpeg data URL or an svg string becomes a picture; anything else is no picture.

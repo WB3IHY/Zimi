@@ -278,6 +278,14 @@
     root.addEventListener('pagehide', pauseNow);
   }
 
+  // ── the status line is one aria-live slot ──
+  function markStatusLines() {
+    Array.prototype.forEach.call(d.querySelectorAll('.bg-status, .pl-msg, .ms-msg, .ct-status'), function (el) {
+      if (!el.getAttribute('role')) el.setAttribute('role', 'status');
+      if (!el.getAttribute('aria-live')) el.setAttribute('aria-live', 'polite');
+    });
+  }
+
   // ── records: a line of wins and losses is hidden until there is a first game, and the number is a sans figure ──
   var RECORD_SELECTOR = '.bg-stats, #wk-stats';
   function recordsCount(el) { return /[1-9]/.test(el.textContent); }
@@ -724,7 +732,7 @@
     if (hosted) hostReady();
     if (!built) return;
     DIRTY_EVENTS.forEach(function (t) { d.addEventListener(t, markDirty, true); });
-    watchSnapshots(); watchBlur(); watchRecords();
+    watchSnapshots(); watchBlur(); watchRecords(); markStatusLines();
     d.documentElement.classList.add('gs-ready');
     if (helpFor(ID)) d.documentElement.classList.add('gs-help');
     // Settings that a game paints itself (a clock's text) are repainted when they change.

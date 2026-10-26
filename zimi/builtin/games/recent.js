@@ -11,6 +11,7 @@
    the two together). */
 (function (root) {
   'use strict';
+  var T = function (key, vars) { return root.ZimiText ? root.ZimiText.T(key, vars) : key; };
 
   // Shown inside Zimi's reader (its iframe is #reader-frame): the shell's own
   // back arrow and crumb lead back, so games.css hides the page's.
@@ -77,17 +78,8 @@
     return { rot: Math.round(rot * 10) / 10, dy: ((h >>> 10) % (2 * NUDGE + 1)) - NUDGE };
   }
 
-  // "just now", "5 min ago", "2 h ago", "yesterday", "3 d ago", "2 w ago".
-  function ago(now, at) {
-    var m = Math.floor(Math.max(0, now - at) / 60000);
-    if (m < 1) return 'just now';
-    if (m < 60) return m + ' min ago';
-    var h = Math.floor(m / 60);
-    if (h < 24) return h + ' h ago';
-    var d = Math.floor(h / 24);
-    if (d === 1) return 'yesterday';
-    return d < 14 ? d + ' d ago' : Math.floor(d / 7) + ' w ago';
-  }
+  // "just now", "5 minutes ago", "yesterday", "2 weeks ago": Intl's own words for the language.
+  function ago(now, at) { return root.ZimiText ? root.ZimiText.ago(Math.max(0, now - at)) : ''; }
 
   // With nothing played yet the table offers these, in this order.
   var CLASSICS = ['chess.html', 'solitaire.html', 'checkers.html'];
@@ -215,14 +207,13 @@
     name.textContent = tile.querySelector('.ar-game-text strong').textContent;
     var small = doc.createElement('small');
     // "Last played:" may wrap on a narrow box, the time itself does not.
-    var cut = tag.indexOf(': ');
-    small.appendChild(doc.createTextNode(cut < 0 ? tag : tag.slice(0, cut + 1) + ' '));
-    if (cut >= 0) {
+    if (Array.isArray(tag)) {
+      small.appendChild(doc.createTextNode(tag[0] + ' '));
       var when = doc.createElement('span');
       when.style.whiteSpace = 'nowrap';
-      when.textContent = tag.slice(cut + 2);
+      when.textContent = tag[1];
       small.appendChild(when);
-    }
+    } else small.appendChild(doc.createTextNode(tag));
     label.appendChild(name);
     label.appendChild(small);
     a.appendChild(lid);
@@ -236,14 +227,14 @@
     var s = doc.createElement('section');
     s.className = 'ar-section ar-continue' + (idle ? ' ar-table-idle' : '');
     var h = doc.createElement('h2');
-    h.textContent = idle ? 'Start something' : 'On the table';
+    h.textContent = idle ? T('shelf.table.idle') : T('shelf.table.played');
     var tbl = doc.createElement('nav');
     tbl.className = 'ar-table';
     tbl.setAttribute('aria-label', h.textContent);
     var inner = doc.createElement('div');
     inner.className = 'ar-table-in';
     games.forEach(function (g, i) {
-      var b = box(g, i, idle ? 'A classic' : 'Last played: ' + ago(now, g.at));
+      var b = box(g, i, idle ? T('shelf.table.classic') : [T('shelf.table.last'), ago(now, g.at)]);
       if (b) inner.appendChild(b);
     });
     tbl.appendChild(inner);
@@ -290,7 +281,7 @@
       var t = table(idle ? CLASSICS.map(function (p) { return { path: p, title: (byPath[p] || {}).title }; }) : played, idle, now);
       if (t) first.parentNode.insertBefore(t, first);
       var g = dayPick(rows, localDay(new Date()));
-      if (g) put('ar-today', 'Game of the day', [{ path: g.path, title: g.title, line: g.why || g.blurb || '' }], true);
+      if (g) put('ar-today', T('shelf.today'), [{ path: g.path, title: g.title, line: g.why || g.blurb || '' }], true);
       // shelf.js lays the two sections out per view; it is told when both are in.
       doc.dispatchEvent(new Event('zimi-shelf-today'));
     });
