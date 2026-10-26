@@ -116,10 +116,17 @@
     }, prefs.mode === 'gp' ? [[last ? Tx('kart.cupResult') : Tx('kart.next', { track: TRACKS[E.CUPS[prefs.cup].tracks[g.gp.race + 1]].name }), function () { if (last) cupResult(); else { g.gp.race++; startRace(); } }, true, true]] :
       [[Tx('shell.close')], [Tx('shell.menu.new'), startRace, true]]);
   }
+  // The cup standings with the next race ready (also what a returning player sees).
+  function standings() {
+    var last = g.gp.race === 2, order = E.cupOrder(g.gp.totals), me = prefs.driver;
+    sheet(Tx('kart.raceOf', { n: g.gp.race + 1, total: 3 }), function (b) {
+      table(b, order.map(function (di, i) { return { me: di === me || (prefs.players === 2 && di === prefs.driver2), cells: [E.ordinal(i + 1), DRIVERS[di].name, '', Tx('kart.points', { n: g.gp.totals[di] })] }; }));
+    }, [[last ? Tx('kart.cupResult') : Tx('kart.next', { track: TRACKS[E.CUPS[g.gp.cup].tracks[g.gp.race + 1]].name }), function () { if (last) cupResult(); else { g.gp.race++; startRace(); } }, true, true]]);
+  }
   function nameOf(k) { return isMine(k) ? (g.humans.length > 1 ? Tx('kart.player', { n: k.human + 1, driver: k.driver.name }) : Tx('kart.you', { driver: k.driver.name })) : k.driver.name; }
   function medal(rank) { return rank <= 3 ? Tx('kart.medal.' + rank) : E.ordinal(rank); }
   function cupResult() {
-    var order = E.cupOrder(g.gp.totals), me = g.humans[0].drvIndex, rank = order.indexOf(me) + 1, cup = E.CUPS[prefs.cup];
+    var order = E.cupOrder(g.gp.totals), me = g.humans[0] ? g.humans[0].drvIndex : prefs.driver, rank = order.indexOf(me) + 1, cup = E.CUPS[prefs.cup];
     var rec = prefs.cups[cup.id];
     if (!rec || rank < rec.rank || (rank === rec.rank && g.gp.totals[me] > rec.points)) { prefs.cups[cup.id] = { rank: rank, points: g.gp.totals[me] }; savePrefs(); }
     sheet(Tx('kart.cupTitle', { cup: cup.name, medal: medal(rank) }), function (b) {
@@ -302,12 +309,20 @@
   var RACE_SKIP = /^(T|rng|leadHuman|ranked|karts|events|order)$/;
   ZimiShell.persist({
     save: function () {
+      // A Grand Prix between races is progress: the cup, the race it is on and the points come back as the standings.
+      if (g.mode === 'result' && prefs.mode === 'gp' && g.gp) return { between: true, gp: g.gp };
       if ((g.mode !== 'playing' && g.mode !== 'paused') || !g.race || g.race.trial) return null;
       var rr = {};
       Object.keys(g.race).forEach(function (k) { if (!RACE_SKIP.test(k)) rr[k] = g.race[k]; });
       return { mode: prefs.mode, gp: g.gp, trackId: g.T.def.id, opts: g.opts, karts: g.race.karts, race: rr };
     },
     load: function (d) {
+      if (d && d.between) {
+        if (!d.gp || !d.gp.totals || !E.CUPS[d.gp.cup]) return false;
+        prefs.mode = 'gp'; prefs.cup = d.gp.cup; g.gp = d.gp; g.mode = 'result'; els.pause.disabled = true; standings();
+        restored = true;
+        return true;
+      }
       if (!d || !d.opts || !d.karts || !TRACKS.some(function (t) { return t.id === d.trackId; })) return false;
       prefs.mode = d.mode; if (d.mode === 'gp') { if (!d.gp) return false; g.gp = d.gp; prefs.cup = d.gp.cup; }
       var a = assetsFor(d.trackId), race = E.createRace(a.T, d.opts);

@@ -50,6 +50,8 @@ ROWS = [
     ("lastline", "#ll-board", "__lastline.pos"),
     ("lander", "#ld2-board", "__lander.pos"),
     ("paddles", ".ar-sheet .gs-primary", "__paddles.pos"),
+    ("circuit", ".ar-sheet .gs-primary", "__circuit.pos"),
+    ("roadrush", "#rr-board", "__roadrush.pos"),
     ("hopper", "#hp-screen", _paused("[__hopper.st.index, __hopper.st.x, __hopper.st.y, __hopper.st.camX, __hopper.st.time, __hopper.st.hearts, __hopper.st.coins, __hopper.st.enemies.map(e => [e.x, e.y, e.alive])]")),
     ("muncher", "#mn-screen", _paused("[__muncher.st.level, __muncher.st.player, __muncher.st.chasers.map(c => [c.x, c.y]), __muncher.st.dots, __muncher.st.score, __muncher.st.lives, __muncher.st.time]")),
     ("crossing", "#cr-screen", _paused("[__crossing.st.level, __crossing.st.x, __crossing.st.row, __crossing.st.time, __crossing.st.left, __crossing.st.nests, __crossing.st.score]")),
