@@ -650,7 +650,7 @@ const tick = () => new Promise(r => setImmediate(r));
       model_of(['main', {}, ['h2', {}, 'See also'], ['ul', {}, ['li', {}, ['a', {}, 'Tides']], ['li', {}, ['a', {}, 'Moons']]],
         ['div', { cls: ['post-text'] }, ['p', {}, 'Use a loop.'], ['pre', {}, 'a poem line'], ['pre', {}, 'x = [1, 2]'], ['pre', {}, 'map(callbackFn)'], ['details', { cls: ['baseline-indicator'] }, 'Baseline Widely available'], ['p', {}, 'That is all.']], ['button', {}, 'Share'],
         ['div', { cls: ['votecell'] }, '16'], ['div', { cls: ['post-taglist'] }, 'sleep'],
-        ['p', { cls: ['chapter'] }, 'CHAPTER I. Down the Rabbit-Hole']]) === 'See also|Tides|Moons|Use a loop.|a poem line|That is all.|CHAPTER I. Down the Rabbit-Hole|');
+        ['p', { cls: ['chapter'] }, 'CHAPTER I. Down the Rabbit-Hole', ['span', { cls: ['pagenum'] }, '[12]']], ['div', { cls: ['transnote'] }, 'Typos fixed.'], ['ul', { cls: ['toc'] }, ['li', {}, 'Chapter I']]]) === 'See also|Tides|Moons|Use a loop.|a poem line|That is all.|CHAPTER I. Down the Rabbit-Hole|');
     const laid = mkDoc(['main', {}, ['table', {}, ['tr', {}, ['td', {}, ['p', {}, 'The whole page sits in a table.']]]]]);
     const laidText = ax._ttsReadModel(laid, laid.main).text.replace(new RegExp(BLOCK, 'g'), '|');
     ok('a table that holds paragraphs is the page\'s layout, and is read', laidText === 'The whole page sits in a table.|', laidText);
