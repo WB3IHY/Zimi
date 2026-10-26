@@ -380,22 +380,34 @@
   function snapshot() {
     if (!race || !provider) return null;
     if (!race.begun && !race.done) return null;
-    return { mode: race.mode, date: today, zim: provider.zim, start: race.pair.start.path, end: race.pair.end.path, par: race.pair.par, parKind: race.pair.parKind,
+    return { mode: race.mode, date: today, zim: provider.zim, start: race.pair.start.path, end: race.pair.end.path, startTitle: race.pair.start.title, endTitle: race.pair.end.title, par: race.pair.par, parKind: race.pair.parKind,
       steps: race.steps, ms: Math.round(elapsed()), begun: race.begun, done: race.done, gave: !!race.gave };
   }
+  // The pages come from the library again; when it is gone or has changed, the race is still shown as it stood (the path
+  // and both ends from the save), with a note where the page would be, and New game starts another.
   function restore(kept) {
-    if (!kept || kept.zim !== provider.zim || !kept.steps || (kept.mode === 'daily' && kept.date !== today)) { if (kept) ZimiShell.forget(); return Promise.resolve(false); }
-    return Promise.all([provider.open(kept.start), provider.open(kept.end)]).then(function (ab) {
+    if (!kept || !kept.steps || !kept.steps.length || (kept.mode === 'daily' && kept.date !== today)) { if (kept) ZimiShell.forget(); return Promise.resolve(false); }
+    function build(ab) {
       race = { mode: kept.mode, pair: { start: ab[0], end: ab[1], par: kept.par, parKind: kept.parKind }, steps: kept.steps, ms: kept.ms || 0, since: 0, begun: kept.begun, done: kept.done, gave: kept.gave, page: null, hint: firstSentence(ab[1].node) };
-      paintTarget();
-      return provider.open(race.steps[race.steps.length - 1].path).then(function (p) {
-        show(p);
-        if (race.done && race.gave) giveUpSheet();
-        else if (race.done) openResult(race.ms, clicks());
-        else { race.since = performance.now(); line.say(T('race.par', { n: race.pair.par })); }
-        return true;
-      });
-    }).catch(function () { ZimiShell.forget(); race = null; return false; });
+      paintTarget(); paintHud();
+    }
+    function finishUp() {
+      if (race.done && race.gave) giveUpSheet();
+      else if (race.done) openResult(race.ms, clicks());
+      else { race.since = performance.now(); line.say(T('race.par', { n: race.pair.par })); }
+      return true;
+    }
+    var live = kept.zim === provider.zim ? Promise.all([provider.open(kept.start), provider.open(kept.end)]).then(function (ab) {
+      build(ab);
+      return provider.open(race.steps[race.steps.length - 1].path).then(function (p) { show(p); return finishUp(); });
+    }) : Promise.reject(new Error('another library'));
+    return live.catch(function () {
+      var stub = function (path, title) { return { path: path, title: title || Lib.titleOfPath(path), node: el('div'), links: [] }; };
+      build([stub(kept.start, kept.startTitle), stub(kept.end, kept.endTitle)]);
+      paintTrail(); notice(T('race.offline'));
+      els.back.disabled = true; els.give.disabled = true; race.stub = true;
+      return finishUp();
+    });
   }
   ZimiShell.persist({ save: snapshot });
 

@@ -2401,6 +2401,7 @@
  "race.noLinks": "Your Wikipedia needs links between its articles. Try again, or play the built-in articles.",
  "race.noRace": "Could not find a race in this Wikipedia",
  "race.notCounted": "That page is not in your Wikipedia, so it did not count",
+ "race.offline": "This page cannot be shown now. Your path is kept",
  "race.par": {
   "one": "Par is {n} click",
   "other": "Par is {n} clicks"
@@ -2489,6 +2490,12 @@
  "scopa.wins": "{name} wins.",
  "scopa.youWin": "You win.",
  "scopa.yourPlay": "Your play",
+ "seats.cpu.1": "Asha",
+ "seats.cpu.2": "Dev",
+ "seats.cpu.3": "Rani",
+ "seats.cpu.4": "Moss",
+ "seats.cpu.5": "Juno",
+ "seats.cpu.6": "Pike",
  "seats.is": "{seat} is",
  "seats.nameFor": "Name for seat {n}",
  "seats.note": "With two or more people, the screen hides each hand until its owner taps.",
@@ -2612,6 +2619,7 @@
  "shell.meta.players": "Players",
  "shell.new.ask": "Start a new game?",
  "shell.new.lost": "Your current game will be lost.",
+ "shell.nextLevel": "Next level",
  "shell.normal": "Normal",
  "shell.off": "Off",
  "shell.on": "On",
