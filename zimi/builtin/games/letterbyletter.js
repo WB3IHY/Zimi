@@ -322,7 +322,7 @@
   ZimiShell.game({
     inProgress: function () { return !!game && status(game) === 'playing' && game.guessed.length > 0; },
     menu: function () {
-      return { options: [Play.optionRow(T('letters.word'), [['daily', T('letters.daily')], ['practice', T('letters.practice')]], pendingMode || mode, function (v) { pendingMode = v; })] };
+      return { options: [Play.optionRow(T('letters.word'), [['daily', T('play.daily')], ['practice', T('play.practice')]], pendingMode || mode, function (v) { pendingMode = v; })] };
     },
     stats: function () {
       if (!stats.played) return [];

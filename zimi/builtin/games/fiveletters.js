@@ -353,7 +353,7 @@
   ZimiShell.game({
     inProgress: function () { return !!game && game.status === 'playing' && (game.guesses.length > 0 || game.current.length > 0); },
     menu: function () {
-      var rows = [Play.optionRow(T('fiveletters.word'), [['daily', T('fiveletters.daily')], ['practice', T('fiveletters.practice')]], pendingMode || game.mode, function (v) { pendingMode = v; })];
+      var rows = [Play.optionRow(T('fiveletters.word'), [['daily', T('play.daily')], ['practice', T('play.practice')]], pendingMode || game.mode, function (v) { pendingMode = v; })];
       if (libOptions.length) {
         var choices = [[null, T('fiveletters.english')]].concat(libOptions.map(function (o) { return [o, o.title]; }));
         rows.push(Play.optionRow(T('fiveletters.list'), choices, pendingList === undefined ? cur : pendingList, function (v) { pendingList = v; }));

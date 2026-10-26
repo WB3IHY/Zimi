@@ -367,7 +367,7 @@
   ZimiShell.game({
     inProgress: function () { return !!race && race.begun && !race.done; },
     menu: function () {
-      return { options: [Play.optionRow(T('race.race'), [['daily', T('race.daily')], ['practice', T('race.practice')]], pendingMode || (race ? race.mode : 'daily'), function (v) { pendingMode = v; })] };
+      return { options: [Play.optionRow(T('race.race'), [['daily', T('play.daily')], ['practice', T('play.practice')]], pendingMode || (race ? race.mode : 'daily'), function (v) { pendingMode = v; })] };
     },
     stats: function () { var best = Play.load(BEST_KEY, {}); return best.clicks ? [[T('race.bestClicks'), Play.num(best.clicks)]] : []; }
   });
