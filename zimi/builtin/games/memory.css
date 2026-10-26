@@ -1,15 +1,28 @@
 /* Memory: the card grid. A card is a button with a face and a back; the turn is a short flip, skipped when motion is reduced. */
-.mm-grid { --cols: 4; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 10px; width: min(100%, 440px); }
-.mm-card { position: relative; aspect-ratio: 1; padding: 0; border: 0; background: transparent; cursor: pointer; perspective: 600px; touch-action: manipulation; border-radius: 14px; }
-.mm-inner { position: absolute; inset: 0; transition: transform 0.28s; transform-style: preserve-3d; }
-.mm-card[data-up="true"] .mm-inner { transform: rotateY(180deg); }
-.mm-face, .mm-back { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 14px; display: grid; place-items: center; }
-.mm-back { background: var(--accent); border: 2px solid var(--accent); background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.22) 0 7px, transparent 7px 14px); }
-.mm-back::after { content: "?"; font: 800 clamp(22px, 8vw, 34px) var(--font); color: var(--accent-ink); }
-.mm-face { transform: rotateY(180deg); background: #fffdf6; border: 2px solid var(--line); padding: 10%; }
+.mm-grid { --cols: 4; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: var(--sp-2); width: min(100%, 440px); }
+.mm-card { position: relative; aspect-ratio: 1; padding: 0; border: 0; background: transparent; cursor: pointer; touch-action: manipulation; border-radius: var(--r-sheet); }
+/* The turn is a squash and unsquash (a real 3D flip is flattened inside a button in Safari). */
+.mm-inner { position: absolute; inset: 0; }
+.mm-card[data-up="true"] .mm-inner { animation: mm-up 0.28s ease-out; }
+.mm-card[data-up="false"] .mm-inner { animation: mm-down 0.28s ease-out; }
+@keyframes mm-up { from { transform: scaleX(0.1); } }
+@keyframes mm-down { from { transform: scaleX(0.1); } }
+.mm-face, /* A card back is felt (a material), so sixteen of them are quiet; the one amber thing on the page stays the primary button. */
+.mm-back { background: var(--felt); border: 2px solid var(--felt-deep); background-image: repeating-linear-gradient(45deg, var(--felt-line) 0 7px, transparent 7px 14px); }
+/* A card back is felt (a material), so sixteen of them are quiet; the one amber thing on the page stays the primary button. */
+.mm-back { background: var(--felt); border: 2px solid var(--felt-deep); background-image: repeating-linear-gradient(45deg, var(--felt-line) 0 7px, transparent 7px 14px); }
+.mm-back::after { content: "?"; font: 800 var(--fs-display) var(--font); color: rgba(255, 255, 255, 0.7); }
+.mm-face { visibility: hidden; background: var(--card); border: 2px solid var(--line); padding: 10%; }
+.mm-card[data-up="true"] .mm-face { visibility: visible; }
+.mm-card[data-up="true"] /* A card back is felt (a material), so sixteen of them are quiet; the one amber thing on the page stays the primary button. */
+.mm-back { background: var(--felt); border: 2px solid var(--felt-deep); background-image: repeating-linear-gradient(45deg, var(--felt-line) 0 7px, transparent 7px 14px); }
 .mm-face svg { width: 100%; height: 100%; display: block; }
-.mm-card[data-done="true"] .mm-face { border-color: var(--ok); background: #f2fbf4; }
+.mm-card[data-done="true"] .mm-face { border-color: var(--ok); background: var(--card); }
 .mm-card:disabled { cursor: default; }
-.mm-card:not(:disabled):hover .mm-back { filter: brightness(1.08); }
-@media (prefers-reduced-motion: reduce) { .mm-inner { transition: none; } }
-@media (max-width: 380px) { .mm-grid { gap: 8px; } }
+.mm-card:not(:disabled):hover /* A card back is felt (a material), so sixteen of them are quiet; the one amber thing on the page stays the primary button. */
+.mm-back { background: var(--felt); border: 2px solid var(--felt-deep); background-image: repeating-linear-gradient(45deg, var(--felt-line) 0 7px, transparent 7px 14px); }
+@media (prefers-reduced-motion: reduce) { .mm-inner { animation: none !important; } }
+:root[data-anim="off"] .mm-inner { animation: none !important; }
+.mm-players { justify-content: center; margin: 0; }
+.mm-names { display: grid; gap: var(--sp-2); }
+.mm-name { width: 100%; min-height: var(--target); padding: 0 var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; }

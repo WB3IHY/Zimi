@@ -77,28 +77,37 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
-  var SETTINGS_KEY = 'zimi.games.memory.settings', BEST_KEY = 'zimi.games.memory.best';
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
+  var SETTINGS_KEY = 'zimi.games.memory.settings', BEST_KEY = 'zimi.games.memory.best', MAX_PEOPLE = 4, END_AFTER_MS = 650;
   Play.applyTheme();
 
-  var els = { grid: $('mm-grid'), moves: $('mm-moves'), pairs: $('mm-pairs'), best: $('mm-best'), msg: $('mm-msg'), sheet: $('mm-sheet'), title: $('mm-sheet-title'), text: $('mm-sheet-text'), go: $('mm-go'), set: $('mm-set'), size: $('mm-size'), nu: $('mm-new') };
+  var els = { grid: $('mm-grid'), moves: $('mm-moves'), pairs: $('mm-pairs'), best: $('mm-best'), msg: $('mm-msg'), who: $('mm-players'), nu: $('mm-new') };
+  var status = Play.status(els.msg);
   var settings = Play.load(SETTINGS_KEY, { set: 'animals', size: 'medium', people: 1 }), best = Play.load(BEST_KEY, {});
   var g = null, timer = null, buttons = [], pics;
   // People sharing the screen take turns: a match keeps the turn, a miss passes it. Nothing is hidden.
   var seats = null, turn = 0, scores = [];
+  function people() { return Math.max(1, Math.min(MAX_PEOPLE, settings.people || 1)); }
   function multi() { return seats && seats.hotseat(); }
   function newSeats() {
-    var n = Math.max(1, Math.min(4, settings.people || 1));
+    var n = people();
     seats = root.ZimiSeats.create({ id: 'memory', seats: n });
     for (var i = 0; i < n; i++) if (!seats.person(i)) seats.setKind(i, 'person'); // everyone at the table is a person
     turn = 0; scores = []; for (i = 0; i < n; i++) scores.push(0);
   }
+  function picName(c) { return T('memory.pic.' + pics[c.id][0].toLowerCase()); }
   function paintPlayers() {
-    var box = $('mm-players'); box.hidden = !multi();
+    els.who.hidden = !multi();
+    els.who.textContent = '';
     if (!multi()) return;
-    box.textContent = scores.map(function (v, i) { return (i === turn && !g.over ? '> ' : '') + seats.name(i) + ' ' + v; }).join('   ') + (g.over ? '' : '   |   ' + seats.name(turn) + ', your turn');
+    scores.forEach(function (v, i) {
+      var chip = document.createElement('span'), name = document.createElement('span'), n = document.createElement('b');
+      chip.className = 'gs-chip'; name.textContent = seats.name(i); n.textContent = Play.num(v);
+      if (i === turn && !g.over) chip.setAttribute('aria-current', 'true');
+      chip.appendChild(name); chip.appendChild(n); els.who.appendChild(chip);
+    });
   }
-  function resolveNow() { if (resolve(g) && multi()) turn = (turn + 1) % scores.length; }
+  function resolveNow() { if (resolve(g) && multi()) { turn = (turn + 1) % scores.length; if (!g.over) status.say(T('memory.turn', { name: seats.name(turn) })); } }
   function bestKey() { return settings.set + '.' + settings.size; }
 
   function cols(n) { return n <= 12 ? 3 : 4; }
@@ -120,11 +129,11 @@
     g.cards.forEach(function (c, i) {
       var b = buttons[i];
       b.dataset.up = String(c.up || c.done); b.dataset.done = String(c.done);
-      b.setAttribute('aria-label', c.up || c.done ? pics[c.id][0] + (c.done ? ', matched' : '') : 'Card ' + (i + 1) + ', face down');
+      b.setAttribute('aria-label', c.up || c.done ? T(c.done ? 'memory.matched' : 'memory.faceUp', { pic: picName(c) }) : T('memory.faceDown', { n: i + 1 }));
       b.disabled = c.done;
     });
-    els.moves.textContent = g.moves; els.pairs.textContent = g.found + ' / ' + g.pairs;
-    els.best.textContent = multi() ? '-' : best[bestKey()] || '-';
+    els.moves.textContent = Play.num(g.moves); els.pairs.textContent = T('memory.pairsOf', { found: g.found, pairs: g.pairs });
+    els.best.textContent = multi() || !best[bestKey()] ? '-' : Play.num(best[bestKey()]);
     paintPlayers();
   }
 
@@ -140,63 +149,69 @@
     paint();
     if (r === 'match') {
       if (multi()) scores[turn]++;
-      els.msg.textContent = (multi() ? seats.name(turn) + ': a match, ' : 'A match: ') + pics[g.cards[i].id][0] + '!';
+      status.say(multi() ? T('memory.matchBy', { name: seats.name(turn), pic: picName(g.cards[i]) }) : T('memory.match', { pic: picName(g.cards[i]) }));
       paint();
       if (g.over) finish();
     } else if (r === 'mismatch') {
-      els.msg.textContent = 'Not a match. Try again.';
+      status.say(T('memory.miss'));
       timer = Play.later(function () { timer = null; resolveNow(); paint(); }, MISMATCH_MS);
-    } else els.msg.textContent = '';
+    } else status.say('');
   }
 
   function finish() {
-    var k = bestKey(), text = 'All ' + g.pairs + ' pairs found in ' + g.moves + ' moves.';
+    var k = bestKey();
+    paint();
     if (multi()) {
       var top = Math.max.apply(null, scores), win = seats.people().filter(function (s) { return scores[s] === top; });
-      text = (win.length > 1 ? 'A tie at ' + top + ' pairs: ' + win.map(seats.name).join(' and ') + '.' : seats.name(win[0]) + ' wins with ' + top + ' pairs.');
-      paint(); els.msg.textContent = text;
-      Play.later(function () { showSheet(win.length > 1 ? 'A tie' : seats.name(win[0]) + ' wins', text, 'Play again'); }, 650);
+      status.say(win.length > 1 ? T('memory.tie') : T('memory.wins', { name: seats.name(win[0]) }));
+      ZimiShell.endSheet(win.length > 1 ? { result: 'draw', after: END_AFTER_MS, stats: [[T('memory.pairs'), Play.num(top)]] } : { result: 'win', name: seats.name(win[0]), after: END_AFTER_MS, stats: [[T('memory.pairs'), Play.num(top)]] });
       return;
     }
-    if (!best[k] || g.moves < best[k]) { best[k] = g.moves; Play.save(BEST_KEY, best); text += ' A new best.'; }
+    if (!best[k] || g.moves < best[k]) { best[k] = g.moves; Play.save(BEST_KEY, best); }
     paint();
-    els.msg.textContent = text;
-    Play.later(function () { showSheet('Well done', text, 'Play again'); }, 650);
+    status.say(T('memory.done', { n: g.moves }));
+    ZimiShell.endSheet({ result: 'win', after: END_AFTER_MS, stats: [[T('memory.moves'), Play.num(g.moves)], [T('play.best'), Play.num(best[k])]] });
   }
 
-  function paintSeg(el, items, current, set) {
-    el.textContent = '';
-    items.forEach(function (it) {
-      var b = document.createElement('button'); b.type = 'button'; b.textContent = it[1]; b.setAttribute('aria-pressed', String(current === it[0]));
-      b.addEventListener('click', function () { set(it[0]); });
-      el.appendChild(b);
-    });
-  }
-  function paintSetup() {
-    paintSeg(els.set, Object.keys(SETS).map(function (k) { return [k, SETS[k].label]; }), settings.set, function (v) { settings.set = v; Play.save(SETTINGS_KEY, settings); paintSetup(); });
-    paintSeg(els.size, [['small', '12'], ['medium', '16'], ['large', '20']], settings.size, function (v) { settings.size = v; Play.save(SETTINGS_KEY, settings); paintSetup(); });
-  }
-  function paintWho() {
-    var n = Math.max(1, Math.min(4, settings.people || 1));
-    paintSeg($('mm-who'), [[1, 'Solo'], [2, '2'], [3, '3'], [4, '4']], n, function (v) { settings.people = v; Play.save(SETTINGS_KEY, settings); paintWho(); });
-    var host = $('mm-names'); host.textContent = '';
-    if (n < 2) return;
-    var sx = root.ZimiSeats.create({ id: 'memory', seats: n }), names = root.ZimiSeats.loadNames(n);
+  // What the game asks for is a real choice (pictures, cards, people), so it lives in the New game pane.
+  function save() { Play.save(SETTINGS_KEY, settings); }
+  function names() {
+    var host = document.createElement('div'), n = people();
+    host.className = 'mm-names';
+    if (n < 2) return host;
+    var sx = root.ZimiSeats.create({ id: 'memory', seats: n }), saved = root.ZimiSeats.loadNames(n);
     for (var i = 0; i < n; i++) (function (i) {
-      var inp = document.createElement('input'); inp.type = 'text'; inp.className = 'zs-name'; inp.maxLength = 14; inp.value = names[i]; inp.setAttribute('aria-label', 'Name for player ' + (i + 1));
-      inp.style.cssText = 'width:100%;margin:4px 0;box-sizing:border-box;font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)';
+      var inp = document.createElement('input'); inp.type = 'text'; inp.className = 'mm-name'; inp.maxLength = 14; inp.value = saved[i]; inp.setAttribute('aria-label', T('memory.nameFor', { n: i + 1 }));
       inp.addEventListener('change', function () { sx.setName(i, inp.value); inp.value = root.ZimiSeats.loadNames(n)[i]; });
       host.appendChild(inp);
     })(i);
+    return host;
   }
-  function showSheet(title, text, label) { paintWho(); els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; paintSetup(); Play.openSheet(els.sheet, '#mm-go'); }
+  function menuOptions() {
+    var nameBox = names();
+    function refreshNames() { var fresh = names(); nameBox.replaceWith(fresh); nameBox = fresh; }
+    return [
+      Play.optionRow(T('memory.pictures'), Object.keys(SETS).map(function (k) { return [k, T('memory.set.' + k)]; }), settings.set, function (v) { settings.set = v; save(); }),
+      Play.optionRow(T('memory.cards'), [['small', Play.num(12)], ['medium', Play.num(16)], ['large', Play.num(20)]], settings.size, function (v) { settings.size = v; save(); }),
+      Play.optionRow(T('memory.players'), [[1, T('memory.solo')], [2, Play.num(2)], [3, Play.num(3)], [4, Play.num(4)]], people(), function (v) { settings.people = v; save(); refreshNames(); }),
+      nameBox
+    ];
+  }
   function begin() {
     if (timer) { timer.cancel(); timer = null; }
-    g = createGame(SIZES[settings.size]); els.msg.textContent = ''; newSeats();
-    Play.closeSheet(els.sheet); build();
+    g = createGame(SIZES[settings.size]); newSeats(); build();
+    status.say(multi() ? T('memory.turn', { name: seats.name(turn) }) : T('memory.start'));
   }
-  els.go.addEventListener('click', begin);
-  els.nu.addEventListener('click', function () { settle(); showSheet('New game', 'Choose pictures and how many cards.', 'Start'); });
+  els.nu.addEventListener('click', begin);
+  ZimiShell.game({
+    inProgress: function () { return !!g && !g.over && g.moves > 0; },
+    menu: function () { return { options: menuOptions() }; },
+    stats: function () {
+      var rows = [];
+      Object.keys(SETS).forEach(function (k) { Object.keys(SIZES).forEach(function (z) { var v = best[k + '.' + z]; if (v) rows.push([T('memory.bestRow', { set: T('memory.set.' + k), cards: SIZES[z] * 2 }), T('memory.nMoves', { n: v })]); }); });
+      return rows;
+    }
+  });
 
   // Arrow keys move between cards; the browser's own Tab and Enter work as well.
   els.grid.addEventListener('keydown', function (e) {
@@ -207,7 +222,6 @@
     var k = i + d; if (k >= 0 && k < buttons.length) buttons[k].focus();
   });
 
-  g = createGame(SIZES[settings.size]); newSeats(); build();
-  showSheet('Memory', 'Find the matching pairs. Choose the pictures and how many cards.', 'Start');
+  begin();
   root.__memory = { get g() { return g; } };
 })(this);

@@ -13,32 +13,20 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Memory</h1>
-  <button class="ar-btn" id="mm-new" type="button">New game</button>
+  <button class="ar-btn" id="mm-new" type="button" hidden data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="pl-main">
   <div class="pl-hud">
-    <div class="pl-stat"><small>Moves</small><b id="mm-moves">0</b></div>
-    <div class="pl-stat"><small>Pairs</small><b id="mm-pairs">0</b></div>
-    <div class="pl-stat"><small>Best</small><b id="mm-best">-</b></div>
+    <div class="pl-stat"><small data-t="memory.moves">Moves</small><b id="mm-moves">0</b></div>
+    <div class="pl-stat"><small data-t="memory.pairs">Pairs</small><b id="mm-pairs">0</b></div>
+    <div class="pl-stat"><small data-t="play.best">Best</small><b id="mm-best">-</b></div>
   </div>
-  <p class="pl-msg" id="mm-players" aria-live="polite" hidden></p>
-  <div class="mm-grid" id="mm-grid" role="group" aria-label="The cards"></div>
-  <p class="pl-msg" id="mm-msg" role="status" aria-live="polite"></p>
-  <p class="pl-help">Turn two cards over. If the pictures match, they stay up. Find every pair. Tap a card, or move with the arrow keys and press Enter.</p>
+  <div class="gs-chips mm-players" id="mm-players" hidden></div>
+  <div class="mm-grid" id="mm-grid" role="group" aria-label="The cards" data-t-aria="memory.cards.group"></div>
+  <p class="pl-msg" id="mm-msg"></p>
 </main>
 
-<div class="ar-sheet" id="mm-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="mm-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="mm-sheet-title">Memory</h2>
-    <p id="mm-sheet-text">Find the matching pairs.</p>
-    <p class="pl-row"><span id="mm-set-label">Pictures</span><span class="pl-seg" id="mm-set" role="group" aria-labelledby="mm-set-label"></span></p>
-    <p class="pl-row"><span id="mm-size-label">Cards</span><span class="pl-seg" id="mm-size" role="group" aria-labelledby="mm-size-label"></span></p>
-    <p class="pl-row"><span id="mm-who-label">Players</span><span class="pl-seg" id="mm-who" role="group" aria-labelledby="mm-who-label"></span></p>
-    <div id="mm-names"></div>
-    <div class="ar-sheet-actions"><button class="ar-btn" id="mm-go" type="button" aria-pressed="true">Start</button></div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="handoff.js"></script>
 <script src="memory.js"></script>
