@@ -2039,6 +2039,7 @@
   "tts_slow_use": "Выбрать {fast}",
   "tts_too_slow": "(Слишком медленно)",
   "tts_getting_ahead": "{voice} · {s} с",
+  "tts_ahead_label": "Готовит заранее",
   "tts_unavailable_offline": "Чтение вслух ещё не сохранено. Подключитесь один раз, чтобы пользоваться им офлайн.",
   "uncaptured_back": "Назад",
   "zim_gone_title": "Этого источника нет в библиотеке",

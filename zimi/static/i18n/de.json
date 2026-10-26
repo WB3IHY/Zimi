@@ -2039,6 +2039,7 @@
   "tts_slow_use": "{fast} verwenden",
   "tts_too_slow": "(Zu langsam)",
   "tts_getting_ahead": "{voice} · {s} s",
+  "tts_ahead_label": "Puffer wird aufgebaut",
   "tts_unavailable_offline": "Vorlesen ist noch nicht zwischengespeichert. Einmal verbinden, um es offline zu nutzen.",
   "uncaptured_back": "Zurück",
   "zim_gone_title": "Diese Quelle ist nicht in der Bibliothek",

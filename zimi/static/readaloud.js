@@ -1039,8 +1039,8 @@ function _ttsBarHtml() {
   var btn = function(cls, label, onclick, inner, extra) {
     return '<button type="button" class="' + cls + '" aria-label="' + escAttr(label) + '" title="' + escAttr(label) + '" onclick="' + onclick + '"' + (extra || '') + '>' + inner + '</button>';
   };
-  var ahead = _ttsAheadShown();
-  var h = '<span class="tts-bar-state' + (ahead ? ' ahead' : _ttsPaused ? ' paused' : _ttsNow.playing ? ' playing' : _ttsNow.spin ? '' : ' hold') + '"' +
+  var waiting = _ttsNow.ahead > 0 && !_ttsNow.playing, ahead = waiting && !_ttsPaused, working = waiting && _ttsPaused; // working: paused, and the voice still getting ahead
+  var h = '<span class="tts-bar-state' + (ahead ? ' ahead' : working ? ' ahead working' : _ttsPaused ? ' paused' : _ttsNow.playing ? ' playing' : _ttsNow.spin ? '' : ' hold') + '"' +
     (ahead ? ' style="--p:' + _ttsAheadDone().toFixed(3) + '"' : '') + ' aria-hidden="true"><i></i><i></i><i></i>' + _TTS_LOCATE_ICON + '</span>';
   // A menu opens above the button it belongs to, its choices radio items.
   var menu = function(which, items) {
@@ -1097,6 +1097,7 @@ function _ttsBarSync() {
   if (mark) {
     mark.classList.toggle('tts-lost', lost);
     if (lost) { mark.setAttribute('role', 'button'); mark.setAttribute('title', t('tts_follow')); mark.setAttribute('aria-label', t('tts_follow')); mark.removeAttribute('aria-hidden'); }
+    else if (mark.classList.contains('ahead')) { mark.setAttribute('role', 'img'); mark.setAttribute('title', t('tts_ahead_label')); mark.setAttribute('aria-label', t('tts_ahead_label')); mark.removeAttribute('aria-hidden'); }
     else { ['role', 'title', 'aria-label'].forEach(function(a) { mark.removeAttribute(a); }); mark.setAttribute('aria-hidden', 'true'); }
   }
   bar.hidden = false;

@@ -546,9 +546,11 @@
   .tts-bar-state i:nth-child(3) { animation-delay: -0.6s; }
   .tts-bar-state.playing i, .tts-bar-state.paused i, .tts-bar-state.hold i { display: block; }
   .tts-bar-state.paused i, .tts-bar-state.hold i { animation: none; transform: scaleY(0.35); }
-  /* Paused reads as paused: two still bars, the pause glyph, not three dots. */
-  .tts-bar-state.paused i { transform: none; opacity: 0.55; }
-  .tts-bar-state.paused i:nth-child(3) { display: none; }
+  /* Paused with nothing pending: no mark. Paused while the voice still gets ahead: the same ring, a slow arc turning (a pulse under reduced motion). */
+  .tts-bar-state.paused { visibility: hidden; }
+  .tts-bar-state.paused.tts-lost { visibility: visible; }
+  .tts-bar-state.ahead.working { --p: 0.28; animation: spin 1.8s linear infinite; }
+  @keyframes tts-pulse { 50% { opacity: 0.35; } }
   .tts-bar-state:not(.playing):not(.paused):not(.hold):not(.ahead) { border: 2px solid var(--border); border-top-color: currentColor; border-radius: 50%; width: 14px; height: 14px; animation: spin 0.8s linear infinite; }
   /* Getting ahead: a ring that closes as the wait runs out (--p, 0 to 1). */
   .tts-bar-state.ahead { width: 16px; height: 16px; border-radius: 50%; background: conic-gradient(currentColor calc(var(--p, 0) * 1turn), var(--border) 0);
@@ -598,7 +600,7 @@
   .tts-menu-check::after { content: ''; flex: none; width: 32px; height: 18px; border-radius: 9px; transition: background 0.15s;
                            background: radial-gradient(circle at 9px 50%, var(--surface) 6px, transparent 6.5px) var(--border); }
   .tts-menu-check[aria-checked="true"]::after { background: radial-gradient(circle at 23px 50%, var(--surface) 6px, transparent 6.5px) var(--amber); }
-  @media (prefers-reduced-motion: reduce) { .tts-bar-state i, .tts-bar-state:not(.playing):not(.paused):not(.hold):not(.ahead) { animation: none; } .tts-bar-state.playing i { transform: scaleY(0.7); } }
+  @media (prefers-reduced-motion: reduce) { .tts-bar-state.ahead.working { animation: tts-pulse 1.8s ease-in-out infinite; } .tts-bar-state i, .tts-bar-state:not(.playing):not(.paused):not(.hold):not(.ahead) { animation: none; } .tts-bar-state.playing i { transform: scaleY(0.7); } }
   .manage-btn { position: relative; }
   .random-btn .dice { display: inline-block; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
   .random-btn:hover .dice { transform: rotate(20deg) scale(1.15); }
