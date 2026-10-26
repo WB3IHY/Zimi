@@ -22,11 +22,11 @@
    browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   var SEATS = 4, HAND = 3, START_CHIPS = 1000, BOOT = 10, MAX_STAKE = 160, TARGET = 1500;
-  var NAMES = ['You', 'Asha', 'Dev', 'Rani'], STYLES = [null, 'careful', 'bold', 'bluffer'];
-  var CATEGORIES = ['high card', 'pair', 'colour', 'sequence', 'pure sequence', 'trail'];
+  var NAMES = [TX('cards.you'), 'Asha', 'Dev', 'Rani'], STYLES = [null, 'careful', 'bold', 'bluffer'];
+  var CATEGORIES = ['highCard', 'pair', 'colour', 'sequence', 'pureSequence', 'trail'];
   var rankValue = function (id) { return Z.rank(id) === 1 ? 14 : Z.rank(id); };
   var suitOf = Z.suit;
 
@@ -47,7 +47,7 @@
     for (var i = 0; i < Math.max(a.length, b.length); i++) { var d = (a[i] || 0) - (b[i] || 0); if (d) return d; }
     return 0;
   }
-  var describe = function (cards) { return CATEGORIES[evaluate(cards)[0]]; };
+  var describe = function (cards) { return TX('tp.cat.' + CATEGORIES[evaluate(cards)[0]]); };
 
   // ── Rules ───────────────────────────────────────────────────────────────
   function deal(order, round, chips, dealer) {
@@ -136,12 +136,12 @@
     s.turn = nextSeat(s, s.turn);
     return s;
   }
-  var SAY = { see: 'looks at the cards', blind: 'plays blind', blindRaise: 'raises blind', chaal: 'plays chaal', raise: 'raises', sideshow: 'asks for a side show', show: 'asks for a show', pack: 'packs' };
+  var sayWord = function (type) { return TX('tp.say.' + type); };
   function act(st, seat, type) {
     if (!isLegal(st, seat, type)) return st;
     var s = Z.clone(st), c = cost(s, seat, type);
     s.moves++;
-    s.say = { seat: seat, type: type, text: SAY[type], amount: 0 };
+    s.say = { seat: seat, type: type, text: sayWord(type), amount: 0 };
     if (type === 'see') { s.seen[seat] = true; return s; }
     if (type === 'pack') { s.folded[seat] = true; return settle(s); }
     s.say.amount = pay(s, seat, c);
@@ -159,10 +159,10 @@
     if (st.phase !== 'side' || !st.side || st.side.to !== seat) return st;
     var s = Z.clone(st), from = s.side.from, to = s.side.to;
     s.moves++; s.phase = 'bet'; s.side = null;
-    if (!accept) { s.say = { seat: seat, type: 'refuse', text: 'refuses the side show', amount: 0 }; s.turn = from; return settle(s); }
+    if (!accept) { s.say = { seat: seat, type: 'refuse', text: TX('tp.say.refuse'), amount: 0 }; s.turn = from; return settle(s); }
     var c = compare(evaluate(s.hands[from]), evaluate(s.hands[to])), loser = c > 0 ? to : from;
     s.folded[loser] = true;
-    s.say = { seat: seat, type: 'accept', text: 'accepts: ' + NAMES[loser] + (loser === 0 ? ' pack' : ' packs'), amount: 0, loser: loser };
+    s.say = { seat: seat, type: 'accept', text: TX(loser === 0 ? 'tp.acceptsPack.you' : 'tp.acceptsPack', { name: NAMES[loser] }), amount: 0, loser: loser };
     s.turn = from;
     return settle(s);
   }
@@ -228,9 +228,9 @@
   function place(st, m, view) {
     var g = geo(m), cards = [], slots = [], ended = st.phase === 'handEnd' || st.phase === 'over', shown = ended && st.result && (st.result.kind === 'show' || st.result.kind === 'showdown');
     var V = (view && view.viewer) || 0, hide = !!(view && view.hideHand), look = st.seen[V] && !hide;
-    slots.push({ id: 'pot', x: g.cx - g.cw, y: g.cy - g.ch / 2, w: 2 * g.cw, h: g.ch, quiet: true, label: 'Pot ' + st.pot });
+    slots.push({ id: 'pot', x: g.cx - g.cw, y: g.cy - g.ch / 2, w: 2 * g.cw, h: g.ch, quiet: true, label: TX('holdem.pot0', { n: st.pot }) });
     if (!st.out[V]) {
-      var hand = T.handCards(g, st.hands[V], function (id) { return { up: look || shown, label: look || shown ? Z.cardName(id) : 'Hidden card' }; }, null);
+      var hand = T.handCards(g, st.hands[V], function (id) { return { up: look || shown, label: look || shown ? Z.cardName(id) : TX('cards.hidden') }; }, null);
       var step = Math.min(g.cw * HAND_STEP, (g.W - 2 * g.pad - g.cw) / Math.max(1, HAND - 1)), x0 = (g.W - (g.cw + (HAND - 1) * step)) / 2;
       hand.cards.forEach(function (c, k) { c.x = Math.round(x0 + k * step); hand.slots[k].x = c.x; if (st.folded[V]) c.dim = true; });
       slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
@@ -263,7 +263,8 @@
     var mine = function (seat) { return seats.person(seat) && seat === seats.view(); };
     function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && actor(st) !== view.viewer; }
     function repaint() { board.refresh(); t.paint(); }
-    var verb = function (seat, you, other) { return seats.isYou(seat) ? you : other; };
+    // A line about a seat: the key's .you form is for "You".
+    var said = function (seat, key, vars) { var v = vars || {}; v.name = who(seat); return TX(seats.isYou(seat) ? key + '.you' : key, v); };
     // What each computer player is doing (blind, seen, packed), under its cards.
     var tags = [null, Z.h('div', { class: 'tp-tag' }), Z.h('div', { class: 'tp-tag' }), Z.h('div', { class: 'tp-tag' })];
     [1, 2, 3].forEach(function (seat) { Z.pageEls().table.appendChild(tags[seat]); });
@@ -271,28 +272,27 @@
       var sideH = g.ch + (HAND - 1) * T.sideStep(g, HAND);
       [1, 2, 3].forEach(function (pos) {
         var seat = (seats.view() + pos) % SEATS, p = T.posOf(pos, SEATS), el = tags[pos];
-        el.textContent = who(seat) + '\n' + (st.out[seat] ? 'out' : st.folded[seat] && !over ? 'packed' : st.seen[seat] ? 'seen' : 'blind');
+        el.textContent = who(seat) + '\n' + TX(st.out[seat] ? 'holdem.out' : st.folded[seat] && !over ? 'tp.tag.packed' : st.seen[seat] ? 'tp.tag.seen' : 'tp.tag.blind');
         el.style.left = Math.round(p === 2 ? g.cx : (p === 1 ? g.westX : g.eastX) + g.cw / 2) + 'px';
         el.style.top = Math.round(p === 2 ? g.northY + g.ch + 4 : g.yTop + sideH + 4) + 'px';
       });
     }
-    var LABEL = { see: 'See cards', blind: 'Blind', blindRaise: 'Raise blind', chaal: 'Chaal', raise: 'Raise', sideshow: 'Side show', show: 'Show', pack: 'Pack' };
+    var labelOf = function (type) { return TX('tp.label.' + type); };
     function sayLine(st) {
       var y = st.say;
       if (!y) return '';
-      if (y.type === 'accept') return who(y.seat) + ' ' + verb(y.seat, 'accept', 'accepts') + ': ' + who(y.loser) + verb(y.loser, ' pack', ' packs') + '.';
-      return who(y.seat) + ' ' + (seats.isYou(y.seat) ? youForm(y) : y.text) + (y.amount ? ' (' + y.amount + ')' : '') + '.';
+      if (y.type === 'accept') return said(y.seat, 'tp.accepts', { loser: who(y.loser), pack: TX(seats.isYou(y.loser) ? 'tp.pack.you' : 'tp.pack') });
+      return said(y.seat, 'tp.line.' + y.type, { amount: y.amount ? ' (' + y.amount + ')' : '' });
     }
-    function youForm(y) { return { see: 'look', blind: 'play blind', blindRaise: 'raise blind', chaal: 'play chaal', raise: 'raise', sideshow: 'ask for a side show', show: 'ask for a show', pack: 'pack', refuse: 'refuse', accept: y.text.replace(/^accepts/, 'accept') }[y.type] || y.text; }
     function resultLines(st) {
       var r = st.result, lines = [];
-      if (r.kind === 'fold') lines.push(who(r.winner) + verb(r.winner, ' take', ' takes') + ' the pot of ' + r.pot + ': everyone else packed.');
+      if (r.kind === 'fold') lines.push(said(r.winner, 'tp.takesPot', { pot: r.pot }));
       else {
-        var list = (r.seats || []).map(function (i) { return who(i) + ': ' + describe(st.hands[i]); });
+        var list = (r.seats || []).map(function (i) { return TX('holdem.loser', { name: who(i), hand: describe(st.hands[i]) }); });
         lines.push(list.join(', ') + '.');
-        lines.push(who(r.winner) + verb(r.winner, ' win', ' wins') + ' the pot of ' + r.pot + '.');
+        lines.push(said(r.winner, 'tp.winsPot', { pot: r.pot }));
       }
-      lines.push('Chips: ' + [0, 1, 2, 3].map(function (i) { return who(i) + ' ' + st.chips[i]; }).join(', ') + '.');
+      lines.push(TX('tp.chipsLine', { list: [0, 1, 2, 3].map(function (i) { return who(i) + ' ' + st.chips[i]; }).join(', ') }));
       return lines;
     }
     function hud(st) {
@@ -301,24 +301,24 @@
       var chips = [0, 1, 2, 3].map(function (i) { return (seats.view() + i) % SEATS; }).map(function (seat) {
         return { name: who(seat), text: String(st.chips[seat]), turn: !over && st.phase === 'bet' && st.turn === seat || (st.phase === 'side' && st.side.to === seat) };
       });
-      var out = { chips: chips, sub: 'Pot ' + st.pot + ' · stake ' + st.stake, text: '' };
-      var said = sayLine(st);
-      if (st.phase === 'handEnd') { out.text = resultLines(st)[st.result.kind === 'fold' ? 0 : 1]; out.label = 'Next hand'; out.action = startNextHand; return out; }
-      if (st.phase === 'over') { out.text = 'Game over'; return out; }
+      var out = { chips: chips, fact: TX('tp.fact', { chips: st.chips[seats.view()], pot: st.pot, stake: st.stake }), text: '' };
+      var say = sayLine(st);
+      if (st.phase === 'handEnd') { out.text = resultLines(st)[st.result.kind === 'fold' ? 0 : 1]; out.label = TX('cards.nextHand'); out.action = startNextHand; return out; }
+      if (st.phase === 'over') { out.text = TX('shell.end.over'); return out; }
       if (st.phase === 'side') {
         if (mine(st.side.to)) {
-          out.text = who(st.side.from) + ' asks ' + (seats.isYou(st.side.to) ? 'you' : who(st.side.to)) + ' for a side show. The weaker hand packs';
-          out.choices = [{ label: 'Accept', onclick: function () { respond(true); } }, { label: 'Refuse', onclick: function () { respond(false); } }];
-        } else out.text = (said ? said + ' ' : '') + who(st.side.to) + ' is deciding';
+          out.text = TX(seats.isYou(st.side.to) ? 'tp.asksYou' : 'tp.asks', { from: who(st.side.from), to: who(st.side.to) });
+          out.choices = [{ label: TX('tp.accept'), onclick: function () { respond(true); } }, { label: TX('tp.refuse'), onclick: function () { respond(false); } }];
+        } else out.text = (say ? say + ' ' : '') + TX('euchre.deciding', { name: who(st.side.to) });
         return out;
       }
       if (mine(st.turn)) {
-        var acts = actions(st, st.turn), pre = seats.hotseat() ? who(st.turn) + ': ' : '';
-        out.text = (said ? said + ' ' : '') + pre + (st.seen[st.turn] ? (pre ? 'your bet' : 'Your bet') : (pre ? 'play blind, or look at your cards' : 'Play blind, or look at your cards'));
+        var acts = actions(st, st.turn), hot = seats.hotseat();
+        out.text = (say ? say + ' ' : '') + (hot ? TX('holdem.nameColon', { name: who(st.turn) }) + ' ' : '') + TX(st.seen[st.turn] ? (hot ? 'tp.yourBet.hot' : 'tp.yourBet') : (hot ? 'tp.blindOrLook.hot' : 'tp.blindOrLook'));
         out.choices = acts.map(function (a) {
-          return { label: LABEL[a.type] + (a.cost ? ' ' + a.cost : ''), aria: LABEL[a.type] + (a.cost ? ', ' + a.cost + ' chips' : ''), onclick: function () { go(a.type); }, disabled: false };
+          return { label: labelOf(a.type) + (a.cost ? ' ' + a.cost : ''), aria: a.cost ? TX('tp.costAria', { label: labelOf(a.type), n: a.cost }) : labelOf(a.type), onclick: function () { go(a.type); }, disabled: false };
         });
-      } else out.text = (said ? said + ' ' : '') + who(st.turn) + (seats.person(st.turn) ? ' is next' : ' is thinking');
+      } else out.text = (say ? say + ' ' : '') + TX(seats.person(st.turn) ? 'ce.next' : 'cards.thinking', { name: who(st.turn) });
       return out;
     }
 
@@ -360,14 +360,14 @@
     function handOver() {
       var st = session.state;
       if (st.phase !== 'handEnd') return;
-      T.lineSheet('Hand ' + (st.round + 1), resultLines(st), [{ label: 'Next hand', primary: true, onclick: startNextHand }]);
+      T.lineSheet(TX('cards.fact.hand', { n: st.round + 1 }), resultLines(st), [{ label: TX('cards.nextHand'), primary: true, onclick: startNextHand }]);
     }
     function gameOver() {
       var st = session.state, me = seats.view(), hot = seats.hotseat(), w = gameWinner(st), won = w === me && !hot;
-      var lines = (st.result ? resultLines(st) : []).concat([hot ? who(w) + ' has the table: ' + st.chips[w] + ' chips.' : won ? 'The table is yours: ' + st.chips[me] + ' chips.' : 'You are out of chips.']);
-      if (hot) { session.lose(who(w) + ' wins', lines); return; }
+      var lines = (st.result ? resultLines(st) : []).concat([hot ? TX('tp.hasTable', { name: who(w), n: st.chips[w] }) : won ? TX('tp.tableYours', { n: st.chips[me] }) : TX('holdem.youOut') + '.']);
+      if (hot) { session.lose(TX('shell.end.wins', { name: who(w) }), lines); return; }
       session.stats.scored(st.chips[me]);
-      if (won) session.win(st.chips[me]); else session.lose('Out of chips', lines, st.chips[me]);
+      if (won) session.win(st.chips[me]); else session.lose(TX('holdem.outOfChips'), lines, st.chips[me]);
     }
     var order = function () { return Z.shuffled(Math.random); };
     function startNextHand() {
@@ -392,8 +392,8 @@
       canPick: function () { return false; },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.chips[seats.view()]; },
       cascadeOrder: function (st) { return st.hands[seats.view()].map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return ['You have all the chips: ' + st.chips[seats.view()] + '.']; },
-      rules: 'Everyone puts in a boot of 10 and gets three cards face down. Play blind (without looking) or look and play seen. The stake starts at 10: a blind player pays the stake (or double to raise it); a seen player pays double (or four times to raise, which doubles the stake). Pack folds. A seen player may ask the seen player before him for a side show: the weaker hand packs (a tie packs the asker). With two players left, Show turns the hands over: the higher wins (a tie goes to the one who did not ask). Hands, best first: trail (three of a kind), pure sequence (straight flush), sequence (straight), colour (flush), pair, high card. A-2-3 is the highest sequence, then A-K-Q down to 4-3-2. Asha plays carefully, Dev boldly and Rani bluffs. If you run short you go all in and the hands are shown. Reach 1500 chips to win, or outlast the others; you lose when you cannot pay the boot.'
+      winLines: function (sec, st) { return [TX('tp.allChips', { n: st.chips[seats.view()] })]; },
+      rules: TX('tp.rules')
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;

@@ -16,11 +16,11 @@
    Pure functions; the page wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   var START_CHIPS = 1000, MIN_BET = 10, MAX_BET = 500, BET_STEPS = [10, 50, 100, 500], MAX_HANDS = 4;
   var TARGET = 21, DEALER_STANDS = 17, CUT_SHARE = 0.75, BLACKJACK_PAYS = 1.5, INSURANCE_PAYS = 2, DECK_CHOICES = [1, 2, 6];
-  var HINT_NAME = { hit: 'hit', stand: 'stand', double: 'double', split: 'split' };
+  var hintName = function (a) { return TX('bj.hint.' + a); };
 
   // ── Rules ───────────────────────────────────────────────────────────────
   var cardValue = function (id) { var r = Z.rank(id); return r === 1 ? 11 : Math.min(r, 10); };
@@ -154,19 +154,19 @@
     if (live) while (total(s.dealer) < DEALER_STANDS) s.dealer.push(draw(s));
     return settle(s);
   }
-  function resultWord(h, n) { return busted(h.cards) ? 'bust' : isBlackjack(h) && n > 0 ? 'blackjack' : n > 0 ? 'win' : n < 0 ? 'lose' : 'push'; }
+  function resultWord(h, n) { return TX('bj.result.' + (busted(h.cards) ? 'bust' : isBlackjack(h) && n > 0 ? 'blackjack' : n > 0 ? 'win' : n < 0 ? 'lose' : 'push')); }
   function settle(s) {
     s.hole = true; s.active = -1; s.phase = 'bet';
     var lines = [], dv = total(s.dealer), dealerBJ = dealerBlackjack(s.dealer);
     s.hands.forEach(function (h, i) {
       var n = net(h, s.dealer), word = resultWord(h, n);
       s.chips += h.bet + n;
-      lines.push((s.hands.length > 1 ? 'Hand ' + (i + 1) + ': ' : 'You: ') + total(h.cards) + ' ' + word + (n === 0 ? '' : ', ' + (n > 0 ? '+' : '-') + Math.abs(n)));
+      lines.push(TX(s.hands.length > 1 ? 'bj.line.hand' : 'bj.line.you', { n: i + 1, total: total(h.cards), word: word }) + (n === 0 ? '' : ', ' + (n > 0 ? '+' : '-') + Math.abs(n)));
     });
     if (s.insurance) {
-      if (dealerBJ) { s.chips += s.insurance * (1 + INSURANCE_PAYS); lines.push('Insurance pays +' + s.insurance * INSURANCE_PAYS); } else lines.push('Insurance lost, -' + s.insurance);
+      if (dealerBJ) { s.chips += s.insurance * (1 + INSURANCE_PAYS); lines.push(TX('bj.insPays', { n: s.insurance * INSURANCE_PAYS })); } else lines.push(TX('bj.insLost', { n: s.insurance }));
     }
-    lines.unshift('Dealer: ' + (dealerBJ ? 'blackjack' : dv > TARGET ? dv + ' bust' : dv));
+    lines.unshift(TX('bj.line.dealer', { what: dealerBJ ? TX('bj.result.blackjack') : dv > TARGET ? TX('bj.dealerBust', { n: dv }) : dv }));
     s.last = lines; s.insurance = 0;
     s.bet = Math.max(0, Math.min(s.bet, s.chips));
     return s;
@@ -234,7 +234,7 @@
   function place(st, m) {
     var g = T.geometry(m, 1), slots = [], cards = [], n = Math.max(1, st.hands.length), spots = handSpots(g, n);
     if (n > 2) { g.southY += 0; }
-    slots.push({ id: 'table', x: g.pad, y: g.northY, w: g.W - 2 * g.pad, h: g.southY - g.northY + g.ch, quiet: true, label: 'Table' });
+    slots.push({ id: 'table', x: g.pad, y: g.northY, w: g.W - 2 * g.pad, h: g.southY - g.northY + g.ch, quiet: true, label: TX('cards.slot.table') });
     function row(ids, x0, w, y, pile, upFn, glow) {
       var step = ids.length > 1 ? Math.min(g.cw * STEP_SHARE, (w - g.cw) / (ids.length - 1)) : 0, span = g.cw + (ids.length - 1) * step;
       ids.forEach(function (id, k) { cards.push({ id: id, pile: pile, idx: k, x: Math.round(x0 + (w - span) / 2 + k * step), y: Math.round(y), up: upFn(k), glow: glow }); });
@@ -253,15 +253,15 @@
   root.ZimiBlackjack = api;
 
   // ── The page ────────────────────────────────────────────────────────────
-  var SEAT_COUNT = 3, DEFAULT_BET = 20;
+  var SEAT_COUNT = 3, DEFAULT_BET = MIN_BET;
   function boot() {
     var t, session, view = { flash: '' }, DECK_KEY = 'blackjack.decks', INS_KEY = 'blackjack.insurance', HINT_KEY = 'blackjack.hint', CHIPS_KEY = 'blackjack.chips', BET_KEY = 'blackjack.bet';
     var showHint = Z.store.get(HINT_KEY, false) === true;
     var rng = Math.random;
     // Seats are a Person or empty (the dealer is always the computer); people take a round each behind a handoff.
     var seats = Seats.create({ id: 'blackjack', seats: SEAT_COUNT, onChange: function () { if (t) t.paint(); } }), bank = {};
-    var nm = function () { return seats.isYou(seats.view()) ? 'You' : seats.name(seats.view()); };
-    var byName = function (text) { return seats.hotseat() ? text.replace(/^You: /, nm() + ': ') : text; };
+    var nm = function () { return seats.isYou(seats.view()) ? TX('cards.you') : seats.name(seats.view()); };
+    var byName = function (text) { var you = TX('bj.line.you', { total: '' }).split(' ')[0]; return seats.hotseat() && text.indexOf(you) === 0 ? nm() + text.slice(you.length) : text; };
     function opts() {
       var decks = Z.store.get(DECK_KEY, 6);
       return { decks: DECK_CHOICES.indexOf(decks) >= 0 ? decks : 6, insurance: Z.store.get(INS_KEY, false) === true };
@@ -269,45 +269,45 @@
     function save(st) { if (seats.hotseat()) return; Z.store.set(CHIPS_KEY, st.chips); Z.store.set(BET_KEY, st.bet); }
     function show(st) { save(st); session.follow(st); if (broke(st) && !seats.hotseat()) outOfChips(st); }
     function outOfChips(st) {
-      session.lose('Out of chips', ['You are out of chips after ' + Z.plural(st.round, 'round') + '. A new game starts you again with ' + START_CHIPS + '.'], 0);
+      session.lose(TX('holdem.outOfChips'), [TX('bj.outYou', { rounds: Z.plural(st.round, 'round'), n: START_CHIPS })], 0);
     }
     function handChip(st, h, i) {
-      var v = handValue(h.cards), label = (st.hands.length > 1 ? 'Hand ' + (i + 1) : nm());
-      return { name: label, text: (v.soft && v.total < 21 ? 'soft ' : '') + v.total + ' (' + h.bet + ')', turn: st.phase === 'play' && st.active === i };
+      var v = handValue(h.cards), label = (st.hands.length > 1 ? TX('bj.handN', { n: i + 1 }) : nm());
+      return { name: label, text: TX(v.soft && v.total < 21 ? 'bj.soft' : 'bj.hard', { total: v.total, bet: h.bet }), turn: st.phase === 'play' && st.active === i };
     }
     function hud(st) {
-      var chips = [], hot = seats.hotseat(), out = { sub: (hot ? nm() + ' ' : '') + st.chips + ' chips', text: '' };
-      if (st.dealer.length) chips.push({ name: 'Dealer', text: st.hole ? String(handValue(st.dealer).total) : String(cardValue(st.dealer[0]) === 11 ? 'A' : cardValue(st.dealer[0])) });
+      var chips = [], hot = seats.hotseat(), out = { fact: TX(hot ? 'bj.fact.name' : 'bj.fact', { name: nm(), n: st.chips }), text: '' };
+      if (st.dealer.length) chips.push({ name: TX('bj.dealer'), text: st.hole ? String(handValue(st.dealer).total) : String(cardValue(st.dealer[0]) === 11 ? 'A' : cardValue(st.dealer[0])) });
       st.hands.forEach(function (h, i) { chips.push(handChip(st, h, i)); });
-      if (hot) seats.people().forEach(function (p) { if (p !== seats.view() && bank[p]) chips.push({ name: seats.name(p), text: bank[p].chips + ' chips' }); });
+      if (hot) seats.people().forEach(function (p) { if (p !== seats.view() && bank[p]) chips.push({ name: seats.name(p), text: TX('bj.chips', { n: bank[p].chips }) }); });
       out.chips = chips;
       if (st.phase === 'bet' && hot && st.hands.length) {
         // The round is over: each person's result stays on screen until the device is passed on.
         var next = nextPlayer(seats.people(), chipsBySeat(st), seats.view());
         out.text = '';
         out.lines = st.last.map(function (x) { return { text: byName(x) }; });
-        out.choices = [{ label: next < 0 ? 'Finish' : next === seats.view() ? 'Next round' : 'Pass to ' + seats.name(next), primary: true, onclick: passOn }];
+        out.choices = [{ label: next < 0 ? TX('bj.finish') : next === seats.view() ? TX('bj.nextRound') : TX('bj.passTo', { name: seats.name(next) }), primary: true, onclick: passOn }];
       } else if (st.phase === 'bet') {
-        out.text = st.last.length ? '' : (hot ? nm() + ', place your bet, then deal' : 'Place your bet, then deal');
+        out.text = st.last.length ? '' : TX(hot ? 'bj.placeBet.name' : 'bj.placeBet', { name: nm() });
         out.lines = st.last.map(function (x) { return { text: x }; });
-        if (st.shuffled) out.lines.push({ text: 'The shoe was shuffled.' });
+        if (st.shuffled) out.lines.push({ text: TX('bj.shuffled') });
         out.choices = BET_STEPS.map(function (v) { return { label: '+' + v, disabled: st.bet + v > Math.min(MAX_BET, st.chips), onclick: function () { show(setBet(session.state, session.state.bet + v)); } }; });
-        out.choices.push({ label: 'Clear', disabled: st.bet === 0, onclick: function () { show(setBet(session.state, 0)); } });
-        out.choices.push({ label: 'Deal ' + st.bet, primary: true, disabled: !canDeal(st), onclick: dealIt });
+        out.choices.push({ label: TX('canasta.clear'), disabled: st.bet === 0, onclick: function () { show(setBet(session.state, 0)); } });
+        out.choices.push({ label: TX('bj.dealBet', { n: st.bet }), primary: true, disabled: !canDeal(st), onclick: dealIt });
       } else if (st.phase === 'insurance') {
-        out.text = 'Dealer shows an ace. Insurance costs ' + Math.floor(st.hands[0].bet / 2) + ' and pays 2 to 1';
-        out.choices = [{ label: 'Insure', onclick: function () { move(takeInsurance(session.state, true)); } }, { label: 'No thanks', onclick: function () { move(takeInsurance(session.state, false)); } }];
+        out.text = TX('bj.insurance', { n: Math.floor(st.hands[0].bet / 2) });
+        out.choices = [{ label: TX('bj.insure'), onclick: function () { move(takeInsurance(session.state, true)); } }, { label: TX('bj.noThanks'), onclick: function () { move(takeInsurance(session.state, false)); } }];
       } else {
-        out.text = st.hands.length > 1 ? 'Playing hand ' + (st.active + 1) : hot ? nm() + ', your turn' : 'Your turn';
+        out.text = st.hands.length > 1 ? TX('bj.playingHand', { n: st.active + 1 }) : hot ? TX('cards.turn.name', { name: nm() }) : TX('cards.turn.you');
         out.choices = [
-          { label: 'Hit', onclick: function () { move(hit(session.state, rng)); } },
-          { label: 'Stand', onclick: function () { move(stand(session.state)); } },
-          { label: 'Double', disabled: !canDouble(st), onclick: function () { move(double(session.state)); } },
-          { label: 'Split', disabled: !canSplit(st), onclick: function () { move(split(session.state)); } },
-          { label: 'Hint', pressed: showHint, onclick: toggleHint }
+          { label: TX('cards.hint'), pressed: showHint, onclick: toggleHint },
+          { label: TX('bj.hit'), onclick: function () { move(hit(session.state, rng)); } },
+          { label: TX('bj.stand'), onclick: function () { move(stand(session.state)); } },
+          { label: TX('bj.double'), disabled: !canDouble(st), onclick: function () { move(double(session.state)); } },
+          { label: TX('bj.split'), disabled: !canSplit(st), onclick: function () { move(split(session.state)); } }
         ];
         var hn = hint(st);
-        out.lines = showHint && hn ? [{ text: 'Basic strategy: ' + HINT_NAME[hn] + '.' }] : [];
+        out.lines = showHint && hn ? [{ text: TX('bj.basic', { action: hintName(hn) }) }] : [];
       }
       return out;
     }
@@ -316,7 +316,7 @@
     function passOn() {
       var st = session.state, cur = seats.view(), chips = chipsBySeat(st), next = nextPlayer(seats.people(), chips, cur);
       bank[cur] = { chips: st.chips, bet: st.bet };
-      if (next < 0) { session.lose('Out of chips', ['Nobody has chips left after ' + Z.plural(st.round, 'round') + '. A new game starts everyone again with ' + START_CHIPS + '.'], undefined); return; }
+      if (next < 0) { session.lose(TX('holdem.outOfChips'), [TX('bj.outAll', { rounds: Z.plural(st.round, 'round'), n: START_CHIPS })], undefined); return; }
       session.follow(carry(st, bank[next] || { chips: START_CHIPS, bet: DEFAULT_BET }));
       seats.ensure(next, function () { t.paint(); });
       if (next === cur) t.paint();
@@ -343,17 +343,17 @@
       seats.begin(function () { t.paint(); });
     }
     t = T.create({
-      id: 'blackjack', name: 'Blackjack', seats: seats, seatsBlock: { cpuLabel: 'Empty', note: 'Each person plays a round in turn against the dealer, from the same shoe.' }, view: view, geo: geo, place: function (st, m) { return place(st, m); }, hud: hud, newGame: newGame, cols: 5, heightShare: 0.15,
-      stat: function (sec, st) { return st.chips + ' chips'; },
+      id: 'blackjack', name: 'Blackjack', seats: seats, seatsBlock: { cpuLabel: TX('bj.empty'), note: TX('bj.seatsNote') }, view: view, geo: geo, place: function (st, m) { return place(st, m); }, hud: hud, newGame: newGame, cols: 5, heightShare: 0.15,
+      stat: function (sec, st) { return TX('bj.chips', { n: st.chips }); },
       cascadeOrder: function () { return []; }, winLines: function () { return []; },
       menuExtra: function () {
         return [
-          T.choiceRow('Decks', DECK_KEY, DECK_CHOICES.map(function (n) { return { label: String(n), value: n }; }), 6, function () { /* next shuffle */ }),
-          T.choiceRow('Insurance', INS_KEY, [{ label: 'Off', value: false }, { label: 'On', value: true }], false, function (v) { var st = session.state; if (st) { var s = Z.clone(st); s.opts.insurance = v; session.follow(s); } }),
-          Z.h('p', { class: 'zc-note', text: 'A new shoe uses the number of decks chosen here.' })
+          T.choiceRow(TX('bj.decks'), DECK_KEY, DECK_CHOICES.map(function (n) { return { label: String(n), value: n }; }), 6, function () { /* next shuffle */ }),
+          T.choiceRow(TX('bj.insuranceRow'), INS_KEY, [{ label: TX('shell.off'), value: false }, { label: TX('shell.on'), value: true }], false, function (v) { var st = session.state; if (st) { var s = Z.clone(st); s.opts.insurance = v; session.follow(s); } }),
+          Z.h('p', { class: 'zc-note', text: TX('bj.decksNote') })
         ];
       },
-      rules: 'Beat the dealer to 21 without going over. Blackjack pays 3 to 2; the dealer stands on every 17. Double on any two cards, split pairs up to four hands (split aces take one card each). Insurance is off unless you turn it on. With two or more people in the Players rows, each takes a round in turn behind a handoff, from the same shoe. Hint shows what basic strategy would do. Keys: H hit, S stand, D double, P split. Chips only: you start with ' + START_CHIPS + '.'
+      rules: TX('bj.rules') + START_CHIPS + '.'
     });
     session = t.session; api.session = session; api.board = t.board;
     if (root.ResizeObserver) new root.ResizeObserver(function () { t.paint(); }).observe(root.document.getElementById('zc-table'));
