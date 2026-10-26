@@ -8,11 +8,13 @@
   var WIND = ['East', 'South', 'West', 'North'], DRAGON = ['Red dragon', 'Green dragon', 'White dragon'];
   var FLOWER = ['Plum', 'Orchid', 'Chrysanthemum', 'Bamboo flower'], SEASON = ['Spring', 'Summer', 'Autumn', 'Winter'];
 
+  // A tile's name: from the string table when the page has one (mahjong.face.*), in English otherwise (node tests).
+  function tr(id, vars, english) { return root.ZimiText && root.ZimiText.has(id) ? root.ZimiText.T(id, vars) : english; }
   function faceName(f) {
-    if (f < 27) return (f % 9 + 1) + ' of ' + NAMES[(f / 9) | 0];
-    if (f < 31) return WIND[f - 27] + ' wind';
-    if (f < 34) return DRAGON[f - 31];
-    return f < FIRST_SEASON ? FLOWER[f - FIRST_FLOWER] : SEASON[f - FIRST_SEASON];
+    if (f < 27) { var i = (f / 9) | 0; return tr('mahjong.face.number', { n: f % 9 + 1, suit: tr('mahjong.suit.' + i, null, NAMES[i]) }, (f % 9 + 1) + ' of ' + NAMES[i]); }
+    if (f < 31) return tr('mahjong.face.wind', { wind: tr('mahjong.wind.' + (f - 27), null, WIND[f - 27]) }, WIND[f - 27] + ' wind');
+    if (f < 34) return tr('mahjong.dragon.' + (f - 31), null, DRAGON[f - 31]);
+    return f < FIRST_SEASON ? tr('mahjong.flower.' + (f - FIRST_FLOWER), null, FLOWER[f - FIRST_FLOWER]) : tr('mahjong.season.' + (f - FIRST_SEASON), null, SEASON[f - FIRST_SEASON]);
   }
 
   // ── tile faces, drawn here (no fonts beyond the system's Latin) ──

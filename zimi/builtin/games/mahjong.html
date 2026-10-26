@@ -5,59 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mahjong - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="boardui.css">
 <link rel="stylesheet" href="board.css">
 <link rel="stylesheet" href="mahjong.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body class="mj-body">
 <header class="ar-bar">
-  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <a class="ar-back" href="index.html" data-t-aria="shell.back" aria-label="Back">&lsaquo;</a>
   <h1>Mahjong</h1>
-  <span class="ar-stat" id="mj-time" aria-label="Time">0:00</span>
-  <button class="ar-btn" id="mj-new" type="button" aria-haspopup="dialog">New game</button>
+  <span class="ar-stat" id="mj-time" data-t-aria="mahjong.timeLabel" aria-label="Time">0:00</span>
+  <button class="ar-btn" id="mj-undo" type="button" disabled data-t="board.undo">Undo</button>
+  <button class="ar-btn" id="mj-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="mj-main">
-  <p class="bg-status" id="mj-status" role="status" aria-live="polite"></p>
-  <div class="mj-table" id="mj-scroll"><div class="mj-stage" id="mj-stage" role="group" aria-label="Tiles"></div></div>
+  <p class="bg-status" id="mj-status"></p>
+  <div class="mj-table" id="mj-scroll"><div class="mj-stage" id="mj-stage" role="group" data-t-aria="mahjong.tiles" aria-label="Tiles"></div></div>
   <div class="bg-controls">
-    <button class="ar-btn" id="mj-undo" type="button" disabled>Undo</button>
-    <button class="ar-btn" id="mj-hint" type="button">Hint</button>
-    <button class="ar-btn" id="mj-shuffle" type="button">Shuffle</button>
-    <button class="ar-btn" id="mj-zoom" type="button" aria-pressed="false">Zoom</button>
+    <button class="ar-btn" id="mj-hint" type="button" data-t="board.hint">Hint</button>
+    <button class="ar-btn" id="mj-shuffle" type="button" data-t="mahjong.shuffle">Shuffle</button>
+    <button class="ar-btn" id="mj-zoom" type="button" aria-pressed="false" data-t="mahjong.zoom">Zoom</button>
   </div>
-  <p class="bg-score"><span>Tiles left <b id="mj-left">144</b></span></p>
+  <p class="bg-score"><span><span data-t="mahjong.left">Tiles left</span> <b id="mj-left">144</b></span></p>
   <p class="bg-stats" id="mj-stats"></p>
-  <p class="bg-help">Match two free tiles. A free tile has nothing on top and an open left or right side. Any flower matches any flower, and any season matches any season. Arrow keys move, Enter picks, H hint, S shuffle, U undo.</p>
 </main>
 
-<div class="ar-sheet" id="mj-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="mj-menu-title">
-  <div class="ar-sheet-card">
-    <h2 id="mj-menu-title">New game</h2>
-    <fieldset class="bg-field"><legend>Layout</legend><div class="bg-chips" id="mj-f-layout">
-      <label class="bg-chip"><input type="radio" name="mj-layout" value="turtle"><span>Turtle</span></label>
-      <label class="bg-chip"><input type="radio" name="mj-layout" value="pyramid"><span>Pyramid</span></label>
-      <label class="bg-chip"><input type="radio" name="mj-layout" value="towers"><span>Twin towers</span></label>
-    </div></fieldset>
-    <p class="bg-note">Every deal can be cleared.</p>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="mj-cancel" type="button">Cancel</button>
-      <button class="ar-btn" id="mj-start" type="button" aria-pressed="true">Deal</button>
-    </div>
-  </div>
-</div>
-
-<div class="ar-sheet" id="mj-result" hidden role="dialog" aria-modal="true" aria-labelledby="mj-result-title">
-  <div class="ar-sheet-card">
-    <h2 id="mj-result-title">Cleared</h2>
-    <p id="mj-result-text"></p>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="mj-close" type="button">Close</button>
-      <button class="ar-btn" id="mj-again" type="button" aria-pressed="true">Play again</button>
-    </div>
-  </div>
-</div>
 <script src="boardkit.js"></script>
+<script src="boardui.js"></script>
 <script src="mahjong-tiles.js"></script>
 <script src="mahjong.js"></script>
 <!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->

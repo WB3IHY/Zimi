@@ -147,8 +147,8 @@
   root.MahjongEngine = Engine;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  if (typeof document === 'undefined') return;
-  var BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  if (typeof document === 'undefined' || !root.BoardUI) return;
+  var BK = root.BoardKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var SETTINGS_KEY = 'mahjong.settings', STATS_KEY = 'mahjong.stats';
   var settings = BK.load(SETTINGS_KEY, {});
   if (!LAYOUTS.some(function (l) { return l.id === settings.layout; })) settings.layout = 'turtle';
@@ -156,7 +156,7 @@
   var MIN_UNIT = 8, MAX_UNIT = 28, ZOOM_UNIT = 16, ROW_RATIO = 1.34, LAYER_SHIFT = 0.3, MIN_SHIFT_PX = 3, SIDE_PAD_PX = 6, REMOVE_MS = 260;
   var faceName = root.MahjongTiles.faceName, faceMarkup = root.MahjongTiles.faceMarkup;   // the tile art lives in mahjong-tiles.js
 
-  var els = { stage: $('mj-stage'), scroll: $('mj-scroll'), status: $('mj-status'), time: $('mj-time'), undo: $('mj-undo'), hint: $('mj-hint'), shuffle: $('mj-shuffle'), zoom: $('mj-zoom'), left: $('mj-left'), stats: $('mj-stats') };
+  var els = { stage: $('mj-stage'), scroll: $('mj-scroll'), status: $('mj-status'), nu: $('mj-new'), time: $('mj-time'), undo: $('mj-undo'), hint: $('mj-hint'), shuffle: $('mj-shuffle'), zoom: $('mj-zoom'), left: $('mj-left'), stats: $('mj-stats') };
   var deal0, an, faces, alive, buttons = [], removed = [], selected = -1, hintPair = null, seconds = 0, timer = 0, started = false, won = false, zoomed = false, rng = Math.random, layout;
 
   function updateTimeText() { els.time.textContent = BK.fmtTime(seconds); }
@@ -229,16 +229,18 @@
     return !!moves;
   }
 
-  function say(t) { els.status.textContent = t; }
+  var line = UI.status(els.status);
+  function say(text) { line.say(text); }
+  function layoutName(l) { return T('mahjong.layout.' + l.id); }
   function showStats() {
     var s = stats[layout.id] || { won: 0, best: 0 };
-    els.stats.textContent = layout.name + ': ' + s.won + ' won' + (s.best ? ', best ' + BK.fmtTime(s.best) : '');
+    els.stats.textContent = s.won ? T(s.best ? 'mahjong.record.best' : 'mahjong.record', { layout: layoutName(layout), n: s.won, best: BK.fmtTime(s.best) }) : '';
   }
 
   function afterChange() {
     var hasMoves = paint();
     if (!remainingCount()) { win(); return; }
-    say(hasMoves ? 'Match two free tiles.' : 'No moves left. Shuffle, or undo.');
+    say(T(hasMoves ? 'mahjong.match' : 'mahjong.noMoves'));
   }
 
   function win() {
@@ -249,9 +251,8 @@
     var record = !s.best || seconds < s.best;
     if (record) s.best = seconds;
     BK.save(STATS_KEY, stats);
-    say('Cleared.'); showStats(); paint();
-    $('mj-result-text').textContent = 'Board cleared in ' + BK.fmtTime(seconds) + (record ? ', your best on ' + layout.name + '.' : '.');
-    resultSheet.open($('mj-again'));
+    say(T('mahjong.cleared')); showStats(); paint();
+    UI.end({ result: 'win', text: T(record ? 'mahjong.clearedBest' : 'mahjong.clearedIn', { time: BK.fmtTime(seconds), layout: layoutName(layout) }), stats: [[T('mahjong.time'), BK.fmtTime(seconds)]] });
   }
 
   function removePair(a, c) {
@@ -266,15 +267,14 @@
   function onTile(i) {
     if (won || !alive[i]) return;
     if (!isFree(an, alive, i)) {
-      buttons[i].classList.add('shake'); setTimeout(function () { buttons[i].classList.remove('shake'); }, 320);
-      say('That tile is blocked: it needs a free side and nothing on top.');
+      UI.refuse(line, buttons[i], T('mahjong.blocked'));
       return;
     }
     if (!started) { started = true; startTimer(); }
     if (selected === i) { selected = -1; hintPair = null; paint(); return; }
     if (selected >= 0 && matches(faces[selected], faces[i])) { removePair(selected, i); return; }
     selected = i; hintPair = null; paint();
-    say(faceName(faces[i]) + ' selected.');
+    say(T('mahjong.selected', { tile: faceName(faces[i]) }));
   }
 
   function undo() {
@@ -285,16 +285,16 @@
   }
   function hint() {
     var p = findPair(an, alive, faces);
-    if (!p) { say('No moves left. Shuffle, or undo.'); return; }
-    hintPair = p; selected = -1; paint(); say('These two match.');
+    if (!p) { say(T('mahjong.noMoves')); return; }
+    hintPair = p; selected = -1; paint(); say(T('mahjong.hint'));
   }
   function doShuffle() {
     if (won) return;
     var d = reshuffle(an, alive, faces, rng);
-    if (!d) { say('Could not shuffle this position.'); return; }
+    if (!d) { say(T('mahjong.noShuffle')); return; }
     for (var i = 0; i < an.n; i++) if (alive[i]) { buttons[i].innerHTML = faceMarkup(faces[i]); buttons[i].setAttribute('aria-label', faceName(faces[i])); }
     selected = -1; hintPair = null; removed = []; // an undone step could bring back tiles the new deal does not account for
-    afterChange(); say('Shuffled. The rest can still be cleared.');
+    afterChange(); say(T('mahjong.shuffled'));
   }
 
   function newGame() {
@@ -303,17 +303,21 @@
     deal0 = dealLayout(layout, rng);
     an = deal0.an; faces = deal0.faces; alive = new Uint8Array(an.n).fill(1);
     tabStop = -1;
-    buildTiles(); layoutStage(); updateTimeText(); showStats(); resultSheet.close();
-    afterChange(); say('Match two free tiles. Dim tiles are blocked.');
+    buildTiles(); layoutStage(); updateTimeText(); showStats();
+    afterChange(); say(T('mahjong.start'));
   }
 
-  // ── bar, menu, keys ──
-  var menu = BK.sheet($('mj-sheet')), resultSheet = BK.sheet($('mj-result'));
-  $('mj-new').addEventListener('click', function () { BK.chipSet($('mj-f-layout'), settings.layout); menu.open(); });
-  $('mj-cancel').addEventListener('click', menu.close);
-  $('mj-start').addEventListener('click', function () { settings.layout = BK.chipValue($('mj-f-layout')); BK.save(SETTINGS_KEY, settings); menu.close(); newGame(); });
-  $('mj-again').addEventListener('click', newGame);
-  $('mj-close').addEventListener('click', function () { resultSheet.close(); });
+  // ── Menu > New game: the layout. Nothing applies until New game is pressed. ──
+  var draft = null;
+  function menuOptions() {
+    draft = settings.layout;
+    var row = UI.row(T('mahjong.layout'), LAYOUTS.map(function (l) { return [l.id, layoutName(l)]; }), draft, function (v) { draft = v; });
+    return UI.options([row, UI.h('p', { class: 'bu-quiet', text: T('mahjong.everyDeal') })]);
+  }
+  els.nu.addEventListener('click', function () {
+    if (draft) { settings.layout = draft; draft = null; BK.save(SETTINGS_KEY, settings); }
+    newGame();
+  });
   els.undo.addEventListener('click', undo);
   els.hint.addEventListener('click', hint);
   els.shuffle.addEventListener('click', doShuffle);
@@ -339,10 +343,15 @@
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet,input')) return;
     var k = e.key.toLowerCase();
-    if (k === 'u') undo(); else if (k === 'h') hint(); else if (k === 's') doShuffle(); else if (k === 'n') { BK.chipSet($('mj-f-layout'), settings.layout); menu.open(); }
+    if (k === 'u') undo(); else if (k === 'h') hint(); else if (k === 's') doShuffle(); else if (k === 'n') { if (root.ZimiShell) root.ZimiShell.openMenu(); }
     else if (e.key === 'Escape' && selected >= 0) { selected = -1; paint(); }
   });
 
+  if (root.ZimiShell) root.ZimiShell.game({
+    menu: menuOptions, hints: true,
+    stats: function () { var l = els.stats.textContent; return l ? [l] : []; },
+    inProgress: function () { return started && !won; }
+  });
   newGame();
 
   if (new URLSearchParams(location.search).has('debug')) {
