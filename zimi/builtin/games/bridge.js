@@ -27,10 +27,10 @@
    in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
-  var AUCTION_STACK = 3, SEATS = 4, HAND = 13, NAMES = ['South', 'West', 'North', 'East'], DEALS = 4;
-  var DEN_LABEL = ['♣', '♦', '♥', '♠', 'NT'], DEN_CHAR = 'CDHSN', DEN_NAME = ['clubs', 'diamonds', 'hearts', 'spades', 'no trump'];
+  var AUCTION_STACK = 3, SEATS = 4, HAND = 13, NAMES = [TX('bridge.seat.south'), TX('cards.seat.west'), TX('cards.seat.north'), TX('cards.seat.east')], DEALS = 4;
+  var DEN_LABEL = ['♣', '♦', '♥', '♠', TX('bridge.nt')], DEN_CHAR = 'CDHSN', DEN_NAME = [TX('cards.suit.clubs'), TX('cards.suit.diamonds'), TX('cards.suit.hearts'), TX('cards.suit.spades'), TX('bridge.noTrump')];
   var NT = 4, MAX_LEVEL = 7, GAME_POINTS = 100, DEALERS = [2, 3, 0, 1];
   var BONUS = { game: [300, 500], part: 50, small: [500, 750], grand: [1000, 1500], insult: [0, 50, 100] };
   var high = T.rankHigh, team = function (seat) { return seat % 2; }, partnerOf = function (seat) { return (seat + 2) % SEATS; };
@@ -44,8 +44,8 @@
   }
   var bidRank = function (level, den) { return (level - 1) * 5 + den; };
   var bidCall = function (level, den) { return level + DEN_CHAR.charAt(den); };
-  function callText(c) { var p = parseCall(c); return p.type === 'pass' ? 'Pass' : p.type === 'double' ? 'Double' : p.type === 'redouble' ? 'Redouble' : p.level + DEN_LABEL[p.den]; }
-  function callWords(c) { var p = parseCall(c); return p.type === 'bid' ? p.level + ' ' + DEN_NAME[p.den] : callText(c).toLowerCase(); }
+  function callText(c) { var p = parseCall(c); return p.type === 'pass' ? TX('bridge.pass') : p.type === 'double' ? TX('bridge.double') : p.type === 'redouble' ? TX('bridge.redouble') : p.level + DEN_LABEL[p.den]; }
+  function callWords(c) { var p = parseCall(c); return p.type === 'bid' ? p.level + ' ' + DEN_NAME[p.den] : callText(c).toLocaleLowerCase(); }
 
   // What the auction so far amounts to: the last bid, whether it is doubled, every bid.
   function analyze(st) {
@@ -100,7 +100,7 @@
     return s;
   }
   function passedOut(s) {
-    s.result = { passedOut: true, points: [0, 0], lines: ['Passed out: no score.'] };
+    s.result = { passedOut: true, points: [0, 0], lines: [TX('bridge.passedOut')] };
     s.phase = s.dealNo >= DEALS - 1 ? 'over' : 'dealEnd';
     return s;
   }
@@ -150,14 +150,14 @@
     var v = vulnerable ? 1 : 0, need = 6 + c.level, diff = taken - need, mult = c.dbl === 0 ? 1 : c.dbl === 1 ? 2 : 4, lines = [], pts = 0;
     if (diff >= 0) {
       var per = c.den < 2 ? 20 : 30, first = c.den === NT ? 40 : per, trick = (first + per * (c.level - 1)) * mult;
-      lines.push('Contract tricks ' + trick); pts += trick;
-      if (trick >= GAME_POINTS) { pts += BONUS.game[v]; lines.push('Game bonus ' + BONUS.game[v]); } else { pts += BONUS.part; lines.push('Part-score bonus ' + BONUS.part); }
-      if (c.level === 6) { pts += BONUS.small[v]; lines.push('Small slam ' + BONUS.small[v]); }
-      if (c.level === 7) { pts += BONUS.grand[v]; lines.push('Grand slam ' + BONUS.grand[v]); }
-      if (c.dbl) { pts += BONUS.insult[c.dbl]; lines.push('For the double ' + BONUS.insult[c.dbl]); }
+      lines.push(TX('bridge.line.tricks', { n: trick })); pts += trick;
+      if (trick >= GAME_POINTS) { pts += BONUS.game[v]; lines.push(TX('bridge.line.game', { n: BONUS.game[v] })); } else { pts += BONUS.part; lines.push(TX('bridge.line.part', { n: BONUS.part })); }
+      if (c.level === 6) { pts += BONUS.small[v]; lines.push(TX('bridge.line.small', { n: BONUS.small[v] })); }
+      if (c.level === 7) { pts += BONUS.grand[v]; lines.push(TX('bridge.line.grand', { n: BONUS.grand[v] })); }
+      if (c.dbl) { pts += BONUS.insult[c.dbl]; lines.push(TX('bridge.line.double', { n: BONUS.insult[c.dbl] })); }
       if (diff > 0) {
         var each = c.dbl === 0 ? per : (c.dbl === 1 ? 1 : 2) * (v ? 200 : 100), over = each * diff;
-        pts += over; lines.push(Z.plural(diff, 'overtrick') + ' ' + over);
+        pts += over; lines.push(TX('bridge.line.over', { tricks: Z.plural(diff, 'overtrick'), n: over }));
       }
       return { made: true, points: pts, lines: lines };
     }
@@ -168,7 +168,7 @@
       for (k = 1; k <= down; k++) sum += v ? (k === 1 ? 200 : 300) : (k === 1 ? 100 : k <= 3 ? 200 : 300);
       penalty = sum * (c.dbl === 2 ? 2 : 1);
     }
-    lines.push('Down ' + down + ': ' + penalty + ' to the defenders');
+    lines.push(TX('bridge.line.down', { down: down, n: penalty }));
     return { made: false, points: -penalty, lines: lines };
   }
   function endDeal(s) {
@@ -552,11 +552,11 @@
     var g = geo(m), slots = [], cards = [], c = st.contract, sweep = view && st.trick.length === SEATS ? view.sweep : null;
     var V = (view && view.viewer) || 0, up = !(view && view.hideHand);
     var actor = st.phase === 'play' && st.trick.length < SEATS ? controller(st, st.turn) : -1;
-    slots.push({ id: 'deck', x: g.cx - g.cw / 2, y: g.cy - g.ch / 2, w: g.cw, h: g.ch, quiet: true, label: 'Table' });
-    slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: 'Trick' });
+    slots.push({ id: 'deck', x: g.cx - g.cw / 2, y: g.cy - g.ch / 2, w: g.cw, h: g.ch, quiet: true, label: TX('cards.slot.table') });
+    slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: TX('cards.slot.trick') });
     // Your hand (face up, playable when you are the one to play it).
     var mineTurn = up && actor === V && st.turn === V;
-    var hand = T.handCards(g, st.hands[V], function (id) { return { up: up, dim: mineTurn && !isLegal(st, V, id), label: up ? cardLabel(id) : 'Hidden card' }; }, function (a, b) { return Z.suit(a) !== Z.suit(b); });
+    var hand = T.handCards(g, st.hands[V], function (id) { return { up: up, dim: mineTurn && !isLegal(st, V, id), label: up ? cardLabel(id) : TX('cards.hidden') }; }, function (a, b) { return Z.suit(a) !== Z.suit(b); });
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     var dummy = c && st.dummyShown ? c.dummy : -1;
     [1, 2, 3].forEach(function (r) {
@@ -591,7 +591,7 @@
   function callNode(call, cls) {
     var p = parseCall(call);
     if (p.type === 'bid') return Z.h('span', { class: cls || '' }, [Z.h('span', { text: String(p.level) }), suitSpan(p.den)]);
-    return Z.h('span', { class: cls || '', text: p.type === 'pass' ? 'Pass' : p.type === 'double' ? 'Dbl' : 'Rdbl' });
+    return Z.h('span', { class: cls || '', text: p.type === 'pass' ? TX('bridge.pass') : p.type === 'double' ? TX('bridge.dbl') : TX('bridge.rdbl') });
   }
   function boot() {
     var d = root.document, t, board, session, view = { sweep: null, flash: '' };
@@ -602,8 +602,8 @@
     // A seat's name: the compass point for a lone person's table, the person's own name when people share it.
     var cn = function (seat) { return hot() ? seats.name(seat) : NAMES[seat]; };
     var you = function (seat) { return seats.isYou(seat); };
-    var side = function (k) { return hot() ? cn(k) + ' and ' + cn(k + 2) : ['North and South', 'East and West'][k]; };
-    var vulText = function (v) { return v[0] && v[1] ? 'both sides' : v[0] ? side(0) : v[1] ? side(1) : 'neither side'; };
+    var side = function (k) { return hot() ? TX('bridge.pair', { a: cn(k), b: cn(k + 2) }) : TX(k ? 'bridge.eastWest' : 'bridge.northSouth'); };
+    var vulText = function (v) { return v[0] && v[1] ? TX('bridge.vul.both') : v[0] ? side(0) : v[1] ? side(1) : TX('bridge.vul.none'); };
     function repaint() { if (board) board.refresh(); if (t) t.paint(); }
     // Who acts now: the bidder, or the one who plays the card to come (declarer plays dummy's).
     function actorOf(st) { return st.phase === 'auction' ? st.turn : st.phase === 'play' && st.trick.length < SEATS ? controller(st, st.turn) : -1; }
@@ -611,13 +611,13 @@
       var V = seats.view(), dummyUp = st.dummyShown && st.contract && st.contract.dummy === V;
       view.viewer = V; view.hideHand = hot() && actorOf(st) !== V && !dummyUp;
     }
-    var auctionEl = Z.h('div', { class: 'br-auction', 'aria-label': 'Auction' }), boxEl = Z.h('div', { class: 'br-box', role: 'group', 'aria-label': 'Bidding box' });
+    var auctionEl = Z.h('div', { class: 'br-auction', 'aria-label': TX('bridge.auction') }), boxEl = Z.h('div', { class: 'br-box', role: 'group', 'aria-label': TX('bridge.box') });
     table.appendChild(auctionEl); table.appendChild(boxEl);
 
     function contractText(st) {
       var c = st.contract;
       if (!c) return '';
-      return c.level + DEN_LABEL[c.den] + (c.dbl === 1 ? ' doubled' : c.dbl === 2 ? ' redoubled' : '') + ' by ' + cn(c.declarer);
+      return TX('bridge.contract' + (c.dbl === 1 ? '.doubled' : c.dbl === 2 ? '.redoubled' : ''), { bid: c.level + DEN_LABEL[c.den], name: cn(c.declarer) });
     }
     var auctionSig = '', boxSig = '';
     function paintAuction(st, m) {
@@ -633,13 +633,13 @@
       auctionEl.style.width = width + 'px';
       auctionEl.style.left = Math.round(g.cx - width / 2) + 'px'; auctionEl.style.top = Math.round(g.northY + g.ch + 14) + 'px';
       var order = [1, 2, 3, 0], grid = Z.h('div', { class: 'br-grid' });
-      order.forEach(function (seat) { grid.appendChild(Z.h('b', { class: 'br-head' + (seat === V ? ' br-you' : ''), text: seat === V && you(seat) ? 'You' : cn(seat) })); });
+      order.forEach(function (seat) { grid.appendChild(Z.h('b', { class: 'br-head' + (seat === V ? ' br-you' : ''), text: seat === V && you(seat) ? TX('cards.you') : cn(seat) })); });
       var cells = [], pad = order.indexOf(st.dealer), k;
       for (k = 0; k < pad; k++) cells.push(null);
       st.auction.forEach(function (e) { cells.push(e); });
       cells.forEach(function (e, i) { grid.appendChild(e ? Z.h('span', { class: 'br-call' + (i === cells.length - 1 ? ' br-latest' : '') }, [callNode(e.call)]) : Z.h('span', { class: 'br-call' })); });
       if (st.phase === 'auction') grid.appendChild(Z.h('span', { class: 'br-call br-next', text: st.turn === V ? '?' : '…' }));
-      auctionEl.appendChild(Z.h('p', { class: 'br-cap', text: 'Deal ' + (st.dealNo + 1) + ' of ' + DEALS + ' · dealer ' + cn(st.dealer) + ' · vulnerable: ' + vulText(st.vul) }));
+      auctionEl.appendChild(Z.h('p', { class: 'br-cap', text: TX('bridge.cap', { n: st.dealNo + 1, of: DEALS, dealer: cn(st.dealer), vul: vulText(st.vul) }) }));
       auctionEl.appendChild(grid);
     }
     function paintBox(st, m) {
@@ -652,13 +652,13 @@
       if (!mine) return;
       var grid = Z.h('div', { class: 'br-levels' }), level, den;
       for (den = 0; den <= NT; den++) for (level = 1; level <= MAX_LEVEL; level++) {
-        var call = bidCall(level, den), b = Z.h('button', { class: 'ar-btn br-bid', type: 'button', 'aria-label': level + ' ' + DEN_NAME[den] }, [callNode(call)]);
+        var call = bidCall(level, den), b = Z.h('button', { class: 'ar-btn br-bid', type: 'button', 'aria-label': TX('bridge.bidAria', { level: level, den: DEN_NAME[den] }) }, [callNode(call)]);
         b.disabled = legal.indexOf(call) < 0;
         b.addEventListener('click', (function (cl) { return function () { bidMine(cl); }; })(call));
         grid.appendChild(b);
       }
       var row = Z.h('div', { class: 'br-row' });
-      [['P', 'Pass'], ['X', 'Double'], ['XX', 'Redouble']].forEach(function (x) {
+      [['P', TX('bridge.pass')], ['X', TX('bridge.double')], ['XX', TX('bridge.redouble')]].forEach(function (x) {
         var b = Z.h('button', { class: 'ar-btn br-bid br-wide', type: 'button', text: x[1] });
         b.disabled = legal.indexOf(x[0]) < 0;
         b.addEventListener('click', function () { bidMine(x[0]); });
@@ -668,22 +668,21 @@
       boxEl.style.bottom = Math.round(m.H - g.statusY + BOX_GAP) + 'px';
     }
     function hud(st) {
-      var m = board.metrics(), c = st.contract, side = ['North and South', 'East and West'];
+      var m = board.metrics(), c = st.contract;
       paintAuction(st, m); paintBox(st, m);
       var V = seats.view(), us = team(V), actor = actorOf(st);
-      var chips = hot() ? [{ name: 'N+S', text: String(st.totals[0]) }, { name: 'E+W', text: String(st.totals[1]) }] : [{ name: 'Us', text: String(st.totals[us]) }, { name: 'Them', text: String(st.totals[1 - us]) }];
-      var out = { chips: chips, sub: 'Deal ' + (st.dealNo + 1) + '/' + DEALS + (c ? ' · ' + c.level + DEN_LABEL[c.den] + (c.dbl ? (c.dbl === 1 ? ' X' : ' XX') : '') + ' ' + NAMES[c.declarer].charAt(0) : ''), text: '' };
-      var who = you(V) ? 'Your' : cn(V) + ', your';
-      if (st.phase === 'auction') out.text = st.turn === V ? who + ' call' : cn(st.turn) + (seats.person(st.turn) ? ' is next' : ' is bidding');
-      else if (st.phase === 'dealEnd') { out.text = 'Deal over'; out.label = 'Next deal'; out.action = startNextDeal; }
-      else if (st.phase === 'over') { out.text = 'Match over'; out.label = 'New game'; out.action = newGame; }
+      var chips = hot() ? [{ name: TX('bridge.ns'), text: String(st.totals[0]) }, { name: TX('bridge.ew'), text: String(st.totals[1]) }] : [{ name: TX('cards.team.us'), text: String(st.totals[us]) }, { name: TX('cards.team.them'), text: String(st.totals[1 - us]) }];
+      var out = { chips: chips, fact: TX('skat.fact', { n: st.dealNo + 1, of: DEALS }) + (c ? ' \u00b7 ' + c.level + DEN_LABEL[c.den] + (c.dbl ? (c.dbl === 1 ? ' X' : ' XX') : '') + ' ' + NAMES[c.declarer].charAt(0) : ''), text: '' };
+      if (st.phase === 'auction') out.text = st.turn === V ? TX(you(V) ? 'bridge.yourCall' : 'bridge.nameCall', { name: cn(V) }) : TX(seats.person(st.turn) ? 'ce.next' : 'bridge.bidding', { name: cn(st.turn) });
+      else if (st.phase === 'dealEnd') { out.text = TX('skat.dealOver'); out.label = TX('skat.nextDeal'); out.action = startNextDeal; }
+      else if (st.phase === 'over') { out.text = TX('bridge.matchOver'); out.label = TX('shell.menu.new'); out.action = newGame; }
       else {
-        chips.push({ name: 'Tricks', text: hot() ? 'N+S ' + st.tricks[0] + ' · E+W ' + st.tricks[1] : 'us ' + st.tricks[us] + ' · them ' + st.tricks[1 - us] });
-        if (st.trick.length === SEATS) { var w = trickWinner(st.trick, trumpOf(st)); out.text = (you(w) ? 'You' : cn(w)) + (you(w) ? ' take' : ' takes') + ' the trick'; }
-        else if (actor === V) out.text = st.turn === V ? who + ' turn: ' + contractText(st) : 'Play dummy’s card (' + cn(st.turn) + ')';
-        else if (seats.person(actor)) out.text = cn(actor) + ' is next';
-        else if (c.dummy === V) out.text = cn(c.declarer) + ' plays ' + (hot() ? cn(V) + '’s' : 'your') + ' hand. ' + cn(st.turn) + ' to play';
-        else out.text = cn(st.turn) + ' is thinking';
+        chips.push({ name: TX('truco.tricks'), text: hot() ? TX('bridge.ns') + ' ' + st.tricks[0] + ' \u00b7 ' + TX('bridge.ew') + ' ' + st.tricks[1] : st.tricks[us] + '-' + st.tricks[1 - us] });
+        if (st.trick.length === SEATS) { var w = trickWinner(st.trick, trumpOf(st)); out.text = you(w) ? TX('cards.trick.you') : TX('cards.trick.name', { name: cn(w) }); }
+        else if (actor === V) out.text = st.turn === V ? TX(you(V) ? 'bridge.yourTurn' : 'bridge.nameTurn', { name: cn(V), contract: contractText(st) }) : TX('bridge.playDummy', { name: cn(st.turn) });
+        else if (seats.person(actor)) out.text = TX('ce.next', { name: cn(actor) });
+        else if (c.dummy === V) out.text = TX(hot() ? 'bridge.playsHand.name' : 'bridge.playsHand', { declarer: cn(c.declarer), name: cn(V), next: cn(st.turn) });
+        else out.text = TX('cards.thinking', { name: cn(st.turn) });
       }
       return out;
     }
@@ -702,7 +701,7 @@
       if (st.phase === 'play') flashContract();
       drive();
     }
-    function flashContract() { var st = session.state; t.flash('Contract: ' + contractText(st)); }
+    function flashContract() { var st = session.state; t.flash(TX('bridge.flash', { contract: contractText(st) })); }
     function aiBidTurn() {
       var st = session.state;
       if (st.phase !== 'auction' || seats.person(st.turn)) return;
@@ -733,10 +732,10 @@
     function resultLines(st) {
       var r = st.result, c = st.contract, lines = [];
       if (r.passedOut) return r.lines;
-      lines.push(contractText(st) + ': ' + (r.made ? 'made' : 'down ' + (r.need - r.taken)) + ' (took ' + r.taken + ' tricks, needed ' + r.need + ')');
+      lines.push(TX(r.made ? 'bridge.made' : 'bridge.wentDown', { contract: contractText(st), down: r.need - r.taken, taken: r.taken, need: r.need }));
       r.lines.forEach(function (x) { lines.push(x); });
-      lines.push('This deal: North and South ' + (r.points[0] >= 0 ? '+' : '') + r.points[0] + ', East and West ' + (r.points[1] >= 0 ? '+' : '') + r.points[1]);
-      lines.push('Totals: North and South ' + st.totals[0] + ', East and West ' + st.totals[1]);
+      lines.push(TX('bridge.thisDeal', { ns: (r.points[0] >= 0 ? '+' : '') + r.points[0], ew: (r.points[1] >= 0 ? '+' : '') + r.points[1] }));
+      lines.push(TX('bridge.totals', { ns: st.totals[0], ew: st.totals[1] }));
       return lines;
     }
     var shown = -1;
@@ -744,11 +743,11 @@
       var st = session.state;
       if (shown === st.dealNo + (st.phase === 'over' ? 100 : 0)) return;
       shown = st.dealNo + (st.phase === 'over' ? 100 : 0);
-      if (st.phase === 'dealEnd') T.lineSheet('Deal ' + (st.dealNo + 1) + ' of ' + DEALS, resultLines(st), [{ label: 'Next deal', primary: true, onclick: startNextDeal }]);
+      if (st.phase === 'dealEnd') T.lineSheet(TX('skat.fact', { n: st.dealNo + 1, of: DEALS }), resultLines(st), [{ label: TX('skat.nextDeal'), primary: true, onclick: startNextDeal }]);
       else {
         var V = seats.view(), us = team(V), w = winnerSide(st.totals), mine = !hot() && w === us;
-        var lines = resultLines(st).concat([w < 0 ? 'The match is tied.' : (mine ? 'You and ' + cn(partnerOf(V)) : side(w)) + ' win the match, ' + st.totals[w] + ' to ' + st.totals[1 - w] + '.']);
-        if (mine) session.win(st.totals[us]); else session.lose(w < 0 ? 'Tied match' : side(w) + ' win', lines, hot() ? undefined : st.totals[us]);
+        var lines = resultLines(st).concat([w < 0 ? TX('bridge.tied') : TX('bridge.winMatch', { who: mine ? TX('bridge.youAnd', { name: cn(partnerOf(V)) }) : side(w), a: st.totals[w], b: st.totals[1 - w] })]);
+        if (mine) session.win(st.totals[us]); else session.lose(w < 0 ? TX('shell.end.draw') : TX('bridge.sideWins', { who: side(w) }), lines, hot() ? undefined : st.totals[us]);
       }
     }
     function startNextDeal() {
@@ -770,10 +769,10 @@
       if ((kind !== 'h' && kind !== 'd') || isNaN(id) || st.phase !== 'play') return false;
       var V = seats.view(), seat = kind === 'h' ? V : st.contract.dummy;
       if (view.hideHand) return false;
-      if (st.trick.length === SEATS) { t.flash('Wait for the trick'); return false; }
-      if (controller(st, st.turn) !== V) { t.flash('Wait for your turn'); return false; }
-      if (st.turn !== seat) { t.flash(st.turn === V ? 'Play from your own hand' : 'Play from dummy'); return false; }
-      if (!isLegal(st, seat, id)) { t.flash('Follow ' + Z.SUITS[Z.suit(st.trick[0].id)]); return false; }
+      if (st.trick.length === SEATS) { t.flash(TX('cards.wait.trick')); return false; }
+      if (controller(st, st.turn) !== V) { t.flash(TX('cards.wait.turn')); return false; }
+      if (st.turn !== seat) { t.flash(TX(st.turn === V ? 'bridge.ownHand' : 'bridge.fromDummy')); return false; }
+      if (!isLegal(st, seat, id)) { t.flash(TX('cards.follow', { suit: TX('cards.suit.' + ['clubs', 'diamonds', 'hearts', 'spades'][Z.suit(st.trick[0].id)]) })); return false; }
       return playMine(seat, id);
     }
     function newGame() {
@@ -785,7 +784,7 @@
     function deal() { seats.begin(function () { repaint(); drive(); }, session.state.turn); }
     function auctionLines(st) {
       var rows = [], k;
-      for (k = 0; k < st.auction.length; k++) rows.push((st.auction[k].seat === seats.view() && you(seats.view()) ? 'You' : cn(st.auction[k].seat)) + ' ' + callText(st.auction[k].call));
+      for (k = 0; k < st.auction.length; k++) rows.push((st.auction[k].seat === seats.view() && you(seats.view()) ? TX('cards.you') : cn(st.auction[k].seat)) + ' ' + callText(st.auction[k].call));
       return rows.join(', ');
     }
     t = T.create({
@@ -794,13 +793,13 @@
       move: function (pile, idx, to) { return (to === 'trick' || to === 'deck') && (pile.charAt(0) === 'h' || pile.charAt(0) === 'd') ? tap(pile) : false; },
       stat: function (sec, st) { var us = team(seats.view()); return Z.fmtTime(sec) + ' · ' + st.totals[us] + '-' + st.totals[1 - us]; },
       cascadeOrder: function (st) { var V = seats.view(); return st.orig[V].concat(st.orig[partnerOf(V)]).map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { var us = team(seats.view()); return ['You and ' + cn(partnerOf(seats.view())) + ' win, ' + st.totals[us] + ' to ' + st.totals[1 - us] + ', after ' + DEALS + ' deals.']; },
+      winLines: function (sec, st) { var us = team(seats.view()); return [TX('bridge.winAfter', { name: cn(partnerOf(seats.view())), a: st.totals[us], b: st.totals[1 - us], n: DEALS })]; },
       menuExtra: function () {
         var st = session.state, rows = [];
-        if (st && st.auction.length) rows.push(Z.h('p', { class: 'zc-note', text: 'Auction: ' + auctionLines(st) + '.' }));
+        if (st && st.auction.length) rows.push(Z.h('p', { class: 'zc-note', text: TX('bridge.auctionNote', { list: auctionLines(st) }) }));
         return rows;
       },
-      rules: 'Chicago bridge: four deals, you (South) and North against West and East. Bid a contract (level 1 to 7 is tricks past six, in clubs, diamonds, hearts, spades or no trump); three passes after a bid end the auction. Declarer plays both hands, dummy goes down after the opening lead. Follow suit; the highest trump, else the highest card of the suit led, takes the trick. Game (100 trick points) is worth 300, or 500 vulnerable; slams and doubles score more, undertricks cost 50 or 100. The computers bid a natural system: 5-card majors, 15 to 17 NT, Stayman (2 clubs after 1NT). Tap a card to play it; when you are declarer, tap dummy’s cards too. Players can be any of the four seats: with two or more people in the Players rows, each sees only their own hand, behind a handoff.'
+      rules: TX('bridge.rules')
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;

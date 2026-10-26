@@ -20,7 +20,7 @@
 .br-auction .br-latest .br-red { color: #8f1d1d; }
 .br-box { position: absolute; left: 50%; transform: translateX(-50%); z-index: 35; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; width: min(100% - 16px, 400px); padding: 8px; border-radius: 12px; background: rgba(8, 24, 16, 0.9); }
 .br-levels { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.br-bid { min-width: 0; min-height: 40px; padding: 0 2px; font-weight: 600; }
+.br-bid { min-width: 0; min-height: var(--target, 44px); padding: 0 2px; font-weight: 600; }
 .br-bid .br-red { color: var(--suit-red); }
 .br-row { display: flex; gap: 6px; }
 .br-wide { flex: 1; min-height: 44px; }
