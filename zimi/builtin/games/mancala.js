@@ -129,25 +129,16 @@
   root.MancalaEngine = { Oware: Oware, Kalah: Kalah, RULES: RULES, LEVELS: LEVELS, result: result, chooseMove: chooseMove };
 
   // ── the page ─────────────────────────────────────────────────────────────
-  if (typeof document === 'undefined') return;
-  var WK = root.WorldKit, BK = root.BoardKit, UNIT = 62, PAD = 14, PIT_R = 26, ROW_H = 84;
+  if (typeof document === 'undefined' || !root.BoardUI) return;
+  var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, UNIT = 62, PAD = 14, PIT_R = 26, ROW_H = 84;
   var SEED_COLORS = ['#c8553d', '#2a8c82', '#e8d9b0', '#d99a2b', '#6c5ba7'];
-  var NAMES = ['South', 'North'];
+  function sideName(p) { return T(p === 0 ? 'mancala.south' : 'mancala.north'); }
   var host = document.getElementById('wk-board'), svgPits, btns = [], R = Oware, cols = 6, W = 0, H = 0, posOf = [];
   var state, shown, history = WK.History(), lastPit = -1, flashed = [], animating = false, hintPit = -1, passInfo = '';
   var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: '#c8553d' }, { color: '#2a8c82' }]);
-  var helpEl = document.querySelector('.bg-help');
-  var HELP = {
-    oware: 'Oware (abapa): sow your pit counterclockwise, one seed in each pit. If your last seed ends in an opponent pit that now holds 2 or 3 seeds, take them, and take the pits before it that also hold 2 or 3. A move that would take every seed takes nothing. If the other side is empty, you must give it seeds. First to 25 wins.',
-    kalah: 'Kalah: sow your pit counterclockwise. Drop a seed in your own store as you pass it, and skip the other store. If your last seed ends in your store, play again. If it ends in an empty pit of yours, take the pit opposite. When a side runs out, the other side keeps its seeds.'
-  };
-  var HELP_PARTS = {
-    oware: { turn: 'Pick one of your pits and sow it counterclockwise: one seed in each pit after it. If your last seed ends in an opponent pit that now holds 2 or 3 seeds, you take them, and the pits before it that also hold 2 or 3.', end: 'First to 25 seeds wins. If the other side is empty, you must give it seeds.' },
-    kalah: { turn: 'Pick one of your pits and sow it counterclockwise. Drop a seed in your own store as you pass it. If your last seed ends in your store, play again. If it ends in an empty pit of yours, take the pit opposite.', end: 'When a side runs out, the other side keeps its seeds. Most seeds in the store wins.' }
-  };
   var G = WK.create({
     id: 'mancala',
-    options: [{ key: 'rules', legend: 'Game', def: 'oware', choices: [['oware', 'Oware'], ['kalah', 'Kalah']] }].concat(WK.standardOptions({ first: 'South (first)', second: 'North' })),
+    options: [{ key: 'rules', legend: 'mancala.game', def: 'oware', choices: [['oware', 'mancala.oware'], ['kalah', 'mancala.kalah']] }].concat(WK.standardOptions({ first: 'mancala.southFirst', second: 'mancala.north' })),
     statKey: function (s) { return s.rules + s.level; },
     onNew: newGame, onUndo: undo, onHint: hint
   });
@@ -173,7 +164,6 @@
     var a = k * 2.399963, r = 4.4 * Math.sqrt(k + 0.6);
     return [p.x + r * Math.cos(a), p.y + r * Math.sin(a)];
   }
-  function sideLabel(side) { return NAMES[side]; }
 
   function buildBoard() {
     layout();
@@ -215,19 +205,19 @@
     btns.forEach(function (bt, j) {
       if (!bt) return;
       var mine = legal.indexOf(j) >= 0 && open;
-      bt.setAttribute('aria-label', sideLabel(R.side(j)) + ' pit ' + (j - R.side(j) * (R.stores ? 7 : 6) + 1) + ', ' + shown[j] + (shown[j] === 1 ? ' seed' : ' seeds'));
+      bt.setAttribute('aria-label', T('mancala.pit', { side: sideName(R.side(j)), pit: j - R.side(j) * (R.stores ? 7 : 6) + 1, n: shown[j] }));
       bt.setAttribute('aria-disabled', mine ? 'false' : 'true');
       bt.classList.toggle('mc-legal', mine);
     });
-    score(G.names(NAMES[0], NAMES[1]), state.score, G.over ? -1 : state.turn);
+    score(G.names(sideName(0), sideName(1)), state.score, G.over ? -1 : state.turn);
     G.setUndo(history.size() > 0 && !animating && !G.watching); G.setHint(open);
     G.turnTimer(open, timeUp, history.size());
   }
 
   function turnText() {
     var p = state.turn;
-    if (!G.vsComputer()) return NAMES[p] + ' to play';
-    return G.human(p) ? 'Your turn' : 'Computer is thinking';
+    if (!G.vsComputer()) return T('go.toPlay', { name: sideName(p) });
+    return G.human(p) ? T('board.yourTurn') : T('shell.thinking');
   }
 
   function onPit(i) {
@@ -236,12 +226,12 @@
   }
 
   function describe(mover, res) {
-    var who = G.vsComputer() ? (G.human(mover) ? 'You' : 'The computer') : NAMES[mover], bits = [];
+    var you = G.vsComputer() && !G.watching && G.human(mover), who = G.vsComputer() ? (G.human(mover) ? T('board.you') : T('board.theComputer')) : sideName(mover);
     var took = res.captured.reduce(function (a, c) { return a + c.n; }, 0);
-    if (res.captured.length) bits.push(who + ' captured ' + took + (took === 1 ? ' seed' : ' seeds') + '.');
-    else if (res.grandSlam) bits.push(who + ' played a grand slam: nothing is taken.');
-    else if (res.extra) bits.push(who + ' landed in the store and ' + (who === 'You' ? 'play' : 'plays') + ' again.');
-    return bits.join(' ');
+    if (res.captured.length) return T('mancala.captured', { name: who, n: took });
+    if (res.grandSlam) return T('mancala.grandSlam', { name: who });
+    if (res.extra) return T(you ? 'mancala.again.you' : 'mancala.again', { name: who });
+    return '';
   }
 
   // Sow with the seeds moving one at a time (or all at once for reduced motion), then apply.
@@ -252,7 +242,7 @@
     function finishMove() {
       animating = false; state = res.state; shown = state.pits.slice(0); lastPit = res.path.length ? res.path[res.path.length - 1] : p;
       flashed = res.captured.map(function (c) { return c.pit; });
-      if (res.swept.length) info = (info + ' The seeds left on each side go to its owner.').trim();
+      if (res.swept.length) info = (info + ' ' + T('mancala.swept')).trim();
       paint();
       if (state.done) { endGame(info); return; }
       G.say((info ? info + ' ' : '') + turnText(), !G.human(state.turn));
@@ -280,23 +270,20 @@
   // The move timer ran out: a quick computer choice is played for the person.
   function timeUp() {
     if (G.over || animating || !G.human(state.turn)) return;
-    G.say('Time ran out. A move was played for you.');
+    G.say(T('board.timeUp'));
     move(chooseMove(G.settings.rules, state, 'easy'));
   }
 
   function endGame(info) {
     var w = result(state), s = state.score, msg;
-    if (w < 0) msg = 'A draw, ' + s[0] + ' each.';
-    else {
-      var top = Math.max(s[0], s[1]), low = Math.min(s[0], s[1]);
-      msg = (G.vsComputer() ? (G.human(w) ? 'You win' : 'The computer wins') : NAMES[w] + ' wins') + ', ' + top + ' to ' + low + '.';
-    }
-    G.finish((info ? info + ' ' : '') + msg, w < 0 ? 'd' : G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, w >= 0 && G.vsComputer() && G.human(w) ? 'You win' : 'Game over');
+    if (w < 0) msg = T('reversi.draw', { n: s[0] });
+    else msg = T('reversi.score', { top: Math.max(s[0], s[1]), low: Math.min(s[0], s[1]) });
+    G.finish((info ? info + ' ' : '') + msg, w < 0 ? 'd' : G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, w >= 0 ? sideName(w) : undefined);
   }
 
   function hint() {
     hintPit = chooseMove(G.settings.rules, state, 'hard');
-    paint(); G.say('Hint: try the ringed pit. ' + turnText());
+    paint(); G.say(T('mancala.hint', { line: turnText() }));
   }
 
   function undo() {
@@ -312,7 +299,6 @@
   function newGame() {
     animating = false;
     if (!svgPits || R.id !== G.settings.rules) buildBoard();
-    helpEl.textContent = HELP[G.settings.rules];
     history.clear(); lastPit = -1; flashed = []; hintPit = -1;
     state = R.newState(); shown = state.pits.slice(0);
     paint(); G.say(turnText(), !G.human(0));
@@ -321,14 +307,14 @@
 
   G.registerWatch({
     script: 'explain-mancala.js', unit: 'move', level: 'medium',
-    intro: 'South plays first. The computer plays both sides.',
+    intro: 'mancala.watch.intro',
     whoseTurn: function () { return state.turn; },
     busy: function () { return animating; },
     resume: function () { paint(); G.say(turnText()); }
   });
   if (root.ZimiShell) root.ZimiShell.game({
-    moveTimer: true,
-    help: function () { return HELP_PARTS[G.settings.rules]; },
+    moveTimer: true, hints: true,
+    help: function () { return { turn: T('mancala.help.' + G.settings.rules + '.turn'), end: T('mancala.help.' + G.settings.rules + '.end') }; },
     inProgress: function () { return !G.over && history.size() > 0; }
   });
 

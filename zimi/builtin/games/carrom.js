@@ -3,20 +3,21 @@
    drawn board, GPL-3.0. Touch: flick the striker. Mouse: drag back from the striker for the aim and the power. */
 (function (root) {
   'use strict';
-  if (typeof document === 'undefined' || !root.ZimiCarromEngine) return;
-  var WK = root.WorldKit, BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  if (typeof document === 'undefined' || !root.ZimiCarromEngine || !root.BoardUI) return;
+  var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var E = root.ZimiCarromEngine(), brain = root.EngineKit.client(root.ZimiCarromEngine, 500);
   var B = E.B, MARGIN = 34, VIEW = B + 2 * MARGIN;
   var PULL_MAX = 190, MIN_POWER = 0.07, FLICK_MIN_SPEED = 260, FLICK_MIN_DIST = 16, FLICK_WINDOW_MS = 110, FLICK_GAIN = 1.0;
   var TOUCH_GRAB = 3.4, MOUSE_GRAB = 2.4, STRIP = 54, KEY_STEP = 10, KEY_ANGLE = Math.PI / 90, KEY_POWER = 0.05, DROP_MS = 320, AIM_SHOW_MS = 650, COMPUTER_DELAY_MS = 500, MAX_FRAME_MS = 50;
-  var SIDE_NAME = ['White', 'Black'];
+  function sideName(p) { return UI.side(p === 0 ? 'white' : 'black'); }
+  function isYou(p) { return vsCpu() && !G.watching && G.human(p); }
 
   var G = WK.create({
     id: 'carrom',
-    options: WK.standardOptions({ first: 'White (first)', second: 'Black' }),
+    options: WK.standardOptions({ first: 'chess.side.white', second: 'board.black' }),
     onNew: newGame
   });
-  var score = WK.scoreBar($('wk-score'), [{ color: '#f4eedb', border: '#b9ae8a' }, { color: '#2b2620' }]);
+  var score = WK.scoreBar($('wk-score'), [{ color: 'var(--disc-w)' }, { color: 'var(--disc-b)' }]);
   var canvas = $('cr-canvas'), ctx = canvas.getContext('2d'), wrap = $('cr-wrap');
   var game, phase = 'idle', aim = { angle: 0, power: 0.55, show: false }, drag = null, falling = [], notesLine = '', raf = 0, lastTs = 0, acc = 0, dropped = [], px = 1;
 
@@ -25,7 +26,7 @@
   function humanTurn() { return phase === 'aim' && !G.over && G.human(me()); }
   // The human sits at the bottom: with the computer moving first the view is turned half way round.
   function viewFlipped() { return vsCpu() && G.settings.side === 'second'; }
-  function nameOf(p) { return vsCpu() ? (G.human(p) ? 'You' : 'The computer') : SIDE_NAME[p]; }
+  function nameOf(p) { return vsCpu() ? (G.human(p) ? T('board.you') : T('board.theComputer')) : sideName(p); }
   // Angles are in board terms: the first side shoots up the board (towards smaller y), the second down it.
   function forwardAngle(p) { return p === 0 ? -Math.PI / 2 : Math.PI / 2; }
 
@@ -150,28 +151,22 @@
     var speed = isSpeed ? power01OrSpeed : E.MAX_SPEED * Math.pow(power01OrSpeed, 1.15);
     aim.show = false; drag = null;
     E.shoot(game, angle, speed);
-    G.say(nameOf(me()) === 'You' ? 'You shoot...' : nameOf(me()) + ' shoots...'); paint();
+    G.say(T(isYou(me()) ? 'carrom.shoot.you' : 'carrom.shoot', { name: nameOf(me()) })); paint();
     startRun();
   }
   function settleShot() {
-    var p = me(), who = nameOf(p), res = E.settle(game, dropped), notes = res.notes, parts = [];
-    notes.forEach(function (n) {
-      if (n === 'striker') parts.push('the striker went in: a foul');
-      else if (n === 'coin back') parts.push('a coin goes back to the middle');
-      else if (n === 'queen down') parts.push('the queen is down: cover her with one of your own coins');
-      else if (n === 'queen covered') parts.push('the queen is covered');
-      else if (n === 'queen back') parts.push('the queen goes back to the middle');
-      else if (n === 'last coin back') parts.push('the last coin cannot go in while the queen is on the board, so it goes back');
-      else if (n.indexOf('own ') === 0) parts.push(who + ' pocketed ' + n.slice(4) + (n === 'own 1' ? ' coin' : ' coins'));
-      else if (n.indexOf('theirs ') === 0) parts.push('the other side\'s ' + (n === 'theirs 1' ? 'coin' : 'coins') + ' went in');
+    var p = me(), who = nameOf(p), res = E.settle(game, dropped), parts = [];
+    res.notes.forEach(function (n) {
+      var m = n.match(/^(own|theirs) (\d+)$/);
+      if (m) parts.push(m[1] === 'own' ? T('carrom.pocketed', { name: who, n: +m[2] }) : T('carrom.theirs', { n: +m[2] }));
+      else parts.push(T('carrom.note.' + n.replace(/ /g, '_')));
     });
-    notesLine = parts.length ? parts[0].charAt(0).toUpperCase() + parts.join('; ').slice(1) + '. ' : 'Nothing went in. ';
+    notesLine = parts.length ? parts.join(' ') : T('carrom.nothing');
     if (res.over) { phase = 'over'; paint(); win(res.winner); return; }
     startTurn(res.again);
   }
   function win(w) {
-    var msg = (vsCpu() ? (G.human(w) ? 'You win' : 'The computer wins') : SIDE_NAME[w] + ' wins') + ': all 9 ' + SIDE_NAME[w].toLowerCase() + ' coins are in.';
-    G.finish(msg, vsCpu() ? (G.human(w) ? 'w' : 'l') : null, vsCpu() && G.human(w) ? 'You win' : 'Game over');
+    G.finish(T('carrom.allIn', { side: sideName(w).toLowerCase() }), vsCpu() ? (G.human(w) ? 'w' : 'l') : null, sideName(w));
     draw();
   }
   function startTurn(again) {
@@ -181,8 +176,8 @@
     E.placeStriker(game, again ? keepX : E.CENTRE, p);
     aim.angle = forwardAngle(p); aim.power = 0.55; aim.show = G.human(p);
     syncSliders(); paint();
-    var line1 = notesLine + (G.human(p) ? (vsCpu() ? (again ? 'Shoot again.' : 'Your shot.') : SIDE_NAME[p] + ' to shoot.') : (nameOf(p) + ' is aiming...'));
-    G.say(line1, !G.human(p));
+    var turn = G.human(p) ? (vsCpu() ? T(again ? 'carrom.again' : 'carrom.yourShot') : T('carrom.toShoot', { name: sideName(p) })) : T(isYou(p) ? 'carrom.aiming.you' : 'carrom.aiming', { name: nameOf(p) });
+    G.say(notesLine ? T('janggi.noted', { note: notesLine, line: turn }) : turn, !G.human(p));
     notesLine = '';
     if (!G.human(p)) computerShot();
   }
@@ -199,10 +194,11 @@
     });
   }
   function paint() {
-    var w = E.remaining(game, 'w'), b = E.remaining(game, 'b'), names = G.names(SIDE_NAME[0], SIDE_NAME[1]);
-    var queen = E.queenOnBoard(game) ? 'queen on the board' : game.queenBy >= 0 ? 'queen: ' + SIDE_NAME[game.queenBy] : game.pendingQueen >= 0 ? 'queen: cover her' : 'queen taken';
-    score([names[0] + ' ' + w + ' left', names[1] + ' ' + b + ' left'], null, G.over ? -1 : me());
-    canvas.setAttribute('aria-label', 'Carrom board. ' + SIDE_NAME[0] + ' has ' + w + ' coins left, ' + SIDE_NAME[1] + ' has ' + b + ', ' + queen + '. Left and right arrows move the striker, A and D turn the aim, W and S set the power, Enter shoots.');
+    var w = E.remaining(game, 'w'), b = E.remaining(game, 'b'), names = G.names(sideName(0), sideName(1));
+    var queen = T(E.queenOnBoard(game) ? 'carrom.queen.board' : game.queenBy >= 0 ? 'carrom.queen.by' : game.pendingQueen >= 0 ? 'carrom.queen.cover' : 'carrom.queen.taken', { side: game.queenBy >= 0 ? sideName(game.queenBy) : '' });
+    score([T('carrom.left', { name: names[0], n: w }), T('carrom.left', { name: names[1], n: b })], null, G.over ? -1 : me());
+    $('cr-shoot').disabled = !humanTurn();
+    canvas.setAttribute('aria-label', T('carrom.aria', { a: sideName(0), wa: w, b: sideName(1), wb: b, queen: queen }));
     draw();
   }
 
@@ -251,7 +247,7 @@
       for (i = s.length - 1; i >= 0; i--) { if (last.t - s[i].t <= FLICK_WINDOW_MS) first = s[i]; else break; }
       var dt = Math.max(16, last.t - first.t), vxs = (last.x - first.x) / dt * 1000, vys = (last.y - first.y) / dt * 1000, speed = Math.hypot(vxs, vys), dist = Math.hypot(last.x - s[0].x, last.y - s[0].y);
       if (dist >= FLICK_MIN_DIST && speed >= FLICK_MIN_SPEED) fire(Math.atan2(vys, vxs), Math.min(E.MAX_SPEED, speed * FLICK_GAIN), true);
-      else { aim.show = false; G.say('Flick the striker to shoot, or slide along the baseline to move it.'); draw(); }
+      else { aim.show = false; G.say(T('carrom.flickHint')); draw(); }
     }
   }
   canvas.addEventListener('pointerup', function (e) { endDrag(e, false); });

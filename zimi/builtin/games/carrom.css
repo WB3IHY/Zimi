@@ -5,10 +5,9 @@
 
 .cr-wrap { --cs: min(100vw - 20px, 100svh - 300px, 600px); width: var(--cs); height: var(--cs); }
 .cr-canvas { display: block; width: 100%; height: 100%; border-radius: 10px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3); touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair; background: var(--cr-frame); }
-.cr-canvas:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.cr-canvas:focus-visible { outline: 3px solid var(--select-ring); outline-offset: 3px; }
 .cr-sliders { width: min(100vw - 24px, 420px); font-size: 14px; }
 .cr-sliders summary { cursor: pointer; color: var(--ink2); padding: 4px 0; }
 .cr-sliders label { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 8px; margin: 6px 0; }
 .cr-sliders input[type="range"] { width: 100%; min-height: 28px; accent-color: var(--accent); }
 .cr-sliders .ar-btn { margin-top: 6px; }
-.bg-dot.cw { background: #f4eedb; } .bg-dot.cb { background: #2b2620; }

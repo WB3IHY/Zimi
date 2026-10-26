@@ -6,32 +6,33 @@
 <title>Carrom - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="boardui.css">
 <link rel="stylesheet" href="world.css">
 <link rel="stylesheet" href="carrom.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body>
 <header class="ar-bar">
-  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <a class="ar-back" href="index.html" data-t-aria="shell.back" aria-label="Back">&lsaquo;</a>
   <h1>Carrom</h1>
-  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog">New game</button>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="bg-main">
-  <div class="bg-score" id="wk-score" aria-label="Coins left"></div>
-  <div class="cr-wrap" id="cr-wrap"><canvas class="cr-canvas" id="cr-canvas" tabindex="0" role="application" aria-label="Carrom board. Left and right arrows move the striker, A and D turn the aim, W and S set the power, Enter shoots."></canvas></div>
-  <p class="bg-status" id="wk-status" role="status" aria-live="polite"></p>
+  <p class="bg-status" id="wk-status"></p>
+  <div class="bg-score" id="wk-score" data-t-aria="carrom.coins" aria-label="Coins left"></div>
+  <div class="cr-wrap" id="cr-wrap"><canvas class="cr-canvas" id="cr-canvas" tabindex="0" role="application" data-t-aria="carrom.keys" aria-label="Carrom board. Left and right arrows move the striker, A and D turn the aim, W and S set the power, Enter shoots."></canvas></div>
+  <div class="bg-controls"><button class="ar-btn" id="cr-shoot" type="button" aria-pressed="true" data-t="carrom.shootBtn">Shoot</button></div>
   <details class="cr-sliders" id="cr-sliders">
-    <summary>Aim with sliders</summary>
-    <label>Position <input id="cr-pos" type="range" min="0" max="100" value="50"></label>
-    <label>Angle <input id="cr-ang" type="range" min="-80" max="80" value="0"></label>
-    <label>Power <input id="cr-pow" type="range" min="5" max="100" value="55"></label>
-    <button class="ar-btn" id="cr-shoot" type="button" aria-pressed="true">Shoot</button>
+    <summary data-t="carrom.sliders">Aim with sliders</summary>
+    <label><span data-t="carrom.position">Position</span> <input id="cr-pos" type="range" min="0" max="100" value="50"></label>
+    <label><span data-t="carrom.angle">Angle</span> <input id="cr-ang" type="range" min="-80" max="80" value="0"></label>
+    <label><span data-t="carrom.power">Power</span> <input id="cr-pow" type="range" min="5" max="100" value="55"></label>
   </details>
   <p class="bg-stats" id="wk-stats"></p>
-  <p class="bg-help">Pocket your coins (white or black) with the striker. Each of your own coins you pocket earns another shot. After you pocket the red queen, pocket one of your own coins right away to cover her, or she goes back to the middle. A striker in a pocket is a foul. The first side to clear all 9 coins wins. On a touch screen, flick the striker (slide along the baseline to place it). With a mouse, drag back from the striker to aim and set the power, then let go. Keys: arrows place, A and D aim, W and S set power, Enter shoots.</p>
 </main>
 <script src="boardkit.js"></script>
+<script src="boardui.js"></script>
 <script src="worldkit.js"></script>
 <script src="enginekit.js"></script>
 <script src="carrom-engine.js"></script>

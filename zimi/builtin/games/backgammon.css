@@ -14,7 +14,7 @@
 .bk-ck { stroke: rgba(0, 0, 0, 0.45); stroke-width: 1; }
 .bk-ck.sel { stroke: var(--select-ring); stroke-width: 3.5; }
 .bk-ring { fill: none; stroke-width: 1.4; opacity: 0.45; }
-.bk-ring.on-w { stroke: var(--ink-soft, #8f8a78); }
+.bk-ring.on-w { stroke: var(--ink2); }
 .bk-ring.on-b { stroke: var(--disc-w); }
 .bk-n { font: 700 13px var(--mono); }
 .bk-n.on-w { fill: var(--disc-b); }

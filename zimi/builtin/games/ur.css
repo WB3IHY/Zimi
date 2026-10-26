@@ -9,24 +9,24 @@
 .ur-star { fill: var(--ur-gold); stroke: rgba(0, 0, 0, 0.28); stroke-width: 1.5; }
 .ur-mark { fill: none; stroke: var(--ur-sq-edge); stroke-width: 2.5; stroke-linecap: round; opacity: 0.55; }
 .ur-slot { fill: rgba(0, 0, 0, 0.1); stroke: var(--ur-sq-edge); stroke-width: 1.5; }
-.ur-hl { fill: none; stroke: var(--accent); stroke-width: 6; }
-.ur-hl.src { stroke: #ff6f00; }
-.ur-hl.last { stroke: var(--accent); stroke-width: 4; stroke-dasharray: 10 8; }
-.ur-hl.tip { stroke: #ff6f00; stroke-dasharray: 4 6; }
+.ur-hl { fill: none; stroke: var(--select-ring); stroke-width: 6; }
+.ur-hl.src { stroke: var(--select-ring); }
+.ur-hl.last { stroke: var(--select-ring); stroke-width: 4; stroke-dasharray: 10 8; }
+.ur-hl.tip { stroke: var(--select-ring); stroke-dasharray: 4 6; }
 .ur-pc.b { fill: var(--ur-blue); stroke: var(--ur-blue-lo); } .ur-pc.r { fill: var(--ur-red); stroke: var(--ur-red-lo); }
 .ur-pc { stroke-width: 3; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.4)); }
-.ur-pc-ring { fill: none; stroke: rgba(255, 255, 255, 0.55); stroke-width: 3; }
-.bg-dot.ub { background: var(--ur-blue); } .bg-dot.ur { background: var(--ur-red); }
+.ur-pc-ring { fill: none; stroke: var(--disc-w); stroke-opacity: 0.55; stroke-width: 3; }
 .ur-pt { border-radius: 8px; }
 
 .ur-dice { display: flex; align-items: center; gap: 10px; min-height: 58px; }
 .ur-die { width: 48px; height: 48px; }
-.ur-die polygon { fill: #fdfcf8; stroke: #8a8f99; stroke-width: 2.5; stroke-linejoin: round; }
-.ur-die circle { fill: #1d2433; }
+.ur-die polygon { fill: var(--disc-w); stroke: #8c8880; stroke-width: 2.5; stroke-linejoin: round; }
+.ur-die circle { fill: var(--disc-b); }
 .ur-die.up polygon { fill: #fff6dc; stroke: var(--ur-gold); }
 .ur-die.up circle { fill: #c0392b; }
 .ur-die.tumble { animation: ur-tumble 0.14s linear infinite; }
 @keyframes ur-tumble { from { transform: rotate(-14deg) translateY(-2px); } to { transform: rotate(14deg) translateY(2px); } }
 .ur-total { min-width: 2ch; padding-left: 4px; font: 800 32px var(--mono); color: var(--ink); text-align: center; }
 @media (prefers-reduced-motion: reduce) { .ur-die.tumble { animation: none; } }
+html[data-anim="off"] .ur-die.tumble { animation: none; }
 @media (max-width: 420px) { .ur-die { width: 42px; height: 42px; } .ur-dice { gap: 6px; } }

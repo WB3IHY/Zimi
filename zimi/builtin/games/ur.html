@@ -6,27 +6,28 @@
 <title>Royal Game of Ur - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="boardui.css">
 <link rel="stylesheet" href="world.css">
 <link rel="stylesheet" href="ur.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body>
 <header class="ar-bar">
-  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <a class="ar-back" href="index.html" data-t-aria="shell.back" aria-label="Back">&lsaquo;</a>
   <h1>Royal Game of Ur</h1>
-  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog">New game</button>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="bg-main">
-  <div class="bg-score" id="wk-score" aria-label="Pieces"></div>
-  <div class="wk-board ur-board" id="ur-board" role="group" aria-label="Royal Game of Ur board"></div>
+  <p class="bg-status" id="wk-status"></p>
+  <div class="bg-score" id="wk-score" data-t-aria="makruk.pieces" aria-label="Pieces"></div>
+  <div class="wk-board ur-board" id="ur-board" role="group" data-t-aria="ur.boardLabel" aria-label="Royal Game of Ur board"></div>
   <div class="ur-dice" id="ur-dice" aria-hidden="true"></div>
-  <p class="bg-status" id="wk-status" role="status" aria-live="polite"></p>
-  <div class="bg-controls"><button class="ar-btn" id="ur-roll" type="button" aria-pressed="true">Roll the dice</button><button class="ar-btn" id="wk-hint" type="button" disabled>Hint</button></div>
+  <div class="bg-controls"><button class="ar-btn" id="ur-roll" type="button" aria-pressed="true" data-t="backgammon.roll">Roll</button><button class="ar-btn" id="wk-hint" type="button" disabled data-t="board.hint">Hint</button></div>
   <p class="bg-stats" id="wk-stats"></p>
-  <p class="bg-help">Finkel's rules. Race all 7 pieces along your path and off the board with an exact throw. Four dice give 0 to 4. Landing on an enemy piece in the middle lane sends it back to the start. The central rosette is safe. Any rosette gives another throw. Tap a piece that can move (or its target square) to play it. Arrow keys move, Enter plays, R or Space rolls, H hints, N starts a new game.</p>
 </main>
 <script src="boardkit.js"></script>
+<script src="boardui.js"></script>
 <script src="worldkit.js"></script>
 <script src="ur-engine.js"></script>
 <script src="ur.js"></script>

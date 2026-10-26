@@ -2,18 +2,19 @@
    ur-engine.js. Our own code and our own drawn board, GPL-3.0. */
 (function (root) {
   'use strict';
-  if (typeof document === 'undefined' || !root.ZimiUrEngine) return;
-  var WK = root.WorldKit, BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  if (typeof document === 'undefined' || !root.ZimiUrEngine || !root.BoardUI) return;
+  var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var E = root.ZimiUrEngine();
   var CELL = 100, COLS = 8, ROWS = 3, W = COLS * CELL, H = ROWS * CELL, PIECE_R = 33, POOL_R = 12, POOL_STEP = 29;
   var ROLL_FLICKER_MS = 70, ROLL_MS = 650, COMPUTER_ROLL_DELAY_MS = 500, COMPUTER_MOVE_DELAY_MS = 700, PASS_DELAY_MS = 1200, AUTO_DELAY_MS = 600, HINT_LEVEL = 'hard';
-  var SIDE_NAME = ['Blue', 'Red'], CLS = ['b', 'r'];
+  var CLS = ['b', 'r'];
+  function sideName(p) { return UI.side(p === 0 ? 'blue' : 'red'); }
   var NS = 'http://www.w3.org/2000/svg';
 
   var G = WK.create({
     id: 'ur',
-    options: WK.standardOptions({ first: 'Blue (first)', second: 'Red' }),
-    checks: [{ key: 'auto', label: 'Play a move for me when it is the only one', def: true }],
+    options: WK.standardOptions({ first: 'ur.blueFirst', second: 'board.red' }),
+    checks: [{ key: 'auto', label: 'ur.auto', def: true }],
     onNew: newGame, onHint: hint
   });
   var score = WK.scoreBar($('wk-score'), [{ color: 'var(--ur-blue)' }, { color: 'var(--ur-red)' }]);
@@ -21,7 +22,10 @@
   var st, roll = null, moves = [], tip = null, last = null, phase = 'roll', rolling = false, svg, btns = [], pts = [], ptKey = [];
 
   function turnIdx() { return st.turn; }
-  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? 'You' : 'The computer') : SIDE_NAME[p]; }
+  function isYou(p) { return G.vsComputer() && !G.watching && G.human(p); }
+  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? T('board.you') : T('board.theComputer')) : sideName(p); }
+  // A sentence about a mover: its "you" form when the mover is the person (verbs agree).
+  function say(key, p, vars) { return T(key + (isYou(p) ? '.you' : ''), Object.assign({ name: nameOf(p) }, vars)); }
   function flipRows() { return G.vsComputer() && G.settings.side === 'second'; }
   // Where a path square of a player is drawn (the human's own lane is the near one).
   function place(p, k) {
@@ -114,16 +118,16 @@
       var key = ptKey[j], label, enabled = false;
       if (key.type === 'sq') {
         var who = pieceAt(0, key.k) >= 0 && (key.shared || key.p === 0) ? 0 : pieceAt(1, key.k) >= 0 && (key.shared || key.p === 1) ? 1 : -1;
-        label = (key.shared ? 'middle square ' : SIDE_NAME[key.p] + ' square ') + key.k + (E.isRosette(key.k) ? ' (rosette)' : '') + (who >= 0 ? ', ' + SIDE_NAME[who] + ' piece' : ', empty');
+        label = T(key.shared ? 'ur.sq.middle' : 'ur.sq', { side: sideName(key.p), k: key.k }) + (E.isRosette(key.k) ? ' ' + T('ur.rosette') : '') + ', ' + (who >= 0 ? T('ur.piece', { side: sideName(who) }) : T('go.pt.empty'));
         enabled = canTap && ((who === st.turn && sources[key.k]) || (targets[key.k] && (key.shared || key.p === st.turn)));
       } else {
-        label = SIDE_NAME[key.p] + ' waiting pieces: ' + E.waiting(st, key.p);
+        label = T('ur.waiting', { side: sideName(key.p), n: E.waiting(st, key.p) });
         enabled = canTap && key.p === st.turn && sources[0];
       }
       b.setAttribute('aria-label', label); b.setAttribute('aria-disabled', enabled ? 'false' : 'true');
     });
-    var names = G.names(SIDE_NAME[0], SIDE_NAME[1]);
-    score([names[0] + ' home ' + E.home(st, 0), names[1] + ' home ' + E.home(st, 1)], null, G.over ? -1 : st.turn);
+    var names = G.names(sideName(0), sideName(1));
+    score([T('ur.home', { name: names[0] }), T('ur.home', { name: names[1] })], [E.home(st, 0), E.home(st, 1)], G.over ? -1 : st.turn);
     rollBtn.disabled = !(phase === 'roll' && !G.over && !rolling && G.human(st.turn));
     G.setHint(canTap);
   }
@@ -153,46 +157,48 @@
     paint();
     if (G.over) return;
     var p = st.turn;
-    if (G.human(p)) { G.say((G.vsComputer() ? 'Your turn' : SIDE_NAME[p] + ' to throw') + ': roll the dice.'); }
-    else { G.say('Computer is rolling', true); var token = G.begin(); setTimeout(function () { if (G.done(token)) doRoll(); }, COMPUTER_ROLL_DELAY_MS); }
+    if (G.human(p)) { G.say(T(G.vsComputer() ? 'ur.yourRoll' : 'ur.toRoll', { name: sideName(p) })); }
+    else { G.say(T('ur.computerRolling'), true); var token = G.begin(); setTimeout(function () { if (G.done(token)) doRoll(); }, COMPUTER_ROLL_DELAY_MS); }
   }
   function doRoll() {
     if (G.over || phase !== 'roll' || rolling) return;
     var token = G.begin(), p = st.turn;
-    G.say(nameOf(p) + (nameOf(p) === 'You' ? ' are' : ' is') + ' rolling...');
+    G.say(say('ur.rolling', p));
     animateRoll(function (n) {
       if (!G.done(token)) return;
       roll = n; moves = E.legalMoves(st, n); phase = 'move';
-      var who = nameOf(p);
       if (!moves.length) {
-        paint(); G.say(who + ' rolled ' + n + (n ? (who === 'You' ? ' and have no move.' : ' and has no move.') : '.'));
+        paint(); G.say(n ? say('ur.noMove', p, { n: n }) : say('ur.rolled', p, { n: n }));
         var t2 = G.begin(); setTimeout(function () { if (!G.done(t2)) return; st = E.pass(st); startTurn(); }, PASS_DELAY_MS);
         return;
       }
       paint();
       if (!G.human(p)) {
-        G.say(who + ' rolled ' + n + '.', true);
+        G.say(say('ur.rolled', p, { n: n }), true);
         var t3 = G.begin(); setTimeout(function () { if (!G.done(t3)) return; var c = E.choose(st, n, G.settings.level); play(moves[c.index >= 0 ? c.index : 0]); }, COMPUTER_MOVE_DELAY_MS);
         return;
       }
       if (G.settings.auto && moves.length === 1) {
-        G.say('You rolled ' + n + '. Only one move.', true);
+        G.say(T('ur.onlyOne', { n: n }), true);
         var t4 = G.begin(); setTimeout(function () { if (!G.done(t4)) return; play(moves[0]); }, AUTO_DELAY_MS);
         return;
       }
-      G.say((G.vsComputer() ? 'You rolled ' : nameOf(p) + ' rolled ') + n + '. Tap a piece to move it.');
+      G.say(say('ur.tap', p, { n: n }));
     });
   }
   function play(m) {
-    var p = st.turn, who = nameOf(p), note = who + ' moved ' + (m.from === 0 ? 'a new piece in' : 'a piece') + (m.off ? ' and took it home' : '') + (m.capture ? ', taking a piece' : '') + (m.rosette ? (who === 'You' ? ', and you throw again' : ', and throws again') : '') + '. ';
+    var p = st.turn, parts = [m.off ? say('ur.movedHome', p) : say(m.from === 0 ? 'ur.movedNew' : 'ur.moved', p)];
+    if (m.capture) parts.push(say('ur.captured', p));
+    if (m.rosette) parts.push(say('ur.again', p));
+    var note = parts.join(' ');
     st = E.apply(st, m); last = { p: p, to: m.to }; tip = null;
     if (st.winner >= 0) { phase = 'over'; moves = []; paint(); win(); return; }
     startTurn();
-    G.say(note + (G.human(st.turn) ? (G.vsComputer() ? 'Your turn: roll the dice.' : SIDE_NAME[st.turn] + ' to throw.') : 'Computer is rolling'), !G.human(st.turn));
+    G.say(T('janggi.noted', { note: note, line: G.human(st.turn) ? T(G.vsComputer() ? 'ur.yourRoll' : 'ur.toRoll', { name: sideName(st.turn) }) : T('ur.computerRolling') }), !G.human(st.turn));
   }
   function win() {
-    var w = st.winner, msg = (G.vsComputer() ? (G.human(w) ? 'You win' : 'The computer wins') : SIDE_NAME[w] + ' wins') + ': all seven pieces are home.';
-    G.finish(msg, G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, G.vsComputer() && G.human(w) ? 'You win' : 'Game over');
+    var w = st.winner;
+    G.finish(T('ur.allHome'), G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, sideName(w));
   }
 
   function onPoint(i) {
@@ -207,13 +213,13 @@
     }
     m = moves.filter(function (x) { return x.from === from; })[0];
     if (m) play(m);
-    else G.say('That piece cannot move ' + roll + ' squares.');
+    else G.refuse(btns[i], T('ur.cantMove', { n: roll }));
   }
   function hint() {
     if (phase !== 'move' || !moves.length) return;
     var c = E.choose(st, roll, HINT_LEVEL, function () { return 0.5; });
     tip = moves[c.index >= 0 ? c.index : 0]; paint();
-    G.say('Hint: try the marked move.');
+    G.say(T('ur.hint'));
   }
   function newGame() {
     st = E.newState(); last = null; roll = null; moves = []; tip = null; rolling = false;
@@ -229,6 +235,7 @@
     if ((k === 'r' || (k === ' ' && e.target === document.body)) && !rollBtn.disabled) { e.preventDefault(); doRoll(); }
   });
 
+  if (root.ZimiShell) root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && (st.pos[0].some(function (k) { return k > 0; }) || st.pos[1].some(function (k) { return k > 0; })); } });
   G.newGame();
 
   if (new URLSearchParams(location.search).has('debug')) {

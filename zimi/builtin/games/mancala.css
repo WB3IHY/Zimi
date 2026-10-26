@@ -9,8 +9,8 @@
 .mc-seed { stroke: rgba(0, 0, 0, 0.35); stroke-width: 0.8; }
 .mc-count { font: 700 13px var(--mono); fill: var(--mc-count); paint-order: stroke; stroke: rgba(0, 0, 0, 0.45); stroke-width: 3px; }
 .mc-count.z { opacity: 0.55; }
-.mc-ok { fill: none; stroke: rgba(255, 255, 255, 0.5); stroke-width: 2; stroke-dasharray: 3 4; }
-.mc-last { fill: none; stroke: #facc15; stroke-width: 3.5; }
-.mc-cap { fill: none; stroke: #ef4444; stroke-width: 3.5; }
-.mc-hint { fill: none; stroke: var(--accent); stroke-width: 4; stroke-dasharray: 6 4; }
-.mc-pit-btn[aria-disabled="false"]:hover { background: rgba(255, 255, 255, 0.14); border-radius: 12px; }
+.mc-ok { fill: none; stroke: var(--disc-w); opacity: 0.5; stroke-width: 2; stroke-dasharray: 3 4; }
+.mc-last { fill: none; stroke: var(--select-ring); stroke-width: 3.5; }
+.mc-cap { fill: none; stroke: var(--danger); stroke-width: 3.5; }
+.mc-hint { fill: none; stroke: var(--select-ring); stroke-width: 4; stroke-dasharray: 6 4; }
+.mc-pit-btn[aria-disabled="false"]:hover { background: var(--accent-glow); border-radius: 12px; }
