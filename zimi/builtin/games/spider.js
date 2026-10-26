@@ -12,7 +12,7 @@
    browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards;
+  var Z = root.ZimiCards, TX = root.ZimiCards.T;
 
   var COLUMNS = ['c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9'];
   var DONE = ['d0', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7'];
@@ -170,12 +170,12 @@
 
     var dealsLeft = Math.floor(P.stock.length / DEAL_ROW);
     slots.push({ id: 'stock', x: x(0), y: y1, w: cw, h: ch, mark: P.stock.length ? '' : '∅',
-      label: P.stock.length ? 'Stock, ' + dealsLeft + (dealsLeft === 1 ? ' deal' : ' deals') + ' left, Enter to deal a row' : 'Stock, empty' });
+      label: P.stock.length ? TX('spider.stock', { deals: TX('spider.deals', { n: dealsLeft }) }) : TX('spider.stockEmpty') });
     DONE.forEach(function (d, n) {
-      slots.push({ id: d, x: x(2 + n), y: y1, w: cw, h: ch, label: P[d].length ? 'Finished run ' + (n + 1) + ', ' + Z.SUITS[Z.suit(P[d][0])] : 'Finished run ' + (n + 1) + ', empty' });
+      slots.push({ id: d, x: x(2 + n), y: y1, w: cw, h: ch, label: P[d].length ? TX('spider.run', { n: n + 1, suit: TX('cards.suit.' + ['clubs', 'diamonds', 'hearts', 'spades'][Z.suit(P[d][0])]) }) : TX('spider.runEmpty', { n: n + 1 }) });
     });
     COLUMNS.forEach(function (c, n) {
-      slots.push({ id: c, x: x(n), y: y2, w: cw, h: Math.max(ch, Math.min(height, y1 - Math.round(ch * ROW_GAP_SHARE)) - y2), label: Z.describePile('Column ' + (n + 1), Z.idsOf(P[c]), P[c].length && top(P[c]).up) });
+      slots.push({ id: c, x: x(n), y: y2, w: cw, h: Math.max(ch, Math.min(height, y1 - Math.round(ch * ROW_GAP_SHARE)) - y2), label: Z.describePile(TX('fc.column', { n: n + 1 }), Z.idsOf(P[c]), P[c].length && top(P[c]).up) });
     });
     return { height: height, slots: slots, cards: cards };
   }
@@ -189,14 +189,13 @@
   root.ZimiSpider = api;
 
   // ── The page ────────────────────────────────────────────────────────────
-  var AUTO_REFUSE = 'Fill every empty column before dealing';
   function boot() {
     var el = Z.pageEls(), board, session;
     Z.ensureSprite();
     var suits = Z.store.get(SUITS_KEY, 1);
     if (!SUIT_SETS[suits]) suits = 1;
 
-    function setSub() { el.sub.textContent = suits + (suits === 1 ? ' suit' : ' suits'); }
+    function setSub() { el.sub.textContent = TX('spider.suits', { n: suits }); }
     function commit(next) {
       session.commit(next);
       if (isWon(session.state)) session.win(session.state.score);
@@ -209,7 +208,7 @@
     function deal() {
       var next = dealRow(session.state);
       if (!next) {
-        if (session.state.piles.stock.length) { board.say(AUTO_REFUSE); el.sub.textContent = AUTO_REFUSE; session.later(setSub, 2200); }
+        if (session.state.piles.stock.length) { board.say(TX('spider.refuse')); el.sub.textContent = TX('spider.refuse'); session.later(setSub, 2200); }
         return false;
       }
       return commit(next);
@@ -237,21 +236,21 @@
         for (i = 0; i < Z.KING; i++) DONE.forEach(function (d) { if (st.piles[d][i] !== undefined) order.push({ id: st.piles[d][i] }); });
         return order;
       },
-      winLines: function (sec, st) { return ['Score ' + st.score + ' with ' + st.suits + (st.suits === 1 ? ' suit' : ' suits'), 'Time ' + Z.fmtTime(sec) + ', ' + Z.plural(st.moves, 'move')]; },
+      winLines: function (sec, st) { return [TX('spider.win', { score: st.score, suits: TX('spider.suits', { n: st.suits }) }), TX('sol.winTime', { time: Z.fmtTime(sec), moves: Z.plural(st.moves, 'move') })]; },
       openMenu: function () {
-        var pick = Z.segmented([{ label: '1 suit', value: 1 }, { label: '2 suits', value: 2 }, { label: '4 suits', value: 4 }], suits, function (v) {
+        var pick = Z.segmented([{ label: TX('spider.suits', { n: 1 }), value: 1 }, { label: TX('spider.suits', { n: 2 }), value: 2 }, { label: TX('spider.suits', { n: 4 }), value: 4 }], suits, function (v) {
           suits = v; Z.store.set(SUITS_KEY, v);
           if (!session.state.moves) newGame(); else setSub();
         });
         Z.sheet({
           title: 'Spider',
           body: [
-            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: 'Suits' }), pick]),
-            Z.h('p', { class: 'zc-note', text: 'A change after the first move applies to the next deal. Records are kept for each number of suits.' }),
+            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('spider.suitsRow') }), pick]),
+            Z.h('p', { class: 'zc-note', text: TX('spider.nextDeal') }),
             Z.backsRow(),
             Z.h('p', { class: 'zc-stats', text: session.stats.line() })
           ],
-          actions: [{ label: 'New game', onclick: newGame }, { label: 'Done', primary: true }]
+          actions: [{ label: TX('shell.menu.new'), onclick: newGame }, { label: TX('shell.close'), primary: true }]
         });
       }
     });

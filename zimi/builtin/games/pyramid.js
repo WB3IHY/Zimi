@@ -9,7 +9,7 @@
    at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards;
+  var Z = root.ZimiCards, TX = root.ZimiCards.T;
 
   var ROWS = 7, TARGET = 13, MAX_REDEALS = 2;
   var SCORE = { card: 5, clear: 50, redealLeft: 25 };
@@ -106,28 +106,31 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var ROW_STEP_SHARE = 0.5, ROW_GAP_SHARE = 0.3, HEIGHT_SHARE = 0.125;
+  var ROW_STEP_SHARE = 0.5, ROW_STEP_MAX = 0.86, ROW_GAP_SHARE = 0.3, HEIGHT_SHARE = 0.125;
 
   function place(state, m, view) {
-    var P = state.piles, cw = m.cw, ch = m.ch, rowStep = ch * ROW_STEP_SHARE, picked = view && view.picked;
+    var P = state.piles, cw = m.cw, ch = m.ch, picked = view && view.picked;
     var x = function (col) { return m.left + col * m.step; };
     // The pyramid starts under the bar; stock, waste and the taken pile sit in the bottom row, under the thumb.
-    var y1 = m.pad, y2 = Math.max(m.H - m.pad - ch, y1 + rowStep * (ROWS - 1) + ch + Math.round(ch * ROW_GAP_SHARE)), slots = [], cards = [], height = y2 + ch + m.pad;
+    // Rows step down to fill the height: the more of a covered card shows, the easier the pyramid reads.
+    var y1 = m.pad, yBottom = m.H - m.pad - ch, room = yBottom - Math.round(ch * ROW_GAP_SHARE) - ch - y1;
+    var rowStep = Math.max(ch * ROW_STEP_SHARE, Math.min(ch * ROW_STEP_MAX, room / (ROWS - 1)));
+    var y2 = Math.max(yBottom, y1 + rowStep * (ROWS - 1) + ch + Math.round(ch * ROW_GAP_SHARE)), slots = [], cards = [], height = y2 + ch + m.pad;
     var at = function (p) { return { x: x(COLS / 2 - 0.5 - rowOf(p) / 2 + colOf(p)), y: y1 + rowOf(p) * rowStep }; };
 
     PYRAMID.forEach(function (p) {
       if (!P[p].length) return;
       var a = at(p);
       cards.push({ id: P[p][0], pile: p, idx: 0, x: a.x, y: a.y, up: true, mark: picked === p, dim: !isFree(state, p) });
-      slots.push({ id: p, x: a.x, y: a.y, w: cw, h: ch, label: 'Row ' + (rowOf(p) + 1) + ', card ' + (colOf(p) + 1) + ', ' + Z.cardName(P[p][0]) + (isFree(state, p) ? '' : ', covered') });
+      slots.push({ id: p, x: a.x, y: a.y, w: cw, h: ch, label: TX(isFree(state, p) ? 'pyr.card' : 'pyr.cardCovered', { row: rowOf(p) + 1, col: colOf(p) + 1, card: Z.cardName(P[p][0]) }) });
     });
     P.stock.forEach(function (id, i) { cards.push({ id: id, pile: 'stock', idx: i, x: x(0), y: y2, up: false, hidden: i < P.stock.length - 2 }); });
     P.waste.forEach(function (id, i) { cards.push({ id: id, pile: 'waste', idx: i, x: x(1), y: y2, up: true, hidden: i < P.waste.length - 2, mark: picked === 'waste' && i === P.waste.length - 1 }); });
     P.out.forEach(function (id, i) { cards.push({ id: id, pile: 'out', idx: i, x: x(COLS - 1), y: y2, up: true, hidden: i < P.out.length - 2 }); });
 
-    slots.push({ id: 'stock', x: x(0), y: y2, w: cw, h: ch, mark: P.stock.length ? '' : (canDraw(state) ? '↻' : '∅'), label: Z.describePile('Stock', P.stock, false) + (P.stock.length ? ', Enter to turn a card' : canDraw(state) ? ', Enter to go round again' : ', empty') });
-    slots.push({ id: 'waste', x: x(1), y: y2, w: cw, h: ch, label: Z.describePile('Waste', P.waste, true) });
-    slots.push({ id: 'out', x: x(COLS - 1), y: y2, w: cw, h: ch, label: 'Taken cards, ' + P.out.length + '. Drop a king here.' });
+    slots.push({ id: 'stock', x: x(0), y: y2, w: cw, h: ch, mark: P.stock.length ? '' : (canDraw(state) ? '↻' : '∅'), label: Z.describePile(TX('sol.stock'), P.stock, false) + (P.stock.length ? TX('pyr.enterTurn') : canDraw(state) ? TX('pyr.enterAgain') : '') });
+    slots.push({ id: 'waste', x: x(1), y: y2, w: cw, h: ch, label: Z.describePile(TX('sol.waste'), P.waste, true) });
+    slots.push({ id: 'out', x: x(COLS - 1), y: y2, w: cw, h: ch, label: TX('pyr.taken', { n: P.out.length }) });
     return { height: height, slots: slots, cards: cards };
   }
 
@@ -143,7 +146,7 @@
     var el = Z.pageEls(), board, session, view = { picked: null };
     Z.ensureSprite();
 
-    function paintSub() { var st = session && session.state; if (!st) return; el.sub.textContent = isStuck(st) ? 'No moves left' : 'Redeals ' + (MAX_REDEALS - st.redeals); }
+    function paintSub() { var st = session && session.state; if (!st) return; el.sub.textContent = isStuck(st) ? TX('cards.noMoves') : TX('pyr.redeals', { n: MAX_REDEALS - st.redeals }); }
     function afterMove() {
       var st = session.state;
       view.picked = null;
@@ -152,9 +155,9 @@
       if (isStuck(st)) {
         session.stats.scored(st.score);
         Z.sheet({
-          title: 'No moves left',
-          body: [Z.h('p', { class: 'zc-note', text: pyramidLeft(st) + ' cards left in the pyramid.' }), Z.h('p', { class: 'zc-stats', text: session.stats.line() })],
-          actions: [{ label: 'Undo', onclick: session.undo }, { label: 'New game', primary: true, onclick: newGame }]
+          title: TX('cards.noMoves'),
+          body: [Z.h('p', { class: 'zc-note', text: TX('pyr.left', { n: pyramidLeft(st) }) }), Z.h('p', { class: 'zc-stats', text: session.stats.line() })],
+          actions: [{ label: TX('shell.undo'), onclick: session.undo }, { label: TX('shell.menu.new'), primary: true, onclick: newGame }]
         });
       }
     }
@@ -187,16 +190,16 @@
       id: 'pyramid', board: board, newGame: newGame, els: el,
       statText: function (sec, st) { paintSub(); return Z.fmtTime(sec) + ' · ' + st.score; },
       cascadeOrder: function (st) { return st.piles.out.slice().reverse().map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return ['Score ' + st.score + ' (clear bonus ' + (SCORE.clear + SCORE.redealLeft * (MAX_REDEALS - st.redeals)) + ')', 'Time ' + Z.fmtTime(sec) + ', ' + Z.plural(st.moves, 'move')]; },
+      winLines: function (sec, st) { return [TX('pyr.win', { score: st.score, bonus: SCORE.clear + SCORE.redealLeft * (MAX_REDEALS - st.redeals) }), TX('sol.winTime', { time: Z.fmtTime(sec), moves: Z.plural(st.moves, 'move') })]; },
       openMenu: function () {
         Z.sheet({
           title: 'Pyramid',
           body: [
-            Z.h('p', { class: 'zc-note', text: 'Take two free cards that add up to 13, or a free king alone. Ace is 1, jack 11, queen 12. Tap one card, then its partner. Cards you can take are bright; covered ones are dim.' }),
+            Z.h('p', { class: 'zc-note', text: TX('pyr.rules') }),
             Z.backsRow(),
             Z.h('p', { class: 'zc-stats', text: session.stats.line() })
           ],
-          actions: [{ label: 'New game', onclick: newGame }, { label: 'Done', primary: true }]
+          actions: [{ label: TX('shell.menu.new'), onclick: newGame }, { label: TX('shell.close'), primary: true }]
         });
       }
     });

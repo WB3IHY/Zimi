@@ -11,7 +11,7 @@
    the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards;
+  var Z = root.ZimiCards, TX = root.ZimiCards.T;
 
   var SCORE = { perStreak: 5, peak: 30, stockLeft: 10 };
   var TABLEAU_CARDS = 28;
@@ -110,12 +110,12 @@
       if (!P[p].length) return;
       var r = rowOf(p), i = idxOf(p), px = x0 + ROW_X[r][i] * unit, py = y1 + r * rowStep, free = isFree(state, p);
       cards.push({ id: P[p][0], pile: p, idx: 0, x: px, y: py, up: free });
-      slots.push({ id: p, x: px, y: py, w: cw, h: ch, label: free ? 'Row ' + (r + 1) + ', ' + Z.cardName(P[p][0]) : 'Row ' + (r + 1) + ', face down, covered' });
+      slots.push({ id: p, x: px, y: py, w: cw, h: ch, label: free ? TX('tri.row', { row: r + 1, card: Z.cardName(P[p][0]) }) : TX('tri.rowDown', { row: r + 1 }) });
     });
     P.stock.forEach(function (id, i) { cards.push({ id: id, pile: 'stock', idx: i, x: sx, y: y2, up: false, hidden: i < P.stock.length - 2 }); });
     P.waste.forEach(function (id, i) { cards.push({ id: id, pile: 'waste', idx: i, x: wx, y: y2, up: true, hidden: i < P.waste.length - 2 }); });
-    slots.push({ id: 'stock', x: sx, y: y2, w: cw, h: ch, mark: P.stock.length ? '' : '∅', label: Z.describePile('Stock', P.stock, false) + (P.stock.length ? ', Enter to turn a card' : '') });
-    slots.push({ id: 'waste', x: wx, y: y2, w: cw, h: ch, label: Z.describePile('Waste', P.waste, true) });
+    slots.push({ id: 'stock', x: sx, y: y2, w: cw, h: ch, mark: P.stock.length ? '' : '∅', label: Z.describePile(TX('sol.stock'), P.stock, false) + (P.stock.length ? TX('pyr.enterTurn') : '') });
+    slots.push({ id: 'waste', x: wx, y: y2, w: cw, h: ch, label: Z.describePile(TX('sol.waste'), P.waste, true) });
     return { height: height, slots: slots, cards: cards };
   }
 
@@ -137,9 +137,9 @@
       if (isStuck(st)) {
         session.stats.scored(st.score);
         Z.sheet({
-          title: 'No moves left',
-          body: [Z.h('p', { class: 'zc-note', text: tableauLeft(st) + ' cards left on the peaks, score ' + st.score + '.' }), Z.h('p', { class: 'zc-stats', text: session.stats.line() })],
-          actions: [{ label: 'Undo', onclick: session.undo }, { label: 'New game', primary: true, onclick: newGame }]
+          title: TX('cards.noMoves'),
+          body: [Z.h('p', { class: 'zc-note', text: TX('tri.left', { n: tableauLeft(st), score: st.score }) }), Z.h('p', { class: 'zc-stats', text: session.stats.line() })],
+          actions: [{ label: TX('shell.undo'), onclick: session.undo }, { label: TX('shell.menu.new'), primary: true, onclick: newGame }]
         });
       }
     }
@@ -163,20 +163,20 @@
     session = Z.createSession({
       id: 'tripeaks', board: board, newGame: newGame, els: el,
       statText: function (sec, st) {
-        el.sub.textContent = isStuck(st) ? 'No moves left' : st.streak > 1 ? 'Streak ' + st.streak : '';
+        el.sub.textContent = isStuck(st) ? TX('cards.noMoves') : st.streak > 1 ? TX('tri.streak', { n: st.streak }) : '';
         return Z.fmtTime(sec) + ' · ' + st.score;
       },
       cascadeOrder: function (st) { return st.piles.waste.slice().reverse().map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return ['Score ' + st.score + ' (' + st.piles.stock.length + ' cards left in the stock, ' + SCORE.stockLeft + ' each)', 'Time ' + Z.fmtTime(sec) + ', ' + Z.plural(st.moves, 'move')]; },
+      winLines: function (sec, st) { return [TX('tri.win', { score: st.score, stock: Z.plural(st.piles.stock.length, 'card'), each: SCORE.stockLeft }), TX('sol.winTime', { time: Z.fmtTime(sec), moves: Z.plural(st.moves, 'move') })]; },
       openMenu: function () {
         Z.sheet({
           title: 'TriPeaks',
           body: [
-            Z.h('p', { class: 'zc-note', text: 'Play a free card onto the waste when it is one rank higher or lower. Kings and aces wrap. A card is free when nothing overlaps it; it turns face up then. Each card in a streak scores ' + SCORE.perStreak + ' times its place in the streak, and a cleared peak adds ' + SCORE.peak + '.' }),
+            Z.h('p', { class: 'zc-note', text: TX('tri.rules', { per: SCORE.perStreak, peak: SCORE.peak }) }),
             Z.backsRow(),
             Z.h('p', { class: 'zc-stats', text: session.stats.line() })
           ],
-          actions: [{ label: 'New game', onclick: newGame }, { label: 'Done', primary: true }]
+          actions: [{ label: TX('shell.menu.new'), onclick: newGame }, { label: TX('shell.close'), primary: true }]
         });
       }
     });

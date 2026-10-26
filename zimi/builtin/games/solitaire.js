@@ -12,7 +12,7 @@
      On a win: a time bonus of 700000 / seconds when the game took 30+ s. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards;
+  var Z = root.ZimiCards, TX = root.ZimiCards.T;
 
   var TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
   var FOUNDATION = ['f0', 'f1', 'f2', 'f3'];
@@ -184,14 +184,14 @@
     });
     var height = Math.max(bottom + m.pad, m.H);
 
-    slots.push({ id: 'stock', x: x(0), y: y1, w: cw, h: ch, mark: P.stock.length ? '' : '↻', label: Z.describePile('Stock', ids(P.stock), false) + (P.stock.length ? ', Enter to draw' : ', Enter to recycle the waste') });
-    slots.push({ id: 'waste', x: x(1), y: y1, w: cw + fan * (SHOWN_WASTE - 1), h: ch, label: Z.describePile('Waste', ids(P.waste), true) });
+    slots.push({ id: 'stock', x: x(0), y: y1, w: cw, h: ch, mark: P.stock.length ? '' : '↻', label: Z.describePile(TX('sol.stock'), ids(P.stock), false) + (P.stock.length ? TX('sol.enterDraw') : TX('sol.enterRecycle')) });
+    slots.push({ id: 'waste', x: x(1), y: y1, w: cw + fan * (SHOWN_WASTE - 1), h: ch, label: Z.describePile(TX('sol.waste'), ids(P.waste), true) });
     FOUNDATION.forEach(function (f, n) {
       var t = P[f].length ? top(P[f]).id : null;
-      slots.push({ id: f, x: x(3 + n), y: y1, w: cw, h: ch, mark: t === null ? 'A' : '', label: t === null ? 'Foundation, empty' : 'Foundation, ' + Z.SUITS[Z.suit(t)] + ', ' + P[f].length + (P[f].length === 1 ? ' card' : ' cards') });
+      slots.push({ id: f, x: x(3 + n), y: y1, w: cw, h: ch, mark: t === null ? 'A' : '', label: (t === null ? TX('sol.foundationEmpty') : TX('sol.foundation', { suit: TX('cards.suit.' + ['clubs', 'diamonds', 'hearts', 'spades'][Z.suit(t)]), cards: Z.plural(P[f].length, 'card') })) });
     });
     TABLEAU.forEach(function (t, n) {
-      slots.push({ id: t, x: x(n), y: y2, w: cw, h: Math.max(ch, Math.min(height, y1 - Math.round(ch * ROW_GAP_SHARE)) - y2), label: Z.describePile('Tableau ' + (n + 1), ids(P[t]), P[t].length && top(P[t]).up) });
+      slots.push({ id: t, x: x(n), y: y2, w: cw, h: Math.max(ch, Math.min(height, y1 - Math.round(ch * ROW_GAP_SHARE)) - y2), label: Z.describePile(TX('sol.tableau', { n: n + 1 }), ids(P[t]), P[t].length && top(P[t]).up) });
     });
     return { height: height, slots: slots, cards: cards };
   }
@@ -217,9 +217,9 @@
     var watch = null, watchWaiting = false, watchCtx = null, watchDraw = 0;
     function watchDrive() {
       var st = session.state, mine = watch;
-      if (isWon(st)) { mine.finish('All four piles are complete: the hand is won. Press Done to play one yourself.'); return; }
+      if (isWon(st)) { mine.finish(TX('sol.watchWon')); return; }
       var step = root.ZimiExplain.solitaire(api, Z, st, watchCtx);
-      if (!step) { mine.finish('Nothing more can be done: no card can move and the deck has been through twice. Not every deal can be won. Press Done to play one yourself.'); return; }
+      if (!step) { mine.finish(TX('sol.watchStuck')); return; }
       watchWaiting = true;
       mine.offer(step.text, function () { watchWaiting = false; if (watch !== mine) return; session.follow(step.next); watchDrive(); });
     }
@@ -250,7 +250,7 @@
       session.commit(next);
       return true;
     }
-    function newGame() { sub.textContent = 'Draw ' + drawN; session.reset(deal()); }
+    function newGame() { sub.textContent = TX('sol.draw', { n: drawN }); session.reset(deal()); }
 
     board = Z.createBoard({
       table: d.getElementById('zc-table'), cols: COLS, place: place,
@@ -271,21 +271,21 @@
         for (r = Z.KING; r >= 1; r--) FOUNDATION.forEach(function (f) { order.push({ id: st.piles[f][r - 1].id }); });
         return order;
       },
-      winLines: function (sec, st) { return ['Score ' + st.score + ' + time bonus ' + timeBonus(sec) + ' = ' + (st.score + timeBonus(sec)), 'Time ' + Z.fmtTime(sec) + ', ' + st.moves + ' moves']; },
+      winLines: function (sec, st) { return [TX('sol.winScore', { score: st.score, bonus: timeBonus(sec), total: st.score + timeBonus(sec) }), TX('sol.winTime', { time: Z.fmtTime(sec), moves: Z.plural(st.moves, 'move') })]; },
       openMenu: function () {
-        var drawPick = Z.segmented([{ label: 'Draw 1', value: 1 }, { label: 'Draw 3', value: 3 }], drawN, function (v) {
+        var drawPick = Z.segmented([{ label: TX('sol.draw', { n: 1 }), value: 1 }, { label: TX('sol.draw', { n: 3 }), value: 3 }], drawN, function (v) {
           drawN = v; Z.store.set(DRAW_KEY, v);
           if (!session.state.moves) newGame();
         });
         Z.sheet({
           title: 'Solitaire',
           body: [
-            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: 'Cards drawn' }), drawPick]),
-            Z.h('p', { class: 'zc-note', text: 'A change after the first move applies to the next deal.' }),
+            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('sol.cardsDrawn') }), drawPick]),
+            Z.h('p', { class: 'zc-note', text: TX('sol.nextDeal') }),
             Z.backsRow(),
             Z.h('p', { class: 'zc-stats', text: session.stats.line() })
           ],
-          actions: [{ label: 'New game', onclick: newGame }, { label: 'Done', primary: true }]
+          actions: [{ label: TX('shell.menu.new'), onclick: newGame }, { label: TX('shell.close'), primary: true }]
         });
       }
     });
@@ -295,7 +295,7 @@
         script: 'explain-solitaire.js', unit: 'step',
         start: function (ctl) {
           watchDraw = drawN; drawN = 1; watch = ctl; watchCtx = {}; newGame();
-          ctl.say('The computer plays this hand. Foundations first, then moves that turn cards over.');
+          ctl.say(TX('sol.watchIntro'));
           watchDrive();
         },
         stop: function (kind) {

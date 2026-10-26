@@ -8,7 +8,7 @@
    plus the deal number and a move count. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards;
+  var Z = root.ZimiCards, TX = root.ZimiCards.T;
 
   var COLUMNS = ['c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'];
   var CELLS = ['fr0', 'fr1', 'fr2', 'fr3'];
@@ -143,14 +143,14 @@
     var height = Math.max(bottom + m.pad, m.H);
 
     CELLS.forEach(function (c, n) {
-      slots.push({ id: c, x: x(n), y: y1, w: cw, h: ch, label: P[c].length ? 'Free cell ' + (n + 1) + ', ' + Z.cardName(P[c][0]) : 'Free cell ' + (n + 1) + ', empty' });
+      slots.push({ id: c, x: x(n), y: y1, w: cw, h: ch, label: P[c].length ? TX('fc.cell', { n: n + 1, card: Z.cardName(P[c][0]) }) : TX('fc.cellEmpty', { n: n + 1 }) });
     });
     FOUNDATION.forEach(function (f, n) {
       var t = P[f].length ? top(P[f]) : null;
-      slots.push({ id: f, x: x(COLS / 2 + n), y: y1, w: cw, h: ch, mark: t === null ? 'A' : '', label: t === null ? 'Foundation, empty' : 'Foundation, ' + Z.SUITS[Z.suit(t)] + ', ' + P[f].length + (P[f].length === 1 ? ' card' : ' cards') });
+      slots.push({ id: f, x: x(COLS / 2 + n), y: y1, w: cw, h: ch, mark: t === null ? 'A' : '', label: (t === null ? TX('sol.foundationEmpty') : TX('sol.foundation', { suit: TX('cards.suit.' + ['clubs', 'diamonds', 'hearts', 'spades'][Z.suit(t)]), cards: Z.plural(P[f].length, 'card') })) });
     });
     COLUMNS.forEach(function (c, n) {
-      slots.push({ id: c, x: x(n), y: y2, w: cw, h: Math.max(ch, Math.min(height, y1 - Math.round(ch * ROW_GAP_SHARE)) - y2), label: Z.describePile('Column ' + (n + 1), P[c], true) });
+      slots.push({ id: c, x: x(n), y: y2, w: cw, h: Math.max(ch, Math.min(height, y1 - Math.round(ch * ROW_GAP_SHARE)) - y2), label: Z.describePile(TX('fc.column', { n: n + 1 }), P[c], true) });
     });
     return { height: height, slots: slots, cards: cards };
   }
@@ -183,22 +183,22 @@
       session.reset(newState(n));
     }
     function randomDeal() { startDeal(randomDealNo()); }
-    function dealLabel() { return 'Deal #' + dealNo + (dealNo === UNWINNABLE_DEAL ? ' · no winning line' : ''); }
+    function dealLabel() { return TX(dealNo === UNWINNABLE_DEAL ? 'fc.dealNoWin' : 'fc.deal', { n: dealNo }); }
     // ── Hint: the solver's first move, shown as a glow on the card and where it goes ──
     function note(text) { clearTimeout(noteTimer); toast.textContent = text; toast.hidden = false; noteTimer = setTimeout(function () { toast.hidden = true; }, HINT_SHOW_MS); }
     function showHint() {
       if (hintBusy || session.won) return;
       var st = session.state;
       if (isWon(st)) return;
-      hintBusy = true; hintEl.disabled = true; note('Looking for a move');
+      hintBusy = true; hintEl.disabled = true; note(TX('fc.looking'));
       setTimeout(function () {
         var r = root.ZimiFreeCellSolver.solve(st, { maxNodes: HINT_NODES, maxMs: HINT_MS });
         hintBusy = false; hintEl.disabled = false;
         if (session.state !== st) return;                  // the player moved while it was thinking
-        if (!r.moves || !r.moves.length) { note('No winning line found from here. Undo a few moves?'); return; }
+        if (!r.moves || !r.moves.length) { note(TX('fc.noLine')); return; }
         hint = { state: st, move: r.moves[0] };
         board.render(st);
-        note('Hint: the glowing card goes to the marked place');
+        note(TX('fc.hint'));
       }, 30);
     }
     // The layout with the hint laid over it: the card glows, and so does where it lands.
@@ -243,30 +243,30 @@
         for (r = Z.KING; r >= 1; r--) FOUNDATION.forEach(function (f) { order.push({ id: st.piles[f][r - 1] }); });
         return order;
       },
-      winLines: function (sec, st) { return ['Deal #' + st.deal + ' in ' + Z.fmtTime(sec) + ', ' + st.moves + ' moves']; },
+      winLines: function (sec, st) { return [TX('fc.win', { n: st.deal, time: Z.fmtTime(sec), moves: Z.plural(st.moves, 'move') })]; },
       openMenu: function () {
-        var input = Z.h('input', { class: 'zc-input', type: 'number', min: '1', max: String(MAX_DEAL), inputmode: 'numeric', 'aria-label': 'Deal number', value: String(dealNo) });
-        var note = Z.h('p', { class: 'zc-note', text: 'The classic deals are 1 to 32000.' });
+        var input = Z.h('input', { class: 'zc-input', type: 'number', min: '1', max: String(MAX_DEAL), inputmode: 'numeric', 'aria-label': TX('fc.dealNumber'), value: String(dealNo) });
+        var note = Z.h('p', { class: 'zc-note', text: TX('fc.classic') });
         var sheet;
         var play = function () {
           var n = parseInt(input.value, 10);
-          if (!(n >= 1 && n <= MAX_DEAL)) { note.textContent = 'Pick a number from 1 to ' + MAX_DEAL + '.'; return; }
+          if (!(n >= 1 && n <= MAX_DEAL)) { note.textContent = TX('fc.pick', { n: MAX_DEAL }); return; }
           sheet.close(); startDeal(n);
         };
         input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); play(); } });
-        var winnablePick = Z.segmented([{ label: 'On', value: true }, { label: 'Off', value: false }], winnableOnly, function (v) { winnableOnly = v; Z.store.set(WINNABLE_KEY, v); });
-        var autoPick = Z.segmented([{ label: 'On', value: true }, { label: 'Off', value: false }], autoOn, function (v) { autoOn = v; Z.store.set(AUTO_KEY, v); });
+        var winnablePick = Z.segmented([{ label: TX('shell.on'), value: true }, { label: TX('shell.off'), value: false }], winnableOnly, function (v) { winnableOnly = v; Z.store.set(WINNABLE_KEY, v); });
+        var autoPick = Z.segmented([{ label: TX('shell.on'), value: true }, { label: TX('shell.off'), value: false }], autoOn, function (v) { autoOn = v; Z.store.set(AUTO_KEY, v); });
         sheet = Z.sheet({
           title: 'FreeCell',
           body: [
-            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: 'Deal number' }), input, Z.h('button', { class: 'ar-btn', type: 'button', text: 'Play', onclick: play })]),
+            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('fc.dealNumber') }), input, Z.h('button', { class: 'ar-btn', type: 'button', text: TX('fc.play'), onclick: play })]),
             note,
-            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: 'Safe cards go up by themselves' }), autoPick]),
-            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: 'Winnable random deals only' }), winnablePick]),
+            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('fc.auto') }), autoPick]),
+            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('fc.winnable') }), winnablePick]),
             Z.backsRow(),
             Z.h('p', { class: 'zc-stats', text: session.stats.line() })
           ],
-          actions: [{ label: 'Restart deal', onclick: function () { startDeal(dealNo); } }, { label: 'Random deal', onclick: randomDeal }, { label: 'Done', primary: true }]
+          actions: [{ label: TX('fc.restart'), onclick: function () { startDeal(dealNo); } }, { label: TX('fc.random'), onclick: randomDeal }, { label: TX('shell.close'), primary: true }]
         });
       }
     });
