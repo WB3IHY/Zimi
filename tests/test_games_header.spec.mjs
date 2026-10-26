@@ -66,9 +66,10 @@ test('Random inside the games is always a game of the shelf', async ({ page, req
   }
 });
 
-test('a Tatham puzzle has the one header too: its name, no Menu, no second bar', async ({ page }) => {
+test('a Tatham puzzle has the one header too: its name, Undo and Menu, no second bar', async ({ page }) => {
   await openGame(page, 'puzzles/fifteen.html');
   await expect(page.locator('#game-title')).toHaveText('Fifteen');
   await expect(page.locator('.topbar-search')).toBeHidden();
-  await expect(page.locator('#game-menu-btn')).toBeHidden();
+  await expect(page.locator('#game-menu-btn')).toBeVisible();
+  await expect(page.locator('#game-act-btn')).toBeVisible();
 });

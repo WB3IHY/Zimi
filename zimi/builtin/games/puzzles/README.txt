@@ -28,25 +28,28 @@ What is unmodified
   <name>-web.png renamed to icons/<name>.png (Group has none upstream; the
   shelf draws its own).
 
-What is changed in the HTML (all done mechanically by the script below)
-  1. "../doc/" becomes "doc/", so the Full instructions link resolves inside
-     this folder (the manual lives at puzzles/doc/).
-  2. href="../" (Back to main puzzles page) becomes href="../puzzles.html",
-     ZimiGames' own shelf for the collection.
-  3. Links that leave the ZIM (https:, http:, mailto:) become plain <span>
-     text, in the puzzle pages and the manual. Nothing is fetched from the
-     network by any page; the manual's footnote URLs are shown as text only.
-  4. ONE line is added to each puzzle page, just before its own script tag:
-       <link rel="stylesheet" href="zimi-fit.css"><script defer src="zimi-fit.js"></script>
-     zimi-fit.css and zimi-fit.js are the only files that are ours.
+What is changed in the HTML (all done mechanically, see Re-vendoring)
+  Each <name>.html is rewritten by scripts/games_puzzles.py into a ZimiGames
+  page. It keeps what the frontend looks for by id (the menu form, the canvas,
+  the status bar, the resize handle) and the page's own <style>; it drops the
+  title block, the upstream links, the author's e-mail, the small-print credit
+  and the "last modified" line. The credit and the MIT licence are on the About
+  page (about.html). The page gets zimi-fit.css and zimi-fit.js before the
+  puzzle's own script, and ../games-help.js and ../shell.js in <head>.
 
 zimi-fit.css / zimi-fit.js
-  Make the pages usable on a phone without touching puzzle code: a back bar,
-  a box the puzzle fits itself to (the loader already supports this through
-  #puzzlecanvascontain), touch-sized and themed menus, light and dark. On touch
-  devices the script adds a tap-mode button (left, right or middle button, as
-  the puzzles are written for a mouse) and, for the puzzles that take digits
-  or letters (Solo, Keen, Towers, Unequal, Filling, Group), a keypad.
+  Make the page an ordinary ZimiGames page without touching puzzle code. The
+  script builds the bar's buttons (Undo, and Restart, Redo and Show solution
+  for the Menu) as proxies that click the frontend's own hidden buttons; hands
+  the shell the Type list and the Game rows for Menu > New game; remaps the
+  puzzle's canvas colors to Zimi's tokens in light and dark (the frontend keeps
+  its colors in the global `colours`, which the script replaces with a proxy
+  that remaps each color as it is stored); shows the frontend's status text as
+  one status line; turns touch into the mouse the frontend expects (a tap is a
+  left click, a drag is a drag, a press and hold is the right button); and adds
+  a keypad on touch for the puzzles that take digits or letters (Solo, Keen,
+  Towers, Unequal, Filling, Group). How to play for each puzzle is in
+  ../games-help.js, keyed by the page's file name.
   The script is deferred and listed before the puzzle's own script, so it
   runs first and the fit box exists when the puzzle looks for it.
 
@@ -84,6 +87,11 @@ Re-vendoring
        for f in sorted(docs.glob('*.html')):
            t = EXT.sub(r'<span>\1</span>', f.read_text(encoding='latin-1'))
            (dest / 'doc' / f.name).write_text(t, encoding='latin-1')
-  4. If the puzzle list changed, update puzzles.html (the shelf, one tile each)
-     and the version line above. If a puzzle gained a digit keypad need, add it
-     to KEYPAD in zimi-fit.js.
+  4. From the repository root, python3 scripts/games_puzzles.py turns each page
+     into a ZimiGames page (it reads the title and the page's own style and menu
+     form, so it can be run on the output of step 3 or on its own output), then
+     python3 scripts/games_shell.py.
+  5. If the puzzle list changed, update puzzles.html (the shelf, one tile each),
+     games-help.js (How to play, four parts each) and the version line above. If
+     a puzzle gained a digit keypad need, add it to KEYPAD in zimi-fit.js; if its
+     colors are the game itself (which block is which), add it to CATEGORICAL.

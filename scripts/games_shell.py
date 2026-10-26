@@ -4,10 +4,11 @@
     python3 scripts/games_shell.py          rewrite the pages in place
 
 Each game page (every page of the games' folder except the shelf, the About
-page and the puzzles list; the Tatham puzzles in puzzles/ have their own page
-and are left alone) gets ``games-help.js`` and ``shell.js`` between two markers
-at the end of <head>, rewritten and never doubled. The scripts are synchronous
-on purpose: the settings must be on <html> before the first paint.
+page and the puzzles list, and the Tatham puzzles in puzzles/, whose pages are
+made by scripts/games_puzzles.py and take the scripts from ../) gets
+``games-help.js`` and ``shell.js`` between two markers at the end of <head>,
+rewritten and never doubled. The scripts are synchronous on purpose: the
+settings must be on <html> before the first paint.
 """
 
 import glob
@@ -23,7 +24,7 @@ _BLOCK = re.compile(
 )
 NOT_GAMES = {"index.html", "about.html", "puzzles.html"}
 TAG = f'{OPEN}<script src="games-help.js"></script><script src="shell.js"></script>{CLOSE}\n'
-PUZZLE_TAG = f'{OPEN}<meta name="zimi-games-host"><script src="../shell.js"></script>{CLOSE}\n'
+PUZZLE_TAG = f'{OPEN}<script src="../games-help.js"></script><script src="../shell.js"></script>{CLOSE}\n'
 
 
 def pages():
