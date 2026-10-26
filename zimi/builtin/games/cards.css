@@ -113,3 +113,7 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 .zc-hintbtn { display: inline-grid; place-items: center; width: 38px; padding: 0; }
 .zc-toast { position: fixed; left: 50%; bottom: max(56px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30; max-width: min(92vw, 420px); padding: 9px 14px; border-radius: 10px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3); font-size: var(--fs-small); text-align: center; }
 .zc-toast[hidden] { display: none; }
+
+/* The fact line over the top of the table (Draw 1, Deal #, Streak): nothing shows when there is nothing to say. */
+.zc-fact { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); z-index: 30; max-width: calc(100% - 16px); padding: 2px var(--sp-3); border-radius: 999px; background: rgba(0, 0, 0, 0.34); color: #fff; font-size: var(--fs-small); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.zc-fact:empty { display: none; }

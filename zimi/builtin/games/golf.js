@@ -67,12 +67,12 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var UP_STEP_SHARE = 0.62, MIN_STEP_SHARE = 0.16, ROW_GAP_SHARE = 0.35, HEIGHT_SHARE = 0.19;
+  var UP_STEP_SHARE = 0.9, MIN_STEP_SHARE = 0.16, ROW_GAP_SHARE = 0.35, HEIGHT_SHARE = 0.19;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
     // The columns start under the bar and fan as far as the room allows; stock and waste sit in the bottom row, under the thumb.
-    var gap = Math.round(ch * ROW_GAP_SHARE), y1 = m.pad, natural = y1 + ch * (1 + (DEPTH - 1) * UP_STEP_SHARE) + gap;
+    var gap = Math.round(ch * ROW_GAP_SHARE), y1 = m.pad + Z.FACT_H, natural = y1 + ch * (1 + (DEPTH - 1) * UP_STEP_SHARE) + gap;
     var y2 = Math.max(m.H - m.pad - ch, natural);
     var step = Z.fanStep(DEPTH - 1, y2 - y1 - gap, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
     var slots = [], cards = [], height = y2 + ch + m.pad;
@@ -101,6 +101,7 @@
   // ── The page ────────────────────────────────────────────────────────────
   function boot() {
     var el = Z.pageEls(), board, session;
+    el.sub = Z.factLine(el.table);
     Z.ensureSprite();
 
     function afterMove() {

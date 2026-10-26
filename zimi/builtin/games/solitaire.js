@@ -151,7 +151,7 @@
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
-    var y2 = m.pad, y1 = m.H - m.pad - ch, slots = [], cards = [];   // y1: the bottom row; y2: the columns
+    var y2 = m.pad + Z.FACT_H, y1 = m.H - m.pad - ch, slots = [], cards = [];   // y1: the bottom row; y2: the columns
     var weight = function (pile) {
       var w = 0;
       for (var i = 0; i < pile.length - 1; i++) w += pile[i].up ? 1 : DOWN_RATIO;
@@ -210,7 +210,7 @@
     var d = root.document, board, session;
     Z.ensureSprite();
     var drawN = Z.store.get(DRAW_KEY, 1) === 3 ? 3 : 1;
-    var sub = d.getElementById('zc-sub');
+    var sub = Z.factLine(d.getElementById('zc-table'));
     var deal = function () { return newState(Z.shuffled(Math.random), drawN); };
 
     // Watch and learn: the computer plays the hand by explain-solitaire.js's rules, one step at a time.

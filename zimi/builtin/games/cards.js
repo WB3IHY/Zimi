@@ -1378,6 +1378,14 @@
   var REST_ABOVE_SHARE = 0.3;
   function restShare(room) { return Math.max(0, Math.floor(room * REST_ABOVE_SHARE)); }
 
+  // The one line of fact under the bar for the games with no status line of their own ("Draw 1", "Deal #1234",
+  // "Streak 3"): a pill centred over the top of the table. A layout leaves FACT_H free at its top for it.
+  var FACT_H = 30;
+  function factLine(table) {
+    var e = table.querySelector('.zc-fact');
+    if (!e) { e = h('div', { class: 'zc-fact', role: 'status', 'aria-live': 'polite' }); table.appendChild(e); }
+    return e;
+  }
   // The page's fixed parts, by the ids every game page uses.
   function pageEls() {
     var g = function (id) { return root.document.getElementById(id); };
@@ -1402,7 +1410,7 @@
     SUITS: SUITS, RANK_LABELS: RANK_LABELS, KING: KING, DECK: DECK, BACKS: BACKS,
     rank: rank, suit: suit, isRed: isRed, make: make, cardName: cardName, clone: clone,
     foundationAccepts: foundationAccepts, stacksOn: stacksOn, isRun: isRun, shuffled: shuffled, msDeal: msDeal,
-    moonPhase: moonPhase, moonLitPath: moonLitPath, faceMarkup: faceMarkup, backMarkup: backMarkup,
+    FACT_H: FACT_H, factLine: factLine, moonPhase: moonPhase, moonLitPath: moonLitPath, faceMarkup: faceMarkup, backMarkup: backMarkup,
     italianFaceMarkup: italianFaceMarkup, italianName: italianName,
     spanishFaceMarkup: spanishFaceMarkup, spanishName: spanishName, hanafudaFaceMarkup: hanafudaFaceMarkup, hanafudaCard: hanafudaCard, hanafudaName: hanafudaName, HANA_MONTHS: HANA_MONTHS, jokerMarkup: jokerMarkup, markSvg: markSvg,
     fmtTime: fmtTime, plural: plural, describePile: describePile, fanStep: fanStep, statusTop: statusTop, pageEls: pageEls, idsOf: idsOf, restShare: restShare,

@@ -113,7 +113,7 @@
     var x = function (col) { return m.left + col * m.step; };
     // The pyramid starts under the bar; stock, waste and the taken pile sit in the bottom row, under the thumb.
     // Rows step down to fill the height: the more of a covered card shows, the easier the pyramid reads.
-    var y1 = m.pad, yBottom = m.H - m.pad - ch, room = yBottom - Math.round(ch * ROW_GAP_SHARE) - ch - y1;
+    var y1 = m.pad + Z.FACT_H, yBottom = m.H - m.pad - ch, room = yBottom - Math.round(ch * ROW_GAP_SHARE) - ch - y1;
     var rowStep = Math.max(ch * ROW_STEP_SHARE, Math.min(ch * ROW_STEP_MAX, room / (ROWS - 1)));
     var y2 = Math.max(yBottom, y1 + rowStep * (ROWS - 1) + ch + Math.round(ch * ROW_GAP_SHARE)), slots = [], cards = [], height = y2 + ch + m.pad;
     var at = function (p) { return { x: x(COLS / 2 - 0.5 - rowOf(p) / 2 + colOf(p)), y: y1 + rowOf(p) * rowStep }; };
@@ -144,6 +144,7 @@
   // ── The page ────────────────────────────────────────────────────────────
   function boot() {
     var el = Z.pageEls(), board, session, view = { picked: null };
+    el.sub = Z.factLine(el.table);
     Z.ensureSprite();
 
     function paintSub() { var st = session && session.state; if (!st) return; el.sub.textContent = isStuck(st) ? TX('cards.noMoves') : TX('pyr.redeals', { n: MAX_REDEALS - st.redeals }); }

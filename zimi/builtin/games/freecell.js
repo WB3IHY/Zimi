@@ -125,7 +125,7 @@
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
     // The free cells and foundations sit in the bottom row, under the thumb; the columns start right under the bar.
-    var y2 = m.pad, y1 = m.H - m.pad - ch, slots = [], cards = [];
+    var y2 = m.pad + Z.FACT_H, y1 = m.H - m.pad - ch, slots = [], cards = [];
     var room = y1 - Math.round(ch * ROW_GAP_SHARE) - y2;
     var step = Z.fanStep(Math.max.apply(null, COLUMNS.map(function (c) { return P[c].length - 1; })), room, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
     var bottom = y1 + ch;
@@ -167,7 +167,7 @@
   function boot() {
     var d = root.document, board, session, hintEl = d.getElementById('zc-hint'), toast = d.getElementById('zc-toast'), autoOn = Z.store.get(AUTO_KEY, true) !== false;
     Z.ensureSprite();
-    var sub = d.getElementById('zc-sub'), params = new root.URLSearchParams(root.location.search);
+    var sub = Z.factLine(d.getElementById('zc-table')), params = new root.URLSearchParams(root.location.search);
     // Every one of the 32,000 classic deals but one can be won, so "winnable deals only" just never deals that one.
     var winnableOnly = Z.store.get(WINNABLE_KEY, true) !== false, hint = null, hintBusy = false, noteTimer = 0;
     function randomDealNo() {

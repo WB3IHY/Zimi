@@ -97,13 +97,16 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var ROW_STEP_SHARE = 0.56, ROW_GAP_SHARE = 0.5, HEIGHT_SHARE = 0.17, FIT_COLS = 8.5;
+  var ROW_STEP_SHARE = 0.56, ROW_STEP_MAX = 0.95, ROW_GAP_SHARE = 0.5, HEIGHT_SHARE = 0.17, FIT_COLS = 8.5;
 
   function place(state, m) {
-    var P = state.piles, cw = m.cw, ch = m.ch, rowStep = ch * ROW_STEP_SHARE;
+    var P = state.piles, cw = m.cw, ch = m.ch;
     var unit = (m.W - 2 * m.pad - cw) / (BOARD_WIDTH_CARDS - 1), x0 = Math.floor((m.W - (unit * (BOARD_WIDTH_CARDS - 1) + cw)) / 2);
     // The peaks start under the bar; stock and waste sit in the bottom row, under the thumb.
-    var y1 = m.pad, y2 = Math.max(m.H - m.pad - ch, y1 + rowStep * 3 + ch + Math.round(ch * ROW_GAP_SHARE)), slots = [], cards = [], height = y2 + ch + m.pad;
+    var y1 = m.pad + Z.FACT_H, yBottom = m.H - m.pad - ch, room = yBottom - Math.round(ch * ROW_GAP_SHARE) - ch - y1;
+    // The rows step down to fill the height: the more of a covered card shows, the easier the peaks read.
+    var rowStep = Math.max(ch * ROW_STEP_SHARE, Math.min(ch * ROW_STEP_MAX, room / 3));
+    var y2 = Math.max(yBottom, y1 + rowStep * 3 + ch + Math.round(ch * ROW_GAP_SHARE)), slots = [], cards = [], height = y2 + ch + m.pad;
     var mid = m.W / 2, sx = Math.round(mid - cw - m.gap / 2), wx = Math.round(mid + m.gap / 2);
 
     TABLEAU.forEach(function (p) {
@@ -129,6 +132,7 @@
   // ── The page ────────────────────────────────────────────────────────────
   function boot() {
     var el = Z.pageEls(), board, session;
+    el.sub = Z.factLine(el.table);
     Z.ensureSprite();
 
     function afterMove() {

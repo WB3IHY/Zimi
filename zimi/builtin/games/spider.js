@@ -144,7 +144,7 @@
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
     // Stock and the finished runs sit in the bottom row, under the thumb; the columns start right under the bar.
-    var y2 = m.pad, y1 = m.H - m.pad - ch, slots = [], cards = [];
+    var y2 = m.pad + Z.FACT_H, y1 = m.H - m.pad - ch, slots = [], cards = [];
     var weight = function (pile) {
       var w = 0;
       for (var i = 0; i < pile.length - 1; i++) w += pile[i].up ? 1 : DOWN_RATIO;
@@ -191,6 +191,7 @@
   // ── The page ────────────────────────────────────────────────────────────
   function boot() {
     var el = Z.pageEls(), board, session;
+    el.sub = Z.factLine(el.table);
     Z.ensureSprite();
     var suits = Z.store.get(SUITS_KEY, 1);
     if (!SUIT_SETS[suits]) suits = 1;
