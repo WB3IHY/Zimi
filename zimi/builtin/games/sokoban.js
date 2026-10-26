@@ -5,7 +5,7 @@
   if (typeof document === 'undefined' || !root.ZimiSokoban || !root.ZimiSokobanLevels) return;
   var S = root.ZimiSokoban, BK = root.BoardKit, D = root.ZimiSokobanLevels, Play = root.ArcadePlay, T = Play.T;
   var $ = function (id) { return document.getElementById(id); };
-  var KEY = 'sokoban', TILE = 40, SWIPE_PX = 24, WATCH_MS = 110, END_AFTER_MS = 600;
+  var KEY = 'sokoban', TILE = 40, WATCH_MS = 110, END_AFTER_MS = 600;
   var KEYS = { ArrowUp: 'u', ArrowDown: 'd', ArrowLeft: 'l', ArrowRight: 'r', w: 'u', s: 'd', a: 'l', d: 'r', W: 'u', S: 'd', A: 'l', D: 'r' };
 
   var state = BK.load(KEY, {});
@@ -127,7 +127,7 @@
     draw();
   }
 
-  // ── input: keys, the pad, a swipe on the board ──
+  // ── input: keys, and the pad (which also takes a swipe on the board) ──
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet') || document.querySelector('.ar-sheet:not([hidden])')) return;
     var d = KEYS[e.key];
@@ -135,16 +135,6 @@
     var k = e.key.toLowerCase();
     if (k === 'z' || k === 'u' || e.key === 'Backspace') { e.preventDefault(); undo(); } else if (k === 'r') load(cur);
   });
-  var down = null;
-  board.addEventListener('pointerdown', function (e) { down = { x: e.clientX, y: e.clientY }; });
-  board.addEventListener('pointerup', function (e) {
-    if (!down) return;
-    var dx = e.clientX - down.x, dy = e.clientY - down.y; down = null;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_PX) return;
-    stopWatching();
-    step(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'r' : 'l') : (dy > 0 ? 'd' : 'u'));
-  });
-  board.addEventListener('pointercancel', function () { down = null; });
 
   // ── the touch pad (the one shared pad: a d-pad, no action keys) ──
   var DIR_OF = { up: 'u', down: 'd', left: 'l', right: 'r' };

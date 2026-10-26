@@ -436,7 +436,7 @@
   // The pad: left, right and down repeat while held; Rotate and Drop act once. Hold is a tap on the Hold box.
   var REPEAT_ACT = { left: doLeft, right: doRight, down: doDown }, repeatTimer = 0;
   function stopRepeat() { clearTimeout(repeatTimer); repeatTimer = 0; }
-  var pad = Play.pad(els.wrap, { dirs: ['left', 'down', 'right'], actions: [{ name: 'rotate', label: Tx('play.rotate') }, { name: 'drop', label: Tx('play.drop') }], on: function (name, down) {
+  var pad = Play.pad(els.wrap, { dirs: ['left', 'down', 'right'], actions: [{ name: 'rotate', label: Tx('play.rotate') }, { name: 'drop', label: Tx('play.drop') }], swipe: false, on: function (name, down) {
     stopRepeat();
     if (!down) return;
     if (name === 'rotate') return doRotate(1);

@@ -74,7 +74,7 @@
   // A value in the HUD strip (at most four per game: a 13px label over a 32px value).
   Play.num = function (n) { n = +n || 0; return window.ZimiText ? window.ZimiText.number(n) : String(n); };
 
-  var PAD_KEY = 56, PAD_GAP = 8;
+  var PAD_KEY = 56, PAD_GAP = 8, SWIPE_PX = 24, SWIPE_HOLD_MS = 80;
   var PAD_GLYPH = { left: '◀', right: '▶', up: '▲', down: '▼' };
   var LANDSCAPE = '(orientation: landscape) and (max-height: 520px)';
   function landscape() { try { return matchMedia(LANDSCAPE).matches; } catch (e) { return false; } }
@@ -83,6 +83,8 @@
   // all 56px, in the same place in every game that has one. The canvas is wrapped in .pl-stage so that, in landscape
   // on a phone, the two halves sit on either side of the playfield.
   //   Play.pad(canvas, { dirs: ['left', 'right'], actions: [{ name: 'fire', label: T('play.fire') }], on: function (name, down) {} })
+  // A pad with up or down is an arrow pad, so a swipe on the playfield sends one arrow too (24px, the dominant axis, one
+  // move per swipe); the pad stays. swipe: false for a game that reads swipes its own way.
   // Returns { el, release() }. Keys answer by pointer and by Space or Enter on a focused key; a game reads the keyboard itself.
   Play.pad = function (canvas, opts) {
     var stage = canvas.parentNode.classList.contains('pl-stage') ? canvas.parentNode : null, holds = [];
@@ -105,6 +107,14 @@
     right.setAttribute('role', 'group'); right.setAttribute('aria-label', T('play.actions'));
     el.appendChild(left); el.appendChild(right);
     stage.appendChild(el);
+    var dirs = opts.dirs || [];
+    if (opts.swipe !== false && (dirs.indexOf('up') >= 0 || dirs.indexOf('down') >= 0)) {
+      canvas.style.touchAction = 'none';   // a swipe on the field never scrolls the page or pulls to refresh
+      Play.gesture(canvas, { up: function (s) {
+        var d = Play.swipeDir(s.dx, s.dy, SWIPE_PX);
+        if (d && dirs.indexOf(d) >= 0) { opts.on(d, true); setTimeout(function () { opts.on(d, false); }, SWIPE_HOLD_MS); }
+      } });
+    }
     return { el: el, stage: stage, release: function () { holds.forEach(function (h) { h.release(); }); } };
   };
 

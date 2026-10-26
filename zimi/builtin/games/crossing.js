@@ -156,7 +156,7 @@
   var W_PX = COLS * TILE, H_PX = ROWS * TILE;
   var els = { cv: $('cr-screen'), score: $('cr-score'), best: $('cr-best'), lives: $('cr-lives'), level: $('cr-level'), msg: $('cr-msg'), pause: $('cr-pause'), newBtn: $('cr-new') };
   var best = Play.load(BEST_KEY, { score: 0 }), st = createState(1), mode = 'ready', ctx, reduced = Play.reducedMotion(), armed = null, status = Play.status(els.msg);
-  var pad = Play.pad(els.cv, { dirs: ['left', 'right', 'up', 'down'], on: function (name, down) { if (down && mode === 'playing') hop(st, name); } });
+  var pad = Play.pad(els.cv, { dirs: ['left', 'right', 'up', 'down'], on: function (name, down) { if (down && mode === 'playing') hop(st, name); } , swipe: false });
 
   function layout() { ctx = Kit.fit(els.cv, W_PX, H_PX, CHROME_PX, MAX_SCALE).ctx; draw(); }
   function hud() {
