@@ -13,7 +13,7 @@
   'use strict';
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
-  var MAX_RECYCLES = 3, END_SCORE = 100, EIGHT = 8, EIGHT_POINTS = 50, FACE_POINTS = 10, POS_NAMES = ['You', 'West', 'North', 'East'];
+  var MAX_RECYCLES = 3, END_SCORE = 100, EIGHT = 8, EIGHT_POINTS = 50, FACE_POINTS = 10, POS_NAMES = [TX('cards.you'), TX('cards.seat.west'), TX('cards.seat.north'), TX('cards.seat.east')];
   var GLYPH = T.SUIT_GLYPH, SUIT_NAMES = ['clubs', 'diamonds', 'hearts', 'spades'];
   var rankOf = function (id) { return Z.rank(id); };
   var low = function (id) { return rankOf(id); };

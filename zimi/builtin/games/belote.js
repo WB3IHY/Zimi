@@ -25,7 +25,7 @@
   'use strict';
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = Z.T;
 
-  var SEATS = 4, FIRST_DEAL = 5, HAND = 8, NAMES = ['You', 'West', 'North', 'East'], TEAMS = ['Us', 'Them'];
+  var SEATS = 4, FIRST_DEAL = 5, HAND = 8, NAMES = [TX('cards.you'), TX('cards.seat.west'), TX('cards.seat.north'), TX('cards.seat.east')], TEAMS = [TX('cards.team.us'), TX('cards.team.them')];
   var GLYPH = T.SUIT_GLYPH, SUIT_NAMES = ['clubs', 'diamonds', 'hearts', 'spades'];
   var RANKS = [7, 8, 9, 10, 11, 12, 13, 1];
   var team = function (seat) { return seat % 2; }, partnerOf = function (seat) { return (seat + 2) % SEATS; };

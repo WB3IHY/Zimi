@@ -24,7 +24,7 @@
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   var HAND = 6, FIRST_CAP = 5, CAP = 6, ACE_HIGH = 14, LOW_RANK = 6, MIN_PLAYERS = 2, MAX_PLAYERS = 4, DEFAULT_PLAYERS = 3;
-  var POS_NAMES = ['You', 'West', 'North', 'East'];
+  var POS_NAMES = [TX('cards.you'), TX('cards.seat.west'), TX('cards.seat.north'), TX('cards.seat.east')];
   var hi = function (id) { return Z.rank(id) === 1 ? ACE_HIGH : Z.rank(id); };
   var DECK = (function () { var d = [], i; for (i = 0; i < Z.DECK; i++) if (Z.rank(i) === 1 || Z.rank(i) >= LOW_RANK) d.push(i); return d; })();
   var isTrump = function (st, id) { return Z.suit(id) === st.trump; };

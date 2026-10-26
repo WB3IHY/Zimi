@@ -17,7 +17,7 @@
   'use strict';
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = Z.T;
 
-  var SEATS = 4, HAND = 13, NAMES = ['You', 'West', 'North', 'East'], TEAMS = ['Us', 'Them'];
+  var SEATS = 4, HAND = 13, NAMES = [TX('cards.you'), TX('cards.seat.west'), TX('cards.seat.north'), TX('cards.seat.east')], TEAMS = [TX('cards.team.us'), TX('cards.team.them')];
   var END_SCORE = 500, LOSE_SCORE = -200, BAG_LIMIT = 10, BAG_PENALTY = 100, NIL_BONUS = 100, TRICK_POINTS = 10, SPADES = 3;
   var high = T.rankHigh, team = function (seat) { return seat % 2; }, partnerOf = function (seat) { return (seat + 2) % SEATS; };
   var isSpade = function (id) { return Z.suit(id) === SPADES; };

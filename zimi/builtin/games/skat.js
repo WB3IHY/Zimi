@@ -30,7 +30,7 @@
   'use strict';
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
-  var SEATS = 3, HAND = 10, NAMES = ['You', 'West', 'East'], GLYPH = T.SUIT_GLYPH, SUIT_NAMES = ['clubs', 'diamonds', 'hearts', 'spades'];
+  var SEATS = 3, HAND = 10, NAMES = [TX('cards.you'), TX('cards.seat.west'), TX('cards.seat.east')], GLYPH = T.SUIT_GLYPH, SUIT_NAMES = ['clubs', 'diamonds', 'hearts', 'spades'];
   var BASE = { 0: 12, 3: 11, 2: 10, 1: 9 }, GRAND_BASE = 24, NULL_BASE = 23, NULL_HAND = 35, WIN_BONUS = 50, LOSS_BONUS = 50, DEFENDER_BONUS = 30, NEED = 61, SCHNEIDER_AT = 90, SCHNEIDER_DEF = 30;
   var BID_VALUES = [18, 20, 22, 23, 24, 27, 30, 33, 35, 36, 40, 44, 45, 46, 48, 50, 54, 55, 59, 60, 63, 66, 70, 72, 77, 80, 84, 88, 90, 96, 99, 100, 108, 110, 120, 121, 126, 130, 132, 135, 140, 143, 144, 150, 153, 156, 160, 162, 168, 170, 176, 180, 192, 198, 204, 210, 216, 240, 264];
   var RANKS = [7, 8, 9, 10, 11, 12, 13, 1], JACK = 11, TRUMP = 4;

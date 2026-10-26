@@ -19,7 +19,7 @@
   'use strict';
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
-  var NAMES = ['You', 'North'], GOAL = 121, KEPT = 4, DEAL = 6, TARGET = 31, FIFTEEN = 15, HEELS_RANK = 11, SKUNK = 91;
+  var NAMES = [TX('cards.you'), TX('cards.seat.north')], GOAL = 121, KEPT = 4, DEAL = 6, TARGET = 31, FIFTEEN = 15, HEELS_RANK = 11, SKUNK = 91;
   var cardVal = function (id) { return Math.min(10, Z.rank(id)); };
   var byRank = function (ids) { return ids.slice().sort(function (a, b) { return Z.rank(a) - Z.rank(b) || a - b; }); };
   var other = function (seat) { return 1 - seat; };

@@ -19,7 +19,7 @@
   'use strict';
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = Z.T;
 
-  var SEATS = 4, HAND = 5, NAMES = ['You', 'West', 'North', 'East'], TEAMS = ['Us', 'Them'], END_SCORE = 10;
+  var SEATS = 4, HAND = 5, NAMES = [TX('cards.you'), TX('cards.seat.west'), TX('cards.seat.north'), TX('cards.seat.east')], TEAMS = [TX('cards.team.us'), TX('cards.team.them')], END_SCORE = 10;
   var RANKS = [9, 10, 11, 12, 13, 1]; // 9 10 J Q K A
   var LEFT_OF = [3, 2, 1, 0]; // the suit of the same colour: clubs-spades, diamonds-hearts
   var GLYPH = T.SUIT_GLYPH, SUIT_NAMES = ['clubs', 'diamonds', 'hearts', 'spades'];

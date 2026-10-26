@@ -19,7 +19,7 @@
   'use strict';
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = Z.T;
 
-  var NAMES = ['You', 'North'], SUIT_NAMES = ['coins', 'cups', 'swords', 'clubs'], END_SCORE = 11, DECK = 40, PER_DEAL = 3, TABLE_START = 4, MAX_KINGS = 3, SETTEBELLO = 6;
+  var NAMES = [TX('cards.you'), TX('cards.seat.north')], SUIT_NAMES = ['coins', 'cups', 'swords', 'clubs'], END_SCORE = 11, DECK = 40, PER_DEAL = 3, TABLE_START = 4, MAX_KINGS = 3, SETTEBELLO = 6;
   var COURT = { 8: 'fante', 9: 'cavallo', 10: 're' };
   var PRIMIERA = { 7: 21, 6: 18, 1: 16, 5: 15, 4: 14, 3: 13, 2: 12, 8: 10, 9: 10, 10: 10 };
   var value = function (id) { return id % 10 + 1; };

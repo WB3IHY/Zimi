@@ -14,9 +14,9 @@
    page wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, Seats = root.ZimiSeats;
+  var Z = root.ZimiCards, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
-  var SEATS = 4, HAND = 13, NAMES = ['You', 'West', 'North', 'East'], END_SCORE = 100, MOON = 26, PASS_COUNT = 3;
+  var SEATS = 4, HAND = 13, NAMES = [TX('cards.you'), TX('cards.seat.west'), TX('cards.seat.north'), TX('cards.seat.east')], END_SCORE = 100, MOON = 26, PASS_COUNT = 3;
   var PASS_NAMES = ['to the left', 'to the right', 'across', 'none'];
   var PASS_SHORT = ['pass left', 'pass right', 'pass across', 'hold'];
   var PASS_OFFSET = [1, 3, 2, 0]; // seats clockwise; left is the next player to act

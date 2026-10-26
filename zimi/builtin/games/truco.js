@@ -27,7 +27,7 @@
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   // The page renames the seats when two people share a device; YOU is the seat called "You" (-1: none).
-  var NAMES = ['You', 'North'], YOU = 0, DECK = 40, HAND = 3, FLOR_POINTS = 3, ENVIDO_BASE = 20;
+  var NAMES = [TX('cards.you'), TX('cards.seat.north')], YOU = 0, DECK = 40, HAND = 3, FLOR_POINTS = 3, ENVIDO_BASE = 20;
   function setNames(names, youSeat) { NAMES[0] = names[0]; NAMES[1] = names[1]; YOU = youSeat; }
   var suitOf = function (id) { return Math.floor(id / 10); };
   var rankOf = function (id) { return [1, 2, 3, 4, 5, 6, 7, 10, 11, 12][id % 10]; };
