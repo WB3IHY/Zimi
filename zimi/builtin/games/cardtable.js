@@ -4,7 +4,8 @@
    the score chips, the status line and the choice buttons over the felt, and
    wires a board and a session around a game's rules. A game supplies pure
    rules plus `place`, `hud` and a few handlers; nothing here knows Spades
-   from Durak. Pure helpers (geometry, sorting) are tested in node. */
+   from Durak. trickGame carries what the trick-taking games share (Spades, Euchre,
+   Belote, Skat, Bridge, Hearts). Pure helpers (geometry, sorting) are tested in node. */
 (function (root) {
   'use strict';
   var Z = root.ZimiCards;
@@ -20,6 +21,8 @@
   var TRICK_CENTER_SHARE = 0.4, HAND_BOTTOM_PX = 12, SCORE_BAR_H = 26, STATUS_H = 46, SUIT_GAP_SHARE = 0.18, HAND_STEP_SHARE = 0.78;
   var SIDE_STEP_MIN = 0.07, SIDE_STEP_MAX = 0.2, TOP_STEP_SHARE = 0.3, SIDE_OFFSET_CARDS = 3.4, TRICK_DX = 0.72, TRICK_DY = 0.62;
   var MIN_STEP_SHARE = 0.42, ROW_STEP_SHARE = 0.5, FLASH_MS = 1800, PANEL_GAP = 8;
+  // The slot a card is dropped on to play it: this many cards wide and tall either side of the table's middle.
+  var FELT_X = 1.6, FELT_Y = 1.1;
   // Where each seat sits on the table, by the number of players: 0 south, 1 west, 2 north, 3 east.
   var SEAT_POS = { 2: [0, 2], 3: [0, 1, 3], 4: [0, 1, 2, 3] };
   var SUIT_ORDER = [0, 1, 3, 2]; // clubs, diamonds, spades, hearts: alternating colours in a hand
@@ -273,11 +276,162 @@
     return Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: label }), Z.segmented(options, value, function (v) { Z.store.set(key, v); onPick(v); })]);
   }
 
+  // ── Trick games ─────────────────────────────────────────────────────────
+  // The felt a trick is played on: the quiet slot a card is dropped on, and the cards of the trick at their seats' places (or, when
+  // `sweep` names the winner, all heading for that seat). `pos(seat)` is where a seat sits for the person looking.
+  function feltSlots(g) {
+    return [
+      { id: 'deck', x: g.cx - g.cw / 2, y: g.cy - g.ch / 2, w: g.cw, h: g.ch, quiet: true, label: T('cards.slot.table') },
+      { id: 'trick', x: g.cx - FELT_X * g.cw, y: g.cy - FELT_Y * g.ch, w: 2 * FELT_X * g.cw, h: 2 * FELT_Y * g.ch, quiet: true, label: T('cards.slot.trick') }
+    ];
+  }
+  function trickCards(g, trick, sweep, pos) {
+    return trick.map(function (t, k) {
+      var spot = sweep !== null && sweep !== undefined ? seatSpot(g, pos(sweep)) : trickSpot(g, pos(t.seat));
+      return { id: t.id, pile: 'trick', idx: k, x: Math.round(spot.x), y: Math.round(spot.y), up: true };
+    });
+  }
+  // Who is looking, and whether their hand is face up (view.viewer / view.hideHand, set by trickGame.syncView).
+  function looking(view) { return { V: (view && view.viewer) || 0, up: !(view && view.hideHand) }; }
+
+  // What Spades, Euchre, Belote, Skat, Bridge and Hearts share once the cards are out: the computer's turn on a beat, your play and
+  // tap, the trick's sweep to its winner and what follows it, a hand's ending and the next, and the words of a turn. A game keeps its
+  // rules (what is legal, who wins, bidding, scoring) and hands them in.
+  //   o: { id, n (seats), view, seatOpts, ms: { ai, hold, sweep },
+  //     size(st) cards in a full trick (n), winner(st) the seat taking it, resolve(st) the state after it, drive() the game's turn order,
+  //     legal(st, seat, id), why(st, id) what to say to an illegal card, play(st, seat, id) the state after it, aiPlay(st, seat) a card,
+  //     control(st) the seat whose person plays the card to come, actor(st) the seat acting now, shown(st, viewer) a hand seen whatever
+  //     the turn (Bridge's dummy), yours(st) after a person is asked to play, before(st, seat, id, human) and after(human) around a card
+  //     played, pretap(st, id) a tap that is not a play (undefined: it is), clear() what a new hand forgets, handEnd the phase a hand
+  //     ends in, nextHand(st, order), handOver() and gameOver() after the last trick, deal() }
+  function trickGame(o) {
+    var n = o.n, view = o.view, ms = o.ms, t = null, board = null, session = null, paint = null, flash = null, tg = { view: view };
+    var size = o.size || function () { return n; }, control = o.control || function (st) { return st.turn; }, actor = o.actor || control;
+    var team = function (seat) { return seat % 2; };
+    var seats = tg.seats = root.ZimiSeats.create(Object.assign({ id: o.id, seats: n, onChange: function () { if (paint) paint(); if (board) board.refresh(); } }, o.seatOpts));
+    var idOf = tg.idOf = function (pile) { return parseInt(pile.slice(1), 10); };
+    function repaint() { board.refresh(); paint(); }
+    tg.repaint = repaint;
+    // The board, session, painter and flasher of the table made for the game (a create() result, or the same four by hand).
+    tg.attach = function (parts) { board = parts.board; session = parts.session; paint = parts.paint; flash = parts.flash; };
+
+    // The rules in o decide who may see which hand, who is up, what a tap means.
+    tg.syncView = function (st) {
+      var V = seats.view();
+      view.viewer = V; view.hideHand = seats.hotseat() && actor(st) !== V && !(o.shown && o.shown(st, V));
+    };
+    // A fresh deal: nobody has seen it, so a table of people starts at a handoff.
+    tg.deal = o.deal || function () { seats.begin(function () { repaint(); o.drive(); }, actor(session.state)); };
+
+    // The play phase of the turn order: the full trick waits, then sweeps; else a person is asked, or the computer answers on a beat.
+    tg.turn = function (st) {
+      if (st.phase !== 'play') return;
+      if (st.trick.length === size(st)) { session.later(sweep, ms.hold); return; }
+      var ctl = control(st);
+      if (seats.person(ctl)) { seats.ensure(ctl, repaint); if (o.yours) o.yours(st); } else session.later(aiTurn, ms.ai);
+    };
+    function aiTurn() {
+      var st = session.state, seat = st.turn;
+      if (st.phase !== 'play' || seats.person(control(st)) || st.trick.length === size(st)) return;
+      var id = o.aiPlay(st, seat);
+      if (o.before) o.before(st, seat, id, false);
+      session.follow(o.play(st, seat, id));
+      o.drive();
+    }
+    // The full trick flies to its winner, then is taken; a hand or game that ends with it says so.
+    function sweep() {
+      var st0 = session.state;
+      if (st0.trick.length !== size(st0)) return;
+      view.sweep = o.winner(st0);
+      board.refresh();
+      session.later(function () {
+        view.sweep = null;
+        session.follow(o.resolve(session.state));
+        var st = session.state;
+        if (st.phase === o.handEnd && o.handOver) o.handOver(); else if (st.phase === 'over' && o.gameOver) o.gameOver(); else o.drive();
+      }, ms.sweep);
+    }
+    tg.sweepTrick = sweep;
+    // The person looking plays a card (from `seat`'s hand: Bridge plays dummy's too).
+    tg.play = function (id, seat) {
+      var st = session.state, from = seat === undefined ? seats.view() : seat;
+      if (!o.legal(st, from, id)) return false;
+      if (o.before) o.before(st, from, id, true);
+      session.commit(o.play(st, from, id));
+      if (o.after) o.after(true);
+      o.drive();
+      return true;
+    };
+    // A tap on a card of the hand: a play once it is your turn and the card is legal; what is wrong with it otherwise.
+    tg.tap = function (pile) {
+      var st = session.state, id = idOf(pile);
+      if (pile.charAt(0) !== 'h' || isNaN(id)) return false;
+      if (o.pretap) { var done = o.pretap(st, id); if (done !== undefined) return done; }
+      if (st.phase !== 'play') return false;
+      var full = st.trick.length === size(st);
+      if (st.turn !== seats.view() || full) { flash(full ? T('cards.wait.trick') : T('cards.wait.turn')); return false; }
+      if (!o.legal(st, st.turn, id)) { flash(o.why(st, id)); return false; }
+      return tg.play(id);
+    };
+    tg.startNextHand = function () {
+      var st = session.state;
+      if (st.phase !== o.handEnd) return;
+      session.history = [];
+      if (o.clear) o.clear();
+      session.follow(o.nextHand(st, Z.shuffled(Math.random)));
+      tg.deal();
+    };
+    // A new game: the table forgets the last one's animation and talk.
+    tg.restart = function (state) {
+      view.sweep = null; view.flash = '';
+      if (o.clear) o.clear();
+      session.reset(state);
+      tg.deal();
+    };
+
+    // Words and figures of a table.
+    tg.order = function () { var V = seats.view(); return Array.apply(null, Array(n)).map(function (x, i) { return (V + i) % n; }); };
+    tg.mine = function (seat) { return seats.person(seat) && seat === seats.view(); };
+    tg.turnText = function (seat) { return !seats.person(seat) ? T('cards.thinking', { name: seats.name(seat) }) : seats.isYou(seat) ? T('cards.turn.you') : T('cards.turn.name', { name: seats.name(seat) }); };
+    tg.trickText = function (winner) { return seats.isYou(winner) ? T('cards.trick.you') : T('cards.trick.name', { name: seats.name(winner) }); };
+    // Partnerships: seats 0 and 2 against 1 and 3.
+    tg.viewTeam = function () { return team(seats.view()); };
+    tg.teamLabel = function (k) { return k === tg.viewTeam() ? T('cards.team.us') : T('cards.team.them'); };
+    tg.teamNames = function (k) { return T('cards.pair', { a: seats.name(k), b: seats.name(k + 2) }); };
+    tg.teamStat = function (sec, scores) { var vt = tg.viewTeam(); return Z.fmtTime(sec) + ' · ' + scores[vt] + '-' + scores[1 - vt]; };
+    // A hand's result as a sheet with the button that deals the next one.
+    tg.handSheet = function (lines, title, label) {
+      lineSheet(title || T('cards.fact.hand', { n: session.state.handNo + 1 }), lines, [{ label: label || T('cards.nextHand'), primary: true, onclick: tg.startNextHand }]);
+    };
+    // The game is decided for team `w`: the last hand's lines and the result, to the stats and the end sheet.
+    tg.teamGameOver = function (w, scores, lines) {
+      var vt = tg.viewTeam(), hot = seats.hotseat();
+      lines = lines.concat([T(hot ? 'cards.result.hot' : w === vt ? 'cards.result.you' : 'cards.result.them', { team: hot ? tg.teamNames(w) : '', a: scores[w], b: scores[1 - w] })]);
+      if (hot) session.lose({ name: tg.teamNames(w), team: true }, lines);
+      else if (w === vt) session.win(scores[vt]); else session.lose('', lines, scores[vt]);
+    };
+
+    // The table for a game: cfg is create()'s, and what a trick game always says is filled in.
+    tg.create = function (cfg) {
+      var place = cfg.place;
+      t = create(Object.assign({
+        id: o.id, seats: seats, view: view, tap: tg.tap, liftPlay: function (st) { return st.phase === 'play'; },
+        canPick: function (st, pile) { return st.phase === 'play' && pile.charAt(0) === 'h' && o.legal(st, seats.view(), idOf(pile)); },
+        move: function (pile, idx, to) { return (to === 'trick' || to === 'deck') && pile.charAt(0) === 'h' ? tg.play(idOf(pile)) : false; },
+        stat: function (sec, st) { return tg.teamStat(sec, st.scores); }
+      }, cfg, { place: function (st, m, v) { tg.syncView(st); return place(st, m, v); } }));
+      tg.attach(t);
+      return t;
+    };
+    return tg;
+  }
+
   root.ZimiTable = {
     SEAT_POS: SEAT_POS, SUIT_GLYPH: SUIT_GLYPH, STATUS_H: STATUS_H, STATUS_MAX: STATUS_MAX, SCORE_BAR_H: SCORE_BAR_H,
     next: next, sortHand: sortHand, rankHigh: rankHigh, short: short, shortList: shortList, shuffleOf: shuffleOf,
     countBy: countBy, maxBy: maxBy, minBy: minBy,
     geometry: geometry, rowsFor: rowsFor, sideStep: sideStep, trickSpot: trickSpot, seatSpot: seatSpot, posOf: posOf, posFor: posFor, handCards: handCards, fan: fan, takeCounts: takeCounts, handRows: handRows,
+    feltSlots: feltSlots, trickCards: trickCards, looking: looking, trickGame: trickGame,
     create: create, lineSheet: lineSheet, choiceRow: choiceRow, chipStack: chipStack
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

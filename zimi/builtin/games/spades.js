@@ -15,7 +15,7 @@
    the page wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = Z.T;
+  var Z = root.ZimiCards, T = root.ZimiTable, TX = Z.T;
 
   var SEATS = 4, HAND = 13, NAMES = [TX('cards.you'), TX('cards.seat.west'), TX('cards.seat.north'), TX('cards.seat.east')], TEAMS = [TX('cards.team.us'), TX('cards.team.them')];
   var END_SCORE = 500, LOSE_SCORE = -200, BAG_LIMIT = 10, BAG_PENALTY = 100, NIL_BONUS = 100, TRICK_POINTS = 10, SPADES = 3;
@@ -209,19 +209,13 @@
   // ── Layout ──────────────────────────────────────────────────────────────
   function geo(m, st) { return T.geometry(m, T.rowsFor(m, st.hands[0].length)); }
   function place(st, m, view) {
-    var g = geo(m, st), slots = [], cards = [], V = (view && view.viewer) || 0, up = !(view && view.hideHand), rel = function (seat) { return (seat - V + SEATS) % SEATS; };
+    var g = geo(m, st), slots = T.feltSlots(g), cards = [], L = T.looking(view), V = L.V, up = L.up, rel = function (seat) { return (seat - V + SEATS) % SEATS; };
     var myTurn = st.phase === 'play' && st.turn === V && st.trick.length < SEATS;
     var sweep = view && st.trick.length === SEATS ? view.sweep : null;
-    slots.push({ id: 'deck', x: g.cx - g.cw / 2, y: g.cy - g.ch / 2, w: g.cw, h: g.ch, quiet: true, label: TX('cards.slot.table') });
-    slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: TX('cards.slot.trick') });
     var hand = T.handCards(g, st.hands[V], function (id) { return { up: up, dim: up && myTurn && !isLegal(st, V, id) }; }, function (a, b) { return Z.suit(a) !== Z.suit(b); });
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     [1, 2, 3].forEach(function (pos) { cards = cards.concat(T.fan(g, pos, st.hands[(V + pos) % SEATS], false)); });
-    st.trick.forEach(function (t, k) {
-      var spot = sweep !== null && sweep !== undefined ? T.seatSpot(g, rel(sweep)) : T.trickSpot(g, rel(t.seat));
-      cards.push({ id: t.id, pile: 'trick', idx: k, x: Math.round(spot.x), y: Math.round(spot.y), up: true });
-    });
-    return { height: m.H, slots: slots, cards: cards };
+    return { height: m.H, slots: slots, cards: cards.concat(T.trickCards(g, st.trick, sweep, rel)) };
   }
 
   var api = {
@@ -235,13 +229,7 @@
   // ── The page ────────────────────────────────────────────────────────────
   var AI_MS = 560, HOLD_MS = 1000, SWEEP_MS = 380, MAX_BID = 13;
   function boot() {
-    var d = root.document, t, board, session, view;
-    var seats = Seats.create({ id: 'spades', seats: SEATS, onChange: function () { if (t) t.paint(); if (board) board.refresh(); } });
-    var viewTeam = function () { return team(seats.view()); };
-    var teamLabel = function (k) { return k === viewTeam() ? TX('cards.team.us') : TX('cards.team.them'); };
-    var teamNames = function (k) { return TX('cards.pair', { a: seats.name(k), b: seats.name(k + 2) }); };
-    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.turn !== view.viewer; }
-    function repaint() { board.refresh(); t.paint(); }
+    var t, board, session, view = { sweep: null, flash: '' }, tg, seats, viewTeam, teamLabel;
     function handLine(st, k) {
       var r = st.result[k], c = r.contract;
       var parts = [c ? TX('spades.line.bid', { team: teamLabel(k), bid: c, tricks: r.tricks }) : TX('spades.line.none', { team: teamLabel(k) })];
@@ -250,7 +238,7 @@
       return parts.join(' · ');
     }
     function hud(st) {
-      var chips = [0, 1, 2, 3].map(function (i) { return (seats.view() + i) % SEATS; }).map(function (seat) {
+      var chips = tg.order().map(function (seat) {
         var name = seats.name(seat), bid = st.bids[seat], text = st.phase === 'bid' ? (bid === null ? '' : TX('spades.chip.bid', { bid: bidName(bid) })) : st.tricks[seat] + '/' + bidName(bid);
         return { name: name, text: text, dealer: seat === st.dealer, turn: (st.phase === 'play' || st.phase === 'bid') && st.turn === seat && st.trick.length < SEATS };
       });
@@ -263,20 +251,18 @@
           for (var n = 1; n <= MAX_BID; n++) out.choices.push(bidChoice(n));
           out.lines = [{ text: TX('spades.estimate', { n: Math.round(estimate(st.hands[V])) }) + (st.bids[partnerOf(V)] !== null ? ' ' + TX('spades.partnerBid', { name: seats.name(partnerOf(V)), bid: bidName(st.bids[partnerOf(V)]) }) : '') }];
         } else out.text = TX('cards.bidding', { name: seats.name(st.turn) });
-      } else if (st.phase === 'handEnd') { out.text = TX('cards.handEnd'); out.label = TX('cards.nextHand'); out.action = startNextHand; }
+      } else if (st.phase === 'handEnd') { out.text = TX('cards.handEnd'); out.label = TX('cards.nextHand'); out.action = tg.startNextHand; }
       else if (st.phase === 'over') { out.text = TX('shell.end.over'); out.label = TX('shell.menu.new'); out.action = newGame; }
-      else if (st.trick.length === SEATS) { var w = trickWinner(st.trick); out.text = seats.isYou(w) ? TX('cards.trick.you') : TX('cards.trick.name', { name: seats.name(w) }); }
-      else out.text = !seats.person(st.turn) ? TX('cards.thinking', { name: seats.name(st.turn) }) : seats.isYou(st.turn) ? TX('cards.turn.you') : TX('cards.turn.name', { name: seats.name(st.turn) });
+      else if (st.trick.length === SEATS) out.text = tg.trickText(trickWinner(st.trick));
+      else out.text = tg.turnText(st.turn);
       return out;
     }
     function bidChoice(n) { return { label: String(n), onclick: function () { bid(n); } }; }
 
     function drive() {
       var st = session.state;
-      if (st.phase === 'bid') { if (seats.person(st.turn)) seats.ensure(st.turn, repaint); else session.later(aiBidTurn, AI_MS); return; }
-      if (st.phase !== 'play') return;
-      if (st.trick.length === SEATS) { session.later(sweepTrick, HOLD_MS); return; }
-      if (seats.person(st.turn)) seats.ensure(st.turn, repaint); else session.later(aiTurn, AI_MS);
+      if (st.phase === 'bid') { if (seats.person(st.turn)) seats.ensure(st.turn, tg.repaint); else session.later(aiBidTurn, AI_MS); return; }
+      tg.turn(st);
     }
     function aiBidTurn() {
       var st = session.state;
@@ -284,38 +270,13 @@
       session.follow(placeBid(st, st.turn, aiBid(st, st.turn)));
       drive();
     }
-    function aiTurn() {
-      var st = session.state;
-      if (st.phase !== 'play' || seats.person(st.turn) || st.trick.length === SEATS) return;
-      session.follow(playCard(st, st.turn, aiPick(st, st.turn)));
-      drive();
-    }
-    function sweepTrick() {
-      view.sweep = trickWinner(session.state.trick);
-      board.refresh();
-      session.later(function () {
-        view.sweep = null;
-        session.follow(resolveTrick(session.state));
-        var st = session.state;
-        if (st.phase === 'handEnd') handOver(); else if (st.phase === 'over') gameOver(); else drive();
-      }, SWEEP_MS);
-    }
     function handOver() {
-      var st = session.state;
-      T.lineSheet(TX('cards.fact.hand', { n: st.handNo + 1 }), [handLine(st, viewTeam()), handLine(st, 1 - viewTeam())], [{ label: TX('cards.nextHand'), primary: true, onclick: startNextHand }]);
+      var st = session.state, vt = viewTeam();
+      tg.handSheet([handLine(st, vt), handLine(st, 1 - vt)]);
     }
     function gameOver() {
-      var st = session.state, w = gameWinner(st.scores), vt = viewTeam(), hot = seats.hotseat();
-      var lines = [handLine(st, vt), handLine(st, 1 - vt), TX(hot ? 'cards.result.hot' : w === vt ? 'cards.result.you' : 'cards.result.them', { team: hot ? teamNames(w) : '', a: st.scores[w], b: st.scores[1 - w] })];
-      if (hot) session.lose({ name: teamNames(w), team: true }, lines);
-      else if (w === vt) session.win(st.scores[vt]); else session.lose('', lines, st.scores[vt]);
-    }
-    function startNextHand() {
-      var st = session.state;
-      if (st.phase !== 'handEnd') return;
-      session.history = [];
-      session.follow(nextHand(st, Z.shuffled(Math.random)));
-      deal();
+      var st = session.state, vt = viewTeam();
+      tg.teamGameOver(gameWinner(st.scores), st.scores, [handLine(st, vt), handLine(st, 1 - vt)]);
     }
     function bid(n) {
       var st = session.state;
@@ -323,35 +284,16 @@
       session.commit(placeBid(st, st.turn, n));
       drive();
     }
-    function play(id) {
-      var st = session.state;
-      if (!isLegal(st, seats.view(), id)) return false;
-      session.commit(playCard(st, seats.view(), id));
-      drive();
-      return true;
-    }
-    var idOf = function (pile) { return parseInt(pile.slice(1), 10); };
-    function tap(pile) {
-      var st = session.state, id = idOf(pile);
-      if (pile.charAt(0) !== 'h' || isNaN(id) || st.phase !== 'play') return false;
-      if (st.turn !== seats.view() || st.trick.length === SEATS) { t.flash(st.trick.length === SEATS ? TX('cards.wait.trick') : TX('cards.wait.turn')); return false; }
-      if (!isLegal(st, st.turn, id)) { t.flash(whyNot(st, st.turn, id)); return false; }
-      return play(id);
-    }
-    function newGame() {
-      view.sweep = null; view.flash = '';
-      session.reset(freshGame(Z.shuffled(Math.random), Math.floor(Math.random() * SEATS)));
-      deal();
-    }
-    // A fresh deal: nobody has seen it, so a table of people starts at a handoff.
-    function deal() { seats.begin(function () { repaint(); drive(); }, session.state.turn); }
+    function newGame() { tg.restart(freshGame(Z.shuffled(Math.random), Math.floor(Math.random() * SEATS))); }
 
-    view = { sweep: null, flash: '' };
-    t = T.create({
-      id: 'spades', name: 'Spades', liftPlay: function (st) { return st.phase === 'play'; }, seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, tap: tap, cols: 7, heightShare: 0.11,
-      canPick: function (st, pile) { return st.phase === 'play' && pile.charAt(0) === 'h' && isLegal(st, seats.view(), idOf(pile)); },
-      move: function (pile, idx, to) { return (to === 'trick' || to === 'deck') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
-      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[viewTeam()] + '-' + st.scores[1 - viewTeam()]; },
+    tg = T.trickGame({
+      id: 'spades', n: SEATS, view: view, ms: { ai: AI_MS, hold: HOLD_MS, sweep: SWEEP_MS }, drive: drive, handEnd: 'handEnd',
+      winner: function (st) { return trickWinner(st.trick); }, resolve: resolveTrick, nextHand: nextHand, handOver: handOver, gameOver: gameOver,
+      legal: isLegal, why: function (st) { return whyNot(st, st.turn); }, play: playCard, aiPlay: aiPick
+    });
+    seats = tg.seats; viewTeam = tg.viewTeam; teamLabel = tg.teamLabel;
+    t = tg.create({
+      name: 'Spades', geo: geo, place: place, hud: hud, newGame: newGame,
       cascadeOrder: function (st) { return st.played.concat(st.trick.map(function (x) { return x.id; })).map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { var vt = viewTeam(); return [handLine(st, vt), handLine(st, 1 - vt), TX('spades.result.won', { a: st.scores[vt], b: st.scores[1 - vt], hands: Z.plural(st.handNo + 1, 'hand') })]; },
       rules: TX('spades.rules')

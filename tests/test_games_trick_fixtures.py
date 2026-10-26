@@ -23,7 +23,7 @@ pytest.importorskip("playwright")
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-GAMES = os.path.join(os.path.dirname(HERE), "zimi", "builtin", "games")
+GAMES = os.environ.get("ZIMI_GAMES_DIR") or os.path.join(os.path.dirname(HERE), "zimi", "builtin", "games")  # (a copy with a deliberate change proves the fixtures notice)
 FIXTURES = os.path.join(HERE, "fixtures", "games_tricks")
 VIEW = {"width": 390, "height": 844}
 STEP_MS = 100  # the fake clock moves this far between two looks at the table
