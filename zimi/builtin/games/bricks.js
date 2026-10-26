@@ -169,15 +169,15 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var KEY_SPEED = 380;                 // paddle units a second on the keys
-  var MAX_CSS_W = 480, CHROME_PX = 210, SIDE_PAD = 24, MAX_DT = 1 / 30;
+  var MAX_CSS_W = 480, CHROME_PX = 210, SIDE_PAD = 24, MAX_DT = 1 / 30, READY_ARM_MS = 650;
   var BEST_KEY = 'zimi.games.bricks.best';
   Play.applyTheme();
 
-  var els = { cv: $('br-board'), score: $('br-score'), lives: $('br-lives'), level: $('br-level'), best: $('br-best'), msg: $('br-msg'), sheet: $('br-sheet'), title: $('br-sheet-title'), text: $('br-sheet-text'), go: $('br-go'), pause: $('br-pause') };
-  var ctx = els.cv.getContext('2d');
-  var g, scale = 1, mode = 'ready', last = 0, keys = { left: false, right: false }, best = Play.load(BEST_KEY, { score: 0 }), pal = {};
+  var els = { cv: $('br-board'), score: $('br-score'), lives: $('br-lives'), level: $('br-level'), best: $('br-best'), msg: $('br-msg'), pause: $('br-pause'), newBtn: $('br-new') };
+  var ctx = els.cv.getContext('2d'), status = Play.status(els.msg);
+  var g, scale = 1, mode = 'ready', last = 0, keys = { left: false, right: false }, best = Play.load(BEST_KEY, { score: 0 }), pal = {}, armed = null;
 
   function readPalette() {
     var s = getComputedStyle(document.documentElement);
@@ -215,9 +215,9 @@
   }
 
   function hud() {
-    els.score.textContent = g.score; els.level.textContent = g.level + 1; els.best.textContent = Math.max(best.score, g.score);
-    els.lives.textContent = '♥'.repeat(Math.max(0, g.lives));
-    els.lives.setAttribute('aria-label', g.lives + ' lives');
+    els.score.textContent = Play.num(g.score); els.level.textContent = Play.num(g.level + 1); els.best.textContent = Play.num(Math.max(best.score, g.score));
+    els.lives.textContent = Play.num(Math.max(0, g.lives));
+    els.lives.setAttribute('aria-label', T('bricks.livesLeft', { n: Math.max(0, g.lives) }));
   }
 
   function frame(t) {
@@ -229,45 +229,55 @@
     draw(); hud();
     if (st === 'cleared') return levelUp();
     if (st === 'over') return finish();
-    if (g.ball.stuck) els.msg.textContent = 'Tap or press Space to launch.'; else els.msg.textContent = '';
+    status.say(g.ball.stuck ? T('bricks.launch') : '');
     requestAnimationFrame(frame);
   }
   function startLoop() { last = performance.now(); requestAnimationFrame(frame); }
 
-  function showSheet(title, text, label) {
-    els.title.textContent = title; els.text.textContent = text; els.go.textContent = label;
-    Play.openSheet(els.sheet, '#br-go');
+  // The ready line: the gesture is said once here. Armed again after a game, once the end sheet is up.
+  function arm(touch, keysText, start) {
+    if (armed) armed.cancel();
+    armed = Play.ready({ say: status.say, target: els.cv, start: start || begin, touch: touch || T('bricks.readyTouch'), keys: keysText || T('bricks.readyKeys') });
   }
   function begin() {
-    g = createGame(0); mode = 'playing'; Play.closeSheet(els.sheet); els.pause.disabled = false; hud(); draw(); startLoop();
+    if (armed) armed.cancel();
+    g = createGame(0); mode = 'playing'; Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); startLoop();
   }
   function levelUp() {
-    var next = createGame(g.level + 1, g.lives, g.score);
+    var next = createGame(g.level + 1, g.lives, g.score), n = g.level + 2;
     mode = 'between'; hud(); draw();
-    showSheet('Level ' + (g.level + 1) + ' cleared', g.score + ' points. On to level ' + (g.level + 2) + '.', 'Next level');
+    status.say(T('bricks.cleared', { n: n - 1 }));
     g = next;
+    setTimeout(function () { if (mode === 'between') arm(T('bricks.nextTouch', { n: n }), T('bricks.nextKeys', { n: n }), proceed); }, READY_ARM_MS);
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; showSheet('Paused', 'Resume when you are ready.', 'Resume'); }
-  function resume() { mode = 'playing'; Play.closeSheet(els.sheet); startLoop(); }
-  function proceed() { mode = 'playing'; Play.closeSheet(els.sheet); hud(); draw(); startLoop(); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; Play.pauseLabel(els.pause, true); status.say(T('play.paused')); }
+  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); startLoop(); }
+  function toggle() { if (mode === 'playing') pause(); else resume(); }
+  function proceed() { mode = 'playing'; status.say(''); hud(); draw(); startLoop(); }
   function finish() {
-    mode = 'over'; els.pause.disabled = true;
-    var text = g.score + ' points, level ' + (g.level + 1) + '.';
-    if (g.score > best.score) { best.score = g.score; Play.save(BEST_KEY, best); text += ' A new best.'; }
-    hud(); showSheet('Out of balls', text, 'Play again');
+    mode = 'over'; els.pause.disabled = true; Play.pauseLabel(els.pause, false);
+    if (g.score > best.score) { best.score = g.score; Play.save(BEST_KEY, best); }
+    hud();
+    ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(g.score)], [T('play.level'), Play.num(g.level + 1)]] });
+    setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
   }
-  els.go.addEventListener('click', function () { if (mode === 'paused') resume(); else if (mode === 'between') proceed(); else begin(); });
-  els.pause.addEventListener('click', pause);
+  els.newBtn.addEventListener('click', begin);
+  els.pause.addEventListener('click', toggle);
+  els.cv.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
   Play.onHidden(pause);
+  ZimiShell.game({
+    inProgress: function () { return mode === 'playing' || mode === 'paused' || mode === 'between'; },
+    stats: function () { return best.score ? [[T('play.best'), Play.num(best.score)]] : []; }
+  });
 
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (!els.sheet.hidden) { if (e.key === 'Escape' && mode === 'paused') resume(); return; }
+    if (document.querySelector('.ar-sheet:not([hidden])')) return;
     var k = e.key;
     if (k === 'ArrowLeft' || k === 'a' || k === 'A') keys.left = true;
     else if (k === 'ArrowRight' || k === 'd' || k === 'D') keys.right = true;
-    else if (k === ' ' || k === 'ArrowUp') { if (mode === 'playing') launch(g, (keys.right ? 1 : 0) - (keys.left ? 1 : 0) || undefined); }
-    else if (k === 'Escape' || k === 'p' || k === 'P') pause();
+    else if (k === ' ' || k === 'ArrowUp') { if (mode === 'playing') launch(g, (keys.right ? 1 : 0) - (keys.left ? 1 : 0) || undefined); else if (mode === 'paused') resume(); }
+    else if (k === 'Escape' || k === 'p' || k === 'P') { if (mode === 'playing' || mode === 'paused') toggle(); }
     else return;
     e.preventDefault();
   });
@@ -288,8 +298,7 @@
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { readPalette(); draw(); });
   window.addEventListener('resize', layout);
   window.addEventListener('blur', function () { keys.left = keys.right = false; });
-  g = createGame(0); hud(); layout();
-  showSheet('Bricks', 'Bounce the ball off your paddle to break the wall. Where it lands on the paddle sets the angle. Move with the arrow keys or drag; tap or press Space to launch.', 'Start');
+  g = createGame(0); hud(); layout(); arm();
   // A read-only window onto the live game, for the browser tests.
   root.__bricks = { get g() { return g; }, get mode() { return mode; } };
 })(this);

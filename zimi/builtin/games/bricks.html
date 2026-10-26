@@ -12,28 +12,21 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Bricks</h1>
-  <button class="ar-btn" id="br-pause" type="button" disabled>Pause</button>
+  <button class="ar-btn" id="br-new" type="button" hidden data-t="shell.menu.new">New game</button>
+  <button class="ar-btn" id="br-pause" type="button" disabled data-t="play.pause">Pause</button>
 </header>
 
 <main class="pl-main">
   <div class="pl-hud">
-    <div class="pl-stat"><small>Score</small><b id="br-score">0</b></div>
-    <div class="pl-stat"><small>Level</small><b id="br-level">1</b></div>
-    <div class="pl-stat"><small>Balls</small><b id="br-lives" role="img" aria-label="3 lives"></b></div>
-    <div class="pl-stat"><small>Best</small><b id="br-best">0</b></div>
+    <div class="pl-stat"><small data-t="play.score">Score</small><b id="br-score">0</b></div>
+    <div class="pl-stat"><small data-t="play.level">Level</small><b id="br-level">1</b></div>
+    <div class="pl-stat"><small data-t="bricks.balls">Balls</small><b id="br-lives" role="img"></b></div>
+    <div class="pl-stat"><small data-t="play.best">Best</small><b id="br-best">0</b></div>
   </div>
-  <canvas class="pl-canvas" id="br-board" role="img" aria-label="The wall, the ball and your paddle"></canvas>
-  <p class="pl-msg" id="br-msg" role="status" aria-live="polite"></p>
-  <p class="pl-help">Arrow keys or A and D move. Space launches. P pauses. On a phone, drag along the board and tap to launch.</p>
+  <canvas class="pl-canvas" id="br-board" role="img" aria-label="The wall, the ball and your paddle" data-t-aria="bricks.board"></canvas>
+  <p class="pl-msg" id="br-msg"></p>
 </main>
 
-<div class="ar-sheet" id="br-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="br-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="br-sheet-title">Bricks</h2>
-    <p id="br-sheet-text"></p>
-    <div class="ar-sheet-actions"><button class="ar-btn" id="br-go" type="button" aria-pressed="true">Start</button></div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="bricks.js"></script>
 <!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
