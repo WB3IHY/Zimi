@@ -15,6 +15,7 @@
   var KEY_CODES = { Backspace: 8, Enter: 13 };
   var LONG_PRESS_MS = 450;     // a touch held this long, without moving, is a right press
   var LONG_PRESS_SLOP = 10;    // px a finger may drift and still be holding still
+  var TWO_FINGER_MS = 350;     // two fingers down and up within this, without moving, are the middle button
   var NATIVE_QUIET_MS = 700;   // after a touch, the browser's own mouse events for it are dropped
 
   function el(tag, cls, text) {
@@ -39,6 +40,16 @@
   // Puzzles whose colours are the game itself (which block is which): their hues are kept apart, never merged into amber or red.
   var CATEGORICAL = { flood: 1, samegame: 1, guess: 1, signpost: 1, map: 1, inertia: 1 };
   var NAME = root.location.pathname.split("/").pop().replace(".html", "");
+  // A pure blue is not Zimi: it becomes one muted slate, except where the hue is the game. Where a puzzle uses a
+  // color for "selected" or "the active thing", that color is amber. The numbers are colour indexes in that puzzle's palette.
+  var SLATE = { light: [220, 0.30, 0.42], dark: [220, 0.42, 0.70] };
+  var KEEP_BLUE = { flood: 1, samegame: 1, guess: 1, map: 1 };
+  var ROLES = {
+    pegs: { 4: "amber" },                                   // the cursor
+    net: { 5: "amber" },                                    // the wires that are lit
+    mines: { 1: "sunk", 20: "surface2", 21: "edge" },       // an opened square sinks into the page; a closed one is raised, with an ink edge
+    pattern: { 4: "unknown" }                               // a square not yet decided sits just above the panel
+  };
   var raw = [], mapped = [];
   function isDark() {
     var t = d.documentElement.getAttribute("data-theme");
@@ -73,6 +84,13 @@
     var ink = parse(token("--ink", fb.ink)), ground = parse(token("--surface2", fb.surface2));
     var rgb = parse(hex), hsl = toHsl(rgb), h = hsl[0], s = hsl[1], l = hsl[2];
     if (index === 0) return toHex(ground);
+    var role = (ROLES[NAME] || {})[index];
+    if (role === "amber") return token("--select-ring", "#f59e0b");
+    if (role === "sunk") return toHex(dark ? parse(token("--ground", "#0a0a0b")) : mix(parse(token("--ground", "#f2efe8")), ink, 0.1));
+    if (role === "surface2") return toHex(ground);
+    if (role === "edge") return toHex(mix(ink, ground, 0.3));
+    if (role === "unknown") return toHex(mix(ground, ink, 0.16));
+    if (!KEEP_BLUE[NAME] && s > 0.8 && h >= 225 && h <= 250 && l >= 0.4 && l <= 0.5) { var sl = SLATE[dark ? "dark" : "light"]; return toHex(fromHsl(sl[0], sl[1], sl[2])); }
     if (s < 0.12) return toHex(mix(ink, ground, (rgb[0] + rgb[1] + rgb[2]) / 765));      // grey: black is ink, white is surface2
     var plain = !CATEGORICAL[NAME];
     if (plain && s > 0.5 && (h <= 12 || h >= 348)) return toHex(fromHsl(fb.error[0], fb.error[1], fb.error[2]));   // errors are Zimi's red
@@ -249,9 +267,9 @@
   // ctrl as the right button), and if it then moves, a right drag. The left press is only sent once we know which it is.
   function touchIsMouse(canvas) {
     var press = null, quietUntil = 0;
-    function mouse(type, e, ctrl) {
+    function mouse(type, e, ctrl, shift) {
       var ev = new MouseEvent(type, { bubbles: true, cancelable: true, view: root, button: 0, buttons: type === "mouseup" ? 0 : 1,
-        clientX: e.x, clientY: e.y, screenX: e.sx, screenY: e.sy, ctrlKey: ctrl });
+        clientX: e.x, clientY: e.y, screenX: e.sx, screenY: e.sy, ctrlKey: ctrl, shiftKey: !!shift });
       ev.zfTouch = true;
       canvas.dispatchEvent(ev);
     }
@@ -266,13 +284,18 @@
     canvas.addEventListener("pointerdown", function (e) {
       if (e.pointerType === "mouse") return;
       quietUntil = Infinity;
-      if (!e.isPrimary) return;
+      if (!e.isPrimary) {
+        // A second finger while the first is still waiting: this may be a two-finger tap (the frontend reads shift as the middle button).
+        if (press && press.phase === "wait") { root.clearTimeout(press.timer); press.phase = "two"; press.two = Date.now(); }
+        return;
+      }
       press = { id: e.pointerId, start: at(e), phase: "wait", timer: root.setTimeout(fire, LONG_PRESS_MS) };
     });
     canvas.addEventListener("pointermove", function (e) {
       var p = press;
-      if (!p || e.pointerId !== p.id) return;
+      if (!p || (e.pointerId !== p.id && p.phase !== "two")) return;
       var here = at(e);
+      if (p.phase === "two") { if (e.pointerId === p.id && Math.hypot(here.x - p.start.x, here.y - p.start.y) > LONG_PRESS_SLOP) press = null; return; }
       if (p.phase === "wait" && Math.hypot(here.x - p.start.x, here.y - p.start.y) > LONG_PRESS_SLOP) {
         root.clearTimeout(p.timer);
         p.phase = "left";
@@ -287,6 +310,10 @@
       if (!p || e.pointerId !== p.id) return;
       press = null;
       root.clearTimeout(p.timer);
+      if (p.phase === "two") {
+        if (!cancelled && Date.now() - p.two < TWO_FINGER_MS) { mouse("mousedown", p.start, false, true); mouse("mouseup", p.start, false, true); }
+        return;
+      }
       var here = at(e);
       if (p.phase === "wait") {
         if (cancelled) return;
