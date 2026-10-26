@@ -400,7 +400,6 @@ html[data-anim="fast"] :not(.bg-spin, .gs-turn i) { transition-duration: 0.1s !i
 .gs-card { display: flex; flex-direction: column; gap: 12px; }
 .gs-head { display: flex; align-items: center; gap: 8px; min-height: var(--target); }
 .gs-head h2 { flex: 1; margin: 0; font-size: var(--fs-sheet); letter-spacing: -0.01em; }
-.gs-head:not(.gs-head-root) h2::before { display: none; }
 .gs-back, .gs-x { flex: none; position: relative; width: var(--target); height: var(--target); margin: 0; padding: 0; border: 0; border-radius: var(--radius); background: none; color: var(--ink2); cursor: pointer; }
 .gs-back { margin-left: -12px; }
 .gs-x { margin-right: -12px; }
