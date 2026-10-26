@@ -35,7 +35,7 @@
     var html = '';
     for (var i = 0; i < sans.length; i++) {
       if (i % 2 === 0) html += '<span class="cs-n">' + (i / 2 + 1) + '.</span>';
-      html += '<span class="cs-m' + (i === sans.length - 1 ? ' now' : '') + '">' + sans[i] + '</span>';
+      html += '<span class="cs-m' + (i === sans.length - 1 ? ' now' : '') + '">' + sans[i] + '</span> ';
     }
     els.moves.innerHTML = html || '<span class="cs-none">' + T('openings.noMoves') + '</span>';
     els.moves.scrollTop = els.moves.scrollHeight;

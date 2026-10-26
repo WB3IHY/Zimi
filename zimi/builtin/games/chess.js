@@ -77,18 +77,11 @@
   }
 
   // The strips over and under the board: what each side has taken (a pawn..queen icon each, biggest first) and the lead in pawns.
-  var START_COUNT = { 1: 8, 2: 2, 3: 2, 4: 2, 5: 1 }, VALUE = { 1: 1, 2: 3, 3: 3, 4: 5, 5: 9 };
-  function takenFrom(color) {   // the pieces of `color` that are gone, as [type, ...] biggest first, and their worth
-    var have = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, out = [], worth = 0, t, n;
-    for (var s = 0; s < 64; s++) { var v = pos.sq[s]; if (v && v * color > 0 && have[Math.abs(v)] !== undefined) have[Math.abs(v)]++; }
-    for (t = 5; t >= 1; t--) for (n = START_COUNT[t] - have[t]; n > 0; n--) { out.push(t); worth += VALUE[t]; }
-    return { list: out, worth: worth };
-  }
   function paintCaps() {
-    var bottom = (flipped ? BLACK : WHITE), top = -bottom, lead = takenFrom(top).worth - takenFrom(bottom).worth;
+    var bottom = (flipped ? BLACK : WHITE), top = -bottom, lead = E.takenFrom(pos, top).worth - E.takenFrom(pos, bottom).worth;
     [[els.capsBot, bottom, lead], [els.capsTop, top, -lead]].forEach(function (c) {
-      var gone = takenFrom(-c[1]), html = '', prev = 0;
-      gone.list.forEach(function (t) { html += pieceSvg(t, -c[1] === WHITE).replace('class="', 'class="' + (prev && prev !== t ? 'gap ' : '')); prev = t; });
+      var gone = E.takenFrom(pos, -c[1]), html = '', prev = 0;
+      gone.list.forEach(function (t) { html += pieceSvg(t, -c[1]).replace('class="', 'class="' + (prev && prev !== t ? 'gap ' : '')); prev = t; });
       if (c[2] > 0) html += '<b>+' + c[2] + '</b>';
       if (els.capsHtml[c[0].id] !== html) { c[0].innerHTML = html; els.capsHtml[c[0].id] = html; }
     });
@@ -116,7 +109,7 @@
     var html = '';
     for (var i = 0; i < sans.length; i++) {
       if (i % 2 === 0) html += '<span class="cs-n">' + (i / 2 + 1) + '.</span>';
-      html += '<span class="cs-m' + (i === sans.length - 1 ? ' now' : '') + '">' + sans[i] + '</span>';
+      html += '<span class="cs-m' + (i === sans.length - 1 ? ' now' : '') + '">' + sans[i] + '</span> ';
     }
     els.moves.innerHTML = html;
     els.moves.scrollLeft = els.moves.scrollWidth; els.moves.scrollTop = els.moves.scrollHeight;

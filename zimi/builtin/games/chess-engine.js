@@ -476,13 +476,22 @@ function ZimiChessEngine() {
     return { move: best, score: bestScore, depth: reached, nodes: ctx.nodes };
   }
 
+  // What `color` has lost: the piece types gone from the board (pawn..queen, biggest first) and their worth in pawns.
+  var START_COUNT = { 1: 8, 2: 2, 3: 2, 4: 2, 5: 1 }, PAWNS = { 1: 1, 2: 3, 3: 3, 4: 5, 5: 9 };
+  function takenFrom(pos, color) {
+    var have = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, out = [], worth = 0, t, n;
+    for (var s = 0; s < 64; s++) { var v = pos.sq[s]; if (v && v * color > 0 && have[Math.abs(v)] !== undefined) have[Math.abs(v)]++; }
+    for (t = 5; t >= 1; t--) for (n = START_COUNT[t] - have[t]; n > 0; n--) { out.push(t); worth += PAWNS[t]; }
+    return { list: out, worth: worth };
+  }
+
   return {
     WHITE: WHITE, BLACK: BLACK, P: P, N: N, B: B, R: R, Q: Q, K: K, START_FEN: START_FEN, LEVELS: LEVELS,
     CASTLE_WK: CASTLE_WK, CASTLE_WQ: CASTLE_WQ, CASTLE_BK: CASTLE_BK, CASTLE_BQ: CASTLE_BQ,
     parseFen: parseFen, toFen: toFen, clone: clone, startPosition: function () { return parseFen(START_FEN); },
     mk: mk, from: from, to: to, promo: promo, flag: flag, squareName: squareName, squareFromName: squareFromName,
     legalMoves: legalMoves, attacked: attacked, make: make, unmake: unmake, findMove: findMove, inCheck: inCheck, perft: perft,
-    san: san, key: key, status: status, insufficient: insufficient, evaluate: evaluate, think: think
+    san: san, key: key, status: status, insufficient: insufficient, evaluate: evaluate, think: think, takenFrom: takenFrom
   };
 }
 if (typeof globalThis !== 'undefined') globalThis.ZimiChessEngine = ZimiChessEngine;
