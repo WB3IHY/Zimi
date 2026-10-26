@@ -3,9 +3,9 @@
 (function (root) {
   'use strict';
   if (typeof document === 'undefined' || !root.ZimiSokoban || !root.ZimiSokobanLevels) return;
-  var S = root.ZimiSokoban, BK = root.BoardKit, D = root.ZimiSokobanLevels;
+  var S = root.ZimiSokoban, BK = root.BoardKit, D = root.ZimiSokobanLevels, Play = root.ArcadePlay, T = Play.T;
   var $ = function (id) { return document.getElementById(id); };
-  var KEY = 'sokoban', TILE = 40, SWIPE_PX = 24, WATCH_MS = 110;
+  var KEY = 'sokoban', TILE = 40, SWIPE_PX = 24, WATCH_MS = 110, END_AFTER_MS = 600;
   var KEYS = { ArrowUp: 'u', ArrowDown: 'd', ArrowLeft: 'l', ArrowRight: 'r', w: 'u', s: 'd', a: 'l', d: 'r', W: 'u', S: 'd', A: 'l', D: 'r' };
 
   var state = BK.load(KEY, {});
@@ -13,16 +13,19 @@
   var save = function () { BK.save(KEY, state); };
 
   var grades = D.grades, levels = D.levels;
-  var cur = 0, st, ext, history, moves, pushes, facing = 'd', won = false, watching = 0, grade = grades[0].id;
+  var cur = 0, st, ext, history, moves, pushes, facing = 'd', won = false, watching = 0, grade = grades[0].id, pending = 0;
 
   var board = $('sk-board');
+  function levelNumber(i) { var n = 0; for (var k = 0; k <= i; k++) if (levels[k].g === levels[i].g) n++; return n; }
   function levelRows(lv) { return lv.r.split('/'); }
   function label(i) {
     var lv = levels[i], n = 0;
     for (var k = 0; k <= i; k++) if (levels[k].g === lv.g) n++;
-    return grades.filter(function (g) { return g.id === lv.g; })[0].name + ' ' + n;
+    return T('sokoban.levelName', { grade: gradeName(lv.g), n: n });
   }
-  function say(t) { $('sk-msg').textContent = t; }
+  function gradeName(id) { return T('sokoban.grade.' + id); }
+  var line = Play.status($('sk-msg'));
+  function say(t) { line.say(t); }
 
   // ── drawing: one svg, our own tiles ──
   function tileSvg(r, c, k) {
@@ -47,10 +50,10 @@
   function playerSvg(r, c) {
     var x = c * TILE + 20, y = r * TILE + 21, dx = facing === 'l' ? -1.6 : facing === 'r' ? 1.6 : 0, dy = facing === 'u' ? -1.6 : facing === 'd' ? 1.4 : 0;
     return '<ellipse cx="' + x + '" cy="' + (y + 13) + '" rx="11" ry="3" fill="#000" opacity="0.18"/>' +
-      '<circle cx="' + x + '" cy="' + y + '" r="14" fill="var(--sk-me)" stroke="#1f3f66" stroke-width="2"/>' +
+      '<circle cx="' + x + '" cy="' + y + '" r="14" fill="var(--sk-me)" stroke="var(--sk-me-edge)" stroke-width="2"/>' +
       '<path d="M' + (x - 9) + ' ' + (y - 6) + 'A11 11 0 0 1 ' + (x + 2) + ' ' + (y - 11) + '" fill="none" stroke="var(--sk-me-hi)" stroke-width="3" stroke-linecap="round"/>' +
       '<circle cx="' + (x - 5 + dx) + '" cy="' + (y - 2 + dy) + '" r="3.8" fill="#fff"/><circle cx="' + (x + 5 + dx) + '" cy="' + (y - 2 + dy) + '" r="3.8" fill="#fff"/>' +
-      '<circle cx="' + (x - 5 + dx * 1.6) + '" cy="' + (y - 2 + dy * 1.6) + '" r="1.7" fill="#14233a"/><circle cx="' + (x + 5 + dx * 1.6) + '" cy="' + (y - 2 + dy * 1.6) + '" r="1.7" fill="#14233a"/>';
+      '<circle cx="' + (x - 5 + dx * 1.6) + '" cy="' + (y - 2 + dy * 1.6) + '" r="1.7" fill="var(--sk-eye)"/><circle cx="' + (x + 5 + dx * 1.6) + '" cy="' + (y - 2 + dy * 1.6) + '" r="1.7" fill="var(--sk-eye)"/>';
   }
   function draw() {
     var cols = ext.c1 - ext.c0 + 1, rows = ext.r1 - ext.r0 + 1, parts = [];
@@ -66,10 +69,10 @@
     board.innerHTML = '<svg viewBox="0 0 ' + cols * TILE + ' ' + rows * TILE + '" aria-hidden="true" preserveAspectRatio="xMidYMid meet">' + parts.join('') + '</svg>';
     var onGoal = 0, total = 0;
     for (var i = 0; i < st.box.length; i++) if (st.box[i]) { total++; if (st.goal[i]) onGoal++; }
-    board.setAttribute('aria-label', label(cur) + ': ' + onGoal + ' of ' + total + ' crates on rings, ' + moves + ' moves');
-    $('sk-moves').textContent = moves; $('sk-pushes').textContent = pushes;
+    board.setAttribute('aria-label', T('sokoban.boardLabel', { level: label(cur), done: onGoal, total: total, moves: moves }));
+    $('sk-moves').textContent = Play.num(moves); $('sk-pushes').textContent = Play.num(pushes);
     var best = state.best[levels[cur].id];
-    $('sk-best').textContent = best ? best : '-';
+    $('sk-best').textContent = best ? Play.num(best) : '-';
     $('sk-undo').disabled = !history.length || !!watching;
   }
 
@@ -79,17 +82,17 @@
     cur = Math.max(0, Math.min(levels.length - 1, i)); won = false;
     st = S.parse(levelRows(levels[cur]).map(function (r) { return r.replace(/-/g, ' '); }));
     ext = S.extent(st); history = []; moves = 0; pushes = 0; facing = 'd';
-    $('sk-name').textContent = label(cur).replace(/^[A-Za-z]+ /, '');
-    $('sk-name-l').textContent = label(cur).replace(/ \d+$/, '');
-    grade = levels[cur].g;
+    $('sk-name').textContent = Play.num(levelNumber(cur));
+    $('sk-name-l').textContent = gradeName(levels[cur].g);
+    grade = levels[cur].g; pending = cur;
     state.level = levels[cur].id; save();
-    say('Push every crate onto a ring'); draw();
+    say(T('sokoban.goal')); draw();
   }
   function step(d) {
     if (won) return;
     var next = S.move(st, d);
     facing = d;
-    if (!next) { draw(); return; }
+    if (!next) { draw(); if (!watching) { ZimiShell.shake(board); line.reason(T('sokoban.blocked')); } return; }
     history.push({ st: st, moves: moves, pushes: pushes, facing: facing });
     st = next; moves++; if (next.pushed) pushes++;
     draw();
@@ -106,18 +109,17 @@
     var id = levels[cur].id, prev = state.best[id], record = !prev || moves < prev;
     if (record) state.best[id] = moves;
     save(); draw();
-    if (watching) { stopWatching(); say('That was a solution in ' + moves + ' moves'); return; }
-    say('Level complete in ' + moves + ' moves');
-    $('sk-win-text').textContent = moves + ' moves, ' + pushes + ' pushes.' + (record ? (prev ? ' A new best, up from ' + prev + '.' : ' Your first finish.') : ' Your best is ' + prev + '.');
-    $('sk-win-next').hidden = cur >= levels.length - 1;
-    winSheet.open($('sk-win-next').hidden ? $('sk-win-again') : $('sk-win-next'));
+    if (watching) { stopWatching(); say(T('sokoban.solutionDone', { n: moves })); return; }
+    say(T('shell.end.win'));
+    pending = Math.min(levels.length - 1, cur + 1);   // New game on the end sheet is the next level
+    ZimiShell.endSheet({ result: 'win', after: END_AFTER_MS, stats: [[T('sokoban.moves'), Play.num(moves)], [T('sokoban.pushes'), Play.num(pushes)]] });
   }
 
   function stopWatching() { if (watching) { clearInterval(watching); watching = 0; } }
   function watch() {
     load(cur);
     var seq = levels[cur].m, i = 0;
-    say('A solution of ' + seq.length + ' moves');
+    say(T('sokoban.solution', { n: seq.length }));
     watching = setInterval(function () {
       if (i >= seq.length) { stopWatching(); return; }
       step(seq[i++].toLowerCase());
@@ -127,13 +129,12 @@
 
   // ── input: keys, the pad, a swipe on the board ──
   document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet') || document.querySelector('.ar-sheet:not([hidden])')) return;
     var d = KEYS[e.key];
     if (d) { if (watching) stopWatching(); e.preventDefault(); step(d); return; }
     var k = e.key.toLowerCase();
     if (k === 'z' || k === 'u' || e.key === 'Backspace') { e.preventDefault(); undo(); } else if (k === 'r') load(cur);
   });
-  $('sk-pad').addEventListener('click', function (e) { var b = e.target.closest('button[data-d]'); if (b) { stopWatching(); step(b.dataset.d); } });
   var down = null;
   board.addEventListener('pointerdown', function (e) { down = { x: e.clientX, y: e.clientY }; });
   board.addEventListener('pointerup', function (e) {
@@ -145,38 +146,49 @@
   });
   board.addEventListener('pointercancel', function () { down = null; });
 
-  // ── sheets ──
-  var menu = BK.sheet($('sk-sheet')), winSheet = BK.sheet($('sk-win'));
-  function paintMenu() {
-    var tabs = $('sk-tabs'), grid = $('sk-grid');
-    tabs.textContent = ''; grid.textContent = '';
-    grades.forEach(function (g) {
-      var b = document.createElement('button');
-      b.type = 'button'; b.className = 'sk-tab'; b.textContent = g.name; b.setAttribute('aria-pressed', String(g.id === grade));
-      b.addEventListener('click', function () { grade = g.id; paintMenu(); });
-      tabs.appendChild(b);
-    });
-    var n = 0;
-    levels.forEach(function (lv, i) {
-      if (lv.g !== grade) return;
-      n++;
-      var b = document.createElement('button');
-      b.type = 'button'; b.className = 'sk-lv' + (state.best[lv.id] ? ' done' : '') + (i === cur ? ' now' : '');
-      b.textContent = n;
-      b.title = state.best[lv.id] ? 'Best ' + state.best[lv.id] + ' moves' : 'Not finished';
-      b.setAttribute('aria-label', 'Level ' + n + (state.best[lv.id] ? ', best ' + state.best[lv.id] + ' moves' : ''));
-      b.addEventListener('click', function () { menu.close(); load(i); });
-      grid.appendChild(b);
-    });
+  // ── the touch pad (the one shared pad: a d-pad, no action keys) ──
+  var DIR_OF = { up: 'u', down: 'd', left: 'l', right: 'r' };
+  Play.pad(board, { dirs: ['left', 'right', 'up', 'down'], actions: [], on: function (name, down) { if (down) { stopWatching(); step(DIR_OF[name]); } } });
+
+  // ── New game: pick a level (a grade, then a number); Start loads it. Restart and Show solution are in the Menu. ──
+  function levelGrid() {
+    var grid = document.createElement('div'), box = document.createElement('div');
+    box.className = 'sk-pick';
+    function fill() {
+      box.textContent = '';
+      var n = 0;
+      levels.forEach(function (lv, i) {
+        if (lv.g !== grade) return;
+        n++;
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'sk-lv' + (state.best[lv.id] ? ' done' : '') + (i === pending ? ' now' : '');
+        b.textContent = Play.num(n);
+        b.setAttribute('aria-label', state.best[lv.id] ? T('sokoban.levelBest', { n: n, moves: state.best[lv.id] }) : T('sokoban.level', { n: n }));
+        b.setAttribute('aria-pressed', String(i === pending));
+        b.addEventListener('click', function () { pending = i; fill(); });
+        box.appendChild(b);
+      });
+    }
+    grid.appendChild(Play.optionRow(T('sokoban.difficulty'), grades.map(function (g) { return [g.id, gradeName(g.id)]; }), grade, function (v) {
+      grade = v; pending = levels.findIndex(function (lv) { return lv.g === v && !state.best[lv.id]; }); if (pending < 0) pending = levels.findIndex(function (lv) { return lv.g === v; }); fill();
+    }));
+    grid.appendChild(box); fill();
+    return grid;
   }
-  $('sk-levels').addEventListener('click', function () { paintMenu(); menu.open(); });
-  $('sk-close').addEventListener('click', menu.close);
   $('sk-undo').addEventListener('click', undo);
   $('sk-restart').addEventListener('click', function () { load(cur); });
-  $('sk-watch').addEventListener('click', watch);
-  $('sk-win-next').addEventListener('click', function () { winSheet.close(); load(cur + 1); });
-  $('sk-win-again').addEventListener('click', function () { winSheet.close(); load(cur); });
-  $('sk-win-levels').addEventListener('click', function () { winSheet.close(); paintMenu(); menu.open(); });
+  $('sk-solution').addEventListener('click', watch);
+  $('sk-new').addEventListener('click', function () { load(pending); });
+  ZimiShell.game({
+    inProgress: function () { return !won && moves > 0; },
+    menu: function () { grade = levels[pending].g; return { options: [levelGrid()] }; },
+    stats: function () {
+      return grades.map(function (g) {
+        var all = levels.filter(function (lv) { return lv.g === g.id; });
+        return [gradeName(g.id), T('sokoban.finished', { done: all.filter(function (lv) { return state.best[lv.id]; }).length, total: all.length })];
+      });
+    }
+  });
 
   var start = 0;
   levels.forEach(function (lv, i) { if (lv.id === state.level) start = i; });

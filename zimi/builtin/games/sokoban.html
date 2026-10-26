@@ -13,52 +13,24 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Sokoban</h1>
-  <button class="ar-btn" id="sk-undo" type="button" title="Undo (Z)" disabled>Undo</button>
-  <button class="ar-btn" id="sk-restart" type="button" title="Restart (R)">Restart</button>
-  <button class="ar-btn" id="sk-levels" type="button" aria-haspopup="dialog">Levels</button>
+  <button class="ar-btn" id="sk-undo" type="button" disabled data-t="board.undo">Undo</button>
+  <button class="ar-btn" id="sk-restart" type="button" data-t="sokoban.restart">Restart</button>
+  <button class="ar-btn" id="sk-solution" type="button" data-t="sokoban.showSolution">Show solution</button>
+  <button class="ar-btn" id="sk-new" type="button" hidden data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="pl-main sk-main">
   <div class="pl-hud">
     <div class="pl-stat"><small id="sk-name-l">Level</small><b id="sk-name">1</b></div>
-    <div class="pl-stat"><small>Moves</small><b id="sk-moves">0</b></div>
-    <div class="pl-stat"><small>Pushes</small><b id="sk-pushes">0</b></div>
-    <div class="pl-stat"><small>Best</small><b id="sk-best">-</b></div>
+    <div class="pl-stat"><small data-t="sokoban.moves">Moves</small><b id="sk-moves">0</b></div>
+    <div class="pl-stat"><small data-t="sokoban.pushes">Pushes</small><b id="sk-pushes">0</b></div>
+    <div class="pl-stat"><small data-t="play.best">Best</small><b id="sk-best">-</b></div>
   </div>
-  <p class="pl-msg" id="sk-msg" role="status" aria-live="polite"></p>
-  <div class="sk-board" id="sk-board" tabindex="0" role="img" aria-label="Sokoban board"></div>
-  <div class="sk-pad" id="sk-pad" aria-label="Move">
-    <button class="pl-key sk-up" type="button" data-d="u" aria-label="Up">&uarr;</button>
-    <button class="pl-key sk-left" type="button" data-d="l" aria-label="Left">&larr;</button>
-    <button class="pl-key sk-down" type="button" data-d="d" aria-label="Down">&darr;</button>
-    <button class="pl-key sk-right" type="button" data-d="r" aria-label="Right">&rarr;</button>
-  </div>
-  <button class="ar-btn" id="sk-watch" type="button">Watch a solution</button>
-  <p class="pl-help">Push every crate onto a ring. You can push one crate at a time and never pull. Swipe on the board, use the arrows, or the arrow keys. Z undoes, R restarts. Levels: DeepMind Boxoban (Apache-2.0).</p>
+  <p class="pl-msg" id="sk-msg"></p>
+  <div class="sk-board" id="sk-board" tabindex="0" role="img" aria-label="Sokoban board" data-t-aria="sokoban.board"></div>
 </main>
 
-<div class="ar-sheet" id="sk-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sk-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="sk-sheet-title">Levels</h2>
-    <div class="sk-tabs" id="sk-tabs" role="group" aria-label="Difficulty"></div>
-    <div class="sk-grid" id="sk-grid"></div>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="sk-close" type="button">Close</button>
-    </div>
-  </div>
-</div>
-
-<div class="ar-sheet" id="sk-win" hidden role="dialog" aria-modal="true" aria-labelledby="sk-win-title">
-  <div class="ar-sheet-card">
-    <h2 id="sk-win-title">Level complete</h2>
-    <p id="sk-win-text"></p>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="sk-win-levels" type="button">Levels</button>
-      <button class="ar-btn" id="sk-win-again" type="button">Play again</button>
-      <button class="ar-btn" id="sk-win-next" type="button" aria-pressed="true">Next level</button>
-    </div>
-  </div>
-</div>
+<script src="playkit.js"></script>
 <script src="boardkit.js"></script>
 <script src="sokoban-engine.js"></script>
 <script src="data/sokoban-levels.js"></script>
