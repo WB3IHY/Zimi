@@ -21,7 +21,8 @@
   var seats = newSeats();
   var score = WK.scoreBar($('wk-score'), [{}, {}, {}, {}].map(function () { return { color: 'var(--m4-cloth)' }; }));
   var els = { info: $('m4-info'), opps: $('m4-opps'), pool: $('m4-pool'), claim: $('m4-claim'), melds: $('m4-melds'), hand: $('m4-hand') };
-  var game, t, epoch = 0, picked = -1, tip = -1, shown = [], event = '';   // event: what just happened, shown ahead of whose turn it is
+  var STATUS_MAX = 60;
+  var game, t, epoch = 0, picked = -1, tip = -1, shown = [], event = '';   // event: what just happened, said while the computers answer a discard
 
   // ── small helpers ──
   function newSeats() { return root.ZimiSeats.create({ id: 'mahjong4', seats: SEATS, onChange: function () { if (t) render(); } }); }
@@ -50,8 +51,6 @@
   }
   function later(fn, ms) { var my = epoch; setTimeout(function () { if (my === epoch) fn(); }, ms); }
   function say(text, busy) { G.say(text, busy); }
-  // What just happened, then whose turn it is: one sentence each.
-  function withEvent(line) { return event ? T('janggi.noted', { note: event, line: line }) : line; }
   function human() { return t.phase === 'discard' && t.turn === me() && seats.person(t.turn) && !seats.covering && !t.result; }
 
   // ── drawing the table ──
@@ -164,9 +163,9 @@
         if (my !== epoch) return;
         render();
         showSelfOptions(E.selfOptions(t, p));
-        say(withEvent(els.claim.hidden ? T(seats.isYou(p) ? 'mahjong4.yourTurn' : 'mahjong4.turn', { name: nameOf(p) }) : about('mahjong4.canDeclare', p)));
+        say(els.claim.hidden ? T(seats.isYou(p) ? 'mahjong4.yourTurn' : 'mahjong4.turn', { name: nameOf(p) }) : about('mahjong4.canDeclare', p));
       });
-    } else { say(withEvent(T('mahjong4.thinking', { name: seatName(p) })), true); later(function () { computerAct(p); }, COMPUTER_DELAY_MS); }
+    } else { say(T('mahjong4.thinking', { name: seatName(p) }), true); later(function () { computerAct(p); }, COMPUTER_DELAY_MS); }
   }
   function computerAct(p) {
     var self = E.aiSelf(t, p, level());
@@ -207,7 +206,7 @@
     seats.ensure(q, function () {
       if (my !== epoch) return;
       render();
-      say(T('janggi.noted', { note: event, line: about('mahjong4.mayClaim', q) }));
+      say(about('mahjong4.mayClaim', q));
       showClaims(t.claims[q], tile);
       pending.picks = picks; pending.asking = asking; pending.tile = tile;
     }, T('mahjong4.coverClaim'));
@@ -270,7 +269,9 @@
     tip = i >= 0 ? i : -1; picked = -1; renderHand();
     c[k]--;
     var w = E.waits(c, t.melds[who].length), text = T('mahjong4.hint', { tile: MT.faceName(k) });
-    if (w.length) text = T('janggi.noted', { note: text, line: T('mahjong4.hintWait', { tiles: list(w.map(MT.faceName)) }) });
+    // The status line is one short line: the waits join the hint only when they fit.
+    var waits = w.length ? T('mahjong4.hintWait', { tiles: list(w.map(MT.faceName)) }) : '';
+    if (waits && (text + ' ' + waits).length <= STATUS_MAX) text = T('janggi.noted', { note: text, line: waits });
     say(text);
   }
   // The scoring table: its names and notes are keyed by the row's place in the engine's table.
