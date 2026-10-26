@@ -60,7 +60,7 @@
   // keeps every seat a person, once.
   function pname(p) { return T('sl.color.' + p.id); }
   var SEATS_KEY = 'zimi.games.snakesandladders.seats', seats;
-  function seatsFor(n) { return root.ZimiSeats.create({ id: 'snakesandladders', seats: n, cpuNames: PLAYERS.map(function (p) { return pname(p); }) }); }
+  function seatsFor(n) { return root.ZimiSeats.create({ id: 'snakesandladders', seats: n, cpuNames: PLAYERS.map(function (p, i) { return root.ZimiSeats.cpuName(i); }) }); }
   (function migrate() {
     var had = false;
     try { had = root.localStorage.getItem(SEATS_KEY) !== null; } catch (e) { had = true; }

@@ -112,7 +112,7 @@
     if (watching) { stopWatching(); say(T('sokoban.solutionDone', { n: moves })); return; }
     say(T('shell.end.win'));
     pending = Math.min(levels.length - 1, cur + 1);   // New game on the end sheet is the next level
-    ZimiShell.endSheet({ result: 'win', after: END_AFTER_MS, stats: [[T('sokoban.moves'), Play.num(moves)], [T('sokoban.pushes'), Play.num(pushes)]] });
+    ZimiShell.endSheet({ result: 'win', newLabel: cur < levels.length - 1 ? T('shell.nextLevel') : undefined, after: END_AFTER_MS, stats: [[T('sokoban.moves'), Play.num(moves)], [T('sokoban.pushes'), Play.num(pushes)]] });
   }
 
   function stopWatching() { if (watching) { clearInterval(watching); watching = 0; } }
@@ -206,7 +206,7 @@
     draw();
     if (S.solved(st)) {
       won = true; say(T('shell.end.win')); pending = Math.min(levels.length - 1, cur + 1);
-      ZimiShell.endSheet({ result: 'win', after: 0, stats: [[T('sokoban.moves'), Play.num(moves)], [T('sokoban.pushes'), Play.num(pushes)]] });
+      ZimiShell.endSheet({ result: 'win', newLabel: cur < levels.length - 1 ? T('shell.nextLevel') : undefined, after: 0, stats: [[T('sokoban.moves'), Play.num(moves)], [T('sokoban.pushes'), Play.num(pushes)]] });
     }
     return true;
   }
