@@ -181,13 +181,14 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$;
-  var SAVE_KEY = 'zimi.games.pet', SIZE = 120, CHROME_PX = [470, 330], MAX_SCALE = 3, SAVE_EVERY_MS = 30000;
+  var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$, T = Play.T;
+  var SAVE_KEY = 'zimi.games.pet', SIZE = 120, CHROME_PX = 360, MAX_SCALE = 3, ROUND_COUNT = 5, SAVE_EVERY_MS = 30000;
   Play.applyTheme();
   // A pet is always under way: the shelf's tile shows it as you left it.
-  if (root.ZimiShell) root.ZimiShell.game({ inProgress: function () { return true; } });
-  var els = { cv: $('pt-screen'), msg: $('pt-msg'), tabs: $('pt-tabs'), feed: $('pt-feed'), play: $('pt-play'), clean: $('pt-clean'), lights: $('pt-lights'), sheet: $('pt-sheet'), title: $('pt-sheet-title'), body: $('pt-sheet-body'), close: $('pt-close'), name: $('pt-name'), age: $('pt-age'), rename: $('pt-rename'), egg: $('pt-egg'),
+  ZimiShell.game({ inProgress: function () { return true; }, stats: function () { return [[T('pet.stats.pets'), Play.num(store.pets.length)], [T('pet.stats.meals'), Play.num(pet ? pet.meals : 0)], [T('pet.stats.games'), Play.num(pet ? pet.games : 0)]]; } });
+  var els = { cv: $('pt-screen'), msg: $('pt-msg'), tabs: $('pt-tabs'), care: $('pt-actions'), name: $('pt-name'), age: $('pt-age'), egg: $('pt-egg'),
     bars: { food: $('pt-food'), joy: $('pt-joy'), clean: $('pt-wash'), energy: $('pt-energy') } };
+  var line = Play.status(els.msg);
   var reduced = Play.reducedMotion(), ctx, store = Play.load(SAVE_KEY, null), pet, lastSave = 0, scale = 3, doing = null, rng = mulberry(Date.now());
   if (!validStore(store)) store = newStore(Date.now());
   try { usePlace(root.localStorage); } catch (e) { /* no storage: the fixed hours */ }
@@ -283,105 +284,110 @@
   }
 
   // ── the page's state ──
-  var STAGE_NAMES = { egg: 'Egg', baby: 'Hatchling', child: 'Child', teen: 'Teen', adult: 'Grown-up' };
-  var BARS = [['food', 'Fullness'], ['joy', 'Joy'], ['clean', 'Clean'], ['energy', 'Energy']];
-  function say(text) { els.msg.textContent = text; }
+  var BARS = ['food', 'joy', 'clean', 'energy'], LOW_BAR = 30;
+  function say(text) { line.say(text); }
+  // The care buttons that apply right now, in order: an egg needs none, a sleeper can only be woken, a sulking or tired pet is not asked to play.
+  function careActions() {
+    if (pet.stage === 'egg') return [];
+    if (pet.asleep) return ['lights'];
+    var out = ['feed'];
+    if (!pet.sulking && pet.energy >= TIRED) out.push('play');
+    return out.concat(['clean', 'lights']);
+  }
   function hud() {
     if (!pet) return;
-    els.name.textContent = pet.name; els.age.textContent = pet.stage === 'egg' ? 'Egg' : STAGE_NAMES[pet.stage] + (pet.form === 'bright' ? ', bright' : '') + ', day ' + ageDays(pet, now());
-    BARS.forEach(function (b) { var el = els.bars[b[0]], v = Math.round(pet[b[0]]); el.style.setProperty('--v', v + '%'); el.setAttribute('aria-valuenow', String(v)); el.dataset.low = v < 30 ? '1' : '0'; });
-    var egg = pet.stage === 'egg', asleep = pet.asleep;
-    [els.feed, els.play, els.clean].forEach(function (b) { b.disabled = egg || asleep; });
-    els.lights.disabled = egg; els.lights.textContent = asleep ? 'Wake' : 'Sleep';
+    els.name.textContent = pet.name; els.name.setAttribute('aria-label', T('pet.rename', { name: pet.name }));
+    els.age.textContent = pet.stage === 'egg' ? T('pet.stage.egg') : T(pet.form === 'bright' ? 'pet.ageBright' : 'pet.age', { stage: T('pet.stage.' + pet.stage), n: ageDays(pet, now()) });
+    BARS.forEach(function (k) { var el = els.bars[k], v = Math.round(pet[k]); el.style.setProperty('--v', v + '%'); el.setAttribute('aria-valuenow', String(v)); el.dataset.low = v < LOW_BAR ? '1' : '0'; });
+    var egg = pet.stage === 'egg';
     els.egg.hidden = !egg;
-    if (egg) els.egg.textContent = 'It will hatch in ' + Math.max(1, Math.ceil((pet.born + EGG_MS - now()) / MIN)) + ' min. Come back and see.';
-    tabs();
+    if (egg) els.egg.textContent = T('pet.hatchIn', { n: Math.max(1, Math.ceil((pet.born + EGG_MS - now()) / MIN)) });
+    paintCare(); tabs();
   }
+  var careKey = '';
+  function paintCare() {
+    var list = careActions(), key = list.join() + (pet.asleep ? 'z' : '');
+    if (key === careKey) return;
+    careKey = key; els.care.textContent = '';
+    els.care.hidden = !list.length;
+    list.forEach(function (id) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'ar-btn'; b.id = 'pt-' + id;
+      b.textContent = T(id === 'lights' ? (pet.asleep ? 'pet.wake' : 'pet.sleep') : 'pet.' + id);
+      b.addEventListener('click', ACT[id]); els.care.appendChild(b);
+    });
+  }
+  // One pet each, as a segmented control, and a last segment that finds another egg while there is room.
   function tabs() {
-    els.tabs.textContent = '';
+    var seg = els.tabs; seg.textContent = '';
     store.pets.forEach(function (p, i) {
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'ar-btn'; b.textContent = p.stage === 'egg' ? 'Egg' : p.name; b.setAttribute('aria-pressed', String(i === store.active));
-      b.addEventListener('click', function () { store.active = i; pet = current(); catchUp(); save(); say(''); });
-      els.tabs.appendChild(b);
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'ar-btn'; b.textContent = p.stage === 'egg' ? T('pet.stage.egg') : p.name; b.setAttribute('aria-pressed', String(i === store.active));
+      b.addEventListener('click', function () { store.active = i; pet = current(); careKey = ''; catchUp(); save(); say(''); });
+      seg.appendChild(b);
     });
     if (store.pets.length < MAX_PETS) {
-      var a = document.createElement('button'); a.type = 'button'; a.className = 'ar-btn'; a.textContent = '+ Egg'; a.setAttribute('aria-label', 'Find another egg');
-      a.addEventListener('click', function () { addPet(store, now()); pet = current(); save(); say('You found another egg.'); });
-      els.tabs.appendChild(a);
+      var a = document.createElement('button'); a.type = 'button'; a.className = 'ar-btn'; a.textContent = T('pet.addEgg'); a.setAttribute('aria-pressed', 'false'); a.setAttribute('aria-label', T('pet.findEgg'));
+      a.addEventListener('click', function () { addPet(store, now()); pet = current(); careKey = ''; save(); say(T('pet.foundEgg')); hud(); });
+      seg.appendChild(a);
     }
   }
-  var LINES = {
-    hatched: function (n) { return n + ' hatched.'; }, sulk: function (n) { return n + ' is sad. A meal, a wash and some play will help.'; }, recovered: function (n) { return n + ' is feeling better.'; },
-    mess: function (n) { return n + ' made a mess.'; }, dozed: function (n) { return n + ' was so tired that it fell asleep.'; }, woke: function (n) { return n + ' woke up.'; }
-  };
   function report(ev, away) {
-    var out = [];
-    ev.forEach(function (e) { if (e.indexOf('grew:') === 0) out.push(pet.name + ' grew into a ' + (e.slice(5) === 'adult' ? 'grown-up' : e.slice(5)) + '.'); else if (LINES[e] && (e === 'hatched' || e === 'sulk' || e === 'recovered')) out.push(LINES[e](pet.name)); });
-    if (!out.length && away && ev.indexOf('mess') >= 0) out.push(LINES.mess(pet.name));
-    if (out.length) say((away ? 'While you were away: ' : '') + out.join(' ') );
+    var out = [], n = pet.name;
+    ev.forEach(function (e) {
+      if (e.indexOf('grew:') === 0) out.push(T('pet.grew', { name: n, stage: T('pet.form.' + e.slice(5)) }));
+      else if (e === 'hatched' || e === 'sulk' || e === 'recovered') out.push(T('pet.ev.' + e, { name: n }));
+    });
+    if (!out.length && away && ev.indexOf('mess') >= 0) out.push(T('pet.ev.mess', { name: n }));
+    if (out.length) say(away ? T('pet.whileAway', { text: out.join(' ') }) : out.join(' '));
   }
   // Work out what happened since the last look (this is the whole of "time passes while the page is closed").
   function catchUp() {
     var t0 = pet.t, ev = advance(pet, now()), away = now() - t0 > 2 * MIN;
-    if (ev.length) report(ev, away); else if (away && !els.msg.textContent) say(pet.name + ' is glad you are back.');
+    if (ev.length) report(ev, away); else if (away && !els.msg.textContent) say(T('pet.glad', { name: pet.name }));
     hud();
   }
 
-  // ── the little sheet: choose a meal, play the game, give a name ──
-  function openSheet(title, build) { els.title.textContent = title; els.body.textContent = ''; build(els.body); Play.openSheet(els.sheet, 'button, input'); }
-  function closeSheet() { Play.closeSheet(els.sheet); }
-  function btn(text, fn, primary) { var b = document.createElement('button'); b.type = 'button'; b.className = 'ar-btn'; b.textContent = text; if (primary) b.setAttribute('aria-pressed', 'true'); b.addEventListener('click', fn); return b; }
-  function row(parent) { var d = document.createElement('div'); d.className = 'pl-row'; d.style.margin = '8px 0'; parent.appendChild(d); return d; }
-  function result(r, kind) {
-    var n = pet.name, M = { egg: 'It is still an egg.', asleep: n + ' is asleep. Wake it first.', full: n + ' is not hungry.', snacks: 'No more snacks for now. A proper meal?', sulk: n + ' will not play right now. Try a meal or a wash first.', tired: n + ' is too tired to play.' };
-    if (!r.ok) { say(M[r.msg] || ''); return; }
-    var T = { meal: n + ' ate a meal.', snack: n + ' munched a snack.', played: n + ' had fun.', clean: n + ' is sparkling clean.', sleep: 'Good night. ' + n + ' is asleep.', wake: n + ' is awake.' };
-    say(T[r.msg] || '');
+  // ── what a person does: choose a meal, play the game, give a name (each a sheet with one anatomy) ──
+  function result(r) {
+    if (!r.ok) { ZimiShell.shake(els.care); line.reason(T('pet.no.' + r.msg, { name: pet.name })); return; }
+    say(T('pet.did.' + r.msg, { name: pet.name }));
   }
   function animate(kind, ms) { if (reduced) return; doing = { kind: kind, at: now(), ms: ms }; setTimeout(function () { if (doing && doing.kind === kind) doing = null; }, ms); }
-  els.feed.addEventListener('click', function () {
-    catchUp();
-    openSheet('Feed ' + pet.name, function (b) {
-      var r = row(b);
-      r.appendChild(btn('Meal', function () { closeSheet(); var res = feed(pet, 'meal'); result(res); if (res.ok) animate('meal', 1000); save(); hud(); }, true));
-      r.appendChild(btn('Snack', function () { closeSheet(); var res = feed(pet, 'snack'); result(res); if (res.ok) animate('snack', 800); save(); hud(); }));
-      var p = document.createElement('p'); p.textContent = 'A meal fills the tummy. A snack cheers it up, but only a few in a row.'; p.className = 'pl-help'; b.appendChild(p);
-    });
-  });
-  els.clean.addEventListener('click', function () { catchUp(); var res = wash(pet); result(res); if (res.ok) animate('wash', 1000); save(); hud(); });
-  els.lights.addEventListener('click', function () { catchUp(); var res = lights(pet); result(res); save(); hud(); });
-  els.play.addEventListener('click', function () {
-    catchUp();
-    var chk = pet.asleep ? 'asleep' : pet.sulking ? 'sulk' : pet.energy < TIRED ? 'tired' : null;
-    if (chk) { result({ ok: false, msg: chk }); return; }
-    var wins = 0, played = 0;
-    openSheet('Which way will ' + pet.name + ' look?', function (b) {
-      var status = document.createElement('p'), r = row(b), line = document.createElement('p'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); line.className = 'pl-help';
-      status.textContent = 'Round 1 of ' + ROUNDS + '. Pick a side.'; line.textContent = 'Guess where it looks, five times. Each right guess makes it happier.';
+  function after() { careKey = ''; save(); hud(); }
+  var ACT = {
+    feed: function () {
+      catchUp();
+      function eat(kind, ms) { var res = feed(pet, kind); result(res); if (res.ok) animate(kind, ms); after(); }
+      ZimiShell.sheet({ title: T('pet.feedTitle', { name: pet.name }), text: T('pet.feedText'), actions: [{ label: T('pet.snack'), onclick: function () { eat('snack', 800); } }, { label: T('pet.meal'), primary: true, onclick: function () { eat('meal', 1000); } }] });
+    },
+    clean: function () { catchUp(); var res = wash(pet); result(res); if (res.ok) animate('wash', 1000); after(); },
+    lights: function () { catchUp(); var res = lights(pet); result(res); after(); },
+    play: function () {
+      catchUp();
+      var chk = pet.asleep ? 'asleep' : pet.sulking ? 'sulk' : pet.energy < TIRED ? 'tired' : null;
+      if (chk) { result({ ok: false, msg: chk }); return; }
+      var wins = 0, played = 0, sheet, statusP = document.createElement('p');
+      statusP.setAttribute('role', 'status'); statusP.setAttribute('aria-live', 'polite'); statusP.className = 'gs-text';
+      statusP.textContent = T('pet.round', { n: 1, total: ROUND_COUNT });
       function pick(g) {
         var res = round(rng, g); played++; if (res.win) wins++;
-        status.textContent = pet.name + ' looked ' + res.look + (res.win ? '. You win.' : '. You lose.') + (played < ROUNDS ? ' Round ' + (played + 1) + ' of ' + ROUNDS + '.' : '');
-        if (played >= ROUNDS) {
-          r.textContent = ''; var res2 = play(pet, wins); status.textContent += ' ' + wins + ' of ' + ROUNDS + '.';
-          r.appendChild(btn('Done', function () { closeSheet(); result(res2); animate('play', 600); save(); hud(); }, true));
-          r.firstChild.focus();
+        statusP.textContent = T('pet.looked', { name: pet.name, side: T('pet.side.' + res.look), result: T(res.win ? 'pet.right' : 'pet.wrong') }) + (played < ROUND_COUNT ? ' ' + T('pet.round', { n: played + 1, total: ROUND_COUNT }) : '');
+        if (played >= ROUND_COUNT) {
+          var res2 = play(pet, wins), row = sheet.el.querySelector('.ar-sheet-actions'); row.textContent = '';
+          statusP.textContent += ' ' + T('pet.score', { wins: wins, total: ROUND_COUNT });
+          var done = document.createElement('button'); done.type = 'button'; done.className = 'ar-btn gs-primary'; done.setAttribute('aria-pressed', 'true'); done.textContent = T('shell.close');
+          done.addEventListener('click', function () { sheet.close(); result(res2); animate('play', 600); after(); }); row.appendChild(done); done.focus();
         }
       }
-      r.appendChild(btn('Left', function () { pick('left'); })); r.appendChild(btn('Right', function () { pick('right'); }));
-      b.appendChild(status); b.appendChild(line);
-    });
+      sheet = ZimiShell.sheet({ title: T('pet.playTitle', { name: pet.name }), text: T('pet.playText'), body: [statusP],
+        actions: [{ label: T('play.left'), keep: true, onclick: function () { pick('left'); } }, { label: T('play.right'), keep: true, onclick: function () { pick('right'); } }] });
+    }
+  };
+  els.name.addEventListener('click', function () {
+    var inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = 12; inp.value = pet.name; inp.className = 'pt-input'; inp.setAttribute('aria-label', T('pet.nameLabel'));
+    var sheet = ZimiShell.sheet({ title: T('pet.nameTitle'), body: [inp], actions: [{ label: T('shell.cancel') }, { label: T('pet.save'), primary: true, keep: true, onclick: done }] });
+    function done() { pet.name = cleanName(inp.value); sheet.close(); save(); hud(); }
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); done(); } });
   });
-  els.rename.addEventListener('click', function () {
-    openSheet('Name your pet', function (b) {
-      var inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = 12; inp.value = pet.name; inp.className = 'zs-name'; inp.setAttribute('aria-label', 'Name'); inp.style.cssText = 'width:100%;min-height:40px;font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)';
-      var r = row(b);
-      function done() { pet.name = cleanName(inp.value); closeSheet(); save(); hud(); }
-      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); done(); } });
-      b.insertBefore(inp, r); r.appendChild(btn('Save', done, true));
-    });
-  });
-  els.close.addEventListener('click', closeSheet);
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !els.sheet.hidden) { e.preventDefault(); closeSheet(); } });
 
   // ── the clock: one look every second while the page is showing ──
   var tickT = 0;
@@ -395,6 +401,5 @@
   window.addEventListener('resize', layout);
 
   pet = current(); layout(); catchUp(); save(); loop.start();
-  if (pet.stage === 'egg' && !els.msg.textContent) say('You found an egg. Keep it safe and come back in a few minutes.');
   root.__pet = { get store() { return store; }, get pet() { return pet; }, catchUp: catchUp, save: save, now: now };
 })(this);

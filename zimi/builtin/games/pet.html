@@ -14,37 +14,23 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Zimi Pet</h1>
-  <button class="ar-btn" id="pt-rename" type="button">Name</button>
 </header>
 
-<main class="px-main">
-  <div class="pt-tabs pl-row" id="pt-tabs" role="group" aria-label="Your pets"></div>
-  <div class="pt-who"><b id="pt-name">Mip</b> <span id="pt-age">Egg</span></div>
-  <canvas class="px-screen" id="pt-screen" role="img" aria-label="A cosy room with your pet in it"></canvas>
-  <p class="pl-help" id="pt-egg" hidden></p>
-  <div class="pt-bars" role="group" aria-label="How your pet is">
-    <label>Fullness<div class="pt-bar" id="pt-food" role="progressbar" aria-label="Fullness" aria-valuemin="0" aria-valuemax="100" aria-valuenow="70"></div></label>
-    <label>Joy<div class="pt-bar" id="pt-joy" role="progressbar" aria-label="Joy" aria-valuemin="0" aria-valuemax="100" aria-valuenow="70"></div></label>
-    <label>Clean<div class="pt-bar" id="pt-wash" role="progressbar" aria-label="Clean" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"></div></label>
-    <label>Energy<div class="pt-bar" id="pt-energy" role="progressbar" aria-label="Energy" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"></div></label>
+<main class="pl-main">
+  <div class="gs-seg pt-tabs" id="pt-tabs" role="group" aria-label="Your pets" data-t-aria="pet.pets"></div>
+  <div class="pt-who"><button class="pt-name" id="pt-name" type="button">Mip</button> <span id="pt-age">Egg</span></div>
+  <canvas class="px-screen" id="pt-screen" role="img" aria-label="A cozy room with your pet in it" data-t-aria="pet.room"></canvas>
+  <p class="pt-egg" id="pt-egg" hidden></p>
+  <div class="pt-bars" role="group" aria-label="How your pet is" data-t-aria="pet.how">
+    <div class="pt-barwrap"><span data-t="pet.bar.food">Fullness</span><div class="pt-bar" id="pt-food" role="progressbar" aria-label="Fullness" data-t-aria="pet.bar.food" aria-valuemin="0" aria-valuemax="100" aria-valuenow="70"></div></div>
+    <div class="pt-barwrap"><span data-t="pet.bar.joy">Joy</span><div class="pt-bar" id="pt-joy" role="progressbar" aria-label="Joy" data-t-aria="pet.bar.joy" aria-valuemin="0" aria-valuemax="100" aria-valuenow="70"></div></div>
+    <div class="pt-barwrap"><span data-t="pet.bar.clean">Clean</span><div class="pt-bar" id="pt-wash" role="progressbar" aria-label="Clean" data-t-aria="pet.bar.clean" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"></div></div>
+    <div class="pt-barwrap"><span data-t="pet.bar.energy">Energy</span><div class="pt-bar" id="pt-energy" role="progressbar" aria-label="Energy" data-t-aria="pet.bar.energy" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"></div></div>
   </div>
-  <div class="pt-actions" role="group" aria-label="Care">
-    <button class="pl-key" id="pt-feed" type="button">Feed</button>
-    <button class="pl-key" id="pt-play" type="button">Play</button>
-    <button class="pl-key" id="pt-clean" type="button">Wash</button>
-    <button class="pl-key" id="pt-lights" type="button">Sleep</button>
-  </div>
-  <p class="pl-msg" id="pt-msg" role="status" aria-live="polite"></p>
-  <p class="pl-help">Your pet lives in real time. It gets hungry, tired and messy while you are away, and the page catches up when you come back. It grows up over a week of care. If you neglect it, it gets sad. A meal, a wash and some play make it happy again. Nothing ever dies. Saved in this browser.</p>
+  <div class="gs-actionrow pt-actions" id="pt-actions" role="group" aria-label="Care" data-t-aria="pet.care"></div>
+  <p class="pl-msg" id="pt-msg"></p>
 </main>
 
-<div class="ar-sheet" id="pt-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="pt-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="pt-sheet-title">Zimi Pet</h2>
-    <div id="pt-sheet-body"></div>
-    <div class="ar-sheet-actions"><button class="ar-btn" id="pt-close" type="button">Close</button></div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="pixelkit.js"></script>
 <script src="pet.js"></script>
