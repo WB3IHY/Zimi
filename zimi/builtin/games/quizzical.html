@@ -14,7 +14,8 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Quizzical</h1>
-  <span class="ar-stat" id="qz-score" aria-live="polite">Score 0</span>
+  <span class="ar-stat" id="qz-score" aria-live="polite"></span>
+  <button class="ar-btn" id="qz-new" type="button" hidden data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="pl-main qz-main">
@@ -24,25 +25,14 @@
     <img class="qz-pic" id="qz-pic" alt="" hidden>
     <p class="qz-prompt" id="qz-prompt"></p>
   </section>
-  <div class="qz-choices" id="qz-choices" role="group" aria-label="Choices"></div>
-  <p class="pl-msg" id="qz-msg" role="status" aria-live="polite"></p>
-  <div class="pl-keys">
-    <a class="ar-btn" id="qz-read" href="#" hidden>Read</a>
-    <button class="ar-btn gm-play" id="qz-next" type="button" hidden>Next</button>
+  <div class="qz-choices" id="qz-choices" role="group" aria-label="Choices" data-t-aria="quizzical.choices"></div>
+  <p class="pl-msg" id="qz-msg"></p>
+  <div class="gs-actionrow">
+    <a class="ar-btn" id="qz-read" href="#" hidden></a>
+    <button class="ar-btn gm-play" id="qz-next" type="button" hidden></button>
   </div>
-  <p class="pl-help gl-source" id="qz-source"></p>
 </main>
 
-<div class="ar-sheet" id="qz-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="qz-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="qz-sheet-title">Done</h2>
-    <p id="qz-sheet-text"></p>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="qz-again" type="button">Play again</button>
-      <button class="ar-btn" id="qz-close" type="button" aria-pressed="true">Close</button>
-    </div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="librarykit.js"></script>
 <script src="quizzical-data.js"></script>

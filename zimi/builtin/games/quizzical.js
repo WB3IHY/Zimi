@@ -91,9 +91,10 @@
     });
   }
 
+  // How a round went, as the id of the sentence the page says (quizzical.verdict.<id>).
   function verdict(score, total) {
     var r = total ? score / total : 0;
-    return r === 1 ? 'Flawless.' : r >= 0.75 ? 'Very good.' : r >= 0.5 ? 'Good.' : 'Keep playing to learn more.';
+    return r === 1 ? 'flawless' : r >= 0.75 ? 'veryGood' : r >= 0.5 ? 'good' : 'keepGoing';
   }
 
   var Engine = { kindOf: kindOf, maskTitle: maskTitle, distractors: distractors, question: question, makeRound: makeRound, miniRound: miniRound, verdict: verdict, same: same, QUESTIONS: QUESTIONS, CHOICES: CHOICES };
@@ -102,14 +103,15 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   Play.applyTheme();
   var BEST_KEY = 'zimi.games.quizzical.best';
   var els = { n: $('qz-n'), score: $('qz-score'), card: $('qz-card'), prompt: $('qz-prompt'), pic: $('qz-pic'), kind: $('qz-kind'), choices: $('qz-choices'), msg: $('qz-msg'),
-    next: $('qz-next'), read: $('qz-read'), source: $('qz-source'), sheet: $('qz-sheet'), title: $('qz-sheet-title'), text: $('qz-sheet-text'), again: $('qz-again'), close: $('qz-close') };
+    next: $('qz-next'), read: $('qz-read'), newBtn: $('qz-new') };
+  var status = Play.status(els.msg);
   var wikiZim = null, wiktZim = null, round = [], at = 0, score = 0, answered = false, building = false;
 
-  var KIND_LABEL = { sentence: 'Which article is this?', picture: 'Which article is this picture from?', word: 'Which word means this?', fact: 'Question' };
+  function kindLabel(kind) { return T('quizzical.kind.' + kind); }
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
@@ -131,22 +133,26 @@
     return Promise.all(lanes).then(function () { return out; });
   }
 
-  function paintScore() { els.n.textContent = round.length ? 'Question ' + (at + 1) + ' of ' + round.length : ''; els.score.textContent = 'Score ' + score; }
+  // The bar's one stat is the score; the caption above the card says where in the round you are.
+  function paintScore() {
+    els.n.textContent = round.length ? T('quizzical.question', { n: at + 1, total: round.length }) : '';
+    els.score.textContent = T('quizzical.score', { n: score });
+  }
 
   function showQuestion() {
     var q = round[at]; answered = false;
-    els.kind.textContent = KIND_LABEL[q.kind];
+    els.kind.textContent = kindLabel(q.kind);
     els.prompt.textContent = q.prompt || '';
     els.prompt.hidden = !q.prompt;
     els.pic.hidden = !q.picture;
-    if (q.picture) { els.pic.removeAttribute('src'); els.pic.src = q.picture; els.pic.alt = 'A picture from one of the articles'; }
+    if (q.picture) { els.pic.removeAttribute('src'); els.pic.src = q.picture; els.pic.alt = T('quizzical.pictureAlt'); }
     els.choices.innerHTML = '';
     q.choices.forEach(function (c, i) {
       var b = el('button', 'qz-choice'); b.type = 'button'; b.dataset.i = i;
-      b.appendChild(el('span', 'qz-num', String(i + 1))); b.appendChild(el('span', 'qz-text', c));
+      b.appendChild(el('span', 'qz-num', Play.num(i + 1))); b.appendChild(el('span', 'qz-text', c));
       els.choices.appendChild(b);
     });
-    els.msg.textContent = ''; els.next.hidden = true; els.read.hidden = true;
+    status.say(''); els.next.hidden = true; els.read.hidden = true;
     paintScore();
   }
   function answer(i) {
@@ -154,10 +160,10 @@
     var q = round[at], btns = els.choices.children, right = q.choices.indexOf(q.answer);
     answered = true;
     for (var k = 0; k < btns.length; k++) { btns[k].disabled = true; if (k === right) btns[k].classList.add('right'); }
-    if (i === right) { score++; els.msg.textContent = 'Right.'; } else { btns[i].classList.add('wrong'); els.msg.textContent = 'It was ' + q.answer + '.'; }
+    if (i === right) { score++; status.say(T('quizzical.right')); } else { btns[i].classList.add('wrong'); status.say(T('quizzical.itWas', { answer: q.answer })); }
     if (q.picture) els.prompt.textContent = '';
-    if (q.path && q.zim) { els.read.hidden = false; els.read.href = '/w/' + encodeURIComponent(q.zim) + '/' + q.path.split('/').map(encodeURIComponent).join('/'); els.read.textContent = 'Read about ' + q.answer; }
-    els.next.hidden = false; els.next.textContent = at + 1 >= round.length ? 'See your score' : 'Next';
+    if (q.path && q.zim) { els.read.hidden = false; els.read.href = '/w/' + encodeURIComponent(q.zim) + '/' + q.path.split('/').map(encodeURIComponent).join('/'); els.read.textContent = T('quizzical.read', { answer: q.answer }); }
+    els.next.hidden = false; els.next.textContent = T(at + 1 >= round.length ? 'quizzical.seeScore' : 'quizzical.next');
     els.next.focus();
     paintScore();
   }
@@ -166,22 +172,27 @@
     if (at + 1 >= round.length) return finish();
     at++; showQuestion();
   }
+  // The end of a round: a score game with no win state, so "Game over" with the score and the best here.
   function finish() {
-    var best = Play.load(BEST_KEY, {}), mine = best[wikiZim ? wikiZim : 'mini'] || 0;
-    if (score > mine) { best[wikiZim ? wikiZim : 'mini'] = score; Play.save(BEST_KEY, best); }
-    els.title.textContent = score + ' of ' + round.length;
-    els.text.textContent = verdict(score, round.length) + (score > mine && mine ? ' A new best.' : mine > score ? ' Your best here is ' + mine + '.' : '');
-    Play.openSheet(els.sheet, '#qz-again');
+    var best = Play.load(BEST_KEY, {}), key = wikiZim || 'mini', mine = best[key] || 0;
+    if (score > mine) { best[key] = score; Play.save(BEST_KEY, best); }
+    status.say(T('quizzical.verdict.' + verdict(score, round.length)));
+    ZimiShell.endSheet({
+      result: 'over', text: T('quizzical.verdict.' + verdict(score, round.length)),
+      stats: [[T('play.score'), T('quizzical.of', { n: score, total: round.length })], [T('play.best'), Play.num(Math.max(score, mine))]]
+    });
+    done = true;
   }
+  var done = false;
 
-  function say(t, loading) {
+  function say(t) {
     els.card.classList.toggle('busy', !!t);
-    if (t) { els.kind.textContent = t; els.prompt.textContent = ''; els.prompt.hidden = true; els.pic.hidden = true; els.choices.innerHTML = ''; els.msg.textContent = ''; els.next.hidden = true; els.read.hidden = true; els.n.textContent = ''; }
+    if (t) { els.kind.textContent = t; els.prompt.textContent = ''; els.prompt.hidden = true; els.pic.hidden = true; els.choices.innerHTML = ''; status.say(''); els.next.hidden = true; els.read.hidden = true; els.n.textContent = ''; }
   }
 
   function newRound() {
-    if (building) return; building = true; at = 0; score = 0; round = [];
-    say('Choosing questions from your Wikipedia...');
+    if (building) return; building = true; at = 0; score = 0; round = []; done = false;
+    say(T('quizzical.choosing'));
     els.kind.classList.add('gl-loading');
     var work;
     if (wikiZim) {
@@ -192,19 +203,24 @@
     } else work = Promise.resolve(null);
     work.then(function (qs) {
       building = false; els.kind.classList.remove('gl-loading');
-      if (!qs && wikiZim) { els.source.textContent = 'Your library did not give enough to ask about, so these are the built-in questions.'; }
       round = qs || miniRound(root.QUIZZICAL_MINI, QUESTIONS, Math.random);
       els.card.classList.remove('busy'); showQuestion();
+      if (!qs && wikiZim) status.reason(T('quizzical.builtIn'), 4000);
     });
   }
 
   els.choices.addEventListener('click', function (e) { var b = e.target.closest('.qz-choice'); if (b) answer(+b.dataset.i); });
   els.next.addEventListener('click', advance);
-  els.again.addEventListener('click', function () { Play.closeSheet(els.sheet); newRound(); });
-  els.close.addEventListener('click', function () { Play.closeSheet(els.sheet); });
+  els.newBtn.addEventListener('click', newRound);
+  ZimiShell.game({
+    inProgress: function () { return !done && !building && (at > 0 || answered); },
+    stats: function () {
+      var best = Play.load(BEST_KEY, {}), keys = Object.keys(best);
+      return keys.length ? [[T('play.best'), Play.num(Math.max.apply(null, keys.map(function (k) { return best[k]; })))]] : [];
+    }
+  });
   document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (!els.sheet.hidden) { if (e.key === 'Escape') Play.closeSheet(els.sheet); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.ar-sheet:not([hidden])')) return;
     if (/^[1-4]$/.test(e.key)) answer(+e.key - 1);
     else if ((e.key === 'Enter' || e.key === ' ') && answered && document.activeElement !== els.read) { e.preventDefault(); advance(); }
   });
@@ -212,7 +228,6 @@
   Lib.isZimi().then(function (yes) { return yes ? Lib.zims() : []; }).then(function (list) {
     var a = Lib.pickZim(list, 'wikipedia', Lib.uiLang()), w = Lib.pickZim(list, 'wiktionary', Lib.uiLang());
     wikiZim = a ? a.zim.name : null; wiktZim = w && w.exact ? w.zim.name : (w && a && Lib.primaryLang(w.zim.language) === Lib.primaryLang(a.zim.language) ? w.zim.name : null);
-    els.source.textContent = wikiZim ? 'Questions made from ' + a.zim.title + ' (' + a.zim.language + ')' + (wiktZim ? ' and ' + w.zim.title : '') + ', in your library.' : 'The built-in questions. Open ZimiGames inside Zimi to be asked about your own library.';
     newRound();
   });
   root.__quiz = { get round() { return round; }, get zim() { return wikiZim; } };

@@ -240,7 +240,7 @@ const Lib = load(['librarykit.js']).GamesLib;
     check(mini.length >= 40 && mini.every(q => q.length === 5 && new Set(q.slice(1)).size === 4 && q.every(x => typeof x === 'string' && x)), 'quiz: the ' + mini.length + ' built-in questions each have a right answer and three others, all different');
     const r = Q.miniRound(mini, 8, Lib.rng(4));
     check(r.length === 8 && r.every(q => q.choices.length === 4 && q.choices.includes(q.answer)) && new Set(r.map(q => q.prompt)).size === 8, 'quiz: a built-in round is 8 different questions with the answer among four');
-    check(Q.verdict(8, 8) === 'Flawless.' && Q.verdict(0, 8) !== 'Flawless.', 'quiz: a perfect round is called flawless');
+    check(Q.verdict(8, 8) === 'flawless' && Q.verdict(0, 8) !== 'flawless', 'quiz: a perfect round is called flawless');
   }
 
   // ── Jigsaw ─────────────────────────────────────────────────────────────────
