@@ -297,7 +297,7 @@
     if (a) { zim = a.zim.name; zimTitle = (a.zim.title || a.zim.name) + ' (' + a.zim.language + ')'; }
     // Leaving and coming back keeps the puzzle: its picture, every piece where it was left, and the clock.
     var kept = ZimiShell.saved();
-    if (kept && kept.pic && kept.pieces && (!kept.daily || kept.date === today) && (!kept.pic.zim || kept.pic.zim === zim)) return restore(kept);
+    if (kept && kept.pic && kept.pieces && (!kept.daily || kept.date === today)) return restore(kept);
     if (kept) ZimiShell.forget();
     return newPuzzle(prefs.count, false);
   });
