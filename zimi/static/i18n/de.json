@@ -3491,5 +3491,6 @@
   "pet_bored": "{name} will spielen",
   "pet_asleep": "{name} schläft",
   "pet_fine": "{name} geht es gut",
-  "pet_egg": "{name} ist noch ein Ei"
+  "pet_egg": "{name} ist noch ein Ei",
+  "alm_earth_failed": "Die 3D-Erde konnte nicht geladen werden. Schließe diese Ansicht und öffne sie erneut."
 }

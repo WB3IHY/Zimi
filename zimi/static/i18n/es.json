@@ -3491,5 +3491,6 @@
   "pet_bored": "{name} quiere jugar",
   "pet_asleep": "{name} duerme",
   "pet_fine": "{name} está bien",
-  "pet_egg": "{name} sigue siendo un huevo"
+  "pet_egg": "{name} sigue siendo un huevo",
+  "alm_earth_failed": "No se pudo cargar la Tierra en 3D. Cierra esta vista y ábrela de nuevo."
 }
