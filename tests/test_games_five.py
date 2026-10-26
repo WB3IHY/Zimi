@@ -75,13 +75,12 @@ def test_chance_is_a_fresh_word_each_time(library):
 
 
 def test_a_french_word_loses_its_accents_but_keeps_its_title(library):
-    got = {dic.five_letters("wiktionary_fr", "chance")["word"] for _ in range(60)}
-    assert got <= FR_WORDS and "foret" in got
-    one = next(
-        x
-        for x in (dic.five_letters("wiktionary_fr", "chance") for _ in range(200))
-        if x["word"] == "foret"
-    )
+    # Draws are random: keep drawing until forêt comes up, checking every word on the way.
+    for _ in range(2000):
+        one = dic.five_letters("wiktionary_fr", "chance")
+        assert one["word"] in FR_WORDS
+        if one["word"] == "foret":
+            break
     assert one["title"] == "forêt" and one["lang"] == "fr"
 
 
