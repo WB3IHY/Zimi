@@ -7,55 +7,33 @@
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="play.css">
 <link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="boardui.css">
 <link rel="stylesheet" href="chess.css">
 <link rel="stylesheet" href="chesspuzzles.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body>
 <header class="ar-bar">
-  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <a class="ar-back" href="index.html" data-t-aria="shell.back" aria-label="Back">&lsaquo;</a>
   <h1>Opening Trainer</h1>
-  <button class="ar-btn" id="co-choose" type="button" aria-haspopup="dialog">Choose</button>
+  <button class="ar-btn" id="co-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="bg-main">
   <p class="co-name" id="co-name"></p>
-  <p class="bg-status" id="co-status" role="status" aria-live="polite"></p>
-  <div class="bg-board cs-board cp-board" id="co-board" role="group" aria-label="Chess board"></div>
-  <div class="cs-moves" id="co-moves" role="log" aria-label="The line"></div>
+  <p class="bg-status" id="co-status"></p>
+  <div class="bg-board cs-board cp-board" id="co-board" role="group" data-t-aria="chess.board" aria-label="Chess board"></div>
+  <div class="cs-moves" id="co-moves" role="log" data-t-aria="openings.theLine" aria-label="The line"></div>
   <div class="bg-controls">
-    <button class="ar-btn" id="co-hint" type="button" title="Show the book move (H)">Hint</button>
-    <button class="ar-btn" id="co-restart" type="button">Restart</button>
-    <button class="ar-btn" id="co-next" type="button" aria-pressed="true" title="Another line from the same family (N)">Another line</button>
+    <button class="ar-btn" id="co-hint" type="button" data-t="board.hint" data-t-title="openings.hintTitle" title="Show the book move (H)">Hint</button>
+    <button class="ar-btn" id="co-restart" type="button" data-t="openings.restart">Restart</button>
+    <button class="ar-btn" id="co-next" type="button" aria-pressed="true" data-t="openings.next" data-t-title="openings.nextTitle" title="Another line from the same family (N)">Next line</button>
   </div>
   <p class="bg-stats" id="co-stats"></p>
-  <p class="bg-help">Play the book moves for your side. The computer plays the other side. Tap a piece, then a square. H shows a hint. Opening names: lichess-org/chess-openings (CC0).</p>
 </main>
 
-<div class="ar-sheet" id="co-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="co-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="co-sheet-title">Choose an opening</h2>
-    <fieldset class="bg-field"><legend>You play</legend><div class="bg-chips" id="co-f-side">
-      <label class="bg-chip"><input type="radio" name="co-side" value="white"><span>White</span></label>
-      <label class="bg-chip"><input type="radio" name="co-side" value="black"><span>Black</span></label>
-    </div></fieldset>
-    <label class="cp-field"><span>Search</span><input id="co-search" type="search" placeholder="Sicilian, Ruy Lopez, Dutch" autocomplete="off"></label>
-    <label class="cp-field"><span>Opening</span><select id="co-family"></select></label>
-    <label class="cp-field"><span>Line</span><select id="co-line"></select></label>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="co-cancel" type="button">Cancel</button>
-      <button class="ar-btn" id="co-start" type="button" aria-pressed="true">Start</button>
-    </div>
-  </div>
-</div>
-
-<div class="ar-sheet" id="co-promo" hidden role="dialog" aria-modal="true" aria-labelledby="co-promo-title">
-  <div class="ar-sheet-card">
-    <h2 id="co-promo-title">Promote the pawn to</h2>
-    <div class="cs-promo-choices" id="co-promo-choices"></div>
-  </div>
-</div>
 <script src="boardkit.js"></script>
+<script src="boardui.js"></script>
 <script src="chess-pieces.js"></script>
 <script src="chess-engine.js"></script>
 <script src="chess-content.js"></script>

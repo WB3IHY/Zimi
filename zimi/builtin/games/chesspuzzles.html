@@ -7,51 +7,32 @@
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="play.css">
 <link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="boardui.css">
 <link rel="stylesheet" href="chess.css">
 <link rel="stylesheet" href="chesspuzzles.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body>
 <header class="ar-bar">
-  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <a class="ar-back" href="index.html" data-t-aria="shell.back" aria-label="Back">&lsaquo;</a>
   <h1>Chess Puzzles</h1>
-  <button class="ar-btn" id="cp-daily" type="button">Daily</button>
-  <button class="ar-btn" id="cp-choose" type="button" aria-haspopup="dialog">Choose</button>
+  <button class="ar-btn" id="cp-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="bg-main">
   <div class="pl-hud cp-hud" id="cp-hud"></div>
-  <p class="bg-status" id="cp-status" role="status" aria-live="polite"></p>
-  <div class="bg-board cs-board cp-board" id="cp-board" role="group" aria-label="Chess board"></div>
+  <p class="bg-status" id="cp-status"></p>
+  <div class="bg-board cs-board cp-board" id="cp-board" role="group" data-t-aria="chess.board" aria-label="Chess board"></div>
   <div class="bg-controls">
-    <button class="ar-btn" id="cp-hint" type="button" title="Show the piece to move (H)">Hint</button>
-    <button class="ar-btn" id="cp-solution" type="button">Show solution</button>
-    <button class="ar-btn" id="cp-next" type="button" aria-pressed="true" title="Next puzzle (N)">Next puzzle</button>
+    <button class="ar-btn" id="cp-hint" type="button" data-t="board.hint" data-t-title="puzzles.hintTitle" title="Show the piece to move (H)">Hint</button>
+    <button class="ar-btn" id="cp-solution" type="button" data-t="puzzles.showSolution">Show solution</button>
+    <button class="ar-btn" id="cp-next" type="button" aria-pressed="true" data-t="puzzles.next" data-t-title="puzzles.nextTitle" title="Next puzzle (N)">Next puzzle</button>
   </div>
   <p class="bg-stats" id="cp-info"></p>
-  <p class="bg-help">Find the best move for your side. Click a piece, then a square. H shows a hint, N is the next puzzle. Puzzles: Lichess puzzle database (CC0).</p>
 </main>
 
-<div class="ar-sheet" id="cp-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="cp-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="cp-sheet-title">Choose puzzles</h2>
-    <label class="cp-field"><span>Level</span><select id="cp-level"></select></label>
-    <label class="cp-field"><span>Theme</span><select id="cp-theme"></select></label>
-    <p class="bg-note" id="cp-count"></p>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="cp-cancel" type="button">Cancel</button>
-      <button class="ar-btn" id="cp-start" type="button" aria-pressed="true">Start</button>
-    </div>
-  </div>
-</div>
-
-<div class="ar-sheet" id="cp-promo" hidden role="dialog" aria-modal="true" aria-labelledby="cp-promo-title">
-  <div class="ar-sheet-card">
-    <h2 id="cp-promo-title">Promote the pawn to</h2>
-    <div class="cs-promo-choices" id="cp-promo-choices"></div>
-  </div>
-</div>
 <script src="boardkit.js"></script>
+<script src="boardui.js"></script>
 <script src="chess-pieces.js"></script>
 <script src="chess-engine.js"></script>
 <script src="chess-content.js"></script>

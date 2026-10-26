@@ -3,8 +3,8 @@
    line plays. The computer plays the other side's moves. No engine thinking, no network. */
 (function (root) {
   'use strict';
-  if (typeof document === 'undefined' || !root.ZimiChessEngine || !root.ZimiChessOpenings) return;
-  var E = root.ZimiChessEngine(), C = root.ZimiChessContent, BK = root.BoardKit, Board = root.ZimiChessBoard;
+  if (typeof document === 'undefined' || !root.ZimiChessEngine || !root.ZimiChessOpenings || !root.BoardUI) return;
+  var E = root.ZimiChessEngine(), C = root.ZimiChessContent, BK = root.BoardKit, Board = root.ZimiChessBoard, UI = root.BoardUI, T = UI.t;
   var $ = function (id) { return document.getElementById(id); };
   var WHITE = E.WHITE, BLACK = E.BLACK;
   var KEY = 'chessopenings', REPLY_DELAY_MS = 450, MIN_PLIES = 4, DEFAULT_FAMILY = 'Italian Game';
@@ -22,14 +22,14 @@
   if (!state.done || typeof state.done !== 'object') state.done = {};
   var save = function () { BK.save(KEY, state); };
 
-  var els = { name: $('co-name'), status: $('co-status'), moves: $('co-moves'), stats: $('co-stats'), hint: $('co-hint'), next: $('co-next') };
+  var els = { name: $('co-name'), status: $('co-status'), moves: $('co-moves'), stats: $('co-stats'), hint: $('co-hint'), next: $('co-next'), nu: $('co-new'), board: $('co-board') };
+  var status = UI.status(els.status);
   var line, pos, step, sans, lastMove = 0, sel = -1, targets = {}, cue = null, userColor, busy = false, finished = false, mistakes = 0, hinted = false, hintLevel = 0, pending = null, timer = 0;
   var view = Board.create($('co-board'), E, onSquare);
 
   function lineKey(l) { return l.eco + '|' + l.name; }
-  function colorName(c) { return c === WHITE ? 'White' : 'Black'; }
   function paint() { view.paint(pos, { flipped: userColor === BLACK, last: lastMove, sel: sel, targets: targets, cue: cue }); }
-  function say(t) { els.status.textContent = t; }
+  function say(t, busy) { status.turn(t, !!busy); }
   function later(fn, ms) { clearTimeout(timer); timer = setTimeout(fn, ms); }
   function paintMoves() {
     var html = '';
@@ -37,12 +37,12 @@
       if (i % 2 === 0) html += '<span class="cs-n">' + (i / 2 + 1) + '.</span>';
       html += '<span class="cs-m' + (i === sans.length - 1 ? ' now' : '') + '">' + sans[i] + '</span>';
     }
-    els.moves.innerHTML = html || '<span class="cs-none">No moves yet</span>';
+    els.moves.innerHTML = html || '<span class="cs-none">' + T('openings.noMoves') + '</span>';
     els.moves.scrollTop = els.moves.scrollHeight;
   }
   function paintStats() {
     var n = state.done[lineKey(line)] || 0, total = Object.keys(state.done).length;
-    els.stats.textContent = (n ? 'You have played this line ' + n + (n === 1 ? ' time' : ' times') + '. ' : '') + total + ' of ' + lines.length + ' lines played';
+    els.stats.textContent = total ? (n ? T('openings.playedLine', { n: n }) + ' ' : '') + T('openings.played', { n: total, of: lines.length }) : '';
   }
 
   function play(m) {
@@ -62,15 +62,15 @@
   // Play the computer's moves until it is the player's turn or the line ends.
   function advance() {
     if (step >= line.moves.length) { complete(); return; }
-    if (pos.turn === userColor) { busy = false; say('Your turn: ' + (step === 0 ? 'play the first move of the line' : 'what does the line play?')); return; }
-    busy = true; say('The line continues');
+    if (pos.turn === userColor) { busy = false; say(T(step === 0 ? 'openings.first' : 'openings.what')); return; }
+    busy = true; say(T('openings.continues'), true);
     later(function () { play(lineMove()); advance(); }, step === 0 ? 150 : REPLY_DELAY_MS);
   }
   function complete() {
     finished = true; busy = false;
     var k = lineKey(line); state.done[k] = (state.done[k] || 0) + 1; save();
     els.next.setAttribute('aria-pressed', 'true');
-    say(mistakes || hinted ? 'Line complete: ' + line.name : 'Line complete, no mistakes: ' + line.name);
+    say(T(mistakes || hinted ? 'openings.complete' : 'openings.completeClean', { name: line.name }));
     paintStats();
   }
 
@@ -79,7 +79,7 @@
     var v = pos.sq[s];
     if (sel >= 0 && targets.hasOwnProperty(s)) {
       var cands = E.legalMoves(pos).filter(function (m) { return E.from(m) === sel && E.to(m) === s; });
-      if (cands.length > 1) { pending = cands; Board.promoColour($('co-promo-choices'), pos.turn === WHITE); promoSheet.open(); return; }
+      if (cands.length > 1) { pending = cands; askPromotion(cands); return; }
       attempt(cands[0]); return;
     }
     if (v * pos.turn > 0 && s !== sel) { sel = s; targets = view.movesFrom(pos, s); cue = null; } else { sel = -1; targets = {}; }
@@ -92,25 +92,32 @@
     E.make(pos, m);
     var keys = [E.key(pos)], hit = index.byKey[keys[0]];
     E.unmake(pos);
-    if (hit) other = ' That is the ' + hit.name + '.';
+    if (hit) other = T('openings.thatIs', { name: hit.name });
     mistakes++; sel = -1; targets = {};
     cue = { from: E.from(lineMove()), to: E.to(lineMove()) };
-    say('Not this line. It plays ' + book + '.' + other);
     paint();
+    UI.refuse(status, els.board, T('openings.notThis', { move: book }) + (other ? ' ' + other : ''));
   }
-  var promoSheet = BK.sheet($('co-promo'), function () { pending = null; });
-  Board.promoButtons(E, $('co-promo-choices'), function (t) {
-    var m = pending && pending.filter(function (x) { return E.promo(x) === t; })[0];
-    promoSheet.close();
-    if (m) attempt(m);
-  });
+  // The pawn reaches the far rank: a sheet of the four pieces it can become.
+  var promoSheet = null;
+  function askPromotion(cands) {
+    pending = cands;
+    var box = UI.h('div', { class: 'cs-promo-choices' });
+    Board.promoButtons(E, box, function (t) {
+      var m = pending && pending.filter(function (x) { return E.promo(x) === t; })[0];
+      promoSheet.close();
+      if (m) attempt(m);
+    });
+    Board.promoColour(box, pos.turn === WHITE);
+    promoSheet = root.ZimiShell.sheet({ title: T('chess.promote'), body: [box], onClose: function () { pending = null; } });
+  }
 
   function hint() {
     if (finished || busy) return;
     hinted = true; hintLevel++;
     var m = lineMove();
     cue = { from: E.from(m), to: hintLevel > 1 ? E.to(m) : -1 };
-    sel = -1; targets = {}; say(hintLevel > 1 ? 'The line moves it here' : 'The line moves this piece'); paint();
+    sel = -1; targets = {}; say(T(hintLevel > 1 ? 'openings.hint2' : 'openings.hint1')); paint();
   }
   function nextLine() {
     var pool = families[state.family];
@@ -119,38 +126,39 @@
     start(from.length ? from[Math.floor(Math.random() * from.length)] : pool[0]);
   }
 
-  // ── the menu ──
-  var menu = BK.sheet($('co-sheet'));
-  function fillFamilies(filter) {
-    var sel_ = $('co-family'), f = (filter || '').trim().toLowerCase(), keep = sel_.value;
-    sel_.textContent = '';
-    familyNames.filter(function (n) { return !f || n.toLowerCase().indexOf(f) >= 0; }).forEach(function (n) { sel_.add(new Option(n + ' (' + families[n].length + ')', n)); });
-    if (keep && families[keep] && sel_.querySelector('option[value="' + keep.replace(/"/g, '\\"') + '"]')) sel_.value = keep;
-    fillLines();
-  }
-  function fillLines() {
-    var ln = $('co-line'), fam = $('co-family').value;
-    ln.textContent = '';
-    (families[fam] || []).forEach(function (l, i) { ln.add(new Option(l.name.replace(fam + ': ', '').replace(fam, 'Main line') + ' · ' + l.eco + ' · ' + Math.ceil(l.moves.length / 2) + ' moves', i)); });
-    $('co-start').disabled = !ln.options.length;
-  }
-  function openMenu() {
-    BK.chipSet($('co-f-side'), state.side);
-    $('co-search').value = '';
+  // ── Menu > New game: your side, then an opening and a line. Nothing applies until New game is pressed. ──
+  var draft = null;
+  function lineText(l, fam) { return T('openings.line', { name: l.name.replace(fam + ': ', '').replace(fam, T('openings.mainLine')), eco: l.eco, n: Math.ceil(l.moves.length / 2) }); }
+  function menuOptions() {
+    draft = { side: state.side, family: state.family, line: Math.max(0, families[state.family].indexOf(line)) };
+    var side = UI.row(T('board.youPlay'), [['white', T('board.white')], ['black', T('board.black')]], draft.side, function (v) { draft.side = v; });
+    var search = UI.field(T('openings.search'), UI.h('input', { type: 'search', placeholder: T('openings.searchHint'), autocomplete: 'off' }));
+    var fam = UI.select(T('openings.opening'), [], draft.family, null), ln = UI.select(T('openings.lineLabel'), [], '0', null);
+    function fillLines() {
+      ln.node.textContent = '';
+      (families[draft.family] || []).forEach(function (l, i) { ln.node.add(new Option(lineText(l, draft.family), i)); });
+      ln.node.value = String(Math.min(draft.line, Math.max(0, ln.node.options.length - 1))); draft.line = +ln.node.value || 0;
+    }
+    function fillFamilies(filter) {
+      var f = (filter || '').trim().toLowerCase();
+      fam.node.textContent = '';
+      familyNames.filter(function (n) { return !f || n.toLowerCase().indexOf(f) >= 0; }).forEach(function (n) { fam.node.add(new Option(T('openings.family', { name: n, n: families[n].length }), n)); });
+      if (families[draft.family] && Array.prototype.some.call(fam.node.options, function (o) { return o.value === draft.family; })) fam.node.value = draft.family;
+      else if (fam.node.options.length) { draft.family = fam.node.value; draft.line = 0; }
+      fillLines();
+    }
+    search.node.addEventListener('input', function (e) { fillFamilies(e.target.value); });
+    fam.node.addEventListener('change', function () { draft.family = fam.node.value; draft.line = 0; fillLines(); });
+    ln.node.addEventListener('change', function () { draft.line = +ln.node.value; });
     fillFamilies('');
-    $('co-family').value = state.family; fillLines();
-    var i = families[state.family].indexOf(line); if (i >= 0) $('co-line').value = i;
-    menu.open($('co-family'));
+    return UI.options([side, search, fam, ln]);
   }
-  $('co-search').addEventListener('input', function (e) { fillFamilies(e.target.value); });
-  $('co-family').addEventListener('change', fillLines);
-  $('co-choose').addEventListener('click', openMenu);
-  $('co-cancel').addEventListener('click', menu.close);
-  $('co-start').addEventListener('click', function () {
-    state.side = BK.chipValue($('co-f-side')) || 'white';
-    state.family = $('co-family').value; save();
-    var l = families[state.family][+$('co-line').value];
-    menu.close(); if (l) start(l);
+  els.nu.addEventListener('click', function () {
+    var d = draft; draft = null;
+    if (!d) { start(line); return; }
+    state.side = d.side; state.family = d.family; save();
+    var l = families[d.family] && families[d.family][d.line];
+    start(l || families[state.family][0]);
   });
   els.hint.addEventListener('click', hint);
   $('co-restart').addEventListener('click', function () { start(line); });
@@ -162,6 +170,10 @@
     else if (e.key === 'Escape' && sel >= 0) { sel = -1; targets = {}; paint(); }
   });
 
+  if (root.ZimiShell) root.ZimiShell.game({
+    menu: menuOptions, hints: true,
+    inProgress: function () { return !finished && step > 1; }
+  });
   start(families[state.family][0]);
 
   if (new URLSearchParams(location.search).has('debug')) {

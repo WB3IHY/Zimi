@@ -5,6 +5,7 @@
   'use strict';
   if (typeof document === 'undefined') return;
   var PC = root.ZimiChessPieces, BK = root.BoardKit;
+  function T(id, vars) { return root.ZimiText ? root.ZimiText.T(id, vars) : id; }
 
   // create(el, E, onSquare): builds the 64 buttons in el. onSquare(square, event) is called with the engine's square index.
   function create(el, E, onSquare) {
@@ -38,7 +39,8 @@
         if ((d & 7) === 0) edge += '<i class="cs-co r">' + (8 - (s >> 3)) + '</i>';
         var sig = html + edge;
         if (c.dataset.sig !== sig) { c.innerHTML = sig; c.dataset.sig = sig; }
-        c.setAttribute('aria-label', E.squareName(s) + ', ' + (p ? (p > 0 ? 'white ' : 'black ') + PC.NAMES[Math.abs(p)] : targets.hasOwnProperty(s) ? 'move here' : 'empty') + (s === v.sel ? ', selected' : ''));
+        var sq = E.squareName(s), label = p ? T('chess.sq.piece', { sq: sq, color: T(p > 0 ? 'board.white' : 'board.black').toLowerCase(), piece: T('chess.piece.' + Math.abs(p)).toLowerCase() }) : T(targets.hasOwnProperty(s) ? 'chess.sq.target' : 'chess.sq.empty', { sq: sq });
+        c.setAttribute('aria-label', s === v.sel ? T('chess.sq.selected', { label: label }) : label);
       }
     }
 
@@ -56,8 +58,8 @@
     [E.Q, E.R, E.B, E.N].forEach(function (t) {
       var b = document.createElement('button');
       b.type = 'button'; b.className = 'ar-btn cs-promo-btn'; b.dataset.t = t;
-      b.setAttribute('aria-label', PC.NAMES[t]);
-      b.innerHTML = PC.svg(t, true) + '<span>' + PC.NAMES[t] + '</span>';
+      b.setAttribute('aria-label', T('chess.piece.' + t));
+      b.innerHTML = PC.svg(t, true) + '<span>' + T('chess.piece.' + t) + '</span>';
       b.addEventListener('click', function () { pick(t); });
       box.appendChild(b);
     });

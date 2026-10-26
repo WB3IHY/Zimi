@@ -3,15 +3,15 @@
    puzzle rows and the UCI helpers are chess-content.js. No network: the puzzles are one data file. */
 (function (root) {
   'use strict';
-  if (typeof document === 'undefined' || !root.ZimiChessEngine || !root.ZimiChessPuzzles) return;
-  var E = root.ZimiChessEngine(), C = root.ZimiChessContent, BK = root.BoardKit, D = root.ZimiChessPuzzles;
+  if (typeof document === 'undefined' || !root.ZimiChessEngine || !root.ZimiChessPuzzles || !root.BoardUI) return;
+  var E = root.ZimiChessEngine(), C = root.ZimiChessContent, BK = root.BoardKit, D = root.ZimiChessPuzzles, UI = root.BoardUI, T = UI.t;
   var $ = function (id) { return document.getElementById(id); };
   var WHITE = E.WHITE, BLACK = E.BLACK;
   var KEY = 'chesspuzzles', START_RATING = 1200, K_FACTOR = 28, MIN_RATING = 400, WINDOW = 140, RECENT_CAP = 60;
   var OPPONENT_DELAY_MS = 450, SOLUTION_STEP_MS = 650;
 
-  var LEVELS = [['near', 'Near my rating'], ['600-1000', '600 to 1000'], ['1000-1400', '1000 to 1400'], ['1400-1800', '1400 to 1800'], ['1800-2200', '1800 to 2200'], ['2200-3200', '2200 and up']];
-  var THEME_LABEL = { mateIn1: 'Mate in 1', mateIn2: 'Mate in 2', mateIn3: 'Mate in 3', fork: 'Fork', pin: 'Pin', skewer: 'Skewer', discoveredAttack: 'Discovered attack', endgame: 'Endgame', backRankMate: 'Back rank mate', hangingPiece: 'Hanging piece', sacrifice: 'Sacrifice', deflection: 'Deflection', attraction: 'Attraction', trappedPiece: 'Trapped piece', promotion: 'Promotion', defensiveMove: 'Defensive move', quietMove: 'Quiet move', smotheredMate: 'Smothered mate', doubleCheck: 'Double check', xRayAttack: 'X-ray attack', zugzwang: 'Zugzwang', exposedKing: 'Exposed king', clearance: 'Clearance', interference: 'Interference', capturingDefender: 'Capturing the defender' };
+  var LEVELS = ['near', '600-1000', '1000-1400', '1400-1800', '1800-2200', '2200-3200'];
+  function themeLabel(t) { return root.ZimiText && root.ZimiText.has('puzzles.theme.' + t) ? T('puzzles.theme.' + t) : t; }
   var THEME_ORDER = ['mateIn1', 'mateIn2', 'mateIn3', 'fork', 'pin', 'skewer', 'discoveredAttack', 'doubleCheck', 'backRankMate', 'smotheredMate', 'hangingPiece', 'trappedPiece', 'sacrifice', 'deflection', 'attraction', 'clearance', 'interference', 'xRayAttack', 'capturingDefender', 'exposedKing', 'promotion', 'defensiveMove', 'quietMove', 'zugzwang', 'endgame'];
 
   var rows = D.rows.split('\n');
@@ -25,11 +25,12 @@
   if (!state.filter || typeof state.filter !== 'object') state.filter = { level: 'near', theme: '' };
   var save = function () { BK.save(KEY, state); };
 
-  var els = { board: $('cp-board'), status: $('cp-status'), hud: $('cp-hud'), info: $('cp-info'), hint: $('cp-hint'), solution: $('cp-solution'), next: $('cp-next') };
+  var els = { board: $('cp-board'), status: $('cp-status'), hud: $('cp-hud'), info: $('cp-info'), hint: $('cp-hint'), solution: $('cp-solution'), next: $('cp-next'), nu: $('cp-new') };
+  var line = UI.status(els.status);
   var pos, puzzle, step, userColor, sel = -1, targets = {}, lastMove = 0, flipped = false;
   var hintLevel = 0, hinted = false, failed = false, done = false, rated = false, busy = false, pending = null, timer = 0, cue = null, isDaily = false;
 
-  function colorName(c) { return c === WHITE ? 'White' : 'Black'; }
+  function colorName(c) { return UI.side(c === WHITE ? 'white' : 'black'); }
   function later(fn, ms) { clearTimeout(timer); timer = setTimeout(fn, ms); }
 
   // ── choosing a puzzle ──
@@ -67,12 +68,11 @@
   // ── drawing ──
   var view = root.ZimiChessBoard.create(els.board, E, onSquare);
   function paint() { view.paint(pos, { flipped: flipped, last: lastMove, sel: sel, targets: targets, cue: cue }); }
-  function say(text) { els.status.textContent = text; }
+  function say(text, busy) { line.turn(text, !!busy); }
+  // The rating and the puzzle's own; the streaks show once there is one.
+  function stat(label, value) { return '<div class="pl-stat"><small>' + label + '</small><b>' + value + '</b></div>'; }
   function paintHud() {
-    els.hud.innerHTML = '<div class="pl-stat"><small>Your rating</small><b>' + state.rating + '</b></div>' +
-      '<div class="pl-stat"><small>Streak</small><b>' + state.streak + '</b></div>' +
-      '<div class="pl-stat"><small>Best streak</small><b>' + state.best + '</b></div>' +
-      '<div class="pl-stat"><small>Puzzle</small><b>' + (puzzle ? puzzle.rating : '-') + '</b></div>';
+    els.hud.innerHTML = stat(T('puzzles.rating'), state.rating) + (state.streak ? stat(T('puzzles.streak'), state.streak) : '') + (state.best ? stat(T('puzzles.best'), state.best) : '') + stat(T('puzzles.puzzle'), puzzle ? puzzle.rating : '-');
   }
   function setButtons() {
     els.hint.disabled = done || busy;
@@ -105,12 +105,12 @@
     els.board.classList.remove('solved', 'failed');
     els.info.textContent = '';
     paint(); paintHud(); setButtons();
-    say((isDaily ? 'Daily puzzle. ' : '') + 'Watch the opponent move');
-    later(function () { opponentMove(function () { busy = false; setButtons(); say('Your turn: find the best move for ' + colorName(userColor)); }); }, OPPONENT_DELAY_MS);
+    say(isDaily ? T('janggi.noted', { note: T('puzzles.daily'), line: T('puzzles.watch') }) : T('puzzles.watch'), true);
+    later(function () { opponentMove(function () { busy = false; setButtons(); say(T('puzzles.findBest', { color: colorName(userColor) })); }); }, OPPONENT_DELAY_MS);
   }
   function opponentMove(after) {
     var m = C.fromUci(E, pos, puzzle.moves[step]);
-    if (!m) { say('This puzzle did not load. Try the next one.'); busy = false; done = true; setButtons(); return; }
+    if (!m) { say(T('puzzles.noLoad')); busy = false; done = true; setButtons(); return; }
     E.make(pos, m); lastMove = m; step++; paint();
     if (after) after();
   }
@@ -119,8 +119,8 @@
     done = true; busy = false; sel = -1; targets = {}; cue = null;
     var d = settle(!failed && !hinted);
     els.board.classList.add('solved'); paint(); setButtons();
-    say(failed || hinted ? 'Solved' : 'Solved!');
-    els.info.innerHTML = 'Puzzle rating ' + puzzle.rating + deltaHtml(d) + ' &middot; ' + puzzle.themes.map(function (t) { return THEME_LABEL[t] || t; }).join(', ');
+    say(T(failed || hinted ? 'puzzles.solved' : 'puzzles.solvedClean'));
+    els.info.innerHTML = T('puzzles.info', { n: puzzle.rating }) + deltaHtml(d) + ' &middot; ' + puzzle.themes.map(themeLabel).join(', ');
     paintHud();
   }
   function miss() {
@@ -129,12 +129,11 @@
       failed = true;
       var d = settle(false);
       els.board.classList.add('failed');
-      els.info.innerHTML = 'Puzzle rating ' + puzzle.rating + deltaHtml(d);
+      els.info.innerHTML = T('puzzles.info', { n: puzzle.rating }) + deltaHtml(d);
       paintHud();
     }
-    say('That is not it. Try again, or show the solution');
-    if (!BK.reducedMotion()) { els.board.classList.remove('shake'); void els.board.offsetWidth; els.board.classList.add('shake'); }
     paint(); setButtons();
+    UI.refuse(line, els.board, T('puzzles.notIt'));
   }
 
   function tryMove(m) {
@@ -144,11 +143,11 @@
     if (m !== expectedMove && !mated) { miss(); return; }
     E.make(pos, m); lastMove = m; step++; sel = -1; targets = {}; cue = null; hintLevel = 0;
     if (mated || step >= puzzle.moves.length) { paint(); solved(); return; }
-    busy = true; paint(); setButtons(); say('Good');
+    busy = true; paint(); setButtons(); say(T('puzzles.good'));
     later(function () {
       opponentMove(function () {
         if (step >= puzzle.moves.length) { solved(); return; }
-        busy = false; setButtons(); say('Your turn');
+        busy = false; setButtons(); say(T('board.yourTurn'));
       });
     }, OPPONENT_DELAY_MS);
   }
@@ -158,7 +157,7 @@
     var v = pos.sq[s];
     if (sel >= 0 && targets.hasOwnProperty(s)) {
       var cands = E.legalMoves(pos).filter(function (m) { return E.from(m) === sel && E.to(m) === s; });
-      if (cands.length > 1) { pending = cands; paintPromoColour(); promoSheet.open(); return; }
+      if (cands.length > 1) { askPromotion(cands); return; }
       tryMove(cands[0]); return;
     }
     if (v * pos.turn > 0 && s !== sel) { sel = s; targets = view.movesFrom(pos, s); cue = null; } else { sel = -1; targets = {}; }
@@ -173,58 +172,58 @@
     hinted = true; hintLevel++;
     cue = { from: E.from(m), to: hintLevel > 1 ? E.to(m) : -1 };
     sel = -1; targets = {};
-    say(hintLevel > 1 ? 'Move the highlighted piece to the marked square' : 'Move the highlighted piece');
+    say(T(hintLevel > 1 ? 'puzzles.hint2' : 'puzzles.hint1'));
     paint();
   }
   function showSolution() {
     if (done || busy) return;
     busy = true; setButtons(); sel = -1; targets = {}; cue = null;
     var go = function () {
-      if (step >= puzzle.moves.length) { done = true; busy = false; paint(); setButtons(); say('That was the solution'); return; }
+      if (step >= puzzle.moves.length) { done = true; busy = false; paint(); setButtons(); say(T('puzzles.wasSolution')); return; }
       var m = C.fromUci(E, pos, puzzle.moves[step]);
       if (!m) { done = true; busy = false; setButtons(); return; }
       E.make(pos, m); lastMove = m; step++; paint();
       later(go, SOLUTION_STEP_MS);
     };
-    say('The solution'); go();
+    say(T('puzzles.solution')); go();
   }
 
-  // ── promotion ──
-  var promoSheet = BK.sheet($('cp-promo'), function () { pending = null; });
-  function buildPromo() {
-    root.ZimiChessBoard.promoButtons(E, $('cp-promo-choices'), function (t) {
+  // ── promotion: a sheet of the four pieces the pawn can become ──
+  var promoSheet = null;
+  function askPromotion(cands) {
+    pending = cands;
+    var box = UI.h('div', { class: 'cs-promo-choices' });
+    root.ZimiChessBoard.promoButtons(E, box, function (t) {
       var m = pending && pending.filter(function (x) { return E.promo(x) === t; })[0];
       promoSheet.close();
       if (m) tryMove(m);
     });
+    root.ZimiChessBoard.promoColour(box, pos.turn === WHITE);
+    promoSheet = root.ZimiShell.sheet({ title: T('chess.promote'), body: [box], onClose: function () { pending = null; } });
   }
-  function paintPromoColour() { root.ZimiChessBoard.promoColour($('cp-promo-choices'), pos.turn === WHITE); }
 
-  // ── choose, daily, next ──
-  var menu = BK.sheet($('cp-sheet'));
-  function fillMenu() {
-    var lv = $('cp-level'), th = $('cp-theme');
-    if (!lv.options.length) {
-      LEVELS.forEach(function (l) { lv.add(new Option(l[0] === 'near' ? l[1] + ' (' + state.rating + ')' : l[1], l[0])); });
-      th.add(new Option('Any theme', ''));
-      THEME_ORDER.filter(function (t) { return D.themes.indexOf(t) >= 0; }).forEach(function (t) { th.add(new Option(THEME_LABEL[t] || t, t)); });
-      lv.addEventListener('change', countMenu); th.addEventListener('change', countMenu);
+  // ── Menu > New game: the level, the theme, or today's puzzle. Nothing applies until New game is pressed. ──
+  var draft = null;
+  function levelLabel(l) { return l === 'near' ? T('puzzles.level.near', { n: state.rating }) : T('puzzles.level.' + l); }
+  function menuOptions() {
+    draft = { level: state.filter.level, theme: state.filter.theme, daily: false };
+    var count = UI.h('p', { class: 'bu-quiet' });
+    function tally() { var n = matching(draft.level, draft.theme).length; count.textContent = draft.daily ? '' : T('puzzles.count', { n: n }); }
+    var daily = UI.toggle(T('puzzles.dailyRow'), false, function (v) { draft.daily = v; level.disable(v); theme.node.disabled = v; tally(); });
+    var level = UI.row(T('puzzles.level'), LEVELS.map(function (l) { return [l, levelLabel(l)]; }), draft.level, function (v) { draft.level = v; tally(); });
+    var theme = UI.select(T('puzzles.theme'), [['', T('puzzles.anyTheme')]].concat(THEME_ORDER.filter(function (t) { return D.themes.indexOf(t) >= 0; }).map(function (t) { return [t, themeLabel(t)]; })), draft.theme, function (v) { draft.theme = v; tally(); });
+    tally();
+    return UI.options([daily, level, theme, count]);
+  }
+  els.nu.addEventListener('click', function () {
+    var d = draft; draft = null;
+    if (d && d.daily) { isDaily = true; startPuzzle(dailyIndex(today())); return; }
+    if (d) {
+      if (!matching(d.level, d.theme).length) { say(T('puzzles.noMatch')); return; }
+      state.filter = { level: d.level, theme: d.theme }; save();
     }
-    lv.options[0].text = LEVELS[0][1] + ' (' + state.rating + ')';
-    lv.value = state.filter.level; th.value = state.filter.theme; countMenu();
-  }
-  function countMenu() {
-    var n = matching($('cp-level').value, $('cp-theme').value).length;
-    $('cp-count').textContent = n + ' puzzles match';
-    $('cp-start').disabled = !n;
-  }
-  $('cp-choose').addEventListener('click', function () { fillMenu(); menu.open($('cp-level')); });
-  $('cp-cancel').addEventListener('click', menu.close);
-  $('cp-start').addEventListener('click', function () {
-    state.filter = { level: $('cp-level').value, theme: $('cp-theme').value }; save();
-    menu.close(); isDaily = false; startPuzzle(pick());
+    isDaily = false; startPuzzle(pick());
   });
-  $('cp-daily').addEventListener('click', function () { isDaily = true; startPuzzle(dailyIndex(today())); });
   function nextPuzzle() {
     if (!done && !failed && hinted) { state.streak = 0; save(); }   // skipping after a hint breaks the streak; skipping unseen does not
     isDaily = false; startPuzzle(pick());
@@ -238,7 +237,12 @@
     if (k === 'h') hint(); else if (k === 'n') nextPuzzle(); else if (e.key === 'Escape' && sel >= 0) { sel = -1; targets = {}; paint(); }
   });
 
-  buildPromo(); pos = E.startPosition();
+  pos = E.startPosition();
+  if (root.ZimiShell) root.ZimiShell.game({
+    menu: menuOptions, hints: true,
+    stats: function () { return state.solved + state.failed ? [T('puzzles.record', { won: state.solved, lost: state.failed })] : []; },
+    inProgress: function () { return !done && step > 1; }
+  });
   startPuzzle(pick());
 
   if (new URLSearchParams(location.search).has('debug')) {

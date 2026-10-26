@@ -8,6 +8,7 @@
      BoardUI.row(label, choices, value, onPick)       an option row: a 13px label and a segmented control. choices is
                                           [[value, label], ...]; returns { el, value(), set(v) }
      BoardUI.toggle(label, value, onPick)             the same for a yes or no (On and Off), value a boolean
+     BoardUI.field(label, node)           a row around a control of the page's own; BoardUI.select(label, choices, value, onPick) a select in one
      BoardUI.options(rows)                the object ZimiShell.game({ menu }) wants: { options: [nodes] }
      BoardUI.status(el)                   the page's one status line: { say(text), reason(text), thinking(on), turn(text) }
      BoardUI.refuse(statusApi, el, text)  an illegal move: the shake on el and the reason on the status line
@@ -60,6 +61,19 @@
     var r = row(label, [[1, T('shell.on')], [0, T('shell.off')]], value ? 1 : 0, function (v) { if (onPick) onPick(!!+v); });
     return { el: r.el, value: function () { return !!+r.value(); }, set: function (v) { r.set(v ? 1 : 0); }, disable: r.disable };
   }
+  // A row whose control is a node of the page's own (a select, a search box): the label above it, in the option rows' style.
+  function field(label, node) {
+    var id = 'bu-f' + (field.n = (field.n || 0) + 1);
+    node.id = node.id || id;
+    return { el: h('div', { class: 'gs-row gs-field' }, [h('label', { text: label, for: node.id }), node]), node: node };
+  }
+  function select(label, choices, value, onPick) {
+    var sel = h('select', { class: 'gs-select' });
+    choices.forEach(function (c) { var o = h('option', { value: c[0], text: c[1] }); sel.appendChild(o); });
+    sel.value = value;
+    sel.addEventListener('change', function () { if (onPick) onPick(sel.value); });
+    return field(label, sel);
+  }
   function options(rows) { return { options: rows.map(function (r) { return r.el || r; }) }; }
 
   // ── the status line, the thinking state, the refusal ──
@@ -97,5 +111,5 @@
   var SIDES = { white: 'board.white', black: 'board.black', red: 'board.red', blue: 'board.blue', green: 'board.green', yellow: 'board.yellow', you: 'board.you', computer: 'board.computer' };
   function side(color) { return T(SIDES[color] || color); }
 
-  root.BoardUI = { t: T, localize: localize, row: row, toggle: toggle, options: options, status: status, refuse: refuse, end: end, record: record, side: side, h: h };
+  root.BoardUI = { t: T, localize: localize, row: row, toggle: toggle, field: field, select: select, options: options, status: status, refuse: refuse, end: end, record: record, side: side, h: h };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
