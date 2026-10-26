@@ -99,69 +99,21 @@
 
   // ── The page ────────────────────────────────────────────────────────────
   function boot() {
-    var el = Z.pageEls(), board, session;
-    el.sub = Z.factLine(el.table);
-    Z.ensureSprite();
-
-    function afterMove() {
-      var st = session.state;
-      if (isWon(st)) { session.win(0); return; }
-      if (isStuck(st)) {
-        el.sub.textContent = TX('cards.noMoves');
-        session.stats.scored(left(st));
-        Z.sheet({
-          title: TX('golf.outOfMoves'),
-          body: [Z.h('p', { class: 'zc-note', text: TX('golf.left', { n: left(st) }) }), Z.h('p', { class: 'zc-stats', text: session.stats.line() })],
-          actions: [{ label: TX('shell.undo'), onclick: session.undo }, { label: TX('shell.menu.new'), primary: true, onclick: newGame }]
-        });
-      } else el.sub.textContent = '';
-    }
-    function move(pile, idx, to) {
-      if (!legalMove(session.state, pile, idx, to)) return false;
-      session.commit(applyMove(session.state, pile, idx, to));
-      afterMove();
-      return true;
-    }
-    function draw() {
-      var next = drawStock(session.state);
-      if (!next) return false;
-      session.commit(next);
-      afterMove();
-      return true;
-    }
-    function newGame() { el.sub.textContent = ''; session.reset(newState(Z.shuffled(Math.random))); }
-
-    board = Z.createBoard({
-      table: el.table, cols: COLS, tight: true, place: place, heightShare: HEIGHT_SHARE, enterTaps: true,
-      canPick: canPick, move: move,
-      tap: function (pile, idx) {
-        if (pile === 'stock') return draw();
-        var to = bestMove(session.state, pile, idx);
-        return to ? move(pile, idx, to) : false;
+    var page;
+    page = Z.solitairePage({
+      rules: api, id: 'golf', lowScore: true, fact: true, place: place, cols: COLS, heightShare: HEIGHT_SHARE, enterTaps: true, stock: drawStock,
+      deal: function () { return newState(Z.shuffled(Math.random)); },
+      score: function () { return 0; },
+      stuck: {
+        is: isStuck, score: left,
+        title: function () { return TX('golf.outOfMoves'); }, note: function (st) { return TX('golf.left', { n: left(st) }); }
       },
-      slotTap: function (pile) { if (pile === 'stock') draw(); }
-    });
-    session = Z.createSession({
-      id: 'golf', lowScore: true, board: board, newGame: newGame,
-      els: el,
-      statText: function (sec, st) { el.sub.textContent = isStuck(st) ? TX('cards.noMoves') : ''; return Z.fmtTime(sec) + ' · ' + TX('golf.leftShort', { n: left(st) }); },
+      statText: function (sec, st) { page.el.sub.textContent = isStuck(st) ? TX('cards.noMoves') : ''; return Z.fmtTime(sec) + ' · ' + TX('golf.leftShort', { n: left(st) }); },
       cascadeOrder: function (st) { return st.piles.waste.slice().reverse().map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { return [TX('golf.win', { time: Z.fmtTime(sec), moves: Z.plural(st.moves, 'move'), stock: st.piles.stock.length })]; },
-      openMenu: function () {
-        Z.sheet({
-          title: 'Golf',
-          body: [
-            Z.h('p', { class: 'zc-note', text: TX('golf.rules') }),
-            Z.backsRow(),
-            Z.h('p', { class: 'zc-stats', text: session.stats.line() })
-          ],
-          actions: [{ label: TX('shell.menu.new'), onclick: newGame }, { label: TX('shell.close'), primary: true }]
-        });
-      }
+      openMenu: function () { page.menu('Golf', [Z.h('p', { class: 'zc-note', text: TX('golf.rules') })]); }
     });
-    api.session = session; api.board = board;
-    newGame();
-    if (/[?&]debug=win/.test(root.location.search)) session.reset(almostWon());
+    page.start();
   }
 
   if (root.document && root.document.getElementById('zc-table')) boot();
