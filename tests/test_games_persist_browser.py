@@ -128,13 +128,21 @@ def test_leaving_and_returning_keeps_the_position(served, browser, page_name, mo
                 tap(page, choice.first)
             page.wait_for_timeout(400)
     page.wait_for_timeout(SETTLE_MS)
+    computer = move is None   # a game with the computer in it keeps playing: read the position in the same breath as the save
     # Leaving pauses a running arcade game, so its position stops moving before it is read.
-    page.evaluate("window.dispatchEvent(new Event('pagehide'))")
-    page.wait_for_timeout(200)
-    before = page.evaluate(position)
+    if computer:
+        before = page.evaluate("(() => { window.dispatchEvent(new Event('pagehide')); return " + position + "; })()")
+    else:
+        page.evaluate("window.dispatchEvent(new Event('pagehide'))")
+        page.wait_for_timeout(200)
+        before = page.evaluate(position)
     page.goto("about:blank")
     page.goto(url)
-    page.wait_for_timeout(SETTLE_MS)
+    if computer:
+        # The computer's next turn is a beat away: read the position the moment the game is up, not after a fixed wait.
+        page.wait_for_function("() => { try { return !!(" + position + "); } catch (e) { return false; } }", timeout=20000)
+    else:
+        page.wait_for_timeout(SETTLE_MS)
     after = page.evaluate(position)
     assert before and after
     assert after == before, "the position came back different after leaving and returning"
