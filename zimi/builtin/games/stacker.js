@@ -378,9 +378,9 @@
   function toggle() { if (mode === 'playing') pause(); else resume(); }
   var lastEnd = null;
   function finish() {
-    lastEnd = [[Tx('play.score'), Play.num(g.score)], [Tx('stacker.rows'), Play.num(g.lines)]];
     mode = 'over'; els.pause.disabled = true; Play.pauseLabel(els.pause, false); stopRepeat();
     if (g.score > best.score) { best.score = g.score; Play.save(BEST_KEY, best); }
+    lastEnd = [[Tx('play.score'), Play.num(g.score)], [Tx('play.best'), Play.num(best.score)]];
     draw(); hud();
     ZimiShell.endSheet({ result: 'over', stats: lastEnd });
     setTimeout(function () { if (mode === 'over') armed = Play.ready(readyOpts()); }, READY_ARM_MS);

@@ -193,7 +193,7 @@
 
   // The setup: the real choices (mode, cup or track, players, drivers). It is the start sheet and the New game pane.
   function setupNodes() {
-    var top = mk('div'), detail = mk('div');
+    var top = mk('div'), detail = mk('div', 'kt-detail');
     function fill() {
       detail.textContent = '';
       var two = prefs.mode !== 'trial' && prefs.players === 2;

@@ -271,7 +271,7 @@
     showEnd();
   }
   function showEnd() {
-    ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(st.score)], [T('play.wave'), Play.num(st.wave)]] });
+    ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(st.score)], [T('play.best'), Play.num(best.score)]] });
     setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
   }
   els.newBtn.addEventListener('click', begin);

@@ -405,7 +405,7 @@
     ZimiShell.endSheet({ result: result, stats: stats });
     setTimeout(function () { if (mode === 'over') { st = createState(levelIndex); Play.ready({ say: status.say, target: pad.stage, start: begin }); } }, READY_ARM_MS);
   }
-  function finishOver() { over('lose', [[Tx('play.level'), Play.num(levelIndex + 1)], [Tx('hopper.coins'), Play.num(st.coins)]]); }
+  function finishOver() { over('over', [[Tx('play.level'), Play.num(levelIndex + 1)], [Tx('hopper.coins'), Play.num(st.coins)]]); }
   function finishWin() {
     var key = String(levelIndex), best = save.coins[key] || 0, more = levelIndex + 1 < LEVELS.length;
     if (st.coins > best) save.coins[key] = st.coins;

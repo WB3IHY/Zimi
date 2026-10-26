@@ -36,3 +36,8 @@ body.touch .kt-pad { display: flex; }
 @media (max-width: 480px) { .kt-pad { gap: 4px; padding: 8px 4px 0; } .kt-pad > div { gap: 6px; } .kt-btn { min-width: 64px; min-height: 72px; } .kt-steer .kt-btn { min-width: 66px; font-size: 28px; } .kt-drift { min-width: 78px; min-height: 78px; } .kt-item { min-width: 62px; min-height: 62px; } .kt-brake { min-width: 52px; min-height: 52px; font-size: 12px; } }
 @media (orientation: landscape) { body.touch .pl-msg { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); min-height: 0; } body.touch .kt-main { padding-top: 4px; padding-bottom: 4px; } }
 .kt-note + .gs-row, .kt-cast + .gs-row { margin-top: var(--sp-3); }
+
+/* The setup rows sit label left, choice right (as Circuit's do), so the whole sheet and its Start fit a phone screen. */
+.kt-detail .gs-row { flex-wrap: nowrap; }
+.kt-detail .gs-seg { flex: 0 0 auto; }
+.kt-detail .gs-seg .ar-btn { flex: 0 0 auto; min-width: 44px; }
