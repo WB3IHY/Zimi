@@ -261,7 +261,7 @@ check(Z.shuffled(() => 0.5).length === 52 && new Set(Z.shuffled(Math.random)).si
 
 // ── The court cards: public-domain art (courts.js), recoloured to the card palette ──
 {
-  const palette = new Set(['#b3261e', '#1b1b1b', '#e09400', '#1d3b7a', '#fdfcf8', 'none']);
+  const palette = new Set(['#b3261e', '#1b1b1b', '#e09400', '#1d3b7a', '#2f5ca8', '#fdfcf8', 'none']);
   const courtIds = [];
   for (let su = 0; su < 4; su++) for (const r of [11, 12, 13]) courtIds.push(su * 13 + r - 1);
   const faces = courtIds.map(c => Z.faceMarkup(c, false));

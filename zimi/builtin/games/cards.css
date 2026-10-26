@@ -58,10 +58,18 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 /* One face, three sizes: below ~64 px the fine detail goes, below ~41 px the
    index becomes one large row and the body a single big suit or figure. */
 @container (max-width: 64px) { .zc-fine { display: none; } }
+@container (max-width: 100px) { .zc-hatch { display: none; } }
 @container (max-width: 41px) {
   .zc-idx-std, .zc-big { display: none; }
   .zc-idx-row, .zc-small { display: inline; }
 }
+/* The straight rules (the courts' frame, the backs' band) are whole device pixels, never smeared across two: --zc-px is one
+   device pixel, set by the board; a rule drawn thicker than that at this size keeps its drawn width (units of the 100-wide face). */
+.zc-rule { vector-effect: non-scaling-stroke; shape-rendering: crispEdges; stroke-width: max(var(--zc-px, 1px), calc(var(--rule-w, 0.45) * var(--cw, 100px) / 100)); }
+.zc-bk .zc-rule { --rule-w: 1.2; }
+.zc-bk .zc-rule + .zc-rule { --rule-w: 0.5; }
+/* The cream cut that keeps parts of one colour apart is under a pixel on a small card: it keeps a pixel. */
+@container (max-width: 56px) { .zc-face [stroke="#fdfcf8"][stroke-width="0.9"] { stroke-width: 1.4; } }
 .zc-face svg, .zc-back svg { display: block; width: 100%; height: 100%; }
 .zc-card.zc-down .zc-face { display: none; }
 .zc-card:not(.zc-down) .zc-back { display: none; }
