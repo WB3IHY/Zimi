@@ -71,9 +71,11 @@ button { font: inherit; color: inherit; }
 .ar-back::before { content: ""; width: 8px; height: 8px; margin-right: -1px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) scale(0.9); }
 .ar-back::after { content: ""; width: 24px; height: 24px; background: url(mark.svg) center / contain no-repeat; }
 .ar-back:hover { color: var(--accent); }
-/* In dark the pebble gets a 1px ground-coloured ring so it never vanishes into the bar: the one allowed change to it. */
-:root[data-theme="dark"] .ar-back::after, :root[data-theme="dark"] .ar-sheet-card h2::before { filter: drop-shadow(1px 0 0 var(--ground)) drop-shadow(-1px 0 0 var(--ground)) drop-shadow(0 1px 0 var(--ground)) drop-shadow(0 -1px 0 var(--ground)); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ar-back::after, :root:not([data-theme="light"]) .ar-sheet-card h2::before { filter: drop-shadow(1px 0 0 var(--ground)) drop-shadow(-1px 0 0 var(--ground)) drop-shadow(0 1px 0 var(--ground)) drop-shadow(0 -1px 0 var(--ground)); } }
+/* In dark the pebble gets a 1px ring so it never vanishes into the bar: the one allowed change to it. The ground is no lighter than
+   the bar, so the ring is the ink at 28 percent. */
+:root { --mark-ring: color-mix(in srgb, var(--ink) 28%, transparent); }
+:root[data-theme="dark"] .ar-back::after, :root[data-theme="dark"] .ar-sheet-card h2::before { filter: drop-shadow(1px 0 0 var(--mark-ring)) drop-shadow(-1px 0 0 var(--mark-ring)) drop-shadow(0 1px 0 var(--mark-ring)) drop-shadow(0 -1px 0 var(--mark-ring)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ar-back::after, :root:not([data-theme="light"]) .ar-sheet-card h2::before { filter: drop-shadow(1px 0 0 var(--mark-ring)) drop-shadow(-1px 0 0 var(--mark-ring)) drop-shadow(0 1px 0 var(--mark-ring)) drop-shadow(0 -1px 0 var(--mark-ring)); } }
 /* Inside Zimi's reader the shell already has a way back (its arrow and the ZimiGames crumb):
    the page's own would be a second one (recent.js sets .in-zimi). */
 .in-zimi .ar-back { display: none; }
@@ -109,9 +111,14 @@ body.zc-game { padding-bottom: env(safe-area-inset-bottom); }
 .ar-sheet-card h2 { margin: 0 0 var(--sp-3); font-size: var(--fs-sheet); font-weight: 650; line-height: 1.25; letter-spacing: -0.01em; }
 .ar-sheet-card h2::before { content: ""; display: inline-block; width: 22px; height: 22px; margin: -3px 8px 0 0; vertical-align: middle; background: url(mark.svg) center / contain no-repeat; }
 .ar-sheet-card > p { margin: 0 0 var(--sp-3); color: var(--ink2); }
-.ar-sheet-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); justify-content: flex-end; margin-top: var(--sp-4); }
-/* On a phone the primary has the row to itself, full width. */
-@media (max-width: 520px) { .ar-sheet-actions .ar-btn[aria-pressed="true"], .gs-actions .ar-btn[aria-pressed="true"] { flex: 1 1 100%; } }
+/* One action anatomy on every sheet: a single 44px row across the card. The quiet actions (ghost, a third) sit left and the
+   primary (amber, two thirds) last; a row with no primary shares the width equally. */
+.ar-sheet-actions { display: flex; gap: var(--sp-2); margin-top: var(--sp-4); }
+.ar-sheet-actions .ar-btn { flex: 1 1 0; min-width: 0; min-height: var(--target); padding: 0 var(--sp-2); }
+.ar-sheet-actions .ar-btn[aria-pressed="true"] { flex-grow: 2; }
+.ar-sheet-actions:has([aria-pressed="true"]) .ar-btn:not([aria-pressed="true"]) { background: transparent; border-color: transparent; color: var(--ink2); }
+.ar-sheet-actions:has([aria-pressed="true"]) .ar-btn:not([aria-pressed="true"]):hover { color: var(--accent); }
+@media (max-width: 520px) { .gs-actions .ar-btn[aria-pressed="true"] { flex: 1 1 100%; } }
 /* Option rows: a 13px sentence-case label on the left, a 44px segmented control on the right. */
 .gs-row, .zc-row { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: var(--target); }
 .gs-row > label, .zc-row > label { flex: 1 1 auto; font-size: var(--fs-small); font-weight: 600; color: var(--ink2); text-transform: none; letter-spacing: 0; }

@@ -107,7 +107,7 @@ Games with no real choice open ready to play on the live board, with one short l
 The end sheet is shared by every game, from shell.js:
 - The title is the result: "You win", "You lose" or "Draw". "Name wins" is for games with several people. "Game over" is only for solo score games with no win state.
 - At most two stat chips.
-- Close, then New game in amber.
+- Close as a quiet ghost on the left (a third), New game in amber on the right (two thirds): one 44px row, the same anatomy as every sheet's actions.
 - It appears about 600ms after the last animation. Keys are ignored for its first 600ms, so a player still pressing Space or Enter cannot dismiss or restart it unseen.
 - A loss has the same size and tone as a win.
 - Card games keep the cascade before it.
@@ -187,7 +187,7 @@ The pebble mark appears in exactly these places:
 - The shelf header, as the full games icon tile.
 - The ZIM icon.
 
-In dark the pebble gets a 1px ground-coloured ring so it never vanishes into a dark bar. That is the one allowed change to it.
+In dark the pebble gets a 1px ring (the ink at 28 percent; the ground is no lighter than the bar, so a ground-coloured ring was invisible) so it never vanishes into a dark bar. That is the one allowed change to it.
 - The Ace of Spades: the Z alone in the spade's belly, about as large relative to the spade as it is inside the pebble (Eric: "way too big"). The Zimi card back carries the Z too.
 
 It is never a watermark, never recoloured, never inside a board.
