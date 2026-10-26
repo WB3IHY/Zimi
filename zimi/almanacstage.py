@@ -21,6 +21,7 @@ never ships. ``missing_dependencies`` is the test's check that the list is
 complete.
 """
 
+import gzip
 import os
 import re
 import shutil
@@ -330,6 +331,25 @@ def _copy(rel, dest):
         shutil.copyfile(src, out)
 
 
+def _snapshots(dest):
+    """The two shipped snapshots a server would answer from, for local.js: the satellites' elements and the tide
+    stations (Zimi keeps them as assets, the tides gzipped)."""
+    assets = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+    out = os.path.join(dest, "data")
+    os.makedirs(out, exist_ok=True)
+    for name in ("satellites-snapshot.json", "tides-snapshot.json.gz"):
+        if not os.path.exists(os.path.join(assets, name)):
+            raise StageError("assets/%s is missing" % name)
+    shutil.copyfile(
+        os.path.join(assets, "satellites-snapshot.json"),
+        os.path.join(out, "satellites-snapshot.json"),
+    )
+    with gzip.open(os.path.join(assets, "tides-snapshot.json.gz"), "rb") as f:
+        raw = f.read()
+    with open(os.path.join(out, "tides-snapshot.json"), "wb") as f:
+        f.write(raw)
+
+
 def stage(dest):
     """Write the folder to build into ``dest`` (empty)."""
     with open(os.path.join(STATIC, "app.js"), encoding="utf-8") as f:
@@ -346,3 +366,4 @@ def stage(dest):
         f.write(shell_css)
     for fn in os.listdir(HOST):
         shutil.copyfile(os.path.join(HOST, fn), os.path.join(dest, fn))
+    _snapshots(dest)

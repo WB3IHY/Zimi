@@ -8,6 +8,7 @@
 <title>Zimi Almanac</title>
 <link rel="stylesheet" href="shell.css">
 <link rel="stylesheet" href="almanac.css">
+<script src="local.js"></script>
 <style>
   /* The Almanac keeps its dark night-sky look in every reader. These are the
      tokens Zimi's app.css gives it; almanac.css reads them. */
@@ -47,9 +48,9 @@
 // build: shell.js carries the ones taken from app.js by name; what follows is
 // what needs a Zimi server or a library, and what stands in for it here.
 //
-// Not in this page, said plainly: links into an article library, satellite
-// tracks, the tide stations, the almanac's age table, the PDF reader, the
-// account and settings sync, other languages than English.
+// Not in this page, said plainly: links into an article library, the almanac's
+// age table, the PDF reader, the account and settings sync, other languages than
+// English. The satellites and the tide stations are packed in (data/, local.js).
 
 var _almanacOpen = false;
 var zimsCache = [];          // no library here: every name in the Almanac stays plain text
@@ -96,14 +97,16 @@ function _showToast(msg) {
   setTimeout(function() { el.remove(); }, 3000);
 }
 
-// Anything the Almanac asks of a Zimi server (the satellite tracks, a place's
-// tides, the age table, the library links, the PDF) is answered "not here"
-// without leaving the page, the same in every reader. Its own files are relative.
+// What the Almanac asks of a Zimi server is answered here, the same in every reader. The satellite tracks and
+// a place's tide stations come from files packed in this ZIM (local.js); the age table, the library links and the
+// PDF are "not here" (a 404) and the page says so. Its own files are relative.
 (function() {
   var real = window.fetch;
   window.fetch = function(url, opts) {
     var u = typeof url === 'string' ? url : (url && url.url) || '';
-    if (u.charAt(0) === '/' && u.charAt(1) !== '/') return Promise.resolve(new Response('', { status: 404 }));
+    if (u.charAt(0) === '/' && u.charAt(1) !== '/') {
+      return window.ZimiAlmanacLocal.answer(u) || Promise.resolve(new Response('', { status: 404 }));
+    }
     return real.call(window, url, opts);
   };
 })();
