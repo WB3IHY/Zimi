@@ -13,30 +13,19 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Tic-Tac-Toe</h1>
-  <button class="ar-btn" id="nc-new" type="button">New game</button>
+  <button class="ar-btn" id="nc-new" type="button" hidden data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="pl-main">
   <div class="pl-hud">
     <div class="pl-stat"><small id="nc-a-name">You</small><b id="nc-a">0</b></div>
-    <div class="pl-stat"><small>Draws</small><b id="nc-d">0</b></div>
+    <div class="pl-stat"><small data-t="noughts.draws">Draws</small><b id="nc-d">0</b></div>
     <div class="pl-stat"><small id="nc-b-name">Computer</small><b id="nc-b">0</b></div>
   </div>
-  <p class="pl-msg nc-msg" id="nc-msg" role="status" aria-live="polite"></p>
-  <div class="nc-board" id="nc-board" role="grid" aria-label="The board, three by three"></div>
-  <p class="pl-help">Get three of your marks in a row. Tap a square, or use the arrow keys and Enter. Crosses go first.</p>
+  <p class="pl-msg" id="nc-msg"></p>
+  <div class="nc-board" id="nc-board" role="grid" aria-label="The board, three by three" data-t-aria="noughts.board"></div>
 </main>
 
-<div class="ar-sheet" id="nc-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="nc-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="nc-sheet-title">Tic-Tac-Toe</h2>
-    <p id="nc-sheet-text"></p>
-    <p class="pl-row"><span id="nc-opp-label">Play</span><span class="pl-seg" id="nc-opp" role="group" aria-labelledby="nc-opp-label"></span></p>
-    <p class="pl-row" id="nc-level-row"><span id="nc-level-label">Computer</span><span class="pl-seg" id="nc-level" role="group" aria-labelledby="nc-level-label"></span></p>
-    <p class="pl-row" id="nc-mark-row"><span id="nc-mark-label">You are</span><span class="pl-seg" id="nc-mark" role="group" aria-labelledby="nc-mark-label"></span></p>
-    <div class="ar-sheet-actions"><button class="ar-btn" id="nc-go" type="button" aria-pressed="true">Start</button></div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="noughts.js"></script>
 <!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->

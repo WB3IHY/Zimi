@@ -56,7 +56,7 @@
   }
   function pick(list, rng) { return list[Math.floor(rng() * list.length)]; }
 
-  // The computer's move as `me`: 'perfect' never loses; 'easy' mostly plays at random.
+  // The computer's move as `me`: 'hard' never loses; 'easy' mostly plays at random.
   function bestMove(b, me, level, rng) {
     rng = rng || Math.random;
     var open = moves(b);
@@ -74,14 +74,15 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
-  var SETTINGS_KEY = 'zimi.games.noughts.settings', STATS_KEY = 'zimi.games.noughts.stats', CPU_DELAY_MS = 420;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
+  var SETTINGS_KEY = 'zimi.games.noughts.settings', STATS_KEY = 'zimi.games.noughts.stats', CPU_DELAY_MS = 420, END_AFTER_MS = 900;
   Play.applyTheme();
 
-  var els = { board: $('nc-board'), msg: $('nc-msg'), a: $('nc-a'), b: $('nc-b'), d: $('nc-d'), aName: $('nc-a-name'), bName: $('nc-b-name'), sheet: $('nc-sheet'), title: $('nc-sheet-title'), text: $('nc-sheet-text'), go: $('nc-go'),
-    opp: $('nc-opp'), level: $('nc-level'), mark: $('nc-mark'), levelRow: $('nc-level-row'), markRow: $('nc-mark-row'), nu: $('nc-new') };
-  var settings = Play.load(SETTINGS_KEY, { opp: 'cpu', level: 'perfect', mark: 'X' }), stats = Play.load(STATS_KEY, { a: 0, b: 0, d: 0 });
-  var board = emptyBoard(), turn = 'X', over = true, timer = null, cells = [], me = 'X', cpu = null, starts = 'X';
+  var els = { board: $('nc-board'), msg: $('nc-msg'), a: $('nc-a'), b: $('nc-b'), d: $('nc-d'), aName: $('nc-a-name'), bName: $('nc-b-name'), nu: $('nc-new') };
+  var line = Play.status(els.msg);
+  var settings = Play.load(SETTINGS_KEY, { opp: 'cpu', level: 'hard', mark: 'X' }), stats = Play.load(STATS_KEY, { a: 0, b: 0, d: 0 });
+  if (settings.level === 'perfect') settings.level = 'hard';   // the level used to be called Perfect
+  var board = emptyBoard(), turn = 'X', over = true, timer = null, cells = [], me = 'X', cpu = null;
 
   function build() {
     els.board.textContent = '';
@@ -99,35 +100,36 @@
     });
   }
   function paint() {
-    var line = winLine(board);
+    var win = winLine(board);
     cells.forEach(function (c, i) {
       var m = board[i];
       if (m) c.dataset.m = m; else delete c.dataset.m;
-      c.setAttribute('aria-label', 'Row ' + (Math.floor(i / 3) + 1) + ', column ' + (i % 3 + 1) + ': ' + (m === 'X' ? 'cross' : m === 'O' ? 'nought' : 'empty'));
+      c.setAttribute('aria-label', T('noughts.cell', { row: Math.floor(i / 3) + 1, col: i % 3 + 1, mark: T(m ? 'noughts.mark.' + m : 'noughts.empty') }));
       c.setAttribute('aria-disabled', String(!!m || over || (cpu !== null && turn === cpu)));
-      c.classList.toggle('nc-win', !!line && line.indexOf(i) >= 0);
+      c.classList.toggle('nc-win', !!win && win.indexOf(i) >= 0);
     });
-    els.a.textContent = stats.a; els.b.textContent = stats.b; els.d.textContent = stats.d;
-    els.aName.textContent = settings.opp === 'cpu' ? 'You' : 'Crosses'; els.bName.textContent = settings.opp === 'cpu' ? 'Computer' : 'Noughts';
+    els.a.textContent = Play.num(stats.a); els.b.textContent = Play.num(stats.b); els.d.textContent = Play.num(stats.d);
+    els.aName.textContent = T(settings.opp === 'cpu' ? 'noughts.you' : 'noughts.mark.X'); els.bName.textContent = T(settings.opp === 'cpu' ? 'noughts.computer' : 'noughts.mark.O');
   }
 
   function say() {
     if (over) return;
-    if (settings.opp === 'two') els.msg.textContent = (turn === 'X' ? 'Crosses' : 'Noughts') + ' to play.';
-    else els.msg.textContent = turn === cpu ? 'Computer is thinking' : 'Your turn.';
+    if (settings.opp === 'two') line.say(T('noughts.toPlay', { mark: T('noughts.mark.' + turn) }));
+    else line.say(turn === cpu ? T('shell.thinking') : T('noughts.yourTurn'));
   }
   function end() {
-    var w = winner(board);
+    var w = winner(board), result, opts = { after: END_AFTER_MS };
     over = true;
-    var text;
     if (w) {
       var mine = settings.opp === 'cpu' ? (w === me ? 'a' : 'b') : (w === 'X' ? 'a' : 'b');
       stats[mine]++;
-      text = settings.opp === 'cpu' ? (w === me ? 'You win.' : 'The computer wins.') : (w === 'X' ? 'Crosses win.' : 'Noughts win.');
-    } else { stats.d++; text = 'A draw.'; }
+      if (settings.opp === 'cpu') result = w === me ? 'win' : 'lose';
+      else { result = 'win'; opts.name = T('noughts.mark.' + w); }
+    } else { stats.d++; result = 'draw'; }
+    opts.result = result;
     Play.save(STATS_KEY, stats);
-    els.msg.textContent = text; paint();
-    Play.later(function () { showSheet('Game over', text, 'Play again'); }, 900);
+    line.say(T(w ? (settings.opp === 'cpu' ? (w === me ? 'shell.end.win' : 'shell.end.lose') : 'shell.end.wins') : 'shell.end.draw', { name: opts.name })); paint();
+    ZimiShell.endSheet(opts);
   }
   function move(i) {
     if (!play(board, i, turn)) return;
@@ -135,34 +137,41 @@
     turn = other(turn); paint(); say();
     if (cpu && turn === cpu) timer = Play.later(function () { move(bestMove(board, cpu, settings.level, Math.random)); }, CPU_DELAY_MS);
   }
-  function click(i) { if (over || (cpu && turn === cpu)) return; move(i); }
+  function click(i) {
+    if (over) return;
+    if (cpu && turn === cpu) { ZimiShell.shake(els.board); line.reason(T('shell.thinking')); return; }
+    if (board[i]) { ZimiShell.shake(cells[i]); line.reason(T('noughts.taken')); return; }
+    move(i);
+  }
 
-  function paintSeg(el, items, current, set) {
-    el.textContent = '';
-    items.forEach(function (it) {
-      var b = document.createElement('button'); b.type = 'button'; b.textContent = it[1]; b.setAttribute('aria-pressed', String(current === it[0]));
-      b.addEventListener('click', function () { set(it[0]); });
-      el.appendChild(b);
-    });
+  function save() { Play.save(SETTINGS_KEY, settings); }
+  // Who plays is the real choice: the computer or a friend, then (against the computer) the level and the mark.
+  function menuOptions() {
+    var box = document.createElement('div');
+    function fill() {
+      box.textContent = '';
+      box.appendChild(Play.optionRow(T('noughts.opponent'), [['cpu', T('noughts.computer')], ['two', T('noughts.friend')]], settings.opp, function (v) { settings.opp = v; save(); fill(); }));
+      if (settings.opp === 'cpu') {
+        box.appendChild(Play.optionRow(T('noughts.level'), [['easy', T('noughts.easy')], ['hard', T('noughts.hard')]], settings.level, function (v) { settings.level = v; save(); }));
+        box.appendChild(Play.optionRow(T('noughts.youAre'), [['X', T('noughts.firstX')], ['O', T('noughts.secondO')]], settings.mark, function (v) { settings.mark = v; save(); }));
+      }
+    }
+    fill();
+    return [box];
   }
-  function paintSetup() {
-    paintSeg(els.opp, [['cpu', 'The computer'], ['two', 'A friend']], settings.opp, function (v) { settings.opp = v; Play.save(SETTINGS_KEY, settings); paintSetup(); });
-    paintSeg(els.level, [['easy', 'Easy'], ['perfect', 'Perfect']], settings.level, function (v) { settings.level = v; Play.save(SETTINGS_KEY, settings); paintSetup(); });
-    paintSeg(els.mark, [['X', 'Crosses (first)'], ['O', 'Noughts (second)']], settings.mark, function (v) { settings.mark = v; Play.save(SETTINGS_KEY, settings); paintSetup(); });
-    els.levelRow.hidden = els.markRow.hidden = settings.opp === 'two';
-  }
-  function showSheet(title, text, label) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; paintSetup(); Play.openSheet(els.sheet, '#nc-go'); }
   function begin() {
     if (timer) timer.cancel();
     board = emptyBoard(); over = false; turn = 'X'; me = settings.mark; cpu = settings.opp === 'cpu' ? other(me) : null;
-    Play.closeSheet(els.sheet); paint(); say();
+    paint(); say();
     if (cpu === 'X') timer = Play.later(function () { move(bestMove(board, cpu, settings.level, Math.random)); }, CPU_DELAY_MS);
-    else { var first = cells.find(function (c) { return c.getAttribute('aria-disabled') !== 'true'; }); if (first) first.focus({ preventScroll: true }); }
   }
-  els.go.addEventListener('click', begin);
-  els.nu.addEventListener('click', function () { if (timer) timer.cancel(); over = true; showSheet('New game', 'Choose who to play and which mark you take.', 'Start'); });
+  els.nu.addEventListener('click', begin);
+  ZimiShell.game({
+    inProgress: function () { return !over && board.some(Boolean); },
+    menu: function () { return { options: menuOptions() }; },
+    stats: function () { return stats.a + stats.b + stats.d ? [[T('noughts.you'), Play.num(stats.a)], [T('noughts.draws'), Play.num(stats.d)], [T('noughts.computer'), Play.num(stats.b)]] : []; }
+  });
 
-  build(); paint();
-  showSheet('Tic-Tac-Toe', 'Three in a row wins. Play the computer, easy or perfect, or a friend on the same screen.', 'Start');
+  build(); begin();
   root.__noughts = { get board() { return board; }, get turn() { return turn; } };
 })(this);
