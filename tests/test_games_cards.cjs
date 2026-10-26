@@ -29,7 +29,7 @@ const sandbox = {
 };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
-for (const f of ['text.js', 'cards.js', 'solitaire.js', 'freecell.js']) {
+for (const f of ['text.js', 'cardbacks.js', 'cards.js', 'solitaire.js', 'freecell.js']) {
   vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sandbox, { filename: f });
 }
 const Z = sandbox.ZimiCards, K = sandbox.ZimiSolitaire, F = sandbox.ZimiFreeCell;

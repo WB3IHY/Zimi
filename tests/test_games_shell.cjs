@@ -219,7 +219,7 @@ function shellEnv(storage, path_, reduced) {
   check(Array.isArray(steps), 'backgammon: the engine still chooses a play');
 }
 {
-  const Zs = load(['text.js', 'cards.js', 'cardtable.js', 'hearts.js'], { document: { addEventListener() {}, querySelector: () => null, getElementById: () => null, documentElement: { classList: { toggle() {} } }, hidden: false } });
+  const Zs = load(['text.js', 'cardbacks.js', 'cards.js', 'cardtable.js', 'hearts.js'], { document: { addEventListener() {}, querySelector: () => null, getElementById: () => null, documentElement: { classList: { toggle() {} } }, hidden: false } });
   const Z = Zs.ZimiCards, H = Zs.ZimiHearts, X = load(['explain-hearts.js']).ZimiExplain.hearts;
   const c = (r, s) => Z.make(r, s);                       // suits: clubs 0, diamonds 1, hearts 2, spades 3
   const blank = () => ({ hands: [[], [], [], []], taken: [[], [], [], []], trick: [], tricksPlayed: 3, broken: false, passDir: 0, turn: 1 });
@@ -244,7 +244,7 @@ function shellEnv(storage, path_, reduced) {
   check(picks.indexOf(H.QUEEN_SPADES) >= 0 && /queen of spades is 13 points/.test(p.text) && /to the left/.test(p.text), 'hearts: the pass names the cards passed and why the queen goes');
 }
 {
-  const Zs = load(['text.js', 'cards.js', 'solitaire.js'], { document: { addEventListener() {}, querySelector: () => null, getElementById: () => null, documentElement: { classList: { toggle() {} } }, hidden: false } });
+  const Zs = load(['text.js', 'cardbacks.js', 'cards.js', 'solitaire.js'], { document: { addEventListener() {}, querySelector: () => null, getElementById: () => null, documentElement: { classList: { toggle() {} } }, hidden: false } });
   const Z = Zs.ZimiCards, S = Zs.ZimiSolitaire, explain = load(['explain-solitaire.js']).ZimiExplain.solitaire;
   const st = S.blankState(1);
   st.piles.t0 = [{ id: Z.make(1, 2), up: true }];
