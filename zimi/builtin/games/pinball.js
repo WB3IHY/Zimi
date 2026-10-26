@@ -223,18 +223,26 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
-  var BEST_KEY = 'zimi.games.pinball.best', CHROME_PX = 200, MSG_S = 1.6, READY_ARM_MS = 650;
+  var BEST_KEY = 'zimi.games.pinball.best', CHROME_PX = 200, MSG_S = 1.6;
   Play.applyTheme();
 
   var els = { cv: $('pb-board'), score: $('pb-score'), best: $('pb-best'), balls: $('pb-balls'), mult: $('pb-mult'), msg: $('pb-msg'), pause: $('pb-pause'), newBtn: $('pb-new') };
-  var runId = 0, best = Play.load(BEST_KEY, { score: 0 }), st = createState(), mode = 'ready', ctx, reduce = Play.reducedMotion(), banner = '', bannerT = 0;
-  var keys = { left: false, right: false }, touches = {}, status = Play.status(els.msg), armed = null;
+  var st = createState(), ctx, reduce = Play.reducedMotion(), banner = '', bannerT = 0;
+  var keys = { left: false, right: false }, touches = {};
 
-  function layout() { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, W * 1.15).ctx; draw(); }
+  var page = Play.arcadePage({
+    els: els, bestKey: BEST_KEY, ready: 'pinball', state: function () { return st; }, draw: draw, hud: hud,
+    layout: function () { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, W * 1.15).ctx; draw(); },
+    newRun: function () { st = createState(); banner = ''; bannerT = 0; return T('pinball.launch'); },
+    release: function () { keys.left = keys.right = false; touches = {}; st.charging = false; st.charge = 0; },
+    snapshot: function () { return Play.plain(st); },
+    restore: function (saved) { st = Play.overlay(createState(), saved); st.events = []; }
+  });
+  var status = page.status;
 
   function say(text) { banner = text; bannerT = MSG_S; status.say(text); }
   function hud() {
-    els.score.textContent = Play.num(st.score); els.best.textContent = Play.num(Math.max(best.score, st.score));
+    els.score.textContent = Play.num(st.score); els.best.textContent = Play.num(Math.max(page.best.score, st.score));
     els.balls.textContent = Play.num(Math.max(0, st.lives)); els.mult.textContent = T('pinball.mult', { n: st.mult });
   }
 
@@ -250,12 +258,12 @@
       else if (e.name === 'laneset') say(T('pinball.multiplier', { n: e.data }));
       else if (e.name === 'saved') say(T('pinball.saved'));
       else if (e.name === 'next') say(T(st.lives === 1 ? 'pinball.lastBall' : 'pinball.nextBall'));
-      else if (e.name === 'over') finish();
+      else if (e.name === 'over') page.finish();
     });
     st.events.length = 0;
   }
 
-  var loop = Play.loop(function (dt) { flippers(); step(st, dt); handleEvents(); if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) status.say(''); } }, function () { draw(); hud(); }, 60);
+  page.run(function (dt) { flippers(); step(st, dt); handleEvents(); if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) status.say(''); } });
 
   function pal() { return { felt: '#0e0e10', felt2: '#18181c', wall: '#a8a69e', amber: '#f2a516', amberDim: '#6b4a10', ink: '#e8e8ed', bump: '#e8576b', bump2: '#ffd0d6', cyan: '#3fc1e8', dim: '#3a3a40' }; }
 
@@ -322,44 +330,6 @@
     if (bannerT > 0 && banner) { ctx.fillStyle = c.ink; ctx.font = '700 22px system-ui, sans-serif'; ctx.fillText(banner.toUpperCase(), 166, 410); }
   }
 
-  function startLoop() { loop.start(); }
-  // The ready line says the gesture once; a tap or a key starts. Armed again after a game, once the end sheet is up.
-  function arm() {
-    if (armed) armed.cancel();
-    armed = Play.ready({ say: status.say, target: els.cv, start: begin, touch: T('pinball.readyTouch'), keys: T('pinball.readyKeys') });
-  }
-  function begin() {
-    if (armed) armed.cancel();
-    st = createState(); runId = Play.runId(); mode = 'playing'; banner = ''; bannerT = 0; status.say(T('pinball.launch'));
-    Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); startLoop();
-  }
-  function pause() {
-    if (mode !== 'playing') return;
-    mode = 'paused'; loop.stop(); releaseAll(); Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
-  }
-  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); startLoop(); }
-  function toggle() { if (mode === 'playing') pause(); else resume(); }
-  function finish() {
-    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); releaseAll();
-    if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); }
-    hud(); draw();
-    showEnd();
-  }
-  function showEnd() {
-    ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(st.score)], [T('play.best'), Play.num(best.score)]] });
-    setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
-  }
-  function releaseAll() { keys.left = keys.right = false; touches = {}; st.charging = false; st.charge = 0; }
-
-  els.newBtn.addEventListener('click', begin);
-  els.pause.addEventListener('click', toggle);
-  els.cv.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
-  Play.onHidden(pause);
-  ZimiShell.game({
-    inProgress: function () { return mode === 'playing' || mode === 'paused'; },
-    stats: function () { return best.score ? [[T('play.best'), Play.num(best.score)]] : []; }
-  });
-
   var KEY = { ArrowLeft: 'left', z: 'left', Z: 'left', ShiftLeft: 'left', ArrowRight: 'right', '/': 'right', '.': 'right', ShiftRight: 'right', x: 'right', X: 'right' };
   function keyName(e) { return e.code === 'ShiftLeft' || e.code === 'ShiftRight' ? e.code : e.key; }
   document.addEventListener('keydown', function (e) {
@@ -367,13 +337,12 @@
     if (document.querySelector('.ar-sheet:not([hidden])')) return;
     var k = KEY[keyName(e)];
     if (k) { e.preventDefault(); keys[k] = true; }
-    else if (e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); if (mode === 'playing' && st.status === 'ready') st.charging = true; }
-    else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (mode === 'playing' || mode === 'paused') toggle(); }
+    else if (e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); if (page.mode === 'playing' && st.status === 'ready') st.charging = true; }
   });
   document.addEventListener('keyup', function (e) {
     var k = KEY[keyName(e)];
     if (k) keys[k] = false;
-    else if ((e.key === ' ' || e.key === 'ArrowDown') && mode === 'playing') launch(st);
+    else if ((e.key === ' ' || e.key === 'ArrowDown') && page.mode === 'playing') launch(st);
   });
   window.addEventListener('blur', function () { keys.left = keys.right = false; touches = {}; });
 
@@ -384,7 +353,7 @@
     return x > 320 && st.status === 'ready' ? 'p' : x < W / 2 ? 'l' : 'r';
   }
   els.cv.addEventListener('pointerdown', function (e) {
-    if (mode !== 'playing') return;
+    if (page.mode !== 'playing') return;
     e.preventDefault();
     try { els.cv.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events have no capture */ }
     var z = zoneAt(e);
@@ -393,27 +362,12 @@
   });
   function lift(e) {
     var z = touches[e.pointerId]; delete touches[e.pointerId];
-    if (z === 'p' && mode === 'playing') launch(st);
+    if (z === 'p' && page.mode === 'playing') launch(st);
   }
   els.cv.addEventListener('pointerup', lift);
   els.cv.addEventListener('pointercancel', lift);
   els.cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
-  window.addEventListener('resize', layout);
-  layout(); hud(); arm();
-  // A run in progress or over is kept; it comes back paused (or on its end sheet).
-  function snapshot() {
-    if (mode === 'ready') return null;
-    return { runId: runId, over: mode === 'over', st: Play.plain(st) };
-  }
-  function restore(d) {
-    if (!d || !d.st) return false;
-    if (armed) { armed.cancel(); armed = null; }
-    st = Play.overlay(createState(), d.st); st.events = []; runId = d.runId; hud(); draw();
-    if (d.over) { mode = 'over'; els.pause.disabled = true; setTimeout(showEnd, 0); return true; }
-    mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
-    return true;
-  }
-  ZimiShell.persist({ save: snapshot, load: restore });
-  root.__pinball = { get st() { return st; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, st.score, st.lives, st.mult, st.balls, st.flippers, st.lanes, st.targets]); } };
+  page.start();
+  root.__pinball = { get st() { return st; }, get mode() { return page.mode; }, get pos() { return JSON.stringify([page.runId, st.score, st.lives, st.mult, st.balls, st.flippers, st.lanes, st.targets]); } };
 })(this);
