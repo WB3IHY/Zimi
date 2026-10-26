@@ -164,8 +164,7 @@
   // ── The page ────────────────────────────────────────────────────────────
   var AUTO_STEP_MS = 140;
   function boot() {
-    var d = root.document, board, session, hintEl = d.getElementById('zc-hint'), toast = d.getElementById('zc-toast'), autoOn = Z.store.get(AUTO_KEY, true) !== false;
-    Z.ensureSprite();
+    var page, session, board, d = root.document, hintEl = d.getElementById('zc-hint'), toast = d.getElementById('zc-toast'), autoOn = Z.store.get(AUTO_KEY, true) !== false;
     var params = new root.URLSearchParams(root.location.search);
     // Every one of the 32,000 classic deals but one can be won, so "winnable deals only" just never deals that one.
     var winnableOnly = Z.store.get(WINNABLE_KEY, true) !== false, hint = null, hintBusy = false, noteTimer = 0;
@@ -210,7 +209,7 @@
         if (c.pile === h.from && c.idx === h.idx) c.glow = true;
         if (c.pile === h.to && c.idx === dest.length - 1) c.glow = true;
       });
-      if (!dest.length) out.slots.forEach(function (s) { if (s.id === h.to) s.mark = '\u2193'; });
+      if (!dest.length) out.slots.forEach(function (s) { if (s.id === h.to) s.mark = '↓'; });
       return out;
     }
     function autoRun() {
@@ -222,21 +221,9 @@
         if (isWon(session.state)) session.win(); else autoRun();
       }, AUTO_STEP_MS);
     }
-    function move(pile, idx, to) {
-      if (!legalMove(session.state, pile, idx, to)) return false;
-      session.commit(applyMove(session.state, pile, idx, to));
-      if (isWon(session.state)) session.win(); else autoRun();
-      return true;
-    }
 
-    board = Z.createBoard({
-      table: d.getElementById('zc-table'), cols: COLS, tight: true, place: placeWithHint,
-      canPick: canPick, move: move,
-      tap: function (pile, idx) { var to = bestMove(session.state, pile, idx); return to ? move(pile, idx, to) : false; }
-    });
-    session = Z.createSession({
-      id: 'freecell', board: board, newGame: randomDeal,
-      els: { undo: d.getElementById('zc-undo'), newBtn: d.getElementById('zc-new'), menu: d.getElementById('zc-menu'), stat: d.getElementById('zc-stat') },
+    page = Z.solitairePage({
+      rules: api, id: 'freecell', place: placeWithHint, cols: COLS, newGame: randomDeal, after: autoRun,
       statText: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.moves; },
       cascadeOrder: function (st) {
         var order = [], r;
@@ -256,26 +243,20 @@
         input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); play(); } });
         var winnablePick = Z.segmented([{ label: TX('shell.on'), value: true }, { label: TX('shell.off'), value: false }], winnableOnly, function (v) { winnableOnly = v; Z.store.set(WINNABLE_KEY, v); });
         var autoPick = Z.segmented([{ label: TX('shell.on'), value: true }, { label: TX('shell.off'), value: false }], autoOn, function (v) { autoOn = v; Z.store.set(AUTO_KEY, v); });
-        sheet = Z.sheet({
-          title: 'FreeCell',
-          body: [
-            Z.h('p', { class: 'zc-note', text: dealLabel() }),
-            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('fc.dealNumber') }), input, Z.h('button', { class: 'ar-btn', type: 'button', text: TX('fc.play'), onclick: play })]),
-            note,
-            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('fc.auto') }), autoPick]),
-            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('fc.winnable') }), winnablePick]),
-            Z.backsRow(),
-            Z.h('p', { class: 'zc-stats', text: session.stats.line() })
-          ],
-          actions: [{ label: TX('fc.restart'), onclick: function () { startDeal(dealNo); } }, { label: TX('fc.random'), onclick: randomDeal }, { label: TX('shell.close'), primary: true }]
-        });
+        sheet = page.menu('FreeCell', [
+          Z.h('p', { class: 'zc-note', text: dealLabel() }),
+          Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('fc.dealNumber') }), input, Z.h('button', { class: 'ar-btn', type: 'button', text: TX('fc.play'), onclick: play })]),
+          note,
+          Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('fc.auto') }), autoPick]),
+          Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('fc.winnable') }), winnablePick])
+        ], [{ label: TX('fc.restart'), onclick: function () { startDeal(dealNo); } }, { label: TX('fc.random'), onclick: randomDeal }, { label: TX('shell.close'), primary: true }]);
       }
     });
+    session = page.session; board = page.board;
 
     hintEl.addEventListener('click', showHint);
-    api.session = session; api.board = board; api.showHint = showHint;
-    startDeal(dealNo);
-    if (/[?&]debug=win/.test(root.location.search)) session.reset(almostWon());
+    api.showHint = showHint;
+    page.start(function () { startDeal(dealNo); });
   }
 
   if (root.document && root.document.getElementById('zc-table')) boot();

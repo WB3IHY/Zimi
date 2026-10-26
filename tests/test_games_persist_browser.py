@@ -38,6 +38,11 @@ def _paused(expr):
 ROWS = [
     ("solitaire", '[data-pile="stock"]', "JSON.stringify(ZimiSolitaire.session.state)"),
     ("golf", '[data-pile="stock"]', "JSON.stringify(ZimiGolf.session.state)"),
+    # FreeCell has no stock: the last card on the table is a column's bottom card, which a tap sends to a free cell or home.
+    ("freecell", ".zc-card:not(.zc-off)", "JSON.stringify(ZimiFreeCell.session.state)"),
+    ("spider", '[data-pile="stock"]', "JSON.stringify(ZimiSpider.session.state)"),
+    ("pyramid", '[data-pile="stock"]', "JSON.stringify(ZimiPyramid.session.state)"),
+    ("tripeaks", '[data-pile="stock"]', "JSON.stringify(ZimiTriPeaks.session.state)"),
     ("euchre", None, "JSON.stringify(ZimiEuchre.session.state)"),
     # A full guess, then two letters of the next: the rows, the typed letters and the flags must all come back.
     ("fiveletters", ['.fl-key[data-k="%s"]' % k for k in "crane"] + ['.fl-key[data-k="Enter"]', '.fl-key[data-k="s"]', '.fl-key[data-k="o"]'], "JSON.stringify(__five.game) + [...document.querySelectorAll('.fl-tile')].map(t => t.getAttribute('aria-label') + t.textContent).join()"),
