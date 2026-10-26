@@ -72,6 +72,7 @@
     els.next.setAttribute('aria-pressed', 'true');
     say(T(mistakes || hinted ? 'openings.complete' : 'openings.completeClean', { name: line.name }));
     paintStats();
+    UI.end({ result: 'win', text: T(mistakes || hinted ? 'openings.complete' : 'openings.completeClean', { name: line.name }), newLabel: T('board.next'), onNew: nextLine });
   }
 
   function onSquare(s) {

@@ -122,6 +122,8 @@
     say(T(failed || hinted ? 'puzzles.solved' : 'puzzles.solvedClean'));
     els.info.innerHTML = T('puzzles.info', { n: puzzle.rating }) + deltaHtml(d) + ' &middot; ' + puzzle.themes.map(themeLabel).join(', ');
     paintHud();
+    UI.end({ result: 'win', text: failed || hinted ? T('puzzles.solved') : undefined, newLabel: T('board.next'), onNew: nextPuzzle,
+      stats: [[T('puzzles.rating'), state.rating + (d ? ' (' + (d > 0 ? '+' : '') + d + ')' : '')]] });
   }
   function miss() {
     sel = -1; targets = {}; cue = null;

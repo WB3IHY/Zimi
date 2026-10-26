@@ -2256,7 +2256,7 @@
  },
  "openings.lineLabel": "Line",
  "openings.mainLine": "Main line",
- "openings.next": "Next line",
+ "openings.next": "Next",
  "openings.nextTitle": "Another line from the same family (N)",
  "openings.noMoves": "No moves yet",
  "openings.notThis": "Not this line. It plays {move}.",
@@ -2429,7 +2429,7 @@
  "puzzles.level.2200-3200": "2200 and up",
  "puzzles.level.600-1000": "600 to 1000",
  "puzzles.level.near": "Near my rating ({n})",
- "puzzles.next": "Next puzzle",
+ "puzzles.next": "Next",
  "puzzles.nextTitle": "Next puzzle (N)",
  "puzzles.noLoad": "This puzzle did not load. Try the next one.",
  "puzzles.noMatch": "No puzzle matches that",
@@ -3423,5 +3423,6 @@
  "xiangqi.side.red": "Red (first)",
  "xiangqi.why.repetition": "A draw: the same position came up three times.",
  "xiangqi.why.sixty": "A draw: sixty moves each without a capture.",
- "xiangqi.why.stuck": "No legal move, which loses in xiangqi."
+ "xiangqi.why.stuck": "No legal move, which loses in xiangqi.",
+ "board.next": "Next"
 }

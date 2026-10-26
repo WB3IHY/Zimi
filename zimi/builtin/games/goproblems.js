@@ -93,6 +93,7 @@
     $('gp-next').setAttribute('aria-pressed', 'true');
     say(T(P.k === 'kill' ? 'gp.solved.kill' : 'gp.solved.live'));
     showStats(); drawBoard();
+    UI.end({ result: 'win', text: T(P.k === 'kill' ? 'gp.solved.kill' : 'gp.solved.live'), newLabel: T('board.next'), onNew: next });
   }
 
   function blackPlays(p) {
