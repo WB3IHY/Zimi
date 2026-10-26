@@ -21,7 +21,7 @@ try { chromium = require('playwright').webkit; } catch (e) { console.log('SKIP  
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
 const harness = '<!doctype html><meta charset=utf-8><link rel=stylesheet href="/games.css"><link rel=stylesheet href="/cards.css">' +
   '<body class="zc-game" style="margin:0;background:#fff;overflow:visible;height:auto;display:block"><script src="/text.js"></script><script src="/cardbacks.js"></script>' +
-  '<script src="/courts.js"></script><script src="/cards.js"></script><div id=box style="padding:20px"></div><script>ZimiCards.ensureSprite();' +
+  '<script src="/courts.js"></script><script src="/courts-es.js"></script><script src="/hanafuda-art.js"></script><script src="/cards.js"></script><div id=box style="padding:20px"></div><script>ZimiCards.ensureSprite();' +
   'window.show=function(id,cw){var c=document.createElement("div");c.className="zc-card zc-down";c.style.cssText="position:relative;left:0;top:0;--cw:"+cw+"px;width:"+cw+"px;height:"+(cw*1.4)+"px";' +
   'c.innerHTML="<div class=zc-back>"+ZimiCards.backMarkup(id)+"</div>";var b=document.getElementById("box");b.innerHTML="";b.appendChild(c);' +
   'document.querySelectorAll(".zc-bk *").forEach(function(e){e.style.animation="none"});};</script>';
@@ -86,7 +86,7 @@ const server = http.createServer((q, r) => {
     const scale = Math.max(m[2] / m[4], m[3] / m[5]), lost = (m[5] * scale - m[3]) / 2;   // units cut at top and bottom by the cover
     ok('court art covers its frame and loses under 3 units at each end', m[2] / m[4] <= scale + 1e-9 && lost >= 0 && lost < 3, lost.toFixed(2) + ' units');
   });
-  ok('court frame is a crisp rule', /<rect[^>]*class="zc-rule"/.test(king));
+  ok('court frame is a crisp rule, a stepped path round the index columns', /<path[^>]*class="zc-rule"/.test(king));
   const backs = fs.readFileSync(path.join(dir, 'cardbacks.js'), 'utf8');
   ok('the backs\' band rules are crisp rules', (backs.match(/class: 'zc-rule'/g) || []).length === 2);
   ok('crisp rules snap to the device pixel', /\.zc-rule \{[^}]*vector-effect: non-scaling-stroke[^}]*crispEdges[^}]*var\(--zc-px/.test(css));
@@ -111,6 +111,48 @@ const server = http.createServer((q, r) => {
     const pointed = r === 'A' || r === '4';
     ok('index ' + r + ' top inset', pointed ? t >= 4.7 && t <= 5.3 : Math.abs(t - 5.5) <= 0.13, t.toFixed(2) + (pointed ? ' (apex overshoots 0.2 to 0.8)' : ''));
   }
+
+  // 6. The index has a column of its own: on every court (French, Spanish) and every Hanafuda card, no art or frame ink comes within
+  // CLEAR units of the index's ink. Each part of the index (the glyph, then the suit below it) is measured on a render of the index
+  // alone and checked against a render of the art alone (index glyph and pip removed, the cream plates kept).
+  const CLEAR = 1.5;
+  const clear = await cb.evaluate(async (CLEAR) => {
+    const S = 8, W = 100 * S, H = 140 * S, out = [];
+    const render = async (svg) => {
+      const img = new Image(); img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg); await img.decode();
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const cx = cv.getContext('2d'); cx.fillStyle = '#fdfcf8'; cx.fillRect(0, 0, W, H); cx.drawImage(img, 0, 0);
+      return cx.getImageData(0, 0, W, H).data;
+    };
+    const variant = (markup, keep) => {
+      const doc = new DOMParser().parseFromString(markup, 'image/svg+xml'), svg = doc.documentElement;
+      if (keep === 'index') [...svg.children].forEach(c => { if (!/zc-idx-std/.test(c.getAttribute('class') || '') && c.tagName !== 'defs' && c.tagName !== 'rect') c.remove(); });
+      else svg.querySelectorAll('.zc-idx-std').forEach(g => [...g.children].forEach(c => { if (c.getAttribute('class') !== 'zc-plate') c.remove(); }));
+      if (keep === 'index') svg.querySelectorAll('.zc-plate').forEach(p => p.remove());
+      svg.setAttribute('width', W); svg.setAttribute('height', H);
+      return new XMLSerializer().serializeToString(svg);
+    };
+    const dark = (d, x, y) => { const i = (y * W + x) * 4; return d[i] < 200 || d[i + 1] < 200 || d[i + 2] < 200; };
+    const far = (d, x, y) => { const i = (y * W + x) * 4; return Math.abs(d[i] - 253) + Math.abs(d[i + 1] - 252) + Math.abs(d[i + 2] - 248) > 40; };
+    const cases = [];
+    for (let id = 0; id < 52; id++) if (id % 13 > 9) cases.push(['French ' + 'JQK'[id % 13 - 10] + 'CDHS'[Math.floor(id / 13)], ZimiCards.faceMarkup(id, true)]);
+    for (let id = 0; id < 40; id++) if (id % 10 > 6) cases.push(['Spanish ' + id, ZimiCards.spanishFaceMarkup(id, true)]);
+    for (let id = 0; id < 48; id++) cases.push(['Hanafuda ' + id, ZimiCards.hanafudaFaceMarkup(id, true)]);
+    for (const [name, markup] of cases) {
+      const idx = await render(variant(markup, 'index')), art = await render(variant(markup, 'art'));
+      const rows = []; for (let y = 3 * S; y < 70 * S; y++) { let a = 1e9, b = -1; for (let x = 3 * S; x < 50 * S; x++) if (dark(idx, x, y)) { a = Math.min(a, x); b = Math.max(b, x + 1); } if (b >= 0) rows.push([y, a, b]); }
+      const parts = [[]]; rows.forEach((r, i) => { if (i && r[0] - rows[i - 1][0] > 1.5 * S) parts.push([]); parts[parts.length - 1].push(r); });
+      let worst = 1e9;
+      parts.forEach(p => {
+        const x0 = Math.min(...p.map(r => r[1])) - CLEAR * S, x1 = Math.max(...p.map(r => r[2])) + CLEAR * S, y0 = p[0][0] - CLEAR * S, y1 = p[p.length - 1][0] + 1 + CLEAR * S;
+        for (let y = Math.max(3 * S, Math.floor(y0)); y < y1; y++) for (let x = Math.max(3 * S, Math.floor(x0)); x < x1; x++) if (far(art, x, y)) { worst = Math.min(worst, 0); }
+      });
+      out.push([name, parts.length, worst === 0 ? 'art within ' + CLEAR : 'ok']);
+    }
+    return out;
+  }, CLEAR);
+  const hit = clear.filter(r => r[2] !== 'ok'), thin = clear.filter(r => r[1] < 2);
+  ok('every court and Hanafuda card (' + clear.length + ') keeps art and frame ' + CLEAR + ' units from the index', hit.length === 0, hit.map(r => r[0]).join(', '));
+  ok('the index was measured as glyph and suit', thin.length === 0, thin.map(r => r[0]).join(', '));
   await browser2.close();
 
   server.close();

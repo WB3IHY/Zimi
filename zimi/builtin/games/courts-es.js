@@ -9,8 +9,9 @@
 (function (root) {
   'use strict';
 
-  // The card paper inside the 100 x 140 face: 130 units tall (a 5 unit margin), as wide as the scan's shape allows, centred.
-  var SCAN_W = 260, SCAN_H = 420, BOX_Y = 5, BOX_H = 130;
+  // The card paper inside the 100 x 140 face, centred, at 0.88 of the full 130 units: the sota's coin, the rey's cup and the hands
+  // are drawn close to the corner, and at full size the index's column (its ink and a clear gap, cards.js) would cut into them.
+  var SCAN_W = 260, SCAN_H = 420, BOX_H = 114.4, BOX_Y = (140 - BOX_H) / 2;
   var BOX_W = Math.round(BOX_H * SCAN_W / SCAN_H * 100) / 100, BOX_X = (100 - BOX_W) / 2;
   var WEBP = 'data:image/webp;base64,';
   var ART = {
