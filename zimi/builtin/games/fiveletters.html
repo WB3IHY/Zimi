@@ -14,32 +14,19 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Five Letters</h1>
-  <button class="ar-btn" id="fl-stats" type="button" aria-haspopup="dialog">Record</button>
-  <button class="ar-btn" id="fl-lang" type="button" hidden title="Choose the word list: the built-in English one or a Wiktionary in your library">EN</button>
-  <button class="ar-btn" id="fl-mode" type="button" title="Switch between the daily word and practice">Daily</button>
+  <button class="ar-btn" id="fl-new" type="button" hidden data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="pl-main">
-  <div class="fl-board" id="fl-board" role="grid" aria-label="Guesses"></div>
-  <p class="pl-msg" id="fl-msg" role="status" aria-live="polite"></p>
-  <div class="fl-keys" id="fl-keys" role="group" aria-label="Keyboard"></div>
-  <p class="pl-help gl-source" id="fl-source"></p>
-  <p class="pl-help">Guess the 5-letter word in 6 tries. Green is the right place. Amber is in the word, in another place. Grey is not in the word. The daily word is the same for everyone today.</p>
+  <p class="pl-msg" id="fl-msg"></p>
+  <div class="fl-board" id="fl-board" role="grid" aria-label="Guesses" data-t-aria="fiveletters.board"></div>
+  <div class="gs-actionrow" id="fl-actions" hidden>
+    <button class="ar-btn" id="fl-mean" type="button" hidden></button>
+    <button class="ar-btn" id="fl-share" type="button" data-t="fiveletters.copy">Copy result</button>
+  </div>
+  <div class="fl-keys" id="fl-keys" role="group" aria-label="Keyboard" data-t-aria="fiveletters.keyboard"></div>
 </main>
 
-<div class="ar-sheet" id="fl-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="fl-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="fl-sheet-title">Your record</h2>
-    <p id="fl-sheet-gloss" hidden></p>
-    <p id="fl-sheet-text"></p>
-    <div class="fl-dist" id="fl-dist" aria-label="Games won by number of guesses"></div>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="fl-share" type="button" hidden>Copy result</button>
-      <button class="ar-btn" id="fl-again" type="button" hidden>New word</button>
-      <button class="ar-btn" id="fl-close" type="button" aria-pressed="true">Close</button>
-    </div>
-  </div>
-</div>
 <script src="fiveletters-words.js"></script>
 <script src="playkit.js"></script>
 <script src="librarykit.js"></script>

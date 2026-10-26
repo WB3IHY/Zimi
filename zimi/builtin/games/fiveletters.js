@@ -72,20 +72,20 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
-  var FLIP_MS = 230, SHAKE_MS = 420;       // each tile turns over 230 ms after the one before
-  var MAX_TILE = 62, GAP = 6, SIDE_PAD = 24;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
+  var FLIP_MS = 230, MAX_TILE = 62, GAP = 6, SIDE_PAD = 24, END_DELAY_MS = 500;       // each tile turns over 230 ms after the one before
   var STATE_KEY = 'zimi.games.fiveletters.state', STATS_KEY = 'zimi.games.fiveletters.stats', LANG_KEY = 'zimi.games.fiveletters.lang';
-  var PRAISE = ['Genius', 'Magnificent', 'Impressive', 'Splendid', 'Great', 'Phew'];
   var ROWS = ['qwertyuiop', 'asdfghjkl', '#zxcvbnm<'];
   Play.applyTheme();
 
   var words = makeWords(root.FIVE_ALLOWED, root.FIVE_ANSWERS);
-  var els = { board: $('fl-board'), keys: $('fl-keys'), msg: $('fl-msg'), mode: $('fl-mode'), stats: $('fl-stats'), lang: $('fl-lang'), source: $('fl-source'), gloss: $('fl-sheet-gloss'), sheet: $('fl-sheet'), title: $('fl-sheet-title'), text: $('fl-sheet-text'), grid: $('fl-dist'), share: $('fl-share'), again: $('fl-again'), close: $('fl-close') };
+  var els = { board: $('fl-board'), keys: $('fl-keys'), msg: $('fl-msg'), newBtn: $('fl-new'), actions: $('fl-actions'), share: $('fl-share'), mean: $('fl-mean') };
+  var status = Play.status(els.msg);
   var keyEls = {}, tileEls = [];
   var stored = Play.load(STATE_KEY, {});
   var stats = null; // each word list keeps its own record (loadStats)
   var game = null, busy = false, today = dateKey(new Date());
+  var pendingMode = null, pendingList;   // a choice made in the New game pane, taken when it starts
 
   // The word list: the shipped English one, or (inside Zimi) a Wiktionary of the player's library, whose
   // five-letter words and guesses come from /dictionary/five. cur is null for the shipped list, else
@@ -95,7 +95,6 @@
   function statsKey() { return STATS_KEY + (cur ? ':' + cur.zim : ''); }
   function loadStats() { stats = Play.load(statsKey(), { played: 0, won: 0, streak: 0, max: 0, dist: [0, 0, 0, 0, 0, 0], last: '' }); }
   function skey(mode) { return mode + (cur ? ':' + cur.zim : ''); }
-  function sourceText() { return cur ? 'Words from ' + cur.title + ' (' + cur.lang + '), in your library.' : 'The built-in English word list.'; }
 
   function blank(mode) {
     if (cur) return null; // a library word is asked for (fetchWord)
@@ -142,8 +141,8 @@
       var row = document.createElement('div'); row.className = 'fl-krow';
       letters.split('').forEach(function (ch) {
         var b = document.createElement('button'); b.type = 'button';
-        if (ch === '#') { b.className = 'fl-key wide'; b.textContent = 'Enter'; b.dataset.k = 'Enter'; }
-        else if (ch === '<') { b.className = 'fl-key wide'; b.innerHTML = '&#9003;'; b.dataset.k = 'Backspace'; b.setAttribute('aria-label', 'Delete'); }
+        if (ch === '#') { b.className = 'fl-key wide'; b.textContent = T('fiveletters.enter'); b.dataset.k = 'Enter'; }
+        else if (ch === '<') { b.className = 'fl-key wide'; b.innerHTML = '&#9003;'; b.dataset.k = 'Backspace'; b.setAttribute('aria-label', T('fiveletters.delete')); }
         else { b.className = 'fl-key'; b.textContent = ch; b.dataset.k = ch; keyEls[ch] = b; }
         row.appendChild(b);
       });
@@ -156,17 +155,24 @@
     els.board.style.setProperty('--tile', Math.max(38, Math.min(MAX_TILE, byWidth, byHeight)) + 'px');
   }
 
+  function tileLabel(ch, st) { return ch ? T('fiveletters.tile', { letter: ch, state: T('fiveletters.' + st) }) : T('fiveletters.empty'); }
   function paintRow(r, word, states) {
     for (var c = 0; c < LEN; c++) {
       var t = tileEls[r][c], ch = word[c] || '', st = states ? states[c] : '';
       t.className = 'fl-tile' + (ch ? ' filled' : '') + (st ? ' ' + st : '');
       t.textContent = ch;
-      t.setAttribute('aria-label', ch ? ch + (st ? ', ' + st : '') : 'empty');
+      t.setAttribute('aria-label', ch && st ? tileLabel(ch, st) : (ch || T('fiveletters.empty')));
     }
   }
   function paintKeys() {
     var ks = keyStates(game.guesses, game.answer);
     Object.keys(keyEls).forEach(function (ch) { keyEls[ch].className = 'fl-key' + (ks[ch] ? ' ' + ks[ch] : ''); });
+  }
+  // The resting line says which word this is; a round that is over says how it went.
+  function rest() {
+    if (game.status === 'won') return praise();
+    if (game.status === 'lost') return T('fiveletters.theWord', { word: shown() });
+    return T(game.mode === 'daily' ? 'fiveletters.daily' : 'fiveletters.practice');
   }
   function paintAll() {
     for (var r = 0; r < TRIES; r++) {
@@ -174,40 +180,37 @@
       else paintRow(r, r === game.guesses.length ? game.current : '', null);
     }
     paintKeys();
-    els.mode.textContent = game.mode === 'daily' ? 'Daily' : 'Practice';
-    els.source.textContent = sourceText();
-    els.lang.textContent = cur ? cur.lang.toUpperCase() : 'EN';
+    status.say(rest());
+    var over = game.status !== 'playing';
+    els.actions.hidden = !over;
+    els.mean.hidden = !(over && !game.blurb && !cur && enDict);
+    els.mean.textContent = T('fiveletters.mean', { word: shown() });
   }
-  function say(text) { els.msg.textContent = text; }
+  function praise() { return T('fiveletters.praise.' + game.guesses.length); }
 
   function type(ch) {
     if (busy || game.status !== 'playing' || game.current.length >= LEN) return;
-    game.current += ch; say(''); paintRow(game.guesses.length, game.current, null);
+    game.current += ch; paintRow(game.guesses.length, game.current, null);
     var t = tileEls[game.guesses.length][game.current.length - 1];
     if (!Play.reducedMotion()) { t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop'); }
   }
   function erase() {
     if (busy || game.status !== 'playing' || !game.current) return;
-    game.current = game.current.slice(0, -1); say(''); paintRow(game.guesses.length, game.current, null);
+    game.current = game.current.slice(0, -1); paintRow(game.guesses.length, game.current, null);
   }
-  function shake(r, text) {
-    say(text);
-    var row = els.board.children[r];
-    if (Play.reducedMotion()) return;
-    row.classList.remove('shake'); void row.offsetWidth; row.classList.add('shake');
-    setTimeout(function () { row.classList.remove('shake'); }, SHAKE_MS);
-  }
+  // An illegal word: the row shakes and the line says why for two seconds.
+  function refuse(r, text) { ZimiShell.shake(els.board.children[r]); status.reason(text); }
 
   function submit() {
     if (busy || game.status !== 'playing') return;
     var r = game.guesses.length, word = game.current;
-    if (word.length < LEN) return shake(r, 'Not enough letters.');
+    if (word.length < LEN) return refuse(r, T('fiveletters.notEnough'));
     var g = game;
     busy = true;
     checkWord(word).then(function (ok) {
       busy = false;
       if (g !== game) return; // the list was switched while it was asked
-      if (!ok) return shake(r, 'Not in the word list.');
+      if (!ok) return refuse(r, T('fiveletters.notWord'));
       play(r, word);
     });
   }
@@ -218,17 +221,29 @@
     persist();
     var done = function () {
       busy = false; paintKeys();
-      if (game.status === 'won') { say(PRAISE[game.guesses.length - 1] + '.'); record(true); setTimeout(openSheet, 500); }
-      else if (game.status === 'lost') { say('The word was ' + shown() + '.'); record(false); setTimeout(openSheet, 500); }
+      if (game.status === 'playing') return;
+      status.say(rest()); els.actions.hidden = false;
+      els.mean.hidden = !(!game.blurb && !cur && enDict); els.mean.textContent = T('fiveletters.mean', { word: shown() });
+      record(game.status === 'won');
+      finish();
     };
     if (Play.reducedMotion()) { paintRow(r, word, states); return done(); }
     busy = true;
     states.forEach(function (st, c) {
       var t = tileEls[r][c];
       setTimeout(function () { t.classList.add('flip'); }, c * FLIP_MS);
-      setTimeout(function () { t.classList.add(st); t.setAttribute('aria-label', word[c] + ', ' + st); }, c * FLIP_MS + FLIP_MS / 2);
+      setTimeout(function () { t.classList.add(st); t.setAttribute('aria-label', tileLabel(word[c], st)); }, c * FLIP_MS + FLIP_MS / 2);
     });
     setTimeout(done, LEN * FLIP_MS + 100);
+  }
+
+  // The end of a round, on the shared end sheet: the result, the guesses used and, for the daily, the streak.
+  function finish() {
+    var won = game.status === 'won', chips = [[T('fiveletters.guesses'), T('fiveletters.guessesOf', { n: game.guesses.length, max: TRIES })]];
+    if (game.mode === 'daily') chips.push([T('fiveletters.streak'), Play.num(stats.streak)]);
+    var text = won ? '' : T('fiveletters.theWord', { word: shown() });
+    if (game.blurb) text = (text ? text + ' ' : '') + T('fiveletters.gloss', { word: game.title, meaning: game.blurb });
+    ZimiShell.endSheet({ result: won ? 'win' : 'lose', stats: chips, text: text || undefined, after: Play.reducedMotion() ? 0 : END_DELAY_MS });
   }
 
   // Only the daily counts toward the streak and the spread.
@@ -250,43 +265,17 @@
   function shown() { return (game.title || game.answer).toUpperCase(); }
 
   // The built-in list brings no meanings. Inside Zimi, a library with an English Wiktionary gives them: after a round
-  // the word can be tapped for its first sense (a library list, which already comes from a Wiktionary, shows it itself).
+  // the word can be asked for its first sense (a library list, which already comes from a Wiktionary, shows it itself).
   var enDict = null;
-  function offerMeaning() {
+  function askMeaning() {
     var word = game.answer;
-    if (game.meaning) { els.gloss.textContent = shown() + ': ' + game.meaning; return; }
-    var ask = document.createElement('button');
-    ask.type = 'button'; ask.className = 'ar-btn'; ask.textContent = 'What does ' + shown() + ' mean?';
-    ask.addEventListener('click', function () {
-      ask.disabled = true;
-      Lib.json(FIVE_API + '?zim=' + encodeURIComponent(enDict.name) + '&define=' + word).then(function (r) { return r && r.blurb; }, function () { return ''; }).then(function (meaning) {
-        if (meaning) { game.meaning = meaning; persist(); }
-        els.gloss.textContent = meaning ? shown() + ': ' + meaning : 'Your English Wiktionary has no page for ' + shown() + '.';
-      });
+    if (game.meaning) return status.say(T('fiveletters.gloss', { word: shown(), meaning: game.meaning }));
+    els.mean.disabled = true;
+    Lib.json(FIVE_API + '?zim=' + encodeURIComponent(enDict.name) + '&define=' + word).then(function (r) { return r && r.blurb; }, function () { return ''; }).then(function (meaning) {
+      els.mean.disabled = false;
+      if (meaning) { game.meaning = meaning; persist(); }
+      status.say(meaning ? T('fiveletters.gloss', { word: shown(), meaning: meaning }) : T('fiveletters.noMeaning', { word: shown() }));
     });
-    els.gloss.textContent = '';
-    els.gloss.appendChild(ask);
-  }
-
-  function openSheet() {
-    var over = game.status !== 'playing';
-    els.title.textContent = over ? (game.status === 'won' ? PRAISE[game.guesses.length - 1] : 'The word was ' + shown()) : 'Your record';
-    els.gloss.textContent = over && game.blurb ? game.title + ': ' + game.blurb : '';
-    if (over && !game.blurb && !cur && enDict) offerMeaning();
-    els.gloss.hidden = !els.gloss.textContent && !els.gloss.firstChild;
-    var pct = stats.played ? Math.round(100 * stats.won / stats.played) : 0;
-    els.text.textContent = 'Daily games played ' + stats.played + ', won ' + pct + '%, streak ' + stats.streak + ', best streak ' + stats.max + '.';
-    var most = Math.max.apply(null, stats.dist.concat(1));
-    els.grid.innerHTML = '';
-    stats.dist.forEach(function (n, i) {
-      var li = document.createElement('div'); li.className = 'fl-bar';
-      li.innerHTML = '<span>' + (i + 1) + '</span><i style="width:' + Math.max(8, Math.round(100 * n / most)) + '%">' + n + '</i>';
-      els.grid.appendChild(li);
-    });
-    els.share.hidden = !over;
-    els.again.textContent = game.mode === 'daily' ? 'Practice with a new word' : 'New word';
-    els.again.hidden = !over && game.mode === 'daily';
-    Play.openSheet(els.sheet, over ? '#fl-share' : '#fl-close');
   }
 
   els.keys.addEventListener('click', function (e) {
@@ -296,39 +285,34 @@
     if (k === 'Enter') submit(); else if (k === 'Backspace') erase(); else type(k);
   });
   document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey || !els.sheet.hidden) { if (e.key === 'Escape' && !els.sheet.hidden) Play.closeSheet(els.sheet); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.ar-sheet:not([hidden])')) return;
     if (e.target.closest && e.target.closest('button') && (e.key === 'Enter' || e.key === ' ')) return; // let a focused button do its own thing
     var k = e.key;
     if (k === 'Enter') { e.preventDefault(); submit(); }
     else if (k === 'Backspace') { e.preventDefault(); erase(); }
     else if (/^[a-zA-Z]$/.test(k)) type(k.toLowerCase());
   });
-  els.mode.addEventListener('click', function () { switchTo(game.mode === 'daily' ? 'practice' : 'daily'); });
-  els.stats.addEventListener('click', openSheet);
-  els.close.addEventListener('click', function () { Play.closeSheet(els.sheet); });
-  els.again.addEventListener('click', function () {
-    Play.closeSheet(els.sheet);
-    stored[skey('practice')] = null; switchTo('practice', true);
-  });
+  els.mean.addEventListener('click', askMeaning);
   els.share.addEventListener('click', function () {
-    var text = shareText('Five Letters' + (cur ? ' (' + cur.lang + ')' : '') + (game.mode === 'daily' ? ' ' + game.date : ''), game.guesses, game.answer, game.status === 'won');
-    try { navigator.clipboard.writeText(text).then(function () { say('Copied.'); }, function () { say(text); }); } catch (e) { say('Could not copy.'); }
+    var title = T('fiveletters.share', { lang: cur ? ' (' + cur.lang + ')' : '', date: game.mode === 'daily' ? ' ' + game.date : '' });
+    var text = shareText(title, game.guesses, game.answer, game.status === 'won');
+    try { navigator.clipboard.writeText(text).then(function () { status.reason(T('fiveletters.copied')); }, function () { status.reason(text); }); } catch (e) { status.reason(T('fiveletters.copyFail')); }
   });
   // Enter a mode of the current list. A library word may have to be fetched first.
   function switchTo(mode, fresh) {
     if (busy) return Promise.resolve();
     var have = fresh ? null : load(mode);
-    if (!cur || have) { game = have || blank(mode); persist(); say(''); paintAll(); return Promise.resolve(); }
-    busy = true; say('Finding a word...');
+    if (!cur || have) { game = have || blank(mode); persist(); paintAll(); return Promise.resolve(); }
+    busy = true; status.say(T('fiveletters.finding'));
     var asked = cur;
     return fetchWord(mode).then(function (g) {
       busy = false;
       if (asked !== cur) return;
-      game = g; persist(); say(''); paintAll();
+      game = g; persist(); paintAll();
     }, function () {
       busy = false;
       if (asked !== cur) return;
-      say('Could not read ' + asked.title + '. Back to English.');
+      status.say(T('fiveletters.unreadable', { title: asked.title }));
       return setList(null, mode);
     });
   }
@@ -341,19 +325,13 @@
   }
   function offerLists(options) {
     libOptions = options;
-    els.lang.hidden = !options.length;
-    if (!options.length) return;
+    if (!options.length) return paintAll();
     var saved = Play.load(LANG_KEY, null), pick = null;
     if (saved && saved.zim) pick = options.filter(function (o) { return o.zim === saved.zim; })[0] || null;
     // The player's own language, when nothing has been guessed yet today and they have not chosen.
     else if (!saved && !game.guesses.length && !game.current) pick = options.filter(function (o) { return o.lang === Lib.uiLang(); })[0] || null;
     if (pick && pick !== cur) setList(pick, game.mode); else paintAll();
   }
-  els.lang.addEventListener('click', function () {
-    if (busy) return;
-    var all = [null].concat(libOptions), i = all.indexOf(cur);
-    setList(all[(i + 1) % all.length], game.mode);
-  });
   // Inside Zimi: which Wiktionaries has this library? (Kiwix and plain folders: none, and nothing is asked twice.)
   function findLists() {
     Lib.isZimi().then(function (yes) { return yes ? Lib.zims() : []; }).then(function (list) {
@@ -365,13 +343,38 @@
     });
   }
 
+  // New game: the word the New game pane chose, else the next one (after a finished daily, a practice word).
+  els.newBtn.addEventListener('click', function () {
+    var list = pendingList === undefined ? cur : pendingList, m = pendingMode || (game.mode === 'daily' && game.status !== 'playing' ? 'practice' : game.mode);
+    pendingMode = null; pendingList = undefined;
+    if (list !== cur) { cur = list; libKnown = {}; loadStats(); Play.save(LANG_KEY, { zim: cur ? cur.zim : '' }); }
+    switchTo(m, m === 'practice');
+  });
+  ZimiShell.game({
+    inProgress: function () { return !!game && game.status === 'playing' && (game.guesses.length > 0 || game.current.length > 0); },
+    menu: function () {
+      var rows = [Play.optionRow(T('fiveletters.word'), [['daily', T('fiveletters.daily')], ['practice', T('fiveletters.practice')]], pendingMode || game.mode, function (v) { pendingMode = v; })];
+      if (libOptions.length) {
+        var choices = [[null, T('fiveletters.english')]].concat(libOptions.map(function (o) { return [o, o.title]; }));
+        rows.push(Play.optionRow(T('fiveletters.list'), choices, pendingList === undefined ? cur : pendingList, function (v) { pendingList = v; }));
+      }
+      return { options: rows };
+    },
+    stats: function () {
+      if (!stats.played) return [];
+      var pct = Math.round(100 * stats.won / stats.played);
+      var lines = [[T('fiveletters.played'), Play.num(stats.played)], [T('fiveletters.wonPct'), pct + '%'], [T('fiveletters.streak'), Play.num(stats.streak)], [T('fiveletters.bestStreak'), Play.num(stats.max)]];
+      stats.dist.forEach(function (n, i) { lines.push([T('fiveletters.wonIn', { n: i + 1 }), Play.num(n)]); });
+      return lines;
+    }
+  });
+
   build();
   layout();
   window.addEventListener('resize', layout);
   loadStats();
   game = load('daily');
   paintAll();
-  if (game.status === 'won') say(PRAISE[game.guesses.length - 1] + '.'); else if (game.status === 'lost') say('The word was ' + shown() + '.');
   findLists();
   // A read-only window onto the live game, for the browser tests.
   root.__five = { get game() { return game; }, get list() { return cur; } };
