@@ -15,24 +15,22 @@
    Pure functions; the page wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   var START_CHIPS = 1000, HANDS_PER_LEVEL = 8, SIM_COUNT = 160, CHIP_UNIT = 5;
   var BLIND_LEVELS = [[10, 20], [15, 30], [25, 50], [50, 100], [100, 200], [200, 400], [400, 800]];
-  var CATS = ['High card', 'Pair', 'Two pair', 'Three of a kind', 'Straight', 'Flush', 'Full house', 'Four of a kind', 'Straight flush'];
-  var RANK_WORD = { 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six', 7: 'Seven', 8: 'Eight', 9: 'Nine', 10: 'Ten', 11: 'Jack', 12: 'Queen', 13: 'King', 14: 'Ace' };
-  var PLURAL = { Six: 'Sixes' };
+  var catName = function (c) { return TX('holdem.cat.' + c); };
   var STYLES = {
-    tight: { tight: 1, aggr: 0.35, bluff: 0.02, call: 1, label: 'tight' },
-    loose: { tight: -1, aggr: 0.2, bluff: 0.03, call: 0.8, label: 'loose' },
-    aggressive: { tight: -0.3, aggr: 1, bluff: 0.18, call: 0.9, label: 'aggressive' },
-    tightAggressive: { tight: 0.6, aggr: 0.8, bluff: 0.07, call: 1, label: 'tight and aggressive' },
-    looseAggressive: { tight: -0.8, aggr: 0.8, bluff: 0.12, call: 0.85, label: 'loose and aggressive' }
+    tight: { tight: 1, aggr: 0.35, bluff: 0.02, call: 1, label: TX('holdem.style.tight') },
+    loose: { tight: -1, aggr: 0.2, bluff: 0.03, call: 0.8, label: TX('holdem.style.loose') },
+    aggressive: { tight: -0.3, aggr: 1, bluff: 0.18, call: 0.9, label: TX('holdem.style.aggressive') },
+    tightAggressive: { tight: 0.6, aggr: 0.8, bluff: 0.07, call: 1, label: TX('holdem.style.tightAggressive') },
+    looseAggressive: { tight: -0.8, aggr: 0.8, bluff: 0.12, call: 0.85, label: TX('holdem.style.looseAggressive') }
   };
   var OPPONENTS = [['Moss', 'tight'], ['Juno', 'loose'], ['Pike', 'aggressive'], ['Wren', 'tightAggressive'], ['Dax', 'looseAggressive']];
   var high = function (id) { return Z.rank(id) === 1 ? 14 : Z.rank(id); };
-  var word = function (r) { return RANK_WORD[r]; };
-  var plural = function (r) { return PLURAL[word(r)] || word(r) + 's'; };
+  var word = function (r) { return TX('holdem.rank.' + r); };
+  var plural = function (r) { return TX('holdem.ranks.' + r); };
 
   // ── Hand ranking ────────────────────────────────────────────────────────
   // The highest card of the best straight in these ranks (a 14 also counts as 1), or 0.
@@ -79,15 +77,15 @@
   }
   function nameOf(cat, k) {
     switch (cat) {
-      case 0: return 'High card ' + word(k[0]);
-      case 1: return 'Pair of ' + plural(k[0]);
-      case 2: return 'Two pair, ' + plural(k[0]) + ' and ' + plural(k[1]);
-      case 3: return 'Three of a kind, ' + plural(k[0]);
-      case 4: return 'Straight, ' + word(k[0]) + ' high';
-      case 5: return 'Flush, ' + word(k[0]) + ' high';
-      case 6: return 'Full house, ' + plural(k[0]) + ' full of ' + plural(k[1]);
-      case 7: return 'Four of a kind, ' + plural(k[0]);
-      default: return k[0] === 14 ? 'Royal flush' : 'Straight flush, ' + word(k[0]) + ' high';
+      case 0: return TX('holdem.n.high', { a: word(k[0]) });
+      case 1: return TX('holdem.n.pair', { a: plural(k[0]) });
+      case 2: return TX('holdem.n.twoPair', { a: plural(k[0]), b: plural(k[1]) });
+      case 3: return TX('holdem.n.three', { a: plural(k[0]) });
+      case 4: return TX('holdem.n.straight', { a: word(k[0]) });
+      case 5: return TX('holdem.n.flush', { a: word(k[0]) });
+      case 6: return TX('holdem.n.full', { a: plural(k[0]), b: plural(k[1]) });
+      case 7: return TX('holdem.n.four', { a: plural(k[0]) });
+      default: return k[0] === 14 ? TX('holdem.n.royal') : TX('holdem.n.straightFlush', { a: word(k[0]) });
     }
   }
   // The five cards that make the hand, for showing at the showdown.
@@ -127,7 +125,7 @@
 
   // ── The hand ────────────────────────────────────────────────────────────
   function freshGame(rng, opponents) {
-    var n = Math.max(3, Math.min(5, opponents || 3)), players = [{ name: 'You', style: null }], i;
+    var n = Math.max(3, Math.min(5, opponents || 3)), players = [{ name: TX('cards.you'), style: null }], i;
     for (i = 0; i < n; i++) players.push({ name: OPPONENTS[i][0], style: OPPONENTS[i][1] });
     players.forEach(function (p) { p.chips = START_CHIPS; p.hole = []; p.bet = 0; p.total = 0; p.folded = false; p.allIn = false; p.acted = false; p.locked = false; p.out = false; p.last = ''; });
     return { players: players, board: [], deck: [], pos: 0, dealer: Math.floor(rng() * players.length), toAct: -1, currentBet: 0, minRaise: 0, phase: 'between', runout: false, handNo: 0, blinds: BLIND_LEVELS[0], result: null, started: false };
@@ -247,7 +245,7 @@
       var share = Math.floor(pot.amount / winners.length), odd = pot.amount - share * winners.length;
       var order = winners.slice().sort(function (a, b) { return ((a - s.dealer + n) % n || n) - ((b - s.dealer + n) % n || n); });
       order.forEach(function (i, j) { s.players[i].chips += share + (j < odd ? 1 : 0); });
-      res.pots.push({ amount: pot.amount, winners: winners, eligible: pot.eligible, name: k === 0 ? 'Main pot' : 'Side pot' + (pots.length > 2 ? ' ' + k : '') });
+      res.pots.push({ amount: pot.amount, winners: winners, eligible: pot.eligible, name: k === 0 ? TX('holdem.mainPot') : pots.length > 2 ? TX('holdem.sidePotN', { n: k }) : TX('holdem.sidePot') });
       winners.forEach(function (i) { if (res.winners.indexOf(i) < 0) res.winners.push(i); });
     });
     s.result = res;
@@ -321,7 +319,7 @@
       p.hole.forEach(function (id, k) { cards.push({ id: id, pile: pile, idx: k, x: Math.round(x + k * step), y: Math.round(y), up: up, mark: marks && marks.indexOf(id) >= 0, dim: p.folded && !up }); });
     };
     var fiveOf = function (i) { return showAll && st.result.hands[i] && st.result.winners.indexOf(i) >= 0 ? st.result.hands[i].five : null; };
-    slots.push({ id: 'table', x: g.pad, y: g.northY, w: g.W - 2 * g.pad, h: g.southY - g.northY + g.ch, quiet: true, label: 'Table' });
+    slots.push({ id: 'table', x: g.pad, y: g.northY, w: g.W - 2 * g.pad, h: g.southY - g.northY + g.ch, quiet: true, label: TX('cards.slot.table') });
     st.players.forEach(function (p, i) {
       if (!p.hole.length) return;
       var five = fiveOf(i);
@@ -333,14 +331,14 @@
       var marked = st.result && st.result.showdown && st.result.winners.some(function (i) { return st.result.hands[i].five.indexOf(id) >= 0; });
       cards.push({ id: id, pile: 'b', idx: k, x: Math.round(bx + k * bw), y: by, up: true, mark: !!marked });
     });
-    for (var k = st.board.length; k < 5; k++) slots.push({ id: 'b' + k, x: Math.round(bx + k * bw), y: by, w: g.cw, h: g.ch, quiet: true, label: 'Shared card' });
+    for (var k = st.board.length; k < 5; k++) slots.push({ id: 'b' + k, x: Math.round(bx + k * bw), y: by, w: g.cw, h: g.ch, quiet: true, label: TX('holdem.shared') });
     return { height: m.H, slots: slots, cards: cards };
   }
 
   var api = {
     START_CHIPS: START_CHIPS, STYLES: STYLES, OPPONENTS: OPPONENTS, BLIND_LEVELS: BLIND_LEVELS, evaluate: evaluate, bestFive: bestFive, sidePots: sidePots,
     newGame: freshGame, startHand: startHand, options: options, act: act, runStep: runStep, gameState: gameState, aiAction: aiAction, equity: equity,
-    totalPot: totalPot, place: place, geo: geo, seatBoxes: seatBoxes, TAG_H: TAG_H, CPU_NAMES: ['Hale'].concat(OPPONENTS.map(function (o) { return o[0]; }))
+    totalPot: totalPot, place: place, geo: geo, seatBoxes: seatBoxes, TAG_H: TAG_H, CPU_NAMES: [TX('holdem.hale')].concat(OPPONENTS.map(function (o) { return o[0]; }))
   };
   root.ZimiHoldem = api;
 
@@ -365,6 +363,12 @@
       var p = st.players[seats.view()];
       return p.hole.length && !p.folded && !view.hideHand ? evaluate(p.hole.concat(st.board)).name : '';
     }
+    // The stored last action is a plain code; what it says on screen is decided here.
+    function lastText(last) {
+      var m = /^(raise to|all in|call) (\d+)$/.exec(last);
+      if (m) return TX('holdem.last.' + m[1].replace(/ (\w)/, function (x, c) { return c.toUpperCase(); }), { n: m[2] });
+      return { fold: TX('holdem.last.fold'), check: TX('holdem.last.check'), 'small blind': TX('holdem.smallBlind'), 'big blind': TX('holdem.bigBlind'), 'all in': TX('holdem.allIn'), out: TX('holdem.out') }[last] || last;
+    }
     var tagSig = '';
     function layTags(st, m) {
       var g = geo(m), n = st.players.length, boxes = seatBoxes(g, n - 1), V = seats.view();
@@ -376,53 +380,54 @@
         var box = i === V ? { x: g.pad, w: g.W - 2 * g.pad, y: g.southY - ME_H - 2 } : boxes[relSeat(i, V, n) - 1];
         var big = nm(i), w = Math.min(box.w - SEAT_GAP, i === V ? 260 : 150);
         var cls = 'c2-tag' + (i === V ? ' c2-me' : '') + (st.toAct === i && !handDone(st) ? ' c2-turn' : '') + (p.folded || p.out ? ' c2-out' : '') + (st.dealer === i && !p.out ? ' c2-dealer' : '');
-        var line = p.out ? 'out' : p.last && !handDone(st) || (p.last === 'fold') ? p.last : (p.bet ? 'bet ' + p.bet : '');
-        if (handDone(st) && st.result && st.result.hands[i]) line = CATS[st.result.hands[i].cat] + (st.result.winners.indexOf(i) >= 0 ? ' (wins)' : '');
-        if (p.chips === 0 && handDone(st) && !(st.result && st.result.winners.indexOf(i) >= 0)) line = 'out';
+        var line = p.out ? TX('holdem.out') : p.last && !handDone(st) || (p.last === 'fold') ? lastText(p.last) : (p.bet ? TX('holdem.bet', { n: p.bet }) : '');
+        if (handDone(st) && st.result && st.result.hands[i]) line = st.result.winners.indexOf(i) >= 0 ? TX('holdem.catWins', { cat: catName(st.result.hands[i].cat) }) : catName(st.result.hands[i].cat);
+        if (p.chips === 0 && handDone(st) && !(st.result && st.result.winners.indexOf(i) >= 0)) line = TX('holdem.out');
         var e = Z.h('div', { class: cls, style: 'left:' + Math.round(box.x + (box.w - w) / 2) + 'px;top:' + Math.round(box.y) + 'px;width:' + w + 'px;height:' + (i === V ? ME_H : TAG_H - 2) + 'px' }, [
           Z.h('b', { text: big + ' ' + p.chips }), Z.h('span', { text: line })]);
         d.getElementById('zc-table').appendChild(e); tags.push(e);
       });
-      var potTag = Z.h('div', { class: 'c2-tag', style: 'left:' + Math.round(g.W / 2 - 60) + 'px;top:' + (boardY(g) - POT_H - 4) + 'px;width:120px;height:' + POT_H + 'px' }, [Z.h('span', { text: 'Pot ' + totalPot(st) })]);
+      var potTag = Z.h('div', { class: 'c2-tag', style: 'left:' + Math.round(g.W / 2 - 100) + 'px;top:' + (boardY(g) - POT_H - 4) + 'px;width:200px;height:' + POT_H + 'px' }, [Z.h('span', { text: TX('holdem.pot', { n: totalPot(st), a: st.blinds[0], b: st.blinds[1] }) })]);
       d.getElementById('zc-table').appendChild(potTag); tags.push(potTag);
     }
     function hud(st) {
-      var m = board.metrics(), out = { chips: [], sub: 'Blinds ' + st.blinds[0] + '/' + st.blinds[1], text: '' };
+      var m = board.metrics(), out = { chips: [], text: '' };
       layTags(st, m);
       var V = seats.view(), hot = seats.hotseat(), mine = options(st, V), name = yourHand(st);
+      out.fact = TX('holdem.fact', { chips: st.players[V].chips });
       if (handDone(st)) {
         var r = st.result, lines = [];
         if (r) {
           r.pots.forEach(function (pot) {
-            lines.push({ text: pot.name + ' ' + pot.amount + ': ' + pot.winners.map(function (i) { return nm(i) + (r.showdown && r.hands[i] ? ' (' + r.hands[i].name + ')' : ''); }).join(' and ') + (pot.winners.length > 1 ? ' split it' : ' wins') });
+            lines.push({ text: TX(pot.winners.length > 1 ? 'holdem.potSplit' : 'holdem.potWins', { pot: pot.name, amount: pot.amount, who: pot.winners.map(function (i) { return r.showdown && r.hands[i] ? TX('holdem.withHand', { name: nm(i), hand: r.hands[i].name }) : nm(i); }).join(' ' + TX('crib.and') + ' ') }) });
           });
-          if (r.showdown) st.players.forEach(function (p, i) { if (r.hands[i] && r.winners.indexOf(i) < 0) lines.push({ text: nm(i) + ': ' + r.hands[i].name }); });
+          if (r.showdown) st.players.forEach(function (p, i) { if (r.hands[i] && r.winners.indexOf(i) < 0) lines.push({ text: TX('holdem.loser', { name: nm(i), hand: r.hands[i].name }) }); });
         }
         out.lines = lines;
-        if (st.phase === 'over') { out.text = overText(st); out.label = 'New game'; out.action = newGame; }
-        else { out.text = st.started ? '' : 'Tap Deal to start'; out.choices = [{ label: st.started ? 'Next hand' : 'Deal', primary: true, onclick: nextHand }]; }
+        if (st.phase === 'over') { out.text = overText(st); out.label = TX('shell.menu.new'); out.action = newGame; }
+        else { out.text = st.started ? '' : TX('holdem.tapDeal'); out.choices = [{ label: st.started ? TX('cards.nextHand') : TX('holdem.deal'), primary: true, onclick: nextHand }]; }
         return out;
       }
       if (mine) {
-        out.text = (hot ? nm(V) + ': ' : '') + (name ? (hot ? 'you have ' : 'You have ') + name.toLowerCase() + '. ' : '') + (mine.check ? (hot ? 'your turn' : 'Your turn') : mine.toCall + ' to call');
-        out.choices = [{ label: 'Fold', onclick: function () { play({ type: 'fold' }); }, disabled: mine.check, aria: 'Fold' }, { label: mine.check ? 'Check' : 'Call ' + mine.toCall, onclick: function () { play({ type: 'call' }); } }];
+        out.text = (hot ? TX('holdem.nameColon', { name: nm(V) }) + ' ' : '') + (name ? TX(hot ? 'holdem.youHave.hot' : 'holdem.youHave', { hand: name.toLocaleLowerCase() }) + ' ' : '') + (mine.check ? TX(hot ? 'holdem.turn.hot' : 'cards.turn.you') : TX('holdem.toCall', { n: mine.toCall }));
+        out.choices = [{ label: TX('holdem.fold'), onclick: function () { play({ type: 'fold' }); }, disabled: mine.check, aria: TX('holdem.fold') }, { label: mine.check ? TX('holdem.check') : TX('holdem.call', { n: mine.toCall }), onclick: function () { play({ type: 'call' }); } }];
         if (mine.canRaise) {
           var sizes = [], seen = {}, base = st.currentBet, potNow = mine.pot + mine.toCall;
-          [['Min', mine.minTo], ['½ pot', base + potNow / 2], ['Pot', base + potNow]].forEach(function (x) {
+          [['min', mine.minTo], ['half', base + potNow / 2], ['pot', base + potNow]].forEach(function (x) {
             var to = Math.max(mine.minTo, Math.min(mine.maxTo, roundTo(x[1], CHIP_UNIT)));
-            if (to < mine.maxTo && !seen[to]) { seen[to] = 1; sizes.push({ label: x[0] + ' ' + to, to: to }); }
+            if (to < mine.maxTo && !seen[to]) { seen[to] = 1; sizes.push({ label: TX('holdem.size.' + x[0], { n: to }), to: to }); }
           });
-          sizes.push({ label: 'All in ' + mine.maxTo, to: mine.maxTo });
-          sizes.forEach(function (sz, k) { out.choices.push({ label: (k === 0 && sz.to < mine.maxTo ? (st.currentBet ? 'Raise to ' : 'Bet ') + sz.to : sz.label), onclick: function () { play({ type: 'raise', to: sz.to }); } }); });
+          sizes.push({ label: TX('holdem.allInN', { n: mine.maxTo }), to: mine.maxTo });
+          sizes.forEach(function (sz, k) { out.choices.push({ label: (k === 0 && sz.to < mine.maxTo ? TX(st.currentBet ? 'holdem.raiseTo' : 'holdem.betN', { n: sz.to }) : sz.label), onclick: function () { play({ type: 'raise', to: sz.to }); } }); });
         }
-      } else if (st.runout) out.text = 'Everyone is all in';
-      else out.text = st.toAct >= 0 ? nm(st.toAct) + (seats.person(st.toAct) ? ' is next' : ' is thinking') : '';
+      } else if (st.runout) out.text = TX('holdem.allInAll');
+      else out.text = st.toAct >= 0 ? TX(seats.person(st.toAct) ? 'ce.next' : 'cards.thinking', { name: nm(st.toAct) }) : '';
       return out;
     }
     function overText(st) {
       var w = st.players.findIndex(function (p) { return p.chips > 0; });
-      if (seats.hotseat()) return gameState(st) === 'won' ? nm(w) + ' has all the chips' : 'Nobody is left with chips';
-      return gameState(st) === 'won' ? 'You have all the chips' : 'You are out of chips';
+      if (seats.hotseat()) return gameState(st) === 'won' ? TX('holdem.hasAll', { name: nm(w) }) : TX('holdem.nobody');
+      return TX(gameState(st) === 'won' ? 'holdem.youAll' : 'holdem.youOut');
     }
     function drive() {
       var st = session.state;
@@ -445,9 +450,9 @@
       ended = true; session.later(function () { conclude(st, gs); }, FINISH_MS);
     }
     function conclude(st, gs) {
-      var lines = ['You played ' + Z.plural(st.handNo, 'hand') + '. ' + (gs === 'won' ? 'You have all the chips.' : 'You are out of chips.')];
-      if (seats.hotseat()) { session.lose(gs === 'won' ? overText(st) : 'Out of chips', [Z.plural(st.handNo, 'hand') + ' played. ' + overText(st) + '.'], undefined); return; }
-      if (gs === 'won') session.win(chipsLeft(st)); else session.lose('Out of chips', lines, chipsLeft(st));
+      var lines = [TX(gs === 'won' ? 'holdem.playedWon' : 'holdem.playedOut', { hands: Z.plural(st.handNo, 'hand') })];
+      if (seats.hotseat()) { session.lose(gs === 'won' ? overText(st) : TX('holdem.outOfChips'), [TX('holdem.handsPlayed', { hands: Z.plural(st.handNo, 'hand'), text: overText(st) })], undefined); return; }
+      if (gs === 'won') session.win(chipsLeft(st)); else session.lose(TX('holdem.outOfChips'), lines, chipsLeft(st));
     }
     function play(action) { var st = session.state, V = seats.view(); if (st.toAct !== V) return; session.follow(act(st, V, action)); drive(); }
     function nextHand() {
@@ -468,14 +473,14 @@
       id: 'holdem', name: 'Texas Hold’em', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, cols: 7, heightShare: 0.1,
       stat: function (sec, st) { return String(chipsLeft(st)); },
       cascadeOrder: function (st) { return st.board.concat(st.players[seats.view()].hole).map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return ['You took every chip in ' + Z.plural(st.handNo, 'hand') + '.']; },
+      winLines: function (sec, st) { return [TX('holdem.tookAll', { hands: Z.plural(st.handNo, 'hand') })]; },
       menuExtra: function () {
-        var rows = [T.choiceRow('Seats at the table', OPP_KEY, [3, 4, 5].map(function (n) { return { label: String(n + 1), value: n }; }), 3, function () { /* next game */ }),
-          Z.h('p', { class: 'zc-note', text: 'A change applies to the next new game.' })];
-        rows.push(Z.h('p', { class: 'zc-note', text: 'Computer players: ' + OPPONENTS.map(function (o) { return o[0] + ' plays ' + STYLES[o[1]].label; }).join('; ') + '.' }));
+        var rows = [T.choiceRow(TX('cards.seatsAtTable'), OPP_KEY, [3, 4, 5].map(function (n) { return { label: String(n + 1), value: n }; }), 3, function () { /* next game */ }),
+          Z.h('p', { class: 'zc-note', text: TX('holdem.nextGame') })];
+        rows.push(Z.h('p', { class: 'zc-note', text: TX('holdem.computers', { list: OPPONENTS.map(function (o) { return TX('holdem.plays', { name: o[0], style: STYLES[o[1]].label }); }).join('; ') }) }));
         return rows;
       },
-      rules: 'Everyone gets two private cards; five shared cards come out in three steps (the flop, the turn, the river) with betting between. The best five-card hand wins the pot. Blinds are forced bets that grow every eight hands. All in puts every chip you have in; anything others bet beyond that goes into a side pot you cannot win. Hands from best: royal flush, straight flush, four of a kind, full house, flush, straight, three of a kind, two pair, pair, high card. Chips only, 1000 each to start; last player with chips wins. With two or more people in the Players rows, each sees only their own two cards, behind a handoff.'
+      rules: TX('holdem.rules')
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;

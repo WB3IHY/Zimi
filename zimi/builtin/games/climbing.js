@@ -27,13 +27,13 @@
    at the bottom of each game's file only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
-  var SEATS = 4, HAND = 13, COMPASS = ['South', 'West', 'North', 'East'];
+  var SEATS = 4, HAND = 13, COMPASS = [TX('bridge.seat.south'), TX('cards.seat.west'), TX('cards.seat.north'), TX('cards.seat.east')];
   var TWO = 12, ACE = 11, MAX_STRAIGHT_TOP = 11, SUIT_WEIGHT = 4, CAP = 80, FLUSH_SUIT = 1e7;
   var rankC = function (id) { var r = Z.rank(id); return r === 1 ? ACE : r === 2 ? TWO : r - 3; };
-  var RANK_NAME = ['three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'jack', 'queen', 'king', 'ace', 'two'];
-  var plural = function (c) { return RANK_NAME[c] === 'six' ? 'sixes' : RANK_NAME[c] + 's'; };
+  var rankWord = function (c) { return TX('climb.rank.' + c); };
+  var plural = function (c) { return TX('climb.ranks.' + c); };
 
   var RULES = {
     bigtwo: {
@@ -108,26 +108,26 @@
   }
   // Why a selection cannot be played now (or '').
   function whyNot(R, st, seat, ids) {
-    if (!ids.length) return 'Tap cards to pick a hand';
+    if (!ids.length) return TX('climb.why.tap');
     var combo = classify(R, ids);
-    if (!combo) return 'Those cards do not make a hand';
-    if (st.opening && ids.indexOf(openingCard(R)) < 0) return 'The first lead must include the ' + Z.cardName(openingCard(R));
-    if (st.top && !beats(R, st.top.combo, combo)) return 'That does not beat ' + describe(R, st.top.combo);
+    if (!combo) return TX('climb.why.notHand');
+    if (st.opening && ids.indexOf(openingCard(R)) < 0) return TX('climb.why.opening', { card: Z.cardName(openingCard(R)) });
+    if (st.top && !beats(R, st.top.combo, combo)) return TX('climb.why.beat', { what: describe(R, st.top.combo) });
     return '';
   }
   function describe(R, c) {
     var hi = rankC(c.cards[c.cards.length - 1]), lo = rankC(c.cards[0]);
     switch (c.type) {
-      case 'single': return 'the ' + RANK_NAME[hi];
-      case 'pair': return 'a pair of ' + plural(hi);
-      case 'triple': return 'three ' + plural(hi);
-      case 'quad': return 'four ' + plural(hi);
-      case 'pair run': return c.len + ' pairs in a row to ' + RANK_NAME[hi];
-      case 'straight': return 'a straight of ' + c.size + ' to ' + RANK_NAME[hi];
-      case 'flush': return 'a flush to ' + RANK_NAME[hi];
-      case 'full house': return 'a full house, ' + plural(Math.round(c.key)) + ' up';
-      case 'four of a kind': return 'four ' + plural(Math.round(c.key)) + ' and a card';
-      default: return 'a straight flush to ' + RANK_NAME[hi];
+      case 'single': return TX('climb.d.single', { rank: rankWord(hi) });
+      case 'pair': return TX('climb.d.pair', { ranks: plural(hi) });
+      case 'triple': return TX('climb.d.triple', { ranks: plural(hi) });
+      case 'quad': return TX('climb.d.quad', { ranks: plural(hi) });
+      case 'pair run': return TX('climb.d.pairRun', { n: c.len, rank: rankWord(hi) });
+      case 'straight': return TX('climb.d.straight', { n: c.size, rank: rankWord(hi) });
+      case 'flush': return TX('climb.d.flush', { rank: rankWord(hi) });
+      case 'full house': return TX('climb.d.fullHouse', { ranks: plural(Math.round(c.key)) });
+      case 'four of a kind': return TX('climb.d.four', { ranks: plural(Math.round(c.key)) });
+      default: return TX('climb.d.straightFlush', { rank: rankWord(hi) });
     }
   }
 
@@ -291,8 +291,8 @@
   function geo(m, st, V) { return T.geometry(m, T.rowsFor(m, st.hands[V || 0].length)); }
   function place(st, m, view) {
     var V = viewerOf(view), up = !(view && view.hideHand), g = geo(m, st, V), slots = [], cards = [], sel = up ? mySel(st, view) : [];
-    slots.push({ id: 'table', x: g.cx - 2 * g.cw, y: g.cy - g.ch / 2 - 4, w: 4 * g.cw, h: g.ch + 8, quiet: true, label: 'Table' });
-    var hand = T.handCards(g, st.hands[V], function (id) { return { up: up, raise: sel.indexOf(id) >= 0, glow: sel.indexOf(id) >= 0, label: up ? Z.cardName(id) + (sel.indexOf(id) >= 0 ? ', picked' : '') : 'Hidden card' }; }, null);
+    slots.push({ id: 'table', x: g.cx - 2 * g.cw, y: g.cy - g.ch / 2 - 4, w: 4 * g.cw, h: g.ch + 8, quiet: true, label: TX('cards.slot.table') });
+    var hand = T.handCards(g, st.hands[V], function (id) { return { up: up, raise: sel.indexOf(id) >= 0, glow: sel.indexOf(id) >= 0, label: up ? Z.cardName(id) + (sel.indexOf(id) >= 0 ? TX('canasta.pickedSuffix') : '') : TX('cards.hidden') }; }, null);
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     [1, 2, 3].forEach(function (r) { var seat = (V + r) % SEATS; if (st.hands[seat].length) cards = cards.concat(T.fan(g, r, st.hands[seat], false)); });
     var n = st.table.length, avail = g.W - 2 * g.pad - g.cw, step = n > 1 ? Math.min(g.cw * 0.62, avail / (n - 1)) : 0, x0 = g.cx - (g.cw + (n - 1) * step) / 2;
@@ -324,30 +324,29 @@
     function counts(st) {
       return st.hands.map(function (h, seat) {
         var n = h.length, done = n === 0 && st.order.indexOf(seat) >= 0;
-        return { name: nm(seat), text: done ? 'out, ' + ordinal(st.order.indexOf(seat) + 1) : (st.passed[seat] && R.passOut && st.top ? 'passed' : Z.plural(n, 'card')), turn: st.phase === 'play' && st.turn === seat };
+        return { name: nm(seat), text: done ? TX('climb.out.' + (st.order.indexOf(seat) + 1)) : (st.passed[seat] && R.passOut && st.top ? TX('climb.passed') : Z.plural(n, 'card')), turn: st.phase === 'play' && st.turn === seat };
       });
     }
-    function ordinal(n) { return ['first', 'second', 'third', 'fourth'][n - 1]; }
     function hud(st) {
-      var V = seats.view(), out = { chips: counts(st), sub: (seats.hotseat() ? nm(V) : 'You') + ' ' + st.scores[V] + ' · target ' + R.target, text: '' };
+      var V = seats.view(), out = { chips: counts(st), fact: TX('climb.fact', { name: seats.hotseat() ? nm(V) : TX('cards.you'), n: st.scores[V], target: R.target }), text: '' };
       if (st.phase === 'handEnd' || st.phase === 'over') {
-        if (st.phase === 'handEnd') { out.text = 'End of hand'; out.label = 'Next hand'; out.action = startNextHand; }
-        else { var w = game.gameWinner(st.scores); out.text = seats.isYou(w) ? 'You win the match' : nm(w) + ' wins the match'; out.label = 'New game'; out.action = newGame; }
+        if (st.phase === 'handEnd') { out.text = TX('cards.handEnd'); out.label = TX('cards.nextHand'); out.action = startNextHand; }
+        else { var w = game.gameWinner(st.scores); out.text = seats.isYou(w) ? TX('climb.winYou') : TX('climb.winName', { name: nm(w) }); out.label = TX('shell.menu.new'); out.action = newGame; }
         return out;
       }
-      var played = st.top ? nm(st.top.seat) + ' played ' + describeTop(st) + '. ' : '';
-      if (seats.person(st.turn) && st.turn !== V) out.text = played + nm(st.turn) + ' is next';
+      var played = st.top ? TX('climb.played', { name: nm(st.top.seat), what: describeTop(st) }) + ' ' : '';
+      if (seats.person(st.turn) && st.turn !== V) out.text = played + TX('ce.next', { name: nm(st.turn) });
       else if (st.turn === V) {
-        var sel = mySel(st, view), why = sel.length ? game.whyNot(st, V, sel) : '', combo = sel.length ? game.classify(sel) : null, who = seats.isYou(V) ? 'You' : nm(V);
-        out.text = st.top ? played + (who === 'You' ? 'Your turn' : who + ', your turn') : (st.opening ? who + ' lead: include the ' + Z.cardName(openingCard(R)) : who + ' lead anything');
+        var sel = mySel(st, view), why = sel.length ? game.whyNot(st, V, sel) : '', combo = sel.length ? game.classify(sel) : null, you = seats.isYou(V), who = nm(V);
+        out.text = st.top ? played + TX(you ? 'cards.turn.you' : 'cards.turn.name', { name: who }) : TX(st.opening ? (you ? 'climb.lead.opening.you' : 'climb.lead.opening') : (you ? 'climb.lead.you' : 'climb.lead'), { name: who, card: Z.cardName(openingCard(R)) });
         out.choices = [
-          { label: combo && !why ? 'Play ' + game.describe(combo) : 'Play', disabled: !!why || !sel.length, onclick: playSelected },
-          { label: 'Pass', disabled: !st.top, onclick: passTurn },
-          { label: 'Hint', onclick: hint }
+          { label: combo && !why ? TX('climb.playWhat', { what: game.describe(combo) }) : TX('climb.play'), disabled: !!why || !sel.length, onclick: playSelected },
+          { label: TX('cards.pass'), disabled: !st.top, onclick: passTurn },
+          { label: TX('cards.hint'), onclick: hint }
         ];
         if (sel.length && why) out.lines = [{ text: why }];
-        else if (!sel.length && st.top && !game.legalPlays(st, V).length) out.lines = [{ text: 'Nothing you hold beats that: pass.' }];
-      } else out.text = played + nm(st.turn) + ' is thinking';
+        else if (!sel.length && st.top && !game.legalPlays(st, V).length) out.lines = [{ text: TX('climb.nothingBeats') }];
+      } else out.text = played + TX('cards.thinking', { name: nm(st.turn) });
       return out;
     }
     function drive() {
@@ -378,7 +377,7 @@
     }
     function hint() {
       var st = session.state, V = seats.view(), legal = game.legalPlays(st, V);
-      if (!legal.length) { t.flash('Nothing beats it: pass'); return; }
+      if (!legal.length) { t.flash(TX('climb.flashPass')); return; }
       var c = legal.slice().sort(function (a, b) { return cost(R, st, V, a, true) - cost(R, st, V, b, true); })[0];
       view.sel = c.cards.slice(); board.refresh(); t.paint();
     }
@@ -391,10 +390,10 @@
       return true;
     }
     function lineFor(st) { var r = st.result; return st.hands.map(function (h, i) { return nm(i) + ' ' + (r.points[i] > 0 ? '+' : '') + r.points[i] + ' (' + st.scores[i] + ')'; }).join(' · '); }
-    function handOver() { var st = session.state; T.lineSheet('Hand ' + (st.handNo + 1), [lineFor(st), R.firstOut ? 'Others pay a point a card left in their hands.' : 'Order of finishing scores 4, 1, -1, -4.'], [{ label: 'Next hand', primary: true, onclick: startNextHand }]); }
+    function handOver() { var st = session.state; T.lineSheet(TX('cards.fact.hand', { n: st.handNo + 1 }), [lineFor(st), TX(R.firstOut ? 'climb.pay' : 'climb.order')], [{ label: TX('cards.nextHand'), primary: true, onclick: startNextHand }]); }
     function gameOver() {
       var st = session.state, w = game.gameWinner(st.scores), V = seats.view(), hot = seats.hotseat();
-      if (w === V && !hot) session.win(st.scores[V]); else session.lose(hot ? nm(w) + ' wins' : 'Game over', [nm(w) + ' reached ' + R.target + ' first.', lineFor(st)], hot ? undefined : st.scores[V]);
+      if (w === V && !hot) session.win(st.scores[V]); else session.lose(hot ? TX('shell.end.wins', { name: nm(w) }) : '', [TX('climb.reached', { name: nm(w), target: R.target }), lineFor(st)], hot ? undefined : st.scores[V]);
     }
     function startNextHand() {
       var st = session.state;
@@ -415,7 +414,7 @@
       canPick: function () { return false; },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[seats.view()]; },
       cascadeOrder: function (st) { return st.table.map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return ['You reached ' + R.target + ' first: ' + st.scores.join(', ') + '.']; },
+      winLines: function (sec, st) { return [TX('climb.reachedYou', { target: R.target, scores: st.scores.join(', ') })]; },
       rules: game.rulesText
     });
     board = t.board; session = t.session;
