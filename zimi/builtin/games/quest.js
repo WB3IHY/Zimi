@@ -331,29 +331,29 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$;
-  var SAVE_KEY = 'zimi.games.quest', CHROME_PX = [380, 250], MAX_SCALE = 4;
+  var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$, Tx = Play.T;
+  var SAVE_KEY = 'zimi.games.quest', CHROME_PX = 190, MAX_SCALE = 4, READY_ARM_MS = 650;
   Play.applyTheme();
-  var els = { cv: $('qs-screen'), hearts: $('qs-hearts'), keys: $('qs-keys'), sword: $('qs-sword'), where: $('qs-where'), msg: $('qs-msg'), pause: $('qs-pause'), sheet: $('qs-sheet'), title: $('qs-sheet-title'), text: $('qs-sheet-text'), go: $('qs-go'), cont: $('qs-continue') };
-  var st = createState(null, 1), mode = 'ready', ctx, reduced = Play.reducedMotion(), scale = 2;
+  var els = { cv: $('qs-screen'), hearts: $('qs-hearts'), keys: $('qs-keys'), sword: $('qs-sword'), where: $('qs-where'), msg: $('qs-msg'), pause: $('qs-pause'), newBtn: $('qs-new') };
+  var st = createState(null, 1), mode = 'ready', ctx, reduced = Play.reducedMotion(), scale = 2, armed = null, status = Play.status(els.msg);
   var saved = Play.load(SAVE_KEY, null);
-  var keys = Kit.keyboard({ ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ' ': 'act', Enter: 'act', z: 'act', x: 'act' }, function (a) { if (a === 'act' && mode === 'playing') doAct(); }, function () { return !els.sheet.hidden; });
+  var keys = Kit.keyboard({ ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ' ': 'act', Enter: 'act', z: 'act', x: 'act' }, function (a) { if (a === 'act' && mode === 'playing') doAct(); }, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || mode !== 'playing'; });
   var touch = { up: false, down: false, left: false, right: false, act: false };
-  Kit.touchKeys([['qs-up', 'up'], ['qs-down', 'down'], ['qs-left', 'left'], ['qs-right', 'right']], touch);
-  var actBtn = $('qs-act'); if (actBtn) actBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); if (mode === 'playing') doAct(); });
+  var pad = Play.pad(els.cv, { dirs: ['left', 'right', 'up', 'down'], actions: [{ name: 'act', label: Tx('play.act') }], on: function (name, down) {
+    if (name === 'act') { if (down && mode === 'playing') doAct(); } else touch[name] = down;
+  } });
   function held(a) { return keys.held[a] || touch[a]; }
   function input() { return { dx: (held('right') ? 1 : 0) - (held('left') ? 1 : 0), dy: (held('down') ? 1 : 0) - (held('up') ? 1 : 0) }; }
   function doAct() { act(st); drain(); }
 
   function layout() { var f = Kit.fit(els.cv, W, H, CHROME_PX, MAX_SCALE); ctx = f.ctx; scale = f.scale; draw(); }
   function hud() {
-    var h = ''; for (var i = 0; i < st.maxHp; i++) h += i < st.hp ? '♥' : '♡';
-    els.hearts.textContent = h; els.hearts.setAttribute('aria-label', st.hp + ' of ' + st.maxHp + ' hearts');
-    els.keys.textContent = st.keys; els.sword.textContent = st.sword ? 'Yes' : 'No'; els.where.textContent = SCREENS[st.screen].name;
+    els.hearts.textContent = Play.num(Math.max(0, st.hp));
+    els.keys.textContent = Play.num(st.keys); els.sword.textContent = Tx(st.sword ? 'quest.yes' : 'quest.no'); els.where.textContent = Tx('quest.place.' + st.screen);
   }
 
   // ── art ──
-  var HERO_PAL = { k: '#1b2233', s: '#f2c9a0', h: '#6b3f1d', b: '#3b6fd4', B: '#2a4fa0', w: '#ffffff', y: '#f5c518', n: '#7a4a22' };
+  var HERO_PAL = { k: '#1b1b1d', s: '#f2c9a0', h: '#6b3f1d', b: '#3b6fd4', B: '#2a4fa0', w: '#ffffff', y: '#f5c518', n: '#7a4a22' };
   var HERO = {
     down: ['....kkkk....', '...khhhhk...', '..khhhhhhk..', '..kssssssk..', '..kskssksk..', '..kssssssk..', '...kbbbbk...', '..kbbyybbk..', '..ksbbbbsk..', '...kbbbbk...', '...kBkkBk...', '...knk.kn...'],
     up: ['....kkkk....', '...khhhhk...', '..khhhhhhk..', '..khhhhhhk..', '..khhhhhhk..', '..kssssssk..', '...kbbbbk...', '..kbbbbbbk..', '..ksbbbbsk..', '...kbbbbk...', '...kBkkBk...', '...knk.kn...'],
@@ -389,7 +389,7 @@
     var flash = e.flash > 0 && Math.floor(e.flash * 20) % 2 === 0;
     if (e.type === 'slime') {
       var sq = reduced ? 0 : Math.floor(st.anim * 4 + e.x) % 2, col = flash ? '#ffffff' : '#58c78d';
-      rect(e.x + 1, e.y + 2 + sq, 10, 8 - sq, col); rect(e.x + 3, e.y + sq, 6, 3, col); rect(e.x, e.y + 5, 12, 5, col); rect(e.x + 3, e.y + 4 + sq, 2, 2, '#1b2233'); rect(e.x + 7, e.y + 4 + sq, 2, 2, '#1b2233'); rect(e.x + 3, e.y + 8, 6, 1, '#2f9e6a');
+      rect(e.x + 1, e.y + 2 + sq, 10, 8 - sq, col); rect(e.x + 3, e.y + sq, 6, 3, col); rect(e.x, e.y + 5, 12, 5, col); rect(e.x + 3, e.y + 4 + sq, 2, 2, '#1b1b1d'); rect(e.x + 7, e.y + 4 + sq, 2, 2, '#1b1b1d'); rect(e.x + 3, e.y + 8, 6, 1, '#2f9e6a');
     } else if (e.type === 'bat') {
       var up = reduced ? 0 : Math.floor(st.anim * 9 + e.x) % 2, col2 = flash ? '#ffffff' : '#8b5cf6';
       rect(e.x + 4, e.y + 2, 4, 5, col2); rect(e.x + (up ? 0 : 1), e.y + (up ? 0 : 2), 4, 3, col2); rect(e.x + (up ? 8 : 7), e.y + (up ? 0 : 2), 4, 3, col2); rect(e.x + 5, e.y + 3, 1, 1, '#ffdd55'); rect(e.x + 6, e.y + 3, 1, 1, '#ffdd55');
@@ -397,8 +397,8 @@
       var col3 = flash ? '#ffffff' : '#c0392b', hi = flash ? '#ffffff' : '#e8685a', pace = reduced ? 0 : Math.floor(st.anim * 5) % 2;
       rect(e.x + 2, e.y + 4, 24, 18, col3); rect(e.x + 5, e.y, 18, 6, col3); rect(e.x + 1, e.y + 10, 26, 8, col3);
       rect(e.x + 6, e.y + 1, 16, 2, hi); rect(e.x + 4, e.y + 5, 3, 2, hi);
-      rect(e.x + 6, e.y + 9, 5, 5, '#fff3c4'); rect(e.x + 17, e.y + 9, 5, 5, '#fff3c4'); rect(e.x + 8, e.y + 11, 2, 3, '#1b2233'); rect(e.x + 19, e.y + 11, 2, 3, '#1b2233');
-      rect(e.x + 8, e.y + 17, 12, 2, '#1b2233'); rect(e.x + 9, e.y + 17, 2, 2, '#fff3c4'); rect(e.x + 13, e.y + 17, 2, 2, '#fff3c4'); rect(e.x + 17, e.y + 17, 2, 2, '#fff3c4');
+      rect(e.x + 6, e.y + 9, 5, 5, '#fff3c4'); rect(e.x + 17, e.y + 9, 5, 5, '#fff3c4'); rect(e.x + 8, e.y + 11, 2, 3, '#1b1b1d'); rect(e.x + 19, e.y + 11, 2, 3, '#1b1b1d');
+      rect(e.x + 8, e.y + 17, 12, 2, '#1b1b1d'); rect(e.x + 9, e.y + 17, 2, 2, '#fff3c4'); rect(e.x + 13, e.y + 17, 2, 2, '#fff3c4'); rect(e.x + 17, e.y + 17, 2, 2, '#fff3c4');
       rect(e.x + 1, e.y + 20 + pace, 5, 4 - pace, '#7a1f16'); rect(e.x + 22, e.y + 20 + (1 - pace), 5, 4 - (1 - pace), '#7a1f16');
       rect(e.x + 3, e.y - 3, 3, 5, '#e8e8ee'); rect(e.x + 22, e.y - 3, 3, 5, '#e8e8ee');
     }
@@ -433,22 +433,22 @@
     if (st.status === 'won') Kit.textCentered(ctx, 'QUEST DONE!', W / 2, 20, '#ffffff', 2);
     // the Warden's strength while it is here
     var boss = st.enemies.filter(function (e) { return e.type === 'boss'; })[0];
-    if (boss) { rect(W / 2 - 24, H - 8, 48, 4, '#1b2233'); rect(W / 2 - 23, H - 7, Math.round(46 * boss.hp / BOSS.hp), 2, '#e5484d'); }
+    if (boss) { rect(W / 2 - 24, H - 8, 48, 4, '#1b1b1d'); rect(W / 2 - 23, H - 7, Math.round(46 * boss.hp / BOSS.hp), 2, '#e5484d'); }
     if (s && st.status === 'fainted') Kit.textCentered(ctx, 'OH NO', W / 2, H / 2 - 6, '#ffffff', 2);
   }
 
   // ── flow ──
-  var MESSAGES = { sword: 'You took the sword. Press the action button to swing it; it cuts bushes and slimes.', key: 'A small key. It fits a locked door.', container: 'A heart container. You have one more heart, all full.', heart: '', treasure: 'The Warden’s treasure. The quest is done.' };
+  var ITEM_LINE = { sword: 'quest.item.sword', key: 'quest.item.key', container: 'quest.item.container', treasure: 'quest.item.treasure' };
   function drain() {
     st.events.forEach(function (e) {
-      if (e.name === 'item') { if (MESSAGES[e.data]) els.msg.textContent = MESSAGES[e.data]; }
-      else if (e.name === 'sign') els.msg.textContent = e.data;
-      else if (e.name === 'nosword') els.msg.textContent = 'You have no sword yet.';
-      else if (e.name === 'door') els.msg.textContent = e.data === 'open' ? 'The key turns. The door opens.' : 'Locked. It needs a key.';
-      else if (e.name === 'screen') { els.msg.textContent = HINTS[st.screen] && !st.flags['hint:' + st.screen] ? HINTS[st.screen] : ''; if (HINTS[st.screen]) st.flags['hint:' + st.screen] = true; }
-      else if (e.name === 'faint') els.msg.textContent = 'You are knocked out. You will wake at the start with your hearts back.';
-      else if (e.name === 'woke') els.msg.textContent = 'You wake up in the meadow.';
-      else if (e.name === 'defeat' && e.data === 'boss') els.msg.textContent = 'The Warden is down.';
+      if (e.name === 'item') { if (ITEM_LINE[e.data]) status.say(Tx(ITEM_LINE[e.data])); }
+      else if (e.name === 'sign') status.say(Tx('quest.sign.' + st.screen));
+      else if (e.name === 'nosword') status.say(Tx('quest.nosword'));
+      else if (e.name === 'door') status.say(Tx(e.data === 'open' ? 'quest.door.open' : 'quest.door.locked'));
+      else if (e.name === 'screen') { status.say(HINTS[st.screen] && !st.flags['hint:' + st.screen] ? Tx('quest.hint.' + st.screen) : ''); if (HINTS[st.screen]) st.flags['hint:' + st.screen] = true; }
+      else if (e.name === 'faint') status.say(Tx('quest.faint'));
+      else if (e.name === 'woke') status.say(Tx('quest.woke'));
+      else if (e.name === 'defeat' && e.data === 'boss') status.say(Tx('quest.boss'));
       else if (e.name === 'won') finish();
       else if (e.name === 'save') Play.save(SAVE_KEY, snapshot(st));
     });
@@ -456,28 +456,39 @@
   }
   var loop = Play.loop(function (dt) { step(st, dt, input()); drain(); }, function () { draw(); hud(); }, 60);
 
-  function showSheet(title, text, label, canContinue) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; els.cont.hidden = !canContinue; Play.openSheet(els.sheet, '#qs-go'); }
+  // With a saved quest the ready tap carries on from it; Menu > New game starts a fresh one.
+  function hasSave() { return !!(saved && saved.v === 1); }
+  function readyOpts() { return { say: status.say, target: pad.stage, start: function () { start(hasSave()); }, touch: Tx(hasSave() ? 'quest.tapContinue' : 'play.tapStart'), keys: Tx(hasSave() ? 'quest.keyContinue' : 'play.pressKey') }; }
+  function arm() {
+    if (armed) armed.cancel();
+    st = createState(hasSave() ? saved : null); mode = 'ready'; layout(); hud();
+    armed = Play.ready(readyOpts());
+  }
   function start(fromSave) {
-    st = createState(fromSave ? saved : null); mode = 'playing'; els.msg.textContent = fromSave ? 'Welcome back.' : ''; Play.closeSheet(els.sheet); els.pause.disabled = false; layout(); hud(); loop.start();
+    if (armed) armed.cancel();
+    st = createState(fromSave ? saved : null); mode = 'playing'; status.say(fromSave ? Tx('quest.welcome') : ''); Play.pauseLabel(els.pause, false); els.pause.disabled = false; layout(); hud(); loop.start();
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); keys.clear(); Object.keys(touch).forEach(function (k) { touch[k] = false; }); showSheet('Paused', 'Your place is saved.', 'Resume', false); }
-  function resume() { mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
+  function clearHeld() { keys.clear(); Object.keys(touch).forEach(function (k) { touch[k] = false; }); pad.release(); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); }
+  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
+  function toggle() { if (mode === 'playing') pause(); else resume(); }
   function finish() {
-    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.save(SAVE_KEY, null); saved = null; hud(); draw();
-    showSheet('Quest complete', 'The Warden is beaten and the treasure is yours. Start over to walk it again.', 'New quest', false);
+    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); clearHeld(); Play.save(SAVE_KEY, null); saved = null; hud(); draw();
+    ZimiShell.endSheet({ result: 'win', stats: [[Tx('quest.keys'), Play.num(st.keys)]] });
+    setTimeout(function () { if (mode === 'over') armed = Play.ready(readyOpts()); }, READY_ARM_MS);
   }
-  els.go.addEventListener('click', function () { if (mode === 'paused') resume(); else start(false); });
-  els.cont.addEventListener('click', function () { start(true); });
-  els.pause.addEventListener('click', pause);
+  els.newBtn.addEventListener('click', function () { start(false); });
+  els.pause.addEventListener('click', toggle);
+  pad.stage.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
   Play.onHidden(pause);
+  ZimiShell.game({ inProgress: function () { return mode === 'playing' || mode === 'paused'; } });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (!els.sheet.hidden) { if (e.key === 'Escape' && mode === 'paused') resume(); return; }
-    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); pause(); }
+    if (document.querySelector('.ar-sheet:not([hidden])')) return;
+    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (mode === 'playing' || mode === 'paused') toggle(); }
   });
 
   window.addEventListener('resize', layout);
-  buildArt(); layout(); hud();
-  showSheet('Quest', 'Find the sword, open the chests, take the key to the locked door and face the Warden. Walk with the arrow keys or the pad; the action button (Space) swings the sword and opens chests. Your progress is saved in this browser.', saved && saved.v === 1 ? 'New quest' : 'Start', !!(saved && saved.v === 1));
+  buildArt(); layout(); arm();
   root.__quest = { get st() { return st; }, get mode() { return mode; } };
 })(this);

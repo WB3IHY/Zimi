@@ -13,36 +13,19 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Blast</h1>
-  <button class="ar-btn" id="bl-pause" type="button" disabled>Pause</button>
+  <button class="ar-btn" id="bl-new" type="button" hidden data-t="shell.menu.new">New game</button>
+  <button class="ar-btn" id="bl-pause" type="button" disabled data-t="play.pause">Pause</button>
 </header>
 
-<main class="px-main">
+<main class="pl-main">
   <div class="pl-hud">
-    <div class="pl-stat"><small>Round</small><b id="bl-round">1</b></div>
-    <div class="pl-stat"><small>Rounds won</small><b id="bl-wins" style="font-size:13px"></b></div>
+    <div class="pl-stat"><small data-t="blast.round.label">Round</small><b id="bl-round">1</b></div>
+    <div class="pl-stat"><small data-t="blast.roundsWon">Rounds won</small><b id="bl-wins">0&ndash;0</b></div>
   </div>
-  <canvas class="px-screen" id="bl-screen" role="img" aria-label="The arena: bombers, soft blocks, stone pillars, bombs and power-ups"></canvas>
-  <div class="px-pad" role="group" aria-label="Controls">
-    <div class="px-dpad">
-      <button class="pl-key px-up" id="bl-up" type="button" aria-label="Up">&#9650;</button>
-      <button class="pl-key px-left" id="bl-left" type="button" aria-label="Left">&#9664;</button>
-      <button class="pl-key px-down" id="bl-down" type="button" aria-label="Down">&#9660;</button>
-      <button class="pl-key px-right" id="bl-right" type="button" aria-label="Right">&#9654;</button>
-    </div>
-    <div class="px-acts"><button class="pl-key" id="bl-bomb" type="button" aria-label="Drop a bomb">Bomb</button></div>
-  </div>
-  <p class="pl-msg" id="bl-msg" role="status" aria-live="polite"></p>
-  <p class="pl-help">W A S D (or the arrow keys, with one player) walk. Space or Enter drops a bomb. With two players, player 2 uses the arrow keys and Enter. A bomb blasts in four lines and sets off other bombs it reaches. Stone stops a blast. Soft blocks break, and some hide a power-up: more flame, an extra bomb or speed. You can step off your own bomb but not back on. P pauses.</p>
+  <canvas class="px-screen" id="bl-screen" role="img" aria-label="The arena: bombers, soft blocks, stone pillars, bombs and power-ups" data-t-aria="blast.screen"></canvas>
+  <p class="pl-msg" id="bl-msg"></p>
 </main>
 
-<div class="ar-sheet" id="bl-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="bl-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="bl-sheet-title">Blast</h2>
-    <p id="bl-sheet-text"></p>
-    <div id="bl-setup"></div>
-    <div class="ar-sheet-actions"><button class="ar-btn" id="bl-go" type="button" aria-pressed="true">Start</button></div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="pixelkit.js"></script>
 <script src="gridwalk.js"></script>

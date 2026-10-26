@@ -250,19 +250,23 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$;
-  var PREF_KEY = 'zimi.games.blast.setup', SCORE_KEY = 'zimi.games.blast.wins', CHROME_PX = [430, 280], MAX_SCALE = 4;
+  var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$, Tx = Play.T;
+  var PREF_KEY = 'zimi.games.blast.setup', SCORE_KEY = 'zimi.games.blast.wins', CHROME_PX = 190, MAX_SCALE = 4, READY_ARM_MS = 650;
   Play.applyTheme();
   var W_PX = W * TILE, H_PX = H * TILE;
-  var els = { cv: $('bl-screen'), msg: $('bl-msg'), pause: $('bl-pause'), sheet: $('bl-sheet'), title: $('bl-sheet-title'), text: $('bl-sheet-text'), go: $('bl-go'), setup: $('bl-setup'), wins: $('bl-wins'), round: $('bl-round') };
-  var setup = Play.load(PREF_KEY, { humans: 1, cpus: 2 }), st = null, mode = 'ready', ctx, reduced = Play.reducedMotion(), record = Play.load(SCORE_KEY, { won: 0, lost: 0 });
+  var els = { cv: $('bl-screen'), msg: $('bl-msg'), pause: $('bl-pause'), newBtn: $('bl-new'), wins: $('bl-wins'), round: $('bl-round') };
+  var setup = Play.load(PREF_KEY, { humans: 1, cpus: 2 }), st = null, mode = 'ready', ctx, reduced = Play.reducedMotion(), record = Play.load(SCORE_KEY, { won: 0, lost: 0 }), status = Play.status(els.msg), startSheet = null, armed = null;
+  var pad = Play.pad(els.cv, { dirs: ['left', 'right', 'up', 'down'], actions: [{ name: 'bomb', label: Tx('play.bomb') }], on: function (name, down) {
+    if (name === 'bomb') { if (down) bombFor(0); return; }
+    held.p1[name] = down; if (st) applyKeys();
+  } });
   function kindsOf() { var k = [], i; for (i = 0; i < setup.humans; i++) k.push('person'); for (i = 0; i < setup.cpus; i++) k.push('cpu'); return k; }
 
   function layout() { ctx = Kit.fit(els.cv, W_PX, H_PX, CHROME_PX, MAX_SCALE).ctx; if (st) draw(); }
   function hud() {
     if (!st) return;
-    els.round.textContent = st.round;
-    els.wins.textContent = st.wins.map(function (w, i) { return (st.kinds[i] === 'person' ? 'P' + (i + 1) : 'CPU') + ' ' + w; }).join('   ');
+    els.round.textContent = Play.num(st.round);
+    els.wins.textContent = st.wins.map(Play.num).join('\u2013');
   }
 
   // ── art ──
@@ -272,7 +276,7 @@
     var k = color + frame;
     if (!bots[k]) {
       var rows = ['...kkkk...', '..kccccck.', '.kccccccck', '.kcwkcwkck', '.kccccccck', '.kcccppcck', '..kcccckk.', '..kkkkkkk.', frame ? '..kk..k...' : '...k..kk..'];
-      bots[k] = Kit.sprite(rows.map(function (r) { return (r + '..........').slice(0, 10); }), { k: '#1b2233', c: color, w: '#ffffff', p: '#ffffff' });
+      bots[k] = Kit.sprite(rows.map(function (r) { return (r + '..........').slice(0, 10); }), { k: '#1b1b1d', c: color, w: '#ffffff', p: '#ffffff' });
     }
     return bots[k];
   }
@@ -288,14 +292,14 @@
   }
   function drawItem(it) {
     var px = it.x * TILE, py = it.y * TILE + (reduced ? 0 : Math.round(Math.sin(st.anim * 5 + it.x) * 1));
-    rect(px + 2, py + 2, TILE - 4, TILE - 4, '#fff3c4'); rect(px + 3, py + 3, TILE - 6, TILE - 6, '#1b2233');
+    rect(px + 2, py + 2, TILE - 4, TILE - 4, '#fff3c4'); rect(px + 3, py + 3, TILE - 6, TILE - 6, '#1b1b1d');
     if (it.type === 'range') { rect(px + 6, py + 4, 2, 6, '#ff7a3d'); rect(px + 5, py + 6, 4, 4, '#ff7a3d'); rect(px + 6, py + 5, 2, 2, '#ffd23f'); }
     else if (it.type === 'bomb') { rect(px + 5, py + 6, 4, 4, '#cfd8ea'); rect(px + 6, py + 5, 2, 6, '#cfd8ea'); rect(px + 8, py + 4, 2, 1, '#ffd23f'); }
     else { rect(px + 4, py + 7, 6, 2, '#6be08a'); rect(px + 6, py + 5, 4, 2, '#6be08a'); rect(px + 9, py + 4, 1, 3, '#6be08a'); }
   }
   function drawBomb(b) {
     var px = b.x * TILE, py = b.y * TILE, pulse = reduced ? 0 : Math.floor(st.anim * (b.t < 0.8 ? 12 : 4)) % 2;
-    rect(px + 3, py + 4, 8, 8, '#1b2233'); rect(px + 2, py + 5, 10, 6, '#1b2233'); rect(px + 4, py + 5, 2, 2, '#4a5470');
+    rect(px + 3, py + 4, 8, 8, '#1b1b1d'); rect(px + 2, py + 5, 10, 6, '#1b1b1d'); rect(px + 4, py + 5, 2, 2, '#4a5470');
     if (pulse) { rect(px + 3, py + 4, 8, 1, '#7f1d1d'); }
     rect(px + 7, py + 2, 1, 3, '#b88a54'); rect(px + 8, py + 1, 2, 2, pulse ? '#ffe066' : '#ff7a3d');
   }
@@ -321,8 +325,8 @@
     st.bombs.forEach(drawBomb);
     st.flames.forEach(drawFlame);
     st.players.forEach(drawBomber);
-    if (st.status === 'ready') Kit.textCentered(ctx, 'ROUND ' + st.round, W_PX / 2, H_PX / 2 - 6, '#ffffff', 2);
-    if (st.status === 'roundover') Kit.textCentered(ctx, st.winner < 0 ? 'DRAW' : (st.kinds[st.winner] === 'person' ? 'PLAYER ' + (st.winner + 1) + ' WINS' : 'CPU WINS'), W_PX / 2, H_PX / 2 - 6, '#ffffff', 2);
+    if (st.status === 'ready') Kit.textCentered(ctx, Tx('blast.round', { n: st.round }), W_PX / 2, H_PX / 2 - 6, '#ffffff', 2);
+    if (st.status === 'roundover') Kit.textCentered(ctx, st.winner < 0 ? Tx('shell.end.draw') : Tx('shell.end.wins', { name: nameOf(st.winner) }), W_PX / 2, H_PX / 2 - 6, '#ffffff', 2);
   }
 
   // ── flow ──
@@ -334,6 +338,7 @@
     if (st.players[0] && st.players[0].human) setInput(st, 0, dirOf(held.p1) || (one ? dirOf(held.p2) : null), false);
     if (!one && st.players[1] && st.players[1].human) setInput(st, 1, dirOf(held.p2), false);
   }
+  function nameOf(i) { return st.kinds[i] === 'person' ? Tx('blast.player', { n: i + 1 }) : Tx('blast.computer'); }
   function bombFor(id) { if (st && mode === 'playing' && st.players[id] && st.players[id].human) placeBomb(st, st.players[id]); }
   var keys = { map: {} };
   function buildKeys() {
@@ -344,8 +349,9 @@
   }
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (!els.sheet.hidden) { if (e.key === 'Escape' && mode === 'paused') resume(); return; }
-    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); pause(); return; }
+    if (document.querySelector('.ar-sheet:not([hidden])')) return;
+    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (mode === 'playing' || mode === 'paused') toggle(); return; }
+    if (mode !== 'playing') return;
     var k = keys.map[e.key.length === 1 ? e.key.toLowerCase() : e.key];
     if (!k) return;
     if (e.target && e.target.tagName === 'BUTTON' && (e.key === ' ' || e.key === 'Enter')) return;
@@ -357,66 +363,74 @@
     if (k && k[0] !== 'bomb') { held[k[0]][k[1]] = false; applyKeys(); }
   });
   window.addEventListener('blur', function () { ['p1', 'p2'].forEach(function (p) { Object.keys(held[p]).forEach(function (a) { held[p][a] = false; }); }); if (st) applyKeys(); });
-  [['bl-up', 'up'], ['bl-left', 'left'], ['bl-down', 'down'], ['bl-right', 'right']].forEach(function (p) {
-    var b = $(p[0]); if (!b) return;
-    Play.hold(b, function (down) { held.p1[p[1]] = down; if (st) applyKeys(); });
-  });
-  $('bl-bomb').addEventListener('pointerdown', function (e) { e.preventDefault(); bombFor(0); });
-
   var loop = Play.loop(function (dt) {
     step(st, dt);
     st.events.forEach(function (e) {
-      if (e.name === 'item') els.msg.textContent = (e.data.id === 0 || st.kinds[e.data.id] === 'person' ? 'Player ' + (e.data.id + 1) : 'A computer') + ' took ' + { range: 'more flame', bomb: 'an extra bomb', speed: 'speed' }[e.data.type] + '.';
-      else if (e.name === 'round') els.msg.textContent = '';
+      if (e.name === 'item') status.say(Tx('blast.took.' + e.data.type, { name: nameOf(e.data.id) }));
+      else if (e.name === 'round') status.say('');
     });
     st.events.length = 0;
     if (st.status === 'roundover' && st.statusT <= 0 && mode === 'playing') nextRound();
   }, function () { draw(); hud(); }, 60);
 
-  function buildSetup() {
-    els.setup.textContent = '';
-    function row(label, field, values, name) {
-      var wrap = document.createElement('div'), lab = document.createElement('span'), seg = document.createElement('div');
-      wrap.className = 'pl-row'; lab.textContent = label; lab.style.minWidth = '88px'; seg.className = 'pl-seg'; seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', label);
-      values.forEach(function (v) {
-        var b = document.createElement('button'); b.type = 'button'; b.textContent = String(v); b.setAttribute('aria-pressed', String(setup[field] === v));
-        b.addEventListener('click', function () {
-          setup[field] = v; if (setup.humans + setup.cpus < 2) setup.cpus = 1; if (setup.humans + setup.cpus > 4) setup.cpus = 4 - setup.humans;
-          Play.save(PREF_KEY, setup); buildSetup();
-        });
-        seg.appendChild(b);
-      });
-      wrap.appendChild(lab); wrap.appendChild(seg); els.setup.appendChild(wrap);
+  // Who plays is the one real choice: two rows (people, computers), in the start sheet and in the New game pane.
+  function setupRows() {
+    var box = document.createElement('div');
+    function paint() {
+      box.textContent = '';
+      function pick(field) { return function (v) { setup[field] = v; if (setup.humans + setup.cpus < 2) setup.cpus = 1; if (setup.humans + setup.cpus > 4) setup.cpus = 4 - setup.humans; Play.save(PREF_KEY, setup); paint(); }; }
+      var cpuChoices = (setup.humans === 1 ? [1, 2, 3] : [0, 1, 2]).map(function (v) { return [v, Play.num(v)]; });
+      box.appendChild(Play.optionRow(Tx('blast.people'), [[1, Play.num(1)], [2, Play.num(2)]], setup.humans, pick('humans')));
+      box.appendChild(Play.optionRow(Tx('blast.computers'), cpuChoices, setup.cpus, pick('cpus')));
     }
-    row('People', 'humans', [1, 2]); row('Computers', 'cpus', setup.humans === 1 ? [1, 2, 3] : [0, 1, 2]);
-    var note = document.createElement('p'); note.className = 'pl-help'; note.style.maxWidth = 'none'; note.style.textAlign = 'left';
-    note.textContent = setup.humans === 1 ? 'W A S D or the arrow keys move. Space or Enter drops a bomb.' : 'Player 1: W A S D and Space. Player 2: arrow keys and Enter. Two players need a keyboard.';
-    els.setup.appendChild(note);
+    paint();
+    return box;
   }
-  function showSheet(title, text, label, withSetup) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; els.setup.hidden = !withSetup; if (withSetup) buildSetup(); Play.openSheet(els.sheet, '#bl-go'); }
+  function arm() {
+    if (armed) armed.cancel();
+    st = createState(kindsOf(), 11); buildKeys(); mode = 'ready'; layout(); hud();
+    armed = Play.ready({ say: status.say, target: pad.stage, start: begin });
+  }
   function begin() {
-    buildKeys(); st = createState(kindsOf()); mode = 'playing'; els.msg.textContent = ''; Play.closeSheet(els.sheet); els.pause.disabled = false; layout(); hud(); loop.start();
+    if (armed) armed.cancel();
+    if (startSheet) { var s = startSheet; startSheet = null; s.close(); }
+    buildKeys(); st = createState(kindsOf()); mode = 'playing'; status.say(''); Play.pauseLabel(els.pause, false); els.pause.disabled = false; layout(); hud(); loop.start();
   }
   function nextRound() {
     var mw = matchWinner(st);
     if (mw >= 0) { finish(mw); return; }
     st = createState(kindsOf(), undefined, { round: st.round + 1, wins: st.wins }); applyKeys();
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); showSheet('Paused', 'Resume when you are ready.', 'Resume', false); }
-  function resume() { mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); }
+  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
+  function toggle() { if (mode === 'playing') pause(); else resume(); }
   function finish(mw) {
-    mode = 'over'; loop.stop(); els.pause.disabled = true;
-    var human = st.kinds[mw] === 'person', text;
-    if (setup.humans === 1) { if (human) record.won++; else record.lost++; Play.save(SCORE_KEY, record); text = (human ? 'You win the match' : 'The computer wins this one') + '. Record: ' + record.won + ' won, ' + record.lost + ' lost.'; }
-    else text = (human ? 'Player ' + (mw + 1) : 'A computer') + ' wins the match, ' + st.wins[mw] + ' rounds.';
-    hud(); draw(); showSheet('Match over', text, 'Play again', true);
+    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false);
+    var human = st.kinds[mw] === 'person', solo = setup.humans === 1, opts;
+    if (solo) { if (human) record.won++; else record.lost++; Play.save(SCORE_KEY, record); }
+    hud(); draw();
+    opts = { stats: [[Tx('blast.roundsWon'), Play.num(st.wins[mw])]] };
+    if (solo) opts.result = human ? 'win' : 'lose'; else { opts.result = 'win'; opts.name = nameOf(mw); }
+    ZimiShell.endSheet(opts);
+    setTimeout(function () { if (mode === 'over') armed = Play.ready({ say: status.say, target: pad.stage, start: begin }); }, READY_ARM_MS);
   }
-  els.go.addEventListener('click', function () { if (mode === 'paused') resume(); else begin(); });
-  els.pause.addEventListener('click', pause);
+  els.newBtn.addEventListener('click', begin);
+  els.pause.addEventListener('click', toggle);
+  pad.stage.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
   Play.onHidden(pause);
+  ZimiShell.game({
+    inProgress: function () { return mode === 'playing' || mode === 'paused'; },
+    stats: function () { return record.won + record.lost ? [[Tx('blast.won'), Play.num(record.won)], [Tx('blast.lost'), Play.num(record.lost)]] : []; },
+    menu: function () { return { options: [setupRows()] }; }
+  });
 
   window.addEventListener('resize', layout);
-  st = createState(kindsOf(), 11); buildKeys(); layout(); hud();
-  showSheet('Blast', 'Drop bombs, break blocks, pick up power-ups and be the last bomber standing. Win 2 rounds to win the match.', 'Start', true);
+  buildKeys(); layout();
+  // The board is not drawn until Start: who plays is chosen first.
+  startSheet = ZimiShell.sheet({
+    title: 'Blast', text: Tx('blast.intro'), body: [setupRows()],
+    actions: [{ label: Tx('shell.start'), primary: true, keep: true, onclick: begin }],
+    onClose: function () { if (startSheet) { startSheet = null; arm(); } }
+  });
   root.__blast = { get st() { return st; }, get mode() { return mode; } };
 })(this);
