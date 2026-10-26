@@ -271,7 +271,7 @@
         if (st.taker === seat) text += ' ★';
         return { name: name, text: text, dealer: seat === st.dealer, turn: st.turn === seat && !full && (bidding || st.phase === 'play') };
       });
-      var out = { chips: chips, text: '', trump: st.trump, fact: TX('belote.fact', { a: st.scores[viewTeam()], b: st.scores[1 - viewTeam()], target: st.target }) };
+      var out = { chips: chips, text: '', trump: st.trump, fact: TX('belote.fact', { target: st.target }) };
       if (bidding) {
         var up = suitOf(st.upcard);
         out.text = (mine(st.turn) ? (seats.hotseat() ? who(st.turn) + ': ' : '') + TX(st.phase === 'bid1' ? 'belote.take' : 'belote.name', { suit: suitWord(up) }) : seats.person(st.turn) ? TX('euchre.deciding', { name: who(st.turn) }) : TX('cards.thinking', { name: who(st.turn) })) + (view.note ? ' ' + view.note : '');

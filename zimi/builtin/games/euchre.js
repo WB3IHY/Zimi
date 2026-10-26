@@ -276,7 +276,7 @@
         if (st.maker === seat) text += ' ★';
         return { name: name, text: text, dealer: seat === st.dealer, turn: st.turn === seat && !full && (st.phase === 'order1' || st.phase === 'order2' || st.phase === 'play') };
       });
-      var out = { chips: chips, text: '', trump: st.trump, fact: TX('euchre.fact', { a: st.scores[viewTeam()], b: st.scores[1 - viewTeam()] }) };
+      var out = { chips: chips, text: '', trump: st.trump };
       if (st.phase === 'order1') {
         out.text = (mine(st.turn) ? TX(seats.hotseat() ? 'euchre.orderUp.name' : 'euchre.orderUp', { name: who(st.turn), suit: suitWord(Z.suit(st.upcard)) }) : seats.person(st.turn) ? TX('euchre.deciding', { name: who(st.turn) }) : TX('cards.thinking', { name: who(st.turn) })) + (view.note ? ' ' + view.note : '');
         if (mine(st.turn)) out.choices = [{ label: TX('euchre.orderUpBtn'), onclick: function () { callRound1(false); } }, { label: TX('euchre.alone'), onclick: function () { callRound1(true); } }, { label: TX('cards.pass'), onclick: passNow }];

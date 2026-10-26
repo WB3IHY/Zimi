@@ -297,7 +297,7 @@
       if (st.phase === 'pass') {
         var left = PASS_COUNT - view.chosen.length;
         var who = seats.hotseat() ? nm(view.passer) + ': ' : '';
-        text = who + (left > 0 ? TX('hearts.chooseMore', { n: left, dir: passName(st.passDir) }) : TX('hearts.passThem', { dir: passName(st.passDir) }));
+        text = who + (left === PASS_COUNT ? TX('hearts.choose', { n: left, dir: passShort(st.passDir) }) : left > 0 ? TX('hearts.chooseMore', { n: left, dir: passShort(st.passDir) }) : TX('hearts.passThem', { n: PASS_COUNT, dir: passShort(st.passDir) }));
         label = TX('hearts.pass'); action = left === 0 ? passNow : null;
       } else if (st.phase === 'handEnd') { text = TX('cards.handEnd'); label = TX('cards.nextHand'); action = startNextHand; }
       else if (st.phase === 'over') { text = TX('shell.end.over'); label = TX('shell.menu.new'); action = newGame; }
@@ -305,8 +305,9 @@
       else if (st.trick.length === SEATS) text = isYou(trickWinner(st.trick)) ? TX('cards.trick.you') : TX('cards.trick.name', { name: nm(trickWinner(st.trick)) });
       else if (person(st.turn)) text = (st.recv ? st.recv[st.turn] : st.received).length && !view.hideHand ? youTurn(st) + '. ' + TX('hearts.glowing', { name: nm((st.turn + SEATS - PASS_OFFSET[st.passDir]) % SEATS) }) : youTurn(st);
       else text = TX(watch ? 'hearts.toPlay' : 'cards.thinking', { name: nm(st.turn) });
-      var fact = TX('hearts.fact', { n: st.handNo + 1, state: st.phase === 'pass' ? passShort(st.passDir) : TX(st.broken ? 'hearts.broken' : 'hearts.notBroken') });
-      statusText.textContent = text && (fact + ' \u00b7 ' + text).length <= CT.STATUS_MAX ? fact + ' \u00b7 ' + text : (text || fact);
+      // The bar already says which hand it is, and the pass direction is in the instruction: only the hearts state leads a play line.
+      var fact = st.phase === 'play' ? TX(st.broken ? 'hearts.broken' : 'hearts.notBroken') : '';
+      statusText.textContent = text && fact && (fact + ' \u00b7 ' + text).length <= CT.STATUS_MAX ? fact + ' \u00b7 ' + text : (text || fact);
       statusBtn.textContent = label; statusBtn.hidden = !label;
       statusBtn.disabled = !action; statusAction = action;
       // The one thing to do next is the filled amber button (Pass once three cards are chosen); until then it is a quiet ghost.

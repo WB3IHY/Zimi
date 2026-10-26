@@ -17,7 +17,7 @@
   var COUNT_AT = 0.86, STATUS_MAX = 44, MIN_STRIP_PX = 22, LIFT_PX = 14, PLAYABLE_LIFT_PX = 6, COLLAPSE_FROM = 6;
   // Games that play a card on its second tap: the first tap lifts it (amber outline), the second plays it.
   var LIFT_THEN_PLAY = { spades: 1, euchre: 1, belote: 1, crazyeights: 1, durak: 1 };
-  var SCORE_BAR_H = 26, STATUS_H = 46, SUIT_GAP_SHARE = 0.18, HAND_STEP_SHARE = 0.78;
+  var TRICK_CENTER_SHARE = 0.4, HAND_BOTTOM_PX = 12, SCORE_BAR_H = 26, STATUS_H = 46, SUIT_GAP_SHARE = 0.18, HAND_STEP_SHARE = 0.78;
   var SIDE_STEP_MIN = 0.07, SIDE_STEP_MAX = 0.2, TOP_STEP_SHARE = 0.3, SIDE_OFFSET_CARDS = 3.4, TRICK_DX = 0.72, TRICK_DY = 0.62;
   var MIN_STEP_SHARE = 0.42, ROW_STEP_SHARE = 0.5, FLASH_MS = 1800, PANEL_GAP = 8;
   // Where each seat sits on the table, by the number of players: 0 south, 1 west, 2 north, 3 east.
@@ -55,11 +55,12 @@
     g.raise = LIFT_PX;
     g.rowStep = Math.round(ch * ROW_STEP_SHARE);
     g.northY = m.pad + SCORE_BAR_H;
-    g.southY = m.H - ch - m.pad;                                   // your bottom row sits on the bottom
+    g.southY = m.H - ch - Math.max(m.pad, HAND_BOTTOM_PX);        // your bottom row sits on the bottom (the page already stops above the home-indicator inset)
     g.yTop = g.northY + ch + 8;
     g.yBot = g.southY - (g.rows - 1) * g.rowStep - g.raise - 6;    // the rows above it push the status line up
     g.statusY = g.yBot - STATUS_H;
-    g.cy = (g.yTop + g.statusY) / 2;
+    // The trick sits high on the felt (40% down the table), clear of the north hand and the status line: eyes stay between the opponents and your hand.
+    g.cy = Math.min((g.yTop + g.statusY) / 2, Math.max(m.H * TRICK_CENTER_SHARE, g.northY + ch * (1 + TRICK_DY + 0.5) + 4));
     g.westX = Math.max(m.pad, Math.round(cx - SIDE_OFFSET_CARDS * cw));
     g.eastX = Math.min(m.W - m.pad - cw, Math.round(cx + (SIDE_OFFSET_CARDS - 1) * cw));
     g.topStep = cw * TOP_STEP_SHARE;
