@@ -277,24 +277,32 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$, Tx = Play.T;
-  var BEST_KEY = 'zimi.games.muncher.best', CHROME_PX = 190, MAX_SCALE = 3, SWIPE_PX = 16, READY_ARM_MS = 650;
+  var BEST_KEY = 'zimi.games.muncher.best', CHROME_PX = 190, MAX_SCALE = 3, SWIPE_PX = 16;
   Play.applyTheme();
   var W_PX = 17 * TILE, H_PX = 20 * TILE;
   var WALLS = { Orchard: ['#1c5a3e', '#58c78d'], Cellar: ['#4a3578', '#a78bfa'], Gardens: ['#1f4f8f', '#6db3f2'] };
   var CHASER_COLOR = { rusher: '#e5484d', ambusher: '#f08ac0', shy: '#f5a524', drifter: '#34c3d6' };
   var els = { cv: $('mn-screen'), score: $('mn-score'), best: $('mn-best'), lives: $('mn-lives'), level: $('mn-level'), msg: $('mn-msg'), pause: $('mn-pause'), newBtn: $('mn-new') };
-  var best = Play.load(BEST_KEY, { score: 0 }), st = createState(1), mode = 'ready', ctx, reduced = Play.reducedMotion();
-  var want = null, armed = null, status = Play.status(els.msg);
+  var st = createState(1), ctx, reduced = Play.reducedMotion(), want = null;
   var NAMED = { up: UP, left: LEFT, down: DOWN, right: RIGHT };
   var KEYDIR = root.ZimiUtil.DIR_KEYS;
   function steer(d) { want = d; }
-  var pad = Play.pad(els.cv, { dirs: ['left', 'right', 'up', 'down'], on: function (name, down) { if (down) steer(NAMED[name]); } , swipe: false });
 
-  function layout() { ctx = Kit.fit(els.cv, W_PX, H_PX, CHROME_PX, MAX_SCALE).ctx; draw(); }
-  function hud() {
-    els.score.textContent = Play.num(st.score); els.best.textContent = Play.num(Math.max(best.score, st.score)); els.level.textContent = Play.num(st.level);
-    els.lives.textContent = Play.num(Math.max(0, st.lives));
-  }
+  // Leaving and coming back keeps the game: paused where it was, or at its end sheet.
+  var page = Play.arcadePage({
+    els: els, bestKey: BEST_KEY, ready: 'muncher', state: function () { return st; }, draw: draw, alwaysBest: true, endSaved: true, resumeOnStage: true,
+    layout: function () { ctx = Kit.fit(els.cv, W_PX, H_PX, CHROME_PX, MAX_SCALE).ctx; draw(); },
+    pad: { dirs: ['left', 'right', 'up', 'down'], on: function (name, down) { if (down) steer(NAMED[name]); }, swipe: false },
+    idle: function () { st = createState(1); want = null; },
+    newRun: function () { st = createState(1); want = null; },
+    release: function () { want = null; },
+    snapshot: function () { return st; },
+    restore: function (saved) {
+      if (!saved.grid) return false;
+      st = saved; st.rng = mulberry(Math.floor(Math.random() * 4294967296)); want = null;
+    }
+  });
+  var status = page.status;
 
   // ── drawing ──
   function rect(x, y, w, h, color) { ctx.fillStyle = color; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
@@ -397,59 +405,25 @@
   }
 
   // ── flow ──
-  var loop = Play.loop(function (dt) {
+  page.run(function (dt) {
     step(st, dt, want);
     st.events.forEach(function (e) {
       if (e.name === 'eat') status.say(Play.num(e.data));
       else if (e.name === 'fruit') status.say(Tx('muncher.fruit', { n: e.data }));
       else if (e.name === 'life') status.say(Tx('muncher.life'));
       else if (e.name === 'pellet') status.say('');
-      else if (e.name === 'over') finish();
+      else if (e.name === 'over') page.finish();
     });
     st.events.length = 0;
-    if (st.status === 'cleared' && st.statusT <= 0 && mode === 'playing') nextMaze();
-  }, function () { draw(); hud(); }, 60);
+    if (st.status === 'cleared' && st.statusT <= 0 && page.mode === 'playing') nextMaze();
+  });
 
-  function arm() {
-    if (armed) armed.cancel();
-    st = createState(1); want = null; mode = 'ready'; hud(); draw();
-    armed = Play.ready({ say: status.say, target: pad.stage, start: begin, touch: Tx('muncher.readyTouch'), keys: Tx('muncher.readyKeys') });
-  }
-  function begin() {
-    if (armed) armed.cancel();
-    st = createState(1); want = null; mode = 'playing'; status.say(''); Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); loop.start();
-  }
   function nextMaze() {
     var carry = { score: st.score, lives: st.lives, nextLife: st.nextLife }, lvl = st.level + 1;
     st = createState(lvl, undefined, carry); want = null; status.say(Tx('muncher.maze', { n: lvl }));
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); want = null; Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); }
-  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
-  function toggle() { if (mode === 'playing') pause(); else resume(); }
-  var lastEnd = null;
-  function finish() {
-    lastEnd = { stats: [[Tx('play.score'), Play.num(st.score)], [Tx('play.best'), Play.num(Math.max(best.score, st.score))]] };
-    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false);
-    if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); }
-    hud(); draw();
-    ZimiShell.endSheet({ result: 'over', stats: lastEnd.stats });
-    setTimeout(function () { if (mode === 'over') { Play.ready({ say: status.say, target: pad.stage, start: begin, touch: Tx('muncher.readyTouch'), keys: Tx('muncher.readyKeys') }); } }, READY_ARM_MS);
-  }
-  els.newBtn.addEventListener('click', begin);
-  els.pause.addEventListener('click', toggle);
-  pad.stage.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
-  Play.onHidden(pause);
-  ZimiShell.game({
-    inProgress: function () { return mode === 'playing' || mode === 'paused'; },
-    stats: function () { return [[Tx('play.best'), Play.num(best.score)]]; }
-  });
 
-  Kit.keyboard(KEYDIR, function (a) { steer(NAMED[a]); }, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || mode === 'ready' || mode === 'over'; });
-  document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (document.querySelector('.ar-sheet:not([hidden])')) return;
-    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (mode === 'playing' || mode === 'paused') toggle(); }
-  });
+  Kit.keyboard(KEYDIR, function (a) { steer(NAMED[a]); }, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || page.mode === 'ready' || page.mode === 'over'; });
   // swipe anywhere on the maze: each flick of 16 px or more steers, and the next flick starts from where the last ended
   (function () {
     var a = null;
@@ -462,27 +436,6 @@
     ['pointerup', 'pointercancel'].forEach(function (n) { els.cv.addEventListener(n, function () { a = null; }); });
   })();
 
-  window.addEventListener('resize', layout);
-  layout(); arm();
-  // Leaving and coming back keeps the game: paused where it was, or at its end sheet.
-  ZimiShell.persist({
-    save: function () {
-      if (mode === 'over' && lastEnd) return { end: lastEnd };
-      return mode === 'playing' || mode === 'paused' ? { st: st } : null;
-    },
-    load: function (d) {
-      if (armed) armed.cancel();
-      if (d.end) {
-        st = createState(1); mode = 'over'; lastEnd = d.end; hud(); draw();
-        ZimiShell.endSheet({ result: 'over', stats: d.end.stats });
-        setTimeout(function () { if (mode === 'over') armed = Play.ready({ say: status.say, target: pad.stage, start: begin, touch: Tx('muncher.readyTouch'), keys: Tx('muncher.readyKeys') }); }, READY_ARM_MS);
-        return true;
-      }
-      if (!d.st || !d.st.grid) return false;
-      st = d.st; st.rng = mulberry(Math.floor(Math.random() * 4294967296)); want = null; mode = 'paused';
-      els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); hud(); draw();
-      return true;
-    }
-  });
-  root.__muncher = { get st() { return st; }, get mode() { return mode; } };
+  page.start();
+  root.__muncher = { get st() { return st; }, get mode() { return page.mode; } };
 })(this);
