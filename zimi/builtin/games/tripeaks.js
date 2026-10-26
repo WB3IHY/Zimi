@@ -131,62 +131,24 @@
 
   // ── The page ────────────────────────────────────────────────────────────
   function boot() {
-    var el = Z.pageEls(), board, session;
-    el.sub = Z.factLine(el.table);
-    Z.ensureSprite();
-
-    function afterMove() {
-      var st = session.state;
-      if (isWon(st)) { session.win(st.score); return; }
-      if (isStuck(st)) {
-        session.stats.scored(st.score);
-        Z.sheet({
-          title: TX('cards.noMoves'),
-          body: [Z.h('p', { class: 'zc-note', text: TX('tri.left', { n: tableauLeft(st), score: st.score }) }), Z.h('p', { class: 'zc-stats', text: session.stats.line() })],
-          actions: [{ label: TX('shell.undo'), onclick: session.undo }, { label: TX('shell.menu.new'), primary: true, onclick: newGame }]
-        });
-      }
-    }
-    function commit(next) { session.commit(next); afterMove(); return true; }
-    function move(pile, idx, to) {
-      if (!legalMove(session.state, pile, idx, to)) return false;
-      return commit(applyMove(session.state, pile, idx, to));
-    }
-    function newGame() { session.reset(newState(Z.shuffled(Math.random))); }
-
-    board = Z.createBoard({
-      table: el.table, cols: FIT_COLS, tight: true, heightShare: HEIGHT_SHARE, enterTaps: true, place: place,
-      canPick: canPick, move: move,
-      tap: function (pile, idx) {
-        if (pile === 'stock') { var next = drawStock(session.state); return next ? commit(next) : false; }
-        var to = bestMove(session.state, pile, idx);
-        return to ? move(pile, idx, to) : false;
+    var page;
+    page = Z.solitairePage({
+      rules: api, id: 'tripeaks', fact: true, place: place, cols: FIT_COLS, heightShare: HEIGHT_SHARE, enterTaps: true, stock: drawStock,
+      deal: function () { return newState(Z.shuffled(Math.random)); },
+      score: function (st) { return st.score; },
+      stuck: {
+        is: isStuck, score: function (st) { return st.score; },
+        title: function () { return TX('cards.noMoves'); }, note: function (st) { return TX('tri.left', { n: tableauLeft(st), score: st.score }); }
       },
-      slotTap: function (pile) { if (pile === 'stock') { var next = drawStock(session.state); if (next) commit(next); } }
-    });
-    session = Z.createSession({
-      id: 'tripeaks', board: board, newGame: newGame, els: el,
       statText: function (sec, st) {
-        el.sub.textContent = isStuck(st) ? TX('cards.noMoves') : st.streak > 1 ? TX('tri.streak', { n: st.streak }) : '';
+        page.el.sub.textContent = isStuck(st) ? TX('cards.noMoves') : st.streak > 1 ? TX('tri.streak', { n: st.streak }) : '';
         return Z.fmtTime(sec) + ' · ' + st.score;
       },
       cascadeOrder: function (st) { return st.piles.waste.slice().reverse().map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return [TX('tri.win', { score: st.score, stock: Z.plural(st.piles.stock.length, 'card'), each: SCORE.stockLeft }), TX('sol.winTime', { time: Z.fmtTime(sec), moves: Z.plural(st.moves, 'move') })]; },
-      openMenu: function () {
-        Z.sheet({
-          title: 'TriPeaks',
-          body: [
-            Z.h('p', { class: 'zc-note', text: TX('tri.rules', { per: SCORE.perStreak, peak: SCORE.peak }) }),
-            Z.backsRow(),
-            Z.h('p', { class: 'zc-stats', text: session.stats.line() })
-          ],
-          actions: [{ label: TX('shell.menu.new'), onclick: newGame }, { label: TX('shell.close'), primary: true }]
-        });
-      }
+      winLines: function (sec, st) { return [TX('tri.win', { score: st.score, stock: Z.plural(st.piles.stock.length, 'card'), each: SCORE.stockLeft }), Z.winTime(sec, st)]; },
+      openMenu: function () { page.menu('TriPeaks', [Z.h('p', { class: 'zc-note', text: TX('tri.rules', { per: SCORE.perStreak, peak: SCORE.peak }) })]); }
     });
-    api.session = session; api.board = board;
-    newGame();
-    if (/[?&]debug=win/.test(root.location.search)) session.reset(almostWon());
+    page.start();
   }
 
   if (root.document && root.document.getElementById('zc-table')) boot();
