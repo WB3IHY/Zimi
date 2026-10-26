@@ -89,14 +89,16 @@ const server = http.createServer((q, r) => {
   });
   // The frame is a plain rectangle (one rect, no stepped path), inset 22 units from the sides, centred, the art's own box.
   const [fx, fy, fw, fh] = rects[0].slice(1).map(Number);
-  ok('court frame is a plain rectangle inset by the index column, centred', fx === 22 && fw === 56 && Math.abs(fy + fh / 2 - 70) < 1e-9 && Math.abs(fx + fw / 2 - 50) < 1e-9, [fx, fy, fw, fh].join(' '));
-  ok('court art box is the frame', svgs.every(m => +m[1] === fx && +m[3] === fw && +m[4] === fh) && +svgs[0][2] === fy);
+  const RULE = 0.5; // the rule runs inside the art's edge, half its width in, so its outer edge is the column's edge (22)
+  ok('court frame is a plain rectangle inset by the index column, centred', fx === 22 + RULE / 2 && fw === 56 - RULE && Math.abs(fy + fh / 2 - 70) < 1e-9 && Math.abs(fx + fw / 2 - 50) < 1e-9, [fx, fy, fw, fh].join(' '));
+  ok('court art box is the frame', svgs.every(m => +m[1] === fx - RULE / 2 && +m[3] === fw + RULE && +m[4] === fh + RULE) && +svgs[0][2] === fy - RULE / 2);
   ok('court frame holds no path (no notch)', !/<path[^>]*class="zc-rule"/.test(king));
   const spanish = new vm.Script(fs.readFileSync(path.join(dir, 'courts-es.js'), 'utf8')); spanish.runInContext(sb);
-  // The Spanish print shows its own frame (a window on the scan, nested svg) as wide as the French frame, centred, whole: nothing of the ink is cut.
-  const pic = sb.ZimiSpanishCourts.markup(8, 0).match(/<svg x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" viewBox="(\d+) (\d+) (\d+) (\d+)"/);
-  ok('Spanish print window is as wide as the frame, centred', pic && +pic[1] === 22 && +pic[3] === 56 && Math.abs(+pic[2] + +pic[4] / 2 - 70) < 1e-9, pic && pic.slice(1).join(' '));
-  ok('Spanish print window keeps the scan\'s own proportions and the ink of all twelve (x 12..244, y 16..408)', pic && Math.abs(+pic[4] - 56 * pic[8] / pic[7]) <= 0.25 && +pic[5] <= 13 && +pic[5] + +pic[7] >= 244 && +pic[6] <= 17 && +pic[6] + +pic[8] >= 407);
+  // The Spanish print is the picture inside its frame (the scans' own broken frame is left out), as wide as the French frame, centred,
+  // with a clean continuous rule of ours inside its edge.
+  const esMark = sb.ZimiSpanishCourts.markup(8, 0), pic = esMark.match(/<image href="[^"]+" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/), esRule = esMark.match(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" fill="none" class="zc-rule" stroke="#1b1b1b"/);
+  ok('Spanish picture is as wide as the frame, centred', pic && +pic[1] === 22 && +pic[3] === 56 && Math.abs(+pic[2] + +pic[4] / 2 - 70) < 1e-9, pic && pic.slice(1).join(' '));
+  ok('Spanish rule is one plain rectangle along the picture\'s edge, on the inside', pic && esRule && +esRule[1] === +pic[1] + RULE / 2 && +esRule[3] === +pic[3] - RULE && +esRule[2] === +pic[2] + RULE / 2 && +esRule[4] === +pic[4] - RULE && (esMark.match(/class="zc-rule"/g) || []).length === 1);
   ok('court frame is a crisp rule', /<rect[^>]*class="zc-rule"/.test(king));
   const backs = fs.readFileSync(path.join(dir, 'cardbacks.js'), 'utf8');
   ok('the backs\' band rules are crisp rules', (backs.match(/class: 'zc-rule'/g) || []).length === 2);
@@ -148,9 +150,9 @@ const server = http.createServer((q, r) => {
     ok('index ' + r + ' top inset', pointed ? t >= 4.7 && t <= 5.3 : Math.abs(t - 5.5) <= 0.13, t.toFixed(2) + (pointed ? ' (apex overshoots 0.2 to 0.8)' : ''));
   }
 
-  // 6. The index has a column of its own: on every court (French, Spanish) and every Hanafuda card, no art or frame ink comes within
+  // 6. The index has a column of its own: on every court (French, Spanish), no art or frame ink comes within
   // CLEAR units of the index's ink. Each part of the index (the glyph, then the suit below it) is measured on a render of the index
-  // alone and checked against a render of the art alone (index glyph and pip removed, the cream plates kept).
+  // alone and checked against a render of the art alone (index removed).
   const CLEAR = 1.5;
   const clear = await cb.evaluate(async (CLEAR) => {
     const S = 8, W = 100 * S, H = 140 * S, out = [];
@@ -162,8 +164,7 @@ const server = http.createServer((q, r) => {
     const variant = (markup, keep) => {
       const doc = new DOMParser().parseFromString(markup, 'image/svg+xml'), svg = doc.documentElement;
       if (keep === 'index') [...svg.children].forEach(c => { if (!/zc-idx-std/.test(c.getAttribute('class') || '') && c.tagName !== 'defs' && c.tagName !== 'rect') c.remove(); });
-      else svg.querySelectorAll('.zc-idx-std').forEach(g => [...g.children].forEach(c => { if (c.getAttribute('class') !== 'zc-plate') c.remove(); }));
-      if (keep === 'index') svg.querySelectorAll('.zc-plate').forEach(p => p.remove());
+      else svg.querySelectorAll('.zc-idx-std').forEach(g => g.remove());
       svg.setAttribute('width', W); svg.setAttribute('height', H);
       return new XMLSerializer().serializeToString(svg);
     };
@@ -172,7 +173,6 @@ const server = http.createServer((q, r) => {
     const cases = [];
     for (let id = 0; id < 52; id++) if (id % 13 > 9) cases.push(['French ' + 'JQK'[id % 13 - 10] + 'CDHS'[Math.floor(id / 13)], ZimiCards.faceMarkup(id, true)]);
     for (let id = 0; id < 40; id++) if (id % 10 > 6) cases.push(['Spanish ' + id, ZimiCards.spanishFaceMarkup(id, true)]);
-    for (let id = 0; id < 48; id++) cases.push(['Hanafuda ' + id, ZimiCards.hanafudaFaceMarkup(id, true)]);
     for (const [name, markup] of cases) {
       const idx = await render(variant(markup, 'index')), art = await render(variant(markup, 'art'));
       const rows = []; for (let y = 3 * S; y < 70 * S; y++) { let a = 1e9, b = -1; for (let x = 3 * S; x < 50 * S; x++) if (dark(idx, x, y)) { a = Math.min(a, x); b = Math.max(b, x + 1); } if (b >= 0) rows.push([y, a, b]); }
@@ -187,8 +187,70 @@ const server = http.createServer((q, r) => {
     return out;
   }, CLEAR);
   const hit = clear.filter(r => r[2] !== 'ok'), thin = clear.filter(r => r[1] < 2);
-  ok('every court and Hanafuda card (' + clear.length + ') keeps art and frame ' + CLEAR + ' units from the index', hit.length === 0, hit.map(r => r[0]).join(', '));
+  ok('every court (' + clear.length + ') keeps art and frame ' + CLEAR + ' units from the index', hit.length === 0, hit.map(r => r[0]).join(', '));
   ok('the index was measured as glyph and suit', thin.length === 0, thin.map(r => r[0]).join(', '));
+
+  // 7. Hanafuda: the art and its border are whole. There is no plate cut into a corner; the month is a seal laid over the corner (it hides
+  // under 2 percent of the art and none of the border's sides) and the kind's mark stands in the white margin, clear of the art's box.
+  const art = await cb.evaluate(async () => {
+    const S = 8, W = 100 * S, H = 140 * S, out = {};
+    const render = async (svg) => {
+      const img = new Image(); img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg); await img.decode();
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const cx = cv.getContext('2d'); cx.fillStyle = '#fdfcf8'; cx.fillRect(0, 0, W, H); cx.drawImage(img, 0, 0);
+      return cx.getImageData(0, 0, W, H).data;
+    };
+    let plates = 0, covered = 0, kindInArt = 0, edgeCut = 0, n = 0;
+    const m = ZimiHanafudaArt.markup(0).match(/<svg x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/), bx = +m[1], by = +m[2], bw = +m[3], bh = +m[4];
+    for (let id = 0; id < 48; id++) {
+      const markup = ZimiCards.hanafudaFaceMarkup(id, true), doc = new DOMParser().parseFromString(markup, 'image/svg+xml'), svg = doc.documentElement;
+      plates += svg.querySelectorAll('.zc-plate').length;
+      const std = svg.querySelector('.zc-idx-std'), seal = std.querySelector('circle');
+      // the kind's mark (everything in the index but the seal's disc and number) lies left of the art's box
+      const kindBox = [...std.children].slice(2).map(e => { const t = e.getBBox ? e : null; return t; });
+      std.remove(); svg.querySelectorAll('.zc-idx-std').forEach(g => g.remove());
+      svg.setAttribute('width', W); svg.setAttribute('height', H);
+      const without = await render(new XMLSerializer().serializeToString(svg));
+      const full = await render(markup.replace('<svg ', '<svg width="' + W + '" height="' + H + '" '));
+      // ink of the art (not cream) hidden by the index, as a share of the art's box
+      let hidden = 0, ink = 0;
+      for (let y = Math.floor(by * S); y < (by + bh) * S; y++) for (let x = Math.floor(bx * S); x < (bx + bw) * S; x++) {
+        const i = (y * W + x) * 4, j = i;
+        const a = Math.abs(without[i] - 253) + Math.abs(without[i + 1] - 252) + Math.abs(without[i + 2] - 248) > 40;
+        const b = Math.abs(full[i] - without[i]) + Math.abs(full[i + 1] - without[i + 1]) + Math.abs(full[i + 2] - without[i + 2]) > 40;
+        if (a) ink++; if (b) hidden++;
+      }
+      covered = Math.max(covered, hidden / ((bw * S) * (bh * S)));
+      // the left and top sides of the border, midway along each, are untouched by the index
+      const same = (x, y) => { const i = (Math.floor(y * S) * W + Math.floor(x * S)) * 4; return Math.abs(full[i] - without[i]) + Math.abs(full[i + 1] - without[i + 1]) + Math.abs(full[i + 2] - without[i + 2]) < 12; };
+      if (![[bx + 0.6, 70], [50, by + 0.6], [bx + 0.6, 40], [bx + 0.6, 100]].every(p => same(p[0], p[1]))) edgeCut++;
+      n++;
+    }
+    return { plates, covered, edgeCut, n };
+  });
+  ok('Hanafuda has no cream plate cut into the art', art.plates === 0, art.plates);
+  ok('Hanafuda\'s seal and mark (two corners) hide under 3 percent of the art (' + (art.covered * 100).toFixed(2) + '%)', art.covered < 0.03, art.covered);
+  ok('Hanafuda\'s border keeps its sides whole on all 48 cards', art.edgeCut === 0, art.edgeCut + ' cards');
+
+  // 8. Spanish courts: the picture's edge is blank paper (no remnant of the scan's broken frame; ours is the only rule), and the ink keeps
+  // the print's colour (the paper is lifted to cream, the ink is not): the mean chroma of the coloured pixels stays high.
+  const es = await cb.evaluate(async () => {
+    const out = [];
+    for (let k = 7; k < 10; k++) for (let suit = 0; suit < 4; suit++) {
+      const m = ZimiSpanishCourts.markup(k, suit).match(/href="([^"]+)"/);
+      const img = new Image(); img.src = m[1]; await img.decode();
+      const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0);
+      const d = cx.getImageData(0, 0, img.width, img.height).data; let edge = 0, chroma = 0, n = 0;
+      for (let y = 0; y < img.height; y++) for (let x = 0; x < img.width; x++) {
+        const i = (y * img.width + x) * 4, mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
+        if (x < 6 || y < 6 || x >= img.width - 6 || y >= img.height - 6) edge = Math.max(edge, 253 - mn);
+        if (mx - mn > 60) { chroma += mx - mn; n++; }
+      }
+      out.push([k + ',' + suit, edge, n ? chroma / n : 0]);
+    }
+    return out;
+  });
+  ok('Spanish pictures have blank paper at the edge (no printed-frame remnant)', es.every(r => r[1] < 24), es.filter(r => r[1] >= 24).map(r => r[0] + ':' + r[1]).join(' '));
+  ok('Spanish pictures keep the print\'s colour (mean chroma of coloured pixels above 108; the 1860 flat-field gave 97)', es.every(r => r[2] > 108), es.map(r => r[0] + ':' + Math.round(r[2])).join(' '));
   await browser2.close();
 
   server.close();

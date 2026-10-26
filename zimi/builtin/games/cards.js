@@ -176,15 +176,14 @@
   // The index keeps a clear margin to the card's edge, like a printed card's (IDX_MARGIN units of the 100 x 140 face to
   // the outside of the stroke): the rank is set from the left edge in, whatever its width, and small enough to clear the
   // courts' frame.
-  var IDX_MARGIN = 5.5, IDX_SCALE = 1.2, IDX_SCALE_TEN = 0.95, IDX_TEN_DROP = 1.4, IDX_SUIT_GAP = 12, IDX_SUIT_SCALE = 0.65;
+  var IDX_MARGIN = 5.5, IDX_SCALE = 1.2, IDX_SCALE_TEN = 0.95, IDX_SCALE_TEN_FRAMED = 0.8, IDX_TEN_DROP = 1.4, IDX_SUIT_GAP = 12, IDX_SUIT_SCALE = 0.65;
   var ROW_MARGIN = 6, ROW_SCALE = 2.1, ROW_SUIT_X = 63, ROW_SUIT_Y = 23, ROW_SUIT_SCALE = 1.25;
   // On a court the index stands in a margin column of its own, outside the figure's frame, as on a printed deck: IDX_COLUMN is the
   // column's width (the widest index's ink and 1.5 units of air); the frame is inset by it from both sides (courts.js, courts-es.js).
-  // Hanafuda has no frame and no index of its own, so its small index sits on a cream plate cut to the index's ink.
   var IDX_COLUMN = 22;
-  var HANA_PLATE = 'M0 0H20.25V26H17V41.25H0z';
-  function indexMarkup(label, s, standalone, shapes, prefix) {
-    var ten = label.length > 1, sc = ten ? IDX_SCALE_TEN : IDX_SCALE, half = GLYPH_STROKE * sc / 2;
+  // A two-digit rank beside a frame (the Spanish courts' 10, 11, 12) is set small enough that its ink ends 1.7 units short of the frame (20.3), as a single digit's does.
+  function indexMarkup(label, s, standalone, shapes, prefix, framed) {
+    var ten = label.length > 1, sc = ten ? (framed ? IDX_SCALE_TEN_FRAMED : IDX_SCALE_TEN) : IDX_SCALE, half = GLYPH_STROKE * sc / 2;
     var cx = IDX_MARGIN + half + glyphWidth(label) * sc / 2, top = IDX_MARGIN + half + (ten ? IDX_TEN_DROP : 0);
     var one = function (turn) {
       return '<g class="zc-idx-std"' + (turn ? ' transform="rotate(180 50 70)"' : '') + '>' + glyph(label, cx, top, sc) +
@@ -437,7 +436,7 @@
     } else if (root.ZimiSpanishCourts) { // the 1860 print (courts-es.js), under the index
       var print = root.ZimiSpanishCourts;
       return faceFrame('<g class="zc-big">' + print.markup(k, s, IDX_COLUMN) + '</g>' + (standalone ? '' : '<g class="zc-small" display="none">' + print.thumb(k, s) + '</g>') +
-        indexMarkup(SPANISH_LABELS[k], s, standalone, SPANISH_SHAPES, p), ITALIAN_COLOURS[s], standalone);
+        indexMarkup(SPANISH_LABELS[k], s, standalone, SPANISH_SHAPES, p, true), ITALIAN_COLOURS[s], standalone);
     } else {
       var kind = COURT_KINDS[r - 5]; // 8 sota (fante), 9 caballo, 10 rey
       body = '<g class="zc-big"><rect x="20" y="20" width="60" height="100" rx="3.5" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.2"/>' +
@@ -666,14 +665,21 @@
     if (c.kind === 'ribbon') return '<path d="M' + (x - 2.6 * k) + ' ' + (y - 5.4 * k) + 'H' + (x + 2.6 * k) + 'V' + (y + 5.4 * k) + 'L' + x + ' ' + (y + 3.8 * k) + ' ' + (x - 2.6 * k) + ' ' + (y + 5.4 * k) + 'z" fill="' + (c.ribbon === 'blue' ? HANA_SKY : CARD_RED) + '"/>';
     return '<circle cx="' + x + '" cy="' + y + '" r="' + 2.2 * k + '" fill="currentColor"/>';
   }
+  // Real hanafuda carry no corner index, so the art and its border stay whole and the month is a small seal laid over the card's
+  // corner (a cream disc ringed in the month's colour, as the digital flower decks put it) with the card's kind in the white margin below it.
+  // Nothing is cut out of the art.
+  var HANA_SEAL = { x: 10.5, y: 10.5, r: 9.6 }, HANA_KIND = { x: 5.4, y: 27.5 };
+  var HANA_ROW_SEAL = { x: 17.5, y: 17.5, r: 15.8 };
+  function hanaSeal(label, seal, sc) {
+    return '<circle cx="' + seal.x + '" cy="' + seal.y + '" r="' + seal.r + '" fill="' + CARD_CREAM + '" stroke="currentColor" stroke-width="1.1"/>' + glyph(label, seal.x, seal.y - 7 * sc, sc);
+  }
   function hanaIndex(c) {
     var label = String(c.month + 1), two = label.length > 1;
     var one = function (turn) {
-      return '<g class="zc-idx-std"' + (turn ? ' transform="rotate(180 50 70)"' : '') + '><path class="zc-plate" d="' + HANA_PLATE + '" fill="' + CARD_CREAM + '"/>' +
-        glyph(label, 10.5, 6 + (two ? 1.5 : 0), two ? 0.88 : 1.2) + hanaBadge(c, 10.5, HANA_BADGE_Y + 3, 1) + '</g>';
+      return '<g class="zc-idx-std"' + (turn ? ' transform="rotate(180 50 70)"' : '') + '>' + hanaSeal(label, HANA_SEAL, two ? 0.7 : 0.9) + hanaBadge(c, HANA_KIND.x, HANA_KIND.y, 0.95) + '</g>';
     };
-    var row = '<g class="zc-idx-row" display="none"><rect x="1.5" y="2" width="' + (two ? 55 : 42) + '" height="36" rx="5" fill="' + CARD_CREAM + '" fill-opacity="0.95"/>' + glyph(label, 4 + glyphWidth(label) * (two ? 1.5 : 2.1) / 2 + (two ? 2 : 0), 6, two ? 1.5 : 2.1) +
-      hanaBadge(c, two ? 47 : 33, 20, 1.5) + '</g>';
+    var row = '<g class="zc-idx-row" display="none">' + hanaSeal(label, HANA_ROW_SEAL, two ? 1.05 : 1.5) +
+      '<g stroke="' + CARD_CREAM + '" stroke-width="1.8" stroke-linejoin="round" paint-order="stroke">' + hanaBadge(c, 33, 31, 1.5) + '</g></g>';
     return one(false) + one(true) + row;
   }
   function hanafudaFaceMarkup(id, standalone) {
