@@ -93,7 +93,7 @@ Back and close are 44px. The dialog is labelled with the game's title alone.
 ## Sheets (shell.js)
 
 All sheets share one anatomy:
-- The pebble mark (22px) and the title (20px), aligned on the cap height.
+- The title (20px). A sheet over a bar carries no mark; a sheet on a page with no bar carries the 20px pebble beside it, aligned on the cap height (see the mark table).
 - One line of text.
 - On open, focus goes to the sheet itself (trapped, Esc closes), never into a field or button.
 - Option rows: a 13px sentence-case label on the left, a 44px segmented control on the right.
