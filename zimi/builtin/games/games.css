@@ -371,6 +371,7 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
 /* The "About <game>" link scripts/games_links.py writes at the foot of a page is not shown: the Menu has the row
    (shell.js clicks this link, which Zimi's reader catches to open the article). */
 .gm-about { display: none; }
+.gs-about .gs-text + .gs-text { margin-top: var(--sp-2); }
 .gm-about-page { max-width: 62ch; margin: 0 auto; padding: 24px 16px; }
 .gm-play { display: inline-flex; align-items: center; text-decoration: none; background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 

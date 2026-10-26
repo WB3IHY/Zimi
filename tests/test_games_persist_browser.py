@@ -146,3 +146,44 @@ def test_history_and_about_read_as_words_in_the_menu(served, browser, page_name)
         assert page.url == url, "reading it never leaves the game"
         page.locator(".gs-back").first.click()
     ctx.close()
+
+
+@pytest.mark.parametrize("page_name", ["checkers", "solitaire", "chess"])
+def test_history_and_about_read_as_words_in_the_menu(served, browser, page_name):
+    """About opens in the Menu (the game stays where it is) and no fact reads as raw data."""
+    ctx = browser.new_context(viewport=VIEW)
+    page = ctx.new_page()
+    url = "%s/%s.html" % (served, page_name)
+    page.goto(url)
+    page.wait_for_timeout(SETTLE_MS)
+    page.locator(".ar-bar button", has_text="Menu").first.click()
+    for row, fact in (("History", "Origin"), ("About", "Players")):
+        page.locator(".gs-item", has_text=row).first.click()
+        page.wait_for_function("() => document.querySelector('.gs-meta dt')", timeout=5000)
+        text = page.evaluate("document.querySelector('.ar-sheet').innerText")
+        assert "[object" not in text and "undefined" not in text and "null" not in text
+        assert fact in text
+        assert page.url == url, "reading it never leaves the game"
+        page.locator(".gs-back").first.click()
+    ctx.close()
+
+
+def test_a_grand_prix_between_races_comes_back_to_the_standings(served, browser):
+    ctx = browser.new_context(viewport=VIEW)
+    page = ctx.new_page()
+    url = served + "/kart.html"
+    page.goto(url)
+    page.wait_for_timeout(SETTLE_MS)
+    page.evaluate("document.querySelector('.ar-sheet-actions .gs-primary').click()")
+    page.wait_for_timeout(SETTLE_MS)
+    page.evaluate("__kart.g.race.over = true")
+    page.wait_for_timeout(SETTLE_MS)
+    before = page.evaluate("JSON.stringify(__kart.g.gp)")
+    assert page.evaluate("__kart.g.mode") == "result"
+    page.evaluate("window.dispatchEvent(new Event('pagehide'))")
+    page.goto("about:blank")
+    page.goto(url)
+    page.wait_for_timeout(SETTLE_MS)
+    assert page.evaluate("JSON.stringify(__kart.g.gp)") == before
+    assert "Race 1 of 3" in page.evaluate("document.querySelector('.ar-sheet:not([hidden]) h2').textContent")
+    ctx.close()

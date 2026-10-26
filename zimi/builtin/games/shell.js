@@ -515,7 +515,7 @@
     if (game.watch) list.appendChild(chevronRow(T('shell.menu.watch'), watching ? T('shell.running') : '', function () { show(watchPane); }));
     if (historyFor(ID)) list.appendChild(chevronRow(T('shell.menu.history'), '', function () { show(historyPane); }));
     list.appendChild(chevronRow(T('shell.menu.stats'), '', function () { show(statsPane); }));
-    if (aboutLink()) list.appendChild(chevronRow(T('shell.menu.about'), '', function () { closeMenu(); aboutLink().click(); }));
+    if (aboutLink()) list.appendChild(chevronRow(T('shell.menu.about'), '', function () { show(aboutPane); }));
     card.appendChild(list);
     void options;
   }
@@ -589,23 +589,74 @@
     card.appendChild(dl);
   }
 
+  // The game's own row in games.json, fetched once for the History and About panes (null when there is none).
+  var rowPromise = null;
+  function gameRow() {
+    if (!rowPromise) {
+      rowPromise = !root.fetch ? Promise.resolve(null) : root.fetch('games.json').then(function (r) { return r.json(); }).then(function (rows) {
+        return (rows || []).filter(function (x) { return x.path === ID + '.html' || (x.path || '').slice(-ID.length - 6) === '/' + ID + '.html'; })[0] || null;
+      }).catch(function () { return null; });
+    }
+    return rowPromise;
+  }
+  // Facts as short words, never raw data: where and when it began as one phrase, how many play, how long it takes.
+  var REGION_IDS = { 'East Asia': 'eastAsia', 'South Asia': 'southAsia', 'Southeast Asia': 'southeastAsia', 'Middle East': 'middleEast', 'Americas': 'americas', 'Europe': 'europe', 'Africa': 'africa', 'Worldwide/Modern': 'worldwide' };
+  function yearWords(year, era) {
+    var approx = /^c\./.test(era || ''), n = Math.abs(year);
+    var bit = year < 0 ? T('shell.year.bc', { n: n }) : year < 1000 ? T('shell.year.ad', { n: n }) : String(n);
+    return approx ? T('shell.year.about', { year: bit }) : bit;
+  }
+  function originWords(row) {
+    var o = row.origin || {}, when = '';
+    if (typeof o.year === 'number') when = yearWords(o.year, o.era);
+    else if (o.era) { var m = /^(\d+)s$/.exec(o.era); when = m ? T('shell.year.decade', { n: m[1] }) : String(o.era); }
+    var where = REGION_IDS[row.region] ? T('shell.region.' + REGION_IDS[row.region]) : '';
+    return [where, when].filter(Boolean).join(', ');
+  }
+  function playersWords(p) {
+    var m = /^(\d+)(?: to (\d+))?$/.exec(String(p || ''));
+    if (!m) return '';
+    return m[2] ? T('shell.players.range', { a: m[1], b: m[2] }) : T('shell.players.n', { n: +m[1] });
+  }
+  function lengthWords(l) {
+    var m = /^(\d+) min(\+)?$/.exec(String(l || ''));
+    return m ? T(m[2] ? 'shell.length.minPlus' : 'shell.length.min', { n: +m[1] }) : '';
+  }
+  // History carries where and when (one line under its own sentences); About carries how many play and how long.
+  var HISTORY_FACTS = ['shell.meta.origin'], ABOUT_FACTS = ['shell.meta.players', 'shell.meta.length'];
+  function factRows(row, keys) {
+    var all = [['shell.meta.origin', originWords(row)], ['shell.meta.players', playersWords(row.players)], ['shell.meta.length', lengthWords(row.length)]];
+    return all.filter(function (f) { return f[1] && keys.indexOf(f[0]) >= 0; });
+  }
   // History: a few plain sentences, then the facts games.json holds about the game, if it has any.
-  var META_KEYS = [['origin', 'shell.meta.origin'], ['era', 'shell.meta.era'], ['year', 'shell.meta.year'], ['region', 'shell.meta.region'], ['players', 'shell.meta.players'], ['length', 'shell.meta.length']];
   function historyFor(id) { return root.ZimiGamesHistory && root.ZimiGamesHistory[id]; }
   function historyPane() {
     head(T('shell.menu.history'), false);
     card.appendChild(h('p', { class: 'gs-text gs-history', text: historyFor(ID) }));
     var facts = h('dl', { class: 'gs-help gs-meta' });
     card.appendChild(facts);
-    if (!root.fetch) return;
-    root.fetch('games.json').then(function (r) { return r.json(); }).then(function (rows) {
-      var row = (rows || []).filter(function (x) { return x.path === ID + '.html'; })[0], m = row && (row.meta || row) || {};
-      META_KEYS.forEach(function (k) {
-        var v = m[k[0]];
-        if (v === undefined || v === null || v === '' || !facts.isConnected) return;
-        facts.appendChild(h('dt', { text: T(k[1]) })); facts.appendChild(h('dd', { text: Array.isArray(v) ? v.join(', ') : String(v) }));
-      });
-    }).catch(function () { /* no metadata: the history stands alone */ });
+    gameRow().then(function (row) {
+      if (!row || !facts.isConnected) return;
+      factRows(row, HISTORY_FACTS).forEach(function (f) { facts.appendChild(h('dt', { text: T(f[0]) })); facts.appendChild(h('dd', { text: f[1] })); });
+    });
+  }
+  // About: what the game is, in the Menu where the game is, so reading it never leaves the table.
+  function aboutPane() {
+    head(T('shell.menu.about'), false);
+    var body = h('div', { class: 'gs-about' }), facts = h('dl', { class: 'gs-help gs-meta' });
+    card.appendChild(body);
+    gameRow().then(function (row) {
+      if (!row || !body.isConnected) { if (body.isConnected) body.appendChild(h('p', { class: 'gs-text', text: titleOf() })); return; }
+      body.appendChild(h('p', { class: 'gs-text', text: row.blurb || row.title }));
+      if (row.why) body.appendChild(h('p', { class: 'gs-text', text: row.why }));
+      factRows(row, ABOUT_FACTS).forEach(function (f) { facts.appendChild(h('dt', { text: T(f[0]) })); facts.appendChild(h('dd', { text: f[1] })); });
+      if (facts.childNodes.length) body.appendChild(facts);
+      var pz = /^puzzles\/([a-z]+)\.html$/.exec(row.path || '');
+      if (pz) {
+        body.appendChild(h('p', { class: 'gs-text', text: T('shell.about.credit') }));
+        body.appendChild(h('p', { class: 'gs-text' }, [h('a', { href: 'puzzles/LICENCE', text: T('shell.about.licence') }), ' \u00b7 ', h('a', { href: 'puzzles/doc/' + pz[1] + '.html', text: T('shell.about.manual') })]));
+      }
+    });
   }
 
   // Stats: a labelled list. A line "Medium: 3 won, 1 lost" is a label and its figures; a line with no label stands alone.
