@@ -7025,11 +7025,7 @@ function renderCardGrid(items, showStars, showCategory, countOf, tail) {
     const qidIcon = _canSwitchLanguage(z)
       ? '<span class="qid-badge" title="' + escAttr(t('cross_lang_linking')) + '"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l-3 3 3 3"/><path d="M1 9h10"/><path d="M12 10l3-3-3-3"/><path d="M15 7H5"/></svg></span>'
       : '';
-    const badgeInfo = _zimBadge(z);
-    const isUpd = badgeInfo && badgeInfo.label === 'updated';
-    const newHtml = badgeInfo
-      ? '<span class="new-badge' + (isUpd ? ' updated-badge' : '') + '" title="' + escAttr(t(isUpd ? 'recently_updated' : 'recently_installed')) + '">' + tH(isUpd ? 'updated_badge' : 'new_badge') + '</span>'
-      : '';
+    // What is new or updated since you opened it is not on the card: the status row's dots say so (_recencyDotsHtml).
     // Every card is a real link (#49): right/middle/modifier clicks open the
     // source natively. Downloading the raw .zim is a rare, deliberate act —
     // it lives on right-click and the Manage row's ⋯ menu, never as a pill
@@ -7037,15 +7033,13 @@ function renderCardGrid(items, showStars, showCategory, countOf, tail) {
     const cardTag = 'a';
     const cardNav = ' href="/w/' + encodeURIComponent(z.name) + '" onclick="return _spaSourceClick(event, this)"';
     const onPhone = _keepNames.has(z.name);
-    return '<' + cardTag + ' class="stat-card' + (newHtml ? ' is-new' : '') + (onPhone ? ' kept' : '') + '" data-zim="' + escAttr(z.name) + '"' + cardNav + '>' +
+    return '<' + cardTag + ' class="stat-card' + (onPhone ? ' kept' : '') + '" data-zim="' + escAttr(z.name) + '"' + cardNav + '>' +
       '<div class="card-icon">' + icon + '</div>' +
       '<div class="card-info">' +
-        // new-badge lives in the title row (list) — never over the left icon;
-        // CSS lifts it to a tile corner in compact view (icon is centred there).
         // The title text is wrapped in .zt so the tile layout can clamp it to two
         // lines independently and drop the language chip onto its own line below
         // (in the list the .zt span is inline, so nothing changes there).
-        '<div class="name">' + newHtml + '<span class="zt">' + esc(z.title || z.name) + '</span>' + badge + qidIcon + _provBadgeHtml(z.name) + '</div>' +
+        '<div class="name"><span class="zt">' + esc(z.title || z.name) + '</span>' + badge + qidIcon + _provBadgeHtml(z.name) + '</div>' +
         (z.description ? '<div class="desc">' + esc(z.description) + '</div>' : '') +
         '<div class="detail">' + catPrefix + [countOf(z), fmtSize(z.size_gb)].filter(Boolean).join(' &middot; ') +
         // Both dates carry their own separator, so either can be taken out
@@ -31368,7 +31362,10 @@ async function _pollActivity() {
   try { await _manageProbe; } catch (e) {}
   if (!_canPollManage()) { _scheduleNextActivityPoll(true); return; }
   try {
-    const res = await authedFetch('/manage/activity', { credentials: 'same-origin' });
+    // redirect: 'manual': behind a login gate (Cloudflare Access) the poll is answered by a redirect to another
+    // origin, which a followed fetch turns into a blocked request ("access control checks") logged every few
+    // seconds. Seen as an opaque redirect it is just "not signed in": idle cadence, nothing logged.
+    const res = await authedFetch('/manage/activity', { credentials: 'same-origin', redirect: 'manual' });
     if (res.ok) {
       const data = await res.json();
       // What the LAST poll saw, read before this one repaints the badge.

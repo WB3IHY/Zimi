@@ -50,3 +50,17 @@ test('opening a ZIM clears its dot', async ({ page }) => {
   await expect(page.locator('.stats-bar .rc-dot.added')).toHaveCount(0);
   await expect(page.locator('.stats-bar .rc-dot.updated')).toHaveCount(1);
 });
+
+test('behind a login gate the activity poll logs nothing', async ({ page }) => {
+  // A gate (Cloudflare Access) answers /manage/activity with a redirect to another origin; a followed fetch is a
+  // blocked request ("access control checks") in the console every few seconds.
+  const bad = [];
+  page.on('console', (m) => { if (m.type() === 'error') bad.push(m.text()); });
+  page.on('requestfailed', (r) => { if (r.url().includes('127.0.0.1:9')) bad.push('followed to ' + r.url()); });   // the gate's origin: never followed
+  await page.route('**/manage/activity', (route) => route.fulfill({ status: 302, headers: { location: 'http://127.0.0.1:9/login' } }));
+  await page.goto(BASE);
+  await page.waitForFunction(() => typeof _pollActivity === 'function' && zimsCache && zimsCache.length >= 2);
+  await page.evaluate(() => _pollActivity());
+  await page.waitForTimeout(1500);
+  expect(bad.filter((t) => /activity|access control|CORS|127\.0\.0\.1:9/i.test(t))).toEqual([]);
+});
