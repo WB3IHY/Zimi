@@ -207,7 +207,7 @@
     [0, 1].forEach(function (lane) {
       var i, hole = '';
       for (i = 0; i < 60; i++) {
-        hole += '<circle cx="' + holeX(i).toFixed(1) + '" cy="' + ROWS[0][lane] + '" r="1.4"/><circle cx="' + holeX(i).toFixed(1) + '" cy="' + ROWS[1][lane] + '" r="1.4"/>';
+        hole += '<circle cx="' + holeX(i).toFixed(1) + '" cy="' + ROWS[0][lane] + '" r="1.6"/><circle cx="' + holeX(i).toFixed(1) + '" cy="' + ROWS[1][lane] + '" r="1.6"/>';
       }
       out += '<g class="cb-holes">' + hole + '</g>';
       out += '<circle class="cb-start" cx="' + (BX0 - 11) + '" cy="' + ROWS[0][lane] + '" r="2.4" fill="' + LANE_COLORS[lane] + '" opacity=".5"/>';
@@ -218,7 +218,7 @@
     [0, 1].forEach(function (lane) {
       [prev[lane], scores[lane]].forEach(function (n, k) {
         var p = holePos(n, lane);
-        out += '<circle class="cb-peg' + (k ? ' cb-front' : '') + '" cx="' + p[0].toFixed(1) + '" cy="' + p[1] + '" r="' + (k ? 3.3 : 2.5) + '" fill="' + LANE_COLORS[lane] + '"/>';
+        out += '<circle class="cb-peg' + (k ? ' cb-front' : '') + '" cx="' + p[0].toFixed(1) + '" cy="' + p[1] + '" r="' + (k ? 4.2 : 3.2) + '" fill="' + LANE_COLORS[lane] + '"/>';
       });
     });
     return out + '</svg>';

@@ -117,3 +117,6 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 /* The fact line over the top of the table (Draw 1, Deal #, Streak): nothing shows when there is nothing to say. */
 .zc-fact { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); z-index: 30; max-width: calc(100% - 16px); padding: 2px var(--sp-3); border-radius: 999px; background: rgba(0, 0, 0, 0.34); color: #fff; font-size: var(--fs-small); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .zc-fact:empty { display: none; }
+
+/* A card that cannot be played now (a covered Pyramid card, an illegal card in a hand): a light veil, so it still reads as a card. */
+.zc-card.zc-dim::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: rgba(0, 0, 0, 0.12); pointer-events: none; }
