@@ -196,7 +196,7 @@
 
   function titleOf() {
     var t = d.querySelector('.ar-bar h1'), s = '';
-    if (!t) return d.title.replace(/ - ZimiGames$/, '');
+    if (!t) return d.title.replace(/ - ZimiGames$/, '').replace(/, from .*$/, '');
     Array.prototype.forEach.call(t.childNodes, function (n) { if (n.nodeType === 3) s += n.nodeValue; });
     return s.trim() || d.title;
   }

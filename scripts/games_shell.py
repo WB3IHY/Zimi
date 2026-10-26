@@ -23,6 +23,7 @@ _BLOCK = re.compile(
 )
 NOT_GAMES = {"index.html", "about.html", "puzzles.html"}
 TAG = f'{OPEN}<script src="games-help.js"></script><script src="shell.js"></script>{CLOSE}\n'
+PUZZLE_TAG = f'{OPEN}<meta name="zimi-games-host"><script src="../shell.js"></script>{CLOSE}\n'
 
 
 def pages():
@@ -31,19 +32,26 @@ def pages():
     return sorted(p for p in found if p not in NOT_GAMES)
 
 
+def puzzle_pages():
+    """The Tatham puzzles: "puzzles/fifteen.html"."""
+    found = (os.path.basename(p) for p in glob.glob(os.path.join(GAMES, "puzzles", "*.html")))
+    return sorted("puzzles/" + p for p in found)
+
+
 def stamp(page):
     full = os.path.join(GAMES, page)
+    tag = PUZZLE_TAG if page.startswith("puzzles/") else TAG
     with open(full, encoding="utf-8") as f:
         text = _BLOCK.sub("", f.read())
     if "</head>" not in text:
         raise SystemExit(f"{page}: no </head>")
-    text = text.replace("</head>", TAG + "</head>", 1)
+    text = text.replace("</head>", tag + "</head>", 1)
     with open(full, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
 
 
 def main():
-    found = pages()
+    found = pages() + puzzle_pages()
     for p in found:
         stamp(p)
     print(f"{len(found)} pages stamped")
