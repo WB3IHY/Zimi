@@ -160,7 +160,9 @@
     if (G.human(p)) { G.say(T(G.vsComputer() ? 'ur.yourRoll' : 'ur.toRoll', { name: sideName(p) })); }
     else { G.say(T('ur.computerRolling'), true); var token = G.begin(); setTimeout(function () { if (G.done(token)) doRoll(); }, COMPUTER_ROLL_DELAY_MS); }
   }
+  var started = false;   // a die was thrown: a fresh game is not kept
   function doRoll() {
+    started = true;
     if (G.over || phase !== 'roll' || rolling) return;
     var token = G.begin(), p = st.turn;
     G.say(say('ur.rolling', p));
@@ -222,7 +224,7 @@
     G.say(T('ur.hint'));
   }
   function newGame() {
-    st = E.newState(); last = null; roll = null; moves = []; tip = null; rolling = false;
+    st = E.newState(); started = false; last = null; roll = null; moves = []; tip = null; rolling = false;
     buildBoard();
     showDice([false, false, false, false], null, false);
     startTurn();
@@ -237,6 +239,24 @@
 
   if (root.ZimiShell) root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && (st.pos[0].some(function (k) { return k > 0; }) || st.pos[1].some(function (k) { return k > 0; })); } });
   G.newGame();
+  G.persist({
+    save: function () { return started ? { st: st, last: last, roll: phase === 'move' ? roll : null, phase: phase === 'move' ? 'move' : 'roll' } : null; },
+    load: function (d) {
+      st = d.st; last = d.last; roll = d.roll; phase = d.phase; tip = null; rolling = false;
+      moves = roll === null ? [] : E.legalMoves(st, roll);
+      buildBoard(); showDice([false, false, false, false], null, false);
+      if (roll !== null) showDice([0, 1, 2, 3].map(function (i) { return i < roll; }), roll, false);
+      paint();
+    },
+    resume: function () {
+      if (G.over) return;
+      if (phase === 'roll') { startTurn(); return; }
+      var p = st.turn;
+      if (G.human(p)) { G.say(T('ur.tap', { name: nameOf(p), n: roll })); return; }
+      G.say(T('ur.rolled', { name: nameOf(p), n: roll }), true);
+      var t3 = G.begin(); setTimeout(function () { if (!G.done(t3)) return; var c = E.choose(st, roll, G.settings.level); play(moves[c.index >= 0 ? c.index : 0]); }, COMPUTER_MOVE_DELAY_MS);
+    }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__ur = { engine: E, state: function () { return st; }, moves: function () { return moves; }, phase: function () { return phase; }, play: play };

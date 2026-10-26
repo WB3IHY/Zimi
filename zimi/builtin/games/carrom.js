@@ -148,6 +148,7 @@
   // ── shots and turns ──
   function fire(angle, power01OrSpeed, isSpeed) {
     if (phase !== 'aim' && phase !== 'cpuaim') return;
+    shotsMade++;
     var speed = isSpeed ? power01OrSpeed : E.MAX_SPEED * Math.pow(power01OrSpeed, 1.15);
     aim.show = false; drag = null;
     E.shoot(game, angle, speed);
@@ -166,9 +167,13 @@
     startTurn(res.again);
   }
   function win(w) {
+    shotsMade++; snapTurn();
     G.finish(T('carrom.allIn', { side: sideName(w).toLowerCase() }), vsCpu() ? (G.human(w) ? 'w' : 'l') : null, sideName(w));
     draw();
   }
+  // The position at the start of a turn (a shot in flight is not kept), for leaving and coming back.
+  var turnSnap = null, shotsMade = 0;
+  function snapTurn() { turnSnap = shotsMade ? JSON.parse(JSON.stringify(game)) : null; }
   function startTurn(again) {
     var p = me();
     phase = 'aim'; aim.show = false;
@@ -179,6 +184,7 @@
     var turn = G.human(p) ? (vsCpu() ? T(again ? 'carrom.again' : 'carrom.yourShot') : T('carrom.toShoot', { name: sideName(p) })) : T(isYou(p) ? 'carrom.aiming.you' : 'carrom.aiming', { name: nameOf(p) });
     G.say(notesLine ? T('janggi.noted', { note: notesLine, line: turn }) : turn, !G.human(p));
     notesLine = '';
+    snapTurn();
     if (!G.human(p)) computerShot();
   }
   function computerShot() {
@@ -285,12 +291,17 @@
   });
 
   function newGame() {
-    game = E.newGame(); phase = 'idle'; falling = []; drag = null; notesLine = ''; dropped = [];
+    game = E.newGame(); shotsMade = 0; phase = 'idle'; falling = []; drag = null; notesLine = ''; dropped = [];
     fit();
     startTurn(false);
   }
   root.addEventListener('resize', fit);
   G.newGame();
+  G.persist({
+    save: function () { return turnSnap ? { game: turnSnap, phase: phase === 'over' ? 'over' : 'aim' } : null; },
+    load: function (d) { game = d.game; shotsMade = 1; falling = []; drag = null; notesLine = ''; dropped = []; fit(); if (d.phase === 'over') { phase = 'over'; paint(); draw(); } else startTurn(false); },
+    resume: function () {}
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__cr = { engine: E, game: function () { return game; }, phase: function () { return phase; }, fire: fire, aim: aim, usingWorker: function () { return brain.usingWorker(); }, toScreen: function (x, y) { var r = canvas.getBoundingClientRect(); return [r.left + (vx(x, y) + MARGIN) / VIEW * r.width, r.top + (vy(x, y) + MARGIN) / VIEW * r.height]; } };

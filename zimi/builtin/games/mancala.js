@@ -319,5 +319,11 @@
   });
 
   G.newGame();
+  G.persist({
+    // mid-sow the move is not on the board yet: keep the position before it
+    save: function () { var h = history.all(); if (animating) h = h.slice(0, -1); return h.length || (animating && history.size()) ? { state: animating ? history.last().state : state, history: h, last: animating ? history.last().last : lastPit } : null; },
+    load: function (d) { animating = false; buildBoard(); state = d.state; shown = state.pits.slice(0); history.set(d.history); lastPit = d.last; flashed = []; hintPit = -1; paint(); },
+    resume: function () { G.say(turnText(), !G.human(state.turn)); if (!G.human(state.turn)) G.later(computerMove); }
+  });
   if (new URLSearchParams(location.search).has('debug')) root.__mc = { state: function () { return state; }, engine: root.MancalaEngine };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

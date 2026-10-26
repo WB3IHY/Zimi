@@ -295,6 +295,15 @@
 
   buildBoard();
   G.newGame();
+  G.persist({
+    save: function () { return history.length ? { state: state, history: history.slice(-40), lastMove: lastMove } : null; },
+    load: function (d) { state = d.state; history = d.history; lastMove = d.lastMove; flipped = []; paint(); },
+    resume: function () {
+      G.say(turnText(state.turn), !G.human(idxOf(state.turn)));
+      if (root.ZimiShell) root.ZimiShell.turn(G.human(idxOf(state.turn)), timeUp, history.length);
+      if (!G.human(idxOf(state.turn))) scheduleComputer();
+    }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__rv = { state: function () { return state; }, engine: Engine, settings: G.settings };

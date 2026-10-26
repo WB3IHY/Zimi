@@ -22,11 +22,19 @@ ROWS = [
     ("hex", [".wk-board button:nth-child(60)"], SAVE),
     ("dotsandboxes", [".db-edge:nth-child(3)"], SAVE),
     ("morris", [".mo-pt:nth-child(5)"], SAVE),
+    ("reversi", [".bg-sq.hint"], SAVE),
+    ("checkers", [".bg-sq:has(.ck-pc.r.mv)", ".bg-sq.hint"], SAVE),
+    ("mancala", [".mc-pit-btn[aria-disabled=false]"], SAVE),
+    ("go", [".go-pt:nth-child(41)"], SAVE),
+    ("ur", ["#ur-roll"], SAVE),
+    ("carrom", ["#cr-shoot"], SAVE, 9000),
 ]
 
 
-@pytest.mark.parametrize("page_name,moves,position", ROWS, ids=[r[0] for r in ROWS])
-def test_leaving_and_returning_keeps_the_position(served, browser, page_name, moves, position):
+@pytest.mark.parametrize("row", ROWS, ids=[r[0] for r in ROWS])
+def test_leaving_and_returning_keeps_the_position(served, browser, row):
+    page_name, moves, position = row[:3]
+    settle = row[3] if len(row) > 3 else SETTLE_MS * 2   # a longer wait where a shot or a roll plays out
     ctx = browser.new_context(viewport=VIEW)
     page = ctx.new_page()
     url = "%s/%s.html" % (served, page_name)
@@ -35,7 +43,7 @@ def test_leaving_and_returning_keeps_the_position(served, browser, page_name, mo
     for sel in moves:
         tap(page, page.locator(sel).first)
         page.wait_for_timeout(300)
-    page.wait_for_timeout(SETTLE_MS * 2)   # a computer reply lands
+    page.wait_for_timeout(settle)   # the computer's reply lands
     before = page.evaluate(position)
     assert before, "a move was made, so there is a position to keep"
     page.evaluate("window.dispatchEvent(new Event('pagehide'))")

@@ -363,6 +363,19 @@
   });
 
   G.newGame();
+  G.persist({
+    save: function () { return history.length ? { game: game, history: history.slice(-40), lastSquares: lastSquares, seen: seen } : null; },
+    load: function (d) {
+      game = d.game; history = d.history; lastSquares = d.lastSquares; seen = d.seen;
+      flip = G.vsComputer() && G.settings.side === 'second'; buildBoard();
+      sel = -1; prefix = []; legal = moves(game.board, game.turn); paint();
+    },
+    resume: function () {
+      G.say(turnLine(), !G.human(idxOf(game.turn)));
+      if (root.ZimiShell) root.ZimiShell.turn(G.human(idxOf(game.turn)), timeUp, history.length);
+      if (!G.human(idxOf(game.turn))) scheduleComputer();
+    }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__ck = { game: function () { return game; }, engine: Engine, settings: G.settings };

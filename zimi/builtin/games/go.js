@@ -231,5 +231,10 @@
   if (root.ZimiShell) root.ZimiShell.game({ moveTimer: true, hints: true, inProgress: function () { return !G.over && history.size() > 0; } });
 
   G.newGame();
+  G.persist({
+    save: function () { return history.size() ? { st: st, history: history.all(), phase: phase, dead: dead } : null; },
+    load: function (d) { buildBoard(); st = d.st; history.set(d.history); phase = d.phase; dead = d.dead; hintIdx = -1; paint(); },
+    resume: function () { G.say(turnText()); if (phase === 'play' && !G.human(st.turn - 1)) computerTurn(); }
+  });
   if (new URLSearchParams(location.search).has('debug')) root.__go = { state: function () { return st; }, engine: Engine, phase: function () { return phase; }, dead: function () { return dead; }, ask: ask };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
