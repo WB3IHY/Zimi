@@ -1,0 +1,87 @@
+// ZimiGames card art, measured in WebKit at 3x: backs are centred and symmetric where they are drawn symmetric, the Zimi
+// back's Z sits on the cartouche's centre at every size, the court art is scaled evenly, and no shared rule moves SVG geometry.
+// Eric, 2026-10-26: "I need pixel perfection here. This is art." A shared `.zc-bk * { transform-box: fill-box }` had
+// moved every transform attribute in the backs (the Z, the lower halves of deco and seigaiha, guilloche's roses).
+//
+// Run: NODE_PATH=node_modules node tests/test_games_pixels.cjs   (exit 0 = pass; skips when WebKit is not installed)
+
+const fs = require('fs'), path = require('path'), http = require('http');
+const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'games');
+let failures = 0;
+const ok = (label, cond, detail) => { console.log((cond ? 'PASS  ' : 'FAIL  ') + label + (detail ? '  ' + detail : '')); if (!cond) failures++; };
+
+// 1. Static: transform-box may only be set on the parts that animate about their own centre.
+const css = fs.readFileSync(path.join(dir, 'cards.css'), 'utf8');
+const boxRules = css.split('\n').filter(l => /transform-box:\s*fill-box/.test(l));
+ok('cards.css sets fill-box only on the animated parts', boxRules.length === 1 && /^\.zc-boat, \.zc-eye, \.zc-arm, \.zc-wing \{/.test(boxRules[0]), boxRules.join(' | '));
+
+let chromium;
+try { chromium = require('playwright').webkit; } catch (e) { console.log('SKIP  playwright is not installed'); process.exit(failures ? 1 : 0); }
+
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
+const harness = '<!doctype html><meta charset=utf-8><link rel=stylesheet href="/games.css"><link rel=stylesheet href="/cards.css">' +
+  '<body class="zc-game" style="margin:0;background:#fff;overflow:visible;height:auto;display:block"><script src="/text.js"></script><script src="/cardbacks.js"></script>' +
+  '<script src="/courts.js"></script><script src="/cards.js"></script><div id=box style="padding:20px"></div><script>ZimiCards.ensureSprite();' +
+  'window.show=function(id,cw){var c=document.createElement("div");c.className="zc-card zc-down";c.style.cssText="position:relative;left:0;top:0;--cw:"+cw+"px;width:"+cw+"px;height:"+(cw*1.4)+"px";' +
+  'c.innerHTML="<div class=zc-back>"+ZimiCards.backMarkup(id)+"</div>";var b=document.getElementById("box");b.innerHTML="";b.appendChild(c);' +
+  'document.querySelectorAll(".zc-bk *").forEach(function(e){e.style.animation="none"});};</script>';
+const server = http.createServer((q, r) => {
+  const u = q.url.split('?')[0];
+  if (u === '/h.html') { r.writeHead(200, { 'content-type': 'text/html' }); return r.end(harness); }
+  fs.readFile(path.join(dir, u), (e, d) => { if (e) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'content-type': TYPES[path.extname(u)] || 'text/plain' }); r.end(d); });
+});
+
+(async () => {
+  await new Promise(res => server.listen(0, '127.0.0.1', res));
+  const base = 'http://127.0.0.1:' + server.address().port;
+  let browser;
+  try { browser = await chromium.launch(); } catch (e) { console.log('SKIP  WebKit is not installed'); server.close(); process.exit(failures ? 1 : 0); }
+  const page = await (await browser.newContext({ deviceScaleFactor: 3, viewport: { width: 400, height: 500 } })).newPage();
+  const decoder = await (await browser.newContext()).newPage();
+  await page.goto(base + '/h.html');
+  // A screenshot's pixels: [width, height, rgba bytes as base64].
+  async function pixels(id, cw) {
+    await page.evaluate(([i, c]) => show(i, c), [id, cw]);
+    const png = await page.locator('.zc-card').screenshot();
+    return decoder.evaluate(async (b64) => {
+      const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode();
+      const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
+      const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0);
+      return { w: img.width, h: img.height, d: Array.from(cx.getImageData(0, 0, img.width, img.height).data) };
+    }, png.toString('base64'));
+  }
+  const px = (im, x, y) => { const i = (y * im.w + x) * 4; return [im.d[i], im.d[i + 1], im.d[i + 2]]; };
+  const mismatch = (im, map) => { let n = 0; for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) { const a = px(im, x, y), b = px(im, ...map(x, y)); if (Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2])) > 60) n++; } return n; };
+
+  // 2. Symmetry of the backs drawn symmetric, at the full size (100 px, 300 device px).
+  for (const [id, both] of [['classic', true], ['guilloche', true], ['deco', true], ['seigaiha', true], ['zellige', true], ['robot', false]]) {
+    const im = await pixels(id, 100);
+    const lr = mismatch(im, (x, y) => [im.w - 1 - x, y]);
+    ok(id + ' back is the same mirrored left to right', lr < 40, lr + ' px differ');
+    if (both) { const r = mismatch(im, (x, y) => [im.w - 1 - x, im.h - 1 - y]); ok(id + ' back is the same turned half a turn', r < 40, r + ' px differ'); }
+  }
+
+  // 3. The Zimi back's Z: its orange bounding box is centred on the cartouche (the card's centre) at every size.
+  for (const cw of [100, 52, 40, 30]) {
+    const im = await pixels('zimi', cw), s = 3 * cw / 100, cx = 50 * s, cy = 70 * s;
+    let x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1;
+    for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) {
+      if (Math.abs(x + .5 - cx) > 12 * s || Math.abs(y + .5 - cy) > 14 * s) continue;
+      const [r, g, b] = px(im, x, y);
+      if (r > 180 && b < 120 && r - b > 80) { x0 = Math.min(x0, x); x1 = Math.max(x1, x + 1); y0 = Math.min(y0, y); y1 = Math.max(y1, y + 1); }
+    }
+    const dx = (x0 + x1) / 2 - cx, dy = (y0 + y1) / 2 - cy;
+    ok('Zimi back Z is centred at ' + cw + 'px', x1 > 0 && Math.abs(dx) <= 0.5 && Math.abs(dy) <= 0.5, 'off (' + dx.toFixed(2) + ', ' + dy.toFixed(2) + ') device px');
+  }
+  await browser.close(); server.close();
+
+  // 4. The court art is scaled evenly: each nested svg's box has its viewBox's proportions.
+  const vm = require('vm'), sb = { console }; sb.window = sb; vm.createContext(sb);
+  vm.runInContext(fs.readFileSync(path.join(dir, 'courts.js'), 'utf8'), sb);
+  const svgs = [...sb.ZimiCourts.markup('king', 3).matchAll(/<svg x="[^"]*" y="[^"]*" width="([\d.]+)" height="([\d.]+)" viewBox="0 0 (\d+) (\d+)" preserveAspectRatio="none"/g)];
+  ok('court art svgs found', svgs.length === 2);
+  svgs.forEach(m => ok('court art keeps its proportions', Math.abs(m[1] / m[2] - m[3] / m[4]) < 0.003, (m[1] / m[2]).toFixed(4) + ' vs ' + (m[3] / m[4]).toFixed(4)));
+
+  console.log(failures ? failures + ' FAILED' : 'all passed');
+  process.exit(failures ? 1 : 0);
+})();

@@ -126,7 +126,8 @@ Object.assign(TILES, {
   crazyeights: () => tile(FELT, back(28, 48, 56) + face(cid('8S'), 112, 32, 76, -8) + face(cid('8H'), 176, 34, 76, 8) +
     [[1, 56], [0, 92]].map((p) => '<g transform="translate(270 ' + p[1] + ') scale(1.2)" fill="rgba(255,255,255,0.85)"><use href="#zc-s-' + p[0] + '"/></g>').join('')),
   durak: () => tile(FELT_DEEP, back(96, -34, 40) + back(142, -34, 40) + back(188, -34, 40) + face(cid('7C'), 112, 44, 58) + face(cid('9S'), 132, 58, 58, 8) + face(cid('AH'), 26, 92, 46) + back(46, 92, 46)),
-  bridge: () => tile(FELT_DEEP, back(144, 8, 32)),
+  bridge: () => tile(FELT_DEEP, back(92, -34, 40) + back(140, -34, 40) + back(188, -34, 40) +
+    [['AS', 82, 104, -12], ['KS', 112, 98, -4], ['QH', 150, 98, 4], ['JD', 180, 104, 12]].map(([c, x, y, r]) => face(cid(c), x, y, 56, r)).join('')),
   scopa: () => tile(FELT, italian(0, 56, 34, 64, -12) + italian(19, 128, 28, 64) + italian(26, 200, 34, 64, 12) + label(160, 160, 22, 'Scopa!')),
   belote: () => tile(FELT_DEEP, face(cid('JS'), 70, 34, 70, -12) + face(cid('9S'), 126, 30, 70) + face(cid('AS'), 182, 34, 70, 12) + label(160, 164, 14, 'jack and nine of trump')),
   skat: () => tile(FELT_DEEP, face(cid('JC'), 66, 34, 66, -14) + face(cid('JS'), 112, 30, 66, -5) + face(cid('JH'), 158, 30, 66, 5) + face(cid('JD'), 204, 34, 66, 14) + pill(112, 142, 96, 'Grand')),

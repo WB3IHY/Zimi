@@ -10,8 +10,10 @@
   'use strict';
 
   var RED = '#b3261e', BLACK = '#1b1b1b', GOLD = '#e09400', BLUE = '#1d3b7a';
-  // The art box inside the 100 x 140 face: a 5 unit margin all round, where the corner indexes sit.
-  var BOX_X = 5, BOX_Y = 5, BOX_W = 90, BOX_H = 130, CANVAS_W = 1300, CANVAS_H = 2000, PIP_SCALE = 0.075;
+  // The art box inside the 100 x 140 face: 5 units from the top and bottom, centred.
+  var BOX_Y = 5, BOX_H = 130, CANVAS_W = 1300, CANVAS_H = 2000, PIP_SCALE = 0.075;
+  // The box has the canvas's own proportions (the art is scaled evenly, never stretched), centred on the face.
+  var BOX_W = Math.round(BOX_H * CANVAS_W / CANVAS_H * 100) / 100, BOX_X = (100 - BOX_W) / 2;
   var KINDS = { jack: 'J', queen: 'Q', king: 'K' }, SUITS = 'CDHS';
   var FILL = { B: BLACK, R: RED, G: GOLD, U: BLUE, b: BLACK, r: RED };
   var LINE_WIDTH = { l: 3, L: 6 };

@@ -106,20 +106,20 @@
           '<g class="zc-boat"><path d="M30 72h26l-5 8H35z" fill="#7a3b1d"/><path d="M43 46v26M43 48l12 20H43z" fill="#fff" stroke="#fff" stroke-width="1"/><path d="M42 52 31 68h11z" fill="#f4d35e"/></g>' +
           '<g class="zc-wv zc-wv1">' + wavePath(80, '#2d9cdb') + '</g><g class="zc-wv zc-wv2">' + wavePath(94, '#1b78b8') + '</g><g class="zc-wv zc-wv3">' + wavePath(108, '#10568f') + '</g>');
       },
-      // Graph paper: 7 x 11 cells of 10 in the field, the robot centred in it.
+      // Graph paper: 7 x 11 cells of 10 in the field, the robot centred in it (its bulb to its feet is 16.5..118, lifted 1.25 so the margins match).
       robot: function () {
         var d = '', i;
         for (i = 0; i <= 11; i++) d += 'M' + FX + ' ' + (FY + 10 * i) + 'h' + FW;
         for (i = 0; i <= 7; i++) d += 'M' + (FX + 10 * i) + ' ' + FY + 'v' + FH;
         return band('#0c2b36', '#27e6ff', 0.5) + rect(FX, FY, FW, FH, { fill: '#123c4a' }) + el('path', { d: d, fill: 'none', stroke: '#27e6ff', 'stroke-width': 0.5, opacity: 0.28 }) +
-          '<path d="M46 34V22" stroke="#9fb3bd" stroke-width="2"/><circle class="zc-bulb" cx="46" cy="20" r="3.5" fill="#ff5d5d"/>' +
+          '<g transform="translate(0 -1.25)"><path d="M46 34V22" stroke="#9fb3bd" stroke-width="2"/><circle class="zc-bulb" cx="46" cy="20" r="3.5" fill="#ff5d5d"/>' +
           '<rect x="22" y="34" width="48" height="36" rx="9" fill="#cfd8dc"/><rect x="27" y="40" width="38" height="20" rx="6" fill="#102a33"/>' +
           '<circle class="zc-eye" cx="37" cy="50" r="5" fill="#27e6ff"/><circle class="zc-eye" cx="55" cy="50" r="5" fill="#27e6ff"/>' +
           '<path d="M38 64h16" stroke="#8aa0aa" stroke-width="2" stroke-linecap="round"/>' +
           '<rect x="28" y="74" width="36" height="30" rx="7" fill="#b0bec5"/><circle cx="46" cy="89" r="5" fill="#27e6ff" opacity=".8"/>' +
-          '<rect x="14" y="76" width="9" height="22" rx="4.5" fill="#9fb3bd"/>' +
+          '<rect x="14" y="76" width="9" height="24" rx="4.5" fill="#9fb3bd"/>' +
           '<g class="zc-arm"><rect x="69" y="76" width="9" height="24" rx="4.5" fill="#9fb3bd"/></g>' +
-          '<rect x="33" y="106" width="9" height="12" rx="3" fill="#9fb3bd"/><rect x="50" y="106" width="9" height="12" rx="3" fill="#9fb3bd"/>';
+          '<rect x="33" y="106" width="9" height="12" rx="3" fill="#9fb3bd"/><rect x="50" y="106" width="9" height="12" rx="3" fill="#9fb3bd"/></g>';
       },
       castle: function () {
         var bat = function (cls) {

@@ -11,7 +11,7 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 .ar-bar .ar-stat { min-width: 3.4em; text-align: right; }
 @media (max-width: 440px) {
   .ar-bar { gap: 4px; }
-  .ar-bar .ar-btn { padding: 0 var(--sp-3); }
+  .ar-bar .ar-btn { padding: 0 var(--sp-3) 1px; }
 }
 
 .zc-table { position: relative; isolation: isolate; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; touch-action: pan-y;
@@ -67,12 +67,11 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 .zc-card:not(.zc-down) .zc-back { display: none; }
 
 /* ── Animated backs: transforms and opacity only, paused with the tab ──── */
-.zc-bk * { transform-box: fill-box; }
-/* The back's Z is placed by its own transform attribute (translate, then
-   scale about the user-space origin). Under fill-box that scale ran about
-   the glyph's top-left corner and pushed the Z right and down of the
-   cartouche's centre. */
-.zc-bk path[fill="url(#zc-g-mark)"] { transform-box: view-box; transform-origin: 0 0; }
+/* Only the parts that animate about their own centre take fill-box. It must not be on every element of a back: under fill-box
+   the default transform-origin (0 0) moves from the user-space origin to each element's own top-left corner, so every transform
+   attribute in the art (the half-turn of the lower half, the Z's translate and scale, a rose's rotations) would run about the
+   wrong point and land shifted by that element's offset. */
+.zc-boat, .zc-eye, .zc-arm, .zc-wing { transform-box: fill-box; }
 .zc-paused .zc-bk * { animation-play-state: paused !important; }
 .zc-tw { animation: zc-twinkle 3.4s ease-in-out infinite; }
 .zc-tw2 { animation-delay: -1.1s; animation-duration: 4.1s; }

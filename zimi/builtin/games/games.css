@@ -82,7 +82,7 @@ button { font: inherit; color: inherit; }
 .in-zimi .ar-bar { padding-left: var(--gutter); }
 
 /* Buttons: ghost by default (a 1px line, radius 10); 44px on touch, 36px on a fine pointer. One filled amber button per screen. */
-.ar-btn { min-height: 36px; padding: 0 var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); cursor: pointer; white-space: nowrap; }
+.ar-btn { min-height: 36px; padding: 0 var(--sp-3) 1px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); cursor: pointer; white-space: nowrap; }
 @media (pointer: coarse) { .ar-btn { min-height: var(--target); } }
 .ar-btn[hidden] { display: none; }
 .ar-btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -117,7 +117,7 @@ body:has(> .ar-bar) .ar-sheet { top: var(--bar-h); }
 /* One action anatomy on every sheet: a single 44px row across the card. The quiet actions (ghost, a third) sit left and the
    primary (amber, two thirds) last; a row with no primary shares the width equally. */
 .ar-sheet-actions { display: flex; gap: var(--sp-2); margin-top: var(--sp-4); }
-.ar-sheet-actions .ar-btn { flex: 1 1 0; min-width: 0; min-height: var(--target); padding: 0 var(--sp-2); }
+.ar-sheet-actions .ar-btn { flex: 1 1 0; min-width: 0; min-height: var(--target); padding: 0 var(--sp-2) 1px; }
 .ar-sheet-actions .ar-btn[aria-pressed="true"] { flex-grow: 2; }
 .ar-sheet-actions:has([aria-pressed="true"]) .ar-btn:not([aria-pressed="true"]) { background: transparent; border-color: transparent; color: var(--ink2); }
 .ar-sheet-actions:has([aria-pressed="true"]) .ar-btn:not([aria-pressed="true"]):hover { color: var(--accent); }
@@ -126,7 +126,7 @@ body:has(> .ar-bar) .ar-sheet { top: var(--bar-h); }
 .gs-row, .zc-row { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: var(--target); }
 .gs-row > label, .zc-row > label { flex: 1 1 auto; font-size: var(--fs-small); font-weight: 600; color: var(--ink2); text-transform: none; letter-spacing: 0; }
 .gs-seg, .zc-seg { display: inline-flex; flex: 0 0 auto; }
-.gs-seg .ar-btn, .zc-seg .ar-btn { min-height: var(--target); padding: 0 var(--sp-3); border-radius: 0; margin-left: -1px; }
+.gs-seg .ar-btn, .zc-seg .ar-btn { min-height: var(--target); padding: 0 var(--sp-3) 1px; border-radius: 0; margin-left: -1px; }
 .gs-seg .ar-btn:first-child, .zc-seg .ar-btn:first-child { border-radius: var(--radius) 0 0 var(--radius); margin-left: 0; }
 .gs-seg .ar-btn:last-child, .zc-seg .ar-btn:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
 .gs-seg .ar-btn:only-child, .zc-seg .ar-btn:only-child { border-radius: var(--radius); }
@@ -168,6 +168,8 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
 .ar-shelf header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 16px; }
 .ar-brand { display: flex; align-items: center; gap: 10px; margin: 0; font-size: var(--fs-brand); font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
 .ar-brand .ar-lockup { display: block; flex: none; width: 44px; height: 44px; }
+/* The wordmark's cap height is centred on the icon: the line box centres the em box, and the caps sit 0.67px below it at 26px. */
+.ar-brand span { padding-bottom: 1.33px; }
 .ar-shelf header p { flex: 1 0 100%; margin: 0; color: var(--ink2); max-width: 60ch; }
 .sh-on header p { display: none; }
 .sh-tools { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex: 1 1 0; min-width: 0; }
@@ -189,7 +191,7 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
 /* Section chips (Lobby) and tabs (Index phone); Index desktop turns them into a rail. */
 .sh-nav { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 18px; padding: 2px 16px; }
 .sh-nav::-webkit-scrollbar { display: none; }
-.sh-chip { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 13px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.sh-chip { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 13px 1px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .sh-chip:hover { border-color: var(--accent); }
 /* The chosen chip is a selection, as in Zimi: accent glow, accent line, ink text. */
 .sh-chip[aria-pressed="true"] { background: var(--accent-glow); border-color: var(--accent); color: var(--ink); }
