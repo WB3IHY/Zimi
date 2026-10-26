@@ -162,7 +162,7 @@
         note.hidden = !multi;
       }
       for (var i = 0; i < n; i++) (function (i) {
-        var row = el('div', 'gs-row gs-seat-row'), seg = el('div', 'gs-seg'), input = el('input', 'gs-field');
+        var row = el('div', 'gs-row gs-seat-row'), seg = el('div', 'gs-seg'), input = el('input', 'gs-seat-name');
         seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', T('seats.is', { seat: opts.labels ? opts.labels[i] : T('seats.seatN', { n: i + 1 }) }));
         [['cpu', opts.cpuLabel || T('cards.computer')], ['person', T('seats.person')]].forEach(function (k) {
           var b = el('button', 'ar-btn', k[1]); b.type = 'button'; b.dataset.kind = k[0];
