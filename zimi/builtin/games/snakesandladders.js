@@ -286,5 +286,24 @@
     $('wk-stats').textContent = G.vsComputer() && s.w + s.l > 0 ? T('sl.record', { won: s.w, lost: s.l }) : '';
   };
   G.newGame();
+  // Leaving keeps the race: where everyone stands, whose turn it is and how many play; a finished race comes back to its end sheet.
+  function kept() {
+    if (!pos.some(Boolean) && turn === 0) return null;
+    return { pos: pos, turn: turn, count: count, over: !!G.over };
+  }
+  function takeUp(d) {
+    if (!d || !Array.isArray(d.pos) || d.count < 2 || d.count > 4 || d.pos.length !== d.count || d.pos.some(function (n) { return !(n >= 0 && n <= E.LAST); }) || !(d.turn >= 0 && d.turn < d.count)) return false;
+    G.cancel(); G.over = false; busy = false;
+    G.settings.players = String(d.count); count = d.count; seats = seatsFor(count); pos = d.pos.slice(); turn = d.turn;
+    buildBoard(); buildRoster(); drawTokens(); showDie(0, false);
+    if (!d.over) { startTurn(); return true; }
+    G.over = true; paintRoster(); rollBtn.disabled = true;
+    var p = Math.max(0, pos.indexOf(E.LAST)), who = nameOf(p), solo = !seats.hotseat();
+    say(T(seats.isYou(p) ? 'sl.youWin' : 'sl.reaches', { name: who }));
+    root.ZimiShell.endSheet({ result: solo ? (seats.person(p) ? 'win' : 'lose') : 'win', name: solo ? undefined : who, after: 0 });
+    return true;
+  }
+  root.ZimiShell.persist({ save: kept, load: takeUp });
+  root.__slState = function () { return JSON.stringify([pos, turn]); };
   if (new URLSearchParams(location.search).has('debug')) root.__sl = { engine: E, positions: function () { return pos; }, turn: function () { return turn; }, setPositions: function (a) { pos = a.slice(); drawTokens(); paintRoster(); } };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

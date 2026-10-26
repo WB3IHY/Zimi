@@ -117,17 +117,18 @@
     if (settings.opp === 'two') line.say(T('noughts.toPlay', { mark: T('noughts.mark.' + turn) }));
     else line.say(turn === cpu ? T('shell.thinking') : T('noughts.yourTurn'));
   }
-  function end() {
-    var w = winner(board), result, opts = { after: END_AFTER_MS };
+  // replay: a finished game coming back from a save shows its end sheet again without counting twice.
+  function end(replay) {
+    var w = winner(board), result, opts = { after: replay ? 0 : END_AFTER_MS };
     over = true;
     if (w) {
       var mine = settings.opp === 'cpu' ? (w === me ? 'a' : 'b') : (w === 'X' ? 'a' : 'b');
-      stats[mine]++;
+      if (!replay) stats[mine]++;
       if (settings.opp === 'cpu') result = w === me ? 'win' : 'lose';
       else { result = 'win'; opts.name = T('noughts.mark.' + w); }
-    } else { stats.d++; result = 'draw'; }
+    } else { if (!replay) stats.d++; result = 'draw'; }
     opts.result = result;
-    Play.save(STATS_KEY, stats);
+    if (!replay) Play.save(STATS_KEY, stats);
     line.say(T(w ? (settings.opp === 'cpu' ? (w === me ? 'shell.end.win' : 'shell.end.lose') : 'shell.end.wins') : 'shell.end.draw', { name: opts.name })); paint();
     ZimiShell.endSheet(opts);
   }
@@ -172,6 +173,24 @@
     stats: function () { return stats.a + stats.b + stats.d ? [[T('noughts.you'), Play.num(stats.a)], [T('noughts.draws'), Play.num(stats.d)], [T('noughts.computer'), Play.num(stats.b)]] : []; }
   });
 
+  // Leaving keeps the board, whose turn it is and how it was set up; a finished game comes back to its end sheet.
+  function kept() {
+    if (!board.some(Boolean)) return null;
+    return { board: board, turn: turn, over: over, opp: settings.opp, level: settings.level, me: me };
+  }
+  function takeUp(d) {
+    if (!d || !Array.isArray(d.board) || d.board.length !== 9 || (d.opp !== 'cpu' && d.opp !== 'two')) return false;
+    if (timer) timer.cancel();
+    settings.opp = d.opp; settings.level = d.level === 'easy' ? 'easy' : 'hard'; settings.mark = d.me === 'O' ? 'O' : 'X'; save();
+    board = d.board.map(function (m) { return m === 'X' || m === 'O' ? m : null; }); turn = d.turn === 'O' ? 'O' : 'X';
+    me = settings.mark; cpu = settings.opp === 'cpu' ? other(me) : null; over = false;
+    paint();
+    if (winner(board) || full(board)) { end(true); return true; }
+    say();
+    if (cpu && turn === cpu) timer = Play.later(function () { move(bestMove(board, cpu, settings.level, Math.random)); }, CPU_DELAY_MS);
+    return true;
+  }
   build(); begin();
+  ZimiShell.persist({ save: kept, load: takeUp });
   root.__noughts = { get board() { return board; }, get turn() { return turn; } };
 })(this);
