@@ -179,7 +179,7 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
 .sh-search input { width: 100%; height: 36px; padding: 0 12px 0 33px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; -webkit-appearance: none; appearance: none; }
 .sh-search input::placeholder { color: var(--ink3); }
 .sh-search input:focus-visible { outline-offset: 0; border-color: var(--accent); }
-@media (min-width: 700px) { .sh-search input { font-size: 14px; } }
+@media (min-width: 700px) { .sh-search input { font-size: var(--fs-body); } }
 
 /* The view toggle: Zimi's own Home control (list and grid, one pressed). */
 .ar-view-toggle { display: inline-flex; flex: none; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
@@ -233,7 +233,7 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
 [data-sec="search"] .sh-fam, [data-sec="search"] .sh-fam[data-open="true"], [data-sec="search"] .sh-fam .sh-fam-panel, [data-sec="search"] .sh-fam[data-open="true"] .sh-fam-panel { display: contents; }
 [data-sec="search"] .sh-fam .sh-fam-card { display: none; }
 [data-view="index"] .sh-fam-card { box-shadow: none; }
-[data-view="index"] .sh-fam-art { flex: 0 0 96px; width: 96px; height: 54px; aspect-ratio: auto; border-radius: 8px; }
+[data-view="index"] .sh-fam-art { flex: 0 0 96px; width: 96px; height: 54px; aspect-ratio: auto; border-radius: var(--r-chip); }
 [data-view="index"] .sh-fam[data-open="true"] .sh-fam-art { flex-basis: 96px; width: 96px; }
 [data-view="index"] .sh-fam[data-open="true"] .sh-fam-card { margin-bottom: 8px; }
 [data-view="index"] .sh-fam-panel { padding-left: 14px; }
@@ -271,9 +271,9 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
 [data-view="index"] .sh-top { display: block; margin-bottom: 18px; }
 [data-view="index"] .sh-top[hidden] { display: none; }
 [data-view="index"] .ar-games { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-[data-view="index"] .ar-game { flex-direction: row; align-items: center; gap: 12px; padding: 6px 12px 6px 6px; border-radius: 12px; }
+[data-view="index"] .ar-game { flex-direction: row; align-items: center; gap: 12px; padding: 6px 12px 6px 6px; border-radius: var(--r-sheet); }
 [data-view="index"] .ar-game:hover { transform: none; }
-[data-view="index"] .ar-game-art, [data-view="index"] .ar-game-icon { flex: 0 0 96px; width: 96px; height: 54px; aspect-ratio: auto; border-radius: 8px; }
+[data-view="index"] .ar-game-art, [data-view="index"] .ar-game-icon { flex: 0 0 96px; width: 96px; height: 54px; aspect-ratio: auto; border-radius: var(--r-chip); }
 [data-view="index"] .ar-game-icon { padding: 4px; }
 [data-view="index"] .ar-game-text { flex: 1; padding: 0; }
 [data-view="index"] .ar-game-text strong { font-size: 15px; }
@@ -291,7 +291,7 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
   [data-view="index"] .sh-body { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; align-items: start; }
   [data-view="index"] .sh-rail { position: sticky; top: 16px; }
   [data-view="index"] .sh-nav { flex-direction: column; gap: 2px; margin: 0 0 22px; padding: 0; border: 0; overflow: visible; }
-  [data-view="index"] .sh-chip { height: 34px; width: 100%; justify-content: space-between; padding: 0 12px; border: 0; border-radius: 8px; }
+  [data-view="index"] .sh-chip { height: 34px; width: 100%; justify-content: space-between; padding: 0 12px; border: 0; border-radius: var(--r-chip); }
   [data-view="index"] .sh-chip[aria-pressed="true"], [data-view="index"] .sh-chip[aria-pressed="true"]:hover { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
   [data-view="index"] .sh-chip:hover { background: var(--surface); }
   [data-view="index"] .sh-chip-recent:not([hidden]) { display: inline-flex; }
@@ -308,7 +308,7 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
 .ar-foot { margin-top: 32px; color: var(--ink2); font-size: var(--fs-small); }
 
 /* The order control: Zimi's Home sort (a mark, the order it is in; the native select lies over it unseen). */
-.sh-sort-wrap { position: relative; flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 2px 4px; border-radius: 5px; font-size: var(--fs-small); font-weight: 500; color: var(--ink2); cursor: pointer; white-space: nowrap; }
+.sh-sort-wrap { position: relative; flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 2px 4px; border-radius: var(--r-chip); font-size: var(--fs-small); font-weight: 500; color: var(--ink2); cursor: pointer; white-space: nowrap; }
 .sh-sort-wrap[hidden] { display: none; }
 .sh-sort-wrap:hover, .sh-sort-wrap:focus-within { color: var(--ink); }
 .sh-sort-wrap:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -358,7 +358,7 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.22), inset 0 3px 14px rgba(0, 0, 0, 0.3); }
 .ar-table::-webkit-scrollbar { display: none; }
 .ar-table-in { display: flex; width: max-content; margin: 0 auto; padding-right: var(--ov); }
-.ar-box { position: relative; flex: none; display: block; width: var(--bw); margin-right: calc(var(--ov) * -1); padding: 5px; border-radius: 5px; text-decoration: none; color: inherit; background: #f7f2e7;
+.ar-box { position: relative; flex: none; display: block; width: var(--bw); margin-right: calc(var(--ov) * -1); padding: 5px; border-radius: var(--r-chip); text-decoration: none; color: inherit; background: #f7f2e7;
   z-index: var(--z); transform: translateY(var(--dy)) rotate(var(--rot)) scale(var(--s));
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7), 0 3px 0 #b8ad96, 0 5px 9px rgba(0, 0, 0, 0.38), 3px 8px 16px rgba(0, 0, 0, 0.18);
   transition: transform 0.18s cubic-bezier(0.25, 1, 0.5, 1); }

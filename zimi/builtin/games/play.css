@@ -43,7 +43,7 @@
 .pl-pad-l[data-n="3"] { grid-template-areas: "left down right"; }
 .pl-pad-r { grid-area: padr; grid-auto-flow: column; justify-content: end; align-content: end; }
 .pl-pad .pl-key { width: 56px; height: 56px; min-width: 56px; min-height: 56px; padding: 0; font-size: var(--fs-body); }
-.pl-pad .pl-act { width: auto; min-width: 72px; padding: 0 var(--sp-3); border-radius: 28px; }
+.pl-pad .pl-act { width: auto; min-width: 72px; padding: 0 var(--sp-3); border-radius: 999px; }
 .pl-pad [data-pad="up"] { grid-area: up; } .pl-pad [data-pad="down"] { grid-area: down; } .pl-pad [data-pad="left"] { grid-area: left; } .pl-pad [data-pad="right"] { grid-area: right; }
 /* A desktop with a keyboard and a mouse has no use for the pad. */
 @media (min-width: 700px) and (pointer: fine) { .pl-pad { display: none; } }

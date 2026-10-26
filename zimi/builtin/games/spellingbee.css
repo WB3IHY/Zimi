@@ -19,7 +19,7 @@
 .bee-hex.mid:active polygon { filter: brightness(0.92); fill: var(--accent); }
 .bee-hex:focus-visible polygon { stroke: var(--accent); stroke-width: 4; }
 .bee-hex.mid:focus-visible polygon { stroke: var(--ink); }
-.bee-hex span { position: relative; display: grid; place-items: center; height: 100%; font: 700 28px/1 var(--font); text-transform: uppercase; color: var(--ink); }
+.bee-hex span { position: relative; display: grid; place-items: center; height: 100%; font: 700 var(--fs-brand)/1 var(--font); text-transform: uppercase; color: var(--ink); }
 .bee-hex.mid span { color: var(--accent-ink); }
 .bee-found { width: 100%; border: 1px solid var(--line); border-radius: var(--r-sheet); background: var(--surface2); }
 .bee-found summary { display: flex; align-items: center; min-height: 44px; padding: 0 14px; cursor: pointer; font-size: var(--fs-body); }

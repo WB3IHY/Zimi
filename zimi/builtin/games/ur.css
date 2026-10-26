@@ -16,7 +16,7 @@
 .ur-pc.b { fill: var(--ur-blue); stroke: var(--ur-blue-lo); } .ur-pc.r { fill: var(--ur-red); stroke: var(--ur-red-lo); }
 .ur-pc { stroke-width: 3; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.4)); }
 .ur-pc-ring { fill: none; stroke: var(--disc-w); stroke-opacity: 0.55; stroke-width: 3; }
-.ur-pt { border-radius: 8px; }
+.ur-pt { border-radius: var(--r-chip); }
 
 .ur-dice { display: flex; align-items: center; gap: 10px; min-height: 58px; }
 .ur-die { width: 48px; height: 48px; }

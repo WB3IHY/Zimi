@@ -7,9 +7,9 @@
 .ld-opp .ld-dots { display: flex; gap: 3px; min-height: 14px; align-items: center; }
 .ld-opp .ld-dots i { width: 12px; height: 12px; border-radius: 3px; background: var(--ink2); }
 .ld-opp small { color: var(--ink2); min-height: 1.2em; }
-.ld-bid { width: 100%; max-width: 440px; padding: 10px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; background: var(--surface); }
+.ld-bid { width: 100%; max-width: 440px; padding: 10px; text-align: center; border: 1px dashed var(--line); border-radius: var(--r-sheet); background: var(--surface); }
 .ld-bid small { display: block; color: var(--ink2); }
-.ld-bidrow { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 54px; font: 700 30px var(--mono); }
+.ld-bidrow { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 54px; font: 700 var(--fs-display) var(--mono); }
 .ld-bidrow .pl-die { --die-size: 44px; cursor: default; }
 .ld-ctl { display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .ld-qty { min-width: 2ch; text-align: center; font: 700 26px var(--mono); }

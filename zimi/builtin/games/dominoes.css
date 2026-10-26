@@ -37,7 +37,7 @@
 
 .dm-mine { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; }
 .dm-hand { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: calc(var(--dm-hs) * 2 + 8px); }
-.dm-card { padding: 3px; border: 2px solid transparent; border-radius: 9px; background: transparent; cursor: pointer; }
+.dm-card { padding: 3px; border: 2px solid transparent; border-radius: var(--radius); background: transparent; cursor: pointer; }
 .dm-card:disabled, .dm-card[aria-disabled="true"] { cursor: default; opacity: 0.5; }
 .dm-card.can { border-color: color-mix(in srgb, var(--select-ring) 55%, transparent); }
 .dm-card.sel { border-color: var(--select-ring); background: color-mix(in srgb, var(--select-ring) 25%, transparent); transform: translateY(-4px); }

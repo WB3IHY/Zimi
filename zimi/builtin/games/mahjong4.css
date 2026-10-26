@@ -9,7 +9,7 @@
 .m4-info { margin: 0; font-size: var(--fs-small); color: var(--ink2); text-align: center; }
 .bg-score { flex-wrap: wrap; justify-content: center; gap: 6px 10px; font-size: var(--fs-small); }
 .m4-opps { width: 100%; display: grid; gap: 4px; }
-.m4-opp { display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 3px 8px; border-radius: 8px; background: var(--m4-cloth); color: var(--disc-w); box-shadow: inset 0 0 0 1px var(--m4-cloth-deep); }
+.m4-opp { display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 3px 8px; border-radius: var(--r-chip); background: var(--m4-cloth); color: var(--disc-w); box-shadow: inset 0 0 0 1px var(--m4-cloth-deep); }
 .m4-opp.turn { box-shadow: inset 0 0 0 2px var(--select-ring); }
 .m4-opp .nm { flex: none; min-width: 7.5em; font: 650 var(--fs-small) var(--font); }
 .m4-opp .row { display: flex; flex-wrap: wrap; gap: 1px; align-items: center; }
@@ -46,7 +46,7 @@
 .m4-hand .m4-t:disabled:not(.pick) { filter: none; }
 
 .m4-result h3 { margin: 12px 0 4px; font-size: var(--fs-body); }
-.m4-result .tiles { display: flex; flex-wrap: wrap; gap: 1px; align-items: flex-end; padding: 6px; border-radius: 8px; background: var(--m4-cloth); }
+.m4-result .tiles { display: flex; flex-wrap: wrap; gap: 1px; align-items: flex-end; padding: 6px; border-radius: var(--r-chip); background: var(--m4-cloth); }
 .m4-result table, .m4-rules table { width: 100%; border-collapse: collapse; font-size: var(--fs-body); }
 .m4-result td, .m4-rules td, .m4-rules th { padding: 3px 4px; border-bottom: 1px solid var(--line); text-align: left; }
 .m4-result td.n, .m4-rules td.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }

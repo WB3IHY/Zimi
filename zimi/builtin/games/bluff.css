@@ -4,7 +4,7 @@
 .bl-card { width: 100%; padding: 16px; border: 1px solid var(--line); border-radius: var(--r-sheet); background: var(--surface2); display: grid; gap: 12px; }
 .bl-card p { margin: 0; }
 .bl-label { font-size: var(--fs-small); font-weight: 600; color: var(--accent); }
-.bl-word { font-size: 30px; font-weight: 700; line-height: 1.1; overflow-wrap: anywhere; }
+.bl-word { font-size: var(--fs-display); font-weight: 700; line-height: 1.1; overflow-wrap: anywhere; }
 .bl-field { width: 100%; min-height: 88px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-body); resize: vertical; }
 .bl-field:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .bl-counter { font-size: var(--fs-small); color: var(--ink2); text-align: end; }

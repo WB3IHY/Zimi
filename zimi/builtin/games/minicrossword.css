@@ -1,15 +1,16 @@
 /* Mini Crossword: the grid, the clue, the keys. Shared tokens: games.css, play.css, library.css.
-   The paper and the black squares are materials, so they are the one place hex belongs (as a board's wood is). */
-:root { --cw-paper: #fbfaf6; --cw-block: #26241f; --cw-rule: #8c826f; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --cw-paper: #2b2b31; --cw-block: #050506; --cw-rule: #55555d; } }
-:root[data-theme="dark"] { --cw-paper: #2b2b31; --cw-block: #050506; --cw-rule: #55555d; }
+   The paper, the black squares and the rules are the palette's own: surface, ink and line in light, and in dark the
+   paper a step above the panel, the black squares the ground, the rules ink mixed into the panel. */
+:root { --cw-paper: var(--surface); --cw-block: var(--ink); --cw-rule: var(--line-strong); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --cw-paper: color-mix(in srgb, var(--ink) 8%, var(--surface2)); --cw-block: var(--ground); --cw-rule: color-mix(in srgb, var(--ink) 30%, var(--surface2)); } }
+:root[data-theme="dark"] { --cw-paper: color-mix(in srgb, var(--ink) 8%, var(--surface2)); --cw-block: var(--ground); --cw-rule: color-mix(in srgb, var(--ink) 30%, var(--surface2)); }
 .cw-main { width: min(420px, 100%); margin: 0 auto; }
 .cw-clue { width: 100%; min-height: 2.9em; margin: 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface2); font-size: var(--fs-body); line-height: 1.35; }
 .cw-clue b { color: var(--accent); margin-inline-end: 6px; }
 .cw-grid { --cell: 60px; display: grid; grid-template-columns: repeat(5, var(--cell)); gap: 2px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-sheet); background: var(--surface2); }
 .cw-cell, .cw-block { position: relative; width: var(--cell); height: var(--cell); }
 .cw-block { border-radius: 4px; background: var(--cw-block); }
-.cw-cell { display: grid; place-items: center; padding: 0; border: 1px solid var(--cw-rule); border-radius: 4px; background: var(--cw-paper); color: var(--ink); font: 700 28px/1 var(--font); text-transform: uppercase; cursor: pointer; touch-action: manipulation; }
+.cw-cell { display: grid; place-items: center; padding: 0; border: 1px solid var(--cw-rule); border-radius: 4px; background: var(--cw-paper); color: var(--ink); font: 700 var(--fs-brand)/1 var(--font); text-transform: uppercase; cursor: pointer; touch-action: manipulation; }
 .cw-cell .cw-n { position: absolute; top: 2px; left: 4px; font: 600 11px/1 var(--font); color: var(--ink2); }
 .cw-cell.in-word { background: var(--accent-glow); border-color: var(--accent-line); }
 .cw-cell.sel { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }

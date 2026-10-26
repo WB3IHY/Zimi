@@ -28,13 +28,13 @@
 .sg-pc.up text { fill: var(--sg-promo); }
 .sg-pc.small text { font-size: 21px; }
 
-.sg-hand { display: flex; gap: 4px; justify-content: center; width: var(--sgs); min-height: 50px; padding: 3px; border-radius: 8px; background: color-mix(in srgb, var(--sg-wood) 40%, transparent); border: 1px solid var(--line); }
+.sg-hand { display: flex; gap: 4px; justify-content: center; width: var(--sgs); min-height: 50px; padding: 3px; border-radius: var(--r-chip); background: color-mix(in srgb, var(--sg-wood) 40%, transparent); border: 1px solid var(--line); }
 .sg-hand.active { box-shadow: 0 0 0 2px var(--accent); }
 .sg-h { position: relative; flex: 1 1 0; max-width: 52px; min-width: 0; height: 44px; padding: 0; display: grid; place-items: center; border: 1px solid transparent; border-radius: 6px; background: transparent; cursor: pointer; }
 .sg-h:disabled { cursor: default; opacity: 0.28; }
 .sg-h.sel { background: var(--sel); border-color: var(--select-ring); }
 .sg-h .sg-pc { width: 34px; height: 38px; }
-.sg-h b { position: absolute; right: 0; bottom: 0; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--ink); color: var(--surface); font: 700 var(--fs-caption)/17px var(--mono); text-align: center; }
+.sg-h b { position: absolute; right: 0; bottom: 0; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: var(--ink); color: var(--surface); font: 700 var(--fs-caption)/17px var(--mono); text-align: center; }
 .sg-h:disabled b { visibility: hidden; }
 
 .sg-moves { max-height: 66px; overflow: auto; line-height: 1.7; }
