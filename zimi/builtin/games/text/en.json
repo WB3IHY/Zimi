@@ -359,7 +359,7 @@
  "canasta.firstMeld": "first meld {have}/{n}",
  "canasta.firstMeldParen": "(first meld {have}/{n})",
  "canasta.firstNeeds": "(first meld needs {n})",
- "canasta.frozenHint": "(frozen: pick a natural pair that matches the top card)",
+ "canasta.frozenHint": "(frozen: needs a natural pair)",
  "canasta.goal": "Goal",
  "canasta.line.canastas": "Canastas {n}",
  "canasta.line.hand": "Cards left in hand -{n}",

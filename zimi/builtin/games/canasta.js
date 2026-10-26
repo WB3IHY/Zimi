@@ -443,7 +443,7 @@
       tags.forEach(function (e) { e.remove(); }); tags = [];
       var add = function (txt, x, y, w, cls) { if (!txt) return; var e = Z.h('div', { class: 'c2-tag ' + (cls || ''), style: 'left:' + Math.round(x) + 'px;top:' + Math.round(y) + 'px;width:' + Math.round(w) + 'px;height:' + (TAG_H - 1) + 'px' }, [Z.h('span', { text: txt })]); table.appendChild(e); tags.push(e); };
       [0, 1].forEach(function (side) {
-        st.melds[side].forEach(function (mm, k) { var sp = meldSpot(g, side, k); add(meldTag(mm), sp.x, sp.y + g.ch + 1, g.cw * CELL_SHARE - 3, isCanasta(mm) ? 'c2-turn' : ''); });
+        st.melds[side].forEach(function (mm, k) { var sp = meldSpot(g, side, k); add(meldTag(mm), sp.x, sp.y + g.ch + 1, g.cw * CELL_SHARE - 3, 'c2-meld' + (isCanasta(mm) ? ' c2-turn' : '')); });
       });
       var gap = Math.round(g.cw * PILE_GAP), sx = Math.round(g.cx - g.cw - gap / 2), px = Math.round(g.cx + gap / 2), w = Math.round(g.cw * TAG_SHARE), off = (w - g.cw) / 2;
       add(TX('canasta.tag.stock', { n: st.stock.length }), sx - off, g.centreY + g.ch + 2, w);
