@@ -194,30 +194,11 @@
 
   // ── The page ────────────────────────────────────────────────────────────
   function boot() {
-    var el = Z.pageEls(), board, session;
-    el.sub = Z.factLine(el.table);
-    Z.ensureSprite();
+    var page, session, board;
     var suits = Z.store.get(SUITS_KEY, 1);
     if (!SUIT_SETS[suits]) suits = 1;
 
-    function setSub() { el.sub.textContent = ''; }   // the pill is only for the stock's refusal; the suits are in the Menu
-    function commit(next) {
-      session.commit(next);
-      if (isWon(session.state)) session.win(session.state.score);
-      return true;
-    }
-    function move(pile, idx, to) {
-      if (!legalMove(session.state, pile, idx, to)) return false;
-      return commit(applyMove(session.state, pile, idx, to));
-    }
-    function deal() {
-      var next = dealRow(session.state);
-      if (!next) {
-        if (session.state.piles.stock.length) { board.say(TX('spider.refuse')); el.sub.textContent = TX('spider.refuse'); session.later(setSub, 2200); }
-        return false;
-      }
-      return commit(next);
-    }
+    function setSub() { page.el.sub.textContent = ''; }   // the pill is only for the stock's refusal; the suits are in the Menu
     function newGame() {
       setSub();
       session.stats = Z.createStats('spider' + suits);
@@ -225,44 +206,29 @@
       if (session.state.suits !== suits) { suits = session.state.suits; session.stats = Z.createStats('spider' + suits); setSub(); }   // a game taken up again keeps its suits
     }
 
-    board = Z.createBoard({
-      table: el.table, cols: COLS, tight: true, place: place, canPick: canPick, move: move,
-      tap: function (pile, idx) {
-        if (pile === 'stock') return deal();
-        var to = bestMove(session.state, pile, idx);
-        return to ? move(pile, idx, to) : false;
+    page = Z.solitairePage({
+      rules: api, id: 'spider' + suits, saveId: 'spider', fact: true, place: place, cols: COLS, newGame: newGame, stock: dealRow,
+      score: function (st) { return st.score; },
+      refuse: function (st) {
+        if (st.piles.stock.length) { board.say(TX('spider.refuse')); page.el.sub.textContent = TX('spider.refuse'); session.later(setSub, 2200); }
       },
-      slotTap: function (pile) { if (pile === 'stock') deal(); }
-    });
-    session = Z.createSession({
-      id: 'spider' + suits, saveId: 'spider', board: board, newGame: newGame, els: el,
       statText: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.score; },
       cascadeOrder: function (st) {
         var order = [], i;
         for (i = 0; i < Z.KING; i++) DONE.forEach(function (d) { if (st.piles[d][i] !== undefined) order.push({ id: st.piles[d][i] }); });
         return order;
       },
-      winLines: function (sec, st) { return [TX('spider.win', { score: st.score, suits: TX('spider.suits', { n: st.suits }) }), TX('sol.winTime', { time: Z.fmtTime(sec), moves: Z.plural(st.moves, 'move') })]; },
+      winLines: function (sec, st) { return [TX('spider.win', { score: st.score, suits: TX('spider.suits', { n: st.suits }) }), Z.winTime(sec, st)]; },
       openMenu: function () {
         var pick = Z.segmented([{ label: TX('spider.suits', { n: 1 }), value: 1 }, { label: TX('spider.suits', { n: 2 }), value: 2 }, { label: TX('spider.suits', { n: 4 }), value: 4 }], suits, function (v) {
           suits = v; Z.store.set(SUITS_KEY, v);
           if (!session.state.moves) newGame(); else setSub();
         });
-        Z.sheet({
-          title: 'Spider',
-          body: [
-            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('spider.suitsRow') }), pick]),
-            Z.h('p', { class: 'zc-note', text: TX('spider.nextDeal') }),
-            Z.backsRow(),
-            Z.h('p', { class: 'zc-stats', text: session.stats.line() })
-          ],
-          actions: [{ label: TX('shell.menu.new'), onclick: newGame }, { label: TX('shell.close'), primary: true }]
-        });
+        page.menu('Spider', [Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('spider.suitsRow') }), pick]), Z.h('p', { class: 'zc-note', text: TX('spider.nextDeal') })]);
       }
     });
-    api.session = session; api.board = board;
-    newGame();
-    if (/[?&]debug=win/.test(root.location.search)) session.reset(almostWon());
+    session = page.session; board = page.board;
+    page.start();
   }
 
   if (root.document && root.document.getElementById('zc-table')) boot();
