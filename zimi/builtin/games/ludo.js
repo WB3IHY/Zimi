@@ -118,12 +118,12 @@
   };
   root.LudoEngine = Engine;
 
-  if (typeof document === 'undefined') return;
+  if (typeof document === 'undefined' || !root.BoardUI) return;
 
   // ═══════════ the page ═══════════
-  var BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  var BK = root.BoardKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var SETTINGS_KEY = 'ludo.settings', STATS_KEY = 'ludo.stats', SVG_NS = 'http://www.w3.org/2000/svg';
-  var COLORS = ['#d32f2f', '#2e9e4f', '#f2b01e', '#1e63c9'], TINTS = ['#f6c9c9', '#c8e8d1', '#fbe6ae', '#c3d6f4'];
+  var COLORS = ['#d32f2f', '#2e9e4f', '#f2b01e', '#1e63c9'], TINTS = ['#f6c9c9', '#c8e8d1', '#fbe6ae', '#c3d6f4'], COLOR_IDS = ['red', 'green', 'yellow', 'blue'];
   var MAX_TRIES = 3;
   var ROLL_FRAMES = 7, ROLL_FRAME_MS = 70, STEP_MS = 120, AUTO_MOVE_MS = 520, COMPUTER_ROLL_MS = 650, COMPUTER_MOVE_MS = 600, PASS_MS = 1100;
   var FINISH = [[6.6, 7.5], [7.5, 6.6], [8.4, 7.5], [7.5, 8.4]], FINISH_GAP = 0.56, FINISH_SCALE = 0.55;   // [x, y] where a colour's home tokens sit
@@ -132,7 +132,6 @@
   if ([2, 3, 4].indexOf(settings.count) < 0) settings.count = 4;
   if (!LEVELS[settings.level]) settings.level = 'medium';
   if (!Array.isArray(settings.humans)) settings.humans = [true, false, false, false];
-  if (settings.hints !== false) settings.hints = true;
   var stats = BK.load(STATS_KEY, {});
 
   var svg = $('ld-svg'), tokenLayer, state, phase = 'roll', die = 0, legal = [], over = false, anim = null, timer = 0, tokenEls = [], dieEl = $('ld-die');
@@ -140,7 +139,8 @@
 
   function isHuman(seat) { return !!settings.humans[seat]; }
   function colorOf(seat) { return state.seats[seat]; }
-  function seatName(seat) { return COLOR_NAMES[colorOf(seat)]; }
+  function colorName(c) { return UI.side(COLOR_IDS[c]); }
+  function seatName(seat) { return colorName(colorOf(seat)); }
   function humansCount() { return state.seats.filter(function (c, s) { return isHuman(s); }).length; }
   function el(name, attrs, parent) {
     var e = document.createElementNS(SVG_NS, name);
@@ -214,7 +214,8 @@
       var g = el('g', { class: 'ld-token' + (mv ? ' can' : '') + (anim && anim.seat === tk.seat && anim.token === tk.t ? ' moving' : ''), transform: 'translate(' + (tk.xy[0] + d.dx) + ',' + (tk.xy[1] + d.dy) + ')' }, tokenLayer);
       if (mv) {
         g.setAttribute('role', 'button'); g.setAttribute('tabindex', '0');
-        g.setAttribute('aria-label', COLOR_NAMES[color] + ' token ' + (tk.t + 1) + (mv.exits ? ', leave home' : ', move ' + die) + (mv.captures.length ? ', captures' : ''));
+        var label = T(mv.exits ? 'ludo.token.exit' : 'ludo.token.move', { color: colorName(color), t: tk.t + 1, n: die });
+        g.setAttribute('aria-label', mv.captures.length ? T('ludo.withCapture', { label: label }) : label);
         g.addEventListener('click', function () { choose(mv); });
         g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(mv); } });
         el('circle', { r: 0.78, class: 'ld-hit' }, g);
@@ -237,7 +238,7 @@
       var dot = document.createElement('i');
       dot.className = 'ld-swatch'; dot.style.background = COLORS[color]; dot.setAttribute('aria-hidden', 'true');
       s.appendChild(dot);
-      s.appendChild(document.createTextNode(COLOR_NAMES[color] + (isHuman(seat) ? '' : ' (cpu)') + ' '));
+      s.appendChild(document.createTextNode(colorName(color) + (isHuman(seat) || humansCount() < 2 ? '' : ' ' + T('ludo.cpu')) + ' '));
       var b = document.createElement('b'); b.textContent = homeCount(state, seat) + '/' + TOKENS;
       s.appendChild(b); box.appendChild(s);
     });
@@ -253,20 +254,17 @@
   function setDieState() {
     var canRoll = phase === 'roll' && !over && isHuman(state.turn);
     dieEl.disabled = !canRoll;
-    dieEl.setAttribute('aria-label', canRoll ? 'Roll the die' : 'Die showing ' + (die || 'nothing'));
+    dieEl.setAttribute('aria-label', canRoll ? T('ludo.rollDie') : die ? T('ludo.dieShows', { n: die }) : T('ludo.dieNone'));
     dieEl.classList.toggle('ready', canRoll);
-    $('ld-die-hint').textContent = canRoll ? 'Roll' : '';
+    $('ld-die-hint').textContent = canRoll ? T('backgammon.roll') : '';
   }
 
-  function say(text, busy) {
-    var s = $('ld-status');
-    s.textContent = '';
-    if (busy) { var sp = document.createElement('span'); sp.className = 'bg-spin'; s.appendChild(sp); }
-    if (!over) { var d = document.createElement('i'); d.className = 'ld-swatch'; d.style.background = COLORS[colorOf(state.turn)]; d.setAttribute('aria-hidden', 'true'); s.appendChild(d); }
-    s.appendChild(document.createTextNode(text));
-  }
+  var line = UI.status($('ld-status'));
+  function say(text, busy) { line.turn(text, !!busy); }
   function render() { paintTokens(); paintScores(); setDieState(); }
-  function who(seat) { return humansCount() > 1 || !isHuman(seat) ? seatName(seat) : 'You'; }
+  function isYou(seat) { return humansCount() === 1 && isHuman(seat); }
+  // A sentence about a seat: its "you" form when the seat is the one person playing (verbs agree).
+  function about(key, seat, vars) { return T(key + (isYou(seat) ? '.you' : ''), Object.assign({ name: seatName(seat) }, vars)); }
 
   // ── turns ──
   function startTurn() {
@@ -274,8 +272,8 @@
     phase = 'roll'; die = 0; legal = [];
     render();
     var seat = state.turn;
-    if (isHuman(seat)) say((humansCount() > 1 ? seatName(seat) + ', roll' : 'Your turn, roll') + ' the die');
-    else { say(seatName(seat) + ' is rolling', true); timer = setTimeout(function () { roll(); }, humansCount() ? COMPUTER_ROLL_MS : 300); }
+    if (isHuman(seat)) say(T(humansCount() > 1 ? 'ludo.rollTurn' : 'ludo.yourTurn', { name: seatName(seat) }));
+    else { say(T('ludo.rolling', { name: seatName(seat) }), true); timer = setTimeout(function () { roll(); }, humansCount() ? COMPUTER_ROLL_MS : 300); }
   }
   function nextSeat() { state.turn = (state.turn + 1) % state.seats.length; state.sixes = 0; state.tries = 0; }
 
@@ -293,7 +291,7 @@
     var seat = state.turn;
     if (die === EXIT_ROLL) state.sixes++; else state.sixes = 0;
     if (state.sixes >= MAX_SIXES) {
-      say(who(seat) + ' rolled a third six in a row, and loses the turn');
+      say(about('ludo.thirdSix', seat));
       timer = setTimeout(function () { nextSeat(); startTurn(); }, PASS_MS); return;
     }
     legal = legalMoves(state, seat, die);
@@ -301,7 +299,8 @@
       var waiting = state.tokens[seat].every(function (p) { return p === -1 || p === HOME; });   // nothing on the board: three tries to roll a six
       var again = die === EXIT_ROLL || (waiting && state.tries < MAX_TRIES - 1);
       if (waiting && die !== EXIT_ROLL) state.tries++;
-      say(who(seat) + ' rolled ' + die + ' and cannot move.' + (again ? ' Roll again.' : ''));
+      var note = about('ludo.cannot', seat, { n: die });
+      say(again ? T('janggi.noted', { note: note, line: T('ludo.rollAgain') }) : note);
       timer = setTimeout(function () { if (again) startTurn(); else { nextSeat(); startTurn(); } }, PASS_MS); return;
     }
     phase = 'move';
@@ -310,11 +309,11 @@
     var options = Object.keys(distinct);
     if (isHuman(seat)) {
       render();
-      if (options.length === 1) { say('Rolled ' + die + ', moving'); timer = setTimeout(function () { choose(distinct[options[0]]); }, AUTO_MOVE_MS); }
-      else say('Rolled ' + die + ', pick a token to move');
+      if (options.length === 1) { say(T('ludo.moving', { n: die })); timer = setTimeout(function () { choose(distinct[options[0]]); }, AUTO_MOVE_MS); }
+      else say(T('ludo.pick', { n: die }));
     } else {
       render();
-      say(seatName(seat) + ' rolled ' + die);
+      say(T('ludo.cpuRolled', { name: seatName(seat), n: die }));
       timer = setTimeout(function () { choose(chooseMove(state, seat, die, settings.level)); }, COMPUTER_MOVE_MS);
     }
   }
@@ -334,79 +333,77 @@
       render();
       if (state.winner >= 0) { finish(state.winner); return; }
       var extra = die === EXIT_ROLL;
-      if (mv.captures.length) say(who(seat) + ' sent ' + mv.captures.map(function (c) { return seatName(c.seat); }).join(' and ') + ' home');
+      if (mv.captures.length) say(about('ludo.sent', seat, { list: list(mv.captures.map(function (c) { return seatName(c.seat); })) }));
       timer = setTimeout(function () { if (!extra) nextSeat(); startTurn(); }, mv.captures.length ? PASS_MS * 0.7 : 220);
     }
     step();
   }
   var last = null;
+  function list(names) { return root.Intl && Intl.ListFormat ? new Intl.ListFormat(root.ZimiText && root.ZimiText.lang ? root.ZimiText.lang() : undefined, { type: 'conjunction' }).format(names) : names.join(', '); }
 
   function finish(winner) {
     over = true; clearTimeout(timer); phase = 'roll';
-    var msg = humansCount() === 1 ? (isHuman(winner) ? 'You win.' : seatName(winner) + ' (computer) wins.') : seatName(winner) + (isHuman(winner) ? '' : ' (computer)') + ' wins.';
-    var humans = state.seats.map(function (c, s) { return s; }).filter(isHuman);
+    var one = humansCount() === 1, text = T(one ? (isHuman(winner) ? 'ludo.win.you' : 'ludo.win.cpu') : (isHuman(winner) ? 'ludo.win' : 'ludo.win.cpu'), { name: seatName(winner) });
+    var humans = state.seats.map(function (c, sx) { return sx; }).filter(isHuman);
     if (humans.length === 1) {
       var k = settings.count + '.' + settings.level, st = stats[k] = stats[k] || { w: 0, l: 0 };
       if (winner === humans[0]) st.w++; else st.l++;
       BK.save(STATS_KEY, stats);
     }
-    render(); say(msg); showStats();
-    $('ld-result-text').textContent = msg;
-    resultSheet.open($('ld-again'));
+    render(); say(text); showStats();
+    UI.end({ result: one ? (isHuman(winner) ? 'win' : 'lose') : 'win', name: one ? undefined : seatName(winner), text: text });
   }
-  function showStats() {
+  function recordLine() {
     var s = stats[settings.count + '.' + settings.level];
-    $('ld-stats').textContent = humansCount() === 1 ? 'vs ' + settings.level + ', ' + settings.count + ' players: ' + (s ? s.w : 0) + ' won, ' + (s ? s.l : 0) + ' lost' : '';
+    return humansCount() === 1 && s && s.w + s.l ? T('ludo.record', { level: levelLabel(), n: settings.count, won: s.w, lost: s.l }) : '';
   }
+  function levelLabel() { return T('board.level.' + settings.level); }
+  function showStats() { $('ld-stats').textContent = recordLine(); }
 
   function newGame() {
     clearTimeout(timer);
     state = newState(settings.count); state.tries = 0; over = false; anim = null; last = null; die = 0; paintDie(0);
-    resultSheet.close(); showStats();
+    showStats();
     startTurn();
   }
 
   // ── controls ──
   dieEl.addEventListener('click', roll);
-  var menu = BK.sheet($('ld-sheet')), resultSheet = BK.sheet($('ld-result'));
-  function buildSeatRows() {
-    var box = $('ld-seats'), count = +BK.chipValue($('ld-f-count')) || settings.count;
-    box.textContent = '';
-    SEATINGS[count].forEach(function (color, s) {
-      var row = document.createElement('div'); row.className = 'ld-seat';
-      var dot = document.createElement('i'); dot.className = 'ld-swatch'; dot.style.background = COLORS[color];
-      var name = document.createElement('span'); name.textContent = COLOR_NAMES[color];
-      var chips = document.createElement('div'); chips.className = 'bg-chips'; chips.dataset.seat = s;
-      [['human', 'Person'], ['cpu', 'Computer']].forEach(function (o) {
-        var lab = document.createElement('label'), inp = document.createElement('input'), sp = document.createElement('span');
-        lab.className = 'bg-chip'; inp.type = 'radio'; inp.name = 'ld-seat-' + s; inp.value = o[0];
-        inp.checked = (o[0] === 'human') === !!settings.humans[s];
-        sp.textContent = o[1]; lab.appendChild(inp); lab.appendChild(sp); chips.appendChild(lab);
-      });
-      row.appendChild(dot); row.appendChild(name); row.appendChild(chips); box.appendChild(row);
+  // Menu > New game: the player count, who plays each colour, the level. Nothing applies until New game is pressed.
+  var draft = null, seatsBox = null;
+  function seatRows() {
+    seatsBox.textContent = '';
+    SEATINGS[draft.count].forEach(function (color, sx) {
+      var r = UI.row(T('ludo.seat', { color: colorName(color) }), [['human', T('ludo.person')], ['cpu', T('board.computer')]], draft.humans[sx] ? 'human' : 'cpu', function (v) { draft.humans[sx] = v === 'human'; });
+      seatsBox.appendChild(r.el);
     });
   }
-  function syncMenu() { BK.chipSet($('ld-f-count'), settings.count); BK.chipSet($('ld-f-level'), settings.level); buildSeatRows(); }
-  $('ld-new').addEventListener('click', function () { syncMenu(); menu.open(); });
-  $('ld-f-count').addEventListener('change', buildSeatRows);
-  $('ld-cancel').addEventListener('click', menu.close);
-  $('ld-start').addEventListener('click', function () {
-    settings.count = +BK.chipValue($('ld-f-count')); settings.level = BK.chipValue($('ld-f-level'));
-    Array.prototype.forEach.call($('ld-seats').querySelectorAll('.bg-chips'), function (g) { settings.humans[+g.dataset.seat] = BK.chipValue(g) === 'human'; });
-    BK.save(SETTINGS_KEY, settings);
-    menu.close(); newGame();
+  function menuOptions() {
+    draft = { count: settings.count, level: settings.level, humans: settings.humans.slice() };
+    seatsBox = document.createElement('div'); seatsBox.className = 'gs-options';
+    var count = UI.row(T('ludo.players'), [[2, '2'], [3, '3'], [4, '4']], draft.count, function (v) { draft.count = +v; seatRows(); });
+    var level = UI.row(T('ludo.level'), [['easy', T('board.level.easy')], ['medium', T('board.level.medium')], ['hard', T('board.level.hard')]], draft.level, function (v) { draft.level = v; });
+    seatRows();
+    return UI.options([count, seatsBox, level]);
+  }
+  $('ld-new').addEventListener('click', function () {
+    if (draft) { settings.count = draft.count; settings.level = draft.level; settings.humans = draft.humans; draft = null; BK.save(SETTINGS_KEY, settings); }
+    newGame();
   });
-  $('ld-again').addEventListener('click', newGame);
-  $('ld-close').addEventListener('click', function () { resultSheet.close(); });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet,input')) return;
     var k = e.key.toLowerCase();
-    if (k === 'n') { syncMenu(); menu.open(); }
+    if (k === 'n') { if (root.ZimiShell) root.ZimiShell.openMenu(); }
     else if ((k === 'r' || (e.key === ' ' && e.target === document.body)) && phase === 'roll' && isHuman(state.turn) && !over) { e.preventDefault(); roll(); }
     else if (k >= '1' && k <= '4' && phase === 'move' && isHuman(state.turn)) {
       var mv = legal.filter(function (m) { return m.token === +k - 1; })[0];
       if (mv) choose(mv);
     }
+  });
+  if (root.ZimiShell) root.ZimiShell.game({
+    menu: menuOptions,
+    stats: function () { var l = recordLine(); return l ? [l] : []; },
+    inProgress: function () { return !over && !!last; }
   });
 
   buildBoard(); paintDie(0);

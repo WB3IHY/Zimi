@@ -154,28 +154,35 @@
   };
   root.ChineseCheckersEngine = Engine;
 
-  if (typeof document === 'undefined') return;
+  if (typeof document === 'undefined' || !root.BoardUI) return;
 
   // ═══════════ the page ═══════════
-  var BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  var BK = root.BoardKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var SETTINGS_KEY = 'chinesecheckers.settings', STATS_KEY = 'chinesecheckers.stats';
   var SVG_NS = 'http://www.w3.org/2000/svg';
   var HOLE_R = 0.43, MARBLE_R = 0.41, SNAP = 0.8, PAD = 0.9;
   var COMPUTER_DELAY_MS = 380, FAST_DELAY_MS = 140;
-  var MARBLE_COLORS = ['#d32f2f', '#f2b01e', '#2e9e4f', '#1e63c9', '#2b2f36', '#f3efe4'];
+  var MARBLE_COLORS = ['#d32f2f', '#f2b01e', '#2e9e4f', '#1e63c9', '#2b2f36', '#f3efe4'], COLOR_IDS = ['red', 'yellow', 'green', 'blue', 'black', 'white'];
 
   var settings = BK.load(SETTINGS_KEY, {});
   if ([2, 3, 4, 6].indexOf(settings.count) < 0) settings.count = 2;
   if (!LEVELS[settings.level]) settings.level = 'medium';
   if (!Array.isArray(settings.humans)) settings.humans = [true, false, false, false, false, false];
-  if (settings.hints !== false) settings.hints = true;
   var stats = BK.load(STATS_KEY, {});
 
   var svg = $('cc-svg'), layer, holes = [], state, history = [], over = false, sel = -1, targets = {}, lastPath = null, cursor = 0, timer = 0;
   var hasHuman = true;
 
   function isHuman(seat) { return !!settings.humans[seat]; }
-  function seatName(seat) { return COLOR_NAMES[state.seats[seat]]; }
+  function colorName(camp) { return UI.side(COLOR_IDS[camp]); }
+  function seatName(seat) { return colorName(state.seats[seat]); }
+  // Show where a marble can go is the shell's Hints setting (Menu > Settings), not a New game option.
+  function hintsOn() { return !root.ZimiShell || root.ZimiShell.settings.get('hints') !== 'off'; }
+  function peopleCount() { return settings.humans.slice(0, settings.count).filter(Boolean).length; }
+  function isYou(seat) { return peopleCount() === 1 && isHuman(seat); }
+  // A sentence about a seat: its "you" form when the seat is the one person playing (verbs agree).
+  function about(key, seat, vars) { return T(key + (isYou(seat) ? '.you' : ''), Object.assign({ name: seatName(seat) }, vars)); }
+  function turnLine(seat) { return T(peopleCount() > 1 ? 'board.toMove' : 'board.yourTurn', { name: seatName(seat) }); }
   function colorOf(seat) { return MARBLE_COLORS[state.seats[seat]]; }
 
   function el(name, attrs, parent) {
@@ -221,7 +228,7 @@
       el('circle', { cx: CELLS[lastPath[0]].x, cy: CELLS[lastPath[0]].y, r: HOLE_R + 0.08, class: 'cc-ring last' }, layer.marks);
     }
     if (sel >= 0) el('circle', { cx: CELLS[sel].x, cy: CELLS[sel].y, r: MARBLE_R + 0.12, class: 'cc-ring sel' }, layer.marks);
-    if (settings.hints) Object.keys(targets).forEach(function (t) {
+    if (hintsOn()) Object.keys(targets).forEach(function (t) {
       el('circle', { cx: CELLS[t].x, cy: CELLS[t].y, r: 0.2, class: 'cc-hint' }, layer.marks);
     });
   }
@@ -238,7 +245,7 @@
       var dot = document.createElement('i');
       dot.className = 'cc-swatch'; dot.style.background = MARBLE_COLORS[camp]; dot.setAttribute('aria-hidden', 'true');
       item.appendChild(dot);
-      item.appendChild(document.createTextNode(COLOR_NAMES[camp] + (isHuman(s) ? '' : ' (cpu)') + ' '));
+      item.appendChild(document.createTextNode(colorName(camp) + (isHuman(s) || peopleCount() < 2 ? '' : ' ' + T('ludo.cpu')) + ' '));
       var b = document.createElement('b');
       b.textContent = homeCount(state, s) + '/' + HOME_SIZE;
       item.appendChild(b);
@@ -249,35 +256,30 @@
     paintMarbles(); paintMarks(); paintCursor(); paintScores();
     $('cc-undo').disabled = !history.length || !hasHuman;
   }
-  function say(text, busy) {
-    var s = $('cc-status');
-    s.textContent = '';
-    if (busy) { var sp = document.createElement('span'); sp.className = 'bg-spin'; s.appendChild(sp); }
-    if (!over) { var d = document.createElement('i'); d.className = 'cc-swatch'; d.style.background = colorOf(state.turn); d.setAttribute('aria-hidden', 'true'); s.appendChild(d); }
-    s.appendChild(document.createTextNode(text));
-  }
+  var line = UI.status($('cc-status'));
+  function say(text, busy) { line.turn(text, !!busy); }
 
   // ── turns ──
   function finish(winnerSeat, how) {
     over = true; sel = -1; targets = {}; clearTimeout(timer);
-    var msg;
-    if (winnerSeat >= 0) msg = (isHuman(winnerSeat) ? (settings.humans.filter(Boolean).length > 1 ? seatName(winnerSeat) + ' wins.' : 'You win.') : seatName(winnerSeat) + ' (computer) wins.');
-    else msg = 'It ends in a draw.';
-    if (how) msg += ' ' + how;
+    var text, one = peopleCount() === 1;
+    if (winnerSeat >= 0) text = T(isHuman(winnerSeat) ? (one ? 'ludo.win.you' : 'ludo.win') : 'ludo.win.cpu', { name: seatName(winnerSeat) });
+    else text = T('cc.draw');
+    if (how) text += ' ' + how;
     var humans = state.seats.map(function (c, s) { return s; }).filter(isHuman);
     if (humans.length === 1) {
       var k = settings.count + '.' + settings.level, st = stats[k] = stats[k] || { w: 0, l: 0 };
       if (winnerSeat === humans[0]) st.w++; else st.l++;
       BK.save(STATS_KEY, stats);
     }
-    paintAll(); say(msg); showStats();
-    $('cc-result-text').textContent = msg;
-    resultSheet.open($('cc-again'));
+    paintAll(); say(text); showStats();
+    UI.end({ result: winnerSeat < 0 ? 'draw' : one ? (isHuman(winnerSeat) ? 'win' : 'lose') : 'win', name: winnerSeat >= 0 && !one ? seatName(winnerSeat) : undefined, text: text });
   }
-  function showStats() {
+  function recordLine() {
     var s = stats[settings.count + '.' + settings.level];
-    $('cc-stats').textContent = hasHuman && settings.humans.slice(0, settings.count).filter(Boolean).length === 1 ? 'vs ' + settings.level + ', ' + settings.count + ' players: ' + (s ? s.w : 0) + ' won, ' + (s ? s.l : 0) + ' lost' : '';
+    return hasHuman && peopleCount() === 1 && s && s.w + s.l ? T('ludo.record', { level: T('board.level.' + settings.level), n: settings.count, won: s.w, lost: s.l }) : '';
   }
+  function showStats() { $('cc-stats').textContent = recordLine(); }
 
   function nextTurn() {
     clearTimeout(timer);
@@ -286,20 +288,20 @@
     if (state.rounds >= MAX_ROUNDS) {
       var best = -1, most = -1;
       state.seats.forEach(function (c, s) { var h = homeCount(state, s); if (h > most) { most = h; best = s; } });
-      finish(best, 'No one got all 10 home in ' + MAX_ROUNDS + ' rounds, so the most marbles home wins.'); return;
+      finish(best, T('cc.rounds', { n: MAX_ROUNDS })); return;
     }
     var moves = allMoves(state, seat);
     if (!moves.length) {
       state.passes++;
-      if (state.passes >= state.seats.length) { finish(-1, 'No one can move.'); return; }
-      say(seatName(seat) + ' cannot move and passes');
+      if (state.passes >= state.seats.length) { finish(-1, T('cc.stuck')); return; }
+      say(about('cc.passes', seat));
       advance(); timer = setTimeout(nextTurn, FAST_DELAY_MS * 3); paintAll(); return;
     }
     state.passes = 0;
     paintAll();
-    if (isHuman(seat)) say(settings.humans.slice(0, settings.count).filter(Boolean).length > 1 ? seatName(seat) + ' to move' : 'Your turn');
+    if (isHuman(seat)) say(turnLine(seat));
     else {
-      say(seatName(seat) + ' is thinking', true);
+      say(T('cc.thinking', { name: seatName(seat) }), true);
       timer = setTimeout(function () { computerMove(seat); }, state.seats.some(function (c, s) { return isHuman(s); }) ? COMPUTER_DELAY_MS : FAST_DELAY_MS);
     }
   }
@@ -331,9 +333,9 @@
     if (state.owner[i] === seat + 1 && i !== sel) {
       sel = i; targets = movesFrom(state, i);
       delete targets[i];
-      if (!Object.keys(targets).length) say('That marble cannot move');
-      else say('Choose where it goes');
-    } else { sel = -1; targets = {}; say(settings.humans.slice(0, settings.count).filter(Boolean).length > 1 ? seatName(seat) + ' to move' : 'Your turn'); }
+      if (!Object.keys(targets).length) { targets = {}; sel = -1; paintMarks(); paintMarbles(); UI.refuse(line, svg, T('cc.cantMove')); return; }
+      say(T('morris.chooseWhere'));
+    } else { sel = -1; targets = {}; say(turnLine(seat)); }
     paintMarks(); paintMarbles(); paintCursor();
   }
 
@@ -378,7 +380,8 @@
   svg.addEventListener('blur', paintCursor);
   function announce() {
     var c = CELLS[cursor], o = state.owner[cursor];
-    svg.setAttribute('aria-label', 'Chinese Checkers board. Hole ' + (c.q + 5) + ', ' + (c.r + 9) + (o ? ', ' + COLOR_NAMES[state.seats[o - 1]] + ' marble' : targets.hasOwnProperty(cursor) ? ', move here' : ', empty') + (cursor === sel ? ', selected' : ''));
+    var what = o ? T('cc.marble', { color: colorName(state.seats[o - 1]) }) : targets.hasOwnProperty(cursor) ? T('cc.moveHere') : T('go.pt.empty');
+    svg.setAttribute('aria-label', T('cc.hole', { board: T('cc.boardLabel'), q: c.q + 5, r: c.r + 9, what: what }) + (cursor === sel ? ', ' + T('cc.selected') : ''));
   }
 
   function undo() {
@@ -386,7 +389,7 @@
     clearTimeout(timer);
     var h = history.pop();
     state.owner = h.owner; state.turn = h.turn; state.rounds = h.rounds; state.passes = h.passes; lastPath = h.lastPath;
-    over = false; resultSheet.close();
+    over = false;
     nextTurn();
   }
 
@@ -395,58 +398,47 @@
     state = newState(settings.count); history = []; over = false; sel = -1; targets = {}; lastPath = null;
     hasHuman = state.seats.some(function (c, s) { return isHuman(s); });
     cursor = CAMPS[state.seats[0]][0];
-    resultSheet.close();
     showStats();
     nextTurn();
   }
 
-  // ── bar, menu, keys ──
-  var menu = BK.sheet($('cc-sheet')), resultSheet = BK.sheet($('cc-result'));
-  function buildSeatRows() {
-    var box = $('cc-seats'), count = +BK.chipValue($('cc-f-count')) || settings.count;
-    box.textContent = '';
-    SEATINGS[count].forEach(function (camp, s) {
-      var row = document.createElement('div');
-      row.className = 'cc-seat';
-      var dot = document.createElement('i');
-      dot.className = 'cc-swatch'; dot.style.background = MARBLE_COLORS[camp];
-      var name = document.createElement('span');
-      name.textContent = COLOR_NAMES[camp];
-      var chips = document.createElement('div');
-      chips.className = 'bg-chips'; chips.dataset.seat = s;
-      [['human', 'Person'], ['cpu', 'Computer']].forEach(function (o) {
-        var lab = document.createElement('label'), inp = document.createElement('input'), sp = document.createElement('span');
-        lab.className = 'bg-chip'; inp.type = 'radio'; inp.name = 'cc-seat-' + s; inp.value = o[0];
-        inp.checked = (o[0] === 'human') === !!settings.humans[s];
-        sp.textContent = o[1];
-        lab.appendChild(inp); lab.appendChild(sp); chips.appendChild(lab);
-      });
-      row.appendChild(dot); row.appendChild(name); row.appendChild(chips);
-      box.appendChild(row);
+  // ── Menu > New game, keys ──
+  // The player count, who plays each colour, the level. Nothing applies until New game is pressed.
+  var draft = null, seatsBox = null;
+  function seatRows() {
+    seatsBox.textContent = '';
+    SEATINGS[draft.count].forEach(function (camp, sx) {
+      var r = UI.row(T('ludo.seat', { color: colorName(camp) }), [['human', T('ludo.person')], ['cpu', T('board.computer')]], draft.humans[sx] ? 'human' : 'cpu', function (v) { draft.humans[sx] = v === 'human'; });
+      seatsBox.appendChild(r.el);
     });
   }
-  function syncMenu() {
-    BK.chipSet($('cc-f-count'), settings.count); BK.chipSet($('cc-f-level'), settings.level); $('cc-hints').checked = settings.hints;
-    buildSeatRows();
+  function menuOptions() {
+    draft = { count: settings.count, level: settings.level, humans: settings.humans.slice() };
+    seatsBox = document.createElement('div'); seatsBox.className = 'gs-options';
+    var count = UI.row(T('ludo.players'), [[2, '2'], [3, '3'], [4, '4'], [6, '6']], draft.count, function (v) { draft.count = +v; seatRows(); });
+    var level = UI.row(T('ludo.level'), [['easy', T('board.level.easy')], ['medium', T('board.level.medium')], ['hard', T('board.level.hard')]], draft.level, function (v) { draft.level = v; });
+    seatRows();
+    return UI.options([count, seatsBox, level]);
   }
-  $('cc-new').addEventListener('click', function () { syncMenu(); menu.open(); });
-  $('cc-f-count').addEventListener('change', buildSeatRows);
-  $('cc-cancel').addEventListener('click', menu.close);
-  $('cc-start').addEventListener('click', function () {
-    settings.count = +BK.chipValue($('cc-f-count')); settings.level = BK.chipValue($('cc-f-level')); settings.hints = $('cc-hints').checked;
-    Array.prototype.forEach.call($('cc-seats').querySelectorAll('.bg-chips'), function (g) { settings.humans[+g.dataset.seat] = BK.chipValue(g) === 'human'; });
-    BK.save(SETTINGS_KEY, settings);
-    menu.close(); newGame();
+  $('cc-new').addEventListener('click', function () {
+    if (draft) { settings.count = draft.count; settings.level = draft.level; settings.humans = draft.humans; draft = null; BK.save(SETTINGS_KEY, settings); }
+    newGame();
   });
-  $('cc-again').addEventListener('click', newGame);
-  $('cc-close').addEventListener('click', function () { resultSheet.close(); });
   $('cc-undo').addEventListener('click', undo);
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet,input')) return;
     var k = e.key.toLowerCase();
-    if (k === 'n') { syncMenu(); menu.open(); } else if (k === 'u') undo();
+    if (k === 'n') { if (root.ZimiShell) root.ZimiShell.openMenu(); } else if (k === 'u') undo();
     else if (e.key === 'Escape' && sel >= 0) { sel = -1; targets = {}; paintMarks(); paintMarbles(); }
   });
+  if (root.ZimiShell) {
+    root.ZimiShell.settings.on(function (k) { if (k === 'hints' || k === '*') paintMarks(); });
+    root.ZimiShell.game({
+      menu: menuOptions, hints: true,
+      stats: function () { var l = recordLine(); return l ? [l] : []; },
+      inProgress: function () { return !over && history.length > 0; }
+    });
+  }
 
   build();
   newGame();

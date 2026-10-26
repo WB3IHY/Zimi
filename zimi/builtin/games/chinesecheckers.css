@@ -13,17 +13,14 @@
 .cc-marble .shine { fill: rgba(255, 255, 255, 0.55); }
 .cc-marble.m4 .shine { fill: rgba(255, 255, 255, 0.28); }
 .cc-ring { fill: none; stroke-width: 0.12px; }
-.cc-ring.sel { stroke: var(--accent); stroke-width: 0.16px; }
+.cc-ring.sel { stroke: var(--select-ring); stroke-width: 0.16px; }
 .cc-ring.last { stroke: var(--cc-trail); stroke-dasharray: 0.2 0.12; }
 .cc-trail { fill: none; stroke: var(--cc-trail); stroke-width: 0.14px; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 0.01 0.3; opacity: 0.95; }
-.cc-hint { fill: var(--accent); opacity: 0.9; }
-.cc-cursor { fill: none; stroke: var(--accent); stroke-width: 0.12px; stroke-dasharray: 0.25 0.12; }
+.cc-hint { fill: var(--select-ring); opacity: 0.9; }
+.cc-cursor { fill: none; stroke: var(--select-ring); stroke-width: 0.12px; stroke-dasharray: 0.25 0.12; }
 
 .cc-scores { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: center; max-width: 440px; font: 600 12px var(--mono); color: var(--ink2); }
 .cc-score { display: inline-flex; align-items: center; gap: 5px; padding: 2px 6px; border-radius: 6px; }
-.cc-score.now { background: var(--surface); box-shadow: 0 0 0 1.5px var(--accent); color: var(--ink); }
+.cc-score.now { background: var(--surface); box-shadow: 0 0 0 1.5px var(--select-ring); color: var(--ink); }
 .cc-score b { color: var(--ink); }
 .cc-swatch { display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.45); flex: none; }
-.cc-seat { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.cc-seat > span { width: 58px; font-size: 14px; }
-.cc-seat .bg-chip span { min-height: 34px; padding: 0 12px; }
