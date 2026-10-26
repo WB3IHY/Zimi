@@ -227,7 +227,7 @@
   Play.applyTheme();
 
   var els = { cv: $('pb-board'), score: $('pb-score'), best: $('pb-best'), balls: $('pb-balls'), mult: $('pb-mult'), msg: $('pb-msg'), pause: $('pb-pause'), newBtn: $('pb-new') };
-  var best = Play.load(BEST_KEY, { score: 0 }), st = createState(), mode = 'ready', ctx, reduce = Play.reducedMotion(), banner = '', bannerT = 0;
+  var runId = 0, best = Play.load(BEST_KEY, { score: 0 }), st = createState(), mode = 'ready', ctx, reduce = Play.reducedMotion(), banner = '', bannerT = 0;
   var keys = { left: false, right: false }, touches = {}, status = Play.status(els.msg), armed = null;
 
   function layout() { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, W * 1.15).ctx; draw(); }
@@ -330,7 +330,7 @@
   }
   function begin() {
     if (armed) armed.cancel();
-    st = createState(); mode = 'playing'; banner = ''; bannerT = 0; status.say(T('pinball.launch'));
+    st = createState(); runId = Play.runId(); mode = 'playing'; banner = ''; bannerT = 0; status.say(T('pinball.launch'));
     Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); startLoop();
   }
   function pause() {
@@ -343,6 +343,9 @@
     mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); releaseAll();
     if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); }
     hud(); draw();
+    showEnd();
+  }
+  function showEnd() {
     ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(st.score)], [T('play.best'), Play.num(best.score)]] });
     setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
   }
@@ -398,5 +401,19 @@
 
   window.addEventListener('resize', layout);
   layout(); hud(); arm();
-  root.__pinball = { get st() { return st; }, get mode() { return mode; } };
+  // A run in progress or over is kept; it comes back paused (or on its end sheet).
+  function snapshot() {
+    if (mode === 'ready') return null;
+    return { runId: runId, over: mode === 'over', st: Play.plain(st) };
+  }
+  function restore(d) {
+    if (!d || !d.st) return false;
+    if (armed) { armed.cancel(); armed = null; }
+    st = Play.overlay(createState(), d.st); st.events = []; runId = d.runId; hud(); draw();
+    if (d.over) { mode = 'over'; els.pause.disabled = true; setTimeout(showEnd, 0); return true; }
+    mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
+    return true;
+  }
+  ZimiShell.persist({ save: snapshot, load: restore });
+  root.__pinball = { get st() { return st; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, st.score, st.lives, st.mult]); } };
 })(this);
