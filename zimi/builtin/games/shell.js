@@ -60,6 +60,36 @@
     d.write('<script src="' + d.currentScript.src.replace(/shell\.js(\?.*)?$/, 'text.js') + '"><\/script>');
   }
   var T = function (key, vars) { return root.ZimiText ? root.ZimiText.T(key, vars) : key; };
+
+  // ── a failure to start is never silent ──
+  // A script that did not load, or threw while the page was starting (a kept old file beside a new one, a failed
+  // fetch), left a blank page. It now says so, with a Reload. Plain English on purpose: the strings (text.js) may be
+  // the very file that failed. Errors later in play are the game's own and are not announced here.
+  var START_GRACE_MS = 2500;
+  var starting = true, failed = false;
+  function failedToStart() {
+    if (failed || !starting || !d) return;
+    failed = true;
+    function paint() {
+      var box = d.createElement('div');
+      box.setAttribute('role', 'alert');
+      box.style.cssText = 'position:fixed;left:12px;right:12px;top:12px;z-index:2147483647;padding:14px 16px;border-radius:12px;background:#fff;color:#1b2233;border:2px solid #c62828;font:600 16px/1.35 system-ui,sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.3);display:flex;gap:12px;align-items:center;justify-content:space-between';
+      var msg = d.createElement('span'); msg.textContent = 'This game failed to start.';
+      var btn = d.createElement('button'); btn.type = 'button'; btn.textContent = 'Reload';
+      btn.style.cssText = 'font:inherit;padding:8px 16px;border-radius:8px;border:0;background:#d97706;color:#fff;cursor:pointer';
+      btn.addEventListener('click', function () { root.location.reload(); });
+      box.appendChild(msg); box.appendChild(btn);
+      (d.body || d.documentElement).appendChild(box);
+    }
+    if (d.body) paint(); else d.addEventListener('DOMContentLoaded', paint);
+  }
+  root.addEventListener('error', function (e) {
+    var t = e && e.target;
+    if (t && t !== root && t.tagName === 'SCRIPT') failedToStart();   // a script that would not load
+    else if (!t || t === root) failedToStart();                        // one that threw
+  }, true);
+  root.addEventListener('unhandledrejection', failedToStart);
+  root.addEventListener('load', function () { root.setTimeout(function () { starting = false; }, START_GRACE_MS); });
   // An app, not a page to read: a reader (Zimi's) leaves out highlight, note and lookup.
   if (d.head && !d.querySelector('meta[name="zimi-app"]')) {
     var app = d.createElement('meta'); app.name = 'zimi-app'; d.head.appendChild(app);

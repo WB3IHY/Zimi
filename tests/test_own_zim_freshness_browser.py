@@ -10,6 +10,7 @@ Run: pytest tests/test_own_zim_freshness_browser.py -v
 
 import os
 import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -122,3 +123,114 @@ def test_a_rebuilt_own_zim_is_a_different_worker(tmp_path):
         assert version("a") != version("b")
     finally:
         ownzims.OUT_DIR = saved
+
+
+# ── the real games ZIM: Kart, an old build then the current one ─────────────────────────────────────────────────
+# Eric: "ZimiKart still doesn't load". The current kart-page.js beside a kept old shell.js (no ZimiShell.persist)
+# throws at start and the page stays blank. The same mix gave Sokoban its raw "sokoban.moves" labels.
+OLD_BUILD = "8e820d79~1"     # the games folder before ZimiShell.persist existed
+GAMES = "zimi/builtin/games"
+
+
+def _repo():
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _games_zim(folder, out):
+    from zimi import creator
+
+    creator.create_folder_zim(str(folder), out_path=str(out), register=False)
+
+
+@pytest.fixture(scope="module")
+def kart_served(tmp_path_factory):
+    import zimi.renderer as renderer
+
+    if not renderer.browser_available():
+        pytest.skip("playwright + chromium are not usable here")
+    old_src = tmp_path_factory.mktemp("old_games")
+    try:
+        archive = subprocess.run(["git", "archive", OLD_BUILD, GAMES], cwd=_repo(), capture_output=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        pytest.skip("the git history that holds the old games build is not here")
+    subprocess.run(["tar", "-x", "-C", str(old_src)], input=archive, check=True)
+    tmp = tmp_path_factory.mktemp("kart")
+    (tmp / "zims").mkdir()
+    (tmp / "data").mkdir()
+    _games_zim(old_src / GAMES, tmp / "old.zim")
+    _games_zim(os.path.join(_repo(), GAMES), tmp / "new.zim")
+
+    from http.server import ThreadingHTTPServer
+
+    import zimi.server as srv
+    from zimi.http import ZimHandler
+
+    target = tmp / "zims" / "zimi_games_2026-10.zim"
+    shutil.copy(tmp / "old.zim", target)
+    saved = (srv.ZIM_DIR, srv.ZIMI_DATA_DIR)
+    srv.ZIM_DIR, srv.ZIMI_DATA_DIR = str(tmp / "zims"), str(tmp / "data")
+    srv.load_cache(force=True)
+    slow = {"on": False}
+
+    class Slow(ZimHandler):
+        def do_GET(self):
+            if slow["on"] and self.path.split("?")[0].endswith("/shell.js"):
+                time.sleep(SLOW_S)
+            return super().do_GET()
+
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), Slow)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    yield {
+        "base": "http://127.0.0.1:%d" % httpd.server_address[1],
+        "slow": slow,
+        "swap": lambda: (shutil.copy(tmp / "new.zim", target), srv.load_cache(force=True)),
+    }
+    httpd.shutdown()
+    srv.ZIM_DIR, srv.ZIMI_DATA_DIR = saved
+
+
+KART = "/?a=zimi_games%2Fkart.html"
+IN_FRAME = "() => { const f = document.getElementById('reader-frame'); return f && f.contentWindow && f.contentWindow.__kart; }"
+
+
+def test_kart_starts_after_an_update_on_a_slow_server(kart_served):
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        br = pw.chromium.launch()
+        pg = br.new_context(viewport={"width": 390, "height": 844}).new_page()
+        try:
+            pg.goto(kart_served["base"] + "/", wait_until="load")
+            pg.wait_for_function("() => navigator.serviceWorker && navigator.serviceWorker.controller", timeout=30000)
+            for _ in range(2):   # the old build: the worker keeps its files
+                pg.goto(kart_served["base"] + KART, wait_until="load")
+                pg.wait_for_function(IN_FRAME, timeout=60000)
+            kart_served["swap"]()
+            kart_served["slow"]["on"] = True
+            pg.goto(kart_served["base"] + KART, wait_until="load")
+            pg.wait_for_function(IN_FRAME, timeout=60000)   # an old shell.js beside the new kart-page.js never gets here
+            assert pg.evaluate("() => !document.getElementById('reader-frame').contentDocument.querySelector('[role=alert]')")
+        finally:
+            kart_served["slow"]["on"] = False
+            br.close()
+
+
+def test_a_game_that_fails_to_start_says_so(kart_served):
+    """A script that throws while the page starts leaves a message with a Reload, not a blank page."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        br = pw.chromium.launch()
+        ctx = br.new_context(viewport={"width": 390, "height": 844}, service_workers="block")
+        pg = ctx.new_page()
+        pg.route("**/w/zimi_games/kart-page.js*", lambda r: r.fulfill(status=200, content_type="text/javascript", body="throw new Error('boom');"))
+        try:
+            kart_served["swap"]()
+            pg.goto(kart_served["base"] + KART, wait_until="load")
+            frame = pg.frame_locator("#reader-frame")
+            alert = frame.locator("[role=alert]")
+            alert.wait_for(timeout=60000)
+            assert "failed to start" in alert.inner_text()
+            assert frame.locator("[role=alert] button").inner_text() == "Reload"
+        finally:
+            br.close()
