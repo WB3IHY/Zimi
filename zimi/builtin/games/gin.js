@@ -340,7 +340,7 @@
     }
     function gameOver() {
       var st = session.state, f = st.final, lines = [TX('gin.handsWon', { a: who(0), pa: st.boxes[0], b: who(1), pb: st.boxes[1] }), TX('gin.bonus', { name: who(f.winner) }), TX('gin.final', { a: who(0), pa: f.totals[0], b: who(1), pb: f.totals[1] })];
-      if (seats.hotseat()) session.lose(TX('shell.end.wins', { name: who(f.winner) }), lines);
+      if (seats.hotseat()) session.lose({ name: who(f.winner) }, lines);
       else if (f.winner === 0) session.win(f.totals[0]); else session.lose('', lines, f.totals[0]);
     }
     function act(next) { view.sel = null; session.commit(next); drive(); return true; }

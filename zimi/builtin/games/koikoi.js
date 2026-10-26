@@ -425,7 +425,7 @@
     function gameOver() {
       var st = session.state, w = gameWinner(st.scores), lines = resultLines(st);
       lines.push(w < 0 ? TX('koikoi.tie') : TX(seats.isYou(w) ? 'cards.result.you' : 'koikoi.result.name', { name: who(w), a: st.scores[w], b: st.scores[1 - w] }));
-      if (seats.isYou(w)) session.win(st.scores[w]); else session.lose(w < 0 ? TX('shell.end.draw') : TX('shell.end.wins', { name: who(w) }), lines, seats.hotseat() ? undefined : st.scores[0]);
+      if (seats.isYou(w)) session.win(st.scores[w]); else session.lose(w < 0 ? 'draw' : seats.hotseat() ? { name: who(w) } : '', lines, seats.hotseat() ? undefined : st.scores[0]);
     }
     var order = function () { return Z.shuffled(Math.random).filter(function (c) { return c < DECK; }); };
     function startNextMonth() {

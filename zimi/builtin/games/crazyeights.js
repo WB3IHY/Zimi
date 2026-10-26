@@ -222,7 +222,7 @@
     function gameOver() {
       var st = session.state, w = gameWinner(st.scores), me = seats.view(), hot = seats.hotseat();
       var lines = resultLines(st).concat([w === me && !hot ? TX('ce.winYou', { n: st.scores[me] }) : TX('ce.winName', { name: name(st, w), n: st.scores[w] })]);
-      if (w === me && !hot) session.win(st.scores[me]); else session.lose(hot ? TX('shell.end.wins', { name: name(st, w) }) : '', lines, hot ? undefined : st.scores[me]);
+      if (w === me && !hot) session.win(st.scores[me]); else session.lose(hot ? { name: name(st, w) } : '', lines, hot ? undefined : st.scores[me]);
     }
     function startNextHand() {
       var st = session.state;

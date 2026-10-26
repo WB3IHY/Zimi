@@ -747,7 +747,7 @@
       else {
         var V = seats.view(), us = team(V), w = winnerSide(st.totals), mine = !hot() && w === us;
         var lines = resultLines(st).concat([w < 0 ? TX('bridge.tied') : TX('bridge.winMatch', { who: mine ? TX('bridge.youAnd', { name: cn(partnerOf(V)) }) : side(w), a: st.totals[w], b: st.totals[1 - w] })]);
-        if (mine) session.win(st.totals[us]); else session.lose(w < 0 ? TX('shell.end.draw') : TX('bridge.sideWins', { who: side(w) }), lines, hot() ? undefined : st.totals[us]);
+        if (mine) session.win(st.totals[us]); else session.lose(w < 0 ? 'draw' : hot() ? { name: side(w), team: true } : '', lines, hot() ? undefined : st.totals[us]);
       }
     }
     function startNextDeal() {

@@ -1319,15 +1319,19 @@
     };
     // `after` is how long to wait for the last animation; a game coming back from being left has none.
     function session_showEnd(e, after) {
-      if (root.ZimiShell && root.ZimiShell.endSheet) root.ZimiShell.endSheet({ result: e.result, text: e.text, stats: e.stats, onNew: cfg.newGame, after: after });
+      if (root.ZimiShell && root.ZimiShell.endSheet) root.ZimiShell.endSheet({ result: e.result, name: e.name, team: e.team, text: e.text, stats: e.stats, onNew: cfg.newGame, after: after });
     }
     // A finished game that was not won (Hearts lost, Golf stuck): the clock
     // stops, the score is kept if it is a best, and the sheet says how it went.
-    s.lose = function (title, lines, score) {
+    // How a game that is not won ends: kind is '' (you lose), 'draw', 'over' (Game over) or { name, team } for the
+    // winner of a table of people ("Sam wins", "You and Ana win").
+    s.lose = function (kind, lines, score) {
       s.won = true; halt(); clearLater();
       if (typeof score === 'number') s.stats.scored(score);
       paint();
-      if (root.ZimiShell && root.ZimiShell.endSheet) { s.ending = { result: 'lose', text: lines[0] || title, stats: s.stats.rows().slice(0, 2) }; session_showEnd(s.ending); return; }
+      var named = kind && typeof kind === 'object', result = named ? 'lose' : kind === 'draw' || kind === 'over' ? kind : 'lose';
+      if (root.ZimiShell && root.ZimiShell.endSheet) { s.ending = { result: result, name: named ? kind.name : undefined, team: named ? !!kind.team : undefined, text: lines[0], stats: s.stats.rows().slice(0, 2) }; session_showEnd(s.ending); return; }
+      var title = named ? T(kind.team ? 'shell.end.winsTeam' : 'shell.end.wins', { name: kind.name }) : T(result === 'draw' ? 'shell.end.draw' : result === 'over' ? 'shell.end.over' : 'shell.end.lose');
       var body = lines.map(function (t) { return h('p', { class: 'zc-note', text: t }); });
       body.push(h('p', { class: 'zc-stats', text: s.stats.line() }));
       sheet({ title: title, body: body, actions: [{ label: T('shell.close') }, { label: T('shell.menu.new'), primary: true, onclick: cfg.newGame }] });

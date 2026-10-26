@@ -290,10 +290,10 @@
     function gameOver() {
       var st = session.state, fool = st.durak, hot = seats.hotseat();
       if (hot || fool < 0) {
-        session.lose(fool < 0 ? TX('shell.end.draw') : TX('durak.isDurak', { name: nm(st, fool) }), [fool < 0 ? TX('durak.nobodyLeft') : TX('durak.lastHolding', { name: nm(st, fool) })], undefined);
+        session.lose(fool < 0 ? 'draw' : '', [fool < 0 ? TX('durak.nobodyLeft') : TX('durak.lastHolding', { name: nm(st, fool) })], undefined);
         return;
       }
-      if (seats.isYou(fool)) session.lose(TX('durak.youDurak'), [TX('durak.youLast')], undefined); else session.win();
+      if (seats.isYou(fool)) session.lose('', [TX('durak.youLast')], undefined); else session.win();
     }
     function act(next) { session.commit(next); drive(); return true; }
     function takeNow() { var st = session.state; if (st.phase === 'defend' && mine(st.turn)) act(take(st)); }

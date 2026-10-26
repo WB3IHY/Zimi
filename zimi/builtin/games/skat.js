@@ -415,7 +415,7 @@
     function gameOver() {
       var st = session.state, w = gameWinner(st.scores), me = seats.view(), hot = seats.hotseat();
       var lines = resultLines(st).concat([w === me && !hot ? TX('skat.winYou', { n: st.scores[me] }) : w >= 0 ? TX('skat.winName', { name: who(w), n: st.scores[w] }) : TX('skat.tied')]);
-      if (w === me && !hot) session.win(st.scores[me]); else session.lose(w >= 0 ? TX('shell.end.wins', { name: who(w) }) : TX('shell.end.draw'), lines, hot ? undefined : st.scores[me]);
+      if (w === me && !hot) session.win(st.scores[me]); else session.lose(w < 0 ? 'draw' : hot ? { name: who(w) } : '', lines, hot ? undefined : st.scores[me]);
     }
     function startNextHand() {
       var st = session.state;

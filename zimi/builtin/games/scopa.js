@@ -337,7 +337,7 @@
     function gameOver() {
       var st = session.state, w = gameWinner(st.scores), won = seats.isYou(w), lines = resultLines(st);
       lines.push(won ? TX('scopa.youWin') : TX('scopa.wins', { name: who(w) }));
-      if (won) session.win(st.scores[0]); else session.lose(TX('shell.end.wins', { name: who(w) }), lines, seats.hotseat() ? undefined : st.scores[0]);
+      if (won) session.win(st.scores[0]); else session.lose(seats.hotseat() ? { name: who(w) } : '', lines, seats.hotseat() ? undefined : st.scores[0]);
     }
     function startNextHand() {
       var st = session.state;

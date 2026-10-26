@@ -407,7 +407,7 @@
     function gameOver() {
       var st = session.state, won = seats.isYou(st.winner), lines = [who(0) + ' ' + st.scores[0] + ', ' + who(1) + ' ' + st.scores[1] + '.'];
       if (st.scores[other(st.winner)] < SKUNK) lines.push(TX('crib.skunk', { n: SKUNK }));
-      if (won) session.win(st.scores[st.winner]); else session.lose(TX('shell.end.wins', { name: who(st.winner) }), lines, seats.hotseat() ? undefined : st.scores[0]);
+      if (won) session.win(st.scores[st.winner]); else session.lose(seats.hotseat() ? { name: who(st.winner) } : '', lines, seats.hotseat() ? undefined : st.scores[0]);
     }
     var idOf = function (pile) { return parseInt(pile.slice(1), 10); };
     function play(id) {

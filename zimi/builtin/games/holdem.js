@@ -462,7 +462,7 @@
     }
     function conclude(st, gs) {
       var lines = [TX(gs === 'won' ? 'holdem.playedWon' : 'holdem.playedOut', { hands: Z.plural(st.handNo, 'hand') })];
-      if (seats.hotseat()) { session.lose(gs === 'won' ? overText(st) : TX('holdem.outOfChips'), [TX('holdem.handsPlayed', { hands: Z.plural(st.handNo, 'hand'), text: overText(st) })], undefined); return; }
+      if (seats.hotseat()) { session.lose(gs === 'won' ? { name: nm(st.players.findIndex(function (p) { return p.chips > 0; })) } : 'over', [TX('holdem.handsPlayed', { hands: Z.plural(st.handNo, 'hand'), text: overText(st) })], undefined); return; }
       if (gs === 'won') session.win(chipsLeft(st)); else session.lose(TX('holdem.outOfChips'), lines, chipsLeft(st));
     }
     function play(action) { var st = session.state, V = seats.view(); view.sizing = false; if (st.toAct !== V) return; session.follow(act(st, V, action)); drive(); }

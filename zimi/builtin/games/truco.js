@@ -353,7 +353,7 @@
     }
     function gameOver() {
       var st = session.state, w = gameWinner(st), won = seats.isYou(w), lines = (st.result ? handLines(st) : []).concat([TX(won ? 'truco.winYou' : 'truco.winName', { name: who(w), a: st.scores[w], b: st.scores[1 - w] })]);
-      if (won) session.win(st.scores[0]); else session.lose(TX('shell.end.wins', { name: who(w) }), lines, seats.hotseat() ? undefined : st.scores[0]);
+      if (won) session.win(st.scores[0]); else session.lose(seats.hotseat() ? { name: who(w) } : '', lines, seats.hotseat() ? undefined : st.scores[0]);
     }
     var order = function () { return Z.shuffled(Math.random).filter(function (c) { return c < DECK; }); };
     function startNextHand() {

@@ -393,7 +393,7 @@
     function handOver() { var st = session.state; T.lineSheet(TX('cards.fact.hand', { n: st.handNo + 1 }), [lineFor(st), TX(R.firstOut ? 'climb.pay' : 'climb.order')], [{ label: TX('cards.nextHand'), primary: true, onclick: startNextHand }]); }
     function gameOver() {
       var st = session.state, w = game.gameWinner(st.scores), V = seats.view(), hot = seats.hotseat();
-      if (w === V && !hot) session.win(st.scores[V]); else session.lose(hot ? TX('shell.end.wins', { name: nm(w) }) : '', [TX('climb.reached', { name: nm(w), target: R.target }), lineFor(st)], hot ? undefined : st.scores[V]);
+      if (w === V && !hot) session.win(st.scores[V]); else session.lose(hot ? { name: nm(w) } : '', [TX('climb.reached', { name: nm(w), target: R.target }), lineFor(st)], hot ? undefined : st.scores[V]);
     }
     function startNextHand() {
       var st = session.state;

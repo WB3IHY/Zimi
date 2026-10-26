@@ -564,7 +564,7 @@
     }
     function gameOver() {
       var st = session.state, w = gameWinner(st.scores, st.target), lines = resultLines(st), V = seats.view(), hot = seats.hotseat();
-      if (w === V && !hot) session.win(st.scores[V]); else session.lose(hot ? TX('shell.end.wins', { name: nm(w) }) : TX('canasta.computerWins'), lines.concat([TX('canasta.final', { a: st.scores[V], b: st.scores[1 - V] })]), hot ? undefined : st.scores[V]);
+      if (w === V && !hot) session.win(st.scores[V]); else session.lose(hot ? { name: nm(w) } : '', lines.concat([TX('canasta.final', { a: st.scores[V], b: st.scores[1 - V] })]), hot ? undefined : st.scores[V]);
     }
     function startNextHand() {
       var st = session.state;

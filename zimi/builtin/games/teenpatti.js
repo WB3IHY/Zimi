@@ -371,7 +371,7 @@
     function gameOver() {
       var st = session.state, me = seats.view(), hot = seats.hotseat(), w = gameWinner(st), won = w === me && !hot;
       var lines = (st.result ? resultLines(st) : []).concat([hot ? TX('tp.hasTable', { name: who(w), n: st.chips[w] }) : won ? TX('tp.tableYours', { n: st.chips[me] }) : TX('holdem.youOut') + '.']);
-      if (hot) { session.lose(TX('shell.end.wins', { name: who(w) }), lines); return; }
+      if (hot) { session.lose({ name: who(w) }, lines); return; }
       session.stats.scored(st.chips[me]);
       if (won) session.win(st.chips[me]); else session.lose(TX('holdem.outOfChips'), lines, st.chips[me]);
     }

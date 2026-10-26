@@ -307,7 +307,7 @@
     function gameOver() {
       var st = session.state, w = gameWinner(st.scores), vt = viewTeam(), hot = seats.hotseat();
       var lines = [handLine(st, vt), handLine(st, 1 - vt), TX(hot ? 'cards.result.hot' : w === vt ? 'cards.result.you' : 'cards.result.them', { team: hot ? teamNames(w) : '', a: st.scores[w], b: st.scores[1 - w] })];
-      if (hot) session.lose(teamNames(w), lines);
+      if (hot) session.lose({ name: teamNames(w), team: true }, lines);
       else if (w === vt) session.win(st.scores[vt]); else session.lose('', lines, st.scores[vt]);
     }
     function startNextHand() {
