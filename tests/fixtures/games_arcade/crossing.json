@@ -1,5 +1,6 @@
 [
  {
+  "canvas": "5ed69f3a",
   "hud": "Score0\n    Best0\n    Lives3\n    Level1",
   "label": "rest",
   "lives": 3,
@@ -15,6 +16,7 @@
   "state": "29716887"
  },
  {
+  "canvas": "981d425f",
   "hud": "Score0\n    Best0\n    Lives3\n    Level1",
   "label": "started",
   "lives": 3,
@@ -30,6 +32,7 @@
   "state": "6d820cbf"
  },
  {
+  "canvas": "fe347227",
   "hud": "Score20\n    Best20\n    Lives1\n    Level1",
   "label": "keys",
   "lives": 1,
@@ -45,6 +48,7 @@
   "state": "7c4ea970"
  },
  {
+  "canvas": "4287083d",
   "hud": "Score20\n    Best20\n    Lives1\n    Level1",
   "label": "escape",
   "lives": 1,
@@ -60,6 +64,7 @@
   "state": "62ab17e1"
  },
  {
+  "canvas": "4287083d",
   "hud": "Score20\n    Best20\n    Lives1\n    Level1",
   "label": "held",
   "lives": 1,
@@ -75,6 +80,7 @@
   "state": "62ab17e1"
  },
  {
+  "canvas": "a8167d36",
   "hud": "Score20\n    Best20\n    Lives1\n    Level1",
   "label": "resumed",
   "lives": 1,
@@ -90,6 +96,7 @@
   "state": "ddc04d00"
  },
  {
+  "canvas": "a8167d36",
   "hud": "Score20\n    Best20\n    Lives1\n    Level1",
   "label": "hidden",
   "lives": 1,
@@ -105,6 +112,7 @@
   "state": "ddc04d00"
  },
  {
+  "canvas": "7f200abf",
   "hud": "Score20\n    Best20\n    Lives1\n    Level1",
   "label": "menu-resume",
   "lives": 1,
@@ -120,6 +128,7 @@
   "state": "d7245c61"
  },
  {
+  "canvas": "d3dc07dd",
   "hud": "Score20\n    Best20\n    Lives1\n    Level1",
   "label": "returned",
   "lives": 1,
@@ -135,6 +144,7 @@
   "state": "3fc02e09"
  },
  {
+  "canvas": "6e32dd96",
   "hud": "Score20\n    Best20\n    Lives1\n    Level1",
   "label": "returned-and-playing",
   "lives": 1,
@@ -150,6 +160,7 @@
   "state": "747ffe9"
  },
  {
+  "canvas": "6681333c",
   "hud": "Score20\n    Best20\n    Lives0\n    Level1",
   "label": "over",
   "lives": 0,
@@ -165,6 +176,7 @@
   "state": "3c22f434"
  },
  {
+  "canvas": "5ed69f3a",
   "hud": "Score0\n    Best20\n    Lives3\n    Level1",
   "label": "over-returned",
   "lives": 3,

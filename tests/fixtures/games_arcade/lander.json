@@ -1,5 +1,6 @@
 [
  {
+  "canvas": "f33a2f1",
   "hud": "Fuel100\n    Down0\n    Side5\n    Lives3",
   "label": "rest",
   "lives": 3,
@@ -15,6 +16,7 @@
   "state": "f8f8493e"
  },
  {
+  "canvas": "f9d6cef8",
   "hud": "Fuel100\n    Down5\n    Side13\n    Lives3",
   "label": "started",
   "lives": 3,
@@ -30,6 +32,7 @@
   "state": "1d2bed2c"
  },
  {
+  "canvas": "41c6d32e",
   "hud": "Fuel90\n    Down14\n    Side19\n    Lives3",
   "label": "keys",
   "lives": 3,
@@ -45,6 +48,7 @@
   "state": "196eed80"
  },
  {
+  "canvas": "a37c0995",
   "hud": "Fuel90\n    Down34\n    Side19\n    Lives3",
   "label": "escape",
   "lives": 3,
@@ -60,6 +64,7 @@
   "state": "97b7d65c"
  },
  {
+  "canvas": "a37c0995",
   "hud": "Fuel90\n    Down34\n    Side19\n    Lives3",
   "label": "held",
   "lives": 3,
@@ -75,6 +80,7 @@
   "state": "97b7d65c"
  },
  {
+  "canvas": "705b6951",
   "hud": "Fuel90\n    Down42!\n    Side19\n    Lives3",
   "label": "resumed",
   "lives": 3,
@@ -90,6 +96,7 @@
   "state": "8a6f464"
  },
  {
+  "canvas": "705b6951",
   "hud": "Fuel90\n    Down42!\n    Side19\n    Lives3",
   "label": "hidden",
   "lives": 3,
@@ -105,6 +112,7 @@
   "state": "8a6f464"
  },
  {
+  "canvas": "2825e3e5",
   "hud": "Fuel90\n    Down49!\n    Side19\n    Lives3",
   "label": "menu-resume",
   "lives": 3,
@@ -120,6 +128,7 @@
   "state": "c6f3a2a5"
  },
  {
+  "canvas": "8766b59b",
   "hud": "Fuel90\n    Down66!\n    Side19\n    Lives3",
   "label": "falling",
   "lives": 3,
@@ -135,6 +144,7 @@
   "state": "b2c6e523"
  },
  {
+  "canvas": "8766b59b",
   "hud": "Fuel90\n    Down66!\n    Side19\n    Lives3",
   "label": "returned",
   "lives": 3,
@@ -150,6 +160,7 @@
   "state": "b2c6e523"
  },
  {
+  "canvas": "32081448",
   "hud": "Fuel90\n    Down76!\n    Side19\n    Lives3",
   "label": "returned-and-playing",
   "lives": 3,
@@ -165,6 +176,7 @@
   "state": "6bf06546"
  },
  {
+  "canvas": "e3a387ff",
   "hud": "Fuel90\n    Down86!\n    Side19\n    Lives2",
   "label": "between",
   "lives": 2,
@@ -180,6 +192,7 @@
   "state": "f239815c"
  },
  {
+  "canvas": "e3a387ff",
   "hud": "Fuel90\n    Down86!\n    Side19\n    Lives2",
   "label": "between-armed",
   "lives": 2,
@@ -195,6 +208,7 @@
   "state": "f239815c"
  },
  {
+  "canvas": "41ee0495",
   "hud": "Fuel100\n    Down0\n    Side13\n    Lives2",
   "label": "between-returned",
   "lives": 2,
@@ -210,6 +224,7 @@
   "state": "fcc7c592"
  },
  {
+  "canvas": "66fc1024",
   "hud": "Fuel100\n    Down10\n    Side13\n    Lives2",
   "label": "next-lander",
   "lives": 2,
@@ -225,6 +240,7 @@
   "state": "2a7124e8"
  },
  {
+  "canvas": "a25918ab",
   "hud": "Fuel100\n    Down86!\n    Side13\n    Lives0",
   "label": "over",
   "lives": 0,
@@ -240,6 +256,7 @@
   "state": "53732c4b"
  },
  {
+  "canvas": "a25918ab",
   "hud": "Fuel100\n    Down86!\n    Side13\n    Lives0",
   "label": "over-returned",
   "lives": 0,

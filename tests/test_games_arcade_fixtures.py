@@ -427,6 +427,7 @@ CHECK = """
   const x = window[g.api], st = x.st, txt = (s) => { const e = document.querySelector(s); return e ? e.textContent.trim() : null; };
   const p = document.querySelector('#' + g.id + '-pause'), nb = document.querySelector('#' + g.id + '-new'), sheet = document.querySelector('.ar-sheet:not([hidden])');
   return { mode: x.mode, score: st.score === undefined ? null : st.score, lives: st.lives === undefined ? null : st.lives, state: fnv(JSON.stringify(st)).toString(16),
+    canvas: (() => { const c = document.querySelector('canvas'); return c ? fnv(c.toDataURL()).toString(16) : null; })(),
     hud: txt('.pl-hud'), msg: txt('#' + g.id + '-msg'), pause: p ? [p.textContent.trim(), p.disabled] : null, newHidden: nb ? nb.hidden : null, sheet: sheet ? sheet.textContent.trim() : null };
 }
 """ % FNV

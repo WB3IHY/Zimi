@@ -1,5 +1,6 @@
 [
  {
+  "canvas": "4d997bdc",
   "hud": "Score0\n    Best0\n    Balls3\n    Bonus\u00d71",
   "label": "rest",
   "lives": 3,
@@ -15,6 +16,7 @@
   "state": "8fcb08e7"
  },
  {
+  "canvas": "432920c7",
   "hud": "Score0\n    Best0\n    Balls3\n    Bonus\u00d71",
   "label": "started",
   "lives": 3,
@@ -30,6 +32,7 @@
   "state": "5f46ee4e"
  },
  {
+  "canvas": "2bb2ad96",
   "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
   "label": "launched",
   "lives": 3,
@@ -45,6 +48,7 @@
   "state": "5d53fa15"
  },
  {
+  "canvas": "2bb2ad96",
   "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
   "label": "escape",
   "lives": 3,
@@ -60,6 +64,7 @@
   "state": "78f5bd3c"
  },
  {
+  "canvas": "2bb2ad96",
   "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
   "label": "held",
   "lives": 3,
@@ -75,6 +80,7 @@
   "state": "78f5bd3c"
  },
  {
+  "canvas": "ff265470",
   "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
   "label": "resumed",
   "lives": 3,
@@ -90,6 +96,7 @@
   "state": "930947e6"
  },
  {
+  "canvas": "ff265470",
   "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
   "label": "hidden",
   "lives": 3,
@@ -105,6 +112,7 @@
   "state": "930947e6"
  },
  {
+  "canvas": "ff265470",
   "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
   "label": "menu-resume",
   "lives": 3,
@@ -120,6 +128,7 @@
   "state": "186df9a9"
  },
  {
+  "canvas": "ff265470",
   "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
   "label": "returned",
   "lives": 3,
@@ -135,6 +144,7 @@
   "state": "186df9a9"
  },
  {
+  "canvas": "ff265470",
   "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
   "label": "returned-and-playing",
   "lives": 3,
@@ -150,6 +160,7 @@
   "state": "b4a11347"
  },
  {
+  "canvas": "31afe5dd",
   "hud": "Score1,550\n    Best1,550\n    Balls0\n    Bonus\u00d71",
   "label": "over",
   "lives": 0,
@@ -165,6 +176,7 @@
   "state": "1eb6c8ab"
  },
  {
+  "canvas": "31afe5dd",
   "hud": "Score1,550\n    Best1,550\n    Balls0\n    Bonus\u00d71",
   "label": "over-returned",
   "lives": 0,

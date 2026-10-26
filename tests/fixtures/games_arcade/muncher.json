@@ -1,5 +1,6 @@
 [
  {
+  "canvas": "3862a08a",
   "hud": "Score0\n    Best0\n    Lives3\n    Maze1",
   "label": "rest",
   "lives": 3,
@@ -15,6 +16,7 @@
   "state": "4b1b524d"
  },
  {
+  "canvas": "3862a08a",
   "hud": "Score0\n    Best0\n    Lives3\n    Maze1",
   "label": "started",
   "lives": 3,
@@ -30,6 +32,7 @@
   "state": "9e9e3fcc"
  },
  {
+  "canvas": "7d1f5aa9",
   "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
   "label": "keys",
   "lives": 3,
@@ -45,6 +48,7 @@
   "state": "444186a9"
  },
  {
+  "canvas": "e91303a5",
   "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
   "label": "escape",
   "lives": 3,
@@ -60,6 +64,7 @@
   "state": "d520a61e"
  },
  {
+  "canvas": "e91303a5",
   "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
   "label": "held",
   "lives": 3,
@@ -75,6 +80,7 @@
   "state": "d520a61e"
  },
  {
+  "canvas": "3f2f0d95",
   "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
   "label": "resumed",
   "lives": 3,
@@ -90,6 +96,7 @@
   "state": "ae9c3966"
  },
  {
+  "canvas": "3f2f0d95",
   "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
   "label": "hidden",
   "lives": 3,
@@ -105,6 +112,7 @@
   "state": "ae9c3966"
  },
  {
+  "canvas": "669082ca",
   "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
   "label": "menu-resume",
   "lives": 3,
@@ -120,6 +128,7 @@
   "state": "83ff1d89"
  },
  {
+  "canvas": "5abec8b8",
   "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
   "label": "returned",
   "lives": 3,
@@ -135,6 +144,7 @@
   "state": "173cda26"
  },
  {
+  "canvas": "7dba2000",
   "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
   "label": "returned-and-playing",
   "lives": 3,
@@ -150,6 +160,7 @@
   "state": "5a4db50e"
  },
  {
+  "canvas": "5ef8aa12",
   "hud": "Score70\n    Best70\n    Lives0\n    Maze1",
   "label": "over",
   "lives": 0,
@@ -165,6 +176,7 @@
   "state": "fb22f80f"
  },
  {
+  "canvas": "3862a08a",
   "hud": "Score0\n    Best70\n    Lives3\n    Maze1",
   "label": "over-returned",
   "lives": 3,
