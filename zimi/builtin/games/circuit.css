@@ -1,23 +1,10 @@
-/* Circuit: the track is a canvas (it keeps its own colours in light and dark); the touch pad and the setup sheet are extra. */
-.pl-main:has(#cr-board) { gap: 8px; padding-top: 8px; justify-content: flex-start; }
-.pl-main:has(#cr-board) .pl-stat { padding: 3px 10px; }
-.pl-main:has(#cr-board) .pl-msg { min-height: 1.2em; }
+/* Circuit: the track is a canvas (it keeps its own colours in light and dark); the setup sheet's track list and note are extra. */
+.pl-main:has(#cr-board) { justify-content: flex-start; }
 .pl-arena#cr-board { background: #2f5a3a; }
-.cr-pad { display: none; width: 100%; max-width: 460px; justify-content: space-between; gap: 12px; }
-body.touch .cr-pad { display: flex; }
-.cr-pair { display: flex; gap: 10px; }
-.cr-pad .pl-key { min-width: 76px; min-height: 76px; font-size: 26px; user-select: none; -webkit-user-select: none; touch-action: none; }
-.cr-pad .cr-gas, .cr-pad .cr-brake { font-size: 16px; min-width: 84px; }
-body.touch .pl-help { display: none; }
-.cr-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0 0; }
-.cr-row > span { font-size: 13px; color: var(--ink2); }
-.cr-tracks { margin-top: 2px; }
-.cr-check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 14px; }
-.cr-check input { width: 18px; height: 18px; accent-color: var(--accent); }
-.cr-table { width: 100%; border-collapse: collapse; margin: 6px 0 0; font-size: 14px; }
-.cr-table td { padding: 3px 4px; border-bottom: 1px solid var(--line); }
-.cr-table td:last-child { text-align: right; font: 600 13px var(--mono); font-variant-numeric: tabular-nums; }
-.cr-table tr.me td { font-weight: 700; color: var(--accent); }
-.cr-note { margin: 8px 0 0; font-size: 13px; color: var(--ink2); }
-@media (max-width: 480px) { .pl-main:has(#cr-board) .pl-hud { gap: 5px; } .pl-main:has(#cr-board) .pl-stat { min-width: 56px; padding: 3px 7px; } }
+.cr-tracks { margin-bottom: var(--sp-2); }
+.cr-note { margin: var(--sp-2) 0 0; font-size: var(--fs-small); color: var(--ink2); }
 .pl-hud[hidden] { display: none; }
+/* The setup rows stay on one line at phone width: a label and its control. */
+.cr-setup .gs-row { flex-wrap: nowrap; }
+.cr-setup .gs-seg { flex: 0 0 auto; }
+.cr-setup .gs-seg .ar-btn { min-width: 44px; }
