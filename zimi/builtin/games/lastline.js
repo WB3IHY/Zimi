@@ -208,27 +208,33 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
-  var BEST_KEY = 'zimi.games.lastline.best', CHROME_PX = 190, READY_ARM_MS = 650;
+  var BEST_KEY = 'zimi.games.lastline.best', CHROME_PX = 190;
   Play.applyTheme();
 
   var els = { cv: $('ll-board'), score: $('ll-score'), best: $('ll-best'), lives: $('ll-lives'), wave: $('ll-wave'), msg: $('ll-msg'), pause: $('ll-pause'), newBtn: $('ll-new') };
-  var runId = 0, best = Play.load(BEST_KEY, { score: 0 }), st = createState(), mode = 'ready', ctx, status = Play.status(els.msg), armed = null, pad;
-  var held = { left: false, right: false, fire: false }, keyHeld = { left: false, right: false, fire: false };
+  var st = createState(), ctx;
 
-  function layout() { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, 560).ctx; draw(); }
-  function hud() { els.score.textContent = Play.num(st.score); els.best.textContent = Play.num(Math.max(best.score, st.score)); els.lives.textContent = Play.num(Math.max(0, st.lives)); els.wave.textContent = Play.num(st.wave); }
-  function input() { return { left: held.left || keyHeld.left, right: held.right || keyHeld.right, fire: held.fire || keyHeld.fire }; }
+  var page = Play.arcadePage({
+    els: els, bestKey: BEST_KEY, ready: 'lastline', state: function () { return st; }, draw: draw,
+    layout: function () { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, 560).ctx; draw(); },
+    keys: { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ' ': 'fire', ArrowUp: 'fire' },
+    pad: { dirs: ['left', 'right'], actions: [{ name: 'fire', label: T('play.fire') }] },
+    newRun: function () { st = createState(); },
+    snapshot: function () { return Play.plain(st); },
+    restore: function (saved) { st = Play.overlay(createState(), saved); st.events = []; }
+  });
+  var status = page.status;
 
-  var loop = Play.loop(function (dt) {
-    step(st, dt, input());
+  page.run(function (dt) {
+    step(st, dt, page.input());
     st.events.forEach(function (e) {
       if (e.name === 'wave') status.say(T('lastline.wave', { n: e.data }));
       else if (e.name === 'bonushit') status.say(T('lastline.bonus', { n: e.data }));
       else if (e.name === 'hit' && st.lives > 0) status.say(st.lives === 1 ? T('lastline.lastLife') : '');
-      else if (e.name === 'over') finish();
+      else if (e.name === 'over') page.finish();
     });
     st.events.length = 0;
-  }, function () { draw(); hud(); }, 60);
+  });
 
   var COLORS = ['#c88cff', '#3fc1e8', '#3fc1e8', '#62c470', '#62c470'];
   // Three kinds of drone, each with two poses that swap at every step.
@@ -275,66 +281,6 @@
     }
   }
 
-  function clearHeld() { Object.keys(held).forEach(function (k) { held[k] = false; keyHeld[k] = false; }); if (pad) pad.release(); }
-  // The ready line: a tap or a key starts. Armed again after a game, once the end sheet is up.
-  function arm() {
-    if (armed) armed.cancel();
-    armed = Play.ready({ say: status.say, target: pad.stage, start: begin, touch: T('lastline.readyTouch'), keys: T('lastline.readyKeys') });
-  }
-  function begin() {
-    if (armed) armed.cancel();
-    st = createState(); runId = Play.runId(); mode = 'playing'; status.say(''); clearHeld();
-    Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); loop.start();
-  }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); Play.pauseLabel(els.pause, true); status.say(T('play.paused')); }
-  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
-  function toggle() { if (mode === 'playing') pause(); else resume(); }
-  function finish() {
-    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); clearHeld();
-    if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); }
-    hud(); draw();
-    showEnd();
-  }
-  function showEnd() {
-    ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(st.score)], [T('play.best'), Play.num(best.score)]] });
-    setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
-  }
-  els.newBtn.addEventListener('click', begin);
-  els.pause.addEventListener('click', toggle);
-  els.cv.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
-  Play.onHidden(pause);
-  ZimiShell.game({
-    inProgress: function () { return mode === 'playing' || mode === 'paused'; },
-    stats: function () { return best.score ? [[T('play.best'), Play.num(best.score)]] : []; }
-  });
-
-  pad = Play.pad(els.cv, { dirs: ['left', 'right'], actions: [{ name: 'fire', label: T('play.fire') }], on: function (name, down) { held[name] = down; } });
-  var KEY = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ' ': 'fire', ArrowUp: 'fire' };
-  document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (document.querySelector('.ar-sheet:not([hidden])')) return;
-    var k = KEY[e.key];
-    if (k) { e.preventDefault(); keyHeld[k] = true; }
-    else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (mode === 'playing' || mode === 'paused') toggle(); }
-  });
-  document.addEventListener('keyup', function (e) { var k = KEY[e.key]; if (k) keyHeld[k] = false; });
-  window.addEventListener('blur', clearHeld);
-
-  window.addEventListener('resize', layout);
-  layout(); hud(); arm();
-  // A run in progress or over is kept; it comes back paused (or on its end sheet).
-  function snapshot() {
-    if (mode === 'ready') return null;
-    return { runId: runId, over: mode === 'over', st: Play.plain(st) };
-  }
-  function restore(d) {
-    if (!d || !d.st) return false;
-    if (armed) { armed.cancel(); armed = null; }
-    st = Play.overlay(createState(), d.st); st.events = []; runId = d.runId; hud(); draw();
-    if (d.over) { mode = 'over'; els.pause.disabled = true; setTimeout(showEnd, 0); return true; }
-    mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
-    return true;
-  }
-  ZimiShell.persist({ save: snapshot, load: restore });
-  root.__lastline = { get st() { return st; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, st.score, st.lives, st.wave, st.px, st.inv, st.bullets, st.enemyBullets, st.shields.map(function (s) { return s.cells; })]); } };
+  page.start();
+  root.__lastline = { get st() { return st; }, get mode() { return page.mode; }, get pos() { return JSON.stringify([page.runId, st.score, st.lives, st.wave, st.px, st.inv, st.bullets, st.enemyBullets, st.shields.map(function (s) { return s.cells; })]); } };
 })(this);
