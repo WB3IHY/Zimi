@@ -1901,5 +1901,22 @@
   "length": "5 min",
   "kind": "library",
   "computer": false
+ },
+ {
+  "qid": "Q151939",
+  "wiki": "Telephone game",
+  "path": "telephone.html",
+  "title": "Telephone",
+  "blurb": "Write a clue; your friend finds the article",
+  "why": "Telephone, or Chinese whispers, passes a message along and it changes on the way. Here the message is a clue, and the library holds the answer.",
+  "origin": {
+   "year": null,
+   "era": "1800s"
+  },
+  "region": "Worldwide/Modern",
+  "players": "2",
+  "length": "10 min",
+  "kind": "library",
+  "computer": false
  }
 ]
