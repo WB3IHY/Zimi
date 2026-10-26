@@ -3,14 +3,13 @@
    to fetch); if Workers are unavailable it thinks on the main thread for a short while. */
 (function (root) {
   'use strict';
-  if (typeof document === 'undefined' || !root.ZimiChessEngine || !root.ZimiChessPieces) return;
-  var E = root.ZimiChessEngine(), F = root.ZimiFairy, BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  if (typeof document === 'undefined' || !root.ZimiChessEngine || !root.ZimiChessPieces || !root.BoardUI) return;
+  var E = root.ZimiChessEngine(), F = root.ZimiFairy, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var WHITE = E.WHITE, BLACK = E.BLACK, SETTINGS_KEY = 'chess.settings', STATS_KEY = 'chess.stats';
   var FALLBACK_MS = 250, FALLBACK_DEPTH = 3;   // main-thread thinking when there is no worker
   var WORKER_GRACE_MS = 5000;                  // a worker that stays silent this long past its budget is given up on
   var COMPUTER_DELAY_MS = 250;
-  var OLD_NAMES = { strong: 'advanced' };   // the chip that used to be called Strong
-  var NAMES = root.ZimiChessPieces.NAMES;
+  var LEVELS = ['beginner', 'casual', 'club', 'strong', 'fairy', 'master'];   // 'strong' is shown as Advanced and 'fairy' as Strong
 
   var settings = BK.load(SETTINGS_KEY, {});
   if (!E.LEVELS[settings.level] && !F.wants(settings.level)) settings.level = 'club';
@@ -22,12 +21,14 @@
   var els = { board: $('cs-board'), status: $('cs-status'), undo: $('cs-undo'), moves: $('cs-moves'), opening: $('cs-opening'), stats: $('cs-stats'), flip: $('cs-flip') };
   var cells = [], pos, keys, sans, played, over, sel = -1, targets = {}, lastMove = 0, flipped = false, requestId = 0, thinking = false;
   var worker = null, workerOk = true, watchdog = 0, pendingPromo = null;
+  var status = UI.status(els.status);
 
   var watch = null, watchSaved = null;   // Watch and learn: the driver's controller, and the settings to give back
   // The level our own engine plays at: the one chosen, or its best when Strong or Master were chosen and Fairy-Stockfish is not there.
   function engineLevel() { return F.wants(settings.level) ? 'strong' : settings.level; }
   function human(color) { if (watch) return false; return settings.mode === 'two' || color === (settings.side === 'white' ? WHITE : BLACK); }
-  function colorName(c) { return c === WHITE ? 'White' : 'Black'; }
+  function colorName(c) { return UI.side(c === WHITE ? 'white' : 'black'); }
+  function levelLabel(l) { return T('chess.level.' + l); }
 
   // ── drawing ──
   function pieceSvg(t, color) {
@@ -66,21 +67,15 @@
       if ((d & 7) === 0) edge += '<i class="cs-co r">' + (8 - (s >> 3)) + '</i>';
       var sig = html + edge;
       if (c.dataset.sig !== sig) { c.innerHTML = sig; c.dataset.sig = sig; }
-      c.setAttribute('aria-label', E.squareName(s) + ', ' + (v ? (v > 0 ? 'white ' : 'black ') + NAMES[Math.abs(v)] : targets.hasOwnProperty(s) ? 'move here' : 'empty') + (s === sel ? ', selected' : ''));
+      var name = E.squareName(s), label = v ? T('chess.sq.piece', { sq: name, color: colorName(v > 0 ? WHITE : BLACK).toLowerCase(), piece: T('chess.piece.' + Math.abs(v)) }) : T(targets.hasOwnProperty(s) ? 'chess.sq.target' : 'chess.sq.empty', { sq: name });
+      c.setAttribute('aria-label', s === sel ? T('chess.sq.selected', { label: label }) : label);
     }
     els.undo.disabled = !played.length || thinking;
     els.flip.setAttribute('aria-pressed', String(flipped !== (settings.mode === 'cpu' && settings.side === 'black')));
   }
 
-  function say(text, busy) {
-    els.status.textContent = '';
-    if (busy) { var s = document.createElement('span'); s.className = 'bg-spin'; els.status.appendChild(s); }
-    els.status.appendChild(document.createTextNode(text));
-  }
-  function showStats() {
-    var s = stats[settings.level] || { w: 0, l: 0, d: 0 };
-    els.stats.textContent = settings.mode === 'cpu' ? 'vs ' + F.levelName(settings.level, OLD_NAMES) + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
-  }
+  function say(text, busy) { status.turn(text, busy); }
+  function showStats() { UI.record(els.stats, levelLabel(settings.level), settings.mode === 'cpu' ? stats[settings.level] : null); }
   // The opening's name: the data (data/chess-openings.js, lichess-org/chess-openings, CC0) loads once a game has a move,
   // after the page is up, and its index is built in a later task so a move never waits on it.
   var openingIndex = null, openingRequested = false;
@@ -103,31 +98,30 @@
       if (i % 2 === 0) html += '<span class="cs-n">' + (i / 2 + 1) + '.</span>';
       html += '<span class="cs-m' + (i === sans.length - 1 ? ' now' : '') + '">' + sans[i] + '</span>';
     }
-    els.moves.innerHTML = html || '<span class="cs-none">No moves yet</span>';
+    els.moves.innerHTML = html;
     els.moves.scrollLeft = els.moves.scrollWidth; els.moves.scrollTop = els.moves.scrollHeight;
     els.opening.textContent = '';
     wantOpenings(); paintOpening();
   }
 
   // ── turns ──
-  var WHY = { stalemate: 'Stalemate, a draw.', repetition: 'A draw by threefold repetition.', fifty: 'A draw by the fifty-move rule.', material: 'A draw, neither side has enough pieces to mate.' };
+  var WHY = { stalemate: 'chess.why.stalemate', repetition: 'chess.why.repetition', fifty: 'chess.why.fifty', material: 'chess.why.material' };
   function finish(st) {
     over = true; thinking = false; sel = -1; targets = {};
     if (root.ZimiShell) root.ZimiShell.turn(false);
     var msg, result;
     if (st.result === 'mate') {
-      msg = 'Checkmate. ' + (settings.mode === 'two' ? colorName(st.winner) + ' wins.' : human(st.winner) ? 'You win.' : 'The computer wins.');
+      msg = T('chess.why.mate');
       result = human(st.winner) ? 'win' : 'loss';
-    } else { msg = WHY[st.result]; result = 'draw'; }
-    if (watch) { paint(); say(msg); watch.finish(msg + ' That was the whole game. Press Done to play one yourself.'); return; }
+    } else { msg = T(WHY[st.result]); result = 'draw'; }
+    if (watch) { paint(); say(msg); watch.finish(T('board.watch.done', { text: msg })); return; }
     if (settings.mode === 'cpu') {
       var s = stats[settings.level] = stats[settings.level] || { w: 0, l: 0, d: 0 };
       if (result === 'win') s.w++; else if (result === 'loss') s.l++; else s.d++;
       BK.save(STATS_KEY, stats);
     }
     paint(); say(msg); showStats();
-    $('cs-result-text').textContent = msg;
-    resultSheet.open($('cs-again'));
+    UI.end(settings.mode === 'two' && st.result === 'mate' ? { result: 'win', name: colorName(st.winner), text: msg } : { result: result === 'loss' ? 'lose' : result, text: msg });
   }
 
   function afterMove() {
@@ -136,8 +130,8 @@
     paintMoves();
     if (st.over) { finish(st); return; }
     paint();
-    var line = watch ? colorName(pos.turn) + ' to move' : settings.mode === 'two' ? colorName(pos.turn) + ' to move' : human(pos.turn) ? 'Your turn' : 'Computer is thinking';
-    say((st.check ? 'Check. ' : '') + line, !human(pos.turn) && !watch);
+    var line = watch || settings.mode === 'two' ? T('board.toMove', { name: colorName(pos.turn) }) : human(pos.turn) ? T('board.yourTurn') : T('shell.thinking');
+    say(st.check ? T('chess.check', { line: line }) : line, !human(pos.turn) && !watch);
     if (root.ZimiShell) root.ZimiShell.turn(human(pos.turn) && !over, timeUp, played.length);
     if (!human(pos.turn)) askComputer();
   }
@@ -201,8 +195,7 @@
     F.ask('chess', E, pos, played, settings.level, function (move, why) {
       if (id !== requestId || !thinking) return;
       if (move) { onAnswer(id, move); return; }
-      var note = why === 'unavailable' ? F.note() : '';
-      if (note) say(note + 'Computer is thinking', true);
+      if (why === 'unavailable') say(T('board.fairyNote', { thinking: T('shell.thinking') }), true);
       askLocal(id);
     });
   }
@@ -227,45 +220,44 @@
     var s = sqAt(+e.currentTarget.dataset.d), v = pos.sq[s];
     if (sel >= 0 && targets.hasOwnProperty(s)) {
       var cands = E.legalMoves(pos).filter(function (m) { return E.from(m) === sel && E.to(m) === s; });
-      if (cands.length > 1) { pendingPromo = cands; promoSheet.open(); return; }
+      if (cands.length > 1) { askPromotion(cands); return; }
       play(cands[0]); return;
     }
     if (v * pos.turn > 0 && s !== sel) {
       sel = s; targets = movesFrom(s);
-      if (!Object.keys(targets).length) say('That piece cannot move');
-      else say(settings.mode === 'two' ? colorName(pos.turn) + ' to move' : 'Choose where to move');
+      if (!Object.keys(targets).length) { sel = -1; UI.refuse(status, e.currentTarget, T('chess.cantMove')); }
+      else say(settings.mode === 'two' ? T('board.toMove', { name: colorName(pos.turn) }) : T('board.chooseWhere'));
     } else { sel = -1; targets = {}; }
     paint();
   }
 
-  var promoSheet = BK.sheet($('cs-promo'), function () { pendingPromo = null; });
-  function buildPromo() {
-    var box = $('cs-promo-choices');
+  // The pawn reaches the far rank: a sheet of the four pieces it can become, in the colour of whoever is promoting.
+  var promoSheet = null;
+  function askPromotion(cands) {
+    pendingPromo = cands;
+    var box = UI.h('div', { class: 'cs-promo-choices' });
     [E.Q, E.R, E.B, E.N].forEach(function (t) {
-      var b = document.createElement('button');
-      b.type = 'button'; b.className = 'ar-btn cs-promo-btn'; b.dataset.t = t;
-      b.setAttribute('aria-label', NAMES[t]);
-      b.innerHTML = pieceSvg(t, pos ? pos.turn : WHITE) + '<span>' + NAMES[t] + '</span>';
+      if (!cands.some(function (x) { return E.promo(x) === t; })) return;
+      var b = UI.h('button', { class: 'ar-btn cs-promo-btn', type: 'button', 'aria-label': T('chess.piece.' + t) });
+      b.innerHTML = pieceSvg(t, pos.turn) + '<span>' + T('chess.piece.' + t) + '</span>';
       b.addEventListener('click', function () {
-        var m = pendingPromo.filter(function (x) { return E.promo(x) === t; })[0];
+        var m = cands.filter(function (x) { return E.promo(x) === t; })[0];
         promoSheet.close();
         if (m) play(m);
       });
       box.appendChild(b);
     });
-  }
-  function paintPromoColour() {
-    var svgs = $('cs-promo-choices').querySelectorAll('svg');
-    for (var i = 0; i < svgs.length; i++) svgs[i].setAttribute('class', 'cs-pc ' + (pos.turn === WHITE ? 'w' : 'b'));
+    promoSheet = root.ZimiShell.sheet({ title: T('chess.promote'), body: [box], onClose: function () { pendingPromo = null; } });
   }
 
   // The move timer ran out: the computer's quickest choice is played for the person.
   function timeUp() {
     if (over || thinking || !human(pos.turn)) return;
-    promoSheet.close(); pendingPromo = null;
+    if (promoSheet) promoSheet.close();
+    pendingPromo = null;
     var r = E.think(pos, { level: 'beginner', ms: 80, depth: 1, seen: seenCounts() });
     if (!r.move) return;
-    say('Time ran out. A move was played for you.');
+    say(T('board.timeUp'));
     play(r.move);
   }
 
@@ -283,50 +275,40 @@
     requestId++; thinking = false; over = false; sel = -1; targets = {}; lastMove = 0; clearTimeout(watchdog); F.cancel();
     pos = E.startPosition(); keys = [E.key(pos)]; sans = []; played = [];
     flipped = settings.mode === 'cpu' && settings.side === 'black';
-    resultSheet.close();
     showStats(); paintMoves(); paint();
     afterMove();
   }
 
   // ── bar, menu, keys ──
-  var menu = BK.sheet($('cs-sheet')), resultSheet = BK.sheet($('cs-result'));
-  function syncMenu() {
-    BK.chipSet($('cs-f-mode'), settings.mode); BK.chipSet($('cs-f-level'), settings.level);
-    BK.chipSet($('cs-f-side'), settings.side); $('cs-hints').checked = settings.hints;
-    refreshMenu();
+  // Menu > New game shows these rows with Start last; Start clicks #cs-new, which applies them and begins.
+  var draft = null;
+  function menuOptions() {
+    draft = { mode: settings.mode, level: settings.level, side: settings.side, hints: settings.hints };
+    var rows = [], level;
+    rows.push(UI.row(T('board.opponent'), [['cpu', T('board.computer')], ['two', T('board.twoPlayers')]], draft.mode, function (v) { draft.mode = v; level.disable(v === 'two'); side.disable(v === 'two'); }));
+    level = UI.row(T('board.level'), LEVELS.map(function (l) { return [l, levelLabel(l)]; }), draft.level, function (v) { draft.level = v; });
+    var side = UI.row(T('board.youPlay'), [['white', T('chess.side.white')], ['black', T('board.black')]], draft.side, function (v) { draft.side = v; });
+    rows.push(level, side, UI.toggle(T('chess.legalMoves'), draft.hints, function (v) { draft.hints = v; }));
+    level.disable(draft.mode === 'two'); side.disable(draft.mode === 'two');
+    return UI.options(rows);
   }
-  // Opponent vs two players: the level and side only matter against the computer.
-  function refreshMenu() {
-    var two = BK.chipValue($('cs-f-mode')) === 'two';
-    $('cs-f-level').disabled = two; $('cs-f-side').disabled = two;
-    $('cs-f-level').style.opacity = $('cs-f-side').style.opacity = two ? 0.45 : 1;
-  }
-  $('cs-new').addEventListener('click', function () { syncMenu(); menu.open(); });
-  $('cs-f-mode').addEventListener('change', refreshMenu);
-  $('cs-cancel').addEventListener('click', menu.close);
-  $('cs-start').addEventListener('click', function () {
-    settings.mode = BK.chipValue($('cs-f-mode')); settings.level = BK.chipValue($('cs-f-level'));
-    settings.side = BK.chipValue($('cs-f-side')); settings.hints = $('cs-hints').checked;
-    BK.save(SETTINGS_KEY, settings);
-    menu.close(); newGame();
+  $('cs-new').addEventListener('click', function () {
+    if (draft) { settings.mode = draft.mode; settings.level = draft.level; settings.side = draft.side; settings.hints = draft.hints; draft = null; BK.save(SETTINGS_KEY, settings); }
+    newGame();
   });
-  $('cs-again').addEventListener('click', newGame);
-  $('cs-close').addEventListener('click', function () { resultSheet.close(); });
   els.undo.addEventListener('click', undo);
   els.flip.addEventListener('click', function () { flipped = !flipped; paint(); });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet,input')) return;
     var k = e.key.toLowerCase();
-    if (k === 'n') { syncMenu(); menu.open(); } else if (k === 'u') undo(); else if (k === 'f') { flipped = !flipped; paint(); }
+    if (k === 'n') root.ZimiShell.openMenu(); else if (k === 'u') undo(); else if (k === 'f') { flipped = !flipped; paint(); }
     else if (e.key === 'Escape' && sel >= 0) { sel = -1; targets = {}; paint(); }
   });
-  // the promotion sheet shows the colour of whoever is promoting
-  var promoObserver = new MutationObserver(function () { if (!$('cs-promo').hidden) paintPromoColour(); });
-  promoObserver.observe($('cs-promo'), { attributes: true, attributeFilter: ['hidden'] });
 
   if (root.ZimiShell) root.ZimiShell.game({
     moveTimer: true, hints: true,
-    stats: function () { var s = stats[settings.level] || { w: 0, l: 0, d: 0 }; return 'Against the computer, ' + settings.level + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn'; },
+    menu: menuOptions,
+    stats: function () { var s = stats[settings.level]; return s && s.w + s.l + s.d ? [T(s.d ? 'board.record.draws' : 'board.record', { level: levelLabel(settings.level), won: s.w, lost: s.l, drawn: s.d })] : []; },
     inProgress: function () { return !over && played.length > 0; },
     watch: {
       script: 'explain-chess.js',
@@ -334,7 +316,7 @@
         watchSaved = { mode: settings.mode, level: settings.level, side: settings.side };
         settings.mode = 'cpu'; settings.level = 'club'; settings.side = 'white';
         watch = ctl; newGame();
-        ctl.say('White moves first. The computer plays both sides at club level.');
+        ctl.say(T('chess.watch.intro'));
       },
       // takeover: play on from here as the side to move; stop: a fresh game; new: the game's own New game sheet follows.
       stop: function (kind) {
@@ -348,7 +330,7 @@
   });
 
   buildBoard();
-  pos = E.startPosition(); buildPromo();
+  pos = E.startPosition();
   newGame();
 
   if (new URLSearchParams(location.search).has('debug')) {
