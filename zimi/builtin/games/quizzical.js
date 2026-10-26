@@ -231,7 +231,7 @@
     wikiZim = a ? a.zim.name : null; wiktZim = w && w.exact ? w.zim.name : (w && a && Lib.primaryLang(w.zim.language) === Lib.primaryLang(a.zim.language) ? w.zim.name : null);
     // Leaving and coming back keeps the round: its questions, where you are, the score and the answer just given.
     var kept = ZimiShell.saved();
-    if (kept && kept.round && kept.round.length && (kept.zim || null) === wikiZim) {
+    if (kept && kept.round && kept.round.length) {
       round = kept.round; at = kept.at; score = kept.score; showQuestion();
       if (kept.picked >= 0) { score -= kept.picked === round[at].choices.indexOf(round[at].answer) ? 1 : 0; answer(kept.picked); }
       if (kept.done) advance();
