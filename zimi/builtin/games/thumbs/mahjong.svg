@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"><rect width="320" height="180" fill="#2a7a4f"/>
-          <g font-family="Georgia,serif" font-weight="800" text-anchor="middle">
-            <g transform="translate(62 38) rotate(-8)"><rect x="4" y="4" width="64" height="86" rx="7" fill="#1b4d31"/><rect width="64" height="86" rx="7" fill="#f8f3e3" stroke="#b9b19a"/><text x="32" y="52" font-size="44" fill="#1565c0">8</text><circle cx="32" cy="70" r="8" fill="none" stroke="#1565c0" stroke-width="3.500"/><circle cx="32" cy="70" r="3" fill="#1565c0"/></g>
-            <g transform="translate(128 34)"><rect x="4" y="4" width="64" height="86" rx="7" fill="#1b4d31"/><rect width="64" height="86" rx="7" fill="#f8f3e3" stroke="#b9b19a"/><path d="M32 14l20 29-20 29-20-29z" fill="#c62828"/><path d="M32 29l10 14-10 14-10-14z" fill="#f8f3e3"/></g>
-            <g transform="translate(194 38) rotate(8)"><rect x="4" y="4" width="64" height="86" rx="7" fill="#1b4d31"/><rect width="64" height="86" rx="7" fill="#f8f3e3" stroke="#b9b19a"/><text x="32" y="60" font-size="52" fill="#1a237e">E</text></g>
-          </g></svg>
+            <g font-family="Georgia,serif" font-weight="800" text-anchor="middle">
+              <g transform="translate(62 38) rotate(-8)"><rect x="4" y="4" width="64" height="86" rx="7" fill="#1b4d31"/><rect width="64" height="86" rx="7" fill="#f8f3e3" stroke="#b9b19a"/><text x="32" y="52" font-size="44" fill="#1565c0">8</text><circle cx="32" cy="70" r="8" fill="none" stroke="#1565c0" stroke-width="3.500"/><circle cx="32" cy="70" r="3" fill="#1565c0"/></g>
+              <g transform="translate(128 34)"><rect x="4" y="4" width="64" height="86" rx="7" fill="#1b4d31"/><rect width="64" height="86" rx="7" fill="#f8f3e3" stroke="#b9b19a"/><path d="M32 14l20 29-20 29-20-29z" fill="#c62828"/><path d="M32 29l10 14-10 14-10-14z" fill="#f8f3e3"/></g>
+              <g transform="translate(194 38) rotate(8)"><rect x="4" y="4" width="64" height="86" rx="7" fill="#1b4d31"/><rect width="64" height="86" rx="7" fill="#f8f3e3" stroke="#b9b19a"/><text x="32" y="60" font-size="52" fill="#1a237e">E</text></g>
+            </g></svg>
