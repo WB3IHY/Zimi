@@ -1,0 +1,36 @@
+{
+ "events": 85,
+ "final": {
+  "phase": "over",
+  "scores": [
+   9,
+   11
+  ],
+  "sheet": "You loseUs called hearts and took 2 of 5.Played1Won0CloseNew game",
+  "size": 361
+ },
+ "hands": [
+  {
+   "plays": 15,
+   "scores": [
+    0,
+    2
+   ],
+   "sheet": "Hand 1Us called diamonds alone and took 1 of 5.Them euchred Us: +2Us 0, Them 2Next hand",
+   "state": "b63eb24c"
+  },
+  {
+   "plays": 35,
+   "scores": [
+    1,
+    2
+   ],
+   "sheet": "Hand 2Us called hearts and took 3 of 5.Us score +1Us 1, Them 2Next hand",
+   "state": "337a2ba0"
+  }
+ ],
+ "hseed": 6,
+ "plays": "0:22 1:25 3:13 3:47 0:51 1:39 1:48 3:9 0:21 0:35 1:36 3:11 1:49 3:12 0:8 1:9 2:23 3:8 0:12 2:36 3:21 0:34 1:35 2:22 3:25 0:13 1:26 1:11 2:24 3:0 0:48 3:47 0:39 1:50 2:51 2:21 3:22 0:25 1:38 1:0 2:11 3:9 0:34 0:48 1:23 2:50 3:39 1:8 2:35 3:24 0:49 2:51 3:13 0:37 1:36",
+ "seed": 12,
+ "trace": "9bfeaab209408a01e7128a7268f9d15a76a0217559ddf524061cc1fd6e1267b8e9dca89339f8e3160bdcfcb9a1c7f118b87fd1146e0ff6c3ab033905e9faf2cf1a06bed4a43677877648a007cdeeb89f667cd425db843ad6b2eb8b9ad23b0f2818b3e60caff8ca89be1d7715d1e4406340cc2c133645ad5d2be461fc0a50cf790e3e08ccd6d09870ed0cb8defe3c3ee8006a6a6be212e010f65a711aa0fdc090e89167105e8703c3e8c982b26e2769001acf07b9324ce23f90a54722f4df8d313334f968dfc5fc88724fc1072bc8efa7331fd4f2bfb9f1ab697ad0b476098d05fd4c3f1263eb76d42bd97198e3587d094a005c0c4fd24f322f140a3c9d1e911aebe49501fbc4d9dbde834a3e4c2b0d226b6e6542d2abe05d9238dc38f5dbb7e213a1044aed7420c79a9bb0f7ef85e7748c3ead3c68374351212bf0c5f5316cd333f69fea8fe32e17cddd8a797e29e12cd6643901"
+}
