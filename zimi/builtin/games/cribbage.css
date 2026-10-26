@@ -9,5 +9,5 @@
 .cb-tick { fill: var(--cb-tick); font: 600 6px var(--font); }
 .cb-peg { stroke: rgba(0, 0, 0, 0.55); stroke-width: 0.8; }
 .cb-front { stroke: #fff; stroke-width: 0.9; }
-.cb-tag { position: absolute; z-index: 5; text-align: center; font-size: 11px; color: rgba(255, 255, 255, 0.78); pointer-events: none; white-space: nowrap; }
+.cb-tag { position: absolute; z-index: 5; text-align: center; font-size: var(--fs-caption); color: rgba(255, 255, 255, 0.78); pointer-events: none; white-space: nowrap; }
 .cb-tag[hidden] { display: none; }

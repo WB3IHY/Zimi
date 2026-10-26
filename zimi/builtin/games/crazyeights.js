@@ -180,14 +180,14 @@
       if (st.phase === 'handEnd') { out.text = TX('cards.handEnd'); out.label = TX('cards.nextHand'); out.action = startNextHand; return out; }
       if (st.phase === 'over') { out.text = TX('shell.end.over'); out.label = TX('shell.menu.new'); out.action = newGame; return out; }
       var note = view.note ? ' ' + view.note : '';
-      if (!seats.person(st.turn)) { out.text = TX('cards.thinking', { name: name(st, st.turn) }) + note; return out; }
-      if (!mine(st.turn)) { out.text = TX('ce.next', { name: name(st, st.turn) }) + note; return out; }
+      if (!seats.person(st.turn)) { out.text = (note ? note.trim() + ' ' : '') + TX('cards.thinking', { name: name(st, st.turn) }); return out; }
+      if (!mine(st.turn)) { out.text = (note ? note.trim() + ' ' : '') + TX('ce.next', { name: name(st, st.turn) }); return out; }
       if (view.pending !== null) {
         out.text = TX('ce.chooseSuit');
         out.choices = [0, 1, 2, 3].map(function (s) { return { label: GLYPH[s], aria: TX('cards.suit.' + SUIT_NAMES[s]), cls: s === 1 || s === 2 ? 'ct-red' : '', onclick: function () { chooseSuit(s); } }; });
         out.choices.push({ label: TX('shell.cancel'), onclick: function () { view.pending = null; board.refresh(); t.paint(); } });
-      } else if (legalPlays(st, st.turn).length) out.text = (seats.isYou(st.turn) ? TX('cards.turn.you') : TX('cards.turn.name', { name: name(st, st.turn) })) + note;
-      else out.text = TX(canDraw(st) ? 'ce.draw' : 'ce.noPlay') + note;
+      } else if (legalPlays(st, st.turn).length) out.text = (note ? note.trim() + ' ' : '') + (seats.isYou(st.turn) ? TX('cards.turn.you') : TX('cards.turn.name', { name: name(st, st.turn) }));
+      else out.text = (note ? note.trim() + ' ' : '') + TX(canDraw(st) ? 'ce.draw' : 'ce.noPlay');
       return out;
     }
 

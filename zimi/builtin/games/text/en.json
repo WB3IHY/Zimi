@@ -663,7 +663,7 @@
  "ce.matchWord": "match",
  "ce.mustPass": "Nothing to play or draw: {name} passes",
  "ce.mustPass.you": "Nothing to play or draw: you pass",
- "ce.next": "{name} is next.",
+ "ce.next": "{name} is next",
  "ce.noPlay": "No play and nothing to draw.",
  "ce.passed.you": "You passed.",
  "ce.played": "{name} played {card}.",
