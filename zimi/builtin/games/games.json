@@ -1669,7 +1669,7 @@
   "wiki": "Bomberman",
   "path": "blast.html",
   "title": "Blast",
-  "blurb": "Drop bombs, break blocks and set off chains. Up to 2 players on one keyboard.",
+  "blurb": "Drop bombs, break blocks and set off chains",
   "why": "Bombs that blast in four directions and set each other off started a whole kind of game.",
   "origin": {
    "year": 1983,
@@ -1686,7 +1686,7 @@
   "wiki": "Action-adventure game",
   "path": "quest.html",
   "title": "Quest",
-  "blurb": "A small adventure. Find a sword and keys, then beat the boss.",
+  "blurb": "A small adventure: find a sword, then beat the boss",
   "why": "A sword, a key and a locked door. Top-down adventures have used these since the early 1980s.",
   "origin": {
    "year": 1979,
@@ -1720,7 +1720,7 @@
   "wiki": "Kart racing game",
   "path": "kart.html",
   "title": "ZimiKart",
-  "blurb": "Eight racers, six tracks. Drift for a boost.",
+  "blurb": "Eight racers, six tracks, drift for a boost",
   "why": "Kart games make a 3D road by tilting one flat picture of the track. 1990s consoles did this in hardware.",
   "origin": {
    "year": 1992,

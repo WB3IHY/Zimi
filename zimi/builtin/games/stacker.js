@@ -219,43 +219,43 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
+  var Play = root.ArcadePlay, $ = Play.$, Tx = Play.T;
   var LOCK_MS = 500, MAX_RESETS = 15;       // a grounded piece waits half a second, moves can extend it 15 times
   var DRAG_STEP = 0.9;                      // a finger moves the piece a column per 0.9 cells of travel
   var FLICK_V = 0.6, FLICK_CELLS = 2;       // a downward flick faster than this, longer than this, drops
   var HOLD_UP_CELLS = 2;                    // a swipe up this long holds
   var REPEAT_FIRST_MS = 190, REPEAT_MS = 55; // press and hold on the buttons
-  var MAX_CELL = 32, SIDE_W = 96, GAP = 10, MIN_CELL = 16;
+  var MAX_CELL = 32, SIDE_W = 96, GAP = 10, MIN_CELL = 16, CHROME_PX = 190, READY_ARM_MS = 650;
+  // The well is a dark material in both themes, with a grid you can just see.
+  var FIELD = '#0e0e10', FIELD_LINE = 'rgba(255, 255, 255, 0.07)';
   var BEST_KEY = 'zimi.games.stacker.best';
   var NEXT_SHOWN = 3;
   Play.applyTheme();
 
   var els = {
     board: $('st-board'), hold: $('st-hold'), next: $('st-next'), score: $('st-score'), lines: $('st-lines'),
-    level: $('st-level'), best: $('st-best'), msg: $('st-msg'), sheet: $('st-sheet'), title: $('st-sheet-title'),
-    text: $('st-sheet-text'), go: $('st-go'), pause: $('st-pause'), wrap: $('st-wrap')
+    level: $('st-level'), best: $('st-best'), msg: $('st-msg'), pause: $('st-pause'), newBtn: $('st-new'), wrap: $('st-wrap'), holdBox: $('st-holdbox')
   };
   var ctx = els.board.getContext('2d'), hctx = els.hold.getContext('2d'), nctx = els.next.getContext('2d');
   var g, cs = 24, mode = 'ready', last = 0, gravAcc = 0, lockAcc = 0, resets = 0, best = Play.load(BEST_KEY, { score: 0 });
-  var pal = {};
+  var pal = {}, armed = null, status = Play.status(els.msg);
 
   function readPalette() {
     var s = getComputedStyle(document.documentElement);
     function v(n) { return s.getPropertyValue(n).trim(); }
-    pal = { cell: v('--cell'), line: v('--cell-line'), ink: v('--ink'), accent: v('--accent'), types: TYPES.split('').map(function (t) { return v('--p-' + t.toLowerCase()); }) };
+    pal = { cell: FIELD, line: FIELD_LINE, ink: v('--ink'), accent: v('--accent'), types: TYPES.split('').map(function (t) { return v('--p-' + t.toLowerCase()); }) };
   }
 
   function layout() {
-    var vw = document.documentElement.clientWidth, vh = window.innerHeight;
-    var barH = document.querySelector('.ar-bar').offsetHeight;
-    var byWidth = Math.floor((vw - 24 - SIDE_W - GAP) / COLS);
-    var byHeight = Math.floor((vh - barH - 24 - 96) / (ROWS - HIDDEN));
+    var room = Play.room(CHROME_PX);
+    var byWidth = Math.floor((room.w - SIDE_W - GAP) / COLS);
+    var byHeight = Math.floor(room.h / (ROWS - HIDDEN));
     cs = Math.max(MIN_CELL, Math.min(MAX_CELL, byWidth, byHeight));
     sizeCanvas(els.board, COLS * cs, (ROWS - HIDDEN) * cs);
     var mini = Math.round(cs * 0.62);
     sizeCanvas(els.hold, 4 * mini + 8, 3 * mini + 8);
     sizeCanvas(els.next, 4 * mini + 8, NEXT_SHOWN * 3 * mini + 8);
-    els.board.parentNode.style.setProperty('--side', SIDE_W + 'px');
+    els.wrap.style.setProperty('--side', SIDE_W + 'px');
     draw();
   }
   function sizeCanvas(c, w, h) {
@@ -307,7 +307,7 @@
 
   function drawMini(c, canvas, types, alpha) {
     var mini = Math.round(cs * 0.62), w = parseFloat(canvas.style.width), h = parseFloat(canvas.style.height);
-    c.clearRect(0, 0, w, h);
+    c.fillStyle = FIELD; c.fillRect(0, 0, w, h);
     c.globalAlpha = alpha;
     types.forEach(function (t, i) {
       var cells = ROT[t][0], minX = 9, maxX = 0, minY = 9, maxY = 0;
@@ -319,8 +319,8 @@
   }
 
   function hud() {
-    els.score.textContent = g.score; els.lines.textContent = g.lines; els.level.textContent = g.level;
-    els.best.textContent = Math.max(best.score, g.score);
+    els.score.textContent = Play.num(g.score); els.lines.textContent = Play.num(g.lines); els.level.textContent = Play.num(g.level);
+    els.best.textContent = Play.num(Math.max(best.score, g.score));
   }
 
   // ── the loop ──
@@ -341,10 +341,9 @@
   function startLoop() { last = performance.now(); requestAnimationFrame(frame); }
 
   function newPiece() { gravAcc = 0; lockAcc = 0; resets = 0; }
-  var CLEAR_WORDS = ['', 'Single', 'Double', 'Triple', 'Four rows'];
   function afterLock(res) {
     newPiece();
-    els.msg.textContent = res.cleared ? CLEAR_WORDS[res.cleared] + '.' : '';
+    status.say(res.cleared ? Tx('stacker.clear.' + res.cleared) : '');
     if (g.over) return finish();
   }
 
@@ -367,35 +366,36 @@
   }
   function doHold() { act(function () { var ok = holdPiece(g); if (ok) newPiece(); return ok; }); }
 
-  // ── the sheet: start, pause, game over ──
-  function showSheet(title, text, label) {
-    els.title.textContent = title; els.text.textContent = text; els.go.textContent = label;
-    Play.openSheet(els.sheet, '#st-go');
-  }
+  // ── start, pause, game over ──
+  function readyOpts() { return { say: status.say, target: pad.stage, start: begin }; }
+  function arm() { if (armed) armed.cancel(); g = createGame(); newPiece(); mode = 'ready'; hud(); draw(); armed = Play.ready(readyOpts()); }
   function begin() {
-    g = createGame(); newPiece(); mode = 'playing'; els.msg.textContent = '';
-    Play.closeSheet(els.sheet); els.pause.disabled = false; hud(); draw(); startLoop();
+    if (armed) armed.cancel();
+    g = createGame(); newPiece(); mode = 'playing'; status.say(''); Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); startLoop();
   }
-  function pause() {
-    if (mode !== 'playing') return;
-    mode = 'paused'; showSheet('Paused', 'Resume when you are ready.', 'Resume');
-  }
-  function resume() { mode = 'playing'; Play.closeSheet(els.sheet); startLoop(); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; stopRepeat(); Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); }
+  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); startLoop(); }
+  function toggle() { if (mode === 'playing') pause(); else resume(); }
   function finish() {
-    mode = 'over'; els.pause.disabled = true;
-    var text = g.score + ' points, ' + g.lines + ' rows, level ' + g.level + '.';
-    if (g.score > best.score) { best.score = g.score; Play.save(BEST_KEY, best); text += ' A new best.'; }
+    mode = 'over'; els.pause.disabled = true; Play.pauseLabel(els.pause, false); stopRepeat();
+    if (g.score > best.score) { best.score = g.score; Play.save(BEST_KEY, best); }
     draw(); hud();
-    showSheet('Stack is full', text, 'Play again');
+    ZimiShell.endSheet({ result: 'over', stats: [[Tx('play.score'), Play.num(g.score)], [Tx('stacker.rows'), Play.num(g.lines)]] });
+    setTimeout(function () { if (mode === 'over') armed = Play.ready(readyOpts()); }, READY_ARM_MS);
   }
-  els.go.addEventListener('click', function () { if (mode === 'paused') resume(); else begin(); });
-  els.pause.addEventListener('click', pause);
+  els.newBtn.addEventListener('click', begin);
+  els.pause.addEventListener('click', toggle);
   Play.onHidden(pause);
+  ZimiShell.game({
+    inProgress: function () { return mode === 'playing' || mode === 'paused'; },
+    stats: function () { return [[Tx('play.best'), Play.num(best.score)]]; }
+  });
 
   // ── input ──
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     var k = e.key;
+    if (document.querySelector('.ar-sheet:not([hidden])')) return;
     if (mode !== 'playing') {
       if ((k === 'Escape' || k === 'p' || k === 'P') && mode === 'paused') { e.preventDefault(); resume(); }
       return;
@@ -408,7 +408,7 @@
     else if (k === 'z' || k === 'Z') doRotate(-1);
     else if (k === ' ') { if (!e.repeat) doDrop(); }
     else if (k === 'c' || k === 'C' || k === 'Shift') doHold();
-    else if (k === 'Escape' || k === 'p' || k === 'P') pause();
+    else if (k === 'Escape' || k === 'p' || k === 'P') toggle();
     else handled = false;
     if (handled) e.preventDefault();
   });
@@ -431,30 +431,24 @@
     }
   });
 
-  var pad = { left: doLeft, right: doRight, down: doDown };
-  var repeatTimer = 0;
+  // The pad: left, right and down repeat while held; Rotate and Drop act once. Hold is a tap on the Hold box.
+  var REPEAT_ACT = { left: doLeft, right: doRight, down: doDown }, repeatTimer = 0;
   function stopRepeat() { clearTimeout(repeatTimer); repeatTimer = 0; }
-  Array.prototype.forEach.call(document.querySelectorAll('[data-act]'), function (b) {
-    var a = b.dataset.act;
-    b.addEventListener('pointerdown', function (e) {
-      e.preventDefault();
-      if (a === 'rotate') return doRotate(1);
-      if (a === 'drop') return doDrop();
-      if (a === 'hold') return doHold();
-      var f = pad[a], again = function () { f(); repeatTimer = setTimeout(again, REPEAT_MS); };
-      f(); repeatTimer = setTimeout(again, REPEAT_FIRST_MS);
-    });
-    ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (n) { b.addEventListener(n, stopRepeat); });
-    b.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.stopPropagation(); e.preventDefault(); if (pad[a]) pad[a](); else if (a === 'rotate') doRotate(1); else if (a === 'drop') doDrop(); else doHold(); } });
-  });
+  var pad = Play.pad(els.wrap, { dirs: ['left', 'down', 'right'], actions: [{ name: 'rotate', label: Tx('play.rotate') }, { name: 'drop', label: Tx('play.drop') }], on: function (name, down) {
+    stopRepeat();
+    if (!down) return;
+    if (name === 'rotate') return doRotate(1);
+    if (name === 'drop') return doDrop();
+    var f = REPEAT_ACT[name], again = function () { f(); repeatTimer = setTimeout(again, REPEAT_MS); };
+    f(); repeatTimer = setTimeout(again, REPEAT_FIRST_MS);
+  } });
+  els.holdBox.addEventListener('click', doHold);
+  pad.stage.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
 
   window.addEventListener('resize', layout);
   readPalette();
   if (matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { readPalette(); draw(); });
-  g = createGame(); // something to draw behind the start sheet
-  els.best.textContent = best.score;
-  layout();
-  showSheet('Stacker', 'Fit the falling pieces into rows. Arrows or the buttons, Space drops, C holds. On a phone: drag to move, tap to turn, flick down to drop, swipe up to hold.', 'Start');
+  layout(); arm();
   // A read-only window onto the live game, for the browser tests.
   root.__stacker = { get g() { return g; }, get mode() { return mode; } };
 })(this);

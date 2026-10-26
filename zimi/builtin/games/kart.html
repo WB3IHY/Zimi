@@ -13,25 +13,18 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>ZimiKart</h1>
-  <button class="ar-btn" id="kt-pause" type="button" disabled>Pause</button>
+  <button class="ar-btn" id="kt-new" type="button" hidden data-t="shell.menu.new">New game</button>
+  <button class="ar-btn" id="kt-pause" type="button" disabled data-t="play.pause">Pause</button>
 </header>
 
 <main class="kt-main">
   <div class="kt-stage" id="kt-stage">
-    <canvas class="kt-board" id="kt-board" role="img" aria-label="The race from behind your kart: the track, the other karts and the item cubes"></canvas>
+    <canvas class="kt-board" id="kt-board" role="img" aria-label="The race from behind your kart: the track, the other karts and the item cubes" data-t-aria="kart.board"></canvas>
     <div class="kt-pads" id="kt-pads"></div>
   </div>
-  <p class="pl-msg" id="kt-msg" role="status" aria-live="polite"></p>
-  <p class="pl-help" id="kt-help">Arrows or WASD drive. Hold Shift in a bend to drift, let go for a boost. Space uses the item. P pauses. Two players: WASD with Left Shift and Space, arrows with Right Shift and Enter.</p>
+  <p class="pl-msg" id="kt-msg"></p>
 </main>
 
-<div class="ar-sheet" id="kt-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="kt-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="kt-sheet-title">ZimiKart</h2>
-    <div id="kt-body"></div>
-    <div class="ar-sheet-actions" id="kt-actions"></div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="kart.js"></script>
 <script src="kart-art.js"></script>
