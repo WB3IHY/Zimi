@@ -194,7 +194,9 @@
     var more = seats.hotseat() && placeIdx < seats.people().length - 1;
     var go = tool(more ? 'Done, pass to ' + seats.name(seats.people()[placeIdx + 1]) : 'Start battle', startBattle, !all); go.setAttribute('aria-pressed', String(all));
   }
-  function paintAll() { paintMine(); paintEnemy(); paintTools(); els.enemyWrap.hidden = phase === 'place'; els.mine.classList.toggle('fl-small', phase !== 'place'); }
+  var HELP_PLACE = $('fl-help').textContent;
+  var HELP_BATTLE = 'Tap a square in the enemy waters to fire. Sink every enemy ship before yours are sunk. Arrow keys move between squares.';
+  function paintAll() { paintMine(); paintEnemy(); paintTools(); $('fl-help').textContent = phase === 'place' ? HELP_PLACE : HELP_BATTLE; els.enemyWrap.hidden = phase === 'place'; els.mine.classList.toggle('fl-small', phase !== 'place'); }
 
   function nextUnplaced() {
     for (var i = 0; i < FLEET.length; i++) if (!mine.ships.some(function (s) { return s.name === FLEET[i][0]; })) return i;
