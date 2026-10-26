@@ -178,16 +178,16 @@
   // courts' frame.
   var IDX_MARGIN = 5.5, IDX_SCALE = 1.2, IDX_SCALE_TEN = 0.95, IDX_TEN_DROP = 1.4, IDX_SUIT_GAP = 12, IDX_SUIT_SCALE = 0.65;
   var ROW_MARGIN = 6, ROW_SCALE = 2.1, ROW_SUIT_X = 63, ROW_SUIT_Y = 23, ROW_SUIT_SCALE = 1.25;
-  // Over art, the index stands in its own column: a cream plate hides what lies within IDX_GAP units of the index's ink (the
-  // glyph's box, then the narrower suit's), so no frame line, face or crown runs into it. The numbers are measured from the
-  // ink (tests/test_games_pixels.cjs checks the gap at every court); the French frame is cut at the same corner (courts.js).
-  var FRENCH_NOTCH = [22, 44.5];
-  var SPANISH_PLATE = 'M0 0H25V24.25H23.75V42H0z', HANA_PLATE = 'M0 0H20.25V26H17V41.25H0z';
-  function indexMarkup(label, s, standalone, shapes, prefix, plate) {
+  // On a court the index stands in a margin column of its own, outside the figure's frame, as on a printed deck: IDX_COLUMN is the
+  // column's width (the widest index's ink and 1.5 units of air); the frame is inset by it from both sides (courts.js, courts-es.js).
+  // Hanafuda has no frame and no index of its own, so its small index sits on a cream plate cut to the index's ink.
+  var IDX_COLUMN = 22;
+  var HANA_PLATE = 'M0 0H20.25V26H17V41.25H0z';
+  function indexMarkup(label, s, standalone, shapes, prefix) {
     var ten = label.length > 1, sc = ten ? IDX_SCALE_TEN : IDX_SCALE, half = GLYPH_STROKE * sc / 2;
     var cx = IDX_MARGIN + half + glyphWidth(label) * sc / 2, top = IDX_MARGIN + half + (ten ? IDX_TEN_DROP : 0);
     var one = function (turn) {
-      return '<g class="zc-idx-std"' + (turn ? ' transform="rotate(180 50 70)"' : '') + '>' + (plate ? '<path class="zc-plate" d="' + plate + '" fill="' + CARD_CREAM + '"/>' : '') + glyph(label, cx, top, sc) +
+      return '<g class="zc-idx-std"' + (turn ? ' transform="rotate(180 50 70)"' : '') + '>' + glyph(label, cx, top, sc) +
         placed(s, cx, top + 14 * sc + IDX_SUIT_GAP, IDX_SUIT_SCALE, false, standalone, shapes, prefix) + '</g>';
     };
     var rowTop = ROW_MARGIN + GLYPH_STROKE * ROW_SCALE / 2;
@@ -329,7 +329,7 @@
   var COURT_PIP_X = 31.5, COURT_PIP_Y = 27, COURT_PIP_SCALE = 0.55, COURT_BAND = 7, COURT_MID_PIP = 0.62;
   var SMALL_COURT = '<g class="zc-small" display="none" transform="translate(50 128) scale(1.55) translate(-50 -' + COURT_BASE + ')">';
   function courtMarkup(kind, s, standalone) {
-    var art = root.ZimiCourts && root.ZimiCourts.markup(kind, s, FRENCH_NOTCH); // the public-domain courts (courts.js), when the page has them
+    var art = root.ZimiCourts && root.ZimiCourts.markup(kind, s, IDX_COLUMN); // the public-domain courts (courts.js), when the page has them
     if (art) return '<g class="zc-big">' + art + '</g>' + (standalone ? '' : '<g class="zc-small" display="none">' + root.ZimiCourts.thumb(kind, s) + '</g>');
     var half = bust(kind, s) + placed(s, COURT_PIP_X, COURT_PIP_Y, COURT_PIP_SCALE, false, standalone);
     var line = function (y) { return '<path d="M21 ' + y + 'H79" stroke="currentColor" stroke-width="0.8" opacity="0.55"/>'; };
@@ -436,8 +436,8 @@
       body = '<g class="zc-big">' + pips + '</g>' + smallSuit(s, standalone, SPANISH_SHAPES, p);
     } else if (root.ZimiSpanishCourts) { // the 1860 print (courts-es.js), under the index
       var print = root.ZimiSpanishCourts;
-      return faceFrame('<g class="zc-big">' + print.markup(k, s) + '</g>' + (standalone ? '' : '<g class="zc-small" display="none">' + print.thumb(k, s) + '</g>') +
-        indexMarkup(SPANISH_LABELS[k], s, standalone, SPANISH_SHAPES, p, SPANISH_PLATE), ITALIAN_COLOURS[s], standalone);
+      return faceFrame('<g class="zc-big">' + print.markup(k, s, IDX_COLUMN) + '</g>' + (standalone ? '' : '<g class="zc-small" display="none">' + print.thumb(k, s) + '</g>') +
+        indexMarkup(SPANISH_LABELS[k], s, standalone, SPANISH_SHAPES, p), ITALIAN_COLOURS[s], standalone);
     } else {
       var kind = COURT_KINDS[r - 5]; // 8 sota (fante), 9 caballo, 10 rey
       body = '<g class="zc-big"><rect x="20" y="20" width="60" height="100" rx="3.5" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.2"/>' +

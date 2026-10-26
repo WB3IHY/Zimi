@@ -79,14 +79,23 @@ const server = http.createServer((q, r) => {
   const vm = require('vm'), sb = { console }; sb.window = sb; vm.createContext(sb);
   vm.runInContext(fs.readFileSync(path.join(dir, 'courts.js'), 'utf8'), sb);
   const king = sb.ZimiCourts.markup('king', 3);
-  const svgs = [...king.matchAll(/<svg x="([^"]*)" y="[^"]*" width="([\d.]+)" height="([\d.]+)" viewBox="0 0 (\d+) (\d+)" preserveAspectRatio="([^"]*)"/g)];
-  ok('court art svgs found', svgs.length === 2);
+  const rects = [...king.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" fill="none" class="zc-rule"/g)];
+  const svgs = [...king.matchAll(/<svg x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" viewBox="0 0 (\d+) (\d+)" preserveAspectRatio="([^"]*)"/g)];
+  ok('court art svgs found', svgs.length === 2 && rects.length === 1);
   svgs.forEach(m => {
-    ok('court art is never stretched', m[6] === 'xMidYMid slice', m[6]);
-    const scale = Math.max(m[2] / m[4], m[3] / m[5]), lost = (m[5] * scale - m[3]) / 2;   // units cut at top and bottom by the cover
-    ok('court art covers its frame and loses under 3 units at each end', m[2] / m[4] <= scale + 1e-9 && lost >= 0 && lost < 3, lost.toFixed(2) + ' units');
+    ok('court art is never stretched', m[7] === 'xMidYMid slice', m[7]);
+    const scale = Math.max(m[3] / m[5], m[4] / m[6]), lost = (m[6] * scale - m[4]) / 2;   // units cut at top and bottom by the cover
+    ok('court art covers its frame and loses under 0.5 units at each end', m[3] / m[5] <= scale + 1e-9 && lost >= 0 && lost < 0.5, lost.toFixed(2) + ' units');
   });
-  ok('court frame is a crisp rule, a stepped path round the index columns', /<path[^>]*class="zc-rule"/.test(king));
+  // The frame is a plain rectangle (one rect, no stepped path), inset 22 units from the sides, centred, the art's own box.
+  const [fx, fy, fw, fh] = rects[0].slice(1).map(Number);
+  ok('court frame is a plain rectangle inset by the index column, centred', fx === 22 && fw === 56 && Math.abs(fy + fh / 2 - 70) < 1e-9 && Math.abs(fx + fw / 2 - 50) < 1e-9, [fx, fy, fw, fh].join(' '));
+  ok('court art box is the frame', svgs.every(m => +m[1] === fx && +m[3] === fw && +m[4] === fh) && +svgs[0][2] === fy);
+  ok('court frame holds no path (no notch)', !/<path[^>]*class="zc-rule"/.test(king));
+  const spanish = new vm.Script(fs.readFileSync(path.join(dir, 'courts-es.js'), 'utf8')); spanish.runInContext(sb);
+  const pic = sb.ZimiSpanishCourts.markup(8, 0).match(/x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
+  ok('Spanish print is as wide as the frame, centred', pic && +pic[1] === 22 && +pic[3] === 56 && Math.abs(+pic[2] + +pic[4] / 2 - 70) < 1e-9, pic && pic.slice(1).join(' '));
+  ok('court frame is a crisp rule', /<rect[^>]*class="zc-rule"/.test(king));
   const backs = fs.readFileSync(path.join(dir, 'cardbacks.js'), 'utf8');
   ok('the backs\' band rules are crisp rules', (backs.match(/class: 'zc-rule'/g) || []).length === 2);
   ok('crisp rules snap to the device pixel', /\.zc-rule \{[^}]*vector-effect: non-scaling-stroke[^}]*crispEdges[^}]*var\(--zc-px/.test(css));
