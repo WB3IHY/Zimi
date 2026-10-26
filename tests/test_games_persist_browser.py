@@ -197,3 +197,30 @@ def test_a_grand_prix_between_races_comes_back_to_the_standings(served, browser)
     assert page.evaluate("JSON.stringify(__kart.g.gp)") == before
     assert "Race 1 of 3" in page.evaluate("document.querySelector('.ar-sheet:not([hidden]) h2').textContent")
     ctx.close()
+
+
+def test_circuit_phone_heats_survive_leaving(served, browser):
+    """Two players share a phone, each racing in turn: leaving after the first heat keeps whose turn it is and the first result."""
+    ctx = browser.new_context(viewport=VIEW, has_touch=True, is_mobile=True)
+    page = ctx.new_page()
+    url = served + "/circuit.html"
+    page.goto(url)
+    page.evaluate("localStorage.setItem('zimi.games.circuit', JSON.stringify({players: 2, laps: 2, ai: 3}))")
+    page.goto(url)
+    page.wait_for_timeout(SETTLE_MS)
+    page.click(".ar-sheet .gs-primary")
+    page.wait_for_timeout(SETTLE_MS)
+    page.evaluate("(() => { const r = __circuit.g.race; r.cars.forEach((c, i) => { c.finished = true; c.finishTime = 60 + i; }); r.events.push({type: 'done'}); })()")
+    page.wait_for_timeout(SETTLE_MS)
+    assert "Player 1" in page.evaluate("document.querySelector('.ar-sheet h2').textContent")
+    before = page.evaluate("JSON.stringify(__circuit.g.heats)")
+    page.evaluate("window.dispatchEvent(new Event('pagehide'))")
+    page.goto("about:blank")
+    page.goto(url)
+    page.wait_for_timeout(SETTLE_MS)
+    assert "Player 1" in page.evaluate("document.querySelector('.ar-sheet h2').textContent"), "the pass-the-phone sheet came back"
+    assert page.evaluate("JSON.stringify(__circuit.g.heats)") == before
+    page.click(".ar-sheet .gs-primary")
+    page.wait_for_timeout(SETTLE_MS)
+    assert page.evaluate("__circuit.g.heat") == 1, "player 2 is up"
+    ctx.close()
