@@ -332,7 +332,7 @@
   //   bestKey      the localStorage key of its best score (none: no Best stat, no best kept)
   //   state()      the game's current state object; layout() fits the canvas and draws; draw(); hud() or HUD cells named
   //                score, best, lives, wave or level in els (the default hud sets whichever of them there are)
-  //   ready        'rocks' (the ids rocks.readyTouch and rocks.readyKeys) or a function returning { touch, keys, start }
+  //   ready        { touch: 'rocks.readyTouch', keys: 'rocks.readyKeys' } (text ids) or a function returning { touch, keys, start } (words)
   //   newRun(arg)  makes a fresh state for a new run and returns what the status line says (default nothing)
   //   idle()       the state to show before the first run (a game with no state of its own to rest on omits it)
   //   keys         { ArrowLeft: 'left', ' ': 'fire' ... } held while down, read as page.input(); pad { dirs, actions } is the
@@ -370,7 +370,7 @@
 
     // The ready line; r overrides its words and what a tap starts (the next lander waits for proceed, not begin).
     page.arm = function (r) {
-      r = (typeof r === 'function' ? r() : r) || (typeof o.ready === 'function' ? o.ready() : { touch: T(o.ready + '.readyTouch'), keys: T(o.ready + '.readyKeys') });
+      r = (typeof r === 'function' ? r() : r) || (typeof o.ready === 'function' ? o.ready() : { touch: T(o.ready.touch), keys: T(o.ready.keys) });
       if (armed) armed.cancel();
       armed = Play.ready({ say: status.say, target: page.pad ? page.pad.stage : els.cv, start: r.start || page.begin, touch: r.touch, keys: r.keys });
     };

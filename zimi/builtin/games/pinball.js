@@ -231,7 +231,7 @@
   var keys = { left: false, right: false }, touches = {};
 
   var page = Play.arcadePage({
-    els: els, bestKey: BEST_KEY, ready: 'pinball', state: function () { return st; }, draw: draw, hud: hud,
+    els: els, bestKey: BEST_KEY, ready: { touch: 'pinball.readyTouch', keys: 'pinball.readyKeys' }, state: function () { return st; }, draw: draw, hud: hud,
     layout: function () { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, W * 1.15).ctx; draw(); },
     newRun: function () { st = createState(); banner = ''; bannerT = 0; return T('pinball.launch'); },
     release: function () { keys.left = keys.right = false; touches = {}; st.charging = false; st.charge = 0; },

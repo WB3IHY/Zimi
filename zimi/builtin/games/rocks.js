@@ -192,7 +192,7 @@
   var stars = (function () { var r = mulberry(77), a = []; for (var i = 0; i < 70; i++) a.push([r() * SIZE, r() * SIZE, 0.5 + r() * 1.1, 0.25 + r() * 0.5]); return a; })();
 
   var page = Play.arcadePage({
-    els: els, bestKey: BEST_KEY, ready: 'rocks', state: function () { return st; }, draw: draw,
+    els: els, bestKey: BEST_KEY, ready: { touch: 'rocks.readyTouch', keys: 'rocks.readyKeys' }, state: function () { return st; }, draw: draw,
     layout: function () { ctx = Play.fitCanvas(els.cv, SIZE, SIZE, CHROME_PX, 560).ctx; draw(); },
     keys: { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ArrowUp: 'thrust', w: 'thrust', W: 'thrust', ' ': 'fire' },
     pad: { dirs: ['left', 'right'], actions: [{ name: 'thrust', label: T('play.thrust') }, { name: 'fire', label: T('play.fire') }] },

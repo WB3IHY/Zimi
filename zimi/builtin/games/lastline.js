@@ -215,7 +215,7 @@
   var st = createState(), ctx;
 
   var page = Play.arcadePage({
-    els: els, bestKey: BEST_KEY, ready: 'lastline', state: function () { return st; }, draw: draw,
+    els: els, bestKey: BEST_KEY, ready: { touch: 'lastline.readyTouch', keys: 'lastline.readyKeys' }, state: function () { return st; }, draw: draw,
     layout: function () { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, 560).ctx; draw(); },
     keys: { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ' ': 'fire', ArrowUp: 'fire' },
     pad: { dirs: ['left', 'right'], actions: [{ name: 'fire', label: T('play.fire') }] },

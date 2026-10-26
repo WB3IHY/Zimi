@@ -290,7 +290,7 @@
 
   // Leaving and coming back keeps the game: paused where it was, or at its end sheet.
   var page = Play.arcadePage({
-    els: els, bestKey: BEST_KEY, ready: 'muncher', state: function () { return st; }, draw: draw, alwaysBest: true, endSaved: true, resumeOnStage: true,
+    els: els, bestKey: BEST_KEY, ready: { touch: 'muncher.readyTouch', keys: 'muncher.readyKeys' }, state: function () { return st; }, draw: draw, alwaysBest: true, endSaved: true, resumeOnStage: true,
     layout: function () { ctx = Kit.fit(els.cv, W_PX, H_PX, CHROME_PX, MAX_SCALE).ctx; draw(); },
     pad: { dirs: ['left', 'right', 'up', 'down'], on: function (name, down) { if (down) steer(NAMED[name]); }, swipe: false },
     idle: function () { st = createState(1); want = null; },

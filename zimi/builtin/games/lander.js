@@ -122,7 +122,7 @@
 
   // A run in progress or over is kept (the ground is rebuilt from its seed); it comes back paused, or on its end sheet.
   var page = Play.arcadePage({
-    els: els, bestKey: BEST_KEY, ready: 'lander', state: function () { return st; }, draw: draw, hud: hud,
+    els: els, bestKey: BEST_KEY, ready: { touch: 'lander.readyTouch', keys: 'lander.readyKeys' }, state: function () { return st; }, draw: draw, hud: hud,
     layout: function () { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, 640).ctx; draw(); },
     keys: { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ArrowUp: 'thrust', w: 'thrust', W: 'thrust', ' ': 'thrust' },
     pad: { dirs: ['left', 'right'], actions: [{ name: 'thrust', label: T('play.thrust') }] },
