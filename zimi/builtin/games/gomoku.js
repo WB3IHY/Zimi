@@ -183,7 +183,8 @@
   }
 
   function onPoint(i) {
-    if (G.over || G.thinking || !G.human(state.turn) || state.board[i]) return;
+    if (G.over || G.thinking || !G.human(state.turn)) return;
+    if (state.board[i]) { G.refuse(btns[i], T('gomoku.taken')); return; }
     place(i);
   }
 

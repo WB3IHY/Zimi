@@ -174,7 +174,11 @@
     return G.human(p) ? T('board.yourTurn') : T('shell.thinking');
   }
 
-  function onEdge(e) { if (G.over || G.thinking || !G.human(state.turn) || state.edges[e]) return; move(e); }
+  function onEdge(e) {
+    if (G.over || G.thinking || !G.human(state.turn)) return;
+    if (state.edges[e]) { G.refuse(btns[e], T('dotsandboxes.taken')); return; }
+    move(e);
+  }
 
   function move(e) {
     history.push({ state: state, recent: recent, by: recentBy });

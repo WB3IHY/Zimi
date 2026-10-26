@@ -221,7 +221,8 @@
   }
 
   function onPit(i) {
-    if (G.over || G.thinking || animating || !G.human(state.turn) || R.side(i) !== state.turn || R.moves(state).indexOf(i) < 0) return;
+    if (G.over || G.thinking || animating || !G.human(state.turn)) return;
+    if (R.side(i) !== state.turn || R.moves(state).indexOf(i) < 0) { G.refuse(btns[i], T(R.side(i) !== state.turn ? 'mancala.notYours' : 'mancala.emptyPit')); return; }
     move(i);
   }
 

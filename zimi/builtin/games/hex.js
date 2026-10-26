@@ -215,7 +215,11 @@
     return isHuman(c) ? T(c ? 'hex.yourTurn.lr' : 'hex.yourTurn.tb', { side: sideName(c).toLowerCase() }) : T('shell.thinking');
   }
 
-  function onCell(i) { if (G.over || G.thinking || !isHuman(state.turn) || state.board[i]) return; place(i); }
+  function onCell(i) {
+    if (G.over || G.thinking || !isHuman(state.turn)) return;
+    if (state.board[i]) { G.refuse(btns[i], T('hex.taken')); return; }
+    place(i);
+  }
 
   function snapshot() { return { board: state.board, turn: state.turn, last: last, swapped: swapped, swapDone: swapDone, moves: moves }; }
 
