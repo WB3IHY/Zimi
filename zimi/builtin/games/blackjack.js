@@ -312,7 +312,6 @@
       } else {
         out.text = st.hands.length > 1 ? TX('bj.playingHand', { n: st.active + 1 }) : hot ? TX('cards.turn.name', { name: nm() }) : TX('cards.turn.you');
         out.choices = [
-          { label: TX('cards.hint'), pressed: showHint, onclick: toggleHint },
           { label: TX('bj.hit'), onclick: function () { move(hit(session.state, rng)); } },
           { label: TX('bj.stand'), onclick: function () { move(stand(session.state)); } },
           { label: TX('bj.double'), disabled: !canDouble(st), onclick: function () { move(double(session.state)); } },
@@ -333,7 +332,6 @@
       seats.ensure(next, function () { t.paint(); });
       if (next === cur) t.paint();
     }
-    function toggleHint() { showHint = !showHint; Z.store.set(HINT_KEY, showHint); t.paint(); }
     function dealIt() {
       var st = session.state;
       if (!canDeal(st)) return;
@@ -360,6 +358,7 @@
       cascadeOrder: function () { return []; }, winLines: function () { return []; },
       menuExtra: function () {
         return [
+          T.choiceRow(TX('cards.hint'), HINT_KEY, [{ label: TX('shell.off'), value: false }, { label: TX('shell.on'), value: true }], false, function (v) { showHint = v === true; t.paint(); }),
           T.choiceRow(TX('bj.decks'), DECK_KEY, DECK_CHOICES.map(function (n) { return { label: String(n), value: n }; }), 6, function () { /* next shuffle */ }),
           T.choiceRow(TX('bj.insuranceRow'), INS_KEY, [{ label: TX('shell.off'), value: false }, { label: TX('shell.on'), value: true }], false, function (v) { var st = session.state; if (st) { var s = Z.clone(st); s.opts.insurance = v; session.follow(s); } }),
           Z.h('p', { class: 'zc-note', text: TX('bj.decksNote') })
