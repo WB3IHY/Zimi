@@ -3,12 +3,14 @@
    drawn pieces, GPL-3.0. */
 (function (root) {
   'use strict';
-  if (typeof document === 'undefined' || !root.ZimiMakrukEngine) return;
-  var WK = root.WorldKit, BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  if (typeof document === 'undefined' || !root.ZimiMakrukEngine || !root.BoardUI) return;
+  var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var F = root.ZimiFairy, E = root.ZimiMakrukEngine(root.ZimiSearch()), brain = root.EngineKit.client(root.ZimiMakrukEngine, 300);
   var WHITE = E.WHITE, SIZE = E.SIZE, N = SIZE * SIZE, HINT_MS = 1500;
-  var NAMES = { 1: 'Bia', 2: 'Ma', 3: 'Khon', 4: 'Met', 5: 'Rua', 6: 'Khun' };
-  var SIDE_NAME = ['White', 'Black'];
+  function sideName(p) { return UI.side(p === 0 ? 'white' : 'black'); }
+  var LEVEL_CHOICES = [['fairy', 'chess.level.fairy'], ['master', 'chess.level.master']];   // Strong and Master, when Fairy-Stockfish is there
+  // Show legal moves is the shell's Hints setting (Menu > Settings), not a New game option.
+  function hintsOn() { return !root.ZimiShell || root.ZimiShell.settings.get('hints') !== 'off'; }
 
   // ── the pieces, drawn on a 45 x 45 grid ──
   var BASE = '<rect class="body" x="10" y="37" width="25" height="4" rx="1.5"/>';
@@ -27,8 +29,7 @@
 
   var G = WK.create({
     id: 'makruk',
-    options: WK.standardOptions({ first: 'White (first)', second: 'Black', levels: F.CHOICES }),
-    checks: [{ key: 'hints', label: 'Show legal moves', def: true }],
+    options: WK.standardOptions({ first: 'chess.side.white', second: 'board.black', levels: LEVEL_CHOICES }),
     onNew: newGame, onUndo: undo, onHint: hint
   });
   var score = WK.scoreBar($('wk-score'), [{ color: 'var(--mk-w)', border: 'var(--mk-w-line)' }, { color: 'var(--mk-b)', border: 'var(--mk-b-line)' }]);
@@ -38,7 +39,7 @@
   function turnIdx() { return pos.turn === WHITE ? 0 : 1; }
   function flipped() { return manualFlip !== (G.vsComputer() && G.settings.side === 'second'); }
   function sqAt(d) { return flipped() ? N - 1 - d : d; }
-  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? 'You' : 'The computer') : SIDE_NAME[p]; }
+  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? T('board.you') : T('board.theComputer')) : sideName(p); }
   function label(s) { return E.squareName(s); }
 
   function buildBoard() {
@@ -61,34 +62,35 @@
       if (s === sel) cls += ' sel';
       if (s === kingSq) cls += ' bad';
       if (tip && (s === tip[0] || s === tip[1])) cls += ' sel';
-      if (G.settings.hints && targets.hasOwnProperty(s)) cls += ' hint' + (v ? ' cap' : '');
+      if (hintsOn() && targets.hasOwnProperty(s)) cls += ' hint' + (v ? ' cap' : '');
       c.className = cls;
       var sig = (v || '') + '|' + (f === 0 ? 'r' : '') + (r === SIZE - 1 ? 'f' : '') + '|' + (flipped() ? 1 : 0);
       if (c.dataset.sig !== sig) {
         c.innerHTML = (v ? pieceSvg(v) : '') + (f === 0 ? '<span class="co r">' + label(s)[1] + '</span>' : '') + (r === SIZE - 1 ? '<span class="co f">' + label(s)[0] + '</span>' : '');
         c.dataset.sig = sig;
       }
-      c.setAttribute('aria-label', label(s) + ', ' + (v ? (v > 0 ? 'white ' : 'black ') + NAMES[Math.abs(v)] : targets.hasOwnProperty(s) ? 'move here' : 'empty') + (s === sel ? ', selected' : ''));
+      var name = label(s), text = v ? T('chess.sq.piece', { sq: name, color: sideName(v > 0 ? 0 : 1).toLowerCase(), piece: T('makruk.piece.' + Math.abs(v)) }) : T(targets.hasOwnProperty(s) ? 'chess.sq.target' : 'chess.sq.empty', { sq: name });
+      c.setAttribute('aria-label', s === sel ? T('chess.sq.selected', { label: text }) : text);
     }
     var count = [0, 0];
     for (var s2 = 0; s2 < N; s2++) if (pos.sq[s2]) count[pos.sq[s2] > 0 ? 0 : 1]++;
-    var names = G.names(SIDE_NAME[0], SIDE_NAME[1]);
-    score([names[0] + ' ' + count[0], names[1] + ' ' + count[1]], null, G.over ? -1 : turnIdx());
+    var names = G.names(sideName(0), sideName(1));
+    score(names, count, G.over ? -1 : turnIdx());
     flipBtn.setAttribute('aria-pressed', String(flipped()));
     G.setUndo(played.length > 0); G.setHint(open);
   }
 
-  var WHY = { stalemate: 'Stalemate: the side to move has no legal move and is not in check. A draw.', repetition: 'A draw: the same position came up three times.', limit: 'A draw: 64 moves each without a capture or a Bia move.' };
+  var WHY = { stalemate: 'makruk.why.stalemate', repetition: 'xiangqi.why.repetition', limit: 'makruk.why.limit' };
   function finish(st) {
     sel = -1; targets = {}; tip = null;
-    var msg, out, title;
+    var msg, out, name;
     if (st.result === 'mate') {
       var wi = st.winner === WHITE ? 0 : 1;
-      msg = 'Checkmate. ' + (G.vsComputer() ? (G.human(wi) ? 'You win.' : 'The computer wins.') : SIDE_NAME[wi] + ' wins.');
+      msg = T('chess.why.mate');
       out = G.vsComputer() ? (G.human(wi) ? 'w' : 'l') : null;
-      title = G.vsComputer() && G.human(wi) ? 'You win' : 'Game over';
-    } else { msg = WHY[st.result]; out = G.vsComputer() ? 'd' : null; title = 'A draw'; }
-    G.finish(msg, out, title);
+      name = sideName(wi);
+    } else { msg = T(WHY[st.result]); out = G.vsComputer() ? 'd' : null; }
+    G.finish(msg, out, name);
     paint();
   }
   function afterMove(note) {
@@ -96,15 +98,16 @@
     var st = E.status(pos, keys), p = turnIdx();
     if (st.over) { finish(st); return; }
     paint();
-    var line = !G.vsComputer() ? SIDE_NAME[p] + ' to move' : G.human(p) ? 'Your turn (' + SIDE_NAME[p].toLowerCase() + ')' : 'Computer is thinking';
-    G.say((note || '') + (st.check ? 'Check. ' : '') + line, !G.human(p));
+    var line = !G.vsComputer() ? T('board.toMove', { name: sideName(p) }) : G.human(p) ? T('makruk.yourTurn', { side: sideName(p).toLowerCase() }) : T('shell.thinking');
+    if (st.check) line = T('chess.check', { line: line });
+    G.say(note ? T('janggi.noted', { note: note, line: line }) : line, !G.human(p));
     if (!G.human(p)) computerTurn();
   }
   function play(m) {
     var who = nameOf(turnIdx()), text = E.san(pos, m);
     played.push(m);
     E.make(pos, m); keys.push(E.key(pos)); lastMove = m;
-    afterMove((G.vsComputer() ? who + ' played ' : who + ': ') + text + (E.isPromo(m) ? ' (a Met now)' : '') + '. ');
+    afterMove(T(G.vsComputer() ? 'makruk.played' : 'makruk.playedTwo', { name: who, move: text + (E.isPromo(m) ? T('makruk.promoted') : '') }));
   }
 
   // The level our own engine plays at: the one chosen, or its best when Strong or Master were chosen and Fairy-Stockfish is not there.
@@ -126,18 +129,17 @@
     F.ask('makruk', E, pos, played, G.settings.level, function (move, why) {
       if (!G.current(token)) return;
       if (move !== null) { G.done(token); play(move); return; }
-      var note = why === 'unavailable' ? F.note() : '';
-      if (note) G.say(note + 'Computer is thinking', true);
+      if (why === 'unavailable') G.say(T('board.fairyNote', { thinking: T('shell.thinking') }), true);
       askLocal(token);
     });
   }
 
   function hint() {
-    var token = G.begin(); paint(); G.say('Thinking...', true);
+    var token = G.begin(); paint(); G.say(T('board.thinkingHint'), true);
     brain.ask({ cmd: 'move', fen: E.toFen(pos), level: 'hard', ms: HINT_MS }, function (r) {
       if (!G.done(token)) return;
       tip = r && r.move ? [E.from(r.move), E.to(r.move)] : null; paint();
-      G.say(tip ? 'Hint: ' + E.san(pos, r.move) + '.' : 'No hint.');
+      G.say(tip ? T('makruk.hint', { move: E.san(pos, r.move) }) : T('board.noHint'));
     });
   }
 
@@ -152,13 +154,14 @@
     if (sel >= 0 && targets.hasOwnProperty(s)) { play(E.findMove(pos, sel, s)); return; }
     if (v * pos.turn > 0 && s !== sel) {
       sel = s; targets = movesFrom(s); tip = null;
-      G.say(Object.keys(targets).length ? 'Choose where to move' : 'That piece cannot move');
+      if (Object.keys(targets).length) G.say(T('board.chooseWhere'));
+      else { sel = -1; G.refuse(e.currentTarget, T('chess.cantMove')); }
     } else { sel = -1; targets = {}; }
     paint();
   }
   function undo() {
     if (!played.length) return;
-    G.cancel(); G.over = false; G.closeResult();
+    G.cancel(); G.over = false;
     do { E.unmake(pos); played.pop(); keys.pop(); } while (played.length && G.vsComputer() && !G.human(turnIdx()));
     lastMove = played[played.length - 1] || 0;
     afterMove();
@@ -176,6 +179,10 @@
     else if (e.key === 'Escape' && sel >= 0) { sel = -1; targets = {}; paint(); }
   });
 
+  if (root.ZimiShell) {
+    root.ZimiShell.settings.on(function (k) { if (k === 'hints' || k === '*') paint(); });
+    root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && played.length > 0; } });
+  }
   buildBoard();
   G.newGame();
 

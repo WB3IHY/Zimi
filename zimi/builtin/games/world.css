@@ -7,8 +7,9 @@
 .wk-pt[aria-disabled="true"] { cursor: default; }
 .wk-board .wk-ink { fill: var(--ink); }
 .wk-board text { font-family: var(--font); pointer-events: none; }
-.bg-score .wk-who { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; border: 1px solid transparent; }
-.bg-score .wk-who.turn { border-color: var(--accent); background: var(--surface); color: var(--ink); }
+/* The player chip: 13px, 28px tall, a pill with a dot, the name and a number. The current player has an amber outline and glow, the name in ink. */
+.bg-score .wk-who { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 var(--sp-3); border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: var(--fs-small); }
+.bg-score .wk-who.turn { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); color: var(--ink); }
 .bg-score .wk-who b { font-variant-numeric: tabular-nums; }
 .wk-pip { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--disc-edge); vertical-align: -2px; box-shadow: 0 0 0 1px rgba(128, 128, 128, 0.45); }
 .bg-controls:empty { display: none; }

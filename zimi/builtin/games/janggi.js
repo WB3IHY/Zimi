@@ -2,20 +2,21 @@
    built from its own source, with the main thread as the fallback, through enginekit.js). Our own code, GPL-3.0. */
 (function (root) {
   'use strict';
-  if (typeof document === 'undefined' || !root.ZimiJanggiEngine) return;
-  var F = root.ZimiFairy, WK = root.WorldKit, BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  if (typeof document === 'undefined' || !root.ZimiJanggiEngine || !root.BoardUI) return;
+  var F = root.ZimiFairy, WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var E = root.ZimiJanggiEngine(root.ZimiSearch()), brain = root.EngineKit.client(root.ZimiJanggiEngine, 300);
   var CHO = E.CHO, HAN = E.HAN, COLS = E.COLS, ROWS = E.ROWS, N = COLS * ROWS, PASS = E.PASS;
   var HINT_MS = 1500;
-  var NAMES = { 1: 'soldier', 2: 'cannon', 3: 'chariot', 4: 'horse', 5: 'elephant', 6: 'guard', 7: 'general' };
   var HANJA = { 1: { c: '卒', h: '兵' }, 2: { c: '包', h: '包' }, 3: { c: '車', h: '車' }, 4: { c: '馬', h: '馬' }, 5: { c: '象', h: '象' }, 6: { c: '士', h: '士' }, 7: { c: '楚', h: '漢' } };
   var LATIN = { 1: 'S', 2: 'C', 3: 'R', 4: 'H', 5: 'E', 6: 'G', 7: 'K' };
-  var SIDE_NAME = ['Cho', 'Han'];
+  function sideName(p) { return T(p === 0 ? 'janggi.side.cho' : 'janggi.side.han'); }
+  var LEVEL_CHOICES = [['fairy', 'chess.level.fairy'], ['master', 'chess.level.master']];   // Strong and Master, when Fairy-Stockfish is there
+  // Show legal moves is the shell's Hints setting (Menu > Settings), not a New game option.
+  function hintsOn() { return !root.ZimiShell || root.ZimiShell.settings.get('hints') !== 'off'; }
 
   var G = WK.create({
     id: 'janggi',
-    options: WK.standardOptions({ first: 'Cho (first)', second: 'Han', levels: F.CHOICES }).concat([{ key: 'labels', legend: 'Pieces', def: 'han', choices: [['han', 'Characters'], ['latin', 'Letters']] }]),
-    checks: [{ key: 'hints', label: 'Show legal moves', def: true }],
+    options: WK.standardOptions({ first: 'janggi.side.choFirst', second: 'janggi.side.han', levels: LEVEL_CHOICES }).concat([{ key: 'labels', legend: 'xiangqi.pieces', def: 'han', choices: [['han', 'xiangqi.pieces.han'], ['latin', 'xiangqi.pieces.latin']] }]),
     onNew: newGame, onUndo: undo, onHint: hint
   });
   var score = WK.scoreBar($('wk-score'), [{ color: 'var(--jg-cho)' }, { color: 'var(--jg-han)' }]);
@@ -25,7 +26,7 @@
   function turnIdx() { return pos.turn === CHO ? 0 : 1; }
   function flipped() { return manualFlip !== (G.vsComputer() && G.settings.side === 'second'); }
   function sqAt(d) { return flipped() ? N - 1 - d : d; }
-  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? 'You' : 'The computer') : SIDE_NAME[p]; }
+  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? T('board.you') : T('board.theComputer')) : sideName(p); }
 
   // ── drawing ──
   function drawLines() {
@@ -64,53 +65,55 @@
       if (s === sel) cls += ' sel';
       if (s === kingSq) cls += ' bad';
       if (tip && (s === tip[0] || s === tip[1])) cls += ' tip';
-      if (G.settings.hints && targets.hasOwnProperty(s)) cls += ' hint' + (v ? ' cap' : '');
+      if (hintsOn() && targets.hasOwnProperty(s)) cls += ' hint' + (v ? ' cap' : '');
       c.className = cls;
       var html = v ? pieceHtml(v) : '';
       if (c.dataset.sig !== html) { c.innerHTML = html; c.dataset.sig = html; }
-      c.setAttribute('aria-label', E.squareName(s) + ', ' + (v ? (v > 0 ? 'Cho ' : 'Han ') + NAMES[Math.abs(v)] : targets.hasOwnProperty(s) ? 'move here' : 'empty') + (s === sel ? ', selected' : ''));
+      var name = E.squareName(s), label = v ? T('chess.sq.piece', { sq: name, color: sideName(v > 0 ? 0 : 1), piece: T('janggi.piece.' + Math.abs(v)) }) : T(targets.hasOwnProperty(s) ? 'chess.sq.target' : 'chess.sq.empty', { sq: name });
+      c.setAttribute('aria-label', s === sel ? T('chess.sq.selected', { label: label }) : label);
     }
-    var pts = E.points(pos), names = G.names(SIDE_NAME[0], SIDE_NAME[1]);
-    score([names[0] + ' ' + fmtPoints(pts[0]), names[1] + ' ' + fmtPoints(pts[1]) + ' (+1.5)'], null, G.over ? -1 : turnIdx());
+    var pts = E.points(pos), names = G.names(sideName(0), sideName(1));
+    score([names[0], names[1]], [fmtPoints(pts[0]), fmtPoints(pts[1]) + ' (+1.5)'], G.over ? -1 : turnIdx());
     els.pass.disabled = !open || E.inCheck(pos);
     els.flip.setAttribute('aria-pressed', String(flipped()));
     G.setUndo(played.length > 0); G.setHint(open);
   }
 
   // ── turns ──
-  var WHY = { bikjang: 'Bikjang: the generals face each other with nothing between them, so the game is drawn.', repetition: 'A draw: the same position came up three times.', quiet: 'A draw: fifty moves each without a capture.' };
+  var WHY = { bikjang: 'janggi.why.bikjang', repetition: 'xiangqi.why.repetition', quiet: 'janggi.why.quiet' };
   function finish(st) {
     sel = -1; targets = {}; tip = null;
-    var msg, out, title;
+    var msg, out, name;
     if (st.result === 'mate') {
       var wi = st.winner === CHO ? 0 : 1;
-      msg = 'Checkmate. ' + (G.vsComputer() ? (G.human(wi) ? 'You win.' : 'The computer wins.') : SIDE_NAME[wi] + ' wins.');
+      msg = T('chess.why.mate');
       out = G.vsComputer() ? (G.human(wi) ? 'w' : 'l') : null;
-      title = G.vsComputer() && G.human(wi) ? 'You win' : 'Game over';
-    } else { msg = WHY[st.result]; out = G.vsComputer() ? 'd' : null; title = 'A draw'; }
-    G.finish(msg, out, title);
+      name = sideName(wi);
+    } else { msg = T(WHY[st.result]); out = G.vsComputer() ? 'd' : null; }
+    G.finish(msg, out, name);
     paint();
   }
 
   function turnLine(st) {
     var p = turnIdx();
-    if (st.mustPass) return G.human(p) ? 'You have no move you can make. Press Pass.' : SIDE_NAME[p] + ' has no move and passes.';
-    if (!G.vsComputer()) return SIDE_NAME[p] + ' to move';
-    return G.human(p) ? 'Your turn (' + SIDE_NAME[p] + ')' : 'Computer is thinking';
+    if (st.mustPass) return G.human(p) ? T('janggi.mustPass') : T('janggi.passes', { name: sideName(p) });
+    if (!G.vsComputer()) return T('board.toMove', { name: sideName(p) });
+    return G.human(p) ? T('janggi.yourTurn', { side: sideName(p) }) : T('shell.thinking');
   }
   function afterMove(note) {
     sel = -1; targets = {}; tip = null;
     var st = E.status(pos, keys);
     if (st.over) { finish(st); return; }
     paint();
-    G.say((note || '') + (st.check ? 'Check. ' : '') + turnLine(st), !G.human(turnIdx()));
+    var line = turnLine(st);
+    G.say(note ? T('janggi.noted', { note: note, line: st.check ? T('chess.check', { line: line }) : line }) : st.check ? T('chess.check', { line: line }) : line, !G.human(turnIdx()));
     if (!G.human(turnIdx())) computerTurn();
   }
   function play(m) {
     var who = nameOf(turnIdx()), text = E.san(pos, m);
     sans.push(text); played.push(m);
     E.make(pos, m); keys.push(E.key(pos)); lastMove = m === PASS ? 0 : m;
-    afterMove(m === PASS ? who + ' passed. ' : '');
+    afterMove(m === PASS ? T('janggi.passed', { name: who }) : '');
   }
   function seenCounts() { var seen = {}; keys.forEach(function (k) { seen[k] = (seen[k] || 0) + 1; }); return seen; }
 
@@ -133,18 +136,17 @@
     F.ask('janggi', E, pos, played, G.settings.level, function (move, why) {
       if (!G.current(token)) return;
       if (move !== null) { G.done(token); play(move); return; }
-      var note = why === 'unavailable' ? F.note() : '';
-      if (note) G.say(note + 'Computer is thinking', true);
+      if (why === 'unavailable') G.say(T('board.fairyNote', { thinking: T('shell.thinking') }), true);
       askLocal(token);
     });
   }
 
   function hint() {
-    var token = G.begin(); paint(); G.say('Thinking...', true);
+    var token = G.begin(); paint(); G.say(T('board.thinkingHint'), true);
     brain.ask({ cmd: 'move', fen: E.toFen(pos), level: 'hard', ms: HINT_MS }, function (r) {
       if (!G.done(token)) return;
       tip = r && r.move ? [E.from(r.move), E.to(r.move)] : null; paint();
-      G.say(tip ? 'Hint: try the ringed move. ' : 'Hint: pass. ');
+      G.say(T(tip ? 'janggi.hint.move' : 'janggi.hint.pass'));
     });
   }
 
@@ -160,7 +162,8 @@
     if (sel >= 0 && targets.hasOwnProperty(s)) { play(E.findMove(pos, sel, s)); return; }
     if (v * pos.turn > 0 && s !== sel) {
       sel = s; targets = movesFrom(s); tip = null;
-      G.say(Object.keys(targets).length ? (G.vsComputer() ? 'Choose where to move' : SIDE_NAME[turnIdx()] + ' to move') : 'That piece cannot move');
+      if (Object.keys(targets).length) G.say(G.vsComputer() ? T('board.chooseWhere') : T('board.toMove', { name: sideName(turnIdx()) }));
+      else { sel = -1; G.refuse(e.currentTarget, T('chess.cantMove')); }
     } else { sel = -1; targets = {}; }
     paint();
   }
@@ -170,7 +173,7 @@
   }
   function undo() {
     if (!played.length) return;
-    G.cancel(); G.over = false; G.closeResult();
+    G.cancel(); G.over = false;
     do { E.unmake(pos); played.pop(); sans.pop(); keys.pop(); } while (played.length && G.vsComputer() && !G.human(turnIdx()));
     lastMove = played[played.length - 1] || 0;
     afterMove();
@@ -191,6 +194,10 @@
     else if (e.key === 'Escape' && sel >= 0) { sel = -1; targets = {}; paint(); }
   });
 
+  if (root.ZimiShell) {
+    root.ZimiShell.settings.on(function (k) { if (k === 'hints' || k === '*') paint(); });
+    root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && played.length > 0; } });
+  }
   drawLines(); buildBoard();
   G.newGame();
 

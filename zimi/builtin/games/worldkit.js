@@ -1,10 +1,13 @@
-/* ZimiGames: the page shell the world board games share (new-game sheet built from a
-   description, settings and win/loss stats in localStorage, status line, undo, hint,
-   the computer's turn, the result sheet, and buttons laid over a drawn board).
-   Our own code, GPL-3.0. Needs boardkit.js first. No network, no modules. */
+/* ZimiGames: the page shell the world board games share (the New game options built from a
+   description and handed to the shell's Menu, settings and win/loss stats in localStorage, the status
+   line, undo, hint, the computer's turn, the end sheet, and buttons laid over a drawn board).
+   Our own code, GPL-3.0. Needs boardkit.js and boardui.js first. No network, no modules. */
 (function (root) {
   'use strict';
-  var BK = root.BoardKit;
+  var BK = root.BoardKit, UI = root.BoardUI;
+  function T(id, vars) { return UI.t(id, vars); }
+  // A label is a string id when the table has it, else it is shown as written.
+  function L(x) { return root.ZimiText && root.ZimiText.has(x) ? T(x) : x; }
   var COMPUTER_DELAY_MS = 420;
 
   function el(tag, cls, text) {
@@ -17,9 +20,9 @@
   // The usual options: who you play against, how strong, which side.
   function standardOptions(opts) {
     opts = opts || {};
-    var out = [{ key: 'mode', legend: 'Opponent', def: 'cpu', choices: [['cpu', 'Computer'], ['two', 'Two players']] }];
-    out.push({ key: 'level', legend: 'Level', def: 'medium', cpuOnly: true, choices: [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard']].concat(opts.levels || []) });
-    if (opts.side !== false) out.push({ key: 'side', legend: 'You play', def: 'first', cpuOnly: true, choices: [['first', opts.first || 'First'], ['second', opts.second || 'Second']] });
+    var out = [{ key: 'mode', legend: 'board.opponent', def: 'cpu', choices: [['cpu', 'board.computer'], ['two', 'board.twoPlayers']] }];
+    out.push({ key: 'level', legend: 'board.level', def: 'medium', cpuOnly: true, choices: [['easy', 'board.level.easy'], ['medium', 'board.level.medium'], ['hard', 'board.level.hard']].concat(opts.levels || []) });
+    if (opts.side !== false) out.push({ key: 'side', legend: 'board.youPlay', def: 'first', cpuOnly: true, choices: [['first', opts.first || 'board.first'], ['second', opts.second || 'board.second']] });
     return out;
   }
 
@@ -39,96 +42,63 @@
     var G = { settings: settings, thinking: 0, over: false };
     var els = { status: $('wk-status'), stats: $('wk-stats'), undo: $('wk-undo'), hint: $('wk-hint') };
 
-    // ── the sheets, built from the description ──
-    var menuHost = el('div', 'ar-sheet'), resHost = el('div', 'ar-sheet');
-    menuHost.hidden = resHost.hidden = true;
-    menuHost.setAttribute('role', 'dialog'); menuHost.setAttribute('aria-modal', 'true'); menuHost.setAttribute('aria-labelledby', 'wk-menu-title');
-    resHost.setAttribute('role', 'dialog'); resHost.setAttribute('aria-modal', 'true'); resHost.setAttribute('aria-labelledby', 'wk-res-title');
-    var card = el('div', 'ar-sheet-card');
-    card.appendChild(el('h2', null, 'New game')).id = 'wk-menu-title';
-    var groups = {};
-    options.forEach(function (o) {
-      var f = el('fieldset', 'bg-field'), chips = el('div', 'bg-chips');
-      f.appendChild(el('legend', null, o.legend));
-      o.choices.forEach(function (c) {
-        var lab = el('label', 'bg-chip'), inp = document.createElement('input');
-        inp.type = 'radio'; inp.name = 'wk-' + o.key; inp.value = c[0];
-        lab.appendChild(inp); lab.appendChild(el('span', null, c[1])); chips.appendChild(lab);
-      });
-      f.appendChild(chips); card.appendChild(f);
-      groups[o.key] = { fieldset: f, chips: chips, opt: o };
-    });
-    var boxes = {};
-    checks.forEach(function (c) {
-      var lab = el('label', 'bg-check'), inp = document.createElement('input');
-      inp.type = 'checkbox'; lab.appendChild(inp); lab.appendChild(document.createTextNode(' ' + c.label));
-      card.appendChild(lab); boxes[c.key] = inp;
-    });
-    var actions = el('div', 'ar-sheet-actions'), cancel = el('button', 'ar-btn', 'Cancel'), start = el('button', 'ar-btn', 'Start');
-    cancel.type = start.type = 'button'; start.setAttribute('aria-pressed', 'true');
-    actions.appendChild(cancel); actions.appendChild(start); card.appendChild(actions); menuHost.appendChild(card);
-
-    var rcard = el('div', 'ar-sheet-card'), rtext = el('p');
-    rcard.appendChild(el('h2', null, 'Game over')).id = 'wk-res-title';
-    rcard.appendChild(rtext);
-    var ract = el('div', 'ar-sheet-actions'), rclose = el('button', 'ar-btn', 'Look at the board'), ragain = el('button', 'ar-btn', 'Play again');
-    rclose.type = ragain.type = 'button'; ragain.setAttribute('aria-pressed', 'true');
-    ract.appendChild(rclose); ract.appendChild(ragain); rcard.appendChild(ract); resHost.appendChild(rcard);
-    document.body.appendChild(menuHost); document.body.appendChild(resHost);
-    var menu = BK.sheet(menuHost), result = BK.sheet(resHost);
-
-    function twoPlayers() { return BK.chipValue(groups.mode.chips) === 'two'; }
-    function refreshMenu() {
-      var two = groups.mode && twoPlayers();
-      Object.keys(groups).forEach(function (k) {
-        var g = groups[k], off = g.opt.cpuOnly && two;
-        g.fieldset.disabled = off; g.fieldset.style.opacity = off ? 0.45 : 1;
-      });
+    // ── Menu > New game: the options, built from the description ──
+    // The shell shows these rows in its New game pane, with Start last; Start clicks the page's own New game button,
+    // which applies what was chosen and begins. Nothing is applied until then.
+    var draft = null, rows = [];
+    function twoPlayers() { return draft && draft.mode === 'two'; }
+    function refreshRows() {
+      var two = twoPlayers();
+      rows.forEach(function (r) { if (r.opt && r.opt.cpuOnly) r.row.disable(!!two); });
     }
-    function syncMenu() {
-      Object.keys(groups).forEach(function (k) { BK.chipSet(groups[k].chips, settings[k]); });
-      Object.keys(boxes).forEach(function (k) { boxes[k].checked = settings[k]; });
-      refreshMenu();
+    function menuOptions() {
+      draft = Object.assign({}, settings); rows = [];
+      options.forEach(function (o) {
+        var r = UI.row(L(o.legend), o.choices.map(function (c) { return [c[0], L(c[1])]; }), draft[o.key], function (v) { draft[o.key] = v; refreshRows(); });
+        rows.push({ row: r, opt: o });
+      });
+      checks.forEach(function (c) {
+        rows.push({ row: UI.toggle(L(c.label), draft[c.key], function (v) { draft[c.key] = v; }) });
+      });
+      refreshRows();
+      return UI.options(rows.map(function (r) { return r.row; }));
     }
-    function openMenu() { syncMenu(); menu.open(); }
-    if (groups.mode) groups.mode.chips.addEventListener('change', refreshMenu);
-    cancel.addEventListener('click', menu.close);
-    start.addEventListener('click', function () {
-      Object.keys(groups).forEach(function (k) { var v = BK.chipValue(groups[k].chips); if (v) settings[k] = v; });
-      Object.keys(boxes).forEach(function (k) { settings[k] = boxes[k].checked; });
+    function applyDraft() {
+      if (!draft) return;
+      Object.keys(draft).forEach(function (k) { settings[k] = draft[k]; });
+      draft = null;
       BK.save(SETTINGS_KEY, settings);
-      menu.close(); G.newGame();
-    });
-    ragain.addEventListener('click', function () { G.newGame(); });
-    rclose.addEventListener('click', function () { result.close(); });
+    }
+    function openMenu() { if (root.ZimiShell && root.ZimiShell.openMenu) root.ZimiShell.openMenu(); }
 
     // ── the page's parts ──
     G.vsComputer = function () { return settings.mode !== 'two'; };
     // Is the player to move (0 first, 1 second) a person at this screen?
     G.watching = null;   // Watch and learn: the driver's controller while a demo runs
     G.human = function (p) { if (G.watching) return false; return !G.vsComputer() || (settings.side === 'second' ? 1 : 0) === p; };
+    var line = els.status ? UI.status(els.status) : { turn: function () {}, say: function () {}, reason: function () {}, thinking: function () {} };
+    G.status = line;
     G.say = function (text, busy) {
       // While a demo runs nobody is "thinking": the narration above says what is happening.
-      if (G.watching && /^(Computer is thinking|Thinking about)/.test(text)) { text = 'Watching'; busy = false; }
-      els.status.textContent = '';
-      if (busy) els.status.appendChild(el('span', 'bg-spin'));
-      els.status.appendChild(document.createTextNode(text));
+      if (G.watching && busy) { text = T('board.watching'); busy = false; }
+      line.turn(text, busy);
     };
+    // An illegal move: the shake on `target` (an element) and the reason, which gives way to the line before it.
+    G.refuse = function (target, text) { UI.refuse(line, target, text); };
     // The two sides' names on screen: "You" and "Computer" against the machine.
     G.names = function (a, b) {
       if (G.watching || !G.vsComputer()) return [a, b];
-      return settings.side === 'second' ? ['Computer', 'You'] : ['You', 'Computer'];
+      return settings.side === 'second' ? [T('board.computer'), T('board.you')] : [T('board.you'), T('board.computer')];
     };
     G.who = function (p, a, b) { return G.names(a, b)[p]; };
     // The level as the chip calls it, in lower case (a level can be shown under a different name than its key).
     function levelName() {
       var o = options.filter(function (x) { return x.key === 'level'; })[0], c = o && o.choices.filter(function (x) { return x[0] === settings.level; })[0];
-      return c ? c[1].toLowerCase() : settings.level;
+      return c ? L(c[1]) : settings.level;
     }
     G.showStats = function () {
       var s = stats[cfg.statKey ? cfg.statKey(settings) : settings.level];
-      s = s || { w: 0, l: 0, d: 0 };
-      els.stats.textContent = G.vsComputer() ? 'vs ' + levelName() + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
+      if (els.stats) UI.record(els.stats, levelName(), G.vsComputer() ? s : null);
     };
     G.setUndo = function (on) { if (els.undo) els.undo.disabled = !on || !!G.thinking; };
     G.setHint = function (on) { if (els.hint) els.hint.disabled = !on || !!G.thinking || G.over; };
@@ -149,24 +119,24 @@
     G.done = function (token) { if (token === G.thinking) { G.thinking = 0; return true; } return false; };
     G.cancel = function () { seq++; G.thinking = 0; };
 
-    // outcome: 'w' (a person won against the computer), 'l', 'd', or undefined (not recorded)
-    G.finish = function (msg, outcome, title) {
+    // finish(text, outcome, name): `text` is the one line under the result; outcome is 'w' (a person won against the
+    // computer), 'l', 'd', or none (two people: `name` is who won, or nothing for a game with no winner).
+    G.finish = function (text, outcome, name) {
       G.over = true;
       if (els.hint) els.hint.disabled = true;
       if (root.ZimiShell) root.ZimiShell.turn(false);
-      if (G.watching) { G.say(msg); G.watching.finish(msg + ' That was the whole game. Press Done to play one yourself.'); return; }
+      if (G.watching) { G.say(text); G.watching.finish(T('board.watch.done', { text: text })); return; }
       if (G.vsComputer() && outcome) {
         var key = cfg.statKey ? cfg.statKey(settings) : settings.level;
         var s = stats[key] = stats[key] || { w: 0, l: 0, d: 0 };
         s[outcome]++; BK.save(STATS_KEY, stats);
       }
-      G.say(msg); G.showStats();
-      rtext.textContent = msg;
-      document.getElementById('wk-res-title').textContent = title || 'Game over';
-      result.open(ragain);
+      G.say(text); G.showStats();
+      var result = outcome === 'w' ? 'win' : outcome === 'l' ? 'lose' : outcome === 'd' ? 'draw' : name ? 'win' : 'over';
+      UI.end({ result: result, name: result === 'win' && outcome !== 'w' ? name : undefined, text: text });
     };
     G.newGame = function () {
-      G.cancel(); G.over = false; result.close();
+      G.cancel(); G.over = false;
       G.showStats();
       cfg.onNew(settings);
     };
@@ -187,7 +157,7 @@
             Object.keys(def.override || {}).forEach(function (k) { saved[k] = settings[k]; settings[k] = def.override[k]; });
             settings.mode = 'cpu'; settings.level = def.level || 'medium'; settings.side = 'first';
             G.watching = ctl; G.newGame();
-            ctl.say(def.intro);
+            ctl.say(L(def.intro));
           },
           // takeover: you play whoever is to move; stop: a fresh game; new: the New game sheet follows.
           stop: function (kind) {
@@ -207,14 +177,17 @@
     };
     if (root.ZimiShell) root.ZimiShell.game({
       stats: function () {
-        var s = stats[cfg.statKey ? cfg.statKey(settings) : settings.level] || { w: 0, l: 0, d: 0 };
-        return G.vsComputer() ? 'Against the computer, ' + settings.level + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
-      }
+        var s = stats[cfg.statKey ? cfg.statKey(settings) : settings.level];
+        if (!G.vsComputer() || !s || !(s.w + s.l + s.d)) return [];
+        return [T(s.d ? 'board.record.draws' : 'board.record', { level: levelName(), won: s.w, lost: s.l, drawn: s.d })];
+      },
+      menu: menuOptions
     });
     G.openMenu = openMenu;
-    G.closeResult = result.close;
+    G.closeResult = function () {};
 
-    $('wk-new').addEventListener('click', openMenu);
+    // The shell hides this button and clicks it from Menu > New game (and from the end sheet): apply the options, begin.
+    $('wk-new').addEventListener('click', function () { applyDraft(); G.newGame(); });
     if (els.undo) els.undo.addEventListener('click', function () { if (!els.undo.disabled && cfg.onUndo) cfg.onUndo(); });
     if (els.hint) {
       if (!cfg.onHint) els.hint.hidden = true;

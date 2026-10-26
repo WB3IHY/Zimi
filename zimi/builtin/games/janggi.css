@@ -13,12 +13,12 @@
 .jg-pt { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; padding: 0; border: 0; background: transparent; cursor: pointer; border-radius: 50%; }
 .jg-pt:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; z-index: 3; }
 .jg-pt::before { content: ""; position: absolute; width: 90%; height: 90%; border-radius: 50%; pointer-events: none; }
-.jg-pt.last::before { box-shadow: inset 0 0 0 3px var(--accent); background: rgba(250, 204, 21, 0.22); }
-.jg-pt.sel::before { background: var(--sel); box-shadow: 0 0 0 3px var(--accent); }
+.jg-pt.last::before { background: var(--last); }
+.jg-pt.sel::before { background: var(--sel); box-shadow: var(--select); }
 .jg-pt.bad::before { background: radial-gradient(circle, rgba(229, 57, 53, 0.85), rgba(229, 57, 53, 0) 72%); }
 .jg-pt.hint::after { content: ""; position: absolute; width: 26%; height: 26%; border-radius: 50%; background: var(--jg-rule); opacity: 0.55; pointer-events: none; }
 .jg-pt.hint.cap::after { width: 92%; height: 92%; background: transparent; border: 4px solid var(--danger); opacity: 0.85; }
-.jg-pt.tip::before { box-shadow: 0 0 0 4px #ff6f00; }
+.jg-pt.tip::before { box-shadow: 0 0 0 4px var(--select-ring); }
 
 /* The octagon: an outer shape in the side's colour, an inner one in ivory, the character on top. */
 .jg-pc { --sz: 82%; position: relative; z-index: 1; width: var(--sz); height: var(--sz); display: grid; place-items: center; pointer-events: none; color: var(--jg-cho); filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.45)); }

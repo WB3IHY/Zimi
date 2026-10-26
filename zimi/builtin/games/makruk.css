@@ -1,7 +1,7 @@
 /* Makruk: the plain 8 x 8 board, our own drawn pieces (ivory and ink). */
-:root { --mk-w: #f6f1e2; --mk-w-line: #3b3326; --mk-b: #262d3b; --mk-b-line: #0a0c10; --mk-b-edge: #0a0c10; --mk-b-detail: #c9cfdb; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --mk-w: #eee8d6; --mk-b: #2a3345; --mk-b-line: #05070a; --mk-b-edge: #8794ad; } }
-:root[data-theme="dark"] { --mk-w: #eee8d6; --mk-b: #2a3345; --mk-b-line: #05070a; --mk-b-edge: #8794ad; }
+:root { --mk-w: #f6f1e2; --mk-w-line: #3b3326; --mk-b: #2a2723; --mk-b-line: #0b0a09; --mk-b-edge: #0b0a09; --mk-b-detail: #d4d0c6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --mk-w: #eee8d6; --mk-b: #2d2a26; --mk-b-line: #060505; --mk-b-edge: #97918a; } }
+:root[data-theme="dark"] { --mk-w: #eee8d6; --mk-b: #2d2a26; --mk-b-line: #060505; --mk-b-edge: #97918a; }
 
 .mk-pc { width: 88%; height: 88%; pointer-events: none; filter: drop-shadow(0 2px 1.5px rgba(0, 0, 0, 0.4)); overflow: visible; }
 .mk-pc .body { stroke-width: 1.6; stroke-linejoin: round; }
