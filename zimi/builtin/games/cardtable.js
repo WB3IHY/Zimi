@@ -186,7 +186,7 @@
       (hd.choices || []).forEach(function (c, i) {
         var b = Z.h('button', { class: 'ar-btn ct-choice' + (c.cls ? ' ' + c.cls : ''), type: 'button', text: c.label });
         if (c.pressed !== undefined) b.setAttribute('aria-pressed', String(!!c.pressed));
-        if (c.primary) b.setAttribute('aria-pressed', 'true');
+        if (c.primary) { b.setAttribute('aria-pressed', 'true'); b.classList.add('ct-primary'); }
         if (c.aria) b.setAttribute('aria-label', c.aria);
         b.disabled = !!c.disabled;
         b.addEventListener('click', function () { if (choicesNow[i] && choicesNow[i].onclick) choicesNow[i].onclick(); });
@@ -250,6 +250,20 @@
   function lineSheet(title, lines, actions) {
     return Z.sheet({ title: title, body: lines.map(function (t) { return Z.h('p', { class: 'zc-note', text: t }); }), actions: actions });
   }
+  // Chips as table furniture: an amount drawn as stacks of tokens, a column for each denomination it takes
+  // (greedy, largest first). A tall column shows its top few: the stack is a picture of the pile, the figure
+  // is in the status line.
+  var CHIP_DENOMS = [500, 100, 50, 25, 10, 5, 1], CHIP_COLUMNS_MAX = 4, CHIP_STACK_MAX = 7, CHIP_STEP_PX = 4, CHIP_PX = 30;
+  function chipStack(amount) {
+    var left = Math.max(0, Math.round(amount)), cols = [], node = Z.h('div', { class: 'ct-stack', role: 'img', 'aria-label': T('cards.chips', { n: left }) });
+    CHIP_DENOMS.forEach(function (d) { var n = Math.floor(left / d); if (n) { cols.push([d, n]); left -= n * d; } });
+    cols.slice(0, CHIP_COLUMNS_MAX).forEach(function (c) {
+      var n = Math.min(c[1], CHIP_STACK_MAX), col = Z.h('div', { class: 'ct-col', style: 'height:' + (CHIP_PX + (n - 1) * CHIP_STEP_PX) + 'px' }), i;
+      for (i = 0; i < n; i++) col.appendChild(Z.h('i', { class: 'ct-token ct-d' + c[0], style: 'bottom:' + i * CHIP_STEP_PX + 'px' }));
+      node.appendChild(col);
+    });
+    return node;
+  }
   // Which saved choice (key in zimi.games.*) a segmented menu row holds.
   function choiceRow(label, key, options, fallback, onPick) {
     var value = Z.store.get(key, fallback);
@@ -262,6 +276,6 @@
     next: next, sortHand: sortHand, rankHigh: rankHigh, short: short, shortList: shortList, shuffleOf: shuffleOf,
     countBy: countBy, maxBy: maxBy, minBy: minBy,
     geometry: geometry, rowsFor: rowsFor, sideStep: sideStep, trickSpot: trickSpot, seatSpot: seatSpot, posOf: posOf, posFor: posFor, handCards: handCards, fan: fan, takeCounts: takeCounts, handRows: handRows,
-    create: create, lineSheet: lineSheet, choiceRow: choiceRow
+    create: create, lineSheet: lineSheet, choiceRow: choiceRow, chipStack: chipStack
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

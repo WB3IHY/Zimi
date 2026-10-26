@@ -275,7 +275,19 @@
       var v = handValue(h.cards), label = (st.hands.length > 1 ? TX('bj.handN', { n: i + 1 }) : nm());
       return { name: label, text: TX(v.soft && v.total < 21 ? 'bj.soft' : 'bj.hard', { total: v.total, bet: h.bet }), turn: st.phase === 'play' && st.active === i };
     }
+    // The bet is chips on the table, under the dealer's cards.
+    var pile = Z.h('div', { class: 'ct-pile' });
+    root.document.getElementById('zc-table').appendChild(pile);
+    function paintPile(st) {
+      var m = t && t.board && t.board.metrics();
+      if (!m) return;
+      var g = geo(m), amount = st.phase === 'bet' ? st.bet : st.hands.reduce(function (n, h) { return n + h.bet; }, st.insurance || 0);
+      pile.textContent = '';
+      if (amount > 0) { pile.appendChild(T.chipStack(amount)); pile.appendChild(Z.h('span', { class: 'ct-caption', text: TX('bj.bet', { n: amount }) })); }
+      pile.style.top = Math.round(g.northY + g.ch + 24) + 'px';
+    }
     function hud(st) {
+      paintPile(st);
       var chips = [], hot = seats.hotseat(), out = { fact: TX(hot ? 'bj.fact.name' : 'bj.fact', { name: nm(), n: st.chips }), text: '' };
       if (st.dealer.length) chips.push({ name: TX('bj.dealer'), text: st.hole ? String(handValue(st.dealer).total) : String(cardValue(st.dealer[0]) === 11 ? 'A' : cardValue(st.dealer[0])) });
       st.hands.forEach(function (h, i) { chips.push(handChip(st, h, i)); });

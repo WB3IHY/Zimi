@@ -389,6 +389,10 @@
       });
       var potTag = Z.h('div', { class: 'c2-tag', style: 'left:' + Math.round(g.W / 2 - 100) + 'px;top:' + (boardY(g) - POT_H - 4) + 'px;width:200px;height:' + POT_H + 'px' }, [Z.h('span', { text: TX('holdem.pot', { n: totalPot(st), a: st.blinds[0], b: st.blinds[1] }) })]);
       d.getElementById('zc-table').appendChild(potTag); tags.push(potTag);
+      // The pot is chips on the table, under the shared cards.
+      var pile = Z.h('div', { class: 'ct-pile', style: 'top:' + Math.round(boardY(g) + g.ch + 18) + 'px' });
+      if (totalPot(st) > 0) pile.appendChild(T.chipStack(totalPot(st)));
+      d.getElementById('zc-table').appendChild(pile); tags.push(pile);
     }
     function hud(st) {
       var m = board.metrics(), out = { chips: [], text: '' };

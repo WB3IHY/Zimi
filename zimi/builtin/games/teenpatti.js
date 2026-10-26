@@ -268,7 +268,13 @@
     // What each computer player is doing (blind, seen, packed), under its cards.
     var tags = [null, Z.h('div', { class: 'tp-tag' }), Z.h('div', { class: 'tp-tag' }), Z.h('div', { class: 'tp-tag' })];
     [1, 2, 3].forEach(function (seat) { Z.pageEls().table.appendChild(tags[seat]); });
+    // The pot is chips in the middle of the table.
+    var pile = Z.h('div', { class: 'ct-pile' });
+    Z.pageEls().table.appendChild(pile);
     function paintTags(g, st, over) {
+      pile.textContent = '';
+      if (st.pot > 0) { pile.appendChild(T.chipStack(st.pot)); pile.appendChild(Z.h('span', { class: 'ct-caption', text: TX('tp.potLine', { pot: st.pot, stake: st.stake }) })); }
+      pile.style.top = Math.round(g.cy - 20) + 'px';
       var sideH = g.ch + (HAND - 1) * T.sideStep(g, HAND);
       [1, 2, 3].forEach(function (pos) {
         var seat = (seats.view() + pos) % SEATS, p = T.posOf(pos, SEATS), el = tags[pos];
@@ -301,7 +307,7 @@
       var chips = [0, 1, 2, 3].map(function (i) { return (seats.view() + i) % SEATS; }).map(function (seat) {
         return { name: who(seat), text: String(st.chips[seat]), turn: !over && st.phase === 'bet' && st.turn === seat || (st.phase === 'side' && st.side.to === seat) };
       });
-      var out = { chips: chips, fact: TX('tp.fact', { chips: st.chips[seats.view()], pot: st.pot, stake: st.stake }), text: '' };
+      var out = { chips: chips, fact: TX('tp.fact', { chips: st.chips[seats.view()] }), text: '' };
       var say = sayLine(st);
       if (st.phase === 'handEnd') { out.text = resultLines(st)[st.result.kind === 'fold' ? 0 : 1]; out.label = TX('cards.nextHand'); out.action = startNextHand; return out; }
       if (st.phase === 'over') { out.text = TX('shell.end.over'); return out; }
