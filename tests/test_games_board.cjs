@@ -148,8 +148,8 @@ const check = (ok, label) => {
 
 // ── Chess ──
 {
-  const sandbox = load(['chess-engine.js']);
-  const C = sandbox.ZimiChessEngine();
+  const sandbox = load(['enginekit.js', 'chess-engine.js']);
+  const C = sandbox.ZimiChessEngine(sandbox.ZimiSearch());
   const perft = (fen, d) => C.perft(C.parseFen(fen), d);
   const START = C.START_FEN;
   check(perft(START, 1) === 20 && perft(START, 2) === 400, 'chess: 20 and 400 moves from the start');

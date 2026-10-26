@@ -5,13 +5,13 @@
    It is one self-contained function so the page can hand its source to a Web Worker through a
    Blob (no second file to fetch, which a ZIM reader may not serve for workers) and the same
    function runs on the main thread as the fallback and under node for the tests. */
-function ZimiChessEngine() {
+function ZimiChessEngine(S) {
   'use strict';
 
   var WHITE = 1, BLACK = -1;
   var P = 1, N = 2, B = 3, R = 4, Q = 5, K = 6;
   var VALUE = [0, 100, 320, 330, 500, 900, 0];
-  var MATE = 30000, INF = 32000;
+  var MATE = 30000;
   var CASTLE_WK = 1, CASTLE_WQ = 2, CASTLE_BK = 4, CASTLE_BQ = 8;
   var FLAG_EP = 1, FLAG_CASTLE = 2, FLAG_DOUBLE = 4;
   var MOVE_SPACE = 262144;       // moves are < 2^18, so score * MOVE_SPACE + move sorts by score
@@ -356,71 +356,20 @@ function ZimiChessEngine() {
     return (pos.turn === WHITE ? score : -score) + TEMPO;
   }
 
-  function Timeout() {}
-
-  function orderMoves(pos, ms, ply, ctx, pvMove) {
-    var keys = new Array(ms.length), sq = pos.sq, us = pos.turn;
-    for (var i = 0; i < ms.length; i++) {
-      var m = ms[i], victim = Math.abs(sq[to(m)]), s;
-      if (m === pvMove) s = 200000;
-      else if (victim || (flag(m) & FLAG_EP)) s = 100000 + (victim || P) * 10 - Math.abs(sq[from(m)]);
-      else if (promo(m)) s = 90000 + promo(m);
-      else if (m === ctx.killers[ply * 2]) s = 80000;
-      else if (m === ctx.killers[ply * 2 + 1]) s = 79000;
-      else s = ctx.history[(us === WHITE ? 0 : 4096) + from(m) * 64 + to(m)] || 0;
-      keys[i] = s * MOVE_SPACE + m;
-    }
-    keys.sort(function (a, b) { return b - a; });
-    for (var j = 0; j < keys.length; j++) ms[j] = keys[j] % MOVE_SPACE;
-  }
-
-  function qsearch(pos, alpha, beta, ply, ctx, qd) {
-    if ((++ctx.nodes & CHECK_TIME_EVERY) === 0 && Date.now() > ctx.deadline) throw new Timeout();
-    var stand = evaluate(pos);
-    if (stand >= beta) return stand;
-    if (stand > alpha) alpha = stand;
-    if (qd >= QSEARCH_PLIES) return alpha;
-    var ms = generate(pos, true), us = pos.turn;
-    orderMoves(pos, ms, ply, ctx, 0);
-    for (var i = 0; i < ms.length; i++) {
-      make(pos, ms[i]);
-      if (attacked(pos, pos.king[kingIdx(us)], -us)) { unmake(pos); continue; }
-      var s = -qsearch(pos, -beta, -alpha, ply + 1, ctx, qd + 1);
-      unmake(pos);
-      if (s >= beta) return s;
-      if (s > alpha) alpha = s;
-    }
-    return alpha;
-  }
-
-  function search(pos, depth, alpha, beta, ply, ctx) {
-    if ((++ctx.nodes & CHECK_TIME_EVERY) === 0 && Date.now() > ctx.deadline) throw new Timeout();
-    if (pos.half >= 100) return 0;
-    var us = pos.turn, check = inCheck(pos, us);
-    if (check && ply < MAX_PLY) depth++;
-    if (depth <= 0) return qsearch(pos, alpha, beta, ply, ctx, 0);
-    var ms = generate(pos, false), legal = 0, best = -INF;
-    orderMoves(pos, ms, ply, ctx, 0);
-    for (var i = 0; i < ms.length; i++) {
-      var m = ms[i], quiet = !pos.sq[to(m)] && !(flag(m) & FLAG_EP) && !promo(m);
-      make(pos, m);
-      if (attacked(pos, pos.king[kingIdx(us)], -us)) { unmake(pos); continue; }
-      legal++;
-      var s = -search(pos, depth - 1, -beta, -alpha, ply + 1, ctx);
-      unmake(pos);
-      if (s > best) best = s;
-      if (best > alpha) alpha = best;
-      if (alpha >= beta) {
-        if (quiet) {
-          if (ctx.killers[ply * 2] !== m) { ctx.killers[ply * 2 + 1] = ctx.killers[ply * 2]; ctx.killers[ply * 2] = m; }
-          ctx.history[(us === WHITE ? 0 : 4096) + from(m) * 64 + to(m)] = (ctx.history[(us === WHITE ? 0 : 4096) + from(m) * 64 + to(m)] || 0) + depth * depth;
-        }
-        break;
-      }
-    }
-    if (!legal) return check ? -MATE + ply : 0;
-    return best;
-  }
+  // ── search: the shared searcher (enginekit.js), fed this game's moves and order ──
+  var adapter = {
+    cfg: { space: MOVE_SPACE, checkEvery: CHECK_TIME_EVERY, qPlies: QSEARCH_PLIES, killers: [80000, 79000], history: 8192, repeat: 2, drawAtLeaf: true, checkLimit: MAX_PLY },
+    moves: legalMoves, pseudo: generate, make: make, unmake: unmake, evaluate: evaluate, key: key, inCheck: inCheck,
+    exposed: function (pos, us) { return attacked(pos, pos.king[kingIdx(us)], -us); },
+    rank: function (pos, m) {
+      var victim = Math.abs(pos.sq[to(m)]);
+      return victim || (flag(m) & FLAG_EP) ? 100000 + (victim || P) * 10 - Math.abs(pos.sq[from(m)]) : promo(m) ? 90000 + promo(m) : 0;
+    },
+    quiet: function (pos, m) { return !pos.sq[to(m)] && !(flag(m) & FLAG_EP) && !promo(m); },
+    histIdx: function (m, us) { return (us === WHITE ? 0 : 4096) + from(m) * 64 + to(m); },
+    draw: function (pos) { return pos.half >= 100; },
+    noMoves: function (pos, ply) { return inCheck(pos, pos.turn) ? -MATE + ply : 0; }
+  };
 
   // The levels: how deep, how long, and how much the score is blurred so the weaker ones blunder.
   var LEVELS = {
@@ -434,47 +383,10 @@ function ZimiChessEngine() {
   // `seen` maps position keys to how often they have occurred, so a move that completes a threefold repetition scores as a draw.
   function think(source, opts) {
     opts = opts || {};
-    var pos = typeof source === 'string' ? parseFen(source) : clone(source);
-    var cfg = LEVELS[opts.level] || LEVELS.club, us = pos.turn;
-    var maxDepth = opts.depth || cfg.depth, ms = opts.ms || cfg.ms, noise = opts.noise === undefined ? cfg.noise : opts.noise;
-    var ctx = { nodes: 0, deadline: Date.now() + ms, killers: new Int32Array(MAX_PLY * 2 + 4), history: new Int32Array(8192) };
-    var roots = legalMoves(pos);
-    if (!roots.length) return { move: 0, score: 0, depth: 0 };
-    if (roots.length === 1) return { move: roots[0], score: 0, depth: 0 };
-    var seen = opts.seen || {}, best = roots[0], bestScore = 0, reached = 0, scores = null;
-    for (var depth = 1; depth <= maxDepth; depth++) {
-      orderMoves(pos, roots, 0, ctx, best);
-      var cur = {}, iterBest = 0, iterScore = -INF, alpha = -INF;
-      try {
-        for (var i = 0; i < roots.length; i++) {
-          var m = roots[i], s;
-          make(pos, m);
-          if (seen[key(pos)] >= 2) s = 0; // would be the third time: a draw
-          else s = -search(pos, depth - 1, -INF, noise ? INF : -alpha, 1, ctx);
-          unmake(pos);
-          cur[m] = s;
-          if (s > iterScore) { iterScore = s; iterBest = m; }
-          if (s > alpha) alpha = s;
-        }
-        best = iterBest; bestScore = iterScore; reached = depth; scores = cur;
-      } catch (e) {
-        if (!(e instanceof Timeout)) throw e;
-        while (pos.undo.length > 0) unmake(pos);
-        if (iterBest && depth > 1) { best = iterBest; bestScore = iterScore; } // the previous best was searched first, so this is no worse
-        break;
-      }
-      if (Math.abs(bestScore) > MATE - MAX_PLY) break;
-    }
-    if (noise && scores) {
-      var top = -INF;
-      roots.forEach(function (m) {
-        if (scores[m] === undefined) return;
-        var n = scores[m] + (Math.random() - 0.5) * 2 * noise;
-        if (n > top) { top = n; best = m; bestScore = scores[m]; }
-      });
-    }
-    return { move: best, score: bestScore, depth: reached, nodes: ctx.nodes };
+    var pos = typeof source === 'string' ? parseFen(source) : clone(source), cfg = LEVELS[opts.level] || LEVELS.club;
+    return (S || globalThis.ZimiSearch()).tactical(adapter, pos, { depth: opts.depth || cfg.depth, ms: opts.ms || cfg.ms, noise: opts.noise === undefined ? cfg.noise : opts.noise, seen: opts.seen });
   }
+  function handle(req) { var r = think(req.fen, req); return { move: r.move, depth: r.depth, score: r.score }; }
 
   // What `color` has lost: the piece types gone from the board (pawn..queen, biggest first) and their worth in pawns.
   var START_COUNT = { 1: 8, 2: 2, 3: 2, 4: 2, 5: 1 }, PAWNS = { 1: 1, 2: 3, 3: 3, 4: 5, 5: 9 };
@@ -491,7 +403,7 @@ function ZimiChessEngine() {
     parseFen: parseFen, toFen: toFen, clone: clone, startPosition: function () { return parseFen(START_FEN); },
     mk: mk, from: from, to: to, promo: promo, flag: flag, squareName: squareName, squareFromName: squareFromName,
     legalMoves: legalMoves, attacked: attacked, make: make, unmake: unmake, findMove: findMove, inCheck: inCheck, perft: perft,
-    san: san, key: key, status: status, insufficient: insufficient, evaluate: evaluate, think: think, takenFrom: takenFrom
+    san: san, key: key, status: status, insufficient: insufficient, evaluate: evaluate, think: think, handle: handle, takenFrom: takenFrom
   };
 }
 if (typeof globalThis !== 'undefined') globalThis.ZimiChessEngine = ZimiChessEngine;
