@@ -188,7 +188,7 @@ The pebble mark appears in exactly these places:
 - The ZIM icon.
 
 In dark the pebble gets a 1px ground-coloured ring so it never vanishes into a dark bar. That is the one allowed change to it.
-- The Ace of Spades (the Z alone) and the Zimi card back (the Z at about 38 percent of the card's width).
+- The Ace of Spades: the Z alone in the spade's belly, about as large relative to the spade as it is inside the pebble (Eric: "way too big"). The Zimi card back carries the Z too.
 
 It is never a watermark, never recoloured, never inside a board.
 
