@@ -137,30 +137,30 @@
   // corners like the Z's. `w` is the advance for the ones that are not 10.
   var GLYPH_STROKE = 2.4;
   var GLYPHS = {
-    A: { d: 'M0 14 5 0 10 14M2.2 9.4H7.8' },
-    '1': { d: 'M1.2 3.2 5 0V14', w: 6 },
+    A: { d: 'M0 14 5 -1.25 10 14M2.2 9.4H7.8', miter: 2 },
+    '1': { d: 'M1.2 3.2 5 0V14', w: 6, miter: 4 },
     '2': { d: 'M1 4.6C1 1.6 3 0 5 0S9.2 1.6 9.2 4.2C9.2 7 6 9.6 1 14H10' },
-    '3': { d: 'M1 1H9L4.6 6C8.6 6 10 8 10 10 10 12.6 8 14 5 14 2.6 14 1.2 13 .8 11.4' },
-    '4': { d: 'M7.6 14V0L0 10H10.6' },
+    '3': { d: 'M1 0H9L4.6 5.4C8.6 6 10 8 10 10 10 12.6 8 14 5 14 2.6 14 1.2 13 .8 11.4' },
+    '4': { d: 'M7.6 14V-.95L0 10H10.6', miter: 2 },
     '5': { d: 'M9 0H1.8L1 6.4C2 5.6 3.4 5.2 5 5.2 8 5.2 9.6 7.4 9.6 9.7 9.6 12.4 7.6 14 5 14 2.8 14 1.4 13 .8 11.4' },
     '6': { d: 'M8.6 1.2C7.6.4 6.4 0 5.2 0 2.4 0 .8 3 .8 8 .8 12 2.4 14 5 14 7.6 14 9.2 12.2 9.2 9.6 9.2 7.4 7.6 5.8 5.2 5.8 3.2 5.8 1.6 6.8.8 8.4' },
     '7': { d: 'M.4 0H9.8L3.8 14' },
     '8': { d: 'M5 0C2.6 0 1.2 1.4 1.2 3.4 1.2 5.4 2.8 6.6 5 7 7.4 7.4 9.2 8.6 9.2 10.6 9.2 12.6 7.4 14 5 14 2.6 14 .8 12.6.8 10.6.8 8.6 2.6 7.4 5 7 7.2 6.6 8.8 5.4 8.8 3.4 8.8 1.4 7.4 0 5 0z' },
     '9': { d: 'M8.6 1.2C7.6.4 6.4 0 5.2 0 2.4 0 .8 3 .8 8 .8 12 2.4 14 5 14 7.6 14 9.2 12.2 9.2 9.6 9.2 7.4 7.6 5.8 5.2 5.8 3.2 5.8 1.6 6.8.8 8.4', turn: true },
-    '10': { d: 'M1.2 3.2 4.6 0V14M11 0C8 0 6.8 3 6.8 7S8 14 11 14 14.8 11 14.8 7 14 0 11 0z', w: 15 },
-    J: { d: 'M8 0V9.6C8 12.6 6.4 14 4.2 14 2.2 14 .8 13 .3 11' },
+    '10': { d: 'M1.2 3.2 4.6 0V14M11 0C8 0 6.8 3 6.8 7S8 14 11 14 14.8 11 14.8 7 14 0 11 0z', w: 15, miter: 4 },
+    J: { d: 'M8 -1.2V9.6C8 12.6 6.4 14 4.2 14 2.2 14 .8 13 .3 11' },
     Q: { d: 'M5 0C2 0 .8 3 .8 7S2 14 5 14 9.2 11 9.2 7 8 0 5 0zM6 10.4 10.2 15.4' },
-    K: { d: 'M1 0V14M9.6 0 1 8M3.8 6 10 14' },
+    K: { d: 'M1 -1.2V14M9.6 -.3 1 8M3.8 6 10 14' },
     // Spanish courts' 11 and 12.
-    '11': { d: 'M1.2 3.2 5 0V14M8.2 3.2 12 0V14', w: 13 },
-    '12': { d: 'M1.2 3.2 5 0V14M8 4.6C8 1.6 10 0 12 0S16.2 1.6 16.2 4.2C16.2 7 13 9.6 8 14H17', w: 17.2 }
+    '11': { d: 'M1.2 3.2 5 0V14M8.2 3.2 12 0V14', w: 13, miter: 4 },
+    '12': { d: 'M1.2 3.2 5 0V14M8 4.6C8 1.6 10 0 12 0S16.2 1.6 16.2 4.2C16.2 7 13 9.6 8 14H17', w: 17.2, miter: 4 }
   };
   function glyphWidth(label) { return GLYPHS[label].w === undefined ? 10 : GLYPHS[label].w; }
   // A glyph, centred on x with its top at y, `s` times its grid size.
   function glyph(label, x, y, s) {
     var g = GLYPHS[label];
     return '<path transform="translate(' + (x - glyphWidth(label) * s / 2) + ' ' + y + ')' + (g.turn ? ' rotate(180 ' + 5 * s + ' ' + 7 * s + ')' : '') + ' scale(' + s + ')" d="' + g.d +
-      '" fill="none" stroke="currentColor" stroke-width="' + GLYPH_STROKE + '" stroke-linejoin="miter" stroke-miterlimit="6"/>';
+      '" fill="none" stroke="currentColor" stroke-width="' + GLYPH_STROKE + '" stroke-linejoin="miter" stroke-miterlimit="' + (g.miter || 6) + '"/>';
   }
 
   // Suits come from the page's sprite (`use`) or, for the cascade's bitmaps,
@@ -869,6 +869,12 @@
   // place(): mark (the game's own highlight), glow (a soft one) and dim (not playable now); a
   // slot may be quiet (a drop area with no outline and no tab stop).
 
+  // A card's width is a whole multiple of 5 device pixels, so its height (1.4 times) is a whole number of device pixels too and
+  // the rules drawn at whole units of the face land on pixel edges. It only ever rounds down, so the columns still fit.
+  var CRISP_STEP = 5;
+  function dpr() { return Math.max(1, Math.min(3, root.devicePixelRatio || 1)); }
+  function crispWidth(cw) { var k = dpr(); return Math.max(CRISP_STEP, Math.floor(cw * k / CRISP_STEP) * CRISP_STEP) / k; }
+
   function createBoard(o) {
     var d = root.document, table = o.table, stage = h('div', { class: 'zc-stage' });
     var live = h('div', { class: 'zc-live', 'aria-live': 'polite' });
@@ -880,11 +886,13 @@
     var lastPlace = null, lastState = null, metrics = null, drag = null, sel = null, settleTimer = 0, focusPile = null, slotOrder = [];
 
     function measure() {
+      d.documentElement.style.setProperty('--zc-px', 1 / dpr() + 'px');
       var W = table.clientWidth, H = table.clientHeight;
       var pad = Math.max(6, Math.min(16, Math.round(W * 0.02))), gap = Math.max(4, Math.round(W * 0.014));
       if (o.tight) { pad = Math.min(pad, TIGHT_PAD); gap = Math.min(gap, TIGHT_GAP); }   // the solitaires' columns take every pixel of the width
       var cw = Math.floor((W - 2 * pad - (o.cols - 1) * gap) / o.cols);
       cw = Math.max(MIN_CARD_W, Math.min(cw, MAX_CARD_W, Math.floor(H * (o.heightShare || CARD_H_SHARE))));
+      cw = crispWidth(cw);
       // `left` centres the columns when the cards stop growing before the width does.
       var left = Math.floor((W - (o.cols * cw + (o.cols - 1) * gap)) / 2);
       metrics = { cw: cw, ch: Math.round(cw * CARD_ASPECT), gap: gap, pad: pad, left: left, step: cw + gap, W: W, H: H, cols: o.cols };

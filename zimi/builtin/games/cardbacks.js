@@ -24,8 +24,8 @@
   // The band: ground, an outer rule at inset 3.5 and a hairline at 7.5.
   function band(ground, rule, hair) {
     return rect(0, 0, W, H, { fill: ground }) +
-      rect(3.5, 3.5, 85, 125, { fill: 'none', stroke: rule, 'stroke-width': 1.2 }) +
-      rect(7.5, 7.5, 77, 117, { fill: 'none', stroke: rule, 'stroke-width': hair || 0.5, opacity: 0.6 });
+      rect(3.5, 3.5, 85, 125, { class: 'zc-rule', fill: 'none', stroke: rule, 'stroke-width': 1.2 }) +
+      rect(7.5, 7.5, 77, 117, { class: 'zc-rule', fill: 'none', stroke: rule, 'stroke-width': hair || 0.5, opacity: 0.6 });
   }
   // Diamond outline with its centre and half sizes.
   function diamond(cx, cy, a, b) { return 'M' + f(cx) + ' ' + f(cy - b) + 'l' + f(a) + ' ' + f(b) + ' ' + f(-a) + ' ' + f(b) + ' ' + f(-a) + ' ' + f(-b) + 'z'; }

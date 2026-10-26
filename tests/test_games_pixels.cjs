@@ -73,15 +73,47 @@ const server = http.createServer((q, r) => {
     const dx = (x0 + x1) / 2 - cx, dy = (y0 + y1) / 2 - cy;
     ok('Zimi back Z is centred at ' + cw + 'px', x1 > 0 && Math.abs(dx) <= 0.5 && Math.abs(dy) <= 0.5, 'off (' + dx.toFixed(2) + ', ' + dy.toFixed(2) + ') device px');
   }
-  await browser.close(); server.close();
+  const browser2 = browser;
 
-  // 4. The court art is scaled evenly: each nested svg's box has its viewBox's proportions.
+  // 4. The court art is scaled evenly: never preserveAspectRatio="none", and the frame it fills is the box it covers.
   const vm = require('vm'), sb = { console }; sb.window = sb; vm.createContext(sb);
   vm.runInContext(fs.readFileSync(path.join(dir, 'courts.js'), 'utf8'), sb);
-  const svgs = [...sb.ZimiCourts.markup('king', 3).matchAll(/<svg x="[^"]*" y="[^"]*" width="([\d.]+)" height="([\d.]+)" viewBox="0 0 (\d+) (\d+)" preserveAspectRatio="none"/g)];
+  const king = sb.ZimiCourts.markup('king', 3);
+  const svgs = [...king.matchAll(/<svg x="([^"]*)" y="[^"]*" width="([\d.]+)" height="([\d.]+)" viewBox="0 0 (\d+) (\d+)" preserveAspectRatio="([^"]*)"/g)];
   ok('court art svgs found', svgs.length === 2);
-  svgs.forEach(m => ok('court art keeps its proportions', Math.abs(m[1] / m[2] - m[3] / m[4]) < 0.003, (m[1] / m[2]).toFixed(4) + ' vs ' + (m[3] / m[4]).toFixed(4)));
+  svgs.forEach(m => {
+    ok('court art is never stretched', m[6] === 'xMidYMid slice', m[6]);
+    const scale = Math.max(m[2] / m[4], m[3] / m[5]), lost = (m[5] * scale - m[3]) / 2;   // units cut at top and bottom by the cover
+    ok('court art covers its frame and loses under 3 units at each end', m[2] / m[4] <= scale + 1e-9 && lost >= 0 && lost < 3, lost.toFixed(2) + ' units');
+  });
+  ok('court frame is a crisp rule', /<rect[^>]*class="zc-rule"/.test(king));
+  const backs = fs.readFileSync(path.join(dir, 'cardbacks.js'), 'utf8');
+  ok('the backs\' band rules are crisp rules', (backs.match(/class: 'zc-rule'/g) || []).length === 2);
+  ok('crisp rules snap to the device pixel', /\.zc-rule \{[^}]*vector-effect: non-scaling-stroke[^}]*crispEdges[^}]*var\(--zc-px/.test(css));
 
+  // 5. The index's top: flat ranks and rounds start at the 5.5 inset; pointed ones (A, 4) overshoot it by under a unit, never touching the edge.
+  const cb = await browser2.newContext({ deviceScaleFactor: 1 }).then(c => c.newPage());
+  await cb.goto(base + '/h.html');
+  const tops = await cb.evaluate(async () => {
+    const S = 8, out = {};
+    for (const r of 'A23456789TJQK') {
+      const id = 39 + 'A23456789TJQK'.indexOf(r);
+      const svg = ZimiCards.faceMarkup(id, true).replace('<svg ', '<svg width="' + 100 * S + '" height="' + 140 * S + '" ');
+      const img = new Image(); img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg); await img.decode();
+      const cv = document.createElement('canvas'); cv.width = 100 * S; cv.height = 140 * S; const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0);
+      const d = cx.getImageData(0, 0, 100 * S, 30 * S).data; let top = 1e9;
+      for (let y = 3 * S; y < 30 * S; y++) for (let x = 3 * S; x < 30 * S; x++) { const i = (y * 100 * S + x) * 4; if (d[i] < 100 && d[i + 1] < 100 && d[i + 2] < 100 && y < top) top = y; }
+      out[r] = top / S;
+    }
+    return out;
+  });
+  for (const [r, t] of Object.entries(tops)) {
+    const pointed = r === 'A' || r === '4';
+    ok('index ' + r + ' top inset', pointed ? t >= 4.7 && t <= 5.3 : Math.abs(t - 5.5) <= 0.13, t.toFixed(2) + (pointed ? ' (apex overshoots 0.2 to 0.8)' : ''));
+  }
+  await browser2.close();
+
+  server.close();
   console.log(failures ? failures + ' FAILED' : 'all passed');
   process.exit(failures ? 1 : 0);
 })();
