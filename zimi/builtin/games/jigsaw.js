@@ -197,7 +197,7 @@
       pieces.push({ i: i, node: node, locked: false, fx: starts[i].x / s.W, fy: starts[i].y / s.W });
     }
     say('');
-    puzzle = { pic: pic, cols: g.cols, rows: g.rows, aspect: aspect, pieces: pieces, ms: 0, since: performance.now(), done: false, daily: daily };
+    puzzle = { pic: pic, count: count, cols: g.cols, rows: g.rows, aspect: aspect, pieces: pieces, ms: 0, since: performance.now(), done: false, daily: daily };
     layout(); paintHud();
     els.credit.textContent = T('jigsaw.picture', { credit: pic.credit }) + (pic.note ? ' ' + pic.note : '');
     if (!timer) timer = setInterval(function () { if (puzzle && puzzle.since && !puzzle.done) els.time.textContent = Play.fmtClock(elapsed()); }, TICK_MS);
@@ -295,7 +295,29 @@
   Lib.isZimi().then(function (yes) { return yes ? Lib.zims() : []; }).then(function (list) {
     var a = Lib.pickZim(list, 'wikipedia', Lib.uiLang());
     if (a) { zim = a.zim.name; zimTitle = (a.zim.title || a.zim.name) + ' (' + a.zim.language + ')'; }
+    // Leaving and coming back keeps the puzzle: its picture, every piece where it was left, and the clock.
+    var kept = ZimiShell.saved();
+    if (kept && kept.pic && kept.pieces && (!kept.daily || kept.date === today) && (!kept.pic.zim || kept.pic.zim === zim)) return restore(kept);
+    if (kept) ZimiShell.forget();
     return newPuzzle(prefs.count, false);
+  });
+  function restore(kept) {
+    build(kept.pic, kept.count, kept.daily);
+    puzzle.ms = kept.ms || 0; puzzle.since = 0;
+    kept.pieces.forEach(function (k, i) {
+      var p = puzzle.pieces[i]; if (!p) return;
+      p.fx = k.fx; p.fy = k.fy; p.locked = !!k.locked;
+      if (p.locked) { p.node.classList.add('locked'); p.node.style.zIndex = 0; }
+    });
+    layout(); paintHud();
+    if (solved(puzzle.pieces)) finish(); else resume();
+  }
+  ZimiShell.persist({
+    save: function () {
+      if (!puzzle) return null;
+      return { pic: puzzle.pic, count: puzzle.count, daily: !!puzzle.daily, date: today, ms: Math.round(elapsed()),
+        pieces: puzzle.pieces.map(function (p) { return { fx: p.fx, fy: p.fy, locked: p.locked }; }) };
+    }
   });
   root.__jig = { get puzzle() { return puzzle; } };
 })(this);
