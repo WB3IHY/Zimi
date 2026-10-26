@@ -198,33 +198,20 @@
   // ── Layout ──────────────────────────────────────────────────────────────
   // The table is the shared one (cardtable.js): its geometry, your hand in rows, the opponents' fans and their count chips.
   var CT = root.ZimiTable, STATUS_H = CT ? CT.STATUS_H : 46, HEIGHT_SHARE = 0.11, HAND_COLS = 5;   // five columns' width a card: the hand is one fanned row of 13, not a grid
-  var TRICK_DX = 0.72, TRICK_DY = 0.62;
 
   // Where everything sits on a table of this size (the hand takes two rows from ten cards).
   function geometry(m) { return CT.geometry(m, CT.rowsFor(m, HAND)); }
-  // A card's corner in the middle for each seat's play, and where a seat's cards sit.
-  function trickSpot(g, seat) {
-    var x = g.cx - g.cw / 2, y = g.cy - g.ch / 2;
-    return [{ x: x, y: y + g.ch * TRICK_DY }, { x: x - g.cw * TRICK_DX, y: y }, { x: x, y: y - g.ch * TRICK_DY }, { x: x + g.cw * TRICK_DX, y: y }][seat];
-  }
-  function seatSpot(g, seat) {
-    return [{ x: g.cx - g.cw / 2, y: g.southY }, { x: g.westX, y: g.yTop }, { x: g.cx - g.cw / 2, y: g.northY }, { x: g.eastX, y: g.yTop }][seat];
-  }
-
   function place(state, m, view) {
     CT.takeCounts();
-    var g = geometry(m), cards = [], slots = [], chosen = (view && view.chosen) || [];
+    var g = geometry(m), cards = [], slots = CT.feltSlots(g), chosen = (view && view.chosen) || [];
     var sweep = view && state.trick.length === SEATS ? view.sweep : null;
     // The person looking sits south (view.viewer); their hand is face down while it is not their turn to act.
-    var V = (view && view.viewer) || 0, faceUp = !(view && view.hideHand), rel = function (seat) { return (seat - V + SEATS) % SEATS; };
+    var L = CT.looking(view), V = L.V, faceUp = L.up, rel = function (seat) { return (seat - V + SEATS) % SEATS; };
     var got = state.recv ? state.recv[V] : state.received;
     var myTurn = state.phase === 'play' && state.turn === V && state.trick.length < SEATS;
     var passing = state.phase === 'pass';
 
-    // Quiet slots first: the deal comes out of the middle, and a card dropped there is played.
-    slots.push({ id: 'deck', x: g.cx - g.cw / 2, y: g.cy - g.ch / 2, w: g.cw, h: g.ch, quiet: true, label: TX('cards.slot.table') });
-    slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: TX('cards.slot.trick') });
-
+    // The felt's quiet slots come first: the deal comes out of the middle, and a card dropped there is played.
     // Your hand, a little space between suits, in rows; then the others as face-down fans (a long one is a count).
     var mine = state.hands[V];
     var hand = CT.handCards(g, mine, function (id) {
@@ -235,13 +222,10 @@
     cards = cards.concat(hand.cards); slots = slots.concat(hand.slots);
     cards = cards.concat(CT.fan(g, 1, state.hands[(V + 1) % SEATS], false), CT.fan(g, 2, state.hands[(V + 2) % SEATS], false), CT.fan(g, 3, state.hands[(V + 3) % SEATS], false));
     // The trick, or on its way to the winner.
-    state.trick.forEach(function (t, k) {
-      var spot = sweep !== null && sweep !== undefined ? seatSpot(g, rel(sweep)) : trickSpot(g, rel(t.seat));
-      cards.push({ id: t.id, pile: 'trick', idx: k, x: Math.round(spot.x), y: Math.round(spot.y), up: true });
-    });
+    cards = cards.concat(CT.trickCards(g, state.trick, sweep, rel));
     // Won cards wait out of sight at their winner's seat.
     state.taken.forEach(function (list, seat) {
-      var spot = seatSpot(g, rel(seat));
+      var spot = CT.seatSpot(g, rel(seat));
       list.forEach(function (id, k) { cards.push({ id: id, pile: 't' + seat, idx: k, x: spot.x, y: spot.y, up: false, hidden: true }); });
     });
     return { height: m.H, slots: slots, cards: cards, passing: passing, counts: CT.takeCounts() };
@@ -258,17 +242,14 @@
   // ── The page ────────────────────────────────────────────────────────────
   var AI_MS = 520, HOLD_MS = 900, SWEEP_MS = 380, FLASH_MS = 1800;
   function boot() {
-    var d = root.document, el = Z.pageEls(), board, session, view = { chosen: [], sweep: null, flash: '', viewer: 0, hideHand: false, passer: 0, picks: [] };
+    var d = root.document, el = Z.pageEls(), board, session, view = { chosen: [], sweep: null, flash: '', viewer: 0, hideHand: false, passer: 0, picks: [] }, tg, seats;
     Z.ensureSprite();
-    // Seats are the Computer or a Person; two or more people share the screen behind a handoff.
-    var seats = Seats.create({ id: 'hearts', seats: SEATS, cpuNames: [0, 1, 2, 3].map(Seats.cpuName), onChange: function () { if (board) board.refresh(); paintHud(); } });
     // Watch and learn: the driver's controller. While it runs every seat is a computer and names are compass points.
     var watch = null, watchWaiting = false, X = function () { return root.ZimiExplain.hearts; };
     var person = function (seat) { return !watch && seats.person(seat); };
     var nm = function (seat) { return watch ? [TX('bridge.seat.south'), TX('cards.seat.west'), TX('cards.seat.north'), TX('cards.seat.east')][seat] : seats.name(seat); };
     // Who is acting now: the person picking their pass, or the player to lead or follow.
     var actor = function (st) { return st.phase === 'pass' ? view.passer : st.turn; };
-    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && actor(st) !== view.viewer; }
     var youTurn = function (st) { return seats.isYou(st.turn) ? TX('cards.turn.you') : TX('cards.turn.name', { name: nm(st.turn) }); };
     var isYou = function (seat) { return !watch && seats.isYou(seat); };
 
@@ -299,7 +280,7 @@
         var who = seats.hotseat() ? nm(view.passer) + ': ' : '';
         text = who + (left === PASS_COUNT ? TX('hearts.choose', { n: left, dir: passShort(st.passDir) }) : left > 0 ? TX('hearts.chooseMore', { n: left, dir: passShort(st.passDir) }) : TX('hearts.passThem', { n: PASS_COUNT, dir: passShort(st.passDir) }));
         label = TX('hearts.pass'); action = left === 0 ? passNow : null;
-      } else if (st.phase === 'handEnd') { text = TX('cards.handEnd'); label = TX('cards.nextHand'); action = startNextHand; }
+      } else if (st.phase === 'handEnd') { text = TX('cards.handEnd'); label = TX('cards.nextHand'); action = tg.startNextHand; }
       else if (st.phase === 'over') { text = TX('shell.end.over'); label = TX('shell.menu.new'); action = newGame; }
       else if (view.flash) text = view.flash;
       else if (st.trick.length === SEATS) text = isYou(trickWinner(st.trick)) ? TX('cards.trick.you') : TX('cards.trick.name', { name: nm(trickWinner(st.trick)) });
@@ -316,25 +297,32 @@
     }
     function flash(text) { view.flash = text; board.say(text); paintHud(); session.later(function () { view.flash = ''; paintHud(); }, FLASH_MS); }
 
+    // The trick mechanics are the shared ones (cardtable.js); the pass, the watch-and-learn driver and the hearts rules are this page's.
+    tg = CT.trickGame({
+      id: 'hearts', n: SEATS, view: view, ms: { ai: AI_MS, hold: HOLD_MS, sweep: SWEEP_MS }, drive: drive, handEnd: 'handEnd', deal: deal, actor: actor, control: function (st) { return st.turn; },
+      seatOpts: { cpuNames: [0, 1, 2, 3].map(Seats.cpuName), onChange: function () { if (board) board.refresh(); paintHud(); } },
+      winner: function (st) { return trickWinner(st.trick); }, resolve: resolveTrick, nextHand: nextHand, handOver: handOver, gameOver: gameOver,
+      legal: isLegal, play: playCard, aiPlay: aiPick, clear: function () { view.chosen = []; view.picks = []; },
+      // (a card played by the person ends the lifted card; the move timer starts once a person is asked)
+      before: function (st, seat, id, human) { if (human) view.chosen = []; },
+      yours: function (st) { if (root.ZimiShell && !seats.hotseat()) root.ZimiShell.turn(true, timeUp, st.moves); }
+    });
+    seats = tg.seats;
+
     // ── Turn order ───────────────────────────────────────────────────────
     function drive() {
       var st = session.state;
       if (root.ZimiShell) root.ZimiShell.turn(false);
       if (watch) { watchDrive(st); return; }
       if (st.phase === 'pass') { seats.ensure(view.passer, refresh); return; }
-      if (st.phase !== 'play') return;
-      if (st.trick.length === SEATS) { session.later(sweepTrick, HOLD_MS); return; }
-      if (seats.person(st.turn)) {
-        seats.ensure(st.turn, refresh);
-        if (root.ZimiShell && !seats.hotseat()) root.ZimiShell.turn(true, timeUp, st.moves);
-      } else session.later(aiTurn, AI_MS);
+      tg.turn(st);
     }
     // The move timer ran out: the computer's choice is played for the person.
     function timeUp() {
       var st = session.state;
       if (st.phase !== 'play' || !seats.person(st.turn) || seats.hotseat() || st.trick.length === SEATS) return;
       flash(TX('cards.timeUp'));
-      play(aiPick(st, st.turn));
+      tg.play(aiPick(st, st.turn));
     }
     // Watch and learn: each step is offered with its sentence, and taken when the driver says.
     function watchStep(text, fn) {
@@ -346,29 +334,13 @@
         var picks = [0, 1, 2, 3].map(function (s) { return choosePass(st.hands[s]); });
         watchStep(X().pass(api, Z, st.hands[0], picks[0], st.passDir).text, function () { session.follow(applyPass(st, picks)); drive(); });
       } else if (st.phase !== 'play') return;
-      else if (st.trick.length === SEATS) watchStep(X().trick(api, Z, st.trick).text, sweepTrick);
+      else if (st.trick.length === SEATS) watchStep(X().trick(api, Z, st.trick).text, tg.sweepTrick);
       else {
         var card = aiPick(st, st.turn);
         watchStep(X().play(api, Z, st, st.turn, card).text, function () { session.follow(playCard(st, st.turn, card)); drive(); });
       }
     }
     function refresh() { board.refresh(); paintHud(); }
-    function aiTurn() {
-      var st = session.state;
-      if (st.phase !== 'play' || seats.person(st.turn) || st.trick.length === SEATS) return;
-      session.follow(playCard(st, st.turn, aiPick(st, st.turn)));
-      drive();
-    }
-    function sweepTrick() {
-      view.sweep = trickWinner(session.state.trick);
-      board.refresh();
-      session.later(function () {
-        view.sweep = null;
-        session.follow(resolveTrick(session.state));
-        var st = session.state;
-        if (st.phase === 'handEnd') handOver(); else if (st.phase === 'over') gameOver(); else drive();
-      }, SWEEP_MS);
-    }
     function handLines(st) {
       var lines = [0, 1, 2, 3].map(function (seat) { return TX('hearts.line', { name: nm(seat), pts: st.handPoints[seat] ? '+' + st.handPoints[seat] : '0', total: st.scores[seat] }); });
       if (st.moon >= 0) lines.unshift(TX(isYou(st.moon) ? 'hearts.moon.you' : 'hearts.moon', { name: nm(st.moon) }));
@@ -376,11 +348,11 @@
     }
     function handOver() {
       var st = session.state;
-      if (watch) { watchStep(X().hand(api, st).text + ' ' + TX('hearts.nextFollows'), startNextHand); return; }
+      if (watch) { watchStep(X().hand(api, st).text + ' ' + TX('hearts.nextFollows'), tg.startNextHand); return; }
       Z.sheet({
         title: TX('cards.fact.hand', { n: st.handNo + 1 }),
         body: handLines(st).map(function (t) { return Z.h('p', { class: 'zc-note', text: t }); }),
-        actions: [{ label: TX('cards.nextHand'), primary: true, onclick: startNextHand }]
+        actions: [{ label: TX('cards.nextHand'), primary: true, onclick: tg.startNextHand }]
       });
     }
     function gameOver() {
@@ -389,15 +361,6 @@
       lines.push(won ? TX('hearts.lowest.you') : TX(seats.hotseat() ? 'hearts.lowest.wins' : 'hearts.lowest', { name: nm(low[0]) }));
       if (won) session.win(st.scores[0]); else session.lose(seats.hotseat() ? { name: nm(low[0]) } : '', lines, seats.hotseat() ? undefined : st.scores[0]);
     }
-    function startNextHand() {
-      var st = session.state;
-      if (st.phase !== 'handEnd') return;
-      session.history = [];
-      view.chosen = []; view.picks = [];
-      session.follow(nextHand(st, Z.shuffled(Math.random)));
-      deal();
-    }
-
     // ── The human's choices ──────────────────────────────────────────────
     function passNow() {
       var st = session.state;
@@ -411,17 +374,8 @@
       session.commit(applyPass(st, picks));
       drive();
     }
-    function play(id) {
-      var st = session.state;
-      if (!isLegal(st, seats.view(), id)) return false;
-      view.chosen = [];
-      session.commit(playCard(st, seats.view(), id));
-      drive();
-      return true;
-    }
-    var idOf = function (pile) { return parseInt(pile.slice(1), 10); };
     function tap(pile) {
-      var st = session.state, id = idOf(pile);
+      var st = session.state, id = tg.idOf(pile);
       if (pile.charAt(0) !== 'h' || isNaN(id)) return false;
       if (st.phase === 'pass') {
         var at = view.chosen.indexOf(id);
@@ -436,13 +390,9 @@
       if (!isLegal(st, st.turn, id)) { flash(whyNot(st, st.turn, id)); return false; }
       // The first tap lifts the card, the second plays it.
       if (view.chosen[0] !== id) { view.chosen = [id]; board.refresh(); paintHud(); return true; }
-      return play(id);
+      return tg.play(id);
     }
-    function newGame() {
-      view.chosen = []; view.picks = []; view.sweep = null; view.flash = '';
-      session.reset(freshGame(Z.shuffled(Math.random)));
-      deal();
-    }
+    function newGame() { tg.restart(freshGame(Z.shuffled(Math.random))); }
     // A fresh deal: nobody has seen it, so a table of people starts at a handoff.
     function deal() {
       var st = session.state;
@@ -452,9 +402,9 @@
 
     board = Z.createBoard({
       table: el.table, cols: HAND_COLS, heightShare: HEIGHT_SHARE, enterTaps: true,
-      place: function (st, m) { syncView(st); return place(st, m, view); },
-      canPick: function (st, pile) { return st.phase === 'play' && pile.charAt(0) === 'h' && isLegal(st, seats.view(), idOf(pile)); },
-      move: function (pile, idx, to) { return (to === 'trick' || to === 'deck') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
+      place: function (st, m) { tg.syncView(st); return place(st, m, view); },
+      canPick: function (st, pile) { return st.phase === 'play' && pile.charAt(0) === 'h' && isLegal(st, seats.view(), tg.idOf(pile)); },
+      move: function (pile, idx, to) { return (to === 'trick' || to === 'deck') && pile.charAt(0) === 'h' ? tg.play(tg.idOf(pile)) : false; },
       tap: tap,
       afterRender: function () { if (board) paintHud(); }
     });
@@ -476,15 +426,15 @@
         });
       }
     });
+    tg.attach({ board: board, session: session, paint: paintHud, flash: flash });
     api.session = session; api.board = board;
     if (root.ZimiShell) root.ZimiShell.game({
       moveTimer: true,
       watch: {
         script: 'explain-hearts.js', unit: 'step',
         start: function (ctl) {
-          watch = ctl; view.chosen = []; view.picks = []; view.sweep = null; view.flash = '';
-          session.reset(freshGame(Z.shuffled(Math.random)));
-          deal();
+          watch = ctl;
+          newGame();
           ctl.say(TX('hearts.watchIntro'));
         },
         // takeover: you play South from here; stop: a fresh game; new: the game's own New game follows.
