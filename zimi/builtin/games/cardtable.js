@@ -258,7 +258,7 @@
   }
 
   root.ZimiTable = {
-    SEAT_POS: SEAT_POS, SUIT_GLYPH: SUIT_GLYPH, STATUS_H: STATUS_H, SCORE_BAR_H: SCORE_BAR_H,
+    SEAT_POS: SEAT_POS, SUIT_GLYPH: SUIT_GLYPH, STATUS_H: STATUS_H, STATUS_MAX: STATUS_MAX, SCORE_BAR_H: SCORE_BAR_H,
     next: next, sortHand: sortHand, rankHigh: rankHigh, short: short, shortList: shortList, shuffleOf: shuffleOf,
     countBy: countBy, maxBy: maxBy, minBy: minBy,
     geometry: geometry, rowsFor: rowsFor, sideStep: sideStep, trickSpot: trickSpot, seatSpot: seatSpot, posOf: posOf, posFor: posFor, handCards: handCards, fan: fan, takeCounts: takeCounts, handRows: handRows,

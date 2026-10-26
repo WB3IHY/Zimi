@@ -17,8 +17,9 @@
   var Z = root.ZimiCards, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   var SEATS = 4, HAND = 13, NAMES = [TX('cards.you'), TX('cards.seat.west'), TX('cards.seat.north'), TX('cards.seat.east')], END_SCORE = 100, MOON = 26, PASS_COUNT = 3;
-  var PASS_NAMES = ['to the left', 'to the right', 'across', 'none'];
-  var PASS_SHORT = ['pass left', 'pass right', 'pass across', 'hold'];
+  var PASS_KEYS = ['left', 'right', 'across', 'none'];
+  var passName = function (dir) { return TX('hearts.pass.' + PASS_KEYS[dir]); };
+  var passShort = function (dir) { return TX('hearts.short.' + PASS_KEYS[dir]); };
   var PASS_OFFSET = [1, 3, 2, 0]; // seats clockwise; left is the next player to act
   var CLUBS = 0, DIAMONDS = 1, HEARTS = 2, SPADES = 3;
   var TWO_CLUBS = Z.make(2, CLUBS), QUEEN_SPADES = Z.make(12, SPADES), KING_SPADES = Z.make(Z.KING, SPADES), ACE_SPADES = Z.make(1, SPADES);
@@ -69,12 +70,12 @@
   function whyNot(state, seat, id) {
     var hand = state.hands[seat], trick = state.trick;
     if (!trick.length) {
-      if (state.tricksPlayed === 0) return 'The 2 of clubs leads';
-      return 'Hearts have not been broken';
+      if (state.tricksPlayed === 0) return TX('hearts.why.twoClubs');
+      return TX('hearts.why.broken');
     }
     var lead = Z.suit(trick[0].id);
-    if (hand.some(function (c) { return Z.suit(c) === lead; })) return 'Follow ' + Z.SUITS[lead];
-    return 'No points on the first trick';
+    if (hand.some(function (c) { return Z.suit(c) === lead; })) return TX('cards.follow', { suit: TX('cards.suit.' + ['clubs', 'diamonds', 'hearts', 'spades'][lead]) });
+    return TX('hearts.why.firstTrick');
   }
   function isLegal(state, seat, id) { return state.phase === 'play' && state.trick.length < SEATS && state.turn === seat && legalPlays(state, seat).indexOf(id) >= 0; }
 
@@ -221,15 +222,15 @@
     var passing = state.phase === 'pass';
 
     // Quiet slots first: the deal comes out of the middle, and a card dropped there is played.
-    slots.push({ id: 'deck', x: g.cx - g.cw / 2, y: g.cy - g.ch / 2, w: g.cw, h: g.ch, quiet: true, label: 'Table' });
-    slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: 'Trick' });
+    slots.push({ id: 'deck', x: g.cx - g.cw / 2, y: g.cy - g.ch / 2, w: g.cw, h: g.ch, quiet: true, label: TX('cards.slot.table') });
+    slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: TX('cards.slot.trick') });
 
     // Your hand, a little space between suits, in rows; then the others as face-down fans (a long one is a count).
     var mine = state.hands[V];
     var hand = CT.handCards(g, mine, function (id) {
       var picked = chosen.indexOf(id) >= 0, fresh = faceUp && got.indexOf(id) >= 0;
       return { up: faceUp, raise: picked, mark: picked, glow: fresh && !picked, dim: faceUp && myTurn && !isLegal(state, V, id),
-        label: Z.cardName(id) + (picked ? ', chosen to pass' : fresh ? ', passed to you' : '') };
+        label: Z.cardName(id) + (picked ? TX(passing ? 'hearts.aria.chosen' : 'hearts.aria.lifted') : fresh ? TX('hearts.aria.passed') : '') };
     }, function (a, b) { return Z.suit(a) !== Z.suit(b); });
     cards = cards.concat(hand.cards); slots = slots.concat(hand.slots);
     cards = cards.concat(CT.fan(g, 1, state.hands[(V + 1) % SEATS], false), CT.fan(g, 2, state.hands[(V + 2) % SEATS], false), CT.fan(g, 3, state.hands[(V + 3) % SEATS], false));
@@ -247,7 +248,7 @@
   }
 
   var api = {
-    NAMES: NAMES, PASS_NAMES: PASS_NAMES, END_SCORE: END_SCORE, TWO_CLUBS: TWO_CLUBS, QUEEN_SPADES: QUEEN_SPADES,
+    NAMES: NAMES, PASS_NAMES: PASS_KEYS.map(function (k, i) { return passName(i); }), passName: passName, END_SCORE: END_SCORE, TWO_CLUBS: TWO_CLUBS, QUEEN_SPADES: QUEEN_SPADES,
     points: points, sortHand: sortHand, dealHand: dealHand, newGame: freshGame, nextHand: nextHand, legalPlays: legalPlays, whyNot: whyNot, isLegal: isLegal,
     playCard: playCard, trickWinner: trickWinner, trickPoints: trickPoints, resolveTrick: resolveTrick, winners: winners, humanWon: humanWon, liveSoFar: liveSoFar,
     applyPass: applyPass, choosePass: choosePass, aiPick: aiPick, almostWon: almostWon, geometry: geometry, place: place
@@ -264,18 +265,18 @@
     // Watch and learn: the driver's controller. While it runs every seat is a computer and names are compass points.
     var watch = null, watchWaiting = false, X = function () { return root.ZimiExplain.hearts; };
     var person = function (seat) { return !watch && seats.person(seat); };
-    var nm = function (seat) { return watch ? ['South', 'West', 'North', 'East'][seat] : seats.name(seat); };
+    var nm = function (seat) { return watch ? [TX('bridge.seat.south'), TX('cards.seat.west'), TX('cards.seat.north'), TX('cards.seat.east')][seat] : seats.name(seat); };
     // Who is acting now: the person picking their pass, or the player to lead or follow.
     var actor = function (st) { return st.phase === 'pass' ? view.passer : st.turn; };
     function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && actor(st) !== view.viewer; }
-    var youTurn = function (st) { return seats.isYou(st.turn) ? 'Your turn' : nm(st.turn) + ', your turn'; };
-    var verb = function (seat, you, other) { return !watch && seats.isYou(seat) ? you : other; };
+    var youTurn = function (st) { return seats.isYou(st.turn) ? TX('cards.turn.you') : TX('cards.turn.name', { name: nm(st.turn) }); };
+    var isYou = function (seat) { return !watch && seats.isYou(seat); };
 
     // The table's own text: the score row and a status line with one button.
-    var scoreRow = Z.h('div', { class: 'hz-scores', 'aria-live': 'off' });
-    var statusText = Z.h('span', { class: 'hz-status-text' });
+    var scoreRow = Z.h('div', { class: 'ct-scores', 'aria-live': 'off' });
+    var statusText = Z.h('span', { class: 'ct-status-text' });
     var statusBtn = Z.h('button', { class: 'ar-btn', type: 'button' });
-    var status = Z.h('div', { class: 'hz-status', role: 'status' }, [statusText, statusBtn]);
+    var status = Z.h('div', { class: 'ct-status', role: 'status' }, [statusText, statusBtn]);
     el.table.appendChild(scoreRow); el.table.appendChild(status);
     var statusAction = null;
     statusBtn.addEventListener('click', function () { if (statusAction) statusAction(); });
@@ -287,7 +288,7 @@
       scoreRow.textContent = '';
       [0, 1, 2, 3].map(function (i) { return (seats.view() + i) % SEATS; }).forEach(function (seat) {
         var name = nm(seat), live = st.phase === 'play' ? liveSoFar(st, seat) : 0, turn = st.phase === 'play' && st.turn === seat && st.trick.length < SEATS;
-        var chip = Z.h('span', { class: 'hz-chip' + (turn ? ' hz-turn' : '') }, [Z.h('b', { text: name }), Z.h('span', { text: String(st.scores[seat]) + (live ? ' +' + live : '') })]);
+        var chip = Z.h('span', { class: 'ct-chip' + (turn ? ' ct-turn' : ''), 'aria-current': turn ? 'true' : 'false' }, [Z.h('b', { text: name }), Z.h('span', { text: String(st.scores[seat]) + (live ? ' +' + live : '') })]);
         scoreRow.appendChild(chip);
       });
       scoreRow.style.top = m.pad + 'px';
@@ -296,18 +297,19 @@
       if (st.phase === 'pass') {
         var left = PASS_COUNT - view.chosen.length;
         var who = seats.hotseat() ? nm(view.passer) + ': ' : '';
-        text = who + (left > 0 ? 'Choose ' + left + ' more to pass ' + PASS_NAMES[st.passDir] : 'Pass them ' + PASS_NAMES[st.passDir] + '?');
-        label = 'Pass'; action = left === 0 ? passNow : null;
-      } else if (st.phase === 'handEnd') { text = 'End of hand'; label = 'Next hand'; action = startNextHand; }
-      else if (st.phase === 'over') { text = 'Game over'; label = 'New game'; action = newGame; }
+        text = who + (left > 0 ? TX('hearts.chooseMore', { n: left, dir: passName(st.passDir) }) : TX('hearts.passThem', { dir: passName(st.passDir) }));
+        label = TX('hearts.pass'); action = left === 0 ? passNow : null;
+      } else if (st.phase === 'handEnd') { text = TX('cards.handEnd'); label = TX('cards.nextHand'); action = startNextHand; }
+      else if (st.phase === 'over') { text = TX('shell.end.over'); label = TX('shell.menu.new'); action = newGame; }
       else if (view.flash) text = view.flash;
-      else if (st.trick.length === SEATS) text = nm(trickWinner(st.trick)) + verb(trickWinner(st.trick), ' take', ' takes') + ' the trick';
-      else if (person(st.turn)) text = (st.recv ? st.recv[st.turn] : st.received).length && !view.hideHand ? youTurn(st) + '. The glowing cards came from ' + nm((st.turn + SEATS - PASS_OFFSET[st.passDir]) % SEATS) : youTurn(st);
-      else text = nm(st.turn) + (watch ? ' to play' : ' is thinking');
-      statusText.textContent = text;
+      else if (st.trick.length === SEATS) text = isYou(trickWinner(st.trick)) ? TX('cards.trick.you') : TX('cards.trick.name', { name: nm(trickWinner(st.trick)) });
+      else if (person(st.turn)) text = (st.recv ? st.recv[st.turn] : st.received).length && !view.hideHand ? youTurn(st) + '. ' + TX('hearts.glowing', { name: nm((st.turn + SEATS - PASS_OFFSET[st.passDir]) % SEATS) }) : youTurn(st);
+      else text = TX(watch ? 'hearts.toPlay' : 'cards.thinking', { name: nm(st.turn) });
+      var fact = TX('hearts.fact', { n: st.handNo + 1, state: st.phase === 'pass' ? passShort(st.passDir) : TX(st.broken ? 'hearts.broken' : 'hearts.notBroken') });
+      statusText.textContent = text && (fact + ' \u00b7 ' + text).length <= CT.STATUS_MAX ? fact + ' \u00b7 ' + text : (text || fact);
       statusBtn.textContent = label; statusBtn.hidden = !label;
       statusBtn.disabled = !action; statusAction = action;
-      el.sub.textContent = 'Hand ' + (st.handNo + 1) + ' \u00b7 ' + (st.phase === 'pass' ? PASS_SHORT[st.passDir] : st.broken ? 'hearts broken' : 'hearts not broken');
+      el.sub.textContent = '';
     }
     function flash(text) { view.flash = text; board.say(text); paintHud(); session.later(function () { view.flash = ''; paintHud(); }, FLASH_MS); }
 
@@ -328,7 +330,7 @@
     function timeUp() {
       var st = session.state;
       if (st.phase !== 'play' || !seats.person(st.turn) || seats.hotseat() || st.trick.length === SEATS) return;
-      flash('Time ran out. A card was played for you');
+      flash(TX('cards.timeUp'));
       play(aiPick(st, st.turn));
     }
     // Watch and learn: each step is offered with its sentence, and taken when the driver says.
@@ -365,24 +367,24 @@
       }, SWEEP_MS);
     }
     function handLines(st) {
-      var lines = [0, 1, 2, 3].map(function (seat) { return nm(seat) + ': ' + (st.handPoints[seat] ? '+' + st.handPoints[seat] : '0') + ', total ' + st.scores[seat]; });
-      if (st.moon >= 0) lines.unshift(nm(st.moon) + verb(st.moon, ' shoot', ' shoots') + ' the moon. Everyone else takes 26.');
+      var lines = [0, 1, 2, 3].map(function (seat) { return TX('hearts.line', { name: nm(seat), pts: st.handPoints[seat] ? '+' + st.handPoints[seat] : '0', total: st.scores[seat] }); });
+      if (st.moon >= 0) lines.unshift(TX(isYou(st.moon) ? 'hearts.moon.you' : 'hearts.moon', { name: nm(st.moon) }));
       return lines;
     }
     function handOver() {
       var st = session.state;
-      if (watch) { watchStep(X().hand(api, st).text + ' The next hand follows.', startNextHand); return; }
+      if (watch) { watchStep(X().hand(api, st).text + ' ' + TX('hearts.nextFollows'), startNextHand); return; }
       Z.sheet({
-        title: 'Hand ' + (st.handNo + 1),
+        title: TX('cards.fact.hand', { n: st.handNo + 1 }),
         body: handLines(st).map(function (t) { return Z.h('p', { class: 'zc-note', text: t }); }),
-        actions: [{ label: 'Next hand', primary: true, onclick: startNextHand }]
+        actions: [{ label: TX('cards.nextHand'), primary: true, onclick: startNextHand }]
       });
     }
     function gameOver() {
       var st = session.state, lines = handLines(st), low = winners(st.scores), won = !seats.hotseat() && humanWon(st);
-      if (watch) { watch.finish(lines.join(' ') + ' That was the whole game. Press Done to play one yourself.'); return; }
-      lines.push(won ? 'You have the lowest score.' : nm(low[0]) + (seats.hotseat() ? ' wins with the lowest score.' : ' has the lowest score.'));
-      if (won) session.win(st.scores[0]); else session.lose(seats.hotseat() ? nm(low[0]) + ' wins' : 'Game over', lines, seats.hotseat() ? undefined : st.scores[0]);
+      if (watch) { watch.finish(lines.join(' ') + ' ' + TX('hearts.wholeGame')); return; }
+      lines.push(won ? TX('hearts.lowest.you') : TX(seats.hotseat() ? 'hearts.lowest.wins' : 'hearts.lowest', { name: nm(low[0]) }));
+      if (won) session.win(st.scores[0]); else session.lose(seats.hotseat() ? TX('shell.end.wins', { name: nm(low[0]) }) : '', lines, seats.hotseat() ? undefined : st.scores[0]);
     }
     function startNextHand() {
       var st = session.state;
@@ -409,6 +411,7 @@
     function play(id) {
       var st = session.state;
       if (!isLegal(st, seats.view(), id)) return false;
+      view.chosen = [];
       session.commit(playCard(st, seats.view(), id));
       drive();
       return true;
@@ -421,13 +424,15 @@
         var at = view.chosen.indexOf(id);
         if (at >= 0) view.chosen.splice(at, 1);
         else if (view.chosen.length < PASS_COUNT) view.chosen.push(id);
-        else { flash('Pass three cards. Tap one to put it back'); return true; }
+        else { flash(TX('hearts.passThree')); return true; }
         board.refresh(); paintHud();
         return true;
       }
       if (st.phase !== 'play') return false;
-      if (st.turn !== seats.view() || st.trick.length === SEATS) { flash(st.trick.length === SEATS ? 'Wait for the trick' : 'Wait for your turn'); return false; }
+      if (st.turn !== seats.view() || st.trick.length === SEATS) { flash(st.trick.length === SEATS ? TX('cards.wait.trick') : TX('cards.wait.turn')); return false; }
       if (!isLegal(st, st.turn, id)) { flash(whyNot(st, st.turn, id)); return false; }
+      // The first tap lifts the card, the second plays it.
+      if (view.chosen[0] !== id) { view.chosen = [id]; board.refresh(); paintHud(); return true; }
       return play(id);
     }
     function newGame() {
@@ -454,17 +459,17 @@
       id: 'hearts', lowScore: true, undoOff: function () { return !!watch || seats.hotseat(); }, board: board, newGame: newGame, els: el,
       statText: function (sec, st) { paintHud(); return Z.fmtTime(sec) + ' · ' + st.scores[seats.view()]; },
       cascadeOrder: function (st) { return [].concat.apply([], st.taken).map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return handLines(st).concat(['You have the lowest score, ' + st.scores[0] + ', after ' + (st.handNo + 1) + (st.handNo ? ' hands' : ' hand') + '.']); },
+      winLines: function (sec, st) { return handLines(st).concat([TX('hearts.winAfter', { n: st.scores[0], hands: Z.plural(st.handNo + 1, 'hand') })]); },
       openMenu: function () {
         Z.sheet({
           title: 'Hearts',
           body: [
-            Z.h('p', { class: 'zc-note', text: 'Avoid hearts (1 each) and the queen of spades (13). Take all 26 to shoot the moon: you score 0 and the others 26. The game ends at 100; lowest score wins. Tap a card to play it, or drag it to the middle. Tap three cards to pass them.' }),
+            Z.h('p', { class: 'zc-note', text: TX('hearts.rules') }),
             seats.block(),
             Z.backsRow(),
             Z.h('p', { class: 'zc-stats', text: session.stats.line() })
           ],
-          actions: [{ label: 'New game', onclick: newGame }, { label: 'Done', primary: true }]
+          actions: [{ label: TX('shell.menu.new'), onclick: newGame }, { label: TX('shell.close'), primary: true }]
         });
       }
     });
@@ -477,7 +482,7 @@
           watch = ctl; view.chosen = []; view.picks = []; view.sweep = null; view.flash = '';
           session.reset(freshGame(Z.shuffled(Math.random)));
           deal();
-          ctl.say('Four players, South at the bottom. Each hand starts with a pass of three cards.');
+          ctl.say(TX('hearts.watchIntro'));
         },
         // takeover: you play South from here; stop: a fresh game; new: the game's own New game follows.
         stop: function (kind) {
