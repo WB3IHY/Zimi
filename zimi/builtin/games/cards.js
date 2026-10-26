@@ -678,86 +678,14 @@
   }
 
   // ── Backs ─────────────────────────────────────────────────────────────
-  // Original designs, drawn in a 92x132 art box inside a cream margin. The
-  // animation is CSS on a few groups per card; cards.css pauses it with the
-  // tab and drops it under reduced motion.
-  var BACKS = ['zimi', 'classic', 'night', 'sea', 'robot', 'castle'].map(function (id) {
-    return { id: id, get name() { return T('cards.back.' + id); } };
-  });
+  // The card backs are drawn by cardbacks.js (loaded before this file); it hands back their list, the markup of one
+  // and the gradients they share. Their animation is CSS (cards.css pauses it with the tab and drops it under
+  // reduced motion).
   var DEFAULT_BACK = 'zimi';
-  var ART_W = 92, ART_H = 132, ART_PAD = 4;
-  var WAVE_PERIOD = 46, WAVE_REPEATS = 8;
-  function wavePath(y, fill) {
-    var d = 'M0 ' + y + 'q' + WAVE_PERIOD / 4 + '-6 ' + WAVE_PERIOD / 2 + ' 0', k;
-    for (k = 0; k < WAVE_REPEATS; k++) d += 't' + WAVE_PERIOD / 2 + ' 0';
-    return '<path d="' + d + 'V' + ART_H + 'H0z" fill="' + fill + '"/>';
-  }
-  function stars(cls, pts) {
-    return '<g class="zc-tw ' + cls + '" fill="#fff">' + pts.map(function (p) { return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="' + p[2] + '"/>'; }).join('') + '</g>';
-  }
-  var BACK_ART = {
-    // The Zimi back: the mark on a dark lattice with a still glow behind the Z
-    // (Eric, 2026-10-24: the moving sheen "gets kinda annoying").
-    zimi: function () {
-      return '<rect width="92" height="132" fill="#0c0c0e"/><rect width="92" height="132" fill="url(#zc-p-zimi)"/>' +
-        '<rect x="7" y="7" width="78" height="118" rx="2" fill="none" stroke="url(#zc-g-mark)" stroke-width="1.3"/>' +
-        '<rect x="11" y="11" width="70" height="110" rx="1" fill="none" stroke="' + MARK_FROM + '" stroke-width=".5" opacity=".45"/>' +
-        '<circle cx="46" cy="66" r="30" fill="url(#zc-g-glow)"/>' +
-        '<path d="M46 24 76 66 46 108 16 66z" fill="#141012" stroke="url(#zc-g-mark)" stroke-width="1.4"/>' +
-        '<path d="M46 31 69 66 46 101 23 66z" fill="none" stroke="' + MARK_FROM + '" stroke-width=".5" opacity=".5"/>' +
-        markZ(46, 66, BACK_Z_H) +
-        '<g fill="' + MARK_FROM + '"><path d="M18 18l3 3-3 3-3-3zM74 18l3 3-3 3-3-3zM18 108l3 3-3 3-3-3zM74 108l3 3-3 3-3-3z"/></g>';
-    },
-    classic: function () {
-      return '<rect width="92" height="132" fill="url(#zc-p-classic)"/><rect x="9" y="9" width="74" height="114" fill="none" stroke="#e8eefc" stroke-width="2" opacity=".85"/>' +
-        '<path d="M46 34 70 66 46 98 22 66z" fill="#e8eefc" opacity=".92"/><path d="M46 44 60 66 46 88 32 66z" fill="#b3322f"/>';
-    },
-    night: function () {
-      return '<rect width="92" height="132" fill="url(#zc-g-night)"/>' +
-        stars('zc-tw1', [[12, 16, 1], [70, 10, 0.9], [30, 34, 0.8], [82, 44, 1], [16, 62, 0.8], [58, 26, 0.7]]) +
-        stars('zc-tw2', [[44, 8, 0.8], [78, 24, 0.8], [8, 40, 1], [26, 12, 0.7], [84, 70, 0.8]]) +
-        stars('zc-tw3', [[62, 40, 0.7], [20, 26, 0.9], [74, 58, 0.7], [38, 22, 0.6]]) +
-        '<circle cx="46" cy="58" r="26" fill="#fff" opacity=".07"/><circle cx="46" cy="58" r="17" fill="#2a3556"/>' +
-        '<path d="' + moonLitPath(moonPhase(new Date()), 46, 58, 17) + '" fill="#f6f0d8"/>' +
-        '<path d="M0 112Q22 98 46 110T92 106V132H0z" fill="#0b1022"/><path d="M12 112l3-12 3 12zM70 108l3-14 3 14z" fill="#0b1022"/>';
-    },
-    sea: function () {
-      return '<rect width="92" height="132" fill="url(#zc-g-sea)"/><circle cx="68" cy="32" r="11" fill="#ffe9a8"/><circle cx="68" cy="32" r="17" fill="#ffe9a8" opacity=".25"/>' +
-        '<g class="zc-boat"><path d="M30 72h26l-5 8H35z" fill="#7a3b1d"/><path d="M43 46v26M43 48l12 20H43z" fill="#fff" stroke="#fff" stroke-width="1"/><path d="M42 52 31 68h11z" fill="#f4d35e"/></g>' +
-        '<g class="zc-wv zc-wv1">' + wavePath(80, '#2d9cdb') + '</g><g class="zc-wv zc-wv2">' + wavePath(94, '#1b78b8') + '</g><g class="zc-wv zc-wv3">' + wavePath(108, '#10568f') + '</g>';
-    },
-    robot: function () {
-      return '<rect width="92" height="132" fill="#123c4a"/><rect width="92" height="132" fill="url(#zc-p-grid)"/>' +
-        '<path d="M46 34V22" stroke="#9fb3bd" stroke-width="2"/><circle class="zc-bulb" cx="46" cy="20" r="3.5" fill="#ff5d5d"/>' +
-        '<rect x="22" y="34" width="48" height="36" rx="9" fill="#cfd8dc"/><rect x="27" y="40" width="38" height="20" rx="6" fill="#102a33"/>' +
-        '<circle class="zc-eye" cx="37" cy="50" r="5" fill="#27e6ff"/><circle class="zc-eye" cx="55" cy="50" r="5" fill="#27e6ff"/>' +
-        '<path d="M38 64h16" stroke="#8aa0aa" stroke-width="2" stroke-linecap="round"/>' +
-        '<rect x="28" y="74" width="36" height="30" rx="7" fill="#b0bec5"/><circle cx="46" cy="89" r="5" fill="#27e6ff" opacity=".8"/>' +
-        '<rect x="14" y="76" width="9" height="22" rx="4.5" fill="#9fb3bd"/>' +
-        '<g class="zc-arm"><rect x="69" y="76" width="9" height="24" rx="4.5" fill="#9fb3bd"/></g>' +
-        '<rect x="33" y="106" width="9" height="12" rx="3" fill="#9fb3bd"/><rect x="50" y="106" width="9" height="12" rx="3" fill="#9fb3bd"/>';
-    },
-    castle: function () {
-      var bat = function (cls) {
-        return '<g class="zc-bat ' + cls + '"><g class="zc-wing"><path d="M0 0C-4-5-9-4-12 0-9-1-6 0-4 2z"/><path d="M0 0C4-5 9-4 12 0 9-1 6 0 4 2z"/></g><ellipse rx="2" ry="3"/></g>';
-      };
-      return '<rect width="92" height="132" fill="url(#zc-g-castle)"/><circle cx="70" cy="26" r="10" fill="#fbe7b0"/>' +
-        '<g fill="#0a0612"><path d="M10 132V86h6V80h6v6h6V80h6v6h6V132z"/><path d="M34 132V70h24v62z"/><path d="M34 70V62h5v-5h4v5h6v-5h4v5h5v8z"/>' +
-        '<path d="M60 132V90h6V84h6v6h6V84h6v6h4V132z"/><path d="M42 58l4-16 4 16z"/><path d="M14 80l4-14 4 14z"/><path d="M64 84l4-14 4 14z"/></g>' +
-        '<g fill="#ffd166"><rect class="zc-lit" x="44" y="76" width="4" height="7" rx="2"/><rect class="zc-lit" x="16" y="94" width="3" height="6" rx="1.5" style="animation-delay:-1s"/><rect class="zc-lit" x="68" y="98" width="3" height="6" rx="1.5" style="animation-delay:-1.8s"/><rect class="zc-lit" x="44" y="94" width="4" height="7" rx="2" style="animation-delay:-.6s"/></g>' +
-        '<g fill="#0a0612">' + bat('zc-bat1') + bat('zc-bat2') + '</g>';
-    }
-  };
-  // Gradients and patterns live once in the page's sprite: a reference into a
-  // clone that is display:none would break.
-  var SPRITE_DEFS = MARK_GRADIENT +
-    '<radialGradient id="zc-g-glow"><stop offset="0" stop-color="' + MARK_FROM + '" stop-opacity=".34"/><stop offset="1" stop-color="' + MARK_FROM + '" stop-opacity="0"/></radialGradient>' +
-    '<pattern id="zc-p-zimi" width="11" height="11" patternUnits="userSpaceOnUse"><path d="M5.5 0 11 5.5 5.5 11 0 5.5z" fill="none" stroke="' + MARK_FROM + '" stroke-width=".45" opacity=".26"/></pattern>' +
-    '<linearGradient id="zc-g-night" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1a3d"/><stop offset="1" stop-color="#3a4f8a"/></linearGradient>' +
-    '<linearGradient id="zc-g-sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd6f5"/><stop offset="1" stop-color="#2b8fc9"/></linearGradient>' +
-    '<linearGradient id="zc-g-castle" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b1646"/><stop offset=".7" stop-color="#8a3f6b"/><stop offset="1" stop-color="#e58a4b"/></linearGradient>' +
-    '<pattern id="zc-p-classic" width="10" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#1d3b7a"/><path d="M5 0 10 5 5 10 0 5z" fill="none" stroke="#c9d6f2" stroke-width=".8" opacity=".55"/></pattern>' +
-    '<pattern id="zc-p-grid" width="12" height="12" patternUnits="userSpaceOnUse"><path d="M12 0H0V12" fill="none" stroke="#27e6ff" stroke-width=".4" opacity=".25"/></pattern>';
+  var CB = root.ZimiCardBacks({ T: T, markZ: markZ, moonPhase: moonPhase, moonLitPath: moonLitPath, MARK_FROM: MARK_FROM, CARD_CREAM: CARD_CREAM, FACE_W: FACE_W, FACE_H: FACE_H, BACK_Z_H: BACK_Z_H });
+  var BACKS = CB.BACKS, backMarkup = CB.backMarkup;
+  // Gradients live once in the page's sprite: a reference into a clone that is display:none would break.
+  var SPRITE_DEFS = MARK_GRADIENT + CB.defs;
 
 
   // ── The ZimiGames mark ─────────────────────────────────────────────────
@@ -769,11 +697,6 @@
   }
 
   var currentBack = DEFAULT_BACK, backListeners = [];
-  function backMarkup(id) {
-    var art = (BACK_ART[id] || BACK_ART[DEFAULT_BACK])();
-    return '<svg viewBox="0 0 ' + FACE_W + ' ' + FACE_H + '" preserveAspectRatio="xMidYMid slice" class="zc-bk" aria-hidden="true"><rect width="100" height="140" fill="' + CARD_CREAM + '"/>' +
-      '<svg x="' + ART_PAD + '" y="' + ART_PAD + '" width="' + ART_W + '" height="' + ART_H + '" viewBox="0 0 ' + ART_W + ' ' + ART_H + '" overflow="hidden">' + art + '</svg></svg>';
-  }
   function setBack(id) {
     currentBack = id;
     store.set('back', id);
