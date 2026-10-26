@@ -122,12 +122,13 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
-  var SWIPE_PX = 24, SLIDE_MS = 110, MAX_BOARD = 440, SIDE_PAD = 32;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
+  var SWIPE_PX = 24, SLIDE_MS = 110, MAX_BOARD = 440, SIDE_PAD = 32, END_AFTER_MS = 600;
   var GAME_KEY = 'zimi.games.2048.game', BEST_KEY = 'zimi.games.2048.best';
   Play.applyTheme();
 
-  var els = { board: $('tf-board'), score: $('tf-score'), best: $('tf-best'), msg: $('tf-msg'), undo: $('tf-undo'), fresh: $('tf-new'), sheet: $('tf-sheet'), title: $('tf-sheet-title'), text: $('tf-sheet-text'), go: $('tf-go'), more: $('tf-more') };
+  var els = { board: $('tf-board'), score: $('tf-score'), best: $('tf-best'), msg: $('tf-msg'), undo: $('tf-undo'), fresh: $('tf-new') };
+  var note = Play.status(els.msg);
   var g, els2 = {}, cell = 80, gap = 10, best = Play.load(BEST_KEY, { score: 0 }), asked = false;
 
   function layout() {
@@ -147,8 +148,8 @@
   function tileClass(v) { return 'tf-tile t' + (v >= 4096 ? 'big' : v); }
   function makeTile(id, v, at, cls) {
     var el = document.createElement('div');
-    el.className = tileClass(v) + (cls ? ' ' + cls : ''); el.textContent = v; el.dataset.at = at; el.setAttribute('role', 'gridcell');
-    el.setAttribute('aria-label', v);
+    el.className = tileClass(v) + (cls ? ' ' + cls : ''); el.textContent = Play.num(v); el.dataset.at = at; el.setAttribute('role', 'gridcell');
+    el.setAttribute('aria-label', Play.num(v));
     place(el); els.board.appendChild(el); els2[id] = el;
     return el;
   }
@@ -165,7 +166,7 @@
   }
 
   function hud() {
-    els.score.textContent = g.score; els.best.textContent = Math.max(best.score, g.score);
+    els.score.textContent = Play.num(g.score); els.best.textContent = Play.num(Math.max(best.score, g.score));
     els.undo.disabled = !g.undo;
   }
   function persist() {
@@ -173,14 +174,8 @@
     Play.save(GAME_KEY, { v: values(g), score: g.score });
   }
 
-  function showSheet(title, text, label, more) {
-    els.title.textContent = title; els.text.textContent = text; els.go.textContent = label;
-    els.more.hidden = !more;
-    Play.openSheet(els.sheet, '#tf-go');
-  }
-
   function act(dir) {
-    if (!els.sheet.hidden) return;
+    if (document.querySelector('.ar-sheet:not([hidden])')) return;
     var res = move(g, dir), instant = Play.reducedMotion();
     if (!res.moved) return;
     var gone = {};
@@ -192,26 +187,27 @@
     }
     if (instant) settle(); else setTimeout(settle, SLIDE_MS);
     hud(); persist();
-    els.msg.textContent = res.gain ? '+' + res.gain : '';
-    if (g.won && !asked) { asked = true; showSheet('2048', 'You made the 2048 tile. Keep going for more, or start over.', 'Keep going', true); }
-    else if (g.over) showSheet('No moves left', g.score + ' points.', 'New game');
+    note.say(res.gain ? '+' + Play.num(res.gain) : '');
+    if (g.won && !asked) { asked = true; note.say(T('t2048.reached')); endSheet('win'); }
+    else if (g.over) endSheet(g.won ? 'win' : 'lose');
   }
 
-  function fresh() { g = createGame(); asked = false; rebuild(); hud(); persist(); els.msg.textContent = ''; }
-  els.fresh.addEventListener('click', function () { fresh(); });
-  els.undo.addEventListener('click', function () { if (undo(g)) { rebuild(); hud(); persist(); els.msg.textContent = ''; } });
-  els.go.addEventListener('click', function () {
-    Play.closeSheet(els.sheet);
-    if (g.over) fresh();
+  // The end: 2048 reached is a win (Close keeps going on the same board), no moves left without it is a loss.
+  function endSheet(result) { ZimiShell.endSheet({ result: result, after: END_AFTER_MS, stats: [[T('play.score'), Play.num(g.score)], [T('play.best'), Play.num(Math.max(best.score, g.score))]] }); }
+  function fresh() { g = createGame(); asked = false; rebuild(); hud(); persist(); note.say(''); }
+  els.fresh.addEventListener('click', fresh);
+  els.undo.addEventListener('click', function () { if (undo(g)) { rebuild(); hud(); persist(); note.say(''); } });
+  ZimiShell.game({
+    inProgress: function () { return !g.over && values(g).some(Boolean); },
+    stats: function () { return [[T('play.best'), Play.num(best.score)]]; }
   });
-  els.more.addEventListener('click', function () { fresh(); Play.closeSheet(els.sheet); });
 
   var KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', a: 'left', d: 'right', w: 'up', s: 'down' };
   document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.ar-sheet:not([hidden])')) return;
     var dir = KEYS[e.key];
     if (dir) { e.preventDefault(); act(dir); }
-    else if ((e.key === 'z' || e.key === 'Z' || e.key === 'u') && !els.undo.disabled && els.sheet.hidden) els.undo.click();
+    else if ((e.key === 'z' || e.key === 'Z' || e.key === 'u') && !els.undo.disabled) els.undo.click();
   });
   Play.gesture(els.board, {
     up: function (s) { var d = Play.swipeDir(s.dx, s.dy, SWIPE_PX); if (d) act(d); }
@@ -222,7 +218,7 @@
   asked = g.won; // already past the goal when restored
   window.addEventListener('resize', layout);
   makeSlots(); layout(); rebuild(); hud();
-  if (g.over) showSheet('No moves left', g.score + ' points.', 'New game');
+  if (g.over) endSheet(g.won ? 'win' : 'lose');
   // A read-only window onto the live game, for the browser tests.
   root.__t2048 = { get g() { return g; } };
 })(this);

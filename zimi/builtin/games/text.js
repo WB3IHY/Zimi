@@ -961,6 +961,47 @@
  "quizzical.verdict.good": "Good.",
  "quizzical.verdict.keepGoing": "Keep playing to learn more.",
  "quizzical.verdict.veryGood": "Very good.",
+ "race.another": "Try another race",
+ "race.arrived": "You reached {target}",
+ "race.bestClicks": "Fewest clicks in a daily race",
+ "race.builtIn": "the built-in articles",
+ "race.clicks": {
+  "one": "{n} click",
+  "other": "{n} clicks"
+ },
+ "race.clicksLabel": "Clicks",
+ "race.copied": "Copied",
+ "race.copy": "Copy result",
+ "race.copyFail": "Could not copy",
+ "race.daily": "Daily race",
+ "race.finding": "Finding two articles…",
+ "race.follow": {
+  "one": "Follow the links to get there. Par is {n} click.",
+  "other": "Follow the links to get there. Par is {n} clicks."
+ },
+ "race.followOnly": "Follow the links in each article to get there.",
+ "race.gaveUp": "The target was {target}. {par}",
+ "race.giveUp": "Give up",
+ "race.looking": "Looking for your Wikipedia…",
+ "race.missing": "That page is not in your Wikipedia",
+ "race.new": "A new race",
+ "race.noLinks": "Your Wikipedia needs links between its articles. Try again, or play the built-in articles.",
+ "race.noRace": "Could not find a race in this Wikipedia",
+ "race.notCounted": "That page is not in your Wikipedia, so it did not count",
+ "race.par": {
+  "one": "Par is {n} click",
+  "other": "Par is {n} clicks"
+ },
+ "race.parRoute": "A route of {n} exists",
+ "race.parShortest": "The shortest route is {n}",
+ "race.practice": "Practice race",
+ "race.race": "Race",
+ "race.retry": "Try again",
+ "race.shareTitle": "Wiki Race",
+ "race.target": "The target was {target}",
+ "race.targetAria": "The race, from the start to the target",
+ "race.today": "Today’s race",
+ "race.trailAria": "Your path so far",
  "rocks.board": "Space: your ship, drifting rocks and the saucer",
  "rocks.extra": "Extra ship",
  "rocks.readyKeys": "Press any key to start",
@@ -1355,6 +1396,10 @@
     }
     return T('time.now');
   }
+  // A month's name in the language ("January", or "Jan" for style 'short'); m is 0 to 11.
+  function month(m, style) {
+    try { return new Intl.DateTimeFormat(locale(), { month: style || 'long' }).format(new Date(2024, m, 1)); } catch (e) { return String(m + 1); }
+  }
   // A translation: add it (a file's parsed JSON) and repaint whoever asked to hear.
   function add(lang, table) {
     tables[lang] = Object.assign(tables[lang] || {}, table);
@@ -1371,7 +1416,7 @@
     root.fetch(String(base).replace(/[^/]*$/, '') + 'text/' + l + '.json').then(function (r) { return r.ok ? r.json() : null; }).then(function (t) { if (t) add(l, t); }).catch(function () { /* English stays */ });
   }
 
-  Text.T = T; Text.number = number; Text.plural = plural; Text.clock = clock; Text.ago = ago; Text.add = add;
+  Text.T = T; Text.month = month; Text.number = number; Text.plural = plural; Text.clock = clock; Text.ago = ago; Text.add = add;
   Text.onChange = function (f) { listeners.push(f); };
   Text.applyDocument = applyDocument; Text.load = load; Text.has = function (k) { return entry(k) !== undefined; };
   if (typeof module !== 'undefined' && module.exports) { module.exports = Text; return; }
