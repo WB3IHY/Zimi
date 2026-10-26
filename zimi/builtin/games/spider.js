@@ -139,18 +139,23 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var DOWN_RATIO = 0.5, UP_STEP_SHARE = 0.95, MIN_STEP_SHARE = 0.2;
+  // A face-down card shows DOWN_RATIO of a face-up step when the columns are long; with height to spare (the deal, a
+  // short fan) it opens up to MAX_DOWN_RATIO, so the table spends the screen instead of huddling at the top.
+  var DOWN_RATIO = 0.5, MAX_DOWN_RATIO = 0.8, DOWN_RATIO_STEP = 0.05, UP_STEP_SHARE = 0.95, MIN_STEP_SHARE = 0.2;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
     // Stock and the finished runs are one row right under the bar; the columns start under it and fan through the rest.
     var rows = Z.solitaireRows(m), y1 = rows.top, y2 = rows.cols, slots = [], cards = [];
-    var weight = function (pile) {
+    var weight = function (pile, down) {
       var w = 0;
-      for (var i = 0; i < pile.length - 1; i++) w += pile[i].up ? 1 : DOWN_RATIO;
+      for (var i = 0; i < pile.length - 1; i++) w += pile[i].up ? 1 : down;
       return w;
     };
-    var step = Z.fanStep(Math.max.apply(null, COLUMNS.map(function (c) { return weight(P[c]); })), rows.room, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
+    var heaviest = function (down) { return Math.max.apply(null, COLUMNS.map(function (c) { return weight(P[c], down); })); };
+    var maxStep = ch * UP_STEP_SHARE, down = DOWN_RATIO;
+    while (down + DOWN_RATIO_STEP <= MAX_DOWN_RATIO + 1e-9 && heaviest(down + DOWN_RATIO_STEP) * maxStep <= rows.room - ch) down += DOWN_RATIO_STEP;
+    var step = Z.fanStep(heaviest(down), rows.room, ch, maxStep, ch * MIN_STEP_SHARE);
     var bottom = y2 + ch;
 
     P.stock.forEach(function (c, i) { cards.push({ id: c.id, pile: 'stock', idx: i, x: x(0), y: y1, up: false, hidden: i < P.stock.length - 2 }); });
@@ -161,7 +166,7 @@
       var yy = y2;
       P[c].forEach(function (k, i) {
         cards.push({ id: k.id, pile: c, idx: i, x: x(n), y: yy, up: k.up });
-        if (i < P[c].length - 1) yy += k.up ? step : step * DOWN_RATIO;
+        if (i < P[c].length - 1) yy += k.up ? step : step * down;
       });
       bottom = Math.max(bottom, yy + ch);
     });
