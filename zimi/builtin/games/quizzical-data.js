@@ -49,7 +49,7 @@
     ['What is the opposite of "ancient"?', 'Modern', 'Old', 'Broken', 'Heavy'],
     ['Which instrument has black and white keys?', 'The piano', 'The violin', 'The flute', 'The drum'],
     ['How many strings does a standard violin have?', 'Four', 'Six', 'Three', 'Eight'],
-    ['Which colour do you get by mixing blue and yellow?', 'Green', 'Purple', 'Orange', 'Brown'],
+    ['Which color do you get by mixing blue and yellow?', 'Green', 'Purple', 'Orange', 'Brown'],
     ['How many hours are in a day?', '24', '12', '48', '60'],
     ['Which month has the fewest days?', 'February', 'April', 'June', 'September'],
     ['Which sport is played at Wimbledon?', 'Tennis', 'Golf', 'Cricket', 'Football'],
