@@ -376,11 +376,13 @@
   function pause() { if (mode !== 'playing') return; mode = 'paused'; stopRepeat(); Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); }
   function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); startLoop(); }
   function toggle() { if (mode === 'playing') pause(); else resume(); }
+  var lastEnd = null;
   function finish() {
+    lastEnd = [[Tx('play.score'), Play.num(g.score)], [Tx('stacker.rows'), Play.num(g.lines)]];
     mode = 'over'; els.pause.disabled = true; Play.pauseLabel(els.pause, false); stopRepeat();
     if (g.score > best.score) { best.score = g.score; Play.save(BEST_KEY, best); }
     draw(); hud();
-    ZimiShell.endSheet({ result: 'over', stats: [[Tx('play.score'), Play.num(g.score)], [Tx('stacker.rows'), Play.num(g.lines)]] });
+    ZimiShell.endSheet({ result: 'over', stats: lastEnd });
     setTimeout(function () { if (mode === 'over') armed = Play.ready(readyOpts()); }, READY_ARM_MS);
   }
   els.newBtn.addEventListener('click', begin);
@@ -449,6 +451,26 @@
   readPalette();
   if (matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { readPalette(); draw(); });
   layout(); arm();
+  // Leaving and coming back keeps the game: paused where it was, or at its end sheet.
+  ZimiShell.persist({
+    save: function () {
+      if (mode === 'over' && lastEnd) return { end: lastEnd };
+      return mode === 'playing' || mode === 'paused' ? { g: g } : null;
+    },
+    load: function (d) {
+      if (armed) armed.cancel();
+      if (d.end) {
+        mode = 'over'; lastEnd = d.end; hud(); draw();
+        ZimiShell.endSheet({ result: 'over', stats: d.end });
+        setTimeout(function () { if (mode === 'over') armed = Play.ready(readyOpts()); }, READY_ARM_MS);
+        return true;
+      }
+      if (!d.g || !d.g.board) return false;
+      g = d.g; g.rng = mulberry32(Math.floor(Math.random() * 4294967296)); newPiece(); mode = 'paused';
+      els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); hud(); draw();
+      return true;
+    }
+  });
   // A read-only window onto the live game, for the browser tests.
   root.__stacker = { get g() { return g; }, get mode() { return mode; } };
 })(this);
