@@ -278,7 +278,7 @@
     mapZims = list.filter(function (z) { return z.kind === 'map' && z.map_search; }).map(function (z) { return z.name; });
     // Leaving and coming back keeps the round: its places, where you are, the pin and the answer just given.
     var kept = ZimiShell.saved();
-    if (kept && kept.round && kept.round.length && (!kept.useMaps || mapZims.length)) {
+    if (kept && kept.round && kept.round.length) {
       useMaps = !!kept.useMaps; round = kept.round; at = kept.at; total = kept.total; ask();
       if (kept.pending) {
         setPending(kept.pending);
