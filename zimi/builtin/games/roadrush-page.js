@@ -2,10 +2,11 @@
    The rules are in roadrush.js (RoadRushEngine) and the pictures in roadrush-art.js. Our own code, GPL-3.0. */
 (function (root) {
   'use strict';
-  var E = root.RoadRushEngine, Art = root.RoadRushArt, Play = root.ArcadePlay, $ = Play.$;
+  var E = root.RoadRushEngine, Art = root.RoadRushArt, Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var SEG = E.SEG, ROAD_W = E.ROAD_W, CAM_H = E.CAM_H, CAM_DEPTH = E.CAM_DEPTH, PLAYER_Z = E.PLAYER_Z, DRAW = E.DRAW, LANES = E.LANES, MAX_SPEED = E.MAX_SPEED;
   var STORE = 'zimi.games.roadrush', FOG_DENSITY = 5, MAX_RES = 1.25, COUNTDOWN_S = 3, TOAST_S = 2.4, CAR_VIS = 1.1, SCENE_VIS = 1.4, PLAYER_DRAW_W = E.PLAYER_W * CAR_VIS;
-  var HILL_RATE = [14, 30], SUN_R = 0.07, STARS = 70;
+  var HILL_RATE = [14, 30], SUN_R = 0.07, STARS = 70, READY_ARM_MS = 650, CHROME_PX = 190;
+  var STAGE_IDS = { 'Coast Road': 'coast', 'Dusk Pass': 'dusk', 'Night Run': 'night' };
   Play.applyTheme();
 
   var prefs = Play.load(STORE, {});
@@ -14,12 +15,9 @@
   try { coarse = matchMedia('(pointer: coarse)').matches; } catch (e) { /* desktop */ }
   if (prefs.auto === undefined) prefs.auto = coarse;
   function savePrefs() { Play.save(STORE, prefs); }
-  if (coarse || 'ontouchstart' in root) document.body.classList.add('touch');
-  document.addEventListener('touchstart', function () { document.body.classList.add('touch'); layout(); }, { once: true, passive: true });
-  function syncAuto() { document.body.classList.toggle('rr-auto', !!prefs.auto); }
 
-  var els = { cv: $('rr-board'), speed: $('rr-speed'), time: $('rr-time'), score: $('rr-score'), best: $('rr-best'), msg: $('rr-msg'), pause: $('rr-pause'),
-    sheet: $('rr-sheet'), title: $('rr-sheet-title'), body: $('rr-body'), actions: $('rr-actions'), gas: $('rr-gas'), brake: $('rr-brake') };
+  var els = { cv: $('rr-board'), speed: $('rr-speed'), time: $('rr-time'), score: $('rr-score'), best: $('rr-best'), msg: $('rr-msg'), pause: $('rr-pause'), newBtn: $('rr-new') };
+  var status = Play.status(els.msg), armed = null;
   var ctx, cssW = 0, cssH = 0, res = 1, reduce = Play.reducedMotion();
   var game = null, mode = 'setup', countdown = 0, toast = '', toastT = 0, tables = {}, stars = [], bg = [0, 0], skyGrad = null, skyTheme = '', crashFlash = 0, wasBraking = false;
   var held = {}, pad = { gas: false, brake: false }, touchSteer = {};
@@ -111,11 +109,11 @@
       lg.addColorStop(0, 'rgba(255,244,190,0.2)'); lg.addColorStop(1, 'rgba(255,244,190,0)');
       ctx.fillStyle = lg; ctx.fillRect(0, h * 0.4, w, h * 0.6);
     }
-    var braking = !!(held.ArrowDown || held.s || pad.brake);
+    var braking = !!(held.ArrowDown || held.s || (touchSteer.l && touchSteer.r));
     drawSprite(function (c) { Art.player(c, p.steer, braking, night); }, destX, destY, pScale * PLAYER_DRAW_W * ROAD_W * half, 0.85, h, 1);
     if (crashFlash > 0 && !reduce) { ctx.fillStyle = 'rgba(217,71,61,' + (crashFlash * 0.45) + ')'; ctx.fillRect(0, 0, w, h); }
     // the words on the road
-    if (document.body.classList.contains('touch')) steerHints();
+    if (coarse) steerHints();
     if (mode === 'ready' && countdown > 0) bigText(String(Math.ceil(countdown)), '#fff');
     else if (toastT > 0) bigText(toast, '#f2a516', 26);
     hud();
@@ -134,115 +132,99 @@
 
   function hud() {
     if (!game) return;
-    els.speed.textContent = Math.round(game.player.speed / MAX_SPEED * E.KMH);
-    els.time.textContent = Math.ceil(game.time);
+    els.speed.textContent = Play.num(Math.round(game.player.speed / MAX_SPEED * E.KMH));
+    els.time.textContent = Play.num(Math.ceil(game.time));
     var sc = E.totalScore(game);
-    els.score.textContent = sc; els.best.textContent = Math.max(prefs.best, sc);
+    els.score.textContent = Play.num(sc); els.best.textContent = Play.num(Math.max(prefs.best, sc));
     els.time.parentNode.style.color = game.time < 10 ? 'var(--bad)' : '';
   }
 
   // ── the run ──────────────────────────────────────────────────────────────
   function inputNow() {
     var left = held.ArrowLeft || held.a || touchSteer.l, right = held.ArrowRight || held.d || touchSteer.r;
-    var gas = held.ArrowUp || held.w || pad.gas || prefs.auto, brake = held.ArrowDown || held.s || pad.brake;
+    // Both halves held at once is the brake: the one touch gesture that needs no button.
+    var both = touchSteer.l && touchSteer.r;
+    var gas = held.ArrowUp || held.w || prefs.auto, brake = held.ArrowDown || held.s || both;
+    if (both) { left = right = false; }
     return { steer: (right ? 1 : 0) - (left ? 1 : 0), gas: gas && !brake ? 1 : 0, brake: brake ? 1 : 0 };
   }
-  function say(text) { toast = text; toastT = TOAST_S; els.msg.textContent = text; }
+  function say(text) { toast = text; toastT = TOAST_S; status.say(text); }
 
   var loop = Play.loop(function (dt) {
     if (mode === 'ready') {
       countdown -= dt; bgScroll(0, dt);
-      if (countdown <= 0) { mode = 'playing'; say('Go'); }
+      if (countdown <= 0) { mode = 'playing'; say(T('roadrush.go')); }
       return;
     }
     toastT = Math.max(0, toastT - dt); crashFlash = Math.max(0, crashFlash - dt * 2.5);
-    if (toastT === 0 && els.msg.textContent) els.msg.textContent = '';
+    if (toastT === 0 && els.msg.textContent) status.say('');
     E.update(game, dt, inputNow());
     bgScroll(game.player.lastCurve * game.player.speed / MAX_SPEED, dt);
     game.events.splice(0).forEach(onEvent);
   }, render, 60);
 
+  function stageName(name) { return T('roadrush.stage.' + (STAGE_IDS[name] || 'coast')); }
   function bgScroll(k, dt) { bg[0] += k * HILL_RATE[0] * dt * 60; bg[1] += k * HILL_RATE[1] * dt * 60; }
 
   function onEvent(e) {
-    if (e.type === 'checkpoint') say('Checkpoint +' + e.bonus + ' s');
-    else if (e.type === 'finish') say(e.stage + ' done. Next: ' + e.next);
-    else if (e.type === 'crash' || e.type === 'cone') { if (e.type === 'crash') say('Crash'); crashFlash = 1; }
+    if (e.type === 'checkpoint') say(T('roadrush.checkpoint', { n: e.bonus }));
+    else if (e.type === 'finish') say(T('roadrush.stageDone', { stage: stageName(e.stage), next: stageName(e.next) }));
+    else if (e.type === 'crash' || e.type === 'cone') { if (e.type === 'crash') say(T('roadrush.crash')); crashFlash = 1; }
     else if (e.type === 'over') finish();
   }
 
+  // The ready line says the gesture once; a tap or a key starts the countdown. Armed again after a run.
+  function arm() {
+    if (armed) armed.cancel();
+    armed = Play.ready({ say: status.say, target: els.cv, start: begin, touch: T('roadrush.readyTouch'), keys: T('roadrush.readyKeys') });
+  }
   function begin() {
+    if (armed) { armed.cancel(); armed = null; }
     game = E.newGame(Math.floor(Math.random() * 1e6), prefs.stage);
     game.events.length = 0;
-    mode = 'ready'; countdown = COUNTDOWN_S; toastT = 0; crashFlash = 0; els.msg.textContent = '';
-    Play.closeSheet(els.sheet); els.pause.disabled = false;
+    mode = 'ready'; countdown = COUNTDOWN_S; toastT = 0; crashFlash = 0; status.say('');
+    Play.pauseLabel(els.pause, false); els.pause.disabled = false;
     layout(); render(); loop.start();
   }
+  var pausedFrom = 'playing';
   function pause() {
     if (mode !== 'playing' && mode !== 'ready') return;
-    var was = mode; mode = 'paused'; pausedFrom = was; loop.stop(); releaseAll();
-    sheet('Paused', function (b) { note(b, 'Resume when you are ready.'); }, [['Resume', resume, true], ['Quit', setup, false]]);
+    pausedFrom = mode; mode = 'paused'; loop.stop(); releaseAll(); Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
   }
-  var pausedFrom = 'playing';
-  function resume() { mode = pausedFrom; Play.closeSheet(els.sheet); loop.start(); }
-  function releaseAll() { clearKeys(); pad.gas = pad.brake = false; touchSteer = {}; padCtl.forEach(function (h) { h.release(); }); }
+  function resume() { if (mode !== 'paused') return; mode = pausedFrom; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
+  function toggle() { if (mode === 'paused') resume(); else pause(); }
+  function releaseAll() { clearKeys(); pad.gas = pad.brake = false; touchSteer = {}; pointers = {}; }
 
   function finish() {
-    mode = 'over'; loop.stop(); els.pause.disabled = true; releaseAll(); render();
-    var sc = E.totalScore(game), fresh = sc > prefs.best;
-    if (fresh) { prefs.best = sc; savePrefs(); }
-    sheet('Out of time', function (b) {
-      note(b, 'Score ' + sc + (fresh ? '. A new best.' : '. Best ' + prefs.best + '.'));
-      note(b, 'You reached ' + game.stage.name + (game.lap ? ', on your second lap.' : '.'));
-    }, [['Play again', begin, true], ['Setup', setup, false]]);
+    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); releaseAll(); render();
+    var sc = E.totalScore(game);
+    if (sc > prefs.best) { prefs.best = sc; savePrefs(); }
+    ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(sc)], [T('play.best'), Play.num(prefs.best)]] });
+    setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
   }
-
-  // ── sheets ───────────────────────────────────────────────────────────────
-  function sheet(title, build, actions) {
-    els.title.textContent = title; els.body.textContent = ''; els.actions.textContent = '';
-    build(els.body);
-    actions.forEach(function (a) {
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'ar-btn'; b.textContent = a[0]; b.setAttribute('aria-pressed', String(!!a[2]));
-      b.addEventListener('click', a[1]); els.actions.appendChild(b);
-    });
-    Play.openSheet(els.sheet, '.ar-sheet-actions .ar-btn[aria-pressed="true"]');
-  }
-  function note(parent, text) { var p = document.createElement('p'); p.className = 'rr-note'; p.textContent = text; parent.appendChild(p); }
-  function setup() {
-    mode = 'setup'; loop.stop(); els.pause.disabled = true;
-    sheet('Road Rush', function (b) {
-      note(b, 'Reach each checkpoint before the clock runs out. Steer around traffic and stay off the grass. Ease off the gas for sharp bends: the faster you go, the more a bend pushes you outward.');
-      var row = document.createElement('div'), sp = document.createElement('span'), box = document.createElement('div');
-      row.className = 'rr-row'; sp.textContent = 'Start in'; row.appendChild(sp);
-      box.className = 'pl-seg'; box.setAttribute('role', 'group'); box.setAttribute('aria-label', 'Start in');
-      [['Day', 0], ['Dusk', 1], ['Night', 2]].forEach(function (c) {
-        var btn = document.createElement('button'); btn.type = 'button'; btn.textContent = c[0]; btn.setAttribute('aria-pressed', String(prefs.stage === c[1]));
-        btn.addEventListener('click', function () {
-          prefs.stage = c[1]; savePrefs();
-          Array.prototype.forEach.call(box.children, function (o) { o.setAttribute('aria-pressed', 'false'); }); btn.setAttribute('aria-pressed', 'true');
-        });
-        box.appendChild(btn);
-      });
-      row.appendChild(box); b.appendChild(row);
-      var lab = document.createElement('label'), cb = document.createElement('input');
-      lab.className = 'rr-check'; cb.type = 'checkbox'; cb.checked = !!prefs.auto;
-      cb.addEventListener('change', function () { prefs.auto = cb.checked; savePrefs(); syncAuto(); });
-      lab.appendChild(cb); lab.appendChild(document.createTextNode('Accelerate by itself')); b.appendChild(lab);
-      note(b, coarse ? 'Hold the left or right half of the road to steer.' : 'Best score on this device: ' + prefs.best + '.');
-    }, [['Start', begin, true]]);
-  }
+  els.newBtn.addEventListener('click', begin);
+  ZimiShell.game({
+    inProgress: function () { return mode === 'playing' || mode === 'ready' || mode === 'paused'; },
+    stats: function () { return prefs.best ? [[T('roadrush.bestStat'), Play.num(prefs.best)]] : []; },
+    // Where the run starts and whether the car accelerates by itself are choices about the run, so they sit in the New game pane.
+    menu: function () {
+      return { options: [
+        Play.optionRow(T('roadrush.startIn'), [[0, T('roadrush.day')], [1, T('roadrush.dusk')], [2, T('roadrush.night')]], prefs.stage, function (v) { prefs.stage = v; savePrefs(); }),
+        Play.optionRow(T('roadrush.auto'), [[false, T('shell.off')], [true, T('shell.on')]], !!prefs.auto, function (v) { prefs.auto = v; savePrefs(); })
+      ] };
+    }
+  });
 
   // ── input ────────────────────────────────────────────────────────────────
-  var padCtl = [Play.hold(els.gas, function (v) { pad.gas = v; }), Play.hold(els.brake, function (v) { pad.brake = v; })];
   function keyName(e) { return e.key.length === 1 ? e.key.toLowerCase() : e.key; }
   var USED = { a: 1, d: 1, w: 1, s: 1, ArrowLeft: 1, ArrowRight: 1, ArrowUp: 1, ArrowDown: 1, ' ': 1 };
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     var k = keyName(e);
-    if (!els.sheet.hidden) { if (k === 'Escape' && mode === 'paused') resume(); return; }
+    if (document.querySelector('.ar-sheet:not([hidden])')) return;
     if (k === ' ') { e.preventDefault(); held.s = true; }
     else if (USED[k]) { e.preventDefault(); held[k] = true; }
-    else if (k === 'p' || k === 'Escape') { e.preventDefault(); pause(); }
+    else if (k === 'p' || k === 'Escape') { e.preventDefault(); if (mode === 'playing' || mode === 'ready' || mode === 'paused') toggle(); }
   });
   document.addEventListener('keyup', function (e) { var k = keyName(e); held[k === ' ' ? 's' : k] = false; });
   window.addEventListener('blur', function () { clearKeys(); touchSteer = {}; });
@@ -253,6 +235,7 @@
   function syncTouch() { touchSteer = {}; Object.keys(pointers).forEach(function (id) { touchSteer[pointers[id]] = true; }); }
   els.cv.addEventListener('pointerdown', function (e) {
     e.preventDefault();
+    if (mode === 'paused') { resume(); return; }
     try { els.cv.setPointerCapture(e.pointerId); } catch (err) { /* synthetic events have no capture */ }
     pointers[e.pointerId] = sideOf(e); syncTouch();
   });
@@ -260,15 +243,14 @@
   function lift(e) { delete pointers[e.pointerId]; syncTouch(); }
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (n) { els.cv.addEventListener(n, lift); });
   els.cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-  els.pause.addEventListener('click', pause);
+  els.pause.addEventListener('click', toggle);
   Play.onHidden(pause);
 
   // ── layout ───────────────────────────────────────────────────────────────
   function layout() {
-    var vw = document.documentElement.clientWidth, vh = window.innerHeight, touch = document.body.classList.contains('touch');
-    var chrome = 52 + 58 + 24 + (touch ? 100 : 64) + 40;
-    cssW = Math.floor(Math.min(vw - 16, 960));
-    cssH = Math.floor(Math.max(240, Math.min(vh - chrome, cssW * (cssW < 500 ? 1.25 : 0.62))));
+    var room = Play.room(CHROME_PX);
+    cssW = Math.floor(Math.min(room.w, 960));
+    cssH = Math.floor(Math.max(240, Math.min(room.h, cssW * (cssW < 500 ? 1.25 : 0.62))));
     res = Math.min(window.devicePixelRatio || 1, MAX_RES);
     els.cv.style.width = cssW + 'px'; els.cv.style.height = cssH + 'px';
     els.cv.width = Math.floor(cssW * res); els.cv.height = Math.floor(cssH * res);
@@ -279,6 +261,6 @@
     render();
   }
   window.addEventListener('resize', layout);
-  syncAuto(); layout(); setup();
+  layout(); arm();
   root.__roadrush = { get game() { return game; }, get mode() { return mode; }, held: held, pad: pad, prefs: prefs, begin: begin, E: E, render: render };
 })(this);

@@ -692,7 +692,7 @@
   "wiki": "Breakout (video game)",
   "path": "bricks.html",
   "title": "Bricks",
-  "blurb": "Paddle and ball. Eight levels. Aim by where the ball lands.",
+  "blurb": "Paddle and ball against a wall of bricks",
   "why": "Based on Atari's Breakout of 1976.",
   "origin": {
    "year": 1976,
@@ -1117,7 +1117,7 @@
   "wiki": "Pinball",
   "path": "pinball.html",
   "title": "Pinball",
-  "blurb": "One table with flippers, bumpers, lanes and multiball",
+  "blurb": "Flippers, bumpers, lanes and multiball",
   "why": "Flippers arrived in 1947. Before that, pinball was mostly luck.",
   "origin": {
    "year": 1947,
@@ -1134,7 +1134,7 @@
   "wiki": "Asteroids (video game)",
   "path": "rocks.html",
   "title": "Rocks",
-  "blurb": "Turn, thrust and shoot. Rocks split. A saucer shoots back.",
+  "blurb": "Turn, thrust and shoot rocks that split",
   "why": "Every rock you hit splits into smaller rocks.",
   "origin": {
    "year": 1979,
@@ -1151,7 +1151,7 @@
   "wiki": "Space Invaders",
   "path": "lastline.html",
   "title": "Last Line",
-  "blurb": "Drones move down. Shields wear away. Stop them.",
+  "blurb": "Drones march down and shields wear away",
   "why": "Rows of invaders moving down the screen made this kind of shooter popular in 1978.",
   "origin": {
    "year": 1978,
@@ -1168,7 +1168,7 @@
   "wiki": "Lunar Lander (1979 video game)",
   "path": "lander.html",
   "title": "Lander",
-  "blurb": "Land on the pad before the fuel runs out.",
+  "blurb": "Land softly on a pad before the fuel runs out",
   "why": "Land gently with the fuel you have, as Apollo crews did on the Moon.",
   "origin": {
    "year": 1979,
@@ -1185,7 +1185,7 @@
   "wiki": "Pong",
   "path": "paddles.html",
   "title": "Paddles",
-  "blurb": "Table tennis with two paddles. Play the computer or a friend.",
+  "blurb": "Two-paddle tennis against the computer or a friend",
   "why": "Two paddles and a ball. It started the video game industry in 1972.",
   "origin": {
    "year": 1972,
