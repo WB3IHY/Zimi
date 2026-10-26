@@ -562,7 +562,7 @@
     [1, 2, 3].forEach(function (r) {
       var seat = (V + r) % SEATS;
       if (seat === dummy) {
-        var top = Object.assign({}, g, { southY: g.northY });
+        var top = Object.assign({}, g, { southY: g.northY + 8 + (T.rowsFor(m, st.hands[seat].length) - 1) * g.rowStep });   // the hand's top row starts under the scores
         var dm = T.handCards(top, st.hands[seat], function (id) { return { dim: actor === V && st.turn === seat && !isLegal(st, seat, id), label: cardLabel(id) + ' (dummy)' }; }, function (a, b) { return Z.suit(a) !== Z.suit(b); }, 'd');
         slots = slots.concat(dm.slots); cards = cards.concat(dm.cards);
       } else if (!(r === 2 && dummy >= 0 && dummy !== V)) cards = cards.concat(T.fan(g, r, st.phase === 'auction' ? st.hands[seat].slice(0, AUCTION_STACK) : st.hands[seat], false));
