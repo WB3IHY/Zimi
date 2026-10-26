@@ -266,24 +266,35 @@
   window.addEventListener('resize', layout);
   layout(); arm();
   // A run in progress or over is kept: the road is rebuilt from its seed and stage, and the car, the clock and the score laid
-  // back over it (the traffic starts again from the stage's grid). It comes back paused, or on its end sheet.
+  // back over it, with the traffic and the scenery already hit. It comes back paused, or on its end sheet.
   function snapshot() {
     if (!game || mode === 'setup') return null;
     var g = game;
     return { runId: runId, over: mode === 'over', from: mode === 'paused' ? pausedFrom : mode, countdown: countdown, seed: g.seed, stageIndex: g.stageIndex,
-      time: g.time, score: g.score, distance: g.distance, elapsed: g.elapsed, bonus: g.bonus, status: g.status, player: Play.plain(g.player) };
+      time: g.time, score: g.score, distance: g.distance, elapsed: g.elapsed, bonus: g.bonus, status: g.status, player: Play.plain(g.player),
+      cars: g.cars.map(function (c) { return [c.offset, c.z, c.speed, c.percent]; }),
+      hit: g.road.segments.reduce(function (a, seg, i) { seg.sprites.forEach(function (sp, k) { if (sp.hit) a.push([i, k]); }); return a; }, []) };
   }
   function restore(d) {
     if (!d || d.seed === undefined) return false;
     if (armed) { armed.cancel(); armed = null; }
     game = E.newGame(d.seed, d.stageIndex); game.events.length = 0;
     ['time', 'score', 'distance', 'elapsed', 'bonus', 'status'].forEach(function (k) { game[k] = d[k]; });
-    game.player = Play.plain(d.player); runId = d.runId; countdown = d.countdown; toastT = 0; crashFlash = 0;
+    game.player = Play.plain(d.player); runId = d.runId;
+    // The traffic goes back where it was (the same cars, rebuilt from the seed), each into the segment it is on; scenery already hit stays hit.
+    (d.cars || []).forEach(function (v, i) {
+      var c = game.cars[i], old;
+      if (!c) return;
+      old = E.findSegment(game.road, c.z); old.cars.splice(old.cars.indexOf(c), 1);
+      c.offset = v[0]; c.z = v[1]; c.speed = v[2]; c.percent = v[3];
+      E.findSegment(game.road, c.z).cars.push(c);
+    });
+    (d.hit || []).forEach(function (h) { var sp = game.road.segments[h[0]] && game.road.segments[h[0]].sprites[h[1]]; if (sp) sp.hit = true; }); countdown = d.countdown; toastT = 0; crashFlash = 0;
     layout(); render();
     if (d.over) { mode = 'over'; els.pause.disabled = true; setTimeout(showEnd, 0); return true; }
     pausedFrom = d.from === 'ready' ? 'ready' : 'playing'; mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
     return true;
   }
   ZimiShell.persist({ save: snapshot, load: restore });
-  root.__roadrush = { get game() { return game; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, game.seed, game.stageIndex, game.time, game.score, game.distance, game.player]); }, held: held, pad: pad, prefs: prefs, begin: begin, E: E, render: render };
+  root.__roadrush = { get game() { return game; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, game.seed, game.stageIndex, game.time, game.score, game.distance, game.player, game.cars.map(function (c) { return [c.offset, c.z, c.speed]; })]); }, held: held, pad: pad, prefs: prefs, begin: begin, E: E, render: render };
 })(this);

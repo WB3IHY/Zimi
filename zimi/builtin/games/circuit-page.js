@@ -356,6 +356,18 @@
     });
   }
 
+  // The phone's two-player heats: the pass-the-phone sheet after the first, the result after the second. Also what a saved heat comes back to.
+  function showHeat() {
+    var again = function () { g.heat = 0; g.heats = []; startRace(); };
+    function timeOf(x) { return x.time ? fmt(x.time) : L('circuit.dnf'); }
+      if (g.heat === 0) {
+        ZimiShell.sheet({ title: L('circuit.heat', { name: g.heats[0].name, place: ordinal(g.heats[0].pos) }), text: L('circuit.passPhone'), actions: [{ label: L('circuit.nextUp'), primary: true, onclick: function () { g.heat = 1; startRace(); } }] });
+        return;
+      }
+      var a = g.heats[0], z = g.heats[1], tie = a.pos === z.pos && a.time === z.time;
+      var win = a.pos !== z.pos ? (a.pos < z.pos ? a : z) : (a.time <= z.time ? a : z);
+      ZimiShell.endSheet(tie ? { result: 'draw', onNew: again, stats: [[a.name, ordinal(a.pos)], [z.name, ordinal(z.pos)]] } : { result: 'win', name: win.name, onNew: again, stats: [[a.name, L('circuit.ordTime', { place: ordinal(a.pos), time: timeOf(a) })], [z.name, L('circuit.ordTime', { place: ordinal(z.pos), time: timeOf(z) })]] });
+  }
   function placeText(pos, total) { return L('circuit.placeOf', { place: ordinal(pos), total: total }); }
   function finishRace() {
     g.mode = 'over'; loop.stop(); els.pause.disabled = true; els.reset.disabled = true; Play.pauseLabel(els.pause, false); releaseAll(); render();
@@ -363,17 +375,7 @@
     var results = g.humans.map(function (c) { return { name: c.name, pos: st.indexOf(c) + 1, time: c.finishTime, best: c.best }; });
     var again = function () { g.heat = 0; g.heats = []; startRace(); };
     function timeOf(x) { return x.time ? fmt(x.time) : L('circuit.dnf'); }
-    if (heats) {
-      g.heats.push(results[0]);
-      if (g.heat === 0) {
-        ZimiShell.sheet({ title: L('circuit.heat', { name: results[0].name, place: ordinal(results[0].pos) }), text: L('circuit.passPhone'), actions: [{ label: L('circuit.nextUp'), primary: true, onclick: function () { g.heat = 1; startRace(); } }] });
-        return;
-      }
-      var a = g.heats[0], z = g.heats[1], tie = a.pos === z.pos && a.time === z.time;
-      var win = a.pos !== z.pos ? (a.pos < z.pos ? a : z) : (a.time <= z.time ? a : z);
-      ZimiShell.endSheet(tie ? { result: 'draw', onNew: again, stats: [[a.name, ordinal(a.pos)], [z.name, ordinal(z.pos)]] } : { result: 'win', name: win.name, onNew: again, stats: [[a.name, L('circuit.ordTime', { place: ordinal(a.pos), time: timeOf(a) })], [z.name, L('circuit.ordTime', { place: ordinal(z.pos), time: timeOf(z) })]] });
-      return;
-    }
+    if (heats) { g.heats.push(results[0]); showHeat(); return; }
     var sv = prefs.best[g.T.id], note = sv ? L('circuit.recordNote', { time: fmt(sv.ms) }) : '';
     if (g.split) {
       var first = results[0].pos < results[1].pos ? results[0] : results[1];
@@ -438,9 +440,9 @@
     }
   });
   // A race in progress or finished is kept (the track is rebuilt from its id, the cars and the clock laid back over);
-  // it comes back paused, or on its results. Best laps and ghosts already live in prefs. A phone's two-player heats are not kept.
+  // it comes back paused, or on its results. Best laps and ghosts already live in prefs; a phone's two-player heats keep the heat and each result so far.
   function snapshot() {
-    if (!g.race || g.mode === 'setup' || (g.mode === 'over' && prefs.players === 2 && coarse)) return null;
+    if (!g.race || g.mode === 'setup') return null;
     var r = Object.assign({}, g.race); delete r.track;
     return { track: g.T.id, split: g.split, heat: g.heat, heats: g.heats, over: g.mode === 'over', rec: g.rec, race: Play.plain(r) };
   }
@@ -455,11 +457,11 @@
     if (setupSheet) setupSheet.close();
     if (armed) { armed.cancel(); armed = null; }
     layout(); render();
-    if (d.over) { setTimeout(finishRace, 0); return true; }
+    if (d.over) { g.mode = 'over'; els.pause.disabled = true; els.reset.disabled = true; setTimeout(g.heats.length ? showHeat : finishRace, 0); return true; }
     g.mode = 'paused'; els.pause.disabled = false; els.reset.disabled = false; Play.pauseLabel(els.pause, true); status.say(L('play.paused'));
     return true;
   }
   ZimiShell.persist({ save: snapshot, load: restore });
   if (!g.race) goSetup();
-  root.__circuit = { get g() { return g; }, prefs: prefs, held: held, pad: pad, get pos() { return JSON.stringify([g.T.id, g.race.t, g.race.laps, g.race.cars.map(function (c) { return [c.x, c.y, c.h, c.vx, c.vy, c.maxK, c.laps]; }), g.rec]); } };
+  root.__circuit = { get g() { return g; }, prefs: prefs, held: held, pad: pad, get pos() { return JSON.stringify([g.T.id, g.heat, g.heats, g.race.t, g.race.laps, g.race.cars.map(function (c) { return [c.x, c.y, c.h, c.vx, c.vy, c.maxK, c.laps]; }), g.rec]); } };
 })(this);
