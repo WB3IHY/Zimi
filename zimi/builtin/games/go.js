@@ -126,7 +126,7 @@
     st = ns;
     var note = passed ? T('go.passed', { name: who }) : took ? T('go.took', { name: who, n: took }) : '';
     if (st.passes >= 2) { paint(); enterMark(); return; }
-    paint(); G.say(note ? T('janggi.noted', { note: note, line: turnText() }) : turnText(), !G.human(st.turn - 1));
+    paint(); G.say(note ? UI.noted(note, turnText()) : turnText(), !G.human(st.turn - 1));
     if (!G.human(st.turn - 1)) computerTurn();
   }
   function computerTurn() {
