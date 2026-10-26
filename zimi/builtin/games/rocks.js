@@ -183,25 +183,25 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
-  var BEST_KEY = 'zimi.games.rocks.best', CHROME_PX = 330;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
+  var BEST_KEY = 'zimi.games.rocks.best', CHROME_PX = 190, READY_ARM_MS = 650;
   Play.applyTheme();
 
-  var els = { cv: $('rk-board'), score: $('rk-score'), best: $('rk-best'), lives: $('rk-lives'), wave: $('rk-wave'), msg: $('rk-msg'), pause: $('rk-pause'), sheet: $('rk-sheet'), title: $('rk-sheet-title'), text: $('rk-sheet-text'), go: $('rk-go') };
-  var best = Play.load(BEST_KEY, { score: 0 }), st = createState(), mode = 'ready', ctx;
+  var els = { cv: $('rk-board'), score: $('rk-score'), best: $('rk-best'), lives: $('rk-lives'), wave: $('rk-wave'), msg: $('rk-msg'), pause: $('rk-pause'), newBtn: $('rk-new') };
+  var best = Play.load(BEST_KEY, { score: 0 }), st = createState(), mode = 'ready', ctx, status = Play.status(els.msg), armed = null, pad;
   var held = { left: false, right: false, thrust: false, fire: false }, keyHeld = { left: false, right: false, thrust: false, fire: false };
   var stars = (function () { var r = mulberry(77), a = []; for (var i = 0; i < 70; i++) a.push([r() * SIZE, r() * SIZE, 0.5 + r() * 1.1, 0.25 + r() * 0.5]); return a; })();
 
   function layout() { ctx = Play.fitCanvas(els.cv, SIZE, SIZE, CHROME_PX, 560).ctx; draw(); }
-  function hud() { els.score.textContent = st.score; els.best.textContent = Math.max(best.score, st.score); els.lives.textContent = Math.max(0, st.lives); els.wave.textContent = st.wave; }
+  function hud() { els.score.textContent = Play.num(st.score); els.best.textContent = Play.num(Math.max(best.score, st.score)); els.lives.textContent = Play.num(Math.max(0, st.lives)); els.wave.textContent = Play.num(st.wave); }
 
   function input() { return { left: held.left || keyHeld.left, right: held.right || keyHeld.right, thrust: held.thrust || keyHeld.thrust, fire: held.fire || keyHeld.fire }; }
 
   var loop = Play.loop(function (dt) {
     step(st, dt, input());
     st.events.forEach(function (e) {
-      if (e.name === 'wave') els.msg.textContent = 'Wave ' + e.data;
-      else if (e.name === 'extra') els.msg.textContent = 'Extra ship';
+      if (e.name === 'wave') status.say(T('rocks.wave', { n: e.data }));
+      else if (e.name === 'extra') status.say(T('rocks.extra'));
       else if (e.name === 'over') finish();
     });
     st.events.length = 0;
@@ -225,11 +225,11 @@
 
   function draw() {
     if (!ctx) return;
-    ctx.fillStyle = '#080c18'; ctx.fillRect(0, 0, SIZE, SIZE);
+    ctx.fillStyle = '#0e0e10'; ctx.fillRect(0, 0, SIZE, SIZE);
     stars.forEach(function (s) { ctx.fillStyle = 'rgba(255,255,255,' + s[3] + ')'; ctx.fillRect(s[0], s[1], s[2], s[2]); });
     ctx.lineJoin = 'round'; ctx.lineWidth = 2;
     st.rocks.forEach(function (r) {
-      wrapped(r.x, r.y, r.r, function (x, y) { poly(x, y, r.rot, r.r, r.shape); ctx.fillStyle = 'rgba(120,150,200,0.22)'; ctx.fill(); ctx.strokeStyle = '#a9bde0'; ctx.stroke(); });
+      wrapped(r.x, r.y, r.r, function (x, y) { poly(x, y, r.rot, r.r, r.shape); ctx.fillStyle = 'rgba(200,198,190,0.16)'; ctx.fill(); ctx.strokeStyle = '#c8c6be'; ctx.stroke(); });
     });
     if (st.saucer) {
       var sc = st.saucer;
@@ -250,40 +250,49 @@
     }
   }
 
-  function showSheet(title, text, label) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; Play.openSheet(els.sheet, '#rk-go'); }
-  function clearHeld() { Object.keys(held).forEach(function (k) { held[k] = false; keyHeld[k] = false; }); }
+  function clearHeld() { Object.keys(held).forEach(function (k) { held[k] = false; keyHeld[k] = false; }); if (pad) pad.release(); }
+  // The ready line: a tap or a key starts. Armed again after a game, once the end sheet is up.
+  function arm() {
+    if (armed) armed.cancel();
+    armed = Play.ready({ say: status.say, target: pad.stage, start: begin, touch: T('rocks.readyTouch'), keys: T('rocks.readyKeys') });
+  }
   function begin() {
-    st = createState(); mode = 'playing'; els.msg.textContent = ''; clearHeld();
-    Play.closeSheet(els.sheet); els.pause.disabled = false; hud(); draw(); loop.start();
+    if (armed) armed.cancel();
+    st = createState(); mode = 'playing'; status.say(''); clearHeld();
+    Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); loop.start();
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); showSheet('Paused', 'Resume when you are ready.', 'Resume'); }
-  function resume() { mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); Play.pauseLabel(els.pause, true); status.say(T('play.paused')); }
+  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
+  function toggle() { if (mode === 'playing') pause(); else resume(); }
   function finish() {
-    mode = 'over'; loop.stop(); els.pause.disabled = true; clearHeld();
-    var text = st.score + ' points, wave ' + st.wave + '.';
-    if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); text += ' A new best.'; }
-    hud(); draw(); showSheet('Game over', text, 'Play again');
+    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); clearHeld();
+    if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); }
+    hud(); draw();
+    ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(st.score)], [T('play.wave'), Play.num(st.wave)]] });
+    setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
   }
-  els.go.addEventListener('click', function () { if (mode === 'paused') resume(); else begin(); });
-  els.pause.addEventListener('click', pause);
+  els.newBtn.addEventListener('click', begin);
+  els.pause.addEventListener('click', toggle);
+  els.cv.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
   Play.onHidden(pause);
-
-  [['rk-left', 'left'], ['rk-right', 'right'], ['rk-thrust', 'thrust'], ['rk-fire', 'fire']].forEach(function (p) {
-    Play.hold($(p[0]), function (down) { held[p[1]] = down; });
+  ZimiShell.game({
+    inProgress: function () { return mode === 'playing' || mode === 'paused'; },
+    stats: function () { return best.score ? [[T('play.best'), Play.num(best.score)]] : []; }
   });
+
+  pad = Play.pad(els.cv, { dirs: ['left', 'right'], actions: [{ name: 'thrust', label: T('play.thrust') }, { name: 'fire', label: T('play.fire') }], on: function (name, down) { held[name] = down; } });
   var KEY = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ArrowUp: 'thrust', w: 'thrust', W: 'thrust', ' ': 'fire' };
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (!els.sheet.hidden) { if (e.key === 'Escape' && mode === 'paused') resume(); return; }
+    if (document.querySelector('.ar-sheet:not([hidden])')) return;
     var k = KEY[e.key];
     if (k) { e.preventDefault(); keyHeld[k] = true; }
-    else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); pause(); }
+    else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (mode === 'playing' || mode === 'paused') toggle(); }
   });
   document.addEventListener('keyup', function (e) { var k = KEY[e.key]; if (k) keyHeld[k] = false; });
   window.addEventListener('blur', clearHeld);
 
   window.addEventListener('resize', layout);
-  layout(); hud();
-  showSheet('Rocks', 'Turn, thrust and shoot. Rocks split into smaller rocks; saucers shoot back. Arrow keys and Space, or the buttons below the screen.', 'Start');
+  layout(); hud(); arm();
   root.__rocks = { get st() { return st; }, get mode() { return mode; } };
 })(this);

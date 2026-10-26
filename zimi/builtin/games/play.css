@@ -45,10 +45,14 @@
 .pl-pad .pl-key { width: 56px; height: 56px; min-width: 56px; min-height: 56px; padding: 0; font-size: var(--fs-body); }
 .pl-pad .pl-act { width: auto; min-width: 72px; padding: 0 var(--sp-3); border-radius: 28px; }
 .pl-pad [data-pad="up"] { grid-area: up; } .pl-pad [data-pad="down"] { grid-area: down; } .pl-pad [data-pad="left"] { grid-area: left; } .pl-pad [data-pad="right"] { grid-area: right; }
+/* A desktop with a keyboard and a mouse has no use for the pad. */
+@media (min-width: 700px) and (pointer: fine) { .pl-pad { display: none; } }
 @media (orientation: landscape) and (max-height: 520px) {
   .pl-stage { grid-template-columns: auto 1fr auto; grid-template-areas: "padl field padr"; max-width: none; align-items: center; column-gap: var(--sp-4); }
   .pl-pad-r { align-content: center; grid-auto-flow: row; }
   .pl-pad-l { align-content: center; }
+  .pl-main { gap: var(--sp-1); padding-top: var(--sp-1); padding-bottom: var(--sp-1); }
+  .pl-msg { min-height: 0; }
 }
 .pl-pick { display: flex; flex-direction: column; gap: 6px; }
 .pl-opt { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-chip); cursor: pointer; }
