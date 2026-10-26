@@ -324,5 +324,151 @@
     return { scale: s, ctx: ctx };
   };
 
+  // ── the arcade page: what every arcade game's page wires the same way ──
+  // The ready line ("Tap to start") and arming it again after a game, the key map and touch pad, Pause (the button, P and
+  // Escape, the tab going hidden, a tap on the playfield to go on), the New button, the resize, the HUD strip, the end sheet
+  // and the saved game that comes back paused. A game keeps its rules, its drawing and what it says; it hands over:
+  //   els          { cv, msg, pause, newBtn, ...the HUD cells }
+  //   bestKey      the localStorage key of its best score (none: no Best stat, no best kept)
+  //   state()      the game's current state object; layout() fits the canvas and draws; draw(); hud() or HUD cells named
+  //                score, best, lives, wave or level in els (the default hud sets whichever of them there are)
+  //   ready        'rocks' (the ids rocks.readyTouch and rocks.readyKeys) or a function returning { touch, keys, start }
+  //   newRun(arg)  makes a fresh state for a new run and returns what the status line says (default nothing)
+  //   idle()       the state to show before the first run (a game with no state of its own to rest on omits it)
+  //   keys         { ArrowLeft: 'left', ' ': 'fire' ... } held while down, read as page.input(); pad { dirs, actions } is the
+  //                touch pad (its keys set the same names; on() replaces that, swipe: false as for Play.pad)
+  //   release()    more to let go of when the game pauses or ends; resumeOnStage: a tap on the pad's stage also goes on
+  //   snapshot()   the state to keep (JSON); restore(saved, d) lays it back and may return false to refuse it
+  //   endSaved     keep the end sheet's stats with the saved game instead of rebuilding them from the state
+  //   stats(), result, inProgress, onFinish, refresh, pack(d): the end sheet's stats, 'win', the modes that count as a game in
+  //                progress, a hook at the end, how to show the state again, and what else goes into the saved game
+  // Then page.run(update) makes the 60 Hz loop, page.start() (last) shows the first screen and registers the saved game.
+  // The page's own: mode ('ready', 'playing', 'paused', 'over'), best, status, pad, runId, begin(), pause(), resume(), finish().
+  var ARM_MS = 650;
+  Play.arcadePage = function (o) {
+    var els = o.els, KEY = o.keys, held = {}, keyHeld = {}, armed = null, lastEnd = null, inProgress = o.inProgress || ['playing', 'paused'];
+    var status = Play.status(els.msg);
+    var page = { mode: 'ready', runId: 0, status: status, best: o.bestKey ? Play.load(o.bestKey, { score: 0 }) : null, pad: null, loop: null };
+    if (KEY) Object.keys(KEY).forEach(function (k) { held[KEY[k]] = keyHeld[KEY[k]] = false; });
+    page.input = function () { var r = {}; Object.keys(held).forEach(function (k) { r[k] = held[k] || keyHeld[k]; }); return r; };
+    if (o.pad) page.pad = Play.pad(els.cv, Object.assign({ on: function (name, down) { held[name] = down; } }, o.pad));
+
+    function release() {
+      Object.keys(held).forEach(function (k) { held[k] = keyHeld[k] = false; });
+      if (page.pad) page.pad.release();
+      if (o.release) o.release();
+    }
+    page.hud = function () {
+      if (o.hud) { o.hud(); return; }
+      var st = o.state();
+      els.score.textContent = Play.num(st.score); els.best.textContent = Play.num(Math.max(page.best.score, st.score)); els.lives.textContent = Play.num(Math.max(0, st.lives));
+      if (els.wave) els.wave.textContent = Play.num(st.wave);
+      if (els.level) els.level.textContent = Play.num(st.level);
+    };
+    page.refresh = function () { if (o.refresh) o.refresh(); else { page.hud(); o.draw(); } };
+    page.run = function (update) { page.loop = Play.loop(update, function () { o.draw(); page.hud(); }, 60); return page.loop; };
+
+    // The ready line; r overrides its words and what a tap starts (the next lander waits for proceed, not begin).
+    page.arm = function (r) {
+      r = (typeof r === 'function' ? r() : r) || (typeof o.ready === 'function' ? o.ready() : { touch: T(o.ready + '.readyTouch'), keys: T(o.ready + '.readyKeys') });
+      if (armed) armed.cancel();
+      armed = Play.ready({ say: status.say, target: page.pad ? page.pad.stage : els.cv, start: r.start || page.begin, touch: r.touch, keys: r.keys });
+    };
+    // Once a sheet is up: arm again if the game is still in that mode.
+    page.armLater = function (mode, r) { setTimeout(function () { if (page.mode === mode) page.arm(r); }, ARM_MS); };
+
+    page.begin = function (arg) {
+      if (armed) armed.cancel();
+      var say = o.newRun(arg);
+      page.runId = Play.runId(); page.mode = 'playing'; status.say(say || '');
+      if (KEY) release();
+      Play.pauseLabel(els.pause, false); els.pause.disabled = false; page.refresh(); page.loop.start();
+    };
+    page.pause = function () {
+      if (page.mode !== 'playing') return;
+      page.mode = 'paused'; page.loop.stop(); release(); Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
+    };
+    page.resume = function () {
+      if (page.mode !== 'paused') return;
+      page.mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); page.loop.start();
+    };
+    function toggle() { if (page.mode === 'playing') page.pause(); else page.resume(); }
+    // The loop stops, input lets go, and the screen shows where it ended (a landing, before the next lander).
+    page.halt = function () { page.loop.stop(); release(); page.refresh(); };
+    page.keepBest = function () {
+      var st = o.state();
+      if (page.best && st.score > page.best.score) { page.best.score = st.score; Play.save(o.bestKey, page.best); }
+    };
+    function endStats() {
+      var st = o.state();
+      return o.stats ? o.stats() : [[T('play.score'), Play.num(st.score)], [T('play.best'), Play.num(page.best.score)]];
+    }
+    function showEnd(stats) {
+      window.ZimiShell.endSheet({ result: o.result || 'over', stats: stats || endStats() });
+      page.armLater('over');
+    }
+    page.finish = function () {
+      page.mode = 'over'; page.loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); release();
+      page.keepBest();
+      if (o.onFinish) o.onFinish();
+      lastEnd = { stats: endStats() };
+      page.refresh(); showEnd(lastEnd.stats);
+    };
+
+    els.newBtn.addEventListener('click', function () { page.begin(); });
+    els.pause.addEventListener('click', toggle);
+    (o.resumeOnStage ? page.pad.stage : els.cv).addEventListener('pointerdown', function () { if (page.mode === 'paused') page.resume(); });
+    Play.onHidden(page.pause);
+    var game = { inProgress: function () { return inProgress.indexOf(page.mode) >= 0; } };
+    if (page.best) game.stats = function () { return o.alwaysBest || page.best.score ? [[T('play.best'), Play.num(page.best.score)]] : []; };
+    window.ZimiShell.game(game);
+
+    document.addEventListener('keydown', function (e) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (document.querySelector('.ar-sheet:not([hidden])')) return;
+      var k = KEY && KEY[e.key];
+      if (k) { e.preventDefault(); keyHeld[k] = true; }
+      else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (page.mode === 'playing' || page.mode === 'paused') toggle(); }
+    });
+    if (KEY) {
+      document.addEventListener('keyup', function (e) { var k = KEY[e.key]; if (k) keyHeld[k] = false; });
+      window.addEventListener('blur', release);
+    }
+
+    // A run in progress or over is kept; it comes back paused (or on its end sheet).
+    function save() {
+      var m = page.mode, d;
+      if (m === 'ready') return null;
+      if (o.endSaved) return m === 'over' ? (lastEnd ? { end: lastEnd } : null) : m === 'playing' || m === 'paused' ? { st: o.snapshot() } : null;
+      d = { runId: page.runId, over: m === 'over', st: o.snapshot() };
+      if (o.pack) o.pack(d);
+      return d;
+    }
+    function load(d) {
+      if (!d) return false;
+      if (o.endSaved && d.end) {
+        if (armed) armed.cancel();
+        if (o.idle) o.idle();
+        page.mode = 'over'; lastEnd = d.end; page.refresh(); showEnd(d.end.stats || d.end);
+        return true;
+      }
+      if (!d.st || o.restore(d.st, d) === false) return false;
+      if (armed) { armed.cancel(); armed = null; }
+      if (d.runId !== undefined) page.runId = d.runId;
+      page.refresh();
+      if (d.over) { page.mode = 'over'; els.pause.disabled = true; setTimeout(function () { showEnd(); }, 0); return true; }
+      page.mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
+      return true;
+    }
+    page.start = function () {
+      window.addEventListener('resize', o.layout);
+      o.layout();
+      if (o.idle) { o.idle(); page.mode = 'ready'; page.refresh(); } else page.hud();
+      page.arm();
+      window.ZimiShell.persist({ save: save, load: load });
+    };
+    return page;
+  };
+
   root.ArcadePlay = Play;
 })(this);
