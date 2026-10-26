@@ -6,60 +6,29 @@
 <title>Checkers - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="boardui.css">
+<link rel="stylesheet" href="world.css">
 <link rel="stylesheet" href="checkers.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body>
 <header class="ar-bar">
-  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <a class="ar-back" href="index.html" data-t-aria="shell.back" aria-label="Back">&lsaquo;</a>
   <h1>Checkers</h1>
-  <button class="ar-btn" id="ck-undo" type="button" disabled>Undo</button>
-  <button class="ar-btn" id="ck-new" type="button" aria-haspopup="dialog">New game</button>
+  <button class="ar-btn" id="wk-undo" type="button" disabled data-t="board.undo">Undo</button>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="bg-main">
-  <div class="bg-score" aria-label="Score"><span><i class="bg-dot ck-r"></i> Red <b id="ck-red">12</b></span><span><i class="bg-dot ck-w"></i> White <b id="ck-white">12</b></span></div>
-  <div class="bg-board ck-board" id="ck-board" role="group" aria-label="Checkers board"></div>
-  <p class="bg-status" id="ck-status" role="status" aria-live="polite"></p>
-  <p class="bg-stats" id="ck-stats"></p>
-  <p class="bg-help">Move diagonally forward. You must jump an opponent piece when you can. Reach the far row to be crowned. Arrow keys move, Enter selects, U undoes, N starts a new game.</p>
+  <p class="bg-status" id="wk-status"></p>
+  <div class="bg-score" id="wk-score" data-t-aria="go.score" aria-label="Score"></div>
+  <div class="bg-board ck-board" id="ck-board" role="group" data-t-aria="checkers.boardLabel" aria-label="Checkers board"></div>
+  <p class="bg-stats" id="wk-stats"></p>
 </main>
 
-<div class="ar-sheet" id="ck-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="ck-menu-title">
-  <div class="ar-sheet-card">
-    <h2 id="ck-menu-title">New game</h2>
-    <fieldset class="bg-field"><legend>Opponent</legend><div class="bg-chips" id="ck-f-mode">
-      <label class="bg-chip"><input type="radio" name="ck-mode" value="cpu"><span>Computer</span></label>
-      <label class="bg-chip"><input type="radio" name="ck-mode" value="two"><span>Two players</span></label>
-    </div></fieldset>
-    <fieldset class="bg-field" id="ck-f-level"><legend>Level</legend><div class="bg-chips">
-      <label class="bg-chip"><input type="radio" name="ck-level" value="easy"><span>Easy</span></label>
-      <label class="bg-chip"><input type="radio" name="ck-level" value="medium"><span>Medium</span></label>
-      <label class="bg-chip"><input type="radio" name="ck-level" value="hard"><span>Hard</span></label>
-    </div></fieldset>
-    <fieldset class="bg-field" id="ck-f-side"><legend>You play</legend><div class="bg-chips">
-      <label class="bg-chip"><input type="radio" name="ck-side" value="red"><span>Red (first)</span></label>
-      <label class="bg-chip"><input type="radio" name="ck-side" value="white"><span>White</span></label>
-    </div></fieldset>
-    <label class="bg-check"><input type="checkbox" id="ck-hints"> Show legal moves</label>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="ck-cancel" type="button">Cancel</button>
-      <button class="ar-btn" id="ck-start" type="button" aria-pressed="true">Start</button>
-    </div>
-  </div>
-</div>
-
-<div class="ar-sheet" id="ck-result" hidden role="dialog" aria-modal="true" aria-labelledby="ck-result-title">
-  <div class="ar-sheet-card">
-    <h2 id="ck-result-title">Game over</h2>
-    <p id="ck-result-text"></p>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="ck-close" type="button">Look at the board</button>
-      <button class="ar-btn" id="ck-again" type="button" aria-pressed="true">Play again</button>
-    </div>
-  </div>
-</div>
 <script src="boardkit.js"></script>
+<script src="boardui.js"></script>
+<script src="worldkit.js"></script>
 <script src="checkers.js"></script>
 <!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
 <!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q2180601">About Checkers</a></footer><!-- /zimi-about -->

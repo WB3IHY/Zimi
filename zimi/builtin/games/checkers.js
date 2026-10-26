@@ -182,43 +182,42 @@
   root.CheckersEngine = Engine;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  if (typeof document === 'undefined') return;
-  var BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
-  var SETTINGS_KEY = 'checkers.settings', STATS_KEY = 'checkers.stats';
-  var settings = BK.load(SETTINGS_KEY, {});
-  if (!LEVELS[settings.level]) settings.level = 'medium';
-  if (settings.mode !== 'two') settings.mode = 'cpu';
-  if (settings.side !== 'white') settings.side = 'red';
-  if (settings.hints !== false) settings.hints = true;
-  var stats = BK.load(STATS_KEY, {});
+  if (typeof document === 'undefined' || !root.BoardUI) return;
+  var BK = root.BoardKit, WK = root.WorldKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var COMPUTER_DELAY_MS = 350;
   var CROWN = '<svg class="ck-crown" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16l1.5-10-5 4L12 5 7.5 12l-5-4z" fill="currentColor"/><rect x="4" y="19" width="16" height="2.4" rx="1" fill="currentColor"/></svg>';
+  var G = WK.create({
+    id: 'checkers',
+    options: WK.standardOptions({ first: 'checkers.red.first', second: 'board.white' }),
+    onNew: newGame, onUndo: undo
+  });
+  var score = WK.scoreBar($('wk-score'), [{ color: 'var(--ck-red)' }, { color: 'var(--ck-white)' }]);
+  var board = $('ck-board'), cells = [], game, history = [], sel = -1, prefix = [], legal = [], lastSquares = [], flip = false, seen = {};
 
-  var els = { board: $('ck-board'), status: $('ck-status'), red: $('ck-red'), white: $('ck-white'), undo: $('ck-undo'), stats: $('ck-stats') };
-  var cells = [], game, history = [], thinking = 0, over = false, sel = -1, prefix = [], legal = [], lastSquares = [], flip = false, seen = {};
-
-  var watch = null, watchSaved = null;   // Watch and learn: the driver's controller, and the settings to give back
-  function human(p) { if (watch) return false; return settings.mode === 'two' || p === (settings.side === 'red' ? RED : WHITE); }
-  function sideName(p) { return p === RED ? 'Red' : 'White'; }
-  function who(p) { return settings.mode === 'two' ? sideName(p) : human(p) ? 'You' : 'Computer'; }
+  function idxOf(p) { return p === RED ? 0 : 1; }
+  function sideName(p) { return T(p === RED ? 'board.red' : 'board.white'); }
+  function nameOf(p) { return G.vsComputer() && !G.watching ? (G.human(idxOf(p)) ? T('board.you') : T('board.theComputer')) : sideName(p); }
+  function humanNow() { return !G.over && !G.thinking && G.human(idxOf(game.turn)); }
+  // Show legal moves is the shell's Hints setting (Menu > Settings), not a New game option.
+  function hintsOn() { return !root.ZimiShell || root.ZimiShell.settings.get('hints') !== 'off'; }
   function sqAt(d) { return flip ? SIZE - 1 - d : d; }
   function coord(i) { return 'abcdefgh'[i % N] + (N - ((i / N) | 0)); }
 
   function buildBoard() {
-    els.board.textContent = '';
+    board.textContent = '';
     cells = [];
     for (var d = 0; d < SIZE; d++) {
       var c = document.createElement('button');
       c.type = 'button'; c.className = 'bg-sq'; c.dataset.d = d;
       c.addEventListener('click', onSquare);
-      els.board.appendChild(c); cells.push(c);
+      board.appendChild(c); cells.push(c);
     }
-    BK.gridNav(els.board, cells, N);
+    BK.gridNav(board, cells, N);
   }
 
   // The squares this click could go to next, given the path so far.
   function candidates() {
-    if (sel < 0) return [];
+    if (sel < 0) return {};
     var out = {};
     legal.forEach(function (m) {
       if (m.from !== sel || prefix.some(function (q, k) { return m.path[k] !== q; })) return;
@@ -228,56 +227,39 @@
   }
 
   function paint() {
-    var b = game.board, cand = candidates(), movable = {}, i;
-    if (!over && !thinking && human(game.turn)) legal.forEach(function (m) { movable[m.from] = 1; });
+    var b = game.board, cand = candidates(), movable = {}, i, hints = hintsOn();
+    if (humanNow()) legal.forEach(function (m) { movable[m.from] = 1; });
     for (var d = 0; d < SIZE; d++) {
       i = sqAt(d);
       var c = cells[d], v = b[i], piece = c.firstChild;
       var cls = 'bg-sq' + (isDark(i) ? ' dk' : '');
       if (lastSquares.indexOf(i) >= 0) cls += ' last';
       if (i === sel) cls += ' sel';
-      if (cand.hasOwnProperty(i) && settings.hints) cls += ' hint' + (cand[i] ? ' cap' : '');
+      if (cand.hasOwnProperty(i) && hints) cls += ' hint' + (cand[i] ? ' cap' : '');
       c.className = cls;
-      var want = v ? 'ck-pc ' + (owner(v) === RED ? 'r' : 'w') + (isKing(v) ? ' k' : '') + (movable[i] && settings.hints && sel < 0 ? ' mv' : '') : '';
+      var want = v ? 'ck-pc ' + (owner(v) === RED ? 'r' : 'w') + (isKing(v) ? ' k' : '') + (movable[i] && hints && sel < 0 ? ' mv' : '') : '';
       if (want) {
         if (!piece) { piece = document.createElement('span'); c.appendChild(piece); }
         piece.className = want;
         piece.innerHTML = isKing(v) ? CROWN : '';
       } else if (piece) c.removeChild(piece);
-      c.setAttribute('aria-label', coord(i) + ', ' + (v ? (owner(v) === RED ? 'red ' : 'white ') + (isKing(v) ? 'king' : 'man') : cand.hasOwnProperty(i) ? 'move here' : 'empty'));
+      var what = v ? T(owner(v) === RED ? (isKing(v) ? 'checkers.redKing' : 'checkers.redMan') : (isKing(v) ? 'checkers.whiteKing' : 'checkers.whiteMan')) : T(cand.hasOwnProperty(i) ? 'checkers.moveHere' : 'go.pt.empty');
+      c.setAttribute('aria-label', T('reversi.sq', { sq: coord(i), what: what }));
     }
     var k = count(b);
-    els.red.textContent = k.red; els.white.textContent = k.white;
-    els.undo.disabled = !history.length || !!thinking;
+    score(G.names(sideName(RED), sideName(WHITE)), [k.red, k.white], G.over ? -1 : idxOf(game.turn));
+    G.setUndo(history.length > 0 && !G.watching);
   }
 
-  function say(text, busy) {
-    els.status.textContent = '';
-    if (busy) { var s = document.createElement('span'); s.className = 'bg-spin'; els.status.appendChild(s); }
-    els.status.appendChild(document.createTextNode(text));
-  }
-  function showStats() {
-    var s = stats[settings.level] || { w: 0, l: 0, d: 0 };
-    els.stats.textContent = settings.mode === 'cpu' ? 'vs ' + settings.level + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
-  }
   function turnLine() {
     var p = game.turn, mustJump = legal.length && legal[0].caps.length;
-    if (!human(p)) return 'Computer is thinking';
-    return (settings.mode === 'two' ? sideName(p) + ' to move' : 'Your turn') + (mustJump ? ', you must capture' : '');
+    if (G.watching || !G.vsComputer()) return T(mustJump ? 'checkers.toMoveJump' : 'board.toMove', { name: sideName(p) });
+    if (!G.human(idxOf(p))) return T('shell.thinking');
+    return T(mustJump ? 'checkers.yourTurnJump' : 'board.yourTurn');
   }
 
-  function finish(msg, result) { // result: 'win' or 'loss' for the human, or 'draw'
-    over = true;
-    if (root.ZimiShell) root.ZimiShell.turn(false);
-    if (watch) { paint(); say(msg); watch.finish(msg + ' That was the whole game. Press Done to play one yourself.'); return; }
-    if (settings.mode === 'cpu') {
-      var s = stats[settings.level] = stats[settings.level] || { w: 0, l: 0, d: 0 };
-      if (result === 'win') s.w++; else if (result === 'loss') s.l++; else s.d++;
-      BK.save(STATS_KEY, stats);
-    }
-    paint(); say(msg); showStats();
-    $('ck-result-text').textContent = msg;
-    resultSheet.open($('ck-again'));
+  function finish(text, result, name) { // result: 'win' or 'loss' for the human, or 'draw'
+    G.finish(text, result === 'win' ? 'w' : result === 'loss' ? 'l' : result === 'draw' ? 'd' : null, name);
   }
 
   function nextPly() {
@@ -286,16 +268,17 @@
     var p = game.turn, k = key(game.board, p);
     seen[k] = (seen[k] || 0) + 1;
     if (!legal.length) {
-      var winner = other(p);
-      finish(settings.mode === 'two' ? sideName(winner) + ' wins, ' + sideName(p) + ' has no move.' : human(winner) ? 'You win, the computer has no move.' : 'The computer wins, you have no move.', human(winner) ? 'win' : 'loss');
+      var winner = other(p), two = !G.vsComputer();
+      paint();
+      finish(T(two ? 'checkers.noMove' : G.human(idxOf(winner)) ? 'checkers.noMove.you' : 'checkers.noMove.computer', { name: sideName(p) }), two ? null : G.human(idxOf(winner)) ? 'win' : 'loss', sideName(winner));
       return;
     }
-    if (seen[k] >= 3) { finish('A draw by repetition.', 'draw'); return; }
-    if (game.quiet >= QUIET_LIMIT) { finish('A draw: forty moves each with no capture or man move.', 'draw'); return; }
+    if (seen[k] >= 3) { paint(); finish(T('xiangqi.why.repetition'), 'draw'); return; }
+    if (game.quiet >= QUIET_LIMIT) { paint(); finish(T('checkers.why.quiet'), 'draw'); return; }
     paint();
-    say(watch ? sideName(p) + ' to move' : turnLine(), !human(p) && !watch);
-    if (root.ZimiShell) root.ZimiShell.turn(human(p), timeUp, history.length);
-    if (!human(p)) scheduleComputer();
+    G.say(turnLine(), !G.human(idxOf(p)) && !G.watching);
+    if (root.ZimiShell && !G.watching) root.ZimiShell.turn(G.human(idxOf(p)), timeUp, history.length);
+    if (!G.human(idxOf(p))) scheduleComputer();
   }
 
   function commit(m) {
@@ -307,123 +290,81 @@
   }
 
   function scheduleComputer() {
-    var token = ++thinking;
     paint();
-    setTimeout(function () {
-      if (token !== thinking) return;
-      var info = {}, m = chooseMove(game.board, game.turn, settings.level, null, info);
-      thinking = 0;
+    G.later(function () {
+      var info = {}, m = chooseMove(game.board, game.turn, G.settings.level, null, info);
       if (!m) return;
-      if (!watch) { commit(m); return; }
-      var mine = watch, why = root.ZimiExplain.checkers(Engine, game.board, game.turn, m, { score: info.score });
-      mine.offer(why.text, function () { if (watch === mine && !over) commit(m); });
+      var ctl = G.watching;
+      if (!ctl) { commit(m); return; }
+      var why = root.ZimiExplain.checkers(Engine, game.board, game.turn, m, { score: info.score });
+      ctl.offer(why.text, function () { if (G.watching === ctl && !G.over) commit(m); });
     }, COMPUTER_DELAY_MS);
   }
 
   // The move timer ran out: a quick computer choice is played for the person.
   function timeUp() {
-    if (over || thinking || !human(game.turn)) return;
+    if (G.over || G.thinking || !G.human(idxOf(game.turn))) return;
     var m = chooseMove(game.board, game.turn, 'easy');
     if (!m) return;
     sel = -1; prefix = [];
-    say('Time ran out. A move was played for you.');
+    G.say(T('board.timeUp'));
     commit(m);
   }
 
   function onSquare(e) {
-    if (over || thinking || !human(game.turn)) return;
+    if (!humanNow()) return;
     var i = sqAt(+e.currentTarget.dataset.d), cand = candidates();
     if (sel >= 0 && cand.hasOwnProperty(i)) {
       prefix = prefix.concat(i);
       var full = legal.filter(function (m) { return m.from === sel && m.path.length === prefix.length && prefix.every(function (q, k) { return m.path[k] === q; }); });
       if (full.length) { commit(full[0]); return; }
-      paint(); say('Keep jumping');
+      paint(); G.say(T('checkers.keepJumping'));
       return;
     }
     if (prefix.length) { paint(); return; } // mid-capture: only the next landing counts
     if (game.board[i] && owner(game.board[i]) === game.turn) {
-      if (legal.some(function (m) { return m.from === i; })) { sel = sel === i ? -1 : i; paint(); say(sel < 0 ? turnLine() : 'Choose where to move'); }
-      else { say(legal[0].caps.length ? 'You must capture: pick a piece that can jump' : 'That piece cannot move'); }
+      if (legal.some(function (m) { return m.from === i; })) { sel = sel === i ? -1 : i; paint(); G.say(sel < 0 ? turnLine() : T('checkers.chooseWhere')); }
+      else G.refuse(cells[+e.currentTarget.dataset.d], T(legal[0].caps.length ? 'checkers.mustCapture' : 'checkers.cantMove'));
       return;
     }
-    sel = -1; paint(); say(turnLine());
+    sel = -1; paint(); G.say(turnLine());
   }
 
   function undo() {
-    if (!history.length || watch) return;
-    thinking = 0; over = false;
+    if (!history.length || G.watching) return;
+    G.cancel(); G.over = false;
     var h;
-    do { h = history.pop(); } while (history.length && settings.mode === 'cpu' && !human(h.turn));
+    do { h = history.pop(); } while (history.length && G.vsComputer() && !G.human(idxOf(h.turn)));
     game = { board: h.board, turn: h.turn, quiet: h.quiet }; lastSquares = h.last; seen = h.seen; seen[key(h.board, h.turn)]--; // nextPly counts it again
     nextPly();
   }
 
   function newGame() {
-    thinking = 0; over = false; history = []; lastSquares = []; seen = {};
-    flip = settings.mode === 'cpu' && settings.side === 'white';
+    history = []; lastSquares = []; seen = {};
+    flip = G.vsComputer() && !G.watching && G.settings.side === 'second';
     buildBoard();
     game = { board: initial(), turn: RED, quiet: 0 };
-    resultSheet.close();
-    showStats();
     nextPly();
   }
 
-  // ── bar, menu, keys ──
-  var menu = BK.sheet($('ck-sheet')), resultSheet = BK.sheet($('ck-result'));
-  function syncMenu() {
-    BK.chipSet($('ck-f-mode'), settings.mode); BK.chipSet($('ck-f-level'), settings.level);
-    BK.chipSet($('ck-f-side'), settings.side); $('ck-hints').checked = settings.hints;
-    refreshMenu();
-  }
-  // Opponent vs two players: the level and side only matter against the computer.
-  function refreshMenu() {
-    var two = BK.chipValue($('ck-f-mode')) === 'two';
-    $('ck-f-level').disabled = two; $('ck-f-side').disabled = two;
-    $('ck-f-level').style.opacity = $('ck-f-side').style.opacity = two ? 0.45 : 1;
-  }
-  $('ck-new').addEventListener('click', function () { syncMenu(); menu.open(); });
-  $('ck-f-mode').addEventListener('change', refreshMenu);
-  $('ck-cancel').addEventListener('click', menu.close);
-  $('ck-start').addEventListener('click', function () {
-    settings.mode = BK.chipValue($('ck-f-mode')); settings.level = BK.chipValue($('ck-f-level'));
-    settings.side = BK.chipValue($('ck-f-side')); settings.hints = $('ck-hints').checked;
-    BK.save(SETTINGS_KEY, settings);
-    menu.close(); newGame();
-  });
-  $('ck-again').addEventListener('click', newGame);
-  $('ck-close').addEventListener('click', function () { resultSheet.close(); });
-  els.undo.addEventListener('click', undo);
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet,input')) return;
-    if (e.key === 'n' || e.key === 'N') { syncMenu(); menu.open(); } else if (e.key === 'u' || e.key === 'U') undo();
-    else if (e.key === 'Escape' && sel >= 0 && !prefix.length) { sel = -1; paint(); }
+    if (e.key === 'Escape' && sel >= 0 && !prefix.length) { sel = -1; paint(); }
   });
 
-  if (root.ZimiShell) root.ZimiShell.game({
-    moveTimer: true, hints: true,
-    stats: function () { var s = stats[settings.level] || { w: 0, l: 0, d: 0 }; return 'Against the computer, ' + settings.level + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn'; },
-    inProgress: function () { return !over && history.length > 0; },
-    watch: {
-      script: 'explain-checkers.js',
-      start: function (ctl) {
-        watchSaved = { mode: settings.mode, level: settings.level, side: settings.side };
-        settings.mode = 'cpu'; settings.level = 'medium'; settings.side = 'red';
-        watch = ctl; newGame();
-        ctl.say('Red moves first. The computer plays both sides. Jumps are compulsory.');
-      },
-      stop: function (kind) {
-        watch = null; thinking = 0;
-        var turn = game.turn;
-        settings.mode = 'cpu'; settings.level = watchSaved.level; settings.side = watchSaved.side;
-        if (kind === 'takeover') { settings.side = turn === RED ? 'red' : 'white'; flip = settings.side === 'white'; buildBoard(); seen[key(game.board, turn)]--; nextPly(); }
-        else { settings.mode = watchSaved.mode; if (kind === 'stop') newGame(); }
-      }
-    }
+  if (root.ZimiShell) {
+    root.ZimiShell.settings.on(function (k) { if (k === 'hints' || k === '*') paint(); });
+    root.ZimiShell.game({ moveTimer: true, hints: true, inProgress: function () { return !G.over && history.length > 0; } });
+  }
+  G.registerWatch({
+    script: 'explain-checkers.js', unit: 'move', level: 'medium', intro: 'checkers.watch.intro',
+    whoseTurn: function () { return idxOf(game.turn); },
+    resume: function () { flip = G.settings.side === 'second'; buildBoard(); seen[key(game.board, game.turn)]--; nextPly(); }
   });
 
-  newGame();
+  G.newGame();
 
   if (new URLSearchParams(location.search).has('debug')) {
-    root.__ck = { game: function () { return game; }, engine: Engine, settings: settings };
+    root.__ck = { game: function () { return game; }, engine: Engine, settings: G.settings };
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this);

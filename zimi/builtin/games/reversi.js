@@ -156,99 +156,76 @@
   root.ReversiEngine = Engine;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  if (typeof document === 'undefined') return;
-  var BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
-  var SETTINGS_KEY = 'reversi.settings', STATS_KEY = 'reversi.stats';
-  var settings = BK.load(SETTINGS_KEY, {});
-  if (!LEVELS[settings.level]) settings.level = 'medium';
-  if (settings.mode !== 'two') settings.mode = 'cpu';
-  if (settings.side !== 'white') settings.side = 'black';
-  if (settings.hints !== false) settings.hints = true;
-  var stats = BK.load(STATS_KEY, {});
+  if (typeof document === 'undefined' || !root.BoardUI) return;
+  var BK = root.BoardKit, WK = root.WorldKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var COMPUTER_DELAY_MS = 380;
+  var G = WK.create({
+    id: 'reversi',
+    options: WK.standardOptions({ first: 'reversi.black.first', second: 'board.white' }),
+    onNew: newGame, onUndo: undo
+  });
+  var score = WK.scoreBar($('wk-score'), [{ color: 'var(--disc-b)' }, { color: 'var(--disc-w)' }]);
+  var board = $('rv-board'), cells = [], state, history = [], lastMove = -1, flipped = [];
 
-  var els = { board: $('rv-board'), status: $('rv-status'), black: $('rv-black'), white: $('rv-white'), undo: $('rv-undo'), stats: $('rv-stats') };
-  var cells = [], state, history = [], thinking = 0, lastMove = -1, flipped = [], over = false;
-
-  var watch = null, watchSaved = null;   // Watch and learn: the driver's controller, and the settings to give back
-  function human(p) { if (watch) return false; return settings.mode === 'two' || p === (settings.side === 'black' ? BLACK : WHITE); }
-  function name(p) {
-    if (settings.mode === 'two') return p === BLACK ? 'Black' : 'White';
-    return human(p) ? 'You' : 'Computer';
-  }
+  function idxOf(p) { return p === BLACK ? 0 : 1; }
+  function sideName(p) { return UI.side(p === BLACK ? 'black' : 'white'); }
+  function humanNow() { return !G.over && !G.thinking && G.human(idxOf(state.turn)); }
+  // Show legal moves is the shell's Hints setting (Menu > Settings), not a New game option.
+  function hintsOn() { return !root.ZimiShell || root.ZimiShell.settings.get('hints') !== 'off'; }
+  function nameOf(p) { return G.vsComputer() && !G.watching ? (G.human(idxOf(p)) ? T('board.you') : T('board.theComputer')) : sideName(p); }
 
   function buildBoard() {
-    els.board.textContent = '';
+    board.textContent = '';
     for (var i = 0; i < SIZE; i++) {
       var c = document.createElement('button');
       c.type = 'button'; c.className = 'bg-sq'; c.dataset.i = i;
       c.addEventListener('click', onSquare);
-      els.board.appendChild(c); cells.push(c);
+      board.appendChild(c); cells.push(c);
     }
-    BK.gridNav(els.board, cells, N);
+    BK.gridNav(board, cells, N);
   }
 
   function coord(i) { return 'abcdefgh'[i % N] + (N - ((i / N) | 0)); }
 
   function paint() {
-    var b = state.board, legal = {}, moves = over ? [] : legalMoves(b, state.turn), i;
-    if (settings.hints && human(state.turn) && !thinking) moves.forEach(function (m) { legal[m.idx] = 1; });
+    var b = state.board, legal = {}, moves = G.over ? [] : legalMoves(b, state.turn), i;
+    if (hintsOn() && humanNow()) moves.forEach(function (m) { legal[m.idx] = 1; });
     for (i = 0; i < SIZE; i++) {
       var c = cells[i], v = b[i], disc = c.firstChild;
       if (v && !disc) { disc = document.createElement('span'); c.appendChild(disc); }
       if (!v && disc) { c.removeChild(disc); disc = null; }
-      if (disc) {
-        disc.className = 'rv-disc ' + (v === BLACK ? 'b' : 'w') + (flipped.indexOf(i) >= 0 ? ' flip' : '');
-      }
+      if (disc) disc.className = 'rv-disc ' + (v === BLACK ? 'b' : 'w') + (flipped.indexOf(i) >= 0 ? ' flip' : '');
       c.className = 'bg-sq' + ((i + ((i / N) | 0)) % 2 ? ' dk' : '') + (legal[i] ? ' hint' : '') + (i === lastMove ? ' last' : '');
-      c.setAttribute('aria-label', coord(i) + ', ' + (v === BLACK ? 'black' : v === WHITE ? 'white' : legal[i] ? 'legal move' : 'empty'));
+      c.setAttribute('aria-label', T('reversi.sq', { sq: coord(i), what: T(v === BLACK ? 'reversi.black' : v === WHITE ? 'reversi.white' : legal[i] ? 'reversi.legal' : 'go.pt.empty') }));
     }
     var k = count(b);
-    els.black.textContent = k.black; els.white.textContent = k.white;
-    els.undo.disabled = !history.length || !!thinking;
+    score(G.names(sideName(BLACK), sideName(WHITE)), [k.black, k.white], G.over ? -1 : idxOf(state.turn));
+    G.setUndo(history.length > 0 && !G.watching);
   }
 
-  function say(html, busy) {
-    els.status.textContent = '';
-    if (busy) { var s = document.createElement('span'); s.className = 'bg-spin'; els.status.appendChild(s); }
-    els.status.appendChild(document.createTextNode(html));
-  }
-
-  function showStats() {
-    var s = stats[settings.level] || { w: 0, l: 0, d: 0 };
-    els.stats.textContent = settings.mode === 'cpu' ? 'vs ' + settings.level + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
+  function turnText(next) {
+    if (G.vsComputer() && !G.watching) return G.human(idxOf(next)) ? T('board.yourTurn') : T('shell.thinking');
+    return T('board.toMove', { name: sideName(next) });
   }
 
   function finish() {
-    over = true;
-    if (root.ZimiShell) root.ZimiShell.turn(false);
-    var k = count(state.board), msg;
-    if (k.black === k.white) msg = 'A draw, ' + k.black + ' each.';
-    else {
-      var w = k.black > k.white ? BLACK : WHITE, top = Math.max(k.black, k.white), low = Math.min(k.black, k.white);
-      msg = (settings.mode === 'two' ? (w === BLACK ? 'Black' : 'White') + ' wins' : human(w) ? 'You win' : 'The computer wins') + ', ' + top + ' to ' + low + '.';
-    }
-    if (watch) { paint(); say(msg); watch.finish(msg + ' That was the whole game. Press Done to play one yourself.'); return; }
-    if (settings.mode === 'cpu') {
-      var s = stats[settings.level] = stats[settings.level] || { w: 0, l: 0, d: 0 };
-      if (k.black === k.white) s.d++; else if (human(k.black > k.white ? BLACK : WHITE)) s.w++; else s.l++;
-      BK.save(STATS_KEY, stats);
-    }
-    paint(); say(msg); showStats();
-    $('rv-result-text').textContent = msg;
-    resultSheet.open($('rv-again'));
+    var k = count(state.board);
+    if (k.black === k.white) { G.finish(T('reversi.draw', { n: k.black }), 'd'); return; }
+    var w = k.black > k.white ? BLACK : WHITE, top = Math.max(k.black, k.white), low = Math.min(k.black, k.white);
+    G.finish(T('reversi.score', { top: top, low: low }), G.vsComputer() ? (G.human(idxOf(w)) ? 'w' : 'l') : null, sideName(w));
   }
 
   function afterMove() {
     var p = state.turn, next = nextTurn(state.board, p);
-    if (!next) { finish(); return; }
+    if (!next) { paint(); finish(); return; }
     var passed = next === p ? other(p) : 0;
     state.turn = next;
     paint();
-    var base = watch || settings.mode === 'two' ? (next === BLACK ? 'Black' : 'White') + ' to move' : human(next) ? 'Your turn' : 'Computer is thinking';
-    say((passed ? name(passed) + (settings.mode === 'cpu' && human(passed) ? ' have' : ' has') + ' no move and passes. ' : '') + base, !human(next) && !watch);
-    if (root.ZimiShell) root.ZimiShell.turn(human(next), timeUp, history.length);
-    if (!human(next)) scheduleComputer();
+    var line = turnText(next);
+    if (passed) line = T('reversi.passes', { name: nameOf(passed), n: G.vsComputer() && !G.watching && G.human(idxOf(passed)) ? 2 : 1, line: line });
+    G.say(line, !G.human(idxOf(next)) && !G.watching);
+    if (root.ZimiShell && !G.watching) root.ZimiShell.turn(G.human(idxOf(next)), timeUp, history.length);
+    if (!G.human(idxOf(next))) scheduleComputer();
   }
 
   function commit(idx, flips) {
@@ -260,114 +237,66 @@
   }
 
   function scheduleComputer() {
-    var token = ++thinking;
     paint();
-    setTimeout(function () {
-      if (token !== thinking) return;
-      var m = chooseMove(state.board, state.turn, settings.level);
-      thinking = 0;
+    G.later(function () {
+      var m = chooseMove(state.board, state.turn, G.settings.level);
       if (!m) return;
-      if (!watch) { commit(m.idx, m.flips); return; }
-      var mine = watch, why = root.ZimiExplain.reversi(Engine, state.board, state.turn, m);
-      mine.offer(why.text, function () { if (watch === mine && !over) commit(m.idx, m.flips); });
+      var ctl = G.watching;
+      if (!ctl) { commit(m.idx, m.flips); return; }
+      var why = root.ZimiExplain.reversi(Engine, state.board, state.turn, m);
+      ctl.offer(why.text, function () { if (G.watching === ctl && !G.over) commit(m.idx, m.flips); });
     }, COMPUTER_DELAY_MS);
   }
 
   // The move timer ran out: a quick computer choice is played for the person.
   function timeUp() {
-    if (over || thinking || !human(state.turn)) return;
+    if (G.over || G.thinking || !G.human(idxOf(state.turn))) return;
     var m = chooseMove(state.board, state.turn, 'easy');
     if (!m) return;
-    say('Time ran out. A move was played for you.');
+    G.say(T('board.timeUp'));
     commit(m.idx, m.flips);
   }
 
   function onSquare(e) {
-    if (over || thinking || !human(state.turn)) return;
+    if (!humanNow()) return;
     var i = +e.currentTarget.dataset.i, f = flipsFor(state.board, state.turn, i);
-    if (!f.length) {
-      cells[i].classList.add('bad'); setTimeout(function () { cells[i].classList.remove('bad'); }, 260);
-      return;
-    }
+    if (!f.length) { G.refuse(cells[i], T(state.board[i] ? 'reversi.taken' : 'reversi.noFlip')); return; }
     commit(i, f);
   }
 
   function undo() {
-    if (!history.length || watch) return;
-    thinking = 0; over = false; flipped = [];
+    if (!history.length || G.watching) return;
+    G.cancel(); G.over = false; flipped = [];
     var h;
-    do { h = history.pop(); } while (history.length && settings.mode === 'cpu' && !human(h.turn));
+    do { h = history.pop(); } while (history.length && G.vsComputer() && !G.human(idxOf(h.turn)));
     state = { board: h.board, turn: h.turn }; lastMove = h.last;
-    paint();
-    say(settings.mode === 'two' ? (state.turn === BLACK ? 'Black' : 'White') + ' to move' : 'Your turn');
-    if (!human(state.turn)) scheduleComputer();
+    paint(); G.say(turnText(state.turn));
+    if (!G.human(idxOf(state.turn))) scheduleComputer();
   }
 
   function newGame() {
-    thinking = 0; over = false; history = []; lastMove = -1; flipped = [];
+    history = []; lastMove = -1; flipped = [];
     state = { board: initial(), turn: BLACK };
-    resultSheet.close();
-    paint(); showStats();
-    if (human(BLACK)) say(settings.mode === 'two' ? 'Black to move' : 'Your turn. You play black');
-    else { say('Computer is thinking', true); scheduleComputer(); }
+    paint();
+    G.say(turnText(BLACK), !G.human(0) && !G.watching);
+    if (root.ZimiShell && !G.watching) root.ZimiShell.turn(G.human(0), timeUp, 0);
+    if (!G.human(0)) scheduleComputer();
   }
 
-  // ── bar, menu, keys ──
-  var menu = BK.sheet($('rv-sheet')), resultSheet = BK.sheet($('rv-result'));
-  function syncMenu() {
-    BK.chipSet($('rv-f-mode'), settings.mode); BK.chipSet($('rv-f-level'), settings.level);
-    BK.chipSet($('rv-f-side'), settings.side); $('rv-hints').checked = settings.hints;
-    refreshMenu();
+  if (root.ZimiShell) {
+    root.ZimiShell.settings.on(function (k) { if (k === 'hints' || k === '*') paint(); });
+    root.ZimiShell.game({ moveTimer: true, hints: true, inProgress: function () { return !G.over && history.length > 0; } });
   }
-  // Opponent vs two players: the level and side only matter against the computer.
-  function refreshMenu() {
-    var two = BK.chipValue($('rv-f-mode')) === 'two';
-    $('rv-f-level').disabled = two; $('rv-f-side').disabled = two;
-    $('rv-f-level').style.opacity = $('rv-f-side').style.opacity = two ? 0.45 : 1;
-  }
-  $('rv-new').addEventListener('click', function () { syncMenu(); menu.open(); });
-  $('rv-f-mode').addEventListener('change', refreshMenu);
-  $('rv-cancel').addEventListener('click', menu.close);
-  $('rv-start').addEventListener('click', function () {
-    settings.mode = BK.chipValue($('rv-f-mode')); settings.level = BK.chipValue($('rv-f-level'));
-    settings.side = BK.chipValue($('rv-f-side')); settings.hints = $('rv-hints').checked;
-    BK.save(SETTINGS_KEY, settings);
-    menu.close(); newGame();
-  });
-  $('rv-again').addEventListener('click', newGame);
-  $('rv-close').addEventListener('click', function () { resultSheet.close(); });
-  els.undo.addEventListener('click', undo);
-  document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet,input')) return;
-    if (e.key === 'n' || e.key === 'N') { syncMenu(); menu.open(); } else if (e.key === 'u' || e.key === 'U') undo();
-  });
-
-  if (root.ZimiShell) root.ZimiShell.game({
-    moveTimer: true, hints: true,
-    stats: function () { var s = stats[settings.level] || { w: 0, l: 0, d: 0 }; return 'Against the computer, ' + settings.level + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn'; },
-    inProgress: function () { return !over && history.length > 0; },
-    watch: {
-      script: 'explain-reversi.js',
-      start: function (ctl) {
-        watchSaved = { mode: settings.mode, level: settings.level, side: settings.side };
-        settings.mode = 'cpu'; settings.level = 'medium'; settings.side = 'black';
-        watch = ctl; newGame();
-        ctl.say('Black moves first. The computer plays both sides.');
-      },
-      stop: function (kind) {
-        watch = null; thinking = 0;
-        var turn = state.turn;
-        settings.mode = 'cpu'; settings.level = watchSaved.level; settings.side = watchSaved.side;
-        if (kind === 'takeover') { settings.side = turn === BLACK ? 'black' : 'white'; paint(); say('Your turn'); if (root.ZimiShell) root.ZimiShell.turn(true, timeUp); }
-        else { settings.mode = watchSaved.mode; if (kind === 'stop') newGame(); }
-      }
-    }
+  G.registerWatch({
+    script: 'explain-reversi.js', unit: 'move', level: 'medium', intro: 'reversi.watch.intro',
+    whoseTurn: function () { return idxOf(state.turn); },
+    resume: function () { paint(); G.say(turnText(state.turn)); if (root.ZimiShell) root.ZimiShell.turn(true, timeUp, history.length); }
   });
 
   buildBoard();
-  newGame();
+  G.newGame();
 
   if (new URLSearchParams(location.search).has('debug')) {
-    root.__rv = { state: function () { return state; }, engine: Engine, settings: settings };
+    root.__rv = { state: function () { return state; }, engine: Engine, settings: G.settings };
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this);

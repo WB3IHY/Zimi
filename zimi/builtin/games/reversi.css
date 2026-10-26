@@ -1,16 +1,17 @@
 /* Reversi: green cloth, round discs that turn over. */
-:root { --rv-a: #2e7d4f; --rv-b: #2a7248; --rv-line: rgba(0, 0, 0, 0.35); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --rv-a: #1d5b3b; --rv-b: #195235; --rv-line: rgba(0, 0, 0, 0.55); } }
-:root[data-theme="dark"] { --rv-a: #1d5b3b; --rv-b: #195235; --rv-line: rgba(0, 0, 0, 0.55); }
+:root { --rv-a: color-mix(in srgb, #2e7d4f 75%, #5f5a52); --rv-b: color-mix(in srgb, #2a7248 75%, #5f5a52); --rv-line: rgba(0, 0, 0, 0.35); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --rv-a: color-mix(in srgb, #1d5b3b 70%, #3c3934); --rv-b: color-mix(in srgb, #195235 70%, #3c3934); --rv-line: rgba(0, 0, 0, 0.55); } }
+:root[data-theme="dark"] { --rv-a: color-mix(in srgb, #1d5b3b 70%, #3c3934); --rv-b: color-mix(in srgb, #195235 70%, #3c3934); --rv-line: rgba(0, 0, 0, 0.55); }
 
 .rv-board { border-color: var(--felt-deep); gap: 1px; background: var(--rv-line); }
 .rv-board .bg-sq { background: var(--rv-a); }
 .rv-board .bg-sq.dk { background: var(--rv-b); }
-.rv-board .bg-sq.hint::after { background: rgba(255, 255, 255, 0.38); width: 24%; height: 24%; }
-.rv-board .bg-sq.last::before { background: rgba(250, 204, 21, 0.2); box-shadow: inset 0 0 0 3px rgba(250, 204, 21, 0.75); }
+.rv-board .bg-sq.hint::after { background: var(--disc-w); opacity: 0.4; width: 24%; height: 24%; }
+.rv-board .bg-sq.last::before { background: var(--accent-glow); box-shadow: inset 0 0 0 3px var(--select-ring); }
 .rv-disc { width: 82%; height: 82%; border-radius: 50%; pointer-events: none; box-shadow: 0 2px 3px rgba(0, 0, 0, 0.45), inset 0 -3px 5px rgba(0, 0, 0, 0.25), inset 0 2px 3px rgba(255, 255, 255, 0.25); }
-.rv-disc.b { background: radial-gradient(circle at 35% 30%, #4a5365, var(--disc-b) 62%); }
-.rv-disc.w { background: radial-gradient(circle at 35% 30%, #ffffff, var(--disc-w) 66%, #cfc9b8); }
+.rv-disc.b { background: radial-gradient(circle at 35% 30%, #55524d, var(--disc-b) 62%); }
+.rv-disc.w { background: radial-gradient(circle at 35% 30%, var(--disc-w), var(--disc-w) 66%, #cfc9b8); }
 .rv-disc.flip { animation: rv-flip 0.4s ease-in-out; }
 @keyframes rv-flip { 0% { transform: scaleX(1); } 50% { transform: scaleX(0.05); } 100% { transform: scaleX(1); } }
 @media (prefers-reduced-motion: reduce) { .rv-disc.flip { animation: none; } }
+html[data-anim="off"] .rv-disc.flip { animation: none; }

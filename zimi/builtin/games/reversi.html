@@ -6,60 +6,29 @@
 <title>Reversi - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="boardui.css">
+<link rel="stylesheet" href="world.css">
 <link rel="stylesheet" href="reversi.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body>
 <header class="ar-bar">
-  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <a class="ar-back" href="index.html" data-t-aria="shell.back" aria-label="Back">&lsaquo;</a>
   <h1>Reversi</h1>
-  <button class="ar-btn" id="rv-undo" type="button" disabled>Undo</button>
-  <button class="ar-btn" id="rv-new" type="button" aria-haspopup="dialog">New game</button>
+  <button class="ar-btn" id="wk-undo" type="button" disabled data-t="board.undo">Undo</button>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="bg-main">
-  <div class="bg-score" aria-label="Score"><span><i class="bg-dot b"></i> Black <b id="rv-black">2</b></span><span><i class="bg-dot w"></i> White <b id="rv-white">2</b></span></div>
-  <div class="bg-board rv-board" id="rv-board" role="group" aria-label="Reversi board"></div>
-  <p class="bg-status" id="rv-status" role="status" aria-live="polite"></p>
-  <p class="bg-stats" id="rv-stats"></p>
-  <p class="bg-help">Place a disc so it traps a line of the other colour between two of yours. Arrow keys move, Enter places, U undoes, N starts a new game.</p>
+  <p class="bg-status" id="wk-status"></p>
+  <div class="bg-score" id="wk-score" data-t-aria="go.score" aria-label="Score"></div>
+  <div class="bg-board rv-board" id="rv-board" role="group" data-t-aria="reversi.boardLabel" aria-label="Reversi board"></div>
+  <p class="bg-stats" id="wk-stats"></p>
 </main>
 
-<div class="ar-sheet" id="rv-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="rv-menu-title">
-  <div class="ar-sheet-card">
-    <h2 id="rv-menu-title">New game</h2>
-    <fieldset class="bg-field"><legend>Opponent</legend><div class="bg-chips" id="rv-f-mode">
-      <label class="bg-chip"><input type="radio" name="rv-mode" value="cpu"><span>Computer</span></label>
-      <label class="bg-chip"><input type="radio" name="rv-mode" value="two"><span>Two players</span></label>
-    </div></fieldset>
-    <fieldset class="bg-field" id="rv-f-level"><legend>Level</legend><div class="bg-chips">
-      <label class="bg-chip"><input type="radio" name="rv-level" value="easy"><span>Easy</span></label>
-      <label class="bg-chip"><input type="radio" name="rv-level" value="medium"><span>Medium</span></label>
-      <label class="bg-chip"><input type="radio" name="rv-level" value="hard"><span>Hard</span></label>
-    </div></fieldset>
-    <fieldset class="bg-field" id="rv-f-side"><legend>You play</legend><div class="bg-chips">
-      <label class="bg-chip"><input type="radio" name="rv-side" value="black"><span>Black (first)</span></label>
-      <label class="bg-chip"><input type="radio" name="rv-side" value="white"><span>White</span></label>
-    </div></fieldset>
-    <label class="bg-check"><input type="checkbox" id="rv-hints"> Show legal moves</label>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="rv-cancel" type="button">Cancel</button>
-      <button class="ar-btn" id="rv-start" type="button" aria-pressed="true">Start</button>
-    </div>
-  </div>
-</div>
-
-<div class="ar-sheet" id="rv-result" hidden role="dialog" aria-modal="true" aria-labelledby="rv-result-title">
-  <div class="ar-sheet-card">
-    <h2 id="rv-result-title">Game over</h2>
-    <p id="rv-result-text"></p>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="rv-close" type="button">Look at the board</button>
-      <button class="ar-btn" id="rv-again" type="button" aria-pressed="true">Play again</button>
-    </div>
-  </div>
-</div>
 <script src="boardkit.js"></script>
+<script src="boardui.js"></script>
+<script src="worldkit.js"></script>
 <script src="reversi.js"></script>
 <!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
 <!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q748139">About Reversi</a></footer><!-- /zimi-about -->
