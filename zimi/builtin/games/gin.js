@@ -20,7 +20,7 @@
    wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   var HAND = 10, KNOCK_MAX = 10, GIN_BONUS = 25, UNDERCUT_BONUS = 25, GAME_END = 100, GAME_BONUS = 100, BOX_BONUS = 25, MIN_STOCK = 2;
   var NAMES = ['You', 'North'], FACE_VALUE = 10, SET_MAX = 4, RUN_MIN = 3;
@@ -234,8 +234,8 @@
     var V = (view && view.viewer) || 0, O = 1 - V, faceUp = !(view && view.hideHand);
     var g = geo(m, st), slots = [], cards = [], show = st.phase === 'show', sel = view && st.hands[V].indexOf(view.sel) >= 0 ? view.sel : null;
     var sx = Math.round(g.cx - g.cw - 8), dx = Math.round(g.cx + 8), y = Math.round(g.cy - g.ch / 2), turnMine = st.turn === V && !show && faceUp;
-    slots.push({ id: 'stock', x: sx, y: y, w: g.cw, h: g.ch, label: 'Stock, ' + Z.plural(st.stock.length, 'card') });
-    slots.push({ id: 'discard', x: dx, y: y, w: g.cw, h: g.ch, label: st.discard.length ? 'Discard pile, top ' + Z.cardName(st.discard[st.discard.length - 1]) : 'Discard pile, empty' });
+    slots.push({ id: 'stock', x: sx, y: y, w: g.cw, h: g.ch, label: TX('gin.stock', { cards: Z.plural(st.stock.length, 'card') }) });
+    slots.push({ id: 'discard', x: dx, y: y, w: g.cw, h: g.ch, label: st.discard.length ? TX('gin.discardTop', { card: Z.cardName(st.discard[st.discard.length - 1]) }) : TX('gin.discardEmpty') });
     var canStock = turnMine && canDraw(st, false), canUp = turnMine && ((st.phase === 'draw' && canDraw(st, true)) || st.phase === 'offer');
     st.stock.forEach(function (id, k) { cards.push({ id: id, pile: 'stock', idx: k, x: sx, y: y, up: false, glow: canStock && k === st.stock.length - 1 }); });
     st.discard.forEach(function (id, k) { cards.push({ id: id, pile: 'discard', idx: k, x: dx, y: y, up: true, glow: canUp && k === st.discard.length - 1, dim: turnMine && st.phase === 'draw' && st.upLocked && k === st.discard.length - 1 }); });
@@ -270,22 +270,23 @@
     var seats = Seats.create({ id: 'gin', seats: 2, onChange: function () { if (board) board.refresh(); if (t) t.paint(); } });
     function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.phase !== 'show' && st.turn !== view.viewer; }
     var who = function (s) { return seats.name(s); };
-    var verb = function (s, you, other) { return seats.isYou(s) ? you : other; };
+    // A line about a seat: the key's .you form is for "You".
+    var said = function (s, key, vars) { var v = vars || {}; v.name = who(s); return TX(seats.isYou(s) ? key + '.you' : key, v); };
     var glyphName = function (id) { return T.short(id); };
     function noteOf(st) {
       var l = st.last;
       if (!l || seats.isYou(l.seat) || l.seat === st.turn) return '';
       var n = who(l.seat);
-      return { took: n + ' took the ' + glyphName(l.id) + '.', drew: n + ' drew from the stock.', discarded: n + ' discarded the ' + glyphName(l.id) + '.', passed: n + ' passed.', knocked: n + ' knocks.', gin: n + ' goes gin.' }[l.act] || '';
+      return { took: TX('gin.note.took', { name: n, card: glyphName(l.id) }), drew: TX('gin.note.drew', { name: n }), discarded: TX('gin.note.discarded', { name: n, card: glyphName(l.id) }), passed: TX('euchre.passed', { name: n }), knocked: TX('gin.note.knocked', { name: n }), gin: TX('gin.note.gin', { name: n }) }[l.act] || '';
     }
     function resultLines(st) {
       var r = st.result, lines = [];
-      if (r.draw) return [{ text: 'The stock is down to two cards. The hand is a draw, nobody scores.' }];
-      var k = who(r.knocker), o = who(1 - r.knocker), ko = 1 - r.knocker;
-      lines.push({ text: r.gin ? k + verb(r.knocker, ' go', ' goes') + ' gin.' : k + verb(r.knocker, ' knock', ' knocks') + ' with ' + r.kDw + ' deadwood.' });
-      if (!r.gin) lines.push({ text: o + verb(ko, ' have ', ' has ') + r.oDwBefore + ' deadwood' + (r.laid.length ? ', ' + r.oDw + ' after laying off ' + T.shortList(r.laid) + '.' : '.') });
-      else lines.push({ text: o + verb(ko, ' have ', ' has ') + r.oDw + ' deadwood.' });
-      lines.push({ cls: 'ct-total', text: (r.undercut ? 'Undercut. ' : '') + who(r.scorer) + verb(r.scorer, ' score ', ' scores ') + r.points + (r.gin ? ' (25 for gin)' : r.undercut ? ' (25 for the undercut)' : '') + '.' });
+      if (r.draw) return [{ text: TX('gin.draw') }];
+      var ko = 1 - r.knocker;
+      lines.push({ text: r.gin ? said(r.knocker, 'gin.goGin') : said(r.knocker, 'gin.knockWith', { dw: r.kDw }) });
+      if (!r.gin) lines.push({ text: r.laid.length ? said(ko, 'gin.deadwoodLaid', { before: r.oDwBefore, after: r.oDw, cards: T.shortList(r.laid) }) : said(ko, 'gin.deadwood', { n: r.oDwBefore }) });
+      else lines.push({ text: said(ko, 'gin.deadwood', { n: r.oDw }) });
+      lines.push({ cls: 'ct-total', text: (r.undercut ? TX('gin.undercut') + ' ' : '') + said(r.scorer, r.gin ? 'gin.scoreGin' : r.undercut ? 'gin.scoreUndercut' : 'gin.score', { points: r.points }) });
       return lines;
     }
     function hud(st) {
@@ -293,25 +294,25 @@
       var V = view.viewer, sel = st.hands[V].indexOf(view.sel) >= 0 ? view.sel : null, mine = st.phase === 'show' || view.hideHand ? null : st.hands[V];
       var dwNow = mine ? (mine.length === HAND ? deadwood(mine) : Math.min.apply(null, discardOptions(mine).filter(function (o) { return o.id !== st.drawn; }).map(function (o) { return o.dw; }))) : null;
       var chips = [0, 1].map(function (s) {
-        return { name: who(s), text: String(st.scores[s]) + (s === V && dwNow !== null && st.phase !== 'offer' ? ' · dw ' + dwNow : ''), turn: st.phase !== 'show' && st.turn === s };
+        return { name: who(s), text: String(st.scores[s]) + (s === V && dwNow !== null && st.phase !== 'offer' ? ' \u00b7 ' + TX('gin.dw', { n: dwNow }) : ''), turn: st.phase !== 'show' && st.turn === s };
       });
-      var out = { chips: chips, sub: 'Hand ' + (st.handNo + 1) + ' · won ' + st.boxes[0] + '-' + st.boxes[1], text: '' }, note = noteOf(st), top = st.discard[st.discard.length - 1];
+      var out = { chips: chips, fact: TX('gin.fact', { n: st.handNo + 1, a: st.boxes[0], b: st.boxes[1] }), text: '' }, note = noteOf(st), top = st.discard[st.discard.length - 1];
       if (st.phase === 'show') {
         out.lines = resultLines(st);
-        if (st.final) { out.label = 'See result'; out.action = gameOver; out.text = 'Game over'; } else { out.label = 'Next hand'; out.action = startNextHand; out.text = 'End of hand'; }
-      } else if (!seats.person(st.turn)) out.text = note && st.phase !== 'offer' ? note + ' ' + who(st.turn) + ' is thinking' : who(st.turn) + ' is thinking';
-      else if (view.hideHand) out.text = who(st.turn) + ', your turn';
+        if (st.final) { out.label = TX('crib.result'); out.action = gameOver; out.text = TX('shell.end.over'); } else { out.label = TX('cards.nextHand'); out.action = startNextHand; out.text = TX('cards.handEnd'); }
+      } else if (!seats.person(st.turn)) out.text = note && st.phase !== 'offer' ? note + ' ' + TX('cards.thinking', { name: who(st.turn) }) : TX('cards.thinking', { name: who(st.turn) });
+      else if (view.hideHand) out.text = TX('cards.turn.name', { name: who(st.turn) });
       else if (st.phase === 'offer') {
-        out.text = (note ? note + ' ' : '') + 'Take the ' + glyphName(top) + ' or pass?';
-        out.choices = [{ label: 'Take ' + glyphName(top), onclick: takeNow, cls: top && Z.isRed(top) ? 'ct-red' : '' }, { label: 'Pass', onclick: passNow }];
+        out.text = (note ? note + ' ' : '') + TX('gin.takeOrPass', { card: glyphName(top) });
+        out.choices = [{ label: TX('gin.take', { card: glyphName(top) }), onclick: takeNow, cls: top && Z.isRed(top) ? 'ct-red' : '' }, { label: TX('cards.pass'), onclick: passNow }];
       } else if (st.phase === 'draw') {
-        out.text = (note ? note + ' ' : '') + (st.upLocked ? 'Draw from the stock' : 'Your draw: the stock or the ' + glyphName(top));
+        out.text = (note ? note + ' ' : '') + (st.upLocked ? TX('gin.drawStock') : TX('gin.yourDraw', { card: glyphName(top) }));
       } else {
         var opts = sel !== null ? deadwood(st.hands[V].filter(function (c) { return c !== sel; })) : null, can = sel !== null && canDiscard(st, sel);
-        out.text = sel === null ? 'Pick a card to discard. Best deadwood: ' + dwNow : 'Without the ' + glyphName(sel) + ' your deadwood is ' + opts + '.';
+        out.text = sel === null ? TX('gin.pick', { n: dwNow }) : TX('gin.without', { card: glyphName(sel), n: opts });
         if (sel !== null) {
-          out.choices = [{ label: 'Discard ' + glyphName(sel), onclick: discardNow, disabled: !can }];
-          if (can && opts <= KNOCK_MAX) out.choices.push({ label: opts === 0 ? 'Go gin' : 'Knock (' + opts + ')', onclick: knockNow, primary: true });
+          out.choices = [{ label: TX('gin.discard', { card: glyphName(sel) }), onclick: discardNow, disabled: !can }];
+          if (can && opts <= KNOCK_MAX) out.choices.push({ label: opts === 0 ? TX('gin.goGinBtn') : TX('gin.knock', { n: opts }), onclick: knockNow, primary: true });
         }
       }
       return out;
@@ -338,9 +339,9 @@
       deal();
     }
     function gameOver() {
-      var st = session.state, f = st.final, lines = ['Hands won: ' + who(0) + ' ' + st.boxes[0] + ', ' + who(1) + ' ' + st.boxes[1] + ' (25 each).', 'Game bonus 100 to ' + who(f.winner) + '.', 'Final: ' + who(0) + ' ' + f.totals[0] + ', ' + who(1) + ' ' + f.totals[1] + '.'];
-      if (seats.hotseat()) session.lose(who(f.winner) + ' wins', lines);
-      else if (f.winner === 0) session.win(f.totals[0]); else session.lose('Game over', lines, f.totals[0]);
+      var st = session.state, f = st.final, lines = [TX('gin.handsWon', { a: who(0), pa: st.boxes[0], b: who(1), pb: st.boxes[1] }), TX('gin.bonus', { name: who(f.winner) }), TX('gin.final', { a: who(0), pa: f.totals[0], b: who(1), pb: f.totals[1] })];
+      if (seats.hotseat()) session.lose(TX('shell.end.wins', { name: who(f.winner) }), lines);
+      else if (f.winner === 0) session.win(f.totals[0]); else session.lose('', lines, f.totals[0]);
     }
     function act(next) { view.sel = null; session.commit(next); drive(); return true; }
     function takeNow() { var st = session.state; if (st.phase === 'offer' && st.turn === seats.view()) act(takeUp(st)); }
@@ -349,17 +350,17 @@
     function knockNow() { var st = session.state; if (view.sel !== null && canKnock(st, view.sel) && st.turn === seats.view()) act(knock(st, view.sel)); }
     function tap(pile) {
       var st = session.state, id = parseInt(pile.slice(1), 10);
-      if (st.phase === 'show' || st.turn !== seats.view()) { if (st.phase !== 'show') t.flash('Wait for your turn'); return false; }
-      if (pile === 'stock') { if (!canDraw(st, false)) { t.flash(st.phase === 'draw' ? 'The stock is empty' : 'Discard a card first'); return false; } return act(drawCard(st, false)); }
+      if (st.phase === 'show' || st.turn !== seats.view()) { if (st.phase !== 'show') t.flash(TX('cards.wait.turn')); return false; }
+      if (pile === 'stock') { if (!canDraw(st, false)) { t.flash(st.phase === 'draw' ? TX('gin.stockEmpty') : TX('gin.discardFirst')); return false; } return act(drawCard(st, false)); }
       if (pile === 'discard') {
         if (st.phase === 'offer') return act(takeUp(st));
-        if (st.phase !== 'draw') { t.flash('Discard a card first'); return false; }
-        if (!canDraw(st, true)) { t.flash('Draw from the stock first'); return false; }
+        if (st.phase !== 'draw') { t.flash(TX('gin.discardFirst')); return false; }
+        if (!canDraw(st, true)) { t.flash(TX('gin.drawFirst')); return false; }
         return act(drawCard(st, true));
       }
       if (pile.charAt(0) !== 'h' || isNaN(id)) return false;
-      if (st.phase !== 'discard') { t.flash(st.phase === 'offer' ? 'Take the upcard or pass first' : 'Draw a card first'); return false; }
-      if (st.drawn === id) { t.flash('You cannot discard the card you just took'); return false; }
+      if (st.phase !== 'discard') { t.flash(st.phase === 'offer' ? TX('gin.offerFirst') : TX('gin.drawCardFirst')); return false; }
+      if (st.drawn === id) { t.flash(TX('gin.justTook')); return false; }
       view.sel = view.sel === id ? null : id; board.refresh(); t.paint();
       return true;
     }
@@ -381,8 +382,8 @@
       },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0] + '-' + st.scores[1]; },
       cascadeOrder: function (st) { return st.hands[seats.view()].map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { var f = st.final; return ['Hands won: you ' + st.boxes[0] + ', North ' + st.boxes[1] + ' (25 each).', 'Game bonus 100.', 'Final: you ' + f.totals[0] + ', North ' + f.totals[1] + '.']; },
-      rules: 'Make sets (three or four of a rank) and runs (three or more of a suit, ace low). Each turn draw from the stock or take the top discard, then discard. When your deadwood (cards outside melds, face cards 10, ace 1) is 10 or less, select the card to discard and knock; with none, go gin. The other side lays off cards on your melds; if they end with as little or less, they undercut you for the difference plus 25. First to 100 wins, plus 100 for the game and 25 a hand won. Tap a card to select it, then Discard or Knock; tap the stock or discard pile to draw.'
+      winLines: function (sec, st) { var f = st.final; return [TX('gin.handsWon', { a: TX('cards.you'), pa: st.boxes[0], b: TX('cards.seat.north'), pb: st.boxes[1] }), TX('gin.bonus.you'), TX('gin.final', { a: TX('cards.you'), pa: f.totals[0], b: TX('cards.seat.north'), pb: f.totals[1] })]; },
+      rules: TX('gin.rules')
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;

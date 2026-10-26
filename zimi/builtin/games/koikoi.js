@@ -20,7 +20,7 @@
    only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   var NAMES = ['You', 'North'], DECK = 48, HAND = 8, TABLE_START = 8, DOUBLE_AT = 7;
   var card = function (id) { return Z.hanafudaCard(id); };
@@ -96,18 +96,18 @@
     var out = [], has = function (c) { return ids.indexOf(c) >= 0; }, of = function (kind) { return ids.filter(function (c) { return kindOf(c) === kind; }); };
     var add = function (key, name, pts) { out.push({ key: key, name: name, pts: pts }); };
     var brights = of('bright'), animals = of('animal'), ribbons = of('ribbon'), chaff = of('chaff').concat(has(SAKE) ? [SAKE] : []);
-    if (brights.length === 5) add('goko', 'Five Brights', 10);
-    else if (brights.length === 4) { if (has(RAIN_MAN)) add('ame', 'Rainy Four Brights', 7); else add('shiko', 'Four Brights', 8); }
-    else if (brights.length === 3 && !has(RAIN_MAN)) add('sanko', 'Three Brights', 5);
-    if (has(BOAR) && has(DEER) && has(BUTTERFLIES)) add('ino', 'Boar-Deer-Butterfly', 5 + animals.length - 3);
-    if (animals.length >= 5) add('tane', 'Animals', animals.length - 4);
+    if (brights.length === 5) add('goko', TX('koikoi.yaku.goko'), 10);
+    else if (brights.length === 4) { if (has(RAIN_MAN)) add('ame', TX('koikoi.yaku.ame'), 7); else add('shiko', TX('koikoi.yaku.shiko'), 8); }
+    else if (brights.length === 3 && !has(RAIN_MAN)) add('sanko', TX('koikoi.yaku.sanko'), 5);
+    if (has(BOAR) && has(DEER) && has(BUTTERFLIES)) add('ino', TX('koikoi.yaku.ino'), 5 + animals.length - 3);
+    if (animals.length >= 5) add('tane', TX('koikoi.yaku.tane'), animals.length - 4);
     var ribbonOf = function (kind) { return ribbons.filter(function (c) { return card(c).ribbon === kind; }); };
-    if (ribbonOf('poetry').length === 3) add('akatan', 'Poetry Ribbons', 5);
-    if (ribbonOf('blue').length === 3) add('aotan', 'Blue Ribbons', 5);
-    if (ribbons.length >= 5) add('tan', 'Ribbons', ribbons.length - 4);
-    if (chaff.length >= 10) add('kasu', 'Chaff', chaff.length - 9);
-    if (has(MOON) && has(SAKE)) add('tsuki', 'Moon Viewing', 5);
-    if (has(CURTAIN) && has(SAKE)) add('hanami', 'Flower Viewing', 5);
+    if (ribbonOf('poetry').length === 3) add('akatan', TX('koikoi.yaku.akatan'), 5);
+    if (ribbonOf('blue').length === 3) add('aotan', TX('koikoi.yaku.aotan'), 5);
+    if (ribbons.length >= 5) add('tan', TX('koikoi.yaku.tan'), ribbons.length - 4);
+    if (chaff.length >= 10) add('kasu', TX('koikoi.yaku.kasu'), chaff.length - 9);
+    if (has(MOON) && has(SAKE)) add('tsuki', TX('koikoi.yaku.tsuki'), 5);
+    if (has(CURTAIN) && has(SAKE)) add('hanami', TX('koikoi.yaku.hanami'), 5);
     return out;
   }
   var yakuTotal = function (list) { return list.reduce(function (n, y) { return n + y.pts; }, 0); };
@@ -123,7 +123,7 @@
     return advance(s, seat);
   }
   function advance(s, seat) {
-    if (!s.hands[0].length && !s.hands[1].length) { s.phase = 'monthEnd'; s.result = { winner: -1, points: 0, base: 0, mult: 1, yaku: [], note: 'No yaku this month, no points.' }; return finishMonth(s); }
+    if (!s.hands[0].length && !s.hands[1].length) { s.phase = 'monthEnd'; s.result = { winner: -1, points: 0, base: 0, mult: 1, yaku: [], note: TX('koikoi.noYaku') }; return finishMonth(s); }
     s.turn = other(seat); s.step = 'hand';
     return s;
   }
@@ -212,11 +212,11 @@
     var drawn = view && view.pick && st.step === 'draw' ? peek(st) : null;
     var lit = sel !== null ? matchesOf(st.table, sel) : drawn !== null ? matchesOf(st.table, drawn) : [];
     var pickable = drawn !== null || sel !== null;
-    slots.push({ id: 'deck', x: g.W - g.pad - g.cw, y: g.northY, w: g.cw, h: g.ch, quiet: true, label: 'Deck' });
-    slots.push({ id: 'table', x: g.pad, y: g.tableTop, w: g.W - 2 * g.pad, h: g.tableBottom - g.tableTop, quiet: true, label: 'Table' });
+    slots.push({ id: 'deck', x: g.W - g.pad - g.cw, y: g.northY, w: g.cw, h: g.ch, quiet: true, label: TX('scopa.slot.deck') });
+    slots.push({ id: 'table', x: g.pad, y: g.tableTop, w: g.W - 2 * g.pad, h: g.tableBottom - g.tableTop, quiet: true, label: TX('cards.slot.table') });
     var hand = T.handCards(g, st.hands[V], function (id) {
       var on = sel === id && faceUp;
-      return { up: faceUp, raise: on, mark: on, label: nameOf(id) + (on ? ', selected' : '') };
+      return { up: faceUp, raise: on, mark: on, label: nameOf(id) + (on ? ', ' + TX('cards.selected') : '') };
     }, null);
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     cards = cards.concat(T.fan(g, 2, st.hands[O], false));
@@ -247,8 +247,11 @@
   function describeTurn(st) {
     var l = st.last;
     if (!l) return '';
-    var who = NAMES[l.seat], s = l.seat === YOU ? '' : 's';
-    var part = function (verb, id, took) { return took.length ? who + ' ' + verb + s + ' the ' + nameOf(id).split(',')[0] + ' and take' + s + ' ' + took.map(function (c) { return nameOf(c).split(',')[0]; }).join(', ') : who + ' ' + verb + s + ' the ' + nameOf(id).split(',')[0] + ' to the table'; };
+    var who = NAMES[l.seat], you = l.seat === YOU;
+    var part = function (verb, id, took) {
+      var vars = { name: who, card: nameOf(id).split(',')[0], taken: took.map(function (c) { return nameOf(c).split(',')[0]; }).join(', ') };
+      return TX('koikoi.told.' + verb + (took.length ? '.take' : '.table') + (you ? '.you' : ''), vars);
+    };
     var out = part('play', l.played, l.took || []);
     if (l.drawn !== null && l.drawn !== undefined) out += '. ' + part('draw', l.drawn, l.drawTook || []);
     return out;
@@ -258,9 +261,9 @@
     if (r.winner < 0) lines.push(r.note);
     else {
       r.yaku.forEach(function (y) { lines.push(y.name + ' ' + y.pts); });
-      lines.push(NAMES[r.winner] + (r.winner === YOU ? ' score ' : ' scores ') + r.points + (r.mult > 1 ? ' (' + r.base + ' doubled' + (r.mult > 2 ? ' twice' : '') + ')' : ''));
+      lines.push(TX(r.winner === YOU ? 'koikoi.score.you' : 'koikoi.score', { name: NAMES[r.winner], points: r.points }) + (r.mult > 1 ? ' (' + TX(r.mult > 2 ? 'koikoi.doubledTwice' : 'koikoi.doubled', { base: r.base }) + ')' : ''));
     }
-    lines.push('Total: ' + NAMES[0] + ' ' + st.scores[0] + ', ' + NAMES[1] + ' ' + st.scores[1] + '.');
+    lines.push(TX('koikoi.total', { a: NAMES[0], pa: st.scores[0], b: NAMES[1], pb: st.scores[1] }));
     return lines;
   }
 
@@ -283,19 +286,19 @@
     var strip = Z.h('div', { class: 'kk-strip' }), pills = [Z.h('button', { class: 'kk-pill', type: 'button' }), Z.h('button', { class: 'kk-pill', type: 'button' })];
     pills.forEach(function (p, seat) { strip.appendChild(p); p.addEventListener('click', function () { showCaptured(seat); }); });
     Z.pageEls().table.appendChild(strip);
-    var HANA_MONTH = function (m) { return Z.HANA_MONTHS[m].slice(0, 3); };
+    var HANA_MONTH = function (m) { return root.ZimiText.month(m, 'short'); };
     var busy = function () { var st = session.state; return !!(view.show && view.show.moves === st.moves); };
     var badgeSvg = function (kind) {
       var shape = { bright: '<circle cx="6" cy="6" r="5" fill="#e09400"/>', animal: '<path d="M6 .6 10.4 6 6 11.4 1.6 6z" fill="currentColor"/>', ribbon: '<path d="M3.4 .6H8.6V11.4L6 9.6 3.4 11.4z" fill="#c62828"/>', chaff: '<circle cx="6" cy="6" r="2.6" fill="currentColor"/>' }[kind];
       return '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">' + shape + '</svg>';
     };
-    var KIND_WORD = { bright: 'brights', animal: 'animals', ribbon: 'ribbons', chaff: 'chaff' };
+    var KIND_WORD = function (k) { return TX('koikoi.kind.' + k); };
     function paintPills(g, st) {
       [0, 1].forEach(function (seat) {
         var cap = st.captured[seat], p = pills[seat], aria = [];
         p.innerHTML = '<b>' + who(seat) + '</b>' + KINDS.map(function (k) { return '<span class="kk-n">' + badgeSvg(k) + count(cap, k) + '</span>'; }).join('');
-        KINDS.forEach(function (k) { aria.push(count(cap, k) + ' ' + KIND_WORD[k]); });
-        p.setAttribute('aria-label', (seats.isYou(seat) ? 'Your' : who(seat) + '\u2019s') + ' captured cards: ' + aria.join(', ') + '. Open the list');
+        KINDS.forEach(function (k) { aria.push(count(cap, k) + ' ' + KIND_WORD(k)); });
+        p.setAttribute('aria-label', TX(seats.isYou(seat) ? 'koikoi.pill.you' : 'koikoi.pill', { name: who(seat), list: aria.join(', ') }));
       });
       strip.style.top = Math.round(g.statusY - STRIP_H + 2) + 'px';
       strip.hidden = st.phase === 'koi' && seats.person(st.turn); // the choices sit where it does
@@ -304,19 +307,19 @@
       var st = session.state, cap = st.captured[seat], body = [];
       KINDS.forEach(function (k) {
         var ids = cap.filter(function (c) { return kindOf(c) === k; });
-        var row = Z.h('div', { class: 'kk-capgroup' }, [Z.h('div', { class: 'kk-caphead', text: KIND_WORD[k][0].toUpperCase() + KIND_WORD[k].slice(1) + ' ' + ids.length })]);
+        var row = Z.h('div', { class: 'kk-capgroup' }, [Z.h('div', { class: 'kk-caphead', text: KIND_WORD(k).charAt(0).toUpperCase() + KIND_WORD(k).slice(1) + ' ' + ids.length })]);
         var cards = Z.h('div', { class: 'kk-capcards' });
         ids.forEach(function (id) {
           var c = Z.h('div', { class: 'zc-card kk-mini', role: 'img', 'aria-label': nameOf(id) });
           c.innerHTML = '<div class="zc-face">' + Z.hanafudaFaceMarkup(id, false) + '</div>';
           cards.appendChild(c);
         });
-        if (!ids.length) cards.appendChild(Z.h('span', { class: 'kk-none', text: 'none' }));
+        if (!ids.length) cards.appendChild(Z.h('span', { class: 'kk-none', text: TX('koikoi.none') }));
         row.appendChild(cards); body.push(row);
       });
       var list = yakuOf(cap);
-      body.push(Z.h('p', { class: 'zc-note', text: list.length ? list.map(function (y) { return y.name + ' ' + y.pts; }).join(' · ') : 'No yaku yet' }));
-      Z.sheet({ title: who(seat) + ' captured', body: body, actions: [{ label: 'Done', primary: true }] });
+      body.push(Z.h('p', { class: 'zc-note', text: list.length ? list.map(function (y) { return y.name + ' ' + y.pts; }).join(' · ') : TX('koikoi.noYakuYet') }));
+      Z.sheet({ title: TX('koikoi.captured', { name: who(seat) }), body: body, actions: [{ label: TX('cards.done'), primary: true }] });
     }
 
     function hud(st) {
@@ -325,25 +328,25 @@
       var mine = busy();
       var out = {
         chips: [0, 1].map(function (c) { return { name: who(c), text: String(st.scores[c]), turn: st.phase === 'play' && st.turn === c && !mine }; }).concat([
-          { name: 'Month', text: HANA_MONTH(st.month) }, { name: 'Deck', text: String(st.deck.length) }]),
-        sub: 'Month ' + (st.month + 1) + ' of ' + st.months + (st.koi[0] || st.koi[1] ? ' · koi-koi ' + (st.koi[0] ? who(0).toLowerCase() === 'you' ? 'you' : who(0) : '') + (st.koi[0] && st.koi[1] ? ', ' : '') + (st.koi[1] ? who(1).toLowerCase() === 'you' ? 'you' : who(1) : '') : ''), text: ''
+          { name: TX('koikoi.month'), text: HANA_MONTH(st.month) }, { name: TX('scopa.deck'), text: String(st.deck.length) }]),
+        fact: TX('koikoi.fact', { n: st.month + 1, of: st.months }), text: ''
       };
       var told = describeTurn(st);
       if (st.phase === 'koi') {
         var list = yakuOf(st.captured[st.turn]), pts = yakuTotal(list);
         if (seats.person(st.turn)) {
-          out.text = (seats.isYou(st.turn) ? 'You' : who(st.turn)) + ' made ' + list.map(function (y) { return y.name + ' ' + y.pts; }).join(', ') + '. Score ' + pts + ' now, or play on?';
-          out.choices = [{ label: 'Shobu: score ' + pts, onclick: function () { choose(false); } }, { label: 'Koi-koi: play on', onclick: function () { choose(true); } }];
-        } else out.text = who(st.turn) + ' is deciding';
+          out.text = TX('koikoi.made', { name: seats.isYou(st.turn) ? TX('cards.you') : who(st.turn), yaku: list.map(function (y) { return y.name + ' ' + y.pts; }).join(', '), points: pts });
+          out.choices = [{ label: TX('koikoi.shobu', { points: pts }), onclick: function () { choose(false); } }, { label: TX('koikoi.koikoi'), onclick: function () { choose(true); } }];
+        } else out.text = TX('euchre.deciding', { name: who(st.turn) });
       } else if (st.phase === 'play') {
         if (mine) out.text = told;
         else if (seats.person(st.turn)) {
-          if (st.step === 'draw' && view.pick) out.text = (seats.isYou(st.turn) ? 'You' : who(st.turn)) + ' drew ' + nameOf(peek(st)).split(',')[0] + '. Tap the card to take';
-          else if (view.sel !== null) out.text = 'Tap the table card to take';
-          else out.text = (told ? told + '. ' : '') + (seats.isYou(st.turn) ? 'Your play' : who(st.turn) + ', your play');
-        } else out.text = (told ? told + '. ' : '') + who(st.turn) + ' is thinking';
-      } else if (st.phase === 'monthEnd') { out.text = 'Month over'; out.label = 'Next month'; out.action = startNextMonth; }
-      else if (st.phase === 'over') out.text = 'Game over';
+          if (st.step === 'draw' && view.pick) out.text = TX('koikoi.drew', { name: seats.isYou(st.turn) ? TX('cards.you') : who(st.turn), card: nameOf(peek(st)).split(',')[0] });
+          else if (view.sel !== null) out.text = TX('koikoi.tapTable');
+          else out.text = (told ? told + '. ' : '') + (seats.isYou(st.turn) ? TX('scopa.yourPlay') : TX('scopa.namePlay', { name: who(st.turn) }));
+        } else out.text = (told ? told + '. ' : '') + TX('cards.thinking', { name: who(st.turn) });
+      } else if (st.phase === 'monthEnd') { out.text = TX('koikoi.monthOver'); out.label = TX('koikoi.nextMonth'); out.action = startNextMonth; }
+      else if (st.phase === 'over') out.text = TX('shell.end.over');
       return out;
     }
 
@@ -411,18 +414,18 @@
       var next = decide(st, by, koi);
       if (seats.person(by)) session.commit(next); else session.follow(next);
       if (next.phase === 'monthEnd' || next.phase === 'over') monthOver();
-      else if (koi) { t.flash(seats.isYou(by) ? 'Koi-koi, you play on' : who(by) + ' calls koi-koi'); drive(); }
+      else if (koi) { t.flash(seats.isYou(by) ? TX('koikoi.playOn') : TX('koikoi.calls', { name: who(by) })); drive(); }
       else monthOver();
     }
     function monthOver() {
       var st = session.state;
       if (st.phase === 'over') { gameOver(); return; }
-      T.lineSheet('Month ' + (st.month + 1) + ' of ' + st.months, resultLines(st), [{ label: 'Next month', primary: true, onclick: startNextMonth }]);
+      T.lineSheet(TX('koikoi.fact', { n: st.month + 1, of: st.months }), resultLines(st), [{ label: TX('koikoi.nextMonth'), primary: true, onclick: startNextMonth }]);
     }
     function gameOver() {
       var st = session.state, w = gameWinner(st.scores), lines = resultLines(st);
-      lines.push(w < 0 ? 'A tie.' : (seats.isYou(w) ? 'You win, ' : who(w) + ' wins, ') + st.scores[w] + ' to ' + st.scores[1 - w] + '.');
-      if (seats.isYou(w)) session.win(st.scores[w]); else session.lose(w < 0 ? 'A tie' : who(w) + ' wins', lines, seats.hotseat() ? undefined : st.scores[0]);
+      lines.push(w < 0 ? TX('koikoi.tie') : TX(seats.isYou(w) ? 'cards.result.you' : 'koikoi.result.name', { name: who(w), a: st.scores[w], b: st.scores[1 - w] }));
+      if (seats.isYou(w)) session.win(st.scores[w]); else session.lose(w < 0 ? TX('shell.end.draw') : TX('shell.end.wins', { name: who(w) }), lines, seats.hotseat() ? undefined : st.scores[0]);
     }
     var order = function () { return Z.shuffled(Math.random).filter(function (c) { return c < DECK; }); };
     function startNextMonth() {
@@ -436,20 +439,23 @@
     function tap(pile) {
       var st = session.state, id = idOf(pile), kind = pile.charAt(0);
       if (st.phase !== 'play' || isNaN(id)) return false;
-      if (st.turn !== seats.view() || busy()) { t.flash('Wait for your turn'); return false; }
+      if (st.turn !== seats.view() || busy()) { t.flash(TX('cards.wait.turn')); return false; }
       if (st.step === 'draw') {
         if (kind !== 't' || !view.pick) return false;
-        if (matchesOf(st.table, peek(st)).indexOf(id) < 0) { t.flash('That is not the same month'); return false; }
+        if (matchesOf(st.table, peek(st)).indexOf(id) < 0) { t.flash(TX('koikoi.notMonth')); return false; }
         doDraw(st.turn, id); return true;
       }
       if (kind === 'h') {
-        if (view.sel === id) { view.sel = null; board.refresh(); t.paint(); return true; }
-        if (needsTarget(st.table, id)) { view.sel = id; board.refresh(); t.paint(); return true; }
-        doHand(st.turn, id, undefined); return true;
+        // Lift, then play: the first tap lifts the card; the second plays it (with two matching table cards it puts it back: pick one of those).
+        if (view.sel === id) {
+          if (needsTarget(st.table, id)) { view.sel = null; board.refresh(); t.paint(); return true; }
+          doHand(st.turn, id, undefined); return true;
+        }
+        view.sel = id; board.refresh(); t.paint(); return true;
       }
       if (kind === 't') {
-        if (view.sel === null) { t.flash('Choose a card from your hand first'); return false; }
-        if (matchesOf(st.table, view.sel).indexOf(id) < 0) { t.flash('That is not the same month'); return false; }
+        if (view.sel === null) { t.flash(TX('scopa.chooseFirst')); return false; }
+        if (matchesOf(st.table, view.sel).indexOf(id) < 0) { t.flash(TX('koikoi.notMonth')); return false; }
         doHand(st.turn, view.sel, id); return true;
       }
       return false;
@@ -468,12 +474,12 @@
       canPick: function () { return false; },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0] + '-' + st.scores[1]; },
       cascadeOrder: function (st) { return st.captured[0].slice(0, 24).map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return resultLines(st).concat(['You win, ' + st.scores[seats.view()] + ' to ' + st.scores[1 - seats.view()] + ', over ' + Z.plural(st.months, 'month') + '.']); },
+      winLines: function (sec, st) { return resultLines(st).concat([TX('koikoi.result.won', { a: st.scores[seats.view()], b: st.scores[1 - seats.view()], months: Z.plural(st.months, 'month') })]); },
       menuExtra: function () {
-        return [T.choiceRow('Length', MONTH_KEY, MONTH_CHOICES.map(function (n) { return { value: n, label: n + ' months' }; }), 6, function () { /* read at the next game */ }),
-          Z.h('p', { class: 'zc-note', text: 'A new length starts with the next game.' })];
+        return [T.choiceRow(TX('koikoi.length'), MONTH_KEY, MONTH_CHOICES.map(function (n) { return { value: n, label: TX('koikoi.months', { n: n }) }; }), 6, function () { /* read at the next game */ }),
+          Z.h('p', { class: 'zc-note', text: TX('koikoi.lengthNote') })];
       },
-      rules: 'Play a card from your hand onto a table card of the same month to take both; with no match it stays on the table. Then turn the top card of the deck and do the same. A new yaku lets you call shobu (score now) or koi-koi (play on for more, but the other player may score first). Brights: five 10, four 8 (rainy four 7), three without the rain man 5. Boar-Deer-Butterfly 5, plus 1 per extra animal. Poetry ribbons 5, blue ribbons 5. Moon viewing and flower viewing (the sake cup with the moon or the curtain) 5. Five animals 1, five ribbons 1, ten chaff 1, each extra card 1 more; the sake cup counts as an animal and as chaff. 7 or more doubles; scoring after the other player called koi-koi doubles again. A month with no yaku scores nothing. Tap a card to play it; with two matches, tap the table card you want.'
+      rules: TX('koikoi.rules')
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;

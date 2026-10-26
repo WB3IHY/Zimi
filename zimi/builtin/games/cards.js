@@ -368,7 +368,7 @@
   // The Italian deck, 40 cards: id = suit * 10 + (rank - 1), suits coins,
   // cups, swords, clubs; 1 to 7, then Fante (8), Cavallo (9), Re (10). The
   // court figures stand upright, one to a card, in the suit's own colour.
-  function italianName(id) { return ITALIAN_NAMES[id % 10] + ' of ' + ITALIAN_SUITS[Math.floor(id / 10) % 4]; }
+  function italianName(id) { return T('cards.name', { rank: T('cards.it.rank.' + ITALIAN_NAMES[id % 10]), suit: T('cards.it.suit.' + ITALIAN_SUITS[Math.floor(id / 10) % 4]) }); }
   var ITALIAN_PREFIX = 'zc-i-', ITALIAN_PIP_SCALE = 1.05;
   function italianFaceMarkup(id, standalone) {
     var r = id % 10 + 1, s = Math.floor(id / 10) % 4, body, p = ITALIAN_PREFIX;
@@ -418,7 +418,7 @@
     '<g transform="rotate(-24)"><path d="M0-11 2.2-8.6V3.2H-2.2V-8.6z"/><path d="M-7 3.2Q0 0.4 7 3.2V5.6Q0 3.2-7 5.6z"/><path d="M-1.2 5.6H1.2V8.6H-1.2z"/><circle cy="9.7" r="1.5"/></g>',
     '<g transform="rotate(-34)"><path d="M-3.8-8.6a3.8 3.8 0 0 1 7.6 0L2.2 9.2a2.2 2.2 0 0 1-4.4 0z"/><circle cx="4.4" cy="-2.6" r="2.3"/><circle cx="-4.2" cy="2.4" r="2.3"/><circle cx="3.6" cy="6" r="1.8"/></g>'
   ];
-  function spanishName(id) { return SPANISH_NAMES[id % 10] + ' of ' + SPANISH_SUITS[Math.floor(id / 10) % 4]; }
+  function spanishName(id) { return T('cards.name', { rank: T('cards.es.rank.' + SPANISH_NAMES[id % 10]), suit: T('cards.es.suit.' + SPANISH_SUITS[Math.floor(id / 10) % 4]) }); }
   function spanishFaceMarkup(id, standalone) {
     var k = id % 10, r = k + 1, s = Math.floor(id / 10) % 4, body, p = SPANISH_PREFIX, set = { shapes: SPANISH_SHAPES, prefix: p };
     if (r === 1) body = '<g class="zc-big">' + placed(s, 50, 70, 3.4, false, standalone, SPANISH_SHAPES, p) + '</g>' + smallSuit(s, standalone, SPANISH_SHAPES, p);
@@ -467,9 +467,11 @@
     var m = Math.floor(id / 4) % 12, k = id % 4, c = HANA_CARDS[m][k];
     return { month: m, k: k, kind: c[0], name: c[1], ribbon: c[2] || null, sake: m === 8 && k === 0 };
   }
+  var hanaMonth = function (m, style) { return root.ZimiText ? root.ZimiText.month(m, style) : HANA_MONTHS[m]; };
   function hanafudaName(id) {
     var c = hanafudaCard(id);
-    return c.name + (c.kind === 'chaff' ? ' chaff' : '') + ', ' + HANA_MONTHS[c.month];
+    var name = T('cards.hana.' + c.name.replace(/ /g, '_'));
+    return T(c.kind === 'chaff' ? 'cards.hana.chaff' : 'cards.hana.card', { name: name, month: hanaMonth(c.month) });
   }
 
   var HANA_LEAF = '#2f7d4f', HANA_WOOD = '#7a5230', HANA_SKY = '#2c4a86';

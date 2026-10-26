@@ -11,7 +11,7 @@
    handNo, result. Pure functions; the page wiring only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   var MAX_RECYCLES = 3, END_SCORE = 100, EIGHT = 8, EIGHT_POINTS = 50, FACE_POINTS = 10, POS_NAMES = ['You', 'West', 'North', 'East'];
   var GLYPH = T.SUIT_GLYPH, SUIT_NAMES = ['clubs', 'diamonds', 'hearts', 'spades'];
@@ -43,7 +43,7 @@
     return st.hands[seat].filter(function (c) { return rankOf(c) === EIGHT || Z.suit(c) === st.suit || rankOf(c) === rankOf(t); });
   }
   function isLegal(st, seat, id) { return st.phase === 'play' && st.turn === seat && legalPlays(st, seat).indexOf(id) >= 0; }
-  function whyNot(st) { return 'Match ' + SUIT_NAMES[st.suit] + ' or ' + Z.RANK_LABELS[rankOf(top(st)) - 1] + ', or play an 8'; }
+  function whyNot(st) { return TX('ce.match', { suit: TX('cards.suit.' + SUIT_NAMES[st.suit]), rank: Z.RANK_LABELS[rankOf(top(st)) - 1] }); }
   // The discards go back into the stock at most MAX_RECYCLES times a hand, so a hand always ends.
   var canDraw = function (st) { return st.stock.length > 0 || (st.discard.length > 1 && st.recycles < MAX_RECYCLES); };
   // No play, and nothing to draw.
@@ -116,8 +116,8 @@
   }
   function place(st, m, view) {
     var g = geo(m, st), p = piles(g), slots = [], cards = [], V = (view && view.viewer) || 0, up = !(view && view.hideHand), myTurn = st.phase === 'play' && st.turn === V;
-    slots.push({ id: 'stock', x: p.stock.x, y: p.stock.y, w: g.cw, h: g.ch, label: 'Stock, ' + Z.plural(st.stock.length, 'card') });
-    slots.push({ id: 'discard', x: p.discard.x, y: p.discard.y, w: g.cw, h: g.ch, label: 'Discard pile, top ' + Z.cardName(top(st)) });
+    slots.push({ id: 'stock', x: p.stock.x, y: p.stock.y, w: g.cw, h: g.ch, label: TX('gin.stock', { cards: Z.plural(st.stock.length, 'card') }) });
+    slots.push({ id: 'discard', x: p.discard.x, y: p.discard.y, w: g.cw, h: g.ch, label: TX('gin.discardTop', { card: Z.cardName(top(st)) }) });
     var pend = view && view.pending;
     var hand = T.handCards(g, st.hands[V], function (id) { return { up: up, dim: up && myTurn && !pend && !isLegal(st, V, id), raise: up && id === pend, mark: up && id === pend }; });
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
@@ -169,25 +169,25 @@
       marker.className = 'ce-suit' + (wild ? ' ce-wild' : '') + (st.suit === 1 || st.suit === 2 ? ' ce-red' : '');
       count.style.left = Math.round(p.stock.x + g.cw / 2) + 'px'; count.style.top = Math.round(p.stock.y - 28) + 'px';
       count.textContent = Z.plural(st.stock.length, 'card');
-      markerGlyph.textContent = GLYPH[st.suit]; markerText.textContent = wild ? 'suit called' : 'match';
+      markerGlyph.textContent = GLYPH[st.suit]; markerText.textContent = wild ? TX('ce.suitCalled') : TX('ce.matchWord');
     }
     // Names fit the bar for three at 390 px; a fourth shortens the others to their initial ("You 0 · W 0 · N 0 · E 0").
     function scoreLine(st) { return st.scores.map(function (v, seat) { var n = name(st, seat); return (st.scores.length > SCORE_LINE_NAMES && seat ? n[0] : n) + ' ' + v; }).join(' · '); }
     function hud(st) {
       paintMarker(st);
-      var chips = st.hands.map(function (h, seat) { return { name: name(st, seat), text: String(h.length), turn: st.phase === 'play' && st.turn === seat }; });
-      var out = { chips: chips, sub: scoreLine(st), text: '' };
-      if (st.phase === 'handEnd') { out.text = 'End of hand'; out.label = 'Next hand'; out.action = startNextHand; return out; }
-      if (st.phase === 'over') { out.text = 'Game over'; out.label = 'New game'; out.action = newGame; return out; }
+      var chips = st.hands.map(function (h, seat) { return { name: name(st, seat), text: String(h.length), dealer: seat === st.dealer, turn: st.phase === 'play' && st.turn === seat }; });
+      var out = { chips: chips, fact: scoreLine(st), text: '' };
+      if (st.phase === 'handEnd') { out.text = TX('cards.handEnd'); out.label = TX('cards.nextHand'); out.action = startNextHand; return out; }
+      if (st.phase === 'over') { out.text = TX('shell.end.over'); out.label = TX('shell.menu.new'); out.action = newGame; return out; }
       var note = view.note ? ' ' + view.note : '';
-      if (!seats.person(st.turn)) { out.text = name(st, st.turn) + ' is thinking.' + note; return out; }
-      if (!mine(st.turn)) { out.text = name(st, st.turn) + ' is next.' + note; return out; }
+      if (!seats.person(st.turn)) { out.text = TX('cards.thinking', { name: name(st, st.turn) }) + note; return out; }
+      if (!mine(st.turn)) { out.text = TX('ce.next', { name: name(st, st.turn) }) + note; return out; }
       if (view.pending !== null) {
-        out.text = 'Choose the suit';
-        out.choices = [0, 1, 2, 3].map(function (s) { return { label: GLYPH[s], aria: SUIT_NAMES[s], cls: s === 1 || s === 2 ? 'ct-red' : '', onclick: function () { chooseSuit(s); } }; });
-        out.choices.push({ label: 'Cancel', onclick: function () { view.pending = null; board.refresh(); t.paint(); } });
-      } else if (legalPlays(st, st.turn).length) out.text = (seats.isYou(st.turn) ? 'Your turn.' : name(st, st.turn) + ', your turn.') + note;
-      else out.text = (canDraw(st) ? 'No play: tap the stock to draw.' : 'No play and nothing to draw.') + note;
+        out.text = TX('ce.chooseSuit');
+        out.choices = [0, 1, 2, 3].map(function (s) { return { label: GLYPH[s], aria: TX('cards.suit.' + SUIT_NAMES[s]), cls: s === 1 || s === 2 ? 'ct-red' : '', onclick: function () { chooseSuit(s); } }; });
+        out.choices.push({ label: TX('shell.cancel'), onclick: function () { view.pending = null; board.refresh(); t.paint(); } });
+      } else if (legalPlays(st, st.turn).length) out.text = (seats.isYou(st.turn) ? TX('cards.turn.you') : TX('cards.turn.name', { name: name(st, st.turn) })) + note;
+      else out.text = TX(canDraw(st) ? 'ce.draw' : 'ce.noPlay') + note;
       return out;
     }
 
@@ -206,22 +206,23 @@
       if (st.phase !== 'play' || seats.person(seat)) return;
       var mv = aiPlay(st, seat), me = name(st, seat);
       if (mv) {
-        view.note = me + ' played ' + T.short(mv.id) + (rankOf(mv.id) === EIGHT ? ' and called ' + SUIT_NAMES[mv.suit] : '') + '.';
+        view.note = TX(rankOf(mv.id) === EIGHT ? 'ce.playedCalled' : 'ce.played', { name: me, card: T.short(mv.id), suit: TX('cards.suit.' + SUIT_NAMES[mv.suit]) });
         session.follow(playCard(st, seat, mv.id, mv.suit));
         finish(); return;
       }
-      if (canDraw(st)) { view.note = me + ' drew a card.'; session.follow(draw(st, seat)); } else { view.note = me + ' passed.'; session.follow(pass(st, seat)); }
+      if (canDraw(st)) { view.note = TX('ce.drew', { name: me }); session.follow(draw(st, seat)); } else { view.note = TX('euchre.passed', { name: me }); session.follow(pass(st, seat)); }
       drive();
     }
     function resultLines(st) {
       var r = st.result, me = name(st, r.winner);
-      return [(r.blocked ? 'Nobody can move: ' + (seats.isYou(r.winner) ? 'you hold' : me + ' holds') + ' the fewest points, and ' : (seats.isYou(r.winner) ? 'You went out' : me + ' went out') + ' and ') + (seats.isYou(r.winner) ? 'score ' : 'scores ') + r.points + '.', scoreLine(st, true)];
+      var you = seats.isYou(r.winner);
+      return [TX('ce.result.' + (r.blocked ? 'blocked' : 'out') + (you ? '.you' : ''), { name: me, points: r.points }), scoreLine(st, true)];
     }
-    function handOver() { T.lineSheet('Hand ' + (session.state.handNo + 1), resultLines(session.state), [{ label: 'Next hand', primary: true, onclick: startNextHand }]); }
+    function handOver() { T.lineSheet(TX('cards.fact.hand', { n: session.state.handNo + 1 }), resultLines(session.state), [{ label: TX('cards.nextHand'), primary: true, onclick: startNextHand }]); }
     function gameOver() {
       var st = session.state, w = gameWinner(st.scores), me = seats.view(), hot = seats.hotseat();
-      var lines = resultLines(st).concat([w === me && !hot ? 'You win with ' + st.scores[me] + '.' : name(st, w) + ' wins with ' + st.scores[w] + '.']);
-      if (w === me && !hot) session.win(st.scores[me]); else session.lose(hot ? name(st, w) + ' wins' : 'Game over', lines, hot ? undefined : st.scores[me]);
+      var lines = resultLines(st).concat([w === me && !hot ? TX('ce.winYou', { n: st.scores[me] }) : TX('ce.winName', { name: name(st, w), n: st.scores[w] })]);
+      if (w === me && !hot) session.win(st.scores[me]); else session.lose(hot ? TX('shell.end.wins', { name: name(st, w) }) : '', lines, hot ? undefined : st.scores[me]);
     }
     function startNextHand() {
       var st = session.state;
@@ -234,7 +235,7 @@
       var st = session.state;
       if (!mustPass(st, st.turn)) return;
       var who = name(st, st.turn), you = seats.isYou(st.turn);
-      view.note = (you ? 'You' : who) + ' passed.'; session.follow(pass(st, st.turn)); t.flash(you ? 'Nothing to play or draw: you pass' : 'Nothing to play or draw: ' + who + ' passes'); drive();
+      view.note = TX(you ? 'ce.passed.you' : 'euchre.passed', { name: who }); session.follow(pass(st, st.turn)); t.flash(TX(you ? 'ce.mustPass.you' : 'ce.mustPass', { name: who })); drive();
     }
     function play(id, suit) {
       var st = session.state;
@@ -255,8 +256,8 @@
     var idOf = function (pile) { return parseInt(pile.slice(1), 10); };
     function drawTap() {
       var st = session.state;
-      if (st.phase !== 'play' || st.turn !== seats.view()) { t.flash('Wait for your turn'); return; }
-      if (legalPlays(st, st.turn).length) { t.flash(seats.isYou(st.turn) ? 'You have a card to play' : 'There is a card to play'); return; }
+      if (st.phase !== 'play' || st.turn !== seats.view()) { t.flash(TX('cards.wait.turn')); return; }
+      if (legalPlays(st, st.turn).length) { t.flash(TX(seats.isYou(st.turn) ? 'ce.haveCard.you' : 'ce.haveCard')); return; }
       if (!canDraw(st)) return;
       view.note = ''; session.commit(draw(st, st.turn)); drive();
     }
@@ -267,7 +268,7 @@
       var id = idOf(pile);
       if (pile.charAt(0) !== 'h' || isNaN(id) || st.phase !== 'play') return false;
       view.pending = null;
-      if (st.turn !== seats.view()) { t.flash('Wait for your turn'); return false; }
+      if (st.turn !== seats.view()) { t.flash(TX('cards.wait.turn')); return false; }
       if (!isLegal(st, st.turn, id)) { t.flash(whyNot(st)); return false; }
       return tryPlay(id);
     }
@@ -287,12 +288,12 @@
       move: function (pile, idx, to) { return (to === 'discard' || to === 'stock') && pile.charAt(0) === 'h' ? tryPlay(idOf(pile)) : false; },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[seats.view()]; },
       cascadeOrder: function (st) { return st.discard.map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return resultLines(st).concat(['You win with ' + st.scores[seats.view()] + '.']); },
+      winLines: function (sec, st) { return resultLines(st).concat([TX('ce.winYou', { n: st.scores[seats.view()] })]); },
       menuExtra: function () {
-        return [T.choiceRow('Seats at the table', PLAYERS_KEY, [{ value: 2, label: '2' }, { value: 3, label: '3' }, { value: 4, label: '4' }], DEFAULT_PLAYERS, function () {}),
-          Z.h('p', { class: 'zc-note', text: 'The number of seats applies to the next new game.' })];
+        return [T.choiceRow(TX('cards.seatsAtTable'), PLAYERS_KEY, [{ value: 2, label: '2' }, { value: 3, label: '3' }, { value: 4, label: '4' }], DEFAULT_PLAYERS, function () {}),
+          Z.h('p', { class: 'zc-note', text: TX('ce.seatsNote') })];
       },
-      rules: 'Play a card that matches the top card’s suit or rank. An 8 is wild: you name the suit. No play? Tap the stock to draw until you can. Go out first to score the points left in the other hands (8 = 50, K Q J = 10, ace = 1). First to 100 wins. Tap a card to play it, or drag it to the discard pile.'
+      rules: TX('ce.rules')
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;

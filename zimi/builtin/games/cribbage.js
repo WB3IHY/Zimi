@@ -17,7 +17,7 @@
    functions; the page wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   var NAMES = ['You', 'North'], GOAL = 121, KEPT = 4, DEAL = 6, TARGET = 31, FIFTEEN = 15, HEELS_RANK = 11, SKUNK = 91;
   var cardVal = function (id) { return Math.min(10, Z.rank(id)); };
@@ -58,23 +58,22 @@
     for (i = 0; i < cards.length; i++) if (Z.rank(cards[i]) === HEELS_RANK && Z.suit(cards[i]) === Z.suit(starter)) items.push({ kind: 'nobs', cards: [cards[i]], pts: 1 });
     return { total: items.reduce(function (n, x) { return n + x.pts; }, 0), items: items };
   }
-  var PLURAL = { fifteen: 'Fifteen', pair: 'Pair', nobs: 'Nobs' };
   function itemText(it) {
-    var label = it.kind === 'run' ? 'Run of ' + it.cards.length : it.kind === 'flush' ? 'Flush of ' + it.cards.length : PLURAL[it.kind];
-    return label + ' for ' + it.pts + ': ' + T.shortList(it.cards);
+    var label = it.kind === 'run' || it.kind === 'flush' ? TX('crib.item.' + it.kind, { n: it.cards.length }) : TX('crib.item.' + it.kind);
+    return TX('crib.itemLine', { label: label, pts: it.pts, cards: T.shortList(it.cards) });
   }
 
   // Pegging: the points for the card just played, `seq` being the ids played
   // since the count last restarted (the new one last).
   function pegScore(seq) {
     var count = seq.reduce(function (n, c) { return n + cardVal(c); }, 0), pts = 0, parts = [], k, n = seq.length;
-    if (count === FIFTEEN) { pts += 2; parts.push('fifteen'); }
-    if (count === TARGET) { pts += 2; parts.push('thirty-one'); }
+    if (count === FIFTEEN) { pts += 2; parts.push(TX('crib.part.fifteen')); }
+    if (count === TARGET) { pts += 2; parts.push(TX('crib.part.thirtyOne')); }
     var same = 1;
     while (same < n && Z.rank(seq[n - 1 - same]) === Z.rank(seq[n - 1])) same++;
-    if (same > 1) { var p = [0, 0, 2, 6, 12][same]; pts += p; parts.push(['', '', 'a pair', 'three of a kind', 'four of a kind'][same]); }
+    if (same > 1) { var p = [0, 0, 2, 6, 12][same]; pts += p; parts.push(['', '', TX('crib.part.pair'), TX('crib.part.three'), TX('crib.part.four')][same]); }
     for (k = n; k >= 3; k--) {
-      if (isRunOf(seq.slice(n - k))) { pts += k; parts.push('a run of ' + k); break; }
+      if (isRunOf(seq.slice(n - k))) { pts += k; parts.push(TX('crib.part.run', { n: k })); break; }
     }
     return { pts: pts, count: count, parts: parts };
   }
@@ -106,8 +105,8 @@
   function cutStarter(st) {
     var s = Z.clone(st);
     s.cut = true; s.kept = [s.hands[0].slice(), s.hands[1].slice()]; s.pegHands = [s.hands[0].slice(), s.hands[1].slice()];
-    s.phase = 'peg'; s.turn = other(s.dealer); s.msg = 'Starter: ' + T.short(s.starter);
-    if (Z.rank(s.starter) === HEELS_RANK) { s.msg += '. His heels: ' + verb(s.dealer, 'score', 'scores') + ' 2'; award(s, s.dealer, 2); }
+    s.phase = 'peg'; s.turn = other(s.dealer); s.msg = TX('crib.starter', { card: T.short(s.starter) });
+    if (Z.rank(s.starter) === HEELS_RANK) { s.msg += '. ' + TX(s.dealer === YOU ? 'crib.heels.you' : 'crib.heels', { name: NAMES[s.dealer] }); award(s, s.dealer, 2); }
     return s;
   }
 
@@ -117,7 +116,8 @@
   // The page can rename the seats (two people on one device) and say which seat, if any, is "You".
   var YOU = 0;
   function setNames(names, youSeat) { NAMES[0] = names[0]; NAMES[1] = names[1]; YOU = youSeat; }
-  var verb = function (seat, you, they) { return NAMES[seat] + ' ' + (seat === YOU ? you : they); };
+  // A line about a seat: the key's .you form is for "You" ("You play"), the plain one for a name ("North plays").
+  var said = function (seat, key, vars) { var v = vars || {}; v.name = NAMES[seat]; return TX(seat === YOU ? key + '.you' : key, v); };
 
   function playPeg(st, seat, id) {
     var s = Z.clone(st), o = other(seat);
@@ -125,15 +125,15 @@
     s.seq.push({ seat: seat, id: id });
     var r = pegScore(s.seq.map(function (x) { return x.id; }));
     s.count = r.count; s.lastPlayer = seat; s.moves++;
-    var msg = verb(seat, 'play', 'plays') + ' ' + T.short(id) + ', ' + s.count;
-    if (r.pts) { msg += ': ' + r.parts.join(' and ') + ' for ' + r.pts; award(s, seat, r.pts); }
+    var msg = said(seat, 'crib.plays', { card: T.short(id), count: s.count });
+    if (r.pts) { msg += ': ' + TX('crib.scoring', { parts: r.parts.join(' ' + TX('crib.and') + ' '), pts: r.pts }); award(s, seat, r.pts); }
     if (s.count === TARGET) { s.roundOver = '31'; }
     else if (canPlay(s, o)) s.turn = o;
-    else if (canPlay(s, seat)) { s.turn = seat; s.goes[o] = true; msg += '. ' + verb(o, 'say', 'says') + ' go'; }
+    else if (canPlay(s, seat)) { s.turn = seat; s.goes[o] = true; msg += '. ' + said(o, 'crib.says'); }
     else {
       s.roundOver = 'go';
       var last = !s.pegHands[0].length && !s.pegHands[1].length;
-      msg += '. ' + verb(o, 'say', 'says') + ' go, ' + (last ? 'last card' : seat === YOU ? 'you take the go' : verb(seat, 'take', 'takes') + ' the go') + ' for 1';
+      msg += '. ' + said(o, 'crib.says') + ', ' + (last ? TX('crib.lastCard') : said(seat, 'crib.takesGo')) + ' ' + TX('crib.for1');
       award(s, seat, 1);
     }
     s.msg = msg;
@@ -247,8 +247,8 @@
   function place(st, m, view) {
     var V = (view && view.viewer) || 0, O = 1 - V, faceUp = !(view && view.hideHand);
     var g = geo(m), cards = [], slots = [], chosen = (view && view.chosen) || [], showing = st.phase === 'show' || (st.phase === 'over' && st.showStep >= 0);
-    slots.push({ id: 'deck', x: g.starterX, y: g.rowA, w: g.cw, h: g.ch, quiet: true, label: 'Starter' });
-    slots.push({ id: 'table', x: g.pad, y: g.rowB - 4, w: g.W - 2 * g.pad, h: 2 * g.ch + ROW_GAP + 8, quiet: true, label: 'Table' });
+    slots.push({ id: 'deck', x: g.starterX, y: g.rowA, w: g.cw, h: g.ch, quiet: true, label: TX('crib.slot.starter') });
+    slots.push({ id: 'table', x: g.pad, y: g.rowB - 4, w: g.W - 2 * g.pad, h: 2 * g.ch + ROW_GAP + 8, quiet: true, label: TX('cards.slot.table') });
     var myTurn = st.phase === 'peg' && st.turn === V && !st.roundOver && faceUp, hand, opp;
     var info = function (id) {
       if (st.phase === 'discard') { var on = chosen.indexOf(id) >= 0; return { up: faceUp, raise: on, mark: on, label: Z.cardName(id) + (on ? ', chosen for the crib' : '') }; }
@@ -296,8 +296,8 @@
     }
     function nameSeats() { setNames([seats.name(0), seats.name(1)], seats.isYou(0) ? 0 : seats.isYou(1) ? 1 : -1); }
     var who = function (s) { return seats.name(s); };
-    var poss = function (s) { return seats.isYou(s) ? 'your' : who(s) + '\u2019s'; };
-    var boardEl = Z.h('div', { class: 'cb-board' }), tagCrib = Z.h('div', { class: 'cb-tag' }), tagStarter = Z.h('div', { class: 'cb-tag', text: 'Starter' });
+    var poss = function (s) { return seats.isYou(s) ? TX('crib.your') : TX('crib.poss', { name: who(s) }); };
+    var boardEl = Z.h('div', { class: 'cb-board' }), tagCrib = Z.h('div', { class: 'cb-tag' }), tagStarter = Z.h('div', { class: 'cb-tag', text: TX('crib.starterTag') });
     var tableEl = Z.pageEls().table;
     tableEl.appendChild(boardEl); tableEl.appendChild(tagCrib); tableEl.appendChild(tagStarter);
     var lastBoard = '';
@@ -311,42 +311,42 @@
     }
     function tags(st, g) {
       var showing = st.phase === 'show' || st.showStep >= 0;
-      tagCrib.textContent = showing && st.showStep === 2 ? '' : (seats.isYou(st.dealer) ? 'Your' : who(st.dealer) + '\u2019s') + ' crib';
+      tagCrib.textContent = showing && st.showStep === 2 ? '' : TX(seats.isYou(st.dealer) ? 'crib.tag.you' : 'crib.tag', { name: who(st.dealer) });
       tagCrib.style.left = g.cribX + 'px'; tagCrib.style.top = (g.rowA + g.ch + 3) + 'px'; tagCrib.style.width = g.cw + 'px';
       tagStarter.hidden = showing; tagStarter.style.left = g.starterX + 'px'; tagStarter.style.top = (g.rowA + g.ch + 3) + 'px'; tagStarter.style.width = g.cw + 'px';
       tagCrib.hidden = showing && st.showStep >= 2;
     }
     function itemLines(res, title) {
       var lines = [{ text: title }];
-      if (!res.items.length) lines.push({ text: 'No points: a nineteen hand' });
+      if (!res.items.length) lines.push({ text: TX('crib.nineteen') });
       res.items.forEach(function (it) { lines.push({ text: itemText(it) }); });
-      lines.push({ text: 'Total ' + res.total, cls: 'ct-total' });
+      lines.push({ text: TX('crib.total', { n: res.total }), cls: 'ct-total' });
       return lines;
     }
     var showTitle = function (st) {
-      var w = seats.isYou(st.showWho) ? 'Your' : who(st.showWho) + '\u2019s';
-      return st.showStep === 2 ? w + ' crib' : w + ' hand';
+      var w = poss(st.showWho);
+      return TX(st.showStep === 2 ? 'crib.cribOf' : 'crib.handOf', { whose: w });
     };
     function hud(st) {
       var g = geo(board.metrics());
       drawBoard(st, g); tags(st, g);
       var chips = [0, 1].map(function (seat) {
-        return { name: who(seat), text: st.scores[seat] + (st.dealer === seat ? ' · deals' : ''), turn: st.phase === 'peg' && st.turn === seat && !st.roundOver };
+        return { name: who(seat), text: String(st.scores[seat]), dealer: st.dealer === seat, turn: st.phase === 'peg' && st.turn === seat && !st.roundOver };
       });
-      if (st.phase === 'peg') chips.push({ name: 'Count', text: String(st.count) });
-      var out = { chips: chips, sub: 'Hand ' + (st.handNo + 1) + ' · to ' + GOAL, text: '' };
+      if (st.phase === 'peg') chips.push({ name: TX('crib.count'), text: String(st.count) });
+      var out = { chips: chips, fact: TX('scopa.fact', { n: st.handNo + 1, goal: GOAL }), text: '' };
       if (st.phase === 'discard') {
         var left = 2 - view.chosen.length;
-        out.text = (seats.hotseat() ? who(view.chooser) + ': ' : '') + (left > 0 ? 'Choose ' + left + ' more for ' + poss(st.dealer) + ' crib' : 'Send these two to the crib?');
-        out.label = 'To the crib'; out.action = left === 0 ? sendCrib : null;
-      } else if (st.phase === 'cut') out.text = 'Cutting the starter';
+        out.text = (seats.hotseat() ? who(view.chooser) + ': ' : '') + (left > 0 ? TX('crib.chooseMore', { n: left, whose: poss(st.dealer) }) : TX('crib.sendTwo'));
+        out.label = TX('crib.toCrib'); out.action = left === 0 ? sendCrib : null;
+      } else if (st.phase === 'cut') out.text = TX('crib.cutting');
       else if (st.phase === 'peg') {
         if (st.roundOver) out.text = st.msg;
-        else out.text = (st.msg ? st.msg + '. ' : '') + (!seats.person(st.turn) ? who(st.turn) + ' is thinking' : seats.isYou(st.turn) ? 'Your play' : who(st.turn) + ', your play');
+        else out.text = (st.msg ? st.msg + '. ' : '') + (!seats.person(st.turn) ? TX('cards.thinking', { name: who(st.turn) }) : seats.isYou(st.turn) ? TX('scopa.yourPlay') : TX('scopa.namePlay', { name: who(st.turn) }));
       } else if (st.showStep >= 0) {
-        out.lines = itemLines(st.showRes, showTitle(st) + ' (starter ' + T.short(st.starter) + ')');
-        out.text = st.phase === 'over' ? 'Game over' : '';
-        out.label = st.phase === 'over' ? 'Result' : st.showStep === 2 ? 'Next hand' : 'Continue';
+        out.lines = itemLines(st.showRes, TX('crib.showTitle', { title: showTitle(st), card: T.short(st.starter) }));
+        out.text = st.phase === 'over' ? TX('shell.end.over') : '';
+        out.label = st.phase === 'over' ? TX('crib.result') : st.showStep === 2 ? TX('cards.nextHand') : TX('crib.continue');
         out.action = st.phase === 'over' ? gameOver : continueShow;
       }
       return out;
@@ -406,8 +406,8 @@
     }
     function gameOver() {
       var st = session.state, won = seats.isYou(st.winner), lines = [who(0) + ' ' + st.scores[0] + ', ' + who(1) + ' ' + st.scores[1] + '.'];
-      if (st.scores[other(st.winner)] < SKUNK) lines.push('A skunk: the loser finished below ' + SKUNK + '.');
-      if (won) session.win(st.scores[st.winner]); else session.lose(who(st.winner) + ' wins', lines, seats.hotseat() ? undefined : st.scores[0]);
+      if (st.scores[other(st.winner)] < SKUNK) lines.push(TX('crib.skunk', { n: SKUNK }));
+      if (won) session.win(st.scores[st.winner]); else session.lose(TX('shell.end.wins', { name: who(st.winner) }), lines, seats.hotseat() ? undefined : st.scores[0]);
     }
     var idOf = function (pile) { return parseInt(pile.slice(1), 10); };
     function play(id) {
@@ -424,13 +424,13 @@
         var at = view.chosen.indexOf(id);
         if (at >= 0) view.chosen.splice(at, 1);
         else if (view.chosen.length < 2) view.chosen.push(id);
-        else { t.flash('Two cards go to the crib. Tap one to put it back'); return true; }
+        else { t.flash(TX('crib.twoCards')); return true; }
         board.refresh(); t.paint();
         return true;
       }
       if (st.phase !== 'peg') return false;
-      if (st.turn !== seats.view() || st.roundOver) { t.flash('Wait for your turn'); return false; }
-      if (!isLegalPeg(st, st.turn, id)) { t.flash('That would go past 31'); return false; }
+      if (st.turn !== seats.view() || st.roundOver) { t.flash(TX('cards.wait.turn')); return false; }
+      if (!isLegalPeg(st, st.turn, id)) { t.flash(TX('crib.past31')); return false; }
       return play(id);
     }
     function startGame() {
@@ -443,12 +443,12 @@
     function deal() { view.chooser = seats.people()[0]; seats.begin(function () { refresh(); drive(); }, view.chooser); }
 
     t = T.create({
-      id: 'cribbage', name: 'Cribbage', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: startGame, tap: tap, cols: 6, heightShare: 0.11,
+      id: 'cribbage', name: 'Cribbage', liftPlay: function (st) { return st.phase === 'peg'; }, seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: startGame, tap: tap, cols: 6, heightShare: 0.11,
       canPick: function (st, pile) { return st.phase === 'peg' && pile.charAt(0) === 'h' && isLegalPeg(st, seats.view(), idOf(pile)); },
       move: function (pile, idx, to) { return (to === 'table' || to === 'deck') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0] + '-' + st.scores[1]; },
-      winLines: function (sec, st) { return [who(0) + ' ' + st.scores[0] + ', ' + who(1) + ' ' + st.scores[1] + ', after ' + Z.plural(st.handNo + 1, 'hand') + '.'].concat(st.scores[1] < SKUNK ? ['A skunk: North finished below ' + SKUNK + '.'] : []); },
-      rules: 'First to 121. Each hand: keep 4 cards and send 2 to the dealer’s crib. A starter card is cut (a jack gives the dealer 2). Then take turns playing cards, up to a count of 31. A count of 15 or 31 scores 2, a pair 2, three of a kind 6, four of a kind 12, a run 3 or more, a go or the last card 1. Then the show: the player who did not deal counts first, then the dealer, then the crib. Fifteens score 2, pairs 2, runs 1 a card, a flush 4 (5 with the starter), nobs 1. Tap a card to choose or play it.'
+      winLines: function (sec, st) { return [TX('crib.finalScore', { a: who(0), pa: st.scores[0], b: who(1), pb: st.scores[1], hands: Z.plural(st.handNo + 1, 'hand') })].concat(st.scores[1] < SKUNK ? [TX('crib.skunkNorth', { n: SKUNK })] : []); },
+      rules: TX('crib.rules')
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;
