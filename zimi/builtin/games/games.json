@@ -1969,5 +1969,22 @@
   "length": "5 min",
   "kind": "library",
   "computer": false
+ },
+ {
+  "qid": "Q13576160",
+  "wiki": "GeoGuessr",
+  "path": "droppin.html",
+  "title": "Drop Pin",
+  "blurb": "Pin a place on your own offline map",
+  "why": "Finding a place on a map became a popular game in 2013. Here the map can be your own offline one.",
+  "origin": {
+   "year": 2013,
+   "era": "2010s"
+  },
+  "region": "Europe",
+  "players": "1",
+  "length": "5 min",
+  "kind": "library",
+  "computer": false
  }
 ]
