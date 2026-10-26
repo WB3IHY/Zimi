@@ -1799,5 +1799,22 @@
   "length": "10 min",
   "kind": "puzzle",
   "computer": false
+ },
+ {
+  "qid": "Q1161138",
+  "wiki": "Incipit",
+  "path": "firstlines.html",
+  "title": "First Lines",
+  "blurb": "Name the book from its first line",
+  "why": "Old books were once known by their first words, called the incipit. Here you name a book from its opening line, read from your Gutenberg library.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "5 min",
+  "kind": "library",
+  "computer": false
  }
 ]
