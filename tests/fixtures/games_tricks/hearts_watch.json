@@ -1,0 +1,135 @@
+{
+ "checks": [
+  {
+   "chips": "You0Dev0Rani0Moss0",
+   "cover": "",
+   "label": "dealt",
+   "moves": 0,
+   "phase": "pass",
+   "scores": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "sheet": "",
+   "state": "418675c7",
+   "status": "Choose 3 cards to pass left",
+   "watch": "",
+   "watchCtl": ""
+  },
+  {
+   "chips": "South0West0North0East0",
+   "cover": "",
+   "label": "watching begins",
+   "moves": 0,
+   "phase": "pass",
+   "scores": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "sheet": "",
+   "state": "4fa5735d",
+   "status": "Choose 3 cards to pass left",
+   "watch": "Four players, South at the bottom. Each hand starts with a pass of three cards.",
+   "watchCtl": "Pause/Step/Speed: Normal/Take over"
+  },
+  {
+   "chips": "South0West0North0East0",
+   "cover": "",
+   "label": "watching, first tricks",
+   "moves": 6,
+   "phase": "play",
+   "scores": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "sheet": "",
+   "state": "cd442dea",
+   "status": "Hearts not broken \u00b7 West to play",
+   "watch": "West has to follow spades and every card it can play beats the table, so it plays the lowest, the 4 of spades.",
+   "watchCtl": "Pause/Step/Speed: Normal/Take over"
+  },
+  {
+   "chips": "South0West0 +1North0East0",
+   "cover": "",
+   "label": "watching, a hand on",
+   "moves": 24,
+   "phase": "play",
+   "scores": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "sheet": "",
+   "state": "5c9e020c",
+   "status": "Hearts broken \u00b7 East to play",
+   "watch": "East has no spades and sheds its highest heart, the king of hearts, a point it would rather not keep.",
+   "watchCtl": "Pause/Step/Speed: Normal/Take over"
+  },
+  {
+   "chips": "South0West0 +1North0East0",
+   "cover": "",
+   "label": "paused",
+   "moves": 24,
+   "phase": "play",
+   "scores": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "sheet": "",
+   "state": "5c9e020c",
+   "status": "Hearts broken \u00b7 East to play",
+   "watch": "East has no spades and sheds its highest heart, the king of hearts, a point it would rather not keep.",
+   "watchCtl": "Play/Step/Speed: Normal/Take over"
+  },
+  {
+   "chips": "You0Dev0 +2Rani0Moss0",
+   "cover": "",
+   "label": "taken over",
+   "moves": 27,
+   "phase": "play",
+   "scores": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "sheet": "",
+   "state": "53271971",
+   "status": "Hearts broken \u00b7 Moss is thinking",
+   "watch": "",
+   "watchCtl": ""
+  },
+  {
+   "chips": "You4Dev21Rani1Moss0",
+   "cover": "",
+   "label": "played out",
+   "moves": 0,
+   "phase": "pass",
+   "scores": [
+    4,
+    21,
+    1,
+    0
+   ],
+   "sheet": "",
+   "state": "72be6fe9",
+   "status": "Choose 3 cards to pass right",
+   "watch": "",
+   "watchCtl": ""
+  }
+ ],
+ "events": 72,
+ "hseed": 12,
+ "plays": "2:1 3:3 0:4 1:2 0:41 1:42 2:40 3:51 3:15 0:22 1:21 2:19 0:44 1:46 2:43 3:26 1:16 2:14 3:20 0:13 0:45 1:49 2:48 3:38 1:5 2:0 3:10 0:7 2:17 3:33 0:24 1:23 0:29 1:34 2:30 3:32 1:18 2:50 3:31 0:37 1:11 2:28 3:9 0:12 0:47 1:36 2:39 3:8 2:27 3:6 0:35 1:25",
+ "seed": 18,
+ "trace": "3a273470e4cba4929ca9fb0e412d49cc3cc32e08d446b95dad1bafd7fd401c9c4433ec8aa7bbfcce07363dc33bc909473b0cfaff26b2e3da4f6207ac7c5038c9fdd6f6cae4c1ccaa0422487ba6cc4b0a76e259dda83c13d7f1ee5cf0b9612e99dd4dcf317099340112b0dbf295bcba1ade648a2545126dfc26e3609b236c3d8091b9cf0335d4cf0e8aace3edbaacbafbf6b0dbe1af1a8057575b84db1d3791de09035ab2a0e9fa9f0b47ad8ac73b2a5f27549c9e48232af3ed6451a685dfe491176afe8d9321c5bad7f642bd7160de5431ab3a2e8c1f0f05e09f00baf22c98f94299b9ca38f47ccacc218300d07d3e3216bbbf16f2d4fa48a1c87bb2c9c8dc584516bb0faecd62253ed31dee635d149080d17fb23739934b13758c32cee1f835"
+}
