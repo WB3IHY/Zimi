@@ -16,7 +16,11 @@
 (function (root) {
   'use strict';
   var PREFIX = 'zimi.games.', NAMES_KEY = PREFIX + 'players', MAX_NAME = 14;
-  var COMPASS = { 2: ['South', 'North'], 3: ['South', 'West', 'East'], 4: ['South', 'West', 'North', 'East'] };
+  var COMPASS = { 2: ['south', 'north'], 3: ['south', 'west', 'east'], 4: ['south', 'west', 'north', 'east'] };
+  // Every visible string goes through ZimiText (text.js, which shell.js loads); the pure naming rules fall back to English where there is none.
+  var T = function (key, vars) { return root.ZimiText ? root.ZimiText.T(key, vars) : key; };
+  var POINTS = { south: 'South', west: 'West', north: 'North', east: 'East' };
+  var pointName = function (p) { return root.ZimiText ? T(p === 'south' ? 'bridge.seat.south' : 'cards.seat.' + p) : POINTS[p]; };
 
   // ── storage (guarded: private mode and blocked data must not stop a game) ──
   function read(key, fallback) {
@@ -27,7 +31,7 @@
   }
 
   // ── pure rules ──
-  function defaultName(i) { return 'Player ' + (i + 1); }
+  function defaultName(i) { return root.ZimiText ? T('seats.player', { n: i + 1 }) : 'Player ' + (i + 1); }
   function cleanName(text, i) {
     var t = String(text == null ? '' : text).replace(/\s+/g, ' ').trim().slice(0, MAX_NAME);
     return t || defaultName(i);
@@ -47,7 +51,7 @@
   function needsCover(kinds, viewer, seat) {
     return peopleOf(kinds).length >= 2 && kinds[seat] === 'person' && viewer !== seat;
   }
-  function compassName(n, rel) { return (COMPASS[n] || COMPASS[4])[rel]; }
+  function compassName(n, rel) { return pointName((COMPASS[n] || COMPASS[4])[rel]); }
   function loadNames(count) {
     var saved = read(NAMES_KEY, []), out = [], i;
     for (i = 0; i < count; i++) out.push(cleanName(Array.isArray(saved) ? saved[i] : '', i));
@@ -101,7 +105,7 @@
     S.compass = function (seat) { return compassName(n, S.rel(seat)); };
     S.name = function (seat) {
       if (kinds[seat] === 'cpu') return cfg.cpuNames ? cfg.cpuNames[seat] : S.compass(seat);
-      return S.hotseat() ? names[seat] : 'You';
+      return S.hotseat() ? names[seat] : T('cards.you');
     };
     // "You" is spoken to the viewer only; a sentence about someone else uses their name.
     S.isYou = function (seat) { return !S.hotseat() && kinds[seat] === 'person'; };
@@ -116,11 +120,11 @@
       ensureStyle();
       S.covering = true;
       var who = names[seat], host = el('div', 'zs-cover'), card = el('div', 'zs-cover-card');
-      host.setAttribute('role', 'dialog'); host.setAttribute('aria-modal', 'true'); host.setAttribute('aria-label', 'Pass to ' + who);
+      host.setAttribute('role', 'dialog'); host.setAttribute('aria-modal', 'true'); host.setAttribute('aria-label', T('seats.passTo', { name: who }));
       var logo = el('img'); logo.src = 'mark.svg'; logo.alt = '';
-      var go = el('button', 'zs-btn', "I'm " + who + ', show my cards'); go.type = 'button'; go.setAttribute('aria-pressed', 'true');
-      card.appendChild(logo); card.appendChild(el('small', null, 'Pass to')); card.appendChild(el('h2', null, who));
-      card.appendChild(el('p', null, note || 'Pass the device. Your cards stay hidden until you tap.'));
+      var go = el('button', 'zs-btn', T('seats.show', { name: who })); go.type = 'button'; go.setAttribute('aria-pressed', 'true');
+      card.appendChild(logo); card.appendChild(el('small', null, T('seats.passToSmall'))); card.appendChild(el('h2', null, who));
+      card.appendChild(el('p', null, note || T('seats.passNote')));
       card.appendChild(go); host.appendChild(card);
       host.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); } else if (e.key === 'Tab') { e.preventDefault(); go.focus(); }
@@ -157,7 +161,7 @@
       ensureStyle();
       opts = opts || {};
       var box = el('div', 'zs-seats'), rows = [];
-      box.appendChild(el('h3', null, 'Players'));
+      box.appendChild(el('h3', null, T('seats.players')));
       function refresh() {
         var multi = S.hotseat();
         rows.forEach(function (r, i) {
@@ -169,18 +173,18 @@
       }
       for (var i = 0; i < n; i++) (function (i) {
         var row = el('div', 'zs-row'), seg = el('div', 'zs-seg'), input = el('input', 'zs-name');
-        seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', (opts.labels ? opts.labels[i] : 'Seat ' + (i + 1)) + ' is');
-        [['cpu', opts.cpuLabel || 'Computer'], ['person', 'Person']].forEach(function (k) {
+        seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', T('seats.is', { seat: opts.labels ? opts.labels[i] : T('seats.seatN', { n: i + 1 }) }));
+        [['cpu', opts.cpuLabel || T('cards.computer')], ['person', T('seats.person')]].forEach(function (k) {
           var b = el('button', 'zs-btn', k[1]); b.type = 'button'; b.dataset.kind = k[0];
           b.addEventListener('click', function () { S.setKind(i, k[0]); refresh(); if (onChange) onChange(); });
           seg.appendChild(b);
         });
-        input.type = 'text'; input.maxLength = MAX_NAME; input.value = names[i]; input.setAttribute('aria-label', 'Name for seat ' + (i + 1));
+        input.type = 'text'; input.maxLength = MAX_NAME; input.value = names[i]; input.setAttribute('aria-label', T('seats.nameFor', { n: i + 1 }));
         input.addEventListener('change', function () { S.setName(i, input.value); input.value = names[i]; });
-        row.appendChild(el('span', null, opts.labels ? opts.labels[i] : 'Seat ' + (i + 1)));
+        row.appendChild(el('span', null, opts.labels ? opts.labels[i] : T('seats.seatN', { n: i + 1 })));
         row.appendChild(seg); row.appendChild(input); box.appendChild(row); rows.push({ seg: seg, input: input });
       })(i);
-      var note = el('p', 'zs-note', 'With two or more people, the screen hides each hand until its owner taps. ' + (opts.note || ''));
+      var note = el('p', 'zs-note', T('seats.note') + ' ' + (opts.note || ''));
       box.appendChild(note);
       refresh();
       return box;

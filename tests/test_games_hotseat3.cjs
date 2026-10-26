@@ -34,6 +34,7 @@ function load(store0) {
   const sandbox = { console, localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } } };
   sandbox.window = sandbox;
   vm.createContext(sandbox);
+  vm.runInContext(read('text.js'), sandbox, { filename: 'text.js' });
   vm.runInContext(read('handoff.js'), sandbox, { filename: 'handoff.js' });
   return { Z: sandbox.ZimiSeats, store };
 }

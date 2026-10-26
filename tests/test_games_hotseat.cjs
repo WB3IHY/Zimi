@@ -41,6 +41,7 @@ function load(storageInit) {
   };
   sandbox.window = sandbox;
   vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(dir, 'text.js'), 'utf8'), sandbox, { filename: 'text.js' });
   vm.runInContext(fs.readFileSync(path.join(dir, 'handoff.js'), 'utf8'), sandbox, { filename: 'handoff.js' });
   return { S: sandbox.ZimiSeats, store, doc: sandbox.document };
 }
@@ -145,6 +146,7 @@ function load(storageInit) {
   check(seats.name(1) === 'You' && seats.name(0) === 'North', 'names follow the table');
   const sandbox = { console, document: fakeDom(), localStorage: { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } } };
   sandbox.window = sandbox; vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(dir, 'text.js'), 'utf8'), sandbox, { filename: 'text.js' });
   vm.runInContext(fs.readFileSync(path.join(dir, 'handoff.js'), 'utf8'), sandbox);
   const s2 = sandbox.ZimiSeats.create({ id: 'x', seats: 2 });
   s2.setKind(1, 'person'); s2.setName(0, 'Zed');
