@@ -163,7 +163,7 @@
     ask({ cmd: 'move', ms: HINT_MS, level: 'hard' }, function (r) {
       if (!G.done(token)) return;
       hintIdx = r && r.move >= 0 ? r.move : -1; paint();
-      G.say(T(hintIdx >= 0 ? 'go.hint.point' : 'go.hint.pass', { line: turnText() }));
+      G.say(T(hintIdx >= 0 ? 'go.hint.point' : 'go.hint.pass'));
     });
   }
 

@@ -12,7 +12,7 @@
      BoardUI.options(rows)                the object ZimiShell.game({ menu }) wants: { options: [nodes] }
      BoardUI.status(el)                   the page's one status line: { say(text), reason(text), thinking(on), turn(text) }
      BoardUI.refuse(statusApi, el, text)  an illegal move: the shake on el and the reason on the status line
-     BoardUI.noted(note, line)            a note ahead of the turn's line, when both fit in one status line
+     BoardUI.noted(note, line)            a note ahead of the turn's line, when both fit in one status line (44 characters)
      BoardUI.end(opts)                    ZimiShell.endSheet with the board games' defaults
      BoardUI.record(el, level, rec)       "Medium: 3 won, 1 lost" in the records line (empty until the first game)
      BoardUI.side(color)                  the word for a side ("White", "Black", ...) by id */
@@ -91,8 +91,8 @@
     };
   }
   // What just happened, then the line for the turn; the status is one short line, so the turn's line stands alone when both do not fit.
-  var STATUS_MAX = 60;
-  function noted(note, line) { var both = T('janggi.noted', { note: note, line: line }); return both.length <= STATUS_MAX ? both : line; }
+  var ONE_LINE = 44;   // the most a 390 px status line holds in one line
+  function noted(note, line) { var both = T('janggi.noted', { note: note, line: line }); return both.length <= ONE_LINE ? both : line; }
   function refuse(st, el, text) {
     if (shell() && shell().shake) shell().shake(el);
     if (st && text) st.reason(text);

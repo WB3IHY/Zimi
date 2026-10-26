@@ -284,7 +284,7 @@
 
   function hint() {
     hintPit = chooseMove(G.settings.rules, state, 'hard');
-    paint(); G.say(T('mancala.hint', { line: turnText() }));
+    paint(); G.say(T('mancala.hint'));
   }
 
   function undo() {

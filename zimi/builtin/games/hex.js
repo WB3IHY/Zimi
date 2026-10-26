@@ -256,7 +256,7 @@
 
   function hint() {
     hintIdx = chooseMove(state.board, n, state.turn + 1, 'hard');
-    paint(); G.say(T('hex.hint', { line: turnText() }));
+    paint(); G.say(T('hex.hint'));
   }
 
   function undo() {

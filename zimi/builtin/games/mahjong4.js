@@ -21,7 +21,7 @@
   var seats = newSeats();
   var score = WK.scoreBar($('wk-score'), [{}, {}, {}, {}].map(function () { return { color: 'var(--m4-cloth)' }; }));
   var els = { info: $('m4-info'), opps: $('m4-opps'), pool: $('m4-pool'), claim: $('m4-claim'), melds: $('m4-melds'), hand: $('m4-hand') };
-  var STATUS_MAX = 60;
+  var STATUS_MAX = 44;   // the most a 390 px status line holds in one line
   var game, t, epoch = 0, picked = -1, tip = -1, shown = [], event = '';   // event: what just happened, said while the computers answer a discard
 
   // ── small helpers ──

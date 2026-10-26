@@ -192,7 +192,7 @@
 
   function hint() {
     hintCol = chooseCol(state.board, state.turn + 1, 'hard');
-    paint(); G.say(T('fourinarow.hint', { line: turnText() }));
+    paint(); G.say(T('fourinarow.hint'));
   }
 
   function undo() {

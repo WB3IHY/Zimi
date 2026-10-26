@@ -201,7 +201,7 @@
 
   function hint() {
     hintEdge = chooseEdge(state, 'hard');
-    paint(); G.say(T('dotsandboxes.hint', { line: turnText() }));
+    paint(); G.say(T('dotsandboxes.hint'));
   }
 
   function undo() {
