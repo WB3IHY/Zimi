@@ -581,6 +581,11 @@
 
   // ── The page ────────────────────────────────────────────────────────────
   var AI_MS = 650, HOLD_MS = 950, SWEEP_MS = 380, BOX_GAP = 8;
+  // The bidding box is six rows (five denominations and the Pass row) and is made to leave the auction above it in view: its
+  // buttons shrink from a full touch target to BID_H_MIN to make room, and an auction that is still too long for what is left
+  // shows its latest calls (never less than AUCTION_H_MIN tall).
+  var BID_H_MAX = 44, BID_H_MIN = 32, BID_ROWS = 6, BOX_CHROME = 42, AUCTION_H_MIN = 72;
+  function boxHeight(rowH) { return rowH * BID_ROWS + BOX_CHROME; }
   var suitSpan = function (den) { return Z.h('span', { class: den === 1 || den === 2 ? 'br-red' : '', text: DEN_LABEL[den] }); };
   function callNode(call, cls) {
     var p = parseCall(call);
@@ -632,12 +637,22 @@
     }
     function paintBox(st, m) {
       var g = geo(m), V = seats.view(), mine = st.phase === 'auction' && st.turn === V, legal = mine ? legalCalls(st, V) : [];
-      var sig = JSON.stringify([mine, V, legal, Math.round(g.statusY), g.W]);
+      var shown = !auctionEl.hidden, natural = shown ? auctionEl.scrollHeight : 0;
+      var sig = JSON.stringify([mine, V, legal, Math.round(g.statusY), g.W, natural, shown ? auctionEl.style.top : 0]);
       if (sig === boxSig) return;
       boxSig = sig;
       boxEl.textContent = '';
       boxEl.hidden = !mine;
+      auctionEl.style.maxHeight = '';
       if (!mine) return;
+      // What is left between the auction's top and the box's bottom edge (both in the table's own coordinates).
+      var room = g.statusY - BOX_GAP - (shown ? parseFloat(auctionEl.style.top) + BOX_GAP : 0), rowH = BID_H_MAX;
+      while (rowH > BID_H_MIN && boxHeight(rowH) + natural > room) rowH -= 2;
+      if (shown && boxHeight(rowH) + natural > room) {
+        auctionEl.style.maxHeight = Math.max(room - boxHeight(rowH), AUCTION_H_MIN) + 'px';
+        auctionEl.scrollTop = auctionEl.scrollHeight;
+      }
+      boxEl.style.setProperty('--br-bid-h', rowH + 'px');
       var grid = Z.h('div', { class: 'br-levels' }), level, den;
       for (den = 0; den <= NT; den++) for (level = 1; level <= MAX_LEVEL; level++) {
         var call = bidCall(level, den), b = Z.h('button', { class: 'ar-btn br-bid', type: 'button', 'aria-label': TX('bridge.bidAria', { level: level, den: DEN_NAME[den] }) }, [callNode(call)]);
