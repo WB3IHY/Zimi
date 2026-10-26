@@ -531,7 +531,7 @@
  "jigsaw.peek": "Peek",
  "jigsaw.peekTitle": "Hold to see the whole picture",
  "jigsaw.picture": "Picture: {credit}",
- "jigsaw.picture.of": "Picture",
+ "jigsaw.pictureOf": "Picture",
  "jigsaw.pieces": "Pieces",
  "jigsaw.placed": "{n} of {total} placed",
  "jigsaw.random": "Random",

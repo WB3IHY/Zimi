@@ -6,27 +6,28 @@
 <title>Hnefatafl - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="boardui.css">
 <link rel="stylesheet" href="world.css">
 <link rel="stylesheet" href="hnefatafl.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body>
 <header class="ar-bar">
-  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <a class="ar-back" href="index.html" data-t-aria="shell.back" aria-label="Back">&lsaquo;</a>
   <h1>Hnefatafl</h1>
-  <button class="ar-btn" id="wk-undo" type="button" disabled>Undo</button>
-  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog">New game</button>
+  <button class="ar-btn" id="wk-undo" type="button" disabled data-t="board.undo">Undo</button>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="bg-main">
-  <div class="bg-score" id="wk-score" aria-label="Pieces"></div>
-  <div class="hn-board" id="hn-board" role="group" aria-label="Hnefatafl board"></div>
-  <p class="bg-status" id="wk-status" role="status" aria-live="polite"></p>
-  <div class="bg-controls"><button class="ar-btn" id="wk-hint" type="button" disabled>Hint</button></div>
+  <p class="bg-status" id="wk-status"></p>
+  <div class="bg-score" id="wk-score" data-t-aria="makruk.pieces" aria-label="Pieces"></div>
+  <div class="hn-board" id="hn-board" role="group" data-t-aria="hnefatafl.board" aria-label="Hnefatafl board"></div>
+  <div class="bg-controls"><button class="ar-btn" id="wk-hint" type="button" disabled data-t="board.hint">Hint</button></div>
   <p class="bg-stats" id="wk-stats"></p>
-  <p class="bg-help">Copenhagen rules. The attackers (dark) move first and try to capture the king. The defenders (light) try to take the king to a corner. Pieces move in straight lines like rooks. A piece is captured when it is between two enemy pieces. Corners and the empty throne count as enemies, and only the king may stop there. The king is captured by 4 attackers, or by 3 attackers and the throne. Arrow keys move, Enter selects, U undoes, H hints, N starts a new game.</p>
 </main>
 <script src="boardkit.js"></script>
+<script src="boardui.js"></script>
 <script src="worldkit.js"></script>
 <script src="enginekit.js"></script>
 <script src="hnefatafl-engine.js"></script>

@@ -6,27 +6,28 @@
 <title>International Draughts - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="boardui.css">
 <link rel="stylesheet" href="world.css">
 <link rel="stylesheet" href="draughts.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body>
 <header class="ar-bar">
-  <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
+  <a class="ar-back" href="index.html" data-t-aria="shell.back" aria-label="Back">&lsaquo;</a>
   <h1>Draughts 10x10</h1>
-  <button class="ar-btn" id="wk-undo" type="button" disabled>Undo</button>
-  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog">New game</button>
+  <button class="ar-btn" id="wk-undo" type="button" disabled data-t="board.undo">Undo</button>
+  <button class="ar-btn" id="wk-new" type="button" aria-haspopup="dialog" data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="bg-main">
-  <div class="bg-score" id="wk-score" aria-label="Pieces"></div>
-  <div class="bg-board dr-board" id="dr-board" role="group" aria-label="Draughts board"></div>
-  <p class="bg-status" id="wk-status" role="status" aria-live="polite"></p>
-  <div class="bg-controls"><button class="ar-btn" id="wk-hint" type="button" disabled>Hint</button><button class="ar-btn" id="dr-flip" type="button" aria-pressed="false" title="Turn the board around (F)">Flip</button></div>
+  <p class="bg-status" id="wk-status"></p>
+  <div class="bg-score" id="wk-score" data-t-aria="makruk.pieces" aria-label="Pieces"></div>
+  <div class="bg-board dr-board" id="dr-board" role="group" data-t-aria="draughts.board" aria-label="Draughts board"></div>
+  <div class="bg-controls"><button class="ar-btn" id="wk-hint" type="button" disabled data-t="board.hint">Hint</button><button class="ar-btn" id="dr-flip" type="button" aria-pressed="false" data-t="board.flip" data-t-title="chess.flipTitle" title="Turn the board around">Flip</button></div>
   <p class="bg-stats" id="wk-stats"></p>
-  <p class="bg-help">10 by 10 board, 20 men each. Men move forward on a diagonal and capture forwards or backwards. Kings move any distance. You must capture, and you must take the most pieces you can. Tap a piece, then where it lands (for a chain of captures, tap each landing). Arrow keys move, Enter selects, U undoes, H hints, F flips, N starts a new game.</p>
 </main>
 <script src="boardkit.js"></script>
+<script src="boardui.js"></script>
 <script src="worldkit.js"></script>
 <script src="enginekit.js"></script>
 <script src="draughts-engine.js"></script>

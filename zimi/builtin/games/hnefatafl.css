@@ -9,7 +9,7 @@
 .hn-sq::before { content: ""; position: absolute; inset: 0; pointer-events: none; }
 .hn-sq.last::before { background: var(--last); }
 .hn-sq.sel::before { background: var(--sel); }
-.hn-sq.tip::before { background: rgba(255, 111, 0, 0.5); }
+.hn-sq.tip::before { background: var(--sel); }
 .hn-sq.took::before { background: rgba(198, 40, 40, 0.38); }
 .hn-sq.hint::after { content: ""; position: absolute; width: 28%; height: 28%; border-radius: 50%; background: var(--hint); pointer-events: none; }
 /* The corners and the throne: a diagonal cross and a plain cross. */
@@ -23,5 +23,5 @@
 .hn-pc.d::before { content: ""; position: absolute; inset: 22%; border-radius: 50%; border: 1.5px solid rgba(70, 48, 24, 0.5); }
 .hn-pc.k { width: 90%; height: 90%; background: radial-gradient(circle at 35% 30%, #ffffff, var(--hn-def) 62%, var(--hn-def-lo)); box-shadow: 0 0 0 2px var(--hn-gold), 0 2px 4px rgba(0, 0, 0, 0.5); }
 .hn-crown { width: 58%; height: 58%; fill: var(--hn-gold); stroke: rgba(0, 0, 0, 0.4); stroke-width: 1; }
-.hn-sq.sel .hn-pc { box-shadow: 0 0 0 3px var(--accent), 0 3px 6px rgba(0, 0, 0, 0.5); }
+.hn-sq.sel .hn-pc { box-shadow: 0 0 0 1px rgba(26, 18, 9, 0.85), 0 0 0 4px var(--select-ring), 0 3px 6px rgba(0, 0, 0, 0.5); }
 .bg-dot.ha { background: var(--hn-att); } .bg-dot.hd { background: var(--hn-def); }

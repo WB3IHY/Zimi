@@ -2,17 +2,19 @@
    a Web Worker built from its own source (enginekit.js) with the main thread as the fallback. Our own code, GPL-3.0. */
 (function (root) {
   'use strict';
-  if (typeof document === 'undefined' || !root.ZimiDraughtsEngine) return;
-  var WK = root.WorldKit, BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  if (typeof document === 'undefined' || !root.ZimiDraughtsEngine || !root.BoardUI) return;
+  var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var E = root.ZimiDraughtsEngine(root.ZimiSearch()), brain = root.EngineKit.client(root.ZimiDraughtsEngine, 300);
   var WHITE = E.WHITE, SIZE = E.N, N = E.SQUARES, HINT_MS = 1500;
-  var SIDE_NAME = ['White', 'Black'];
+  function sideName(p) { return UI.side(p === 0 ? 'white' : 'black'); }
+  // Show legal moves is the shell's Hints setting (Menu > Settings), not a New game option.
+  function hintsOn() { return !root.ZimiShell || root.ZimiShell.settings.get('hints') !== 'off'; }
   var CROWN = '<svg class="dr-crown" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18l-1-11 6 5 4-8 4 8 6-5-1 11z"/></svg>';
 
   var G = WK.create({
     id: 'draughts',
-    options: WK.standardOptions({ first: 'White (first)', second: 'Black' }),
-    checks: [{ key: 'hints', label: 'Show legal moves', def: true }, { key: 'numbers', label: 'Show square numbers', def: false }],
+    options: WK.standardOptions({ first: 'chess.side.white', second: 'board.black' }),
+    checks: [{ key: 'numbers', label: 'draughts.numbers', def: false }],
     onNew: newGame, onUndo: undo, onHint: hint
   });
   var score = WK.scoreBar($('wk-score'), [{ color: 'var(--dr-w)', border: 'var(--dr-w-lo)' }, { color: 'var(--dr-b)' }]);
@@ -22,7 +24,7 @@
   function turnIdx() { return pos.turn === WHITE ? 0 : 1; }
   function flipped() { return manualFlip !== (G.vsComputer() && G.settings.side === 'second'); }
   function sqAt(d) { return flipped() ? N - 1 - d : d; }
-  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? 'You' : 'The computer') : SIDE_NAME[p]; }
+  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? T('board.you') : T('board.theComputer')) : sideName(p); }
 
   function buildBoard() {
     board.textContent = '';
@@ -42,7 +44,7 @@
 
   function paint() {
     var open = !G.over && !G.thinking && G.human(turnIdx());
-    var land = sel >= 0 ? nextLandings() : {}, mov = open && G.settings.hints && sel < 0 ? movable() : {};
+    var land = sel >= 0 ? nextLandings() : {}, mov = open && hintsOn() && sel < 0 ? movable() : {};
     var count = [0, 0], kings = [0, 0];
     for (var d = 0; d < N; d++) {
       var s = sqAt(d), c = cells[d], v = pos.sq[s], dark = E.isDark(s), cls = 'bg-sq' + (dark ? ' dk' : '');
@@ -50,31 +52,32 @@
       if (s === sel) cls += ' sel';
       if (prefix.indexOf(s) >= 0) cls += ' path';
       if (tip && (s === tip.from || s === tip.path[0])) cls += ' tip';
-      if (G.settings.hints && land[s]) cls += ' hint';
+      if (hintsOn() && land[s]) cls += ' hint';
       if (mov[s]) cls += ' can';
       c.className = cls;
       var sig = v + '|' + (dark && G.settings.numbers ? E.numberOf(s) : '');
       if (c.dataset.sig !== sig) { c.innerHTML = (dark && G.settings.numbers ? '<span class="dr-n">' + E.numberOf(s) + '</span>' : '') + (v ? pieceHtml(v) : ''); c.dataset.sig = sig; }
-      c.setAttribute('aria-label', (dark ? 'square ' + E.numberOf(s) : 'light square') + ', ' + (v ? (v > 0 ? 'white ' : 'black ') + (Math.abs(v) === E.KING ? 'king' : 'man') : land[s] ? 'land here' : 'empty') + (s === sel ? ', selected' : ''));
+      var sq = dark ? T('draughts.sq.dark', { n: E.numberOf(s) }) : T('draughts.sq.light'), text = v ? T('draughts.sq.piece', { sq: sq, color: sideName(v > 0 ? 0 : 1).toLowerCase(), piece: T(Math.abs(v) === E.KING ? 'draughts.king' : 'draughts.man') }) : T(land[s] ? 'draughts.sq.land' : 'draughts.sq.empty', { sq: sq });
+      c.setAttribute('aria-label', s === sel ? T('chess.sq.selected', { label: text }) : text);
       if (v) { count[v > 0 ? 0 : 1]++; if (Math.abs(v) === E.KING) kings[v > 0 ? 0 : 1]++; }
     }
-    var names = G.names(SIDE_NAME[0], SIDE_NAME[1]);
-    score([names[0] + ' ' + count[0] + (kings[0] ? ' (' + kings[0] + ' kings)' : ''), names[1] + ' ' + count[1] + (kings[1] ? ' (' + kings[1] + ' kings)' : '')], null, G.over ? -1 : turnIdx());
+    var names = G.names(sideName(0), sideName(1));
+    score(names, [count[0] + (kings[0] ? ' ' + T('draughts.kings', { n: kings[0] }) : ''), count[1] + (kings[1] ? ' ' + T('draughts.kings', { n: kings[1] }) : '')], G.over ? -1 : turnIdx());
     flipBtn.setAttribute('aria-pressed', String(flipped()));
     G.setUndo(played.length > 0); G.setHint(open);
   }
 
-  var WHY = { repetition: 'A draw: the same position came up three times.', quiet: 'A draw: twenty-five moves each of kings alone, with no capture.' };
+  var WHY = { repetition: 'xiangqi.why.repetition', quiet: 'draughts.why.quiet' };
   function finish(st) {
     sel = -1; prefix = []; cands = []; tip = null;
-    var msg, out, title;
+    var msg, out, name;
     if (st.result === 'win') {
       var wi = st.winner === WHITE ? 0 : 1;
-      msg = (G.vsComputer() ? (G.human(wi) ? 'You win' : 'The computer wins') : SIDE_NAME[wi] + ' wins') + ': ' + SIDE_NAME[1 - wi].toLowerCase() + ' has no move left.';
+      msg = T('draughts.why.noMove', { side: sideName(1 - wi) });
       out = G.vsComputer() ? (G.human(wi) ? 'w' : 'l') : null;
-      title = G.vsComputer() && G.human(wi) ? 'You win' : 'Game over';
-    } else { msg = WHY[st.result]; out = G.vsComputer() ? 'd' : null; title = 'A draw'; }
-    G.finish(msg, out, title);
+      name = sideName(wi);
+    } else { msg = T(WHY[st.result]); out = G.vsComputer() ? 'd' : null; }
+    G.finish(msg, out, name);
     paint();
   }
   function afterMove(note) {
@@ -83,16 +86,16 @@
     if (st.over) { finish(st); return; }
     legal = E.moves(pos);
     paint();
-    var line = !G.vsComputer() ? SIDE_NAME[p] + ' to move' : G.human(p) ? 'Your turn' : 'Computer is thinking';
-    if (st.mustCapture && G.human(p)) line += ': you must capture' + (legal[0].caps.length > 1 ? ' ' + legal[0].caps.length + ' pieces' : '');
-    G.say((note || '') + line, !G.human(p));
+    var line = !G.vsComputer() ? T('board.toMove', { name: sideName(p) }) : G.human(p) ? T('board.yourTurn') : T('shell.thinking');
+    if (st.mustCapture && G.human(p)) line = T('draughts.mustCapture', { n: legal[0].caps.length });
+    G.say(note ? T('janggi.noted', { note: note, line: line }) : line, !G.human(p));
     if (!G.human(p)) computerTurn();
   }
   function play(m) {
     var who = nameOf(turnIdx());
     played.push(m);
     E.make(pos, m); keys.push(E.key(pos)); lastMove = m;
-    afterMove(who + (G.vsComputer() ? ' played ' : ': ') + E.notation(m) + '. ');
+    afterMove(T(G.vsComputer() ? 'makruk.played' : 'makruk.playedTwo', { name: who, move: E.notation(m) }));
   }
   function request(extra) { return Object.assign({ sq: Array.from(pos.sq), turn: pos.turn, quiet: pos.quiet }, extra); }
 
@@ -105,11 +108,11 @@
     });
   }
   function hint() {
-    var token = G.begin(); paint(); G.say('Thinking...', true);
+    var token = G.begin(); paint(); G.say(T('board.thinkingHint'), true);
     brain.ask(request({ level: 'hard', ms: HINT_MS }), function (r) {
       if (!G.done(token)) return;
       tip = r && r.index >= 0 && r.index < legal.length ? legal[r.index] : null; paint();
-      G.say(tip ? 'Hint: ' + E.notation(tip) + '.' : 'No hint.');
+      G.say(tip ? T('makruk.hint', { move: E.notation(tip) }) : T('board.noHint'));
     });
   }
 
@@ -123,19 +126,19 @@
         if (ends.length === 1) next = ends;
       }
       if (next.length === 1) { play(next[0]); return; }
-      if (next.length > 1) { prefix = prefix.concat([s]); cands = next; G.say('Choose the next landing square'); paint(); return; }
+      if (next.length > 1) { prefix = prefix.concat([s]); cands = next; G.say(T('draughts.nextLanding')); paint(); return; }
     }
     if (v * pos.turn > 0 && s !== sel) {
       var mine = legal.filter(function (m) { return m.from === s; });
-      if (mine.length) { sel = s; prefix = []; cands = mine; tip = null; G.say(mine[0].caps.length ? 'Tap where it lands' : 'Choose where to move'); }
-      else { sel = -1; prefix = []; cands = []; G.say(legal[0].caps.length ? 'A capture is compulsory: that piece cannot take' : 'That piece cannot move'); }
+      if (mine.length) { sel = s; prefix = []; cands = mine; tip = null; G.say(T(mine[0].caps.length ? 'draughts.tapLands' : 'board.chooseWhere')); }
+      else { sel = -1; prefix = []; cands = []; G.refuse(e.currentTarget, T(legal[0].caps.length ? 'draughts.cantTake' : 'chess.cantMove')); }
     } else { sel = -1; prefix = []; cands = []; }
     paint();
   }
 
   function undo() {
     if (!played.length) return;
-    G.cancel(); G.over = false; G.closeResult();
+    G.cancel(); G.over = false;
     do { E.unmake(pos); played.pop(); keys.pop(); } while (played.length && G.vsComputer() && !G.human(turnIdx()));
     lastMove = played[played.length - 1] || null;
     afterMove();
@@ -153,6 +156,10 @@
     else if (e.key === 'Escape' && sel >= 0) { sel = -1; prefix = []; cands = []; paint(); }
   });
 
+  if (root.ZimiShell) {
+    root.ZimiShell.settings.on(function (k) { if (k === 'hints' || k === '*') paint(); });
+    root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && played.length > 0; } });
+  }
   buildBoard();
   G.newGame();
 
