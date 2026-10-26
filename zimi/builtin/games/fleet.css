@@ -1,7 +1,7 @@
 /* Fleet: two grids of squares. A hit is a cross, a miss a dot, a ship a solid block: no colour alone. */
 .fl-board { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .fl-board[hidden] { display: none; }
-.fl-board h2 { margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink2); }
+.fl-board h2 { margin: 0; font-size: var(--fs-small); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink2); }
 .fl-grid { --cs: min(34px, calc((100vw - 40px) / 10)); display: grid; grid-template-columns: repeat(10, var(--cs)); grid-auto-rows: var(--cs); gap: 1px; padding: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .fl-grid.fl-small { --cs: 17px; }
 .fl-grid.fl-small .fl-c::before { transform: scale(0.8); }
@@ -23,5 +23,5 @@
 .fl-tray:empty, .fl-tools:empty { display: none; }
 .fl-tray .ar-btn[aria-pressed="true"], .fl-tools .ar-btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
 .fl-tray .ar-btn.fl-done { text-decoration: line-through; opacity: 0.6; }
-.fl-ships { margin: 0; font-size: 12px; color: var(--ink2); text-align: center; }
+.fl-ships { margin: 0; font-size: var(--fs-small); color: var(--ink2); text-align: center; }
 .fl-ships s { color: var(--ink3); }

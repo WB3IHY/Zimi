@@ -34,7 +34,7 @@
 @keyframes ld-glow { 50% { box-shadow: 0 0 0 8px var(--accent-glow); } }
 .ld-die-hint { min-width: 3em; font-weight: 700; color: var(--ink); }
 
-.ld-scores { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: center; font: 600 12px var(--mono); color: var(--ink2); }
+.ld-scores { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: center; font: 600 var(--fs-small) var(--mono); color: var(--ink2); }
 .ld-score { display: inline-flex; align-items: center; gap: 5px; padding: 2px 6px; border-radius: 6px; }
 .ld-score.now { background: var(--surface); box-shadow: 0 0 0 1.5px var(--select-ring); color: var(--ink); }
 .ld-score b { color: var(--ink); }

@@ -9,7 +9,7 @@
 .mk-pc.w .body { fill: var(--mk-w); stroke: var(--mk-w-line); } .mk-pc.w .line { stroke: var(--mk-w-line); }
 .mk-pc.b .body { fill: var(--mk-b); stroke: var(--mk-b-edge); } .mk-pc.b .line { stroke: var(--mk-b-detail); }
 .bg-dot.mw { background: var(--mk-w); } .bg-dot.mb { background: var(--mk-b); }
-.mk-board .co { position: absolute; font: 600 10px var(--mono); color: var(--sq-edge); opacity: 0.8; pointer-events: none; }
+.mk-board .co { position: absolute; font: 600 var(--fs-caption) var(--mono); color: var(--sq-edge); opacity: 0.8; pointer-events: none; }
 .mk-board .co.r { top: 2px; left: 3px; } .mk-board .co.f { bottom: 1px; right: 3px; }
 .mk-board .dk .co { color: var(--sq-light); }
 .mk-pc.w .eye { fill: var(--mk-w-line); } .mk-pc.b .eye { fill: var(--mk-b-detail); }

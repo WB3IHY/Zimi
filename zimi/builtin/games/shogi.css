@@ -34,7 +34,7 @@
 .sg-h:disabled { cursor: default; opacity: 0.28; }
 .sg-h.sel { background: var(--sel); border-color: var(--select-ring); }
 .sg-h .sg-pc { width: 34px; height: 38px; }
-.sg-h b { position: absolute; right: 0; bottom: 0; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--ink); color: var(--surface); font: 700 11px/17px var(--mono); text-align: center; }
+.sg-h b { position: absolute; right: 0; bottom: 0; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--ink); color: var(--surface); font: 700 var(--fs-caption)/17px var(--mono); text-align: center; }
 .sg-h:disabled b { visibility: hidden; }
 
 .sg-moves { max-height: 66px; overflow: auto; line-height: 1.7; }
