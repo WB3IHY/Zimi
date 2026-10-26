@@ -375,6 +375,16 @@
   loadStats();
   game = load('daily');
   paintAll();
+  // Leaving and coming back keeps the position, the letters typed so far included. The day's word of an earlier
+  // day is not kept; a Wiktionary's round keeps itself (state per list) and is asked for again.
+  ZimiShell.persist({
+    save: function () { return game && !cur && (game.guesses.length || game.current) ? game : null; },
+    load: function (kept) {
+      if (cur || !kept.answer || !words.allowed[kept.answer] || (kept.mode === 'daily' && (kept.date !== today || kept.answer !== dailyAnswer(words, new Date())))) return false;
+      game = kept; paintAll();
+      if (game.status !== 'playing') finish();
+    }
+  });
   findLists();
   // A read-only window onto the live game, for the browser tests.
   root.__five = { get game() { return game; }, get list() { return cur; } };
