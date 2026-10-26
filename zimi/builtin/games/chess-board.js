@@ -57,7 +57,7 @@
   function promoButtons(E, box, pick) {
     [E.Q, E.R, E.B, E.N].forEach(function (t) {
       var b = document.createElement('button');
-      b.type = 'button'; b.className = 'ar-btn cs-promo-btn'; b.dataset.t = t;
+      b.type = 'button'; b.className = 'ar-btn cs-promo-btn';
       b.setAttribute('aria-label', T('chess.piece.' + t));
       b.innerHTML = PC.svg(t, true) + '<span>' + T('chess.piece.' + t) + '</span>';
       b.addEventListener('click', function () { pick(t); });

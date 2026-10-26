@@ -246,7 +246,7 @@
   }
   function onHand(e) {
     if (over || thinking || !human(pos.turn)) return;
-    var t = +e.currentTarget.dataset.t;
+    var t = +e.currentTarget.dataset.piece;
     sel = -1;
     if (selDrop === t) { selDrop = 0; targets = {}; } else {
       selDrop = t; targets = targetsFor(function (m) { return E.isDrop(m) && E.from(m) === t; });
