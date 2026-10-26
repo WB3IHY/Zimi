@@ -332,19 +332,40 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$, Tx = Play.T;
-  var SAVE_KEY = 'zimi.games.quest', CHROME_PX = 190, MAX_SCALE = 4, READY_ARM_MS = 650;
+  var SAVE_KEY = 'zimi.games.quest', CHROME_PX = 190, MAX_SCALE = 4;
   Play.applyTheme();
   var els = { cv: $('qs-screen'), hearts: $('qs-hearts'), keys: $('qs-keys'), sword: $('qs-sword'), where: $('qs-where'), msg: $('qs-msg'), pause: $('qs-pause'), newBtn: $('qs-new') };
-  var st = createState(null, 1), mode = 'ready', ctx, reduced = Play.reducedMotion(), scale = 2, armed = null, status = Play.status(els.msg);
+  var st = createState(null, 1), ctx, reduced = Play.reducedMotion(), scale = 2;
   var saved = Play.load(SAVE_KEY, null);
-  var keys = Kit.keyboard(Object.assign({ ' ': 'act', Enter: 'act', z: 'act', x: 'act' }, root.ZimiUtil.DIR_KEYS), function (a) { if (a === 'act' && mode === 'playing') doAct(); }, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || mode !== 'playing'; });
+  var keys = Kit.keyboard(Object.assign({ ' ': 'act', Enter: 'act', z: 'act', x: 'act' }, root.ZimiUtil.DIR_KEYS), function (a) { if (a === 'act' && page.mode === 'playing') doAct(); }, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || page.mode !== 'playing'; });
   var touch = { up: false, down: false, left: false, right: false, act: false };
-  var pad = Play.pad(els.cv, { dirs: ['left', 'right', 'up', 'down'], actions: [{ name: 'act', label: Tx('play.act') }], on: function (name, down) {
-    if (name === 'act') { if (down && mode === 'playing') doAct(); } else touch[name] = down;
-  } });
   function held(a) { return keys.held[a] || touch[a]; }
   function input() { return { dx: (held('right') ? 1 : 0) - (held('left') ? 1 : 0), dy: (held('down') ? 1 : 0) - (held('up') ? 1 : 0) }; }
   function doAct() { act(st); drain(); }
+
+  // With a saved quest the ready tap carries on from it; Menu > New game starts a fresh one.
+  // Leaving and coming back keeps the exact spot: paused where it was, or at the end sheet. (The checkpoint save in drain
+  // still lets a later visit carry on from the last place reached.)
+  function hasSave() { return !!(saved && saved.v === 1); }
+  var page = Play.arcadePage({
+    els: els, ready: function () { return { start: function () { page.begin(hasSave()); }, touch: Tx(hasSave() ? 'quest.tapContinue' : 'play.tapStart'), keys: Tx(hasSave() ? 'quest.keyContinue' : 'play.pressKey') }; },
+    state: function () { return st; }, draw: draw, hud: hud, result: 'win', endSaved: true, resumeOnStage: true,
+    layout: layout, refresh: function () { layout(); hud(); },
+    pad: { dirs: ['left', 'right', 'up', 'down'], actions: [{ name: 'act', label: Tx('play.act') }], on: function (name, down) {
+      if (name === 'act') { if (down && page.mode === 'playing') doAct(); } else touch[name] = down;
+    } },
+    idle: function () { st = createState(hasSave() ? saved : null); },
+    newRun: function (fromSave) { st = createState(fromSave ? saved : null); return fromSave ? Tx('quest.welcome') : ''; },
+    release: function () { keys.clear(); Object.keys(touch).forEach(function (k) { touch[k] = false; }); },
+    stats: function () { return [[Tx('quest.keys'), Play.num(st.keys)]]; },
+    onFinish: function () { Play.save(SAVE_KEY, null); saved = null; },
+    snapshot: function () { return st; },
+    restore: function (s) {
+      if (!s.screen) return false;
+      st = s; st.rng = mulberry(Math.floor(Math.random() * 4294967296));
+    }
+  });
+  var status = page.status;
 
   function layout() { var f = Kit.fit(els.cv, W, H, CHROME_PX, MAX_SCALE); ctx = f.ctx; scale = f.scale; draw(); }
   function hud() {
@@ -449,69 +470,13 @@
       else if (e.name === 'faint') status.say(Tx('quest.faint'));
       else if (e.name === 'woke') status.say(Tx('quest.woke'));
       else if (e.name === 'defeat' && e.data === 'boss') status.say(Tx('quest.boss'));
-      else if (e.name === 'won') finish();
+      else if (e.name === 'won') page.finish();
       else if (e.name === 'save') Play.save(SAVE_KEY, snapshot(st));
     });
     st.events.length = 0;
   }
-  var loop = Play.loop(function (dt) { step(st, dt, input()); drain(); }, function () { draw(); hud(); }, 60);
+  page.run(function (dt) { step(st, dt, input()); drain(); });
 
-  // With a saved quest the ready tap carries on from it; Menu > New game starts a fresh one.
-  function hasSave() { return !!(saved && saved.v === 1); }
-  function readyOpts() { return { say: status.say, target: pad.stage, start: function () { start(hasSave()); }, touch: Tx(hasSave() ? 'quest.tapContinue' : 'play.tapStart'), keys: Tx(hasSave() ? 'quest.keyContinue' : 'play.pressKey') }; }
-  function arm() {
-    if (armed) armed.cancel();
-    st = createState(hasSave() ? saved : null); mode = 'ready'; layout(); hud();
-    armed = Play.ready(readyOpts());
-  }
-  function start(fromSave) {
-    if (armed) armed.cancel();
-    st = createState(fromSave ? saved : null); mode = 'playing'; status.say(fromSave ? Tx('quest.welcome') : ''); Play.pauseLabel(els.pause, false); els.pause.disabled = false; layout(); hud(); loop.start();
-  }
-  function clearHeld() { keys.clear(); Object.keys(touch).forEach(function (k) { touch[k] = false; }); pad.release(); }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); }
-  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
-  function toggle() { if (mode === 'playing') pause(); else resume(); }
-  var lastEnd = null;
-  function finish() {
-    lastEnd = [[Tx('quest.keys'), Play.num(st.keys)]];
-    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); clearHeld(); Play.save(SAVE_KEY, null); saved = null; hud(); draw();
-    ZimiShell.endSheet({ result: 'win', stats: lastEnd });
-    setTimeout(function () { if (mode === 'over') armed = Play.ready(readyOpts()); }, READY_ARM_MS);
-  }
-  els.newBtn.addEventListener('click', function () { start(false); });
-  els.pause.addEventListener('click', toggle);
-  pad.stage.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
-  Play.onHidden(pause);
-  ZimiShell.game({ inProgress: function () { return mode === 'playing' || mode === 'paused'; } });
-  document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (document.querySelector('.ar-sheet:not([hidden])')) return;
-    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (mode === 'playing' || mode === 'paused') toggle(); }
-  });
-
-  window.addEventListener('resize', layout);
-  buildArt(); layout(); arm();
-  // Leaving and coming back keeps the exact spot: paused where it was, or at the end sheet. (The checkpoint save above
-  // still lets a later visit carry on from the last place reached.)
-  ZimiShell.persist({
-    save: function () {
-      if (mode === 'over' && lastEnd) return { end: lastEnd };
-      return mode === 'playing' || mode === 'paused' ? { st: st } : null;
-    },
-    load: function (d) {
-      if (armed) armed.cancel();
-      if (d.end) {
-        mode = 'over'; lastEnd = d.end; hud(); draw();
-        ZimiShell.endSheet({ result: 'win', stats: d.end });
-        setTimeout(function () { if (mode === 'over') armed = Play.ready(readyOpts()); }, READY_ARM_MS);
-        return true;
-      }
-      if (!d.st || !d.st.screen) return false;
-      st = d.st; st.rng = mulberry(Math.floor(Math.random() * 4294967296)); mode = 'paused';
-      els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); layout(); hud();
-      return true;
-    }
-  });
-  root.__quest = { get st() { return st; }, get mode() { return mode; } };
+  buildArt(); page.start();
+  root.__quest = { get st() { return st; }, get mode() { return page.mode; } };
 })(this);
