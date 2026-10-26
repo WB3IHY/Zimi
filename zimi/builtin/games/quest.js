@@ -472,9 +472,11 @@
   function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); }
   function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
   function toggle() { if (mode === 'playing') pause(); else resume(); }
+  var lastEnd = null;
   function finish() {
+    lastEnd = [[Tx('quest.keys'), Play.num(st.keys)]];
     mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); clearHeld(); Play.save(SAVE_KEY, null); saved = null; hud(); draw();
-    ZimiShell.endSheet({ result: 'win', stats: [[Tx('quest.keys'), Play.num(st.keys)]] });
+    ZimiShell.endSheet({ result: 'win', stats: lastEnd });
     setTimeout(function () { if (mode === 'over') armed = Play.ready(readyOpts()); }, READY_ARM_MS);
   }
   els.newBtn.addEventListener('click', function () { start(false); });
@@ -490,5 +492,26 @@
 
   window.addEventListener('resize', layout);
   buildArt(); layout(); arm();
+  // Leaving and coming back keeps the exact spot: paused where it was, or at the end sheet. (The checkpoint save above
+  // still lets a later visit carry on from the last place reached.)
+  ZimiShell.persist({
+    save: function () {
+      if (mode === 'over' && lastEnd) return { end: lastEnd };
+      return mode === 'playing' || mode === 'paused' ? { st: st } : null;
+    },
+    load: function (d) {
+      if (armed) armed.cancel();
+      if (d.end) {
+        mode = 'over'; lastEnd = d.end; hud(); draw();
+        ZimiShell.endSheet({ result: 'win', stats: d.end });
+        setTimeout(function () { if (mode === 'over') armed = Play.ready(readyOpts()); }, READY_ARM_MS);
+        return true;
+      }
+      if (!d.st || !d.st.screen) return false;
+      st = d.st; st.rng = mulberry(Math.floor(Math.random() * 4294967296)); mode = 'paused';
+      els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); layout(); hud();
+      return true;
+    }
+  });
   root.__quest = { get st() { return st; }, get mode() { return mode; } };
 })(this);
