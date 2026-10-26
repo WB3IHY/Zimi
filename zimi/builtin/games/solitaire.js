@@ -206,10 +206,7 @@
   // ── The page ────────────────────────────────────────────────────────────
   var AUTO_STEP_MS = 120;
   function boot() {
-    var d = root.document, board, session;
-    Z.ensureSprite();
-    var drawN = Z.store.get(DRAW_KEY, 1) === 3 ? 3 : 1;
-    var deal = function () { return newState(Z.shuffled(Math.random), drawN); };
+    var page, session, drawN = Z.store.get(DRAW_KEY, 1) === 3 ? 3 : 1;
 
     // Watch and learn: the computer plays the hand by explain-solitaire.js's rules, one step at a time.
     var watch = null, watchWaiting = false, watchCtx = null, watchDraw = 0;
@@ -221,10 +218,6 @@
       watchWaiting = true;
       mine.offer(step.text, function () { watchWaiting = false; if (watch !== mine) return; session.follow(step.next); watchDrive(); });
     }
-    function afterMove() {
-      if (isWon(session.state)) { session.win(); return; }
-      if (canAutoFinish(session.state)) autoFinish();
-    }
     function autoFinish() {
       var step = autoFinishStep(session.state);
       if (!step) return;
@@ -235,62 +228,31 @@
         if (isWon(session.state)) session.win(); else autoFinish();
       }, AUTO_STEP_MS);
     }
-    function move(pile, idx, to) {
-      if (watch || !legalMove(session.state, pile, idx, to)) return false;
-      session.commit(applyMove(session.state, pile, idx, to));
-      afterMove();
-      return true;
-    }
-    function drawCards() {
-      if (watch) return false;
-      var next = drawStock(session.state);
-      if (!next) return false;
-      session.commit(next);
-      return true;
-    }
     function newGame() {
-      session.reset(deal());
+      session.reset(newState(Z.shuffled(Math.random), drawN));
       drawN = session.state.draw === 3 ? 3 : 1;   // a game taken up again keeps the draw it was dealt with
     }
 
-    board = Z.createBoard({
-      table: d.getElementById('zc-table'), cols: COLS, tight: true, place: place,
-      canPick: canPick, move: move,
-      tap: function (pile, idx) {
-        if (pile === 'stock') return drawCards();
-        var to = bestMove(session.state, pile, idx);
-        return to ? move(pile, idx, to) : false;
-      },
-      slotTap: function (pile) { if (pile === 'stock') drawCards(); }
-    });
-    session = Z.createSession({
-      id: 'solitaire', saveOff: function () { return !!watch; }, board: board, newGame: newGame,
-      els: { undo: d.getElementById('zc-undo'), newBtn: d.getElementById('zc-new'), menu: d.getElementById('zc-menu'), stat: d.getElementById('zc-stat') },
+    page = Z.solitairePage({
+      rules: api, id: 'solitaire', saveOff: function () { return !!watch; }, blocked: function () { return !!watch; },
+      place: place, cols: COLS, newGame: newGame, stock: drawStock, afterStock: false,
+      after: function (st) { if (canAutoFinish(st)) autoFinish(); },
       statText: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.score; },
       cascadeOrder: function (st) {
         var order = [], r;
         for (r = Z.KING; r >= 1; r--) FOUNDATION.forEach(function (f) { order.push({ id: st.piles[f][r - 1].id }); });
         return order;
       },
-      winLines: function (sec, st) { return [TX('sol.winScore', { score: st.score, bonus: timeBonus(sec), total: st.score + timeBonus(sec) }), TX('sol.winTime', { time: Z.fmtTime(sec), moves: Z.plural(st.moves, 'move') })]; },
+      winLines: function (sec, st) { return [TX('sol.winScore', { score: st.score, bonus: timeBonus(sec), total: st.score + timeBonus(sec) }), Z.winTime(sec, st)]; },
       openMenu: function () {
         var drawPick = Z.segmented([{ label: TX('sol.draw', { n: 1 }), value: 1 }, { label: TX('sol.draw', { n: 3 }), value: 3 }], drawN, function (v) {
           drawN = v; Z.store.set(DRAW_KEY, v);
           if (!session.state.moves) newGame();
         });
-        Z.sheet({
-          title: 'Solitaire',
-          body: [
-            Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('sol.cardsDrawn') }), drawPick]),
-            Z.h('p', { class: 'zc-note', text: TX('sol.nextDeal') }),
-            Z.backsRow(),
-            Z.h('p', { class: 'zc-stats', text: session.stats.line() })
-          ],
-          actions: [{ label: TX('shell.menu.new'), onclick: newGame }, { label: TX('shell.close'), primary: true }]
-        });
+        page.menu('Solitaire', [Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('sol.cardsDrawn') }), drawPick]), Z.h('p', { class: 'zc-note', text: TX('sol.nextDeal') })]);
       }
     });
-    api.session = session; api.board = board;
+    session = page.session;
     if (root.ZimiShell) root.ZimiShell.game({
       watch: {
         script: 'explain-solitaire.js', unit: 'step',
@@ -306,8 +268,7 @@
         }
       }
     });
-    newGame();
-    if (/[?&]debug=win/.test(root.location.search)) session.reset(almostWon(drawN));
+    page.start(null, function () { return almostWon(drawN); });
   }
 
   if (root.document && root.document.getElementById('zc-table')) boot();

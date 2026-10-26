@@ -1442,6 +1442,85 @@
     return Math.max(minStep, Math.min(maxStep, weight > 0 ? (room - ch) / weight : maxStep));
   }
 
+  // ── The solitaire page ───────────────────────────────────────────────────
+  // What Klondike, FreeCell, Spider, Pyramid, Golf and TriPeaks share on the page: the board and the session, a move that is
+  // legal and then made, a tap that turns the stock or sends a card where bestMove says, what comes after a move (the win, the
+  // stuck sheet), the Menu's sheet and the first deal. A game keeps its rules, its layout, its words and whatever is its own.
+  //   o.rules   the game's api: canPick, legalMove, applyMove, bestMove, isWon, almostWon
+  //   o.id, o.saveId, o.lowScore, o.saveOff     the session's
+  //   o.place, o.cols, o.heightShare, o.enterTaps, o.canPick (default rules.canPick)     the board's
+  //   o.fact       a fact line under the bar (page.el.sub)
+  //   o.stock      state -> the next state or null: a turn of the stock, a row dealt (a tap on the stock or its empty place)
+  //   o.refuse     the stock said no; o.afterStock: false when a turn of the stock ends nothing (no win or auto-move check)
+  //   o.blocked    true while something else is playing (Watch and learn): no move, no draw
+  //   o.settle     first thing after a move; o.score  state -> what a win is told; o.after  a move that ended nothing
+  //   o.stuck      { is, title, note, score } (functions of the state) for a game that can run out of moves: the sheet with Undo and New game
+  //   o.deal       a new state (page.newGame deals it), or o.newGame; o.tap, o.slotTap replace the defaults
+  //   o.statText, o.cascadeOrder, o.winLines, o.openMenu     the session's
+  // Returns page: { el, session, board, commit, move, draw, afterMove, newGame, menu, start }.
+  function winTime(sec, st) { return T('sol.winTime', { time: fmtTime(sec), moves: plural(st.moves, 'move') }); }
+  function solitairePage(o) {
+    var R = o.rules, page = { el: pageEls() }, session, board;
+    ensureSprite();
+    if (o.fact) page.el.sub = factLine(page.el.table);
+    var blocked = function () { return !!(o.blocked && o.blocked()); };
+    page.newGame = o.newGame || function () { session.reset(o.deal()); };
+    page.afterMove = function () {
+      var st = session.state, k = o.stuck;
+      if (o.settle) o.settle(st);
+      if (R.isWon(st)) { session.win(o.score ? o.score(st) : undefined); return; }
+      if (k && k.is(st)) {
+        session.stats.scored(k.score(st));
+        sheet({
+          title: k.title(st),
+          body: [h('p', { class: 'zc-note', text: k.note(st) }), h('p', { class: 'zc-stats', text: session.stats.line() })],
+          actions: [{ label: T('shell.undo'), onclick: session.undo }, { label: T('shell.menu.new'), primary: true, onclick: page.newGame }]
+        });
+      } else if (o.after) o.after(st);
+    };
+    page.commit = function (next) { session.commit(next); page.afterMove(); return true; };
+    page.move = function (pile, idx, to) {
+      if (blocked() || !R.legalMove(session.state, pile, idx, to)) return false;
+      return page.commit(R.applyMove(session.state, pile, idx, to));
+    };
+    page.draw = function () {
+      if (blocked()) return false;
+      var next = o.stock(session.state);
+      if (!next) { if (o.refuse) o.refuse(session.state); return false; }
+      if (o.afterStock === false) session.commit(next); else page.commit(next);
+      return true;
+    };
+    var tap = o.tap || function (pile, idx) {
+      if (pile === 'stock') return page.draw();
+      var to = R.bestMove(session.state, pile, idx);
+      return to ? page.move(pile, idx, to) : false;
+    };
+    board = createBoard({
+      table: page.el.table, cols: o.cols, tight: true, place: o.place, heightShare: o.heightShare, enterTaps: o.enterTaps,
+      canPick: o.canPick || R.canPick, move: page.move, tap: tap,
+      slotTap: o.slotTap || (o.stock ? function (pile) { if (pile === 'stock') page.draw(); } : undefined)
+    });
+    session = createSession({
+      id: o.id, saveId: o.saveId, lowScore: o.lowScore, saveOff: o.saveOff, board: board, newGame: page.newGame, els: page.el,
+      statText: o.statText, cascadeOrder: o.cascadeOrder, winLines: o.winLines, openMenu: o.openMenu
+    });
+    page.session = R.session = session; page.board = R.board = board;
+    // The Menu's sheet: the game's rows, then the card backs and the record; New game and Close unless the game has its own actions.
+    page.menu = function (title, rows, actions) {
+      return root.ZimiCards.sheet({   // (through the export: the shell takes a game's options out of its Menu by swapping it)
+        title: title,
+        body: rows.concat([backsRow(), h('p', { class: 'zc-stats', text: session.stats.line() })]),
+        actions: actions || [{ label: T('shell.menu.new'), onclick: page.newGame }, { label: T('shell.close'), primary: true }]
+      });
+    };
+    // The first deal (first, if the game deals its own way), or a state one move from a win with ?debug=win.
+    page.start = function (first, almostWon) {
+      (first || page.newGame)();
+      if (/[?&]debug=win/.test(root.location.search)) session.reset(almostWon ? almostWon() : R.almostWon());
+    };
+    return page;
+  }
+
   loadBack();
   root.ZimiCards = {
     SUITS: SUITS, RANK_LABELS: RANK_LABELS, KING: KING, DECK: DECK, BACKS: BACKS,
@@ -1450,7 +1529,7 @@
     FACT_H: FACT_H, factLine: factLine, moonPhase: moonPhase, moonLitPath: moonLitPath, faceMarkup: faceMarkup, backMarkup: backMarkup,
     italianFaceMarkup: italianFaceMarkup, italianName: italianName,
     spanishFaceMarkup: spanishFaceMarkup, spanishName: spanishName, hanafudaFaceMarkup: hanafudaFaceMarkup, hanafudaCard: hanafudaCard, hanafudaName: hanafudaName, HANA_MONTHS: HANA_MONTHS, jokerMarkup: jokerMarkup, markSvg: markSvg,
-    fmtTime: fmtTime, plural: plural, describePile: describePile, fanStep: fanStep, solitaireRows: solitaireRows, statusTop: statusTop, pageEls: pageEls, idsOf: idsOf, restShare: restShare,
+    fmtTime: fmtTime, plural: plural, winTime: winTime, solitairePage: solitairePage, describePile: describePile, fanStep: fanStep, solitaireRows: solitaireRows, statusTop: statusTop, pageEls: pageEls, idsOf: idsOf, restShare: restShare,
     store: store, createStats: createStats, h: h, sheet: sheet, segmented: segmented, backsSheet: backsSheet, backsRow: backsRow,
     T: T, createBoard: createBoard, createSession: createSession, ensureSprite: ensureSprite,
     currentBack: function () { return currentBack; }
