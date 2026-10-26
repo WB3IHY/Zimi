@@ -67,8 +67,8 @@
   // the very file that failed. Errors later in play are the game's own and are not announced here.
   var START_GRACE_MS = 2500;
   var starting = true, failed = false;
-  function failedToStart() {
-    if (failed || !starting || !d) return;
+  function failedToStart(late) {
+    if (failed || (!starting && !late) || !d) return;
     failed = true;
     function paint() {
       var box = d.createElement('div');
@@ -83,12 +83,30 @@
     }
     if (d.body) paint(); else d.addEventListener('DOMContentLoaded', paint);
   }
+  // A thrown error only counts when the game then has nothing on screen: an error from a later corner of a game
+  // that did start (a ResizeObserver loop note, a late listener) must not cover a working table with an alarm.
+  var NOTHING_DRAWN_MIN = 3;
+  function nothingDrawn() {
+    var n = 0, els = d.querySelectorAll('body *');
+    for (var i = 0; i < els.length && n < NOTHING_DRAWN_MIN; i++) {
+      var el = els[i];
+      if (el.closest && el.closest('.ar-bar, .gs-sheet, .ar-sheet, script, style')) continue;
+      if (!/^(CANVAS|SVG|svg|BUTTON|IMG)$/.test(el.tagName) && !(el.childNodes.length === 1 && el.firstChild.nodeType === 3 && el.textContent.trim())) continue;
+      var r = el.getBoundingClientRect();
+      if (r.width > 4 && r.height > 4) n++;
+    }
+    return n < NOTHING_DRAWN_MIN;
+  }
+  function threwWhileStarting(e) {
+    if (e && /ResizeObserver loop/.test(e.message || '')) return;
+    root.setTimeout(function () { if (nothingDrawn()) failedToStart(true); }, START_GRACE_MS);
+  }
   root.addEventListener('error', function (e) {
     var t = e && e.target;
     if (t && t !== root && t.tagName === 'SCRIPT') failedToStart();   // a script that would not load
-    else if (!t || t === root) failedToStart();                        // one that threw
+    else if ((!t || t === root) && starting) threwWhileStarting(e);    // one that threw
   }, true);
-  root.addEventListener('unhandledrejection', failedToStart);
+  root.addEventListener('unhandledrejection', function (e) { if (starting) threwWhileStarting(e); });
   root.addEventListener('load', function () { root.setTimeout(function () { starting = false; }, START_GRACE_MS); });
   // An app, not a page to read: a reader (Zimi's) leaves out highlight, note and lookup.
   if (d.head && !d.querySelector('meta[name="zimi-app"]')) {
