@@ -36,7 +36,7 @@
     var def = trackFor(), a = assetsFor(def.id), humans = prefs.mode === 'trial' ? 1 : prefs.players;
     var opts = { humans: humans, driver: prefs.driver, driver2: prefs.driver2, diff: prefs.diff, laps: 3, seed: Math.floor(Math.random() * 1e9), trial: prefs.mode === 'trial' };
     if (prefs.mode === 'gp' && g.gp.race > 0) opts.grid = E.cupOrder(g.gp.totals);
-    g.T = a.T; g.assets = a; g.race = E.createRace(a.T, opts);
+    g.opts = opts; g.T = a.T; g.assets = a; g.race = E.createRace(a.T, opts);
     g.humans = g.race.karts.filter(function (k) { return k.human >= 0; }).sort(function (x, y) { return x.human - y.human; });
     g.split = humans === 2; g.cams = g.humans.map(function (k) { var c = { x: 0, y: 0, yaw: 0, lift: 0 }; V.follow(c, k, 0, true); return c; });
     g.rec = prefs.mode === 'trial' ? E.ghostNew() : null; g.ghostRec = prefs.mode === 'trial' ? Play.load(GHOST_KEY + def.id, null) : null;
@@ -297,6 +297,31 @@
   }
   window.addEventListener('resize', layout);
   layout();
-  goSetup();
+  // Leaving and coming back keeps a race (not a time trial: its ghost needs the whole run): paused where it was.
+  var restored = false;
+  var RACE_SKIP = /^(T|rng|leadHuman|ranked|karts|events|order)$/;
+  ZimiShell.persist({
+    save: function () {
+      if ((g.mode !== 'playing' && g.mode !== 'paused') || !g.race || g.race.trial) return null;
+      var rr = {};
+      Object.keys(g.race).forEach(function (k) { if (!RACE_SKIP.test(k)) rr[k] = g.race[k]; });
+      return { mode: prefs.mode, gp: g.gp, trackId: g.T.def.id, opts: g.opts, karts: g.race.karts, race: rr };
+    },
+    load: function (d) {
+      if (!d || !d.opts || !d.karts || !TRACKS.some(function (t) { return t.id === d.trackId; })) return false;
+      prefs.mode = d.mode; if (d.mode === 'gp') { if (!d.gp) return false; g.gp = d.gp; prefs.cup = d.gp.cup; }
+      var a = assetsFor(d.trackId), race = E.createRace(a.T, d.opts);
+      race.karts.splice.apply(race.karts, [0, race.karts.length].concat(d.karts));
+      Object.keys(d.race).forEach(function (k) { race[k] = d.race[k]; });
+      g.opts = d.opts; g.T = a.T; g.assets = a; g.race = race; g.rec = null; g.ghostRec = null;
+      g.humans = race.karts.filter(function (k) { return k.human >= 0; }).sort(function (x, y) { return x.human - y.human; });
+      g.split = d.opts.humans === 2; g.cams = g.humans.map(function (k) { var c = { x: 0, y: 0, yaw: 0, lift: 0 }; V.follow(c, k, 0, true); return c; });
+      g.lastPlace = []; g.banner = null; g.mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); say(Tx('play.paused'));
+      buildPads(); layout();
+      restored = true;
+      return true;
+    }
+  });
+  if (!restored) goSetup();
   root.__kart = { get g() { return g; }, prefs: prefs, keys: keys, pads: pads, E: E, startRace: startRace, startCup: startCup, update: update, render: render, loop: loop };
 })(this);
