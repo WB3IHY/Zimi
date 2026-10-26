@@ -319,7 +319,7 @@
       });
       var list = yakuOf(cap);
       body.push(Z.h('p', { class: 'zc-note', text: list.length ? list.map(function (y) { return y.name + ' ' + y.pts; }).join(' · ') : TX('koikoi.noYakuYet') }));
-      Z.sheet({ title: TX('koikoi.captured', { name: who(seat) }), body: body, actions: [{ label: TX('cards.done'), primary: true }] });
+      Z.sheet({ title: TX('koikoi.captured', { name: who(seat) }), body: body, actions: [{ label: TX('shell.close'), primary: true }] });
     }
 
     function hud(st) {

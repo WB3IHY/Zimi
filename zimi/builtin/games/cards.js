@@ -834,7 +834,7 @@
       picks[b.id] = pick;
       grid.appendChild(pick);
     });
-    return sheet({ title: T('cards.backs'), body: [grid], actions: [{ label: T('cards.done'), primary: true }] });
+    return sheet({ title: T('cards.backs'), body: [grid], actions: [{ label: T('shell.close'), primary: true }] });
   }
 
   // The menu row both games share: open the backs picker.

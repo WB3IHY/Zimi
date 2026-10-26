@@ -238,7 +238,7 @@
         Z.sheet({
           title: cfg.name,
           body: [Z.h('p', { class: 'zc-note', text: cfg.rules })].concat(cfg.menuExtra ? cfg.menuExtra() : [], cfg.seats ? [cfg.seats.block(null, cfg.seatsBlock)] : [], [Z.backsRow(), Z.h('p', { class: 'zc-stats', text: session.stats.line() })]),
-          actions: [{ label: T('shell.menu.new'), onclick: cfg.newGame }, { label: T('cards.done'), primary: true }]
+          actions: [{ label: T('shell.menu.new'), onclick: cfg.newGame }, { label: T('shell.close'), primary: true }]
         });
       }
     });
