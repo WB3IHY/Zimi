@@ -143,6 +143,12 @@
     return { cancel: stop };
   };
 
+  // Saved games (ZimiShell.persist): a state as plain JSON (functions such as a game's random source are dropped), and a
+  // fresh state with a saved one laid over it. An arcade game restores paused: the Pause/Resume button is the way on.
+  Play.plain = function (obj) { return JSON.parse(JSON.stringify(obj)); };
+  Play.overlay = function (fresh, saved) { return Object.assign(fresh, Play.plain(saved)); };
+  Play.runId = function () { return Date.now(); };
+
   // The page's one status line (ZimiShell.status: polite, with say() and reason()); a bare version without the shell.
   Play.status = function (el) {
     if (window.ZimiShell && window.ZimiShell.status) return window.ZimiShell.status(el);

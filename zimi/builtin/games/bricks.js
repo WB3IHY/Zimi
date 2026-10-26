@@ -177,7 +177,7 @@
 
   var els = { cv: $('br-board'), score: $('br-score'), lives: $('br-lives'), level: $('br-level'), best: $('br-best'), msg: $('br-msg'), pause: $('br-pause'), newBtn: $('br-new') };
   var ctx = els.cv.getContext('2d'), status = Play.status(els.msg);
-  var g, scale = 1, mode = 'ready', last = 0, keys = { left: false, right: false }, best = Play.load(BEST_KEY, { score: 0 }), pal = {}, armed = null;
+  var runId = 0, g, scale = 1, mode = 'ready', last = 0, keys = { left: false, right: false }, best = Play.load(BEST_KEY, { score: 0 }), pal = {}, armed = null;
 
   function readPalette() {
     var s = getComputedStyle(document.documentElement);
@@ -241,7 +241,7 @@
   }
   function begin() {
     if (armed) armed.cancel();
-    g = createGame(0); mode = 'playing'; Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); startLoop();
+    g = createGame(0); runId = Play.runId(); mode = 'playing'; Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); startLoop();
   }
   function levelUp() {
     var next = createGame(g.level + 1, g.lives, g.score), n = g.level + 2;
@@ -257,7 +257,9 @@
   function finish() {
     mode = 'over'; els.pause.disabled = true; Play.pauseLabel(els.pause, false);
     if (g.score > best.score) { best.score = g.score; Play.save(BEST_KEY, best); }
-    hud();
+    hud(); showEnd();
+  }
+  function showEnd() {
     ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(g.score)], [T('play.level'), Play.num(g.level + 1)]] });
     setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
   }
@@ -299,6 +301,20 @@
   window.addEventListener('resize', layout);
   window.addEventListener('blur', function () { keys.left = keys.right = false; });
   g = createGame(0); hud(); layout(); arm();
+  // A run in progress or over is kept; it comes back paused (or on its end sheet).
+  function snapshot() {
+    if (mode === 'ready') return null;
+    return { runId: runId, over: mode === 'over', g: Play.plain(g) };
+  }
+  function restore(d) {
+    if (!d || !d.g) return false;
+    if (armed) { armed.cancel(); armed = null; }
+    g = Play.overlay(createGame(0), d.g); runId = d.runId; hud(); draw();
+    if (d.over) { mode = 'over'; els.pause.disabled = true; setTimeout(showEnd, 0); return true; }
+    mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
+    return true;
+  }
+  ZimiShell.persist({ save: snapshot, load: restore });
   // A read-only window onto the live game, for the browser tests.
-  root.__bricks = { get g() { return g; }, get mode() { return mode; } };
+  root.__bricks = { get g() { return g; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, g.level, g.score, g.lives, g.bricks.length]); } };
 })(this);

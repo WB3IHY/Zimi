@@ -26,6 +26,7 @@ ROWS = [
     ("solitaire", '[data-pile="stock"]', "JSON.stringify(ZimiSolitaire.session.state)"),
     ("golf", '[data-pile="stock"]', "JSON.stringify(ZimiGolf.session.state)"),
     ("euchre", None, "JSON.stringify(ZimiEuchre.session.state)"),
+    ("bricks", "#br-board", "__bricks.pos"),
 ]
 
 
@@ -67,7 +68,10 @@ def test_leaving_and_returning_keeps_the_position(served, browser, page_name, mo
     page.goto(url)
     page.wait_for_timeout(SETTLE_MS)
     if move:
-        tap(page, page.locator(move).last)
+        # a list taps its selectors in turn (a piece, then its square); each one is the first match
+        for sel in ([move] if isinstance(move, str) else move):
+            tap(page, page.locator(sel).first if not isinstance(move, str) else page.locator(sel).last)
+            page.wait_for_timeout(300)
         page.wait_for_timeout(SETTLE_MS)
     else:
         # A game with the computer in it: answer whatever it asks until the table has changed once.
