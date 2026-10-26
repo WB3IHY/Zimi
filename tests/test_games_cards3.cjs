@@ -24,7 +24,7 @@ const sandbox = {
 };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
-for (const f of ['text.js', 'cardbacks.js', 'courts.js', 'cards.js', 'cardtable.js', 'koikoi.js', 'truco.js', 'belote.js', 'skat.js', 'teenpatti.js']) {
+for (const f of ['text.js', 'cardbacks.js', 'courts.js', 'courts-es.js', 'hanafuda-art.js', 'cards.js', 'cardtable.js', 'koikoi.js', 'truco.js', 'belote.js', 'skat.js', 'teenpatti.js']) {
   if (!fs.existsSync(path.join(dir, f))) continue;
   vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sandbox, { filename: f });
 }
@@ -423,6 +423,22 @@ const sorted = a => a.slice().sort((x, y) => x - y);
   }
   check(bad === 0 && games >= 28, 'computer-vs-computer games run (' + games + ' of 30 reached a winner), every action legal, 4000 chips always accounted for');
   check(shows > 20 && folds > 20 && sides > 20 && packs > 100, 'the styles use show (' + shows + '), side shows (' + sides + '), packs (' + packs + ') and folds win pots (' + folds + ') over ' + hands + ' hands');
+}
+
+// ── The licensed art: Spanish courts (1860 print) and the 48 Hanafuda cards ──
+{
+  const es = [];
+  for (let su = 0; su < 4; su++) for (const k of [7, 8, 9]) es.push(Z.spanishFaceMarkup(su * 10 + k, false));
+  check(es.every(m => m.includes('<image href="data:image/webp;base64,')) && new Set(es).size === 12, 'the twelve Spanish courts are twelve different scans');
+  check(!Z.spanishFaceMarkup(6, false).includes('<image'), 'the Spanish pips keep their own drawing');
+  const hana = [];
+  for (let i = 0; i < 48; i++) hana.push(Z.hanafudaFaceMarkup(i, false));
+  check(hana.every(m => m.includes('viewBox="16 16 944 1568"')) && new Set(hana).size === 48, 'all 48 Hanafuda cards are 48 different drawings of the licensed set');
+  const allowed = new Set(['#b3261e', '#1b1b1b', '#e09400', '#fdfcf8', '#000000', '#992d17', '#ffeb5c', '#5d4e8c', '#ff8db6', '#80e3ed', '#50b271', '#ffb85a', '#592116']);
+  const stray = new Set();
+  hana.forEach(m => ((m.match(/<svg x=[\s\S]*?<\/svg>/) || [''])[0].match(/(?:fill|stroke)="#[0-9a-fA-F]{6}"/g) || []).forEach(x => { const c = x.split('"')[1].toLowerCase(); if (!allowed.has(c)) stray.add(c); }));
+  check(stray.size === 0, 'the Hanafuda faces use the listed colours only' + (stray.size ? ' (stray ' + [...stray] + ')' : ''));
+  for (const [f, cap] of [['courts-es.js', 400], ['hanafuda-art.js', 850]]) check(fs.statSync(path.join(dir, f)).size < cap * 1024, f + ' stays under ' + cap + ' KB');
 }
 
 if (failures) { console.error(failures + ' failed, ' + passed + ' passed'); process.exit(1); }

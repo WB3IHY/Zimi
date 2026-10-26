@@ -78,9 +78,11 @@ ABOUT = """<!doctype html>
     <p>This puzzle is part of Simon Tatham’s Portable Puzzle Collection, copyright 2004–2024 Simon Tatham and many contributors, under the MIT licence. ZimiGames adds the page around it and runs it unchanged.</p>
     <p><a id="ab-licence" href="puzzles/LICENCE">The licence</a> · <a id="ab-manual" href="puzzles/doc/">The manual page</a></p>
   </section>
-  <section id="ab-deck" hidden>
+  <section id="ab-art" hidden>
     <h2>Credit</h2>
-    <p>The French deck’s jacks, queens and kings are from Adrian Kennard’s SVG playing cards (<a href="https://www.me.uk/cards/">me.uk/cards</a>), released into the public domain under CC0 1.0, recoloured to the deck’s palette. The court designs follow the 19th-century Goodall &amp; Son pattern.</p>
+    <p id="ab-art-f" hidden>The French deck’s jacks, queens and kings are from Adrian Kennard’s SVG playing cards (<a href="https://www.me.uk/cards/">me.uk/cards</a>), released into the public domain under CC0 1.0, recoloured to the deck’s palette. The court designs follow the 19th-century Goodall &amp; Son pattern.</p>
+    <p id="ab-art-s" hidden>The Spanish deck’s sota, caballo and rey are from the Spanish-suited pack printed by B. P. Grimaud in 1860, as scanned by the Bibliothèque nationale de France (<a href="https://gallica.bnf.fr/ark:/12148/btv1b10513825g">Gallica</a>) and published on Wikimedia Commons. A 19th-century print, in the public domain; cropped, with the printed corner numbers painted out in the paper’s own colour.</p>
+    <p id="ab-art-h" hidden>The Hanafuda cards are Louie Mantia’s SVG Hanafuda from <a href="https://commons.wikimedia.org/wiki/Category:SVG_Hanafuda_with_traditional_colors_(red_border)">Wikimedia Commons</a>, licensed <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>. Changes: the paper backing and clip removed, the paths rounded, the whites, blacks, reds and ambers set to the deck’s palette. The adapted art is shared under the same licence.</p>
   </section>
 </main>
 <script>
@@ -101,12 +103,26 @@ ABOUT = """<!doctype html>
     document.getElementById('ab-manual').href = 'puzzles/doc/' + m[1] + '.html';
     document.getElementById('ab-credit').hidden = false;
   }
-  if (g.cards) document.getElementById('ab-deck').hidden = false;
+  (g.art || '').split('').forEach(function (c) {
+    document.getElementById('ab-art-' + c).hidden = false;
+    document.getElementById('ab-art').hidden = false;
+  });
 })();
 </script>
 </body>
 </html>
 """
+
+
+# The art files a page loads, and the credit letter each one earns on its About page.
+ART_FILES = {"courts.js": "f", "courts-es.js": "s", "hanafuda-art.js": "h"}
+
+
+def art_credits(path):
+    """The credit letters for the art files a game page loads ("" for most pages)."""
+    with open(os.path.join(GAMES, path), encoding="utf-8") as f:
+        text = f.read()
+    return "".join(c for name, c in ART_FILES.items() if f'src="{name}"' in text)
 
 
 def write_about(rows):
@@ -115,7 +131,7 @@ def write_about(rows):
             "path": r["path"],
             "title": r["title"],
             "blurb": r["blurb"],
-            **({"cards": 1} if r.get("kind") == "cards" else {}),
+            **({"art": art_credits(r["path"])} if art_credits(r["path"]) else {}),
         }
         for r in rows
     }

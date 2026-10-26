@@ -429,6 +429,10 @@
       var pips = '';
       PIPS[r].forEach(function (pt) { pips += placed(s, pt[0], pt[1], ITALIAN_PIP_SCALE, false, standalone, SPANISH_SHAPES, p); });
       body = '<g class="zc-big">' + pips + '</g>' + smallSuit(s, standalone, SPANISH_SHAPES, p);
+    } else if (root.ZimiSpanishCourts) { // the 1860 print (courts-es.js), under the index
+      var print = root.ZimiSpanishCourts;
+      return faceFrame('<g class="zc-big">' + print.markup(k, s) + '</g>' + (standalone ? '' : '<g class="zc-small" display="none">' + print.thumb(k, s) + '</g>') +
+        indexMarkup(SPANISH_LABELS[k], s, standalone, SPANISH_SHAPES, p), ITALIAN_COLOURS[s], standalone);
     } else {
       var kind = COURT_KINDS[r - 5]; // 8 sota (fante), 9 caballo, 10 rey
       body = '<g class="zc-big"><rect x="20" y="20" width="60" height="100" rx="3.5" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.2"/>' +
@@ -669,6 +673,8 @@
   }
   function hanafudaFaceMarkup(id, standalone) {
     var c = hanafudaCard(id), m = c.month, art, bright = c.kind === 'bright', frame;
+    var real = root.ZimiHanafudaArt && root.ZimiHanafudaArt.markup(m * 4 + c.k); // the licensed flower-deck art (hanafuda-art.js), when the page has it
+    if (real) return faceFrame(real + hanaIndex(c), HANA_COLOURS[m], standalone);
     if (c.kind === 'bright') art = hanaSpecial(m, c.k);
     else if (c.kind === 'animal') art = c.sake ? hanaAnimal(8) : hanaAnimal(m);
     else if (c.kind === 'ribbon') art = '<g opacity="0.9">' + hanaPlant(m) + '</g>' + hanaRibbon(c.ribbon);
