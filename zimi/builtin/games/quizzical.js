@@ -109,7 +109,7 @@
   var els = { n: $('qz-n'), score: $('qz-score'), card: $('qz-card'), prompt: $('qz-prompt'), pic: $('qz-pic'), kind: $('qz-kind'), choices: $('qz-choices'), msg: $('qz-msg'),
     next: $('qz-next'), read: $('qz-read'), newBtn: $('qz-new') };
   var status = Play.status(els.msg);
-  var wikiZim = null, wiktZim = null, round = [], at = 0, score = 0, answered = false, building = false;
+  var wikiZim = null, wiktZim = null, round = [], at = 0, score = 0, answered = false, building = false, picked = -1;
 
   function kindLabel(kind) { return T('quizzical.kind.' + kind); }
 
@@ -157,6 +157,7 @@
   }
   function answer(i) {
     if (answered || !round.length) return;
+    picked = i;
     var q = round[at], btns = els.choices.children, right = q.choices.indexOf(q.answer);
     answered = true;
     for (var k = 0; k < btns.length; k++) { btns[k].disabled = true; if (k === right) btns[k].classList.add('right'); }
@@ -228,7 +229,16 @@
   Lib.isZimi().then(function (yes) { return yes ? Lib.zims() : []; }).then(function (list) {
     var a = Lib.pickZim(list, 'wikipedia', Lib.uiLang()), w = Lib.pickZim(list, 'wiktionary', Lib.uiLang());
     wikiZim = a ? a.zim.name : null; wiktZim = w && w.exact ? w.zim.name : (w && a && Lib.primaryLang(w.zim.language) === Lib.primaryLang(a.zim.language) ? w.zim.name : null);
-    newRound();
+    // Leaving and coming back keeps the round: its questions, where you are, the score and the answer just given.
+    var kept = ZimiShell.saved();
+    if (kept && kept.round && kept.round.length && (kept.zim || null) === wikiZim) {
+      round = kept.round; at = kept.at; score = kept.score; showQuestion();
+      if (kept.picked >= 0) { score -= kept.picked === round[at].choices.indexOf(round[at].answer) ? 1 : 0; answer(kept.picked); }
+      if (kept.done) advance();
+    } else { if (kept) ZimiShell.forget(); newRound(); }
+  });
+  ZimiShell.persist({
+    save: function () { return round.length && (at > 0 || answered) ? { zim: wikiZim, round: round, at: at, score: score, picked: answered ? picked : -1, done: done } : null; }
   });
   root.__quiz = { get round() { return round; }, get zim() { return wikiZim; } };
 })(this);
