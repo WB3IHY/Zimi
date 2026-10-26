@@ -80,19 +80,19 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   Play.applyTheme();
   var DAILY_KEY = 'zimi.games.wikirace.daily', BEST_KEY = 'zimi.games.wikirace.best';
-  var TICK_MS = 250, CAP_CHARS = 60000, HINT_CHARS = 150;
+  var CAP_CHARS = 60000, HINT_CHARS = 150;
   // Parts of an article the race leaves out: boxes, notes, pictures, menus.
   var DROP_TAGS = /^(SCRIPT|STYLE|TABLE|FIGURE|IMG|NOSCRIPT|SUP|IFRAME|OBJECT|SVG|MATH|AUDIO|VIDEO|FORM|BUTTON|INPUT|HEAD|LINK|META|NAV|ASIDE|TEMPLATE|H1)$/;
   var DROP_CLASS = /\b(navbox|reflist|mw-references-wrap|hatnote|noprint|mw-editsection|metadata|sistersitebox|shortdescription|infobox|thumb|gallery|toc)\b/;
   var KEEP_TAGS = /^(P|B|I|EM|STRONG|UL|OL|LI|H2|H3|H4|DL|DT|DD|BLOCKQUOTE|SPAN|BR|SMALL|U|SUB|CODE)$/;
 
-  var els = { sub: $('rc-source'), main: $('rc-main'), mode: $('rc-mode'), clicks: $('rc-clicks'), time: $('rc-time'), par: $('rc-par'), trail: $('rc-trail'),
-    pane: $('rc-pane'), back: $('rc-back'), give: $('rc-give'), target: $('rc-target'), sheet: $('rc-sheet'), title: $('rc-sheet-title'), text: $('rc-sheet-text'),
-    route: $('rc-route'), share: $('rc-share'), again: $('rc-again'), close: $('rc-close') };
-  var provider = null, race = null, timer = null, busy = false;
+  var els = { clicks: $('rc-clicks'), trail: $('rc-trail'), pane: $('rc-pane'), back: $('rc-back'), give: $('rc-give'), share: $('rc-share'), target: $('rc-target'),
+    msg: $('rc-msg'), newBtn: $('rc-new') };
+  var line = Play.status(els.msg), pendingMode = null;   // the status line; a choice made in the New game pane, taken when it starts
+  var provider = null, race = null, busy = false;
   var today = Lib.dayKey(new Date());
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
@@ -184,7 +184,7 @@
       }).then(function (pages) {
         var s = pages[0], e = pages[pages.length - 1];
         if (pages.length < 3 || e.path === s.path) throw new Error('no pair');
-        return { start: s, end: e, par: pages.length - 1, parLabel: 'a route of ' + (pages.length - 1) + ' exists' };
+        return { start: s, end: e, par: pages.length - 1, parKind: 'route' };
       });
     }
     return { label: zimRec.title || zim, zim: zim, lang: zimRec.language, open: open, pick: pick, built: false };
@@ -217,21 +217,19 @@
       for (var i = 0; i < 400; i++) {
         var a = titles[Math.floor(rng() * titles.length)], b = titles[Math.floor(rng() * titles.length)];
         var d = shortest(linksOf, a, b);
-        if (d >= 3 && d <= 5) return Promise.all([open(a), open(b)]).then(function (ab) { return { start: ab[0], end: ab[1], par: d, parLabel: 'the shortest route is ' + d }; });
+        if (d >= 3 && d <= 5) return Promise.all([open(a), open(b)]).then(function (ab) { return { start: ab[0], end: ab[1], par: d, parKind: 'shortest' }; });
       }
       return Promise.reject(new Error('no pair'));
     }
-    return { label: 'the built-in articles', zim: 'mini', open: open, pick: pick, built: true };
+    return { label: T('race.builtIn'), zim: 'mini', open: open, pick: pick, built: true };
   }
 
   // ── a race ──
   function clicks() { return race.steps.length - 1; }
   function elapsed() { return race.ms + (race.since ? performance.now() - race.since : 0); }
-  function paintHud() {
-    els.clicks.textContent = race ? clicks() : 0;
-    els.time.textContent = race ? Play.fmtClock(elapsed()) : '0:00';
-    els.par.textContent = race ? race.pair.par : '-';
-  }
+  // The bar's one stat is the clicks so far.
+  function paintHud() { els.clicks.textContent = T('race.clicks', { n: race ? clicks() : 0 }); }
+  function parLabel(pair) { return T(pair.parKind === 'route' ? 'race.parRoute' : 'race.parShortest', { n: pair.par }); }
   function resume() { if (race && !race.done && !race.since && race.begun) race.since = performance.now(); }
   function pause() { if (race && race.since) { race.ms += performance.now() - race.since; race.since = 0; saveDaily(); } }
   Play.onHidden(pause);
@@ -250,7 +248,7 @@
     });
     els.trail.scrollLeft = els.trail.scrollWidth;
     els.back.disabled = race.done || race.steps.length < 2;
-    els.give.disabled = race.done;
+    els.give.disabled = race.done || !race.begun;
   }
   function paintTarget() {
     els.target.innerHTML = '';
@@ -269,8 +267,8 @@
 
   function beginRace() {
     race.begun = true; race.since = performance.now();
-    if (!timer) timer = setInterval(function () { if (race && race.since) paintHud(); }, TICK_MS);
-    provider.open(race.steps[race.steps.length - 1].path).then(show, function () { notice('That page is not in your library.', null, 'Try another race', function () { newRace('practice'); }); });
+    line.say(T('race.par', { n: race.pair.par }));
+    provider.open(race.steps[race.steps.length - 1].path).then(show, function () { notice(T('race.missing'), null, T('race.another'), function () { newRace('practice'); }); });
   }
 
   function arrive(page) {
@@ -282,12 +280,11 @@
     }
     openResult(ms, n);
   }
+  // The end of a race, on the shared end sheet: the clicks and the time; the route stays in the trail above.
   function openResult(ms, n) {
-    els.title.textContent = 'Arrived in ' + n + (n === 1 ? ' click' : ' clicks');
-    els.text.textContent = Play.fmtClock(ms) + ' on the clock, ' + race.pair.parLabel + '.';
-    els.route.innerHTML = '';
-    race.steps.forEach(function (s, i) { els.route.appendChild(el('li', null, s.title)); });
-    Play.openSheet(els.sheet, '#rc-share');
+    els.share.hidden = false; paintTrail();
+    line.say(T('race.arrived', { target: race.pair.end.title }));
+    ZimiShell.endSheet({ result: 'win', text: parLabel(race.pair), stats: [[T('race.clicksLabel'), Play.num(n)], [T('play.time'), Play.fmtClock(ms)]] });
   }
 
   function go(path) {
@@ -300,9 +297,7 @@
       if (Engine.isTarget(page, race.pair.end)) { show(page); arrive(page); } else show(page);
     }, function () {
       busy = false;
-      var note = el('p', 'rc-note', 'That page is not in your library, so it did not count.');
-      els.pane.insertBefore(note, els.pane.firstChild);
-      setTimeout(function () { if (note.parentNode) note.parentNode.removeChild(note); }, 2600);
+      ZimiShell.shake(els.pane); line.reason(T('race.notCounted'));
     });
   }
   function goBack() {
@@ -312,33 +307,30 @@
     provider.open(prev.path).then(function (page) { busy = false; race.steps.push({ path: prev.path, title: prev.title, via: 'back' }); saveDaily(); show(page); }, function () { busy = false; });
   }
   function giveUp() {
-    if (!race || race.done) return;
+    if (!race || race.done || !race.begun) return;
     race.done = true; pause(); saveDaily(); paintTrail();
-    els.title.textContent = 'You gave up';
-    els.text.textContent = 'The target was ' + race.pair.end.title + ', ' + race.pair.parLabel + '.';
-    els.route.innerHTML = '';
-    race.steps.forEach(function (s) { els.route.appendChild(el('li', null, s.title)); });
-    Play.openSheet(els.sheet, '#rc-again');
+    els.share.hidden = false;
+    line.say(T('race.target', { target: race.pair.end.title }));
+    ZimiShell.endSheet({ result: 'lose', text: T('race.gaveUp', { target: race.pair.end.title, par: parLabel(race.pair) }), after: 0, stats: [[T('race.clicksLabel'), Play.num(clicks())]] });
   }
 
   function intro(pair, mode, doneBefore) {
     var box = el('div', 'rc-card');
-    box.appendChild(el('h2', null, mode === 'daily' ? 'Today’s race' : 'A new race'));
+    box.appendChild(el('h2', null, T(mode === 'daily' ? 'race.today' : 'race.new')));
     var line = el('p', 'rc-pair'); line.appendChild(el('span', null, pair.start.title)); line.appendChild(el('span', 'rc-arrow', '→')); line.appendChild(el('b', null, pair.end.title));
     box.appendChild(line);
     box.appendChild(el('p', 'rc-hint', race.hint));
-    box.appendChild(el('p', null, 'Follow the links in each article to get there. ' + (pair.par ? 'Par is ' + pair.par + ' ' + (pair.par === 1 ? 'click' : 'clicks') + '.' : '')));
-    if (doneBefore) box.appendChild(el('p', 'rc-best', 'You finished this one in ' + doneBefore + '.'));
-    var b = el('button', 'ar-btn gm-play', 'Start'); b.type = 'button'; b.addEventListener('click', beginRace); box.appendChild(b);
+    box.appendChild(el('p', null, T(pair.par ? 'race.follow' : 'race.followOnly', { n: pair.par })));
+    var b = el('button', 'ar-btn gm-play', T('shell.start')); b.type = 'button'; b.addEventListener('click', beginRace); box.appendChild(b);
     say(box);
     setTimeout(function () { b.focus(); }, 0);
   }
 
   function newRace(mode) {
     pause(); race = null; busy = false; paintHud();
-    els.mode.textContent = mode === 'daily' ? 'Daily' : 'Practice';
-    els.trail.innerHTML = ''; els.back.disabled = els.give.disabled = true; els.target.innerHTML = '';
-    notice('Finding two articles...');
+    els.trail.innerHTML = ''; els.back.disabled = els.give.disabled = true; els.target.innerHTML = ''; els.share.hidden = true;
+    line.say(T(mode === 'daily' ? 'race.daily' : 'race.practice'));
+    notice(T('race.finding'));
     var saved = mode === 'daily' ? Play.load(DAILY_KEY, null) : null;
     provider.pick(mode === 'daily').then(function (pair) {
       race = { mode: mode, pair: pair, steps: [{ path: pair.start.path, title: pair.start.title, via: 'start' }], ms: 0, since: 0, begun: false, done: false, page: null, hint: firstSentence(pair.end.node) };
@@ -350,11 +342,11 @@
           provider.open(race.steps[race.steps.length - 1].path).then(function (p) { show(p); openResult(race.ms, clicks()); });
           return;
         }
-        if (race.begun) { race.since = performance.now(); if (!timer) timer = setInterval(function () { if (race && race.since) paintHud(); }, TICK_MS); return provider.open(race.steps[race.steps.length - 1].path).then(show); }
+        if (race.begun) { race.since = performance.now(); line.say(T('race.par', { n: pair.par })); return provider.open(race.steps[race.steps.length - 1].path).then(show); }
       }
       intro(pair, mode, null);
     }, function () {
-      notice('Could not find a race in this library.', provider.built ? null : 'Wikipedia in your library needs links between its articles. Try again, or play the built-in articles.', 'Try again', function () { newRace(mode); });
+      notice(T('race.noRace'), provider.built ? null : T('race.noLinks'), T('race.retry'), function () { newRace(mode); });
     });
   }
 
@@ -363,22 +355,29 @@
   els.pane.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.classList.contains('rc-link')) go(e.target.dataset.path); });
   els.back.addEventListener('click', goBack);
   els.give.addEventListener('click', giveUp);
-  els.mode.addEventListener('click', function () { newRace(race && race.mode === 'daily' ? 'practice' : 'daily'); });
-  els.again.addEventListener('click', function () { Play.closeSheet(els.sheet); newRace('practice'); });
-  els.close.addEventListener('click', function () { Play.closeSheet(els.sheet); });
   els.share.addEventListener('click', function () {
-    var t = raceText('Wiki Race', race.mode === 'daily' ? today : 'practice', race.steps, race.ms);
-    try { navigator.clipboard.writeText(t).then(function () { els.share.textContent = 'Copied'; }, function () { els.text.textContent = t; }); } catch (err) { els.text.textContent = t; }
+    var t = raceText(T('race.shareTitle'), race.mode === 'daily' ? today : T('race.practice'), race.steps, race.ms);
+    try { navigator.clipboard.writeText(t).then(function () { line.reason(T('race.copied')); }, function () { line.reason(t); }); } catch (err) { line.reason(T('race.copyFail')); }
   });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !els.sheet.hidden) Play.closeSheet(els.sheet); });
+  // New game: the race the New game pane chose, else the next (after a finished daily, a practice race).
+  els.newBtn.addEventListener('click', function () {
+    var m = pendingMode || (race && race.mode === 'daily' && race.done ? 'practice' : (race ? race.mode : 'daily'));
+    pendingMode = null; newRace(m);
+  });
+  ZimiShell.game({
+    inProgress: function () { return !!race && race.begun && !race.done; },
+    menu: function () {
+      return { options: [Play.optionRow(T('race.race'), [['daily', T('race.daily')], ['practice', T('race.practice')]], pendingMode || (race ? race.mode : 'daily'), function (v) { pendingMode = v; })] };
+    },
+    stats: function () { var best = Play.load(BEST_KEY, {}); return best.clicks ? [[T('race.bestClicks'), Play.num(best.clicks)]] : []; }
+  });
 
   // Which articles to race on: your Wikipedia in your language inside Zimi, else the built-in ones.
   function boot() {
-    notice('Looking for your library...');
+    notice(T('race.looking'));
     Lib.isZimi().then(function (yes) { return yes ? Lib.zims() : []; }).then(function (list) {
       var found = Lib.pickZim(list, 'wikipedia', Lib.uiLang());
       provider = found ? zimiProvider(found.zim) : miniProvider();
-      els.sub.textContent = found ? 'Racing on ' + (found.zim.title || found.zim.name) + ' (' + found.zim.language + ').' + (found.exact ? '' : ' No Wikipedia in your language yet.') : 'Built-in articles. Open ZimiGames inside Zimi to race on your own Wikipedia.';
       newRace('daily');
     });
   }

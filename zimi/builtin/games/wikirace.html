@@ -14,37 +14,22 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Wiki Race</h1>
-  <button class="ar-btn" id="rc-mode" type="button" title="Switch between today's race and practice">Daily</button>
+  <span class="ar-stat" id="rc-clicks" aria-live="polite"></span>
+  <button class="ar-btn" id="rc-new" type="button" hidden data-t="shell.menu.new">New game</button>
+  <button class="ar-btn" id="rc-give" type="button" disabled data-t="race.giveUp">Give up</button>
 </header>
 
 <main class="pl-main rc-main" id="rc-main">
-  <div class="rc-target" id="rc-target" aria-label="The race, from the start to the target"></div>
-  <div class="pl-hud" aria-label="Your race">
-    <div class="pl-stat"><small>Clicks</small><b id="rc-clicks">0</b></div>
-    <div class="pl-stat"><small>Time</small><b id="rc-time">0:00</b></div>
-    <div class="pl-stat"><small>Par</small><b id="rc-par">-</b></div>
-  </div>
-  <div class="rc-trail" id="rc-trail" aria-label="Your path so far"></div>
+  <p class="pl-msg" id="rc-msg"></p>
+  <div class="rc-target" id="rc-target" aria-label="The race, from the start to the target" data-t-aria="race.targetAria"></div>
+  <div class="rc-trail" id="rc-trail" aria-label="Your path so far" data-t-aria="race.trailAria"></div>
   <div class="rc-pane" id="rc-pane" aria-live="polite"></div>
-  <div class="pl-keys">
-    <button class="ar-btn" id="rc-back" type="button" disabled>Back one</button>
-    <button class="ar-btn" id="rc-give" type="button" disabled>Give up</button>
+  <div class="gs-actionrow">
+    <button class="ar-btn" id="rc-back" type="button" disabled data-t="shell.back">Back</button>
+    <button class="ar-btn" id="rc-share" type="button" hidden data-t="race.copy">Copy result</button>
   </div>
-  <p class="pl-help gl-source" id="rc-source"></p>
 </main>
 
-<div class="ar-sheet" id="rc-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="rc-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="rc-sheet-title">Arrived</h2>
-    <p id="rc-sheet-text"></p>
-    <ol class="rc-route" id="rc-route" aria-label="Your route"></ol>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="rc-share" type="button">Copy result</button>
-      <button class="ar-btn" id="rc-again" type="button">Practice race</button>
-      <button class="ar-btn" id="rc-close" type="button" aria-pressed="true">Close</button>
-    </div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="librarykit.js"></script>
 <script src="wikirace-data.js"></script>
