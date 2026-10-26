@@ -35,18 +35,19 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var SETTINGS_KEY = 'zimi.games.echo.settings', BEST_KEY = 'zimi.games.echo.best';
-  var NAMES = ['Red circle', 'Blue square', 'Green triangle', 'Gold diamond'], START_DELAY_MS = 700, REPLAY_DELAY_MS = 900, TAP_LIGHT_MS = 240;
+  var START_DELAY_MS = 700, REPLAY_DELAY_MS = 900, TAP_LIGHT_MS = 240, READY_ARM_MS = 650;
   Play.applyTheme();
 
-  var els = { board: $('ec-board'), len: $('ec-len'), best: $('ec-best'), msg: $('ec-msg'), sound: $('ec-sound'), pause: $('ec-pause'), sheet: $('ec-sheet'), title: $('ec-sheet-title'), text: $('ec-sheet-text'), go: $('ec-go'), mode: $('ec-mode') };
-  var settings = Play.load(SETTINGS_KEY, { sound: false, strict: false }), best = Play.load(BEST_KEY, { length: 0 });
-  var g = createGame(), status = 'idle', timer = null, pads = [], ac = null;
+  var els = { board: $('ec-board'), len: $('ec-len'), best: $('ec-best'), msg: $('ec-msg'), pause: $('ec-pause'), nu: $('ec-new') };
+  var line = Play.status(els.msg);
+  var settings = Play.load(SETTINGS_KEY, { strict: false }), best = Play.load(BEST_KEY, { length: 0 });
+  var g = createGame(), status = 'idle', timer = null, pads = [], ac = null, armed = null;
 
-  // ── sound: off unless asked for, made only after a tap ──
+  // ── sound: off unless asked for in Settings, made only after a tap ──
   function tone(pad, ms) {
-    if (!settings.sound) return;
+    if (!ZimiShell.sound()) return;
     try {
       ac = ac || new (root.AudioContext || root.webkitAudioContext)();
       if (ac.state === 'suspended') ac.resume();
@@ -56,14 +57,13 @@
       o.connect(gain); gain.connect(ac.destination); o.start(t); o.stop(t + len + 0.05);
     } catch (e) { /* no audio on this device: play on silently */ }
   }
-  function paintSound() { els.sound.setAttribute('aria-pressed', String(settings.sound)); els.sound.textContent = 'Sound: ' + (settings.sound ? 'on' : 'off'); }
 
   function build() {
     els.board.textContent = '';
     pads = [];
     for (var i = 0; i < PADS; i++) {
       var b = document.createElement('button'); b.type = 'button'; b.className = 'ec-pad'; b.dataset.c = i; b.innerHTML = Play.symbolSVG(i, 40);
-      b.setAttribute('aria-label', NAMES[i]);
+      b.setAttribute('aria-label', T('echo.pad.' + i));
       (function (n) { b.addEventListener('pointerdown', function (e) { if (e.button) return; e.preventDefault(); tap(n); b.focus({ preventScroll: true }); }); b.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(n); } }); })(i);
       els.board.appendChild(b); pads.push(b);
     }
@@ -73,13 +73,13 @@
     pads[pad].classList.add('on'); tone(pad, ms);
     Play.later(function () { pads[pad].classList.remove('on'); }, ms);
   }
-  function hud() { els.len.textContent = g.seq.length; els.best.textContent = best.length; }
+  function hud() { els.len.textContent = Play.num(Math.max(0, g.seq.length - (status === 'idle' || status === 'over' ? 1 : 0))); els.best.textContent = Play.num(best.length); }
 
   function show() { // play the sequence for the player to watch
-    status = 'show'; enable(false); g.pos = 0; els.msg.textContent = 'Watch.'; hud();
+    status = 'show'; enable(false); g.pos = 0; line.say(T('echo.watch')); hud();
     var i = 0, t = timing(g.seq.length);
     function next() {
-      if (i >= g.seq.length) { status = 'input'; enable(true); els.msg.textContent = 'Your turn.'; return; }
+      if (i >= g.seq.length) { status = 'input'; enable(true); line.say(T('echo.yourTurn')); return; }
       light(g.seq[i], t.on);
       i++;
       timer = Play.later(next, t.gap);
@@ -88,13 +88,13 @@
   }
 
   function tap(pad) {
-    if (status !== 'input') return;
+    if (status !== 'input') { if (status === 'show' || status === 'wait') ZimiShell.shake(els.board); return; }
     light(pad, TAP_LIGHT_MS);
     var r = press(g, pad);
     if (r === 'ok') return;
     if (r === 'done') {
       if (g.done > best.length) { best.length = g.done; Play.save(BEST_KEY, best); }
-      els.msg.textContent = 'Good. ' + g.done + ' in a row.'; status = 'wait'; enable(false);
+      line.say(T('echo.good', { n: g.done })); status = 'wait'; enable(false);
       extend(g); hud();
       timer = Play.later(show, REPLAY_DELAY_MS);
       return;
@@ -102,53 +102,55 @@
     // a slip
     status = 'wait'; enable(false);
     if (settings.strict) { finish(); return; }
-    els.msg.textContent = 'Not quite. Watch again.';
+    line.say(T('echo.slip'));
     timer = Play.later(show, REPLAY_DELAY_MS + 400);
   }
 
   function finish() {
-    status = 'over'; els.pause.disabled = true;
-    var n = Math.max(0, g.seq.length - 1), text = 'You repeated ' + n + (n === 1 ? ' pad.' : ' pads.') + ' Best: ' + best.length + '.';
-    els.msg.textContent = text;
-    showSheet('Game over', text, 'Play again');
+    status = 'over'; els.pause.disabled = true; Play.pauseLabel(els.pause, false);
+    var n = Math.max(0, g.seq.length - 1);
+    hud(); line.say('');
+    ZimiShell.endSheet({ result: 'over', stats: [[T('echo.length'), Play.num(n)], [T('play.best'), Play.num(best.length)]] });
+    setTimeout(function () { if (status === 'over') arm(); }, READY_ARM_MS);
   }
 
-  function paintMode() {
-    els.mode.textContent = '';
-    [[false, 'Show it again'], [true, 'Game over']].forEach(function (it) {
-      var b = document.createElement('button'); b.type = 'button'; b.textContent = it[1]; b.setAttribute('aria-pressed', String(settings.strict === it[0]));
-      b.addEventListener('click', function () { settings.strict = it[0]; Play.save(SETTINGS_KEY, settings); paintMode(); });
-      els.mode.appendChild(b);
-    });
+  function arm() {
+    if (armed) armed.cancel();
+    armed = Play.ready({ say: line.say, target: els.board, start: begin });
   }
-  function showSheet(title, text, label) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; paintMode(); Play.openSheet(els.sheet, '#ec-go'); }
   function begin() {
+    if (armed) armed.cancel();
     if (timer) timer.cancel();
-    g = createGame(); Play.closeSheet(els.sheet); els.pause.disabled = false; hud(); show();
+    g = createGame(); Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); show();
   }
   function pause() {
     if (status === 'idle' || status === 'over' || status === 'paused') return;
     if (timer) timer.cancel();
     pads.forEach(function (b) { b.classList.remove('on'); });
-    status = 'paused'; enable(false);
-    showSheet('Paused', 'The sequence starts again when you come back.', 'Resume');
+    status = 'paused'; enable(false); Play.pauseLabel(els.pause, true); line.say(T('play.paused'));
   }
-  els.go.addEventListener('click', function () { if (status === 'paused') { g.pos = 0; Play.closeSheet(els.sheet); show(); } else begin(); });
-  els.pause.addEventListener('click', pause);
-  els.sound.addEventListener('click', function () {
-    settings.sound = !settings.sound; Play.save(SETTINGS_KEY, settings); paintSound();
-    if (settings.sound) tone(0, 260); // a sample note, so the player knows it works
-  });
+  function resume() { if (status !== 'paused') return; g.pos = 0; Play.pauseLabel(els.pause, false); show(); }
+  els.nu.addEventListener('click', begin);
+  els.pause.addEventListener('click', function () { if (status === 'paused') resume(); else pause(); });
   Play.onHidden(pause);
+  ZimiShell.game({
+    sound: true,
+    inProgress: function () { return status === 'show' || status === 'input' || status === 'wait' || status === 'paused'; },
+    stats: function () { return [[T('echo.longest'), Play.num(best.length)]]; },
+    // What happens on a slip is a choice about the game, so it sits in the New game pane.
+    menu: function () {
+      return { options: [Play.optionRow(T('echo.onSlip'), [[false, T('echo.showAgain')], [true, T('shell.end.over')]], !!settings.strict, function (v) { settings.strict = v; Play.save(SETTINGS_KEY, settings); })] };
+    }
+  });
 
   var KEY = { 1: 0, 2: 1, 3: 2, 4: 3, q: 0, Q: 0, w: 1, W: 1, a: 2, A: 2, s: 3, S: 3 };
   document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey || !els.sheet.hidden) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.ar-sheet:not([hidden])')) return;
     if (e.key in KEY) { e.preventDefault(); tap(KEY[e.key]); }
-    else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); pause(); }
+    else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (status === 'paused') resume(); else pause(); }
   });
 
-  build(); paintSound(); hud();
-  showSheet('Echo', 'Watch the pads, then repeat them in order. One more each round.', 'Start');
+  build(); hud();
+  arm();
   root.__echo = { get g() { return g; }, get status() { return status; } };
 })(this);
