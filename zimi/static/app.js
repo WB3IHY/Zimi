@@ -3087,7 +3087,7 @@ function updateTopbar() {
     bcSep.style.display = 'inline';
     bcIcon.style.display = 'inline-flex';
     bcIcon.title = t('almanac');
-    bcIcon.innerHTML = _ALMANAC_SVG.replace('width="26" height="26"', 'width="22" height="22"');
+    bcIcon.innerHTML = _ownIconHtml(_ALMANAC_ZIM, _ALMANAC_SVG.replace('width="26" height="26"', 'width="22" height="22"'), 22);
     // Identity only — no destination behind it, so no link affordance either.
     bcIcon.removeAttribute('href');
   } else if (_isWikiPage() || _isBooksPage() || _isDictPage()) {
@@ -3137,9 +3137,7 @@ function updateTopbar() {
     // Real link (#49): the source view has a true URL, so right/middle/
     // modifier clicks can open it in a new tab; bcClick keeps plain clicks SPA.
     bcIcon.setAttribute('href', '/w/' + encodeURIComponent(activeSource));
-    if (activeSource === _GAMES_ZIM) {
-      bcIcon.innerHTML = _GAMES_SVG.replace('width="26" height="26"', 'width="20" height="20"');
-    } else if (info && info.has_icon) {
+    if (info && info.has_icon) {
       bcIcon.innerHTML = '<img src="/w/' + encodeURIComponent(activeSource) + '/-/icon" alt="" width="22" height="22" alt="' + escAttr(title) + '">';
     } else {
       bcIcon.innerHTML = '<span class="bc-letter">' + (esc(title)[0] || 'Z').toUpperCase() + '</span>';
@@ -24083,6 +24081,14 @@ function _appTileHtml(app, title, icon, names, openFn) {
 // Almanac is part of Zimi and always opens its own page, not the ZIM.
 // Their count lines are fixed strings: nothing is read to draw them.
 var _GAMES_ZIM = 'zimi_games';
+var _ALMANAC_ZIM = 'zimi_almanac';
+var OWN_TILE_ICON_PX = 42;   // the size a ZIM's icon has on a card
+// Zimi's own apps wear their ZIM's own icon (the games' pebble mark, the Almanac's March sky); the line glyph is for
+// a library that does not have the ZIM (the Almanac is Zimi's own page too, and opens without it).
+function _ownIconHtml(zim, glyph, px) {
+  var z = _zimInfo(zim);
+  return z && z.has_icon ? '<img src="/w/' + encodeURIComponent(zim) + '/-/icon" alt="" width="' + px + '" height="' + px + '">' : glyph;
+}
 var _OWN_APP_TITLE = { games: 'app_games', almanac: 'app_almanac' };
 var _GAMES_SVG = '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><clipPath id="zgc"><path clip-rule="evenodd" d="M-4 -4H28V28H-4z M18.67 2.94L19.42 3.11L20.12 3.42L20.74 3.86L21.27 4.41L21.68 5.06L21.96 5.77L22.09 6.53L22.07 7.29L20.83 17.42L20.66 18.16L20.35 18.86L19.91 19.49L19.36 20.01L18.71 20.42L18.00 20.70L17.24 20.83L16.48 20.81L10.33 20.06L9.58 19.89L8.88 19.58L8.26 19.14L7.73 18.59L7.32 17.94L7.04 17.23L6.91 16.47L6.93 15.71L8.17 5.58L8.34 4.84L8.65 4.14L9.09 3.51L9.64 2.99L10.29 2.58L11.00 2.30L11.76 2.17L12.52 2.19z"/></clipPath><g clip-path="url(#zgc)"><rect x="4.5" y="5" width="11" height="15" rx="2.5" transform="rotate(-10 10 12.5)"/></g><rect x="9" y="4" width="11" height="15" rx="2.5" transform="rotate(7 14.5 11.5)"/><path d="M14.5 8.8l1.9 2.7-1.9 2.7-1.9-2.7z" fill="currentColor" stroke="none" transform="rotate(7 14.5 11.5)"/></svg>';
 var _ALMANAC_SVG = '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.2A8 8 0 0 1 9.8 4.5a8 8 0 1 0 9.7 9.7z"/><path d="M17.6 2.8l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="currentColor" stroke="none"/></svg>';
@@ -24098,7 +24104,7 @@ function openGames() {
 function _gamesTileHtml() {
   if (!_installedGamesZims().length) return '';
   _petPeekSchedule();
-  var peek = _petPeek, html = _appTileHtml('games', t('app_games'), _GAMES_SVG, [t('apps_count_games')].concat(peek ? [peek.text] : []), 'openGames');
+  var peek = _petPeek, html = _appTileHtml('games', t('app_games'), _ownIconHtml(_GAMES_ZIM, _GAMES_SVG, OWN_TILE_ICON_PX), [t('apps_count_games')].concat(peek ? [peek.text] : []), 'openGames');
   return peek ? html.replace(/<\/a>$/, _petPeekHtml(peek) + '</a>') : html;
 }
 
@@ -24172,7 +24178,7 @@ function _petPeekOpen(e) {
   openArticle(_GAMES_ZIM, 'pet.html', t('app_games'));
 }
 function _almanacTileHtml() {
-  return _appTileHtml('almanac', t('app_almanac'), _ALMANAC_SVG, [t('apps_count_almanac')], 'openAlmanac');
+  return _appTileHtml('almanac', t('app_almanac'), _ownIconHtml(_ALMANAC_ZIM, _ALMANAC_SVG, OWN_TILE_ICON_PX), [t('apps_count_almanac')], 'openAlmanac');
 }
 
 function _tubeTileHtml() {
