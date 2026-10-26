@@ -265,11 +265,13 @@
   function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); }
   function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
   function toggle() { if (mode === 'playing') pause(); else resume(); }
+  var lastEnd = null;
   function finish() {
+    lastEnd = { stats: [[Tx('play.score'), Play.num(st.score)], [Tx('play.level'), Play.num(st.level)]] };
     mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false);
     if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); }
     hud(); draw();
-    ZimiShell.endSheet({ result: 'over', stats: [[Tx('play.score'), Play.num(st.score)], [Tx('play.level'), Play.num(st.level)]] });
+    ZimiShell.endSheet({ result: 'over', stats: lastEnd.stats });
     setTimeout(function () { if (mode === 'over') Play.ready(READY()); }, READY_ARM_MS);
   }
   els.newBtn.addEventListener('click', begin);
@@ -297,5 +299,25 @@
 
   window.addEventListener('resize', layout);
   buildArt(); layout(); arm();
+  // Leaving and coming back keeps the game: paused where it was, or at its end sheet.
+  ZimiShell.persist({
+    save: function () {
+      if (mode === 'over' && lastEnd) return { end: lastEnd };
+      return mode === 'playing' || mode === 'paused' ? { st: st } : null;
+    },
+    load: function (d) {
+      if (armed) armed.cancel();
+      if (d.end) {
+        st = createState(1); mode = 'over'; lastEnd = d.end; hud(); draw();
+        ZimiShell.endSheet({ result: 'over', stats: d.end.stats });
+        setTimeout(function () { if (mode === 'over') Play.ready(READY()); }, READY_ARM_MS);
+        return true;
+      }
+      if (!d.st || !d.st.nests) return false;
+      st = d.st; st.rng = mulberry(Math.floor(Math.random() * 4294967296)); mode = 'paused';
+      els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); hud(); draw();
+      return true;
+    }
+  });
   root.__crossing = { get st() { return st; }, get mode() { return mode; } };
 })(this);
