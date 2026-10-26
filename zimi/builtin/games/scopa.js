@@ -17,16 +17,17 @@
    only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = Z.T;
 
   var NAMES = ['You', 'North'], SUIT_NAMES = ['coins', 'cups', 'swords', 'clubs'], END_SCORE = 11, DECK = 40, PER_DEAL = 3, TABLE_START = 4, MAX_KINGS = 3, SETTEBELLO = 6;
-  var COURT = { 8: 'Fante', 9: 'Cavallo', 10: 'Re' };
+  var COURT = { 8: 'fante', 9: 'cavallo', 10: 're' };
   var PRIMIERA = { 7: 21, 6: 18, 1: 16, 5: 15, 4: 14, 3: 13, 2: 12, 8: 10, 9: 10, 10: 10 };
   var value = function (id) { return id % 10 + 1; };
   var suitOf = function (id) { return Math.floor(id / 10); };
   var other = function (seat) { return 1 - seat; };
-  var valueName = function (v) { return COURT[v] || String(v); };
-  var nameOf = function (id) { return valueName(value(id)) + ' of ' + SUIT_NAMES[suitOf(id)]; };
+  var valueName = function (v) { return COURT[v] ? TX('scopa.court.' + COURT[v]) : String(v); };
+  var seatName = function (i) { return i === 0 ? TX('cards.you') : TX('cards.seat.north'); };
+  var nameOf = function (id) { return TX('cards.name', { rank: valueName(value(id)), suit: TX('scopa.suit.' + SUIT_NAMES[suitOf(id)]) }); };
   var sumOf = function (ids) { return ids.reduce(function (n, c) { return n + value(c); }, 0); };
   var nameList = function (ids) { return ids.map(nameOf).join(', '); };
 
@@ -117,14 +118,14 @@
   function scoreHand(captured, scope) {
     var pts = [0, 0], lines = [], cards = captured.map(function (c) { return c.length; }), cn = captured.map(coins), pr = captured.map(primiera), s;
     var leader = function (a) { return a[0] === a[1] ? -1 : a[0] > a[1] ? 0 : 1; };
-    var give = function (who, label, detail) { if (who >= 0) pts[who]++; lines.push(label + ': ' + detail + (who >= 0 ? ', ' + NAMES[who] + ' +1' : ', no point')); };
-    give(leader(cards), 'Cards', cards[0] + ' to ' + cards[1]);
-    give(leader(cn), 'Coins', cn[0] + ' to ' + cn[1]);
+    var give = function (who, label, detail) { if (who >= 0) pts[who]++; lines.push(who >= 0 ? TX('scopa.line.point', { label: label, detail: detail, name: seatName(who) }) : TX('scopa.line.none', { label: label, detail: detail })); };
+    give(leader(cards), TX('scopa.cards'), TX('scopa.toScore', { a: cards[0], b: cards[1] }));
+    give(leader(cn), TX('scopa.coins'), TX('scopa.toScore', { a: cn[0], b: cn[1] }));
     s = captured[0].indexOf(SETTEBELLO) >= 0 ? 0 : captured[1].indexOf(SETTEBELLO) >= 0 ? 1 : -1;
-    give(s, 'Settebello (the seven of coins)', s >= 0 ? NAMES[s] + ' took it' : 'nobody');
-    give(leader(pr), 'Primiera', pr[0] + ' to ' + pr[1]);
+    give(s, TX('scopa.settebello'), s >= 0 ? TX('scopa.tookIt', { name: seatName(s) }) : TX('scopa.nobody'));
+    give(leader(pr), TX('scopa.primiera'), TX('scopa.toScore', { a: pr[0], b: pr[1] }));
     [0, 1].forEach(function (seat) { pts[seat] += scope[seat]; });
-    lines.push('Scope: ' + scope[0] + ' to ' + scope[1]);
+    lines.push(TX('scopa.line.scope', { a: scope[0], b: scope[1] }));
     return { points: pts, lines: lines, cards: cards, coins: cn, primiera: pr };
   }
 
@@ -187,14 +188,14 @@
     var g = geo(m), cards = [], slots = [], sh = view && view.show && view.show.moves === st.moves ? view.show : null;
     var sel = view && view.sel !== null && view.sel !== undefined ? view.sel : null, build = (view && view.build) || [];
     var myTurn = st.phase === 'play' && st.turn === V && !sh;
-    slots.push({ id: 'deck', x: g.W - g.pad - g.cw, y: g.northY, w: g.cw, h: g.ch, quiet: true, label: 'Deck' });
-    slots.push({ id: 'table', x: g.pad, y: g.tableTop, w: g.W - 2 * g.pad, h: g.statusY - g.tableTop, quiet: true, label: 'Table' });
+    slots.push({ id: 'deck', x: g.W - g.pad - g.cw, y: g.northY, w: g.cw, h: g.ch, quiet: true, label: TX('scopa.slot.deck') });
+    slots.push({ id: 'table', x: g.pad, y: g.tableTop, w: g.W - 2 * g.pad, h: g.statusY - g.tableTop, quiet: true, label: TX('cards.slot.table') });
     // The cards that could be taken with the selected card.
     var options = sel !== null && faceUp && st.hands[V].indexOf(sel) >= 0 ? captureOptions(st.table, sel) : [];
     var inOption = function (id) { return options.some(function (o) { return o.indexOf(id) >= 0; }); };
     var hand = T.handCards(g, st.hands[V], function (id) {
       var on = sel === id && faceUp;
-      return { up: faceUp, raise: on, mark: on, label: nameOf(id) + (on ? ', selected' : ''), dim: false };
+      return { up: faceUp, raise: on, mark: on, label: nameOf(id) + (on ? ', ' + TX('cards.selected') : ''), dim: false };
     }, null);
     var step = Math.min(g.cw * HAND_STEP, (g.W - 2 * g.pad - g.cw) / Math.max(1, st.hands[V].length - 1));
     // A hand of three spreads wider than a fan.
@@ -262,24 +263,24 @@
       var g = geo(board.metrics());
       setTally(g, st);
       var out = {
-        chips: [0, 1].map(function (c) { return { name: who(c), text: String(st.scores[c]), turn: st.phase === 'play' && st.turn === c && !busy() }; }).concat([{ name: 'Deck', text: String(st.deck.length) }]),
-        sub: 'Hand ' + (st.handNo + 1) + ' · to ' + END_SCORE, text: ''
+        chips: [0, 1].map(function (c) { return { name: who(c), text: String(st.scores[c]), turn: st.phase === 'play' && st.turn === c && !busy() }; }).concat([{ name: TX('scopa.deck'), text: String(st.deck.length) }]),
+        fact: TX('scopa.fact', { n: st.handNo + 1, goal: END_SCORE }), text: ''
       };
       var lp = st.lastPlay, told = '';
       if (lp && lp.id !== null) {
-        told = who(lp.seat) + vb(lp.seat, ' play ', ' plays ') + nameOf(lp.id) + (lp.taken.length ? ' and ' + vb(lp.seat, 'take ', 'takes ') + lp.taken.map(nameOf).join(', ') : '') + (lp.scopa ? '. Scopa.' : '');
-      } else if (lp) told = who(lp.seat) + vb(lp.seat, ' take', ' takes') + ' the last cards';
+        told = TX(seats.isYou(lp.seat) ? (lp.taken.length ? 'scopa.told.youTake' : 'scopa.told.youPlay') : (lp.taken.length ? 'scopa.told.take' : 'scopa.told.play'), { name: who(lp.seat), card: nameOf(lp.id), taken: lp.taken.map(nameOf).join(', ') }) + (lp.scopa ? '. ' + TX('scopa.scopa') + '.' : '');
+      } else if (lp) told = TX(seats.isYou(lp.seat) ? 'scopa.told.youLast' : 'scopa.told.last', { name: who(lp.seat) });
       if (st.phase === 'play') {
         if (busy()) out.text = told;
         else if (seats.person(st.turn)) {
           var opts = view.sel !== null ? captureOptions(st.table, view.sel) : [];
           if (view.sel !== null && opts.length > 1) {
-            out.text = 'Pick the cards to take, or choose a way below';
+            out.text = TX('scopa.pick');
             out.choices = opts.map(function (o) { return { label: optionLabel(o), onclick: function () { doMove(st.turn, view.sel, o); } }; });
-          } else out.text = (told ? told + '. ' : '') + (seats.isYou(st.turn) ? 'Your play' : who(st.turn) + ', your play');
-        } else out.text = (told ? told + '. ' : '') + who(st.turn) + ' is thinking';
-      } else if (st.phase === 'handEnd') { out.text = 'End of hand'; out.label = 'Next hand'; out.action = startNextHand; }
-      else if (st.phase === 'over') { out.text = 'Game over'; }
+          } else out.text = (told ? told + '. ' : '') + (seats.isYou(st.turn) ? TX('scopa.yourPlay') : TX('scopa.namePlay', { name: who(st.turn) }));
+        } else out.text = (told ? told + '. ' : '') + TX('cards.thinking', { name: who(st.turn) });
+      } else if (st.phase === 'handEnd') { out.text = TX('cards.handEnd'); out.label = TX('cards.nextHand'); out.action = startNextHand; }
+      else if (st.phase === 'over') { out.text = TX('shell.end.over'); }
       return out;
     }
 
@@ -327,16 +328,16 @@
     }
     function resultLines(st) {
       var r = st.result;
-      return r.lines.concat(['This hand: ' + who(0) + ' +' + r.points[0] + ', ' + who(1) + ' +' + r.points[1] + '. Score ' + st.scores[0] + ' to ' + st.scores[1] + '.']);
+      return r.lines.concat([TX('scopa.line.hand', { a: who(0), pa: r.points[0], b: who(1), pb: r.points[1], sa: st.scores[0], sb: st.scores[1] })]);
     }
     function handOver() {
       var st = session.state;
-      T.lineSheet('Hand ' + (st.handNo + 1), resultLines(st), [{ label: 'Next hand', primary: true, onclick: startNextHand }]);
+      T.lineSheet(TX('cards.fact.hand', { n: st.handNo + 1 }), resultLines(st), [{ label: TX('cards.nextHand'), primary: true, onclick: startNextHand }]);
     }
     function gameOver() {
       var st = session.state, w = gameWinner(st.scores), won = seats.isYou(w), lines = resultLines(st);
-      lines.push(won ? 'You win.' : who(w) + ' wins.');
-      if (won) session.win(st.scores[0]); else session.lose(who(w) + ' wins', lines, seats.hotseat() ? undefined : st.scores[0]);
+      lines.push(won ? TX('scopa.youWin') : TX('scopa.wins', { name: who(w) }));
+      if (won) session.win(st.scores[0]); else session.lose(TX('shell.end.wins', { name: who(w) }), lines, seats.hotseat() ? undefined : st.scores[0]);
     }
     function startNextHand() {
       var st = session.state;
@@ -349,23 +350,25 @@
     function tap(pile) {
       var st = session.state, id = idOf(pile), kind = pile.charAt(0);
       if (st.phase !== 'play' || isNaN(id)) return false;
-      if (st.turn !== seats.view() || busy()) { t.flash('Wait for your turn'); return false; }
+      if (st.turn !== seats.view() || busy()) { t.flash(TX('cards.wait.turn')); return false; }
       if (kind === 'h') {
-        if (view.sel === id) { view.sel = null; view.build = []; board.refresh(); t.paint(); return true; }
         var opts = captureOptions(st.table, id);
-        if (opts.length === 1) { doMove(st.turn, id, opts[0]); return true; }
-        if (!opts.length) { doMove(st.turn, id, []); return true; }
+        // Lift, then play: the first tap lifts the card; the second plays it (one way to take, or none). With several ways it puts the card back.
+        if (view.sel === id) {
+          if (opts.length <= 1) { doMove(st.turn, id, opts[0] || []); return true; }
+          view.sel = null; view.build = []; board.refresh(); t.paint(); return true;
+        }
         view.sel = id; view.build = []; board.refresh(); t.paint();
         return true;
       }
       if (kind === 't') {
-        if (view.sel === null) { t.flash('Choose a card from your hand first'); return false; }
+        if (view.sel === null) { t.flash(TX('scopa.chooseFirst')); return false; }
         var at = view.build.indexOf(id);
         if (at >= 0) view.build.splice(at, 1); else view.build.push(id);
         var set = view.build.slice();
         if (isOption(st.table, view.sel, set)) { doMove(st.turn, view.sel, set); return true; }
         var fits = captureOptions(st.table, view.sel).some(function (o) { return set.every(function (c) { return o.indexOf(c) >= 0; }); });
-        if (!fits) { view.build.splice(view.build.indexOf(id), 1); t.flash('That does not add up to ' + value(view.sel)); }
+        if (!fits) { view.build.splice(view.build.indexOf(id), 1); t.flash(TX('scopa.noSum', { n: value(view.sel) })); }
         board.refresh(); t.paint();
         return true;
       }
@@ -385,8 +388,8 @@
       canPick: function () { return false; },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0] + '-' + st.scores[1]; },
       cascadeOrder: function (st) { return cards40(st).slice(0, 24).map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return resultLines(st).concat(['You win, ' + st.scores[seats.view()] + ' to ' + st.scores[1 - seats.view()] + ', after ' + Z.plural(st.handNo + 1, 'hand') + '.']); },
-      rules: 'Play a card. If a table card has the same value you take it; otherwise you may take cards that add up to it; otherwise it stays on the table. Fante is 8, Cavallo 9, Re 10. Clearing the table is a scopa (1 point, not on the last play). The last player to capture takes the rest. Points: most cards, most coins, the seven of coins, the best primiera (sevens count most), and each scopa. First to 11 wins. Tap a card to play it; when several sets would work, tap the table cards you want or pick a way from the list.'
+      winLines: function (sec, st) { return resultLines(st).concat([TX('spades.result.won', { a: st.scores[seats.view()], b: st.scores[1 - seats.view()], hands: Z.plural(st.handNo + 1, 'hand') })]); },
+      rules: TX('scopa.rules')
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;

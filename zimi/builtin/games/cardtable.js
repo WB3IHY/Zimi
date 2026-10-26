@@ -13,9 +13,9 @@
   // Your hand at 390 px: no strip of a card narrower than 30 px, two rows from ten cards, a tapped card lifts 14 px
   // (a card you can play stands 6 px proud when others cannot be played). An opponent's face-down hand of more than
   // five cards is one back and a count chip.
-  var COUNT_AT = 0.86, MIN_STRIP_PX = 30, TWO_ROWS_FROM = 10, LIFT_PX = 14, PLAYABLE_LIFT_PX = 6, COLLAPSE_FROM = 6;
+  var COUNT_AT = 0.86, STATUS_MAX = 60, MIN_STRIP_PX = 30, TWO_ROWS_FROM = 10, LIFT_PX = 14, PLAYABLE_LIFT_PX = 6, COLLAPSE_FROM = 6;
   // Games that play a card on its second tap: the first tap lifts it (amber outline), the second plays it.
-  var LIFT_THEN_PLAY = { spades: 1, euchre: 1, belote: 1, crazyeights: 1 };
+  var LIFT_THEN_PLAY = { spades: 1, euchre: 1, belote: 1, crazyeights: 1, durak: 1 };
   var SCORE_BAR_H = 26, STATUS_H = 46, SUIT_GAP_SHARE = 0.18, HAND_STEP_SHARE = 0.78;
   var SIDE_STEP_MIN = 0.07, SIDE_STEP_MAX = 0.2, TOP_STEP_SHARE = 0.3, SIDE_OFFSET_CARDS = 3.4, TRICK_DX = 0.72, TRICK_DY = 0.62;
   var MIN_STEP_SHARE = 0.42, ROW_STEP_SHARE = 0.5, FLASH_MS = 1800, PANEL_GAP = 8;
@@ -148,7 +148,8 @@
     var status = Z.h('div', { class: 'ct-status', role: 'status' }, [statusText, statusBtn]);
     var panel = Z.h('div', { class: 'ct-panel', role: 'group', 'aria-label': T('cards.choices') });
     el.table.appendChild(scoreRow); el.table.appendChild(status); el.table.appendChild(panel);
-    var liftedPile = null, liftPlay = cfg.liftPlay !== undefined ? !!cfg.liftPlay : !!LIFT_THEN_PLAY[cfg.id];
+    var liftedPile = null, liftPlay = cfg.liftPlay !== undefined ? cfg.liftPlay : !!LIFT_THEN_PLAY[cfg.id];
+    var lifts = function (st) { return typeof liftPlay === 'function' ? !!liftPlay(st) : !!liftPlay; };
     var statusAction = null, last = '', choicesNow = [];
     statusBtn.addEventListener('click', function () { if (statusAction) statusAction(); });
 
@@ -158,19 +159,28 @@
       var g = cfg.geo ? cfg.geo(m, st) : geometry(m), hd = cfg.hud(st, view) || {};
       // Whatever the game's own layout says, the status line never sits on the hand.
       var statusY = Z.statusTop(g.statusY, board.handTop(), STATUS_H);
-      var sig = JSON.stringify([hd.chips, hd.text, hd.label, !!hd.action, hd.choices && hd.choices.map(function (c) { return [c.label, !!c.disabled, !!c.pressed]; }), hd.lines, hd.sub, view.flash, statusY, m.W]);
+      var sig = JSON.stringify([hd.chips, hd.text, hd.label, !!hd.action, hd.choices && hd.choices.map(function (c) { return [c.label, !!c.disabled, !!c.pressed]; }), hd.lines, hd.fact, hd.trump, view.flash, statusY, m.W]);
       statusAction = hd.action || null; choicesNow = hd.choices || [];
       if (sig === last) return;
       last = sig;
       scoreRow.textContent = '';
       var thinking = /thinking/i.test(view.flash || hd.text || '');
       (hd.chips || []).forEach(function (c) {
-        scoreRow.appendChild(Z.h('span', { class: 'ct-chip' + (c.turn ? ' ct-turn' : '') + (c.turn && thinking ? ' ct-think' : '') }, [Z.h('b', { text: c.name }), Z.h('span', { text: c.text || '' })]));
+        // A player: a dot, the name, a number; D marks the dealer.
+        scoreRow.appendChild(Z.h('span', { class: 'ct-chip' + (c.turn ? ' ct-turn' : '') + (c.turn && thinking ? ' ct-think' : ''), 'aria-current': c.turn ? 'true' : 'false' },
+          [Z.h('b', { text: c.name }), Z.h('span', { text: c.text || '' }), c.dealer ? Z.h('i', { class: 'ct-dealer', title: T('cards.dealer'), text: 'D' }) : null]));
       });
+      // Trump is a suit chip: the suit's glyph (red for the red suits), then the word.
+      if (hd.trump !== undefined && hd.trump !== null) {
+        var red = Z.isRed(Z.make(1, hd.trump));
+        scoreRow.appendChild(Z.h('span', { class: 'ct-chip ct-trump' }, [Z.h('b', { class: red ? 'ct-red' : '', text: SUIT_GLYPH[hd.trump] }), Z.h('span', { text: T('cards.trump') })]));
+      }
       scoreRow.style.top = m.pad + 'px';
       status.style.top = Math.round(statusY) + 'px'; status.style.height = STATUS_H + 'px';
       panel.style.bottom = Math.round(m.H - statusY + PANEL_GAP) + 'px';
-      statusText.textContent = view.flash || hd.text || '';
+      // The status line: one sentence. The game's one fact ("Hand 2", "To 121") leads it when both fit.
+      var line = view.flash || hd.text || '';
+      statusText.textContent = hd.fact && line && (hd.fact + ' \u00b7 ' + line).length <= STATUS_MAX ? hd.fact + ' \u00b7 ' + line : (line || hd.fact || '');
       statusBtn.textContent = hd.label || ''; statusBtn.hidden = !hd.label; statusBtn.disabled = !hd.action;
       panel.textContent = ''; panel.hidden = !(hd.choices && hd.choices.length);
       (hd.choices || []).forEach(function (c, i) {
@@ -186,7 +196,7 @@
         var box = Z.h('div', { class: 'ct-lines' }, hd.lines.map(function (t) { return Z.h('p', { class: t.cls || '', text: t.text }, []); }));
         panel.hidden = false; panel.insertBefore(box, panel.firstChild);
       }
-      el.sub.textContent = hd.sub || '';
+      el.sub.textContent = '';   // the bar has no second line: the fact is in the status line
     }
     function flash(text) { view.flash = text; board.say(text); paint(); session.later(function () { view.flash = ''; paint(); }, FLASH_MS); }
 
@@ -208,7 +218,7 @@
       move: function (pile, idx, to) { return cfg.move ? cfg.move(pile, idx, to) : false; },
       tap: function (pile, idx) {
         // Lift, then play: the first tap on a card you can play lifts it, the second plays it.
-        if (liftPlay && /^h\d+$/.test(pile) && session && cfg.canPick && cfg.canPick(session.state, pile)) {
+        if (session && /^h\d+$/.test(pile) && lifts(session.state) && cfg.canPick && cfg.canPick(session.state, pile)) {
           if (liftedPile !== pile) { liftedPile = pile; board.refresh(); return true; }
           liftedPile = null;
         }

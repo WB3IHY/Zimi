@@ -17,7 +17,7 @@
    a team. Pure functions; the page wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = Z.T;
 
   var SEATS = 4, HAND = 5, NAMES = ['You', 'West', 'North', 'East'], TEAMS = ['Us', 'Them'], END_SCORE = 10;
   var RANKS = [9, 10, 11, 12, 13, 1]; // 9 10 J Q K A
@@ -117,7 +117,7 @@
     var lead = effSuit(trick[0].id, st.trump), follow = hand.filter(function (c) { return effSuit(c, st.trump) === lead; });
     return follow.length ? follow : hand.slice();
   }
-  function whyNot(st) { return 'Follow ' + SUIT_NAMES[effSuit(st.trick[0].id, st.trump)]; }
+  function whyNot(st) { return TX('cards.follow', { suit: TX('cards.suit.' + SUIT_NAMES[effSuit(st.trick[0].id, st.trump)]) }); }
   function isLegal(st, seat, id) { return st.phase === 'play' && st.trick.length < trickSize(st) && st.turn === seat && legalPlays(st, seat).indexOf(id) >= 0; }
 
   function playCard(st, seat, id) {
@@ -224,8 +224,8 @@
     var sweep = view && full ? view.sweep : null;
     var V = (view && view.viewer) || 0, up = !(view && view.hideHand), rel = function (seat) { return (seat - V + SEATS) % SEATS; };
     var myTurn = st.phase === 'play' && st.turn === V && !full, picking = st.phase === 'discard' && st.dealer === V;
-    slots.push({ id: 'deck', x: g.cx - g.cw / 2, y: g.cy - g.ch / 2, w: g.cw, h: g.ch, quiet: true, label: 'Table' });
-    slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: 'Trick' });
+    slots.push({ id: 'deck', x: g.cx - g.cw / 2, y: g.cy - g.ch / 2, w: g.cw, h: g.ch, quiet: true, label: TX('cards.slot.table') });
+    slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: TX('cards.slot.trick') });
     var hand = T.handCards(g, st.hands[V], function (id) { return { up: up, dim: up && myTurn && !isLegal(st, V, id), glow: up && picking && id === st.upcard, label: Z.cardName(id) + (picking && id === st.upcard ? ', picked up' : '') }; },
       function (a, b) { return effSuit(a, st.trump) !== effSuit(b, st.trump); });
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
@@ -251,48 +251,49 @@
   function boot() {
     var d = root.document, t, board, session, view = { sweep: null, flash: '', alone: false, note: '' };
     var glyph = function (s) { return GLYPH[s]; };
-    var suitWord = function (s) { return SUIT_NAMES[s]; };
+    var suitWord = function (s) { return TX('cards.suit.' + SUIT_NAMES[s]); };
     var seats = Seats.create({ id: 'euchre', seats: SEATS, onChange: function () { if (t) t.paint(); if (board) board.refresh(); } });
     function who(seat) { return seats.name(seat); }
     var viewTeam = function () { return team(seats.view()); };
-    var teamLabel = function (k) { return k === viewTeam() ? 'Us' : 'Them'; };
-    var teamNames = function (k) { return seats.name(k) + ' and ' + seats.name(k + 2); };
+    var teamLabel = function (k) { return k === viewTeam() ? TX('cards.team.us') : TX('cards.team.them'); };
+    var teamNames = function (k) { return TX('cards.pair', { a: seats.name(k), b: seats.name(k + 2) }); };
     // The seat acting now (the dealer while discarding) and whether the person looking is that seat.
     var actor = function (st) { return st.phase === 'discard' ? st.dealer : st.turn; };
     var mine = function (seat) { return seats.person(seat) && seat === seats.view(); };
     function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && actor(st) !== view.viewer; }
     function repaint() { board.refresh(); t.paint(); }
-    var youOrName = function (seat, you) { return seats.isYou(seat) ? you : seats.name(seat) + ', ' + you.toLowerCase(); };
+    var youOrName = function (seat) { return seats.isYou(seat) ? TX('cards.turn.you') : TX('cards.turn.name', { name: seats.name(seat) }); };
     function handLines(st) {
       var r = st.result, mk = teamLabel(r.makerTeam);
-      return [mk + ' called ' + suitWord(st.trump) + (st.alone ? ' alone' : '') + ' and took ' + r.got + ' of 5.',
-        (r.euchred ? teamLabel(r.team) + ' euchred ' + mk + ': +' : teamLabel(r.team) + ' score +') + r.points, 'Us ' + st.scores[viewTeam()] + ', Them ' + st.scores[1 - viewTeam()]];
+      return [TX(st.alone ? 'euchre.line.calledAlone' : 'euchre.line.called', { team: mk, suit: suitWord(st.trump), got: r.got }),
+        r.euchred ? TX('euchre.line.euchred', { team: teamLabel(r.team), maker: mk, points: r.points }) : TX('euchre.line.score', { team: teamLabel(r.team), points: r.points }),
+        TX('euchre.line.scores', { a: st.scores[viewTeam()], b: st.scores[1 - viewTeam()] })];
     }
     function hud(st) {
       var size = trickSize(st), full = st.trick.length === size;
       var chips = [0, 1, 2, 3].map(function (i) { return (seats.view() + i) % SEATS; }).map(function (seat) {
-        var name = seats.name(seat), text = seat === st.sitting ? 'out' : st.phase === 'play' || st.phase === 'handEnd' ? String(st.tricks[seat]) : seat === st.dealer ? 'dealer' : '';
+        var name = seats.name(seat), text = seat === st.sitting ? TX('euchre.out') : st.phase === 'play' || st.phase === 'handEnd' ? String(st.tricks[seat]) : '';
         if (st.maker === seat) text += ' ★';
-        return { name: name, text: text, turn: st.turn === seat && !full && (st.phase === 'order1' || st.phase === 'order2' || st.phase === 'play') };
+        return { name: name, text: text, dealer: seat === st.dealer, turn: st.turn === seat && !full && (st.phase === 'order1' || st.phase === 'order2' || st.phase === 'play') };
       });
-      var out = { chips: chips, text: '', sub: (st.trump !== null ? 'Trump ' + glyph(st.trump) + ' · ' : '') + 'Us ' + st.scores[viewTeam()] + ' · Them ' + st.scores[1 - viewTeam()] };
+      var out = { chips: chips, text: '', trump: st.trump, fact: TX('euchre.fact', { a: st.scores[viewTeam()], b: st.scores[1 - viewTeam()] }) };
       if (st.phase === 'order1') {
-        out.text = (mine(st.turn) ? (seats.hotseat() ? who(st.turn) + ': order up ' : 'Order up ') + suitWord(Z.suit(st.upcard)) + '?' : seats.person(st.turn) ? who(st.turn) + ' is deciding' : who(st.turn) + ' is thinking') + (view.note ? ' ' + view.note : '');
-        if (mine(st.turn)) out.choices = [{ label: 'Order up', onclick: function () { callRound1(false); } }, { label: 'Alone', onclick: function () { callRound1(true); } }, { label: 'Pass', onclick: passNow }];
+        out.text = (mine(st.turn) ? TX(seats.hotseat() ? 'euchre.orderUp.name' : 'euchre.orderUp', { name: who(st.turn), suit: suitWord(Z.suit(st.upcard)) }) : seats.person(st.turn) ? TX('euchre.deciding', { name: who(st.turn) }) : TX('cards.thinking', { name: who(st.turn) })) + (view.note ? ' ' + view.note : '');
+        if (mine(st.turn)) out.choices = [{ label: TX('euchre.orderUpBtn'), onclick: function () { callRound1(false); } }, { label: TX('euchre.alone'), onclick: function () { callRound1(true); } }, { label: TX('cards.pass'), onclick: passNow }];
       } else if (st.phase === 'order2') {
-        out.text = (mine(st.turn) ? (seats.hotseat() ? who(st.turn) + ': name trump, not ' : 'Name trump, not ') + suitWord(st.turnedDown) + (st.dealer === st.turn ? '. ' + 'You must' + '.' : '.') : seats.person(st.turn) ? who(st.turn) + ' is deciding' : who(st.turn) + ' is thinking') + (view.note ? ' ' + view.note : '');
+        out.text = (mine(st.turn) ? TX(seats.hotseat() ? 'euchre.name.name' : 'euchre.name', { name: who(st.turn), suit: suitWord(st.turnedDown) }) + (st.dealer === st.turn ? ' ' + TX('euchre.mustName') : '') : seats.person(st.turn) ? TX('euchre.deciding', { name: who(st.turn) }) : TX('cards.thinking', { name: who(st.turn) })) + (view.note ? ' ' + view.note : '');
         if (mine(st.turn)) {
           out.choices = [0, 1, 2, 3].filter(function (s) { return s !== st.turnedDown; }).map(function (s) {
             return { label: glyph(s), aria: suitWord(s), cls: s === 1 || s === 2 ? 'ct-red' : '', onclick: function () { callRound2(s); } };
           });
-          out.choices.push({ label: 'Alone', pressed: view.alone, onclick: function () { view.alone = !view.alone; t.paint(); } });
-          if (canPass(st)) out.choices.push({ label: 'Pass', onclick: passNow });
+          out.choices.push({ label: TX('euchre.alone'), pressed: view.alone, onclick: function () { view.alone = !view.alone; t.paint(); } });
+          if (canPass(st)) out.choices.push({ label: TX('cards.pass'), onclick: passNow });
         }
-      } else if (st.phase === 'discard') out.text = mine(st.dealer) ? (seats.isYou(st.dealer) ? 'You pick up' : who(st.dealer) + ' picks up') + ' the ' + Z.cardName(st.upcard) + '. Tap a card to discard' : who(st.dealer) + ' picks up and discards';
-      else if (st.phase === 'handEnd') { out.text = 'End of hand'; out.label = 'Next hand'; out.action = startNextHand; }
-      else if (st.phase === 'over') { out.text = 'Game over'; out.label = 'New game'; out.action = newGame; }
-      else if (full) { var w = trickWinner(st.trick, st.trump); out.text = who(w) + (seats.isYou(w) ? ' take' : ' takes') + ' the trick'; }
-      else out.text = !seats.person(st.turn) ? who(st.turn) + ' is thinking' : youOrName(st.turn, 'Your turn');
+      } else if (st.phase === 'discard') out.text = mine(st.dealer) ? TX(seats.isYou(st.dealer) ? 'euchre.pickUp.you' : 'euchre.pickUp.name', { name: who(st.dealer), card: Z.cardName(st.upcard) }) : TX('euchre.picksUpDiscards', { name: who(st.dealer) });
+      else if (st.phase === 'handEnd') { out.text = TX('cards.handEnd'); out.label = TX('cards.nextHand'); out.action = startNextHand; }
+      else if (st.phase === 'over') { out.text = TX('shell.end.over'); out.label = TX('shell.menu.new'); out.action = newGame; }
+      else if (full) { var w = trickWinner(st.trick, st.trump); out.text = seats.isYou(w) ? TX('cards.trick.you') : TX('cards.trick.name', { name: who(w) }); }
+      else out.text = !seats.person(st.turn) ? TX('cards.thinking', { name: who(st.turn) }) : youOrName(st.turn);
       return out;
     }
 
@@ -304,12 +305,12 @@
       if (st.trick.length === trickSize(st)) { session.later(sweepTrick, HOLD_MS); return; }
       if (seats.person(st.turn)) seats.ensure(st.turn, repaint); else session.later(aiTurn, AI_MS);
     }
-    function calledNote(st, seat) { return who(seat) + ' called ' + suitWord(st.trump) + (st.alone ? ' alone' : ''); }
+    function calledNote(st, seat) { return TX(st.alone ? 'euchre.called.alone' : 'euchre.called', { name: who(seat), suit: suitWord(st.trump) }); }
     function aiCall() {
       var st = session.state, seat = st.turn, d1 = st.phase === 'order1';
       if ((!d1 && st.phase !== 'order2') || seats.person(seat)) return;
       var c = d1 ? aiOrder(st, seat) : aiName(st, seat);
-      if (!c.call) { view.note = who(seat) + ' passed.'; session.follow(pass(st)); drive(); return; }
+      if (!c.call) { view.note = TX('euchre.passed', { name: who(seat) }); session.follow(pass(st)); drive(); return; }
       var ns = d1 ? orderUp(st, seat, c.alone) : nameTrump(st, seat, c.suit, c.alone);
       view.note = calledNote(ns, seat) + '.'; view.flash = ''; session.follow(ns); t.flash(calledNote(ns, seat)); drive();
     }
@@ -336,12 +337,12 @@
         if (st.phase === 'handEnd') handOver(); else if (st.phase === 'over') gameOver(); else drive();
       }, SWEEP_MS);
     }
-    function handOver() { T.lineSheet('Hand ' + (session.state.handNo + 1), handLines(session.state), [{ label: 'Next hand', primary: true, onclick: startNextHand }]); }
+    function handOver() { T.lineSheet(TX('cards.fact.hand', { n: session.state.handNo + 1 }), handLines(session.state), [{ label: TX('cards.nextHand'), primary: true, onclick: startNextHand }]); }
     function gameOver() {
       var st = session.state, w = winnerTeam(st.scores), vt = viewTeam(), hot = seats.hotseat();
-      var lines = handLines(st).concat([(hot ? teamNames(w) + ' win, ' : w === vt ? 'You win, ' : 'They win, ') + st.scores[w] + ' to ' + st.scores[1 - w] + '.']);
-      if (hot) session.lose(teamNames(w) + ' win', lines);
-      else if (w === vt) session.win(st.scores[vt]); else session.lose('Game over', lines, st.scores[vt]);
+      var lines = handLines(st).concat([TX(hot ? 'cards.result.hot' : w === vt ? 'cards.result.you' : 'cards.result.them', { team: hot ? teamNames(w) : '', a: st.scores[w], b: st.scores[1 - w] })]);
+      if (hot) session.lose(teamNames(w), lines);
+      else if (w === vt) session.win(st.scores[vt]); else session.lose('', lines, st.scores[vt]);
     }
     function startNextHand() {
       var st = session.state;
@@ -369,7 +370,7 @@
       if (pile.charAt(0) !== 'h' || isNaN(id)) return false;
       if (st.phase === 'discard' && mine(st.dealer)) { session.commit(discard(st, id)); drive(); return true; }
       if (st.phase !== 'play') return false;
-      if (st.turn !== seats.view() || st.trick.length === trickSize(st)) { t.flash(st.trick.length === trickSize(st) ? 'Wait for the trick' : 'Wait for your turn'); return false; }
+      if (st.turn !== seats.view() || st.trick.length === trickSize(st)) { t.flash(st.trick.length === trickSize(st) ? TX('cards.wait.trick') : TX('cards.wait.turn')); return false; }
       if (!isLegal(st, st.turn, id)) { t.flash(whyNot(st)); return false; }
       return play(id);
     }
@@ -381,13 +382,13 @@
     // A fresh deal: nobody has seen it, so a table of people starts at a handoff.
     function deal() { seats.begin(function () { repaint(); drive(); }, session.state.turn); }
     t = T.create({
-      id: 'euchre', name: 'Euchre', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, tap: tap, cols: 6, heightShare: 0.13,
+      id: 'euchre', name: 'Euchre', liftPlay: function (st) { return st.phase === 'play'; }, seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, tap: tap, cols: 6, heightShare: 0.13,
       canPick: function (st, pile) { return st.phase === 'play' && pile.charAt(0) === 'h' && isLegal(st, seats.view(), idOf(pile)); },
       move: function (pile, idx, to) { return (to === 'trick' || to === 'deck') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[viewTeam()] + '-' + st.scores[1 - viewTeam()]; },
       cascadeOrder: function (st) { return st.played.map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return handLines(st).concat(['You win, ' + st.scores[viewTeam()] + ' to ' + st.scores[1 - viewTeam()] + '.']); },
-      rules: 'Five cards each. Order up the turned-up suit as trump or pass; in round two name another suit (the dealer must). The jack of trump is the right bower, the other jack of its colour the left bower: both are trump. Alone: your partner sits out for a bigger score. 3 or 4 tricks score 1, all 5 score 2 (4 alone); makers who fall short are euchred and the others score 2. First to 10 wins. Tap a card to play it, or drag it to the middle.'
+      winLines: function (sec, st) { return handLines(st).concat([TX('cards.result.you', { a: st.scores[viewTeam()], b: st.scores[1 - viewTeam()] })]); },
+      rules: TX('euchre.rules')
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;

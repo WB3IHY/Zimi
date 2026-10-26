@@ -14,7 +14,9 @@ GAMES = os.path.join(ROOT, "zimi", "builtin", "games")
 
 # Files that draw strings through T(): the shared ones.
 SHARED = ["shell.js", "cards.js", "cardtable.js", "shelf.js", "recent.js", "boardkit.js", "gamepad.js"]
-_KEY = re.compile(r"""\bT\(\s*['"]([a-z][A-Za-z0-9_.]*)['"]""")
+# Games that draw their strings through TX() (add a game here when its sweep is done).
+CONVERTED = ["spades.js", "euchre.js", "belote.js", "durak.js", "scopa.js"]
+_KEY = re.compile(r"""\bTX?\(\s*['"]([a-z][A-Za-z0-9_.]*)['"]""")
 
 
 def table():
@@ -29,7 +31,7 @@ def test_text_js_is_current():
 
 def test_every_string_id_exists():
     have, missing = table(), []
-    for name in SHARED:
+    for name in SHARED + CONVERTED:
         path = os.path.join(GAMES, name)
         if not os.path.exists(path):
             continue

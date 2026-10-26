@@ -21,7 +21,7 @@
    functions; the page wiring at the bottom only runs in a browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   var HAND = 6, FIRST_CAP = 5, CAP = 6, ACE_HIGH = 14, LOW_RANK = 6, MIN_PLAYERS = 2, MAX_PLAYERS = 4, DEFAULT_PLAYERS = 3;
   var POS_NAMES = ['You', 'West', 'North', 'East'];
@@ -80,13 +80,13 @@
     return st.hands[seat].filter(function (c) { return beats(st, c, u.a); });
   }
   function whyNotThrow(st, seat, id) {
-    if (st.table.length >= st.defCap) return 'No more than ' + st.defCap + ' cards this bout';
-    if (!st.table.length) return seat === st.attacker ? '' : 'Only the attacker leads';
-    return 'Add a card of a rank on the table';
+    if (st.table.length >= st.defCap) return TX('durak.cap', { n: st.defCap });
+    if (!st.table.length) return seat === st.attacker ? '' : TX('durak.onlyAttacker');
+    return TX('durak.addRank');
   }
   function whyNotDefend(st, id) {
     var u = unbeaten(st);
-    return u && isTrump(st, u.a) ? 'Only a higher trump beats a trump' : 'Beat it with a higher card of the suit, or a trump';
+    return u && isTrump(st, u.a) ? TX('durak.higherTrump') : TX('durak.beatIt');
   }
 
   // The rest of a bout: skip throwers with nothing to add; when all have passed the bout is over.
@@ -192,8 +192,8 @@
     var V = (view && view.viewer) || 0, up = !(view && view.hideHand);
     var myTurn = st.turn === V && st.phase !== 'clear' && st.phase !== 'over', legal = [];
     if (myTurn) legal = st.phase === 'defend' ? legalDefences(st, V) : legalThrows(st, V);
-    slots.push({ id: 'stock', x: sx, y: sy, w: g.cw, h: g.ch, label: 'Stock, ' + Z.plural(st.stock.length, 'card') + ', trump ' + Z.SUITS[st.trump] });
-    slots.push({ id: 'table', x: Math.round(g.pad), y: Math.round(g.cy - g.ch * 1.1), w: g.W - 2 * g.pad, h: g.ch * 1.7, quiet: true, label: 'Table' });
+    slots.push({ id: 'stock', x: sx, y: sy, w: g.cw, h: g.ch, label: TX('durak.stockLabel', { cards: Z.plural(st.stock.length, 'card'), suit: TX('cards.suit.' + Z.SUITS[st.trump]) }) });
+    slots.push({ id: 'table', x: Math.round(g.pad), y: Math.round(g.cy - g.ch * 1.1), w: g.W - 2 * g.pad, h: g.ch * 1.7, quiet: true, label: TX('cards.slot.table') });
     st.stock.forEach(function (id, k) {
       var trumpCard = k === 0;
       cards.push({ id: id, pile: 'stock', idx: k, x: trumpCard ? sx : sx + Math.round(g.cw * STOCK_PEEK), y: sy, up: trumpCard });
@@ -244,27 +244,27 @@
       var l = st.last;
       if (!l || seats.isYou(l.seat)) return '';
       var who = nm(st, l.seat);
-      return { attack: who + ' attacks with the ' + T.short(l.id) + '.', throw: who + ' adds the ' + T.short(l.id) + '.', defend: who + ' beats it with the ' + T.short(l.id) + '.',
-        take: who + ' takes.', pass: '' }[l.act] || '';
+      return { attack: TX('durak.note.attack', { name: who, card: T.short(l.id) }), throw: TX('durak.note.throw', { name: who, card: T.short(l.id) }), defend: TX('durak.note.defend', { name: who, card: T.short(l.id) }),
+        take: TX('durak.note.take', { name: who }), pass: '' }[l.act] || '';
     }
     function hud(st) {
-      var n = st.n, note = noteOf(st), out = { text: '', sub: 'Trump ' + T.SUIT_GLYPH[st.trump] + ' · stock ' + st.stock.length };
+      var n = st.n, note = noteOf(st), out = { text: '', trump: st.trump, fact: TX('durak.fact', { n: st.stock.length }) };
       out.chips = st.hands.map(function (h, seat) {
-        var role = st.phase === 'over' ? '' : seat === st.attacker ? ' atk' : seat === st.defender ? ' def' : '';
-        return { name: nm(st, seat), text: st.out.indexOf(seat) >= 0 ? 'out' : h.length + role, turn: st.phase !== 'clear' && st.phase !== 'over' && st.turn === seat };
+        var role = st.phase === 'over' ? '' : seat === st.attacker ? ' ' + TX('durak.atk') : seat === st.defender ? ' ' + TX('durak.def') : '';
+        return { name: nm(st, seat), text: st.out.indexOf(seat) >= 0 ? TX('euchre.out') : h.length + role, turn: st.phase !== 'clear' && st.phase !== 'over' && st.turn === seat };
       });
       var u = unbeaten(st);
-      if (st.phase === 'over') { out.text = st.durak < 0 ? 'Nobody is the fool' : nm(st, st.durak) + (seats.isYou(st.durak) ? ' are' : ' is') + ' the durak'; out.label = 'New game'; out.action = newGame; return out; }
-      if (st.phase === 'clear') { out.text = st.taken ? nm(st, st.defender) + (seats.isYou(st.defender) ? ' take' : ' takes') + ' the cards' : 'Beaten. The cards are out of play'; return out; }
+      if (st.phase === 'over') { out.text = st.durak < 0 ? TX('durak.nobodyFool') : TX(seats.isYou(st.durak) ? 'durak.youDurak' : 'durak.isDurak', { name: nm(st, st.durak) }); out.label = TX('shell.menu.new'); out.action = newGame; return out; }
+      if (st.phase === 'clear') { out.text = st.taken ? TX(seats.isYou(st.defender) ? 'durak.youTake' : 'durak.takes', { name: nm(st, st.defender) }) : TX('durak.beaten'); return out; }
       if (!mine(st.turn)) {
-        out.text = (note ? note + ' ' : '') + (st.phase === 'defend' ? nm(st, st.turn) + ' is thinking' : st.phase === 'throw' ? nm(st, st.turn) + ' may throw in' : nm(st, st.turn) + ' is thinking');
-        if (seats.person(st.turn)) out.text = (note ? note + ' ' : '') + nm(st, st.turn) + ' is up';
-        if (st.phase === 'throw' && seats.person(st.defender)) out.text = (note ? note + ' ' : '') + (seats.isYou(st.defender) ? 'You take' : nm(st, st.defender) + ' takes') + ' the cards. Others may throw in';
+        out.text = (note ? note + ' ' : '') + (st.phase === 'throw' ? TX('durak.mayThrow', { name: nm(st, st.turn) }) : TX('cards.thinking', { name: nm(st, st.turn) }));
+        if (seats.person(st.turn)) out.text = (note ? note + ' ' : '') + TX('durak.isUp', { name: nm(st, st.turn) });
+        if (st.phase === 'throw' && seats.person(st.defender)) out.text = (note ? note + ' ' : '') + TX(seats.isYou(st.defender) ? 'durak.youTakeThrow' : 'durak.takesThrow', { name: nm(st, st.defender) });
         return out;
       }
-      if (st.phase === 'defend') { out.text = (note ? note + ' ' : '') + 'Beat the ' + T.short(u.a) + ' or take'; out.label = 'Take'; out.action = takeNow; }
-      else if (!st.table.length) out.text = seats.isYou(st.turn) ? 'Your attack: lead any card' : nm(st, st.turn) + ' attacks: lead any card';
-      else { out.text = (note ? note + ' ' : '') + (st.phase === 'throw' ? nm(st, st.defender) + ' takes. Add a matching rank?' : 'Add a card of a rank on the table?'); out.label = 'Done'; out.action = doneNow; }
+      if (st.phase === 'defend') { out.text = (note ? note + ' ' : '') + TX('durak.beatOrTake', { card: T.short(u.a) }); out.label = TX('durak.take'); out.action = takeNow; }
+      else if (!st.table.length) out.text = TX(seats.isYou(st.turn) ? 'durak.yourAttack' : 'durak.attacks', { name: nm(st, st.turn) });
+      else { out.text = (note ? note + ' ' : '') + (st.phase === 'throw' ? TX('durak.takesAdd', { name: nm(st, st.defender) }) : TX('durak.addRank.q')); out.label = TX('durak.done'); out.action = doneNow; }
       return out;
     }
 
@@ -290,17 +290,17 @@
     function gameOver() {
       var st = session.state, fool = st.durak, hot = seats.hotseat();
       if (hot || fool < 0) {
-        session.lose(fool < 0 ? 'A draw' : nm(st, fool) + ' is the durak', [fool < 0 ? 'Nobody is left holding cards.' : nm(st, fool) + ' was the last one holding cards.'], undefined);
+        session.lose(fool < 0 ? TX('shell.end.draw') : TX('durak.isDurak', { name: nm(st, fool) }), [fool < 0 ? TX('durak.nobodyLeft') : TX('durak.lastHolding', { name: nm(st, fool) })], undefined);
         return;
       }
-      if (seats.isYou(fool)) session.lose('You are the durak', ['You were the last one with cards.'], undefined); else session.win();
+      if (seats.isYou(fool)) session.lose(TX('durak.youDurak'), [TX('durak.youLast')], undefined); else session.win();
     }
     function act(next) { session.commit(next); drive(); return true; }
     function takeNow() { var st = session.state; if (st.phase === 'defend' && mine(st.turn)) act(take(st)); }
     function doneNow() { var st = session.state; if (mine(st.turn) && canPass(st, st.turn)) act(pass(st)); }
     function play(id) {
       var st = session.state;
-      if (st.turn !== seats.view() || st.phase === 'clear' || st.phase === 'over') { t.flash(st.phase === 'clear' ? 'Wait for the bout to finish' : 'Wait for your turn'); return false; }
+      if (st.turn !== seats.view() || st.phase === 'clear' || st.phase === 'over') { t.flash(st.phase === 'clear' ? TX('durak.waitBout') : TX('cards.wait.turn')); return false; }
       if (st.phase === 'defend') {
         if (legalDefences(st, st.turn).indexOf(id) < 0) { t.flash(whyNotDefend(st, id)); return false; }
         return act(defendCard(st, id));
@@ -325,11 +325,11 @@
       canPick: function (st, pile) { return st.turn === seats.view() && pile.charAt(0) === 'h' && (st.phase === 'defend' ? legalDefences(st, st.turn) : legalThrows(st, st.turn)).indexOf(idOf(pile)) >= 0; },
       move: function (pile, idx, to) { return (to === 'table' || to === 'stock') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.hands[seats.view()].length; },
-      winLines: function (sec, st) { return [st.durak < 0 ? 'Nobody is left holding cards.' : nm(st, st.durak) + ' is the durak.', 'You are out of cards: you win.']; },
+      winLines: function (sec, st) { return [st.durak < 0 ? TX('durak.nobodyLeft') : TX('durak.isDurak.dot', { name: nm(st, st.durak) }), TX('durak.youWin')]; },
       menuExtra: function () {
-        return [T.choiceRow('Seats at the table', PLAYERS_KEY, [{ value: 2, label: '2' }, { value: 3, label: '3' }, { value: 4, label: '4' }], DEFAULT_PLAYERS, function () { newGame(); })];
+        return [T.choiceRow(TX('cards.seatsAtTable'), PLAYERS_KEY, [{ value: 2, label: '2' }, { value: 3, label: '3' }, { value: 4, label: '4' }], DEFAULT_PLAYERS, function () { newGame(); })];
       },
-      rules: 'Beat each attacking card with a higher card of its suit or any trump (a trump only with a higher trump), or take them all. After a card is beaten the attacker and the others may add cards of any rank on the table, up to six in all (five in the first bout) and no more than the defender holds. Beat them all and you attack next; take them and the next player does. When the stock runs out, players with no cards are out. The last one holding cards is the durak, the fool. Tap a card to play it, or drag it to the middle; Take or Done are in the status line.'
+      rules: TX('durak.rules')
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;

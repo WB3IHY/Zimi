@@ -23,7 +23,7 @@
    browser. */
 (function (root) {
   'use strict';
-  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats;
+  var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = Z.T;
 
   var SEATS = 4, FIRST_DEAL = 5, HAND = 8, NAMES = ['You', 'West', 'North', 'East'], TEAMS = ['Us', 'Them'];
   var GLYPH = T.SUIT_GLYPH, SUIT_NAMES = ['clubs', 'diamonds', 'hearts', 'spades'];
@@ -121,14 +121,14 @@
   }
   function whyNot(st, seat) {
     var lead = suitOf(st.trick[0].id);
-    return st.hands[seat || 0].some(function (c) { return suitOf(c) === lead; }) ? 'Follow ' + SUIT_NAMES[lead] + (lead === st.trump ? ' and play higher if you can' : '') : 'You must trump, and over-trump if you can';
+    return st.hands[seat || 0].some(function (c) { return suitOf(c) === lead; }) ? TX(lead === st.trump ? 'belote.followHigher' : 'cards.follow', { suit: TX('cards.suit.' + SUIT_NAMES[lead]) }) : TX('belote.mustTrump');
   }
   function isLegal(st, seat, id) { return st.phase === 'play' && st.trick.length < SEATS && st.turn === seat && legalPlays(st, seat).indexOf(id) >= 0; }
 
   // Playing the king or queen of trump from a belote hand: announced ('belote', then 'rebelote').
   function announcement(st, seat, id) {
     if (st.belote.seat !== seat || !isTrump(id, st.trump) || (rankOf(id) !== 13 && rankOf(id) !== 12)) return '';
-    return st.belote.shown === 0 ? 'Belote!' : st.belote.shown === 1 ? 'Rebelote!' : '';
+    return st.belote.shown === 0 ? TX('belote.belote') : st.belote.shown === 1 ? TX('belote.rebelote') : '';
   }
   function playCard(st, seat, id) {
     var s = Z.clone(st), say = announcement(s, seat, id);
@@ -222,8 +222,8 @@
     var g = geo(m, st), slots = [], cards = [], full = st.trick.length === SEATS, sweep = view && full ? view.sweep : null;
     var V = (view && view.viewer) || 0, up = !(view && view.hideHand), rel = function (seat) { return (seat - V + SEATS) % SEATS; };
     var myTurn = st.phase === 'play' && st.turn === V && !full;
-    slots.push({ id: 'deck', x: g.cx - g.cw / 2, y: g.cy - g.ch / 2, w: g.cw, h: g.ch, quiet: true, label: 'Table' });
-    slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: 'Trick' });
+    slots.push({ id: 'deck', x: g.cx - g.cw / 2, y: g.cy - g.ch / 2, w: g.cw, h: g.ch, quiet: true, label: TX('cards.slot.table') });
+    slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: TX('cards.slot.trick') });
     var hand = T.handCards(g, st.hands[V], function (id) { return { up: up, dim: up && myTurn && !isLegal(st, V, id), label: cardName(id) }; }, function (a, b) { return suitOf(a) !== suitOf(b); });
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     [1, 2, 3].forEach(function (pos) { cards = cards.concat(T.fan(g, pos, st.hands[(V + pos) % SEATS], false)); });
@@ -249,39 +249,40 @@
     var seats = Seats.create({ id: 'belote', seats: SEATS, onChange: function () { if (t) t.paint(); if (board) board.refresh(); } });
     var who = function (seat) { return seats.name(seat); };
     var viewTeam = function () { return team(seats.view()); };
-    var teamLabel = function (k) { return k === viewTeam() ? 'Us' : 'Them'; };
-    var teamNames = function (k) { return seats.name(k) + ' and ' + seats.name(k + 2); };
+    var teamLabel = function (k) { return k === viewTeam() ? TX('cards.team.us') : TX('cards.team.them'); };
+    var teamNames = function (k) { return TX('cards.pair', { a: seats.name(k), b: seats.name(k + 2) }); };
+    var suitWord = function (s) { return TX('cards.suit.' + SUIT_NAMES[s]); };
     var mine = function (seat) { return seats.person(seat) && seat === seats.view(); };
     function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.turn !== view.viewer; }
     function repaint() { board.refresh(); t.paint(); }
-    var turnText = function (seat) { return !seats.person(seat) ? who(seat) + ' is thinking' : seats.isYou(seat) ? 'Your turn' : who(seat) + ', your turn'; };
+    var turnText = function (seat) { return !seats.person(seat) ? TX('cards.thinking', { name: who(seat) }) : seats.isYou(seat) ? TX('cards.turn.you') : TX('cards.turn.name', { name: who(seat) }); };
     function handLines(st) {
       var r = st.result, tk = teamLabel(r.takerTeam), lines = [];
-      lines.push(tk + ' took ' + SUIT_NAMES[st.trump] + ' and made ' + r.totals[r.takerTeam] + ' of ' + HAND_TOTAL + (r.belote === r.takerTeam ? ' with belote' : '') + (r.made ? '.' : ': not enough, they need ' + MAKE_AT + '.'));
-      if (r.capot >= 0) lines.push(teamLabel(r.capot) + ' won every trick: capot, ' + CAPOT_TOTAL + '.');
-      else if (!r.made) lines.push(teamLabel(1 - r.takerTeam) + ' score ' + HAND_TOTAL + (r.belote >= 0 ? ' and ' + teamLabel(r.belote) + ' keep belote' : '') + '.');
-      var vt = viewTeam(); lines.push('This hand: Us +' + r.add[vt] + ', Them +' + r.add[1 - vt] + '. Score ' + st.scores[vt] + ' to ' + st.scores[1 - vt] + '.');
+      lines.push(TX(r.made ? 'belote.line.made' : 'belote.line.short', { team: tk, suit: suitWord(st.trump), got: r.totals[r.takerTeam], of: HAND_TOTAL, belote: r.belote === r.takerTeam ? TX('belote.withBelote') : '', need: MAKE_AT }));
+      if (r.capot >= 0) lines.push(TX('belote.line.capot', { team: teamLabel(r.capot), points: CAPOT_TOTAL }));
+      else if (!r.made) lines.push(TX(r.belote >= 0 ? 'belote.line.scoreKeep' : 'belote.line.score', { team: teamLabel(1 - r.takerTeam), points: HAND_TOTAL, keeper: r.belote >= 0 ? teamLabel(r.belote) : '' }));
+      var vt = viewTeam(); lines.push(TX('belote.line.hand', { a: r.add[vt], b: r.add[1 - vt], sa: st.scores[vt], sb: st.scores[1 - vt] }));
       return lines;
     }
     function hud(st) {
       var full = st.trick.length === SEATS, bidding = st.phase === 'bid1' || st.phase === 'bid2';
       var chips = [0, 1, 2, 3].map(function (i) { return (seats.view() + i) % SEATS; }).map(function (seat) {
-        var name = seats.name(seat), text = st.phase === 'play' || st.phase === 'handEnd' ? String(st.won[seat].length / 4) : seat === st.dealer ? 'dealer' : '';
+        var name = seats.name(seat), text = st.phase === 'play' || st.phase === 'handEnd' ? String(st.won[seat].length / 4) : '';
         if (st.taker === seat) text += ' ★';
-        return { name: name, text: text, turn: st.turn === seat && !full && (bidding || st.phase === 'play') };
+        return { name: name, text: text, dealer: seat === st.dealer, turn: st.turn === seat && !full && (bidding || st.phase === 'play') };
       });
-      var out = { chips: chips, text: '', sub: (st.trump !== null ? GLYPH[st.trump] + ' trump · ' : '') + st.scores[viewTeam()] + '-' + st.scores[1 - viewTeam()] + ' of ' + st.target };
+      var out = { chips: chips, text: '', trump: st.trump, fact: TX('belote.fact', { a: st.scores[viewTeam()], b: st.scores[1 - viewTeam()], target: st.target }) };
       if (bidding) {
         var up = suitOf(st.upcard);
-        out.text = (mine(st.turn) ? (seats.hotseat() ? who(st.turn) + ': ' : '') + (st.phase === 'bid1' ? 'Take ' + SUIT_NAMES[up] + ' as trump?' : 'Name trump, not ' + SUIT_NAMES[up] + ', or pass') : seats.person(st.turn) ? who(st.turn) + ' is deciding' : who(st.turn) + ' is thinking') + (view.note ? ' ' + view.note : '');
+        out.text = (mine(st.turn) ? (seats.hotseat() ? who(st.turn) + ': ' : '') + TX(st.phase === 'bid1' ? 'belote.take' : 'belote.name', { suit: suitWord(up) }) : seats.person(st.turn) ? TX('euchre.deciding', { name: who(st.turn) }) : TX('cards.thinking', { name: who(st.turn) })) + (view.note ? ' ' + view.note : '');
         if (mine(st.turn)) {
-          if (st.phase === 'bid1') out.choices = [{ label: 'Take ' + GLYPH[up], aria: 'Take ' + SUIT_NAMES[up], cls: up === 1 || up === 2 ? 'ct-red' : '', onclick: function () { takeNow(up); } }, { label: 'Pass', onclick: passNow }];
-          else out.choices = [0, 1, 2, 3].filter(function (s) { return s !== up; }).map(function (s) { return { label: GLYPH[s], aria: SUIT_NAMES[s], cls: s === 1 || s === 2 ? 'ct-red' : '', onclick: function () { takeNow(s); } }; }).concat([{ label: 'Pass', onclick: passNow }]);
+          if (st.phase === 'bid1') out.choices = [{ label: TX('belote.takeBtn', { glyph: GLYPH[up] }), aria: TX('belote.takeAria', { suit: suitWord(up) }), cls: up === 1 || up === 2 ? 'ct-red' : '', onclick: function () { takeNow(up); } }, { label: TX('cards.pass'), onclick: passNow }];
+          else out.choices = [0, 1, 2, 3].filter(function (s) { return s !== up; }).map(function (s) { return { label: GLYPH[s], aria: suitWord(s), cls: s === 1 || s === 2 ? 'ct-red' : '', onclick: function () { takeNow(s); } }; }).concat([{ label: TX('cards.pass'), onclick: passNow }]);
         }
-      } else if (st.phase === 'handEnd') { out.text = 'End of hand'; out.label = 'Next hand'; out.action = startNextHand; }
-      else if (st.phase === 'over') out.text = 'Game over';
-      else if (st.phase === 'redeal') out.text = 'Everyone passed: dealing again';
-      else if (full) { var w = currentWinner(st.trick, st.trump).seat; out.text = who(w) + (seats.isYou(w) ? ' take' : ' takes') + ' the trick'; }
+      } else if (st.phase === 'handEnd') { out.text = TX('cards.handEnd'); out.label = TX('cards.nextHand'); out.action = startNextHand; }
+      else if (st.phase === 'over') out.text = TX('shell.end.over');
+      else if (st.phase === 'redeal') out.text = TX('belote.redeal');
+      else if (full) { var w = currentWinner(st.trick, st.trump).seat; out.text = seats.isYou(w) ? TX('cards.trick.you') : TX('cards.trick.name', { name: who(w) }); }
       else out.text = (view.note ? view.note + ' ' : '') + turnText(st.turn);
       return out;
     }
@@ -323,10 +324,10 @@
         if (st.phase === 'handEnd') handOver(); else if (st.phase === 'over') gameOver(); else drive();
       }, SWEEP_MS);
     }
-    function handOver() { T.lineSheet('Hand ' + (session.state.handNo + 1), handLines(session.state), [{ label: 'Next hand', primary: true, onclick: startNextHand }]); }
+    function handOver() { T.lineSheet(TX('cards.fact.hand', { n: session.state.handNo + 1 }), handLines(session.state), [{ label: TX('cards.nextHand'), primary: true, onclick: startNextHand }]); }
     function gameOver() {
       var st = session.state, w = gameWinner(st.scores, st.target), vt = viewTeam(), hot = seats.hotseat();
-      var lines = handLines(st).concat([(hot ? teamNames(w) + ' win, ' : w === vt ? 'You win, ' : 'They win, ') + st.scores[w] + ' to ' + st.scores[1 - w] + '.']);
+      var lines = handLines(st).concat([TX(hot ? 'cards.result.hot' : w === vt ? 'cards.result.you' : 'cards.result.them', { team: hot ? teamNames(w) : '', a: st.scores[w], b: st.scores[1 - w] })]);
       if (hot) session.lose(teamNames(w) + ' win', lines);
       else if (w === vt) session.win(st.scores[vt]); else session.lose('Game over', lines, st.scores[vt]);
     }
@@ -353,7 +354,7 @@
     function tap(pile) {
       var st = session.state, id = idOf(pile);
       if (pile.charAt(0) !== 'h' || isNaN(id) || st.phase !== 'play') return false;
-      if (st.turn !== seats.view() || st.trick.length === SEATS) { t.flash(st.trick.length === SEATS ? 'Wait for the trick' : 'Wait for your turn'); return false; }
+      if (st.turn !== seats.view() || st.trick.length === SEATS) { t.flash(st.trick.length === SEATS ? TX('cards.wait.trick') : TX('cards.wait.turn')); return false; }
       if (!isLegal(st, st.turn, id)) { t.flash(whyNot(st, st.turn)); return false; }
       return play(id);
     }
@@ -366,14 +367,14 @@
     // A fresh deal: nobody has seen it, so a table of people starts at a handoff.
     function deal() { seats.begin(function () { repaint(); drive(); }, session.state.turn); }
     t = T.create({
-      id: 'belote', name: 'Belote', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGameNow, tap: tap, cols: 7, heightShare: 0.13,
+      id: 'belote', name: 'Belote', liftPlay: function (st) { return st.phase === 'play'; }, seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGameNow, tap: tap, cols: 7, heightShare: 0.13,
       canPick: function (st, pile) { return st.phase === 'play' && pile.charAt(0) === 'h' && isLegal(st, seats.view(), idOf(pile)); },
       move: function (pile, idx, to) { return (to === 'trick' || to === 'deck') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
       stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[viewTeam()] + '-' + st.scores[1 - viewTeam()]; },
       cascadeOrder: function (st) { return st.played.slice(0, 24).map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { return handLines(st).concat(['You win, ' + st.scores[viewTeam()] + ' to ' + st.scores[1 - viewTeam()] + '.']); },
-      menuExtra: function () { return [T.choiceRow('Play to', TARGET_KEY, TARGETS.map(function (n) { return { value: n, label: String(n) }; }), 501, function () {}), Z.h('p', { class: 'zc-note', text: 'A new target starts with the next game.' })]; },
-      rules: 'You and North against West and East, 32 cards (7 to ace). Take the turned-up suit as trump or pass; in round two name another suit; if all pass, deal again. Trump: jack 20, nine 14, ace 11, ten 10, king 4, queen 3. Other suits: ace 11, ten 10, king 4, queen 3, jack 2. Follow suit; if you cannot, trump unless your partner is winning, and beat the best trump if you can. King and queen of trump together: belote, 20. Last trick 10. The takers need 82 of 162; if they fall short the others score 162. All eight tricks is capot: 252. First to the target wins. Tap a card to play it, or drag it to the middle.'
+      winLines: function (sec, st) { return handLines(st).concat([TX('cards.result.you', { a: st.scores[viewTeam()], b: st.scores[1 - viewTeam()] })]); },
+      menuExtra: function () { return [T.choiceRow(TX('belote.playTo'), TARGET_KEY, TARGETS.map(function (n) { return { value: n, label: String(n) }; }), 501, function () {}), Z.h('p', { class: 'zc-note', text: TX('belote.targetNote') })]; },
+      rules: TX('belote.rules')
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;

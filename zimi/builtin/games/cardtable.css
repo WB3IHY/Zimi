@@ -6,6 +6,9 @@
 .ct-chip { display: inline-flex; gap: 6px; align-items: center; height: 28px; padding: 0 var(--sp-3); border: 1px solid transparent; border-radius: 999px; background: rgba(0, 0, 0, 0.34); color: rgba(255, 255, 255, 0.86); font: var(--fs-small) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ct-chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.35); }
 .ct-chip b { font: 650 var(--fs-small) var(--font); color: #fff; }
+.ct-chip .ct-dealer { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); color: #fff; font: 700 var(--fs-caption) var(--font); font-style: normal; }
+.ct-chip.ct-trump::before { display: none; }
+.ct-chip b.ct-red { color: #ff9e94; }
 .ct-chip.ct-turn { border-color: var(--select-ring); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.22); }
 .ct-chip.ct-turn::before { background: var(--select-ring); }
 .ct-chip.ct-think::before { animation: gs-pulse 0.9s ease-in-out infinite alternate; }
@@ -22,5 +25,6 @@
 .ct-lines { flex: 1 1 100%; color: #fff; font-size: var(--fs-small); line-height: 1.45; }
 .ct-lines p { margin: 1px 0; }
 .ct-lines .ct-total { font-weight: 700; color: var(--select-ring); }
-@media (max-width: 440px) { .ct-chip { padding: 0 10px; gap: 5px; } .ct-scores { gap: 4px; padding: 0 4px; } }
+/* On a phone four players and a trump chip share one row: no dot, tight padding, the trump chip is its suit alone. */
+@media (max-width: 440px) { .ct-chip { padding: 0 8px; gap: 4px; } .ct-chip::before { display: none; } .ct-scores { flex-wrap: nowrap; gap: 4px; padding: 0 4px; } .ct-chip.ct-trump span { display: none; } }
 .ct-status-text:empty { display: none; }
