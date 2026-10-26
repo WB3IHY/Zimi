@@ -41,3 +41,6 @@ body.touch .kt-pad { display: flex; }
 .kt-detail .gs-row { flex-wrap: nowrap; }
 .kt-detail .gs-seg { flex: 0 0 auto; }
 .kt-detail .gs-seg .ar-btn { flex: 0 0 auto; min-width: 44px; }
+/* The sheet is long on a phone: Start stays in reach at the bottom of the card as the rows scroll. */
+.ar-sheet-card:has(.kt-detail) .ar-sheet-actions { position: sticky; z-index: 2; bottom: -20px; margin: var(--sp-3) -20px -20px; padding: var(--sp-2) 20px 20px; background: var(--surface2); }
+.ar-sheet-card:has(.kt-detail) { max-height: calc(100vh - var(--bar-h, 0px) - 2 * var(--gutter, 16px)); }
