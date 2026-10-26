@@ -345,7 +345,7 @@
   // ── The page ────────────────────────────────────────────────────────────
   var AI_MS = 800, QUICK_MS = 300, FINISH_MS = 1800, STREET_MS = 1000, OPP_KEY = 'holdem.opponents';
   function boot() {
-    var d = root.document, t, board, session, view = { flash: '' }, tags = [], rng = Math.random, raiseTo = null;
+    var d = root.document, t, board, session, view = { flash: '', sizing: false }, tags = [], rng = Math.random, raiseTo = null;
     function opponents() { var v = Z.store.get(OPP_KEY, 3); return v >= 3 && v <= 5 ? v : 3; }
     // Seats are the Computer or a Person (a computer keeps its own name and style). The count follows the
     // table size, so a new game builds a fresh ZimiSeats and the facade below hands out its methods.
@@ -356,7 +356,7 @@
     }
     buildSeats(opponents() + 1);
     var nm = function (seat) { return seats.name(seat); };
-    function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.toAct !== view.viewer; }
+    function syncView(st) { if (st.toAct !== seats.view()) view.sizing = false; view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.toAct !== view.viewer; }
     function repaint() { if (board) board.refresh(); if (t) t.paint(); }
     function chipsLeft(st) { return st.players[seats.view()].chips; }
     function yourHand(st) {
@@ -412,13 +412,20 @@
         out.text = (hot ? TX('holdem.nameColon', { name: nm(V) }) + ' ' : '') + (name ? TX(hot ? 'holdem.youHave.hot' : 'holdem.youHave', { hand: name.toLocaleLowerCase() }) + ' ' : '') + (mine.check ? TX(hot ? 'holdem.turn.hot' : 'cards.turn.you') : TX('holdem.toCall', { n: mine.toCall }));
         out.choices = [{ label: TX('holdem.fold'), onclick: function () { play({ type: 'fold' }); }, disabled: mine.check, aria: TX('holdem.fold') }, { label: mine.check ? TX('holdem.check') : TX('holdem.call', { n: mine.toCall }), onclick: function () { play({ type: 'call' }); } }];
         if (mine.canRaise) {
+          // Four buttons at most: Raise opens the sizes in the same place, and Back closes them.
           var sizes = [], seen = {}, base = st.currentBet, potNow = mine.pot + mine.toCall;
           [['min', mine.minTo], ['half', base + potNow / 2], ['pot', base + potNow]].forEach(function (x) {
             var to = Math.max(mine.minTo, Math.min(mine.maxTo, roundTo(x[1], CHIP_UNIT)));
             if (to < mine.maxTo && !seen[to]) { seen[to] = 1; sizes.push({ label: TX('holdem.size.' + x[0], { n: to }), to: to }); }
           });
-          sizes.push({ label: TX('holdem.allInN', { n: mine.maxTo }), to: mine.maxTo });
-          sizes.forEach(function (sz, k) { out.choices.push({ label: (k === 0 && sz.to < mine.maxTo ? TX(st.currentBet ? 'holdem.raiseTo' : 'holdem.betN', { n: sz.to }) : sz.label), onclick: function () { play({ type: 'raise', to: sz.to }); } }); });
+          var raise = function (to) { return function () { view.sizing = false; play({ type: 'raise', to: to }); }; };
+          if (view.sizing && sizes.length) {
+            out.text = TX('holdem.sizePrompt');
+            out.choices = sizes.map(function (sz) { return { label: sz.label, onclick: raise(sz.to) }; }).concat([{ label: TX('shell.back'), onclick: function () { view.sizing = false; t.paint(); } }]);
+          } else {
+            out.choices.push({ label: TX(st.currentBet ? 'holdem.raiseBtn' : 'holdem.betBtn'), disabled: !sizes.length, onclick: function () { view.sizing = true; t.paint(); } });
+            out.choices.push({ label: TX('holdem.allInN', { n: mine.maxTo }), onclick: raise(mine.maxTo) });
+          }
         }
       } else if (st.runout) out.text = TX('holdem.allInAll');
       else out.text = st.toAct >= 0 ? TX(seats.person(st.toAct) ? 'ce.next' : 'cards.thinking', { name: nm(st.toAct) }) : '';
@@ -454,7 +461,7 @@
       if (seats.hotseat()) { session.lose(gs === 'won' ? overText(st) : TX('holdem.outOfChips'), [TX('holdem.handsPlayed', { hands: Z.plural(st.handNo, 'hand'), text: overText(st) })], undefined); return; }
       if (gs === 'won') session.win(chipsLeft(st)); else session.lose(TX('holdem.outOfChips'), lines, chipsLeft(st));
     }
-    function play(action) { var st = session.state, V = seats.view(); if (st.toAct !== V) return; session.follow(act(st, V, action)); drive(); }
+    function play(action) { var st = session.state, V = seats.view(); view.sizing = false; if (st.toAct !== V) return; session.follow(act(st, V, action)); drive(); }
     function nextHand() {
       var st = session.state;
       if (st.phase !== 'between') return;
