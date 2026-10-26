@@ -56,7 +56,7 @@ FC_CHAIN = "var s = api.almostWon(), p = s.piles; p.c1.push(p.fd3.pop(), p.fd3.p
 SHOTS = os.environ.get("ZIMI_SOLITAIRE_SHOTS")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function" if SHOTS else "module")   # (a browser per game for the shots: what an earlier game left it warm with shows in the pixels)
 def browser():
     with sync_playwright() as p:
         for kind in [p.webkit] if SHOTS else [p.chromium, p.webkit]:
@@ -345,7 +345,7 @@ DRIVER = """
   if (cfg.mode === 'look') return null;
   if (cfg.mode === 'check') {
     return { label: cfg.label, state: fnv(JSON.stringify(st), 0).toString(16), moves: st.moves, stat: text('#zc-stat'), fact: text('.zc-fact'), sub: text('#zc-sub'),
-      sheet: text('.ar-sheet:not([hidden])'), watch: text('.gs-watch-text'), undoOff: !!(undo && undo.disabled), won: session.won, table: fnv(table, 0).toString(16), raw: cfg.raw ? table : undefined };
+      sheet: text('.ar-sheet:not([hidden])'), watch: text('.gs-watch-text'), undoOff: !!(undo && undo.disabled), won: session.won, table: fnv(table, 0).toString(16), raw: cfg.raw ? table : undefined, html: cfg.raw ? doc.documentElement.outerHTML : undefined };
   }
   // (nothing is drawn from the person's rng while the table is not theirs: how long a cascade takes depends on the browser)
   if (doc.querySelector('.ar-sheet:not([hidden])') || doc.querySelector('.zc-cascade') || doc.querySelector('.zc-dealing') || session.won) return null;
@@ -510,9 +510,10 @@ def play_out(browser, served, name, spec):
         elif kind == "run":
             page.clock.run_for(step[1])
         elif kind == "check":
-            checks.append(look("check", label=step[1]))
+            checks.append({k: v for k, v in look("check", label=step[1]).items() if v is not None})  # (raw and html are for debugging)
             if SHOTS:
                 os.makedirs(SHOTS, exist_ok=True)
+                time.sleep(0.4)  # the browser rasterises card faces on its own time: let it finish
                 page.screenshot(path=os.path.join(SHOTS, "%s-%02d.png" % (name, len(checks))))
         else:
             raise AssertionError("unknown step %r" % (step,))
