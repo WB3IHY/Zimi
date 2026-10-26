@@ -487,7 +487,7 @@
       // a lone destination from this checker: nothing to choose, but a tap is still the move
       return;
     }
-    sel = -1; paint(); say(turnText());
+    sel = -1; paint(); G.refuse(btns[id], T('backgammon.cantMove'));
   }
   function doStep(st) {
     var p = s.turn;
