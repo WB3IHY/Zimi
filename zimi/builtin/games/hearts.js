@@ -195,25 +195,12 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var SCORE_BAR_H = 26, STATUS_H = 46, RAISE_SHARE = 0.3, SUIT_GAP_SHARE = 0.18, HAND_STEP_SHARE = 0.78, HEIGHT_SHARE = 0.11;
-  var SIDE_STEP_MIN = 0.07, SIDE_STEP_MAX = 0.2, TOP_STEP_SHARE = 0.3, SIDE_OFFSET_CARDS = 3.4, TRICK_DX = 0.72, TRICK_DY = 0.62;
+  // The table is the shared one (cardtable.js): its geometry, your hand in rows, the opponents' fans and their count chips.
+  var CT = root.ZimiTable, STATUS_H = CT ? CT.STATUS_H : 46, HEIGHT_SHARE = 0.11;
+  var TRICK_DX = 0.72, TRICK_DY = 0.62;
 
-  // Where everything sits on a table of this size.
-  function geometry(m) {
-    var cw = m.cw, ch = m.ch, cx = m.W / 2, g = { cw: cw, ch: ch, cx: cx };
-    g.raise = Math.round(ch * RAISE_SHARE);
-    g.northY = m.pad + SCORE_BAR_H;
-    g.southY = m.H - ch - m.pad;
-    g.yTop = g.northY + ch + 8;
-    g.yBot = g.southY - g.raise - 6;
-    g.statusY = g.yBot - STATUS_H;
-    g.cy = (g.yTop + g.statusY) / 2;
-    g.westX = Math.max(m.pad, Math.round(cx - SIDE_OFFSET_CARDS * cw));
-    g.eastX = Math.min(m.W - m.pad - cw, Math.round(cx + (SIDE_OFFSET_CARDS - 1) * cw));
-    g.sideStep = Math.max(ch * SIDE_STEP_MIN, Math.min(ch * SIDE_STEP_MAX, (g.statusY - g.yTop - ch) / (HAND - 1)));
-    g.topStep = cw * TOP_STEP_SHARE;
-    return g;
-  }
+  // Where everything sits on a table of this size (the hand takes two rows from ten cards).
+  function geometry(m) { return CT.geometry(m, CT.rowsFor(m, HAND)); }
   // A card's corner in the middle for each seat's play, and where a seat's cards sit.
   function trickSpot(g, seat) {
     var x = g.cx - g.cw / 2, y = g.cy - g.ch / 2;
@@ -224,6 +211,7 @@
   }
 
   function place(state, m, view) {
+    CT.takeCounts();
     var g = geometry(m), cards = [], slots = [], chosen = (view && view.chosen) || [];
     var sweep = view && state.trick.length === SEATS ? view.sweep : null;
     // The person looking sits south (view.viewer); their hand is face down while it is not their turn to act.
@@ -236,25 +224,15 @@
     slots.push({ id: 'deck', x: g.cx - g.cw / 2, y: g.cy - g.ch / 2, w: g.cw, h: g.ch, quiet: true, label: 'Table' });
     slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: 'Trick' });
 
-    // Your hand, left to right, a little space between suits.
-    var mine = state.hands[V], n = mine.length, gaps = 0, i;
-    for (i = 1; i < n; i++) if (Z.suit(mine[i]) !== Z.suit(mine[i - 1])) gaps++;
-    var gap = g.cw * SUIT_GAP_SHARE, avail = m.W - 2 * m.pad - g.cw - gaps * gap;
-    var step = n > 1 ? Math.min(g.cw * HAND_STEP_SHARE, avail / (n - 1)) : 0;
-    var x = (m.W - (g.cw + (n - 1) * step + gaps * gap)) / 2;
-    mine.forEach(function (id, k) {
-      if (k > 0 && Z.suit(id) !== Z.suit(mine[k - 1])) x += gap;
+    // Your hand, a little space between suits, in rows; then the others as face-down fans (a long one is a count).
+    var mine = state.hands[V];
+    var hand = CT.handCards(g, mine, function (id) {
       var picked = chosen.indexOf(id) >= 0, fresh = faceUp && got.indexOf(id) >= 0;
-      cards.push({ id: id, pile: 'h' + id, idx: 0, x: Math.round(x), y: g.southY - (picked ? g.raise : 0), up: faceUp, mark: picked, glow: fresh && !picked, dim: faceUp && myTurn && !isLegal(state, V, id) });
-      slots.push({ id: 'h' + id, x: Math.round(x), y: g.southY - (picked ? g.raise : 0), w: g.cw, h: g.ch, label: Z.cardName(id) + (picked ? ', chosen to pass' : fresh ? ', passed to you' : '') });
-      x += step;
-    });
-    // The others: face-down fans.
-    var west = state.hands[(V + 1) % SEATS], north = state.hands[(V + 2) % SEATS], east = state.hands[(V + 3) % SEATS];
-    west.forEach(function (id, k) { cards.push({ id: id, pile: 'p1', idx: k, x: g.westX, y: g.yTop + k * g.sideStep, up: false }); });
-    east.forEach(function (id, k) { cards.push({ id: id, pile: 'p3', idx: k, x: g.eastX, y: g.yTop + k * g.sideStep, up: false }); });
-    var nx = g.cx - (g.cw + (north.length - 1) * g.topStep) / 2;
-    north.forEach(function (id, k) { cards.push({ id: id, pile: 'p2', idx: k, x: Math.round(nx + k * g.topStep), y: g.northY, up: false }); });
+      return { up: faceUp, raise: picked, mark: picked, glow: fresh && !picked, dim: faceUp && myTurn && !isLegal(state, V, id),
+        label: Z.cardName(id) + (picked ? ', chosen to pass' : fresh ? ', passed to you' : '') };
+    }, function (a, b) { return Z.suit(a) !== Z.suit(b); });
+    cards = cards.concat(hand.cards); slots = slots.concat(hand.slots);
+    cards = cards.concat(CT.fan(g, 1, state.hands[(V + 1) % SEATS], false), CT.fan(g, 2, state.hands[(V + 2) % SEATS], false), CT.fan(g, 3, state.hands[(V + 3) % SEATS], false));
     // The trick, or on its way to the winner.
     state.trick.forEach(function (t, k) {
       var spot = sweep !== null && sweep !== undefined ? seatSpot(g, rel(sweep)) : trickSpot(g, rel(t.seat));
@@ -265,7 +243,7 @@
       var spot = seatSpot(g, rel(seat));
       list.forEach(function (id, k) { cards.push({ id: id, pile: 't' + seat, idx: k, x: spot.x, y: spot.y, up: false, hidden: true }); });
     });
-    return { height: m.H, slots: slots, cards: cards, passing: passing };
+    return { height: m.H, slots: slots, cards: cards, passing: passing, counts: CT.takeCounts() };
   }
 
   var api = {

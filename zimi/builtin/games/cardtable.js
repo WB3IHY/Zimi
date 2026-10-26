@@ -13,7 +13,7 @@
   // Your hand at 390 px: no strip of a card narrower than 30 px, two rows from ten cards, a tapped card lifts 14 px
   // (a card you can play stands 6 px proud when others cannot be played). An opponent's face-down hand of more than
   // five cards is one back and a count chip.
-  var MIN_STRIP_PX = 30, TWO_ROWS_FROM = 10, LIFT_PX = 14, PLAYABLE_LIFT_PX = 6, COLLAPSE_FROM = 6;
+  var COUNT_AT = 0.86, MIN_STRIP_PX = 30, TWO_ROWS_FROM = 10, LIFT_PX = 14, PLAYABLE_LIFT_PX = 6, COLLAPSE_FROM = 6;
   // Games that play a card on its second tap: the first tap lifts it (amber outline), the second plays it.
   var LIFT_THEN_PLAY = { spades: 1, euchre: 1, belote: 1, crazyeights: 1 };
   var SCORE_BAR_H = 26, STATUS_H = 46, SUIT_GAP_SHARE = 0.18, HAND_STEP_SHARE = 0.78;
@@ -26,6 +26,7 @@
 
   // The count chips of the face-down hands collapsed in the layout just made (fan() adds, create() reads).
   var counts = [];
+  function takeCounts() { var out = counts; counts = []; return out; }
 
   // ── Pure helpers ────────────────────────────────────────────────────────
   var next = function (seat, n) { return (seat + 1) % n; };
@@ -116,7 +117,7 @@
       // One back and a count: every card sits in the same place (so a played card still flies from the hand).
       var ax = pos === 2 ? Math.round(g.cx - g.cw / 2) : pos === 1 ? g.westX : g.eastX, ay = pos === 2 ? g.northY : g.yTop;
       ids.forEach(function (id, k) { cards.push({ id: id, pile: p, idx: k, x: ax, y: ay, up: false }); });
-      counts.push({ x: ax + g.cw / 2, y: ay + g.ch / 2, n: n });
+      counts.push({ x: ax + g.cw / 2, y: ay + g.ch * COUNT_AT, n: n });   // low on the back: the Z stays clear
       return cards;
     }
     if (pos === 2) {
@@ -146,17 +147,14 @@
     var statusBtn = Z.h('button', { class: 'ar-btn', type: 'button' });
     var status = Z.h('div', { class: 'ct-status', role: 'status' }, [statusText, statusBtn]);
     var panel = Z.h('div', { class: 'ct-panel', role: 'group', 'aria-label': T('cards.choices') });
-    var countLayer = Z.h('div', { class: 'ct-counts', 'aria-hidden': 'true' });
-    el.table.appendChild(scoreRow); el.table.appendChild(status); el.table.appendChild(panel); el.table.appendChild(countLayer);
-    var lastCounts = [], liftedPile = null, liftPlay = cfg.liftPlay !== undefined ? !!cfg.liftPlay : !!LIFT_THEN_PLAY[cfg.id];
+    el.table.appendChild(scoreRow); el.table.appendChild(status); el.table.appendChild(panel);
+    var liftedPile = null, liftPlay = cfg.liftPlay !== undefined ? !!cfg.liftPlay : !!LIFT_THEN_PLAY[cfg.id];
     var statusAction = null, last = '', choicesNow = [];
     statusBtn.addEventListener('click', function () { if (statusAction) statusAction(); });
 
     function paint() {
       var st = session && session.state, m = board && board.metrics();
       if (!st || !m) return;
-      countLayer.textContent = '';
-      lastCounts.forEach(function (c) { countLayer.appendChild(Z.h('span', { class: 'ct-count', style: 'left:' + Math.round(c.x) + 'px;top:' + Math.round(c.y) + 'px', text: String(c.n) })); });
       var g = cfg.geo ? cfg.geo(m, st) : geometry(m), hd = cfg.hud(st, view) || {};
       // Whatever the game's own layout says, the status line never sits on the hand.
       var statusY = Z.statusTop(g.statusY, board.handTop(), STATUS_H);
@@ -195,15 +193,15 @@
     board = Z.createBoard({
       table: el.table, cols: cfg.cols || 7, heightShare: cfg.heightShare || 0.11, enterTaps: true, face: cfg.face,
       place: function (st, m) {
-        counts = [];
+        takeCounts();
         var p = cfg.place(st, m, view);
+        p.counts = takeCounts();
         if (liftedPile) {
           // The card the first tap lifted: 14 px up, with the selection ring.
           var found = false;
           p.cards.forEach(function (c) { if (c.pile === liftedPile) { found = true; c.y -= LIFT_PX; c.mark = true; } });
           if (!found) liftedPile = null;
         }
-        lastCounts = counts.slice();
         return p;
       },
       canPick: function (st, pile) { return cfg.canPick ? cfg.canPick(st, pile) : false; },
@@ -253,7 +251,7 @@
     SEAT_POS: SEAT_POS, SUIT_GLYPH: SUIT_GLYPH, STATUS_H: STATUS_H, SCORE_BAR_H: SCORE_BAR_H,
     next: next, sortHand: sortHand, rankHigh: rankHigh, short: short, shortList: shortList, shuffleOf: shuffleOf,
     countBy: countBy, maxBy: maxBy, minBy: minBy,
-    geometry: geometry, rowsFor: rowsFor, sideStep: sideStep, trickSpot: trickSpot, seatSpot: seatSpot, posOf: posOf, posFor: posFor, handCards: handCards, fan: fan,
+    geometry: geometry, rowsFor: rowsFor, sideStep: sideStep, trickSpot: trickSpot, seatSpot: seatSpot, posOf: posOf, posFor: posFor, handCards: handCards, fan: fan, takeCounts: takeCounts, handRows: handRows,
     create: create, lineSheet: lineSheet, choiceRow: choiceRow
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

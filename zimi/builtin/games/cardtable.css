@@ -23,6 +23,4 @@
 .ct-lines p { margin: 1px 0; }
 .ct-lines .ct-total { font-weight: 700; color: var(--select-ring); }
 @media (max-width: 440px) { .ct-chip { padding: 0 10px; gap: 5px; } .ct-scores { gap: 4px; padding: 0 4px; } }
-/* An opponent's hand of more than five cards is one back and a count. */
-.ct-count { position: absolute; z-index: 26; display: grid; place-items: center; min-width: 28px; height: 28px; padding: 0 var(--sp-2); border-radius: 999px; background: rgba(0, 0, 0, 0.6); color: #fff; font: 650 var(--fs-small) var(--font); font-variant-numeric: tabular-nums; pointer-events: none; transform: translate(-50%, -50%); }
 .ct-status-text:empty { display: none; }

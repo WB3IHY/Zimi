@@ -935,6 +935,9 @@
     var live = h('div', { class: 'zc-live', 'aria-live': 'polite' });
     table.appendChild(stage); table.appendChild(live);
     var els = {}, slotEls = {}, cardPos = {}, byPile = {}, slotRects = {};
+    // The count chips of collapsed face-down hands (layout: counts [{ x, y, n }]), over the cards.
+    var countLayer = h('div', { class: 'ct-counts', 'aria-hidden': 'true' });
+    table.appendChild(countLayer);
     var lastPlace = null, lastState = null, metrics = null, drag = null, sel = null, settleTimer = 0, focusPile = null, slotOrder = [];
 
     function measure() {
@@ -1072,6 +1075,8 @@
       // A card the layout no longer places has left the game (a debug state, a short deal).
       Object.keys(els).forEach(function (k) { if (!cardPos[k]) els[k].classList.add('zc-off'); });
       if (anyMoved) scheduleSettle();
+      countLayer.textContent = '';
+      (p.counts || []).forEach(function (n) { countLayer.appendChild(h('span', { class: 'ct-count', style: 'left:' + Math.round(n.x) + 'px;top:' + Math.round(n.y) + 'px', text: String(n.n) })); });
       paintSelection();
       if (o.afterRender) o.afterRender();
     }
@@ -1144,6 +1149,7 @@
     function nudge(pos) {
       var e = els[byPile[pos.pile][pos.idx]];
       if (!e) return;
+      if (root.ZimiShell && root.ZimiShell.shake) { root.ZimiShell.shake(e); return; }
       e.classList.remove('zc-hint'); void e.offsetWidth; e.classList.add('zc-hint');
     }
 
@@ -1168,7 +1174,7 @@
       if (sel && (key === 'ArrowUp' || key === 'ArrowDown') && sel.pile === pile) {
         ev.preventDefault();
         var next = sel.idx + (key === 'ArrowUp' ? -1 : 1);
-        if (next >= 0 && next < ids.length && o.canPick(lastState, pile, next)) { sel.idx = next; paintSelection(); say(ids.length - next + ' cards'); }
+        if (next >= 0 && next < ids.length && o.canPick(lastState, pile, next)) { sel.idx = next; paintSelection(); say(plural(ids.length - next, 'card')); }
         return;
       }
       if (o.enterTaps && (key === 'ArrowLeft' || key === 'ArrowRight')) { ev.preventDefault(); walk(pile, key === 'ArrowLeft' ? -1 : 1); return; }

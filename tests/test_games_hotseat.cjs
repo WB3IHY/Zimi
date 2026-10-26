@@ -172,7 +172,7 @@ function load(storageInit) {
   const sb = { console, Date, setTimeout, clearTimeout, setInterval, clearInterval,
     document: { addEventListener() {}, querySelector: () => null, getElementById: () => null, documentElement: { classList: { toggle() {} } }, hidden: false } };
   sb.window = sb; vm.createContext(sb);
-  for (const f of ['text.js', 'cards.js', 'hearts.js']) vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sb, { filename: f });
+  for (const f of ['text.js', 'cards.js', 'cardtable.js', 'hearts.js']) vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sb, { filename: f });
   const H = sb.ZimiHearts, Z = sb.ZimiCards;
   const lcg = (seed) => () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
   const st = H.newGame(Z.shuffled(lcg(7)));
