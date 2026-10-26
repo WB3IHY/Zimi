@@ -1,13 +1,13 @@
-/* Sudoku: the board, notes and the number pad. Shared tokens: games.css, play.css. */
+/* Sudoku: the board, notes and the number pad. Shared tokens: games.css, play.css. User digits take the amber accent, selection is its glow. */
 :root {
-  --su-given: var(--ink); --su-user: #2d5fc4; --su-sel: #ffe3a8; --su-same: #fbe9c4; --su-peer: #eef1f6; --su-bad-bg: #f9d6d2; --su-box: var(--ink2);
+  --su-given: var(--ink); --su-user: var(--accent); --su-sel: var(--accent-line); --su-same: var(--accent-glow); --su-peer: #f4f1ea; --su-bad-bg: rgba(179, 38, 30, 0.14); --su-box: var(--ink2);
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --su-user: #7fa6f5; --su-sel: #5a4310; --su-same: #3b3014; --su-peer: #232832; --su-bad-bg: #4a211d; }
+  :root:not([data-theme="light"]) { --su-peer: #232328; --su-bad-bg: rgba(236, 107, 92, 0.2); }
 }
-:root[data-theme="dark"] { --su-user: #7fa6f5; --su-sel: #5a4310; --su-same: #3b3014; --su-peer: #232832; --su-bad-bg: #4a211d; }
+:root[data-theme="dark"] { --su-peer: #232328; --su-bad-bg: rgba(236, 107, 92, 0.2); }
 
-.su-board { display: grid; grid-template-columns: repeat(9, 1fr); width: var(--side, 360px); height: var(--side, 360px); border: 2px solid var(--su-box); border-radius: 4px; background: var(--surface); user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.su-board { display: grid; grid-template-columns: repeat(9, 1fr); width: var(--side, 360px); height: var(--side, 360px); user-select: none; -webkit-user-select: none; touch-action: manipulation; }
 .su-c { position: relative; display: grid; place-items: center; min-width: 0; border: 0 solid var(--line); border-width: 0 1px 1px 0; font: 500 calc(var(--side, 360px) / 9 * 0.56)/1 var(--font); font-variant-numeric: tabular-nums; cursor: pointer; }
 .su-c:nth-child(9n) { border-right-width: 0; }
 .su-c:nth-child(n+73) { border-bottom-width: 0; }
@@ -21,12 +21,15 @@
 .su-c.bad { background: var(--su-bad-bg); color: var(--bad); }
 .su-c:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; z-index: 1; }
 .su-notes { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 1px; }
-.su-notes i { display: grid; place-items: center; font: 600 calc(var(--side, 360px) / 9 * 0.27)/1 var(--font); font-style: normal; color: var(--ink2); }
+.su-notes i { display: grid; place-items: center; font: 600 max(var(--fs-caption), calc(var(--side, 360px) / 9 * 0.27))/1 var(--font); font-style: normal; color: var(--ink2); }
 
-.su-pad { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; width: var(--side, 360px); max-width: 100%; }
+.su-pad { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-2); width: var(--side, 360px); max-width: 100%; }
 .su-board, .su-pad { margin: 0 auto; }
-.su-num { min-width: 0; min-height: 54px; padding: 4px 0 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 22px; border-radius: 8px; }
-.su-num small { font: 600 10px/1 var(--mono); color: var(--ink3); height: 10px; }
-.su-num.done { opacity: 0.35; }
-.su-tools .pl-key { min-height: 44px; font-size: 15px; min-width: 88px; }
-@media (min-width: 700px) { .su-num { min-height: 48px; } }
+.su-num { min-width: 0; min-height: 48px; padding: var(--sp-1) 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: var(--fs-sheet); border-radius: var(--radius); }
+.su-num small { font: 600 var(--fs-small)/1 var(--font); font-variant-numeric: tabular-nums; color: var(--ink2); height: 13px; }
+.su-erase { font-size: var(--fs-body); }
+.su-num.done { opacity: 0.45; }
+/* Pencil is a toggle, so it reads as a selection (glow and amber line), never as the screen's one filled button. */
+.su-tools { width: var(--side, 360px); max-width: 100%; }
+.su-tools .ar-btn[aria-pressed="true"] { background: var(--accent-glow); border-color: var(--accent); color: var(--ink); font-weight: 650; }
+.su-tools #su-pencil::before { content: "✎"; margin-right: var(--sp-2); }

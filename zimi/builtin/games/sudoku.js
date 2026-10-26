@@ -259,21 +259,20 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var GAME_KEY = 'zimi.games.sudoku.game', BEST_KEY = 'zimi.games.sudoku.best', SETTINGS_KEY = 'zimi.games.sudoku.settings';
-  var TICK_MS = 500, UNDO_MAX = 300, MAX_BOARD = 504, SIDE_PAD = 24, CHROME_PX = 330;
-  var LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert' };
-  var DESCRIPTIONS = { easy: 'Naked singles only', medium: 'Needs hidden singles', hard: 'Needs pairs or locked candidates', expert: 'Needs an X-Wing or more' };
+  var TICK_MS = 500, UNDO_MAX = 300, MAX_BOARD = 504, SIDE_PAD = 24, CHROME_PX = 420, MAKE_DELAY_MS = 20, END_AFTER_MS = 600;
   Play.applyTheme();
 
   var els = {
-    board: $('su-board'), clock: $('su-clock'), level: $('su-level'), msg: $('su-msg'), pencil: $('su-pencil'), undo: $('su-undo'),
-    erase: $('su-erase'), pad: $('su-pad'), sheet: $('su-sheet'), picks: $('su-picks'), start: $('su-start'), cancel: $('su-cancel'), menu: $('su-menu'),
-    win: $('su-win'), wintext: $('su-win-text'), winnew: $('su-win-new')
+    board: $('su-board'), clock: $('su-clock'), msg: $('su-msg'), pencil: $('su-pencil'), undo: $('su-undo'),
+    hint: $('su-hint'), pad: $('su-pad'), fresh: $('su-new')
   };
+  var line = Play.status(els.msg);
   var settings = Play.load(SETTINGS_KEY, { diff: 'easy' }), best = Play.load(BEST_KEY, {});
-  if (!LABELS[settings.diff]) settings.diff = 'easy';
+  if (DIFFICULTIES.indexOf(settings.diff) < 0) settings.diff = 'easy';
   var s = null, cellEls = [], padEls = [], ticker = 0, lastTick = 0;
+  function levelName(d) { return T('sudoku.level.' + d); }
 
   function emptyNotes() { return new Array(CELLS).fill(0); }
 
@@ -288,23 +287,31 @@
       cellEls.push(d); frag.appendChild(d);
     }
     els.board.appendChild(frag);
+    // The pad: 1 to 9, then Erase as the tenth key (two rows of five).
     for (var k = 1; k <= N; k++) {
       var b = document.createElement('button');
-      b.type = 'button'; b.className = 'pl-key su-num'; b.dataset.d = k; b.innerHTML = '<span>' + k + '</span><small></small>';
-      b.setAttribute('aria-label', 'Digit ' + k);
+      b.type = 'button'; b.className = 'ar-btn su-num'; b.dataset.d = k; b.innerHTML = '<span>' + Play.num(k) + '</span><small></small>';
+      b.setAttribute('aria-label', T('sudoku.digit', { n: k }));
       els.pad.appendChild(b); padEls.push(b);
     }
+    var e = document.createElement('button');
+    e.type = 'button'; e.className = 'ar-btn su-num su-erase'; e.id = 'su-erase'; e.textContent = T('sudoku.erase'); e.setAttribute('aria-label', T('sudoku.eraseCell'));
+    e.addEventListener('click', erase); els.pad.appendChild(e);
   }
   function layout() {
-    var vw = document.documentElement.clientWidth, vh = window.innerHeight;
-    var side = Math.max(270, Math.min(vw - SIDE_PAD, MAX_BOARD, vh - CHROME_PX));
+    var room = Play.room(CHROME_PX);
+    var side = Math.max(270, Math.min(room.w + 24 - SIDE_PAD, MAX_BOARD, room.h));
     els.board.parentNode.style.setProperty('--side', Math.floor(side / N) * N + 'px');
   }
 
   function noteHtml(mask) {
     var h = '';
-    for (var d = 1; d <= N; d++) h += '<i>' + (mask & bit(d) ? d : '') + '</i>';
+    for (var d = 1; d <= N; d++) h += '<i>' + (mask & bit(d) ? Play.num(d) : '') + '</i>';
     return h;
+  }
+  function cellLabel(i) {
+    var val = s.grid[i], what = val ? T(s.puzzle[i] ? 'sudoku.clue' : 'sudoku.value', { n: val }) : s.notes[i] ? T('sudoku.notes', { list: digitsOf(s.notes[i]).join(' ') }) : T('sudoku.empty');
+    return T('sudoku.cell', { row: Math.floor(i / N) + 1, col: i % N + 1, what: what });
   }
   function render() {
     var bad = conflicts(s.grid), sel = s.sel, selDigit = sel >= 0 ? s.grid[sel] : 0, selPeers = sel >= 0 ? PEERS[sel] : [];
@@ -320,21 +327,20 @@
       var key = val ? String(val) : 'n' + s.notes[i];
       if (el.dataset.k !== key) {
         el.dataset.k = key;
-        if (val) el.textContent = val; else el.innerHTML = s.notes[i] ? '<span class="su-notes">' + noteHtml(s.notes[i]) + '</span>' : '';
+        if (val) el.textContent = Play.num(val); else el.innerHTML = s.notes[i] ? '<span class="su-notes">' + noteHtml(s.notes[i]) + '</span>' : '';
       }
-      el.setAttribute('aria-label', 'Row ' + (Math.floor(i / N) + 1) + ' column ' + (i % N + 1) + ', ' + (val ? val + (s.puzzle[i] ? ', clue' : '') : s.notes[i] ? 'notes ' + digitsOf(s.notes[i]).join(' ') : 'empty'));
+      el.setAttribute('aria-label', cellLabel(i));
       el.tabIndex = i === (sel >= 0 ? sel : 0) ? 0 : -1;
     }
     var left = new Array(N + 1).fill(N);
     s.grid.forEach(function (d) { if (d) left[d]--; });
     padEls.forEach(function (b, k) {
       var l = left[k + 1];
-      b.querySelector('small').textContent = l > 0 ? l : '';
+      b.querySelector('small').textContent = l > 0 ? Play.num(l) : '';
       b.classList.toggle('done', l <= 0);
     });
     els.pencil.setAttribute('aria-pressed', String(s.pencil));
     els.undo.disabled = !s.hist.length;
-    els.level.textContent = LABELS[s.diff];
   }
 
   function persist() {
@@ -357,8 +363,11 @@
     var i = s.sel < 0 ? 0 : s.sel, r = Math.min(N - 1, Math.max(0, Math.floor(i / N) + dr)), c = Math.min(N - 1, Math.max(0, i % N + dc));
     selectCell(r * N + c); cellEls[r * N + c].focus();
   }
+  function refuse(text) { ZimiShell.shake(els.board); line.reason(text); }
   function enter(d, forceNote) {
-    if (s.done || s.sel < 0 || s.puzzle[s.sel]) return;
+    if (s.done) return;
+    if (s.sel < 0) { refuse(T('sudoku.pickCell')); return; }
+    if (s.puzzle[s.sel]) { refuse(T('sudoku.clueFixed')); return; }
     var i = s.sel, note = s.pencil !== !!forceNote;
     if (note) {
       if (s.grid[i]) return;
@@ -379,63 +388,72 @@
     if (!h || s.done) return;
     s.grid = h.grid; s.notes = h.notes; afterChange(true);
   }
+  // Hint: a cell that can only be one digit, or else the open cell with the fewest choices.
+  function hint() {
+    if (s.done) return;
+    var bestI = -1, bestN = 99, bestMask = 0;
+    for (var i = 0; i < CELLS; i++) {
+      if (s.grid[i]) continue;
+      var mask = FULL;
+      PEERS[i].forEach(function (p) { if (s.grid[p]) mask &= ~bit(s.grid[p]); });
+      var n = digitsOf(mask).length;
+      if (n < bestN) { bestN = n; bestI = i; bestMask = mask; }
+    }
+    if (bestI < 0) return;
+    s.sel = bestI; render(); cellEls[bestI].focus();
+    var where = { row: Math.floor(bestI / N) + 1, col: bestI % N + 1 };
+    line.say(bestN === 1 ? T('sudoku.hintOnly', { row: where.row, col: where.col, n: digitsOf(bestMask)[0] }) : T('sudoku.hintLook', where));
+  }
   function afterChange(noCheck) {
     render(); persist();
-    els.msg.textContent = '';
+    line.say('');
     if (!noCheck && s.grid.every(Boolean) && !conflicts(s.grid).some(Boolean)) win();
   }
   function win() {
     stopClock(); s.done = true;
-    var ms = s.elapsed, text = 'Solved in ' + Play.fmtClock(ms) + '.';
-    if (!best[s.diff] || ms < best[s.diff]) { text += best[s.diff] ? ' A new best.' : ' Your first best time.'; best[s.diff] = ms; Play.save(BEST_KEY, best); }
-    persist(); els.wintext.textContent = text;
-    Play.openSheet(els.win, '#su-win-new');
+    var ms = s.elapsed, record = !best[s.diff] || ms < best[s.diff];
+    if (record) { best[s.diff] = ms; Play.save(BEST_KEY, best); }
+    persist();
+    ZimiShell.endSheet({ result: 'win', after: END_AFTER_MS, stats: [[T('play.time'), Play.fmtClock(ms)], [T('play.best'), Play.fmtClock(best[s.diff])]] });
   }
 
   // ── new games ──
-  function fillPicks() {
-    els.picks.innerHTML = '';
-    DIFFICULTIES.forEach(function (d) {
-      var label = document.createElement('label'); label.className = 'pl-opt';
-      label.innerHTML = '<input type="radio" name="diff" value="' + d + '"' + (d === settings.diff ? ' checked' : '') + '><span><b>' + LABELS[d] + '</b><small>' + DESCRIPTIONS[d] + '</small></span><em>' + (best[d] ? Play.fmtClock(best[d]) : '') + '</em>';
-      els.picks.appendChild(label);
-    });
-  }
-  function openMenu() { stopClock(); fillPicks(); Play.openSheet(els.sheet, 'input:checked'); }
-  function closeMenu() { Play.closeSheet(els.sheet); if (s && !s.done) startClock(); }
   function newGame(diff) {
     stopClock();
-    els.msg.textContent = 'Making a puzzle...';
+    line.say(T('sudoku.making'));
     setTimeout(function () {
       var p = generate(diff);
       s = { puzzle: p.puzzle, solution: p.solution, grid: p.puzzle.slice(), notes: emptyNotes(), diff: p.difficulty, elapsed: 0, hist: [], sel: -1, pencil: false, done: false };
-      els.msg.textContent = '';
+      line.say(levelName(s.diff));
       render(); persist(); paintClock(); startClock();
-    }, 20);
+    }, MAKE_DELAY_MS);
   }
+  // The level is the one real choice, so it sits in the New game pane; Start makes the puzzle.
+  function menuOptions() {
+    return [Play.optionRow(T('sudoku.level'), DIFFICULTIES.map(function (d) { return [d, levelName(d)]; }), settings.diff, function (v) { settings.diff = v; Play.save(SETTINGS_KEY, settings); })];
+  }
+  els.fresh.addEventListener('click', function () { newGame(settings.diff); });
+  ZimiShell.game({
+    hints: true,
+    inProgress: function () { return !!s && !s.done && s.grid.some(function (v, i) { return v && !s.puzzle[i]; }); },
+    menu: function () { return { options: menuOptions() }; },
+    stats: function () { return DIFFICULTIES.filter(function (d) { return best[d]; }).map(function (d) { return [T('sudoku.bestRow', { level: levelName(d) }), Play.fmtClock(best[d])]; }); }
+  });
 
   els.board.addEventListener('pointerdown', function (e) {
     var t = e.target.closest && e.target.closest('.su-c');
     if (t) { selectCell(Number(t.dataset.i)); t.focus(); }
   });
-  els.pad.addEventListener('click', function (e) { var b = e.target.closest('.su-num'); if (b) enter(Number(b.dataset.d)); });
+  els.pad.addEventListener('click', function (e) { var b = e.target.closest('.su-num:not(.su-erase)'); if (b) enter(Number(b.dataset.d)); });
   els.pencil.addEventListener('click', function () { s.pencil = !s.pencil; render(); });
   els.undo.addEventListener('click', undo);
-  els.erase.addEventListener('click', erase);
-  els.menu.addEventListener('click', openMenu);
-  els.cancel.addEventListener('click', closeMenu);
-  els.start.addEventListener('click', function () {
-    var pick = els.picks.querySelector('input:checked');
-    settings.diff = pick ? pick.value : settings.diff; Play.save(SETTINGS_KEY, settings);
-    Play.closeSheet(els.sheet); newGame(settings.diff);
-  });
-  els.winnew.addEventListener('click', function () { Play.closeSheet(els.win); openMenu(); });
+  els.hint.addEventListener('click', hint);
   Play.onHidden(function () { stopClock(); });
-  document.addEventListener('visibilitychange', function () { if (!document.hidden && s && els.sheet.hidden && els.win.hidden) startClock(); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && s && !s.done && !document.querySelector('.ar-sheet:not([hidden])')) startClock(); });
 
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || !s) return;
-    if (!els.sheet.hidden || !els.win.hidden) { if (e.key === 'Escape' && !els.sheet.hidden) closeMenu(); return; }
+    if (document.querySelector('.ar-sheet:not([hidden])')) return;
     var k = e.key, handled = true;
     if (k === 'ArrowUp') moveSel(-1, 0); else if (k === 'ArrowDown') moveSel(1, 0);
     else if (k === 'ArrowLeft') moveSel(0, -1); else if (k === 'ArrowRight') moveSel(0, 1);
@@ -444,13 +462,14 @@
     else if (k === 'Backspace' || k === 'Delete' || k === '0') erase();
     else if (k === 'n' || k === 'N' || k === 'p' || k === 'P') { s.pencil = !s.pencil; render(); }
     else if (k === 'z' || k === 'Z' || k === 'u' || k === 'U') undo();
+    else if (k === 'h' || k === 'H') hint();
     else handled = false;
     if (handled) e.preventDefault();
   });
 
   function restore() {
     var saved = Play.load(GAME_KEY, null);
-    if (!saved || !Array.isArray(saved.puzzle) || saved.puzzle.length !== CELLS || !Array.isArray(saved.grid) || saved.grid.length !== CELLS || !Array.isArray(saved.solution) || !LABELS[saved.diff]) return false;
+    if (!saved || !Array.isArray(saved.puzzle) || saved.puzzle.length !== CELLS || !Array.isArray(saved.grid) || saved.grid.length !== CELLS || !Array.isArray(saved.solution) || DIFFICULTIES.indexOf(saved.diff) < 0) return false;
     s = { puzzle: saved.puzzle, solution: saved.solution, grid: saved.grid, notes: Array.isArray(saved.notes) && saved.notes.length === CELLS ? saved.notes : emptyNotes(), diff: saved.diff, elapsed: saved.elapsed || 0, hist: [], sel: -1, pencil: false, done: !!saved.done };
     return true;
   }
@@ -458,7 +477,7 @@
   build();
   layout();
   window.addEventListener('resize', layout);
-  if (restore() && !s.done) { render(); paintClock(); startClock(); }
+  if (restore() && !s.done) { line.say(levelName(s.diff)); render(); paintClock(); startClock(); }
   else newGame(settings.diff);
   // A read-only window onto the live game, for the browser tests.
   root.__sudoku = { get s() { return s; } };
