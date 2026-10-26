@@ -222,20 +222,20 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
-  var BEST_KEY = 'zimi.games.pinball.best', CHROME_PX = 250, MSG_S = 1.6;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
+  var BEST_KEY = 'zimi.games.pinball.best', CHROME_PX = 200, MSG_S = 1.6, READY_ARM_MS = 650;
   Play.applyTheme();
 
-  var els = { cv: $('pb-board'), score: $('pb-score'), best: $('pb-best'), balls: $('pb-balls'), mult: $('pb-mult'), msg: $('pb-msg'), launch: $('pb-launch'), pause: $('pb-pause'), sheet: $('pb-sheet'), title: $('pb-sheet-title'), text: $('pb-sheet-text'), go: $('pb-go') };
+  var els = { cv: $('pb-board'), score: $('pb-score'), best: $('pb-best'), balls: $('pb-balls'), mult: $('pb-mult'), msg: $('pb-msg'), pause: $('pb-pause'), newBtn: $('pb-new') };
   var best = Play.load(BEST_KEY, { score: 0 }), st = createState(), mode = 'ready', ctx, reduce = Play.reducedMotion(), banner = '', bannerT = 0;
-  var keys = { left: false, right: false }, touches = {};
+  var keys = { left: false, right: false }, touches = {}, status = Play.status(els.msg), armed = null;
 
   function layout() { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, W * 1.15).ctx; draw(); }
 
-  function say(text) { banner = text; bannerT = MSG_S; els.msg.textContent = text; }
+  function say(text) { banner = text; bannerT = MSG_S; status.say(text); }
   function hud() {
-    els.score.textContent = st.score; els.best.textContent = Math.max(best.score, st.score);
-    els.balls.textContent = Math.max(0, st.lives); els.mult.textContent = '×' + st.mult;
+    els.score.textContent = Play.num(st.score); els.best.textContent = Play.num(Math.max(best.score, st.score));
+    els.balls.textContent = Play.num(Math.max(0, st.lives)); els.mult.textContent = T('pinball.mult', { n: st.mult });
   }
 
   function flippers() {
@@ -246,18 +246,18 @@
 
   function handleEvents() {
     st.events.forEach(function (e) {
-      if (e.name === 'multiball') say('Multiball');
-      else if (e.name === 'laneset') say('Multiplier ×' + e.data);
-      else if (e.name === 'saved') say('Ball saved');
-      else if (e.name === 'next') say(st.lives === 1 ? 'Last ball' : 'Next ball');
+      if (e.name === 'multiball') say(T('pinball.multiball'));
+      else if (e.name === 'laneset') say(T('pinball.multiplier', { n: e.data }));
+      else if (e.name === 'saved') say(T('pinball.saved'));
+      else if (e.name === 'next') say(T(st.lives === 1 ? 'pinball.lastBall' : 'pinball.nextBall'));
       else if (e.name === 'over') finish();
     });
     st.events.length = 0;
   }
 
-  var loop = Play.loop(function (dt) { flippers(); step(st, dt); handleEvents(); if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) els.msg.textContent = ''; } }, function () { draw(); hud(); }, 60);
+  var loop = Play.loop(function (dt) { flippers(); step(st, dt); handleEvents(); if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) status.say(''); } }, function () { draw(); hud(); }, 60);
 
-  function pal() { return { felt: '#101a33', felt2: '#241447', wall: '#9db4d6', amber: '#f2a516', amberDim: '#6b4a10', ink: '#e8ebf1', bump: '#e8576b', bump2: '#ffd0d6', cyan: '#3fc1e8', dim: '#2a3558' }; }
+  function pal() { return { felt: '#0e0e10', felt2: '#18181c', wall: '#a8a69e', amber: '#f2a516', amberDim: '#6b4a10', ink: '#e8e8ed', bump: '#e8576b', bump2: '#ffd0d6', cyan: '#3fc1e8', dim: '#3a3a40' }; }
 
   function draw() {
     if (!ctx) return;
@@ -314,53 +314,58 @@
     // balls
     st.balls.forEach(function (b) {
       var g = ctx.createRadialGradient(b.x - 2, b.y - 2, 1, b.x, b.y, BALL_R);
-      g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#8f9bb0');
+      g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#8a8a94');
       ctx.beginPath(); ctx.arc(b.x, b.y, BALL_R, 0, 7); ctx.fillStyle = g; ctx.fill();
     });
     ctx.font = '600 13px system-ui, sans-serif'; ctx.textAlign = 'center';
-    if (st.saver > 0) { ctx.fillStyle = c.amber; ctx.fillText('BALL SAVE', 166, 396); }
+    if (st.saver > 0) { ctx.fillStyle = c.amber; ctx.fillText(T('pinball.ballSave').toUpperCase(), 166, 396); }
     if (bannerT > 0 && banner) { ctx.fillStyle = c.ink; ctx.font = '700 22px system-ui, sans-serif'; ctx.fillText(banner.toUpperCase(), 166, 410); }
-    if (mode === 'ready' && st.status === 'ready' && st.score === 0) { ctx.fillStyle = 'rgba(232,235,241,0.8)'; ctx.font = '600 12px system-ui, sans-serif'; ctx.fillText('Hold Launch, then let go', 166, 440); }
   }
 
   function startLoop() { loop.start(); }
-  function showSheet(title, text, label) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; Play.openSheet(els.sheet, '#pb-go'); }
+  // The ready line says the gesture once; a tap or a key starts. Armed again after a game, once the end sheet is up.
+  function arm() {
+    if (armed) armed.cancel();
+    armed = Play.ready({ say: status.say, target: els.cv, start: begin, touch: T('pinball.readyTouch'), keys: T('pinball.readyKeys') });
+  }
   function begin() {
-    st = createState(); mode = 'playing'; banner = ''; bannerT = 0; els.msg.textContent = '';
-    Play.closeSheet(els.sheet); els.pause.disabled = false; hud(); draw(); startLoop();
+    if (armed) armed.cancel();
+    st = createState(); mode = 'playing'; banner = ''; bannerT = 0; status.say(T('pinball.launch'));
+    Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); startLoop();
   }
   function pause() {
     if (mode !== 'playing') return;
-    mode = 'paused'; loop.stop(); releaseAll(); showSheet('Paused', 'Resume when you are ready.', 'Resume');
+    mode = 'paused'; loop.stop(); releaseAll(); Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
   }
-  function resume() { mode = 'playing'; Play.closeSheet(els.sheet); startLoop(); }
+  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); startLoop(); }
+  function toggle() { if (mode === 'playing') pause(); else resume(); }
   function finish() {
-    mode = 'over'; loop.stop(); els.pause.disabled = true; releaseAll();
-    var text = st.score + ' points.';
-    if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); text += ' A new best.'; }
+    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); releaseAll();
+    if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); }
     hud(); draw();
-    showSheet('Game over', text, 'Play again');
+    ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(st.score)], [T('play.best'), Play.num(best.score)]] });
+    setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
   }
-  function releaseAll() { keys.left = keys.right = false; touches = {}; st.charging = false; st.charge = 0; holdCtl.release(); }
+  function releaseAll() { keys.left = keys.right = false; touches = {}; st.charging = false; st.charge = 0; }
 
-  var holdCtl = Play.hold(els.launch, function (down) {
-    if (mode !== 'playing') return;
-    if (down) { if (st.status === 'ready') st.charging = true; } else launch(st);
-  });
-
-  els.go.addEventListener('click', function () { if (mode === 'paused') resume(); else begin(); });
-  els.pause.addEventListener('click', pause);
+  els.newBtn.addEventListener('click', begin);
+  els.pause.addEventListener('click', toggle);
+  els.cv.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
   Play.onHidden(pause);
+  ZimiShell.game({
+    inProgress: function () { return mode === 'playing' || mode === 'paused'; },
+    stats: function () { return best.score ? [[T('play.best'), Play.num(best.score)]] : []; }
+  });
 
   var KEY = { ArrowLeft: 'left', z: 'left', Z: 'left', ShiftLeft: 'left', ArrowRight: 'right', '/': 'right', '.': 'right', ShiftRight: 'right', x: 'right', X: 'right' };
   function keyName(e) { return e.code === 'ShiftLeft' || e.code === 'ShiftRight' ? e.code : e.key; }
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (!els.sheet.hidden) { if (e.key === 'Escape' && mode === 'paused') resume(); return; }
+    if (document.querySelector('.ar-sheet:not([hidden])')) return;
     var k = KEY[keyName(e)];
     if (k) { e.preventDefault(); keys[k] = true; }
     else if (e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); if (mode === 'playing' && st.status === 'ready') st.charging = true; }
-    else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); pause(); }
+    else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (mode === 'playing' || mode === 'paused') toggle(); }
   });
   document.addEventListener('keyup', function (e) {
     var k = KEY[keyName(e)];
@@ -392,7 +397,6 @@
   els.cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
   window.addEventListener('resize', layout);
-  layout(); hud();
-  showSheet('Pinball', 'Hold Launch (or Space) and let go to shoot. Z or the left arrow moves the left flipper. / or the right arrow moves the right flipper. On a phone, touch the left or right half of the table.', 'Start');
+  layout(); hud(); arm();
   root.__pinball = { get st() { return st; }, get mode() { return mode; } };
 })(this);

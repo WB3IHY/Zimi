@@ -1,5 +1,2 @@
-/* Pinball: the table is a canvas (it keeps its own dark playfield in light and dark); only the launch key is extra. */
-.pb-launch { min-width: 200px; min-height: 48px; font-size: 16px; }
-.pl-main:has(.pb-launch) { gap: 8px; padding-top: 8px; }
-.pl-main:has(.pb-launch) .pl-msg { min-height: 0; }
-.pl-main:has(.pb-launch) .pl-stat { padding: 3px 10px; }
+/* Pinball: the table is a canvas (it keeps its own near-black playfield in light and dark). */
+.pl-main:has(#pb-board) { gap: var(--sp-2); padding-top: var(--sp-2); }
