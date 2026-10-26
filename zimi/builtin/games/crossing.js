@@ -150,22 +150,22 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$;
-  var BEST_KEY = 'zimi.games.crossing.best', CHROME_PX = [400, 250], MAX_SCALE = 3, SWIPE_PX = 18, TAP_MS = 250;
+  var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$, Tx = Play.T;
+  var BEST_KEY = 'zimi.games.crossing.best', CHROME_PX = 190, MAX_SCALE = 3, SWIPE_PX = 18, READY_ARM_MS = 650;
   Play.applyTheme();
   var W_PX = COLS * TILE, H_PX = ROWS * TILE;
-  var els = { cv: $('cr-screen'), score: $('cr-score'), best: $('cr-best'), lives: $('cr-lives'), level: $('cr-level'), msg: $('cr-msg'), pause: $('cr-pause'), sheet: $('cr-sheet'), title: $('cr-sheet-title'), text: $('cr-sheet-text'), go: $('cr-go') };
-  var best = Play.load(BEST_KEY, { score: 0 }), st = createState(1), mode = 'ready', ctx, reduced = Play.reducedMotion();
+  var els = { cv: $('cr-screen'), score: $('cr-score'), best: $('cr-best'), lives: $('cr-lives'), level: $('cr-level'), msg: $('cr-msg'), pause: $('cr-pause'), newBtn: $('cr-new') };
+  var best = Play.load(BEST_KEY, { score: 0 }), st = createState(1), mode = 'ready', ctx, reduced = Play.reducedMotion(), armed = null, status = Play.status(els.msg);
+  var pad = Play.pad(els.cv, { dirs: ['left', 'right', 'up', 'down'], on: function (name, down) { if (down && mode === 'playing') hop(st, name); } });
 
   function layout() { ctx = Kit.fit(els.cv, W_PX, H_PX, CHROME_PX, MAX_SCALE).ctx; draw(); }
   function hud() {
-    els.score.textContent = st.score; els.best.textContent = Math.max(best.score, st.score); els.level.textContent = st.level;
-    var l = ''; for (var i = 0; i < Math.max(0, st.lives); i++) l += '●'; els.lives.textContent = l || '0';
-    els.lives.setAttribute('aria-label', Math.max(0, st.lives) + ' lives');
+    els.score.textContent = Play.num(st.score); els.best.textContent = Play.num(Math.max(best.score, st.score)); els.level.textContent = Play.num(st.level);
+    els.lives.textContent = Play.num(Math.max(0, st.lives));
   }
 
   // ── art ──
-  var PAL = { k: '#3a2a10', y: '#ffd84a', Y: '#fff0a0', o: '#f08a24', w: '#ffffff', e: '#1b2233' };
+  var PAL = { k: '#3a2a10', y: '#ffd84a', Y: '#fff0a0', o: '#f08a24', w: '#ffffff', e: '#1b1b1d' };
   var CHICK = ['....kkkk....', '...kyyyyk...', '..kyYYyyyk..', '..kyYyyyyk..', '.kyyyyyyyyk.', '.kyeyyyyeyk.', '.kyyyooyyyk.', '.kyyyyyyyyk.', '..kyyyyyyk..', '..kyyyyyyk..', '...kkkkkk...', '...ko..ok...'];
   var chick = null;
   function buildArt() { chick = Kit.sprite(CHICK, PAL); }
@@ -174,7 +174,7 @@
   function drawVehicle(o, row, i) {
     var x = Math.round(o.x * TILE), w = o.len * TILE, y = row * TILE, col = ROAD_COLORS[o.kind][(row + i) % ROAD_COLORS[o.kind].length], dir = LANES[row].dir;
     rect(x + 1, y + 3, w - 2, 10, col); rect(x + 1, y + 3, w - 2, 1, 'rgba(255,255,255,0.35)');
-    rect(x + 2, y + 13, 3, 2, '#1b2233'); rect(x + w - 5, y + 13, 3, 2, '#1b2233');
+    rect(x + 2, y + 13, 3, 2, '#1b1b1d'); rect(x + w - 5, y + 13, 3, 2, '#1b1b1d');
     // windows near the front
     var wx = dir > 0 ? x + w - 7 : x + 3;
     if (o.kind === 'car') rect(x + (dir > 0 ? w - 7 : 3), y + 5, 4, 4, '#cfe8ff');
@@ -193,7 +193,7 @@
       if (o.under) { rect(x + 3, y + 8, 10, 3, 'rgba(255,255,255,0.35)'); rect(x + 5, y + 9, 6, 1, 'rgba(255,255,255,0.55)'); continue; }
       var flash = o.warn && Math.floor(st.anim * 8) % 2 === 0 && !reduced, shell = flash ? '#8fbf6a' : '#2f9e6a';
       rect(x + 2, y + 3, 12, 10, shell); rect(x + 3, y + 2, 10, 12, shell); rect(x + 5, y + 4, 6, 6, flash ? '#b7d98e' : '#58c78d');
-      rect(x + 7, y + 5, 2, 4, shell); rect(x + 12, y + 6, 3, 3, '#7ccc9a'); rect(x + 14, y + 7, 1, 1, '#1b2233');
+      rect(x + 7, y + 5, 2, 4, shell); rect(x + 12, y + 6, 3, 3, '#7ccc9a'); rect(x + 14, y + 7, 1, 1, '#1b1b1d');
       rect(x + 3, y + 12, 2, 2, '#7ccc9a'); rect(x + 11, y + 12, 2, 2, '#7ccc9a');
     }
   }
@@ -241,47 +241,52 @@
     // the clock: a bar along the foot of the start strip
     var frac = Math.max(0, st.left / TIME_LIMIT);
     rect(0, H_PX - 3, W_PX, 3, '#1b3a2a'); rect(2, H_PX - 2, Math.round((W_PX - 4) * frac), 1, frac > 0.3 ? '#9be0ad' : '#ff7b72');
-    if (st.status === 'cleared') Kit.textCentered(ctx, 'ALL HOME!', W_PX / 2, 6 * TILE + 5, '#ffffff', 2);
+    if (st.status === 'cleared') Kit.textCentered(ctx, Tx('crossing.allHome'), W_PX / 2, 6 * TILE + 5, '#ffffff', 2);
   }
 
   // ── flow ──
   var loop = Play.loop(function (dt) {
     step(st, dt);
     st.events.forEach(function (e) {
-      if (e.name === 'die') els.msg.textContent = { car: 'Flattened.', water: 'Splash.', swept: 'Carried off the edge.', time: 'Out of time.', wall: 'That nest is not open.' }[e.data] || '';
-      else if (e.name === 'nest') els.msg.textContent = 'Home. ' + st.nests.filter(Boolean).length + ' of 5.';
-      else if (e.name === 'life') els.msg.textContent = 'Extra life.';
-      else if (e.name === 'clear') els.msg.textContent = 'All five home.';
+      if (e.name === 'die') status.say(Tx('crossing.die.' + e.data));
+      else if (e.name === 'nest') status.say(Tx('crossing.nest', { n: st.nests.filter(Boolean).length }));
+      else if (e.name === 'life') status.say(Tx('crossing.life'));
+      else if (e.name === 'clear') status.say(Tx('crossing.clear'));
       else if (e.name === 'over') finish();
     });
     st.events.length = 0;
     if (st.status === 'cleared' && st.statusT <= 0 && mode === 'playing') nextLevel();
   }, function () { draw(); hud(); }, 60);
 
-  function showSheet(title, text, label) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; Play.openSheet(els.sheet, '#cr-go'); }
-  function begin() { st = createState(1); mode = 'playing'; els.msg.textContent = ''; Play.closeSheet(els.sheet); els.pause.disabled = false; hud(); draw(); loop.start(); }
-  function nextLevel() { st = createState(st.level + 1, undefined, { score: st.score, lives: st.lives, nextLife: st.nextLife }); els.msg.textContent = 'Level ' + st.level + ', a little faster.'; }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); showSheet('Paused', 'Resume when you are ready.', 'Resume'); }
-  function resume() { mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
+  var READY = function () { return { say: status.say, target: pad.stage, start: begin, touch: Tx('crossing.readyTouch'), keys: Tx('crossing.readyKeys') }; };
+  function arm() { if (armed) armed.cancel(); st = createState(1); mode = 'ready'; hud(); draw(); armed = Play.ready(READY()); }
+  function begin() { if (armed) armed.cancel(); st = createState(1); mode = 'playing'; status.say(''); Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); loop.start(); }
+  function nextLevel() { st = createState(st.level + 1, undefined, { score: st.score, lives: st.lives, nextLife: st.nextLife }); status.say(Tx('crossing.level', { n: st.level })); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); }
+  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
+  function toggle() { if (mode === 'playing') pause(); else resume(); }
   function finish() {
-    mode = 'over'; loop.stop(); els.pause.disabled = true;
-    var text = st.score + ' points, level ' + st.level + '.';
-    if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); text += ' A new best.'; }
-    hud(); draw(); showSheet('Game over', text, 'Play again');
+    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false);
+    if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); }
+    hud(); draw();
+    ZimiShell.endSheet({ result: 'over', stats: [[Tx('play.score'), Play.num(st.score)], [Tx('play.level'), Play.num(st.level)]] });
+    setTimeout(function () { if (mode === 'over') Play.ready(READY()); }, READY_ARM_MS);
   }
-  els.go.addEventListener('click', function () { if (mode === 'paused') resume(); else begin(); });
-  els.pause.addEventListener('click', pause);
+  els.newBtn.addEventListener('click', begin);
+  els.pause.addEventListener('click', toggle);
+  pad.stage.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
   Play.onHidden(pause);
+  ZimiShell.game({
+    inProgress: function () { return mode === 'playing' || mode === 'paused'; },
+    stats: function () { return [[Tx('play.best'), Play.num(best.score)]]; }
+  });
 
   var KEYDIR = { ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ' ': 'up' };
-  Kit.keyboard(KEYDIR, function (a) { if (mode === 'playing') hop(st, a); }, function () { return !els.sheet.hidden; });
+  Kit.keyboard(KEYDIR, function (a) { if (mode === 'playing') hop(st, a); }, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || mode !== 'playing'; });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (!els.sheet.hidden) { if (e.key === 'Escape' && mode === 'paused') resume(); return; }
-    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); pause(); }
-  });
-  [['cr-up', 'up'], ['cr-left', 'left'], ['cr-down', 'down'], ['cr-right', 'right']].forEach(function (p) {
-    var b = $(p[0]); if (b) b.addEventListener('pointerdown', function (e) { e.preventDefault(); if (mode === 'playing') hop(st, p[1]); });
+    if (document.querySelector('.ar-sheet:not([hidden])')) return;
+    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (mode === 'playing' || mode === 'paused') toggle(); }
   });
   // a swipe hops that way; a tap on the screen hops forward
   Play.gesture(els.cv, { up: function (g) {
@@ -291,7 +296,6 @@
   } });
 
   window.addEventListener('resize', layout);
-  buildArt(); layout(); hud();
-  showSheet('Crossing', 'Get the chick across 5 lanes of traffic and 5 of river into an open nest. Fill all 5 nests. Each level is a little faster. Use arrow keys, a swipe or the pad.', 'Start');
+  buildArt(); layout(); arm();
   root.__crossing = { get st() { return st; }, get mode() { return mode; } };
 })(this);

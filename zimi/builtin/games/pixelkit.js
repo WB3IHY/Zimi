@@ -29,10 +29,9 @@
     return Math.max(1, s);
   };
   // Size the canvas: its pixels are the logical pixels, its CSS size a whole multiple of them.
-  // chrome: the page height the canvas does not get, or [phone, desktop] (the touch pad is hidden on a desktop).
+  // chrome: the page height the canvas does not get, the pad aside (Play.room takes the pad's row or its sides off).
   Kit.fit = function (cv, w, h, chrome, maxScale) {
-    if (Array.isArray(chrome)) { var desk = false; try { desk = matchMedia('(min-width: 700px) and (pointer: fine)').matches; } catch (e) { /* phone */ } chrome = desk ? chrome[1] : chrome[0]; }
-    var availW = document.documentElement.clientWidth - 24, availH = window.innerHeight - chrome;
+    var room = root.ArcadePlay.room(chrome), availW = room.w, availH = room.h;
     var s = Kit.scaleFor(w, h, availW, availH, maxScale);
     cv.width = w; cv.height = h;
     cv.style.width = (w * s) + 'px'; cv.style.height = (h * s) + 'px';

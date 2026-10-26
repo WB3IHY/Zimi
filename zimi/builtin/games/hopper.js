@@ -236,8 +236,8 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$;
-  var SAVE_KEY = 'zimi.games.hopper', CHROME_PX = [360, 250], MAX_SCALE = 4;
+  var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$, Tx = Play.T;
+  var SAVE_KEY = 'zimi.games.hopper', CHROME_PX = 190, MAX_SCALE = 4, READY_ARM_MS = 650;
   Play.applyTheme();
 
   var THEMES = {
@@ -276,21 +276,20 @@
     Object.keys(HOPPER).forEach(function (k) { sprites.hop[k] = Kit.sprites(HOPPER[k], CHAR_PAL); });
   }
 
-  var els = { cv: $('hp-screen'), coins: $('hp-coins'), hearts: $('hp-hearts'), level: $('hp-level'), time: $('hp-time'), msg: $('hp-msg'), pause: $('hp-pause'), sheet: $('hp-sheet'), title: $('hp-sheet-title'), text: $('hp-sheet-text'), go: $('hp-go'), picker: $('hp-levels') };
-  var save = Play.load(SAVE_KEY, { unlocked: 1, coins: {} }), st = null, mode = 'ready', levelIndex = 0, ctx, scale = 2, reduced = Play.reducedMotion();
-  var keys = Kit.keyboard({ ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ' ': 'jump', ArrowUp: 'jump', w: 'jump', z: 'jump', x: 'jump' }, null, function () { return !els.sheet.hidden; });
+  var els = { cv: $('hp-screen'), coins: $('hp-coins'), hearts: $('hp-hearts'), level: $('hp-level'), time: $('hp-time'), msg: $('hp-msg'), pause: $('hp-pause'), newBtn: $('hp-new') };
+  var save = Play.load(SAVE_KEY, { unlocked: 1, coins: {} }), st = null, mode = 'ready', levelIndex = 0, ctx, scale = 2, reduced = Play.reducedMotion(), armed = null;
+  var status = Play.status(els.msg);
+  var keys = Kit.keyboard({ ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ' ': 'jump', ArrowUp: 'jump', w: 'jump', z: 'jump', x: 'jump' }, null, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || mode === 'ready' || mode === 'paused'; });
   var touch = { left: false, right: false, jump: false };
-  Kit.touchKeys([['hp-left', 'left'], ['hp-right', 'right'], ['hp-jump', 'jump']], touch);
+  var pad = Play.pad(els.cv, { dirs: ['left', 'right'], actions: [{ name: 'jump', label: Tx('play.jump') }], on: function (name, down) { touch[name] = down; } });
 
   function input() { return { left: keys.held.left || touch.left, right: keys.held.right || touch.right, jump: keys.held.jump || touch.jump }; }
   function layout() { var f = Kit.fit(els.cv, VIEW_W, VIEW_H, CHROME_PX, MAX_SCALE); ctx = f.ctx; scale = f.scale; if (st) draw(); }
 
-  function hearts() { var s = ''; for (var i = 0; i < START_HEARTS; i++) s += i < st.hearts ? '♥' : '♡'; return s; }
   function hud() {
     if (!st) return;
-    els.coins.textContent = st.coins + '/' + st.totalCoins; els.hearts.textContent = hearts();
-    els.hearts.setAttribute('aria-label', st.hearts + ' of ' + START_HEARTS + ' hearts');
-    els.level.textContent = (st.index + 1) + ' ' + st.name; els.time.textContent = Play.fmtClock(st.time * 1000);
+    els.coins.textContent = Play.num(st.coins); els.hearts.textContent = Play.num(Math.max(0, st.hearts));
+    els.level.textContent = Play.num(st.index + 1); els.time.textContent = window.ZimiText ? window.ZimiText.clock(st.time) : Play.fmtClock(st.time * 1000);
   }
 
   // ── drawing ──
@@ -368,67 +367,77 @@
     }
     st.enemies.forEach(function (e) { if (e.alive) drawEnemy(e, cam); });
     drawPlayer(cam);
-    if (st.status === 'won') Kit.textCentered(ctx, 'CLEAR!', VIEW_W / 2, 48, '#ffffff', 3);
+    if (st.status === 'won') Kit.textCentered(ctx, Tx('hopper.clear'), VIEW_W / 2, 48, '#ffffff', 3);
   }
 
   // ── flow ──
   var loop = Play.loop(function (dt) {
     step(st, dt, input());
     st.events.forEach(function (e) {
-      if (e.name === 'hurt') els.msg.textContent = e.data === 'fell' ? 'Back to the last flag.' : 'Ouch.';
-      else if (e.name === 'checkpoint') els.msg.textContent = 'Flag reached.';
-      else if (e.name === 'stomp') els.msg.textContent = '';
+      if (e.name === 'hurt') status.say(Tx(e.data === 'fell' ? 'hopper.fell' : 'hopper.hurt'));
+      else if (e.name === 'checkpoint') status.say(Tx('hopper.flag'));
+      else if (e.name === 'stomp') status.say('');
     });
     st.events.length = 0;
     if (st.status === 'over' && mode === 'playing') finishOver();
     else if (st.status === 'won' && st.winT >= WIN_PAUSE_S && mode === 'playing') finishWin();
   }, function () { draw(); hud(); }, 60);
 
-  function showSheet(title, text, label) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; buildPicker(); Play.openSheet(els.sheet, '#hp-go'); }
-  function buildPicker() {
-    els.picker.textContent = '';
-    LEVELS.forEach(function (lv, i) {
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'ar-btn'; b.textContent = String(i + 1);
-      b.setAttribute('aria-label', 'Level ' + (i + 1) + ', ' + lv.name + (i >= save.unlocked ? ', locked' : '')); b.disabled = i >= save.unlocked;
-      b.setAttribute('aria-pressed', String(i === levelIndex));
-      b.addEventListener('click', function () { levelIndex = i; begin(); });
-      els.picker.appendChild(b);
-    });
+  function clearHeld() { keys.clear(); touch.left = touch.right = touch.jump = false; pad.release(); }
+  function arm() {
+    if (armed) armed.cancel();
+    st = createState(levelIndex); mode = 'ready'; hud(); draw();
+    armed = Play.ready({ say: status.say, target: pad.stage, start: begin });
   }
-  function clearHeld() { keys.clear(); touch.left = touch.right = touch.jump = false; }
   function begin() {
-    st = createState(levelIndex); mode = 'playing'; els.msg.textContent = ''; clearHeld();
-    Play.closeSheet(els.sheet); els.pause.disabled = false; layout(); hud(); draw(); loop.start();
+    if (armed) armed.cancel();
+    st = createState(levelIndex); mode = 'playing'; status.say(''); clearHeld();
+    Play.pauseLabel(els.pause, false); els.pause.disabled = false; layout(); hud(); draw(); loop.start();
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); showSheet('Paused', 'Resume when you are ready.', 'Resume'); }
-  function resume() { mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
-  function finishOver() {
-    mode = 'over'; loop.stop(); els.pause.disabled = true; clearHeld(); hud(); draw();
-    showSheet('Out of hearts', 'Level ' + (levelIndex + 1) + ', ' + st.name + '. Every try starts you at the last flag you touched.', 'Try again');
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); }
+  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
+  function toggle() { if (mode === 'playing') pause(); else resume(); }
+  function clock() { return window.ZimiText ? window.ZimiText.clock(st.time) : Play.fmtClock(st.time * 1000); }
+  function over(result, stats) {
+    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); clearHeld(); hud(); draw();
+    ZimiShell.endSheet({ result: result, stats: stats });
+    setTimeout(function () { if (mode === 'over') { st = createState(levelIndex); Play.ready({ say: status.say, target: pad.stage, start: begin }); } }, READY_ARM_MS);
   }
+  function finishOver() { over('lose', [[Tx('play.level'), Play.num(levelIndex + 1)], [Tx('hopper.coins'), Play.num(st.coins)]]); }
   function finishWin() {
-    mode = 'won'; loop.stop(); els.pause.disabled = true; clearHeld();
     var key = String(levelIndex), best = save.coins[key] || 0, more = levelIndex + 1 < LEVELS.length;
     if (st.coins > best) save.coins[key] = st.coins;
     if (more && save.unlocked < levelIndex + 2) save.unlocked = levelIndex + 2;
     Play.save(SAVE_KEY, save);
-    var text = st.coins + ' of ' + st.totalCoins + ' coins in ' + Play.fmtClock(st.time * 1000) + '.';
-    if (more) { levelIndex++; showSheet('Level clear', text, 'Next level'); }
-    else { levelIndex = 0; showSheet('All six done', text + ' You have run every level.', 'Play from the start'); }
+    var stats = [[Tx('hopper.coins'), Play.num(st.coins) + '/' + Play.num(st.totalCoins)], [Tx('play.time'), clock()]];
+    levelIndex = more ? levelIndex + 1 : 0;   // New game then starts the next level (the first again after the last)
+    over('win', stats);
   }
-  els.go.addEventListener('click', function () { if (mode === 'paused') resume(); else begin(); });
-  els.pause.addEventListener('click', pause);
+  els.newBtn.addEventListener('click', begin);
+  els.pause.addEventListener('click', toggle);
+  pad.stage.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
   Play.onHidden(pause);
+  ZimiShell.game({
+    inProgress: function () { return mode === 'playing' || mode === 'paused'; },
+    stats: function () {
+      var rows = LEVELS.slice(0, save.unlocked).map(function (lv, i) { return [Tx('hopper.level.' + lv.theme), Play.num(save.coins[String(i)] || 0)]; });
+      return rows;
+    },
+    // The level is a choice about the game: the levels reached, in the New game pane.
+    menu: function () {
+      var choices = LEVELS.slice(0, save.unlocked).map(function (lv, i) { return [i, Play.num(i + 1)]; });
+      return { options: [Play.optionRow(Tx('play.level'), choices, levelIndex, function (v) { levelIndex = v; })] };
+    }
+  });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (!els.sheet.hidden) { if (e.key === 'Escape' && mode === 'paused') resume(); return; }
-    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); pause(); }
+    if (document.querySelector('.ar-sheet:not([hidden])')) return;
+    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (mode === 'playing' || mode === 'paused') toggle(); }
   });
   window.addEventListener('resize', layout);
 
-  buildSprites(); layout();
+  buildSprites();
   levelIndex = Math.min(save.unlocked, LEVELS.length) - 1;
-  st = createState(levelIndex); draw(); hud();
-  showSheet('Hopper', 'Run to the flag. Hold jump for a high jump, tap for a hop; land on a crawler to squash it. Arrow keys and Space, or the buttons below the screen.', 'Start');
+  layout(); arm();
   root.__hopper = { draw: draw, get st() { return st; }, get mode() { return mode; }, get scale() { return scale; }, input: input };
 })(this);

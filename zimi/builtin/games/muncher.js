@@ -276,24 +276,24 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$;
-  var BEST_KEY = 'zimi.games.muncher.best', CHROME_PX = [400, 250], MAX_SCALE = 3, SWIPE_PX = 16;
+  var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$, Tx = Play.T;
+  var BEST_KEY = 'zimi.games.muncher.best', CHROME_PX = 190, MAX_SCALE = 3, SWIPE_PX = 16, READY_ARM_MS = 650;
   Play.applyTheme();
   var W_PX = 17 * TILE, H_PX = 20 * TILE;
   var WALLS = { Orchard: ['#1c5a3e', '#58c78d'], Cellar: ['#4a3578', '#a78bfa'], Gardens: ['#1f4f8f', '#6db3f2'] };
   var CHASER_COLOR = { rusher: '#e5484d', ambusher: '#f08ac0', shy: '#f5a524', drifter: '#34c3d6' };
-  var els = { cv: $('mn-screen'), score: $('mn-score'), best: $('mn-best'), lives: $('mn-lives'), level: $('mn-level'), msg: $('mn-msg'), pause: $('mn-pause'), sheet: $('mn-sheet'), title: $('mn-sheet-title'), text: $('mn-sheet-text'), go: $('mn-go') };
+  var els = { cv: $('mn-screen'), score: $('mn-score'), best: $('mn-best'), lives: $('mn-lives'), level: $('mn-level'), msg: $('mn-msg'), pause: $('mn-pause'), newBtn: $('mn-new') };
   var best = Play.load(BEST_KEY, { score: 0 }), st = createState(1), mode = 'ready', ctx, reduced = Play.reducedMotion();
-  var want = null;
+  var want = null, armed = null, status = Play.status(els.msg);
   var NAMED = { up: UP, left: LEFT, down: DOWN, right: RIGHT };
   var KEYDIR = { ArrowUp: 'up', w: 'up', ArrowLeft: 'left', a: 'left', ArrowDown: 'down', s: 'down', ArrowRight: 'right', d: 'right' };
   function steer(d) { want = d; }
+  var pad = Play.pad(els.cv, { dirs: ['left', 'right', 'up', 'down'], on: function (name, down) { if (down) steer(NAMED[name]); } });
 
   function layout() { ctx = Kit.fit(els.cv, W_PX, H_PX, CHROME_PX, MAX_SCALE).ctx; draw(); }
   function hud() {
-    els.score.textContent = st.score; els.best.textContent = Math.max(best.score, st.score); els.level.textContent = st.level;
-    var l = ''; for (var i = 0; i < Math.max(0, st.lives); i++) l += '●'; els.lives.textContent = l || '0';
-    els.lives.setAttribute('aria-label', Math.max(0, st.lives) + ' lives');
+    els.score.textContent = Play.num(st.score); els.best.textContent = Play.num(Math.max(best.score, st.score)); els.level.textContent = Play.num(st.level);
+    els.lives.textContent = Play.num(Math.max(0, st.lives));
   }
 
   // ── drawing ──
@@ -388,56 +388,65 @@
   }
   function draw() {
     if (!ctx) return;
-    ctx.fillStyle = '#0b1020'; ctx.fillRect(0, 0, W_PX, H_PX);
+    ctx.fillStyle = '#0e0e10'; ctx.fillRect(0, 0, W_PX, H_PX);
     drawWalls(); drawDots(); drawFruit();
     if (st.status !== 'dying' || st.statusT > 0.3) st.chasers.forEach(drawChaser);
     drawMuncher();
-    if (st.status === 'ready') Kit.textCentered(ctx, 'READY!', W_PX / 2, 11 * TILE + 2, '#ffe14d', 2);
-    if (st.status === 'cleared') Kit.textCentered(ctx, 'MAZE CLEAR', W_PX / 2, 11 * TILE + 2, '#ffe14d', 2);
+    if (st.status === 'ready') Kit.textCentered(ctx, Tx('muncher.ready'), W_PX / 2, 11 * TILE + 2, '#ffe14d', 2);
+    if (st.status === 'cleared') Kit.textCentered(ctx, Tx('muncher.clear'), W_PX / 2, 11 * TILE + 2, '#ffe14d', 2);
   }
 
   // ── flow ──
   var loop = Play.loop(function (dt) {
     step(st, dt, want);
     st.events.forEach(function (e) {
-      if (e.name === 'eat') els.msg.textContent = e.data + '!';
-      else if (e.name === 'fruit') els.msg.textContent = 'Fruit, ' + e.data + '.';
-      else if (e.name === 'life') els.msg.textContent = 'Extra life.';
-      else if (e.name === 'pellet') els.msg.textContent = '';
+      if (e.name === 'eat') status.say(Play.num(e.data));
+      else if (e.name === 'fruit') status.say(Tx('muncher.fruit', { n: e.data }));
+      else if (e.name === 'life') status.say(Tx('muncher.life'));
+      else if (e.name === 'pellet') status.say('');
       else if (e.name === 'over') finish();
     });
     st.events.length = 0;
     if (st.status === 'cleared' && st.statusT <= 0 && mode === 'playing') nextMaze();
   }, function () { draw(); hud(); }, 60);
 
-  function showSheet(title, text, label) { els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; Play.openSheet(els.sheet, '#mn-go'); }
+  function arm() {
+    if (armed) armed.cancel();
+    st = createState(1); want = null; mode = 'ready'; hud(); draw();
+    armed = Play.ready({ say: status.say, target: pad.stage, start: begin, touch: Tx('muncher.readyTouch'), keys: Tx('muncher.readyKeys') });
+  }
   function begin() {
-    st = createState(1); want = null; mode = 'playing'; els.msg.textContent = ''; Play.closeSheet(els.sheet); els.pause.disabled = false; hud(); draw(); loop.start();
+    if (armed) armed.cancel();
+    st = createState(1); want = null; mode = 'playing'; status.say(''); Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); loop.start();
   }
   function nextMaze() {
     var carry = { score: st.score, lives: st.lives, nextLife: st.nextLife }, lvl = st.level + 1;
-    st = createState(lvl, undefined, carry); want = null; els.msg.textContent = 'Maze ' + lvl;
+    st = createState(lvl, undefined, carry); want = null; status.say(Tx('muncher.maze', { n: lvl }));
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); want = null; showSheet('Paused', 'Resume when you are ready.', 'Resume'); }
-  function resume() { mode = 'playing'; Play.closeSheet(els.sheet); loop.start(); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); want = null; Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); }
+  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
+  function toggle() { if (mode === 'playing') pause(); else resume(); }
   function finish() {
-    mode = 'over'; loop.stop(); els.pause.disabled = true;
-    var text = st.score + ' points, maze ' + st.level + '.';
-    if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); text += ' A new best.'; }
-    hud(); draw(); showSheet('Game over', text, 'Play again');
+    mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false);
+    if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); }
+    hud(); draw();
+    ZimiShell.endSheet({ result: 'over', stats: [[Tx('play.score'), Play.num(st.score)], [Tx('play.best'), Play.num(best.score)]] });
+    setTimeout(function () { if (mode === 'over') { Play.ready({ say: status.say, target: pad.stage, start: begin, touch: Tx('muncher.readyTouch'), keys: Tx('muncher.readyKeys') }); } }, READY_ARM_MS);
   }
-  els.go.addEventListener('click', function () { if (mode === 'paused') resume(); else begin(); });
-  els.pause.addEventListener('click', pause);
+  els.newBtn.addEventListener('click', begin);
+  els.pause.addEventListener('click', toggle);
+  pad.stage.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
   Play.onHidden(pause);
+  ZimiShell.game({
+    inProgress: function () { return mode === 'playing' || mode === 'paused'; },
+    stats: function () { return [[Tx('play.best'), Play.num(best.score)]]; }
+  });
 
-  Kit.keyboard(KEYDIR, function (a) { steer(NAMED[a]); }, function () { return !els.sheet.hidden; });
+  Kit.keyboard(KEYDIR, function (a) { steer(NAMED[a]); }, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || mode === 'ready' || mode === 'over'; });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (!els.sheet.hidden) { if (e.key === 'Escape' && mode === 'paused') resume(); return; }
-    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); pause(); }
-  });
-  [['mn-up', UP], ['mn-left', LEFT], ['mn-down', DOWN], ['mn-right', RIGHT]].forEach(function (p) {
-    var b = $(p[0]); if (b) b.addEventListener('pointerdown', function (e) { e.preventDefault(); steer(p[1]); });
+    if (document.querySelector('.ar-sheet:not([hidden])')) return;
+    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); if (mode === 'playing' || mode === 'paused') toggle(); }
   });
   // swipe anywhere on the maze: each flick of 16 px or more steers, and the next flick starts from where the last ended
   (function () {
@@ -452,7 +461,6 @@
   })();
 
   window.addEventListener('resize', layout);
-  layout(); hud();
-  showSheet('Muncher', 'Eat every dot. Four chasers hunt you, each its own way; a big pellet turns them blue so you can eat them. Arrow keys or swipe on the maze.', 'Start');
+  layout(); arm();
   root.__muncher = { get st() { return st; }, get mode() { return mode; } };
 })(this);

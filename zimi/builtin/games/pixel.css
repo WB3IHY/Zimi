@@ -1,18 +1,6 @@
-/* ZimiGames: the pixel-art games' shared look. The canvas is drawn in its own pixels and shown at a whole
-   multiple of them, so it never blurs. The page around it follows the light and dark chrome. */
-.px-screen { display: block; touch-action: none; user-select: none; -webkit-user-select: none; max-width: 100%; border-radius: 6px; border: 1px solid var(--line); background: #0d1220; image-rendering: pixelated; image-rendering: crisp-edges; }
-.px-main { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 12px 20px; }
-.px-pad { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; max-width: 420px; }
-.px-dpad { display: grid; grid-template: repeat(2, 56px) / repeat(3, 56px); gap: 6px; }
-.px-dpad .pl-key { min-width: 0; padding: 0; font-size: 22px; }
-.px-dpad .px-up { grid-area: 1 / 2; } .px-dpad .px-left { grid-area: 2 / 1; } .px-dpad .px-down { grid-area: 2 / 2; } .px-dpad .px-right { grid-area: 2 / 3; }
-.px-lr { display: flex; gap: 8px; }
-.px-lr .pl-key { min-width: 72px; min-height: 72px; font-size: 26px; }
-.px-acts { display: flex; gap: 8px; }
-.px-acts .pl-key { min-width: 72px; min-height: 72px; border-radius: 50%; font-size: 15px; }
-.px-main .pl-key { user-select: none; -webkit-user-select: none; }
-.px-main .pl-hud { gap: 6px; }
-.px-main .pl-stat { min-width: 56px; padding: 3px 8px; }
-.px-levels { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.px-levels .ar-btn { min-width: 40px; min-height: 40px; }
-@media (min-width: 700px) and (pointer: fine) { .px-pad { display: none; } }
+/* ZimiGames: the pixel-art games' look. The canvas is drawn in its own pixels and shown at a whole multiple of them, so it
+   never blurs. The page around it is the shared arcade page (play.css: .pl-main, the HUD strip, the one touch pad). */
+/* A dark playfield is a material: near-black and neutral, never navy. */
+.px-screen { display: block; touch-action: none; user-select: none; -webkit-user-select: none; max-width: 100%; border-radius: var(--r-chip); border: 1px solid var(--line); background: #0e0e10; image-rendering: pixelated; image-rendering: crisp-edges; }
+/* Pet still lays its page out with .px-main; the others use .pl-main. */
+.px-main { display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-3) var(--sp-5); }
