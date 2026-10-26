@@ -19,9 +19,12 @@
       });
     });
   };
-  if (window.ZimiText && window.ZimiText.onChange) window.ZimiText.onChange(function () { Play.translate(document); });
-  document.addEventListener('DOMContentLoaded', function () { Play.translate(document); });
-  if (document.readyState !== 'loading') Play.translate(document);
+  // (the rules halves are loaded without a page by the node tests: nothing below runs there)
+  if (typeof document !== 'undefined') {
+    if (window.ZimiText && window.ZimiText.onChange) window.ZimiText.onChange(function () { Play.translate(document); });
+    document.addEventListener('DOMContentLoaded', function () { Play.translate(document); });
+    if (document.readyState !== 'loading') Play.translate(document);
+  }
 
   // localStorage can throw (private mode, blocked site data): every read and write is guarded.
   Play.load = function (key, fallback) {
