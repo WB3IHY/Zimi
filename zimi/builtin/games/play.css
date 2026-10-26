@@ -53,6 +53,11 @@
   .pl-pad-l { align-content: center; }
   .pl-main { gap: var(--sp-1); padding-top: var(--sp-1); padding-bottom: var(--sp-1); }
   .pl-msg { min-height: 0; }
+  /* With a pad, the HUD moves into the free corner above the left half of the pad (two by two), so the playfield gets the height. */
+  .pl-main:has(.pl-stage) { position: relative; }
+  .pl-main:has(.pl-stage) .pl-hud { position: absolute; left: var(--gutter); top: var(--sp-2); width: calc(56px * 3 + var(--sp-2) * 2); display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--sp-2); }
+  .pl-main:has(.pl-stage) .pl-stat b { font-size: var(--fs-display); }
+  .pl-pad-l { align-content: end; align-self: end; }
 }
 .pl-pick { display: flex; flex-direction: column; gap: 6px; }
 .pl-opt { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-chip); cursor: pointer; }

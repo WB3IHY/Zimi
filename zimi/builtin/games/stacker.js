@@ -225,7 +225,7 @@
   var FLICK_V = 0.6, FLICK_CELLS = 2;       // a downward flick faster than this, longer than this, drops
   var HOLD_UP_CELLS = 2;                    // a swipe up this long holds
   var REPEAT_FIRST_MS = 190, REPEAT_MS = 55; // press and hold on the buttons
-  var MAX_CELL = 32, SIDE_W = 96, GAP = 10, MIN_CELL = 16, CHROME_PX = 190, READY_ARM_MS = 650;
+  var MAX_CELL = 32, SIDE_W = 96, GAP = 10, MIN_CELL = 12, CHROME_PX = 190, READY_ARM_MS = 650;
   // The well is a dark material in both themes, with a grid you can just see.
   var FIELD = '#0e0e10', FIELD_LINE = 'rgba(255, 255, 255, 0.07)';
   var BEST_KEY = 'zimi.games.stacker.best';

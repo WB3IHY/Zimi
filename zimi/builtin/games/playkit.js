@@ -74,7 +74,7 @@
   // A value in the HUD strip (at most four per game: a 13px label over a 32px value).
   Play.num = function (n) { n = +n || 0; return window.ZimiText ? window.ZimiText.number(n) : String(n); };
 
-  var PAD_KEY = 56, PAD_GAP = 8, SWIPE_PX = 24, SWIPE_HOLD_MS = 80;
+  var PAD_KEY = 56, PAD_GAP = 8, HUD_FLOW_PX = 36, SWIPE_PX = 24, SWIPE_HOLD_MS = 80;
   var PAD_GLYPH = { left: '◀', right: '▶', up: '▲', down: '▼' };
   var LANDSCAPE = '(orientation: landscape) and (max-height: 520px)';
   function landscape() { try { return matchMedia(LANDSCAPE).matches; } catch (e) { return false; } }
@@ -124,7 +124,7 @@
   Play.room = function (chrome) {
     var vw = document.documentElement.clientWidth - 24, vh = window.innerHeight - chrome, pad = document.querySelector('.pl-pad');
     if (pad) {
-      if (landscape()) vw -= PAD_SIDE * 2 + 24;
+      if (landscape()) { vw -= PAD_SIDE * 2 + 24; if (document.querySelector('.pl-hud')) vh += HUD_FLOW_PX; }
       else { var l = pad.firstChild; vh -= Math.max(l ? l.offsetHeight : 0, pad.lastChild ? pad.lastChild.offsetHeight : 0) + 12; }
     }
     return { w: vw, h: vh };
