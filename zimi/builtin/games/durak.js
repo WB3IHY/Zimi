@@ -262,7 +262,7 @@
         if (st.phase === 'throw' && seats.person(st.defender)) out.text = (note ? note + ' ' : '') + TX(seats.isYou(st.defender) ? 'durak.youTakeThrow' : 'durak.takesThrow', { name: nm(st, st.defender) });
         return out;
       }
-      if (st.phase === 'defend') { out.text = (note ? note + ' ' : '') + TX('durak.beatOrTake', { card: T.short(u.a) }); out.label = TX('durak.take'); out.action = takeNow; }
+      if (st.phase === 'defend') { out.text = (note ? note + ' ' : '') + TX('durak.beatOrTake', { card: T.short(u.a) }); out.choices = [{ label: TX('durak.take'), onclick: takeNow }]; }
       else if (!st.table.length) out.text = TX(seats.isYou(st.turn) ? 'durak.yourAttack' : 'durak.attacks', { name: nm(st, st.turn) });
       else { out.text = (note ? note + ' ' : '') + (st.phase === 'throw' ? TX('durak.takesAdd', { name: nm(st, st.defender) }) : TX('durak.addRank.q')); out.choices = [{ label: TX('durak.done'), primary: true, onclick: doneNow }]; }
       return out;
