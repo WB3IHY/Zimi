@@ -262,6 +262,7 @@ function _ttsPlanChunks(text, maxLen, first, from, to, lang) {
   var stop = /^(zh|ja)$/.test(_langPrimary(lang || '')) ? '\u3002' : '.';
   _ttsSentenceSpans(text, from || 0, to, lang).forEach(function(sp) {
     var piece = text.slice(sp[0], sp[1]), s = piece.replace(/\s+/g, ' ');
+    if (!/[\p{L}\p{N}]/u.test(s)) return; // nothing to say: an anchor's zero-width space, a rule
     // A heading or list item ends where its block does, with no stop of its
     // own: the voice is given one, or it runs on into the next block.
     var gap = text.slice(sp[1], to).match(/^\s*/)[0];
@@ -315,9 +316,13 @@ var _TTS_SKIP_SEL = 'sup.reference,.mw-ref,.mw-editsection,.hatnote,.metadata,.a
   // Page chrome and what only a screen reader is given: menus, buttons, a
   // tooltip's glossary text, "Show" and "Panel - Collapsed" (Eric, 2026-10-25:
   // the Factbook "is very rough").
+  // A question page's own: votes, tags, who asked and when, a comment's author and date.
+  '.votecell,.post-taglist,.post-signature,.s-user-card,.comment-user,.comment-date,' +
   'nav,[role="navigation"],[role="menu"],[role="search"],button,.tooltip-content,.expandcollapse-all,.sr-only,.visually-hidden,.visuallyhidden,.screen-reader-text';
 // Chrome by its class words (nav, menu, toolbar...), whatever the site calls the rest.
 var _TTS_CHROME_CLASS = /(?:^|[\s_-])(?:nav|navbar|navigation|menu|dropdown|breadcrumbs?|toolbar|pagination)(?:$|[\s_-])/i;
+// Code is not read: its symbols come out as noise. A <pre> of prose (a poem) is.
+function _ttsCode(el) { return el.localName === 'pre' && (!!el.querySelector('code') || /[{}\[\]|&<>=;$\\]/.test(el.textContent || '')); }
 function _ttsChrome(el) { return typeof el.className === 'string' && _TTS_CHROME_CLASS.test(el.className); }
 // A collapsed section (an accordion's closed panel) is still the article's text:
 // hidden by the page's script until opened, and opened when the reading gets there.
@@ -337,6 +342,7 @@ var _TTS_SMALL_WORDS = ' THE AND FOR OF OR IN ON TO BY AT IS AS AN ';
 var _TTS_UNITS = [[/\bsq km\b/g, 'square kilometers'], [/\bsq mi\b/g, 'square miles'], [/(\d) ?km\b/g, '$1 kilometers']]; // English, where a number gives them away
 function _ttsSpoken(s, lang) {
   s = s.replace(/\s*::\s*/g, ', ');
+  s = s.replace(/\s+[\u2013\u2014]$/, ''); // a comment's dash before its author, which is not read
   if (_langPrimary(lang || 'en') === 'en') _TTS_UNITS.forEach(function(u) { s = s.replace(u[0], u[1]); });
   if (/\p{Ll}/u.test(s) || !/\p{Lu}{2}/u.test(s)) return s;
   return s.replace(/\p{Lu}+/gu, function(w) { return w.length > 3 || _TTS_SMALL_WORDS.indexOf(' ' + w + ' ') >= 0 ? w.toLowerCase() : w; });
@@ -385,7 +391,7 @@ function _ttsReadModel(doc, main, all) {
     var cs = win.getComputedStyle(el), tag = el.localName;
     // A book lays out one section at a time and hides the others: they are still its text, as is a closed panel's.
     if (_TTS_SKIP_TAGS.indexOf(' ' + tag + ' ') >= 0 || (cs.display === 'none' && !el.classList.contains('zb-sec') && !(!all && _ttsPanel(el)))) return;
-    if (!all && el !== main && ((el.matches && el.matches(_TTS_SKIP_SEL)) || _ttsChrome(el)) && !_ttsLayoutTable(el)) return;
+    if (!all && el !== main && ((el.matches && el.matches(_TTS_SKIP_SEL)) || _ttsChrome(el) || _ttsCode(el)) && !_ttsLayoutTable(el)) return;
     var block = cs.display.indexOf('inline') !== 0 && cs.display !== 'contents', shown = cs.visibility === 'visible';
     if (block || tag === 'br') split();
     for (var n = el.firstChild; n; n = n.nextSibling) {

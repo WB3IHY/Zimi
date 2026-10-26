@@ -594,6 +594,7 @@ const tick = () => new Promise(r => setImmediate(r));
       const el = { nodeType: 1, localName: tag, parentNode: parent, parentElement: parent, order: order++, classes: attrs.cls || [], style: attrs.style || {}, childNodes: [] };
       el.classList = { contains: c => el.classes.includes(c) };
       el.className = el.classes.join(' ');
+      Object.defineProperty(el, 'textContent', { get: () => (function t(n) { return n.nodeType === 3 ? n.data : (n.childNodes || []).map(t).join(''); })(el) });
       el.tagName = tag.toUpperCase();
       el.querySelector = t => { const find = e => { for (const k of e.childNodes || []) { if (k.nodeType === 1 && (k.localName === t || k.matches(t))) return k; const d = k.nodeType === 1 && find(k); if (d) return d; } return null; }; return find(el); };
       el.matches = sel => sel.split(',').some(x => { const [t, c] = x.trim().split('.'); return (!t || t === tag) && (!c || el.classes.includes(c)); });
@@ -645,10 +646,11 @@ const tick = () => new Promise(r => setImmediate(r));
       'Area: total: 1,240,192 sq km|It has the following, in this long line that goes on past the label limit of sixty characters:|one|');
     ok('a closed panel after its heading is read; a hidden block with no heading is not',
       model_of(['main', {}, ['ul', {}, ['li', { cls: ['tabHead'] }, 'Geography'], ['li', { style: { display: 'none' } }, ['p', {}, 'Landlocked.']]], ['p', {}, 'Intro.'], ['div', { style: { display: 'none' } }, 'Menu stuff']]) === 'Geography|Landlocked.|Intro.|');
-    ok('Wikipedia, Stack Exchange and Gutenberg prose is read as it was: lists, code and plain classes stay',
+    ok('Wikipedia, Stack Exchange and Gutenberg prose is read as it was (a poem in a <pre> too); votes, tags and code are not',
       model_of(['main', {}, ['h2', {}, 'See also'], ['ul', {}, ['li', {}, ['a', {}, 'Tides']], ['li', {}, ['a', {}, 'Moons']]],
-        ['div', { cls: ['post-text'] }, ['p', {}, 'Use a loop.'], ['pre', {}, 'for x in y'], ['p', {}, 'That is all.']], ['button', {}, 'Share'],
-        ['p', { cls: ['chapter'] }, 'CHAPTER I. Down the Rabbit-Hole']]) === 'See also|Tides|Moons|Use a loop.|for x in y|That is all.|CHAPTER I. Down the Rabbit-Hole|');
+        ['div', { cls: ['post-text'] }, ['p', {}, 'Use a loop.'], ['pre', {}, 'a poem line'], ['pre', {}, 'x = [1, 2]'], ['p', {}, 'That is all.']], ['button', {}, 'Share'],
+        ['div', { cls: ['votecell'] }, '16'], ['div', { cls: ['post-taglist'] }, 'sleep'],
+        ['p', { cls: ['chapter'] }, 'CHAPTER I. Down the Rabbit-Hole']]) === 'See also|Tides|Moons|Use a loop.|a poem line|That is all.|CHAPTER I. Down the Rabbit-Hole|');
     const laid = mkDoc(['main', {}, ['table', {}, ['tr', {}, ['td', {}, ['p', {}, 'The whole page sits in a table.']]]]]);
     const laidText = ax._ttsReadModel(laid, laid.main).text.replace(new RegExp(BLOCK, 'g'), '|');
     ok('a table that holds paragraphs is the page\'s layout, and is read', laidText === 'The whole page sits in a table.|', laidText);

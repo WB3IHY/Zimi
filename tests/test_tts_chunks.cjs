@@ -68,5 +68,9 @@ ok('a line break in the source is a space, not a sentence end', spoken('Africa\n
 ok('English units are said out; other languages are left', spoken('Area: 1,240,192 sq km and 7 km.')[0] === 'Area: 1,240,192 square kilometers and 7 kilometers.' &&
   _ttsChunkText('Fläche: 7 km.', _TTS_CHUNK_MAX, _TTS_FIRST_CHUNK_MAX, 'de')[0] === 'Fläche: 7 km.', spoken('Area: 1,240,192 sq km and 7 km.'));
 
+ok('a sentence with nothing to say (an anchor\'s zero-width space) is not a chunk', JSON.stringify(spoken('One.' + _TTS_BLOCK + '\u200b \u200b' + _TTS_BLOCK + 'Two.')) === JSON.stringify(['One.', 'Two.']), spoken('One.' + _TTS_BLOCK + '\u200b \u200b' + _TTS_BLOCK + 'Two.'));
+
+ok('a dash left hanging at the end (a comment\'s \u201c\u2013 author\u201d) is dropped', spoken('Is it so? \u2013')[0] === 'Is it so?', spoken('Is it so? \u2013'));
+
 if (failures) { console.log(failures + ' failed'); process.exit(1); }
 console.log('\nall chunk checks passed');
