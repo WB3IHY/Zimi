@@ -21,7 +21,7 @@ let Z = load();
 check(Z.lang === 'en-us' && Z.dir === 'ltr', 'the language is the browser\'s, lower-cased, left to right');
 check(Z.T('cards.n.card', { n: 1 }) === '1 card' && Z.T('cards.n.card', { n: 3 }) === '3 cards', 'a plural entry picks its form');
 check(Z.T('cards.name', { rank: 'ace', suit: 'spades' }) === 'ace of spades', 'named slots fill in');
-check(Z.T('no.such.id') === 'no.such.id', 'an unknown id shows itself');
+check(Z.T('no.such.id') === 'Id' && Z.T('sokoban.bestLap') === 'Best lap', 'an unknown id never shows itself: its last part reads as words');
 check(Z.T('cards.n.card', { n: 1234 }) === '1,234 cards' && Z.T('cards.n.card', { n: 1000 }) === '1,000 cards', 'numbers format for the language');
 check(Z.clock(75) === '1:15' && Z.clock(5) === '0:05' && Z.clock(3725) === '1:02:05' && Z.clock(-3) === '0:00', 'the clock reads m:ss, with hours from an hour');
 check(Z.ago(10000) === 'just now' && /5 minutes ago/.test(Z.ago(5 * 60000)) && /yesterday|1 day ago/.test(Z.ago(86400000)), 'ago reads in words');

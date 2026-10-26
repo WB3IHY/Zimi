@@ -49,6 +49,14 @@ def test_every_string_id_exists():
     assert not missing, "string ids with no English text: " + ", ".join(sorted(set(missing)))
 
 
+def test_every_asked_id_has_english_and_every_english_is_asked_for():
+    """scripts/games_text.py audit(): a gap in the table shows a player a bare id; an unused entry is dead weight."""
+    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    import games_text
+
+    assert games_text.audit() == []
+
+
 def test_plurals_have_one_and_other():
     for key, value in table().items():
         if isinstance(value, dict):

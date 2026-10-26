@@ -719,7 +719,6 @@
  "chess.cantMove": "That piece cannot move",
  "chess.check": "Check. {line}",
  "chess.flipTitle": "Turn the board around",
- "chess.legalMoves": "Show legal moves",
  "chess.level.beginner": "Beginner",
  "chess.level.casual": "Casual",
  "chess.level.club": "Club",
@@ -746,7 +745,6 @@
  "chess.why.repetition": "A draw by threefold repetition.",
  "chess.why.stalemate": "Stalemate, a draw.",
  "circuit.auto": "Accelerate by itself",
- "circuit.bestLap": "Best lap",
  "circuit.board": "The track from above, your car and the computer cars",
  "circuit.dnf": "Did not finish",
  "circuit.easy": "Easy",
@@ -777,14 +775,12 @@
  "circuit.players": "Players",
  "circuit.readyKeys": "Press any key to start",
  "circuit.readyTouch": "Tap to start. Steer, then gas and brake",
- "circuit.record": "Track record",
  "circuit.recordNote": "Track record on this device: {time}. Its ghost races you.",
  "circuit.reset": "Back on track",
  "circuit.rivals": "Rivals",
  "circuit.rivalsDrive": "Rivals drive",
  "circuit.splitLine": "{name}  Lap {lap}/{laps}  P{place}",
  "circuit.startLine": "Pick a track and race.",
- "circuit.tie": "A tie",
  "circuit.tilt": "Tilt to steer",
  "circuit.title": "Circuit",
  "circuit.track": "Track",
@@ -1700,7 +1696,6 @@
  "lander.down": "Down",
  "lander.fuel": "Fuel",
  "lander.landed": "Landed on the ×{mult} pad: {n} points",
- "lander.level": "Level {n}",
  "lander.nextKeys": "Press any key for the next lander",
  "lander.nextTouch": "Tap for the next lander",
  "lander.readyKeys": "Press any key to start",
@@ -3180,12 +3175,23 @@
     });
   }
   // T(key, vars): a plural entry is chosen by vars.n.
+  // A string id with no text must never reach a player as the raw id ("sokoban.moves"): the last part of the id is shown
+  // as words ("Moves") and the gap is logged once. scripts/games_text.py --check keeps the table complete, so this is a net.
+  var warned = {};
+  function missing(key) {
+    if (!warned[key]) {
+      warned[key] = true;
+      try { if (root.console && root.console.warn) root.console.warn('ZimiText: no string for "' + key + '"'); } catch (e) { /* no console */ }
+    }
+    var words = String(key).split('.').pop().replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').trim().toLowerCase();
+    return words ? words.charAt(0).toUpperCase() + words.slice(1) : '';
+  }
   function T(key, vars) {
     var e = entry(key);
-    if (e === undefined) return key;
+    if (e === undefined) return missing(key);
     if (e && typeof e === 'object') {
       var n = vars && typeof vars.n === 'number' ? vars.n : 0, form = plural(n);
-      e = e[form] !== undefined ? e[form] : (e.other !== undefined ? e.other : key);
+      e = e[form] !== undefined ? e[form] : (e.other !== undefined ? e.other : missing(key));
     }
     return fill(e, vars);
   }
