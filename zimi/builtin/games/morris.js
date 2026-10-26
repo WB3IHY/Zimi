@@ -336,5 +336,10 @@
   if (root.ZimiShell) root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && history.size() > 0; } });
   buildBoard();
   G.newGame();
+  G.persist({
+    save: function () { return history.size() ? { state: state, history: history.all(), sel: sel, pending: pending, lastFrom: lastFrom, lastTo: lastTo, lastTaken: lastTaken, seen: seen } : null; },
+    load: function (d) { state = d.state; history.set(d.history); sel = d.sel; pending = d.pending; lastFrom = d.lastFrom; lastTo = d.lastTo; lastTaken = d.lastTaken; seen = d.seen; hintMove = null; paint(); },
+    resume: function () { G.say(turnText()); if (!G.human(state.turn)) G.later(computerMove); }
+  });
   if (new URLSearchParams(location.search).has('debug')) root.__mo = { state: function () { return state; }, engine: root.MorrisEngine, pending: function () { return pending; } };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

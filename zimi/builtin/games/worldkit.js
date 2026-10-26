@@ -133,8 +133,40 @@
         s[outcome]++; BK.save(STATS_KEY, stats);
       }
       G.say(text); G.showStats();
-      var result = outcome === 'w' ? 'win' : outcome === 'l' ? 'lose' : outcome === 'd' ? 'draw' : name ? 'win' : 'over';
-      UI.end({ result: result, name: result === 'win' && outcome !== 'w' ? name : undefined, text: text });
+      G.result = { text: text, outcome: outcome || null, name: name || null };
+      G.showEnd(G.result);
+    };
+    // The end sheet for a result {text, outcome, name}; also how a finished game comes back after leaving it.
+    G.showEnd = function (r) {
+      var result = r.outcome === 'w' ? 'win' : r.outcome === 'l' ? 'lose' : r.outcome === 'd' ? 'draw' : r.name ? 'win' : 'over';
+      UI.end({ result: result, name: result === 'win' && r.outcome !== 'w' ? r.name : undefined, text: r.text });
+    };
+    // Never lose a game: leaving and coming back puts the same position on the table (ZimiShell.persist).
+    // api: { save() -> the page's state as plain data, or null when no move was made; load(data) -> false if it
+    // no longer fits, rebuilds the position; resume() carries on (a computer turn) }. The options in force, the
+    // result of a finished game and the typed arrays inside states are kept here, so a page keeps only its own.
+    var keeper = null;
+    function snapshot() {
+      if (G.watching || !keeper) return null;
+      var d = keeper.save();
+      return d == null ? null : { s: pack(settings), over: !!G.over, res: G.result || null, d: pack(d) };
+    }
+    G.persist = function (keep) {
+      keeper = keep;
+      root.ZimiGameSave = function () { var d = snapshot(); return d ? JSON.stringify(d) : ''; };   // the test reads the position here
+      if (!root.ZimiShell || !root.ZimiShell.persist) return;
+      root.ZimiShell.persist({
+        save: snapshot,
+        load: function (data) {
+          var saved = unpack(data.s);
+          G.cancel();
+          Object.keys(saved).forEach(function (k) { settings[k] = saved[k]; });
+          G.over = !!data.over; G.result = data.res || null;
+          if (keep.load(unpack(data.d), saved) === false) return false;
+          if (G.over && G.result) { G.say(G.result.text); G.showStats(); G.showEnd(G.result); }
+          else if (keep.resume) keep.resume();
+        }
+      });
     };
     G.newGame = function () {
       G.cancel(); G.over = false;
@@ -263,7 +295,18 @@
     '<radialGradient id="wk-stone-w" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#ffffff"/><stop offset="0.6" stop-color="#ece8dc"/><stop offset="1" stop-color="#b9b3a2"/></radialGradient></defs>';
 
   // A flat undo stack of snapshots (the snapshot is whatever the game hands in).
-  function History() { var h = []; return { push: function (s) { h.push(s); }, pop: function () { return h.pop(); }, clear: function () { h.length = 0; }, size: function () { return h.length; }, last: function () { return h[h.length - 1]; } }; }
+  // Plain-data copies of states for the save: typed arrays become {$t, a} and come back as themselves.
+  var KEEP_HISTORY = 40;
+  function pack(x) { return x == null ? x : JSON.parse(JSON.stringify(x, function (k, v) { return v && ArrayBuffer.isView(v) ? { $t: v.constructor.name, a: Array.prototype.slice.call(v) } : v; })); }
+  function unpack(x) {
+    if (Array.isArray(x)) return x.map(unpack);
+    if (x && typeof x === 'object') {
+      if (x.$t && Array.isArray(x.a)) return new root[x.$t](x.a);
+      var o = {}; Object.keys(x).forEach(function (k) { o[k] = unpack(x[k]); }); return o;
+    }
+    return x;
+  }
+  function History() { var h = []; return { all: function () { return h.slice(-KEEP_HISTORY); }, set: function (list) { h = list.slice(); }, push: function (s) { h.push(s); }, pop: function () { return h.pop(); }, clear: function () { h.length = 0; }, size: function () { return h.length; }, last: function () { return h[h.length - 1]; } }; }
 
   // Fisher-Yates with a given random function.
   function shuffle(a, rnd) {
@@ -275,5 +318,5 @@
   // Wait for the page's frame before heavy work, so a "thinking" line gets painted first.
   function afterPaint(fn) { setTimeout(fn, 30); }
 
-  root.WorldKit = { create: create, standardOptions: standardOptions, overlay: overlay, History: History, scoreBar: scoreBar, STONE_DEFS: STONE_DEFS, shuffle: shuffle, pick: pick, afterPaint: afterPaint, el: el };
+  root.WorldKit = { pack: pack, unpack: unpack, create: create, standardOptions: standardOptions, overlay: overlay, History: History, scoreBar: scoreBar, STONE_DEFS: STONE_DEFS, shuffle: shuffle, pick: pick, afterPaint: afterPaint, el: el };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

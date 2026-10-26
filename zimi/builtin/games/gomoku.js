@@ -228,5 +228,10 @@
   if (root.ZimiShell) root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && history.size() > 0; } });
   buildBoard();
   G.newGame();
+  G.persist({
+    save: function () { return history.size() ? { state: state, history: history.all(), last: last, winLine: winLine } : null; },
+    load: function (d) { state = d.state; history.set(d.history); last = d.last; winLine = d.winLine; hintIdx = -1; paint(); },
+    resume: function () { G.say(turnText()); if (!G.human(state.turn)) G.later(function () { place(chooseMove(state.board.slice(0), state.turn + 1, G.settings.level)); }); }
+  });
   if (new URLSearchParams(location.search).has('debug')) root.__gm = { state: function () { return state; }, engine: root.GomokuEngine };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
