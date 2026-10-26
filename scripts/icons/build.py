@@ -5,7 +5,7 @@ physically consistent scene (camera and light derived in the games block below);
 sky of one fixed day (astro.py, glitter.py, splat.py are its helpers).  Run from the repo root:
 
     python3 scripts/icons/build.py                 # the svgs, into --out DIR (default $ZIMI_ICONS_OUT or a temp dir)
-    python3 scripts/icons/build.py --apply         # also rewrite games/mark.svg and the mark block in cards.js
+    python3 scripts/icons/build.py --apply         # also rewrite games/mark.svg, games/icon.svg and the mark block in cards.js
     python3 scripts/icons/build.py --icons         # also rasterise both icon.png (Chrome and ImageMagick)
     python3 scripts/icons/build.py --check         # exit 1 if games/mark.svg or cards.js drifted from the generator
     python3 scripts/icons/build.py --review        # a board.html of every icon at 1024, 96, 48 and 32 to look at
@@ -869,7 +869,8 @@ def apply_to_repo():
     cj = os.path.join(GAMES, 'cards.js'); src = open(cj).read()
     src = re.sub(r'// zimi-mark:begin.*?// zimi-mark:end', lambda m: mark_data_js(), src, flags=re.S)
     open(cj, 'w').write(src)
-    open(os.path.join(GAMES, 'mark.svg'), 'w').write(open(os.path.join(OUT, 'mark.svg')).read())
+    for n, to in (('mark.svg', 'mark.svg'), ('zimigames.svg', 'icon.svg')):       # the pebble, and the ZimiGames tile the shelf header shows
+        open(os.path.join(GAMES, to), 'w').write(open(os.path.join(OUT, n)).read())
 def rasterise(svg, png, px=96, big=768):
     """Chrome draws the svg on a transparent page at `big`; ImageMagick takes it down to `px` (RGBA)."""
     import subprocess
@@ -882,7 +883,8 @@ def rasterise(svg, png, px=96, big=768):
 def drift():
     """What in the repo no longer matches the generator (empty when clean)."""
     out = []
-    if open(os.path.join(GAMES, 'mark.svg')).read() != open(os.path.join(OUT, 'mark.svg')).read(): out.append('games/mark.svg')
+    for n, to in (('mark.svg', 'mark.svg'), ('zimigames.svg', 'icon.svg')):
+        if open(os.path.join(GAMES, to)).read() != open(os.path.join(OUT, n)).read(): out.append('games/' + to)
     cj = open(os.path.join(GAMES, 'cards.js')).read()
     if mark_data_js() not in cj: out.append('the mark block in games/cards.js')
     return out

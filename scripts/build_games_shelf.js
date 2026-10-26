@@ -130,9 +130,8 @@ html = /<!-- zimi-shelf:sprite -->[\s\S]*?<!-- \/zimi-shelf:sprite -->/.test(htm
   ? html.replace(/<!-- zimi-shelf:sprite -->[\s\S]*?<!-- \/zimi-shelf:sprite -->/, () => '<!-- zimi-shelf:sprite -->' + spriteSvg + '<!-- /zimi-shelf:sprite -->')
   : html.replace('<main class="ar-shelf">', () => '<!-- zimi-shelf:sprite -->' + spriteSvg + '<!-- /zimi-shelf:sprite -->\n<main class="ar-shelf">');
 
-// The header: the pebble mark, then the name as text in the page's own heading face (selectable, translatable).
-const mark = Z.markSvg().replace('<svg ', '<svg class="ar-lockup" ').replace(' xmlns="http://www.w3.org/2000/svg"', '').replace(' role="img" aria-label="ZimiGames"', ' aria-hidden="true"');
-const brand = '<h1 class="ar-brand">' + mark + '<span>ZimiGames</span></h1>';
+// The header: the ZimiGames icon (icon.svg, from scripts/icons) then the name as text in the page's own heading face (selectable, translatable).
+const brand = '<h1 class="ar-brand"><img class="ar-lockup" src="icon.svg" alt="" width="44" height="44"><span>ZimiGames</span></h1>';
 html = html.replace(/<h1 class="ar-brand">[\s\S]*?<\/h1>/, () => brand);
 
 let redrawn = [];
