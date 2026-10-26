@@ -12,3 +12,5 @@
 /* The accent button keeps its label on hover (the plain button turns its text accent, which would vanish on it). */
 .gm-play:hover { color: var(--accent-ink); filter: brightness(1.08); }
 .gs-actionrow[hidden] { display: none; }
+/* A link that looks like a button (Read about ..., after an answer). */
+a.ar-btn { display: inline-flex; align-items: center; text-decoration: none; color: inherit; }

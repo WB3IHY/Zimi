@@ -114,7 +114,7 @@
     field.setAttribute('aria-label', T('tp.clueLabel')); field.placeholder = T('tp.cluePlaceholder');
     var counter = el('p', 'tp-counter', T('tp.counter', { n: field.value.length, max: CLUE_MAX }));
     field.addEventListener('input', function () { g.clue = field.value; counter.textContent = T('tp.counter', { n: field.value.length, max: CLUE_MAX }); });
-    c.appendChild(field); c.appendChild(counter);
+    c.appendChild(field); c.appendChild(counter); c.appendChild(el('p', 'tp-blurb', T('tp.how')));
     button(T('tp.another'), false, function () {
       if (swaps >= SWAPS) return;
       swaps++; newSecret().then(renderGive);

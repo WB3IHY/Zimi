@@ -59,10 +59,10 @@ def test_telephone(browser, world, mode, gone):
     assert secret["title"] in page.locator(".tp-secret").inner_text()
     # a clue that names the article is refused
     page.fill("#tp-clue", "It is the one called " + secret["title"])
-    tap(page, page.locator("text=Pass the phone"))
+    tap(page, page.locator("#tp-actions .gm-play"))
     assert "must not say" in page.locator("#tp-msg").inner_text() and cover(page) == 0
     page.fill("#tp-clue", CLUE)
-    tap(page, page.locator("text=Pass the phone"))
+    tap(page, page.locator("#tp-actions .gm-play"))
     assert cover(page) == 1, "the phone is passed behind a cover"
     # leaving with the clue written: back behind the cover, the same clue, the secret not on the screen
     page.wait_for_timeout(600)

@@ -3199,6 +3199,7 @@
   "other": "{n} guesses left, {name}"
  },
  "tp.hasTable": "{name} has the table: {n} chips.",
+ "tp.how": "When you pass the phone, the other player searches the library for this article, using only your clue.",
  "tp.label.blind": "Blind",
  "tp.label.blindRaise": "Raise blind",
  "tp.label.chaal": "Chaal",
@@ -3248,7 +3249,7 @@
  "tp.say.sideshow": "asks for a side show",
  "tp.score": "Together {n}",
  "tp.searchLabel": "Search the library",
- "tp.searchPlaceholder": "Search for the article",
+ "tp.searchPlaceholder": "Type what you think it is",
  "tp.tableYours": "The table is yours: {n} chips.",
  "tp.tag.blind": "blind",
  "tp.tag.packed": "packed",
