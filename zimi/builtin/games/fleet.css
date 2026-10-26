@@ -20,6 +20,7 @@
 .fl-c.fl-last { box-shadow: inset 0 0 0 2px var(--select-ring); }
 .fl-grid.fl-aim .fl-c:not(:disabled):hover { box-shadow: inset 0 0 0 2px var(--select-ring); }
 .fl-tray, .fl-tools { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 420px; }
+.fl-tray { max-width: 300px; }   /* five ships wrap three and two, not four and one */
 .fl-tray:empty, .fl-tools:empty { display: none; }
 .fl-tray .ar-btn[aria-pressed="true"], .fl-tools .ar-btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
 .fl-tray .ar-btn.fl-done { text-decoration: line-through; opacity: 0.6; }

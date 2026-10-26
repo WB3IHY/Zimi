@@ -228,10 +228,10 @@
     setActor(i); paintAll();
   }
   function turnMessage() {
-    if (phase === 'place') say(seats.hotseat() ? T('janggi.noted', { note: placeLine(), line: T('fleet.placesFirst', { name: seats.name(actor) }) }) : placeLine());
+    if (phase === 'place') say(seats.hotseat() ? UI.noted(placeLine(), T('fleet.placesFirst', { name: seats.name(actor) })) : placeLine());
     else {
       var fire = seats.hotseat() ? T('fleet.fireName', { name: seats.name(actor) }) : T('fleet.fireYou');
-      say(seats.hotseat() && lastTheirs ? T('janggi.noted', { note: T('fleet.lastShot', { cell: label(lastTheirs[0], lastTheirs[1]) }), line: fire }) : fire);
+      say(seats.hotseat() && lastTheirs ? UI.noted(T('fleet.lastShot', { cell: label(lastTheirs[0], lastTheirs[1]) }), fire) : fire);
     }
   }
   function startBattle() {
@@ -262,7 +262,7 @@
     var r = fire(mine, pick[0], pick[1]);
     lastTheirs = lastShot[1 - actor] = pick;
     var shot = shotText(r, true, label(pick[0], pick[1]));
-    say(lastText ? T('janggi.noted', { note: lastText, line: shot }) : shot);
+    say(lastText ? UI.noted(lastText, shot) : shot);
     if (r.win) { phase = 'over'; paintAll(); return finish(false); }
     phase = 'battle'; paintAll();
   }

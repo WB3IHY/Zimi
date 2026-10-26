@@ -214,7 +214,9 @@
       b.type = 'button';
       var ok = !!playable[i];
       b.className = 'dm-card' + (ok ? ' can' : '') + (i === selected ? ' sel' : '');
-      b.disabled = !ok;
+      // A tile that cannot be played stays tappable, so it can shake and say why (aria-disabled); a hidden hand is plain disabled.
+      if (!ok) b.setAttribute('aria-disabled', 'true');
+      b.disabled = !shown;
       if (!shown) { b.className = 'dm-card'; b.disabled = true; b.setAttribute('aria-label', T('dominoes.hidden')); b.appendChild(tileEl(0, 0, 'vert dm-hidden')); handEl.appendChild(b); return; }
       b.setAttribute('aria-label', T(ok ? (st.chain.length ? 'dominoes.tileCan' : 'dominoes.tileLead') : 'dominoes.tileNo', { a: t[0], b: t[1] }));
       b.appendChild(tileEl(t[0], t[1], 'vert' + (isDouble(t) ? ' double' : '')));
@@ -224,38 +226,31 @@
     $('dm-hand-count').textContent = mine.length && shown ? T('dominoes.handCount', { n: mine.length, dots: handPips(mine) }) : '';
   }
 
-  function paintOpponents() {
-    var box = $('dm-opps');
-    box.textContent = '';
-    for (var p = 0; p < players(); p++) {
-      if (p === seats.view()) continue;
-      var d = document.createElement('div');
-      d.className = 'dm-opp' + (st.turn === p && !matchOver ? ' now' : '');
-      var nm = document.createElement('span'); nm.className = 'dm-opp-name'; nm.textContent = nameOf(p);
-      var backs = document.createElement('span'); backs.className = 'dm-backs'; backs.setAttribute('aria-label', T('dominoes.tiles', { n: st.hands[p].length }));
-      for (var i = 0; i < st.hands[p].length; i++) backs.appendChild(document.createElement('i'));
-      var n = document.createElement('b'); n.textContent = st.hands[p].length;
-      d.appendChild(nm); d.appendChild(backs); d.appendChild(n); box.appendChild(d);
-    }
-  }
+  // The one chips row: every player, their points, and for the others the tiles they hold. The player to move has the amber ring.
   function paintScores() {
-    var box = $('dm-scores');
+    var box = $('dm-scores'), V = seats.view();
     box.textContent = '';
-    scores.forEach(function (s, p) {
+    scores.forEach(function (sc, p) {
       var d = document.createElement('span');
-      d.className = 'dm-score' + (p === st.turn && !matchOver ? ' now' : '');
+      d.className = 'wk-who' + (p === st.turn && !matchOver ? ' turn' : '');
       d.appendChild(document.createTextNode(nameOf(p) + ' '));
-      var b = document.createElement('b'); b.textContent = s; d.appendChild(b);
+      var b = document.createElement('b'); b.textContent = sc; d.appendChild(b);
+      if (p !== V) {
+        var n = document.createElement('span');
+        n.className = 'dm-tl'; n.textContent = st.hands[p].length; n.title = T('dominoes.tiles', { n: st.hands[p].length });
+        n.setAttribute('aria-label', n.title);
+        d.appendChild(n);
+      }
       box.appendChild(d);
     });
-    // one quiet line: the round, the target, the open ends, the boneyard
+    // one quiet line under the hand: the round, the target, the open ends, the boneyard
     var bits = [T('dominoes.meta', { round: round, target: settings.target })];
     if (st.ends) bits.push(T('dominoes.ends', { a: st.ends[0], b: st.ends[1] }));
     bits.push(settings.mode === 'draw' ? T('dominoes.boneyard', { n: st.boneyard.length }) : T('dominoes.blockGame'));
     $('dm-target').textContent = bits.join(' · ');
   }
   function say(text, busy) { line.turn(text, !!busy); }
-  function render() { paintOpponents(); paintScores(); paintChain(); paintHand(); }
+  function render() { paintScores(); paintChain(); paintHand(); }
   function humanTurn() { return humanSeat(st.turn) && !busy && !matchOver; }
 
   // ── a round ──
@@ -285,7 +280,7 @@
   function nextPlayer() {
     st.turn = (st.turn + 1) % players();
     timer = setTimeout(takeTurn, NEXT_MS);
-    paintOpponents(); paintScores();
+    paintScores();
   }
   // The table as it stood when this turn began (a move in the air is not kept), for leaving and coming back.
   var snap = null, lastEnd = null, restoredPhase = '';
@@ -357,7 +352,8 @@
 
   // ── input ──
   function onHandTile(i, ends) {
-    if (!humanTurn() || !ends) return;
+    if (!humanTurn()) return;
+    if (!ends) { UI.refuse(line, handEl.children[i], T('dominoes.noMatch')); return; }
     if (ends.length === 1 || (ends.length === 2 && st.ends[0] === st.ends[1])) { humanPlay(i, ends[0]); return; }
     if (selected === i) { selected = -1; ghosts = null; } else { selected = i; ghosts = ends; say(T('dominoes.whichEnd')); }
     render();

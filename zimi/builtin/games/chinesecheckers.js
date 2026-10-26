@@ -241,9 +241,9 @@
     box.textContent = '';
     state.seats.forEach(function (camp, s) {
       var item = document.createElement('span');
-      item.className = 'cc-score' + (s === state.turn && !over ? ' now' : '');
+      item.className = 'wk-who' + (s === state.turn && !over ? ' turn' : '');
       var dot = document.createElement('i');
-      dot.className = 'cc-swatch'; dot.style.background = MARBLE_COLORS[camp]; dot.setAttribute('aria-hidden', 'true');
+      dot.className = 'wk-pip'; dot.style.background = MARBLE_COLORS[camp]; dot.setAttribute('aria-hidden', 'true');
       item.appendChild(dot);
       item.appendChild(document.createTextNode(colorName(camp) + (isHuman(s) || peopleCount() < 2 ? '' : ' ' + T('ludo.cpu')) + ' '));
       var b = document.createElement('b');

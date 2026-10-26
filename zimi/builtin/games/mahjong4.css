@@ -56,3 +56,7 @@
 @media (max-width: 420px) { .m4-opp .nm { min-width: 6.4em; } }
 @media (prefers-reduced-motion: reduce) { .m4-hand .m4-t { transition: none; } }
 html[data-anim="off"] .m4-hand .m4-t { transition: none; }
+
+/* Four player chips: two by two, the shared pill with the name on one line. */
+.m4-main .bg-score { display: grid; grid-template-columns: repeat(2, auto); justify-content: center; gap: var(--sp-2) var(--sp-3); }
+.m4-main .bg-score .wk-who { white-space: nowrap; justify-content: space-between; }

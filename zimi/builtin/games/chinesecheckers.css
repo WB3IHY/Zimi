@@ -19,8 +19,6 @@
 .cc-hint { fill: var(--select-ring); opacity: 0.9; }
 .cc-cursor { fill: none; stroke: var(--select-ring); stroke-width: 0.12px; stroke-dasharray: 0.25 0.12; }
 
-.cc-scores { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: center; max-width: 440px; font: 600 var(--fs-small) var(--mono); color: var(--ink2); }
-.cc-score { display: inline-flex; align-items: center; gap: 5px; padding: 2px 6px; border-radius: 6px; }
-.cc-score.now { background: var(--surface); box-shadow: 0 0 0 1.5px var(--select-ring); color: var(--ink); }
-.cc-score b { color: var(--ink); }
-.cc-swatch { display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.45); flex: none; }
+/* Up to six player chips: the shared pill, tighter, wrapping. */
+.cc-scores { flex-wrap: wrap; justify-content: center; gap: var(--sp-2); max-width: 440px; }
+.cc-scores .wk-who { gap: 4px; padding: 0 var(--sp-2); }

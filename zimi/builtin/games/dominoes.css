@@ -5,20 +5,12 @@
 @media (min-width: 700px) { :root { --dm-hs: 46px; } }
 
 .dm-main { width: 100%; max-width: 640px; margin: 0 auto; }
-.dm-scores { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: center; font: 600 var(--fs-small) var(--mono); color: var(--ink2); }
-.dm-score { padding: 2px 8px; border-radius: 6px; }
-.dm-score.now { background: var(--surface); box-shadow: 0 0 0 1.5px var(--select-ring); color: var(--ink); }
-.dm-score b { color: var(--ink); }
-.dm-meta { margin: 0; font: var(--fs-small) var(--font); color: var(--ink2); text-align: center; }
+/* The chips are the shared pills (world.css); the others' tile counts follow the points with a small tile. */
+.dm-scores { flex-wrap: wrap; justify-content: center; gap: var(--sp-2); }
+.dm-scores .wk-who { gap: 4px; padding: 0 var(--sp-2); }
+.dm-tl { display: inline-flex; align-items: center; gap: 3px; margin-left: 4px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.dm-tl::before { content: ""; width: 7px; height: 12px; border-radius: 2px; background: var(--dm-back); border: 1px solid rgba(0, 0, 0, 0.3); }
 .dm-sep { opacity: 0.5; }
-
-.dm-opps { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; width: 100%; }
-.dm-opp { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); min-width: 0; }
-.dm-opp.now { box-shadow: 0 0 0 2px var(--select-ring); }
-.dm-opp-name { font-size: var(--fs-small); font-weight: 650; white-space: nowrap; }
-.dm-opp b { font: 700 var(--fs-small) var(--mono); color: var(--ink2); }
-.dm-backs { display: flex; gap: 2px; }
-.dm-backs i { width: 7px; height: 16px; border-radius: 2px; background: var(--dm-back); border: 1px solid rgba(0, 0, 0, 0.3); }
 
 .dm-table { width: 100%; min-height: 150px; padding: 10px 8px; border-radius: 14px; background: radial-gradient(circle at 50% 35%, var(--felt), var(--felt-deep)); box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.35); display: flex; flex-direction: column; gap: 6px; justify-content: center; }
 .dm-empty { margin: 0; text-align: center; color: var(--disc-w); opacity: 0.7; }
@@ -46,7 +38,7 @@
 .dm-mine { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; }
 .dm-hand { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: calc(var(--dm-hs) * 2 + 8px); }
 .dm-card { padding: 3px; border: 2px solid transparent; border-radius: 9px; background: transparent; cursor: pointer; }
-.dm-card:disabled { cursor: default; opacity: 0.5; }
+.dm-card:disabled, .dm-card[aria-disabled="true"] { cursor: default; opacity: 0.5; }
 .dm-card.can { border-color: color-mix(in srgb, var(--select-ring) 55%, transparent); }
 .dm-card.sel { border-color: var(--select-ring); background: color-mix(in srgb, var(--select-ring) 25%, transparent); transform: translateY(-4px); }
 .dm-card:focus-visible { outline: 3px solid var(--select-ring); outline-offset: 2px; }

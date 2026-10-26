@@ -220,6 +220,9 @@
         g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(mv); } });
         el('circle', { r: 0.78, class: 'ld-hit' }, g);
         el('circle', { r: 0.62 * d.scale + 0.16, class: 'ld-halo' }, g);
+      } else if (phase === 'move' && !over && tk.seat === state.turn && isHuman(tk.seat)) {
+        // one of your own that this roll cannot move: the board shakes and says so
+        g.addEventListener('click', function () { UI.refuse(line, svg, T('ludo.cantMove', { n: die })); });
       }
       el('circle', { r: 0.5 * d.scale, fill: COLORS[color], class: 'ld-disc c' + color }, g);
       el('circle', { r: 0.5 * d.scale * 0.62, class: 'ld-disc-in' }, g);
@@ -234,9 +237,9 @@
     box.textContent = '';
     state.seats.forEach(function (color, seat) {
       var s = document.createElement('span');
-      s.className = 'ld-score' + (seat === state.turn && !over ? ' now' : '');
+      s.className = 'wk-who' + (seat === state.turn && !over ? ' turn' : '');
       var dot = document.createElement('i');
-      dot.className = 'ld-swatch'; dot.style.background = COLORS[color]; dot.setAttribute('aria-hidden', 'true');
+      dot.className = 'wk-pip'; dot.style.background = COLORS[color]; dot.setAttribute('aria-hidden', 'true');
       s.appendChild(dot);
       s.appendChild(document.createTextNode(colorName(color) + (isHuman(seat) || humansCount() < 2 ? '' : ' ' + T('ludo.cpu')) + ' '));
       var b = document.createElement('b'); b.textContent = homeCount(state, seat) + '/' + TOKENS;
@@ -302,7 +305,7 @@
       var again = die === EXIT_ROLL || (waiting && state.tries < MAX_TRIES - 1);
       if (waiting && die !== EXIT_ROLL) state.tries++;
       var note = about('ludo.cannot', seat, { n: die });
-      say(again ? T('janggi.noted', { note: note, line: T('ludo.rollAgain') }) : note);
+      say(again ? UI.noted(note, T('ludo.rollAgain')) : note);
       timer = setTimeout(function () { if (again) startTurn(); else { nextSeat(); startTurn(); } }, PASS_MS); return;
     }
     phase = 'move';
