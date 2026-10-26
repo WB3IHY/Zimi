@@ -86,11 +86,13 @@
   // cards.css switches them by the card's width (container query), so the
   // same markup serves a phone's Spider (33 px) and a desktop's Solitaire.
   // Suit shapes centred on 0,0 inside ±10; one sprite, `use`d by every card.
+  // The four suits as one family at card-maker proportions (clubs, diamonds, hearts, spades; a 20-unit box each): the spade's
+  // cusp and flared stem are reused by the club; heart and diamond are matched to them for height and weight.
   var SUIT_SHAPES = [
-    '<circle cy="-5" r="4.8"/><circle cx="-5.2" cy="2.6" r="4.8"/><circle cx="5.2" cy="2.6" r="4.8"/><path d="M-1.3 2C-1 6-2.6 8-4.6 10h9.2C2.6 8 1 6 1.3 2z"/>',
-    '<path d="M0-11C1.6-6 4.6-2.6 7.6 0 4.6 2.6 1.6 6 0 11-1.6 6-4.6 2.6-7.6 0-4.6-2.6-1.6-6 0-11z"/>',
-    '<path d="M0 9.5C-14-1-10-10-4.5-8.5-2-7.8 0-5.5 0-4 0-5.5 2-7.8 4.5-8.5 10-10 14-1 0 9.5z"/>',
-    '<path d="M0-10C-4-5-11-1-9 3.5-7.5 7-2.5 6-1.5 3-1.5 6-2 8-4 10h8C2 8 1.5 6 1.5 3 2.5 6 7.5 7 9 3.5 11-1 4-5 0-10z"/>'
+    '<circle cy="-5.3" r="4.8"/><circle cx="-5.5" cy="1.7" r="4.8"/><circle cx="5.5" cy="1.7" r="4.8"/><circle cy="0.4" r="3.4"/><path d="M-2.1 3C-2.1 7-2.8 9-5 10H5C2.8 9 2.1 7 2.1 3Z"/>',
+    '<path d="M0-10.6C1.5-6.4 4.8-2.8 8.6 0 4.8 2.8 1.5 6.4 0 10.6-1.5 6.4-4.8 2.8-8.6 0-4.8-2.8-1.5-6.4 0-10.6Z"/>',
+    '<path d="M0 9.8C-1.8 7.6-10.4 2.6-10.4-3.4-10.4-7.4-7.6-9.8-4.9-9.8-2.7-9.8-.9-8.6 0-6.6 .9-8.6 2.7-9.8 4.9-9.8 7.6-9.8 10.4-7.4 10.4-3.4 10.4 2.6 1.8 7.6 0 9.8Z"/>',
+    '<path d="M0-10.2C1-7.6 4.4-5.2 7.4-2.4 10.6 .6 10.8 5.6 6.8 6.8 4.9 7.3 3.1 6.7 2.1 5.3 2.2 7.6 2.9 9 5.2 10H-5.2C-2.9 9-2.2 7.6-2.1 5.3-3.1 6.7-4.9 7.3-6.8 6.8-10.8 5.6-10.6 .6-7.4-2.4-4.4-5.2-1 -7.6 0-10.2Z"/>'
   ];
   // The Italian suits, in the same hand: coins, cups, swords, clubs.
   var ITALIAN_SUITS = ['coins', 'cups', 'swords', 'clubs'];
@@ -105,8 +107,9 @@
   var CARD_RED = '#c62828', CARD_BLACK = '#1b1b1b', CARD_CREAM = '#fdfcf8', CARD_EDGE = '#c9c4b8'; // games.css tokens, repeated for the cascade's bitmaps
   var GOLD = '#e09400', MARK_FROM = '#fb8c14', MARK_TO = '#f2582a'; // Zimi's amber, and the two ends of the Z's gradient
   var FACE_W = 100, FACE_H = 140, ACE_SCALE = 3.3, ACE_SPADE_SCALE = 3.9;
-  // The Z sits on the spade's bulb centroid (-0.34 of the suit's 20-unit box, measured), not the box centre.
-  var ACE_Z_Y = 70 - 0.34 * ACE_SPADE_SCALE, ACE_Z_H = 28.6, SMALL_Z_H = 22.9, BACK_Z_H = 32.2; // the Z's height on the Ace, its small index and the Zimi back
+  // The Ace of Spades carries the maker's mark: the Z alone, in the spade's belly (centre 0.3 of the spade's 20-unit box below its middle,
+  // 9 units tall, clear of the outline on every side).
+  var ACE_Z_DY = 0.3, ACE_Z_UNITS = 9, ACE_Z_Y = 70 + ACE_Z_DY * ACE_SPADE_SCALE, ACE_Z_H = ACE_Z_UNITS * ACE_SPADE_SCALE, BACK_Z_H = 32.2; // and the Zimi back's
   var PIP_SCALE = 1.15, PIP_SCALE_DENSE = 0.95, DENSE_FROM = 8, PIP_COLS = [34, 66], PIP_MID_X = 50, PIP_TOP = 32, PIP_BOTTOM = 108, PIP_CENTRE = 70, FLIP_AFTER_Y = 70;
   var PIPS = (function () {
     var sides = function (ys) { var o = []; ys.forEach(function (y) { PIP_COLS.forEach(function (x) { o.push([x, y]); }); }); return o; };
@@ -346,7 +349,7 @@
     if (r === 1) {
       var spadeAce = s === 3;
       body = '<g class="zc-big">' + placed(s, 50, 70, spadeAce ? ACE_SPADE_SCALE : ACE_SCALE, false, standalone) + (spadeAce ? markZ(50, ACE_Z_Y, ACE_Z_H) : '') + '</g>' +
-        smallSuit(s, standalone, null, null, spadeAce ? markZ(50, SMALL_SUIT_Y - 1, SMALL_Z_H) : '');
+        smallSuit(s, standalone, null, null, spadeAce ? markZ(50, SMALL_SUIT_Y + ACE_Z_DY * SMALL_SUIT_SCALE, ACE_Z_UNITS * SMALL_SUIT_SCALE) : '');
     } else if (r <= 10) {
       var pips = '';
       PIPS[r].forEach(function (p) { pips += placed(s, p[0], p[1], r >= DENSE_FROM ? PIP_SCALE_DENSE : PIP_SCALE, p[1] > FLIP_AFTER_Y, standalone); });
