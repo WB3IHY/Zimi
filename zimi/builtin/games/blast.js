@@ -404,6 +404,7 @@
   function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); }
   function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); loop.start(); }
   function toggle() { if (mode === 'playing') pause(); else resume(); }
+  var lastEnd = null;
   function finish(mw) {
     mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false);
     var human = st.kinds[mw] === 'person', solo = setup.humans === 1, opts;
@@ -411,6 +412,7 @@
     hud(); draw();
     opts = { stats: [[Tx('blast.roundsWon'), Play.num(st.wins[mw])]] };
     if (solo) opts.result = human ? 'win' : 'lose'; else { opts.result = 'win'; opts.name = nameOf(mw); }
+    lastEnd = opts;
     ZimiShell.endSheet(opts);
     setTimeout(function () { if (mode === 'over') armed = Play.ready({ say: status.say, target: pad.stage, start: begin }); }, READY_ARM_MS);
   }
@@ -426,8 +428,32 @@
 
   window.addEventListener('resize', layout);
   buildKeys(); layout();
+  // Leaving and coming back keeps the match: paused where it was, or at its end sheet.
+  var restored = false;
+  ZimiShell.persist({
+    save: function () {
+      if (mode === 'over' && lastEnd) return { end: lastEnd, kinds: st.kinds };
+      return (mode === 'playing' || mode === 'paused') && st ? { st: st } : null;
+    },
+    load: function (d) {
+      var kinds = d.end ? d.kinds : d.st && d.st.kinds;
+      if (!kinds || !kinds.length) return false;
+      setup.humans = kinds.filter(function (k) { return k === 'person'; }).length; setup.cpus = kinds.length - setup.humans;
+      if (armed) armed.cancel();
+      if (d.end) {
+        st = createState(kinds, 11); buildKeys(); mode = 'over'; lastEnd = d.end; layout(); hud();
+        ZimiShell.endSheet(d.end);
+        setTimeout(function () { if (mode === 'over') armed = Play.ready({ say: status.say, target: pad.stage, start: begin }); }, READY_ARM_MS);
+      } else {
+        st = d.st; st.rng = mulberry(Math.floor(Math.random() * 4294967296)); buildKeys(); mode = 'paused';
+        els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(Tx('play.paused')); layout(); hud();
+      }
+      restored = true;
+      return true;
+    }
+  });
   // The board is not drawn until Start: who plays is chosen first.
-  startSheet = ZimiShell.sheet({
+  if (!restored) startSheet = ZimiShell.sheet({
     title: 'Blast', text: Tx('blast.intro'), body: [setupRows()],
     actions: [{ label: Tx('shell.start'), primary: true, keep: true, onclick: begin }],
     onClose: function () { if (startSheet) { startSheet = null; arm(); } }
