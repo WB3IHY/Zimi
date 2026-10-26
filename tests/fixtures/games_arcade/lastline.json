@@ -1,0 +1,182 @@
+[
+ {
+  "hud": "Score0\n    Best0\n    Lives3\n    Wave1",
+  "label": "rest",
+  "lives": 3,
+  "mode": "ready",
+  "msg": "Tap to start. Move and fire",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "ee21c41"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Lives3\n    Wave1",
+  "label": "started",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "2e0fcdf3"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Lives3\n    Wave1",
+  "label": "keys",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "fc189e68"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Lives3\n    Wave1",
+  "label": "paused",
+  "lives": 3,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "218b9bf0"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Lives3\n    Wave1",
+  "label": "held",
+  "lives": 3,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "218b9bf0"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Lives3\n    Wave1",
+  "label": "resumed",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "badabfaa"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Lives3\n    Wave1",
+  "label": "hidden",
+  "lives": 3,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "badabfaa"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Lives3\n    Wave1",
+  "label": "menu-resume",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "c425fa84"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Lives3\n    Wave1",
+  "label": "returned",
+  "lives": 3,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "720f1770"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Lives3\n    Wave1",
+  "label": "returned-and-playing",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "f4339e8f"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Lives0\n    Wave1",
+  "label": "over",
+  "lives": 0,
+  "mode": "over",
+  "msg": "Tap to start. Move and fire",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 0,
+  "sheet": "Game overScore0Best0CloseNew game",
+  "state": "feb5a5ae"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Lives0\n    Wave1",
+  "label": "over-returned",
+  "lives": 0,
+  "mode": "over",
+  "msg": "Tap to start. Move and fire",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "feb5a5ae"
+ }
+]

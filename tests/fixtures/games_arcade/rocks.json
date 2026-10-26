@@ -1,0 +1,182 @@
+[
+ {
+  "hud": "Score0\n    Best0\n    Ships3\n    Wave1",
+  "label": "rest",
+  "lives": 3,
+  "mode": "ready",
+  "msg": "Tap to start. Turn, thrust, fire",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "63c7c0f3"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Ships3\n    Wave1",
+  "label": "started",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "b673797"
+ },
+ {
+  "hud": "Score140\n    Best140\n    Ships3\n    Wave1",
+  "label": "keys",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 140,
+  "sheet": null,
+  "state": "759baa60"
+ },
+ {
+  "hud": "Score260\n    Best260\n    Ships2\n    Wave1",
+  "label": "escape",
+  "lives": 2,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 260,
+  "sheet": null,
+  "state": "b2fd1e9c"
+ },
+ {
+  "hud": "Score260\n    Best260\n    Ships2\n    Wave1",
+  "label": "held",
+  "lives": 2,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 260,
+  "sheet": null,
+  "state": "b2fd1e9c"
+ },
+ {
+  "hud": "Score260\n    Best260\n    Ships2\n    Wave1",
+  "label": "resumed",
+  "lives": 2,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 260,
+  "sheet": null,
+  "state": "59c8a556"
+ },
+ {
+  "hud": "Score260\n    Best260\n    Ships2\n    Wave1",
+  "label": "hidden",
+  "lives": 2,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 260,
+  "sheet": null,
+  "state": "59c8a556"
+ },
+ {
+  "hud": "Score260\n    Best260\n    Ships2\n    Wave1",
+  "label": "menu-resume",
+  "lives": 2,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 260,
+  "sheet": null,
+  "state": "5d74ca98"
+ },
+ {
+  "hud": "Score260\n    Best260\n    Ships2\n    Wave1",
+  "label": "returned",
+  "lives": 2,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 260,
+  "sheet": null,
+  "state": "1f7d0545"
+ },
+ {
+  "hud": "Score260\n    Best260\n    Ships2\n    Wave1",
+  "label": "returned-and-playing",
+  "lives": 2,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 260,
+  "sheet": null,
+  "state": "1a568f98"
+ },
+ {
+  "hud": "Score330\n    Best330\n    Ships0\n    Wave1",
+  "label": "over",
+  "lives": 0,
+  "mode": "over",
+  "msg": "Tap to start. Turn, thrust, fire",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 330,
+  "sheet": "Game overScore330Best330CloseNew game",
+  "state": "24d5d5a5"
+ },
+ {
+  "hud": "Score330\n    Best330\n    Ships0\n    Wave1",
+  "label": "over-returned",
+  "lives": 0,
+  "mode": "over",
+  "msg": "Tap to start. Turn, thrust, fire",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 330,
+  "sheet": null,
+  "state": "24d5d5a5"
+ }
+]

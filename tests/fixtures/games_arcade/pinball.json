@@ -1,0 +1,182 @@
+[
+ {
+  "hud": "Score0\n    Best0\n    Balls3\n    Bonus\u00d71",
+  "label": "rest",
+  "lives": 3,
+  "mode": "ready",
+  "msg": "Tap to start, then touch each side to flip",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "8fcb08e7"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Balls3\n    Bonus\u00d71",
+  "label": "started",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "Hold the lane, then let go to launch",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "5f46ee4e"
+ },
+ {
+  "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
+  "label": "launched",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "Ball saved",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 950,
+  "sheet": null,
+  "state": "5d53fa15"
+ },
+ {
+  "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
+  "label": "escape",
+  "lives": 3,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 950,
+  "sheet": null,
+  "state": "78f5bd3c"
+ },
+ {
+  "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
+  "label": "held",
+  "lives": 3,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 950,
+  "sheet": null,
+  "state": "78f5bd3c"
+ },
+ {
+  "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
+  "label": "resumed",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 950,
+  "sheet": null,
+  "state": "930947e6"
+ },
+ {
+  "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
+  "label": "hidden",
+  "lives": 3,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 950,
+  "sheet": null,
+  "state": "930947e6"
+ },
+ {
+  "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
+  "label": "menu-resume",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 950,
+  "sheet": null,
+  "state": "186df9a9"
+ },
+ {
+  "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
+  "label": "returned",
+  "lives": 3,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 950,
+  "sheet": null,
+  "state": "186df9a9"
+ },
+ {
+  "hud": "Score950\n    Best950\n    Balls3\n    Bonus\u00d71",
+  "label": "returned-and-playing",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 950,
+  "sheet": null,
+  "state": "b4a11347"
+ },
+ {
+  "hud": "Score1,550\n    Best1,550\n    Balls0\n    Bonus\u00d71",
+  "label": "over",
+  "lives": 0,
+  "mode": "over",
+  "msg": "Tap to start, then touch each side to flip",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 1550,
+  "sheet": "Game overScore1,550Best1,550CloseNew game",
+  "state": "1eb6c8ab"
+ },
+ {
+  "hud": "Score1,550\n    Best1,550\n    Balls0\n    Bonus\u00d71",
+  "label": "over-returned",
+  "lives": 0,
+  "mode": "over",
+  "msg": "Tap to start, then touch each side to flip",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 1550,
+  "sheet": null,
+  "state": "1eb6c8ab"
+ }
+]

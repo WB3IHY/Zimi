@@ -1,0 +1,182 @@
+[
+ {
+  "hud": "Hearts3\n    Keys0\n    SwordNo\n    PlaceMeadow",
+  "label": "rest",
+  "lives": null,
+  "mode": "ready",
+  "msg": "Tap to start",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": null,
+  "sheet": null,
+  "state": "458ff751"
+ },
+ {
+  "hud": "Hearts3\n    Keys0\n    SwordNo\n    PlaceMeadow",
+  "label": "started",
+  "lives": null,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": null,
+  "sheet": null,
+  "state": "f71d7d45"
+ },
+ {
+  "hud": "Hearts3\n    Keys0\n    SwordNo\n    PlaceMeadow",
+  "label": "keys",
+  "lives": null,
+  "mode": "playing",
+  "msg": "You have no sword yet",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": null,
+  "sheet": null,
+  "state": "b7e4d74"
+ },
+ {
+  "hud": "Hearts3\n    Keys0\n    SwordNo\n    PlaceMeadow",
+  "label": "escape",
+  "lives": null,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": null,
+  "sheet": null,
+  "state": "b7f6086d"
+ },
+ {
+  "hud": "Hearts3\n    Keys0\n    SwordNo\n    PlaceMeadow",
+  "label": "held",
+  "lives": null,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": null,
+  "sheet": null,
+  "state": "b7f6086d"
+ },
+ {
+  "hud": "Hearts3\n    Keys0\n    SwordNo\n    PlaceMeadow",
+  "label": "resumed",
+  "lives": null,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": null,
+  "sheet": null,
+  "state": "aa28eafb"
+ },
+ {
+  "hud": "Hearts3\n    Keys0\n    SwordNo\n    PlaceMeadow",
+  "label": "hidden",
+  "lives": null,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": null,
+  "sheet": null,
+  "state": "aa28eafb"
+ },
+ {
+  "hud": "Hearts3\n    Keys0\n    SwordNo\n    PlaceMeadow",
+  "label": "menu-resume",
+  "lives": null,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": null,
+  "sheet": null,
+  "state": "302a8dfc"
+ },
+ {
+  "hud": "Hearts3\n    Keys0\n    SwordNo\n    PlaceMeadow",
+  "label": "returned",
+  "lives": null,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": null,
+  "sheet": null,
+  "state": "b754d31f"
+ },
+ {
+  "hud": "Hearts3\n    Keys0\n    SwordNo\n    PlaceMeadow",
+  "label": "returned-and-playing",
+  "lives": null,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": null,
+  "sheet": null,
+  "state": "32b739f0"
+ },
+ {
+  "hud": "Hearts3\n    Keys0\n    SwordNo\n    PlaceMeadow",
+  "label": "over",
+  "lives": null,
+  "mode": "over",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": null,
+  "sheet": null,
+  "state": "9df0a4a9"
+ },
+ {
+  "hud": "Hearts3\n    Keys0\n    SwordNo\n    PlaceMeadow",
+  "label": "over-returned",
+  "lives": null,
+  "mode": "over",
+  "msg": "Tap to start",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": null,
+  "sheet": null,
+  "state": "458ff751"
+ }
+]

@@ -1,0 +1,182 @@
+[
+ {
+  "hud": "Score0\n    Best0\n    Lives3\n    Level1",
+  "label": "rest",
+  "lives": 3,
+  "mode": "ready",
+  "msg": "Tap to start, then swipe to hop",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "29716887"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Lives3\n    Level1",
+  "label": "started",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "6d820cbf"
+ },
+ {
+  "hud": "Score20\n    Best20\n    Lives1\n    Level1",
+  "label": "keys",
+  "lives": 1,
+  "mode": "playing",
+  "msg": "Hit by a vehicle",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 20,
+  "sheet": null,
+  "state": "7c4ea970"
+ },
+ {
+  "hud": "Score20\n    Best20\n    Lives1\n    Level1",
+  "label": "escape",
+  "lives": 1,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 20,
+  "sheet": null,
+  "state": "62ab17e1"
+ },
+ {
+  "hud": "Score20\n    Best20\n    Lives1\n    Level1",
+  "label": "held",
+  "lives": 1,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 20,
+  "sheet": null,
+  "state": "62ab17e1"
+ },
+ {
+  "hud": "Score20\n    Best20\n    Lives1\n    Level1",
+  "label": "resumed",
+  "lives": 1,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 20,
+  "sheet": null,
+  "state": "ddc04d00"
+ },
+ {
+  "hud": "Score20\n    Best20\n    Lives1\n    Level1",
+  "label": "hidden",
+  "lives": 1,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 20,
+  "sheet": null,
+  "state": "ddc04d00"
+ },
+ {
+  "hud": "Score20\n    Best20\n    Lives1\n    Level1",
+  "label": "menu-resume",
+  "lives": 1,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 20,
+  "sheet": null,
+  "state": "d7245c61"
+ },
+ {
+  "hud": "Score20\n    Best20\n    Lives1\n    Level1",
+  "label": "returned",
+  "lives": 1,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 20,
+  "sheet": null,
+  "state": "3fc02e09"
+ },
+ {
+  "hud": "Score20\n    Best20\n    Lives1\n    Level1",
+  "label": "returned-and-playing",
+  "lives": 1,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 20,
+  "sheet": null,
+  "state": "747ffe9"
+ },
+ {
+  "hud": "Score20\n    Best20\n    Lives0\n    Level1",
+  "label": "over",
+  "lives": 0,
+  "mode": "over",
+  "msg": "Tap to start, then swipe to hop",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 20,
+  "sheet": "Game overScore20Best20CloseNew game",
+  "state": "3c22f434"
+ },
+ {
+  "hud": "Score0\n    Best20\n    Lives3\n    Level1",
+  "label": "over-returned",
+  "lives": 3,
+  "mode": "over",
+  "msg": "Tap to start, then swipe to hop",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "29716887"
+ }
+]

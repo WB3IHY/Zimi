@@ -1,0 +1,182 @@
+[
+ {
+  "hud": "Score0\n    Best0\n    Lives3\n    Maze1",
+  "label": "rest",
+  "lives": 3,
+  "mode": "ready",
+  "msg": "Tap to start, then swipe to steer",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "4b1b524d"
+ },
+ {
+  "hud": "Score0\n    Best0\n    Lives3\n    Maze1",
+  "label": "started",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "9e9e3fcc"
+ },
+ {
+  "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
+  "label": "keys",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 70,
+  "sheet": null,
+  "state": "444186a9"
+ },
+ {
+  "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
+  "label": "escape",
+  "lives": 3,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 70,
+  "sheet": null,
+  "state": "d520a61e"
+ },
+ {
+  "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
+  "label": "held",
+  "lives": 3,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 70,
+  "sheet": null,
+  "state": "d520a61e"
+ },
+ {
+  "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
+  "label": "resumed",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 70,
+  "sheet": null,
+  "state": "ae9c3966"
+ },
+ {
+  "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
+  "label": "hidden",
+  "lives": 3,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 70,
+  "sheet": null,
+  "state": "ae9c3966"
+ },
+ {
+  "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
+  "label": "menu-resume",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 70,
+  "sheet": null,
+  "state": "83ff1d89"
+ },
+ {
+  "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
+  "label": "returned",
+  "lives": 3,
+  "mode": "paused",
+  "msg": "Paused",
+  "newHidden": true,
+  "pause": [
+   "Resume",
+   false
+  ],
+  "score": 70,
+  "sheet": null,
+  "state": "173cda26"
+ },
+ {
+  "hud": "Score70\n    Best70\n    Lives3\n    Maze1",
+  "label": "returned-and-playing",
+  "lives": 3,
+  "mode": "playing",
+  "msg": "",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   false
+  ],
+  "score": 70,
+  "sheet": null,
+  "state": "5a4db50e"
+ },
+ {
+  "hud": "Score70\n    Best70\n    Lives0\n    Maze1",
+  "label": "over",
+  "lives": 0,
+  "mode": "over",
+  "msg": "Tap to start, then swipe to steer",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 70,
+  "sheet": "Game overScore70Best70CloseNew game",
+  "state": "fb22f80f"
+ },
+ {
+  "hud": "Score0\n    Best70\n    Lives3\n    Maze1",
+  "label": "over-returned",
+  "lives": 3,
+  "mode": "over",
+  "msg": "Tap to start, then swipe to steer",
+  "newHidden": true,
+  "pause": [
+   "Pause",
+   true
+  ],
+  "score": 0,
+  "sheet": null,
+  "state": "4b1b524d"
+ }
+]
