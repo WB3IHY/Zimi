@@ -361,7 +361,7 @@
   function discardFallback(st) { return endHand(Z.clone(st), -1, TX('canasta.why.nothing')); }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var BAR_H = 46, TAG_H = 15, CELL_SHARE = 1.5, PILE_GAP = 1.7, TAG_SHARE = 2.6;
+  var BAR_H = 46, TAG_H = 22, CELL_SHARE = 1.5, PILE_GAP = 1.7, TAG_SHARE = 2.6;
   function perRow(m) { return Math.max(1, Math.floor((m.W - 2 * m.pad) / (m.cw * CELL_SHARE))); }
   function meldRows(m, n) { return Math.max(1, Math.ceil(n / perRow(m))); }
   // V is the side looking: its hand and melds sit at the bottom.
@@ -370,7 +370,7 @@
     var n = st.hands[V].length, g = T.geometry(m, T.rowsFor(m, n));
     var myRows = meldRows(m, st.melds[V].length), oppRows = meldRows(m, st.melds[1 - V].length);
     g.V = V;
-    g.barY = g.southY - g.raise - 4 - BAR_H;
+    g.barY = g.yBot - BAR_H;   // yBot is the top of your hand (its extra rows included)
     g.statusY = g.barY - 4 - T.STATUS_H;
     g.myMeldY = g.statusY - 4 - myRows * (g.ch + TAG_H + 4);
     g.oppMeldY = g.northY + g.ch + 8;
