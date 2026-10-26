@@ -26,8 +26,8 @@ const doc = {
 const sandbox = { console, Date, setTimeout, clearTimeout, setInterval, clearInterval, document: doc };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
-// cardbacks.js draws the backs, courts.js the court cards, and cards.js asks them for both, so they load first.
-for (const name of ['text.js', 'cardbacks.js', 'courts.js', 'cards.js']) vm.runInContext(fs.readFileSync(path.join(dir, name), 'utf8'), sandbox, { filename: name });
+// cardbacks.js draws the backs, courts.js, courts-es.js and hanafuda-art.js the court and flower cards, and cards.js asks them for both, so they load first.
+for (const name of ['text.js', 'cardbacks.js', 'courts.js', 'courts-es.js', 'hanafuda-art.js', 'cards.js']) vm.runInContext(fs.readFileSync(path.join(dir, name), 'utf8'), sandbox, { filename: name });
 const Z = sandbox.ZimiCards;
 Z.ensureSprite();
 
