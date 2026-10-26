@@ -158,7 +158,7 @@ function load(storageInit) {
   const { S } = load({});
   const seats = S.create({ id: 'spades', seats: 4 });
   const box = seats.block();
-  const rows = box.kids.filter((k) => k.className === 'zs-row');
+  const rows = box.kids.filter((k) => k.className === 'gs-row gs-seat-row');
   check(rows.length === 4, 'the Players block has a row per seat');
   const kindButtons = rows[1].kids[1].kids;
   check(same(kindButtons.map((b) => b.textContent), ['Computer', 'Person']), 'each seat offers Computer or Person');

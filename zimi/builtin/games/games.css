@@ -436,6 +436,15 @@ dl.gs-help { margin: 0; }
 .gs-statlist .gs-stat-alone { grid-column: 1 / -1; }
 .gs-card .zc-row { margin: 6px 0; }
 .gs-card .zs-seats { margin: 6px 0; }
+.gs-seats { display: grid; gap: var(--sp-2); }
+.gs-subhead { margin: 0; font-size: var(--fs-small); font-weight: 650; color: var(--ink2); text-transform: none; letter-spacing: 0; }
+.gs-seat-row { flex-wrap: wrap; }
+.gs-seat-row > label { flex: 0 0 64px; }
+.gs-seat-row > .gs-seg { flex: 1 1 0; min-width: 0; }
+@media (max-width: 420px) { .gs-seat-row { flex-wrap: wrap; } .gs-seat-row > .gs-seg { flex: 1 1 0; } .gs-seat-row .gs-field { flex: 1 1 100%; } }
+.gs-field { flex: 1 1 100%; min-width: 0; min-height: var(--target); padding: 0 var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; -webkit-appearance: none; }
+.gs-field:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.gs-note { margin: 0; font-size: var(--fs-small); color: var(--ink3); }
 .gs-card .zc-note { margin: 0; }
 
 /* Watch and learn: one sentence under the bar, and the controls. */

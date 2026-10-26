@@ -23,13 +23,14 @@
          Use it only when the choice changes the game (players, seats, mode); a game with no real choice
          opens ready to play with one line ("Tap to start"). Returns { el, close }.
 
-     ZimiShell.endSheet({ result: 'win' | 'lose' | 'draw' | 'over', name, stats: [[label, value]], after, onNew, onClose })
+     ZimiShell.endSheet({ result: 'win' | 'lose' | 'draw' | 'over', name, stats: [[label, value]], after, onNew, onClose, newLabel })
          The end of a game, the same in every game. The title is the result ("You win", "You lose", "Draw";
          `name` makes it "Name wins" for games with several people; 'over' is "Game over", for solo score
          games with no win state). At most two stat chips, then Close and New game in amber. It appears
          `after` ms from now (default 600: call it when the last animation ends) and ignores keys for its
          first 600 ms, so a player still pressing Space or Enter cannot dismiss or restart it unseen.
-         onNew defaults to the game's own New game; a loss looks like a win.
+         onNew defaults to the game's own New game; a loss looks like a win. `newLabel` (T('shell.nextLevel'))
+         names the amber button for a game that goes on to a next level rather than a new game.
 
      ZimiShell.status(el)            makes el the game's one status line (role=status, aria-live=polite);
                                      returns { say(text), reason(text, ms) } where reason shows for 2 s,
@@ -401,7 +402,7 @@
       Shell.sheet({
         title: title, text: opts.text, guard: true, onClose: opts.onClose,
         body: chips.length ? [h('div', { class: 'gs-chips' }, chips)] : [],
-        actions: [{ label: T('shell.close') }, { label: T('shell.menu.new'), primary: true, onclick: newGame }]
+        actions: [{ label: T('shell.close') }, { label: opts.newLabel || T('shell.menu.new'), primary: true, onclick: newGame }]
       });
     };
     var after = opts.after === undefined ? SHEET_GUARD_MS : opts.after;

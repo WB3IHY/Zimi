@@ -59,24 +59,14 @@
   }
 
   // ── styles (injected, so a page needs only the script) ──
-  var CSS = '.zs-cover{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:24px;background:var(--ground,#eef0f3);color:var(--ink,#1d2433);text-align:center;font-family:var(--font,system-ui,sans-serif)}' +
+  // The handoff screen is the only thing styled here, in the shared tokens; the Players rows are the shared
+  // row, segmented control and field (games.css), so they look like every other option in the Menu.
+  var CSS = '.zs-cover{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:24px;background:var(--ground);color:var(--ink);text-align:center;font-family:var(--font)}' +
     '.zs-cover-card{width:min(420px,100%);display:grid;gap:14px;justify-items:center}' +
     '.zs-cover img{width:44px;height:44px}' +
-    '.zs-cover small{font-size:13px;color:var(--ink2,#4b5568);letter-spacing:.04em;text-transform:uppercase}' +
-    '.zs-cover h2{margin:0;font-size:34px;line-height:1.15;overflow-wrap:anywhere}' +
-    '.zs-cover p{margin:0;color:var(--ink2,#4b5568);font-size:15px}' +
-    '.zs-btn{font:inherit;font-size:15px;min-height:44px;padding:8px 16px;border:1px solid var(--line,#d5d9e0);border-radius:8px;background:var(--surface,#fff);color:var(--ink,#1d2433);cursor:pointer}' +
-    '.zs-btn[aria-pressed="true"]{background:var(--accent,#d97706);border-color:var(--accent,#d97706);color:var(--accent-ink,#fff)}' +
-    '.zs-btn:focus-visible,.zs-name:focus-visible{outline:3px solid var(--accent,#d97706);outline-offset:2px}' +
-    '.zs-cover .zs-btn{font-size:17px;padding:10px 22px}' +
-    '.zs-seats{display:grid;gap:8px;margin:12px 0}' +
-    '.zs-seats h3{margin:0;font-size:12px;font-weight:600;color:var(--ink2,#4b5568);text-transform:uppercase;letter-spacing:.04em}' +
-    '.zs-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}' +
-    '.zs-row>span{flex:0 0 64px;font-size:14px;color:var(--ink2,#4b5568)}' +
-    '.zs-seg{display:inline-flex}.zs-seg .zs-btn{min-height:40px;padding:6px 12px;border-radius:0;margin-left:-1px}' +
-    '.zs-seg .zs-btn:first-child{border-radius:8px 0 0 8px;margin-left:0}.zs-seg .zs-btn:last-child{border-radius:0 8px 8px 0}' +
-    '.zs-name{flex:1 1 110px;min-width:0;font:inherit;font-size:15px;min-height:40px;padding:6px 10px;border:1px solid var(--line,#d5d9e0);border-radius:8px;background:var(--surface,#fff);color:var(--ink,#1d2433)}' +
-    '.zs-note{margin:0;font-size:12px;color:var(--ink3,#7c8698)}';
+    '.zs-cover small{font-size:var(--fs-small);color:var(--ink2)}' +
+    '.zs-cover h2{margin:0;font-size:var(--fs-display);line-height:1.15;overflow-wrap:anywhere}' +
+    '.zs-cover p{margin:0;color:var(--ink2);font-size:var(--fs-body)}';
   function ensureStyle() {
     var d = root.document;
     if (!d || d.getElementById('zs-style')) return;
@@ -122,7 +112,7 @@
       var who = names[seat], host = el('div', 'zs-cover'), card = el('div', 'zs-cover-card');
       host.setAttribute('role', 'dialog'); host.setAttribute('aria-modal', 'true'); host.setAttribute('aria-label', T('seats.passTo', { name: who }));
       var logo = el('img'); logo.src = 'mark.svg'; logo.alt = '';
-      var go = el('button', 'zs-btn', T('seats.show', { name: who })); go.type = 'button'; go.setAttribute('aria-pressed', 'true');
+      var go = el('button', 'ar-btn gs-primary', T('seats.show', { name: who })); go.type = 'button'; go.setAttribute('aria-pressed', 'true');
       card.appendChild(logo); card.appendChild(el('small', null, T('seats.passToSmall'))); card.appendChild(el('h2', null, who));
       card.appendChild(el('p', null, note || T('seats.passNote')));
       card.appendChild(go); host.appendChild(card);
@@ -160,8 +150,8 @@
     S.block = function (onChange, opts) {
       ensureStyle();
       opts = opts || {};
-      var box = el('div', 'zs-seats'), rows = [];
-      box.appendChild(el('h3', null, T('seats.players')));
+      var box = el('div', 'zs-seats gs-seats'), rows = [];
+      box.appendChild(el('h3', 'gs-subhead', T('seats.players')));
       function refresh() {
         var multi = S.hotseat();
         rows.forEach(function (r, i) {
@@ -172,19 +162,19 @@
         note.hidden = !multi;
       }
       for (var i = 0; i < n; i++) (function (i) {
-        var row = el('div', 'zs-row'), seg = el('div', 'zs-seg'), input = el('input', 'zs-name');
+        var row = el('div', 'gs-row gs-seat-row'), seg = el('div', 'gs-seg'), input = el('input', 'gs-field');
         seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', T('seats.is', { seat: opts.labels ? opts.labels[i] : T('seats.seatN', { n: i + 1 }) }));
         [['cpu', opts.cpuLabel || T('cards.computer')], ['person', T('seats.person')]].forEach(function (k) {
-          var b = el('button', 'zs-btn', k[1]); b.type = 'button'; b.dataset.kind = k[0];
+          var b = el('button', 'ar-btn', k[1]); b.type = 'button'; b.dataset.kind = k[0];
           b.addEventListener('click', function () { S.setKind(i, k[0]); refresh(); if (onChange) onChange(); });
           seg.appendChild(b);
         });
         input.type = 'text'; input.maxLength = MAX_NAME; input.value = names[i]; input.setAttribute('aria-label', T('seats.nameFor', { n: i + 1 }));
         input.addEventListener('change', function () { S.setName(i, input.value); input.value = names[i]; });
-        row.appendChild(el('span', null, opts.labels ? opts.labels[i] : T('seats.seatN', { n: i + 1 })));
+        row.appendChild(el('label', null, opts.labels ? opts.labels[i] : T('seats.seatN', { n: i + 1 })));
         row.appendChild(seg); row.appendChild(input); box.appendChild(row); rows.push({ seg: seg, input: input });
       })(i);
-      var note = el('p', 'zs-note', T('seats.note') + ' ' + (opts.note || ''));
+      var note = el('p', 'gs-note', T('seats.note') + ' ' + (opts.note || ''));
       box.appendChild(note);
       refresh();
       return box;
@@ -192,5 +182,8 @@
     return S;
   }
 
-  root.ZimiSeats = { create: create, cleanKinds: cleanKinds, cleanName: cleanName, defaultName: defaultName, peopleOf: peopleOf, relOf: relOf, needsCover: needsCover, compassName: compassName, loadNames: loadNames, NAMES_KEY: NAMES_KEY };
+  // One shared list of names for the computers a game seats (T('seats.cpu.1') ...), so no game invents its own.
+  var CPU_NAME_COUNT = 6;
+  function cpuName(i) { return T('seats.cpu.' + (i % CPU_NAME_COUNT + 1)); }
+  root.ZimiSeats = { cpuName: cpuName, create: create, cleanKinds: cleanKinds, cleanName: cleanName, defaultName: defaultName, peopleOf: peopleOf, relOf: relOf, needsCover: needsCover, compassName: compassName, loadNames: loadNames, NAMES_KEY: NAMES_KEY };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
