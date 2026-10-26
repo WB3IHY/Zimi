@@ -330,7 +330,8 @@
     if (saved && saved.zim) pick = options.filter(function (o) { return o.zim === saved.zim; })[0] || null;
     // The player's own language, when nothing has been guessed yet today and they have not chosen.
     else if (!saved && !game.guesses.length && !game.current) pick = options.filter(function (o) { return o.lang === Lib.uiLang(); })[0] || null;
-    if (pick && pick !== cur) setList(pick, game.mode); else paintAll();
+    if (cur && pick && pick.zim === cur.zim) { cur = pick; paintAll(); }   // the round kept from before stays as it is
+    else if (pick && pick !== cur) setList(pick, game.mode); else paintAll();
   }
   // Inside Zimi: which Wiktionaries has this library? (Kiwix and plain folders: none, and nothing is asked twice.)
   function findLists() {
@@ -378,10 +379,14 @@
   // Leaving and coming back keeps the position, the letters typed so far included. The day's word of an earlier
   // day is not kept; a Wiktionary's round keeps itself (state per list) and is asked for again.
   ZimiShell.persist({
-    save: function () { return game && !cur && (game.guesses.length || game.current) ? game : null; },
+    // A Wiktionary's round is kept whole (the list it came from, the word, the guesses), so a changed or unreachable library cannot alter it.
+    save: function () { return game && (game.guesses.length || game.current) ? { game: game, list: cur } : null; },
     load: function (kept) {
-      if (cur || !kept.answer || !words.allowed[kept.answer] || (kept.mode === 'daily' && (kept.date !== today || kept.answer !== dailyAnswer(words, new Date())))) return false;
-      game = kept; paintAll();
+      var g = kept && kept.game;
+      if (!g || !g.answer || (g.mode === 'daily' && g.date !== today)) return false;
+      if (kept.list) { cur = kept.list; libKnown = {}; libKnown[g.answer] = true; g.guesses.forEach(function (w) { libKnown[w] = true; }); loadStats(); }
+      else if (!words.allowed[g.answer] || (g.mode === 'daily' && g.answer !== dailyAnswer(words, new Date()))) return false;
+      game = g; paintAll();
       if (game.status !== 'playing') finish();
     }
   });
