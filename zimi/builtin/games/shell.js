@@ -1,7 +1,8 @@
 /* ZimiGames: the shell every game shares. Our own code, GPL-3.0. No network, no modules.
 
-   One bar (back, title, the clock, Undo or Pause, Menu) and one Menu sheet with the same
-   rows in every game: New game, Settings, How to play, Watch and learn, Stats.
+   One bar (back, title, one stat, Undo or Pause, Menu) and one Menu sheet with the same rows in every
+   game: New game, Settings, How to play, Stats, About this game (Watch and learn and History sit
+   before Stats in the games that have them). The rules are docs/design/games.md.
 
    It loads synchronously in <head> (scripts/games_shell.py writes the tag), so the settings
    are on <html> before the first paint; the bar and the sheet are built when the page is
@@ -12,30 +13,63 @@
      ZimiShell.game({ stats: fn -> text or [text], sound: true, hints: true, inProgress: fn,
                       menu: fn -> { options: [nodes] }, newGame: fn,
                       moveTimer: true, watch: { script, start(ctl), stop(kind) } })
-   and reads the settings with ZimiShell.settings.get('anim'), etc. */
+   and reads the settings with ZimiShell.settings.get('anim'), etc.
+
+   What a game calls (every string goes through T, see text.js):
+
+     ZimiShell.sheet({ title, text, body: [nodes], actions: [{ label, primary, onclick }], onClose })
+         One sheet anatomy for every start sheet and dialog: the pebble and the title, one line of text,
+         option rows, actions last with the primary last. Focus lands on the sheet itself; Esc closes.
+         Use it only when the choice changes the game (players, seats, mode); a game with no real choice
+         opens ready to play with one line ("Tap to start"). Returns { el, close }.
+
+     ZimiShell.endSheet({ result: 'win' | 'lose' | 'draw' | 'over', name, stats: [[label, value]], after, onNew, onClose })
+         The end of a game, the same in every game. The title is the result ("You win", "You lose", "Draw";
+         `name` makes it "Name wins" for games with several people; 'over' is "Game over", for solo score
+         games with no win state). At most two stat chips, then Close and New game in amber. It appears
+         `after` ms from now (default 600: call it when the last animation ends) and ignores keys for its
+         first 600 ms, so a player still pressing Space or Enter cannot dismiss or restart it unseen.
+         onNew defaults to the game's own New game; a loss looks like a win.
+
+     ZimiShell.status(el)            makes el the game's one status line (role=status, aria-live=polite);
+                                     returns { say(text), reason(text, ms) } where reason shows for 2 s,
+                                     then goes back to the line before it.
+     ZimiShell.shake(el)             the illegal-move shake (120 ms; an outline flash under reduced motion).
+     ZimiShell.reducedMotion()       the one answer: the device asks for less motion, or Animation is Off.
+     ZimiShell.settings, .anim(), .ms(n), .sound(), .stripClock(text)   as before.
+
+   Where a game overrides a shared rule it says why in a comment where it happens. */
 (function (root) {
   'use strict';
   var d = root.document;
+  // ZimiText first (text.js beside this file): it must exist before anything below draws a string. A page
+  // that did not load it writes the tag here, synchronously, so the strings are ready before the first paint.
+  if (!root.ZimiText && d && d.currentScript && d.currentScript.src && d.readyState === 'loading') {
+    d.write('<script src="' + d.currentScript.src.replace(/shell\.js(\?.*)?$/, 'text.js') + '"><\/script>');
+  }
+  var T = function (key, vars) { return root.ZimiText ? root.ZimiText.T(key, vars) : key; };
   // An app, not a page to read: a reader (Zimi's) leaves out highlight, note and lookup.
   if (d.head && !d.querySelector('meta[name="zimi-app"]')) {
     var app = d.createElement('meta'); app.name = 'zimi-app'; d.head.appendChild(app);
   }
   var KEY = 'zimi.games.settings';
   var DEFAULTS = { timer: 'show', moveTimer: 0, hints: 'on', anim: 'normal', sound: 'off', confirm: 'on' };
+  // Each choice is [value, string id]; a binary setting is On and Off. A name never carries its state.
   var CHOICES = {
-    timer: [['show', 'Shown'], ['hide', 'Hidden']],
-    moveTimer: [[0, 'Off'], [15, '15 s'], [30, '30 s'], [60, '60 s']],
-    hints: [['on', 'On'], ['off', 'Off']],
-    anim: [['normal', 'Normal'], ['fast', 'Fast'], ['off', 'Off']],
-    sound: [['off', 'Off'], ['on', 'On']],
-    confirm: [['on', 'On'], ['off', 'Off']]
+    timer: [['show', 'shell.on'], ['hide', 'shell.off']],
+    moveTimer: [[0, 'shell.off'], [15, 'shell.seconds'], [30, 'shell.seconds'], [60, 'shell.seconds']],
+    hints: [['on', 'shell.on'], ['off', 'shell.off']],
+    anim: [['normal', 'shell.normal'], ['fast', 'shell.fast'], ['off', 'shell.off']],
+    sound: [['off', 'shell.off'], ['on', 'shell.on']],
+    confirm: [['on', 'shell.on'], ['off', 'shell.off']]
   };
-  var LABELS = { timer: 'Timer', moveTimer: 'Move timer', hints: 'Hints', anim: 'Animation', sound: 'Sound', confirm: 'Confirm new game' };
+  var LABEL_IDS = { timer: 'shell.set.timer', moveTimer: 'shell.set.moveTimer', hints: 'shell.set.hints', anim: 'shell.set.anim', sound: 'shell.set.sound', confirm: 'shell.set.confirm' };
+  function labelOf(key) { return T(LABEL_IDS[key]); }
+  function choiceText(c) { return T(c[1], { n: c[0] }); }
   // Elements that are only a clock (a clock with a score in it is trimmed by stripClock instead).
   var TIMER_SELECTOR = '#su-clock, #mj-time, [data-gs-timer]';
   var CLOCK_PREFIX = /^\d+:\d\d(?: · )?/;
   var HINT_SELECTOR = '[id$="-hint"], [id$="-hints"]';
-  var SPEEDS = [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast']];
   var MOVE_TIMER_TICK_MS = 250;
 
   // ── the page ──
@@ -61,7 +95,7 @@
     } catch (e) { data = { g: {}, games: {} }; }
   }
   function save() { try { root.localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* private window: settings last for this page */ } }
-  function reducedMotion() { try { return !!root.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } }
+  function deviceReducedMotion() { try { return !!root.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } }
   function valid(key, value) { return (CHOICES[key] || []).some(function (c) { return c[0] === value; }); }
 
   var listeners = [];
@@ -71,7 +105,7 @@
       var o = (data.games[game || ID] || {})[key];
       if (valid(key, o)) return o;
       if (valid(key, data.g[key])) return data.g[key];
-      return key === 'anim' && reducedMotion() ? 'off' : DEFAULTS[key];
+      return key === 'anim' && deviceReducedMotion() ? 'off' : DEFAULTS[key];
     },
     // Has anybody chosen this (so a game should not override it with its own default)?
     explicit: function (key, game) { return valid(key, (data.games[game || ID] || {})[key]) || valid(key, data.g[key]); },
@@ -179,7 +213,10 @@
     d.body.appendChild(holder);
     // Timers are only a clock: tagged here so the stylesheet can hide them.
     Array.prototype.forEach.call(d.querySelectorAll(TIMER_SELECTOR), function (t) { t.setAttribute('data-gs-timer', ''); });
-    menuBtn = h('button', { class: 'ar-btn gs-menu-btn', type: 'button', 'aria-haspopup': 'dialog', text: 'Menu' });
+    // Back is one 44 px target with a name for screen readers; the page's own chevron text stays unseen.
+    var backLink = bar.querySelector('.ar-back');
+    if (backLink) backLink.setAttribute('aria-label', T('shell.back'));
+    menuBtn = h('button', { class: 'ar-btn gs-menu-btn', type: 'button', 'aria-haspopup': 'dialog', text: T('shell.menu') });
     menuBtn.addEventListener('click', openMenu);
     // The clock sits before the buttons, the Menu last.
     var firstBtn = Array.prototype.filter.call(bar.children, function (c) { return c.classList.contains('ar-btn') && !c.hidden; })[0];
@@ -189,7 +226,7 @@
     mt.label = h('span', { class: 'gs-turn-n', 'aria-hidden': 'true' });
     mt.bar = h('div', { class: 'gs-turn', hidden: '', 'aria-hidden': 'true' }, [h('i'), mt.label]);
     bar.parentNode.insertBefore(mt.bar, bar.nextSibling);
-    strip = h('div', { class: 'gs-watch', hidden: '', role: 'region', 'aria-label': 'Watch and learn' });
+    strip = h('div', { class: 'gs-watch', hidden: '', role: 'region', 'aria-label': T('shell.menu.watch') });
     mt.bar.parentNode.insertBefore(strip, mt.bar.nextSibling);
     return true;
   }
@@ -201,30 +238,133 @@
     return s.trim() || d.title;
   }
 
+  // ── motion, status and the shake ──
+  // The one answer to "should this move?": the device asks for less motion, or Animation is Off.
+  function reducedMotion() { return deviceReducedMotion() || settings.get('anim') === 'off'; }
+  Shell.reducedMotion = reducedMotion;
+  var SHAKE_MS = 120, REASON_MS = 2000;
+  // The illegal-move shake: 120 ms sideways, or an outline flash for a player who asked for less motion.
+  Shell.shake = function (el) {
+    if (!el) return;
+    var cls = reducedMotion() ? 'gs-flash' : 'gs-shake';
+    el.classList.remove('gs-shake', 'gs-flash');
+    void el.offsetWidth;
+    el.classList.add(cls);
+    root.setTimeout(function () { el.classList.remove(cls); }, reducedMotion() ? REASON_MS / 4 : SHAKE_MS);
+  };
+  // A game's one status line: polite for screen readers, say() for the line, reason() for a refusal that gives way
+  // to the line before it after two seconds.
+  Shell.status = function (el) {
+    el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite');
+    var line = el.textContent, timer = 0;
+    return {
+      say: function (text) { line = text; root.clearTimeout(timer); el.textContent = text; },
+      reason: function (text, ms) {
+        root.clearTimeout(timer); el.textContent = text;
+        timer = root.setTimeout(function () { el.textContent = line; }, ms || REASON_MS);
+      }
+    };
+  };
+
+  // ── the arcade pause: opening the Menu and leaving the page both pause a running game ──
+  function pauseButton() { return d.querySelector('.ar-bar [id$="pause"]'); }
+  function pauseNow() {
+    var pause = pauseButton();
+    if (pause && !pause.disabled && /^pause/i.test(pause.textContent.trim())) { try { pause.click(); } catch (e) { /* not running */ } }
+  }
+  function watchBlur() {
+    d.addEventListener('visibilitychange', function () { if (d.hidden) pauseNow(); });
+    root.addEventListener('blur', pauseNow);
+    root.addEventListener('pagehide', pauseNow);
+  }
+
+  // ── records: a line of wins and losses is hidden until there is a first game, and the number is a sans figure ──
+  var RECORD_SELECTOR = '.bg-stats, #wk-stats';
+  function recordsCount(el) { return /[1-9]/.test(el.textContent); }
+  function watchRecords() {
+    Array.prototype.forEach.call(d.querySelectorAll(RECORD_SELECTOR), function (el) {
+      var paint = function () { el.hidden = !recordsCount(el); };
+      paint();
+      if (root.MutationObserver) new root.MutationObserver(paint).observe(el, { childList: true, characterData: true, subtree: true });
+    });
+  }
+
+  // ── sheets ──
+  // The one anatomy: the pebble and the title, one line of text, option rows, actions with the primary last.
+  // Focus goes to the sheet itself, never into a field; Esc closes it; a tap on the scrim closes it.
+  var SHEET_GUARD_MS = 600;
+  function sheetKeys(el, card, close, guard) {
+    var openedAt = Date.now();
+    el.addEventListener('keydown', function (e) {
+      if (guard && Date.now() - openedAt < SHEET_GUARD_MS) { e.preventDefault(); e.stopPropagation(); return; }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
+      if (e.key !== 'Tab') return;
+      var f = Array.prototype.filter.call(card.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),a[href]'), function (n) { return n.offsetParent !== null; });
+      if (!f.length) { e.preventDefault(); return; }
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && (d.activeElement === first || d.activeElement === card)) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && d.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+  }
+  Shell.sheet = function (opts) {
+    var prev = d.activeElement, el, card, api = { el: null, close: null };
+    card = h('div', { class: 'ar-sheet-card', role: 'dialog', 'aria-modal': 'true', 'aria-label': opts.title, tabindex: '-1' });
+    card.appendChild(h('h2', { text: opts.title }));
+    if (opts.text) card.appendChild(h('p', { class: 'gs-text', text: opts.text }));
+    (opts.body || []).forEach(function (n) { card.appendChild(n); });
+    api.close = function () {
+      if (!api.el) return;
+      api.el.remove(); api.el = null;
+      if (prev && prev.focus && d.contains(prev)) try { prev.focus(); } catch (e) { /* gone */ }
+      if (opts.onClose) opts.onClose();
+    };
+    if (opts.actions && opts.actions.length) {
+      var row = h('div', { class: 'ar-sheet-actions' });
+      opts.actions.forEach(function (a) {
+        var b = h('button', { class: 'ar-btn' + (a.primary ? ' gs-primary' : ''), type: 'button', text: a.label });
+        if (a.primary) b.setAttribute('aria-pressed', 'true');
+        b.addEventListener('click', function () { if (a.keep) { if (a.onclick) a.onclick(); } else { api.close(); if (a.onclick) a.onclick(); } });
+        row.appendChild(b);
+      });
+      card.appendChild(row);
+    }
+    el = api.el = h('div', { class: 'ar-sheet' }, [card]);
+    el.addEventListener('pointerdown', function (e) { if (e.target === el) api.close(); });
+    sheetKeys(el, card, api.close, !!opts.guard);
+    d.body.appendChild(el);
+    try { card.focus({ preventScroll: true }); } catch (e) { /* no focus */ }
+    return api;
+  };
+  var END_TITLES = { win: 'shell.end.win', lose: 'shell.end.lose', draw: 'shell.end.draw', over: 'shell.end.over' };
+  Shell.endSheet = function (opts) {
+    var title = opts.name ? T('shell.end.wins', { name: opts.name }) : T(END_TITLES[opts.result] || END_TITLES.over);
+    var chips = (opts.stats || []).slice(0, 2).map(function (s) { return h('span', { class: 'gs-chip' }, [h('span', { text: s[0] }), h('b', { text: String(s[1]) })]); });
+    var newGame = function () { dirty = false; if (opts.onNew) opts.onNew(); else if (newBtn) newBtn.click(); };
+    var show = function () {
+      Shell.sheet({
+        title: title, text: opts.text, guard: true, onClose: opts.onClose,
+        body: chips.length ? [h('div', { class: 'gs-chips' }, chips)] : [],
+        actions: [{ label: T('shell.close') }, { label: T('shell.menu.new'), primary: true, onclick: newGame }]
+      });
+    };
+    var after = opts.after === undefined ? SHEET_GUARD_MS : opts.after;
+    if (after > 0) root.setTimeout(show, after); else show();
+  };
+
   // ── the Menu sheet ──
   var sheet, card, paneStack = [], opener = null, watchPaused = false;
   function ensureSheet() {
     if (sheet) return;
-    card = h('div', { class: 'ar-sheet-card gs-card', role: 'dialog', 'aria-modal': 'true', 'aria-label': titleOf() + ' menu' });
+    card = h('div', { class: 'ar-sheet-card gs-card', role: 'dialog', 'aria-modal': 'true', 'aria-label': titleOf(), tabindex: '-1' });
     sheet = h('div', { class: 'ar-sheet gs-sheet', hidden: '' }, [card]);
     sheet.addEventListener('pointerdown', function (e) { if (e.target === sheet) closeMenu(); });
-    sheet.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (paneStack.length > 1) back(); else closeMenu(); return; }
-      if (e.key !== 'Tab') return;
-      var f = Array.prototype.filter.call(card.querySelectorAll('button:not([disabled]),input:not([disabled])'), function (n) { return n.offsetParent !== null; });
-      if (!f.length) return;
-      var first = f[0], last = f[f.length - 1];
-      if (e.shiftKey && d.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && d.activeElement === last) { e.preventDefault(); first.focus(); }
-    });
+    sheetKeys(sheet, card, function () { if (paneStack.length > 1) back(); else closeMenu(); }, false);
     d.body.appendChild(sheet);
   }
   function openMenu() {
     ensureSheet();
     if (!sheet.hidden) return;
     opener = d.activeElement;
-    // A running arcade game waits while the menu is open.
-    var pause = d.querySelector('.ar-bar [id$="pause"]');
-    if (pause && /^pause/i.test(pause.textContent.trim())) { try { pause.click(); } catch (e) { /* not running */ } }
+    pauseNow();   // a running arcade game waits while the menu is open
     Shell.moveTimer.hold(true); Shell.watchHold(true);
     paneStack = [];
     sheet.hidden = false;
@@ -245,14 +385,14 @@
     var fn = paneStack[paneStack.length - 1];
     card.textContent = '';
     fn();
-    var f = card.querySelector('.gs-primary') || card.querySelector('button, input');
-    if (f) try { f.focus({ preventScroll: true }); } catch (e) { /* no focus */ }
+    // Focus lands on the sheet, never into a control; a pane the person is changing keeps its place in the tab order.
+    try { card.focus({ preventScroll: true }); } catch (e) { /* no focus */ }
   }
   function head(title, isRoot) {
     var row = h('div', { class: 'gs-head' + (isRoot ? ' gs-head-root' : '') });
-    if (!isRoot) row.appendChild(h('button', { class: 'gs-back', type: 'button', 'aria-label': 'Back to menu', onclick: back }));
+    if (!isRoot) row.appendChild(h('button', { class: 'gs-back', type: 'button', 'aria-label': T('shell.back'), onclick: back }));
     row.appendChild(h('h2', { text: title }));
-    row.appendChild(h('button', { class: 'gs-x', type: 'button', 'aria-label': 'Close menu', onclick: closeMenu }));
+    row.appendChild(h('button', { class: 'gs-x', type: 'button', 'aria-label': T('shell.close'), onclick: closeMenu }));
     card.appendChild(row);
   }
 
@@ -264,26 +404,35 @@
   function markDirty(e) { if (e.target && e.target.closest && e.target.closest('main, .zc-table, [role="main"], #stage, canvas')) dirty = true; }
   function underway() { return game.inProgress ? !!game.inProgress() : dirty; }
 
-  // Start a new game: confirm when one is under way, then through the game's own control.
+  // New game: one tap when nothing is under way. When a game is, one pane asks ("Start a new game?" and what is lost),
+  // with the game's own options in that same pane and Start last; without options its button says New game.
   function startNew() {
-    var go = function () { dirty = false; closeMenu(); stopWatching('new'); if (newBtn) newBtn.click(); };
-    if (underway() && settings.get('confirm') === 'on') { show(confirmPane(go)); } else go();
+    dirty = false; closeMenu(); stopWatching('new'); if (newBtn) newBtn.click();
   }
-  function confirmPane(go) {
-    return function () {
-      head('Start a new game?', false);
-      card.appendChild(h('p', { class: 'gs-text', text: 'The game you are playing will be lost.' }));
-      card.appendChild(h('div', { class: 'gs-actions' }, [
-        h('button', { class: 'ar-btn', type: 'button', text: 'Keep playing', onclick: back }),
-        h('button', { class: 'ar-btn gs-primary', type: 'button', 'aria-pressed': 'true', text: 'New game', onclick: go })
-      ]));
-    };
+  function newGameTapped() {
+    var options = menuOptions();
+    if (!options.length && !(underway() && settings.get('confirm') === 'on')) { startNew(); return; }
+    show(newPane);
+  }
+  function newPane() {
+    var asking = underway() && settings.get('confirm') === 'on', options = capturedOptions ? capturedOptions.options : [];
+    head(asking ? T('shell.new.ask') : T('shell.menu.new'), false);
+    if (asking) card.appendChild(h('p', { class: 'gs-text', text: T('shell.new.lost') }));
+    if (options.length) {
+      var box = h('div', { class: 'gs-options' });
+      options.forEach(function (n) { box.appendChild(n); });
+      card.appendChild(box);
+    }
+    card.appendChild(h('div', { class: 'gs-actions' }, [
+      h('button', { class: 'ar-btn', type: 'button', text: T('shell.cancel'), onclick: back }),
+      h('button', { class: 'ar-btn gs-primary', type: 'button', 'aria-pressed': 'true', text: options.length ? T('shell.start') : T('shell.menu.new'), onclick: startNew })
+    ]));
   }
 
   function seg(key, opts) {
-    var value = settings.get(key), row = h('div', { class: 'gs-seg', role: 'group', 'aria-label': LABELS[key] });
+    var value = settings.get(key), row = h('div', { class: 'gs-seg', role: 'group', 'aria-label': labelOf(key) });
     CHOICES[key].forEach(function (c) {
-      row.appendChild(h('button', { class: 'ar-btn', type: 'button', 'aria-pressed': String(c[0] === value), text: c[1], onclick: function () { opts.onPick(key, c[0]); } }));
+      row.appendChild(h('button', { class: 'ar-btn', type: 'button', 'aria-pressed': String(c[0] === value), text: choiceText(c), onclick: function () { opts.onPick(key, c[0]); } }));
     });
     return row;
   }
@@ -291,33 +440,35 @@
     return h('button', { class: 'gs-item', type: 'button', onclick: onclick }, [h('span', { class: 'gs-item-l', text: label }), h('span', { class: 'gs-item-r', text: hint || '' })]);
   }
 
-  // The root: the primary action, the game's own buttons, then the same list in every game.
+  // The root: the game's own buttons, then the same rows in every game. The page footer's About link lives here now.
+  function aboutLink() { return d.querySelector('.gm-about a[href]'); }
   function rootPane() {
     head(titleOf(), true);
-    var options = menuOptions();
-    if (newBtn) card.appendChild(h('button', { class: 'ar-btn gs-new gs-primary', type: 'button', 'aria-pressed': 'true', text: options.length ? 'New game…' : 'New game', onclick: options.length ? function () { show(newPane); } : startNew }));
+    var options = menuOptions(), list = h('div', { class: 'gs-list' });
     if (extras.length) {
       var box = h('div', { class: 'gs-actions gs-extras' });
       extras.forEach(function (b) { b.classList.add('gs-moved'); box.appendChild(b); });
       card.appendChild(box);
       if (!box.dataset.wired) { box.dataset.wired = '1'; box.addEventListener('click', function (e) { if (e.target.closest('.ar-btn')) closeMenu(); }); }
     }
-    var list = h('div', { class: 'gs-list' });
-    list.appendChild(chevronRow('Settings', summary(), function () { show(settingsPane); }));
-    if (helpFor(ID)) list.appendChild(chevronRow('How to play', '', function () { show(helpPane); }));
-    if (historyFor(ID)) list.appendChild(chevronRow('History', '', function () { show(historyPane); }));
-    if (game.watch) list.appendChild(chevronRow('Watch and learn', watching ? 'Running' : '', function () { show(watchPane); }));
-    list.appendChild(chevronRow('Stats', '', function () { show(statsPane); }));
+    if (newBtn) list.appendChild(chevronRow(T('shell.menu.new'), '', newGameTapped));
+    list.appendChild(chevronRow(T('shell.menu.settings'), summary(), function () { show(settingsPane); }));
+    if (helpFor(ID)) list.appendChild(chevronRow(T('shell.menu.how'), '', function () { show(helpPane); }));
+    if (game.watch) list.appendChild(chevronRow(T('shell.menu.watch'), watching ? T('shell.running') : '', function () { show(watchPane); }));
+    if (historyFor(ID)) list.appendChild(chevronRow(T('shell.menu.history'), '', function () { show(historyPane); }));
+    list.appendChild(chevronRow(T('shell.menu.stats'), '', function () { show(statsPane); }));
+    if (aboutLink()) list.appendChild(chevronRow(T('shell.menu.about'), '', function () { closeMenu(); aboutLink().click(); }));
     card.appendChild(list);
+    void options;
   }
   function summary() {
     var bits = [];
-    if (settings.get('anim') !== 'normal') bits.push('Animation ' + settings.get('anim'));
-    if (hasTimer() && settings.get('timer') === 'hide') bits.push('Timer hidden');
+    if (settings.get('anim') !== 'normal') bits.push(T('shell.summary.anim', { mode: choiceText(CHOICES.anim.filter(function (c) { return c[0] === settings.get('anim'); })[0]) }));
+    if (hasTimer() && settings.get('timer') === 'hide') bits.push(T('shell.summary.timer'));
     return bits.join(', ');
   }
 
-  // New game with the game's own options (cards: draw one or three, players), then Start.
+  // The game's own options (cards: draw one or three, players), shown in the New game pane.
   var capturedOptions = null;
   function menuOptions() {
     capturedOptions = null;
@@ -326,42 +477,32 @@
     }
     return capturedOptions ? capturedOptions.options : [];
   }
-  function newPane() {
-    head('New game', false);
-    var box = h('div', { class: 'gs-options' });
-    (capturedOptions ? capturedOptions.options : []).forEach(function (n) { box.appendChild(n); });
-    card.appendChild(box);
-    card.appendChild(h('div', { class: 'gs-actions' }, [
-      h('button', { class: 'ar-btn', type: 'button', text: 'Cancel', onclick: back }),
-      h('button', { class: 'ar-btn gs-primary', type: 'button', 'aria-pressed': 'true', text: 'Start', onclick: startNew })
-    ]));
-  }
 
   function settingsPane() {
-    head('Settings', false);
+    head(T('shell.menu.settings'), false);
     var scope = paneState.scope || 'all';
     function pick(key, value) { settings.set(key, value, paneState.scope === 'game' ? 'game' : 'all'); render(); }
     function row(key, note) {
-      card.appendChild(h('div', { class: 'gs-row' }, [h('label', { text: LABELS[key] }), seg(key, { onPick: pick }), note ? h('p', { class: 'gs-note', text: note }) : null]));
+      card.appendChild(h('div', { class: 'gs-row' }, [h('label', { text: labelOf(key) }), seg(key, { onPick: pick }), note ? h('p', { class: 'gs-note', text: note }) : null]));
     }
     card.appendChild(h('div', { class: 'gs-scope' }, [
-      h('span', { text: 'Applies to' }),
-      h('div', { class: 'gs-seg', role: 'group', 'aria-label': 'Applies to' }, [
-        h('button', { class: 'ar-btn', type: 'button', 'aria-pressed': String(scope === 'all'), text: 'All games', onclick: function () { paneState.scope = 'all'; render(); } }),
-        h('button', { class: 'ar-btn', type: 'button', 'aria-pressed': String(scope === 'game'), text: 'This game only', onclick: function () { paneState.scope = 'game'; render(); } })
+      h('span', { text: T('shell.set.scope') }),
+      h('div', { class: 'gs-seg', role: 'group', 'aria-label': T('shell.set.scope') }, [
+        h('button', { class: 'ar-btn', type: 'button', 'aria-pressed': String(scope === 'all'), text: T('shell.set.allGames'), onclick: function () { paneState.scope = 'all'; render(); } }),
+        h('button', { class: 'ar-btn', type: 'button', 'aria-pressed': String(scope === 'game'), text: T('shell.set.thisGame'), onclick: function () { paneState.scope = 'game'; render(); } })
       ])
     ]));
     if (hasTimer()) row('timer');
-    if (game.moveTimer) row('moveTimer', 'Time for each of your turns. When it runs out, a move is played for you.');
+    if (game.moveTimer) row('moveTimer', T('shell.set.moveTimerNote'));
     if (hasHints()) row('hints');
-    row('anim', reducedMotion() && !settings.explicit('anim') ? 'Off now, because your device asks for less motion.' : '');
+    row('anim', deviceReducedMotion() && !settings.explicit('anim') ? T('shell.set.reducedNote') : '');
     if (game.sound) row('sound');
     if (newBtn) row('confirm');
     if (hasBacks()) {
-      card.appendChild(h('div', { class: 'gs-row' }, [h('label', { text: 'Card back' }), h('button', { class: 'ar-btn', type: 'button', text: 'Choose…', onclick: function () { closeMenu(); root.ZimiCards.backsSheet(); } })]));
+      card.appendChild(h('div', { class: 'gs-row' }, [h('label', { text: T('shell.set.cardBack') }), h('button', { class: 'ar-btn', type: 'button', text: T('shell.choose'), onclick: function () { closeMenu(); root.ZimiCards.backsSheet(); } })]));
     }
     if (settings.hasOverrides()) {
-      card.appendChild(h('button', { class: 'gs-link', type: 'button', text: 'Use the settings for all games', onclick: function () { settings.reset(); render(); } }));
+      card.appendChild(h('button', { class: 'gs-link', type: 'button', text: T('shell.set.useAll'), onclick: function () { settings.reset(); render(); } }));
     }
   }
   var paneState = {};
@@ -374,7 +515,7 @@
     var own = game.help ? game.help() : null;
     return own ? Object.assign({}, base, own) : base;
   }
-  var HELP_PARTS = [['goal', 'Goal'], ['turn', 'Your turn'], ['end', 'The end'], ['tip', 'Tip']];
+  var HELP_PARTS = [['goal', 'shell.help.goal'], ['turn', 'shell.help.turn'], ['end', 'shell.help.end'], ['tip', 'shell.help.tip']];
   function keysLine() {
     var p = d.querySelector('.bg-help'), s = '';
     if (!p) return '';
@@ -382,19 +523,19 @@
     return s.trim();
   }
   function helpPane() {
-    head('How to play', false);
+    head(T('shell.menu.how'), false);
     var hp = helpFor(ID), dl = h('dl', { class: 'gs-help' });
-    HELP_PARTS.forEach(function (p) { if (hp[p[0]]) { dl.appendChild(h('dt', { text: p[1] })); dl.appendChild(h('dd', { text: hp[p[0]] })); } });
+    HELP_PARTS.forEach(function (p) { if (hp[p[0]]) { dl.appendChild(h('dt', { text: T(p[1]) })); dl.appendChild(h('dd', { text: hp[p[0]] })); } });
     var keys = hp.keys || keysLine();
-    if (keys) { dl.appendChild(h('dt', { text: 'Keys' })); dl.appendChild(h('dd', { text: keys })); }
+    if (keys) { dl.appendChild(h('dt', { text: T('shell.help.keys') })); dl.appendChild(h('dd', { text: keys })); }
     card.appendChild(dl);
   }
 
   // History: a few plain sentences, then the facts games.json holds about the game, if it has any.
-  var META_KEYS = [['origin', 'Origin'], ['era', 'Era'], ['year', 'Year'], ['region', 'Region'], ['players', 'Players'], ['length', 'Length']];
+  var META_KEYS = [['origin', 'shell.meta.origin'], ['era', 'shell.meta.era'], ['year', 'shell.meta.year'], ['region', 'shell.meta.region'], ['players', 'shell.meta.players'], ['length', 'shell.meta.length']];
   function historyFor(id) { return root.ZimiGamesHistory && root.ZimiGamesHistory[id]; }
   function historyPane() {
-    head('History', false);
+    head(T('shell.menu.history'), false);
     card.appendChild(h('p', { class: 'gs-text gs-history', text: historyFor(ID) }));
     var facts = h('dl', { class: 'gs-help gs-meta' });
     card.appendChild(facts);
@@ -404,22 +545,33 @@
       META_KEYS.forEach(function (k) {
         var v = m[k[0]];
         if (v === undefined || v === null || v === '' || !facts.isConnected) return;
-        facts.appendChild(h('dt', { text: k[1] })); facts.appendChild(h('dd', { text: Array.isArray(v) ? v.join(', ') : String(v) }));
+        facts.appendChild(h('dt', { text: T(k[1]) })); facts.appendChild(h('dd', { text: Array.isArray(v) ? v.join(', ') : String(v) }));
       });
     }).catch(function () { /* no metadata: the history stands alone */ });
   }
 
+  // Stats: a labelled list. A line "Medium: 3 won, 1 lost" is a label and its figures; a line with no label stands alone.
+  function statRows(lines) {
+    var dl = h('dl', { class: 'gs-statlist' });
+    lines.forEach(function (t) {
+      if (Array.isArray(t)) { dl.appendChild(h('dt', { text: String(t[0]) })); dl.appendChild(h('dd', { text: String(t[1]) })); return; }
+      var m = /^([^:]{1,40}):\s+(.+)$/.exec(String(t).trim());
+      if (m) { dl.appendChild(h('dt', { text: m[1] })); dl.appendChild(h('dd', { text: m[2] })); }
+      else dl.appendChild(h('dd', { class: 'gs-stat-alone', text: String(t).trim() }));
+    });
+    return dl;
+  }
   function statsPane() {
-    head('Stats', false);
+    head(T('shell.menu.stats'), false);
     var lines = [], s = game.stats ? game.stats() : null;
     if (s) lines = [].concat(s);
     else {
       var el = d.querySelector('.bg-stats, .zc-stats, #wk-stats');
       if (el && el.textContent.trim()) lines = [el.textContent.trim()];
     }
-    lines = lines.filter(function (t) { return t && String(t).trim(); });
-    if (!lines.length) lines = ['Nothing yet. Finish a game and it shows here.'];
-    card.appendChild(h('div', { class: 'gs-stats' }, lines.map(function (t) { return h('p', { text: String(t).trim() }); })));
+    lines = lines.filter(function (t) { return t && (Array.isArray(t) || String(t).trim()); });
+    if (!lines.length) card.appendChild(h('p', { class: 'gs-text', text: T('shell.stats.none') }));
+    else card.appendChild(h('div', { class: 'gs-stats' }, [statRows(lines)]));
   }
 
   // ── Watch and learn (the driver is in watch.js, fetched when first wanted) ──
@@ -427,14 +579,14 @@
   Shell.isWatching = function () { return watching; };
   Shell.watchHold = function (on) { if (watchApi && watchApi.hold) watchApi.hold(on); };
   function watchPane() {
-    head('Watch and learn', false);
+    head(T('shell.menu.watch'), false);
     if (watching) {
-      card.appendChild(h('p', { class: 'gs-text', text: 'The computer is playing both sides. Use the bar under the title to pause, step or take over.' }));
-      card.appendChild(h('div', { class: 'gs-actions' }, [h('button', { class: 'ar-btn gs-primary', type: 'button', 'aria-pressed': 'true', text: 'Stop watching', onclick: function () { closeMenu(); stopWatching('stop'); } })]));
+      card.appendChild(h('p', { class: 'gs-text', text: T('shell.watch.running') }));
+      card.appendChild(h('div', { class: 'gs-actions' }, [h('button', { class: 'ar-btn gs-primary', type: 'button', 'aria-pressed': 'true', text: T('shell.watch.stop'), onclick: function () { closeMenu(); stopWatching('stop'); } })]));
       return;
     }
-    card.appendChild(h('p', { class: 'gs-text', text: 'The computer plays both sides and explains each move. You can pause, step or take over at any time.' }));
-    card.appendChild(h('div', { class: 'gs-actions' }, [h('button', { class: 'ar-btn gs-primary', type: 'button', 'aria-pressed': 'true', text: 'Start watching', onclick: function () { closeMenu(); startWatching(); } })]));
+    card.appendChild(h('p', { class: 'gs-text', text: T('shell.watch.intro') }));
+    card.appendChild(h('div', { class: 'gs-actions' }, [h('button', { class: 'ar-btn gs-primary', type: 'button', 'aria-pressed': 'true', text: T('shell.watch.start'), onclick: function () { closeMenu(); startWatching(); } })]));
   }
   function loadScript(src, done) {
     var s = d.createElement('script'); s.src = src; s.onload = function () { done(); }; s.onerror = function () { done(new Error(src)); };
@@ -572,7 +724,7 @@
     if (hosted) hostReady();
     if (!built) return;
     DIRTY_EVENTS.forEach(function (t) { d.addEventListener(t, markDirty, true); });
-    watchSnapshots();
+    watchSnapshots(); watchBlur(); watchRecords();
     d.documentElement.classList.add('gs-ready');
     if (helpFor(ID)) d.documentElement.classList.add('gs-help');
     // Settings that a game paints itself (a clock's text) are repainted when they change.
