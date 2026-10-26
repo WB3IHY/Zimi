@@ -1,4 +1,4 @@
-/* ZimiGames: Noughts and Crosses. Our own code, GPL-3.0. No network, no fonts, no modules.
+/* ZimiGames: Tic-Tac-Toe. Our own code, GPL-3.0. No network, no fonts, no modules.
    The rules and the computer (pure functions, no DOM, so node can test them) and the page (only when there is a document). */
 (function (root) {
   'use strict';
@@ -163,6 +163,6 @@
   els.nu.addEventListener('click', function () { if (timer) timer.cancel(); over = true; showSheet('New game', 'Choose who to play and which mark you take.', 'Start'); });
 
   build(); paint();
-  showSheet('Noughts and Crosses', 'Three in a row wins. Play the computer, easy or perfect, or a friend on the same screen.', 'Start');
+  showSheet('Tic-Tac-Toe', 'Three in a row wins. Play the computer, easy or perfect, or a friend on the same screen.', 'Start');
   root.__noughts = { get board() { return board; }, get turn() { return turn; } };
 })(this);

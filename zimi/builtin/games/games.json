@@ -1235,9 +1235,9 @@
   "qid": "Q210339",
   "wiki": "Tic-tac-toe",
   "path": "noughts.html",
-  "title": "Noughts and Crosses",
-  "blurb": "Three in a row. Play an easy or a perfect computer.",
-  "why": "Played perfectly, noughts and crosses is always a draw.",
+  "title": "Tic-Tac-Toe",
+  "blurb": "Also noughts and crosses. Easy or perfect computer.",
+  "why": "Played perfectly, tic-tac-toe is always a draw.",
   "origin": {
    "year": 1,
    "era": "c. AD 1"

@@ -1,5 +1,5 @@
 // Dice, arcade and kids games: the rules, with no DOM. Yacht scoring, Liar's Dice bids, Fleet,
-// Code Breaker feedback, Pinball / Rocks / Lander physics, Noughts and Crosses perfect play, and the rest.
+// Code Breaker feedback, Pinball / Rocks / Lander physics, Tic-Tac-Toe perfect play, and the rest.
 //
 // Run: node tests/test_games_play2.cjs   (exit 0 = pass)
 
@@ -582,7 +582,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check(counts.every(n => n > 60), 'echo: every pad turns up in a long sequence');
 }
 
-// ── Noughts and Crosses ─────────────────────────────────────────────────────
+// ── Tic-Tac-Toe ─────────────────────────────────────────────────────
 {
   const N = load(['playkit.js', 'noughts.js']).NoughtsEngine;
   const b = (s) => s.split('').map(c => c === '.' ? null : c);

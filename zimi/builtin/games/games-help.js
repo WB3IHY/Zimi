@@ -161,7 +161,7 @@
       "paddles": "Paddles follows Pong, made by Atari in 1972. It was one of the first video games to be a commercial success.",
       "memory": "Memory, also called Concentration or Pairs, is a card-matching game known since the 1800s or earlier. Children often beat adults at it.",
       "echo": "Echo follows Simon, an electronic game made by Ralph Baer and Howard Morrison in 1978. It tests short-term memory with growing sequences of lights.",
-      "noughts": "Noughts and Crosses, or tic-tac-toe, is played all over the world and was known in ancient Rome in a similar form. With perfect play, it always ends in a draw.",
+      "noughts": "Tic-Tac-Toe, called noughts and crosses in Britain, is played all over the world and was known in ancient Rome in a similar form. With perfect play, it always ends in a draw.",
       "koikoi": "Koi-Koi is played with hanafuda, Japanese flower cards, which date from the 1600s. Nintendo began as a maker of hanafuda cards in 1889.",
       "truco": "Truco is a trick-taking game played in Argentina, Uruguay, Brazil and Spain. Bluffing and calling the stakes up are central to it.",
       "belote": "Belote is the national card game of France, and was popular there by the early 1900s. It is related to the Dutch game Klaverjas.",
