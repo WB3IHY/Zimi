@@ -1,4 +1,0 @@
-/* Lander: five readouts in one row, even at 390 px. */
-#ld2-hud { gap: 6px; flex-wrap: nowrap; }
-#ld2-hud .pl-stat { min-width: 0; flex: 1 1 0; max-width: 76px; padding: 5px 4px; }
-#ld2-hud .pl-stat b { font-size: 16px; }

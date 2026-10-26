@@ -6,41 +6,27 @@
 <title>Lander - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="play.css">
-<link rel="stylesheet" href="lander.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body>
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Lander</h1>
-  <button class="ar-btn" id="ld2-pause" type="button" disabled>Pause</button>
+  <button class="ar-btn" id="ld2-new" type="button" hidden data-t="shell.menu.new">New game</button>
+  <button class="ar-btn" id="ld2-pause" type="button" disabled data-t="play.pause">Pause</button>
 </header>
 
 <main class="pl-main">
-  <div class="pl-hud" id="ld2-hud">
-    <div class="pl-stat"><small>Score</small><b id="ld2-score">0</b></div>
-    <div class="pl-stat"><small>Fuel</small><b id="ld2-fuel">100</b></div>
-    <div class="pl-stat"><small>Down</small><b id="ld2-vy">0</b></div>
-    <div class="pl-stat"><small>Side</small><b id="ld2-vx">0</b></div>
-    <div class="pl-stat"><small>Lives</small><b id="ld2-lives">3</b></div>
+  <div class="pl-hud">
+      <div class="pl-stat"><small data-t="lander.fuel">Fuel</small><b id="ld2-fuel">100</b></div>
+    <div class="pl-stat"><small data-t="lander.down">Down</small><b id="ld2-vy">0</b></div>
+    <div class="pl-stat"><small data-t="lander.side">Side</small><b id="ld2-vx">0</b></div>
+    <div class="pl-stat"><small data-t="play.lives">Lives</small><b id="ld2-lives">3</b></div>
   </div>
-  <canvas class="pl-arena" id="ld2-board" role="img" aria-label="A lander above rough ground with landing pads"></canvas>
-  <div class="pl-pad-row" role="group" aria-label="Controls">
-    <button class="pl-key" id="ld2-left" type="button" aria-label="Rotate left">&#8630;</button>
-    <button class="pl-key" id="ld2-thrust" type="button" aria-label="Thrust">Thrust</button>
-    <button class="pl-key" id="ld2-right" type="button" aria-label="Rotate right">&#8631;</button>
-  </div>
-  <p class="pl-msg" id="ld2-msg" role="status" aria-live="polite"></p>
-  <p class="pl-help">Arrow keys or A and D rotate. Up, W or Space thrusts. P pauses. Land upright on a flat pad, with Down under 35 and Side under 22. A ! after a number means too fast. Narrow pads score more. Fuel is limited.</p>
+  <canvas class="pl-arena" id="ld2-board" role="img" aria-label="A lander above rough ground with landing pads" data-t-aria="lander.board"></canvas>
+  <p class="pl-msg" id="ld2-msg"></p>
 </main>
 
-<div class="ar-sheet" id="ld2-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="ld2-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="ld2-sheet-title">Lander</h2>
-    <p id="ld2-sheet-text"></p>
-    <div class="ar-sheet-actions"><button class="ar-btn" id="ld2-go" type="button" aria-pressed="true">Start</button></div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="lander.js"></script>
 <!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
