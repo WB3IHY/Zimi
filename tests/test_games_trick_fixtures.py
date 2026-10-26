@@ -221,7 +221,7 @@ def play_out(browser, served, name, spec):
             os.makedirs(os.environ["ZIMI_TRICK_DEBUG"], exist_ok=True)
             with open(os.path.join(os.environ["ZIMI_TRICK_DEBUG"], name + ".txt"), "w") as f:
                 f.write("\n".join(page.evaluate("() => window.__h.snaps")) + "\n")
-        raise AssertionError("%s never finished (%d steps)" % (name, MAX_STEPS))
+        raise AssertionError("%s never finished (%d steps); the page said %s" % (name, MAX_STEPS, errors[:3]))
     out = page.evaluate(
         """(cfg) => { const h = window.__h, st = window[cfg.api].session.state;
         return { trace: h.trace, snaps: h.snaps, plays: h.plays, hands: h.hands, final: { phase: st.phase, scores: st.scores || st.totals, size: JSON.stringify(st).length, sheet: (document.querySelector('.ar-sheet') || {}).textContent || '' } }; }""",
