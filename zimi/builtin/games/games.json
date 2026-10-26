@@ -1918,5 +1918,22 @@
   "length": "10 min",
   "kind": "library",
   "computer": false
+ },
+ {
+  "qid": "Q1792503",
+  "wiki": "Balderdash",
+  "path": "bluff.html",
+  "title": "Dictionary Bluff",
+  "blurb": "Fake meanings for real rare words, passed round",
+  "why": "Balderdash and Fictionary are games of invented definitions. Here the real words and meanings come from your own Wiktionary.",
+  "origin": {
+   "year": 1984,
+   "era": "1980s"
+  },
+  "region": "Americas",
+  "players": "2 to 6",
+  "length": "15 min",
+  "kind": "library",
+  "computer": false
  }
 ]
