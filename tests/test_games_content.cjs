@@ -110,7 +110,7 @@ const check = (ok, label) => {
 
 // ── FreeCell hints ──
 {
-  const sb = load(['text.js', 'cardbacks.js', 'cards.js', 'freecell.js', 'freecell-solver.js']);
+  const sb = load(['text.js', 'cardbacks.js', 'courts.js', 'cards.js', 'freecell.js', 'freecell-solver.js']);
   const FC = sb.ZimiFreeCell, Solver = sb.ZimiFreeCellSolver;
   const DEALS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 617, 1000, 31999];
   let legal = 0, solved = 0;

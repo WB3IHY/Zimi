@@ -73,6 +73,15 @@ ABOUT = """<!doctype html>
 <main class="gm-about-page">
   <p id="ab-blurb"></p>
   <p><a class="ar-btn gm-play" id="ab-play" href="index.html">Play</a></p>
+  <section id="ab-credit" hidden>
+    <h2>Credit</h2>
+    <p>This puzzle is part of Simon Tatham’s Portable Puzzle Collection, copyright 2004–2024 Simon Tatham and many contributors, under the MIT licence. ZimiGames adds the page around it and runs it unchanged.</p>
+    <p><a id="ab-licence" href="puzzles/LICENCE">The licence</a> · <a id="ab-manual" href="puzzles/doc/">The manual page</a></p>
+  </section>
+  <section id="ab-deck" hidden>
+    <h2>Credit</h2>
+    <p>The French deck’s jacks, queens and kings are from Adrian Kennard’s SVG playing cards (<a href="https://www.me.uk/cards/">me.uk/cards</a>), released into the public domain under CC0 1.0, recoloured to the deck’s palette. The court designs follow the 19th-century Goodall &amp; Son pattern.</p>
+  </section>
 </main>
 <script>
 (function () {
@@ -87,6 +96,12 @@ ABOUT = """<!doctype html>
   var play = document.getElementById('ab-play');
   play.href = g.path;
   play.textContent = 'Play ' + g.title;
+  var m = /^puzzles\\/([a-z]+)\\.html$/.exec(g.path);
+  if (m) {
+    document.getElementById('ab-manual').href = 'puzzles/doc/' + m[1] + '.html';
+    document.getElementById('ab-credit').hidden = false;
+  }
+  if (g.cards) document.getElementById('ab-deck').hidden = false;
 })();
 </script>
 </body>
@@ -96,7 +111,12 @@ ABOUT = """<!doctype html>
 
 def write_about(rows):
     table = {
-        r["qid"]: {"path": r["path"], "title": r["title"], "blurb": r["blurb"]}
+        r["qid"]: {
+            "path": r["path"],
+            "title": r["title"],
+            "blurb": r["blurb"],
+            **({"cards": 1} if r.get("kind") == "cards" else {}),
+        }
         for r in rows
     }
     body = json.dumps(table, ensure_ascii=False, separators=(",", ":")).replace(

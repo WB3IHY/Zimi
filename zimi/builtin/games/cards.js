@@ -324,6 +324,8 @@
   var COURT_PIP_X = 31.5, COURT_PIP_Y = 27, COURT_PIP_SCALE = 0.55, COURT_BAND = 7, COURT_MID_PIP = 0.62;
   var SMALL_COURT = '<g class="zc-small" display="none" transform="translate(50 128) scale(1.55) translate(-50 -' + COURT_BASE + ')">';
   function courtMarkup(kind, s, standalone) {
+    var art = root.ZimiCourts && root.ZimiCourts.markup(kind, s); // the public-domain courts (courts.js), when the page has them
+    if (art) return '<g class="zc-big">' + art + '</g>' + (standalone ? '' : '<g class="zc-small" display="none">' + root.ZimiCourts.thumb(kind, s) + '</g>');
     var half = bust(kind, s) + placed(s, COURT_PIP_X, COURT_PIP_Y, COURT_PIP_SCALE, false, standalone);
     var line = function (y) { return '<path d="M21 ' + y + 'H79" stroke="currentColor" stroke-width="0.8" opacity="0.55"/>'; };
     return '<g class="zc-big"><rect x="21" y="15" width="58" height="110" rx="3.5" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.2"/>' +
@@ -362,7 +364,8 @@
       PIPS[r].forEach(function (p) { pips += placed(s, p[0], p[1], r >= DENSE_FROM ? PIP_SCALE_DENSE : PIP_SCALE, p[1] > FLIP_AFTER_Y, standalone); });
       body = '<g class="zc-big">' + pips + '</g>' + smallSuit(s, standalone);
     } else body = courtMarkup(COURT_KINDS[r - 11], s, standalone);
-    return faceFrame(indexMarkup(label, s, standalone) + body, standalone ? (isRed(id) ? CARD_RED : CARD_BLACK) : '', standalone);
+    var index = indexMarkup(label, s, standalone); // a court's art lies under its index
+    return faceFrame(r > 10 ? body + index : index + body, standalone ? (isRed(id) ? CARD_RED : CARD_BLACK) : '', standalone);
   }
 
   // The Italian deck, 40 cards: id = suit * 10 + (rank - 1), suits coins,

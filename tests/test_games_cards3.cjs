@@ -24,7 +24,7 @@ const sandbox = {
 };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
-for (const f of ['text.js', 'cardbacks.js', 'cards.js', 'cardtable.js', 'koikoi.js', 'truco.js', 'belote.js', 'skat.js', 'teenpatti.js']) {
+for (const f of ['text.js', 'cardbacks.js', 'courts.js', 'cards.js', 'cardtable.js', 'koikoi.js', 'truco.js', 'belote.js', 'skat.js', 'teenpatti.js']) {
   if (!fs.existsSync(path.join(dir, f))) continue;
   vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sandbox, { filename: f });
 }

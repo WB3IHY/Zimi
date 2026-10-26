@@ -29,7 +29,7 @@ const sandbox = {
 };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
-for (const f of ['text.js', 'cardbacks.js', 'cards.js', 'solitaire.js', 'freecell.js']) {
+for (const f of ['text.js', 'cardbacks.js', 'courts.js', 'cards.js', 'solitaire.js', 'freecell.js']) {
   vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sandbox, { filename: f });
 }
 const Z = sandbox.ZimiCards, K = sandbox.ZimiSolitaire, F = sandbox.ZimiFreeCell;
@@ -258,6 +258,23 @@ check(Z.foundationAccepts(id('AH'), null, 0) && !Z.foundationAccepts(id('2H'), n
 check(Z.stacksOn(id('7S'), id('6H')) && !Z.stacksOn(id('7S'), id('6C')) && !Z.stacksOn(id('7S'), id('5H')), 'stacking is opposite colour, one rank down');
 check(Z.fmtTime(0) === '0:00' && Z.fmtTime(75) === '1:15' && Z.fmtTime(3600) === '1:00:00' && Z.fmtTime(-5) === '0:00', 'times read m:ss, with hours from an hour');
 check(Z.shuffled(() => 0.5).length === 52 && new Set(Z.shuffled(Math.random)).size === 52, 'a shuffle keeps all 52');
+
+// ── The court cards: public-domain art (courts.js), recoloured to the card palette ──
+{
+  const palette = new Set(['#b3261e', '#1b1b1b', '#e09400', '#1d3b7a', '#fdfcf8', 'none']);
+  const courtIds = [];
+  for (let su = 0; su < 4; su++) for (const r of [11, 12, 13]) courtIds.push(su * 13 + r - 1);
+  const faces = courtIds.map(c => Z.faceMarkup(c, false));
+  check(faces.every(f => f.includes('viewBox="0 0 1300 2000"') && f.includes('zc-small')), 'all twelve French courts carry the courts.js art and a small-card figure');
+  check(new Set(faces).size === 12, 'the twelve French courts are twelve different drawings');
+  const colours = new Set();
+  faces.forEach(f => (f.match(/(?:fill|stroke)="(#[0-9a-fA-F]{3,6}|none)"/g) || []).forEach(m => colours.add(m.split('"')[1].toLowerCase())));
+  check([...colours].every(c => palette.has(c)), 'the courts use only the card palette (' + [...colours].join(' ') + ')');
+  const bytes = fs.statSync(path.join(dir, 'courts.js')).size;
+  check(bytes < 200 * 1024, 'courts.js stays under 200 KB (' + Math.round(bytes / 1024) + ' KB)');
+  const ace = Z.faceMarkup(id('AS'), false);
+  check(!ace.includes('viewBox="0 0 1300 2000"'), 'the Ace of Spades keeps its own drawing');
+}
 
 console.log(failures ? failures + ' failure(s)' : 'all passed');
 process.exit(failures ? 1 : 0);

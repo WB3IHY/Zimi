@@ -23,7 +23,7 @@ const sandbox = {
 };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
-for (const f of ['text.js', 'cardbacks.js', 'cards.js', 'golf.js', 'pyramid.js', 'tripeaks.js', 'spider.js', 'cardtable.js', 'hearts.js']) {
+for (const f of ['text.js', 'cardbacks.js', 'courts.js', 'cards.js', 'golf.js', 'pyramid.js', 'tripeaks.js', 'spider.js', 'cardtable.js', 'hearts.js']) {
   vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sandbox, { filename: f });
 }
 const Z = sandbox.ZimiCards, G = sandbox.ZimiGolf, P = sandbox.ZimiPyramid, T = sandbox.ZimiTriPeaks, S = sandbox.ZimiSpider, H = sandbox.ZimiHearts;
