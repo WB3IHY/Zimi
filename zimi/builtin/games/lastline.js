@@ -212,7 +212,7 @@
   Play.applyTheme();
 
   var els = { cv: $('ll-board'), score: $('ll-score'), best: $('ll-best'), lives: $('ll-lives'), wave: $('ll-wave'), msg: $('ll-msg'), pause: $('ll-pause'), newBtn: $('ll-new') };
-  var best = Play.load(BEST_KEY, { score: 0 }), st = createState(), mode = 'ready', ctx, status = Play.status(els.msg), armed = null, pad;
+  var runId = 0, best = Play.load(BEST_KEY, { score: 0 }), st = createState(), mode = 'ready', ctx, status = Play.status(els.msg), armed = null, pad;
   var held = { left: false, right: false, fire: false }, keyHeld = { left: false, right: false, fire: false };
 
   function layout() { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, 560).ctx; draw(); }
@@ -283,7 +283,7 @@
   }
   function begin() {
     if (armed) armed.cancel();
-    st = createState(); mode = 'playing'; status.say(''); clearHeld();
+    st = createState(); runId = Play.runId(); mode = 'playing'; status.say(''); clearHeld();
     Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); loop.start();
   }
   function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); Play.pauseLabel(els.pause, true); status.say(T('play.paused')); }
@@ -293,6 +293,9 @@
     mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); clearHeld();
     if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); }
     hud(); draw();
+    showEnd();
+  }
+  function showEnd() {
     ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(st.score)], [T('play.wave'), Play.num(st.wave)]] });
     setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
   }
@@ -319,5 +322,19 @@
 
   window.addEventListener('resize', layout);
   layout(); hud(); arm();
-  root.__lastline = { get st() { return st; }, get mode() { return mode; } };
+  // A run in progress or over is kept; it comes back paused (or on its end sheet).
+  function snapshot() {
+    if (mode === 'ready') return null;
+    return { runId: runId, over: mode === 'over', st: Play.plain(st) };
+  }
+  function restore(d) {
+    if (!d || !d.st) return false;
+    if (armed) { armed.cancel(); armed = null; }
+    st = Play.overlay(createState(), d.st); st.events = []; runId = d.runId; hud(); draw();
+    if (d.over) { mode = 'over'; els.pause.disabled = true; setTimeout(showEnd, 0); return true; }
+    mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
+    return true;
+  }
+  ZimiShell.persist({ save: snapshot, load: restore });
+  root.__lastline = { get st() { return st; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, st.score, st.lives, st.wave]); } };
 })(this);
