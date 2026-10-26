@@ -1867,5 +1867,22 @@
   "length": "5 min",
   "kind": "library",
   "computer": false
+ },
+ {
+  "qid": "Q1949268",
+  "wiki": "Spelling bee",
+  "path": "spellingbee.html",
+  "title": "Spelling Bee",
+  "blurb": "Words from seven letters, checked in your Wiktionary",
+  "why": "Spelling bees began in the United States in the 1800s. Here you make words from seven letters, and your Wiktionary decides which are words.",
+  "origin": {
+   "year": null,
+   "era": "1800s"
+  },
+  "region": "Americas",
+  "players": "1",
+  "length": "15 min",
+  "kind": "library",
+  "computer": false
  }
 ]
