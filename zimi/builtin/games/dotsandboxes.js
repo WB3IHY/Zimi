@@ -110,15 +110,16 @@
   root.DotsAndBoxesEngine = { dims: dims, boxEdges: boxEdges, edgeBoxes: edgeBoxes, newState: newState, play: play, legal: legal, isOver: isOver, winner: winner, takes: takes, chooseEdge: chooseEdge, sides: sides };
 
   // ── the page ─────────────────────────────────────────────────────────────
-  if (typeof document === 'undefined') return;
-  var WK = root.WorldKit, BK = root.BoardKit, CELL = 64, PAD = 26, TAP = 44;
-  var COLORS = ['#2f6fdd', '#e0592a'], GLYPHS = ['●', '◆'], NAMES = ['Blue', 'Coral'];
+  if (typeof document === 'undefined' || !root.BoardUI) return;
+  var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, CELL = 64, PAD = 26, TAP = 44;
+  var COLORS = ['var(--db-a)', 'var(--db-b)'], GLYPHS = ['●', '◆'];   // a glyph with the colour: colour never carries meaning alone
+  function sideName(p) { return T(p === 0 ? 'dotsandboxes.side.blue' : 'dotsandboxes.side.coral'); }
   var host = document.getElementById('wk-board'), g, btns = [], n = 5, d = dims(5), W = 0;
   var state, history = WK.History(), recent = [], recentBy = -1, hintEdge = -1;
   var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: COLORS[0] }, { color: COLORS[1] }]);
   var G = WK.create({
     id: 'dotsandboxes',
-    options: WK.standardOptions({ first: 'Blue (first)', second: 'Coral' }).concat([{ key: 'size', legend: 'Dots', def: '5', choices: [['4', '4 by 4'], ['5', '5 by 5'], ['6', '6 by 6'], ['7', '7 by 7']] }]),
+    options: WK.standardOptions({ first: 'dotsandboxes.side.blueFirst', second: 'dotsandboxes.side.coral' }).concat([{ key: 'size', legend: 'dotsandboxes.dots', def: '5', choices: [['4', 'dotsandboxes.n4'], ['5', 'dotsandboxes.n5'], ['6', 'dotsandboxes.n6'], ['7', 'dotsandboxes.n7']] }]),
     statKey: function (s) { return s.level + s.size; },
     onNew: newGame, onUndo: undo, onHint: hint
   });
@@ -132,7 +133,7 @@
   }
   function edgeName(e) {
     var ends = edgeEnds(e), horizontal = e < d.H, r = Math.round((ends[0].y - PAD) / CELL) + 1, c = Math.round((ends[0].x - PAD) / CELL) + 1;
-    return (horizontal ? 'Horizontal line, row ' : 'Vertical line, column ') + (horizontal ? r : c) + ' ' + (horizontal ? 'from column ' + c : 'from row ' + r);
+    return horizontal ? T('dotsandboxes.edge.h', { row: r, from: c }) : T('dotsandboxes.edge.v', { col: c, from: r });
   }
 
   function buildBoard() {
@@ -154,7 +155,7 @@
     for (bx = 0; bx < d.B; bx++) {
       if (!s.owner[bx]) continue;
       var m = n - 1, r = (bx / m) | 0, c = bx % m, o = s.owner[bx] - 1, p = dot(r, c);
-      boxes += '<rect x="' + (p.x + 5) + '" y="' + (p.y + 5) + '" width="' + (CELL - 10) + '" height="' + (CELL - 10) + '" rx="8" fill="' + COLORS[o] + '" class="db-box"/><text x="' + (p.x + CELL / 2) + '" y="' + (p.y + CELL / 2 + 8) + '" text-anchor="middle" font-size="22" class="db-glyph">' + GLYPHS[o] + '</text>';
+      boxes += '<rect x="' + (p.x + 5) + '" y="' + (p.y + 5) + '" width="' + (CELL - 10) + '" height="' + (CELL - 10) + '" rx="8" style="fill:' + COLORS[o] + '" class="db-box"/><text x="' + (p.x + CELL / 2) + '" y="' + (p.y + CELL / 2 + 8) + '" text-anchor="middle" font-size="22" class="db-glyph">' + GLYPHS[o] + '</text>';
     }
     for (e = 0; e < d.E; e++) {
       var ends = edgeEnds(e), a = ends[0], b = ends[1], base = '<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '"';
@@ -162,15 +163,15 @@
       else lines += base + ' class="db-slot' + (e === hintEdge ? ' hint' : '') + '"/>';
     }
     g.boxes.innerHTML = boxes; g.lines.innerHTML = lines;
-    btns.forEach(function (bt, i) { bt.setAttribute('aria-label', edgeName(i) + (s.edges[i] ? ', drawn' : '')); bt.setAttribute('aria-disabled', (!open || s.edges[i]) ? 'true' : 'false'); });
-    score(G.names(NAMES[0], NAMES[1]), s.score, G.over ? -1 : s.turn);
+    btns.forEach(function (bt, i) { bt.setAttribute('aria-label', s.edges[i] ? T('dotsandboxes.edge.drawn', { label: edgeName(i) }) : edgeName(i)); bt.setAttribute('aria-disabled', (!open || s.edges[i]) ? 'true' : 'false'); });
+    score(G.names(sideName(0), sideName(1)), s.score, G.over ? -1 : s.turn);
     G.setUndo(history.size() > 0); G.setHint(open);
   }
 
   function turnText() {
     var p = state.turn;
-    if (!G.vsComputer()) return NAMES[p] + ' to draw a line';
-    return G.human(p) ? 'Your turn' : 'Computer is thinking';
+    if (!G.vsComputer()) return T('dotsandboxes.toDraw', { name: sideName(p) });
+    return G.human(p) ? T('board.yourTurn') : T('shell.thinking');
   }
 
   function onEdge(e) { if (G.over || G.thinking || !G.human(state.turn) || state.edges[e]) return; move(e); }
@@ -183,20 +184,20 @@
     if (isOver(state)) { paint(); finish(); return; }
     paint();
     var again = state.turn === mover && r.taken.length;
-    G.say((again ? (G.vsComputer() ? (G.human(mover) ? 'You took ' : 'The computer took ') : NAMES[mover] + ' took ') + (r.taken.length === 1 ? 'a box' : r.taken.length + ' boxes') + ' and moves again. ' : '') + turnText(), !G.human(state.turn));
+    G.say(again ? T('dotsandboxes.tookAgain', { name: G.vsComputer() ? (G.human(mover) ? T('board.you') : T('board.theComputer')) : sideName(mover), n: r.taken.length, line: turnText() }) : turnText(), !G.human(state.turn));
     if (!G.human(state.turn)) G.later(function () { move(chooseEdge(state, G.settings.level)); }, again ? 460 : 560);
   }
 
   function finish() {
     var w = winner(state), s = state.score;
-    if (w < 0) { G.finish('A draw, ' + s[0] + ' boxes each.', 'd'); return; }
+    if (w < 0) { G.finish(T('dotsandboxes.draw', { n: s[0] }), 'd'); return; }
     var top = Math.max(s[0], s[1]), low = Math.min(s[0], s[1]);
-    G.finish((G.vsComputer() ? (G.human(w) ? 'You win' : 'The computer wins') : NAMES[w] + ' wins') + ', ' + top + ' boxes to ' + low + '.', G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, G.vsComputer() && G.human(w) ? 'You win' : 'Game over');
+    G.finish(T('dotsandboxes.score', { top: top, low: low }), G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, sideName(w));
   }
 
   function hint() {
     hintEdge = chooseEdge(state, 'hard');
-    paint(); G.say('Hint: try the dashed line. ' + turnText());
+    paint(); G.say(T('dotsandboxes.hint', { line: turnText() }));
   }
 
   function undo() {
@@ -217,6 +218,7 @@
     if (!G.human(0)) G.later(function () { move(chooseEdge(state, G.settings.level)); });
   }
 
+  if (root.ZimiShell) root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && history.size() > 0; } });
   G.newGame();
   if (new URLSearchParams(location.search).has('debug')) root.__db = { state: function () { return state; }, engine: root.DotsAndBoxesEngine };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

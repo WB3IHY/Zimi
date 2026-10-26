@@ -101,16 +101,17 @@
   root.FourInARowEngine = { COLS: COLS, ROWS: ROWS, LEVELS: LEVELS, empty: empty, dropRow: dropRow, drop: drop, legalCols: legalCols, lineThrough: lineThrough, isFull: isFull, chooseCol: chooseCol, evaluate: evaluate };
 
   // ── the page ─────────────────────────────────────────────────────────────
-  if (typeof document === 'undefined') return;
-  var WK = root.WorldKit, CELL = 60, PAD = 12, W = COLS * CELL + 2 * PAD, H = ROWS * CELL + 2 * PAD + 10;
-  var COLORS = ['#f0a81c', '#d9433b'], NAMES = ['Amber', 'Crimson'];
+  if (typeof document === 'undefined' || !root.BoardUI) return;
+  var WK = root.WorldKit, UI = root.BoardUI, T = UI.t, CELL = 60, PAD = 12, W = COLS * CELL + 2 * PAD, H = ROWS * CELL + 2 * PAD + 10;
+  var COLORS = ['var(--fr-amber)', 'var(--fr-crimson)'];
+  function sideName(p) { return T(p === 0 ? 'fourinarow.side.amber' : 'fourinarow.side.crimson'); }
   var host = document.getElementById('wk-board'), discsG, hintsG, btns = [];
   var state, history = WK.History(), last = -1, winLine = null, dropping = -1, hintCol = -1;
   var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: COLORS[0] }, { color: COLORS[1] }]);
 
   var G = WK.create({
     id: 'fourinarow',
-    options: WK.standardOptions({ first: 'Amber (first)', second: 'Crimson' }),
+    options: WK.standardOptions({ first: 'fourinarow.side.amberFirst', second: 'fourinarow.side.crimson' }),
     onNew: newGame, onUndo: undo, onHint: hint
   });
 
@@ -137,7 +138,7 @@
       if (!b[i]) continue;
       var r = (i / COLS) | 0, c = i % COLS, cls = 'fr-disc' + (i === dropping ? ' drop' : '') + (winLine && winLine.indexOf(i) >= 0 ? ' win' : '');
       var at = 'cx="' + cx(c) + '" cy="' + cy(r) + '"';
-      html += '<g class="' + cls + '" style="--from:' + (-(r + 1) * CELL - 20) + 'px"><circle ' + at + ' r="26" fill="' + COLORS[b[i] - 1] + '"/><circle ' + at + ' r="17" class="fr-rim"/>' +
+      html += '<g class="' + cls + '" style="--from:' + (-(r + 1) * CELL - 20) + 'px"><circle ' + at + ' r="26" style="fill:' + COLORS[b[i] - 1] + '"/><circle ' + at + ' r="17" class="fr-rim"/>' +
         (i === last ? '<circle ' + at + ' r="8" class="fr-last"/>' : '') + '</g>';
     }
     discsG.innerHTML = html;
@@ -145,22 +146,22 @@
     var open = !G.over && !G.thinking && G.human(state.turn);
     btns.forEach(function (bt, c) {
       var full = state.board[c] !== EMPTY;
-      bt.setAttribute('aria-label', 'Column ' + (c + 1) + (full ? ', full' : ', ' + (dropRow(state.board, c) + 1) + ' free'));
+      bt.setAttribute('aria-label', full ? T('fourinarow.col.full', { c: c + 1 }) : T('fourinarow.col.free', { c: c + 1, n: dropRow(state.board, c) + 1 }));
       bt.setAttribute('aria-disabled', (!open || full) ? 'true' : 'false');
     });
-    score(G.names(NAMES[0], NAMES[1]), null, G.over ? -1 : state.turn);
+    score(G.names(sideName(0), sideName(1)), null, G.over ? -1 : state.turn);
     G.setUndo(history.size() > 0); G.setHint(open);
   }
 
   function turnText() {
-    var p = state.turn, nm = G.who(p, NAMES[0], NAMES[1]);
-    if (!G.vsComputer()) return nm + ' to play';
-    return G.human(p) ? 'Your turn (' + NAMES[p] + ')' : 'Computer is thinking';
+    var p = state.turn, nm = G.who(p, sideName(0), sideName(1));
+    if (!G.vsComputer()) return T('go.toPlay', { name: nm });
+    return G.human(p) ? T('makruk.yourTurn', { side: sideName(p) }) : T('shell.thinking');
   }
 
   function playCol(c) {
     if (G.over || G.thinking || !G.human(state.turn)) return;
-    if (!place(c)) { G.say('That column is full. ' + turnText()); }
+    if (!place(c)) { G.refuse(btns[c], T('fourinarow.full')); }
   }
 
   function place(c) {
@@ -173,11 +174,11 @@
     var line = lineThrough(nb, idx);
     if (line) {
       winLine = line; paint();
-      var w = p - 1, msg = G.vsComputer() ? (G.human(w) ? 'You win with four in a row.' : 'The computer wins with four in a row.') : NAMES[w] + ' wins with four in a row.';
-      G.finish(msg, G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, G.vsComputer() && G.human(w) ? 'You win' : 'Game over');
+      var w = p - 1;
+      G.finish(T('fourinarow.four'), G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, sideName(w));
       return true;
     }
-    if (isFull(nb)) { paint(); G.finish('A draw: the board is full.', 'd'); return true; }
+    if (isFull(nb)) { paint(); G.finish(T('board.full'), 'd'); return true; }
     paint();
     G.say(turnText(), !G.human(state.turn));
     if (!G.human(state.turn)) G.later(computerMove);
@@ -191,7 +192,7 @@
 
   function hint() {
     hintCol = chooseCol(state.board, state.turn + 1, 'hard');
-    paint(); G.say('Hint: try the column with the arrow. ' + turnText());
+    paint(); G.say(T('fourinarow.hint', { line: turnText() }));
   }
 
   function undo() {
@@ -211,6 +212,7 @@
     if (!G.human(0)) G.later(computerMove);
   }
 
+  if (root.ZimiShell) root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && history.size() > 0; } });
   buildBoard();
   G.newGame();
   if (new URLSearchParams(location.search).has('debug')) root.__fr = { state: function () { return state; }, engine: root.FourInARowEngine };

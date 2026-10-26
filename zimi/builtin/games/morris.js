@@ -164,13 +164,14 @@
   root.MorrisEngine = { ADJ: ADJ, MILLS: MILLS, XY: XY, LEVELS: LEVELS, newState: newState, phase: phase, onBoard: onBoard, inMill: inMill, targets: targets, partial: partial, removable: removable, finish: finish, moves: moves, apply: apply, key: key, chooseMove: chooseMove, evaluate: evaluate };
 
   // ── the page ─────────────────────────────────────────────────────────────
-  if (typeof document === 'undefined') return;
-  var WK = root.WorldKit, BK = root.BoardKit, UNIT = 62, PAD = 34, SIDE = 6 * UNIT, W = SIDE + 2 * PAD, H = W + 46;
-  var NAMES = ['White', 'Black'], REPEAT_DRAW = 3;
+  if (typeof document === 'undefined' || !root.BoardUI) return;
+  var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, UNIT = 62, PAD = 34, SIDE = 6 * UNIT, W = SIDE + 2 * PAD, H = W + 46;
+  var REPEAT_DRAW = 3;
+  function sideName(p) { return UI.side(p === 0 ? 'white' : 'black'); }
   var host = document.getElementById('wk-board'), stonesG, marksG, handG, btns = [];
   var state, history = WK.History(), sel = -1, pending = null, lastFrom = -1, lastTo = -1, lastTaken = -1, hintMove = null, seen = {};
-  var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: '#f4f0e4' }, { color: '#1c222d' }]);
-  var G = WK.create({ id: 'morris', options: WK.standardOptions({ first: 'White (first)', second: 'Black' }), onNew: newGame, onUndo: undo, onHint: hint });
+  var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: 'var(--disc-w)' }, { color: 'var(--disc-b)' }]);
+  var G = WK.create({ id: 'morris', options: WK.standardOptions({ first: 'chess.side.white', second: 'board.black' }), onNew: newGame, onUndo: undo, onHint: hint });
 
   function pxy(i) { return { x: PAD + XY[i][0] * UNIT, y: PAD + XY[i][1] * UNIT }; }
   function pname(i) { return 'abcdefg'[XY[i][0]] + (7 - XY[i][1]); }
@@ -225,20 +226,23 @@
         else ok = b[j] === state.turn + 1 || (sel >= 0 && legalTargets.indexOf(j) >= 0);
       }
       bt.setAttribute('aria-disabled', ok ? 'false' : 'true');
-      bt.setAttribute('aria-label', pname(j) + ', ' + (b[j] === 1 ? 'white man' : b[j] === 2 ? 'black man' : 'empty') + (sel === j ? ', selected' : '') + (removing && pending.options.indexOf(j) >= 0 ? ', can be taken' : ''));
+      var text = T('go.pt', { pt: pname(j), what: T(b[j] === 1 ? 'morris.man.white' : b[j] === 2 ? 'morris.man.black' : 'go.pt.empty') });
+      if (sel === j) text = T('chess.sq.selected', { label: text });
+      if (removing && pending.options.indexOf(j) >= 0) text = T('morris.canTake', { label: text });
+      bt.setAttribute('aria-label', text);
     });
-    score(G.names(NAMES[0], NAMES[1]), [onBoard(state, 0) + state.hand[0], onBoard(state, 1) + state.hand[1]], G.over ? -1 : state.turn);
+    score(G.names(sideName(0), sideName(1)), [onBoard(state, 0) + state.hand[0], onBoard(state, 1) + state.hand[1]], G.over ? -1 : state.turn);
     G.setUndo(history.size() > 0); G.setHint(humanNow() && !removing);
   }
 
   function turnText() {
-    var p = state.turn, nm = NAMES[p], ph = phase(state, p), you = G.vsComputer() && G.human(p);
-    if (G.vsComputer() && !you) return 'Computer is thinking';
-    var lead = G.vsComputer() ? 'Your turn' : nm + ' to play';
-    if (pending && pending.removing) return 'You made a mill. Take one of the other side\'s men';
-    if (ph === 'place') return lead + ': place a man (' + state.hand[p] + ' left to place)';
-    if (ph === 'fly') return lead + ': you may fly a man anywhere';
-    return lead + ': slide a man along a line';
+    var p = state.turn, nm = sideName(p), ph = phase(state, p), you = G.vsComputer() && G.human(p);
+    if (G.vsComputer() && !you) return T('shell.thinking');
+    var lead = G.vsComputer() ? T('board.yourTurn') : T('go.toPlay', { name: nm });
+    if (pending && pending.removing) return T('morris.mill');
+    if (ph === 'place') return T('morris.place', { lead: lead, n: state.hand[p] });
+    if (ph === 'fly') return T('morris.fly', { lead: lead });
+    return T('morris.slide', { lead: lead });
   }
 
   function onPoint(i) {
@@ -249,7 +253,7 @@
     }
     var p = state.turn, ph = phase(state, p), b = state.board;
     if (ph === 'place') { if (!b[i]) step(-1, i); return; }
-    if (b[i] === p + 1) { sel = sel === i ? -1 : i; hintMove = null; paint(); G.say(sel >= 0 ? (targets(state, i).length ? 'Choose where it goes.' : 'That man cannot move. ') + (targets(state, i).length ? '' : turnText()) : turnText()); return; }
+    if (b[i] === p + 1) { sel = sel === i ? -1 : i; hintMove = null; paint(); if (sel >= 0 && !targets(state, i).length) { sel = -1; paint(); G.refuse(btns[i], T('morris.cantMove')); return; } G.say(sel >= 0 ? T('morris.chooseWhere') : turnText()); return; }
     if (sel >= 0 && targets(state, sel).indexOf(i) >= 0) step(sel, i);
   }
 
@@ -282,10 +286,10 @@
   function afterTurn(took) {
     var k = key(state); seen[k] = (seen[k] || 0) + 1;
     var who = state.turn === 1 ? 0 : 1; // the side that just moved
-    var note = took ? (G.vsComputer() ? (G.human(who) ? 'You took a man. ' : 'The computer took a man. ') : NAMES[who] + ' took a man. ') : '';
+    var note = took ? T('morris.took', { name: G.vsComputer() ? (G.human(who) ? T('board.you') : T('board.theComputer')) : sideName(who) }) : '';
     if (state.over) { paint(); finishGame(); return; }
-    if (seen[k] >= REPEAT_DRAW) { paint(); G.finish('A draw: the same position came up three times.', 'd'); return; }
-    paint(); G.say(note + turnText(), !G.human(state.turn));
+    if (seen[k] >= REPEAT_DRAW) { paint(); G.finish(T('xiangqi.why.repetition'), 'd'); return; }
+    paint(); G.say(note ? T('janggi.noted', { note: note, line: turnText() }) : turnText(), !G.human(state.turn));
     if (!G.human(state.turn)) G.later(computerMove);
   }
 
@@ -301,15 +305,15 @@
 
   function finishGame() {
     var w = state.winner;
-    if (w < 0) { G.finish('A draw: no man was taken for sixty moves.', 'd'); return; }
-    var why = onBoard(state, 1 - w) + state.hand[1 - w] < 3 ? 'down to two men' : 'with no move left';
-    var msg = G.vsComputer() ? (G.human(w) ? 'You win: the computer is ' + why + '.' : 'The computer wins: you are ' + why + '.') : NAMES[w] + ' wins: ' + NAMES[1 - w] + ' is ' + why + '.';
-    G.finish(msg, G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, G.vsComputer() && G.human(w) ? 'You win' : 'Game over');
+    if (w < 0) { G.finish(T('morris.why.sixty'), 'd'); return; }
+    var two = onBoard(state, 1 - w) + state.hand[1 - w] < 3, you = G.vsComputer() && !G.human(w);
+    var msg = T((two ? 'morris.why.two' : 'morris.why.blocked') + (you ? '.you' : ''), { side: G.vsComputer() ? T('board.theComputer') : sideName(1 - w) });
+    G.finish(msg, G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, sideName(w));
   }
 
   function hint() {
     hintMove = chooseMove(state, 'hard');
-    paint(); G.say('Hint: try the marked move. ' + turnText());
+    paint(); G.say(T('morris.hint', { line: turnText() }));
   }
 
   function undo() {
@@ -329,6 +333,7 @@
     if (!G.human(0)) G.later(computerMove);
   }
 
+  if (root.ZimiShell) root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && history.size() > 0; } });
   buildBoard();
   G.newGame();
   if (new URLSearchParams(location.search).has('debug')) root.__mo = { state: function () { return state; }, engine: root.MorrisEngine, pending: function () { return pending; } };
