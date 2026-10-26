@@ -1816,5 +1816,22 @@
   "length": "5 min",
   "kind": "library",
   "computer": false
+ },
+ {
+  "qid": "Q14660",
+  "wiki": "Flag",
+  "path": "flags.html",
+  "title": "Flags",
+  "blurb": "Name the country from its flag",
+  "why": "National flags in their modern form date from the late 1700s. Here you name countries from the flags in your Wikipedia.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "5 min",
+  "kind": "library",
+  "computer": false
  }
 ]
