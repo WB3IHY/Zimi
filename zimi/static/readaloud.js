@@ -316,13 +316,13 @@ var _TTS_SKIP_SEL = 'sup.reference,.mw-ref,.mw-editsection,.hatnote,.metadata,.a
   // Page chrome and what only a screen reader is given: menus, buttons, a
   // tooltip's glossary text, "Show" and "Panel - Collapsed" (Eric, 2026-10-25:
   // the Factbook "is very rough").
-  // A question page's own: votes, tags, who asked and when, a comment's author and date.
-  '.votecell,.post-taglist,.post-signature,.s-user-card,.comment-user,.comment-date,' +
+  // A docs page's browser-support badge; a question page's own: votes, tags, who asked and when, a comment's author and date.
+  '.baseline-indicator,.votecell,.post-taglist,.post-signature,.s-user-card,.comment-user,.comment-date,' +
   'nav,[role="navigation"],[role="menu"],[role="search"],button,.tooltip-content,.expandcollapse-all,.sr-only,.visually-hidden,.visuallyhidden,.screen-reader-text';
 // Chrome by its class words (nav, menu, toolbar...), whatever the site calls the rest.
 var _TTS_CHROME_CLASS = /(?:^|[\s_-])(?:nav|navbar|navigation|menu|dropdown|breadcrumbs?|toolbar|pagination)(?:$|[\s_-])/i;
 // Code is not read: its symbols come out as noise. A <pre> of prose (a poem) is.
-function _ttsCode(el) { return el.localName === 'pre' && (!!el.querySelector('code') || /[{}\[\]|&<>=;$\\]/.test(el.textContent || '')); }
+function _ttsCode(el) { return el.localName === 'pre' && (!!el.querySelector('code') || !!(el.hasAttribute && el.hasAttribute('data-language')) || /[{}\[\]|&<>=;$\\]|\w\(/.test(el.textContent || '')); }
 function _ttsChrome(el) { return typeof el.className === 'string' && _TTS_CHROME_CLASS.test(el.className); }
 // A collapsed section (an accordion's closed panel) is still the article's text:
 // hidden by the page's script until opened, and opened when the reading gets there.

@@ -648,7 +648,7 @@ const tick = () => new Promise(r => setImmediate(r));
       model_of(['main', {}, ['ul', {}, ['li', { cls: ['tabHead'] }, 'Geography'], ['li', { style: { display: 'none' } }, ['p', {}, 'Landlocked.']]], ['p', {}, 'Intro.'], ['div', { style: { display: 'none' } }, 'Menu stuff']]) === 'Geography|Landlocked.|Intro.|');
     ok('Wikipedia, Stack Exchange and Gutenberg prose is read as it was (a poem in a <pre> too); votes, tags and code are not',
       model_of(['main', {}, ['h2', {}, 'See also'], ['ul', {}, ['li', {}, ['a', {}, 'Tides']], ['li', {}, ['a', {}, 'Moons']]],
-        ['div', { cls: ['post-text'] }, ['p', {}, 'Use a loop.'], ['pre', {}, 'a poem line'], ['pre', {}, 'x = [1, 2]'], ['p', {}, 'That is all.']], ['button', {}, 'Share'],
+        ['div', { cls: ['post-text'] }, ['p', {}, 'Use a loop.'], ['pre', {}, 'a poem line'], ['pre', {}, 'x = [1, 2]'], ['pre', {}, 'map(callbackFn)'], ['details', { cls: ['baseline-indicator'] }, 'Baseline Widely available'], ['p', {}, 'That is all.']], ['button', {}, 'Share'],
         ['div', { cls: ['votecell'] }, '16'], ['div', { cls: ['post-taglist'] }, 'sleep'],
         ['p', { cls: ['chapter'] }, 'CHAPTER I. Down the Rabbit-Hole']]) === 'See also|Tides|Moons|Use a loop.|a poem line|That is all.|CHAPTER I. Down the Rabbit-Hole|');
     const laid = mkDoc(['main', {}, ['table', {}, ['tr', {}, ['td', {}, ['p', {}, 'The whole page sits in a table.']]]]]);
