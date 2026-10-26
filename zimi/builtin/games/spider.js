@@ -217,6 +217,7 @@
       setSub();
       session.stats = Z.createStats('spider' + suits);
       session.reset(newState(shuffledDeck(suits, Math.random), suits));
+      if (session.state.suits !== suits) { suits = session.state.suits; session.stats = Z.createStats('spider' + suits); setSub(); }   // a game taken up again keeps its suits
     }
 
     board = Z.createBoard({
@@ -229,7 +230,7 @@
       slotTap: function (pile) { if (pile === 'stock') deal(); }
     });
     session = Z.createSession({
-      id: 'spider' + suits, board: board, newGame: newGame, els: el,
+      id: 'spider' + suits, saveId: 'spider', board: board, newGame: newGame, els: el,
       statText: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.score; },
       cascadeOrder: function (st) {
         var order = [], i;

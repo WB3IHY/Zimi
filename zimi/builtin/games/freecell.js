@@ -181,6 +181,7 @@
       dealNo = n;
       hint = null; toast.hidden = true; sub.textContent = dealLabel();
       session.reset(newState(n));
+      if (session.state.deal !== n) { dealNo = session.state.deal; sub.textContent = dealLabel(); }   // a game taken up again keeps its deal
     }
     function randomDeal() { startDeal(randomDealNo()); }
     function dealLabel() { return TX(dealNo === UNWINNABLE_DEAL ? 'fc.dealNoWin' : 'fc.deal', { n: dealNo }); }

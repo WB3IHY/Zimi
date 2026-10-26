@@ -325,7 +325,7 @@
     function dealIt() {
       var st = session.state;
       if (!canDeal(st)) return;
-      show(deal(st, rng));
+      show(deal(st, rng)); session.began();
     }
     function move(next) { if (next !== session.state) show(next); }
     function newGame() {

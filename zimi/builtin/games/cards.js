@@ -1323,7 +1323,7 @@
   // included, from board.handTop()) would reach into it.
   var STATUS_GAP = 6;
   function statusTop(statusY, handTop, h) { return handTop === null ? statusY : Math.min(statusY, handTop - STATUS_GAP - h); }
-  var TICK_MS = 1000;
+  var TICK_MS = 1000, HISTORY_KEPT = 40;
   // Run a game's openMenu without showing its sheet and hand back the parts that are options.
   function menuOptions(openMenu) {
     var real = root.ZimiCards.sheet, taken = null;
@@ -1337,8 +1337,8 @@
   function createSession(cfg) {
     var d = root.document, board = cfg.board;
     // s.stats can be swapped by a game whose variants keep separate records (Spider's suits).
-    var s = { state: null, history: [], won: false, stats: createStats(cfg.id, cfg.lowScore) }, begun = false;
-    var started = 0, banked = 0, ticker = 0, timers = [], running = false, resume = false;
+    var s = { state: null, history: [], won: false, ending: null, stats: createStats(cfg.id, cfg.lowScore) }, begun = false;
+    var started = 0, banked = 0, ticker = 0, timers = [], running = false, resume = false, restoreTried = false;
 
     function seconds() { return Math.floor((banked + (running ? Date.now() - started : 0)) / 1000); }
     function paint() {
@@ -1359,6 +1359,8 @@
       s.history.push(s.state); s.state = next;
       board.render(next); paint();
     };
+    // A game that moves state with follow() (Blackjack's round) says when the player has really begun.
+    s.began = function () { if (!begun) { begun = true; s.stats.began(); run(); } };
     // A state that follows from the player's move without being one (an
     // auto-move): shown, and undone together with that move.
     s.follow = function (next) { s.state = next; board.render(next); paint(); };
@@ -1367,17 +1369,42 @@
       clearLater(); board.clearSelection();
       s.state = s.history.pop(); board.render(s.state); paint();
     };
+    // Leaving a game and coming back never loses it: the position, the undo trail, the clock and a finished
+    // game's end sheet are kept by the shell (ZimiShell.persist). The page's first new game is the place the
+    // kept one is taken up instead, so the game's own code after reset (the deal, the computer's turn) runs as usual.
+    function savedGame() {
+      if (!begun || !s.state || (cfg.saveOff && cfg.saveOff())) return null;
+      return { id: cfg.saveId || cfg.id, state: s.state, history: s.history.slice(-HISTORY_KEPT), ms: banked + (running ? Date.now() - started : 0), ending: s.ending };
+    }
+    function takeUp(kept) {
+      s.state = kept.state; s.history = kept.history || []; banked = kept.ms || 0; begun = true; s.ending = kept.ending || null;
+      board.render(s.state); paint();
+      if (s.ending) { s.won = true; session_showEnd(s.ending, 0); } else run();
+    }
+    function keptGame() {
+      var kept = root.ZimiShell && root.ZimiShell.saved ? root.ZimiShell.saved() : null;
+      return kept && kept.id === (cfg.saveId || cfg.id) && kept.state && typeof kept.state === 'object' ? kept : null;
+    }
     s.reset = function (state) {
-      clearLater(); halt(); banked = 0; s.history = []; s.won = false; begun = false; board.clearSelection();
+      clearLater(); halt(); banked = 0; s.history = []; s.won = false; s.ending = null; begun = false; board.clearSelection();
+      var kept = restoreTried ? null : keptGame();
+      restoreTried = true;
+      if (kept) {
+        try { takeUp(kept); return; } catch (e) { if (root.ZimiShell && root.ZimiShell.forget) root.ZimiShell.forget(); s.won = false; s.ending = null; begun = false; halt(); }
+      }
       s.state = state; board.render(state, 'deal'); paint();
     };
+    // `after` is how long to wait for the last animation; a game coming back from being left has none.
+    function session_showEnd(e, after) {
+      if (root.ZimiShell && root.ZimiShell.endSheet) root.ZimiShell.endSheet({ result: e.result, text: e.text, stats: e.stats, onNew: cfg.newGame, after: after });
+    }
     // A finished game that was not won (Hearts lost, Golf stuck): the clock
     // stops, the score is kept if it is a best, and the sheet says how it went.
     s.lose = function (title, lines, score) {
       s.won = true; halt(); clearLater();
       if (typeof score === 'number') s.stats.scored(score);
       paint();
-      if (root.ZimiShell && root.ZimiShell.endSheet) { root.ZimiShell.endSheet({ result: 'lose', text: lines[0] || title, stats: s.stats.rows().slice(0, 2), onNew: cfg.newGame }); return; }
+      if (root.ZimiShell && root.ZimiShell.endSheet) { s.ending = { result: 'lose', text: lines[0] || title, stats: s.stats.rows().slice(0, 2) }; session_showEnd(s.ending); return; }
       var body = lines.map(function (t) { return h('p', { class: 'zc-note', text: t }); });
       body.push(h('p', { class: 'zc-stats', text: s.stats.line() }));
       sheet({ title: title, body: body, actions: [{ label: T('shell.close') }, { label: T('shell.menu.new'), primary: true, onclick: cfg.newGame }] });
@@ -1386,18 +1413,17 @@
       s.won = true; halt(); clearLater();
       var sec = seconds(), best = s.stats.won(sec, score);
       paint();
+      if (root.ZimiShell && root.ZimiShell.endSheet) s.ending = { result: 'win', text: cfg.winLines(sec, s.state)[0], stats: [[T('cards.stats.time'), fmtTime(sec)], [T('cards.stats.won'), T('cards.stats.wonOf', { won: best.won, played: best.played })]] };
       board.cascade(cfg.cascadeOrder(s.state), function () {
         var lines = cfg.winLines(sec, s.state);
-        if (root.ZimiShell && root.ZimiShell.endSheet) {
-          root.ZimiShell.endSheet({ result: 'win', text: lines[0], stats: [[T('cards.stats.time'), fmtTime(sec)], [T('cards.stats.won'), T('cards.stats.wonOf', { won: best.won, played: best.played })]], onNew: cfg.newGame });
-          return;
-        }
+        if (s.ending) { session_showEnd(s.ending); return; }
         var body = lines.map(function (t) { return h('p', { class: 'zc-note', text: t }); });
         body.push(h('p', { class: 'zc-stats', text: s.stats.line() }));
         sheet({ title: T('shell.end.win'), body: body, actions: [{ label: T('shell.close') }, { label: T('shell.menu.new'), primary: true, onclick: cfg.newGame }] });
       });
     };
 
+    if (root.ZimiShell && root.ZimiShell.persist) root.ZimiShell.persist({ save: savedGame });
     cfg.els.undo.addEventListener('click', s.undo);
     cfg.els.newBtn.addEventListener('click', cfg.newGame);
     cfg.els.menu.addEventListener('click', cfg.openMenu);

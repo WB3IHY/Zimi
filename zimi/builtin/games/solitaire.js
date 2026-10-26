@@ -250,7 +250,11 @@
       session.commit(next);
       return true;
     }
-    function newGame() { sub.textContent = TX('sol.draw', { n: drawN }); session.reset(deal()); }
+    function newGame() {
+      session.reset(deal());
+      drawN = session.state.draw === 3 ? 3 : 1;   // a game taken up again keeps the draw it was dealt with
+      sub.textContent = TX('sol.draw', { n: drawN });
+    }
 
     board = Z.createBoard({
       table: d.getElementById('zc-table'), cols: COLS, place: place,
@@ -263,7 +267,7 @@
       slotTap: function (pile) { if (pile === 'stock') drawCards(); }
     });
     session = Z.createSession({
-      id: 'solitaire', board: board, newGame: newGame,
+      id: 'solitaire', saveOff: function () { return !!watch; }, board: board, newGame: newGame,
       els: { undo: d.getElementById('zc-undo'), newBtn: d.getElementById('zc-new'), menu: d.getElementById('zc-menu'), stat: d.getElementById('zc-stat') },
       statText: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.score; },
       cascadeOrder: function (st) {

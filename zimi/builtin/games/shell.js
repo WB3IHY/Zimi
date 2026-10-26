@@ -38,6 +38,17 @@
      ZimiShell.reducedMotion()       the one answer: the device asks for less motion, or Animation is Off.
      ZimiShell.settings, .anim(), .ms(n), .sound(), .stripClock(text)   as before.
 
+     ZimiShell.persist({ save, load })
+         Never lose a game: leaving a game and coming back puts the same position on the screen. `save()` returns
+         the game's state as plain JSON (null when there is nothing worth keeping: no move made yet). The shell
+         calls it when the page is hidden or closed and shortly after every tap or key, and keeps the result in
+         localStorage under the page's name. `load(data)` is called at once if something is kept; return false (or
+         throw) when it no longer fits and the shell forgets it. A game that builds its own state first can
+         skip `load` and ask ZimiShell.saved() for the data instead. A finished game is saved as finished (so
+         it comes back to its end sheet). Only an explicit New game or a puzzle's day rolling over discards a
+         save: the game then returns null from save(), or calls ZimiShell.forget(). Arcade games restore paused.
+     ZimiShell.saved()  the kept data or null.   ZimiShell.saveNow()  save right now.   ZimiShell.forget()  discard.
+
    Where a game overrides a shared rule it says why in a comment where it happens. */
 (function (root) {
   'use strict';
@@ -149,6 +160,45 @@
   // ── what a game tells us ──
   var game = Shell.gameInfo = {};
   Shell.game = function (info) { Object.keys(info || {}).forEach(function (k) { game[k] = info[k]; }); return Shell; };
+
+  // ── saved games: leaving and coming back never loses the position ──
+  var SAVE_KEY = 'zimi.games.save.' + ID, SAVE_VERSION = 1, SAVE_DEBOUNCE_MS = 400;
+  var saver = null, saveTimer = 0, saveWired = false;
+  function readSave() {
+    try {
+      var v = JSON.parse(root.localStorage.getItem(SAVE_KEY));
+      return v && v.v === SAVE_VERSION && v.data !== undefined && v.data !== null ? v.data : null;
+    } catch (e) { return null; }
+  }
+  function forgetSave() { root.clearTimeout(saveTimer); try { root.localStorage.removeItem(SAVE_KEY); } catch (e) { /* blocked */ } }
+  function writeSave() {
+    root.clearTimeout(saveTimer);
+    if (!saver) return;
+    var data = null;
+    try { data = saver.save(); } catch (e) { data = null; }
+    try {
+      if (data === null || data === undefined) root.localStorage.removeItem(SAVE_KEY);
+      else root.localStorage.setItem(SAVE_KEY, JSON.stringify({ v: SAVE_VERSION, at: Date.now(), data: data }));
+    } catch (e) { /* full or blocked: play on without it */ }
+  }
+  function saveSoon() { root.clearTimeout(saveTimer); saveTimer = root.setTimeout(writeSave, SAVE_DEBOUNCE_MS); }
+  Shell.persist = function (opts) {
+    saver = opts || null;
+    if (!saveWired && saver) {
+      saveWired = true;
+      d.addEventListener('visibilitychange', function () { if (d.hidden) writeSave(); });
+      root.addEventListener('pagehide', writeSave);
+      ['pointerup', 'keyup'].forEach(function (t) { d.addEventListener(t, saveSoon, true); });
+    }
+    var kept = readSave();
+    if (saver && saver.load && kept !== null) {
+      var fits = false;
+      try { fits = saver.load(kept) !== false; } catch (e) { fits = false; }
+      if (!fits) forgetSave();
+    }
+    return Shell;
+  };
+  Shell.saved = readSave; Shell.saveNow = writeSave; Shell.forget = forgetSave;
 
   // ── the narrator: one line under the bar while a demo runs ──
   var strip = null;
