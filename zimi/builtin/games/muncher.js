@@ -89,7 +89,7 @@
   var FRUIT_AT = [40, 90], FRUIT_S = 9, RELEASE_S = [0, 1.5, 4.5, 8], READY_S = 1.4, DYING_S = 1.3, CLEAR_S = 1.8, LIVES = 3, CATCH_DIST = 0.62;
   var SHY_RADIUS = 8, DRIFT_CHANCE = 0.4, AHEAD = 4;
 
-  function mulberry(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  var mulberry = root.ZimiUtil.mulberry32;
 
   function levelSpeed(level) { return Math.min(1.45, 1 + 0.06 * (level - 1)); }
   function scaredSeconds(level) { return Math.max(2, 7 - 0.8 * (level - 1)); }

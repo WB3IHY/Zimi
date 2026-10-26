@@ -10,6 +10,7 @@ const vm = require('vm');
 const src = fs.readFileSync(path.join(__dirname, '..', 'zimi', 'builtin', 'games', 'minesweeper.js'), 'utf8');
 const sandbox = {};
 vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'zimi', 'builtin', 'games', 'util.js'), 'utf8'), sandbox);
 vm.runInContext(src, sandbox);
 const E = sandbox.MinesweeperEngine;
 

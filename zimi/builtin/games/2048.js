@@ -8,15 +8,7 @@
   var SIZE = 4, GOAL = 2048, FOUR_CHANCE = 0.1, START_TILES = 2;
   var DIR_NAMES = ['left', 'right', 'up', 'down'];
 
-  function mulberry32(seed) {
-    var a = seed >>> 0;
-    return function () {
-      a = (a + 0x6D2B79F5) | 0;
-      var t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
+  var mulberry32 = root.ZimiUtil.mulberry32;
 
   // A tile is { id, v }: the id lets the page slide the same tile from cell to cell.
   function newTile(g, v) { return { id: g.nextId++, v: v }; }

@@ -13,7 +13,7 @@
   var SHIELD_COLS = 22, SHIELD_ROWS = 16, CELL = 3, SHIELD_Y = H - 100, SHIELD_XS = [19, 104, 190, 275];
   var START_LIVES = 3, INVULNERABLE_S = 1.6, SWEEP_PX = 2, BONUS_Y = 32, BONUS_SPEED = 72;
 
-  function mulberry(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  var mulberry = root.ZimiUtil.mulberry32;
 
   // A shield is a grid of little blocks, rounded at the top with an arch cut out of the bottom.
   function makeShield(x) {

@@ -10,6 +10,7 @@ const vm = require('vm');
 const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'games');
 const sandbox = {};
 vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync(path.join(dir, 'util.js'), 'utf8'), sandbox, { filename: 'util.js' });
 vm.runInContext(fs.readFileSync(path.join(dir, 'kart.js'), 'utf8'), sandbox, { filename: 'kart.js' });
 const E = sandbox.KartEngine;
 

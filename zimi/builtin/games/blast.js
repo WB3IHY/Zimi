@@ -15,7 +15,7 @@
   var POWERUPS = ['range', 'bomb', 'speed'];
   var COLORS = ['#35b6a4', '#f08ac0', '#f5a524', '#8b5cf6'];
 
-  function mulberry(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  var mulberry = root.ZimiUtil.mulberry32;
   function key(x, y) { return x + ',' + y; }
 
   // A map: the border and every tile with two even coordinates are stone; soft blocks fill most of the rest,

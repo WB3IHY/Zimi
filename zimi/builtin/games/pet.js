@@ -21,7 +21,7 @@
   var MAX_PETS = 3;
 
   function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
-  function mulberry(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  var mulberry = root.ZimiUtil.mulberry32;
 
   function newPet(now, name, id) {
     return { id: id || String(now), name: name || NAMES[0], stage: 'egg', born: now, hatched: 0, t: now, food: 70, joy: 70, clean: 100, energy: 100, mess: 0, messAcc: 0,

@@ -10,7 +10,7 @@
   var LEVELS = { easy: { speed: 150, error: 46, react: 0.55 }, medium: { speed: 235, error: 24, react: 0.3 }, hard: { speed: 340, error: 8, react: 0.12 } };
   var TOP_Y = PAD_MARGIN, BOTTOM_Y = H - PAD_MARGIN;
 
-  function mulberry(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  var mulberry = root.ZimiUtil.mulberry32;
 
   // mode: 'cpu' (the top paddle is the computer) or 'two' (two people share the screen).
   function createState(mode, level, seed) {

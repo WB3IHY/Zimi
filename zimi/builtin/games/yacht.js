@@ -42,9 +42,8 @@
   function createGame(computers, seed) {
     var players = [{ name: 'You', ai: false, card: {} }], i;
     for (i = 0; i < computers; i++) players.push({ name: 'CPU ' + (i + 1), ai: true, card: {} });
-    return { players: players, turn: 0, dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rollsLeft: ROLLS, over: false, rng: root.ArcadePlay ? root.ArcadePlay.mulberry32(seed) : mulberry(seed) };
+    return { players: players, turn: 0, dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rollsLeft: ROLLS, over: false, rng: root.ZimiUtil.counted(seed) };
   }
-  function mulberry(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
   function die(g) { return 1 + Math.floor(g.rng() * 6); }
 
