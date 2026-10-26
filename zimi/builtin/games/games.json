@@ -1986,5 +1986,107 @@
   "length": "5 min",
   "kind": "library",
   "computer": false
+ },
+ {
+  "qid": "Q71910",
+  "wiki": "Tetris",
+  "path": "stacker.html",
+  "title": "Stacker",
+  "blurb": "Fit falling pieces into rows. Hold a piece and see where it will land.",
+  "why": "Falling-block stacking began with Tetris, written in Moscow in 1984.",
+  "origin": {
+   "year": 1984,
+   "era": "1980s"
+  },
+  "region": "Europe",
+  "players": "1",
+  "length": "5 min",
+  "kind": "arcade",
+  "computer": false
+ },
+ {
+  "qid": "Q7200966",
+  "wiki": "Planarity",
+  "path": "puzzles/untangle.html",
+  "title": "Untangle",
+  "blurb": "Drag the points until no lines cross",
+  "why": "Based on Planarity, a graph puzzle from 2005.",
+  "origin": {
+   "year": 2005,
+   "era": "2000s"
+  },
+  "region": "Americas",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "qid": "Q184410",
+  "wiki": "Four color theorem",
+  "path": "puzzles/map.html",
+  "title": "Map",
+  "blurb": "Colour the map with four colours. Neighbours must differ.",
+  "why": "The four colour problem was posed in 1852 and settled by computer in 1976.",
+  "origin": {
+   "year": 1852,
+   "era": "1850s"
+  },
+  "region": "Europe",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "qid": "Q1546924",
+  "wiki": "Cayley table",
+  "path": "puzzles/group.html",
+  "title": "Group",
+  "blurb": "Unfinished upstream. Fill a grid from a group table.",
+  "why": "Group tables are named for Arthur Cayley, who set them out in 1854.",
+  "origin": {
+   "year": 1854,
+   "era": "1850s"
+  },
+  "region": "Europe",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "qid": "Q1067889",
+  "wiki": "Sliding puzzle",
+  "path": "puzzles/sixteen.html",
+  "title": "Sixteen",
+  "blurb": "Slide whole rows and columns to sort the grid",
+  "why": "A cousin of the 15 puzzle, which swept America and Europe in 1880.",
+  "origin": {
+   "year": null,
+   "era": "1870s"
+  },
+  "region": "Americas",
+  "players": "1",
+  "length": "5 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "qid": "Q4045246",
+  "wiki": "NetWalk",
+  "path": "puzzles/net.html",
+  "title": "Net",
+  "blurb": "Turn the tiles until the network joins up",
+  "why": "Based on NetWalk, a puzzle video game from 1996.",
+  "origin": {
+   "year": 1996,
+   "era": "1990s"
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
  }
 ]
