@@ -83,7 +83,7 @@
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   Play.applyTheme();
   var DAILY_KEY = 'zimi.games.wikirace.daily', BEST_KEY = 'zimi.games.wikirace.best';
-  var CAP_CHARS = 60000, HINT_CHARS = 150;
+  var CAP_CHARS = 60000, HINT_CHARS = 150, HOT_TIE_MS = 1000;
   // Parts of an article the race leaves out: boxes, notes, pictures, menus.
   var DROP_TAGS = /^(SCRIPT|STYLE|TABLE|FIGURE|IMG|NOSCRIPT|SUP|IFRAME|OBJECT|SVG|MATH|AUDIO|VIDEO|FORM|BUTTON|INPUT|HEAD|LINK|META|NAV|ASIDE|TEMPLATE|H1)$/;
   var DROP_CLASS = /\b(navbox|reflist|mw-references-wrap|hatnote|noprint|mw-editsection|metadata|sistersitebox|shortdescription|infobox|thumb|gallery|toc)\b/;
@@ -267,13 +267,14 @@
 
   function beginRace() {
     race.begun = true; race.since = performance.now();
-    line.say(T('race.par', { n: race.pair.par }));
+    line.say(race.hot ? T('race.hot.playing', { n: race.hot.turn + 1 }) : T('race.par', { n: race.pair.par }));
     provider.open(race.steps[race.steps.length - 1].path).then(show, function () { notice(T('race.missing'), null, T('race.another'), function () { newRace('practice'); }); });
   }
 
   function arrive(page) {
     race.done = true; pause(); saveDaily(); paintTrail(); paintHud();
     var ms = Math.round(race.ms), n = clicks();
+    if (race.hot) return hotDone({ n: n, ms: ms, gave: false });
     if (race.mode === 'daily') {
       var best = Play.load(BEST_KEY, {});
       if (!best.clicks || n < best.clicks) { best.clicks = n; Play.save(BEST_KEY, best); }
@@ -309,6 +310,7 @@
   function giveUp() {
     if (!race || race.done || !race.begun) return;
     race.done = true; race.gave = true; pause(); saveDaily(); paintTrail();
+    if (race.hot) return hotDone({ n: clicks(), ms: Math.round(race.ms), gave: true });
     giveUpSheet();
   }
   function giveUpSheet() {
@@ -319,7 +321,7 @@
 
   function intro(pair, mode, doneBefore) {
     var box = el('div', 'rc-card');
-    box.appendChild(el('h2', null, T(mode === 'daily' ? 'race.today' : 'race.new')));
+    box.appendChild(el('h2', null, mode === 'hotseat' ? T('race.hot.turn', { n: race.hot.turn + 1 }) : T(mode === 'daily' ? 'race.today' : 'race.new')));
     var line = el('p', 'rc-pair'); line.appendChild(el('span', null, pair.start.title)); line.appendChild(el('span', 'rc-arrow', '→')); line.appendChild(el('b', null, pair.end.title));
     box.appendChild(line);
     box.appendChild(el('p', 'rc-hint', race.hint));
@@ -329,14 +331,52 @@
     setTimeout(function () { b.focus(); }, 0);
   }
 
+  // ── two on one phone: the same race for each, the fewer clicks win (a tie goes to the quicker) ──
+  function hotKey(r) { return r.gave ? Infinity : r.n; }
+  // How the two races compare: 0 or 1 for the winner, -1 for a draw.
+  function hotWinner(res) {
+    var a = hotKey(res[0]), b = hotKey(res[1]);
+    if (a === Infinity && b === Infinity) return -1;
+    if (a !== b) return a < b ? 0 : 1;
+    return Math.abs(res[0].ms - res[1].ms) < HOT_TIE_MS ? -1 : (res[0].ms < res[1].ms ? 0 : 1);
+  }
+  function hotPlayer(i) { return T('pass.player', { n: i + 1 }); }
+  function hotChip(r) { return r.gave ? T('race.hot.gaveUp') : T('race.hot.clicksTime', { n: r.n, time: Play.fmtClock(r.ms) }); }
+  function hotDone(r) {
+    race.hot.res.push(r); els.share.hidden = true;
+    if (race.hot.turn === 0) return hotHandOff();
+    hotFinal();
+  }
+  function hotHandOff() {
+    paintTrail();
+    var box = el('div', 'rc-card');
+    box.appendChild(el('h2', null, T('pass.to', { name: hotPlayer(1) })));
+    box.appendChild(el('p', null, T('race.hot.same', { start: race.pair.start.title, end: race.pair.end.title })));
+    var b = el('button', 'ar-btn gm-play', T('pass.ready', { name: hotPlayer(1) })); b.type = 'button'; b.addEventListener('click', hotSecond); box.appendChild(b);
+    say(box); line.say(T('race.hot.firstDone', { chip: hotChip(race.hot.res[0]) }));
+    setTimeout(function () { b.focus(); }, 0);
+  }
+  function hotSecond() {
+    race.hot.turn = 1; race.steps = [{ path: race.pair.start.path, title: race.pair.start.title, via: 'start' }];
+    race.ms = 0; race.since = 0; race.begun = false; race.done = false; race.gave = false; race.page = null;
+    paintTrail(); paintHud(); intro(race.pair, 'hotseat', null);
+  }
+  function hotFinal() {
+    paintTrail();
+    var w = hotWinner(race.hot.res), chips = race.hot.res.map(function (r, i) { return [hotPlayer(i), hotChip(r)]; });
+    line.say('');
+    ZimiShell.endSheet(w < 0 ? { result: 'draw', stats: chips } : { result: 'win', name: hotPlayer(w), stats: chips });
+  }
+
   function newRace(mode) {
     pause(); race = null; busy = false; paintHud();
     els.trail.innerHTML = ''; els.back.disabled = els.give.disabled = true; els.target.innerHTML = ''; els.share.hidden = true;
-    line.say(T(mode === 'daily' ? 'race.daily' : 'race.practice'));
+    line.say(T(mode === 'daily' ? 'race.daily' : mode === 'hotseat' ? 'race.hot.mode' : 'race.practice'));
     notice(T('race.finding'));
     var saved = mode === 'daily' ? Play.load(DAILY_KEY, null) : null;
     provider.pick(mode === 'daily').then(function (pair) {
       race = { mode: mode, pair: pair, steps: [{ path: pair.start.path, title: pair.start.title, via: 'start' }], ms: 0, since: 0, begun: false, done: false, page: null, hint: firstSentence(pair.end.node) };
+      if (mode === 'hotseat') race.hot = { turn: 0, res: [] };
       paintTarget(); paintHud();
       if (saved && saved.date === today && saved.zim === provider.zim && saved.steps && saved.steps[0].path === pair.start.path) {
         race.steps = saved.steps; race.ms = saved.ms || 0; race.begun = saved.begun; race.done = saved.done;
@@ -371,7 +411,7 @@
     about: function () { return Lib.note(T, 'articles', provider && !provider.built ? provider.zim : ''); },
     inProgress: function () { return !!race && race.begun && !race.done; },
     menu: function () {
-      return { options: [Play.optionRow(T('race.race'), [['daily', T('play.daily')], ['practice', T('play.practice')]], pendingMode || (race ? race.mode : 'daily'), function (v) { pendingMode = v; })] };
+      return { options: [Play.optionRow(T('race.race'), [['daily', T('play.daily')], ['practice', T('play.practice')], ['hotseat', T('race.hot.mode')]], pendingMode || (race ? race.mode : 'daily'), function (v) { pendingMode = v; })] };
     },
     stats: function () { var best = Play.load(BEST_KEY, {}); return best.clicks ? [[T('race.bestClicks'), Play.num(best.clicks)]] : []; }
   });
@@ -380,19 +420,25 @@
   // back to its end sheet; a daily race of an earlier day is not kept.
   function snapshot() {
     if (!race || !provider) return null;
-    if (!race.begun && !race.done) return null;
+    if (!race.begun && !race.done && !(race.hot && race.hot.res.length)) return null;
     return { mode: race.mode, date: today, zim: provider.zim, start: race.pair.start.path, end: race.pair.end.path, startTitle: race.pair.start.title, endTitle: race.pair.end.title, par: race.pair.par, parKind: race.pair.parKind,
-      steps: race.steps, ms: Math.round(elapsed()), begun: race.begun, done: race.done, gave: !!race.gave };
+      steps: race.steps, ms: Math.round(elapsed()), begun: race.begun, done: race.done, gave: !!race.gave, hot: race.hot || null };
   }
   // The pages come from the library again; when it is gone or has changed, the race is still shown as it stood (the path
   // and both ends from the save), with a note where the page would be, and New game starts another.
   function restore(kept) {
     if (!kept || !kept.steps || !kept.steps.length || (kept.mode === 'daily' && kept.date !== today)) { if (kept) ZimiShell.forget(); return Promise.resolve(false); }
     function build(ab) {
-      race = { mode: kept.mode, pair: { start: ab[0], end: ab[1], par: kept.par, parKind: kept.parKind }, steps: kept.steps, ms: kept.ms || 0, since: 0, begun: kept.begun, done: kept.done, gave: kept.gave, page: null, hint: firstSentence(ab[1].node) };
+      race = { mode: kept.mode, pair: { start: ab[0], end: ab[1], par: kept.par, parKind: kept.parKind }, steps: kept.steps, ms: kept.ms || 0, since: 0, begun: kept.begun, done: kept.done, gave: kept.gave, hot: kept.hot || undefined, page: null, hint: firstSentence(ab[1].node) };
       paintTarget(); paintHud();
     }
     function finishUp() {
+      if (race.hot) {   // two on one phone: between the two races, or in the second, or over
+        if (race.done) { if (race.hot.res.length > 1) hotFinal(); else hotHandOff(); }
+        else if (!race.begun) intro(race.pair, 'hotseat', null);
+        else { race.since = performance.now(); line.say(T('race.hot.playing', { n: race.hot.turn + 1 })); }
+        return true;
+      }
       if (race.done && race.gave) giveUpSheet();
       else if (race.done) openResult(race.ms, clicks());
       else { race.since = performance.now(); line.say(T('race.par', { n: race.pair.par })); }
