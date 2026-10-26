@@ -91,3 +91,6 @@
 .ar-sheet-card .gs-row { margin-bottom: var(--sp-2); }
 /* A mouse and a keyboard need no pad. */
 @media (min-width: 700px) and (pointer: fine) { .pl-pad { display: none; } }
+/* A segmented control of four or more long choices: two columns of separate buttons, so the row never outgrows its sheet. */
+.gs-seg.pl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); width: 100%; }
+.gs-seg.pl-grid .ar-btn { margin: 0; border-radius: var(--radius); }

@@ -180,21 +180,22 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var LONG_PRESS_MS = 350, HAPTIC_MS = 15, MOVE_CANCEL_PX = 10;
-  var CELL_DESKTOP = 30, CELL_TOUCH_MIN = 32, CELL_TOUCH_MAX = 40, FRAME_PAD = 44, WIDE_VIEWPORT = 700;
+  var Play = root.ArcadePlay, T = Play.T;
+  var LONG_PRESS_MS = 350, HAPTIC_MS = 15, MOVE_CANCEL_PX = 10, END_AFTER_MS = 700;
+  var CELL_DESKTOP = 30, CELL_TOUCH_MIN = 32, CELL_TOUCH_MAX = 44, FRAME_PAD = 58, WIDE_VIEWPORT = 700;
   var POP_LIMIT = 60; // a big flood just appears; a small opening gets the little pop
-  var TIMER_MAX = 999, TICK_MS = 200;
+  var TIMER_MAX = 999, TICK_MS = 200, LEVEL_IDS = ['beginner', 'intermediate', 'expert', 'custom'];
   var SETTINGS_KEY = 'zimi.games.minesweeper.settings', BEST_KEY = 'zimi.games.minesweeper.best';
-  var LEVEL_NAMES = { beginner: 'Beginner', intermediate: 'Intermediate', expert: 'Expert', custom: 'Custom' };
 
   function $(id) { return document.getElementById(id); }
   function store(key, fallback) {
     try { var v = JSON.parse(localStorage.getItem(key)); return v && typeof v === 'object' ? v : fallback; } catch (e) { return fallback; }
   }
   function save(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* private mode: play on without it */ } }
+  function levelName(lv) { return T('mines.level.' + lv); }
 
   var settings = store(SETTINGS_KEY, {});
-  if (!LEVEL_NAMES[settings.level]) settings.level = 'beginner';
+  if (LEVEL_IDS.indexOf(settings.level) < 0) settings.level = 'beginner';
   if (typeof settings.marks !== 'boolean') settings.marks = true;
   if (!settings.custom || !validateCustom(settings.custom.rows, settings.custom.cols, settings.custom.mines).ok) settings.custom = { rows: 12, cols: 20, mines: 40 };
   var best = store(BEST_KEY, {});
@@ -202,19 +203,20 @@
   var params = new URLSearchParams(location.search);
   var fixedSeed = params.has('seed') ? Number(params.get('seed')) : undefined;
   if (params.get('theme') === 'light' || params.get('theme') === 'dark') document.documentElement.setAttribute('data-theme', params.get('theme'));
-  if (params.get('level') && LEVEL_NAMES[params.get('level')] && params.get('level') !== 'custom') settings.level = params.get('level');
+  if (params.get('level') && LEVEL_IDS.indexOf(params.get('level')) >= 0 && params.get('level') !== 'custom') settings.level = params.get('level');
 
   var game, cells = [], flagMode = false, cursor = -1, press = null, tickTimer = 0, startedAt = 0, finalMs = 0;
   var els = {
     board: $('ms-board'), win: $('ms-win'), face: $('ms-face'), mines: $('ms-mines'), time: $('ms-time'),
-    msg: $('ms-msg'), level: $('ms-level'), flagBtn: $('ms-flagmode'), sheet: $('ms-sheet')
+    msg: $('ms-msg'), flagBtn: $('ms-flagmode'), fresh: $('ms-new')
   };
+  var line = Play.status(els.msg);
 
   // Our own artwork, all inline SVG.
   var SVG = {
-    flag: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 17h12M10 17V5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 3l-6 3.2L10 9.4z" fill="#d32f2f"/></svg>',
+    flag: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 17h12M10 17V5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 3l-6 3.2L10 9.4z" fill="#b3261e"/></svg>',
     mine: '<svg viewBox="0 0 20 20" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 2v16M2 10h16M4.3 4.3l11.4 11.4M15.7 4.3L4.3 15.7"/></g><circle cx="10" cy="10" r="5.2" fill="currentColor"/><circle cx="8.2" cy="8.2" r="1.5" fill="#fff" fill-opacity="0.85"/></svg>',
-    wrong: '<svg viewBox="0 0 20 20" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 2v16M2 10h16M4.3 4.3l11.4 11.4M15.7 4.3L4.3 15.7"/></g><circle cx="10" cy="10" r="5.2" fill="currentColor"/><path d="M3 3l14 14M17 3L3 17" stroke="#d32f2f" stroke-width="2.4" stroke-linecap="round"/></svg>'
+    wrong: '<svg viewBox="0 0 20 20" aria-hidden="true"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 2v16M2 10h16M4.3 4.3l11.4 11.4M15.7 4.3L4.3 15.7"/></g><circle cx="10" cy="10" r="5.2" fill="currentColor"/><path d="M3 3l14 14M17 3L3 17" stroke="#b3261e" stroke-width="2.4" stroke-linecap="round"/></svg>'
   };
   var FACE_BASE = '<defs><radialGradient id="msg" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ffec6a"/><stop offset="1" stop-color="#f0b400"/></radialGradient></defs><circle cx="16" cy="16" r="13.5" fill="url(#msg)" stroke="#6b4e00" stroke-width="1.5"/>';
   var EYES = '<ellipse cx="11.5" cy="13" rx="1.7" ry="2.4" fill="#1b1b1b"/><ellipse cx="20.5" cy="13" rx="1.7" ry="2.4" fill="#1b1b1b"/>';
@@ -224,32 +226,16 @@
     win: '<path d="M5.5 11.5h21l-1.6 5.2q-.5 1.6-2.2 1.6h-3.2q-1.7 0-2.2-1.6l-.8-2.4h-1.8l-.8 2.4q-.5 1.6-2.2 1.6H9.3q-1.7 0-2.2-1.6z" fill="#1b1b1b"/><path d="M9.5 20q6.5 6.5 13 0" fill="none" stroke="#1b1b1b" stroke-width="1.8" stroke-linecap="round"/>',
     dead: '<g stroke="#1b1b1b" stroke-width="1.9" stroke-linecap="round"><path d="M8.7 10.2l5.6 5.6M14.3 10.2l-5.6 5.6M17.7 10.2l5.6 5.6M23.3 10.2l-5.6 5.6"/></g><path d="M10 23.5q6-5 12 0" fill="none" stroke="#1b1b1b" stroke-width="1.8" stroke-linecap="round"/>'
   };
+  // The face is status only: a picture of how the game stands, not a control.
   function setFace(name) {
     if (els.face.dataset.face === name) return;
     els.face.innerHTML = '<svg viewBox="0 0 32 32" aria-hidden="true">' + FACE_BASE + FACES[name] + '</svg>';
     els.face.dataset.face = name;
+    els.face.setAttribute('aria-label', T('mines.face.' + name));
   }
 
-  // Seven-segment LED digits: seven polygons per digit, lit or dim.
-  var SEG_POINTS = [
-    '4,2 22,2 19,5 7,5', '23,3 23,20.5 20.5,18 20.5,6', '23,23.5 23,41 20.5,38 20.5,26', '4,42 22,42 19,39 7,39',
-    '3,23.5 3,41 5.5,38 5.5,26', '3,3 3,20.5 5.5,18 5.5,6', '4,22 7,19.5 19,19.5 22,22 19,24.5 7,24.5'
-  ]; // a b c d e f g
-  var SEG_ON = { '0': 'abcdef', '1': 'bc', '2': 'abged', '3': 'abgcd', '4': 'fgbc', '5': 'afgcd', '6': 'afgedc', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg', '-': 'g' };
-  function buildLed(el) {
-    el.textContent = '';
-    var digit = '<svg viewBox="0 0 26 44" class="ms-digit" aria-hidden="true">' +
-      SEG_POINTS.map(function (p) { return '<polygon points="' + p + '"/>'; }).join('') + '</svg>';
-    el.innerHTML = digit + digit + digit;
-  }
-  function setLed(el, value) {
-    var text = value < 0 ? '-' + String(Math.min(-value, 99)).padStart(2, '0') : String(Math.min(value, TIMER_MAX)).padStart(3, '0');
-    for (var d = 0; d < 3; d++) {
-      var on = SEG_ON[text[d]], polys = el.children[d].children;
-      for (var s = 0; s < 7; s++) polys[s].classList.toggle('on', on.indexOf('abcdefg'[s]) >= 0);
-    }
-    el.setAttribute('aria-label', String(value));
-  }
+  // The counters are plain figures in Zimi's mono.
+  function setCount(el, value) { el.textContent = Play.num(value < 0 ? Math.max(value, -99) : Math.min(value, TIMER_MAX)); }
 
   // ── board ──
   function cellSize(cols) {
@@ -273,9 +259,8 @@
       frag.appendChild(d);
     }
     els.board.appendChild(frag);
-    els.board.setAttribute('aria-label', game.rows + ' by ' + game.cols + ' board, ' + game.mines + ' mines');
+    els.board.setAttribute('aria-label', T('mines.boardLabel', { rows: game.rows, cols: game.cols, mines: game.mines }));
   }
-
   function paint(i) {
     var g = game, s = g.state[i], d = cells[i], cls = 'ms-c', html = '', text = '';
     if (s === OPEN) {
@@ -303,35 +288,35 @@
     }
   }
 
-  function updateCounter() { setLed(els.mines, game.mines - game.flags); }
+  function updateCounter() { setCount(els.mines, game.mines - game.flags); }
   function elapsedMs() { return startedAt ? (finalMs || Date.now() - startedAt) : 0; }
-  function tick() { setLed(els.time, Math.floor(elapsedMs() / 1000)); }
+  function tick() { setCount(els.time, Math.floor(elapsedMs() / 1000)); }
   function stopClock() { clearInterval(tickTimer); tickTimer = 0; }
   function finishClock() { finalMs = Date.now() - startedAt; stopClock(); tick(); }
 
-  function fmtTime(ms) { return (ms / 1000).toFixed(1) + ' s'; }
+  function fmtTime(ms) { return T('mines.seconds', { n: root.ZimiText ? root.ZimiText.number(ms / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : (ms / 1000).toFixed(1) }); }
   function afterMove(res) {
     if (game.status === 'playing' && !startedAt) { startedAt = Date.now(); tickTimer = setInterval(tick, TICK_MS); }
-    var pop = res.opened.length <= POP_LIMIT && !res.hit.length && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var pop = res.opened.length <= POP_LIMIT && !res.hit.length && !ZimiShell.reducedMotion();
     res.opened.forEach(function (i) {
       paint(i);
       if (pop) { cells[i].classList.remove('pop'); void cells[i].offsetWidth; cells[i].classList.add('pop'); }
     });
     if (game.status === 'lost') {
-      finishClock(); paintAll(); setFace('dead'); els.msg.textContent = 'Boom. Press the face to try again.';
+      finishClock(); paintAll(); setFace('dead'); line.say(T('shell.end.lose'));
+      ZimiShell.endSheet({ result: 'lose', after: END_AFTER_MS, stats: [[T('play.time'), fmtTime(finalMs)]] });
     } else if (game.status === 'won') {
       finishClock(); paintAll(); setFace('win'); recordWin();
     } else setFace('smile');
     updateCounter();
   }
   function recordWin() {
-    var lv = settings.level, text = 'Cleared in ' + fmtTime(finalMs) + '.';
-    if (lv !== 'custom' && (!best[lv] || finalMs < best[lv])) {
-      text += best[lv] ? ' A new best.' : ' Your first best time.';
-      best[lv] = finalMs;
-      save(BEST_KEY, best);
-    }
-    els.msg.textContent = text;
+    var lv = settings.level;
+    if (lv !== 'custom' && (!best[lv] || finalMs < best[lv])) { best[lv] = finalMs; save(BEST_KEY, best); }
+    line.say(T('shell.end.win'));
+    var stats = [[T('play.time'), fmtTime(finalMs)]];
+    if (best[lv]) stats.push([T('play.best'), fmtTime(best[lv])]);
+    ZimiShell.endSheet({ result: 'win', after: END_AFTER_MS, stats: stats });
   }
 
   function doReveal(i) { if (i >= 0) afterMove(reveal(game, i)); }
@@ -354,8 +339,7 @@
     if (resize) buildBoard();
     layout(); paintAll(); setPressed(-1);
     setFace('smile'); updateCounter(); tick();
-    els.msg.textContent = '';
-    els.level.textContent = LEVEL_NAMES[settings.level];
+    line.say(levelName(settings.level));
     els.board.scrollLeft = 0;
   }
 
@@ -431,61 +415,58 @@
       cells[cursor].scrollIntoView({ block: 'nearest', inline: 'nearest' });
       return;
     }
-    if (k === 'n' || k === 'N') { e.preventDefault(); newGame(); return; }
     if (cursor < 0) return;
     if (k === ' ' || k === 'Enter') { e.preventDefault(); if (g.state[cursor] === OPEN) doChord(cursor); else doReveal(cursor); }
     else if (k === 'f' || k === 'F') { e.preventDefault(); doMark(cursor); }
     else if (k === 'c' || k === 'C') { e.preventDefault(); doChord(cursor); }
   });
 
-  // ── bar and menu ──
-  els.face.addEventListener('click', function () { newGame(); els.face.blur(); });
+  // ── action row and the New game pane ──
+  els.fresh.addEventListener('click', function () { applyCustom(); newGame(); });
   els.flagBtn.addEventListener('click', function () {
     flagMode = !flagMode;
     els.flagBtn.setAttribute('aria-pressed', String(flagMode));
-    els.flagBtn.blur();
   });
   els.flagBtn.insertAdjacentHTML('afterbegin', SVG.flag);
 
-  function openMenu() {
-    ['beginner', 'intermediate', 'expert', 'custom'].forEach(function (lv) {
-      $('ms-lv-' + lv).checked = settings.level === lv;
-      var b = $('ms-best-' + lv);
-      if (b) b.textContent = best[lv] ? fmtTime(best[lv]) : 'no time yet';
+  // The level (and a custom board's size) and the question marks are choices about the game, so they sit in the New game
+  // pane; Start clicks the hidden New game button, which reads them. A custom size outside the limits is brought inside.
+  var draftCustom = null;
+  function clampInt(v, lo, hi) { v = Math.round(Number(v)); return Math.min(hi, Math.max(lo, isNaN(v) ? lo : v)); }
+  function applyCustom() {
+    if (!draftCustom) return;
+    var r = clampInt(draftCustom.rows, MIN_SIDE, MAX_ROWS), c = clampInt(draftCustom.cols, MIN_SIDE, MAX_COLS), m = clampInt(draftCustom.mines, 1, r * c - 9);
+    settings.custom = { rows: r, cols: c, mines: m }; draftCustom = null; save(SETTINGS_KEY, settings);
+  }
+  function customRow() {
+    var box = document.createElement('div'), d = draftCustom = Object.assign({}, settings.custom);
+    box.className = 'ms-custom';
+    [['rows', 'mines.rows', MIN_SIDE, MAX_ROWS], ['cols', 'mines.cols', MIN_SIDE, MAX_COLS], ['mines', 'mines.mines', 1, 999]].forEach(function (f) {
+      var lab = document.createElement('label'), inp = document.createElement('input');
+      lab.textContent = T(f[1]); inp.className = 'ms-num'; inp.type = 'number'; inp.inputMode = 'numeric'; inp.min = f[2]; inp.max = f[3]; inp.value = d[f[0]];
+      inp.addEventListener('input', function () { d[f[0]] = inp.value; });
+      lab.appendChild(inp); box.appendChild(lab);
     });
-    $('ms-rows').value = settings.custom.rows; $('ms-cols').value = settings.custom.cols; $('ms-nmines').value = settings.custom.mines;
-    $('ms-marks').checked = settings.marks;
-    $('ms-error').textContent = '';
-    els.sheet.hidden = false;
-    els.sheet.querySelector('input[name="level"]:checked').focus();
+    return box;
   }
-  function closeMenu() { els.sheet.hidden = true; }
-  function startFromMenu() {
-    var level = els.sheet.querySelector('input[name="level"]:checked').value;
-    if (level === 'custom') {
-      var v = validateCustom($('ms-rows').value, $('ms-cols').value, $('ms-nmines').value);
-      if (!v.ok) { $('ms-error').textContent = v.error; return; }
-      settings.custom = { rows: v.rows, cols: v.cols, mines: v.mines };
+  function menuOptions() {
+    var host = document.createElement('div');
+    function fill() {
+      host.textContent = '';
+      host.appendChild(Play.optionRow(T('mines.level'), LEVEL_IDS.map(function (lv) { return [lv, levelName(lv)]; }), settings.level, function (v) { settings.level = v; save(SETTINGS_KEY, settings); fill(); }, 'pl-grid'));
+      if (settings.level === 'custom') host.appendChild(customRow());
+      host.appendChild(Play.optionRow(T('mines.marks'), [[false, T('shell.off')], [true, T('shell.on')]], settings.marks, function (v) { settings.marks = v; save(SETTINGS_KEY, settings); }));
     }
-    settings.level = level;
-    settings.marks = $('ms-marks').checked;
-    save(SETTINGS_KEY, settings);
-    closeMenu(); newGame();
+    fill();
+    return [host];
   }
-  els.level.addEventListener('click', openMenu);
-  $('ms-start').addEventListener('click', startFromMenu);
-  $('ms-cancel').addEventListener('click', closeMenu);
-  els.sheet.addEventListener('click', function (e) { if (e.target === els.sheet) closeMenu(); });
-  els.sheet.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') closeMenu();
-    else if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') { e.preventDefault(); startFromMenu(); }
-  });
-  els.sheet.addEventListener('focusin', function (e) { // typing in a custom field means custom
-    if (e.target.classList && e.target.classList.contains('ms-num')) $('ms-lv-custom').checked = true;
+  ZimiShell.game({
+    inProgress: function () { return !!game && game.status === 'playing'; },
+    menu: function () { return { options: menuOptions() }; },
+    stats: function () { return ['beginner', 'intermediate', 'expert'].filter(function (lv) { return best[lv]; }).map(function (lv) { return [T('mines.bestRow', { level: levelName(lv) }), fmtTime(best[lv])]; }); }
   });
 
   window.addEventListener('resize', function () { if (game) layout(); });
-  buildLed(els.mines); buildLed(els.time);
   newGame();
 
   // Test hooks, only with ?debug: win or lose on demand, peek at the game.

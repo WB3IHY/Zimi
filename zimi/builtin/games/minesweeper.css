@@ -1,68 +1,54 @@
-/* Minesweeper: the raised grey tiles, the sunken board, the red LEDs.
-   Our own drawing; shared tokens (--tile, --bevel-hi, --bevel-lo) come from games.css. */
+/* Minesweeper: tiles are the one raised thing (a bevel is a material); the board sits in the shared frame, the counters are Zimi mono.
+   Shared tokens (--tile, --bevel-hi, --bevel-lo) come from games.css. */
 :root {
-  --ms-open: #bcc1c9; --ms-ink: #1b1b1b; --led-on: #ff2a1a; --led-off: #3d0a08; --led-bg: #170202;
-  --n1: #1565c0; --n2: #2e7d32; --n3: #d32f2f; --n4: #1a237e; --n5: #8e1b1b; --n6: #00838f; --n7: #1b1b1b; --n8: #4b5563;
+  --ms-open: #ece8de; --ms-ink: #1b1b1b;
+  --n1: #1565c0; --n2: #2e7d32; --n3: #c62828; --n4: #283593; --n5: #8e1b1b; --n6: #00838f; --n7: #1b1b1b; --n8: #4b4b4b;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --ms-open: #262b34; --ms-ink: #e8ebf1;
-    --n1: #64b5f6; --n2: #81c784; --n3: #ef5350; --n4: #9fa8da; --n5: #ff8a65; --n6: #4dd0e1; --n7: #e8ebf1; --n8: #9aa3b2;
+    --ms-open: #1c1c20; --ms-ink: #e8e8ed;
+    --n1: #64b5f6; --n2: #81c784; --n3: #ef5350; --n4: #9fa8da; --n5: #ff8a65; --n6: #4dd0e1; --n7: #e8e8ed; --n8: #9a9aa4;
   }
 }
 :root[data-theme="dark"] {
-  --ms-open: #262b34; --ms-ink: #e8ebf1;
-  --n1: #64b5f6; --n2: #81c784; --n3: #ef5350; --n4: #9fa8da; --n5: #ff8a65; --n6: #4dd0e1; --n7: #e8ebf1; --n8: #9aa3b2;
+  --ms-open: #1c1c20; --ms-ink: #e8e8ed;
+  --n1: #64b5f6; --n2: #81c784; --n3: #ef5350; --n4: #9fa8da; --n5: #ff8a65; --n6: #4dd0e1; --n7: #e8e8ed; --n8: #9a9aa4;
 }
 
-.ms-flagbtn { display: inline-flex; align-items: center; gap: 4px; padding: 0 10px; }
+.ms-flagbtn { display: inline-flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-4); }
 .ms-flagbtn svg { width: 16px; height: 16px; }
-.ms-main { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; }
+.ms-main { display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); padding: var(--sp-4); }
 
-/* The window: raised frame, a sunken panel for face and counters, a sunken board. */
-.ms-win { --cs: 30px; max-width: 100%; padding: 10px; background: var(--tile); border: 4px solid; border-color: var(--bevel-hi) var(--bevel-lo) var(--bevel-lo) var(--bevel-hi); }
-.ms-panel { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; margin-bottom: 10px; border: 3px solid; border-color: var(--bevel-lo) var(--bevel-hi) var(--bevel-hi) var(--bevel-lo); }
-.ms-led { display: flex; gap: 2px; padding: 3px 4px; background: var(--led-bg); border: 2px solid; border-color: var(--bevel-lo) var(--bevel-hi) var(--bevel-hi) var(--bevel-lo); }
-.ms-digit { width: 20px; height: 34px; fill: var(--led-off); }
-.ms-digit .on { fill: var(--led-on); filter: drop-shadow(0 0 1.5px rgba(255, 42, 26, 0.7)); }
-.ms-face { width: 44px; height: 44px; padding: 3px; background: var(--tile); border: 0; cursor: pointer; box-shadow: inset 3px 3px 0 var(--bevel-hi), inset -3px -3px 0 var(--bevel-lo); }
-.ms-face:active { box-shadow: inset 2px 2px 0 var(--bevel-lo); padding: 5px 3px 3px 5px; }
+.ms-win { --cs: 36px; max-width: 100%; display: flex; flex-direction: column; gap: var(--sp-3); align-items: center; }
+/* The counters sit either side of a status face (a picture of how the game stands, not a button). */
+.ms-hud { align-items: center; max-width: 360px; }
+.ms-hud .pl-stat b { font-family: var(--mono); letter-spacing: 0; }
+.ms-face { flex: none; width: 44px; height: 44px; }
 .ms-face svg { display: block; width: 100%; height: 100%; }
 
-.ms-box { overflow: auto; max-width: 100%; border: 3px solid; border-color: var(--bevel-lo) var(--bevel-hi) var(--bevel-hi) var(--bevel-lo); overscroll-behavior-x: contain; }
+.ms-box { overflow: auto; max-width: 100%; overscroll-behavior-x: contain; }
 .ms-board { display: grid; width: max-content; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: pan-x pan-y; }
 
-.ms-c { position: relative; display: grid; place-items: center; width: var(--cs); height: var(--cs); background: var(--tile); font: 800 calc(var(--cs) * 0.62)/1 var(--mono); cursor: default; color: var(--ms-ink);
+.ms-c { position: relative; display: grid; place-items: center; width: var(--cs); height: var(--cs); background: var(--tile); font: 700 var(--fs-sheet)/1 var(--mono); cursor: default; color: var(--ms-ink);
   box-shadow: inset 3px 3px 0 var(--bevel-hi), inset -3px -3px 0 var(--bevel-lo); }
 .ms-c svg { width: 68%; height: 68%; pointer-events: none; }
-.ms-c.open, .ms-c.pressed { background: var(--ms-open); box-shadow: inset 1px 1px 0 var(--bevel-lo); }
+.ms-c.open, .ms-c.pressed { background: var(--ms-open); box-shadow: inset 1px 1px 0 var(--line); }
 .ms-c.q { color: var(--ink); }
-.ms-c.boom { background: #e53935; color: #1b1b1b; }
-.ms-c.wrong { background: var(--ms-open); box-shadow: inset 1px 1px 0 var(--bevel-lo); }
+.ms-c.boom { background: #b3261e; color: #fff; }
+.ms-c.wrong { background: var(--ms-open); box-shadow: inset 1px 1px 0 var(--line); }
 .ms-c.mine svg, .ms-c.boom svg, .ms-c.wrong svg { width: 74%; height: 74%; }
-.ms-c.cursor { outline: 3px solid var(--accent); outline-offset: -3px; z-index: 1; }
+.ms-c.cursor { outline: 2px solid var(--accent); outline-offset: -3px; z-index: 1; }
 .ms-c.pop { animation: ms-pop 0.14s ease-out; }
 @keyframes ms-pop { from { transform: scale(0.82); } to { transform: scale(1); } }
 .n1 { color: var(--n1); } .n2 { color: var(--n2); } .n3 { color: var(--n3); } .n4 { color: var(--n4); }
 .n5 { color: var(--n5); } .n6 { color: var(--n6); } .n7 { color: var(--n7); } .n8 { color: var(--n8); }
 
-.ms-msg { min-height: 1.4em; margin: 0; font-weight: 600; color: var(--ink); text-align: center; }
-.ms-help { margin: 0; max-width: 46ch; text-align: center; font-size: 12px; color: var(--ink3); }
+.ms-msg { min-height: 1.4em; margin: 0; font-size: var(--fs-body); font-weight: 500; color: var(--ink); text-align: center; }
 
-/* The menu sheet. */
-.ms-levels { display: flex; flex-direction: column; gap: 6px; }
-.ms-lv { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
-.ms-lv:has(input:checked) { border-color: var(--accent); }
-.ms-lv span { flex: 1; display: flex; flex-direction: column; }
-.ms-lv small { color: var(--ink2); font-size: 12px; }
-.ms-lv em { font: 600 12px var(--mono); color: var(--ink3); font-style: normal; }
-.ms-custom { display: flex; gap: 8px; padding: 2px 2px 0; }
-.ms-custom label { flex: 1; display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--ink2); }
-.ms-num { width: 100%; min-height: 36px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--ground); color: var(--ink); font: inherit; }
-.ms-error { min-height: 1.3em; margin: 2px 0 0; color: #c62828; font-size: 13px; }
-:root[data-theme="dark"] .ms-error { color: #ef9a9a; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ms-error { color: #ef9a9a; } }
-.ms-check { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 14px; }
+/* A custom board's size, in the New game pane. */
+.ms-custom { display: flex; gap: var(--sp-2); padding: 0 0 var(--sp-2); }
+.ms-custom label { flex: 1; display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-small); color: var(--ink2); }
+.ms-num { width: 100%; min-height: var(--target); padding: 0 var(--sp-2); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; }
 
-@media (max-width: 420px) { .ms-main { padding: 12px 8px; } .ms-digit { width: 18px; height: 31px; } }
+@media (max-width: 420px) { .ms-main { padding: var(--sp-3) var(--sp-4); } }
 @media (prefers-reduced-motion: reduce) { .ms-c.pop { animation: none; } }

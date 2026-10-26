@@ -157,9 +157,10 @@
 
   // A segmented option row for the Menu's New game pane (a game's own choice: wrap, players, mode):
   //   Play.optionRow(T('snake.edges'), [[false, T('shell.off')], [true, T('shell.on')]], value, function (v) {})
-  Play.optionRow = function (label, choices, value, onPick) {
+  // A fifth argument adds a class to the segmented control ('pl-grid' lays four or more long choices out in two columns).
+  Play.optionRow = function (label, choices, value, onPick, cls) {
     var row = document.createElement('div'), lab = document.createElement('label'), seg = document.createElement('div');
-    row.className = 'gs-row'; lab.textContent = label; seg.className = 'gs-seg'; seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', label);
+    row.className = 'gs-row'; lab.textContent = label; seg.className = 'gs-seg' + (cls ? ' ' + cls : ''); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', label);
     choices.forEach(function (c) {
       var b = document.createElement('button');
       b.type = 'button'; b.className = 'ar-btn'; b.textContent = c[1]; b.setAttribute('aria-pressed', String(c[0] === value));

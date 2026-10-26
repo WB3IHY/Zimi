@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Minesweeper - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
+<link rel="stylesheet" href="play.css">
 <link rel="stylesheet" href="minesweeper.css">
 <!-- zimi-shell --><script src="games-help.js"></script><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
@@ -12,47 +13,27 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Minesweeper</h1>
-  <button class="ar-btn" id="ms-level" type="button" aria-haspopup="dialog">Beginner</button>
-  <button class="ar-btn ms-flagbtn" id="ms-flagmode" type="button" aria-pressed="false" title="Flag mode: taps place flags"><span>Flag</span></button>
+  <button class="ar-btn" id="ms-new" type="button" hidden data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="ms-main">
   <div class="ms-win" id="ms-win">
-    <div class="ms-panel">
-      <div class="ms-led" id="ms-mines" role="img" aria-label="Mines left"></div>
-      <button class="ms-face" id="ms-face" type="button" aria-label="New game"></button>
-      <div class="ms-led" id="ms-time" role="img" aria-label="Time"></div>
+    <div class="pl-hud ms-hud">
+      <div class="pl-stat"><small data-t="mines.minesLeft">Mines left</small><b id="ms-mines">0</b></div>
+      <div class="ms-face" id="ms-face" role="img" aria-label="Playing"></div>
+      <div class="pl-stat"><small data-t="play.time">Time</small><b id="ms-time">0</b></div>
     </div>
     <div class="ms-box">
       <div class="ms-board" id="ms-board" role="grid"></div>
     </div>
   </div>
-  <p class="ms-msg" id="ms-msg" role="status" aria-live="polite"></p>
-  <p class="ms-help">Click to open. Right click or long press to flag. Click a number to open around it once its flags match. Keys: arrows, Space, F, C, N.</p>
+  <div class="gs-actionrow">
+    <button class="ar-btn ms-flagbtn" id="ms-flagmode" type="button" aria-pressed="false" data-t-title="mines.flagTitle"><span data-t="mines.flag">Flag</span></button>
+  </div>
+  <p class="ms-msg" id="ms-msg"></p>
 </main>
 
-<div class="ar-sheet" id="ms-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="ms-menu-title">
-  <div class="ar-sheet-card">
-    <h2 id="ms-menu-title">New game</h2>
-    <div class="ms-levels">
-      <label class="ms-lv"><input type="radio" name="level" id="ms-lv-beginner" value="beginner"><span><b>Beginner</b><small>9 x 9, 10 mines</small></span><em id="ms-best-beginner"></em></label>
-      <label class="ms-lv"><input type="radio" name="level" id="ms-lv-intermediate" value="intermediate"><span><b>Intermediate</b><small>16 x 16, 40 mines</small></span><em id="ms-best-intermediate"></em></label>
-      <label class="ms-lv"><input type="radio" name="level" id="ms-lv-expert" value="expert"><span><b>Expert</b><small>30 x 16, 99 mines</small></span><em id="ms-best-expert"></em></label>
-      <label class="ms-lv"><input type="radio" name="level" id="ms-lv-custom" value="custom"><span><b>Custom</b><small>Your own board</small></span></label>
-      <div class="ms-custom">
-        <label>Rows<input class="ms-num" id="ms-rows" type="number" inputmode="numeric" min="5" max="24"></label>
-        <label>Columns<input class="ms-num" id="ms-cols" type="number" inputmode="numeric" min="5" max="30"></label>
-        <label>Mines<input class="ms-num" id="ms-nmines" type="number" inputmode="numeric" min="1"></label>
-      </div>
-      <p class="ms-error" id="ms-error" role="alert"></p>
-    </div>
-    <label class="ms-check"><input type="checkbox" id="ms-marks"> Question marks (flag, then ?, then clear)</label>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="ms-cancel" type="button">Cancel</button>
-      <button class="ar-btn" id="ms-start" type="button" aria-pressed="true">Start</button>
-    </div>
-  </div>
-</div>
+<script src="playkit.js"></script>
 <script src="minesweeper.js"></script>
 <!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->
 <!-- zimi-about --><footer class="gm-about"><a href="about.html?qid=Q126194">About Minesweeper</a></footer><!-- /zimi-about -->
