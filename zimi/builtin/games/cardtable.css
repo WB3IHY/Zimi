@@ -1,20 +1,28 @@
 /* The world's card games: the score chips, the status line, the choice
    panel and the little boards laid over the felt (see cardtable.js). */
 .ct-scores { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; padding: 0 8px; pointer-events: none; z-index: 30; flex-wrap: wrap; }
-.ct-chip { display: inline-flex; gap: 6px; align-items: baseline; padding: 2px 9px; border-radius: 999px; background: rgba(0, 0, 0, 0.3); color: #fff; font: 12px/1.5 var(--mono); white-space: nowrap; }
-.ct-chip b { font: 600 12px var(--font); }
-.ct-chip.ct-turn { background: var(--accent); color: var(--accent-ink); }
+/* The player chip, on felt: translucent black, 28px, a dot, the name and a number. The current player has an amber
+   outline and glow; the name stays light, never white on amber. */
+.ct-chip { display: inline-flex; gap: 6px; align-items: center; height: 28px; padding: 0 var(--sp-3); border: 1px solid transparent; border-radius: 999px; background: rgba(0, 0, 0, 0.34); color: rgba(255, 255, 255, 0.86); font: var(--fs-small) var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ct-chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.35); }
+.ct-chip b { font: 650 var(--fs-small) var(--font); color: #fff; }
+.ct-chip.ct-turn { border-color: var(--select-ring); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.22); }
+.ct-chip.ct-turn::before { background: var(--select-ring); }
+.ct-chip.ct-think::before { animation: gs-pulse 0.9s ease-in-out infinite alternate; }
+@keyframes gs-pulse { from { opacity: 0.35; } to { opacity: 1; } }
 .ct-status { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 12px; z-index: 30; pointer-events: none; }
-.ct-status-text { padding: 5px 12px; border-radius: 10px; background: rgba(0, 0, 0, 0.34); color: #fff; font-size: 13px; line-height: 1.3; text-align: center; max-width: 100%; }
+.ct-status-text { padding: 5px var(--sp-3); border-radius: 999px; background: rgba(0, 0, 0, 0.34); color: #fff; font-size: var(--fs-body); line-height: 1.3; text-align: center; max-width: 100%; }
 .ct-status .ar-btn { pointer-events: auto; }
 .ct-status .ar-btn[hidden] { display: none; }
-.ct-panel { position: absolute; left: 50%; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: min(100% - 16px, 520px); padding: 10px; border-radius: 12px; background: rgba(8, 24, 16, 0.78); z-index: 35; }
+.ct-panel { position: absolute; left: 50%; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-2); width: min(100% - 16px, 520px); padding: var(--sp-2); border-radius: var(--r-sheet); background: rgba(0, 0, 0, 0.5); z-index: 35; }
 .ct-panel[hidden] { display: none; }
-.ct-choice { min-width: 44px; min-height: 44px; padding: 0 14px; font-weight: 600; }
+.ct-choice { min-width: var(--target); min-height: var(--target); padding: 0 14px; font-weight: 600; }
 .ct-choice.ct-red { color: var(--suit-red); }
-.ct-choice[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.ct-lines { flex: 1 1 100%; color: #fff; font-size: 13px; line-height: 1.45; }
+.ct-choice[aria-pressed="true"] { background: var(--accent-glow); border-color: var(--select-ring); color: var(--ink); }
+.ct-lines { flex: 1 1 100%; color: #fff; font-size: var(--fs-small); line-height: 1.45; }
 .ct-lines p { margin: 1px 0; }
-.ct-lines .ct-total { font-weight: 700; color: var(--accent); }
-@media (max-width: 440px) { .ct-chip { padding: 2px 7px; gap: 4px; font-size: 11px; } .ct-chip b { font-size: 11px; } .ct-scores { gap: 4px; padding: 0 4px; } }
+.ct-lines .ct-total { font-weight: 700; color: var(--select-ring); }
+@media (max-width: 440px) { .ct-chip { padding: 0 10px; gap: 5px; } .ct-scores { gap: 4px; padding: 0 4px; } }
+/* An opponent's hand of more than five cards is one back and a count. */
+.ct-count { position: absolute; z-index: 26; display: grid; place-items: center; min-width: 28px; height: 28px; padding: 0 var(--sp-2); border-radius: 999px; background: rgba(0, 0, 0, 0.6); color: #fff; font: 650 var(--fs-small) var(--font); font-variant-numeric: tabular-nums; pointer-events: none; transform: translate(-50%, -50%); }
 .ct-status-text:empty { display: none; }

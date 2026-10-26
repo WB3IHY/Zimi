@@ -1,17 +1,16 @@
 /* ZimiGames: the little labels the later card games lay over the felt (Hold'em
    seats, Bridge's auction, Canasta's melds). See cardtable.css for the rest. */
-.c2-tag { position: absolute; z-index: 25; padding: 2px 6px; border-radius: 8px; background: rgba(0, 0, 0, 0.34); color: #fff; font: 11px/1.3 var(--mono); text-align: center; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
-.c2-tag b { display: block; font: 600 12px/1.3 var(--font); overflow: hidden; text-overflow: ellipsis; }
-.c2-tag.c2-turn { background: var(--accent); color: var(--accent-ink); }
+.c2-tag { position: absolute; z-index: 25; padding: 2px 8px; border: 1px solid transparent; border-radius: var(--r-sheet); background: rgba(0, 0, 0, 0.34); color: rgba(255, 255, 255, 0.86); font: var(--fs-small)/1.3 var(--font); font-variant-numeric: tabular-nums; text-align: center; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+.c2-tag b { display: block; color: #fff; font: 650 var(--fs-small)/1.3 var(--font); overflow: hidden; text-overflow: ellipsis; }
+.c2-tag.c2-turn { border-color: var(--select-ring); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.22); }
 .c2-tag.c2-out { opacity: 0.55; }
-.c2-tag.c2-dealer b::after { content: " D"; color: var(--accent); }
-.c2-tag.c2-turn.c2-dealer b::after { color: inherit; }
+.c2-tag.c2-dealer b::after { content: " D"; color: var(--select-ring); }
 .c2-me { display: flex; gap: 8px; justify-content: center; align-items: baseline; padding-top: 1px; padding-bottom: 1px; } .c2-me b { display: inline; flex: none; } .c2-me span { overflow: hidden; text-overflow: ellipsis; }
 
 /* Bridge: the auction as it goes round, and the bidding box. */
 .br-auction { position: absolute; z-index: 24; box-sizing: border-box; padding: 6px 8px; border-radius: 10px; background: rgba(0, 0, 0, 0.34); color: #fff; font: 12px/1.3 var(--mono); pointer-events: none; }
 .br-auction[hidden], .br-box[hidden] { display: none; }
-.br-cap { margin: 0 0 4px; font: 11px/1.3 var(--font); text-align: center; opacity: 0.9; }
+.br-cap { margin: 0 0 4px; font: var(--fs-small)/1.3 var(--font); text-align: center; opacity: 0.9; }
 .br-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px 3px; text-align: center; }
 .br-head { font: 600 11px/1.4 var(--font); }
 .br-head.br-you { color: var(--accent); }
