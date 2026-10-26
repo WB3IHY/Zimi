@@ -3062,7 +3062,7 @@ function updateTopbar() {
   const backTo = _backLabel();
   // Offline an app's page may not be here at all (the worker answers with its own "You're offline" page, which never
   // tells the topbar it is at the app's top or not): the arrow stays so there is always a way back to where you were.
-  const showBack = !!backTo || articleHistory.length > 0 || mode === 'search' || homeScope || (_isAppPage() && (!_appTop || _connState !== CONN_OK));
+  const showBack = !!backTo || articleHistory.length > 0 || mode === 'search' || homeScope || (_isAppPage() && (!_appTop || _connState !== CONN_OK)) || _gameHasShelfBehind();
   backBtn.style.display = showBack ? 'flex' : 'none';
   var nightBtn = document.getElementById('night-btn');
   // The red night light where it is used in the dark: the Field Guide and the Almanac's sky.
@@ -4331,6 +4331,8 @@ function goBack() {
       history.back();
       return;
     }
+    // A game with nothing behind it (the page was reloaded): the shelf it came from.
+    if (_gameHasShelfBehind()) { openArticle(_GAMES_ZIM, 'index.html', t('app_games')); return; }
     closeReader();
     // Only go home if reader was auto-opened by enterSource AND user hasn't searched
     if (sourceAutoReader) {
@@ -24221,6 +24223,9 @@ function _isGamesZimOpen() {
   return !!(readerOpen && !_almanacOpen && !_createOpen && mode !== 'manage' && currentArticle && currentArticle.zim === _GAMES_ZIM);
 }
 function _isGamePage() { return !!(_gameHead && _isGamesZimOpen()); }
+// A game (a page with a Menu) always has the shelf behind it. A reload empties the article history, and with it the arrow
+// that led there, which left the game's tile as the only way back.
+function _gameHasShelfBehind() { return !!(_isGamePage() && _gameHead.menu); }
 function _gameFrame() { return document.getElementById('reader-frame'); }
 function _gameFrameIs(win) { var f = _gameFrame(); return !!(f && win && f.contentWindow === win); }
 function _gameDo(what) {
@@ -28596,7 +28601,7 @@ function _savedRefOnScreen() {
   var zim = currentArticle.zim, path = _splitPathFragment(currentArticle.path).base;
   var title = document.title.replace(/ — Zimi$/, '');
   if (title === 'Zimi' || !title) title = _titleFromPath(path);
-  // A game is kept by its own name ("Checkers"), not its page's ("Checkers - ZimiGames").
+  // A game is kept by its own name ("Checkers"), not its page's ("Checkers · ZimiGames").
   if (_isGamePage() && _gameHead.title) title = _gameHead.title;
   if (_isMapZim(zim)) {
     // Where the map is: read from the map at this moment rather than from

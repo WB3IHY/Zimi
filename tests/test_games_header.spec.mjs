@@ -87,3 +87,13 @@ test('Sokoban keeps its position when you leave to Home and come back, and acros
   await page.reload();
   await expect(page.frameLocator('#reader-frame').locator('#sk-moves')).toHaveText(moves);
 });
+
+test('after a reload a game still has its back arrow, and it leads to the shelf', async ({ page }) => {
+  await openGame(page, 'checkers.html');
+  await expect(page.locator('#game-title')).toHaveText('Checkers');
+  await page.reload();   // the article history is gone: the shelf behind the game is not
+  await expect(page.locator('#game-title')).toHaveText('Checkers');
+  await expect(page.locator('#back-btn')).toBeVisible();
+  await page.locator('#back-btn').click();
+  await expect(page.locator('#game-title')).toHaveText('ZimiGames');
+});
