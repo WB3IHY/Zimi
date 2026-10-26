@@ -109,6 +109,23 @@ def test_the_host_loads_what_zimi_loads_in_the_same_order():
         assert name in stage.SCRIPTS
 
 
+def test_a_dynamic_import_survives_the_stage(tmp_path):
+    """import("earth/three.js") is read as a module NAME and refused, so the 3D Earth said it was not downloaded
+    when it was opened from the Almanac's ZIM (where the stage makes /static/ paths relative). Every import()
+    in the staged pages must be given a URL, not a bare path."""
+    dest = tmp_path / "stage"
+    dest.mkdir()
+    stage.stage(str(dest))
+    calls = []
+    for name in sorted(os.listdir(dest)):
+        if name.endswith(".js"):
+            text = _read(str(dest / name))
+            calls += [(name, m.group(1)) for m in re.finditer(r"\bimport\(\s*([^)\s][^)]{0,40})", text)]
+    assert any(n == "almanac-earth.js" for n, _ in calls), "the Earth loads three.js with import()"
+    for name, arg in calls:
+        assert arg.startswith(("new URL(", "'./", '"./', "'/", '"/', "`./", "`/")), (name, arg)
+
+
 def test_a_name_app_js_lost_fails_loudly():
     app = _read(APP_JS).replace("function _smoothstep(", "function _smoothstepGone(")
     with pytest.raises(stage.StageError, match="_smoothstep"):
