@@ -415,5 +415,5 @@
     return true;
   }
   ZimiShell.persist({ save: snapshot, load: restore });
-  root.__pinball = { get st() { return st; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, st.score, st.lives, st.mult]); } };
+  root.__pinball = { get st() { return st; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, st.score, st.lives, st.mult, st.balls, st.flippers, st.lanes, st.targets]); } };
 })(this);

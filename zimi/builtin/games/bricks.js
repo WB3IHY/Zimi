@@ -316,5 +316,5 @@
   }
   ZimiShell.persist({ save: snapshot, load: restore });
   // A read-only window onto the live game, for the browser tests.
-  root.__bricks = { get g() { return g; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, g.level, g.score, g.lives, g.bricks.length]); } };
+  root.__bricks = { get g() { return g; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, g.level, g.score, g.lives, g.bricks.map(function (k) { return k.hp; }), g.ball, g.paddle]); } };
 })(this);

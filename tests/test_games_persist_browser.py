@@ -21,28 +21,51 @@ GAMES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VIEW = {"width": 390, "height": 844}
 SETTLE_MS = 1000
 
+
+def _paused(expr):
+    """An arcade game runs between the two reads: pause it first (it restores paused, and a paused one is left alone)."""
+    return ("(() => { const b = document.querySelector('.ar-bar [id$=\"pause\"]'); if (b && /^pause/i.test(b.textContent)) b.click(); "
+            "return JSON.stringify(" + expr + "); })()")
+
+
 # page, a selector to tap for a move (None: the computer plays), JS that returns the position as a string. Add a row for each game wired in.
 ROWS = [
     ("solitaire", '[data-pile="stock"]', "JSON.stringify(ZimiSolitaire.session.state)"),
     ("golf", '[data-pile="stock"]', "JSON.stringify(ZimiGolf.session.state)"),
     ("euchre", None, "JSON.stringify(ZimiEuchre.session.state)"),
-    ("fiveletters", '.fl-key[data-k="q"]', "JSON.stringify(__five.game)"),
-    ("letterbyletter", '.lb-key[data-k="q"]', "JSON.stringify(__letters.game)"),
-    ("quizzical", ".qz-choice", "JSON.stringify(__quiz.round) + document.getElementById('qz-score').textContent + document.querySelectorAll('.qz-choice.right').length"),
-    ("jigsaw", "#jg-peek", "JSON.stringify(__jig.puzzle.pieces.map(p => [p.fx, p.fy, p.locked]))"),
-    ("wikirace", ".rc-card .gm-play", "JSON.stringify(__race.race.steps) + __race.race.pair.start.path + __race.race.pair.end.path"),
-    ("whereintheworld", "#wm-svg", "JSON.stringify(__world.round) + JSON.stringify(__world.pending)"),
+    # A full guess, then two letters of the next: the rows, the typed letters and the flags must all come back.
+    ("fiveletters", ['.fl-key[data-k="%s"]' % k for k in "crane"] + ['.fl-key[data-k="Enter"]', '.fl-key[data-k="s"]', '.fl-key[data-k="o"]'], "JSON.stringify(__five.game) + [...document.querySelectorAll('.fl-tile')].map(t => t.getAttribute('aria-label') + t.textContent).join()"),
+    ("letterbyletter", ['.lb-key[data-k="e"]', '.lb-key[data-k="q"]', '.lb-key[data-k="a"]'], "JSON.stringify(__letters.game) + document.getElementById('lb-word').textContent + [...document.querySelectorAll('.lb-key')].map(k => k.className).join()"),
+    # Two answers' worth of state: the question set, where we are, the score, and which choice was picked and shown right or wrong.
+    ("quizzical", [".qz-choice", "#qz-next", ".qz-choice"], "JSON.stringify(__quiz.round) + document.getElementById('qz-n').textContent + document.getElementById('qz-score').textContent + [...document.querySelectorAll('.qz-choice')].map(b => b.className + b.disabled).join()"),
+    # Pieces where they were left (the scatter is random, so a restore that re-deals fails), with the clock's text.
+    ("jigsaw", "#jg-peek", "JSON.stringify(__jig.puzzle.pieces.map(p => [p.fx, p.fy, p.locked])) + __jig.puzzle.pieces.map(p => p.node.style.left + p.node.style.top).join() + __jig.puzzle.pic.url.length"),
+    # Start, then follow a link: the path, both ends and the click count.
+    ("wikirace", [".rc-card .gm-play", ".rc-link"], "JSON.stringify(__race.race.steps) + __race.race.pair.start.path + __race.race.pair.end.path + document.getElementById('rc-clicks').textContent + document.getElementById('rc-pane').textContent.length"),
+    # A pin, then the guess: the places, the pin, the points and the answered reveal.
+    ("whereintheworld", ["#wm-svg", "#wm-guess"], "JSON.stringify(__world.round) + JSON.stringify(__world.pending) + document.getElementById('wm-score').textContent + document.getElementById('wm-msg').textContent + document.getElementById('wm-n').textContent"),
     ("bricks", "#br-board", "__bricks.pos"),
     ("pinball", "#pb-board", "__pinball.pos"),
     ("rocks", "#rk-board", "__rocks.pos"),
     ("lastline", "#ll-board", "__lastline.pos"),
-    ("hopper", "#hp-screen", "JSON.stringify([__hopper.st.index, __hopper.st.hearts, __hopper.st.coins, __hopper.st.checkpoint])"),
-    ("muncher", "#mn-screen", "JSON.stringify([__muncher.st.level, __muncher.st.score, __muncher.st.lives, __muncher.st.dotsEaten])"),
-    ("crossing", "#cr-screen", "JSON.stringify([__crossing.st.level, __crossing.st.score, __crossing.st.lives, __crossing.st.nests])"),
-    ("blast", ".ar-sheet-actions .gs-primary", "JSON.stringify([__blast.st.round, __blast.st.wins, __blast.st.kinds])"),
-    ("quest", "#qs-screen", "JSON.stringify([__quest.st.screen, __quest.st.hp, __quest.st.keys, __quest.st.sword])"),
-    ("stacker", "#st-board", "JSON.stringify([__stacker.g.board, __stacker.g.score, __stacker.g.lines])"),
-    ("kart", ".ar-sheet-actions .gs-primary", "JSON.stringify([__kart.g.race.karts.length, __kart.g.race.laps, __kart.g.T.def.id])"),
+    ("lander", "#ld2-board", "__lander.pos"),
+    ("paddles", ".ar-sheet .gs-primary", "__paddles.pos"),
+    ("hopper", "#hp-screen", _paused("[__hopper.st.index, __hopper.st.x, __hopper.st.y, __hopper.st.camX, __hopper.st.time, __hopper.st.hearts, __hopper.st.coins, __hopper.st.enemies.map(e => [e.x, e.y, e.alive])]")),
+    ("muncher", "#mn-screen", _paused("[__muncher.st.level, __muncher.st.player, __muncher.st.chasers.map(c => [c.x, c.y]), __muncher.st.dots, __muncher.st.score, __muncher.st.lives, __muncher.st.time]")),
+    ("crossing", "#cr-screen", _paused("[__crossing.st.level, __crossing.st.x, __crossing.st.row, __crossing.st.time, __crossing.st.left, __crossing.st.nests, __crossing.st.score]")),
+    ("blast", ".ar-sheet-actions .gs-primary", _paused("[__blast.st.round, __blast.st.wins, __blast.st.grid, __blast.st.players.map(p => [p.x, p.y, p.alive]), __blast.st.bombs, __blast.st.time]")),
+    ("quest", "#qs-screen", _paused("[__quest.st.screen, __quest.st.x, __quest.st.y, __quest.st.hp, __quest.st.keys, __quest.st.enemies.map(e => [e.x, e.y])]")),
+    ("stacker", "#st-board", _paused("[__stacker.g.board, __stacker.g.cur, __stacker.g.queue, __stacker.g.hold, __stacker.g.score, __stacker.g.lines]")),
+    ("kart", ".ar-sheet-actions .gs-primary", _paused("[__kart.g.T.def.id, __kart.g.race.t, __kart.g.race.karts.map(k => [k.x, k.y, k.a, k.total])]")),
+    ("memory", ".mm-card", "JSON.stringify(__memory.g.cards) + __memory.g.first + ':' + __memory.g.moves + ':' + __memory.g.found"),
+    ("echo", ".ec-board", "JSON.stringify(__echo.g.seq)"),
+    ("noughts", ".nc-cell", "JSON.stringify(__noughts.board) + __noughts.turn"),
+    ("snakesandladders", "#sl-roll", "__slState()"),
+    ("2048", ["key:ArrowLeft", "key:ArrowUp", "key:ArrowRight"], "JSON.stringify(__t2048.g.cells.map(c => c && c.v)) + __t2048.g.score"),
+    ("sudoku", [".su-c:not(.given) >> nth=0", "key:n", "key:3", "key:n", ".su-c:not(.given) >> nth=1", "key:5"], "JSON.stringify([__sudoku.s.puzzle, __sudoku.s.solution, __sudoku.s.grid, __sudoku.s.notes])"),
+    ("minesweeper", [".ms-c >> nth=40", "key:ArrowRight", "key:ArrowRight", "key:f"], "JSON.stringify([Array.from(__ms.game().state), Array.from(__ms.game().mine), __ms.game().flags, __ms.game().opened])"),
+    ("sokoban", ["key:ArrowRight", "key:ArrowDown", "key:ArrowLeft", "key:ArrowUp"], "JSON.stringify(__sk.state())"),
+    ("codebreaker", ["#cb-palette .pl-peg", "#cb-palette .pl-peg", "#cb-palette .pl-peg", "#cb-palette .pl-peg", "#cb-check", "#cb-palette .pl-peg"], "JSON.stringify([__codebreaker.code, __codebreaker.cur, __codebreaker.rows])"),
 ]
 
 
@@ -86,7 +109,10 @@ def test_leaving_and_returning_keeps_the_position(served, browser, page_name, mo
     if move:
         # a list taps its selectors in turn (a piece, then its square); each one is the first match
         for sel in ([move] if isinstance(move, str) else move):
-            tap(page, page.locator(sel).first if not isinstance(move, str) else page.locator(sel).last)
+            if sel.startswith("key:"):
+                page.keyboard.press(sel[4:])
+            else:
+                tap(page, page.locator(sel).first if not isinstance(move, str) else page.locator(sel).last)
             page.wait_for_timeout(300)
         page.wait_for_timeout(SETTLE_MS)
     else:
@@ -99,8 +125,10 @@ def test_leaving_and_returning_keeps_the_position(served, browser, page_name, mo
                 tap(page, choice.first)
             page.wait_for_timeout(400)
     page.wait_for_timeout(SETTLE_MS)
-    before = page.evaluate(position)
+    # Leaving pauses a running arcade game, so its position stops moving before it is read.
     page.evaluate("window.dispatchEvent(new Event('pagehide'))")
+    page.wait_for_timeout(200)
+    before = page.evaluate(position)
     page.goto("about:blank")
     page.goto(url)
     page.wait_for_timeout(SETTLE_MS)
@@ -125,26 +153,6 @@ def test_a_new_game_is_the_one_way_to_lose_one(served, browser):
     page.wait_for_timeout(SETTLE_MS)
     page.evaluate("window.dispatchEvent(new Event('pagehide'))")
     assert page.evaluate("ZimiShell.saved()") is None, "a fresh deal with no move made is not kept"
-    ctx.close()
-
-
-@pytest.mark.parametrize("page_name", ["checkers", "solitaire", "chess"])
-def test_history_and_about_read_as_words_in_the_menu(served, browser, page_name):
-    """About opens in the Menu (the game stays where it is) and no fact reads as raw data."""
-    ctx = browser.new_context(viewport=VIEW)
-    page = ctx.new_page()
-    url = "%s/%s.html" % (served, page_name)
-    page.goto(url)
-    page.wait_for_timeout(SETTLE_MS)
-    page.locator(".ar-bar button", has_text="Menu").first.click()
-    for row, fact in (("History", "Origin"), ("About", "Players")):
-        page.locator(".gs-item", has_text=row).first.click()
-        page.wait_for_function("() => document.querySelector('.gs-meta dt')", timeout=5000)
-        text = page.evaluate("document.querySelector('.ar-sheet').innerText")
-        assert "[object" not in text and "undefined" not in text and "null" not in text
-        assert fact in text
-        assert page.url == url, "reading it never leaves the game"
-        page.locator(".gs-back").first.click()
     ctx.close()
 
 

@@ -336,5 +336,5 @@
     return true;
   }
   ZimiShell.persist({ save: snapshot, load: restore });
-  root.__lastline = { get st() { return st; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, st.score, st.lives, st.wave]); } };
+  root.__lastline = { get st() { return st; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, st.score, st.lives, st.wave, st.px, st.inv, st.bullets, st.enemyBullets, st.shields.map(function (s) { return s.cells; })]); } };
 })(this);

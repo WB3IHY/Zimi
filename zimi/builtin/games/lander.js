@@ -117,7 +117,7 @@
   Play.applyTheme();
 
   var els = { cv: $('ld2-board'), fuel: $('ld2-fuel'), vy: $('ld2-vy'), vx: $('ld2-vx'), lives: $('ld2-lives'), msg: $('ld2-msg'), pause: $('ld2-pause'), newBtn: $('ld2-new') };
-  var best = Play.load(BEST_KEY, { score: 0 }), st = createState(1), mode = 'ready', ctx, status = Play.status(els.msg), armed = null, pad;
+  var best = Play.load(BEST_KEY, { score: 0 }), st = createState(1), runId = 0, mode = 'ready', ctx, status = Play.status(els.msg), armed = null, pad;
   var held = { left: false, right: false, thrust: false }, keyHeld = { left: false, right: false, thrust: false };
   var stars = (function () { var r = mulberry(11), a = []; for (var i = 0; i < 60; i++) a.push([r() * W, r() * 200, 0.6 + r() * 0.9, 0.2 + r() * 0.5]); return a; })();
 
@@ -178,7 +178,7 @@
   }
   function begin() {
     if (armed) armed.cancel();
-    st = createState(Math.floor(Math.random() * 100000)); mode = 'playing'; status.say(''); clearHeld();
+    st = createState(Math.floor(Math.random() * 100000)); runId = Play.runId(); mode = 'playing'; status.say(''); clearHeld();
     Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); loop.start();
   }
   // After a landing or a crash: show it, then wait for the next lander (or end the game).
@@ -187,13 +187,15 @@
     status.say(resultText());
     if (st.score > best.score) { best.score = st.score; Play.save(BEST_KEY, best); }
     if (st.status === 'crashed' && st.lives <= 0) {
-      mode = 'over'; els.pause.disabled = true;
-      ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(st.score)], [T('play.best'), Play.num(best.score)]] });
-      setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
+      mode = 'over'; els.pause.disabled = true; showEnd();
     } else {
       mode = 'between';
       setTimeout(function () { if (mode === 'between') arm(T('lander.nextTouch'), T('lander.nextKeys'), proceed); }, READY_ARM_MS);
     }
+  }
+  function showEnd() {
+    ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(st.score)], [T('play.best'), Play.num(best.score)]] });
+    setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
   }
   function proceed() { st = next(st); mode = 'playing'; status.say(''); hud(); draw(); loop.start(); }
   function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); clearHeld(); Play.pauseLabel(els.pause, true); status.say(T('play.paused')); }
@@ -222,5 +224,22 @@
 
   window.addEventListener('resize', layout);
   layout(); hud(); arm();
-  root.__lander = { get st() { return st; }, get mode() { return mode; } };
+  // A run in progress or over is kept (the ground is rebuilt from its seed); it comes back paused, or on its end sheet.
+  function snapshot() {
+    if (mode === 'ready') return null;
+    var s = Play.plain(st); delete s.terrain;
+    return { runId: runId, over: mode === 'over', between: mode === 'between', st: s };
+  }
+  function restore(d) {
+    if (!d || !d.st) return false;
+    if (armed) { armed.cancel(); armed = null; }
+    st = Play.overlay(createState(d.st.seed, d.st.level), d.st); st.events = []; runId = d.runId;
+    if (d.between) st = next(st);   // after a landing or a crash the next lander waits, paused
+    hud(); draw();
+    if (d.over) { mode = 'over'; els.pause.disabled = true; setTimeout(showEnd, 0); return true; }
+    mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
+    return true;
+  }
+  ZimiShell.persist({ save: snapshot, load: restore });
+  root.__lander = { get st() { return st; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, st.seed, st.level, st.score, st.lives, st.fuel, st.lander]); } };
 })(this);

@@ -107,7 +107,7 @@
 
   var els = { cv: $('pd-board'), top: $('pd-top'), bot: $('pd-bot'), topName: $('pd-top-name'), botName: $('pd-bot-name'), goal: $('pd-goal'), msg: $('pd-msg'), pause: $('pd-pause'), newBtn: $('pd-new') };
   var settings = Play.load(SETTINGS_KEY, { mode: 'cpu', level: 'medium' }), stats = Play.load(STATS_KEY, { won: 0, played: 0 });
-  var st = createState(settings.mode, settings.level), mode = 'ready', ctx, status = Play.status(els.msg), armed = null, chooser = null;
+  var st = createState(settings.mode, settings.level), runId = 0, restored = false, mode = 'ready', ctx, status = Play.status(els.msg), armed = null, chooser = null;
   var keys = { bl: false, br: false, tl: false, tr: false }, pointers = {};
 
   function layout() { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, W * 1.3).ctx; draw(); }
@@ -173,7 +173,7 @@
   }
   function begin() {
     if (armed) armed.cancel(); armed = null;
-    st = createState(settings.mode, settings.level); mode = 'playing'; status.say(''); releaseAll();
+    st = createState(settings.mode, settings.level); runId = Play.runId(); mode = 'playing'; status.say(''); releaseAll();
     els.cv.style.visibility = ''; Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); loop.start();
   }
   function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); releaseAll(); Play.pauseLabel(els.pause, true); status.say(T('play.paused')); }
@@ -181,11 +181,12 @@
   function toggle() { if (mode === 'playing') pause(); else resume(); }
   function finish() {
     mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); releaseAll(); hud(); draw();
+    if (st.mode !== 'two') { stats.played++; if (st.winner === 'bottom') stats.won++; Play.save(STATS_KEY, stats); }
+    showEnd();
+  }
+  function showEnd() {
     var two = st.mode === 'two', chips = [[T('paddles.score'), T('paddles.scoreLine', { a: Math.max(st.score.top, st.score.bottom), b: Math.min(st.score.top, st.score.bottom) })]];
-    if (!two) {
-      stats.played++; if (st.winner === 'bottom') stats.won++; Play.save(STATS_KEY, stats);
-      chips.push([T('paddles.you'), T('paddles.record', { won: stats.won, played: stats.played })]);
-    }
+    if (!two) chips.push([T('paddles.you'), T('paddles.record', { won: stats.won, played: stats.played })]);
     ZimiShell.endSheet(two ? { result: 'win', name: T(st.winner === 'top' ? 'paddles.top' : 'paddles.bottom'), stats: chips } : { result: st.winner === 'bottom' ? 'win' : 'lose', stats: chips });
     setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
   }
@@ -229,6 +230,21 @@
   window.addEventListener('blur', releaseAll);
 
   window.addEventListener('resize', layout);
-  layout(); hud(); openChooser();
-  root.__paddles = { get st() { return st; }, get mode() { return mode; } };
+  layout(); hud();
+  // A match in progress or over is kept; it comes back paused, or on its end sheet, without asking for players again.
+  function snapshot() {
+    if (mode === 'ready' || mode === 'setup' || !runId) return null;
+    return { runId: runId, over: mode === 'over', st: Play.plain(st) };
+  }
+  function restore(d) {
+    if (!d || !d.st) return false;
+    st = Play.overlay(createState(d.st.mode, d.st.level), d.st); st.events = []; runId = d.runId; restored = true;
+    els.cv.style.visibility = ''; hud(); draw();
+    if (d.over) { mode = 'over'; els.pause.disabled = true; setTimeout(showEnd, 0); return true; }
+    mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
+    return true;
+  }
+  ZimiShell.persist({ save: snapshot, load: restore });
+  if (!restored) openChooser();
+  root.__paddles = { get st() { return st; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, st.mode, st.level, st.score, st.ball, st.top, st.bottom]); } };
 })(this);
