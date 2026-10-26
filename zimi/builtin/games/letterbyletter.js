@@ -337,7 +337,9 @@
     var found = Lib.pickZim(list, 'wiktionary', Lib.uiLang());
     if (found) source = { zim: found.zim.name, title: found.zim.title || found.zim.name, lang: Lib.primaryLang(found.zim.language) };
     // Leaving and coming back keeps the round, its mode too: the saved round goes where start() looks for one.
-    var kept = ZimiShell.saved(), zimId = source ? source.zim : '';
+    var kept = ZimiShell.saved();
+    if (kept && kept.zim && kept.source && (!source || source.zim !== kept.zim)) source = kept.source;   // the library is gone or changed: the round is still its own
+    var zimId = source ? source.zim : '';
     if (kept && kept.word && (kept.zim || '') === zimId && (kept.mode === 'practice' || kept.date === today)) { stored[kept.mode] = kept; Play.save(STATE_KEY, stored); }
     else if (kept) ZimiShell.forget();
     return start(kept && stored[kept.mode] === kept ? kept.mode : 'daily').then(function () { if (game && status(game) !== 'playing') finish(); });
@@ -345,7 +347,7 @@
   ZimiShell.persist({
     save: function () {
       if (!game || !game.guessed.length) return null;
-      return { mode: mode, word: game.word, clue: game.clue, guessed: game.guessed, misses: game.misses, hints: game.hints, date: mode === 'daily' ? today : '', zim: source ? source.zim : '', counted: game.counted || false };
+      return { mode: mode, word: game.word, clue: game.clue, guessed: game.guessed, misses: game.misses, hints: game.hints, date: mode === 'daily' ? today : '', zim: source ? source.zim : '', source: source, counted: game.counted || false };
     }
   });
   root.__letters = { get game() { return game; }, get source() { return source; } };
