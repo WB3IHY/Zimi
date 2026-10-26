@@ -1935,5 +1935,22 @@
   "length": "15 min",
   "kind": "library",
   "computer": false
+ },
+ {
+  "qid": "Q41213",
+  "wiki": "Tower of Babel",
+  "path": "babel.html",
+  "title": "Babel",
+  "blurb": "One word in five languages: name it in English",
+  "why": "The story of the Tower of Babel explains why people speak many languages. Many words still show that languages share ancestors.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "5 min",
+  "kind": "library",
+  "computer": false
  }
 ]
