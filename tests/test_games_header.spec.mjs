@@ -73,3 +73,17 @@ test('a Tatham puzzle has the one header too: its name, Undo and Menu, no second
   await expect(page.locator('#game-menu-btn')).toBeVisible();
   await expect(page.locator('#game-act-btn')).toBeVisible();
 });
+
+test('Sokoban keeps its position when you leave to Home and come back, and across a reload', async ({ page }) => {
+  await openGame(page, 'sokoban.html');
+  const frame = page.frameLocator('#reader-frame');
+  for (const dir of ['Down', 'Right', 'Right', 'Up']) await frame.locator(`button[aria-label="${dir}"]`).first().tap();
+  await expect(frame.locator('#sk-moves')).not.toHaveText('0');
+  const moves = await frame.locator('#sk-moves').textContent();
+  await page.waitForTimeout(700);   // the shell saves shortly after each tap
+  await page.evaluate(() => { closeReader(); goHome(); });
+  await page.evaluate(() => openArticle('zimi_games', 'sokoban.html', 'x'));
+  await expect(page.frameLocator('#reader-frame').locator('#sk-moves')).toHaveText(moves);
+  await page.reload();
+  await expect(page.frameLocator('#reader-frame').locator('#sk-moves')).toHaveText(moves);
+});
