@@ -292,7 +292,7 @@
     var ask = source ? fromLibrary(daily).then(function (w) { return w || (daily ? fromMini(true) : fromMini(false)); }) : fromMini(daily);
     return ask.then(function (w) {
       var g = newGame(w.word, cleanClue(w.clue, w.word));
-      g.guessed = []; return g;
+      g.guessed = []; g.counted = false; return g;
     });
   }
 
@@ -300,7 +300,7 @@
     mode = m; busy = true; line.say(T('letters.finding'));
     var s = stored[m];
     var same = s && s.word && (s.zim || '') === (source ? source.zim : '') && (m === 'practice' || s.date === today);
-    var ready = !fresh && same ? Promise.resolve(Object.assign(newGame(s.word, s.clue), { guessed: s.guessed, misses: s.misses, hints: s.hints || 0, counted: s.counted })) : next(m === 'daily');
+    var ready = !fresh && same ? Promise.resolve(Object.assign(newGame(s.word, s.clue), { guessed: s.guessed, misses: s.misses, hints: s.hints || 0, counted: !!s.counted })) : next(m === 'daily');
     return ready.then(function (g) {
       game = g; busy = false; buildKeys(); persist(); paint(); line.say(rest());
     });
@@ -336,7 +336,17 @@
   Lib.isZimi().then(function (yes) { return yes ? Lib.zims() : []; }).then(function (list) {
     var found = Lib.pickZim(list, 'wiktionary', Lib.uiLang());
     if (found) source = { zim: found.zim.name, title: found.zim.title || found.zim.name, lang: Lib.primaryLang(found.zim.language) };
-    return start('daily');
+    // Leaving and coming back keeps the round, its mode too: the saved round goes where start() looks for one.
+    var kept = ZimiShell.saved(), zimId = source ? source.zim : '';
+    if (kept && kept.word && (kept.zim || '') === zimId && (kept.mode === 'practice' || kept.date === today)) { stored[kept.mode] = kept; Play.save(STATE_KEY, stored); }
+    else if (kept) ZimiShell.forget();
+    return start(kept && stored[kept.mode] === kept ? kept.mode : 'daily').then(function () { if (game && status(game) !== 'playing') finish(); });
+  });
+  ZimiShell.persist({
+    save: function () {
+      if (!game || !game.guessed.length) return null;
+      return { mode: mode, word: game.word, clue: game.clue, guessed: game.guessed, misses: game.misses, hints: game.hints, date: mode === 'daily' ? today : '', zim: source ? source.zim : '', counted: game.counted || false };
+    }
   });
   root.__letters = { get game() { return game; }, get source() { return source; } };
 })(this);
