@@ -93,8 +93,10 @@ const server = http.createServer((q, r) => {
   ok('court art box is the frame', svgs.every(m => +m[1] === fx && +m[3] === fw && +m[4] === fh) && +svgs[0][2] === fy);
   ok('court frame holds no path (no notch)', !/<path[^>]*class="zc-rule"/.test(king));
   const spanish = new vm.Script(fs.readFileSync(path.join(dir, 'courts-es.js'), 'utf8')); spanish.runInContext(sb);
-  const pic = sb.ZimiSpanishCourts.markup(8, 0).match(/x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
-  ok('Spanish print is as wide as the frame, centred', pic && +pic[1] === 22 && +pic[3] === 56 && Math.abs(+pic[2] + +pic[4] / 2 - 70) < 1e-9, pic && pic.slice(1).join(' '));
+  // The Spanish print shows its own frame (a window on the scan, nested svg) as wide as the French frame, centred, whole: nothing of the ink is cut.
+  const pic = sb.ZimiSpanishCourts.markup(8, 0).match(/<svg x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" viewBox="(\d+) (\d+) (\d+) (\d+)"/);
+  ok('Spanish print window is as wide as the frame, centred', pic && +pic[1] === 22 && +pic[3] === 56 && Math.abs(+pic[2] + +pic[4] / 2 - 70) < 1e-9, pic && pic.slice(1).join(' '));
+  ok('Spanish print window keeps the scan\'s own proportions and the ink of all twelve (x 12..244, y 16..408)', pic && Math.abs(+pic[4] - 56 * pic[8] / pic[7]) <= 0.25 && +pic[5] <= 13 && +pic[5] + +pic[7] >= 244 && +pic[6] <= 17 && +pic[6] + +pic[8] >= 407);
   ok('court frame is a crisp rule', /<rect[^>]*class="zc-rule"/.test(king));
   const backs = fs.readFileSync(path.join(dir, 'cardbacks.js'), 'utf8');
   ok('the backs\' band rules are crisp rules', (backs.match(/class: 'zc-rule'/g) || []).length === 2);
@@ -103,6 +105,31 @@ const server = http.createServer((q, r) => {
   // 5. The index's top: flat ranks and rounds start at the 5.5 inset; pointed ones (A, 4) overshoot it by under a unit, never touching the edge.
   const cb = await browser2.newContext({ deviceScaleFactor: 1 }).then(c => c.newPage());
   await cb.goto(base + '/h.html');
+  // 4b. The number cards' pips share the court frame's edges: the sparse pips' outer ink is the frame's width (22..78) and their rows sit
+  // within 7 units of its height (27..113), every card (the pips of one card are measured with the index's column cut away).
+  const pipInk = await cb.evaluate(async () => {
+    const S = 8, out = {};
+    for (const [name, id] of [['7H', 6 + 26], ['7C', 6], ['6S', 5 + 39], ['3H', 2 + 26], ['10H', 9 + 26], ['10C', 9]]) {
+      const doc = new DOMParser().parseFromString(ZimiCards.faceMarkup(id, true), 'image/svg+xml'), root = doc.documentElement;
+      root.querySelectorAll('.zc-idx-std').forEach(g => g.remove()); root.setAttribute('width', 100 * S); root.setAttribute('height', 140 * S);
+      const svg = new XMLSerializer().serializeToString(root);
+      const img = new Image(); img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg); await img.decode();
+      const cv = document.createElement('canvas'); cv.width = 100 * S; cv.height = 140 * S; const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0);
+      const d = cx.getImageData(0, 0, 100 * S, 140 * S).data; let x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1;
+      for (let y = 0; y < 140 * S; y++) for (let x = 0; x < 100 * S; x++) {
+        const i = (y * 100 * S + x) * 4; if (d[i + 3] < 128 || d[i] + d[i + 1] + d[i + 2] > 450) continue; // ink only, not the card's cream or its edge
+        if (y < 3 * S || y > 137 * S || x < 3 * S || x > 97 * S) continue; // the card's edge
+        x0 = Math.min(x0, x); x1 = Math.max(x1, x + 1); y0 = Math.min(y0, y); y1 = Math.max(y1, y + 1);
+      }
+      out[name] = [x0 / S, x1 / S, y0 / S, y1 / S];
+    }
+    return out;
+  });
+  for (const [name, [x0, x1, y0, y1]] of Object.entries(pipInk)) {
+    ok('pips of ' + name + ' stay within the court frame\'s width and 7 units of its height', x0 >= 21.4 && x1 <= 78.6 && y0 >= 20 && y1 <= 120, [x0, x1, y0, y1].join(' '));
+    if (name === '7H' || name === '7C') ok('outer pips of ' + name + ' reach the frame\'s edges (22 and 78) within a unit', Math.abs(x0 - 22) <= 1 && Math.abs(x1 - 78) <= 1, [x0, x1].join(' '));
+  }
+
   const tops = await cb.evaluate(async () => {
     const S = 8, out = {};
     for (const r of 'A23456789TJQK') {

@@ -32,9 +32,16 @@
     var data = ART[k + ',' + suit];
     return data ? '<image href="' + WEBP + data + '" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" preserveAspectRatio="none"/>' : '';
   }
+  // The big card shows the print's own frame, not its paper: the window is the ink of all twelve scans (their printed frames, the
+  // figure and its ground) with a pixel of paper round it, so nothing of the picture is cut. The window is as wide as the column leaves
+  // (cards.js passes the column's width) and its height follows from its own shape, which is the pip area's height on the number cards.
+  var WIN_X = 12, WIN_Y = 16, WIN_W = 232, WIN_H = 392;
   function markup(k, suit, column) {
-    var w = 100 - 2 * (column || COLUMN), h = Math.round(w * SCAN_H / SCAN_W * 2) / 2;
-    return picture(k, suit, (100 - w) / 2, (140 - h) / 2, w, h);
+    var data = ART[k + ',' + suit];
+    if (!data) return '';
+    var w = 100 - 2 * (column || COLUMN), h = Math.round(w * WIN_H / WIN_W * 2) / 2;
+    return '<svg x="' + (100 - w) / 2 + '" y="' + (140 - h) / 2 + '" width="' + w + '" height="' + h + '" viewBox="' + WIN_X + ' ' + WIN_Y + ' ' + WIN_W + ' ' + WIN_H + '" preserveAspectRatio="none">' +
+      '<image href="' + WEBP + data + '" x="0" y="0" width="' + SCAN_W + '" height="' + SCAN_H + '" preserveAspectRatio="none"/></svg>';
   }
   // The small card (about 40 px wide): the same picture, smaller, under the big index row.
   var THUMB_Y = 38, THUMB_H = 97, THUMB_W = Math.round(THUMB_H * SCAN_W / SCAN_H * 100) / 100;
