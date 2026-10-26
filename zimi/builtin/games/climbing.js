@@ -324,7 +324,7 @@
     function counts(st) {
       return st.hands.map(function (h, seat) {
         var n = h.length, done = n === 0 && st.order.indexOf(seat) >= 0;
-        return { name: nm(seat), text: done ? TX('climb.out.' + (st.order.indexOf(seat) + 1)) : (st.passed[seat] && R.passOut && st.top ? TX('climb.passed') : Z.plural(n, 'card')), turn: st.phase === 'play' && st.turn === seat };
+        return { name: nm(seat), text: done ? TX('climb.out.' + (st.order.indexOf(seat) + 1)) : (st.passed[seat] && R.passOut && st.top ? TX('climb.passed') : String(n)), turn: st.phase === 'play' && st.turn === seat };
       });
     }
     function hud(st) {
