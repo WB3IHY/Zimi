@@ -96,23 +96,28 @@
   var Engine = { SIZE: SIZE, FLEET: FLEET, UNKNOWN: UNKNOWN, MISS: MISS, HIT: HIT, SUNK: SUNK, createBoard: createBoard, cellsFor: cellsFor, canPlace: canPlace, addShip: addShip, shipAt: shipAt, randomFleet: randomFleet, fire: fire, remainingLens: remainingLens, aiShot: aiShot, label: label, mulberry: mulberry };
   root.FleetEngine = Engine;
 
-  if (typeof document === 'undefined') return;
+  if (typeof document === 'undefined' || !root.BoardUI) return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
+  var Play = root.ArcadePlay, UI = root.BoardUI, T = UI.t, $ = Play.$;
   var STATS_KEY = 'zimi.games.fleet.stats', CPU_DELAY_MS = 700;
   Play.applyTheme();
 
-  var els = { msg: $('fl-msg'), tools: $('fl-tools'), enemy: $('fl-enemy'), enemyWrap: $('fl-enemy-wrap'), mine: $('fl-mine'), eships: $('fl-enemy-ships'), sheet: $('fl-sheet'), title: $('fl-sheet-title'), text: $('fl-sheet-text'), go: $('fl-go'), nu: $('fl-new') };
+  var els = { msg: $('fl-msg'), tools: $('fl-tools'), tray: $('fl-tray'), enemy: $('fl-enemy'), enemyWrap: $('fl-enemy-wrap'), mine: $('fl-mine'), eships: $('fl-enemy-ships'), nu: $('fl-new') };
+  var line = UI.status(els.msg);
   var stats = Play.load(STATS_KEY, { played: 0, won: 0, bestShots: 0 });
   var boards = [], lastShot = [null, null], seats, actor = 0, placeIdx = 0, shotsBy = [0, 0];
-  var phase = 'place', mine, theirs, sel = 0, horiz = true, timer = null, rng, shotsFired = 0, lastMine = null, lastTheirs = null, cpuGrid;
+  var phase = 'place', mine, theirs, sel = 0, horiz = true, timer = null, rng, shotsFired = 0, lastMine = null, lastTheirs = null;
+  var lastText = '';
+  function say(text) { lastText = text; line.say(text); }
+  function shipName(name) { return T('fleet.ship.' + name.toLowerCase()); }
+  function shipLabel(f) { return T('fleet.shipLen', { name: shipName(f[0]), n: f[1] }); }
 
   // Seats: Player 1 and Player 2 are each the Computer or a Person. Two people place and fire in turn,
   // each behind a handoff, so neither sees the other's fleet.
   function setActor(i) {
     actor = i; mine = boards[i]; theirs = boards[1 - i]; lastMine = lastShot[i]; lastTheirs = lastShot[1 - i];
-    $('fl-mine-h').textContent = seats.hotseat() ? seats.name(i) + "'s fleet" : 'Your fleet';
+    $('fl-mine-h').textContent = seats.hotseat() ? T('fleet.fleetOf', { name: seats.name(i) }) : T('fleet.yourFleet');
     shotsFired = shotsBy[i];
   }
   function setMine(b) { boards[actor] = mine = b; }
@@ -142,10 +147,10 @@
   function stateOf(board, x, y, reveal) {
     var v = board.shots[y][x], s = shipAt(board, x, y);
     var cls = '', name = label(x, y);
-    if (v === SUNK) { cls = 'fl-hit fl-sunk'; name += ', ship sunk'; }
-    else if (v === HIT) { cls = 'fl-hit'; name += ', hit'; }
-    else if (v === MISS) { cls = 'fl-miss'; name += ', miss'; }
-    else if (reveal && s) { cls = 'fl-ship'; name += ', your ship'; }
+    if (v === SUNK) { cls = 'fl-hit fl-sunk'; name = T('fleet.cell.sunk', { cell: name }); }
+    else if (v === HIT) { cls = 'fl-hit'; name = T('fleet.cell.hit', { cell: name }); }
+    else if (v === MISS) { cls = 'fl-miss'; name = T('fleet.cell.miss', { cell: name }); }
+    else if (reveal && s) { cls = 'fl-ship'; name = T('fleet.cell.ship', { cell: name }); }
     return { cls: cls, name: name, s: s };
   }
   function paintMine() {
@@ -166,62 +171,68 @@
     els.enemy.classList.toggle('fl-aim', phase === 'battle');
     els.eships.textContent = '';
     theirs.ships.forEach(function (s, i) {
-      var e = document.createElement(s.hits === s.len ? 's' : 'span'); e.textContent = s.name + ' ' + s.len; els.eships.appendChild(e);
+      var e = document.createElement(s.hits === s.len ? 's' : 'span'); e.textContent = shipLabel([s.name, s.len]); els.eships.appendChild(e);
       if (i < theirs.ships.length - 1) els.eships.appendChild(document.createTextNode(' · '));
     });
   }
+  function button(parent, text, fn, opts) {
+    opts = opts || {};
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'ar-btn' + (opts.cls ? ' ' + opts.cls : ''); b.textContent = text; b.disabled = !!opts.disabled;
+    if (opts.aria) b.setAttribute('aria-label', opts.aria);
+    b.addEventListener('click', fn); parent.appendChild(b); return b;
+  }
+  // The ships to place sit in a tray of their own; the action row holds the moves (Rotate, Shuffle, Start battle).
   function paintTools() {
-    els.tools.textContent = '';
+    els.tools.textContent = ''; els.tray.textContent = '';
     if (phase === 'pass') {
       var nx = 1 - actor;
-      var pb = document.createElement('button'); pb.type = 'button'; pb.className = 'ar-btn'; pb.setAttribute('aria-pressed', 'true');
-      pb.textContent = 'Done, pass to ' + seats.name(nx); pb.addEventListener('click', function () { handTo(nx, 'battle'); });
-      els.tools.appendChild(pb); return;
+      button(els.tools, T('fleet.pass', { name: seats.name(nx) }), function () { handTo(nx, 'battle'); }).setAttribute('aria-pressed', 'true');
+      return;
     }
     if (phase !== 'place') return;
     FLEET.forEach(function (f, i) {
       var placed = mine.ships.some(function (s) { return s.name === f[0]; });
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'ar-btn' + (placed ? ' fl-done' : '');
-      b.textContent = f[0] + ' ' + f[1]; b.setAttribute('aria-pressed', String(sel === i && !placed));
-      b.setAttribute('aria-label', f[0] + ', ' + f[1] + ' squares' + (placed ? ', placed' : ''));
-      b.addEventListener('click', function () { if (!placed) { sel = i; paintTools(); } });
-      els.tools.appendChild(b);
+      var b = button(els.tray, shipLabel(f), function () { if (!placed) { sel = i; paintTools(); } },
+        { cls: placed ? 'fl-done' : '', aria: T(placed ? 'fleet.shipPlaced' : 'fleet.shipSquares', { name: shipName(f[0]), n: f[1] }) });
+      b.setAttribute('aria-pressed', String(sel === i && !placed));
     });
-    function tool(text, fn, dis) { var b = document.createElement('button'); b.type = 'button'; b.className = 'ar-btn'; b.textContent = text; b.disabled = !!dis; b.addEventListener('click', fn); els.tools.appendChild(b); return b; }
-    tool(horiz ? 'Rotate (now across)' : 'Rotate (now down)', function () { horiz = !horiz; paintTools(); });
-    tool('Shuffle', function () { setMine(randomFleet(rng)); sel = FLEET.length; paintAll(); });
+    button(els.tools, T(horiz ? 'fleet.rotate.across' : 'fleet.rotate.down'), function () { horiz = !horiz; paintTools(); });
+    button(els.tools, T('fleet.shuffle'), function () { setMine(randomFleet(rng)); sel = FLEET.length; paintAll(); });
     var all = mine.ships.length === FLEET.length;
     var more = seats.hotseat() && placeIdx < seats.people().length - 1;
-    var go = tool(more ? 'Done, pass to ' + seats.name(seats.people()[placeIdx + 1]) : 'Start battle', startBattle, !all); go.setAttribute('aria-pressed', String(all));
+    var go = button(els.tools, more ? T('fleet.pass', { name: seats.name(seats.people()[placeIdx + 1]) }) : T('fleet.startBattle'), startBattle, { disabled: !all });
+    go.setAttribute('aria-pressed', String(all));
   }
-  var HELP_PLACE = $('fl-help').textContent;
-  var HELP_BATTLE = 'Tap a square in the enemy waters to fire. Sink every enemy ship before yours are sunk. Arrow keys move between squares.';
-  function paintAll() { paintMine(); paintEnemy(); paintTools(); $('fl-help').textContent = phase === 'place' ? HELP_PLACE : HELP_BATTLE; els.enemyWrap.hidden = phase === 'place'; els.mine.classList.toggle('fl-small', phase !== 'place'); }
+  function paintAll() { paintMine(); paintEnemy(); paintTools(); els.enemyWrap.hidden = phase === 'place'; els.mine.classList.toggle('fl-small', phase !== 'place'); }
 
   function nextUnplaced() {
     for (var i = 0; i < FLEET.length; i++) if (!mine.ships.some(function (s) { return s.name === FLEET[i][0]; })) return i;
     return FLEET.length;
   }
+  function placeLine() { return T('fleet.place', { name: shipName(FLEET[sel][0]), n: FLEET[sel][1] }); }
   function onMine(x, y) {
     if (phase !== 'place') return;
     var existing = shipAt(mine, x, y);
     if (existing) { mine.ships.splice(mine.ships.indexOf(existing), 1); sel = FLEET.findIndex(function (f) { return f[0] === existing.name; }); paintAll(); return; }
     if (sel >= FLEET.length) return;
     var f = FLEET[sel], px = horiz ? Math.min(x, SIZE - f[1]) : x, py = horiz ? y : Math.min(y, SIZE - f[1]);
-    if (!addShip(mine, f[0], f[1], px, py, horiz)) { els.msg.textContent = 'That ship does not fit there.'; return; }
-    sel = nextUnplaced(); els.msg.textContent = sel >= FLEET.length ? 'All placed. Start the battle, or tap a ship to move it.' : 'Place the ' + FLEET[sel][0] + ' (' + FLEET[sel][1] + ' squares).';
+    if (!addShip(mine, f[0], f[1], px, py, horiz)) { UI.refuse(line, mineCells[y * SIZE + x], T('fleet.noFit')); return; }
+    sel = nextUnplaced(); say(sel >= FLEET.length ? T('fleet.allPlaced') : placeLine());
     paintAll();
   }
 
   // Pass the device: the cover first, then the next person's screen.
   function handTo(i, nextPhase) {
     phase = nextPhase;
-    seats.cover(i, function () { setActor(i); turnMessage(); paintAll(); }, 'Pass the device. Your fleet and your shots stay hidden until you tap.');
+    seats.cover(i, function () { setActor(i); turnMessage(); paintAll(); }, T('fleet.cover'));
     setActor(i); paintAll();
   }
   function turnMessage() {
-    if (phase === 'place') els.msg.textContent = 'Place the Carrier (5 squares). Tap a square on your grid.' + (seats.hotseat() ? ' ' + seats.name(actor) + ' places first.' : '');
-    else els.msg.textContent = (seats.hotseat() ? seats.name(actor) + ', fire' : 'Your turn. Fire') + ' on the enemy waters.' + (seats.hotseat() && lastTheirs ? ' Last shot at you: ' + label(lastTheirs[0], lastTheirs[1]) + '.' : '');
+    if (phase === 'place') say(seats.hotseat() ? T('janggi.noted', { note: placeLine(), line: T('fleet.placesFirst', { name: seats.name(actor) }) }) : placeLine());
+    else {
+      var fire = seats.hotseat() ? T('fleet.fireName', { name: seats.name(actor) }) : T('fleet.fireYou');
+      say(seats.hotseat() && lastTheirs ? T('janggi.noted', { note: T('fleet.lastShot', { cell: label(lastTheirs[0], lastTheirs[1]) }), line: fire }) : fire);
+    }
   }
   function startBattle() {
     if (seats.hotseat() && placeIdx < seats.people().length - 1) { placeIdx++; sel = 0; horiz = true; handTo(seats.people()[placeIdx], 'place'); return; }
@@ -231,12 +242,16 @@
     paintAll();
     enemyCells[0].focus({ preventScroll: true });
   }
+  // The result of a shot: yours ("A1: hit.") or the computer's ("The computer fired at B2: hit.").
+  function shotText(r, cpu, cell) {
+    return T('fleet.' + (cpu ? 'cpu.' : 'shot.') + (r.result === 'miss' || r.result === 'hit' ? r.result : 'sank'), { cell: cell, ship: r.ship ? shipName(r.ship.name) : '' });
+  }
   function onEnemy(x, y) {
     if (phase !== 'battle') return;
     var r = fire(theirs, x, y); if (!r) return;
     shotsBy[actor]++; shotsFired = shotsBy[actor]; lastMine = lastShot[actor] = [x, y];
     phase = 'busy';
-    els.msg.textContent = label(x, y) + ': ' + (r.result === 'miss' ? 'Miss.' : r.result === 'hit' ? 'Hit.' : 'You sank the ' + r.ship.name + '.');
+    say(shotText(r, false, label(x, y)));
     if (r.win) { phase = 'over'; paintAll(); return finish(true); }
     if (otherPerson()) { phase = 'pass'; paintAll(); return; }
     paintAll();
@@ -246,31 +261,26 @@
     var pick = aiShot(mine.shots, remainingLens(mine), rng);
     var r = fire(mine, pick[0], pick[1]);
     lastTheirs = lastShot[1 - actor] = pick;
-    var t = els.msg.textContent;
-    els.msg.textContent = t + ' Computer fires at ' + label(pick[0], pick[1]) + ': ' + (r.result === 'miss' ? 'miss.' : r.result === 'hit' ? 'hit.' : 'it sank your ' + r.ship.name + '.');
+    say(T('janggi.noted', { note: lastText, line: shotText(r, true, label(pick[0], pick[1])) }));
     if (r.win) { phase = 'over'; paintAll(); return finish(false); }
     phase = 'battle'; paintAll();
   }
   function finish(won) {
     var text;
     if (seats.hotseat()) {
-      text = seats.name(actor) + ' sank the whole fleet in ' + shotsFired + ' shots.';
-      els.msg.textContent = seats.name(actor) + ' wins.';
-      showSheet(seats.name(actor) + ' wins', text, 'Play again');
+      text = T('fleet.fleetSunk', { name: seats.name(actor), n: shotsFired });
+      say(T('fleet.wins', { name: seats.name(actor) }));
+      UI.end({ result: 'win', name: seats.name(actor), text: text });
       return;
     }
     stats.played++;
-    if (won) { stats.won++; text = 'You sank the whole enemy fleet in ' + shotsFired + ' shots.'; if (!stats.bestShots || shotsFired < stats.bestShots) { stats.bestShots = shotsFired; text += ' A new fewest.'; } }
-    else text = 'Your fleet is sunk. The computer wins.';
-    text += ' You have won ' + stats.won + ' of ' + stats.played + '.';
+    if (won) { stats.won++; text = T('fleet.youSank', { n: shotsFired }); if (!stats.bestShots || shotsFired < stats.bestShots) { stats.bestShots = shotsFired; text += ' ' + T('fleet.fewest'); } }
+    else text = T('fleet.youSunk');
     Play.save(STATS_KEY, stats);
-    els.msg.textContent = won ? 'Victory.' : 'Defeat.';
-    showSheet(won ? 'Victory' : 'Defeat', text, 'Play again');
+    say(T(won ? 'shell.end.win' : 'shell.end.lose'));
+    UI.end({ result: won ? 'win' : 'lose', text: text });
   }
 
-  function showSheet(title, text, label2) {
-    var host = $('fl-seats'); host.textContent = ''; host.appendChild(root.ZimiSeats.create({ id: 'fleet', seats: 2 }).block(null, { labels: ['Player 1', 'Player 2'] }));
-    els.title.textContent = title; els.text.textContent = text; els.go.textContent = label2; Play.openSheet(els.sheet, '#fl-go'); }
   function begin() {
     if (timer) timer.cancel();
     rng = Engine.mulberry(Play.randomSeed());
@@ -279,13 +289,12 @@
     seats.kinds().forEach(function (k, i) { if (k === 'cpu') boards[i] = randomFleet(rng); });
     phase = 'place'; sel = 0; horiz = true; placeIdx = 0; shotsBy = [0, 0]; lastShot = [null, null];
     setActor(seats.people()[0]); turnMessage();
-    Play.closeSheet(els.sheet); paintAll();
+    paintAll();
     seats.begin(function () { paintAll(); });
   }
-  els.go.addEventListener('click', begin);
-  els.nu.addEventListener('click', function () { if (timer) timer.cancel(); if (phase === 'busy') phase = 'battle'; showSheet('New game', 'Start over with new waters?', 'Start'); });
+  els.nu.addEventListener('click', begin);
   document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey || !els.sheet.hidden) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if ((e.key === 'r' || e.key === 'R') && phase === 'place') { horiz = !horiz; paintTools(); }
   });
 
@@ -293,7 +302,12 @@
   seats = root.ZimiSeats.create({ id: 'fleet', seats: 2 });
   boards = [createBoard(), createBoard()]; actor = 0; mine = boards[0]; theirs = boards[1];
   mineCells = buildGrid(els.mine, onMine); enemyCells = buildGrid(els.enemy, onEnemy);
-  paintAll();
-  showSheet('Fleet', "Hide your ships, hunt the computer's. Five ships each on a ten by ten sea.", 'Place my ships');
+  // The players (Computer or Person for each side) live in Menu > New game; a change shows from the next game.
+  if (root.ZimiShell) root.ZimiShell.game({
+    menu: function () { return { options: [seats.block(null, { labels: [T('fleet.player1'), T('fleet.player2')] })] }; },
+    stats: function () { return stats.played ? [T('fleet.record', { won: stats.won, n: stats.played })].concat(stats.bestShots ? [T('fleet.best', { n: stats.bestShots })] : []) : []; },
+    inProgress: function () { return phase === 'battle' || phase === 'pass' || phase === 'busy'; }
+  });
+  begin();
   root.__fleet = { get mine() { return mine; }, get theirs() { return theirs; }, get phase() { return phase; } };
 })(this);
