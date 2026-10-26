@@ -240,7 +240,7 @@ var italian = []; for (var ii = 0; ii < 40; ii++) italian.push(ii);
 check(italian.every(c => /^<svg[\s\S]*<\/svg>$/.test(Z.italianFaceMarkup(c, false)) && !/NaN|undefined/.test(Z.italianFaceMarkup(c, true))), 'all 40 Italian faces draw');
 check(Z.italianName(19) === 're of cups' && Z.italianName(0) === 'ace of coins', 'Italian cards are named in their own suits');
 check(!/NaN|undefined/.test(Z.jokerMarkup(true, false) + Z.jokerMarkup(false, true)), 'both jokers draw');
-check(Z.markSvg().includes('<svg') && Z.wordmarkSvg().includes('aria-label="ZimiGames"') && Z.BACKS[0].id === 'zimi', 'the mark, the wordmark and the Zimi back exist');
+check(/^<svg[\s\S]*<\/svg>$/.test(Z.markSvg()) && Z.markSvg().includes('aria-label="ZimiGames"') && !/NaN|undefined/.test(Z.markSvg()) && Z.BACKS[0].id === 'zimi', 'the pebble mark and the Zimi back exist');
 check(Z.faceMarkup(id('AS'), true).includes('xmlns'), 'the standalone face is a complete SVG document');
 Z.BACKS.forEach(b => check(Z.backMarkup(b.id).includes('zc-bk') && !/NaN|undefined/.test(Z.backMarkup(b.id)), 'the ' + b.name + ' back draws'));
 check(Z.BACKS.length >= 4, 'at least four animated backs plus the classic one');
