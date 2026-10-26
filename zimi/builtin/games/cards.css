@@ -68,6 +68,11 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 
 /* ── Animated backs: transforms and opacity only, paused with the tab ──── */
 .zc-bk * { transform-box: fill-box; }
+/* The back's Z is placed by its own transform attribute (translate, then
+   scale about the user-space origin). Under fill-box that scale ran about
+   the glyph's top-left corner and pushed the Z right and down of the
+   cartouche's centre. */
+.zc-bk path[fill="url(#zc-g-mark)"] { transform-box: view-box; transform-origin: 0 0; }
 .zc-paused .zc-bk * { animation-play-state: paused !important; }
 .zc-tw { animation: zc-twinkle 3.4s ease-in-out infinite; }
 .zc-tw2 { animation-delay: -1.1s; animation-duration: 4.1s; }
