@@ -99,7 +99,7 @@
     return [0, 1, 2, 3, 4].map(function (i) { return !!(bestMask & (1 << i)); });
   }
 
-  var Engine = { CATS: CATS, DICE: DICE, ROLLS: ROLLS, BONUS_AT: BONUS_AT, BONUS: BONUS, score: score, upper: upper, bonus: bonus, total: total, openCats: openCats, createGame: createGame, roll: roll, toggleHold: toggleHold, choose: choose, bestHold: bestHold, bestRow: bestRow };
+  var Engine = { CATS: CATS, DICE: DICE, ROLLS: ROLLS, BONUS_AT: BONUS_AT, BONUS: BONUS, score: score, upper: upper, bonus: bonus, total: total, openCats: openCats, createGame: createGame, roll: roll, toggleHold: toggleHold, choose: choose, bestHold: bestHold, bestRow: bestRow, snapshot: root.ZimiUtil.snapshot, restore: root.ZimiUtil.restore };
   root.YachtEngine = Engine;
 
   if (typeof document === 'undefined') return;
@@ -114,13 +114,15 @@
   var settings = Play.load(SETTINGS_KEY, { computers: 0 }), best = Play.load(BEST_KEY, {});
   var g, seats, timer = null, dieEls = [];
   // Each seat is the Computer or a Person; people take turns at the same screen (nothing is hidden in Yacht).
-  function newTable() {
-    var n = settings.computers + 1;
+  function seatPlayers(n) {
     seats = root.ZimiSeats.create({ id: 'yacht', seats: n });
-    g = createGame(settings.computers, Play.randomSeed());
     var cpu = 0;
     g.players.forEach(function (p, i) { p.ai = !seats.person(i); p.name = p.ai ? 'CPU ' + (++cpu) : seats.name(i); });
     if (n === 1) g.players[0].name = 'You';
+  }
+  function newTable() {
+    g = createGame(settings.computers, Play.randomSeed());
+    seatPlayers(settings.computers + 1);
   }
   newTable();
 
@@ -265,5 +267,19 @@
   buildDice();
   paint();
   showSheet('Yacht', '13 rows, 13 turns. Play alone for a high score, or against computers.', 'Start');
+  // Never lose a game: the card, the dice and where the dice generator stood, so the next roll is the roll that was next.
+  // Nothing is kept until the first roll.
+  ZimiShell.persist({
+    save: function () { return g.rollsLeft < ROLLS || g.players.some(function (p) { return Object.keys(p.card).length; }) ? { g: Engine.snapshot(g) } : null; },
+    load: function (data) {
+      var saved = data && data.g;
+      if (!saved || !Array.isArray(saved.players) || !saved.players.length || !Array.isArray(saved.dice) || saved.dice.length !== DICE) return false;
+      g = Engine.restore(saved);
+      seatPlayers(g.players.length);
+      Play.closeSheet(els.sheet); els.msg.textContent = ''; paint();
+      if (g.over) finish(); else if (g.players[g.turn].ai) cpuTurn();
+      return true;
+    }
+  });
   root.__yacht = { get g() { return g; } };
 })(this);

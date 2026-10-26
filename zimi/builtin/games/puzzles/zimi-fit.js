@@ -17,6 +17,7 @@
   var LONG_PRESS_SLOP = 10;    // px a finger may drift and still be holding still
   var TWO_FINGER_MS = 350;     // two fingers down and up within this, without moving, are the middle button
   var NATIVE_QUIET_MS = 700;   // after a touch, the browser's own mouse events for it are dropped
+  var READY_POLL_MS = 50;      // how often to ask whether the puzzle's own script has started the game
 
   function el(tag, cls, text) {
     var e = d.createElement(tag);
@@ -357,6 +358,51 @@
     into.appendChild(keys);
   }
 
+  // ── never lose a game ────────────────────────────────────────────────────
+  // The frontend can serialise the whole game (the same text Game > Download save file writes: parameters, the moves, the
+  // place in the history). ZimiShell.persist keeps that text on leaving and after every move, and puts it back with the
+  // frontend's own loader, so an opened puzzle is the one that was left, undo history and all.
+  var encoder = root.TextEncoder ? new root.TextEncoder() : null;
+  function saveText() {
+    var cw = root.Module && root.Module.cwrap;
+    if (!cw || typeof root.UTF8ToString !== "function") return null;
+    var ptr = cw("get_save_file", "number", [])();
+    var text = root.UTF8ToString(ptr);
+    cw("free_save_file", "void", ["number"])(ptr);
+    return text;
+  }
+  function loadText(text) {
+    var bytes = encoder.encode(text), pos = 0;
+    root.savefile_read_callback = function (buf, len) {
+      if (pos + len > bytes.length) return false;
+      root.writeArrayToMemory(new Int8Array(bytes.buffer, pos, len), buf);
+      pos += len;
+      return true;
+    };
+    try { root.Module.cwrap("load_game", "void", [])(); } finally { root.savefile_read_callback = null; }
+  }
+  function canMove(id) { var b = $(id); return !!b && !b.disabled; }
+  function persistGame() {
+    root.ZimiShell.persist({
+      // Nothing to keep until a move has been made (or taken back: the redo is part of the game).
+      save: function () { return canMove("undo") || canMove("redo") ? { sav: saveText() } : null; },
+      load: function (data) {
+        // A link to one particular game (#id) is that game, not the one left behind.
+        if (!data || typeof data.sav !== "string" || !encoder || root.location.hash) return false;
+        loadText(data.sav);
+        return true;
+      }
+    });
+  }
+  function whenRunning(fn) {
+    var timer = root.setInterval(function () {
+      var shown = $("puzzle") && $("puzzle").style.display !== "none";
+      if (typeof root.command !== "function" || !shown) return;
+      root.clearInterval(timer);
+      fn();
+    }, READY_POLL_MS);
+  }
+
   // ── start ────────────────────────────────────────────────────────────────
   function fitBox() {
     var frame = el("div", "gs-frame pz-frame");
@@ -384,6 +430,7 @@
         inProgress: function () { var u = $("undo"); return !!u && !u.disabled && !solved; },
         menu: newGameOptions
       });
+      whenRunning(persistGame);
     }
   }
   start();

@@ -126,7 +126,7 @@
     return { type: 'bid', q: pick.q, f: pick.f };
   }
 
-  var Engine = { START_DICE: START_DICE, createGame: createGame, isLegal: isLegal, minQty: minQty, legalBids: legalBids, countFace: countFace, tableCount: tableCount, totalDice: totalDice, act: act, nextRound: nextRound, aiMove: aiMove, chance: chance, alive: alive };
+  var Engine = { START_DICE: START_DICE, createGame: createGame, isLegal: isLegal, minQty: minQty, legalBids: legalBids, countFace: countFace, tableCount: tableCount, totalDice: totalDice, act: act, nextRound: nextRound, aiMove: aiMove, chance: chance, alive: alive, snapshot: root.ZimiUtil.snapshot, restore: root.ZimiUtil.restore };
   root.LiarsDiceEngine = Engine;
 
   if (typeof document === 'undefined') return;
@@ -142,10 +142,13 @@
   var settings = Play.load(SETTINGS_KEY, { players: 3 }), stats = Play.load(STATS_KEY, { played: 0, won: 0 });
   var g, seats, timer = null, sel = { q: 1, f: 2 };
   // Each seat is the Computer or a Person; with two or more people the dice hide behind a handoff.
-  function newTable() {
-    seats = root.ZimiSeats.create({ id: 'liarsdice', seats: settings.players, onChange: function () { paint(); } });
-    g = createGame(settings.players);
+  function seatPlayers(n) {
+    seats = root.ZimiSeats.create({ id: 'liarsdice', seats: n, onChange: function () { paint(); } });
     g.players.forEach(function (p, i) { p.ai = !seats.person(i); p.name = seats.person(i) ? seats.name(i) : (i === 0 ? 'Zed' : NAMES[i]); });
+  }
+  function newTable() {
+    g = createGame(settings.players);
+    seatPlayers(settings.players);
   }
   function nm(i) { return seats.isYou(i) ? 'You' : g.players[i].name; }
   newTable();
@@ -247,13 +250,16 @@
     nextRound(g); sel = { q: 1, f: 2 }; paint(); schedule();
   });
 
-  function finish() {
+  // `counted`: a game that comes back from a save has already been put in the record.
+  function finish(counted) {
     var won = seats.isYou(g.winner), text;
     if (seats.hotseat()) { text = nm(g.winner) + ' is the last with dice and wins.'; won = false; }
     else {
-      stats.played++;
-      if (seats.person(g.winner)) stats.won++;
-      Play.save(STATS_KEY, stats);
+      if (!counted) {
+        stats.played++;
+        if (seats.person(g.winner)) stats.won++;
+        Play.save(STATS_KEY, stats);
+      }
       var me = seats.people()[0];
       won = seats.person(g.winner);
       text = won ? 'You are the last with dice. You win.' : (g.players[me].n === 0 ? 'You are out of dice. ' : '') + g.players[g.winner].name + ' wins.';
@@ -298,5 +304,22 @@
 
   paint();
   showSheet("Liar's Dice", 'Bluff, read the table and call the lie. You play against computers.', 'Start');
+  // Never lose a game: the table (every die, every bid, where the generator stood) and whether the reveal of a call is on
+  // screen. Nothing is kept until the first bid.
+  ZimiShell.persist({
+    save: function () { return g.bid || g.last || g.round > 1 ? { g: Engine.snapshot(g), reveal: !els.reveal.hidden } : null; },
+    load: function (data) {
+      var saved = data && data.g;
+      if (!saved || !Array.isArray(saved.players) || saved.players.length < MIN_PLAYERS) return false;
+      g = Engine.restore(saved);
+      seatPlayers(g.players.length);
+      sel = { q: 1, f: 2 };
+      Play.closeSheet(els.sheet);
+      if (data.reveal && g.last) return showReveal(g.last);
+      paint();
+      if (g.over) finish(true); else seats.begin(function () { paint(); schedule(); });
+      return true;
+    }
+  });
   root.__liarsdice = { get g() { return g; } };
 })(this);
