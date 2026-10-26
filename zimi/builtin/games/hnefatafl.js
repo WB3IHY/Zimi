@@ -153,6 +153,16 @@
   }
   buildBoard();
   G.newGame();
+  G.persist({
+    save: function () { return played.length ? { played: played.slice() } : null; },
+    load: function (d) {
+      pos = E.newPosition({ shield: G.settings.shield }); keys = [E.key(pos)]; played = [];
+      d.played.forEach(function (m) { E.make(pos, m); played.push(m); keys.push(E.key(pos)); });
+      lastMove = played[played.length - 1] || 0; sel = -1; targets = {}; tip = null; took = [];
+      paint();
+    },
+    resume: function () { afterMove(); }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__hn = { engine: E, pos: function () { return pos; }, play: play, usingWorker: function () { return brain.usingWorker(); },

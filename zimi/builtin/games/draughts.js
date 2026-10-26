@@ -162,6 +162,17 @@
   }
   buildBoard();
   G.newGame();
+  G.persist({
+    // the moves played; the position is rebuilt by playing them again from the start
+    save: function () { return played.length ? { played: played.slice(), flip: manualFlip } : null; },
+    load: function (d) {
+      pos = E.newPosition(); keys = [E.key(pos)]; played = [];
+      d.played.forEach(function (m) { E.make(pos, m); played.push(m); keys.push(E.key(pos)); });
+      lastMove = played[played.length - 1] || null; sel = -1; prefix = []; cands = []; tip = null; manualFlip = !!d.flip;
+      paint();
+    },
+    resume: function () { afterMove(); }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__dr = { engine: E, pos: function () { return pos; }, play: play, usingWorker: function () { return brain.usingWorker(); },

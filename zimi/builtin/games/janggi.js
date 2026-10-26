@@ -200,6 +200,16 @@
   }
   drawLines(); buildBoard();
   G.newGame();
+  G.persist({
+    save: function () { return played.length ? { played: played.slice(), sans: sans.slice(), flip: manualFlip } : null; },
+    load: function (d) {
+      pos = E.startPosition(); keys = [E.key(pos)]; played = []; sans = d.sans.slice();
+      d.played.forEach(function (m) { E.make(pos, m); played.push(m); keys.push(E.key(pos)); });
+      lastMove = played[played.length - 1] || 0; sel = -1; targets = {}; tip = null; manualFlip = !!d.flip;
+      paint();
+    },
+    resume: function () { afterMove(); }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__jg = { engine: E, pos: function () { return pos; }, play: play, usingWorker: function () { return brain.usingWorker(); },

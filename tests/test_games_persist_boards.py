@@ -28,6 +28,11 @@ ROWS = [
     ("go", [".go-pt:nth-child(41)"], SAVE),
     ("ur", ["#ur-roll"], SAVE),
     ("carrom", ["#cr-shoot"], SAVE, 9000),
+    ("draughts", (".bg-sq.can", ".bg-sq.hint"), SAVE),
+    ("hnefatafl", (".hn-sq:has(.hn-pc)", ".hn-sq.hint"), SAVE),
+    ("janggi", (".jg-pt:has(.jg-pc.cho)", ".jg-pt.hint"), SAVE),
+    ("makruk", (".bg-sq:has(.mk-pc.w)", ".bg-sq.hint"), SAVE),
+    ("backgammon", [], SAVE, 6000),
 ]
 
 
@@ -40,9 +45,20 @@ def test_leaving_and_returning_keeps_the_position(served, browser, row):
     url = "%s/%s.html" % (served, page_name)
     page.goto(url)
     page.wait_for_timeout(SETTLE_MS)
-    for sel in moves:
-        tap(page, page.locator(sel).first)
+    if isinstance(moves, tuple):
+        # (own pieces, targets): tap pieces until one shows somewhere to go, then go
+        pieces, target = moves
+        for i in range(page.locator(pieces).count()):
+            tap(page, page.locator(pieces).nth(i))
+            page.wait_for_timeout(200)
+            if page.locator(target).count():
+                break
+        tap(page, page.locator(target).first)
         page.wait_for_timeout(300)
+    else:
+        for sel in moves:
+            tap(page, page.locator(sel).first)
+            page.wait_for_timeout(300)
     page.wait_for_timeout(settle)   # the computer's reply lands
     before = page.evaluate(position)
     assert before, "a move was made, so there is a position to keep"

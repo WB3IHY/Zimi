@@ -397,23 +397,28 @@
   var rolledDice = [];
 
   function rnd6() { return 1 + ((Math.random() * 6) | 0); }
+  var playing = false;   // a die was thrown: a fresh game is not kept
   function doRoll(forced) {
-    var a = rnd6(), b = rnd6();
+    playing = true;    var a = rnd6(), b = rnd6();
     if (forced) { while (a === b) b = rnd6(); }
     rolledDice = a === b ? [a, a, a, a] : [Math.max(a, b), Math.min(a, b)];
     s.dice = rolledDice.slice(0); s.rolled = true; syncDice();
     if (isHuman(s.turn) || !G.vsComputer()) { lastFrom = []; lastTo = []; }
   }
+  var rollGen = 0;   // a restored game must not hear from the roll the page started before it
   function animateRoll(done) {
+    var mine = rollGen;
     if (BK.reducedMotion()) { done(); return; }
     rolling = true; var t = 0;
     (function spin() {
+      if (mine !== rollGen) return;
       if (t++ >= 6) { rolling = false; done(); return; }
       setDice([rnd6(), rnd6()]); paint(); setTimeout(spin, 70);
     })();
   }
 
   function newGame() {
+    playing = false;
     flipped = G.vsComputer() && G.settings.side === 'second';
     buildBoard();
     s = startPosition(); turnStart = null; sel = -1; lastFrom = []; lastTo = []; hintStep = null; offer = false; dieShown = []; rolledDice = []; rolling = false;
@@ -590,5 +595,20 @@
   if (root.ZimiShell) root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && !!turnStart; } });
 
   G.newGame();
+  G.persist({
+    save: function () { return playing ? { s: s, turnStart: turnStart, rolledDice: rolledDice, session: session, flipped: flipped, offer: offer } : null; },
+    load: function (d) {
+      rollGen++; flipped = !!d.flipped; buildBoard();
+      s = d.s; turnStart = d.turnStart; rolledDice = d.rolledDice || []; session = d.session; offer = d.offer || false;
+      sel = -1; hintStep = null; lastFrom = []; lastTo = []; rolling = false; dieShown = []; playing = true;
+      if (rolledDice.length) syncDice();
+      paint();
+    },
+    resume: function () {
+      if (offer) { var by = offer.by; offer = false; offerDouble(by); }
+      else if (s.rolled) afterRoll(false);
+      else beginTurn();
+    }
+  });
   if (new URLSearchParams(location.search).has('debug')) root.__bk = { state: function () { return s; }, engine: root.BackgammonEngine, session: function () { return session; } };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
