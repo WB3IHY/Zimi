@@ -191,8 +191,11 @@
     turn = (turn + 1) % count;
     startTurn();
   }
+  // What a save keeps while a roll is still animating: the last settled position, so the roll is simply rolled again.
+  var rest = { pos: [], turn: 0 };
+  function mark() { rest = { pos: pos.slice(), turn: turn }; }
   function startTurn() {
-    busy = false; paintRoster();
+    mark(); busy = false; paintRoster();
     rollBtn.disabled = !isHuman(turn) || G.over;
     rollBtn.setAttribute('aria-label', seats.hotseat() && isHuman(turn) ? T('sl.rollFor', { name: nameOf(turn) }) : T('sl.rollDie'));
     if (G.over) return;
@@ -242,6 +245,7 @@
     })(t0);
   }
   function win(p) {
+    mark();
     var who = nameOf(p), msg = T(seats.isYou(p) ? 'sl.youWin' : 'sl.reaches', { name: who });
     var outcome = seats.hotseat() ? null : seats.person(p) ? 'w' : 'l';
     G.finish(msg, outcome, who);
@@ -288,8 +292,8 @@
   G.newGame();
   // Leaving keeps the race: where everyone stands, whose turn it is and how many play; a finished race comes back to its end sheet.
   function kept() {
-    if (!pos.some(Boolean) && turn === 0) return null;
-    return { pos: pos, turn: turn, count: count, over: !!G.over };
+    if (!rest.pos.some(Boolean) && rest.turn === 0) return null;
+    return { pos: rest.pos, turn: rest.turn, count: count, over: !!G.over };
   }
   function takeUp(d) {
     if (!d || !Array.isArray(d.pos) || d.count < 2 || d.count > 4 || d.pos.length !== d.count || d.pos.some(function (n) { return !(n >= 0 && n <= E.LAST); }) || !(d.turn >= 0 && d.turn < d.count)) return false;
@@ -304,6 +308,6 @@
     return true;
   }
   root.ZimiShell.persist({ save: kept, load: takeUp });
-  root.__slState = function () { return JSON.stringify([pos, turn]); };
+  root.__slState = function () { return JSON.stringify([rest.pos, rest.turn]); };
   if (new URLSearchParams(location.search).has('debug')) root.__sl = { engine: E, positions: function () { return pos; }, turn: function () { return turn; }, setPositions: function (a) { pos = a.slice(); drawTokens(); paintRoster(); } };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

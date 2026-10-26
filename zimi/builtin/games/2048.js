@@ -219,7 +219,12 @@
   window.addEventListener('resize', layout);
   makeSlots(); layout(); rebuild(); hud();
   if (g.over) endSheet(g.won ? 'win' : 'lose');
-  ZimiShell.persist({ save: function () { return { v: values(g), score: g.score }; } });
+  ZimiShell.persist({ save: function () { return { v: values(g), score: g.score, undo: g.undo }; } });
+  // Undo survives leaving: the kept snapshot (cells, score, goal flag) goes back on the board.
+  if (saved && saved.undo && Array.isArray(saved.undo.cells) && saved.undo.cells.length === SIZE * SIZE && saved.undo.cells.every(function (t) { return t === null || (t && t.v >= 2 && (t.v & (t.v - 1)) === 0); })) {
+    g.undo = { cells: saved.undo.cells, score: saved.undo.score || 0, won: !!saved.undo.won, nextId: saved.undo.nextId || 1 };
+    g.nextId = Math.max(g.nextId, g.undo.nextId + SIZE * SIZE); hud();
+  }
   // A read-only window onto the live game, for the browser tests.
   root.__t2048 = { get g() { return g; } };
 })(this);
