@@ -86,15 +86,15 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
-  var SWIPE_PX = 22, MAX_BOARD = 560, CHROME_PX = 190, SIDE_PAD = 24;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
+  var SWIPE_PX = 22, MAX_BOARD = 560, CHROME_PX = 190, READY_ARM_MS = 650;
   var SETTINGS_KEY = 'zimi.games.snake.settings', BEST_KEY = 'zimi.games.snake.best';
   Play.applyTheme();
 
-  var els = { cv: $('sn-board'), score: $('sn-score'), best: $('sn-best'), msg: $('sn-msg'), sheet: $('sn-sheet'), title: $('sn-sheet-title'), text: $('sn-sheet-text'), go: $('sn-go'), wrap: $('sn-wrap'), pause: $('sn-pause') };
-  var ctx = els.cv.getContext('2d');
+  var els = { cv: $('sn-board'), score: $('sn-score'), best: $('sn-best'), msg: $('sn-msg'), pause: $('sn-pause'), newBtn: $('sn-new') };
+  var ctx = els.cv.getContext('2d'), status = Play.status(els.msg);
   var settings = Play.load(SETTINGS_KEY, { wrap: false }), best = Play.load(BEST_KEY, {});
-  var g, cs = 18, mode = 'ready', last = 0, acc = 0, pal = {};
+  var g, cs = 18, mode = 'ready', last = 0, acc = 0, pal = {}, armed = null;
   function modeKey() { return settings.wrap ? 'wrap' : 'walls'; }
 
   function readPalette() {
@@ -103,8 +103,8 @@
     pal = { a: v('--cell'), b: v('--cell-line'), head: v('--p-s'), tail: v('--p-i'), food: v('--p-z'), leaf: v('--ok'), eye: v('--surface'), ink: v('--ink') };
   }
   function layout() {
-    var vw = document.documentElement.clientWidth, vh = window.innerHeight;
-    cs = Math.max(12, Math.floor(Math.min(vw - SIDE_PAD, vh - CHROME_PX, MAX_BOARD) / COLS));
+    var room = Play.room(CHROME_PX);
+    cs = Math.max(12, Math.floor(Math.min(room.w, room.h, MAX_BOARD) / COLS));
     var dpr = window.devicePixelRatio || 1, px = cs * COLS;
     els.cv.width = px * dpr; els.cv.height = px * dpr; els.cv.style.width = px + 'px'; els.cv.style.height = px + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -144,7 +144,7 @@
     });
   }
 
-  function hud() { els.score.textContent = g.score; els.best.textContent = Math.max(best[modeKey()] || 0, g.score); }
+  function hud() { els.score.textContent = Play.num(g.score); els.best.textContent = Play.num(Math.max(best[modeKey()] || 0, g.score)); }
 
   function frame(t) {
     if (mode !== 'playing') return;
@@ -159,44 +159,48 @@
   }
   function startLoop() { last = performance.now(); requestAnimationFrame(frame); }
 
-  function paintWrap() {
-    els.wrap.setAttribute('aria-pressed', String(!!settings.wrap));
-    els.wrap.textContent = settings.wrap ? 'Edges wrap around: on' : 'Edges wrap around: off';
-  }
-  function showSheet(title, text, label) {
-    els.title.textContent = title; els.text.textContent = text; els.go.textContent = label;
-    paintWrap();
-    Play.openSheet(els.sheet, '#sn-go');
+  // The ready line says the gesture once; a tap or a key starts. Armed again after a game, once the end sheet is up.
+  function arm() {
+    if (armed) armed.cancel();
+    armed = Play.ready({ say: status.say, target: els.cv, start: begin, touch: T('snake.readyTouch'), keys: T('snake.readyKeys') });
   }
   function begin() {
-    g = createGame(COLS, ROWS, settings.wrap); acc = 0; mode = 'playing'; els.msg.textContent = '';
-    Play.closeSheet(els.sheet); els.pause.disabled = false; hud(); draw(); startLoop();
+    if (armed) armed.cancel();
+    g = createGame(COLS, ROWS, settings.wrap); acc = 0; mode = 'playing'; status.say('');
+    Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); startLoop();
   }
-  function pause() { if (mode !== 'playing') return; mode = 'paused'; showSheet('Paused', 'Resume when you are ready.', 'Resume'); }
-  function resume() { mode = 'playing'; Play.closeSheet(els.sheet); startLoop(); }
+  function pause() { if (mode !== 'playing') return; mode = 'paused'; Play.pauseLabel(els.pause, true); status.say(T('play.paused')); }
+  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); startLoop(); }
+  function toggle() { if (mode === 'playing') pause(); else resume(); }
   function finish(won) {
-    mode = 'over'; els.pause.disabled = true;
-    var text = g.score + (g.score === 1 ? ' apple.' : ' apples.'), k = modeKey();
-    if (g.score > (best[k] || 0)) { best[k] = g.score; Play.save(BEST_KEY, best); text += ' A new best.'; }
+    mode = 'over'; els.pause.disabled = true; Play.pauseLabel(els.pause, false);
+    var k = modeKey();
+    if (g.score > (best[k] || 0)) { best[k] = g.score; Play.save(BEST_KEY, best); }
     hud();
-    showSheet(won ? 'The whole board' : 'Game over', text, 'Play again');
+    ZimiShell.endSheet({ result: won ? 'win' : 'over', stats: [[T('snake.apples'), Play.num(g.score)], [T('play.best'), Play.num(best[k] || 0)]] });
+    setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
   }
-  els.go.addEventListener('click', function () { if (mode === 'paused') resume(); else begin(); });
-  els.pause.addEventListener('click', pause);
-  els.wrap.addEventListener('click', function () {
-    settings.wrap = !settings.wrap; Play.save(SETTINGS_KEY, settings); paintWrap();
-    if (mode !== 'paused') { g = createGame(COLS, ROWS, settings.wrap); hud(); draw(); }
-  });
+  els.newBtn.addEventListener('click', begin);
+  els.pause.addEventListener('click', toggle);
+  els.cv.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
   Play.onHidden(pause);
+  ZimiShell.game({
+    inProgress: function () { return mode === 'playing' || mode === 'paused'; },
+    stats: function () { return [[T('snake.bestWalls'), Play.num(best.walls || 0)], [T('snake.bestWrap'), Play.num(best.wrap || 0)]]; },
+    // Edges are a choice about the game, so they sit in the New game pane; the page takes them when it starts.
+    menu: function () {
+      return { options: [Play.optionRow(T('snake.wrap'), [[false, T('shell.off')], [true, T('shell.on')]], !!settings.wrap, function (v) { settings.wrap = v; Play.save(SETTINGS_KEY, settings); })] };
+    }
+  });
 
   var KEY_DIR = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', w: 'up', a: 'left', s: 'down', d: 'right', W: 'up', A: 'left', S: 'down', D: 'right' };
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (!els.sheet.hidden) { if (e.key === 'Escape' && mode === 'paused') resume(); return; }
+    if (document.querySelector('.ar-sheet:not([hidden])')) return;
     var dir = KEY_DIR[e.key];
     if (e.key === 'Escape' || e.key === 'p' || e.key === 'P' || e.key === ' ') {
       e.preventDefault();
-      if (mode === 'playing') pause();
+      if (mode === 'playing' || mode === 'paused') toggle();
     } else if (dir) {
       e.preventDefault();
       if (mode === 'playing') turn(g, dir);
@@ -219,7 +223,7 @@
   g = createGame(COLS, ROWS, settings.wrap);
   hud();
   layout();
-  showSheet('Snake', 'Eat the apples, grow, do not hit the walls or yourself. Arrow keys or WASD; on a phone, swipe anywhere on the board.', 'Start');
+  arm();
   // A read-only window onto the live game, for the browser tests.
   root.__snake = { get g() { return g; }, get mode() { return mode; } };
 })(this);

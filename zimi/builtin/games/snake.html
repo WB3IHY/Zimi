@@ -12,27 +12,19 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Snake</h1>
-  <button class="ar-btn" id="sn-pause" type="button" disabled>Pause</button>
+  <button class="ar-btn" id="sn-new" type="button" hidden data-t="shell.menu.new">New game</button>
+  <button class="ar-btn" id="sn-pause" type="button" disabled data-t="play.pause">Pause</button>
 </header>
 
 <main class="pl-main">
   <div class="pl-hud">
-    <div class="pl-stat"><small>Apples</small><b id="sn-score">0</b></div>
-    <div class="pl-stat"><small>Best</small><b id="sn-best">0</b></div>
+    <div class="pl-stat"><small data-t="snake.apples">Apples</small><b id="sn-score">0</b></div>
+    <div class="pl-stat"><small data-t="play.best">Best</small><b id="sn-best">0</b></div>
   </div>
-  <canvas class="pl-canvas" id="sn-board" role="img" aria-label="The board"></canvas>
-  <p class="pl-msg" id="sn-msg" role="status" aria-live="polite"></p>
-  <p class="pl-help">Arrow keys or WASD steer. Space pauses. On a phone, swipe on the board. It speeds up with every apple.</p>
+  <canvas class="pl-canvas" id="sn-board" role="img" aria-label="The board" data-t-aria="play.board"></canvas>
+  <p class="pl-msg" id="sn-msg"></p>
 </main>
 
-<div class="ar-sheet" id="sn-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sn-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="sn-sheet-title">Snake</h2>
-    <p id="sn-sheet-text"></p>
-    <button class="ar-btn" id="sn-wrap" type="button" aria-pressed="false" title="Edges lead to the opposite side">Wrap around the edges</button>
-    <div class="ar-sheet-actions"><button class="ar-btn" id="sn-go" type="button" aria-pressed="true">Start</button></div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="snake.js"></script>
 <!-- zimi-recent --><script defer src="recent.js"></script><!-- /zimi-recent -->

@@ -6,6 +6,23 @@
 
   Play.$ = function (id) { return document.getElementById(id); };
 
+  // Every visible and spoken string goes through T (text.js). A page's static markup carries data-t="id" (text),
+  // data-t-aria="id" (aria-label) or data-t-title="id" (title); the English in the markup is only what shows before
+  // this runs. It runs again whenever a translation arrives.
+  var T = Play.T = function (key, vars) { return window.ZimiText ? window.ZimiText.T(key, vars) : key; };
+  var TRANSLATED = [['data-t', 'textContent'], ['data-t-aria', 'aria-label'], ['data-t-title', 'title']];
+  Play.translate = function (scope) {
+    TRANSLATED.forEach(function (p) {
+      Array.prototype.forEach.call((scope || document).querySelectorAll('[' + p[0] + ']'), function (el) {
+        var v = T(el.getAttribute(p[0]));
+        if (p[1] === 'textContent') el.textContent = v; else el.setAttribute(p[1], v);
+      });
+    });
+  };
+  if (window.ZimiText && window.ZimiText.onChange) window.ZimiText.onChange(function () { Play.translate(document); });
+  document.addEventListener('DOMContentLoaded', function () { Play.translate(document); });
+  if (document.readyState !== 'loading') Play.translate(document);
+
   // localStorage can throw (private mode, blocked site data): every read and write is guarded.
   Play.load = function (key, fallback) {
     try { var v = JSON.parse(localStorage.getItem(key)); return v && typeof v === 'object' ? v : fallback; } catch (e) { return fallback; }
@@ -47,6 +64,110 @@
     sheet.hidden = true;
     if (opener && opener.focus && document.contains(opener)) opener.focus();
     opener = null;
+  };
+
+  // ── the arcade kit: the HUD, the one touch pad, the ready line, pause and the end ──
+
+  // A value in the HUD strip (at most four per game: a 13px label over a 32px value).
+  Play.num = function (n) { n = +n || 0; return window.ZimiText ? window.ZimiText.number(n) : String(n); };
+
+  var PAD_KEY = 56, PAD_GAP = 8;
+  var PAD_GLYPH = { left: '◀', right: '▶', up: '▲', down: '▼' };
+  var LANDSCAPE = '(orientation: landscape) and (max-height: 520px)';
+  function landscape() { try { return matchMedia(LANDSCAPE).matches; } catch (e) { return false; } }
+
+  // The one touch pad: a d-pad on the left (any of left, right, up, down) and up to two action buttons on the right,
+  // all 56px, in the same place in every game that has one. The canvas is wrapped in .pl-stage so that, in landscape
+  // on a phone, the two halves sit on either side of the playfield.
+  //   Play.pad(canvas, { dirs: ['left', 'right'], actions: [{ name: 'fire', label: T('play.fire') }], on: function (name, down) {} })
+  // Returns { el, release() }. Keys answer by pointer and by Space or Enter on a focused key; a game reads the keyboard itself.
+  Play.pad = function (canvas, opts) {
+    var stage = canvas.parentNode.classList.contains('pl-stage') ? canvas.parentNode : null, holds = [];
+    if (!stage) {
+      stage = document.createElement('div'); stage.className = 'pl-stage';
+      canvas.parentNode.insertBefore(stage, canvas); stage.appendChild(canvas);
+    }
+    function key(name, label, aria, cls) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'pl-key ' + cls; b.setAttribute('data-pad', name); b.setAttribute('aria-label', aria); b.textContent = label;
+      holds.push(Play.hold(b, function (down) { opts.on(name, down); }));
+      return b;
+    }
+    var left = document.createElement('div'), right = document.createElement('div'), el = document.createElement('div');
+    left.className = 'pl-pad-l'; right.className = 'pl-pad-r'; el.className = 'pl-pad';
+    left.setAttribute('role', 'group'); left.setAttribute('aria-label', T('play.pad'));
+    left.setAttribute('data-n', String((opts.dirs || []).length));
+    (opts.dirs || []).forEach(function (d) { left.appendChild(key(d, PAD_GLYPH[d], T('play.' + d), 'pl-dir')); });
+    (opts.actions || []).forEach(function (a) { right.appendChild(key(a.name, a.label, a.label, 'pl-act')); });
+    right.setAttribute('role', 'group'); right.setAttribute('aria-label', T('play.actions'));
+    el.appendChild(left); el.appendChild(right);
+    stage.appendChild(el);
+    return { el: el, stage: stage, release: function () { holds.forEach(function (h) { h.release(); }); } };
+  };
+
+  // Room for a playfield: the width and height left once the page's own chrome (everything but the pad) is taken.
+  // With a pad the portrait page loses its row; in landscape the halves take the sides and the row is not there.
+  var PAD_SIDE = PAD_KEY * 3 + PAD_GAP * 2;
+  Play.room = function (chrome) {
+    var vw = document.documentElement.clientWidth - 24, vh = window.innerHeight - chrome, pad = document.querySelector('.pl-pad');
+    if (pad) {
+      if (landscape()) vw -= PAD_SIDE * 2 + 24;
+      else { var l = pad.firstChild; vh -= Math.max(l ? l.offsetHeight : 0, pad.lastChild ? pad.lastChild.offsetHeight : 0) + 12; }
+    }
+    return { w: vw, h: vh };
+  };
+
+  // The ready line: one short sentence in the status line and the playfield, a tap or any key starts. Returns { cancel }.
+  // The line is "Tap to start" on a touch screen and "Press any key" otherwise; a gesture game passes its own
+  // (touch: "Tap to start, then swipe to turn") so the gesture is said once, here. Keys that belong to the Menu or a dialog never start it.
+  Play.ready = function (o) {
+    var done = false, pointer = false;
+    try { pointer = matchMedia('(pointer: coarse)').matches; } catch (e) { /* a mouse */ }
+    var text = pointer ? (o.touch || T('play.tapStart')) : (o.keys || T('play.pressKey'));
+    if (o.say) o.say(text); else if (o.msg) o.msg.textContent = text;
+    function stop() { done = true; (o.target || document).removeEventListener('pointerdown', tap); document.removeEventListener('keydown', key, true); }
+    function go() { if (done) return; stop(); o.start(); }
+    function tap(e) { if (e.button) return; e.preventDefault(); go(); }
+    function key(e) {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.key === 'Tab' || e.key === 'Escape' || e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') return;
+      if (document.querySelector('.ar-sheet:not([hidden])')) return;
+      var t = e.target;
+      if (t && t !== document.body && t.closest && t.closest('button, a, input, select, textarea')) return;
+      e.preventDefault(); go();
+    }
+    (o.target || document).addEventListener('pointerdown', tap);
+    document.addEventListener('keydown', key, true);
+    return { cancel: stop };
+  };
+
+  // The page's one status line (ZimiShell.status: polite, with say() and reason()); a bare version without the shell.
+  Play.status = function (el) {
+    if (window.ZimiShell && window.ZimiShell.status) return window.ZimiShell.status(el);
+    return { say: function (t) { el.textContent = t; }, reason: function (t) { el.textContent = t; } };
+  };
+
+  // The Pause button in the bar toggles: its label is Pause while the game runs, Resume while it waits.
+  Play.pauseLabel = function (btn, paused) {
+    btn.textContent = T(paused ? 'play.resume' : 'play.pause');
+    btn.setAttribute('data-t', paused ? 'play.resume' : 'play.pause');
+  };
+
+  // A segmented option row for the Menu's New game pane (a game's own choice: wrap, players, mode):
+  //   Play.optionRow(T('snake.edges'), [[false, T('shell.off')], [true, T('shell.on')]], value, function (v) {})
+  Play.optionRow = function (label, choices, value, onPick) {
+    var row = document.createElement('div'), lab = document.createElement('label'), seg = document.createElement('div');
+    row.className = 'gs-row'; lab.textContent = label; seg.className = 'gs-seg'; seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', label);
+    choices.forEach(function (c) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'ar-btn'; b.textContent = c[1]; b.setAttribute('aria-pressed', String(c[0] === value));
+      b.addEventListener('click', function () {
+        Array.prototype.forEach.call(seg.children, function (x) { x.setAttribute('aria-pressed', 'false'); });
+        b.setAttribute('aria-pressed', 'true'); onPick(c[0]);
+      });
+      seg.appendChild(b);
+    });
+    row.appendChild(lab); row.appendChild(seg);
+    return row;
   };
 
   // Pointer gestures on one element. Handlers: down(x, y), drag(dx, dy, ev) with the totals
@@ -176,9 +297,9 @@
     return { release: function () { set(false); } };
   };
 
-  // Fit a canvas of logical size w x h into the room left on screen (chrome = pixels used by everything else).
+  // Fit a canvas of logical size w x h into the room left on screen (chrome = pixels used by everything but the pad).
   Play.fitCanvas = function (cv, w, h, chrome, maxW) {
-    var vw = document.documentElement.clientWidth - 24, vh = window.innerHeight - chrome;
+    var room = Play.room(chrome), vw = room.w, vh = room.h;
     var s = Math.min(vw / w, vh / h, (maxW || w) / w);
     s = Math.max(0.4, s);
     var dpr = window.devicePixelRatio || 1;
