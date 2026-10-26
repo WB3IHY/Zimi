@@ -15,11 +15,14 @@
   var MATE_SCORE = 29000, OPENING_PLIES = 20, CENTRE_FILES = 'cdef', CENTRE_PAWN_SQUARES = ['d4', 'e4', 'd5', 'e5'];
   var EVEN_CP = 30, BIG_CP = 150;
 
-  function article(name) { return /^[aeiou]/.test(name) ? 'an ' + name : 'a ' + name; }
+  var T = function (key, vars) { return root.ZimiText ? root.ZimiText.T(key, vars) : key; };
+  var pieceWord = function (type) { return T('explain.chess.piece.' + NAME[type]); };      // "knight"
+  var pieceA = function (type) { return T('explain.chess.pieceA.' + NAME[type]); };        // "a knight"
 
   function chessExplain(E, pos, m, info) {
     info = info || {};
-    var us = pos.turn, them = -us, side = us === E.WHITE ? 'White' : 'Black', other = us === E.WHITE ? 'Black' : 'White';
+    var us = pos.turn, them = -us, sideKey = us === E.WHITE ? 'White' : 'Black';
+    var side = T(us === E.WHITE ? 'explain.side.white' : 'explain.side.black'), other = T(us === E.WHITE ? 'explain.side.black' : 'explain.side.white');
     var f = E.from(m), t = E.to(m), piece = Math.abs(pos.sq[f]), pname = NAME[piece];
     var isEp = !!(E.flag(m) & 1), castle = !!(E.flag(m) & 2), promo = E.promo(m);
     var captured = isEp ? 1 : Math.abs(pos.sq[t]);
@@ -67,42 +70,42 @@
     // Did the piece leave a square where it was in danger?
     var escaped = !captured && inDanger(pos, f, us) && !inDanger(after, t, us);
 
-    var facts = { side: side, piece: pname, from: fromName, to: toName, captured: captured ? NAME[captured] : null, castle: castle, promotion: promo ? NAME[promo] : null,
+    var facts = { side: sideKey, piece: pname, from: fromName, to: toName, captured: captured ? NAME[captured] : null, castle: castle, promotion: promo ? NAME[promo] : null,
       check: gives, mate: mate, stalemate: stalemate, recapturable: recapturable, escaped: escaped, targets: targets.map(function (x) { return NAME[x.type]; }), score: info.score };
 
-    var text;
-    if (mate) text = side + ' plays ' + pname + ' to ' + toName + ': checkmate.';
-    else if (stalemate) text = side + ' plays ' + pname + ' to ' + toName + ', and it is stalemate: a draw.';
-    else if (castle) text = side + ' castles ' + (t > f ? 'kingside' : 'queenside') + ', tucking the king away and bringing the rook into play.';
-    else if (promo) text = side + ' promotes the pawn to ' + article(NAME[promo]) + ' on ' + toName + (captured ? ', capturing ' + article(NAME[captured]) : '') + '.';
+    var text, piece1 = pieceWord(piece), v = { side: side, piece: piece1, from: fromName, to: toName };
+    if (mate) text = T('explain.chess.mate', v);
+    else if (stalemate) text = T('explain.chess.stalemate', v);
+    else if (castle) text = T(t > f ? 'explain.chess.castleKing' : 'explain.chess.castleQueen', v);
+    else if (promo) text = T(captured ? 'explain.chess.promoteTakes' : 'explain.chess.promote', { side: side, to: toName, promo: pieceA(promo), captured: captured ? pieceA(captured) : '' });
     else if (captured) {
       var gain = VALUE[captured], risk = recapturable ? VALUE[piece] : 0;
-      if (!recapturable) text = side + ' takes ' + article(NAME[captured]) + ' on ' + toName + ' with the ' + pname + ', and nothing can take back.';
-      else if (gain > risk) text = side + ' wins ' + article(NAME[captured]) + ' for ' + article(pname) + ': the ' + pname + ' takes on ' + toName + ' and can be taken back.';
-      else if (gain === risk) text = side + ' trades ' + article(pname) + ' for ' + article(NAME[captured]) + ' on ' + toName + '.';
-      else text = side + ' takes ' + article(NAME[captured]) + ' on ' + toName + ' with the ' + pname + ', which can be taken back; the engine still prefers it.';
-      if (gives) text = text.replace(/\.$/, ', with check.');
+      var cv = { side: side, piece: piece1, mine: pieceA(piece), captured: pieceA(captured), to: toName, end: T(gives ? 'explain.chess.endCheck' : 'explain.chess.end') };
+      if (!recapturable) text = T('explain.chess.takesSafe', cv);
+      else if (gain > risk) text = T('explain.chess.wins', cv);
+      else if (gain === risk) text = T('explain.chess.trades', cv);
+      else text = T('explain.chess.takesRisky', cv);
     } else if (gives) {
-      text = side + ' gives check with the ' + pname + ' on ' + toName + (targets.length ? ', and it also attacks the ' + NAME[targets[0].type] : '') + '.';
+      text = targets.length ? T('explain.chess.checkAttacks', { side: side, piece: piece1, to: toName, target: pieceWord(targets[0].type) }) : T('explain.chess.check', v);
     } else if (targets.length > 1) {
-      text = side + ' forks the ' + NAME[targets[0].type] + ' and the ' + NAME[targets[1].type] + ' with the ' + pname + ' on ' + toName + '.';
+      text = T('explain.chess.fork', { side: side, piece: piece1, to: toName, a: pieceWord(targets[0].type), b: pieceWord(targets[1].type) });
     } else if (targets.length) {
       var tg = targets[0];
-      text = side + ' moves the ' + pname + ' to ' + toName + ' and now attacks the ' + NAME[tg.type] + (tg.loose ? ', which nothing protects.' : '.');
+      text = T(tg.loose ? 'explain.chess.attacksLoose' : 'explain.chess.attacks', { side: side, piece: piece1, to: toName, target: pieceWord(tg.type) });
     } else if (escaped) {
-      text = side + ' moves the ' + pname + ' from ' + fromName + ' to ' + toName + ' because it was under attack.';
+      text = T('explain.chess.escapes', v);
     } else if ((info.ply || 0) <= OPENING_PLIES && (piece === 2 || piece === 3) && (f >> 3) === (us === E.WHITE ? 7 : 0)) {
-      text = side + ' develops the ' + pname + ' to ' + toName + (CENTRE_FILES.indexOf(toName[0]) >= 0 ? ', toward the centre.' : ', getting it off the back rank.');
+      text = T(CENTRE_FILES.indexOf(toName[0]) >= 0 ? 'explain.chess.developCentre' : 'explain.chess.developBack', v);
     } else if (piece === 1 && CENTRE_PAWN_SQUARES.indexOf(toName) >= 0) {
-      text = side + ' pushes a pawn to ' + toName + ' to claim space in the centre.';
+      text = T('explain.chess.pawnCentre', v);
     } else {
-      text = side + ' plays the ' + pname + ' to ' + toName + '.';
+      text = T('explain.chess.plays', v);
       var s = info.score;
       if (typeof s === 'number') {
-        if (s >= MATE_SCORE) text = side + ' plays the ' + pname + ' to ' + toName + ', and the engine sees a forced checkmate ahead.';
-        else if (s <= -MATE_SCORE) text = side + ' plays the ' + pname + ' to ' + toName + '; the engine sees ' + other + ' winning, and this holds out longest.';
-        else if (Math.abs(s) < EVEN_CP) text += ' The engine sees the game as about even.';
-        else text += ' The engine rates this ' + (s > 0 ? 'in ' + side + '’s favour' : 'in ' + other + '’s favour') + (Math.abs(s) >= BIG_CP ? ' by more than a pawn.' : ' by a little.');
+        if (s >= MATE_SCORE) text = T('explain.chess.seesMate', v);
+        else if (s <= -MATE_SCORE) text = T('explain.chess.seesLoss', { side: side, piece: piece1, to: toName, other: other });
+        else if (Math.abs(s) < EVEN_CP) text += ' ' + T('explain.chess.even');
+        else text += ' ' + T(Math.abs(s) >= BIG_CP ? 'explain.chess.rateBig' : 'explain.chess.rateSmall', { who: s > 0 ? side : other });
       }
     }
     return { text: text, facts: facts };

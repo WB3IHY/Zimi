@@ -10,35 +10,42 @@
    H is ZimiHearts (hearts.js), Z is ZimiCards (cards.js), state the state before the card. */
 (function (root) {
   'use strict';
-  var SEAT = ['South', 'West', 'North', 'East'];
-  var PASS_DIR = ['to the left', 'to the right', 'across', 'not at all'];
+  var SEAT_KEYS = ['bridge.seat.south', 'cards.seat.west', 'cards.seat.north', 'cards.seat.east'], FACT_SEAT = ['South', 'West', 'North', 'East'];
   var HEARTS = 2, SPADES = 3, ACE = 14, FEW_SPADES = 4, TRICK_SIZE = 4;
 
+  var T = function (key, vars) { return root.ZimiText ? root.ZimiText.T(key, vars) : key; };
+  var seatName = function (i) { return T(SEAT_KEYS[i]); };
+  var points = function (n) { return T('explain.hearts.points', { n: n }); };
+  // "a and b and c": two at a time through the language's own "and".
+  function andChain(items) { return items.reduce(function (a, b) { return T('explain.list.and', { a: a, b: b }); }); }
+  // "a, b and c"
+  function list(items) { return items.length < 2 ? items.join('') : T('explain.list.and', { a: items.slice(0, -1).join(T('explain.list.sep')), b: items[items.length - 1] }); }
+
   function high(Z, id) { return Z.rank(id) === 1 ? ACE : Z.rank(id); }
-  function suitOf(Z, id) { return Z.SUITS[Z.suit(id)]; }
-  function card(Z, id) { return 'the ' + Z.cardName(id); }
-  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  function suitWord(Z, suit) { return T('cards.suit.' + Z.SUITS[suit]); }
+  function card(Z, id) { return T('explain.hearts.card', { card: Z.cardName(id) }); }
   function playedSoFar(state) { return [].concat.apply([], state.taken).concat(state.trick.map(function (t) { return t.id; })); }
   function count(Z, hand, suit) { return hand.filter(function (c) { return Z.suit(c) === suit; }).length; }
-  function list(items) { return items.length < 2 ? items.join('') : items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1]; }
 
   function play(H, Z, state, seat, id) {
-    var hand = state.hands[seat], legal = H.legalPlays(state, seat), trick = state.trick, who = SEAT[seat];
+    var hand = state.hands[seat], legal = H.legalPlays(state, seat), trick = state.trick, who = seatName(seat);
     var name = Z.cardName(id), QS = H.QUEEN_SPADES, queenOut = playedSoFar(state).indexOf(QS) < 0 && hand.indexOf(QS) < 0;
-    var facts = { seat: who, card: name, led: !trick.length, legal: legal.length, void: false, ducks: false, forced: false };
-    var text, lead;
+    var facts = { seat: FACT_SEAT[seat], card: name, led: !trick.length, legal: legal.length, void: false, ducks: false, forced: false };
+    var text, lead, v = { who: who, card: card(Z, id) };
     if (!trick.length) {
       var allHearts = legal.every(function (c) { return Z.suit(c) === HEARTS; });
       var lowest = legal.every(function (c) { return high(Z, c) >= high(Z, id); });
-      if (state.tricksPlayed === 0 && id === H.TWO_CLUBS) text = who + ' holds the 2 of clubs, and that card always opens the hand.';
-      else if (legal.length === 1) text = who + ' has only one legal card to lead, ' + card(Z, id) + '.';
-      else if (allHearts) text = who + ' has only hearts left, so it has to lead ' + card(Z, id) + '.';
-      else if (!state.broken && hand.some(function (c) { return Z.suit(c) === HEARTS; })) text = who + ' leads ' + card(Z, id) + '. Hearts have not been broken yet, so it cannot lead one.';
-      else if (lowest) text = who + ' leads its lowest legal card, ' + card(Z, id) + ', a card that is unlikely to win the trick.';
-      else text = who + ' leads ' + card(Z, id) + '.';
+      if (state.tricksPlayed === 0 && id === H.TWO_CLUBS) text = T('explain.hearts.leadTwoClubs', v);
+      else if (legal.length === 1) text = T('explain.hearts.leadOnly', v);
+      else if (allHearts) text = T('explain.hearts.leadHearts', v);
+      else if (!state.broken && hand.some(function (c) { return Z.suit(c) === HEARTS; })) text = T('explain.hearts.leadUnbroken', v);
+      else if (lowest) text = T('explain.hearts.leadLow', v);
+      else text = T('explain.hearts.lead', v);
       return { text: text, facts: facts };
     }
     lead = Z.suit(trick[0].id);
+    var leadSuit = suitWord(Z, lead);
+    v.suit = leadSuit;
     var follows = hand.some(function (c) { return Z.suit(c) === lead; });
     if (follows) {
       var inLead = trick.filter(function (t) { return Z.suit(t.id) === lead; });
@@ -48,14 +55,16 @@
       if (mine < curHigh) {
         facts.ducks = true;
         var best = under.every(function (c) { return high(Z, c) <= mine; });
-        text = who + ' plays ' + card(Z, id) + ' under the ' + curHigh2name(Z, inLead, curHigh) + ' already on the table, so it should not win the trick' + (best && under.length > 1 ? ' (it is the highest card that still stays under)' : '') + '.';
+        v.high = card(Z, curHigh2id(Z, inLead, curHigh));
+        text = T(best && under.length > 1 ? 'explain.hearts.duckBest' : 'explain.hearts.duck', v);
       } else if (!under.length) {
         facts.forced = true;
-        text = who + ' has to follow ' + Z.SUITS[lead] + ' and every card it can play beats the table, so it plays the lowest, ' + card(Z, id) + (pts ? ', and takes ' + plural(pts, 'point') + '.' : '.');
+        v.points = points(pts);
+        text = T(pts ? 'explain.hearts.forcedPoints' : 'explain.hearts.forced', v);
       } else if (last && pts === 0) {
-        text = who + ' plays last, and no points are on the table, so ' + card(Z, id) + ' wins the trick at no cost.';
+        text = T('explain.hearts.winsFree', v);
       } else {
-        text = who + ' plays ' + card(Z, id) + ' over the table.';
+        text = T('explain.hearts.over', v);
       }
       return { text: text, facts: facts };
     }
@@ -63,48 +72,49 @@
     var inHand = Z.suit(id);
     var heartsHeld = hand.filter(function (c) { return Z.suit(c) === HEARTS; });
     var first = state.tricksPlayed === 0;
-    if (id === QS) text = who + ' has no ' + Z.SUITS[lead] + ', so it dumps ' + card(Z, id) + ': 13 points for whoever wins this trick.';
-    else if (inHand === HEARTS && heartsHeld.every(function (c) { return high(Z, c) <= high(Z, id); })) text = who + ' has no ' + Z.SUITS[lead] + ' and sheds its highest heart, ' + card(Z, id) + ', a point it would rather not keep.';
-    else if (inHand === SPADES && (Z.rank(id) === 1 || Z.rank(id) === 13) && queenOut) text = who + ' has no ' + Z.SUITS[lead] + ' and discards ' + card(Z, id) + ' while the queen of spades is still out, so it cannot be forced to take her.';
+    if (id === QS) text = T('explain.hearts.dumpQueen', v);
+    else if (inHand === HEARTS && heartsHeld.every(function (c) { return high(Z, c) <= high(Z, id); })) text = T('explain.hearts.shedHeart', v);
+    else if (inHand === SPADES && (Z.rank(id) === 1 || Z.rank(id) === 13) && queenOut) text = T('explain.hearts.discardSpade', v);
     else {
       var counts = [0, 1, 2, 3].map(function (s) { return count(Z, hand, s); }).filter(function (n) { return n > 0; });
       var shortest = count(Z, hand, inHand) === Math.min.apply(null, counts);
-      text = who + ' has no ' + Z.SUITS[lead] + ' and discards ' + card(Z, id) + (shortest ? ' from its shortest suit, which helps it run out of that suit' : '') + (first ? ', a card with no points, because points cannot be played on the first trick' : '') + '.';
+      text = T(shortest ? (first ? 'explain.hearts.discardShortFirst' : 'explain.hearts.discardShort') : (first ? 'explain.hearts.discardFirst' : 'explain.hearts.discard'), v);
     }
     return { text: text, facts: facts };
   }
-  // The rank word of the highest card of the lead suit on the table ("10 of clubs").
-  function curHigh2name(Z, inLead, curHigh) {
-    var t = inLead.filter(function (x) { return high(Z, x.id) === curHigh; })[0];
-    return Z.cardName(t.id);
+  // The highest card of the lead suit on the table, to name ("10 of clubs").
+  function curHigh2id(Z, inLead, curHigh) {
+    return inLead.filter(function (x) { return high(Z, x.id) === curHigh; })[0].id;
   }
 
   function pass(H, Z, hand, picks, dir) {
-    if (dir === 3) return { text: 'This hand nobody passes. The player with the 2 of clubs leads.', facts: {} };
+    if (dir === 3) return { text: T('explain.hearts.passNone'), facts: {} };
     var spades = count(Z, hand, SPADES), why = [];
-    if (picks.indexOf(H.QUEEN_SPADES) >= 0) why.push('the queen of spades is 13 points' + (spades <= FEW_SPADES ? ' and only ' + plural(spades, 'spade') + ' are there to protect it' : ''));
+    if (picks.indexOf(H.QUEEN_SPADES) >= 0) why.push(T(spades <= FEW_SPADES ? 'explain.hearts.whyQueenFew' : 'explain.hearts.whyQueen', { n: spades }));
     var honours = picks.filter(function (c) { return Z.suit(c) === SPADES && (Z.rank(c) === 1 || Z.rank(c) === 13); });
-    if (honours.length) why.push('high spades are the cards most likely to be forced to take the queen');
+    if (honours.length) why.push(T('explain.hearts.whyHonours'));
     var hearts = picks.filter(function (c) { return Z.suit(c) === HEARTS; });
-    if (hearts.length) why.push('high hearts are points waiting to happen');
-    var text = 'South passes ' + list(picks.map(function (c) { return card(Z, c); })) + ' ' + PASS_DIR[dir] + (why.length ? ': ' + list(why) + '.' : ', its most awkward cards.') + ' The others pass three each too.';
-    return { text: text, facts: { picks: picks.length, reasons: why.length } };
+    if (hearts.length) why.push(T('explain.hearts.whyHearts'));
+    var v = { who: seatName(0), cards: list(picks.map(function (c) { return card(Z, c); })), dir: T('explain.hearts.dir.' + dir), why: list(why) };
+    return { text: T(why.length ? 'explain.hearts.passWhy' : 'explain.hearts.passPlain', v), facts: { picks: picks.length, reasons: why.length } };
   }
 
   function trick(H, Z, tr) {
     var win = H.trickWinner(tr), w = tr.filter(function (t) { return t.seat === win; })[0], pts = H.trickPoints(tr);
     var hearts = tr.filter(function (t) { return Z.suit(t.id) === HEARTS; }).length, queen = tr.some(function (t) { return t.id === H.QUEEN_SPADES; });
     var parts = [];
-    if (queen) parts.push('the queen of spades');
-    if (hearts) parts.push(plural(hearts, 'heart'));
-    var text = SEAT[win] + ' takes the trick with ' + card(Z, w.id) + (pts ? ' and collects ' + plural(pts, 'point') + ': ' + list(parts) + '.' : ', and no points are in it.');
-    return { text: text, facts: { winner: SEAT[win], points: pts } };
+    if (queen) parts.push(T('explain.hearts.partQueen'));
+    if (hearts) parts.push(T('explain.hearts.partHearts', { n: hearts }));
+    var text = T(pts ? 'explain.hearts.trickPoints' : 'explain.hearts.trickNone', { who: seatName(win), card: card(Z, w.id), points: points(pts), parts: list(parts) });
+    return { text: text, facts: { winner: FACT_SEAT[win], points: pts } };
   }
 
   function hand(H, state) {
     var low = Math.min.apply(null, state.scores);
-    var text = state.moon >= 0 ? SEAT[state.moon] + ' took every heart and the queen of spades: shooting the moon, so everyone else gets 26.' : 'Hand over. Points this hand: ' + state.handPoints.map(function (p, i) { return SEAT[i] + ' ' + p; }).join(', ') + '.';
-    return { text: text + ' Lowest total: ' + state.scores.map(function (s, i) { return s === low ? SEAT[i] : null; }).filter(Boolean).join(' and ') + ' on ' + low + '.', facts: {} };
+    var text = state.moon >= 0 ? T('explain.hearts.moon', { who: seatName(state.moon) })
+      : T('explain.hearts.handOver', { scores: state.handPoints.map(function (p, i) { return T('explain.hearts.score', { who: seatName(i), n: p }); }).join(T('explain.list.sep')) });
+    var lowest = andChain(state.scores.map(function (s, i) { return s === low ? seatName(i) : null; }).filter(Boolean));
+    return { text: text + ' ' + T('explain.hearts.lowest', { who: lowest, n: low }), facts: {} };
   }
 
   root.ZimiExplain = root.ZimiExplain || {};

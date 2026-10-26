@@ -10,7 +10,9 @@
   'use strict';
   var SIDE = ['South', 'North'];
 
-  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  var T = function (key, vars) { return root.ZimiText ? root.ZimiText.T(key, vars) : key; };
+  var seeds = function (n) { return T('explain.mancala.seeds', { n: n }); };
+  var sideName = function (i) { return T('explain.side.' + SIDE[i].toLowerCase()); };
 
   // The most seeds the side to move could capture right now.
   function bestCapture(R, s) {
@@ -28,7 +30,7 @@
   }
 
   function mancalaExplain(R, s, p) {
-    var me = s.turn, who = SIDE[me], them = SIDE[1 - me];
+    var me = s.turn, key = SIDE[me], who = sideName(me), them = sideName(1 - me);
     var perSide = R.stores ? 7 : 6, num = p - me * perSide + 1, n = s.pits[p];
     var res = R.sow(s, p), took = res.captured.reduce(function (a, c) { return a + c.n; }, 0);
     var feeding = R.seedsOn(s, 1 - me) === 0;
@@ -36,18 +38,19 @@
     // after the move it is the other side's turn (unless an extra turn): their best capture is `after`
     var theirNext = res.extra ? threatOn(R, res.state, me) : after;
     var lastPit = res.path.length ? res.path[res.path.length - 1] : p;
-    var facts = { side: who, pit: num, seeds: n, captured: took, extra: res.extra, grandSlam: res.grandSlam, feeding: feeding, threatBefore: before, threatAfter: theirNext, done: res.state.done };
+    var facts = { side: key, pit: num, seeds: n, captured: took, extra: res.extra, grandSlam: res.grandSlam, feeding: feeding, threatBefore: before, threatAfter: theirNext, done: res.state.done };
 
+    var end = T(res.state.done && !took ? 'explain.mancala.endDone' : 'explain.mancala.end');
+    var v = { who: who, them: them, pit: num, seeds: seeds(n), end: end };
     var text;
-    if (took) text = who + ' sows pit ' + num + ' (' + plural(n, 'seed') + ') and the last seed lands on ' + them + '’s side, capturing ' + plural(took, 'seed') + '.';
-    else if (res.extra) text = who + ' sows pit ' + num + ' (' + plural(n, 'seed') + ') and the last seed drops in the store, so ' + who + ' plays again.';
-    else if (res.grandSlam) text = who + ' sows pit ' + num + ' and the last seed would capture every seed ' + them + ' has. That is a grand slam, so nothing is taken.';
-    else if (feeding) text = who + ' sows pit ' + num + ' (' + plural(n, 'seed') + '): ' + them + ' has no seeds, so this move has to give some over.';
-    else if (before > 0 && theirNext < before) text = who + ' sows pit ' + num + ' (' + plural(n, 'seed') + '), which cuts ' + them + '’s best capture from ' + plural(before, 'seed') + ' to ' + (theirNext ? plural(theirNext, 'seed') : 'nothing') + '.';
-    else if (before > 0 && theirNext >= before) text = who + ' sows pit ' + num + ' (' + plural(n, 'seed') + '), but ' + them + ' can still capture ' + plural(theirNext, 'seed') + ' next.';
-    else if (theirNext === 0) text = who + ' sows pit ' + num + ' (' + plural(n, 'seed') + ') and leaves ' + them + ' no capture next turn.';
-    else text = who + ' sows pit ' + num + ' (' + plural(n, 'seed') + '); ' + them + ' could then capture ' + plural(theirNext, 'seed') + '.';
-    if (res.state.done && !took) text = text.replace(/\.$/, ', and the game ends.');
+    if (took) text = T('explain.mancala.captures', { who: who, them: them, pit: num, seeds: seeds(n), took: seeds(took) });
+    else if (res.extra) text = T('explain.mancala.again', v);
+    else if (res.grandSlam) text = T('explain.mancala.grandSlam', v);
+    else if (feeding) text = T('explain.mancala.feeding', v);
+    else if (before > 0 && theirNext < before) { v.before = seeds(before); v.after = theirNext ? seeds(theirNext) : ''; text = T(theirNext ? 'explain.mancala.cuts' : 'explain.mancala.cutsAll', v); }
+    else if (before > 0 && theirNext >= before) { v.next = seeds(theirNext); text = T('explain.mancala.still', v); }
+    else if (theirNext === 0) text = T('explain.mancala.safe', v);
+    else { v.next = seeds(theirNext); text = T('explain.mancala.then', v); }
     return { text: text, facts: facts };
   }
 

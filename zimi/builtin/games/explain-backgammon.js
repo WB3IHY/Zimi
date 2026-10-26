@@ -12,8 +12,10 @@
   'use strict';
   var NAMES = ['White', 'Black'], ROLLS = 36, BAR = 25, BACK_ZONE = 19;
 
-  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
-  function spot(r) { return r === BAR ? 'the bar' : r === 0 ? 'off' : String(r); }
+  var T = function (key, vars) { return root.ZimiText ? root.ZimiText.T(key, vars) : key; };
+  // "a and b and c": every item joined by the language's own "and", two at a time.
+  function andChain(items) { return items.reduce(function (a, b) { return T('explain.list.and', { a: a, b: b }); }); }
+  function spot(r) { return r === BAR ? T('explain.backgammon.spotBar') : r === 0 ? T('explain.backgammon.spotOff') : String(r); }
 
   // In how many of the 36 rolls can the side to move hit a checker?
   function hitRolls(E, s) {
@@ -35,7 +37,7 @@
   }
 
   function backgammonExplain(E, s, steps, dice) {
-    var p = s.turn, who = NAMES[p], cur = s, hits = 0, made = [], entered = 0, off = 0, ran = null, moves = [];
+    var p = s.turn, key = NAMES[p], who = T('explain.side.' + key.toLowerCase()), cur = s, hits = 0, made = [], entered = 0, off = 0, ran = null, moves = [];
     steps.forEach(function (st) {
       var landing = st.to ? E.idxOf(p, st.to) : -1;
       var own = landing >= 0 ? E.countAt(cur, p, landing) : 0;
@@ -52,21 +54,21 @@
     for (var r = 1; r <= 24; r++) if (E.countAt(after, p, E.idxOf(p, r)) === 1) blots.push(r);
     var contact = E.hasContact(after);
     var risk = contact && blots.length ? hitRolls(E, after) : 0;
-    var rolled = dice && dice.length ? who + ' rolls ' + dice.join(' and ') : who + ' rolls';
-    var facts = { side: who, hits: hits, madePoints: made.length, entered: entered, off: off, blots: blots.length, risk: risk, contact: contact, steps: steps.length };
+    var rolled = dice && dice.length ? T('explain.backgammon.rolls', { who: who, dice: andChain(dice.map(String)) }) : T('explain.backgammon.rollsNone', { who: who });
+    var facts = { side: key, hits: hits, madePoints: made.length, entered: entered, off: off, blots: blots.length, risk: risk, contact: contact, steps: steps.length };
 
-    if (!steps.length) return { text: who + ' has no legal move with that roll and loses the turn.', facts: facts };
+    if (!steps.length) return { text: T('explain.backgammon.noMove', { who: who }), facts: facts };
     var parts = [];
-    if (entered) parts.push('brings ' + (entered === 1 ? 'a checker' : entered + ' checkers') + ' in from the bar');
-    if (hits) parts.push('hits ' + (hits === 1 ? 'a blot' : hits + ' blots') + ', sending ' + (hits === 1 ? 'it' : 'them') + ' to the bar');
-    if (made.length) parts.push('makes the ' + made.join(' and ') + ' point' + (made.length > 1 ? 's' : '') + ', which the other side cannot land on');
-    if (off) parts.push('bears off ' + plural(off, 'checker'));
-    if (ran && !hits && !made.length) parts.push('runs a back checker from the ' + ran.from + ' point toward home');
-    var text = rolled + ': ' + moves.join(', ') + '.';
-    if (parts.length) text += ' It ' + parts.slice(0, 2).join(' and ') + '.';
-    if (!contact) text += ' The sides have passed each other, so it is a pure race: fewer pips to go wins (White ' + E.pips(after, 0) + ', Black ' + E.pips(after, 1) + ').';
-    else if (!blots.length) text += ' It leaves no blot to hit.';
-    else text += ' It leaves ' + (blots.length === 1 ? 'a blot' : blots.length + ' blots') + ' that can be hit by ' + risk + ' of ' + ROLLS + ' rolls.';
+    if (entered) parts.push(T('explain.backgammon.entered', { n: entered }));
+    if (hits) parts.push(T('explain.backgammon.hits', { n: hits }));
+    if (made.length) parts.push(T('explain.backgammon.makes', { n: made.length, points: andChain(made.map(String)) }));
+    if (off) parts.push(T('explain.backgammon.bearsOff', { n: off }));
+    if (ran && !hits && !made.length) parts.push(T('explain.backgammon.runs', { from: ran.from }));
+    var text = T('explain.backgammon.turn', { rolled: rolled, moves: moves.join(T('explain.list.sep')) });
+    if (parts.length) text += ' ' + T('explain.backgammon.itDoes', { parts: andChain(parts.slice(0, 2)) });
+    if (!contact) text += ' ' + T('explain.backgammon.race', { white: E.pips(after, 0), black: E.pips(after, 1) });
+    else if (!blots.length) text += ' ' + T('explain.backgammon.noBlot');
+    else text += ' ' + T('explain.backgammon.blots', { n: blots.length, risk: risk, total: ROLLS });
     return { text: text, facts: facts };
   }
 

@@ -16,6 +16,7 @@
   var ALWAYS_SAFE_RANK = 2, STUCK_RECYCLES = 2;
   var COLOUR = ['black', 'red', 'red', 'black'];   // clubs, diamonds, hearts, spades
 
+  var T = function (key, vars) { return root.ZimiText ? root.ZimiText.T(key, vars) : key; };
   function name(Z, id) { return Z.cardName(id); }
   function colour(Z, id) { return COLOUR[Z.suit(id)]; }
   function top(pile) { return pile[pile.length - 1]; }
@@ -50,10 +51,8 @@
         f = S.FOUNDATION[j];
         if (!S.legalMove(state, sources[i], p.length - 1, f) || !safeToSend(S, Z, state, id)) continue;
         ctx.recycles = 0;
-        var why = Z.rank(id) === 1 ? 'Aces start a suit, so ' + name(Z, id) + ' goes straight up to a foundation.'
-          : Z.rank(id) <= ALWAYS_SAFE_RANK ? 'The ' + name(Z, id) + ' goes up to its foundation: nothing is built on a low card, so this is always safe.'
-          : 'The ' + name(Z, id) + ' goes up to its foundation. It is safe: the other colour is far enough along that no card still in play needs it.';
-        return { kind: 'foundation', text: why.replace(/^The the/, 'The'), next: S.applyMove(state, sources[i], p.length - 1, f) };
+        var why = T(Z.rank(id) === 1 ? 'explain.solitaire.ace' : Z.rank(id) <= ALWAYS_SAFE_RANK ? 'explain.solitaire.low' : 'explain.solitaire.safe', { card: name(Z, id) });
+        return { kind: 'foundation', text: why, next: S.applyMove(state, sources[i], p.length - 1, f) };
       }
     }
 
@@ -72,9 +71,9 @@
     if (best) {
       ctx.recycles = 0;
       var moving = P[best.from][best.idx].id, dest = P[best.to];
-      var onto = dest.length ? 'onto the ' + name(Z, top(dest).id) : 'into the empty column';
       var count = P[best.from].length - best.idx;
-      return { kind: 'reveal', text: 'Moves ' + (count > 1 ? 'the run from the ' : 'the ') + name(Z, moving) + ' ' + onto + ' to turn over a face-down card in column ' + col(S, best.from) + '.', next: S.applyMove(state, best.from, best.idx, best.to) };
+      var rv = { card: name(Z, moving), dest: dest.length ? name(Z, top(dest).id) : '', col: col(S, best.from) };
+      return { kind: 'reveal', text: T(count > 1 ? (dest.length ? 'explain.solitaire.revealRunOnto' : 'explain.solitaire.revealRunEmpty') : (dest.length ? 'explain.solitaire.revealOneOnto' : 'explain.solitaire.revealOneEmpty'), rv), next: S.applyMove(state, best.from, best.idx, best.to) };
     }
 
     // 3. waste onto a column
@@ -84,7 +83,7 @@
         t = S.TABLEAU[i];
         if (S.legalMove(state, 'waste', P.waste.length - 1, t)) {
           ctx.recycles = 0;
-          return { kind: 'waste', text: 'Plays the ' + name(Z, w) + ' from the waste ' + (P[t].length ? 'onto the ' + name(Z, top(P[t]).id) : 'into the empty column, since only a king fits a gap') + ', so the next waste card shows.', next: S.applyMove(state, 'waste', P.waste.length - 1, t) };
+          return { kind: 'waste', text: T(P[t].length ? 'explain.solitaire.wasteOnto' : 'explain.solitaire.wasteEmpty', { card: name(Z, w), dest: P[t].length ? name(Z, top(P[t]).id) : '' }), next: S.applyMove(state, 'waste', P.waste.length - 1, t) };
         }
       }
     }
@@ -92,12 +91,12 @@
     // 4. the stock
     if (P.stock.length) {
       var n = Math.min(state.draw, P.stock.length);
-      return { kind: 'draw', text: 'No move on the table helps, so it turns over ' + (n === 1 ? 'a card' : n + ' cards') + ' from the stock.', next: S.drawStock(state) };
+      return { kind: 'draw', text: T('explain.solitaire.draw', { n: n }), next: S.drawStock(state) };
     }
     if (P.waste.length) {
       ctx.recycles = (ctx.recycles || 0) + 1;
       if (ctx.recycles > STUCK_RECYCLES) return null;
-      return { kind: 'recycle', text: 'The stock is empty and nothing else moves, so it turns the waste over to go through it again. That costs points.', next: S.drawStock(state) };
+      return { kind: 'recycle', text: T('explain.solitaire.recycle'), next: S.drawStock(state) };
     }
     return null;
   }

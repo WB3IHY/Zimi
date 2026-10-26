@@ -110,7 +110,7 @@ function shellEnv(storage, path_, reduced) {
 
 // ── Watch and learn: the sentences against fixed positions ─────────────────
 {
-  const sb = load(['chess-engine.js', 'explain-chess.js']);
+  const sb = load(['text.js', 'chess-engine.js', 'explain-chess.js']);
   const E = sb.ZimiChessEngine(), explain = sb.ZimiExplain.chess;
   const mv = (pos, from, to) => E.legalMoves(pos).filter((m) => E.squareName(E.from(m)) === from && E.squareName(E.to(m)) === to)[0];
   let pos = E.parseFen('4k3/8/8/3q4/8/8/8/3RK3 w - - 0 1');
@@ -146,7 +146,7 @@ function shellEnv(storage, path_, reduced) {
   check(/by more than a pawn/.test(r.text) && /White/.test(r.text), 'chess: a quiet move quotes the engine score (a lead)');
 }
 {
-  const sb = load(['reversi.js', 'explain-reversi.js']);
+  const sb = load(['text.js', 'reversi.js', 'explain-reversi.js']);
   const R = sb.ReversiEngine, explain = sb.ZimiExplain.reversi;
   const b = new Int8Array(64);
   b[1] = R.WHITE; b[2] = R.BLACK; b[27] = R.WHITE; b[28] = R.BLACK;
@@ -160,7 +160,7 @@ function shellEnv(storage, path_, reduced) {
   check(r.facts.after === R.legalMoves(after, R.WHITE).length, 'reversi: the opponent\'s choices after the move are counted on the real position');
 }
 {
-  const sb = load(['reversi.js', 'checkers.js', 'explain-checkers.js']);
+  const sb = load(['text.js', 'reversi.js', 'checkers.js', 'explain-checkers.js']);
   const C = sb.CheckersEngine, explain = sb.ZimiExplain.checkers;
   const b = new Int8Array(64);
   b[42] = 1; b[35] = 3;
@@ -172,7 +172,7 @@ function shellEnv(storage, path_, reduced) {
   check(r2.facts.captures === 0 && !/jumps /.test(r2.text), 'checkers: a quiet step does not talk about jumps');
 }
 {
-  const sb = load(['go-engine.js', 'explain-go.js']);
+  const sb = load(['text.js', 'go-engine.js', 'explain-go.js']);
   const E = sb.makeGoEngine(), explain = sb.ZimiExplain.go;
   let st = E.newGame(9);
   st.board[10] = 2; st.board[1] = 1; st.board[9] = 1; st.board[11] = 1; st.turn = 1;
@@ -192,7 +192,7 @@ function shellEnv(storage, path_, reduced) {
   check(!r.facts.star, 'go: another point is not called a star point');
 }
 {
-  const sb = load(['mancala.js', 'explain-mancala.js'], { document: undefined });
+  const sb = load(['text.js', 'mancala.js', 'explain-mancala.js'], { document: undefined });
   const M = sb.MancalaEngine, explain = sb.ZimiExplain.mancala;
   let s = M.Kalah.newState();
   let r = explain(M.Kalah, s, 2);
@@ -206,7 +206,7 @@ function shellEnv(storage, path_, reduced) {
   check(r.facts.captured === 0 && !/capturing/.test(r.text), 'mancala: no capture, none claimed');
 }
 {
-  const sb = load(['backgammon.js', 'explain-backgammon.js'], { document: undefined });
+  const sb = load(['text.js', 'backgammon.js', 'explain-backgammon.js'], { document: undefined });
   const E = sb.BackgammonEngine, explain = sb.ZimiExplain.backgammon;
   const s = E.newGame();
   s.pts.fill(0); s.pts[10] = 1; s.pts[8] = -1; s.pts[22] = 1; s.pts[0] = -2;
@@ -220,7 +220,7 @@ function shellEnv(storage, path_, reduced) {
 }
 {
   const Zs = load(['text.js', 'cardbacks.js', 'courts.js', 'cards.js', 'cardtable.js', 'hearts.js'], { document: { addEventListener() {}, querySelector: () => null, getElementById: () => null, documentElement: { classList: { toggle() {} } }, hidden: false } });
-  const Z = Zs.ZimiCards, H = Zs.ZimiHearts, X = load(['explain-hearts.js']).ZimiExplain.hearts;
+  const Z = Zs.ZimiCards, H = Zs.ZimiHearts, X = load(['text.js', 'explain-hearts.js']).ZimiExplain.hearts;
   const c = (r, s) => Z.make(r, s);                       // suits: clubs 0, diamonds 1, hearts 2, spades 3
   const blank = () => ({ hands: [[], [], [], []], taken: [[], [], [], []], trick: [], tricksPlayed: 3, broken: false, passDir: 0, turn: 1 });
   let st = blank();
@@ -245,7 +245,7 @@ function shellEnv(storage, path_, reduced) {
 }
 {
   const Zs = load(['text.js', 'cardbacks.js', 'courts.js', 'cards.js', 'solitaire.js'], { document: { addEventListener() {}, querySelector: () => null, getElementById: () => null, documentElement: { classList: { toggle() {} } }, hidden: false } });
-  const Z = Zs.ZimiCards, S = Zs.ZimiSolitaire, explain = load(['explain-solitaire.js']).ZimiExplain.solitaire;
+  const Z = Zs.ZimiCards, S = Zs.ZimiSolitaire, explain = load(['text.js', 'explain-solitaire.js']).ZimiExplain.solitaire;
   const st = S.blankState(1);
   st.piles.t0 = [{ id: Z.make(1, 2), up: true }];
   let step = explain(S, Z, st, {});

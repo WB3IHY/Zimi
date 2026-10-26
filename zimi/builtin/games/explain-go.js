@@ -11,17 +11,19 @@
   var BLACK = 1;
   var STAR = { 9: [20, 24, 56, 60, 40], 13: [42, 48, 120, 126, 84, 45, 81, 87, 123] };   // points as row * n + col
   var OPENING_MOVES = 8, SURE = 0.6, CLOSE = 0.45;
-  var ORDINAL = ['first', 'second', 'third', 'fourth', 'fifth'];
+  var LINES = 5;
 
-  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  var T = function (key, vars) { return root.ZimiText ? root.ZimiText.T(key, vars) : key; };
+  var stones = function (n) { return T('explain.go.stones', { n: n }); };
+  var sideName = function (c) { return T(c === BLACK ? 'explain.side.black' : 'explain.side.white'); };
 
   function goExplain(E, st, mv, info) {
     info = info || {};
-    var n = st.n, color = st.turn, side = color === BLACK ? 'Black' : 'White', foe = color === BLACK ? 'White' : 'Black', enemy = 3 - color;
-    var facts = { side: side, pass: mv < 0, score: info.rate };
+    var n = st.n, color = st.turn, key = color === BLACK ? 'Black' : 'White', side = sideName(color), foe = sideName(3 - color), enemy = 3 - color;
+    var facts = { side: key, pass: mv < 0, score: info.rate };
     if (mv < 0) {
       facts.pass = true;
-      return { text: side + ' passes: the computer finds no move worth playing. When both sides pass, the game ends and the territory is counted.', facts: facts };
+      return { text: T('explain.go.pass', { side: side }), facts: facts };
     }
     var ns = E.move(st, mv);
     var nb = E.neighbors(n);
@@ -58,19 +60,19 @@
     }
     facts.captured = taken; facts.atari = atari.length; facts.rescued = !!rescued; facts.joined = groupsJoined; facts.edge = edgeDist + 1; facts.star = star; facts.near = near;
 
-    var text;
-    if (taken) text = side + ' plays ' + sq + ' and captures ' + plural(taken, 'stone') + '. Stones with no liberties left are removed.';
-    else if (rescued) text = side + ' plays ' + sq + ' to save a group of ' + plural(rescued.size, 'stone') + ' that was in atari (one liberty left); it now has ' + plural(rescued.libs, 'liberty') + '.';
-    else if (atari.length) text = side + ' plays ' + sq + ', putting ' + (atari[0] === 1 ? 'a stone' : 'a group of ' + atari[0] + ' stones') + ' in atari: ' + foe + ' has one liberty left, and the next move there captures.';
-    else if (groupsJoined >= 2) text = side + ' plays ' + sq + ' and joins ' + groupsJoined + ' groups into one, which share their liberties.';
-    else if (star && st.moves < OPENING_MOVES) text = side + ' plays ' + sq + ', a star point, one of the marked points that are the usual places to start.';
-    else if (edgeDist === 0) text = side + ' plays ' + sq + ' on the edge, where it has few liberties.';
-    else if (near === 0) text = side + ' plays ' + sq + ', far from every stone, to claim open space (' + ORDINAL[Math.min(edgeDist, 4)] + ' line from the edge).';
-    else text = side + ' plays ' + sq + ', next to stones already on the board' + (groupsJoined === 1 ? ', extending its group.' : '.');
+    var text, v = { side: side, sq: sq };
+    if (taken) text = T('explain.go.captures', { side: side, sq: sq, stones: stones(taken) });
+    else if (rescued) text = T('explain.go.rescues', { side: side, sq: sq, stones: stones(rescued.size), liberties: T('explain.go.liberties', { n: rescued.libs }) });
+    else if (atari.length) text = atari[0] === 1 ? T('explain.go.atariStone', { side: side, sq: sq, foe: foe }) : T('explain.go.atariGroup', { side: side, sq: sq, foe: foe, n: atari[0] });
+    else if (groupsJoined >= 2) text = T('explain.go.joins', { side: side, sq: sq, n: groupsJoined });
+    else if (star && st.moves < OPENING_MOVES) text = T('explain.go.star', v);
+    else if (edgeDist === 0) text = T('explain.go.edge', v);
+    else if (near === 0) text = T('explain.go.open', { side: side, sq: sq, line: T('explain.go.line.' + Math.min(edgeDist, LINES - 1)) });
+    else text = T(groupsJoined === 1 ? 'explain.go.nextExtend' : 'explain.go.next', v);
     var r2 = info.rate;
     if (typeof r2 === 'number' && info.playouts > 0 && st.moves >= OPENING_MOVES) {
       var pct = Math.round(r2 * 100);
-      text += r2 >= SURE ? ' The computer’s playouts favour ' + side + ' (' + pct + '%).' : r2 <= CLOSE ? ' The computer’s playouts favour ' + foe + ' (' + (100 - pct) + '% for ' + foe + ').' : ' The playouts see it as close.';
+      text += ' ' + (r2 >= SURE ? T('explain.go.favours', { side: side, pct: pct }) : r2 <= CLOSE ? T('explain.go.favoursFoe', { foe: foe, pct: 100 - pct }) : T('explain.go.close'));
     }
     return { text: text, facts: facts };
   }
