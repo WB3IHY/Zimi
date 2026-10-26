@@ -44,6 +44,7 @@ ROWS = [
     ("wikirace", [".rc-card .gm-play", ".rc-link"], "JSON.stringify(__race.race.steps) + __race.race.pair.start.path + __race.race.pair.end.path + document.getElementById('rc-clicks').textContent + document.getElementById('rc-pane').textContent.length"),
     # A pin, then the guess: the places, the pin, the points and the answered reveal.
     ("whereintheworld", ["#wm-svg", "#wm-guess"], "JSON.stringify(__world.round) + JSON.stringify(__world.pending) + document.getElementById('wm-score').textContent + document.getElementById('wm-msg').textContent + document.getElementById('wm-n').textContent"),
+    ("snake", "#sn-board", _paused("__snake.pos")),
     ("bricks", "#br-board", "__bricks.pos"),
     ("pinball", "#pb-board", "__pinball.pos"),
     ("rocks", "#rk-board", "__rocks.pos"),
