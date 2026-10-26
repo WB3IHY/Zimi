@@ -1,7 +1,7 @@
 /* Hex: pale cells on a warm board, red sides top and bottom, blue sides left and right. */
-:root { --hx-cell: #ece6d9; --hx-line: #a79e8b; --hx-red: #cf5248; --hx-blue: #4872c2; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --hx-cell: #2d2a26; --hx-line: #11100e; --hx-red: #de665c; --hx-blue: #6a95d9; } }
-:root[data-theme="dark"] { --hx-cell: #2d2a26; --hx-line: #11100e; --hx-red: #de665c; --hx-blue: #6a95d9; }
+:root { --hx-cell: #ece6d9; --hx-line: #a79e8b; --hx-red: #bd594f; --hx-blue: #5172b1; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --hx-cell: #2d2a26; --hx-line: #11100e; --hx-red: #c9695f; --hx-blue: #6d8ec3; } }
+:root[data-theme="dark"] { --hx-cell: #2d2a26; --hx-line: #11100e; --hx-red: #c9695f; --hx-blue: #6d8ec3; }
 
 .hx-board { --bs: min(100vw - 12px, (100svh - 250px) * 1.5, 640px); }
 .hx-cell { fill: var(--hx-cell); stroke: var(--hx-line); stroke-width: 1.4; stroke-linejoin: round; }

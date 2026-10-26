@@ -123,7 +123,7 @@
   // ═══════════ the page ═══════════
   var BK = root.BoardKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var SETTINGS_KEY = 'ludo.settings', STATS_KEY = 'ludo.stats', SVG_NS = 'http://www.w3.org/2000/svg';
-  var COLORS = ['#d32f2f', '#2e9e4f', '#f2b01e', '#1e63c9'], TINTS = ['#f6c9c9', '#c8e8d1', '#fbe6ae', '#c3d6f4'], COLOR_IDS = ['red', 'green', 'yellow', 'blue'];
+  var COLORS = ['#c13d3b', '#3d9555', '#d9a42d', '#3066b6'], TINTS = ['#e9c0c0', '#c0dcc7', '#eedaa7', '#bbcce6'], COLOR_IDS = ['red', 'green', 'yellow', 'blue'];
   var MAX_TRIES = 3;
   var ROLL_FRAMES = 7, ROLL_FRAME_MS = 70, STEP_MS = 120, AUTO_MOVE_MS = 520, COMPUTER_ROLL_MS = 650, COMPUTER_MOVE_MS = 600, PASS_MS = 1100;
   var FINISH = [[6.6, 7.5], [7.5, 6.6], [8.4, 7.5], [7.5, 8.4]], FINISH_GAP = 0.56, FINISH_SCALE = 0.55;   // [x, y] where a colour's home tokens sit

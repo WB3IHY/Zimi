@@ -83,6 +83,8 @@
       // While a demo runs nobody is "thinking": the narration above says what is happening.
       if (G.watching && busy) { text = T('board.watching'); busy = false; }
       line.turn(text, busy);
+      // the opponent's chip pulses while the computer thinks
+      Array.prototype.forEach.call(document.querySelectorAll('.bg-score .wk-who'), function (c) { c.classList.toggle('thinking', !!busy && c.classList.contains('turn')); });
     };
     // An illegal move: the shake on `target` (an element) and the reason, which gives way to the line before it.
     G.refuse = function (target, text) { UI.refuse(line, target, text); };

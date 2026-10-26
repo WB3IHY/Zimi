@@ -15,3 +15,9 @@
 .bg-controls:empty { display: none; }
 .bg-controls .ar-btn[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { .wk-board * { animation-duration: 0.001s !important; transition-duration: 0.001s !important; } }
+
+/* The opponent's chip pulses while the computer thinks. */
+.bg-score .wk-who.turn.thinking { animation: wk-think 1s ease-in-out infinite alternate; }
+@keyframes wk-think { from { box-shadow: 0 0 0 3px var(--accent-glow); } to { box-shadow: 0 0 0 6px transparent; } }
+html[data-anim="off"] .bg-score .wk-who.thinking { animation: none; }
+@media (prefers-reduced-motion: reduce) { html:not([data-anim="normal"]):not([data-anim="fast"]) .bg-score .wk-who.thinking { animation: none; } }
