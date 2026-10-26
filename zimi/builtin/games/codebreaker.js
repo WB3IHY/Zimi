@@ -41,12 +41,13 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T, END_AFTER_MS = 700;
   var SETTINGS_KEY = 'zimi.games.codebreaker.settings', BEST_KEY = 'zimi.games.codebreaker.best';
-  var NAMES = ['Red circle', 'Blue square', 'Green triangle', 'Gold diamond', 'Purple star', 'Teal cross'];
+  function pegName(c) { return T('cb.peg.' + c); }
   Play.applyTheme();
 
-  var els = { secret: $('cb-secret'), rows: $('cb-rows'), msg: $('cb-msg'), palette: $('cb-palette'), undo: $('cb-undo'), check: $('cb-check'), sheet: $('cb-sheet'), title: $('cb-sheet-title'), text: $('cb-sheet-text'), go: $('cb-go'), rep: $('cb-rep'), nu: $('cb-new') };
+  var els = { secret: $('cb-secret'), rows: $('cb-rows'), msg: $('cb-msg'), palette: $('cb-palette'), undo: $('cb-undo'), check: $('cb-check'), nu: $('cb-new') };
+  var line = Play.status(els.msg);
   var settings = Play.load(SETTINGS_KEY, { repeats: true }), best = Play.load(BEST_KEY, {});
   var code, rows, cur, status, seats; // status: 'setting' (a person makes the code) | 'playing' | 'won' | 'lost'
   // Seat 0 breaks the code, seat 1 makes it: the Computer makes it by default; a second person
@@ -62,12 +63,12 @@
 
   function peg(c, size) {
     var b = document.createElement('button'); b.type = 'button'; b.className = 'pl-peg';
-    if (c >= 0) { b.dataset.c = c; b.innerHTML = Play.symbolSVG(c, size || 22); b.setAttribute('aria-label', NAMES[c]); }
+    if (c >= 0) { b.dataset.c = c; b.innerHTML = Play.symbolSVG(c, size || 22); b.setAttribute('aria-label', pegName(c)); }
     return b;
   }
   function fbEl(fb) {
     var d = document.createElement('span'); d.className = 'cb-fb';
-    d.setAttribute('role', 'img'); d.setAttribute('aria-label', fb ? fb.exact + ' right place, ' + fb.colour + ' wrong place' : 'not scored');
+    d.setAttribute('role', 'img'); d.setAttribute('aria-label', fb ? T('cb.feedback', { exact: fb.exact, color: fb.colour }) : T('cb.notScored'));
     for (var i = 0; i < PEGS; i++) {
       var k = document.createElement('i');
       k.className = fb ? (i < fb.exact ? 'cb-x' : i < fb.exact + fb.colour ? 'cb-c' : 'cb-0') : 'cb-0';
@@ -84,7 +85,7 @@
       if (secret()) s.textContent = '?';
       els.secret.appendChild(s);
     }
-    els.secret.setAttribute('aria-label', secret() ? 'The hidden code' : 'The code: ' + code.map(function (c) { return NAMES[c]; }).join(', '));
+    els.secret.setAttribute('aria-label', secret() ? T('cb.hidden') : T('cb.theCode', { pegs: code.map(pegName).join(', ') }));
     // the rows
     els.rows.textContent = '';
     for (var r = 0; r < ROWS; r++) {
@@ -94,7 +95,7 @@
       var pegs = document.createElement('span'); pegs.className = 'cb-pegs';
       for (var k = 0; k < PEGS; k++) {
         var c = r < rows.length ? rows[r].guess[k] : now ? cur[k] : -1, b = peg(c);
-        if (now) { b.setAttribute('aria-label', c >= 0 ? NAMES[c] + ', tap to remove' : 'Empty place ' + (k + 1)); (function (slot) { b.addEventListener('click', function () { cur[slot] = -1; paint(); }); })(k); }
+        if (now) { b.setAttribute('aria-label', c >= 0 ? T('cb.tapRemove', { peg: pegName(c) }) : T('cb.emptyPlace', { n: k + 1 })); (function (slot) { b.addEventListener('click', function () { cur[slot] = -1; paint(); }); })(k); }
         else b.disabled = true;
         pegs.appendChild(b);
       }
@@ -111,7 +112,7 @@
       els.palette.appendChild(pb);
     }
     els.check.disabled = !active() || cur.indexOf(-1) >= 0;
-    els.check.textContent = status === 'setting' ? 'Hide the code' : 'Check';
+    els.check.textContent = T(status === 'setting' ? 'cb.hide' : 'cb.check');
     els.undo.disabled = !active() || cur.every(function (c) { return c < 0; });
   }
 
@@ -129,8 +130,8 @@
     if (!active() || !isValid(cur, settings.repeats)) return;
     if (status === 'setting') {
       code = cur.slice(); cur = [-1, -1, -1, -1]; status = 'playing'; paint();
-      els.msg.textContent = 'Ten guesses. Pick four pegs.';
-      seats.cover(0, paint, 'The code is set and hidden. Pass the device to the breaker.');
+      line.say(T('cb.tenGuesses'));
+      seats.cover(0, paint, T('cb.passBreaker'));
       return;
     }
     var fb = feedback(code, cur);
@@ -138,53 +139,58 @@
     cur = [-1, -1, -1, -1];
     if (fb.exact === PEGS) { status = 'won'; paint(); return finish(); }
     if (rows.length >= ROWS) { status = 'lost'; paint(); return finish(); }
-    els.msg.textContent = fb.exact + ' in the right place, ' + fb.colour + ' in the wrong place. ' + (ROWS - rows.length) + ' guesses left.';
+    line.say(T('cb.scored', { exact: fb.exact, color: fb.colour, left: ROWS - rows.length }));
     paint();
   }
   function finish() {
-    var k = settings.repeats ? 'repeats' : 'single', text;
+    var k = settings.repeats ? 'repeats' : 'single', opts = { after: END_AFTER_MS }, text;
     if (status === 'won') {
-      text = 'Cracked it in ' + rows.length + (rows.length === 1 ? ' guess.' : ' guesses.');
-      if (seats.hotseat()) text = seats.name(0) + ' cracked ' + seats.name(1) + "'s code in " + rows.length + (rows.length === 1 ? ' guess.' : ' guesses.');
-      else if (!best[k] || rows.length < best[k]) { best[k] = rows.length; Play.save(BEST_KEY, best); text += ' A new best.'; } else text += ' Best: ' + best[k] + '.';
-    } else text = seats.hotseat() ? seats.name(1) + ' wins: the code held. It is shown at the top.' : 'Out of guesses. The code is shown at the top.';
-    els.msg.textContent = text;
-    showSheet(status === 'won' ? 'Cracked' : 'You lose', text, 'New code');
+      text = T('cb.cracked', { n: rows.length });
+      if (seats.hotseat()) { opts.result = 'win'; opts.name = seats.name(0); text = T('cb.crackedBy', { breaker: seats.name(0), maker: seats.name(1), n: rows.length }); }
+      else { if (!best[k] || rows.length < best[k]) { best[k] = rows.length; Play.save(BEST_KEY, best); } opts.result = 'win'; opts.stats = [[T('cb.guesses'), Play.num(rows.length)], [T('play.best'), Play.num(best[k])]]; }
+    } else if (seats.hotseat()) { opts.result = 'win'; opts.name = seats.name(1); text = T('cb.held'); }
+    else { opts.result = 'lose'; text = T('cb.outOfGuesses'); }
+    line.say(text);
+    ZimiShell.endSheet(opts);
   }
 
-  function paintRep() { els.rep.setAttribute('aria-pressed', String(!!settings.repeats)); els.rep.textContent = 'Colours may repeat: ' + (settings.repeats ? 'on' : 'off'); }
-  function showSheet(title, text, label) {
-    var host = $('cb-seats'); host.textContent = ''; host.appendChild(root.ZimiSeats.create({ id: 'codebreaker', seats: 2 }).block(null, { labels: ['Breaker', 'Code maker'] }));
-    els.title.textContent = title; els.text.textContent = text; els.go.textContent = label; paintRep(); Play.openSheet(els.sheet, '#cb-go'); }
+  // The rules and who plays are choices about the game, so they sit in the New game pane: Repeat colors, then the seats.
+  function menuOptions() {
+    var host = document.createElement('div');
+    host.appendChild(Play.optionRow(T('cb.repeat'), [[false, T('shell.off')], [true, T('shell.on')]], !!settings.repeats, function (v) { settings.repeats = v; Play.save(SETTINGS_KEY, settings); }));
+    host.appendChild(root.ZimiSeats.create({ id: 'codebreaker', seats: 2 }).block(null, { labels: [T('cb.breaker'), T('cb.maker')] }));
+    return [host];
+  }
   function begin() {
     seats = seatsNow(function () { paint(); });
     rows = []; cur = [-1, -1, -1, -1];
     if (seats.hotseat()) {
       code = [0, 1, 2, 3]; status = 'setting';
-      els.msg.textContent = seats.name(1) + ': make the secret code, four pegs, then hide it.';
-      Play.closeSheet(els.sheet); paint();
+      line.say(T('cb.makeCode', { name: seats.name(1) }));
+      paint();
       seats.begin(paint, 1);
       return;
     }
     code = makeCode(Math.random, settings.repeats); status = 'playing';
-    els.msg.textContent = 'Ten guesses. Pick four pegs.';
-    Play.closeSheet(els.sheet); paint();
+    line.say(T('cb.tenGuesses'));
+    paint();
     seats.begin(paint);
   }
-  els.go.addEventListener('click', begin);
-  els.rep.addEventListener('click', function () { settings.repeats = !settings.repeats; Play.save(SETTINGS_KEY, settings); paintRep(); });
-  els.nu.addEventListener('click', function () { showSheet('New code', 'Start over with a fresh code?', 'Start'); });
+  els.nu.addEventListener('click', begin);
+  ZimiShell.game({
+    inProgress: function () { return (status === 'playing' || status === 'setting') && (rows.length > 0 || cur.some(function (c) { return c >= 0; })); },
+    menu: function () { return { options: menuOptions() }; },
+    stats: function () { return [[T('cb.bestRow', { mode: T('cb.mode.repeats') }), best.repeats ? T('cb.nGuesses', { n: best.repeats }) : '-'], [T('cb.bestRow', { mode: T('cb.mode.single') }), best.single ? T('cb.nGuesses', { n: best.single }) : '-']]; }
+  });
   els.undo.addEventListener('click', back);
   els.check.addEventListener('click', check);
   document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey || !els.sheet.hidden || !active() || seats.covering) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.ar-sheet:not([hidden])') || !active() || seats.covering) return;
     if (e.key >= '1' && e.key <= '6') add(+e.key - 1);
     else if (e.key === 'Backspace') { e.preventDefault(); back(); }
     else if (e.key === 'Enter' && !(e.target.closest && e.target.closest('button'))) { e.preventDefault(); check(); }
   });
 
-  code = makeCode(Math.random, settings.repeats); rows = []; cur = [-1, -1, -1, -1]; status = 'playing';
-  paint();
-  showSheet('Code Breaker', 'Crack the four-peg code in ten guesses.', 'Start');
+  begin();
   root.__codebreaker = { get code() { return code; }, get rows() { return rows; } };
 })(this);

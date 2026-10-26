@@ -13,30 +13,20 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Code Breaker</h1>
-  <button class="ar-btn" id="cb-new" type="button">New code</button>
+  <button class="ar-btn" id="cb-new" type="button" hidden data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="pl-main">
-  <div class="cb-secret" id="cb-secret" role="img" aria-label="The hidden code"></div>
-  <ol class="cb-rows" id="cb-rows" aria-label="Your guesses"></ol>
-  <p class="pl-msg" id="cb-msg" role="status" aria-live="polite"></p>
-  <div class="pl-row" id="cb-palette" role="group" aria-label="Colours"></div>
-  <div class="pl-row">
-    <button class="ar-btn" id="cb-undo" type="button">Back</button>
-    <button class="ar-btn" id="cb-check" type="button" aria-pressed="true" disabled>Check</button>
+  <div class="cb-secret" id="cb-secret" role="img" aria-label="The hidden code" data-t-aria="cb.hidden"></div>
+  <ol class="cb-rows" id="cb-rows" aria-label="Your guesses" data-t-aria="cb.guessesLabel"></ol>
+  <p class="pl-msg" id="cb-msg"></p>
+  <div class="pl-row" id="cb-palette" role="group" aria-label="Colors" data-t-aria="cb.colors"></div>
+  <div class="gs-actionrow">
+    <button class="ar-btn" id="cb-undo" type="button" data-t="cb.erase">Erase</button>
+    <button class="ar-btn" id="cb-check" type="button" aria-pressed="true" disabled data-t="cb.check">Check</button>
   </div>
-  <p class="pl-help">Guess the hidden code of 4 pegs. After each guess, a solid dot means a right colour in the right place. A ring means a right colour in the wrong place. Every peg has its own shape, so colour is not the only clue. Keys: 1 to 6 place a peg, Backspace removes one, Enter checks.</p>
 </main>
 
-<div class="ar-sheet" id="cb-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="cb-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="cb-sheet-title">Code Breaker</h2>
-    <p id="cb-sheet-text">Crack the four-peg code in ten guesses.</p>
-    <button class="ar-btn" id="cb-rep" type="button" aria-pressed="true">Colours may repeat: on</button>
-    <div id="cb-seats"></div>
-    <div class="ar-sheet-actions"><button class="ar-btn" id="cb-go" type="button" aria-pressed="true">Start</button></div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="handoff.js"></script>
 <script src="codebreaker.js"></script>
