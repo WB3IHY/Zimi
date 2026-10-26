@@ -277,10 +277,12 @@
   }
   function nextSeat() { state.turn = (state.turn + 1) % state.seats.length; state.sixes = 0; state.tries = 0; }
 
+  var forcedDie = 0;   // a game restored after a roll throws the same number again
   function roll() {
     if (phase !== 'roll' || over) return;
     phase = 'busy'; setDieState();
-    var value = rollDie(), n = 0;
+    var value = forcedDie || rollDie(), n = 0;
+    forcedDie = 0;
     function frame() {
       if (n < ROLL_FRAMES && !reduced) { paintDie(1 + Math.floor(Math.random() * 6)); n++; timer = setTimeout(frame, ROLL_FRAME_MS); return; }
       die = value; paintDie(die); afterRoll();
@@ -341,6 +343,7 @@
   var last = null;
   function list(names) { return root.Intl && Intl.ListFormat ? new Intl.ListFormat(root.ZimiText && root.ZimiText.lang ? root.ZimiText.lang() : undefined, { type: 'conjunction' }).format(names) : names.join(', '); }
 
+  var lastEnd = null;   // how the game ended, kept so a finished game comes back to its end sheet
   function finish(winner) {
     over = true; clearTimeout(timer); phase = 'roll';
     var one = humansCount() === 1, text = T(one ? (isHuman(winner) ? 'ludo.win.you' : 'ludo.win.cpu') : (isHuman(winner) ? 'ludo.win' : 'ludo.win.cpu'), { name: seatName(winner) });
@@ -351,7 +354,8 @@
       BK.save(STATS_KEY, stats);
     }
     render(); say(text); showStats();
-    UI.end({ result: one ? (isHuman(winner) ? 'win' : 'lose') : 'win', name: one ? undefined : seatName(winner), text: text });
+    lastEnd = { result: one ? (isHuman(winner) ? 'win' : 'lose') : 'win', name: one ? undefined : seatName(winner), text: text };
+    UI.end(lastEnd);
   }
   function recordLine() {
     var s = stats[settings.count + '.' + settings.level];
@@ -408,6 +412,19 @@
 
   buildBoard(); paintDie(0);
   newGame();
+  // Leaving and coming back: the table, the options in force, and a die thrown but not yet used (thrown again, the same).
+  UI.persist({
+    save: function () { return last ? { cfg: { count: settings.count, level: settings.level, humans: settings.humans }, state: state, die: phase === 'roll' || (phase === 'busy' && !die) ? 0 : die, end: over ? lastEnd : null } : null; },
+    load: function (d) {
+      clearTimeout(timer);
+      settings.count = d.cfg.count; settings.level = d.cfg.level; settings.humans = d.cfg.humans;
+      state = d.state; over = !!d.end; lastEnd = d.end; anim = null; legal = []; phase = 'roll'; die = 0; last = last || { seat: 0, mv: null };
+      forcedDie = d.die; if (forcedDie === EXIT_ROLL) state.sixes = Math.max(0, (state.sixes || 1) - 1);
+      paintDie(0); render(); showStats();
+      if (over) { say(d.end.text); UI.end(d.end); }
+    },
+    resume: function () { if (!over) startTurn(); }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__ld = { engine: Engine, state: function () { return state; }, settings: settings, phase: function () { return phase; }, die: function () { return die; }, legal: function () { return legal; }, choose: choose, roll: roll };

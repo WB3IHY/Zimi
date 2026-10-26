@@ -261,16 +261,19 @@
     var pick = aiShot(mine.shots, remainingLens(mine), rng);
     var r = fire(mine, pick[0], pick[1]);
     lastTheirs = lastShot[1 - actor] = pick;
-    say(T('janggi.noted', { note: lastText, line: shotText(r, true, label(pick[0], pick[1])) }));
+    var shot = shotText(r, true, label(pick[0], pick[1]));
+    say(lastText ? T('janggi.noted', { note: lastText, line: shot }) : shot);
     if (r.win) { phase = 'over'; paintAll(); return finish(false); }
     phase = 'battle'; paintAll();
   }
+  var lastEnd = null;   // how the game ended, kept so a finished game comes back to its end sheet
   function finish(won) {
     var text;
     if (seats.hotseat()) {
       text = T('fleet.fleetSunk', { name: seats.name(actor), n: shotsFired });
       say(T('fleet.wins', { name: seats.name(actor) }));
-      UI.end({ result: 'win', name: seats.name(actor), text: text });
+      lastEnd = { result: 'win', name: seats.name(actor), text: text };
+      UI.end(lastEnd);
       return;
     }
     stats.played++;
@@ -278,7 +281,8 @@
     else text = T('fleet.youSunk');
     Play.save(STATS_KEY, stats);
     say(T(won ? 'shell.end.win' : 'shell.end.lose'));
-    UI.end({ result: won ? 'win' : 'lose', text: text });
+    lastEnd = { result: won ? 'win' : 'lose', text: text };
+    UI.end(lastEnd);
   }
 
   function begin() {
@@ -309,5 +313,24 @@
     inProgress: function () { return phase === 'battle' || phase === 'pass' || phase === 'busy'; }
   });
   begin();
+  // Leaving and coming back: both fleets and every shot, whose turn it is, and the end. Two people come back behind the cover.
+  UI.persist({
+    save: function () {
+      var placed = boards.some(function (b) { return b.ships.length; });
+      return phase === 'place' && !placed ? null : { boards: boards, phase: phase, actor: actor, placeIdx: placeIdx, shotsBy: shotsBy, lastShot: lastShot, sel: sel, horiz: horiz, end: phase === 'over' ? lastEnd : null };
+    },
+    load: function (d) {
+      if (timer) timer.cancel();
+      boards = d.boards; phase = d.phase; placeIdx = d.placeIdx; shotsBy = d.shotsBy; lastShot = d.lastShot; sel = d.sel; horiz = d.horiz; lastEnd = d.end;
+      setActor(d.actor); paintAll();
+      if (phase === 'over') { say(T('shell.end.' + (d.end.result === 'win' ? 'win' : 'lose'))); UI.end(d.end); }
+    },
+    resume: function () {
+      if (phase === 'over') return;
+      if (phase === 'busy') { lastText = ''; timer = Play.later(cpuTurn, CPU_DELAY_MS); return; }   // the computer's shot was on its way
+      if (seats.hotseat() && phase !== 'pass') { handTo(actor, phase); return; }
+      turnMessage();
+    }
+  });
   root.__fleet = { get mine() { return mine; }, get theirs() { return theirs; }, get phase() { return phase; } };
 })(this);

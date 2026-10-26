@@ -16,6 +16,23 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from test_games_persist_browser import SETTLE_MS, VIEW, browser, served, tap  # noqa: F401
 
 SAVE = "ZimiGameSave()"
+# moves that need the page's own hooks (?debug) or a wait for the person's turn
+CC_MOVE = """(function () { var c = __cc, s = c.state();
+  for (var i = 0; i < s.owner.length; i++) {
+    if (s.owner[i] === 1) { var to = Object.keys(c.engine.movesFrom(s, i)).filter(function (k) { return +k !== i; }); if (to.length) { c.tap(i); c.tap(+to[0]); return 1; } }
+  } })()"""
+LUDO_MOVE = """(async function () {
+  for (var k = 0; k < 80; k++) {
+    if (__ld.state().turn === 0 && __ld.phase() === 'roll') __ld.roll();
+    await new Promise(function (r) { setTimeout(r, 150); });
+    if (__ld.state().turn === 0 && __ld.phase() === 'move' && __ld.legal().length) { __ld.choose(__ld.legal()[0]); return 1; }
+  } })()"""
+DOMINO_MOVE = """(async function () {
+  for (var k = 0; k < 40; k++) {
+    var card = document.querySelector('.dm-card.can');
+    if (card) { card.click(); await new Promise(function (r) { setTimeout(r, 300); }); var g = document.querySelector('.dm-tile.ghost'); if (g) g.click(); return 1; }
+    await new Promise(function (r) { setTimeout(r, 250); });
+  } })()"""
 ROWS = [
     ("fourinarow", [".fr-col:nth-child(4)"], SAVE),
     ("gomoku", [".wk-board button:nth-child(113)"], SAVE),
@@ -33,6 +50,11 @@ ROWS = [
     ("janggi", (".jg-pt:has(.jg-pc.cho)", ".jg-pt.hint"), SAVE),
     ("makruk", (".bg-sq:has(.mk-pc.w)", ".bg-sq.hint"), SAVE),
     ("backgammon", [], SAVE, 6000),
+    ("chinesecheckers", ["js:" + CC_MOVE], SAVE, 2500, "?debug"),
+    ("ludo", ["js:" + LUDO_MOVE], SAVE, 2500, "?debug"),
+    ("dominoes", ["js:" + DOMINO_MOVE], SAVE, 6000),
+    ("mahjong", [".mj-t:not(.blocked)"], "(function () { var d = JSON.parse(ZimiGameSave()); delete d.seconds; return JSON.stringify(d); })()"),   # the clock runs on
+    ("fleet", ["#fl-tools .ar-btn:nth-child(2)"], SAVE),
     ("chesspuzzles", [], SAVE),
     ("chessopenings", [], SAVE),
     ("goproblems", ["js:__gp.play(__gp.problem().f[0])"], SAVE, 2000, "?debug"),

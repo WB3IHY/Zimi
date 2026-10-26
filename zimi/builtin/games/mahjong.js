@@ -243,6 +243,7 @@
     say(T(hasMoves ? 'mahjong.match' : 'mahjong.noMoves'));
   }
 
+  var lastEnd = null;   // how the game ended, kept so a cleared board comes back to its end sheet
   function win() {
     if (won) return; // two quick last pairs each ask
     won = true; stopTimer();
@@ -252,7 +253,8 @@
     if (record) s.best = seconds;
     BK.save(STATS_KEY, stats);
     say(T('mahjong.cleared')); showStats(); paint();
-    UI.end({ result: 'win', text: T(record ? 'mahjong.clearedBest' : 'mahjong.clearedIn', { time: BK.fmtTime(seconds), layout: layoutName(layout) }), stats: [[T('mahjong.time'), BK.fmtTime(seconds)]] });
+    lastEnd = { result: 'win', text: T(record ? 'mahjong.clearedBest' : 'mahjong.clearedIn', { time: BK.fmtTime(seconds), layout: layoutName(layout) }), stats: [[T('mahjong.time'), BK.fmtTime(seconds)]] };
+    UI.end(lastEnd);
   }
 
   function removePair(a, c) {
@@ -353,6 +355,19 @@
     inProgress: function () { return started && !won; }
   });
   newGame();
+  // Leaving and coming back: the layout, the tiles still on it, what was taken (for Undo), the clock.
+  UI.persist({
+    save: function () { return started ? { layout: layout.id, faces: Array.prototype.slice.call(faces), alive: alive, removed: removed, seconds: seconds, won: won, end: won ? lastEnd : null } : null; },
+    load: function (d) {
+      var l = LAYOUTS.filter(function (x) { return x.id === d.layout; })[0];
+      if (!l) return false;
+      stopTimer(); settings.layout = l.id; layout = l;
+      deal0 = dealLayout(layout, rng); an = deal0.an; faces = d.faces; alive = d.alive; removed = d.removed;
+      seconds = d.seconds; started = true; won = !!d.won; lastEnd = d.end; selected = -1; hintPair = null; tabStop = -1;
+      buildTiles(); layoutStage(); updateTimeText(); showStats(); paint();
+      if (won) { say(T('mahjong.cleared')); UI.end(lastEnd); } else { say(T('mahjong.match')); startTimer(); }
+    }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__mj = { engine: Engine, state: function () { return { an: an, alive: alive, faces: faces, order: deal0.order }; }, click: onTile };

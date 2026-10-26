@@ -287,8 +287,12 @@
     timer = setTimeout(takeTurn, NEXT_MS);
     paintOpponents(); paintScores();
   }
+  // The table as it stood when this turn began (a move in the air is not kept), for leaving and coming back.
+  var snap = null, lastEnd = null, restoredPhase = '';
+  function keep(phase) { snap = UI.pack({ phase: phase, cfg: { mode: settings.mode, opponents: settings.opponents, level: settings.level, target: settings.target }, st: st, scores: scores, round: round, lastWinner: lastWinner, end: phase === 'over' ? lastEnd : null }); }
   function takeTurn() {
     clearTimeout(timer);
+    keep('turn');
     var p = st.turn, plays = legalPlays(st, p);
     render();
     if (plays.length) {
@@ -333,11 +337,14 @@
       }
       var title = you(champ) ? T('dominoes.youWinMatch') : T('dominoes.winsMatch', { name: nameOf(champ) });
       say(title); showStats();
-      UI.end({ result: seats.hotseat() ? 'win' : mine ? 'win' : 'lose', name: seats.hotseat() ? nameOf(champ) : undefined, text: lines.concat([tally]).join(' ') });
+      lastEnd = { result: seats.hotseat() ? 'win' : mine ? 'win' : 'lose', name: seats.hotseat() ? nameOf(champ) : undefined, text: lines.concat([tally]).join(' ') };
+      keep('over');
+      UI.end(lastEnd);
       return;
     }
     var heading = r.winner >= 0 && you(r.winner) ? T('dominoes.youWinRound') : r.winner < 0 ? T('dominoes.drawnRound') : T('dominoes.winsRound', { name: nameOf(r.winner) });
     say(heading); showStats();
+    keep('between');
     var body = lines.map(function (l) { return UI.h('p', { text: l }); });
     body.push(UI.h('p', { class: 'dm-tally', text: tally }));
     root.ZimiShell.sheet({ title: heading, body: body, actions: [{ label: T('shell.close') }, { label: T('dominoes.nextRound'), primary: true, onclick: startRound }] });
@@ -405,6 +412,21 @@
     inProgress: function () { return !matchOver && round > 0 && (round > 1 || (st && st.chain.length > 1)); }
   });
   newMatch();
+  UI.persist({
+    save: function () { return snap && (snap.phase !== 'turn' || snap.round > 1 || snap.st.chain.length > 1 || snap.scores.some(Boolean)) ? snap : null; },
+    load: function (d) {
+      clearTimeout(timer);
+      settings.mode = d.cfg.mode; settings.opponents = d.cfg.opponents; settings.level = d.cfg.level; settings.target = d.cfg.target;
+      seatsFor(); st = d.st; scores = d.scores; round = d.round; lastWinner = d.lastWinner; matchOver = d.phase === 'over'; lastEnd = d.end;
+      busy = false; selected = -1; ghosts = null; snap = UI.pack(d); restoredPhase = d.phase;
+      render();
+    },
+    resume: function () {
+      if (restoredPhase === 'over') { say(lastEnd.text); showStats(); UI.end(lastEnd); }
+      else if (restoredPhase === 'between') startRound();
+      else takeTurn();
+    }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__dm = { engine: Engine, state: function () { return st; }, scores: function () { return scores; }, settings: settings, busy: function () { return busy; }, humanTurn: humanTurn, matchOver: function () { return matchOver; } };

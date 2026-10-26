@@ -260,6 +260,7 @@
   function say(text, busy) { line.turn(text, !!busy); }
 
   // ── turns ──
+  var lastEnd = null;   // how the game ended, kept so a finished game comes back to its end sheet
   function finish(winnerSeat, how) {
     over = true; sel = -1; targets = {}; clearTimeout(timer);
     var text, one = peopleCount() === 1;
@@ -273,7 +274,8 @@
       BK.save(STATS_KEY, stats);
     }
     paintAll(); say(text); showStats();
-    UI.end({ result: winnerSeat < 0 ? 'draw' : one ? (isHuman(winnerSeat) ? 'win' : 'lose') : 'win', name: winnerSeat >= 0 && !one ? seatName(winnerSeat) : undefined, text: text });
+    lastEnd = { result: winnerSeat < 0 ? 'draw' : one ? (isHuman(winnerSeat) ? 'win' : 'lose') : 'win', name: winnerSeat >= 0 && !one ? seatName(winnerSeat) : undefined, text: text };
+    UI.end(lastEnd);
   }
   function recordLine() {
     var s = stats[settings.count + '.' + settings.level];
@@ -442,6 +444,20 @@
 
   build();
   newGame();
+  // Leaving and coming back: the table, the options in force, the moves taken back by Undo, and the end.
+  UI.persist({
+    save: function () { return history.length || state.rounds ? { cfg: { count: settings.count, level: settings.level, humans: settings.humans }, state: state, history: history.slice(-40), lastPath: lastPath, end: over ? lastEnd : null } : null; },
+    load: function (d) {
+      clearTimeout(timer);
+      settings.count = d.cfg.count; settings.level = d.cfg.level; settings.humans = d.cfg.humans;
+      state = d.state; history = d.history; lastPath = d.lastPath; sel = -1; targets = {}; over = !!d.end; lastEnd = d.end;
+      hasHuman = state.seats.some(function (c, s) { return isHuman(s); });
+      cursor = CAMPS[state.seats[0]][0];
+      paintAll(); showStats();
+      if (over) { say(d.end.text); UI.end(d.end); }
+    },
+    resume: function () { if (!over) nextTurn(); }
+  });
 
   if (new URLSearchParams(location.search).has('debug')) {
     root.__cc = { engine: Engine, state: function () { return state; }, settings: settings, tap: tap, humanMove: humanMove };
