@@ -163,6 +163,28 @@ _rate_lock = threading.Lock()
 # replaced archive corrects itself before anybody files a bug — the ETag
 # carries the ZIM file's size and mtime, so the correction is automatic.
 ZIM_CONTENT_MAX_AGE = 60
+_OWN_ZIM_NAMES = frozenset(o.name for o in __import__("zimi.ownzims", fromlist=["OWN"]).OWN)
+
+
+def own_zims_version():
+    """One token for Zimi's own ZIMs (the games, the Almanac), from the
+    stamp beside each built file (the hash of its source). A rebuilt own
+    ZIM is then a different worker, so the phone drops the copies of its
+    pages it kept and every open window reloads, as for a changed script:
+    they are code, and the page, its scripts and its strings must match."""
+    from zimi import ownzims
+
+    out = []
+    try:
+        for fn in sorted(os.listdir(ownzims.OUT_DIR)):
+            if fn.endswith(".zim.source"):
+                with open(os.path.join(ownzims.OUT_DIR, fn), encoding="ascii") as f:
+                    out.append(fn + f.read().strip())
+    except OSError:
+        pass
+    return hashlib.md5("".join(out).encode()).hexdigest()[:8]
+
+
 # A word said by the server: kept by the browser for a minute, so a second
 # tap is instant and a voice downloaded or removed is heard a minute later
 # at most (the server keeps its own cache).
@@ -1149,6 +1171,7 @@ if os.path.isdir(_STATIC_DIR):
             + _static_hash("fieldguide-card.js")
             + _static_hash("fieldguide-offline.js")
             + _keep_scripts_version()
+            + own_zims_version()
             + _static_hash("apps.css")
             + _static_hash("apps.js")
             # The PDF viewer and Zimi's reader inlined into it.
@@ -4646,7 +4669,14 @@ class ZimHandler(BaseHTTPRequestHandler):
         # invalidates every entry the moment the window closes — the exposure
         # is "up to a minute of stale", which is shorter than the afternoon
         # that caused this rule and shorter than a person's patience for Back.
-        self.send_header("Cache-Control", f"private, max-age={ZIM_CONTENT_MAX_AGE}")
+        # Zimi's own ZIMs are code (a page, its scripts and its strings are one
+        # version): always asked, answered with a cheap 304 while they are the
+        # same file, never reused for a minute (or, behind a CDN that rewrites
+        # max-age, for hours) across a deploy.
+        own = zim_name in _OWN_ZIM_NAMES
+        self.send_header(
+            "Cache-Control", "private, no-cache" if own else f"private, max-age={ZIM_CONTENT_MAX_AGE}"
+        )
         self.send_header("Vary", "Sec-Fetch-Dest")
         self.send_header("ETag", etag)
 

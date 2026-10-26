@@ -189,6 +189,15 @@ const DEADLINE_PROBE_MS = 4000;
 // still goes out, so the first answer to come back ends it).
 const NETWORK_DOWN_MS = 15000;
 let networkDownUntil = 0;
+// Zimi's own ZIMs (ownzims.OWN) are code, not articles: a page of the games and the scripts and strings it loads
+// are one version, and a mix of a kept old file beside a new one is broken (labels shown as raw keys). Right after
+// a deploy a busy NAS is slow, and a kept copy answering for being slow produced exactly that. These wait as long
+// as a request with nothing kept would, and a kept copy answers only when the network is down or has given up.
+const OWN_ZIM_PREFIXES = ['/w/zimi_games/', '/w/zimi_almanac/'];
+function _isOwnZimEntry(url) {
+  const path = new URL(url).pathname;
+  return OWN_ZIM_PREFIXES.some(p => path.startsWith(p));
+}
 
 // Non-identity API/data (article reads, health, manage, language lists). These
 // do not expose the library index and tolerate a cached fallback when offline.
@@ -417,7 +426,7 @@ async function networkFirst(event) {
   const down = Date.now() < networkDownUntil;
   if (!kept && !down) return net.catch(() => offlineResponse());
   let timer;
-  const wait = kept ? (down ? 0 : DEADLINE_KEPT_MS) : DEADLINE_COLD_MS;
+  const wait = kept && !_isOwnZimEntry(request.url) ? (down ? 0 : DEADLINE_KEPT_MS) : down && kept ? 0 : DEADLINE_COLD_MS;
   const late = new Promise(r => { timer = setTimeout(() => r(null), wait); });
   let resp = null;
   try { resp = await Promise.race([net, late]); } catch (e) { /* no answer */ }
