@@ -103,7 +103,7 @@
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   Play.applyTheme();
   var PREFS_KEY = 'zimi.games.jigsaw.prefs', BEST_KEY = 'zimi.games.jigsaw.best';
-  var PICTURE_TRIES = 4, SCENE_W = 800, SCENE_H = 600, TRAY_RATIO = 0.55, MAX_BOARD_W = 640, TICK_MS = 500, SNAP_MS = 160;
+  var PICTURE_TRIES = 10, SCENE_W = 800, SCENE_H = 600, TRAY_RATIO = 0.55, MAX_BOARD_W = 640, TICK_MS = 500, SNAP_MS = 160;
   var els = { area: $('jg-area'), board: $('jg-board'), ghost: $('jg-ghost'), msg: $('jg-msg'), time: $('jg-time'), peek: $('jg-peek'), credit: $('jg-credit'), read: $('jg-read'), newBtn: $('jg-new') };
   var line = Play.status(els.msg), pending = null;   // a choice made in the New game pane, taken when it starts
   var zim = null, zimTitle = '';
