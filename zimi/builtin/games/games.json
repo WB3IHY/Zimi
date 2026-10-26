@@ -590,7 +590,7 @@
   "wiki": "Wordle",
   "path": "fiveletters.html",
   "title": "Five Letters",
-  "blurb": "Guess the word in six tries. Daily or practice.",
+  "blurb": "Guess the word in six tries, daily or practice",
   "why": "Find the five-letter word in six tries.",
   "origin": {
    "year": 2021,
@@ -607,8 +607,8 @@
   "wiki": "Wikiracing",
   "path": "wikirace.html",
   "title": "Wiki Race",
-  "blurb": "Go from one article to another using links only. Uses your own Wikipedia.",
-  "why": "Players race between Wikipedia articles using only links. Here it uses your own library.",
+  "blurb": "Reach one article from another using links only",
+  "why": "Players race between Wikipedia articles using only links. Here it uses your Wikipedia.",
   "origin": {
    "year": null,
    "era": "2000s"
@@ -624,7 +624,7 @@
   "wiki": "Hangman (game)",
   "path": "letterbyletter.html",
   "title": "Letter by Letter",
-  "blurb": "Guess the word one letter at a time. Words come from your Wiktionary.",
+  "blurb": "Guess the word letter by letter from your Wiktionary",
   "why": "Keep the balloon up by guessing the letters of a word.",
   "origin": {
    "year": 1894,
@@ -641,8 +641,8 @@
   "wiki": "Quiz",
   "path": "quizzical.html",
   "title": "Quizzical",
-  "blurb": "Questions made from your own library",
-  "why": "Questions made from the articles in your own library.",
+  "blurb": "Questions made from your Wikipedia",
+  "why": "Questions made from the articles in your Wikipedia.",
   "origin": {
    "year": null,
    "era": null
@@ -658,7 +658,7 @@
   "wiki": "Jigsaw puzzle",
   "path": "jigsaw.html",
   "title": "Jigsaw",
-  "blurb": "A picture from your Wikipedia. 12 to 100 pieces.",
+  "blurb": "A picture from your Wikipedia, cut into pieces",
   "why": "Jigsaw puzzles began in the 1760s as maps cut into pieces to teach geography.",
   "origin": {
    "year": 1760,
