@@ -1091,6 +1091,7 @@
  "shell.summary.anim": "Animation {mode}",
  "shell.summary.timer": "Timer off",
  "shell.thinking": "Computer is thinking",
+ "shell.undo": "Undo",
  "shell.watch.intro": "The computer plays both sides and explains each move. You can pause, step or take over at any time.",
  "shell.watch.running": "The computer is playing both sides. Use the bar under the title to pause, step or take over.",
  "shell.watch.start": "Start watching",
@@ -1161,6 +1162,7 @@
  "stacker.nextPieces": "Next pieces",
  "stacker.rows": "Rows",
  "stacker.well": "The well",
+ "t2048.reached": "You made the 2048 tile",
  "time.day": {
   "one": "{n} day ago",
   "other": "{n} days ago"

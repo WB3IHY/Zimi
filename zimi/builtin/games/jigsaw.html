@@ -14,49 +14,22 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Jigsaw</h1>
-  <button class="ar-btn" id="jg-new" type="button" aria-haspopup="dialog">New</button>
+  <span class="ar-stat" id="jg-time" data-gs-timer>0:00</span>
+  <button class="ar-btn" id="jg-new" type="button" hidden data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="pl-main jg-main">
-  <div class="pl-hud" aria-label="Your puzzle">
-    <div class="pl-stat"><small>Placed</small><b id="jg-placed"></b></div>
-    <div class="pl-stat"><small>Time</small><b id="jg-time">0:00</b></div>
-  </div>
+  <p class="pl-msg" id="jg-msg"></p>
   <div class="jg-area" id="jg-area">
     <div class="jg-board" id="jg-board"><div class="jg-ghost" id="jg-ghost"></div></div>
   </div>
-  <p class="pl-msg" id="jg-msg" role="status" aria-live="polite"></p>
-  <div class="pl-keys">
-    <button class="ar-btn" id="jg-peek" type="button" title="Hold to see the whole picture">Hold to peek</button>
+  <div class="gs-actionrow">
+    <button class="ar-btn" id="jg-peek" type="button" title="Hold to see the whole picture" data-t="jigsaw.peek" data-t-title="jigsaw.peekTitle">Peek</button>
+    <a class="ar-btn" id="jg-read" href="#" hidden data-t="jigsaw.read">Read the article</a>
   </div>
-  <p class="pl-help gl-source" id="jg-source"></p>
-  <p class="pl-help">Drag each piece onto the faint picture above. It clicks into place when it is close.</p>
+  <p class="jg-credit" id="jg-credit"></p>
 </main>
 
-<div class="ar-sheet" id="jg-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="jg-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="jg-sheet-title">New puzzle</h2>
-    <p>Pieces</p>
-    <div class="ar-sheet-actions jg-count" id="jg-count" style="justify-content:flex-start;margin-top:0"></div>
-    <p><button class="ar-btn" id="jg-today" type="button" aria-pressed="false" hidden>Today's picture, the same for everyone here</button></p>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="jg-cancel" type="button">Cancel</button>
-      <button class="ar-btn gm-play" id="jg-start" type="button">Start</button>
-    </div>
-  </div>
-</div>
-
-<div class="ar-sheet" id="jg-win" hidden role="dialog" aria-modal="true" aria-labelledby="jg-win-title">
-  <div class="ar-sheet-card">
-    <h2 id="jg-win-title">Complete</h2>
-    <p id="jg-win-text"></p>
-    <div class="ar-sheet-actions">
-      <a class="ar-btn" id="jg-win-read" href="#" hidden>Read the article</a>
-      <button class="ar-btn" id="jg-win-again" type="button">Another</button>
-      <button class="ar-btn" id="jg-win-close" type="button" aria-pressed="true">Close</button>
-    </div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="librarykit.js"></script>
 <script src="jigsaw.js"></script>

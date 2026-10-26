@@ -100,19 +100,18 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   Play.applyTheme();
   var PREFS_KEY = 'zimi.games.jigsaw.prefs', BEST_KEY = 'zimi.games.jigsaw.best';
   var PICTURE_TRIES = 4, SCENE_W = 800, SCENE_H = 600, TRAY_RATIO = 0.55, MAX_BOARD_W = 640, TICK_MS = 500, SNAP_MS = 160;
-  var els = { area: $('jg-area'), board: $('jg-board'), ghost: $('jg-ghost'), msg: $('jg-msg'), placed: $('jg-placed'), time: $('jg-time'), peek: $('jg-peek'), source: $('jg-source'),
-    newBtn: $('jg-new'), sheet: $('jg-sheet'), count: $('jg-count'), today: $('jg-today'), start: $('jg-start'), cancel: $('jg-cancel'),
-    win: $('jg-win'), winTitle: $('jg-win-title'), winText: $('jg-win-text'), winRead: $('jg-win-read'), winAgain: $('jg-win-again'), winClose: $('jg-win-close') };
+  var els = { area: $('jg-area'), board: $('jg-board'), ghost: $('jg-ghost'), msg: $('jg-msg'), time: $('jg-time'), peek: $('jg-peek'), credit: $('jg-credit'), read: $('jg-read'), newBtn: $('jg-new') };
+  var line = Play.status(els.msg), pending = null;   // a choice made in the New game pane, taken when it starts
   var zim = null, zimTitle = '';
   var prefs = Play.load(PREFS_KEY, { count: 24, today: false });
   var puzzle = null, timer = null, today = Lib.dayKey(new Date()), z = 1;
 
   function el(tag, cls) { var e = document.createElement(tag); if (cls) e.className = cls; return e; }
-  function say(t) { els.msg.textContent = t || ''; els.msg.classList.toggle('gl-loading', !!t && /\.\.\.$/.test(t)); }
+  function say(t) { line.say(t || ''); els.msg.classList.toggle('gl-loading', !!t); }
 
   // A picture to cut: {url, w, h, credit, title?, path?, zim?}.
   function fromLibrary(daily) {
@@ -123,7 +122,7 @@
         if (!r || !r.thumbnail) throw new Error('no picture');
         return new Promise(function (ok, no) {
           var img = new Image();
-          img.onload = function () { Math.min(img.naturalWidth, img.naturalHeight) >= MIN_SIDE ? ok({ url: r.thumbnail, w: img.naturalWidth, h: img.naturalHeight, title: r.title, path: r.path, zim: zim, credit: r.title + ', from ' + zimTitle + ' in your library' }) : no(new Error('too small')); };
+          img.onload = function () { Math.min(img.naturalWidth, img.naturalHeight) >= MIN_SIDE ? ok({ url: r.thumbnail, w: img.naturalWidth, h: img.naturalHeight, title: r.title, path: r.path, zim: zim, credit: T('jigsaw.credit', { title: r.title, source: zimTitle }) }) : no(new Error('too small')); };
           img.onerror = function () { no(new Error('no image')); };
           img.src = r.thumbnail;
         });
@@ -138,13 +137,13 @@
     var c = document.createElement('canvas'); c.width = SCENE_W; c.height = SCENE_H;
     var rng = Lib.rng(seed), kind = SCENES[Math.floor(rng() * SCENES.length)];
     drawScene(c.getContext('2d'), SCENE_W, SCENE_H, kind, rng);
-    return { url: c.toDataURL('image/jpeg', 0.9), w: SCENE_W, h: SCENE_H, credit: 'A picture drawn by ZimiGames (' + kind + ')' };
+    return { url: c.toDataURL('image/jpeg', 0.9), w: SCENE_W, h: SCENE_H, credit: T('jigsaw.drawn') };
   }
   function getPicture(daily) {
     var seed = daily ? Lib.hash('jigsaw|' + today) : Math.floor(Math.random() * 4294967295);
     if (!zim) return Promise.resolve(drawn(seed));
     return fromLibrary(daily).catch(function () {
-      var p = drawn(seed); p.note = 'Your Wikipedia has no usable pictures (a build without images?), so this one is drawn.'; return p;
+      var p = drawn(seed); p.note = T('jigsaw.noPictures'); return p;
     });
   }
 
@@ -177,7 +176,7 @@
   }
   function paintHud() {
     var n = puzzle ? puzzle.pieces.filter(function (p) { return p.locked; }).length : 0;
-    els.placed.textContent = puzzle ? n + ' of ' + puzzle.pieces.length : '';
+    if (puzzle && !puzzle.done) line.say(T('jigsaw.placed', { n: n, total: puzzle.pieces.length }));
     els.time.textContent = puzzle ? Play.fmtClock(elapsed()) : '0:00';
   }
   function elapsed() { return puzzle.ms + (puzzle.since ? performance.now() - puzzle.since : 0); }
@@ -197,9 +196,10 @@
       els.area.appendChild(node);
       pieces.push({ i: i, node: node, locked: false, fx: starts[i].x / s.W, fy: starts[i].y / s.W });
     }
+    say('');
     puzzle = { pic: pic, cols: g.cols, rows: g.rows, aspect: aspect, pieces: pieces, ms: 0, since: performance.now(), done: false, daily: daily };
     layout(); paintHud();
-    els.source.textContent = pic.credit + '.' + (pic.note ? ' ' + pic.note : '');
+    els.credit.textContent = T('jigsaw.picture', { credit: pic.credit }) + (pic.note ? ' ' + pic.note : '');
     if (!timer) timer = setInterval(function () { if (puzzle && puzzle.since && !puzzle.done) els.time.textContent = Play.fmtClock(elapsed()); }, TICK_MS);
   }
 
@@ -207,7 +207,7 @@
     pause(); puzzle = null; paintHud();
     els.area.querySelectorAll('.jg-piece').forEach(function (n) { n.parentNode.removeChild(n); });
     els.ghost.style.backgroundImage = 'none';
-    say('Finding a picture...');
+    say(T('jigsaw.finding'));
     return getPicture(daily).then(function (pic) { say(''); build(pic, count, daily); });
   }
 
@@ -252,11 +252,14 @@
     var key = (zim || 'drawn') + ':' + puzzle.pieces.length, best = Play.load(BEST_KEY, {}), ms = Math.round(puzzle.ms);
     var newBest = !best[key] || ms < best[key];
     if (newBest) { best[key] = ms; Play.save(BEST_KEY, best); }
-    els.winTitle.textContent = 'Complete';
-    els.winText.textContent = puzzle.pieces.length + ' pieces in ' + Play.fmtClock(ms) + (newBest ? ', your best yet.' : '. Your best is ' + Play.fmtClock(best[key]) + '.') + ' Picture: ' + puzzle.pic.credit + '.';
-    els.winRead.hidden = !puzzle.pic.path;
-    if (puzzle.pic.path) els.winRead.href = '/w/' + encodeURIComponent(puzzle.pic.zim) + '/' + puzzle.pic.path.split('/').map(encodeURIComponent).join('/');
-    setTimeout(function () { Play.openSheet(els.win, '#jg-win-again'); }, Play.reducedMotion() ? 0 : SNAP_MS * 2);
+    els.read.hidden = !puzzle.pic.path;
+    if (puzzle.pic.path) els.read.href = '/w/' + encodeURIComponent(puzzle.pic.zim) + '/' + puzzle.pic.path.split('/').map(encodeURIComponent).join('/');
+    line.say(T('jigsaw.done'));
+    ZimiShell.endSheet({
+      result: 'win', after: Play.reducedMotion() ? 0 : SNAP_MS * 2,
+      text: T('jigsaw.picture', { credit: puzzle.pic.credit }),
+      stats: [[T('play.time'), Play.fmtClock(ms)], [T('play.best'), Play.fmtClock(newBest ? ms : best[key])]]
+    });
   }
 
   // The look at the finished picture, while pressed.
@@ -266,29 +269,25 @@
   els.peek.addEventListener('keydown', function (e) { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); peek(true); } });
   els.peek.addEventListener('keyup', function () { peek(false); });
 
-  // ── the new-puzzle sheet ──
-  function openNew() {
-    els.count.innerHTML = '';
-    COUNTS.forEach(function (n) {
-      var b = el('button', 'ar-btn'); b.type = 'button'; b.textContent = n; b.dataset.n = n; b.setAttribute('aria-pressed', String(n === prefs.count));
-      els.count.appendChild(b);
-    });
-    els.today.hidden = !zim; els.today.setAttribute('aria-pressed', String(!!prefs.today && !!zim));
-    Play.openSheet(els.sheet, '#jg-start');
-  }
-  els.count.addEventListener('click', function (e) {
-    var b = e.target.closest('button'); if (!b) return;
-    prefs.count = +b.dataset.n;
-    Array.prototype.forEach.call(els.count.children, function (c) { c.setAttribute('aria-pressed', String(c === b)); });
+  // ── New game: the pieces and the picture are choices about the game, so they sit in the New game pane ──
+  els.newBtn.addEventListener('click', function () {
+    var choice = pending || prefs; pending = null;
+    prefs.count = choice.count; prefs.today = choice.today;
+    Play.save(PREFS_KEY, prefs);
+    newPuzzle(prefs.count, !!prefs.today && !!zim);
   });
-  els.today.addEventListener('click', function () { var on = els.today.getAttribute('aria-pressed') !== 'true'; els.today.setAttribute('aria-pressed', String(on)); prefs.today = on; });
-  els.start.addEventListener('click', function () { Play.closeSheet(els.sheet); Play.save(PREFS_KEY, prefs); newPuzzle(prefs.count, !!prefs.today && !!zim); });
-  els.cancel.addEventListener('click', function () { Play.closeSheet(els.sheet); });
-  els.newBtn.addEventListener('click', openNew);
-  els.winAgain.addEventListener('click', function () { Play.closeSheet(els.win); openNew(); });
-  els.winClose.addEventListener('click', function () { Play.closeSheet(els.win); });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { if (!els.sheet.hidden) Play.closeSheet(els.sheet); else if (!els.win.hidden) Play.closeSheet(els.win); }
+  ZimiShell.game({
+    inProgress: function () { return !!puzzle && !puzzle.done && puzzle.pieces.some(function (p) { return p.locked; }); },
+    menu: function () {
+      var now = pending || { count: prefs.count, today: prefs.today }, rows = [];
+      rows.push(Play.optionRow(T('jigsaw.pieces'), COUNTS.map(function (n) { return [n, Play.num(n)]; }), now.count, function (v) { pending = { count: v, today: now.today }; now = pending; }));
+      if (zim) rows.push(Play.optionRow(T('jigsaw.pictureOf'), [[false, T('jigsaw.random')], [true, T('jigsaw.today')]], !!now.today, function (v) { pending = { count: now.count, today: v }; now = pending; }));
+      return { options: rows };
+    },
+    stats: function () {
+      var best = Play.load(BEST_KEY, {});
+      return Object.keys(best).map(function (k) { return [T('jigsaw.bestOf', { n: +k.split(':')[1] }), Play.fmtClock(best[k])]; });
+    }
   });
   var resizeTimer = null;
   window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(layout, 120); });
