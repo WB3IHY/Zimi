@@ -3,13 +3,12 @@
    if Workers are unavailable it thinks on the main thread for a short while. */
 (function (root) {
   'use strict';
-  if (typeof document === 'undefined' || !root.ZimiXiangqiEngine) return;
-  var E = root.ZimiXiangqiEngine(), F = root.ZimiFairy, BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  if (typeof document === 'undefined' || !root.ZimiXiangqiEngine || !root.BoardUI) return;
+  var E = root.ZimiXiangqiEngine(), F = root.ZimiFairy, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var RED = E.RED, BLACK = E.BLACK, COLS = E.COLS, ROWS = E.ROWS, N = COLS * ROWS;
   var SETTINGS_KEY = 'xiangqi.settings', STATS_KEY = 'xiangqi.stats';
   var FALLBACK_MS = 250, FALLBACK_DEPTH = 3, WORKER_GRACE_MS = 5000, COMPUTER_DELAY_MS = 250;
-  var OLD_NAMES = { strong: 'advanced' };   // the chip that used to be called Strong
-  var NAMES = { 1: 'soldier', 2: 'cannon', 3: 'rook', 4: 'horse', 5: 'elephant', 6: 'advisor', 7: 'general' };
+  var LEVELS = ['beginner', 'casual', 'club', 'strong', 'fairy', 'master'];   // 'strong' is shown as Advanced and 'fairy' as Strong
   var HAN = { 1: { r: '兵', b: '卒' }, 2: { r: '炮', b: '砲' }, 3: { r: '俥', b: '車' }, 4: { r: '傌', b: '馬' }, 5: { r: '相', b: '象' }, 6: { r: '仕', b: '士' }, 7: { r: '帥', b: '將' } };
   var LATIN = { 1: 'P', 2: 'C', 3: 'R', 4: 'H', 5: 'E', 6: 'A', 7: 'K' };
 
@@ -17,18 +16,21 @@
   if (!E.LEVELS[settings.level] && !F.wants(settings.level)) settings.level = 'club';
   if (settings.mode !== 'two') settings.mode = 'cpu';
   if (settings.side !== 'black') settings.side = 'red';
-  if (settings.hints !== false) settings.hints = true;
   if (settings.labels !== 'latin') settings.labels = 'han';
   var stats = BK.load(STATS_KEY, {});
+  // Show legal moves is the shell's Hints setting (Menu > Settings), not a New game option.
+  function hintsOn() { return !root.ZimiShell || root.ZimiShell.settings.get('hints') !== 'off'; }
 
   var els = { board: $('xq-board'), grid: $('xq-grid'), status: $('xq-status'), undo: $('xq-undo'), moves: $('xq-moves'), stats: $('xq-stats'), flip: $('xq-flip') };
   var cells = [], pos, keys, sans, played, over, sel = -1, targets = {}, lastMove = 0, flipped = false, requestId = 0, thinking = false;
   var worker = null, workerOk = true, watchdog = 0;
+  var status = UI.status(els.status);
 
   // The level our own engine plays at: the one chosen, or its best when Strong or Master were chosen and Fairy-Stockfish is not there.
   function engineLevel() { return F.wants(settings.level) ? 'strong' : settings.level; }
   function human(color) { return settings.mode === 'two' || color === (settings.side === 'red' ? RED : BLACK); }
-  function colorName(c) { return c === RED ? 'Red' : 'Black'; }
+  function colorName(c) { return UI.side(c === RED ? 'red' : 'black'); }
+  function levelLabel(l) { return T('chess.level.' + l); }
 
   // ── drawing ──
   function drawLines() {
@@ -89,55 +91,45 @@
       if (lastMove && (s === E.from(lastMove) || s === E.to(lastMove))) cls += ' last';
       if (s === sel) cls += ' sel';
       if (s === kingSq) cls += ' bad';
-      if (settings.hints && targets.hasOwnProperty(s)) cls += ' hint' + (v ? ' cap' : '');
+      if (hintsOn() && targets.hasOwnProperty(s)) cls += ' hint' + (v ? ' cap' : '');
       c.className = cls;
       var html = v ? pieceHtml(v) : '';
       if (c.dataset.sig !== html) { c.innerHTML = html; c.dataset.sig = html; }
-      c.setAttribute('aria-label', E.squareName(s) + ', ' + (v ? (v > 0 ? 'red ' : 'black ') + NAMES[Math.abs(v)] : targets.hasOwnProperty(s) ? 'move here' : 'empty') + (s === sel ? ', selected' : ''));
+      var name = E.squareName(s), label = v ? T('chess.sq.piece', { sq: name, color: colorName(v > 0 ? RED : BLACK).toLowerCase(), piece: T('xiangqi.piece.' + Math.abs(v)) }) : T(targets.hasOwnProperty(s) ? 'chess.sq.target' : 'chess.sq.empty', { sq: name });
+      c.setAttribute('aria-label', s === sel ? T('chess.sq.selected', { label: label }) : label);
     }
     els.undo.disabled = !played.length || thinking;
     els.flip.setAttribute('aria-pressed', String(flipped !== (settings.mode === 'cpu' && settings.side === 'black')));
   }
 
-  function say(text, busy) {
-    els.status.textContent = '';
-    if (busy) { var s = document.createElement('span'); s.className = 'bg-spin'; els.status.appendChild(s); }
-    var dot = document.createElement('i');
-    dot.className = 'bg-dot ' + (pos.turn === RED ? 'r' : 'k'); dot.setAttribute('aria-hidden', 'true');
-    if (!over) els.status.appendChild(dot);
-    els.status.appendChild(document.createTextNode(text));
-  }
-  function showStats() {
-    var s = stats[settings.level] || { w: 0, l: 0, d: 0 };
-    els.stats.textContent = settings.mode === 'cpu' ? 'vs ' + F.levelName(settings.level, OLD_NAMES) + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
-  }
+  function say(text, busy) { status.turn(text, busy); }
+  function showStats() { UI.record(els.stats, levelLabel(settings.level), settings.mode === 'cpu' ? stats[settings.level] : null); }
   function paintMoves() {
     var html = '';
     for (var i = 0; i < sans.length; i++) {
       if (i % 2 === 0) html += '<span class="xq-n">' + (i / 2 + 1) + '.</span>';
       html += '<span class="xq-m' + (i === sans.length - 1 ? ' now' : '') + '">' + sans[i] + '</span>';
     }
-    els.moves.innerHTML = html || '<span class="xq-none">No moves yet</span>';
+    els.moves.innerHTML = html;
     els.moves.scrollTop = els.moves.scrollHeight;
   }
 
   // ── turns ──
-  var WHY = { repetition: 'A draw: the same position came up three times.', sixty: 'A draw: sixty moves each without a capture.' };
+  var WHY = { repetition: 'xiangqi.why.repetition', sixty: 'xiangqi.why.sixty' };
   function finish(st) {
     over = true; thinking = false; sel = -1; targets = {};
     var msg, result;
     if (st.result === 'mate') {
-      msg = (st.check ? 'Checkmate. ' : 'No legal move, which loses in xiangqi. ') + (settings.mode === 'two' ? colorName(st.winner) + ' wins.' : human(st.winner) ? 'You win.' : 'The computer wins.');
+      msg = T(st.check ? 'chess.why.mate' : 'xiangqi.why.stuck');
       result = human(st.winner) ? 'win' : 'loss';
-    } else { msg = WHY[st.result]; result = 'draw'; }
+    } else { msg = T(WHY[st.result]); result = 'draw'; }
     if (settings.mode === 'cpu') {
       var s = stats[settings.level] = stats[settings.level] || { w: 0, l: 0, d: 0 };
       if (result === 'win') s.w++; else if (result === 'loss') s.l++; else s.d++;
       BK.save(STATS_KEY, stats);
     }
     paint(); say(msg); showStats();
-    $('xq-result-text').textContent = msg;
-    resultSheet.open($('xq-again'));
+    UI.end(settings.mode === 'two' && st.result === 'mate' ? { result: 'win', name: colorName(st.winner), text: msg } : { result: result === 'loss' ? 'lose' : result, text: msg });
   }
 
   function afterMove() {
@@ -146,8 +138,8 @@
     paintMoves();
     if (st.over) { finish(st); return; }
     paint();
-    var line = settings.mode === 'two' ? colorName(pos.turn) + ' to move' : human(pos.turn) ? 'Your turn' : 'Computer is thinking';
-    say((st.check ? 'Check. ' : '') + line, !human(pos.turn));
+    var line = settings.mode === 'two' ? T('board.toMove', { name: colorName(pos.turn) }) : human(pos.turn) ? T('board.yourTurn') : T('shell.thinking');
+    say(st.check ? T('chess.check', { line: line }) : line, !human(pos.turn));
     if (!human(pos.turn)) askComputer();
   }
 
@@ -203,8 +195,7 @@
     F.ask('xiangqi', E, pos, played, settings.level, function (move, why) {
       if (id !== requestId || !thinking) return;
       if (move) { onAnswer(id, move); return; }
-      var note = why === 'unavailable' ? F.note() : '';
-      if (note) say(note + 'Computer is thinking', true);
+      if (why === 'unavailable') say(T('board.fairyNote', { thinking: T('shell.thinking') }), true);
       askLocal(id);
     });
   }
@@ -230,8 +221,8 @@
     if (sel >= 0 && targets.hasOwnProperty(s)) { play(E.findMove(pos, sel, s)); return; }
     if (v * pos.turn > 0 && s !== sel) {
       sel = s; targets = movesFrom(s);
-      if (!Object.keys(targets).length) say('That piece cannot move');
-      else say(settings.mode === 'two' ? colorName(pos.turn) + ' to move' : 'Choose where to move');
+      if (!Object.keys(targets).length) { sel = -1; UI.refuse(status, e.currentTarget, T('chess.cantMove')); }
+      else say(settings.mode === 'two' ? T('board.toMove', { name: colorName(pos.turn) }) : T('board.chooseWhere'));
     } else { sel = -1; targets = {}; }
     paint();
   }
@@ -250,42 +241,44 @@
     requestId++; thinking = false; over = false; sel = -1; targets = {}; lastMove = 0; clearTimeout(watchdog); F.cancel();
     pos = E.startPosition(); keys = [E.key(pos)]; sans = []; played = [];
     flipped = settings.mode === 'cpu' && settings.side === 'black';
-    resultSheet.close();
     showStats(); paintMoves(); paint();
     afterMove();
   }
 
   // ── bar, menu, keys ──
-  var menu = BK.sheet($('xq-sheet')), resultSheet = BK.sheet($('xq-result'));
-  function syncMenu() {
-    BK.chipSet($('xq-f-mode'), settings.mode); BK.chipSet($('xq-f-level'), settings.level);
-    BK.chipSet($('xq-f-side'), settings.side); BK.chipSet($('xq-f-labels'), settings.labels); $('xq-hints').checked = settings.hints;
-    refreshMenu();
+  // Menu > New game shows these rows with Start last; Start clicks #xq-new, which applies them and begins.
+  var draft = null;
+  function menuOptions() {
+    draft = { mode: settings.mode, level: settings.level, side: settings.side, labels: settings.labels };
+    var rows = [], level, side;
+    rows.push(UI.row(T('board.opponent'), [['cpu', T('board.computer')], ['two', T('board.twoPlayers')]], draft.mode, function (v) { draft.mode = v; level.disable(v === 'two'); side.disable(v === 'two'); }));
+    level = UI.row(T('board.level'), LEVELS.map(function (l) { return [l, levelLabel(l)]; }), draft.level, function (v) { draft.level = v; });
+    side = UI.row(T('board.youPlay'), [['red', T('xiangqi.side.red')], ['black', T('board.black')]], draft.side, function (v) { draft.side = v; });
+    rows.push(level, side, UI.row(T('xiangqi.pieces'), [['han', T('xiangqi.pieces.han')], ['latin', T('xiangqi.pieces.latin')]], draft.labels, function (v) { draft.labels = v; }));
+    level.disable(draft.mode === 'two'); side.disable(draft.mode === 'two');
+    return UI.options(rows);
   }
-  function refreshMenu() {
-    var two = BK.chipValue($('xq-f-mode')) === 'two';
-    $('xq-f-level').disabled = two; $('xq-f-side').disabled = two;
-    $('xq-f-level').style.opacity = $('xq-f-side').style.opacity = two ? 0.45 : 1;
-  }
-  $('xq-new').addEventListener('click', function () { syncMenu(); menu.open(); });
-  $('xq-f-mode').addEventListener('change', refreshMenu);
-  $('xq-cancel').addEventListener('click', menu.close);
-  $('xq-start').addEventListener('click', function () {
-    settings.mode = BK.chipValue($('xq-f-mode')); settings.level = BK.chipValue($('xq-f-level'));
-    settings.side = BK.chipValue($('xq-f-side')); settings.labels = BK.chipValue($('xq-f-labels')); settings.hints = $('xq-hints').checked;
-    BK.save(SETTINGS_KEY, settings);
-    menu.close(); newGame();
+  $('xq-new').addEventListener('click', function () {
+    if (draft) { settings.mode = draft.mode; settings.level = draft.level; settings.side = draft.side; settings.labels = draft.labels; draft = null; BK.save(SETTINGS_KEY, settings); }
+    newGame();
   });
-  $('xq-again').addEventListener('click', newGame);
-  $('xq-close').addEventListener('click', function () { resultSheet.close(); });
   els.undo.addEventListener('click', undo);
   els.flip.addEventListener('click', function () { flipped = !flipped; paint(); });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet,input')) return;
     var k = e.key.toLowerCase();
-    if (k === 'n') { syncMenu(); menu.open(); } else if (k === 'u') undo(); else if (k === 'f') { flipped = !flipped; paint(); }
+    if (k === 'n') root.ZimiShell.openMenu(); else if (k === 'u') undo(); else if (k === 'f') { flipped = !flipped; paint(); }
     else if (e.key === 'Escape' && sel >= 0) { sel = -1; targets = {}; paint(); }
   });
+
+  if (root.ZimiShell) {
+    root.ZimiShell.settings.on(function (k) { if (k === 'hints' || k === '*') paint(); });
+    root.ZimiShell.game({
+      hints: true, menu: menuOptions,
+      stats: function () { var s = stats[settings.level]; return s && s.w + s.l + s.d ? [T(s.d ? 'board.record.draws' : 'board.record', { level: levelLabel(settings.level), won: s.w, lost: s.l, drawn: s.d })] : []; },
+      inProgress: function () { return !over && played.length > 0; }
+    });
+  }
 
   drawLines(); buildBoard();
   pos = E.startPosition();

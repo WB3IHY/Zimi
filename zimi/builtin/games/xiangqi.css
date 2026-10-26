@@ -14,8 +14,8 @@
 .xq-pt { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; padding: 0; border: 0; background: transparent; cursor: pointer; border-radius: 50%; }
 .xq-pt:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; z-index: 3; }
 .xq-pt::before { content: ""; position: absolute; width: 92%; height: 92%; border-radius: 50%; pointer-events: none; }
-.xq-pt.last::before { box-shadow: inset 0 0 0 3px var(--accent); background: rgba(250, 204, 21, 0.2); }
-.xq-pt.sel::before { background: var(--sel); box-shadow: 0 0 0 3px var(--accent); }
+.xq-pt.last::before { background: var(--last); }
+.xq-pt.sel::before { background: var(--sel); box-shadow: var(--select); }
 .xq-pt.bad::before { background: radial-gradient(circle, rgba(229, 57, 53, 0.85), rgba(229, 57, 53, 0) 72%); }
 .xq-pt.hint::after { content: ""; position: absolute; width: 26%; height: 26%; border-radius: 50%; background: var(--xq-rule); opacity: 0.55; pointer-events: none; }
 .xq-pt.hint.cap::after { width: 92%; height: 92%; background: transparent; border: 4px solid var(--danger); opacity: 0.85; }
@@ -26,9 +26,8 @@
 .xq-pc span { position: relative; z-index: 1; font: 700 calc(var(--xw) * 0.066)/1 "Noto Serif CJK SC", "Songti SC", "STKaiti", "KaiTi", "SimSun", "Microsoft YaHei", serif; }
 .xq-pc.latin span { font: 800 calc(var(--xw) * 0.056)/1 var(--font); }
 
-.xq-moves { width: min(100vw - 24px, 540px); min-height: 38px; max-height: 66px; overflow: auto; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font: 13px/1.7 var(--mono); }
+.xq-moves { max-height: 66px; overflow: auto; line-height: 1.7; }
 .xq-n { color: var(--ink3); margin-right: 3px; }
-.xq-m { margin-right: 9px; }
-.xq-m.now { font-weight: 800; color: var(--accent); }
-.xq-none { color: var(--ink3); font-family: var(--font); }
+.xq-m { margin-right: 9px; font-variant-numeric: tabular-nums; }
+.xq-m.now { font-weight: 700; color: var(--ink); }
 .bg-dot.r { background: var(--xq-red); } .bg-dot.k { background: var(--xq-black); }

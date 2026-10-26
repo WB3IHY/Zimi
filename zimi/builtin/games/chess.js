@@ -15,8 +15,9 @@
   if (!E.LEVELS[settings.level] && !F.wants(settings.level)) settings.level = 'club';
   if (settings.mode !== 'two') settings.mode = 'cpu';
   if (settings.side !== 'black') settings.side = 'white';
-  if (settings.hints !== false) settings.hints = true;
   var stats = BK.load(STATS_KEY, {});
+  // Show legal moves is the shell's Hints setting (Menu > Settings), not a New game option.
+  function hintsOn() { return !root.ZimiShell || root.ZimiShell.settings.get('hints') !== 'off'; }
 
   var els = { board: $('cs-board'), status: $('cs-status'), undo: $('cs-undo'), moves: $('cs-moves'), opening: $('cs-opening'), stats: $('cs-stats'), flip: $('cs-flip') };
   var cells = [], pos, keys, sans, played, over, sel = -1, targets = {}, lastMove = 0, flipped = false, requestId = 0, thinking = false;
@@ -59,7 +60,7 @@
       if (lastMove && (s === E.from(lastMove) || s === E.to(lastMove))) cls += ' last';
       if (s === sel) cls += ' sel';
       if (s === kingSq) cls += ' bad';
-      if (settings.hints && targets.hasOwnProperty(s)) cls += ' hint' + (v || targets[s] ? ' cap' : '');
+      if (hintsOn() && targets.hasOwnProperty(s)) cls += ' hint' + (v || targets[s] ? ' cap' : '');
       c.className = cls;
       var html = v ? pieceSvg(Math.abs(v), v > 0 ? WHITE : BLACK) : '';
       var edge = '';
@@ -283,17 +284,17 @@
   // Menu > New game shows these rows with Start last; Start clicks #cs-new, which applies them and begins.
   var draft = null;
   function menuOptions() {
-    draft = { mode: settings.mode, level: settings.level, side: settings.side, hints: settings.hints };
+    draft = { mode: settings.mode, level: settings.level, side: settings.side };
     var rows = [], level;
     rows.push(UI.row(T('board.opponent'), [['cpu', T('board.computer')], ['two', T('board.twoPlayers')]], draft.mode, function (v) { draft.mode = v; level.disable(v === 'two'); side.disable(v === 'two'); }));
     level = UI.row(T('board.level'), LEVELS.map(function (l) { return [l, levelLabel(l)]; }), draft.level, function (v) { draft.level = v; });
     var side = UI.row(T('board.youPlay'), [['white', T('chess.side.white')], ['black', T('board.black')]], draft.side, function (v) { draft.side = v; });
-    rows.push(level, side, UI.toggle(T('chess.legalMoves'), draft.hints, function (v) { draft.hints = v; }));
+    rows.push(level, side);
     level.disable(draft.mode === 'two'); side.disable(draft.mode === 'two');
     return UI.options(rows);
   }
   $('cs-new').addEventListener('click', function () {
-    if (draft) { settings.mode = draft.mode; settings.level = draft.level; settings.side = draft.side; settings.hints = draft.hints; draft = null; BK.save(SETTINGS_KEY, settings); }
+    if (draft) { settings.mode = draft.mode; settings.level = draft.level; settings.side = draft.side; draft = null; BK.save(SETTINGS_KEY, settings); }
     newGame();
   });
   els.undo.addEventListener('click', undo);
@@ -305,6 +306,7 @@
     else if (e.key === 'Escape' && sel >= 0) { sel = -1; targets = {}; paint(); }
   });
 
+  if (root.ZimiShell) root.ZimiShell.settings.on(function (k) { if (k === 'hints' || k === '*') paint(); });
   if (root.ZimiShell) root.ZimiShell.game({
     moveTimer: true, hints: true,
     menu: menuOptions,

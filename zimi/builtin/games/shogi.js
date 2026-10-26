@@ -3,12 +3,11 @@
    unavailable it thinks on the main thread for a short while. */
 (function (root) {
   'use strict';
-  if (typeof document === 'undefined' || !root.ZimiShogiEngine) return;
-  var F = root.ZimiFairy, BK = root.BoardKit, $ = function (id) { return document.getElementById(id); };
+  if (typeof document === 'undefined' || !root.ZimiShogiEngine || !root.BoardUI) return;
+  var F = root.ZimiFairy, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var SETTINGS_KEY = 'shogi.settings', STATS_KEY = 'shogi.stats';
   var FALLBACK_MS = 250, FALLBACK_DEPTH = 2, WORKER_GRACE_MS = 5000, COMPUTER_DELAY_MS = 250;
-  var OLD_NAMES = { strong: 'advanced' };   // the chip that used to be called Strong
-  var NAMES = { 1: 'pawn', 2: 'lance', 3: 'knight', 4: 'silver', 5: 'gold', 6: 'bishop', 7: 'rook', 8: 'king', 9: 'tokin', 10: 'promoted lance', 11: 'promoted knight', 12: 'promoted silver', 14: 'horse', 15: 'dragon' };
+  var LEVELS = ['beginner', 'casual', 'club', 'strong', 'fairy', 'master'];   // 'strong' is shown as Advanced and 'fairy' as Strong
   var KANJI = { 1: '歩', 2: '香', 3: '桂', 4: '銀', 5: '金', 6: '角', 7: '飛', 8: '玉', 9: 'と', 10: '杏', 11: '圭', 12: '全', 14: '馬', 15: '龍' };
   var LATIN = { 1: 'P', 2: 'L', 3: 'N', 4: 'S', 5: 'G', 6: 'B', 7: 'R', 8: 'K', 9: '+P', 10: '+L', 11: '+N', 12: '+S', 14: '+B', 15: '+R' };
   var HAND_ORDER = [7, 6, 5, 4, 3, 2, 1];
@@ -17,8 +16,11 @@
   var settings = BK.load(SETTINGS_KEY, {});
   var E = null, SIZE = 9, SENTE = 1, GOTE = -1, PROMOTED = 8;
   var stats = BK.load(STATS_KEY, {});
+  // Show legal moves is the shell's Hints setting (Menu > Settings), not a New game option.
+  function hintsOn() { return !root.ZimiShell || root.ZimiShell.settings.get('hints') !== 'off'; }
 
-  var els = { board: $('sg-board'), status: $('sg-status'), undo: $('sg-undo'), moves: $('sg-moves'), stats: $('sg-stats'), flip: $('sg-flip') };
+  var status = null, els = { board: $('sg-board'), status: $('sg-status'), undo: $('sg-undo'), moves: $('sg-moves'), stats: $('sg-stats'), flip: $('sg-flip') };
+  status = UI.status(els.status);
   var cells = [], pos, keys, sans, played, over, sel = -1, selDrop = 0, targets = {}, lastMove = 0, flipped = false, requestId = 0, thinking = false;
   var worker = null, workerOk = true, watchdog = 0, pendingPromo = null;
 
@@ -26,7 +28,8 @@
   function engineLevel() { return F.wants(settings.level) ? 'strong' : settings.level; }
   function fairyGame() { return settings.variant === 'mini' ? 'minishogi' : 'shogi'; }
   function human(color) { return settings.mode === 'two' || color === (settings.side === 'sente' ? SENTE : GOTE); }
-  function colorName(c) { return c === SENTE ? 'Sente' : 'Gote'; }
+  function colorName(c) { return T(c === SENTE ? 'shogi.side.sente' : 'shogi.side.gote'); }
+  function levelLabel(l) { return T('chess.level.' + l); }
   function bottomColor() { return flipped ? GOTE : SENTE; }
   function sqAt(d) { return flipped ? SIZE * SIZE - 1 - d : d; }
 
@@ -73,12 +76,13 @@
       if (s === lastTo || s === lastFrom) cls += ' last';
       if (s === sel) cls += ' sel';
       if (s === kingSq) cls += ' bad';
-      if (settings.hints && targets.hasOwnProperty(s)) cls += ' hint' + (v ? ' cap' : '');
+      if (hintsOn() && targets.hasOwnProperty(s)) cls += ' hint' + (v ? ' cap' : '');
       c.className = cls;
       var html = v ? pieceSvg(Math.abs(v), v > 0 ? SENTE : GOTE) : '';
       var sig = html + settings.labels + bottomColor();
       if (c.dataset.sig !== sig) { c.innerHTML = html; c.dataset.sig = sig; }
-      c.setAttribute('aria-label', E.squareName(s) + ', ' + (v ? (v > 0 ? 'sente ' : 'gote ') + NAMES[Math.abs(v)] : targets.hasOwnProperty(s) ? 'move here' : 'empty') + (s === sel ? ', selected' : ''));
+      var name = E.squareName(s), label = v ? T('chess.sq.piece', { sq: name, color: colorName(v > 0 ? SENTE : GOTE).toLowerCase(), piece: T('shogi.piece.' + Math.abs(v)) }) : T(targets.hasOwnProperty(s) ? 'chess.sq.target' : 'chess.sq.empty', { sq: name });
+      c.setAttribute('aria-label', s === sel ? T('chess.sq.selected', { label: label }) : label);
     }
     paintLabels();
     paintHands();
@@ -96,7 +100,7 @@
         if (E.DROPPABLE.indexOf(t) < 0) return;
         var n = pos.hand[side][t], picked = canUse && selDrop === t && n > 0;
         sig += t + ':' + n + (picked ? '*' : '') + (canUse ? 'u' : '');
-        html += '<button type="button" class="sg-h' + (picked ? ' sel' : '') + '" data-t="' + t + '" data-c="' + color + '"' + (canUse && n ? '' : ' disabled') + ' aria-label="' + colorName(color) + ' hand, ' + NAMES[t] + ', ' + n + '">' + pieceSvg(t, color) + '<b>' + n + '</b></button>';
+        html += '<button type="button" class="sg-h' + (picked ? ' sel' : '') + '" data-t="' + t + '" data-c="' + color + '"' + (canUse && n ? '' : ' disabled') + ' aria-label="' + T('shogi.hand.piece', { side: colorName(color), piece: T('shogi.piece.' + t), n: n }) + '">' + pieceSvg(t, color) + '<b>' + n + '</b></button>';
       });
       sig += settings.labels + bottom;
       if (box.dataset.sig !== sig) {
@@ -106,43 +110,34 @@
     });
   }
 
-  function say(text, busy) {
-    els.status.textContent = '';
-    if (busy) { var s = document.createElement('span'); s.className = 'bg-spin'; els.status.appendChild(s); }
-    if (!over) { var dot = document.createElement('i'); dot.className = 'bg-dot ' + (pos.turn === SENTE ? 's' : 'go'); dot.setAttribute('aria-hidden', 'true'); els.status.appendChild(dot); }
-    els.status.appendChild(document.createTextNode(text));
-  }
-  function showStats() {
-    var s = stats[settings.variant + '.' + settings.level] || { w: 0, l: 0, d: 0 };
-    els.stats.textContent = settings.mode === 'cpu' ? 'vs ' + F.levelName(settings.level, OLD_NAMES) + ': ' + s.w + ' won, ' + s.l + ' lost, ' + s.d + ' drawn' : 'Two players on this device';
-  }
+  function say(text, busy) { status.turn(text, busy); }
+  function showStats() { UI.record(els.stats, levelLabel(settings.level), settings.mode === 'cpu' ? stats[settings.variant + '.' + settings.level] : null); }
   function paintMoves() {
     var html = '';
     for (var i = 0; i < sans.length; i++) {
       if (i % 2 === 0) html += '<span class="sg-n">' + (i / 2 + 1) + '.</span>';
       html += '<span class="sg-m' + (i === sans.length - 1 ? ' now' : '') + '">' + sans[i] + '</span>';
     }
-    els.moves.innerHTML = html || '<span class="sg-none">No moves yet</span>';
+    els.moves.innerHTML = html;
     els.moves.scrollTop = els.moves.scrollHeight;
   }
 
   // ── turns ──
-  var WHY = { repetition: 'A draw: the same position came up four times.', long: 'A draw: the game has gone on too long.' };
+  var WHY = { repetition: 'shogi.why.repetition', long: 'shogi.why.long' };
   function finish(st) {
     over = true; thinking = false; sel = -1; selDrop = 0; targets = {};
     var msg, result;
     if (st.result === 'mate') {
-      msg = 'Checkmate. ' + (settings.mode === 'two' ? colorName(st.winner) + ' wins.' : human(st.winner) ? 'You win.' : 'The computer wins.');
+      msg = T('chess.why.mate');
       result = human(st.winner) ? 'win' : 'loss';
-    } else { msg = WHY[st.result]; result = 'draw'; }
+    } else { msg = T(WHY[st.result]); result = 'draw'; }
     if (settings.mode === 'cpu') {
       var key = settings.variant + '.' + settings.level, s = stats[key] = stats[key] || { w: 0, l: 0, d: 0 };
       if (result === 'win') s.w++; else if (result === 'loss') s.l++; else s.d++;
       BK.save(STATS_KEY, stats);
     }
     paint(); say(msg); showStats();
-    $('sg-result-text').textContent = msg;
-    resultSheet.open($('sg-again'));
+    UI.end(settings.mode === 'two' && st.result === 'mate' ? { result: 'win', name: colorName(st.winner), text: msg } : { result: result === 'loss' ? 'lose' : result, text: msg });
   }
 
   function afterMove() {
@@ -151,8 +146,8 @@
     paintMoves();
     if (st.over) { finish(st); return; }
     paint();
-    var line = settings.mode === 'two' ? colorName(pos.turn) + ' to move' : human(pos.turn) ? 'Your turn' : 'Computer is thinking';
-    say((st.check ? 'Check. ' : '') + line, !human(pos.turn));
+    var line = settings.mode === 'two' ? T('board.toMove', { name: colorName(pos.turn) }) : human(pos.turn) ? T('board.yourTurn') : T('shell.thinking');
+    say(st.check ? T('chess.check', { line: line }) : line, !human(pos.turn));
     if (!human(pos.turn)) askComputer();
   }
 
@@ -208,8 +203,7 @@
     F.ask(fairyGame(), E, pos, played, settings.level, function (move, why) {
       if (id !== requestId || !thinking) return;
       if (move) { onAnswer(id, move); return; }
-      var note = why === 'unavailable' ? F.note() : '';
-      if (note) say(note + 'Computer is thinking', true);
+      if (why === 'unavailable') say(T('board.fairyNote', { thinking: T('shell.thinking') }), true);
       askLocal(id);
     });
   }
@@ -243,8 +237,8 @@
     selDrop = 0;
     if (v * pos.turn > 0 && s !== sel) {
       sel = s; targets = targetsFor(function (m) { return !E.isDrop(m) && E.from(m) === s; });
-      if (!Object.keys(targets).length) say('That piece cannot move');
-      else say(settings.mode === 'two' ? colorName(pos.turn) + ' to move' : 'Choose where to move');
+      if (!Object.keys(targets).length) { sel = -1; UI.refuse(status, e.currentTarget, T('chess.cantMove')); }
+      else say(settings.mode === 'two' ? T('board.toMove', { name: colorName(pos.turn) }) : T('board.chooseWhere'));
     } else { sel = -1; targets = {}; }
     paint();
   }
@@ -254,20 +248,18 @@
     sel = -1;
     if (selDrop === t) { selDrop = 0; targets = {}; } else {
       selDrop = t; targets = targetsFor(function (m) { return E.isDrop(m) && E.from(m) === t; });
-      if (!Object.keys(targets).length) say('That piece cannot be dropped anywhere');
-      else say('Choose where to drop it');
+      if (!Object.keys(targets).length) { selDrop = 0; UI.refuse(status, e.currentTarget, T('shogi.cantDrop')); }
+      else say(T('shogi.chooseDrop'));
     }
     paint();
   }
 
-  var promoSheet = BK.sheet($('sg-promo'), function () { pendingPromo = null; });
+  var promoSheet = null;
   function showPromo(cands) {
-    var t = Math.abs(pos.sq[E.from(cands[0])]), box = $('sg-promo-choices'), color = pos.turn;
-    box.textContent = '';
-    [[true, 'Promote', t + PROMOTED], [false, 'Do not promote', t]].forEach(function (o) {
-      var b = document.createElement('button');
-      b.type = 'button'; b.className = 'ar-btn sg-promo-btn';
-      b.innerHTML = pieceSvg(o[2], color, true) + '<span>' + o[1] + '</span>';
+    var t = Math.abs(pos.sq[E.from(cands[0])]), box = UI.h('div', { class: 'sg-promo-choices' }), color = pos.turn;
+    [[true, 'shogi.promote', t + PROMOTED], [false, 'shogi.noPromote', t]].forEach(function (o) {
+      var b = UI.h('button', { class: 'ar-btn sg-promo-btn', type: 'button' });
+      b.innerHTML = pieceSvg(o[2], color, true) + '<span>' + T(o[1]) + '</span>';
       b.addEventListener('click', function () {
         var m = cands.filter(function (x) { return !!E.isPromo(x) === o[0]; })[0];
         promoSheet.close();
@@ -275,7 +267,7 @@
       });
       box.appendChild(b);
     });
-    promoSheet.open(box.firstChild);
+    promoSheet = root.ZimiShell.sheet({ title: T('shogi.promoteQ'), body: [box] });
   }
 
   function undo() {
@@ -295,47 +287,40 @@
       killWorker(); workerOk = true;
       E = root.ZimiShogiEngine(variant); SIZE = E.SIZE; SENTE = E.SENTE; GOTE = E.GOTE; PROMOTED = E.PROMOTED;
       buildBoard();
-      $('sg-title').textContent = variant === 'mini' ? 'Minishogi' : 'Shogi';
+      $('sg-title').textContent = T(variant === 'mini' ? 'shogi.title.mini' : 'shogi.title');
       document.title = $('sg-title').textContent + ' - ZimiGames';
-      $('sg-zone').textContent = variant === 'mini' ? 'far rank' : 'far three ranks';
     }
     pos = E.startPosition(); keys = [E.key(pos)]; sans = []; played = [];
     flipped = settings.mode === 'cpu' && settings.side === 'gote';
-    resultSheet.close();
     cells.forEach(function (c) { delete c.dataset.sig; });
     showStats(); paintMoves(); paint();
     afterMove();
   }
 
   // ── bar, menu, keys ──
-  var menu = BK.sheet($('sg-sheet')), resultSheet = BK.sheet($('sg-result'));
-  function syncMenu() {
-    BK.chipSet($('sg-f-variant'), settings.variant); BK.chipSet($('sg-f-mode'), settings.mode); BK.chipSet($('sg-f-level'), settings.level);
-    BK.chipSet($('sg-f-side'), settings.side); BK.chipSet($('sg-f-labels'), settings.labels); $('sg-hints').checked = settings.hints;
-    refreshMenu();
+  // Menu > New game shows these rows with Start last; Start clicks #sg-new, which applies them and begins.
+  var draft = null;
+  function menuOptions() {
+    draft = { variant: settings.variant, mode: settings.mode, level: settings.level, side: settings.side, labels: settings.labels };
+    var rows = [], level, side;
+    rows.push(UI.row(T('shogi.board'), [['full', T('shogi.board.full')], ['mini', T('shogi.board.mini')]], draft.variant, function (v) { draft.variant = v; }));
+    rows.push(UI.row(T('board.opponent'), [['cpu', T('board.computer')], ['two', T('board.twoPlayers')]], draft.mode, function (v) { draft.mode = v; level.disable(v === 'two'); side.disable(v === 'two'); }));
+    level = UI.row(T('board.level'), LEVELS.map(function (l) { return [l, levelLabel(l)]; }), draft.level, function (v) { draft.level = v; });
+    side = UI.row(T('board.youPlay'), [['sente', T('shogi.side.senteFirst')], ['gote', T('shogi.side.gote')]], draft.side, function (v) { draft.side = v; });
+    rows.push(level, side, UI.row(T('xiangqi.pieces'), [['kanji', T('shogi.pieces.kanji')], ['latin', T('xiangqi.pieces.latin')]], draft.labels, function (v) { draft.labels = v; }));
+    level.disable(draft.mode === 'two'); side.disable(draft.mode === 'two');
+    return UI.options(rows);
   }
-  function refreshMenu() {
-    var two = BK.chipValue($('sg-f-mode')) === 'two';
-    $('sg-f-level').disabled = two; $('sg-f-side').disabled = two;
-    $('sg-f-level').style.opacity = $('sg-f-side').style.opacity = two ? 0.45 : 1;
-  }
-  $('sg-new').addEventListener('click', function () { syncMenu(); menu.open(); });
-  $('sg-f-mode').addEventListener('change', refreshMenu);
-  $('sg-cancel').addEventListener('click', menu.close);
-  $('sg-start').addEventListener('click', function () {
-    settings.variant = BK.chipValue($('sg-f-variant')); settings.mode = BK.chipValue($('sg-f-mode')); settings.level = BK.chipValue($('sg-f-level'));
-    settings.side = BK.chipValue($('sg-f-side')); settings.labels = BK.chipValue($('sg-f-labels')); settings.hints = $('sg-hints').checked;
-    BK.save(SETTINGS_KEY, settings);
-    menu.close(); newGame();
+  $('sg-new').addEventListener('click', function () {
+    if (draft) { settings.variant = draft.variant; settings.mode = draft.mode; settings.level = draft.level; settings.side = draft.side; settings.labels = draft.labels; draft = null; BK.save(SETTINGS_KEY, settings); }
+    newGame();
   });
-  $('sg-again').addEventListener('click', newGame);
-  $('sg-close').addEventListener('click', function () { resultSheet.close(); });
   els.undo.addEventListener('click', undo);
   els.flip.addEventListener('click', function () { flipped = !flipped; paint(); });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet,input')) return;
     var k = e.key.toLowerCase();
-    if (k === 'n') { syncMenu(); menu.open(); } else if (k === 'u') undo(); else if (k === 'f') { flipped = !flipped; paint(); }
+    if (k === 'n') root.ZimiShell.openMenu(); else if (k === 'u') undo(); else if (k === 'f') { flipped = !flipped; paint(); }
     else if (e.key === 'Escape' && (sel >= 0 || selDrop)) { sel = -1; selDrop = 0; targets = {}; paint(); }
   });
 
@@ -343,8 +328,15 @@
   if (!['beginner', 'casual', 'club', 'strong'].includes(settings.level) && !F.wants(settings.level)) settings.level = 'club';
   if (settings.mode !== 'two') settings.mode = 'cpu';
   if (settings.side !== 'gote') settings.side = 'sente';
-  if (settings.hints !== false) settings.hints = true;
   if (settings.labels !== 'latin') settings.labels = 'kanji';
+  if (root.ZimiShell) {
+    root.ZimiShell.settings.on(function (k) { if (k === 'hints' || k === '*') paint(); });
+    root.ZimiShell.game({
+      hints: true, menu: menuOptions,
+      stats: function () { var s = stats[settings.variant + '.' + settings.level]; return s && s.w + s.l + s.d ? [T(s.d ? 'board.record.draws' : 'board.record', { level: levelLabel(settings.level), won: s.w, lost: s.l, drawn: s.d })] : []; },
+      inProgress: function () { return !over && played.length > 0; }
+    });
+  }
   newGame();
 
   if (new URLSearchParams(location.search).has('debug')) {
