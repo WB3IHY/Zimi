@@ -327,7 +327,7 @@
       paintPills(g, st);
       var mine = busy();
       var out = {
-        chips: [0, 1].map(function (c) { return { name: who(c), text: String(st.scores[c]), turn: st.phase === 'play' && st.turn === c && !mine }; }).concat([
+        chips: [0, 1].map(function (c) { return { name: who(c), text: String(st.scores[c]), dealer: st.parent === c, turn: st.phase === 'play' && st.turn === c && !mine }; }).concat([
           { name: TX('koikoi.month'), text: HANA_MONTH(st.month) }, { name: TX('scopa.deck'), text: String(st.deck.length) }]),
         fact: TX('koikoi.fact', { n: st.month + 1, of: st.months }), text: ''
       };

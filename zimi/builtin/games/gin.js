@@ -294,7 +294,7 @@
       var V = view.viewer, sel = st.hands[V].indexOf(view.sel) >= 0 ? view.sel : null, mine = st.phase === 'show' || view.hideHand ? null : st.hands[V];
       var dwNow = mine ? (mine.length === HAND ? deadwood(mine) : Math.min.apply(null, discardOptions(mine).filter(function (o) { return o.id !== st.drawn; }).map(function (o) { return o.dw; }))) : null;
       var chips = [0, 1].map(function (s) {
-        return { name: who(s), text: String(st.scores[s]) + (s === V && dwNow !== null && st.phase !== 'offer' ? ' \u00b7 ' + TX('gin.dw', { n: dwNow }) : ''), turn: st.phase !== 'show' && st.turn === s };
+        return { name: who(s), text: String(st.scores[s]) + (s === V && dwNow !== null && st.phase !== 'offer' ? ' \u00b7 ' + TX('gin.dw', { n: dwNow }) : ''), dealer: st.dealer === s, turn: st.phase !== 'show' && st.turn === s };
       });
       var out = { chips: chips, fact: TX('gin.fact', { n: st.handNo + 1, a: st.boxes[0], b: st.boxes[1] }), text: '' }, note = noteOf(st), top = st.discard[st.discard.length - 1];
       if (st.phase === 'show') {

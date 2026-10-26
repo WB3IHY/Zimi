@@ -13,7 +13,7 @@
   // Your hand at 390 px: no strip of a card narrower than 30 px, two rows from ten cards, a tapped card lifts 14 px
   // (a card you can play stands 6 px proud when others cannot be played). An opponent's face-down hand of more than
   // five cards is one back and a count chip.
-  var COUNT_AT = 0.86, STATUS_MAX = 60, MIN_STRIP_PX = 30, TWO_ROWS_FROM = 10, LIFT_PX = 14, PLAYABLE_LIFT_PX = 6, COLLAPSE_FROM = 6;
+  var COUNT_AT = 0.86, STATUS_MAX = 44, MIN_STRIP_PX = 30, TWO_ROWS_FROM = 10, LIFT_PX = 14, PLAYABLE_LIFT_PX = 6, COLLAPSE_FROM = 6;
   // Games that play a card on its second tap: the first tap lifts it (amber outline), the second plays it.
   var LIFT_THEN_PLAY = { spades: 1, euchre: 1, belote: 1, crazyeights: 1, durak: 1 };
   var SCORE_BAR_H = 26, STATUS_H = 46, SUIT_GAP_SHARE = 0.18, HAND_STEP_SHARE = 0.78;

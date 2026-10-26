@@ -672,7 +672,7 @@
       paintAuction(st, m); paintBox(st, m);
       var V = seats.view(), us = team(V), actor = actorOf(st);
       var chips = hot() ? [{ name: TX('bridge.ns'), text: String(st.totals[0]) }, { name: TX('bridge.ew'), text: String(st.totals[1]) }] : [{ name: TX('cards.team.us'), text: String(st.totals[us]) }, { name: TX('cards.team.them'), text: String(st.totals[1 - us]) }];
-      var out = { chips: chips, fact: TX('skat.fact', { n: st.dealNo + 1, of: DEALS }) + (c ? ' \u00b7 ' + c.level + DEN_LABEL[c.den] + (c.dbl ? (c.dbl === 1 ? ' X' : ' XX') : '') + ' ' + NAMES[c.declarer].charAt(0) : ''), text: '' };
+      var out = { chips: chips, trump: c && c.den < NT ? c.den : undefined, fact: TX('skat.fact', { n: st.dealNo + 1, of: DEALS }) + (c ? ' \u00b7 ' + c.level + DEN_LABEL[c.den] + (c.dbl ? (c.dbl === 1 ? ' X' : ' XX') : '') + ' ' + NAMES[c.declarer].charAt(0) : ''), text: '' };
       if (st.phase === 'auction') out.text = st.turn === V ? TX(you(V) ? 'bridge.yourCall' : 'bridge.nameCall', { name: cn(V) }) : TX(seats.person(st.turn) ? 'ce.next' : 'bridge.bidding', { name: cn(st.turn) });
       else if (st.phase === 'dealEnd') { out.text = TX('skat.dealOver'); out.label = TX('skat.nextDeal'); out.action = startNextDeal; }
       else if (st.phase === 'over') { out.text = TX('bridge.matchOver'); out.label = TX('shell.menu.new'); out.action = newGame; }
@@ -788,7 +788,7 @@
       return rows.join(', ');
     }
     t = T.create({
-      id: 'bridge', name: 'Bridge', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, tap: tap, cols: 7, heightShare: 0.11,
+      id: 'bridge', name: 'Bridge', liftPlay: function (st) { return st.phase === 'play'; }, seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, tap: tap, cols: 7, heightShare: 0.11,
       canPick: function (st, pile) { return st.phase === 'play' && (pile.charAt(0) === 'h' || pile.charAt(0) === 'd'); },
       move: function (pile, idx, to) { return (to === 'trick' || to === 'deck') && (pile.charAt(0) === 'h' || pile.charAt(0) === 'd') ? tap(pile) : false; },
       stat: function (sec, st) { var us = team(seats.view()); return Z.fmtTime(sec) + ' · ' + st.totals[us] + '-' + st.totals[1 - us]; },
