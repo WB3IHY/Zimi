@@ -437,6 +437,29 @@
       return TRACKS.filter(function (d) { return prefs.best[d.id]; }).map(function (d) { return [L('circuit.trackBest', { track: trackName(d) }), fmt(prefs.best[d.id].ms)]; });
     }
   });
-  goSetup();
-  root.__circuit = { get g() { return g; }, prefs: prefs, held: held, pad: pad };
+  // A race in progress or finished is kept (the track is rebuilt from its id, the cars and the clock laid back over);
+  // it comes back paused, or on its results. Best laps and ghosts already live in prefs. A phone's two-player heats are not kept.
+  function snapshot() {
+    if (!g.race || g.mode === 'setup' || (g.mode === 'over' && prefs.players === 2 && coarse)) return null;
+    var r = Object.assign({}, g.race); delete r.track;
+    return { track: g.T.id, split: g.split, heat: g.heat, heats: g.heats, over: g.mode === 'over', rec: g.rec, race: Play.plain(r) };
+  }
+  function restore(d) {
+    if (!d || !d.race || !Engine.track(d.track)) return false;
+    var T = Engine.track(d.track), n = d.race.cars.filter(function (c) { return c.human; }).length;
+    g.T = T; g.art = artFor(T); g.split = !!d.split; g.heat = d.heat || 0; g.heats = d.heats || []; g.skids = []; g.lastPos = []; g.cams = []; g.note = ''; g.wrong = 0; g.rec = d.rec;
+    g.race = Object.assign(Engine.createRace(T.id, { humans: n, ai: d.race.cars.length - n, laps: d.race.laps, difficulty: d.race.difficulty }), d.race);
+    g.race.events = [];
+    g.humans = g.race.cars.filter(function (c) { return c.human; });
+    els.hud.hidden = g.split; els.cv.style.visibility = ''; followCams(0, true);
+    if (setupSheet) setupSheet.close();
+    if (armed) { armed.cancel(); armed = null; }
+    layout(); render();
+    if (d.over) { setTimeout(finishRace, 0); return true; }
+    g.mode = 'paused'; els.pause.disabled = false; els.reset.disabled = false; Play.pauseLabel(els.pause, true); status.say(L('play.paused'));
+    return true;
+  }
+  ZimiShell.persist({ save: snapshot, load: restore });
+  if (!g.race) goSetup();
+  root.__circuit = { get g() { return g; }, prefs: prefs, held: held, pad: pad, get pos() { return JSON.stringify([g.T.id, g.race.t, g.race.laps, g.race.cars.map(function (c) { return [c.x, c.y, c.h, c.vx, c.vy, c.maxK, c.laps]; }), g.rec]); } };
 })(this);

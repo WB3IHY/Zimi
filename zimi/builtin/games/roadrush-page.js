@@ -19,7 +19,7 @@
   var els = { cv: $('rr-board'), speed: $('rr-speed'), time: $('rr-time'), score: $('rr-score'), best: $('rr-best'), msg: $('rr-msg'), pause: $('rr-pause'), newBtn: $('rr-new') };
   var status = Play.status(els.msg), armed = null;
   var ctx, cssW = 0, cssH = 0, res = 1, reduce = Play.reducedMotion();
-  var game = null, mode = 'setup', countdown = 0, toast = '', toastT = 0, tables = {}, stars = [], bg = [0, 0], skyGrad = null, skyTheme = '', crashFlash = 0, wasBraking = false;
+  var runId = 0, game = null, mode = 'setup', countdown = 0, toast = '', toastT = 0, tables = {}, stars = [], bg = [0, 0], skyGrad = null, skyTheme = '', crashFlash = 0, wasBraking = false;
   var held = {}, pad = { gas: false, brake: false }, touchSteer = {};
 
   // ── the picture ──────────────────────────────────────────────────────────
@@ -180,7 +180,7 @@
   }
   function begin() {
     if (armed) { armed.cancel(); armed = null; }
-    game = E.newGame(Math.floor(Math.random() * 1e6), prefs.stage);
+    game = E.newGame(Math.floor(Math.random() * 1e6), prefs.stage); runId = Play.runId();
     game.events.length = 0;
     mode = 'ready'; countdown = COUNTDOWN_S; toastT = 0; crashFlash = 0; status.say('');
     Play.pauseLabel(els.pause, false); els.pause.disabled = false;
@@ -199,7 +199,10 @@
     mode = 'over'; loop.stop(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); releaseAll(); render();
     var sc = E.totalScore(game);
     if (sc > prefs.best) { prefs.best = sc; savePrefs(); }
-    ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(sc)], [T('play.best'), Play.num(prefs.best)]] });
+    showEnd();
+  }
+  function showEnd() {
+    ZimiShell.endSheet({ result: 'over', stats: [[T('play.score'), Play.num(E.totalScore(game))], [T('play.best'), Play.num(prefs.best)]] });
     setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
   }
   els.newBtn.addEventListener('click', begin);
@@ -262,5 +265,25 @@
   }
   window.addEventListener('resize', layout);
   layout(); arm();
-  root.__roadrush = { get game() { return game; }, get mode() { return mode; }, held: held, pad: pad, prefs: prefs, begin: begin, E: E, render: render };
+  // A run in progress or over is kept: the road is rebuilt from its seed and stage, and the car, the clock and the score laid
+  // back over it (the traffic starts again from the stage's grid). It comes back paused, or on its end sheet.
+  function snapshot() {
+    if (!game || mode === 'setup') return null;
+    var g = game;
+    return { runId: runId, over: mode === 'over', from: mode === 'paused' ? pausedFrom : mode, countdown: countdown, seed: g.seed, stageIndex: g.stageIndex,
+      time: g.time, score: g.score, distance: g.distance, elapsed: g.elapsed, bonus: g.bonus, status: g.status, player: Play.plain(g.player) };
+  }
+  function restore(d) {
+    if (!d || d.seed === undefined) return false;
+    if (armed) { armed.cancel(); armed = null; }
+    game = E.newGame(d.seed, d.stageIndex); game.events.length = 0;
+    ['time', 'score', 'distance', 'elapsed', 'bonus', 'status'].forEach(function (k) { game[k] = d[k]; });
+    game.player = Play.plain(d.player); runId = d.runId; countdown = d.countdown; toastT = 0; crashFlash = 0;
+    layout(); render();
+    if (d.over) { mode = 'over'; els.pause.disabled = true; setTimeout(showEnd, 0); return true; }
+    pausedFrom = d.from === 'ready' ? 'ready' : 'playing'; mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
+    return true;
+  }
+  ZimiShell.persist({ save: snapshot, load: restore });
+  root.__roadrush = { get game() { return game; }, get mode() { return mode; }, get pos() { return JSON.stringify([runId, game.seed, game.stageIndex, game.time, game.score, game.distance, game.player]); }, held: held, pad: pad, prefs: prefs, begin: begin, E: E, render: render };
 })(this);
