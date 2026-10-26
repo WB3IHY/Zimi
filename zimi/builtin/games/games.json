@@ -1833,5 +1833,22 @@
   "length": "5 min",
   "kind": "library",
   "computer": false
+ },
+ {
+  "qid": "Q328076",
+  "wiki": "Card Sharks",
+  "path": "higherlower.html",
+  "title": "Higher or Lower",
+  "blurb": "Compare places and things from your Wikipedia",
+  "why": "Guessing whether the next number is higher or lower is an old card game. Here you compare people, areas, heights and river lengths from your Wikipedia.",
+  "origin": {
+   "year": 1978,
+   "era": "1970s"
+  },
+  "region": "Americas",
+  "players": "1",
+  "length": "5 min",
+  "kind": "library",
+  "computer": false
  }
 ]
