@@ -145,9 +145,9 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  // The columns fan as far as the height allows (up to 0.9 of a card); stock, waste and the foundations sit in the bottom
+  // The columns fan as far as the height allows (up to 0.95 of a card); stock, waste and the foundations sit in the bottom
   // row, under the thumb, and the columns start right under the bar.
-  var DOWN_RATIO = 0.55, UP_STEP_SHARE = 0.9, MIN_STEP_SHARE = 0.12, WASTE_FAN_SHARE = 0.3, ROW_GAP_SHARE = 0.2;
+  var DOWN_RATIO = 0.7, UP_STEP_SHARE = 0.95, MIN_STEP_SHARE = 0.12, WASTE_FAN_SHARE = 0.3, ROW_GAP_SHARE = 0.2;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
