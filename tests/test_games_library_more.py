@@ -16,7 +16,6 @@ import socket
 import subprocess
 import sys
 import threading
-import time
 import urllib.request
 
 import pytest
@@ -28,9 +27,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 sys.path.insert(0, ROOT)
+from games_wait import wait_for_server, becomes, frames, game_ready, truthy, visible  # noqa: E402
 GAMES = os.path.join(ROOT, "zimi", "builtin", "games")
 VIEW = {"width": 390, "height": 844}
-SETTLE_MS = 600
 MODES = ["builtin", "zimi", "kiwix"]
 ZIMI_API = re.compile(r"^/(health|list|random|w/|dictionary/|wiki/|search|snippet)")
 KIWIX_API = re.compile(r".*/(catalog|random|suggest|content/(?!games/))")
@@ -56,6 +55,7 @@ def world(tmp_path_factory):
         os.environ,
         ZIMI_TORRENT="0",
         ZIMI_OFFLINE="1",
+        ZIMI_RATE_LIMIT="1000000",   # the pages ask for dozens of words a minute; the default 60 turns the rest into 429s
         ZIM_DIR=zdir,
         ZIMI_DATA_DIR=str(base / "data"),
     )
@@ -69,15 +69,7 @@ def world(tmp_path_factory):
     kiwix, kiwix_url = kiwix_stub.serve(zdir, GAMES)
     kiwix_first, kiwix_first_url = kiwix_stub.serve(first, GAMES)
     try:
-        for _ in range(120):
-            try:
-                urllib.request.urlopen(
-                    "http://127.0.0.1:%d/health" % port, timeout=1
-                ).read()
-                break
-            except Exception:
-                time.sleep(0.5)
-        else:
+        if not wait_for_server(port):
             pytest.skip("the fixture library did not start")
         api = "http://127.0.0.1:%d" % port
 
@@ -88,7 +80,7 @@ def world(tmp_path_factory):
             def _proxy(self, method):
                 try:
                     req = urllib.request.Request(api + self.path, method=method)
-                    r = urllib.request.urlopen(req, timeout=15)
+                    r = urllib.request.urlopen(req, timeout=90)
                     body = r.read() if method == "GET" else b""
                     self.send_response(200)
                     self.send_header(
@@ -153,9 +145,10 @@ def browser():
 
 
 def tap(page, locator):
+    locator.wait_for(state="visible")
     box = locator.bounding_box()
     page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-    page.wait_for_timeout(250)
+    frames(page)
 
 
 def open_game(browser, world, mode, name, ready, init=None):
@@ -165,14 +158,19 @@ def open_game(browser, world, mode, name, ready, init=None):
     page = ctx.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
+    page.refused = []   # library calls that came back as an error, for a failing assert to show
+    page.on("response", lambda r: page.refused.append("%s %s" % (r.status, r.url)) if r.status >= 400 else None)
+    page.on("requestfailed", lambda r: page.refused.append("failed %s" % r.url))
     page.goto(world[mode] + name)
-    page.wait_for_function(ready, timeout=30000)
-    page.wait_for_timeout(SETTLE_MS)
+    game_ready(page, ready)
     return ctx, page, errors
 
 
-def leave_and_return(ctx, page, world, mode, name, gone):
-    page.evaluate("window.dispatchEvent(new Event('pagehide'))")
+def leave_and_return(ctx, page, world, mode, name, gone, position):
+    """Leave the page (hidden, then blank), come back, and give the position before and after.
+
+    The first read is in the same breath as the save. The second waits for the position to be back, so a slow page costs time, not a verdict."""
+    before = page.evaluate("(() => { window.dispatchEvent(new Event('pagehide')); return " + position + "; })()")
     page.goto("about:blank")
     if gone:
         pattern = ZIMI_API if mode == "zimi" else KIWIX_API
@@ -186,7 +184,9 @@ def leave_and_return(ctx, page, world, mode, name, gone):
             ),
         )
     page.goto(world[mode] + name)
-    page.wait_for_timeout(2500)
+    game_ready(page)
+    becomes(page, position, before if isinstance(before, str) else str(before))
+    return before, page.evaluate(position)
 
 
 # ── the three rounds of choices ──────────────────────────────────────────────
@@ -245,13 +245,10 @@ def test_a_round_of_choices_uses_its_source_and_comes_back_as_it_was(
                     ), "a figure that is not in the fixture's list: %s %s" % (n, v)
     # answer, go on, answer again
     tap(page, page.locator(".rk-choice").first)
-    assert page.locator("#rk-next").is_visible()
+    visible(page, "#rk-next")
     tap(page, page.locator("#rk-next"))
     tap(page, page.locator(".rk-choice").first)
-    page.wait_for_timeout(SETTLE_MS)
-    before = page.evaluate(ROUND_POSITION)
-    leave_and_return(ctx, page, world, mode, name, gone)
-    after = page.evaluate(ROUND_POSITION)
+    before, after = leave_and_return(ctx, page, world, mode, name, gone, ROUND_POSITION)
     assert before == after, "the round came back different after leaving and returning"
     assert not errors, errors
     ctx.close()
@@ -321,23 +318,16 @@ def test_timeline(browser, world, mode, gone):
     # place three, leave, return: the same three in the same order
     for i in (3, 1, 2):
         tap(page, page.locator("#tl-list li:nth-child(%d) button" % i))
-    page.wait_for_timeout(SETTLE_MS)
-    before = page.evaluate(TIMELINE_POSITION)
-    leave_and_return(ctx, page, world, mode, "timeline.html", gone)
-    assert page.evaluate(TIMELINE_POSITION) == before
+    before, after = leave_and_return(ctx, page, world, mode, "timeline.html", gone, TIMELINE_POSITION)
+    assert after == before
     # place the rest, check: a score, the years, and it comes back checked
     for i in (4, 5):
         tap(page, page.locator("#tl-list li:nth-child(%d) button" % i))
     tap(page, page.locator("#tl-check"))
-    assert (
-        page.locator("#tl-next").is_visible() and page.locator(".tl-year").count() == 5
-    )
-    page.wait_for_timeout(SETTLE_MS)
-    before = page.evaluate(TIMELINE_POSITION)
-    leave_and_return(ctx, page, world, mode, "timeline.html", gone)
-    assert page.evaluate(TIMELINE_POSITION) == before and page.evaluate(
-        "__timeline.checked"
-    )
+    visible(page, "#tl-next")
+    assert page.locator(".tl-year").count() == 5
+    before, after = leave_and_return(ctx, page, world, mode, "timeline.html", gone, TIMELINE_POSITION)
+    assert after == before and page.evaluate("__timeline.checked")
     assert not errors, errors
     ctx.close()
 
@@ -356,7 +346,8 @@ def bee_word(page, word):
     for c in word:
         page.keyboard.press(c)
     page.keyboard.press("Enter")
-    page.wait_for_timeout(700)
+    page.wait_for_function("() => !__bee.asking")   # the dictionary has answered (the word is in, or the message says why not)
+    frames(page)
 
 
 @pytest.mark.parametrize("gone", [False, True], ids=["library there", "library gone"])
@@ -389,17 +380,10 @@ def test_spelling_bee(browser, world, mode, gone):
         )
     else:
         assert fx.bee_only_word() in found, "the Wiktionary was not asked"
-    page.wait_for_timeout(SETTLE_MS)
-    before = page.evaluate(
-        "JSON.stringify(__bee.g) + document.getElementById('bee-points').textContent"
-    )
-    leave_and_return(ctx, page, world, mode, "spellingbee.html", gone)
-    assert (
-        page.evaluate(
-            "JSON.stringify(__bee.g) + document.getElementById('bee-points').textContent"
-        )
-        == before
-    )
+    before, after = leave_and_return(
+        ctx, page, world, mode, "spellingbee.html", gone,
+        "JSON.stringify(__bee.g) + document.getElementById('bee-points').textContent")
+    assert after == before
     assert not errors, errors
     ctx.close()
 
@@ -434,10 +418,8 @@ def test_mini_crossword(browser, world, mode, gone):
     for c in g["words"][0]:
         page.keyboard.press(c)
     assert page.evaluate("__cw.g.cells.slice(0, 5).join('')") == g["words"][0]
-    page.wait_for_timeout(SETTLE_MS)
-    before = page.evaluate("JSON.stringify(__cw.g)")
-    leave_and_return(ctx, page, world, mode, "minicrossword.html", gone)
-    assert page.evaluate("JSON.stringify(__cw.g)") == before
+    before, after = leave_and_return(ctx, page, world, mode, "minicrossword.html", gone, "JSON.stringify(__cw.g)")
+    assert after == before
     # a hint (one more letter right), then every other letter: solved, and the end sheet comes up
     page.evaluate("document.querySelectorAll('#cw-across button')[1].click()")   # across 4, still empty
     tap(page, page.locator("#cw-hint"))
@@ -449,7 +431,7 @@ def test_mini_crossword(browser, world, mode, gone):
     for i in (5, 15, 7, 17, 9, 19):   # the cells only a down word passes through
         tap(page, page.locator('.cw-cell[data-i="%d"]' % i))
         page.keyboard.press(sol[i])
-    page.wait_for_timeout(1500)
+    page.wait_for_function(truthy("__cw.g.cells.join('') === " + json.dumps("".join(sol)) + " && document.querySelector('.ar-sheet:not([hidden])')"))
     assert page.evaluate("__cw.g.cells.join('')") == "".join(sol)
     assert page.locator(".ar-sheet:not([hidden])").count() >= 1, "no end sheet after solving"
     assert not errors, errors
@@ -475,10 +457,7 @@ def test_wikipedia_games_play_from_kiwix_serve(browser, world, name, ready, zim,
     assert "in kiwix-serve" in page.evaluate("ZimiShell.gameInfo.about()")
     for sel in moves:
         tap(page, page.locator(sel).first)
-        page.wait_for_timeout(400)
-    page.wait_for_timeout(SETTLE_MS)
-    before = page.evaluate(position)
-    leave_and_return(ctx, page, world, "kiwix_first", name, False)
-    assert page.evaluate(position) == before
+    before, after = leave_and_return(ctx, page, world, "kiwix_first", name, False, position)
+    assert after == before
     assert not errors, errors
     ctx.close()

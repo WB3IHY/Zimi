@@ -16,7 +16,6 @@ import socket
 import subprocess
 import sys
 import threading
-import time
 import urllib.request
 
 import pytest
@@ -28,9 +27,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 sys.path.insert(0, ROOT)
+from games_wait import wait_for_server, becomes, frames, game_ready  # noqa: E402
 GAMES = os.path.join(ROOT, "zimi", "builtin", "games")
 VIEW = {"width": 390, "height": 844}
-SETTLE_MS = 800
 API = re.compile(r"^/(health|list|random|w/|dictionary/|wiki/|search|snippet)")
 
 # page, the condition that says the library is in use, the moves (selectors tapped in turn), the position as a string.
@@ -64,16 +63,10 @@ def library(tmp_path_factory):
     fx.build(str(base))
     (base / "data").mkdir()
     port = free_port()
-    env = dict(os.environ, ZIMI_TORRENT="0", ZIMI_OFFLINE="1", ZIM_DIR=str(base / "zims"), ZIMI_DATA_DIR=str(base / "data"))
+    env = dict(os.environ, ZIMI_TORRENT="0", ZIMI_OFFLINE="1", ZIMI_RATE_LIMIT="1000000", ZIM_DIR=str(base / "zims"), ZIMI_DATA_DIR=str(base / "data"))
     proc = subprocess.Popen([sys.executable, "-m", "zimi", "serve", "--port", str(port)], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
-        for _ in range(120):
-            try:
-                urllib.request.urlopen("http://127.0.0.1:%d/health" % port, timeout=1).read()
-                break
-            except Exception:
-                time.sleep(0.5)
-        else:
+        if not wait_for_server(port):
             pytest.skip("the fixture library did not start")
         yield port
     finally:
@@ -91,7 +84,7 @@ def served(library):
         def do_GET(self):
             if API.match(self.path):
                 try:
-                    r = urllib.request.urlopen(api + self.path, timeout=15)
+                    r = urllib.request.urlopen(api + self.path, timeout=90)
                     body = r.read()
                     self.send_response(200)
                     self.send_header("Content-Type", r.headers.get("Content-Type", "application/octet-stream"))
@@ -123,9 +116,16 @@ def browser():
         pytest.skip("no browser installed")
 
 
+def leave(page, position):
+    """Hide the page and read the position in the same breath, so the save and the read see one table."""
+    return page.evaluate("(() => { window.dispatchEvent(new Event('pagehide')); return " + position + "; })()")
+
+
 def tap(page, locator):
+    locator.wait_for(state="visible")
     box = locator.bounding_box()
     page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    frames(page)
 
 
 @pytest.mark.parametrize("gone", [False, True], ids=["library there", "library gone"])
@@ -135,19 +135,16 @@ def test_a_library_round_comes_back_as_it_was(served, browser, name, ready, move
     page = ctx.new_page()
     url = "%s/%s" % (served, name)
     page.goto(url)
-    page.wait_for_function(ready, timeout=30000)
-    page.wait_for_timeout(SETTLE_MS)
+    game_ready(page, ready)
     for sel in moves:
         tap(page, page.locator(sel).first)
-        page.wait_for_timeout(500)
-    page.wait_for_timeout(SETTLE_MS)
-    before = page.evaluate(position)
-    page.evaluate("window.dispatchEvent(new Event('pagehide'))")
+    before = leave(page, position)
     page.goto("about:blank")
     if gone:
         ctx.route(re.compile(r".*/(health|list|random|w/|dictionary/|wiki/|search|snippet).*"), lambda route: route.abort())
     page.goto(url)
-    page.wait_for_timeout(2500)
+    game_ready(page)
+    becomes(page, position, before)   # the round is put back once the game's own start has run
     after = page.evaluate(position)
     assert before and after
     assert after == before, "the round came back different after leaving and returning"

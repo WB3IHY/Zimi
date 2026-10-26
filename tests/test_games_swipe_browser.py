@@ -14,10 +14,12 @@ import threading
 import pytest
 
 pytest.importorskip("playwright")
+from playwright.sync_api import TimeoutError as PlaywrightTimeout  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 GAMES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "zimi", "builtin", "games")
 VIEW = {"width": 390, "height": 844}
+SWIPE_MS = 4000   # how long a swipe that goes nowhere (a wall) is given before the next direction is tried
 
 SWIPE_JS = """([sel, dx, dy]) => {
   const el = document.querySelector(sel), r = el.getBoundingClientRect();
@@ -68,7 +70,9 @@ def test_quest_swipe(page):
     before = page.evaluate("[__quest.st.x, __quest.st.y]")
     for dx, dy in ((80, 0), (-80, 0), (0, 80), (0, -80)):
         page.evaluate(SWIPE_JS, ["#qs-screen", dx, dy])
-        page.wait_for_timeout(250)
-        if page.evaluate("[__quest.st.x, __quest.st.y]") != before:
+        try:   # the hero steps on the game's own frame; a wall in that direction never moves it, so the wait is bounded
+            page.wait_for_function("before => { const n = [__quest.st.x, __quest.st.y]; return n[0] !== before[0] || n[1] !== before[1]; }", arg=before, timeout=SWIPE_MS)
             return
+        except PlaywrightTimeout:
+            pass
     pytest.fail("no swipe moved the hero")

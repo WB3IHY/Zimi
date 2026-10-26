@@ -242,7 +242,7 @@
   G.persist({
     save: function () { return started ? { st: st, last: last, roll: phase === 'move' ? roll : null, phase: phase === 'move' ? 'move' : 'roll' } : null; },
     load: function (d) {
-      st = d.st; last = d.last; roll = d.roll; phase = d.phase; tip = null; rolling = false;
+      st = d.st; last = d.last; roll = d.roll; phase = d.phase; tip = null; rolling = false; started = true;
       moves = roll === null ? [] : E.legalMoves(st, roll);
       buildBoard(); showDice([false, false, false, false], null, false);
       if (roll !== null) showDice([0, 1, 2, 3].map(function (i) { return i < roll; }), roll, false);

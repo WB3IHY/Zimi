@@ -430,6 +430,6 @@
   });
 
   if (new URLSearchParams(location.search).has('debug')) {
-    root.__ld = { engine: Engine, state: function () { return state; }, settings: settings, phase: function () { return phase; }, die: function () { return die; }, legal: function () { return legal; }, choose: choose, roll: roll };
+    root.__ld = { engine: Engine, state: function () { return state; }, settings: settings, phase: function () { return phase; }, die: function () { return die; }, legal: function () { return legal; }, choose: choose, roll: roll, force: function (n) { forcedDie = n; } };
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this);

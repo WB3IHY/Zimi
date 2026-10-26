@@ -196,5 +196,5 @@
     } else { if (kept) ZimiShell.forget(); start('daily'); }
   });
   ZimiShell.persist({ save: function () { return g && g.found.length ? { g: g } : null; } });
-  root.__bee = { get g() { return g; }, get dict() { return dict; }, get typed() { return typed; } };
+  root.__bee = { get g() { return g; }, get dict() { return dict; }, get typed() { return typed; }, get asking() { return asking; } };
 })(this);

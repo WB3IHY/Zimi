@@ -12,14 +12,20 @@ import http.server
 import os
 import threading
 
+import sys
+
 import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from games_wait import becomes, frames, game_ready, savable, truthy, visible  # noqa: E402
 
 pytest.importorskip("playwright")
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 GAMES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "zimi", "builtin", "games")
 VIEW = {"width": 390, "height": 844}
-SETTLE_MS = 1000
+SETTLE_MS = 1000   # kept for the files that import it; nothing here sleeps on it any more
+COMPUTER_TURN_MS = 120000   # a ceiling for the computer to answer on a loaded machine
 
 
 def _paused(expr):
@@ -72,6 +78,17 @@ ROWS = [
 ]
 
 
+# The card the person may play now (a card to play, or to put down after picking up the turned card), or null when it is not their turn.
+EUCHRE_MY_CARD = ("(() => { const s = ZimiEuchre.session.state; "
+                  "if (s.phase === 'discard' && s.dealer === 0) return s.hands[0][0]; "
+                  "return s.phase === 'play' && s.turn === 0 && s.trick.length < 4 ? (ZimiEuchre.legalPlays(s, 0)[0] ?? null) : null; })()")
+
+# A game whose move plays out over time says when it is done (an expression that is true once nothing is still moving).
+IDLE = {
+    "fiveletters": "!__five.busy",   # the tiles flip one after another before the row's labels are set
+}
+
+
 @pytest.fixture(scope="module")
 def served():
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=GAMES)
@@ -97,9 +114,18 @@ def browser():
 
 
 def tap(page, locator):
-    """A tap at the middle of the element, as a finger would (the cards and slots are not buttons to the DOM)."""
+    """A tap at the middle of the element, as a finger would (the cards and slots are not buttons to the DOM).
+
+    Waits for the element to be on screen first, and lets the page turn two frames after, so what the tap painted has landed."""
+    locator.wait_for(state="visible")
     box = locator.bounding_box()
     page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    frames(page)
+
+
+def leave(page, position):
+    """Hide the page and read the position in the same breath: the save and the read see one table, and a running game is paused."""
+    return page.evaluate("(() => { window.dispatchEvent(new Event('pagehide')); return " + position + "; })()")
 
 
 @pytest.mark.parametrize("page_name,move,position", ROWS, ids=[r[0] for r in ROWS])
@@ -108,41 +134,44 @@ def test_leaving_and_returning_keeps_the_position(served, browser, page_name, mo
     page = ctx.new_page()
     url = "%s/%s.html" % (served, page_name)
     page.goto(url)
-    page.wait_for_timeout(SETTLE_MS)
+    game_ready(page)   # (a game that has no position until its first tap, a race or a round, is waited for at its first tap)
     if move:
         # a list taps its selectors in turn (a piece, then its square); each one is the first match
         for sel in ([move] if isinstance(move, str) else move):
             if sel.startswith("key:"):
+                page.wait_for_function(truthy(position))   # a key goes to the game once it has a position
                 page.keyboard.press(sel[4:])
+                frames(page)
             else:
                 tap(page, page.locator(sel).first if not isinstance(move, str) else page.locator(sel).last)
-            page.wait_for_timeout(300)
-        page.wait_for_timeout(SETTLE_MS)
+        savable(page)   # the move took: there is a position to keep
+        if page_name in IDLE:
+            page.wait_for_function(truthy(IDLE[page_name]))
     else:
         # A game with the computer in it: answer whatever it asks until the table has changed once.
-        for _ in range(40):
-            if page.evaluate("ZimiEuchre.session.history.length") > 0:
-                break
+        page.wait_for_function(truthy("ZimiEuchre.session.history"))
+        deadline = page.evaluate("Date.now()") + COMPUTER_TURN_MS
+        while page.evaluate("ZimiEuchre.session.history.length") == 0:
+            assert page.evaluate("Date.now()") < deadline, "the table never changed"
+            # until it is the person's turn to choose (a bid, or a card to play) or the table has changed
+            page.wait_for_function(
+                "() => ZimiEuchre.session.history.length > 0 || document.querySelector('.ct-choice:not([disabled])') || (%s) !== null" % EUCHRE_MY_CARD,
+                timeout=COMPUTER_TURN_MS)
             choice = page.locator(".ct-choice:not([disabled])")
+            card = page.evaluate(EUCHRE_MY_CARD)
             if choice.count():
                 tap(page, choice.first)
-            page.wait_for_timeout(400)
-    page.wait_for_timeout(SETTLE_MS)
-    computer = move is None   # a game with the computer in it keeps playing: read the position in the same breath as the save
-    # Leaving pauses a running arcade game, so its position stops moving before it is read.
-    if computer:
-        before = page.evaluate("(() => { window.dispatchEvent(new Event('pagehide')); return " + position + "; })()")
-    else:
-        page.evaluate("window.dispatchEvent(new Event('pagehide'))")
-        page.wait_for_timeout(200)
-        before = page.evaluate(position)
+            elif card is not None:
+                tap(page, page.locator('[data-pile="h%d"]' % card).first)
+    # A game with the computer in it keeps playing: the read is in the same breath as the save. Leaving also pauses a running arcade game.
+    computer = move is None
+    before = leave(page, position)
     page.goto("about:blank")
     page.goto(url)
-    if computer:
-        # The computer's next turn is a beat away: read the position the moment the game is up, not after a fixed wait.
-        page.wait_for_function("() => { try { return !!(" + position + "); } catch (e) { return false; } }", timeout=20000)
-    else:
-        page.wait_for_timeout(SETTLE_MS)
+    game_ready(page, position)
+    if not computer:
+        becomes(page, position, before)   # the position is put back once the game's own start has run; a miss shows in the assert
+    # With the computer in it the next turn is a beat away, so read the moment the game is up.
     after = page.evaluate(position)
     assert before and after
     assert after == before, "the position came back different after leaving and returning"
@@ -154,14 +183,14 @@ def test_a_new_game_is_the_one_way_to_lose_one(served, browser):
     page = ctx.new_page()
     url = served + "/solitaire.html"
     page.goto(url)
-    page.wait_for_timeout(SETTLE_MS)
+    game_ready(page, "ZimiSolitaire.session.state")
     tap(page, page.locator('[data-pile="stock"]').last)
-    page.wait_for_timeout(SETTLE_MS)
+    savable(page)
     page.evaluate("window.dispatchEvent(new Event('pagehide'))")
     kept = page.evaluate("ZimiShell.saved()")
     assert kept, "a game with a move in it is kept"
     page.evaluate("document.getElementById('zc-new').click()")
-    page.wait_for_timeout(SETTLE_MS)
+    frames(page)
     page.evaluate("window.dispatchEvent(new Event('pagehide'))")
     assert page.evaluate("ZimiShell.saved()") is None, "a fresh deal with no move made is not kept"
     ctx.close()
@@ -174,7 +203,7 @@ def test_history_and_about_read_as_words_in_the_menu(served, browser, page_name)
     page = ctx.new_page()
     url = "%s/%s.html" % (served, page_name)
     page.goto(url)
-    page.wait_for_timeout(SETTLE_MS)
+    game_ready(page)
     page.locator(".ar-bar button", has_text="Menu").first.click()
     for row, fact in (("History", "Origin"), ("About", "Players")):
         page.locator(".gs-item", has_text=row).first.click()
@@ -192,20 +221,23 @@ def test_a_grand_prix_between_races_comes_back_to_the_standings(served, browser)
     page = ctx.new_page()
     url = served + "/kart.html"
     page.goto(url)
-    page.wait_for_timeout(SETTLE_MS)
+    game_ready(page, "__kart.g")
+    visible(page, ".ar-sheet-actions .gs-primary")
     page.evaluate("document.querySelector('.ar-sheet-actions .gs-primary').click()")
-    page.wait_for_timeout(SETTLE_MS)
+    page.wait_for_function(truthy("__kart.g.race"))
     page.evaluate("__kart.g.race.over = true")
-    page.wait_for_timeout(SETTLE_MS)
+    page.wait_for_function(truthy("__kart.g.mode === 'result'"))
     before = page.evaluate("JSON.stringify(__kart.g.gp)")
-    assert page.evaluate("__kart.g.mode") == "result"
     page.evaluate("window.dispatchEvent(new Event('pagehide'))")
     page.goto("about:blank")
     page.goto(url)
-    page.wait_for_timeout(SETTLE_MS)
+    game_ready(page, "__kart.g.mode === 'result' && document.querySelector('.ar-sheet:not([hidden]) h2')")
     assert page.evaluate("JSON.stringify(__kart.g.gp)") == before
     assert "Race 1 of 3" in page.evaluate("document.querySelector('.ar-sheet:not([hidden]) h2').textContent")
     ctx.close()
+
+
+PLAYER_ONE = "(document.querySelector('.ar-sheet h2') || {textContent: ''}).textContent.includes('Player 1')"
 
 
 def test_circuit_phone_heats_survive_leaving(served, browser):
@@ -216,20 +248,17 @@ def test_circuit_phone_heats_survive_leaving(served, browser):
     page.goto(url)
     page.evaluate("localStorage.setItem('zimi.games.circuit', JSON.stringify({players: 2, laps: 2, ai: 3}))")
     page.goto(url)
-    page.wait_for_timeout(SETTLE_MS)
+    game_ready(page, "__circuit.g")
     page.click(".ar-sheet .gs-primary")
-    page.wait_for_timeout(SETTLE_MS)
+    page.wait_for_function(truthy("__circuit.g.race && __circuit.g.race.cars"))
     page.evaluate("(() => { const r = __circuit.g.race; r.cars.forEach((c, i) => { c.finished = true; c.finishTime = 60 + i; }); r.events.push({type: 'done'}); })()")
-    page.wait_for_timeout(SETTLE_MS)
-    assert "Player 1" in page.evaluate("document.querySelector('.ar-sheet h2').textContent")
+    page.wait_for_function(truthy(PLAYER_ONE))
     before = page.evaluate("JSON.stringify(__circuit.g.heats)")
     page.evaluate("window.dispatchEvent(new Event('pagehide'))")
     page.goto("about:blank")
     page.goto(url)
-    page.wait_for_timeout(SETTLE_MS)
-    assert "Player 1" in page.evaluate("document.querySelector('.ar-sheet h2').textContent"), "the pass-the-phone sheet came back"
+    game_ready(page, PLAYER_ONE)   # the pass-the-phone sheet came back
     assert page.evaluate("JSON.stringify(__circuit.g.heats)") == before
     page.click(".ar-sheet .gs-primary")
-    page.wait_for_timeout(SETTLE_MS)
-    assert page.evaluate("__circuit.g.heat") == 1, "player 2 is up"
+    page.wait_for_function(truthy("__circuit.g.heat === 1"))   # player 2 is up
     ctx.close()

@@ -393,5 +393,5 @@
   });
   findLists();
   // A read-only window onto the live game, for the browser tests.
-  root.__five = { get game() { return game; }, get list() { return cur; } };
+  root.__five = { get game() { return game; }, get list() { return cur; }, get busy() { return busy; } };
 })(this);
