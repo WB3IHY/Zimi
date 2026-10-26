@@ -36,6 +36,7 @@
     var def = trackFor(), a = assetsFor(def.id), humans = prefs.mode === 'trial' ? 1 : prefs.players;
     var opts = { humans: humans, driver: prefs.driver, driver2: prefs.driver2, diff: prefs.diff, laps: 3, seed: Math.floor(Math.random() * 1e9), trial: prefs.mode === 'trial' };
     if (prefs.mode === 'gp' && g.gp.race > 0) opts.grid = E.cupOrder(g.gp.totals);
+    els.cv.style.visibility = '';
     g.opts = opts; g.T = a.T; g.assets = a; g.race = E.createRace(a.T, opts);
     g.humans = g.race.karts.filter(function (k) { return k.human >= 0; }).sort(function (x, y) { return x.human - y.human; });
     g.split = humans === 2; g.cams = g.humans.map(function (k) { var c = { x: 0, y: 0, yaw: 0, lift: 0 }; V.follow(c, k, 0, true); return c; });
@@ -225,7 +226,12 @@
   function goSetup() {
     g.mode = 'setup'; loop.stop(); releaseAll(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); g.gp = null; say('');
     closeSheet();
-    openSheet = ZimiShell.sheet({ title: 'ZimiKart', body: [setupNodes()], actions: [{ label: Tx('shell.start'), primary: true, keep: true, onclick: begin }], onClose: function () { openSheet = null; } });
+    els.cv.style.visibility = 'hidden';
+    // Closed without Start: the page is not left blank, a tap starts with the choices made so far.
+    openSheet = ZimiShell.sheet({ title: 'ZimiKart', body: [setupNodes()], actions: [{ label: Tx('shell.start'), primary: true, keep: true, onclick: begin }], onClose: function () {
+      openSheet = null;
+      if (g.mode === 'setup') Play.ready({ say: say, target: els.stage, start: begin });
+    } });
   }
 
   // ── input ────────────────────────────────────────────────────────────────
