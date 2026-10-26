@@ -66,16 +66,6 @@
     if (t.replace(/_____/g, '').trim().length < CLUE_MIN) return '';
     return t.charAt(0).toUpperCase() + t.slice(1);
   }
-  function plain(h) {
-    return String(h).replace(/<(sup|style|script)[\s\S]*?<\/\1>/gi, '').replace(/<[^>]*>/g, '').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"').replace(/&#39;|&#8217;|&rsquo;/g, '’').replace(/&#?\w+;/g, ' ').replace(/\s+/g, ' ').trim();
-  }
-  // The first definition on a Wiktionary page: the first numbered line, without the examples nested under it. '' if none.
-  function firstDefinition(html) {
-    var m = /<ol[^>]*>\s*<li[^>]*>([\s\S]*?)(?:<ul|<ol|<dl|<\/li>)/i.exec(String(html || ''));
-    return m ? plain(m[1]) : '';
-  }
-
   // The built-in pool: every word with a clue.
   function builtInPool(clues) { return Object.keys(clues || {}); }
 
@@ -83,7 +73,7 @@
   function solved(cells, sol) { return sol.every(function (l, i) { return !l || cells[i] === l; }); }
   function wrongCells(cells, sol) { var out = []; cells.forEach(function (l, i) { if (l && sol[i] && l !== sol[i]) out.push(i); }); return out; }
 
-  root.MiniCrosswordEngine = { generate: generate, solution: solution, cellsOf: cellsOf, clueFrom: clueFrom, firstDefinition: firstDefinition, builtInPool: builtInPool, solved: solved, wrongCells: wrongCells, isBlock: isBlock, ENTRIES: ENTRIES, SIZE: SIZE };
+  root.MiniCrosswordEngine = { generate: generate, solution: solution, cellsOf: cellsOf, clueFrom: clueFrom, builtInPool: builtInPool, solved: solved, wrongCells: wrongCells, isBlock: isBlock, ENTRIES: ENTRIES, SIZE: SIZE };
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
@@ -106,7 +96,7 @@
   // ── where the clues come from ──
   function defineWord(word) {
     var work = Lib.modeNow() === 'kiwix'
-      ? Lib.pageHead(dict, [word], 60000, DEFINE_MS).then(function (got) { return got ? firstDefinition(got.html) : ''; })
+      ? Lib.pageHead(dict, [word], 60000, DEFINE_MS).then(function (got) { return got ? Lib.firstDefinition(got.html) : ''; })
       : Lib.json(FIVE_API + '?zim=' + encodeURIComponent(dict) + '&define=' + encodeURIComponent(word), DEFINE_MS).then(function (r) { return r && r.blurb ? r.blurb : ''; });
     return work.then(function (d) { return clueFrom(d, word); }, function () { return ''; });
   }

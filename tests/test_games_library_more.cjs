@@ -228,7 +228,7 @@ const rng = seed => load(['librarykit.js']).GamesLib.rng(seed);
     check(E.clueFrom('A', 'house') === '' && E.clueFrom('', 'house') === '' && E.clueFrom('house', 'house') === '', 'crossword: too little is no clue');
     const longClue = E.clueFrom('A very long definition that goes on and on past the eighty character limit for a crossword clue indeed.', 'house');
     check(longClue.length <= 82 && longClue.endsWith('…'), 'crossword: a long definition is cut to a line');
-    check(E.firstDefinition('<ol><li>A fruit that is <b>red</b>.<ul><li>An example sentence.</li></ul></li><li>Second.</li></ol>') === 'A fruit that is red.' && E.firstDefinition('<p>none</p>') === '', 'crossword: the first definition of a Wiktionary page');
+    check(Lib.firstDefinition('<ol><li>A fruit that is <b>red</b>.<ul><li>An example sentence.</li></ul></li><li>Second.</li></ol>') === 'A fruit that is red.' && Lib.firstDefinition('<p>none</p>') === '', 'crossword: the first definition of a Wiktionary page');
   }
 
   console.log('\n' + passes + ' passed, ' + failures + ' failed');

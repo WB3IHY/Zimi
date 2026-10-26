@@ -280,6 +280,25 @@
     }, function (e) { if (timer) clearTimeout(timer); throw e; });
   };
 
+  // Pages whose title matches what the player typed, [{title, path}]: Zimi's search, or kiwix-serve's title suggestions.
+  Lib.search = function (zim, term, n) {
+    n = n || 8;
+    if (modeNow === 'kiwix') {
+      return Lib.json(kiwixPrefix + '/suggest?content=' + encodeURIComponent(zim) + '&term=' + encodeURIComponent(term) + '&count=' + n).then(function (rows) {
+        return (Array.isArray(rows) ? rows : []).map(function (r) { return { title: String(r.value || r.label || '').replace(/<[^>]*>/g, ''), path: r.path || '' }; }).filter(function (r) { return r.title && r.path; });
+      }, function () { return []; });
+    }
+    return Lib.json('/search?q=' + encodeURIComponent(term) + '&zim=' + encodeURIComponent(zim) + '&limit=' + n).then(function (r) {
+      return ((r && r.results) || []).map(function (x) { return { title: x.title, path: x.path }; });
+    }, function () { return []; });
+  };
+
+  // The first definition on a Wiktionary page: the first numbered line, without the examples nested under it. '' if none.
+  Lib.firstDefinition = function (html) {
+    var m = /<ol[^>]*>\s*<li[^>]*>([\s\S]*?)(?:<ul|<ol|<dl|<\/li>)/i.exec(String(html || ''));
+    return m ? plain(m[1]) : '';
+  };
+
   // ── tables ───────────────────────────────────────────────────────────────
   // The rows of a page's tables as arrays of cells {text, img (the first picture's src), href and link (the first link's address and text), head (a <th>)},
   // whole rows only (a page cut off by Lib.head loses its last), with no DOM, so node can test it. A tag's attributes may
