@@ -1,0 +1,199 @@
+{
+ "cards.back.castle": "Castle",
+ "cards.back.classic": "Classic",
+ "cards.back.night": "Night sky",
+ "cards.back.robot": "Robot",
+ "cards.back.sea": "The sea",
+ "cards.back.zimi": "Zimi",
+ "cards.backLabel": "{name} card back",
+ "cards.backs": "Card backs",
+ "cards.backsMore": "Card backs…",
+ "cards.cancelled": "Cancelled",
+ "cards.choices": "Choices",
+ "cards.done": "Done",
+ "cards.look": "Look",
+ "cards.moved": "Moved",
+ "cards.n.bag": {
+  "one": "{n} bag",
+  "other": "{n} bags"
+ },
+ "cards.n.card": {
+  "one": "{n} card",
+  "other": "{n} cards"
+ },
+ "cards.n.checker": {
+  "one": "{n} checker",
+  "other": "{n} checkers"
+ },
+ "cards.n.disc": {
+  "one": "{n} disc",
+  "other": "{n} discs"
+ },
+ "cards.n.hand": {
+  "one": "{n} hand",
+  "other": "{n} hands"
+ },
+ "cards.n.heart": {
+  "one": "{n} heart",
+  "other": "{n} hearts"
+ },
+ "cards.n.liberty": {
+  "one": "{n} liberty",
+  "other": "{n} liberties"
+ },
+ "cards.n.month": {
+  "one": "{n} month",
+  "other": "{n} months"
+ },
+ "cards.n.move": {
+  "one": "{n} move",
+  "other": "{n} moves"
+ },
+ "cards.n.overtrick": {
+  "one": "{n} overtrick",
+  "other": "{n} overtricks"
+ },
+ "cards.n.piece": {
+  "one": "{n} piece",
+  "other": "{n} pieces"
+ },
+ "cards.n.point": {
+  "one": "{n} point",
+  "other": "{n} points"
+ },
+ "cards.n.round": {
+  "one": "{n} round",
+  "other": "{n} rounds"
+ },
+ "cards.n.seed": {
+  "one": "{n} seed",
+  "other": "{n} seeds"
+ },
+ "cards.n.spade": {
+  "one": "{n} spade",
+  "other": "{n} spades"
+ },
+ "cards.n.stone": {
+  "one": "{n} stone",
+  "other": "{n} stones"
+ },
+ "cards.name": "{rank} of {suit}",
+ "cards.noMove": "No move",
+ "cards.notAllowed": "Not allowed there",
+ "cards.picked": "Picked up {card}. Choose a pile, Enter to drop.",
+ "cards.pile.count": {
+  "one": "{name}, {n} card",
+  "other": "{name}, {n} cards"
+ },
+ "cards.pile.empty": "{name}, empty",
+ "cards.pile.top": {
+  "one": "{name}, {n} card, top {card}",
+  "other": "{name}, {n} cards, top {card}"
+ },
+ "cards.rank.1": "ace",
+ "cards.rank.10": "10",
+ "cards.rank.11": "jack",
+ "cards.rank.12": "queen",
+ "cards.rank.13": "king",
+ "cards.rank.2": "2",
+ "cards.rank.3": "3",
+ "cards.rank.4": "4",
+ "cards.rank.5": "5",
+ "cards.rank.6": "6",
+ "cards.rank.7": "7",
+ "cards.rank.8": "8",
+ "cards.rank.9": "9",
+ "cards.stats.bestScore": "Best score",
+ "cards.stats.bestTime": "Best time",
+ "cards.stats.played": "Played",
+ "cards.stats.time": "Time",
+ "cards.stats.won": "Won",
+ "cards.stats.wonOf": "{won} of {played}",
+ "cards.suit.clubs": "clubs",
+ "cards.suit.diamonds": "diamonds",
+ "cards.suit.hearts": "hearts",
+ "cards.suit.spades": "spades",
+ "shell.back": "Back",
+ "shell.cancel": "Cancel",
+ "shell.choose": "Choose…",
+ "shell.close": "Close",
+ "shell.end.draw": "Draw",
+ "shell.end.lose": "You lose",
+ "shell.end.over": "Game over",
+ "shell.end.win": "You win",
+ "shell.end.wins": "{name} wins",
+ "shell.fast": "Fast",
+ "shell.help.end": "The end",
+ "shell.help.goal": "Goal",
+ "shell.help.keys": "Keys",
+ "shell.help.tip": "Tip",
+ "shell.help.turn": "Your turn",
+ "shell.menu": "Menu",
+ "shell.menu.about": "About this game",
+ "shell.menu.history": "History",
+ "shell.menu.how": "How to play",
+ "shell.menu.new": "New game",
+ "shell.menu.settings": "Settings",
+ "shell.menu.stats": "Stats",
+ "shell.menu.watch": "Watch and learn",
+ "shell.meta.era": "Era",
+ "shell.meta.length": "Length",
+ "shell.meta.origin": "Origin",
+ "shell.meta.players": "Players",
+ "shell.meta.region": "Region",
+ "shell.meta.year": "Year",
+ "shell.new.ask": "Start a new game?",
+ "shell.new.lost": "Your current game will be lost.",
+ "shell.normal": "Normal",
+ "shell.off": "Off",
+ "shell.on": "On",
+ "shell.running": "Running",
+ "shell.seconds": "{n} s",
+ "shell.set.allGames": "All games",
+ "shell.set.anim": "Animation",
+ "shell.set.cardBack": "Card back",
+ "shell.set.confirm": "Ask before a new game",
+ "shell.set.hints": "Hints",
+ "shell.set.moveTimer": "Move timer",
+ "shell.set.moveTimerNote": "Time for each of your turns. When it runs out, a move is played for you.",
+ "shell.set.reducedNote": "Off now, because your device asks for less motion.",
+ "shell.set.scope": "Applies to",
+ "shell.set.sound": "Sound",
+ "shell.set.thisGame": "This game only",
+ "shell.set.timer": "Timer",
+ "shell.set.useAll": "Use the settings for all games",
+ "shell.start": "Start",
+ "shell.stats.none": "Nothing yet. Finish a game and it shows here.",
+ "shell.summary.anim": "Animation {mode}",
+ "shell.summary.timer": "Timer off",
+ "shell.thinking": "Computer is thinking",
+ "shell.watch.intro": "The computer plays both sides and explains each move. You can pause, step or take over at any time.",
+ "shell.watch.running": "The computer is playing both sides. Use the bar under the title to pause, step or take over.",
+ "shell.watch.start": "Start watching",
+ "shell.watch.stop": "Stop watching",
+ "time.day": {
+  "one": "{n} day ago",
+  "other": "{n} days ago"
+ },
+ "time.hour": {
+  "one": "{n} hour ago",
+  "other": "{n} hours ago"
+ },
+ "time.minute": {
+  "one": "{n} minute ago",
+  "other": "{n} minutes ago"
+ },
+ "time.month": {
+  "one": "{n} month ago",
+  "other": "{n} months ago"
+ },
+ "time.now": "just now",
+ "time.week": {
+  "one": "{n} week ago",
+  "other": "{n} weeks ago"
+ },
+ "time.year": {
+  "one": "{n} year ago",
+  "other": "{n} years ago"
+ }
+}
