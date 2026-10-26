@@ -209,7 +209,7 @@
       var picked = build.indexOf(id) >= 0, hot = sel !== null && inOption(id);
       var played = sh && sh.stage === 0 && !sh.hasTaken && st.lastPlay && st.lastPlay.id === id;
       cards.push({ id: id, pile: 't' + id, idx: 0, x: pos[k].x, y: pos[k].y, up: true, mark: picked, glow: (hot && !picked) || !!played, dim: sel !== null && !hot });
-      slots.push({ id: 't' + id, x: pos[k].x, y: pos[k].y, w: g.cw, h: g.ch, label: nameOf(id) + (picked ? ', chosen' : '') });
+      slots.push({ id: 't' + id, x: pos[k].x, y: pos[k].y, w: g.cw, h: g.ch, label: nameOf(id) + (picked ? TX('cards.aria.chosen') : '') });
     });
     // What was just taken, held up for a moment and then swept to its owner.
     if (sh && st.lastPlay) {
@@ -251,7 +251,7 @@
       [0, 1].forEach(function (seat) {
         var el = tallies[seat], cap = st.captured[seat];
         el.textContent = '';
-        [NAMES[seat], cap.length + ' cards', coins(cap) + ' coins', st.scope[seat] + (st.scope[seat] === 1 ? ' scopa' : ' scope')].forEach(function (line, k) {
+        [NAMES[seat], TX('scopa.tally.cards', { n: cap.length }), TX('scopa.tally.coins', { n: coins(cap) }), TX('scopa.tally.scope', { n: st.scope[seat] })].forEach(function (line, k) {
           el.appendChild(Z.h('div', { class: k ? '' : 'sc-name', text: line }));
         });
         el.style.left = g.pad + 'px';

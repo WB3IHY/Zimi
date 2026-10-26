@@ -251,7 +251,7 @@
     slots.push({ id: 'table', x: g.pad, y: g.rowB - 4, w: g.W - 2 * g.pad, h: 2 * g.ch + ROW_GAP + 8, quiet: true, label: TX('cards.slot.table') });
     var myTurn = st.phase === 'peg' && st.turn === V && !st.roundOver && faceUp, hand, opp;
     var info = function (id) {
-      if (st.phase === 'discard') { var on = chosen.indexOf(id) >= 0; return { up: faceUp, raise: on, mark: on, label: Z.cardName(id) + (on ? ', chosen for the crib' : '') }; }
+      if (st.phase === 'discard') { var on = chosen.indexOf(id) >= 0; return { up: faceUp, raise: on, mark: on, label: Z.cardName(id) + (on ? TX('crib.aria.chosen') : '') }; }
       return { up: faceUp || showing, dim: myTurn && !isLegalPeg(st, V, id), glow: showing && st.showStep < 2 && st.showWho === V };
     };
     if (showing) {

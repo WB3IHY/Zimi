@@ -301,7 +301,7 @@
       var b = aiBid(st, seat);
       if (!b.take) { view.note = who(seat) + ' passed.'; session.follow(pass(st, seat)); drive(); return; }
       var ns = take(st, seat, b.suit);
-      view.note = who(seat) + ' took ' + SUIT_NAMES[ns.trump] + '.'; session.follow(ns); t.flash(who(seat) + ' takes ' + SUIT_NAMES[ns.trump]); drive();
+      view.note = TX('belote.tookSuit', { name: who(seat), suit: TX('cards.suit.' + SUIT_NAMES[ns.trump]) }) + '.'; session.follow(ns); t.flash(TX('belote.takesSuit', { name: who(seat), suit: TX('cards.suit.' + SUIT_NAMES[ns.trump]) })); drive();
     }
     function say(st, seat, id) { var a = announcement(st, seat, id); if (a) t.flash(who(seat) + ': ' + a); }
     function aiTurn() {

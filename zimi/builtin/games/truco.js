@@ -157,7 +157,7 @@
       var prior = chain.slice(0, -1), value2 = prior.length ? chainValue(s, prior) : 1;
       res = { done: true, points: null, winner: by, value: value2 };
       s.scores[by] += value2;
-      s.note = NAMES[resp] + (resp === YOU ? ' refuse' : ' refuses') + ' the envido: ' + (by === YOU ? 'you take ' : NAMES[by] + ' takes ') + value2 + '.';
+      s.note = TX(resp === YOU ? 'truco.envidoRefused.you' : 'truco.envidoRefused', { name: NAMES[resp], who: by === YOU ? TX('truco.youTake') : TX('truco.nameTakes', { name: NAMES[by] }), n: value2 });
     }
     s.envido = res; s.call = s.hold; s.hold = null; s.ask = s.call ? other(s.call.by) : -1;
     if (s.scores[0] >= s.target || s.scores[1] >= s.target) { s.phase = 'over'; s.result = { winner: res.winner, points: res.value, reason: 'envido' }; s.call = null; s.ask = -1; }
@@ -256,7 +256,7 @@
     var V = (view && view.viewer) || 0, O = 1 - V, faceUp = !(view && view.hideHand);
     var g = geo(m), cards = [], slots = [], k, plays = st.done.map(function (d) { return d.plays; }).concat(st.trick.length ? [st.trick] : []);
     slots.push({ id: 'trick', x: g.cx - 2 * g.cw, y: g.duelY, w: 4 * g.cw, h: g.ch * (1 + ROW_DROP), quiet: true, label: TX('truco.slot.tricks') });
-    var hand = T.handCards(g, st.hands[V], function (id) { return { up: faceUp, label: nameOf(id) + ', worth ' + power(id) }; }, null);
+    var hand = T.handCards(g, st.hands[V], function (id) { return { up: faceUp, label: TX('truco.aria.worth', { card: nameOf(id), n: power(id) }) }; }, null);
     var step = Math.min(g.cw * 1.12, (g.W - 2 * g.pad - g.cw) / Math.max(1, st.hands[V].length - 1)), x0 = (g.W - (g.cw + (st.hands[V].length - 1) * step)) / 2;
     hand.cards.forEach(function (c, i) { c.x = Math.round(x0 + i * step); hand.slots[i].x = c.x; });
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);

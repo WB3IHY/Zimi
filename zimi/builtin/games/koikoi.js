@@ -226,7 +226,7 @@
     st.table.forEach(function (id, k) {
       var hot = lit.indexOf(id) >= 0, fresh = sh && sh.stage === 0 && sh.row.indexOf(id) >= 0;
       cards.push({ id: id, pile: 't' + id, idx: 0, x: pos[k].x, y: pos[k].y, up: true, glow: hot || !!fresh, dim: pickable && !hot });
-      slots.push({ id: 't' + id, x: pos[k].x, y: pos[k].y, w: g.cw, h: g.ch, label: nameOf(id) + (hot ? ', can be taken' : '') });
+      slots.push({ id: 't' + id, x: pos[k].x, y: pos[k].y, w: g.cw, h: g.ch, label: nameOf(id) + (hot ? TX('koikoi.aria.canTake') : '') });
     });
     // What was just taken, held up for a moment and swept to its owner.
     if (sh && sh.row.length) {

@@ -226,7 +226,7 @@
     var myTurn = st.phase === 'play' && st.turn === V && !full, picking = st.phase === 'discard' && st.dealer === V;
     slots.push({ id: 'deck', x: g.cx - g.cw / 2, y: g.cy - g.ch / 2, w: g.cw, h: g.ch, quiet: true, label: TX('cards.slot.table') });
     slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: TX('cards.slot.trick') });
-    var hand = T.handCards(g, st.hands[V], function (id) { return { up: up, dim: up && myTurn && !isLegal(st, V, id), glow: up && picking && id === st.upcard, label: Z.cardName(id) + (picking && id === st.upcard ? ', picked up' : '') }; },
+    var hand = T.handCards(g, st.hands[V], function (id) { return { up: up, dim: up && myTurn && !isLegal(st, V, id), glow: up && picking && id === st.upcard, label: Z.cardName(id) + (picking && id === st.upcard ? TX('euchre.aria.pickedUp') : '') }; },
       function (a, b) { return effSuit(a, st.trump) !== effSuit(b, st.trump); });
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     [1, 2, 3].forEach(function (pos) { var seat = (V + pos) % SEATS; if (seat !== st.sitting) cards = cards.concat(T.fan(g, pos, st.hands[seat], false)); });

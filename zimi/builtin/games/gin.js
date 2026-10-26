@@ -243,7 +243,7 @@
     var hand = T.handCards(g, mine.ids, function (id) {
       var chosen = id === sel;
       return { up: faceUp || show, raise: chosen, mark: chosen, glow: cardIn(laid, id) || (faceUp && st.last && st.last.seat === V && st.last.id === id && st.phase === 'discard'), dim: turnMine && st.phase === 'discard' && st.drawn === id,
-        label: Z.cardName(id) + (chosen ? ', chosen to discard' : '') };
+        label: Z.cardName(id) + (chosen ? TX('gin.aria.chosen') : '') };
     }, mine.gap);
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     if (show) {

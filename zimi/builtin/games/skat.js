@@ -284,7 +284,7 @@
     slots.push({ id: 'trick', x: g.cx - 1.6 * g.cw, y: g.cy - 1.1 * g.ch, w: 3.2 * g.cw, h: 2.2 * g.ch, quiet: true, label: TX('cards.slot.trick') });
     var hand = T.handCards(g, st.hands[V], function (id) {
       var on = sel.indexOf(id) >= 0;
-      return { up: up, dim: up && myTurn && !isLegal(st, V, id), mark: on, raise: on, glow: up && picking && st.skat.indexOf(id) >= 0 && !on && !view.touched, label: Z.cardName(id) + (on ? ', to put back' : '') };
+      return { up: up, dim: up && myTurn && !isLegal(st, V, id), mark: on, raise: on, glow: up && picking && st.skat.indexOf(id) >= 0 && !on && !view.touched, label: Z.cardName(id) + (on ? TX('skat.aria.putBack') : '') };
     }, function (a, b) { return effSuit(a, st.game || { type: 'suit', suit: -1 }) !== effSuit(b, st.game || { type: 'suit', suit: -1 }); });
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     [1, 2].forEach(function (k) { var seat = (V + k) % SEATS; cards = cards.concat(T.fan(g, pos(seat), st.hands[seat], false)); });
@@ -379,14 +379,14 @@
       var st = session.state;
       if (st.phase !== 'bid' || seats.person(st.turn)) return;
       var seat = st.turn, a = aiBid(st, seat);
-      view.note = who(seat) + (a === 'bid' ? ' bids ' + nextBid(st.bid.value) : a === 'hold' ? ' holds' : ' passes') + '.';
+      view.note = TX(a === 'bid' ? 'skat.note.bids' : a === 'hold' ? 'skat.note.holds' : 'skat.note.passes', { name: who(seat), n: a === 'bid' ? nextBid(st.bid.value) : 0 }) + '.';
       session.follow(bidAct(st, seat, a));
       drive();
     }
     function aiDeclarerTurn() {
       var st = session.state, seat = st.declarer;
       if (seats.person(seat)) return;
-      if (st.phase === 'pick') { var a = aiPick(st, seat); view.note = ''; session.follow(pickAct(st, seat, a)); if (a === 'throw') t.flash(who(seat) + ' throws the hand in'); drive(); }
+      if (st.phase === 'pick') { var a = aiPick(st, seat); view.note = ''; session.follow(pickAct(st, seat, a)); if (a === 'throw') t.flash(TX('skat.throws', { name: who(seat) })); drive(); }
       else if (st.phase === 'discard') { session.follow(discard(st, seat, aiDiscard(st, seat))); drive(); }
       else if (st.phase === 'declare') {
         var g = aiDeclare(st, seat), ns = declare(st, seat, g.type, g.suit);
