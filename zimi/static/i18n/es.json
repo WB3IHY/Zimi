@@ -3493,5 +3493,7 @@
   "pet_asleep": "{name} duerme",
   "pet_fine": "{name} está bien",
   "pet_egg": "{name} sigue siendo un huevo",
-  "alm_earth_failed": "No se pudo cargar la Tierra en 3D. Cierra esta vista y ábrela de nuevo."
+  "alm_earth_failed": "No se pudo cargar la Tierra en 3D. Cierra esta vista y ábrela de nuevo.",
+  "recent_added_dot": "{n} añadidos recientemente",
+  "recent_updated_dot": "{n} actualizados recientemente"
 }

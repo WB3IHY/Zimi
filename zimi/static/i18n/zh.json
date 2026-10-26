@@ -3493,5 +3493,7 @@
   "pet_asleep": "{name} 在睡觉",
   "pet_fine": "{name} 很好",
   "pet_egg": "{name} 还是一颗蛋",
-  "alm_earth_failed": "无法加载 3D 地球。请关闭此视图后重新打开。"
+  "alm_earth_failed": "无法加载 3D 地球。请关闭此视图后重新打开。",
+  "recent_added_dot": "{n} 个最近添加",
+  "recent_updated_dot": "{n} 个最近更新"
 }

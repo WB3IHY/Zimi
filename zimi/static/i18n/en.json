@@ -3493,5 +3493,7 @@
   "pet_asleep": "{name} is asleep",
   "pet_fine": "{name} is doing well",
   "pet_egg": "{name} is still an egg",
-  "alm_earth_failed": "The 3D Earth could not be loaded. Close this view and open it again."
+  "alm_earth_failed": "The 3D Earth could not be loaded. Close this view and open it again.",
+  "recent_added_dot": "{n} recently added",
+  "recent_updated_dot": "{n} recently updated"
 }
