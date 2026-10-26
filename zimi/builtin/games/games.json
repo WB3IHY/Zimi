@@ -250,7 +250,7 @@
   "wiki": "Reversi",
   "path": "reversi.html",
   "title": "Reversi",
-  "blurb": "Flip discs. Play the computer or a friend.",
+  "blurb": "Flip discs to own the board",
   "why": "Invented in England in 1883. Othello is a modern version.",
   "origin": {
    "year": 1883,
@@ -267,7 +267,7 @@
   "wiki": "English draughts",
   "path": "checkers.html",
   "title": "Checkers",
-  "blurb": "English draughts. You must capture.",
+  "blurb": "English draughts, jumps are compulsory",
   "why": "In 2007, English draughts was proved to be a draw with perfect play.",
   "origin": {
    "year": 1150,
@@ -284,7 +284,7 @@
   "wiki": "Chess",
   "path": "chess.html",
   "title": "Chess",
-  "blurb": "The standard game. Six levels.",
+  "blurb": "The standard game, six levels",
   "why": "Its modern rules took shape in Europe around 1500.",
   "origin": {
    "year": 600,
@@ -301,7 +301,7 @@
   "wiki": "Go (game)",
   "path": "go.html",
   "title": "Go",
-  "blurb": "Boards of 9x9 and 13x13. White gets 6.5 points.",
+  "blurb": "Surround territory on 9x9 and 13x13 boards",
   "why": "Over 2,500 years old. One of the oldest board games still played.",
   "origin": {
    "year": -500,
@@ -318,7 +318,7 @@
   "wiki": "Xiangqi",
   "path": "xiangqi.html",
   "title": "Xiangqi",
-  "blurb": "Chinese chess. There is a river in the middle.",
+  "blurb": "Chinese chess with a river in the middle",
   "why": "China's chess, with a river across the middle of the board.",
   "origin": {
    "year": 850,
@@ -335,7 +335,7 @@
   "wiki": "Shogi",
   "path": "shogi.html",
   "title": "Shogi",
-  "blurb": "Japanese chess. Captured pieces can be dropped. A small 5x5 board too.",
+  "blurb": "Japanese chess, captured pieces can be dropped",
   "why": "Japan's chess. Captured pieces change sides and can be dropped back on the board.",
   "origin": {
    "year": 1500,
@@ -352,7 +352,7 @@
   "wiki": "Hex (board game)",
   "path": "hex.html",
   "title": "Hex",
-  "blurb": "Link your two sides. No draws.",
+  "blurb": "Link your two sides, no draws",
   "why": "Invented by Piet Hein in 1942 and, separately, by John Nash in 1948.",
   "origin": {
    "year": 1942,
@@ -386,7 +386,7 @@
   "wiki": "Nine men's morris",
   "path": "morris.html",
   "title": "Nine Men's Morris",
-  "blurb": "Make mills. Fly when you have three.",
+  "blurb": "Make mills, fly when you have three",
   "why": "An ancient game. Boards have been cut into stone since Roman times.",
   "origin": {
    "year": 1,
@@ -403,7 +403,7 @@
   "wiki": "Connect Four",
   "path": "fourinarow.html",
   "title": "Four in a Row",
-  "blurb": "Drop discs. Line up four.",
+  "blurb": "Drop discs, line up four",
   "why": "Sold as Connect Four since 1974. With perfect play, the first player wins.",
   "origin": {
    "year": 1974,
@@ -420,7 +420,7 @@
   "wiki": "Dots and boxes",
   "path": "dotsandboxes.html",
   "title": "Dots and Boxes",
-  "blurb": "Close boxes and move again. 4 to 7 dots.",
+  "blurb": "Close boxes and move again",
   "why": "A pencil-and-paper game that the mathematician Edouard Lucas described in 1889.",
   "origin": {
    "year": 1889,
@@ -437,7 +437,7 @@
   "wiki": "Backgammon",
   "path": "backgammon.html",
   "title": "Backgammon",
-  "blurb": "Race home. Optional doubling cube.",
+  "blurb": "Race home with an optional doubling cube",
   "why": "Its ancestors go back about 5,000 years.",
   "origin": {
    "year": -3000,
@@ -454,7 +454,7 @@
   "wiki": "Mancala",
   "path": "mancala.html",
   "title": "Mancala",
-  "blurb": "Oware and Kalah. Sow seeds and capture.",
+  "blurb": "Oware and Kalah, sow seeds and capture",
   "why": "One of the oldest games still played. Boards are found across Africa and Asia.",
   "origin": {
    "year": 600,
@@ -471,7 +471,7 @@
   "wiki": "Ludo",
   "path": "ludo.html",
   "title": "Ludo",
-  "blurb": "Roll a six to start. Race home.",
+  "blurb": "Roll a six to start, race home",
   "why": "From India's Pachisi. Patented in England in 1896.",
   "origin": {
    "year": 500,
@@ -488,7 +488,7 @@
   "wiki": "Chinese checkers",
   "path": "chinesecheckers.html",
   "title": "Chinese Checkers",
-  "blurb": "Hop marbles across the star. 2 to 6 players.",
+  "blurb": "Hop marbles across the star",
   "why": "Not Chinese. It came from Germany in 1892 as Sternhalma.",
   "origin": {
    "year": 1892,
@@ -505,7 +505,7 @@
   "wiki": "Dominoes",
   "path": "dominoes.html",
   "title": "Dominoes",
-  "blurb": "Draw and Block games. Play 1 to 3 computers.",
+  "blurb": "Draw and Block games, match the ends",
   "why": "Tiles with dots. Played across Europe since the 1700s.",
   "origin": {
    "year": 1120,
@@ -522,7 +522,7 @@
   "wiki": "Mahjong solitaire",
   "path": "mahjong.html",
   "title": "Mahjong",
-  "blurb": "Match pairs of tiles. Every deal can be cleared.",
+  "blurb": "Match pairs of tiles, every deal can be cleared",
   "why": "This solo game matches tiles from a pile. The four-player game is different.",
   "origin": {
    "year": 1981,
@@ -1083,7 +1083,7 @@
   "wiki": "Battleship (game)",
   "path": "fleet.html",
   "title": "Fleet",
-  "blurb": "Hide your ships. Find the computer's.",
+  "blurb": "Hide your ships, find the computer's",
   "why": "Finding hidden ships on a grid began as a pencil-and-paper game before the First World War.",
   "origin": {
    "year": 1931,
@@ -1440,7 +1440,7 @@
   "wiki": "Janggi",
   "path": "janggi.html",
   "title": "Janggi",
-  "blurb": "Korean chess. Palaces and cannons.",
+  "blurb": "Korean chess with palaces and cannons",
   "why": "Korean chess. The generals stay in their palaces. Cannons must jump over one piece.",
   "origin": {
    "year": null,
@@ -1457,7 +1457,7 @@
   "wiki": "Makruk",
   "path": "makruk.html",
   "title": "Makruk",
-  "blurb": "Thai chess. Slower than chess.",
+  "blurb": "Thai chess, slower than chess",
   "why": "Thai chess, close to the Indian game that chess grew from.",
   "origin": {
    "year": null,
@@ -1474,7 +1474,7 @@
   "wiki": "International draughts",
   "path": "draughts.html",
   "title": "International Draughts",
-  "blurb": "Flying kings. Take the most pieces. Men capture backwards.",
+  "blurb": "10x10 with flying kings, take the most pieces",
   "why": "International draughts is played on a 10 by 10 board across Europe and Africa.",
   "origin": {
    "year": 1723,
@@ -1491,7 +1491,7 @@
   "wiki": "Tafl games",
   "path": "hnefatafl.html",
   "title": "Hnefatafl",
-  "blurb": "Copenhagen rules. The king runs for a corner.",
+  "blurb": "Copenhagen rules, the king runs for a corner",
   "why": "The Viking board game. The king escapes to a corner or is captured.",
   "origin": {
    "year": 400,
@@ -1508,7 +1508,7 @@
   "wiki": "Hnefatafl",
   "path": "hnefatafl.html",
   "title": "Hnefatafl",
-  "blurb": "Copenhagen rules. The king runs for a corner.",
+  "blurb": "Copenhagen rules, the king runs for a corner",
   "why": "The Viking board game. The king escapes to a corner or is captured."
  },
  {
@@ -1516,7 +1516,7 @@
   "wiki": "Royal Game of Ur",
   "path": "ur.html",
   "title": "Royal Game of Ur",
-  "blurb": "A race game 4,500 years old. Four dice.",
+  "blurb": "A race game 4,500 years old, four dice",
   "why": "Played in Mesopotamia 4,500 years ago. Its rules survive on a clay tablet.",
   "origin": {
    "year": -2600,
@@ -1550,7 +1550,7 @@
   "wiki": "Carrom",
   "path": "carrom.html",
   "title": "Carrom",
-  "blurb": "Flick the striker, pocket your coins, cover the queen",
+  "blurb": "Flick the striker, pocket coins, cover the queen",
   "why": "Flick and pocket on a wooden board. Played in homes across South Asia.",
   "origin": {
    "year": null,
@@ -1567,7 +1567,7 @@
   "wiki": "Mahjong",
   "path": "mahjong4.html",
   "title": "Mahjong for Four",
-  "blurb": "Hong Kong style, against 3 computers",
+  "blurb": "Hong Kong style against computers",
   "why": "The four-player tile game played across China and beyond.",
   "origin": {
    "year": null,
@@ -1737,7 +1737,7 @@
   "wiki": "Chess puzzle",
   "path": "chesspuzzles.html",
   "title": "Chess Puzzles",
-  "blurb": "15,000 rated puzzles from Lichess. You get your own rating.",
+  "blurb": "15,000 rated Lichess puzzles, your own rating",
   "why": "Lichess rates each puzzle by how many players solved it. All puzzles are open data.",
   "origin": {
    "year": 1849,
@@ -1754,7 +1754,7 @@
   "wiki": "Chess opening",
   "path": "chessopenings.html",
   "title": "Opening Trainer",
-  "blurb": "3,800 named openings. Play your side.",
+  "blurb": "3,800 named openings, play your side",
   "why": "Chess players have named opening moves for generations. ECO codes run from A00 to E99.",
   "origin": {
    "year": 1966,
@@ -1771,7 +1771,7 @@
   "wiki": "Tsumego",
   "path": "goproblems.html",
   "title": "Go Problems",
-  "blurb": "Make a group live, or kill it.",
+  "blurb": "Make a group live, or kill it",
   "why": "Tsumego are Go's life-and-death problems. They teach you to plan moves ahead.",
   "origin": {
    "year": 1347,
