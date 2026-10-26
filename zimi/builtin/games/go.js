@@ -193,7 +193,7 @@
     if (phase !== 'mark' || G.over) return;
     var sc = liveScore(), diff = sc.black - sc.white, w = diff > 0 ? 0 : 1;
     var msg = T('go.result', { margin: fmt(Math.abs(diff)), black: fmt(sc.black), blackPts: sc.terrB, blackPris: sc.prisB, white: fmt(sc.white), whitePts: sc.terrW, whitePris: sc.prisW, komi: sc.komi });
-    G.finish(msg, G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, sideName(w));
+    G.finish(msg, G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, sideName(w), T('go.wonBy', { name: sideName(w), margin: fmt(Math.abs(diff)) }));
     paint();
   }
   doneBtn.addEventListener('click', accept);

@@ -123,8 +123,9 @@
     G.cancel = function () { seq++; G.thinking = 0; };
 
     // finish(text, outcome, name): `text` is the one line under the result; outcome is 'w' (a person won against the
-    // computer), 'l', 'd', or none (two people: `name` is who won, or nothing for a game with no winner).
-    G.finish = function (text, outcome, name) {
+    // computer), 'l', 'd', or none (two people: `name` is who won, or nothing for a game with no winner). `line` is
+    // what the one status line says when `text` is too long for it (the sheet carries the whole of `text`).
+    G.finish = function (text, outcome, name, line) {
       G.over = true;
       if (els.hint) els.hint.disabled = true;
       if (root.ZimiShell) root.ZimiShell.turn(false);
@@ -134,8 +135,8 @@
         var s = stats[key] = stats[key] || { w: 0, l: 0, d: 0 };
         s[outcome]++; BK.save(STATS_KEY, stats);
       }
-      G.say(text); G.showStats();
-      G.result = { text: text, outcome: outcome || null, name: name || null };
+      G.say(line || text); G.showStats();
+      G.result = { text: text, line: line || null, outcome: outcome || null, name: name || null };
       G.showEnd(G.result);
     };
     // The end sheet for a result {text, outcome, name}; also how a finished game comes back after leaving it.
@@ -165,7 +166,7 @@
           Object.keys(saved).forEach(function (k) { settings[k] = saved[k]; });
           G.over = !!data.over; G.result = data.res || null;
           if (keep.load(unpack(data.d), saved) === false) return false;
-          if (G.over && G.result) { G.say(G.result.text); G.showStats(); G.showEnd(G.result); }
+          if (G.over && G.result) { G.say(G.result.line || G.result.text); G.showStats(); G.showEnd(G.result); }
           else if (keep.resume) keep.resume();
         }
       });
