@@ -4,7 +4,7 @@
   "wiki": "Klondike (solitaire)",
   "path": "solitaire.html",
   "title": "Solitaire",
-  "blurb": "Klondike. Draw one or three cards.",
+  "blurb": "Klondike, draw one or three",
   "why": "It came with Windows 3.0 in 1990.",
   "origin": {
    "year": 1890,
@@ -21,7 +21,7 @@
   "wiki": "Solitaire",
   "path": "solitaire.html",
   "title": "Solitaire",
-  "blurb": "Klondike. Draw one or three cards.",
+  "blurb": "Klondike, draw one or three",
   "why": "It came with Windows 3.0 in 1990."
  },
  {
@@ -29,7 +29,7 @@
   "wiki": "FreeCell",
   "path": "freecell.html",
   "title": "FreeCell",
-  "blurb": "Numbered deals. Almost all can be won.",
+  "blurb": "Numbered deals, nearly all winnable",
   "why": "Microsoft numbered its deals. Only one of the first 32,000 cannot be won.",
   "origin": {
    "year": 1978,
@@ -46,7 +46,7 @@
   "wiki": "Spider (solitaire)",
   "path": "spider.html",
   "title": "Spider",
-  "blurb": "Two decks. Build eight runs of one suit.",
+  "blurb": "Two decks, eight runs of one suit",
   "why": "Build eight runs from king down to ace, using two decks.",
   "origin": {
    "year": null,
@@ -63,7 +63,7 @@
   "wiki": "Hearts (card game)",
   "path": "hearts.html",
   "title": "Hearts",
-  "blurb": "Four players. Take as few points as you can.",
+  "blurb": "Four players, avoid hearts and the queen",
   "why": "A trick-taking game. The aim is to take as few points as you can.",
   "origin": {
    "year": 1750,
@@ -97,7 +97,7 @@
   "wiki": "Golf (patience)",
   "path": "golf.html",
   "title": "Golf",
-  "blurb": "One higher or one lower. No wrapping.",
+  "blurb": "One rank up or down, no wrapping",
   "why": "Clear seven columns of five cards before the deck runs out.",
   "origin": {
    "year": null,
@@ -114,7 +114,7 @@
   "wiki": "Tri Peaks",
   "path": "tripeaks.html",
   "title": "TriPeaks",
-  "blurb": "Three peaks. Wrap around. Keep your streak.",
+  "blurb": "Three peaks, wrap around, keep a streak",
   "why": "Clear three peaks of cards. Each card in a row adds to your streak.",
   "origin": {
    "year": null,
@@ -131,7 +131,7 @@
   "wiki": "Spades (card game)",
   "path": "spades.html",
   "title": "Spades",
-  "blurb": "Partners bid on tricks. Spades are trump.",
+  "blurb": "Partners bid tricks, spades are trump",
   "why": "A partner game from 1930s America. Spades are always trump.",
   "origin": {
    "year": 1930,
@@ -165,7 +165,7 @@
   "wiki": "Gin rummy",
   "path": "gin.html",
   "title": "Gin Rummy",
-  "blurb": "Two players. Make sets and runs, then knock.",
+  "blurb": "Two players, make melds, then knock",
   "why": "A two-player rummy game from the early 1900s.",
   "origin": {
    "year": 1909,
@@ -199,7 +199,7 @@
   "wiki": "Crazy Eights",
   "path": "crazyeights.html",
   "title": "Crazy Eights",
-  "blurb": "Match suit or rank. Eights are wild.",
+  "blurb": "Match suit or rank, eights are wild",
   "why": "The game behind Uno. Every eight is wild.",
   "origin": {
    "year": null,
@@ -216,7 +216,7 @@
   "wiki": "Durak",
   "path": "durak.html",
   "title": "Durak",
-  "blurb": "Beat the attack. Do not be the last with cards.",
+  "blurb": "Beat the attack, don't be left holding cards",
   "why": "Russia's best-loved card game. The last player with cards is the durak, the fool.",
   "origin": {
    "year": null,
@@ -1253,7 +1253,7 @@
   "wiki": "Koi-Koi",
   "path": "koikoi.html",
   "title": "Koi-Koi",
-  "blurb": "Hanafuda flower cards. Make yaku. Call koi-koi.",
+  "blurb": "Hanafuda flower cards, make yaku, call koi-koi",
   "why": "Hanafuda are Japan's flower cards. They began when Western playing cards were banned in the 1600s.",
   "origin": {
    "year": null,
@@ -1270,7 +1270,7 @@
   "wiki": "Truco",
   "path": "truco.html",
   "title": "Truco",
-  "blurb": "Argentine bluffing game with envido. Play to 15 or 30.",
+  "blurb": "Argentine bluffing game, envido, play to 15 or 30",
   "why": "The bluffing card game of Argentina and Uruguay, played with a Spanish deck.",
   "origin": {
    "year": null,
@@ -1304,7 +1304,7 @@
   "wiki": "Skat (card game)",
   "path": "skat.html",
   "title": "Skat",
-  "blurb": "Three players. Bid, take the skat, name a game.",
+  "blurb": "Three players, bid, take the skat, name a game",
   "why": "Germany's national card game, invented in Altenburg around 1810.",
   "origin": {
    "year": 1813,
@@ -1321,7 +1321,7 @@
   "wiki": "Teen patti",
   "path": "teenpatti.html",
   "title": "Teen Patti",
-  "blurb": "Blind or seen. Side show and show. Play with chips.",
+  "blurb": "Blind or seen, side show, play with chips",
   "why": "India's three-card game. It is like three-card brag.",
   "origin": {
    "year": null,
@@ -1338,7 +1338,7 @@
   "wiki": "Contract bridge",
   "path": "bridge.html",
   "title": "Bridge",
-  "blurb": "Bid, play and defend. Your partner is a computer.",
+  "blurb": "Bid, play and defend with a computer partner",
   "why": "Contract bridge took its modern form with Harold Vanderbilt in 1925.",
   "origin": {
    "year": 1925,
@@ -1372,7 +1372,7 @@
   "wiki": "Blackjack",
   "path": "blackjack.html",
   "title": "Blackjack",
-  "blurb": "Get closer to 21 than the dealer. Split and double.",
+  "blurb": "Closer to 21 than the dealer, split and double",
   "why": "Twenty-one against the dealer. A strategy hint is optional.",
   "origin": {
    "year": null,
@@ -1389,7 +1389,7 @@
   "wiki": "Canasta",
   "path": "canasta.html",
   "title": "Canasta",
-  "blurb": "Meld cards, freeze the pile, play to 5000.",
+  "blurb": "Meld cards, freeze the pile, play to 5000",
   "why": "Canasta came from Uruguay in the 1940s and spread worldwide within ten years.",
   "origin": {
    "year": 1939,
@@ -1406,7 +1406,7 @@
   "wiki": "Big Two",
   "path": "bigtwo.html",
   "title": "Big Two",
-  "blurb": "Beat the last play. Twos are high.",
+  "blurb": "Beat the last play, twos are high",
   "why": "A climbing game played across southern China and Taiwan.",
   "origin": {
    "year": null,
