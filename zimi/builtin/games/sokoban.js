@@ -13,7 +13,7 @@
   var save = function () { BK.save(KEY, state); };
 
   var grades = D.grades, levels = D.levels;
-  var cur = 0, st, ext, history, moves, pushes, facing = 'd', won = false, watching = 0, grade = grades[0].id, pending = 0;
+  var cur = 0, st, ext, history, moves, pushes, facing = 'd', won = false, watching = 0, grade = grades[0].id, pending = 0, trail = [];
 
   var board = $('sk-board');
   function levelNumber(i) { var n = 0; for (var k = 0; k <= i; k++) if (levels[k].g === levels[i].g) n++; return n; }
@@ -81,7 +81,7 @@
     stopWatching();
     cur = Math.max(0, Math.min(levels.length - 1, i)); won = false;
     st = S.parse(levelRows(levels[cur]).map(function (r) { return r.replace(/-/g, ' '); }));
-    ext = S.extent(st); history = []; moves = 0; pushes = 0; facing = 'd';
+    ext = S.extent(st); history = []; trail = []; moves = 0; pushes = 0; facing = 'd';
     $('sk-name').textContent = Play.num(levelNumber(cur));
     $('sk-name-l').textContent = gradeName(levels[cur].g);
     grade = levels[cur].g; pending = cur;
@@ -94,14 +94,14 @@
     facing = d;
     if (!next) { draw(); if (!watching) { ZimiShell.shake(board); line.reason(T('sokoban.blocked')); } return; }
     history.push({ st: st, moves: moves, pushes: pushes, facing: facing });
-    st = next; moves++; if (next.pushed) pushes++;
+    st = next; moves++; trail.push(d); if (next.pushed) pushes++;
     draw();
     if (S.solved(st)) win();
   }
   function undo() {
     if (!history.length || watching) return;
     var h = history.pop();
-    st = h.st; moves = h.moves; pushes = h.pushes; won = false; say('');
+    st = h.st; moves = h.moves; pushes = h.pushes; won = false; trail.pop(); say('');
     draw();
   }
   function win() {
@@ -190,9 +190,30 @@
     }
   });
 
+  // Leaving keeps the level and the moves made (the position is replayed from them, undo trail and all).
+  var TRAIL_KEPT = 5000;
+  function kept() { return moves ? { level: levels[cur].id, trail: trail.slice(-TRAIL_KEPT).join(''), won: won } : null; }
+  function takeUp(d) {
+    var i = d ? levels.findIndex(function (lv) { return lv.id === d.level; }) : -1;
+    if (i < 0 || typeof d.trail !== 'string' || d.trail.length > TRAIL_KEPT) return false;
+    load(i);
+    for (var k = 0; k < d.trail.length; k++) {
+      var dir = d.trail.charAt(k), next = S.move(st, dir);
+      if (!next) { load(i); return false; }
+      history.push({ st: st, moves: moves, pushes: pushes, facing: dir });
+      st = next; moves++; trail.push(dir); facing = dir; if (next.pushed) pushes++;
+    }
+    draw();
+    if (S.solved(st)) {
+      won = true; say(T('shell.end.win')); pending = Math.min(levels.length - 1, cur + 1);
+      ZimiShell.endSheet({ result: 'win', after: 0, stats: [[T('sokoban.moves'), Play.num(moves)], [T('sokoban.pushes'), Play.num(pushes)]] });
+    }
+    return true;
+  }
   var start = 0;
   levels.forEach(function (lv, i) { if (lv.id === state.level) start = i; });
   load(start);
+  ZimiShell.persist({ save: kept, load: takeUp });
 
-  if (new URLSearchParams(location.search).has('debug')) root.__sk = { load: load, step: step, state: function () { return st; }, levels: levels, won: function () { return won; }, undo: undo };
+  root.__sk = { load: load, step: step, state: function () { return st; }, levels: levels, won: function () { return won; }, undo: undo };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

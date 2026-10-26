@@ -469,9 +469,36 @@
   window.addEventListener('resize', function () { if (game) layout(); });
   newGame();
 
+  // Leaving and coming back keeps the board: the mines, what is open or flagged, and the clock. A finished board
+  // comes back to its end sheet. Nothing is kept before the first move (the mines are not laid yet).
+  function kept() {
+    if (!game || !game.placed) return null;
+    return { level: settings.level, rows: game.rows, cols: game.cols, mines: game.mines, mine: Array.from(game.mine), count: Array.from(game.count), state: Array.from(game.state),
+      status: game.status, opened: game.opened, flags: game.flags, exploded: game.exploded, ms: elapsedMs() };
+  }
+  function takeUp(d) {
+    if (!d || !(d.rows >= MIN_SIDE) || !(d.cols >= MIN_SIDE) || d.mine.length !== d.rows * d.cols || d.state.length !== d.mine.length || d.count.length !== d.mine.length) return false;
+    if (LEVEL_IDS.indexOf(d.level) >= 0) settings.level = d.level;
+    stopClock();
+    game = createGame(d.rows, d.cols, d.mines, fixedSeed);
+    game.mine.set(d.mine); game.count.set(d.count); game.state.set(d.state);
+    game.status = d.status; game.opened = d.opened; game.flags = d.flags; game.exploded = d.exploded || []; game.placed = true;
+    cells = []; buildBoard(); layout(); paintAll(); setPressed(-1); cursor = -1; press = null;
+    updateCounter(); line.say(levelName(settings.level));
+    finalMs = 0; startedAt = 0;
+    if (game.status === 'playing') { startedAt = Date.now() - (d.ms || 0); tickTimer = setInterval(tick, TICK_MS); setFace('smile'); }
+    else {
+      startedAt = Date.now() - (d.ms || 0); finalMs = d.ms || 0; setFace(game.status === 'won' ? 'win' : 'dead');
+      ZimiShell.endSheet({ result: game.status === 'won' ? 'win' : 'lose', after: 0, stats: [[T('play.time'), fmtTime(finalMs)]] });
+    }
+    tick();
+    return true;
+  }
+  ZimiShell.persist({ save: kept, load: takeUp });
+
   // Test hooks, only with ?debug: win or lose on demand, peek at the game.
+  root.__ms = { game: function () { return game; }, engine: Engine, cells: function () { return cells; } };
   if (params.has('debug')) {
-    root.__ms = { game: function () { return game; }, engine: Engine, cells: function () { return cells; } };
     root.__msWin = function () {
       if (!game.placed) afterMove(reveal(game, 0));
       for (var i = 0; i < game.size && game.status === 'playing'; i++) if (!game.mine[i]) afterMove(reveal(game, i));

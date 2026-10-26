@@ -142,12 +142,13 @@
     line.say(T('cb.scored', { exact: fb.exact, color: fb.colour, left: ROWS - rows.length }));
     paint();
   }
-  function finish() {
-    var k = settings.repeats ? 'repeats' : 'single', opts = { after: END_AFTER_MS }, text;
+  // replay: a finished game coming back from a save shows its end sheet again without recording a best twice.
+  function finish(replay) {
+    var k = settings.repeats ? 'repeats' : 'single', opts = { after: replay ? 0 : END_AFTER_MS }, text;
     if (status === 'won') {
       text = T('cb.cracked', { n: rows.length });
       if (seats.hotseat()) { opts.result = 'win'; opts.name = seats.name(0); text = T('cb.crackedBy', { breaker: seats.name(0), maker: seats.name(1), n: rows.length }); }
-      else { if (!best[k] || rows.length < best[k]) { best[k] = rows.length; Play.save(BEST_KEY, best); } opts.result = 'win'; opts.stats = [[T('cb.guesses'), Play.num(rows.length)], [T('play.best'), Play.num(best[k])]]; }
+      else { if (!replay && (!best[k] || rows.length < best[k])) { best[k] = rows.length; Play.save(BEST_KEY, best); } opts.result = 'win'; opts.stats = [[T('cb.guesses'), Play.num(rows.length)], [T('play.best'), Play.num(best[k])]]; }
     } else if (seats.hotseat()) { opts.result = 'win'; opts.name = seats.name(1); text = T('cb.held'); }
     else { opts.result = 'lose'; text = T('cb.outOfGuesses'); }
     line.say(text);
@@ -192,5 +193,22 @@
   });
 
   begin();
-  root.__codebreaker = { get code() { return code; }, get rows() { return rows; } };
+  // Leaving keeps the code, the guesses, the half-made guess and who is playing; a finished game comes back to its end sheet.
+  function kept() {
+    if (!rows.length && cur.every(function (c) { return c < 0; }) && status !== 'setting') return null;
+    return { code: code, rows: rows, cur: cur, status: status, repeats: !!settings.repeats };
+  }
+  function takeUp(d) {
+    var okPeg = function (c) { return c >= -1 && c < COLOURS && c === Math.floor(c); };
+    if (!d || !Array.isArray(d.code) || d.code.length !== PEGS || !Array.isArray(d.cur) || d.cur.length !== PEGS || !d.cur.every(okPeg) || !Array.isArray(d.rows) || d.rows.length > ROWS || ['setting', 'playing', 'won', 'lost'].indexOf(d.status) < 0) return false;
+    settings.repeats = !!d.repeats; Play.save(SETTINGS_KEY, settings);
+    seats = seatsNow(function () { paint(); });
+    code = d.code; rows = d.rows; cur = d.cur; status = d.status;
+    paint();
+    if (status === 'won' || status === 'lost') finish(true);
+    else line.say(status === 'setting' ? T('cb.makeCode', { name: seats.name(1) }) : T('cb.tenGuesses'));
+    return true;
+  }
+  ZimiShell.persist({ save: kept, load: takeUp });
+  root.__codebreaker = { get code() { return code; }, get rows() { return rows; }, get cur() { return cur; } };
 })(this);
