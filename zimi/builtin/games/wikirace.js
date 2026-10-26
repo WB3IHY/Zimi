@@ -127,7 +127,7 @@
         var tag = n.tagName.toUpperCase();
         if (DROP_TAGS.test(tag) || DROP_CLASS.test(n.getAttribute('class') || '') || /display\s*:\s*none/.test(n.getAttribute('style') || '')) continue;
         if (tag === 'A') {
-          var path = Lib.resolvePath(zim, from, n.getAttribute('href'));
+          var path = Lib.resolvePath(zim, from, n.getAttribute('href'), Lib.pathRoot());
           if (path) {
             var a = makeLink(path, ''); clean(n, a, from, state);
             if (!a.textContent.trim()) continue;
@@ -142,7 +142,7 @@
     }
     function open(path) {
       if (cache[path]) return Promise.resolve(cache[path]);
-      return Lib.text('/w/' + encodeURIComponent(zim) + '/' + path.split('/').map(encodeURIComponent).join('/')).then(function (html) {
+      return Lib.article(zim, path).then(function (html) {
         var doc = new DOMParser().parseFromString(html, 'text/html');
         var body = doc.querySelector('#mw-content-text') || doc.body;
         var h1 = doc.querySelector('h1'), title = ((h1 && h1.textContent) || doc.title || Lib.titleOfPath(path)).trim();
@@ -154,8 +154,8 @@
     }
     // The pair: a start (the day's for the daily, else by chance), and an end that is a few links away.
     function pickStart(daily) {
-      var url = '/random?zim=' + encodeURIComponent(zim) + (daily ? '&day=' + today + '&seed=' + today : '');   // the day's card, else a pick seeded by the day: one start for everyone
-      return Lib.json(url).then(function (r) {
+      // the day's card, else a pick seeded by the day: one start for everyone (kiwix-serve cannot seed, so there it is by chance)
+      return Lib.random(zim, { day: daily ? today : '' }).then(function (r) {
         if (!r || !r.path || r.path === zimRec.main_path || r.path.indexOf(':') >= 0) throw new Error('no start');
         return open(r.path);
       });
@@ -368,6 +368,7 @@
     pendingMode = null; newRace(m);
   });
   ZimiShell.game({
+    about: function () { return Lib.note(T, 'articles', provider && !provider.built ? provider.zim : ''); },
     inProgress: function () { return !!race && race.begun && !race.done; },
     menu: function () {
       return { options: [Play.optionRow(T('race.race'), [['daily', T('play.daily')], ['practice', T('play.practice')]], pendingMode || (race ? race.mode : 'daily'), function (v) { pendingMode = v; })] };
@@ -414,7 +415,7 @@
   // Which articles to race on: your Wikipedia in your language inside Zimi, else the built-in ones.
   function boot() {
     notice(T('race.looking'));
-    Lib.isZimi().then(function (yes) { return yes ? Lib.zims() : []; }).then(function (list) {
+    Lib.library().then(function (list) {
       var found = Lib.pickZim(list, 'wikipedia', Lib.uiLang());
       provider = found ? zimiProvider(found.zim) : miniProvider();
       restore(ZimiShell.saved()).then(function (back) { if (!back) newRace('daily'); });

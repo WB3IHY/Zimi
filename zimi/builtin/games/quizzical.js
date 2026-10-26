@@ -119,7 +119,7 @@
   function drawPool(zim, n) {
     var out = [], seen = {}, asked = 0, failed = 0;
     function one() {
-      return Lib.json('/random?zim=' + encodeURIComponent(zim) + '&thumb=1').then(function (r) {
+      return Lib.random(zim, { thumb: true }).then(function (r) {
         if (r && r.title && r.blurb && !seen[Lib.fold(r.title)] && r.path !== 'Main_Page') { seen[Lib.fold(r.title)] = true; out.push({ title: r.title, blurb: r.blurb, thumbnail: r.thumbnail || '', path: r.path, zim: zim, pos: Lib.fold(r.part_of_speech || '') }); }
       }, function () { failed++; });
     }
@@ -163,7 +163,7 @@
     for (var k = 0; k < btns.length; k++) { btns[k].disabled = true; if (k === right) btns[k].classList.add('right'); }
     if (i === right) { score++; status.say(T('quizzical.right')); } else { btns[i].classList.add('wrong'); status.say(T('quizzical.itWas', { answer: q.answer })); }
     if (q.picture) els.prompt.textContent = '';
-    if (q.path && q.zim) { els.read.hidden = false; els.read.href = '/w/' + encodeURIComponent(q.zim) + '/' + q.path.split('/').map(encodeURIComponent).join('/'); els.read.textContent = T('quizzical.read', { answer: q.answer }); }
+    if (q.path && q.zim) { els.read.hidden = false; els.read.href = Lib.articleUrl(q.zim, q.path); els.read.textContent = T('quizzical.read', { answer: q.answer }); }
     els.next.hidden = false; els.next.textContent = T(at + 1 >= round.length ? 'quizzical.seeScore' : 'quizzical.next');
     els.next.focus();
     paintScore();
@@ -214,6 +214,7 @@
   els.next.addEventListener('click', advance);
   els.newBtn.addEventListener('click', newRound);
   ZimiShell.game({
+    about: function () { return Lib.note(T, 'questions', wikiZim); },
     inProgress: function () { return !done && !building && (at > 0 || answered); },
     stats: function () {
       var best = Play.load(BEST_KEY, {}), keys = Object.keys(best);
@@ -226,7 +227,7 @@
     else if ((e.key === 'Enter' || e.key === ' ') && answered && document.activeElement !== els.read) { e.preventDefault(); advance(); }
   });
 
-  Lib.isZimi().then(function (yes) { return yes ? Lib.zims() : []; }).then(function (list) {
+  Lib.library().then(function (list) {
     var a = Lib.pickZim(list, 'wikipedia', Lib.uiLang()), w = Lib.pickZim(list, 'wiktionary', Lib.uiLang());
     wikiZim = a ? a.zim.name : null; wiktZim = w && w.exact ? w.zim.name : (w && a && Lib.primaryLang(w.zim.language) === Lib.primaryLang(a.zim.language) ? w.zim.name : null);
     // Leaving and coming back keeps the round: its questions, where you are, the score and the answer just given.

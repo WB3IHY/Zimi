@@ -1,8 +1,13 @@
 /* ZimiGames: what the games that draw on the player's own library share. Our own code, GPL-3.0.
-   Inside Zimi this page is same-origin with Zimi's API, so it can ask for the player's ZIMs. In Kiwix (or from a
-   plain folder) there is no such API: isZimi() finds out with one cheap request that fails fast, and each game
-   then plays from the small set it ships, never a dead page. Nothing here runs until a game calls it.
-   The pure parts (seeded chance, folding, choosing a ZIM, resolving a link) work in node for the tests. */
+   Three places a game can find itself, told apart by mode():
+     'zimi'    inside Zimi: same-origin with its API (/list, /random, /w/, /dictionary/ ...).
+     'kiwix'   inside kiwix-serve (Kiwix's apps read through their own protocols, so they are 'builtin'): same-origin with every ZIM it serves,
+               with /catalog/v2/entries, /random?content= and /content/<book>/<path>.
+     'builtin' anywhere else (a folder, a viewer with no server): each game plays from the small set it ships.
+   library(), random(), article(), hasPage(), pageHead() and articleUrl() answer in the first two the same way, so a game is written
+   once; builtin gives an empty library and the game falls back, never a dead page. Both probes fail fast, and nothing
+   here runs until a game calls it. The pure parts (seeded chance, folding, choosing a ZIM, resolving a link, reading
+   kiwix-serve's catalog and a page's lead, a table) work in node for the tests. */
 (function (root) {
   'use strict';
   var Lib = {};
@@ -62,12 +67,12 @@
   // An article link, as a path inside the same ZIM, or null when it leads anywhere else (another site,
   // another ZIM, a namespace page such as File: or Category:, the page itself, a bare anchor).
   var BASE = 'http://zimi.invalid';
-  Lib.resolvePath = function (zim, fromPath, href) {
+  Lib.resolvePath = function (zim, fromPath, href, rootPath) {
     if (!href || href.charAt(0) === '#') return null;
-    var u;
-    try { u = new URL(href, BASE + '/w/' + encodeURIComponent(zim) + '/' + fromPath.split('/').map(encodeURIComponent).join('/')); } catch (e) { return null; }
+    var root = rootPath || '/w/', u;
+    try { u = new URL(href, BASE + root + encodeURIComponent(zim) + '/' + fromPath.split('/').map(encodeURIComponent).join('/')); } catch (e) { return null; }
     if (u.origin !== BASE) return null;
-    var prefix = '/w/' + encodeURIComponent(zim) + '/';
+    var prefix = root + encodeURIComponent(zim) + '/';
     if (u.pathname.indexOf(prefix) !== 0) return null;
     var path;
     try { path = decodeURIComponent(u.pathname.slice(prefix.length)); } catch (e) { return null; }
@@ -97,6 +102,28 @@
     }, function (e) { if (timer) clearTimeout(timer); throw e; });
   };
 
+  // The first `bytes` of a file, as text: a Range request, and if the server sends it all, reading stops at the limit.
+  // For a listing sorted by popularity or a long book, where the start is all a game wants.
+  Lib.head = function (url, bytes, ms) {
+    var ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    var timer = ctl ? setTimeout(function () { ctl.abort(); }, ms || JSON_MS) : null;
+    var opts = { headers: { Range: 'bytes=0-' + (bytes - 1) } };
+    if (ctl) opts.signal = ctl.signal;
+    return fetch(url, opts).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.body || !r.body.getReader || typeof TextDecoder === 'undefined') return r.text().then(function (t) { return t.slice(0, bytes); });
+      var rd = r.body.getReader(), dec = new TextDecoder(), out = '';
+      return (function pump() {
+        return rd.read().then(function (x) {
+          if (x.done) return out;
+          out += dec.decode(x.value, { stream: true });
+          if (out.length >= bytes) { rd.cancel(); return out.slice(0, bytes); }
+          return pump();
+        });
+      })();
+    }).then(function (t) { if (timer) clearTimeout(timer); return t; }, function (e) { if (timer) clearTimeout(timer); throw e; });
+  };
+
   // Is this page being served by Zimi? One request to /health, which only Zimi answers with {status: "ok"}.
   // From a folder (file:) there is nothing to ask. Asked once per page.
   var zimiAnswer = null;
@@ -114,6 +141,188 @@
   Lib.zims = function () {
     if (!listAnswer) listAnswer = Lib.json('/list').then(function (l) { return Array.isArray(l) ? l : []; }, function () { return []; });
     return listAnswer;
+  };
+
+  // ── kiwix-serve ──────────────────────────────────────────────────────────
+  // Where kiwix-serve is mounted: a server run with --urlRootLocation serves everything below a prefix, and the page
+  // is at <prefix>/content/<book>/<path>.
+  Lib.kiwixPrefix = function (pathname) {
+    var i = String(pathname || '').indexOf('/content/');
+    return i > 0 ? pathname.slice(0, i) : '';
+  };
+  var ISO3 = { eng: 'en', fra: 'fr', fre: 'fr', deu: 'de', ger: 'de', spa: 'es', ita: 'it', por: 'pt', rus: 'ru', jpn: 'ja', zho: 'zh', chi: 'zh',
+    ara: 'ar', hin: 'hi', nld: 'nl', dut: 'nl', pol: 'pl', tur: 'tr', swe: 'sv', ukr: 'uk', ces: 'cs', cze: 'cs', kor: 'ko', heb: 'he', ind: 'id', vie: 'vi', fas: 'fa', per: 'fa' };
+  var PROJECTS = /^(wikipedia|wiktionary|wikivoyage|wikiquote|wikibooks|wikisource|wikinews|wikiversity|wikispecies|gutenberg)(?:_|$)/;
+  // The attribute-free text of the first <tag>...</tag> in an entry, entities undone.
+  function xmlText(entry, tag) {
+    var m = new RegExp('<' + tag + '(?:\\s[^>]*)?>([\\s\\S]*?)</' + tag + '>').exec(entry);
+    return m ? m[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&').trim() : '';
+  }
+  // kiwix-serve's catalog (OPDS, /catalog/v2/entries) as the list Zimi's /list gives: the fields the games read.
+  Lib.parseCatalog = function (xml) {
+    var out = [], re = /<entry>([\s\S]*?)<\/entry>/g, m;
+    while ((m = re.exec(String(xml || '')))) {
+      var e = m[1], name = xmlText(e, 'name');
+      if (!name) continue;
+      var tok = (PROJECTS.exec(name) || [])[1] || '', lang = xmlText(e, 'language').split(',')[0].trim();
+      var code = (/^[a-z]+_([a-z]{2,3})(?:_|$)/.exec(name) || [])[1];
+      var wiki = tok && tok !== 'gutenberg';
+      out.push({ name: name, title: xmlText(e, 'title') || name, language: ISO3[lang] || (lang.length === 2 ? lang : code) || lang,
+        kind: wiki ? 'wiki' : 'zim', project: tok, article_count: +xmlText(e, 'articleCount') || 0, main_path: '' });
+    }
+    return out;
+  };
+
+  // Which of the two servers, if either, this page is served by: Zimi answers /health; kiwix-serve answers its catalog.
+  var modeAnswer = null, modeNow = 'builtin', pathRoot = '/w/';
+  Lib.mode = function () {
+    if (!modeAnswer) {
+      modeAnswer = Lib.isZimi().then(function (yes) {
+        if (yes) { modeNow = 'zimi'; pathRoot = '/w/'; return modeNow; }
+        if (typeof location === 'undefined' || !/^https?:$/.test(location.protocol)) return 'builtin';
+        var prefix = Lib.kiwixPrefix(location.pathname);
+        return Lib.text(prefix + '/catalog/v2/entries?count=1', PROBE_MS).then(function (x) {
+          if (!/<feed[\s>]/.test(x)) return 'builtin';
+          modeNow = 'kiwix'; pathRoot = prefix + '/content/'; kiwixPrefix = prefix;
+          return modeNow;
+        }, function () { return 'builtin'; });
+      });
+    }
+    return modeAnswer;
+  };
+  var kiwixPrefix = '';
+  // The mode, once mode() has answered (builtin until then).
+  Lib.modeNow = function () { return modeNow; };
+
+  // The player's library in whichever server there is: [] when there is none.
+  var libAnswer = null, titles = {};
+  Lib.library = function () {
+    if (!libAnswer) libAnswer = Lib.mode().then(function (m) {
+      if (m === 'zimi') return Lib.zims();
+      if (m !== 'kiwix') return [];
+      return Lib.text(kiwixPrefix + '/catalog/v2/entries?count=500').then(Lib.parseCatalog, function () { return []; });
+    }).then(function (list) { list.forEach(function (z) { titles[z.name] = z.title || z.name; }); return list; });
+    return libAnswer;
+  };
+
+  // A book whose name starts with `prefix` (Project Gutenberg's ZIMs are not wikis): the player's language, else the biggest.
+  Lib.pickByName = function (list, prefix, lang) {
+    var mine = (list || []).filter(function (z) { return z.name && z.name.indexOf(prefix) === 0; });
+    if (!mine.length) return null;
+    var size = function (z) { return z.article_count || z.entries || 0; };
+    var want = Lib.primaryLang(lang), exact = mine.filter(function (z) { return Lib.primaryLang(ISO3[z.language] || z.language) === want; });
+    return (exact.length ? exact : mine).slice().sort(function (a, b) { return size(b) - size(a); })[0];
+  };
+
+  // A page's address for a reader: the same path in either server, escaped one segment at a time.
+  Lib.articleUrl = function (zim, path) {
+    return pathRoot + encodeURIComponent(zim) + '/' + String(path || '').split('/').map(encodeURIComponent).join('/');
+  };
+  Lib.pathRoot = function () { return pathRoot; };
+  Lib.article = function (zim, path, ms) { return Lib.text(Lib.articleUrl(zim, path), ms); };
+  // Does the ZIM hold a page at this path? A GET of its first bytes, not a HEAD: Zimi answers a HEAD for a missing page with 200.
+  Lib.hasPage = function (zim, path) {
+    return Lib.head(Lib.articleUrl(zim, path), 64).then(function () { return true; }, function () { return false; });
+  };
+
+
+  // The start of the first of these pages the ZIM has, as {path, html} (null when it has none). Each title is tried as
+  // mwoffliner writes a path now ("Title") and as it did ("A/Title"). Titles use underscores, as a path does.
+  Lib.pageHead = function (zim, titles, bytes, ms) {
+    var paths = [];
+    titles.forEach(function (t) { paths.push(t, 'A/' + t); });
+    return (function next(i) {
+      if (i >= paths.length) return Promise.resolve(null);
+      return Lib.head(Lib.articleUrl(zim, paths[i]), bytes, ms).then(function (html) { return { path: paths[i], html: html }; }, function () { return next(i + 1); });
+    })(0);
+  };
+
+  // A page's lead: its title, its first real paragraph's first sentences, and its first picture (an address).
+  var STRIP = /<(script|style|table|sup|figure)[\s\S]*?<\/\1>/gi;
+  function plain(html) {
+    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&#160;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/\[\d+\]/g, '').replace(/\s+/g, ' ').trim();
+  }
+  Lib.leadOf = function (html, baseUrl) {
+    var src = String(html || ''), t = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(src), h = /<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(src);
+    var title = plain(h ? h[1] : t ? t[1] : '');
+    var body = src.replace(STRIP, ''), blurb = '', re = /<p[^>]*>([\s\S]*?)<\/p>/gi, m;
+    while ((m = re.exec(body))) {
+      var p = plain(m[1]);
+      if (p.length >= 40 && !/^coordinates/i.test(p)) { blurb = p; break; }
+    }
+    if (blurb.length > 320) blurb = blurb.slice(0, 320).replace(/\s\S*$/, '') + '...';
+    var img = /<img[^>]+src="([^"]+)"/i.exec(src), thumb = '';
+    if (img && !/\.svg(?:\.png)?$/i.test(img[1].split('?')[0]) && baseUrl) { try { thumb = new URL(img[1], baseUrl).pathname; } catch (e) { thumb = ''; } }
+    return { title: title, blurb: blurb, thumbnail: thumb };
+  };
+
+  // A random article of a ZIM, the same shape from either server: {title, blurb, thumbnail, path, zim, part_of_speech}.
+  // Options: thumb (a picture is wanted), requireThumb, day (a pick seeded by the day, Zimi only: kiwix-serve cannot seed).
+  Lib.random = function (zim, o) {
+    o = o || {};
+    if (modeNow !== 'kiwix') {
+      var url = '/random?zim=' + encodeURIComponent(zim) + (o.thumb ? '&thumb=1' : '') + (o.requireThumb ? '&require_thumb=1' : '') + (o.day ? '&day=' + o.day + '&seed=' + o.day : '');
+      return Lib.json(url).then(function (r) { return r && r.path ? Object.assign({ zim: zim }, r) : Promise.reject(new Error('no article')); });
+    }
+    var ctl = typeof AbortController === 'function' ? new AbortController() : null, timer = ctl ? setTimeout(function () { ctl.abort(); }, JSON_MS) : null;
+    return fetch(kiwixPrefix + '/random?content=' + encodeURIComponent(zim), ctl ? { signal: ctl.signal } : {}).then(function (r) {
+      if (timer) clearTimeout(timer);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var from = new URL(r.url).pathname, root = pathRoot + encodeURIComponent(zim) + '/';
+      var path = from.indexOf(root) === 0 ? decodeURIComponent(from.slice(root.length)) : '';
+      return r.text().then(function (html) {
+        var lead = Lib.leadOf(html, r.url);
+        if (!path || !lead.title) throw new Error('no article');
+        if (o.requireThumb && !lead.thumbnail) throw new Error('no picture');
+        return { title: lead.title, blurb: lead.blurb, thumbnail: lead.thumbnail, path: path, zim: zim };
+      });
+    }, function (e) { if (timer) clearTimeout(timer); throw e; });
+  };
+
+  // ── tables ───────────────────────────────────────────────────────────────
+  // The rows of a page's tables as arrays of cells {text, img (the first picture's src), href and link (the first link's address and text), head (a <th>)},
+  // whole rows only (a page cut off by Lib.head loses its last), with no DOM, so node can test it. A tag's attributes may
+  // hold a ">" inside quotes (Parsoid's data-mw), so tags are matched quote by quote.
+  var ATTRS = '((?:[^>"\']|"[^"]*"|\'[^\']*\')*)';
+  var ROW_RE = new RegExp('<tr' + ATTRS + '>([\\s\\S]*?)</tr>', 'gi'), CELL_RE = new RegExp('<t([dh])' + ATTRS + '>([\\s\\S]*?)</t\\1>', 'gi');
+  Lib.rows = function (html) {
+    var out = [], r;
+    ROW_RE.lastIndex = 0;
+    while ((r = ROW_RE.exec(String(html || '')))) {
+      var cells = [], c;
+      CELL_RE.lastIndex = 0;
+      while ((c = CELL_RE.exec(r[2]))) {
+        var inner = c[3].replace(/<(sup|style)[\s\S]*?<\/\1>/gi, '').replace(/<span[^>]*display:\s*none[^>]*>[\s\S]*?<\/span>/gi, '');
+        var img = /<img[^>]+src="([^"]+)"/i.exec(inner), a = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(inner);
+        cells.push({ text: plain(inner), img: img ? img[1] : '', href: a ? a[1] : '', link: a ? plain(a[2]) : '', head: c[1].toLowerCase() === 'h' });
+      }
+      if (cells.length) out.push(cells);
+    }
+    return out;
+  };
+  // A number as a table writes it: "1,412,600,000", "9.6 million", "8,848.86 m (29,031.7 ft)", "1.4 × 10^6"; NaN when none.
+  Lib.number = function (text) {
+    var s = String(text || '').replace(/\[[^\]]*\]/g, '').replace(/\u2212/g, '-'), m = /-?\d[\d,\u202f\u00a0 ]*(?:\.\d+)?/.exec(s);
+    if (!m) return NaN;
+    var n = parseFloat(m[0].replace(/[,\u202f\u00a0 ]/g, ''));
+    var rest = s.slice(m.index + m[0].length).trim().toLowerCase();
+    if (/^(billion|bn)/.test(rest)) n *= 1e9; else if (/^million/.test(rest)) n *= 1e6; else if (/^thousand/.test(rest)) n *= 1e3;
+    return n;
+  };
+
+  // What a library game says about where it is playing from, for Menu > About: one plain sentence.
+  // `what` is the id of the game's word for its content (lib.what.questions, lib.what.flags ...).
+  // `zim` is the name of the ZIM the game is playing from, or '' when it plays its own set.
+  Lib.note = function (T, what, zim) {
+    if (!zim || modeNow === 'builtin') return T('lib.note.builtin', { what: T('lib.what.' + what) });
+    return T(modeNow === 'kiwix' ? 'lib.note.kiwix' : 'lib.note.zimi', { source: titles[zim] || zim });
+  };
+
+  // How a round or a game went, as the id of the sentence the page says (round.verdict.<id>).
+  Lib.verdict = function (score, total) {
+    var r = total ? score / total : 0;
+    return r === 1 ? 'flawless' : r >= 0.75 ? 'veryGood' : r >= 0.5 ? 'good' : 'keepGoing';
   };
 
   // The player's language: ?lang= (for testing), Zimi's own language setting (same origin, so readable),

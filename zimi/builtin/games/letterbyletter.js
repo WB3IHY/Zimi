@@ -320,6 +320,7 @@
     start(m, m === 'practice');
   });
   ZimiShell.game({
+    about: function () { return Lib.note(T, 'words', source && source.zim); },
     inProgress: function () { return !!game && status(game) === 'playing' && game.guessed.length > 0; },
     menu: function () {
       return { options: [Play.optionRow(T('letters.word'), [['daily', T('play.daily')], ['practice', T('play.practice')]], pendingMode || mode, function (v) { pendingMode = v; })] };

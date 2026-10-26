@@ -257,6 +257,7 @@
   els.next.addEventListener('click', advance);
   els.newBtn.addEventListener('click', newRound);
   ZimiShell.game({
+    about: function () { return Lib.note(T, 'places', useMaps ? mapZims[0] : ''); },
     inProgress: function () { return !finished && !busy && (at > 0 || !!pending || answered); },
     stats: function () {
       var best = Play.load(BEST_KEY, {}), lines = [];

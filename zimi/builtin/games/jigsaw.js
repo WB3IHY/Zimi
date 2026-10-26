@@ -117,8 +117,7 @@
   function fromLibrary(daily) {
     var attempts = 0;
     function ask(wantDaily) {
-      var url = '/random?zim=' + encodeURIComponent(zim) + '&thumb=1' + (wantDaily ? '&day=' + today + '&seed=' + today + '&require_thumb=1' : '&require_thumb=1');
-      return Lib.json(url).then(function (r) {
+      return Lib.random(zim, { thumb: true, requireThumb: true, day: wantDaily ? today : '' }).then(function (r) {
         if (!r || !r.thumbnail) throw new Error('no picture');
         return new Promise(function (ok, no) {
           var img = new Image();
@@ -253,7 +252,7 @@
     var newBest = !best[key] || ms < best[key];
     if (newBest) { best[key] = ms; Play.save(BEST_KEY, best); }
     els.read.hidden = !puzzle.pic.path;
-    if (puzzle.pic.path) els.read.href = '/w/' + encodeURIComponent(puzzle.pic.zim) + '/' + puzzle.pic.path.split('/').map(encodeURIComponent).join('/');
+    if (puzzle.pic.path) els.read.href = Lib.articleUrl(puzzle.pic.zim, puzzle.pic.path);
     line.say(T('jigsaw.done'));
     ZimiShell.endSheet({
       result: 'win', after: Play.reducedMotion() ? 0 : SNAP_MS * 2,
@@ -277,6 +276,7 @@
     newPuzzle(prefs.count, !!prefs.today && !!zim);
   });
   ZimiShell.game({
+    about: function () { return Lib.note(T, 'pictures', zim); },
     inProgress: function () { return !!puzzle && !puzzle.done && puzzle.pieces.some(function (p) { return p.locked; }); },
     menu: function () {
       var now = pending || { count: prefs.count, today: prefs.today }, rows = [];
@@ -292,7 +292,7 @@
   var resizeTimer = null;
   window.addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(layout, 120); });
 
-  Lib.isZimi().then(function (yes) { return yes ? Lib.zims() : []; }).then(function (list) {
+  Lib.library().then(function (list) {
     var a = Lib.pickZim(list, 'wikipedia', Lib.uiLang());
     if (a) { zim = a.zim.name; zimTitle = (a.zim.title || a.zim.name) + ' (' + a.zim.language + ')'; }
     // Leaving and coming back keeps the puzzle: its picture, every piece where it was left, and the clock.
