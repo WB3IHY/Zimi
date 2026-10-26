@@ -111,8 +111,8 @@
   function place(state, m, view) {
     var P = state.piles, cw = m.cw, ch = m.ch, rowStep = ch * ROW_STEP_SHARE, picked = view && view.picked;
     var x = function (col) { return m.left + col * m.step; };
-    var block = rowStep * (ROWS - 1) + ch * 2 + Math.round(ch * ROW_GAP_SHARE), y1 = m.pad + Z.restShare(m.H - block - 2 * m.pad);
-    var y2 = y1 + rowStep * (ROWS - 1) + ch + Math.round(ch * ROW_GAP_SHARE), slots = [], cards = [], height = y2 + ch + m.pad;
+    // The pyramid starts under the bar; stock, waste and the taken pile sit in the bottom row, under the thumb.
+    var y1 = m.pad, y2 = Math.max(m.H - m.pad - ch, y1 + rowStep * (ROWS - 1) + ch + Math.round(ch * ROW_GAP_SHARE)), slots = [], cards = [], height = y2 + ch + m.pad;
     var at = function (p) { return { x: x(COLS / 2 - 0.5 - rowOf(p) / 2 + colOf(p)), y: y1 + rowOf(p) * rowStep }; };
 
     PYRAMID.forEach(function (p) {
@@ -177,7 +177,7 @@
     function newGame() { view.picked = null; session.reset(newState(Z.shuffled(Math.random))); paintSub(); }
 
     board = Z.createBoard({
-      table: el.table, cols: COLS, heightShare: HEIGHT_SHARE, centerY: 0.4, enterTaps: true,
+      table: el.table, cols: COLS, heightShare: HEIGHT_SHARE, enterTaps: true,
       place: function (st, m) { return place(st, m, view); },
       canPick: function (st, pile, idx) { return canPick(st, pile, idx); },
       move: move, tap: tap,

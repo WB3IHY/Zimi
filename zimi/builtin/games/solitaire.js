@@ -145,19 +145,21 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var DOWN_RATIO = 0.55, UP_STEP_SHARE = 0.4, MIN_STEP_SHARE = 0.12, WASTE_FAN_SHARE = 0.3, ROW_GAP_SHARE = 0.2;
+  // The columns fan as far as the height allows (up to 0.9 of a card); stock, waste and the foundations sit in the bottom
+  // row, under the thumb, and the columns start right under the bar.
+  var DOWN_RATIO = 0.55, UP_STEP_SHARE = 0.9, MIN_STEP_SHARE = 0.12, WASTE_FAN_SHARE = 0.3, ROW_GAP_SHARE = 0.2;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
-    var y1 = m.pad, y2 = y1 + ch + Math.round(ch * ROW_GAP_SHARE), slots = [], cards = [];
+    var y2 = m.pad, y1 = m.H - m.pad - ch, slots = [], cards = [];   // y1: the bottom row; y2: the columns
     var weight = function (pile) {
       var w = 0;
       for (var i = 0; i < pile.length - 1; i++) w += pile[i].up ? 1 : DOWN_RATIO;
       return w;
     };
-    var room = m.H - y2 - m.pad;
+    var room = y1 - Math.round(ch * ROW_GAP_SHARE) - y2;
     var step = Z.fanStep(Math.max.apply(null, TABLEAU.map(function (t) { return weight(P[t]); })), room, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
-    var bottom = y2 + ch;
+    var bottom = y1 + ch;
     var ids = function (pile) { return pile.map(function (c) { return c.id; }); };
     var fan = cw * WASTE_FAN_SHARE;
 
@@ -180,7 +182,7 @@
       });
       bottom = Math.max(bottom, yy + ch);
     });
-    var height = bottom + m.pad;
+    var height = Math.max(bottom + m.pad, m.H);
 
     slots.push({ id: 'stock', x: x(0), y: y1, w: cw, h: ch, mark: P.stock.length ? '' : '↻', label: Z.describePile('Stock', ids(P.stock), false) + (P.stock.length ? ', Enter to draw' : ', Enter to recycle the waste') });
     slots.push({ id: 'waste', x: x(1), y: y1, w: cw + fan * (SHOWN_WASTE - 1), h: ch, label: Z.describePile('Waste', ids(P.waste), true) });
@@ -189,7 +191,7 @@
       slots.push({ id: f, x: x(3 + n), y: y1, w: cw, h: ch, mark: t === null ? 'A' : '', label: t === null ? 'Foundation, empty' : 'Foundation, ' + Z.SUITS[Z.suit(t)] + ', ' + P[f].length + (P[f].length === 1 ? ' card' : ' cards') });
     });
     TABLEAU.forEach(function (t, n) {
-      slots.push({ id: t, x: x(n), y: y2, w: cw, h: Math.max(ch, height - y2), label: Z.describePile('Tableau ' + (n + 1), ids(P[t]), P[t].length && top(P[t]).up) });
+      slots.push({ id: t, x: x(n), y: y2, w: cw, h: Math.max(ch, Math.min(height, y1 - Math.round(ch * ROW_GAP_SHARE)) - y2), label: Z.describePile('Tableau ' + (n + 1), ids(P[t]), P[t].length && top(P[t]).up) });
     });
     return { height: height, slots: slots, cards: cards };
   }

@@ -67,14 +67,14 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var UP_STEP_SHARE = 0.42, MIN_STEP_SHARE = 0.16, ROW_GAP_SHARE = 0.35, HEIGHT_SHARE = 0.19;
+  var UP_STEP_SHARE = 0.62, MIN_STEP_SHARE = 0.16, ROW_GAP_SHARE = 0.35, HEIGHT_SHARE = 0.19;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
-    var gap = Math.round(ch * ROW_GAP_SHARE), block = ch * (2 + (DEPTH - 1) * UP_STEP_SHARE) + gap;
-    var y1 = m.pad + Z.restShare(m.H - block - 2 * m.pad), natural = y1 + ch * (1 + (DEPTH - 1) * UP_STEP_SHARE) + gap;
-    var y2 = natural;
-    var step = Z.fanStep(DEPTH - 1, natural - y1 - gap, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
+    // The columns start under the bar and fan as far as the room allows; stock and waste sit in the bottom row, under the thumb.
+    var gap = Math.round(ch * ROW_GAP_SHARE), y1 = m.pad, natural = y1 + ch * (1 + (DEPTH - 1) * UP_STEP_SHARE) + gap;
+    var y2 = Math.max(m.H - m.pad - ch, natural);
+    var step = Z.fanStep(DEPTH - 1, y2 - y1 - gap, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
     var slots = [], cards = [], height = y2 + ch + m.pad;
 
     COLUMNS.forEach(function (c, n) {
@@ -132,7 +132,7 @@
     function newGame() { el.sub.textContent = ''; session.reset(newState(Z.shuffled(Math.random))); }
 
     board = Z.createBoard({
-      table: el.table, cols: COLS, place: place, heightShare: HEIGHT_SHARE, centerY: 0.4, enterTaps: true,
+      table: el.table, cols: COLS, place: place, heightShare: HEIGHT_SHARE, enterTaps: true,
       canPick: canPick, move: move,
       tap: function (pile, idx) {
         if (pile === 'stock') return draw();

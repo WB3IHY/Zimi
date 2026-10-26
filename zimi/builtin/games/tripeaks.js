@@ -102,8 +102,8 @@
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, rowStep = ch * ROW_STEP_SHARE;
     var unit = (m.W - 2 * m.pad - cw) / (BOARD_WIDTH_CARDS - 1), x0 = Math.floor((m.W - (unit * (BOARD_WIDTH_CARDS - 1) + cw)) / 2);
-    var block = rowStep * 3 + ch * 2 + Math.round(ch * ROW_GAP_SHARE), y1 = m.pad + Z.restShare(m.H - block - 2 * m.pad);
-    var y2 = y1 + rowStep * 3 + ch + Math.round(ch * ROW_GAP_SHARE), slots = [], cards = [], height = y2 + ch + m.pad;
+    // The peaks start under the bar; stock and waste sit in the bottom row, under the thumb.
+    var y1 = m.pad, y2 = Math.max(m.H - m.pad - ch, y1 + rowStep * 3 + ch + Math.round(ch * ROW_GAP_SHARE)), slots = [], cards = [], height = y2 + ch + m.pad;
     var mid = m.W / 2, sx = Math.round(mid - cw - m.gap / 2), wx = Math.round(mid + m.gap / 2);
 
     TABLEAU.forEach(function (p) {
@@ -151,7 +151,7 @@
     function newGame() { session.reset(newState(Z.shuffled(Math.random))); }
 
     board = Z.createBoard({
-      table: el.table, cols: FIT_COLS, heightShare: HEIGHT_SHARE, centerY: 0.4, enterTaps: true, place: place,
+      table: el.table, cols: FIT_COLS, heightShare: HEIGHT_SHARE, enterTaps: true, place: place,
       canPick: canPick, move: move,
       tap: function (pile, idx) {
         if (pile === 'stock') { var next = drawStock(session.state); return next ? commit(next) : false; }

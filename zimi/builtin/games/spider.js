@@ -139,19 +139,20 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var DOWN_RATIO = 0.4, UP_STEP_SHARE = 0.4, MIN_STEP_SHARE = 0.2, ROW_GAP_SHARE = 0.2;
+  var DOWN_RATIO = 0.4, UP_STEP_SHARE = 0.62, MIN_STEP_SHARE = 0.2, ROW_GAP_SHARE = 0.2;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
-    var y1 = m.pad, y2 = y1 + ch + Math.round(ch * ROW_GAP_SHARE), slots = [], cards = [];
+    // Stock and the finished runs sit in the bottom row, under the thumb; the columns start right under the bar.
+    var y2 = m.pad, y1 = m.H - m.pad - ch, slots = [], cards = [];
     var weight = function (pile) {
       var w = 0;
       for (var i = 0; i < pile.length - 1; i++) w += pile[i].up ? 1 : DOWN_RATIO;
       return w;
     };
-    var room = m.H - y2 - m.pad;
+    var room = y1 - Math.round(ch * ROW_GAP_SHARE) - y2;
     var step = Z.fanStep(Math.max.apply(null, COLUMNS.map(function (c) { return weight(P[c]); })), room, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
-    var bottom = y2 + ch;
+    var bottom = y1 + ch;
 
     P.stock.forEach(function (c, i) { cards.push({ id: c.id, pile: 'stock', idx: i, x: x(0), y: y1, up: false, hidden: i < P.stock.length - 2 }); });
     DONE.forEach(function (d, n) {
@@ -165,7 +166,7 @@
       });
       bottom = Math.max(bottom, yy + ch);
     });
-    var height = bottom + m.pad;
+    var height = Math.max(bottom + m.pad, m.H);
 
     var dealsLeft = Math.floor(P.stock.length / DEAL_ROW);
     slots.push({ id: 'stock', x: x(0), y: y1, w: cw, h: ch, mark: P.stock.length ? '' : '∅',
@@ -174,7 +175,7 @@
       slots.push({ id: d, x: x(2 + n), y: y1, w: cw, h: ch, label: P[d].length ? 'Finished run ' + (n + 1) + ', ' + Z.SUITS[Z.suit(P[d][0])] : 'Finished run ' + (n + 1) + ', empty' });
     });
     COLUMNS.forEach(function (c, n) {
-      slots.push({ id: c, x: x(n), y: y2, w: cw, h: Math.max(ch, height - y2), label: Z.describePile('Column ' + (n + 1), Z.idsOf(P[c]), P[c].length && top(P[c]).up) });
+      slots.push({ id: c, x: x(n), y: y2, w: cw, h: Math.max(ch, Math.min(height, y1 - Math.round(ch * ROW_GAP_SHARE)) - y2), label: Z.describePile('Column ' + (n + 1), Z.idsOf(P[c]), P[c].length && top(P[c]).up) });
     });
     return { height: height, slots: slots, cards: cards };
   }

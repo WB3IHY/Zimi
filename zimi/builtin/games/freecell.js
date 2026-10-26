@@ -120,14 +120,15 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var UP_STEP_SHARE = 0.4, MIN_STEP_SHARE = 0.12, ROW_GAP_SHARE = 0.2;
+  var UP_STEP_SHARE = 0.7, MIN_STEP_SHARE = 0.12, ROW_GAP_SHARE = 0.2;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
-    var y1 = m.pad, y2 = y1 + ch + Math.round(ch * ROW_GAP_SHARE), slots = [], cards = [];
-    var room = m.H - y2 - m.pad;
+    // The free cells and foundations sit in the bottom row, under the thumb; the columns start right under the bar.
+    var y2 = m.pad, y1 = m.H - m.pad - ch, slots = [], cards = [];
+    var room = y1 - Math.round(ch * ROW_GAP_SHARE) - y2;
     var step = Z.fanStep(Math.max.apply(null, COLUMNS.map(function (c) { return P[c].length - 1; })), room, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
-    var bottom = y2 + ch;
+    var bottom = y1 + ch;
 
     CELLS.forEach(function (c, n) {
       P[c].forEach(function (id, i) { cards.push({ id: id, pile: c, idx: i, x: x(n), y: y1, up: true }); });
@@ -139,7 +140,7 @@
       P[c].forEach(function (id, i) { cards.push({ id: id, pile: c, idx: i, x: x(n), y: y2 + i * step, up: true }); });
       bottom = Math.max(bottom, y2 + Math.max(0, P[c].length - 1) * step + ch);
     });
-    var height = bottom + m.pad;
+    var height = Math.max(bottom + m.pad, m.H);
 
     CELLS.forEach(function (c, n) {
       slots.push({ id: c, x: x(n), y: y1, w: cw, h: ch, label: P[c].length ? 'Free cell ' + (n + 1) + ', ' + Z.cardName(P[c][0]) : 'Free cell ' + (n + 1) + ', empty' });
@@ -149,7 +150,7 @@
       slots.push({ id: f, x: x(COLS / 2 + n), y: y1, w: cw, h: ch, mark: t === null ? 'A' : '', label: t === null ? 'Foundation, empty' : 'Foundation, ' + Z.SUITS[Z.suit(t)] + ', ' + P[f].length + (P[f].length === 1 ? ' card' : ' cards') });
     });
     COLUMNS.forEach(function (c, n) {
-      slots.push({ id: c, x: x(n), y: y2, w: cw, h: Math.max(ch, height - y2), label: Z.describePile('Column ' + (n + 1), P[c], true) });
+      slots.push({ id: c, x: x(n), y: y2, w: cw, h: Math.max(ch, Math.min(height, y1 - Math.round(ch * ROW_GAP_SHARE)) - y2), label: Z.describePile('Column ' + (n + 1), P[c], true) });
     });
     return { height: height, slots: slots, cards: cards };
   }
