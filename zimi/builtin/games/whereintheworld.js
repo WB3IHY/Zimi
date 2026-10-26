@@ -59,7 +59,7 @@
 
   function verdict(total, max) {
     var r = max ? total / max : 0;
-    return r >= 0.9 ? 'A navigator.' : r >= 0.7 ? 'Very good.' : r >= 0.45 ? 'Good.' : 'Keep playing to learn more.';
+    return r >= 0.9 ? 'navigator' : r >= 0.7 ? 'veryGood' : r >= 0.45 ? 'good' : 'keepGoing';
   }
 
   var Engine = { project: project, unproject: unproject, haversine: haversine, points: points, clampView: clampView, zoomView: zoomView, panView: panView, fitView: fitView,
@@ -69,13 +69,13 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$, NS = 'http://www.w3.org/2000/svg';
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T, NS = 'http://www.w3.org/2000/svg';
   Play.applyTheme();
   var BEST_KEY = 'zimi.games.world.best';
   var ZOOM_STEP = 1.8, WHEEL_STEP = 1.15, KEY_PAN = 0.08, TAP_PX = 8, PIN_PX = 7, MAP_BATCH = 4;
   var els = { frame: $('wm-frame'), svg: $('wm-svg'), ask: $('wm-ask'), kind: $('wm-kind'), msg: $('wm-msg'), info: $('wm-info'), n: $('wm-n'), score: $('wm-score'),
-    guess: $('wm-guess'), next: $('wm-next'), zin: $('wm-zin'), zout: $('wm-zout'), mode: $('wm-mode'), source: $('wm-source'),
-    sheet: $('wm-sheet'), title: $('wm-sheet-title'), text: $('wm-sheet-text'), again: $('wm-again'), close: $('wm-close') };
+    guess: $('wm-guess'), next: $('wm-next'), zin: $('wm-zin'), zout: $('wm-zout'), newBtn: $('wm-new') };
+  var status = Play.status(els.msg), pendingMaps = null, finished = false;
   var view = wholeWorld(2), round = [], at = 0, total = 0, pending = null, answered = false;
   var wikiZim = null, mapZims = [], useMaps = false, layers = {}, busy = false;
 
@@ -121,24 +121,24 @@
 
   // ── a round ──
   function paintTop() {
-    els.n.textContent = round.length ? 'Place ' + (at + 1) + ' of ' + round.length : '';
-    els.score.textContent = total + ' points';
+    els.n.textContent = round.length ? T('world.place', { n: at + 1, total: round.length }) : '';
+    els.score.textContent = T('world.points', { n: total });
   }
   function ask() {
     var q = round[at]; pending = null; answered = false;
-    els.ask.textContent = q.name; els.kind.textContent = 'Where is this ' + q.kind + '?';
+    els.ask.textContent = q.name; els.kind.textContent = T('world.where', { kind: q.kind });
     els.guess.hidden = false; els.guess.disabled = true; els.next.hidden = true;
-    els.msg.textContent = 'Tap the map where you think it is.'; els.info.textContent = ''; els.info.hidden = true;
+    status.say(T('world.tap')); els.info.textContent = ''; els.info.hidden = true;
     view = wholeWorld(aspect()); applyView(); paintTop();
   }
-  function setPending(p) { if (answered) return; pending = p; els.guess.disabled = false; els.msg.textContent = 'Move the pin by tapping again, or press Guess.'; paintMarks(); }
+  function setPending(p) { if (answered) return; pending = p; els.guess.disabled = false; status.say(T('world.move')); paintMarks(); }
 
   function confirmGuess() {
     if (answered || !pending) return;
     var q = round[at], km = haversine(pending, q), pts = points(km);
     answered = true; total += pts;
-    els.msg.textContent = Math.round(km).toLocaleString() + ' km away: ' + pts + ' points.';
-    els.guess.hidden = true; els.next.hidden = false; els.next.textContent = at + 1 >= round.length ? 'See your score' : 'Next';
+    status.say(T('world.away', { km: Math.round(km), n: pts }));
+    els.guess.hidden = true; els.next.hidden = false; els.next.textContent = T(at + 1 >= round.length ? 'world.seeScore' : 'world.next');
     view = fitView(pending, q, view.w / view.h, 0.6); applyView(); paintTop();
     els.next.focus();
     about(q);
@@ -155,7 +155,7 @@
         els.info.innerHTML = '';
         var a = document.createElement('a'); a.href = '/w/' + encodeURIComponent(wikiZim) + '/' + hit.path.split('/').map(encodeURIComponent).join('/'); a.textContent = hit.title;
         els.info.appendChild(a);
-        els.info.appendChild(document.createTextNode(s && s.snippet ? ': ' + s.snippet : ''));
+        els.info.appendChild(document.createTextNode(s && s.snippet ? T('world.snippet', { snippet: s.snippet }) : ''));
         els.info.hidden = false;
       });
     }).catch(function () { /* the article is a bonus */ });
@@ -168,9 +168,9 @@
   function finish() {
     var key = useMaps ? 'maps' : 'places', best = Play.load(BEST_KEY, {}), max = round.length * MAX_POINTS, mine = best[key] || 0;
     if (total > mine) { best[key] = total; Play.save(BEST_KEY, best); }
-    els.title.textContent = total + ' of ' + max;
-    els.text.textContent = verdict(total, max) + (total > mine && mine ? ' A new best.' : mine > total ? ' Your best here is ' + mine + '.' : '');
-    Play.openSheet(els.sheet, '#wm-again');
+    finished = true;
+    status.say(T('world.verdict.' + verdict(total, max)));
+    ZimiShell.endSheet({ result: 'over', text: T('world.verdict.' + verdict(total, max)), stats: [[T('world.score'), T('world.of', { n: total, max: max })], [T('play.best'), Play.num(Math.max(total, mine))]] });
   }
 
   // Ten places drawn from the player's maps, four asked at a time.
@@ -190,21 +190,18 @@
   }
 
   function newRound() {
-    if (busy) return; busy = true; total = 0; at = 0;
+    if (busy) return; busy = true; total = 0; at = 0; finished = false;
+    if (pendingMaps !== null) { useMaps = pendingMaps && !!mapZims.length; pendingMaps = null; }
     var work = useMaps ? drawMapPlaces(ROUND) : Promise.resolve(roundFrom(root.WORLD_PLACES, ROUND, Math.random));
-    els.msg.textContent = useMaps ? 'Choosing places from your maps...' : '';
+    status.say(useMaps ? T('world.choosing') : '');
     work.then(function (list) {
       busy = false;
-      if (list.length < 3) { useMaps = false; els.source.textContent = 'Your maps did not give enough places, so these are the built-in ones.'; list = roundFrom(root.WORLD_PLACES, ROUND, Math.random); }
-      round = list; paintMode(); ask();
+      var short = list.length < 3;
+      if (short) { useMaps = false; list = roundFrom(root.WORLD_PLACES, ROUND, Math.random); }
+      round = list; ask();
+      if (short) status.reason(T('world.builtIn'), 4000);
     });
   }
-  function paintMode() {
-    els.mode.hidden = !mapZims.length;
-    els.mode.textContent = useMaps ? 'Maps' : 'World';
-    els.source.textContent = useMaps ? 'Places chosen from the offline maps in your library.' : 'Built-in places' + (wikiZim ? ', with a line from your Wikipedia after each answer.' : '.');
-  }
-
   // ── looking around: drag to move, pinch or buttons or wheel to zoom, arrows and + - from the keyboard ──
   var pointers = {}, gesture = null;
   function frac(e) { var r = els.svg.getBoundingClientRect(); return { fx: (e.clientX - r.left) / r.width, fy: (e.clientY - r.top) / r.height }; }
@@ -258,10 +255,20 @@
   });
   els.guess.addEventListener('click', confirmGuess);
   els.next.addEventListener('click', advance);
-  els.mode.addEventListener('click', function () { useMaps = !useMaps; newRound(); });
-  els.again.addEventListener('click', function () { Play.closeSheet(els.sheet); newRound(); });
-  els.close.addEventListener('click', function () { Play.closeSheet(els.sheet); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !els.sheet.hidden) Play.closeSheet(els.sheet); });
+  els.newBtn.addEventListener('click', newRound);
+  ZimiShell.game({
+    inProgress: function () { return !finished && !busy && (at > 0 || !!pending || answered); },
+    stats: function () {
+      var best = Play.load(BEST_KEY, {}), lines = [];
+      if (best.places) lines.push([T('world.bestPlaces'), Play.num(best.places)]);
+      if (best.maps) lines.push([T('world.bestMaps'), Play.num(best.maps)]);
+      return lines;
+    },
+    // Where the places come from is a choice about the game, so it sits in the New game pane (only when there are maps).
+    menu: function () {
+      return { options: mapZims.length ? [Play.optionRow(T('world.from'), [[false, T('world.builtInPlaces')], [true, T('world.maps')]], pendingMaps === null ? useMaps : pendingMaps, function (v) { pendingMaps = v; })] : [] };
+    }
+  });
   window.addEventListener('resize', function () { view = clampView({ x: view.x, y: view.y, w: view.w, h: view.w / aspect() }); applyView(); });
 
   buildMap();

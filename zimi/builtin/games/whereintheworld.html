@@ -14,8 +14,8 @@
 <header class="ar-bar">
   <a class="ar-back" href="index.html" aria-label="Back to ZimiGames">&lsaquo;</a>
   <h1>Where in the World</h1>
-  <button class="ar-btn" id="wm-mode" type="button" hidden title="Ask about built-in places or the places of your offline maps">World</button>
-  <span class="ar-stat" id="wm-score" aria-live="polite">0 points</span>
+  <span class="ar-stat" id="wm-score" aria-live="polite"></span>
+  <button class="ar-btn" id="wm-new" type="button" hidden data-t="shell.menu.new">New game</button>
 </header>
 
 <main class="pl-main wm-main">
@@ -24,32 +24,21 @@
     <h2 id="wm-ask">&nbsp;</h2>
     <p id="wm-kind"></p>
   </div>
-  <div class="wm-frame" id="wm-frame" tabindex="0" role="application" aria-label="World map. Arrow keys move the pin, plus and minus zoom, Enter guesses.">
+  <p class="pl-msg" id="wm-msg"></p>
+  <div class="wm-frame" id="wm-frame" tabindex="0" role="application" aria-label="World map" data-t-aria="world.map">
     <svg id="wm-svg" class="wm-svg" preserveAspectRatio="xMidYMid slice" viewBox="0 0 800 400"></svg>
     <div class="wm-zoom">
-      <button class="ar-btn" id="wm-zin" type="button" aria-label="Zoom in">+</button>
-      <button class="ar-btn" id="wm-zout" type="button" aria-label="Zoom out">&minus;</button>
+      <button class="ar-btn" id="wm-zin" type="button" aria-label="Zoom in" data-t-aria="world.zoomIn">+</button>
+      <button class="ar-btn" id="wm-zout" type="button" aria-label="Zoom out" data-t-aria="world.zoomOut">&minus;</button>
     </div>
   </div>
-  <p class="pl-msg" id="wm-msg" role="status" aria-live="polite"></p>
-  <div class="pl-keys">
-    <button class="ar-btn gm-play" id="wm-guess" type="button" disabled>Guess</button>
-    <button class="ar-btn gm-play" id="wm-next" type="button" hidden>Next</button>
+  <div class="gs-actionrow">
+    <button class="ar-btn gm-play" id="wm-guess" type="button" disabled data-t="world.guess">Guess</button>
+    <button class="ar-btn gm-play" id="wm-next" type="button" hidden></button>
   </div>
   <p class="wm-info" id="wm-info" hidden></p>
-  <p class="pl-help gl-source" id="wm-source"></p>
 </main>
 
-<div class="ar-sheet" id="wm-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="wm-sheet-title">
-  <div class="ar-sheet-card">
-    <h2 id="wm-sheet-title">Done</h2>
-    <p id="wm-sheet-text"></p>
-    <div class="ar-sheet-actions">
-      <button class="ar-btn" id="wm-again" type="button">Play again</button>
-      <button class="ar-btn" id="wm-close" type="button" aria-pressed="true">Close</button>
-    </div>
-  </div>
-</div>
 <script src="playkit.js"></script>
 <script src="librarykit.js"></script>
 <script src="world-land.js"></script>
