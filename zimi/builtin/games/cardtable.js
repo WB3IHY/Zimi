@@ -134,7 +134,9 @@
       var st = session && session.state, m = board && board.metrics();
       if (!st || !m) return;
       var g = cfg.geo ? cfg.geo(m, st) : geometry(m), hd = cfg.hud(st, view) || {};
-      var sig = JSON.stringify([hd.chips, hd.text, hd.label, !!hd.action, hd.choices && hd.choices.map(function (c) { return [c.label, !!c.disabled, !!c.pressed]; }), hd.lines, hd.sub, view.flash, g.statusY, m.W]);
+      // Whatever the game's own layout says, the status line never sits on the hand.
+      var statusY = Z.statusTop(g.statusY, board.handTop(), STATUS_H);
+      var sig = JSON.stringify([hd.chips, hd.text, hd.label, !!hd.action, hd.choices && hd.choices.map(function (c) { return [c.label, !!c.disabled, !!c.pressed]; }), hd.lines, hd.sub, view.flash, statusY, m.W]);
       statusAction = hd.action || null; choicesNow = hd.choices || [];
       if (sig === last) return;
       last = sig;
@@ -143,8 +145,8 @@
         scoreRow.appendChild(Z.h('span', { class: 'ct-chip' + (c.turn ? ' ct-turn' : '') }, [Z.h('b', { text: c.name }), Z.h('span', { text: c.text || '' })]));
       });
       scoreRow.style.top = m.pad + 'px';
-      status.style.top = Math.round(g.statusY) + 'px'; status.style.height = STATUS_H + 'px';
-      panel.style.bottom = Math.round(m.H - g.statusY + PANEL_GAP) + 'px';
+      status.style.top = Math.round(statusY) + 'px'; status.style.height = STATUS_H + 'px';
+      panel.style.bottom = Math.round(m.H - statusY + PANEL_GAP) + 'px';
       statusText.textContent = view.flash || hd.text || '';
       statusBtn.textContent = hd.label || ''; statusBtn.hidden = !hd.label; statusBtn.disabled = !hd.action;
       panel.textContent = ''; panel.hidden = !(hd.choices && hd.choices.length);
@@ -171,7 +173,9 @@
       canPick: function (st, pile) { return cfg.canPick ? cfg.canPick(st, pile) : false; },
       move: function (pile, idx, to) { return cfg.move ? cfg.move(pile, idx, to) : false; },
       tap: function (pile, idx) { return cfg.tap ? cfg.tap(pile, idx) : false; },
-      slotTap: function (pile) { if (cfg.slotTap) cfg.slotTap(pile); }
+      slotTap: function (pile) { if (cfg.slotTap) cfg.slotTap(pile); },
+      // The status line sits above the hand as it was just laid out.
+      afterRender: function () { if (board) paint(); }
     });
     session = Z.createSession({
       id: cfg.id, lowScore: cfg.lowScore, board: board, newGame: cfg.newGame, els: el,

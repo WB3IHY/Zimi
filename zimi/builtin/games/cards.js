@@ -960,7 +960,7 @@
   // ── The board ─────────────────────────────────────────────────────────
   // o: { table, cols, place(state, m) -> {height, slots, cards},
   //      canPick(state, pile, idx), move(pile, idx, to) -> bool,
-  //      tap(pile, idx) -> bool, slotTap(pile) }
+  //      tap(pile, idx) -> bool, slotTap(pile), afterRender() }
   // place() returns slots [{id, x, y, w, h, label, mark}] and cards
   // [{id, pile, idx, x, y, up, hidden}] in stacking order.
   var SNAP_FELT = '#1f6f43', SNAP_CREAM = '#fdfcf8', SNAP_RED = '#c62828', SNAP_BLACK = '#1b1b1b', SNAP_BACK = '#23232b', SNAP_BACK_EDGE = '#e8710a', SNAP_RX = 5;
@@ -1118,6 +1118,7 @@
       Object.keys(els).forEach(function (k) { if (!cardPos[k]) els[k].classList.add('zc-off'); });
       if (anyMoved) scheduleSettle();
       paintSelection();
+      if (o.afterRender) o.afterRender();
     }
     function refresh(mode) { if (lastState) render(lastState, mode); }
 
@@ -1330,7 +1331,15 @@
       });
       return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + m.W + ' ' + Math.round(m.W * 9 / 16) + '" preserveAspectRatio="xMidYMin slice"><rect width="' + m.W + '" height="' + m.H + '" fill="' + SNAP_FELT + '"/>' + out.join('') + '</svg>';
     }
+    // The top of your hand as laid out (raised cards included): what the status line must stay above.
+    function handTop() {
+      if (!lastPlace || !metrics) return null;
+      var band = metrics.H - 2.2 * metrics.ch, top = null;
+      lastPlace.cards.forEach(function (c) { if (!c.hidden && c.y >= band && (top === null || c.y < top)) top = c.y; });
+      return top;
+    }
     return {
+      handTop: handTop,
       snapshot: snapshot,
       render: render, refresh: refresh, cascade: cascade, say: say, nudge: nudge,
       metrics: function () { return metrics; },
@@ -1342,6 +1351,10 @@
   // ── The session: undo, clock, stats, keys, the win ────────────────────
   // cfg: { id, els: {undo, newBtn, menu, stat}, board, newGame(), openMenu(),
   //        statText(sec, state), cascadeOrder(state), winLines(sec, state) }
+  // Where a status line of height h goes: where the game's layout put it, or higher if your hand (raised cards
+  // included, from board.handTop()) would reach into it.
+  var STATUS_GAP = 6;
+  function statusTop(statusY, handTop, h) { return handTop === null ? statusY : Math.min(statusY, handTop - STATUS_GAP - h); }
   var TICK_MS = 1000;
   // Run a game's openMenu without showing its sheet and hand back the parts that are options.
   function menuOptions(openMenu) {
@@ -1469,7 +1482,7 @@
     moonPhase: moonPhase, moonLitPath: moonLitPath, faceMarkup: faceMarkup, backMarkup: backMarkup,
     italianFaceMarkup: italianFaceMarkup, italianName: italianName,
     spanishFaceMarkup: spanishFaceMarkup, spanishName: spanishName, hanafudaFaceMarkup: hanafudaFaceMarkup, hanafudaCard: hanafudaCard, hanafudaName: hanafudaName, HANA_MONTHS: HANA_MONTHS, jokerMarkup: jokerMarkup, markSvg: markSvg, wordmarkSvg: wordmarkSvg,
-    fmtTime: fmtTime, plural: plural, describePile: describePile, fanStep: fanStep, pageEls: pageEls, idsOf: idsOf, restShare: restShare,
+    fmtTime: fmtTime, plural: plural, describePile: describePile, fanStep: fanStep, statusTop: statusTop, pageEls: pageEls, idsOf: idsOf, restShare: restShare,
     store: store, createStats: createStats, h: h, sheet: sheet, segmented: segmented, backsSheet: backsSheet, backsRow: backsRow,
     createBoard: createBoard, createSession: createSession, ensureSprite: ensureSprite,
     currentBack: function () { return currentBack; }

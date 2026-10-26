@@ -138,7 +138,7 @@
   root.ZimiCrazyEights = api;
 
   // ── The page ────────────────────────────────────────────────────────────
-  var AI_MS = 650, PASS_MS = 1000, PLAYERS_KEY = 'crazyeights.players', DEFAULT_PLAYERS = 3, SUIT_MARK_GAP = 6;
+  var SCORE_LINE_NAMES = 3, AI_MS = 650, PASS_MS = 1000, PLAYERS_KEY = 'crazyeights.players', DEFAULT_PLAYERS = 3, SUIT_MARK_GAP = 6;
   function boot() {
     var d = root.document, t, board, session, view = { flash: '', pending: null, note: '' }, players = DEFAULT_PLAYERS;
     var marker = Z.h('div', { class: 'ce-suit', 'aria-live': 'polite' });
@@ -171,7 +171,8 @@
       count.textContent = Z.plural(st.stock.length, 'card');
       markerGlyph.textContent = GLYPH[st.suit]; markerText.textContent = wild ? 'suit called' : 'match';
     }
-    function scoreLine(st) { return st.scores.map(function (v, seat) { return name(st, seat)[0] + ' ' + v; }).join(' · '); }
+    // Names fit the bar for three at 390 px; a fourth shortens the others to their initial ("You 0 · W 0 · N 0 · E 0").
+    function scoreLine(st) { return st.scores.map(function (v, seat) { var n = name(st, seat); return (st.scores.length > SCORE_LINE_NAMES && seat ? n[0] : n) + ' ' + v; }).join(' · '); }
     function hud(st) {
       paintMarker(st);
       var chips = st.hands.map(function (h, seat) { return { name: name(st, seat), text: String(h.length), turn: st.phase === 'play' && st.turn === seat }; });

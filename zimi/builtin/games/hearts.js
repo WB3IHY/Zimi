@@ -305,7 +305,7 @@
     function paintHud() {
       var st = session && session.state, m = board && board.metrics();
       if (!st || !m) return;
-      var g = geometry(m);
+      var g = geometry(m), statusY = Z.statusTop(g.statusY, board.handTop(), STATUS_H);
       scoreRow.textContent = '';
       [0, 1, 2, 3].map(function (i) { return (seats.view() + i) % SEATS; }).forEach(function (seat) {
         var name = nm(seat), live = st.phase === 'play' ? liveSoFar(st, seat) : 0, turn = st.phase === 'play' && st.turn === seat && st.trick.length < SEATS;
@@ -313,7 +313,7 @@
         scoreRow.appendChild(chip);
       });
       scoreRow.style.top = m.pad + 'px';
-      status.style.top = Math.round(g.statusY) + 'px'; status.style.height = STATUS_H + 'px';
+      status.style.top = Math.round(statusY) + 'px'; status.style.height = STATUS_H + 'px';
       var text = '', label = '', action = null;
       if (st.phase === 'pass') {
         var left = PASS_COUNT - view.chosen.length;
@@ -469,7 +469,8 @@
       place: function (st, m) { syncView(st); return place(st, m, view); },
       canPick: function (st, pile) { return st.phase === 'play' && pile.charAt(0) === 'h' && isLegal(st, seats.view(), idOf(pile)); },
       move: function (pile, idx, to) { return (to === 'trick' || to === 'deck') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
-      tap: tap
+      tap: tap,
+      afterRender: function () { if (board) paintHud(); }
     });
     session = Z.createSession({
       id: 'hearts', lowScore: true, undoOff: function () { return !!watch || seats.hotseat(); }, board: board, newGame: newGame, els: el,
