@@ -161,6 +161,9 @@
     return G.human(p) ? T('makruk.yourTurn', { side: side }) : T('shell.thinking');
   }
 
+  // After the computer drops a disc the line says where, then whose turn it is.
+  function cpuMoved(p, c) { return G.vsComputer() && !G.watching && !G.human(p) ? T('fourinarow.cpu', { c: c + 1 }) + ' ' : ''; }
+
   function playCol(c) {
     if (G.over || G.thinking || !G.human(state.turn)) return;
     if (!place(c)) { G.refuse(btns[c], T('fourinarow.full')); }
@@ -182,7 +185,7 @@
     }
     if (isFull(nb)) { paint(); G.finish(T('board.full'), 'd'); return true; }
     paint();
-    G.say(turnText(), !G.human(state.turn));
+    G.say(cpuMoved(p - 1, c) + turnText(), !G.human(state.turn));
     if (!G.human(state.turn)) G.later(computerMove);
     return true;
   }

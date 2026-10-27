@@ -1645,6 +1645,7 @@
  "fourinarow.boardLabel": "לוח ארבע בשורה",
  "fourinarow.col.free": "עמודה {c}, פנויות: {n}",
  "fourinarow.col.full": "עמודה {c}, מלאה",
+ "fourinarow.cpu": "המחשב שיחק בעמודה {c}.",
  "fourinarow.four": "ארבע בשורה.",
  "fourinarow.full": "העמודה הזו מלאה",
  "fourinarow.hint": "רמז: נסו את העמודה עם החץ.",

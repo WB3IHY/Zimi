@@ -1709,6 +1709,7 @@
  "fourinarow.boardLabel": "Доска «Четыре в ряд»",
  "fourinarow.col.free": "Колонка {c}, свободно: {n}",
  "fourinarow.col.full": "Колонка {c}, заполнена",
+ "fourinarow.cpu": "Компьютер сыграл в столбец {c}.",
  "fourinarow.four": "Четыре в ряд.",
  "fourinarow.full": "Эта колонка заполнена",
  "fourinarow.hint": "Подсказка: попробуйте колонку со стрелкой.",

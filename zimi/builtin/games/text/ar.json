@@ -1837,6 +1837,7 @@
  "fourinarow.boardLabel": "لوح أربعة في صف",
  "fourinarow.col.free": "العمود {c}، الفارغ: {n}",
  "fourinarow.col.full": "العمود {c}، ممتلئ",
+ "fourinarow.cpu": "لعب الحاسوب العمود {c}.",
  "fourinarow.four": "أربعة في صف.",
  "fourinarow.full": "هذا العمود ممتلئ",
  "fourinarow.hint": "تلميح: جرّب العمود الذي عليه السهم.",

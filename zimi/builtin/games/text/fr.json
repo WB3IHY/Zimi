@@ -1645,6 +1645,7 @@
  "fourinarow.boardLabel": "Plateau de Puissance 4",
  "fourinarow.col.free": "Colonne {c}, {n} libres",
  "fourinarow.col.full": "Colonne {c}, pleine",
+ "fourinarow.cpu": "L’ordinateur a joué la colonne {c}.",
  "fourinarow.four": "Quatre alignés.",
  "fourinarow.full": "Cette colonne est pleine",
  "fourinarow.hint": "Indice : essayez la colonne avec la flèche.",

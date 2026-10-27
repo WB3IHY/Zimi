@@ -1581,6 +1581,7 @@
  "fourinarow.boardLabel": "Vier-gewinnt-Brett",
  "fourinarow.col.free": "Spalte {c}, {n} frei",
  "fourinarow.col.full": "Spalte {c}, voll",
+ "fourinarow.cpu": "Computer spielt Spalte {c}.",
  "fourinarow.four": "Vier in einer Reihe.",
  "fourinarow.full": "Diese Spalte ist voll",
  "fourinarow.hint": "Tipp: Probieren Sie die Spalte mit dem Pfeil.",

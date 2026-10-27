@@ -1645,6 +1645,7 @@
  "fourinarow.boardLabel": "Tablero de cuatro en raya",
  "fourinarow.col.free": "Columna {c}, {n} libres",
  "fourinarow.col.full": "Columna {c}, llena",
+ "fourinarow.cpu": "El ordenador jugó la columna {c}.",
  "fourinarow.four": "Cuatro en raya.",
  "fourinarow.full": "Esa columna está llena",
  "fourinarow.hint": "Pista: prueba la columna de la flecha.",

@@ -129,6 +129,13 @@
     // finish(text, outcome, name): `text` is the one line under the result; outcome is 'w' (a person won against the
     // computer), 'l', 'd', or none (two people: `name` is who won, or nothing for a game with no winner). `line` is
     // what the one status line says when `text` is too long for it (the sheet carries the whole of `text`).
+    // The status line says who won as well as why, so it still reads right once the sheet is closed.
+    var RESULT_KEY = { w: 'shell.end.win', l: 'shell.end.lose', d: 'shell.end.draw' };
+    function resultLine(text, outcome, name) {
+      var head = RESULT_KEY[outcome] ? T(RESULT_KEY[outcome]) : name ? T('shell.end.wins', { name: name }) : '';
+      var s = head ? head + '. ' + text : text;
+      return s.length > 60 ? text : s;
+    }
     G.finish = function (text, outcome, name, line) {
       G.over = true;
       if (els.hint) els.hint.disabled = true;
@@ -139,7 +146,7 @@
         var s = stats[key] = stats[key] || { w: 0, l: 0, d: 0 };
         s[outcome]++; BK.save(STATS_KEY, stats);
       }
-      G.say(line || text); G.showStats();
+      G.say(line || resultLine(text, outcome, name)); G.showStats();
       G.result = { text: text, line: line || null, outcome: outcome || null, name: name || null };
       G.showEnd(G.result);
     };
@@ -170,7 +177,7 @@
           Object.keys(saved).forEach(function (k) { settings[k] = saved[k]; });
           G.over = !!data.over; G.result = data.res || null;
           if (keep.load(unpack(data.d), saved) === false) return false;
-          if (G.over && G.result) { G.say(G.result.line || G.result.text); G.showStats(); G.showEnd(G.result); }
+          if (G.over && G.result) { G.say(G.result.line || resultLine(G.result.text, G.result.outcome, G.result.name)); G.showStats(); G.showEnd(G.result); }
           else if (keep.resume) keep.resume();
         }
       });

@@ -1645,6 +1645,7 @@
  "fourinarow.boardLabel": "Tabuleiro de Quatro em Linha",
  "fourinarow.col.free": "Coluna {c}, {n} livres",
  "fourinarow.col.full": "Coluna {c}, cheia",
+ "fourinarow.cpu": "O computador jogou a coluna {c}.",
  "fourinarow.four": "Quatro em linha.",
  "fourinarow.full": "Essa coluna está cheia",
  "fourinarow.hint": "Dica: tente a coluna com a seta.",

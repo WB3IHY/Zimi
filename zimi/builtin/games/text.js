@@ -1595,6 +1595,7 @@
  "fourinarow.boardLabel": "Four in a Row board",
  "fourinarow.col.free": "Column {c}, {n} free",
  "fourinarow.col.full": "Column {c}, full",
+ "fourinarow.cpu": "Computer played column {c}.",
  "fourinarow.four": "Four in a row.",
  "fourinarow.full": "That column is full",
  "fourinarow.hint": "Hint: try the column with the arrow.",

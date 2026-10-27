@@ -1581,6 +1581,7 @@
  "fourinarow.boardLabel": "चार की कतार बोर्ड",
  "fourinarow.col.free": "कॉलम {c}, {n} खाली",
  "fourinarow.col.full": "कॉलम {c}, भरा",
+ "fourinarow.cpu": "कंप्यूटर ने कॉलम {c} खेला।",
  "fourinarow.four": "चार एक कतार में।",
  "fourinarow.full": "वह कॉलम भरा है",
  "fourinarow.hint": "संकेत: तीर वाला कॉलम आज़माएँ।",

@@ -1517,6 +1517,7 @@
  "fourinarow.boardLabel": "四子棋棋盘",
  "fourinarow.col.free": "第 {c} 列，剩 {n} 格",
  "fourinarow.col.full": "第 {c} 列，已满",
+ "fourinarow.cpu": "电脑下在第 {c} 列。",
  "fourinarow.four": "四子连线。",
  "fourinarow.full": "那一列已满",
  "fourinarow.hint": "提示：试试带箭头的那一列。",
