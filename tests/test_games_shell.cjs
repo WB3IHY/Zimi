@@ -308,5 +308,16 @@ function shellEnv(storage, path_, reduced) {
   check(timers.filter((t) => t.f).length === 0 && applied === 2, 'watch: it waits while the Menu is open');
 }
 
+// ── the end sheet's headline ────────────────────────────────────────────────
+{
+  const { S } = shellEnv({});
+  const seen = [];
+  S.sheet = (o) => { seen.push(o.title); return { close() {} }; };
+  S.endSheet({ result: 'lose', title: '2nd of 5', after: 0 });
+  S.endSheet({ result: 'lose', after: 0 });
+  check(seen[0] === '2nd of 5', 'endSheet: a caller\'s own title replaces the result\'s headline');
+  check(seen[1] && seen[1] !== '2nd of 5', 'endSheet: without one the result names it');
+}
+
 console.log(failures ? failures + ' FAILED' : 'all passed');
 process.exit(failures ? 1 : 0);

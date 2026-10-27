@@ -23,7 +23,7 @@
          Use it only when the choice changes the game (players, seats, mode); a game with no real choice
          opens ready to play with one line ("Tap to start"). Returns { el, close }.
 
-     ZimiShell.endSheet({ result: 'win' | 'lose' | 'draw' | 'over', name, team, stats: [[label, value]], extra: [nodes under the chips], after, onNew, onClose, newLabel })
+     ZimiShell.endSheet({ result: 'win' | 'lose' | 'draw' | 'over', title, name, team, stats: [[label, value]], extra: [nodes under the chips], after, onNew, onClose, newLabel })
          The end of a game, the same in every game. The title is the result ("You win", "You lose", "Draw";
          `name` makes it "Name wins" for games with several people; 'over' is "Game over", for solo score
          games with no win state). At most two stat chips, then Close and New game in amber. It appears
@@ -525,7 +525,8 @@
   };
   var END_TITLES = { win: 'shell.end.win', lose: 'shell.end.lose', draw: 'shell.end.draw', over: 'shell.end.over' };
   Shell.endSheet = function (opts) {
-    var title = opts.name ? T(opts.team ? 'shell.end.winsTeam' : 'shell.end.wins', { name: opts.name }) : T(END_TITLES[opts.result] || END_TITLES.over);
+    // `title`: the caller's own headline, already in the player's language ("2nd of 5", "Solved"), over the result's.
+    var title = opts.title ? String(opts.title) : opts.name ? T(opts.team ? 'shell.end.winsTeam' : 'shell.end.wins', { name: opts.name }) : T(END_TITLES[opts.result] || END_TITLES.over);
     var chips = (opts.stats || []).slice(0, 2).map(function (s) { return h('span', { class: 'gs-chip' }, [h('span', { text: s[0] }), h('b', { text: String(s[1]) })]); });
     var newGame = function () { dirty = false; if (opts.onNew) opts.onNew(); else if (newBtn) newBtn.click(); };
     var show = function () {
