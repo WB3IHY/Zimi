@@ -20409,6 +20409,8 @@ function _readerViewAvailable() {
   // laid out in Zimi's own colours. Restyled, the primary button's label
   // went brown on brown.
   if (_docIsOurOwnPage(doc)) return false;
+  // An app ZIM's page (ZimiGames, the Almanac) is played, not read: no reading mode over a game board.
+  if (_docIsApp(doc)) return false;
   // When already applied, the stash proves it was readerable — keep it offered.
   if (doc[_READER_VIEW_STASH]) return true;
   var main = _readerMainContent(doc);

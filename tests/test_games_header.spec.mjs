@@ -115,3 +115,12 @@ test('a tile\'s picture on the shelf opens what the tile opens, never Zimi\'s im
   await expect(frame.locator('.zimi-img-lightbox')).toHaveCount(0);
   await expect(frame.locator('.sh-fam-card[aria-expanded="true"]')).toHaveCount(1);
 });
+
+test('a game offers no Reader View: it is played, not read', async ({ page }) => {
+  await openGame(page, 'checkers.html');
+  await expect(page.locator('#game-title')).toHaveText('Checkers');
+  await expect(page.locator('#readerview-btn')).toBeHidden();
+  await page.locator('button.topbar-more').click();
+  await expect(page.locator('#topbar-menu.visible')).toHaveCount(1);
+  await expect(page.locator('#tbm-readerview')).toHaveCount(0);
+});
