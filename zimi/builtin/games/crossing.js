@@ -256,17 +256,17 @@
   page.run(function (dt) {
     step(st, dt);
     st.events.forEach(function (e) {
-      if (e.name === 'die') status.say(Tx('crossing.die.' + e.data));
-      else if (e.name === 'nest') status.say(Tx('crossing.nest', { n: st.nests.filter(Boolean).length }));
-      else if (e.name === 'life') status.say(Tx('crossing.life'));
-      else if (e.name === 'clear') status.say(Tx('crossing.clear'));
+      if (e.name === 'die') status.reason(Tx('crossing.die.' + e.data));
+      else if (e.name === 'nest') status.reason(Tx('crossing.nest', { n: st.nests.filter(Boolean).length }));
+      else if (e.name === 'life') status.reason(Tx('crossing.life'));
+      else if (e.name === 'clear') status.reason(Tx('crossing.clear'));
       else if (e.name === 'over') page.finish();
     });
     st.events.length = 0;
     if (st.status === 'cleared' && st.statusT <= 0 && page.mode === 'playing') nextLevel();
   });
 
-  function nextLevel() { st = createState(st.level + 1, undefined, { score: st.score, lives: st.lives, nextLife: st.nextLife }); status.say(Tx('crossing.level', { n: st.level })); }
+  function nextLevel() { st = createState(st.level + 1, undefined, { score: st.score, lives: st.lives, nextLife: st.nextLife }); status.reason(Tx('crossing.level', { n: st.level })); }
 
   var KEYDIR = Object.assign({ ' ': 'up' }, root.ZimiUtil.DIR_KEYS);
   Kit.keyboard(KEYDIR, function (a) { if (page.mode === 'playing') hop(st, a); }, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || page.mode !== 'playing'; });

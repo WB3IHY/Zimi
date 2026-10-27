@@ -4,7 +4,7 @@
   'use strict';
   var E = root.RoadRushEngine, Art = root.RoadRushArt, Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var SEG = E.SEG, ROAD_W = E.ROAD_W, CAM_H = E.CAM_H, CAM_DEPTH = E.CAM_DEPTH, PLAYER_Z = E.PLAYER_Z, DRAW = E.DRAW, LANES = E.LANES, MAX_SPEED = E.MAX_SPEED;
-  var STORE = 'zimi.games.roadrush', FOG_DENSITY = 5, MAX_RES = 1.25, COUNTDOWN_S = 3, TOAST_S = 2.4, CAR_VIS = 1.1, SCENE_VIS = 1.4, PLAYER_DRAW_W = E.PLAYER_W * CAR_VIS;
+  var STORE = 'zimi.games.roadrush', FOG_DENSITY = 5, MAX_RES = 1.25, COUNTDOWN_S = 3, TOAST_S = 2.4, TOAST_PX = 26, GO_PX = 56, PORTRAIT_RATIO = 1.6, CAR_VIS = 1.1, SCENE_VIS = 1.4, PLAYER_DRAW_W = E.PLAYER_W * CAR_VIS;
   var HILL_RATE = [14, 30], SUN_R = 0.07, STARS = 70, READY_ARM_MS = 650, CHROME_PX = 190;
   var STAGE_IDS = { 'Coast Road': 'coast', 'Dusk Pass': 'dusk', 'Night Run': 'night' };
   Play.applyTheme();
@@ -19,7 +19,7 @@
   var els = { cv: $('rr-board'), speed: $('rr-speed'), time: $('rr-time'), score: $('rr-score'), best: $('rr-best'), msg: $('rr-msg'), pause: $('rr-pause'), newBtn: $('rr-new') };
   var status = Play.status(els.msg), armed = null;
   var ctx, cssW = 0, cssH = 0, res = 1, reduce = Play.reducedMotion();
-  var PREVIEW_SEED = 7, runId = 0, game = null, mode = 'setup', countdown = 0, toast = '', toastT = 0, tables = {}, stars = [], bg = [0, 0], skyGrad = null, skyTheme = '', crashFlash = 0, wasBraking = false;
+  var PREVIEW_SEED = 7, runId = 0, game = null, mode = 'setup', countdown = 0, toast = '', toastSize = TOAST_PX, toastT = 0, tables = {}, stars = [], bg = [0, 0], skyGrad = null, skyTheme = '', crashFlash = 0, wasBraking = false;
   var held = {}, pad = { gas: false, brake: false }, touchSteer = {};
 
   // ── the picture ──────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@
     // the words on the road
     if (coarse) steerHints();
     if (mode === 'ready' && countdown > 0) bigText(String(Math.ceil(countdown)), '#fff');
-    else if (toastT > 0) bigText(toast, '#f2a516', 26);
+    else if (toastT > 0) bigText(toast, '#f2a516', toastSize);
     hud();
   }
   // Two faint arrows at the edges: hold that half of the road to steer that way.
@@ -148,12 +148,12 @@
     if (both) { left = right = false; }
     return { steer: (right ? 1 : 0) - (left ? 1 : 0), gas: gas && !brake ? 1 : 0, brake: brake ? 1 : 0 };
   }
-  function say(text) { toast = text; toastT = TOAST_S; status.say(text); }
+  function say(text, size) { toast = text; toastSize = size || TOAST_PX; toastT = TOAST_S; status.say(text); }
 
   var loop = Play.loop(function (dt) {
     if (mode === 'ready') {
       countdown -= dt; bgScroll(0, dt);
-      if (countdown <= 0) { mode = 'playing'; say(T('roadrush.go')); }
+      if (countdown <= 0) { mode = 'playing'; say(T('roadrush.go'), GO_PX); }
       return;
     }
     toastT = Math.max(0, toastT - dt); crashFlash = Math.max(0, crashFlash - dt * 2.5);
@@ -170,7 +170,7 @@
     if (e.type === 'checkpoint') say(T('roadrush.checkpoint', { n: e.bonus }));
     else if (e.type === 'finish') say(T('roadrush.stageDone', { stage: stageName(e.stage), next: stageName(e.next) }));
     else if (e.type === 'crash' || e.type === 'cone') { if (e.type === 'crash') say(T('roadrush.crash')); crashFlash = 1; }
-    else if (e.type === 'over') finish();
+    else if (e.type === 'over') { say(T('roadrush.timeUp'), 34); finish(); }
   }
 
   // The ready line says the gesture once; a tap or a key starts the countdown. Armed again after a run.
@@ -253,7 +253,7 @@
   function layout() {
     var room = Play.room(CHROME_PX);
     cssW = Math.floor(Math.min(room.w, 960));
-    cssH = Math.floor(Math.max(240, Math.min(room.h, cssW * (cssW < 500 ? 1.25 : 0.62))));
+    cssH = Math.floor(Math.max(240, Math.min(room.h, cssW * (cssW < 500 ? PORTRAIT_RATIO : 0.62))));
     res = Math.min(window.devicePixelRatio || 1, MAX_RES);
     els.cv.style.width = cssW + 'px'; els.cv.style.height = cssH + 'px';
     els.cv.width = Math.floor(cssW * res); els.cv.height = Math.floor(cssH * res);

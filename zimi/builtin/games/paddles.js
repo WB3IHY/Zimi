@@ -109,6 +109,8 @@
   var settings = Play.load(SETTINGS_KEY, { mode: 'cpu', level: 'medium' }), stats = Play.load(STATS_KEY, { won: 0, played: 0 });
   var st = createState(settings.mode, settings.level), runId = 0, restored = false, mode = 'ready', ctx, status = Play.status(els.msg), armed = null;
   var keys = { bl: false, br: false, tl: false, tr: false }, pointers = {};
+  // The felt of a hit or a point: the paddle that struck lights up, and the scorer's big digit brightens, for a moment.
+  var HIT_FLASH_S = 0.14, POINT_FLASH_S = 0.7, flashed = { top: -9, bottom: -9 }, scored = { top: -9, bottom: -9 };
 
   function layout() { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, W * 1.3).ctx; draw(); }
   function hud() {
@@ -125,23 +127,26 @@
   var loop = Play.loop(function (dt) {
     step(st, dt, controls());
     st.events.forEach(function (e) {
-      if (e.name === 'point') status.say(T(e.data === 'bottom' ? (st.mode === 'two' ? 'paddles.pointBottom' : 'paddles.pointYou') : (st.mode === 'two' ? 'paddles.pointTop' : 'paddles.pointComputer')));
+      if (e.name === 'hit') flashed[e.data] = st.time;
+      if (e.name === 'point') { scored[e.data] = st.time; status.say(T(e.data === 'bottom' ? (st.mode === 'two' ? 'paddles.pointBottom' : 'paddles.pointYou') : (st.mode === 'two' ? 'paddles.pointTop' : 'paddles.pointComputer'))); }
       else if (e.name === 'hit' && st.hits === 1) status.say('');
       else if (e.name === 'over') finish();
     });
     st.events.length = 0;
   }, function () { draw(); hud(); }, 60);
 
+  function digitInk(who) { return 'rgba(255,255,255,' + (st.time - scored[who] < POINT_FLASH_S && !Play.reducedMotion() ? 0.3 : 0.07) + ')'; }
   function pill(x, y, w, h, r) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); ctx.fill(); }
   function draw() {
     if (!ctx) return;
     ctx.fillStyle = '#0e0e10'; ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 2; ctx.setLineDash([10, 10]); ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke(); ctx.setLineDash([]);
     ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.strokeRect(1, 1, W - 2, H - 2);
-    ctx.font = '700 84px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,0.07)';
-    ctx.fillText(st.score.top, W / 2, H / 2 - 54); ctx.fillText(st.score.bottom, W / 2, H / 2 + 120);
-    ctx.fillStyle = '#f2a516'; pill(st.top.x - st.top.w / 2, TOP_Y - PAD_H / 2, st.top.w, PAD_H, 5);
-    ctx.fillStyle = '#3fc1e8'; pill(st.bottom.x - st.bottom.w / 2, BOTTOM_Y - PAD_H / 2, st.bottom.w, PAD_H, 5);
+    ctx.font = '700 84px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center';
+    ctx.fillStyle = digitInk('top'); ctx.fillText(st.score.top, W / 2, H / 2 - 54);
+    ctx.fillStyle = digitInk('bottom'); ctx.fillText(st.score.bottom, W / 2, H / 2 + 120);
+    ctx.fillStyle = st.time - flashed.top < HIT_FLASH_S ? '#ffffff' : '#f2a516'; pill(st.top.x - st.top.w / 2, TOP_Y - PAD_H / 2, st.top.w, PAD_H, 5);
+    ctx.fillStyle = st.time - flashed.bottom < HIT_FLASH_S ? '#ffffff' : '#3fc1e8'; pill(st.bottom.x - st.bottom.w / 2, BOTTOM_Y - PAD_H / 2, st.bottom.w, PAD_H, 5);
     var b = st.ball;
     if (st.status === 'serving' && Math.floor(st.time * 6) % 2 === 0 && !Play.reducedMotion()) ctx.globalAlpha = 0.5;
     ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(b.x, b.y, BALL_R, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
@@ -161,7 +166,7 @@
   }
   function begin() {
     if (armed) armed.cancel(); armed = null;
-    st = createState(settings.mode, settings.level); runId = Play.runId(); mode = 'playing'; status.say(''); releaseAll();
+    st = createState(settings.mode, settings.level); runId = Play.runId(); mode = 'playing'; status.say(''); releaseAll(); flashed.top = flashed.bottom = scored.top = scored.bottom = -9;
     els.cv.style.visibility = ''; Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); loop.start();
   }
   function pause() { if (mode !== 'playing') return; mode = 'paused'; loop.stop(); releaseAll(); Play.pauseLabel(els.pause, true); status.say(T('play.paused')); }
@@ -226,7 +231,7 @@
   }
   function restore(d) {
     if (!d || !d.st) return false;
-    st = Play.overlay(createState(d.st.mode, d.st.level), d.st); st.events = []; runId = d.runId; restored = true;
+    st = Play.overlay(createState(d.st.mode, d.st.level), d.st); st.events = []; runId = d.runId; restored = true; flashed.top = flashed.bottom = scored.top = scored.bottom = -9;
     els.cv.style.visibility = ''; hud(); draw();
     if (d.over) { mode = 'over'; els.pause.disabled = true; setTimeout(showEnd, 0); return true; }
     mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));

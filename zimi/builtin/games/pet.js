@@ -168,7 +168,7 @@
   function newStore(now) { return { v: 1, pets: [newPet(now, NAMES[0], 'p1')], active: 0 }; }
   function addPet(store, now) {
     if (store.pets.length >= MAX_PETS) return null;
-    var used = store.pets.map(function (p) { return p.name; }), name = NAMES.filter(function (n) { return used.indexOf(n) < 0; })[0] || 'Mip', p = newPet(now, name, 'p' + (store.pets.length + 1) + '-' + now);
+    var used = store.pets.map(function (p) { return p.name; }), name = NAMES.filter(function (n) { return used.indexOf(n) < 0; })[0] || NAMES[0], p = newPet(now, name, 'p' + (store.pets.length + 1) + '-' + now);
     store.pets.push(p); store.active = store.pets.length - 1;
     return p;
   }
@@ -190,6 +190,8 @@
     bars: { food: $('pt-food'), joy: $('pt-joy'), clean: $('pt-wash'), energy: $('pt-energy') } };
   var line = Play.status(els.msg);
   var reduced = Play.reducedMotion(), ctx, store = Play.load(SAVE_KEY, null), pet, lastSave = 0, scale = 3, doing = null, rng = mulberry(Date.now());
+  // The six first names are the language's own (a Mip in Latin letters inside a Chinese or Arabic page reads as a leftover).
+  NAMES = NAMES.map(function (n, i) { var t = T('pet.name.' + i); return t === 'pet.name.' + i ? n : t; });
   if (!validStore(store)) store = newStore(Date.now());
   try { usePlace(root.localStorage); } catch (e) { /* no storage: the fixed hours */ }
 

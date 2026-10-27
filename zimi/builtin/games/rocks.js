@@ -62,7 +62,7 @@
     return st;
   }
 
-  function event(st, name, data) { st.events.push({ name: name, data: data }); }
+  function event(st, name, data, at) { st.events.push({ name: name, data: data, x: at && at.x, y: at && at.y }); }
   function addScore(st, n) {
     st.score += n;
     while (st.score >= st.nextLife) { st.lives++; st.nextLife += EXTRA_LIFE_EVERY; event(st, 'extra'); }
@@ -80,7 +80,7 @@
   function killShip(st) {
     var s = st.ship;
     s.alive = false; s.respawn = RESPAWN_S; s.thrusting = false; s.vx = s.vy = 0;
-    st.lives--; event(st, 'ship');
+    st.lives--; event(st, 'ship', undefined, s);
   }
 
   function spawnSaucer(st) {
@@ -150,11 +150,11 @@
             var rk = st.rocks[j];
             st.rocks.splice(j, 1);
             Array.prototype.push.apply(st.rocks, splitRock(rk, st.rng));
-            addScore(st, ROCK_POINTS[rk.size]); event(st, 'rock', rk.size); gone = true;
+            addScore(st, ROCK_POINTS[rk.size]); event(st, 'rock', rk.size, rk); gone = true;
           }
         }
         if (!gone && st.saucer && overlap(bl, 1, st.saucer, st.saucer.r + 2)) {
-          addScore(st, st.saucer.small ? SAUCER.small.points : SAUCER.big.points); event(st, 'saucerdown'); st.saucer = null; gone = true;
+          addScore(st, st.saucer.small ? SAUCER.small.points : SAUCER.big.points); event(st, 'saucerdown', undefined, st.saucer); st.saucer = null; gone = true;
         }
       } else if (s.alive && s.inv <= 0 && overlap(bl, 1, s, SHIP_R)) { killShip(st); gone = true; }
       if (gone) st.bullets.splice(i, 1);
@@ -196,17 +196,24 @@
     layout: function () { ctx = Play.fitCanvas(els.cv, SIZE, SIZE, CHROME_PX, 560).ctx; draw(); },
     keys: { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ArrowUp: 'thrust', w: 'thrust', W: 'thrust', ' ': 'fire' },
     pad: { dirs: ['left', 'right'], actions: [{ name: 'thrust', label: T('play.thrust') }, { name: 'fire', label: T('play.fire') }] },
-    newRun: function () { st = createState(); },
+    newRun: function () { st = createState(); burst.clear(); },
     snapshot: function () { return Play.plain(st); },
-    restore: function (saved) { st = Play.overlay(createState(), saved); st.events = []; }
+    restore: function (saved) { st = Play.overlay(createState(), saved); st.events = []; burst.clear(); }
   });
   var status = page.status;
 
+  // A rock, the saucer or the ship coming apart shows as spokes flying out for a moment.
+  var BURST_REACH = { 3: 26, 2: 18, 1: 12, ship: 30, saucer: 24 }, burst = root.ArcadeBurst(Play.reducedMotion);
+  function burstAt(e) {
+    var key = e.name === 'rock' ? e.data : e.name === 'ship' ? 'ship' : 'saucer';
+    burst.add(e.x, e.y, BURST_REACH[key] || 16, e.name === 'ship' ? '#3fc1e8' : '#e8e8ed', st.time);
+  }
   page.run(function (dt) {
     step(st, dt, page.input());
     st.events.forEach(function (e) {
-      if (e.name === 'wave') status.say(T('rocks.wave', { n: e.data }));
-      else if (e.name === 'extra') status.say(T('rocks.extra'));
+      if (e.name === 'rock' || e.name === 'ship' || e.name === 'saucerdown') burstAt(e);
+      if (e.name === 'wave') status.reason(T('rocks.wave', { n: e.data }));
+      else if (e.name === 'extra') status.reason(T('rocks.extra'));
       else if (e.name === 'over') page.finish();
     });
     st.events.length = 0;
@@ -243,7 +250,11 @@
       ctx.beginPath(); ctx.arc(sc.x, sc.y - sc.r * 0.15, sc.r * 0.48, Math.PI, 0); ctx.stroke();
     }
     st.bullets.forEach(function (b) { ctx.fillStyle = b.own ? '#ffffff' : '#ff6b6b'; ctx.beginPath(); ctx.arc(b.x, b.y, b.own ? 2 : 2.6, 0, 7); ctx.fill(); });
+    burst.draw(ctx, st.time);
     var s = st.ship;
+    if (!s.alive && st.lives > 0 && !Play.reducedMotion() && Math.floor(st.time * 3) % 2 === 0) { // waiting for room to come back: a faint ring at the middle
+      ctx.strokeStyle = 'rgba(63,193,232,0.35)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.arc(SIZE / 2, SIZE / 2, SHIP_R + 6, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    }
     if (s.alive && (s.inv <= 0 || Math.floor(st.time * 9) % 2 === 0 || Play.reducedMotion())) {
       wrapped(s.x, s.y, SHIP_R + 4, function (x, y) {
         ctx.save(); ctx.translate(x, y); ctx.rotate(s.a);

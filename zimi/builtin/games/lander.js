@@ -137,11 +137,16 @@
   });
   var status = page.status;
 
-  function speedText(v, limit) { var n = Math.round(Math.abs(v)); return n + (Math.abs(v) > limit ? '!' : ''); }
+  // A speed past the safe limit shows red and underlined (the number itself stays plain, so it reads the same in every language).
+  function showSpeed(el, v, limit, up) {
+    var over = Math.abs(v) > limit;
+    el.textContent = (up && v < 0 ? '↑' : '') + Play.num(Math.round(Math.abs(v)));
+    el.style.color = over ? 'var(--bad)' : ''; el.style.textDecoration = over ? 'underline' : '';
+  }
   function hud() {
     var L = st.lander;
     els.fuel.textContent = Play.num(Math.round(st.fuel)); els.lives.textContent = Play.num(Math.max(0, st.lives));
-    els.vy.textContent = (L.vy < 0 ? '↑' : '') + speedText(L.vy, MAX_DOWN); els.vx.textContent = speedText(L.vx, MAX_SIDE);
+    showSpeed(els.vy, L.vy, MAX_DOWN, true); showSpeed(els.vx, L.vx, MAX_SIDE, false);
   }
   page.run(function (dt) {
     step(st, dt, page.input());
@@ -190,7 +195,9 @@
     if (st.status === 'crashed' && st.lives <= 0) { page.finish(); return; }
     page.keepBest();
     page.mode = 'between';
-    page.armLater('between', function () { return { touch: T('lander.nextTouch'), keys: T('lander.nextKeys'), start: proceed }; });
+    // The prompt to go on keeps the result in front of the player: arming the ready line would otherwise replace it.
+    var said = resultText();
+    page.armLater('between', function () { return { touch: T('lander.resultThen', { result: said, next: T('lander.nextTouch') }), keys: T('lander.resultThen', { result: said, next: T('lander.nextKeys') }), start: proceed }; });
   }
   function proceed() { st = next(st); page.mode = 'playing'; status.say(''); page.refresh(); page.loop.start(); }
 

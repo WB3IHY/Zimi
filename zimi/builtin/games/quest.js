@@ -332,7 +332,7 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$, Tx = Play.T;
-  var SAVE_KEY = 'zimi.games.quest', CHROME_PX = 190, MAX_SCALE = 4;
+  var SAVE_KEY = 'zimi.games.quest', CHROME_PX = 190, MAX_SCALE = 4, READ_MS = 5000;
   Play.applyTheme();
   var els = { cv: $('qs-screen'), hearts: $('qs-hearts'), keys: $('qs-keys'), sword: $('qs-sword'), where: $('qs-where'), msg: $('qs-msg'), pause: $('qs-pause'), newBtn: $('qs-new') };
   var st = createState(null, 1), ctx, reduced = Play.reducedMotion(), scale = 2;
@@ -451,25 +451,25 @@
     st.enemies.forEach(drawEnemy);
     st.shots.forEach(function (b) { rect(b.x, b.y, 5, 5, '#ff7a3d'); rect(b.x + 1, b.y + 1, 3, 3, '#ffe066'); });
     drawHero();
-    if (st.status === 'won') Kit.textCentered(ctx, 'QUEST DONE!', W / 2, 20, '#ffffff', 2);
+    if (st.status === 'won') Kit.textCentered(ctx, Tx('quest.doneBanner'), W / 2, 20, '#ffffff', 2);
     // the Warden's strength while it is here
     var boss = st.enemies.filter(function (e) { return e.type === 'boss'; })[0];
     if (boss) { rect(W / 2 - 24, H - 8, 48, 4, '#1b1b1d'); rect(W / 2 - 23, H - 7, Math.round(46 * boss.hp / BOSS.hp), 2, '#e5484d'); }
-    if (s && st.status === 'fainted') Kit.textCentered(ctx, 'OH NO', W / 2, H / 2 - 6, '#ffffff', 2);
+    if (s && st.status === 'fainted') Kit.textCentered(ctx, Tx('quest.koBanner'), W / 2, H / 2 - 6, '#ffffff', 2);
   }
 
   // ── flow ──
   var ITEM_LINE = { sword: 'quest.item.sword', key: 'quest.item.key', container: 'quest.item.container', treasure: 'quest.item.treasure' };
   function drain() {
     st.events.forEach(function (e) {
-      if (e.name === 'item') { if (ITEM_LINE[e.data]) status.say(Tx(ITEM_LINE[e.data])); }
-      else if (e.name === 'sign') status.say(Tx('quest.sign.' + st.screen));
-      else if (e.name === 'nosword') status.say(Tx('quest.nosword'));
-      else if (e.name === 'door') status.say(Tx(e.data === 'open' ? 'quest.door.open' : 'quest.door.locked'));
-      else if (e.name === 'screen') { status.say(HINTS[st.screen] && !st.flags['hint:' + st.screen] ? Tx('quest.hint.' + st.screen) : ''); if (HINTS[st.screen]) st.flags['hint:' + st.screen] = true; }
-      else if (e.name === 'faint') status.say(Tx('quest.faint'));
-      else if (e.name === 'woke') status.say(Tx('quest.woke'));
-      else if (e.name === 'defeat' && e.data === 'boss') status.say(Tx('quest.boss'));
+      if (e.name === 'item') { if (ITEM_LINE[e.data]) status.reason(Tx(ITEM_LINE[e.data]), READ_MS); }
+      else if (e.name === 'sign') status.reason(Tx('quest.sign.' + st.screen), READ_MS);
+      else if (e.name === 'nosword') status.reason(Tx('quest.nosword'));
+      else if (e.name === 'door') status.reason(Tx(e.data === 'open' ? 'quest.door.open' : 'quest.door.locked'));
+      else if (e.name === 'screen') { status.reason(HINTS[st.screen] && !st.flags['hint:' + st.screen] ? Tx('quest.hint.' + st.screen) : '', READ_MS); if (HINTS[st.screen]) st.flags['hint:' + st.screen] = true; }
+      else if (e.name === 'faint') status.reason(Tx('quest.faint'), READ_MS);
+      else if (e.name === 'woke') status.reason(Tx('quest.woke'), READ_MS);
+      else if (e.name === 'defeat' && e.data === 'boss') status.reason(Tx('quest.boss'), READ_MS);
       else if (e.name === 'won') page.finish();
       else if (e.name === 'save') Play.save(SAVE_KEY, snapshot(st));
     });

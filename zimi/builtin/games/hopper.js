@@ -374,8 +374,8 @@
   var loop = Play.loop(function (dt) {
     step(st, dt, input());
     st.events.forEach(function (e) {
-      if (e.name === 'hurt') status.say(Tx(e.data === 'fell' ? 'hopper.fell' : 'hopper.hurt'));
-      else if (e.name === 'checkpoint') status.say(Tx('hopper.flag'));
+      if (e.name === 'hurt') status.reason(Tx(e.data === 'fell' ? 'hopper.fell' : 'hopper.hurt'));
+      else if (e.name === 'checkpoint') status.reason(Tx('hopper.flag'));
       else if (e.name === 'stomp') status.say('');
     });
     st.events.length = 0;

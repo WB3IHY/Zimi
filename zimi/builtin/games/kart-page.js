@@ -86,7 +86,7 @@
     if (!isMine(k)) return;
     function who(text) { return one ? text : Tx('kart.playerSays', { n: k.human + 1, text: text }); }
     if (e.type === 'lap' && k.finished == null) { var t = e.lap + 1 === g.race.laps ? Tx('kart.finalLap') : Tx('kart.lap', { n: e.lap + 1 }); if (one) toast(t); say(who(t)); }
-    else if (e.type === 'finish') { var f = Tx('kart.finished', { place: Play.ordinal(k.place) }); say(who(f)); toast(f); }
+    else if (e.type === 'finish') { var f = g.race.trial ? Tx('kart.finishedTrial') : Tx('kart.finished', { place: Play.ordinal(k.place) }); say(who(f)); toast(f); }
     else if (e.type === 'hit' && one) toast(Tx('kart.spun'));
     else if (e.type === 'blocked' && one) toast(Tx('kart.shield'));
     else if (e.type === 'fall' && one) toast(Tx('kart.missed'));
@@ -216,7 +216,7 @@
       }
       if (prefs.mode !== 'trial') seg(detail, Tx('kart.players'), 'players', [[1, Play.num(1)], [2, Play.num(2)]], fill);
       if (two) note(detail, Tx(isTouch() ? 'kart.splitTouch' : 'kart.splitKeys'));
-      seg(detail, Tx('kart.rivals'), 'diff', [['easy', Tx('kart.diff.easy')], ['normal', Tx('kart.diff.normal')], ['hard', Tx('kart.diff.hard')]]);
+      if (prefs.mode !== 'trial') seg(detail, Tx('kart.rivals'), 'diff', [['easy', Tx('kart.diff.easy')], ['normal', Tx('kart.diff.normal')], ['hard', Tx('kart.diff.hard')]]);
       cast(detail, two ? Tx('kart.p1drives') : Tx('kart.youDrive'), 'driver', function () { if (prefs.players === 2 && prefs.driver2 === prefs.driver) { prefs.driver2 = (prefs.driver + 1) % DRIVERS.length; fill(); } });
       if (two) cast(detail, Tx('kart.p2drives'), 'driver2', function () { if (prefs.driver2 === prefs.driver) { prefs.driver = (prefs.driver2 + 1) % DRIVERS.length; fill(); } });
       seg(detail, Tx('kart.auto'), 'auto', ON_OFF());
@@ -226,7 +226,8 @@
     top.appendChild(detail); fill();
     return top;
   }
-  function begin() { closeSheet(); if (prefs.mode === 'gp') startCup(); else startRace(); }
+  // Leaving 'setup' first: closing the start sheet in that mode arms a tap-to-start that would restart the race on the first pad press.
+  function begin() { g.mode = 'starting'; closeSheet(); if (prefs.mode === 'gp') startCup(); else startRace(); }
   // The board is not drawn until Start: the setup comes first.
   function goSetup() {
     g.mode = 'setup'; loop.stop(); releaseAll(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); g.gp = null; say('');

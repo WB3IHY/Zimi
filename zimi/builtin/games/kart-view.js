@@ -197,7 +197,7 @@
     var cy = rect.y + rect.h * 0.3, msg = o.banner;
     if (race.count > 0) { var n = Math.ceil(race.count - 0.2); if (n >= 1) label(c, String(Math.min(3, n)), rect.x + rect.w / 2, cy + 20 * u, 78 * u, 'center', '#ffd27a'); else label(c, tx('kart.go', null, 'GO!'), rect.x + rect.w / 2, cy + 20 * u, 70 * u, 'center', '#7dff9a'); }
     else if (race.t - E.COUNT_S < 0.9 && !race.trial) label(c, tx('kart.go', null, 'GO!'), rect.x + rect.w / 2, cy + 20 * u, 70 * u, 'center', '#7dff9a');
-    else if (k.finished != null) label(c, tx('kart.finished', { place: ordinal(k.place) }, 'Finished ' + E.ordinal(k.place)), rect.x + rect.w / 2, cy + 10 * u, 34 * u, 'center', '#ffd27a');
+    else if (k.finished != null) label(c, race.trial ? tx('kart.finishedTrial', null, 'Finished') : tx('kart.finished', { place: ordinal(k.place) }, 'Finished ' + E.ordinal(k.place)), rect.x + rect.w / 2, cy + 10 * u, 34 * u, 'center', '#ffd27a');
     else if (k.wrong > 1.2) label(c, tx('kart.wrongWay', null, 'Wrong way'), rect.x + rect.w / 2, cy + 10 * u, 30 * u, 'center', '#ff7a6a');
     else if (msg) label(c, msg, rect.x + rect.w / 2, cy + 10 * u, 28 * u, 'center', '#ffd27a');
     if (k.magnet > 0 || k.shield > 0) label(c, (k.shield > 0 ? tx('kart.hudShield', { n: Math.ceil(k.shield) }, 'Shield ' + Math.ceil(k.shield)) : tx('kart.hudMagnet', { n: Math.ceil(k.magnet) }, 'Magnet ' + Math.ceil(k.magnet))), x, y + sz + 18 * u, 12 * u, 'left', '#9ff0e0');

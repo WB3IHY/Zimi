@@ -408,9 +408,9 @@
   page.run(function (dt) {
     step(st, dt, want);
     st.events.forEach(function (e) {
-      if (e.name === 'eat') status.say(Play.num(e.data));
-      else if (e.name === 'fruit') status.say(Tx('muncher.fruit', { n: e.data }));
-      else if (e.name === 'life') status.say(Tx('muncher.life'));
+      if (e.name === 'eat') status.reason(Play.num(e.data), 1200);
+      else if (e.name === 'fruit') status.reason(Tx('muncher.fruit', { n: e.data }));
+      else if (e.name === 'life') status.reason(Tx('muncher.life'));
       else if (e.name === 'pellet') status.say('');
       else if (e.name === 'over') page.finish();
     });
@@ -420,7 +420,7 @@
 
   function nextMaze() {
     var carry = { score: st.score, lives: st.lives, nextLife: st.nextLife }, lvl = st.level + 1;
-    st = createState(lvl, undefined, carry); want = null; status.say(Tx('muncher.maze', { n: lvl }));
+    st = createState(lvl, undefined, carry); want = null; status.reason(Tx('muncher.maze', { n: lvl }));
   }
 
   Kit.keyboard(KEYDIR, function (a) { steer(NAMED[a]); }, function () { return !!document.querySelector('.ar-sheet:not([hidden])') || page.mode === 'ready' || page.mode === 'over'; });

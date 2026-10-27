@@ -7,7 +7,7 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, L = Play.T;
-  var STORE = 'zimi.games.circuit', VIEW_MIN = 430, SKID_MAX = 500, SKID_SLIDE = 0.4, MINI_MAX = 124, LEAD = 0.3, CAM_RATE = 9, RENDER_MAX_PX = 6e6, BRAKE_LIGHT = 0.3, READY_ARM_MS = 650, CHROME_PX = 190, CHROME_SPLIT_PX = 130;
+  var STORE = 'zimi.games.circuit', VIEW_MIN = 430, SKID_MAX = 500, SKID_SLIDE = 0.4, MINI_MAX = 124, LEAD = 0.3, CAM_RATE = 9, RENDER_MAX_PX = 6e6, BRAKE_LIGHT = 0.3, READY_ARM_MS = 650, HINT_MS = 5000, CHROME_PX = 190, CHROME_SPLIT_PX = 130;
   var CAR_COLORS = ['#f2a516', '#e9eef7', '#d1473f', '#3a63c9', '#3d9a4a', '#8a55c9', '#1e9ec4'];
   var THEMES = {
     park: { ground: '#3f7d4a', ground2: '#386f43', asphalt: '#4a4f5a', kerbA: '#d14b3f', kerbB: '#f1f1ea' },
@@ -189,7 +189,7 @@
     if (g.split) { // two panes: each carries its own player's numbers
       ctx.font = '700 14px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(14,14,16,0.6)'; ctx.fillRect(rect.x + 6, rect.y + 6, 190, 24);
       ctx.fillStyle = '#fff';
-      ctx.fillText(L('circuit.splitLine', { name: car.name, lap: Math.min(r.laps, Math.max(1, car.maxK + 1)), laps: r.laps, place: Engine.standings(r).indexOf(car) + 1 }), rect.x + 12, rect.y + 23);
+      ctx.fillText(L('circuit.splitLine', { name: car.name, lap: Math.min(r.laps, Math.max(1, car.maxK + 1)), laps: r.laps, place: ordinal(Engine.standings(r).indexOf(car) + 1) }), rect.x + 12, rect.y + 23);
     }
     if (r.phase === 'countdown') bigText(rect, String(Math.ceil(-r.t)), '#fff');
     else if (r.phase === 'racing' && r.t < 0.9) bigText(rect, L('circuit.go').toUpperCase(), '#f2a516');
@@ -262,9 +262,9 @@
     r.events.splice(0).forEach(onEvent);
   }, render, 60);
 
-  function say(text) {
+  function say(text, ms) {
     g.note = text; status.say(text);
-    Play.later(function () { if (g.note === text) { g.note = ''; status.say(''); } }, 2600);
+    Play.later(function () { if (g.note === text) { g.note = ''; status.say(''); } }, ms || 2600);
   }
   function onEvent(e) {
     if (e.type === 'lap' && e.car.human) {
@@ -294,7 +294,7 @@
     var names = heats ? [L('circuit.player', { n: g.heat + 1 })] : g.split ? [L('circuit.player', { n: 1 }), L('circuit.player', { n: 2 })] : [L('circuit.you')];
     g.race = Engine.createRace(T.id, { humans: g.split ? 2 : 1, ai: prefs.ai, laps: prefs.laps, difficulty: prefs.diff, names: names, seed: Math.floor(Math.random() * 1e6) });
     g.humans = g.race.cars.filter(function (c) { return c.human; });
-    els.hud.hidden = g.split; status.say('');
+    els.hud.hidden = g.split; status.say(''); say(L(coarse ? 'circuit.hintTouch' : 'circuit.hintKeys'), HINT_MS);
     followCams(0, true);
     g.mode = 'playing'; if (armed) { armed.cancel(); armed = null; }
     els.cv.style.visibility = ''; Play.pauseLabel(els.pause, false); els.pause.disabled = false; els.reset.disabled = false;
@@ -378,7 +378,7 @@
       return;
     }
     var me = results[0], chips = [[L('circuit.place'), placeText(me.pos, r.cars.length)], [L('play.time'), timeOf(me)]];
-    ZimiShell.endSheet({ result: me.pos === 1 ? 'win' : 'lose', text: note, stats: chips });
+    ZimiShell.endSheet({ result: me.pos === 1 ? 'win' : 'lose', title: me.pos === 1 ? undefined : placeText(me.pos, r.cars.length), text: note, stats: chips });
   }
 
   // ── input ────────────────────────────────────────────────────────────────

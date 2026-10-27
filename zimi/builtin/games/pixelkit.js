@@ -86,17 +86,31 @@
     'Z': '111001010100111', '-': '000000111000000', '!': '010010010000010', ':': '000010000010000', '.': '000000000000010',
     '+': '000010111010000', ' ': '000000000000000'
   };
+  // The pixel font has capitals and a few marks only. A label with anything else (an accent, a CJK or Arabic word) is
+  // set in the page's own face at the same height instead, so a translated label is never blank or half drawn.
+  function inFont(str) { return String(str).toUpperCase().split('').every(function (ch) { return FONT[ch]; }); }
+  var measure = null;
+  function plainFont(s) { return '800 ' + Math.round(6.5 * s) + 'px system-ui, -apple-system, sans-serif'; }
+  function plainWidth(str, s) {
+    if (!measure) measure = document.createElement('canvas').getContext('2d');
+    measure.font = plainFont(s); return measure.measureText(String(str)).width;
+  }
   Kit.text = function (ctx, str, x, y, color, scale) {
     var s = scale || 1, cx = x;
+    if (!inFont(str)) {
+      ctx.save(); ctx.font = plainFont(s); ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(1, s);
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.strokeText(String(str), x, y - s * 0.5); ctx.fillStyle = color; ctx.fillText(String(str), x, y - s * 0.5);
+      ctx.restore(); return x + plainWidth(str, s);
+    }
     ctx.fillStyle = color;
     String(str).toUpperCase().split('').forEach(function (ch) {
-      var g = FONT[ch] || FONT[' '];
+      var g = FONT[ch];
       for (var i = 0; i < 15; i++) if (g.charAt(i) === '1') ctx.fillRect(cx + (i % 3) * s, y + Math.floor(i / 3) * s, s, s);
       cx += 4 * s;
     });
     return cx;
   };
-  Kit.textWidth = function (str, scale) { return String(str).length * 4 * (scale || 1) - (scale || 1); };
+  Kit.textWidth = function (str, scale) { var s = scale || 1; return inFont(str) ? String(str).length * 4 * s - s : plainWidth(str, s); };
   Kit.textCentered = function (ctx, str, cx, y, color, scale) { Kit.text(ctx, str, Math.round(cx - Kit.textWidth(str, scale) / 2), y, color, scale); };
 
   Kit.clamp = function (v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; };

@@ -84,7 +84,7 @@
     return Math.max(0.035, base * aliveCount(st) / st.total + 0.02);
   }
 
-  function event(st, name, data) { st.events.push({ name: name, data: data }); }
+  function event(st, name, data, at) { st.events.push({ name: name, data: data, x: at && at.x, y: at && at.y }); }
 
   function moveFormation(st) {
     var minX = 1e9, maxX = -1e9, maxY = -1e9;
@@ -120,7 +120,7 @@
   }
 
   function killPlayer(st) {
-    st.lives--; st.enemyBullets = []; event(st, 'hit');
+    st.lives--; st.enemyBullets = []; event(st, 'hit', undefined, { x: st.px, y: PLAYER_Y });
     if (st.lives <= 0) { st.status = 'over'; event(st, 'over'); } else { st.inv_t = INVULNERABLE_S; st.px = W / 2; }
   }
 
@@ -172,11 +172,11 @@
         for (j = 0; j < st.inv.length; j++) {
           var v = st.inv[j]; if (!v.alive) continue;
           var p = invPos(st, v);
-          if (Math.abs(b.x - p.x) <= INV_W / 2 + 1 && Math.abs(b.y - p.y) <= INV_H / 2 + 2) { v.alive = false; st.score += ROW_POINTS[v.r]; event(st, 'kill', v.r); gone = true; break; }
+          if (Math.abs(b.x - p.x) <= INV_W / 2 + 1 && Math.abs(b.y - p.y) <= INV_H / 2 + 2) { v.alive = false; st.score += ROW_POINTS[v.r]; event(st, 'kill', v.r, p); gone = true; break; }
         }
       }
       if (!gone && st.bonus && Math.abs(b.x - st.bonus.x) < 16 && Math.abs(b.y - BONUS_Y) < 8) {
-        var pts = BONUS_POINTS[Math.floor(st.rng() * BONUS_POINTS.length)]; st.score += pts; event(st, 'bonushit', pts); st.bonus = null; gone = true;
+        var pts = BONUS_POINTS[Math.floor(st.rng() * BONUS_POINTS.length)]; st.score += pts; event(st, 'bonushit', pts, { x: st.bonus.x, y: BONUS_Y }); st.bonus = null; gone = true;
       }
       if (!gone) keep.push(b);
     }
@@ -219,17 +219,22 @@
     layout: function () { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, 560).ctx; draw(); },
     keys: { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ' ': 'fire', ArrowUp: 'fire' },
     pad: { dirs: ['left', 'right'], actions: [{ name: 'fire', label: T('play.fire') }] },
-    newRun: function () { st = createState(); },
+    newRun: function () { st = createState(); burst.clear(); },
     snapshot: function () { return Play.plain(st); },
-    restore: function (saved) { st = Play.overlay(createState(), saved); st.events = []; }
+    restore: function (saved) { st = Play.overlay(createState(), saved); st.events = []; burst.clear(); }
   });
   var status = page.status;
 
+  // A drone, the bonus ship or the cannon coming apart shows as spokes flying out for a moment.
+  var burst = root.ArcadeBurst(Play.reducedMotion);
   page.run(function (dt) {
     step(st, dt, page.input());
     st.events.forEach(function (e) {
-      if (e.name === 'wave') status.say(T('lastline.wave', { n: e.data }));
-      else if (e.name === 'bonushit') status.say(T('lastline.bonus', { n: e.data }));
+      if (e.name === 'kill') burst.add(e.x, e.y, 13, COLORS[e.data], st.time);
+      else if (e.name === 'bonushit') burst.add(e.x, e.y, 22, '#ff6b6b', st.time);
+      else if (e.name === 'hit') burst.add(e.x, e.y, 28, '#3fc1e8', st.time);
+      if (e.name === 'wave') status.reason(T('lastline.wave', { n: e.data }));
+      else if (e.name === 'bonushit') status.reason(T('lastline.bonus', { n: e.data }));
       else if (e.name === 'hit' && st.lives > 0) status.say(st.lives === 1 ? T('lastline.lastLife') : '');
       else if (e.name === 'over') page.finish();
     });
@@ -264,6 +269,7 @@
     st.shields.forEach(function (s) {
       for (var r = 0; r < SHIELD_ROWS; r++) for (var c = 0; c < SHIELD_COLS; c++) if (s.cells[r * SHIELD_COLS + c]) ctx.fillRect(s.x + c * CELL, s.y + r * CELL, CELL, CELL);
     });
+    burst.draw(ctx, st.time);
     st.inv.forEach(function (v) { if (v.alive) { var p = invPos(st, v); drone(p.x, p.y, v.r, st.frame); } });
     if (st.bonus) { // the bonus ship: a flat saucer with a dome
       ctx.fillStyle = '#ff6b6b'; ctx.beginPath(); ctx.ellipse(st.bonus.x, BONUS_Y, 15, 6, 0, 0, 7); ctx.fill();
