@@ -237,7 +237,7 @@
   root.ZimiScopa = api;
 
   // ── The page ────────────────────────────────────────────────────────────
-  var AI_MS = 800, HOLD_MS = 1150, HOLD_YOU_MS = 450, SWEEP_MS = 400;
+  var AI_MS = 700, HOLD_MS = 1150, HOLD_YOU_MS = 450, SWEEP_MS = 400;
   function boot() {
     var d = root.document, t, board, session, view = { sel: null, build: [], show: null, flash: '', viewer: 0, hideHand: false };
     // Each seat is the Computer or a Person; two people share the screen behind a handoff.

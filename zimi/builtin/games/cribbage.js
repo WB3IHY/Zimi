@@ -290,7 +290,7 @@
   root.ZimiCribbage = api;
 
   // ── The page ────────────────────────────────────────────────────────────
-  var AI_MS = 850, HOLD_MS = 1300, CUT_MS = 800, OVER_MS = 1500, PEG_STEP_MS = 140, PEG_WALK_MAX_MS = 900;
+  var AI_MS = 700, HOLD_MS = 1300, CUT_MS = 800, OVER_MS = 1500, PEG_STEP_MS = 140, PEG_WALK_MAX_MS = 900;
   function boot() {
     var d = root.document, t, board, session, view = { chosen: [], flash: '', viewer: 0, hideHand: false, chooser: 0 };
     // Each seat is the Computer or a Person; two people share the screen behind a handoff.

@@ -176,7 +176,7 @@
     function hud(st) {
       paintMarker(st);
       var chips = st.hands.map(function (h, seat) { return { name: name(st, seat), text: String(h.length), dealer: seat === st.dealer, turn: st.phase === 'play' && st.turn === seat }; });
-      var out = { chips: chips, fact: scoreLine(st), text: '' };
+      var out = { chips: chips, fact: TX('ce.scoreFact', { list: scoreLine(st) }), text: '' };
       if (st.phase === 'handEnd') { out.text = TX('cards.handEnd'); out.label = TX('cards.nextHand'); out.action = startNextHand; return out; }
       if (st.phase === 'over') { out.text = TX('shell.end.over'); out.label = TX('shell.menu.new'); out.action = newGame; return out; }
       var note = view.note ? ' ' + view.note : '';

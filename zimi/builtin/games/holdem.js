@@ -344,7 +344,7 @@
   root.ZimiHoldem = api;
 
   // ── The page ────────────────────────────────────────────────────────────
-  var AI_MS = 800, QUICK_MS = 300, FINISH_MS = 1800, STREET_MS = 1000, OPP_KEY = 'holdem.opponents';
+  var AI_MS = 700, QUICK_MS = 300, FINISH_MS = 1800, STREET_MS = 1000, OPP_KEY = 'holdem.opponents';
   function boot() {
     var d = root.document, t, board, session, view = { flash: '', sizing: false }, tags = [], rng = Math.random, raiseTo = null;
     function opponents() { var v = Z.store.get(OPP_KEY, 3); return v >= 3 && v <= 5 ? v : 3; }

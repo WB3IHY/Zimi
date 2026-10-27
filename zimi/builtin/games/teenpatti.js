@@ -253,7 +253,7 @@
   root.ZimiTeenPatti = api;
 
   // ── The page ────────────────────────────────────────────────────────────
-  var AI_MS = 850, END_MS = 700;
+  var AI_MS = 700, END_MS = 700;
   function boot() {
     var d = root.document, t, board, session, view = { flash: '' };
     // Seats are the Computer or a Person. The computer players keep their own names and styles.

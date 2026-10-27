@@ -277,7 +277,7 @@
   root.ZimiKoiKoi = api;
 
   // ── The page ────────────────────────────────────────────────────────────
-  var AI_MS = 750, HOLD_MS = 1000, HOLD_YOU_MS = 480, SWEEP_MS = 380, DRAW_MS = 420, MONTH_KEY = 'koikoi.months', MONTH_CHOICES = [6, 12];
+  var AI_MS = 700, HOLD_MS = 1000, HOLD_YOU_MS = 480, SWEEP_MS = 380, DRAW_MS = 420, MONTH_KEY = 'koikoi.months', MONTH_CHOICES = [6, 12];
   function boot() {
     var d = root.document, t, board, session, view = { sel: null, show: null, pick: false, flash: '', viewer: 0, hideHand: false };
     // Each seat is the Computer or a Person; two people share the screen behind a handoff.
