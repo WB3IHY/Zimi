@@ -97,7 +97,7 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var ROW_STEP_SHARE = 0.56, ROW_STEP_MAX = 1.1, HEIGHT_SHARE = 0.17, FIT_COLS = 8.5;
+  var ROW_STEP_SHARE = 0.56, ROW_STEP_MAX = 1.1, HEIGHT_SHARE = 0.17, FIT_COLS = 7.6;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch;
@@ -133,6 +133,8 @@
   function boot() {
     var page;
     page = Z.solitairePage({
+      why: function (st, pile) { return TX(isFree(st, pile) ? 'sol.why.neighbor' : 'tri.why.covered'); },
+      refuse: function () { page.note(TX('sol.why.stockEmpty')); },
       rules: api, id: 'tripeaks', fact: true, place: place, cols: FIT_COLS, heightShare: HEIGHT_SHARE, enterTaps: true, stock: drawStock,
       deal: function () { return newState(Z.shuffled(Math.random)); },
       score: function (st) { return st.score; },

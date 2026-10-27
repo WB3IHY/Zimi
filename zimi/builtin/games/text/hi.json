@@ -4755,6 +4755,7 @@
  "sol.why.nowhere": "इस पत्ते के लिए अभी कोई जगह नहीं है।",
  "sol.why.oneCard": "फ़ाउंडेशन में एक बार में एक ही पत्ता जाता है।",
  "sol.why.stockEmpty": "स्टॉक खाली है।",
+ "sol.why.wasteTop": "वेस्ट का सिर्फ़ ऊपर वाला पत्ता चलता है।",
  "sol.winScore": "स्कोर {score} + समय बोनस {bonus} = {total}",
  "sol.winTime": "समय {time}, {moves}",
  "spades.bidNil": "नील बोलें",

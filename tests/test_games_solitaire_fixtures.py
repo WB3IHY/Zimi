@@ -413,6 +413,19 @@ DRIVER = """
 }
 """
 
+# A position with no move left (FreeCell's dead end) opens a sheet; the scripted person takes the Undo it offers, wherever
+# in the script that happens.
+DEAD_END = """
+(name) => {
+  const api = window[name], sheet = document.querySelector('.ar-sheet:not([hidden])');
+  if (!api.hasMove || !sheet || api.session.won || api.hasMove(api.session.state)) return false;
+  const undo = [...sheet.querySelectorAll('button')].filter((x) => x.textContent.trim() === 'Undo')[0];
+  if (!undo) return false;
+  undo.click(); window.__h.plays.push('dead-end');
+  return true;
+}
+"""
+
 SHEET_BUTTON = """
 ([text, nth]) => {
   const sheet = document.querySelector('.ar-sheet:not([hidden])');
@@ -473,12 +486,15 @@ def play_out(browser, served, name, spec):
         return page.evaluate(DRIVER, dict(cfg, mode=mode, **more))
 
     def act():
-        look("act")
+        if not page.evaluate(DEAD_END, api):
+            look("act")
         page.clock.run_for(STEP_MS)
 
     checks = []
     for step in spec["script"]:
         kind = step[0]
+        if kind not in ("play", "until"):
+            page.evaluate(DEAD_END, api)
         if kind == "play":
             for _ in range(step[1]):
                 act()

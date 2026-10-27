@@ -4945,6 +4945,7 @@
  "sol.why.nowhere": "Этой карте пока некуда идти.",
  "sol.why.oneCard": "На основание кладут по одной карте.",
  "sol.why.stockEmpty": "Колода пуста.",
+ "sol.why.wasteTop": "Играет только верхняя карта отбоя.",
  "sol.winScore": "Очки {score} + бонус за время {bonus} = {total}",
  "sol.winTime": "Время {time}, {moves}",
  "spades.bidNil": "Заказать нил",

@@ -101,12 +101,14 @@
   function boot() {
     var page;
     page = Z.solitairePage({
+      why: function (st, pile, idx) { return TX(canPick(st, pile, idx) ? 'sol.why.neighbor' : 'golf.why.buried'); },
+      refuse: function () { page.note(TX('sol.why.stockEmpty')); },
       rules: api, id: 'golf', lowScore: true, fact: true, place: place, cols: COLS, heightShare: HEIGHT_SHARE, enterTaps: true, stock: drawStock,
       deal: function () { return newState(Z.shuffled(Math.random)); },
       score: function () { return 0; },
       stuck: {
         is: isStuck, score: left,
-        title: function () { return TX('golf.outOfMoves'); }, note: function (st) { return TX('golf.left', { n: left(st) }); }
+        title: function () { return TX('cards.noMoves'); }, note: function (st) { return TX('golf.left', { n: left(st) }); }
       },
       statText: function (sec, st) { page.el.sub.textContent = isStuck(st) ? TX('cards.noMoves') : ''; return Z.fmtTime(sec) + ' · ' + TX('golf.leftShort', { n: left(st) }); },
       cascadeOrder: function (st) { return st.piles.waste.slice().reverse().map(function (id) { return { id: id }; }); },

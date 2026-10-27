@@ -4850,6 +4850,7 @@
  "sol.why.nowhere": "Cette carte n’a encore nulle part où aller.",
  "sol.why.oneCard": "Les fondations prennent une carte à la fois.",
  "sol.why.stockEmpty": "La pioche est vide.",
+ "sol.why.wasteTop": "Seule la carte du dessus de la défausse se joue.",
  "sol.winScore": "Score {score} + bonus de temps {bonus} = {total}",
  "sol.winTime": "Temps {time}, {moves}",
  "spades.bidNil": "Annoncer Nil",

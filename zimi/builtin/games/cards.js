@@ -793,6 +793,18 @@
       SPANISH_SHAPES.map(function (shape, s) { return '<symbol id="' + SPANISH_PREFIX + s + '" overflow="visible">' + shape + '</symbol>'; }).join('') + SPRITE_DEFS + '</defs></svg>';
     d.body.insertBefore(holder.firstChild, d.body.firstChild);
   }
+  // The one note a card game gives a player: why a card would not go, what a tap on the stock did. It sits low on the felt, where
+  // a thumb is not, goes by itself, and is gone at the next touch.
+  var TOAST_MS = 2200, toastTimer = 0;
+  function toast(text, ms) {
+    var d = root.document, e = d.getElementById('zc-toast');
+    clearTimeout(toastTimer);
+    if (!text) { if (e) e.hidden = true; return; }
+    if (!e) { e = h('div', { class: 'zc-toast', id: 'zc-toast', role: 'status', 'aria-live': 'polite' }); d.body.appendChild(e); }
+    e.hidden = false;
+    e.textContent = text;
+    toastTimer = setTimeout(function () { e.hidden = true; }, ms || TOAST_MS);
+  }
   function segmented(options, value, onPick) {
     var wrap = h('div', { class: 'zc-seg', role: 'group' });
     options.forEach(function (o) {
@@ -1023,10 +1035,12 @@
       });
       if (dealing) {
         void table.offsetWidth;
-        p.cards.forEach(function (c, i) {
+        // Only the cards that can be seen wait their turn, so a stock's hidden rest does not hold the first card back.
+        var seen = 0;
+        p.cards.forEach(function (c) {
           var e = els[c.id];
           e.classList.remove('zc-instant');
-          e.style.transitionDelay = i * DEAL_STAGGER_MS + 'ms';
+          e.style.transitionDelay = (c.hidden ? 0 : seen++) * DEAL_STAGGER_MS + 'ms';
           put(e, c.x, c.y);
         });
         // The cards in flight are not tappable: a tap on the pile they left reaches the pile, not a card passing over it.
@@ -1081,7 +1095,7 @@
       var pos = cardNode && cardPos[+cardNode.getAttribute('data-id')];
       if (!pos && !slotNode) return;
       drag = { pos: pos, slot: slotNode && slotNode.getAttribute('data-pile'), sx: e.clientX, sy: e.clientY, pid: e.pointerId, moved: false, ids: null, blocked: false };
-      sel = null; paintSelection();
+      sel = null; paintSelection(); toast();
       try { table.setPointerCapture(e.pointerId); } catch (err) { /* pointer already gone */ }
     });
     table.addEventListener('pointermove', function (e) {
@@ -1100,7 +1114,7 @@
         var r = stage.getBoundingClientRect(), done = false;
         var targets = cancelled ? [] : dropTargets(dr, e.clientX - dr.sx, e.clientY - dr.sy, e.clientX - r.left, e.clientY - r.top);
         for (var i = 0; i < targets.length && !done; i++) done = o.move(dr.pos.pile, dr.pos.idx, targets[i][1]);
-        if (!done) { refresh(); scheduleSettle(); }
+        if (!done) { refresh(); scheduleSettle(); if (targets.length && o.refused) o.refused(dr.pos, targets[0][1]); }
         return;
       }
       if (cancelled || dr.blocked) return;
@@ -1164,7 +1178,7 @@
     // order: [{id}], first launched first. Calls done() when the cards have
     // all gone or the player taps. Speeds are per frame at 60 fps for a card
     // BASE_CARD_W wide, scaled to the card size on screen.
-    var GRAVITY = 0.55, BOUNCE = 0.82, LAUNCH_FRAMES = 11, FRAME_MS = 1000 / 60, MAX_DT = 3;
+    var GRAVITY = 0.55, BOUNCE = 0.82, LAUNCH_FRAMES = 8, CASCADE_MAX_MS = 6500, FRAME_MS = 1000 / 60, MAX_DT = 3;
     var VX_MIN = 2, VX_SPAN = 5, VY_MIN = 2, VY_SPAN = 7, BASE_CARD_W = 71, END_PAUSE_MS = 600, MAX_DPR = 2;
     function faceOf(id, standalone) { return (o.face || faceMarkup)(id, standalone); }
     function bitmap(id, w, hh, dpr) {
@@ -1188,7 +1202,7 @@
       canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
       d.body.appendChild(canvas);
       var ctx = canvas.getContext('2d'), scale = m.cw / BASE_CARD_W;
-      var queue = order.slice(), flyers = [], bitmaps = {}, wait = 0, raf = 0, last = 0, stopped = false, hidden = [];
+      var queue = order.slice(), flyers = [], bitmaps = {}, wait = 0, raf = 0, last = 0, began = 0, stopped = false, hidden = [];
       function finish() {
         if (stopped) return;
         stopped = true; cancelAnimationFrame(raf);
@@ -1210,6 +1224,9 @@
       function frame(t) {
         if (stopped) return;
         var dt = last ? Math.min(MAX_DT, (t - last) / FRAME_MS) : 1;
+        if (!began) began = t;
+        // The sheet should not be a long wait: after a few seconds the cards that are still flying are let go.
+        if (t - began > CASCADE_MAX_MS) { finish(); return; }
         last = t; wait -= dt;
         if (wait <= 0 && queue.length) { launch(queue.shift()); wait = LAUNCH_FRAMES; }
         flyers = flyers.filter(function (f) {
@@ -1326,7 +1343,7 @@
     s.follow = function (next) { s.state = next; board.render(next); paint(); };
     s.undo = function () {
       if (!s.history.length || s.won || (cfg.undoOff && cfg.undoOff())) return;
-      clearLater(); board.clearSelection();
+      clearLater(); board.clearSelection(); toast();
       s.state = s.history.pop(); board.render(s.state); paint();
     };
     // Leaving a game and coming back never loses it: the position, the undo trail, the clock and a finished
@@ -1346,7 +1363,7 @@
       return kept && kept.id === (cfg.saveId || cfg.id) && kept.state && typeof kept.state === 'object' ? kept : null;
     }
     s.reset = function (state) {
-      clearLater(); halt(); resume = false; banked = 0; s.history = []; s.won = false; s.ending = null; begun = false; board.clearSelection();
+      clearLater(); halt(); toast(); resume = false; banked = 0; s.history = []; s.won = false; s.ending = null; begun = false; board.clearSelection();
       var kept = restoreTried ? null : keptGame();
       restoreTried = true;
       if (kept) {
@@ -1460,6 +1477,14 @@
     var cols = m.pad + m.ch + Math.round(m.ch * TOP_ROW_GAP_SHARE);
     return { top: m.pad, cols: cols, room: m.H - m.pad - cols };
   }
+  // A face-down card shows `base` of a face-up step when the columns are long; with height to spare (the deal, a short fan) it
+  // opens up in `inc` steps to `max`, so the table spends the screen instead of huddling at the top. `heaviest(down)` is the
+  // step count of the tallest column at that ratio.
+  function openDown(heaviest, room, ch, maxStep, base, max, inc) {
+    var down = base;
+    while (down + inc <= max + 1e-9 && heaviest(down + inc) * maxStep <= room - ch) down += inc;
+    return down;
+  }
   function fanStep(weight, room, ch, maxStep, minStep) {
     return Math.max(minStep, Math.min(maxStep, weight > 0 ? (room - ch) / weight : maxStep));
   }
@@ -1473,6 +1498,8 @@
   //   o.place, o.cols, o.heightShare, o.enterTaps, o.canPick (default rules.canPick)     the board's
   //   o.fact       a fact line under the bar (page.el.sub)
   //   o.stock      state -> the next state or null: a turn of the stock, a row dealt (a tap on the stock or its empty place)
+  //   o.why        (state, pile, idx, to) -> the words for a card that would not go (to: the pile it was dropped on, if any)
+  //   o.drew       (before, after) once a turn of the stock is made: the place to say what it did
   //   o.refuse     the stock said no; o.afterStock: false when a turn of the stock ends nothing (no win or auto-move check)
   //   o.blocked    true while something else is playing (Watch and learn): no move, no draw
   //   o.settle     first thing after a move; o.score  state -> what a win is told; o.after  a move that ended nothing
@@ -1500,6 +1527,7 @@
         });
       } else if (o.after) o.after(st);
     };
+    page.note = toast;
     page.commit = function (next) { session.commit(next); page.afterMove(); return true; };
     page.move = function (pile, idx, to) {
       if (blocked() || !R.legalMove(session.state, pile, idx, to)) return false;
@@ -1509,17 +1537,23 @@
       if (blocked()) return false;
       var next = o.stock(session.state);
       if (!next) { if (o.refuse) o.refuse(session.state); return false; }
+      var prev = session.state;
       if (o.afterStock === false) session.commit(next); else page.commit(next);
+      if (o.drew) o.drew(prev, next);
       return true;
     };
+    // Why a card would not go: the game's words for a tap that had nowhere to send it, or a drop on a pile that refused it.
+    var why = function (pile, idx, to) { var t = o.why && o.why(session.state, pile, idx, to); if (t) toast(t); };
     var tap = o.tap || function (pile, idx) {
       if (pile === 'stock') return page.draw();
       var to = R.bestMove(session.state, pile, idx);
-      return to ? page.move(pile, idx, to) : false;
+      if (to) return page.move(pile, idx, to);
+      why(pile, idx);
+      return false;
     };
     board = createBoard({
       table: page.el.table, cols: o.cols, tight: true, place: o.place, heightShare: o.heightShare, enterTaps: o.enterTaps,
-      canPick: o.canPick || R.canPick, move: page.move, tap: tap,
+      canPick: o.canPick || R.canPick, move: page.move, tap: tap, refused: function (pos, to) { why(pos.pile, pos.idx, to); },
       slotTap: o.slotTap || (o.stock ? function (pile) { if (pile === 'stock') page.draw(); } : undefined)
     });
     session = createSession({
@@ -1551,8 +1585,8 @@
     FACT_H: FACT_H, factLine: factLine, moonPhase: moonPhase, moonLitPath: moonLitPath, faceMarkup: faceMarkup, backMarkup: backMarkup,
     italianFaceMarkup: italianFaceMarkup, italianName: italianName,
     spanishFaceMarkup: spanishFaceMarkup, spanishName: spanishName, hanafudaFaceMarkup: hanafudaFaceMarkup, hanafudaCard: hanafudaCard, hanafudaName: hanafudaName, HANA_MONTHS: HANA_MONTHS, jokerMarkup: jokerMarkup, markSvg: markSvg,
-    fmtTime: fmtTime, plural: plural, winTime: winTime, solitairePage: solitairePage, describePile: describePile, fanStep: fanStep, solitaireRows: solitaireRows, statusTop: statusTop, pageEls: pageEls, idsOf: idsOf, restShare: restShare,
-    store: store, createStats: createStats, h: h, sheet: sheet, segmented: segmented, backsSheet: backsSheet, backsRow: backsRow,
+    fmtTime: fmtTime, plural: plural, winTime: winTime, solitairePage: solitairePage, describePile: describePile, fanStep: fanStep, openDown: openDown, solitaireRows: solitaireRows, statusTop: statusTop, pageEls: pageEls, idsOf: idsOf, restShare: restShare,
+    toast: toast, store: store, createStats: createStats, h: h, sheet: sheet, segmented: segmented, backsSheet: backsSheet, backsRow: backsRow,
     T: T, createBoard: createBoard, createSession: createSession, ensureSprite: ensureSprite,
     currentBack: function () { return currentBack; }
   };

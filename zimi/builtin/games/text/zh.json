@@ -4660,6 +4660,7 @@
  "sol.why.nowhere": "这张牌暂时没有可放的位置。",
  "sol.why.oneCard": "收牌堆一次只收一张牌。",
  "sol.why.stockEmpty": "牌堆空了。",
+ "sol.why.wasteTop": "只能打弃牌堆最上面的一张牌。",
  "sol.winScore": "得分 {score} + 时间奖励 {bonus} = {total}",
  "sol.winTime": "用时 {time}，{moves}",
  "spades.bidNil": "叫零墩",

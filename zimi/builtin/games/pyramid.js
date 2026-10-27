@@ -150,16 +150,18 @@
     function tap(pile) {
       var st = session.state;
       if (pile === 'stock') return page.draw();
-      if (!isFree(st, pile)) return false;
+      if (!isFree(st, pile)) { page.note(TX('pyr.why.covered')); return false; }
       if (isKing(st, pile)) return page.commit(takeAway(st, [pile]));
       if (view.picked === pile) { select(null); return true; }
       if (view.picked && isPair(st, view.picked, pile)) return page.commit(takeAway(st, [view.picked, pile]));
+      if (view.picked) page.note(TX('pyr.why.pair'));
       select(pile);
       return true;
     }
     function newGame() { view.picked = null; session.reset(newState(Z.shuffled(Math.random))); paintSub(); }
 
     page = Z.solitairePage({
+      refuse: function () { page.note(TX('pyr.why.noRedeals')); },
       rules: api, id: 'pyramid', fact: true, cols: COLS, heightShare: HEIGHT_SHARE, enterTaps: true, newGame: newGame, tap: tap, stock: drawStock,
       place: function (st, m) { return place(st, m, view); },
       settle: function () { view.picked = null; paintSub(); },

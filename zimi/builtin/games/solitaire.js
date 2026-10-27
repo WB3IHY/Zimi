@@ -144,20 +144,34 @@
     return s;
   }
 
+  // The words for a card that would not go: a tap that had nowhere to send it (no `to`), or a drop on a pile that refused it.
+  function why(state, pile, idx, to) {
+    var P = state.piles, card = P[pile] && P[pile][idx];
+    if (!card) return null;
+    if (!card.up) return TX('sol.why.facedown');
+    if (!canPick(state, pile, idx)) return TX('sol.why.wasteTop');
+    if (to === undefined) return TX('sol.why.nowhere');
+    if (isFoundation(to)) return TX(P[pile].length - idx > 1 ? 'sol.why.oneCard' : 'sol.why.foundation');
+    if (isTableau(to)) return TX(P[to].length ? 'sol.why.build' : 'sol.why.king');
+    return null;
+  }
+
   // ── Layout ──────────────────────────────────────────────────────────────
   // Stock, waste and the foundations are one row right under the bar; the columns start under it and fan down through
   // all the height that is left (up to a card's height a step).
-  var DOWN_RATIO = 0.6, UP_STEP_SHARE = 0.9, MIN_STEP_SHARE = 0.12, WASTE_FAN_SHARE = 0.3;
+  var DOWN_RATIO = 0.6, MAX_DOWN_RATIO = 0.85, DOWN_RATIO_STEP = 0.05, UP_STEP_SHARE = 0.9, MIN_STEP_SHARE = 0.12, WASTE_FAN_SHARE = 0.3;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };
     var rows = Z.solitaireRows(m), y1 = rows.top, y2 = rows.cols, slots = [], cards = [];   // y1: the top row; y2: the columns
-    var weight = function (pile) {
+    var weight = function (pile, down) {
       var w = 0;
-      for (var i = 0; i < pile.length - 1; i++) w += pile[i].up ? 1 : DOWN_RATIO;
+      for (var i = 0; i < pile.length - 1; i++) w += pile[i].up ? 1 : down;
       return w;
     };
-    var step = Z.fanStep(Math.max.apply(null, TABLEAU.map(function (t) { return weight(P[t]); })), rows.room, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
+    var heaviest = function (down) { return Math.max.apply(null, TABLEAU.map(function (t) { return weight(P[t], down); })); };
+    var down = Z.openDown(heaviest, rows.room, ch, ch * UP_STEP_SHARE, DOWN_RATIO, MAX_DOWN_RATIO, DOWN_RATIO_STEP);
+    var step = Z.fanStep(heaviest(down), rows.room, ch, ch * UP_STEP_SHARE, ch * MIN_STEP_SHARE);
     var bottom = y2 + ch;
     var ids = function (pile) { return pile.map(function (c) { return c.id; }); };
     var fan = cw * WASTE_FAN_SHARE;
@@ -177,7 +191,7 @@
       var yy = y2;
       P[t].forEach(function (c, i) {
         cards.push({ id: c.id, pile: t, idx: i, x: x(n), y: yy, up: c.up, hidden: false });
-        if (i < P[t].length - 1) yy += c.up ? step : step * DOWN_RATIO;
+        if (i < P[t].length - 1) yy += c.up ? step : step * down;
       });
       bottom = Math.max(bottom, yy + ch);
     });
@@ -199,7 +213,7 @@
     TABLEAU: TABLEAU, FOUNDATION: FOUNDATION, SCORE: SCORE,
     blankState: blankState, newState: newState, canPick: canPick, legalMove: legalMove, applyMove: applyMove, drawStock: drawStock,
     bestMove: bestMove, isWon: isWon, canAutoFinish: canAutoFinish, autoFinishStep: autoFinishStep,
-    timeBonus: timeBonus, almostWon: almostWon, place: place
+    timeBonus: timeBonus, almostWon: almostWon, why: why, place: place
   };
   root.ZimiSolitaire = api;
 
@@ -235,7 +249,13 @@
 
     page = Z.solitairePage({
       rules: api, id: 'solitaire', saveOff: function () { return !!watch; }, blocked: function () { return !!watch; },
-      place: place, cols: COLS, newGame: newGame, stock: drawStock, afterStock: false,
+      place: place, cols: COLS, newGame: newGame, stock: drawStock, afterStock: false, why: why,
+      refuse: function () { page.note(TX('sol.why.stockEmpty')); },
+      drew: function (before, after) {
+        if (after.passes === before.passes) return;
+        var lost = before.score - after.score;
+        page.note(lost > 0 ? TX('sol.recycledCost', { points: Z.plural(lost, 'point') }) : TX('sol.recycled'));
+      },
       after: function (st) { if (canAutoFinish(st)) autoFinish(); },
       statText: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.score; },
       cascadeOrder: function (st) {

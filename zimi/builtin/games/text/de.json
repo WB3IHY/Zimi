@@ -4755,6 +4755,7 @@
  "sol.why.nowhere": "Für diese Karte gibt es noch keinen Platz.",
  "sol.why.oneCard": "Auf eine Ablage kommt jeweils nur eine Karte.",
  "sol.why.stockEmpty": "Der Talon ist leer.",
+ "sol.why.wasteTop": "Nur die oberste Karte des Abwurfs kann gespielt werden.",
  "sol.winScore": "Punkte {score} + Zeitbonus {bonus} = {total}",
  "sol.winTime": "Zeit {time}, {moves}",
  "spades.bidNil": "Nil ansagen",

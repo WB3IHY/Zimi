@@ -4755,6 +4755,7 @@
  "sol.why.nowhere": "That card has nowhere to go yet.",
  "sol.why.oneCard": "Foundations take one card at a time.",
  "sol.why.stockEmpty": "The stock is empty.",
+ "sol.why.wasteTop": "Only the top card of the waste plays.",
  "sol.winScore": "Score {score} + time bonus {bonus} = {total}",
  "sol.winTime": "Time {time}, {moves}",
  "spades.bidNil": "Bid nil",

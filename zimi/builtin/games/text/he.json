@@ -4850,6 +4850,7 @@
  "sol.why.nowhere": "אין עדיין מקום לקלף הזה.",
  "sol.why.oneCard": "ערימות היסוד מקבלות קלף אחד בכל פעם.",
  "sol.why.stockEmpty": "החפיסה ריקה.",
+ "sol.why.wasteTop": "רק הקלף העליון בערימת הזריקה משוחק.",
  "sol.winScore": "ניקוד {score} + בונוס זמן {bonus} = {total}",
  "sol.winTime": "זמן {time}, {moves}",
  "spades.bidNil": "הכרזת ניל",

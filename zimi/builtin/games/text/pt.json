@@ -4850,6 +4850,7 @@
  "sol.why.nowhere": "Essa carta ainda não tem para onde ir.",
  "sol.why.oneCard": "As pilhas finais recebem uma carta por vez.",
  "sol.why.stockEmpty": "O monte está vazio.",
+ "sol.why.wasteTop": "Só a carta de cima do descarte é jogada.",
  "sol.winScore": "Pontos {score} + bônus de tempo {bonus} = {total}",
  "sol.winTime": "Tempo {time}, {moves}",
  "spades.bidNil": "Apostar Nil",

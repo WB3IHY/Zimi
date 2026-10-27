@@ -5135,6 +5135,7 @@
  "sol.why.nowhere": "لا مكان لهذه الورقة الآن.",
  "sol.why.oneCard": "الأسس تقبل ورقة واحدة في كل مرة.",
  "sol.why.stockEmpty": "الرزمة فارغة.",
+ "sol.why.wasteTop": "تُلعب فقط الورقة العليا من المهملات.",
  "sol.winScore": "النتيجة {score} + مكافأة الوقت {bonus} = {total}",
  "sol.winTime": "الوقت {time}، {moves}",
  "spades.bidNil": "زايد بصفر",

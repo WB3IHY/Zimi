@@ -16,12 +16,12 @@
   {
    "fact": "",
    "label": "played",
-   "moves": 5,
+   "moves": 86,
    "sheet": "",
    "stat": "0:14",
-   "state": "5498072f",
+   "state": "e2d67442",
    "sub": "",
-   "table": "b5db4382",
+   "table": "11da7bd6",
    "undoOff": false,
    "watch": "",
    "won": false
@@ -29,12 +29,12 @@
   {
    "fact": "",
    "label": "menu",
-   "moves": 5,
+   "moves": 98,
    "sheet": "FreeCellDeal #1Deal numberPlayThe classic deals are 1 to 32000.Safe cards go up by themselvesOnOffWinnable random deals onlyOnOffLookCard backs\u2026Played 1 \u00b7 Won 0Restart dealRandom dealClose",
    "stat": "0:19",
-   "state": "238c2dcd",
+   "state": "723913f3",
    "sub": "",
-   "table": "f12aa149",
+   "table": "fbd0b1cc",
    "undoOff": false,
    "watch": "",
    "won": false
@@ -55,12 +55,12 @@
   {
    "fact": "",
    "label": "deal 617 played",
-   "moves": 9,
+   "moves": 141,
    "sheet": "",
    "stat": "0:15",
-   "state": "55dc2cb0",
+   "state": "753a1ae9",
    "sub": "",
-   "table": "6b4aaec6",
+   "table": "d91cdb5",
    "undoOff": false,
    "watch": "",
    "won": false
@@ -68,12 +68,12 @@
   {
    "fact": "",
    "label": "random deal",
-   "moves": 44,
+   "moves": 12,
    "sheet": "",
    "stat": "0:05",
-   "state": "ccff9a5f",
+   "state": "320f14cc",
    "sub": "",
-   "table": "78b7cdea",
+   "table": "ab7e7582",
    "undoOff": false,
    "watch": "",
    "won": false
@@ -162,17 +162,17 @@
    "moves": 0,
    "sheet": "FreeCellNew gameSettingsHow to playHistoryStatsAbout this game",
    "stat": "0:00",
-   "state": "5a52b3a9",
+   "state": "796b862f",
    "sub": "",
-   "table": "ecfafd64",
+   "table": "2c4d94cb",
    "undoOff": true,
    "watch": "",
    "won": false
   }
  ],
- "events": 167,
+ "events": 325,
  "hseed": 42,
- "plays": "tap:31>fr0 tap:15>fr1 drag:5>fr2 drag:33>c1 tap:50>fr3 stray:37 stray:49 stray:8 stray:51 stray:12 stray:40 stray:32 stray:42 stray:0 stray:1 stray:39 stray:22 drag:44>fr3 stray:3 tap:12>fr0 tap:5>fr1 drag:36>fr2 drag:27>fr3 stray:41 tap:37>c1 tap:10>c1 tap:31>c4 drag:5>c5 drag:23>fr1 stray:14 stray:7 stray:20 stray:41 stray:8 stray:27 stray:35 stray:12 stray:34 stray:25 drag:15>fr0 drag:18>fr1 tap:20>fr2 drag:46>fr3 stray:1 tap:48>c4 drag:16>c0 tap:16>c6 drag:16>c0 tap:16>c6 tap:16>c0 tap:16>c6 drag:16>c0 tap:16>c6 tap:16>c0 drag:16>c6 tap:16>c0 drag:16>c6 tap:16>c0 stray:45 tap:16>c6 stray:21 tap:16>c0 drag:16>c6 tap:16>c0 tap:16>c6 drag:16>c0 drag:16>c6 tap:16>c0 tap:16>c6 tap:16>c0 tap:16>c6 tap:16>c0 drag:16>c6 tap:16>c0 tap:16>c6 drag:16>c0 stray:36 drag:16>c6 drag:16>c0 stray:32 stray:30 tap:16>c6 tap:16>c0 tap:16>c6 tap:16>c0 tap:16>c6 tap:16>c0 tap:16>c6 tap:16>c0",
+ "plays": "tap:31>fr0 tap:15>fr1 drag:5>fr2 drag:33>c1 tap:50>fr3 dead-end drag:9>fr3 tap:44>c7 dead-end drag:19>c6 tap:31>c7 stray:37 tap:44>c6 tap:18>fr0 drag:41>c4 drag:15>c0 tap:15>fr1 drag:15>c0 tap:45>c1 drag:50>fr1 stray:40 tap:1>c0 drag:0>fd0 drag:27>c4 tap:2>fd0 dead-end tap:27>c7 drag:27>c4 stray:32 tap:2>fd0 dead-end tap:27>c7 tap:27>c4 tap:27>c7 drag:27>c4 drag:27>c7 tap:27>c4 stray:0 tap:27>c7 tap:27>c4 tap:2>fd0 dead-end drag:2>fd0 dead-end tap:2>fd0 dead-end tap:2>fd0 dead-end drag:2>fd0 dead-end drag:2>fd0 dead-end drag:27>c7 tap:27>c4 tap:2>fd0 dead-end tap:2>fd0 dead-end drag:27>c7 tap:27>c4 tap:2>fd0 dead-end drag:27>c7 tap:27>c4 tap:27>c7 tap:27>c4 drag:27>c7 drag:27>c4 drag:27>c7 tap:27>c4 drag:2>fd0 dead-end drag:27>c7 tap:27>c4 stray:1 tap:2>fd0 dead-end tap:27>c7 tap:27>c4 drag:27>c7 tap:27>c4 drag:27>c7 drag:27>c4 drag:2>fd0 dead-end tap:2>fd0 dead-end drag:27>c7 tap:27>c4 drag:27>c7 tap:27>c4 drag:27>c7 tap:27>c4 tap:2>fd0 dead-end tap:2>fd0 dead-end drag:27>c7 drag:27>c4 tap:27>c7 drag:27>c4 drag:27>c7 drag:27>c4 tap:27>c7 tap:27>c4 tap:2>fd0 dead-end tap:27>c7 drag:27>c4 tap:2>fd0 dead-end tap:27>c7 drag:27>c4 tap:27>c7 drag:27>c4 tap:27>c7 tap:27>c4 tap:27>c7 stray:12 tap:27>c4 tap:2>fd0 dead-end tap:2>fd0 dead-end tap:2>fd0 dead-end tap:27>c7 tap:27>c4 tap:27>c7 tap:27>c4 drag:2>fd0 dead-end drag:27>c7 stray:41 tap:27>c4 tap:2>fd0 dead-end tap:2>fd0 dead-end drag:27>c7 drag:27>c4 drag:27>c7 tap:27>c4 tap:2>fd0 dead-end drag:2>fd0 dead-end tap:27>c7 tap:27>c4 tap:27>c4 drag:27>c7 tap:27>c4 tap:2>fd0 dead-end tap:27>c7 drag:27>c4 drag:2>fd0 dead-end stray:7 tap:2>fd0 dead-end drag:2>fd0 dead-end stray:20 drag:2>fd0 dead-end tap:27>c7 tap:27>c4 tap:2>fd0 dead-end tap:2>fd0 dead-end tap:27>c7 stray:41 stray:8 tap:27>c4 tap:2>fd0 dead-end stray:27 drag:27>c4 tap:2>fd0 dead-end drag:2>fd0 dead-end tap:27>c7 tap:27>c4 tap:2>fd0 dead-end tap:2>fd0 dead-end drag:29>fr0 tap:10>c7 tap:6>fr1 tap:10>fr2 tap:36>fr3 drag:37>c1 tap:10>c1 drag:1>fr2 drag:17>c5 tap:46>c3 tap:17>c4 tap:17>c5 tap:17>c4 drag:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 drag:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 stray:12 drag:17>c4 drag:17>c5 tap:17>c4 drag:17>c5 drag:17>c4 drag:17>c5 tap:17>c4 tap:17>c5 drag:17>c4 drag:17>c5 drag:17>c4 tap:17>c5 tap:17>c4 drag:17>c5 tap:17>c4 drag:17>c5 stray:48 drag:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 drag:17>c5 tap:17>c4 drag:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 drag:17>c5 tap:17>c4 drag:17>c5 drag:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 drag:17>c4 drag:17>c5 tap:17>c4 tap:17>c5 drag:17>c4 tap:17>c5 tap:17>c4 drag:17>c5 drag:17>c4 tap:17>c5 tap:17>c4 drag:17>c5 tap:17>c4 drag:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 stray:49 tap:17>c5 tap:17>c4 tap:17>c5 stray:39 stray:11 drag:17>c4 tap:17>c5 drag:17>c4 tap:17>c5 stray:13 tap:17>c4 tap:17>c5 drag:17>c4 tap:17>c5 tap:17>c4 stray:28 stray:50 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 drag:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 drag:17>c5 tap:17>c4 tap:17>c5 drag:17>c4 tap:17>c5 drag:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 drag:17>c4 tap:17>c5 drag:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 tap:17>c5 stray:41 tap:17>c4 stray:31 stray:1 tap:17>c5 tap:17>c4 drag:17>c5 tap:17>c4 stray:33 tap:17>c5 tap:17>c4 tap:17>c5 tap:17>c4 drag:46>fr0 tap:27>fr1 tap:18>fr2 tap:36>fr3 drag:45>c6 tap:18>c6 tap:42>fr2 tap:16>c0 dead-end tap:4>c6 drag:16>c6 tap:14>c0 dead-end tap:41>c6 tap:27>c6 tap:25>fr1 dead-end tap:15>fr1 dead-end tap:25>fr1 dead-end tap:28>fr1 dead-end drag:25>fr1 dead-end tap:14>fr1 dead-end drag:19>fr1 drag:15>c4 dead-end drag:28>c4 dead-end tap:28>c4 dead-end tap:28>c4 dead-end tap:28>c4 dead-end tap:28>c4 dead-end tap:28>c4 dead-end tap:28>c4 dead-end tap:15>c4 dead-end stray:39 drag:15>c4 dead-end stray:44",
  "seed": 32,
- "trace": "6d3e3e589078b9d7c9d351ed302405950093c0427c01d2f12d2f40ec08863b608ef0dcbb576ca7087eb562639e4c850ede4bf9eeabe9b35d4bce57543d67b3126fa2099e450681588adce58e3856d708813b61458295ee8c87e9fc4c9611f729feb3990467a2f59a0fbec3910344161d46122712656188b60b0b8ca97d9edce6fdb8fe311f2f5b0e834f322479883642da9f2560ea8c6988cb879cd33f93d0d98633973a3a3ca2588f637255df59f02d5ad47f34a630e62e5484f9397821725b9b182bc840abc4e076812c6430ebf2cca59e91c5ba815178b8d19878bd63a6e3c64dce5964f50b05fe6729ee03137e400b1aee9b5fd96cb6d14e6be5f7b15f4a3a237a169cc486c3967c92009949a625869684c5d96d7e445a07cc3a81dbbd8ad3ba82348529446b4d7a868a8d02cdd262d9d5f54be494c73cb7cd1bcad8851637988ba4e5a62f3f3bb21b4e953ce0562d86fe80fadde86c565f868f3b6d35272016cf9092b8ca187232601af4463cafe85738e3e4b220273d33ea62e4ecb166b31b4b3dfda9f3ba32549f2c5e2b0687dd28402791a73f45000ea12a68164d80687249acc67562efab7b37a3aef40f0cefae7b8de9659dd71a89ac45eb1ed184e95b76a1a0cd529891593f6e97ef227b31b245a174df82fdac51d4338eacc12f2aa5bab7c34549ac995803bfb99da94a7b92bf9050efee6900b7639d8232f8a5cc087624261b3faf1646b09f165eae78545ba1aa56df1449c2917e01551a3d2d487dd0a95a4a27f086502353de7adc6242b6b42fbe05dfd7794477d267ec80b30034f081efd37369223b0ef8a107b9b7d81ea9999a4908ddc26ec1d4e56ea98fdfc0cbe29eb42ebed8559cecf5b49e4bc9cfaa96470c9b312cdbbc4bf3118e9f76b5d539f3d19c8979f14fcd1df34c24a38017e764053ad8c8607637"
+ "trace": "6d3e3e589078b9d7c9d351ed302405950093c0427c01d2f1cb47960395a6cbd996ae959ccfae68d2a10d7ec9b5553341c09425fa01a9418fd083980708ecdcea3d605ae64d53429e92cb1d1a5e0f48a0af36777ae9716762e043f3d9cc646f451c9c144860aeca6107d5924a7484493be8aab4713276910220ea71009f90a0369ab0a9ec647274acb71c5743f6600327de559f5e4581c358cc5579b78d2a3e07339b361b1955221ac03e38b1882903e53a3034017ddcfe85bd6774c3800b34ac91c92b54ef989b8535aec1a0f87d93e1839a68a714ba989f1b5a90c9014621338b83cfd7581afc4f61d44ba53c1bcb049f2b9d93156fb2e7fd5cdf38bdfec6ec090be39192506439bd80a3df6dc52df461810531cb0c2a61bce69e5d7ed4aad0625920fdd8eeb73bdd6f98e58f2a97bf39920fccc28644081ecd2c012534e193038a1564d81a731a93c271899320ceab185a4cf17c94f1b30454e17573f3957b8388362c19c756a4b6a7ca6b3d4f59bc92190f1d1b3e9624bfb33c88662c18bb3d8a7efd057dcc26361fe63734f1a7c9599b56c718e8d7d87107417b97c086e00789ac616e4dfbd431baa00dcc91cad7db95b3550cf683dfd0eed539919dcc5746a773680164ae9ee2f3e674cd48065d9ec718a717e2cd1be01e8756993c5bf635b1cf46d11c195860f5f246ce52b4bf6dc5ddc34121e4264502d5ec18c0b6b02057b84f7b9ee34b2de1afa51b160e03002a6c4fbd91bff3d69e9b6e596ba4924be3eef8dfe19ee01bd23b3dbbbd54f512b947302a8aeae58dda6bf97ca1be5c93dd84748fabbf4c2d06a219100ce38775486f2b07b8c0539c02a903626821fa71ae47ede6de35ce0e7cbdbdc48fd618813e4e4f1b085768683459886c677f6d7ff1473bf5f7f7236cb72fd3491db53769513af3c63289a12f4d2f1f92354256251c6d2d33a5af1b68cbe9b80fe511bd258a2c9b828e9684973c85d65a825c0ffea22d7818a516ad04b0186fe0d281d84d4ca0e3c4092f42b33150d82caa84a1469742f497a8b1f1d1e2586ac7ed20f2931bfd9744872dbf92d67c08314049b8a5507a8427440f8329204a680c03ed4ce03e7b49c2df288043be419f7eb18dbb502cd7660e6b4fbbf5e9202f50c0edf7494f21e4c18bd74acd1cad23fe6bdbe71189a7c60dee4da88244f4e98ac9d194b9a7c8b8769e1b90a6a393a330b2842ebda7d141e04793e5c670ecf7642ff1d97ce0bd4879e5d3d9f29e43c44c7654c4ac6dad985c87b449356f1275e8902f675caf0b2508e3800010d1d8ec4ecf8ce39465420e5059b09d63e43805cfcaaacf7cb4130b8dc4f644bd36b0514262fb5b21f5960686da202d4e21818c35a03731c2d6291d4652cf7b37f8b02a1c4fd849e622f2610e9908a9bfc1ffd39e73cf12fc74bb4f322e1c1552518efb31c7a6aa1ae5fd6d92e688c97aa97ce74c8e60c41dd61022499ca1df1cd91db37d9dcd36e1e84ecee8fdc9f27251873c1f0805e6f0aed4dfee3292fecb6c03cc40e244c7772735fa1449df4a629a30b4dc165a43a24523ea9bd0910055e11e67534b26227abb7226c4a0ba8d87513c3d4934768b636fc1bd43484eacb3396f8eb2248cf5816d88dee9385c415bd7e2b532e50ee67522b3ba43cdac6f76b856a5318617efc3e6e270ce4a2bb53a2667133c70360ed6c0f4bcd407607cab4a3cf6c01cab034977cd1ee297acc9646684638e7a097fa6e181ee9aa1158d3ecd5172afae1a2759b43391f9076039295539289fa8e08779e7a729ec2718b90e0fad7fb1b7006b03f8ad07985a543635631b8995f45ac776f5e531"
 }

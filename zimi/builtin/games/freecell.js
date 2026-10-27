@@ -14,7 +14,7 @@
   var CELLS = ['fr0', 'fr1', 'fr2', 'fr3'];
   var FOUNDATION = ['fd0', 'fd1', 'fd2', 'fd3'];
   var MAX_DEAL = 1000000, RANDOM_DEAL_MAX = 32000, UNWINNABLE_DEAL = 11982;
-  var COLS = 8, AUTO_KEY = 'freecell.auto', WINNABLE_KEY = 'freecell.winnable';
+  var COLS = 8, AUTO_KEY = 'freecell.auto', AUTO_TOLD_KEY = 'freecell.autoTold', WINNABLE_KEY = 'freecell.winnable';
   var HINT_NODES = 25000, HINT_MS = 2500, HINT_SHOW_MS = 4500;   // the hint solver's limits, and how long its note stays up
 
   var kind = function (p) { return p.charAt(0) === 'c' ? 'column' : p.charAt(1) === 'r' ? 'cell' : 'foundation'; };
@@ -119,6 +119,26 @@
     return s;
   }
 
+  // Any move at all: a position with none is lost, and says so.
+  function hasMove(state) {
+    var from = COLUMNS.concat(CELLS), to = COLUMNS.concat(CELLS, FOUNDATION), i, j, k, n;
+    for (i = 0; i < from.length; i++) {
+      n = state.piles[from[i]].length;
+      for (j = 0; j < n; j++) for (k = 0; k < to.length; k++) if (legalMove(state, from[i], j, to[k])) return true;
+    }
+    return false;
+  }
+  // The words for a card that would not go: a tap that had nowhere to send it (no `to`), or a drop on a pile that refused it.
+  function why(state, pile, idx, to) {
+    var P = state.piles, n = P[pile].length - idx;
+    if (!canPick(state, pile, idx)) return TX('fc.why.run');
+    if (to === undefined) return TX(CELLS.every(function (c) { return P[c].length; }) ? 'fc.why.cells' : 'sol.why.nowhere');
+    if (kind(to) === 'cell') return TX('fc.why.cell');
+    if (kind(to) === 'foundation') return TX(n > 1 ? 'sol.why.oneCard' : 'sol.why.foundation');
+    if (P[to].length && !Z.stacksOn(top(P[to]), P[pile][idx])) return TX('sol.why.build');
+    return TX('fc.why.limit', { cards: Z.plural(capacity(state, to), 'card') });
+  }
+
   // ── Layout ──────────────────────────────────────────────────────────────
   var UP_STEP_SHARE = 0.95, MIN_STEP_SHARE = 0.12;
 
@@ -157,17 +177,17 @@
   var api = {
     COLUMNS: COLUMNS, CELLS: CELLS, FOUNDATION: FOUNDATION,
     newState: newState, maxMovable: maxMovable, canPick: canPick, legalMove: legalMove, applyMove: applyMove,
-    bestMove: bestMove, safeAutoMove: safeAutoMove, isWon: isWon, almostWon: almostWon, place: place
+    bestMove: bestMove, safeAutoMove: safeAutoMove, isWon: isWon, hasMove: hasMove, why: why, almostWon: almostWon, place: place
   };
   root.ZimiFreeCell = api;
 
   // ── The page ────────────────────────────────────────────────────────────
   var AUTO_STEP_MS = 140;
   function boot() {
-    var page, session, board, d = root.document, hintEl = d.getElementById('zc-hint'), toast = d.getElementById('zc-toast'), autoOn = Z.store.get(AUTO_KEY, true) !== false;
+    var page, session, board, d = root.document, hintEl = d.getElementById('zc-hint'), autoOn = Z.store.get(AUTO_KEY, true) !== false;
     var params = new root.URLSearchParams(root.location.search);
     // Every one of the 32,000 classic deals but one can be won, so "winnable deals only" just never deals that one.
-    var winnableOnly = Z.store.get(WINNABLE_KEY, true) !== false, hint = null, hintBusy = false, noteTimer = 0;
+    var winnableOnly = Z.store.get(WINNABLE_KEY, true) !== false, hint = null, hintBusy = false;
     function randomDealNo() {
       var n;
       do { n = 1 + Math.floor(Math.random() * RANDOM_DEAL_MAX); } while (winnableOnly && n === UNWINNABLE_DEAL);
@@ -177,14 +197,14 @@
 
     function startDeal(n) {
       dealNo = n;
-      hint = null; toast.hidden = true;
+      hint = null; Z.toast();
       session.reset(newState(n));
       if (session.state.deal !== n) dealNo = session.state.deal;   // a game taken up again keeps its deal
     }
     function dealLabel() { return TX(dealNo === UNWINNABLE_DEAL ? 'fc.dealNoWin' : 'fc.deal', { n: dealNo }); }
     function randomDeal() { startDeal(randomDealNo()); }
     // ── Hint: the solver's first move, shown as a glow on the card and where it goes ──
-    function note(text) { clearTimeout(noteTimer); toast.textContent = text; toast.hidden = false; noteTimer = setTimeout(function () { toast.hidden = true; }, HINT_SHOW_MS); }
+    function note(text) { Z.toast(text, HINT_SHOW_MS); }
     function showHint() {
       if (hintBusy || session.won) return;
       var st = session.state;
@@ -218,12 +238,15 @@
         var step = safeAutoMove(session.state);
         if (!step) return;
         session.follow(applyMove(session.state, step.from, step.idx, step.to));
+        // The first card that goes up by itself says so, once: a card that leaves the columns unasked would otherwise be a surprise.
+        if (!Z.store.get(AUTO_TOLD_KEY, false)) { Z.store.set(AUTO_TOLD_KEY, true); page.note(TX('fc.autoTold')); }
         if (isWon(session.state)) session.win(); else autoRun();
       }, AUTO_STEP_MS);
     }
 
     page = Z.solitairePage({
-      rules: api, id: 'freecell', place: placeWithHint, cols: COLS, newGame: randomDeal, after: autoRun,
+      rules: api, id: 'freecell', place: placeWithHint, cols: COLS, newGame: randomDeal, after: autoRun, why: why,
+      stuck: { is: function (st) { return !isWon(st) && !hasMove(st); }, score: function () { return undefined; }, title: function () { return TX('cards.noMoves'); }, note: function () { return TX('fc.stuck'); } },
       statText: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.moves; },
       cascadeOrder: function (st) {
         var order = [], r;

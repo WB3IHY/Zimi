@@ -138,6 +138,15 @@
     return s;
   }
 
+  // The words for a run that would not go: a tap that had nowhere to send it (no `to`), or a drop on a column that refused it.
+  function why(state, pile, idx, to) {
+    var card = state.piles[pile][idx];
+    if (!card) return null;
+    if (!card.up) return TX('sol.why.facedown');
+    if (!canPick(state, pile, idx)) return TX('spider.why.run');
+    return TX(to === undefined ? 'sol.why.nowhere' : 'spider.why.rank');
+  }
+
   // ── Layout ──────────────────────────────────────────────────────────────
   // A face-down card shows DOWN_RATIO of a face-up step when the columns are long; with height to spare (the deal, a
   // short fan) it opens up to MAX_DOWN_RATIO, so the table spends the screen instead of huddling at the top.
@@ -153,8 +162,7 @@
       return w;
     };
     var heaviest = function (down) { return Math.max.apply(null, COLUMNS.map(function (c) { return weight(P[c], down); })); };
-    var maxStep = ch * UP_STEP_SHARE, down = DOWN_RATIO;
-    while (down + DOWN_RATIO_STEP <= MAX_DOWN_RATIO + 1e-9 && heaviest(down + DOWN_RATIO_STEP) * maxStep <= rows.room - ch) down += DOWN_RATIO_STEP;
+    var maxStep = ch * UP_STEP_SHARE, down = Z.openDown(heaviest, rows.room, ch, maxStep, DOWN_RATIO, MAX_DOWN_RATIO, DOWN_RATIO_STEP);
     var step = Z.fanStep(heaviest(down), rows.room, ch, maxStep, ch * MIN_STEP_SHARE);
     var bottom = y2 + ch;
 
@@ -188,7 +196,7 @@
     COLUMNS: COLUMNS, DONE: DONE, SCORE: SCORE,
     deck: deck, shuffledDeck: shuffledDeck, blankState: blankState, newState: newState, isSuitRun: isSuitRun,
     canPick: canPick, legalMove: legalMove, applyMove: applyMove, sweepRuns: sweepRuns, canDeal: canDeal, dealRow: dealRow,
-    runsDone: runsDone, isWon: isWon, bestMove: bestMove, almostWon: almostWon, place: place
+    runsDone: runsDone, isWon: isWon, bestMove: bestMove, why: why, almostWon: almostWon, place: place
   };
   root.ZimiSpider = api;
 
@@ -198,19 +206,23 @@
     var suits = Z.store.get(SUITS_KEY, 1);
     if (!SUIT_SETS[suits]) suits = 1;
 
-    function setSub() { page.el.sub.textContent = ''; }   // the pill is only for the stock's refusal; the suits are in the Menu
     function newGame() {
-      setSub();
       session.stats = Z.createStats('spider' + suits);
       session.reset(newState(shuffledDeck(suits, Math.random), suits));
-      if (session.state.suits !== suits) { suits = session.state.suits; session.stats = Z.createStats('spider' + suits); setSub(); }   // a game taken up again keeps its suits
+      if (session.state.suits !== suits) { suits = session.state.suits; session.stats = Z.createStats('spider' + suits); }   // a game taken up again keeps its suits
     }
 
     page = Z.solitairePage({
-      rules: api, id: 'spider' + suits, saveId: 'spider', fact: true, place: place, cols: COLS, newGame: newGame, stock: dealRow,
+      rules: api, id: 'spider' + suits, saveId: 'spider', place: place, cols: COLS, newGame: newGame, stock: dealRow,
       score: function (st) { return st.score; },
+      why: why,
+      after: function (st) {
+        var before = session.history[session.history.length - 1];
+        if (before && runsDone(st) > runsDone(before)) page.note(TX('spider.runDone', { n: runsDone(st), total: SETS }));
+      },
       refuse: function (st) {
-        if (st.piles.stock.length) { board.say(TX('spider.refuse')); page.el.sub.textContent = TX('spider.refuse'); session.later(setSub, 2200); }
+        var text = TX(st.piles.stock.length ? 'spider.refuse' : 'spider.noDeals');
+        board.say(text); page.note(text);
       },
       statText: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.score; },
       cascadeOrder: function (st) {
@@ -222,7 +234,7 @@
       openMenu: function () {
         var pick = Z.segmented([{ label: TX('spider.suits', { n: 1 }), value: 1 }, { label: TX('spider.suits', { n: 2 }), value: 2 }, { label: TX('spider.suits', { n: 4 }), value: 4 }], suits, function (v) {
           suits = v; Z.store.set(SUITS_KEY, v);
-          if (!session.state.moves) newGame(); else setSub();
+          if (!session.state.moves) newGame();
         });
         page.menu('Spider', [Z.h('div', { class: 'zc-row' }, [Z.h('label', { text: TX('spider.suitsRow') }), pick]), Z.h('p', { class: 'zc-note', text: TX('spider.nextDeal') })]);
       }

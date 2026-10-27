@@ -4850,6 +4850,7 @@
  "sol.why.nowhere": "Esa carta aún no tiene dónde ir.",
  "sol.why.oneCard": "Las bases reciben una carta cada vez.",
  "sol.why.stockEmpty": "El mazo está vacío.",
+ "sol.why.wasteTop": "Solo se juega la carta de arriba del descarte.",
  "sol.winScore": "Puntos {score} + bonificación de tiempo {bonus} = {total}",
  "sol.winTime": "Tiempo {time}, {moves}",
  "spades.bidNil": "Apostar Nil",
