@@ -1,0 +1,137 @@
+"""The games ZIM is a library file a copy can stand in for; Zimi's window never runs its scripts, and only the games page may drive the game header.
+
+* The pet peek on Home runs pet.js in a sandboxed frame: a hostile pet.js reaches nothing of this window, and a real
+  one still gives the pet's mood.
+* game, game-sky and game-app messages are heard only while the games ZIM is what the reader shows.
+
+Run: ZIMI_TORRENT=0 ZIMI_OFFLINE=1 pytest tests/test_games_home_isolation.py -v
+"""
+
+import os
+import socket
+import subprocess
+import sys
+
+import pytest
+
+pytest.importorskip("playwright")
+from playwright.sync_api import sync_playwright  # noqa: E402
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+sys.path.insert(0, HERE)
+from games_wait import wait_for_server  # noqa: E402
+
+HOSTILE = "window.__pwned = 'frame'; try { parent.__pwned = 'top'; } catch (e) {} try { top.__pwned = 'top'; } catch (e) {} this.PetEngine = null;"
+
+
+@pytest.fixture(scope="module")
+def zimi(tmp_path_factory):
+    base = tmp_path_factory.mktemp("home")
+    (base / "zims").mkdir()
+    (base / "data").mkdir()
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    env = dict(os.environ, ZIMI_TORRENT="0", ZIMI_OFFLINE="1", ZIMI_RATE_LIMIT="1000000", ZIM_DIR=str(base / "zims"), ZIMI_DATA_DIR=str(base / "data"))
+    env.pop("ZIMI_BUILTIN_ZIMS", None)
+    proc = subprocess.Popen([sys.executable, "-m", "zimi", "serve", "--port", str(port)], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        if not wait_for_server(port):
+            pytest.skip("zimi did not start")
+        yield "http://127.0.0.1:%d/" % port
+    finally:
+        proc.terminate()
+
+
+@pytest.fixture(scope="module")
+def browser():
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+        yield b
+        b.close()
+
+
+def _egg_store(page):
+    """A fresh pet's saved state, made by the real engine (run in the test page only)."""
+    return page.evaluate("""async () => {
+      const scope = {};
+      for (const f of ['util.js', 'pet.js']) new Function('document', await (await fetch('/w/zimi_games/' + f)).text()).call(scope, undefined);
+      return scope.PetEngine.newStore(Date.now());
+    }""")
+
+
+def test_a_hostile_pet_script_runs_in_no_window_of_zimi(zimi, browser):
+    page = browser.new_page()
+    page.goto(zimi)
+    page.wait_for_function("() => typeof _petPeekRead === 'function'")
+    store = _egg_store(page)
+    page.evaluate("s => localStorage.setItem('zimi.games.pet', JSON.stringify(s))", store)
+    page.route("**/w/zimi_games/pet.js", lambda r: r.fulfill(status=200, content_type="text/javascript", body=HOSTILE))
+    assert page.evaluate("_petPeekRead().then(p => p)") is None
+    assert page.evaluate("typeof window.__pwned") == "undefined"
+    page.close()
+
+
+def test_the_real_pet_script_still_gives_the_pets_mood(zimi, browser):
+    page = browser.new_page()
+    page.goto(zimi)
+    page.wait_for_function("() => typeof _petPeekRead === 'function'")
+    page.evaluate("s => localStorage.setItem('zimi.games.pet', JSON.stringify(s))", _egg_store(page))
+    peek = page.evaluate("_petPeekRead().then(p => p)")
+    assert peek and peek["kind"] == "egg", peek
+    page.close()
+
+
+MESSAGES = [
+    {"zimi": "game", "title": "Hostile", "act": {"kind": "undo", "label": "x"}},
+    {"zimi": "game-sky", "place": "x"},
+    {"zimi": "game-app", "app": "dictionary", "w": "word"},
+]
+
+
+def _send_from_reader_frame(page, msg):
+    page.evaluate("""m => { let f = document.getElementById('reader-frame'); f.src = 'about:blank'; }""")
+    page.wait_for_function("() => document.getElementById('reader-frame').contentWindow.location.href === 'about:blank'")
+    # run inside the frame, so the message's source is the reader frame
+    page.evaluate("m => document.getElementById('reader-frame').contentWindow.eval('parent.postMessage(' + JSON.stringify(m) + ', \"*\")')", msg)
+    page.evaluate("() => new Promise(r => setTimeout(r, 150))")
+
+
+@pytest.mark.parametrize("zim,heard", [("wikipedia_en", False), ("zimi_games", True)], ids=["another ZIM", "the games ZIM"])
+def test_game_messages_are_heard_only_from_the_games_zim(zimi, browser, zim, heard):
+    page = browser.new_page()
+    page.goto(zimi)
+    page.wait_for_function("() => typeof _gameFrameIs === 'function'")
+    page.evaluate("""z => {
+      window.__asked = [];
+      _gameSkyOpen = () => window.__asked.push('sky');
+      openDictionary = () => window.__asked.push('dictionary');
+      readerOpen = true;
+      currentArticle = { zim: z, path: 'index.html', title: 'x' };
+    }""", zim)
+    for m in MESSAGES:
+        _send_from_reader_frame(page, m)
+    asked = page.evaluate("window.__asked")
+    head = page.evaluate("_gameHead")
+    if heard:
+        assert asked == ["sky", "dictionary"] and head, (asked, head)
+    else:
+        assert asked == [] and head is None, (asked, head)
+    page.close()
+
+
+def test_the_game_header_gap_and_undo_arrow_follow_the_reading_direction(zimi, browser):
+    page = browser.new_page()
+    page.goto(zimi)
+    page.wait_for_function("() => typeof _GAME_ACT_SVG === 'object'")
+    got = page.evaluate("""() => {
+      document.documentElement.dir = 'rtl';
+      const head = document.getElementById('game-head'), act = document.getElementById('game-act-btn');
+      head.hidden = false; act.hidden = false; act.dataset.kind = 'undo'; act.innerHTML = _GAME_ACT_SVG.undo;
+      const h = getComputedStyle(head);
+      return { left: h.marginLeft, right: h.marginRight, flip: getComputedStyle(act.querySelector('svg')).transform };
+    }""")
+    assert got["right"] == "4px" and got["left"] == "0px", got
+    assert got["flip"] == "matrix(-1, 0, 0, 1, 0, 0)", got
+    page.close()

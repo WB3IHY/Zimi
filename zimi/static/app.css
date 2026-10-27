@@ -459,8 +459,9 @@
   .topbar-search { flex: 1; position: relative; margin-left: 4px; }
   /* A ZimiGames page: the game's name where the box is, its Undo or Pause and Menu beside it (_syncGameHead).
      Plain text, not a box: nothing here can be typed into. */
-  .game-head { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; margin-left: 4px; }
+  .game-head { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; margin-inline-start: 4px; }
   .game-head[hidden] { display: none; }
+  [dir=rtl] #game-act-btn[data-kind=undo] svg { transform: scaleX(-1); }
   .game-title { flex: 1; min-width: 0; padding-inline: 6px; font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .game-head .reader-btn[hidden] { display: none; }
   .game-head .reader-btn:disabled { opacity: 0.35; cursor: default; }

@@ -23692,7 +23692,7 @@ window.addEventListener('message', function(e) {
     clearTimeout(_gameGoneTimer);
     _gameHead = _gameHeadFrom(d);
     updateTopbar();
-  } else if (d.zimi === 'game-gone' && _gameFrameIs(e.source)) {
+  } else if (d.zimi === 'game-gone' && _gameFrameWindow(e.source)) {
     clearTimeout(_gameGoneTimer);
     _gameGoneTimer = setTimeout(function() { _gameHead = null; updateTopbar(); }, GAME_GONE_MS);
   } else if (d.zimi === 'game-sky' && _gameFrameIs(e.source)) {
@@ -24153,34 +24153,56 @@ function _gamesTileHtml() {
 // pet.js (no DOM until it is a page), are fetched then, only if a pet exists. Nothing is written.
 var _PET_STORE_KEY = 'zimi.games.pet';
 var _PET_PEEK_TTL_MS = 5 * 60000;         // asked again after a while: hunger grows while Home stays open
-var _petPeek = null, _petPeekAt = 0, _petEnginePromise = null;
+var _petPeek = null, _petPeekAt = 0;
 var _PET_NEED_KIND = { feed: 'hungry', sleep: 'tired', clean: 'dirty', play: 'bored' };
-function _petEngine() {
-  if (!_petEnginePromise) {
-    // The file is a page script that stops before the page when there is no document: it is run with none.
-    _petEnginePromise = fetch('/w/' + _GAMES_ZIM + '/pet.js').then(function(r) { return r.ok ? r.text() : Promise.reject(r.status); })
-      .then(function(src) { var scope = {}; new Function('document', src).call(scope, undefined); return scope.PetEngine || null; })
-      .catch(function() { return null; });
-  }
-  return _petEnginePromise;
+// The games ZIM is a library file: a copy of it can stand in for Zimi's own, and its scripts are never run in this window.
+// pet.js (and util.js, which it needs) run in a sandboxed frame with no origin (no cookies, no storage, no way into
+// this page); it gets the pet's saved state and the place as plain data, and answers with the mood and the need.
+var _PET_FILES = ['util.js', 'pet.js'];
+var _PET_PLACE_KEY = 'zimi_almanac_place';   // the Almanac's place, which pet.js reads to put the pet to bed at sunset
+var _PET_FRAME_MS = 4000;
+var _PET_SANDBOX_DOC = '<script>onmessage=function(e){var d=e.data,out=null;try{var scope={};d.src.forEach(function(s){new Function("document",s).call(scope,undefined);});' +
+  'var E=scope.PetEngine;if(E&&E.validStore(d.store)){var p=JSON.parse(JSON.stringify(d.store.pets[d.store.active]||d.store.pets[0]));' +
+  'E.usePlace({getItem:function(){return d.place;}});E.advance(p,d.now);out={mood:E.mood(p),need:E.need(p),name:p.name};}}catch(x){}' +
+  'parent.postMessage({zimiPet:out},"*");};<\/script>';
+function _petSources() {
+  return Promise.all(_PET_FILES.map(function(f) {
+    return fetch('/w/' + _GAMES_ZIM + '/' + f).then(function(r) { return r.ok ? r.text() : Promise.reject(r.status); });
+  }));
+}
+// The pet's mood now, worked out in the sandbox: {mood, need, name} or null (no pet, or nothing answered).
+function _petAsk(src, store) {
+  return new Promise(function(resolve) {
+    var f = document.createElement('iframe');
+    var done = function(out) { window.removeEventListener('message', hear); clearTimeout(timer); f.remove(); resolve(out); };
+    var hear = function(e) { if (e.source === f.contentWindow && e.data && 'zimiPet' in e.data) done(e.data.zimiPet); };
+    var timer = setTimeout(function() { done(null); }, _PET_FRAME_MS);
+    window.addEventListener('message', hear);
+    f.setAttribute('sandbox', 'allow-scripts');
+    f.setAttribute('aria-hidden', 'true');
+    f.style.display = 'none';
+    f.onload = function() { f.contentWindow.postMessage({ src: src, store: store, place: localStorage.getItem(_PET_PLACE_KEY), now: Date.now() }, '*'); };
+    f.srcdoc = _PET_SANDBOX_DOC;
+    document.body.appendChild(f);
+  });
 }
 // What the pet wants now: {kind, text} or null (no pet). Its saved state brought up to this moment, on a copy.
-function _petPeekRead(E) {
+function _petPeekRead() {
   var store = _getStorageJSON(_PET_STORE_KEY, null);
-  if (!E || !E.validStore(store)) return null;
-  var p = JSON.parse(JSON.stringify(store.pets[store.active] || store.pets[0]));
-  E.usePlace(localStorage);
-  E.advance(p, Date.now());
-  var mood = E.mood(p), kind = mood === 'egg' ? 'egg' : mood === 'sleep' ? 'asleep' : _PET_NEED_KIND[E.need(p)] || 'fine';
-  return { kind: kind, text: t('pet_' + kind, { name: p.name }) };
+  if (!store) return Promise.resolve(null);
+  return _petSources().then(function(src) { return _petAsk(src, store); }).then(function(a) {
+    if (!a) return null;
+    var kind = a.mood === 'egg' ? 'egg' : a.mood === 'sleep' ? 'asleep' : _PET_NEED_KIND[a.need] || 'fine';
+    return { kind: kind, text: t('pet_' + kind, { name: a.name }) };
+  }).catch(function() { return null; });
 }
 function _petPeekSchedule() {
   if (_petPeekAt && Date.now() - _petPeekAt < _PET_PEEK_TTL_MS) return;
   _petPeekAt = Date.now();
   if (!_getStorageJSON(_PET_STORE_KEY, null)) return;   // never met a pet: nothing to fetch, nothing to draw
   (window.requestIdleCallback || setTimeout)(function() {
-    _petEngine().then(function(E) {
-      _petPeek = _petPeekRead(E);
+    _petPeekRead().then(function(peek) {
+      _petPeek = peek;
       // Draw it on the tile that is on screen, without drawing Home again.
       Array.prototype.forEach.call(document.querySelectorAll('.app-tile.games-tile'), function(tile) {
         var old = tile.querySelector('.pet-peek');
@@ -24276,13 +24298,15 @@ function _isGamePage() { return !!(_gameHead && _isGamesZimOpen()); }
 // that led there, which left the game's tile as the only way back.
 function _gameHasShelfBehind() { return !!(_isGamePage() && _gameHead.menu); }
 function _gameFrame() { return document.getElementById('reader-frame'); }
-function _gameFrameIs(win) { var f = _gameFrame(); return !!(f && win && f.contentWindow === win); }
+function _gameFrameWindow(win) { var f = _gameFrame(); return !!(f && win && f.contentWindow === win); }
+// Only while the games ZIM is what the reader shows: an article of any other ZIM (a capture's scripts, a hostile ZIM) may not drive the header, the sky or the Dictionary.
+function _gameFrameIs(win) { return _isGamesZimOpen() && _gameFrameWindow(win); }
 // What a ZimiGames page may ask of Zimi besides its header (builtin/games/librarykit.js Lib.leadOut, skydetective.js):
 //   {zimi: 'open', zim, path}                 an article (a map path may end in #map=zoom/lat/lon), the handler above
 //   {zimi: 'game-app', app: 'dictionary', w}  a word in the Dictionary, as its own tile opens it (Back returns to the game)
 //   {zimi: 'game-sky', place, ms, ...}        the Almanac's sky over the page, to study (static/almanac-gamesky.js, loaded on
 //                                             first use); answered {zimi: 'game-sky-done', started}
-// Only the frame showing the game may ask; the page already holds what each asks for, so nothing here is new state.
+// Only the frame showing the game, while the games ZIM is open, may ask (game-gone only clears the header, so the frame alone); the page already holds what each asks for, so nothing here is new state.
 var _GAMESKY_JS = '/static/almanac-gamesky.js?v=1';
 function _gameSkyOpen(d, win) {
   var answer = function(started) { try { win.postMessage({ zimi: 'game-sky-done', started: !!started }, location.origin); } catch (e) {} };
