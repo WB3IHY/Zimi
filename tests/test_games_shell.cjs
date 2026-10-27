@@ -26,11 +26,19 @@ function load(files, extra) {
 // ── every game page has the shell, a bar, help and history ──────────────────
 const NOT_GAMES = new Set(['index.html', 'about.html', 'puzzles.html']);
 const pages = fs.readdirSync(dir).filter((f) => f.endsWith('.html') && !NOT_GAMES.has(f));
-const help = load(['games-help.js']);
+// How to play and History are string ids in the English table (help.<game>.<part>, history.<game>).
+const EN = JSON.parse(read('text/en.json'));
+const H = {}, Y = {};
+for (const [k, v] of Object.entries(EN)) {
+  let m = /^help\.([a-z0-9]+)\.(goal|turn|end|tip|keys)$/.exec(k);
+  if (m) (H[m[1]] = H[m[1]] || {})[m[2]] = v;
+  m = /^history\.([a-z0-9]+)$/.exec(k);
+  if (m) Y[m[1]] = v;
+}
 let withShell = 0, withBar = 0;
 for (const p of pages) {
   const html = read(p);
-  if (/<!-- zimi-shell --><script src="games-help.js"><\/script><script src="shell.js"><\/script><!-- \/zimi-shell -->/.test(html)) withShell++;
+  if (/<!-- zimi-shell --><script src="shell.js"><\/script><!-- \/zimi-shell -->/.test(html)) withShell++;
   if (/class="ar-bar"/.test(html)) withBar++;
 }
 check(pages.length > 60 && withShell === pages.length, 'every game page loads the shell (' + withShell + ' of ' + pages.length + ')');
@@ -38,7 +46,6 @@ check(withBar === pages.length, 'every game page has a bar for the Menu button')
 
 const rows = JSON.parse(read('games.json'));
 const ids = [...new Set(rows.map((r) => r.path).filter((p) => !p.includes('/')).map((p) => p.replace(/\.html$/, '')))];
-const H = help.ZimiGamesHelp, Y = help.ZimiGamesHistory;
 const missing = ids.filter((id) => !H[id] || !H[id].goal || !H[id].turn || !H[id].end);
 check(ids.length > 60 && !missing.length, 'every game in games.json has a goal, a turn and an end' + (missing.length ? ': ' + missing : ''));
 const noHistory = ids.filter((id) => !Y[id]);

@@ -89,7 +89,7 @@
     return null;
   }
 
-  function byTitle(a, b) { return a.title.localeCompare(b.title); }
+  function byTitle(a, b) { return a.title.localeCompare(b.title, root.ZimiText && root.ZimiText.lang); }
   // Oldest first, games of no known age last, then by name.
   function byAge(meta) {
     return function (a, b) {
@@ -110,7 +110,7 @@
     }
     var sorted = items.slice();
     if (sort === 'az') {
-      add('all', 'A to Z').items = sorted.sort(byTitle);
+      add('all', T('shelf.head.az')).items = sorted.sort(byTitle);
     } else if (sort === 'oldest') {
       ERAS.forEach(function (e) { add(e.id, eraLabel(e), eraNote(e)); });
       add('unknown', T('shelf.era.unknown'), T('shelf.era.unknown.note'));
@@ -186,6 +186,30 @@
       return Array.isArray(v) ? v.filter(function (e) { return e && e.path; }).map(function (e) { return e.path; }) : [];
     } catch (e) { return []; }
   }
+
+  // The shelf's own words are written in the page in English. When the player's language has them, they are swapped in
+  // before anything below reads them (text.js reads the language's file while the page is parsed).
+  (function localizeShelf() {
+    var Z = root.ZimiText, intro = shelf.querySelector(':scope > header > p');
+    if (!Z) return;
+    var swap = function (node, key, attr) {
+      if (!node || !Z.has(key)) return;
+      if (attr) node.setAttribute(attr, T(key)); else node.textContent = T(key);
+    };
+    swap(intro, 'shelf.intro');
+    doc.documentElement.style.setProperty('--play-label', JSON.stringify(T('shelf.play')));
+    Array.prototype.forEach.call(shelf.querySelectorAll('.sh-list > .ar-section'), function (s) {
+      var h = s.querySelector('h2'), key = 'shelf.section.' + (h.id || '').replace(/^ar-/, '');
+      swap(h, key);
+      swap(s.querySelector('nav.ar-games'), key, 'aria-label');
+    });
+    Array.prototype.forEach.call(shelf.querySelectorAll('.ar-family'), function (f) {
+      var slug = (f.getAttribute('data-name') || '').toLowerCase().replace(/[^a-z]/g, '');
+      swap(f, 'shelf.family.' + slug + '.name', 'data-name');
+      swap(f, 'shelf.family.' + slug + '.line', 'data-line');
+    });
+    if (root.ZimiShell && root.ZimiShell.localizeTiles) root.ZimiShell.localizeTiles(shelf);
+  })();
 
   // The sections, read from the page: id, label and the tiles each holds.
   var list = shelf.querySelector('.sh-list');
@@ -353,7 +377,7 @@
     var m = meta(path);
     if (!m) return null;
     var line = el('small', 'sh-meta');
-    [[ageText(m), 'sh-m-age'], [m.region, 'sh-m-region'], [playersText(m), 'sh-m-players'], [state.sort === 'quick' ? lengthText(m) : '', 'sh-m-length']].forEach(function (c) {
+    [[ageText(m), 'sh-m-age'], [T('shelf.region.' + m.region), 'sh-m-region'], [playersText(m), 'sh-m-players'], [state.sort === 'quick' ? lengthText(m) : '', 'sh-m-length']].forEach(function (c) {
       if (!c[0]) return;
       var e = el('em', c[1]);
       e.textContent = c[0];

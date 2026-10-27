@@ -35,7 +35,7 @@ What is changed in the HTML (all done mechanically, see Re-vendoring)
   title block, the upstream links, the author's e-mail, the small-print credit
   and the "last modified" line. The credit and the MIT licence are on the About
   page (about.html). The page gets zimi-fit.css and zimi-fit.js before the
-  puzzle's own script, and ../games-help.js and ../shell.js in <head>.
+  puzzle's own script, and ../shell.js in <head>.
 
 zimi-fit.css / zimi-fit.js
   Make the page an ordinary ZimiGames page without touching puzzle code. The
@@ -49,7 +49,7 @@ zimi-fit.css / zimi-fit.js
   left click, a drag is a drag, a press and hold is the right button); and adds
   a keypad on touch for the puzzles that take digits or letters (Solo, Keen,
   Towers, Unequal, Filling, Group). How to play for each puzzle is in
-  ../games-help.js, keyed by the page's file name.
+  text/en.json (help.<name>.goal, turn, end, tip), keyed by the page's file name.
   The script is deferred and listed before the puzzle's own script, so it
   runs first and the fit box exists when the puzzle looks for it.
 
@@ -92,6 +92,6 @@ Re-vendoring
      form, so it can be run on the output of step 3 or on its own output), then
      python3 scripts/games_shell.py.
   5. If the puzzle list changed, update puzzles.html (the shelf, one tile each),
-     games-help.js (How to play, four parts each) and the version line above. If
+     text/en.json (How to play, four parts each) and the version line above. If
      a puzzle gained a digit keypad need, add it to KEYPAD in zimi-fit.js; if its
      colors are the game itself (which block is which), add it to CATEGORICAL.

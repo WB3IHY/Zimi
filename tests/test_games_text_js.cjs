@@ -37,5 +37,20 @@ Z = load({ hash: '#lang=fr' });
 Z.add('fr', { 'cards.n.card': { one: '{n} carte', other: '{n} cartes' } });
 check(Z.T('cards.n.card', { n: 0 }) === '0 carte' && Z.T('cards.n.card', { n: 2 }) === '2 cartes', 'French plurals: zero is singular');
 
+// Only the active language is read, from text/<lang>.json beside the script, synchronously while the page is parsed.
+{
+  const sb = { location: { hash: '#lang=de' }, navigator: { language: 'en-US' }, Intl, document: { readyState: 'loading', currentScript: { src: 'http://x/games/text.js' }, documentElement: { setAttribute() {} } } };
+  const asked = [];
+  sb.XMLHttpRequest = function () { this.open = (m, u, a) => { asked.push(u + ' async=' + a); this.u = u; }; this.send = () => { this.status = 200; this.responseText = JSON.stringify({ 'shell.menu.new': 'Neues Spiel' }); }; };
+  sb.globalThis = sb;
+  vm.createContext(sb);
+  vm.runInContext(src, sb);
+  check(asked.length === 1 && asked[0] === 'http://x/games/text/de.json async=false', 'one language file is read, synchronously, and only the active one: ' + asked);
+  check(sb.ZimiText.T('shell.menu.new') === 'Neues Spiel' && sb.ZimiText.T('shell.menu.settings') === 'Settings', 'the file fills in what it has and English fills the rest');
+  const en = { location: { hash: '' }, navigator: { language: 'en-US' }, Intl, document: sb.document, XMLHttpRequest: function () { asked.push('English read a file'); } };
+  en.globalThis = en; vm.createContext(en); vm.runInContext(src, en);
+  check(!asked.some((a) => /English/.test(a)), 'English reads no file');
+}
+
 if (failures) { console.log(failures + ' failed'); process.exit(1); }
 console.log('ok test_games_text_js');

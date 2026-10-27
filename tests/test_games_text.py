@@ -76,3 +76,28 @@ def test_every_page_string_id_exists():
                 if not key.endswith(".") and key not in have:
                     missing.append(name + ext + ": " + key)
     assert not missing, "string ids with no English text: " + ", ".join(sorted(set(missing)))
+
+
+def test_every_language_has_every_string():
+    """Each of the nine text/<lang>.json files carries exactly English's ids, with every slot kept and plural entries
+    in the categories the language uses (scripts/games_text.py translations_audit())."""
+    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    import games_text
+
+    assert games_text.translations_audit() == []
+
+
+def test_the_checker_catches_a_missing_extra_and_mismatched_string():
+    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    import games_text
+
+    have = {"a.one": "Hello {name}", "a.n": {"one": "{n} card", "other": "{n} cards"}, "a.plain": "Back"}
+    ok = {"a.one": "Hallo {name}", "a.n": {"one": "{n} Karte", "other": "{n} Karten"}, "a.plain": "Zurueck"}
+    assert games_text.translation_problems("de", have, ok) == []
+    assert games_text.translation_problems("de", have, {k: v for k, v in ok.items() if k != "a.plain"}) == ["de: missing a.plain"]
+    assert games_text.translation_problems("de", have, dict(ok, **{"a.extra": "x"})) == ["de: extra a.extra"]
+    assert any("slots" in p for p in games_text.translation_problems("de", have, dict(ok, **{"a.one": "Hallo {nom}"})))
+    assert any("plural" in p for p in games_text.translation_problems("de", have, dict(ok, **{"a.plain": {"one": "x", "other": "y"}})))
+    assert any("does not use" in p for p in games_text.translation_problems("de", have, dict(ok, **{"a.n": {"one": "{n} Karte", "few": "x {n}", "other": "{n} Karten"}})))
+    assert games_text.translation_problems("zh", have, dict(ok, **{"a.n": {"other": "{n} 张牌"}})) == []
+

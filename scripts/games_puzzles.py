@@ -26,7 +26,7 @@ PAGE = """<!DOCTYPE html>
 <link rel="stylesheet" href="zimi-fit.css"><script defer src="zimi-fit.js"></script>
 <script defer type="text/javascript" src="{script}"></script>
 {style}
-<!-- zimi-shell --><script src="../games-help.js"></script><script src="../shell.js"></script><!-- /zimi-shell -->
+<!-- zimi-shell --><script src="../shell.js"></script><!-- /zimi-shell -->
 {extra}</head>
 <body>
 <main id="puzzle" style="display: none">

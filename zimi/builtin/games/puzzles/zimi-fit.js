@@ -2,7 +2,7 @@
    It never touches puzzle code. Simon Tatham's frontend keeps its own menu form and its own colours; this
    script makes the page an ordinary ZimiGames page around them:
      - it builds the game's bar (Back, title, Undo) and hands the shell (../shell.js) the rest: Restart, Redo and
-       Show solution go to the Menu, Game and Type go to Menu > New game, the rules are How to play (games-help.js);
+       Show solution go to the Menu, Game and Type go to Menu > New game, the rules are How to play (help.<name>.* in text/en.json);
      - it remaps the puzzle's canvas palette to Zimi's tokens, in light and dark;
      - a long press is the right button (touch has none); a keypad serves the puzzles that take digits.
    It runs before the puzzle's script (both are deferred, in order), so the fit box exists when the puzzle looks

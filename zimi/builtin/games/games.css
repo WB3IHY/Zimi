@@ -477,3 +477,7 @@ dl.gs-meta { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--lin
 
 /* A controller is in use: show where focus is, whatever moved it. */
 html.gs-pad :focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Right to left (Arabic, Hebrew): the bar, sheets and Menu mirror through flex order; the Back chevron turns to point the other way. */
+[dir="rtl"] .ar-back { margin-left: 0; margin-right: -8px; padding: 0 6px 0 8px; }
+[dir="rtl"] .ar-back::before { margin-right: 0; margin-left: -1px; transform: rotate(-135deg) scale(0.9); }

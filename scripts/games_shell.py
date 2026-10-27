@@ -6,7 +6,7 @@
 Each game page (every page of the games' folder except the shelf, the About
 page and the puzzles list, and the Tatham puzzles in puzzles/, whose pages are
 made by scripts/games_puzzles.py and take the scripts from ../) gets
-``games-help.js`` and ``shell.js`` between two markers at the end of <head>,
+``shell.js`` between two markers at the end of <head>,
 rewritten and never doubled. The scripts are synchronous on purpose: the
 settings must be on <html> before the first paint.
 """
@@ -23,8 +23,8 @@ _BLOCK = re.compile(
     r"[ \t]*" + re.escape(OPEN) + r".*?" + re.escape(CLOSE) + r"\n?", re.S
 )
 NOT_GAMES = {"index.html", "about.html", "puzzles.html"}
-TAG = f'{OPEN}<script src="games-help.js"></script><script src="shell.js"></script>{CLOSE}\n'
-PUZZLE_TAG = f'{OPEN}<script src="../games-help.js"></script><script src="../shell.js"></script>{CLOSE}\n'
+TAG = f'{OPEN}<script src="shell.js"></script>{CLOSE}\n'
+PUZZLE_TAG = f'{OPEN}<script src="../shell.js"></script>{CLOSE}\n'
 
 
 def pages():

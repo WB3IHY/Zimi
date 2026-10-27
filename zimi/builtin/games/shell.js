@@ -375,6 +375,41 @@
     return s.trim() || d.title;
   }
 
+  // A game's name and blurb in the player's language: game.<page>.title, .blurb, .tile in the string table (puzzles are
+  // game.puzzles.<name>.*). Used for the bar's title, the tab, About, and every tile on the shelf and the puzzles page.
+  function pageStem() {
+    var m = /(?:^|\/)(puzzles\/)?([^/]+)\.html?$/.exec((root.location && root.location.pathname) || '');
+    return m ? (m[1] ? 'puzzles.' : '') + m[2] : '';
+  }
+  function gameWord(stem, part) {
+    var k = 'game.' + stem + '.' + part;
+    return root.ZimiText && root.ZimiText.has(k) ? T(k) : '';
+  }
+  function hrefStem(href) {
+    var m = /^(?:\.\/)?(puzzles\/)?([^/?#]+)\.html?(?:[?#].*)?$/.exec(href || '');
+    return m ? (m[1] ? 'puzzles.' : '') + m[2] : '';
+  }
+  Shell.localizeTiles = function (scope) {
+    Array.prototype.forEach.call((scope || d).querySelectorAll('a.ar-game[href]'), function (a) {
+      var stem = hrefStem(a.getAttribute('href')), strong = a.querySelector('strong'), span = a.querySelector('.ar-game-text > span');
+      var title = gameWord(stem, 'title'), blurb = gameWord(stem, 'tile') || gameWord(stem, 'blurb');
+      if (strong && title) strong.textContent = title;
+      if (span && blurb) span.textContent = blurb;
+    });
+  };
+  // The bar's h1 is English in the page; it changes (and the name is returned) only when it still says exactly what the table's English says.
+  function localizeName() {
+    var h1 = d.querySelector('.ar-bar h1'), stem = pageStem(), en = root.ZimiText && root.ZimiText.table && root.ZimiText.table.en;
+    if (!h1 || !stem || !en) return '';
+    var node = Array.prototype.filter.call(h1.childNodes, function (n) { return n.nodeType === 3 && n.nodeValue.trim(); })[0];
+    if (!node) return '';
+    var keys = ['game.' + stem + '.title'].concat(stem === 'puzzles' ? ['shelf.section.puzzles'] : []);
+    for (var i = 0; i < keys.length; i++) {
+      if (en[keys[i]] === node.nodeValue.trim() && root.ZimiText.has(keys[i])) { node.nodeValue = T(keys[i]); return node.nodeValue; }
+    }
+    return '';
+  }
+
   // ── motion, status and the shake ──
   // The one answer to "should this move?": the device asks for less motion, or Animation is Off.
   function reducedMotion() { return deviceReducedMotion() || settings.get('anim') === 'off'; }
@@ -658,8 +693,14 @@
 
   // How to play: goal, a turn, the end, a tip; the page's old key hint last.
   // The data for this game, with any part the game itself overrides (Mancala's two rule sets).
+  // The words come from the string table (help.<game>.goal and so on); the game's own override wins per part.
+  var HELP_FIELDS = ['goal', 'turn', 'end', 'tip', 'keys'];
   function helpFor(id) {
-    var base = root.ZimiGamesHelp && root.ZimiGamesHelp[id];
+    var base = null;
+    HELP_FIELDS.forEach(function (f) {
+      var k = 'help.' + id + '.' + f;
+      if (root.ZimiText && root.ZimiText.has(k)) { base = base || {}; base[f] = T(k); }
+    });
     if (!base) return null;
     var own = game.help ? game.help() : null;
     return own ? Object.assign({}, base, own) : base;
@@ -720,7 +761,7 @@
     return all.filter(function (f) { return f[1] && keys.indexOf(f[0]) >= 0; });
   }
   // History: a few plain sentences, then the facts games.json holds about the game, if it has any.
-  function historyFor(id) { return root.ZimiGamesHistory && root.ZimiGamesHistory[id]; }
+  function historyFor(id) { return root.ZimiText && root.ZimiText.has('history.' + id) ? T('history.' + id) : ''; }
   function historyPane() {
     head(T('shell.menu.history'), false);
     card.appendChild(h('p', { class: 'gs-text gs-history', text: historyFor(ID) }));
@@ -738,8 +779,9 @@
     card.appendChild(body);
     gameRow().then(function (row) {
       if (!row || !body.isConnected) { if (body.isConnected) body.appendChild(h('p', { class: 'gs-text', text: titleOf() })); return; }
-      body.appendChild(h('p', { class: 'gs-text', text: row.blurb || row.title }));
-      if (row.why) body.appendChild(h('p', { class: 'gs-text', text: row.why }));
+      var stem = pageStem();
+      body.appendChild(h('p', { class: 'gs-text', text: gameWord(stem, 'blurb') || row.blurb || gameWord(stem, 'title') || row.title }));
+      if (row.why) body.appendChild(h('p', { class: 'gs-text', text: gameWord(stem, 'why') || row.why }));
       var source = game.about ? game.about() : '';   // what the game is playing from right now, asked when the pane opens
       if (source) body.appendChild(h('p', { class: 'gs-text gs-source', text: source }));
       factRows(row, ABOUT_FACTS).forEach(function (f) { facts.appendChild(h('dt', { text: T(f[0]) })); facts.appendChild(h('dd', { text: f[1] })); });
@@ -921,7 +963,9 @@
 
   // ── start ──
   function ready() {
-    Shell.setTitle(d.title);
+    var named = localizeName();
+    Shell.localizeTiles();
+    Shell.setTitle(named || d.title);
     // The shelf, About and the puzzles list only tell Zimi their name: no Menu of their own.
     var built = !d.querySelector('meta[name="zimi-games-host"]') && buildBar();
     if (hosted) hostReady();

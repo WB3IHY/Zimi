@@ -141,6 +141,13 @@
     });
   }
 
+  // A game's words in the player's language (game.<page>.title, .why, .blurb in the string table), else what was stored.
+  function named(path, part, fallback) {
+    var Z = root.ZimiText, m = /^(puzzles\/)?([^/]+)\.html$/.exec(path || '');
+    var key = m ? 'game.' + (m[1] ? 'puzzles.' : '') + m[2] + '.' + part : '';
+    return Z && key && Z.has(key) ? Z.T(key) : fallback;
+  }
+
   // A tile for a game: the shelf's own, copied, so the art matches. A game the
   // shelf has no tile of (the puzzles sit behind one tile) borrows that
   // tile's art under its own name and line.
@@ -275,13 +282,13 @@
       uniqueByPath(rows).forEach(function (r) { byPath[r.path] = r; });
       var now = Date.now();
       var played = read(root.localStorage).filter(function (e) { return e && e.path; }).slice(0, CAP).map(function (e) {
-        return { path: e.path, title: e.title, at: e.at };
+        return { path: e.path, title: named(e.path, 'title', e.title), at: e.at };
       });
       var idle = !played.length;
-      var t = table(idle ? CLASSICS.map(function (p) { return { path: p, title: (byPath[p] || {}).title }; }) : played, idle, now);
+      var t = table(idle ? CLASSICS.map(function (p) { return { path: p, title: named(p, 'title', (byPath[p] || {}).title) }; }) : played, idle, now);
       if (t) first.parentNode.insertBefore(t, first);
       var g = dayPick(rows, localDay(new Date()));
-      if (g) put('ar-today', T('shelf.today'), [{ path: g.path, title: g.title, line: g.why || g.blurb || '' }], true);
+      if (g) put('ar-today', T('shelf.today'), [{ path: g.path, title: named(g.path, 'title', g.title), line: g.why ? named(g.path, 'why', g.why) : named(g.path, 'blurb', g.blurb || '') }], true);
       // shelf.js lays the two sections out per view; it is told when both are in.
       doc.dispatchEvent(new Event('zimi-shelf-today'));
     });

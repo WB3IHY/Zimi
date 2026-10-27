@@ -4,7 +4,8 @@ page has its strings before the first paint.
 
     python3 scripts/games_text.py           rewrite the block in text.js
     python3 scripts/games_text.py --check   exit 1 if text.js is not what text/en.json says, if any string id a game asks
-                                            for has no English, or if any English nothing asks for is left in the table
+                                            for has no English, if any English nothing asks for is left in the table, or if a
+                                            text/<lang>.json lacks an id, has an extra one, or loses or renames a slot
 
 A string id is what a game passes to T() (or TX(), or a data-t attribute). The check reads every games .js and .html file:
 - an id with no entry in en.json is an error (a player would see a gap);
@@ -114,6 +115,66 @@ def audit():
     return problems
 
 
+LANGS = ("ar", "de", "es", "fr", "he", "hi", "pt", "ru", "zh")
+# Intl.PluralRules categories each language may carry (every plural entry needs "other").
+PLURAL_FORMS = {"ar": {"zero", "one", "two", "few", "many", "other"}, "de": {"one", "other"}, "es": {"one", "many", "other"},
+                "fr": {"one", "many", "other"}, "he": {"one", "two", "other"}, "hi": {"one", "other"}, "pt": {"one", "many", "other"},
+                "ru": {"one", "few", "many", "other"}, "zh": {"other"}}
+_SLOT = re.compile(r"\{(\w+)\}")
+
+
+def _slots(value):
+    return set(_SLOT.findall(value))
+
+
+def translation_problems(lang, have, table):
+    """What is wrong with one language file next to English: a missing id, an extra id, a slot that is lost or renamed,
+    a plural entry that is not one (or the other way round), or a plural category the language does not have."""
+    out = []
+    for key in sorted(set(have) - set(table)):
+        out.append(lang + ": missing " + key)
+    for key in sorted(set(table) - set(have)):
+        out.append(lang + ": extra " + key)
+    for key in sorted(set(have) & set(table)):
+        en, tr = have[key], table[key]
+        if isinstance(en, dict) != isinstance(tr, dict):
+            out.append(lang + ": " + key + " must be " + ("a plural entry" if isinstance(en, dict) else "a plain string"))
+            continue
+        forms_en = en if isinstance(en, dict) else {"": en}
+        forms_tr = tr if isinstance(tr, dict) else {"": tr}
+        if "other" not in forms_tr and isinstance(tr, dict):
+            out.append(lang + ": " + key + " has no 'other' form")
+        for form, v in forms_tr.items():
+            if not isinstance(v, str) or not v.strip():
+                out.append(lang + ": " + key + " has an empty form " + form)
+            elif isinstance(tr, dict) and form not in PLURAL_FORMS.get(lang, {"one", "other"}):
+                out.append(lang + ": " + key + " has a plural form " + form + " that " + lang + " does not use")
+        want = set().union(*[_slots(v) for v in forms_en.values()])
+        got = set().union(*[_slots(v) for v in forms_tr.values() if isinstance(v, str)])
+        if want != got:
+            out.append(lang + ": " + key + " slots " + str(sorted(got)) + " but English has " + str(sorted(want)))
+        elif isinstance(tr, dict):
+            for form, v in forms_tr.items():
+                if isinstance(v, str) and not _slots(v) <= want:
+                    out.append(lang + ": " + key + "." + form + " has a slot English does not")
+    return out
+
+
+def translations_audit():
+    """The problems in every text/<lang>.json that exists, for the languages Zimi ships."""
+    with open(JSON_PATH, encoding="utf-8") as f:
+        have = json.load(f)
+    out = []
+    for lang in LANGS:
+        path = os.path.join(GAMES, "text", lang + ".json")
+        if not os.path.exists(path):
+            out.append(lang + ": text/" + lang + ".json is missing")
+            continue
+        with open(path, encoding="utf-8") as f:
+            out += translation_problems(lang, have, json.load(f))
+    return out
+
+
 def main():
     with open(JS_PATH, encoding="utf-8") as f:
         text = f.read()
@@ -122,11 +183,11 @@ def main():
         if new != text:
             print("text.js is out of date: run scripts/games_text.py")
             raise SystemExit(1)
-        problems = audit()
+        problems = audit() + translations_audit()
         if problems:
             print("\n".join(problems))
             raise SystemExit(1)
-        print("text.js is current and every string id has its English")
+        print("text.js is current and every string id has its English and its nine translations")
         return
     if new != text:
         with open(JS_PATH, "w", encoding="utf-8", newline="\n") as f:
