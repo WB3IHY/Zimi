@@ -378,7 +378,19 @@
         session.follow(ns); t.flash(TX('skat.plays', { name: who(seat) }) + ' ' + handWord(ns.game)); drive();
       }
     }
-    function handOver() { var st = session.state; tg.handSheet(resultLines(st), TX('skat.fact', { n: st.round + 1, of: st.rounds }), TX('skat.nextDeal')); }
+    // The hand's summary: who won and by how much, how the game was played, and the running score.
+    function handSummary(st) {
+      var r = st.result, dn = who(r.declarer), lines = resultLines(st), top = Math.max.apply(null, st.scores), d = r.delta[r.declarer];
+      return {
+        headline: TX(r.won ? 'skat.sum.won' : 'skat.sum.lost', { name: dn, delta: Math.abs(d) }),
+        detail: lines.slice(0, -2).concat(r.won ? [] : [TX('skat.sum.defend', { bonus: DEFENDER_BONUS })]),
+        rows: tg.order().map(function (q) { return { name: who(q), delta: r.delta[q], total: st.scores[q], lead: st.scores[q] === top }; })
+      };
+    }
+    function handOver() {
+      var st = session.state, s = handSummary(st);
+      T.summarySheet(Object.assign({ title: TX('skat.fact', { n: st.round + 1, of: st.rounds }), actions: [{ label: TX('skat.nextDeal'), primary: true, onclick: tg.startNextHand }] }, s));
+    }
     function gameOver() {
       var st = session.state, w = gameWinner(st.scores), me = seats.view(), hot = seats.hotseat();
       var lines = resultLines(st).concat([w === me && !hot ? TX('skat.winYou', { n: st.scores[me] }) : w >= 0 ? TX('skat.winName', { name: who(w), n: st.scores[w] }) : TX('skat.tied')]);

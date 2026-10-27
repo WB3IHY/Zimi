@@ -112,6 +112,18 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 @keyframes zc-fadein { from { opacity: 0; } to { opacity: 1; } }
 .zc-row { margin: var(--sp-2) 0; }
 .zc-note { margin: 6px 0 0; font-size: var(--fs-small); color: var(--ink2); }
+/* A hand's summary: the headline, then a score table (name, this hand, total) that follows the text direction. */
+.zc-sum-head-line { margin: 0; font-size: var(--fs-body); font-weight: 650; color: var(--ink); }
+.zc-sum { margin: var(--sp-3) 0 0; border: 1px solid var(--line); border-radius: var(--radius-lg, 14px); overflow: hidden; }
+.zc-sum-row { display: grid; grid-template-columns: 1fr minmax(4.5em, auto) minmax(3.5em, auto); align-items: center; gap: var(--sp-2); padding: 8px 12px; font-size: var(--fs-small); color: var(--ink2); }
+.zc-sum-row + .zc-sum-row { border-top: 1px solid var(--line); }
+.zc-sum-head { white-space: nowrap; padding-block: 4px; font-size: 11px; background: var(--surface); }
+.zc-sum-head span:not(:first-child), .zc-sum-delta, .zc-sum-total { text-align: end; font-variant-numeric: tabular-nums; }
+.zc-sum-name { display: grid; min-width: 0; }
+.zc-sum-name b { color: var(--ink); font-weight: 600; font-size: var(--fs-body); overflow-wrap: anywhere; }
+.zc-sum-name small { font-size: var(--fs-small); color: var(--ink2); }
+.zc-sum-total { color: var(--ink); font-weight: 650; font-size: var(--fs-body); }
+.zc-lead { background: var(--accent-glow); }
 /* Records: 13px sans in ink2 on one line, hidden until the first game (the full record is in Stats). */
 .zc-stats { margin: 0; padding: 0; background: none; font: var(--fs-small) var(--font); color: var(--ink2); }
 .zc-stats[hidden] { display: none; }

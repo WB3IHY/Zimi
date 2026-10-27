@@ -435,6 +435,7 @@
  "canasta.sideLine": "{name}: {pts} ({parts}), סה״כ {total}",
  "canasta.sum.tied": "היד הסתיימה בתיקו.",
  "canasta.sum.won": "{name} מנצח ביד בהפרש של {n}.",
+ "canasta.sum.wonYou": "אתה מנצח ביד בהפרש של {n}.",
  "canasta.tag.meld": "×{n}",
  "canasta.tag.meldWild": "×{n}+{w}w",
  "canasta.tag.mixed": "★{n} מעורבת",

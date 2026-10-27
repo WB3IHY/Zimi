@@ -446,6 +446,7 @@
  "canasta.sideLine": "{name}: {pts} ({parts}), итого {total}",
  "canasta.sum.tied": "Раздача закончилась вничью.",
  "canasta.sum.won": "{name} выигрывает раздачу с разницей {n}.",
+ "canasta.sum.wonYou": "Вы выигрываете раздачу с разницей {n}.",
  "canasta.tag.meld": "×{n}",
  "canasta.tag.meldWild": "×{n}+{w}д",
  "canasta.tag.mixed": "★{n} смеш.",

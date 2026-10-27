@@ -435,6 +435,7 @@
  "canasta.sideLine": "{name}: {pts} ({parts}), total {total}",
  "canasta.sum.tied": "La mano queda empatada.",
  "canasta.sum.won": "{name} gana la mano por {n}.",
+ "canasta.sum.wonYou": "Ganas la mano por {n}.",
  "canasta.tag.meld": "×{n}",
  "canasta.tag.meldWild": "×{n}+{w}c",
  "canasta.tag.mixed": "★{n} sucia",

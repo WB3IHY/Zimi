@@ -468,6 +468,7 @@
  "canasta.sideLine": "{name}: {pts} ({parts})، المجموع {total}",
  "canasta.sum.tied": "تعادلت اليد.",
  "canasta.sum.won": "{name} يفوز باليد بفارق {n}.",
+ "canasta.sum.wonYou": "أنت تفوز باليد بفارق {n}.",
  "canasta.tag.meld": "×{n}",
  "canasta.tag.meldWild": "×{n}+{w} ب",
  "canasta.tag.mixed": "★{n} مختلطة",

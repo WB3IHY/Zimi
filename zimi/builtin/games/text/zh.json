@@ -413,6 +413,7 @@
  "canasta.sideLine": "{name}：{pts}（{parts}），共 {total}",
  "canasta.sum.tied": "本局打平。",
  "canasta.sum.won": "{name} 以 {n} 分优势赢下本局。",
+ "canasta.sum.wonYou": "你以 {n} 分优势赢下本局。",
  "canasta.tag.meld": "×{n}",
  "canasta.tag.meldWild": "×{n}+{w}百",
  "canasta.tag.mixed": "★{n} 混",

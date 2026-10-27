@@ -268,6 +268,20 @@
   function lineSheet(title, lines, actions) {
     return Z.sheet({ title: title, body: lines.map(function (t) { return Z.h('p', { class: 'zc-note', text: t }); }), actions: actions });
   }
+  // A hand's summary: the headline says who won and by how much, the detail lines say how, and a small table keeps the
+  // score (rows are { name, delta, total, note, lead }; delta and note may be absent). The sheet's title is the hand.
+  var LRM = '\u200e';   // keeps a signed number's sign in front of its digits in a right-to-left sheet
+  function summarySheet(o) {
+    var rows = (o.rows || []).map(function (r) {
+      return Z.h('div', { class: 'zc-sum-row' + (r.lead ? ' zc-lead' : '') }, [
+        Z.h('span', { class: 'zc-sum-name' }, [Z.h('b', { text: r.name }), r.note ? Z.h('small', { text: r.note }) : null]),
+        Z.h('span', { class: 'zc-sum-delta', text: r.delta == null ? '' : LRM + (r.delta > 0 ? '+' : '') + r.delta }),
+        Z.h('span', { class: 'zc-sum-total', text: LRM + r.total })]);
+    });
+    var head = Z.h('div', { class: 'zc-sum-row zc-sum-head' }, [Z.h('span'), Z.h('span', { text: T('cards.sum.hand') }), Z.h('span', { text: T('cards.sum.total') })]);
+    var body = [Z.h('p', { class: 'zc-sum-head-line', text: o.headline })].concat((o.detail || []).map(function (t) { return Z.h('p', { class: 'zc-note', text: t }); }), [Z.h('div', { class: 'zc-sum', role: 'table' }, [head].concat(rows))]);
+    return Z.sheet({ title: o.title, body: body, actions: o.actions });
+  }
   // Chips as table furniture: an amount drawn as stacks of tokens, a column for each denomination it takes
   // (greedy, largest first). A tall column shows its top few: the stack is a picture of the pile, the figure
   // is in the status line.
@@ -448,6 +462,6 @@
     countBy: countBy, maxBy: maxBy, minBy: minBy,
     geometry: geometry, rowsFor: rowsFor, sideStep: sideStep, trickSpot: trickSpot, seatSpot: seatSpot, posOf: posOf, posFor: posFor, handCards: handCards, fan: fan, takeCounts: takeCounts, handRows: handRows,
     feltSlots: feltSlots, trickCards: trickCards, looking: looking, trickGame: trickGame,
-    create: create, lineSheet: lineSheet, choiceRow: choiceRow, chipStack: chipStack
+    create: create, lineSheet: lineSheet, summarySheet: summarySheet, choiceRow: choiceRow, chipStack: chipStack
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

@@ -424,6 +424,7 @@
  "canasta.sideLine": "{name}: {pts} ({parts}), कुल {total}",
  "canasta.sum.tied": "यह हाथ बराबर रहा।",
  "canasta.sum.won": "{name} यह हाथ {n} से जीतता है।",
+ "canasta.sum.wonYou": "आप यह हाथ {n} से जीतते हैं।",
  "canasta.tag.meld": "×{n}",
  "canasta.tag.meldWild": "×{n}+{w}व",
  "canasta.tag.mixed": "★{n} मिश्र",

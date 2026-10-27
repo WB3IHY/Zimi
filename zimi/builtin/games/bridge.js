@@ -723,12 +723,21 @@
       lines.push(TX('bridge.totals', { ns: st.totals[0], ew: st.totals[1] }));
       return lines;
     }
+    // The deal's summary: who made or went down, the scoring, and each side's deal and running score.
+    function dealSummary(st) {
+      var r = st.result, c = st.contract, top = Math.max(st.totals[0], st.totals[1]);
+      return {
+        headline: r.passedOut ? TX('bridge.passedOut') : TX(r.made ? 'bridge.sum.made' : 'bridge.sum.down', { side: side(r.declSide), contract: c.level + DEN_LABEL[c.den] + ['', ' X', ' XX'][c.dbl || 0], down: r.need - r.taken }),
+        detail: r.passedOut ? [] : [TX('bridge.sum.tricks', { taken: r.taken, need: r.need })].concat(r.lines),
+        rows: [0, 1].map(function (k) { return { name: side(k), delta: r.points[k], total: st.totals[k], lead: st.totals[k] === top }; })
+      };
+    }
     var shown = -1;
     function finishDeal() {
       var st = session.state;
       if (shown === st.dealNo + (st.phase === 'over' ? 100 : 0)) return;
       shown = st.dealNo + (st.phase === 'over' ? 100 : 0);
-      if (st.phase === 'dealEnd') T.lineSheet(TX('skat.fact', { n: st.dealNo + 1, of: DEALS }), resultLines(st), [{ label: TX('skat.nextDeal'), primary: true, onclick: tg.startNextHand }]);
+      if (st.phase === 'dealEnd') T.summarySheet(Object.assign({ title: TX('skat.fact', { n: st.dealNo + 1, of: DEALS }), actions: [{ label: TX('skat.nextDeal'), primary: true, onclick: tg.startNextHand }] }, dealSummary(st)));
       else {
         var V = seats.view(), us = team(V), w = winnerSide(st.totals), mine = !hot() && w === us;
         var lines = resultLines(st).concat([w < 0 ? TX('bridge.tied') : TX('bridge.winMatch', { who: mine ? TX('bridge.youAnd', { name: cn(partnerOf(V)) }) : side(w), a: st.totals[w], b: st.totals[1 - w] })]);

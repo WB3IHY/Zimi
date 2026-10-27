@@ -435,6 +435,7 @@
  "canasta.sideLine": "{name} : {pts} ({parts}), total {total}",
  "canasta.sum.tied": "La donne est à égalité.",
  "canasta.sum.won": "{name} gagne la donne de {n} points.",
+ "canasta.sum.wonYou": "Vous gagnez la donne de {n} points.",
  "canasta.tag.meld": "×{n}",
  "canasta.tag.meldWild": "×{n}+{w}j",
  "canasta.tag.mixed": "★{n} mixte",

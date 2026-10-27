@@ -558,9 +558,18 @@
       [0, 1].forEach(function (side) { lines.push(TX('canasta.sideLine', { name: nm(side), pts: (r.sides[side].points >= 0 ? '+' : '') + r.sides[side].points, parts: r.sides[side].lines.join(', '), total: st.scores[side] })); });
       return lines;
     }
+    // The hand's summary: who won it and by how much, how it ended, each side's hand and running score.
+    function handSummary(st) {
+      var r = st.result, p = [r.sides[0].points, r.sides[1].points], lead = p[0] === p[1] ? -1 : p[0] > p[1] ? 0 : 1, top = Math.max(st.scores[0], st.scores[1]);
+      return {
+        headline: lead < 0 ? TX('canasta.sum.tied') : TX(seats.isYou(lead) ? 'canasta.sum.wonYou' : 'canasta.sum.won', { name: nm(lead), n: Math.abs(p[0] - p[1]) }),
+        detail: (r.why ? [r.why + '.'] : []).concat(resultLines(st).slice(r.why ? 1 : 0, r.why ? 2 : 1)),
+        rows: [0, 1].map(function (k) { return { name: nm(k), delta: p[k], note: r.sides[k].lines.join(', '), total: st.scores[k], lead: st.scores[k] === top }; })
+      };
+    }
     function handOver() {
       var st = session.state;
-      T.lineSheet(TX('cards.fact.hand', { n: st.handNo + 1 }), resultLines(st), [{ label: TX('cards.nextHand'), primary: true, onclick: startNextHand }]);
+      T.summarySheet(Object.assign({ title: TX('cards.fact.hand', { n: st.handNo + 1 }), actions: [{ label: TX('cards.nextHand'), primary: true, onclick: startNextHand }] }, handSummary(st)));
     }
     function gameOver() {
       var st = session.state, w = gameWinner(st.scores, st.target), lines = resultLines(st), V = seats.view(), hot = seats.hotseat();
@@ -593,7 +602,7 @@
       rules: TX('canasta.rules')
     });
     board = t.board; session = t.session;
-    api.session = session; api.board = board;
+    api.session = session; api.board = board; api.drive = drive;
     if (root.ResizeObserver) new root.ResizeObserver(function () { t.paint(); }).observe(table);
     d.addEventListener('keydown', function (e) {
       if (e.ctrlKey || e.metaKey || e.altKey || d.querySelector('.ar-sheet')) return;
