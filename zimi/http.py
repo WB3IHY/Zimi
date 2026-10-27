@@ -125,6 +125,35 @@ def _is_trusted_net(ip):
 _EVENTS_HEARTBEAT_S = 25
 _EVENTS_MAX_S = 15 * 60
 _EVENTS_RETRY_MS = 5000
+# Each open stream holds a thread and a socket for up to _EVENTS_MAX_S, so how
+# many may be open is capped: all together, and per client (the real client
+# address, _client_ip: a few windows of one person, not a few thousand of one
+# script). A full server answers 429 with Retry-After; the page waits that long
+# (app.js _LIVE_RETRY_MS) rather than asking again at once.
+_EVENTS_MAX_STREAMS = 256
+_EVENTS_MAX_PER_IP = 8
+_EVENTS_FULL_RETRY_S = 60
+_events_open = {}  # client ip -> streams open now
+_events_lock = threading.Lock()
+
+
+def _events_enter(ip):
+    """Count one more stream for ``ip``: False when the server or that client
+    already holds as many as it may."""
+    with _events_lock:
+        if sum(_events_open.values()) >= _EVENTS_MAX_STREAMS or _events_open.get(ip, 0) >= _EVENTS_MAX_PER_IP:
+            return False
+        _events_open[ip] = _events_open.get(ip, 0) + 1
+        return True
+
+
+def _events_leave(ip):
+    with _events_lock:
+        left = _events_open.get(ip, 0) - 1
+        if left > 0:
+            _events_open[ip] = left
+        else:
+            _events_open.pop(ip, None)
 
 RATE_LIMIT = int(
     os.environ.get("ZIMI_RATE_LIMIT", "60")
@@ -278,6 +307,7 @@ _RATE_LIMITED_API_PATHS = (
     "/almanac-ages",
     "/almanac-place",
     "/games-links",
+    "/events",
 )
 
 # The apps' routes below their bare path (/exchange/question, /reddot/post):
@@ -5883,6 +5913,22 @@ class ZimHandler(BaseHTTPRequestHandler):
             name, refused = self._data_owner(account)
             if refused:
                 return self._json(*refused)
+        ip = self._client_ip()
+        if not _events_enter(ip):
+            with _metrics_lock:
+                _metrics["rate_limited"] += 1
+            return self._json(
+                429,
+                {"error": "too many open streams", "retry_after": _EVENTS_FULL_RETRY_S},
+                retry_after=_EVENTS_FULL_RETRY_S,
+            )
+        try:
+            self._stream_events(name)
+        finally:
+            _events_leave(ip)
+
+    def _stream_events(self, name):
+        """The stream itself, for the account ``name`` (the caller counts it)."""
         after = _changes.resume_from(
             self._query_param("since") or self.headers.get("Last-Event-ID")
         )
