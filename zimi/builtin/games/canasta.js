@@ -451,7 +451,9 @@
       if (st.pile.length && isBlackThree(last(st.pile))) state = 'stopped'; else if (st.pile.length && isWild(last(st.pile))) state = 'wild';
       add(TX(state ? 'canasta.tag.pile.' + state : 'canasta.tag.pile', { n: st.pile.length }), px - off, g.centreY + g.ch + 2, w, st.pileFrozen ? 'c2-out' : '');
     }
-    var redText = function (reds) { return reds.length ? ' \u00b7 ' + TX('canasta.reds', { n: reds.length }) : ''; };
+    // On a phone three chips share one row, so the red threes are the cards themselves, "2 x 3 of hearts", not words.
+    var PHONE_W = 480;
+    var redText = function (reds, m) { return reds.length ? ' \u00b7 ' + (m.W < PHONE_W ? reds.length + '\u00d7\u26653' : TX('canasta.reds', { n: reds.length })) : ''; };
     function describeSelection(st) {
       var sel = mySel(st);
       if (!sel.length) return '';
@@ -460,9 +462,9 @@
     function hud(st) {
       var m = board.metrics();
       layTags(st, m);
-      var V = seats.view(), req = requirement(st.scores[V]), out = { text: '' };
+      var V = seats.view(), req = requirement(st.scores[V]), out = { text: '' };   // the first-meld progress is the status line's, not a chip's: a chip that long ran off a phone
       out.chips = st.scores.map(function (score, seat) {
-        return { name: nm(seat), text: score + redText(st.reds[seat]) + (seat === V && st.melds[seat].length && !st.melded[seat] && st.turn === seat ? ' \u00b7 ' + TX('canasta.firstMeld', { have: st.turnPts, n: req }) : ''), turn: st.turn === seat && st.phase === 'play' };
+        return { name: nm(seat), text: score + redText(st.reds[seat], m), turn: st.turn === seat && st.phase === 'play' };
       }).concat([{ name: TX('canasta.goal'), text: String(st.target) }]);
       if (st.phase === 'handEnd') { out.text = TX('cards.handEnd'); out.label = TX('cards.nextHand'); out.action = startNextHand; }
       else if (st.phase === 'over') { out.text = TX('shell.end.over'); out.label = TX('shell.menu.new'); out.action = newGame; }

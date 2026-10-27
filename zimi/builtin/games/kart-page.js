@@ -218,7 +218,7 @@
         if (prefs.mode === 'trial') note(detail, Tx('kart.trialNote'));
       }
       if (prefs.mode !== 'trial') seg(detail, Tx('kart.players'), 'players', [[1, Play.num(1)], [2, Play.num(2)]], fill);
-      if (two) note(detail, Tx(isTouch() ? 'kart.splitTouch' : 'kart.splitKeys'));
+      if (two) note(detail, Tx(!isTouch() ? 'kart.splitKeys' : root.innerHeight >= root.document.documentElement.clientWidth ? 'kart.splitFace' : 'kart.splitTouch'));
       if (prefs.mode !== 'trial') seg(detail, Tx('kart.rivals'), 'diff', [['easy', Tx('kart.diff.easy')], ['normal', Tx('kart.diff.normal')], ['hard', Tx('kart.diff.hard')]]);
       cast(detail, two ? Tx('kart.p1drives') : Tx('kart.youDrive'), 'driver', function () { if (prefs.players === 2 && prefs.driver2 === prefs.driver) { prefs.driver2 = (prefs.driver + 1) % DRIVERS.length; fill(); } });
       if (two) cast(detail, Tx('kart.p2drives'), 'driver2', function () { if (prefs.driver2 === prefs.driver) { prefs.driver = (prefs.driver2 + 1) % DRIVERS.length; fill(); } });
