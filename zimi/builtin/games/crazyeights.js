@@ -286,7 +286,8 @@
       id: 'crazyeights', name: 'Crazy Eights', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, tap: tap, slotTap: drawTap, cols: 7, heightShare: 0.11,
       canPick: function (st, pile) { return st.phase === 'play' && pile.charAt(0) === 'h' && isLegal(st, seats.view(), idOf(pile)); },
       move: function (pile, idx, to) { return (to === 'discard' || to === 'stock') && pile.charAt(0) === 'h' ? tryPlay(idOf(pile)) : false; },
-      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[seats.view()]; },
+      // The scores are on the table; a clock that only counts a match has no place in the bar.
+      stat: function () { return ''; },
       cascadeOrder: function (st) { return st.discard.map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { return resultLines(st).concat([TX('ce.winYou', { n: st.scores[seats.view()] })]); },
       menuExtra: function () {

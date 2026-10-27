@@ -264,7 +264,7 @@
       }
       if (st.phase === 'defend') { out.text = (note ? note + ' ' : '') + TX('durak.beatOrTake', { card: T.short(u.a) }); out.choices = [{ label: TX('durak.take'), onclick: takeNow }]; }
       else if (!st.table.length) out.text = TX(seats.isYou(st.turn) ? 'durak.yourAttack' : 'durak.attacks', { name: nm(st, st.turn) });
-      else { out.text = (note ? note + ' ' : '') + (st.phase === 'throw' ? TX('durak.takesAdd', { name: nm(st, st.defender) }) : TX('durak.addRank.q')); out.choices = [{ label: TX('durak.done'), primary: true, onclick: doneNow }]; }
+      else { out.text = st.phase === 'throw' ? TX('durak.takesAdd', { name: nm(st, st.defender) }) : (note ? note + ' ' : '') + TX('durak.addRank.q'); out.choices = [{ label: TX('durak.done'), primary: true, onclick: doneNow }]; }
       return out;
     }
 
@@ -324,7 +324,8 @@
       id: 'durak', name: 'Durak', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, tap: tap, cols: 7, heightShare: 0.11,
       canPick: function (st, pile) { return st.turn === seats.view() && pile.charAt(0) === 'h' && (st.phase === 'defend' ? legalDefences(st, st.turn) : legalThrows(st, st.turn)).indexOf(idOf(pile)) >= 0; },
       move: function (pile, idx, to) { return (to === 'table' || to === 'stock') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
-      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.hands[seats.view()].length; },
+      // The scores are on the table; a clock that only counts a match has no place in the bar.
+      stat: function () { return ''; },
       winLines: function (sec, st) { return [st.durak < 0 ? TX('durak.nobodyLeft') : TX('durak.isDurak.dot', { name: nm(st, st.durak) }), TX('durak.youWin')]; },
       menuExtra: function () {
         return [T.choiceRow(TX('cards.seatsAtTable'), PLAYERS_KEY, [{ value: 2, label: '2' }, { value: 3, label: '3' }, { value: 4, label: '4' }], DEFAULT_PLAYERS, function () { newGame(); })];

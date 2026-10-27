@@ -474,7 +474,8 @@
     t = T.create({
       id: 'koikoi', name: 'Koi-Koi', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: startGame, tap: tap, cols: 6, heightShare: 0.12, face: Z.hanafudaFaceMarkup,
       canPick: function () { return false; },
-      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0] + '-' + st.scores[1]; },
+      // The scores are on the table; a clock that only counts a match has no place in the bar.
+      stat: function () { return ''; },
       cascadeOrder: function (st) { return st.captured[0].slice(0, 24).map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { return resultLines(st).concat([TX('koikoi.result.won', { a: st.scores[seats.view()], b: st.scores[1 - seats.view()], months: Z.plural(st.months, 'month') })]); },
       menuExtra: function () {

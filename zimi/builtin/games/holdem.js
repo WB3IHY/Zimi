@@ -27,7 +27,8 @@
     tightAggressive: { tight: 0.6, aggr: 0.8, bluff: 0.07, call: 1, label: TX('holdem.style.tightAggressive') },
     looseAggressive: { tight: -0.8, aggr: 0.8, bluff: 0.12, call: 0.85, label: TX('holdem.style.looseAggressive') }
   };
-  var OPPONENTS = [['Moss', 'tight'], ['Juno', 'loose'], ['Pike', 'aggressive'], ['Wren', 'tightAggressive'], ['Dax', 'looseAggressive']];
+  // The computers take the shared names (seats.cpu.N), so a translated page has translated names.
+  var OPPONENTS = ['tight', 'loose', 'aggressive', 'tightAggressive', 'looseAggressive'].map(function (style, i) { return [TX('seats.cpu.' + (i + 1)), style]; });
   var high = function (id) { return Z.rank(id) === 1 ? 14 : Z.rank(id); };
   var word = function (r) { return TX('holdem.rank.' + r); };
   var plural = function (r) { return TX('holdem.ranks.' + r); };
@@ -298,7 +299,7 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var TAG_H = 36, SEAT_GAP = 6, POT_H = 22, ME_H = 22;
+  var TAG_H = 42, SEAT_GAP = 6, POT_H = 22, ME_H = 22;
   function geo(m) { return T.geometry(m, 1); }
   // Where the opponents' seats are: a row across the top, centres evenly spread.
   function seatBoxes(g, n) {
@@ -338,7 +339,7 @@
   var api = {
     START_CHIPS: START_CHIPS, STYLES: STYLES, OPPONENTS: OPPONENTS, BLIND_LEVELS: BLIND_LEVELS, evaluate: evaluate, bestFive: bestFive, sidePots: sidePots,
     newGame: freshGame, startHand: startHand, options: options, act: act, runStep: runStep, gameState: gameState, aiAction: aiAction, equity: equity,
-    totalPot: totalPot, place: place, geo: geo, seatBoxes: seatBoxes, TAG_H: TAG_H, CPU_NAMES: [TX('holdem.hale')].concat(OPPONENTS.map(function (o) { return o[0]; }))
+    totalPot: totalPot, place: place, geo: geo, seatBoxes: seatBoxes, TAG_H: TAG_H, CPU_NAMES: [TX('seats.cpu.6')].concat(OPPONENTS.map(function (o) { return o[0]; }))
   };
   root.ZimiHoldem = api;
 
@@ -409,7 +410,7 @@
         }
         out.lines = lines;
         if (st.phase === 'over') { out.text = overText(st); out.label = TX('shell.menu.new'); out.action = newGame; }
-        else { out.text = st.started ? '' : TX('holdem.tapDeal'); out.choices = [{ label: st.started ? TX('cards.nextHand') : TX('holdem.deal'), primary: true, onclick: nextHand }]; }
+        else { out.text = st.started ? '' : TX('holdem.tapDeal'); if (st.started) out.fact = ''; out.choices = [{ label: st.started ? TX('cards.nextHand') : TX('holdem.deal'), primary: true, onclick: nextHand }]; }
         return out;
       }
       if (mine) {

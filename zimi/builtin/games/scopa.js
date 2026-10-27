@@ -388,7 +388,8 @@
     t = T.create({
       id: 'scopa', name: 'Scopa', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: startGame, tap: tap, cols: 5, heightShare: 0.13, face: scopaFace,
       canPick: function () { return false; },
-      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0] + '-' + st.scores[1]; },
+      // The scores are on the table; a clock that only counts a match has no place in the bar.
+      stat: function () { return ''; },
       cascadeOrder: function (st) { return cards40(st).slice(0, 24).map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { return resultLines(st).concat([TX('spades.result.won', { a: st.scores[seats.view()], b: st.scores[1 - seats.view()], hands: Z.plural(st.handNo + 1, 'hand') })]); },
       rules: TX('scopa.rules')

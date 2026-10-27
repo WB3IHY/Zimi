@@ -148,12 +148,12 @@ if (sandbox.ZimiHoldem) {
   check(name('9S 8H 7D 6C 5S 2S 2D') === 'Straight, Nine high', 'straight');
   check(name('AS 2H 3D 4C 5S KS KD') === 'Straight, Five high', 'the wheel');
   check(name('TS JH QD KC AS 2S 2D') === 'Straight, Ace high', 'broadway');
-  check(name('QS KH 2D 3C 4S 5S 9D') === 'High card King', 'no wrap-around straight');
+  check(name('QS KH 2D 3C 4S 5S 9D') === 'King high', 'no wrap-around straight');
   check(name('JS JH JD 4C 9S 2S KD') === 'Three of a kind, Jacks', 'trips');
   check(name('JS JH 4D 4C 9S 2S KD') === 'Two pair, Jacks and Fours', 'two pair');
   check(name('JS JH 4D 4C 9S 6S 6D') === 'Two pair, Jacks and Sixes', 'best two of three pairs, plural Sixes');
   check(name('JS JH 4D 5C 9S 6S KD') === 'Pair of Jacks', 'pair');
-  check(name('AS JH 4D 5C 9S 6S KD') === 'High card Ace', 'high card');
+  check(name('AS JH 4D 5C 9S 6S KD') === 'Ace high', 'high card');
   check(ev('AS KS QS JS 9S 2D 3C').cat === 5 && ev('AS KS QS JS 9S 2D 3C').score > ev('9S 8H 7D 6C 5S 2S 2D').score, 'ranking order: flush over straight');
   // Ties and kickers.
   check(ev('AS KH 2D 2C 9S 6S 5D').score > ev('AD QH 2H 2S 9D 6D 5H').score, 'pair of twos: the king kicker beats the queen');

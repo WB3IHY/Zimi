@@ -481,7 +481,8 @@
       id: 'cribbage', name: 'Cribbage', liftPlay: function (st) { return st.phase === 'peg'; }, seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: startGame, tap: tap, cols: 6, heightShare: 0.11,
       canPick: function (st, pile) { return st.phase === 'peg' && pile.charAt(0) === 'h' && isLegalPeg(st, seats.view(), idOf(pile)); },
       move: function (pile, idx, to) { return (to === 'table' || to === 'deck') && pile.charAt(0) === 'h' ? play(idOf(pile)) : false; },
-      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0] + '-' + st.scores[1]; },
+      // The scores are on the table; a clock that only counts a match has no place in the bar.
+      stat: function () { return ''; },
       winLines: function (sec, st) { return [TX('crib.finalScore', { a: who(0), pa: st.scores[0], b: who(1), pb: st.scores[1], hands: Z.plural(st.handNo + 1, 'hand') })].concat(st.scores[1] < SKUNK ? [TX('crib.skunkNorth', { n: SKUNK })] : []); },
       rules: TX('crib.rules')
     });

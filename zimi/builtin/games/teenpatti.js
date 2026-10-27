@@ -25,7 +25,8 @@
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   var SEATS = 4, HAND = 3, START_CHIPS = 1000, BOOT = 10, MAX_STAKE = 160, TARGET = 1500;
-  var NAMES = [TX('cards.you'), 'Asha', 'Dev', 'Rani'], STYLES = [null, 'careful', 'bold', 'bluffer'];
+  var cpu = function (n) { return TX('seats.cpu.' + n); };
+  var NAMES = [TX('cards.you'), cpu(1), cpu(2), cpu(3)], STYLES = [null, 'careful', 'bold', 'bluffer'];
   var CATEGORIES = ['highCard', 'pair', 'colour', 'sequence', 'pureSequence', 'trail'];
   var rankValue = function (id) { return Z.rank(id) === 1 ? 14 : Z.rank(id); };
   var suitOf = Z.suit;
@@ -256,7 +257,7 @@
   function boot() {
     var d = root.document, t, board, session, view = { flash: '' };
     // Seats are the Computer or a Person. The computer players keep their own names and styles.
-    var seats = Seats.create({ id: 'teenpatti', seats: SEATS, cpuNames: ['Zara', 'Asha', 'Dev', 'Rani'], onChange: function () { if (t) t.paint(); if (board) board.refresh(); } });
+    var seats = Seats.create({ id: 'teenpatti', seats: SEATS, cpuNames: [cpu(4), cpu(1), cpu(2), cpu(3)], onChange: function () { if (t) t.paint(); if (board) board.refresh(); } });
     var who = function (seat) { return seats.name(seat); };
     // The seat acting now: whoever must answer a side show, else the player to bet.
     var actor = function (st) { return st.phase === 'side' ? st.side.to : st.turn; };
@@ -396,10 +397,11 @@
     t = T.create({
       id: 'teenpatti', name: 'Teen Patti', seats: seats, view: view, geo: geo, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: startGame, tap: function () { return false; }, cols: 6, heightShare: 0.13,
       canPick: function () { return false; },
-      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.chips[seats.view()]; },
+      // The scores are on the table; a clock that only counts a match has no place in the bar.
+      stat: function () { return ''; },
       cascadeOrder: function (st) { return st.hands[seats.view()].map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { return [TX('tp.allChips', { n: st.chips[seats.view()] })]; },
-      rules: TX('tp.rules')
+      rules: TX('tp.rules', { a: cpu(1), b: cpu(2), c: cpu(3) })
     });
     board = t.board; session = t.session;
     api.session = session; api.board = board;

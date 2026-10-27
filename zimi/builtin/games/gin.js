@@ -294,7 +294,7 @@
       var V = view.viewer, sel = st.hands[V].indexOf(view.sel) >= 0 ? view.sel : null, mine = st.phase === 'show' || view.hideHand ? null : st.hands[V];
       var dwNow = mine ? (mine.length === HAND ? deadwood(mine) : Math.min.apply(null, discardOptions(mine).filter(function (o) { return o.id !== st.drawn; }).map(function (o) { return o.dw; }))) : null;
       var chips = [0, 1].map(function (s) {
-        return { name: who(s), text: String(st.scores[s]) + (s === V && dwNow !== null && st.phase !== 'offer' ? ' \u00b7 ' + TX('gin.dw', { n: dwNow }) : ''), dealer: st.dealer === s, turn: st.phase !== 'show' && st.turn === s };
+        return { name: who(s), text: String(st.scores[s]), dealer: st.dealer === s, turn: st.phase !== 'show' && st.turn === s };
       });
       var out = { chips: chips, fact: TX('gin.fact', { n: st.handNo + 1, a: st.boxes[0], b: st.boxes[1] }), text: '' }, note = noteOf(st), top = st.discard[st.discard.length - 1];
       if (st.phase === 'show') {
@@ -380,7 +380,8 @@
         if ((to !== 'discard' && to !== 'stock') || pile.charAt(0) !== 'h' || !canDiscard(st, id)) return false;
         view.sel = id; return act(discardCard(st, id));
       },
-      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[0] + '-' + st.scores[1]; },
+      // The scores are on the table; a clock that only counts a match has no place in the bar.
+      stat: function () { return ''; },
       cascadeOrder: function (st) { return st.hands[seats.view()].map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { var f = st.final; return [TX('gin.handsWon', { a: TX('cards.you'), pa: st.boxes[0], b: TX('cards.seat.north'), pb: st.boxes[1] }), TX('gin.bonus.you'), TX('gin.final', { a: TX('cards.you'), pa: f.totals[0], b: TX('cards.seat.north'), pb: f.totals[1] })]; },
       rules: TX('gin.rules')

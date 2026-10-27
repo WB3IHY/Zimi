@@ -412,7 +412,7 @@
     t = T.create({
       id: R.id, name: R.name, seats: seats, view: view, geo: function (m, st) { return geo(m, st, seats.view()); }, place: function (st, m, v) { syncView(st); return place(st, m, v); }, hud: hud, newGame: newGame, tap: tap, cols: 7, heightShare: 0.11,
       canPick: function () { return false; },
-      stat: function (sec, st) { return Z.fmtTime(sec) + ' · ' + st.scores[seats.view()]; },
+      stat: function (sec, st) { return TX('climb.stat', { n: st.scores[seats.view()], target: R.target }); },
       cascadeOrder: function (st) { return st.table.map(function (id) { return { id: id }; }); },
       winLines: function (sec, st) { return [TX('climb.reachedYou', { target: R.target, scores: st.scores.join(', ') })]; },
       rules: game.rulesText

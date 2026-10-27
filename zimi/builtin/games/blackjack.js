@@ -19,7 +19,7 @@
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   var START_CHIPS = 1000, MIN_BET = 10, MAX_BET = 500, BET_STEPS = [10, 50, 100, 500], MAX_HANDS = 4;
-  var TARGET = 21, DEALER_STANDS = 17, CUT_SHARE = 0.75, BLACKJACK_PAYS = 1.5, INSURANCE_PAYS = 2, DECK_CHOICES = [1, 2, 6];
+  var TARGET = 21, DEALER_STANDS = 17, CUT_SHARE = 0.75, BLACKJACK_PAYS = 1.5, INSURANCE_PAYS = 2, DECK_CHOICES = [1, 2, 6], DEAL_MS = 260, DEALER_MS = 600;
   var hintName = function (a) { return TX('bj.hint.' + a); };
 
   // ── Rules ───────────────────────────────────────────────────────────────
@@ -273,7 +273,8 @@
     }
     function handChip(st, h, i) {
       var v = handValue(h.cards), label = (st.hands.length > 1 ? TX('bj.handN', { n: i + 1 }) : nm());
-      return { name: label, text: TX(v.soft && v.total < 21 ? 'bj.soft' : 'bj.hard', { total: v.total, bet: h.bet }), turn: st.phase === 'play' && st.active === i };
+      var soft = v.soft && v.total < 21, key = st.hands.length > 1 ? (soft ? 'bj.soft' : 'bj.hard') : (soft ? 'bj.soft1' : 'bj.hard1');
+      return { name: label, text: TX(key, { total: v.total, bet: h.bet }), turn: st.phase === 'play' && st.active === i };
     }
     // The bet is chips on the table, under the dealer's cards.
     var pile = Z.h('div', { class: 'ct-pile' });
@@ -286,13 +287,23 @@
       if (amount > 0) { pile.appendChild(T.chipStack(amount)); pile.appendChild(Z.h('span', { class: 'ct-caption', text: TX('bj.bet', { n: amount }) })); }
       pile.style.top = Math.round(g.northY + g.ch + 24) + 'px';
     }
-    function hud(st) {
-      paintPile(st);
-      var chips = [], hot = seats.hotseat(), out = { fact: TX(hot ? 'bj.fact.name' : 'bj.fact', { name: nm(), n: st.chips }), text: '' };
+    function tableChips(st) {
+      var chips = [];
       if (st.dealer.length) chips.push({ name: TX('bj.dealer'), text: st.hole ? String(handValue(st.dealer).total) : String(cardValue(st.dealer[0]) === 11 ? 'A' : cardValue(st.dealer[0])) });
       st.hands.forEach(function (h, i) { chips.push(handChip(st, h, i)); });
-      if (hot) seats.people().forEach(function (p) { if (p !== seats.view() && bank[p]) chips.push({ name: seats.name(p), text: TX('bj.chips', { n: bank[p].chips }) }); });
-      out.chips = chips;
+      if (seats.hotseat()) seats.people().forEach(function (p) { if (p !== seats.view() && bank[p]) chips.push({ name: seats.name(p), text: TX('bj.chips', { n: bank[p].chips }) }); });
+      return chips;
+    }
+    function hud(st) {
+      var hot = seats.hotseat();
+      if (stage && stage.owner !== session.state) stage = null;   // a new game or another move took over
+      if (stage) {   // cards are being dealt one at a time: the table as it is now, no buttons
+        paintPile(stage.frame);
+        return { chips: tableChips(stage.frame), fact: TX(hot ? 'bj.fact.name' : 'bj.fact', { name: nm(), n: stage.frame.chips }), text: TX(stage.say) };
+      }
+      paintPile(st);
+      var out = { fact: TX(hot ? 'bj.fact.name' : 'bj.fact', { name: nm(), n: st.chips }), text: '' };
+      out.chips = tableChips(st);
       if (st.phase === 'bet' && hot && st.hands.length) {
         // The round is over: each person's result stays on screen until the device is passed on.
         var next = nextPlayer(seats.people(), chipsBySeat(st), seats.view());
@@ -332,12 +343,45 @@
       seats.ensure(next, function () { t.paint(); });
       if (next === cur) t.paint();
     }
+    // The cards go out one at a time, at a pace a person can follow: the deal (you, dealer, you, dealer's hole card), and the
+    // dealer's draws after you stand. session.state stays where it was until the last card is down, so leaving in between
+    // comes back to the move not yet made; the table is drawn from frames.
+    var stage = null;
+    function framesFor(prev, next) {
+      var dealing = !prev.hands.length && next.hands.length, dealerTurn = (prev.phase === 'play' || prev.phase === 'insurance') && next.phase === 'bet' && next.hands.length;
+      var live = next.hands.some(function (h) { return !busted(h.cards) && !isBlackjack(h); });
+      var frame = function (mine, theirs, hole) {
+        var f = Z.clone(next);
+        f.phase = 'play'; f.active = -1; f.hole = hole; f.dealer = next.dealer.slice(0, theirs);
+        f.hands.forEach(function (h, i) { h.cards = next.hands[i].cards.slice(0, i ? next.hands[i].cards.length : mine); });
+        f.chips = prev.chips;   // the same figure the bar still shows
+        return f;
+      };
+      var out = [], k;
+      if (dealing) {
+        [[1, 0], [1, 1], [2, 1], [2, 2]].forEach(function (c) { var f = frame(c[0], c[1], false); f.say = 'bj.dealing'; out.push(f); });
+      } else if (dealerTurn && live) {
+        for (k = 2; k <= next.dealer.length; k++) { var f = frame(99, k, true); f.say = 'bj.dealerPlays'; out.push(f); }
+      }
+      return out;
+    }
+    function present(prev, next) {
+      var frames = framesFor(prev, next), gap = root.ZimiShell && root.ZimiShell.ms ? root.ZimiShell.ms(frames.length && frames[0].hole ? DEALER_MS : DEAL_MS) : 0, i = 0;
+      if (!frames.length || !gap) { show(next); return; }
+      (function step() {
+        if (i >= frames.length) { stage = null; show(next); return; }
+        var f = frames[i++];
+        stage = { frame: f, say: f.say, owner: session.state };
+        t.board.render(f); t.paint();
+        session.later(step, gap);
+      })();
+    }
     function dealIt() {
       var st = session.state;
-      if (!canDeal(st)) return;
-      show(deal(st, rng)); session.began();
+      if (stage || !canDeal(st)) return;
+      present(st, deal(st, rng)); session.began();
     }
-    function move(next) { if (next !== session.state) show(next); }
+    function move(next) { if (!stage && next !== session.state) present(session.state, next); }
     function newGame() {
       var o = opts();
       o.chips = START_CHIPS; o.bet = DEFAULT_BET; bank = {};
