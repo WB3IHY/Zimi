@@ -28989,19 +28989,48 @@ function _gamePlayHide() {
   if (b) b.hidden = true;
 }
 
-// The article on screen is a game's: offer to play it. Only wiki articles ask.
+// An article on screen that an app of Zimi's has a view of gets one quiet button (#game-play): "Play Chess"
+// for a game, "See it in the Almanac" for a sky object. One data path: /games-links answers, for the
+// article's Q-ID, which apps have a view of it (their ZIMs are in the library, else the answer leaves them out).
+var _ALMANAC_EARTH_TARGETS = { 'planet:moon': 'moon', 'planet:sun': 'sun', 'planet:earth': 'earth' };
+var _ALMANAC_TARGET_WAIT_MS = 8000;
+function _openAlmanacFor(key) {
+  var target = _ALMANAC_EARTH_TARGETS[key];
+  closeReader();
+  openAlmanac();
+  if (!target) return;
+  // The Earth view's module follows the Almanac's open; it takes the object once both are here.
+  var until = Date.now() + _ALMANAC_TARGET_WAIT_MS;
+  var wait = setInterval(function() {
+    if (_almanacOpen && typeof window.openAlmanacEarth === 'function') { clearInterval(wait); window.openAlmanacEarth({ target: target }); }
+    else if (Date.now() > until) clearInterval(wait);
+  }, 100);
+}
+function _appViewFor(data, qid) {
+  var game = data.games[qid];
+  if (game) {
+    return { label: t('games_play', { game: game.title }), icon: _articleUrl(game.zim, 'mark.svg'),
+      open: function() { openArticle(game.zim, game.path, game.title); } };
+  }
+  var key = data.almanac && data.almanac[qid];
+  if (key) {
+    return { label: t('almanac_see_it'), icon: '/w/' + encodeURIComponent(_ALMANAC_ZIM) + '/-/icon',
+      open: function() { _openAlmanacFor(key); } };
+  }
+  return null;
+}
 function _gamePlayCheck() {
   _gamePlayHide();
   if (!currentArticle || !_GAMES_WIKI_RE.test(currentArticle.zim)) return;
   var key = currentArticle.zim + ':' + currentArticle.path;
   _gamesLoad().then(function(data) {
     if (!currentArticle || currentArticle.zim + ':' + currentArticle.path !== key) return;
-    var game = data.games[_gamesQidOf(data, currentArticle.zim, currentArticle.path)];
+    var view = _appViewFor(data, _gamesQidOf(data, currentArticle.zim, currentArticle.path));
     var b = document.getElementById('game-play');
-    if (!game || !b) return;
-    b.onclick = function() { openArticle(game.zim, game.path, game.title); };
-    b.querySelector('.gp-label').textContent = t('games_play', { game: game.title });
-    b.querySelector('img').src = _articleUrl(game.zim, 'mark.svg');
+    if (!view || !b) return;
+    b.onclick = view.open;
+    b.querySelector('.gp-label').textContent = view.label;
+    b.querySelector('img').src = view.icon;
     b.hidden = false;
   });
 }

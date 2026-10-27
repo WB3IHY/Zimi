@@ -128,7 +128,7 @@ class GamesLinksTests(_QidFixtureMixin, unittest.TestCase):
 
     def test_no_games_zim_means_no_links(self):
         _srv._zim_list_cache = _srv._zim_list_cache[:-1]
-        assert gamelinks.links() == {"games": {}, "articles": {}}
+        assert gamelinks.links() == {"games": {}, "almanac": {}, "articles": {}}
 
     def test_a_learned_qid_that_is_no_games_changes_nothing(self):
         with mock.patch.object(gamelinks, "_refresh") as refresh:

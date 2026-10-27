@@ -18,10 +18,10 @@ PAGE = """<!doctype html><html lang="{lang}"><head><meta charset="utf-8"><title>
 <body><h1>{title}</h1><p>{body}</p><p>{pad}</p>
 <a href="https://www.wikidata.org/wiki/{qid}#identifiers">Wikidata item</a></body></html>"""
 
-#: lang -> [(file, title, Q-ID)]; Q718 is Chess, Q146 is Cat
+#: lang -> [(file, title, Q-ID)]; Q718 is Chess, Q146 is Cat, Q405 is the Moon (the Almanac's)
 ARTICLES = {
-    "en": [("Chess.html", "Chess", "Q718"), ("Cat.html", "Cat", "Q146")],
-    "fr": [("Echecs.html", "Echecs", "Q718"), ("Chat.html", "Chat", "Q146")],
+    "en": [("Chess.html", "Chess", "Q718"), ("Cat.html", "Cat", "Q146"), ("Moon.html", "Moon", "Q405")],
+    "fr": [("Echecs.html", "Echecs", "Q718"), ("Chat.html", "Chat", "Q146"), ("Lune.html", "Lune", "Q405")],
 }
 
 

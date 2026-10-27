@@ -241,7 +241,7 @@ def test_remove_from_library_gone_from_home_add_from_catalog_back(served):
 
 
 
-# ── Links into the games follow their ZIM: "Play Chess", Game of the Day ──
+# ── Links into an app follow its ZIM: "Play Chess", "See it in the Almanac", Game of the Day ──
 
 
 def _article(pg, base, zim, path):
@@ -262,7 +262,7 @@ def _button(pg, shown):
     )
 
 
-def test_play_button_follows_the_games_zim_live(served):
+def test_play_and_almanac_buttons_follow_their_zims_live(served):
     import zimi.renderer as renderer
 
     if not renderer.browser_available():
@@ -282,7 +282,20 @@ def test_play_button_follows_the_games_zim_live(served):
         _shot(pg, "11-chess-no-play")
         _call(served, "/manage/own-zims", {"name": "zimi_games", "removed": False})
         _button(pg, True)
-        # Cat is no game's.
+        # The Moon: See it in the Almanac, which opens the Almanac on the Moon.
+        _article(pg, served, "wikipedia_en_test", "Moon.html")
+        _button(pg, True)
+        assert "Almanac" in pg.locator("#game-play").inner_text()
+        _shot(pg, "12-moon-almanac")
+        _call(served, "/manage/own-zims", {"name": "zimi_almanac", "removed": True})
+        _button(pg, False)
+        _shot(pg, "13-moon-no-almanac")
+        _call(served, "/manage/own-zims", {"name": "zimi_almanac", "removed": False})
+        _button(pg, True)
+        pg.locator("#game-play").click()
+        pg.wait_for_function("() => _almanacOpen === true", timeout=15000)
+        _shot(pg, "14-almanac-opened")
+        # Cat is neither a game nor in the sky.
         _article(pg, served, "wikipedia_en_test", "Cat.html")
         pg.wait_for_timeout(1500)
         _button(pg, False)

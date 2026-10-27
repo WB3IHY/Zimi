@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import random
+import re
 import threading
 
 import zimi.server as _srv
@@ -31,6 +32,11 @@ from zimi.interlang import (
 log = logging.getLogger("zimi")
 
 _GAMES_ZIM = "zimi_games"
+_ALMANAC_ZIM = "zimi_almanac"
+_ALMANAC_LINKS_JS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "almanac-links.js")
+#: The Almanac's kinds that are something to look at in the sky (not a holiday, a city or a term).
+_SKY_KINDS = ("planet", "star", "const", "shower", "eclipse", "belt", "probe")
+_ALMANAC_ENTRY = re.compile(r"'([a-z]+:[A-Za-z0-9_.\-]+)':\s*\{\s*q:\s*'(Q\d+)'")
 _lock = threading.Lock()
 _rows = None  # games.json, read once
 _memo = {"token": None, "articles": {}}
@@ -50,6 +56,29 @@ def games_here():
     """Whether the games ZIM is in the library for this request: removed or
     deleted (or off the account's list), nothing of it is offered."""
     return _here(_GAMES_ZIM)
+
+
+def almanac_here():
+    """Whether the Almanac ZIM is in the library for this request."""
+    return _here(_ALMANAC_ZIM)
+
+
+_almanac_keys = None  # {qid: entity key}, read once
+
+
+def almanac_qids():
+    """{Q-ID: the Almanac's key for it ("planet:moon")}: the closed set the
+    Almanac links into the encyclopedia (static/almanac-links.js holds it,
+    once; this reads it so a Wikipedia article on one can offer the Almanac)."""
+    global _almanac_keys
+    if _almanac_keys is None:
+        try:
+            with open(_ALMANAC_LINKS_JS, encoding="utf-8") as f:
+                _almanac_keys = {q: k for k, q in _ALMANAC_ENTRY.findall(f.read()) if k.split(":")[0] in _SKY_KINDS}
+        except OSError as e:
+            log.warning("almanac-links.js unreadable: %s", e)
+            _almanac_keys = {}
+    return _almanac_keys
 
 
 def rows():
@@ -90,6 +119,12 @@ def build():
                 )
             elif lang == "en" and r.get("wiki"):
                 probe.append((name, r))
+        for qid in almanac_qids():
+            if qid in articles and any(a["zim"] == name for a in articles[qid]):
+                continue
+            path = _qid_find_in_zim(name, int(qid[1:]))
+            if path:
+                articles.setdefault(qid, []).append({"zim": name, "lang": lang, "path": path})
     if probe:
         with _srv._zim_lock:  # libzim: one hold for a few dozen memory-mapped probes
             for name, r in probe:
@@ -126,7 +161,7 @@ def _refresh():
 def qids_changed(qid=None):
     """The Q-ID answers moved (an index was built, or a viewed article's Q-ID
     was learned): rework the links, unless that Q-ID is no game's."""
-    if qid is None or any(r["qid"] == "Q%d" % qid for r in rows()):
+    if qid is None or any(r["qid"] == "Q%d" % qid for r in rows()) or "Q%d" % qid in almanac_qids():
         _refresh()
 
 
@@ -137,10 +172,11 @@ def refresh_async():
 
 def links():
     """The data GET /games-links serves: {games: {qid: {zim, path, title}},
-    articles: {qid: [{zim, lang, path}]}}, for what this request may see.
-    Nothing while the games ZIM is not in the library."""
-    if not games_here():
-        return {"games": {}, "articles": {}}
+    almanac: {qid: entity key}, articles: {qid: [{zim, lang, path}]}}, for
+    what this request may see. An app's entries are there only while its ZIM
+    is in the library."""
+    if not games_here() and not almanac_here():
+        return {"games": {}, "almanac": {}, "articles": {}}
     with _lock:
         fresh = _memo["token"] is _srv._listing_seen
         articles = _memo["articles"]
@@ -153,11 +189,16 @@ def links():
         for r in rows()
         if games_here()
     }
+    almanac = almanac_qids() if almanac_here() else {}
     shown = {
         q: [a for a in found if _srv.zim_allowed(a["zim"])]
         for q, found in articles.items()
     }
-    return {"games": games, "articles": {q: a for q, a in shown.items() if a}}
+    return {
+        "games": games,
+        "almanac": {q: k for q, k in almanac.items() if shown.get(q)},
+        "articles": {q: a for q, a in shown.items() if a},
+    }
 
 
 def _fnv1a(text):
