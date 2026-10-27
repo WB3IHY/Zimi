@@ -2,6 +2,7 @@
    Tokens come from games.css; each game's own sheet adds only what is special to it. Piece and material colours below are
    materials (the games' own pieces, dice and pegs), pulled toward neutral; UI neutrals are only ever games.css tokens. */
 :root {
+  --pad-key: 56px;
   --p-i: #1e9ec4; --p-o: #d4a40f; --p-t: #8a55c9; --p-s: #3d9a4a; --p-z: #d1473f; --p-j: #3a63c9; --p-l: #dc7a1b;
   --ok: #2e7d4f; --warn: #b7791f; --bad: #c0392b;
   --cell: #ece8de; --cell-line: #e1dccf;
@@ -45,6 +46,22 @@
 .pl-pad .pl-key { width: 56px; height: 56px; min-width: 56px; min-height: 56px; padding: 0; font-size: var(--fs-body); }
 .pl-pad .pl-act { width: auto; min-width: 72px; padding: 0 var(--sp-3); border-radius: 999px; }
 .pl-pad [data-pad="up"] { grid-area: up; } .pl-pad [data-pad="down"] { grid-area: down; } .pl-pad [data-pad="left"] { grid-area: left; } .pl-pad [data-pad="right"] { grid-area: right; }
+/* Portrait: the pad is the rest of the screen under the field, in full-width rows (arrows, then the actions split evenly),
+   each key at least 56px tall. The status line sits between the field and the pad. */
+@media not all and (orientation: landscape) and (max-height: 520px) {
+  .pl-main:has(.pl-stage) { align-items: stretch; }
+  .pl-stage { grid-template-columns: 100%; grid-template-rows: auto auto 1fr; grid-template-areas: "field" "msg" "pad"; justify-content: stretch; width: 100%; min-width: 0; flex: 1 1 auto; row-gap: var(--sp-2); }
+  .pl-stage > .pl-msg { grid-area: msg; justify-self: center; }
+  .pl-pad { display: flex; flex-direction: column; gap: var(--sp-2); grid-area: pad; align-self: stretch; width: 100%; max-width: 560px; max-height: 420px; justify-self: center; }
+  .pl-pad-l, .pl-pad-r { align-content: stretch; gap: var(--sp-2); }
+  .pl-pad-l { grid-area: auto; flex: 2 1 0; grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; min-height: calc(var(--pad-key) * 2 + var(--sp-2)); }
+  .pl-pad-l[data-n="2"] { grid-template-columns: 1fr 1fr; }
+  .pl-pad-l[data-n="2"], .pl-pad-l[data-n="3"] { grid-template-rows: 1fr; min-height: var(--pad-key); }
+  .pl-pad-r { grid-area: auto; flex: 1 1 0; grid-auto-flow: column; grid-auto-columns: 1fr; min-height: var(--pad-key); max-height: 96px; }
+  .pl-pad-r:empty { display: none; }
+  .pl-pad .pl-key, .pl-pad .pl-act { width: 100%; height: 100%; min-width: 0; min-height: var(--pad-key); border-radius: var(--radius); }
+  .pl-pad .pl-dir { font-size: 26px; }
+}
 /* A desktop with a keyboard and a mouse has no use for the pad. */
 @media (min-width: 700px) and (pointer: fine) { .pl-pad { display: none; } }
 @media (orientation: landscape) and (max-height: 520px) {

@@ -79,13 +79,16 @@
   var LANDSCAPE = '(orientation: landscape) and (max-height: 520px)';
   function landscape() { try { return matchMedia(LANDSCAPE).matches; } catch (e) { return false; } }
 
-  // The one touch pad: a d-pad on the left (any of left, right, up, down) and up to two action buttons on the right,
-  // all 56px, in the same place in every game that has one. The canvas is wrapped in .pl-stage so that, in landscape
-  // on a phone, the two halves sit on either side of the playfield.
+  // The one touch pad. Portrait: the pad fills everything under the field (the status line sits between), in rows the
+  // full width of the screen: the arrows first (a row of two or three, or a d-pad block for four ways), then the actions
+  // as one row split evenly. Landscape on a phone: the arrows on the left, the actions on the right, all 56px. The canvas is
+  // wrapped in .pl-stage so the pad sits under it, or on either side of the playfield in landscape.
   //   Play.pad(canvas, { dirs: ['left', 'right'], actions: [{ name: 'fire', label: T('play.fire') }], on: function (name, down) {} })
   // A pad with up or down is an arrow pad, so a swipe on the playfield sends one arrow too (24px, the dominant axis, one
   // move per swipe); the pad stays. swipe: false for a game that reads swipes its own way.
   // Returns { el, release() }. Keys answer by pointer and by Space or Enter on a focused key; a game reads the keyboard itself.
+  // How many rows of keys a pad has: a four-way d-pad is two, the actions are one.
+  function padRows(opts) { var dirs = opts.dirs || []; return (dirs.length > 3 ? 2 : dirs.length ? 1 : 0) + ((opts.actions || []).length ? 1 : 0); }
   Play.pad = function (canvas, opts) {
     var stage = canvas.parentNode.classList.contains('pl-stage') ? canvas.parentNode : null, holds = [];
     if (!stage) {
@@ -107,6 +110,10 @@
     right.setAttribute('role', 'group'); right.setAttribute('aria-label', T('play.actions'));
     el.appendChild(left); el.appendChild(right);
     stage.appendChild(el);
+    // The status line sits between the field and the pad, never under the keys.
+    var msg = stage.parentNode.querySelector(':scope > .pl-msg');
+    if (msg && (stage.compareDocumentPosition(msg) & Node.DOCUMENT_POSITION_FOLLOWING)) stage.insertBefore(msg, el);
+    el.setAttribute('data-rows', String(padRows(opts)));
     var dirs = opts.dirs || [];
     if (opts.swipe !== false && (dirs.indexOf('up') >= 0 || dirs.indexOf('down') >= 0)) {
       canvas.style.touchAction = 'none';   // a swipe on the field never scrolls the page or pulls to refresh
@@ -119,13 +126,13 @@
   };
 
   // Room for a playfield: the width and height left once the page's own chrome (everything but the pad) is taken.
-  // With a pad the portrait page loses its row; in landscape the halves take the sides and the row is not there.
+  // With a pad the portrait page loses the pad's least height (the pad itself grows to fill what is left); in landscape the halves take the sides.
   var PAD_SIDE = PAD_KEY * 3 + PAD_GAP * 2;
   Play.room = function (chrome) {
     var vw = document.documentElement.clientWidth - 24, vh = window.innerHeight - chrome, pad = document.querySelector('.pl-pad');
     if (pad) {
       if (landscape()) { vw -= PAD_SIDE * 2 + 24; if (document.querySelector('.pl-hud')) vh += HUD_FLOW_PX; }
-      else { var l = pad.firstChild; vh -= Math.max(l ? l.offsetHeight : 0, pad.lastChild ? pad.lastChild.offsetHeight : 0) + 12; }
+      else if (pad.getClientRects().length) { var rows = +pad.getAttribute('data-rows') || 1; vh -= rows * PAD_KEY + (rows - 1) * PAD_GAP + 12; }
     }
     return { w: vw, h: vh };
   };

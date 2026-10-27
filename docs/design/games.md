@@ -166,9 +166,9 @@ Records ("Medium: 3 won, 1 lost") are 13px sans in ink2, on one line, hidden unt
 
 The HUD is one strip directly above the playfield: at most four values, each a 13px label over a 32px tabular value. It replaces the bar's stat slot. Lander's five readouts become four (fuel, speed down, speed across, lives; the score is on the end sheet and in Stats).
 
-Games steered with a pad use the one shared touch pad: a d-pad on the left and up to two action buttons on the right, all 56px, in the same place in every such game. Labels: Left, Right, Up, Down, plus each game's verb (Fire, Jump, Thrust). Gesture games (Pinball, Road Rush, Snake, Kart) draw no pad. They say their gesture once in the ready line ("Swipe to turn").
+Games steered with a pad use the one shared touch pad: in portrait on a phone the pad fills the whole screen under the playfield, in rows the full width of the screen: the arrows first (two or three keys splitting the width, or a full-width d-pad block for four ways), then the actions as one row split evenly, every key at least 56px tall, the status line between the field and the pad and never under the keys, the field never shrunk for it beyond the pad's least height. It is written once (Play.pad, play.css) and ZimiKart's pad follows the same rule in kart.css. Labels: Left, Right, Up, Down, plus each game's verb (Fire, Jump, Thrust). Gesture games (Pinball, Road Rush, Snake, Kart) draw no pad. They say their gesture once in the ready line ("Swipe to turn").
 
-In landscape on a phone, the pad's two halves move to the two sides of the playfield, and the bar stays.
+In landscape on a phone (and in split screen) the pad is a d-pad on the left and the actions on the right, all 56px: the two halves move to the two sides of the playfield, and the bar stays.
 
 Key hints sit in How to play, never in footnotes under the game.
 

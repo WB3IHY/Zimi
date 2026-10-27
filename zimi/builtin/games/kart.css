@@ -21,6 +21,22 @@ body.touch .kt-pad { display: flex; }
 .kt-pads.over { position: absolute; inset: 0; pointer-events: none; }
 .kt-pads.over .kt-pad { position: absolute; left: 0; right: 0; padding-bottom: 6px; }
 @media (orientation: landscape) { body.touch .kt-pads { position: absolute; inset: 0; pointer-events: none; } body.touch .kt-pad { position: absolute; left: 0; right: 0; bottom: 4px; padding-bottom: 4px; } body.touch .kt-btn { min-height: 76px; } body.touch .kt-drift { min-height: 88px; min-width: 88px; } }
+/* Portrait on a phone, one player: the pad is the rest of the screen under the race, in full-width rows (Left and Right, half each;
+   then the actions split evenly), each key at least --pad-key tall, the status line above them. Split screen and landscape keep their own. */
+@media (orientation: portrait) {
+  body:has(> .kt-main) { display: flex; flex-direction: column; min-height: 100vh; min-height: 100svh; height: auto; }
+  .kt-main { flex: 1 0 auto; width: 100%; }
+  body.touch .kt-stage:not(.kt-split) { flex: 1 1 auto; width: 100%; align-items: stretch; }
+  body.touch .kt-stage:not(.kt-split) .kt-board { align-self: center; }
+  body.touch .kt-stage:not(.kt-split) .pl-msg { align-self: center; margin: var(--sp-1) 0; }
+  body.touch .kt-stage:not(.kt-split) .kt-pads { flex: 1 1 0; display: flex; flex-direction: column; max-width: 560px; align-self: center; padding-bottom: env(safe-area-inset-bottom); }
+  body.touch .kt-stage:not(.kt-split) .kt-pad { flex: 1 1 0; flex-direction: column; align-items: stretch; gap: var(--sp-2); padding: 0; }
+  body.touch .kt-stage:not(.kt-split) .kt-pad > div { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; align-items: stretch; gap: var(--sp-2); }
+  body.touch .kt-stage:not(.kt-split) .kt-steer { flex: 3 1 0; min-height: calc(var(--pad-key) + var(--sp-4)); }
+  body.touch .kt-stage:not(.kt-split) .kt-act { flex: 2 1 0; min-height: var(--pad-key); max-height: 110px; }
+  body.touch .kt-stage:not(.kt-split) .kt-pad .kt-btn { width: 100%; min-width: 0; min-height: var(--pad-key); height: 100%; border-radius: var(--radius); font-size: var(--fs-body); }
+  body.touch .kt-stage:not(.kt-split) .kt-steer .kt-btn { font-size: 30px; }
+}
 .kt-note { margin: var(--sp-2) 0 0; font-size: var(--fs-small); color: var(--ink2); }
 .kt-cast { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); margin-top: var(--sp-2); }
 .kt-pick { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 4px 2px 3px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); cursor: pointer; }
