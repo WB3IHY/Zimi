@@ -83,3 +83,14 @@ def test_a_helper_script_that_fails_to_load_raises_no_banner_when_the_game_plays
     page.wait_for_timeout(GRACE_WAIT_MS)
     assert _banner(page) == 0
     page.close()
+
+
+def test_a_game_whose_start_is_its_setup_sheet_raises_no_banner(site, browser):
+    # ZimiKart on Eric's phone: an error while starting, the setup sheet up and the board not drawn until Start.
+    page = browser.new_page(viewport={"width": 390, "height": 844})
+    page.add_init_script("addEventListener('DOMContentLoaded', function () { setTimeout(function () { throw new Error('a stray start error'); }, 0); });")
+    page.goto(site + "kart.html")
+    page.wait_for_timeout(GRACE_WAIT_MS)
+    assert page.locator(".ar-sheet:not([hidden])").count() == 1
+    assert _banner(page) == 0
+    page.close()

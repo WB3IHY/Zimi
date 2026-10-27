@@ -87,6 +87,10 @@
   // that did start (a ResizeObserver loop note, a late listener) must not cover a working table with an alarm.
   var NOTHING_DRAWN_MIN = 3;
   function nothingDrawn() {
+    // A game that put up its own sheet (a setup, a start, a menu) ran far enough to draw it: that is a start
+    // (ZimiKart's setup covers a board not drawn until Start, and read as a blank page).
+    var sheets = d.querySelectorAll('.gs-sheet:not([hidden]) button, .ar-sheet:not([hidden]) button');
+    for (var k = 0; k < sheets.length; k++) { var b = sheets[k].getBoundingClientRect(); if (b.width > 4 && b.height > 4) return false; }
     var n = 0, els = d.querySelectorAll('body *');
     for (var i = 0; i < els.length && n < NOTHING_DRAWN_MIN; i++) {
       var el = els[i];
