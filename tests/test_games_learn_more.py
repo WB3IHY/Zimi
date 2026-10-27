@@ -62,12 +62,13 @@ def zimi(tmp_path_factory):
     )  # the second library: the lists, a Wiktionary, a Gutenberg and a map
     built.mkdir()
     (base / "data").mkdir()
-    was = ownzims.OUT_DIR
-    ownzims.OUT_DIR = str(built)
+    shutil.copytree(GAMES, base / "src" / "games")   # a snapshot: the build must not read files that are being edited
+    was = (ownzims.OUT_DIR, ownzims.SOURCE_ROOT)
+    ownzims.OUT_DIR, ownzims.SOURCE_ROOT = str(built), str(base / "src")
     try:
         made = ownzims.build(ownzims.OWN[0])
     finally:
-        ownzims.OUT_DIR = was
+        ownzims.OUT_DIR, ownzims.SOURCE_ROOT = was
     shutil.copy(made, zdir / os.path.basename(made))
     port = free_port()
     env = dict(
@@ -213,6 +214,63 @@ def test_sky_detective_studies_the_almanacs_sky_first(browser, zimi):
     f.wait_for_function("() => __sky.g.study === false", timeout=WAIT)
     assert page.evaluate("_almFocus") is None and page.evaluate("_skyHost") is None
     assert f.locator("#sk-q").inner_text(), "the first question is not up"
+    assert not errors, errors
+    ctx.close()
+
+
+def test_back_closes_the_study_sky_and_stays_in_the_game(browser, zimi):
+    """Browser Back and Zimi's back arrow each close the sky over the game, and the game (not the shelf) is still there."""
+    for how in ("browser", "arrow"):
+        ctx, page, errors = open_game(browser, zimi, "skydetective.html")
+        f = game(page, "skydetective.html")
+        page.locator(".gamesky .alm-sky-host").wait_for(state="attached", timeout=WAIT)
+        if how == "browser":
+            page.go_back()
+        else:
+            page.evaluate("goBack()")
+        page.locator(".gamesky").wait_for(state="detached", timeout=WAIT)
+        frames(page, 4)
+        assert page.evaluate("_almFocus") is None and page.evaluate("_skyHost") is None
+        assert reader_path(page).endswith("/skydetective.html"), "Back left the game"
+        assert f.evaluate("__sky.g.study") is True
+        # and the page is as it was: a second Back is the ordinary one (it is not swallowed)
+        f.locator("#sk-look").wait_for(state="visible", timeout=WAIT)
+        click(f, "#sk-look")
+        page.locator(".gamesky .alm-sky-host").wait_for(state="attached", timeout=WAIT)
+        page.locator(".gamesky-btn.primary").click()   # Start: takes its own step back without leaving
+        page.locator(".gamesky").wait_for(state="detached", timeout=WAIT)
+        f.wait_for_function("() => __sky.g.study === false", timeout=WAIT)
+        frames(page, 4)
+        assert reader_path(page).endswith("/skydetective.html")
+        assert not errors, errors
+        ctx.close()
+
+
+@pytest.mark.parametrize("width", [390, 375])
+def test_no_name_in_the_study_sky_overlaps_a_mark_or_another_name(browser, zimi, width):
+    ctx = browser.new_context(viewport={"width": width, "height": 812}, has_touch=True, is_mobile=True)
+    ctx, page, errors = open_game(browser, zimi, "skydetective.html", ctx)
+    game(page, "skydetective.html")
+    page.locator(".gamesky .alm-sky-host").wait_for(state="attached", timeout=WAIT)
+    seen = 0
+    for az, alt, fov in [(180, 35, 90), (90, 10, 90), (270, 10, 70), (0, 15, 100), (180, 5, 120), (135, 20, 60), (225, 12, 80)]:
+        page.evaluate("([a, l, f]) => { AlmanacSkyView.setView(_skyHost.host, a, l, f); _skyHostDraw(); }", [az, alt, fov])
+        frames(page, 3)
+        bad = page.evaluate("""() => {
+          const s = _skyHost.s, measure = t => t.length * 7 * s.dpr, plan = _skyLabelPlan(s, measure), obs = _skyLabelObstacles(s, measure, 0);
+          const hit = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0, out = [];
+          plan.forEach((p, i) => {
+            plan.forEach((q, j) => { if (j > i && hit(p.box, q.box)) out.push(p.text + ' x ' + q.text); });
+            obs.forEach(o => { if (hit(p.box, o)) out.push(p.text + ' on ' + (o.of ? 'a body' : 'the compass')); });
+          });
+          return { n: plan.length, out };
+        }""")
+        assert not bad["out"], (az, alt, fov, bad)
+        seen += bad["n"]
+    assert seen > 10, "too few names were checked"
+    page.evaluate("AlmanacSkyView.setView(_skyHost.host, 90, 10, 90); _skyHostDraw()")
+    frames(page, 4)
+    shot(page, "sky-labels-%d" % width)
     assert not errors, errors
     ctx.close()
 

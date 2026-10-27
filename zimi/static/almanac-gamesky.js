@@ -38,10 +38,19 @@ var ZimiGameSky = (function () {
     return function () { _almFocus = before; };
   }
 
-  function close(started) {
+  // The sky is a step in history, like the game's sheets: the browser's Back and Zimi's back arrow close it and stay in the game.
+  // `fromHistory`: the browser already took the step; otherwise it is taken back here and the router is told to let it be.
+  var swallow = false;
+  function pop(e) {
+    if (swallow) { swallow = false; return true; }
+    if (open && !(e.state && e.state.gamesky)) { close(false, true); return true; }
+    return false;
+  }
+  function close(started, fromHistory) {
     var o = open;
     if (!o) return;
     open = null;
+    if (fromHistory !== true && history.state && history.state.gamesky) { swallow = true; history.back(); }
     document.removeEventListener('keydown', o.keys, true);
     try { AlmanacSkyView.unmount(o.host); } catch (e) { /* already gone */ }
     o.restore();
@@ -87,6 +96,7 @@ var ZimiGameSky = (function () {
       e.preventDefault(); apply();
     };
     document.addEventListener('keydown', keys, true);
+    history.pushState(Object.assign({}, history.state, { gamesky: 1 }), '', location.href);
     open = { root: root, host: host, restore: restore, answer: answer, keys: keys, opener: document.activeElement, apply: apply };
     apply();
 
@@ -113,5 +123,5 @@ var ZimiGameSky = (function () {
 
   window.addEventListener('resize', function () { if (open) { AlmanacSkyView.resize(open.host); open.apply(); } });
 
-  return { open: openSky, isOpen: function () { return !!open; } };
+  return { open: openSky, pop: pop, close: function () { close(false); }, isOpen: function () { return !!open; } };
 })();

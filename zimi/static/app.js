@@ -4299,6 +4299,8 @@ function _appEntryHome() {
 }
 
 function goBack() {
+  // The sky a game is studying (almanac-gamesky.js) closes first, and the game stays.
+  if (typeof ZimiGameSky !== 'undefined' && ZimiGameSky.isOpen()) { ZimiGameSky.close(); return; }
   // The Almanac's tables as a PDF, over the Almanac (almanac-tables.js).
   if (typeof _tbPdfBack === 'function' && _tbPdfBack()) return;
   if (_createOpen) { closeCreate(); return; }
@@ -29611,6 +29613,8 @@ window.addEventListener('popstate', async (e) => {
   if (typeof _almTablesPop === 'function' && _almTablesPop(e)) return;
   // Pointing the phone is a step too (almanac-look.js): Back closes it, not the Almanac.
   if (typeof _lookPop === 'function' && _lookPop(e)) return;
+  // So is the sky a game studies (almanac-gamesky.js): Back closes it and stays in the game.
+  if (typeof ZimiGameSky !== 'undefined' && ZimiGameSky.pop(e)) return;
   // So are the 3D Earth and the flown solar system (almanac-earth.js).
   if (typeof _aeStepPop === 'function' && _aeStepPop(e)) return;
   hideSuggest();
