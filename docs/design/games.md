@@ -237,25 +237,19 @@ How to play has four parts: Goal, Your turn, The end, Tip. Each part is one or t
 
 Every visible and aria string goes through `T(key, vars)` (ZimiText in shell.js), keyed by id. English JSON ships in the ZIM. Plurals use `Intl.PluralRules`, numbers and times use `Intl`, and sentences have named slots, never concatenation. The language comes from the hash Zimi passes, else `navigator.language`, and sets `<html lang dir>`. The translations themselves are the next pass. This pass makes every string ready for them.
 
-## Third-party pages (the 41 Tatham puzzles, via scripts/games_shell.py)
+## Third-party pages (Simon Tatham's puzzles, puzzles/zimi-fit.js)
 
-Each page is wrapped in the same bar and Menu:
-- Game and Type go to Menu > New game.
-- New, Restart, Undo, Redo and Solve map onto the verb list ("Solve" becomes "Show solution").
-- Rules becomes How to play.
-- The upstream links, the author's email and the small-print credit leave the page. The credit and MIT licence live in About.
-- Each puzzle gets a four-part How to play.
-- The canvas palette is remapped to Zimi in light and dark: background surface2, grid lines and clues in ink, the cursor and selection in amber, and numbers in the type scale.
-- Mouse-button hints ("Tap: left", "right-click") are banned. A long press replaces a right-click.
-
-## The deck's index (cards.js, scripts/cardfont.py)
-
-The corner index is the card's whole message in a fanned pile: rank and colour, read across a tableau at arm's length. It is the outlines of **Barlow Semi Condensed ExtraBold** (SIL OFL, `OFL-Barlow.txt`), cut by `scripts/cardfont.py`; never a hand-drawn glyph (Eric, 2026-10-26: "You made your own font? It looks bad").
-
-- **Why this one.** Barlow Condensed Bold was thin at the ~44 to 51 px a phone gives a card (7 to 8 px cap height, stems about 1.2 px): "10", Q and K lost weight. Compared at those sizes, downscaled and blurred, against Barlow Condensed ExtraBold, Barlow Semi Condensed Bold, Barlow Bold and ExtraBold, Roboto Condensed Bold and Black, Fira Sans Condensed Bold and ExtraBold, IBM Plex Sans Condensed Bold and Source Sans 3 Black. Semi Condensed ExtraBold is the heavy, slightly condensed index of a Bicycle or Copag deck with open counters; the wider families (Fira, Source Sans, Barlow Bold) are heavy but force "10" and "12" to be squeezed 25 to 40 percent, which thins their stems again; the narrow ones stay light.
-- **Size.** Cap height 16.8 units of the 100 x 140 face (IDX_SCALE 1.2, was 1.1); the suit under it 0.72 (was 0.65). IDX_COLUMN is 25 (was 22): the court frame gives up 3 units a side so the widest rank (15 glyph units, "10" and "12" condensed in width only to 0.88) keeps 1.5 units of air to the frame and 5 to the card's edge.
-- **Rules that stay.** One cap height and weight for every rank; two-digit ranks keep one stem of clear paper between digits; the Q's tail clears the suit; Latin only. `tests/test_games_pixels.cjs` measures the gaps, the top inset, and court clearance.
-- **Changing it.** `python3 scripts/cardfont.py BarlowSemiCondensed-ExtraBold.ttf --write` rewrites the GLYPHS block; the shelf thumbnails and the Almanac ZIM carry copies of the paths and are rebuilt separately.
+Each of the 41 pages is wrapped in the same bar and Menu, and 38 of them are first class on the shelf, in the Logic puzzles family (one wordless tile each, a blurb of 60 characters or fewer, Tatham's own name). Mines, Solo and Guess are the same games as our Minesweeper, Sudoku and Code Breaker: they have no tile, and Back on their pages goes to ours, which links to them from New game ("More versions") for what they add (no-guess boards and odd grids, killer and jigsaw, your own pegs and colours). Random, Game of the Day, favourites and the Wikipedia link point at ours.
+- Bar: Back, the name, Undo and Redo as arrows (absent while disabled), Menu. Restart and Show solution are the Menu's first row; Show solution asks, and a solved-by-solver game is never a win.
+- Menu > New game: Type (every preset, and Custom size, which opens the puzzle's own size form as a sheet), then an Advanced fold (game ID, random seed, save files) that is closed until opened.
+- Menu > Settings: This puzzle carries the puzzle's own preferences as rows, read from its preferences form, which is never shown. The keyboard-shortcut switch is left out.
+- How to play (goal, a turn, the end, a tip) comes from the manual; History and About are as in every game; About carries the credit, the MIT licence and a link to the puzzle's manual page in the ZIM, which stays English.
+- Hint: none of the 41 has one, so none is drawn.
+- Touch: a tap is a left press, a long press is a right press, and Mark (Pencil, where there are digits) makes taps right presses until pressed again; no mouse-button words anywhere.
+- The win is the status bar's COMPLETED, or, for the 26 puzzles with no status bar, the completion flash after the player's own move. Solving it yourself is a win with a sheet (Time and Best); loading a solved game, or the solver, is not. Best times are kept per Type name; a custom size has none.
+- A dealt game is kept as well as a played one, so leaving and returning is the same puzzle, undo history included; a solved game is not kept.
+- Words: the type names, grid names and the puzzle's own dialogs are put in the player's language where we have the words (pz.d.*, pz.t.*); anything else stays as the puzzle wrote it.
+- The canvas palette is remapped to Zimi in light and dark: background surface2, grid lines and clues in ink, the cursor and selection in amber.
 
 ## The shelf (index.html, shelf.js)
 

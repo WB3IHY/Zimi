@@ -79,3 +79,5 @@ html body #dlgform .pz-dlg-actions input { margin: 0; padding: 0 var(--sp-4); }
 html body #dlgform .pz-dlg-actions input[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 650; }
 html body #dlgform .pz-dlg-actions input:not([aria-pressed="true"]) { background: transparent; border-color: transparent; color: var(--ink2); }
 .gs-about a { color: var(--accent); }
+/* About: the facts and the credit are separate paragraphs. */
+.gs-about .gs-meta + .gs-text, .gs-about .gs-text + .gs-text { margin-top: var(--sp-3); }
