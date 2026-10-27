@@ -9,7 +9,7 @@
   function driverName(d) { return Tx('kart.driver.' + d.id + '.name'); }
   function driverNote(d) { return Tx('kart.driver.' + d.id + '.note'); }
   var STORE = 'zimi.games.kart', GHOST_KEY = 'zimi.games.kart.ghost.', TOAST_S = 1.6, MAX_W = 1180, BAR_H = 52, DPR_MAX = 2, MSG_GAP_S = 2.5;
-  var TILT_RANGE = 24, TILT_DEAD = 0.06;
+  var FACE_PADS_PX = 168, TILT_RANGE = 24, TILT_DEAD = 0.06;
   Play.applyTheme();
 
   var coarse = false;
@@ -99,9 +99,12 @@
     var ghost = null;
     if (g.ghostRec && r.go) { var gp = E.ghostAt(g.ghostRec.rec || g.ghostRec, clock); if (gp) ghost = { x: gp.x, y: gp.y, a: gp.a, driver: DRIVERS[(g.ghostRec.driver || 0)] }; }
     g.humans.forEach(function (k, p) {
-      V.draw(ctx, g.rects[p], g.cams[p], k, r, g.assets, { slot: p, t: t, still: reduced, ghost: ghost, small: g.split, banner: p === 0 || g.split ? (g.humans.length === 1 || p === 0 ? g.banner : null) : null });
+      var rc = g.rects[p], flip = g.face && p === 1; // face to face: player 2's half is drawn upside down, for the person across the table
+      if (flip) { ctx.save(); ctx.translate(rc.x + rc.w / 2, rc.y + rc.h / 2); ctx.rotate(Math.PI); ctx.translate(-(rc.x + rc.w / 2), -(rc.y + rc.h / 2)); }
+      V.draw(ctx, rc, g.cams[p], k, r, g.assets, { slot: p, t: t, still: reduced, ghost: ghost, small: g.split, banner: p === 0 || g.split ? (g.humans.length === 1 || p === 0 ? g.banner : null) : null });
+      if (flip) ctx.restore();
     });
-    if (g.split) { ctx.fillStyle = '#0e0e10'; var a = g.rects[0], b = g.rects[1]; if (a.y === b.y) ctx.fillRect(a.x + a.w, 0, b.x - a.x - a.w, cssH); else ctx.fillRect(0, a.y + a.h, cssW, b.y - a.y - a.h); }
+    if (g.split) { ctx.fillStyle = '#0e0e10'; var a = g.rects[0], b = g.rects[1]; if (a.y === b.y) ctx.fillRect(a.x + a.w, 0, b.x - a.x - a.w, cssH); else { var hi = a.y < b.y ? a : b, lo = hi === a ? b : a; ctx.fillRect(0, hi.y + hi.h, cssW, lo.y - hi.y - hi.h); } }
   }
   var loop = Play.loop(update, render, 60);
 
@@ -295,9 +298,12 @@
   // ── layout ───────────────────────────────────────────────────────────────
   function layout() {
     var vw = document.documentElement.clientWidth, vh = window.innerHeight, touch = isTouch(), landscape = vw > vh, split = g.split;
-    var padBelow = touch && !landscape && !split ? 190 : 0, avail = vh - BAR_H - (touch && landscape ? 10 : 48) - padBelow - (touch ? 0 : 56);
+    // Portrait with two people on a touch screen sits face to face: player 2's pad and view are turned round at the top, player 1's at the bottom.
+    var face = touch && !landscape && split, padBelow = face ? FACE_PADS_PX : touch && !landscape && !split ? 190 : 0;
+    var avail = vh - BAR_H - (touch && landscape ? 10 : 48) - padBelow - (touch ? 0 : 56);
+    g.face = face; els.stage.classList.toggle('kt-face', face); els.pads.classList.toggle('over', split && !face);
     cssW = Math.floor(Math.min(vw - (touch ? 0 : 20), MAX_W));
-    var ratio = touch && !landscape && !split ? 1.5 : split && !touch ? 0.5 : 0.62;
+    var ratio = face ? 2 : touch && !landscape && !split ? 1.5 : split && !touch ? 0.5 : 0.62;
     cssH = Math.floor(Math.max(220, Math.min(avail, cssW * ratio)));
     pxs = Math.min(root.devicePixelRatio || 1, DPR_MAX);
     els.cv.style.width = cssW + 'px'; els.cv.style.height = cssH + 'px';
@@ -305,11 +311,11 @@
     ctx = els.cv.getContext('2d'); ctx.setTransform(pxs, 0, 0, pxs, 0, 0);
     var gap = 4;
     if (!split) g.rects = [{ x: 0, y: 0, w: cssW, h: cssH }];
-    else if (touch) { var hh = Math.floor((cssH - gap) / 2); g.rects = [{ x: 0, y: 0, w: cssW, h: hh }, { x: 0, y: hh + gap, w: cssW, h: hh }]; }
+    else if (touch) { var hh = Math.floor((cssH - gap) / 2); var top = { x: 0, y: 0, w: cssW, h: hh }, bottom = { x: 0, y: hh + gap, w: cssW, h: hh }; g.rects = face ? [bottom, top] : [top, bottom]; }
     else { var ww = Math.floor((cssW - gap) / 2); g.rects = [{ x: 0, y: 0, w: ww, h: cssH }, { x: ww + gap, y: 0, w: ww, h: cssH }]; }
     // a pad per half over the canvas in split screen; one pad under (or over) the canvas otherwise
     Array.prototype.forEach.call(els.pads.children, function (pad, p) {
-      if (!g.split) { pad.style.top = pad.style.bottom = ''; return; }
+      if (!g.split || g.face) { pad.style.top = pad.style.bottom = ''; return; }
       var r = g.rects[p]; pad.style.top = (r.y + r.h - 62) + 'px'; pad.style.bottom = 'auto';
     });
     render();

@@ -37,6 +37,19 @@ body.touch .kt-pad { display: flex; }
   body.touch .kt-stage:not(.kt-split) .kt-pad .kt-btn { width: 100%; min-width: 0; min-height: var(--pad-key); height: 100%; border-radius: var(--radius); font-size: var(--fs-body); }
   body.touch .kt-stage:not(.kt-split) .kt-steer .kt-btn { font-size: 30px; }
 }
+/* Portrait, two people on a touch screen: face to face. Player 2's pad (turned half way round) is above the race, player 1's below it,
+   each with its own view between; one row of four keys per player: steer left, the actions right. */
+@media (orientation: portrait) {
+  body.touch .kt-stage.kt-face { flex: 1 1 auto; width: 100%; align-items: stretch; }
+  body.touch .kt-face .kt-board { align-self: center; }
+  body.touch .kt-face .pl-msg { align-self: center; margin: var(--sp-1) 0; }
+  body.touch .kt-face .kt-pads { display: contents; }
+  body.touch .kt-face .kt-pad { position: static; display: flex; flex-direction: row; gap: var(--sp-3); padding: 0 var(--sp-2); }
+  body.touch .kt-face .kt-pad[data-p="1"] { order: -1; transform: rotate(180deg); }
+  body.touch .kt-face .kt-pad > div { display: flex; flex: 1 1 0; gap: var(--sp-2); }
+  body.touch .kt-face .kt-pad .kt-btn { flex: 1 1 0; min-width: 0; min-height: calc(var(--pad-key) + var(--sp-2)); border-radius: var(--radius); background: rgba(14, 14, 16, 0.82); }
+  body.touch .kt-face .kt-steer .kt-btn { font-size: 26px; }
+}
 .kt-note { margin: var(--sp-2) 0 0; font-size: var(--fs-small); color: var(--ink2); }
 .kt-cast { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); margin-top: var(--sp-2); }
 .kt-pick { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 4px 2px 3px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); cursor: pointer; }
