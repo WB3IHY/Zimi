@@ -173,7 +173,7 @@
     if (game.status === 'won') return praise();
     if (game.status === 'lost') return T('fiveletters.theWord', { word: shown() });
     // Words in English under another language's labels say so, in the player's language.
-    var english = !cur && Lib.pageLang() !== 'en' ? 'En' : '';
+    var english = !cur && Lib.uiLang() !== 'en' ? 'En' : '';
     return T((game.mode === 'daily' ? 'fiveletters.daily' : 'fiveletters.practice') + english);
   }
   function paintAll() {
