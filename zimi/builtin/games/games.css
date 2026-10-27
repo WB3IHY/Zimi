@@ -197,7 +197,7 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
 /* The chosen chip is a selection, as in Zimi: accent glow, accent line, ink text. */
 .sh-chip[aria-pressed="true"] { background: var(--accent-glow); border-color: var(--accent); color: var(--ink); }
 .sh-chip-n, .sh-count { font-weight: 500; font-variant-numeric: tabular-nums; opacity: 0.6; }
-.sh-count { margin-left: 8px; letter-spacing: 0; }
+.sh-count { margin-inline-start: 8px; letter-spacing: 0; }
 .sh-rail-head, .sh-chip-recent { display: none; }
 .sh-empty { margin: 32px 0; text-align: center; color: var(--ink2); }
 .sh-empty[hidden] { display: none; }
@@ -332,7 +332,7 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
 
 /* Groups of an order: a header with a note, and for Oldest first a spine with a dot per era; for By region the world with the region lit. */
 .sh-group h2 { position: relative; display: flex; align-items: center; gap: 8px; }
-.sh-group .sh-count { margin-left: 0; }
+.sh-group .sh-count { margin-inline-start: 0; }
 .sh-gt { color: var(--ink); }
 .sh-note { font-size: var(--fs-small); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink2); }
 [data-sort="oldest"] .sh-group { margin-left: 6px; padding-left: 18px; border-left: 2px solid var(--line); }
@@ -482,4 +482,6 @@ html.gs-pad :focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 [dir="rtl"] .ar-back { margin-left: 0; margin-right: -8px; padding: 0 6px 0 8px; }
 [dir="rtl"] .ar-back::before { margin-right: 0; margin-left: -1px; transform: rotate(-135deg) scale(0.9); }
 /* Boards, grids, number pads, hands and card tables are not text: files, ranks, digits and the order of a hand keep their place in a mirrored page. */
-[dir="rtl"] :is([class*="-board"], [class*="-grid"], [class*="-pad"], [class*="-keys"], [class*="-hand"], [class*="-felt"], [class$="-table"]):not([class^="gs-"], [class^="ar-"]) { direction: ltr; }
+[dir="rtl"] :is([class*="-board"], [class*="-grid"], [class*="-pad"], [class*="-keys"], [class*="-hand"], [class*="-felt"], [class$="-table"], [class*="-rows"], [class*="-secret"], [class*="-dice"], [class*="-rack"]):not([class^="gs-"], [class^="ar-"]) { direction: ltr; }
+/* The header score ("3 · Best 12") and clocks read left to right as one figure. */
+[dir="rtl"] .ar-stat { direction: ltr; unicode-bidi: isolate; }

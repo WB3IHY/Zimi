@@ -156,6 +156,8 @@
   }
 
   // ── HUD ──────────────────────────────────────────────────────────────────
+  // The HUD's words come from the page's table; a bare engine (the tests) has none and shows English.
+  function tx(id, vars, plain) { return root.ZimiText ? root.ZimiText.T(id, vars) : plain; }
   function label(c, text, x, y, size, align, fill) {
     c.font = '800 ' + size + 'px ' + FONT; c.textAlign = align || 'left'; c.textBaseline = 'alphabetic';
     c.lineWidth = Math.max(3, size / 5); c.lineJoin = 'round'; c.strokeStyle = 'rgba(8,10,18,0.8)'; c.strokeText(text, x, y);
@@ -179,7 +181,7 @@
     }
     // lap and clock
     var lap = Math.min(race.laps, k.lap + 1);
-    label(c, 'Lap ' + lap + '/' + race.laps, rect.x + rect.w / 2, y + 18 * u, 16 * u, 'center');
+    label(c, tx('kart.lap', { n: lap + '/' + race.laps }, 'Lap ' + lap + '/' + race.laps), rect.x + rect.w / 2, y + 18 * u, 16 * u, 'center');
     label(c, E.fmtTime(clock), rect.x + rect.w / 2, y + 36 * u, 13 * u, 'center', '#d6dcea');
     // minimap
     var ms = (small ? 70 : 92) * u, mx = rect.x + rect.w - ms - pad, my = rect.y + pad;
@@ -193,12 +195,12 @@
     });
     // banners
     var cy = rect.y + rect.h * 0.3, msg = o.banner;
-    if (race.count > 0) { var n = Math.ceil(race.count - 0.2); if (n >= 1) label(c, String(Math.min(3, n)), rect.x + rect.w / 2, cy + 20 * u, 78 * u, 'center', '#ffd27a'); else label(c, 'GO!', rect.x + rect.w / 2, cy + 20 * u, 70 * u, 'center', '#7dff9a'); }
-    else if (race.t - E.COUNT_S < 0.9 && !race.trial) label(c, 'GO!', rect.x + rect.w / 2, cy + 20 * u, 70 * u, 'center', '#7dff9a');
-    else if (k.finished != null) label(c, (root.ZimiText ? root.ZimiText.T('kart.finished', { place: ordinal(k.place) }) : 'Finished ' + E.ordinal(k.place)), rect.x + rect.w / 2, cy + 10 * u, 34 * u, 'center', '#ffd27a');
-    else if (k.wrong > 1.2) label(c, 'Wrong way', rect.x + rect.w / 2, cy + 10 * u, 30 * u, 'center', '#ff7a6a');
+    if (race.count > 0) { var n = Math.ceil(race.count - 0.2); if (n >= 1) label(c, String(Math.min(3, n)), rect.x + rect.w / 2, cy + 20 * u, 78 * u, 'center', '#ffd27a'); else label(c, tx('kart.go', null, 'GO!'), rect.x + rect.w / 2, cy + 20 * u, 70 * u, 'center', '#7dff9a'); }
+    else if (race.t - E.COUNT_S < 0.9 && !race.trial) label(c, tx('kart.go', null, 'GO!'), rect.x + rect.w / 2, cy + 20 * u, 70 * u, 'center', '#7dff9a');
+    else if (k.finished != null) label(c, tx('kart.finished', { place: ordinal(k.place) }, 'Finished ' + E.ordinal(k.place)), rect.x + rect.w / 2, cy + 10 * u, 34 * u, 'center', '#ffd27a');
+    else if (k.wrong > 1.2) label(c, tx('kart.wrongWay', null, 'Wrong way'), rect.x + rect.w / 2, cy + 10 * u, 30 * u, 'center', '#ff7a6a');
     else if (msg) label(c, msg, rect.x + rect.w / 2, cy + 10 * u, 28 * u, 'center', '#ffd27a');
-    if (k.magnet > 0 || k.shield > 0) label(c, (k.shield > 0 ? 'Shield ' : 'Magnet ') + Math.ceil(Math.max(k.shield, k.magnet)), x, y + sz + 18 * u, 12 * u, 'left', '#9ff0e0');
+    if (k.magnet > 0 || k.shield > 0) label(c, (k.shield > 0 ? tx('kart.hudShield', { n: Math.ceil(k.shield) }, 'Shield ' + Math.ceil(k.shield)) : tx('kart.hudMagnet', { n: Math.ceil(k.magnet) }, 'Magnet ' + Math.ceil(k.magnet))), x, y + sz + 18 * u, 12 * u, 'left', '#9ff0e0');
   }
 
   root.KartView = { prepare: prepare, follow: follow, draw: draw, drawKartPreview: function (c, d, x, y, s, view) { c.save(); c.translate(x, y); c.scale(s, s); A.kartSprite(c, d, view || 'back', { lean: 0 }); c.restore(); }, CAM_DIST: CAM_DIST };

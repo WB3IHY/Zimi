@@ -38,6 +38,12 @@
   function rect(c, x, y, w, h, color) { c.fillStyle = color; c.fillRect(x, y, w, h); }
   function poly(c, pts, color) { c.fillStyle = color; c.beginPath(); c.moveTo(pts[0], pts[1]); for (var i = 2; i < pts.length; i += 2) c.lineTo(pts[i], pts[i + 1]); c.closePath(); c.fill(); }
 
+  // The gate's word in the page's language (the table), upper-cased where the script has case; a bare engine shows English.
+  function gateWord(label) {
+    var id = label === 'FINISH' ? 'roadrush.gate.finish' : 'roadrush.gate.checkpoint';
+    return root.ZimiText ? root.ZimiText.T(id).toUpperCase() : label;
+  }
+
   var DRAW = {
     palm: function (c, s, night) {
       c.fillStyle = '#7a5a3a'; c.beginPath(); c.moveTo(-0.05, 0); c.quadraticCurveTo(0.14, -0.9, 0.03, -1.7); c.lineTo(-0.03, -1.7); c.quadraticCurveTo(0.06, -0.9, 0.0, 0); c.closePath(); c.fill();
@@ -91,7 +97,7 @@
     gate: function (c, s) {
       rect(c, -1.04, -1.4, 0.08, 1.4, '#e9e9ee'); rect(c, 0.96, -1.4, 0.08, 1.4, '#e9e9ee');
       rect(c, -1.08, -1.5, 2.16, 0.46, '#1d2433');
-      c.fillStyle = s.label === 'FINISH' ? '#f3f3ee' : '#f2a516'; c.font = '700 0.28px system-ui, sans-serif'; c.textAlign = 'center'; c.fillText(s.label, 0, -1.17);
+      c.fillStyle = s.label === 'FINISH' ? '#f3f3ee' : '#f2a516'; c.font = '700 0.28px system-ui, sans-serif'; c.textAlign = 'center'; c.fillText(gateWord(s.label), 0, -1.17);
       for (var i = 0; i < 9; i++) { c.fillStyle = i % 2 ? '#f3f3ee' : '#1b1d22'; c.fillRect(-1.08 + i * 0.24, -1.54, 0.24, 0.06); }
     }
   };

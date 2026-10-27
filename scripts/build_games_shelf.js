@@ -105,9 +105,8 @@ const TILES = {
     return tile(FELT, out);
   }
 };
-// The world card games.
+// The world card games. Their art carries numbers only, never a word: the shelf is read in ten languages.
 const pill = (x, y, w, label) => '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="22" rx="11" fill="rgba(0,0,0,0.3)"/><text x="' + (x + w / 2) + '" y="' + (y + 16) + '" font-size="15" font-weight="700" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-family="ui-monospace,Menlo,monospace">' + label + '</text>';
-const label = (x, y, size, text) => '<text x="' + x + '" y="' + y + '" font-size="' + size + '" font-weight="700" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-family="system-ui,sans-serif">' + text + '</text>';
 function cribBoard() {
   const groups = (x0, n) => Array.from({ length: n }, (_, k) => x0 + 12 * k);
   const top = [].concat(groups(40, 5), groups(106, 5), groups(172, 5), groups(238, 4)), low = [].concat(groups(40, 5), groups(106, 5), groups(172, 5));
@@ -117,10 +116,10 @@ function cribBoard() {
     '<circle cx="130" cy="50" r="4.4" fill="#38bdf8" stroke="#fff" stroke-width="1.2"/><circle cx="106" cy="50" r="3.2" fill="#38bdf8" stroke="#000" stroke-opacity=".5"/>';
 }
 Object.assign(TILES, {
-  spades: () => tile(FELT_DEEP, face(cid('KS'), 78, 40, 62, -12) + face(cid('AS'), 130, 32, 62) + face(cid('QS'), 182, 40, 62, 12) + pill(106, 142, 48, 'Nil') + pill(166, 142, 48, '500')),
-  euchre: () => tile(FELT_DEEP, face(cid('JD'), 66, 34, 72, -12) + face(cid('JH'), 124, 30, 72) + face(cid('AH'), 182, 34, 72, 12) + label(160, 164, 14, 'right bower, left bower, trump')),
+  spades: () => tile(FELT_DEEP, face(cid('KS'), 78, 40, 62, -12) + face(cid('AS'), 130, 32, 62) + face(cid('QS'), 182, 40, 62, 12) + pill(136, 142, 48, '500')),
+  euchre: () => tile(FELT_DEEP, face(cid('JD'), 66, 34, 72, -12) + face(cid('JH'), 124, 30, 72) + face(cid('AH'), 182, 34, 72, 12)),
   gin: () => tile(FELT, face(cid('5H'), 54, 40, 58, -10) + face(cid('6H'), 100, 34, 58) + face(cid('7H'), 146, 36, 58, 10) + face(cid('KS'), 236, 52, 46, 6) +
-    '<rect x="96" y="136" width="128" height="26" rx="13" fill="rgba(0,0,0,0.35)"/><text x="160" y="154" font-size="15" font-weight="700" text-anchor="middle" fill="#fff" font-family="ui-monospace,Menlo,monospace">GIN  0</text>'),
+    pill(136, 142, 48, '0')),
   cribbage: () => tile(FELT_DEEP, cribBoard() + face(cid('5H'), 70, 102, 52) + face(cid('JS'), 134, 102, 52) + face(cid('5D'), 198, 102, 52) +
     '<text x="272" y="150" font-size="30" font-weight="700" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-family="ui-monospace,Menlo,monospace">29</text>'),
   crazyeights: () => tile(FELT, back(28, 48, 56) + face(cid('8S'), 112, 32, 76, -8) + face(cid('8H'), 176, 34, 76, 8) +
@@ -128,17 +127,17 @@ Object.assign(TILES, {
   durak: () => tile(FELT_DEEP, back(96, -34, 40) + back(142, -34, 40) + back(188, -34, 40) + face(cid('7C'), 112, 44, 58) + face(cid('9S'), 132, 58, 58, 8) + face(cid('AH'), 26, 92, 46) + back(46, 92, 46)),
   bridge: () => tile(FELT_DEEP, back(92, -34, 40) + back(140, -34, 40) + back(188, -34, 40) +
     [['AS', 82, 104, -12], ['KS', 112, 98, -4], ['QH', 150, 98, 4], ['JD', 180, 104, 12]].map(([c, x, y, r]) => face(cid(c), x, y, 56, r)).join('')),
-  scopa: () => tile(FELT, italian(0, 56, 34, 64, -12) + italian(19, 128, 28, 64) + italian(26, 200, 34, 64, 12) + label(160, 160, 22, 'Scopa!')),
-  belote: () => tile(FELT_DEEP, face(cid('JS'), 70, 34, 70, -12) + face(cid('9S'), 126, 30, 70) + face(cid('AS'), 182, 34, 70, 12) + label(160, 164, 14, 'jack and nine of trump')),
-  skat: () => tile(FELT_DEEP, face(cid('JC'), 66, 34, 66, -14) + face(cid('JS'), 112, 30, 66, -5) + face(cid('JH'), 158, 30, 66, 5) + face(cid('JD'), 204, 34, 66, 14) + pill(112, 142, 96, 'Grand')),
-  truco: () => tile(FELT, spanish(20, 66, 34, 66, -12) + spanish(30, 126, 28, 66) + spanish(26, 186, 34, 66, 12) + pill(120, 142, 80, 'Envido')),
-  koikoi: () => tile(FELT_DEEP, hanafuda(0, 62, 34, 62, -12) + hanafuda(8, 129, 28, 62) + hanafuda(28, 196, 34, 62, 12) + pill(110, 142, 100, 'Koi-koi!')),
-  bigtwo: () => tile(FELT, face(cid('2S'), 76, 36, 70, -12) + face(cid('2H'), 126, 30, 70) + face(cid('AS'), 176, 36, 70, 12) + label(160, 164, 14, 'twos are high')),
-  tienlen: () => tile(FELT_DEEP, face(cid('2S'), 76, 36, 70, -12) + face(cid('2C'), 126, 30, 70) + face(cid('2D'), 176, 36, 70, 12) + pill(120, 142, 80, 'Chop!')),
-  canasta: () => tile(FELT, face(cid('7C'), 66, 34, 66, -12) + face(cid('7D'), 112, 30, 66, -4) + face(cid('7H'), 158, 30, 66, 4) + face(cid('2S'), 204, 34, 66, 12) + pill(110, 142, 100, 'Canasta')),
-  holdem: () => tile(FELT_DEEP, ['QH', 'JH', 'TH', '2C', '7D'].map((c, k) => face(cid(c), 52 + 44 * k, 24, 40)).join('') + face(cid('AS'), 118, 78, 46, -8) + face(cid('KS'), 160, 78, 46, 8) + pill(110, 152, 100, 'All in')),
+  scopa: () => tile(FELT, italian(0, 56, 34, 64, -12) + italian(19, 128, 28, 64) + italian(26, 200, 34, 64, 12)),
+  belote: () => tile(FELT_DEEP, face(cid('JS'), 70, 34, 70, -12) + face(cid('9S'), 126, 30, 70) + face(cid('AS'), 182, 34, 70, 12)),
+  skat: () => tile(FELT_DEEP, face(cid('JC'), 66, 34, 66, -14) + face(cid('JS'), 112, 30, 66, -5) + face(cid('JH'), 158, 30, 66, 5) + face(cid('JD'), 204, 34, 66, 14)),
+  truco: () => tile(FELT, spanish(20, 66, 34, 66, -12) + spanish(30, 126, 28, 66) + spanish(26, 186, 34, 66, 12)),
+  koikoi: () => tile(FELT_DEEP, hanafuda(0, 62, 34, 62, -12) + hanafuda(8, 129, 28, 62) + hanafuda(28, 196, 34, 62, 12)),
+  bigtwo: () => tile(FELT, face(cid('2S'), 76, 36, 70, -12) + face(cid('2H'), 126, 30, 70) + face(cid('AS'), 176, 36, 70, 12)),
+  tienlen: () => tile(FELT_DEEP, face(cid('2S'), 76, 36, 70, -12) + face(cid('2C'), 126, 30, 70) + face(cid('2D'), 176, 36, 70, 12)),
+  canasta: () => tile(FELT, face(cid('7C'), 66, 34, 66, -12) + face(cid('7D'), 112, 30, 66, -4) + face(cid('7H'), 158, 30, 66, 4) + face(cid('2S'), 204, 34, 66, 12)),
+  holdem: () => tile(FELT_DEEP, ['QH', 'JH', 'TH', '2C', '7D'].map((c, k) => face(cid(c), 52 + 44 * k, 24, 40)).join('') + face(cid('AS'), 118, 78, 46, -8) + face(cid('KS'), 160, 78, 46, 8)),
   blackjack: () => tile(FELT, face(cid('AS'), 98, 34, 72, -8) + face(cid('KH'), 150, 30, 72, 8) + pill(124, 142, 72, '21')),
-  teenpatti: () => tile(FELT_DEEP, face(cid('AS'), 76, 36, 70, -12) + face(cid('AD'), 126, 30, 70) + face(cid('AH'), 176, 36, 70, 12) + pill(120, 142, 80, 'Trail'))
+  teenpatti: () => tile(FELT_DEEP, face(cid('AS'), 76, 36, 70, -12) + face(cid('AD'), 126, 30, 70) + face(cid('AH'), 176, 36, 70, 12))
 });
 
 // ── Write ──────────────────────────────────────────────────────────────────
