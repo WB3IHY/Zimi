@@ -208,7 +208,7 @@
     if (!root.ZimiShell) { orig.click(); return; }
     root.ZimiShell.sheet({
       title: T("pz.solveTitle", "Show the solution?"), text: T("pz.solveText", "This game will not count as a win."),
-      actions: [{ label: T("shell.cancel", "Cancel") }, { label: T("pz.solveGo", "Show solution"), primary: true, onclick: function () { solutionShown = true; orig.click(); } }]
+      actions: [{ label: T("shell.cancel", "Cancel") }, { label: T("pz.solveGo", "Show solution"), primary: true, onclick: function () { orig.click(); } }]
     });
   }
   function buildBar() {
@@ -472,7 +472,7 @@
   var FLASH_MIN_S = 0.2;       // the longest a move's own animation runs; a completion's flash runs longer
   var BURST_GAP_MS = 100;      // frames this far apart are different animations
   var INPUT_TO_FLASH_MS = 250; // a flash starts this soon after the move that completed the game
-  var solved = false, solutionShown = false, elapsed = 0, ticked = 0, lastInput = 0;
+  var solved = false, elapsed = 0, ticked = 0, lastInput = 0;
   function readBest() { try { return JSON.parse(root.localStorage.getItem(BEST_KEY)) || {}; } catch (e) { return {}; } }
   function writeBest(all) { try { root.localStorage.setItem(BEST_KEY, JSON.stringify(all)); } catch (e) { /* not kept */ } }
   function clockText(ms) {
@@ -497,11 +497,47 @@
       return [typeLabel(type), T("pz.statLine", "Best {t} · Solved {n}", { t: clockText(mine[type].best), n: num(mine[type].won) })];
     });
   }
+  // The save text lists the moves up to the place in the history; Show solution is one of them (a SOLVE line). Undone, it no longer counts.
+  function solverUsed() {
+    var text = saveText() || "", place = /^STATEPOS:\d+:(\d+)/m.exec(text), applied = place ? +place[1] - 1 : 0, kinds = [];
+    text.replace(/^(MOVE|SOLVE)\s*:\d+:/gm, function (m, kind) { kinds.push(kind); return m; });
+    return kinds.slice(0, applied).indexOf("SOLVE") >= 0;
+  }
+  // Pattern flashes for no time at all, so its completion is read from the save text: every row and column of filled squares
+  // runs as the clues say (the clues are the game's DESC, columns first; the moves are F, E and U over a box x,y,w,h).
+  function patternSolved(text) {
+    var par = /^PARAMS\s*:\d+:(\d+)x(\d+)/m.exec(text), desc = /^DESC\s*:\d+:(.*)$/m.exec(text), place = /^STATEPOS:\d+:(\d+)/m.exec(text);
+    if (!par || !desc || !place) return false;
+    var w = +par[1], h = +par[2], clues = desc[1].split("/"), grid = [], x, y, moves = [];
+    for (y = 0; y < h; y++) grid.push(new Array(w).fill(0));
+    text.replace(/^MOVE\s*:\d+:(.*)$/gm, function (m, mv) { moves.push(mv); return m; });
+    moves.slice(0, +place[1] - 1).forEach(function (mv) {
+      var m = /^([FEU])(\d+),(\d+),(\d+),(\d+)/.exec(mv);
+      if (!m) return;
+      for (y = +m[3]; y < +m[3] + +m[5]; y++) for (x = +m[2]; x < +m[2] + +m[4]; x++) if (grid[y] && x < w) grid[y][x] = m[1] === "F" ? 1 : 0;
+    });
+    function runs(line) { var out = [], n = 0; line.concat([0]).forEach(function (v) { if (v) n++; else if (n) { out.push(n); n = 0; } }); return out.length ? out : [0]; }
+    function says(i, line) { return clues[i] === runs(line).join("."); }
+    for (x = 0; x < w; x++) if (!says(x, grid.map(function (row) { return row[x]; }))) return false;
+    for (y = 0; y < h; y++) if (!says(w + y, grid[y])) return false;
+    return true;
+  }
+  var FLASHLESS = { pattern: patternSolved };   // puzzles with no status bar and no flash worth timing: name -> does this save text say it is solved
+  function watchFlashless(canvas) {
+    var judge = FLASHLESS[NAME], pending = 0;
+    if (!judge) return;
+    ["pointerup", "keyup", "mouseup"].forEach(function (t) {
+      canvas.addEventListener(t, function () {
+        root.clearTimeout(pending);
+        pending = root.setTimeout(function () { var text = saveText(); if (text && !solved && judge(text)) declareWin(); }, READY_POLL_MS);
+      }, true);
+    });
+  }
   var freshLoad = true;      // the game that is there when the page opens (or comes back from a save) is not a win
   function declareWin() {
     if (solved) return;
     solved = true;
-    if (!freshLoad && !solutionShown && root.ZimiShell) root.ZimiShell.endSheet({ result: "win", after: SOLVED_SHEET_MS, stats: recordWin() });
+    if (!freshLoad && !solverUsed() && root.ZimiShell) root.ZimiShell.endSheet({ result: "win", after: SOLVED_SHEET_MS, stats: recordWin() });
   }
   // The solving clock: counts while a game is under way, the page is showing and the Menu is shut. A new game, or taking every move
   // back, starts it over.
@@ -509,10 +545,10 @@
   function tickClock() {
     var now = Date.now(), under = canMove("undo") || canMove("redo");
     if (under && !solved && !held && d.visibilityState !== "hidden") elapsed += Math.min(now - ticked, 2 * CLOCK_TICK_MS);
-    if (!under) { if (solved || solutionShown) newGameStarted(); elapsed = 0; }
+    if (!under) { if (solved) newGameStarted(); elapsed = 0; }
     ticked = now;
   }
-  function newGameStarted() { solved = false; solutionShown = false; elapsed = 0; }
+  function newGameStarted() { solved = false; elapsed = 0; }
   // The frontend calls timer_callback each frame with the seconds since the last one; a burst of calls is one animation or flash.
   function watchFlash() {
     var orig = root.timer_callback, burst = null, idle = 0;
@@ -525,7 +561,7 @@
       root.clearTimeout(idle);
       idle = root.setTimeout(function () {
         var b = burst; burst = null;
-        if (b && b.afterInput && b.ran >= FLASH_MIN_S && !$("statusbar") && !solutionShown && canMove("undo")) declareWin();
+        if (b && b.afterInput && b.ran >= FLASH_MIN_S && !$("statusbar") && canMove("undo")) declareWin();
       }, BURST_GAP_MS);
       return orig.apply(this, arguments);
     };
@@ -542,7 +578,6 @@
     frame.parentNode.insertBefore(line, frame.nextSibling);
     function sync() {
       var raw = bar.textContent, t = sayStatus(raw);
-      if (/Auto-solve/i.test(raw)) solutionShown = true;
       if (/^(\[\d+:\d\d\]\s*)?COMPLETED!/i.test(raw)) declareWin(); else if (solved && !/COMPLETED!/i.test(raw)) { solved = false; }
       if (line.textContent !== t) line.textContent = t;
       line.hidden = !t;
@@ -725,6 +760,7 @@
     touchIsMouse(canvas);
     touchRow(canvas, NAME, frame.parentNode);
     watchInput(canvas);
+    watchFlashless(canvas);
     watchDialogs();
     ticked = Date.now();
     root.setInterval(tickClock, CLOCK_TICK_MS);

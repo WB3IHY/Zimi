@@ -31,13 +31,13 @@ html body .pz-status[hidden] { display: none; }
 .pz-types, .pz-games { display: grid; gap: var(--sp-2); margin-bottom: var(--sp-3); }
 .pz-opt-head { margin: var(--sp-2) 0 0; font-size: var(--fs-small); font-weight: 600; color: var(--ink2); }
 .pz-game-rows { display: grid; gap: var(--sp-2); }
-.pz-opt { width: 100%; justify-content: flex-start; text-align: left; min-height: var(--target); }
+.pz-opt { width: 100%; justify-content: flex-start; text-align: start; min-height: var(--target); }
 /* The chosen type is selected, not the screen's one filled amber button (that is Start). */
 .pz-opt[aria-pressed="true"] { background: var(--accent-glow); border-color: var(--accent); color: var(--ink); font-weight: 650; }
 
 /* The puzzle's own dialogs (game ID, preferences, a custom size). */
 html body #dlgdimmer { background: var(--scrim); opacity: 1; }
-html body #dlgform { width: min(92vw, 520px); left: 50%; transform: translateX(-50%); background: var(--surface2); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-sheet); box-shadow: var(--shadow-popup); font-size: var(--fs-body); text-align: left; }
+html body #dlgform { width: min(92vw, 520px); left: 50%; transform: translateX(-50%); background: var(--surface2); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-sheet); box-shadow: var(--shadow-popup); font-size: var(--fs-body); text-align: start; }
 html body #dlgform h2 { font-size: var(--fs-sheet); }
 html body #dlgform input, html body #dlgform select, html body #dlgform button, html body #dlgform textarea { font: inherit; min-height: 36px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 2px var(--sp-2); }
 html body #dlgform input[type="checkbox"], html body #dlgform input[type="radio"] { min-height: 0; }
@@ -59,7 +59,7 @@ html body #dlgform button, html body #dlgform input[type="button"] { cursor: poi
 .zf-quiet #dlgdimmer, .zf-quiet #dlgform { display: none !important; }
 /* A row whose choices are long or many stacks them, one per line. */
 .gs-seg.pz-stack { display: flex; flex-direction: column; flex: 1 1 100%; }
-.gs-seg.pz-stack .ar-btn { border-radius: 0; margin-left: 0; margin-top: -1px; text-align: left; justify-content: flex-start; }
+.gs-seg.pz-stack .ar-btn { border-radius: 0; margin-left: 0; margin-top: -1px; text-align: start; justify-content: flex-start; }
 .gs-seg.pz-stack .ar-btn:first-child { border-radius: var(--radius) var(--radius) 0 0; margin-top: 0; }
 .gs-seg.pz-stack .ar-btn:last-child { border-radius: 0 0 var(--radius) var(--radius); }
 
