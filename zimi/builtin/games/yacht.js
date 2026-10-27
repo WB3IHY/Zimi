@@ -107,7 +107,7 @@
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var SETTINGS_KEY = 'zimi.games.yacht.settings', BEST_KEY = 'zimi.games.yacht.best';
-  var CPU_DELAY_MS = 650, CPU_HOLD_MS = 450, TUMBLE_MS = 320;
+  var CPU_DELAY_MS = 650, CPU_HOLD_MS = 450, TUMBLE_MS = 320, FLASH_MS = 2000;
   Play.applyTheme();
 
   var els = { dice: $('yc-dice'), roll: $('yc-roll'), rolls: $('yc-rolls'), msg: $('yc-msg'), card: $('yc-card'), sheet: $('yc-sheet'), title: $('yc-sheet-title'), text: $('yc-sheet-text'), go: $('yc-go'), opp: $('yc-opp'), nu: $('yc-new') };
@@ -139,7 +139,7 @@
     for (var i = 0; i < DICE; i++) {
       var b = document.createElement('button');
       b.type = 'button'; b.className = 'pl-die';
-      (function (n) { b.addEventListener('click', function () { if (mine() && toggleHold(g, n)) paint(); }); })(i);
+      (function (n) { b.addEventListener('click', function () { if (!mine()) return; if (toggleHold(g, n)) paint(); else flash(g.rollsLeft === ROLLS ? 'yacht.msg.rollFirst' : 'yacht.msg.noRolls'); }); })(i);
       els.dice.appendChild(b); dieEls.push(b);
     }
   }
@@ -149,7 +149,7 @@
     dieEls.forEach(function (b, i) {
       Play.pips(b, g.dice[i]);
       b.setAttribute('aria-pressed', String(g.held[i]));
-      b.disabled = !mine() || !rolled || g.rollsLeft === 0;
+      b.setAttribute('aria-disabled', String(!mine() || !rolled || g.rollsLeft === 0));
       b.setAttribute('aria-label', rolled ? T(g.held[i] ? 'yacht.dieKept' : 'yacht.die', { n: i + 1, value: g.dice[i] }) : T('yacht.dieBlank', { n: i + 1 }));
     });
   }
@@ -204,6 +204,13 @@
     row(T('yacht.total'), 'yc-total', function (td, pl) { td.textContent = Play.num(total(pl.card)); });
   }
 
+  // An answer to a tap that cannot do anything, for two seconds; then the line goes back to what is to do.
+  var flashTimer = 0;
+  function flash(key) {
+    els.msg.textContent = T(key);
+    root.clearTimeout(flashTimer);
+    flashTimer = root.setTimeout(function () { if (!g.over) els.msg.textContent = statusLine(); }, FLASH_MS);
+  }
   function statusLine() {
     var p = g.players[g.turn];
     if (!mine()) return T('yacht.msg.playing', { name: p.name });
@@ -300,6 +307,11 @@
     Play.closeSheet(els.sheet); els.msg.textContent = ''; paint();
     if (g.players[g.turn].ai) cpuTurn();
   }
+  els.card.addEventListener('click', function (e) {
+    var td = e.target.closest && e.target.closest('td');
+    if (!td || !mine() || td.parentNode.className.indexOf('yc-') === 0 || td.cellIndex !== g.turn + 1 || td.querySelector('button')) return;
+    flash(td.textContent.trim() ? 'yacht.msg.used' : 'yacht.msg.rollFirst');
+  });
   function humanRoll() { if (mine() && g.rollsLeft > 0) { note = ''; throwDice(); } }
   els.go.addEventListener('click', begin);
   els.nu.addEventListener('click', function () { if (timer) timer.cancel(); showSheet(T('shell.menu.new'), T('yacht.new'), T('shell.start')); });

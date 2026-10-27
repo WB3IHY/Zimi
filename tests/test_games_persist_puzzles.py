@@ -105,14 +105,14 @@ def test_liars_dice_comes_back_after_a_bid(served, browser):  # noqa: F811
     page.goto(url)
     shell_ready(page)
     start(page, "#ld-go")
-    page.wait_for_function(truthy("!document.getElementById('ld-bidbtn').disabled"))
+    page.wait_for_function(truthy("document.getElementById('ld-bidbtn').getAttribute('aria-disabled') !== 'true'"))
     page.click("#ld-bidbtn")
     # every computer has answered: it is my turn again (Liar is open to me, after a bid that is not mine) or a call has put the reveal up; either way nothing is moving
-    page.wait_for_function(truthy("(!document.getElementById('ld-liar').disabled && __liarsdice.g.bid && __liarsdice.g.bid.by !== 0) || !document.getElementById('ld-reveal').hidden"))
+    page.wait_for_function(truthy("(document.getElementById('ld-liar').getAttribute('aria-disabled') !== 'true' && __liarsdice.g.bid && __liarsdice.g.bid.by !== 0) || !document.getElementById('ld-reveal').hidden"))
     comes_back(page, url, LIARS, "__liarsdice.g.bid || __liarsdice.g.last")
     # then the call itself: the reveal of every die is on screen, and it is still there after coming back
     if page.locator("#ld-reveal").evaluate("e => e.hidden"):
-        page.wait_for_function(truthy("!document.getElementById('ld-liar').disabled"))
+        page.wait_for_function(truthy("document.getElementById('ld-liar').getAttribute('aria-disabled') !== 'true'"))
         page.click("#ld-liar")
     page.wait_for_function(truthy("!document.getElementById('ld-reveal').hidden"))
     comes_back(page, url, LIARS, "!document.getElementById('ld-reveal').hidden")

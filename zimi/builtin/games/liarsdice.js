@@ -134,7 +134,7 @@
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var SETTINGS_KEY = 'zimi.games.liarsdice.settings', STATS_KEY = 'zimi.games.liarsdice.stats';
-  var AI_DELAY_MS = 700;
+  var AI_DELAY_MS = 700, FLASH_MS = 2000;
   Play.applyTheme();
 
   var els = { opps: $('ld-opps'), who: $('ld-who'), bid: $('ld-bid'), msg: $('ld-msg'), mine: $('ld-mine'), ctl: $('ld-ctl'), qty: $('ld-qty'), faces: $('ld-faces'), bidbtn: $('ld-bidbtn'), liar: $('ld-liar'), plus: $('ld-plus'), minus: $('ld-minus'),
@@ -211,7 +211,8 @@
       (function (face) { b.addEventListener('click', function () { sel.f = face; sel.q = Math.max(sel.q, minQty(g.bid, face, total)); paintCtl(); }); })(f);
       els.faces.appendChild(b);
     }
-    els.bidbtn.disabled = !on || !isLegal(g.bid, sel.q, sel.f, total); els.liar.disabled = !on || !g.bid;
+    // aria-disabled, not disabled: a tap on them still answers, and says why (see the click handlers)
+    els.bidbtn.setAttribute('aria-disabled', String(!on || !isLegal(g.bid, sel.q, sel.f, total))); els.liar.setAttribute('aria-disabled', String(!on || !g.bid));
     els.minus.disabled = !on || sel.q <= 1; els.plus.disabled = !on || sel.q >= total;
     if (on) els.msg.textContent = T('liarsdice.turn.' + (g.bid ? 'raise' : 'open') + (seats.isYou(g.turn) ? '' : 'Name'), { name: nm(g.turn) });
   }
@@ -298,8 +299,21 @@
   els.nu.addEventListener('click', function () { if (timer) timer.cancel(); showSheet(T('shell.menu.new'), T('liarsdice.new'), T('shell.start')); });
   els.plus.addEventListener('click', function () { sel.q++; paintCtl(); });
   els.minus.addEventListener('click', function () { sel.q--; paintCtl(); });
-  els.bidbtn.addEventListener('click', function () { if (myTurn() && isLegal(g.bid, sel.q, sel.f, totalDice(g))) play({ type: 'bid', q: sel.q, f: sel.f }); });
-  els.liar.addEventListener('click', function () { if (myTurn() && g.bid) play({ type: 'challenge' }); });
+  // A tap that cannot do anything says why for two seconds, then the line goes back to what is to do.
+  var flashTimer = 0;
+  function flash(text) {
+    els.msg.textContent = text;
+    root.clearTimeout(flashTimer);
+    flashTimer = root.setTimeout(function () { if (!g.over) paint(); }, FLASH_MS);
+  }
+  els.bidbtn.addEventListener('click', function () {
+    if (!myTurn()) return;
+    if (isLegal(g.bid, sel.q, sel.f, totalDice(g))) play({ type: 'bid', q: sel.q, f: sel.f }); else if (g.bid) flash(T('liarsdice.why.raise', { bid: bidText(g.bid) }));
+  });
+  els.liar.addEventListener('click', function () {
+    if (!myTurn()) return;
+    if (g.bid) play({ type: 'challenge' }); else flash(T('liarsdice.why.noBid'));
+  });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || !els.sheet.hidden || !els.reveal.hidden || !myTurn()) return;
     if (e.target && e.target.closest && e.target.closest('button') && e.key === 'Enter') return;
