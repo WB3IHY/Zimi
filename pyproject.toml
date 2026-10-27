@@ -105,7 +105,19 @@ Changelog = "https://github.com/epheterson/Zimi/blob/main/CHANGELOG.md"
 include = ["zimi*"]
 
 [tool.setuptools.package-data]
-zimi = ["templates/**", "static/**", "assets/**", "builtin/**"]
+# builtin: the built ZIMs, and the three things Zimi reads from the games' source
+# at runtime (gamelinks.py: games.json and the tile pictures). The rest of the
+# source folders are what the ZIMs were built from (python -m zimi.ownzims, from a
+# checkout): 34 MB the wheel, the image and the desktop builds do not need.
+zimi = [
+  "templates/**",
+  "static/**",
+  "assets/**",
+  "builtin/*.zim",
+  "builtin/games/games.json",
+  "builtin/games/thumbs/**",
+  "builtin/games/puzzles/icons/**",
+]
 
 [tool.pytest.ini_options]
 # test_article_languages is a data-integrity suite — it asserts against real
