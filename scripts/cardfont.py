@@ -24,7 +24,7 @@ from fontTools.ttLib import TTFont
 from fontTools.varLib import instancer
 
 CAP = 14.0  # grid units from baseline to cap line
-MAX_W = 14.0  # the widest rank's ink: the index column (cards.js IDX_COLUMN) leaves room for 14 units at IDX_SCALE
+MAX_W = 15.0  # the widest rank's ink: the index column (cards.js IDX_COLUMN) leaves room for 15 units at IDX_SCALE
 DIGIT_GAP = 2.25  # clear paper between the digits of a two-digit rank (tests/test_games_pixels.cjs DIGIT_GAP)
 SINGLES = "A23456789JQK"
 CARDS_JS = os.path.join(

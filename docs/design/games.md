@@ -248,6 +248,15 @@ Each page is wrapped in the same bar and Menu:
 - The canvas palette is remapped to Zimi in light and dark: background surface2, grid lines and clues in ink, the cursor and selection in amber, and numbers in the type scale.
 - Mouse-button hints ("Tap: left", "right-click") are banned. A long press replaces a right-click.
 
+## The deck's index (cards.js, scripts/cardfont.py)
+
+The corner index is the card's whole message in a fanned pile: rank and colour, read across a tableau at arm's length. It is the outlines of **Barlow Semi Condensed ExtraBold** (SIL OFL, `OFL-Barlow.txt`), cut by `scripts/cardfont.py`; never a hand-drawn glyph (Eric, 2026-10-26: "You made your own font? It looks bad").
+
+- **Why this one.** Barlow Condensed Bold was thin at the ~44 to 51 px a phone gives a card (7 to 8 px cap height, stems about 1.2 px): "10", Q and K lost weight. Compared at those sizes, downscaled and blurred, against Barlow Condensed ExtraBold, Barlow Semi Condensed Bold, Barlow Bold and ExtraBold, Roboto Condensed Bold and Black, Fira Sans Condensed Bold and ExtraBold, IBM Plex Sans Condensed Bold and Source Sans 3 Black. Semi Condensed ExtraBold is the heavy, slightly condensed index of a Bicycle or Copag deck with open counters; the wider families (Fira, Source Sans, Barlow Bold) are heavy but force "10" and "12" to be squeezed 25 to 40 percent, which thins their stems again; the narrow ones stay light.
+- **Size.** Cap height 16.8 units of the 100 x 140 face (IDX_SCALE 1.2, was 1.1); the suit under it 0.72 (was 0.65). IDX_COLUMN is 25 (was 22): the court frame gives up 3 units a side so the widest rank (15 glyph units, "10" and "12" condensed in width only to 0.88) keeps 1.5 units of air to the frame and 5 to the card's edge.
+- **Rules that stay.** One cap height and weight for every rank; two-digit ranks keep one stem of clear paper between digits; the Q's tail clears the suit; Latin only. `tests/test_games_pixels.cjs` measures the gaps, the top inset, and court clearance.
+- **Changing it.** `python3 scripts/cardfont.py BarlowSemiCondensed-ExtraBold.ttf --write` rewrites the GLYPHS block; the shelf thumbnails and the Almanac ZIM carry copies of the paths and are rebuilt separately.
+
 ## The shelf (index.html, shelf.js)
 
 It is the first screen, so it follows every rule above, plus these:

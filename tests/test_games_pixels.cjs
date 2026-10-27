@@ -146,7 +146,7 @@ const server = http.createServer((q, r) => {
     return out;
   });
   for (const [r, t] of Object.entries(tops)) {
-    // Barlow Condensed's A and 4 are flat at the cap line, and its rounds (2 3 5 6 8 9 0 Q) overshoot it by up to 0.3 units (at 1.1 scale).
+    // Barlow's A and 4 are flat at the cap line, and its rounds (2 3 5 6 8 9 0 Q) overshoot it by up to 0.3 units (at 1.2 scale).
     ok('index ' + r + ' top inset', t >= 5.5 - 0.3 && t <= 5.5 + 0.13, t.toFixed(2));
   }
 
