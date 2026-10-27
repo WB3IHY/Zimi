@@ -176,7 +176,7 @@
     c.appendChild(el('p', 'tp-blurb', g.secret.blurb));
     c.appendChild(el('p', 'tp-clue', g.clue));
     if (zim && g.secret.path) {
-      var a = el('a', 'ar-btn', T('tp.read', { title: g.secret.title })); a.href = Lib.articleUrl(zim, g.secret.path); els.actions.appendChild(a);
+      var a = el('a', 'ar-btn', T('tp.read', { title: g.secret.title })); Lib.articleLink(a, zim, g.secret.path); els.actions.appendChild(a);
     }
     button(T(g.round + 1 >= g.rounds ? 'round.seeScore' : 'round.next'), true, nextRound);
     status.say(T('tp.together', { n: total(), max: GUESSES * (g.round + 1) }));

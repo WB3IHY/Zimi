@@ -257,3 +257,13 @@ It is the first screen, so it follows every rule above, plus these:
 - Game of the Day uses a 1px line with an amber label, not a thick amber border.
 - "Start something" either shows a real game or isn't drawn; it is never an empty slab.
 - Live tiles show the table as you left it.
+
+## Leading out of a game (librarykit.js, almanac-gamesky.js, one hook in app.js)
+
+A game that draws on the player's library may point at the real thing Zimi already has. The rules:
+- One quiet link, on a round or an end sheet, never in the way of play and never before the answer. It is drawn only when the thing exists: the page is in the ZIM (RoundKit asks), the word is in a Wiktionary and the Dictionary is on, a map's box holds the place, a race passed through the page.
+- Inside Zimi the link asks Zimi to open it (`Lib.leadOut`), so the reader has its own header and Back returns to the game. A modified click keeps the plain link. Outside Zimi there is no Zimi to ask: article links stay plain links, and Dictionary and map links are not drawn.
+- Articles: Quizzical, Flags, Higher or Lower, First Lines (Bookshelf's own open is the same article open), Dictionary Bluff, Babel, Where in the World, Wiki Race (the route's pages, on the end sheet). Words: Bluff, Babel and Five Letters open the word in the Dictionary. Places: Drop Pin and Where in the World open the place on the StreetZim map (`Lib.mapFor`: the map the place came from, else a searchable map whose box holds it).
+- The position survives the trip: the page saves on pagehide as always, and Zimi's Back brings the game back to it.
+- The hook, in app.js beside `_gameDo`, is a message from the frame showing the game: `{zimi: 'open', zim, path}` (an article; a path may end in `#map=zoom/lat/lon`), `{zimi: 'game-app', app: 'dictionary', w}` and `{zimi: 'game-sky', place, ms, title, hint, start, close, az, alt, fov, ring}`, answered `{zimi: 'game-sky-done', started}`. No state and no strings live in Zimi for these: the game sends its own words, in the player's language.
+- Sky Detective studies first: inside Zimi the Almanac's own `AlmanacSkyView` opens over the page (static/almanac-gamesky.js, loaded with the Almanac's modules on first use), names on, drag and pinch, for the game's own moment (the time machine's instant is set while it is up and put back). Anywhere else the page's own dome is drawn with every name on it. After an answer, "See it in the sky" turns the same view to the answer and rings it.

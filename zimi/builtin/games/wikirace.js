@@ -281,11 +281,24 @@
     }
     openResult(ms, n);
   }
+  // The route as articles to read, under the end sheet's chips: each page the player passed through, once, in order (not for the
+  // built-in set, which has no pages). Inside Zimi each opens in the reader and Back returns to the finished race.
+  function routeNodes() {
+    if (!race || provider.built) return [];
+    var seen = {}, box = el('p', 'rc-review');
+    box.appendChild(el('span', 'rc-review-label', T('race.review')));
+    race.steps.forEach(function (s) {
+      if (seen[s.path]) return;
+      seen[s.path] = true;
+      var a = Lib.articleLink(el('a', 'rc-review-link'), provider.zim, s.path); a.textContent = s.title; box.appendChild(a);
+    });
+    return Object.keys(seen).length > 1 ? [box] : [];
+  }
   // The end of a race, on the shared end sheet: the clicks and the time; the route stays in the trail above.
   function openResult(ms, n) {
     els.share.hidden = false; paintTrail();
     line.say(T('race.arrived', { target: race.pair.end.title }));
-    ZimiShell.endSheet({ result: 'win', text: parLabel(race.pair), stats: [[T('race.clicksLabel'), Play.num(n)], [T('play.time'), Play.fmtClock(ms)]] });
+    ZimiShell.endSheet({ result: 'win', text: parLabel(race.pair), stats: [[T('race.clicksLabel'), Play.num(n)], [T('play.time'), Play.fmtClock(ms)]], extra: routeNodes() });
   }
 
   function go(path) {
@@ -316,7 +329,7 @@
   function giveUpSheet() {
     els.share.hidden = false;
     line.say(T('race.target', { target: race.pair.end.title }));
-    ZimiShell.endSheet({ result: 'lose', text: T('race.gaveUp', { target: race.pair.end.title, par: parLabel(race.pair) }), after: 0, stats: [[T('race.clicksLabel'), Play.num(clicks())]] });
+    ZimiShell.endSheet({ result: 'lose', text: T('race.gaveUp', { target: race.pair.end.title, par: parLabel(race.pair) }), after: 0, stats: [[T('race.clicksLabel'), Play.num(clicks())]], extra: routeNodes() });
   }
 
   function intro(pair, mode, doneBefore) {

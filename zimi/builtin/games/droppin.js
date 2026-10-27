@@ -51,8 +51,8 @@
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T, NS = 'http://www.w3.org/2000/svg';
   Play.applyTheme();
   var BEST_KEY = 'zimi.games.droppin.best', ZOOM_STEP = 1.8, ASK_MS = 8000, MAP_ZOOM_TRUTH = 15, PIN_PX = 5, TAP_PX = 8;
-  var els = { n: $('dp-n'), ask: $('dp-ask'), frame: $('dp-frame'), world: $('dp-world'), cross: $('dp-cross'), zoom: $('dp-zoom'), msg: $('dp-msg'), drop: $('dp-drop'), next: $('dp-next'), score: $('dp-score'), newBtn: $('dp-new'), zin: $('dp-zin'), zout: $('dp-zout') };
-  var status = Play.status(els.msg), g = null, mapZim = '', mapBounds = null, building = false, done = false;
+  var els = { n: $('dp-n'), ask: $('dp-ask'), frame: $('dp-frame'), world: $('dp-world'), cross: $('dp-cross'), zoom: $('dp-zoom'), msg: $('dp-msg'), drop: $('dp-drop'), mapLink: $('dp-map'), next: $('dp-next'), score: $('dp-score'), newBtn: $('dp-new'), zin: $('dp-zin'), zout: $('dp-zout') };
+  var status = Play.status(els.msg), g = null, libList = [], mapZim = '', mapBounds = null, building = false, done = false;
   var view = { x: 0, y: 0, w: MAP_W, h: MAP_H }, pin = null, layer = null, drag = null;
 
   var el = root.ZimiUtil.el;
@@ -122,7 +122,7 @@
 
   // ── the round ──
   function ask() {
-    var x = q(); pin = null; paint();
+    var x = q(); pin = null; els.mapLink.hidden = true; paint();
     els.ask.textContent = T(g.mode === 'map' ? 'drop.findOnMap' : 'drop.find', { name: x.name });
     els.next.hidden = true; els.drop.hidden = false;
     if (g.mode === 'map') { els.drop.removeAttribute('aria-disabled'); status.say(T('drop.panTo')); showMap(); }
@@ -139,10 +139,18 @@
   }
   function reveal(a) {
     status.say(T('drop.result', { distance: kmText(a.km), points: a.pts }));
+    mapLink(q());
     els.drop.hidden = true; els.next.hidden = false; els.next.textContent = T(g.at + 1 >= g.qs.length ? 'round.seeScore' : 'round.next'); els.next.focus();
     if (g.mode === 'map') { els.cross.hidden = true; try { els.frame.contentWindow.location.hash = 'map=' + MAP_ZOOM_TRUTH + '/' + q().lat + '/' + q().lon; } catch (e) { els.frame.src = mapUrl('map=' + MAP_ZOOM_TRUTH + '/' + q().lat + '/' + q().lon); } }
     else paintPins();
     paint();
+  }
+  // Inside Zimi, the place on the whole StreetZim map (the one it came from, else one whose box holds it), once the pin is down.
+  function mapLink(x) {
+    var m = Lib.hosted() && Lib.mapFor(libList, x.lat, x.lon, g.mode === 'map' ? g.zim : '');
+    els.mapLink.hidden = !m;
+    if (!m) return;
+    Lib.articleLink(els.mapLink, m.zim, m.path); els.mapLink.textContent = T('learn.map', { place: x.name });
   }
   function advance() {
     if (!g.ans) return;
@@ -197,6 +205,7 @@
   });
 
   Lib.library().then(function (list) {
+    libList = list || [];
     var m = (list || []).filter(function (z) { return z.kind === 'map' && z.map_search; })[0];
     mapZim = m ? m.name : ''; mapBounds = m && m.map_bounds ? m.map_bounds : null;
     var kept = ZimiShell.saved();

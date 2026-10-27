@@ -324,6 +324,38 @@ const Lib = load(['librarykit.js']).GamesLib;
     check(typeof sb.WORLD_LAND_D === 'string' && sb.WORLD_LAND_D.length > 5000 && /^M/.test(sb.WORLD_LAND_D) && /Z$/.test(sb.WORLD_LAND_D), 'world: the land outline is a closed path');
   }
 
+  // ── leading out of a game ──────────────────────────────────────────────────
+  {
+    const maps = [{ name: 'osm_small', kind: 'map', map_search: true, map_bounds: [0, 0, 10, 10] }, { name: 'osm_other', kind: 'map', map_search: true, map_bounds: [100, 40, 120, 60] }, { name: 'osm_nosearch', kind: 'map' }];
+    check(same(Lib.mapFor(maps, 5, 5), { zim: 'osm_small', path: 'index.html#map=14/5/5' }), 'lead out: the map whose box holds a point, opened at that point');
+    check(same(Lib.mapFor(maps, 50, 110), { zim: 'osm_other', path: 'index.html#map=14/50/110' }), 'lead out: another point, another map');
+    check(Lib.mapFor(maps, -40, -70) === null, 'lead out: a point no map holds gives no link');
+    check(Lib.mapFor([{ name: 'osm_nobox', kind: 'map', map_search: true }], 5, 5) === null, 'lead out: a map with no known box is not guessed at');
+    check(Lib.mapFor(maps, 5, 5, 'osm_other').zim === 'osm_other', 'lead out: the map a place came from, whatever its box');
+    check(Lib.mapFor(maps, 5, 5, 'osm_nosearch') === null && Lib.mapFor(null, 1, 1) === null, 'lead out: only searchable maps, and no library is no map');
+    check(Lib.hosted() === false && Lib.tell({ zimi: 'open' }) === false, 'lead out: outside Zimi nothing is said to anyone');
+    check(await Lib.dictionaryOn() === false, 'lead out: outside Zimi the Dictionary is not offered');
+    const a = { dataset: {} }, ev = { defaultPrevented: false, button: 0, preventDefault() { this.defaultPrevented = true; } };
+    Lib.articleLink(a, 'wikipedia', 'Paris');
+    check(a.href === '/w/wikipedia/Paris' || /\/Paris$/.test(a.href), 'lead out: an article link is a plain link to the page');
+    a.onclick(ev);
+    check(!ev.defaultPrevented, 'lead out: with nothing to ask, the click goes to the link');
+    // inside Zimi: the click is said to Zimi (a modified click keeps the link)
+    const said = [], hosted = load(['librarykit.js'], { ZimiShell: { hosted: true }, location: { origin: 'http://z', protocol: 'http:' }, parent: { postMessage: (m, o) => said.push([m, o]) } }).GamesLib;
+    hosted.articleLink(a, 'wikipedia', 'Paris'); a.onclick(ev);
+    check(ev.defaultPrevented && same(said[0], [{ zimi: 'open', zim: 'wikipedia', path: 'Paris' }, 'http://z']), 'lead out: inside Zimi an article opens through Zimi, to the same origin');
+    const mod = { defaultPrevented: false, button: 0, metaKey: true, preventDefault() { this.defaultPrevented = true; } };
+    a.onclick(mod);
+    check(!mod.defaultPrevented && said.length === 1, 'lead out: a modified click is left to the browser');
+    const w = { dataset: {} }; hosted.wordLink(w, 'fjord'); w.onclick({ defaultPrevented: false, button: 0, preventDefault() {} });
+    check(w.href === '/?dictionary=fjord' && same(said[1][0], { zimi: 'game-app', app: 'dictionary', w: 'fjord' }), 'lead out: a word opens in the Dictionary, and has the Dictionary\'s own address as its link');
+    // a word's learn-more link: the page at once, never the Dictionary where there is none
+    const link = { dataset: {}, hidden: true, textContent: '' }, T = (k, v) => k + ':' + v.word;
+    Lib.wordLearn(link, T, { word: 'fjord', zim: 'wiktionary', path: 'fjord', readKey: 'bl.read' });
+    await Lib.dictionaryOn();
+    check(link.hidden === false && link.textContent === 'bl.read:fjord' && link.href === '/w/wiktionary/fjord', 'lead out: outside Zimi a word links to its own page');
+  }
+
   console.log('\n' + passes + ' passed, ' + failures + ' failed');
   process.exit(failures ? 1 : 0);
 })();

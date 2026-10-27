@@ -185,7 +185,7 @@
     });
     c.appendChild(list);
     c.appendChild(scoreboard());
-    if (dict && w.path) { var a = el('a', 'ar-btn', T('bl.read', { word: w.word })); a.href = Lib.articleUrl(dict, w.path); els.actions.appendChild(a); }
+    if (dict && w.path) els.actions.appendChild(Lib.wordLearn(el('a', 'ar-btn'), T, { word: w.word, zim: dict, path: w.path, readKey: 'bl.read' }));
     button(T(g.round + 1 >= g.rounds ? 'round.seeScore' : 'round.next'), true, nextRound);
   }
   function scoreboard() {

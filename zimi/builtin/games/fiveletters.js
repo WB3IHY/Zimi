@@ -73,13 +73,13 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
-  var FLIP_MS = 230, MAX_TILE = 62, GAP = 6, SIDE_PAD = 24, END_DELAY_MS = 500;       // each tile turns over 230 ms after the one before
+  var FLIP_MS = 230, HOP_MS = 80, COPIED_MS = 1500, MAX_TILE = 62, GAP = 6, SIDE_PAD = 24, END_DELAY_MS = 500;       // each tile turns over 230 ms after the one before
   var STATE_KEY = 'zimi.games.fiveletters.state', STATS_KEY = 'zimi.games.fiveletters.stats', LANG_KEY = 'zimi.games.fiveletters.lang';
   var ROWS = ['qwertyuiop', 'asdfghjkl', '#zxcvbnm<'];
   Play.applyTheme();
 
   var words = makeWords(root.FIVE_ALLOWED, root.FIVE_ANSWERS);
-  var els = { board: $('fl-board'), keys: $('fl-keys'), msg: $('fl-msg'), newBtn: $('fl-new'), actions: $('fl-actions'), share: $('fl-share'), mean: $('fl-mean') };
+  var els = { board: $('fl-board'), keys: $('fl-keys'), msg: $('fl-msg'), newBtn: $('fl-new'), actions: $('fl-actions'), share: $('fl-share'), mean: $('fl-mean'), learn: $('fl-learn') };
   var status = Play.status(els.msg);
   var keyEls = {}, tileEls = [];
   var stored = Play.load(STATE_KEY, {});
@@ -172,7 +172,9 @@
   function rest() {
     if (game.status === 'won') return praise();
     if (game.status === 'lost') return T('fiveletters.theWord', { word: shown() });
-    return T(game.mode === 'daily' ? 'fiveletters.daily' : 'fiveletters.practice');
+    // Words in English under another language's labels say so, in the player's language.
+    var english = !cur && Lib.pageLang() !== 'en' ? 'En' : '';
+    return T((game.mode === 'daily' ? 'fiveletters.daily' : 'fiveletters.practice') + english);
   }
   function paintAll() {
     for (var r = 0; r < TRIES; r++) {
@@ -185,6 +187,22 @@
     els.actions.hidden = !over;
     els.mean.hidden = !(over && !game.blurb && !cur && enDict);
     els.mean.textContent = T('fiveletters.mean', { word: shown() });
+    paintLearn();
+  }
+  // Inside Zimi with the Dictionary on, the round's word opens there (and the in-page meaning steps aside).
+  function paintLearn() {
+    els.learn.hidden = true;
+    if (!game || game.status === 'playing') return;
+    var g = game, w = game.title || game.answer;
+    Lib.dictionaryOn().then(function (on) {
+      if (!on || g !== game || game.status === 'playing') return;
+      Lib.wordLink(els.learn, w); els.learn.textContent = T('learn.dictionary', { word: w }); els.learn.hidden = false; els.mean.hidden = true;
+    });
+  }
+  // A win: the row hops tile by tile, as the end sheet is about to come up.
+  function celebrate(r) {
+    if (Play.reducedMotion()) return;
+    tileEls[r].forEach(function (t, c) { t.style.animationDelay = c * HOP_MS + 'ms'; t.classList.add('hop'); });
   }
   function praise() { return T('fiveletters.praise.' + game.guesses.length); }
 
@@ -221,9 +239,10 @@
     persist();
     var done = function () {
       busy = false; paintKeys();
+      if (game.status === 'won') celebrate(r);
       if (game.status === 'playing') return;
       status.say(rest()); els.actions.hidden = false;
-      els.mean.hidden = !(!game.blurb && !cur && enDict); els.mean.textContent = T('fiveletters.mean', { word: shown() });
+      els.mean.hidden = !(!game.blurb && !cur && enDict); els.mean.textContent = T('fiveletters.mean', { word: shown() }); paintLearn();
       record(game.status === 'won');
       finish();
     };
@@ -296,7 +315,9 @@
   els.share.addEventListener('click', function () {
     var title = T('fiveletters.share', { lang: cur ? ' (' + cur.lang + ')' : '', date: game.mode === 'daily' ? ' ' + game.date : '' });
     var text = shareText(title, game.guesses, game.answer, game.status === 'won');
-    try { navigator.clipboard.writeText(text).then(function () { status.reason(T('fiveletters.copied')); }, function () { status.reason(text); }); } catch (e) { status.reason(T('fiveletters.copyFail')); }
+    // The answer shows on the button itself, where the finger is.
+    var label = T('fiveletters.copy'), told = function (msg) { els.share.textContent = msg; setTimeout(function () { els.share.textContent = label; }, COPIED_MS); };
+    try { navigator.clipboard.writeText(text).then(function () { told(T('fiveletters.copied')); }, function () { status.reason(text); }); } catch (e) { told(T('fiveletters.copyFail')); }
   });
   // Enter a mode of the current list. A library word may have to be fetched first.
   function switchTo(mode, fresh) {

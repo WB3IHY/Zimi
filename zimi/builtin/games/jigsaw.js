@@ -252,7 +252,7 @@
     var newBest = !best[key] || ms < best[key];
     if (newBest) { best[key] = ms; Play.save(BEST_KEY, best); }
     els.read.hidden = !puzzle.pic.path;
-    if (puzzle.pic.path) els.read.href = Lib.articleUrl(puzzle.pic.zim, puzzle.pic.path);
+    if (puzzle.pic.path) Lib.articleLink(els.read, puzzle.pic.zim, puzzle.pic.path);
     line.say(T('jigsaw.done'));
     ZimiShell.endSheet({
       result: 'win', after: Play.reducedMotion() ? 0 : SNAP_MS * 2,

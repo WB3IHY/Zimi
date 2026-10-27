@@ -14,3 +14,7 @@
 .gs-actionrow[hidden] { display: none; }
 /* A link that looks like a button (Read about ..., after an answer). */
 a.ar-btn { display: inline-flex; align-items: center; text-decoration: none; color: inherit; }
+/* A learn-more link under a round (the place on the map, ...): one quiet line, never a button in the way of Next. */
+a.gl-learn { align-self: center; color: var(--accent); font-size: var(--fs-small); font-weight: 600; text-decoration: none; }
+a.gl-learn:hover { text-decoration: underline; }
+a.gl-learn[hidden] { display: none; }

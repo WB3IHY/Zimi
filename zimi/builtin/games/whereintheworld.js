@@ -73,11 +73,11 @@
   Play.applyTheme();
   var BEST_KEY = 'zimi.games.world.best';
   var ZOOM_STEP = 1.8, WHEEL_STEP = 1.15, KEY_PAN = 0.08, TAP_PX = 8, PIN_PX = 7, MAP_BATCH = 4;
-  var els = { frame: $('wm-frame'), svg: $('wm-svg'), ask: $('wm-ask'), kind: $('wm-kind'), msg: $('wm-msg'), info: $('wm-info'), n: $('wm-n'), score: $('wm-score'),
+  var els = { frame: $('wm-frame'), svg: $('wm-svg'), ask: $('wm-ask'), kind: $('wm-kind'), msg: $('wm-msg'), info: $('wm-info'), mapLink: $('wm-map'), n: $('wm-n'), score: $('wm-score'),
     guess: $('wm-guess'), next: $('wm-next'), zin: $('wm-zin'), zout: $('wm-zout'), newBtn: $('wm-new') };
   var status = Play.status(els.msg), pendingMaps = null, finished = false;
   var view = wholeWorld(2), round = [], at = 0, total = 0, pending = null, answered = false;
-  var wikiZim = null, mapZims = [], useMaps = false, layers = {}, busy = false;
+  var wikiZim = null, libList = [], mapZims = [], useMaps = false, layers = {}, busy = false;
 
   function svgEl(tag, attrs, parent) {
     var e = document.createElementNS(NS, tag);
@@ -127,7 +127,7 @@
   function ask() {
     var q = round[at]; pending = null; answered = false;
     els.ask.textContent = q.name; els.kind.textContent = T('world.where', { kind: q.kind });
-    els.guess.hidden = false; els.guess.disabled = true; els.next.hidden = true;
+    els.guess.hidden = false; els.guess.disabled = true; els.next.hidden = true; els.mapLink.hidden = true;
     status.say(T('world.tap')); els.info.textContent = ''; els.info.hidden = true;
     view = wholeWorld(aspect()); applyView(); paintTop();
   }
@@ -141,7 +141,14 @@
     els.guess.hidden = true; els.next.hidden = false; els.next.textContent = T(at + 1 >= round.length ? 'world.seeScore' : 'world.next');
     view = fitView(pending, q, view.w / view.h, 0.6); applyView(); paintTop();
     els.next.focus();
-    about(q);
+    about(q); mapLink(q);
+  }
+  // Inside Zimi, the place on the StreetZim map that holds it (the map it came from, else one whose box has it): the whole map, in the reader.
+  function mapLink(q) {
+    els.mapLink.hidden = true;
+    var m = Lib.hosted() && Lib.mapFor(libList, q.lat, q.lon, q.zim);
+    if (!m) return;
+    Lib.articleLink(els.mapLink, m.zim, m.path); els.mapLink.textContent = T('learn.map', { place: q.name }); els.mapLink.hidden = false;
   }
   // From the player's Wikipedia: the first lines about this place, and a link to the article. Asked once, after the answer.
   function about(q) {
@@ -153,7 +160,7 @@
       return Lib.json('/snippet?zim=' + encodeURIComponent(wikiZim) + '&path=' + encodeURIComponent(hit.path)).then(function (s) {
         if (ask !== at) return;
         els.info.innerHTML = '';
-        var a = document.createElement('a'); a.href = '/w/' + encodeURIComponent(wikiZim) + '/' + hit.path.split('/').map(encodeURIComponent).join('/'); a.textContent = hit.title;
+        var a = Lib.articleLink(document.createElement('a'), wikiZim, hit.path); a.textContent = hit.title;
         els.info.appendChild(a);
         els.info.appendChild(document.createTextNode(s && s.snippet ? T('world.snippet', { snippet: s.snippet }) : ''));
         els.info.hidden = false;
@@ -182,7 +189,7 @@
       var zim = mapZims[Math.floor(Math.random() * mapZims.length)];
       return Lib.json('/random?zim=' + encodeURIComponent(zim)).then(function (r) {
         var p = placeFromMap(r);
-        if (p && !seen[p.name] && out.length < n) { seen[p.name] = true; out.push(p); }
+        if (p && !seen[p.name] && out.length < n) { seen[p.name] = true; p.zim = zim; out.push(p); }
       }, function () { failed++; }).then(lane);
     }
     var lanes = []; for (var i = 0; i < MAP_BATCH; i++) lanes.push(lane());
@@ -276,6 +283,7 @@
   Lib.isZimi().then(function (yes) { return yes ? Lib.zims() : []; }).then(function (list) {
     var a = Lib.pickZim(list, 'wikipedia', Lib.uiLang());
     wikiZim = a ? a.zim.name : null;
+    libList = list;
     mapZims = list.filter(function (z) { return z.kind === 'map' && z.map_search; }).map(function (z) { return z.name; });
     // Leaving and coming back keeps the round: its places, where you are, the pin and the answer just given.
     var kept = ZimiShell.saved();

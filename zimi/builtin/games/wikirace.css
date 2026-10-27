@@ -27,3 +27,8 @@
 .rc-hint { font-style: italic; font-size: var(--fs-small); }
 .rc-best { color: var(--ok) !important; font-weight: 600; }
 .rc-note { margin: 0 0 10px; padding: 6px 10px; border-radius: var(--r-chip); background: var(--cell); color: var(--ink2); font-size: var(--fs-small); }
+/* The route as articles to read, on the end sheet: a quiet line of links, not buttons. */
+.rc-review { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: center; margin: 0; font-size: var(--fs-small); color: var(--ink2); }
+.rc-review-label { flex: 0 0 100%; text-align: center; }
+.rc-review-link { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+.rc-review-link:hover { border-bottom-color: currentColor; }

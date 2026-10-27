@@ -114,7 +114,7 @@
     els.next.hidden = playing; els.read.hidden = playing || !dict || !w.path;
     if (!playing) {
       els.next.textContent = T(g.round + 1 >= g.words.length ? 'round.seeScore' : 'round.next');
-      if (dict && w.path) { els.read.href = Lib.articleUrl(dict, w.path); els.read.textContent = T('babel.read', { word: w.answer }); }
+      if (dict && w.path) Lib.wordLearn(els.read, T, { word: w.answer, zim: dict, path: w.path, readKey: 'babel.read' });
       els.next.focus();
     }
   }

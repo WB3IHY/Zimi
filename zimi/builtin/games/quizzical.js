@@ -163,7 +163,7 @@
     for (var k = 0; k < btns.length; k++) { btns[k].disabled = true; if (k === right) btns[k].classList.add('right'); }
     if (i === right) { score++; status.say(T('quizzical.right')); } else { btns[i].classList.add('wrong'); status.say(T('quizzical.itWas', { answer: q.answer })); }
     if (q.picture) els.prompt.textContent = '';
-    if (q.path && q.zim) { els.read.hidden = false; els.read.href = Lib.articleUrl(q.zim, q.path); els.read.textContent = T('quizzical.read', { answer: q.answer }); }
+    if (q.path && q.zim) { els.read.hidden = false; Lib.articleLink(els.read, q.zim, q.path); els.read.textContent = T('quizzical.read', { answer: q.answer }); }
     els.next.hidden = false; els.next.textContent = T(at + 1 >= round.length ? 'quizzical.seeScore' : 'quizzical.next');
     els.next.focus();
     paintScore();

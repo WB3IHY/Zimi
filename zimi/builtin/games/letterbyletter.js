@@ -211,7 +211,7 @@
     paintWord(); paintKeys(); paintFigure(); paintAir();
     els.hint.disabled = over || airLeft(game) < 2;
     els.entry.hidden = !(over && source);
-    if (source) els.entry.href = '/w/' + encodeURIComponent(source.zim) + '/' + encodeURIComponent(game.word);
+    if (over && source) Lib.wordLearn(els.entry, T, { word: game.word, zim: source.zim, path: game.word, readKey: 'letters.entry' });
   }
   function persist() { stored[mode] = { word: game.word, clue: game.clue, guessed: game.guessed, misses: game.misses, hints: game.hints, date: mode === 'daily' ? today : '', zim: source ? source.zim : '', counted: game.counted || false }; Play.save(STATE_KEY, stored); }
 

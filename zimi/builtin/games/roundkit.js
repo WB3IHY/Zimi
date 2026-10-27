@@ -51,7 +51,13 @@
       for (var k = 0; k < btns.length; k++) { btns[k].disabled = true; if (k === right) btns[k].classList.add('right'); }
       if (i === right) { score++; status.say(T('round.right')); } else { btns[i].classList.add('wrong'); status.say(T('round.itWas', { answer: q.answer })); }
       if (q.detail) { els.detail.textContent = q.detail; els.detail.hidden = false; }
-      if (q.path && q.zim) { els.read.hidden = false; els.read.href = Lib.articleUrl(q.zim, q.path); els.read.textContent = T('round.read', { answer: q.answer }); }
+      if (q.path && q.zim) {   // only once the ZIM is known to hold the page (a list links to articles a smaller ZIM leaves out)
+        var asked = at;
+        Lib.hasPage(q.zim, q.path).then(function (has) {
+          if (!has || asked !== at || !answered) return;
+          els.read.hidden = false; Lib.articleLink(els.read, q.zim, q.path); els.read.textContent = T('round.read', { answer: q.answer });
+        });
+      }
       els.next.hidden = false; els.next.textContent = T(at + 1 >= round.length ? 'round.seeScore' : 'round.next');
       els.next.focus();
       paintScore();

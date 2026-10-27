@@ -20,7 +20,7 @@
       if (!head || !pic || !pic.img || out.length >= MAX_FLAGS) return;
       var name = (head.link || head.text).replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim(), key = Lib.fold(name);
       if (!name || seen[key]) return;
-      seen[key] = true; out.push({ name: name, src: pic.img });
+      seen[key] = true; out.push({ name: name, src: pic.img, href: head.href || '' });
     });
     return out;
   }
@@ -30,7 +30,9 @@
     var others = [], seen = [Lib.fold(flag.name)];
     Lib.shuffle(pool, rng).forEach(function (f) { var k = Lib.fold(f.name); if (others.length < CHOICES - 1 && seen.indexOf(k) < 0) { seen.push(k); others.push(f.name); } });
     if (others.length < CHOICES - 1) return null;
-    return { kind: 'flag', picture: flag.url || flag.picture, answer: flag.name, choices: Lib.shuffle([flag.name].concat(others), rng) };
+    var q = { kind: 'flag', picture: flag.url || flag.picture, answer: flag.name, choices: Lib.shuffle([flag.name].concat(others), rng) };
+    if (flag.path && flag.zim) { q.path = flag.path; q.zim = flag.zim; }   // the country's article, for the learn-more link
+    return q;
   }
 
   // A round from the list: `check(url)` says whether a picture loads; flags whose picture does not are left out.
@@ -123,7 +125,7 @@
         if (!got) return null;
         var flags = readFlags(Lib.rows(got.html)).map(function (f) {
           var path = Lib.resolvePath(zimName, got.path, f.src, Lib.pathRoot());
-          return path ? { name: f.name, url: Lib.articleUrl(zimName, path) } : null;
+          return path ? { name: f.name, url: Lib.articleUrl(zimName, path), path: Lib.resolvePath(zimName, got.path, f.href, Lib.pathRoot()), zim: zimName } : null;
         }).filter(Boolean);
         if (flags.length < CHOICES) return null;
         return libraryRound(flags, loads, QUESTIONS, Math.random).then(function (round) { return round.length >= QUESTIONS / 2 ? { round: round, zim: zimName } : null; });

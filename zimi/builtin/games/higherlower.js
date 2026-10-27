@@ -39,7 +39,7 @@
       }
       if (!started) continue;
       var cell = cells[nameAt] || {}, name = cleanName(cell.link || cell.text, kind === 'length'), value = Lib.number((cells[valueAt] || {}).text);
-      if (name && !NOT_A_THING.test(name) && isFinite(value) && value > 0) out.push({ name: name, value: value });
+      if (name && !NOT_A_THING.test(name) && isFinite(value) && value > 0) out.push({ name: name, value: value, href: cell.href || '' });
     }
     var seen = {};
     return out.filter(function (t) { var k = Lib.fold(t.name); return !seen[k] && (seen[k] = true); });
@@ -49,7 +49,9 @@
   function question(kind, a, b, rng) {
     if (!a || !b || a.name === b.name || Math.max(a.value, b.value) / Math.min(a.value, b.value) < MIN_RATIO) return null;
     var big = a.value > b.value ? a : b;
-    return { kind: kind, answer: big.name, choices: Lib.shuffle([a.name, b.name], rng), facts: [[a.name, a.value], [b.name, b.value]] };
+    var q = { kind: kind, answer: big.name, choices: Lib.shuffle([a.name, b.name], rng), facts: [[a.name, a.value], [b.name, b.value]] };
+    if (big.path && big.zim) { q.path = big.path; q.zim = big.zim; }   // the answer's article, for the learn-more link
+    return q;
   }
 
   // A round: the lists (kind -> things) taken in turn, a pair at a time, no thing twice.
@@ -89,6 +91,12 @@
   function detailOf(q) {
     return q.facts.map(function (f) { return T('highlow.fact', { name: f[0], value: T('highlow.value.' + q.kind, { n: nf(f[1]) }) }); }).join(' · ');
   }
+  // A thing with the path of its article in the ZIM, when its row linked to one.
+  function withPage(t, fromPath) {
+    var path = Lib.resolvePath(zimName, fromPath, t.href, Lib.pathRoot());
+    if (path) { t.path = path; t.zim = zimName; }
+    return t;
+  }
   function withDetails(round) { round.forEach(function (q) { q.detail = detailOf(q); }); return round; }
 
   root.RoundKit.run({
@@ -103,7 +111,7 @@
       if (!zimName) return Promise.resolve(null);
       var kinds = Object.keys(LISTS);
       return Promise.all(kinds.map(function (k) {
-        return Lib.pageHead(zimName, [LISTS[k].page], PAGE_BYTES).then(function (got) { return got ? readList(Lib.rows(got.html), k) : []; }, function () { return []; });
+        return Lib.pageHead(zimName, [LISTS[k].page], PAGE_BYTES).then(function (got) { return got ? readList(Lib.rows(got.html), k).map(function (t) { return withPage(t, got.path); }) : []; }, function () { return []; });
       })).then(function (all) {
         var lists = {};
         kinds.forEach(function (k, i) { if (all[i].length >= MIN_ROWS) lists[k] = all[i]; });

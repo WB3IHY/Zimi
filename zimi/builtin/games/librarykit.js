@@ -327,6 +327,57 @@
     return n;
   };
 
+  // ── leading out of a game ───────────────────────────────────────────────
+  // Inside Zimi the game is the reader's frame (same origin), so it can ask Zimi to open something the way Zimi opens it:
+  // {zimi: 'open', zim, path} is Zimi's own article open (a path may end in a #fragment: a map's #map=zoom/lat/lon), and
+  // {zimi: 'game-app', app: 'dictionary', w} opens a word in the Dictionary (the one hook in app.js for this). Everywhere
+  // else a link is a plain link, or is not drawn. A leading-out link is never part of play: it sits on a round's or an end sheet.
+  Lib.hosted = function () { return !!(root.ZimiShell && root.ZimiShell.hosted); };
+  Lib.tell = function (msg) {
+    if (!Lib.hosted()) return false;
+    try { root.parent.postMessage(msg, root.location.origin); return true; } catch (e) { return false; }
+  };
+  // An anchor that goes to `href` as a link and, inside Zimi, says `msg` to Zimi instead (a modified click keeps the link).
+  Lib.leadOut = function (a, msg, href) {
+    a.href = href;
+    a.onclick = function (e) {
+      if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      if (Lib.tell(msg)) e.preventDefault();
+    };
+    return a;
+  };
+  // A page of a ZIM, read in Zimi's reader (Back returns to the game) or by the plain address.
+  Lib.articleLink = function (a, zim, path) { return Lib.leadOut(a, { zimi: 'open', zim: zim, path: path }, Lib.articleUrl(zim, path)); };
+  // A word in the Dictionary app: only inside Zimi, and only when the app is on (one probe a page, asked when first wanted).
+  var dictAnswer = null;
+  Lib.dictionaryOn = function () {
+    if (!dictAnswer) dictAnswer = Lib.hosted() ? Lib.json('/dictionary/suggest?q=a', PROBE_MS).then(function () { return true; }, function () { return false; }) : Promise.resolve(false);
+    return dictAnswer;
+  };
+  Lib.wordLink = function (a, word) { return Lib.leadOut(a, { zimi: 'game-app', app: 'dictionary', w: word }, '/?dictionary=' + encodeURIComponent(word)); };
+  // The one learn-more link for a word of a Wiktionary: the Dictionary inside Zimi when the app is there, else the word's own page.
+  // `a` is shown at once with the page and turns into the Dictionary's when the probe answers, if it is still this word's link.
+  Lib.wordLearn = function (a, T, o) {
+    a.dataset.word = o.word; a.hidden = false;
+    a.textContent = T(o.readKey, { word: o.word }); Lib.articleLink(a, o.zim, o.path);
+    Lib.dictionaryOn().then(function (on) {
+      if (!on || a.dataset.word !== o.word) return;
+      Lib.wordLink(a, o.word); a.textContent = T('learn.dictionary', { word: o.word });
+    });
+    return a;
+  };
+  // The StreetZim map that holds a point: `prefer` (a map the point came from) or the first of the library's searchable maps
+  // whose box has it. {zim, path} for Lib.articleLink, the path ending where the map should look; null when no map has it.
+  var MAP_LINK_ZOOM = 14, MAP_PAGE = 'index.html';   // a StreetZim map's page, which reads #map=zoom/lat/lon
+  Lib.mapFor = function (list, lat, lon, prefer) {
+    var maps = (list || []).filter(function (z) { return z.kind === 'map' && z.map_search; });
+    var z = prefer ? maps.filter(function (m) { return m.name === prefer; })[0] : maps.filter(function (m) {
+      var b = m.map_bounds;
+      return b && b.length === 4 && lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3];
+    })[0];
+    return z ? { zim: z.name, path: MAP_PAGE + '#map=' + MAP_LINK_ZOOM + '/' + lat + '/' + lon } : null;
+  };
+
   // What a library game says about where it is playing from, for Menu > About: one plain sentence.
   // `what` is the id of the game's word for its content (lib.what.questions, lib.what.flags ...).
   // `zim` is the name of the ZIM the game is playing from, or '' when it plays its own set.
@@ -352,6 +403,19 @@
       if (v) { try { v = JSON.parse(v); } catch (e) { /* a bare code */ } if (typeof v === 'string' && v) return Lib.primaryLang(v); }
     } catch (e) { /* blocked storage */ }
     return Lib.primaryLang(typeof navigator !== 'undefined' ? navigator.language : 'en') || 'en';
+  };
+
+  // The language the page's strings are in (ZimiText's choice: the hash Zimi passes), as its base code.
+  Lib.pageLang = function () {
+    var l = root.ZimiText && root.ZimiText.lang;
+    return l ? Lib.primaryLang(l) : 'en';
+  };
+  // A name in the page's language through Intl, or the given fallback: type is 'region' (a country code) or 'language'.
+  Lib.displayName = function (type, code, fallback) {
+    try {
+      var n = new Intl.DisplayNames([root.ZimiText ? root.ZimiText.lang : 'en'], { type: type }).of(code);
+      return n && n !== code ? n : fallback;
+    } catch (e) { return fallback; }
   };
 
   // The line under a game that says what its content came from.

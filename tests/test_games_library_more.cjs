@@ -114,7 +114,13 @@ const rng = seed => load(['librarykit.js']).GamesLib.rng(seed);
     const E = sb.FlagsEngine, mini = sb.FLAGS_MINI;
     const rows = Lib.rows('<table><tr><th>Flag</th><th>State</th></tr><tr><td><img src="./I/Flag_of_France.png"></td><th><a href="./France">France</a></th></tr><tr><td><img src="./I/Flag_of_France2.png"></td><th><a href="./France">France</a></th></tr><tr><td></td><th>No picture</th></tr><tr><td><img src="./I/x.png"></td><td>Not a head</td></tr></table>');
     const flags = E.readFlags(rows);
-    check(same(flags, [{ name: 'France', src: './I/Flag_of_France.png' }]), 'flags: a row is a country\'s name and its picture, once, and only when it has both');
+    check(same(flags, [{ name: 'France', src: './I/Flag_of_France.png', href: './France' }]), 'flags: a row is a country\'s name, its picture and its article, once, and only when it has both');
+    {
+      const pool = [{ name: 'France', url: 'u1', path: 'France', zim: 'w' }, { name: 'Spain', url: 'u2' }, { name: 'Italy', url: 'u3' }, { name: 'Chad', url: 'u4' }];
+      const asked = E.question(pool[0], pool, () => 0.5), plain = E.question(pool[1], pool, () => 0.5);
+      check(asked.path === 'France' && asked.zim === 'w', 'flags: a question carries its country\'s article for the learn-more link');
+      check(!('path' in plain) && !('zim' in plain), 'flags: a country with no article has no link');
+    }
     const svg = E.svgOf(mini[0][1]);
     check(/^<svg [^>]*viewBox="0 0 90 60"/.test(svg) && svg.includes('<rect') && !svg.includes('undefined'), 'flags: a flag is one svg');
     check(mini.every(f => !E.svgOf(f[1]).includes('undefined') && !E.svgOf(f[1]).includes('NaN')) && mini.length >= 40 && new Set(mini.map(f => f[0])).size === mini.length, 'flags: 40 or more built-in flags, each drawn, each different');
@@ -134,10 +140,17 @@ const rng = seed => load(['librarykit.js']).GamesLib.rng(seed);
     const table = (head, rows) => '<table><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr>' + rows.map(r => '<tr>' + r.map((c, i) => (i === 1 ? '<td><a href="./x">' + c + '</a></td>' : '<td>' + c + '</td>')).join('') + '</tr>').join('') + '</table>';
     const pop = E.readList(Lib.rows(table(['Location', 'Population', '% of world'], [['World', '8,000,000,000', '100%'], ['India', '1,429,404,000', '17%'], ['China', '1,404,890,000', '17%'], ['Tonga', '100,000', '0%'], ['India', '1', '0%']])), 'population');
     check(pop.length === 3 && pop[0].name === 'World' === false, 'high lower: the world row is not a thing');
+    {
+      const big = { name: 'India', value: 2, path: 'India', zim: 'w' }, small = { name: 'Tonga', value: 1 };
+      const q = E.question('population', big, small, () => 0.5), q2 = E.question('population', small, { name: 'Chad', value: 5 }, () => 0.5);
+      check(q.path === 'India' && q.zim === 'w', 'high lower: the question carries the answer\'s article');
+      check(!('path' in q2), 'high lower: an answer with no article has no link');
+    }
     check(same(pop.map(p => p.name), ['India', 'China', 'Tonga']) && pop[0].value === 1429404000, 'high lower: a list\'s rows below the header, each name once');
     const area = E.readList(Lib.rows(table(['Rank', 'Country / dependency', 'Totalin km (mi)', 'Landin km (mi)'], [['–', 'Earth', '510,072,000 (196,940,000)', '1'], ['1', 'Russia', '17,098,246 (6,601,667)', '16'], ['2', 'Canada', '9,984,670 (3,855,100)', '9']])), 'area');
     check(same(area.map(a => [a.name, a.value]), [['Russia', 17098246], ['Canada', 9984670]]), 'high lower: the column that is asked for, a figure with another in brackets');
     const riv = E.readList(Lib.rows('<table><tr><th>Rank</th><th>River</th><th>Length (km)</th></tr><tr><td>1.</td><td><a href="./Nile">Nile</a>–<a href="./W">White Nile</a></td><td>6,650(7,088)</td></tr></table>'), 'length');
+    check(riv[0].href === './Nile', 'high lower: a thing keeps the address of its name\'s first link');
     check(riv.length === 1 && riv[0].name === 'Nile' && riv[0].value === 6650, 'high lower: a river is its first name');
     check(E.readList(Lib.rows('<table><tr><th>A</th><th>B</th></tr><tr><td>x</td><td>1</td></tr></table>'), 'height').length === 0, 'high lower: a page with no such list gives nothing');
     check(E.question('area', { name: 'A', value: 100 }, { name: 'B', value: 105 }, rng(1)) === null, 'high lower: two nearly equal things make no question');
