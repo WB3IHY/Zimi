@@ -15993,11 +15993,9 @@ function _msPreferencesHtml() {
   // paint from its answer into #ms-apps; an account that may not set them
   // sees none. A signed-in account's own choice follows, titled so the two
   // cards are not mistaken for one.
-  var h = '<div class="ms-section-label ms-section-head">' + tH('apps_section') + '<span id="ms-apps-all" hidden>' + _serverAppsAllHtml() + '</span></div>' +
-    '<div id="ms-apps-wrap"><div id="ms-apps">' + _serverAppsHtml() + '</div></div>' +
+  var h = '<div id="ms-apps-wrap"><div id="ms-apps">' + _serverAppsHtml() + '</div></div>' +
     (_appsAllowedByServer() && _userSession
-      ? '<div class="ms-theme-label" style="margin-top:12px">' + tH('show_apps') + '</div>' +
-        _appPicksHtml(APP_NAMES.filter(_appsAllowedByServer), _appShown, '_setUserApp', false, 'user')
+      ? _appPicksHtml(APP_NAMES.filter(_appsAllowedByServer), _appShown, '_setUserApp', false, 'user', tH('show_apps'))
       : '') +
     _switchRowsHtml([{ id: 'ms-open-in-apps', title: tH('open_in_apps'), desc: tH('open_in_apps_hint'),
       on: _openInApps() && _openInAppsPossible(), disabled: !_openInAppsPossible(), onchange: '_setOpenInApps(this.checked)' },
@@ -16394,12 +16392,11 @@ async function _renderAppsSection() {
   try { d = await _msFetch('/manage/apps'); } catch (e) {}
   var wrap = document.getElementById('ms-apps-wrap');
   if (!document.getElementById('ms-apps')) return;
-  if (!d) { if (wrap) wrap.hidden = true; _setHtmlIfChanged('ms-apps-all', ''); return; }
+  if (!d) { if (wrap) wrap.hidden = true; return; }
   if (wrap) wrap.hidden = false;
   _serverApps = Array.isArray(d.shown) ? d.shown : (d.enabled ? APPS_DEFAULT : []);
   _serverAppsLocked = !!d.env_locked;
   _setHtmlIfChanged('ms-apps', _serverAppsHtml());
-  _setHtmlIfChanged('ms-apps-all', _serverAppsAllHtml());
   _syncOpenInAppsRow();
 }
 // What the server offers, as far as the page knows: the stamp it booted with
@@ -16409,7 +16406,7 @@ var _serverAppsLocked = false;
 function _serverAppsNow() { return _serverApps || APP_NAMES.filter(_appsAllowedByServer); }
 function _serverAppsHtml() {
   var shown = _serverAppsNow();
-  return _appPicksHtml(APP_NAMES, function(app) { return shown.indexOf(app) >= 0; }, '_setAppForServer', _serverAppsLocked, 'server') +
+  return _appPicksHtml(APP_NAMES, function(app) { return shown.indexOf(app) >= 0; }, '_setAppForServer', _serverAppsLocked, 'server', tH('apps_section'), _serverAppsAllHtml()) +
     (_serverAppsLocked ? '<div class="ms-hint">' + tH('env_controlled', { v: 'ZIMI_APPS' }) + '</div>' : '');
 }
 // All and None sit on the section's header line, out of the rows' way.
@@ -23931,7 +23928,7 @@ function _setUserApp(app, on) {
   var shown = APP_NAMES.filter(function(a) { return a === app ? on : _appShown(a); });
   Promise.resolve(_setUserPref('apps', shown)).then(function() {
     var card = document.querySelector('.apps-card[data-card="user"]');
-    if (card) card.outerHTML = _appPicksHtml(APP_NAMES.filter(_appsAllowedByServer), _appShown, '_setUserApp', false, 'user');
+    if (card) card.outerHTML = _appPicksHtml(APP_NAMES.filter(_appsAllowedByServer), _appShown, '_setUserApp', false, 'user', tH('show_apps'));
   });
 }
 // The apps to choose from, as the tiles they are on the home page: an icon
@@ -23977,15 +23974,13 @@ function _toggleAppsCard(btn) {
   var open = !card.classList.contains('open');
   _appsCardOpen[card.dataset.card] = open;
   card.classList.toggle('open', open);
-  btn.textContent = t(open ? 'done' : 'apps_edit');
   btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-  var all = document.getElementById('ms-apps-all');
-  if (all && card.dataset.card === 'server') all.hidden = !open;
 }
 // Each app a Settings switch row: its icon, its name, what the library holds
-// for it, and the switch. Shut, one summary row: how many are on, their icons
-// and Edit. card names the list ('server' or 'user').
-function _appPicksHtml(apps, checked, onchange, disabled, card) {
+// for it, and the switch. Shut, one disclosure row: the title, how many are
+// on, a chevron. card names the list ('server' or 'user'); head is All/None.
+var _CHEVRON_SVG = '<svg class="apps-chev" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+function _appPicksHtml(apps, checked, onchange, disabled, card, title, head) {
   var sorted = _appsByName(apps), on = sorted.filter(checked), open = !!_appsCardOpen[card];
   var rows = sorted.map(function(app) {
     return _switchRowHtml({ cls: 'app-pick', icon: '<span class="set-row-icon">' + _appSettingsIcon(app) + '</span>',
@@ -23993,11 +23988,10 @@ function _appPicksHtml(apps, checked, onchange, disabled, card) {
       onchange: onchange + '(\'' + app + '\', this.checked)' });
   }).join('');
   return '<div class="share-rows set-rows apps-card' + (open ? ' open' : '') + '" data-card="' + card + '">' +
-    '<div class="share-row set-row apps-sum">' +
-      '<span class="apps-sum-text">' + tH('apps_on_summary', { n: on.length, total: sorted.length }) + '</span>' +
-      '<span class="apps-sum-icons">' + on.map(function(a) { return _appSettingsIcon(a); }).join('') + '</span>' +
-      '<button type="button" class="set-head-btn" aria-expanded="' + open + '" onclick="_toggleAppsCard(this)">' +
-        tH(open ? 'done' : 'apps_edit') + '</button></div>' + rows + '</div>';
+    '<button type="button" class="share-row set-row apps-sum" aria-expanded="' + open + '" onclick="_toggleAppsCard(this)">' +
+      '<span class="share-row-title">' + title + '</span>' +
+      '<span class="apps-sum-count">' + tH('apps_on_summary', { n: on.length, total: sorted.length }) + '</span>' + _CHEVRON_SVG + '</button>' +
+    (head ? '<div class="apps-head" id="ms-apps-all">' + head + '</div>' : '') + rows + '</div>';
 }
 
 // Each app's tile and its door, by name, so the row and the Apps page can

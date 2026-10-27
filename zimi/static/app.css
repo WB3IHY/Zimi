@@ -2073,23 +2073,21 @@
   .set-row-icon { display: flex; flex-shrink: 0; color: var(--amber); }
   .set-row-icon svg { width: 22px; height: 22px; }
   .set-row.share-locked { cursor: default; }
-  /* Apps: shut, one summary row (the icons that are on, how many, Edit);
+  /* Apps: shut, one disclosure row (title, how many are on, a chevron);
      open, the rows, tighter than the other switch rows. */
-  .apps-sum { cursor: default; gap: 10px; }
-  .apps-sum-icons { display: flex; flex-wrap: wrap; gap: 3px; flex: 1 1 auto; min-width: 0; color: var(--amber); }
-  .apps-sum-icons svg { width: 15px; height: 15px; }
-  .apps-sum-text { font-size: 14px; font-weight: 500; white-space: nowrap; }
-  .apps-card:not(.open) > .app-pick { display: none; }
-  .apps-card.open > .apps-sum .apps-sum-icons { display: none; }
-  .apps-card.open > .apps-sum .apps-sum-text { flex: 1 1 auto; }
+  button.apps-sum { width: 100%; font: inherit; color: inherit; text-align: start; background: none; border: 0; cursor: pointer; align-items: center; gap: 10px; }
+  .apps-sum .share-row-title { flex: 1 1 auto; font-weight: 500; font-size: 14px; }
+  .apps-sum-count { font-size: 13px; color: var(--text2); white-space: nowrap; }
+  .apps-chev { flex-shrink: 0; color: var(--text2); transition: transform 0.15s; }
+  [dir=rtl] .apps-chev { transform: scaleX(-1); }
+  .apps-card.open > .apps-sum .apps-chev { transform: rotate(90deg); }
+  .apps-sum:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+  .apps-card:not(.open) > .app-pick, .apps-card:not(.open) > .apps-head { display: none; }
+  .apps-head { display: flex; justify-content: flex-end; gap: 2px; padding: 2px 8px; border-top: 1px solid var(--border); }
   .apps-card .app-pick { padding-top: 7px; padding-bottom: 7px; min-height: 0; }
   .apps-card .app-pick .set-row-icon svg { width: 20px; height: 20px; }
   .apps-card .app-pick .share-row-desc { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .apps-card .app-pick .share-row-text { min-width: 0; }
-  /* A section header with its actions at the far end (Apps: All, None). */
-  .ms-section-head { display: flex; align-items: center; gap: 4px; }
-  .ms-section-head > span { margin-inline-start: auto; display: flex; gap: 2px; }
-  .ms-section-head > span[hidden] { display: none; }
   .set-head-btn {
     font: inherit; font-size: 12px; font-weight: 500; text-transform: none; letter-spacing: 0;
     color: var(--amber); background: none; border: none; border-radius: 6px; padding: 4px 8px; cursor: pointer;

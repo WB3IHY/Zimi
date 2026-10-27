@@ -110,7 +110,7 @@ def test_preferences_are_one_row_shape(served, phone):
     pg = phone
     pg.goto(served + "/?manage=preferences")
     pg.wait_for_selector("#ms-apps .app-pick", state="attached", timeout=15000)
-    pg.locator("#ms-apps .apps-sum button").click()
+    pg.locator("#ms-apps .apps-sum").click()
     pane = pg.evaluate("""() => {
       var p = document.getElementById('ms-pane');
       var labels = Array.from(p.querySelectorAll('.ms-section-label')).map(l => l.firstChild.textContent.trim());
