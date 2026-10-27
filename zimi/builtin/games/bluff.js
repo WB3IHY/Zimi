@@ -92,7 +92,7 @@
     if (disabled) b.setAttribute('aria-disabled', 'true'); else b.addEventListener('click', fn);
     els.actions.appendChild(b); return b;
   }
-  function paint() { els.n.textContent = g ? T('bl.round', { n: Math.min(g.round + 1, g.rounds), total: g.rounds }) : ''; }
+  function paint() { Lib.englishNote(T, 'lang.enWords', true); els.n.textContent = g ? T('bl.round', { n: Math.min(g.round + 1, g.rounds), total: g.rounds }) : ''; }
 
   // ── words ──
   // A batch of candidates from the Wiktionary: Zimi's random words, or random English pages of kiwix-serve's.

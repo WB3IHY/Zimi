@@ -395,6 +395,7 @@
   // The player's language: ?lang= (for testing), Zimi's own language setting (same origin, so readable),
   // then the browser's.
   Lib.uiLang = function () {
+    if (root.ZimiText && root.ZimiText.lang) return Lib.primaryLang(root.ZimiText.lang);   // what the page's strings are in
     var q = '';
     try { q = new URLSearchParams(location.search).get('lang') || ''; } catch (e) { /* no location in node */ }
     if (q) return Lib.primaryLang(q);
@@ -405,17 +406,44 @@
     return Lib.primaryLang(typeof navigator !== 'undefined' ? navigator.language : 'en') || 'en';
   };
 
-  // The language the page's strings are in (ZimiText's choice: the hash Zimi passes), as its base code.
-  Lib.pageLang = function () {
-    var l = root.ZimiText && root.ZimiText.lang;
-    return l ? Lib.primaryLang(l) : 'en';
-  };
   // A name in the page's language through Intl, or the given fallback: type is 'region' (a country code) or 'language'.
   Lib.displayName = function (type, code, fallback) {
     try {
       var n = new Intl.DisplayNames([root.ZimiText ? root.ZimiText.lang : 'en'], { type: type }).of(code);
       return n && n !== code ? n : fallback;
     } catch (e) { return fallback; }
+  };
+
+  // A country's name in the page's language: its English name (a Wikipedia list's, or a game's own) found among Intl's, then
+  // shown by Intl in the page's language. A name Intl does not know stays as it was written.
+  var regionIndex = null;
+  Lib.countryName = function (name) {
+    if (Lib.uiLang() === 'en') return name;
+    if (!regionIndex) {
+      regionIndex = {};
+      try {
+        var en = new Intl.DisplayNames(['en'], { type: 'region' }), A = 65;
+        for (var i = 0; i < 26; i++) for (var j = 0; j < 26; j++) {
+          var code = String.fromCharCode(A + i, A + j), n = en.of(code);
+          if (n && n !== code) regionIndex[Lib.fold(n).replace(/[^a-z]/g, '')] = code;
+        }
+      } catch (e) { /* no Intl.DisplayNames: names stay as written */ }
+    }
+    var code = regionIndex[Lib.fold(name).replace(/^the /, '').replace(/[^a-z]/g, '')];
+    return code ? Lib.displayName('region', code, name) : name;
+  };
+
+  // A small lift on a number that just went up (the CSS stands still for reduced motion).
+  Lib.bump = function (el) { el.classList.remove('gl-bump'); void el.offsetWidth; el.classList.add('gl-bump'); };
+  // A name or phrase of one script inside a sentence of another keeps its own order and punctuation: isolated, as Unicode says.
+  Lib.iso = function (s) { return '\u2068' + s + '\u2069'; };
+  // One quiet line at the foot of a page saying its content is English, in the player's language; nothing in an English
+  // page or when `show` is false (a library's own pages are in the library's language). key is a lang.en* string id.
+  Lib.englishNote = function (T, key, show) {
+    var el = document.getElementById('gl-lang'), main = document.querySelector('main');
+    if (!show || Lib.uiLang() === 'en' || !main) { if (el) el.hidden = true; return; }
+    if (!el) { el = document.createElement('p'); el.id = 'gl-lang'; el.className = 'gl-note'; main.appendChild(el); }
+    el.textContent = T(key); el.hidden = false;
   };
 
   // The line under a game that says what its content came from.

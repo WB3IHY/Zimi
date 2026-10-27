@@ -142,30 +142,31 @@
   function showQuestion() {
     var q = round[at]; answered = false;
     els.kind.textContent = kindLabel(q.kind);
-    els.prompt.textContent = q.prompt || '';
+    els.prompt.textContent = q.prompt || ''; els.prompt.dir = 'auto';
     els.prompt.hidden = !q.prompt;
     els.pic.hidden = !q.picture;
     if (q.picture) { els.pic.removeAttribute('src'); els.pic.src = q.picture; els.pic.alt = T('quizzical.pictureAlt'); }
     els.choices.innerHTML = '';
     q.choices.forEach(function (c, i) {
       var b = el('button', 'qz-choice'); b.type = 'button'; b.dataset.i = i;
-      b.appendChild(el('span', 'qz-num', Play.num(i + 1))); b.appendChild(el('span', 'qz-text', c));
+      b.appendChild(el('span', 'qz-num', Play.num(i + 1))); b.appendChild(el('span', 'qz-text', c)); b.lastChild.dir = 'auto';
       els.choices.appendChild(b);
     });
     status.say(''); els.next.hidden = true; els.read.hidden = true;
+    Lib.englishNote(T, 'lang.enQuestions', !q.zim);   // a question from the library is in the library's language
     paintScore();
   }
-  function answer(i) {
+  function answer(i, byKey) {
     if (answered || !round.length) return;
     picked = i;
     var q = round[at], btns = els.choices.children, right = q.choices.indexOf(q.answer);
     answered = true;
     for (var k = 0; k < btns.length; k++) { btns[k].disabled = true; if (k === right) btns[k].classList.add('right'); }
-    if (i === right) { score++; status.say(T('quizzical.right')); } else { btns[i].classList.add('wrong'); status.say(T('quizzical.itWas', { answer: q.answer })); }
+    if (i === right) { score++; Lib.bump(els.score); status.say(T('quizzical.right')); } else { btns[i].classList.add('wrong'); status.say(T('quizzical.itWas', { answer: Lib.iso(q.answer) })); }
     if (q.picture) els.prompt.textContent = '';
-    if (q.path && q.zim) { els.read.hidden = false; Lib.articleLink(els.read, q.zim, q.path); els.read.textContent = T('quizzical.read', { answer: q.answer }); }
+    if (q.path && q.zim) { els.read.hidden = false; Lib.articleLink(els.read, q.zim, q.path); els.read.textContent = T('quizzical.read', { answer: Lib.iso(q.answer) }); }
     els.next.hidden = false; els.next.textContent = T(at + 1 >= round.length ? 'quizzical.seeScore' : 'quizzical.next');
-    els.next.focus();
+    if (byKey) els.next.focus();   // a tap leaves no focus ring on Next
     paintScore();
   }
   function advance() {
@@ -223,7 +224,7 @@
   });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.ar-sheet:not([hidden])')) return;
-    if (/^[1-4]$/.test(e.key)) answer(+e.key - 1);
+    if (/^[1-4]$/.test(e.key)) answer(+e.key - 1, true);
     else if ((e.key === 'Enter' || e.key === ' ') && answered && document.activeElement !== els.read) { e.preventDefault(); advance(); }
   });
 
@@ -241,5 +242,5 @@
   ZimiShell.persist({
     save: function () { return round.length && (at > 0 || answered) ? { zim: wikiZim, round: round, at: at, score: score, picked: answered ? picked : -1, done: done } : null; }
   });
-  root.__quiz = { get round() { return round; }, get zim() { return wikiZim; } };
+  root.__quiz = { get round() { return round; }, get zim() { return wikiZim; }, get at() { return at; } };
 })(this);

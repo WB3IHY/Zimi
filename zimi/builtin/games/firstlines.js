@@ -135,6 +135,7 @@
   root.RoundKit.run({
     id: 'firstlines', what: 'lines',
     kinds: { line: 'firstlines.kind.line' },
+    english: 'lang.enLines',
     text: { choosing: 'firstlines.choosing', alt: 'round.pictureAlt' },
     init: function (list) {
       var z = Lib.pickByName(list, 'gutenberg', Lib.uiLang());

@@ -124,14 +124,14 @@
     var w = g.words[g.round];
     if (isRight(text, w.answer)) { g.points[g.round] = pointsFor(g.shown); return solve(true); }
     if (g.shown >= w.clues.length) { g.points[g.round] = 0; return solve(false); }
-    g.shown++; els.field.value = ''; status.reason(T('babel.notThat', { word: text.trim() }));
+    g.shown++; els.field.value = ''; status.reason(T('babel.notThat', { word: Lib.iso(text.trim()) }));
     ZimiShell.shake(els.form); show(true);
   }
   function giveUp() { g.points[g.round] = 0; solve(false); }
   function solve(ok) {
     g.phase = 'reveal'; g.won = ok;
     var w = g.words[g.round];
-    status.say(ok ? T('babel.right', { word: w.answer, points: g.points[g.round] }) : T('babel.itWas', { word: w.answer }));
+    status.say(ok ? T('babel.right', { word: Lib.iso(w.answer), points: g.points[g.round] }) : T('babel.itWas', { word: Lib.iso(w.answer) }));
     show(false);
   }
   function next() {
@@ -185,7 +185,7 @@
     var w = (list || []).filter(function (z) { return z.project === 'wiktionary' && Lib.primaryLang(z.language) === 'en'; })[0];
     dict = w ? w.name : '';
     var kept = ZimiShell.saved();
-    if (kept && kept.g && kept.g.words && kept.g.words.length) { g = kept.g; dict = g.zim || ''; show(false); if (g.phase === 'reveal') status.say(g.won ? T('babel.right', { word: g.words[g.round].answer, points: g.points[g.round] }) : T('babel.itWas', { word: g.words[g.round].answer })); }
+    if (kept && kept.g && kept.g.words && kept.g.words.length) { g = kept.g; dict = g.zim || ''; show(false); if (g.phase === 'reveal') status.say(g.won ? T('babel.right', { word: Lib.iso(g.words[g.round].answer), points: g.points[g.round] }) : T('babel.itWas', { word: Lib.iso(g.words[g.round].answer) })); }
     else { if (kept) ZimiShell.forget(); newGame(); }
   });
   ZimiShell.persist({ save: function () { return g && !done ? { g: g } : null; } });

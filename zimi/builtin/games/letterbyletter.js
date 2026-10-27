@@ -178,14 +178,16 @@
   }
 
   // ── the word and the keys ──
+  var lastShown = [];   // the slots as last drawn, so a letter that has just appeared can pop
   function paintWord() {
     els.word.innerHTML = '';
-    shown(game).forEach(function (c) {
-      var d = document.createElement('span'); d.className = 'lb-slot' + (c ? ' on' : ''); d.textContent = c || '';
+    var now = shown(game);
+    now.forEach(function (c, i) {
+      var d = document.createElement('span'); d.className = 'lb-slot' + (c ? ' on' : '') + (c && lastShown.length === now.length && !lastShown[i] ? ' pop' : ''); d.textContent = c || '';
       d.setAttribute('aria-label', c || T('letters.blank'));
       els.word.appendChild(d);
     });
-    els.word.setAttribute('dir', 'auto');
+    els.word.setAttribute('dir', 'auto'); lastShown = now;
   }
   function buildKeys() {
     els.keys.innerHTML = ''; keyEls = {};
@@ -205,6 +207,7 @@
     });
   }
   function paint() {
+    Lib.englishNote(T, 'lang.enClues', true);
     var over = status(game) !== 'playing';
     els.clue.textContent = game.clue ? game.clue : '';
     els.clue.hidden = !game.clue;

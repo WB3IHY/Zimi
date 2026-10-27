@@ -4,7 +4,7 @@
 .tl-how { margin: 0; font-size: var(--fs-body); text-align: center; text-wrap: balance; }
 .tl-list { display: grid; gap: 8px; width: 100%; margin: 0; padding: 0; list-style: none; }
 .tl-item { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface2); color: var(--ink); text-align: start; font: inherit; font-size: var(--fs-body); cursor: pointer; touch-action: manipulation; }
-.tl-item:hover:not(:disabled) { border-color: var(--accent); }
+@media (hover: hover) { .tl-item:hover:not(:disabled) { border-color: var(--accent); } }
 .tl-item .tl-pos { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: 2px solid var(--ink2); border-radius: 50%; font: 600 var(--fs-small) var(--mono); color: var(--ink2); }
 .tl-item.placed { border-color: var(--accent); background: var(--accent-glow); }
 .tl-item.placed .tl-pos { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }

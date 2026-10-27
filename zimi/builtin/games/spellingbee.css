@@ -4,7 +4,7 @@
 .bee-rankname { flex: none; min-width: 6.5em; font-weight: 650; }
 .bee-track { position: relative; flex: 1; height: 8px; border-radius: 999px; background: var(--cell); overflow: hidden; }
 .bee-track i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 999px; background: var(--accent); transition: width 0.2s ease-out; }
-.bee-input { display: flex; align-items: center; justify-content: center; min-height: 52px; margin: 0; font: 700 32px/1 var(--font); letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+.bee-input { position: relative; display: flex; align-items: center; justify-content: center; min-height: 52px; margin: 0; font: 700 32px/1 var(--font); letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
 .bee-input .mid { color: var(--accent); }
 .bee-input .off { color: var(--ink3); }
 .bee-input.empty::before { content: "\200b"; }
@@ -26,4 +26,7 @@
 .bee-words { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 4px 14px 14px; list-style: none; font-size: var(--fs-body); }
 .bee-words li.pangram { font-weight: 700; color: var(--accent); }
 .bee-main .ar-btn[aria-disabled="true"] { color: var(--ink3); cursor: default; }
-@media (prefers-reduced-motion: reduce) { .bee-track i { transition: none; } .bee-input .caret { animation: none; } }
+/* A found word rises and fades from where it was typed. */
+.bee-ghost { position: absolute; inset: 0; display: grid; place-items: center; color: var(--accent); pointer-events: none; animation: bee-rise 0.7s ease-out forwards; }
+@keyframes bee-rise { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-28px) scale(1.15); } }
+@media (prefers-reduced-motion: reduce) { .bee-ghost { animation: none; opacity: 0; } .bee-track i { transition: none; } .bee-input .caret { animation: none; } }

@@ -259,7 +259,7 @@
   }
 
   function show(page) {
-    var box = el('div'); box.appendChild(el('h2', 'rc-title', page.title)); box.appendChild(page.node);
+    var box = el('div'), title = el('h2', 'rc-title', page.title); title.dir = 'auto'; box.appendChild(title); box.appendChild(page.node);
     say(box);
     race.page = page;
     paintTrail(); paintHud();
@@ -337,7 +337,7 @@
     box.appendChild(el('h2', null, mode === 'hotseat' ? T('race.hot.turn', { n: race.hot.turn + 1 }) : T(mode === 'daily' ? 'race.today' : 'race.new')));
     var line = el('p', 'rc-pair'); line.appendChild(el('span', null, pair.start.title)); line.appendChild(el('span', 'rc-arrow', '→')); line.appendChild(el('b', null, pair.end.title));
     box.appendChild(line);
-    box.appendChild(el('p', 'rc-hint', race.hint));
+    var hint = el('p', 'rc-hint', race.hint); hint.dir = 'auto'; box.appendChild(hint);
     box.appendChild(el('p', null, T(pair.par ? 'race.follow' : 'race.followOnly', { n: pair.par })));
     var b = el('button', 'ar-btn gm-play', T('shell.start')); b.type = 'button'; b.addEventListener('click', beginRace); box.appendChild(b);
     say(box);
@@ -477,6 +477,7 @@
     Lib.library().then(function (list) {
       var found = Lib.pickZim(list, 'wikipedia', Lib.uiLang());
       provider = found ? zimiProvider(found.zim) : miniProvider();
+      Lib.englishNote(T, 'lang.enPages', !found);
       restore(ZimiShell.saved()).then(function (back) { if (!back) newRace('daily'); });
     });
   }

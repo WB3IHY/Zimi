@@ -1,7 +1,7 @@
 /* Babel: the clues, one word in each of several languages. Shared tokens: games.css, play.css, library.css. */
 .bb-main { width: min(520px, 100%); margin: 0 auto; }
 .bb-n { margin: 0; min-height: 1.2em; font-size: var(--fs-small); color: var(--ink2); }
-.bb-how { margin: 0; text-align: center; text-wrap: balance; }
+.bb-how { margin: 0; min-height: 3em; text-align: center; text-wrap: balance; }   /* two lines kept, so the clues do not jump when the line clears */
 .bb-clues { display: grid; gap: 8px; width: 100%; margin: 0; padding: 0; list-style: none; }
 .bb-clue { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface2); }
 .bb-clue .bb-lang { flex: none; min-width: 5.5em; font-size: var(--fs-small); font-weight: 600; color: var(--accent); }

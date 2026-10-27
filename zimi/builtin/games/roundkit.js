@@ -22,7 +22,7 @@
     var status = Play.status(els.msg);
     var zim = '', round = [], at = 0, score = 0, answered = false, building = false, picked = -1, done = false;
 
-    var el = root.ZimiUtil.el;
+    var el = root.ZimiUtil.el, label = cfg.label || function (c) { return c; };   // a game may show a choice in the player's language
     function paintScore() {
       els.n.textContent = round.length ? T('round.question', { n: at + 1, total: round.length }) : '';
       els.score.textContent = T('round.score', { n: score });
@@ -30,36 +30,37 @@
     function showQuestion() {
       var q = round[at]; answered = false;
       els.kind.textContent = T(cfg.kinds[q.kind]);
-      els.prompt.textContent = q.prompt || ''; els.prompt.hidden = !q.prompt;
-      els.quote.textContent = q.quote || ''; els.quote.hidden = !q.quote;
+      els.prompt.textContent = q.prompt || ''; els.prompt.hidden = !q.prompt; els.prompt.dir = 'auto';
+      els.quote.textContent = q.quote || ''; els.quote.hidden = !q.quote; els.quote.dir = 'auto';
       els.pic.hidden = !q.picture;
       if (q.picture) { els.pic.removeAttribute('src'); els.pic.src = q.picture; els.pic.alt = T(cfg.text.alt); }
       els.choices.innerHTML = '';
       els.choices.classList.toggle('pair', q.choices.length === 2);
       q.choices.forEach(function (c, i) {
         var b = el('button', 'rk-choice'); b.type = 'button'; b.dataset.i = i;
-        b.appendChild(el('span', 'rk-num', Play.num(i + 1))); b.appendChild(el('span', 'rk-text', c));
+        b.appendChild(el('span', 'rk-num', Play.num(i + 1))); b.appendChild(el('span', 'rk-text', label(c, q))); b.lastChild.dir = 'auto';
         els.choices.appendChild(b);
       });
       status.say(''); els.detail.hidden = true; els.next.hidden = true; els.read.hidden = true;
+      if (cfg.english) { var note = typeof cfg.english === 'function' ? cfg.english(q) : cfg.english; Lib.englishNote(T, note, !zim && !!note); }
       paintScore();
     }
-    function answer(i) {
+    function answer(i, byKey) {
       if (answered || !round.length || done) return;
       var q = round[at], btns = els.choices.children, right = q.choices.indexOf(q.answer);
       picked = i; answered = true;
       for (var k = 0; k < btns.length; k++) { btns[k].disabled = true; if (k === right) btns[k].classList.add('right'); }
-      if (i === right) { score++; status.say(T('round.right')); } else { btns[i].classList.add('wrong'); status.say(T('round.itWas', { answer: q.answer })); }
-      if (q.detail) { els.detail.textContent = q.detail; els.detail.hidden = false; }
+      if (i === right) { score++; Lib.bump(els.score); status.say(T('round.right')); } else { btns[i].classList.add('wrong'); status.say(T('round.itWas', { answer: Lib.iso(label(q.answer, q)) })); }
+      if (q.detail) { els.detail.textContent = q.detail; els.detail.hidden = false; els.detail.dir = 'auto'; }
       if (q.path && q.zim) {   // only once the ZIM is known to hold the page (a list links to articles a smaller ZIM leaves out)
         var asked = at;
         Lib.hasPage(q.zim, q.path).then(function (has) {
           if (!has || asked !== at || !answered) return;
-          els.read.hidden = false; Lib.articleLink(els.read, q.zim, q.path); els.read.textContent = T('round.read', { answer: q.answer });
+          els.read.hidden = false; Lib.articleLink(els.read, q.zim, q.path); els.read.textContent = T('round.read', { answer: Lib.iso(label(q.answer, q)) });
         });
       }
       els.next.hidden = false; els.next.textContent = T(at + 1 >= round.length ? 'round.seeScore' : 'round.next');
-      els.next.focus();
+      if (byKey) els.next.focus();   // a tap leaves no focus ring on Next; the keyboard player needs the focus there
       paintScore();
     }
     function advance() {
@@ -107,7 +108,7 @@
     });
     document.addEventListener('keydown', function (e) {
       if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.ar-sheet:not([hidden])')) return;
-      if (/^[1-4]$/.test(e.key)) answer(+e.key - 1);
+      if (/^[1-4]$/.test(e.key)) answer(+e.key - 1, true);
       else if ((e.key === 'Enter' || e.key === ' ') && answered && document.activeElement !== els.read) { e.preventDefault(); advance(); }
     });
     // Leaving and coming back keeps the round: its questions, where you are, the score and the answer just given.

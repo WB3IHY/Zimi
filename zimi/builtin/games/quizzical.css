@@ -10,7 +10,7 @@
 .qz-pic + .qz-prompt { margin-top: 10px; }
 .qz-choices { display: grid; gap: 8px; width: 100%; }
 .qz-choice { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface2); text-align: start; font-size: var(--fs-body); cursor: pointer; touch-action: manipulation; }
-.qz-choice:hover:not(:disabled) { border-color: var(--accent); }
+@media (hover: hover) { .qz-choice:hover:not(:disabled) { border-color: var(--accent); } }
 .qz-choice:not(:disabled) .qz-num { background: var(--surface); }
 .qz-choice .qz-num { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--cell); font: 600 var(--fs-small) var(--mono); color: var(--ink2); }
 .qz-choice .qz-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }

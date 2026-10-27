@@ -143,6 +143,7 @@
     });
   }
   function paint() {
+    Lib.englishNote(T, 'lang.enClues', true);
     var n = currentEntry(), here = n >= 0 ? cellsOf(ENTRIES[n]) : [];
     cellEls.forEach(function (b, i) {
       if (isBlock(i)) return;

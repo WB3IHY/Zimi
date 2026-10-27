@@ -115,6 +115,7 @@
     id: 'flags', what: 'flags',
     kinds: { flag: 'flags.kind.flag' },
     text: { choosing: 'flags.choosing', alt: 'flags.pictureAlt' },
+    label: function (c) { return Lib.countryName(c); },
     init: function (list) {
       var a = Lib.pickZim(list, 'wikipedia', Lib.uiLang());
       zimName = a && Lib.primaryLang(a.zim.language) === 'en' ? a.zim.name : '';   // the list is English Wikipedia's page

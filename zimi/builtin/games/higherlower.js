@@ -87,9 +87,11 @@
   var Play = root.ArcadePlay, T = Play.T, zimName = '';
   var COMPACT_FROM = 1e6;   // a million and up as 17M; heights and lengths in full
   var nf = function (n) { try { return new Intl.NumberFormat(Lib.uiLang(), n >= COMPACT_FROM ? { notation: 'compact', maximumFractionDigits: 1 } : { maximumFractionDigits: 0 }).format(n); } catch (e) { return String(Math.round(n)); } };
+  // Countries are named in the player's language; mountains and rivers keep their names.
+  function countryOf(q, name) { return q.kind === 'population' || q.kind === 'area' ? Lib.countryName(name) : name; }
   // "France: 68M people · Spain: 48M people" under the answer, in the figures' own units.
   function detailOf(q) {
-    return q.facts.map(function (f) { return T('highlow.fact', { name: f[0], value: T('highlow.value.' + q.kind, { n: nf(f[1]) }) }); }).join(' · ');
+    return q.facts.map(function (f) { return T('highlow.fact', { name: Lib.iso(countryOf(q, f[0])), value: T('highlow.value.' + q.kind, { n: nf(f[1]) }) }); }).join(' · ');
   }
   // A thing with the path of its article in the ZIM, when its row linked to one.
   function withPage(t, fromPath) {
@@ -103,6 +105,8 @@
     id: 'highlow', what: 'facts',
     kinds: { population: 'highlow.kind.population', area: 'highlow.kind.area', height: 'highlow.kind.height', length: 'highlow.kind.length' },
     text: { choosing: 'highlow.choosing', alt: 'round.pictureAlt' },
+    label: function (c, q) { return countryOf(q, c); },
+    english: function (q) { return q.kind === 'height' || q.kind === 'length' ? 'lang.enNames' : ''; },
     init: function (list) {
       var a = Lib.pickZim(list, 'wikipedia', Lib.uiLang());
       zimName = a && Lib.primaryLang(a.zim.language) === 'en' ? a.zim.name : '';   // the lists are English Wikipedia's pages

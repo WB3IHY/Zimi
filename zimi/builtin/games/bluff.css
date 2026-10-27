@@ -10,7 +10,7 @@
 .bl-counter { font-size: var(--fs-small); color: var(--ink2); text-align: end; }
 .bl-options { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .bl-option { display: block; width: 100%; min-height: 52px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-body); text-align: start; line-height: 1.4; cursor: pointer; }
-.bl-option:hover:not(:disabled) { border-color: var(--accent); }
+@media (hover: hover) { .bl-option:hover:not(:disabled) { border-color: var(--accent); } }
 .bl-option:disabled { cursor: default; }
 .bl-option.real { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, var(--surface)); }
 .bl-by { display: block; margin-top: 4px; font-size: var(--fs-small); color: var(--ink2); }

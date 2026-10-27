@@ -58,7 +58,7 @@
   var el = root.ZimiUtil.el;
   function svg(tag, attrs, parent) { var e = document.createElementNS(NS, tag); Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); }); if (parent) parent.appendChild(e); return e; }
   function q() { return g.qs[g.at]; }
-  function paint() { els.n.textContent = g ? T('drop.question', { n: Math.min(g.at + 1, g.qs.length), total: g.qs.length }) : ''; els.score.textContent = g ? T('round.score', { n: g.total }) : ''; }
+  function paint() { Lib.englishNote(T, 'lang.enPlaces', !!g && g.mode === 'world'); els.n.textContent = g ? T('drop.question', { n: Math.min(g.at + 1, g.qs.length), total: g.qs.length }) : ''; els.score.textContent = g ? T('round.score', { n: g.total }) : ''; }
   function kmText(km) { return T('drop.km', { n: km < 10 ? Math.round(km * 10) / 10 : Math.round(km) }); }
 
   // ── the real map ──
@@ -123,7 +123,7 @@
   // ── the round ──
   function ask() {
     var x = q(); pin = null; els.mapLink.hidden = true; paint();
-    els.ask.textContent = T(g.mode === 'map' ? 'drop.findOnMap' : 'drop.find', { name: x.name });
+    els.ask.textContent = T(g.mode === 'map' ? 'drop.findOnMap' : 'drop.find', { name: Lib.iso(x.name) });
     els.next.hidden = true; els.drop.hidden = false;
     if (g.mode === 'map') { els.drop.removeAttribute('aria-disabled'); status.say(T('drop.panTo')); showMap(); }
     else { els.drop.setAttribute('aria-disabled', 'true'); status.say(T('drop.tapTo')); buildWorld(); }

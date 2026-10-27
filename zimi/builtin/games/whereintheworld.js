@@ -121,12 +121,13 @@
 
   // ── a round ──
   function paintTop() {
+    Lib.englishNote(T, 'lang.enPlaces', !!round.length && !round[0].zim && round[0].kind !== 'place on your map');
     els.n.textContent = round.length ? T('world.place', { n: at + 1, total: round.length }) : '';
     els.score.textContent = T('world.points', { n: total });
   }
   function ask() {
     var q = round[at]; pending = null; answered = false;
-    els.ask.textContent = q.name; els.kind.textContent = T('world.where', { kind: q.kind });
+    els.ask.textContent = q.name; els.ask.dir = 'auto'; els.kind.textContent = T('world.kind.' + q.kind.replace(/ /g, '_'));
     els.guess.hidden = false; els.guess.disabled = true; els.next.hidden = true; els.mapLink.hidden = true;
     status.say(T('world.tap')); els.info.textContent = ''; els.info.hidden = true;
     view = wholeWorld(aspect()); applyView(); paintTop();

@@ -97,7 +97,9 @@
   var zim = '', sets = [], at = 0, order = [], checked = false, score = 0, building = false, done = false;
 
   var el = root.ZimiUtil.el;
-  function yearText(y) { return y < 0 ? T('timeline.yearBc', { n: Play.num(-y) }) : y < 1000 ? T('timeline.yearAd', { n: Play.num(y) }) : String(y); }
+  // Digits in the player's script, never grouped: 1969, not 1,969.
+  function digits(y) { try { return new Intl.NumberFormat(Lib.uiLang(), { useGrouping: false }).format(y); } catch (e) { return String(y); } }
+  function yearText(y) { return y < 0 ? T('timeline.yearBc', { n: digits(-y) }) : y < 1000 ? T('timeline.yearAd', { n: digits(y) }) : digits(y); }
   function ready() { return !checked && order.length === SIZE; }
 
   function paintScore() {
@@ -115,7 +117,7 @@
     els.list.innerHTML = '';
     shown.forEach(function (idx) {
       var e = set[idx], pos = order.indexOf(idx), li = el('li'), b = el('button', 'tl-item'); b.type = 'button'; b.dataset.i = idx;
-      var badge = el('span', 'tl-pos', pos >= 0 ? Play.num(pos + 1) : ''), text = el('span', 'tl-text', e.text);
+      var badge = el('span', 'tl-pos', pos >= 0 ? Play.num(pos + 1) : ''), text = el('span', 'tl-text', e.text); text.dir = 'auto';
       b.appendChild(badge); b.appendChild(text);
       if (pos >= 0) b.classList.add('placed');
       if (checked) {
@@ -134,6 +136,7 @@
     paintList(); paintButtons(); paintScore();
     status.say(checked ? T('timeline.got', { n: scoreOrder(sets[at], order), total: SIZE }) : '');
     els.next.textContent = T(at + 1 >= sets.length ? 'round.seeScore' : 'round.next');
+    Lib.englishNote(T, 'lang.enEvents', !zim);
   }
 
   function tap(idx) {
@@ -145,8 +148,9 @@
   }
   function check() {
     if (!ready()) { status.reason(T('timeline.placeAll')); return; }
-    checked = true; score += scoreOrder(sets[at], order);
-    show(); els.next.focus();
+    checked = true; var got = scoreOrder(sets[at], order); score += got;
+    show(); if (got) Lib.bump(els.score);
+    els.next.focus();
   }
   function advance() {
     if (!checked) return;

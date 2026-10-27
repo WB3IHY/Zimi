@@ -178,7 +178,7 @@
     try { return new Intl.DateTimeFormat(Lib.uiLang(), { weekday: 'long', hour: 'numeric', minute: '2-digit' }).format(d); } catch (e) { return d.toLocaleString(); }
   }
   function placeText() {
-    var lat = Math.abs(g.place.lat).toFixed(0) + '°' + (g.place.lat >= 0 ? 'N' : 'S');
+    var lat = T(g.place.lat >= 0 ? 'sky.lat.N' : 'sky.lat.S', { n: Play.num(Math.round(Math.abs(g.place.lat))) });
     return g.place.kind === 'gps' ? T('sky.here', { lat: lat }) : T('sky.near', { lat: lat });
   }
   function paintScore() { els.score.textContent = g ? T('round.score', { n: g.score }) : ''; }

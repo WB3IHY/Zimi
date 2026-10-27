@@ -10,7 +10,7 @@
 .rk-pic + .rk-prompt { margin-top: 10px; }
 .rk-choices { display: grid; gap: 8px; width: 100%; }
 .rk-choice { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface2); text-align: start; font-size: var(--fs-body); cursor: pointer; touch-action: manipulation; }
-.rk-choice:hover:not(:disabled) { border-color: var(--accent); }
+@media (hover: hover) { .rk-choice:hover:not(:disabled) { border-color: var(--accent); } }
 .rk-choice:not(:disabled) .rk-num { background: var(--surface); }
 .rk-choice .rk-num { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--cell); font: 600 var(--fs-small) var(--mono); color: var(--ink2); }
 .rk-choice .rk-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }

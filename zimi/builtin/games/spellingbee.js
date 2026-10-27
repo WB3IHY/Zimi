@@ -117,15 +117,21 @@
     var l = letters();
     g.found.slice().sort().forEach(function (w) { var li = document.createElement('li'); li.textContent = w; if (isPangram(w, l)) li.className = 'pangram'; els.words.appendChild(li); });
   }
-  function paintAll() { paintHive(); paintInput(); paintProgress(); }
+  function paintAll() { Lib.englishNote(T, 'lang.enWords', true); paintHive(); paintInput(); paintProgress(); }
 
   // ── playing ──
-  function type(c) { if (done || asking) return; typed += c; paintInput(); }
+  function type(c) { if (done || asking) return; if (!typed) status.say(T('bee.go')); typed += c; paintInput(); }
   function erase() { if (done || asking) return; typed = typed.slice(0, -1); paintInput(); }
   function shuffle() { if (done) return; g.outer = Lib.shuffle(g.outer, Math.random); paintHive(); }
+  // The word just found rises out of the input and fades, so the entry is felt, not only read in the line below.
+  function ghost(word, pang) {
+    if (Play.reducedMotion()) return;
+    var s = document.createElement('span'); s.className = 'bee-ghost' + (pang ? ' pangram' : ''); s.textContent = word;
+    els.input.appendChild(s);
+  }
   function award(word) {
     var l = letters(), pts = points(word, l), pang = isPangram(word, l);
-    g.found.push(word); typed = ''; paintInput(); paintProgress();
+    g.found.push(word); typed = ''; paintInput(); paintProgress(); ghost(word, pang);
     status.reason(T(pang ? 'bee.pangramAdded' : 'bee.added', { word: word, n: pts }), 2500);
     if (rankOf(score(), maxPoints(entry(), g.center)) === 'queenBee') finish();
   }
