@@ -421,16 +421,41 @@ SCRIPTS = {
 
 FNV = "const fnv = (s) => { let x = 2166136261; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619) >>> 0; } return x >>> 0; };"
 
+# The canvas is recorded as a coarse picture, not a hash of its pixels: the browser's rasteriser rounds a few edge pixels by one level
+# differently from run to run under load (13 pixels of 400,000 on the Lander's hull), and a hash calls that a different game.
+# THUMB_COLS x THUMB_ROWS cells of mean brightness, two hex digits each: a sprite one pixel off moves a cell by several levels, a
+# rounding difference by a hundredth.
+THUMB_COLS, THUMB_ROWS, THUMB_TOLERANCE = 24, 18, 1
+THUMB = """const thumb = (c) => {
+    const t = document.createElement('canvas'); t.width = c.width; t.height = c.height;
+    const x = t.getContext('2d'); x.drawImage(c, 0, 0);
+    const d = x.getImageData(0, 0, c.width, c.height).data, cols = %d, rows = %d, sum = new Float64Array(cols * rows), n = new Float64Array(cols * rows);
+    for (let y = 0; y < c.height; y++) for (let px = 0; px < c.width; px++) {
+      const k = Math.min(rows - 1, Math.floor(y * rows / c.height)) * cols + Math.min(cols - 1, Math.floor(px * cols / c.width)), i = (y * c.width + px) * 4;
+      sum[k] += (d[i] + d[i + 1] + d[i + 2]) / 3; n[k] += 1;
+    }
+    return Array.from(sum, (v, k) => Math.round(v / n[k]).toString(16).padStart(2, '0')).join('');
+  };""" % (THUMB_COLS, THUMB_ROWS)
+
+
+def same_picture(got, want):
+    """Two thumbnails agree when no cell's mean brightness differs by more than the rounding the rasteriser is allowed."""
+    if got is None or want is None:
+        return got == want
+    return len(got) == len(want) and all(abs(int(got[i:i + 2], 16) - int(want[i:i + 2], 16)) <= THUMB_TOLERANCE for i in range(0, len(got), 2))
+
+
 CHECK = """
 (g) => {
+  %s
   %s
   const x = window[g.api], st = x.st, txt = (s) => { const e = document.querySelector(s); return e ? e.textContent.trim() : null; };
   const p = document.querySelector('#' + g.id + '-pause'), nb = document.querySelector('#' + g.id + '-new'), sheet = document.querySelector('.ar-sheet:not([hidden])');
   return { mode: x.mode, score: st.score === undefined ? null : st.score, lives: st.lives === undefined ? null : st.lives, state: fnv(JSON.stringify(st)).toString(16),
-    canvas: (() => { const c = document.querySelector('canvas'); return c ? fnv(c.toDataURL()).toString(16) : null; })(),
+    canvas: (() => { const c = document.querySelector('canvas'); return c ? thumb(c) : null; })(),
     hud: txt('.pl-hud'), msg: txt('#' + g.id + '-msg'), pause: p ? [p.textContent.trim(), p.disabled] : null, newHidden: nb ? nb.hidden : null, sheet: sheet ? sheet.textContent.trim() : null };
 }
-""" % FNV
+""" % (FNV, THUMB)
 
 KEY = """
 ([type, key]) => { document.body.dispatchEvent(new KeyboardEvent(type, { key: key, code: key.length === 1 ? 'Key' + key.toUpperCase() : key, bubbles: true, cancelable: true })); }
@@ -604,4 +629,5 @@ def test_the_game_plays_out_as_recorded(served, browser, name):
         want = json.load(f)
     assert len(got) == len(want)
     for g, w in zip(got, want):
+        assert same_picture(g.pop("canvas"), w.pop("canvas")), "checkpoint %r: the canvas differs" % w["label"]
         assert g == w, "checkpoint %r differs" % w["label"]

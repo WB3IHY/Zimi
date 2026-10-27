@@ -128,6 +128,11 @@ def tap(page, locator):
     frames(page)
 
 
+def first_position(position):
+    """An init script: `position` as it is on the page's first tick that has one (a restored game, before the computer has moved)."""
+    return ("setInterval(() => { try { if (!window.__first) { const v = (" + position + "); if (v) window.__first = v; } } catch (e) {} }, 0);")
+
+
 def leave(page, position):
     """Hide the page and read the position in the same breath: the save and the read see one table, and a running game is paused."""
     return page.evaluate("(() => { window.dispatchEvent(new Event('pagehide')); return " + position + "; })()")
@@ -171,13 +176,19 @@ def test_leaving_and_returning_keeps_the_position(served, browser, page_name, mo
     # A game with the computer in it keeps playing: the read is in the same breath as the save. Leaving also pauses a running arcade game.
     computer = move is None
     before = leave(page, position)
+    if computer:
+        page.add_init_script(first_position(position))   # (before the page loads: the read must not depend on how soon the test gets to it)
     page.goto("about:blank")
     page.goto(url)
     game_ready(page, position)
-    if not computer:
+    if computer:
+        # The computer's next turn is a timer in the page, and a loaded machine can run it before the test's own read arrives. The page
+        # took the position itself, on its first tick with one: an interval that was due before the computer's timer is run before it.
+        page.wait_for_function("() => window.__first")
+        after = page.evaluate("window.__first")
+    else:
         becomes(page, position, before)   # the position is put back once the game's own start has run; a miss shows in the assert
-    # With the computer in it the next turn is a beat away, so read the moment the game is up.
-    after = page.evaluate(position)
+        after = page.evaluate(position)
     assert before and after
     assert after == before, "the position came back different after leaving and returning"
     ctx.close()
