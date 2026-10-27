@@ -8,7 +8,7 @@
    "stat": "0:00",
    "state": "964eb25d",
    "sub": "",
-   "table": "ee4fe5a4",
+   "table": "8ae800f0",
    "undoOff": true,
    "watch": "",
    "won": false
@@ -21,7 +21,7 @@
    "stat": "0:02",
    "state": "f0a9d7c1",
    "sub": "",
-   "table": "bc20227b",
+   "table": "9d385a1f",
    "undoOff": false,
    "watch": "",
    "won": false
@@ -34,7 +34,7 @@
    "stat": "0:04",
    "state": "2016e2eb",
    "sub": "",
-   "table": "d84a5fdd",
+   "table": "1fc2721d",
    "undoOff": false,
    "watch": "",
    "won": false
@@ -47,7 +47,7 @@
    "stat": "0:10",
    "state": "c9ca7181",
    "sub": "",
-   "table": "4145302f",
+   "table": "da6385f7",
    "undoOff": false,
    "watch": "",
    "won": false
@@ -60,7 +60,7 @@
    "stat": "0:10",
    "state": "ffdd293a",
    "sub": "",
-   "table": "ab819e44",
+   "table": "87ef516c",
    "undoOff": false,
    "watch": "",
    "won": false
@@ -73,7 +73,7 @@
    "stat": "0:11",
    "state": "c9ca7181",
    "sub": "",
-   "table": "5b0510cc",
+   "table": "ec45f2dc",
    "undoOff": false,
    "watch": "",
    "won": false
@@ -86,7 +86,7 @@
    "stat": "0:01",
    "state": "e1c45a81",
    "sub": "",
-   "table": "b7ee33f7",
+   "table": "d82733d6",
    "undoOff": false,
    "watch": "",
    "won": false
@@ -99,7 +99,7 @@
    "stat": "0:00",
    "state": "570e9d",
    "sub": "",
-   "table": "d0fa99b1",
+   "table": "7e6ec8a0",
    "undoOff": true,
    "watch": "",
    "won": false
@@ -112,7 +112,7 @@
    "stat": "0:01",
    "state": "c0276c90",
    "sub": "",
-   "table": "9d01113a",
+   "table": "47ac74d",
    "undoOff": true,
    "watch": "",
    "won": true
@@ -125,7 +125,7 @@
    "stat": "0:01",
    "state": "c0276c90",
    "sub": "",
-   "table": "9d01113a",
+   "table": "47ac74d",
    "undoOff": true,
    "watch": "",
    "won": true
@@ -138,7 +138,7 @@
    "stat": "0:00",
    "state": "45879585",
    "sub": "",
-   "table": "ce658e58",
+   "table": "8493c6b0",
    "undoOff": true,
    "watch": "",
    "won": false
@@ -148,5 +148,5 @@
  "hseed": 44,
  "plays": "pair:p6_1>p6_3 stock pair:p6_1>p6_3 pair:p6_1>p6_3 pair:p6_1>p6_3 pair:p6_1>p6_3 pair:p6_2>p6_5 pair:p6_2>p6_5 pair:p6_4>waste pair:p6_4>waste pair:p5_4>out stock stock stock stock stock stock stock stock stock pair:p6_6>waste pair:p6_6>waste stock stock pair:waste>out stray:23 stock stock stock stock stock stock pair:p5_5>waste pair:p5_5>waste stock pair:p5_1>waste stray:8 stock stock stock pair:p6_0>waste stray:1 pair:p6_0>waste stock pair:p5_1>waste pair:p5_1>waste stock stock stock stock stock stock stock stock stock stock stray:45 stock stock pair:p5_0>waste pair:p5_0>waste pair:p4_0>p5_3 stock pair:p4_0>p5_3 pair:p4_0>p5_3 pair:p4_0>p5_3 pair:p4_0>p5_3 pair:p4_3>out stock stock stock pair:p5_2>waste stock stock stock stock stock stock stock stock stock stock stock stock stock stock pair:p4_4>waste pair:p4_4>waste stock stock stock stock pair:p5_2>waste pair:p5_2>waste pair:p3_3>p4_2 pair:p3_3>p4_2 pair:p3_2>waste stray:16 pair:p3_2>waste stock stock stock pair:p2_2>waste pair:p2_2>waste stock stock pair:p6_1>p6_6 stray:21 stock pair:p6_1>p6_6 pair:p6_1>p6_6 pair:p6_3>out stray:45 stock stray:2 stock stock stock pair:p6_0>waste pair:p6_0>waste stray:28 stock pair:p6_5>waste pair:p6_5>waste stock pair:p5_0>waste pair:p6_2>waste pair:p6_2>waste stock pair:p6_4>out stock pair:p6_2>waste pair:p6_2>waste pair:p6_2>waste pair:p6_2>waste pair:p6_2>waste pair:p6_2>waste pair:p6_2>waste stock stock pair:p6_2>waste pair:p6_2>waste pair:p6_2>waste stray:19",
  "seed": 34,
- "trace": "596dcaf4ecb3ec1861b61d19de6ecb022d62451eee838141504ae5f570f91f6741407d1fea50b29c9f0d95069a82c9b1c700f2d0e364a7fd13de8c7aea5d70b306d51c558e8173c71a0fe4c2494237afdbe540ecaaac38f79f4ae0c37aac6cfb4269747585f1e49d0674f03f64e25e1f938f1e09f4c9e5737e77fcb75088f064363f254f3477b9dcee07894c7acf2d86ff9233893c9f042dd81e580aa4a69127b2602d261c4e5dfc96e1844a7709ef0b3659d3657e4afbd09acf764a46129b05d35b6d0714a00b5fd7ee88f51116b5b3bf8e6c72f64223dad8650ba7e921488454135facb9ae8f1ececfad4ceb0f54a791c42093792accead202248ae74009fbf7729b6635787cafd3d5ffd6ba068fa5b0c990916a95e505b7317368bd9c5efe43ab55ce107c0eb38adcb8ca2ff01b6828732e899ea1344d71196c1d46843125a252128d91689b4de2a368122fc240b353e91e7f1ed925ee1231654ab60b6087b18585121c7479d5389c118ec91ae3ec203312dd266c0f0ba5942bea7cd7628388b5a4d9bdcb35b10930fee50da15871df0b94a940a4292417c3ec1b7377e477a7df412f146f7d9b4465444341025dc11303b1123f1a2e49dc2dc72a0aeff9f11e97133928607c92ce63c8431aa7ea5bda25d6f287c3c178d4242b154271ea2961697bcb49be202ed2b49f482d397e661efff3414e84340782fd17de65b1193fc8ddec16e1168b39d3bc68091b668f5a9bb9a2c3303da548a6092e3225c163df74bc8ebbb5ca88dc4ead709c9111041b86b344f3c0564106a1a637f087f9d80cc99e05dcd2303f7846bd1218eb4705d4d5ddf3c45a8082d136d122bf3ef070f9001eed9e123a96a9211ceefdccea7563a1aff2657847bf024666c1de1302d5c1e1e8035a"
+ "trace": "7e05875ec150d6d1815c848c83dadcc1546a4ef36582d4b2955778c456867a095f631d2a4367dfc9f7398d232360407edf661a779504f1f9f484f3148cc1f0cd474180fdc15d29a2b1e77c24a4a2130c5d3b8ced86b5cf1c324b84827c78599a611da8cf5d47805a35b2b0fbbdbd94a3b8d5e224e921a4312d45aea64e0e4b301fb410dc52223ae5ec45c0079198ef5e7f9ec4896f3e49b389ff83f7df191ecd6439d2e479f127174641bf404dc23da0fa8ff037c3620d58bf434be87264cb92482068b189288c25a22cff7254f28d08c2753cddaedea5607fd21eb9e684d3613b004703fad1dbde029b4831714a627e163cad7872cef1bdd7434d5cd072de51ad087d0664cda448c2f07e9219a47eae2f143ab21e0f06c0e8d1b16e49788816a5b8b8e8ea9d1620d4cdd86fea8c5dbb4a26a8b43fddeaa62208cdc8becca5f6b8577d0a0601e1298b32a731717a6861073948f95119781d42f679e592012580e1a391380c1cc25060e05562acee562252a1f72fd05480baa37ddca308b533981040b8f497a88093e7a7627bfecadd16f039eee1feb0515f9836abb8b756d601913e2e6f6863431abc2dc42783a98c68592334ef43b49aba75cb376450f9c26f1cd56a1b861cca1a0b0100d136fc77d108cb68338e2dc3ffbde64eff48524a929d5a8f13bb9c230398603c966fc02350578882a19823999aebd043ab0c2aeca9ae38b88630790bc1f3dc0faa7e39fdc9e9b7157fe74c66098aba07283e6ab470b2cf8003ea0c0d083b7cadb4ea901bb3ab4e02407d1b95f84a61fb2d79bfb6227c9f3f29c7a265710af368e0353a556e6046fb55c306ba9e2815d30d1a0f5f1b4d73db6913c06968c8dc0bbd3f1f8009c0f6ab27d66449bc6826360c9419ea8df3ca4f18"
 }

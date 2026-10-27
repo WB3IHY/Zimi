@@ -159,7 +159,7 @@
   // ── Layout ──────────────────────────────────────────────────────────────
   // Stock, waste and the foundations are one row right under the bar; the columns start under it and fan down through
   // all the height that is left (up to a card's height a step).
-  var DOWN_RATIO = 0.6, MAX_DOWN_RATIO = 0.85, DOWN_RATIO_STEP = 0.05, UP_STEP_SHARE = 0.9, MIN_STEP_SHARE = 0.12, WASTE_FAN_SHARE = 0.3;
+  var DOWN_RATIO = 0.54, MAX_DOWN_RATIO = DOWN_RATIO, DOWN_RATIO_STEP = 0.05, UP_STEP_SHARE = 0.28, MIN_STEP_SHARE = 0.12, WASTE_FAN_SHARE = 0.3;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch, x = function (col) { return m.left + col * m.step; };

@@ -97,7 +97,7 @@
   }
 
   // ── Layout ──────────────────────────────────────────────────────────────
-  var ROW_STEP_SHARE = 0.56, ROW_STEP_MAX = 1.1, HEIGHT_SHARE = 0.17, FIT_COLS = 7.6;
+  var ROW_STEP_SHARE = 0.56, ROW_STEP_MAX = 0.85, HEIGHT_SHARE = 0.17, FIT_COLS = 7.6;
 
   function place(state, m) {
     var P = state.piles, cw = m.cw, ch = m.ch;
