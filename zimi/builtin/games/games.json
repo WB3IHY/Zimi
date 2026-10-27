@@ -994,23 +994,6 @@
   "computer": false
  },
  {
-  "qid": "Q17286",
-  "wiki": "Mastermind (board game)",
-  "path": "puzzles/guess.html",
-  "title": "Guess",
-  "blurb": "Crack the hidden colour code",
-  "why": "The code-breaking game sold as Mastermind since 1972.",
-  "origin": {
-   "year": 1970,
-   "era": "1970s"
-  },
-  "region": "Middle East",
-  "players": "1",
-  "length": "10 min",
-  "kind": "puzzle",
-  "computer": false
- },
- {
   "qid": "Q1765175",
   "wiki": "Lights Out (game)",
   "path": "puzzles/flip.html",
@@ -1111,6 +1094,14 @@
   "length": "10 min",
   "kind": "puzzle",
   "computer": false
+ },
+ {
+  "qid": "Q17286",
+  "wiki": "Mastermind (board game)",
+  "path": "codebreaker.html",
+  "title": "Code Breaker",
+  "blurb": "Crack a hidden code from the clues",
+  "why": "Guessing a hidden code from clues goes back to the paper game Bulls and Cows."
  },
  {
   "qid": "Q653928",
@@ -2082,6 +2073,216 @@
   "origin": {
    "year": 1996,
    "era": "1990s"
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "path": "puzzles/cube.html",
+  "title": "Cube",
+  "blurb": "Roll a cube around the grid, collecting blue squares.",
+  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "origin": {
+   "year": 2004,
+   "era": "2000s"
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "path": "puzzles/dominosa.html",
+  "title": "Dominosa",
+  "blurb": "Tile the grid so every number pair is used once",
+  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "path": "puzzles/flood.html",
+  "title": "Flood",
+  "blurb": "Flood the grid with one colour in few moves",
+  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "path": "puzzles/inertia.html",
+  "title": "Inertia",
+  "blurb": "Collect the gems. You slide until you hit something.",
+  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "path": "puzzles/magnets.html",
+  "title": "Magnets",
+  "blurb": "Place magnets so every line has the right poles",
+  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "path": "puzzles/mosaic.html",
+  "title": "Mosaic",
+  "blurb": "Each number counts the shaded squares around it",
+  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "path": "puzzles/netslide.html",
+  "title": "Netslide",
+  "blurb": "Slide rows and columns to join up the network",
+  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "path": "puzzles/palisade.html",
+  "title": "Palisade",
+  "blurb": "Draw walls to make regions of the right size",
+  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "path": "puzzles/signpost.html",
+  "title": "Signpost",
+  "blurb": "Link the squares in order by following the arrows.",
+  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "path": "puzzles/tents.html",
+  "title": "Tents",
+  "blurb": "Pitch a tent beside every tree. No tents may touch.",
+  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "path": "puzzles/towers.html",
+  "title": "Towers",
+  "blurb": "Place towers. Clues say how many you can see.",
+  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "path": "puzzles/tracks.html",
+  "title": "Tracks",
+  "blurb": "Lay a railway from one end to the other",
+  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "path": "puzzles/twiddle.html",
+  "title": "Twiddle",
+  "blurb": "Turn blocks of tiles to sort the grid",
+  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "origin": {
+   "year": null,
+   "era": null
+  },
+  "region": "Worldwide/Modern",
+  "players": "1",
+  "length": "10 min",
+  "kind": "puzzle",
+  "computer": false
+ },
+ {
+  "path": "puzzles/undead.html",
+  "title": "Undead",
+  "blurb": "Place ghosts, vampires and zombies using what the mirrors show.",
+  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "origin": {
+   "year": null,
+   "era": null
   },
   "region": "Worldwide/Modern",
   "players": "1",

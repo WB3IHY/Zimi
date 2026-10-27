@@ -95,6 +95,11 @@ def rows():
     return _rows
 
 
+def wiki_rows():
+    """The rows that stand for an encyclopedia article (a puzzle with none has no Q-ID)."""
+    return [r for r in rows() if r.get("qid")]
+
+
 def _wiki_zims():
     return [
         z
@@ -105,7 +110,7 @@ def _wiki_zims():
 
 def build():
     """{qid: [{zim, lang, path}]} over every installed encyclopedia ZIM."""
-    games = rows()
+    games = wiki_rows()
     zims = _wiki_zims()
     articles = {}
     probe = []  # (zim, row) an English ZIM's index did not answer
@@ -161,7 +166,7 @@ def _refresh():
 def qids_changed(qid=None):
     """The Q-ID answers moved (an index was built, or a viewed article's Q-ID
     was learned): rework the links, unless that Q-ID is no game's."""
-    if qid is None or any(r["qid"] == "Q%d" % qid for r in rows()) or "Q%d" % qid in almanac_qids():
+    if qid is None or any(r["qid"] == "Q%d" % qid for r in wiki_rows()) or "Q%d" % qid in almanac_qids():
         _refresh()
 
 
@@ -186,7 +191,7 @@ def links():
             articles = _memo["articles"]
     games = {
         r["qid"]: {"zim": _GAMES_ZIM, "path": r["path"], "title": r["title"]}
-        for r in rows()
+        for r in wiki_rows()
         if games_here()
     }
     almanac = almanac_qids() if almanac_here() else {}
@@ -229,11 +234,13 @@ def game_of_day(day, games=None):
 
 def thumbnail(game_path):
     """The day's game as a small picture inside the ZIM, as a /w/ URL: the
-    tile's own art (thumbs/<game>.svg, scripts/build_games_shelf.js) or, for
-    one of Tatham's puzzles, its icon. None for a game with neither."""
+    tile's own art (thumbs/<game>.svg, thumbs/puzzles/<name>.svg for one of
+    Tatham's puzzles, scripts/build_games_shelf.js) or, for a puzzle with no
+    tile, its icon. None for a game with neither."""
     stem = os.path.splitext(os.path.basename(game_path))[0]
     folder = os.path.join(ownzims.SOURCE_ROOT, "games")
-    for rel in ("thumbs/%s.svg" % stem, "puzzles/icons/%s.png" % stem):
+    own = os.path.splitext(game_path)[0]
+    for rel in ("thumbs/%s.svg" % own, "puzzles/icons/%s.png" % stem):
         if os.path.exists(os.path.join(folder, rel)):
             return "/w/%s/%s" % (_GAMES_ZIM, rel)
     return None

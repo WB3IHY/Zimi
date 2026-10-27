@@ -138,12 +138,12 @@ const famBlocks = [...index.matchAll(/<div class="ar-family" data-name="([^"]+)"
 const inFamily = [];
 check(famBlocks.length >= 5, 'the shelf has its families (' + famBlocks.length + ')');
 famBlocks.forEach(m => {
-  const hrefs = [...m[3].matchAll(/<a class="ar-game" href="([a-z0-9]+\.html)">/g)].map(x => x[1]);
+  const hrefs = [...m[3].matchAll(/<a class="ar-game" href="((?:puzzles\/)?[a-z0-9]+\.html)">/g)].map(x => x[1]);
   check(hrefs.length >= 2, m[1] + ' holds at least two games');
   check(m[2].length <= 40, m[1] + ' has a short line (' + m[2].length + ' characters)');
   hrefs.forEach(h => { check(pages.includes(h), m[1] + ': ' + h + ' is a game page'); check(!inFamily.includes(h), h + ' is in one family only'); inFamily.push(h); });
 });
-const allTiles = [...index.matchAll(/<a class="ar-game" href="([a-z0-9]+\.html)">/g)].length;
+const allTiles = [...index.matchAll(/<a class="ar-game" href="((?:puzzles\/)?[a-z0-9]+\.html)">/g)].length;
 check(allTiles === tiles.length, 'every tile is still a plain link in the page (' + allTiles + ')');
 
 if (failures) { console.log(failures + ' failed'); process.exit(1); }

@@ -36,10 +36,16 @@ def primary_by_path(rows):
     return out
 
 
+def about_key(row):
+    """What about.html looks a game up by: its Q-ID, or (a puzzle with no encyclopedia article) its page."""
+    return row.get("qid") or row["path"]
+
+
 def footer(row):
     up = "../" * row["path"].count("/")
+    link = f'about.html?qid={row["qid"]}' if row.get("qid") else f'about.html#game={row["path"]}'
     return (
-        f'{OPEN}<footer class="gm-about"><a href="{up}about.html?qid={row["qid"]}">'
+        f'{OPEN}<footer class="gm-about"><a href="{up}{link}">'
         f'About {html.escape(row["title"])}</a></footer>{CLOSE}\n'
     )
 
@@ -91,7 +97,7 @@ ABOUT = """<!doctype html>
   var games = %s;
   // Zimi's reader opens this page as about.html#qid=Q718 (a ZIM path takes no query).
   var q = new URLSearchParams(location.search).get('qid') || (location.hash.match(/Q\\d+/) || [])[0];
-  var g = games[q];
+  var g = games[q] || games[(location.hash.match(/game=([^&]+)/) || [])[1]];
   if (!g) return;
   ZimiShell.setTitle('About ' + g.title);
   document.getElementById('ab-title').textContent = g.title;
@@ -128,7 +134,7 @@ def art_credits(path):
 
 def write_about(rows):
     table = {
-        r["qid"]: {
+        about_key(r): {
             "path": r["path"],
             "title": r["title"],
             "blurb": r["blurb"],

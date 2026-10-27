@@ -40,10 +40,10 @@ class GamesJsonTests(unittest.TestCase):
         rows = games_links.load()
         assert len(rows) > 40
         for r in rows:
-            assert re.fullmatch(r"Q\d+", r["qid"]), r
+            assert re.fullmatch(r"Q\d+", r.get("qid", "Q0")), r   # a puzzle with no encyclopedia article has no Q-ID, and no wiki title
             assert os.path.isfile(os.path.join(games_links.GAMES, r["path"])), r
-            assert r["title"] and r["blurb"] and r["wiki"], r
-        qids = [r["qid"] for r in rows]
+            assert r["title"] and r["blurb"] and (r["wiki"] if r.get("qid") else True), r
+        qids = [r["qid"] for r in rows if r.get("qid")]
         assert len(qids) == len(set(qids)), "one game per Q-ID"
 
     def test_every_game_page_carries_its_about_link(self):
@@ -57,7 +57,7 @@ class GamesJsonTests(unittest.TestCase):
         with open(os.path.join(games_links.GAMES, "about.html"), encoding="utf-8") as f:
             page = f.read()
         for r in games_links.load():
-            assert '"%s":{' % r["qid"] in page, r["qid"]
+            assert '"%s":{' % games_links.about_key(r) in page, r["path"]
 
 
 class GamesLinksTests(_QidFixtureMixin, unittest.TestCase):
@@ -221,7 +221,8 @@ class GameOfTheDayTests(unittest.TestCase):
         }
         assert card["thumbnail"], "the day's game has a picture inside the ZIM"
         assert gamelinks.thumbnail("chess.html") == "/w/zimi_games/thumbs/chess.svg"
-        assert gamelinks.thumbnail("puzzles/fifteen.html") == "/w/zimi_games/puzzles/icons/fifteen.png"
+        assert gamelinks.thumbnail("puzzles/fifteen.html") == "/w/zimi_games/thumbs/puzzles/fifteen.svg"
+        assert gamelinks.thumbnail("puzzles/mines.html") == "/w/zimi_games/puzzles/icons/mines.png"
         assert gamelinks.thumbnail("nothing.html") is None
         with mock.patch.object(gamelinks.ownzims, "enabled", lambda: True):
             assert gamelinks.day_card("not a day") is None
