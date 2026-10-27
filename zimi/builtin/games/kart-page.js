@@ -3,6 +3,11 @@
 (function (root) {
   'use strict';
   var E = root.KartEngine, V = root.KartView, Play = root.ArcadePlay, $ = Play.$, Tx = Play.T, TRACKS = E.TRACKS, DRIVERS = E.DRIVERS;
+  // The names the engine holds are English ids' labels; every one a player reads goes through T().
+  function trackName(t) { return Tx('kart.track.' + t.id + '.name'); }
+  function cupName(c) { return Tx('kart.cup.' + c.id); }
+  function driverName(d) { return Tx('kart.driver.' + d.id + '.name'); }
+  function driverNote(d) { return Tx('kart.driver.' + d.id + '.note'); }
   var STORE = 'zimi.games.kart', GHOST_KEY = 'zimi.games.kart.ghost.', TOAST_S = 1.6, MAX_W = 1180, BAR_H = 52, DPR_MAX = 2, MSG_GAP_S = 2.5;
   var TILT_RANGE = 24, TILT_DEAD = 0.06;
   Play.applyTheme();
@@ -114,24 +119,24 @@
     sheet(title, function (b) {
       table(b, order.map(function (k, i) { return { me: isMine(k), cells: [Play.ordinal(i + 1), nameOf(k), k.finished != null ? E.fmtTime(k.finished) : '-', prefs.mode === 'gp' ? '+' + Play.num(E.GP_POINTS[i] || 0) : ''] }; }));
       if (prefs.mode !== 'gp') g.humans.forEach(function (k) { if (k.laps.length) note(b, g.humans.length > 1 ? Tx('kart.bestLapOf', { name: nameOf(k), time: E.fmtTime(Math.min.apply(null, k.laps)) }) : Tx('kart.bestLap', { time: E.fmtTime(Math.min.apply(null, k.laps)) })); });
-    }, prefs.mode === 'gp' ? [[last ? Tx('kart.cupResult') : Tx('kart.next', { track: TRACKS[E.CUPS[prefs.cup].tracks[g.gp.race + 1]].name }), function () { if (last) cupResult(); else { g.gp.race++; startRace(); } }, true, true]] :
+    }, prefs.mode === 'gp' ? [[last ? Tx('kart.cupResult') : Tx('kart.next', { track: trackName(TRACKS[E.CUPS[prefs.cup].tracks[g.gp.race + 1]]) }), function () { if (last) cupResult(); else { g.gp.race++; startRace(); } }, true, true]] :
       [[Tx('shell.close')], [Tx('shell.menu.new'), startRace, true]]);
   }
   // The cup standings with the next race ready (also what a returning player sees).
   function standings() {
     var last = g.gp.race === 2, order = E.cupOrder(g.gp.totals), me = prefs.driver;
     sheet(Tx('kart.raceOf', { n: g.gp.race + 1, total: 3 }), function (b) {
-      table(b, order.map(function (di, i) { return { me: di === me || (prefs.players === 2 && di === prefs.driver2), cells: [Play.ordinal(i + 1), DRIVERS[di].name, '', Tx('kart.points', { n: g.gp.totals[di] })] }; }));
-    }, [[last ? Tx('kart.cupResult') : Tx('kart.next', { track: TRACKS[E.CUPS[g.gp.cup].tracks[g.gp.race + 1]].name }), function () { if (last) cupResult(); else { g.gp.race++; startRace(); } }, true, true]]);
+      table(b, order.map(function (di, i) { return { me: di === me || (prefs.players === 2 && di === prefs.driver2), cells: [Play.ordinal(i + 1), driverName(DRIVERS[di]), '', Tx('kart.points', { n: g.gp.totals[di] })] }; }));
+    }, [[last ? Tx('kart.cupResult') : Tx('kart.next', { track: trackName(TRACKS[E.CUPS[g.gp.cup].tracks[g.gp.race + 1]]) }), function () { if (last) cupResult(); else { g.gp.race++; startRace(); } }, true, true]]);
   }
-  function nameOf(k) { return isMine(k) ? (g.humans.length > 1 ? Tx('kart.player', { n: k.human + 1, driver: k.driver.name }) : Tx('kart.you', { driver: k.driver.name })) : k.driver.name; }
+  function nameOf(k) { return isMine(k) ? (g.humans.length > 1 ? Tx('kart.player', { n: k.human + 1, driver: driverName(k.driver) }) : Tx('kart.you', { driver: driverName(k.driver) })) : driverName(k.driver); }
   function medal(rank) { return rank <= 3 ? Tx('kart.medal.' + rank) : Play.ordinal(rank); }
   function cupResult() {
     var order = E.cupOrder(g.gp.totals), me = g.humans[0] ? g.humans[0].drvIndex : prefs.driver, rank = order.indexOf(me) + 1, cup = E.CUPS[prefs.cup];
     var rec = prefs.cups[cup.id];
     if (!rec || rank < rec.rank || (rank === rec.rank && g.gp.totals[me] > rec.points)) { prefs.cups[cup.id] = { rank: rank, points: g.gp.totals[me] }; savePrefs(); }
-    sheet(Tx('kart.cupTitle', { cup: cup.name, medal: medal(rank) }), function (b) {
-      table(b, order.map(function (di, i) { return { me: di === me || (g.humans[1] && di === g.humans[1].drvIndex), cells: [Play.ordinal(i + 1), DRIVERS[di].name, '', Tx('kart.points', { n: g.gp.totals[di] })] }; }));
+    sheet(Tx('kart.cupTitle', { cup: cupName(cup), medal: medal(rank) }), function (b) {
+      table(b, order.map(function (di, i) { return { me: di === me || (g.humans[1] && di === g.humans[1].drvIndex), cells: [Play.ordinal(i + 1), driverName(DRIVERS[di]), '', Tx('kart.points', { n: g.gp.totals[di] })] }; }));
       if (rank > 3) note(b, Tx('kart.cupNote'));
     }, [[Tx('shell.close')], [Tx('shell.menu.new'), startCup, true]]);
   }
@@ -139,7 +144,7 @@
     var def = g.T.def, best = prefs.best[def.id], rec = !best || ms < best.ms, bestLap = Math.min.apply(null, me.laps);
     if (rec) { prefs.best[def.id] = { ms: ms, lap: bestLap }; savePrefs(); Play.save(GHOST_KEY + def.id, { rec: g.rec, driver: me.drvIndex }); }
     else if (best && bestLap < best.lap) { best.lap = bestLap; savePrefs(); }
-    sheet(Tx('kart.trialTitle', { track: def.name, time: E.fmtTime(ms) }), function (b) {
+    sheet(Tx('kart.trialTitle', { track: trackName(def), time: E.fmtTime(ms) }), function (b) {
       table(b, me.laps.map(function (l, i) { return { me: false, cells: [Tx('kart.lap', { n: i + 1 }), '', '', E.fmtTime(l)] }; }));
       note(b, rec ? (best ? Tx('kart.record.new', { time: E.fmtTime(best.ms - ms) }) : Tx('kart.record.first')) : Tx('kart.record.have', { time: E.fmtTime(best.ms) }));
     }, [[Tx('shell.close')], [Tx('shell.menu.new'), startRace, true]]);
@@ -182,9 +187,9 @@
     grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', label);
     DRIVERS.forEach(function (d, i) {
       var b = mk('button', 'kt-pick'), cv = mk('canvas'), c;
-      b.type = 'button'; b.setAttribute('aria-pressed', String(prefs[key] === i)); b.setAttribute('aria-label', d.name + ', ' + d.note); cv.width = cv.height = 96;
+      b.type = 'button'; b.setAttribute('aria-pressed', String(prefs[key] === i)); b.setAttribute('aria-label', driverName(d) + ', ' + driverNote(d)); cv.width = cv.height = 96;
       c = cv.getContext('2d'); V.drawKartPreview(c, d, 48, 90, 4.6, 'back');
-      b.appendChild(cv); b.appendChild(mk('small', '', d.name)); kids.push(b);
+      b.appendChild(cv); b.appendChild(mk('small', '', driverName(d))); kids.push(b);
       b.addEventListener('click', function () { prefs[key] = i; savePrefs(); kids.forEach(function (o, j) { o.setAttribute('aria-pressed', String(j === i)); }); if (other) other(); });
       grid.appendChild(b);
     });
@@ -198,13 +203,13 @@
       detail.textContent = '';
       var two = prefs.mode !== 'trial' && prefs.players === 2;
       if (prefs.mode === 'gp') {
-        seg(detail, Tx('kart.cup'), 'cup', E.CUPS.map(function (c, i) { return [i, c.name]; }), fill);
-        var cup = E.CUPS[prefs.cup], rec = prefs.cups[cup.id], tracks = cup.tracks.map(function (t) { return TRACKS[t].name; }).join(', ');
+        seg(detail, Tx('kart.cup'), 'cup', E.CUPS.map(function (c, i) { return [i, cupName(c)]; }), fill);
+        var cup = E.CUPS[prefs.cup], rec = prefs.cups[cup.id], tracks = cup.tracks.map(function (t) { return trackName(TRACKS[t]); }).join(', ');
         note(detail, rec ? Tx('kart.cupBest', { tracks: tracks, medal: medal(rec.rank), n: rec.points }) : tracks);
       } else {
         var row = mk('div', 'gs-row'), lab = mk('label', '', Tx('kart.track')), sel = mk('select', 'kt-sel');
         sel.setAttribute('aria-label', Tx('kart.track'));
-        TRACKS.forEach(function (t) { var o = mk('option', '', t.name + (prefs.best[t.id] ? ' (' + E.fmtTime(prefs.best[t.id].ms / 1) + ')' : '')); o.value = t.id; o.selected = prefs.track === t.id; sel.appendChild(o); });
+        TRACKS.forEach(function (t) { var o = mk('option', '', trackName(t) + (prefs.best[t.id] ? ' (' + E.fmtTime(prefs.best[t.id].ms / 1) + ')' : '')); o.value = t.id; o.selected = prefs.track === t.id; sel.appendChild(o); });
         sel.addEventListener('change', function () { prefs.track = sel.value; savePrefs(); });
         row.appendChild(lab); row.appendChild(sel); detail.appendChild(row);
         if (prefs.mode === 'trial') note(detail, Tx('kart.trialNote'));
@@ -266,8 +271,8 @@
   ZimiShell.game({
     inProgress: function () { return g.mode === 'playing' || g.mode === 'paused'; },
     stats: function () {
-      var rows = TRACKS.filter(function (t) { return prefs.best[t.id]; }).map(function (t) { return [t.name, E.fmtTime(prefs.best[t.id].ms)]; });
-      E.CUPS.forEach(function (c) { if (prefs.cups[c.id]) rows.push([c.name, medal(prefs.cups[c.id].rank)]); });
+      var rows = TRACKS.filter(function (t) { return prefs.best[t.id]; }).map(function (t) { return [trackName(t), E.fmtTime(prefs.best[t.id].ms)]; });
+      E.CUPS.forEach(function (c) { if (prefs.cups[c.id]) rows.push([cupName(c), medal(prefs.cups[c.id].rank)]); });
       return rows;
     },
     menu: function () { return { options: [setupNodes()] }; }
