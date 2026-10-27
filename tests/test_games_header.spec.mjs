@@ -104,3 +104,14 @@ test('the ZimiGames icon in Zimi\'s bar leads to the shelf from any game', async
   await page.locator('.topbar-breadcrumb .bc-icon').click();
   await expect(page.locator('#game-title')).toHaveText('ZimiGames');
 });
+
+test('a tile\'s picture on the shelf opens what the tile opens, never Zimi\'s image viewer', async ({ page }) => {
+  await openGame(page, 'index.html');
+  const frame = page.frameLocator('#reader-frame');
+  const pic = frame.locator('.sh-fam-card img').first();
+  await expect(pic).toBeVisible();
+  await pic.click();
+  await page.waitForTimeout(400);
+  await expect(frame.locator('.zimi-img-lightbox')).toHaveCount(0);
+  await expect(frame.locator('.sh-fam-card[aria-expanded="true"]')).toHaveCount(1);
+});

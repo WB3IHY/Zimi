@@ -20982,6 +20982,9 @@ function _bindVideoError(frame) {
 function _bindNormalReaderLightbox(frame) {
   var doc = frame.contentDocument;
   if (!doc || !doc.body) return;
+  // An app (ZimiGames, the Almanac) is not an article: its pictures are tiles and buttons. A tap on a shelf
+  // tile's picture opened it full size instead of the game.
+  if (_docIsApp(doc)) return;
   var body = doc.body;
   if (!doc.getElementById('zimi-normal-lightbox-css')) {
     var style = doc.createElement('style');
