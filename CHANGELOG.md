@@ -14,8 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - ZIMs added or removed show up in every open window without a reload.
 - Discover shows the next day's cards in a window left open overnight.
 - Patience, in Settings > Languages > Voices and in Read aloud's voice menu while Natural reads: Read aloud keeps a slow voice, gets ahead before it starts (the bar counts down with a closing ring) and pauses to catch up, instead of switching to a faster voice.
-- ZimiGames, on Home under Gaming & Fandom: 38 offline games from around the world (cards from Solitaire and Hearts to Cribbage, Durak and Scopa; Chess, Go, Xiangqi, Shogi, Backgammon, Mancala, Mahjong, Ludo and more; Sudoku, Five Letters, Stacker), each with a computer opponent where the game has one, a Zimi card deck, and Simon Tatham's 41 puzzles.
+- ZimiGames, an Apps tile on Home: over 100 offline games from around the world, among them cards (Solitaire, Hearts, Bridge, Cribbage, Scopa, Koi-Koi), boards (Chess, Go, Xiangqi, Shogi, Backgammon, Mahjong), arcade, kids' games and Simon Tatham's 41 puzzles, each with a computer opponent where the game has one.
+- Games played on your library: Wiki Race, Quizzical, Five Letters, Spelling Bee, Mini Crossword, Sky Detective, Drop Pin, Telephone, Dictionary Bluff, Babel and more, from your own Wikipedia, Wiktionary, maps and the Almanac's sky; with built-in content in Kiwix, and your library on kiwix-serve.
+- Every game keeps your place when you leave and come back, and two people can play on one device.
+- A Zimi deck: traditional court art (French, Spanish and Hanafuda), twelve card backs, and the Zimi mark on the Ace of Spades.
+- Controllers, swipe on arrow-pad games, and the games in all ten of Zimi's languages, right to left included.
 - ZimiGames and the Almanac ship as real ZIM files, attached to each release for Kiwix and other readers; `ZIMI_BUILTIN_ZIMS=0` hides them.
+- Home: the games and the Almanac are Apps tiles with their own icons, and new or updated ZIMs show as dots on the status row.
+- An open article, game or Almanac reloads in place when its ZIM is replaced.
+- The Almanac ZIM works on its own: the 3D Earth, satellites and tides in Kiwix, and its PDF through Zimi when hosted.
 
 ### Changed
 
@@ -33,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The draft release appears only once every build is attached to it.
 - The apps' update feeds and the Homebrew cask change when the release is published, not while it is a draft.
 - Read aloud's speed is measured on the server once a voice is warm, in one fixed sentence that never goes ahead of a reading, so the first tap already has it (#121).
+- Read aloud reads the World Factbook, Stack Exchange, devdocs and Gutenberg pages' content, not their menus, votes, code blocks or page numbers.
+- Look in the Almanac no longer spins half a turn when the phone points high.
+- Zimi's own ZIMs never mix old and new files after an update.
 
 ## [1.14.1] - 2026-10-22
 
