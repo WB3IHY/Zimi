@@ -1125,6 +1125,7 @@
   "one": "You took a box and go again.",
   "other": "You took {n} boxes and go again."
  },
+ "draughts.bar": "Draughts 10x10",
  "draughts.board": "Draughts board",
  "draughts.cantTake": "A capture is compulsory: that piece cannot take",
  "draughts.king": "king",
@@ -2169,7 +2170,6 @@
   "other": "{n} cards left in the columns. Fewer is better."
  },
  "golf.leftShort": "{n} left",
- "golf.outOfMoves": "Out of moves",
  "golf.rules": "Play a column’s bottom card onto the waste when it is one rank higher or lower. No wrap from king to ace. The score is the cards left: fewer is better.",
  "golf.why.buried": "Only a column’s bottom card plays.",
  "golf.win": "Cleared in {time}, {moves}, {stock} left in the stock",

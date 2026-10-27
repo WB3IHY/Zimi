@@ -19,7 +19,7 @@
   });
   var score = WK.scoreBar($('wk-score'), [{ color: 'var(--dr-w)', border: 'var(--dr-w-lo)' }, { color: 'var(--dr-b)' }]);
   var board = $('dr-board'), flipBtn = $('dr-flip'), cells = [];
-  var pos, keys, played, legal, sel = -1, prefix = [], cands = [], lastMove = null, manualFlip = false, tip = null;
+  var pos, keys, played, legal, sel = -1, prefix = [], cands = [], lastMove = null, manualFlip = false, tip = null, glide = null;
 
   function turnIdx() { return pos.turn === WHITE ? 0 : 1; }
   function flipped() { return manualFlip !== (G.vsComputer() && G.settings.side === 'second'); }
@@ -64,6 +64,7 @@
     var names = G.names(sideName(0), sideName(1));
     score(names, [count[0] + (kings[0] ? ' ' + T('draughts.kings', { n: kings[0] }) : ''), count[1] + (kings[1] ? ' ' + T('draughts.kings', { n: kings[1] }) : '')], G.over ? -1 : turnIdx());
     flipBtn.setAttribute('aria-pressed', String(flipped()));
+    if (glide) { BK.slide(cells[sqAt(glide[0])], cells[sqAt(glide[1])]); glide = null; }
     G.setUndo(played.length > 0); G.setHint(open);
   }
 
@@ -93,7 +94,7 @@
   }
   function play(m) {
     var who = nameOf(turnIdx());
-    played.push(m);
+    played.push(m); glide = [m.from, m.path[m.path.length - 1]];
     E.make(pos, m); keys.push(E.key(pos)); lastMove = m;
     afterMove(T(G.vsComputer() ? 'makruk.played' : 'makruk.playedTwo', { name: who, move: E.notation(m) }));
   }

@@ -248,13 +248,15 @@
   function onPoint(i) {
     if (!humanNow()) return;
     if (pending && pending.removing) {
-      if (pending.options.indexOf(i) < 0) return;
+      if (pending.options.indexOf(i) < 0) { G.refuse(btns[i], T('morris.pickMarked')); return; }
       commit(pending.pt, i, pending.kind); return;
     }
     var p = state.turn, ph = phase(state, p), b = state.board;
-    if (ph === 'place') { if (!b[i]) step(-1, i); return; }
+    if (ph === 'place') { if (b[i]) G.refuse(btns[i], T('gomoku.taken')); else step(-1, i); return; }
     if (b[i] === p + 1) { sel = sel === i ? -1 : i; hintMove = null; paint(); if (sel >= 0 && !targets(state, i).length) { sel = -1; paint(); G.refuse(btns[i], T('morris.cantMove')); return; } G.say(sel >= 0 ? T('morris.chooseWhere') : turnText()); return; }
-    if (sel >= 0 && targets(state, sel).indexOf(i) >= 0) step(sel, i);
+    if (sel < 0) return;
+    if (targets(state, sel).indexOf(i) >= 0) step(sel, i);
+    else G.refuse(btns[i], T('morris.notThere'));
   }
 
   // A man placed or slid by a person: if it makes a mill, wait for the man to take.

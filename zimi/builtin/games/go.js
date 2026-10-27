@@ -7,11 +7,11 @@
   var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, Engine = root.makeGoEngine(), BLACK = 1, WHITE = 2;
   var VIEW = 420, PAD = 30;
   function sideName(p) { return UI.side(p === 0 ? 'black' : 'white'); }
-  var THINK_MS = { easy: 350, medium: 1600, hard: 4200 }, FALLBACK_MS = 800, HINT_MS = 1800, DEAD_MS = 900;
+  var SETTLE_MS = 400, THINK_MS = { easy: 350, medium: 1600, hard: 4200 }, FALLBACK_MS = 800, HINT_MS = 1800, DEAD_MS = 900;
   var HOSHI = { 9: [[2, 2], [2, 6], [6, 2], [6, 6], [4, 4]], 13: [[3, 3], [3, 9], [9, 3], [9, 9], [6, 6], [3, 6], [6, 3], [6, 9], [9, 6]] };
 
   var host = document.getElementById('wk-board'), stonesG, marksG, btns = [], n = 9, cell = 45;
-  var st, history = WK.History(), phase = 'play', dead = null, hintIdx = -1, lastMsg = '';
+  var st, history = WK.History(), phase = 'play', dead = null, hintIdx = -1, lastMsg = '', shownBoard = null, settle = { at: 0 };
   var passBtn = document.getElementById('go-pass'), doneBtn = document.getElementById('go-done'), resumeBtn = document.getElementById('go-resume');
   var score = WK.scoreBar(document.getElementById('wk-score'), [{ color: 'var(--disc-b)' }, { color: 'var(--disc-w)' }]);
   var G = WK.create({
@@ -62,14 +62,29 @@
 
   function liveScore() { return Engine.score(st.board, n, dead, st.caps); }
 
+  // One stone: its shadow and its disc, with the cross that marks it dead at the end.
+  function stone(p, r, colour, cls, dead) {
+    return '<g' + (cls ? ' class="' + cls.trim() + '"' : '') + '><circle cx="' + p.x + '" cy="' + (p.y + 1.5) + '" r="' + r + '" class="go-shadow"/><circle cx="' + p.x + '" cy="' + p.y + '" r="' + r + '" fill="url(#wk-stone-' + (colour === BLACK ? 'b' : 'w') + ')"/>' +
+      (dead ? '<path d="M' + (p.x - r * 0.45) + ' ' + (p.y - r * 0.45) + 'l' + (r * 0.9) + ' ' + (r * 0.9) + 'm0 ' + (-r * 0.9) + 'l' + (-r * 0.9) + ' ' + (r * 0.9) + '" class="go-x ' + (colour === BLACK ? 'on-b' : 'on-w') + '"/>' : '') + '</g>';
+  }
+
   function paint() {
     var b = st.board, s = '', m = '', i, p, r = cell * 0.47, marking = phase === 'mark', sc = marking ? liveScore() : null;
+    // What the last move changed (stones that arrived, stones taken) animates for a moment, through the repaints that follow it.
+    var now = Date.now();
+    if (!shownBoard || shownBoard.length !== b.length) { shownBoard = Array.prototype.slice.call(b); settle = { at: 0 }; }
+    else if (shownBoard.some(function (v, k) { return v !== b[k]; })) {
+      settle = { at: now, fresh: {}, gone: {} };
+      shownBoard.forEach(function (v, k) { if (b[k] && !v) settle.fresh[k] = 1; else if (v && !b[k]) settle.gone[k] = v; });
+      shownBoard = Array.prototype.slice.call(b);
+    }
+    var live = !marking && now - settle.at < SETTLE_MS;
     for (i = 0; i < n * n; i++) {
-      if (!b[i]) continue;
       p = xy(i);
+      if (live && settle.gone[i] && !b[i]) s += stone(p, r, settle.gone[i], 'go-gone');   // a stone that has just been taken fades where it stood
+      if (!b[i]) continue;
       var isDead = marking && dead[i];
-      s += '<g' + (isDead ? ' class="go-dead"' : '') + '><circle cx="' + p.x + '" cy="' + (p.y + 1.5) + '" r="' + r + '" class="go-shadow"/><circle cx="' + p.x + '" cy="' + p.y + '" r="' + r + '" fill="url(#wk-stone-' + (b[i] === BLACK ? 'b' : 'w') + ')"/>' +
-        (isDead ? '<path d="M' + (p.x - r * 0.45) + ' ' + (p.y - r * 0.45) + 'l' + (r * 0.9) + ' ' + (r * 0.9) + 'm0 ' + (-r * 0.9) + 'l' + (-r * 0.9) + ' ' + (r * 0.9) + '" class="go-x ' + (b[i] === BLACK ? 'on-b' : 'on-w') + '"/>' : '') + '</g>';
+      s += stone(p, r, b[i], (isDead ? 'go-dead' : '') + (live && settle.fresh[i] ? ' go-new' : ''), isDead);
     }
     if (marking) {
       for (i = 0; i < n * n; i++) {
@@ -111,7 +126,8 @@
   function onPoint(i) {
     if (G.over) return;
     if (phase === 'mark') { toggleDead(i); return; }
-    if (G.thinking || !G.human(st.turn - 1) || st.board[i]) return;
+    if (G.thinking || !G.human(st.turn - 1)) return;
+    if (st.board[i]) { flash(i, T('gomoku.taken')); return; }
     var ns = Engine.move(st, i);
     if (!ns) { flash(i, T(i === st.ko ? 'go.refuse.ko' : 'go.refuse.suicide')); return; }
     commit(ns, nameOf(st.turn - 1));
@@ -216,7 +232,7 @@
 
   function newGame() {
     if (+G.settings.size !== n || !stonesG) buildBoard();
-    history.clear(); phase = 'play'; dead = null; hintIdx = -1;
+    history.clear(); phase = 'play'; dead = null; hintIdx = -1; shownBoard = null;
     st = Engine.newGame(n);
     paint(); G.say(turnText(), !G.human(0));
     if (!G.human(0)) computerTurn();
@@ -233,7 +249,7 @@
   G.newGame();
   G.persist({
     save: function () { return history.size() ? { st: st, history: history.all(), phase: phase, dead: dead } : null; },
-    load: function (d) { buildBoard(); st = d.st; history.set(d.history); phase = d.phase; dead = d.dead; hintIdx = -1; paint(); },
+    load: function (d) { buildBoard(); shownBoard = null; st = d.st; history.set(d.history); phase = d.phase; dead = d.dead; hintIdx = -1; paint(); },
     resume: function () { G.say(turnText()); if (phase === 'play' && !G.human(st.turn - 1)) computerTurn(); }
   });
   if (new URLSearchParams(location.search).has('debug')) root.__go = { G: G, state: function () { return st; }, engine: Engine, phase: function () { return phase; }, dead: function () { return dead; }, ask: ask };

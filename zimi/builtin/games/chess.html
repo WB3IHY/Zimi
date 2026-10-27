@@ -19,14 +19,17 @@
 </header>
 
 <main class="bg-main is-rail">
+  <p class="bg-status" id="wk-status"></p>
   <div class="bg-caps" id="cs-caps-top"></div>
   <div class="bg-board cs-board" id="cs-board" role="group" data-t-aria="chess.board" aria-label="Chess board"></div>
   <div class="bg-caps" id="cs-caps-bot"></div>
-  <p class="bg-status" id="wk-status"></p>
-  <p class="bu-quiet cs-opening" id="cs-opening" aria-live="polite"></p>
-  <div class="bu-quiet cs-moves" id="cs-moves" role="log" data-t-aria="chess.moves" aria-label="Moves"></div>
+  <div class="bg-controls">
+    <button class="ar-btn" id="wk-hint" type="button" disabled data-t="board.hint" data-t-title="chess.hintTitle" title="Show a good move (H)">Hint</button>
+    <button class="ar-btn" id="cs-flip" type="button" aria-pressed="false" data-t="board.flip" data-t-title="chess.flipTitle" title="Turn the board around (F)">Flip</button>
+  </div>
+  <p class="bu-quiet cs-opening" id="cs-opening" dir="auto" aria-live="polite"></p>
+  <div class="bu-quiet cs-moves" id="cs-moves" dir="ltr" role="log" data-t-aria="chess.moves" aria-label="Moves"></div>
   <p class="bg-stats" id="wk-stats"></p>
-  <div class="bg-controls"><button class="ar-btn" id="cs-flip" type="button" aria-pressed="false" data-t="board.flip" data-t-title="chess.flipTitle" title="Turn the board around (F)">Flip</button></div>
 </main>
 
 <script src="util.js"></script>

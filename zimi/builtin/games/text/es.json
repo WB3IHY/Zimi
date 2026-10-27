@@ -1154,6 +1154,7 @@
   "many": "Te llevaste {n} de cajas y mueves otra vez.",
   "other": "Te llevaste {n} cajas y mueves otra vez."
  },
+ "draughts.bar": "Damas 10x10",
  "draughts.board": "Tablero de damas",
  "draughts.cantTake": "La captura es obligatoria: esa ficha no puede capturar",
  "draughts.king": "dama",
@@ -2221,7 +2222,6 @@
   "other": "Quedan {n} cartas en las columnas. Cuanto menos, mejor."
  },
  "golf.leftShort": "quedan {n}",
- "golf.outOfMoves": "Sin movimientos",
  "golf.rules": "Juega la carta de abajo de una columna sobre el descarte cuando sea un valor más alta o más baja. No se da la vuelta del rey al as. La puntuación son las cartas que quedan: cuantas menos, mejor.",
  "golf.why.buried": "Solo se juega la carta de abajo de una columna.",
  "golf.win": "Despejado en {time}, {moves}, quedan {stock} en el mazo",

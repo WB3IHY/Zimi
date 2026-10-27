@@ -1154,6 +1154,7 @@
   "many": "Vous avez pris {n} de cases et rejouez.",
   "other": "Vous avez pris {n} cases et rejouez."
  },
+ "draughts.bar": "Dames 10x10",
  "draughts.board": "Plateau de dames",
  "draughts.cantTake": "La prise est obligatoire : ce pion ne peut pas prendre",
  "draughts.king": "dame",
@@ -2221,7 +2222,6 @@
   "other": "{n} cartes restantes dans les colonnes. Moins, c’est mieux."
  },
  "golf.leftShort": "{n} restantes",
- "golf.outOfMoves": "Plus de coups",
  "golf.rules": "Jouez la carte du bas d’une colonne sur la défausse quand elle a une valeur de plus ou de moins. Pas de passage du roi à l’as. Le score est le nombre de cartes restantes : moins, c’est mieux.",
  "golf.why.buried": "Seule la carte du bas d’une colonne se joue.",
  "golf.win": "Terminé en {time}, {moves}, {stock} restantes dans la pioche",

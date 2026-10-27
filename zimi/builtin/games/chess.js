@@ -6,7 +6,7 @@
   var F = root.ZimiFairy, WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
   var E = root.ZimiChessEngine(root.ZimiSearch()), brain = root.EngineKit.client(root.ZimiChessEngine, 250);
   var WHITE = E.WHITE, BLACK = E.BLACK;
-  var COMPUTER_DELAY_MS = 250;
+  var COMPUTER_DELAY_MS = 400, HINT_MS = 700;
   // Show legal moves is the shell's Hints setting (Menu > Settings), not a New game option.
   function hintsOn() { return !root.ZimiShell || root.ZimiShell.settings.get('hints') !== 'off'; }
 
@@ -14,10 +14,10 @@
   var G = WK.create({
     id: 'chess',
     options: WK.standardOptions({ base: WK.CLASSIC_LEVELS, levelDef: 'club', first: 'chess.side.white', second: 'board.black' }),
-    onNew: newGame, onUndo: undo
+    onNew: newGame, onUndo: undo, onHint: hint
   });
   var els = { board: $('cs-board'), moves: $('cs-moves'), opening: $('cs-opening'), flip: $('cs-flip'), capsTop: $('cs-caps-top'), capsBot: $('cs-caps-bot'), capsHtml: {} };
-  var cells = [], pos, keys, sans, played, sel = -1, targets = {}, lastMove = 0, manualFlip = false;
+  var cells = [], pos, keys, sans, played, sel = -1, targets = {}, lastMove = 0, manualFlip = false, note = '', cue = null, glide = null, dragged = false;
 
   function turnIdx() { return pos.turn === WHITE ? 0 : 1; }
   function flipped() { return manualFlip !== (G.vsComputer() && G.settings.side === 'second'); }
@@ -42,7 +42,7 @@
     BK.gridNav(els.board, cells, 8);
     BK.dragPieces(els.board, cells, {
       grab: function (i) { if (sel !== sqAt(i)) onSquare({ currentTarget: cells[i] }); },
-      drop: function (i) { if (targets.hasOwnProperty(sqAt(i))) onSquare({ currentTarget: cells[i] }); }
+      drop: function (i) { if (targets.hasOwnProperty(sqAt(i))) { dragged = true; onSquare({ currentTarget: cells[i] }); } }
     });
   }
   function sqAt(d) { return flipped() ? 63 - d : d; }
@@ -52,9 +52,9 @@
     for (var d = 0; d < 64; d++) {
       var s = sqAt(d), c = cells[d], v = pos.sq[s], cls = 'bg-sq' + (((s >> 3) + (s & 7)) % 2 ? ' dk' : '');
       if (lastMove && (s === E.from(lastMove) || s === E.to(lastMove))) cls += ' last';
-      if (s === sel) cls += ' sel';
+      if (s === sel || (cue && s === cue.from)) cls += ' sel';
       if (s === kingSq) cls += ' bad';
-      if (hintsOn() && targets.hasOwnProperty(s)) cls += ' hint' + (v || targets[s] ? ' cap' : '');
+      if ((hintsOn() && targets.hasOwnProperty(s)) || (cue && s === cue.to)) cls += ' hint' + (v || targets[s] ? ' cap' : '');
       c.className = cls;
       var html = v ? pieceSvg(Math.abs(v), v > 0 ? WHITE : BLACK) : '';
       var edge = '';
@@ -66,15 +66,19 @@
       c.setAttribute('aria-label', s === sel ? T('chess.sq.selected', { label: label }) : label);
     }
     paintCaps();
+    if (glide) { BK.slide(cells[sqAt(glide[0])], cells[sqAt(glide[1])]); glide = null; }
     G.setUndo(played.length > 0);
+    G.setHint(!G.over && !G.watching && G.human(turnIdx()));
     els.flip.setAttribute('aria-pressed', String(manualFlip));
   }
 
-  // The strips over and under the board: what each side has taken (a pawn..queen icon each, biggest first) and the lead in pawns.
+  // The strips over and under the board: whose side it is, what that side has taken (a pawn..queen icon each, biggest first)
+  // and its lead in pawns.
   function paintCaps() {
     var bottom = (flipped() ? BLACK : WHITE), top = -bottom, lead = E.takenFrom(pos, top).worth - E.takenFrom(pos, bottom).worth;
+    var names = G.names(colorName(WHITE), colorName(BLACK));
     [[els.capsBot, bottom, lead], [els.capsTop, top, -lead]].forEach(function (c) {
-      var gone = E.takenFrom(pos, -c[1]), html = '', prev = 0;
+      var gone = E.takenFrom(pos, -c[1]), html = '<span class="bg-who">' + names[c[1] === WHITE ? 0 : 1] + '</span>', prev = 0;
       gone.list.forEach(function (t) { html += pieceSvg(t, -c[1]).replace('class="', 'class="' + (prev && prev !== t ? 'gap ' : '')); prev = t; });
       if (c[2] > 0) html += '<b>+' + c[2] + '</b>';
       if (els.capsHtml[c[0].id] !== html) { c[0].innerHTML = html; els.capsHtml[c[0].id] = html; }
@@ -131,13 +135,25 @@
     if (st.over) { finish(st); return; }
     paint();
     var human = G.human(turnIdx()), line = G.watching || !G.vsComputer() ? T('board.toMove', { name: colorName(pos.turn) }) : human ? T('board.yourTurn') : T('shell.thinking');
-    G.say(st.check ? T('chess.check', { line: line }) : line, !human && !G.watching);
+    if (st.check) line = T('chess.check', { line: line });
+    if (note && human) line = UI.noted(note, line);
+    note = '';
+    G.say(line, !human && !G.watching);
     G.turnTimer(human, timeUp, played.length);
     if (!human) computerTurn();
   }
 
+  // What the computer just did, in words, ahead of the next line.
+  function computerNote(m, san) {
+    if (pos.sq[E.to(m)] || (E.flag(m) & 1)) return T('chess.cpu.took', { sq: E.squareName(E.to(m)) });
+    return T(E.flag(m) & 2 ? 'chess.cpu.castled' : 'chess.cpu.played', { move: san });
+  }
+
   function play(m) {
-    sans.push(E.san(pos, m)); played.push(m);
+    var san = E.san(pos, m);
+    note = G.vsComputer() && !G.watching && !G.human(turnIdx()) ? computerNote(m, san) : '';
+    sans.push(san); played.push(m);
+    glide = dragged ? null : [E.from(m), E.to(m)]; dragged = false; cue = null;
     E.make(pos, m); keys.push(E.key(pos)); lastMove = m;
     afterMove();
   }
@@ -195,11 +211,41 @@
       play(cands[0]); return;
     }
     if (v * pos.turn > 0 && s !== sel) {
-      sel = s; targets = movesFrom(s);
-      if (!Object.keys(targets).length) { sel = -1; G.refuse(e.currentTarget, T('chess.cantMove')); }
+      sel = s; cue = null; targets = movesFrom(s);
+      if (!Object.keys(targets).length) { var stuck = sel; sel = -1; G.refuse(e.currentTarget, whyStuck(stuck)); }
       else G.say(!G.vsComputer() ? T('board.toMove', { name: colorName(pos.turn) }) : T('board.chooseWhere'));
-    } else { sel = -1; targets = {}; }
+    } else {
+      if (sel >= 0) { G.refuse(e.currentTarget, whyNot(sel, s)); }
+      sel = -1; targets = {};
+    }
     paint();
+  }
+
+  function movesOf(from) { return E.pseudoMoves(pos).filter(function (m) { return E.from(m) === from; }); }
+  // Why a piece has nowhere to go: it is tied to the king, or it is simply boxed in.
+  function whyStuck(from) {
+    return !movesOf(from).length ? T('chess.cantMove') : E.inCheck(pos) ? T('chess.no.inCheck') : T('chess.no.pinned');
+  }
+  // Why the selected piece cannot go to s: it would leave the king in check, or it does not move that way.
+  function whyNot(from, to) {
+    var piece = Math.abs(pos.sq[from]);
+    var pseudo = movesOf(from).some(function (m) { return E.to(m) === to; });
+    if (pseudo) return T(piece === E.K ? 'chess.no.kingCheck' : E.inCheck(pos) ? 'chess.no.inCheck' : 'chess.no.pinned');
+    return T('chess.no.way', { piece: T('chess.piece.' + piece) });
+  }
+
+  // Hint: the engine's choice, the piece first, then where it goes.
+  function hint() {
+    if (G.over || G.thinking || !G.human(turnIdx())) return;
+    if (cue && cue.to < 0) { cue.to = E.to(cue.move); G.say(T('chess.hint.move', { piece: T('chess.piece.' + Math.abs(pos.sq[cue.from])), sq: E.squareName(cue.to) })); paint(); return; }
+    var token = G.begin(); G.say(T('board.thinkingHint'), true); paint();
+    brain.ask({ fen: E.toFen(pos), level: 'club', seen: seenCounts() }, function (r) {
+      if (!G.done(token)) return;
+      if (!r || !r.move) { G.say(T('board.yourTurn')); paint(); return; }
+      sel = -1; targets = {};
+      cue = { move: r.move, from: E.from(r.move), to: -1 };
+      G.say(T('chess.hint.piece', { piece: T('chess.piece.' + Math.abs(pos.sq[cue.from])), sq: E.squareName(cue.from) })); paint();
+    }, HINT_MS);
   }
 
   // The pawn reaches the far rank: a sheet of the four pieces it can become, in the colour of whoever is promoting.
@@ -232,7 +278,7 @@
 
   function undo() {
     if (!played.length || G.thinking || G.watching) return;
-    G.cancel(); G.over = false;
+    G.cancel(); G.over = false; cue = null; note = '';
     do {
       E.unmake(pos); played.pop(); sans.pop(); keys.pop();
     } while (played.length && G.vsComputer() && !G.human(turnIdx()));
@@ -241,7 +287,7 @@
   }
 
   function newGame() {
-    sel = -1; targets = {}; lastMove = 0; manualFlip = false; F.cancel();
+    sel = -1; targets = {}; lastMove = 0; manualFlip = false; cue = null; note = ''; glide = null; F.cancel();
     pos = E.startPosition(); keys = [E.key(pos)]; sans = []; played = [];
     paintMoves(); paint();
     afterMove();

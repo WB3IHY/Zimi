@@ -1068,6 +1068,7 @@
  "dotsandboxes.tookAgain.you": {
   "other": "你占了 {n} 格，再走一步。"
  },
+ "draughts.bar": "国际跳棋 10x10",
  "draughts.board": "国际跳棋棋盘",
  "draughts.cantTake": "必须吃子：那枚棋子不能吃",
  "draughts.king": "王",
@@ -2089,7 +2090,6 @@
   "other": "各列还剩 {n} 张牌。越少越好。"
  },
  "golf.leftShort": "剩 {n}",
- "golf.outOfMoves": "无路可走",
  "golf.rules": "当某列最下面的牌比废牌堆顶牌大一点或小一点时，把它打到废牌堆上。K 和 A 不循环。得分是剩下的牌数：越少越好。",
  "golf.why.buried": "只能打每列最下面的一张牌。",
  "golf.win": "用时 {time} 清空，{moves}，摸牌堆剩 {stock}",

@@ -386,6 +386,11 @@
     if (!isHuman(p)) return T('backgammon.computerPlaying');
     return T(s.rolled ? 'backgammon.tapChecker' : 'backgammon.rollDice');
   }
+  // The roll in words: "5 and 1", or "double 3s" when the same number came up twice.
+  function diceWords(list) {
+    var a = list[0], b = list[1];
+    return a === b ? T('backgammon.doubleRoll', { n: a }) : a + ' ' + T('backgammon.and') + ' ' + b;
+  }
   function setDice(list, usedList) {
     dieShown = list.map(function (v, k) { return { v: v, used: !!(usedList && usedList[k]) }; });
   }
@@ -435,11 +440,11 @@
   function afterRoll(opening) {
     var steps = legalSteps(s);
     if (!steps.length) {
-      var dice = rolledDice.filter(function (v, k, a) { return a.indexOf(v) === k; }).join(' ' + T('backgammon.and') + ' ');
+      var dice = diceWords(rolledDice);
       paint(); say(T(dice ? 'backgammon.noMoveDice' : 'backgammon.noMove', { name: whoName(s.turn), dice: dice }), false);
       G.later(passTurn, 1300); return;
     }
-    if (!isHuman(s.turn)) { paint(); say(T(G.watching ? 'backgammon.rolled' : 'backgammon.computerRolled', { name: sideName(s.turn), dice: rolledDice.join(' ' + T('backgammon.and') + ' ') }), !G.watching); computerPlay(); return; }
+    if (!isHuman(s.turn)) { paint(); say(T(G.watching ? 'backgammon.rolled' : 'backgammon.computerRolled', { name: sideName(s.turn), dice: diceWords(rolledDice) }), !G.watching); computerPlay(); return; }
     paint(); say(turnText());
     if (G.settings.auto && steps.length === 1) G.later(function () { doStep(steps[0]); }, 450);
   }
@@ -531,7 +536,7 @@
         G.done(token);
         var w = winner(s);
         if (w >= 0) { finishGame(w); return; }
-        G.later(function () { var note = T(hits ? 'backgammon.playedHit' : 'backgammon.played'); passTurn(); if (isHuman(s.turn)) say(UI.noted(note, turnText())); }, 450);
+        G.later(function () { var note = T(hits ? 'backgammon.playedHit' : 'backgammon.played', { dice: diceWords(rolledDice) }); passTurn(); if (isHuman(s.turn) && !G.watching) say(note); }, 450);
         return;
       }
       var st = steps[k++];

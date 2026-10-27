@@ -184,15 +184,15 @@
   // ── the page ─────────────────────────────────────────────────────────────
   if (typeof document === 'undefined' || !root.BoardUI) return;
   var BK = root.BoardKit, WK = root.WorldKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
-  var COMPUTER_DELAY_MS = 350;
+  var COMPUTER_DELAY_MS = 450, HINT_DELAY_MS = 40;
   var CROWN = '<svg class="ck-crown" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16l1.5-10-5 4L12 5 7.5 12l-5-4z" fill="currentColor"/><rect x="4" y="19" width="16" height="2.4" rx="1" fill="currentColor"/></svg>';
   var G = WK.create({
     id: 'checkers',
     options: WK.standardOptions({ first: 'checkers.red.first', second: 'board.white' }),
-    onNew: newGame, onUndo: undo
+    onNew: newGame, onUndo: undo, onHint: hint
   });
   var score = WK.scoreBar($('wk-score'), [{ color: 'var(--ck-red)' }, { color: 'var(--ck-white)' }]);
-  var board = $('ck-board'), cells = [], game, history = [], sel = -1, prefix = [], legal = [], lastSquares = [], flip = false, seen = {};
+  var board = $('ck-board'), cells = [], game, history = [], sel = -1, prefix = [], legal = [], lastSquares = [], flip = false, seen = {}, note = '', cueTo = -1, glide = null;
 
   function idxOf(p) { return p === RED ? 0 : 1; }
   function sideName(p) { return T(p === RED ? 'board.red' : 'board.white'); }
@@ -235,7 +235,7 @@
       var cls = 'bg-sq' + (isDark(i) ? ' dk' : '');
       if (lastSquares.indexOf(i) >= 0) cls += ' last';
       if (i === sel) cls += ' sel';
-      if (cand.hasOwnProperty(i) && hints) cls += ' hint' + (cand[i] ? ' cap' : '');
+      if ((cand.hasOwnProperty(i) && hints) || i === cueTo) cls += ' hint' + (cand[i] ? ' cap' : '');
       c.className = cls;
       var want = v ? 'ck-pc ' + (owner(v) === RED ? 'r' : 'w') + (isKing(v) ? ' k' : '') + (movable[i] && hints && sel < 0 ? ' mv' : '') : '';
       if (want) {
@@ -248,7 +248,9 @@
     }
     var k = count(b);
     score(G.names(sideName(RED), sideName(WHITE)), [k.red, k.white], G.over ? -1 : idxOf(game.turn));
+    if (glide) { BK.slide(cells[sqAt(glide[0])], cells[sqAt(glide[1])]); glide = null; }
     G.setUndo(history.length > 0 && !G.watching);
+    G.setHint(humanNow() && !G.watching);
   }
 
   function turnLine() {
@@ -276,7 +278,9 @@
     if (seen[k] >= 3) { paint(); finish(T('xiangqi.why.repetition'), 'draw'); return; }
     if (game.quiet >= QUIET_LIMIT) { paint(); finish(T('checkers.why.quiet'), 'draw'); return; }
     paint();
-    G.say(turnLine(), !G.human(idxOf(p)) && !G.watching);
+    var line = turnLine();
+    G.say(note && G.human(idxOf(p)) ? UI.noted(note, line) : line, !G.human(idxOf(p)) && !G.watching);
+    note = '';
     if (root.ZimiShell && !G.watching) root.ZimiShell.turn(G.human(idxOf(p)), timeUp, history.length);
     if (!G.human(idxOf(p))) scheduleComputer();
   }
@@ -286,6 +290,9 @@
     var moved = game.board[m.from], reset = m.caps.length > 0 || !isKing(moved);
     game = { board: apply(game.board, m), turn: other(game.turn), quiet: reset ? 0 : game.quiet + 1 };
     lastSquares = [m.from].concat(m.path.slice(-1));
+    glide = [m.from, m.path[m.path.length - 1]]; cueTo = -1;
+    var computer = G.vsComputer() && !G.watching && !G.human(idxOf(history[history.length - 1].turn));
+    note = computer ? T(m.caps.length ? 'checkers.cpu.jumped' : 'checkers.cpu.moved', { from: coord(m.from), to: coord(m.path[m.path.length - 1]) }) : '';
     nextPly();
   }
 
@@ -323,16 +330,32 @@
     }
     if (prefix.length) { paint(); return; } // mid-capture: only the next landing counts
     if (game.board[i] && owner(game.board[i]) === game.turn) {
-      if (legal.some(function (m) { return m.from === i; })) { sel = sel === i ? -1 : i; paint(); G.say(sel < 0 ? turnLine() : T('checkers.chooseWhere')); }
+      if (legal.some(function (m) { return m.from === i; })) { sel = sel === i ? -1 : i; cueTo = -1; paint(); G.say(sel < 0 ? turnLine() : T('checkers.chooseWhere')); }
       else G.refuse(cells[+e.currentTarget.dataset.d], T(legal[0].caps.length ? 'checkers.mustCapture' : 'checkers.cantMove'));
       return;
     }
-    sel = -1; paint(); G.say(turnLine());
+    var had = sel >= 0;
+    sel = -1; paint();
+    if (had) G.refuse(e.currentTarget, T(legal[0].caps.length ? 'checkers.mustCapture' : 'checkers.no.way'));
+    else G.say(turnLine());
+  }
+
+  // Hint: the piece to move and its first landing, chosen by the engine at its best.
+  function hint() {
+    if (!humanNow() || G.watching) return;
+    var token = G.begin(); paint(); G.say(T('board.thinkingHint'), true);
+    setTimeout(function () {
+      if (!G.done(token)) return;
+      var m = chooseMove(game.board, game.turn, 'hard');
+      if (!m) { paint(); return; }
+      sel = m.from; prefix = []; cueTo = m.path[0];
+      paint(); G.say(T('checkers.hint', { from: coord(m.from), to: coord(m.path[0]) }));
+    }, HINT_DELAY_MS);
   }
 
   function undo() {
     if (!history.length || G.watching) return;
-    G.cancel(); G.over = false;
+    G.cancel(); G.over = false; note = ''; cueTo = -1;
     var h;
     do { h = history.pop(); } while (history.length && G.vsComputer() && !G.human(idxOf(h.turn)));
     game = { board: h.board, turn: h.turn, quiet: h.quiet }; lastSquares = h.last; seen = h.seen; seen[key(h.board, h.turn)]--; // nextPly counts it again

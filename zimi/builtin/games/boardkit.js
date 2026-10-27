@@ -82,7 +82,7 @@
   // (a copy follows the pointer); letting go on another square drops it there. grab(i) is called with the cell index
   // where the drag began (select the piece there, as a tap would), drop(i) with the cell index let go on. A press that
   // never moves is left to the click, which still works. A piece is whatever the cell holds as an <svg> or .dr-pc.
-  var DRAG_PX = 7, PIECE = 'svg:not(.cs-co), .dr-pc';
+  var DRAG_PX = 7, PIECE = 'svg:not(.cs-co), .dr-pc, .ck-pc';
   function dragPieces(board, cells, hooks) {
     var d = null, justDragged = 0;
     board.style.touchAction = 'none';
@@ -126,5 +126,18 @@
     board.addEventListener('click', function (e) { if (Date.now() - justDragged < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
   }
 
-  root.BoardKit = { dragPieces: dragPieces, gridNav: gridNav, load: load, save: save, mulberry32: mulberry32, reducedMotion: reducedMotion, fmtTime: fmtTime, sheet: sheet, chipValue: chipValue, chipSet: chipSet };
+  // A piece that has just been moved glides from the square it left: call after the board is painted. The cell it lands on
+  // rises above its neighbours while it travels. Nothing moves under reduced motion or when a piece was dragged there.
+  var SLIDE_MS = 200;
+  function slide(fromCell, toCell, ms) {
+    var p = fromCell && toCell && toCell.querySelector(PIECE);
+    if (!p || !p.animate || reducedMotion()) return;
+    var a = fromCell.getBoundingClientRect(), b = toCell.getBoundingClientRect();
+    if (!b.width) return;
+    toCell.style.zIndex = 3;
+    var run = p.animate([{ transform: 'translate(' + (a.left - b.left) + 'px,' + (a.top - b.top) + 'px)' }, { transform: 'none' }], { duration: ms || SLIDE_MS, easing: 'ease-out' });
+    run.onfinish = run.oncancel = function () { toCell.style.zIndex = ''; };
+  }
+
+  root.BoardKit = { slide: slide, dragPieces: dragPieces, gridNav: gridNav, load: load, save: save, mulberry32: mulberry32, reducedMotion: reducedMotion, fmtTime: fmtTime, sheet: sheet, chipValue: chipValue, chipSet: chipSet };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

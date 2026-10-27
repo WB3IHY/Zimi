@@ -1111,6 +1111,7 @@
   "one": "Ein Kästchen geschlossen: Sie sind noch einmal dran.",
   "other": "{n} Kästchen geschlossen: Sie sind noch einmal dran."
  },
+ "draughts.bar": "Dame 10x10",
  "draughts.board": "Damebrett",
  "draughts.cantTake": "Schlagzwang: Dieser Stein kann nicht schlagen",
  "draughts.king": "Dame",
@@ -2155,7 +2156,6 @@
   "other": "{n} Karten in den Spalten übrig. Weniger ist besser."
  },
  "golf.leftShort": "{n} übrig",
- "golf.outOfMoves": "Keine Züge mehr",
  "golf.rules": "Spielen Sie die unterste Karte einer Spalte auf den Abwurf, wenn sie einen Wert höher oder tiefer ist. Kein Umlauf vom König zum Ass. Die Wertung sind die verbleibenden Karten: weniger ist besser.",
  "golf.why.buried": "Nur die unterste Karte einer Spalte kann gespielt werden.",
  "golf.win": "In {time} geräumt, {moves}, {stock} im Talon übrig",

@@ -158,14 +158,14 @@
   // ── the page ─────────────────────────────────────────────────────────────
   if (typeof document === 'undefined' || !root.BoardUI) return;
   var BK = root.BoardKit, WK = root.WorldKit, UI = root.BoardUI, T = UI.t, $ = function (id) { return document.getElementById(id); };
-  var COMPUTER_DELAY_MS = 380;
+  var COMPUTER_DELAY_MS = 450, HINT_DELAY_MS = 40;
   var G = WK.create({
     id: 'reversi',
     options: WK.standardOptions({ first: 'reversi.black.first', second: 'board.white' }),
-    onNew: newGame, onUndo: undo
+    onNew: newGame, onUndo: undo, onHint: hint
   });
   var score = WK.scoreBar($('wk-score'), [{ color: 'var(--disc-b)' }, { color: 'var(--disc-w)' }]);
-  var board = $('rv-board'), cells = [], state, history = [], lastMove = -1, flipped = [];
+  var board = $('rv-board'), cells = [], state, history = [], lastMove = -1, flipped = [], cueAt = -1, note = '', glide = null;
 
   function idxOf(p) { return p === BLACK ? 0 : 1; }
   function sideName(p) { return UI.side(p === BLACK ? 'black' : 'white'); }
@@ -195,12 +195,13 @@
       if (v && !disc) { disc = document.createElement('span'); c.appendChild(disc); }
       if (!v && disc) { c.removeChild(disc); disc = null; }
       if (disc) disc.className = 'rv-disc ' + (v === BLACK ? 'b' : 'w') + (flipped.indexOf(i) >= 0 ? ' flip' : '');
-      c.className = 'bg-sq' + ((i + ((i / N) | 0)) % 2 ? ' dk' : '') + (legal[i] ? ' hint' : '') + (i === lastMove ? ' last' : '');
+      c.className = 'bg-sq' + ((i + ((i / N) | 0)) % 2 ? ' dk' : '') + (i === cueAt ? ' hint cap' : legal[i] ? ' hint' : '') + (i === lastMove ? ' last' : '');
       c.setAttribute('aria-label', T('reversi.sq', { sq: coord(i), what: T(v === BLACK ? 'reversi.black' : v === WHITE ? 'reversi.white' : legal[i] ? 'reversi.legal' : 'go.pt.empty') }));
     }
     var k = count(b);
     score(G.names(sideName(BLACK), sideName(WHITE)), [k.black, k.white], G.over ? -1 : idxOf(state.turn));
     G.setUndo(history.length > 0 && !G.watching);
+    G.setHint(humanNow() && !G.watching);
   }
 
   function turnText(next) {
@@ -223,6 +224,8 @@
     paint();
     var line = turnText(next);
     if (passed) line = T('reversi.passes', { name: nameOf(passed), n: G.vsComputer() && !G.watching && G.human(idxOf(passed)) ? 2 : 1, line: line });
+    if (note && !passed && G.human(idxOf(next))) line = UI.noted(note, line);
+    note = '';
     G.say(line, !G.human(idxOf(next)) && !G.watching);
     if (root.ZimiShell && !G.watching) root.ZimiShell.turn(G.human(idxOf(next)), timeUp, history.length);
     if (!G.human(idxOf(next))) scheduleComputer();
@@ -232,7 +235,8 @@
     history.push({ board: state.board, turn: state.turn, last: lastMove });
     var p = state.turn;
     state = { board: play(state.board, p, idx, flips), turn: p };
-    lastMove = idx; flipped = BK.reducedMotion() ? [] : flips;
+    lastMove = idx; flipped = BK.reducedMotion() ? [] : flips; cueAt = -1;
+    note = G.vsComputer() && !G.watching && !G.human(idxOf(p)) ? T('reversi.cpu', { sq: coord(idx) }) : '';
     afterMove();
   }
 
@@ -264,9 +268,20 @@
     commit(i, f);
   }
 
+  // Hint: the engine's best square, ringed.
+  function hint() {
+    if (!humanNow() || G.watching) return;
+    var token = G.begin(); paint(); G.say(T('board.thinkingHint'), true);
+    setTimeout(function () {
+      if (!G.done(token)) return;
+      var m = chooseMove(state.board, state.turn, 'hard');
+      cueAt = m ? m.idx : -1; paint(); G.say(T(m ? 'reversi.hint' : 'board.yourTurn'));
+    }, HINT_DELAY_MS);
+  }
+
   function undo() {
     if (!history.length || G.watching) return;
-    G.cancel(); G.over = false; flipped = [];
+    G.cancel(); G.over = false; flipped = []; cueAt = -1; note = '';
     var h;
     do { h = history.pop(); } while (history.length && G.vsComputer() && !G.human(idxOf(h.turn)));
     state = { board: h.board, turn: h.turn }; lastMove = h.last;

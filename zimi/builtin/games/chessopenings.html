@@ -20,16 +20,16 @@
 </header>
 
 <main class="bg-main is-rail">
-  <p class="co-name" id="co-name"></p>
+  <p class="co-name" id="co-name" dir="auto"></p>
   <div class="bg-board cs-board cp-board" id="co-board" role="group" data-t-aria="chess.board" aria-label="Chess board"></div>
   <p class="bg-status" id="co-status"></p>
-  <div class="cs-moves" id="co-moves" role="log" data-t-aria="openings.theLine" aria-label="The line"></div>
-  <p class="bg-stats" id="co-stats"></p>
   <div class="bg-controls">
     <button class="ar-btn" id="co-hint" type="button" data-t="board.hint" data-t-title="openings.hintTitle" title="Show the book move (H)">Hint</button>
     <button class="ar-btn" id="co-restart" type="button" data-t="openings.restart">Restart</button>
     <button class="ar-btn" id="co-next" type="button" aria-pressed="true" data-t="openings.next" data-t-title="openings.nextTitle" title="Another line from the same family (N)">Next line</button>
   </div>
+  <div class="cs-moves" id="co-moves" dir="ltr" role="log" data-t-aria="openings.theLine" aria-label="The line"></div>
+  <p class="bg-stats" id="co-stats"></p>
 </main>
 
 <script src="util.js"></script>

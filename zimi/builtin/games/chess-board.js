@@ -9,7 +9,7 @@
 
   // create(el, E, onSquare): builds the 64 buttons in el. onSquare(square, event) is called with the engine's square index.
   function create(el, E, onSquare) {
-    var cells = [], flipped = false, selNow = -1, WHITE = E.WHITE, BLACK = E.BLACK;
+    var cells = [], flipped = false, selNow = -1, shownLast = 0, dropped = false, WHITE = E.WHITE, BLACK = E.BLACK;
     function sqAt(d) { return flipped ? 63 - d : d; }
     el.textContent = '';
     for (var d = 0; d < 64; d++) {
@@ -19,7 +19,7 @@
       el.appendChild(c); cells.push(c);
     }
     BK.gridNav(el, cells, 8);
-    BK.dragPieces(el, cells, { grab: function (i) { if (selNow !== sqAt(i)) onSquare(sqAt(i), null); }, drop: function (i) { onSquare(sqAt(i), null); } });
+    BK.dragPieces(el, cells, { grab: function (i) { if (selNow !== sqAt(i)) onSquare(sqAt(i), null); }, drop: function (i) { dropped = true; onSquare(sqAt(i), null); } });
 
     // v: { flipped, last (a move), sel (square or -1), targets ({square: isCapture}), cue ({from, to}) }
     function paint(pos, v) {
@@ -42,6 +42,9 @@
         var sq = E.squareName(s), label = p ? T('chess.sq.piece', { sq: sq, color: T(p > 0 ? 'board.white' : 'board.black').toLowerCase(), piece: T('chess.piece.' + Math.abs(p)).toLowerCase() }) : T(targets.hasOwnProperty(s) ? 'chess.sq.target' : 'chess.sq.empty', { sq: sq });
         c.setAttribute('aria-label', s === v.sel ? T('chess.sq.selected', { label: label }) : label);
       }
+      // A new last move glides from the square it left, unless the piece was dragged there.
+      if (last && last !== shownLast && !dropped) BK.slide(cells[sqAt(E.from(last))], cells[sqAt(E.to(last))]);
+      shownLast = last || 0; dropped = false;
     }
 
     // The legal destinations of the piece on square s: {square: isCapture}.

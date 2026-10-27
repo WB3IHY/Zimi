@@ -53,20 +53,20 @@
 .bg-check { display: flex; align-items: center; gap: 8px; min-height: var(--target); margin: 0 0 8px; font-size: var(--fs-body); }
 .bg-note { margin: 0 0 8px; font-size: var(--fs-small); color: var(--ink2); }
 
-/* A board page that spends the whole screen on the game (the chess family): the board at the full width, the status and the
-   quiet lines directly under it, and the actions in a row pinned to the bottom, in thumb reach. */
+/* A board page that spends the whole screen on the game (the chess family): the status, then the board at the full width, the
+   actions in a row directly under it, and the quiet lines and the move list in the room below. */
 .bg-main.is-rail { --bs-chrome: 330px; gap: var(--sp-2); min-height: calc(100svh - var(--bar-h)); }
 .is-rail > :is(.bg-controls, .bg-stats, .bu-quiet, .bg-status) { width: var(--bs); }
 .is-rail .bg-status { min-height: 1.5em; }
-.is-rail .bg-controls { margin-top: auto; flex-wrap: nowrap; }
+.is-rail .bg-controls { flex-wrap: nowrap; }
 .is-rail .bg-controls .ar-btn { flex: 1 1 0; min-width: 0; }
 /* A strip over or under the board: the pieces that side has taken, a small icon each, and how far ahead it is. */
 .bg-caps { display: flex; align-items: center; gap: 1px; width: var(--bs); height: 28px; padding: 0 var(--sp-2); box-sizing: border-box; border-radius: 6px; background: var(--sq-light); font: 600 var(--fs-small) var(--font); font-variant-numeric: tabular-nums; color: var(--ink2); }
-.bg-caps:empty { background: none; }
 .bg-caps { color: #2b2118; }
 .bg-caps svg { width: 22px; height: 22px; margin-right: -7px; flex: none; }
 .bg-caps svg:last-of-type { margin-right: 0; }
 .bg-caps svg.gap { margin-left: 10px; }
+.bg-who { margin-right: var(--sp-2); font-weight: 650; color: #2b2118; }
 .bg-caps b { margin-left: var(--sp-2); font-weight: 650; }
 
 @media (max-width: 420px) { .bg-main { padding: var(--sp-2) var(--sp-3) var(--sp-5); } }

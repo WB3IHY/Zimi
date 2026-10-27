@@ -156,7 +156,9 @@
   function turnText() {
     var p = state.turn, nm = G.who(p, sideName(0), sideName(1));
     if (!G.vsComputer()) return T('go.toPlay', { name: nm });
-    return G.human(p) ? T('makruk.yourTurn', { side: sideName(p) }) : T('shell.thinking');
+    // German colours here are nouns and keep their capital.
+    var side = document.documentElement.lang === 'de' ? sideName(p) : sideName(p).toLowerCase();
+    return G.human(p) ? T('makruk.yourTurn', { side: side }) : T('shell.thinking');
   }
 
   function playCol(c) {

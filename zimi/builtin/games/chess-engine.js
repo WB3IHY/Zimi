@@ -402,7 +402,7 @@ function ZimiChessEngine(S) {
     CASTLE_WK: CASTLE_WK, CASTLE_WQ: CASTLE_WQ, CASTLE_BK: CASTLE_BK, CASTLE_BQ: CASTLE_BQ,
     parseFen: parseFen, toFen: toFen, clone: clone, startPosition: function () { return parseFen(START_FEN); },
     mk: mk, from: from, to: to, promo: promo, flag: flag, squareName: squareName, squareFromName: squareFromName,
-    legalMoves: legalMoves, attacked: attacked, make: make, unmake: unmake, findMove: findMove, inCheck: inCheck, perft: perft,
+    legalMoves: legalMoves, pseudoMoves: function (pos) { return generate(pos, false); }, attacked: attacked, make: make, unmake: unmake, findMove: findMove, inCheck: inCheck, perft: perft,
     san: san, key: key, status: status, insufficient: insufficient, evaluate: evaluate, think: think, handle: handle, takenFrom: takenFrom
   };
 }

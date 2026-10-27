@@ -246,7 +246,8 @@
       if (res.swept.length) info = (info + ' ' + T('mancala.swept')).trim();
       paint();
       if (state.done) { endGame(info); return; }
-      G.say((info ? info + ' ' : '') + turnText(), !G.human(state.turn));
+      // A second turn is its own line (it already says who plays next); otherwise what happened, then whose turn, if both fit.
+      G.say(!info ? turnText() : res.extra ? info : UI.noted(info, turnText()), !G.human(state.turn));
       if (!G.human(state.turn)) G.later(computerMove);
     }
     if (BK.reducedMotion()) { finishMove(); return; }

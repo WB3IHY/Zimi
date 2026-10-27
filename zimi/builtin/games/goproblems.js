@@ -79,7 +79,9 @@
     state.last = P.c + ':' + P.id; save();
     say(''); showStats(); drawBoard();
   }
-  function collName(id) { var c = D.collections.filter(function (x) { return x.id === id; })[0]; return c ? c.name : id; }
+  // A collection's name and note: the table's words when it has them, the data's own English otherwise.
+  function collText(c, part) { var k = 'gp.coll.' + c.id + (part === 'note' ? '.note' : ''); return root.ZimiText && root.ZimiText.has(k) ? T(k) : c[part]; }
+  function collName(id) { var c = D.collections.filter(function (x) { return x.id === id; })[0]; return c ? collText(c, 'name') : id; }
   // Records stay hidden until the first problem is solved.
   function showStats() {
     var n = Object.keys(state.solved).length;
@@ -204,9 +206,9 @@
       var keep = list.some(function (x) { return x.i === draft.index; });
       if (keep) pick.node.value = draft.index; else if (list.length) draft.index = list[0].i;
       var info = collections.filter(function (c) { return c.id === draft.coll; })[0];
-      note.textContent = info ? info.note : '';
+      note.textContent = info ? collText(info, 'note') : '';
     }
-    var coll = UI.row(T('gp.collection'), collections.map(function (c) { return [c.id, c.name]; }), draft.coll, function (v) { draft.coll = v; fillProblems(); });
+    var coll = UI.row(T('gp.collection'), collections.map(function (c) { return [c.id, collText(c, 'name')]; }), draft.coll, function (v) { draft.coll = v; fillProblems(); });
     var grade = UI.row(T('gp.difficulty'), GRADES.map(function (g) { return [g[0], T(g[1])]; }), draft.grade, function (v) { draft.grade = v; fillProblems(); });
     pick = UI.select(T('gp.problem'), [], '', function (v) { draft.index = +v; });
     fillProblems();

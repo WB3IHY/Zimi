@@ -1154,6 +1154,7 @@
   "many": "Você fechou {n} de quadrados e joga de novo.",
   "other": "Você fechou {n} quadrados e joga de novo."
  },
+ "draughts.bar": "Damas 10x10",
  "draughts.board": "Tabuleiro de damas",
  "draughts.cantTake": "A captura é obrigatória: essa peça não pode capturar",
  "draughts.king": "dama",
@@ -2221,7 +2222,6 @@
   "other": "Restam {n} cartas nas colunas. Menos é melhor."
  },
  "golf.leftShort": "{n} restantes",
- "golf.outOfMoves": "Sem jogadas",
  "golf.rules": "Jogue a carta de baixo de uma coluna no descarte quando ela for um valor acima ou abaixo. Sem dar a volta do rei ao ás. A pontuação são as cartas que restam: menos é melhor.",
  "golf.why.buried": "Só a carta de baixo de uma coluna é jogada.",
  "golf.win": "Limpo em {time}, {moves}, {stock} sobrando no monte",
