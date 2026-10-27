@@ -15987,16 +15987,17 @@ function _msLanguagesHtml() {
 }
 
 function _msPreferencesHtml() {
+  _appsCardOpen = {};
   // Apps: every app a row of the same shape, and whether results open in
   // them right under it. The rows offered to everyone (the server's choice)
   // paint from its answer into #ms-apps; an account that may not set them
   // sees none. A signed-in account's own choice follows, titled so the two
   // cards are not mistaken for one.
-  var h = '<div class="ms-section-label ms-section-head">' + tH('apps_section') + '<span id="ms-apps-all">' + _serverAppsAllHtml() + '</span></div>' +
+  var h = '<div class="ms-section-label ms-section-head">' + tH('apps_section') + '<span id="ms-apps-all" hidden>' + _serverAppsAllHtml() + '</span></div>' +
     '<div id="ms-apps-wrap"><div id="ms-apps">' + _serverAppsHtml() + '</div></div>' +
     (_appsAllowedByServer() && _userSession
       ? '<div class="ms-theme-label" style="margin-top:12px">' + tH('show_apps') + '</div>' +
-        _appPicksHtml(APP_NAMES.filter(_appsAllowedByServer), _appShown, '_setUserApp')
+        _appPicksHtml(APP_NAMES.filter(_appsAllowedByServer), _appShown, '_setUserApp', false, 'user')
       : '') +
     _switchRowsHtml([{ id: 'ms-open-in-apps', title: tH('open_in_apps'), desc: tH('open_in_apps_hint'),
       on: _openInApps() && _openInAppsPossible(), disabled: !_openInAppsPossible(), onchange: '_setOpenInApps(this.checked)' },
@@ -16408,7 +16409,7 @@ var _serverAppsLocked = false;
 function _serverAppsNow() { return _serverApps || APP_NAMES.filter(_appsAllowedByServer); }
 function _serverAppsHtml() {
   var shown = _serverAppsNow();
-  return _appPicksHtml(APP_NAMES, function(app) { return shown.indexOf(app) >= 0; }, '_setAppForServer', _serverAppsLocked) +
+  return _appPicksHtml(APP_NAMES, function(app) { return shown.indexOf(app) >= 0; }, '_setAppForServer', _serverAppsLocked, 'server') +
     (_serverAppsLocked ? '<div class="ms-hint">' + tH('env_controlled', { v: 'ZIMI_APPS' }) + '</div>' : '');
 }
 // All and None sit on the section's header line, out of the rows' way.
@@ -23928,7 +23929,10 @@ async function _setUserPref(key, value) {
 // never has to guess what the others were.
 function _setUserApp(app, on) {
   var shown = APP_NAMES.filter(function(a) { return a === app ? on : _appShown(a); });
-  _setUserPref('apps', shown);
+  Promise.resolve(_setUserPref('apps', shown)).then(function() {
+    var card = document.querySelector('.apps-card[data-card="user"]');
+    if (card) card.outerHTML = _appPicksHtml(APP_NAMES.filter(_appsAllowedByServer), _appShown, '_setUserApp', false, 'user');
+  });
 }
 // The apps to choose from, as the tiles they are on the home page: an icon
 // and a name, lit when offered (Eric: "the lil app tiles with icons and i
@@ -23957,14 +23961,43 @@ function _appCountLine(app) {
     : zims.length;
   return tPlural('apps_count_' + app, n);
 }
+// Settings lists the apps in one line style with the other Settings icons
+// (_catIcon), not the colourful ones their ZIMs and home tiles carry.
+var _APP_SETTINGS_ICON = {
+  games: _catIcon('<rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 11v3M5.5 12.5h3"/><circle cx="16" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="18.5" cy="13.5" r="1" fill="currentColor" stroke="none"/>'),
+  almanac: _catIcon('<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'),
+  reddot: _catIcon('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/>'),
+};
+function _appSettingsIcon(app) { return _APP_SETTINGS_ICON[app] || _appIcon(app); }
+// Whether each apps card is open for editing. It starts shut every time the
+// Settings pane is drawn, so leaving and coming back finds it collapsed.
+var _appsCardOpen = {};
+function _toggleAppsCard(btn) {
+  var card = btn.closest('.apps-card');
+  var open = !card.classList.contains('open');
+  _appsCardOpen[card.dataset.card] = open;
+  card.classList.toggle('open', open);
+  btn.textContent = t(open ? 'done' : 'apps_edit');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  var all = document.getElementById('ms-apps-all');
+  if (all && card.dataset.card === 'server') all.hidden = !open;
+}
 // Each app a Settings switch row: its icon, its name, what the library holds
-// for it, and the switch. The same row every other on/off in Settings is.
-function _appPicksHtml(apps, checked, onchange, disabled) {
-  return _switchRowsHtml(_appsByName(apps).map(function(app) {
-    return { cls: 'app-pick', icon: '<span class="set-row-icon">' + _appIcon(app) + '</span>',
+// for it, and the switch. Shut, one summary row: how many are on, their icons
+// and Edit. card names the list ('server' or 'user').
+function _appPicksHtml(apps, checked, onchange, disabled, card) {
+  var sorted = _appsByName(apps), on = sorted.filter(checked), open = !!_appsCardOpen[card];
+  var rows = sorted.map(function(app) {
+    return _switchRowHtml({ cls: 'app-pick', icon: '<span class="set-row-icon">' + _appSettingsIcon(app) + '</span>',
       title: esc(_appTitle(app)), desc: esc(_appCountLine(app)), on: !!checked(app), disabled: disabled,
-      onchange: onchange + '(\'' + app + '\', this.checked)' };
-  }));
+      onchange: onchange + '(\'' + app + '\', this.checked)' });
+  }).join('');
+  return '<div class="share-rows set-rows apps-card' + (open ? ' open' : '') + '" data-card="' + card + '">' +
+    '<div class="share-row set-row apps-sum">' +
+      '<span class="apps-sum-text">' + tH('apps_on_summary', { n: on.length, total: sorted.length }) + '</span>' +
+      '<span class="apps-sum-icons">' + on.map(function(a) { return _appSettingsIcon(a); }).join('') + '</span>' +
+      '<button type="button" class="set-head-btn" aria-expanded="' + open + '" onclick="_toggleAppsCard(this)">' +
+        tH(open ? 'done' : 'apps_edit') + '</button></div>' + rows + '</div>';
 }
 
 // Each app's tile and its door, by name, so the row and the Apps page can
