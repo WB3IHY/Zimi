@@ -43,3 +43,39 @@ html body #dlgform input, html body #dlgform select, html body #dlgform button, 
 html body #dlgform input[type="checkbox"], html body #dlgform input[type="radio"] { min-height: 0; }
 html body #dlgform button, html body #dlgform input[type="button"] { cursor: pointer; margin-right: var(--sp-2); }
 @media (pointer: coarse) { html body #dlgform input, html body #dlgform select, html body #dlgform button { min-height: var(--target); } }
+
+/* Undo and Redo in the bar: arrows, no words (the name is in aria-label). */
+.zf-icon { min-width: var(--target); padding: 0 var(--sp-2); display: inline-flex; align-items: center; justify-content: center; }
+.zf-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Mark (and Pencil) is a toggle: pressed is the amber state of every pressed button in the shared styles. */
+.zf-mark[aria-pressed="true"] { background: var(--accent-glow); border-color: var(--accent); color: var(--ink); font-weight: 650; }
+
+/* The preferences form is read into Settings rows and never seen; the quiet class is on for the moment it is open. */
+.zf-quiet #dlgdimmer, .zf-quiet #dlgform { display: none !important; }
+/* A row whose choices are long or many stacks them, one per line. */
+.gs-seg.pz-stack { display: flex; flex-direction: column; flex: 1 1 100%; }
+.gs-seg.pz-stack .ar-btn { border-radius: 0; margin-left: 0; margin-top: -1px; text-align: left; justify-content: flex-start; }
+.gs-seg.pz-stack .ar-btn:first-child { border-radius: var(--radius) var(--radius) 0 0; margin-top: 0; }
+.gs-seg.pz-stack .ar-btn:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+
+/* New game: the Advanced fold (a game ID, a seed, a save file) is quiet until opened. */
+.pz-advanced { margin-top: var(--sp-3); }
+.pz-advanced > summary { cursor: pointer; list-style: none; min-height: var(--target); display: flex; align-items: center; }
+.pz-advanced > summary::-webkit-details-marker { display: none; }
+.pz-advanced > summary::after { content: "\203A"; margin-left: var(--sp-2); transition: transform 120ms; }
+.pz-advanced[open] > summary::after { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .pz-advanced > summary::after { transition: none; } }
+
+/* The puzzle's own dialog as a sheet: a label and its control on one line, Cancel and OK last. */
+html body #dlgform { padding: var(--sp-4); max-height: 86svh; overflow: auto; top: 8svh; }
+html body #dlgform h2 { margin: 0 0 var(--sp-3); }
+html body #dlgform br { display: none; }
+html body #dlgform label { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: var(--target); font-weight: 600; color: var(--ink2); }
+html body #dlgform label input[type="text"], html body #dlgform label select { flex: 0 1 55%; min-width: 0; margin: 0; }
+html body #dlgform label input[type="checkbox"] { flex: 0 0 auto; width: 22px; height: 22px; order: 2; }
+html body #dlgform .pz-dlg-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-3); }
+html body #dlgform .pz-dlg-actions input { margin: 0; padding: 0 var(--sp-4); }
+html body #dlgform .pz-dlg-actions input[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 650; }
+html body #dlgform .pz-dlg-actions input:not([aria-pressed="true"]) { background: transparent; border-color: transparent; color: var(--ink2); }
+.gs-about a { color: var(--accent); }

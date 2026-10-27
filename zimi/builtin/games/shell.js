@@ -11,6 +11,7 @@
 
    A game may tell the shell more (all optional):
      ZimiShell.game({ stats: fn -> text or [text], sound: true, hints: true, inProgress: fn, about: fn -> text,
+                      settings: fn -> [nodes] (the game's own rows in Settings, built each time the pane opens; use .gs-row, .gs-seg),
                       menu: fn -> { options: [nodes] }, newGame: fn,
                       moveTimer: true, watch: { script, start(ctl), stop(kind) } })
    and reads the settings with ZimiShell.settings.get('anim'), etc.
@@ -60,6 +61,8 @@
     d.write('<script src="' + d.currentScript.src.replace(/shell\.js(\?.*)?$/, 'text.js') + '"><\/script>');
   }
   var T = function (key, vars) { return root.ZimiText ? root.ZimiText.T(key, vars) : key; };
+  // The folder this file is in: a page one level down (puzzles/<name>.html) finds games.json and its manual from here, not from itself.
+  var HOME = d && d.currentScript && d.currentScript.src ? d.currentScript.src.replace(/shell\.js(\?.*)?$/, '') : '';
 
   // ── a failure to start is never silent ──
   // A script that did not load, or threw while the page was starting (a kept old file beside a new one, a failed
@@ -316,7 +319,8 @@
   // ── the bar ──
   var bar, menuBtn, newBtn, extras = [], holder, hasUndo = false;
   function isNewLike(b) { return /(^|-)(new|menu|level|newgame)$/.test(b.id) || /^new\b/i.test(b.textContent.trim()); }
-  function keepInBar(b) { return /undo$/.test(b.id) || /pause$/.test(b.id) || b.id === 'ms-flagmode'; }
+  // data-gs-bar: a page's own button that stays in the bar (like Undo), and is absent while disabled (the puzzles' Redo).
+  function keepInBar(b) { return /undo$/.test(b.id) || /pause$/.test(b.id) || b.id === 'ms-flagmode' || b.hasAttribute('data-gs-bar'); }
   function buildBar() {
     bar = d.querySelector('.ar-bar');
     if (!bar) return false;
@@ -343,7 +347,7 @@
     var firstBtn = Array.prototype.filter.call(bar.children, function (c) { return c.classList.contains('ar-btn') && !c.hidden; })[0];
     Array.prototype.forEach.call(bar.querySelectorAll('.ar-stat'), function (s) { bar.insertBefore(s, firstBtn || null); keepOneStat(s); });
     // An Undo that cannot be used (a fresh game) is absent, not ghosted.
-    Array.prototype.forEach.call(bar.querySelectorAll('[id$="undo"]'), hideWhileDisabled);
+    Array.prototype.forEach.call(bar.querySelectorAll('[id$="undo"], [data-gs-bar]'), hideWhileDisabled);
     bar.appendChild(menuBtn);
     // The move timer's thin bar, right under the header.
     mt.label = h('span', { class: 'gs-turn-n', 'aria-hidden': 'true' });
@@ -608,6 +612,9 @@
     if (!options.length && !(underway() && settings.get('confirm') === 'on')) { startNew(); return; }
     show(newPane);
   }
+  // A game of ours whose Simon Tatham twin stays in the ZIM, off the shelf (puzzles/zimi-fit.js: FOLDED), links to it from its New game
+  // pane: Mines has no-guess boards and other grids, Solo has killer and jigsaw, Guess has your own pegs and colours.
+  var MORE_VERSIONS = { minesweeper: ['puzzles/mines.html', 'pz.more.mines'], sudoku: ['puzzles/solo.html', 'pz.more.solo'], codebreaker: ['puzzles/guess.html', 'pz.more.guess'] };
   function newPane() {
     var asking = underway() && settings.get('confirm') === 'on', options = capturedOptions ? capturedOptions.options : [];
     head(asking ? T('shell.new.ask') : T('shell.menu.new'), false);
@@ -615,6 +622,7 @@
     if (options.length) {
       var box = h('div', { class: 'gs-options' });
       options.forEach(function (n) { box.appendChild(n); });
+      if (MORE_VERSIONS[ID]) box.appendChild(h('a', { class: 'ar-btn gs-more', href: HOME + MORE_VERSIONS[ID][0], text: T(MORE_VERSIONS[ID][1]) }));
       card.appendChild(box);
     }
     card.appendChild(h('div', { class: 'gs-actions' }, [
@@ -689,6 +697,7 @@
     if (hasTimer()) row('timer');
     if (game.moveTimer) row('moveTimer', T('shell.set.moveTimerNote'));
     if (hasHints()) row('hints');
+    if (game.settings) { var own = null; try { own = game.settings(); } catch (e) { own = null; } (own || []).forEach(function (n) { card.appendChild(n); }); }
     row('anim', deviceReducedMotion() && !settings.explicit('anim') ? T('shell.set.reducedNote') : '');
     if (game.sound) row('sound');
     if (newBtn) row('confirm');
@@ -735,7 +744,7 @@
   var rowPromise = null;
   function gameRow() {
     if (!rowPromise) {
-      rowPromise = !root.fetch ? Promise.resolve(null) : root.fetch('games.json').then(function (r) { return r.json(); }).then(function (rows) {
+      rowPromise = !root.fetch ? Promise.resolve(null) : root.fetch(HOME + 'games.json').then(function (r) { return r.json(); }).then(function (rows) {
         return (rows || []).filter(function (x) { return x.path === ID + '.html' || (x.path || '').slice(-ID.length - 6) === '/' + ID + '.html'; })[0] || null;
       }).catch(function () { return null; });
     }
@@ -799,7 +808,7 @@
       var pz = /^puzzles\/([a-z]+)\.html$/.exec(row.path || '');
       if (pz) {
         body.appendChild(h('p', { class: 'gs-text', text: T('shell.about.credit') }));
-        body.appendChild(h('p', { class: 'gs-text' }, [h('a', { href: 'puzzles/LICENCE', text: T('shell.about.licence') }), ' \u00b7 ', h('a', { href: 'puzzles/doc/' + pz[1] + '.html', text: T('shell.about.manual') })]));
+        body.appendChild(h('p', { class: 'gs-text' }, [h('a', { href: HOME + 'puzzles/LICENCE', text: T('shell.about.licence') }), ' \u00b7 ', h('a', { href: HOME + 'puzzles/doc/' + pz[1] + '.html', text: T('shell.about.manual') })]));
       }
     });
   }

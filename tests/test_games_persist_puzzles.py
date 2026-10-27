@@ -16,12 +16,16 @@ from games_wait import frames, shell_ready, truthy  # noqa: E402
 from test_games_persist_browser import VIEW, browser, served  # noqa: E402,F401
 
 SAVE_TEXT = "(() => { const c = Module.cwrap; const p = c('get_save_file', 'number', [])(); const t = UTF8ToString(p); c('free_save_file', 'void', ['number'])(p); return t; })()"
+RUNNING = "document.documentElement.classList.contains('zf-running')"   # the puzzle is up and its saved game, if any, is back
 CAN_UNDO = "!document.getElementById('undo').disabled"
 # a puzzle, then what to press until a move has been made: a key, or "x,y" as a fraction of the canvas
 ROWS = [
     ("fifteen", ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]),
     ("keen", ["0.1,0.1", "1", "0.3,0.3", "2"]),
     ("net", ["0.5,0.5", "0.3,0.7"]),
+    # No status bar on these two (the frontend removes it), so the save is the only thing that says where the game was.
+    ("lightup", ["0.3,0.3", "0.6,0.5"]),
+    ("pattern", ["0.5,0.5", "0.3,0.7"]),
 ]
 
 
@@ -55,6 +59,26 @@ def test_a_puzzle_comes_back_as_it_was(served, browser, name, moves):  # noqa: F
     shell_ready(page)
     page.wait_for_function(truthy(CAN_UNDO))   # the loaded game has its history
     assert page.evaluate(SAVE_TEXT) == before, "the puzzle came back different after leaving and returning"
+    ctx.close()
+
+
+@pytest.mark.parametrize("name", ["bridges", "loopy"])
+def test_a_dealt_puzzle_comes_back_as_dealt(served, browser, name):  # noqa: F811
+    """Leaving before the first move still keeps the puzzle: the one that comes back is the one that was dealt, not a new one."""
+    ctx = browser.new_context(viewport=VIEW)
+    page = ctx.new_page()
+    url = "%s/puzzles/%s.html" % (served, name)
+    page.goto(url)
+    shell_ready(page)
+    page.wait_for_function(truthy(RUNNING))
+    page.evaluate("window.dispatchEvent(new Event('pagehide'))")
+    before = page.evaluate(SAVE_TEXT)
+    assert page.evaluate("ZimiShell.saved()"), "a dealt puzzle is kept too"
+    page.goto("about:blank")
+    page.goto(url)
+    shell_ready(page)
+    page.wait_for_function(truthy(RUNNING))
+    assert page.evaluate(SAVE_TEXT) == before, "a different puzzle came back"
     ctx.close()
 
 

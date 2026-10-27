@@ -432,6 +432,7 @@ html[data-anim="fast"] :not(.bg-spin, .gs-turn i) { transition-duration: 0.1s !i
 .gs-text { margin: 0; color: var(--ink2); }
 .gs-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .gs-options { display: grid; gap: 4px; }
+.gs-more { justify-content: flex-start; margin-top: var(--sp-2); text-decoration: none; }
 .gs-note { flex: 1 1 100%; margin: 0; font-size: var(--fs-small); color: var(--ink2); }
 .gs-scope { display: grid; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .gs-scope > span { font-size: var(--fs-small); font-weight: 600; color: var(--ink2); }
