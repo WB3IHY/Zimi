@@ -7,7 +7,6 @@
   var BK = root.BoardKit;
   var COMPUTER_DELAY_MS = 250, FALLBACK_DEPTH = 2;
   var KANJI = { 1: '歩', 2: '香', 3: '桂', 4: '銀', 5: '金', 6: '角', 7: '飛', 8: '玉', 9: 'と', 10: '杏', 11: '圭', 12: '全', 14: '馬', 15: '龍' };
-  var LATIN = { 1: 'P', 2: 'L', 3: 'N', 4: 'S', 5: 'G', 6: 'B', 7: 'R', 8: 'K', 9: '+P', 10: '+L', 11: '+N', 12: '+S', 14: '+B', 15: '+R' };
   var HAND_ORDER = [7, 6, 5, 4, 3, 2, 1];
   var PIECE_PATH = '20,2 33,9 37,42 3,42 7,9';
   // Show legal moves is the shell's Hints setting (Menu > Settings), not a New game option.
@@ -17,7 +16,7 @@
     id: 'shogi',
     options: [{ key: 'variant', legend: 'shogi.board', def: 'full', choices: [['full', 'shogi.board.full'], ['mini', 'shogi.board.mini']] }]
       .concat(WK.standardOptions({ base: WK.CLASSIC_LEVELS, levelDef: 'club', first: 'shogi.side.senteFirst', second: 'shogi.side.gote' }),
-        [{ key: 'labels', legend: 'xiangqi.pieces', def: 'kanji', choices: [['kanji', 'shogi.pieces.kanji'], ['latin', 'xiangqi.pieces.latin']] }]),
+        [{ key: 'labels', legend: 'xiangqi.pieces', def: root.ZimiText && root.ZimiText.lang === 'zh' ? 'kanji' : 'icons', choices: [['kanji', 'shogi.pieces.kanji'], ['icons', 'xiangqi.pieces.icons']] }]),
     statKey: function (s) { return s.variant + '.' + s.level; },
     onNew: newGame, onUndo: undo
   });
@@ -36,10 +35,9 @@
 
   // ── drawing ──
   function pieceSvg(t, color, upright) {
-    var latin = G.settings.labels === 'latin', up = t > PROMOTED;
-    var ch = latin ? LATIN[t] : (t === 8 && color === GOTE ? '王' : KANJI[t]);
-    var cls = 'sg-pc' + (upright || color === bottomColor() ? '' : ' g') + (latin ? ' latin' : '') + (up ? ' up' : '');
-    return '<svg class="' + cls + '" viewBox="0 0 40 44" aria-hidden="true"><polygon points="' + PIECE_PATH + '"/><text x="20" y="25"' + (latin && ch.length > 1 ? ' style="font-size:16px"' : '') + '>' + ch + '</text></svg>';
+    var kanji = G.settings.labels === 'kanji', up = t > PROMOTED;   // Kanji, or the arrows each piece moves along
+    var cls = 'sg-pc' + (upright || color === bottomColor() ? '' : ' g') + (kanji ? '' : ' icon') + (up ? ' up' : '');
+    return '<svg class="' + cls + '" viewBox="0 0 40 44" aria-hidden="true"><polygon points="' + PIECE_PATH + '"/>' + (kanji ? '<text x="20" y="25">' + (t === 8 && color === GOTE ? '王' : KANJI[t]) + '</text>' : root.ZimiPieceIcons.shogiArrows(t)) + '</svg>';
   }
 
   function buildBoard() {
@@ -149,8 +147,10 @@
 
   function play(m) {
     sans.push(E.san(pos, m)); played.push(m);
+    var was = root.ZimiPieceIcons.snap(cells, sqAt, pos.sq);
     E.make(pos, m); keys.push(E.key(pos)); lastMove = m;
     afterMove();
+    root.ZimiPieceIcons.ghosts(was, cells, sqAt, pos.sq, E.from(m));
   }
   function seenCounts() {
     var seen = {};

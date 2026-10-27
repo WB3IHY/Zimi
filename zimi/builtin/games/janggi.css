@@ -29,5 +29,6 @@
 .jg-pc.k { --sz: 94%; } .jg-pc.p { --sz: 66%; }
 .jg-pc span { position: relative; z-index: 1; font: 800 calc(var(--jw) * 0.062)/1 "Noto Serif CJK KR", "Noto Serif CJK SC", "Songti SC", "AppleMyungjo", "Batang", "SimSun", "Microsoft YaHei", serif; }
 .jg-pc.k span { font-size: calc(var(--jw) * 0.07); } .jg-pc.p span { font-size: calc(var(--jw) * 0.048); }
-.jg-pc.latin span { font: 800 calc(var(--jw) * 0.052)/1 var(--font); }
-.jg-pc.latin.p span { font-size: calc(var(--jw) * 0.042); }
+.jg-pc.icon span { display: grid; place-items: center; width: 100%; height: 100%; }
+.jg-pc.icon svg { display: block; width: 66%; height: 66%; }
+.jg-pc.icon.p svg { width: 100%; height: 100%; }

@@ -9,6 +9,7 @@
 .xq-lines .fat { stroke-width: 3px; }
 .xq-lines .mark { stroke-width: 1.2px; }
 .xq-river { position: absolute; left: 0; right: 0; top: 45%; height: 10%; display: flex; justify-content: space-around; align-items: center; padding: 0 9%; pointer-events: none; color: var(--xq-river); font: 700 calc(var(--xw) * 0.052)/1 "Noto Serif CJK SC", "Songti SC", "STSong", "SimSun", serif; letter-spacing: 0.4em; }
+.xq-river span:empty { display: none; }
 
 .xq-grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(9, 1fr); grid-template-rows: repeat(10, 1fr); }
 .xq-pt { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; padding: 0; border: 0; background: transparent; cursor: pointer; border-radius: 50%; }
@@ -24,7 +25,8 @@
 .xq-pc::after { content: ""; position: absolute; inset: 7%; border-radius: 50%; border: 1.5px solid currentColor; opacity: 0.55; }
 .xq-pc.r { color: var(--xq-red); } .xq-pc.b { color: var(--xq-black); }
 .xq-pc span { position: relative; z-index: 1; font: 700 calc(var(--xw) * 0.066)/1 "Noto Serif CJK SC", "Songti SC", "STKaiti", "KaiTi", "SimSun", "Microsoft YaHei", serif; }
-.xq-pc.latin span { font: 800 calc(var(--xw) * 0.056)/1 var(--font); }
+.xq-pc.icon span { display: grid; place-items: center; width: 76%; height: 76%; }
+.xq-pc.icon svg { display: block; width: 100%; height: 100%; }
 
 .xq-moves { max-height: 66px; overflow: auto; line-height: 1.7; }
 .xq-n { color: var(--ink3); margin-right: 3px; }

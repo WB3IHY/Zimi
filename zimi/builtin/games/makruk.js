@@ -106,8 +106,10 @@
   function play(m) {
     var who = nameOf(turnIdx()), text = E.san(pos, m);
     played.push(m);
+    var was = root.ZimiPieceIcons.snap(cells, sqAt, pos.sq);
     E.make(pos, m); keys.push(E.key(pos)); lastMove = m;
     afterMove(T(G.vsComputer() ? 'makruk.played' : 'makruk.playedTwo', { name: who, move: text + (E.isPromo(m) ? T('makruk.promoted') : '') }));
+    root.ZimiPieceIcons.ghosts(was, cells, sqAt, pos.sq, E.from(m));
   }
 
   // The level our own engine plays at: the one chosen, or its best when Strong or Master were chosen and Fairy-Stockfish is not there.

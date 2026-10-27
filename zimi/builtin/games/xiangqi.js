@@ -8,13 +8,12 @@
   var RED = E.RED, BLACK = E.BLACK, COLS = E.COLS, ROWS = E.ROWS, N = COLS * ROWS;
   var COMPUTER_DELAY_MS = 250;
   var HAN = { 1: { r: '兵', b: '卒' }, 2: { r: '炮', b: '砲' }, 3: { r: '俥', b: '車' }, 4: { r: '傌', b: '馬' }, 5: { r: '相', b: '象' }, 6: { r: '仕', b: '士' }, 7: { r: '帥', b: '將' } };
-  var LATIN = { 1: 'P', 2: 'C', 3: 'R', 4: 'H', 5: 'E', 6: 'A', 7: 'K' };
   // Show legal moves is the shell's Hints setting (Menu > Settings), not a New game option.
   function hintsOn() { return !root.ZimiShell || root.ZimiShell.settings.get('hints') !== 'off'; }
 
   var G = WK.create({
     id: 'xiangqi',
-    options: WK.standardOptions({ base: WK.CLASSIC_LEVELS, levelDef: 'club', first: 'xiangqi.side.red', second: 'board.black' }).concat([{ key: 'labels', legend: 'xiangqi.pieces', def: 'han', choices: [['han', 'xiangqi.pieces.han'], ['latin', 'xiangqi.pieces.latin']] }]),
+    options: WK.standardOptions({ base: WK.CLASSIC_LEVELS, levelDef: 'club', first: 'xiangqi.side.red', second: 'board.black' }).concat([{ key: 'labels', legend: 'xiangqi.pieces', def: root.ZimiText && root.ZimiText.lang === 'zh' ? 'han' : 'icons', choices: [['han', 'xiangqi.pieces.han'], ['icons', 'xiangqi.pieces.icons']] }]),
     onNew: newGame, onUndo: undo
   });
   var els = { grid: $('xq-grid'), moves: $('xq-moves'), flip: $('xq-flip') };
@@ -60,8 +59,13 @@
   }
 
   function pieceHtml(v) {
-    var t = Math.abs(v), red = v > 0, latin = G.settings.labels === 'latin';
-    return '<span class="xq-pc ' + (red ? 'r' : 'b') + (latin ? ' latin' : '') + '"><span>' + (latin ? LATIN[t] : HAN[t][red ? 'r' : 'b']) + '</span></span>';
+    var t = Math.abs(v), red = v > 0, han = G.settings.labels === 'han';   // Characters, or pictures that need no language
+    return '<span class="xq-pc ' + (red ? 'r' : 'b') + (han ? '' : ' icon') + '"><span>' + (han ? HAN[t][red ? 'r' : 'b'] : root.ZimiPieceIcons.figure(t)) + '</span></span>';
+  }
+  // The river is named in the characters' own words only when the pieces are written in them.
+  function paintRiver() {
+    var han = G.settings.labels === 'han';
+    $('xq-river-l').textContent = han ? '楚河' : T('xiangqi.river'); $('xq-river-r').textContent = han ? '漢界' : '';
   }
 
   function paint() {
@@ -120,8 +124,10 @@
 
   function play(m) {
     sans.push(E.san(pos, m)); played.push(m);
+    var was = root.ZimiPieceIcons.snap(cells, sqAt, pos.sq);
     E.make(pos, m); keys.push(E.key(pos)); lastMove = m;
     afterMove();
+    root.ZimiPieceIcons.ghosts(was, cells, sqAt, pos.sq, E.from(m));
   }
 
   function seenCounts() {
@@ -185,7 +191,7 @@
   }
 
   function newGame() {
-    sel = -1; targets = {}; lastMove = 0; manualFlip = false; F.cancel();
+    paintRiver(); sel = -1; targets = {}; lastMove = 0; manualFlip = false; F.cancel();
     pos = E.startPosition(); keys = [E.key(pos)]; sans = []; played = [];
     paintMoves(); paint();
     afterMove();
@@ -213,7 +219,7 @@
       pos = E.startPosition(); keys = [E.key(pos)]; sans = []; played = [];
       d.played.forEach(function (m) { sans.push(E.san(pos, m)); played.push(m); E.make(pos, m); keys.push(E.key(pos)); });
       lastMove = played[played.length - 1] || 0; manualFlip = !!d.flip; sel = -1; targets = {};
-      paintMoves(); paint();
+      paintMoves(); paint(); paintRiver();
     },
     resume: function () { afterMove(); }
   });

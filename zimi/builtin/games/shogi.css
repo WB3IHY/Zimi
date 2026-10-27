@@ -24,7 +24,8 @@
 .sg-pc.g { transform: rotate(180deg); }
 .sg-pc polygon { fill: var(--sg-piece); stroke: var(--sg-piece-edge); stroke-width: 1.6; stroke-linejoin: round; }
 .sg-pc text { fill: var(--sg-ink); font: 700 21px/1 "Noto Serif CJK JP", "Hiragino Mincho ProN", "Yu Mincho", "MS Mincho", "Songti SC", serif; text-anchor: middle; dominant-baseline: central; }
-.sg-pc.latin text { font: 800 19px var(--font); }
+.sg-pc.icon .pi-arrows { color: var(--sg-ink); }
+.sg-pc.up.icon .pi-arrows { color: var(--sg-promo); }
 .sg-pc.up text { fill: var(--sg-promo); }
 .sg-pc.small text { font-size: 21px; }
 

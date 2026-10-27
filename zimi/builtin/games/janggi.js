@@ -8,7 +8,6 @@
   var CHO = E.CHO, HAN = E.HAN, COLS = E.COLS, ROWS = E.ROWS, N = COLS * ROWS, PASS = E.PASS;
   var HINT_MS = 1500;
   var HANJA = { 1: { c: '卒', h: '兵' }, 2: { c: '包', h: '包' }, 3: { c: '車', h: '車' }, 4: { c: '馬', h: '馬' }, 5: { c: '象', h: '象' }, 6: { c: '士', h: '士' }, 7: { c: '楚', h: '漢' } };
-  var LATIN = { 1: 'S', 2: 'C', 3: 'R', 4: 'H', 5: 'E', 6: 'G', 7: 'K' };
   function sideName(p) { return T(p === 0 ? 'janggi.side.cho' : 'janggi.side.han'); }
   var LEVEL_CHOICES = [['fairy', 'chess.level.fairy'], ['master', 'chess.level.master']];   // Strong and Master, when Fairy-Stockfish is there
   // Show legal moves is the shell's Hints setting (Menu > Settings), not a New game option.
@@ -16,7 +15,7 @@
 
   var G = WK.create({
     id: 'janggi',
-    options: WK.standardOptions({ first: 'janggi.side.choFirst', second: 'janggi.side.han', levels: LEVEL_CHOICES }).concat([{ key: 'labels', legend: 'xiangqi.pieces', def: 'han', choices: [['han', 'xiangqi.pieces.han'], ['latin', 'xiangqi.pieces.latin']] }]),
+    options: WK.standardOptions({ first: 'janggi.side.choFirst', second: 'janggi.side.han', levels: LEVEL_CHOICES }).concat([{ key: 'labels', legend: 'xiangqi.pieces', def: root.ZimiText && root.ZimiText.lang === 'zh' ? 'han' : 'icons', choices: [['han', 'xiangqi.pieces.han'], ['icons', 'xiangqi.pieces.icons']] }]),
     onNew: newGame, onUndo: undo, onHint: hint
   });
   var score = WK.scoreBar($('wk-score'), [{ color: 'var(--jg-cho)' }, { color: 'var(--jg-han)' }]);
@@ -50,9 +49,9 @@
     BK.gridNav(els.grid, cells, COLS, ROWS);
   }
   function pieceHtml(v) {
-    var t = Math.abs(v), han = v < 0, latin = G.settings.labels === 'latin';
-    var cls = 'jg-pc ' + (han ? 'han' : 'cho') + (latin ? ' latin' : '') + (t === 7 ? ' k' : t === 1 ? ' p' : '');
-    return '<span class="' + cls + '"><span>' + (latin ? LATIN[t] : HANJA[t][han ? 'h' : 'c']) + '</span></span>';
+    var t = Math.abs(v), han = v < 0, chars = G.settings.labels === 'han';   // Characters, or pictures that need no language
+    var cls = 'jg-pc ' + (han ? 'han' : 'cho') + (chars ? '' : ' icon') + (t === 7 ? ' k' : t === 1 ? ' p' : '');
+    return '<span class="' + cls + '"><span>' + (chars ? HANJA[t][han ? 'h' : 'c'] : root.ZimiPieceIcons.figure(t)) + '</span></span>';
   }
   function fmtPoints(x) { return x % 1 ? x.toFixed(1) : String(x); }
 
@@ -112,8 +111,10 @@
   function play(m) {
     var who = nameOf(turnIdx()), text = E.san(pos, m);
     sans.push(text); played.push(m);
+    var was = root.ZimiPieceIcons.snap(cells, sqAt, pos.sq);
     E.make(pos, m); keys.push(E.key(pos)); lastMove = m === PASS ? 0 : m;
     afterMove(m === PASS ? T('janggi.passed', { name: who }) : '');
+    if (m !== PASS) root.ZimiPieceIcons.ghosts(was, cells, sqAt, pos.sq, E.from(m));
   }
   function seenCounts() { var seen = {}; keys.forEach(function (k) { seen[k] = (seen[k] || 0) + 1; }); return seen; }
 
