@@ -79,7 +79,7 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
-  var SWIPE_PX = 22, MAX_BOARD = 560, CHROME_PX = 120, READY_ARM_MS = 650;
+  var SWIPE_PX = 22, MAX_BOARD = 560, MAX_ROWS = COLS * 2, CHROME_PX = 120, READY_ARM_MS = 650;
   var EAT_MS = 320, DEATH_MS = 720, DEATH_BLINK_MS = 120, BUMP_SCALE = 1.18, BUMP_MS = 200;
   var SETTINGS_KEY = 'zimi.games.snake.settings', BEST_KEY = 'zimi.games.snake.best';
   Play.applyTheme();
@@ -87,7 +87,7 @@
   var els = { page: $('sn-main'), cv: $('sn-board'), stat: $('sn-stat'), msg: $('sn-msg'), pause: $('sn-pause'), newBtn: $('sn-new') };
   var ctx = els.cv.getContext('2d'), status = Play.status(els.msg);
   var settings = Play.load(SETTINGS_KEY, { wrap: false }), best = Play.load(BEST_KEY, {});
-  var g, cs = 18, mode = 'ready', last = 0, acc = 0, pal = {}, armed = null, fx = { eat: null, dead: 0 };
+  var g, cs = 18, rows = ROWS, mode = 'ready', last = 0, acc = 0, pal = {}, armed = null, fx = { eat: null, dead: 0 };
   function modeKey() { return settings.wrap ? 'wrap' : 'walls'; }
 
   function readPalette() {
@@ -95,11 +95,15 @@
     function v(n) { return s.getPropertyValue(n).trim(); }
     pal = { a: v('--cell'), b: v('--cell-line'), head: v('--p-s'), tail: v('--p-i'), food: v('--p-z'), leaf: v('--ok'), eye: v('--surface'), ink: v('--ink') };
   }
+  // The board is always COLS wide, cells as wide as the screen allows. A phone that is taller than that square gets more rows
+  // (up to twice the columns) so the space under the board is played in, not left empty; a game already on keeps its own rows.
   function layout() {
-    var room = Play.room(CHROME_PX);
-    cs = Math.max(12, Math.floor(Math.min(room.w, room.h, MAX_BOARD) / COLS));
-    var dpr = window.devicePixelRatio || 1, px = cs * COLS;
-    els.cv.width = px * dpr; els.cv.height = px * dpr; els.cv.style.width = px + 'px'; els.cv.style.height = px + 'px';
+    var room = Play.room(CHROME_PX), byWidth = Math.max(12, Math.floor(Math.min(room.w, MAX_BOARD) / COLS));
+    rows = Math.max(ROWS, Math.min(MAX_ROWS, Math.floor(room.h / byWidth)));
+    if (mode === 'ready' && g.rows !== rows) g = createGame(COLS, rows, settings.wrap);
+    cs = Math.max(12, Math.min(byWidth, Math.floor(room.h / g.rows)));
+    var dpr = window.devicePixelRatio || 1, pw = cs * g.cols, ph = cs * g.rows;
+    els.cv.width = pw * dpr; els.cv.height = ph * dpr; els.cv.style.width = pw + 'px'; els.cv.style.height = ph + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     draw();
   }
@@ -182,7 +186,7 @@
   }
   function begin() {
     if (armed) armed.cancel();
-    g = createGame(COLS, ROWS, settings.wrap); acc = 0; mode = 'playing'; status.say(''); fx.eat = null; fx.dead = 0;
+    g = createGame(COLS, rows, settings.wrap); acc = 0; mode = 'playing'; status.say(''); fx.eat = null; fx.dead = 0;
     Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); startLoop();
   }
   function pause() { if (mode !== 'playing') return; mode = 'paused'; Play.pauseLabel(els.pause, true); status.say(T('play.paused')); }
@@ -252,9 +256,9 @@
     if (!d || !d.g || !d.g.snake) return false;
     g = Play.overlay(createGame(d.g.cols, d.g.rows, d.g.wrap), d.g); acc = 0;
     if (armed) { armed.cancel(); armed = null; }
-    hud(); draw();
-    if (d.over) { mode = 'over'; els.pause.disabled = true; setTimeout(function () { showEnd(g.snake.length >= g.cols * g.rows); }, 0); return true; }
-    mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
+    mode = d.over ? 'over' : 'paused'; hud(); layout();
+    if (d.over) { els.pause.disabled = true; setTimeout(function () { showEnd(g.snake.length >= g.cols * g.rows); }, 0); return true; }
+    els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));
     return true;
   }
 
