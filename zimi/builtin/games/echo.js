@@ -37,7 +37,7 @@
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var SETTINGS_KEY = 'zimi.games.echo.settings', BEST_KEY = 'zimi.games.echo.best';
-  var START_DELAY_MS = 700, REPLAY_DELAY_MS = 900, TAP_LIGHT_MS = 240, READY_ARM_MS = 650;
+  var START_DELAY_MS = 700, REPLAY_DELAY_MS = 900, TAP_LIGHT_MS = 240, READY_ARM_MS = 650, MISS_MS = 520;
   Play.applyTheme();
 
   var els = { board: $('ec-board'), len: $('ec-len'), best: $('ec-best'), msg: $('ec-msg'), pause: $('ec-pause'), nu: $('ec-new') };
@@ -89,6 +89,7 @@
 
   function tap(pad) {
     if (status !== 'input') { if (status === 'show' || status === 'wait') ZimiShell.shake(els.board); return; }
+    var want = g.seq[g.pos];
     light(pad, TAP_LIGHT_MS);
     var r = press(g, pad);
     if (r === 'ok') return;
@@ -99,9 +100,12 @@
       timer = Play.later(show, REPLAY_DELAY_MS);
       return;
     }
-    // a slip
+    // a slip: the pad you pressed rings red, the one it should have been lights, and the board jolts
     status = 'wait'; enable(false);
-    if (settings.strict) { finish(); return; }
+    pads[pad].classList.add('miss'); ZimiShell.shake(els.board);
+    Play.later(function () { pads[pad].classList.remove('miss'); }, MISS_MS);
+    if (pad !== want) Play.later(function () { light(want, MISS_MS); }, TAP_LIGHT_MS);
+    if (settings.strict) { line.say(T('echo.miss')); Play.later(finish, MISS_MS + TAP_LIGHT_MS); return; }
     line.say(T('echo.slip'));
     timer = Play.later(show, REPLAY_DELAY_MS + 400);
   }
