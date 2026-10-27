@@ -104,7 +104,7 @@ const server = http.createServer((q, r) => {
   ok('the backs\' band rules are crisp rules', (backs.match(/class: 'zc-rule'/g) || []).length === 2);
   ok('crisp rules snap to the device pixel', /\.zc-rule \{[^}]*vector-effect: non-scaling-stroke[^}]*crispEdges[^}]*var\(--zc-px/.test(css));
 
-  // 5. The index's top: flat ranks and rounds start at the 5.5 inset; pointed ones (A, 4) overshoot it by under a unit, never touching the edge.
+  // 5. The index's top: flat ranks start at the 5.5 inset and rounds overshoot it by under 0.3, never touching the edge.
   const cb = await browser2.newContext({ deviceScaleFactor: 1 }).then(c => c.newPage());
   await cb.goto(base + '/h.html');
   // 4b. The number cards' pips share the court frame's edges: the sparse pips' outer ink is the frame's width (22..78) and their rows sit
@@ -146,8 +146,8 @@ const server = http.createServer((q, r) => {
     return out;
   });
   for (const [r, t] of Object.entries(tops)) {
-    const pointed = r === 'A' || r === '4';
-    ok('index ' + r + ' top inset', pointed ? t >= 4.7 && t <= 5.3 : Math.abs(t - 5.5) <= 0.13, t.toFixed(2) + (pointed ? ' (apex overshoots 0.2 to 0.8)' : ''));
+    // Barlow Condensed's A and 4 are flat at the cap line, and its rounds (2 3 5 6 8 9 0 Q) overshoot it by up to 0.3 units (at 1.1 scale).
+    ok('index ' + r + ' top inset', t >= 5.5 - 0.3 && t <= 5.5 + 0.13, t.toFixed(2));
   }
 
   // 6. The index has a column of its own: on every court (French, Spanish), no art or frame ink comes within
