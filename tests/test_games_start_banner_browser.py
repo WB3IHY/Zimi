@@ -73,3 +73,13 @@ def test_a_game_that_drew_nothing_says_so(site, browser):
     page.wait_for_timeout(GRACE_WAIT_MS)
     assert _banner(page) == 1
     page.close()
+
+
+def test_a_helper_script_that_fails_to_load_raises_no_banner_when_the_game_plays(site, browser):
+    # Mahjong on Eric's phone: a helper failed to load over the network and the banner covered a full table.
+    page = browser.new_page(viewport={"width": 390, "height": 844})
+    page.route("**/recent.js*", lambda r: r.abort())
+    page.goto(site + "mahjong.html")
+    page.wait_for_timeout(GRACE_WAIT_MS)
+    assert _banner(page) == 0
+    page.close()

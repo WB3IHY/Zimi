@@ -103,8 +103,13 @@
   }
   root.addEventListener('error', function (e) {
     var t = e && e.target;
-    if (t && t !== root && t.tagName === 'SCRIPT') failedToStart();   // a script that would not load
-    else if ((!t || t === root) && starting) threwWhileStarting(e);    // one that threw
+    if (t && t !== root && t.tagName !== 'SCRIPT') return;   // an image or a sound that did not load is not a start
+    // Either way the banner waits and asks the page: a helper that failed to load or a stray throw can leave a game
+    // that plays fine, and only a page with nothing of the game on it is a failure to start. The cause is kept for a report.
+    var why = t && t !== root && t.tagName === 'SCRIPT' ? 'script did not load: ' + (t.src || '') : (e && (e.message || e.reason)) || 'error';
+    try { root.localStorage.setItem('zimi.games.lastStartError', JSON.stringify({ at: Date.now(), page: root.location.pathname, why: String(why).slice(0, 300) })); } catch (x) {}
+    if (root.console) root.console.warn('ZimiGames start:', why);
+    if (starting || (t && t.tagName === 'SCRIPT')) threwWhileStarting(e);
   }, true);
   root.addEventListener('unhandledrejection', function (e) { if (starting) threwWhileStarting(e); });
   root.addEventListener('load', function () { root.setTimeout(function () { starting = false; }, START_GRACE_MS); });
