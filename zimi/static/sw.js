@@ -155,7 +155,8 @@ async function checkVersion() {
 // signed-out phone could be shown them. Offline the page reads the guide's own
 // copy instead (/static/fieldguide-offline.json: public text, kept like any
 // static file), so nothing is lost by never keeping these.
-const NETWORK_ONLY_PREFIXES = ['/login', '/logout', '/suggest', '/random', '/places', '/tube', '/exchange', '/reddot', '/me', '/collections', '/userdata', '/dictionary/voices', '/dictionary/speak', '/fieldguide', '/keep'];
+const NETWORK_ONLY_PREFIXES = ['/login', '/logout', '/suggest', '/random', '/places', '/tube', '/exchange', '/reddot', '/me', '/collections', '/userdata', '/dictionary/voices', '/dictionary/speak', '/fieldguide', '/keep', '/games-links'];
+// /games-links is filtered per account and follows the library: never kept, so no copy outlives a sign-out or an account change.
 
 // The answers the app cannot start without, which say who is asking and what
 // the library holds: /whoami, /list, /search (the last few searches are kept
@@ -204,8 +205,7 @@ function _isOwnZimEntry(url) {
 // /almanac-satellites too: the freshest orbital elements when the server
 // answers, the last ones seen when it does not. /catalog (a document library's
 // listing) too: a ZIM carried on this phone answers it from its own database.js.
-const NETWORK_FIRST_PREFIXES = ['/read', '/health', '/manage', '/article-languages', '/languages', '/almanac-satellites', '/almanac-ages', '/catalog', '/games-links'];
-// /games-links follows the library (a ZIM deleted or added changes it at once): never a stale answer first.
+const NETWORK_FIRST_PREFIXES = ['/read', '/health', '/manage', '/article-languages', '/languages', '/almanac-satellites', '/almanac-ages', '/catalog'];
 
 // The reconnect probe: /health with a cache-busting ping.
 function _isProbe(path, search) {
