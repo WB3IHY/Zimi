@@ -8,6 +8,7 @@
   'use strict';
   var doc = root.document;
   var ZIM = 'zimi_games';
+  var T = function (key) { return root.ZimiText ? root.ZimiText.T(key) : 'Favorites'; };
   var NOT_GAMES = { 'index.html': 1, 'about.html': 1, 'puzzles.html': 1 };
 
   // Kept pages of Tatham's Mines, Solo and Guess are Minesweeper, Sudoku and Code Breaker (recent.js says which).
@@ -75,10 +76,10 @@
     s.id = 'sh-favorites';
     s.className = 'ar-section ar-favorites';
     var h = doc.createElement('h2');
-    h.textContent = 'Favorites';
+    h.textContent = T('shelf.favorites');
     var nav = doc.createElement('nav');
     nav.className = 'ar-games';
-    nav.setAttribute('aria-label', 'Favorites');
+    nav.setAttribute('aria-label', T('shelf.favorites'));
     items.forEach(function (it) { nav.appendChild(tile(it)); });
     s.appendChild(h);
     s.appendChild(nav);
@@ -100,6 +101,7 @@
   };
 
   doc.addEventListener('zimi-shelf-today', draw);
+  if (root.ZimiText && root.ZimiText.onChange) root.ZimiText.onChange(function () { if (doc.getElementById('sh-favorites')) draw(); });   // a language that arrived late
   // The page comes back from a game (the back button restores it): hearts may have changed.
   root.addEventListener('pageshow', function (e) { if (e.persisted) draw(); });
 })(typeof window !== 'undefined' ? window : globalThis);

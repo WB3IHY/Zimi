@@ -48,7 +48,9 @@
          throw) when it no longer fits and the shell forgets it. A game that builds its own state first can
          skip `load` and ask ZimiShell.saved() for the data instead. A finished game is saved as finished (so
          it comes back to its end sheet). Only an explicit New game or a puzzle's day rolling over discards a
-         save: the game then returns null from save(), or calls ZimiShell.forget(). Arcade games restore paused.
+         save: the game then returns null from save(), or calls ZimiShell.forget(). A kept save is never written over or
+         removed until the game has read it (ZimiShell.saved()) or forgotten it, so a library game that reads it once the
+         library answers loses nothing to a tap or a pagehide before then. Arcade games restore paused.
      ZimiShell.saved()  the kept data or null.   ZimiShell.saveNow()  save right now.   ZimiShell.forget()  discard.
 
    Where a game overrides a shared rule it says why in a comment where it happens. */
@@ -70,15 +72,18 @@
   // the very file that failed. Errors later in play are the game's own and are not announced here.
   var START_GRACE_MS = 2500;
   var starting = true, failed = false;
+  // The banner speaks the player's language when the strings loaded (text.js is rarely the file that failed); plain English only if not.
+  function bannerText(key, english) { return root.ZimiText && root.ZimiText.has && root.ZimiText.has(key) ? T(key) : english; }
   function failedToStart(late) {
     if (failed || (!starting && !late) || !d) return;
     failed = true;
     function paint() {
       var box = d.createElement('div');
       box.setAttribute('role', 'alert');
+      box.dir = (d.documentElement && d.documentElement.dir) || 'ltr';
       box.style.cssText = 'position:fixed;left:12px;right:12px;top:12px;z-index:2147483647;padding:14px 16px;border-radius:12px;background:#fff;color:#1b2233;border:2px solid #c62828;font:600 16px/1.35 system-ui,sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.3);display:flex;gap:12px;align-items:center;justify-content:space-between';
-      var msg = d.createElement('span'); msg.textContent = 'This game failed to start.';
-      var btn = d.createElement('button'); btn.type = 'button'; btn.textContent = 'Reload';
+      var msg = d.createElement('span'); msg.textContent = bannerText('shell.failedStart', 'This game failed to start.');
+      var btn = d.createElement('button'); btn.type = 'button'; btn.textContent = bannerText('shell.reload', 'Reload');
       btn.style.cssText = 'font:inherit;padding:8px 16px;border-radius:8px;border:0;background:#d97706;color:#fff;cursor:pointer';
       btn.addEventListener('click', function () { root.location.reload(); });
       box.appendChild(msg); box.appendChild(btn);
@@ -287,6 +292,7 @@
   };
 
   // ── the move timer: a thin bar under the bar, for a person's turn ──
+  var MS_PER_S = 1000, MOVE_TIMER_LOW_MS = 5000;   // the bar turns red with this long left
   var mt = { key: undefined, timer: 0, left: 0, total: 0, expire: null, bar: null, label: null, held: false };
   Shell.moveTimer = {
     supported: function () { return !!game.moveTimer; },
@@ -296,7 +302,7 @@
       Shell.moveTimer.stop();
       var secs = Shell.moveTimer.seconds();
       if (!secs || !mt.bar) return;
-      mt.total = mt.left = secs * 1000; mt.expire = onExpire;
+      mt.total = mt.left = secs * MS_PER_S; mt.expire = onExpire;
       mt.bar.hidden = false; paintTimer();
       mt.timer = root.setInterval(function () {
         if (mt.held || d.hidden) return;
@@ -317,8 +323,8 @@
   function paintTimer() {
     var frac = Math.max(0, mt.left / mt.total);
     mt.bar.firstChild.style.transform = 'scaleX(' + frac + ')';
-    mt.label.textContent = Math.ceil(Math.max(0, mt.left) / 1000) + ' s';
-    mt.bar.classList.toggle('gs-low', mt.left <= 5000);
+    mt.label.textContent = T('shell.seconds', { n: Math.ceil(Math.max(0, mt.left) / MS_PER_S) });
+    mt.bar.classList.toggle('gs-low', mt.left <= MOVE_TIMER_LOW_MS);
   }
 
   // ── the bar ──

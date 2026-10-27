@@ -94,3 +94,15 @@ def test_a_game_whose_start_is_its_setup_sheet_raises_no_banner(site, browser):
     assert page.locator(".ar-sheet:not([hidden])").count() == 1
     assert _banner(page) == 0
     page.close()
+
+
+def test_the_banner_speaks_the_players_language_when_the_strings_loaded(site, browser):
+    ctx = browser.new_context(locale="fr-FR", viewport={"width": 390, "height": 844})
+    page = ctx.new_page()
+    page.route("**/blank-game.html", lambda r: r.fulfill(status=200, content_type="text/html", body=BLANK))
+    page.goto(site + "blank-game.html")
+    box = page.locator('[role="alert"]')
+    box.wait_for(timeout=GRACE_WAIT_MS * 2)
+    assert "pas pu démarrer" in box.inner_text()
+    assert box.locator("button").inner_text() == "Recharger"
+    ctx.close()

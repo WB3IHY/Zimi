@@ -279,6 +279,28 @@ const rng = seed => load(['librarykit.js']).GamesLib.rng(seed);
     check((await L.recheck()) === null && a.hidden, 'links: a failed look changes nothing');
   }
 
+  {
+    // the page's two listeners (visibilitychange, pagehide) are added once, however often the stream is opened again after a pagehide
+    const zims = [{ name: 'wikipedia', title: 'Wikipedia', kind: 'wiki' }], streams = [], added = { visibilitychange: 0, pagehide: 0 };
+    const fetchStub = u => Promise.resolve(u === '/health' ? { ok: true, json: () => Promise.resolve({ status: 'ok' }) } : u === '/list' ? { ok: true, json: () => Promise.resolve(zims) } : { ok: false, status: 404 });
+    class FakeSource { constructor(url) { this.url = url; streams.push(this); } addEventListener() {} close() { this.closed = true; } }
+    let hide = null;
+    const sb = load(['librarykit.js'], {
+      fetch: fetchStub, location: { protocol: 'http:', pathname: '/w/games/x.html', search: '' }, EventSource: FakeSource,
+      document: { hidden: false, addEventListener: k => { added[k]++; } },
+      addEventListener: (k, f) => { added[k]++; if (k === 'pagehide') hide = f; }
+    });
+    const L = sb.GamesLib, link = () => ({ dataset: {}, hidden: false, isConnected: true });
+    await L.library();
+    L.articleLink(link(), 'wikipedia', 'Paris');
+    await new Promise(r => setTimeout(r, 20));
+    hide();
+    L.articleLink(link(), 'wikipedia', 'Rome');
+    await new Promise(r => setTimeout(r, 20));
+    check(streams.length === 2 && streams[0].closed, 'links: after a pagehide the next link opens a new stream');
+    check(added.visibilitychange === 1 && added.pagehide === 1, 'links: the page\'s listeners were added once, not once per stream (' + JSON.stringify(added) + ')');
+  }
+
   console.log('\n' + passes + ' passed, ' + failures + ' failed');
   process.exit(failures ? 1 : 0);
 })();

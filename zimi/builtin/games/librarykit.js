@@ -390,6 +390,7 @@
   };
   // Inside Zimi: its own change stream (GET /events), whose "library" topic says a ZIM was added, removed or replaced, and the
   // page being shown again (a ZIM may have gone while it was behind another view). One stream a page, opened when the first link is made.
+  var pageWired = false;
   function hearLibrary() {
     if (stream || modeNow !== 'zimi' || typeof EventSource !== 'function') return;
     try { stream = new EventSource('/events'); } catch (x) { return; }
@@ -398,6 +399,8 @@
       try { c = JSON.parse(e.data); } catch (x) { /* a malformed announcement says nothing */ }
       if (c && c.topic === 'library') Lib.recheck();
     });
+    if (pageWired) return;   // the page's two listeners are added once; a stream opened again after a pagehide adds none
+    pageWired = true;
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', function () { if (!document.hidden) Lib.recheck(); });
     if (root.addEventListener) root.addEventListener('pagehide', function () { if (stream) { stream.close(); stream = null; } });
   }
