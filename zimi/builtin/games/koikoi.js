@@ -24,7 +24,7 @@
   // Two sentences, joined the way the language joins them.
   var then = function (first, next) { return first ? TX('cards.then', { first: first, then: next }) : next; };
 
-  var NAMES = [TX('cards.you'), TX('cards.seat.north')], DECK = 48, HAND = 8, TABLE_START = 8, DOUBLE_AT = 7;
+  var NAMES = [TX('cards.you'), root.ZimiText.ZIMI], DECK = 48, HAND = 8, TABLE_START = 8, DOUBLE_AT = 7;
   var card = function (id) { return Z.hanafudaCard(id); };
   var monthOf = function (id) { return Math.floor(id / 4); };
   var other = function (seat) { return 1 - seat; };

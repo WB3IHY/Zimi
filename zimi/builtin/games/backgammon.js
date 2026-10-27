@@ -249,7 +249,7 @@
   var COLORS = ['var(--disc-w)', 'var(--disc-b)'];
   function sideName(p) { return UI.side(p === 0 ? 'white' : 'black'); }
   // Who a sentence is about: you or the computer against the machine, else the side's name.
-  function whoName(p) { return G.vsComputer() && !G.watching ? (isHuman(p) ? T('board.you') : T('board.theComputer')) : sideName(p); }
+  function whoName(p) { return G.vsComputer() && !G.watching ? (isHuman(p) ? T('board.you') : T('board.zimi')) : sideName(p); }
   var host = document.getElementById('wk-board'), btns = {}, gLayer;
   var rollBtn = document.getElementById('bk-roll'), doubleBtn = document.getElementById('bk-double'), takeBtn = document.getElementById('bk-take'), dropBtn = document.getElementById('bk-drop');
   var s, turnStart = null, sel = -1, lastFrom = [], lastTo = [], hintStep = null, rolling = false, offer = false, session = [0, 0], flipped = false, dieShown = [];

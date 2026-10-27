@@ -288,7 +288,7 @@
   function afterTurn(took) {
     var k = key(state); seen[k] = (seen[k] || 0) + 1;
     var who = state.turn === 1 ? 0 : 1; // the side that just moved
-    var note = took ? T('morris.took', { name: G.vsComputer() ? (G.human(who) ? T('board.you') : T('board.theComputer')) : sideName(who) }) : '';
+    var note = took ? T('morris.took', { name: G.vsComputer() ? (G.human(who) ? T('board.you') : T('board.zimi')) : sideName(who) }) : '';
     if (state.over) { paint(); finishGame(); return; }
     if (seen[k] >= REPEAT_DRAW) { paint(); G.finish(T('xiangqi.why.repetition'), 'd'); return; }
     paint(); G.say(note ? UI.noted(note, turnText()) : turnText(), !G.human(state.turn));
@@ -309,7 +309,7 @@
     var w = state.winner;
     if (w < 0) { G.finish(T('morris.why.sixty'), 'd'); return; }
     var two = onBoard(state, 1 - w) + state.hand[1 - w] < 3, you = G.vsComputer() && !G.human(w);
-    var msg = T((two ? 'morris.why.two' : 'morris.why.blocked') + (you ? '.you' : ''), { side: G.vsComputer() ? T('board.theComputer') : sideName(1 - w) });
+    var msg = T((two ? 'morris.why.two' : 'morris.why.blocked') + (you ? '.you' : ''), { side: G.vsComputer() ? T('board.zimi') : sideName(1 - w) });
     G.finish(msg, G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, sideName(w));
   }
 

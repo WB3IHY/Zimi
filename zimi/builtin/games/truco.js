@@ -27,7 +27,7 @@
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   // The page renames the seats when two people share a device; YOU is the seat called "You" (-1: none).
-  var NAMES = [TX('cards.you'), TX('cards.seat.north')], YOU = 0, DECK = 40, HAND = 3, FLOR_POINTS = 3, ENVIDO_BASE = 20;
+  var NAMES = [TX('cards.you'), root.ZimiText.ZIMI], YOU = 0, DECK = 40, HAND = 3, FLOR_POINTS = 3, ENVIDO_BASE = 20;
   function setNames(names, youSeat) { NAMES[0] = names[0]; NAMES[1] = names[1]; YOU = youSeat; }
   var suitOf = function (id) { return Math.floor(id / 10); };
   var rankOf = function (id) { return [1, 2, 3, 4, 5, 6, 7, 10, 11, 12][id % 10]; };
@@ -283,7 +283,7 @@
   function boot() {
     var d = root.document, t, board, session, view = { flash: '', sweep: false, viewer: 0, hideHand: false };
     // Each seat is the Computer or a Person; two people share the screen behind a handoff.
-    var seats = Seats.create({ id: 'truco', seats: 2, cpuNames: [TX('cards.computer'), TX('cards.computer')], onChange: function () { if (board) board.refresh(); if (t) t.paint(); } });
+    var seats = Seats.create({ id: 'truco', seats: 2, onChange: function () { if (board) board.refresh(); if (t) t.paint(); } });
     // Who must act: the one asked to answer a call, else the player to play.
     var actor = function (st) { return st.call ? st.ask : st.turn; };
     function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.phase === 'play' && actor(st) !== view.viewer; }

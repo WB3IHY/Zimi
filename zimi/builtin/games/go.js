@@ -21,27 +21,12 @@
     onNew: newGame, onUndo: undo, onHint: hint
   });
 
-  // ── the computer, in a Worker when the page allows one ──
-  var worker = null, workerFailed = false, reqId = 0, waiting = {};
-  function startWorker() {
-    if (worker || workerFailed) return;
-    try {
-      var src = '(function(){var E=(' + root.makeGoEngine.toString() + ')();self.onmessage=function(e){var d=e.data,r;try{r=E.handle(d);}catch(x){r={error:String(x)};}self.postMessage({id:d.id,result:r});};})();';
-      worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
-      worker.onmessage = function (e) { var cb = waiting[e.data.id]; delete waiting[e.data.id]; if (cb) cb(e.data.result); };
-      worker.onerror = function () { workerFailed = true; worker = null; var all = waiting; waiting = {}; Object.keys(all).forEach(function (k) { all[k](null); }); };
-    } catch (e) { workerFailed = true; worker = null; }
-  }
+  // ── the computer, in a Worker when the page allows one (EngineKit: a worker error or a silent worker falls back to this thread) ──
+  var brain = root.EngineKit.client(root.makeGoEngine, FALLBACK_MS);
   // Ask the engine; the reply comes to cb (null if the engine could not answer).
   function ask(req, cb) {
-    var id = ++reqId, body = { cmd: req.cmd, n: st.n, board: Array.prototype.slice.call(st.board), turn: st.turn, caps: st.caps, ko: st.ko, passes: st.passes, last: st.last, moves: st.moves, ms: req.ms, level: req.level, seed: (Date.now() & 0x7fffffff) | 1, id: id };
-    startWorker();
-    if (worker) { waiting[id] = function (r) { if (r === null) fallback(); else cb(r); }; worker.postMessage(body); return; }
-    fallback();
-    function fallback() {
-      body.ms = Math.min(body.ms, FALLBACK_MS);
-      setTimeout(function () { var r = null; try { r = Engine.handle(body); } catch (e) { r = null; } cb(r); }, 40);
-    }
+    var body = { cmd: req.cmd, n: st.n, board: Array.prototype.slice.call(st.board), turn: st.turn, caps: st.caps, ko: st.ko, passes: st.passes, last: st.last, moves: st.moves, ms: req.ms, level: req.level, seed: (Date.now() & 0x7fffffff) | 1 };
+    brain.ask(body, cb, req.ms);
   }
   function thinkMs() { return THINK_MS[G.settings.level] * (n === 13 ? 1.5 : 1); }
 
@@ -120,7 +105,7 @@
     if (!G.vsComputer()) return T('go.toPlay', { name: nm });
     return G.human(p) ? T('makruk.yourTurn', { side: nm.toLowerCase() }) : T('shell.thinking');
   }
-  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? T('board.you') : T('board.theComputer')) : sideName(p); }
+  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? T('board.you') : T('board.zimi')) : sideName(p); }
 
   // ── playing ──
   function onPoint(i) {
@@ -153,9 +138,9 @@
       var mv = r && typeof r.move === 'number' ? r.move : -1, ns = Engine.move(st, mv);
       if (!ns) { mv = -1; ns = Engine.move(st, -1); }
       var ctl = G.watching;
-      if (!ctl) { commit(ns, T('board.theComputer')); return; }
+      if (!ctl) { commit(ns, T('board.zimi')); return; }
       var why = root.ZimiExplain.go(Engine, st, mv, r || {});
-      ctl.offer(why.text, function () { if (G.watching === ctl && !G.over) commit(Engine.move(st, mv), T('board.theComputer')); });
+      ctl.offer(why.text, function () { if (G.watching === ctl && !G.over) commit(Engine.move(st, mv), T('board.zimi')); });
     });
   }
   // The move timer ran out: a quick computer choice is played for the person.

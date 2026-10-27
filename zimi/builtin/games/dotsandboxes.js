@@ -188,7 +188,7 @@
     if (isOver(state)) { paint(); finish(); return; }
     paint();
     var again = state.turn === mover && r.taken.length;
-    G.say(again ? T('dotsandboxes.tookAgain' + (G.vsComputer() && G.human(mover) ? '.you' : ''), { name: G.vsComputer() ? T('board.theComputer') : sideName(mover), n: r.taken.length }) : turnText(), !G.human(state.turn));
+    G.say(again ? T('dotsandboxes.tookAgain' + (G.vsComputer() && G.human(mover) ? '.you' : ''), { name: G.vsComputer() ? T('board.zimi') : sideName(mover), n: r.taken.length }) : turnText(), !G.human(state.turn));
     if (!G.human(state.turn)) G.later(function () { move(chooseEdge(state, G.settings.level)); }, again ? 460 : 560);
   }
 

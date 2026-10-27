@@ -87,7 +87,7 @@ function load(storageInit) {
   check(same([0, 1, 2, 3].map((s) => S.relOf(s, 2, 4)), [2, 3, 0, 1]), 'viewer in seat 2: seat 2 is south, seat 0 north');
   check(S.relOf(1, 3, 4) === 2, 'viewer in seat 3: seat 1 is across');
   check(same([0, 1].map((s) => S.relOf(s, 1, 2)), [1, 0]), 'two seats: the other person is across');
-  check(S.compassName(2, 1) === 'North' && S.compassName(3, 2) === 'East' && S.compassName(4, 1) === 'West', 'compass names by seats at the table');
+  check(S.compassName(2, 1) === 'Zimi' && S.compassName(3, 2) === 'East' && S.compassName(4, 1) === 'West', 'compass names by seats at the table');
 }
 
 // ── a seat object over a fake page ──
@@ -143,7 +143,7 @@ function load(storageInit) {
   const { S } = load({ 'zimi.games.gin.seats': JSON.stringify({ kinds: ['cpu', 'person'] }) });
   const seats = S.create({ id: 'gin', seats: 2 });
   check(seats.view() === 1 && seats.rel(1) === 0 && seats.rel(0) === 1, 'one person in seat 1 sits south, the computer across');
-  check(seats.name(1) === 'You' && seats.name(0) === 'North', 'names follow the table');
+  check(seats.name(1) === 'You' && seats.name(0) === 'Zimi', 'names follow the table (the one computer at a two-seat table is Zimi)');
   const sandbox = { console, document: fakeDom(), localStorage: { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } } };
   sandbox.window = sandbox; vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(dir, 'text.js'), 'utf8'), sandbox, { filename: 'text.js' });

@@ -227,7 +227,7 @@
   }
 
   function describe(mover, res) {
-    var you = G.vsComputer() && !G.watching && G.human(mover), who = G.vsComputer() ? (G.human(mover) ? T('board.you') : T('board.theComputer')) : sideName(mover);
+    var you = G.vsComputer() && !G.watching && G.human(mover), who = G.vsComputer() ? (G.human(mover) ? T('board.you') : T('board.zimi')) : sideName(mover);
     var took = res.captured.reduce(function (a, c) { return a + c.n; }, 0);
     if (res.captured.length) return T('mancala.captured', { name: who, n: took });
     if (res.grandSlam) return T('mancala.grandSlam', { name: who });

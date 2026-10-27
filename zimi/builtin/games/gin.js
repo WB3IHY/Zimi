@@ -23,7 +23,7 @@
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   var HAND = 10, KNOCK_MAX = 10, GIN_BONUS = 25, UNDERCUT_BONUS = 25, GAME_END = 100, GAME_BONUS = 100, BOX_BONUS = 25, MIN_STOCK = 2;
-  var NAMES = [TX('cards.you'), TX('cards.seat.north')], FACE_VALUE = 10, SET_MAX = 4, RUN_MIN = 3;
+  var NAMES = [TX('cards.you'), root.ZimiText.ZIMI], FACE_VALUE = 10, SET_MAX = 4, RUN_MIN = 3;
   var AI_KNOCK_EARLY = 6, AI_KNOCK_LATE = 10, LATE_STOCK = 12;
   var val = function (id) { return Math.min(FACE_VALUE, Z.rank(id)); };
   var sumVal = function (ids) { return ids.reduce(function (n, c) { return n + val(c); }, 0); };
@@ -383,7 +383,7 @@
       // The scores are on the table; a clock that only counts a match has no place in the bar.
       stat: function () { return ''; },
       cascadeOrder: function (st) { return st.hands[seats.view()].map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { var f = st.final; return [TX('gin.handsWon', { a: TX('cards.you'), pa: st.boxes[0], b: TX('cards.seat.north'), pb: st.boxes[1] }), TX('gin.bonus.you'), TX('gin.final', { a: TX('cards.you'), pa: f.totals[0], b: TX('cards.seat.north'), pb: f.totals[1] })]; },
+      winLines: function (sec, st) { var f = st.final; return [TX('gin.handsWon', { a: TX('cards.you'), pa: st.boxes[0], b: root.ZimiText.ZIMI, pb: st.boxes[1] }), TX('gin.bonus.you'), TX('gin.final', { a: TX('cards.you'), pa: f.totals[0], b: root.ZimiText.ZIMI, pb: f.totals[1] })]; },
       rules: TX('gin.rules')
     });
     board = t.board; session = t.session;

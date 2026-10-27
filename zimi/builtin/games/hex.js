@@ -157,7 +157,7 @@
   function isHuman(c) { return !G.vsComputer() || ((G.settings.side === 'second' ? 1 : 0) ^ (swapped ? 1 : 0)) === c; }
   function nameOf(c) {
     if (!G.vsComputer()) return sideName(c);
-    return isHuman(c) ? T('board.you') : T('board.computer');
+    return isHuman(c) ? T('board.you') : T('board.zimi');
   }
 
   // The rhombus stands on its long diagonal so the board is tall, like the phone: cell (0,0) is the top corner and (n-1,n-1) the

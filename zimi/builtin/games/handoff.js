@@ -8,7 +8,7 @@
      seats.person(s)         is this seat a person at the screen?
      seats.view()            the seat whose hand is face up now (it sits at the bottom)
      seats.rel(s)            where seat s sits on screen, 0 bottom, then clockwise
-     seats.name(s)           "You" (one person), the person's name, or the computer's name
+     seats.name(s)           "You" (one person), the person's name, or the computer's name (Zimi when it is the one computer at a two-seat table)
      seats.needsCover(s)     true when seat s is a person other than the one looking
      seats.cover(s, done)    show the handoff, then call done
      seats.begin(done, first) a fresh deal: nobody has seen it yet
@@ -51,7 +51,10 @@
   function needsCover(kinds, viewer, seat) {
     return peopleOf(kinds).length >= 2 && kinds[seat] === 'person' && viewer !== seat;
   }
-  function compassName(n, rel) { return pointName((COMPASS[n] || COMPASS[4])[rel]); }
+  // A proper name, the same in every language. The one computer across a two-seat table is Zimi; with two or more computers
+  // the seats keep their names (the compass points, or a game's own list), and a partner is never Zimi.
+  var ZIMI = (root.ZimiText && root.ZimiText.ZIMI) || 'Zimi';
+  function compassName(n, rel) { return n === 2 && rel === 1 ? ZIMI : pointName((COMPASS[n] || COMPASS[4])[rel]); }
   function loadNames(count) {
     var saved = read(NAMES_KEY, []), out = [], i;
     for (i = 0; i < count; i++) out.push(cleanName(Array.isArray(saved) ? saved[i] : '', i));
@@ -94,7 +97,7 @@
     S.rel = function (seat) { return relOf(seat, S.view(), n); };
     S.compass = function (seat) { return compassName(n, S.rel(seat)); };
     S.name = function (seat) {
-      if (kinds[seat] === 'cpu') return cfg.cpuNames ? cfg.cpuNames[seat] : S.compass(seat);
+      if (kinds[seat] === 'cpu') return n === 2 ? ZIMI : cfg.cpuNames ? cfg.cpuNames[seat] : S.compass(seat);
       return S.hotseat() ? names[seat] : T('cards.you');
     };
     // "You" is spoken to the viewer only; a sentence about someone else uses their name.
@@ -164,7 +167,7 @@
       for (var i = 0; i < n; i++) (function (i) {
         var row = el('div', 'gs-row gs-seat-row'), seg = el('div', 'gs-seg'), input = el('input', 'gs-seat-name');
         seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', T('seats.is', { seat: opts.labels ? opts.labels[i] : T('seats.seatN', { n: i + 1 }) }));
-        [['cpu', opts.cpuLabel || T('cards.computer')], ['person', T('seats.person')]].forEach(function (k) {
+        [['cpu', opts.cpuLabel || (n === 2 ? ZIMI : T('cards.computer'))], ['person', T('seats.person')]].forEach(function (k) {
           var b = el('button', 'ar-btn', k[1]); b.type = 'button'; b.dataset.kind = k[0];
           b.addEventListener('click', function () { S.setKind(i, k[0]); refresh(); if (onChange) onChange(); });
           seg.appendChild(b);
@@ -185,5 +188,5 @@
   // One shared list of names for the computers a game seats (T('seats.cpu.1') ...), so no game invents its own.
   var CPU_NAME_COUNT = 6;
   function cpuName(i) { return T('seats.cpu.' + (i % CPU_NAME_COUNT + 1)); }
-  root.ZimiSeats = { cpuName: cpuName, create: create, cleanKinds: cleanKinds, cleanName: cleanName, defaultName: defaultName, peopleOf: peopleOf, relOf: relOf, needsCover: needsCover, compassName: compassName, loadNames: loadNames, NAMES_KEY: NAMES_KEY };
+  root.ZimiSeats = { ZIMI: ZIMI, cpuName: cpuName, create: create, cleanKinds: cleanKinds, cleanName: cleanName, defaultName: defaultName, peopleOf: peopleOf, relOf: relOf, needsCover: needsCover, compassName: compassName, loadNames: loadNames, NAMES_KEY: NAMES_KEY };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

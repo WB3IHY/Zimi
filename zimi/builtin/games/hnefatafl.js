@@ -23,7 +23,7 @@
   var pos, keys, played, legal, sel = -1, targets = {}, lastMove = 0, tip = null, took = [], tookTimer = 0;
 
   function turnIdx() { return pos.turn === ATT ? 0 : 1; }
-  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? T('board.you') : T('board.theComputer')) : sideName(p); }
+  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? T('board.you') : T('board.zimi')) : sideName(p); }
 
   function buildBoard() {
     board.textContent = '';

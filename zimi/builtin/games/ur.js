@@ -23,7 +23,7 @@
 
   function turnIdx() { return st.turn; }
   function isYou(p) { return G.vsComputer() && !G.watching && G.human(p); }
-  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? T('board.you') : T('board.theComputer')) : sideName(p); }
+  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? T('board.you') : T('board.zimi')) : sideName(p); }
   // A sentence about a mover: its "you" form when the mover is the person (verbs agree).
   function say(key, p, vars) { return T(key + (isYou(p) ? '.you' : ''), Object.assign({ name: nameOf(p) }, vars)); }
   function flipRows() { return G.vsComputer() && G.settings.side === 'second'; }

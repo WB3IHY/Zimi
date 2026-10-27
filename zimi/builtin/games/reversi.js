@@ -172,7 +172,7 @@
   function humanNow() { return !G.over && !G.thinking && G.human(idxOf(state.turn)); }
   // Show legal moves is the shell's Hints setting (Menu > Settings), not a New game option.
   function hintsOn() { return !root.ZimiShell || root.ZimiShell.settings.get('hints') !== 'off'; }
-  function nameOf(p) { return G.vsComputer() && !G.watching ? (G.human(idxOf(p)) ? T('board.you') : T('board.theComputer')) : sideName(p); }
+  function nameOf(p) { return G.vsComputer() && !G.watching ? (G.human(idxOf(p)) ? T('board.you') : T('board.zimi')) : sideName(p); }
 
   function buildBoard() {
     board.textContent = '';

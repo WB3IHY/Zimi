@@ -21,14 +21,14 @@
   // Two sentences, joined the way the language joins them.
   var then = function (first, next) { return first ? TX('cards.then', { first: first, then: next }) : next; };
 
-  var NAMES = [TX('cards.you'), TX('cards.seat.north')], SUIT_NAMES = ['coins', 'cups', 'swords', 'clubs'], END_SCORE = 11, DECK = 40, PER_DEAL = 3, TABLE_START = 4, MAX_KINGS = 3, SETTEBELLO = 6;
+  var NAMES = [TX('cards.you'), root.ZimiText.ZIMI], SUIT_NAMES = ['coins', 'cups', 'swords', 'clubs'], END_SCORE = 11, DECK = 40, PER_DEAL = 3, TABLE_START = 4, MAX_KINGS = 3, SETTEBELLO = 6;
   var COURT = { 8: 'fante', 9: 'cavallo', 10: 're' };
   var PRIMIERA = { 7: 21, 6: 18, 1: 16, 5: 15, 4: 14, 3: 13, 2: 12, 8: 10, 9: 10, 10: 10 };
   var value = function (id) { return id % 10 + 1; };
   var suitOf = function (id) { return Math.floor(id / 10); };
   var other = function (seat) { return 1 - seat; };
   var valueName = function (v) { return COURT[v] ? TX('scopa.court.' + COURT[v]) : String(v); };
-  var seatName = function (i) { return i === 0 ? TX('cards.you') : TX('cards.seat.north'); };
+  var seatName = function (i) { return i === 0 ? TX('cards.you') : root.ZimiText.ZIMI; };
   var nameOf = function (id) { return TX('cards.name', { rank: valueName(value(id)), suit: TX('scopa.suit.' + SUIT_NAMES[suitOf(id)]) }); };
   var sumOf = function (ids) { return ids.reduce(function (n, c) { return n + value(c); }, 0); };
   var nameList = function (ids) { return ids.map(nameOf).join(', '); };

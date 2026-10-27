@@ -32,7 +32,7 @@
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
 
   var JOKER_BASE = 104, TOTAL = 108, DEAL = 15, DRAW = 2, GO_OUT_CANASTAS = 2, CANASTA_SIZE = 7, MAX_WILD = 3;
-  var NAMES = [TX('cards.you'), TX('cards.computer')], TARGETS = [1500, 3000, 5000], DEFAULT_TARGET = 5000;
+  var NAMES = [TX('cards.you'), root.ZimiText.ZIMI], TARGETS = [1500, 3000, 5000], DEFAULT_TARGET = 5000;
   var BONUS = { natural: 500, mixed: 300, red: 100, allReds: 800, out: 100, concealed: 100 };
   var rankKey = function (id) { if (id >= JOKER_BASE) return 0; var r = Z.rank(id); return r === 1 ? 14 : r; };
   var isJoker = function (id) { return id >= JOKER_BASE; };
@@ -421,7 +421,7 @@
   function boot() {
     var d = root.document, t, board, session, view = { sel: [], target: null, flash: '' }, tags = [];
     // Seats are the Computer or a Person; two people share the screen behind a handoff.
-    var seats = Seats.create({ id: 'canasta', seats: 2, cpuNames: [TX('cards.computer'), TX('cards.computer')], onChange: function () { view.sel = []; view.target = null; repaint(); } });
+    var seats = Seats.create({ id: 'canasta', seats: 2, onChange: function () { view.sel = []; view.target = null; repaint(); } });
     var nm = function (seat) { return seats.name(seat); };
     function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.turn !== view.viewer; }
     function repaint() { if (board) board.refresh(); if (t) t.paint(); }

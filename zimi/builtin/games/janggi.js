@@ -25,7 +25,7 @@
   function turnIdx() { return pos.turn === CHO ? 0 : 1; }
   function flipped() { return manualFlip !== (G.vsComputer() && G.settings.side === 'second'); }
   function sqAt(d) { return flipped() ? N - 1 - d : d; }
-  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? T('board.you') : T('board.theComputer')) : sideName(p); }
+  function nameOf(p) { return G.vsComputer() ? (G.human(p) ? T('board.you') : T('board.zimi')) : sideName(p); }
 
   // ── drawing ──
   function drawLines() {

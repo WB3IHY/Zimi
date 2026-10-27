@@ -26,7 +26,7 @@
   function humanTurn() { return phase === 'aim' && !G.over && G.human(me()); }
   // The human sits at the bottom: with the computer moving first the view is turned half way round.
   function viewFlipped() { return vsCpu() && G.settings.side === 'second'; }
-  function nameOf(p) { return vsCpu() ? (G.human(p) ? T('board.you') : T('board.theComputer')) : sideName(p); }
+  function nameOf(p) { return vsCpu() ? (G.human(p) ? T('board.you') : T('board.zimi')) : sideName(p); }
   // Angles are in board terms: the first side shoots up the board (towards smaller y), the second down it.
   function forwardAngle(p) { return p === 0 ? -Math.PI / 2 : Math.PI / 2; }
 

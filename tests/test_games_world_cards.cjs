@@ -379,7 +379,7 @@ const order = seed => Z.shuffled(lcg(seed));
   // A go with one side still able to play, then both stuck.
   let g = sh(['KC 9S 2H 3D', 'QC QD 8H 3S']);
   g = C.playPeg(C.playPeg(C.playPeg(g, 0, id('KC')), 1, id('QC')), 0, id('9S'));
-  check(g.count === 29 && g.turn === 0 && g.goes[1] === true && /North says go/.test(g.msg), 'North cannot play: he says go and you carry on');
+  check(g.count === 29 && g.turn === 0 && g.goes[1] === true && /Zimi says go/.test(g.msg), 'Zimi cannot play: he says go and you carry on');
   g = C.playPeg(g, 0, id('2H'));
   check(g.roundOver === '31' && g.scores[0] === 2, 'you reach 31 (2 points, no extra go point)');
   let h = sh(['KC KD 9S 2H', 'QC QD 8H 3S']);

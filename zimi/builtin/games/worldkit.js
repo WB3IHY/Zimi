@@ -24,7 +24,7 @@
   // levels: more levels after them, first, second: what the sides are called, side: false for a game with no sides }.
   function standardOptions(opts) {
     opts = opts || {};
-    var out = [{ key: 'mode', legend: 'board.opponent', def: 'cpu', choices: [['cpu', 'board.computer'], ['two', 'board.twoPlayers']] }];
+    var out = [{ key: 'mode', legend: 'board.opponent', def: 'cpu', choices: [['cpu', 'board.zimi'], ['two', 'board.twoPlayers']] }];
     out.push({ key: 'level', legend: 'board.level', def: opts.levelDef || 'medium', cpuOnly: true, choices: (opts.base || [['easy', 'board.level.easy'], ['medium', 'board.level.medium'], ['hard', 'board.level.hard']]).concat(opts.levels || []) });
     if (opts.side !== false) out.push({ key: 'side', legend: 'board.youPlay', def: 'first', cpuOnly: true, choices: [['first', opts.first || 'board.first'], ['second', opts.second || 'board.second']] });
     return out;
@@ -92,10 +92,10 @@
     };
     // An illegal move: the shake on `target` (an element) and the reason, which gives way to the line before it.
     G.refuse = function (target, text) { UI.refuse(line, target, text); };
-    // The two sides' names on screen: "You" and "Computer" against the machine.
+    // The two sides' names on screen: "You" and "Zimi" against the machine.
     G.names = function (a, b) {
       if (G.watching || !G.vsComputer()) return [a, b];
-      return settings.side === 'second' ? [T('board.computer'), T('board.you')] : [T('board.you'), T('board.computer')];
+      return settings.side === 'second' ? [T('board.zimi'), T('board.you')] : [T('board.you'), T('board.zimi')];
     };
     G.who = function (p, a, b) { return G.names(a, b)[p]; };
     // The level as the chip calls it, in lower case (a level can be shown under a different name than its key).
