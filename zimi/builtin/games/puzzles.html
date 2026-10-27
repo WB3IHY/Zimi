@@ -2,121 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="zimi-app">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Puzzles - ZimiGames</title>
-<link rel="stylesheet" href="games.css">
-<meta name="zimi-games-host"><script src="shell.js"></script>
-<style>
-.pz-games { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
-.pz-game { flex-direction: row; align-items: center; gap: 12px; padding: 10px; }
-.pz-art { flex: none; width: 64px; height: 64px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface2); }
-.pz-game .ar-game-text { padding: 0; min-width: 0; }
-.pz-game .ar-game-text span { display: block; margin-top: 2px; font-size: 12px; line-height: 1.35; }
-.ar-foot a { color: var(--accent); }
-@media (max-width: 480px) { .pz-games { grid-template-columns: 1fr; } }
-</style>
+<meta http-equiv="refresh" content="0; url=index.html">
+<title>ZimiGames</title>
+<script>location.replace('index.html');</script>
 </head>
 <body>
-<header class="ar-bar">
-  <a class="ar-back" href="index.html" aria-label="Back" data-t-aria="shell.back">&lsaquo;</a>
-  <h1>Puzzles</h1>
-</header>
-<main class="ar-shelf">
-  <header>
-    <p data-t="pz.intro">41 logic puzzles, played offline. Each one makes a new game on demand and can show its solution when you are stuck.</p>
-  </header>
-  <section class="ar-section" aria-labelledby="pz-0">
-    <h2 id="pz-0" data-t="pz.cat.0">Number puzzles</h2>
-    <nav class="ar-games pz-games" aria-label="Number puzzles" data-t-aria="pz.cat.0">
-      <a class="ar-game pz-game" href="puzzles/solo.html"><img class="pz-art" src="puzzles/icons/solo.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Solo</strong><span>Sudoku, with jigsaw, X and killer variants</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/keen.html"><img class="pz-art" src="puzzles/icons/keen.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Keen</strong><span>Fill the grid. Each cage must make its number.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/towers.html"><img class="pz-art" src="puzzles/icons/towers.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Towers</strong><span>Place towers. Clues say how many you can see.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/unequal.html"><img class="pz-art" src="puzzles/icons/unequal.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Unequal</strong><span>Fill the grid. Follow the greater-than and less-than signs.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/group.html"><svg class="pz-art" viewBox="0 0 150 150" aria-hidden="true"><rect width="150" height="150" fill="#e6e6e6"/><g stroke="#6b6b6b" stroke-width="2" fill="none"><rect x="25" y="25" width="100" height="100"/><path d="M58 25V125M92 25V125M25 58H125M25 92H125"/></g><g font-family="Georgia,serif" font-size="22" font-weight="700" text-anchor="middle" fill="#1d3b7a"><text x="41" y="49">e</text><text x="75" y="49">a</text><text x="109" y="49">b</text><text x="41" y="83">a</text><text x="75" y="83">b</text><text x="109" y="83">e</text><text x="41" y="117">b</text><text x="75" y="117">e</text><text x="109" y="117">a</text></g></svg><span class="ar-game-text"><strong>Group</strong><span>Unfinished upstream. Fill a grid from a group table.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/filling.html"><img class="pz-art" src="puzzles/icons/filling.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Filling</strong><span>Fill in numbers so each region&#x27;s size matches its number</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/range.html"><img class="pz-art" src="puzzles/icons/range.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Range</strong><span>Shade squares. Each number shows how many squares it can see.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/singles.html"><img class="pz-art" src="puzzles/icons/singles.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Singles</strong><span>Shade repeated numbers. Shaded squares may not touch.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/unruly.html"><img class="pz-art" src="puzzles/icons/unruly.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Unruly</strong><span>Use two colours. No three in a row. Each line is balanced.</span></span></a>
-    </nav>
-  </section>
-  <section class="ar-section" aria-labelledby="pz-1">
-    <h2 id="pz-1" data-t="pz.cat.1">Logic grids</h2>
-    <nav class="ar-games pz-games" aria-label="Logic grids" data-t-aria="pz.cat.1">
-      <a class="ar-game pz-game" href="puzzles/pattern.html"><img class="pz-art" src="puzzles/icons/pattern.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Pattern</strong><span>Use the row and column clues to reveal a picture</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/mosaic.html"><img class="pz-art" src="puzzles/icons/mosaic.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Mosaic</strong><span>Each number counts the shaded squares around it</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/lightup.html"><img class="pz-art" src="puzzles/icons/lightup.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Light Up</strong><span>Place lamps to light every square. No lamp may light another.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/tents.html"><img class="pz-art" src="puzzles/icons/tents.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Tents</strong><span>Pitch a tent beside every tree. No tents may touch.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/magnets.html"><img class="pz-art" src="puzzles/icons/magnets.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Magnets</strong><span>Place magnets so every line has the right poles</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/dominosa.html"><img class="pz-art" src="puzzles/icons/dominosa.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Dominosa</strong><span>Tile the grid so every number pair is used once</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/map.html"><img class="pz-art" src="puzzles/icons/map.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Map</strong><span>Colour the map with four colours. Neighbours must differ.</span></span></a>
-    </nav>
-  </section>
-  <section class="ar-section" aria-labelledby="pz-2">
-    <h2 id="pz-2" data-t="pz.cat.2">Mines and deduction</h2>
-    <nav class="ar-games pz-games" aria-label="Mines and deduction" data-t-aria="pz.cat.2">
-      <a class="ar-game pz-game" href="puzzles/mines.html"><img class="pz-art" src="puzzles/icons/mines.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Mines</strong><span>Clear the field without stepping on a mine</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/blackbox.html"><img class="pz-art" src="puzzles/icons/blackbox.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Black Box</strong><span>Fire beams in to find the hidden balls</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/guess.html"><img class="pz-art" src="puzzles/icons/guess.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Guess</strong><span>Crack the hidden colour code</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/undead.html"><img class="pz-art" src="puzzles/icons/undead.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Undead</strong><span>Place ghosts, vampires and zombies using what the mirrors show.</span></span></a>
-    </nav>
-  </section>
-  <section class="ar-section" aria-labelledby="pz-3">
-    <h2 id="pz-3" data-t="pz.cat.3">Sliding and moving</h2>
-    <nav class="ar-games pz-games" aria-label="Sliding and moving" data-t-aria="pz.cat.3">
-      <a class="ar-game pz-game" href="puzzles/fifteen.html"><img class="pz-art" src="puzzles/icons/fifteen.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Fifteen</strong><span>Slide the tiles into order</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/sixteen.html"><img class="pz-art" src="puzzles/icons/sixteen.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Sixteen</strong><span>Slide whole rows and columns to sort the grid</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/twiddle.html"><img class="pz-art" src="puzzles/icons/twiddle.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Twiddle</strong><span>Turn blocks of tiles to sort the grid</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/net.html"><img class="pz-art" src="puzzles/icons/net.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Net</strong><span>Turn the tiles until the network joins up</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/netslide.html"><img class="pz-art" src="puzzles/icons/netslide.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Netslide</strong><span>Slide rows and columns to join up the network</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/cube.html"><img class="pz-art" src="puzzles/icons/cube.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Cube</strong><span>Roll a cube around the grid, collecting blue squares.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/inertia.html"><img class="pz-art" src="puzzles/icons/inertia.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Inertia</strong><span>Collect the gems. You slide until you hit something.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/pegs.html"><img class="pz-art" src="puzzles/icons/pegs.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Pegs</strong><span>Jump pegs over pegs until one is left</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/samegame.html"><img class="pz-art" src="puzzles/icons/samegame.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Same Game</strong><span>Clear blocks of the same colour</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/flood.html"><img class="pz-art" src="puzzles/icons/flood.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Flood</strong><span>Flood the grid with one colour in few moves</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/flip.html"><img class="pz-art" src="puzzles/icons/flip.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Flip</strong><span>Light every square by flipping groups of squares</span></span></a>
-    </nav>
-  </section>
-  <section class="ar-section" aria-labelledby="pz-4">
-    <h2 id="pz-4" data-t="pz.cat.4">Drawing lines</h2>
-    <nav class="ar-games pz-games" aria-label="Drawing lines" data-t-aria="pz.cat.4">
-      <a class="ar-game pz-game" href="puzzles/bridges.html"><img class="pz-art" src="puzzles/icons/bridges.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Bridges</strong><span>Join islands with bridges. Each number says how many.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/loopy.html"><img class="pz-art" src="puzzles/icons/loopy.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Loopy</strong><span>Draw one loop. Each number counts the sides used around its cell.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/pearl.html"><img class="pz-art" src="puzzles/icons/pearl.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Pearl</strong><span>Draw a loop through the pearls as shown</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/slant.html"><img class="pz-art" src="puzzles/icons/slant.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Slant</strong><span>Draw diagonal lines. Each number shows how many lines touch it.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/signpost.html"><img class="pz-art" src="puzzles/icons/signpost.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Signpost</strong><span>Link the squares in order by following the arrows.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/tracks.html"><img class="pz-art" src="puzzles/icons/tracks.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Tracks</strong><span>Lay a railway from one end to the other</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/untangle.html"><img class="pz-art" src="puzzles/icons/untangle.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Untangle</strong><span>Drag the points until no lines cross</span></span></a>
-    </nav>
-  </section>
-  <section class="ar-section" aria-labelledby="pz-5">
-    <h2 id="pz-5" data-t="pz.cat.5">Regions and shapes</h2>
-    <nav class="ar-games pz-games" aria-label="Regions and shapes" data-t-aria="pz.cat.5">
-      <a class="ar-game pz-game" href="puzzles/galaxies.html"><img class="pz-art" src="puzzles/icons/galaxies.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Galaxies</strong><span>Split the grid into regions. Each looks the same when turned upside down.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/rect.html"><img class="pz-art" src="puzzles/icons/rect.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Rectangles</strong><span>Draw one rectangle for each number. Its area must match the number.</span></span></a>
-      <a class="ar-game pz-game" href="puzzles/palisade.html"><img class="pz-art" src="puzzles/icons/palisade.png" width="150" height="150" alt="" loading="lazy"><span class="ar-game-text"><strong>Palisade</strong><span>Draw walls to make regions of the right size</span></span></a>
-    </nav>
-  </section>
-  <p class="ar-foot" data-foot="pz.foot">Simon Tatham’s Portable Puzzle Collection, MIT license. Rules and license are in <a href="puzzles/doc/index.html" data-t="pz.manual">the manual</a>.</p>
-</main>
-<script>
-/* This page is the shell's own (no bar, no kit), so its few words are set here: data-t text, data-t-aria labels, and the footer sentence around its link. */
-(function () {
-  var Z = window.ZimiText;
-  function go() {
-    if (!Z) return;
-    [['data-t', 'textContent'], ['data-t-aria', 'aria-label']].forEach(function (p) {
-      Array.prototype.forEach.call(document.querySelectorAll('[' + p[0] + ']'), function (el) { if (Z.has(el.getAttribute(p[0]))) { var v = Z.T(el.getAttribute(p[0])); if (p[1] === 'textContent') el.textContent = v; else el.setAttribute(p[1], v); } });
-    });
-    var foot = document.querySelector('[data-foot]'), link = foot && foot.querySelector('a');
-    if (link && Z.has('pz.foot')) {
-      var parts = Z.T('pz.foot', { manual: '\u0001' }).split('\u0001');
-      foot.textContent = ''; foot.appendChild(document.createTextNode(parts[0])); foot.appendChild(link); foot.appendChild(document.createTextNode(parts[1] || ''));
-    }
-  }
-  if (Z && Z.onChange) Z.onChange(go);
-  go();
-})();
-</script>
+<p><a href="index.html">ZimiGames</a></p>
 </body>
 </html>
