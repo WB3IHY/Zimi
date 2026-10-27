@@ -6,6 +6,7 @@
 <title>Blast - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="blast.css">
 <link rel="stylesheet" href="pixel.css">
 <!-- zimi-shell --><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
@@ -20,7 +21,7 @@
 <main class="pl-main">
   <div class="pl-hud">
     <div class="pl-stat"><small data-t="blast.round.label">Round</small><b id="bl-round">1</b></div>
-    <div class="pl-stat"><small data-t="blast.roundsWon">Rounds won</small><b id="bl-wins">0&ndash;0</b></div>
+    <div class="bl-wins" id="bl-wins" role="group" aria-label="Rounds won" data-t-aria="blast.roundsWon"></div>
   </div>
   <canvas class="px-screen" id="bl-screen" role="img" aria-label="The arena: bombers, soft blocks, stone pillars, bombs and power-ups" data-t-aria="blast.screen"></canvas>
   <p class="pl-msg" id="bl-msg"></p>

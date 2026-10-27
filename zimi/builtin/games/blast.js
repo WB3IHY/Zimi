@@ -251,7 +251,7 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, Kit = root.PixelKit, $ = Play.$, Tx = Play.T;
-  var PREF_KEY = 'zimi.games.blast.setup', SCORE_KEY = 'zimi.games.blast.wins', CHROME_PX = 190, MAX_SCALE = 4, READY_ARM_MS = 650;
+  var PREF_KEY = 'zimi.games.blast.setup', SCORE_KEY = 'zimi.games.blast.wins', CHROME_PX = 190, MAX_SCALE = 4, READY_ARM_MS = 650, WIN_BUMP = 1.25, WIN_BUMP_MS = 260;
   Play.applyTheme();
   var W_PX = W * TILE, H_PX = H * TILE;
   var els = { cv: $('bl-screen'), msg: $('bl-msg'), pause: $('bl-pause'), newBtn: $('bl-new'), wins: $('bl-wins'), round: $('bl-round') };
@@ -263,10 +263,28 @@
   function kindsOf() { var k = [], i; for (i = 0; i < setup.humans; i++) k.push('person'); for (i = 0; i < setup.cpus; i++) k.push('cpu'); return k; }
 
   function layout() { ctx = Kit.fit(els.cv, W_PX, H_PX, CHROME_PX, MAX_SCALE).ctx; if (st) draw(); }
+  // The rounds won are one stat per bomber ("You 1", "Computer 0", ...) with its colour dot, so a bare "0-0-0" never has to be decoded.
+  // The row is built once per match and only its numbers change; the winner's number gives a small bump.
+  function labelOf(i) { return st.kinds[i] === 'person' ? (setup.humans === 1 ? Tx('board.you') : Tx('blast.player', { n: i + 1 })) : Tx('blast.computer'); }
   function hud() {
     if (!st) return;
     els.round.textContent = Play.num(st.round);
-    els.wins.textContent = st.wins.map(Play.num).join('\u2013');
+    var key = st.kinds.join() + setup.humans;
+    if (els.wins.dataset.key !== key) {
+      els.wins.dataset.key = key; els.wins.textContent = '';
+      st.kinds.forEach(function (k, i) {
+        var box = document.createElement('div'), lab = document.createElement('small'), dot = document.createElement('i'), num = document.createElement('b');
+        box.className = 'pl-stat'; dot.className = 'bl-dot'; dot.style.background = COLORS[i]; dot.setAttribute('aria-hidden', 'true');
+        lab.appendChild(dot); lab.appendChild(document.createTextNode(labelOf(i))); box.appendChild(lab); box.appendChild(num); els.wins.appendChild(box);
+      });
+    }
+    st.wins.forEach(function (w, i) {
+      var num = els.wins.children[i].lastChild, text = Play.num(w);
+      if (num.textContent !== text) {
+        if (num.textContent && !reduced && num.animate) num.animate([{ scale: 1 }, { scale: WIN_BUMP }, { scale: 1 }], { duration: WIN_BUMP_MS, easing: 'ease-out' });
+        num.textContent = text;
+      }
+    });
   }
 
   // ── art ──
