@@ -24298,10 +24298,19 @@ function _gameHeadFrom(d) {
   return { title: String(d.title || '').slice(0, 120), menu: !!d.menu,
     act: act && { kind: act.kind, label: String(act.label || ''), disabled: !!act.disabled } };
 }
+// A page iOS has zoomed stays zoomed (the bar clipped at the left) until the viewport is set again: say the same thing twice, once pinned.
+function _unzoomPage() {
+  var vv = window.visualViewport, meta = document.querySelector('meta[name=viewport]');
+  if (!meta || !vv || vv.scale <= 1.001) return;
+  var kept = meta.content;
+  meta.content = kept + ', maximum-scale=1';
+  setTimeout(function () { meta.content = kept; }, 50);
+}
 // Paint the header's game part, or take it away; the stylesheet swaps it for the search box.
 function _syncGameHead() {
   var on = _isGamePage();
   document.body.classList.toggle('game-page', on);
+  if (on) _unzoomPage();
   document.body.classList.toggle('game-shelf', on && !_gameHead.menu);
   var head = document.getElementById('game-head');
   if (!head) return;

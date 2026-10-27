@@ -8,7 +8,7 @@
    "stat": "0:00",
    "state": "4a477fb2",
    "sub": "",
-   "table": "76a5eafd",
+   "table": "53efb6bb",
    "undoOff": true,
    "watch": "",
    "won": false
@@ -21,7 +21,7 @@
    "stat": "0:14",
    "state": "907c1145",
    "sub": "",
-   "table": "ea8fda2d",
+   "table": "f868edb5",
    "undoOff": false,
    "watch": "",
    "won": false
@@ -34,7 +34,7 @@
    "stat": "0:14",
    "state": "34d5aa25",
    "sub": "",
-   "table": "82d40cc2",
+   "table": "9d59e39a",
    "undoOff": false,
    "watch": "",
    "won": false
@@ -47,7 +47,7 @@
    "stat": "0:14",
    "state": "43fa0bdc",
    "sub": "",
-   "table": "896a52d8",
+   "table": "e846bef6",
    "undoOff": false,
    "watch": "",
    "won": false
@@ -60,7 +60,7 @@
    "stat": "0:17",
    "state": "43fa0bdc",
    "sub": "",
-   "table": "896a52d8",
+   "table": "e846bef6",
    "undoOff": false,
    "watch": "",
    "won": false
@@ -73,7 +73,7 @@
    "stat": "0:00",
    "state": "1379e860",
    "sub": "",
-   "table": "892c1188",
+   "table": "6bd8b5bf",
    "undoOff": true,
    "watch": "",
    "won": false
@@ -86,7 +86,7 @@
    "stat": "0:00",
    "state": "77e0b005",
    "sub": "",
-   "table": "6e0780ed",
+   "table": "c6cc583b",
    "undoOff": true,
    "watch": "",
    "won": true
@@ -99,7 +99,7 @@
    "stat": "0:00",
    "state": "e95c585",
    "sub": "",
-   "table": "bf05b765",
+   "table": "2d097411",
    "undoOff": true,
    "watch": "",
    "won": false
@@ -112,7 +112,7 @@
    "stat": "0:00",
    "state": "e95c585",
    "sub": "",
-   "table": "bf05b765",
+   "table": "2d097411",
    "undoOff": true,
    "watch": "",
    "won": false
@@ -125,7 +125,7 @@
    "stat": "0:00",
    "state": "e95c585",
    "sub": "",
-   "table": "bf05b765",
+   "table": "2d097411",
    "undoOff": true,
    "watch": "",
    "won": false
@@ -135,5 +135,5 @@
  "hseed": 43,
  "plays": "tap:358>c6 tap:92>c4 stray:41 stray:96 tap:255>c0 drag:43>c3 tap:255>c5 tap:255>c0 drag:91>c2 tap:355>c7 drag:255>c5 tap:301>c8 tap:412>c4 tap:301>c9 tap:301>c8 drag:406>c3 drag:100>c8 tap:356>c0 tap:42>c0 tap:255>c8 tap:406>c7 tap:91>c6 drag:301>c0 stray:300 tap:406>c3 tap:42>c7 tap:253>c8 tap:253>c0 stray:355 drag:39>c2 stray:198 tap:301>c3 tap:255>c4 tap:356>c5 stray:199 tap:406>c5 tap:91>c5 tap:42>c3 tap:44>c0 drag:39>c6 tap:253>c4 drag:39>c2 tap:406>c7 stock tap:310>c7 tap:403>c3 stock tap:250>c0 drag:354>c1 tap:45>c2 tap:252>c2 drag:50>c4 drag:308>c8 drag:354>c5 tap:354>c1 tap:309>c4 drag:45>c0 stock tap:50>c6 tap:304>c1 tap:308>c5 tap:308>c6 tap:252>c3 tap:304>c0 drag:205>c9 tap:45>c2 drag:355>c2 tap:250>c2 tap:45>c0 drag:254>c6 drag:414>c4 tap:149>c2 tap:411>c8 tap:411>c6 tap:252>c1 tap:250>c1 tap:411>c8 tap:304>c2 tap:304>c0 tap:201>c8 tap:50>c7 tap:355>c5 tap:50>c6 tap:355>c0 tap:355>c5 tap:308>c4 stock tap:154>c1 stock drag:360>c3 tap:247>c4 drag:150>c7 tap:150>c8 tap:99>c2 tap:150>c7 tap:150>c2 tap:409>c2 drag:99>c3 drag:361>c0 drag:47>c2 stray:403 drag:411>c6 drag:360>c3 tap:48>c0 tap:47>c8 tap:413>c1 tap:47>c0 tap:150>c0 tap:154>c2 tap:254>c2 tap:99>c8 tap:47>c2 drag:99>c0 drag:307>c8 tap:248>c9 drag:150>c6 tap:150>c2 tap:254>c6 drag:150>c0 drag:201>c4 drag:410>c2 tap:409>c6 drag:410>c8 tap:150>c2 drag:47>c4 tap:409>c4 drag:307>c2 stray:154 tap:201>c6 stray:404 drag:150>c0 tap:254>c4 tap:411>c8 tap:409>c1 tap:414>c2 stray:257 drag:409>c0 tap:307>c6 drag:410>c8 tap:414>c4 tap:47>c1 tap:362>c4 drag:303>c0 tap:409>c8 tap:47>c2 tap:99>c1 drag:410>c6 stray:299 tap:409>c1 tap:305>c6 tap:362>c7 tap:99>c7 tap:154>c4 tap:304>c2 tap:254>c8 tap:254>c2 tap:356>c0 drag:99>c4 tap:356>c4 tap:150>c8 drag:411>c7 stray:43 drag:154>c1 tap:306>c1 tap:362>c4 tap:154>c7 drag:93>c0 drag:307>c8 tap:308>c9 tap:308>c2 drag:154>c1 stray:408 tap:308>c9 tap:100>c2 tap:356>c1 tap:307>c6 tap:47>c2 tap:304>c4 tap:304>c2 drag:99>c9 stock drag:291>c2 stock drag:148>c4 drag:296>c7 drag:147>c4 drag:392>c9 tap:393>c4 tap:48>c7 tap:294>c3 stock stock drag:146>c2 drag:154>c3 drag:43>c7 tap:80>c9 stock stray:250 stray:353 tap:290>c6 tap:88>c5 stray:248 stray:186 stray:90 stray:287 stray:286 stray:294 stray:359 stray:145 stray:252 stray:152 stray:401 tap:403>c0",
  "seed": 33,
- "trace": "a92f93f817873eddc013eb39ef65056e7d45a64c6366830b3e8ae9ce8fe7d74d9b4cd54a7eeb306279675eee418711cf5c4592009ec2a73a9fa7c5c2b66368f2ef7917eae5500df7f3be57f3383df84c129735337e9979923793c8d56f7a2f386b5ec44315aa08936252eeb1e9fadb03052a168504ef168bda1e0adfdee6e04c8bb471ae82c78ed135f209c2097f63a3fa27e0fb390d72c1f5c2f321e940b7e750ab9f0808ec773887f4d7140188c78e1b1db60f1ce976e73fddb7e166ad76874b31fe6f67ac6d7e1f0fab09f0ea484da47632f711d5ae56c178df284bd1c38177c6807645c0249563f56067ec4dd01b3bdbebba73ea5fcc06f7402f85f548544060dfe15554a39bf93908e4299799e44e0a9778d7b265fb2968058ce15fe89a2f7aa686a56b736a69241c9805963f2c8034eb9ce70be80c1f9225db52746a92f62ad8f373e5ce3cf2c20ab44265d3b7c726dee789b4b260fa39b3f864086324566538357010f8fba17dfec74cd949e783dcc4a54be4091a2a2084bb61cda9393d01d70b612e3e8688a90d883cce474ec397c5e65a81d7ceef6285fa9fd2773929554d9cbb3a4aaa6c035968175256edda3071368fd88daa0df84fb0f480ef3f06df5a4ac992bf6ac2961671545ee9fde050449b658145b2e65cf449e24bbb8ab671c445618ea1403da71ad7fc1936766f609d16392f95424d64cba1ad92f7bd328add18070a21578b55aa4235e044bece6e1738be5a9f622a6b06d17f79e45e0e58eee2837225e876399362112abd6669628ae06984acad60205af84221ceebae4e974c6dd3012cfcd74c7cf8015779f62fbff1d16352e6951350acec0499a5d80b04f8fb75a22985f7a02d4cf5a3d325dd3cabdd031fb8413db943a29c3fbfde68bf7854135165faf4e048f165022bb656e4acec84f42903416550f80d9cf6be0106b9c75e7aa61919d20bc9cce1a4803ccd7fab4873a02021b5f949b4f341e3b435b112c2e3db7208f328458c9708218dbc52e840941c193f09cf7d6f8885b3f1678c787cdc30201e666f56831f2c20163c502d1886cdde3f7ed1387caa71ad8d1a238c303d232500ffc70a8e98ce84cb69be714fbdd667b4ced7ff28c2b4aed6138e745f46d80e1576fbe8c4bc358a1e6de0e19192badf5449bd73a306cd11db3477bd786f03d68a7034544c3408eadc7f61db2d601b487fa03a04746556f0f239899dcc209d9522486eaf20518e70274e47038b97f36215419171433590e2bcc30c2ae41953bf073574089bc58bde77ea4c33c600ad1673c5c610a013320189500b7f3e8f470d6bba78e62309668cf47149768926b8834a4b2781e88d9d5eed51aab4e4eab09b654492de006261708f73cfbb352617ff44614e94efae3dbf86f1c8dd9138be230ea1451619df3660d77d4cc0d3f4bfab3f283fa3559537"
+ "trace": "7a2c32fe59b3af99c01cf36e21b8f4e0b9fc8c0d4740ec7ad08b731cd8e5048f9cf9711e1d8b27701e3eacecd5b9b3268f6bb2ce38045d7d82ba746d7afaef629622e89ef5f003b446997f8cb7176cf2a09a37640716764a8569befd9899168f9a1951ac50b3b1c26fd518b794a0fe69a13f0634d264e03be052b7ce2f6fd1aff73e90b3ed2ffb40154ef4cd8fe318680f919b78476bd6a69f7d6a9f46c59ccb309150f37c000b8b48df58093d1342f6f7907b86ddea7a4f4249904ac4ca53cf4e97a3411130dd5352554edfd2c20140d00984b8c4f747f04f1b996a4791dd259f3dab72e0ff3eee144c41c2e2f67ce123ff76ef317d19f4850be84b150863db0428bd9cca18013ff6aa09a353a27d2e5928357a88d7dc7a291cf158a6ca77bc157d4a9cb4f1fb4862a61f301f803970d160e3357c137f20f2189373fe3543fbba02e2ca69af2b246707868bdfadd48c4f87b62956c22d05e343674ab3972172d8cc5a02c78466147c3f940595afefe9e5c6c90d64bf5710d7c959d4be034e89a6d7319c66ea8036a98f5915c10f51dac98079e369dc0367992932802fed486d9b889e947a51d2a7c22f8443a2b14129d07d99d0b465ccd2bc0a578f8ebc30db81a630a2b19d3ae93bd92cbded631fd810e0d3ad3d2e140765834dd34af058c9198a969b8012c023ca3ea766e6af5b02658b976c45e818a36939312c86cc81de481c04ea6901986e579e7d895aa5c4237bf6b93414d38a8c47663018b198e858f9a3ed2f1baa6d972cee2713cd3999f58ed500c348127f78192d374d55bc3d5dc35218efa1d70eb60d948e5b4fbcc1228098c7a4bd7ab9c46368bf6bcd3e08c3fa75d4c0816528024141bc7b012aee5c70e119a4a79cd0407786b0a9225f54caee1ef1adf0f902b35fbc1136135e4a31c3ed4d01cb766f5c9479658200c82ba1930dfdc0b5e960d428081459f76ccf9b9ef4abb68d7c4b8dcafb22013f30ee5462cff76c7872606dd8bf6a69e73bb61ad2dc634f9610cf760a6ce4eb3cbc108b753c1ae10f3c3f904dbfd40e67efef251e48c97a669edbcf453d24eaf10f91871fa74fdbff708c572981b3d2db4eb7b38fa8eecc447c0bc55cb6fda3a409c3b62906c42b0d76e624b8112059684db100f6be0f33e7f4c8f0b9fc8ae32b9826640e3b393a41960c0231c980c5452df18858d466f75ed5e1df4c34a5bc92cf2a30b215f561483cc3136e27bc966198a5de4efaf6adacf4c686479a02f8c3d6e6c5a02cb8316aa01ceaa8c45129935948e222b823798d01017807e489177059d90923ab08c03733cbb41e40aa916ccce71352b39034bcadcc2f9489c10834dba1629364410dc0dd7a38f3648dcb1d06964d5147e996a8541a04634396e5fb3ba039545f80afcc63dbe2fdf5d6f213625ea168a45f5eeb2d9e3a4364dc315dd0b20e"
 }

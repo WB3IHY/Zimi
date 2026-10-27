@@ -884,7 +884,7 @@
   var SNAP_FELT = '#285c43', SNAP_CREAM = '#fdfcf8', SNAP_RED = '#b3261e', SNAP_BLACK = '#1b1b1b', SNAP_BACK = '#23232b', SNAP_BACK_EDGE = '#e8710a', SNAP_RX = 5;
   var SNAP_SUIT = ['\u2663', '\u2666', '\u2665', '\u2660'];
   var MAX_CARD_W = 120, CARD_ASPECT = 1.4, CARD_H_SHARE = 0.14, DRAG_SLOP = 6, SETTLE_MS = 300, Z_HOT = 500, Z_DRAG = 1000;
-  var DEAL_STAGGER_MS = 16, MIN_CARD_W = 24, TIGHT_PAD = 4, TIGHT_GAP = 4;
+  var DEAL_STAGGER_MS = 16, MIN_CARD_W = 24, TIGHT_PAD = 2, TIGHT_GAP = 2;
   // More o: heightShare (how much of the table's height a card may take, for
   // layouts shorter than Klondike's columns), face(id, standalone) (a deck of
   // its own: Scopa's), enterTaps (Enter on a pile taps

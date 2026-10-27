@@ -3,10 +3,10 @@
    cards stay cream in both themes. */
 
 /* ── The page: a bar over a felt table ─────────────────────────────────── */
-/* A double tap on a card sends it home: never a zoom. iOS zooms the page on a double tap anywhere that is not told otherwise, and a
+/* A double tap on a card sends it home: never a zoom, and a pinch never zooms Zimi's page around the game (pan-x pan-y: no zoom of either kind). iOS zooms the page on a double tap anywhere that is not told otherwise, and a
    zoomed page leaves the table off screen (the bar clipped, the first and last columns cut). The cards and the table carry their
    own touch-action below; this covers the bar, the gaps and the sheets. */
-html { touch-action: manipulation; }
+html { touch-action: pan-x pan-y; }
 body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hidden; overscroll-behavior: none; }
 .ar-bar h1 { line-height: 1.1; min-width: 0; }
 /* A card game's title has no second line: one fact at most goes in the status line, in words. */
@@ -18,7 +18,7 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
   .ar-bar .ar-btn { padding: 0 var(--sp-3) 1px; }
 }
 
-.zc-table { position: relative; isolation: isolate; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; touch-action: manipulation;
+.zc-table { position: relative; isolation: isolate; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; touch-action: pan-x pan-y;
   background: radial-gradient(ellipse at 50% 30%, var(--felt) 0%, var(--felt-deep) 100%); -webkit-user-select: none; user-select: none; }
 /* A soft vignette: the felt falls off toward the edges. */
 .zc-table::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.22) 100%); }

@@ -184,7 +184,7 @@
     input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
     select, textarea { font-size: 16px !important; }
   }
-  body { background: var(--bg); color: var(--text); min-height: 100%; padding-top: var(--under-topbar); overflow: visible; }
+  body { background: var(--bg); color: var(--text); min-height: 100%; padding-top: var(--under-topbar); overflow: visible; overflow-x: clip; }
 
   /* Anti-flash guard. The head bootstrap stamps .theme-boot on <html> while it
      (re)applies the theme, then removes it on the next committed paint. While it
@@ -1764,6 +1764,9 @@
      whatever of the frame shows past the page (iOS's bounce at the top, a
      part pixel as the header slides) was a white hairline in either theme. */
   body.app-page #reader-frame { background: var(--bg); }
+  /* A game is played, not read: a pinch or a double tap inside it must never zoom Zimi's own page (the fixed bar ends up clipped
+     and the table cut off, and the page stays that way on the shelf). Articles keep their pinch zoom. */
+  body.game-page #reader-frame { touch-action: pan-x pan-y; }
   /* The header steps aside on a phone while an app or the Almanac is read
      (body.chrome-away, set by _chromeScroll in app.js): it slides up and
      the page takes its room. Keyboard focus in it brings it back. */
