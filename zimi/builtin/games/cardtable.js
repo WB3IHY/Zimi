@@ -136,6 +136,22 @@
     return cards;
   }
 
+  // The score row: a chip for each player (a dot, the name, a number; D marks the dealer). A chip whose figure changed since the last
+  // paint gives a short bump, so a score or a trick count is felt as it moves (`memo` carries the last figures between paints), and the
+  // chip of a computer whose turn it is pulses: it is thinking.
+  function paintChips(row, chips, memo, seats) {
+    row.textContent = '';
+    var cpu = [], i;
+    if (seats) for (i = 0; i < seats.n; i++) if (!seats.person(i)) cpu.push(seats.name(i));
+    (chips || []).forEach(function (c) {
+      var thinking = c.turn && cpu.indexOf(c.name) >= 0;
+      var moved = memo[c.name] !== undefined && memo[c.name] !== (c.text || '');
+      memo[c.name] = c.text || '';
+      row.appendChild(Z.h('span', { class: 'ct-chip' + (c.turn ? ' ct-turn' : '') + (thinking ? ' ct-think' : '') + (moved ? ' ct-bump' : ''), 'aria-current': c.turn ? 'true' : 'false' },
+        [Z.h('b', { text: c.name }), Z.h('span', { text: c.text || '' }), c.dealer ? Z.h('i', { class: 'ct-dealer', title: T('cards.dealer'), text: T('cards.dealer.mark') }) : null]));
+    });
+  }
+
   // ── The table's own text and buttons ────────────────────────────────────
   // cfg: { id, name, rules, lowScore, players (seats; for geometry only),
   //   geo(m, st) -> geometry, place(st, m, view), canPick(st, pile), move(pile, idx, to),
@@ -155,7 +171,7 @@
     el.table.appendChild(scoreRow); el.table.appendChild(status); el.table.appendChild(panel);
     var liftedPile = null, liftPlay = cfg.liftPlay !== undefined ? cfg.liftPlay : !!LIFT_THEN_PLAY[cfg.id];
     var lifts = function (st) { return typeof liftPlay === 'function' ? !!liftPlay(st) : !!liftPlay; };
-    var statusAction = null, last = '', choicesNow = [];
+    var statusAction = null, last = '', choicesNow = [], chipMemo = {};
     statusBtn.addEventListener('click', function () { if (statusAction) statusAction(); });
 
     function paint() {
@@ -164,17 +180,11 @@
       var g = cfg.geo ? cfg.geo(m, st) : geometry(m), hd = cfg.hud(st, view) || {};
       // Whatever the game's own layout says, the status line never sits on the hand.
       var statusY = Z.statusTop(g.statusY, board.handTop(), STATUS_H);
-      var sig = JSON.stringify([hd.chips, hd.text, hd.label, !!hd.action, hd.choices && hd.choices.map(function (c) { return [c.label, !!c.disabled, !!c.pressed]; }), hd.lines, hd.fact, hd.trump, view.flash, statusY, m.W]);
+      var sig = JSON.stringify([hd.chips, hd.text, hd.label, !!hd.action, hd.choices && hd.choices.map(function (c) { return [c.label, !!c.disabled, !!c.pressed]; }), hd.lines, hd.fact, hd.trump, view.flash, liftedPile, statusY, m.W]);
       statusAction = hd.action || null; choicesNow = hd.choices || [];
       if (sig === last) return;
       last = sig;
-      scoreRow.textContent = '';
-      var thinking = /thinking/i.test(view.flash || hd.text || '');
-      (hd.chips || []).forEach(function (c) {
-        // A player: a dot, the name, a number; D marks the dealer.
-        scoreRow.appendChild(Z.h('span', { class: 'ct-chip' + (c.turn ? ' ct-turn' : '') + (c.turn && thinking ? ' ct-think' : ''), 'aria-current': c.turn ? 'true' : 'false' },
-          [Z.h('b', { text: c.name }), Z.h('span', { text: c.text || '' }), c.dealer ? Z.h('i', { class: 'ct-dealer', title: T('cards.dealer'), text: 'D' }) : null]));
-      });
+      paintChips(scoreRow, hd.chips, chipMemo, cfg.seats);
       // Trump is a suit chip: the suit's glyph (red for the red suits), then the word.
       if (hd.trump !== undefined && hd.trump !== null) {
         var red = Z.isRed(Z.make(1, hd.trump));
@@ -184,8 +194,9 @@
       status.style.top = Math.round(statusY) + 'px'; status.style.height = STATUS_H + 'px';
       panel.style.bottom = Math.round(m.H - statusY + PANEL_GAP) + 'px';
       // The status line: one sentence. The game's one fact ("Hand 2", "To 121") leads it when both fit.
-      var line = view.flash || hd.text || '';
-      statusText.textContent = hd.fact && line && (hd.fact + ' \u00b7 ' + line).length <= STATUS_MAX ? hd.fact + ' \u00b7 ' + line : (line || hd.fact || '');
+      // A flash (a reason, a call) is a sentence of its own: nothing leads it. A lifted card says what the next tap does.
+      var line = view.flash || (liftedPile && hd.text && !hd.choices ? T('cards.tapAgain') : hd.text) || '';
+      statusText.textContent = !view.flash && hd.fact && line && (hd.fact + ' \u00b7 ' + line).length <= STATUS_MAX ? hd.fact + ' \u00b7 ' + line : (line || hd.fact || '');
       statusBtn.textContent = hd.label || ''; statusBtn.hidden = !hd.label; statusBtn.disabled = !hd.action; statusBtn.setAttribute('aria-pressed', hd.action ? 'true' : 'false');   // the next thing to do is the filled amber button
       panel.textContent = ''; panel.hidden = !(hd.choices && hd.choices.length);
       (hd.choices || []).forEach(function (c, i) {
@@ -204,6 +215,8 @@
       el.sub.textContent = '';   // the bar has no second line: the fact is in the status line
     }
     function flash(text) { view.flash = text; board.say(text); paint(); session.later(function () { view.flash = ''; paint(); }, FLASH_MS); }
+    // Put a reason away: what was wrong is over once the next thing is done.
+    function unflash() { if (view.flash) { view.flash = ''; paint(); } }
 
     board = Z.createBoard({
       table: el.table, cols: cfg.cols || 7, heightShare: cfg.heightShare || 0.11, enterTaps: true, face: cfg.face,
@@ -241,14 +254,14 @@
       winLines: cfg.winLines,
       openMenu: function () {
         Z.sheet({
-          title: cfg.name,
+          title: root.ZimiText && root.ZimiText.has('game.' + cfg.id + '.title') ? T('game.' + cfg.id + '.title') : cfg.name,   // the game's name in the player's language
           body: [Z.h('p', { class: 'zc-note', text: cfg.rules })].concat(cfg.menuExtra ? cfg.menuExtra() : [], cfg.seats ? [cfg.seats.block(null, cfg.seatsBlock)] : [], [Z.backsRow(), Z.h('p', { class: 'zc-stats', text: session.stats.line() })]),
           actions: [{ label: T('shell.menu.new'), onclick: cfg.newGame }, { label: T('shell.close'), primary: true }]
         });
       }
     });
     d.addEventListener('visibilitychange', function () { if (!d.hidden) paint(); });
-    return { board: board, session: session, view: view, flash: flash, paint: function () { last = ''; paint(); }, el: el };
+    return { board: board, session: session, view: view, flash: flash, unflash: unflash, paint: function () { last = ''; paint(); }, el: el };
   }
 
   // A sheet of plain lines (a hand's result).
@@ -285,10 +298,11 @@
       { id: 'trick', x: g.cx - FELT_X * g.cw, y: g.cy - FELT_Y * g.ch, w: 2 * FELT_X * g.cw, h: 2 * FELT_Y * g.ch, quiet: true, label: T('cards.slot.trick') }
     ];
   }
-  function trickCards(g, trick, sweep, pos) {
+  // `win` is the seat taking a trick that is complete: its card glows while the trick waits to be taken (view.win).
+  function trickCards(g, trick, sweep, pos, win) {
     return trick.map(function (t, k) {
       var spot = sweep !== null && sweep !== undefined ? seatSpot(g, pos(sweep)) : trickSpot(g, pos(t.seat));
-      return { id: t.id, pile: 'trick', idx: k, x: Math.round(spot.x), y: Math.round(spot.y), up: true };
+      return { id: t.id, pile: 'trick', idx: k, x: Math.round(spot.x), y: Math.round(spot.y), up: true, glow: win !== undefined && win !== null && t.seat === win };
     });
   }
   // Who is looking, and whether their hand is face up (view.viewer / view.hideHand, set by trickGame.syncView).
@@ -305,7 +319,7 @@
   //     played, pretap(st, id) a tap that is not a play (undefined: it is), clear() what a new hand forgets, handEnd the phase a hand
   //     ends in, nextHand(st, order), handOver() and gameOver() after the last trick, deal() }
   function trickGame(o) {
-    var n = o.n, view = o.view, ms = o.ms, t = null, board = null, session = null, paint = null, flash = null, tg = { view: view };
+    var n = o.n, view = o.view, ms = o.ms, t = null, board = null, session = null, paint = null, flash = null, unflash = null, tg = { view: view };
     var size = o.size || function () { return n; }, control = o.control || function (st) { return st.turn; }, actor = o.actor || control;
     var team = function (seat) { return seat % 2; };
     var seats = tg.seats = root.ZimiSeats.create(Object.assign({ id: o.id, seats: n, onChange: function () { if (paint) paint(); if (board) board.refresh(); } }, o.seatOpts));
@@ -313,12 +327,13 @@
     function repaint() { board.refresh(); paint(); }
     tg.repaint = repaint;
     // The board, session, painter and flasher of the table made for the game (a create() result, or the same four by hand).
-    tg.attach = function (parts) { board = parts.board; session = parts.session; paint = parts.paint; flash = parts.flash; };
+    tg.attach = function (parts) { board = parts.board; session = parts.session; paint = parts.paint; flash = parts.flash; unflash = parts.unflash; };
 
     // The rules in o decide who may see which hand, who is up, what a tap means.
     tg.syncView = function (st) {
       var V = seats.view();
       view.viewer = V; view.hideHand = seats.hotseat() && actor(st) !== V && !(o.shown && o.shown(st, V));
+      view.win = st.phase === 'play' && st.trick.length === size(st) ? o.winner(st) : null;
     };
     // A fresh deal: nobody has seen it, so a table of people starts at a handoff.
     tg.deal = o.deal || function () { seats.begin(function () { repaint(); o.drive(); }, actor(session.state)); };
@@ -356,6 +371,7 @@
     tg.play = function (id, seat) {
       var st = session.state, from = seat === undefined ? seats.view() : seat;
       if (!o.legal(st, from, id)) return false;
+      if (unflash) unflash();
       if (o.before) o.before(st, from, id, true);
       session.commit(o.play(st, from, id));
       if (o.after) o.after(true);
@@ -427,7 +443,7 @@
   }
 
   root.ZimiTable = {
-    SEAT_POS: SEAT_POS, SUIT_GLYPH: SUIT_GLYPH, STATUS_H: STATUS_H, STATUS_MAX: STATUS_MAX, SCORE_BAR_H: SCORE_BAR_H,
+    paintChips: paintChips, SEAT_POS: SEAT_POS, SUIT_GLYPH: SUIT_GLYPH, STATUS_H: STATUS_H, STATUS_MAX: STATUS_MAX, SCORE_BAR_H: SCORE_BAR_H,
     next: next, sortHand: sortHand, rankHigh: rankHigh, short: short, shortList: shortList, shuffleOf: shuffleOf,
     countBy: countBy, maxBy: maxBy, minBy: minBy,
     geometry: geometry, rowsFor: rowsFor, sideStep: sideStep, trickSpot: trickSpot, seatSpot: seatSpot, posOf: posOf, posFor: posFor, handCards: handCards, fan: fan, takeCounts: takeCounts, handRows: handRows,

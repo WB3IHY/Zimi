@@ -226,7 +226,7 @@
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     [1, 2, 3].forEach(function (pos) { cards = cards.concat(T.fan(g, pos, st.hands[(V + pos) % SEATS], false)); });
     if (st.phase === 'bid1' || st.phase === 'bid2') cards.push({ id: st.upcard, pile: 'up', idx: 0, x: Math.round(g.cx - g.cw / 2), y: Math.round(g.cy - g.ch / 2), up: st.phase === 'bid1' });
-    return { height: m.H, slots: slots, cards: cards.concat(T.trickCards(g, st.trick, sweep, rel)) };
+    return { height: m.H, slots: slots, cards: cards.concat(T.trickCards(g, st.trick, sweep, rel, view && view.win)) };
   }
 
   var api = {
@@ -259,7 +259,7 @@
       var out = { chips: chips, text: '', trump: st.trump, fact: TX('belote.fact', { target: st.target }) };
       if (bidding) {
         var up = suitOf(st.upcard);
-        out.text = (mine(st.turn) ? (seats.hotseat() ? who(st.turn) + ': ' : '') + TX(st.phase === 'bid1' ? 'belote.take' : 'belote.name', { suit: suitWord(up) }) : seats.person(st.turn) ? TX('euchre.deciding', { name: who(st.turn) }) : TX('cards.thinking', { name: who(st.turn) })) + (view.note ? ' ' + view.note : '');
+        out.text = (view.note ? view.note + ' ' : '') + (mine(st.turn) ? (seats.hotseat() ? who(st.turn) + ': ' : '') + TX(st.phase === 'bid1' ? 'belote.take' : 'belote.name', { suit: suitWord(up) }) : seats.person(st.turn) ? TX('euchre.deciding', { name: who(st.turn) }) : TX('cards.thinking', { name: who(st.turn) }));
         if (mine(st.turn)) {
           if (st.phase === 'bid1') out.choices = [{ label: TX('belote.takeBtn', { glyph: GLYPH[up] }), aria: TX('belote.takeAria', { suit: suitWord(up) }), cls: up === 1 || up === 2 ? 'ct-red' : '', onclick: function () { takeNow(up); } }, { label: TX('cards.pass'), onclick: passNow }];
           else out.choices = [0, 1, 2, 3].filter(function (s) { return s !== up; }).map(function (s) { return { label: GLYPH[s], aria: suitWord(s), cls: s === 1 || s === 2 ? 'ct-red' : '', onclick: function () { takeNow(s); } }; }).concat([{ label: TX('cards.pass'), onclick: passNow }]);
@@ -282,7 +282,7 @@
       var st = session.state, seat = st.turn;
       if ((st.phase !== 'bid1' && st.phase !== 'bid2') || seats.person(seat)) return;
       var b = aiBid(st, seat);
-      if (!b.take) { view.note = who(seat) + ' passed.'; session.follow(pass(st, seat)); drive(); return; }
+      if (!b.take) { view.note = TX('euchre.passed', { name: who(seat) }); session.follow(pass(st, seat)); drive(); return; }
       var ns = take(st, seat, b.suit);
       view.note = TX('belote.tookSuit', { name: who(seat), suit: TX('cards.suit.' + SUIT_NAMES[ns.trump]) }) + '.'; session.follow(ns); t.flash(TX('belote.takesSuit', { name: who(seat), suit: TX('cards.suit.' + SUIT_NAMES[ns.trump]) })); drive();
     }

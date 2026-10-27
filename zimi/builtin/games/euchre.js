@@ -229,7 +229,7 @@
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     [1, 2, 3].forEach(function (pos) { var seat = (V + pos) % SEATS; if (seat !== st.sitting) cards = cards.concat(T.fan(g, pos, st.hands[seat], false)); });
     if (st.phase === 'order1' || st.phase === 'order2') cards.push({ id: st.upcard, pile: 'up', idx: 0, x: Math.round(g.cx - g.cw / 2), y: Math.round(g.cy - g.ch / 2), up: st.phase === 'order1' });
-    return { height: m.H, slots: slots, cards: cards.concat(T.trickCards(g, st.trick, sweep, rel)) };
+    return { height: m.H, slots: slots, cards: cards.concat(T.trickCards(g, st.trick, sweep, rel, view && view.win)) };
   }
 
   var api = {
@@ -264,10 +264,10 @@
       });
       var out = { chips: chips, text: '', trump: st.trump };
       if (st.phase === 'order1') {
-        out.text = (mine(st.turn) ? TX(seats.hotseat() ? 'euchre.orderUp.name' : 'euchre.orderUp', { name: who(st.turn), suit: suitWord(Z.suit(st.upcard)) }) : seats.person(st.turn) ? TX('euchre.deciding', { name: who(st.turn) }) : TX('cards.thinking', { name: who(st.turn) })) + (view.note ? ' ' + view.note : '');
+        out.text = (view.note ? view.note + ' ' : '') + (mine(st.turn) ? TX(seats.hotseat() ? 'euchre.orderUp.name' : 'euchre.orderUp', { name: who(st.turn), suit: suitWord(Z.suit(st.upcard)) }) : seats.person(st.turn) ? TX('euchre.deciding', { name: who(st.turn) }) : TX('cards.thinking', { name: who(st.turn) }));
         if (mine(st.turn)) out.choices = [{ label: TX('euchre.orderUpBtn'), onclick: function () { callRound1(false); } }, { label: TX('euchre.alone'), onclick: function () { callRound1(true); } }, { label: TX('cards.pass'), onclick: passNow }];
       } else if (st.phase === 'order2') {
-        out.text = (mine(st.turn) ? TX(seats.hotseat() ? 'euchre.name.name' : 'euchre.name', { name: who(st.turn), suit: suitWord(st.turnedDown) }) + (st.dealer === st.turn ? ' ' + TX('euchre.mustName') : '') : seats.person(st.turn) ? TX('euchre.deciding', { name: who(st.turn) }) : TX('cards.thinking', { name: who(st.turn) })) + (view.note ? ' ' + view.note : '');
+        out.text = (view.note ? view.note + ' ' : '') + (mine(st.turn) ? TX(seats.hotseat() ? 'euchre.name.name' : 'euchre.name', { name: who(st.turn), suit: suitWord(st.turnedDown) }) + (st.dealer === st.turn ? ' ' + TX('euchre.mustName') : '') : seats.person(st.turn) ? TX('euchre.deciding', { name: who(st.turn) }) : TX('cards.thinking', { name: who(st.turn) }));
         if (mine(st.turn)) {
           out.choices = [0, 1, 2, 3].filter(function (s) { return s !== st.turnedDown; }).map(function (s) {
             return { label: glyph(s), aria: suitWord(s), cls: s === 1 || s === 2 ? 'ct-red' : '', onclick: function () { callRound2(s); } };

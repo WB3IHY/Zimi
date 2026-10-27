@@ -287,7 +287,7 @@
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     [1, 2].forEach(function (k) { var seat = (V + k) % SEATS; cards = cards.concat(T.fan(g, pos(seat), st.hands[seat], false)); });
     if (st.phase === 'bid' || st.phase === 'pick' || st.phase === 'declare') st.skat.forEach(function (id, k) { cards.push({ id: id, pile: 'skat', idx: k, x: Math.round(g.cx - g.cw + k * g.cw * 1.1), y: Math.round(g.cy - g.ch / 2), up: false }); });
-    return { height: m.H, slots: slots, cards: cards.concat(T.trickCards(g, st.trick, sweep, pos)) };
+    return { height: m.H, slots: slots, cards: cards.concat(T.trickCards(g, st.trick, sweep, pos, view && view.win)) };
   }
 
   var api = {
@@ -327,7 +327,7 @@
       var act = function (label, fn, extra) { return Object.assign({ label: label, onclick: fn }, extra || {}); };
       if (st.phase === 'bid') {
         var b = st.bid, me = mine(st.turn), mineNow = me;
-        out.text = (view.note ? view.note + ' ' : '') + (mineNow ? (seats.hotseat() ? TX('skat.nameBid', { name: who(st.turn) }) + ' ' : '') + (b.waiting === 'caller' ? TX(seats.hotseat() ? 'skat.bidQ' : 'skat.yourBidQ', { n: nextBid(b.value) }) : TX('skat.hold', { name: who(b.caller), n: b.value })) : seats.person(st.turn) ? TX('euchre.deciding', { name: who(st.turn) }) : TX('cards.thinking', { name: who(st.turn) }));
+        out.text = (view.note && !(mineNow && b.waiting !== 'caller') ? view.note + ' ' : '') + (mineNow ? (seats.hotseat() ? TX('skat.nameBid', { name: who(st.turn) }) + ' ' : '') + (b.waiting === 'caller' ? TX(seats.hotseat() ? 'skat.bidQ' : 'skat.yourBidQ', { n: nextBid(b.value) }) : TX('skat.hold', { name: who(b.caller), n: b.value })) : seats.person(st.turn) ? TX('euchre.deciding', { name: who(st.turn) }) : TX('cards.thinking', { name: who(st.turn) }));
         if (mineNow) out.choices = b.waiting === 'caller' ? [act(TX('skat.bid', { n: nextBid(b.value) }), function () { bid('bid'); }), act(TX('cards.pass'), function () { bid('pass'); })] : [act(TX('skat.holdBtn', { n: b.value }), function () { bid('hold'); }), act(TX('cards.pass'), function () { bid('pass'); })];
       } else if (st.phase === 'pick') {
         var dn = who(st.declarer);
@@ -349,7 +349,7 @@
       else if (st.phase === 'over') out.text = TX('skat.seriesOver');
       else if (st.phase === 'passout') out.text = TX('belote.redeal');
       else if (full) out.text = tg.trickText(trickWinner(st.trick, st.game));
-      else out.text = (view.note ? view.note + ' ' : '') + tg.turnText(st.turn);
+      else out.text = tg.turnText(st.turn);
       return out;
     }
 
@@ -405,6 +405,7 @@
 
     tg = T.trickGame({
       id: 'skat', n: SEATS, view: view, ms: { ai: AI_MS, hold: HOLD_MS, sweep: SWEEP_MS }, drive: drive, handEnd: 'handEnd', actor: actor, control: function (st) { return st.turn; },
+      seatOpts: { cpuNames: [0, 1, 2].map(root.ZimiSeats.cpuName) },   // three players, no partners: named computers from the shared list
       winner: function (st) { return trickWinner(st.trick, st.game); }, resolve: resolveTrick, nextHand: nextHand, handOver: handOver, gameOver: gameOver,
       legal: isLegal, why: whyNot, play: playCard, aiPlay: aiCard, pretap: tapSkat, clear: function () { view.note = ''; view.sel = []; view.touched = false; }
     });

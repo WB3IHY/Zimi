@@ -321,7 +321,7 @@ check(!/NaN|undefined/.test(Z.faceMarkup(104 + id('QH'), false)), 'a copy of a c
   check(same(H.legalPlays(fv, 2), [id('9S')]), 'Hearts: no points on the first trick when you are void in clubs (unless you hold nothing else)');
   fv.hands[2] = [id('JH'), id('QS')];
   check(H.legalPlays(fv, 2).length === 2, 'Hearts: a hand of only point cards may play them on the first trick');
-  check(H.whyNot(g, 1, id('5D')) === 'Follow clubs' && /Hearts/.test(H.whyNot(mk(hh, { turn: 0 }), 0, id('2H'))), 'Hearts: a refusal says why');
+  check(H.whyNot(g, 1, id('5D')) === 'You must follow clubs' && /Hearts/.test(H.whyNot(mk(hh, { turn: 0 }), 0, id('2H'))), 'Hearts: a refusal says why');
   check(H.isLegal(g, 2, id('9S')) && !H.isLegal(g, 0, id('3C')), 'Hearts: only the seat to act can play');
 
   // A trick.

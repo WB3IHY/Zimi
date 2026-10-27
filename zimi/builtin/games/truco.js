@@ -279,11 +279,11 @@
   root.ZimiTruco = api;
 
   // ── The page ────────────────────────────────────────────────────────────
-  var AI_MS = 900, TRICK_MS = 1100, TARGET_KEY = 'truco.target', FLOR_KEY = 'truco.flor', TARGETS = [15, 30];
+  var AI_MS = 650, TRICK_MS = 950, TARGET_KEY = 'truco.target', FLOR_KEY = 'truco.flor', TARGETS = [15, 30];
   function boot() {
     var d = root.document, t, board, session, view = { flash: '', sweep: false, viewer: 0, hideHand: false };
     // Each seat is the Computer or a Person; two people share the screen behind a handoff.
-    var seats = Seats.create({ id: 'truco', seats: 2, onChange: function () { if (board) board.refresh(); if (t) t.paint(); } });
+    var seats = Seats.create({ id: 'truco', seats: 2, cpuNames: [TX('cards.computer'), TX('cards.computer')], onChange: function () { if (board) board.refresh(); if (t) t.paint(); } });
     // Who must act: the one asked to answer a call, else the player to play.
     var actor = function (st) { return st.call ? st.ask : st.turn; };
     function syncView(st) { view.viewer = seats.view(); view.hideHand = seats.hotseat() && st.phase === 'play' && actor(st) !== view.viewer; }
@@ -317,7 +317,7 @@
         out.text = (st.note ? st.note + ' ' : said ? said + ' ' : '') + TX(you ? 'truco.play.you' : 'truco.play', { name: nm });
         out.choices = acts.filter(function (a) { return a.type !== 'play'; }).map(function (a) { return { label: labelFor(st, a.type), onclick: function () { go(a.type); } }; });
         if (mine.length === 0) out.choices = [];
-      } else out.text = (st.note ? st.note + ' ' : said ? said + ' ' : '') + TX('cards.thinking', { name: who(me) });
+      } else out.text = st.note || said || TX('cards.thinking', { name: who(me) });   // what was just said stands on its own: the chip's pulse says the computer is thinking
       return out;
     }
 
@@ -341,7 +341,6 @@
       if (!isLegal(st, seat, type, id)) return false;
       var next = act(st, seat, type, id), closes = type === 'play' && next.done.length > st.done.length;
       if (seats.person(seat)) session.commit(next); else session.follow(next);
-      if (next.say && type !== 'play') t.flash(who(seat) + ': ' + next.say.text);
       if (closes) { view.sweep = true; session.later(function () { view.sweep = false; board.refresh(); t.paint(); drive(); }, TRICK_MS); board.refresh(); t.paint(); return true; }
       drive();
       return true;

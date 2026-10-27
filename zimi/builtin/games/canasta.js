@@ -404,7 +404,7 @@
     slots.push({ id: 'pile', x: px, y: g.centreY, w: g.cw, h: g.ch, label: TX('canasta.pileAria', { cards: Z.plural(st.pile.length, 'card') }) });
     return { height: m.H, slots: slots, cards: cards };
   }
-  var cardName = function (id) { return isJoker(id) ? 'joker' : Z.cardName(id); };
+  var cardName = function (id) { return isJoker(id) ? TX('canasta.joker') : Z.cardName(id); };
   var face = function (id, standalone) { return isJoker(id) ? Z.jokerMarkup(id % 2 === 0, standalone) : Z.faceMarkup(id, standalone); };
 
   var api = {
@@ -417,7 +417,7 @@
   if (!(root.document && root.document.getElementById('zc-table'))) return;
 
   // ── The page ────────────────────────────────────────────────────────────
-  var AI_MS = 750, TARGET_KEY = 'canasta.target';
+  var AI_MS = 650, TARGET_KEY = 'canasta.target';
   function boot() {
     var d = root.document, t, board, session, view = { sel: [], target: null, flash: '' }, tags = [];
     // Seats are the Computer or a Person; two people share the screen behind a handoff.
@@ -460,14 +460,14 @@
     function hud(st) {
       var m = board.metrics();
       layTags(st, m);
-      var V = seats.view(), req = requirement(st.scores[V]), hot = seats.hotseat(), out = { fact: TX('canasta.fact', { a: hot ? nm(V) : TX('cards.you'), pa: st.scores[V], b: hot ? nm(1 - V) : TX('cards.team.them'), pb: st.scores[1 - V] }), text: '' };
+      var V = seats.view(), req = requirement(st.scores[V]), out = { text: '' };
       out.chips = st.scores.map(function (score, seat) {
         return { name: nm(seat), text: score + redText(st.reds[seat]) + (seat === V && st.melds[seat].length && !st.melded[seat] && st.turn === seat ? ' \u00b7 ' + TX('canasta.firstMeld', { have: st.turnPts, n: req }) : ''), turn: st.turn === seat && st.phase === 'play' };
       }).concat([{ name: TX('canasta.goal'), text: String(st.target) }]);
       if (st.phase === 'handEnd') { out.text = TX('cards.handEnd'); out.label = TX('cards.nextHand'); out.action = startNextHand; }
       else if (st.phase === 'over') { out.text = TX('shell.end.over'); out.label = TX('shell.menu.new'); out.action = newGame; }
       else if (st.turn !== V) out.text = seats.person(st.turn) ? TX('ce.next', { name: nm(st.turn) }) : st.lastSide === st.turn && st.last ? TX('canasta.did', { name: nm(st.turn), what: st.last }) : TX('cards.thinking', { name: nm(st.turn) });
-      else if (st.step === 'draw') out.text = TX(seats.isYou(V) ? 'canasta.drawTurn.you' : 'canasta.drawTurn', { name: nm(V) }) + (st.pileFrozen || !st.melded[V] ? ' ' + TX('canasta.frozenHint') : '');
+      else if (st.step === 'draw') out.text = TX(seats.isYou(V) ? 'canasta.drawTurn.you' : 'canasta.drawTurn', { name: nm(V) });
       else {
         var sel = mySel(st), mp = sel.length ? meldProblem(st, sel, view.target) : '', info = describeSelection(st);
         out.text = sel.length ? (info + (mp && sel.length > 1 ? '. ' + mp : '')) : TX('canasta.pickHint') + (st.melds[V].length && !st.melded[V] ? ' ' + TX('canasta.firstMeldParen', { have: st.turnPts, n: req }) : (!st.melded[V] ? ' ' + TX('canasta.firstNeeds', { n: req }) : ''));

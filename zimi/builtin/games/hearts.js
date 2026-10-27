@@ -222,7 +222,7 @@
     cards = cards.concat(hand.cards); slots = slots.concat(hand.slots);
     cards = cards.concat(CT.fan(g, 1, state.hands[(V + 1) % SEATS], false), CT.fan(g, 2, state.hands[(V + 2) % SEATS], false), CT.fan(g, 3, state.hands[(V + 3) % SEATS], false));
     // The trick, or on its way to the winner.
-    cards = cards.concat(CT.trickCards(g, state.trick, sweep, rel));
+    cards = cards.concat(CT.trickCards(g, state.trick, sweep, rel, view && view.win));
     // Won cards wait out of sight at their winner's seat.
     state.taken.forEach(function (list, seat) {
       var spot = CT.seatSpot(g, rel(seat));
@@ -259,19 +259,17 @@
     var statusBtn = Z.h('button', { class: 'ar-btn', type: 'button' });
     var status = Z.h('div', { class: 'ct-status', role: 'status' }, [statusText, statusBtn]);
     el.table.appendChild(scoreRow); el.table.appendChild(status);
-    var statusAction = null;
+    var statusAction = null, chipMemo = {};
     statusBtn.addEventListener('click', function () { if (statusAction) statusAction(); });
 
     function paintHud() {
       var st = session && session.state, m = board && board.metrics();
       if (!st || !m) return;
       var g = geometry(m), statusY = Z.statusTop(g.statusY, board.handTop(), STATUS_H);
-      scoreRow.textContent = '';
-      [0, 1, 2, 3].map(function (i) { return (seats.view() + i) % SEATS; }).forEach(function (seat) {
-        var name = nm(seat), live = st.phase === 'play' ? liveSoFar(st, seat) : 0, turn = st.phase === 'play' && st.turn === seat && st.trick.length < SEATS;
-        var chip = Z.h('span', { class: 'ct-chip' + (turn ? ' ct-turn' : ''), 'aria-current': turn ? 'true' : 'false' }, [Z.h('b', { text: name }), Z.h('span', { text: String(st.scores[seat]) + (live ? ' +' + live : '') })]);
-        scoreRow.appendChild(chip);
-      });
+      CT.paintChips(scoreRow, [0, 1, 2, 3].map(function (i) { return (seats.view() + i) % SEATS; }).map(function (seat) {
+        var live = st.phase === 'play' ? liveSoFar(st, seat) : 0;
+        return { name: nm(seat), text: String(st.scores[seat]) + (live ? ' +' + live : ''), turn: st.phase === 'play' && st.turn === seat && st.trick.length < SEATS };
+      }), chipMemo, watch ? null : seats);
       scoreRow.style.top = m.pad + 'px';
       status.style.top = Math.round(statusY) + 'px'; status.style.height = STATUS_H + 'px';
       var text = '', label = '', action = null;
@@ -283,12 +281,17 @@
       } else if (st.phase === 'handEnd') { text = TX('cards.handEnd'); label = TX('cards.nextHand'); action = tg.startNextHand; }
       else if (st.phase === 'over') { text = TX('shell.end.over'); label = TX('shell.menu.new'); action = newGame; }
       else if (view.flash) text = view.flash;
-      else if (st.trick.length === SEATS) text = isYou(trickWinner(st.trick)) ? TX('cards.trick.you') : TX('cards.trick.name', { name: nm(trickWinner(st.trick)) });
+      else if (view.chosen.length && person(st.turn) && st.trick.length < SEATS) text = TX('cards.tapAgain');
+      else if (st.trick.length === SEATS) {
+        // The winner, and what it costs them when the trick holds points: the figure on their chip is then felt as it lands.
+        var won = trickWinner(st.trick), cost = trickPoints(st.trick), who = { name: nm(won), pts: Z.plural(cost, 'point') };
+        text = cost ? TX(isYou(won) ? 'hearts.trick.you' : 'hearts.trick.name', who) : isYou(won) ? TX('cards.trick.you') : TX('cards.trick.name', who);
+      }
       else if (person(st.turn)) text = (st.recv ? st.recv[st.turn] : st.received).length && !view.hideHand ? youTurn(st) + '. ' + TX('hearts.glowing', { name: nm((st.turn + SEATS - PASS_OFFSET[st.passDir]) % SEATS) }) : youTurn(st);
       else text = TX(watch ? 'hearts.toPlay' : 'cards.thinking', { name: nm(st.turn) });
       // The bar already says which hand it is, and the pass direction is in the instruction: only the hearts state leads a play line.
       var fact = st.phase === 'play' ? TX(st.broken ? 'hearts.broken' : 'hearts.notBroken') : '';
-      statusText.textContent = text && fact && (fact + ' \u00b7 ' + text).length <= CT.STATUS_MAX ? fact + ' \u00b7 ' + text : (text || fact);
+      statusText.textContent = text && fact && !view.flash && (fact + ' \u00b7 ' + text).length <= CT.STATUS_MAX ? fact + ' \u00b7 ' + text : (text || fact);
       statusBtn.textContent = label; statusBtn.hidden = !label;
       statusBtn.disabled = !action; statusAction = action;
       // The one thing to do next is the filled amber button (Pass once three cards are chosen); until then it is a quiet ghost.
@@ -342,7 +345,7 @@
     }
     function refresh() { board.refresh(); paintHud(); }
     function handLines(st) {
-      var lines = [0, 1, 2, 3].map(function (seat) { return TX('hearts.line', { name: nm(seat), pts: st.handPoints[seat] ? '+' + st.handPoints[seat] : '0', total: st.scores[seat] }); });
+      var lines = [0, 1, 2, 3].map(function (seat) { return TX('hearts.line', { name: nm(seat), pts: Z.plural(st.handPoints[seat], 'point'), total: st.scores[seat] }); });
       if (st.moon >= 0) lines.unshift(TX(isYou(st.moon) ? 'hearts.moon.you' : 'hearts.moon', { name: nm(st.moon) }));
       return lines;
     }
@@ -365,7 +368,7 @@
     function passNow() {
       var st = session.state;
       if (st.phase !== 'pass' || view.chosen.length !== PASS_COUNT) return;
-      view.picks[view.passer] = view.chosen.slice(); view.chosen = [];
+      view.picks[view.passer] = view.chosen.slice(); view.chosen = []; view.flash = '';
       // The next person picks theirs behind a handoff; the computers pick once everyone has.
       var more = seats.people().filter(function (s) { return s > view.passer; })[0];
       if (more !== undefined) { view.passer = more; refresh(); drive(); return; }
@@ -415,7 +418,7 @@
       winLines: function (sec, st) { return handLines(st).concat([TX('hearts.winAfter', { n: st.scores[0], hands: Z.plural(st.handNo + 1, 'hand') })]); },
       openMenu: function () {
         Z.sheet({
-          title: 'Hearts',
+          title: TX('game.hearts.title'),
           body: [
             Z.h('p', { class: 'zc-note', text: TX('hearts.rules') }),
             seats.block(),
@@ -426,7 +429,7 @@
         });
       }
     });
-    tg.attach({ board: board, session: session, paint: paintHud, flash: flash });
+    tg.attach({ board: board, session: session, paint: paintHud, flash: flash, unflash: function () { if (view.flash) { view.flash = ''; paintHud(); } } });
     api.session = session; api.board = board;
     if (root.ZimiShell) root.ZimiShell.game({
       moveTimer: true,

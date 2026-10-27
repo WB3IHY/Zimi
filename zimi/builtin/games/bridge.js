@@ -561,11 +561,11 @@
       var seat = (V + r) % SEATS;
       if (seat === dummy) {
         var top = Object.assign({}, g, { southY: g.northY + 8 + (T.rowsFor(m, st.hands[seat].length) - 1) * g.rowStep });   // the hand's top row starts under the scores
-        var dm = T.handCards(top, st.hands[seat], function (id) { return { dim: actor === V && st.turn === seat && !isLegal(st, seat, id), label: cardLabel(id) + ' (dummy)' }; }, function (a, b) { return Z.suit(a) !== Z.suit(b); }, 'd');
+        var dm = T.handCards(top, st.hands[seat], function (id) { return { dim: actor === V && st.turn === seat && !isLegal(st, seat, id), label: TX('bridge.aria.dummy', { card: cardLabel(id) }) }; }, function (a, b) { return Z.suit(a) !== Z.suit(b); }, 'd');
         slots = slots.concat(dm.slots); cards = cards.concat(dm.cards);
       } else if (!(r === 2 && dummy >= 0 && dummy !== V)) cards = cards.concat(T.fan(g, r, st.phase === 'auction' ? st.hands[seat].slice(0, AUCTION_STACK) : st.hands[seat], false));
     });
-    return { height: m.H, slots: slots, cards: cards.concat(T.trickCards(g, st.trick, sweep, function (seat) { return relOf(seat, V); })) };
+    return { height: m.H, slots: slots, cards: cards.concat(T.trickCards(g, st.trick, sweep, function (seat) { return relOf(seat, V); }, view && view.win)) };
   }
 
   var api = {
@@ -675,14 +675,14 @@
       paintAuction(st, m); paintBox(st, m);
       var V = seats.view(), us = team(V), actor = actorOf(st);
       var chips = hot() ? [{ name: TX('bridge.ns'), text: String(st.totals[0]) }, { name: TX('bridge.ew'), text: String(st.totals[1]) }] : [{ name: TX('cards.team.us'), text: String(st.totals[us]) }, { name: TX('cards.team.them'), text: String(st.totals[1 - us]) }];
-      var out = { chips: chips, trump: c && c.den < NT ? c.den : undefined, fact: TX('skat.fact', { n: st.dealNo + 1, of: DEALS }) + (c ? ' \u00b7 ' + c.level + DEN_LABEL[c.den] + (c.dbl ? (c.dbl === 1 ? ' X' : ' XX') : '') + ' ' + NAMES[c.declarer].charAt(0) : ''), text: '' };
+      var out = { chips: chips, trump: c && c.den < NT ? c.den : undefined, fact: c && st.phase === 'play' ? contractText(st) : TX('skat.fact', { n: st.dealNo + 1, of: DEALS }), text: '' };
       if (st.phase === 'auction') out.text = st.turn === V ? TX(you(V) ? 'bridge.yourCall' : 'bridge.nameCall', { name: cn(V) }) : TX(seats.person(st.turn) ? 'ce.next' : 'bridge.bidding', { name: cn(st.turn) });
       else if (st.phase === 'dealEnd') { out.text = TX('skat.dealOver'); out.label = TX('skat.nextDeal'); out.action = tg.startNextHand; }
       else if (st.phase === 'over') { out.text = TX('bridge.matchOver'); out.label = TX('shell.menu.new'); out.action = newGame; }
       else {
         chips.push({ name: TX('truco.tricks'), text: hot() ? TX('bridge.ns') + ' ' + st.tricks[0] + ' \u00b7 ' + TX('bridge.ew') + ' ' + st.tricks[1] : st.tricks[us] + '-' + st.tricks[1 - us] });
         if (st.trick.length === SEATS) { var w = trickWinner(st.trick, trumpOf(st)); out.text = you(w) ? TX('cards.trick.you') : TX('cards.trick.name', { name: cn(w) }); }
-        else if (actor === V) out.text = st.turn === V ? TX(you(V) ? 'bridge.yourTurn' : 'bridge.nameTurn', { name: cn(V), contract: contractText(st) }) : TX('bridge.playDummy', { name: cn(st.turn) });
+        else if (actor === V) out.text = st.turn === V ? TX(you(V) ? 'cards.turn.you' : 'cards.turn.name', { name: cn(V) }) : TX('bridge.playDummy', { name: cn(st.turn) });
         else if (seats.person(actor)) out.text = TX('ce.next', { name: cn(actor) });
         else if (c.dummy === V) out.text = TX(hot() ? 'bridge.playsHand.name' : 'bridge.playsHand', { declarer: cn(c.declarer), name: cn(V), next: cn(st.turn) });
         else out.text = TX('cards.thinking', { name: cn(st.turn) });

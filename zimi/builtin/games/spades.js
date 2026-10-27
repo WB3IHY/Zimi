@@ -21,7 +21,7 @@
   var END_SCORE = 500, LOSE_SCORE = -200, BAG_LIMIT = 10, BAG_PENALTY = 100, NIL_BONUS = 100, TRICK_POINTS = 10, SPADES = 3;
   var high = T.rankHigh, team = function (seat) { return seat % 2; }, partnerOf = function (seat) { return (seat + 2) % SEATS; };
   var isSpade = function (id) { return Z.suit(id) === SPADES; };
-  var bidName = function (b) { return b === null || b === undefined ? '...' : b === 0 ? 'Nil' : String(b); };
+  var bidName = function (b) { return b === null || b === undefined ? '...' : b === 0 ? TX('spades.nil') : String(b); };
 
   // ── Rules ───────────────────────────────────────────────────────────────
   function dealHand(order, handNo, scores, bags, dealer) {
@@ -215,7 +215,7 @@
     var hand = T.handCards(g, st.hands[V], function (id) { return { up: up, dim: up && myTurn && !isLegal(st, V, id) }; }, function (a, b) { return Z.suit(a) !== Z.suit(b); });
     slots = slots.concat(hand.slots); cards = cards.concat(hand.cards);
     [1, 2, 3].forEach(function (pos) { cards = cards.concat(T.fan(g, pos, st.hands[(V + pos) % SEATS], false)); });
-    return { height: m.H, slots: slots, cards: cards.concat(T.trickCards(g, st.trick, sweep, rel)) };
+    return { height: m.H, slots: slots, cards: cards.concat(T.trickCards(g, st.trick, sweep, rel, view && view.win)) };
   }
 
   var api = {
@@ -234,9 +234,10 @@
       var r = st.result[k], c = r.contract;
       var parts = [c ? TX('spades.line.bid', { team: teamLabel(k), bid: c, tricks: r.tricks }) : TX('spades.line.none', { team: teamLabel(k) })];
       if (r.nil.length) parts.push(r.nil.map(function (v) { return TX(v > 0 ? 'spades.nilMade' : 'spades.nilBroken'); }).join(', '));
-      parts.push(TX(r.penalty ? 'spades.points.penalty' : r.bagsGained ? 'spades.points.bags' : 'spades.points', { points: (r.points >= 0 ? '+' : '') + r.points, gained: r.bagsGained ? Z.plural(r.bagsGained, 'bag') : '', penalty: r.penalty, total: st.scores[k], bags: st.bags[k] }));
-      return parts.join(' · ');
+      parts.push(TX(r.penalty ? 'spades.points.penalty' : 'spades.points', { points: (r.points >= 0 ? '+' : '') + r.points, gained: r.bagsGained ? Z.plural(r.bagsGained, 'bag') : '', penalty: r.penalty, total: st.scores[k], bags: st.bags[k] }));
+      return [parts.slice(0, -1).join(' · '), parts[parts.length - 1]];   // what the team bid and took, then what it was worth
     }
+    function handLines(st) { var vt = viewTeam(); return handLine(st, vt).concat(handLine(st, 1 - vt)); }
     function hud(st) {
       var chips = tg.order().map(function (seat) {
         var name = seats.name(seat), bid = st.bids[seat], text = st.phase === 'bid' ? (bid === null ? '' : TX('spades.chip.bid', { bid: bidName(bid) })) : st.tricks[seat] + '/' + bidName(bid);
@@ -271,12 +272,12 @@
       drive();
     }
     function handOver() {
-      var st = session.state, vt = viewTeam();
-      tg.handSheet([handLine(st, vt), handLine(st, 1 - vt)]);
+      var st = session.state;
+      tg.handSheet(handLines(st));
     }
     function gameOver() {
-      var st = session.state, vt = viewTeam();
-      tg.teamGameOver(gameWinner(st.scores), st.scores, [handLine(st, vt), handLine(st, 1 - vt)]);
+      var st = session.state;
+      tg.teamGameOver(gameWinner(st.scores), st.scores, handLines(st));
     }
     function bid(n) {
       var st = session.state;
@@ -295,7 +296,7 @@
     t = tg.create({
       name: 'Spades', geo: geo, place: place, hud: hud, newGame: newGame,
       cascadeOrder: function (st) { return st.played.concat(st.trick.map(function (x) { return x.id; })).map(function (id) { return { id: id }; }); },
-      winLines: function (sec, st) { var vt = viewTeam(); return [handLine(st, vt), handLine(st, 1 - vt), TX('spades.result.won', { a: st.scores[vt], b: st.scores[1 - vt], hands: Z.plural(st.handNo + 1, 'hand') })]; },
+      winLines: function (sec, st) { var vt = viewTeam(); return handLines(st).concat([TX('spades.result.won', { a: st.scores[vt], b: st.scores[1 - vt], hands: Z.plural(st.handNo + 1, 'hand') })]); },
       rules: TX('spades.rules')
     });
     board = t.board; session = t.session;

@@ -43,7 +43,7 @@ const sorted = a => a.slice().sort((x, y) => x - y);
   for (let i = 0; i < 48; i++) { const s = Z.hanafudaFaceMarkup(i, true); if (!s.startsWith('<svg') || !s.endsWith('</svg>')) ok = false; }
   for (let i = 0; i < 40; i++) { const s = Z.spanishFaceMarkup(i, true); if (!s.startsWith('<svg') || !s.endsWith('</svg>')) ok = false; }
   check(ok, 'every Hanafuda and Spanish face is a complete svg');
-  check(Z.spanishName(2) === '3 of oros' && Z.spanishName(39) === 'rey of bastos', 'Spanish names');
+  check(Z.spanishName(2) === '3 of coins' && Z.spanishName(39) === 'king of clubs', 'Spanish names');
 }
 
 // ── Koi-Koi ─────────────────────────────────────────────────────────────────
