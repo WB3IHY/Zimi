@@ -254,6 +254,7 @@
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var GAME_KEY = 'zimi.games.sudoku.game', BEST_KEY = 'zimi.games.sudoku.best', SETTINGS_KEY = 'zimi.games.sudoku.settings';
   var TICK_MS = 500, UNDO_MAX = 300, UNDO_KEPT = 100, MAX_BOARD = 504, SIDE_PAD = 24, CHROME_PX = 440, MAKE_DELAY_MS = 20, END_AFTER_MS = 600;
+  var SET_MS = 120, WAVE_STEP_MS = 40, WAVE_END_AFTER_MS = 1100, UNIT_STEP_MS = 35, DONE_NOTE_MS = 2200, UNIT_WORD = ['row', 'column', 'box'];
   Play.applyTheme();
 
   var els = {
@@ -356,20 +357,57 @@
     selectCell(r * N + c); cellEls[r * N + c].focus();
   }
   function refuse(text) { ZimiShell.shake(els.board); line.reason(text); }
+  function baseLine() { return s && s.pencil ? T('sudoku.pencilOn') : ''; }
+  // Which row, column or box a repeated digit shares with the cell just filled (the first one found), or ''.
+  function repeatedIn(i, d) {
+    for (var u = 0; u < UNITS_OF[i].length; u++) {
+      if (UNITS[UNITS_OF[i][u]].some(function (p) { return p !== i && s.grid[p] === d; })) return UNIT_WORD[u];
+    }
+    return '';
+  }
+  function unitDone(u, grid) {
+    var seen = 0;
+    return UNITS[u].every(function (p) { var v = grid[p]; if (!v || (seen & bit(v))) return false; seen |= bit(v); return true; });
+  }
+  function digitCount(grid, d) { return grid.filter(function (v) { return v === d; }).length; }
+  // The small moments a placement can earn: a row, column or box that is now whole ripples, and a digit with all nine
+  // down lights its key and says so. The conflict, if there is one, says where it is.
+  function celebrate(i, d, before) {
+    var said = false;
+    UNITS_OF[i].forEach(function (u) {
+      if (!unitDone(u, s.grid) || unitDone(u, before)) return;
+      UNITS[u].forEach(function (p, k) { flash(cellEls[p], k * UNIT_STEP_MS); });
+    });
+    if (digitCount(s.grid, d) === N && digitCount(before, d) < N && !conflicts(s.grid)[i]) {
+      var key = padEls[d - 1];
+      if (!ZimiShell.reducedMotion()) { key.classList.remove('pop'); void key.offsetWidth; key.classList.add('pop'); }
+      line.reason(T('sudoku.digitDone', { n: Play.num(d) }), DONE_NOTE_MS); said = true;
+    }
+    return said;
+  }
+  function flash(el, delay) {
+    if (ZimiShell.reducedMotion()) return;
+    el.style.animationDelay = delay + 'ms'; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    setTimeout(function () { el.classList.remove('flash'); el.style.animationDelay = ''; }, delay + 700);
+  }
   function enter(d, forceNote) {
     if (s.done) return;
     if (s.sel < 0) { refuse(T('sudoku.pickCell')); return; }
     if (s.puzzle[s.sel]) { refuse(T('sudoku.clueFixed')); return; }
-    var i = s.sel, note = s.pencil !== !!forceNote;
+    var i = s.sel, note = s.pencil !== !!forceNote, before = s.grid.slice(), where = '';
     if (note) {
-      if (s.grid[i]) return;
+      if (s.grid[i]) { refuse(T('sudoku.noteOnNumber')); return; }
       snap(); s.notes[i] ^= bit(d);
-    } else {
-      if (s.grid[i] === d) return;
+    } else if (s.grid[i] === d) { erase(); return; }   // the same digit again takes it back
+    else {
       snap(); s.grid[i] = d; s.notes[i] = 0;
       PEERS[i].forEach(function (p) { s.notes[p] &= ~bit(d); });
+      where = repeatedIn(i, d);
     }
     afterChange();
+    if (note) return;
+    if (!ZimiShell.reducedMotion() && cellEls[i].animate) cellEls[i].animate([{ scale: 0.7 }, { scale: 1 }], { duration: SET_MS, easing: 'ease-out' });
+    if (!celebrate(i, d, before) && where) line.reason(T('sudoku.repeat.' + where, { n: Play.num(d) }));
   }
   function erase() {
     if (s.done || s.sel < 0 || s.puzzle[s.sel] || (!s.grid[s.sel] && !s.notes[s.sel])) return;
@@ -398,7 +436,7 @@
   }
   function afterChange(noCheck) {
     render(); persist();
-    line.say('');
+    line.say(baseLine());
     if (!noCheck && s.grid.every(Boolean) && !conflicts(s.grid).some(Boolean)) win();
   }
   function win() {
@@ -406,7 +444,9 @@
     var ms = s.elapsed, record = !best[s.diff] || ms < best[s.diff];
     if (record) { best[s.diff] = ms; Play.save(BEST_KEY, best); }
     persist();
-    ZimiShell.endSheet({ result: 'win', after: END_AFTER_MS, stats: [[T('play.time'), Play.fmtClock(ms)], [T('play.best'), Play.fmtClock(best[s.diff])]] });
+    var wave = !ZimiShell.reducedMotion();
+    if (wave) cellEls.forEach(function (el, i) { flash(el, (Math.floor(i / N) + i % N) * WAVE_STEP_MS); });
+    ZimiShell.endSheet({ result: 'win', after: wave ? WAVE_END_AFTER_MS : END_AFTER_MS, stats: [[T('play.time'), Play.fmtClock(ms)], [T('play.best'), Play.fmtClock(best[s.diff])]] });
   }
 
   // ── new games ──
@@ -437,7 +477,8 @@
     if (t) { selectCell(Number(t.dataset.i)); t.focus(); }
   });
   els.pad.addEventListener('click', function (e) { var b = e.target.closest('.su-num:not(.su-erase)'); if (b) enter(Number(b.dataset.d)); });
-  els.pencil.addEventListener('click', function () { s.pencil = !s.pencil; render(); });
+  function togglePencil() { s.pencil = !s.pencil; render(); line.say(baseLine()); }
+  els.pencil.addEventListener('click', togglePencil);
   els.undo.addEventListener('click', undo);
   els.hint.addEventListener('click', hint);
   Play.onHidden(function () { stopClock(); });
@@ -452,7 +493,7 @@
     else if (k >= '1' && k <= '9') enter(Number(k));
     else if (/^Digit[1-9]$/.test(e.code) && e.shiftKey) enter(Number(e.code.slice(5)), true); // Shift+digit: a note without switching
     else if (k === 'Backspace' || k === 'Delete' || k === '0') erase();
-    else if (k === 'n' || k === 'N' || k === 'p' || k === 'P') { s.pencil = !s.pencil; render(); }
+    else if (k === 'n' || k === 'N' || k === 'p' || k === 'P') togglePencil();
     else if (k === 'z' || k === 'Z' || k === 'u' || k === 'U') undo();
     else if (k === 'h' || k === 'H') hint();
     else handled = false;

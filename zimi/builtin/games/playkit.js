@@ -160,6 +160,17 @@
     return { cancel: stop };
   };
 
+  // A figure that rises off a spot and fades ("+8"): text at x, y (pixels) inside host, a positioned element. Gone when it has played.
+  Play.float = function (host, text, x, y) {
+    var el = document.createElement('span');
+    el.className = 'pl-float'; el.textContent = text; el.setAttribute('aria-hidden', 'true');
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    host.appendChild(el);
+    var gone = function () { el.remove(); };
+    el.addEventListener('animationend', gone); setTimeout(gone, 1200);
+    return el;
+  };
+
   // Saved games (ZimiShell.persist): a state as plain JSON (functions such as a game's random source are dropped), and a
   // fresh state with a saved one laid over it. An arcade game restores paused: the Pause/Resume button is the way on.
   Play.plain = function (obj) { return JSON.parse(JSON.stringify(obj)); };
