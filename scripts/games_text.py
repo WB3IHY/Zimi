@@ -75,6 +75,7 @@ def audit():
     paths = [os.path.join(GAMES, n) for n in sorted(os.listdir(GAMES)) if n.endswith((".js", ".html", ".json")) and n != "text.js"]
     paths += [os.path.join(ROOT_SCRIPTS, n) for n in sorted(os.listdir(ROOT_SCRIPTS)) if n.endswith(".py")]
     paths.append(JS_PATH)
+    paths.append(os.path.join(GAMES, "puzzles", "zimi-fit.js"))   # the puzzles' own wrapper asks for words too
     for path in paths:
         with open(path, encoding="utf-8") as f:
             text = f.read()

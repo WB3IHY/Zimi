@@ -17,6 +17,7 @@
   var LONG_PRESS_SLOP = 10;    // px a finger may drift and still be holding still
   var TWO_FINGER_MS = 350;     // two fingers down and up within this, without moving, are the middle button
   var NATIVE_QUIET_MS = 700;   // after a touch, the browser's own mouse events for it are dropped
+  var SOLVED_SHEET_MS = 1000;  // the puzzle's own flash of success plays before the sheet comes
   var READY_POLL_MS = 50;      // how often to ask whether the puzzle's own script has started the game
 
   function el(tag, cls, text) {
@@ -26,6 +27,24 @@
     return e;
   }
   function $(id) { return d.getElementById(id); }
+
+  // Words go through ZimiText (shell.js loads it before this file); English is what shows when it or an id is missing. A label
+  // made before the language file arrives is set again when it does.
+  var labelled = [];
+  function T(key, english, vars) {
+    var Z = root.ZimiText;
+    if (Z && Z.has(key)) return Z.T(key, vars);
+    return english.replace(/\{(\w+)\}/g, function (m, k) { return vars && vars[k] !== undefined ? vars[k] : m; });
+  }
+  function num(n) { return root.ZimiText ? root.ZimiText.number(+n) : String(n); }
+  function setWord(w) { if (w[3]) w[0].setAttribute(w[3], T(w[1], w[2])); else w[0].textContent = T(w[1], w[2]); }
+  // Gives node its words (its text, or the attribute attr), and keeps them in the player's language.
+  function word(node, key, english, attr) {
+    var w = [node, key, english, attr];
+    labelled.push(w); setWord(w);
+    return node;
+  }
+  if (root.ZimiText && root.ZimiText.onChange) root.ZimiText.onChange(function () { labelled.forEach(setWord); });
 
   // ── the palette ──────────────────────────────────────────────────────────
   // The frontend asks C for its colours one by one (js_set_colour) and stores them in the global `colours`. The puzzle
@@ -134,10 +153,10 @@
 
   // The frontend finds its menu and buttons by id and clicks them itself, so they stay in the page, hidden. Ours are
   // proxies: they click the original, and follow its disabled state.
-  var ORIGINALS = [["undo", "Undo", "pz-undo"], ["restart", "Restart", "pz-restart"], ["redo", "Redo", "pz-redo"], ["solve", "Show solution", "pz-solve"]];
+  var ORIGINALS = [["undo", "Undo", "pz-undo", "shell.undo"], ["restart", "Restart", "pz-restart", "pz.restart"], ["redo", "Redo", "pz-redo", "pz.redo"], ["solve", "Show solution", "pz-solve", "puzzles.showSolution"]];
   var staged = null;      // a Type chosen in the New game pane, applied by Start
-  function proxy(orig, label, id, click) {
-    var b = el("button", "ar-btn", label);
+  function proxy(orig, label, id, click, key) {
+    var b = word(el("button", "ar-btn"), key, label);
     b.type = "button";
     b.id = id;
     function follow() {
@@ -153,16 +172,16 @@
     var bar = el("header", "ar-bar zf-bar");
     var back = el("a", "ar-back", String.fromCharCode(0x2039));
     back.href = SHELF;
-    back.setAttribute("aria-label", "Back");
+    word(back, "shell.back", "Back", "aria-label");
     bar.appendChild(back);
     bar.appendChild(el("h1", "", puzzleName()));
     ORIGINALS.forEach(function (o) {
       var orig = $(o[0]);
-      if (orig) bar.appendChild(proxy(orig, o[1], o[2]));
+      if (orig) bar.appendChild(proxy(orig, o[1], o[2], null, o[3]));
     });
     // The shell hides this one and starts the game with it, from Menu > New game.
     var newOrig = $("new");
-    if (newOrig) bar.appendChild(proxy(newOrig, "New game", "pz-new", startNew));
+    if (newOrig) bar.appendChild(proxy(newOrig, "New game", "pz-new", startNew, "shell.menu.new"));
     d.body.insertBefore(bar, d.body.firstChild);
   }
   function startNew() {
@@ -176,11 +195,22 @@
     var c = $("gametype") && $("gametype").querySelector('input[name="preset"]:checked');
     return c ? c.value : null;
   }
+  // The words a game type is named with (its difficulty, "wrapping", "mines") in the player's language; sizes, grid names and
+  // anything else the puzzle writes stay as the puzzle wrote them.
+  var TYPE_WORDS = ["trivial", "easy", "tricky", "normal", "hard", "extreme", "unreasonable", "basic", "advanced", "medium", "intermediate", "standard", "wrapping", "mines"];
+  var TYPE_WORD = new RegExp("\\b(" + TYPE_WORDS.join("|") + ")\\b", "gi");
+  function typeLabel(text) {
+    if (text === "Custom...") return T("pz.w.custom", "Custom...");
+    return text.replace(TYPE_WORD, function (w) {
+      var k = w.toLowerCase(), s = T("pz.w." + k, k);
+      return w.charAt(0) === k.charAt(0) ? s : s.charAt(0).toUpperCase() + s.slice(1);
+    });
+  }
   function typeRows(list, into, depth) {
     Array.prototype.forEach.call(list.children, function (li) {
       var label = li.firstElementChild, sub = li.querySelector(":scope > label > ul, :scope > ul");
       var radio = li.querySelector(":scope > label > input.tick");
-      var text = label ? label.textContent.replace(/\s+/g, " ").trim() : "";
+      var text = label ? typeLabel(label.textContent.replace(/\s+/g, " ").trim()) : "";
       if (radio) {
         var row = el("button", "ar-btn pz-opt", text);
         row.type = "button";
@@ -198,12 +228,12 @@
     });
   }
   function gameRows() {
-    var rows = [["specific", "Enter game ID…"], ["random", "Enter random seed…"], ["prefs", "Preferences…"], ["save", "Download save file…"], ["load", "Upload save file…"]];
+    var rows = [["specific", "Enter game ID…"], ["random", "Enter random seed…"], ["prefs", "Preferences…"], ["save", "Download save file…"], ["load", "Upload save file…"]];   // pz.<id> in the string table
     var box = el("div", "pz-game-rows");
     rows.forEach(function (r) {
       var orig = $(r[0]);
       if (!orig) return;
-      var b = el("button", "ar-btn pz-opt", r[1]);
+      var b = word(el("button", "ar-btn pz-opt"), "pz." + r[0], r[1]);
       b.type = "button";
       b.addEventListener("click", function () { if (root.ZimiShell) root.ZimiShell.closeMenu(); orig.click(); });
       box.appendChild(b);
@@ -216,15 +246,15 @@
     if (types && types.children.length) {
       var box = el("div", "pz-types");
       box.setAttribute("role", "group");
-      box.setAttribute("aria-label", "Type");
-      box.appendChild(el("h3", "pz-opt-head", "Type"));
+      word(box, "pz.type", "Type", "aria-label");
+      box.appendChild(word(el("h3", "pz-opt-head"), "pz.type", "Type"));
       typeRows(types, box, 0);
       nodes.push(box);
     }
     var rows = gameRows();
     if (rows.children.length) {
       var wrap = el("div", "pz-games");
-      wrap.appendChild(el("h3", "pz-opt-head", "Game"));
+      wrap.appendChild(word(el("h3", "pz-opt-head"), "pz.game", "Game"));
       wrap.appendChild(rows);
       nodes.push(wrap);
     }
@@ -234,14 +264,30 @@
   // ── the status line ──────────────────────────────────────────────────────
   // The frontend writes "Moves: 12" and such into #statusbar. We keep that element (the frontend needs it), hide it,
   // and show one sentence of what a player needs in the shared status style.
+  // Each line the frontends write, in the player's language. The number-bearing ones are matched by their English shape.
+  var STATUS = [
+    [/\bMoves(?: since auto-solve)?: \d+\s*/g, function () { return ""; }],
+    [/^COMPLETED!\s*/i, function () { return T("pz.solved", "Solved") + ". "; }],
+    [/\bAuto-solve[dr]( used)?\.?/i, function () { return T("pz.solutionShown", "Solution shown") + "."; }],
+    [/^\[(\d+:\d\d)\]\s*/, function (m, clock) { return clock + " · "; }],
+    [/\bBalls marked: (\d+) \/ (\d+)-(\d+)\.?/, function (m, a, lo, hi) { return T("pz.ballsRange", "Balls marked: {a} of {lo} to {hi}", { a: num(a), lo: num(lo), hi: num(hi) }); }],
+    [/\bBalls marked: (\d+) \/ (\d+)/, function (m, a, b) { return T("pz.balls", "Balls marked: {a} of {b}", { a: num(a), b: num(b) }); }],
+    [/\bMarked: (\d+) \/ (\d+)/, function (m, a, b) { return T("pz.marked", "Marked: {a} of {b}", { a: num(a), b: num(b) }); }],
+    [/\bActive: (\d+)\/(\d+)/, function (m, a, b) { return T("pz.active", "Active: {a} of {b}", { a: num(a), b: num(b) }); }],
+    [/(\d+) \/ (\d+) moves/, function (m, a, b) { return T("pz.movesOf", "Moves: {a} of {b}", { a: num(a), b: num(b) }); }],
+    [/\bGems: (\d+)/, function (m, n) { return T("pz.gems", "Gems: {n}", { n: num(n) }); }],
+    [/\bDeaths: (\d+)/, function (m, n) { return T("pz.deaths", "Deaths: {n}", { n: num(n) }); }],
+    [/\bDEAD!/, function () { return T("pz.dead", "Dead"); }],
+    [/\bScore: (\d+)/, function (m, n) { return T("pz.score", "Score: {n}", { n: num(n) }); }],
+    [/\bSelected: (\d+) \((\d+)\)/, function (m, a, b) { return T("pz.selected", "Selected: {a} ({b})", { a: num(a), b: num(b) }); }],
+    [/\bWrong! Guess again\.?/, function () { return T("pz.wrong", "Wrong. Guess again"); }],
+    [/\bCORRECT!/, function () { return T("pz.correct", "Correct"); }],
+    [/ \((\d+) errors?\)/, function (m, n) { return " (" + T("pz.errors", "Errors: {n}", { n: num(n) }) + ")"; }],
+    [/(\d+) wrong and (\d+) missed balls\.?/, function (m, a, b) { return T("pz.wrongMissed", "Wrong: {a}, missed: {b}", { a: num(a), b: num(b) }); }]
+  ];
   function sayStatus(text) {
-    return text
-      .replace(/\bMoves: \d+\s*/g, "")
-      .replace(/^COMPLETED!\s*/i, "Solved. ")
-      .replace(/\bAuto-solved\.?/i, "Solution shown.")
-      .replace(/^\[(\d+:\d\d)\]\s*/, "$1 · ")
-      .replace(/\s+/g, " ")
-      .trim();
+    STATUS.forEach(function (s) { text = text.replace(s[0], s[1]); });
+    return text.replace(/\s+/g, " ").trim();
   }
   var solved = false;
   function watchStatus(frame) {
@@ -251,9 +297,16 @@
     line.setAttribute("role", "status");
     line.setAttribute("aria-live", "polite");
     frame.parentNode.insertBefore(line, frame.nextSibling);
+    var first = true;
     function sync() {
-      var t = sayStatus(bar.textContent);
-      solved = /^Solved\b/.test(t);
+      var raw = bar.textContent, t = sayStatus(raw), was = solved;
+      solved = /^(\[\d+:\d\d\]\s*)?COMPLETED!/i.test(raw);
+      // Solving it yourself is a win with a sheet; a game that comes back solved, or one the solver finished, is not.
+      if (solved && !was && !first && !/Auto-solve/i.test(raw) && root.ZimiShell) {
+        var clock = /^\[(\d+:\d\d)\]/.exec(raw);
+        root.ZimiShell.endSheet({ result: "win", after: SOLVED_SHEET_MS, stats: clock ? [[T("play.time", "Time"), clock[1]]] : [] });
+      }
+      first = false;
       if (line.textContent !== t) line.textContent = t;
       line.hidden = !t;
     }
@@ -345,12 +398,12 @@
     if (!spec) return;
     var keys = el("div", "zf-keys");
     keys.setAttribute("role", "group");
-    keys.setAttribute("aria-label", "Keypad");
+    word(keys, "pz.keypad", "Keypad", "aria-label");
     var labels = typeof spec === "number" ? "123456789".slice(0, spec).split("") : spec.split("");
     labels.concat(["Backspace"]).forEach(function (k) {
       var b = el("button", "ar-btn", k === "Backspace" ? String.fromCharCode(0x232b) : k);
       b.type = "button";
-      b.setAttribute("aria-label", k === "Backspace" ? "Clear" : k);
+      if (k === "Backspace") word(b, "pz.clear", "Clear", "aria-label"); else b.setAttribute("aria-label", k);
       b.onpointerdown = function (e) { e.preventDefault(); };
       b.onclick = function () { sendKey(canvas, k); };
       keys.appendChild(b);
