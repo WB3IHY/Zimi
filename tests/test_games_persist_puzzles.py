@@ -24,7 +24,8 @@ ROWS = [
     ("keen", ["0.1,0.1", "1", "0.3,0.3", "2"]),
     ("net", ["0.5,0.5", "0.3,0.7"]),
     # No status bar on these two (the frontend removes it), so the save is the only thing that says where the game was.
-    ("lightup", ["0.3,0.3", "0.6,0.5"]),
+    # The deal is random and a tap on a black clue square is no move: enough taps that one lands on a white square.
+    ("lightup", ["0.3,0.3", "0.6,0.5", "0.45,0.75", "0.75,0.2", "0.15,0.6"]),
     ("pattern", ["0.5,0.5", "0.3,0.7"]),
 ]
 

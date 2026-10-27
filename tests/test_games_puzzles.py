@@ -82,8 +82,12 @@ def test_undo_and_redo_are_bar_buttons_that_appear_with_a_move(served, browser):
     page = open_lightup(browser, served)
     assert page.locator(".ar-bar #pz-undo").is_hidden(), "nothing to undo yet"
     box = page.locator("#puzzlecanvas").bounding_box()
-    page.mouse.click(box["x"] + box["width"] * 0.3, box["y"] + box["height"] * 0.3)
-    frames(page)
+    # The deal is random: a tap on a black clue square is no move, so tap down the diagonal until one is a lamp.
+    for share in (0.3, 0.45, 0.6, 0.75, 0.15, 0.9):
+        page.mouse.click(box["x"] + box["width"] * share, box["y"] + box["height"] * share)
+        frames(page)
+        if page.locator(".ar-bar #pz-undo").is_visible():
+            break
     assert page.locator(".ar-bar #pz-undo").is_visible()
     page.click(".ar-bar #pz-undo")
     frames(page)
