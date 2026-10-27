@@ -103,22 +103,42 @@ add('dominosa', 'wood', () => {
   return out;
 });
 
-// Fifteen: numbered tiles in a tray with one gap.
-const slider = (n, gapI, gapJ, arrows) => {
-  const g = grid(n, n, 34, 0, 0);
-  let out = rr(g.x0 - 8 + 3, g.y0 - 8 + 4, g.w + 16, g.h + 16, 8, 'rgba(0,0,0,0.35)') + rr(g.x0 - 8, g.y0 - 8, g.w + 16, g.h + 16, 8, '#4a3220') + rr(g.x0 - 4, g.y0 - 4, g.w + 8, g.h + 8, 4, '#2a1b10');
-  const order = [3, 1, 7, 4, 5, 2, 12, 8, 9, 6, 11, 15, 13, 10, 14, 0];
-  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-    if (i === gapI && j === gapJ) continue;
-    const v = order[(j * n + i) % 16] || (j * n + i + 1);
-    out += rr(g.X(i) + 2.5, g.Y(j) + 3.5, g.c - 3, g.c - 3, 5, 'rgba(0,0,0,0.4)') + rr(g.X(i) + 1.5, g.Y(j) + 1.5, g.c - 3, g.c - 3, 5, 'url(#tile)', 'stroke="#a57a3b" stroke-width="1"') +
-      rr(g.X(i) + 3.5, g.Y(j) + 2.5, g.c - 7, 2, 1, '#fff', 'fill-opacity="0.55"') + digit(g, i, j, v, '#4a3220', 0.5);
+// The sliding-number family on one tray: Fifteen (one gap, a tile sliding into it), Sixteen (no gap: a whole row shifts and its end wraps
+// round), Twiddle (a 2 x 2 block turning). `move` places the one thing each does; the rest of the tray is the same.
+const ORDER = [3, 1, 7, 4, 5, 2, 12, 8, 9, 6, 11, 15, 13, 10, 14, 0];
+const TRAY = (g) => rr(g.x0 - 8 + 3, g.y0 - 8 + 4, g.w + 16, g.h + 16, 8, 'rgba(0,0,0,0.35)') + rr(g.x0 - 8, g.y0 - 8, g.w + 16, g.h + 16, 8, '#4a3220') + rr(g.x0 - 4, g.y0 - 4, g.w + 8, g.h + 8, 4, '#2a1b10');
+// One numbered tile with its top-left corner at (x, y), turned by `rot` degrees about its middle.
+const woodTile = (x, y, c, v, rot, lift) => {
+  const body = rr(x + 2.5, y + 3.5 + (lift || 0), c - 3, c - 3, 5, 'rgba(0,0,0,' + (lift ? 0.5 : 0.4) + ')') + rr(x + 1.5, y + 1.5, c - 3, c - 3, 5, 'url(#tile)', 'stroke="#a57a3b" stroke-width="1"') +
+    rr(x + 3.5, y + 2.5, c - 7, 2, 1, '#fff', 'fill-opacity="0.55"') + num(x + c / 2, y + c / 2, c * 0.5, '#4a3220', v);
+  return rot ? grp('transform="rotate(' + rot + ' ' + n1(x + c / 2) + ' ' + n1(y + c / 2) + ')"', body) : body;
+};
+const arrowHead = (x, y, dir, size, color) => pl(dir > 0 ? [[x, y - size], [x, y + size], [x + size * 1.3, y]] : [[x, y - size], [x, y + size], [x - size * 1.3, y]], color);
+const slider = (move) => {
+  const n = 4, g = grid(n, n, 34, 0, 0), v = (i, j) => ORDER[(j * n + i) % 16] || (j * n + i + 1);
+  let out = TRAY(g);
+  const skip = move === 'gap' ? { '3,3': 1, '2,3': 1 } : move === 'row' ? { '0,0': 1, '1,0': 1, '2,0': 1, '3,0': 1 } : move === 'turn' ? { '1,1': 1, '2,1': 1, '1,2': 1, '2,2': 1 } : {};
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) if (!skip[i + ',' + j]) out += woodTile(g.X(i), g.Y(j), g.c, v(i, j));
+  if (move === 'gap') {   // 14 slides right into the empty corner, a dashed outline where it was
+    out += rr(g.X(2) + 2, g.Y(3) + 2, g.c - 4, g.c - 4, 5, 'none', 'stroke="rgba(255,255,255,0.45)" stroke-width="1.6" stroke-dasharray="4 3"') + woodTile(g.X(2) + 12, g.Y(3), g.c, 14, 0, 1);
   }
-  if (arrows) for (let j = 0; j < n; j++) out += pl([[g.x0 - 20, g.my(j) - 5], [g.x0 - 20, g.my(j) + 5], [g.x0 - 12, g.my(j)]], AMBER) + pl([[g.x0 + g.w + 20, g.my(j) - 5], [g.x0 + g.w + 20, g.my(j) + 5], [g.x0 + g.w + 12, g.my(j)]], AMBER);
+  if (move === 'row') {   // the whole top row moves one place right: its last tile comes round on the left, and arrows say so
+    const sh = 16;
+    out += rect(g.x0 - 6, g.Y(0) - 2, g.w + 12, g.c + 4, 'rgba(245,158,11,0.22)', 'stroke="' + AMBER + '" stroke-width="2.4"');
+    for (let i = 0; i < n; i++) out += woodTile(g.X(i) + sh, g.Y(0), g.c, v(i, 0), 0, 1);
+    out += woodTile(g.X(0) + sh - g.c, g.Y(0), g.c, v(3, 0), 0, 1);
+    for (let j = 0; j < n; j++) out += arrowHead(g.x0 + g.w + 12, g.my(j), 1, 6, AMBER) + arrowHead(g.x0 - 12, g.my(j), -1, 6, AMBER);
+  }
+  if (move === 'turn') {  // the 2 x 2 block, each tile turned a little, on an amber panel, with a half-turn arrow over it
+    const cx = g.X(2), cy = g.Y(2);
+    out += rect(g.X(1) - 2, g.Y(1) - 2, 2 * g.c + 4, 2 * g.c + 4, 'rgba(245,158,11,0.3)', 'stroke="' + AMBER + '" stroke-width="3" rx="6"');
+    [[1, 1], [2, 1], [1, 2], [2, 2]].forEach(([i, j]) => { out += woodTile(g.X(i), g.Y(j), g.c, v(i, j), i === j ? 9 : -9); });
+    out += circ(cx, cy, 14, AMBER, 'stroke="#fff" stroke-width="2"') + stroke('M' + n1(cx - 6) + ' ' + n1(cy + 2) + 'A6.5 6.5 0 1 1 ' + n1(cx + 2) + ' ' + n1(cy + 6.2), '#fff', 2.6) + pl([[cx + 6, cy + 2], [cx + 6, cy + 10], [cx - 1, cy + 6.5]], '#fff');
+  }
   return out;
 };
-add('fifteen', 'wood', () => slider(4, 3, 3, false));
-add('sixteen', 'wood', () => slider(4, -1, -1, true));
+add('fifteen', 'wood', () => slider('gap'));
+add('sixteen', 'wood', () => slider('row'));
 
 // Filling: numbers that name the size of their region.
 add('filling', 'wood', () => {
@@ -258,21 +278,33 @@ add('mosaic', 'wood', () => {
   return out;
 });
 
-// Net: turn the tiles until the wires join up to the powered centre.
-const wires = (arrows) => {
-  const g = grid(3, 3, 48, 0, 0), masks = [[4, 6, 4], [3, 13, 4], [2, 11, 9]], lit = { '1,1': 1, '1,0': 1, '0,1': 1, '0,0': 1, '1,2': 1, '0,2': 1, '2,2': 1, '2,1': 1 };
-  let out = board(g, 11, '#1f2b40') + '';
+// Net: turn the tiles until the wires join up to the powered centre. Net is told by a turning arrow on one tile; Netslide by a row of the
+// board slid out of line, with an arrow on each end of every row and column (the wires wrap round).
+const wires = (slide) => {
+  const g = grid(3, 3, slide ? 38 : 48, 0, 0), masks = [[4, 6, 4], [3, 13, 4], [2, 11, 9]], lit = { '1,1': 1, '1,0': 1, '0,1': 1, '0,0': 1, '1,2': 1, '0,2': 1, '2,2': 1, '2,1': 1 };
+  const arm = { 1: [0, -1], 2: [1, 0], 4: [0, 1], 8: [-1, 0] }, SHIFT = 16, SLID = 2;   // Netslide: the bottom row, slid right
+  let out = board(g, slide ? 8 : 11, '#1f2b40');
   out += rect(g.x0, g.y0, g.w, g.h, '#25334d') + rules(g, 'rgba(255,255,255,0.12)', 1);
-  const arm = { 1: [0, -1], 2: [1, 0], 4: [0, 1], 8: [-1, 0] };
-  for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
-    const m = masks[j][i], on = lit[i + ',' + j], col = on ? AMBER : '#aab4c8';
-    Object.keys(arm).forEach((b) => { if (m & b) out += ln(g.mx(i), g.my(j), g.mx(i) + arm[b][0] * g.c / 2, g.my(j) + arm[b][1] * g.c / 2, col, 5.5); });
-    if (m !== 15 && [1, 2, 4, 8].includes(m)) out += rr(g.mx(i) - 7, g.my(j) - 7, 14, 14, 3, col);
+  const tileAt = (i, j, dx) => {
+    const m = masks[j][i], on = lit[i + ',' + j], col = on ? AMBER : '#aab4c8', x = g.mx(i) + dx, y = g.my(j);
+    let t = dx ? rect(g.X(i) + dx, g.Y(j), g.c, g.c, '#2d3d5c', 'stroke="' + AMBER + '" stroke-width="1.4"') : '';
+    Object.keys(arm).forEach((b) => { if (m & b) t += ln(x, y, x + arm[b][0] * g.c / 2, y + arm[b][1] * g.c / 2, col, 5.5); });
+    if (m !== 15 && [1, 2, 4, 8].includes(m)) t += rr(x - 7, y - 7, 14, 14, 3, col);
+    return t;
+  };
+  for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) if (!(slide && j === SLID)) out += tileAt(i, j, 0);
+  if (slide) {
+    out += rect(g.x0 - 6, g.Y(SLID) + 1, g.w + 12 + SHIFT, g.c - 2, 'rgba(245,158,11,0.2)', 'stroke="' + AMBER + '" stroke-width="2"');
+    for (let i = 0; i < 3; i++) out += tileAt(i, SLID, SHIFT);
   }
   out += rr(g.mx(1) - 11, g.my(1) - 11, 22, 22, 4, '#fffdf6', 'stroke="' + AMBER + '" stroke-width="3"') + circ(g.mx(1), g.my(1), 4.5, AMBER);
-  if (arrows) for (let k = 0; k < 3; k++) {
-    out += pl([[g.mx(k) - 6, g.y0 - 7], [g.mx(k) + 6, g.y0 - 7], [g.mx(k), g.y0 - 15]], AMBER) + pl([[g.mx(k) - 6, g.y0 + g.h + 7], [g.mx(k) + 6, g.y0 + g.h + 7], [g.mx(k), g.y0 + g.h + 15]], AMBER) +
-      pl([[g.x0 - 7, g.my(k) - 6], [g.x0 - 7, g.my(k) + 6], [g.x0 - 15, g.my(k)]], AMBER) + pl([[g.x0 + g.w + 7, g.my(k) - 6], [g.x0 + g.w + 7, g.my(k) + 6], [g.x0 + g.w + 15, g.my(k)]], AMBER);
+  if (slide) for (let k = 0; k < 3; k++) {
+    const e = 13, h = 8;   // big arrows at both ends of every row and column
+    out += pl([[g.mx(k) - h, g.y0 - e], [g.mx(k) + h, g.y0 - e], [g.mx(k), g.y0 - e - 12]], AMBER) + pl([[g.mx(k) - h, g.y0 + g.h + e], [g.mx(k) + h, g.y0 + g.h + e], [g.mx(k), g.y0 + g.h + e + 12]], AMBER) +
+      pl([[g.x0 - e, g.my(k) - h], [g.x0 - e, g.my(k) + h], [g.x0 - e - 12, g.my(k)]], AMBER) + pl([[g.x0 + g.w + e, g.my(k) - h], [g.x0 + g.w + e, g.my(k) + h], [g.x0 + g.w + e + 12, g.my(k)]], AMBER);
+  } else {   // a turning arrow around the lone grey end at the top right
+    const cx = g.mx(2), cy = g.my(0);
+    out += circ(cx, cy, 20, 'rgba(255,255,255,0.1)', 'stroke="#fff" stroke-width="0"') + stroke('M' + n1(cx - 16) + ' ' + n1(cy + 4) + 'A16 16 0 1 1 ' + n1(cx + 4) + ' ' + n1(cy + 16), '#fff', 3.4) + pl([[cx + 4, cy + 9], [cx + 4, cy + 23], [cx - 8, cy + 16]], '#fff');
   }
   return out;
 };
@@ -421,14 +453,7 @@ add('tracks', 'felt', () => {
 });
 
 // Twiddle: rotate a block of tiles to put the numbers in order.
-add('twiddle', 'felt', () => {
-  const g = grid(4, 4, 34, 0, 0), v = [1, 2, 3, 4, 5, 7, 11, 8, 9, 6, 10, 12, 13, 14, 15, 16];
-  let out = slider(4, -1, -1, false);
-  void v;
-  const cx = g.X(2), cy = g.Y(1);
-  return out + rect(g.X(1) + 1, g.Y(1) + 1, 2 * g.c - 2, 2 * g.c - 2, 'rgba(245,158,11,0.18)', 'stroke="' + AMBER + '" stroke-width="3" rx="6"') +
-    stroke('M' + (cx - 17) + ' ' + (cy + 8) + 'A19 19 0 0 1 ' + (cx + 12) + ' ' + (cy - 14), '#fff', 3.2) + pl([[cx + 6, cy - 22], [cx + 20, cy - 12], [cx + 5, cy - 8]], '#fff');
-});
+add('twiddle', 'felt', () => slider('turn'));
 
 // Undead: the ghosts, vampires and zombies in the grid; the numbers count what you can see along each line, mirrors included.
 add('undead', 'felt', () => {
