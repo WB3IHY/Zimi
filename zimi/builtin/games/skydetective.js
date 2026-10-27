@@ -2,6 +2,9 @@
    planets that are up and the bright stars, none of them named. Six clues: "What is this?" with a ring round one, and "Find
    Jupiter" by tapping it. It is the real sky for a real place and time, so it is a different game every night, and it needs no ZIM
    (so it plays the same in Zimi, Kiwix and from a folder); with a Wikipedia in the library each answer links to its article.
+   Before the first question the player studies the sky: inside Zimi the Almanac's own sky view opens over the page (names on, drag
+   and pinch; static/almanac-gamesky.js through the {zimi: 'game-sky'} message), anywhere else this page's own dome is drawn with
+   its names. Each answer can then be seen again in that same sky.
    The rules are pure functions (no DOM, so node can test them), then the page. Our own code, GPL-3.0. */
 (function (root) {
   'use strict';
@@ -10,7 +13,7 @@
   // ── the rules ────────────────────────────────────────────────────────────
   var QUESTIONS = 6, CHOICES = 4, MIN_ALT = 8, NIGHT_SUN_ALT = -6, MIN_ELONGATION = 14, STAR_MAG = 2.0, TARGET_STAR_MAG = 1.6, TAP_TOLERANCE = 0.075;
   var SOUTHERN = /^(Australia\/|Pacific\/(Auckland|Fiji|Tongatapu|Chatham)|America\/(Sao_Paulo|Argentina\/|Buenos_Aires|Santiago|Lima|La_Paz|Montevideo|Asuncion|Cordoba)|Africa\/(Johannesburg|Maputo|Harare|Lusaka|Windhoek|Luanda|Gaborone|Maseru|Mbabane)|Indian\/(Mauritius|Reunion|Antananarivo)|Antarctica\/)/;
-  var DEFAULT_LAT = 40, SOUTH_LAT = -33, EVENING_HOUR = 21, DAY_MS = root.ZimiUtil.DAY_MS, HOUR_MS = 3600000;
+  var SHOW_FOV = 60, DEFAULT_LAT = 40, SOUTH_LAT = -33, EVENING_HOUR = 21, DAY_MS = root.ZimiUtil.DAY_MS, HOUR_MS = 3600000;
 
   // Where a person probably is, from their time zone alone (no request is made): the longitude the clock's offset gives, a
   // mid-latitude of the hemisphere their zone is in. Good enough for the sky to look right; "My location" is exact.
@@ -74,7 +77,7 @@
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   Play.applyTheme();
   var BEST_KEY = 'zimi.games.skydetective.best', PLACE_KEY = 'zimi.games.skydetective.place', GPS_MS = 8000;
-  var els = { where: $('sk-where'), dome: $('sk-dome'), q: $('sk-q'), choices: $('sk-choices'), msg: $('sk-msg'), fact: $('sk-fact'), read: $('sk-read'), next: $('sk-next'), score: $('sk-score'), newBtn: $('sk-new') };
+  var els = { where: $('sk-where'), dome: $('sk-dome'), q: $('sk-q'), choices: $('sk-choices'), msg: $('sk-msg'), fact: $('sk-fact'), read: $('sk-read'), look: $('sk-look'), sky: $('sk-sky'), next: $('sk-next'), score: $('sk-score'), newBtn: $('sk-new') };
   var status = Play.status(els.msg), ctx = els.dome.getContext('2d');
   var wikiZim = '', g = null, vis = [], all = [], pending = { where: 'guess', when: 'tonight' }, cursor = 0, building = false, done = false;
   var PLANET_COLOR = { mercury: '#b9b4a8', venus: '#fff4c8', mars: '#ff7a4a', jupiter: '#f2d9a8', saturn: '#e6cf8a' };
@@ -114,7 +117,8 @@
       else if (o.kind === 'planet') { ctx.fillStyle = PLANET_COLOR[o.id]; ctx.beginPath(); ctx.arc(c.x, c.y, 4.5, 0, 2 * Math.PI); ctx.fill(); }
       else moon(c, o);
     });
-    var t = g && !done ? target() : null;
+    if (g && g.study) nameAll(w);
+    var t = g && !done && !g.study ? target() : null;
     if (t && (q().kind === 'name' || reveal)) {
       var c = pt(t, w); ctx.strokeStyle = RING; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(c.x, c.y, 15, 0, 2 * Math.PI); ctx.stroke();
       if (reveal) { ctx.fillStyle = '#fff'; ctx.textAlign = c.x > w / 2 ? 'right' : 'left'; ctx.fillText(name(t), c.x + (c.x > w / 2 ? -20 : 20), c.y - 20); }
@@ -125,6 +129,48 @@
     }
   }
   var cursorOn = false;
+
+  // The study's dome: every object named, each label beside its object, inside the dome and clear of the others (brightest first).
+  var LABEL_PX = 12, LABEL_GAP = { star: 6, planet: 9, moon: 13 }, LABEL_HALF_H = 8, LABEL_EDGE = 4;
+  function nameAll(w) {
+    ctx.font = '600 ' + LABEL_PX + 'px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.lineWidth = 3;
+    var taken = [], rim = w / 2 - LABEL_EDGE, mid = w / 2;
+    vis.slice().sort(function (a, b) { return a.mag - b.mag; }).forEach(function (o) {
+      var c = pt(o, w), text = name(o), tw = ctx.measureText(text).width, gap = LABEL_GAP[o.kind] || LABEL_GAP.star;
+      [1, -1].some(function (side) {
+        var x0 = side > 0 ? c.x + gap : c.x - gap - tw, box = { x0: x0, x1: x0 + tw, y0: c.y - LABEL_HALF_H, y1: c.y + LABEL_HALF_H };
+        var inside = [[box.x0, box.y0], [box.x0, box.y1], [box.x1, box.y0], [box.x1, box.y1]].every(function (p) { return Math.hypot(p[0] - mid, p[1] - mid) <= rim; });
+        if (!inside || taken.some(function (t) { return box.x0 < t.x1 && box.x1 > t.x0 && box.y0 < t.y1 && box.y1 > t.y0; })) return false;
+        taken.push(box);
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.strokeText(text, x0, c.y); ctx.fillStyle = 'rgba(240,244,252,0.92)'; ctx.fillText(text, x0, c.y);
+        return true;
+      });
+    });
+  }
+
+  // ── studying the sky first ──
+  // Before the first question: tonight's sky for the place, to look at. Inside Zimi the Almanac's own sky opens over the page
+  // (names on, drag and pinch); the page's own dome, named, is always here under it and is the whole study anywhere else.
+  function skyAsk(extra) {
+    var m = { zimi: 'game-sky', place: { lat: g.place.lat, lon: g.place.lon }, ms: g.ms, title: T('sky.over', { where: placeText(), when: whenText() }), hint: T('sky.study.hint'), close: T('shell.close') };
+    return Lib.tell(Object.assign(m, extra));
+  }
+  function study(auto) {
+    els.where.textContent = T('sky.over', { where: placeText(), when: whenText() });
+    els.q.textContent = T('sky.study.lead');
+    els.choices.innerHTML = ''; els.choices.hidden = true;
+    els.fact.hidden = els.read.hidden = els.sky.hidden = true; status.say(''); paintScore();
+    els.next.hidden = false; els.next.textContent = T('shell.start');
+    els.look.hidden = !Lib.hosted(); els.look.textContent = T('sky.study.open');
+    draw(false);
+    if (auto) skyAsk({ start: T('shell.start') });
+  }
+  function begin() {
+    if (!g || !g.study) return;
+    g.study = false; cursor = 0; ask();
+  }
+  // An answer, seen again in the real sky: the view turned to it and ringed.
+  function skyShow(t) { skyAsk({ title: name(t), az: t.az, alt: t.alt, fov: SHOW_FOV, ring: true }); }
 
   // ── the round ──
   function whenText() {
@@ -147,7 +193,7 @@
         b.appendChild(el('span', 'rk-num', Play.num(i + 1))); b.appendChild(el('span', 'rk-text', c)); els.choices.appendChild(b);
       });
     }
-    els.fact.hidden = els.read.hidden = els.next.hidden = true; status.say(''); paintScore();
+    els.fact.hidden = els.read.hidden = els.next.hidden = els.look.hidden = els.sky.hidden = true; status.say(''); paintScore();
     draw(false);
     if (answered) showAnswer(); else if (x.kind === 'find') status.say(T('sky.tapIt'));
   }
@@ -161,8 +207,9 @@
     els.fact.hidden = !els.fact.textContent;
     if (wikiZim) {
       var title = t.kind === 'star' ? t.name : T('sky.article.' + t.id);
-      Lib.pageHead(wikiZim, [title.replace(/ /g, '_')], 64).then(function (got) { if (got && q() && target() === t) { els.read.href = Lib.articleUrl(wikiZim, got.path); els.read.textContent = T('round.read', { answer: name(t) }); els.read.hidden = false; } });
+      Lib.pageHead(wikiZim, [title.replace(/ /g, '_')], 64).then(function (got) { if (got && q() && target() === t) { Lib.articleLink(els.read, wikiZim, got.path); els.read.textContent = T('round.read', { answer: name(t) }); els.read.hidden = false; } });
     }
+    els.sky.hidden = !Lib.hosted(); els.sky.textContent = T('sky.study.again');
     els.next.hidden = false; els.next.textContent = T(g.at + 1 >= g.qs.length ? 'round.seeScore' : 'round.next'); els.next.focus();
     paintScore(); draw(true);
   }
@@ -174,14 +221,14 @@
     finishAnswer(ok, x.kind === 'name' ? T('round.itWas', { answer: x.answer }) : T('sky.itWasHere', { name: name(t) }));
   }
   function chooseName(i) {
-    if (g.ans !== null && g.ans !== undefined || q().kind !== 'name') return;
+    if (g.study || g.ans !== null && g.ans !== undefined || q().kind !== 'name') return;
     g.ans = i; var x = q(), b = els.choices.children, ok = x.choices[i] === x.answer;
     for (var k = 0; k < b.length; k++) { b[k].disabled = true; if (x.choices[k] === x.answer) b[k].classList.add('right'); }
     if (!ok) b[i].classList.add('wrong');
     finishAnswer(ok, T('round.itWas', { answer: x.answer }));
   }
   function tapDome(e) {
-    if (g.ans !== null && g.ans !== undefined || q().kind !== 'find' || done) return;
+    if (g.study || g.ans !== null && g.ans !== undefined || q().kind !== 'find' || done) return;
     var r = els.dome.getBoundingClientRect(), R = r.width / 2 - 22;
     var tap = { x: (e.clientX - r.left - r.width / 2) / R, y: (e.clientY - r.top - r.height / 2) / R };
     answerFind(tap);
@@ -226,8 +273,8 @@
       var qs = makeQuestions(vis, all, QUESTIONS, Math.random, T);
       building = false;
       if (qs.length < 3) { status.say(T('sky.empty')); return; }
-      g = { place: place, ms: ms, qs: qs, at: 0, score: 0, ans: null, tap: null };
-      ask();
+      g = { place: place, ms: ms, qs: qs, at: 0, score: 0, ans: null, tap: null, study: true };
+      study(true);
     });
   }
 
@@ -235,15 +282,22 @@
   els.dome.addEventListener('click', tapDome);
   els.dome.tabIndex = 0;
   els.dome.addEventListener('keydown', function (e) {
-    if (!g || done || q().kind !== 'find' || (g.ans !== null && g.ans !== undefined)) return;
+    if (!g || done || g.study || q().kind !== 'find' || (g.ans !== null && g.ans !== undefined)) return;
     var order = vis.slice().sort(function (a, b) { return a.az - b.az; });
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); cursorOn = true; var i = order.indexOf(vis[cursor % vis.length]); cursor = vis.indexOf(order[(i + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length]); draw(false); }
     else if (e.key === 'Enter' && cursorOn) { e.preventDefault(); var p = Sky.dome(vis[cursor % vis.length].alt, vis[cursor % vis.length].az); answerFind({ x: p.x, y: p.y }); }
   });
-  els.next.addEventListener('click', advance);
+  els.next.addEventListener('click', function () { if (g && g.study) begin(); else advance(); });
+  els.look.addEventListener('click', function () { if (g) skyAsk({ start: g.study ? T('shell.start') : '' }); });
+  els.sky.addEventListener('click', function () { if (g && !g.study) skyShow(target()); });
+  root.addEventListener('message', function (e) {   // the sky over the page was closed: with Start, the questions begin
+    if (e.source !== root.parent || e.origin !== root.location.origin || !e.data || e.data.zimi !== 'game-sky-done') return;
+    if (e.data.started) begin();
+  });
   els.newBtn.addEventListener('click', start);
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || !g || document.querySelector('.ar-sheet:not([hidden])')) return;
+    if (g.study) { if ((e.key === 'Enter' || e.key === ' ') && document.activeElement !== els.look && document.activeElement !== els.next) { e.preventDefault(); begin(); } return; }
     if (/^[1-4]$/.test(e.key) && q().kind === 'name') chooseName(+e.key - 1);
     else if ((e.key === 'Enter' || e.key === ' ') && g.ans !== null && g.ans !== undefined && document.activeElement !== els.read && document.activeElement !== els.dome) { e.preventDefault(); advance(); }
   });
@@ -265,7 +319,8 @@
     wikiZim = a && Lib.primaryLang(a.zim.language) === 'en' ? a.zim.name : '';
     var kept = ZimiShell.saved();
     if (kept && kept.g && kept.g.qs && kept.g.qs.length) {
-      g = kept.g; vis = visibleObjects(g.ms, g.place.lat, g.place.lon); all = everyName(g.ms, g.place.lat, g.place.lon); ask();
+      g = kept.g; vis = visibleObjects(g.ms, g.place.lat, g.place.lon); all = everyName(g.ms, g.place.lat, g.place.lon);
+      if (g.study) study(false); else ask();
     } else { if (kept) ZimiShell.forget(); start(); }
   });
   ZimiShell.persist({ save: function () { return g && !done ? { g: g } : null; } });

@@ -23652,6 +23652,10 @@ window.addEventListener('message', function(e) {
   } else if (d.zimi === 'game-gone' && _gameFrameIs(e.source)) {
     clearTimeout(_gameGoneTimer);
     _gameGoneTimer = setTimeout(function() { _gameHead = null; updateTopbar(); }, GAME_GONE_MS);
+  } else if (d.zimi === 'game-sky' && _gameFrameIs(e.source)) {
+    _gameSkyOpen(d, e.source);
+  } else if (d.zimi === 'game-app' && d.app === 'dictionary' && typeof d.w === 'string' && d.w && _gameFrameIs(e.source)) {
+    openDictionary(false, d.w.slice(0, 200));
   } else if (d.zimi === 'ready') {
     _appReady(e.source);
   } else if (d.zimi === 'top') {
@@ -24230,6 +24234,19 @@ function _isGamePage() { return !!(_gameHead && _isGamesZimOpen()); }
 function _gameHasShelfBehind() { return !!(_isGamePage() && _gameHead.menu); }
 function _gameFrame() { return document.getElementById('reader-frame'); }
 function _gameFrameIs(win) { var f = _gameFrame(); return !!(f && win && f.contentWindow === win); }
+// What a ZimiGames page may ask of Zimi besides its header (builtin/games/librarykit.js Lib.leadOut, skydetective.js):
+//   {zimi: 'open', zim, path}                 an article (a map path may end in #map=zoom/lat/lon), the handler above
+//   {zimi: 'game-app', app: 'dictionary', w}  a word in the Dictionary, as its own tile opens it (Back returns to the game)
+//   {zimi: 'game-sky', place, ms, ...}        the Almanac's sky over the page, to study (static/almanac-gamesky.js, loaded on
+//                                             first use); answered {zimi: 'game-sky-done', started}
+// Only the frame showing the game may ask; the page already holds what each asks for, so nothing here is new state.
+var _GAMESKY_JS = '/static/almanac-gamesky.js?v=1';
+function _gameSkyOpen(d, win) {
+  var answer = function(started) { try { win.postMessage({ zimi: 'game-sky-done', started: !!started }, location.origin); } catch (e) {} };
+  Promise.all([_loadAlmanacModules(), _loadScript(_GAMESKY_JS)]).then(function(r) {
+    if (r[1] && typeof ZimiGameSky !== 'undefined') ZimiGameSky.open(d, answer); else answer(false);
+  }, function() { answer(false); });
+}
 function _gameDo(what) {
   var f = _gameFrame();
   try { f.contentWindow.postMessage({ zimi: 'game-do', what: what }, location.origin); } catch (e) {}

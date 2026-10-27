@@ -222,6 +222,13 @@ def test_sky_detective(browser, world, mode, gone):
     )
     g = page.evaluate("__sky.g")
     assert len(g["qs"]) == 6 and [q["kind"] for q in g["qs"]] == ["name", "find"] * 3
+    # the sky is studied first (the page's own named dome here: no Zimi to show the Almanac's): no question yet, a Start
+    assert g["study"] is True and page.locator(".rk-choice").count() == 0
+    assert page.locator("#sk-next").inner_text() == "Start" and page.locator("#sk-look").is_hidden()
+    before, after = leave_and_return(ctx, page, world, mode, "skydetective.html", gone, "JSON.stringify(__sky.g)")
+    assert before == after and page.evaluate("__sky.g.study") is True, "a study left comes back as a study"
+    tap(page, page.locator("#sk-next"))
+    assert page.evaluate("__sky.g.study") is False
     assert (
         page.locator(".rk-choice").count() == 4 and len(page.evaluate("__sky.vis")) >= 8
     )
