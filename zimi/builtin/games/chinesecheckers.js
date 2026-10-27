@@ -213,7 +213,7 @@
     layer.marbles.textContent = '';
     for (var i = 0; i < CELLS.length; i++) {
       var o = state.owner[i];
-      if (!o) continue;
+      if (!o || i === hiding) continue;
       var c = CELLS[i], camp = state.seats[o - 1];
       var g = el('g', { class: 'cc-marble m' + camp + (i === sel ? ' sel' : '') }, layer.marbles);
       el('circle', { cx: c.x, cy: c.y, r: MARBLE_R, fill: MARBLE_COLORS[camp] }, g);
@@ -229,7 +229,7 @@
     }
     if (sel >= 0) el('circle', { cx: CELLS[sel].x, cy: CELLS[sel].y, r: MARBLE_R + 0.12, class: 'cc-ring sel' }, layer.marks);
     if (hintsOn()) Object.keys(targets).forEach(function (t) {
-      el('circle', { cx: CELLS[t].x, cy: CELLS[t].y, r: 0.2, class: 'cc-hint' }, layer.marks);
+      el('circle', { cx: CELLS[t].x, cy: CELLS[t].y, r: 0.26, class: 'cc-hint' }, layer.marks);
     });
   }
   function paintCursor() {
@@ -251,6 +251,23 @@
       item.appendChild(b);
       box.appendChild(item);
     });
+  }
+  // A marble that has just moved walks its path a hole at a time, so the eye can follow a long chain of jumps.
+  var HOP_MS = 120, HOP_TOTAL_MS = 700, moving = false, hiding = -1;
+  function endHop() { moving = false; hiding = -1; }
+  function hopMarble(seat, path, done) {
+    if (BK.reducedMotion() || path.length < 2) { done(); return; }
+    var camp = state.seats[seat], per = Math.min(HOP_MS, HOP_TOTAL_MS / (path.length - 1)), at = 0;
+    moving = true; hiding = path[path.length - 1]; paintMarbles();
+    var g = el('g', { class: 'cc-marble m' + camp }, layer.marbles);
+    el('circle', { cx: 0, cy: 0, r: MARBLE_R, fill: MARBLE_COLORS[camp] }, g);
+    el('circle', { cx: -0.12, cy: -0.14, r: 0.12, class: 'shine' }, g);
+    function put(i) { g.style.transform = 'translate(' + CELLS[path[i]].x + 'px,' + CELLS[path[i]].y + 'px)'; }
+    put(0); g.getBoundingClientRect(); g.style.transition = 'transform ' + per + 'ms ease-in-out';
+    (function next() {
+      if (++at >= path.length) { endHop(); done(); return; }
+      put(at); timer = setTimeout(next, per);
+    })();
   }
   function paintAll() {
     paintMarbles(); paintMarks(); paintCursor(); paintScores();
@@ -311,10 +328,12 @@
 
   function commit(seat, mv) {
     applyMove(state, seat, mv.from, mv.to);
-    lastPath = mv.path;
-    if (hasWon(state, seat)) { paintAll(); finish(seat); return; }
-    advance();
-    nextTurn();
+    lastPath = mv.path; sel = -1; targets = {}; paintMarks();
+    hopMarble(seat, mv.path, function () {
+      if (hasWon(state, seat)) { paintAll(); finish(seat); return; }
+      advance();
+      nextTurn();
+    });
   }
   function computerMove(seat) {
     if (over || state.turn !== seat) return;
@@ -329,7 +348,7 @@
   }
 
   function tap(i) {
-    if (over || !isHuman(state.turn)) return;
+    if (over || moving || !isHuman(state.turn)) return;
     var seat = state.turn;
     if (sel >= 0 && targets.hasOwnProperty(i)) { humanMove(sel, i); return; }
     if (state.owner[i] === seat + 1 && i !== sel) {
@@ -387,7 +406,7 @@
   }
 
   function undo() {
-    if (!history.length) return;
+    if (!history.length || moving) return;
     clearTimeout(timer);
     var h = history.pop();
     state.owner = h.owner; state.turn = h.turn; state.rounds = h.rounds; state.passes = h.passes; lastPath = h.lastPath;
@@ -396,7 +415,7 @@
   }
 
   function newGame() {
-    clearTimeout(timer);
+    clearTimeout(timer); endHop();
     state = newState(settings.count); history = []; over = false; sel = -1; targets = {}; lastPath = null;
     hasHuman = state.seats.some(function (c, s) { return isHuman(s); });
     cursor = CAMPS[state.seats[0]][0];
@@ -448,7 +467,7 @@
   UI.persist({
     save: function () { return history.length || state.rounds ? { cfg: { count: settings.count, level: settings.level, humans: settings.humans }, state: state, history: history.slice(-40), lastPath: lastPath, end: over ? lastEnd : null } : null; },
     load: function (d) {
-      clearTimeout(timer);
+      clearTimeout(timer); endHop();
       settings.count = d.cfg.count; settings.level = d.cfg.level; settings.humans = d.cfg.humans;
       state = d.state; history = d.history; lastPath = d.lastPath; sel = -1; targets = {}; over = !!d.end; lastEnd = d.end;
       hasHuman = state.seats.some(function (c, s) { return isHuman(s); });

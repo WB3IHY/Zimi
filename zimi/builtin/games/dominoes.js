@@ -151,8 +151,8 @@
   function you(p) { return seats.isYou(p); }
   function nameOf(p) {
     if (seats.person(p)) return seats.name(p);
-    var k = 0; for (var q = 0; q < p; q++) if (!seats.person(q)) k++;
-    return T('dominoes.computer', { n: k + 1 });
+    var k = 0, all = 0; for (var q = 0; q < players(); q++) if (!seats.person(q)) { all++; if (q < p) k++; }
+    return all === 1 ? T('board.computer') : T('dominoes.computer', { n: k + 1 });   // a lone computer is just "Computer"
   }
   // A sentence about a player: its "you" form when the player is the person at the screen (verbs agree).
   function about(key, p, vars) { return T(key + (you(p) ? '.you' : ''), Object.assign({ name: nameOf(p) }, vars)); }

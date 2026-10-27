@@ -22,13 +22,12 @@
   <p class="bg-status" id="wk-status"></p>
   <div class="bg-score" id="wk-score" data-t-aria="carrom.coins" aria-label="Coins left"></div>
   <div class="cr-wrap" id="cr-wrap"><canvas class="cr-canvas" id="cr-canvas" tabindex="0" role="application" data-t-aria="carrom.keys" aria-label="Carrom board. Left and right arrows move the striker, A and D turn the aim, W and S set the power, Enter shoots."></canvas></div>
-  <div class="bg-controls"><button class="ar-btn" id="cr-shoot" type="button" aria-pressed="true" data-t="carrom.shootBtn">Shoot</button></div>
-  <details class="cr-sliders" id="cr-sliders">
-    <summary data-t="carrom.sliders">Aim with sliders</summary>
+  <div class="bg-controls"><button class="ar-btn" id="cr-shoot" type="button" aria-pressed="true" data-t="carrom.shootBtn">Shoot</button><button class="ar-btn" id="cr-slide" type="button" aria-expanded="false" aria-controls="cr-sliders" data-t="carrom.sliders">Aim with sliders</button></div>
+  <div class="cr-sliders" id="cr-sliders" hidden>
     <label><span data-t="carrom.position">Position</span> <input id="cr-pos" type="range" min="0" max="100" value="50"></label>
     <label><span data-t="carrom.angle">Angle</span> <input id="cr-ang" type="range" min="-80" max="80" value="0"></label>
     <label><span data-t="carrom.power">Power</span> <input id="cr-pow" type="range" min="5" max="100" value="55"></label>
-  </details>
+  </div>
   <p class="bg-stats" id="wk-stats"></p>
 </main>
 <script src="util.js"></script>

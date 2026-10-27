@@ -181,7 +181,7 @@
     E.placeStriker(game, again ? keepX : E.CENTRE, p);
     aim.angle = forwardAngle(p); aim.power = 0.55; aim.show = G.human(p);
     syncSliders(); paint();
-    var turn = G.human(p) ? (vsCpu() ? T(again ? 'carrom.again' : 'carrom.yourShot') : T('carrom.toShoot', { name: sideName(p) })) : T(isYou(p) ? 'carrom.aiming.you' : 'carrom.aiming', { name: nameOf(p) });
+    var turn = G.human(p) ? (vsCpu() ? T(again ? 'carrom.again' : root.matchMedia && root.matchMedia('(pointer: coarse)').matches ? 'carrom.yourShot.flick' : 'carrom.yourShot.pull') : T('carrom.toShoot', { name: sideName(p) })) : T(isYou(p) ? 'carrom.aiming.you' : 'carrom.aiming', { name: nameOf(p) });
     G.say(notesLine ? UI.noted(notesLine, turn) : turn, !G.human(p));
     notesLine = '';
     snapTurn();
@@ -273,6 +273,7 @@
     aim.angle = forwardAngle(me()) + (+sAng.value) * Math.PI / 180; aim.power = +sPow.value / 100; aim.show = true; draw();
   }
   [sPos, sAng, sPow].forEach(function (el) { el.addEventListener('input', fromSliders); });
+  $('cr-slide').addEventListener('click', function () { var open = $('cr-sliders').hidden; $('cr-sliders').hidden = !open; this.setAttribute('aria-expanded', String(open)); });
   $('cr-shoot').addEventListener('click', function () { if (humanTurn()) fire(aim.angle, aim.power); });
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('.ar-sheet') || (e.target.tagName === 'INPUT' && e.target.type !== 'range')) return;

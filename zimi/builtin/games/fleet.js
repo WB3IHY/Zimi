@@ -100,7 +100,7 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, UI = root.BoardUI, T = UI.t, $ = Play.$;
-  var STATS_KEY = 'zimi.games.fleet.stats', CPU_DELAY_MS = 700;
+  var STATS_KEY = 'zimi.games.fleet.stats', CPU_DELAY_MS = 700, SUNK_DELAY_MS = 1200;   // a sinking is given time to be read before the computer fires
   Play.applyTheme();
 
   var els = { msg: $('fl-msg'), tools: $('fl-tools'), tray: $('fl-tray'), enemy: $('fl-enemy'), enemyWrap: $('fl-enemy-wrap'), mine: $('fl-mine'), eships: $('fl-enemy-ships'), nu: $('fl-new') };
@@ -197,7 +197,7 @@
       b.setAttribute('aria-pressed', String(sel === i && !placed));
     });
     button(els.tools, T(horiz ? 'fleet.rotate.across' : 'fleet.rotate.down'), function () { horiz = !horiz; paintTools(); });
-    button(els.tools, T('fleet.shuffle'), function () { setMine(randomFleet(rng)); sel = FLEET.length; paintAll(); });
+    button(els.tools, T('fleet.shuffle'), function () { setMine(randomFleet(rng)); sel = FLEET.length; say(T('fleet.allPlaced')); paintAll(); });
     var all = mine.ships.length === FLEET.length;
     var more = seats.hotseat() && placeIdx < seats.people().length - 1;
     var go = button(els.tools, more ? T('fleet.pass', { name: seats.name(seats.people()[placeIdx + 1]) }) : T('fleet.startBattle'), startBattle, { disabled: !all });
@@ -213,7 +213,7 @@
   function onMine(x, y) {
     if (phase !== 'place') return;
     var existing = shipAt(mine, x, y);
-    if (existing) { mine.ships.splice(mine.ships.indexOf(existing), 1); sel = FLEET.findIndex(function (f) { return f[0] === existing.name; }); paintAll(); return; }
+    if (existing) { mine.ships.splice(mine.ships.indexOf(existing), 1); sel = FLEET.findIndex(function (f) { return f[0] === existing.name; }); say(placeLine()); paintAll(); return; }
     if (sel >= FLEET.length) return;
     var f = FLEET[sel], px = horiz ? Math.min(x, SIZE - f[1]) : x, py = horiz ? y : Math.min(y, SIZE - f[1]);
     if (!addShip(mine, f[0], f[1], px, py, horiz)) { UI.refuse(line, mineCells[y * SIZE + x], T('fleet.noFit')); return; }
@@ -255,7 +255,7 @@
     if (r.win) { phase = 'over'; paintAll(); return finish(true); }
     if (otherPerson()) { phase = 'pass'; paintAll(); return; }
     paintAll();
-    timer = Play.later(cpuTurn, CPU_DELAY_MS);
+    timer = Play.later(cpuTurn, r.result === 'sunk' ? SUNK_DELAY_MS : CPU_DELAY_MS);
   }
   function cpuTurn() {
     var pick = aiShot(mine.shots, remainingLens(mine), rng);
