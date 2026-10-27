@@ -181,9 +181,10 @@
       winLine = line; paint();
       var w = p - 1;
       G.finish(T('fourinarow.four'), G.vsComputer() ? (G.human(w) ? 'w' : 'l') : null, sideName(w));
+      paint();   // the turn chip lets go once the game is over
       return true;
     }
-    if (isFull(nb)) { paint(); G.finish(T('board.full'), 'd'); return true; }
+    if (isFull(nb)) { paint(); G.finish(T('board.full'), 'd'); paint(); return true; }
     paint();
     G.say(cpuMoved(p - 1, c) + turnText(), !G.human(state.turn));
     if (!G.human(state.turn)) G.later(computerMove);

@@ -238,16 +238,19 @@
   // ── saved games: leaving and coming back never loses the position ──
   var SAVE_KEY = 'zimi.games.save.' + ID, SAVE_VERSION = 1, SAVE_DEBOUNCE_MS = 400;
   var saver = null, saveTimer = 0, saveWired = false;
+  // A kept save the game has not read yet (library games read it only once the library answers) is never touched:
+  // a tap or a pagehide before then has nothing of the game's to write, and a null save() is not "forget".
+  var saveUnread = false, saveRead = false;
   function readSave() {
     try {
       var v = JSON.parse(root.localStorage.getItem(SAVE_KEY));
       return v && v.v === SAVE_VERSION && v.data !== undefined && v.data !== null ? v.data : null;
     } catch (e) { return null; }
   }
-  function forgetSave() { root.clearTimeout(saveTimer); try { root.localStorage.removeItem(SAVE_KEY); } catch (e) { /* blocked */ } }
+  function forgetSave() { saveUnread = false; root.clearTimeout(saveTimer); try { root.localStorage.removeItem(SAVE_KEY); } catch (e) { /* blocked */ } }
   function writeSave() {
     root.clearTimeout(saveTimer);
-    if (!saver) return;
+    if (!saver || saveUnread) return;
     var data = null;
     try { data = saver.save(); } catch (e) { data = null; }
     try {
@@ -265,6 +268,7 @@
       ['pointerup', 'keyup'].forEach(function (t) { d.addEventListener(t, saveSoon, true); });
     }
     var kept = readSave();
+    saveUnread = !!saver && !saver.load && kept !== null && !saveRead;
     if (saver && saver.load && kept !== null) {
       var fits = false;
       try { fits = saver.load(kept) !== false; } catch (e) { fits = false; }
@@ -272,7 +276,8 @@
     }
     return Shell;
   };
-  Shell.saved = readSave; Shell.saveNow = writeSave; Shell.forget = forgetSave;
+  Shell.saved = function () { saveRead = true; saveUnread = false; return readSave(); };
+  Shell.saveNow = writeSave; Shell.forget = forgetSave;
 
   // ── the narrator: one line under the bar while a demo runs ──
   var strip = null;
@@ -528,20 +533,87 @@
     return api;
   };
   var END_TITLES = { win: 'shell.end.win', lose: 'shell.end.lose', draw: 'shell.end.draw', over: 'shell.end.over' };
+
+  // ── the end of a game is a moment ──
+  // A win lands: a pebble stamps the middle of the game, a ring opens from it and a few pebbles scatter (about 800 ms,
+  // the game's own flourish plays first), then the sheet comes up with its title heavier and its numbers counting up.
+  // A loss is dignified: no motion over the board, the sheet settles in softly. A draw is plain. A tap, a key or the
+  // sheet being asked for early skips the beat; under reduced motion there is none and the sheet is there at once.
+  var BEAT_MS = 800, COUNT_MS = 600, MOMENT_OUT_MS = 300, SKIP_SETTLE_MS = 250, SCATTER = 14, SCATTER_REACH = 120, GOLDEN = 2.399963, HAPTIC = { win: [14, 70, 26], lose: [30] };
+  function haptic(result) {
+    try { if (HAPTIC[result] && root.navigator && root.navigator.vibrate && !reducedMotion()) root.navigator.vibrate(HAPTIC[result]); } catch (e) { /* no haptics here */ }
+  }
+  Shell.haptic = haptic;
+  function momentNode() {
+    var kids = [h('i', { class: 'gs-m-ring' }), h('img', { class: 'gs-m-stamp', src: 'mark.svg', alt: '' })], i, a, r;
+    for (i = 0; i < SCATTER; i++) {
+      a = i * GOLDEN; r = SCATTER_REACH * (0.55 + 0.45 * ((i * 7) % 5) / 4);
+      kids.push(h('i', { class: 'gs-m-bit gs-m-bit' + (i % 3), style: '--dx:' + Math.round(Math.cos(a) * r) + 'px;--dy:' + Math.round(Math.sin(a) * r) + 'px;--s:' + (6 + (i % 4) * 2) + 'px' }));
+    }
+    return h('div', { class: 'gs-moment', 'aria-hidden': 'true' }, [h('div', { class: 'gs-m-at' }, kids)]);
+  }
+  // The figures in the chips count up from nothing; the chip says its final value to a screen reader at once.
+  function countUp(chips) {
+    chips.forEach(function (c) {
+      var b = c.querySelector('b'), to = b ? parseInt(b.textContent, 10) : NaN, text = b && b.textContent;
+      if (!b || !/^\d+$/.test(text) || to < 2) return;
+      c.setAttribute('aria-label', c.textContent);
+      var t0 = null;
+      (function step(now) {
+        if (!b.isConnected) return;
+        t0 = t0 === null ? now : t0;
+        var k = Math.min(1, (now - t0) / COUNT_MS);
+        b.textContent = k < 1 ? String(Math.round(to * (1 - Math.pow(1 - k, 3)))) : text;
+        if (k < 1) root.requestAnimationFrame(step);
+      })(root.performance ? root.performance.now() : 0);
+      b.textContent = '0';
+    });
+  }
   Shell.endSheet = function (opts) {
     // `title`: the caller's own headline, already in the player's language ("2nd of 5", "Solved"), over the result's.
     var title = opts.title ? String(opts.title) : opts.name ? T(opts.team ? 'shell.end.winsTeam' : 'shell.end.wins', { name: opts.name }) : T(END_TITLES[opts.result] || END_TITLES.over);
     var chips = (opts.stats || []).slice(0, 2).map(function (s) { return h('span', { class: 'gs-chip' }, [h('span', { text: s[0] }), h('b', { text: String(s[1]) })]); });
     var newGame = function () { dirty = false; if (opts.onNew) opts.onNew(); else if (newBtn) newBtn.click(); };
+    var after = opts.after === undefined ? (opts.result === 'win' ? BEAT_MS : SHEET_GUARD_MS) : opts.after;
+    var beat = opts.result === 'win' && after > 0 && !reducedMotion(), shown = false, opened = null, timers = [], overlay = null, release = function () {};
     var show = function () {
-      Shell.sheet({
+      if (shown) return;
+      shown = true; release();
+      var api = Shell.sheet({
         title: title, text: opts.text, guard: true, onClose: opts.onClose,
         body: (chips.length ? [h('div', { class: 'gs-chips' }, chips)] : []).concat(opts.extra || []),
         actions: [{ label: T('shell.close') }, { label: opts.newLabel || T('shell.menu.new'), primary: true, onclick: newGame }]
       });
+      opened = api && api.el;
+      var card = opened && opened.querySelector('.ar-sheet-card');
+      if (card && opts.result && !reducedMotion()) card.classList.add('gs-end-' + opts.result);
+      if (opts.result === 'win' && !reducedMotion()) countUp(chips);
     };
-    var after = opts.after === undefined ? SHEET_GUARD_MS : opts.after;
-    if (after > 0) root.setTimeout(show, after); else show();
+    if (!(after > 0)) { show(); return; }
+    haptic(opts.result);
+    if (beat) {
+      // The stamp lands in the last BEAT_MS before the sheet; a game that took longer on its own flourish has finished by then.
+      timers.push(root.setTimeout(function () { if (!shown) { overlay = momentNode(); d.body.appendChild(overlay); } }, Math.max(0, after - BEAT_MS)));
+    }
+    // A tap or key anywhere skips the beat (the sheet is up at once); a tap on the bar (Menu, Back) is the player doing something else.
+    var skip = function (e) {
+      if (shown) return;
+      var bar = e.target && e.target.closest && e.target.closest('.ar-bar');
+      release();
+      if (bar) { shown = true; return; }
+      show();
+      // The tap that skipped the beat must not also press a button of the sheet it brought up.
+      var up = opened;
+      if (up) { up.style.pointerEvents = 'none'; root.setTimeout(function () { up.style.pointerEvents = ''; }, SKIP_SETTLE_MS); }
+    };
+    release = function () {
+      timers.forEach(root.clearTimeout); timers = [];
+      // The stamp stays under the sheet's scrim and fades with it, rather than vanishing as the sheet arrives.
+      if (overlay) { var gone = overlay; gone.classList.add('gs-m-out'); root.setTimeout(function () { gone.remove(); }, MOMENT_OUT_MS); overlay = null; }
+      ['pointerdown', 'keydown'].forEach(function (ev) { d.removeEventListener(ev, skip, true); });
+    };
+    ['pointerdown', 'keydown'].forEach(function (ev) { d.addEventListener(ev, skip, true); });
+    timers.push(root.setTimeout(show, after));
   };
 
   // ── the Menu sheet ──

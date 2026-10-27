@@ -205,6 +205,12 @@ Conflicts between the brand and product reviews, and how they were settled:
 
 Never recoloured, never a watermark, never inside a board. Below 20px the Z has no gradient to lose: use favicon.svg, not the full tile.
 
+## The opponent and the end of a game
+
+The one computer opponent is Zimi: a proper name, the same in all ten languages (`ZimiText.ZIMI`, `board.zimi`, and `ZimiSeats` at a two-seat table). With two or more computers the seats keep names (`seats.cpu.N`, the compass points); a partner is never Zimi.
+
+A win lands (Shell.endSheet): the game's own flourish, then a pebble stamp, a ring and a scatter, about 800 ms, then the sheet with a heavier title and counting figures. A loss settles in softly, nothing moves over the board. A draw is plain. A tap or key skips the beat and the sheet opens at once (the skipping tap cannot press a sheet button for 250 ms); a tap on the bar cancels it. Haptic where available. Reduced motion: no beat, the sheet at once. A sheet shown with `after: 0` (a finished game coming back) has no beat.
+
 ## Words
 
 US English, to match Zimi: color, favorite, center, gray. "Draughts" survives only as that game's name. A lint test fails on the British spellings in visible text.

@@ -74,8 +74,8 @@ button { font: inherit; color: inherit; }
 /* In dark the pebble gets a 1px ring so it never vanishes into the bar: the one allowed change to it. The ground is no lighter than
    the bar, so the ring is the ink at 28 percent. */
 :root { --mark-ring: color-mix(in srgb, var(--ink) 28%, transparent); }
-:root[data-theme="dark"] .ar-back::after, :root[data-theme="dark"] body:not(:has(> .ar-bar)) .ar-sheet-card h2::before { filter: drop-shadow(1px 0 0 var(--mark-ring)) drop-shadow(-1px 0 0 var(--mark-ring)) drop-shadow(0 1px 0 var(--mark-ring)) drop-shadow(0 -1px 0 var(--mark-ring)); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ar-back::after, :root:not([data-theme="light"]) body:not(:has(> .ar-bar)) .ar-sheet-card h2::before { filter: drop-shadow(1px 0 0 var(--mark-ring)) drop-shadow(-1px 0 0 var(--mark-ring)) drop-shadow(0 1px 0 var(--mark-ring)) drop-shadow(0 -1px 0 var(--mark-ring)); } }
+:root[data-theme="dark"] .gs-m-stamp, :root[data-theme="dark"] .ar-back::after, :root[data-theme="dark"] body:not(:has(> .ar-bar)) .ar-sheet-card h2::before { filter: drop-shadow(1px 0 0 var(--mark-ring)) drop-shadow(-1px 0 0 var(--mark-ring)) drop-shadow(0 1px 0 var(--mark-ring)) drop-shadow(0 -1px 0 var(--mark-ring)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .gs-m-stamp, :root:not([data-theme="light"]) .ar-back::after, :root:not([data-theme="light"]) body:not(:has(> .ar-bar)) .ar-sheet-card h2::before { filter: drop-shadow(1px 0 0 var(--mark-ring)) drop-shadow(-1px 0 0 var(--mark-ring)) drop-shadow(0 1px 0 var(--mark-ring)) drop-shadow(0 -1px 0 var(--mark-ring)); } }
 /* Inside Zimi's reader the shell already has a way back (its arrow and the ZimiGames crumb):
    the page's own would be a second one (recent.js sets .in-zimi). */
 .in-zimi .ar-back { display: none; }
@@ -515,3 +515,26 @@ html.gs-pad :focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 .gs-tm-sheet .gs-tm-item { min-height: 48px; padding: 13px 20px; font-size: var(--fs-body); white-space: normal; }
 @keyframes gs-tm-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .gs-tm-sheet { animation: none; } }
+
+/* The end of a game. A win: a pebble stamps the middle of the game under the sheet's scrim level, a ring opens from it and a few
+   pebbles scatter (shell.js, about 800 ms); the sheet's title is heavier. A loss: the sheet settles in, nothing moves over the
+   board. Reduced motion never reaches this: shell.js adds nothing then. */
+.gs-moment { position: fixed; inset: 0; z-index: 49; pointer-events: none; overflow: hidden; }
+body:has(> .ar-bar) .gs-moment { top: var(--bar-h); }
+.gs-moment { transition: opacity 280ms ease-out; }
+.gs-m-at { position: absolute; left: 50%; top: 62%; width: 84px; height: 84px; margin: -42px 0 0 -42px; display: grid; place-items: center; }
+.gs-moment.gs-m-out { opacity: 0; }
+.gs-m-at > * { grid-area: 1 / 1; }
+.gs-m-stamp { width: 84px; height: 84px; opacity: 0; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.28)); animation: gs-stamp 520ms cubic-bezier(0.2, 0.9, 0.25, 1.15) 60ms forwards; }
+.gs-m-ring { width: 84px; height: 84px; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; animation: gs-ring 700ms ease-out 260ms forwards; }
+.gs-m-bit { width: var(--s); height: var(--s); border-radius: 50%; background: var(--accent); opacity: 0; animation: gs-bit 640ms cubic-bezier(0.1, 0.8, 0.3, 1) 280ms forwards; }
+.gs-m-bit1 { background: var(--ink2); }
+.gs-m-bit2 { background: var(--ink); }
+@keyframes gs-stamp { 0% { opacity: 0; transform: scale(1.9) rotate(-9deg); } 55% { opacity: 1; transform: scale(0.94) rotate(1deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes gs-ring { 0% { opacity: 0.9; transform: scale(0.8); } 100% { opacity: 0; transform: scale(3.2); } }
+@keyframes gs-bit { 0% { opacity: 1; transform: translate(0, 0) scale(0.6); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1); } }
+.gs-end-win h2 { font-weight: 800; animation: gs-title-pop 360ms cubic-bezier(0.2, 0.9, 0.25, 1.2); transform-origin: left center; }
+.gs-end-win .gs-chip b { color: var(--accent); }
+@keyframes gs-title-pop { 0% { transform: scale(0.88); opacity: 0.4; } 60% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(1); } }
+.gs-end-lose { animation: gs-settle 480ms ease-out; }
+@keyframes gs-settle { 0% { opacity: 0; transform: translateY(12px); } 100% { opacity: 1; transform: translateY(0); } }
