@@ -231,7 +231,7 @@ Status lines are short and never end in a period unless they are two sentences. 
 
 A toggle's label names the thing, never its state ("Sound", with aria-pressed). Binary settings are On and Off. "Confirm new game" becomes "Ask before a new game". A setting that duplicates Settings moves into Settings.
 
-Blurbs are one fragment of 60 characters or fewer, with no full stop and no player counts. Family labels are plain ("Chess and cousins" stays; riddles go). The library section is "Played on your library" (it was "Played on your Wikipedia" until it held Wiktionary, Gutenberg and map games; Eric dislikes "From your library").
+Blurbs are one fragment of 60 characters or fewer, with no full stop and no player counts. Family labels are plain ("Chess and cousins" stays; riddles go). The library section is "Library" (Eric, 2026-10-26: "Library is fine"; he dislikes "From your library").
 
 How to play has four parts: Goal, Your turn, The end, Tip. Each part is one or two sentences of 25 words or fewer, in the imperative. A game term (trick, trump, meld, komi, yaku, sow) is defined once in a shared glossary, and idioms get plain words.
 
