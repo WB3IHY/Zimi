@@ -777,7 +777,7 @@
   "wiki": "Gokigen Naname",
   "path": "puzzles/slant.html",
   "title": "Slant",
-  "blurb": "Draw diagonal lines. Each number shows how many lines touch it.",
+  "blurb": "Draw diagonal lines, each number counting those touching it",
   "why": "Known in Japan as Gokigen Naname.",
   "origin": {
    "year": null,
@@ -794,7 +794,7 @@
   "wiki": "Light Up (puzzle)",
   "path": "puzzles/lightup.html",
   "title": "Light Up",
-  "blurb": "Place lamps to light every square. No lamp may light another.",
+  "blurb": "Place lamps to light every square, none lighting another",
   "why": "Known in Japan as Akari.",
   "origin": {
    "year": null,
@@ -811,7 +811,7 @@
   "wiki": "Slitherlink",
   "path": "puzzles/loopy.html",
   "title": "Loopy",
-  "blurb": "Draw one loop. Each number counts the sides used around its cell.",
+  "blurb": "Draw one loop that uses the right sides of each number",
   "why": "Known in Japan as Slitherlink.",
   "origin": {
    "year": 1989,
@@ -828,7 +828,7 @@
   "wiki": "Hashiwokakero",
   "path": "puzzles/bridges.html",
   "title": "Bridges",
-  "blurb": "Join islands with bridges. Each number says how many.",
+  "blurb": "Join the islands with the bridges each number asks for",
   "why": "Known in Japan as Hashiwokakero.",
   "origin": {
    "year": null,
@@ -845,7 +845,7 @@
   "wiki": "Tentai Show",
   "path": "puzzles/galaxies.html",
   "title": "Galaxies",
-  "blurb": "Split the grid into regions. Each looks the same when turned upside down.",
+  "blurb": "Split the grid into regions that look the same upside down",
   "why": "Known in Japan as Tentaisho, meaning heavenly bodies.",
   "origin": {
    "year": null,
@@ -862,7 +862,7 @@
   "wiki": "Shikaku",
   "path": "puzzles/rect.html",
   "title": "Rectangles",
-  "blurb": "Draw one rectangle for each number. Its area must match the number.",
+  "blurb": "Divide the grid into rectangles of the numbered areas",
   "why": "Known in Japan as Shikaku, meaning square.",
   "origin": {
    "year": null,
@@ -879,7 +879,7 @@
   "wiki": "KenKen",
   "path": "puzzles/keen.html",
   "title": "Keen",
-  "blurb": "Fill the grid. Each cage must make its number.",
+  "blurb": "Fill the grid so each cage makes its number",
   "why": "Like KenKen, invented in 2004 by Tetsuya Miyamoto.",
   "origin": {
    "year": 2004,
@@ -896,7 +896,7 @@
   "wiki": "Futoshiki",
   "path": "puzzles/unequal.html",
   "title": "Unequal",
-  "blurb": "Fill the grid. Follow the greater-than and less-than signs.",
+  "blurb": "Fill the grid, obeying the greater-than and less-than signs",
   "why": "Known as Futoshiki, Japanese for inequality.",
   "origin": {
    "year": null,
@@ -930,7 +930,7 @@
   "wiki": "Kuromasu",
   "path": "puzzles/range.html",
   "title": "Range",
-  "blurb": "Shade squares. Each number shows how many squares it can see.",
+  "blurb": "Shade squares so each number sees the right count",
   "why": "Known in Japan as Kuromasu.",
   "origin": {
    "year": null,
@@ -947,7 +947,7 @@
   "wiki": "Hitori",
   "path": "puzzles/singles.html",
   "title": "Singles",
-  "blurb": "Shade repeated numbers. Shaded squares may not touch.",
+  "blurb": "Shade repeated numbers, with no shaded squares touching",
   "why": "Known in Japan as Hitori, meaning alone.",
   "origin": {
    "year": null,
@@ -982,7 +982,7 @@
   "path": "puzzles/blackbox.html",
   "title": "Black Box",
   "blurb": "Fire beams in to find the hidden balls",
-  "why": "Devised by Eric Solomon in 1977.",
+  "why": "Created by the games designer Eric Solomon in the 1970s.",
   "origin": {
    "year": 1976,
    "era": "1970s"
@@ -1015,7 +1015,7 @@
   "wiki": "Takuzu",
   "path": "puzzles/unruly.html",
   "title": "Unruly",
-  "blurb": "Use two colours. No three in a row. Each line is balanced.",
+  "blurb": "Fill with two colours: balanced lines, no three in a row",
   "why": "Also called Binairo or Takuzu.",
   "origin": {
    "year": null,
@@ -2017,7 +2017,7 @@
   "wiki": "Four color theorem",
   "path": "puzzles/map.html",
   "title": "Map",
-  "blurb": "Colour the map with four colours. Neighbours must differ.",
+  "blurb": "Colour the map in four colours, no neighbours alike",
   "why": "The four colour problem was posed in 1852 and settled by computer in 1976.",
   "origin": {
    "year": 1852,
@@ -2034,7 +2034,7 @@
   "wiki": "Cayley table",
   "path": "puzzles/group.html",
   "title": "Group",
-  "blurb": "Unfinished upstream. Fill a grid from a group table.",
+  "blurb": "Fill a grid so it follows a group table",
   "why": "Group tables are named for Arthur Cayley, who set them out in 1854.",
   "origin": {
    "year": 1854,
@@ -2083,8 +2083,8 @@
  {
   "path": "puzzles/cube.html",
   "title": "Cube",
-  "blurb": "Roll a cube around the grid, collecting blue squares.",
-  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "blurb": "Roll a cube over the grid to pick up blue squares",
+  "why": "Based on a Java web game by Paul Scott.",
   "origin": {
    "year": 2004,
    "era": "2000s"
@@ -2099,7 +2099,7 @@
   "path": "puzzles/dominosa.html",
   "title": "Dominosa",
   "blurb": "Tile the grid so every number pair is used once",
-  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "why": "Widely credited to O. S. Adler, whose initials gave it part of its name.",
   "origin": {
    "year": null,
    "era": null
@@ -2114,7 +2114,7 @@
   "path": "puzzles/flood.html",
   "title": "Flood",
   "blurb": "Flood the grid with one colour in few moves",
-  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "why": "Based on a web game called Flood-It.",
   "origin": {
    "year": null,
    "era": null
@@ -2128,8 +2128,8 @@
  {
   "path": "puzzles/inertia.html",
   "title": "Inertia",
-  "blurb": "Collect the gems. You slide until you hit something.",
-  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "blurb": "Slide around collecting gems, and avoid the mines",
+  "why": "Originally written for Windows by Ben Olmstead.",
   "origin": {
    "year": null,
    "era": null
@@ -2144,7 +2144,7 @@
   "path": "puzzles/magnets.html",
   "title": "Magnets",
   "blurb": "Place magnets so every line has the right poles",
-  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "why": "Credited to the puzzle site Janko, and added to the collection by James Harvey.",
   "origin": {
    "year": null,
    "era": null
@@ -2159,7 +2159,7 @@
   "path": "puzzles/mosaic.html",
   "title": "Mosaic",
   "blurb": "Each number counts the shaded squares around it",
-  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "why": "Also known as Fill-a-Pix.",
   "origin": {
    "year": null,
    "era": null
@@ -2174,7 +2174,7 @@
   "path": "puzzles/netslide.html",
   "title": "Netslide",
   "blurb": "Slide rows and columns to join up the network",
-  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "why": "Joins the networks of Net to the sliding rows of Sixteen.",
   "origin": {
    "year": null,
    "era": null
@@ -2189,7 +2189,7 @@
   "path": "puzzles/palisade.html",
   "title": "Palisade",
   "blurb": "Draw walls to make regions of the right size",
-  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "why": "Based on Five Cells, a puzzle from the Japanese publisher Nikoli.",
   "origin": {
    "year": null,
    "era": null
@@ -2203,8 +2203,8 @@
  {
   "path": "puzzles/signpost.html",
   "title": "Signpost",
-  "blurb": "Link the squares in order by following the arrows.",
-  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "blurb": "Link the squares in order by following the arrows",
+  "why": "Credited to the puzzle site Janko, which calls it Pfeilpfad, arrow path.",
   "origin": {
    "year": null,
    "era": null
@@ -2218,8 +2218,8 @@
  {
   "path": "puzzles/tents.html",
   "title": "Tents",
-  "blurb": "Pitch a tent beside every tree. No tents may touch.",
-  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "blurb": "Pitch a tent by every tree, with no tents touching",
+  "why": "A tree-and-tent pencil puzzle found on many websites.",
   "origin": {
    "year": null,
    "era": null
@@ -2233,8 +2233,8 @@
  {
   "path": "puzzles/towers.html",
   "title": "Towers",
-  "blurb": "Place towers. Clues say how many you can see.",
-  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "blurb": "Build towers; each clue counts those you can see",
+  "why": "Also known as Skyscrapers.",
   "origin": {
    "year": null,
    "era": null
@@ -2249,7 +2249,7 @@
   "path": "puzzles/tracks.html",
   "title": "Tracks",
   "blurb": "Lay a railway from one end to the other",
-  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "why": "Added to the collection by James Harvey.",
   "origin": {
    "year": null,
    "era": null
@@ -2264,7 +2264,7 @@
   "path": "puzzles/twiddle.html",
   "title": "Twiddle",
   "blurb": "Turn blocks of tiles to sort the grid",
-  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "why": "Generalises a door puzzle from the game Metroid Prime 2.",
   "origin": {
    "year": null,
    "era": null
@@ -2278,8 +2278,8 @@
  {
   "path": "puzzles/undead.html",
   "title": "Undead",
-  "blurb": "Place ghosts, vampires and zombies using what the mirrors show.",
-  "why": "One of the logic puzzles in Simon Tatham's Portable Puzzle Collection.",
+  "blurb": "Place ghosts, vampires and zombies by what mirrors show",
+  "why": "Invented by David Millar as Haunted Mirror Maze.",
   "origin": {
    "year": null,
    "era": null
