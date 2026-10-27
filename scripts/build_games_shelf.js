@@ -11,6 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const crypto = require('crypto');
 
 const dir = path.join(__dirname, '..', 'zimi', 'builtin', 'games');
 const file = path.join(dir, 'index.html');
@@ -42,7 +43,28 @@ const cid = (s) => Z.make(RANKS.indexOf(s[0]) + 1, SUITS.indexOf(s[1]));
 
 const num = (n) => String(Math.round(n * 100) / 100);
 const place = (x, y, rot, w) => 'translate(' + num(x) + ' ' + num(y) + ')' + (rot ? ' rotate(' + rot + ')' : '') + ' scale(' + num(w / CARD_W) + ')';
-const sized = (svg) => svg.replace('<svg viewBox', '<svg width="' + CARD_W + '" height="' + CARD_H + '" viewBox');
+// A card's art is drawn once, as a <symbol> in the sprite, and every tile that shows it <use>s it: the same court card
+// sits in many tiles, and inline each copy was 15-22 KB.
+const symbols = new Map();
+const BIG_ART = 2000;
+const hashId = (svg) => 'zs-art-' + crypto.createHash('md5').update(svg).digest('hex').slice(0, 10);
+// A court figure nested in a card is the same drawing on more than one card (and in more than one sort of card): it too is a symbol of its own.
+const figured = (svg) => svg.replace(/<svg ([^>]*?)x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)" ([^>]*)>((?:(?!<svg)[\s\S])*?)<\/svg>/g, (all, a, x, y, w, h, rest, body) => {
+  if (all.length < BIG_ART) return all;
+  const sym = '<svg ' + a + rest + '>' + body + '</svg>';
+  if (!symbols.has(sym)) symbols.set(sym, hashId(sym));
+  return '<use href="#' + symbols.get(sym) + '" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '"/>';
+});
+function sized(svg) {
+  svg = figured(svg);
+  let id = symbols.get(svg);
+  if (!id) {
+    id = hashId(svg);
+    symbols.set(svg, id);
+  }
+  return '<use href="#' + id + '" width="' + CARD_W + '" height="' + CARD_H + '"/>';
+}
+const symbolDefs = () => [...symbols].map(([svg, id]) => svg.replace(/^<svg /, '<symbol id="' + id + '" ').replace(/<\/svg>$/, '</symbol>')).join('');
 
 // One face-up card at (x, y), `w` wide, turned `rot` degrees about its corner.
 function face(id, x, y, w, rot) {
@@ -64,7 +86,7 @@ function hanafuda(id, x, y, w, rot) {
 // A face-down card with the Zimi back.
 function back(x, y, w, rot) {
   return '<g transform="' + place(x, y, rot, w) + '"><rect y="1.6" width="100" height="140" rx="' + CARD_R + '" fill="rgba(0,0,0,0.32)"/>' +
-    '<g clip-path="url(#' + CLIP + ')">' + sized(Z.backMarkup('zimi')).replace(' class="zc-bk"', '') + '</g></g>';
+    '<g clip-path="url(#' + CLIP + ')">' + sized(Z.backMarkup('zimi').replace(' class="zc-bk"', '')) + '</g></g>';
 }
 // The edge of a card lying under another.
 function edge(x, y, w) {
@@ -154,11 +176,6 @@ Object.assign(TILES, {
 // ── Write ──────────────────────────────────────────────────────────────────
 let html = fs.readFileSync(file, 'utf8');
 
-const spriteSvg = sprite.replace('</defs>', '<clipPath id="' + CLIP + '"><rect width="100" height="140" rx="' + CARD_R + '"/></clipPath></defs>');
-html = /<!-- zimi-shelf:sprite -->[\s\S]*?<!-- \/zimi-shelf:sprite -->/.test(html)
-  ? html.replace(/<!-- zimi-shelf:sprite -->[\s\S]*?<!-- \/zimi-shelf:sprite -->/, () => '<!-- zimi-shelf:sprite -->' + spriteSvg + '<!-- /zimi-shelf:sprite -->')
-  : html.replace('<main class="ar-shelf">', () => '<!-- zimi-shelf:sprite -->' + spriteSvg + '<!-- /zimi-shelf:sprite -->\n<main class="ar-shelf">');
-
 // The header: the ZimiGames icon (icon.svg, from scripts/icons) then the name as text in the page's own heading face (selectable, translatable).
 const brand = '<h1 class="ar-brand"><img class="ar-lockup" src="icon.svg" alt="" width="40" height="40"><span>ZimiGames</span></h1>';
 html = html.replace(/<h1 class="ar-brand">[\s\S]*?<\/h1>/, () => brand);
@@ -189,6 +206,12 @@ html = html.replace(/(<a class="ar-game" href="((?:puzzles\/)?[a-z0-9]+)\.html">
   redrawn.push(name);
   return head + TILES[name]() + text;
 });
+// The sprite goes last: it holds the symbols the tiles above asked for.
+const spriteSvg = sprite.replace('</defs>', symbolDefs() + '<clipPath id="' + CLIP + '"><rect width="100" height="140" rx="' + CARD_R + '"/></clipPath></defs>');
+html = /<!-- zimi-shelf:sprite -->[\s\S]*?<!-- \/zimi-shelf:sprite -->/.test(html)
+  ? html.replace(/<!-- zimi-shelf:sprite -->[\s\S]*?<!-- \/zimi-shelf:sprite -->/, () => '<!-- zimi-shelf:sprite -->' + spriteSvg + '<!-- /zimi-shelf:sprite -->')
+  : html.replace('<main class="ar-shelf">', () => '<!-- zimi-shelf:sprite -->' + spriteSvg + '<!-- /zimi-shelf:sprite -->\n<main class="ar-shelf">');
+
 fs.writeFileSync(file, html);
 console.log('redrawn: ' + redrawn.join(', '));
 
