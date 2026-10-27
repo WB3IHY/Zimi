@@ -97,7 +97,7 @@ def test_the_checker_catches_a_missing_extra_and_mismatched_string():
     assert games_text.translation_problems("de", have, {k: v for k, v in ok.items() if k != "a.plain"}) == ["de: missing a.plain"]
     assert games_text.translation_problems("de", have, dict(ok, **{"a.extra": "x"})) == ["de: extra a.extra"]
     assert any("slots" in p for p in games_text.translation_problems("de", have, dict(ok, **{"a.one": "Hallo {nom}"})))
-    assert any("plural" in p for p in games_text.translation_problems("de", have, dict(ok, **{"a.plain": {"one": "x", "other": "y"}})))
+    assert any("plain string" in p for p in games_text.translation_problems("de", have, dict(ok, **{"a.plain": {"one": "x", "other": "y"}})))
     assert any("does not use" in p for p in games_text.translation_problems("de", have, dict(ok, **{"a.n": {"one": "{n} Karte", "few": "x {n}", "other": "{n} Karten"}})))
     assert games_text.translation_problems("zh", have, dict(ok, **{"a.n": {"other": "{n} 张牌"}})) == []
 
