@@ -558,13 +558,24 @@
       [0, 1].forEach(function (side) { lines.push(TX('canasta.sideLine', { name: nm(side), pts: (r.sides[side].points >= 0 ? '+' : '') + r.sides[side].points, parts: r.sides[side].lines.join(', '), total: st.scores[side] })); });
       return lines;
     }
+    // The hand's score as a table, a column for each side: only the lines that scored are there.
+    function breakdownRows(st) {
+      var sd = st.result.sides, both = function (f) { return [f(sd[0]), f(sd[1])]; }, rows = [];
+      [['canasta.tbl.melds', function (x) { return x.meld; }, 1], ['canasta.tbl.canastas', function (x) { return x.canasta; }], ['canasta.tbl.bonuses', function (x) { return x.red + x.out; }],
+        ['canasta.tbl.penalties', function (x) { return -x.hand; }]].forEach(function (d) {
+        var v = both(d[1]); if (d[2] || v[0] || v[1]) rows.push({ cells: [TX(d[0])].concat(v) });
+      });
+      rows.push({ cells: [TX('cards.sum.hand')].concat(both(function (x) { return x.points; })), total: true });
+      rows.push({ cells: [TX('cards.sum.total'), st.scores[0], st.scores[1]], total: true });
+      return rows;
+    }
     // The hand's summary: who won it and by how much, how it ended, each side's hand and running score.
     function handSummary(st) {
       var r = st.result, p = [r.sides[0].points, r.sides[1].points], lead = p[0] === p[1] ? -1 : p[0] > p[1] ? 0 : 1, top = Math.max(st.scores[0], st.scores[1]);
       return {
         headline: lead < 0 ? TX('canasta.sum.tied') : TX(seats.isYou(lead) ? 'canasta.sum.wonYou' : 'canasta.sum.won', { name: nm(lead), n: Math.abs(p[0] - p[1]) }),
         detail: (r.why ? [r.why + '.'] : []).concat(resultLines(st).slice(r.why ? 1 : 0, r.why ? 2 : 1)),
-        rows: [0, 1].map(function (k) { return { name: nm(k), delta: p[k], note: r.sides[k].lines.join(', '), total: st.scores[k], lead: st.scores[k] === top }; })
+        table: { cols: ['', nm(0), nm(1)], rows: breakdownRows(st) }
       };
     }
     function handOver() {

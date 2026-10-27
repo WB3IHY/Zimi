@@ -271,6 +271,11 @@
   // A hand's summary: the headline says who won and by how much, the detail lines say how, and a small table keeps the
   // score (rows are { name, delta, total, note, lead }; delta and note may be absent). The sheet's title is the hand.
   var LRM = '\u200e';   // keeps a signed number's sign in front of its digits in a right-to-left sheet
+  // One row of a breakdown table: a label, then a figure for each side. `cells` is [label, ...figures]; a zero figure is quiet.
+  function tableRow(r) {
+    var cells = r.cells.map(function (c, i) { return Z.h('span', { class: i && !r.head && c === 0 ? 'zc-zero' : '', text: i && !r.head && typeof c === 'number' ? LRM + (c > 0 && !r.total ? '+' : '') + c : (c === null ? '' : String(c)) }); });
+    return Z.h('div', { class: 'zc-sum-row' + (r.head ? ' zc-sum-head' : '') + (r.total ? ' zc-sum-strong' : ''), role: 'row' }, cells);
+  }
   function summarySheet(o) {
     var rows = (o.rows || []).map(function (r) {
       return Z.h('div', { class: 'zc-sum-row' + (r.lead ? ' zc-lead' : '') }, [
@@ -279,7 +284,8 @@
         Z.h('span', { class: 'zc-sum-total', text: LRM + r.total })]);
     });
     var head = Z.h('div', { class: 'zc-sum-row zc-sum-head' }, [Z.h('span'), Z.h('span', { text: T('cards.sum.hand') }), Z.h('span', { text: T('cards.sum.total') })]);
-    var body = [Z.h('p', { class: 'zc-sum-head-line', text: o.headline })].concat((o.detail || []).map(function (t) { return Z.h('p', { class: 'zc-note', text: t }); }), [Z.h('div', { class: 'zc-sum', role: 'table' }, [head].concat(rows))]);
+    if (o.table) { rows = o.table.rows.map(tableRow); head = tableRow({ cells: o.table.cols, head: true }); }
+    var body = [Z.h('p', { class: 'zc-sum-head-line', text: o.headline })].concat((o.detail || []).map(function (t) { return Z.h('p', { class: 'zc-note', text: t }); }), [Z.h('div', { class: 'zc-sum' + (o.table ? ' zc-grid' : ''), role: 'table' }, [head].concat(rows))]);
     return Z.sheet({ title: o.title, body: body, actions: o.actions });
   }
   // Chips as table furniture: an amount drawn as stacks of tokens, a column for each denomination it takes

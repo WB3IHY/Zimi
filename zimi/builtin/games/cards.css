@@ -119,6 +119,11 @@ body.zc-game { display: flex; flex-direction: column; height: 100%; overflow: hi
 .zc-sum-row + .zc-sum-row { border-top: 1px solid var(--line); }
 .zc-sum-head { white-space: nowrap; padding-block: 4px; font-size: 11px; background: var(--surface); }
 .zc-sum-head span:not(:first-child), .zc-sum-delta, .zc-sum-total { text-align: end; font-variant-numeric: tabular-nums; }
+.zc-sum.zc-grid .zc-sum-row { grid-template-columns: minmax(0, 1fr) minmax(5.6em, auto) minmax(5.6em, auto); }
+.zc-sum.zc-grid .zc-sum-row span:not(:first-child) { text-align: end; font-variant-numeric: tabular-nums; }
+.zc-sum.zc-grid .zc-sum-head span:not(:first-child) { font-size: 13px; color: var(--ink); text-transform: none; overflow-wrap: anywhere; }
+.zc-zero { opacity: 0.4; }
+.zc-sum-strong { color: var(--ink); font-weight: 650; }
 .zc-sum-name { display: grid; min-width: 0; }
 .zc-sum-name b { color: var(--ink); font-weight: 600; font-size: var(--fs-body); overflow-wrap: anywhere; }
 .zc-sum-name small { font-size: var(--fs-small); color: var(--ink2); }
