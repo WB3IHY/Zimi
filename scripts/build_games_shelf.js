@@ -105,6 +105,10 @@ const TILES = {
     return tile(FELT, out);
   }
 };
+// The non-card tiles that were redrawn (scripts/games_tile_art.js): each one's art is scoped so its gradient ids stay its own on the shared page.
+const TILE_ART = require('./games_tile_art.js');
+const TILE_BASE = { whereintheworld: '#8f6538', wikirace: '#161d2b', telephone: '#bd9c68', bluff: '#8f6538', firstlines: '#8f6538', quizzical: '#161d2b', higherlower: '#161d2b', minesweeper: '#161d2b', paddles: '#121620', fleet: '#123d63', mahjong4: '#17382a', droppin: '#8f6538', lander: '#05070f', babel: '#f6d398' };
+Object.keys(TILE_ART.ART).forEach((name) => { TILES[name] = () => tile(TILE_BASE[name], TILE_ART.scoped(name, TILE_ART.ART[name]())); });
 // The world card games. Their art carries numbers only, never a word: the shelf is read in ten languages.
 const pill = (x, y, w, label) => '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="22" rx="11" fill="rgba(0,0,0,0.3)"/><text x="' + (x + w / 2) + '" y="' + (y + 16) + '" font-size="15" font-weight="700" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-family="ui-monospace,Menlo,monospace">' + label + '</text>';
 function cribBoard() {
