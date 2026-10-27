@@ -296,7 +296,7 @@
       var c = d1 ? aiOrder(st, seat) : aiName(st, seat);
       if (!c.call) { view.note = TX('euchre.passed', { name: who(seat) }); session.follow(pass(st)); drive(); return; }
       var ns = d1 ? orderUp(st, seat, c.alone) : nameTrump(st, seat, c.suit, c.alone);
-      view.note = calledNote(ns, seat) + '.'; view.flash = ''; session.follow(ns); t.flash(calledNote(ns, seat)); drive();
+      view.note = calledNote(ns, seat) + '.'; view.flash = ''; session.follow(ns); if (!(ns.phase === 'discard' && mine(ns.dealer))) t.flash(calledNote(ns, seat)); drive();   // not over the dealer's instruction to discard
     }
     function aiDiscardTurn() {
       var st = session.state;
