@@ -4237,7 +4237,7 @@
  "shelf.section.cards": "Cards",
  "shelf.section.family": "Family",
  "shelf.section.kids": "Kids",
- "shelf.section.library": "Played on your library",
+ "shelf.section.library": "Library",
  "shelf.section.puzzles": "Puzzles",
  "shelf.section.strategy": "Strategy",
  "shelf.sort.az": "A to Z",
