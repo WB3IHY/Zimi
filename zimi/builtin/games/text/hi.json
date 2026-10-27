@@ -1209,6 +1209,7 @@
  "echo.pad.2": "हरा त्रिकोण",
  "echo.pad.3": "सुनहरा समचतुर्भुज",
  "echo.pads": "चार पैड",
+ "echo.progress": "{total} में से {n}",
  "echo.showAgain": "फिर दिखाएँ",
  "echo.slip": "ठीक नहीं। फिर देखें",
  "echo.watch": "देखें",

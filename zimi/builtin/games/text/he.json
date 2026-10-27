@@ -1255,6 +1255,7 @@
  "echo.pad.2": "משולש ירוק",
  "echo.pad.3": "מעוין זהוב",
  "echo.pads": "ארבעה כפתורים",
+ "echo.progress": "{n} מתוך {total}",
  "echo.showAgain": "הצגה חוזרת",
  "echo.slip": "כמעט. צפו שוב",
  "echo.watch": "צפו",

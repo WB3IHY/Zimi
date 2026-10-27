@@ -1163,6 +1163,7 @@
  "echo.pad.2": "绿色三角形",
  "echo.pad.3": "金色菱形",
  "echo.pads": "四个按键",
+ "echo.progress": "第 {n} 个，共 {total} 个",
  "echo.showAgain": "再演示一遍",
  "echo.slip": "不太对。再看一遍",
  "echo.watch": "观看",

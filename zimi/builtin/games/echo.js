@@ -37,26 +37,16 @@
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var SETTINGS_KEY = 'zimi.games.echo.settings', BEST_KEY = 'zimi.games.echo.best';
-  var START_DELAY_MS = 700, REPLAY_DELAY_MS = 900, TAP_LIGHT_MS = 240, READY_ARM_MS = 650, MISS_MS = 520;
+  var CLEAR_FLASH_MS = 260, MISS_BUZZ_HZ = 110, MISS_BUZZ_MS = 320, HAPTIC_TAP_MS = 12, HAPTIC_MISS = [40, 50, 40], START_DELAY_MS = 700, REPLAY_DELAY_MS = 900, TAP_LIGHT_MS = 240, READY_ARM_MS = 650, MISS_MS = 520;
   Play.applyTheme();
 
   var els = { board: $('ec-board'), len: $('ec-len'), best: $('ec-best'), msg: $('ec-msg'), pause: $('ec-pause'), nu: $('ec-new') };
   var line = Play.status(els.msg);
   var settings = Play.load(SETTINGS_KEY, { strict: true }), best = Play.load(BEST_KEY, { length: 0 });
-  var g = createGame(), status = 'idle', timer = null, pads = [], ac = null, armed = null;
+  var g = createGame(), status = 'idle', timer = null, pads = [], armed = null;
 
-  // ── sound: off unless asked for in Settings, made only after a tap ──
-  function tone(pad, ms) {
-    if (!ZimiShell.sound()) return;
-    try {
-      ac = ac || new (root.AudioContext || root.webkitAudioContext)();
-      if (ac.state === 'suspended') ac.resume();
-      var o = ac.createOscillator(), gain = ac.createGain(), t = ac.currentTime, len = ms / 1000;
-      o.type = 'sine'; o.frequency.value = FREQ[pad];
-      gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.22, t + 0.02); gain.gain.exponentialRampToValueAtTime(0.0001, t + len);
-      o.connect(gain); gain.connect(ac.destination); o.start(t); o.stop(t + len + 0.05);
-    } catch (e) { /* no audio on this device: play on silently */ }
-  }
+  // Sound is off unless asked for in Settings (Play.tone makes a note only then, and only after a tap).
+  function tone(pad, ms) { Play.tone(FREQ[pad], ms); }
 
   function build() {
     els.board.textContent = '';
@@ -92,8 +82,9 @@
     var want = g.seq[g.pos];
     light(pad, TAP_LIGHT_MS);
     var r = press(g, pad);
-    if (r === 'ok') return;
+    if (r === 'ok') { Play.haptic(HAPTIC_TAP_MS); line.say(T('echo.progress', { n: g.pos, total: g.seq.length })); return; }
     if (r === 'done') {
+      Play.haptic(HAPTIC_TAP_MS); pads.forEach(function (b) { b.classList.add('on'); }); Play.later(function () { pads.forEach(function (b) { b.classList.remove('on'); }); }, CLEAR_FLASH_MS);
       if (g.done > best.length) { best.length = g.done; Play.save(BEST_KEY, best); }
       line.say(T('echo.good', { n: g.done })); status = 'wait'; enable(false);
       extend(g); hud();
@@ -102,7 +93,7 @@
     }
     // a slip: the pad you pressed rings red, the one it should have been lights, and the board jolts
     status = 'wait'; enable(false);
-    pads[pad].classList.add('miss'); ZimiShell.shake(els.board);
+    pads[pad].classList.add('miss'); ZimiShell.shake(els.board); Play.haptic(HAPTIC_MISS); Play.tone(MISS_BUZZ_HZ, MISS_BUZZ_MS);
     Play.later(function () { pads[pad].classList.remove('miss'); }, MISS_MS);
     if (pad !== want) Play.later(function () { light(want, MISS_MS); }, TAP_LIGHT_MS);
     if (settings.strict) { line.say(T('echo.miss')); Play.later(finish, MISS_MS + TAP_LIGHT_MS); return; }

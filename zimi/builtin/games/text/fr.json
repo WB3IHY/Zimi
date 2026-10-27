@@ -1255,6 +1255,7 @@
  "echo.pad.2": "Triangle vert",
  "echo.pad.3": "Losange doré",
  "echo.pads": "Quatre touches",
+ "echo.progress": "{n} sur {total}",
  "echo.showAgain": "Revoir",
  "echo.slip": "Raté. Regardez encore",
  "echo.watch": "Regardez",

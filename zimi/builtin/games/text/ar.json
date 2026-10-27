@@ -1393,6 +1393,7 @@
  "echo.pad.2": "مثلث أخضر",
  "echo.pad.3": "معيّن ذهبي",
  "echo.pads": "أربعة أزرار",
+ "echo.progress": "{n} من {total}",
  "echo.showAgain": "أعد العرض",
  "echo.slip": "ليس تمامًا. شاهد مجددًا",
  "echo.watch": "شاهد",

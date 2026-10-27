@@ -1255,6 +1255,7 @@
  "echo.pad.2": "Triângulo verde",
  "echo.pad.3": "Losango dourado",
  "echo.pads": "Quatro botões",
+ "echo.progress": "{n} de {total}",
  "echo.showAgain": "Mostrar de novo",
  "echo.slip": "Quase. Veja de novo",
  "echo.watch": "Observe",

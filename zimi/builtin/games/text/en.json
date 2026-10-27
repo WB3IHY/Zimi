@@ -1209,6 +1209,7 @@
  "echo.pad.2": "Green triangle",
  "echo.pad.3": "Gold diamond",
  "echo.pads": "Four pads",
+ "echo.progress": "{n} of {total}",
  "echo.showAgain": "Show it again",
  "echo.slip": "Not quite. Watch again",
  "echo.watch": "Watch",

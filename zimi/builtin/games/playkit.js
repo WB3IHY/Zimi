@@ -171,6 +171,24 @@
     return el;
   };
 
+  // A note, only when the player has turned Sound on (Settings), made only after a tap: one shared context, a soft sine with a short attack.
+  var audio = null, TONE_GAIN = 0.22, TONE_ATTACK_S = 0.02;
+  Play.tone = function (freq, ms, gain) {
+    if (!window.ZimiShell || !window.ZimiShell.sound || !window.ZimiShell.sound()) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+      var o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime, len = ms / 1000, peak = gain || TONE_GAIN;
+      o.type = 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + TONE_ATTACK_S); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + len + 0.05);
+    } catch (e) { /* no audio on this device: play on silently */ }
+  };
+  // A buzz for a hit (a number of ms or a pattern); phones that cannot buzz, and reduced motion, stay still.
+  Play.haptic = function (pattern) {
+    try { if (navigator.vibrate && !Play.reducedMotion()) navigator.vibrate(pattern); } catch (e) { /* no haptics here */ }
+  };
+
   // Saved games (ZimiShell.persist): a state as plain JSON (functions such as a game's random source are dropped), and a
   // fresh state with a saved one laid over it. An arcade game restores paused: the Pause/Resume button is the way on.
   Play.plain = function (obj) { return JSON.parse(JSON.stringify(obj)); };
@@ -444,6 +462,7 @@
     (o.resumeOnStage ? page.pad.stage : els.cv).addEventListener('pointerdown', function () { if (page.mode === 'paused') page.resume(); });
     Play.onHidden(page.pause);
     var game = { inProgress: function () { return inProgress.indexOf(page.mode) >= 0; } };
+    if (o.sound) game.sound = true;
     if (page.best) game.stats = function () { return o.alwaysBest || page.best.score ? [[T('play.best'), Play.num(page.best.score)]] : []; };
     window.ZimiShell.game(game);
 

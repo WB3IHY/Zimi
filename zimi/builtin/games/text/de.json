@@ -1209,6 +1209,7 @@
  "echo.pad.2": "Grünes Dreieck",
  "echo.pad.3": "Goldene Raute",
  "echo.pads": "Vier Felder",
+ "echo.progress": "{n} von {total}",
  "echo.showAgain": "Nochmal zeigen",
  "echo.slip": "Nicht ganz. Sehen Sie noch einmal hin",
  "echo.watch": "Zusehen",

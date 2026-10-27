@@ -224,16 +224,21 @@
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var BEST_KEY = 'zimi.games.pinball.best', CHROME_PX = 200, MSG_S = 1.6;
+  // What a hit feels like: a ring spreads off the bumper, the score rises from where it was made, a sling or target blinks, and (when
+  // Sound is on, or the phone can buzz) a note and a tick. Lives are in ms of wall time; reduced motion keeps only the notes and the lamps.
+  var RING_MS = 380, POP_MS = 760, POP_LIFT = BUMPER_R + 8, POP_RISE = 22, BLINK_MS = 160, HAPTIC = { bumper: 14, sling: 8, target: 10, lane: 8, multiball: [30, 40, 30], drain: [40, 40, 60] };
+  var NOTE_HZ = { bumper: [523, 587, 659], sling: [330], target: [698], lane: [784], drain: [130] }, NOTE_MS = { bumper: 90, sling: 70, target: 100, lane: 120, drain: 320 };
+  var SLING_MID = [{ x: 66, y: 472 }, { x: 266, y: 472 }], MULT_BUMP = 1.3, MULT_BUMP_MS = 260;
   Play.applyTheme();
 
   var els = { cv: $('pb-board'), score: $('pb-score'), best: $('pb-best'), balls: $('pb-balls'), mult: $('pb-mult'), msg: $('pb-msg'), pause: $('pb-pause'), newBtn: $('pb-new') };
-  var st = createState(), ctx, reduce = Play.reducedMotion(), banner = '', bannerT = 0;
+  var st = createState(), ctx, reduce = Play.reducedMotion(), banner = '', bannerT = 0, fx = [];
   var keys = { left: false, right: false }, touches = {};
 
   var page = Play.arcadePage({
-    els: els, bestKey: BEST_KEY, ready: { touch: 'pinball.readyTouch', keys: 'pinball.readyKeys' }, state: function () { return st; }, draw: draw, hud: hud,
+    sound: true, els: els, bestKey: BEST_KEY, ready: { touch: 'pinball.readyTouch', keys: 'pinball.readyKeys' }, state: function () { return st; }, draw: draw, hud: hud,
     layout: function () { ctx = Play.fitCanvas(els.cv, W, H, CHROME_PX, W * 1.15).ctx; draw(); },
-    newRun: function () { st = createState(); banner = ''; bannerT = 0; return T('pinball.launch'); },
+    newRun: function () { st = createState(); banner = ''; bannerT = 0; fx = []; return T('pinball.launch'); },
     release: function () { keys.left = keys.right = false; touches = {}; st.charging = false; st.charge = 0; },
     snapshot: function () { return Play.plain(st); },
     restore: function (saved) { st = Play.overlay(createState(), saved); st.events = []; }
@@ -252,10 +257,28 @@
     st.flippers[0].on = l; st.flippers[1].on = r;
   }
 
+  // Where on the table an event happened, for its ring and its figure.
+  function spotOf(e) {
+    if (e.name === 'bumper') return BUMPERS[e.data];
+    if (e.name === 'sling') return SLING_MID[e.data];
+    if (e.name === 'lane') return LANES[e.data];
+    if (e.name === 'target') { var w = WALLS.filter(function (q) { return q.kind === 'target' && q.idx === e.data; })[0]; return { x: (w.ax + w.bx) / 2, y: (w.ay + w.by) / 2 }; }
+    return null;
+  }
+  function felt(e) {
+    var spot = spotOf(e), pts = POINTS[e.name];
+    if (!spot) return;
+    if (!reduce) { var now = performance.now(); fx.push({ k: 'ring', x: spot.x, y: spot.y, t: now, e: e.name }); if (pts >= 100) fx.push({ k: 'pop', x: spot.x, y: spot.y, t: now, text: '+' + Play.num(pts * st.mult) }); }
+    if (HAPTIC[e.name]) Play.haptic(HAPTIC[e.name]);
+    var hz = NOTE_HZ[e.name]; if (hz) Play.tone(hz[(e.data || 0) % hz.length], NOTE_MS[e.name]);
+  }
   function handleEvents() {
     st.events.forEach(function (e) {
-      if (e.name === 'multiball') say(T('pinball.multiball'));
-      else if (e.name === 'laneset') say(T('pinball.multiplier', { n: e.data }));
+      if (e.name === 'bumper' || e.name === 'sling' || e.name === 'target' || e.name === 'lane') felt(e);
+      else if (e.name === 'launch') status.say('');
+      else if (e.name === 'multiball') { say(T('pinball.multiball')); Play.haptic(HAPTIC.multiball); if (!reduce) ZimiShell.shake(els.cv); [660, 784, 988].forEach(function (hz, i) { Play.later(function () { Play.tone(hz, NOTE_MS.lane); }, i * 90); }); }
+      else if (e.name === 'laneset') { say(T('pinball.multiplier', { n: e.data })); if (!reduce && els.mult.animate) els.mult.animate([{ scale: 1 }, { scale: MULT_BUMP }, { scale: 1 }], { duration: MULT_BUMP_MS, easing: 'ease-out' }); }
+      else if (e.name === 'drain') { Play.haptic(HAPTIC.drain); Play.tone(NOTE_HZ.drain[0], NOTE_MS.drain); }
       else if (e.name === 'saved') say(T('pinball.saved'));
       else if (e.name === 'next') say(T(st.lives === 1 ? 'pinball.lastBall' : 'pinball.nextBall'));
       else if (e.name === 'over') page.finish();
@@ -325,9 +348,30 @@
       g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#8a8a94');
       ctx.beginPath(); ctx.arc(b.x, b.y, BALL_R, 0, 7); ctx.fillStyle = g; ctx.fill();
     });
+    drawFx(c);
     ctx.font = '600 13px system-ui, sans-serif'; ctx.textAlign = 'center';
     if (st.saver > 0) { ctx.fillStyle = c.amber; ctx.fillText(T('pinball.ballSave').toUpperCase(), 166, 396); }
     if (bannerT > 0 && banner) { ctx.fillStyle = c.ink; ctx.font = '700 22px system-ui, sans-serif'; ctx.fillText(banner.toUpperCase(), 166, 410); }
+  }
+
+  // The rings and figures of recent hits, drawn over the table; each leaves when its time is up.
+  function drawFx(c) {
+    if (!fx.length) return;
+    var now = performance.now();
+    fx = fx.filter(function (f) { return now - f.t < (f.k === 'pop' ? POP_MS : RING_MS); });
+    fx.forEach(function (f) {
+      var k = (now - f.t) / (f.k === 'pop' ? POP_MS : RING_MS);
+      ctx.globalAlpha = 1 - k;
+      if (f.k === 'ring') {
+        ctx.strokeStyle = f.e === 'bumper' ? c.bump2 : c.amber; ctx.lineWidth = Math.max(1.5, 4 * (1 - k));
+        ctx.beginPath(); ctx.arc(f.x, f.y, (f.e === 'bumper' ? BUMPER_R : 12) * (1 + 0.9 * k), 0, 7); ctx.stroke();
+      } else {
+        var y = f.y - POP_LIFT - POP_RISE * k;
+        ctx.font = '700 15px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = c.felt; ctx.fillStyle = c.ink;
+        ctx.strokeText(f.text, f.x, y); ctx.fillText(f.text, f.x, y);
+      }
+    });
+    ctx.globalAlpha = 1;
   }
 
   var KEY = { ArrowLeft: 'left', z: 'left', Z: 'left', ShiftLeft: 'left', ArrowRight: 'right', '/': 'right', '.': 'right', ShiftRight: 'right', x: 'right', X: 'right' };

@@ -10,5 +10,6 @@
 .ec-pad:disabled { cursor: default; }
 .ec-pad:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .ec-pad { transition: none; } .ec-pad.on { transform: none; } }
-/* A slip: the pad you pressed rings red (a ring, so it is not colour alone: the board also jolts and the status says so). */
-.ec-pad.miss { box-shadow: 0 0 0 4px var(--bad); }
+/* A slip: the pad you pressed goes dark and grey with an ink ring, which reads on all four colours (red included) and is not colour alone:
+   the board also jolts and the status says so. The pad it should have been lights after it. */
+.ec-pad.miss { filter: grayscale(0.85) brightness(0.55); box-shadow: 0 0 0 4px var(--ink); }
