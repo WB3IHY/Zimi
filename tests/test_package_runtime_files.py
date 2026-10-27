@@ -27,7 +27,7 @@ NOT_NEEDED = ["games/shell.js", "games/index.html", "games/chess.html", "games/p
 def _package_data():
     import tomllib
 
-    return tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["setuptools"]["package-data"]["zimi"]
+    return tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["setuptools"]["package-data"]["zimi"]
 
 
 def _shipped_by_pyproject(rel):
@@ -39,7 +39,7 @@ def _shipped_by_pyproject(rel):
 def _shipped_by_dockerignore(rel):
     """Last matching line wins; a pattern naming a folder covers what is in it."""
     path, shipped = "zimi/builtin/" + rel, True
-    for line in (ROOT / ".dockerignore").read_text().splitlines():
+    for line in (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
             continue
@@ -70,7 +70,7 @@ def test_the_built_zims_ship_everywhere():
 
 
 def test_the_desktop_build_carries_the_same_files():
-    spec = (ROOT / "desktop" / "zimi_desktop.spec").read_text()
+    spec = (ROOT / "desktop" / "zimi_desktop.spec").read_text(encoding="utf-8")
     assert "(os.path.join(REPO_ROOT, 'zimi/builtin'), 'zimi/builtin')" not in spec, "the whole folder"
     for piece in ("*.zim", "games/games.json", "games/thumbs", "games/puzzles/icons"):
         assert piece in spec, piece
@@ -78,6 +78,6 @@ def test_the_desktop_build_carries_the_same_files():
 
 def test_the_server_reads_only_what_ships():
     """gamelinks.py's reads of the source folder are games.json and the tile pictures."""
-    text = (ROOT / "zimi" / "gamelinks.py").read_text()
+    text = (ROOT / "zimi" / "gamelinks.py").read_text(encoding="utf-8")
     assert set(re.findall(r'SOURCE_ROOT, "games"(?:, "([^"]+)")?', text)) == {"games.json", ""}
     assert 'thumbs/%s.svg' in text and 'puzzles/icons/%s.png' in text

@@ -80,6 +80,21 @@ def test_a_client_over_its_cap_gets_429_with_retry_after_and_others_do_not(port)
             c.close()
 
 
+def test_this_machine_reached_directly_has_no_per_client_cap_but_the_server_cap_holds(port):
+    open_ = []
+    try:
+        for _ in range(3):  # more than the per-client cap of 2, all from 127.0.0.1 with nothing in front
+            c, r = _open(port)
+            assert r.status == 200
+            open_.append(c)
+        c, r = _open(port)
+        assert r.status == 429, "the whole-server cap (3) still holds"
+        c.close()
+    finally:
+        for c in open_:
+            c.close()
+
+
 def test_the_whole_server_has_a_cap_too(port):
     open_ = []
     try:

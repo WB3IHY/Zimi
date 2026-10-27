@@ -128,7 +128,9 @@ _EVENTS_RETRY_MS = 5000
 # Each open stream holds a thread and a socket for up to _EVENTS_MAX_S, so how
 # many may be open is capped: all together, and per client (the real client
 # address, _client_ip: a few windows of one person, not a few thousand of one
-# script). A full server answers 429 with Retry-After; the page waits that long
+# script; not for this machine or the local network reached directly, which the
+# rate limiter leaves unlimited too, and whose closed tabs hold a slot until the
+# next heartbeat notices). A full server answers 429 with Retry-After; the page waits that long
 # (app.js _LIVE_RETRY_MS) rather than asking again at once.
 _EVENTS_MAX_STREAMS = 256
 _EVENTS_MAX_PER_IP = 8
@@ -137,11 +139,13 @@ _events_open = {}  # client ip -> streams open now
 _events_lock = threading.Lock()
 
 
-def _events_enter(ip):
-    """Count one more stream for ``ip``: False when the server or that client
-    already holds as many as it may."""
+def _events_enter(ip, per_client=True):
+    """Count one more stream for ``ip``: False when the server already holds as
+    many as it may, or (``per_client``) that client does."""
     with _events_lock:
-        if sum(_events_open.values()) >= _EVENTS_MAX_STREAMS or _events_open.get(ip, 0) >= _EVENTS_MAX_PER_IP:
+        if sum(_events_open.values()) >= _EVENTS_MAX_STREAMS or (
+            per_client and _events_open.get(ip, 0) >= _EVENTS_MAX_PER_IP
+        ):
             return False
         _events_open[ip] = _events_open.get(ip, 0) + 1
         return True
@@ -5914,7 +5918,7 @@ class ZimHandler(BaseHTTPRequestHandler):
             if refused:
                 return self._json(*refused)
         ip = self._client_ip()
-        if not _events_enter(ip):
+        if not _events_enter(ip, per_client=RATE_LIMIT_EXPLICIT or not self._is_direct_private_client()):
             with _metrics_lock:
                 _metrics["rate_limited"] += 1
             return self._json(
