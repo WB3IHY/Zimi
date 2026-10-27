@@ -259,6 +259,12 @@
     '<path d="m12 3.5 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 17l-5.4 3 1.2-6-4.5-4.2 6.1-.7z"/>',
     '<path d="M9.5 4h5v5.5H20v5h-5.5V20h-5v-5.5H4v-5h5.5z"/>'
   ];
+  // 1st, 2nd, 3rd: the ordinal form comes from Intl, the words from the table (circuit.ord.*).
+  Play.ordinal = function (n) {
+    var rule = 'other';
+    try { rule = new Intl.PluralRules(window.ZimiText ? window.ZimiText.lang : undefined, { type: 'ordinal' }).select(n); } catch (e) { /* the 'other' form */ }
+    return T('circuit.ord.' + (rule === 'one' || rule === 'two' || rule === 'few' ? rule : 'other'), { n: n });
+  };
   Play.SYMBOL_COUNT = SYMBOLS.length;
   Play.symbolSVG = function (i, size) {
     return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" aria-hidden="true" fill="currentColor" stroke="rgba(0,0,0,.55)" stroke-width="1.2" stroke-linejoin="round">' + SYMBOLS[i % SYMBOLS.length] + '</svg>';

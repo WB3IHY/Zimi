@@ -225,12 +225,7 @@
     s -= m * 60;
     return m + ':' + (s < 10 ? '0' : '') + s.toFixed(2);
   }
-  // 1st, 2nd, 3rd: the ordinal form comes from Intl, the words from the table.
-  function ordinal(n) {
-    var rule = 'other';
-    try { rule = new Intl.PluralRules(root.ZimiText ? root.ZimiText.lang : undefined, { type: 'ordinal' }).select(n); } catch (e) { /* English suffixes below */ }
-    return L('circuit.ord.' + (rule === 'one' || rule === 'two' || rule === 'few' ? rule : 'other'), { n: n });
-  }
+  var ordinal = Play.ordinal;
   function trackName(d) { return L('circuit.track.' + d.id + '.name'); }
   function trackNote(d) { return L('circuit.track.' + d.id + '.note'); }
   function hud() {

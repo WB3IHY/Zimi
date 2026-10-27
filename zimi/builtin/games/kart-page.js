@@ -72,7 +72,7 @@
     g.humans.forEach(function (k, p) { V.follow(g.cams[p], k, dt, false); });
     if (g.bannerT > 0) { g.bannerT -= dt; if (g.bannerT <= 0) g.banner = null; }
     var lead = g.humans[0];
-    if (lead && r.go && lead.place !== g.lastPlace[0] && r.t - g.lastSay > MSG_GAP_S) { if (g.lastPlace[0] != null) say(Tx('kart.placeSay', { place: E.ordinal(lead.place) })); g.lastPlace[0] = lead.place; g.lastSay = r.t; }
+    if (lead && r.go && lead.place !== g.lastPlace[0] && r.t - g.lastSay > MSG_GAP_S) { if (g.lastPlace[0] != null) say(Tx('kart.placeSay', { place: Play.ordinal(lead.place) })); g.lastPlace[0] = lead.place; g.lastSay = r.t; }
     if (r.over && g.mode === 'playing') finishRace();
   }
   function isMine(k) { return k && k.human >= 0; }
@@ -81,7 +81,7 @@
     if (!isMine(k)) return;
     function who(text) { return one ? text : Tx('kart.playerSays', { n: k.human + 1, text: text }); }
     if (e.type === 'lap' && k.finished == null) { var t = e.lap + 1 === g.race.laps ? Tx('kart.finalLap') : Tx('kart.lap', { n: e.lap + 1 }); if (one) toast(t); say(who(t)); }
-    else if (e.type === 'finish') { var f = Tx('kart.finished', { place: E.ordinal(k.place) }); say(who(f)); toast(f); }
+    else if (e.type === 'finish') { var f = Tx('kart.finished', { place: Play.ordinal(k.place) }); say(who(f)); toast(f); }
     else if (e.type === 'hit' && one) toast(Tx('kart.spun'));
     else if (e.type === 'blocked' && one) toast(Tx('kart.shield'));
     else if (e.type === 'fall' && one) toast(Tx('kart.missed'));
@@ -110,9 +110,9 @@
     if (prefs.mode === 'gp') g.gp.totals = E.addPoints(g.gp.totals, drvOrder);
     var last = prefs.mode === 'gp' && g.gp.race === 2, title;
     if (prefs.mode === 'gp') title = Tx('kart.raceOf', { n: g.gp.race + 1, total: 3 });
-    else title = g.humans.length === 2 ? Tx('shell.end.wins', { name: nameOf(order.filter(isMine)[0]) }) : Tx('kart.placeOf', { place: E.ordinal(me.place), n: r.karts.length });
+    else title = g.humans.length === 2 ? Tx('shell.end.wins', { name: nameOf(order.filter(isMine)[0]) }) : Tx('kart.placeOf', { place: Play.ordinal(me.place), n: r.karts.length });
     sheet(title, function (b) {
-      table(b, order.map(function (k, i) { return { me: isMine(k), cells: [E.ordinal(i + 1), nameOf(k), k.finished != null ? E.fmtTime(k.finished) : '-', prefs.mode === 'gp' ? '+' + Play.num(E.GP_POINTS[i] || 0) : ''] }; }));
+      table(b, order.map(function (k, i) { return { me: isMine(k), cells: [Play.ordinal(i + 1), nameOf(k), k.finished != null ? E.fmtTime(k.finished) : '-', prefs.mode === 'gp' ? '+' + Play.num(E.GP_POINTS[i] || 0) : ''] }; }));
       if (prefs.mode !== 'gp') g.humans.forEach(function (k) { if (k.laps.length) note(b, g.humans.length > 1 ? Tx('kart.bestLapOf', { name: nameOf(k), time: E.fmtTime(Math.min.apply(null, k.laps)) }) : Tx('kart.bestLap', { time: E.fmtTime(Math.min.apply(null, k.laps)) })); });
     }, prefs.mode === 'gp' ? [[last ? Tx('kart.cupResult') : Tx('kart.next', { track: TRACKS[E.CUPS[prefs.cup].tracks[g.gp.race + 1]].name }), function () { if (last) cupResult(); else { g.gp.race++; startRace(); } }, true, true]] :
       [[Tx('shell.close')], [Tx('shell.menu.new'), startRace, true]]);
@@ -121,17 +121,17 @@
   function standings() {
     var last = g.gp.race === 2, order = E.cupOrder(g.gp.totals), me = prefs.driver;
     sheet(Tx('kart.raceOf', { n: g.gp.race + 1, total: 3 }), function (b) {
-      table(b, order.map(function (di, i) { return { me: di === me || (prefs.players === 2 && di === prefs.driver2), cells: [E.ordinal(i + 1), DRIVERS[di].name, '', Tx('kart.points', { n: g.gp.totals[di] })] }; }));
+      table(b, order.map(function (di, i) { return { me: di === me || (prefs.players === 2 && di === prefs.driver2), cells: [Play.ordinal(i + 1), DRIVERS[di].name, '', Tx('kart.points', { n: g.gp.totals[di] })] }; }));
     }, [[last ? Tx('kart.cupResult') : Tx('kart.next', { track: TRACKS[E.CUPS[g.gp.cup].tracks[g.gp.race + 1]].name }), function () { if (last) cupResult(); else { g.gp.race++; startRace(); } }, true, true]]);
   }
   function nameOf(k) { return isMine(k) ? (g.humans.length > 1 ? Tx('kart.player', { n: k.human + 1, driver: k.driver.name }) : Tx('kart.you', { driver: k.driver.name })) : k.driver.name; }
-  function medal(rank) { return rank <= 3 ? Tx('kart.medal.' + rank) : E.ordinal(rank); }
+  function medal(rank) { return rank <= 3 ? Tx('kart.medal.' + rank) : Play.ordinal(rank); }
   function cupResult() {
     var order = E.cupOrder(g.gp.totals), me = g.humans[0] ? g.humans[0].drvIndex : prefs.driver, rank = order.indexOf(me) + 1, cup = E.CUPS[prefs.cup];
     var rec = prefs.cups[cup.id];
     if (!rec || rank < rec.rank || (rank === rec.rank && g.gp.totals[me] > rec.points)) { prefs.cups[cup.id] = { rank: rank, points: g.gp.totals[me] }; savePrefs(); }
     sheet(Tx('kart.cupTitle', { cup: cup.name, medal: medal(rank) }), function (b) {
-      table(b, order.map(function (di, i) { return { me: di === me || (g.humans[1] && di === g.humans[1].drvIndex), cells: [E.ordinal(i + 1), DRIVERS[di].name, '', Tx('kart.points', { n: g.gp.totals[di] })] }; }));
+      table(b, order.map(function (di, i) { return { me: di === me || (g.humans[1] && di === g.humans[1].drvIndex), cells: [Play.ordinal(i + 1), DRIVERS[di].name, '', Tx('kart.points', { n: g.gp.totals[di] })] }; }));
       if (rank > 3) note(b, Tx('kart.cupNote'));
     }, [[Tx('shell.close')], [Tx('shell.menu.new'), startCup, true]]);
   }

@@ -3,7 +3,7 @@
    Our own code, GPL-3.0. */
 (function (root) {
   'use strict';
-  var E = root.KartEngine, A = root.KartArt, TAU = Math.PI * 2;
+  var E = root.KartEngine, A = root.KartArt, ordinal = function (n) { return root.ArcadePlay ? root.ArcadePlay.ordinal(n) : E.ordinal(n); }, TAU = Math.PI * 2;
   var CAM_DIST = 66, CAM_H = 21, ZMAX = 700, FOCAL_W = 0.85, FOCAL_H = 1.1, HORIZON = 0.38, PIX = 1.5, MAX_IW = 300, MIN_IW = 120, SPRITE_FAR = 560, SPRITE_NEAR = 18;
   var BACK_VIEW = 0.95, SIDE_VIEW = 2.2, FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   var CHARGE_COLORS = ['#7fd8ff', '#ffb02e', '#ff6fd0'];
@@ -173,8 +173,8 @@
     // place (not when racing alone)
     if (race.karts.length > 1) {
       var place = k.place || 1, big = 30 * u;
-      label(c, E.ordinal(place), x + sz + 8 * u, y + sz * 0.72, big, 'left');
-      c.font = '800 ' + big + 'px ' + FONT; var wTxt = c.measureText(E.ordinal(place)).width;
+      label(c, ordinal(place), x + sz + 8 * u, y + sz * 0.72, big, 'left');
+      c.font = '800 ' + big + 'px ' + FONT; var wTxt = c.measureText(ordinal(place)).width;
       label(c, '/' + race.karts.length, x + sz + 8 * u + wTxt + 2, y + sz * 0.72, 13 * u, 'left', '#d6dcea');
     }
     // lap and clock
@@ -195,7 +195,7 @@
     var cy = rect.y + rect.h * 0.3, msg = o.banner;
     if (race.count > 0) { var n = Math.ceil(race.count - 0.2); if (n >= 1) label(c, String(Math.min(3, n)), rect.x + rect.w / 2, cy + 20 * u, 78 * u, 'center', '#ffd27a'); else label(c, 'GO!', rect.x + rect.w / 2, cy + 20 * u, 70 * u, 'center', '#7dff9a'); }
     else if (race.t - E.COUNT_S < 0.9 && !race.trial) label(c, 'GO!', rect.x + rect.w / 2, cy + 20 * u, 70 * u, 'center', '#7dff9a');
-    else if (k.finished != null) label(c, 'Finished ' + E.ordinal(k.place), rect.x + rect.w / 2, cy + 10 * u, 34 * u, 'center', '#ffd27a');
+    else if (k.finished != null) label(c, (root.ZimiText ? root.ZimiText.T('kart.finished', { place: ordinal(k.place) }) : 'Finished ' + E.ordinal(k.place)), rect.x + rect.w / 2, cy + 10 * u, 34 * u, 'center', '#ffd27a');
     else if (k.wrong > 1.2) label(c, 'Wrong way', rect.x + rect.w / 2, cy + 10 * u, 30 * u, 'center', '#ff7a6a');
     else if (msg) label(c, msg, rect.x + rect.w / 2, cy + 10 * u, 28 * u, 'center', '#ffd27a');
     if (k.magnet > 0 || k.shield > 0) label(c, (k.shield > 0 ? 'Shield ' : 'Magnet ') + Math.ceil(Math.max(k.shield, k.magnet)), x, y + sz + 18 * u, 12 * u, 'left', '#9ff0e0');
