@@ -20,6 +20,7 @@ import os
 import random
 import re
 import threading
+import time
 
 import zimi.server as _srv
 from zimi import ownzims
@@ -42,6 +43,10 @@ _rows = None  # games.json, read once
 _memo = {"token": None, "articles": {}}
 _building = threading.Lock()
 _dirty = threading.Event()
+#: After a build fails, the next try waits this long (seconds), however often
+#: the answer is asked for: a broken index must not cost every request a rebuild.
+_RETRY_AFTER_FAILURE_S = 300
+_failed_at = None  # time.monotonic() of the last failed build, or None
 
 
 def _here(name):
@@ -145,6 +150,7 @@ def _refresh():
     """Work the answer out now (callers are background threads, or the first
     request after a library change). A call during a pass asks it to go round
     again, so no change is lost."""
+    global _failed_at
     _dirty.set()
     if not _building.acquire(blocking=False):
         return
@@ -156,9 +162,11 @@ def _refresh():
                 articles = build()
             except Exception as e:
                 log.warning("games links not built: %s", e)
+                _failed_at = time.monotonic()
                 break
             with _lock:
                 _memo["token"], _memo["articles"] = token, articles
+            _failed_at = None
     finally:
         _building.release()
 
@@ -176,7 +184,9 @@ def refresh_async():
 
 
 def links():
-    """The data GET /games-links serves: {games: {qid: {zim, path, title}},
+    """The last good answer, never a build (the build is the background's: it
+    reads SQLite for every wiki ZIM and probes titles under the libzim lock).
+    The data GET /games-links serves: {games: {qid: {zim, path, title}},
     almanac: {qid: entity key}, articles: {qid: [{zim, lang, path}]}}, for
     what this request may see. An app's entries are there only while its ZIM
     is in the library."""
@@ -185,10 +195,8 @@ def links():
     with _lock:
         fresh = _memo["token"] is _srv._listing_seen
         articles = _memo["articles"]
-    if not fresh:
-        _refresh()
-        with _lock:
-            articles = _memo["articles"]
+    if not fresh and (_failed_at is None or time.monotonic() - _failed_at > _RETRY_AFTER_FAILURE_S):
+        refresh_async()  # never built on this thread: the last good answer is served meanwhile
     games = {
         r["qid"]: {"zim": _GAMES_ZIM, "path": r["path"], "title": r["title"]}
         for r in wiki_rows()

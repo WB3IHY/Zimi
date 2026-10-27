@@ -15,6 +15,8 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
+import time
 import unittest
 from unittest import mock
 
@@ -114,6 +116,7 @@ class GamesLinksTests(_QidFixtureMixin, unittest.TestCase):
         ), "no index and not English: no article rather than a guess"
 
     def test_links_shape_and_visibility(self):
+        gamelinks._refresh()  # the background's work, done here so the answer is there
         with mock.patch.object(
             _srv, "zim_allowed", lambda name: name != "wikipedia_fr_test"
         ):
@@ -125,6 +128,59 @@ class GamesLinksTests(_QidFixtureMixin, unittest.TestCase):
         }
         assert [a["zim"] for a in data["articles"]["Q718"]] == ["wikipedia_en_test"]
         assert all(set(g) == {"zim", "path", "title"} for g in data["games"].values())
+
+    def _settle(self):
+        for _ in range(200):
+            if not gamelinks._building.locked():
+                return
+            time.sleep(0.02)
+        raise AssertionError("the background build did not finish")
+
+    def test_a_request_never_builds_it_serves_the_last_good_answer(self):
+        old = {"Q718": [{"zim": "wikipedia_en_test", "lang": "en", "path": "A/Old"}]}
+        gamelinks._memo.update(token=frozenset({"older"}), articles=old)
+        started, release, threads = threading.Event(), threading.Event(), []
+
+        def slow_build():
+            threads.append(threading.current_thread())
+            started.set()
+            release.wait(5)
+            return {}
+
+        with mock.patch.object(gamelinks, "build", slow_build):
+            t0 = time.monotonic()
+            data = gamelinks.links()
+            assert time.monotonic() - t0 < 1, "the request did not wait for the build"
+            assert [a["path"] for a in data["articles"]["Q718"]] == ["A/Old"]
+            assert started.wait(5) and threads[0] is not threading.current_thread()
+            release.set()
+            self._settle()
+        assert gamelinks.links()["articles"] == {}, "the new answer once it is built"
+
+    def test_a_failing_build_is_not_rerun_by_every_request(self):
+        gamelinks._memo.update(token=frozenset({"older"}), articles={})
+        calls = []
+
+        def broken():
+            calls.append(1)
+            raise RuntimeError("corrupt index")
+
+        saved = gamelinks._failed_at
+        try:
+            with mock.patch.object(gamelinks, "build", broken):
+                gamelinks.links()
+                self._settle()
+                for _ in range(20):
+                    gamelinks.links()
+                time.sleep(0.2)
+                self._settle()
+                assert len(calls) == 1, "backed off after the failure"
+                gamelinks._failed_at = time.monotonic() - gamelinks._RETRY_AFTER_FAILURE_S - 1
+                gamelinks.links()
+                self._settle()
+                assert len(calls) == 2, "tried again once the back-off has passed"
+        finally:
+            gamelinks._failed_at = saved
 
     def test_no_games_zim_means_no_links(self):
         _srv._zim_list_cache = _srv._zim_list_cache[:-1]
