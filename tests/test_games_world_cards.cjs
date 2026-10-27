@@ -516,7 +516,7 @@ const order = seed => Z.shuffled(lcg(seed));
   // Italian ids: suit * 10 + value - 1; suits coins 0, cups 1, swords 2, clubs 3.
   const it = (v, suit) => suit * 10 + v - 1;
   const opts = (table, card) => S.captureOptions(table, card).map(o => o.slice().sort((a, b) => a - b));
-  check(S.value(it(10, 3)) === 10 && S.suitOf(it(7, 0)) === 0 && it(7, 0) === 6 && S.nameOf(it(8, 1)) === 'Fante of cups' && S.nameOf(it(9, 2)) === 'Cavallo of swords' && S.nameOf(it(10, 0)) === 'Re of coins', 'the deck: coins, cups, swords, clubs; 8 is Fante, 9 Cavallo, 10 Re');
+  check(S.value(it(10, 3)) === 10 && S.suitOf(it(7, 0)) === 0 && it(7, 0) === 6 && S.nameOf(it(8, 1)) === 'Jack of cups' && S.nameOf(it(9, 2)) === 'Knight of swords' && S.nameOf(it(10, 0)) === 'King of coins', 'the deck: coins, cups, swords, clubs; 8 is the Jack, 9 the Knight, 10 the King');
   check(same(opts([it(3, 1), it(4, 2)], it(3, 0)), [[it(3, 1)]]), 'a table card of equal value is taken, and only it');
   check(same(opts([it(3, 1), it(4, 2), it(7, 3)], it(7, 0)), [[it(7, 3)]]), 'equal value is forced even when a sum would also work (3 + 4 = 7)');
   const sums = opts([it(3, 1), it(4, 2), it(2, 3), it(5, 0)], it(7, 3)).map(o => o.map(c => S.value(c)).sort().join('+')).sort();

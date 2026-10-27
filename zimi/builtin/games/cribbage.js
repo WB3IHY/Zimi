@@ -18,6 +18,8 @@
 (function (root) {
   'use strict';
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
+  // Two sentences, joined the way the language joins them.
+  var then = function (first, next) { return first ? TX('cards.then', { first: first, then: next }) : next; };
 
   var NAMES = [TX('cards.you'), TX('cards.seat.north')], GOAL = 121, KEPT = 4, DEAL = 6, TARGET = 31, FIFTEEN = 15, HEELS_RANK = 11, SKUNK = 91;
   var cardVal = function (id) { return Math.min(10, Z.rank(id)); };
@@ -106,7 +108,7 @@
     var s = Z.clone(st);
     s.cut = true; s.kept = [s.hands[0].slice(), s.hands[1].slice()]; s.pegHands = [s.hands[0].slice(), s.hands[1].slice()];
     s.phase = 'peg'; s.turn = other(s.dealer); s.msg = TX('crib.starter', { card: T.short(s.starter) });
-    if (Z.rank(s.starter) === HEELS_RANK) { s.msg += '. ' + TX(s.dealer === YOU ? 'crib.heels.you' : 'crib.heels', { name: NAMES[s.dealer] }); award(s, s.dealer, 2); }
+    if (Z.rank(s.starter) === HEELS_RANK) { s.msg = then(s.msg, TX(s.dealer === YOU ? 'crib.heels.you' : 'crib.heels', { name: NAMES[s.dealer] })); award(s, s.dealer, 2); }
     return s;
   }
 
@@ -125,15 +127,17 @@
     s.seq.push({ seat: seat, id: id });
     var r = pegScore(s.seq.map(function (x) { return x.id; }));
     s.count = r.count; s.lastPlayer = seat; s.moves++;
-    var msg = said(seat, 'crib.plays', { card: T.short(id), count: s.count });
-    if (r.pts) { msg += ': ' + TX('crib.scoring', { parts: r.parts.join(' ' + TX('crib.and') + ' '), pts: r.pts }); award(s, seat, r.pts); }
+    // The count is said once: "plays 7♠, fifteen for 2", not "plays 7♠, 15: fifteen for 2".
+    var saysCount = r.pts && (s.count === FIFTEEN || s.count === TARGET);
+    var msg = saysCount ? said(seat, 'crib.playsBare', { card: T.short(id) }) : said(seat, 'crib.plays', { card: T.short(id), count: s.count });
+    if (r.pts) { msg += (saysCount ? ', ' : ': ') + TX('crib.scoring', { parts: r.parts.join(' ' + TX('crib.and') + ' '), pts: r.pts }); award(s, seat, r.pts); }
     if (s.count === TARGET) { s.roundOver = '31'; }
     else if (canPlay(s, o)) s.turn = o;
-    else if (canPlay(s, seat)) { s.turn = seat; s.goes[o] = true; msg += '. ' + said(o, 'crib.says'); }
+    else if (canPlay(s, seat)) { s.turn = seat; s.goes[o] = true; msg = then(msg, said(o, 'crib.says')); }
     else {
       s.roundOver = 'go';
       var last = !s.pegHands[0].length && !s.pegHands[1].length;
-      msg += '. ' + said(o, 'crib.says') + ', ' + (last ? TX('crib.lastCard') : said(seat, 'crib.takesGo')) + ' ' + TX('crib.for1');
+      msg = then(then(msg, said(o, 'crib.says')), said(seat, last ? 'crib.takesLast' : 'crib.takesGo'));
       award(s, seat, 1);
     }
     s.msg = msg;
@@ -201,8 +205,10 @@
     if (n <= 60) return [holeX(n - 1), ROWS[0][lane]];
     return [holeX(120 - n), ROWS[1][lane]];
   }
+  // A name a person typed goes into an attribute: no quote or angle bracket of theirs may end it.
+  function attrText(s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
   function boardSvg(scores, prev) {
-    var out = '<svg viewBox="0 0 ' + BW + ' ' + BH + '" class="cb-svg" role="img" aria-label="Peg board: you ' + scores[0] + ', North ' + scores[1] + '">';
+    var out = '<svg viewBox="0 0 ' + BW + ' ' + BH + '" class="cb-svg" role="img" aria-label="' + attrText(TX('crib.pegAria', { a: NAMES[0], pa: scores[0], b: NAMES[1], pb: scores[1] })) + '">';
     out += '<rect class="cb-wood" x="0.5" y="0.5" width="' + (BW - 1) + '" height="' + (BH - 1) + '" rx="9"/>';
     [0, 1].forEach(function (lane) {
       var i, hole = '';
@@ -284,7 +290,7 @@
   root.ZimiCribbage = api;
 
   // ── The page ────────────────────────────────────────────────────────────
-  var AI_MS = 850, HOLD_MS = 1300, CUT_MS = 800, OVER_MS = 1500;
+  var AI_MS = 850, HOLD_MS = 1300, CUT_MS = 800, OVER_MS = 1500, PEG_STEP_MS = 140, PEG_WALK_MAX_MS = 900;
   function boot() {
     var d = root.document, t, board, session, view = { chosen: [], flash: '', viewer: 0, hideHand: false, chooser: 0 };
     // Each seat is the Computer or a Person; two people share the screen behind a handoff.
@@ -300,14 +306,42 @@
     var boardEl = Z.h('div', { class: 'cb-board' }), tagCrib = Z.h('div', { class: 'cb-tag' }), tagStarter = Z.h('div', { class: 'cb-tag', text: TX('crib.starterTag') });
     var tableEl = Z.pageEls().table;
     tableEl.appendChild(boardEl); tableEl.appendChild(tagCrib); tableEl.appendChild(tagStarter);
-    var lastBoard = '';
+    var lastBoard = '', shown = null, walkTimer = 0;
+    var anim = function () { return !(root.ZimiShell && root.ZimiShell.anim() === 'off') && !(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches); };
 
+    // A peg moves hole by hole to its new score, slowly enough to count along; the back peg hops to where the front one was.
+    function walkPegs(from, st) {
+      var pegs = boardEl.querySelectorAll('.cb-peg'), todo = [];
+      [0, 1].forEach(function (lane) {
+        if (st.scores[lane] <= from[lane]) return;
+        var back = pegs[lane * 2], front = pegs[lane * 2 + 1], at = holePos(from[lane], lane);
+        back.setAttribute('cx', at[0].toFixed(1)); back.setAttribute('cy', at[1]);
+        front.setAttribute('cx', at[0].toFixed(1)); front.setAttribute('cy', at[1]);
+        todo.push({ lane: lane, front: front, n: from[lane], to: st.scores[lane] });
+      });
+      if (!todo.length) return;
+      var step = Math.min(PEG_STEP_MS, Math.floor(PEG_WALK_MAX_MS / Math.max.apply(null, todo.map(function (w) { return w.to - w.n; }))));
+      walkTimer = root.setInterval(function () {
+        var busy = false;
+        todo.forEach(function (w) {
+          if (w.n >= w.to) return;
+          w.n++; busy = true;
+          var p = holePos(w.n, w.lane);
+          w.front.setAttribute('cx', p[0].toFixed(1)); w.front.setAttribute('cy', p[1]);
+        });
+        if (!busy) { root.clearInterval(walkTimer); walkTimer = 0; }
+      }, step);
+    }
     function drawBoard(st, g) {
       var key = JSON.stringify([st.scores, st.prev, g.boardW, g.boardTop]);
       if (key === lastBoard) return;
+      var sameSpot = boardEl.firstChild && boardEl.style.width === g.boardW + 'px' && boardEl.style.top === g.boardTop + 'px';
       lastBoard = key;
+      root.clearInterval(walkTimer); walkTimer = 0;
       boardEl.innerHTML = boardSvg(st.scores, st.prev);
       boardEl.style.top = g.boardTop + 'px'; boardEl.style.left = g.boardLeft + 'px'; boardEl.style.width = g.boardW + 'px';
+      if (sameSpot && shown && anim()) walkPegs(shown, st);
+      shown = st.scores.slice();
     }
     function tags(st, g) {
       var showing = st.phase === 'show' || st.showStep >= 0;
@@ -325,6 +359,7 @@
     }
     var showTitle = function (st) {
       var w = poss(st.showWho);
+      if (seats.isYou(st.showWho)) return TX(st.showStep === 2 ? 'crib.tag.you' : 'crib.hand.you');
       return TX(st.showStep === 2 ? 'crib.cribOf' : 'crib.handOf', { whose: w });
     };
     function hud(st) {
@@ -342,7 +377,7 @@
       } else if (st.phase === 'cut') out.text = TX('crib.cutting');
       else if (st.phase === 'peg') {
         if (st.roundOver) out.text = st.msg;
-        else out.text = (st.msg ? st.msg + '. ' : '') + (!seats.person(st.turn) ? TX('cards.thinking', { name: who(st.turn) }) : seats.isYou(st.turn) ? TX('scopa.yourPlay') : TX('scopa.namePlay', { name: who(st.turn) }));
+        else out.text = then(st.msg, !seats.person(st.turn) ? TX('cards.thinking', { name: who(st.turn) }) : seats.isYou(st.turn) ? TX('scopa.yourPlay') : TX('scopa.namePlay', { name: who(st.turn) }));
       } else if (st.showStep >= 0) {
         out.lines = itemLines(st.showRes, TX('crib.showTitle', { title: showTitle(st), card: T.short(st.starter) }));
         out.text = st.phase === 'over' ? TX('shell.end.over') : '';

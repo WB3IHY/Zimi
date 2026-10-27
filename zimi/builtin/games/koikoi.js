@@ -21,6 +21,8 @@
 (function (root) {
   'use strict';
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = root.ZimiCards.T;
+  // Two sentences, joined the way the language joins them.
+  var then = function (first, next) { return first ? TX('cards.then', { first: first, then: next }) : next; };
 
   var NAMES = [TX('cards.you'), TX('cards.seat.north')], DECK = 48, HAND = 8, TABLE_START = 8, DOUBLE_AT = 7;
   var card = function (id) { return Z.hanafudaCard(id); };
@@ -253,7 +255,7 @@
       return TX('koikoi.told.' + verb + (took.length ? '.take' : '.table') + (you ? '.you' : ''), vars);
     };
     var out = part('play', l.played, l.took || []);
-    if (l.drawn !== null && l.drawn !== undefined) out += '. ' + part('draw', l.drawn, l.drawTook || []);
+    if (l.drawn !== null && l.drawn !== undefined) out = then(out, part('draw', l.drawn, l.drawTook || []));
     return out;
   }
   function resultLines(st) {
@@ -343,8 +345,8 @@
         else if (seats.person(st.turn)) {
           if (st.step === 'draw' && view.pick) out.text = TX('koikoi.drew', { name: seats.isYou(st.turn) ? TX('cards.you') : who(st.turn), card: nameOf(peek(st)).split(',')[0] });
           else if (view.sel !== null) out.text = TX('koikoi.tapTable');
-          else out.text = (told ? told + '. ' : '') + (seats.isYou(st.turn) ? TX('scopa.yourPlay') : TX('scopa.namePlay', { name: who(st.turn) }));
-        } else out.text = (told ? told + '. ' : '') + TX('cards.thinking', { name: who(st.turn) });
+          else out.text = then(told, seats.isYou(st.turn) ? TX('scopa.yourPlay') : TX('scopa.namePlay', { name: who(st.turn) }));
+        } else out.text = then(told, TX('cards.thinking', { name: who(st.turn) }));
       } else if (st.phase === 'monthEnd') { out.text = TX('koikoi.monthOver'); out.label = TX('koikoi.nextMonth'); out.action = startNextMonth; }
       else if (st.phase === 'over') out.text = TX('shell.end.over');
       return out;

@@ -105,24 +105,29 @@
   if (typeof document === 'undefined') return;
 
   // ── the page ─────────────────────────────────────────────────────────────
-  var Play = root.ArcadePlay, $ = Play.$;
+  var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var SETTINGS_KEY = 'zimi.games.yacht.settings', BEST_KEY = 'zimi.games.yacht.best';
-  var CPU_DELAY_MS = 650;
+  var CPU_DELAY_MS = 650, CPU_HOLD_MS = 450, TUMBLE_MS = 320;
   Play.applyTheme();
 
   var els = { dice: $('yc-dice'), roll: $('yc-roll'), rolls: $('yc-rolls'), msg: $('yc-msg'), card: $('yc-card'), sheet: $('yc-sheet'), title: $('yc-sheet-title'), text: $('yc-sheet-text'), go: $('yc-go'), opp: $('yc-opp'), nu: $('yc-new') };
   var settings = Play.load(SETTINGS_KEY, { computers: 0 }), best = Play.load(BEST_KEY, {});
   var g, seats, timer = null, dieEls = [];
+  // What the last row scored, for the score card to pulse and (when a computer scored it) for the status line to say.
+  var fresh = null, note = '';
+  function none() { return [false, false, false, false, false]; }
+  function rowLabel(id) { return T(id === 'yacht' ? 'game.yacht.title' : 'yacht.row.' + id); }
   // Each seat is the Computer or a Person; people take turns at the same screen (nothing is hidden in Yacht).
   function seatPlayers(n) {
     seats = root.ZimiSeats.create({ id: 'yacht', seats: n });
     var cpu = 0;
-    g.players.forEach(function (p, i) { p.ai = !seats.person(i); p.name = p.ai ? 'CPU ' + (++cpu) : seats.name(i); });
-    if (n === 1) g.players[0].name = 'You';
+    g.players.forEach(function (p, i) { p.ai = !seats.person(i); p.name = p.ai ? root.ZimiSeats.cpuName(cpu++) : seats.name(i); });
+    if (n === 1) g.players[0].name = T('board.you');
   }
   function newTable() {
     g = createGame(settings.computers, Play.randomSeed());
     seatPlayers(settings.computers + 1);
+    fresh = null; note = '';
   }
   newTable();
 
@@ -145,13 +150,31 @@
       Play.pips(b, g.dice[i]);
       b.setAttribute('aria-pressed', String(g.held[i]));
       b.disabled = !mine() || !rolled || g.rollsLeft === 0;
-      b.setAttribute('aria-label', rolled ? 'Die ' + (i + 1) + ': ' + g.dice[i] + (g.held[i] ? ', kept' : '') : 'Die ' + (i + 1) + ', not rolled');
+      b.setAttribute('aria-label', rolled ? T(g.held[i] ? 'yacht.dieKept' : 'yacht.die', { n: i + 1, value: g.dice[i] }) : T('yacht.dieBlank', { n: i + 1 }));
     });
   }
 
+  // The dice that were just thrown tumble for a moment; the held ones stay put. (Not under reduced motion.)
+  function tumble(thrown) {
+    if (Play.reducedMotion()) return;
+    dieEls.forEach(function (b, i) {
+      if (!thrown[i]) return;
+      b.classList.remove('yc-tumble'); void b.offsetWidth; b.classList.add('yc-tumble');
+      setTimeout(function () { b.classList.remove('yc-tumble'); }, TUMBLE_MS);
+    });
+  }
+  // Roll the dice that are not held, and show them tumbling.
+  function throwDice() {
+    var thrown = g.held.map(function (h) { return !h || g.rollsLeft === ROLLS; });
+    if (!roll(g)) return false;
+    paint(); tumble(thrown);
+    return true;
+  }
+
   function paintCard() {
-    var t = els.card, i, p, rolled = g.rollsLeft < ROLLS, human = mine();
+    var t = els.card, p, rolled = g.rollsLeft < ROLLS, human = mine();
     var cap = t.querySelector('caption');
+    cap.textContent = T('yacht.card.aria');
     t.textContent = ''; t.appendChild(cap);
     var head = t.createTHead().insertRow(); head.appendChild(document.createElement('th'));
     g.players.forEach(function (pl, n) { var th = document.createElement('th'); th.scope = 'col'; th.textContent = pl.name; if (n === g.turn && !g.over) th.className = 'yc-turn'; head.appendChild(th); });
@@ -162,36 +185,53 @@
       g.players.forEach(function (pl, n) { var td = tr.insertCell(); cell(td, pl, n); });
     }
     CATS.forEach(function (k, idx) {
-      row(k.label, '', function (td, pl, n) {
+      var label = rowLabel(k.id);
+      row(label, '', function (td, pl, n) {
         var v = pl.card[k.id];
-        if (v !== undefined) { td.textContent = v; return; }
+        if (v !== undefined) { td.textContent = Play.num(v); if (fresh && fresh.player === n && fresh.cat === k.id) td.className = 'yc-fresh'; return; }
         if (n === g.turn && human && rolled) {
           var b = document.createElement('button'); b.type = 'button'; b.className = 'yc-can';
-          b.textContent = score(k.id, g.dice);
-          b.setAttribute('aria-label', k.label + ': score ' + b.textContent);
+          b.textContent = Play.num(score(k.id, g.dice));
+          b.setAttribute('aria-label', T('yacht.rowAria', { row: label, n: score(k.id, g.dice) }));
           b.addEventListener('click', function () { pick(k.id); });
           td.className = 'yc-open'; td.appendChild(b);
         } else td.textContent = '';
       });
       if (idx === 5) {
-        row('Top six (63 earns 35)', 'yc-sum', function (td, pl) { td.textContent = upper(pl.card) + (bonus(pl.card) ? ' +' + BONUS : ''); });
+        row(T('yacht.top', { at: BONUS_AT, bonus: BONUS }), 'yc-sum', function (td, pl) { td.textContent = Play.num(upper(pl.card)) + (bonus(pl.card) ? ' +' + Play.num(BONUS) : ''); });
       }
     });
-    row('Total', 'yc-total', function (td, pl) { td.textContent = total(pl.card); });
+    row(T('yacht.total'), 'yc-total', function (td, pl) { td.textContent = Play.num(total(pl.card)); });
+  }
+
+  function statusLine() {
+    var p = g.players[g.turn];
+    if (!mine()) return T('yacht.msg.playing', { name: p.name });
+    if (g.rollsLeft === 0) return T('yacht.msg.pick');
+    if (g.rollsLeft < ROLLS) return T('yacht.msg.keep');
+    if (note) return note;
+    if (g.players.length === 1) return T('yacht.msg.roll');
+    return seats.isYou(g.turn) ? T('yacht.msg.rollYou') : T('yacht.msg.rollName', { name: p.name });
   }
 
   function paint() {
     paintDice(); paintCard();
-    els.rolls.textContent = g.over ? '' : (g.rollsLeft === ROLLS ? 'Rolls left: 3' : 'Rolls left: ' + g.rollsLeft);
+    els.rolls.textContent = g.over ? '' : T('yacht.rollsLeft', { n: g.rollsLeft });
     els.roll.disabled = !mine() || g.rollsLeft === 0;
-    els.roll.textContent = g.rollsLeft === ROLLS ? 'Roll' : 'Roll again';
-    var p = g.players[g.turn];
-    if (g.over) return;
-    els.msg.textContent = mine() ? (g.rollsLeft === 0 ? 'Choose a row to score.' : g.rollsLeft === ROLLS ? (g.players.length > 1 ? (seats.isYou(g.turn) ? 'Your turn' : p.name + ', your turn') + '. Roll the dice.' : 'Roll the dice.') : 'Tap dice to keep them, or score a row.') : p.name + ' is playing.';
+    els.roll.textContent = T(g.rollsLeft === ROLLS ? 'backgammon.roll' : 'yacht.rollAgain');
+    if (!g.over) els.msg.textContent = statusLine();
   }
 
+  // Score a row for whoever's turn it is and say what it made.
+  function scoreRow(cat) {
+    var who = g.turn, p = g.players[who];
+    if (!choose(g, cat)) return false;
+    fresh = { player: who, cat: cat };
+    note = p.ai ? T('yacht.msg.scored', { name: p.name, n: p.card[cat], row: rowLabel(cat) }) : '';
+    return true;
+  }
   function pick(cat) {
-    if (!mine() || !choose(g, cat)) return;
+    if (!mine() || !scoreRow(cat)) return;
     afterTurn();
   }
   function afterTurn() {
@@ -200,45 +240,51 @@
     if (g.players[g.turn].ai) cpuTurn();
   }
 
+  // The computer rolls, shows the dice it keeps, rolls the rest, and scores: one visible step each, 650 ms apart.
   function cpuTurn() {
     var step = function () {
       if (g.over || !g.players[g.turn].ai) return;
       var open = openCats(g.players[g.turn].card);
-      if (g.rollsLeft === ROLLS) roll(g);
-      else if (g.rollsLeft > 0) {
+      if (g.rollsLeft === ROLLS) { throwDice(); timer = Play.later(step, CPU_DELAY_MS); return; }
+      if (g.rollsLeft > 0) {
         var hold = bestHold(g.dice, open);
-        if (hold.every(Boolean)) { choose(g, bestRow(g.dice, open)); return afterTurn(); }
-        g.held = hold; roll(g); g.held = [false, false, false, false, false];
-        paint(); timer = Play.later(function () { g.held = [false, false, false, false, false]; step(); }, CPU_DELAY_MS); return;
-      } else { choose(g, bestRow(g.dice, open)); return afterTurn(); }
-      paint(); timer = Play.later(step, CPU_DELAY_MS);
+        if (!hold.every(Boolean)) {
+          g.held = hold; paint();
+          timer = Play.later(function () { throwDice(); g.held = none(); timer = Play.later(step, CPU_DELAY_MS); }, CPU_HOLD_MS);
+          return;
+        }
+      }
+      scoreRow(bestRow(g.dice, open)); afterTurn();
     };
     timer = Play.later(step, CPU_DELAY_MS);
   }
 
   function finish() {
     var scores = g.players.map(function (p) { return total(p.card); }), top = Math.max.apply(null, scores);
-    var key = String(g.players.length), text;
+    var key = String(g.players.length), text, title = T('shell.end.over');
     var me = seats.people()[0];
-    if (g.players.length === 1) text = 'You scored ' + scores[0] + '.';
+    if (g.players.length === 1) text = T('yacht.end.solo', { n: scores[0] });
     else {
-      var winners = g.players.filter(function (p, i) { return scores[i] === top; });
-      text = (winners.length > 1 ? 'A tie at ' + top + '.' : seats.isYou(g.players.indexOf(winners[0])) ? 'You win with ' + top + '.' : winners[0].name + ' wins with ' + top + (seats.hotseat() ? '.' : '. You scored ' + scores[me] + '.'));
+      var winners = g.players.filter(function (p, i) { return scores[i] === top; }), w = g.players.indexOf(winners[0]);
+      if (winners.length > 1) { title = T('shell.end.draw'); text = T('yacht.end.tie', { n: top }); }
+      else if (seats.isYou(w)) { title = T('shell.end.win'); text = T('yacht.end.you', { n: top }); }
+      else if (seats.hotseat()) { title = T('shell.end.wins', { name: winners[0].name }); text = T('yacht.end.other', { name: winners[0].name, n: top }); }
+      else { title = T('shell.end.lose'); text = T('yacht.end.otherYou', { name: winners[0].name, n: top, me: scores[me] }); }
     }
-    if (seats.hotseat()) text += ' ' + g.players.map(function (p, i) { return p.name + ' ' + scores[i]; }).join(', ') + '.';
-    else if (scores[me] > (best[key] || 0)) { best[key] = scores[me]; Play.save(BEST_KEY, best); text += ' A new best for this table.'; }
-    else text += ' Best: ' + best[key] + '.';
+    if (seats.hotseat()) text += ' ' + g.players.map(function (p, i) { return p.name + ' ' + Play.num(scores[i]); }).join(', ') + '.';
+    else if (scores[me] > (best[key] || 0)) { best[key] = scores[me]; Play.save(BEST_KEY, best); text += ' ' + T('yacht.end.newBest'); }
+    else text += ' ' + T('yacht.end.best', { n: best[key] });
     els.msg.textContent = text;
-    showSheet('Game over', text, 'Play again');
+    showSheet(title, text, T('shell.menu.new'));
   }
 
   function paintOpp() {
     els.opp.textContent = '';
     [0, 1, 2, 3].forEach(function (n) {
-      var b = document.createElement('button'); b.type = 'button'; b.textContent = n === 0 ? 'Solo' : String(n + 1);
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = n === 0 ? T('shelf.players.solo') : Play.num(n + 1);
       b.setAttribute('aria-pressed', String(settings.computers === n));
       b.addEventListener('click', function () { settings.computers = n; Play.save(SETTINGS_KEY, settings); paintOpp(); });
-      b.setAttribute('aria-label', n === 0 ? 'Solo' : n + 1 + ' players');
+      b.setAttribute('aria-label', n === 0 ? T('shelf.players.solo') : T('yacht.nPlayers', { n: n + 1 }));
       els.opp.appendChild(b);
     });
   }
@@ -254,19 +300,20 @@
     Play.closeSheet(els.sheet); els.msg.textContent = ''; paint();
     if (g.players[g.turn].ai) cpuTurn();
   }
+  function humanRoll() { if (mine() && g.rollsLeft > 0) { note = ''; throwDice(); } }
   els.go.addEventListener('click', begin);
-  els.nu.addEventListener('click', function () { if (timer) timer.cancel(); showSheet('New game', 'Start over with a fresh card?', 'Start'); });
-  els.roll.addEventListener('click', function () { if (mine() && roll(g)) paint(); });
+  els.nu.addEventListener('click', function () { if (timer) timer.cancel(); showSheet(T('shell.menu.new'), T('yacht.new'), T('shell.start')); });
+  els.roll.addEventListener('click', humanRoll);
   document.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || !els.sheet.hidden) return;
     if (e.target && e.target.closest && e.target.closest('button') && (e.key === ' ' || e.key === 'Enter')) return;
-    if (e.key === ' ' || e.key === 'r' || e.key === 'R') { e.preventDefault(); if (mine() && roll(g)) paint(); }
+    if (e.key === ' ' || e.key === 'r' || e.key === 'R') { e.preventDefault(); humanRoll(); }
     else if (e.key >= '1' && e.key <= '5') { if (mine() && toggleHold(g, +e.key - 1)) paint(); }
   });
 
   buildDice();
   paint();
-  showSheet('Yacht', '13 rows, 13 turns. Play alone for a high score, or against computers.', 'Start');
+  showSheet(T('game.yacht.title'), T('yacht.intro'), T('shell.start'));
   // Never lose a game: the card, the dice and where the dice generator stood, so the next roll is the roll that was next.
   // Nothing is kept until the first roll.
   ZimiShell.persist({

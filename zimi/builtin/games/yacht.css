@@ -16,3 +16,9 @@
 .yc-dice-gap { height: 12px; }
 #yc-dice { min-height: 70px; padding-top: 10px; --die-size: 54px; }
 @media (max-width: 380px) { #yc-dice { --die-size: 50px; gap: 6px; } }
+.yc-card td.yc-fresh { animation: yc-pulse 900ms ease-out; }
+.pl-die.yc-tumble { animation: yc-tumble 320ms ease-out; }
+@keyframes yc-pulse { from { background: var(--accent-line); } }
+@keyframes yc-tumble { 0% { transform: translateY(-14px) rotate(-24deg) scale(0.9); } 60% { transform: translateY(2px) rotate(8deg); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .yc-card td.yc-fresh, .pl-die.yc-tumble { animation: none; } }
+.yc-card td.yc-fresh { background: var(--accent-glow); }

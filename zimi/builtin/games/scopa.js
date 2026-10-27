@@ -18,6 +18,8 @@
 (function (root) {
   'use strict';
   var Z = root.ZimiCards, T = root.ZimiTable, Seats = root.ZimiSeats, TX = Z.T;
+  // Two sentences, joined the way the language joins them.
+  var then = function (first, next) { return first ? TX('cards.then', { first: first, then: next }) : next; };
 
   var NAMES = [TX('cards.you'), TX('cards.seat.north')], SUIT_NAMES = ['coins', 'cups', 'swords', 'clubs'], END_SCORE = 11, DECK = 40, PER_DEAL = 3, TABLE_START = 4, MAX_KINGS = 3, SETTEBELLO = 6;
   var COURT = { 8: 'fante', 9: 'cavallo', 10: 're' };
@@ -268,7 +270,7 @@
       };
       var lp = st.lastPlay, told = '';
       if (lp && lp.id !== null) {
-        told = TX(seats.isYou(lp.seat) ? (lp.taken.length ? 'scopa.told.youTake' : 'scopa.told.youPlay') : (lp.taken.length ? 'scopa.told.take' : 'scopa.told.play'), { name: who(lp.seat), card: nameOf(lp.id), taken: lp.taken.map(nameOf).join(', ') }) + (lp.scopa ? '. ' + TX('scopa.scopa') + '.' : '');
+        told = TX(seats.isYou(lp.seat) ? (lp.taken.length ? 'scopa.told.youTake' : 'scopa.told.youPlay') : (lp.taken.length ? 'scopa.told.take' : 'scopa.told.play'), { name: who(lp.seat), card: nameOf(lp.id), taken: lp.taken.map(nameOf).join(', ') }) ; if (lp.scopa) told = then(told, TX('scopa.scopa'));
       } else if (lp) told = TX(seats.isYou(lp.seat) ? 'scopa.told.youLast' : 'scopa.told.last', { name: who(lp.seat) });
       if (st.phase === 'play') {
         if (busy()) out.text = told;
@@ -277,8 +279,8 @@
           if (view.sel !== null && opts.length > 1) {
             out.text = TX('scopa.pick');
             out.choices = opts.map(function (o) { return { label: optionLabel(o), onclick: function () { doMove(st.turn, view.sel, o); } }; });
-          } else out.text = (told ? told + '. ' : '') + (seats.isYou(st.turn) ? TX('scopa.yourPlay') : TX('scopa.namePlay', { name: who(st.turn) }));
-        } else out.text = (told ? told + '. ' : '') + TX('cards.thinking', { name: who(st.turn) });
+          } else out.text = then(told, seats.isYou(st.turn) ? TX('scopa.yourPlay') : TX('scopa.namePlay', { name: who(st.turn) }));
+        } else out.text = then(told, TX('cards.thinking', { name: who(st.turn) }));
       } else if (st.phase === 'handEnd') { out.text = TX('cards.handEnd'); out.label = TX('cards.nextHand'); out.action = startNextHand; }
       else if (st.phase === 'over') { out.text = TX('shell.end.over'); }
       return out;
