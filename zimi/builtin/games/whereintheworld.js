@@ -71,7 +71,7 @@
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T, NS = 'http://www.w3.org/2000/svg';
   Play.applyTheme();
-  var BEST_KEY = 'zimi.games.world.best';
+  var BEST_KEY = 'zimi.games.whereintheworld.best';
   var ZOOM_STEP = 1.8, WHEEL_STEP = 1.15, KEY_PAN = 0.08, TAP_PX = 8, PIN_PX = 7, MAP_BATCH = 4;
   var els = { frame: $('wm-frame'), svg: $('wm-svg'), ask: $('wm-ask'), kind: $('wm-kind'), msg: $('wm-msg'), info: $('wm-info'), mapLink: $('wm-map'), n: $('wm-n'), score: $('wm-score'),
     guess: $('wm-guess'), next: $('wm-next'), zin: $('wm-zin'), zout: $('wm-zout'), newBtn: $('wm-new') };

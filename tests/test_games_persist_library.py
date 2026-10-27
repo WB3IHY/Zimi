@@ -149,3 +149,32 @@ def test_a_library_round_comes_back_as_it_was(served, browser, name, ready, move
     assert before and after
     assert after == before, "the round came back different after leaving and returning"
     ctx.close()
+
+
+def test_a_save_survives_a_tap_and_a_hide_before_the_library_answers(served, browser):
+    """Jigsaw restores only once the library answers. A tap, then pagehide, in that wait must not delete the save."""
+    ctx = browser.new_context(viewport=VIEW)
+    page = ctx.new_page()
+    url = served + "/jigsaw.html"
+    page.goto(url)
+    game_ready(page, "__jig.puzzle && !/ZimiGames/.test(__jig.puzzle.pic.credit)")
+    tap(page, page.locator("#jg-peek").first)
+    before = leave(page, "JSON.stringify(__jig.puzzle.pieces.map(p => [p.fx, p.fy, p.locked])) + JSON.stringify(__jig.puzzle.pic)")
+    key = "zimi.games.save.jigsaw"
+    assert page.evaluate("k => localStorage.getItem(k)", key)
+    page.goto("about:blank")
+    held, gate = [], {"open": False}
+    ctx.route(re.compile(r".*/(health|list|random|w/|dictionary/|wiki/|search|snippet).*"),
+              lambda route: route.continue_() if gate["open"] else held.append(route))
+    page.goto(url, wait_until="commit")
+    page.wait_for_function("() => !!window.ZimiShell")
+    page.mouse.click(10, 300)
+    page.evaluate("window.dispatchEvent(new Event('pagehide'))")
+    page.wait_for_timeout(700)   # past the debounced write too
+    assert page.evaluate("k => localStorage.getItem(k)", key), "the save was deleted while the library had not answered"
+    gate["open"] = True
+    for r in held:
+        r.continue_()
+    game_ready(page)
+    becomes(page, "JSON.stringify(__jig.puzzle.pieces.map(p => [p.fx, p.fy, p.locked])) + JSON.stringify(__jig.puzzle.pic)", before)
+    ctx.close()

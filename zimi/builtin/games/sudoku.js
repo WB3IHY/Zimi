@@ -252,7 +252,7 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
-  var GAME_KEY = 'zimi.games.sudoku.game', BEST_KEY = 'zimi.games.sudoku.best', SETTINGS_KEY = 'zimi.games.sudoku.settings';
+  var BEST_KEY = 'zimi.games.sudoku.best', SETTINGS_KEY = 'zimi.games.sudoku.settings';
   var TICK_MS = 500, UNDO_MAX = 300, UNDO_KEPT = 100, MAX_BOARD = 504, SIDE_PAD = 24, CHROME_PX = 440, MAKE_DELAY_MS = 20, END_AFTER_MS = 600;
   var SET_MS = 120, WAVE_STEP_MS = 40, WAVE_END_AFTER_MS = 1100, UNIT_STEP_MS = 35, DONE_NOTE_MS = 2200, UNIT_WORD = ['row', 'column', 'box'];
   Play.applyTheme();
@@ -501,7 +501,7 @@
   });
 
   function restore() {
-    var saved = ZimiShell.saved() || Play.load(GAME_KEY, null);   // an older save in the game's own key is taken up once
+    var saved = ZimiShell.saved();
     if (!saved || !Array.isArray(saved.puzzle) || saved.puzzle.length !== CELLS || !Array.isArray(saved.grid) || saved.grid.length !== CELLS || !Array.isArray(saved.solution) || DIFFICULTIES.indexOf(saved.diff) < 0) return false;
     s = { puzzle: saved.puzzle, solution: saved.solution, grid: saved.grid, notes: Array.isArray(saved.notes) && saved.notes.length === CELLS ? saved.notes : emptyNotes(), diff: saved.diff, elapsed: saved.elapsed || 0, hist: Array.isArray(saved.hist) ? saved.hist.slice(-UNDO_KEPT) : [], sel: -1, pencil: false, done: !!saved.done };
     return true;

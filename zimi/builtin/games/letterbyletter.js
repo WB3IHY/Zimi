@@ -108,7 +108,7 @@
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T, SVGNS = 'http://www.w3.org/2000/svg';
   Play.applyTheme();
-  var STATE_KEY = 'zimi.games.letters.state', STATS_KEY = 'zimi.games.letters.stats';
+  var STATE_KEY = 'zimi.games.letterbyletter.state', STATS_KEY = 'zimi.games.letterbyletter.stats';
   var POOL_BATCH_LANGS = 1, TRIES = 6, END_DELAY_MS = 450;
   var els = { fig: $('lb-fig'), air: $('lb-air'), clue: $('lb-clue'), word: $('lb-word'), msg: $('lb-msg'), keys: $('lb-keys'), hint: $('lb-hint'), entry: $('lb-entry'), newBtn: $('lb-new') };
   var line = Play.status(els.msg), pendingMode = null;   // the status line; the engine's status(game) is the round's state

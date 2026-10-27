@@ -116,7 +116,7 @@
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var SWIPE_PX = 24, BUMP_SCALE = 1.18, SLIDE_MS = 110, MAX_BOARD = 560, SIDE_PAD = 24, END_AFTER_MS = 600;
-  var GAME_KEY = 'zimi.games.2048.game', BEST_KEY = 'zimi.games.2048.best';
+  var BEST_KEY = 'zimi.games.2048.best';
   Play.applyTheme();
 
   var els = { page: $('tf-main'), board: $('tf-board'), stat: $('tf-stat'), msg: $('tf-msg'), undo: $('tf-undo'), fresh: $('tf-new') };
@@ -221,7 +221,7 @@
     }
   });
 
-  var saved = ZimiShell.saved() || Play.load(GAME_KEY, null);   // an older save in the game's own key is taken up once
+  var saved = ZimiShell.saved();
   g = saved && Array.isArray(saved.v) && saved.v.length === SIZE * SIZE && saved.v.every(function (v) { return v === 0 || (v >= 2 && (v & (v - 1)) === 0); }) ? fromValues(saved.v, saved.score) : createGame();
   asked = g.won; // already past the goal when restored
   window.addEventListener('resize', layout);
