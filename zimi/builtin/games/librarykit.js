@@ -355,11 +355,13 @@
     a.dataset.lzim = zim;
     if (a.dataset.gone) { a.hidden = false; delete a.dataset.gone; }
     if (linked.indexOf(a) < 0) linked.push(a);
-    Lib.mode().then(function (m) {
-      if (m === 'builtin') return;
-      hearLibrary();
-      if (Date.now() - checkedAt > FRESH_MS) Lib.recheck();
-    });
+    try {   // no fetch to ask with (a page with nothing around it): the link stays as it is
+      Lib.mode().then(function (m) {
+        if (m === 'builtin') return;
+        hearLibrary();
+        if (Date.now() - checkedAt > FRESH_MS) Lib.recheck();
+      });
+    } catch (e) { /* nothing to check against */ }
     return a;
   };
   var linked = [], checkedAt = Date.now(), stream = null, FRESH_MS = 3000;
