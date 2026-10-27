@@ -141,7 +141,7 @@ The status line is one slot: one sentence under 60 characters at 15px, in ink, s
 
 There is one chip for players: 13px, 28px tall, pill-shaped, with a dot, the name and a number. The current player gets an amber outline and glow, with the name in ink, never white on amber. Dealer is a "D" badge. Trump is a suit chip.
 
-The computer is "thinking" within 150ms and moves in 400 to 700ms. While it thinks, the opponent's chip pulses, the status line says "Computer is thinking", and the layout does not jump.
+Zimi is "thinking" within 150ms and moves in 400 to 700ms. While it thinks, the opponent's chip pulses, the status line says "Zimi is thinking", and the layout does not jump.
 
 An illegal move gets a 120ms shake (an outline flash under reduced motion). The status line gives the reason for 2 seconds, then goes back to whose turn it is.
 
@@ -222,10 +222,10 @@ One verb per action:
 - Retired: Play again, Try again, Start over, Another, Reset, Back one.
 
 Seats:
-- Two-player games: You and Computer.
+- Two-player games: You and Zimi (the computer opponent is named Zimi everywhere it speaks: status lines, move lists, hints).
 - Partnership games: compass seats (Bridge, Spades, Euchre, Belote, Canasta).
 - Every other multi-seat game: You plus named computer players from one shared list.
-- In prose it is "the computer".
+- In prose it is "Zimi" where it moves or speaks; "the computer" only names the kind of player (a setting, a how-to-play line).
 
 Status lines are short and never end in a period unless they are two sentences. Instructions are under eight words ("Draw or take the pile."). The long rule lives behind Hint or How to play.
 
