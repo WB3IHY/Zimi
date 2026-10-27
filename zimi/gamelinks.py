@@ -38,6 +38,20 @@ _building = threading.Lock()
 _dirty = threading.Event()
 
 
+def _here(name):
+    return (
+        ownzims.enabled()
+        and any(z.get("name") == name for z in _srv._zim_list_cache or [])
+        and _srv.zim_allowed(name)
+    )
+
+
+def games_here():
+    """Whether the games ZIM is in the library for this request: removed or
+    deleted (or off the account's list), nothing of it is offered."""
+    return _here(_GAMES_ZIM)
+
+
 def rows():
     """games.json: [{qid, wiki, path, title, blurb}]."""
     global _rows
@@ -123,10 +137,9 @@ def refresh_async():
 
 def links():
     """The data GET /games-links serves: {games: {qid: {zim, path, title}},
-    articles: {qid: [{zim, lang, path}]}}, for what this request may see."""
-    if not ownzims.enabled() or not any(
-        z.get("name") == _GAMES_ZIM for z in _srv._zim_list_cache or []
-    ):
+    articles: {qid: [{zim, lang, path}]}}, for what this request may see.
+    Nothing while the games ZIM is not in the library."""
+    if not games_here():
         return {"games": {}, "articles": {}}
     with _lock:
         fresh = _memo["token"] is _srv._listing_seen
@@ -138,7 +151,7 @@ def links():
     games = {
         r["qid"]: {"zim": _GAMES_ZIM, "path": r["path"], "title": r["title"]}
         for r in rows()
-        if _srv.zim_allowed(_GAMES_ZIM)
+        if games_here()
     }
     shown = {
         q: [a for a in found if _srv.zim_allowed(a["zim"])]
@@ -189,7 +202,7 @@ def random_card(exclude=None):
     """A random game from the shelf (games.json's pages, never about.html, a
     stylesheet or a script), in /random's shape, or None. ``exclude`` is the
     page being played: the dice move on to another game."""
-    if not ownzims.enabled() or not _srv.zim_allowed(_GAMES_ZIM):
+    if not games_here():
         return None
     seen, pages = set(), []
     for r in rows():
@@ -212,7 +225,7 @@ def _card(g):
 def day_card(day):
     """The game of the day as Discover's card, in /random's shape, or None
     (no such day, or the games ZIM is not here for this request)."""
-    if not ownzims.enabled() or not _srv.zim_allowed(_GAMES_ZIM):
+    if not games_here():
         return None
     g = game_of_day(day)
     if not g:

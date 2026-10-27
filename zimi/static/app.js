@@ -8441,9 +8441,11 @@ function _loadDiscover() {
 function _discoverLibKey() {
   // Offline the row is drawn from what is on the phone: a change to that is a
   // different row.
-  return String((zimsCache || []).length) + (_connState !== CONN_OK ? ':off:' + Array.from(_keepNames).sort().join(',') : '');
+  return (zimsCache || []).map(function(z) { return z.name; }).join(',') + (_connState !== CONN_OK ? ':off:' + Array.from(_keepNames).sort().join(',') : '');
 }
 function _renderDiscover(el, items) {
+  // A card whose ZIM is gone (deleted, in this window or another) is not drawn from a day's cache.
+  items = items.filter(function(it) { return !(it && it.zim && _zimsByName.size && !_zimInfo(it.zim)); });
   _discoverDrawn = { el: el, items: items };
   el.dataset.lib = _discoverLibKey();
   var h = '<div class="discover-section"><div class="discover-label"><span>' + tH('discover') + '</span><button class="dc-dismiss" onclick="event.stopPropagation();_dismissDiscover()" title="' + escAttr(t('hide_discover')) + '" aria-label="' + escAttr(t('hide_discover')) + '">\u00D7</button></div><div class="discover-scroll">';
@@ -11250,6 +11252,7 @@ function _catIcon(paths) {
 }
 
 const BROWSE_CATEGORIES = [
+  { key: 'zimi',           i18n: 'cat_zimi',           icon: _catIcon('<path d="M5 5h14L5 19h14"/>'), descKey: 'cat_zimi_desc' },
   { key: 'wikipedia',      i18n: 'cat_encyclopedias',  icon: _catIcon('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>'), descKey: 'cat_encyclopedias_desc' },
   { key: 'stack_exchange', i18n: 'cat_qa',             icon: _catIcon('<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>'), descKey: 'cat_qa_desc' },
   { key: 'devdocs',        i18n: 'cat_devdocs',        icon: _catIcon('<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M2 20h20"/><path d="M9 10l-2 2 2 2M15 10l2 2-2 2"/>'), descKey: 'cat_devdocs_desc' },
@@ -11568,6 +11571,7 @@ async function _fetchCatalogItems() {
     for (const page of pages) items.push(...page);
   }
   for (const item of items) item.category = autoCategorize(item);
+  items.push(...await _loadOwnCatalogRows());
   return {
     items: items,
     stale: !!data.stale,
@@ -12327,7 +12331,7 @@ function renderBrowseGallery() {
     for (const cat of BROWSE_CATEGORIES) {
       if (cat.key === 'other') continue;
       const count = catCounts[cat.key] || 0;
-      if (count > 0 && count < MIN_BROWSE_CAT) {
+      if (count > 0 && count < MIN_BROWSE_CAT && cat.key !== OWN_CATALOG_CAT) {
         _mergedToOther.add(cat.key);
         catCounts['other'] = (catCounts['other'] || 0) + count;
         catInstalled['other'] = (catInstalled['other'] || 0) + (catInstalled[cat.key] || 0);
@@ -13163,7 +13167,7 @@ function renderCatalogItem(group) {
   // would ask the server to fetch from itself, which is exactly the network
   // round trip an offline machine cannot make.
   const iconSrc = !item.icon_url ? ''
-    : item.icon_url.startsWith('/catalog-icon/') ? item.icon_url
+    : item.icon_url.startsWith('/catalog-icon/') || item.icon_url.startsWith('data:') ? item.icon_url
     : '/manage/thumb?url=' + encodeURIComponent(item.icon_url);
   // StreetZim's regions have no icon on the Archive; a pin says what they
   // are better than the first letter of "Alaska".
@@ -13194,6 +13198,8 @@ function renderCatalogItem(group) {
     if (instVariant._installedFile) {
       actionsHtml += _zimDeleteBtn(instVariant._installedFile, instVariant._installedExternal);
     }
+  } else if (item.own) {
+    actionsHtml = '<button class="ci-add-btn" onclick="event.stopPropagation();_addOwnZim(\'' + escJs(item.name) + '\')">' + tH('add_own') + '</button>';
   } else {
     // Sibling URLs disambiguate colliding labels (unsuffixed vs maxi → both
     // "Full" without them, see variantLabel).
@@ -18861,6 +18867,36 @@ async function downloadZim(url, btn, isUpdate) {
   }
 }
 
+// ── Zimi's own ZIMs (the Almanac, Games) in the Catalog ──
+// Deleting one is an ordinary delete (the server records it as removed: the file is part of the
+// package and stays). The Catalog lists them from the package (/manage/own-zims), offline too,
+// as normal rows in the Zimi category; a removed one offers Add, instantly, with no download.
+var OWN_CATALOG_CAT = 'zimi';
+async function _loadOwnCatalogRows() {
+  try {
+    var d = await (await manageFetch('/manage/own-zims')).json();
+    return (d.zims || []).map(function(r) {
+      return { name: r.name, title: r.title, summary: r.description, icon_url: r.icon, size_bytes: r.size_bytes,
+        article_count: r.entries, date: r.date, language: 'eng', category: OWN_CATALOG_CAT, own: true };
+    });
+  } catch (e) { return []; }
+}
+async function _addOwnZim(name) {
+  try {
+    var d = await (await manageFetch('/manage/own-zims', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name: name, removed: false})
+    })).json();
+    if (d.error) { _showToast(t('error') + ': ' + d.error); return; }
+  } catch (e) { _showToast(t('error')); return; }
+  zimsCache = await _fetchList();
+  _rebuildZimsMap();
+  _enrichCatalogItems(_catalogCache || []);
+  var count = document.getElementById('ms-zim-count');
+  if (count) count.textContent = String(zimsCache.length);
+  if (mode === 'manage') _rerenderCatalogIfSafe();
+}
+
 // A catalog row offers Update when its catalog edition is newer than the file
 // installed. Never for a ZIM in a folder another program owns: an update would
 // download a second full copy into Zimi's own library beside the original.
@@ -24094,7 +24130,7 @@ function _installedGamesZims() {
   return (zimsCache || []).filter(function(z) { return z.name === _GAMES_ZIM && z.main_path; });
 }
 // Whether an app has a tile on Home: one with something inside, or the Almanac.
-function _appHasHome(app) { return app === 'almanac' || _appZims(app).length > 0; }
+function _appHasHome(app) { return app === 'almanac' ? !!_zimInfo(_ALMANAC_ZIM) : _appZims(app).length > 0; }
 function openGames() {
   var z = _installedGamesZims()[0];
   if (z) openArticle(z.name, z.main_path, z.title || z.name);
@@ -28063,8 +28099,12 @@ function _libraryHeard() {
     _libraryKnown = true;
     _catalogCache = null;
     _gamesLinks = null; // the library changed: which articles are games' may have
+    if (window.AlmanacLinks) { AlmanacLinks.reset(); if (_almanacOpen && typeof _renderAlmanacContent === 'function') _renderAlmanacContent(); } // its Q-ID links follow the library
     if (readerOpen) _gamePlayCheck();
-    if (mode === 'manage') { if (manageTab === 'installed') renderInstalled(); }
+    if (mode === 'manage') {
+      if (manageTab === 'installed') renderInstalled();
+      else if (manageTab === 'browse' && _browseView === 'gallery') renderBrowseGallery();
+    }
     else if (mode === 'home' && !readerOpen && !currentSource && !readerSource) renderHome();
   }).catch(function () {});
 }

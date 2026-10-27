@@ -2457,6 +2457,34 @@ def set_apps_enabled(value):
     return bool(shown), None
 
 
+def set_own_zim_removed(name, gone):
+    """Remove one of Zimi's own ZIMs from this server (or add it back), the
+    live library following at once: no rescan of the others, no download.
+    Open windows hear it as the library changing (_set_listing). False for a
+    name that is not one of them."""
+    from zimi import ownzims
+
+    if not ownzims.set_removed(name, gone):
+        return False
+    own = next(o for o in ownzims.OWN if o.name == name)
+    path = ownzims.zim_path(own)
+    done = False
+    try:
+        if gone:
+            done = bool(path) and unregister_zim_file(os.path.basename(path))
+        elif path:
+            register_zim_file(path)
+            done = name in (_zim_files_cache or {})
+    except Exception as e:
+        log.warning("Incremental change of %s failed (%s), rescanning the library", name, e)
+    if not done:
+        with _zim_lock:
+            load_cache(force=True)
+    _search_cache_clear()
+    _suggest_cache_clear()
+    return True
+
+
 def build_rank(entry):
     """What makes one build of a thing newer than another: its date, then
     its size (a maxi over a nopic of the same month)."""

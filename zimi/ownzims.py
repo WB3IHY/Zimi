@@ -107,11 +107,86 @@ def _new_path(own, old):
     return os.path.join(OUT_DIR, "%s_%s.zim" % (own.name, tag))
 
 
+#: The prefs key (manage._read_app_update_prefs) holding the names an admin
+#: removed from this server. The file stays in the package; the scan skips it.
+#: Not the apps switch: that hides an app's tile and leaves the ZIM in search,
+#: Discover and Random, and ZIMI_APPS can lock it; this takes the ZIM out of
+#: the library entirely, and only the admin's own click puts it back.
+REMOVED_KEY = "own_removed"
+
+
+def removed():
+    """The names (``zimi_games``) an admin removed from this server."""
+    try:
+        from zimi import manage
+
+        saved = manage._read_app_update_prefs().get(REMOVED_KEY)
+    except ImportError:  # zimi-mcp ships no Manage
+        return frozenset()
+    names = {o.name for o in OWN}
+    return frozenset(n for n in saved if n in names) if isinstance(saved, list) else frozenset()
+
+
+def set_removed(name, gone):
+    """Remove (``gone``) or add back one of these ZIMs. False for a name that
+    is not one of them."""
+    if name not in {o.name for o in OWN}:
+        return False
+    from zimi import manage
+
+    now = set(removed())
+    (now.add if gone else now.discard)(name)
+    manage._write_app_update_prefs(**{REMOVED_KEY: [o.name for o in OWN if o.name in now]})
+    return True
+
+
+def name_of_file(filename):
+    """The own ZIM a file name (``zimi_games_2026-10.zim``) is, or None."""
+    name = re.sub(_DATED, "", os.path.basename(filename))
+    return name if any(o.name == name for o in OWN) else None
+
+
 def zim_paths():
-    """The committed ZIMs, for the library scan (empty while off)."""
+    """The committed ZIMs, for the library scan (empty while off), less the
+    ones an admin removed."""
     if not enabled():
         return []
-    return [p for p in (zim_path(o) for o in OWN) if p]
+    gone = removed()
+    return [p for p in (zim_path(o) for o in OWN if o.name not in gone) if p]
+
+
+def catalog():
+    """Each of these ZIMs as a catalog row, from the package itself (so an
+    offline or air-gapped install lists them too): name, file, title,
+    description, icon (a data: URI) and whether the library serves it now."""
+    import base64
+
+    from libzim.reader import Archive
+
+    if not enabled():
+        return []
+    gone = removed()
+    rows = []
+    for o in OWN:
+        path = zim_path(o)
+        if not path:
+            continue
+        row_file = os.path.basename(path)
+        row = {"name": o.name, "file": row_file, "installed": o.name not in gone,
+               "title": o.name, "description": "", "icon": "", "size_bytes": os.path.getsize(path),
+               "entries": 0, "date": (re.search(r"_(\d{4}-\d{2})", row_file) or [""] * 2)[1]}
+        try:
+            a = Archive(path)
+            row["title"] = a.get_metadata("Title").decode("utf-8", "replace")
+            row["entries"] = a.article_count
+            row["description"] = a.get_metadata("Description").decode("utf-8", "replace")
+            if a.has_illustration(48):
+                png = bytes(a.get_illustration_item(48).content)
+                row["icon"] = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+        except Exception:
+            pass
+        rows.append(row)
+    return rows
 
 
 def category_of(path):

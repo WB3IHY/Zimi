@@ -146,6 +146,17 @@ _DAYS = ["2026-10-24", "2026-10-25", "2026-12-31", "2027-01-01", "2028-02-29"]
 
 
 class GameOfTheDayTests(unittest.TestCase):
+    def setUp(self):
+        # The cards are offered while the games ZIM is in the library (gone, they are not).
+        patch = mock.patch.object(_srv, "_zim_list_cache", [{"name": "zimi_games"}])
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_no_card_without_the_games_zim(self):
+        with mock.patch.object(gamelinks.ownzims, "enabled", lambda: True), mock.patch.object(_srv, "_zim_list_cache", []):
+            assert gamelinks.day_card("2026-10-24") is None
+            assert gamelinks.random_card() is None
+
     def test_every_game_says_why_in_one_line(self):
         for r in games_links.load():
             assert r.get("why") and "\n" not in r["why"], r["path"]
