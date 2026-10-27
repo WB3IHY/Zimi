@@ -257,7 +257,7 @@ const server = http.createServer((q, r) => {
   // every size and density. Hanafuda: the number's ink keeps MIN_RING units from the seal ring's inner edge.
   const MIN_RING = 1.5;
   const spacing = await cb.evaluate(async (MIN_RING) => {
-    const out = { digits: [], ring: [], sizes: [] };
+    const out = { digits: [], ring: [], sizes: [] }, DIGIT_GAP = 2.25; // glyph units: the clear paper drawn between the digits (one heavy stem, 2.5, less a hair)
     const draw = async (svgText, w) => {
       const img = new Image(); img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgText); await img.decode();
       const cv = document.createElement('canvas'); cv.width = w; cv.height = Math.round(w * 1.4); const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, cv.width, cv.height);
@@ -274,7 +274,7 @@ const server = http.createServer((q, r) => {
       svg.setAttribute('width', w); svg.setAttribute('height', Math.round(w * 1.4));
       return new XMLSerializer().serializeToString(svg);
     };
-    const glyphOnly = (c) => c.tagName === 'path' && /stroke-width="2.4"/.test(c.outerHTML) && c === c.parentNode.querySelector('path');
+    const glyphOnly = (c) => c.tagName === 'path' && c.getAttribute('class') === 'zc-gl';
     // Runs of inked columns in the glyph's rows (the top 40 units: glyph, not the suit below).
     const runs = (im, ppu, thr) => {
       const cols = []; for (let x = 0; x < im.w; x++) { let on = false; for (let y = 0; y < 60 * ppu && y < im.h; y++) if (im.d[(y * im.w + x) * 4 + 3] > thr) { on = true; break; } cols.push(on); }
@@ -287,7 +287,7 @@ const server = http.createServer((q, r) => {
     for (let m = 0; m < 12; m++) cases.push(['Hanafuda ' + (m + 1), s => ZimiCards.hanafudaFaceMarkup(m * 4, s), m >= 9 ? 2 : 1, true]);
     for (const [name, make, digits, hana] of cases) for (const grp of ['zc-idx-std', 'zc-idx-row']) {
       const markup = make(grp === 'zc-idx-std').replace(/^<svg (?!xmlns)/, '<svg xmlns="http://www.w3.org/2000/svg" '), label = name + (grp === 'zc-idx-row' ? ' (row)' : '');
-      const scale = +markup.match(new RegExp(grp + '[^>]*>(?:<circle[^>]*\\/>)?<path transform="[^"]*scale\\(([\\d.]+)\\)"'))[1], stroke = 2.4 * scale;
+      const scale = +markup.match(new RegExp(grp + '[^>]*>(?:<circle[^>]*\\/>)?<path class="zc-gl" transform="[^"]*scale\\(([\\d.]+)\\)"'))[1], stroke = DIGIT_GAP * scale;
       for (const [cw, dpr] of [[200, 1], [200, 2], [200, 3], [52, 1], [52, 2], [52, 3], [800, 1]]) {
         const w = cw * dpr, ppu = w / 100;
         const gim = await draw(only(markup, glyphOnly, w, grp), w), rs = runs(gim, ppu, 128);
@@ -308,7 +308,7 @@ const server = http.createServer((q, r) => {
   const tol = r => 1 / r[5];   // one device pixel of quantisation
   const badDigits = dg.filter(r => !(r[2] && r[3] >= r[4] - tol(r) && r[3] * r[5] >= 1));
   const names = [...new Set(dg.map(r => r[0]))];
-  ok('every two-digit index (' + names.length + ': ' + names.join(', ') + ') keeps one stroke width of clear ink between its digits at 200 and 52 px, 1x 2x 3x', badDigits.length === 0,
+  ok('every two-digit index (' + names.length + ': ' + names.join(', ') + ') keeps the drawn gap (2.25 glyph units, about one stem) of clear ink between its digits at 200 and 52 px, 1x 2x 3x', badDigits.length === 0,
     badDigits.slice(0, 6).map(r => r[0] + ' ' + r[1] + ' gap ' + (r[3] || 0).toFixed(2) + ' of ' + r[4].toFixed(2)).join('; '));
   console.log('INFO  narrowest digit gap (800px render) ' + sorted(dg.filter(r => r[1] === '800@1'), 3).map(r => r[0] + ' ' + r[3].toFixed(2) + '/' + r[4].toFixed(2)).join(', '));
   const ringW = sorted(spacing.ring.filter(r => r[1] === '200@3'), 2);
