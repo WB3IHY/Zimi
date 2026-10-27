@@ -115,11 +115,11 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
-  var SWIPE_PX = 24, SLIDE_MS = 110, MAX_BOARD = 560, SIDE_PAD = 24, END_AFTER_MS = 600;
+  var SWIPE_PX = 24, BUMP_SCALE = 1.18, SLIDE_MS = 110, MAX_BOARD = 560, SIDE_PAD = 24, END_AFTER_MS = 600;
   var GAME_KEY = 'zimi.games.2048.game', BEST_KEY = 'zimi.games.2048.best';
   Play.applyTheme();
 
-  var els = { board: $('tf-board'), stat: $('tf-stat'), msg: $('tf-msg'), undo: $('tf-undo'), fresh: $('tf-new') };
+  var els = { page: $('tf-main'), board: $('tf-board'), stat: $('tf-stat'), msg: $('tf-msg'), undo: $('tf-undo'), fresh: $('tf-new') };
   var note = Play.status(els.msg);
   var g, els2 = {}, cell = 80, gap = 10, best = Play.load(BEST_KEY, { score: 0 }), asked = false;
 
@@ -179,14 +179,24 @@
     }
     if (instant) settle(); else setTimeout(settle, SLIDE_MS);
     hud(); persist();
-    note.say(res.gain ? '+' + Play.num(res.gain) : '');
+    if (res.gain) scored(res);
+    note.say('');
     if (g.won && !asked) { asked = true; note.say(T('t2048.reached')); endSheet('win'); }
-    else if (g.over) endSheet(g.won ? 'win' : 'lose');
+    else if (g.over) { note.say(g.won ? '' : T('t2048.over')); endSheet(g.won ? 'win' : 'lose'); }
+  }
+  // The points a move earned rise off the biggest tile it made, and the bar's score gives a small bump.
+  function scored(res) {
+    if (Play.reducedMotion()) return;
+    var top = res.merges.reduce(function (a, m) { return m.value > a.value ? m : a; }), at = top.to;
+    Play.float(els.board, '+' + Play.num(res.gain), gap + (at % SIZE) * (cell + gap) + cell / 2, gap + Math.floor(at / SIZE) * (cell + gap));
+    if (els.stat.animate) els.stat.animate([{ scale: 1 }, { scale: BUMP_SCALE }, { scale: 1 }], { duration: SLIDE_MS * 2, easing: 'ease-out' });
   }
 
   // The end: 2048 reached is a win (Close keeps going on the same board), no moves left without it is a loss.
   function endSheet(result) { ZimiShell.endSheet({ result: result, after: END_AFTER_MS, stats: [[T('play.score'), Play.num(g.score)], [T('play.best'), Play.num(Math.max(best.score, g.score))]] }); }
-  function fresh() { g = createGame(); asked = false; rebuild(); hud(); persist(); note.say(''); }
+  // A board with nothing played says how to play, once; the first move takes the line away.
+  function startLine() { return g.score === 0 && !g.undo && values(g).filter(Boolean).length <= START_TILES ? T('t2048.swipe') : ''; }
+  function fresh() { g = createGame(); asked = false; rebuild(); hud(); persist(); note.say(startLine()); }
   els.fresh.addEventListener('click', fresh);
   els.undo.addEventListener('click', function () { if (undo(g)) { rebuild(); hud(); persist(); note.say(''); } });
   ZimiShell.game({
@@ -201,15 +211,21 @@
     if (dir) { e.preventDefault(); act(dir); }
     else if ((e.key === 'z' || e.key === 'Z' || e.key === 'u') && !els.undo.disabled) els.undo.click();
   });
-  Play.gesture(els.board, {
-    up: function (s) { var d = Play.swipeDir(s.dx, s.dy, SWIPE_PX); if (d) act(d); }
+  // A swipe moves the tiles the moment it is long enough, not when the finger lifts, and from anywhere on the page.
+  var swiped = false;
+  Play.gesture(els.page, {
+    down: function () { swiped = false; },
+    drag: function (dx, dy) {
+      var d = !swiped && Play.swipeDir(dx, dy, SWIPE_PX);
+      if (d) { swiped = true; act(d); }
+    }
   });
 
   var saved = ZimiShell.saved() || Play.load(GAME_KEY, null);   // an older save in the game's own key is taken up once
   g = saved && Array.isArray(saved.v) && saved.v.length === SIZE * SIZE && saved.v.every(function (v) { return v === 0 || (v >= 2 && (v & (v - 1)) === 0); }) ? fromValues(saved.v, saved.score) : createGame();
   asked = g.won; // already past the goal when restored
   window.addEventListener('resize', layout);
-  makeSlots(); layout(); rebuild(); hud();
+  makeSlots(); layout(); rebuild(); hud(); note.say(startLine());
   if (g.over) endSheet(g.won ? 'win' : 'lose');
   ZimiShell.persist({ save: function () { return { v: values(g), score: g.score, undo: g.undo }; } });
   // Undo survives leaving: the kept snapshot (cells, score, goal flag) goes back on the board.

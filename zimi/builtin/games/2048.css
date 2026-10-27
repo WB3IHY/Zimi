@@ -35,3 +35,7 @@
 :root[data-theme="dark"] :is(.t128, .t256, .t512, .t1024, .t2048, .tbig) { color: var(--tf-ink-on-bright); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.t128, .t256, .t512, .t1024, .t2048, .tbig) { color: var(--tf-ink-on-bright); } }
 @media (prefers-reduced-motion: reduce) { .tf-tile { transition: none; } .tf-tile.pop, .tf-tile.new { animation: none; } }
+
+/* The whole page takes the swipe, so a thumb never has to find the board. */
+@media (orientation: portrait) { .tf-main { min-height: calc(100dvh - var(--bar-h, 56px)); touch-action: none; user-select: none; -webkit-user-select: none; } }
+.tf-board .pl-float { transform: translateX(-50%); font-size: var(--fs-sheet); }
