@@ -26,6 +26,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 
 #: ``folder``: its source under zimi/builtin/; ``name``: the file it becomes;
 #: ``category``: its Home section (both are "Zimi": one place for what Zimi makes, a name in
@@ -127,6 +128,9 @@ def removed():
     return frozenset(n for n in saved if n in names) if isinstance(saved, list) else frozenset()
 
 
+_removed_lock = threading.Lock()  # one read-then-write of the list at a time
+
+
 def set_removed(name, gone):
     """Remove (``gone``) or add back one of these ZIMs. False for a name that
     is not one of them."""
@@ -134,10 +138,18 @@ def set_removed(name, gone):
         return False
     from zimi import manage
 
-    now = set(removed())
-    (now.add if gone else now.discard)(name)
-    manage._write_app_update_prefs(**{REMOVED_KEY: [o.name for o in OWN if o.name in now]})
+    with _removed_lock:
+        now = set(removed())
+        (now.add if gone else now.discard)(name)
+        manage._write_app_update_prefs(**{REMOVED_KEY: [o.name for o in OWN if o.name in now]})
     return True
+
+
+def is_own_path(path):
+    """Whether ``path`` is one of the package's own files: it lives in the
+    package's builtin folder. A file of the same name anywhere else (a copy
+    someone put in their library) is an ordinary ZIM."""
+    return bool(path) and os.path.dirname(os.path.abspath(path)) == os.path.abspath(OUT_DIR)
 
 
 def name_of_file(filename):
@@ -155,14 +167,47 @@ def zim_paths():
     return [p for p in (zim_path(o) for o in OWN if o.name not in gone) if p]
 
 
-def catalog():
-    """Each of these ZIMs as a catalog row, from the package itself (so an
-    offline or air-gapped install lists them too): name, file, title,
-    description, icon (a data: URI) and whether the library serves it now."""
+_rows_cache = {}  # path -> ((size, mtime), row without "installed")
+_rows_lock = threading.Lock()
+
+
+def _file_row(path):
+    """What the package's file says of itself: title, description, icon (a
+    data: URI), entries. Read once per file version, on a private handle (the
+    file changes only when Zimi is upgraded), never per request."""
     import base64
 
     from libzim.reader import Archive
 
+    st = os.stat(path)
+    key = (st.st_size, st.st_mtime_ns)
+    with _rows_lock:
+        hit = _rows_cache.get(path)
+        if hit and hit[0] == key:
+            return hit[1]
+    fname = os.path.basename(path)
+    row = {"file": fname, "title": re.sub(_DATED, "", fname), "description": "", "icon": "",
+           "size_bytes": st.st_size, "entries": 0,
+           "date": (re.search(r"_(\d{4}-\d{2})", fname) or [""] * 2)[1]}
+    try:
+        a = Archive(path)
+        row["title"] = a.get_metadata("Title").decode("utf-8", "replace")
+        row["entries"] = a.article_count
+        row["description"] = a.get_metadata("Description").decode("utf-8", "replace")
+        if a.has_illustration(48):
+            png = bytes(a.get_illustration_item(48).content)
+            row["icon"] = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+    except Exception:
+        pass
+    with _rows_lock:
+        _rows_cache[path] = (key, row)
+    return row
+
+
+def catalog():
+    """Each of these ZIMs as a catalog row, from the package itself (so an
+    offline or air-gapped install lists them too): name, file, title,
+    description, icon (a data: URI) and whether the library serves it now."""
     if not enabled():
         return []
     gone = removed()
@@ -171,27 +216,16 @@ def catalog():
         path = zim_path(o)
         if not path:
             continue
-        row_file = os.path.basename(path)
-        row = {"name": o.name, "file": row_file, "installed": o.name not in gone,
-               "title": o.name, "description": "", "icon": "", "size_bytes": os.path.getsize(path),
-               "entries": 0, "date": (re.search(r"_(\d{4}-\d{2})", row_file) or [""] * 2)[1]}
         try:
-            a = Archive(path)
-            row["title"] = a.get_metadata("Title").decode("utf-8", "replace")
-            row["entries"] = a.article_count
-            row["description"] = a.get_metadata("Description").decode("utf-8", "replace")
-            if a.has_illustration(48):
-                png = bytes(a.get_illustration_item(48).content)
-                row["icon"] = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
-        except Exception:
-            pass
-        rows.append(row)
+            rows.append(dict(_file_row(path), name=o.name, installed=o.name not in gone))
+        except OSError:
+            continue
     return rows
 
 
 def category_of(path):
     """The Home section of one of these ZIMs, by its path; None for any other."""
-    if not path or os.path.dirname(os.path.abspath(path)) != os.path.abspath(OUT_DIR):
+    if not is_own_path(path):
         return None
     name = re.sub(_DATED, "", os.path.basename(path))
     return next((o.category for o in OWN if o.name == name), None)
@@ -271,6 +305,9 @@ def main(argv=None):
     """``python -m zimi.ownzims [--check]``: build what changed, or (--check)
     list what is stale and exit 1."""
     argv = sys.argv[1:] if argv is None else argv
+    if not all(os.path.isdir(os.path.join(SOURCE_ROOT, o.folder)) for o in OWN):
+        print("the ZIMs' source folders are in a repo checkout, not an installed package")
+        return 2
     if "--check" in argv:
         stale = [o.name for o in OWN if not fresh(o)]
         for name in stale:

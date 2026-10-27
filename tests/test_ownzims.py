@@ -135,13 +135,22 @@ def test_a_failed_build_leaves_the_last_good_one_serving(home, monkeypatch):
     assert os.path.getsize(path) == good
 
 
-def test_served_as_the_last_tier_never_over_the_operators_file(home):
+def test_a_copy_in_the_library_only_wins_as_a_newer_edition(home):
+    """The package's file is Zimi's own; a same-name file in the library is an ordinary ZIM,
+    served only when it is a strictly newer edition (the package's links and strings go
+    with its own build). tests/test_own_zim_copy.py covers delete and removal."""
     ownzims.build(home["own"])
     zims = server._scan_zim_files()
     assert zims["zimi_games"].startswith(str(home["data"]))
-    mine = home["zims"] / "zimi_games.zim"
-    shutil.copy(ownzims.zim_path(home["own"]), mine)
-    assert server._scan_zim_files()["zimi_games"] == str(mine)
+    src = ownzims.zim_path(home["own"])
+    for name in ("zimi_games.zim", "zimi_games_2020-01.zim"):  # no date, an older one
+        mine = home["zims"] / name
+        shutil.copy(src, mine)
+        assert server._scan_zim_files()["zimi_games"] == src, name
+        mine.unlink()
+    newer = home["zims"] / "zimi_games_2099-01.zim"
+    shutil.copy(src, newer)
+    assert server._scan_zim_files()["zimi_games"] == str(newer)
 
 
 def test_off_serves_none(home, monkeypatch):
@@ -161,7 +170,7 @@ def test_every_own_zim_is_committed_in_the_package():
     with open(
         os.path.join(os.path.dirname(server.__file__), "..", "pyproject.toml")
     ) as f:
-        assert '"builtin/**"' in f.read(), "pip installs must carry the sources"
+        assert '"builtin/*.zim"' in f.read(), "pip installs must carry the built ZIMs"
 
 
 def test_on_home_under_its_own_section_never_as_something_you_made(home):

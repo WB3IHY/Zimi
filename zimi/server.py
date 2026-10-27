@@ -3030,6 +3030,31 @@ def _zim_pick(cands):
     )
 
 
+def _own_copy_first(name, cands):
+    """Zimi's own ZIM (the package's file, tier 3) against a same-name copy
+    someone put in their library, e.g. zimi_games_2026-10.zim from a release
+    page. Only the package's file counts as Zimi's own; the copy is an
+    ordinary ZIM. The package's file serves the name unless the copy is a
+    strictly newer edition (the package's pages, links and strings go with
+    its own build, so an equal or older copy never stands in for it). The
+    loser is shadowed like any other collision, and can be deleted once the
+    package's file is removed from the library. Edits ``cands`` in place."""
+    from zimi import ownzims
+
+    own = [i for i, (_tier, path) in enumerate(cands) if ownzims.is_own_path(path)]
+    if not own or len(own) == len(cands):
+        return
+
+    def date(path):
+        m = _DATE_TOKEN_RE.search(os.path.basename(path).lower())
+        return m.group(1) if m else ""
+
+    newest_copy = max(date(p) for i, (_t, p) in enumerate(cands) if i not in own)
+    for i in own:
+        if date(cands[i][1]) >= newest_copy:
+            cands[i] = (-1, cands[i][1])
+
+
 def _scan_zim_files():
     """Scan ZIM_DIR plus exactly one level of subdirectories for ZIM files.
     Returns {short_name: path} mapping.
@@ -3089,6 +3114,8 @@ def _scan_zim_files():
         for path in paths:
             name = _zim_base_name(os.path.basename(path))
             groups.setdefault(name, []).append((tier, path))
+    for name, cands in groups.items():
+        _own_copy_first(name, cands)
     zims = {name: _zim_pick(cands) for name, cands in groups.items()}
     for name, cands in groups.items():
         if len(cands) > 1:
