@@ -249,8 +249,8 @@
     won = true; stopTimer();
     var s = stats[layout.id] = stats[layout.id] || { won: 0, best: 0 };
     s.won++;
-    var record = !s.best || seconds < s.best;
-    if (record) s.best = seconds;
+    var record = s.best > 0 && seconds < s.best;   // a first clear is not yet a record to beat
+    if (!s.best || record) s.best = seconds;
     BK.save(STATS_KEY, stats);
     say(T('mahjong.cleared')); showStats(); paint();
     lastEnd = { result: 'win', text: T(record ? 'mahjong.clearedBest' : 'mahjong.clearedIn', { time: BK.fmtTime(seconds), layout: layoutName(layout) }), stats: [[T('mahjong.time'), BK.fmtTime(seconds)]] };
