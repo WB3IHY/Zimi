@@ -15,12 +15,16 @@ import functools
 import http.server
 import json
 import os
+import sys
 import threading
 
 import pytest
 
 pytest.importorskip("playwright")
 from playwright.sync_api import sync_playwright  # noqa: E402
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from games_wait import shell_ready  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GAMES = os.environ.get("ZIMI_GAMES_DIR") or os.path.join(os.path.dirname(HERE), "zimi", "builtin", "games")  # (a copy with a deliberate change proves the fixtures notice)
@@ -195,9 +199,11 @@ def play_out(browser, served, name, spec):
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.clock.install(time=1_700_000_000_000)
+    page.clock.pause_at(1_700_000_001_000)  # installed, the clock still runs with the wall; paused, only run_for moves it
     page.add_init_script(path=os.path.join(GAMES, "util.js"))  # ZimiUtil.mulberry32: the pages that do not load it get it
     page.add_init_script(INIT % {"seed": spec["seed"]})
     page.goto("%s/%s.html" % (served, name))
+    shell_ready(page)  # the page's own loading takes real time, which the paused clock does not count
     up = "() => !!(window.%s && %s.session && %s.session.state)" % ((spec["api"],) * 3)
     for _ in range(200):  # the page is up when the game has a table (its own timers run on the fake clock)
         if page.evaluate(up):
