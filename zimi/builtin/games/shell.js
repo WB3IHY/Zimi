@@ -731,14 +731,20 @@
     (p.textContent.match(/[^.]+\./g) || []).forEach(function (t) { if (/\bkeys?\b|\bEnter\b|\bpress\b/i.test(t)) s += t.trim() + ' '; });
     return s.trim();
   }
+  // The Goal / Your turn / The end / Tip list of a game's help (the shelf's long-press menu shows the same list).
+  function helpList(hp, keys) {
+    var dl = h('dl', { class: 'gs-help' });
+    HELP_PARTS.forEach(function (p) { if (hp[p[0]]) { dl.appendChild(h('dt', { text: T(p[1]) })); dl.appendChild(h('dd', { text: hp[p[0]] })); } });
+    if (keys) { dl.appendChild(h('dt', { text: T('shell.help.keys') })); dl.appendChild(h('dd', { text: keys })); }
+    return dl;
+  }
   function helpPane() {
     head(T('shell.menu.how'), false);
-    var hp = helpFor(ID), dl = h('dl', { class: 'gs-help' });
-    HELP_PARTS.forEach(function (p) { if (hp[p[0]]) { dl.appendChild(h('dt', { text: T(p[1]) })); dl.appendChild(h('dd', { text: hp[p[0]] })); } });
-    var keys = hp.keys || keysLine();
-    if (keys) { dl.appendChild(h('dt', { text: T('shell.help.keys') })); dl.appendChild(h('dd', { text: keys })); }
-    card.appendChild(dl);
+    var hp = helpFor(ID);
+    card.appendChild(helpList(hp, hp.keys || keysLine()));
   }
+  // For a page that is not the game (the shelf): the list for game `id`, or null when it has no help.
+  Shell.helpList = function (id) { var hp = helpFor(id); return hp ? helpList(hp, hp.keys) : null; };
 
   // The game's own row in games.json, fetched once for the History and About panes (null when there is none).
   var rowPromise = null;
@@ -792,24 +798,32 @@
     });
   }
   // About: what the game is, in the Menu where the game is, so reading it never leaves the table.
+  // The About text of a game's games.json row: what it is, why it matters, how many play, how long, a Tatham puzzle's credit.
+  // `source` is what the game is playing from right now (only the game itself knows).
+  function aboutInto(body, row, source) {
+    var stem = hrefStem(row.path), facts = h('dl', { class: 'gs-help gs-meta' });
+    body.appendChild(h('p', { class: 'gs-text', text: gameWord(stem, 'blurb') || row.blurb || gameWord(stem, 'title') || row.title }));
+    if (row.why) body.appendChild(h('p', { class: 'gs-text', text: gameWord(stem, 'why') || row.why }));
+    if (source) body.appendChild(h('p', { class: 'gs-text gs-source', text: source }));
+    factRows(row, ABOUT_FACTS).forEach(function (f) { facts.appendChild(h('dt', { text: T(f[0]) })); facts.appendChild(h('dd', { text: f[1] })); });
+    if (facts.childNodes.length) body.appendChild(facts);
+    var pz = /^puzzles\/([a-z]+)\.html$/.exec(row.path || '');
+    if (pz) {
+      body.appendChild(h('p', { class: 'gs-text', text: T('shell.about.credit') }));
+      body.appendChild(h('p', { class: 'gs-text' }, [h('a', { href: HOME + 'puzzles/LICENCE', text: T('shell.about.licence') }), ' \u00b7 ', h('a', { href: HOME + 'puzzles/doc/' + pz[1] + '.html', text: T('shell.about.manual') })]));
+    }
+  }
+  Shell.aboutInto = aboutInto;
+  Shell.historyFor = historyFor;
+  // About: what the game is, in the Menu where the game is, so reading it never leaves the table.
   function aboutPane() {
     head(T('shell.menu.about'), false);
-    var body = h('div', { class: 'gs-about' }), facts = h('dl', { class: 'gs-help gs-meta' });
+    var body = h('div', { class: 'gs-about' });
     card.appendChild(body);
     gameRow().then(function (row) {
-      if (!row || !body.isConnected) { if (body.isConnected) body.appendChild(h('p', { class: 'gs-text', text: titleOf() })); return; }
-      var stem = pageStem();
-      body.appendChild(h('p', { class: 'gs-text', text: gameWord(stem, 'blurb') || row.blurb || gameWord(stem, 'title') || row.title }));
-      if (row.why) body.appendChild(h('p', { class: 'gs-text', text: gameWord(stem, 'why') || row.why }));
-      var source = game.about ? game.about() : '';   // what the game is playing from right now, asked when the pane opens
-      if (source) body.appendChild(h('p', { class: 'gs-text gs-source', text: source }));
-      factRows(row, ABOUT_FACTS).forEach(function (f) { facts.appendChild(h('dt', { text: T(f[0]) })); facts.appendChild(h('dd', { text: f[1] })); });
-      if (facts.childNodes.length) body.appendChild(facts);
-      var pz = /^puzzles\/([a-z]+)\.html$/.exec(row.path || '');
-      if (pz) {
-        body.appendChild(h('p', { class: 'gs-text', text: T('shell.about.credit') }));
-        body.appendChild(h('p', { class: 'gs-text' }, [h('a', { href: HOME + 'puzzles/LICENCE', text: T('shell.about.licence') }), ' \u00b7 ', h('a', { href: HOME + 'puzzles/doc/' + pz[1] + '.html', text: T('shell.about.manual') })]));
-      }
+      if (!body.isConnected) return;
+      if (!row) { body.appendChild(h('p', { class: 'gs-text', text: titleOf() })); return; }
+      aboutInto(body, row, game.about ? game.about() : '');
     });
   }
 

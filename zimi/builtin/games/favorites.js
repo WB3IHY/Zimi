@@ -10,16 +10,25 @@
   var ZIM = 'zimi_games';
   var NOT_GAMES = { 'index.html': 1, 'about.html': 1, 'puzzles.html': 1 };
 
+  // Kept pages of Tatham's Mines, Solo and Guess are Minesweeper, Sudoku and Code Breaker (recent.js says which).
+  function canon(path) { return root.ZimiRecent ? root.ZimiRecent.canon(path) : path; }
+
+  // Zimi's Saved store, the one the header's heart keeps a game in; null outside Zimi.
+  function saved() {
+    try {
+      var s = root.parent !== root && root.parent.Saved;
+      return s && root.parent.document.getElementById('reader-frame') ? s : null;
+    } catch (e) { return null; }
+  }
+
   // Saved's items of this ZIM that are games, the latest kept first; [] outside Zimi.
   function favorites() {
-    try {
-      var saved = root.parent !== root && root.parent.Saved;
-      if (!saved || !root.parent.document.getElementById('reader-frame')) return [];
-      var seen = {};
-      return saved.all().filter(function (it) { return it.zim === ZIM && it.path && !NOT_GAMES[it.path]; }).map(function (it) {
-        return canon(it.path) === it.path ? it : Object.assign({}, it, { path: canon(it.path), title: '' });   // a kept alias is the shelf's game
-      }).filter(function (it) { return seen[it.path] ? false : (seen[it.path] = 1); });
-    } catch (e) { return []; }
+    var s = saved();
+    if (!s) return [];
+    var seen = {};
+    return s.all().filter(function (it) { return it.zim === ZIM && it.path && !NOT_GAMES[it.path]; }).map(function (it) {
+      return canon(it.path) === it.path ? it : Object.assign({}, it, { path: canon(it.path), title: '' });   // a kept alias is the shelf's game
+    }).filter(function (it) { return seen[it.path] ? false : (seen[it.path] = 1); });
   }
 
   // The tile's own art is a file of this ZIM (thumbs/<game>.svg).
@@ -76,6 +85,19 @@
     // Before Game of the day, after the table.
     top.insertBefore(s, doc.querySelector('.sh-top .ar-today'));
   }
+
+  // What a tile's long-press menu asks (tilemenu.js): is this game kept, and keep it or let it go, with the row following.
+  root.ZimiFavorites = {
+    available: function () { return !!saved(); },
+    has: function (path) { var s = saved(); return !!s && favorites().some(function (it) { return it.path === path; }); },
+    toggle: function (path, title) {
+      var s = saved(), ref = { kind: 'article', zim: ZIM, path: path, title: title };
+      if (!s) return false;
+      if (s.has(ref)) s.unsave(ref); else s.save(ref);
+      draw();
+      return true;
+    }
+  };
 
   doc.addEventListener('zimi-shelf-today', draw);
   // The page comes back from a game (the back button restores it): hearts may have changed.

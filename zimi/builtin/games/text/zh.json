@@ -4988,6 +4988,15 @@
  "t2048.reached": "你合成了 2048 方块",
  "t2048.swipe": "滑动屏幕或按方向键",
  "tienlen.rules": "四人玩，每人 13 张牌。持有黑桃 3 的人先出，所出的牌必须包含它。可以出单张、对子、三条或四条、三张及以上的顺子，或三对及以上的连对，牌型须与桌面相同且更大，或者过牌；过牌后你本轮不能再出。2 最大（不能进顺子）；花色由小到大为黑桃、梅花、方块、红心。斩 2：四条或三连对可以斩一张 2；四条或四连对可以斩一对 2。出牌一直进行到三人出完为止；按先后完成的名次计 4、1、-1、-4 分。先到 12 分者获胜。点按牌选中，再点“出牌”。P 出牌，S 过牌，H 提示。",
+ "tile.menu.article": "阅读全文",
+ "tile.menu.favorite": "添加到收藏",
+ "tile.menu.label": "{game}的选项",
+ "tile.menu.newTab": "在新标签页中打开",
+ "tile.menu.reset": "重置进度",
+ "tile.menu.resetConfirm": "重置",
+ "tile.menu.resetText": "这会清除此设备上已保存的游戏及其统计数据，且无法撤销。",
+ "tile.menu.resetTitle": "重置{game}？",
+ "tile.menu.unfavorite": "从收藏中移除",
  "time.day": {
   "other": "{n} 天前"
  },

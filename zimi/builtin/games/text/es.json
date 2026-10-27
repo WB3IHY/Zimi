@@ -28,19 +28,19 @@
  "backgammon.doubleRoll": "doble {n}",
  "backgammon.doubles": "{name} dobla a {n}. {other}: ¿aceptas o rechazas?",
  "backgammon.drop": {
-  "one": "Rechazado: {n} punto.",
   "many": "Rechazado: {n} de puntos.",
+  "one": "Rechazado: {n} punto.",
   "other": "Rechazado: {n} puntos."
  },
  "backgammon.dropBtn": "Rechazar",
  "backgammon.dropComputer": {
-  "one": "El ordenador rechaza. Ganas {n} punto.",
   "many": "El ordenador rechaza. Ganas {n} de puntos.",
+  "one": "El ordenador rechaza. Ganas {n} punto.",
   "other": "El ordenador rechaza. Ganas {n} puntos."
  },
  "backgammon.dropYou": {
-  "one": "Rechazas. El ordenador gana {n} punto.",
   "many": "Rechazas. El ordenador gana {n} de puntos.",
+  "one": "Rechazas. El ordenador gana {n} punto.",
   "other": "Rechazas. El ordenador gana {n} puntos."
  },
  "backgammon.hint.barOff": "Pista: desde la barra.",
@@ -62,8 +62,8 @@
  "backgammon.point.empty": "Punto {point}, vacío",
  "backgammon.point.white": "Punto {point}, {n} blancas",
  "backgammon.pts": {
-  "one": "{n} pt",
   "many": "{n} pts",
+  "one": "{n} pt",
   "other": "{n} pts"
  },
  "backgammon.roll": "Tirar",
@@ -77,18 +77,18 @@
  "backgammon.toRoll": "Le toca tirar a {name}",
  "backgammon.watch.intro": "La tirada inicial decide quién empieza. El ordenador juega ambos bandos.",
  "backgammon.win.backgammon": {
-  "one": "Backgammon: {n} punto.",
   "many": "Backgammon: {n} de puntos.",
+  "one": "Backgammon: {n} punto.",
   "other": "Backgammon: {n} puntos."
  },
  "backgammon.win.gammon": {
-  "one": "Gammon: {n} punto.",
   "many": "Gammon: {n} de puntos.",
+  "one": "Gammon: {n} punto.",
   "other": "Gammon: {n} puntos."
  },
  "backgammon.win.single": {
-  "one": "{n} punto.",
   "many": "{n} de puntos.",
+  "one": "{n} punto.",
   "other": "{n} puntos."
  },
  "backgammon.youDouble": "Doblas a {n}. El ordenador está decidiendo",
@@ -98,8 +98,8 @@
  "bee.delete": "Borrar",
  "bee.enter": "Intro",
  "bee.found": {
-  "one": "{n} palabra encontrada",
   "many": "{n} de palabras encontradas",
+  "one": "{n} palabra encontrada",
   "other": "{n} palabras encontradas"
  },
  "bee.go": "Forma palabras con la letra central",
@@ -109,8 +109,8 @@
  "bee.notWord": "No está en la lista de palabras",
  "bee.pangramAdded": "Pangrama. {word}: +{n}",
  "bee.points": {
-  "one": "{n} punto",
   "many": "{n} de puntos",
+  "one": "{n} punto",
   "other": "{n} puntos"
  },
  "bee.progress": "Progreso",
@@ -281,8 +281,8 @@
  "bricks.cleared": "Nivel {n} superado",
  "bricks.launch": "Toca o pulsa Espacio para lanzar",
  "bricks.livesLeft": {
-  "one": "Queda {n} bola",
   "many": "Quedan {n} de bolas",
+  "one": "Queda {n} bola",
   "other": "Quedan {n} bolas"
  },
  "bricks.nextKeys": "Pulsa cualquier tecla para el nivel {n}",
@@ -424,8 +424,8 @@
  "canasta.rank1.8": "ocho",
  "canasta.rank1.9": "nueve",
  "canasta.reds": {
-  "one": "{n} tres rojo",
   "many": "{n} de treses rojos",
+  "one": "{n} tres rojo",
   "other": "{n} treses rojos"
  },
  "canasta.rules": "Canasta de dos jugadores contra el ordenador. Roba dos cartas o coge el pozo de descartes; baja juegos de tres o más cartas del mismo valor; descarta una carta. Los doses y los jokers son comodines (un juego necesita dos cartas naturales, como mucho tres comodines, y nunca más comodines que naturales). Siete cartas forman una canasta: 500 la limpia, 300 la sucia. Los treses rojos valen 100 cada uno y se bajan de inmediato; los treses negros solo sirven para cerrar. Tu primera bajada necesita 50 puntos (más conforme sube tu puntuación). El pozo está congelado tras un descarte de comodín, o antes de que hayas bajado: solo se coge con una pareja natural que coincida con la carta de arriba. Cerrar exige dos canastas (100, o 200 si bajaste todo en un solo turno). Elige cartas tocándolas y luego pulsa Bajar, Descartar o Coger pozo (o toca el mazo para robar). Teclas: D robar, T coger, M bajar, X descartar, Esc quitar. Gana el primero en llegar al objetivo.",
@@ -465,8 +465,8 @@
  "cards.bidding": "{name} está licitando",
  "cards.cancelled": "Cancelado",
  "cards.chips": {
-  "one": "{n} ficha",
   "many": "{n} de fichas",
+  "one": "{n} ficha",
   "other": "{n} fichas"
  },
  "cards.choices": "Opciones",
@@ -540,83 +540,83 @@
  "cards.look": "Mirar",
  "cards.moved": "Movido",
  "cards.n.bag": {
-  "one": "{n} bolsa",
   "many": "{n} de bolsas",
+  "one": "{n} bolsa",
   "other": "{n} bolsas"
  },
  "cards.n.card": {
-  "one": "{n} carta",
   "many": "{n} de cartas",
+  "one": "{n} carta",
   "other": "{n} cartas"
  },
  "cards.n.checker": {
-  "one": "{n} ficha",
   "many": "{n} de fichas",
+  "one": "{n} ficha",
   "other": "{n} fichas"
  },
  "cards.n.disc": {
-  "one": "{n} disco",
   "many": "{n} de discos",
+  "one": "{n} disco",
   "other": "{n} discos"
  },
  "cards.n.hand": {
-  "one": "{n} mano",
   "many": "{n} de manos",
+  "one": "{n} mano",
   "other": "{n} manos"
  },
  "cards.n.heart": {
-  "one": "{n} corazón",
   "many": "{n} de corazones",
+  "one": "{n} corazón",
   "other": "{n} corazones"
  },
  "cards.n.liberty": {
-  "one": "{n} libertad",
   "many": "{n} de libertades",
+  "one": "{n} libertad",
   "other": "{n} libertades"
  },
  "cards.n.month": {
-  "one": "{n} mes",
   "many": "{n} de meses",
+  "one": "{n} mes",
   "other": "{n} meses"
  },
  "cards.n.move": {
-  "one": "{n} movimiento",
   "many": "{n} de movimientos",
+  "one": "{n} movimiento",
   "other": "{n} movimientos"
  },
  "cards.n.overtrick": {
-  "one": "{n} baza de más",
   "many": "{n} de bazas de más",
+  "one": "{n} baza de más",
   "other": "{n} bazas de más"
  },
  "cards.n.piece": {
-  "one": "{n} pieza",
   "many": "{n} de piezas",
+  "one": "{n} pieza",
   "other": "{n} piezas"
  },
  "cards.n.point": {
-  "one": "{n} punto",
   "many": "{n} de puntos",
+  "one": "{n} punto",
   "other": "{n} puntos"
  },
  "cards.n.round": {
-  "one": "{n} ronda",
   "many": "{n} de rondas",
+  "one": "{n} ronda",
   "other": "{n} rondas"
  },
  "cards.n.seed": {
-  "one": "{n} semilla",
   "many": "{n} de semillas",
+  "one": "{n} semilla",
   "other": "{n} semillas"
  },
  "cards.n.spade": {
-  "one": "{n} pica",
   "many": "{n} de picas",
+  "one": "{n} pica",
   "other": "{n} picas"
  },
  "cards.n.stone": {
-  "one": "{n} piedra",
   "many": "{n} de piedras",
+  "one": "{n} piedra",
   "other": "{n} piedras"
  },
  "cards.name": "{rank} de {suit}",
@@ -628,14 +628,14 @@
  "cards.pass": "Pasar",
  "cards.picked": "Has cogido {card}. Elige un montón y pulsa Intro para soltar.",
  "cards.pile.count": {
-  "one": "{name}, {n} carta",
   "many": "{name}, {n} de cartas",
+  "one": "{name}, {n} carta",
   "other": "{name}, {n} cartas"
  },
  "cards.pile.empty": "{name}, vacío",
  "cards.pile.top": {
-  "one": "{name}, {n} carta, arriba {card}",
   "many": "{name}, {n} de cartas, arriba {card}",
+  "one": "{name}, {n} carta, arriba {card}",
   "other": "{name}, {n} cartas, arriba {card}"
  },
  "cards.rank.1": "as",
@@ -703,8 +703,8 @@
  "carrom.note.striker": "El disparador entró: falta.",
  "carrom.nothing": "No entró nada.",
  "carrom.pocketed": {
-  "one": "{name} embolsó {n} ficha.",
   "many": "{name} embolsó {n} fichas.",
+  "one": "{name} embolsó {n} ficha.",
   "other": "{name} embolsó {n} fichas."
  },
  "carrom.position": "Posición",
@@ -718,8 +718,8 @@
  "carrom.shootBtn": "Disparar",
  "carrom.sliders": "Apuntar con deslizadores",
  "carrom.theirs": {
-  "one": "Entró una ficha del otro bando.",
   "many": "Entraron fichas del otro bando.",
+  "one": "Entró una ficha del otro bando.",
   "other": "Entraron fichas del otro bando."
  },
  "carrom.toShoot": "Dispara {name}.",
@@ -730,13 +730,13 @@
  "cb.check": "Comprobar",
  "cb.colors": "Colores",
  "cb.cracked": {
-  "one": "Descifrado en {n} intento",
   "many": "Descifrado en {n} intentos",
+  "one": "Descifrado en {n} intento",
   "other": "Descifrado en {n} intentos"
  },
  "cb.crackedBy": {
-  "one": "{breaker} descifró el código de {maker} en {n} intento",
   "many": "{breaker} descifró el código de {maker} en {n} intentos",
+  "one": "{breaker} descifró el código de {maker} en {n} intento",
   "other": "{breaker} descifró el código de {maker} en {n} intentos"
  },
  "cb.emptyPlace": "Casilla vacía {n}",
@@ -752,8 +752,8 @@
  "cb.mode.repeats": "con colores repetidos",
  "cb.mode.single": "sin repeticiones",
  "cb.nGuesses": {
-  "one": "{n} intento",
   "many": "{n} intentos",
+  "one": "{n} intento",
   "other": "{n} intentos"
  },
  "cb.notScored": "sin puntuar",
@@ -1066,18 +1066,18 @@
  "dominoes.ends": "Extremos libres {a} y {b}",
  "dominoes.game": "Juego",
  "dominoes.handCount": {
-  "one": "{n} ficha, {dots} puntos",
   "many": "{n} de fichas, {dots} puntos",
+  "one": "{n} ficha, {dots} puntos",
   "other": "{n} fichas, {dots} puntos"
  },
  "dominoes.held": {
-  "one": "{name} tenía {n} punto.",
   "many": "{name} tenía {n} de puntos.",
+  "one": "{name} tenía {n} punto.",
   "other": "{name} tenía {n} puntos."
  },
  "dominoes.held.you": {
-  "one": "Tenías {n} punto.",
   "many": "Tenías {n} de puntos.",
+  "one": "Tenías {n} punto.",
   "other": "Tenías {n} puntos."
  },
  "dominoes.here": "Aquí",
@@ -1098,8 +1098,8 @@
  "dominoes.playTo": "Jugar a",
  "dominoes.played": "{name} jugó {a}-{b}",
  "dominoes.record": {
-  "one": "{mode}, {n} ordenador, {level}: {won} ganadas, {lost} perdidas",
   "many": "{mode}, {n} de ordenadores, {level}: {won} ganadas, {lost} perdidas",
+  "one": "{mode}, {n} ordenador, {level}: {won} ganadas, {lost} perdidas",
   "other": "{mode}, {n} ordenadores, {level}: {won} ganadas, {lost} perdidas"
  },
  "dominoes.scores": "Puntuaciones",
@@ -1109,8 +1109,8 @@
  "dominoes.tileLead": "Ficha {a} y {b}, salir con ella",
  "dominoes.tileNo": "Ficha {a} y {b}, no se puede jugar ahora",
  "dominoes.tiles": {
-  "one": "{n} ficha",
   "many": "{n} de fichas",
+  "one": "{n} ficha",
   "other": "{n} fichas"
  },
  "dominoes.turn": "{name}, tu turno: elige una ficha que encaje en un extremo libre",
@@ -1126,8 +1126,8 @@
  "dotsandboxes.boardLabel": "Tablero de puntos y cajas",
  "dotsandboxes.dots": "Puntos",
  "dotsandboxes.draw": {
-  "one": "Empate, {n} caja cada uno.",
   "many": "Empate, {n} de cajas cada uno.",
+  "one": "Empate, {n} caja cada uno.",
   "other": "Empate, {n} cajas cada uno."
  },
  "dotsandboxes.edge.drawn": "{label}, trazada",
@@ -1145,13 +1145,13 @@
  "dotsandboxes.taken": "Esa línea ya está trazada",
  "dotsandboxes.toDraw": "Le toca trazar una línea a {name}",
  "dotsandboxes.tookAgain": {
-  "one": "{name} se llevó una caja y mueve otra vez.",
   "many": "{name} se llevó {n} de cajas y mueve otra vez.",
+  "one": "{name} se llevó una caja y mueve otra vez.",
   "other": "{name} se llevó {n} cajas y mueve otra vez."
  },
  "dotsandboxes.tookAgain.you": {
-  "one": "Te llevaste una caja y mueves otra vez.",
   "many": "Te llevaste {n} de cajas y mueves otra vez.",
+  "one": "Te llevaste una caja y mueves otra vez.",
   "other": "Te llevaste {n} cajas y mueves otra vez."
  },
  "draughts.bar": "Damas 10x10",
@@ -1159,14 +1159,14 @@
  "draughts.cantTake": "La captura es obligatoria: esa ficha no puede capturar",
  "draughts.king": "dama",
  "draughts.kings": {
-  "one": "({n} dama)",
   "many": "({n} de damas)",
+  "one": "({n} dama)",
   "other": "({n} damas)"
  },
  "draughts.man": "ficha",
  "draughts.mustCapture": {
-  "one": "Tu turno: debes capturar",
   "many": "Tu turno: debes capturar {n} de piezas",
+  "one": "Tu turno: debes capturar",
   "other": "Tu turno: debes capturar {n} piezas"
  },
  "draughts.nextLanding": "Elige la siguiente casilla de llegada",
@@ -1207,8 +1207,8 @@
  "durak.def": "defiende",
  "durak.done": "Listo",
  "durak.fact": {
-  "one": "Mazo: {n} carta",
   "many": "Mazo: {n} de cartas",
+  "one": "Mazo: {n} carta",
   "other": "Mazo: {n} cartas"
  },
  "durak.higherTrump": "Solo un triunfo más alto cubre un triunfo",
@@ -1274,29 +1274,29 @@
  "euchre.picksUpDiscards": "{name} recoge y descarta",
  "euchre.rules": "Cinco cartas cada uno. Pide el palo de la carta descubierta como triunfo o pasa; en la segunda vuelta elige otro palo (el repartidor está obligado). La jota de triunfo es el bower derecho y la otra jota de su color, el bower izquierdo: ambos son triunfo. Solo: tu compañero se sienta y la puntuación es mayor. 3 o 4 bazas valen 1, las 5 valen 2 (4 en solitario); los que cantan y no llegan sufren un euchre y los demás anotan 2. Gana el primero en llegar a 10. Toca una carta para jugarla o arrástrala al centro.",
  "explain.backgammon.bearsOff": {
-  "one": "saca {n} ficha",
   "many": "saca {n} de fichas",
+  "one": "saca {n} ficha",
   "other": "saca {n} fichas"
  },
  "explain.backgammon.blots": {
-  "one": "Deja una ficha sola que se puede comer con {risk} de {total} tiradas.",
   "many": "Deja {n} de fichas solas que se pueden comer con {risk} de {total} tiradas.",
+  "one": "Deja una ficha sola que se puede comer con {risk} de {total} tiradas.",
   "other": "Deja {n} fichas solas que se pueden comer con {risk} de {total} tiradas."
  },
  "explain.backgammon.entered": {
-  "one": "mete una ficha desde la barra",
   "many": "mete {n} de fichas desde la barra",
+  "one": "mete una ficha desde la barra",
   "other": "mete {n} fichas desde la barra"
  },
  "explain.backgammon.hits": {
-  "one": "come una ficha sola y la manda a la barra",
   "many": "come {n} de fichas solas y las manda a la barra",
+  "one": "come una ficha sola y la manda a la barra",
   "other": "come {n} fichas solas y las manda a la barra"
  },
  "explain.backgammon.itDoes": "La jugada {parts}.",
  "explain.backgammon.makes": {
-  "one": "hace el punto {points}, donde el otro bando no puede caer",
   "many": "hace los puntos {points}, donde el otro bando no puede caer",
+  "one": "hace el punto {points}, donde el otro bando no puede caer",
   "other": "hace los puntos {points}, donde el otro bando no puede caer"
  },
  "explain.backgammon.noBlot": "No deja ninguna ficha sola que comer.",
@@ -1323,8 +1323,8 @@
  "explain.checkers.nothingBack": "Nada puede recapturar.",
  "explain.checkers.offer": "{side} ofrece una ficha en {to}: la captura es obligatoria y la recaptura gana {won} por {lost}.",
  "explain.checkers.pieces": {
-  "one": "{n} ficha",
   "many": "{n} de fichas",
+  "one": "{n} ficha",
   "other": "{n} fichas"
  },
  "explain.checkers.rateBig": "El motor lo valora a favor de {who} por una ficha aproximadamente.",
@@ -1380,8 +1380,8 @@
  "explain.go.favoursFoe": "Las simulaciones del ordenador favorecen a {foe} ({pct}% para {foe}).",
  "explain.go.joins": "{side} juega {sq} y une {n} grupos en uno, que comparten sus libertades.",
  "explain.go.liberties": {
-  "one": "{n} libertad",
   "many": "{n} de libertades",
+  "one": "{n} libertad",
   "other": "{n} libertades"
  },
  "explain.go.line.0": "primera",
@@ -1396,8 +1396,8 @@
  "explain.go.rescues": "{side} juega {sq} para salvar un grupo de {stones} que estaba en atari (una libertad); ahora tiene {liberties}.",
  "explain.go.star": "{side} juega {sq}, un punto estrella, uno de los puntos marcados que son los sitios habituales para empezar.",
  "explain.go.stones": {
-  "one": "{n} piedra",
   "many": "{n} de piedras",
+  "one": "{n} piedra",
   "other": "{n} piedras"
  },
  "explain.hearts.card": "la carta {card}",
@@ -1425,8 +1425,8 @@
  "explain.hearts.moon": "{who} se llevó todos los corazones y la reina de picas: dispara a la luna, así que todos los demás reciben 26.",
  "explain.hearts.over": "{who} juega {card} por encima de la mesa.",
  "explain.hearts.partHearts": {
-  "one": "{n} corazón",
   "many": "{n} de corazones",
+  "one": "{n} corazón",
   "other": "{n} corazones"
  },
  "explain.hearts.partQueen": "la reina de picas",
@@ -1434,8 +1434,8 @@
  "explain.hearts.passPlain": "{who} pasa {cards} {dir}, sus cartas más incómodas. Los demás también pasan tres cada uno.",
  "explain.hearts.passWhy": "{who} pasa {cards} {dir}: {why}. Los demás también pasan tres cada uno.",
  "explain.hearts.points": {
-  "one": "{n} punto",
   "many": "{n} de puntos",
+  "one": "{n} punto",
   "other": "{n} puntos"
  },
  "explain.hearts.score": "{who} {n}",
@@ -1446,8 +1446,8 @@
  "explain.hearts.whyHonours": "las picas altas son las cartas con más probabilidad de verse obligadas a llevarse la reina",
  "explain.hearts.whyQueen": "la reina de picas vale 13 puntos",
  "explain.hearts.whyQueenFew": {
-  "one": "la reina de picas vale 13 puntos y solo hay {n} pica para protegerla",
   "many": "la reina de picas vale 13 puntos y solo hay {n} de picas para protegerla",
+  "one": "la reina de picas vale 13 puntos y solo hay {n} pica para protegerla",
   "other": "la reina de picas vale 13 puntos y solo hay {n} picas para protegerla"
  },
  "explain.hearts.winsFree": "{who} juega el último, y no hay puntos en la mesa, así que {card} gana la baza sin coste.",
@@ -1463,8 +1463,8 @@
  "explain.mancala.grandSlam": "{who} siembra el hoyo {pit} y la última semilla capturaría todas las semillas de {them}. Eso es una captura total, así que no se toma nada{end}",
  "explain.mancala.safe": "{who} siembra el hoyo {pit} ({seeds}) y no deja a {them} ninguna captura en el próximo turno{end}",
  "explain.mancala.seeds": {
-  "one": "{n} semilla",
   "many": "{n} de semillas",
+  "one": "{n} semilla",
   "other": "{n} semillas"
  },
  "explain.mancala.still": "{who} siembra el hoyo {pit} ({seeds}), pero {them} aún puede capturar {next} a continuación{end}",
@@ -1474,8 +1474,8 @@
  "explain.reversi.cornerOpen": "{side} juega {sq} junto a la esquina vacía, lo que ahora deja al rival tomarla. Un riesgo.",
  "explain.reversi.cuts": "{side} juega {sq}, reduciendo las opciones del rival de {before} a {after}.",
  "explain.reversi.discs": {
-  "one": "{n} ficha",
   "many": "{n} de fichas",
+  "one": "{n} ficha",
   "other": "{n} fichas"
  },
  "explain.reversi.edge": "{side} toma la casilla de borde {sq}, volteando {discs}. Las fichas del borde son difíciles de voltear.",
@@ -1492,8 +1492,8 @@
  "explain.side.white": "Blanco",
  "explain.solitaire.ace": "Los ases abren un palo, así que {card} sube directo a una pila base.",
  "explain.solitaire.draw": {
-  "one": "Ningún movimiento de la mesa ayuda, así que da la vuelta a una carta del mazo.",
   "many": "Ningún movimiento de la mesa ayuda, así que da la vuelta a {n} de cartas del mazo.",
+  "one": "Ningún movimiento de la mesa ayuda, así que da la vuelta a una carta del mazo.",
   "other": "Ningún movimiento de la mesa ayuda, así que da la vuelta a {n} cartas del mazo."
  },
  "explain.solitaire.low": "La carta {card} sube a su pila base: no se construye nada sobre una carta baja, así que siempre es seguro.",
@@ -1569,8 +1569,8 @@
  "fiveletters.tile": "{letter}, {state}",
  "fiveletters.unreadable": "No se pudo leer {title}. Volviendo al inglés",
  "fiveletters.wonIn": {
-  "one": "Ganado en {n} intento",
   "many": "Ganado en {n} de intentos",
+  "one": "Ganado en {n} intento",
   "other": "Ganado en {n} intentos"
  },
  "fiveletters.wonPct": "Ganadas",
@@ -1580,8 +1580,8 @@
  "flags.pictureAlt": "Una bandera nacional",
  "fleet.allPlaced": "Todos colocados. Empieza la batalla o mueve un barco.",
  "fleet.best": {
-  "one": "Menos disparos: {n}",
   "many": "Menos disparos: {n}",
+  "one": "Menos disparos: {n}",
   "other": "Menos disparos: {n}"
  },
  "fleet.cell.hit": "{cell}, tocado",
@@ -1599,8 +1599,8 @@
  "fleet.fireYou": "Tu turno. Dispara a aguas enemigas.",
  "fleet.fleetOf": "Flota de {name}",
  "fleet.fleetSunk": {
-  "one": "{name} hundió toda la flota en {n} disparo.",
   "many": "{name} hundió toda la flota en {n} de disparos.",
+  "one": "{name} hundió toda la flota en {n} disparo.",
   "other": "{name} hundió toda la flota en {n} disparos."
  },
  "fleet.lastShot": "Último disparo contra ti: {cell}.",
@@ -1628,8 +1628,8 @@
  "fleet.startBattle": "Empezar batalla",
  "fleet.wins": "{name} gana.",
  "fleet.youSank": {
-  "one": "Hundiste toda la flota enemiga en {n} disparo.",
   "many": "Hundiste toda la flota enemiga en {n} de disparos.",
+  "one": "Hundiste toda la flota enemiga en {n} disparo.",
   "other": "Hundiste toda la flota enemiga en {n} disparos."
  },
  "fleet.youSunk": "Tu flota está hundida. Gana el ordenador.",
@@ -2237,16 +2237,16 @@
  "go.taken": "{n} capturadas",
  "go.toPlay": "Juega {name}",
  "go.took": {
-  "one": "{name} capturó una piedra.",
   "many": "{name} capturó {n} de piedras.",
+  "one": "{name} capturó una piedra.",
   "other": "{name} capturó {n} piedras."
  },
  "go.watch.intro": "Negro juega primero. El ordenador juega ambos bandos y explica qué hace cada piedra.",
  "go.watch.markIntro": "Ambos bandos pasaron. Las piedras que no pueden vivir se marcan como muertas, y cada bando cuenta los puntos vacíos que rodea: Negro {black}, Blanco {white} (Blanco recibe {komi} puntos extra por jugar en segundo lugar).",
  "go.wonBy": "{name} gana por {margin}",
  "golf.left": {
-  "one": "Queda {n} carta en las columnas. Cuanto menos, mejor.",
   "many": "Quedan {n} de cartas en las columnas. Cuanto menos, mejor.",
+  "one": "Queda {n} carta en las columnas. Cuanto menos, mejor.",
   "other": "Quedan {n} cartas en las columnas. Cuanto menos, mejor."
  },
  "golf.leftShort": "quedan {n}",
@@ -3128,8 +3128,8 @@
  "hnefatafl.sq.target": "{sq}, {what}, mover aquí",
  "hnefatafl.sq.throne": "trono, vacío",
  "hnefatafl.taking": {
-  "one": ", capturando {n} pieza",
   "many": ", capturando {n} de piezas",
+  "one": ", capturando {n} pieza",
   "other": ", capturando {n} piezas"
  },
  "hnefatafl.why.blocked": "{side} no tiene más movimientos.",
@@ -3275,8 +3275,8 @@
  "janggi.why.quiet": "Tablas: cincuenta jugadas cada uno sin capturas.",
  "janggi.yourTurn": "Tu turno ({side})",
  "jigsaw.bestOf": {
-  "one": "Mejor: {n} pieza",
   "many": "Mejor: {n} de piezas",
+  "one": "Mejor: {n} pieza",
   "other": "Mejor: {n} piezas"
  },
  "jigsaw.credit": "{title}, de {source}",
@@ -3466,8 +3466,8 @@
  "learn.dictionary": "Buscar {word} en el diccionario",
  "learn.map": "Abrir {place} en el mapa",
  "letters.air": {
-  "one": "Aire restante: {n} de {max}",
   "many": "Aire restante: {n} de {max}",
+  "one": "Aire restante: {n} de {max}",
   "other": "Aire restante: {n} de {max}"
  },
  "letters.airLeft": "Aire restante",
@@ -3495,8 +3495,8 @@
  "liarsdice.bid.aria": "La apuesta en la mesa",
  "liarsdice.bidBtn": "Apostar",
  "liarsdice.dice": {
-  "one": "{n} dado",
   "many": "{n} de dados",
+  "one": "{n} dado",
   "other": "{n} dados"
  },
  "liarsdice.end.hot": "{name} es el último con dados y gana.",
@@ -3615,8 +3615,8 @@
  "mahjong.noMoves": "No quedan jugadas. Mezcla o deshaz.",
  "mahjong.noShuffle": "No se pudo mezclar esta posición.",
  "mahjong.record": {
-  "one": "{layout}: {n} partida ganada",
   "many": "{layout}: {n} de partidas ganadas",
+  "one": "{layout}: {n} partida ganada",
   "other": "{layout}: {n} partidas ganadas"
  },
  "mahjong.record.best": "{layout}: ganadas {n}, mejor {best}",
@@ -3682,8 +3682,8 @@
  "mahjong4.hint": "Prueba a descartar {tile}.",
  "mahjong4.hintWait": "Entonces esperas {tiles}.",
  "mahjong4.inHand": {
-  "one": "{n} ficha en la mano",
   "many": "{n} de fichas en la mano",
+  "one": "{n} ficha en la mano",
   "other": "{n} fichas en la mano"
  },
  "mahjong4.info": "Mano {n} de {of}, fichas en el muro: {left}",
@@ -3791,8 +3791,8 @@
  "mancala.again.you": "Caíste en el almacén y vuelves a jugar.",
  "mancala.boardLabel": "Tablero de mancala",
  "mancala.captured": {
-  "one": "{name} capturó {n} semilla.",
   "many": "{name} capturó {n} de semillas.",
+  "one": "{name} capturó {n} semilla.",
   "other": "{name} capturó {n} semillas."
  },
  "mancala.emptyPit": "Ese hoyo está vacío",
@@ -3808,8 +3808,8 @@
  "mancala.notYours": "Elige un hoyo de tu lado",
  "mancala.oware": "Oware",
  "mancala.pit": {
-  "one": "{side}, hoyo {pit}, {n} semilla",
   "many": "{side}, hoyo {pit}, {n} de semillas",
+  "one": "{side}, hoyo {pit}, {n} semilla",
   "other": "{side}, hoyo {pit}, {n} semillas"
  },
  "mancala.south": "Sur",
@@ -3820,8 +3820,8 @@
  "memory.cards": "Cartas",
  "memory.cards.group": "Las cartas",
  "memory.done": {
-  "one": "Todas las parejas encontradas en {n} movimiento",
   "many": "Todas las parejas encontradas en {n} de movimientos",
+  "one": "Todas las parejas encontradas en {n} movimiento",
   "other": "Todas las parejas encontradas en {n} movimientos"
  },
  "memory.faceDown": "Carta {n}, boca abajo",
@@ -3832,8 +3832,8 @@
  "memory.miss": "No es pareja",
  "memory.moves": "Movimientos",
  "memory.nMoves": {
-  "one": "{n} movimiento",
   "many": "{n} de movimientos",
+  "one": "{n} movimiento",
   "other": "{n} movimientos"
  },
  "memory.nameFor": "Nombre del jugador {n}",
@@ -3913,8 +3913,8 @@
  "minicw.solved": "Resuelto",
  "minicw.solvedCount": "Resueltos",
  "minicw.wrong": {
-  "one": "{n} letra es incorrecta",
   "many": "{n} de letras son incorrectas",
+  "one": "{n} letra es incorrecta",
   "other": "{n} letras son incorrectas"
  },
  "morris.boardLabel": "Tablero del molino",
@@ -3973,8 +3973,8 @@
  "openings.hint2": "La línea la mueve aquí",
  "openings.hintTitle": "Mostrar la jugada de teoría (H)",
  "openings.line": {
-  "one": "{name} · {eco} · {n} jugada",
   "many": "{name} · {eco} · {n} de jugadas",
+  "one": "{name} · {eco} · {n} jugada",
   "other": "{name} · {eco} · {n} jugadas"
  },
  "openings.lineLabel": "Línea",
@@ -3986,8 +3986,8 @@
  "openings.opening": "Apertura",
  "openings.played": "Líneas jugadas: {n} de {of}",
  "openings.playedLine": {
-  "one": "Has jugado esta línea {n} vez.",
   "many": "Has jugado esta línea {n} de veces.",
+  "one": "Has jugado esta línea {n} vez.",
   "other": "Has jugado esta línea {n} veces."
  },
  "openings.restart": "Reiniciar",
@@ -4141,8 +4141,8 @@
  "puzzles.anyTheme": "Cualquier tema",
  "puzzles.best": "Mejor racha",
  "puzzles.count": {
-  "one": "{n} problema coincide",
   "many": "{n} de problemas coinciden",
+  "one": "{n} problema coincide",
   "other": "{n} problemas coinciden"
  },
  "puzzles.daily": "Problema del día.",
@@ -4206,19 +4206,19 @@
  "pyr.enterAgain": ", Intro para dar otra vuelta",
  "pyr.enterTurn": ", Intro para dar la vuelta a una carta",
  "pyr.left": {
-  "one": "Queda {n} carta en la pirámide.",
   "many": "Quedan {n} de cartas en la pirámide.",
+  "one": "Queda {n} carta en la pirámide.",
   "other": "Quedan {n} cartas en la pirámide."
  },
  "pyr.redeals": {
-  "one": "{n} reparto",
   "many": "{n} de repartos",
+  "one": "{n} reparto",
   "other": "{n} repartos"
  },
  "pyr.rules": "Retira dos cartas libres que sumen 13, o un rey libre solo. El as vale 1, la jota 11 y la reina 12. Toca una carta y luego su pareja. Las cartas que puedes retirar se ven claras; las cubiertas, atenuadas.",
  "pyr.taken": {
-  "one": "Cartas retiradas, {n}. Suelta aquí un rey.",
   "many": "Cartas retiradas, {n}. Suelta aquí un rey.",
+  "one": "Cartas retiradas, {n}. Suelta aquí un rey.",
   "other": "Cartas retiradas, {n}. Suelta aquí un rey."
  },
  "pyr.why.covered": "Otras cartas la cubren.",
@@ -4513,8 +4513,8 @@
  "race.bestClicks": "Menos clics en una carrera diaria",
  "race.builtIn": "los artículos integrados",
  "race.clicks": {
-  "one": "{n} clic",
   "many": "{n} de clics",
+  "one": "{n} clic",
   "other": "{n} clics"
  },
  "race.clicksLabel": "Clics",
@@ -4524,16 +4524,16 @@
  "race.daily": "Carrera diaria",
  "race.finding": "Buscando dos artículos…",
  "race.follow": {
-  "one": "Sigue los enlaces para llegar. El par es {n} clic.",
   "many": "Sigue los enlaces para llegar. El par es {n} de clics.",
+  "one": "Sigue los enlaces para llegar. El par es {n} clic.",
   "other": "Sigue los enlaces para llegar. El par es {n} clics."
  },
  "race.followOnly": "Sigue los enlaces de cada artículo para llegar.",
  "race.gaveUp": "El destino era {target}. {par}.",
  "race.giveUp": "Rendirse",
  "race.hot.clicksTime": {
-  "one": "{n} clic, {time}",
   "many": "{n} de clics, {time}",
+  "one": "{n} clic, {time}",
   "other": "{n} clics, {time}"
  },
  "race.hot.firstDone": "Primera carrera: {chip}",
@@ -4550,8 +4550,8 @@
  "race.notCounted": "Esa página no está en tu Wikipedia, así que no contó",
  "race.offline": "Esta página no se puede mostrar ahora. Tu recorrido se conserva",
  "race.par": {
-  "one": "El par es {n} clic",
   "many": "El par es {n} de clics",
+  "one": "El par es {n} clic",
   "other": "El par es {n} clics"
  },
  "race.parRoute": "Existe una ruta de longitud {n}",
@@ -4574,8 +4574,8 @@
  "reversi.legal": "jugada legal",
  "reversi.noFlip": "Eso no atrapa nada",
  "reversi.passes": {
-  "one": "{name} no tiene jugadas y pasa. {line}",
   "many": "{name} no tienen jugadas y pasan. {line}",
+  "one": "{name} no tiene jugadas y pasa. {line}",
   "other": "{name} no tienen jugadas y pasan. {line}"
  },
  "reversi.score": "{top} a {low}.",
@@ -4649,18 +4649,18 @@
  "scopa.suit.cups": "copas",
  "scopa.suit.swords": "espadas",
  "scopa.tally.cards": {
-  "one": "{n} carta",
   "many": "{n} de cartas",
+  "one": "{n} carta",
   "other": "{n} cartas"
  },
  "scopa.tally.coins": {
-  "one": "{n} oro",
   "many": "{n} de oros",
+  "one": "{n} oro",
   "other": "{n} oros"
  },
  "scopa.tally.scope": {
-  "one": "{n} scopa",
   "many": "{n} de scope",
+  "one": "{n} scopa",
   "other": "{n} scope"
  },
  "scopa.toScore": "{a} a {b}",
@@ -4712,8 +4712,8 @@
  "shelf.family.go.line": "El juego y sus problemas.",
  "shelf.family.go.name": "Go",
  "shelf.family.line": {
-  "one": "{n} juego. {line}",
   "many": "{n} de juegos. {line}",
+  "one": "{n} juego. {line}",
   "other": "{n} juegos. {line}"
  },
  "shelf.family.logicpuzzles.line": "Cuadrículas, bucles, puentes y deslizadores",
@@ -4740,8 +4740,8 @@
  "shelf.noMatch": "Ningún juego coincide.",
  "shelf.play": "Jugar",
  "shelf.players.line": {
-  "one": "{p} jugador",
   "many": "{p} de jugadores",
+  "one": "{p} jugador",
   "other": "{p} jugadores"
  },
  "shelf.players.many": "Tres o más",
@@ -4765,8 +4765,8 @@
  "shelf.region.Worldwide/Modern": "Mundial/moderno",
  "shelf.search": "Buscar juegos",
  "shelf.searchN": {
-  "one": "Buscar {n} juego",
   "many": "Buscar {n} de juegos",
+  "one": "Buscar {n} juego",
   "other": "Buscar {n} juegos"
  },
  "shelf.searchShort": "Buscar",
@@ -4833,8 +4833,8 @@
  "shell.off": "Desactivado",
  "shell.on": "Activado",
  "shell.players.n": {
-  "one": "{n} jugador",
   "many": "{n} de jugadores",
+  "one": "{n} jugador",
   "other": "{n} jugadores"
  },
  "shell.players.range": "De {a} a {b} jugadores",
@@ -5118,8 +5118,8 @@
  "spades.yourBid": "Tu apuesta. Nil apuesta que no ganas ninguna baza",
  "spades.yourBid.name": "{name}, tu apuesta. Nil apuesta que no ganas ninguna baza",
  "spider.deals": {
-  "one": "{n} reparto",
   "many": "{n} de repartos",
+  "one": "{n} reparto",
   "other": "{n} repartos"
  },
  "spider.nextDeal": "Un cambio tras la primera jugada se aplica al próximo reparto. Los récords se guardan para cada número de palos.",
@@ -5131,8 +5131,8 @@
  "spider.stock": "Mazo, quedan {deals}, Intro para repartir una fila",
  "spider.stockEmpty": "Mazo, vacío",
  "spider.suits": {
-  "one": "{n} palo",
   "many": "{n} de palos",
+  "one": "{n} palo",
   "other": "{n} palos"
  },
  "spider.suitsRow": "Palos",
@@ -5182,35 +5182,44 @@
  "t2048.reached": "Has hecho la ficha 2048",
  "t2048.swipe": "Desliza o usa las flechas",
  "tienlen.rules": "Cuatro jugadores, 13 cartas cada uno. Quien tiene el 3 de picas abre una mano que lo incluya. Juega una carta suelta, una pareja, un trío o cuatro iguales, una escalera de tres o más cartas seguidas, o una serie de tres o más parejas seguidas, igualando lo que hay en la mesa y más alto, o pasa; pasar te deja fuera de esa ronda. Los doses son lo más alto (nunca en una escalera); los palos van de menor a mayor en este orden: picas, tréboles, diamantes, corazones. Cortar un dos: cuatro iguales o tres parejas seguidas ganan a un dos suelto; cuatro iguales o cuatro parejas seguidas ganan a una pareja de doses. El juego sigue hasta que salen tres; terminar de primero a último puntúa 4, 1, -1, -4. Gana el primero que llegue a 12. Toca cartas para elegirlas y luego Jugar. P juega, S pasa, H da una pista.",
+ "tile.menu.article": "Leer el artículo completo",
+ "tile.menu.favorite": "Añadir a favoritos",
+ "tile.menu.label": "Opciones de {game}",
+ "tile.menu.newTab": "Abrir en una pestaña nueva",
+ "tile.menu.reset": "Restablecer progreso",
+ "tile.menu.resetConfirm": "Restablecer",
+ "tile.menu.resetText": "Esto borra la partida guardada y las estadísticas en este dispositivo. No se puede deshacer.",
+ "tile.menu.resetTitle": "¿Restablecer {game}?",
+ "tile.menu.unfavorite": "Quitar de favoritos",
  "time.day": {
-  "one": "hace {n} día",
   "many": "hace {n} de días",
+  "one": "hace {n} día",
   "other": "hace {n} días"
  },
  "time.hour": {
-  "one": "hace {n} hora",
   "many": "hace {n} de horas",
+  "one": "hace {n} hora",
   "other": "hace {n} horas"
  },
  "time.minute": {
-  "one": "hace {n} minuto",
   "many": "hace {n} de minutos",
+  "one": "hace {n} minuto",
   "other": "hace {n} minutos"
  },
  "time.month": {
-  "one": "hace {n} mes",
   "many": "hace {n} de meses",
+  "one": "hace {n} mes",
   "other": "hace {n} meses"
  },
  "time.now": "ahora mismo",
  "time.week": {
-  "one": "hace {n} semana",
   "many": "hace {n} de semanas",
+  "one": "hace {n} semana",
   "other": "hace {n} semanas"
  },
  "time.year": {
-  "one": "hace {n} año",
   "many": "hace {n} de años",
+  "one": "hace {n} año",
   "other": "hace {n} años"
  },
  "timeline.check": "Comprobar",
@@ -5258,8 +5267,8 @@
  "tp.found": "Acertado en el intento {n}: +{points}",
  "tp.giveFor": "{name}: escribe una pista para este artículo",
  "tp.guessesLeft": {
-  "one": "Queda {n} intento, {name}",
   "many": "Quedan {n} de intentos, {name}",
+  "one": "Queda {n} intento, {name}",
   "other": "Quedan {n} intentos, {name}"
  },
  "tp.hasTable": "{name} domina la mesa con {n} fichas.",
@@ -5328,8 +5337,8 @@
  "tp.yourBet": "Tu apuesta",
  "tp.yourBet.hot": "tu apuesta",
  "tri.left": {
-  "one": "Queda {n} carta en los picos, puntos {score}.",
   "many": "Quedan {n} de cartas en los picos, puntos {score}.",
+  "one": "Queda {n} carta en los picos, puntos {score}.",
   "other": "Quedan {n} cartas en los picos, puntos {score}."
  },
  "tri.row": "Fila {row}, {card}",
@@ -5401,8 +5410,8 @@
  "ur.blueFirst": "Azul (primero)",
  "ur.boardLabel": "Tablero del Juego Real de Ur",
  "ur.cantMove": {
-  "one": "Esa ficha no puede avanzar {n} casilla",
   "many": "Esa ficha no puede avanzar {n} de casillas",
+  "one": "Esa ficha no puede avanzar {n} casilla",
   "other": "Esa ficha no puede avanzar {n} casillas"
  },
  "ur.captured": "{name} capturó una ficha.",
@@ -5433,8 +5442,8 @@
  "ur.waiting": "{side}, fichas en espera: {n}",
  "ur.yourRoll": "Tu turno: tira los dados.",
  "world.away": {
-  "one": "A {km} km: {n} punto",
   "many": "A {km} km: {n} de puntos",
+  "one": "A {km} km: {n} punto",
   "other": "A {km} km: {n} puntos"
  },
  "world.bestMaps": "Mejor con tus mapas",
@@ -5465,8 +5474,8 @@
  "world.of": "{n} de {max}",
  "world.place": "Lugar {n} de {total}",
  "world.points": {
-  "one": "{n} punto",
   "many": "{n} de puntos",
+  "one": "{n} punto",
   "other": "{n} puntos"
  },
  "world.score": "Puntos",
@@ -5520,8 +5529,8 @@
  "yacht.msg.scored": "{name} anota {n} en «{row}».",
  "yacht.msg.used": "Esa fila ya está anotada.",
  "yacht.nPlayers": {
-  "one": "{n} jugador",
   "many": "{n} de jugadores",
+  "one": "{n} jugador",
   "other": "{n} jugadores"
  },
  "yacht.new": "¿Empezar de nuevo con una hoja nueva?",

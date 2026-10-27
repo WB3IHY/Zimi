@@ -486,3 +486,24 @@ html.gs-pad :focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 [dir="rtl"] :is([class*="-board"], [class*="-grid"], [class*="-pad"], [class*="-keys"], [class*="-hand"], [class*="-felt"], [class$="-table"], [class*="-rows"], [class*="-secret"], [class*="-dice"], [class*="-rack"]):not([class^="gs-"], [class^="ar-"]) { direction: ltr; }
 /* The header score ("3 · Best 12") and clocks read left to right as one figure. */
 [dir="rtl"] .ar-stat { direction: ltr; unicode-bidi: isolate; }
+
+/* The menu on a game's tile (tilemenu.js): a popup at the pointer for a mouse and the keyboard, a sheet from the bottom for a finger.
+   Zimi's card menu in the shelf's own tokens. The native link callout is off on tiles only, and a pressed tile does not select. */
+.ar-game, .ar-box { -webkit-touch-callout: none; }
+.gs-lp-armed .ar-game, .gs-lp-armed .ar-box { -webkit-user-select: none; user-select: none; }
+.gs-tm-back { position: fixed; inset: 0; z-index: 60; }
+.gs-tm-sheetback { background: var(--scrim); }
+.gs-tm { position: fixed; min-width: 190px; padding: 4px 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface2); color: var(--ink); box-shadow: var(--shadow-popup); user-select: none; -webkit-user-select: none; }
+.gs-tm:focus { outline: none; }
+.gs-tm-item { display: block; width: 100%; padding: 8px 16px; border: 0; background: none; color: inherit; font: inherit; font-size: var(--fs-small); text-align: start; white-space: nowrap; cursor: pointer; }
+.gs-tm-item:hover, .gs-tm-item:focus-visible { background: var(--accent-glow); color: var(--accent); outline: none; }
+.gs-tm-danger:hover, .gs-tm-danger:focus-visible { background: rgba(179, 38, 30, 0.1); color: var(--danger, #b3261e); }
+.gs-tm-head { display: none; }
+.gs-tm-sheet { left: 0; right: 0; bottom: 0; min-width: 0; max-height: 78vh; overflow-y: auto; overscroll-behavior: contain; border-width: 1px 0 0; border-radius: var(--r-sheet) var(--r-sheet) 0 0; padding: var(--sp-2) 0 calc(12px + env(safe-area-inset-bottom)); animation: gs-tm-up 0.2s cubic-bezier(0.25, 1, 0.5, 1); }
+.gs-tm-sheet::before { content: ""; display: block; width: 36px; height: 4px; margin: 0 auto 6px; border-radius: 2px; background: var(--line-strong); opacity: 0.5; }
+.gs-tm-sheet .gs-tm-head { display: flex; align-items: center; gap: 12px; padding: 6px 20px 12px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.gs-tm-head img { flex: none; width: 64px; height: 36px; border-radius: var(--r-chip); object-fit: cover; }
+.gs-tm-head b { min-width: 0; font-size: var(--fs-body); font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gs-tm-sheet .gs-tm-item { min-height: 48px; padding: 13px 20px; font-size: var(--fs-body); white-space: normal; }
+@keyframes gs-tm-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .gs-tm-sheet { animation: none; } }

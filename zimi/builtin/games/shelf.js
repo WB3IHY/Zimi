@@ -276,6 +276,7 @@
   var landState = '';
 
   function meta(path) { return (rows && rows[path]) || FALLBACK[path] || null; }
+  root.ZimiShelf = { meta: meta };   // a tile's own row, for its long-press menu (tilemenu.js)
   function sortedNow() { return rows && state.sort !== 'sections' ? state.sort : 'sections'; }
   function defaultSection() { return state.view === 'index' && sortedNow() === 'sections' && sections.length ? sections[0].id : 'all'; }
   state.sec = defaultSection();
