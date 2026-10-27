@@ -4624,7 +4624,7 @@
  "skat.take": "Take the skat",
  "skat.takeOrHand": "Take the skat?",
  "skat.takesSkat": "{name} takes the skat",
- "skat.tapTwo": "Tap two cards to put back. The skat cards are glowing",
+ "skat.tapTwo": "Tap two cards to put back",
  "skat.throws": "{name} throws the hand in",
  "skat.tied": "The series is tied.",
  "skat.twoOnly": "Two cards only: tap one to take it off",
