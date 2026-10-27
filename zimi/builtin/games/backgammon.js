@@ -241,7 +241,11 @@
   // ── the page ─────────────────────────────────────────────────────────────
   if (typeof document === 'undefined' || !root.BoardUI) return;
   var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t;
-  var PW = 34, GAP = 32, LM = 40, TM = 8, TRAY = 40, HALF = 150, MID = 46, W = LM + 12 * PW + GAP + TRAY + 2 * TM + 4, H = 2 * HALF + MID + 2 * TM, CR = 14.5;
+  // The board is laid out along two axes: u runs along the points (twelve a side, the bar between the sixth and seventh) and v across
+  // the board (one side's points, the middle, the other's). A wide screen draws u left to right, v top to bottom. A phone held upright
+  // turns it on its side: u runs down the screen, so the points are tall and easy to tap, the bar is a strip across, and the middle
+  // channel holds the dice, the cube and the borne-off checkers.
+  var CR = 14.5, PW, GAP, HALF, MID, TM, TRAY = 40, TRL = 80, U0, U, V, portrait = false;
   var COLORS = ['var(--disc-w)', 'var(--disc-b)'];
   function sideName(p) { return UI.side(p === 0 ? 'white' : 'black'); }
   // Who a sentence is about: you or the computer against the machine, else the side's name.
@@ -263,48 +267,66 @@
 
   // ── the picture ──
   // The side whose home is at the bottom right: white, unless the person plays black.
+  function wantPortrait() { return !!(root.matchMedia && root.matchMedia('(max-width: 640px) and (max-aspect-ratio: 19/20)').matches); }
+  function setLayout() {
+    portrait = wantPortrait();
+    if (portrait) { PW = 45; GAP = 40; HALF = 164; MID = 44; TM = 4; CR = 16; U0 = TM; U = 2 * TM + 12 * PW + GAP; V = 2 * HALF + MID + 2 * TM; }
+    else { PW = 34; GAP = 32; HALF = 150; MID = 46; TM = 8; CR = 14.5; U0 = G.settings.cube ? 40 : 10; U = U0 + 12 * PW + GAP + TRAY + 2 * TM + 4; V = 2 * HALF + MID + 2 * TM; }
+  }
+  // A place in the board's own axes on the screen, and a rectangle of them (u, v is its corner).
+  function xy(u, v) { return portrait ? [v, u] : [u, v]; }
+  function rectUV(u, v, du, dv, cls, extra) {
+    var a = xy(u, v), b = xy(u + du, v + dv);
+    return '<rect x="' + Math.min(a[0], b[0]) + '" y="' + Math.min(a[1], b[1]) + '" width="' + Math.abs(b[0] - a[0]) + '" height="' + Math.abs(b[1] - a[1]) + '" class="' + cls + '"' + (extra || '') + '/>';
+  }
+  function boxUV(u, v, du, dv) { var c = xy(u + du / 2, v + dv / 2); return { x: c[0], y: c[1], w: portrait ? dv : du, h: portrait ? du : dv }; }
   function bottomPlayer() { return flipped ? 1 : 0; }
-  function colX(col) { return LM + (col < 6 ? col * PW : 6 * PW + GAP + (col - 6) * PW); }
-  // Where point idx sits: top or bottom row, column 0..11 from the left. The board is seen from the
-  // side of the person playing: their home is always bottom right.
+  function colU(col) { return U0 + (col < 6 ? col * PW : 6 * PW + GAP + (col - 6) * PW); }
+  // Where point idx sits: top or bottom row (the left or right side upright), column 0..11 along u. The board is seen from the
+  // side of the person playing: their home is always the bottom right, or the bottom of the right-hand side upright.
   function slot(idx) {
     var top = idx >= 12, col = top ? idx - 12 : 11 - idx;
     return { top: flipped ? !top : top, col: col };
   }
-  function pointX(idx) { return colX(slot(idx).col) + PW / 2; }
+  function pointV(top) { return top ? TM : V - TM - HALF; }
+  function barU() { return U0 + 6 * PW; }
+  // Where the person to move bears off: the end of the board in a wide view, an end of the middle channel upright.
+  function trayBox(mine) {
+    if (portrait) return { u: mine ? U - TM - TRL : TM, v: (V - MID) / 2, du: TRL, dv: MID };
+    return { u: U - TM - TRAY, v: mine ? V - TM - HALF : TM, du: TRAY, dv: HALF };
+  }
   function buildBoard() {
-    var tri = '', i;
-    LM = G.settings.cube ? 40 : 10; W = LM + 12 * PW + GAP + TRAY + 2 * TM + 4;
+    var tri = '', num = '', i;
+    setLayout();
+    host.classList.toggle('bk-portrait', portrait);
+    var W = portrait ? V : U, H = portrait ? U : V;
     for (i = 0; i < 24; i++) {
-      var sl = slot(i), x = colX(sl.col), dark = (sl.col + (sl.top ? 1 : 0)) % 2 === 0, y0 = sl.top ? TM : H - TM, y1 = sl.top ? TM + HALF - 8 : H - TM - HALF + 8;
-      tri += '<polygon points="' + x + ',' + y0 + ' ' + (x + PW) + ',' + y0 + ' ' + (x + PW / 2) + ',' + y1 + '" class="bk-tri ' + (dark ? 'a' : 'b') + '"/>';
+      var sl = slot(i), u = colU(sl.col), dark = (sl.col + (sl.top ? 1 : 0)) % 2 === 0, v0 = sl.top ? TM : V - TM, v1 = sl.top ? TM + HALF - 8 : V - TM - HALF + 8;
+      var tipV = sl.top ? TM + HALF - 20 : V - TM - HALF + 20, tc = xy(u + PW / 2, tipV);
+      num += '<text x="' + tc[0] + '" y="' + (tc[1] + 4) + '" text-anchor="middle" class="bk-pn">' + (i + 1) + '</text>';
+      tri += '<polygon points="' + [xy(u, v0), xy(u + PW, v0), xy(u + PW / 2, v1)].join(' ') + '" class="bk-tri ' + (dark ? 'a' : 'b') + '"/>';
     }
-    var bx = LM + 6 * PW;
     host.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" aria-hidden="true">' + WK.STONE_DEFS + '<rect width="' + W + '" height="' + H + '" rx="12" class="bk-frame"/>' +
-      '<rect x="' + LM + '" y="' + TM + '" width="' + (12 * PW + GAP) + '" height="' + (H - 2 * TM) + '" class="bk-felt"/>' + tri +
-      '<rect x="' + bx + '" y="' + TM + '" width="' + GAP + '" height="' + (H - 2 * TM) + '" class="bk-bar"/><g id="bk-marks"></g><g id="bk-checkers"></g><g id="bk-extra"></g></svg>';
+      rectUV(U0, TM, 12 * PW + GAP, V - 2 * TM, 'bk-felt') + tri + num + rectUV(barU(), TM, GAP, V - 2 * TM, 'bk-bar') + '<g id="bk-marks"></g><g id="bk-checkers"></g><g id="bk-extra"></g></svg>';
+    host.style.setProperty('--ratio', (W / H).toFixed(3));
     gLayer = { marks: host.querySelector('#bk-marks'), checkers: host.querySelector('#bk-checkers'), extra: host.querySelector('#bk-extra') };
     var pts = [], ids = [];
-    for (i = 0; i < 24; i++) {
-      var s2 = slot(i);
-      pts.push({ x: colX(s2.col) + PW / 2, y: s2.top ? TM + HALF / 2 : H - TM - HALF / 2, w: PW, h: HALF }); ids.push('p' + i);
-    }
-    pts.push({ x: bx + GAP / 2, y: H / 2, w: GAP, h: H - 2 * TM - 6 }); ids.push('bar');
-    pts.push({ x: W - TM - TRAY / 2, y: H - TM - HALF / 2, w: TRAY, h: HALF }); ids.push('off');
+    for (i = 0; i < 24; i++) { var s2 = slot(i); pts.push(boxUV(colU(s2.col), pointV(s2.top), PW, HALF)); ids.push('p' + i); }
+    pts.push(boxUV(barU(), TM + 3, GAP, V - 2 * TM - 6)); ids.push('bar');
+    pts.push(boxUV.apply(null, boxArgs(trayBox(true)))); ids.push('off');
     var raw = WK.overlay(host, W, H, pts, function (k) { onSpot(ids[k]); }, 'bk-pt');
     btns = {}; raw.forEach(function (b, k) { btns[ids[k]] = b; });
   }
+  function boxArgs(b) { return [b.u, b.v, b.du, b.dv]; }
   function checkerSvg(x, y, p, extra) {
     return '<circle cx="' + x + '" cy="' + (y + 1.5) + '" r="' + CR + '" class="bk-shadow"/><circle cx="' + x + '" cy="' + y + '" r="' + CR + '" fill="url(#wk-stone-' + (p === 0 ? 'w' : 'b') + ')" class="bk-ck' + (extra || '') + '"/>' +
       '<circle cx="' + x + '" cy="' + y + '" r="' + (CR - 5) + '" class="bk-ring ' + (p === 0 ? 'on-w' : 'on-b') + '"/>';
   }
-  function stackSvg(x, baseY, dir, n, p, selected) {
+  function checkerUV(u, v, p, extra) { var c = xy(u, v); return checkerSvg(c[0], c[1], p, extra); }
+  function stackSvg(u, baseV, dir, n, p, selected) {
     var step = n <= 5 ? CR * 2 : (HALF - 14 - CR * 2) / (n - 1), out = '';
-    for (var k = 0; k < n; k++) {
-      var y = baseY + dir * (CR + k * step);
-      out += checkerSvg(x, y, p, selected && k === n - 1 ? ' sel' : '');
-    }
-    if (n > 5) out += '<text x="' + x + '" y="' + (baseY + dir * (CR + (n - 1) * step) + 4.5) + '" text-anchor="middle" class="bk-n ' + (p === 0 ? 'on-w' : 'on-b') + '">' + n + '</text>';
+    for (var k = 0; k < n; k++) out += checkerUV(u, baseV + dir * (CR + k * step), p, selected && k === n - 1 ? ' sel' : '');
+    if (n > 5) { var c = xy(u, baseV + dir * (CR + (n - 1) * step)); out += '<text x="' + c[0] + '" y="' + (c[1] + 4.5) + '" text-anchor="middle" class="bk-n ' + (p === 0 ? 'on-w' : 'on-b') + '">' + n + '</text>'; }
     return out;
   }
   function dieSvg(x, y, v, used, size) {
@@ -315,31 +337,39 @@
   }
 
   function paint() {
-    var ck = '', mk = '', ex = '', i, p;
+    var ck = '', mk = '', ex = '', i, p, W = portrait ? V : U, H = portrait ? U : V;
     for (i = 0; i < 24; i++) {
       var v = s.pts[i]; if (!v) continue;
       p = v > 0 ? 0 : 1; var n = Math.abs(v), sl = slot(i);
-      ck += stackSvg(pointX(i), sl.top ? TM : H - TM, sl.top ? 1 : -1, n, p, sel === relOf(s.turn, i) && p === s.turn && sel > 0 && sel < BAR);
+      ck += stackSvg(colU(sl.col) + PW / 2, sl.top ? TM : V - TM, sl.top ? 1 : -1, n, p, sel === relOf(s.turn, i) && p === s.turn && sel > 0 && sel < BAR);
     }
     // the bar: hit checkers wait in the middle, each side's toward its own end
-    var bx = LM + 6 * PW + GAP / 2;
+    var bu = barU() + GAP / 2, barGap = portrait ? 30 : 34, barStep = portrait ? 26 : 20;
     for (p = 0; p < 2; p++) {
       var topSide = p !== bottomPlayer();
-      for (var k = 0; k < s.bar[p]; k++) ck += checkerSvg(bx, topSide ? H / 2 - 34 - k * 20 : H / 2 + 34 + k * 20, p, sel === BAR && p === s.turn && k === s.bar[p] - 1 ? ' sel' : '');
+      for (var k = 0; k < s.bar[p]; k++) ck += checkerUV(bu, V / 2 + (topSide ? -1 : 1) * (barGap + k * barStep), p, sel === BAR && p === s.turn && k === s.bar[p] - 1 ? ' sel' : '');
     }
-    // the trays: checkers borne off lie flat, the person's at the bottom right
+    // the trays: checkers borne off lie flat, the person's at the bottom right (upright: an end of the middle channel)
     for (p = 0; p < 2; p++) {
-      var bottom = p === bottomPlayer();
-      for (var o = 0; o < s.off[p]; o++) ex += '<rect x="' + (W - TM - TRAY + 6) + '" y="' + (bottom ? H - TM - 10 - o * 8 : TM + 3 + o * 8) + '" width="' + (TRAY - 12) + '" height="6" rx="2" class="bk-off ' + (p === 0 ? 'w' : 'b') + '"/>';
+      var mineTray = p === bottomPlayer(), tb = trayBox(mineTray);
+      for (var o = 0; o < s.off[p]; o++) {
+        if (portrait) ex += rectUV(mineTray ? tb.u + tb.du - 10 - o * 4.6 : tb.u + 4 + o * 4.6, V / 2 - 14, 6, 28, 'bk-off ' + (p === 0 ? 'w' : 'b'), ' rx="2"');
+        else ex += rectUV(tb.u + 6, mineTray ? V - TM - 10 - o * 8 : TM + 3 + o * 8, TRAY - 12, 6, 'bk-off ' + (p === 0 ? 'w' : 'b'), ' rx="2"');
+      }
+      ex += portrait ? rectUV(tb.u, tb.v, tb.du, tb.dv, 'bk-tray', ' rx="6"') : '';
     }
-    ex += '<rect x="' + (W - TM - TRAY) + '" y="' + (TM) + '" width="' + TRAY + '" height="' + (H - 2 * TM) + '" rx="6" class="bk-tray"/>';
-    // dice live in the middle strip, to the right of the bar
-    var dy = H / 2, dx0 = LM + 6 * PW + GAP + 3 * PW, shown = dieShown.length ? dieShown : [];
-    shown.forEach(function (d, k) { ex += dieSvg(dx0 + (k - (shown.length - 1) / 2) * 36, dy, d.v, d.used, 30); });
+    if (!portrait) ex += rectUV(U - TM - TRAY, TM, TRAY, V - 2 * TM, 'bk-tray', ' rx="6"');
+    // dice live in the middle strip: to the right of the bar, or below it upright
+    var shown = dieShown.length ? dieShown : [];
+    shown.forEach(function (d, k) {
+      var c = portrait ? xy(barU() + GAP + 24 + k * 36, V / 2) : xy(U0 + 6 * PW + GAP + 3 * PW + (k - (shown.length - 1) / 2) * 36, V / 2);
+      ex += dieSvg(c[0], c[1], d.v, d.used, portrait ? 32 : 30);
+    });
     // the cube
     if (G.settings.cube) {
-      var cy = s.cube.owner < 0 ? H / 2 : s.cube.owner === bottomPlayer() ? H - TM - 26 : TM + 26;
-      ex += '<g class="bk-cube"><rect x="' + (LM / 2 - 14) + '" y="' + (cy - 14) + '" width="28" height="28" rx="5"/><text x="' + (LM / 2) + '" y="' + (cy + 6) + '" text-anchor="middle">' + (s.cube.value === 1 ? 64 : s.cube.value) + '</text></g>';
+      var cu = portrait ? (s.cube.owner < 0 ? barU() - 30 : s.cube.owner === bottomPlayer() ? U - TM - TRL - 22 : TM + TRL + 22) : U0 / 2,
+        cv = portrait ? V / 2 : s.cube.owner < 0 ? V / 2 : s.cube.owner === bottomPlayer() ? V - TM - 26 : TM + 26, cc = xy(cu, cv);
+      ex += '<g class="bk-cube"><rect x="' + (cc[0] - 14) + '" y="' + (cc[1] - 14) + '" width="28" height="28" rx="5"/><text x="' + cc[0] + '" y="' + (cc[1] + 6) + '" text-anchor="middle">' + (s.cube.value === 1 ? 64 : s.cube.value) + '</text></g>';
     }
     // marks: the last play, the selection and where it may go, the hint
     lastFrom.concat(lastTo).forEach(function (i2) { mk += pointMark(i2, 'bk-last'); });
@@ -347,9 +377,10 @@
     if (sel >= 0) steps.filter(function (st) { return st.from === sel; }).forEach(function (st) { mk += st.to === 0 ? '' : pointMark(idxOf(s.turn, st.to), 'bk-target'); });
     if (hintStep) mk += (hintStep.from < BAR ? pointMark(idxOf(s.turn, hintStep.from), 'bk-hint') : '') + (hintStep.to ? pointMark(idxOf(s.turn, hintStep.to), 'bk-hint') : '');
     // the tray lights up when the selected checker can be borne off; its button sits at the mover's end
-    var offTop = s.turn !== bottomPlayer(), offY = offTop ? TM : H - TM - HALF;
-    if (sel > 0 && steps.some(function (st) { return st.from === sel && st.to === 0; })) mk += '<rect x="' + (W - TM - TRAY) + '" y="' + offY + '" width="' + TRAY + '" height="' + HALF + '" rx="6" class="bk-target"/>';
-    btns.off.style.top = ((offY + HALF / 2 - HALF / 2) / H * 100) + '%';
+    var ob = trayBox(s.turn === bottomPlayer()), obx = boxUV(ob.u, ob.v, ob.du, ob.dv);
+    if (sel > 0 && steps.some(function (st) { return st.from === sel && st.to === 0; })) mk += rectUV(ob.u, ob.v, ob.du, ob.dv, 'bk-target', ' rx="6"');
+    btns.off.style.left = ((obx.x - obx.w / 2) / W * 100) + '%'; btns.off.style.top = ((obx.y - obx.h / 2) / H * 100) + '%';
+    btns.off.style.width = (obx.w / W * 100) + '%'; btns.off.style.height = (obx.h / H * 100) + '%';
     gLayer.checkers.innerHTML = ck; gLayer.marks.innerHTML = mk; gLayer.extra.innerHTML = ex;
     // buttons
     var froms = {}, tos = {};
@@ -372,8 +403,8 @@
   }
   function countSteps() { return turnStart ? turnStart.dice.length - s.dice.length : 0; }
   function pointMark(idx, cls) {
-    var sl = slot(idx), x = colX(sl.col);
-    return '<rect x="' + x + '" y="' + (sl.top ? TM : H - TM - HALF) + '" width="' + PW + '" height="' + HALF + '" class="' + cls + '"/>';
+    var sl = slot(idx);
+    return rectUV(colU(sl.col), pointV(sl.top), PW, HALF, cls);
   }
   function humanTurnLive() { return !G.over && !G.thinking && !rolling && !offer && s.rolled && isHuman(s.turn) && s.dice.length > 0; }
   function humanTurnIdle() { return !G.over && !G.thinking && !rolling && !offer && !s.rolled && isHuman(s.turn); }
@@ -530,7 +561,7 @@
   function playSteps(steps) {
     var token = G.begin();
     lastFrom = []; lastTo = []; var hits = 0, k = 0;
-    (function next() {
+    function next() {
       if (token !== G.thinking) return;
       if (k >= steps.length) {
         G.done(token);
@@ -539,13 +570,17 @@
         G.later(function () { var note = T(hits ? 'backgammon.playedHit' : 'backgammon.played', { dice: diceWords(rolledDice) }); passTurn(); if (isHuman(s.turn) && !G.watching) say(note); }, 450);
         return;
       }
-      var st = steps[k++];
-      if (st.from < BAR) lastFrom.push(idxOf(s.turn, st.from));
-      if (st.to) lastTo.push(idxOf(s.turn, st.to));
+      var st = steps[k++], who = s.turn;
+      if (st.from < BAR) lastFrom.push(idxOf(who, st.from));
+      if (st.to) lastTo.push(idxOf(who, st.to));
       s = applyStep(s, st); if (s.hit) hits++;
       syncDice(); paint();
-      setTimeout(next, BK.reducedMotion() ? 120 : 520);
-    })();
+      // Say what this step did, so the play can be followed one checker at a time.
+      var said = T(st.from === BAR ? 'backgammon.c.enter' : st.to ? 'backgammon.c.move' : 'backgammon.c.off', { from: idxOf(who, st.from) + 1, to: st.to ? idxOf(who, st.to) + 1 : 0 });
+      say(s.hit ? UI.noted(said, T('backgammon.hit')) : said, true);
+      setTimeout(next, BK.reducedMotion() ? 120 : 800);
+    }
+    setTimeout(next, BK.reducedMotion() ? 0 : 600);   // the roll is read before the first checker moves
   }
 
   // ── the cube ──
@@ -598,6 +633,9 @@
     resume: function () { paint(); say(turnText()); }
   });
   if (root.ZimiShell) root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && !!turnStart; } });
+
+  // Turning the phone, or resizing the window, redraws the board in the layout that fits.
+  root.addEventListener('resize', function () { if (s && wantPortrait() !== portrait) { buildBoard(); paint(); } });
 
   G.newGame();
   G.persist({

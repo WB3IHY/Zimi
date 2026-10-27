@@ -1,5 +1,5 @@
 /* ZimiGames: Hex (7, 9 or 11 a side; 11 is the classic board). Our own code, GPL-3.0.
-   Red links top and bottom, Blue links left and right. The rules and the computer (pure
+   Red links the upper right and lower left edges, Blue the upper left and lower right (the board stands on its long diagonal). The rules and the computer (pure
    functions, testable in node), then the page. */
 (function (root) {
   'use strict';
@@ -139,7 +139,7 @@
 
   // ── the page ─────────────────────────────────────────────────────────────
   if (typeof document === 'undefined' || !root.BoardUI) return;
-  var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, R = 20, SQ3 = Math.sqrt(3), PAD = 22;
+  var WK = root.WorldKit, BK = root.BoardKit, UI = root.BoardUI, T = UI.t, R = 20, SQ3 = Math.sqrt(3), PAD = 14;
   function sideName(c) { return UI.side(c === 0 ? 'red' : 'blue'); }
   var host = document.getElementById('wk-board'), cellsG, marksG, btns = [], n = 11, W = 0, Hh = 0;
   var state, history = WK.History(), last = -1, chain = null, hintIdx = -1, swapped = false, swapDone = false, moves = 0;
@@ -147,7 +147,7 @@
   var swapBtn = document.getElementById('hx-swap');
   var G = WK.create({
     id: 'hex',
-    options: WK.standardOptions({ first: 'hex.side.red', second: 'hex.side.blue' }).concat([{ key: 'size', legend: 'go.board', def: '11', choices: [['7', 'hex.board.7'], ['9', 'hex.board.9'], ['11', 'hex.board.11']] }]),
+    options: WK.standardOptions({ first: 'hex.side.red', second: 'hex.side.blue' }).concat([{ key: 'size', legend: 'go.board', def: root.matchMedia && root.matchMedia('(max-width: 519px)').matches ? '9' : '11', choices: [['7', 'hex.board.7'], ['9', 'hex.board.9'], ['11', 'hex.board.11']] }]),
     checks: [{ key: 'swap', label: 'hex.swap', def: false }],
     statKey: function (s) { return s.level + s.size + (s.swap ? 's' : ''); },
     onNew: newGame, onUndo: undo, onHint: hint
@@ -160,31 +160,37 @@
     return isHuman(c) ? T('board.you') : T('board.computer');
   }
 
-  function cx(r, c) { return PAD + R * SQ3 * (c + r / 2) + R * SQ3 / 2; }
-  function cy(r) { return PAD + R * (1 + 1.5 * r); }
-  function vert(r, c, k) { var a = (60 * k + 30) * Math.PI / 180; return [cx(r, c) + R * Math.cos(a), cy(r) + R * Math.sin(a)]; }
+  // The rhombus stands on its long diagonal so the board is tall, like the phone: cell (0,0) is the top corner and (n-1,n-1) the
+  // bottom one, row 0 runs down the upper right, column 0 down the upper left. The lattice is the usual one turned 60 degrees, so
+  // the cells keep their shape and the neighbours keep their indices.
+  function cx(r, c) { return PAD + R * SQ3 / 2 * (c - r + n); }
+  function cy(r, c) { return PAD + R * (1 + 1.5 * (r + c)); }
+  function vert(r, c, k) { var a = (60 * k + 30) * Math.PI / 180; return [cx(r, c) + R * Math.cos(a), cy(r, c) + R * Math.sin(a)]; }
   function pts(list) { return list.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' '); }
   function hexPoly(r, c, shrink) {
     var out = [];
-    for (var k = 0; k < 6; k++) { var a = (60 * k + 30) * Math.PI / 180, rr = R - (shrink || 0); out.push([cx(r, c) + rr * Math.cos(a), cy(r) + rr * Math.sin(a)]); }
+    for (var k = 0; k < 6; k++) { var a = (60 * k + 30) * Math.PI / 180, rr = R - (shrink || 0); out.push([cx(r, c) + rr * Math.cos(a), cy(r, c) + rr * Math.sin(a)]); }
     return pts(out);
   }
+  // Red owns the upper-right and lower-left edges (rows 0 and n-1), Blue the upper-left and lower-right (columns 0 and n-1).
   function sidePaths() {
-    var top = [], bottom = [], left = [vert(0, 0, 3)], right = [vert(0, n - 1, 4)], c, r;
-    for (c = 0; c < n; c++) { top.push(vert(0, c, 3), vert(0, c, 4), vert(0, c, 5)); bottom.push(vert(n - 1, c, 2), vert(n - 1, c, 1), vert(n - 1, c, 0)); }
-    for (r = 0; r < n; r++) { left.push(vert(r, 0, 2), vert(r, 0, 1)); right.push(vert(r, n - 1, 5), vert(r, n - 1, 0)); }
-    return '<polyline points="' + pts(top) + '" class="hx-side r"/><polyline points="' + pts(bottom) + '" class="hx-side r"/>' +
-      '<polyline points="' + pts(left) + '" class="hx-side b"/><polyline points="' + pts(right) + '" class="hx-side b"/>';
+    var ur = [], ll = [], ul = [], lr = [], i;
+    for (i = 0; i < n; i++) {
+      ur.push(vert(0, i, 4), vert(0, i, 5), vert(0, i, 0)); ll.push(vert(n - 1, i, 3), vert(n - 1, i, 2), vert(n - 1, i, 1));
+      ul.push(vert(i, 0, 4), vert(i, 0, 3), vert(i, 0, 2)); lr.push(vert(i, n - 1, 5), vert(i, n - 1, 0), vert(i, n - 1, 1));
+    }
+    return [[ur, 'r'], [ll, 'r'], [ul, 'b'], [lr, 'b']].map(function (e) { return '<polyline points="' + pts(e[0]) + '" class="hx-side ' + e[1] + '"/>'; }).join('');
   }
+  function centre(i) { var r = (i / n) | 0, c = i % n; return [cx(r, c), cy(r, c)]; }
   function coord(i) { return 'ABCDEFGHIJK'[i % n] + (((i / n) | 0) + 1); }
 
   function buildBoard() {
     n = +G.settings.size;
-    W = 2 * PAD + R * SQ3 * (n + (n - 1) / 2); Hh = 2 * PAD + R * (2 + 1.5 * (n - 1));
+    W = 2 * PAD + R * SQ3 * n; Hh = 2 * PAD + R * (2 + 3 * (n - 1));
     host.innerHTML = '<svg viewBox="0 0 ' + W.toFixed(0) + ' ' + Hh.toFixed(0) + '" aria-hidden="true"><g id="hx-cells"></g>' + sidePaths() + '<g id="hx-marks"></g></svg>';
     cellsG = host.querySelector('#hx-cells'); marksG = host.querySelector('#hx-marks');
     var p = [];
-    for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) p.push({ x: cx(r, c), y: cy(r), w: R * SQ3 * 0.98, h: R * 1.7 });
+    for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) p.push({ x: cx(r, c), y: cy(r, c), w: R * SQ3, h: R * 1.75 });
     btns = WK.overlay(host, W, Hh, p, onCell, 'hx-pt');
     host.style.setProperty('--ratio', (W / Hh).toFixed(3));
   }
@@ -195,8 +201,12 @@
       var r = (i / n) | 0, c = i % n;
       s += '<polygon points="' + hexPoly(r, c, 0.8) + '" class="hx-cell' + (b[i] ? ' s' + b[i] : '') + '"/>';
     }
-    if (last >= 0) m += '<circle cx="' + cx((last / n) | 0, last % n) + '" cy="' + cy((last / n) | 0) + '" r="5" class="hx-last"/>';
-    if (chain) chain.forEach(function (j) { m += '<circle cx="' + cx((j / n) | 0, j % n) + '" cy="' + cy((j / n) | 0) + '" r="6.5" class="hx-win"/>'; });
+    if (chain) {
+      m += '<polyline points="' + pts(chain.map(centre)) + '" class="hx-path"/>';
+      chain.forEach(function (j) { var p = centre(j); m += '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="6.5" class="hx-win"/>'; });
+    }
+    if (last >= 0 && !(chain && chain.indexOf(last) >= 0)) { var q = centre(last); m += '<circle cx="' + q[0].toFixed(1) + '" cy="' + q[1].toFixed(1) + '" r="8" class="hx-last"/>'; }
+    else if (last >= 0) { var q2 = centre(last); m += '<circle cx="' + q2[0].toFixed(1) + '" cy="' + q2[1].toFixed(1) + '" r="10" class="hx-last-ring"/>'; }
     if (hintIdx >= 0) m += '<polygon points="' + hexPoly((hintIdx / n) | 0, hintIdx % n, 3) + '" class="hx-hint"/>';
     cellsG.innerHTML = s; marksG.innerHTML = m;
     btns.forEach(function (bt, j) { bt.setAttribute('aria-label', T('go.pt', { pt: coord(j), what: T(b[j] === 1 ? 'hex.cell.red' : b[j] === 2 ? 'hex.cell.blue' : 'go.pt.empty') })); bt.setAttribute('aria-disabled', (!open || b[j]) ? 'true' : 'false'); });
@@ -212,7 +222,7 @@
     var c = state.turn;
     if (swapAsk() && isHuman(c)) return T('hex.swapAsk', { side: sideName(c).toLowerCase() });
     if (!G.vsComputer()) return T('go.toPlay', { name: sideName(c) });
-    return isHuman(c) ? T(c ? 'hex.yourTurn.lr' : 'hex.yourTurn.tb', { side: sideName(c).toLowerCase() }) : T('shell.thinking');
+    return isHuman(c) ? T('hex.yourTurn', { side: sideName(c).toLowerCase() }) : T('shell.thinking');
   }
 
   function onCell(i) {
