@@ -97,3 +97,10 @@ test('after a reload a game still has its back arrow, and it leads to the shelf'
   await page.locator('#back-btn').click();
   await expect(page.locator('#game-title')).toHaveText('ZimiGames');
 });
+
+test('the ZimiGames icon in Zimi\'s bar leads to the shelf from any game', async ({ page }) => {
+  await openGame(page, 'mahjong.html');
+  await expect(page.locator('#game-title')).toHaveText('Mahjong');
+  await page.locator('.topbar-breadcrumb .bc-icon').click();
+  await expect(page.locator('#game-title')).toHaveText('ZimiGames');
+});

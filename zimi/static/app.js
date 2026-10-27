@@ -3313,6 +3313,8 @@ function bcClick(e) {
   if (_almanacOpen) return; // the Almanac breadcrumb is identity only — no nav into the ZIM behind it
   // An app's icon is the way to its front page, from anywhere inside it.
   if (_isAppPage()) { _appEntryHome(); return; }
+  // In ZimiGames the icon is the way to every game: the shelf, from any game (a Discover card or a link lands mid-shelf).
+  if (_isGamesZimOpen()) { openArticle(_GAMES_ZIM, 'index.html', t('app_games')); return; }
   if (currentSource && (readerOpen || mode === 'search')) {
     if (readerOpen) closeReader();
     enterSource(currentSource, false);
