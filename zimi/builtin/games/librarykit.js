@@ -392,13 +392,13 @@
     return r === 1 ? 'flawless' : r >= 0.75 ? 'veryGood' : r >= 0.5 ? 'good' : 'keepGoing';
   };
 
-  // The player's language: ?lang= (for testing), Zimi's own language setting (same origin, so readable),
+  // The player's language: ?lang= (the page's own request), what the page's strings are in (ZimiText), Zimi's own setting (same origin, so readable),
   // then the browser's.
   Lib.uiLang = function () {
-    if (root.ZimiText && root.ZimiText.lang) return Lib.primaryLang(root.ZimiText.lang);   // what the page's strings are in
     var q = '';
     try { q = new URLSearchParams(location.search).get('lang') || ''; } catch (e) { /* no location in node */ }
-    if (q) return Lib.primaryLang(q);
+    if (q) return Lib.primaryLang(q);   // the page's own ?lang= is a request; the strings' language only fills in when there is none
+    if (root.ZimiText && root.ZimiText.lang) return Lib.primaryLang(root.ZimiText.lang);   // what the page's strings are in
     try {
       var v = localStorage.getItem('zimi_ui_lang');
       if (v) { try { v = JSON.parse(v); } catch (e) { /* a bare code */ } if (typeof v === 'string' && v) return Lib.primaryLang(v); }
@@ -409,7 +409,7 @@
   // A name in the page's language through Intl, or the given fallback: type is 'region' (a country code) or 'language'.
   Lib.displayName = function (type, code, fallback) {
     try {
-      var n = new Intl.DisplayNames([root.ZimiText ? root.ZimiText.lang : 'en'], { type: type }).of(code);
+      var n = new Intl.DisplayNames([Lib.uiLang()], { type: type }).of(code);
       return n && n !== code ? n : fallback;
     } catch (e) { return fallback; }
   };
