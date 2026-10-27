@@ -23,6 +23,10 @@
   var SNAPS_KEY = 'zimi.games.snaps';
   var CAP = 6;
   var SKIP_PAGES = { 'index.html': 1, 'about.html': 1, 'puzzles.html': 1 };
+  // Three of Tatham's puzzles are games the shelf already has (Mines is Minesweeper, Solo is Sudoku, Guess is Code Breaker). Their pages
+  // are modes of those games, so a played, kept or recent page of theirs is the shelf's game (no second tile, and the old path still lands).
+  var ALIAS = { 'puzzles/mines.html': 'minesweeper.html', 'puzzles/solo.html': 'sudoku.html', 'puzzles/guess.html': 'codebreaker.html' };
+  function canon(path) { return ALIAS[path] || path; }
 
   // FNV-1a over the UTF-8 bytes of a string, as an unsigned 32-bit number.
   function fnv1a(text) {
@@ -52,14 +56,17 @@
   // The list after playing `entry` {path, title}: it goes first, an older
   // copy of it goes away, and the list is cut to `cap`.
   function record(list, entry, at, cap) {
-    var rest = (list || []).filter(function (e) { return e && e.path && e.path !== entry.path; });
-    return [{ path: entry.path, title: entry.title, at: at }].concat(rest).slice(0, cap || CAP);
+    var path = canon(entry.path);
+    var rest = (list || []).filter(function (e) { return e && e.path && canon(e.path) !== path; });
+    return [{ path: path, title: path === entry.path ? entry.title : '', at: at }].concat(rest).slice(0, cap || CAP);
   }
 
   function read(storage) {
     try {
       var v = JSON.parse(storage.getItem(KEY));
-      return Array.isArray(v) ? v : [];
+      if (!Array.isArray(v)) return [];
+      var seen = {};
+      return v.filter(function (e) { if (!e || !e.path) return true; e.path = canon(e.path); return seen[e.path] ? false : (seen[e.path] = 1); });
     } catch (e) { return []; }
   }
 
@@ -84,7 +91,7 @@
   // With nothing played yet the table offers these, in this order.
   var CLASSICS = ['chess.html', 'solitaire.html', 'checkers.html'];
 
-  var api = { KEY: KEY, SNAPS_KEY: SNAPS_KEY, snapSrc: snapSrc, CAP: CAP, fnv1a: fnv1a, uniqueByPath: uniqueByPath, dayPick: dayPick, record: record, read: read, localDay: localDay, tilt: tilt, ago: ago };
+  var api = { ALIAS: ALIAS, canon: canon, KEY: KEY, SNAPS_KEY: SNAPS_KEY, snapSrc: snapSrc, CAP: CAP, fnv1a: fnv1a, uniqueByPath: uniqueByPath, dayPick: dayPick, record: record, read: read, localDay: localDay, tilt: tilt, ago: ago };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   root.ZimiRecent = api;
 
@@ -149,31 +156,14 @@
   }
 
   // A tile for a game: the shelf's own, copied, so the art matches. A game the
-  // shelf has no tile of (the puzzles sit behind one tile) borrows that
-  // tile's art under its own name and line.
+  // shelf has no tile of borrows nothing: there is no tile to show.
   function tileFor(game) {
-    var own = doc.querySelector('a.ar-game[href="' + game.path + '"]');
-    var tile = own || doc.querySelector('a.ar-game[href="puzzles.html"]');
+    var tile = doc.querySelector('a.ar-game[href="' + canon(game.path) + '"]');
     if (!tile) return null;
     var el = tile.cloneNode(true);
     var text = el.querySelector('.ar-game-text');
-    if (!own && text) {
-      el.setAttribute('href', game.path);
-      text.querySelector('strong').textContent = game.title;
-      // A Tatham puzzle shows its own icon, not the puzzles tile's art.
-      var puzzle = /^puzzles\/([a-z0-9]+)\.html$/.exec(game.path);
-      var art = el.querySelector('.ar-game-art');
-      if (puzzle && art) {
-        var img = doc.createElement('img');
-        img.className = 'ar-game-art ar-game-icon';
-        img.alt = '';
-        img.src = new URL('puzzles/icons/' + puzzle[1] + '.png', base).href;
-        art.parentNode.replaceChild(img, art);
-      }
-    }
     var line = text && text.querySelector('span');
     if (line && game.line) line.textContent = game.line;
-    else if (line && !own) line.textContent = '';
     return el;
   }
 

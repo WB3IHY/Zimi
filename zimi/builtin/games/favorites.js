@@ -15,14 +15,16 @@
     try {
       var saved = root.parent !== root && root.parent.Saved;
       if (!saved || !root.parent.document.getElementById('reader-frame')) return [];
-      return saved.all().filter(function (it) { return it.zim === ZIM && it.path && !NOT_GAMES[it.path]; });
+      var seen = {};
+      return saved.all().filter(function (it) { return it.zim === ZIM && it.path && !NOT_GAMES[it.path]; }).map(function (it) {
+        return canon(it.path) === it.path ? it : Object.assign({}, it, { path: canon(it.path), title: '' });   // a kept alias is the shelf's game
+      }).filter(function (it) { return seen[it.path] ? false : (seen[it.path] = 1); });
     } catch (e) { return []; }
   }
 
-  // The tile's own art is a file of this ZIM (thumbs/<game>.svg; a Tatham puzzle shows its icon).
+  // The tile's own art is a file of this ZIM (thumbs/<game>.svg).
   function artFor(path) {
-    var stem = path.replace(/^.*\//, '').replace(/\.html$/, '');
-    return path.indexOf('puzzles/') === 0 ? 'puzzles/icons/' + stem + '.png' : 'thumbs/' + stem + '.svg';
+    return 'thumbs/' + path.replace(/\.html$/, '.svg');   // a Tatham puzzle's is thumbs/puzzles/<name>.svg
   }
 
   function tile(item) {
