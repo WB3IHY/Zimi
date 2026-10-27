@@ -241,6 +241,7 @@
     if (r === 'repeat') return;
     line.say(r === 'hit' ? rest() : T('letters.miss'));
     afterMove();
+    if (r !== 'hit') Lib.bump(els.fig, 'lb-wobble'); else if (status(game) === 'won') Lib.bump(els.fig, 'lb-rise');
   }
   function useHint() {
     if (busy || !game) return;

@@ -434,7 +434,7 @@
   };
 
   // A small lift on a number that just went up (the CSS stands still for reduced motion).
-  Lib.bump = function (el) { el.classList.remove('gl-bump'); void el.offsetWidth; el.classList.add('gl-bump'); };
+  Lib.bump = function (el, cls) { cls = cls || 'gl-bump'; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
   // A name or phrase of one script inside a sentence of another keeps its own order and punctuation: isolated, as Unicode says.
   Lib.iso = function (s) { return '\u2068' + s + '\u2069'; };
   // One quiet line at the foot of a page saying its content is English, in the player's language; nothing in an English

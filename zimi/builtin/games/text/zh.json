@@ -265,6 +265,7 @@
  "bricks.nextTouch": "点按开始第 {n} 关",
  "bricks.readyKeys": "按任意键，然后用方向键移动",
  "bricks.readyTouch": "点按开始，然后拖动移动",
+ "bridge.aria.dummy": "{card}，明手",
  "bridge.auction": "叫牌",
  "bridge.auctionNote": "叫牌：{list}。",
  "bridge.bidAria": "{level} {den}",
@@ -1059,7 +1060,10 @@
  "dotsandboxes.taken": "那条线已经画了",
  "dotsandboxes.toDraw": "轮到 {name} 画线",
  "dotsandboxes.tookAgain": {
-  "other": "{name} 占了 {n} 格，再走一步。{line}"
+  "other": "{name} 占了 {n} 格，再走一步。"
+ },
+ "dotsandboxes.tookAgain.you": {
+  "other": "你占了 {n} 格，再走一步。"
  },
  "draughts.board": "国际跳棋棋盘",
  "draughts.cantTake": "必须吃子：那枚棋子不能吃",
@@ -2051,7 +2055,7 @@
  "go.board.13": "13×13",
  "go.board.9": "9×9",
  "go.boardLabel": "围棋棋盘",
- "go.bothPassed": "双方都停了一手。正在判断哪些子无法做活…",
+ "go.bothPassed": "双方都停手了。正在找出死子…",
  "go.hint.pass": "提示：停一手。",
  "go.hint.point": "提示：试试圈出的点。",
  "go.keepPlaying": "继续下",
@@ -4707,6 +4711,7 @@
  "sudoku.value": "{n}",
  "t2048.over": "没有可走的步了",
  "t2048.reached": "你合成了 2048 方块",
+ "t2048.swipe": "滑动屏幕或按方向键",
  "tienlen.rules": "四人玩，每人 13 张牌。持有黑桃 3 的人先出，所出的牌必须包含它。可以出单张、对子、三条或四条、三张及以上的顺子，或三对及以上的连对，牌型须与桌面相同且更大，或者过牌；过牌后你本轮不能再出。2 最大（不能进顺子）；花色由小到大为黑桃、梅花、方块、红心。斩 2：四条或三连对可以斩一张 2；四条或四连对可以斩一对 2。出牌一直进行到三人出完为止；按先后完成的名次计 4、1、-1、-4 分。先到 12 分者获胜。点按牌选中，再点“出牌”。P 出牌，S 过牌，H 提示。",
  "time.day": {
   "other": "{n} 天前"

@@ -285,6 +285,7 @@
  "bricks.nextTouch": "Toque para iniciar o nível {n}",
  "bricks.readyKeys": "Pressione uma tecla e use as setas",
  "bricks.readyTouch": "Toque para começar e arraste para mover",
+ "bridge.aria.dummy": "{card}, o morto",
  "bridge.auction": "Licitação",
  "bridge.auctionNote": "Licitação: {list}.",
  "bridge.bidAria": "{level} {den}",
@@ -1141,9 +1142,14 @@
  "dotsandboxes.taken": "Essa linha já foi traçada",
  "dotsandboxes.toDraw": "{name} traça uma linha",
  "dotsandboxes.tookAgain": {
-  "one": "{name} fechou um quadrado e joga de novo. {line}",
-  "many": "{name} fechou {n} de quadrados e joga de novo. {line}",
-  "other": "{name} fechou {n} quadrados e joga de novo. {line}"
+  "one": "{name} fechou um quadrado e joga de novo.",
+  "many": "{name} fechou {n} de quadrados e joga de novo.",
+  "other": "{name} fechou {n} quadrados e joga de novo."
+ },
+ "dotsandboxes.tookAgain.you": {
+  "one": "Você fechou um quadrado e joga de novo.",
+  "many": "Você fechou {n} de quadrados e joga de novo.",
+  "other": "Você fechou {n} quadrados e joga de novo."
  },
  "draughts.board": "Tabuleiro de damas",
  "draughts.cantTake": "A captura é obrigatória: essa peça não pode capturar",
@@ -2177,7 +2183,7 @@
  "go.board.13": "13 por 13",
  "go.board.9": "9 por 9",
  "go.boardLabel": "Tabuleiro de Go",
- "go.bothPassed": "Os dois passaram. Calculando quais pedras não podem viver…",
+ "go.bothPassed": "Ambos passaram. Procurando pedras mortas…",
  "go.hint.pass": "Dica: passe.",
  "go.hint.point": "Dica: tente o ponto circulado.",
  "go.keepPlaying": "Continuar jogando",
@@ -4899,6 +4905,7 @@
  "sudoku.value": "{n}",
  "t2048.over": "Sem mais jogadas",
  "t2048.reached": "Você fez a peça 2048",
+ "t2048.swipe": "Deslize ou use as setas",
  "tienlen.rules": "Quatro jogadores, 13 cartas cada. Quem tiver o 3 de espadas abre com uma jogada que o inclua. Jogue uma carta, um par, uma trinca ou quadra, uma sequência de três ou mais cartas seguidas, ou uma sequência de três ou mais pares seguidos, igual ao que está na mesa e mais alta, ou passe; passar deixa você fora daquela rodada. Os dois são os mais altos (nunca numa sequência); a ordem dos naipes é espadas, paus, ouros, copas. Cortar um dois: uma quadra ou três pares seguidos vencem um dois isolado; uma quadra ou quatro pares seguidos vencem um par de dois. O jogo continua até três saírem; terminar do primeiro ao último vale 4, 1, -1, -4. Vence quem chegar primeiro a 12. Toque nas cartas para escolhê-las e depois em Jogar. P joga, S passa, H dá dica.",
  "time.day": {
   "one": "há {n} dia",

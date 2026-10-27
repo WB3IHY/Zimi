@@ -285,6 +285,7 @@
  "bricks.nextTouch": "Touchez pour démarrer le niveau {n}",
  "bricks.readyKeys": "Appuyez sur une touche, puis utilisez les flèches",
  "bricks.readyTouch": "Touchez pour démarrer, puis glissez pour bouger",
+ "bridge.aria.dummy": "{card}, le mort",
  "bridge.auction": "Enchères",
  "bridge.auctionNote": "Enchères : {list}.",
  "bridge.bidAria": "{level} {den}",
@@ -1141,9 +1142,14 @@
  "dotsandboxes.taken": "Ce trait est déjà tracé",
  "dotsandboxes.toDraw": "Au tour de {name} : tracez un trait",
  "dotsandboxes.tookAgain": {
-  "one": "{name} : {n} case prise, nouveau trait. {line}",
-  "many": "{name} : {n} de cases prises, nouveau trait. {line}",
-  "other": "{name} : {n} cases prises, nouveau trait. {line}"
+  "one": "{name} : {n} case prise, nouveau trait.",
+  "many": "{name} : {n} de cases prises, nouveau trait.",
+  "other": "{name} : {n} cases prises, nouveau trait."
+ },
+ "dotsandboxes.tookAgain.you": {
+  "one": "Vous avez pris {n} case et rejouez.",
+  "many": "Vous avez pris {n} de cases et rejouez.",
+  "other": "Vous avez pris {n} cases et rejouez."
  },
  "draughts.board": "Plateau de dames",
  "draughts.cantTake": "La prise est obligatoire : ce pion ne peut pas prendre",
@@ -2177,7 +2183,7 @@
  "go.board.13": "13 sur 13",
  "go.board.9": "9 sur 9",
  "go.boardLabel": "Plateau de go",
- "go.bothPassed": "Les deux ont passé. Recherche des pierres qui ne peuvent pas vivre…",
+ "go.bothPassed": "Les deux ont passé. Recherche des pierres mortes…",
  "go.hint.pass": "Indice : passez.",
  "go.hint.point": "Indice : essayez l’intersection cerclée.",
  "go.keepPlaying": "Continuer à jouer",
@@ -4899,6 +4905,7 @@
  "sudoku.value": "{n}",
  "t2048.over": "Plus aucun coup possible",
  "t2048.reached": "Vous avez fait la tuile 2048",
+ "t2048.swipe": "Glissez ou utilisez les flèches",
  "tienlen.rules": "Quatre joueurs, 13 cartes chacun. Celui qui a le 3 de pique ouvre une main qui l’inclut. Jouez une carte seule, une paire, un brelan ou un carré, une suite de trois cartes ou plus, ou une suite de trois paires ou plus, du même type que ce qui est sur la table et plus forte, ou passez ; passer vous écarte de ce tour. Les deux sont les plus fortes (jamais dans une suite) ; les couleurs se classent pique, trèfle, carreau, cœur. Couper un deux : un carré ou trois paires qui se suivent battent un deux seul ; un carré ou quatre paires qui se suivent battent une paire de deux. Le jeu continue jusqu’à ce que trois joueurs soient sortis ; finir du premier au dernier rapporte 4, 1, -1, -4. Le premier à 12 gagne. Touchez des cartes pour les choisir, puis Jouer. P joue, S passe, H donne un indice.",
  "time.day": {
   "one": "il y a {n} jour",

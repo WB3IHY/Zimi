@@ -285,6 +285,7 @@
  "bricks.nextTouch": "Toca para empezar el nivel {n}",
  "bricks.readyKeys": "Pulsa cualquier tecla y usa las flechas",
  "bricks.readyTouch": "Toca para empezar y arrastra para mover",
+ "bridge.aria.dummy": "{card}, el muerto",
  "bridge.auction": "Subasta",
  "bridge.auctionNote": "Subasta: {list}.",
  "bridge.bidAria": "{level} {den}",
@@ -1141,9 +1142,14 @@
  "dotsandboxes.taken": "Esa línea ya está trazada",
  "dotsandboxes.toDraw": "Le toca trazar una línea a {name}",
  "dotsandboxes.tookAgain": {
-  "one": "{name} se llevó una caja y mueve otra vez. {line}",
-  "many": "{name} se llevó {n} de cajas y mueve otra vez. {line}",
-  "other": "{name} se llevó {n} cajas y mueve otra vez. {line}"
+  "one": "{name} se llevó una caja y mueve otra vez.",
+  "many": "{name} se llevó {n} de cajas y mueve otra vez.",
+  "other": "{name} se llevó {n} cajas y mueve otra vez."
+ },
+ "dotsandboxes.tookAgain.you": {
+  "one": "Te llevaste una caja y mueves otra vez.",
+  "many": "Te llevaste {n} de cajas y mueves otra vez.",
+  "other": "Te llevaste {n} cajas y mueves otra vez."
  },
  "draughts.board": "Tablero de damas",
  "draughts.cantTake": "La captura es obligatoria: esa ficha no puede capturar",
@@ -1879,7 +1885,7 @@
  "game.paddles.title": "Palas",
  "game.paddles.why": "Dos palas y una pelota. Con él empezó la industria del videojuego en 1972.",
  "game.pet.blurb": "Incuba un huevo y cría una mascota durante días reales",
- "game.pet.title": "Mascota Zimi",
+ "game.pet.title": "Zimi Pet",
  "game.pet.why": "Las mascotas de bolsillo de finales de los noventa solo necesitaban que volvieras a alimentarlas.",
  "game.pinball.blurb": "Flippers, bumpers, carriles y multibola",
  "game.pinball.tile": "Una mesa con flippers, bumpers, carriles y multibola",
@@ -2177,7 +2183,7 @@
  "go.board.13": "13 por 13",
  "go.board.9": "9 por 9",
  "go.boardLabel": "Tablero de Go",
- "go.bothPassed": "Ambos pasaron. Calculando qué piedras no pueden vivir…",
+ "go.bothPassed": "Ambos pasaron. Buscando piedras muertas…",
  "go.hint.pass": "Pista: pasa.",
  "go.hint.point": "Pista: prueba el punto marcado con un círculo.",
  "go.keepPlaying": "Seguir jugando",
@@ -4899,6 +4905,7 @@
  "sudoku.value": "{n}",
  "t2048.over": "No quedan movimientos",
  "t2048.reached": "Has hecho la ficha 2048",
+ "t2048.swipe": "Desliza o usa las flechas",
  "tienlen.rules": "Cuatro jugadores, 13 cartas cada uno. Quien tiene el 3 de picas abre una mano que lo incluya. Juega una carta suelta, una pareja, un trío o cuatro iguales, una escalera de tres o más cartas seguidas, o una serie de tres o más parejas seguidas, igualando lo que hay en la mesa y más alto, o pasa; pasar te deja fuera de esa ronda. Los doses son lo más alto (nunca en una escalera); los palos van de menor a mayor en este orden: picas, tréboles, diamantes, corazones. Cortar un dos: cuatro iguales o tres parejas seguidas ganan a un dos suelto; cuatro iguales o cuatro parejas seguidas ganan a una pareja de doses. El juego sigue hasta que salen tres; terminar de primero a último puntúa 4, 1, -1, -4. Gana el primero que llegue a 12. Toca cartas para elegirlas y luego Jugar. P juega, S pasa, H da una pista.",
  "time.day": {
   "one": "hace {n} día",

@@ -10,6 +10,11 @@
 .lb-word { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 48px; }
 .lb-slot { display: grid; place-items: end center; min-width: 30px; height: 44px; padding: 0 2px 2px; border-bottom: 3px solid var(--ink3); font: 700 var(--fs-brand)/1 var(--font); text-transform: uppercase; color: var(--ink); }
 .lb-slot.on { border-bottom-color: var(--accent); }
+/* A wrong letter shakes the balloon; keeping it up lifts it. */
+.lb-fig.lb-wobble { animation: lb-wobble 0.4s ease-in-out; transform-origin: 50% 80%; }
+.lb-fig.lb-rise { animation: lb-rise 0.6s ease-out; }
+@keyframes lb-wobble { 20% { rotate: -6deg; } 50% { rotate: 5deg; } 80% { rotate: -2deg; } }
+@keyframes lb-rise { 40% { translate: 0 -14px; } }
 .lb-slot.pop { animation: lb-pop 0.25s ease-out; }
 @keyframes lb-pop { 40% { transform: translateY(-6px) scale(1.2); } }
 .lb-keys { display: flex; flex-direction: column; gap: var(--sp-2); width: min(calc(100% + 12px), 500px); }

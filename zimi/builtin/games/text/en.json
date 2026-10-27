@@ -275,6 +275,7 @@
  "bricks.nextTouch": "Tap to start level {n}",
  "bricks.readyKeys": "Press any key, then use the arrow keys",
  "bricks.readyTouch": "Tap to start, then drag to move",
+ "bridge.aria.dummy": "{card}, dummy",
  "bridge.auction": "Auction",
  "bridge.auctionNote": "Auction: {list}.",
  "bridge.bidAria": "{level} {den}",
@@ -1100,8 +1101,12 @@
  "dotsandboxes.taken": "That line is already drawn",
  "dotsandboxes.toDraw": "{name} to draw a line",
  "dotsandboxes.tookAgain": {
-  "one": "{name} took a box and moves again. {line}",
-  "other": "{name} took {n} boxes and moves again. {line}"
+  "one": "{name} took a box and moves again.",
+  "other": "{name} took {n} boxes and moves again."
+ },
+ "dotsandboxes.tookAgain.you": {
+  "one": "You took a box and go again.",
+  "other": "You took {n} boxes and go again."
  },
  "draughts.board": "Draughts board",
  "draughts.cantTake": "A capture is compulsory: that piece cannot take",
@@ -2114,7 +2119,7 @@
  "go.board.13": "13 by 13",
  "go.board.9": "9 by 9",
  "go.boardLabel": "Go board",
- "go.bothPassed": "Both passed. Working out which stones cannot live…",
+ "go.bothPassed": "Both passed. Finding dead stones…",
  "go.hint.pass": "Hint: pass.",
  "go.hint.point": "Hint: try the ringed point.",
  "go.keepPlaying": "Keep playing",
@@ -4803,6 +4808,7 @@
  "sudoku.value": "{n}",
  "t2048.over": "No moves left",
  "t2048.reached": "You made the 2048 tile",
+ "t2048.swipe": "Swipe or use the arrow keys",
  "tienlen.rules": "Four players, 13 cards each. Whoever holds the 3 of spades leads a hand that includes it. Play a single, pair, three or four of a kind, a run of three or more cards in a row, or a run of three or more pairs in a row, matching what is on the table and higher, or pass; a pass keeps you out of that round. Twos are highest (never in a run); suits rank spades, clubs, diamonds, hearts. Chop a two: four of a kind or three pairs in a row beats a single two; four of a kind or four pairs in a row beats a pair of twos. Play goes on until three are out; finishing first to last scores 4, 1, -1, -4. First to 12 wins. Tap cards to pick them, then Play. P plays, S passes, H hints.",
  "time.day": {
   "one": "{n} day ago",

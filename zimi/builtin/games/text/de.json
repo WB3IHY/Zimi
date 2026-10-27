@@ -275,6 +275,7 @@
  "bricks.nextTouch": "Tippen für Level {n}",
  "bricks.readyKeys": "Beliebige Taste, dann mit den Pfeiltasten steuern",
  "bricks.readyTouch": "Tippen zum Start, dann ziehen zum Bewegen",
+ "bridge.aria.dummy": "{card}, Dummy",
  "bridge.auction": "Reizung",
  "bridge.auctionNote": "Reizung: {list}.",
  "bridge.bidAria": "{level} {den}",
@@ -1100,8 +1101,12 @@
  "dotsandboxes.taken": "Diese Linie ist schon gezogen",
  "dotsandboxes.toDraw": "{name} zieht eine Linie",
  "dotsandboxes.tookAgain": {
-  "one": "{name}: ein Kästchen geschlossen, noch einmal dran. {line}",
-  "other": "{name}: {n} Kästchen geschlossen, noch einmal dran. {line}"
+  "one": "{name}: ein Kästchen geschlossen, noch einmal dran.",
+  "other": "{name}: {n} Kästchen geschlossen, noch einmal dran."
+ },
+ "dotsandboxes.tookAgain.you": {
+  "one": "Ein Kästchen geschlossen: Sie sind noch einmal dran.",
+  "other": "{n} Kästchen geschlossen: Sie sind noch einmal dran."
  },
  "draughts.board": "Damebrett",
  "draughts.cantTake": "Schlagzwang: Dieser Stein kann nicht schlagen",
@@ -2114,7 +2119,7 @@
  "go.board.13": "13 mal 13",
  "go.board.9": "9 mal 9",
  "go.boardLabel": "Go-Brett",
- "go.bothPassed": "Beide haben gepasst. Es wird ermittelt, welche Steine nicht leben können …",
+ "go.bothPassed": "Beide haben gepasst. Tote Steine werden gesucht …",
  "go.hint.pass": "Tipp: passen.",
  "go.hint.point": "Tipp: Probieren Sie den umrandeten Punkt.",
  "go.keepPlaying": "Weiterspielen",
@@ -4803,6 +4808,7 @@
  "sudoku.value": "{n}",
  "t2048.over": "Keine Züge mehr",
  "t2048.reached": "Sie haben die 2048er-Kachel erreicht",
+ "t2048.swipe": "Wischen oder Pfeiltasten nutzen",
  "tienlen.rules": "Vier Spieler, je 13 Karten. Wer die Pik-3 hält, spielt eine Hand an, die sie enthält. Spielen Sie eine einzelne Karte, ein Paar, einen Drilling oder Vierling, eine Folge von drei oder mehr Karten in Reihe oder eine Folge von drei oder mehr Paaren in Reihe, passend zum Tisch und höher, oder passen Sie; wer passt, ist für diese Runde draußen. Zweien sind am höchsten (nie in einer Folge); die Farben rangieren Pik, Kreuz, Karo, Herz. Eine Zwei schlagen: Ein Vierling oder drei Paare in Folge schlagen eine einzelne Zwei; ein Vierling oder vier Paare in Folge schlagen ein Paar Zweien. Das Spiel geht weiter, bis drei draußen sind; Erster bis Letzter erhalten 4, 1, -1, -4. Wer zuerst 12 hat, gewinnt. Tippen Sie auf Karten, um sie zu wählen, dann auf Spielen. P spielt, S passt, H gibt einen Tipp.",
  "time.day": {
   "one": "vor {n} Tag",
