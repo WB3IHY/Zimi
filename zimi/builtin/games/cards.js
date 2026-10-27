@@ -147,13 +147,15 @@
     '7': { d: 'M.4 0H9.8L3.8 14' },
     '8': { d: 'M5 0C2.6 0 1.2 1.4 1.2 3.4 1.2 5.4 2.8 6.6 5 7 7.4 7.4 9.2 8.6 9.2 10.6 9.2 12.6 7.4 14 5 14 2.6 14 .8 12.6.8 10.6.8 8.6 2.6 7.4 5 7 7.2 6.6 8.8 5.4 8.8 3.4 8.8 1.4 7.4 0 5 0z' },
     '9': { d: 'M8.6 1.2C7.6.4 6.4 0 5.2 0 2.4 0 .8 3 .8 8 .8 12 2.4 14 5 14 7.6 14 9.2 12.2 9.2 9.6 9.2 7.4 7.6 5.8 5.2 5.8 3.2 5.8 1.6 6.8.8 8.4', turn: true },
-    '10': { d: 'M1.2 3.2 4.6 0V14M11 0C8 0 6.8 3 6.8 7S8 14 11 14 14.8 11 14.8 7 14 0 11 0z', w: 15, miter: 4 },
+    // Two-digit ranks are set as one unit, condensed like a printed card's: a short-flagged 1 (its top mitred flat, not spiked),
+    // a narrow 0 and 2, and a little over a stroke width (2.4) of clear paper between the digits' ink.
+    '10': { d: 'M.9 3.2 3.3 .8V14M12.2 0C9.4 0 8.6 3 8.6 7S9.4 14 12.2 14 15.8 11 15.8 7 15 0 12.2 0z', w: 16.4, miter: 2 },
     J: { d: 'M8 -1.2V9.6C8 12.6 6.4 14 4.2 14 2.2 14 .8 13 .3 11' },
     Q: { d: 'M5 0C2 0 .8 3 .8 7S2 14 5 14 9.2 11 9.2 7 8 0 5 0zM6 10.4 10.2 15.4' },
     K: { d: 'M1 -1.2V14M9.6 -.3 1 8M3.8 6 10 14' },
     // Spanish courts' 11 and 12.
-    '11': { d: 'M1.2 3.2 5 0V14M8.2 3.2 12 0V14', w: 13, miter: 4 },
-    '12': { d: 'M1.2 3.2 5 0V14M8 4.6C8 1.6 10 0 12 0S16.2 1.6 16.2 4.2C16.2 7 13 9.6 8 14H17', w: 17.2, miter: 4 }
+    '11': { d: 'M.9 3.2 3.3 .8V14M8 3.2 10.4 .8V14', w: 11.6, miter: 2 },
+    '12': { d: 'M.9 3.2 3.3 .8V14M8.3 4.6C8.3 1.6 10 0 11.7 0S15.3 1.6 15.3 4.2C15.3 7 12.6 9.6 8.3 14H16', w: 16.5, miter: 2 }
   };
   function glyphWidth(label) { return GLYPHS[label].w === undefined ? 10 : GLYPHS[label].w; }
   // A glyph, centred on x with its top at y, `s` times its grid size.
@@ -176,15 +178,17 @@
   // The index keeps a clear margin to the card's edge, like a printed card's (IDX_MARGIN units of the 100 x 140 face to
   // the outside of the stroke): the rank is set from the left edge in, whatever its width, and small enough to clear the
   // courts' frame.
-  var IDX_MARGIN = 5.5, IDX_SCALE = 1.2, IDX_SCALE_TEN = 0.95, IDX_SCALE_TEN_FRAMED = 0.8, IDX_TEN_DROP = 1.4, IDX_SUIT_GAP = 12, IDX_SUIT_SCALE = 0.65;
+  var IDX_MARGIN = 5.5, IDX_SCALE = 1.2, IDX_SCALE_TEN = 0.88, IDX_SUIT_GAP = 12, IDX_SUIT_SCALE = 0.65;
   var ROW_MARGIN = 6, ROW_SCALE = 2.1, ROW_SUIT_X = 63, ROW_SUIT_Y = 23, ROW_SUIT_SCALE = 1.25;
   // On a court the index stands in a margin column of its own, outside the figure's frame, as on a printed deck: IDX_COLUMN is the
   // column's width (the widest index's ink and 1.5 units of air); the frame is inset by it from both sides (courts.js, courts-es.js).
   var IDX_COLUMN = 22;
-  // A two-digit rank beside a frame (the Spanish courts' 10, 11, 12) is set small enough that its ink ends 1.7 units short of the frame (20.3), as a single digit's does.
-  function indexMarkup(label, s, standalone, shapes, prefix, framed) {
-    var ten = label.length > 1, sc = ten ? (framed ? IDX_SCALE_TEN_FRAMED : IDX_SCALE_TEN) : IDX_SCALE, half = GLYPH_STROKE * sc / 2;
-    var cx = IDX_MARGIN + half + glyphWidth(label) * sc / 2, top = IDX_MARGIN + half + (ten ? IDX_TEN_DROP : 0);
+  // The rank and the suit below it share one centre (a single digit's: its stroke and half its 10-unit advance in from the margin), so a two-digit rank is wider about it, not shifted off the suit.
+  var IDX_CX = IDX_MARGIN + GLYPH_STROKE * IDX_SCALE / 2 + 10 * IDX_SCALE / 2;
+  // A two-digit rank (10, 11, 12) is condensed and set at one size, small enough that its ink ends short of the courts' frame (22) by the clear distance.
+  function indexMarkup(label, s, standalone, shapes, prefix) {
+    var ten = label.length > 1, sc = ten ? IDX_SCALE_TEN : IDX_SCALE, half = GLYPH_STROKE * sc / 2;
+    var cx = IDX_CX, top = IDX_MARGIN + half;
     var one = function (turn) {
       return '<g class="zc-idx-std"' + (turn ? ' transform="rotate(180 50 70)"' : '') + '>' + glyph(label, cx, top, sc) +
         placed(s, cx, top + 14 * sc + IDX_SUIT_GAP, IDX_SUIT_SCALE, false, standalone, shapes, prefix) + '</g>';
@@ -436,7 +440,7 @@
     } else if (root.ZimiSpanishCourts) { // the 1860 print (courts-es.js), under the index
       var print = root.ZimiSpanishCourts;
       return faceFrame('<g class="zc-big">' + print.markup(k, s, IDX_COLUMN) + '</g>' + (standalone ? '' : '<g class="zc-small" display="none">' + print.thumb(k, s) + '</g>') +
-        indexMarkup(SPANISH_LABELS[k], s, standalone, SPANISH_SHAPES, p, true), ITALIAN_COLOURS[s], standalone);
+        indexMarkup(SPANISH_LABELS[k], s, standalone, SPANISH_SHAPES, p), ITALIAN_COLOURS[s], standalone);
     } else {
       var kind = COURT_KINDS[r - 5]; // 8 sota (fante), 9 caballo, 10 rey
       body = '<g class="zc-big"><rect x="20" y="20" width="60" height="100" rx="3.5" fill="currentColor" fill-opacity="0.07" stroke="currentColor" stroke-width="1.2"/>' +
@@ -676,9 +680,9 @@
   function hanaIndex(c) {
     var label = String(c.month + 1), two = label.length > 1;
     var one = function (turn) {
-      return '<g class="zc-idx-std"' + (turn ? ' transform="rotate(180 50 70)"' : '') + '>' + hanaSeal(label, HANA_SEAL, two ? 0.7 : 0.9) + hanaBadge(c, HANA_KIND.x, HANA_KIND.y, 0.95) + '</g>';
+      return '<g class="zc-idx-std"' + (turn ? ' transform="rotate(180 50 70)"' : '') + '>' + hanaSeal(label, HANA_SEAL, two ? 0.66 : 0.69) + hanaBadge(c, HANA_KIND.x, HANA_KIND.y, 0.95) + '</g>';
     };
-    var row = '<g class="zc-idx-row" display="none">' + hanaSeal(label, HANA_ROW_SEAL, two ? 1.05 : 1.5) +
+    var row = '<g class="zc-idx-row" display="none">' + hanaSeal(label, HANA_ROW_SEAL, two ? 1.05 : 1.25) +
       '<g stroke="' + CARD_CREAM + '" stroke-width="1.8" stroke-linejoin="round" paint-order="stroke">' + hanaBadge(c, 33, 31, 1.5) + '</g></g>';
     return one(false) + one(true) + row;
   }

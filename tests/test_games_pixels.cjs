@@ -251,6 +251,71 @@ const server = http.createServer((q, r) => {
   });
   ok('Spanish pictures have blank paper at the edge (no printed-frame remnant)', es.every(r => r[1] < 24), es.filter(r => r[1] >= 24).map(r => r[0] + ':' + r[1]).join(' '));
   ok('Spanish pictures keep the print\'s colour (mean chroma of coloured pixels above 108; the 1860 flat-field gave 97)', es.every(r => r[2] > 108), es.map(r => r[0] + ':' + Math.round(r[2])).join(' '));
+
+  // 9. Index spacing, measured in rendered ink (the standalone face drawn as an image, the index's glyph alone and the Hanafuda ring alone).
+  // Two-digit ranks (10; Spanish 10, 11, 12; Hanafuda months 10, 11, 12): clear space between the digits of at least one stroke width at
+  // every size and density. Hanafuda: the number's ink keeps MIN_RING units from the seal ring's inner edge.
+  const MIN_RING = 1.5;
+  const spacing = await cb.evaluate(async (MIN_RING) => {
+    const out = { digits: [], ring: [], sizes: [] };
+    const draw = async (svgText, w) => {
+      const img = new Image(); img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgText); await img.decode();
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = Math.round(w * 1.4); const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, cv.width, cv.height);
+      return { w: cv.width, h: cv.height, d: cx.getImageData(0, 0, cv.width, cv.height).data };
+    };
+    // The face with only the listed elements of the first index kept (by tag order within .zc-idx-std).
+    const only = (markup, keep, w, grp) => {
+      grp = grp || 'zc-idx-std';
+      const svg = new DOMParser().parseFromString(markup, 'image/svg+xml').documentElement;
+      [...svg.children].forEach(c => { if (!new RegExp(grp).test(c.getAttribute('class') || '') && c.tagName !== 'defs') c.remove(); });
+      const gs = [...svg.querySelectorAll('.' + grp)]; gs.slice(1).forEach(g => g.remove());
+      const g = gs[0]; g.removeAttribute('display'); g.removeAttribute('transform'); [...g.children].forEach((c, i) => { if (!keep(c, i)) c.remove(); });
+      if (g.querySelector('circle')) g.querySelectorAll('circle').forEach(c => { if (c.getAttribute('fill') !== 'none') c.setAttribute('fill', 'none'); });
+      svg.setAttribute('width', w); svg.setAttribute('height', Math.round(w * 1.4));
+      return new XMLSerializer().serializeToString(svg);
+    };
+    const glyphOnly = (c) => c.tagName === 'path' && /stroke-width="2.4"/.test(c.outerHTML) && c === c.parentNode.querySelector('path');
+    // Runs of inked columns in the glyph's rows (the top 40 units: glyph, not the suit below).
+    const runs = (im, ppu, thr) => {
+      const cols = []; for (let x = 0; x < im.w; x++) { let on = false; for (let y = 0; y < 60 * ppu && y < im.h; y++) if (im.d[(y * im.w + x) * 4 + 3] > thr) { on = true; break; } cols.push(on); }
+      const r = []; cols.forEach((on, x) => { if (on) { if (r.length && r[r.length - 1][1] === x) r[r.length - 1][1] = x + 1; else r.push([x, x + 1]); } });
+      return r;
+    };
+    const cases = [];
+    for (const id of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) cases.push(['French ' + 'A23456789 '.charAt(id).trim() + (id === 9 ? '10' : ''), s => ZimiCards.faceMarkup(id, s), id === 9 ? 2 : 1, false]);
+    [7, 8, 9].forEach(k => cases.push(['Spanish ' + (k + 3), s => ZimiCards.spanishFaceMarkup(k, s), 2, false]));
+    for (let m = 0; m < 12; m++) cases.push(['Hanafuda ' + (m + 1), s => ZimiCards.hanafudaFaceMarkup(m * 4, s), m >= 9 ? 2 : 1, true]);
+    for (const [name, make, digits, hana] of cases) for (const grp of ['zc-idx-std', 'zc-idx-row']) {
+      const markup = make(grp === 'zc-idx-std').replace(/^<svg (?!xmlns)/, '<svg xmlns="http://www.w3.org/2000/svg" '), label = name + (grp === 'zc-idx-row' ? ' (row)' : '');
+      const scale = +markup.match(new RegExp(grp + '[^>]*>(?:<circle[^>]*\\/>)?<path transform="[^"]*scale\\(([\\d.]+)\\)"'))[1], stroke = 2.4 * scale;
+      for (const [cw, dpr] of [[200, 1], [200, 2], [200, 3], [52, 1], [52, 2], [52, 3], [800, 1]]) {
+        const w = cw * dpr, ppu = w / 100;
+        const gim = await draw(only(markup, glyphOnly, w, grp), w), rs = runs(gim, ppu, 128);
+        let gap = null; if (digits === 2) gap = rs.length === 2 ? (rs[1][0] - rs[0][1]) / ppu : 0;
+        if (digits === 2) out.digits.push([label, cw + '@' + dpr, rs.length === 2, gap, stroke, ppu]);
+        if (hana && cw >= 200) {
+          const c = markup.match(new RegExp(grp + '[^>]*><circle cx="([\\d.]+)" cy="([\\d.]+)" r="([\\d.]+)"')), cx = +c[1], cy = +c[2], r = +c[3], rin = r - 0.55;
+          let worst = 1e9;
+          for (let y = 0; y < gim.h; y++) for (let x = 0; x < gim.w; x++) if (gim.d[(y * gim.w + x) * 4 + 3] > 40) worst = Math.min(worst, rin - Math.hypot((x + .5) / ppu - cx, (y + .5) / ppu - cy));
+          out.ring.push([label, cw + '@' + dpr, worst, r]);
+        }
+      }
+    }
+    return out;
+  }, MIN_RING);
+  const sorted = (a, k) => a.slice().sort((x, y) => x[k] - y[k]);
+  const dg = spacing.digits.filter(r => r[3] !== null);
+  const tol = r => 1 / r[5];   // one device pixel of quantisation
+  const badDigits = dg.filter(r => !(r[2] && r[3] >= r[4] - tol(r) && r[3] * r[5] >= 1));
+  const names = [...new Set(dg.map(r => r[0]))];
+  ok('every two-digit index (' + names.length + ': ' + names.join(', ') + ') keeps one stroke width of clear ink between its digits at 200 and 52 px, 1x 2x 3x', badDigits.length === 0,
+    badDigits.slice(0, 6).map(r => r[0] + ' ' + r[1] + ' gap ' + (r[3] || 0).toFixed(2) + ' of ' + r[4].toFixed(2)).join('; '));
+  console.log('INFO  narrowest digit gap (800px render) ' + sorted(dg.filter(r => r[1] === '800@1'), 3).map(r => r[0] + ' ' + r[3].toFixed(2) + '/' + r[4].toFixed(2)).join(', '));
+  const ringW = sorted(spacing.ring.filter(r => r[1] === '200@3'), 2);
+  const badRing = spacing.ring.filter(r => r[2] < MIN_RING - 0.1);
+  ok('Hanafuda numerals keep ' + MIN_RING + ' units from the ring\'s inner edge (all twelve months)', badRing.length === 0, badRing.slice(0, 6).map(r => r[0] + ' ' + r[1] + ' ' + r[2].toFixed(2)).join('; '));
+  console.log('INFO  tightest numeral to ring (200px 3x) ' + ringW.slice(0, 4).map(r => r[0] + ' ' + r[2].toFixed(2)).join(', '));
+
   await browser2.close();
 
   server.close();
