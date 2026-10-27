@@ -175,7 +175,7 @@
   var Play = root.ArcadePlay, T = Play.T;
   var LONG_PRESS_MS = 350, HAPTIC_MS = 15, MOVE_CANCEL_PX = 10, END_AFTER_MS = 700;
   var CELL_DESKTOP = 30, CELL_TOUCH_MIN = 32, CELL_TOUCH_MAX = 44, FRAME_PAD = 58, WIDE_VIEWPORT = 700;
-  var POP_LIMIT = 60; // a big flood just appears; a small opening gets the little pop
+  var RIPPLE_MS = 16, RIPPLE_MAX_MS = 420, HOLD_HINT_MS = 120, BOOM_AFTER_MS = 1100, FLAG_POP_MS = 150; // openings ripple out from the tap; a held cell sinks a little before it flags
   var TIMER_MAX = 999, TICK_MS = 200, LEVEL_IDS = ['beginner', 'intermediate', 'expert', 'custom'];
   var SETTINGS_KEY = 'zimi.games.minesweeper.settings', BEST_KEY = 'zimi.games.minesweeper.best';
 
@@ -188,7 +188,7 @@
 
   var settings = store(SETTINGS_KEY, {});
   if (LEVEL_IDS.indexOf(settings.level) < 0) settings.level = 'beginner';
-  if (typeof settings.marks !== 'boolean') settings.marks = true;
+  if (typeof settings.marks !== 'boolean') settings.marks = !matchMedia('(pointer: coarse)').matches;   // a thumb flags in two taps, not three
   if (!settings.custom || !validateCustom(settings.custom.rows, settings.custom.cols, settings.custom.mines).ok) settings.custom = { rows: 12, cols: 20, mines: 40 };
   var best = store(BEST_KEY, {});
 
@@ -286,36 +286,64 @@
   function stopClock() { clearInterval(tickTimer); tickTimer = 0; }
   function finishClock() { finalMs = Date.now() - startedAt; stopClock(); tick(); }
 
+  // What the status line rests on: the mode a player is in, else the one promise the first tap carries.
+  function baseLine() { return flagMode ? T('mines.flagTitle') : game && !game.placed ? T('mines.firstSafe') : ''; }
+  // Cells sweep in (or out) from one cell: the farther, the later, so an opening reads as spreading.
+  function ripple(list, from, cls) {
+    if (ZimiShell.reducedMotion()) return;
+    list.forEach(function (i) {
+      var d = Math.max(Math.abs(Math.floor(i / game.cols) - Math.floor(from / game.cols)), Math.abs(i % game.cols - from % game.cols)), c = cells[i];
+      c.style.animationDelay = Math.min(RIPPLE_MAX_MS, d * RIPPLE_MS) + 'ms';
+      c.classList.remove(cls); void c.offsetWidth; c.classList.add(cls);
+    });
+  }
+
   function fmtTime(ms) { return T('mines.seconds', { n: root.ZimiText ? root.ZimiText.number(ms / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : (ms / 1000).toFixed(1) }); }
   function afterMove(res) {
     if (game.status === 'playing' && !startedAt) { startedAt = Date.now(); tickTimer = setInterval(tick, TICK_MS); }
-    var pop = res.opened.length <= POP_LIMIT && !res.hit.length && !ZimiShell.reducedMotion();
-    res.opened.forEach(function (i) {
-      paint(i);
-      if (pop) { cells[i].classList.remove('pop'); void cells[i].offsetWidth; cells[i].classList.add('pop'); }
-    });
+    res.opened.forEach(paint);
+    if (!res.hit.length) ripple(res.opened, res.opened[0], 'pop');
+    if (game.status === 'playing') line.say(baseLine());
     if (game.status === 'lost') {
-      finishClock(); paintAll(); setFace('dead'); line.say(T('shell.end.lose'));
-      ZimiShell.endSheet({ result: 'lose', after: END_AFTER_MS, stats: [[T('play.time'), fmtTime(finalMs)]] });
+      finishClock(); paintAll(); setFace('dead'); line.say(T('mines.hit'));
+      var boom = res.hit[0], mines = [];
+      cells.forEach(function (c, i) { if (c.classList.contains('mine')) mines.push(i); });
+      ripple(mines, boom, 'reveal'); ZimiShell.shake(els.win);
+      ZimiShell.endSheet({ result: 'lose', after: ZimiShell.reducedMotion() ? END_AFTER_MS : BOOM_AFTER_MS, stats: [[T('play.time'), fmtTime(finalMs)]] });
     } else if (game.status === 'won') {
-      finishClock(); paintAll(); setFace('win'); recordWin();
+      finishClock(); paintAll(); setFace('win'); recordWin(res.opened[res.opened.length - 1]);
     } else setFace('smile');
     updateCounter();
   }
-  function recordWin() {
-    var lv = settings.level;
+  function recordWin(last) {
+    var lv = settings.level, flags = [];
+    cells.forEach(function (c, i) { if (game.mine[i]) flags.push(i); });
+    ripple(flags, last, 'planted');
     if (lv !== 'custom' && (!best[lv] || finalMs < best[lv])) { best[lv] = finalMs; save(BEST_KEY, best); }
-    line.say(T('shell.end.win'));
+    line.say(T('mines.cleared'));
     var stats = [[T('play.time'), fmtTime(finalMs)]];
     if (best[lv]) stats.push([T('play.best'), fmtTime(best[lv])]);
-    ZimiShell.endSheet({ result: 'win', after: END_AFTER_MS, stats: stats });
+    ZimiShell.endSheet({ result: 'win', after: ZimiShell.reducedMotion() ? END_AFTER_MS : BOOM_AFTER_MS, stats: stats });
   }
 
   function doReveal(i) { if (i >= 0) afterMove(reveal(game, i)); }
-  function doChord(i) { if (i >= 0) afterMove(chord(game, i)); }
+  // A chord that cannot work says why: the flags around the number have to match it.
+  function doChord(i) {
+    if (i < 0) return;
+    if (playable(game) && game.state[i] === OPEN && game.count[i] > 0) {
+      var have = flagsAround(game, i), need = game.count[i];
+      if (have !== need) {
+        ZimiShell.shake(cells[i]);
+        line.reason(have > need ? T('mines.tooMany') : T('mines.needs', { n: Play.num(need) }));
+        return;
+      }
+    }
+    afterMove(chord(game, i));
+  }
   function doMark(i) {
     if (i < 0 || cycleMark(game, i, settings.marks) < 0) return;
     paint(i); updateCounter();
+    if (game.state[i] === FLAG && !ZimiShell.reducedMotion() && cells[i].animate) cells[i].animate([{ scale: 1.45, opacity: 0.4 }, { scale: 1, opacity: 1 }], { duration: FLAG_POP_MS, easing: 'ease-out' });
   }
   function tap(i) { // touch: a tap on a number chords, on a closed cell it opens (or flags in flag mode)
     if (flagMode) doMark(i);
@@ -331,7 +359,7 @@
     if (resize) buildBoard();
     layout(); paintAll(); setPressed(-1);
     setFace('smile'); updateCounter(); tick();
-    line.say(levelName(settings.level));
+    line.say(baseLine());
     els.board.scrollLeft = 0;
   }
 
@@ -341,7 +369,7 @@
     return c ? Number(c.dataset.i) : -1;
   }
   function endPress() {
-    if (press && press.timer) clearTimeout(press.timer);
+    if (press && press.timer) { clearTimeout(press.timer); clearTimeout(press.hint); if (cells[press.idx]) cells[press.idx].classList.remove('holding'); }
     press = null;
     setPressed(-1);
     if (playable(game)) setFace('smile');
@@ -364,8 +392,10 @@
       press = { idx: i, mouse: true, chord: e.button === 1 || (e.buttons & 2) !== 0 };
     } else {
       press = { idx: i, mouse: false, x: e.clientX, y: e.clientY, long: false };
+      press.hint = setTimeout(function () { if (press && cells[press.idx]) cells[press.idx].classList.add('holding'); }, HOLD_HINT_MS);
       press.timer = setTimeout(function () {
         if (!press) return;
+        cells[press.idx].classList.remove('holding');
         press.long = true; haptic(); doMark(press.idx); setPressed(-1); setFace('smile');
       }, LONG_PRESS_MS);
     }
@@ -418,6 +448,7 @@
   els.flagBtn.addEventListener('click', function () {
     flagMode = !flagMode;
     els.flagBtn.setAttribute('aria-pressed', String(flagMode));
+    if (game.status === 'ready' || game.status === 'playing') line.say(baseLine());
   });
   els.flagBtn.insertAdjacentHTML('afterbegin', SVG.flag);
 
@@ -476,7 +507,7 @@
     game.mine.set(d.mine); game.count.set(d.count); game.state.set(d.state);
     game.status = d.status; game.opened = d.opened; game.flags = d.flags; game.exploded = d.exploded || []; game.placed = true;
     cells = []; buildBoard(); layout(); paintAll(); setPressed(-1); cursor = -1; press = null;
-    updateCounter(); line.say(levelName(settings.level));
+    updateCounter(); line.say(baseLine());
     finalMs = 0; startedAt = 0;
     if (game.status === 'playing') { startedAt = Date.now() - (d.ms || 0); tickTimer = setInterval(tick, TICK_MS); setFace('smile'); }
     else {

@@ -52,3 +52,18 @@
 
 @media (max-width: 420px) { .ms-main { padding: var(--sp-3) var(--sp-4); } }
 @media (prefers-reduced-motion: reduce) { .ms-c.pop { animation: none; } }
+
+/* Moments: an opening spreads from the tap, a cell held for a flag sinks first, the mines go off outward from the one that did, and a win plants its flags. */
+.ms-c { transition: scale 0.18s ease-out; }
+.ms-c.holding { scale: 0.86; }
+.ms-c.pop { animation: ms-pop 0.16s ease-out both; }
+.ms-c.reveal { animation: ms-reveal 0.28s ease-out both; }
+.ms-c.boom { animation: ms-boom 0.4s ease-out; }
+.ms-c.planted { animation: ms-plant 0.24s ease-out both; }
+@keyframes ms-reveal { from { opacity: 0; scale: 0.6; } to { opacity: 1; scale: 1; } }
+@keyframes ms-boom { 0% { scale: 1; } 35% { scale: 1.45; } 100% { scale: 1; } }
+@keyframes ms-plant { from { opacity: 0; scale: 1.6; } to { opacity: 1; scale: 1; } }
+@media (prefers-reduced-motion: reduce) { .ms-c { transition: none; } .ms-c.pop, .ms-c.reveal, .ms-c.boom, .ms-c.planted { animation: none; } }
+
+/* Flag mode is a toggle, so it reads as a selection (glow and amber line), never as a second filled amber button. */
+.ms-flagbtn[aria-pressed="true"] { background: var(--accent-glow); border-color: var(--accent); color: var(--ink); font-weight: 650; }
