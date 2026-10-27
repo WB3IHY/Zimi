@@ -470,6 +470,7 @@
   // Show solution are not. Most puzzles say COMPLETED! in their status bar; the ones with no status bar (the frontend removes
   // it) only flash, so the flash is the signal there: a timer that runs past FLASH_MIN_S just after the player's own input.
   var FLASH_MIN_S = 0.2;       // the longest a move's own animation runs; a completion's flash runs longer
+  var FLASH_MIN_OVERRIDE = { dominosa: 0.1 };   // Dominosa's flash is 0.13 s and its moves never animate
   var BURST_GAP_MS = 100;      // frames this far apart are different animations
   var INPUT_TO_FLASH_MS = 250; // a flash starts this soon after the move that completed the game
   var solved = false, elapsed = 0, ticked = 0, lastInput = 0;
@@ -561,7 +562,7 @@
       root.clearTimeout(idle);
       idle = root.setTimeout(function () {
         var b = burst; burst = null;
-        if (b && b.afterInput && b.ran >= FLASH_MIN_S && !$("statusbar") && canMove("undo")) declareWin();
+        if (b && b.afterInput && b.ran >= (FLASH_MIN_OVERRIDE[NAME] || FLASH_MIN_S) && !$("statusbar") && canMove("undo")) declareWin();
       }, BURST_GAP_MS);
       return orig.apply(this, arguments);
     };

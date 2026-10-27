@@ -89,3 +89,21 @@ def test_undo_and_redo_are_bar_buttons_that_appear_with_a_move(served, browser):
     frames(page)
     assert page.locator(".ar-bar #pz-redo").is_visible(), "an undone move can be redone"
     page.context.close()
+
+
+def test_pattern_is_a_win_though_it_flashes_for_no_time(served, browser):  # noqa: F811
+    """Pattern has no status bar and no flash to time: its win is judged from the clues in the save text. The solver's squares are
+    undone first, so this also shows that a taken-back solution no longer blocks a win."""
+    page = browser.new_context(viewport=VIEW).new_page()
+    page.goto("%s/puzzles/pattern.html" % served)
+    shell_ready(page)
+    page.wait_for_function(truthy(RUNNING))
+    page.evaluate("document.getElementById('solve').click()")
+    saved = page.evaluate(SAVE_TEXT)
+    page.evaluate("document.getElementById('undo').click()")
+    frames(page)
+    width = int(re.search(r"PARAMS\s*:\d+:(\d+)x", saved).group(1))
+    bits = re.search(r"SOLVE\s*:\d+:S(.*)", saved).group(1)
+    place(page, width, [(i % width, i // width) for i, ch in enumerate(bits) if ch == "1"])
+    page.wait_for_selector(WIN_SHEET, timeout=SOLVED_SHEET_WAIT_MS)
+    page.context.close()
