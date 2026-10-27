@@ -178,11 +178,15 @@ ART.bluff = () => defs(PAPER_DEF, WOOD_DEF, lin('leather', [[0, '#9b3d34'], [1, 
   [0, 1, 2].map((i) => circ(186, 66 + i * 26, 6, i === 1 ? AMBER : '#fff', 'stroke="#8c826f" stroke-width="1.6"') + lines(200, 66 + i * 26, 56, 8, 2, '#b3aca0', 2.4)).join('') +
   path_('M166 146L166 176L172 170L178 176L178 148Z', AMBER, 'stroke="rgba(0,0,0,0.25)" stroke-width="0.8"');
 
+// An opening quotation mark as printed (66): the ball low, its tail rising to the right. (x, y) is the ball's centre.
+const quoteMark = (x, y, k) => grp('transform="translate(' + n1(x + 8 * k) + ' ' + n1(y + 12 * k) + ') scale(' + k + ')"',
+  circ(0, 0, 7, AMBER) + path_('M-6.6 -2C-6.4 -11 -0.5 -18 9 -20.5L10.2 -16.4C4.2 -14.2 2.2 -9.6 3.6 -4Z', AMBER));
+
 // First Lines: the opening of a page, and the book it came from.
 ART.firstlines = () => defs(PAPER_DEF, WOOD_DEF, lin('cloth', [[0, '#7fb0a0'], [1, '#2c5d56']]), lin('gold', [[0, '#f6dc8b'], [1, '#c79a3a']])) +
   rect(0, 0, 320, 180, 'url(#wood)') + '<g stroke="rgba(70,40,14,0.16)"><path d="M0 30H320M0 150H320"/></g>' +
   at(26, 36, -7, sheet(104, 110,
-    path_('M14 26a7 7 0 1 1 7 7c-1 5-4 8-8 10c3-3 3-6 1-9Z', AMBER, 'transform="translate(0 -2)"') + path_('M33 26a7 7 0 1 1 7 7c-1 5-4 8-8 10c3-3 3-6 1-9Z', AMBER, 'transform="translate(0 -2)"') +
+    quoteMark(14, 26, 1.25) + quoteMark(42, 26, 1.25) +
     line(14, 56, 88, 56, '#b3aca0', 3) + line(14, 68, 88, 68, '#b3aca0', 3) + line(14, 80, 60, 80, '#b3aca0', 3) + line(14, 94, 80, 94, '#d6cfbd', 3))) +
   rr(172, 28, 100, 128, 3, 'rgba(40,22,6,0.4)', 'transform="translate(5 6)"') +
   rr(166, 36, 100, 128, 3, '#efe7d0') + rr(166, 36, 100, 124, 3, '#d9d2bf') +
@@ -229,11 +233,15 @@ ART.minesweeper = () => {
 };
 
 // Paddles: a table seen from above, a ball over the net, a bat each side.
-const bat = (x, y, rot, rubber) => at(x, y, rot, rr(-4.5, 14, 9, 26, 4, 'url(#handle)') + rr(-4.5, 14, 9, 5, 2, 'rgba(0,0,0,0.25)') +
-  circ(1.6, 2.4, 23, 'rgba(0,0,0,0.3)') + circ(0, 0, 23, '#c99a62', 'stroke="#8f6538" stroke-width="1"') + circ(0, 0, 20, 'url(#' + rubber + ')') + path_('M-14 -8A16 16 0 0 1 -4 -16', 'none', 'stroke="#fff" stroke-opacity="0.45" stroke-width="3" stroke-linecap="round"'));
+const bat = (x, y, rot, rubber) => at(x, y, rot,
+  path_('M-6 19L-8.5 47Q0 51 8.5 47L6 19Z', 'rgba(0,0,0,0.3)', 'transform="translate(3 3)"') + circ(2.4, 3, 23, 'rgba(0,0,0,0.3)') +
+  path_('M-5.5 18L-8 46Q0 50 8 46L5.5 18Z', 'url(#handle)', 'stroke="#6b4522" stroke-width="0.8"') + rr(-7.4, 40, 14.8, 3, 1.5, 'rgba(0,0,0,0.22)') + path_('M-3 22L-5 44', 'none', 'stroke="#fff" stroke-opacity="0.35" stroke-width="1.6" stroke-linecap="round"') +
+  path_('M-13 14L-5.5 25L5.5 25L13 14Z', '#b9854b') +
+  circ(0, 0, 23, '#17181d') + circ(0, 0, 21, 'url(#' + rubber + ')') + circ(0, 0, 21, 'url(#pimple)') + path_('M-14 -8A16 16 0 0 1 -4 -16', 'none', 'stroke="#fff" stroke-opacity="0.5" stroke-width="3" stroke-linecap="round"'));
 ART.paddles = () => defs(
   lin('floor', [[0, '#2a3246'], [1, '#121620']], 0, 0, 0.4, 1), lin('table', [[0, '#2f78b8'], [1, '#17507f']], 0, 0, 0.5, 1),
-  lin('handle', [[0, '#d9aa6c'], [1, '#97693a']], 0, 0, 1, 0), rad('red', [[0, '#ef5a45'], [1, '#a5261c']], 0.35, 0.3, 0.85), rad('black', [[0, '#4a4f5c'], [1, '#14161c']], 0.35, 0.3, 0.85),
+  lin('handle', [[0, '#e2b97c'], [1, '#97693a']], 0, 0, 1, 0), rad('red', [[0, '#ef5a45'], [1, '#a5261c']], 0.35, 0.3, 0.85), rad('black', [[0, '#6a7188'], [0.6, '#2c3040'], [1, '#14161c']], 0.35, 0.3, 0.85),
+  '<pattern id="pimple" width="4" height="4" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="0.8" fill="#000" fill-opacity="0.22"/></pattern>',
   rad('ball', [[0, '#fff'], [1, '#f6b75a']], 0.35, 0.3, 0.75)) +
   rect(0, 0, 320, 180, 'url(#floor)') +
   rr(30, 30, 266, 130, 7, 'rgba(0,0,0,0.4)') + rr(24, 24, 272, 132, 7, 'url(#table)') + rr(30, 30, 260, 120, 3, 'none', 'stroke="#fff" stroke-opacity="0.8" stroke-width="2"') +
@@ -332,6 +340,110 @@ ART.babel = () => {
     path_('M0 150C60 142 110 156 170 152C230 148 280 146 320 154L320 180L0 180Z', 'url(#dune)') +
     ell(190, 158, 84, 8, 'rgba(60,36,10,0.35)') + tiers +
     bubble(70, 82, '#d9453a', false) + bubble(236, 40, '#3b82f6', true) + bubble(262, 88, '#2f9a66', true) + bubble(96, 128, '#8b5cf6', false) + bubble(202, 18, AMBER, false);
+};
+
+// Sudoku: a printed grid on a sheet of paper, a few givens, a pencil lying across the corner.
+ART.sudoku = () => {
+  const GIVENS = { '0,0': 5, '2,1': 3, '4,0': 7, '6,3': 6, '3,4': 9, '8,4': 1, '1,6': 8, '5,6': 4, '7,8': 2, '2,7': 6, '7,2': 9, '4,8': 3 };
+  const C = 14, X0 = 98, Y0 = 21;
+  let nums = '', thin = '';
+  Object.keys(GIVENS).forEach((k) => { const [i, j] = k.split(',').map(Number); nums += text(X0 + i * C + C / 2, Y0 + j * C + C - 3.2, 11.5, INK, GIVENS[k]); });
+  for (let k = 1; k < 9; k++) if (k % 3) thin += '<path d="M' + (X0 + k * C) + ' ' + Y0 + 'V' + (Y0 + 9 * C) + 'M' + X0 + ' ' + (Y0 + k * C) + 'H' + (X0 + 9 * C) + '" stroke="#a9a090" stroke-width="0.8"/>';
+  return defs(PAPER_DEF, WOOD_DEF, lin('pencil', [[0, '#ffd45a'], [0.5, '#f4a91c'], [1, '#c77b0c']], 0, 0, 0, 1), lin('lead', [[0, '#e8c99a'], [1, '#c9a46c']])) +
+    rect(0, 0, 320, 180, 'url(#wood)') + '<g stroke="rgba(70,40,14,0.16)"><path d="M0 30H320M0 150H320"/></g>' +
+    at(78, 8, -2, sheet(158, 162, '', 4) + '<g transform="translate(-78 -8)">' + thin + '</g>' +
+      '<g transform="translate(-78 -8)">' + '<path d="M' + X0 + ' ' + (Y0 + 3 * C) + 'H' + (X0 + 9 * C) + 'M' + X0 + ' ' + (Y0 + 6 * C) + 'H' + (X0 + 9 * C) + 'M' + (X0 + 3 * C) + ' ' + Y0 + 'V' + (Y0 + 9 * C) + 'M' + (X0 + 6 * C) + ' ' + Y0 + 'V' + (Y0 + 9 * C) + '" stroke="#2b3550" stroke-width="1.8"/></g>' +
+      '<g transform="translate(-78 -8)"><rect x="' + X0 + '" y="' + Y0 + '" width="' + 9 * C + '" height="' + 9 * C + '" fill="none" stroke="#2b3550" stroke-width="2.6"/>' + nums + text(X0 + 5 * C + C / 2, Y0 + 5 * C + C - 3.2, 11.5, AMBER, 4) + '</g>') +
+    at(214, 140, -34, rr(2, 3, 112, 11, 5.5, 'rgba(0,0,0,0.32)') + rr(0, 0, 90, 11, 1.5, 'url(#pencil)') + rect(0, 3.6, 90, 1.4, '#fff', 'fill-opacity="0.45"') + rr(0, 0, 90, 11, 1.5, 'none', 'stroke="#8a5408" stroke-width="0.8"') +
+      path_('M90 0L112 5.5L90 11Z', 'url(#lead)') + path_('M104 3.2L112 5.5L104 7.8Z', '#2b3550') + rr(-9, 0, 9, 11, 2, '#e8776a') + rect(-1, 0, 2.4, 11, '#c0c7d4'));
+};
+
+// Snake: scales and a shine on the body, a tongue, the apple it is going for.
+ART.snake = () => {
+  const BODY = 'M34 140C92 156 118 112 164 108C214 104 204 62 244 62';
+  let grid = '';
+  for (let i = 0; i < 16; i++) for (let j = 0; j < 9; j++) if ((i + j) % 2) grid += rect(i * 20, j * 20, 20, 20, '#fff', 'fill-opacity="0.035"');
+  return defs(rad('bg', [[0, '#27573a'], [1, '#0f2417']], 0.35, 0.3, 0.95), lin('bodyg', [[0, '#8ae38f'], [1, '#2f9a4d']], 0, 0, 0, 1), rad('apple', [[0, '#ff8f7c'], [0.5, '#d9362b'], [1, '#8d1a14']], 0.35, 0.3, 0.8),
+    rad('head', [[0, '#a6f0a4'], [1, '#3da85a']], 0.35, 0.3, 0.9)) +
+    rect(0, 0, 320, 180, 'url(#bg)') + grid +
+    '<path d="' + BODY + '" transform="translate(4 7)" fill="none" stroke="#000" stroke-opacity="0.38" stroke-width="26" stroke-linecap="round"/>' +
+    '<path d="' + BODY + '" fill="none" stroke="#1e6b36" stroke-width="26" stroke-linecap="round"/>' +
+    '<path d="' + BODY + '" fill="none" stroke="#4fbf6b" stroke-width="22" stroke-linecap="round"/>' +
+    '<path d="' + BODY + '" fill="none" stroke="#1e6b36" stroke-opacity="0.45" stroke-width="22" stroke-dasharray="2 10" />' +
+    '<path d="' + BODY + '" transform="translate(-3 -4)" fill="none" stroke="#c4f5c0" stroke-opacity="0.55" stroke-width="5" stroke-linecap="round"/>' +
+    at(246, 62, -4, ell(3, 4, 21, 15, 'rgba(0,0,0,0.3)') + ell(0, 0, 21, 15, 'url(#head)', 'stroke="#1e6b36" stroke-width="1.6"') + ell(-3, -6, 11, 4, '#fff', 'fill-opacity="0.3"') +
+      circ(6, -8, 4.4, '#fff') + circ(6, 8, 4.4, '#fff') + circ(7.4, -8, 2.2, '#16301f') + circ(7.4, 8, 2.2, '#16301f')) +
+    path_('M266 62H280M280 62L286 57M280 62L286 67', 'none', 'stroke="#e5352b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"') +
+    ell(292, 134, 17, 5, 'rgba(0,0,0,0.38)') + circ(292, 112, 19, 'url(#apple)') + path_('M292 93Q292 86 298 82', 'none', 'stroke="#5a3a1c" stroke-width="3" stroke-linecap="round"') +
+    path_('M295 88C300 80 310 80 313 83C309 90 300 91 295 88Z', '#58b85f', 'stroke="#2f7a3d" stroke-width="1"') + ell(285, 105, 5, 3.4, '#fff', 'fill-opacity="0.5" transform="rotate(-30 285 105)"');
+};
+
+// Five Letters: raised keys, one row guessed with clues, one solved, one being typed.
+ART.fiveletters = () => {
+  const KEY = { g: ['#4b5568', '#323a4a'], y: ['#e0b620', '#a97d0a'], v: ['#4cb05a', '#2a7a37'] };
+  const rows = [['CRANE', 'ggygy'], ['ABODE', 'vvvvv']];
+  let out = '';
+  const key = (x, y, ch, k) => rr(x, y + 4, 42, 42, 6, KEY[k][1]) + rr(x, y, 42, 42, 6, 'url(#k' + k + ')') + rr(x + 1.5, y + 1.5, 39, 4, 2, '#fff', 'fill-opacity="0.22"') + text(x + 21, y + 30, 25, '#fff', ch, 'style="text-shadow:none"');
+  rows.forEach(([w, c], j) => w.split('').forEach((ch, i) => { out += key(43 + i * 48, 14 + j * 52, ch, c[i]); }));
+  for (let i = 0; i < 5; i++) {
+    const x = 43 + i * 48, y = 118;
+    out += rr(x, y, 42, 42, 6, i < 2 ? '#2c3548' : 'rgba(255,255,255,0.04)', 'stroke="' + (i < 2 ? '#8896ad' : '#4b5568') + '" stroke-width="2"');
+    if (i < 2) out += text(x + 21, y + 30, 25, '#fff', 'AB'[i]);
+  }
+  return defs(lin('bg', [[0, '#2d3e55'], [1, '#161d2b']], 0, 0, 0.5, 1), lin('kg', [[0, '#667189'], [1, '#434c5f']], 0, 0, 0, 1), lin('ky', [[0, '#f2cf4d'], [1, '#cf9b12']], 0, 0, 0, 1), lin('kv', [[0, '#6cc977'], [1, '#389947']], 0, 0, 0, 1)) +
+    rect(0, 0, 320, 180, 'url(#bg)') + out;
+};
+
+// 2048: a tray with its wells, tiles stepped from pale to amber, the last one glowing.
+ART.t2048 = () => {
+  const CELL = 62, GAP = 6, X0 = 55, Y0 = 19;
+  const TONE = { 2: ['#f6f7f9', '#d3d8e0', INK], 4: ['#d8eee7', '#a8cfc3', INK], 16: ['#a8d5c6', '#76b3a1', INK], 64: ['#3fb59a', '#2a8a73', '#fff'], 128: ['#2f9c85', '#1f7561', '#fff'], 2048: ['#f59e0b', '#b9700a', '#fff'] };
+  const grid = [[2, 16, 64], [4, 128, 2048]];
+  let out = '';
+  for (let j = 0; j < 2; j++) for (let i = 0; i < 3; i++) {
+    const x = X0 + GAP + i * (CELL + GAP), y = Y0 + GAP + j * (CELL + GAP), v = grid[j][i], [hi, lo, ink] = TONE[v];
+    if (v === 2048) out += circ(x + CELL / 2, y + CELL / 2, 56, 'url(#glow)');
+    out += rr(x, y, CELL, CELL, 8, 'rgba(0,0,0,0.28)', 'transform="translate(0 3)"') + rr(x, y, CELL, CELL, 8, hi) + rr(x, y + CELL * 0.45, CELL, CELL * 0.55, 8, lo, 'opacity="0.5"') +
+      rr(x + 1, y + 1, CELL - 2, 5, 3, '#fff', 'fill-opacity="0.35"') + text(x + CELL / 2, y + CELL / 2 + (v > 999 ? 8 : 10), v > 999 ? 19 : v > 99 ? 24 : 30, ink, v);
+  }
+  let wells = '';
+  for (let j = 0; j < 2; j++) for (let i = 0; i < 3; i++) wells += rr(X0 + GAP + i * (CELL + GAP), Y0 + GAP + j * (CELL + GAP), CELL, CELL, 8, 'rgba(0,0,0,0.28)');
+  return defs(lin('bg', [[0, '#e3e8ef'], [1, '#bcc5d3']], 0, 0, 0.4, 1), lin('tray', [[0, '#3a4d6a'], [1, '#202b3e']], 0, 0, 0.3, 1), rad('glow', [[0, '#ffd27a', 0.7], [1, '#ffd27a', 0]])) +
+    rect(0, 0, 320, 180, 'url(#bg)') + rr(X0 + 3, Y0 + 6, 3 * CELL + 4 * GAP, 2 * CELL + 3 * GAP, 12, 'rgba(0,0,0,0.3)') + rr(X0, Y0, 3 * CELL + 4 * GAP, 2 * CELL + 3 * GAP, 12, 'url(#tray)') + wells + out;
+};
+
+// Bricks: lit bricks in rows, a gap with a spark, a ball with a trail, a steel paddle.
+ART.bricks = () => {
+  const ROWS = [['#e0564d', '#a3302a'], ['#ec8a2a', '#a85a10'], ['#e2b51b', '#a07c08']];
+  const MISSING = { '1,2': 1, '1,3': 1, '2,1': 1, '2,2': 1, '2,3': 1, '2,4': 1 };
+  let out = '';
+  ROWS.forEach(([hi, lo], j) => { for (let i = 0; i < 5; i++) { if (MISSING[j + ',' + i]) continue; const x = 24 + i * 56, y = 22 + j * 20;
+    out += rr(x, y + 2.5, 50, 14, 3, 'rgba(0,0,0,0.35)') + rr(x, y, 50, 14, 3, lo) + rr(x, y, 50, 10, 3, hi) + rr(x + 2, y + 1, 46, 2.4, 1.2, '#fff', 'fill-opacity="0.45"'); } });
+  return defs(lin('bg', [[0, '#27344b'], [1, '#121824']], 0, 0, 0.3, 1), lin('steel', [[0, '#f4f6fa'], [1, '#9aa5b8']], 0, 0, 0, 1), rad('ball', [[0, '#fff'], [0.4, '#ffb15c'], [1, '#d9660a']], 0.35, 0.3, 0.8), lin('trail', [[0, '#f59a45', 0], [1, '#f59a45', 0.5]], 0, 0, 1, 1)) +
+    rect(0, 0, 320, 180, 'url(#bg)') + rect(0, 0, 10, 180, '#fff', 'fill-opacity="0.06"') + rect(310, 0, 10, 180, '#fff', 'fill-opacity="0.06"') + out +
+    '<path d="M120 66L164 104" stroke="#f59a45" stroke-opacity="0.55" stroke-width="2.4" stroke-dasharray="1 6" stroke-linecap="round" fill="none"/>' +
+    ell(176, 128, 9, 3.4, 'rgba(0,0,0,0.35)') + circ(172, 112, 8, 'url(#ball)') +
+    rr(126, 154, 74, 12, 6, 'rgba(0,0,0,0.4)') + rr(124, 150, 74, 12, 6, 'url(#steel)') + rr(130, 152, 60, 2.4, 1.2, '#fff', 'fill-opacity="0.7"') + circ(132, 156, 2.2, '#d1473f') + circ(190, 156, 2.2, '#d1473f');
+};
+
+// Memory: cards on the table, backs patterned, one pair turned up.
+ART.memory = () => {
+  const W = 64, H = 70, X0 = 50, Y0 = 14, GX = 14, GY = 10;
+  const frog = (cx, cy) => ell(cx + 1, cy + 22, 22, 4, 'rgba(0,0,0,0.18)') + ell(cx, cy + 8, 22, 15, 'url(#frog)') + circ(cx - 11, cy - 7, 9, 'url(#frog)') + circ(cx + 11, cy - 7, 9, 'url(#frog)') +
+    circ(cx - 11, cy - 8, 5.4, '#fff') + circ(cx + 11, cy - 8, 5.4, '#fff') + circ(cx - 10, cy - 7.4, 2.8, '#16301f') + circ(cx + 12, cy - 7.4, 2.8, '#16301f') +
+    path_('M' + (cx - 10) + ' ' + (cy + 8) + 'Q' + cx + ' ' + (cy + 17) + ' ' + (cx + 10) + ' ' + (cy + 8), 'none', 'stroke="#1e6b36" stroke-width="2.2" stroke-linecap="round"');
+  let out = '';
+  for (let j = 0; j < 2; j++) for (let i = 0; i < 3; i++) {
+    const x = X0 + i * (W + GX), y = Y0 + j * (H + GY), up = i === 1, rot = [[-2, 1, 2], [1.5, -1, -1.5]][j][i];
+    out += at(x + W / 2, y + H / 2, rot, rr(-W / 2 + 2, -H / 2 + 3.5, W, H, 9, 'rgba(0,0,0,0.38)') +
+      (up ? rr(-W / 2, -H / 2, W, H, 9, 'url(#face)', 'stroke="#3d9a4a" stroke-width="3"') + at(0, -2, 0, frog(0, 0)) :
+        rr(-W / 2, -H / 2, W, H, 9, 'url(#back)') + rr(-W / 2 + 5, -H / 2 + 5, W - 10, H - 10, 5, 'url(#lattice)', 'stroke="#fff" stroke-opacity="0.55" stroke-width="1.6"') + circ(0, 0, 13, '#fff', 'fill-opacity="0.92"') + text(0, 8.6, 22, '#d97706', '?') +
+        rr(-W / 2 + 2, -H / 2 + 2, W - 4, 5, 3, '#fff', 'fill-opacity="0.25"')));
+  }
+  return defs(lin('bg', [[0, '#2f4a6a'], [1, '#141b29']], 0, 0, 0.5, 1), lin('back', [[0, '#f0950f'], [1, '#b4570a']], 0, 0, 0.3, 1), lin('face', [[0, '#fffdf6'], [1, '#e9e2cd']]),
+    lin('frog', [[0, '#7fd57f'], [1, '#3f9f4e']], 0, 0, 0, 1),
+    '<pattern id="lattice" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0H9M0 0V9" stroke="#fff" stroke-opacity="0.28" stroke-width="1.2"/></pattern>') +
+    rect(0, 0, 320, 180, 'url(#bg)') + out;
 };
 
 // Every tile shares one page, so each tile's ids get its name in front of them.
