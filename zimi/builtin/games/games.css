@@ -85,7 +85,8 @@ button { font: inherit; color: inherit; }
 .ar-btn { min-height: 36px; padding: 0 var(--sp-3) 1px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); cursor: pointer; white-space: nowrap; }
 @media (pointer: coarse) { .ar-btn { min-height: var(--target); } }
 .ar-btn[hidden] { display: none; }
-.ar-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* Hover is for a pointer: on a touch screen the last tap leaves the finger's place "hovered" and a second option looks chosen. */
+@media (hover: hover) { .ar-btn:hover { border-color: var(--accent); color: var(--accent); } }
 .ar-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 /* Disabled controls keep their place: ink3 text on the line border (the state is also in disabled / aria-disabled). */
 .ar-btn:disabled, .ar-btn[aria-disabled="true"] { color: var(--ink3); background: var(--surface); border-color: var(--line); cursor: default; }
@@ -443,6 +444,13 @@ dl.gs-help { margin: 0; }
 .gs-help dt { margin: 0 0 2px; font-size: var(--fs-small); font-weight: 650; color: var(--ink2); }
 .gs-help dd { margin: 0 0 12px; }
 .gs-help dd:last-child { margin-bottom: 0; }
+/* The piece key in How to play (ZimiPieceIcons.key): the board's own figure beside its name. The --xw and --jw feed the characters' size. */
+.pi-keybox { margin-top: var(--sp-3); }
+.pi-keytitle { margin: 0 0 var(--sp-1); font-size: var(--fs-small); font-weight: 650; color: var(--ink2); }
+.pi-key { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--sp-3); }
+.pi-k { display: flex; align-items: center; gap: var(--sp-2); min-height: 44px; font-size: var(--fs-small); color: var(--ink); }
+.pi-kp { flex: none; position: relative; display: grid; place-items: center; width: 40px; height: 40px; --xw: 333px; --jw: 355px; }
+.pi-kn { min-width: 0; overflow-wrap: anywhere; }
 .gs-stats { padding: var(--sp-3); border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); }
 .gs-statlist { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; font-size: var(--fs-small); }
 .gs-statlist dt { color: var(--ink2); } .gs-statlist dd { margin: 0; color: var(--ink); font-variant-numeric: tabular-nums; }

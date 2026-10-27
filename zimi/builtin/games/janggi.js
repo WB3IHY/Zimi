@@ -197,7 +197,8 @@
 
   if (root.ZimiShell) {
     root.ZimiShell.settings.on(function (k) { if (k === 'hints' || k === '*') paint(); });
-    root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && played.length > 0; } });
+    root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && played.length > 0; },
+      help: function () { return { extra: [root.ZimiPieceIcons.key(T('shell.help.pieces'), [7, 6, 5, 4, 3, 2, 1].map(function (t) { return { html: pieceHtml(t), name: T('janggi.piece.' + t) }; }))] }; } });
   }
   drawLines(); buildBoard();
   G.newGame();

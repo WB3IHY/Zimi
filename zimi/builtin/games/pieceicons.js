@@ -78,5 +78,21 @@
     });
   }
 
-  root.ZimiPieceIcons = { figure: figure, shogiArrows: shogiArrows, snap: snap, ghosts: ghosts };
+  // A piece key for How to play: a title, then each piece's figure beside its name. entries are [{ html, name }], the html being
+  // what the board draws for that piece (so the key always matches the board), name the piece in the UI language.
+  function key(title, entries) {
+    var box = document.createElement('div'), grid = document.createElement('div');
+    box.className = 'pi-keybox'; grid.className = 'pi-key';
+    var h = document.createElement('div'); h.className = 'pi-keytitle'; h.textContent = title; box.appendChild(h);
+    entries.forEach(function (e) {
+      var row = document.createElement('div'), fig = document.createElement('span'), nm = document.createElement('span');
+      row.className = 'pi-k'; fig.className = 'pi-kp'; nm.className = 'pi-kn';
+      fig.innerHTML = e.html; nm.textContent = e.name;
+      row.appendChild(fig); row.appendChild(nm); grid.appendChild(row);
+    });
+    box.appendChild(grid);
+    return box;
+  }
+
+  root.ZimiPieceIcons = { figure: figure, shogiArrows: shogiArrows, snap: snap, ghosts: ghosts, key: key };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

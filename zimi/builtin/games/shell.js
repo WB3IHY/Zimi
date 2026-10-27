@@ -742,6 +742,7 @@
     head(T('shell.menu.how'), false);
     var hp = helpFor(ID);
     card.appendChild(helpList(hp, hp.keys || keysLine()));
+    (hp.extra || []).forEach(function (n) { card.appendChild(n); });   // a game's own addition, e.g. a piece key
   }
   // For a page that is not the game (the shelf): the list for game `id`, or null when it has no help.
   Shell.helpList = function (id) { var hp = helpFor(id); return hp ? helpList(hp, hp.keys) : null; };

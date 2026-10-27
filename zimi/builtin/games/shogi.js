@@ -278,7 +278,8 @@
 
   if (root.ZimiShell) {
     root.ZimiShell.settings.on(function (k) { if (k === 'hints' || k === '*') paint(); });
-    root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && played.length > 0; } });
+    root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && played.length > 0; },
+      help: function () { return { extra: [root.ZimiPieceIcons.key(T('shell.help.pieces'), (G.settings.variant === 'mini' ? [8, 7, 6, 5, 4, 1, 14, 15, 12, 9] : [8, 7, 6, 5, 4, 3, 2, 1, 15, 14, 12, 11, 10, 9]).map(function (t) { return { html: pieceSvg(t, SENTE, true), name: T('shogi.piece.' + t) }; }))] }; } });
   }
   G.newGame();
   // Leaving and coming back: the settings in force and the end are kept by WorldKit; the moves are played again from the start.

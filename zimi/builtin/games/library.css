@@ -25,9 +25,6 @@ a.gl-learn[hidden] { display: none; }
 .gl-bump { display: inline-block; animation: gl-bump 0.35s ease-out; }
 @keyframes gl-bump { 40% { transform: scale(1.35); color: var(--accent); } }
 @media (prefers-reduced-motion: reduce) { .gl-bump { animation: none; } }
-/* The touch rule in play.css that stops a tapped button staying amber also turns a primary button's text dark when a finger just
-   pressed where it now appears (Guess then Next, Enter, Check). A primary button keeps its own colours. */
-@media (hover: none) { .pl-main .ar-btn.gm-play:hover:not(:disabled):not([aria-disabled="true"]):not([aria-pressed="true"]) { border-color: var(--accent); color: var(--accent-ink); } }
 /* Every answer and key answers a press at once: the lift is on press, not on hover (a touch screen has none). */
 .rk-choice:active:not(:disabled), .qz-choice:active:not(:disabled), .bl-option:active:not(:disabled), .tl-item:active:not(:disabled) { background: var(--accent-glow); border-color: var(--accent); }
 .cw-key:active, .bee-hex:active { filter: brightness(0.88); }

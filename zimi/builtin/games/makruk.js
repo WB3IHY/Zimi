@@ -183,7 +183,8 @@
 
   if (root.ZimiShell) {
     root.ZimiShell.settings.on(function (k) { if (k === 'hints' || k === '*') paint(); });
-    root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && played.length > 0; } });
+    root.ZimiShell.game({ hints: true, inProgress: function () { return !G.over && played.length > 0; },
+      help: function () { return { extra: [root.ZimiPieceIcons.key(T('shell.help.pieces'), [6, 4, 5, 3, 2, 1].map(function (t) { return { html: pieceSvg(t), name: T('makruk.piece.' + t) }; }))] }; } });
   }
   buildBoard();
   G.newGame();
