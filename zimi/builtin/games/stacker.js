@@ -162,7 +162,8 @@
       if (p[1] >= 0) g.board[p[1]][p[0]] = id;
     });
     var keep = g.board.filter(function (row) { return row.some(function (v) { return !v; }); });
-    var cleared = ROWS - keep.length;
+    var cleared = ROWS - keep.length, lines = [];
+    g.board.forEach(function (row, r) { if (row.every(Boolean)) lines.push(r - HIDDEN); });   // where they were, for the flash
     while (keep.length < ROWS) keep.unshift(new Array(COLS).fill(0));
     g.board = keep;
     if (cleared) {
@@ -174,7 +175,7 @@
     g.canHold = true;
     if (lockedOut) g.over = true;
     else spawnNext(g);
-    return { cleared: cleared, lockedOut: lockedOut || g.over };
+    return { cleared: cleared, lines: lines, lockedOut: lockedOut || g.over };
   }
 
   // Drop to the floor and lock; two points a row.
@@ -221,7 +222,7 @@
   // The well is a dark material in both themes, with a grid you can just see.
   var FIELD = '#0e0e10', FIELD_LINE = 'rgba(255, 255, 255, 0.07)';
   var BEST_KEY = 'zimi.games.stacker.best';
-  var NEXT_SHOWN = 3;
+  var NEXT_SHOWN = 3, CLEAR_FLASH_MS = 260;
   Play.applyTheme();
 
   var els = {
@@ -229,7 +230,7 @@
     level: $('st-level'), best: $('st-best'), msg: $('st-msg'), pause: $('st-pause'), newBtn: $('st-new'), wrap: $('st-wrap'), holdBox: $('st-holdbox')
   };
   var ctx = els.board.getContext('2d'), hctx = els.hold.getContext('2d'), nctx = els.next.getContext('2d');
-  var g, cs = 24, mode = 'ready', last = 0, gravAcc = 0, lockAcc = 0, resets = 0, best = Play.load(BEST_KEY, { score: 0 });
+  var g, flash = null, cs = 24, mode = 'ready', last = 0, gravAcc = 0, lockAcc = 0, resets = 0, best = Play.load(BEST_KEY, { score: 0 });
   var pal = {}, armed = null, status = Play.status(els.msg);
 
   function readPalette() {
@@ -293,8 +294,18 @@
       });
       pieceCells(cur).forEach(function (p) { if (p[1] >= HIDDEN) block(ctx, p[0] * cs, (p[1] - HIDDEN) * cs, cs, color); });
     }
+    drawFlash(W);
     drawMini(hctx, els.hold, g.hold ? [g.hold] : [], g.canHold ? 1 : 0.4);
     drawMini(nctx, els.next, nextTypes(g, NEXT_SHOWN), 1);
+  }
+
+  // Rows that just cleared flash white where they were and fade; the stack has already come down.
+  function drawFlash(W) {
+    if (!flash) return;
+    var k = (performance.now() - flash.t) / CLEAR_FLASH_MS;
+    if (k >= 1) { flash = null; return; }
+    ctx.fillStyle = 'rgba(255,255,255,' + (0.85 * (1 - k)).toFixed(3) + ')';
+    flash.rows.forEach(function (r) { if (r >= 0) ctx.fillRect(0, r * cs, W, cs); });
   }
 
   function drawMini(c, canvas, types, alpha) {
@@ -335,6 +346,7 @@
   function newPiece() { gravAcc = 0; lockAcc = 0; resets = 0; }
   function afterLock(res) {
     newPiece();
+    if (res.cleared && !Play.reducedMotion()) flash = { rows: res.lines, t: performance.now() };
     status.say(res.cleared ? Tx('stacker.clear.' + res.cleared) : '');
     if (g.over) return finish();
   }

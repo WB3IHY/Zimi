@@ -23,3 +23,11 @@
 .mm-players { justify-content: center; margin: 0; }
 .mm-names { display: grid; gap: var(--sp-2); }
 .mm-name { width: 100%; min-height: var(--target); padding: 0 var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; }
+/* A match settles with a small lift; a miss shows red until the pair turns back; a finished table lifts card by card. */
+.mm-grid.still .mm-inner { animation: none; }
+.mm-card[data-done="true"] .mm-face { animation: mm-match 0.36s ease-out; }
+.mm-card[data-miss="true"] .mm-face { border-color: var(--bad); }
+.mm-grid.won .mm-face { animation: mm-match 0.5s ease-out both; animation-delay: calc(var(--k) * 45ms); }
+@keyframes mm-match { 0% { scale: 1; } 40% { scale: 1.1; } 100% { scale: 1; } }
+@media (prefers-reduced-motion: reduce) { .mm-card[data-done="true"] .mm-face, .mm-grid.won .mm-face { animation: none; } }
+:root[data-anim="off"] :is(.mm-card[data-done="true"] .mm-face, .mm-grid.won .mm-face) { animation: none; }

@@ -80,13 +80,14 @@
   // ── the page ─────────────────────────────────────────────────────────────
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var SWIPE_PX = 22, MAX_BOARD = 560, CHROME_PX = 120, READY_ARM_MS = 650;
+  var EAT_MS = 320, DEATH_MS = 720, DEATH_BLINK_MS = 120, BUMP_SCALE = 1.18, BUMP_MS = 200;
   var SETTINGS_KEY = 'zimi.games.snake.settings', BEST_KEY = 'zimi.games.snake.best';
   Play.applyTheme();
 
-  var els = { cv: $('sn-board'), stat: $('sn-stat'), msg: $('sn-msg'), pause: $('sn-pause'), newBtn: $('sn-new') };
+  var els = { page: $('sn-main'), cv: $('sn-board'), stat: $('sn-stat'), msg: $('sn-msg'), pause: $('sn-pause'), newBtn: $('sn-new') };
   var ctx = els.cv.getContext('2d'), status = Play.status(els.msg);
   var settings = Play.load(SETTINGS_KEY, { wrap: false }), best = Play.load(BEST_KEY, {});
-  var g, cs = 18, mode = 'ready', last = 0, acc = 0, pal = {}, armed = null;
+  var g, cs = 18, mode = 'ready', last = 0, acc = 0, pal = {}, armed = null, fx = { eat: null, dead: 0 };
   function modeKey() { return settings.wrap ? 'wrap' : 'walls'; }
 
   function readPalette() {
@@ -109,6 +110,15 @@
     return 'rgb(' + a.map(function (v, i) { return Math.round(v + (b[i] - v) * t); }).join(',') + ')';
   }
 
+  // The apple just eaten: a ring spreads from where it was and fades.
+  function drawEat() {
+    if (!fx.eat) return;
+    var k = (performance.now() - fx.eat.t) / EAT_MS;
+    if (k >= 1) { fx.eat = null; return; }
+    ctx.strokeStyle = pal.food; ctx.globalAlpha = 1 - k; ctx.lineWidth = Math.max(2, cs * 0.16 * (1 - k));
+    ctx.beginPath(); ctx.arc(fx.eat.x * cs + cs / 2, fx.eat.y * cs + cs / 2, cs * (0.4 + 1.1 * k), 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+
   function draw() {
     if (!g) return;
     var n = g.cols;
@@ -119,13 +129,19 @@
       ctx.fillStyle = pal.food; ctx.beginPath(); ctx.arc(fx, fy + 1, cs * 0.38, 0, 7); ctx.fill();
       ctx.fillStyle = pal.leaf; ctx.beginPath(); ctx.ellipse(fx + cs * 0.12, fy - cs * 0.34, cs * 0.18, cs * 0.09, -0.5, 0, 7); ctx.fill();
     }
-    var len = g.snake.length;
+    drawEat();
+    var len = g.snake.length, dying = fx.dead && !Play.reducedMotion() ? Math.floor((performance.now() - fx.dead) / DEATH_BLINK_MS) % 2 === 0 : !!fx.dead;
     for (var i = len - 1; i >= 0; i--) {
-      var s = g.snake[i], pad = cs * 0.08;
-      ctx.fillStyle = mix(pal.head, pal.tail, len > 1 ? i / (len - 1) : 0);
+      var s = g.snake[i], pad = cs * 0.08, side = cs - 2 * pad, nxt = i > 0 ? g.snake[i - 1] : null;
+      ctx.fillStyle = dying ? pal.food : mix(pal.head, pal.tail, len > 1 ? i / (len - 1) : 0);
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(s[0] * cs + pad, s[1] * cs + pad, cs - 2 * pad, cs - 2 * pad, cs * 0.3); else ctx.rect(s[0] * cs + pad, s[1] * cs + pad, cs - 2 * pad, cs - 2 * pad);
+      if (ctx.roundRect) ctx.roundRect(s[0] * cs + pad, s[1] * cs + pad, side, side, cs * 0.3); else ctx.rect(s[0] * cs + pad, s[1] * cs + pad, side, side);
       ctx.fill();
+      // a body, not beads: a bridge from this segment's middle to the next one's (not across the edge a wrapped snake went through)
+      if (nxt && Math.abs(nxt[0] - s[0]) + Math.abs(nxt[1] - s[1]) === 1) {
+        if (nxt[1] === s[1]) ctx.fillRect(Math.min(s[0], nxt[0]) * cs + pad + side / 2, s[1] * cs + pad, cs, side);
+        else ctx.fillRect(s[0] * cs + pad, Math.min(s[1], nxt[1]) * cs + pad + side / 2, side, cs);
+      }
     }
     var h = g.snake[0], d = DIRS[g.dir], px = -d[1], py = d[0];
     ctx.fillStyle = pal.eye;
@@ -144,30 +160,37 @@
     acc += Math.min(200, t - last); last = t;
     var ms = stepMs(g), res;
     while (acc >= ms && mode === 'playing') {
-      acc -= ms; res = step(g);
+      var food = g.food; acc -= ms; res = step(g);
+      if (res === 'ate' || res === 'won') ate(food);
       if (res === 'dead' || res === 'won') { draw(); hud(); return finish(res === 'won'); }
     }
     draw(); hud();
     requestAnimationFrame(frame);
+  }
+  // Eating is felt twice: the ring on the board, and the bar's score gives a small bump.
+  function ate(food) {
+    if (Play.reducedMotion()) return;
+    fx.eat = { x: food[0], y: food[1], t: performance.now() };
+    if (els.stat.animate) els.stat.animate([{ scale: 1 }, { scale: BUMP_SCALE }, { scale: 1 }], { duration: BUMP_MS, easing: 'ease-out' });
   }
   function startLoop() { last = performance.now(); requestAnimationFrame(frame); }
 
   // The ready line says the gesture once; a tap or a key starts. Armed again after a game, once the end sheet is up.
   function arm() {
     if (armed) armed.cancel();
-    armed = Play.ready({ say: status.say, target: els.cv, start: begin, touch: T('snake.readyTouch'), keys: T('snake.readyKeys') });
+    armed = Play.ready({ say: status.say, target: els.page, start: begin, touch: T('snake.readyTouch'), keys: T('snake.readyKeys') });
   }
   function begin() {
     if (armed) armed.cancel();
-    g = createGame(COLS, ROWS, settings.wrap); acc = 0; mode = 'playing'; status.say('');
+    g = createGame(COLS, ROWS, settings.wrap); acc = 0; mode = 'playing'; status.say(''); fx.eat = null; fx.dead = 0;
     Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); startLoop();
   }
   function pause() { if (mode !== 'playing') return; mode = 'paused'; Play.pauseLabel(els.pause, true); status.say(T('play.paused')); }
   function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); startLoop(); }
   function toggle() { if (mode === 'playing') pause(); else resume(); }
-  function showEnd(won) {
+  function showEnd(won, after) {
     var k = modeKey();
-    ZimiShell.endSheet({ result: won ? 'win' : 'over', stats: [[T('snake.apples'), Play.num(g.score)], [T('play.best'), Play.num(best[k] || 0)]] });
+    ZimiShell.endSheet({ result: won ? 'win' : 'over', after: after, stats: [[T('snake.apples'), Play.num(g.score)], [T('play.best'), Play.num(best[k] || 0)]] });
     setTimeout(function () { if (mode === 'over') arm(); }, READY_ARM_MS);
   }
   function finish(won) {
@@ -175,11 +198,17 @@
     var k = modeKey();
     if (g.score > (best[k] || 0)) { best[k] = g.score; Play.save(BEST_KEY, best); }
     hud();
-    showEnd(won);
+    if (won) return showEnd(true);
+    // The snake blinks in the apple's red and the board jolts, then the sheet comes.
+    var still = Play.reducedMotion();
+    fx.dead = performance.now();
+    if (!still) { ZimiShell.shake(els.cv); (function blink() { draw(); if (performance.now() - fx.dead < DEATH_MS && mode === 'over') requestAnimationFrame(blink); else { fx.dead = 0; draw(); } })(); }
+    else draw();
+    showEnd(false, still ? undefined : DEATH_MS + DEATH_BLINK_MS);
   }
   els.newBtn.addEventListener('click', begin);
   els.pause.addEventListener('click', toggle);
-  els.cv.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
+  els.page.addEventListener('pointerdown', function () { if (mode === 'paused') resume(); });
   Play.onHidden(pause);
   ZimiShell.game({
     inProgress: function () { return mode === 'playing' || mode === 'paused'; },
@@ -205,7 +234,7 @@
   });
 
   var doneX = 0, doneY = 0;
-  Play.gesture(els.cv, {
+  Play.gesture(els.page, {
     down: function () { doneX = 0; doneY = 0; },
     drag: function (dx, dy) {
       if (mode !== 'playing') return;

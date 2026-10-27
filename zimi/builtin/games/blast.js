@@ -326,7 +326,7 @@
     st.flames.forEach(drawFlame);
     st.players.forEach(drawBomber);
     if (st.status === 'ready') Kit.textCentered(ctx, Tx('blast.round', { n: st.round }), W_PX / 2, H_PX / 2 - 6, '#ffffff', 2);
-    if (st.status === 'roundover') Kit.textCentered(ctx, st.winner < 0 ? Tx('shell.end.draw') : Tx('shell.end.wins', { name: nameOf(st.winner) }), W_PX / 2, H_PX / 2 - 6, '#ffffff', 2);
+    if (st.status === 'roundover') Kit.textCentered(ctx, st.winner < 0 ? Tx('shell.end.draw') : soloYou(st.winner) ? Tx('shell.end.win') : Tx('shell.end.wins', { name: nameOf(st.winner) }), W_PX / 2, H_PX / 2 - 6, '#ffffff', 2);
   }
 
   // ── flow ──
@@ -338,6 +338,8 @@
     if (st.players[0] && st.players[0].human) setInput(st, 0, dirOf(held.p1) || (one ? dirOf(held.p2) : null), false);
     if (!one && st.players[1] && st.players[1].human) setInput(st, 1, dirOf(held.p2), false);
   }
+  // Alone against the computer the one person wins as "you"; with two people it is Player 1 and Player 2.
+  function soloYou(i) { return st.kinds[i] === 'person' && setup.humans === 1; }
   function nameOf(i) { return st.kinds[i] === 'person' ? Tx('blast.player', { n: i + 1 }) : Tx('blast.computer'); }
   function bombFor(id) { if (st && mode === 'playing' && st.players[id] && st.players[id].human) placeBomb(st, st.players[id]); }
   var keys = { map: {} };
@@ -366,7 +368,7 @@
   var loop = Play.loop(function (dt) {
     step(st, dt);
     st.events.forEach(function (e) {
-      if (e.name === 'item') status.say(Tx('blast.took.' + e.data.type, { name: nameOf(e.data.id) }));
+      if (e.name === 'item') status.reason(Tx('blast.took.' + e.data.type, { name: nameOf(e.data.id) }));
       else if (e.name === 'round') status.say('');
     });
     st.events.length = 0;

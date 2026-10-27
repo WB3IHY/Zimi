@@ -203,7 +203,7 @@
   }
 
   function newPuzzle(count, daily) {
-    pause(); puzzle = null; paintHud();
+    pause(); puzzle = null; paintHud(); els.area.classList.remove('whole');
     els.area.querySelectorAll('.jg-piece').forEach(function (n) { n.parentNode.removeChild(n); });
     els.ghost.style.backgroundImage = 'none';
     say(T('jigsaw.finding'));
@@ -248,6 +248,7 @@
   }
   function finish() {
     pause(); puzzle.done = true; paintHud();
+    els.area.classList.add('whole');   // the picture lifts and the seams fade
     var key = (zim || 'drawn') + ':' + puzzle.pieces.length, best = Play.load(BEST_KEY, {}), ms = Math.round(puzzle.ms);
     var newBest = !best[key] || ms < best[key];
     if (newBest) { best[key] = ms; Play.save(BEST_KEY, best); }

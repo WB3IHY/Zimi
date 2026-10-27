@@ -6,6 +6,7 @@
 <title>Snake - ZimiGames</title>
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="play.css">
+<link rel="stylesheet" href="snake.css">
 <!-- zimi-shell --><script src="shell.js"></script><!-- /zimi-shell -->
 </head>
 <body>
@@ -17,7 +18,7 @@
   <button class="ar-btn" id="sn-pause" type="button" disabled data-t="play.pause">Pause</button>
 </header>
 
-<main class="pl-main">
+<main class="pl-main sn-main" id="sn-main">
   <canvas class="pl-canvas" id="sn-board" role="img" aria-label="The board" data-t-aria="play.board"></canvas>
   <p class="pl-msg" id="sn-msg"></p>
 </main>

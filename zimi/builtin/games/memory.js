@@ -116,8 +116,10 @@
     pics = SETS[settings.set].pics;
     els.grid.textContent = '';
     els.grid.style.setProperty('--cols', cols(g.cards.length));
+    els.grid.classList.remove('won'); els.grid.classList.add('still');   // a fresh deal does not flip itself
+    setTimeout(function () { els.grid.classList.remove('still'); }, 0);
     buttons = g.cards.map(function (c, i) {
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'mm-card';
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'mm-card'; b.style.setProperty('--k', i);
       b.innerHTML = '<span class="mm-inner"><span class="mm-back"></span><span class="mm-face"><svg viewBox="0 0 64 64" aria-hidden="true">' + pics[c.id][1] + '</svg></span></span>';
       b.addEventListener('click', function () { pick(i); });
       els.grid.appendChild(b);
@@ -128,7 +130,7 @@
   function paint() {
     g.cards.forEach(function (c, i) {
       var b = buttons[i];
-      b.dataset.up = String(c.up || c.done); b.dataset.done = String(c.done);
+      b.dataset.up = String(c.up || c.done); b.dataset.done = String(c.done); b.dataset.miss = String(!!g.pending && g.pending.indexOf(i) >= 0);
       b.setAttribute('aria-label', c.up || c.done ? T(c.done ? 'memory.matched' : 'memory.faceUp', { pic: picName(c) }) : T('memory.faceDown', { n: i + 1 }));
       b.disabled = c.done;
     });
@@ -161,6 +163,7 @@
   function finish() {
     var k = bestKey();
     paint();
+    els.grid.classList.add('won');   // the whole table lifts in a wave before the sheet
     if (multi()) {
       var top = Math.max.apply(null, scores), win = seats.people().filter(function (s) { return scores[s] === top; });
       status.say(win.length > 1 ? T('memory.tie') : T('memory.wins', { name: seats.name(win[0]) }));

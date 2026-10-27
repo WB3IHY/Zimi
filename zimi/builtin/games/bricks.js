@@ -172,12 +172,13 @@
   var Play = root.ArcadePlay, $ = Play.$, T = Play.T;
   var KEY_SPEED = 380;                 // paddle units a second on the keys
   var MAX_CSS_W = 480, CHROME_PX = 210, SIDE_PAD = 24, MAX_DT = 1 / 30, READY_ARM_MS = 650;
+  var BREAK_MS = 220, HIT_MS = 130, LOST_MS = 380, LOST_LINE_MS = 1400;
   var BEST_KEY = 'zimi.games.bricks.best';
   Play.applyTheme();
 
   var els = { cv: $('br-board'), score: $('br-score'), lives: $('br-lives'), level: $('br-level'), best: $('br-best'), msg: $('br-msg'), pause: $('br-pause'), newBtn: $('br-new') };
   var ctx = els.cv.getContext('2d'), status = Play.status(els.msg);
-  var runId = 0, g, scale = 1, mode = 'ready', last = 0, keys = { left: false, right: false }, best = Play.load(BEST_KEY, { score: 0 }), pal = {}, armed = null;
+  var fx = [], lostAt = -LOST_LINE_MS, told = '', seen = null, runId = 0, g, scale = 1, mode = 'ready', last = 0, keys = { left: false, right: false }, best = Play.load(BEST_KEY, { score: 0 }), pal = {}, armed = null;
 
   function readPalette() {
     var s = getComputedStyle(document.documentElement);
@@ -212,6 +213,33 @@
     var p = g.paddle;
     ctx.fillStyle = pal.ink; rr(p.x - p.w / 2, PADDLE_Y - PADDLE_H / 2, p.w, PADDLE_H, 5);
     ctx.fillStyle = pal.accent; ctx.beginPath(); ctx.arc(g.ball.x, g.ball.y, BALL_R, 0, 7); ctx.fill();
+    drawFx();
+  }
+  // What the ball just did: a brick that broke shrinks away in its own colour, one that only took a hit flashes, a ball
+  // lost washes the field red for a moment.
+  function drawFx() {
+    var now = performance.now();
+    fx = fx.filter(function (e) { return now - e.t < e.ms; });
+    fx.forEach(function (e) {
+      var k = (now - e.t) / e.ms;
+      if (e.kind === 'lost') { ctx.fillStyle = 'rgba(192,57,43,' + (0.35 * (1 - k)).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H); return; }
+      if (e.kind === 'hit') { ctx.fillStyle = 'rgba(255,255,255,' + (0.8 * (1 - k)).toFixed(3) + ')'; rr(e.x, e.y, e.w, e.h, 3); return; }
+      var s = 1 - 0.55 * k;
+      ctx.globalAlpha = 1 - k; ctx.fillStyle = e.color; rr(e.x + e.w * (1 - s) / 2, e.y + e.h * (1 - s) / 2, e.w * s, e.h * s, 3); ctx.globalAlpha = 1;
+    });
+  }
+  // Compare the bricks with how they stood a frame ago: gone (broke) or fewer hits left (hit).
+  function noticeBricks() {
+    var was = seen, now = new Map();
+    g.bricks.forEach(function (k) { now.set(k, k.hp); });
+    seen = now;
+    if (!was || Play.reducedMotion()) return;
+    var t = performance.now();
+    was.forEach(function (hp, k) {
+      var left = now.get(k);
+      if (left === undefined) fx.push({ kind: 'break', x: k.x, y: k.y, w: k.w, h: k.h, color: k.fixed ? pal.fixed : pal.rows[k.row % pal.rows.length], t: t, ms: BREAK_MS });
+      else if (left < hp) fx.push({ kind: 'hit', x: k.x, y: k.y, w: k.w, h: k.h, t: t, ms: HIT_MS });
+    });
   }
 
   function hud() {
@@ -225,14 +253,19 @@
     var dt = Math.min(MAX_DT, (t - last) / 1000); last = t;
     var dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
     if (dir) movePaddle(g, g.paddle.x + dir * KEY_SPEED * dt);
-    var st = step(g, dt);
+    var lives = g.lives, st = step(g, dt);
+    noticeBricks();
+    if (g.lives < lives && !Play.reducedMotion()) { lostAt = performance.now(); fx.push({ kind: 'lost', t: lostAt, ms: LOST_MS }); ZimiShell.shake(els.cv); }
+    else if (g.lives < lives) lostAt = performance.now();
     draw(); hud();
     if (st === 'cleared') return levelUp();
     if (st === 'over') return finish();
-    status.say(g.ball.stuck ? T('bricks.launch') : '');
+    tell(!g.ball.stuck ? '' : performance.now() - lostAt < LOST_LINE_MS ? T('bricks.livesLeft', { n: Math.max(0, g.lives) }) : T('bricks.launch'));
     requestAnimationFrame(frame);
   }
-  function startLoop() { last = performance.now(); requestAnimationFrame(frame); }
+  function startLoop() { last = performance.now(); seen = null; requestAnimationFrame(frame); }
+  // The status line is written when its words change, not every frame (a screen reader would hear it again each time).
+  function tell(text) { if (text !== told) { told = text; status.say(text); } }
 
   // The ready line: the gesture is said once here. Armed again after a game, once the end sheet is up.
   function arm(touch, keysText, start) {
@@ -241,7 +274,7 @@
   }
   function begin() {
     if (armed) armed.cancel();
-    g = createGame(0); runId = Play.runId(); mode = 'playing'; Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); startLoop();
+    g = createGame(0); runId = Play.runId(); mode = 'playing'; told = ''; fx = []; status.say(''); Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); draw(); startLoop();
   }
   function levelUp() {
     var next = createGame(g.level + 1, g.lives, g.score), n = g.level + 2;
@@ -251,9 +284,9 @@
     setTimeout(function () { if (mode === 'between') arm(T('bricks.nextTouch', { n: n }), T('bricks.nextKeys', { n: n }), proceed); }, READY_ARM_MS);
   }
   function pause() { if (mode !== 'playing') return; mode = 'paused'; Play.pauseLabel(els.pause, true); status.say(T('play.paused')); }
-  function resume() { if (mode !== 'paused') return; mode = 'playing'; Play.pauseLabel(els.pause, false); status.say(''); startLoop(); }
+  function resume() { if (mode !== 'paused') return; mode = 'playing'; told = ''; Play.pauseLabel(els.pause, false); status.say(''); startLoop(); }
   function toggle() { if (mode === 'playing') pause(); else resume(); }
-  function proceed() { mode = 'playing'; status.say(''); hud(); draw(); startLoop(); }
+  function proceed() { mode = 'playing'; told = ''; status.say(''); hud(); draw(); startLoop(); }
   function finish() {
     mode = 'over'; els.pause.disabled = true; Play.pauseLabel(els.pause, false);
     if (g.score > best.score) { best.score = g.score; Play.save(BEST_KEY, best); }
