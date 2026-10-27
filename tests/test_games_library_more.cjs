@@ -244,6 +244,41 @@ const rng = seed => load(['librarykit.js']).GamesLib.rng(seed);
     check(Lib.firstDefinition('<ol><li>A fruit that is <b>red</b>.<ul><li>An example sentence.</li></ul></li><li>Second.</li></ol>') === 'A fruit that is red.' && Lib.firstDefinition('<p>none</p>') === '', 'crossword: the first definition of a Wiktionary page');
   }
 
+  {
+    // article links follow the library: a ZIM deleted while a game is open hides its "Read about" link, at once from the server's
+    // change stream and when the next link is made; a ZIM that returns shows it again; the Dictionary's link never depends on a ZIM
+    let zims = [{ name: 'wikipedia', title: 'Wikipedia', kind: 'wiki' }, { name: 'wiktionary', title: 'Wiktionary', kind: 'wiki' }], streams = [];
+    const fetchStub = u => Promise.resolve(u === '/health' ? { ok: true, json: () => Promise.resolve({ status: 'ok' }) } : u === '/list' ? { ok: true, json: () => Promise.resolve(zims) } : { ok: false, status: 404 });
+    class FakeSource { constructor(url) { this.url = url; this.on = {}; streams.push(this); } addEventListener(k, f) { this.on[k] = f; } close() { this.closed = true; } }
+    const sb = load(['librarykit.js'], { fetch: fetchStub, location: { protocol: 'http:', pathname: '/w/games/x.html', search: '' }, EventSource: FakeSource });
+    const L = sb.GamesLib, link = () => ({ dataset: {}, hidden: false, isConnected: true });
+    await L.library();
+    const a = link(), b = link();
+    L.articleLink(a, 'wikipedia', 'Paris'); L.articleLink(b, 'wiktionary', 'word');
+    await new Promise(r => setTimeout(r, 20));
+    check(streams.length === 1 && streams[0].url === '/events', 'links: the first article link opens the change stream, once');
+    check(!a.hidden && !b.hidden, 'links: ZIMs in the library keep their links');
+    zims = [zims[1]];
+    streams[0].on.change({ data: JSON.stringify({ topic: 'settings' }) });
+    await new Promise(r => setTimeout(r, 20));
+    check(!a.hidden, 'links: a change that is not the library\'s leaves them be');
+    streams[0].on.change({ data: JSON.stringify({ topic: 'library' }) });
+    await new Promise(r => setTimeout(r, 20));
+    check(a.hidden && !b.hidden, 'links: a deleted ZIM\'s link is hidden at once, the others stay');
+    zims = [{ name: 'wikipedia', title: 'Wikipedia', kind: 'wiki' }, zims[0]];
+    await L.recheck();
+    check(!a.hidden && !b.hidden, 'links: a ZIM that comes back shows its link again');
+    zims = [];
+    await L.recheck();
+    const c = link(); L.wordLink(c, 'word'); L.articleLink(c, 'wiktionary', 'word');
+    L.wordLink(c, 'word');
+    await L.recheck();
+    check(a.hidden && b.hidden && !c.hidden, 'links: with the library empty every article link is hidden but the Dictionary\'s is not');
+    sb.fetch = () => Promise.reject(new Error('offline'));
+    zims = [zims[0] || { name: 'wikipedia' }];
+    check((await L.recheck()) === null && a.hidden, 'links: a failed look changes nothing');
+  }
+
   console.log('\n' + passes + ' passed, ' + failures + ' failed');
   process.exit(failures ? 1 : 0);
 })();

@@ -672,3 +672,30 @@ def test_without_zimi_around_there_is_no_link_into_it(browser):
         ctx.close()
     finally:
         srv.shutdown()
+
+
+def test_a_link_to_a_zim_deleted_while_the_game_is_open_goes_away(browser, zimi):
+    """The games read the library once at load; deleting a ZIM from Manage in the meantime must still take its "Read about"
+    link away (the change stream says so), and a link made after that is not drawn. Last in the file: it removes a ZIM
+    from the module's library."""
+    import json
+
+    ctx, page, errors = open_game(browser, zimi, "quizzical.html")
+    f = game(page, "quizzical.html")
+    f.wait_for_function("() => window.__quiz && __quiz.zim && __quiz.round.length > 0", timeout=WAIT)
+    click(f, ".qz-choice")
+    f.locator("#qz-read").wait_for(state="visible", timeout=WAIT)
+    zim = f.evaluate("document.getElementById('qz-read').dataset.lzim")
+    assert zim
+    shot(page, "learn-link-before-delete")
+    filename = f.evaluate("z => fetch('/list').then(r => r.json()).then(l => l.find(x => x.name === z).file)", zim)
+    r = f.evaluate(
+        "n => fetch('/manage/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: n }) }).then(r => r.status)",
+        filename,
+    )
+    assert r == 200, r
+    f.wait_for_function("() => document.getElementById('qz-read').hidden", timeout=WAIT)
+    assert f.locator("#qz-read").is_hidden()
+    shot(page, "learn-link-after-delete")
+    assert not json.loads(json.dumps(errors)), errors
+    ctx.close()

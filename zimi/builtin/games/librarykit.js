@@ -346,15 +346,70 @@
     };
     return a;
   };
-  // A page of a ZIM, read in Zimi's reader (Back returns to the game) or by the plain address.
-  Lib.articleLink = function (a, zim, path) { return Lib.leadOut(a, { zimi: 'open', zim: zim, path: path }, Lib.articleUrl(zim, path)); };
+  // A page of a ZIM, read in Zimi's reader (Back returns to the game) or by the plain address. The link follows the library: a game
+  // reads the library once at load, so a ZIM deleted while the page is open would leave a link to nothing. Every article link is
+  // remembered, checked against a fresh list when it is made (if the last look is old), and again whenever the server says the
+  // library changed or the page is shown again. A link whose ZIM is gone is hidden; if the ZIM returns it is shown again.
+  Lib.articleLink = function (a, zim, path) {
+    Lib.leadOut(a, { zimi: 'open', zim: zim, path: path }, Lib.articleUrl(zim, path));
+    a.dataset.lzim = zim;
+    if (a.dataset.gone) { a.hidden = false; delete a.dataset.gone; }
+    if (linked.indexOf(a) < 0) linked.push(a);
+    Lib.mode().then(function (m) {
+      if (m === 'builtin') return;
+      hearLibrary();
+      if (Date.now() - checkedAt > FRESH_MS) Lib.recheck();
+    });
+    return a;
+  };
+  var linked = [], checkedAt = Date.now(), stream = null, FRESH_MS = 3000;
+  function showLinks(list) {
+    linked = linked.filter(function (a) { return a.isConnected !== false && a.dataset.lzim; });
+    linked.forEach(function (a) {
+      var has = list.some(function (z) { return z.name === a.dataset.lzim; });
+      if (!has) { a.hidden = true; a.dataset.gone = '1'; }
+      else if (a.dataset.gone) { a.hidden = false; delete a.dataset.gone; }
+    });
+  }
+  // The library as it is now, asked again (nothing cached), the links updated to it. A failed ask changes nothing.
+  Lib.recheck = function () {
+    return Lib.mode().then(function (m) {
+      if (m === 'zimi') return Lib.json('/list').then(function (l) { return Array.isArray(l) ? l : null; });
+      if (m !== 'kiwix') return null;
+      return Lib.text(kiwixPrefix + '/catalog/v2/entries?count=500').then(function (x) { return /<feed[\s>]/.test(x) ? Lib.parseCatalog(x) : null; });
+    }).then(function (list) {
+      if (!list) return null;
+      checkedAt = Date.now(); libAnswer = Promise.resolve(list);
+      if (modeNow === 'zimi') listAnswer = libAnswer;
+      list.forEach(function (z) { titles[z.name] = z.title || z.name; });
+      showLinks(list);
+      return list;
+    }, function () { return null; });
+  };
+  // Inside Zimi: its own change stream (GET /events), whose "library" topic says a ZIM was added, removed or replaced, and the
+  // page being shown again (a ZIM may have gone while it was behind another view). One stream a page, opened when the first link is made.
+  function hearLibrary() {
+    if (stream || modeNow !== 'zimi' || typeof EventSource !== 'function') return;
+    try { stream = new EventSource('/events'); } catch (x) { return; }
+    stream.addEventListener('change', function (e) {
+      var c = null;
+      try { c = JSON.parse(e.data); } catch (x) { /* a malformed announcement says nothing */ }
+      if (c && c.topic === 'library') Lib.recheck();
+    });
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', function () { if (!document.hidden) Lib.recheck(); });
+    if (root.addEventListener) root.addEventListener('pagehide', function () { if (stream) { stream.close(); stream = null; } });
+  }
   // A word in the Dictionary app: only inside Zimi, and only when the app is on (one probe a page, asked when first wanted).
   var dictAnswer = null;
   Lib.dictionaryOn = function () {
     if (!dictAnswer) dictAnswer = Lib.hosted() ? Lib.json('/dictionary/suggest?q=a', PROBE_MS).then(function () { return true; }, function () { return false; }) : Promise.resolve(false);
     return dictAnswer;
   };
-  Lib.wordLink = function (a, word) { return Lib.leadOut(a, { zimi: 'game-app', app: 'dictionary', w: word }, '/?dictionary=' + encodeURIComponent(word)); };
+  Lib.wordLink = function (a, word) {
+    delete a.dataset.lzim;   // the Dictionary does not depend on a ZIM of the library
+    if (a.dataset.gone) { a.hidden = false; delete a.dataset.gone; }
+    return Lib.leadOut(a, { zimi: 'game-app', app: 'dictionary', w: word }, '/?dictionary=' + encodeURIComponent(word));
+  };
   // The one learn-more link for a word of a Wiktionary: the Dictionary inside Zimi when the app is there, else the word's own page.
   // `a` is shown at once with the page and turns into the Dictionary's when the probe answers, if it is still this word's link.
   Lib.wordLearn = function (a, T, o) {
