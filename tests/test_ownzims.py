@@ -86,7 +86,7 @@ def test_a_new_month_replaces_last_months_file(home):
     os.rename(first + ".source", old + ".source")
     assert ownzims.zim_path(own) == old and ownzims.fresh(own)
     assert ownzims.build(own) is None, "an old month with the same source is current"
-    assert ownzims.category_of(old) == "Games"
+    assert ownzims.category_of(old) == "Zimi"
     (home["src"] / "index.html").write_text("<!doctype html><title>New</title><p>new</p>", encoding="utf-8")
     assert ownzims.build(own) == first
     assert sorted(os.listdir(str(home["data"]))) == sorted(
@@ -107,7 +107,7 @@ def test_a_second_release_in_one_month_takes_the_next_letter(home, monkeypatch):
     src.write_text("<!doctype html><title>Three</title><p>three</p>", encoding="utf-8")
     second = ownzims.build(own)
     assert second == first[: -len(".zim")] + "a.zim"
-    assert ownzims.zim_path(own) == second and ownzims.category_of(second) == "Games"
+    assert ownzims.zim_path(own) == second and ownzims.category_of(second) == "Zimi"
     assert not os.path.exists(first), "one file per ZIM"
     assert server._zim_base_name(os.path.basename(second)) == "zimi_games"
 
@@ -171,8 +171,8 @@ def test_on_home_under_its_own_section_never_as_something_you_made(home):
     from zimi import http as zhttp
 
     path = ownzims.build(home["own"])
-    assert ownzims.category_of(path) == "Games"
-    assert server._effective_category("zimi_games", path) == "Games"
+    assert ownzims.category_of(path) == "Zimi"
+    assert server._effective_category("zimi_games", path) == "Zimi"
     assert ownzims.category_of(str(home["zims"] / "zimi_games.zim")) is None, "only Zimi's own copy"
     a = Archive(path)
     meta = {k: a.get_metadata(k).decode() for k in ("Tags", "Scraper") if k in a.metadata_keys}

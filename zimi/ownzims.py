@@ -28,7 +28,8 @@ import sys
 import tempfile
 
 #: ``folder``: its source under zimi/builtin/; ``name``: the file it becomes;
-#: ``category``: its Home section; ``stage``: None for a plain folder, else a
+#: ``category``: its Home section (both are "Zimi": one place for what Zimi makes, a name in
+#: every language, never "Gaming & Fandom" or "Education"); ``stage``: None for a plain folder, else a
 #: function writing the folder to build into an empty directory. The source's
 #: zimi.txt names it (title, description, language, tags, icon) and tags it
 #: OWN_TAG, so the library never mistakes it for something the person made.
@@ -42,8 +43,8 @@ def _stage_almanac(dest):
 
 
 OWN = (
-    Own("games", "zimi_games", "Games"),
-    Own("almanac", "zimi_almanac", "Education", _stage_almanac),
+    Own("games", "zimi_games", "Zimi"),
+    Own("almanac", "zimi_almanac", "Zimi", _stage_almanac),
 )
 OWN_TAG = "zimi:own"
 
