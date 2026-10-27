@@ -111,6 +111,11 @@ const TILE_BASE = { whereintheworld: '#8f6538', wikirace: '#161d2b', telephone: 
 // An id may not start with a digit, so 2048's art is keyed t2048 and goes on the 2048 tile.
 const TILE_GAME = { t2048: '2048' };
 Object.keys(TILE_ART.ART).forEach((name) => { TILES[TILE_GAME[name] || name] = () => tile(TILE_BASE[name], TILE_ART.scoped(name, TILE_ART.ART[name]())); });
+// The Logic puzzles family (Simon Tatham's collection): 38 tiles, drawn in scripts/games_tile_art_puzzles.js, keyed by their page 'puzzles/<name>'.
+// Mines, Solo and Guess are not here: they are Minesweeper, Sudoku and Code Breaker, which are on the shelf.
+const PUZ = require('./games_tile_art_puzzles.js');
+const PUZZLE_ORDER = ['net', 'netslide', 'bridges', 'loopy', 'pearl', 'slant', 'signpost', 'tracks', 'untangle', 'pattern', 'mosaic', 'lightup', 'tents', 'magnets', 'dominosa', 'map', 'keen', 'towers', 'unequal', 'filling', 'range', 'singles', 'unruly', 'group', 'undead', 'galaxies', 'rect', 'palisade', 'blackbox', 'fifteen', 'sixteen', 'twiddle', 'cube', 'inertia', 'pegs', 'samegame', 'flood', 'flip'];
+Object.keys(PUZ.ART).forEach((n) => { TILES['puzzles/' + n] = () => tile(PUZ.BG[n], TILE_ART.scoped('pz-' + n, PUZ.ART[n]())); });
 // The world card games. Their art carries numbers only, never a word: the shelf is read in ten languages.
 const pill = (x, y, w, label) => '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="22" rx="11" fill="rgba(0,0,0,0.3)"/><text x="' + (x + w / 2) + '" y="' + (y + 16) + '" font-size="15" font-weight="700" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-family="ui-monospace,Menlo,monospace">' + label + '</text>';
 function cribBoard() {
@@ -158,10 +163,28 @@ html = /<!-- zimi-shelf:sprite -->[\s\S]*?<!-- \/zimi-shelf:sprite -->/.test(htm
 const brand = '<h1 class="ar-brand"><img class="ar-lockup" src="icon.svg" alt="" width="40" height="40"><span>ZimiGames</span></h1>';
 html = html.replace(/<h1 class="ar-brand">[\s\S]*?<\/h1>/, () => brand);
 
+// The family's tiles: the names and blurbs are the string table's English (text/en.json), so the shelf and every language agree.
+{
+  const en = JSON.parse(fs.readFileSync(path.join(dir, 'text', 'en.json'), 'utf8'));
+  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const tiles = PUZZLE_ORDER.map((n) => '    <a class="ar-game" href="puzzles/' + n + '.html">\n      <svg class="ar-game-art" viewBox="0 0 320 180" aria-hidden="true"></svg>\n' +
+    '      <span class="ar-game-text"><strong>' + esc(en['game.puzzles.' + n + '.title']) + '</strong><span>' + esc(en['game.puzzles.' + n + '.blurb'] || en['game.puzzles.' + n + '.tile']) + '</span></span>\n    </a>').join('\n');
+  const family = '<!-- zimi-shelf:puzzles -->\n    <div class="ar-family" data-name="' + esc(en['shelf.family.logicpuzzles.name']) + '" data-line="' + esc(en['shelf.family.logicpuzzles.line']) + '">\n' + tiles + '\n    </div>\n    <!-- /zimi-shelf:puzzles -->';
+  // games.json carries the English blurb and why of each puzzle too (Discover's card, the About page): kept equal to the table's.
+  const gj = path.join(dir, 'games.json'), rows = JSON.parse(fs.readFileSync(gj, 'utf8'));
+  rows.forEach((r) => {
+    const m = /^puzzles\/([a-z0-9]+)\.html$/.exec(r.path);
+    if (!m) return;
+    r.blurb = en['game.puzzles.' + m[1] + '.blurb'] || en['game.puzzles.' + m[1] + '.tile'] || r.blurb;
+    r.why = en['game.puzzles.' + m[1] + '.why'] || r.why;
+  });
+  fs.writeFileSync(gj, JSON.stringify(rows, null, 1) + '\n');
+  html = html.replace(/<!-- zimi-shelf:puzzles -->[\s\S]*?<!-- \/zimi-shelf:puzzles -->/, () => family);
+}
 let redrawn = [];
 // The art runs to the tile's text: a redrawn tile holds card svgs of its own,
 // so stopping at the first </svg> would leave the rest behind on a second run.
-html = html.replace(/(<a class="ar-game" href="([a-z0-9]+)\.html">\s*)<svg class="ar-game-art"[\s\S]*?(\s*<span class="ar-game-text">)/g, (all, head, name, text) => {
+html = html.replace(/(<a class="ar-game" href="((?:puzzles\/)?[a-z0-9]+)\.html">\s*)<svg class="ar-game-art"[\s\S]*?(\s*<span class="ar-game-text">)/g, (all, head, name, text) => {
   if (!TILES[name]) return all;
   redrawn.push(name);
   return head + TILES[name]() + text;
@@ -175,7 +198,7 @@ console.log('redrawn: ' + redrawn.join(', '));
 // that needs nothing else. Whatever a tile points at by id (the card sprite,
 // the clip, a pattern) is copied in beside it.
 const thumbDir = path.join(dir, 'thumbs');
-fs.mkdirSync(thumbDir, { recursive: true });
+fs.mkdirSync(path.join(thumbDir, 'puzzles'), { recursive: true });
 const DEF_TAGS = 'symbol|linearGradient|radialGradient|clipPath|pattern';
 const defined = (svg, id) => svg.indexOf('id="' + id + '"') >= 0;
 const grab = (id) => {
@@ -183,7 +206,7 @@ const grab = (id) => {
   return m ? m[0] : '';
 };
 let thumbs = 0;
-html.replace(/<a class="ar-game" href="([a-z0-9]+)\.html">\s*(<svg class="ar-game-art"[\s\S]*?<\/svg>)(?=\s*<span class="ar-game-text">)/g, (all, name, art) => {
+html.replace(/<a class="ar-game" href="((?:puzzles\/)?[a-z0-9]+)\.html">\s*(<svg class="ar-game-art"[\s\S]*?<\/svg>)(?=\s*<span class="ar-game-text">)/g, (all, name, art) => {
   let body = art.replace(/^<svg class="ar-game-art"[^>]*>/, '').replace(/<\/svg>$/, '');
   let defs = '';
   for (let pass = 0; pass < 2; pass++) {
