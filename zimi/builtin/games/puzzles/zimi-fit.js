@@ -191,6 +191,7 @@
       b.classList.add("zf-icon");
       b.setAttribute("data-gs-bar", "");
       b.appendChild(icon(iconName));
+      b.appendChild(word(el("span", "zf-label"), key, label));    // shown where the button is in the Menu (in Zimi's own bar), not in the bar
       word(b, key, label, "aria-label");
     } else word(b, key, label);
     function follow() {

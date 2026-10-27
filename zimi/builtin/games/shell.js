@@ -320,7 +320,7 @@
   var bar, menuBtn, newBtn, extras = [], holder, hasUndo = false;
   function isNewLike(b) { return /(^|-)(new|menu|level|newgame)$/.test(b.id) || /^new\b/i.test(b.textContent.trim()); }
   // data-gs-bar: a page's own button that stays in the bar (like Undo), and is absent while disabled (the puzzles' Redo).
-  function keepInBar(b) { return /undo$/.test(b.id) || /pause$/.test(b.id) || b.id === 'ms-flagmode' || b.hasAttribute('data-gs-bar'); }
+  function keepInBar(b) { return /undo$/.test(b.id) || /pause$/.test(b.id) || b.id === 'ms-flagmode' || (b.hasAttribute('data-gs-bar') && !inZimi()); }   // in Zimi's own bar only Undo or Pause fit: the rest go to the Menu
   function buildBar() {
     bar = d.querySelector('.ar-bar');
     if (!bar) return false;
