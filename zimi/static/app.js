@@ -5441,6 +5441,7 @@ function _getZimOpenedMap() {
 // writes the latest time so a later update can re-badge, then clear again.
 function _markZimOpened(name) {
   if (!name) return;
+  if (name === '__proto__') return;
   var m = _getZimOpenedMap();
   m[name] = Date.now() / 1000;
   try { localStorage.setItem(_ZIM_OPENED_KEY, JSON.stringify(m)); } catch (e) {}
@@ -11454,7 +11455,7 @@ function autoCategorize(item) {
   if (/freecodecamp|mdn_|^docs\.|^peps\.|php\.net|archlinux|alpinelinux/.test(n)) return 'devdocs';
   if (/gentoo|termux|postmarketos|neos-wiki|unrealircd|bitcoin|cheatography/.test(n)) return 'devdocs';
   if (/devhints|cloudflare|getbootstrap|gobyexample|dart\.dev|lesscss/.test(n)) return 'devdocs';
-  if (/lua\.org/.test(n)) return 'devdocs';
+  if (/(^|[^a-z0-9])lua\.org/.test(n)) return 'devdocs';
   // Q&A
   if (/stackoverflow|stackexchange|askubuntu|superuser|serverfault/.test(n)) return 'stack_exchange';
   // Education (broad — catches tutorials, courses, how-to, reference)
@@ -19838,7 +19839,7 @@ async function triggerUpdate() {
 function _autoUpdateTimerHtml() {
   const sel = document.getElementById('auto-update-freq');
   if (!sel || sel.value === 'disabled') return '';
-  return '<svg title="Auto-update ' + sel.value + '" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;opacity:0.5;margin-right:5px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+  return '<svg title="Auto-update ' + escAttr(sel.value) + '" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;opacity:0.5;margin-right:5px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
 }
 
 var _lastUpdateCheck = 0;
@@ -20000,6 +20001,15 @@ function _saveCurrentFile() {
   var url = _articleUrl(currentArticle.zim, currentArticle.path) + '?raw=1';
   _downloadFile(url);
 }
+// An address to hand to a frame, a link or a download: Zimi's own paths, or a web
+// address. Anything else (javascript:, data:) comes back as a blank page.
+var _SAFE_URL_PROTOCOLS = ['http:', 'https:', 'blob:'];
+function _safeUrl(url) {
+  try {
+    if (_SAFE_URL_PROTOCOLS.indexOf(new URL(url, location.href).protocol) >= 0) return url;
+  } catch (e) {}
+  return 'about:blank';
+}
 function _downloadFile(url) {
   // Desktop app: use native save dialog via pywebview bridge
   if (IS_DESKTOP && window.pywebview && window.pywebview.api && window.pywebview.api.download_file) {
@@ -20011,7 +20021,7 @@ function _downloadFile(url) {
   }
   // Browser: trigger standard download
   var a = document.createElement('a');
-  a.href = url; a.download = ''; a.style.display = 'none';
+  a.href = _safeUrl(url); a.download = ''; a.style.display = 'none';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 function _stepBackToArticle(prev, replaceState) {
@@ -24988,11 +24998,11 @@ function openReader(url) {
   if (url.startsWith('/static/pdfjs/')) {
     var fileParam = new URL(url, location.origin).searchParams.get('file');
     // Add ?raw=1 for direct browser download (bypasses SPA shell)
-    newtabBtn.href = fileParam ? (fileParam + (fileParam.includes('?') ? '&' : '?') + 'raw=1') : url;
+    newtabBtn.href = fileParam ? _safeUrl(fileParam + (fileParam.includes('?') ? '&' : '?') + 'raw=1') : _safeUrl(url);
   } else {
     // Middle/⌘-click parity: use the ?a= deep link (full Zimi chrome), matching
     // what _openInBrowser opens on a plain click.
-    newtabBtn.href = currentArticle ? _articleDeepLinkPath(currentArticle.zim, currentArticle.path) : url;
+    newtabBtn.href = currentArticle ? _articleDeepLinkPath(currentArticle.zim, currentArticle.path) : _safeUrl(url);
   }
 
   frame.onerror = function() {
@@ -25433,6 +25443,7 @@ function openReader(url) {
   }
   // Use location.replace to avoid polluting parent history stack
   // (setting iframe.src adds a session history entry that breaks the back button)
+  url = _safeUrl(url);
   try { frame.contentWindow.location.replace(url); } catch(e) { frame.src = url; }
   updateTopbar();
 }

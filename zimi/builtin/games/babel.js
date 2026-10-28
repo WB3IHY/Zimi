@@ -19,7 +19,7 @@
   }
   // The points for naming it when `shown` clues are showing: 4 for two, then 3, 2, 1.
   function pointsFor(shown) { return Math.max(1, TOP_POINTS - shown); }
-  function plain(h) { return String(h).replace(/<[^>]*>/g, '').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/&#?\w+;/g, ' ').replace(/\s+/g, ' ').trim(); }
+  function plain(h) { return ZimiUtil.sweep(h, /<[^>]*>/g).replace(/&nbsp;|&#160;/g, ' ').replace(/&(?!amp;)#?\w+;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim(); }
 
   // The translations in an English Wiktionary page (or its /translations subpage): the first Translations table's lines, each
   // "Language: <span lang=xx><a>word</a></span> (<span class=tr>how it is said</span>)". [{code, name, word, tr}], one per language.
@@ -30,7 +30,7 @@
     if (end > 0) rest = rest.slice(0, end);
     var out = [], seen = {}, re = /<li[^>]*>([\s\S]*?)<\/li>/gi, m;
     while ((m = re.exec(rest))) {
-      var item = m[1].replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<link[^>]*>/gi, ''), name = plain(item.split(':')[0]);
+      var item = ZimiUtil.sweep(ZimiUtil.sweep(m[1], /<style[\s\S]*?<\/style>/gi), /<link[^>]*>/gi), name = plain(item.split(':')[0]);
       var w = /<span[^>]*\blang="([a-z]{2,3})"[^>]*>\s*(?:<[^>]+>\s*)*([^<]+?)\s*<\/(?:a|span)>/i.exec(item);
       if (!w || !name || seen[w[1]] || /[()\/]/.test(w[2])) continue;
       var word = plain(w[2]);

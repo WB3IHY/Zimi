@@ -83,7 +83,11 @@
   function num(n) { return fmt ? fmt.format(n) : String(n); }
 
   // ── the document: its ZIM and path, from the address ──
-  var file = new URLSearchParams(location.search).get('file') || '';
+  // The file is one of this server's own: a path (or an address on this origin), never another site or a script.
+  function sameOrigin(u) {
+    try { var x = new URL(u, location.href); return x.origin === location.origin ? x.pathname + x.search : ''; } catch (e) { return ''; }
+  }
+  var file = sameOrigin(new URLSearchParams(location.search).get('file') || '');
   var loc = /^\/w\/([^\/?#]+)\/([^?#]+)/.exec(file);
   var zim = '', path = '';
   try { if (loc) { zim = decodeURIComponent(loc[1]); path = decodeURIComponent(loc[2]); } } catch (e) {}

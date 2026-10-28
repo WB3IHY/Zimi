@@ -64,6 +64,9 @@ vm.runInContext(fs.readFileSync(path.join(dir, 'util.js'), 'utf8'), fake);
 const e1 = fake.ZimiUtil.el('div', 'x', 'hi'), e2 = fake.ZimiUtil.el('span'), e3 = fake.ZimiUtil.el('b', '', 0);
 check(e1.tag === 'div' && e1.className === 'x' && e1.textContent === 'hi' && e2.className === '' && e2.textContent === '' && e3.textContent === 0, 'el makes an element with a class and text, and 0 is text');
 
+check(R.sweep('a<b>b</b>c', /<[^>]*>/g) === 'abc' && R.sweep('aabb', /ab/g) === '' && R.sweep('<scr<b>ipt>x', /<[^>]*>/g).indexOf('<') < 0, 'sweep strips until nothing is left to strip');
+check(R.sweep(null, /x/g) === 'null' && R.sweep('plain', /<[^>]*>/g) === 'plain', 'sweep leaves ordinary text alone');
+
 // No game carries a copy of its own.
 const copies = fs.readdirSync(dir).filter(f => f.endsWith('.js') && f !== 'util.js' && fs.readFileSync(path.join(dir, f), 'utf8').includes('0x6D2B79F5'));
 check(copies.length === 0, 'no other file implements the generator: ' + copies.join(', '));

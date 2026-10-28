@@ -34,6 +34,8 @@ function prefTouched(key) {
 }
 function esc(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 // A ZIM entry's address in Zimi.
+// Text with its tags taken out, again until none is left: one pass over "<scr<script>ipt>" leaves a tag behind.
+function stripTags(s) { s = String(s == null ? '' : s); var before; do { before = s; s = s.replace(/<[^>]+>/g, ''); } while (s !== before); return s; }
 function zpath(zim, p) { return '/w/' + encodeURIComponent(zim) + '/' + String(p).split('/').map(encodeURIComponent).join('/'); }
 // "Open the original page": the shell opens it as an article so the
 // header's arrow (and the browser's Back) returns here. A modified click
@@ -236,7 +238,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 // The shell's strings and the opening state, carried in the hash.
 function strings(defaults) {
-  try { var s = JSON.parse(decodeURIComponent(location.hash.slice(1) || '') || '{}'); for (var k in s) defaults[k] = s[k]; } catch (e) {}
+  try { var s = JSON.parse(decodeURIComponent(location.hash.slice(1) || '') || '{}'); for (var k in s) if (k !== '__proto__') defaults[k] = s[k]; } catch (e) {}
   if (defaults.lang) document.documentElement.lang = defaults.lang;
   if (defaults.dir === 'rtl') document.documentElement.dir = 'rtl';
   return defaults;

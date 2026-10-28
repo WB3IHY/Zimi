@@ -20,8 +20,8 @@
   }
 
   function plain(h) {
-    return String(h).replace(/<(sup|style|script)[\s\S]*?<\/\1>/gi, '').replace(/<[^>]*>/g, '').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"').replace(/&#8217;|&rsquo;/g, '’').replace(/&#?\w+;/g, ' ').replace(/\s+/g, ' ').trim();
+    return ZimiUtil.sweep(ZimiUtil.sweep(h, /<(sup|style|script)[\s\S]*?<\/\1>/gi), /<[^>]*>/g).replace(/&nbsp;|&#160;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"').replace(/&#8217;|&rsquo;/g, '’').replace(/&(?!amp;)#?\w+;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
   }
   // The Events list of an English date page: [{year, text}] for each line that starts with a year and a dash. Births and
   // deaths (their own sections) are left out. Whole or cut off anywhere: the lines before the cut are kept.

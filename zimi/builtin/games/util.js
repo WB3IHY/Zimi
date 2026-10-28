@@ -10,6 +10,7 @@
      ZimiUtil.DAY_MS                  86400000
      ZimiUtil.dayKey(date, sep)       the player's calendar day as YYYYMMDD (the server's day key), or YYYY-MM-DD with sep '-'; today by default
      ZimiUtil.DIR_KEYS                the arrow keys and WASD as 'left' | 'right' | 'up' | 'down'; copy it to add a game's own keys
+     ZimiUtil.sweep(s, /pattern/g)    s with the pattern's matches removed until none is left (markup out of text)
      ZimiUtil.el(tag, cls, text)      a new element with a class and some text (a page only: it needs a document)
 
    Loaded before the engines (a page's script tag, a test's file list). */
@@ -66,5 +67,14 @@
     return e;
   }
 
-  root.ZimiUtil = { mulberry32: mulberry32, counted: counted, snapshot: snapshot, restore: restore, clamp: clamp, DAY_MS: DAY_MS, dayKey: dayKey, DIR_KEYS: DIR_KEYS, el: el };
+  // s with every match of the /g pattern removed, again until none is left: one pass over "<scr<script>ipt>"
+  // leaves a tag behind. For taking markup out of a page's text.
+  function sweep(s, pattern) {
+    s = String(s);
+    var before;
+    do { before = s; s = s.replace(pattern, ''); } while (s !== before);
+    return s;
+  }
+
+  root.ZimiUtil = { sweep: sweep, mulberry32: mulberry32, counted: counted, snapshot: snapshot, restore: restore, clamp: clamp, DAY_MS: DAY_MS, dayKey: dayKey, DIR_KEYS: DIR_KEYS, el: el };
 })(this);

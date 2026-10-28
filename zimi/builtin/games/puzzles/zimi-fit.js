@@ -33,7 +33,7 @@
 
   // Zimi opens a page with its language in the hash (#lang=fr&dir=ltr). To the puzzle a hash is a game ID, and it would answer with
   // an error box and no saved game could come back; the words are already read (text.js), so the hash goes.
-  if (/^#(?:(?:lang|dir)=[^&]*&?)+$/.test(root.location.hash) && root.history && root.history.replaceState) root.history.replaceState(null, "", root.location.pathname + root.location.search);
+  if (/^#(?:lang|dir)=[^&]*(?:&(?:lang|dir)=[^&]*)*&?$/.test(root.location.hash) && root.history && root.history.replaceState) root.history.replaceState(null, "", root.location.pathname + root.location.search);
 
   function el(tag, cls, text) {
     var e = d.createElement(tag);
@@ -263,7 +263,7 @@
     "Honeycomb", "Squares", "Kagome", "Floret", "Cairo", "Kites", "Hats", "Spectres", "Tetrahedron", "Octahedron", "Icosahedron", "Cube", "Octagon", "Crosses", "Cross",
     "Random", "identity hidden", "multiplication only", "strip clues", "rows only", "free ends", "orientable", "Killer", "Adjacent", "Super", "Size",
     "trivial", "easy", "tricky", "normal", "hard", "extreme", "unreasonable", "basic", "advanced", "medium", "intermediate", "standard", "wrapping"];
-  var PHRASE_RX = new RegExp("(^|[^A-Za-z])(" + PHRASES.slice().sort(function (a, b) { return b.length - a.length; }).map(function (w) { return w.replace(/[()\/]/g, "\\$&"); }).join("|") + ")(?![A-Za-z])", "gi");
+  var PHRASE_RX = new RegExp("(^|[^A-Za-z])(" + PHRASES.slice().sort(function (a, b) { return b.length - a.length; }).map(function (w) { return w.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&"); }).join("|") + ")(?![A-Za-z])", "gi");
   function typeLabel(text) {
     if (text === "Custom...") return T("pz.customSize", "Custom size…");
     TEMPLATES.forEach(function (t) {

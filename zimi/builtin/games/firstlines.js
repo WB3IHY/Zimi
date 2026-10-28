@@ -17,8 +17,8 @@
   var SKIP_WORDS = /^(the|and|of|a|an|in|to|for|with|on|at|by|from|or)$/i;
 
   function plain(h) {
-    return String(h).replace(/<[^>]*>/g, '').replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"').replace(/&#8217;|&rsquo;/g, '’').replace(/&#8212;|&mdash;/g, '—').replace(/&#?\w+;/g, ' ').replace(/\s+/g, ' ').trim();
+    return ZimiUtil.sweep(h, /<[^>]*>/g).replace(/&nbsp;|&#160;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"').replace(/&#8217;|&rsquo;/g, '’').replace(/&#8212;|&mdash;/g, '—').replace(/&(?!amp;)#?\w+;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
   }
 
   // The first sentence of some prose (or two, when it is only a few words: "Call me Ishmael." stands alone, a shorter
@@ -44,7 +44,7 @@
   function firstLine(html) {
     var src = String(html || ''), start = /\*\*\* START OF[\s\S]*?\*\*\*/i.exec(src);
     if (start) src = src.slice(start.index + start[0].length);
-    src = src.replace(/<(script|style|table|sup|nav)[\s\S]*?<\/\1>/gi, '');
+    src = ZimiUtil.sweep(src, /<(script|style|table|sup|nav)[\s\S]*?<\/\1>/gi);
     var heads = /<h([1-4])[^>]*>([\s\S]*?)<\/h\1>/gi, h, from = -1;
     while ((h = heads.exec(src))) {
       var t = plain(h[2]);

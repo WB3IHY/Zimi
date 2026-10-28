@@ -53,3 +53,10 @@ def test_join_inside_is_lexical(tmp_path):
     assert join_inside(root, "..", tmp_path.name + "2") is None
     os.symlink("/", tmp_path / "link")
     assert join_inside(root, "link") == os.path.join(root, "link")  # links are the caller's to skip
+
+
+def test_header_value_drops_line_breaks():
+    from zimi.safety import header_value
+
+    assert header_value("/w/x\r\nSet-Cookie: a=b") == "/w/xSet-Cookie: a=b"
+    assert header_value("/w/ok") == "/w/ok"

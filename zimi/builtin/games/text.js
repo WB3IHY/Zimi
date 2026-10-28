@@ -5487,7 +5487,7 @@
   // The hash as { key: value }: "#lang=fr&dir=ltr".
   function hashParams() {
     var out = {}, h = (root.location && root.location.hash || '').replace(/^#/, '');
-    h.split('&').forEach(function (kv) { var i = kv.indexOf('='); if (i > 0) { try { out[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) { /* bad escape: skipped */ } } });
+    h.split('&').forEach(function (kv) { var i = kv.indexOf('='); if (i > 0 && kv.slice(0, i) !== '__proto__') { try { out[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) { /* bad escape: skipped */ } } });
     return out;
   }
   // The language Zimi last passed this tab, kept so a page opened by a plain link (no hash) still speaks it.

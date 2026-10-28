@@ -46,6 +46,7 @@
 
   // The server's day key: YYYYMMDD on the player's calendar (the server accepts yesterday to tomorrow).
   Lib.dayKey = root.ZimiUtil.dayKey;
+  var sweep = root.ZimiUtil.sweep;
 
   // Which of the library's ZIMs to play from: the project's ZIMs (kind "wiki"), the player's language first,
   // then English, then the biggest. {zim, exact} or null when the library has none of that project.
@@ -237,13 +238,13 @@
   // A page's lead: its title, its first real paragraph's first sentences, and its first picture (an address).
   var STRIP = /<(script|style|table|sup|figure)[\s\S]*?<\/\1>/gi;
   function plain(html) {
-    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&#160;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/\[\d+\]/g, '').replace(/\s+/g, ' ').trim();
+    return sweep(html, /<[^>]*>/g).replace(/&nbsp;/g, ' ').replace(/&#160;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&').replace(/\[\d+\]/g, '').replace(/\s+/g, ' ').trim();
   }
   Lib.leadOf = function (html, baseUrl) {
     var src = String(html || ''), t = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(src), h = /<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(src);
     var title = plain(h ? h[1] : t ? t[1] : '');
-    var body = src.replace(STRIP, ''), blurb = '', re = /<p[^>]*>([\s\S]*?)<\/p>/gi, m;
+    var body = sweep(src, STRIP), blurb = '', re = /<p[^>]*>([\s\S]*?)<\/p>/gi, m;
     while ((m = re.exec(body))) {
       var p = plain(m[1]);
       if (p.length >= 40 && !/^coordinates/i.test(p)) { blurb = p; break; }
@@ -282,7 +283,7 @@
     n = n || 8;
     if (modeNow === 'kiwix') {
       return Lib.json(kiwixPrefix + '/suggest?content=' + encodeURIComponent(zim) + '&term=' + encodeURIComponent(term) + '&count=' + n).then(function (rows) {
-        return (Array.isArray(rows) ? rows : []).map(function (r) { return { title: String(r.value || r.label || '').replace(/<[^>]*>/g, ''), path: r.path || '' }; }).filter(function (r) { return r.title && r.path; });
+        return (Array.isArray(rows) ? rows : []).map(function (r) { return { title: sweep(r.value || r.label || '', /<[^>]*>/g), path: r.path || '' }; }).filter(function (r) { return r.title && r.path; });
       }, function () { return []; });
     }
     return Lib.json('/search?q=' + encodeURIComponent(term) + '&zim=' + encodeURIComponent(zim) + '&limit=' + n).then(function (r) {
@@ -309,7 +310,7 @@
       var cells = [], c;
       CELL_RE.lastIndex = 0;
       while ((c = CELL_RE.exec(r[2]))) {
-        var inner = c[3].replace(/<(sup|style)[\s\S]*?<\/\1>/gi, '').replace(/<span[^>]*display:\s*none[^>]*>[\s\S]*?<\/span>/gi, '');
+        var inner = sweep(sweep(c[3], /<(sup|style)[\s\S]*?<\/\1>/gi), /<span[^>]*display:\s*none[^>]*>[\s\S]*?<\/span>/gi);
         var img = /<img[^>]+src="([^"]+)"/i.exec(inner), a = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(inner);
         cells.push({ text: plain(inner), img: img ? img[1] : '', href: a ? a[1] : '', link: a ? plain(a[2]) : '', head: c[1].toLowerCase() === 'h' });
       }
