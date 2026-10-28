@@ -1575,6 +1575,19 @@ def test_test_all_reads_like_a_reading_and_leaves_the_audio_cache_alone(piper, m
     assert voices.manage_payload()["timings"]["piper"]["gaps"] == got["gaps"]
 
 
+def test_test_all_takes_the_reading_settings_sends_with_a_long_first_sentence(piper):
+    """Settings' reading opens with a 133 character sentence the page's chunker
+    cannot cut: the Test used to refuse it (400, no numbers at all) and, taken,
+    would have left the warm first words empty."""
+    install("en-US")
+    long_first = "Water boils at about 100 degrees at sea level, but at only about 90 degrees at three thousand metres, so food takes longer to cook there."
+    assert len(long_first) > voices.FIRST_CHARS_MAX
+    assert voices.start_test("en", [long_first, SENTENCE]) is True
+    assert _finish_test() == {}
+    got = voices.timings()["piper"]
+    assert got["first_s"] > 0 and got["cold_s"] > 0 and "gaps" in got
+
+
 def test_test_all_says_a_language_the_voice_has(piper):
     install("en-US")
     assert voices.start_test("de", ["Hallo.", "Wasser kocht in den Bergen früher."]) is True  # no German voice: English, for its speed
@@ -1585,7 +1598,7 @@ def test_test_all_says_a_language_the_voice_has(piper):
 def test_test_all_needs_its_texts_and_runs_once_at_a_time(piper):
     install("en-US")
     assert voices.start_test("en", ["", SENTENCE]) is False
-    assert voices.start_test("en", ["x" * (voices.FIRST_CHARS_MAX + 1), SENTENCE]) is False
+    assert voices.start_test("en", ["x" * (voices.SENTENCE_MAX + 1), SENTENCE]) is False
     assert voices.start_test("en", [SENTENCE]) is False, "one chunk is no reading"
     assert voices.start_test("en", [SENTENCE] * (voices.TEST_CHUNKS_MAX + 1)) is False
     assert voices.start_test("en", "Hello. " + SENTENCE) is False, "chunks, not a string"

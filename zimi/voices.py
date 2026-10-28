@@ -945,6 +945,10 @@ def _test_engine(engine, lang, texts):
         # The first chunk came after a rest, also for an engine with no
         # model to load (eSpeak): then a rest costs it nothing.
         rec["cold_s"] = round(said[0][0], 3)
+        # The warm first chunk, as _note_timing would take it were it short
+        # enough to count as first words: the Test's is whatever opened its
+        # reading.
+        rec["first_s"] = round(said[1][0], 3)
         if audio:
             rec["rtf"] = round(work / audio, 3)
             rec["cps"] = round(sum(len(x) for x in texts[1:]) / audio, 3)
@@ -977,7 +981,10 @@ def start_test(lang, chunks):
     None when a Test is already running."""
     if not isinstance(chunks, list) or not 2 <= len(chunks) <= TEST_CHUNKS_MAX:
         return False
-    texts = [clean_text(c, FIRST_CHARS_MAX if not i else SENTENCE_MAX) for i, c in enumerate(chunks)]
+    # Every chunk up to a sentence's length: the page's chunker keeps a first
+    # sentence whole when it has no break to cut at, so it may pass
+    # FIRST_CHARS_MAX (the reading Settings sends opened at 133 characters).
+    texts = [clean_text(c, SENTENCE_MAX) for c in chunks]
     lang = lang if isinstance(lang, str) and valid_lang(lang) else "en"
     if not all(texts):
         return False
