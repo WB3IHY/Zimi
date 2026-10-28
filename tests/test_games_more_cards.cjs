@@ -298,7 +298,7 @@ check(!/NaN|undefined/.test(Z.faceMarkup(104 + id('QH'), false)), 'a copy of a c
   const pass = H.choosePass(hand);
   check(pass.indexOf(id('QS')) >= 0, 'Hearts AI: passes the queen of spades when it has few spades');
   const covered = [id('QS'), id('2S'), id('3S'), id('4S'), id('6S'), id('8S'), id('2C'), id('3C'), id('4C'), id('6C'), id('3D'), id('5D'), id('8D')];
-  check(H.choosePass(covered).indexOf(id('QS')) < 0 || H.choosePass(covered).length === 3, 'Hearts AI: keeps the queen when it is well covered, or at least passes three');
+  check(H.choosePass(covered).indexOf(id('QS')) < 0, 'Hearts AI: keeps the queen when it is well covered');
   const hot = [id('AH'), id('KH'), id('QH'), id('2C'), id('3C'), id('4C'), id('5C'), id('3D'), id('5D'), id('6D'), id('8D'), id('2S'), id('4S')];
   check(['AH', 'KH', 'QH'].every(c => H.choosePass(hot).indexOf(id(c)) >= 0), 'Hearts AI: passes the high hearts');
 

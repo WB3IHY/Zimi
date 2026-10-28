@@ -298,7 +298,9 @@
     function paintPills(g, st) {
       [0, 1].forEach(function (seat) {
         var cap = st.captured[seat], p = pills[seat], aria = [];
-        p.innerHTML = '<b>' + who(seat) + '</b>' + KINDS.map(function (k) { return '<span class="kk-n">' + badgeSvg(k) + count(cap, k) + '</span>'; }).join('');
+        // The seat's name is typed by a person: a text node, never markup.
+        p.innerHTML = KINDS.map(function (k) { return '<span class="kk-n">' + badgeSvg(k) + count(cap, k) + '</span>'; }).join('');
+        p.insertBefore(Z.h('b', { text: who(seat) }), p.firstChild);
         KINDS.forEach(function (k) { aria.push(count(cap, k) + ' ' + KIND_WORD(k)); });
         p.setAttribute('aria-label', TX(seats.isYou(seat) ? 'koikoi.pill.you' : 'koikoi.pill', { name: who(seat), list: aria.join(', ') }));
       });

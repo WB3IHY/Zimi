@@ -193,7 +193,8 @@
       do { n = 1 + Math.floor(Math.random() * RANDOM_DEAL_MAX); } while (winnableOnly && n === UNWINNABLE_DEAL);
       return n;
     }
-    var dealNo = Math.min(MAX_DEAL, Math.max(1, parseInt(params.get('deal'), 10) || 0)) || randomDealNo();
+    var asked = parseInt(params.get('deal'), 10);   // no ?deal= (NaN) is a random deal, not deal 1
+    var dealNo = asked >= 1 ? Math.min(MAX_DEAL, asked) : randomDealNo();
 
     function startDeal(n) {
       dealNo = n;

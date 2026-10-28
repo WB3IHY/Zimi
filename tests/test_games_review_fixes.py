@@ -207,3 +207,21 @@ def test_morris_undo_takes_the_repetition_count_back(open_game):
     frames(page, 3)
     assert page.evaluate("Object.values(__mo.seen()).reduce((a, b) => a + b, 0)") == 0
 
+
+
+def test_freecell_without_a_deal_parameter_is_a_random_deal(open_game):
+    page = open_game("freecell")
+    game_ready(page, "ZimiFreeCell.session.state")
+    assert page.evaluate("ZimiFreeCell.session.state.deal") != 1   # 1 in 32,000 by chance
+
+
+def test_a_typed_seat_name_is_text_in_the_koikoi_pill(open_game, browser):
+    page = open_game("koikoi")
+    page.evaluate("""localStorage.setItem('zimi.games.koikoi.seats', JSON.stringify({ kinds: ['person', 'person'] }));
+      localStorage.setItem('zimi.games.players', JSON.stringify(['<i id=pwn>x', 'Bo', 'Cy', 'Di'])); 0""")
+    page.goto(page.url_of)
+    game_ready(page)
+    page.wait_for_function(truthy("document.querySelector('.kk-pill')"))
+    frames(page, 3)
+    assert page.evaluate("document.getElementById('pwn')") is None, "a typed name became markup"
+    assert "<i id=pwn>x" in page.evaluate("document.querySelector('.kk-pill').textContent")

@@ -139,7 +139,7 @@
   // How badly a card wants to leave the hand in a pass.
   function passWeight(hand, id) {
     var suit = Z.suit(id), r = high(id), spades = count(hand, SPADES), short = count(hand, suit) <= 2;
-    if (id === QUEEN_SPADES) return spades <= 4 ? 100 : 35;
+    if (id === QUEEN_SPADES) return spades <= 4 ? 100 : 0;   // five or more spades cover her: she is kept
     if (id === KING_SPADES || id === ACE_SPADES) return spades <= 4 ? 70 : 15;
     if (suit === HEARTS) return r >= 11 ? 40 + r : r * 1.5;
     return r >= 12 ? r * 3 : r * 0.4 + (short ? 14 : 0);

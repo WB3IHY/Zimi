@@ -22,9 +22,11 @@ const sandbox = {
 sandbox.window = sandbox;
 vm.createContext(sandbox);
 for (const f of ['text.js', 'cardbacks.js', 'courts.js', 'cards.js', 'cardtable.js', 'blackjack.js', 'holdem.js', 'climbing.js', 'bigtwo.js', 'tienlen.js', 'bridge.js', 'canasta.js']) {
-  if (!fs.existsSync(path.join(dir, f))) continue;
+  if (!fs.existsSync(path.join(dir, f))) { console.error('FAIL: missing ' + f); failures++; continue; }
   vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sandbox, { filename: f });
 }
+// A renamed file, or one that stopped setting its global, must fail its section, not skip it.
+for (const g of ['ZimiBlackjack', 'ZimiHoldem', 'ZimiBigTwo', 'ZimiTienLen', 'ZimiBridge', 'ZimiCanasta']) check(!!sandbox[g], g + ' is defined');
 const Z = sandbox.ZimiCards, T = sandbox.ZimiTable;
 const L = 'A23456789TJQK', SU = 'CDHS';
 // A card from its short name: "QS" is the queen of spades, "TH" the ten of hearts.
