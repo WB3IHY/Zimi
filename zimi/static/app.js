@@ -24256,7 +24256,14 @@ function _gameHasShelfBehind() { return !!(_isGamePage() && _gameHead.menu); }
 function _gameFrame() { return document.getElementById('reader-frame'); }
 function _gameFrameWindow(win) { var f = _gameFrame(); return !!(f && win && f.contentWindow === win); }
 // Only while the games ZIM is what the reader shows: an article of any other ZIM (a capture's scripts, a hostile ZIM) may not drive the header, the sky or the Dictionary.
-function _gameFrameIs(win) { return _isGamesZimOpen() && _gameFrameWindow(win); }
+// The frame's own page decides, not currentArticle: it trails the frame while a game opens from the shelf, from Back or from a
+// reload, and a game that spoke in that gap (Sky Detective's study sky, asked once at its start) was dropped for good.
+function _gameFrameZim() {
+  try { var m = /^\/w\/([^/]+)\//.exec(_gameFrame().contentWindow.location.pathname); return m ? decodeURIComponent(m[1]) : ''; } catch (e) { return ''; }
+}
+function _gameFrameIs(win) {
+  return _gameFrameWindow(win) && readerOpen && !_almanacOpen && !_createOpen && mode !== 'manage' && _gameFrameZim() === _GAMES_ZIM;
+}
 // What a ZimiGames page may ask of Zimi besides its header (builtin/games/librarykit.js Lib.leadOut, skydetective.js):
 //   {zimi: 'open', zim, path}                 an article (a map path may end in #map=zoom/lat/lon), the handler above
 //   {zimi: 'game-app', app: 'dictionary', w}  a word in the Dictionary, as its own tile opens it (Back returns to the game)
@@ -29045,7 +29052,7 @@ function _openAlmanacFor(key) {
 function _appViewFor(data, qid) {
   var game = data.games[qid];
   if (game) {
-    return { label: t('games_play', { game: game.title }), icon: _articleUrl(game.zim, 'mark.svg'),
+    return { label: t('games_play', { game: game.title }), icon: '/w/' + encodeURIComponent(game.zim) + '/-/icon',
       open: function() { openArticle(game.zim, game.path, game.title); } };
   }
   var key = data.almanac && data.almanac[qid];

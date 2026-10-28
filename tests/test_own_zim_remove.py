@@ -276,6 +276,9 @@ def test_play_and_almanac_buttons_follow_their_zims_live(served):
         _article(pg, served, "wikipedia_en_test", "Chess.html")
         _button(pg, True)
         assert "Play Chess" in pg.locator("#game-play").inner_text()
+        # It wears the games ZIM's own icon (the ZimiGames tile), not the bare pebble.
+        assert pg.locator("#game-play img").get_attribute("src") == "/w/zimi_games/-/icon"
+        pg.wait_for_function("() => { const i = document.querySelector('#game-play img'); return i.complete && i.naturalWidth > 0; }", timeout=8000)
         _shot(pg, "10-chess-play")
         assert _call(served, "/manage/delete", {"filename": os.path.basename(ownzims.zim_path(ownzims.OWN[0]))})[0] == 200
         _button(pg, False)
