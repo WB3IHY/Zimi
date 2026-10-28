@@ -727,7 +727,7 @@ async function keepOwnZim(zim) {
       const worker = async () => {
         while (todo.length && failed < OWN_KEEP_MAX_FAILS) {
           const u = todo.pop();
-          try { await cache.add(new Request(u, { cache: 'no-cache' })); } catch (e) { failed++; }
+          try { await cache.add(new Request(u, { cache: 'no-cache', headers: { 'X-Zimi-Keep': '1' } })); } catch (e) { failed++; }
         }
       };
       await Promise.all(Array.from({ length: OWN_KEEP_PARALLEL }, worker));

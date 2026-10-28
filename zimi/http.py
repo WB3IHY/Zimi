@@ -183,6 +183,13 @@ RATE_LIMIT_TRUSTED = int(
 RATE_LIMIT_LOGIN = int(os.environ.get("ZIMI_RATE_LIMIT_LOGIN", "10"))
 _rate_buckets = {}  # {ip: [timestamps]} — API endpoints
 _rate_buckets_content = {}  # {ip: [timestamps]} — /w/ content
+# The offline keeper (sw.js keepOwnZim) pulls the games' and the Almanac's few hundred pages in the background, on
+# every deploy and every new device. On the page's own /w/ budget it ate the whole minute, and the page that was being
+# opened got `rate limited` for a script ("This game failed to start" on Loopy and Quizzical). Its requests, which
+# say so and ask only for Zimi's own ZIMs, count in a bucket of their own.
+KEEP_HEADER = "X-Zimi-Keep"
+_OWN_ZIM_PATH_PREFIX = "/w/zimi_"
+_rate_buckets_keep = {}  # {ip: [timestamps]}
 _rate_buckets_login = {}  # {ip: [timestamps]} — POST /login
 _rate_lock = threading.Lock()
 
@@ -2616,8 +2623,16 @@ class ZimHandler(BaseHTTPRequestHandler):
         limited, is_w_content = _rate_class(parsed.path)
         if limited:
             limit = None if is_w_content else self._rate_limit_for_request()
+            keeping = (
+                is_w_content
+                and parsed.path.startswith(_OWN_ZIM_PATH_PREFIX)
+                and self.headers.get(KEEP_HEADER) == "1"
+            )
             retry_after = _check_rate_limit(
-                self._client_ip(), content=is_w_content, limit=limit
+                self._client_ip(),
+                content=is_w_content,
+                limit=limit,
+                buckets=_rate_buckets_keep if keeping else None,
             )
             if retry_after > 0:
                 with _metrics_lock:
@@ -3452,10 +3467,10 @@ class ZimHandler(BaseHTTPRequestHandler):
                         card = (
                             gamelinks.day_card(param("day"))
                             if param("day")
-                            else gamelinks.random_card(param("not"))
+                            else gamelinks.random_card(param("not"), served=True)
                         )
-                        if card:
-                            return self._json(200, card)
+                        # Never an entry that is not a game: no card is an error, not a draw from the whole ZIM.
+                        return self._json(200, card) if card else self._json(404, {"error": "no games"})
                     if param("day"):
                         from zimi import wiki as _wiki
 

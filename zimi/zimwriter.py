@@ -1692,7 +1692,9 @@ def zim_static_item_class():
         def get_hints(self):
             # libzim types hint values as int, not bool — a True here is a
             # type error against the base Item even though it runs fine.
-            return {Hint.FRONT_ARTICLE: 1} if self._front else {}
+            # An HTML item with no hint is a front article to libzim, so "not front" has to be said (0): a README or a
+            # part of a saved page left unsaid turned up in suggestions and in a random pick.
+            return {Hint.FRONT_ARTICLE: 1 if self._front else 0}
 
     _static_item_cls = _StaticItem
     return _StaticItem

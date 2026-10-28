@@ -254,11 +254,14 @@ def thumbnail(game_path):
     return None
 
 
-def random_card(exclude=None):
+def random_card(exclude=None, served=False):
     """A random game from the shelf (games.json's pages, never about.html, a
     stylesheet or a script), in /random's shape, or None. ``exclude`` is the
-    page being played: the dice move on to another game."""
-    if not games_here():
+    page being played: the dice move on to another game. ``served``: the caller
+    has seen the ZIM in the library for this request, so nothing here waits on the
+    library list being warm (a freshly built ZIM's list was not, and /random then
+    drew any entry, README.txt included)."""
+    if not served and not games_here():
         return None
     seen, pages = set(), []
     for r in rows():

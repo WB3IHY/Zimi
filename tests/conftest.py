@@ -88,6 +88,7 @@ def _fresh_rate_budget():
         for buckets in (
             _http._rate_buckets,
             _http._rate_buckets_content,
+            _http._rate_buckets_keep,
             _http._rate_buckets_login,
             _http._authed_cache,
         ):
