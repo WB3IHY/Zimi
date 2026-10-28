@@ -219,6 +219,14 @@
   }
   load(); apply();
   d.documentElement.classList.add('gs');
+  // Rapid taps on a board, a pad or a key (ZimiKart, Echo, the arcade) double-tapped into a text selection and the iOS callout.
+  // Nothing on a game page is for selecting but its reading: How to play and About, its text, and its fields.
+  if (d.head) {
+    var noSelect = d.createElement('style');
+    noSelect.textContent = 'html.gs body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}' +
+      'html.gs :is(.gs-help,.gs-about,.gs-text,.bg-help,input,textarea,select,[contenteditable]){-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}';
+    d.head.appendChild(noSelect);
+  }
   root.addEventListener('storage', function (e) { if (e.key === KEY) settings.reload(); });
 
   // Animation helpers for games that time things in script.
@@ -712,6 +720,7 @@
   }
   // A game of ours whose Simon Tatham twin stays in the ZIM, off the shelf (puzzles/zimi-fit.js: FOLDED), links to it from its New game
   // pane: Mines has no-guess boards and other grids, Solo has killer and jigsaw, Guess has your own pegs and colours.
+  var MORE_CHEVRON = '<svg class="gs-more-chev" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
   var MORE_VERSIONS = { minesweeper: ['puzzles/mines.html', 'pz.more.mines'], sudoku: ['puzzles/solo.html', 'pz.more.solo'], codebreaker: ['puzzles/guess.html', 'pz.more.guess'] };
   function newPane() {
     var asking = underway() && settings.get('confirm') === 'on', options = capturedOptions ? capturedOptions.options : [];
@@ -720,7 +729,11 @@
     if (options.length) {
       var box = h('div', { class: 'gs-options' });
       options.forEach(function (n) { box.appendChild(n); });
-      if (MORE_VERSIONS[ID]) box.appendChild(h('a', { class: 'ar-btn gs-more', href: HOME + MORE_VERSIONS[ID][0], text: T(MORE_VERSIONS[ID][1]) }));
+      if (MORE_VERSIONS[ID]) {   // a quiet row of the sheet's own: the label, what is there, a chevron
+        var more = h('a', { class: 'gs-more', href: HOME + MORE_VERSIONS[ID][0] }, [h('span', { class: 'gs-more-text' }, [h('small', { text: T('pz.more') }), h('span', { text: T(MORE_VERSIONS[ID][1]) })])]);
+        more.insertAdjacentHTML('beforeend', MORE_CHEVRON);
+        box.appendChild(more);
+      }
       card.appendChild(box);
     }
     card.appendChild(h('div', { class: 'gs-actions' }, [
