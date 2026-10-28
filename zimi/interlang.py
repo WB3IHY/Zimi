@@ -164,12 +164,11 @@ def _games_note_index_change(qid=None):
     """The Q-ID answers changed (an index was built, or a viewed article's Q-ID
     was learned): rework the games' encyclopedia links, in the background.
     A learned Q-ID that is no game's changes nothing."""
-    try:
-        from zimi import gamelinks
+    if not _srv.bundled("gamelinks"):  # zimi-mcp ships no games
+        return
+    from zimi import gamelinks
 
-        gamelinks.qids_changed(qid)
-    except ImportError:  # zimi-mcp ships no games
-        pass
+    gamelinks.qids_changed(qid)
 
 
 def _qid_passive_extract(zim_name, article_path):
