@@ -53,6 +53,7 @@ def test_a_strictly_newer_copy_is_served_as_an_ordinary_zim(served):
     copy = _copy_in("zimi_games_2099-01.zim")
     assert _path() == copy and not ownzims.is_own_path(_path())
     assert ownzims.category_of(_path()) is None, "not Home's Zimi section: an ordinary ZIM"
+    srv.release_zim_handles(["zimi_games"])  # Windows will not remove a file the server still holds open
     os.remove(copy)
     srv.load_cache(force=True)
     assert ownzims.is_own_path(_path()), "gone, the package's file serves again"

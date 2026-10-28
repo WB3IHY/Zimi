@@ -89,7 +89,8 @@ def _released(path):
         ).stdout.strip()
         added = run("log", "--diff-filter=A", "--format=%H", "-1", "--", rel)
         return bool(added and run("tag", "--contains", added))
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, ValueError, subprocess.SubprocessError):
+        # ValueError: on Windows a path on another drive has no relpath; it is no file of this repo's tags
         return False
 
 
