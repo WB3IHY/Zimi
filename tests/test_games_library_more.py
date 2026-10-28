@@ -370,7 +370,7 @@ def test_spelling_bee(browser, world, mode, gone):
     bee_word(page, word[:3])
     for _ in range(3):
         page.keyboard.press("Backspace")   # a too-short word is left for the player to finish or delete
-    assert "Too short" in page.locator("#bee-msg").inner_text()
+    assert "Four letters or more" in page.locator("#bee-msg").inner_text()
     bee_word(page, fx.bee_only_word())  # in the Wiktionary only
     found = page.evaluate("__bee.g.found")
     if mode == "builtin":
