@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - Discover's cards are the same on every device for the day.
-- Settings has a Languages tab: the languages shown and the voices, moved out of Preferences.
+- Settings has a Language tab: the languages shown and the voices, moved out of Preferences.
 - Python 3.11 or newer is required (3.10 reaches end of life this month). On 3.10, pip keeps installing 1.14.1.
 
 ### Security
