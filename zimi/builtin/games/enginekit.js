@@ -221,7 +221,15 @@ if (typeof globalThis !== 'undefined') globalThis.ZimiSearch = ZimiSearch;
       waiting[id] = function (r) { clearTimeout(dog); if (r === null || (r && r.error)) main(req, cb); else cb(r); };
       worker.postMessage({ id: id, req: req });
     }
-    var client = { ask: ask, usingWorker: function () { return !!worker; }, local: here, drop: function () { failed = true; if (worker) worker.terminate(); worker = null; } };
+    // Giving up on the worker answers every request still waiting on it (each falls back to the main thread), not only the one that timed out.
+    function drop() {
+      failed = true;
+      if (worker) worker.terminate();
+      worker = null;
+      var all = waiting; waiting = {};
+      Object.keys(all).forEach(function (k) { all[k](null); });
+    }
+    var client = { ask: ask, usingWorker: function () { return !!worker; }, local: here, drop: drop };
     return client;
   }
   root.EngineKit = { client: client };

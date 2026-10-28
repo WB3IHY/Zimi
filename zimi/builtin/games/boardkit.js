@@ -35,7 +35,7 @@
     el.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') { e.stopPropagation(); close(); return; }
       if (e.key !== 'Tab') return;
-      var f = el.querySelectorAll('button:not([disabled]),input:not([disabled])');
+      var f = el.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])');
       if (!f.length) return;
       var first = f[0], last = f[f.length - 1];
       if (e.shiftKey && (document.activeElement === first || document.activeElement === el.querySelector('.ar-sheet-card'))) { e.preventDefault(); last.focus(); }
@@ -92,7 +92,7 @@
       return -1;
     }
     function end(e, drop) {
-      if (!d) return;
+      if (!d || e.pointerId !== d.id) return;   // another finger lifting is not this drag ending
       var cur = d; d = null;
       document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', cancel);
       if (!cur.lifted) return;

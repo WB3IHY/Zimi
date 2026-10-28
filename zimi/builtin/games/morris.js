@@ -275,7 +275,7 @@
     commit(pt, -1, from < 0 ? 'place' : 'move', from, to);
   }
 
-  function snapshot() { return { state: state, from: lastFrom, to: lastTo, taken: lastTaken }; }
+  function snapshot() { return { state: state, from: lastFrom, to: lastTo, taken: lastTaken, seen: Object.assign({}, seen) }; }   // seen: the repetition count goes back with the board
 
   function commit(pt, rem, kind, from, to) {
     if (pending) { from = pending.from; to = pending.to; pending = null; }
@@ -323,7 +323,7 @@
     G.cancel(); G.over = false; pending = null; sel = -1; hintMove = null;
     var h;
     do { h = history.pop(); } while (history.size() && G.vsComputer() && !G.human(h.state.turn));
-    state = h.state; lastFrom = h.from; lastTo = h.to; lastTaken = h.taken;
+    state = h.state; lastFrom = h.from; lastTo = h.to; lastTaken = h.taken; if (h.seen) seen = Object.assign({}, h.seen);
     paint(); G.say(turnText());
     if (!G.human(state.turn)) G.later(computerMove);
   }
@@ -343,5 +343,5 @@
     load: function (d) { state = d.state; history.set(d.history); sel = d.sel; pending = d.pending; lastFrom = d.lastFrom; lastTo = d.lastTo; lastTaken = d.lastTaken; seen = d.seen; hintMove = null; paint(); },
     resume: function () { G.say(turnText()); if (!G.human(state.turn)) G.later(computerMove); }
   });
-  if (new URLSearchParams(location.search).has('debug')) root.__mo = { state: function () { return state; }, engine: root.MorrisEngine, pending: function () { return pending; } };
+  if (new URLSearchParams(location.search).has('debug')) root.__mo = { state: function () { return state; }, engine: root.MorrisEngine, pending: function () { return pending; }, seen: function () { return seen; } };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

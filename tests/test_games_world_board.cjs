@@ -38,7 +38,8 @@ const check = (ok, label) => {
   let s = start; s.dice = [3, 1]; s.rolled = true;
   const steps = B.legalSteps(s);
   check(steps.some(st => st.from === 8 && st.to === 5 && st.die === 3), 'backgammon: white can play 8 to 5 with a three');
-  check(!steps.some(st => st.from === 24 && st.to === 21 && B.countAt(s, 1, B.idxOf(0, 21)) > 1), 'backgammon: no step lands on a point black holds');
+  const held = Object.assign(B.newGame(), { dice: [5, 1], rolled: true });   // 24 - 5 = 19, which black holds with five
+  check(B.legalSteps(held).every(st => st.to === 0 || B.countAt(held, 1, B.idxOf(0, st.to)) <= 1) && !B.stepsFor(held, 0, 5).some(st => st.from === 24), 'backgammon: no step lands on a point black holds');
   const opts = B.turnOptions(s);
   check(opts.length > 10 && opts.every(o => o.steps.length === 2), 'backgammon: an opening 3-1 has many plays, each using both dice');
 

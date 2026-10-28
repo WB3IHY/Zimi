@@ -22,4 +22,5 @@
 .ar-btn.pulse { border-color: var(--select-ring); font-weight: 650; }
 
 @media (max-width: 420px) { .mj-main { padding: 8px 6px 20px; } .mj-table { padding: 8px 2px 12px; } .mj-t { padding: 2px 1px; } }
-@media (prefers-reduced-motion: reduce) { .mj-t, .mj-t.hint, html[data-anim="off"] .mj-t { animation: none; transition: none; }
+@media (prefers-reduced-motion: reduce) { .mj-t, .mj-t.hint { animation: none; transition: none; } }
+html[data-anim="off"] :is(.mj-t, .mj-t.hint) { animation: none; transition: none; }

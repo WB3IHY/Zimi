@@ -156,9 +156,11 @@ function makeTsumegoSolver(G) {
       chainsSeen++;
       for (i = 0; i < chain.length; i++) {
         var l = NB[chain[i]];
-        for (k = 0; k < l.length; k++) if (b[l[k]] === 0 && !inSpace[l[k]]) {
-          inSpace[l[k]] = 1; space.push(l[k]);
-          if (space.length > DEAD_SPACE) return false;
+        for (k = 0; k < l.length; k++) {
+          var w = b[l[k]];
+          if (w === 0) {
+            if (!inSpace[l[k]]) { inSpace[l[k]] = 1; space.push(l[k]); if (space.length > DEAD_SPACE) return false; }
+          } else if (w === enemy && chainLibs(b, l[k], enemy, DEAD_WALL_LIBS) < DEAD_WALL_LIBS) return false;   // an enemy stone beside the chain that can be captured gives it room
         }
       }
     }
@@ -173,7 +175,6 @@ function makeTsumegoSolver(G) {
         if (v === enemy && chainLibs(b, sn[k], enemy, DEAD_WALL_LIBS) < DEAD_WALL_LIBS) return false;
       }
     }
-    // the chain's own neighbours that are the enemy's must be safe as well
     return true;
   }
   function allGone(b, target, color) {

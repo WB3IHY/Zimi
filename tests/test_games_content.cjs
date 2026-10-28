@@ -143,6 +143,12 @@ const check = (ok, label) => {
   const sb = load(['go-engine.js', 'tsumego-solver.js', 'data/go-problems.js']);
   const G = sb.makeGoEngine(), T = sb.makeTsumegoSolver(G), D = sb.ZimiTsumego;
   const N = 19, NODE_CAP = 80000, MAX_PLIES = 9;
+  // A white stone chain whose only room is a little space is not dead while a black stone beside it can be captured.
+  {
+    const rows = ['xoxx.x', 'xooxxx', 'xxoo.x', 'ooooox', '.xxxxx', 'xxxxxx'], b = T.boardFromRows(rows), t = [];
+    for (let i = 0; i < N * N; i++) if (b[i] === 2 && (i / N | 0) < 5 && i % N < 5) t.push(i);
+    check(T.verdict(b, { kind: 'kill', target: t }) === 0, 'go problems: a capturable enemy stone beside the group keeps it open');
+  }
   let bad = 0, firstBad = '', reproved = 0, wrongChecked = 0, wrongBad = 0;
   const seen = new Set();
   D.problems.forEach((p, n) => {

@@ -194,3 +194,16 @@ def test_go_problems_reply_does_not_outlive_a_restart(open_game):
     assert page.evaluate("[document.getElementById('gp-board').innerHTML, document.body.innerText]") == fresh, "White answered on the restarted problem"
     assert page.evaluate("[__gp.thinking(), __gp.over()]") == [False, False]
     assert not page.errors, page.errors
+
+
+def test_morris_undo_takes_the_repetition_count_back(open_game):
+    page = open_game("morris", "?debug")
+    game_ready(page, "window.__mo")
+    page.locator(".mo-pt").nth(4).click()
+    page.wait_for_function(truthy("Object.keys(__mo.seen()).length >= 1"))
+    page.wait_for_function(truthy("!document.getElementById('wk-undo').disabled"))
+    page.wait_for_function(truthy("Object.values(__mo.seen()).reduce((a, b) => a + b, 0) >= 2"), timeout=120000)   # the computer has answered
+    page.click("#wk-undo")
+    frames(page, 3)
+    assert page.evaluate("Object.values(__mo.seen()).reduce((a, b) => a + b, 0)") == 0
+

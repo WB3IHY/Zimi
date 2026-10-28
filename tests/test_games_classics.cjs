@@ -290,7 +290,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   check(st.player.dx === -1, 'muncher: turning round is instant');
   st = ready(); st.player.x = 8; st.player.y = 12; st.player.dx = 0; st.player.dy = 0;
   run(st, 0.3, M.DOWN);
-  check(st.player.y === 12 || st.player.y > 12, 'muncher: you cannot walk into a wall');
+  check(M.MAZES[0].rows[13].charAt(8) === '#' && st.player.y === 12, 'muncher: you cannot walk into a wall');
 
   // clearing every dot
   st = ready(); st.dotsEaten = st.dots - 1; st.player.x = 8; st.player.y = 12; st.grid[12][7] = '.';
