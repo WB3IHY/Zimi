@@ -173,10 +173,22 @@
     els.ghost.style.backgroundImage = 'url("' + P.pic.url + '")';
     els.ghost.style.backgroundSize = c.w + 'px ' + c.h + 'px'; els.ghost.style.backgroundPosition = c.x + 'px ' + c.y + 'px';
   }
+  // Inside Zimi the game's own bar is hidden, and a bar that held only the clock was an empty band under Zimi's header:
+  // there the clock joins the status line ("3 of 20 placed · 0:42") and the bar goes.
+  var clockInLine = !!(window.ZimiShell && ZimiShell.hosted);
+  if (clockInLine) { els.time.classList.remove('ar-stat'); els.time.hidden = true; }
+  function paintClock() {
+    var clock = puzzle ? Play.fmtClock(elapsed()) : '0:00';
+    els.time.textContent = clock;
+    if (clockInLine && puzzle && !puzzle.done) paintLine(clock);
+  }
+  function paintLine(clock) {
+    var n = puzzle.pieces.filter(function (p) { return p.locked; }).length, text = T('jigsaw.placed', { n: n, total: puzzle.pieces.length });
+    line.say(clock && ZimiShell.settings.get('timer') !== 'hide' ? text + ' \u00b7 ' + clock : text);
+  }
   function paintHud() {
-    var n = puzzle ? puzzle.pieces.filter(function (p) { return p.locked; }).length : 0;
-    if (puzzle && !puzzle.done) line.say(T('jigsaw.placed', { n: n, total: puzzle.pieces.length }));
-    els.time.textContent = puzzle ? Play.fmtClock(elapsed()) : '0:00';
+    paintClock();
+    if (!clockInLine && puzzle && !puzzle.done) paintLine();
   }
   function elapsed() { return puzzle.ms + (puzzle.since ? performance.now() - puzzle.since : 0); }
   function pause() { if (puzzle && puzzle.since) { puzzle.ms += performance.now() - puzzle.since; puzzle.since = 0; } }
@@ -199,7 +211,9 @@
     puzzle = { pic: pic, count: count, cols: g.cols, rows: g.rows, aspect: aspect, pieces: pieces, ms: 0, since: performance.now(), done: false, daily: daily };
     layout(); paintHud();
     els.credit.textContent = T('jigsaw.picture', { credit: pic.credit }) + (pic.note ? ' ' + pic.note : '');
-    if (!timer) timer = setInterval(function () { if (puzzle && puzzle.since && !puzzle.done) els.time.textContent = Play.fmtClock(elapsed()); }, TICK_MS);
+    els.read.hidden = !pic.path;   // the picture's article, at hand while playing and on the end sheet
+    if (pic.path) Lib.articleLink(els.read, pic.zim, pic.path);
+    if (!timer) timer = setInterval(function () { if (puzzle && puzzle.since && !puzzle.done) paintClock(); }, TICK_MS);
   }
 
   function newPuzzle(count, daily) {
@@ -252,12 +266,15 @@
     var key = (zim || 'drawn') + ':' + puzzle.pieces.length, best = Play.load(BEST_KEY, {}), ms = Math.round(puzzle.ms);
     var newBest = !best[key] || ms < best[key];
     if (newBest) { best[key] = ms; Play.save(BEST_KEY, best); }
-    els.read.hidden = !puzzle.pic.path;
-    if (puzzle.pic.path) Lib.articleLink(els.read, puzzle.pic.zim, puzzle.pic.path);
+    var more = [];
+    if (puzzle.pic.path) {
+      var read = el('a', 'ar-btn'); read.textContent = T('jigsaw.read');
+      more.push(Lib.articleLink(read, puzzle.pic.zim, puzzle.pic.path));
+    }
     line.say(T('jigsaw.done'));
     ZimiShell.endSheet({
       result: 'win', after: Play.reducedMotion() ? 0 : SNAP_MS * 2,
-      text: T('jigsaw.picture', { credit: puzzle.pic.credit }),
+      text: T('jigsaw.picture', { credit: puzzle.pic.credit }), extra: more,
       stats: [[T('play.time'), Play.fmtClock(ms)], [T('play.best'), Play.fmtClock(newBest ? ms : best[key])]]
     });
   }
