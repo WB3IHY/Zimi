@@ -3492,13 +3492,6 @@
   "game_undo": "पूर्ववत करें",
   "game_pause": "रोकें",
   "game_resume": "फिर शुरू करें",
-  "pet_hungry": "{name} को भूख लगी है",
-  "pet_tired": "{name} थका हुआ है",
-  "pet_dirty": "{name} को नहलाना है",
-  "pet_bored": "{name} खेलना चाहता है",
-  "pet_asleep": "{name} सो रहा है",
-  "pet_fine": "{name} ठीक है",
-  "pet_egg": "{name} अभी अंडा है",
   "alm_earth_failed": "3D पृथ्वी लोड नहीं हो सकी। इस दृश्य को बंद करके फिर से खोलें।",
   "recent_added_dot": "{n} हाल में जोड़े गए",
   "recent_updated_dot": "{n} हाल में अपडेट हुए"

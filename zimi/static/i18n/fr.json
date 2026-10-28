@@ -3492,13 +3492,6 @@
   "game_undo": "Annuler",
   "game_pause": "Pause",
   "game_resume": "Reprendre",
-  "pet_hungry": "{name} a faim",
-  "pet_tired": "{name} est fatigué",
-  "pet_dirty": "{name} a besoin d'un bain",
-  "pet_bored": "{name} veut jouer",
-  "pet_asleep": "{name} dort",
-  "pet_fine": "{name} va bien",
-  "pet_egg": "{name} est encore un œuf",
   "alm_earth_failed": "La Terre en 3D n'a pas pu être chargée. Fermez cette vue et rouvrez-la.",
   "recent_added_dot": "{n} ajoutés récemment",
   "recent_updated_dot": "{n} mis à jour récemment"

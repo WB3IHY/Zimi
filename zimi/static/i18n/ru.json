@@ -3492,13 +3492,6 @@
   "game_undo": "Отменить",
   "game_pause": "Пауза",
   "game_resume": "Продолжить",
-  "pet_hungry": "{name} голоден",
-  "pet_tired": "{name} устал",
-  "pet_dirty": "{name} нужно помыться",
-  "pet_bored": "{name} хочет играть",
-  "pet_asleep": "{name} спит",
-  "pet_fine": "{name} в порядке",
-  "pet_egg": "{name} ещё яйцо",
   "alm_earth_failed": "Не удалось загрузить 3D-Землю. Закройте этот вид и откройте его снова.",
   "recent_added_dot": "{n} добавлено недавно",
   "recent_updated_dot": "{n} недавно обновлено"

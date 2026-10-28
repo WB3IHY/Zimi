@@ -1,7 +1,5 @@
 """The games ZIM is a library file a copy can stand in for; Zimi's window never runs its scripts, and only the games page may drive the game header.
 
-* The pet peek on Home runs pet.js in a sandboxed frame: a hostile pet.js reaches nothing of this window, and a real
-  one still gives the pet's mood.
 * game, game-sky and game-app messages are heard only while the games ZIM is what the reader shows.
 
 Run: ZIMI_TORRENT=0 ZIMI_OFFLINE=1 pytest tests/test_games_home_isolation.py -v
@@ -21,8 +19,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 from games_wait import wait_for_server  # noqa: E402
-
-HOSTILE = "window.__pwned = 'frame'; try { parent.__pwned = 'top'; } catch (e) {} try { top.__pwned = 'top'; } catch (e) {} this.PetEngine = null;"
 
 
 @pytest.fixture(scope="module")
@@ -50,44 +46,6 @@ def browser():
         b = p.chromium.launch()
         yield b
         b.close()
-
-
-def _egg_store(page):
-    """A fresh pet's saved state, made by the real engine (run in the test page only)."""
-    return page.evaluate("""async () => {
-      const scope = {};
-      for (const f of ['util.js', 'pet.js']) new Function('document', await (await fetch('/w/zimi_games/' + f)).text()).call(scope, undefined);
-      return scope.PetEngine.newStore(Date.now());
-    }""")
-
-
-def test_a_hostile_pet_script_runs_in_no_window_of_zimi(zimi, browser):
-    page = browser.new_page()
-    page.goto(zimi)
-    page.wait_for_function("() => typeof _petPeekRead === 'function'")
-    store = _egg_store(page)
-    page.evaluate("s => localStorage.setItem('zimi.games.pet', JSON.stringify(s))", store)
-    page.route("**/w/zimi_games/pet.js", lambda r: r.fulfill(status=200, content_type="text/javascript", body=HOSTILE))
-    assert page.evaluate("_petPeekRead().then(p => p)") is None
-    assert page.evaluate("typeof window.__pwned") == "undefined"
-    page.close()
-
-
-def test_the_real_pet_script_still_gives_the_pets_mood(zimi, browser):
-    page = browser.new_page()
-    page.goto(zimi)
-    page.wait_for_function("() => typeof _petPeekRead === 'function'")
-    page.evaluate("s => localStorage.setItem('zimi.games.pet', JSON.stringify(s))", _egg_store(page))
-    peek = page.evaluate("_petPeekRead().then(p => p)")
-    assert peek and peek["kind"] == "egg", peek
-    page.close()
-
-
-MESSAGES = [
-    {"zimi": "game", "title": "Hostile", "act": {"kind": "undo", "label": "x"}},
-    {"zimi": "game-sky", "place": "x"},
-    {"zimi": "game-app", "app": "dictionary", "w": "word"},
-]
 
 
 def _send_from_reader_frame(page, msg):

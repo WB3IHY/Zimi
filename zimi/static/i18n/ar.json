@@ -3492,13 +3492,6 @@
   "game_undo": "تراجع",
   "game_pause": "إيقاف مؤقت",
   "game_resume": "استئناف",
-  "pet_hungry": "{name} جائع",
-  "pet_tired": "{name} متعب",
-  "pet_dirty": "{name} يحتاج إلى حمّام",
-  "pet_bored": "{name} يريد اللعب",
-  "pet_asleep": "{name} نائم",
-  "pet_fine": "{name} بخير",
-  "pet_egg": "{name} لا يزال بيضة",
   "alm_earth_failed": "تعذّر تحميل الأرض ثلاثية الأبعاد. أغلق هذا العرض وافتحه من جديد.",
   "recent_added_dot": "{n} أُضيفت حديثًا",
   "recent_updated_dot": "{n} حُدّثت حديثًا"

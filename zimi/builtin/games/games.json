@@ -1690,23 +1690,6 @@
   "computer": true
  },
  {
-  "qid": "Q1187635",
-  "wiki": "Digital pet",
-  "path": "pet.html",
-  "title": "Zimi Pet",
-  "blurb": "Hatch an egg and raise a pet over real days",
-  "why": "Pocket pets in the late 1990s only needed you to come back and feed them.",
-  "origin": {
-   "year": 1996,
-   "era": "1990s"
-  },
-  "region": "East Asia",
-  "players": "1",
-  "length": "5 min",
-  "kind": "kids",
-  "computer": false
- },
- {
   "qid": "Q18759108",
   "wiki": "Kart racing game",
   "path": "kart.html",
