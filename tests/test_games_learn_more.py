@@ -71,12 +71,13 @@ def zimi(tmp_path_factory):
         ownzims.OUT_DIR, ownzims.SOURCE_ROOT = was
     shutil.copy(made, zdir / os.path.basename(made))
     port = free_port()
+    # No ZIMI_RATE_LIMIT: set, it also caps this machine at 8 open change streams, and a module of pages holds more than
+    # that until their heartbeat; unset, the loopback is unlimited. The delete test lost its stream to that 429.
     env = dict(
         os.environ,
         ZIMI_TORRENT="0",
         ZIMI_OFFLINE="1",
         ZIMI_BUILTIN_ZIMS="0",
-        ZIMI_RATE_LIMIT="1000000",
         ZIMI_APPS="1", ZIMI_MANAGE_OPEN="1",
         ZIM_DIR=str(zdir),
         ZIMI_DATA_DIR=str(base / "data"),
@@ -523,7 +524,9 @@ def test_babel_opens_the_word_in_the_dictionary_and_back_returns(browser, zimi):
         timeout=WAIT,
     )
     shot(page, "learn-back-babel")
-    assert not errors, errors
+    # WebKit reports the Dictionary's "more words" fetch, cut off by leaving the page, as a page error though the page
+    # catches it (get() in dictionary.html); that one request is not what this test is about.
+    assert not [e for e in errors if "/dictionary/random?" not in e or "access control checks" not in e], errors
     ctx.close()
 
 
