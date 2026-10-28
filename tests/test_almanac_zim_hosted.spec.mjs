@@ -13,8 +13,12 @@ test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true
 async function openAlmanacZim(page) {
   await page.goto(BASE + '/?a=' + encodeURIComponent('zimi_almanac/index.html'));
   await expect(page.locator('#reader')).toHaveClass(/open/);
-  const frame = page.frames().find((f) => f.url().includes('/w/zimi_almanac/'));
-  await expect.poll(async () => (frame ? frame.evaluate(() => typeof window.openAlmanacEarth) : ''), { timeout: 60000 }).toBe('function');
+  let frame;
+  await expect.poll(async () => {
+    frame = page.frames().find((f) => f.url().includes('/w/zimi_almanac/'));
+    if (!frame) return '';
+    try { return await frame.evaluate(() => typeof window.openAlmanacEarth); } catch (e) { return ''; }
+  }, { timeout: 60000 }).toBe('function');
   return frame;
 }
 

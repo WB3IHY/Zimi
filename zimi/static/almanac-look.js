@@ -81,10 +81,14 @@ function _lookHeadingOffset(rawAz, compassAz) { return _lookDelta(rawAz, compass
 // one; `altDeg` is the line of sight's altitude. Slow, so a noisy compass does
 // not shake the view; fast when it is far off (the first readings, a phone
 // picked up after being still), so it is not wrong for long; held while the
-// phone points high, and never moved by the half-turn flip.
-function _lookNextOffset(prev, off, altDeg, dtMs) {
+// phone points high, and never moved by the half-turn flip. An offset taken
+// from a first reading while the phone pointed high is a guess (`trusted` is
+// false): the first level reading replaces it outright, so a half-turn flip
+// at the start cannot be held for good.
+function _lookNextOffset(prev, off, altDeg, dtMs, trusted) {
   if (prev == null) return off;
   if (Math.abs(altDeg) > LOOK_COMPASS_TRUST_ALT_DEG) return prev;
+  if (trusted === false) return off;
   var d = _lookDelta(prev, off);
   if (Math.abs(d) > 180 - LOOK_OFFSET_FLIP_DEG) return prev;
   var tau = Math.abs(d) > LOOK_OFFSET_JUMP_DEG ? LOOK_OFFSET_FAST_TAU_MS : LOOK_OFFSET_TAU_MS;
@@ -180,7 +184,7 @@ function _lookAskSensors() {
 function _lookStartSensors() {
   var S = _look;
   if (S.sensing) return;
-  S.sensing = { absSeen: false, offset: null, lastEvent: 0, poorSince: 0, got: false };
+  S.sensing = { absSeen: false, offset: null, offsetTrusted: false, lastEvent: 0, poorSince: 0, got: false };
   S.onAbs = function (e) { _lookOnOrientation(e, true); };
   S.onRel = function (e) { _lookOnOrientation(e, false); };
   window.addEventListener('deviceorientationabsolute', S.onAbs);
@@ -220,7 +224,8 @@ function _lookOnOrientation(e, absolute) {
   if (ios) {
     // alpha is from wherever the phone woke; the heading says where north is.
     var nat = _lookViewFromEuler(alpha, beta, gamma, 0);
-    sn.offset = _lookNextOffset(sn.offset, _lookHeadingOffset(nat.az, e.webkitCompassHeading), nat.alt, now - sn.lastEvent);
+    sn.offset = _lookNextOffset(sn.offset, _lookHeadingOffset(nat.az, e.webkitCompassHeading), nat.alt, now - sn.lastEvent, sn.offsetTrusted);
+    if (Math.abs(nat.alt) <= LOOK_COMPASS_TRUST_ALT_DEG) sn.offsetTrusted = true;
     view = _lookApplyOffset(view, sn.offset);
   }
   sn.lastEvent = now;

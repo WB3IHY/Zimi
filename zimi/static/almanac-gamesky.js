@@ -87,6 +87,14 @@ var ZimiGameSky = (function () {
     }
     var keys = function (e) {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'Tab') {   // aria-modal does not hold focus: keep it on the dialog's own buttons
+        var btns = root.querySelectorAll('button');
+        if (!btns.length) return;
+        var first = btns[0], lastBtn = btns[btns.length - 1];
+        if (!root.contains(document.activeElement) || (e.shiftKey && document.activeElement === first)) { e.preventDefault(); lastBtn.focus(); }
+        else if (!e.shiftKey && document.activeElement === lastBtn) { e.preventDefault(); first.focus(); }
+        return;
+      }
       var step = view.fov * KEY_TURN_FRACTION;
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(false); return; }
       else if (e.key === 'ArrowLeft') view.az -= step; else if (e.key === 'ArrowRight') view.az += step;

@@ -106,6 +106,7 @@ const fix = L('_lookHeadingOffset');
   check(next(null, 30, 10, 16) === 30, 'the first reading is taken as it is');
   check(next(30, 210, 10, 16) === 30, 'a half-turn flip near level is ignored');
   check(next(30, 200, 70, 16) === 30 && next(30, 60, 70, 1000) === 30, 'pointing high, the held offset stays whatever the compass says');
+  check(next(30, 210, 10, 16, false) === 210 && next(30, 210, 70, 16, false) === 30, 'a first reading taken while pointing high is replaced by the first level one, and only by a level one');
   const settled = next(30, 40, 10, 400);
   check(settled > 30 && settled < 40, 'near level, a small difference settles toward the compass');
   check(next(30, 100, 10, 1000) > 95, 'near level, a real large difference (a phone woken elsewhere) is followed quickly');
