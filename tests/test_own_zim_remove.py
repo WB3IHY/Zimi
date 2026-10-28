@@ -191,11 +191,11 @@ def test_remove_from_library_gone_from_home_add_from_catalog_back(served):
         row.wait_for(timeout=15000)
         pg.wait_for_timeout(1500)  # the stream's first announcement redraws the list once
         _shot(pg, "2-library")
-        # The ordinary delete: first click asks, second confirms.
+        # ZimiGames takes this browser's saved games with it, so its delete asks in a dialog that says so.
         row.locator(".ci-delete-btn").click()
-        pg.locator(".ci-delete-btn.confirming").wait_for()
+        pg.locator(".pw-confirm #ac-ok").wait_for()
         _shot(pg, "3-confirm")
-        pg.locator(".ci-delete-btn.confirming").click()
+        pg.locator(".pw-confirm #ac-ok").click()
         pg.wait_for_function("() => !(zimsCache || []).some(z => z.name === 'zimi_games')", timeout=8000)
         assert pg.locator(".catalog-item", has_text="ZimiGames").count() == 0
         _shot(pg, "4-library-after-remove")
@@ -209,9 +209,9 @@ def test_remove_from_library_gone_from_home_add_from_catalog_back(served):
         _shot(pg, "6-home-after-remove")
         pg.reload()
         _tiles(pg, 1)  # and across a reload
-        # Catalog: Zimi is the first category; Games offers Add, Almanac reads Installed.
+        # Catalog: Zimi is the last category (Eric, 2026-10-27); Games offers Add, Almanac reads Installed.
         _manage(pg, "browse")
-        card = pg.locator(".browse-cat-card").first
+        card = pg.locator(".browse-cat-card").last
         card.wait_for(timeout=15000)
         assert card.locator(".bcc-name").inner_text().strip() == "Zimi"
         _shot(pg, "7a-catalog-gallery")
