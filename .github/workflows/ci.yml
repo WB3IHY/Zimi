@@ -47,6 +47,25 @@ jobs:
             exit 1
           fi
           echo "version $HEAD_V (main $BASE_V): ok"
+      # Every release ships catalogs refreshed for it (Eric, 2026-10-28): a PR that brings main a new version
+      # fails when a catalog snapshot was last committed more than 14 days ago. Refresh with
+      # scripts/build_catalog_snapshot.py (Kiwix and StreetZim) and commit the result.
+      - name: A release ships fresh catalogs
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          FRESH_DAYS: 14
+        run: |
+          ver() { grep '^version' | head -1 | sed 's/.*"\(.*\)"/\1/'; }
+          HEAD_V=$(ver < pyproject.toml)
+          BASE_V=$(git show "origin/${GITHUB_BASE_REF}:pyproject.toml" | ver)
+          case ",$LABELS," in *,not-a-release,*) echo "not-a-release: skipped"; exit 0;; esac
+          [ "$HEAD_V" = "$BASE_V" ] && { echo "no new version: skipped"; exit 0; }
+          now=$(date +%s); stale=0
+          for f in zimi/assets/catalog-snapshot.json.gz zimi/assets/catalog-icons.tar zimi/assets/streetzim-snapshot.json.gz; do
+            when=$(git log -1 --format=%ct -- "$f"); age=$(( (now - ${when:-0}) / 86400 ))
+            if [ "$age" -gt "$FRESH_DAYS" ]; then echo "::error::$f was last refreshed $age days ago; run scripts/build_catalog_snapshot.py for $HEAD_V"; stale=1; else echo "$f: $age days"; fi
+          done
+          exit $stale
 
   test:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
