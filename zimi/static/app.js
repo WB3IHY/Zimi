@@ -3951,6 +3951,7 @@ function route(push) {
     var aZim = aSlash === -1 ? aParam : aParam.slice(0, aSlash);
     var aPath = aSlash === -1 ? '' : aParam.slice(aSlash + 1);
     if (aZim && aPath) {
+      if (aZim === _GAMES_ZIM) _gameHeadBoot(aPath);
       _bootDeepLinkArticle(aZim, aPath);
       return;
     }
@@ -23729,6 +23730,7 @@ window.addEventListener('message', function(e) {
   } else if (d.zimi === 'game' && _gameFrameIs(e.source)) {
     clearTimeout(_gameGoneTimer);
     _gameHead = _gameHeadFrom(d);
+    _gameHeadKeep();
     updateTopbar();
   } else if (d.zimi === 'game-gone' && _gameFrameWindow(e.source)) {
     clearTimeout(_gameGoneTimer);
@@ -24247,6 +24249,23 @@ function _isMapPage() {
 // Pause and its Menu beside it. The page says what it has ({zimi: 'game'}, builtin/games/shell.js) and Zimi
 // asks it to act ({zimi: 'game-do'}). A page that says nothing (a Tatham puzzle) keeps its bar and the box.
 var _gameHead = null;          // {title, act: {kind, label, disabled}, menu}, from the page on screen
+// A reload into a game paints its header once, as it was, instead of passing through Home's search box and the ZIM's
+// name while the page loads: the last header is kept for this tab, and until the game speaks the bar's middle waits.
+var GAME_HEAD_KEY = 'zimi.gameHead', GAME_BOOT_MS = 2500;
+function _gameHeadKeep() {
+  try { if (currentArticle) sessionStorage.setItem(GAME_HEAD_KEY, JSON.stringify({ path: currentArticle.path, head: _gameHead })); } catch (e) {}
+}
+function _gameHeadBoot(path) {
+  try {
+    var kept = JSON.parse(sessionStorage.getItem(GAME_HEAD_KEY) || 'null');
+    if (kept && kept.path === path && kept.head && kept.head.title) _gameHead = kept.head;
+  } catch (e) {}
+  var root = document.documentElement;
+  root.classList.add('game-booting');
+  var done = function() { root.classList.remove('game-booting'); };
+  setTimeout(done, GAME_BOOT_MS);
+  window.addEventListener('message', function on(e) { if (e.data && e.data.zimi === 'game') { done(); window.removeEventListener('message', on); } });
+}
 var _gameGoneTimer = 0;        // a page that left: the header waits a moment for the next one's word
 var GAME_GONE_MS = 600;
 var _GAME_ICON_SIZE = ' width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';

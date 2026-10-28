@@ -4412,3 +4412,6 @@ body.login-gate .gate-help { margin: 0; }
   #zimi-print-root .fg-foot { font-size: 8pt; }
 }
 
+
+/* A reload into a game: the bar's middle waits for the game's own header (app.js _gameHeadBoot). */
+.game-booting .topbar-search { visibility: hidden; }

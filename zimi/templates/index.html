@@ -31,6 +31,8 @@
 <script>
 (function(){
   var el = document.documentElement;
+  // A reload into a game: the bar's middle waits for the game's own header (app.js _gameHeadBoot), from the first paint.
+  if (/[?&]a=zimi_games(%2F|\/)/.test(location.search)) el.classList.add('game-booting');
   // Drop the transition-suppression guard once the themed first paint has
   // committed (double rAF), so normal interactions still animate. A load
   // backstop covers browsers that throttle rAF on a backgrounded/restored tab.

@@ -125,3 +125,28 @@ test('a game offers no Reader View: it is played, not read', async ({ page }) =>
   await expect(page.locator('#tbm-readerview')).toHaveCount(0);
   await expect(page.locator('#tbm-find')).toHaveCount(0);
 });
+
+test('a reload in a game paints the game\'s header without passing through other states', async ({ page }) => {
+  await openGame(page, 'checkers.html');
+  await expect(page.locator('#game-title')).toHaveText('Checkers');
+  await page.evaluate(() => {
+    window.__seen = [];
+    const rec = () => { const t = document.getElementById('game-title'), s = document.querySelector('.topbar-search');
+      window.__seen.push((t && t.offsetParent ? 'title:' + t.textContent : '') + (s && s.offsetParent && getComputedStyle(s).visibility !== 'hidden' ? '|search' : '')); };
+    sessionStorage.setItem('zimi.probe', '1');
+  });
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem('zimi.probe')) return;
+    window.__seen = [];
+    const rec = () => { const t = document.getElementById('game-title'), s = document.querySelector('.topbar-search');
+      const v = (t && t.offsetParent && t.textContent ? 'title:' + t.textContent : '') + (s && s.offsetParent && getComputedStyle(s).visibility !== 'hidden' ? '|search' : '');
+      if (v && window.__seen[window.__seen.length - 1] !== v) window.__seen.push(v); };
+    new MutationObserver(rec).observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+  });
+  await page.reload();
+  await expect(page.locator('#game-title')).toHaveText('Checkers');
+  await page.waitForTimeout(500);
+  const seen = await page.evaluate(() => window.__seen);
+  expect(seen.filter((v) => v.includes('search'))).toEqual([]);
+  expect(seen.filter((v) => v.startsWith('title:') && v !== 'title:Checkers')).toEqual([]);
+});
