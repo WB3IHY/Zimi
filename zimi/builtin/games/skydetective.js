@@ -320,6 +320,8 @@
     var kept = ZimiShell.saved();
     if (kept && kept.g && kept.g.qs && kept.g.qs.length) {
       g = kept.g; vis = visibleObjects(g.ms, g.place.lat, g.place.lon); all = everyName(g.ms, g.place.lat, g.place.lon);
+      // A round kept before the study existed (no study flag) and not yet answered starts with the study, as a new one does.
+      if (!('study' in g) && g.at === 0 && (g.ans === null || g.ans === undefined)) g.study = true;
       if (g.study) study(false); else ask();
     } else { if (kept) ZimiShell.forget(); start(); }
   });
