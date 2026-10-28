@@ -375,7 +375,14 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
 .ar-continue h2 { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 600; color: var(--ink2); }
 .ar-continue.ar-table-idle h2 { font-weight: 500; color: var(--ink3); }
 .ar-continue { flex: 1 1 360px; min-width: 0; }
-@media (max-width: 699px) { .ar-box-label small { white-space: normal; min-height: 2.6em; } }
+/* A phone: a tighter fan so about five boxes lie in view and the rest peek from the edge (the table scrolls). Only the top box has room for the time. */
+@media (max-width: 699px) {
+  .ar-table { --bw: 116px; --ov: 54px; padding: 22px 12px 26px; }
+  .ar-box-label small { white-space: normal; min-height: 2.6em; }
+  .ar-box:not(:first-child) .ar-box-label { padding-right: 0; padding-left: calc(var(--ov) + 1px); }
+  .ar-box:not(:first-child) .ar-box-label strong { font-size: 12px; }
+  .ar-box:not(:first-child) .ar-box-label small { display: none; }
+}
 @media (min-width: 700px) { .ar-table { --bw: 168px; --ov: 36px; padding: 30px 32px 34px; } }
 @media (prefers-reduced-motion: no-preference) {
   .ar-box.ar-settle { animation: ar-settle 0.45s cubic-bezier(0.25, 1, 0.5, 1) backwards; animation-delay: calc(var(--i) * 70ms); }

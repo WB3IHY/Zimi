@@ -59,8 +59,13 @@
 
   // ── The tile's facts ────────────────────────────────────────────────────
   function nameOf(tile) {
-    var n = tile.querySelector('strong, .ar-box-label');
+    var n = tile.querySelector('strong');   // the name alone: a table box's label also carries "Last played: ..."
     return (n ? n.textContent : tile.textContent).trim();
+  }
+  // "Last played 11 minutes ago", for a box of the game table (the label's small line reads "Last played: " then the time); '' elsewhere.
+  function lastPlayedOf(tile) {
+    var small = tile.querySelector('.ar-box-label small'), when = small && small.querySelector('span');
+    return when ? small.firstChild.textContent.trim().replace(/[:\uff1a]$/, '') + ' ' + when.textContent : '';
   }
   function rowOf(path) {
     var row = root.ZimiShelf && root.ZimiShelf.meta(path);
@@ -95,9 +100,10 @@
     }
     sheetOf(name, [body]);
   }
-  function resetProgress(name, path, id) {
+  function resetProgress(name, path, id, played) {
+    var warning = T('tile.menu.resetText');
     Shell().sheet({
-      title: T('tile.menu.resetTitle', { game: name }), text: T('tile.menu.resetText'),
+      title: T('tile.menu.resetTitle', { game: name }), text: played || warning, body: played ? [el('p', 'gs-text', warning)] : [],
       actions: [{ label: T('shell.cancel') }, { label: T('tile.menu.resetConfirm'), primary: true, onclick: function () {
         resetKeys(id, storageKeys()).forEach(function (k) { try { root.localStorage.removeItem(k); } catch (e) { /* blocked */ } });
         // The picture of the table the game table keeps is part of the saved game.
@@ -118,7 +124,7 @@
     out.push({ id: 'newtab', label: T('tile.menu.newTab'), run: function () { openInNewTab(tile, path); } });
     if (Shell().helpList(id)) out.push({ id: 'how', label: T('shell.menu.how'), run: function () { howToPlay(name, id); } });
     out.push({ id: 'about', label: T('shell.menu.about'), run: function () { about(name, path, id); } });
-    if (hasSave(id, storageKeys())) out.push({ id: 'reset', label: T('tile.menu.reset'), danger: true, run: function () { resetProgress(name, path, id); } });
+    if (hasSave(id, storageKeys())) out.push({ id: 'reset', label: T('tile.menu.reset'), danger: true, run: function () { resetProgress(name, path, id, lastPlayedOf(tile)); } });
     return out;
   }
 
