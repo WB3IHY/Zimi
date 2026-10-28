@@ -400,7 +400,7 @@ def _quote(html, title):
 # Simple English Wiktionary's forms of another word ("The plural form of
 # script"), which English Wiktionary's own check does not catch.
 _INFLECTION_RE = re.compile(
-    r"^(?:\(.*?\)\s*)*(?:the |an? )?(?:plural|past tense|past participle|present participle|third-person|"
+    r"^(?:\([^()]*\)\s*)*(?:the |an? )?(?:plural|past tense|past participle|present participle|third-person|"
     r"comparative|superlative|simple past|alternative)\b",
     re.IGNORECASE,
 )

@@ -3,7 +3,7 @@
 import logging
 import os
 
-from zimi.safety import loggable, resolve_inside
+from zimi.safety import join_inside, loggable, resolve_inside
 
 
 def test_loggable_neutralises_line_breaks_and_controls():
@@ -40,3 +40,16 @@ def test_resolve_inside_refuses_escapes(tmp_path):
     os.symlink(tmp_path / "secret", root / "link")
     assert resolve_inside(root, "link", "f") is None
     assert resolve_inside(root, "a", "..", "..", "secret") is None
+
+
+def test_join_inside_is_lexical(tmp_path):
+    root = str(tmp_path)
+    assert join_inside(root, "a", "b", "..", "c") == os.path.join(root, "a", "c")
+    assert join_inside(root) == root
+    assert join_inside(root, "..", "x") is None
+    assert join_inside(root, "/etc/passwd") is None
+    assert join_inside(root, "a/../../x") is None
+    # a sibling that merely shares the prefix is not inside
+    assert join_inside(root, "..", tmp_path.name + "2") is None
+    os.symlink("/", tmp_path / "link")
+    assert join_inside(root, "link") == os.path.join(root, "link")  # links are the caller's to skip

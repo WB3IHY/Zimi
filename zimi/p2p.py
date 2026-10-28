@@ -26,7 +26,7 @@ import time
 import urllib.request
 from abc import ABC, abstractmethod
 from typing import Any
-from zimi.safety import loggable
+from zimi.safety import join_inside, loggable
 
 log = logging.getLogger(__name__)
 
@@ -971,7 +971,10 @@ class LibtorrentBackend(BTBackend):
     # ── resume persistence ────────────────────────────────────────────────
 
     def _resume_path(self, tid: str) -> str:
-        return os.path.join(self.resume_dir, tid + ".fastresume")
+        path = join_inside(self.resume_dir, tid + ".fastresume")
+        if path is None:
+            raise ValueError("not a torrent id")
+        return path
 
     def _write_resume_file(self, alert) -> None:
         lt = _lt()
@@ -1208,7 +1211,7 @@ class LibtorrentBackend(BTBackend):
             return
         try:
             os.unlink(self._resume_path(tid))
-        except OSError:
+        except (OSError, ValueError):
             pass
 
     def status(self, tid: str) -> dict:

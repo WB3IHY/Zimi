@@ -179,7 +179,7 @@ _HTML_MIME = "text/html"
 _TITLE_TAG_RE = re.compile(r"<title[^>]*>(.*?)</title\s*>", re.IGNORECASE | re.DOTALL)
 _H1_RE = re.compile(r"<h1[^>]*>(.*?)</h1\s*>", re.IGNORECASE | re.DOTALL)
 _TAG_RE = re.compile(r"<[^>]+>")
-_SCRIPT_RE = re.compile(r"<script\b[^>]*>.*?</script\s*>", re.IGNORECASE | re.DOTALL)
+_SCRIPT_RE = re.compile(r"<script\b[^>]*>.*?</script\b[^>]*>", re.IGNORECASE | re.DOTALL)
 _SCRIPT_VOID_RE = re.compile(r"<script\b[^>]*/\s*>", re.IGNORECASE)
 _NOSCRIPT_RE = re.compile(
     r"<noscript\b[^>]*>.*?</noscript\s*>", re.IGNORECASE | re.DOTALL

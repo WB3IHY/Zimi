@@ -62,7 +62,7 @@ def inline_text(fragment):
     prefix to the word a link starts ("ל<a>קיסר</a>" is one word), and
     Chinese and Japanese put no spaces between words at all."""
     text = re.sub(r"<!--.*?-->", "", fragment, flags=re.DOTALL)
-    text = re.sub(r"<(script|style)\b[^>]*>.*?(?:</\1>|$)", "", text, flags=re.DOTALL)
+    text = re.sub(r"<(script|style)\b[^>]*>.*?(?:</\1\b[^>]*>|$)", "", text, flags=re.DOTALL)
     text = _BLOCK_TAG_RE.sub(" ", text)
     text = _TAG_RE.sub("", text)
     text = re.sub(r"<[^>]*>?", "", text)

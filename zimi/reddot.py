@@ -586,7 +586,7 @@ _COMMENT_HEAD_RE = re.compile(
 )
 _COMMENT_LIST_RE = re.compile(r'<div class="commentlist"', re.I)
 _COMMENT_BODY_RE = re.compile(r'<div class="commentbody mdbody">', re.I)
-_SCRIPT_RE = re.compile(r"<script\b.*?</script>", re.S | re.I)
+_SCRIPT_RE = re.compile(r"<script\b.*?</script\b[^>]*>", re.S | re.I)
 _URLATTR_RE = re.compile(r'\b(href|src)=(["\'])([^"\']*)\2', re.I)
 
 

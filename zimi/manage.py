@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 
 import zimi.server as _srv
 from zimi import libfolders, nomadapi, outbound
-from zimi.safety import loggable
+from zimi.safety import join_inside, loggable
 
 log = logging.getLogger("zimi")
 
@@ -4314,7 +4314,10 @@ def _create_archive_path(name):
     name = (name or "").strip().replace("\\", "/")
     if not name or name not in {a["name"] for a in _create_archives()}:
         raise ValueError("choose an archive from the list")
-    return os.path.join(_create_archives_root(), *name.split("/"))
+    path = join_inside(_create_archives_root(), *name.split("/"))
+    if path is None:
+        raise ValueError("choose an archive from the list")
+    return path
 
 
 # ── Folder mode: the tree picker and the selection it sends ────────────────
@@ -7050,7 +7053,9 @@ def handle_manage_post(handler, parsed, data):
         # library's own name→path map, which knows where each file actually is,
         # and keep the traversal guard by requiring the result to live under
         # ZIM_DIR.
-        filepath = os.path.join(_srv.ZIM_DIR, filename)
+        filepath = join_inside(_srv.ZIM_DIR, filename)
+        if filepath is None:
+            return handler._json(400, {"error": "Invalid filename"})
         if not os.path.exists(filepath):
             root = os.path.realpath(_srv.ZIM_DIR)
             for candidate in (_srv.get_zim_files() or {}).values():

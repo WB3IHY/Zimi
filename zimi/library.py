@@ -25,7 +25,7 @@ import urllib.request
 from urllib.parse import urlparse, urlencode, quote
 
 import zimi.server as _srv
-from zimi.safety import loggable
+from zimi.safety import join_inside, loggable
 
 log = logging.getLogger("zimi")
 
@@ -4093,7 +4093,9 @@ def _enqueue_zim_download(url, mirrors, filename, size_bytes=None, extra=None):
     # The catalog's downloads go to NOMAD's library through NOMAD, when asked to.
     if nomadapi.managed() and not (extra or {}).get("_source"):
         return _hand_to_nomad(url, filename, size_bytes, extra)
-    dest = os.path.join(_srv.ZIM_DIR, filename)
+    dest = join_inside(_srv.ZIM_DIR, filename)
+    if dest is None:
+        return None, "Invalid filename in URL"
 
     space_err = _refuse_for_disk_space(size_bytes, dest=dest)
     if space_err:
@@ -4368,7 +4370,9 @@ def _start_import(url, size_bytes=None, actor=None):
 
         if _ng.PrivateGuard().refuses(urlparse(url).hostname or ""):
             return None, "That address is on a private network"
-    dest = os.path.join(_srv.ZIM_DIR, filename)
+    dest = join_inside(_srv.ZIM_DIR, filename)
+    if dest is None:
+        return None, "Invalid filename in URL"
 
     space_err = _refuse_for_disk_space(size_bytes, dest=dest)
     if space_err:

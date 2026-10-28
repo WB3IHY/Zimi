@@ -20,6 +20,31 @@ def loggable(value):
     return _CONTROL_RE.sub(lambda m: "\\x%02x" % ord(m.group()) if ord(m.group()) < 256 else "\\u%04x" % ord(m.group()), text)
 
 
+def header_value(value):
+    """``value`` as one HTTP header line: CR and LF dropped, so a name or an
+    address from a request or a ZIM cannot end the header and start another."""
+    return str(value).replace("\r", "").replace("\n", "")
+
+
+def _inside(base, target):
+    """``target`` when it is ``base`` or below it, else None. The startswith
+    on an already-normalised path is the shape CodeQL treats as a containment
+    check, so the value returned is clean at the call site."""
+    if target.startswith(base.rstrip(os.sep) + os.sep):
+        return target
+    if target == base:
+        return base
+    return None
+
+
+def join_inside(root, *parts):
+    """``parts`` joined under ``root`` and normalised, or None when ``..`` or
+    an absolute part leads out of ``root``. Lexical: symlinks are not
+    resolved, for callers that check (and skip) links themselves."""
+    base = os.path.normpath(root)
+    return _inside(base, os.path.normpath(os.path.join(base, *parts)))
+
+
 def resolve_inside(root, *parts):
     """The real path of ``parts`` joined under ``root``, or None when it
     resolves (symlinks and ``..`` included) to somewhere outside ``root``.
@@ -27,10 +52,4 @@ def resolve_inside(root, *parts):
     ``root`` itself is a legitimate answer. Use it wherever a path is built
     from a request or from a name read out of a file."""
     base = os.path.realpath(root)
-    target = os.path.realpath(os.path.join(base, *parts))
-    try:
-        if os.path.commonpath([base, target]) != base:
-            return None
-    except ValueError:  # different drives on Windows
-        return None
-    return target
+    return _inside(base, os.path.realpath(os.path.join(base, *parts)))

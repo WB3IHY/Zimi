@@ -38,7 +38,7 @@ from zimi.manage import (
     handle_manage_get,
     handle_manage_post,
 )
-from zimi.safety import loggable
+from zimi.safety import header_value, join_inside, loggable
 
 log = logging.getLogger("zimi")
 
@@ -2588,7 +2588,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         )
         if alias and alias[0] == "redirect":
             self.send_response(302)
-            self.send_header("Location", alias[1])
+            self.send_header("Location", header_value(alias[1]))
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
@@ -4044,7 +4044,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         sig = _srv.zim_signature(zim_name)
         if not sig:
             return ""
-        return '"%s-%s-%s"' % (entry_path.rsplit("/", 1)[-1], int(sig[0]), sig[1])
+        return header_value('"%s-%s-%s"' % (entry_path.rsplit("/", 1)[-1], int(sig[0]), sig[1]))
 
     def _picture_not_modified(self, etag):
         self.send_response(304)
@@ -4162,7 +4162,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         value = 'attachment; filename="%s"' % ascii_name
         if filename != ascii_name:
             value += "; filename*=UTF-8''%s" % quote(filename, safe="")
-        return value
+        return header_value(value)
 
     @staticmethod
     def _w_location(zim_name, entry_path, fragment=""):
@@ -4175,7 +4175,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         location = "/w/%s/%s" % (_srv.url_quote(zim_name), quote(entry_path, safe="/"))
         if fragment:
             location += "#" + quote(fragment, safe="")
-        return location
+        return header_value(location)
 
     def _wants_html_document(self):
         """Whether THIS request is a page being opened, rather than a
@@ -4410,7 +4410,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                     if self.path.find("?") >= 0:
                         moved += self.path[self.path.find("?") :]
                     self.send_response(301)
-                    self.send_header("Location", moved)
+                    self.send_header("Location", header_value(moved))
                     self.send_header("Content-Length", "0")
                     self.end_headers()
                     return
@@ -5289,7 +5289,9 @@ class ZimHandler(BaseHTTPRequestHandler):
             base = ZimHandler._static_base_dir()
             if not base:
                 return self._json(404, {"error": "static directory not found"})
-            probe_path = os.path.normpath(os.path.join(base, rel_path))
+            probe_path = join_inside(base, rel_path)
+            if probe_path is None:
+                return self._json(403, {"error": "forbidden"})
             try:
                 current_mtime = os.stat(probe_path).st_mtime
             except OSError:
@@ -5305,11 +5307,6 @@ class ZimHandler(BaseHTTPRequestHandler):
                 body, content_type = cached[0], cached[1]
             else:
                 file_path = probe_path
-                # Ensure resolved path is still inside the static dir
-                if not file_path.startswith(
-                    os.path.normpath(base) + os.sep
-                ) and file_path != os.path.normpath(base):
-                    return self._json(403, {"error": "forbidden"})
                 if not os.path.isfile(file_path):
                     return self._json(404, {"error": "not found"})
                 ext = os.path.splitext(file_path)[1].lower()

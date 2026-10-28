@@ -60,7 +60,7 @@ _AUTHOR_RE = re.compile(
 _ANSWER_PROSE_RE = re.compile(
     r'<div class="s-prose js-post-body"[^>]*>(.*?)</div>\s*<div class="mt24', re.S
 )
-_SCRIPT_RE = re.compile(r"<script\b.*?</script>", re.S | re.I)
+_SCRIPT_RE = re.compile(r"<script\b.*?</script\b[^>]*>", re.S | re.I)
 _URLATTR_RE = re.compile(r'\b(href|src)=(["\'])([^"\']*)\2', re.I)
 
 

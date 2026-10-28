@@ -26,7 +26,7 @@ from zimi import datepages as _datepages
 from zimi import query as _query
 from zimi import wikilang as _wikilang
 from zimi.previews import strip_html
-from zimi.safety import loggable
+from zimi.safety import join_inside, loggable
 
 log = logging.getLogger("zimi")
 
@@ -534,7 +534,10 @@ def _title_index_dir():
 
 
 def _title_index_path(zim_name):
-    return os.path.join(_title_index_dir(), f"{zim_name}.db")
+    path = join_inside(_title_index_dir(), f"{zim_name}.db")
+    if path is None:
+        raise ValueError("not a library name")
+    return path
 
 
 def _read_zim_uuid(zim_path):
