@@ -126,7 +126,9 @@ def open_game(browser, zimi, name, ctx=None):
     ctx = ctx or browser.new_context(viewport=VIEW, has_touch=True, is_mobile=True)
     page = ctx.new_page()
     errors = []
-    page.on("pageerror", lambda e: errors.append(str(e)))
+    # WebKit reports the Dictionary's "more words" fetch, cut off by leaving the page, as a page error though the page
+    # catches it (get() in dictionary.html); that one request is not what these tests are about.
+    page.on("pageerror", lambda e: errors.append(str(e)) if not ("/dictionary/random?" in str(e) and "access control checks" in str(e)) else None)
     page.goto(zimi + "/?a=" + urllib.parse.quote("zimi_games/" + name, safe=""))
     page.locator("#reader.open").wait_for(timeout=WAIT)
     return ctx, page, errors
@@ -524,9 +526,7 @@ def test_babel_opens_the_word_in_the_dictionary_and_back_returns(browser, zimi):
         timeout=WAIT,
     )
     shot(page, "learn-back-babel")
-    # WebKit reports the Dictionary's "more words" fetch, cut off by leaving the page, as a page error though the page
-    # catches it (get() in dictionary.html); that one request is not what this test is about.
-    assert not [e for e in errors if "/dictionary/random?" not in e or "access control checks" not in e], errors
+    assert not errors, errors
     ctx.close()
 
 
