@@ -25,6 +25,7 @@ import urllib.request
 from urllib.parse import urlparse, urlencode, quote
 
 import zimi.server as _srv
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -1723,7 +1724,7 @@ def _fetch_thumb(url):
     from zimi import p2p as _p2p
 
     if _p2p.is_offline():
-        log.debug("Offline: skipping thumbnail fetch for %s", url)
+        log.debug("Offline: skipping thumbnail fetch for %s", loggable(url))
         return None, None
     # Fetch from Kiwix. Follow redirects only within *.kiwix.org (Kiwix
     # redirects library → opds); a redirect off-Kiwix is blocked (SSRF).
@@ -1739,7 +1740,7 @@ def _fetch_thumb(url):
             # and dropped rather than written into the cache dir.
             data = resp.read(_THUMB_MAX_BYTES + 1)
             if len(data) > _THUMB_MAX_BYTES:
-                log.debug("Thumbnail over %d bytes, dropped: %s", _THUMB_MAX_BYTES, url)
+                log.debug("Thumbnail over %d bytes, dropped: %s", _THUMB_MAX_BYTES, loggable(url))
                 return None, None
         # Write to disk cache
         with open(cache_path, "wb") as f:
@@ -1748,7 +1749,7 @@ def _fetch_thumb(url):
             f.write(ct)
         return data, ct
     except Exception as e:
-        log.debug("Failed to fetch thumbnail from %s: %s", url, e)
+        log.debug("Failed to fetch thumbnail from %s: %s", loggable(url), loggable(e))
         return None, None
 
 
@@ -4096,7 +4097,7 @@ def _enqueue_zim_download(url, mirrors, filename, size_bytes=None, extra=None):
 
     space_err = _refuse_for_disk_space(size_bytes, dest=dest)
     if space_err:
-        log.info("download rejected: %s (%s)", space_err, filename)
+        log.info("download rejected: %s (%s)", loggable(space_err), loggable(filename))
         return None, space_err
 
     # Detect if this replaces an existing ZIM (update vs fresh download)
@@ -4136,10 +4137,10 @@ def _enqueue_zim_download(url, mirrors, filename, size_bytes=None, extra=None):
         queued = _enqueue_or_start(dl)
     log.info(
         "Download %s: %s (%d mirror%s available)",
-        "queued" if queued else "started",
-        filename,
+        loggable("queued" if queued else "started"),
+        loggable(filename),
         len(mirrors),
-        "s" if len(mirrors) != 1 else "",
+        loggable("s" if len(mirrors) != 1 else ""),
     )
     return dl_id, None
 
@@ -4179,11 +4180,11 @@ def _hand_to_nomad(url, filename, size_bytes, extra):
     try:
         job_id = nomadapi.hand_off(dl, named.get("title") or named.get("name"))
     except nomadapi.NomadError as e:
-        log.info("Project NOMAD refused %s: %s", filename, e)
+        log.info("Project NOMAD refused %s: %s", loggable(filename), loggable(e))
         return None, str(e)
     with _download_lock:
         _active_downloads[dl_id] = dl
-    log.info("Download handed to Project NOMAD: %s (job %s)", filename, job_id)
+    log.info("Download handed to Project NOMAD: %s (job %s)", loggable(filename), loggable(job_id))
 
     def landed(base):
         gone = [p for p in nomadapi.nomad_files().values() if not os.path.exists(p)]
@@ -4254,7 +4255,7 @@ def _start_download(url, size_bytes=None, actor=None):
             url = candidate
     if not _is_trusted_kiwix_url(url):
         # The 400 alone is undebuggable from a syslog (issue #26) — say why.
-        log.info("download rejected: untrusted URL %.120r", url)
+        log.info("download rejected: untrusted URL %.120s", loggable(repr(url)))
         return None, "URL not from a trusted Kiwix host"
 
     # OPDS catalog provides .meta4 metalink URLs. Resolving the mirror list
@@ -4272,7 +4273,7 @@ def _start_download(url, size_bytes=None, actor=None):
     # into the download record.
     filename, err = _validate_zim_filename(url.split("/")[-1])
     if filename is None:
-        log.info("download rejected: %s (url=%.120r)", err, url)
+        log.info("download rejected: %s (url=%.120s)", loggable(err), loggable(repr(url)))
         return None, err
     extra = {"_activity": {"actor": actor}}
     if meta4_url:
@@ -4371,7 +4372,7 @@ def _start_import(url, size_bytes=None, actor=None):
 
     space_err = _refuse_for_disk_space(size_bytes, dest=dest)
     if space_err:
-        log.info("import rejected: %s (%s)", space_err, filename)
+        log.info("import rejected: %s (%s)", loggable(space_err), loggable(filename))
         return None, space_err
 
     with _download_lock:

@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 
 import zimi.server as _srv
 from zimi import libfolders, nomadapi, outbound
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -5021,7 +5022,7 @@ def _probe_url(source, *, want_robots=False, engine=None):
         try:
             out["assets"] = len(page_asset_refs(page, final_url))
         except Exception:
-            log.exception("probe could not count assets for %s", final_url)
+            log.exception("probe could not count assets for %s", loggable(final_url))
         out["icon"] = _probe_icon_data_uri(final_url, CREATE_PROBE_TIMEOUT, page)
     if not is_html:
         out["warning_key"] = "create_warn_not_html"
@@ -5113,7 +5114,7 @@ def _probe_claims_video(source):
 
         return video_available() and claims_video_host(str(source).strip())
     except Exception:
-        log.debug("video claim check failed for %r", source, exc_info=True)
+        log.debug("video claim check failed for %s", loggable(repr(source)), exc_info=True)
         return False
 
 
@@ -5189,7 +5190,7 @@ def _create_probe(data):
         # Already a user-facing sentence, and the one that names the fix.
         return {"ok": False, "mode": mode, "detail": str(e)}, 200
     except Exception:
-        log.exception("create probe failed (%s)", mode)
+        log.exception("create probe failed (%s)", loggable(mode))
         return {
             "ok": False,
             "mode": mode,
@@ -6412,11 +6413,11 @@ def _delete_through_nomad(handler, filename):
     try:
         _srv.release_zim_handles([_srv._zim_short_name(filename)])
     except Exception as e:
-        log.debug("Handle release before NOMAD deletes %s: %s", filename, e)
+        log.debug("Handle release before NOMAD deletes %s: %s", loggable(filename), loggable(e))
     try:
         nomadapi.delete(filename)
     except nomadapi.NomadError as e:
-        log.warning("Project NOMAD would not delete %s: %s", filename, e)
+        log.warning("Project NOMAD would not delete %s: %s", loggable(filename), loggable(e))
         status = 404 if e.status == 404 else 502
         return handler._json(status, {"error": "Project NOMAD did not delete it"})
     record_activity("delete", title, actor=activity_actor(handler))
@@ -6471,7 +6472,7 @@ def _handle_library_folders(handler, data):
         # (a path with a NUL in it) is logged here and not sent back.
         key = "nomad_bad_url" if str(e) == "nomad_bad_url" else "save_failed"
         if key == "save_failed":
-            log.info("library-folders %s refused: %s", action, e)
+            log.info("library-folders %s refused: %s", loggable(action), loggable(e))
         return handler._json(400, {"error": key, "error_key": key})
     if action == "add":
         libfolders.ensure_watch()
@@ -7008,7 +7009,7 @@ def handle_manage_post(handler, parsed, data):
             log.warning("FTS build: ZIM not found: %s", e)
             return handler._json(404, {"error": "ZIM not found"})
         except Exception as e:
-            log.error("FTS build failed for %s: %s", zim_name, e)
+            log.error("FTS build failed for %s: %s", loggable(zim_name), loggable(e))
             return handler._json(500, {"error": "FTS build failed"})
 
     elif parsed.path == "/manage/own-zims":
@@ -7090,8 +7091,8 @@ def handle_manage_post(handler, parsed, data):
             except Exception as e:
                 log.debug(
                     "Failed to cache ZIM metadata before deletion of %s: %s",
-                    filename,
-                    e,
+                    loggable(filename),
+                    loggable(e),
                 )
                 pass
             # Release this ZIM's pooled handles BEFORE unlinking. Windows
@@ -7102,9 +7103,9 @@ def handle_manage_post(handler, parsed, data):
             try:
                 _srv.release_zim_handles([_srv._zim_short_name(filename)])
             except Exception as e:
-                log.debug("Handle release before deleting %s: %s", filename, e)
+                log.debug("Handle release before deleting %s: %s", loggable(filename), loggable(e))
             os.remove(filepath)
-            log.info(f"Deleted ZIM: {filename}")
+            log.info("Deleted ZIM: %s", loggable(filename))
             record_activity(
                 "delete",
                 zim_info.get("title") or zim_info.get("name") or filename,
@@ -7133,8 +7134,8 @@ def handle_manage_post(handler, parsed, data):
                 log.warning(
                     "Incremental removal of %s failed (%s) — falling back to a "
                     "full library rescan",
-                    filename,
-                    e,
+                    loggable(filename),
+                    loggable(e),
                 )
             if not unregistered:
                 with _srv._zim_lock:
@@ -7161,7 +7162,7 @@ def handle_manage_post(handler, parsed, data):
                 log.debug("Post-delete seed retire skipped: %s", e)
             return handler._json(200, {"status": "deleted", "filename": filename})
         except OSError as e:
-            log.error("Failed to delete %s: %s", filename, e)
+            log.error("Failed to delete %s: %s", loggable(filename), loggable(e))
             return handler._json(500, {"error": "Failed to delete file"})
 
     elif parsed.path == "/manage/cleanup-tmp":
@@ -7227,7 +7228,7 @@ def handle_manage_post(handler, parsed, data):
                     daemon=True,
                 )
                 _srv._auto_update_thread.start()
-            log.info("Auto-update enabled: %s (first check in 30s)", freq)
+            log.info("Auto-update enabled: %s (first check in 30s)", loggable(freq))
         elif not enabled and _srv._auto_update_enabled:
             _srv._auto_update_enabled = False
             log.info("Auto-update disabled")
@@ -7393,7 +7394,7 @@ def handle_manage_post(handler, parsed, data):
         if whole not in (True, False, None):
             return handler._json(400, {"error": "whole is true, false or null"})
         reader = _books.set_whole(name, whole)
-        log.info("Bookshelf: %s set by hand to %s", name, whole)
+        log.info("Bookshelf: %s set by hand to %s", loggable(name), loggable(whole))
         return handler._json(200, {"zim": name, "whole": whole, "reader": reader})
 
     elif parsed.path == "/manage/app-update-mode":
@@ -7824,7 +7825,7 @@ def handle_manage_post(handler, parsed, data):
                 400,
                 {"error": "provide torrent/seed/mirror/peer_share/seed_ratio"},
             )
-        log.info("BT settings updated via UI: %s", changed)
+        log.info("BT settings updated via UI: %s", loggable(changed))
         return handler._json(200, p2p.get_mirror_status())
 
     elif parsed.path == "/manage/hot":

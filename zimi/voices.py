@@ -56,6 +56,7 @@ import urllib.parse
 import urllib.request
 
 from zimi import outbound, subproc
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -2117,7 +2118,7 @@ def remove(tag):
     _set_installed(rec["engine"], tag, None)
     _stop_workers((rec["engine"],))  # its memory back, and nothing stale
     _delete_voice_files(rec)
-    log.info("Voices: %s (%s) removed", tag, rec["id"])
+    log.info("Voices: %s (%s) removed", loggable(tag), loggable(rec["id"]))
     return True
 
 

@@ -47,6 +47,7 @@ from urllib.parse import unquote
 
 from zimi import datepages, frontpage
 from zimi import server as _srv
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -217,7 +218,7 @@ def _kept(cache, key, work):
     try:
         got = work()
     except Exception as e:
-        log.warning("Zimipedia could not read %s: %s", key, e)
+        log.warning("Zimipedia could not read %s: %s", loggable(key), loggable(e))
         got = None
     finally:
         with _lock:

@@ -32,6 +32,7 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 import zipfile
 from collections import OrderedDict
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -182,7 +183,7 @@ class Book:
                 with self._zip.open(member) as f:
                     data = f.read(limit + 1)
             except (zipfile.BadZipFile, OSError, KeyError, ValueError) as e:
-                log.debug("EPUB member %s unreadable: %s", member, e)
+                log.debug("EPUB member %s unreadable: %s", loggable(member), loggable(e))
                 return None
         return data if len(data) <= limit else None
 
@@ -482,7 +483,7 @@ def book_in_zim(zim, epub_path):
         try:
             book = Book(data)
         except EpubError as e:
-            log.info("EPUB %s in %s will not open: %s", epub_path, zim, e)
+            log.info("EPUB %s in %s will not open: %s", loggable(epub_path), loggable(zim), loggable(e))
     with _cache_lock:
         if book is None:
             _misses[key] = True
@@ -514,7 +515,7 @@ def respond(zim, entry_path):
         try:
             return "text/html; charset=utf-8", book.page()
         except EpubError as e:
-            log.info("EPUB %s in %s has no text: %s", epub_path, zim, e)
+            log.info("EPUB %s in %s has no text: %s", loggable(epub_path), loggable(zim), loggable(e))
             return None, None
     name = member_name("", member)
     data = book.read(name) if name else None

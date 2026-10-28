@@ -98,6 +98,7 @@ from libzim.reader import Archive
 from libzim.suggestion import SuggestionSearcher
 
 from zimi import changes as _changes
+from zimi.safety import loggable
 
 # PyMuPDF, for reading PDFs embedded in ZIM files.
 #
@@ -504,7 +505,7 @@ def _shape_backfill_pass(_zw):
         if shape:
             _shape_store({name: shape})
             done += 1
-            log.debug("measured %s: %s", name, shape.get("entries"))
+            log.debug("measured %s: %s", loggable(name), loggable(shape.get("entries")))
         time.sleep(_SHAPE_PAUSE_SECONDS)
     if done:
         log.info("measured what %d ZIM(s) are made of", done)
@@ -1792,7 +1793,7 @@ def _atomic_write_json(path, data, indent=None):
         if hasattr(os, "fchmod"):
             os.fchmod(fd, 0o644)
     except OSError as e:
-        log.warning("Atomic write failed for %s: %s", path, e)
+        log.warning("Atomic write failed for %s: %s", loggable(path), loggable(e))
         return False
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -1807,7 +1808,7 @@ def _atomic_write_json(path, data, indent=None):
         return True
     except (OSError, ValueError) as e:
         # ValueError: text that is not UTF-8 (a lone surrogate) cannot be written.
-        log.warning("Atomic write failed for %s: %s", path, e)
+        log.warning("Atomic write failed for %s: %s", loggable(path), loggable(e))
         try:
             os.unlink(tmp)
         except OSError:
@@ -3331,7 +3332,7 @@ def get_archive(name):
             try:
                 archive = open_archive(zims[name])
             except (RuntimeError, Exception) as e:
-                log.warning(f"Skipping corrupt ZIM '{name}': {e}")
+                log.warning("Skipping corrupt ZIM '%s': %s", loggable(name), loggable(e))
                 return None
             _archive_pool[name] = archive
             return archive
@@ -3465,7 +3466,7 @@ def _extract_zim_metadata(name, path):
                 elif key.startswith("Illustration_48x48"):
                     has_icon = True
             except Exception as e:
-                log.debug("Failed to read metadata key %r for %s: %s", key, name, e)
+                log.debug("Failed to read metadata key %s for %s: %s", loggable(repr(key)), loggable(name), loggable(e))
                 pass
         try:
             me = archive.main_entry
@@ -3473,7 +3474,7 @@ def _extract_zim_metadata(name, path):
                 me = me.get_redirect_entry()
             main_path = me.path
         except Exception as e:
-            log.debug("Failed to read main entry for %s: %s", name, e)
+            log.debug("Failed to read main entry for %s: %s", loggable(name), loggable(e))
             pass
         cold_kind = _zim_kind(meta_scraper, meta_tags, meta_name)
         if cold_kind == "map":
@@ -3481,7 +3482,7 @@ def _extract_zim_metadata(name, path):
         elif cold_kind == "reddit":
             map_facts = _reddit_facts(archive)
     except Exception as e:
-        log.debug("Failed to open archive for metadata extraction %s: %s", name, e)
+        log.debug("Failed to open archive for metadata extraction %s: %s", loggable(name), loggable(e))
         entry_count = "?"
     # Fall back to date from filename if not in metadata
     if not meta_date:
@@ -4113,7 +4114,7 @@ def _domain_map_entries_for_zim(name, filename, source_meta, main_path=""):
             else:
                 _add(source_meta.split("/")[0])
         except Exception as e:
-            log.debug("Failed to parse Source %r for %s: %s", source_meta, name, e)
+            log.debug("Failed to parse Source %s for %s: %s", loggable(repr(source_meta)), loggable(name), loggable(e))
     elif main_path:
         # A capture's main entry path IS the site's address
         # ("draculatheme.com/contribute"), which is the discovery interlang
@@ -4216,7 +4217,7 @@ def register_zim_file(path, removed_files=(), removed_paths=()):
     try:
         st = os.stat(path)
     except OSError as e:
-        log.warning("register_zim_file: cannot stat %s: %s", path, e)
+        log.warning("register_zim_file: cannot stat %s: %s", loggable(path), loggable(e))
         return False
 
     # Mirror _scan_zim_files' collision rule: a root-level file always beats a
@@ -4242,9 +4243,9 @@ def register_zim_file(path, removed_files=(), removed_paths=()):
             log.info(
                 "ZIM name collision '%s': %s outranks %s, a different language; "
                 "rescanning",
-                name,
-                filename,
-                os.path.basename(existing_path),
+                loggable(name),
+                loggable(filename),
+                loggable(os.path.basename(existing_path)),
             )
             return False
         name = _zim_lang_name(filename)
@@ -4253,9 +4254,9 @@ def register_zim_file(path, removed_files=(), removed_paths=()):
             # That name is another file's own, never a language name to take.
             log.info(
                 "ZIM name collision '%s': keeping %s, new %s stays shadowed",
-                name,
-                os.path.basename(existing_path),
-                filename,
+                loggable(name),
+                loggable(os.path.basename(existing_path)),
+                loggable(filename),
             )
             _note_shadowed(path, existing_path)
             return True  # library correctly unchanged
@@ -4265,9 +4266,9 @@ def register_zim_file(path, removed_files=(), removed_paths=()):
         # already being served.
         log.info(
             "ZIM name collision '%s': keeping %s, new %s stays shadowed",
-            name,
-            os.path.basename(existing_path),
-            filename,
+            loggable(name),
+            loggable(os.path.basename(existing_path)),
+            loggable(filename),
         )
         _note_shadowed(path, existing_path)
         return True  # library correctly unchanged
@@ -4410,8 +4411,8 @@ def register_zim_file(path, removed_files=(), removed_paths=()):
         _interlang._domain_zim_map = merged
     log.info(
         "Registered %s (%s entries) without a library rescan",
-        filename,
-        entry.get("entries"),
+        loggable(filename),
+        loggable(entry.get("entries")),
     )
     return True
 
@@ -4567,8 +4568,8 @@ def unregister_zim_file(filename):
     _drop_registered(gone, dead_files)
     log.info(
         "Unregistered %s without a library rescan%s",
-        filename,
-        f" ({', '.join(sorted(gone))} left the library)" if gone else "",
+        loggable(filename),
+        loggable(f" ({', '.join(sorted(gone))} left the library)" if gone else ""),
     )
     return True
 

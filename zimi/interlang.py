@@ -28,6 +28,7 @@ from zimi.search import (
     _loadavg_throttle,
     _write_index_meta,
 )
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -399,7 +400,7 @@ def _qid_extract_from_html(archive, article_path):
         if m:
             return int(m.group(1).decode()[1:])
     except Exception as e:
-        log.debug("Q-ID extract failed for %s: %s", article_path, e)
+        log.debug("Q-ID extract failed for %s: %s", loggable(article_path), loggable(e))
     return None
 
 
@@ -418,7 +419,7 @@ def _qid_cache_store(zim_name, path, qid):
             )
             conn.commit()
     except Exception as e:
-        log.warning("Q-ID cache store failed for %s/%s Q%s: %s", zim_name, path, qid, e)
+        log.warning("Q-ID cache store failed for %s/%s Q%s: %s", loggable(zim_name), loggable(path), loggable(qid), loggable(e))
 
 
 def _qid_cache_lookup(zim_name, path):
@@ -431,7 +432,7 @@ def _qid_cache_lookup(zim_name, path):
             ).fetchone()
         return row[0] if row else None
     except Exception as e:
-        log.debug("Q-ID cache lookup failed for %s/%s: %s", zim_name, path, e)
+        log.debug("Q-ID cache lookup failed for %s/%s: %s", loggable(zim_name), loggable(path), loggable(e))
         return None
 
 
@@ -462,7 +463,7 @@ def _qid_lookup(zim_name, article_path):
                 return row[0]
         except Exception as e:
             log.debug(
-                "Q-ID index lookup failed for %s/%s: %s", zim_name, article_path, e
+                "Q-ID index lookup failed for %s/%s: %s", loggable(zim_name), loggable(article_path), loggable(e)
             )
     # Check on-demand cache (for large ZIMs)
     return _qid_cache_lookup(zim_name, article_path)
@@ -755,14 +756,14 @@ def _almanac_title_entry_path(zim_name, title):
         except KeyError:
             continue
         except Exception as e:
-            log.debug("almanac title lookup %r in %s: %s", try_path, zim_name, e)
+            log.debug("almanac title lookup %s in %s: %s", loggable(repr(try_path)), loggable(zim_name), loggable(e))
             continue
         try:
             if entry.is_redirect:
                 entry = entry.get_redirect_entry()
             return entry.path
         except Exception as e:
-            log.debug("almanac redirect follow %r in %s: %s", try_path, zim_name, e)
+            log.debug("almanac redirect follow %s in %s: %s", loggable(repr(try_path)), loggable(zim_name), loggable(e))
             return try_path
     return None
 
@@ -1212,7 +1213,7 @@ def _resolve_url_to_zim(url_str):
     try:
         parsed = urlparse(url_str)
     except Exception as e:
-        log.debug("Failed to parse URL %r: %s", url_str, e)
+        log.debug("Failed to parse URL %s: %s", loggable(repr(url_str)), loggable(e))
         return None
     host = (parsed.hostname or "").lower()
     if not host:
@@ -1361,9 +1362,9 @@ def get_article_languages(zim_name, article_path, qid=_QID_UNKNOWN):
     except Exception as e:
         log.debug(
             "Failed to read article for language detection in %s path %s: %s",
-            zim_name,
-            article_path,
-            e,
+            loggable(zim_name),
+            loggable(article_path),
+            loggable(e),
         )
         return {"languages": []}
 
@@ -1394,10 +1395,10 @@ def get_article_languages(zim_name, article_path, qid=_QID_UNKNOWN):
 
     log.debug(
         "interlang %s/%s: qid=%s src_project=%s",
-        zim_name,
-        article_path,
-        qid,
-        src_project,
+        loggable(zim_name),
+        loggable(article_path),
+        loggable(qid),
+        loggable(src_project),
     )
 
     # Step 0b: Check all target ZIMs for this Q-ID
@@ -1465,7 +1466,7 @@ def get_article_languages(zim_name, article_path, qid=_QID_UNKNOWN):
                 if len(seen_langs) >= 30:
                     break
         except Exception as e:
-            log.debug("Interlanguage link extraction failed for %s: %s", zim_name, e)
+            log.debug("Interlanguage link extraction failed for %s: %s", loggable(zim_name), loggable(e))
 
     # Strategy 2: Exact title match with Q-ID verification
     # Try the same path in other language ZIMs (works for "Pizza", "Albert Einstein", etc.)

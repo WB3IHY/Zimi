@@ -48,6 +48,7 @@ from collections import OrderedDict
 
 from zimi import epub as _epub
 from zimi import server as _srv
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -435,7 +436,7 @@ def build(zim, archive, reader, root, meta):
         total += len(body)
         if total > MAX_BOOK_BYTES:
             log.warning(
-                "Book %s in %s: cut at chapter %d of %d", root, zim, i, len(chapters)
+                "Book %s in %s: cut at chapter %d of %d", loggable(root), loggable(zim), i, len(chapters)
             )
             break
         # The first page is the book's own (its title page, its contents):
@@ -522,7 +523,7 @@ def respond(zim, entry_path):
         with lock:
             page = build(zim, archive, reader, root, meta)
     except Exception as e:
-        log.warning("Book %s in %s could not be read: %s", root, zim, e)
+        log.warning("Book %s in %s could not be read: %s", loggable(root), loggable(zim), loggable(e))
         page = None
     if page is None:
         return None, None

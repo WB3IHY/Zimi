@@ -26,6 +26,7 @@ from zimi import datepages as _datepages
 from zimi import query as _query
 from zimi import wikilang as _wikilang
 from zimi.previews import strip_html
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -471,7 +472,7 @@ def _get_pooled_db(zim_name, pool, pool_lock, path_fn):
             pool[zim_name] = conn
         return conn
     except Exception as e:
-        log.debug("Failed to open pooled DB for %s: %s", zim_name, e)
+        log.debug("Failed to open pooled DB for %s: %s", loggable(zim_name), loggable(e))
         return None
 
 
@@ -483,7 +484,7 @@ def _close_pooled_db(zim_name, pool, pool_lock):
         try:
             conn.close()
         except Exception as e:
-            log.debug("Failed to close pooled DB for %s: %s", zim_name, e)
+            log.debug("Failed to close pooled DB for %s: %s", loggable(zim_name), loggable(e))
             pass
 
 
@@ -603,12 +604,12 @@ def _index_is_current(db_path, zim_path, schema_version):
                 )
                 conn.commit()
             except Exception as e:
-                log.debug("mtime refresh failed for %s: %s", db_path, e)
+                log.debug("mtime refresh failed for %s: %s", loggable(db_path), loggable(e))
             return True
         finally:
             conn.close()
     except Exception as e:
-        log.debug("Index currency check failed for %s: %s", db_path, e)
+        log.debug("Index currency check failed for %s: %s", loggable(db_path), loggable(e))
         return False
 
 
@@ -848,7 +849,7 @@ def _build_fts_for_index(zim_name):
         close_fn(zim_name)  # evict stale pooled connection
         dt = time.time() - t0
         log.info(
-            "Title index: built FTS5 for %s (%d entries, %.1fs)", zim_name, count, dt
+            "Title index: built FTS5 for %s (%d entries, %.1fs)", loggable(zim_name), count, dt
         )
         return {"status": "built", "entries": count, "elapsed": round(dt, 1)}
     except Exception:
@@ -962,7 +963,7 @@ def _title_index_search(zim_name, query, limit=10):
             first = zim_name not in _title_query_failed
             _title_query_failed.add(zim_name)
         (log.warning if first else log.debug)(
-            "Title index search failed for %s (falling back to libzim): %s", zim_name, e
+            "Title index search failed for %s (falling back to libzim): %s", loggable(zim_name), loggable(e)
         )
         getattr(_srv, "_close_title_db", _close_title_db)(zim_name)
         return None
@@ -981,7 +982,7 @@ def _title_index_exact(zim_name, query):
         ).fetchall()
         rows = [(h["path"], h["title"]) for h in _collapse_titles(rows, 3, [], {})]
     except Exception as e:
-        log.debug("Exact title lookup failed for %s %r: %s", zim_name, query, e)
+        log.debug("Exact title lookup failed for %s %s: %s", loggable(zim_name), loggable(repr(query)), loggable(e))
         return []
     return [{"path": r[0], "title": r[1], "snippet": ""} for r in rows]
 
@@ -1539,7 +1540,7 @@ def _get_pooled_archive(name, pool, pool_lock, zim_locks, pool_label):
             try:
                 archive = _srv.open_archive(zims[name])
             except (RuntimeError, Exception) as e:
-                log.warning(f"{pool_label} pool: skipping corrupt ZIM '{name}': {e}")
+                log.warning("%s pool: skipping corrupt ZIM '%s': %s", pool_label, loggable(name), loggable(e))
                 return None, None
             # Publish the lock BEFORE the archive: the fast-path reader above
             # tests `name in pool` unlocked, so if it sees the archive it must
@@ -1583,7 +1584,7 @@ def suggest_search_zim(archive, query_str, limit=5):
                 log.debug("Dropping unreadable suggestion %s: %s", path, e)
                 continue
     except Exception as e:
-        log.debug("SuggestionSearcher failed for query %r: %s", query_str, e)
+        log.debug("SuggestionSearcher failed for query %s: %s", loggable(repr(query_str)), loggable(e))
         pass
     return results
 
@@ -2715,7 +2716,7 @@ def _maybe_did_you_mean(query_str):
         deadline = time.monotonic() + _DYM_BUDGET_S
         return _did_you_mean(query_str, vocab, deadline)
     except Exception as e:
-        log.debug("did_you_mean failed for %r: %s", query_str, e)
+        log.debug("did_you_mean failed for %s: %s", loggable(repr(query_str)), loggable(e))
         return None
 
 
@@ -2777,7 +2778,7 @@ def _random_map_place(name):
     try:
         archive, lock = _get_fts_archive(name)
     except Exception as e:
-        log.debug("random place: no archive for %s: %s", name, e)
+        log.debug("random place: no archive for %s: %s", loggable(name), loggable(e))
         return None
     if archive is None or lock is None:
         return None
@@ -3139,7 +3140,7 @@ def search_all(query_str, limit=5, filter_zim=None, fast=False):
                 thread_results[name] = results
             except Exception as e:
                 log.debug(
-                    "Suggest search failed for %s query %r: %s", name, query_str, e
+                    "Suggest search failed for %s query %s: %s", loggable(name), loggable(repr(query_str)), loggable(e)
                 )
 
         if len(target_names) == 1:

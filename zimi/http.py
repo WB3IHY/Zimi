@@ -38,6 +38,7 @@ from zimi.manage import (
     handle_manage_get,
     handle_manage_post,
 )
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -1686,7 +1687,7 @@ def _zim_metadata_for(name):
         try:
             return _read_zim_metadata(archive), True
         except Exception as e:
-            log.debug("metadata unreadable for %s: %s", name, e)
+            log.debug("metadata unreadable for %s: %s", loggable(name), loggable(e))
             return {}, False
 
 
@@ -2140,7 +2141,7 @@ def _mirrors_web_urls(zim_name, archive):
         try:
             answer = bool(archive.has_entry_by_path(_REPLAY_SHELL_ENTRY))
         except Exception as e:
-            log.debug("could not probe %s for a replay shell: %s", zim_name, e)
+            log.debug("could not probe %s for a replay shell: %s", loggable(zim_name), loggable(e))
     with _mirrors_urls_lock:
         _mirrors_urls_cache[zim_name] = (generation, answer)
     return answer
@@ -2367,7 +2368,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         except _DISCONNECT_ERRS:
             # The connection is unusable; make the keep-alive loop stop.
             self.close_connection = True
-            log.debug("client disconnected: %s", getattr(self, "path", "?"))
+            log.debug("client disconnected: %s", loggable(getattr(self, "path", "?")))
         finally:
             _srv.clear_request_allow()
 
@@ -2377,7 +2378,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         just raise again. Real failures keep the traceback + generic 500."""
         if isinstance(e, _DISCONNECT_ERRS):
             log.debug(
-                "client disconnected mid-response: %s %s", self.command, self.path
+                "client disconnected mid-response: %s %s", loggable(self.command), loggable(self.path)
             )
             return
         traceback.print_exc()
@@ -2387,8 +2388,8 @@ class ZimHandler(BaseHTTPRequestHandler):
             # Client vanished between the failure and the error reply.
             log.debug(
                 "client disconnected before error reply: %s %s",
-                self.command,
-                self.path,
+                loggable(self.command),
+                loggable(self.path),
             )
 
     def do_HEAD(self):
@@ -2747,11 +2748,11 @@ class ZimHandler(BaseHTTPRequestHandler):
                     _record_metric("/search", dt)
                     if not hit:
                         log.info(
-                            "search q=%r limit=%d zim=%s fast=%s %.1fs",
-                            q,
+                            "search q=%s limit=%d zim=%s fast=%s %.1fs",
+                            loggable(repr(q)),
                             limit,
-                            zim_label,
-                            fast_pass,
+                            loggable(zim_label),
+                            loggable(fast_pass),
                             dt,
                         )
                     return result
@@ -3034,8 +3035,8 @@ class ZimHandler(BaseHTTPRequestHandler):
                     result = _srv.get_article_languages(zim, path)
                     log.info(
                         "article-languages %s/%s: %d results",
-                        zim,
-                        path,
+                        loggable(zim),
+                        loggable(path),
                         len(result.get("languages", [])),
                     )
                 return self._json(200, result)
@@ -3630,7 +3631,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                         chosen["date"] = xkcd_date
                 _record_metric("/random", dt)
                 log.info(
-                    "random zim=%s title=%r %.1fs", pick_name, best_result["title"], dt
+                    "random zim=%s title=%s %.1fs", loggable(pick_name), loggable(repr(best_result["title"])), dt
                 )
                 return self._json(200, chosen)
 
@@ -4122,7 +4123,7 @@ class ZimHandler(BaseHTTPRequestHandler):
             except Exception:
                 continue
         if not icon_data:
-            log.debug("no 48x48 illustration in %s", zim_name)
+            log.debug("no 48x48 illustration in %s", loggable(zim_name))
             # And a MISS is never remembered. A ZIM that gains an illustration
             # — rebuilt, replaced, re-captured — must not stay iconless in the
             # one browser that happened to ask a moment too early.
@@ -5059,7 +5060,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             return
         except OSError as e:
-            log.warning("peer file stream failed for %s: %s", name, e)
+            log.warning("peer file stream failed for %s: %s", loggable(name), loggable(e))
 
     def _dictionary_voice(self, sub, param):
         """The Dictionary's Say (voices.py). /dictionary/voices: what the
@@ -5698,13 +5699,13 @@ class ZimHandler(BaseHTTPRequestHandler):
             # _check_manage_auth accepts, so hand it back as role=admin so the
             # client uses it as the manage Bearer token (never hides the gear).
             if _users.is_admin_user(name):
-                log.info("Secondary-admin login: %s", name)
+                log.info("Secondary-admin login: %s", loggable(name))
                 return self._json_cookie(
                     200,
                     {"role": "admin", "name": name, "token": token, "secondary": True},
                     self._session_cookie(token, remember),
                 )
-            log.info("User login: %s", name)
+            log.info("User login: %s", loggable(name))
             return self._json_cookie(
                 200,
                 {

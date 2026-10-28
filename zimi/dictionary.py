@@ -46,6 +46,7 @@ from urllib.parse import unquote
 
 from zimi import server as _srv
 from zimi import wikilang
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -1272,7 +1273,7 @@ def find_paths(name, word):
             if h["path"] != exact and h["path"] not in others:
                 others.append(h["path"])
     except Exception as e:
-        log.debug("title lookup failed for %s %r: %s", name, word, e)
+        log.debug("title lookup failed for %s %s: %s", loggable(name), loggable(repr(word)), loggable(e))
     return ([exact] if exact else []) + others, archive
 
 

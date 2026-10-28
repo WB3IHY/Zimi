@@ -72,6 +72,7 @@ import time
 
 import zimi.server as _srv
 from zimi import changes as _changes
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -343,7 +344,7 @@ def create_user(name, password, allowlist=None, role=None):
         }
         _save_users(users)
     log.info(
-        "User created: %s (role=%s, all_access=%s)", name.strip(), role, allow is None
+        "User created: %s (role=%s, all_access=%s)", loggable(name.strip()), loggable(role), loggable(allow is None)
     )
     return True, None
 
@@ -359,7 +360,7 @@ def delete_user(name):
         _drop_user_sessions_locked(_key(name))
     delete_user_data(name)  # their server-side bookmarks/history go with them
     delete_settings(name)
-    log.info("User deleted: %s", name)
+    log.info("User deleted: %s", loggable(name))
     return True, None
 
 
@@ -375,7 +376,7 @@ def set_password(name, password):
         _save_users(users)
         # A password change invalidates existing sessions (re-login required).
         _drop_user_sessions_locked(_key(name))
-    log.info("User password set: %s", name)
+    log.info("User password set: %s", loggable(name))
     return True, None
 
 
@@ -395,7 +396,7 @@ def set_allowlist(name, allowlist):
         rec["allowlist"] = allow
         rec["role"] = "limited" if isinstance(allow, list) else "user"
         _save_users(users)
-    log.info("User allowlist set: %s (all_access=%s)", name, allow is None)
+    log.info("User allowlist set: %s (all_access=%s)", loggable(name), loggable(allow is None))
     return True, None
 
 
@@ -417,7 +418,7 @@ def set_role(name, role, allowlist=None):
         rec["allowlist"] = allow
         _save_users(users)
         _drop_user_sessions_locked(_key(name))
-    log.info("User role set: %s → %s", name, role)
+    log.info("User role set: %s → %s", loggable(name), loggable(role))
     return True, None
 
 
@@ -480,7 +481,7 @@ def set_can_create(name, value):
         else:
             rec.pop("can_create", None)
         _save_users(users)
-    log.info("User can_create set: %s -> %s", name, bool(value))
+    log.info("User can_create set: %s -> %s", loggable(name), loggable(bool(value)))
     return True, None
 
 
@@ -566,7 +567,7 @@ def create_federated_user(name, role, identity):
             "last_login": int(time.time()),
         }
         _save_users(users)
-    log.info("Federated user created: %r (role=%r)", name.strip(), role)
+    log.info("Federated user created: %s (role=%s)", loggable(repr(name.strip())), loggable(repr(role)))
     return True, None
 
 
@@ -1159,7 +1160,7 @@ def load_settings(name):
     except FileNotFoundError:
         return _settings_doc(None)
     except (ValueError, OSError) as e:
-        log.warning("Could not read settings for %r: %s", name, e)
+        log.warning("Could not read settings for %s: %s", loggable(repr(name)), loggable(e))
         return _settings_doc(None)
 
 
@@ -1221,7 +1222,7 @@ def delete_settings(name):
     except FileNotFoundError:
         pass
     except OSError as e:
-        log.warning("Could not delete settings for %r: %s", name, e)
+        log.warning("Could not delete settings for %s: %s", loggable(repr(name)), loggable(e))
 
 
 def _safe_userdata_key(name):
@@ -1283,7 +1284,7 @@ def _read_user_data(name):
     except FileNotFoundError:
         return _empty_user_data()
     except (ValueError, OSError) as e:
-        log.warning("Could not read user data for %r: %s", name, e)
+        log.warning("Could not read user data for %s: %s", loggable(repr(name)), loggable(e))
         raise UserDataUnreadable(name) from e
     return data if isinstance(data, dict) else _empty_user_data()
 
@@ -1397,7 +1398,7 @@ def delete_user_data(name):
     except FileNotFoundError:
         pass
     except OSError as e:
-        log.warning("Could not delete user data for %s: %s", name, e)
+        log.warning("Could not delete user data for %s: %s", loggable(name), loggable(e))
 
 
 def all_user_data():
@@ -1467,7 +1468,7 @@ def restore_user_data(blobs, overwrite=False):
         if ok:
             written += 1
         else:
-            log.warning("Restore skipped user data for %s: %s", key, err)
+            log.warning("Restore skipped user data for %s: %s", loggable(key), loggable(err))
     return written
 
 
@@ -1581,7 +1582,7 @@ def set_public_access(mode, allowlist=None):
             {"version": _ACCESS_VERSION, "mode": mode, "allowlist": stored},
             indent=2,
         )
-    log.info("Public access set: mode=%s (allowlist=%d)", mode, len(stored))
+    log.info("Public access set: mode=%s (allowlist=%d)", loggable(mode), len(stored))
     return True, None
 
 

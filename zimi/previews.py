@@ -6,6 +6,7 @@ import re
 from urllib.parse import unquote
 
 from zimi import wikilang as _wikilang
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -772,7 +773,7 @@ def _extract_preview_gutenberg(html_str, archive, zim_name, path, entry, result)
             content = bytes(entry.get_item().content)
             gut_html = content.decode("utf-8", errors="replace")[:120000]
         except Exception as e:
-            log.debug("Failed to re-read Gutenberg cover content for %s: %s", path, e)
+            log.debug("Failed to re-read Gutenberg cover content for %s: %s", loggable(path), loggable(e))
             pass
     # Author: try data-author-name attribute first (modern ZIMs), then dc.creator meta
     author = None
@@ -1136,7 +1137,7 @@ def _extract_preview(archive, zim_name, path):
         html_str = content.decode("utf-8", errors="replace")[:80000]
     except Exception as e:
         log.debug(
-            "Failed to read entry for preview extract %s/%s: %s", zim_name, path, e
+            "Failed to read entry for preview extract %s/%s: %s", loggable(zim_name), loggable(path), loggable(e)
         )
         return result
 

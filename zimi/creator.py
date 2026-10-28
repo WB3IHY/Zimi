@@ -95,6 +95,7 @@ from zimi.zimwriter import (
     zim_name,
     zim_static_item_class,
 )
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi.creator")
 
@@ -2744,7 +2745,7 @@ def _fetch_icon_png(url, timeout):
         with _urlopen_retry(req, timeout) as resp:
             data = resp.read(MAX_FAVICON_BYTES + 1)
     except OSError as e:
-        log.debug("favicon fetch failed %s: %s", url, e)
+        log.debug("favicon fetch failed %s: %s", loggable(url), loggable(e))
         return None
     if data and len(data) <= MAX_FAVICON_BYTES:
         return illustration_from_image(data)
@@ -3822,7 +3823,7 @@ def _probe_icon_data_uri(final_url, timeout, page):
     try:
         png = site_illustration(final_url, min(timeout, PROBE_ICON_TIMEOUT), page=page)
     except Exception as e:
-        log.debug("probe could not fetch an icon for %s: %s", final_url, e)
+        log.debug("probe could not fetch an icon for %s: %s", loggable(final_url), loggable(e))
         return None
     if not png:
         return None
