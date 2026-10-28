@@ -1,7 +1,7 @@
 // 1.15.0 final fixes from the phone pass: the catalog's note only when it is
 // really stale, Capture's name, no repeated tab titles, the Apps list, no
 // recency dot on Home's count line, Zimi's category last, a game's Menu
-// toggle and veil, Find in app pages, ZimiGames' delete.
+// toggle and veil, ZimiGames' delete.
 //
 // Run: node tests/test_phone_pass_1150.cjs
 'use strict';
@@ -82,7 +82,7 @@ ok('a second tap on Menu closes the sheet', /what === 'menu' && _gameSheetOpen\(
 ok('the frame is watched for a sheet', /_watchGameSheets\(frame\)/.test(src) && /classList\.toggle\('game-sheet'/.test(src));
 const css = fs.readFileSync(path.join(root, 'app.css'), 'utf8');
 ok('the veil on the bar lets taps through', /body\.game-sheet \.topbar::after[^}]*pointer-events: none/.test(css));
-ok('Find in page is offered in app pages and games', !/_isAppPage\(\) && !_isPdfPage\(\);\n\}/.test(body('_findApplies')) && !/_isAppPage/.test(body('_findApplies')));
+ok('Find in page stays out of apps and games (f7a2a056: a game has no text to find)', /_isAppPage\(\)/.test(body('_findApplies')));
 
 // 10. Almanac pills rest at the start edge.
 const alm = fs.readFileSync(path.join(root, 'almanac.js'), 'utf8');
