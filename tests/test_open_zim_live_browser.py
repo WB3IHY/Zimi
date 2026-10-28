@@ -24,8 +24,8 @@ def _zim(tmp, version, out):
 
     src = tmp / ("src_" + version)
     src.mkdir()
-    (src / "index.html").write_text(PAGE % version)
-    (src / "zimi.txt").write_text("title: Live\n")
+    (src / "index.html").write_text(PAGE % version, encoding="utf-8")
+    (src / "zimi.txt").write_text("title: Live\n", encoding="utf-8")
     creator.create_folder_zim(str(src), out_path=str(out), register=False)
 
 

@@ -149,12 +149,14 @@ const check = (ok, label) => {
     let p = eng.startPosition(), ok = true, n = 0, drops = 0;
     for (; n < 60; n++) {
       const r = eng.think(p, { level: n % 2 ? 'beginner' : 'casual', ms: 80, depth: 2 });
-      if (!r.move) break;
+      if (!r.move) { ok = eng.status(p, [eng.key(p)]).over; break; }   // no move is only right when the game is over
       if (!eng.legalMoves(p).includes(r.move)) { ok = false; break; }
       if (eng.isDrop(r.move)) drops++;
       eng.make(p, r.move);
     }
-    check(ok && n >= 10, label + ': the computer plays legal moves for ' + n + ' plies (' + drops + ' drops)');
+    // The two weak levels may mate each other early on the small board: what is fixed is that every move was legal
+    // and the game either ran on or ended by the rules, never that it lasted ten plies.
+    check(ok, label + ': the computer plays legal moves for ' + n + ' plies (' + drops + ' drops)');
   }
 }
 

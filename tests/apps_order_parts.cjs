@@ -17,6 +17,7 @@ const PARTS = [
   /var _LIBRARY_SORTERS = \{[\s\S]*?\n\};/,
   /function _sortLibrary\(list\) \{[\s\S]*?\n\}/,
   /var _GAMES_ZIM = [^\n]*\n/,
+  /var _ALMANAC_ZIM = [^\n]*\n/,
   /var _OWN_APP_TITLE = [^\n]*\n/,
   /var _GAMES_SVG = [^\n]*\n/,
   /var _ALMANAC_SVG = [^\n]*\n/,

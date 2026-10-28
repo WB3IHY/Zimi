@@ -73,7 +73,7 @@ ok('and none is the default apps', !('zimiApps' in ctx.document.body.dataset) &&
 ok('every boot takes the stamp from /whoami, so a shell kept by Back is corrected (#98)',
   /if \(j && 'apps' in j\) _setAppsStamp\(j\.apps\);/.test(src));
 ok('an account\'s own picker lists only what the server offers',
-  /_appPicksHtml\(APP_NAMES\.filter\(_appsAllowedByServer\), _appShown, '_setUserApp'\)/.test(src));
+  /_appPicksHtml\(APP_NAMES\.filter\(_appsAllowedByServer\), _appShown, '_setUserApp'[,)]/.test(src));
 ctx._userSession = { name: 'eric' };
 ok('a signed-in account with no preference sees Zimipedia by default', ctx._appShown('wiki') && ctx._appShown('books'));
 ctx._userSession = null;

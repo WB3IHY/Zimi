@@ -46,7 +46,7 @@ def tides_file(tmp_path_factory):
 @pytest.mark.skipif(not NODE, reason="node is not installed")
 def test_the_tide_stations_are_the_servers(tides_file, tmp_path):
     script = tmp_path / "run.js"
-    script.write_text(NODE_SCRIPT)
+    script.write_text(NODE_SCRIPT, encoding="utf-8")
     got = json.loads(
         subprocess.run(
             [NODE, str(script), LOCAL_JS, tides_file, json.dumps(PLACES), json.dumps(QUERIES)],
@@ -64,8 +64,8 @@ def test_the_stage_packs_both_snapshots(tmp_path):
     dest = tmp_path / "stage"
     dest.mkdir()
     stage.stage(str(dest))
-    sats = json.loads((dest / "data" / "satellites-snapshot.json").read_text())
+    sats = json.loads((dest / "data" / "satellites-snapshot.json").read_text(encoding="utf-8"))
     assert sats["gps"] and sats["iss"] and sats["fetched_at"]
-    tides = json.loads((dest / "data" / "tides-snapshot.json").read_text())
+    tides = json.loads((dest / "data" / "tides-snapshot.json").read_text(encoding="utf-8"))
     assert len(tides["stations"]) > 3000
     assert (dest / "local.js").exists()

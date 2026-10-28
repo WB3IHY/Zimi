@@ -31,9 +31,9 @@ def _zim(tmp, version, out):
 
     src = tmp / ("src_" + version)
     src.mkdir()
-    (src / "index.html").write_text(PAGE)
-    (src / "text.js").write_text('window.TEXT = "%s";' % version)
-    (src / "zimi.txt").write_text("title: Freshness\n")
+    (src / "index.html").write_text(PAGE, encoding="utf-8")
+    (src / "text.js").write_text('window.TEXT = "%s";' % version, encoding="utf-8")
+    (src / "zimi.txt").write_text("title: Freshness\n", encoding="utf-8")
     creator.create_folder_zim(str(src), out_path=str(out), register=False)
 
 
@@ -112,7 +112,7 @@ def test_a_rebuilt_own_zim_is_a_different_worker(tmp_path):
     def version(stamp):
         d = tmp_path / stamp
         d.mkdir(exist_ok=True)
-        (d / "zimi_games_2026-10.zim.source").write_text(stamp + "\n")
+        (d / "zimi_games_2026-10.zim.source").write_text(stamp + "\n", encoding="utf-8")
         ownzims.OUT_DIR = str(d)
         return http.own_zims_version()
 
