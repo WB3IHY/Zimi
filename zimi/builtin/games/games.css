@@ -225,21 +225,28 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
 .sh-fam-art { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); overflow: hidden; }
 .sh-fam-art img { display: block; width: 100%; height: 100%; object-fit: cover; aspect-ratio: 16 / 9; }
 .sh-fam-panel { display: none; }
-.sh-fam[data-open="true"] { display: block; grid-column: 1 / -1; }
-.sh-fam[data-open="true"] .sh-fam-card { flex-direction: row; align-items: center; width: 100%; margin-bottom: 14px; box-shadow: none; border-color: var(--accent-line); }
-.sh-fam[data-open="true"] .sh-fam-art { flex: 0 0 min(34%, 160px); width: min(34%, 160px); aspect-ratio: 16 / 9; }
-.sh-fam[data-open="true"] .sh-fam-card .ar-game-text { flex: 1; }
-.sh-fam[data-open="true"] .sh-fam-card .ar-game-text span { -webkit-line-clamp: 3; }
-.sh-fam[data-open="true"] .sh-fam-panel { display: grid; }
-[data-sec="search"] .sh-fam, [data-sec="search"] .sh-fam[data-open="true"], [data-sec="search"] .sh-fam .sh-fam-panel, [data-sec="search"] .sh-fam[data-open="true"] .sh-fam-panel { display: contents; }
+/* The disclosure: how many games it holds and a chevron that turns when it is open. */
+.sh-fam-tag { position: absolute; top: 8px; inset-inline-end: 8px; display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px 3px 9px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); font-size: var(--fs-small); font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.sh-fam-tag svg { width: 12px; height: 12px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s; }
+.sh-fam.sh-open .sh-fam-tag svg { transform: rotate(180deg); }
+.sh-fam-card:hover .sh-fam-tag, .sh-fam-card:focus-visible .sh-fam-tag { border-color: var(--accent); }
+@media (prefers-reduced-motion: no-preference) { .sh-fam.sh-open .sh-fam-panel { animation: sh-fam-in 0.24s ease-out; } @keyframes sh-fam-in { from { opacity: 0; transform: translateY(-8px); } } }
+.sh-fam.sh-open { display: block; grid-column: 1 / -1; }
+.sh-fam.sh-open .sh-fam-card { flex-direction: row; align-items: center; width: 100%; margin-bottom: 14px; box-shadow: none; border-color: var(--accent-line); }
+.sh-fam.sh-open .sh-fam-art { flex: 0 0 min(34%, 160px); width: min(34%, 160px); aspect-ratio: 16 / 9; }
+.sh-fam.sh-open .sh-fam-card .ar-game-text { flex: 1; }
+.sh-fam.sh-open .sh-fam-card .ar-game-text span { -webkit-line-clamp: 3; }
+.sh-fam.sh-open .sh-fam-panel { display: grid; }
+[data-sec="search"] .sh-fam, [data-sec="search"] .sh-fam.sh-open, [data-sec="search"] .sh-fam .sh-fam-panel, [data-sec="search"] .sh-fam.sh-open .sh-fam-panel { display: contents; }
 [data-sec="search"] .sh-fam .sh-fam-card { display: none; }
 [data-view="index"] .sh-fam-card { box-shadow: none; }
 [data-view="index"] .sh-fam-art { flex: 0 0 96px; width: 96px; height: 54px; aspect-ratio: auto; border-radius: var(--r-chip); }
-[data-view="index"] .sh-fam[data-open="true"] .sh-fam-art { flex-basis: 96px; width: 96px; }
-[data-view="index"] .sh-fam[data-open="true"] .sh-fam-card { margin-bottom: 8px; }
+[data-view="index"] .sh-fam.sh-open .sh-fam-art { flex-basis: 96px; width: 96px; }
+[data-view="index"] .sh-fam.sh-open .sh-fam-card { margin-bottom: 8px; }
 [data-view="index"] .sh-fam-panel { padding-left: 14px; }
 [data-view="index"] .sh-fam-card { width: 100%; }
-[data-view="index"] .sh-fam[data-open="true"] .sh-fam-card::after { transform: rotate(135deg); }
+[data-view="index"] .sh-fam-card::after { display: none; }
+[data-view="index"] .sh-fam-tag { position: static; margin-inline-start: auto; flex: none; }
 .sh-fam[hidden] { display: none; }
 
 /* Lobby: Continue is a row you scroll, the day's game sits beside it. */
@@ -307,6 +314,15 @@ html[data-anim="off"] *, html[data-anim="off"] *::before, html[data-anim="off"] 
   [data-view="index"] .ar-today .ar-game-text span { white-space: normal; display: -webkit-box; }
 }
 .ar-foot { margin-top: 32px; color: var(--ink2); font-size: var(--fs-small); }
+/* The credits: closed until asked for, the long list of licences out of the way of the games. */
+.ar-foot > summary { display: inline-flex; align-items: center; gap: 6px; min-height: var(--target); cursor: pointer; font-weight: 650; list-style: none; }
+.ar-foot > summary::-webkit-details-marker { display: none; }
+.ar-foot > summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid var(--ink3); border-bottom: 2px solid var(--ink3); transform: translateY(-2px) rotate(45deg); transition: transform 0.2s; }
+.ar-foot[open] > summary::after { transform: translateY(1px) rotate(225deg); }
+.ar-foot > summary:hover { color: var(--ink); }
+.ar-foot > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-chip); }
+.ar-foot > p { margin: 0 0 8px; line-height: 1.5; }
+@media (prefers-reduced-motion: no-preference) { .ar-foot[open] > p { animation: sh-fam-in 0.24s ease-out; } }
 
 /* The order control: Zimi's Home sort (a mark, the order it is in; the native select lies over it unseen). */
 .sh-sort-wrap { position: relative; flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 2px 4px; border-radius: var(--r-chip); font-size: var(--fs-small); font-weight: 500; color: var(--ink2); cursor: pointer; white-space: nowrap; }
@@ -440,7 +456,14 @@ html[data-anim="fast"] :not(.bg-spin, .gs-turn i) { transition-duration: 0.1s !i
 .gs-text { margin: 0; color: var(--ink2); }
 .gs-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .gs-options { display: grid; gap: 4px; }
-.gs-more { justify-content: flex-start; margin-top: var(--sp-2); text-decoration: none; }
+.gs-more { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: var(--target); margin-top: var(--sp-2); padding: var(--sp-2) var(--sp-3); box-sizing: border-box; border: 1px solid var(--line); border-radius: var(--r-chip); background: none; color: var(--ink); text-decoration: none; }
+.gs-more:visited { color: var(--ink); }
+.gs-more:hover, .gs-more:focus-visible { border-color: var(--accent); }
+.gs-more-text { display: grid; gap: 2px; min-width: 0; font-size: var(--fs-small); line-height: 1.3; }
+.gs-more-text small { font-size: 12px; font-weight: 650; letter-spacing: 0.02em; color: var(--ink2); }
+.gs-more-chev { flex: none; color: var(--ink3); }
+.gs-more:hover .gs-more-chev { color: var(--accent); }
+[dir="rtl"] .gs-more-chev { transform: scaleX(-1); }
 .gs-note { flex: 1 1 100%; margin: 0; font-size: var(--fs-small); color: var(--ink2); }
 .gs-scope { display: grid; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .gs-scope > span { font-size: var(--fs-small); font-weight: 600; color: var(--ink2); }

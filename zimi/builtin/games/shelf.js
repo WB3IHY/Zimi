@@ -152,6 +152,7 @@
   var GRID_ICON = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="2" width="4.5" height="4.5" rx="1"/><rect x="9.5" y="2" width="4.5" height="4.5" rx="1"/><rect x="2" y="9.5" width="4.5" height="4.5" rx="1"/><rect x="9.5" y="9.5" width="4.5" height="4.5" rx="1"/></svg>';
   var SEARCH_ICON = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>';
   // Zimi's Home sort mark (static/app.js _LIB_SORT_SVG).
+  var CHEVRON_ICON = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
   var SORT_ICON = '<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg>';
   var VIEW_LABEL = { lobby: 'shelf.view.lobby', index: 'shelf.view.index' };
   var SVG_NS = 'http://www.w3.org/2000/svg';
@@ -197,6 +198,7 @@
       if (attr) node.setAttribute(attr, T(key)); else node.textContent = T(key);
     };
     swap(intro, 'shelf.intro');
+    swap(doc.querySelector('#ar-credits > summary'), 'shelf.credits');
     doc.documentElement.style.setProperty('--play-label', JSON.stringify(T('shelf.play')));
     Array.prototype.forEach.call(shelf.querySelectorAll('.sh-list > .ar-section'), function (s) {
       var h = s.querySelector('h2'), key = 'shelf.section.' + (h.id || '').replace(/^ar-/, '');
@@ -253,19 +255,30 @@
     var text = el('span', 'ar-game-text');
     text.appendChild(el('strong')).textContent = node.getAttribute('data-name');
     text.appendChild(el('span')).textContent = T('shelf.family.line', { n: tiles.length, line: node.getAttribute('data-line') });
+    var tag = el('span', 'sh-fam-tag');
+    tag.appendChild(el('b')).textContent = String(tiles.length);
+    tag.insertAdjacentHTML('beforeend', CHEVRON_ICON);
     card.appendChild(art);
     card.appendChild(text);
+    card.appendChild(tag);
     var panel = el('div', 'ar-games sh-fam-panel');
     tiles.forEach(function (t) { panel.appendChild(t); });
     node.classList.add('sh-fam');
     node.appendChild(card);
     node.appendChild(panel);
-    card.addEventListener('click', function () {
-      var open = node.getAttribute('data-open') !== 'true';
-      node.setAttribute('data-open', String(open));
-      card.setAttribute('aria-expanded', String(open));
+    var fam = { node: node, tiles: tiles, panel: panel, card: card, user: null };
+    card.addEventListener('click', function () { fam.user = !node.classList.contains('sh-open'); syncFamilies(); });
+    return fam;
+  }
+  // A section on its own shows every game it holds, so its number is what is on the screen: its families are open
+  // (a family card chosen by hand stays as the player left it until the section changes).
+  function syncFamilies() {
+    var isolated = state.q.trim() === '' && state.sec !== 'all' && state.sec !== 'recent';
+    families.forEach(function (f) {
+      var open = f.user === null ? isolated : f.user;
+      f.node.classList.toggle('sh-open', open);
+      f.card.setAttribute('aria-expanded', String(open));
     });
-    return { node: node, tiles: tiles, panel: panel };
   }
 
   var state = { view: stored(VIEW_KEY, VIEWS, 'lobby'), sort: stored(SORT_KEY, SORTS, 'sections'), sec: 'all', q: '' };
@@ -506,7 +519,10 @@
     if (!tableCount && state.sec === 'recent') state.sec = defaultSection();
   }
 
+  var lastSec = null;
   function apply() {
+    if (state.sec !== lastSec) { lastSec = state.sec; families.forEach(function (f) { f.user = null; }); }
+    syncFamilies();
     var q = state.q.trim().toLowerCase();
     var searching = q !== '';
     shelf.dataset.view = state.view;

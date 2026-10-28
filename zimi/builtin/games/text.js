@@ -4632,6 +4632,7 @@
  "seats.show": "I'm {name}, show my cards",
  "shelf.chip.all": "All games",
  "shelf.chip.recent": "Recent",
+ "shelf.credits": "Credits",
  "shelf.era.ancient": "Ancient",
  "shelf.era.ancient.note": "before AD 500",
  "shelf.era.medieval": "Medieval and after",

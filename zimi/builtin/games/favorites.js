@@ -56,10 +56,12 @@
     return a;
   }
 
-  // A row to swipe along, not a grid: a heart is a bookmark, and a long list must not push the shelf down.
-  var STYLE = '.ar-favorites .ar-games { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 4px; }' +
-    '.ar-favorites .ar-game { flex: 0 0 132px; scroll-snap-align: start; }' +
-    '.ar-favorites .ar-game-text { padding: 8px 10px 10px; }';
+  // Lobby: a row to swipe along (a heart is a bookmark, and a long list must not push the shelf down), the tiles as wide as
+  // the shelf's own. Index: the shelf's own rows, which every other section lays out; the row's flex-basis there squeezed
+  // the row layout's art and arrow until the title read "S".
+  var STYLE = '[data-view="lobby"] .ar-favorites .ar-games { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 4px; }' +
+    '[data-view="lobby"] .ar-favorites .ar-game { flex: 0 0 132px; min-width: 132px; scroll-snap-align: start; }' +
+    '[data-view="lobby"] .ar-favorites .ar-game-text { padding: 8px 10px 10px; }';
 
   function draw() {
     var top = doc.querySelector('.sh-top'), items = favorites();
