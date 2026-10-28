@@ -81,10 +81,10 @@ def test_win_has_its_mark_confetti_and_a_rest_that_starts_a_new_game(browser, ba
     page.wait_for_selector(".gs-m-conf", state="attached")
     assert page.locator(".gs-m-conf").count() >= 30
     visible(page, ".ar-sheet-card h2", BEAT_WAIT_MS)
-    assert page.locator(".ar-sheet-card h2").inner_text() == "You win!"
+    assert page.locator(".ar-sheet-card h2").inner_text() == "You won!"
     page.locator(".ar-sheet-actions .ar-btn", has_text="Close").click()
     visible(page, ".gs-rest")
-    assert "You win!" in page.locator(".gs-rest p").inner_text()
+    assert "You won!" in page.locator(".gs-rest p").inner_text()
     btn = page.locator(".gs-rest .gs-rest-new")
     assert btn.bounding_box()["height"] >= 56
     btn.click()
