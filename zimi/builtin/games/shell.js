@@ -924,6 +924,8 @@
     if (source) body.appendChild(h('p', { class: 'gs-text gs-source', text: source }));
     factRows(row, ABOUT_FACTS).forEach(function (f) { facts.appendChild(h('dt', { text: T(f[0]) })); facts.appendChild(h('dd', { text: f[1] })); });
     if (facts.childNodes.length) body.appendChild(facts);
+    // The game's own article (about.html finds it in the library, or says where it would be).
+    if (row.qid) body.appendChild(h('p', { class: 'gs-text' }, [h('a', { href: HOME + 'about.html#qid=' + row.qid, text: T('shell.about.read', { game: gameWord(stem, 'title') || row.title }) })]));
     var pz = /^puzzles\/([a-z]+)\.html$/.exec(row.path || '');
     if (pz) {
       body.appendChild(h('p', { class: 'gs-text', text: T('shell.about.credit') }));
@@ -1017,6 +1019,8 @@
   var HOST_CSS = 'html.gs-hosted .ar-bar > :not(.ar-stat):not(#ms-flagmode) { display: none !important; }' +
     'html.gs-hosted .ar-bar:not(:has(.ar-stat, #ms-flagmode)) { display: none; }' +
     'html.gs-hosted .ar-bar { min-height: 0; padding-block: 4px; justify-content: flex-end; }' +
+    // A sheet covers the whole page here: the strip of score left of the bar is not a control to keep in reach.
+    'html.gs-hosted body .ar-sheet { top: 0; }' +
     'html.gs-hosted .ar-shelf .ar-brand, html.gs-hosted .ar-shelf > header > p { display: none; }';
   // The bar carried the pebble; here it is hidden behind Zimi's header. The pebble lies on the ground of the game instead, 20px in
   // the bottom-right corner, under everything (the felt of a card table, the page's ground elsewhere): a maker's mark on the table,

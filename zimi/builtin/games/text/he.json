@@ -4814,6 +4814,7 @@
  "shelf.year.bc": "כ־{y} לפנה״ס",
  "shell.about.credit": "החידה הזו היא חלק מ-Portable Puzzle Collection של Simon Tatham, זכויות יוצרים 2004–2024 Simon Tatham ותורמים רבים, ברישיון MIT. ZimiGames מוסיף את הדף שסביבה ומריץ אותה ללא שינוי.",
  "shell.about.licence": "הרישיון",
+ "shell.about.read": "קראו על {game}",
  "shell.about.manual": "המדריך המלא (באנגלית)",
  "shell.back": "חזרה",
  "shell.cancel": "ביטול",

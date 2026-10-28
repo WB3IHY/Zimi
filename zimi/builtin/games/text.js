@@ -4735,6 +4735,7 @@
  "shell.about.credit": "This puzzle is part of Simon Tatham’s Portable Puzzle Collection, copyright 2004–2024 Simon Tatham and many contributors, under the MIT licence. ZimiGames adds the page around it and runs it unchanged.",
  "shell.about.licence": "The licence",
  "shell.about.manual": "Full manual (in English)",
+ "shell.about.read": "Read about {game}",
  "shell.back": "Back",
  "shell.cancel": "Cancel",
  "shell.choose": "Choose…",
