@@ -52,6 +52,42 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   put(g, 'I', 1, 7, 5);
   check(S.rotate(g, -1) && g.cur.rot === 0 && S.pieceCells(g.cur).every(p => p[0] < S.COLS), 'stacker: I kicks off the right wall when turned back');
 
+  // The landing ghost: for every piece, every turn either way and every kick the table can ask for, the cells it marks are exactly
+  // the cells a hard drop then locks (a ghost drawn anywhere else, or not at all, is what a player cannot trust).
+  {
+    const clone = (gm) => JSON.parse(JSON.stringify({ board: gm.board, cur: gm.cur }));
+    const cellsOf = (b) => { const o = []; b.forEach((row, y) => row.forEach((v, x) => { if (v) o.push(x + ',' + y); })); return o.sort(); };
+    let seen = {}, bad = 0, runs = 0;
+    for (let seed = 1; seed <= 400; seed++) {
+      for (const type of 'IOTSZJL') {
+        for (let rot = 0; rot < 4; rot++) {
+          for (const dir of [1, -1]) {
+            const gm = S.createGame(seed);
+            for (let r = 6; r < S.ROWS; r++) for (let c = 0; c < S.COLS; c++) if (((r * 7 + c * 13 + seed * 5) % 5) === 0) gm.board[r][c] = 1;   // a ragged stack, same every run
+            const x = ((seed * 3) % 12) - 2, y = (seed % 9);
+            if (S.collides(gm.board, type, rot, x, y)) continue;
+            gm.cur = { type, rot, x, y };
+            if (!S.rotate(gm, dir)) continue;   // a turn that fits nowhere changes nothing: nothing to land
+            seen[type + (gm.cur.kick || 0)] = true;
+            const marked = S.landing(gm).map(p => p.join(',')).sort();
+            const before = cellsOf(gm.board);
+            const dropped = clone(gm);
+            const probe = S.createGame(1);
+            probe.board = dropped.board; probe.cur = dropped.cur;
+            S.hardDrop(probe);
+            // hardDrop clears full rows: compare on a board with no row able to fill
+            const locked = cellsOf(probe.board).filter(k => before.indexOf(k) < 0);
+            runs++;
+            const ok = !S.collides(gm.board, type, gm.cur.rot, ...[gm.cur.x, S.ghostY(gm)]) && S.collides(gm.board, type, gm.cur.rot, gm.cur.x, S.ghostY(gm) + 1);
+            if (!ok || (probe.lines === 0 && JSON.stringify(locked) !== JSON.stringify(marked))) bad++;
+          }
+        }
+      }
+    }
+    check(runs > 1000 && bad === 0, 'stacker: the landing ghost is exactly where a hard drop locks, after every turn and kick (' + runs + ' turns, ' + bad + ' wrong)');
+    check([1, 2, 3, 4].every(k => 'IJLSTZ'.split('').some(t => seen[t + k])) && [1, 2, 3, 4].some(k => seen['I' + k]), 'stacker: the turns above reached wall kicks 1 to 4, not only the plain turn');
+  }
+
   // A turn that fits nowhere is refused and changes nothing.
   g = S.createGame(4);
   put(g, 'I', 0, 3, 5);

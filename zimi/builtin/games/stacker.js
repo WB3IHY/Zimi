@@ -152,6 +152,11 @@
   function pieceCells(c) {
     return ROT[c.type][c.rot].map(function (p) { return [c.x + p[0], c.y + p[1]]; });
   }
+  // The cells a hard drop would lock: the piece as it is now (its pose, its place after any turn or kick) dropped to the floor.
+  function landing(g) {
+    var c = g.cur;
+    return pieceCells({ type: c.type, rot: c.rot, x: c.x, y: ghostY(g) });
+  }
 
   // Fix the piece in the well, clear full rows, score, bring the next piece.
   // Returns { cleared, lockedOut }.
@@ -203,7 +208,7 @@
   var Engine = {
     COLS: COLS, ROWS: ROWS, HIDDEN: HIDDEN, TYPES: TYPES, ROT: ROT, LINE_SCORE: LINE_SCORE,
     createGame: createGame, collides: collides, move: move, stepDown: stepDown, rotate: rotate,
-    grounded: grounded, ghostY: ghostY, pieceCells: pieceCells, lock: lock, hardDrop: hardDrop,
+    grounded: grounded, ghostY: ghostY, landing: landing, pieceCells: pieceCells, lock: lock, hardDrop: hardDrop,
     holdPiece: holdPiece, nextTypes: nextTypes, gravityMs: gravityMs, levelFor: levelFor,
     kickOffsets: kickOffsets, emptyBoard: emptyBoard
   };
@@ -223,6 +228,8 @@
   var FIELD = '#0e0e10', FIELD_LINE = 'rgba(255, 255, 255, 0.07)';
   var BEST_KEY = 'zimi.games.stacker.best';
   var NEXT_SHOWN = 3, CLEAR_FLASH_MS = 260;
+  var GHOST_TINT = 0.22, GHOST_LINE = 0.95;
+  var GHOST_OVER_PIECE = '#ffffff';   // the landing's outline where the piece itself is on top of it
   Play.applyTheme();
 
   var els = {
@@ -261,7 +268,9 @@
   function block(c, x, y, size, color, ghost) {
     var pad = Math.max(1, size * 0.06);
     if (ghost) {
-      c.strokeStyle = color; c.globalAlpha = 0.55; c.lineWidth = 2;
+      // A tint and a bright outline: the piece's own colour at half strength vanished against the dark well.
+      c.fillStyle = color; c.globalAlpha = GHOST_TINT; c.fillRect(x + pad, y + pad, size - 2 * pad, size - 2 * pad);
+      c.strokeStyle = color; c.globalAlpha = GHOST_LINE; c.lineWidth = 2;
       c.strokeRect(x + pad + 1, y + pad + 1, size - 2 * pad - 2, size - 2 * pad - 2);
       c.globalAlpha = 1;
       return;
@@ -287,12 +296,15 @@
       for (var c = 0; c < COLS; c++) if (g.board[r][c]) block(ctx, c * cs, (r - HIDDEN) * cs, cs, pal.types[g.board[r][c] - 1]);
     }
     if (!g.over) {
-      var cur = g.cur, color = pal.types[TYPES.indexOf(cur.type)], gy = ghostY(g);
-      ROT[cur.type][cur.rot].forEach(function (p) {
-        var gyr = gy + p[1] - HIDDEN;
-        if (gyr >= 0 && gy !== cur.y) block(ctx, (cur.x + p[0]) * cs, gyr * cs, cs, color, true);
-      });
+      var cur = g.cur, color = pal.types[TYPES.indexOf(cur.type)], held = {};
+      pieceCells(cur).forEach(function (p) { held[p[0] + ',' + p[1]] = true; });
+      // Where a hard drop lands: outlined under the piece, and on top of it where the two overlap (a tall piece a row or two
+      // above its landing would otherwise hide it). Nothing when it is already there.
+      var mark = grounded(g) ? [] : landing(g).filter(function (p) { return p[1] >= HIDDEN; });
+      var outline = function (p, c) { block(ctx, p[0] * cs, (p[1] - HIDDEN) * cs, cs, c, true); };
+      mark.forEach(function (p) { if (!held[p[0] + ',' + p[1]]) outline(p, color); });
       pieceCells(cur).forEach(function (p) { if (p[1] >= HIDDEN) block(ctx, p[0] * cs, (p[1] - HIDDEN) * cs, cs, color); });
+      mark.forEach(function (p) { if (held[p[0] + ',' + p[1]]) outline(p, GHOST_OVER_PIECE); });
     }
     drawFlash(W);
     drawMini(hctx, els.hold, g.hold ? [g.hold] : [], g.canHold ? 1 : 0.4);
@@ -476,5 +488,5 @@
     }
   });
   // A read-only window onto the live game, for the browser tests.
-  root.__stacker = { get g() { return g; }, get mode() { return mode; } };
+  root.__stacker = { get g() { return g; }, get mode() { return mode; }, get cell() { return cs; }, draw: draw };
 })(this);
