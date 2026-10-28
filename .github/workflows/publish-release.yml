@@ -154,6 +154,7 @@ jobs:
       - name: Sign updates and update appcasts
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          TAG: ${{ github.event.release.tag_name }}
         run: |
           if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
             echo "SPARKLE_PRIVATE_KEY not set, skipping update signing"
@@ -164,9 +165,10 @@ jobs:
           # signatures that WinSparkle verifies too, so one keypair signs the
           # mac DMGs and the Windows installer alike.
           curl -sL --retry 5 --retry-all-errors --retry-delay 5 "https://github.com/sparkle-project/Sparkle/releases/download/2.8.1/Sparkle-2.8.1.tar.xz" -o /tmp/sparkle.tar.xz
+          # sign_update gets the private key, so the archive must be the one pinned.
+          echo "5cddb7695674ef7704268f38eccaee80e3accbf19e61c1689efff5b6116d85be  /tmp/sparkle.tar.xz" | shasum -a 256 -c -
           tar -xf /tmp/sparkle.tar.xz -C /tmp
 
-          TAG="${{ github.event.release.tag_name }}"
           VERSION="${TAG#v}"
           REPO="epheterson/Zimi"
 
@@ -236,19 +238,21 @@ jobs:
           git add appcast-intel.xml appcast-arm64.xml appcast-windows.xml
           git diff --cached --quiet && echo "No appcast changes" || {
             git commit -m "Update appcasts for ${TAG}"
+            # The job waited for the files; main may have moved meanwhile.
+            git pull --rebase origin main
             git push origin main
           }
 
       - name: Update Homebrew cask
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
         run: |
           if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
             echo "HOMEBREW_TAP_TOKEN not set, skipping cask update"
             exit 0
           fi
 
-          TAG="${{ github.event.release.tag_name }}"
           VERSION="${TAG#v}"
 
           # Compute SHA256 for both DMGs

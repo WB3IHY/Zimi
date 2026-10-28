@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Security
 
-- Pillow 13.0 or newer everywhere, which fixes 39 advisories in the 12.x line.
+- Pillow 13.0 or newer in the requirements files and the Docker image, which fixes 39 advisories in the 12.x line.
 
 ### Fixed
 

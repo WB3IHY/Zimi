@@ -23,6 +23,10 @@ from urllib.parse import parse_qs, quote, unquote, urlparse
 from libzim.reader import Archive
 
 
+# libzim's Archive is not safe to use from two threads at once (a crash, no traceback).
+_ARCHIVE_LOCK = threading.Lock()
+
+
 class _Handler(http.server.BaseHTTPRequestHandler):
     books = {}  # name -> (Archive, language, title)
     games = ""
@@ -60,6 +64,10 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self.do_GET(head=True)
 
     def do_GET(self, head=False):
+        with _ARCHIVE_LOCK:
+            return self._get(head)
+
+    def _get(self, head):
         u = urlparse(self.path)
         path, qs = unquote(u.path), parse_qs(u.query)
         if path == "/catalog/v2/entries":

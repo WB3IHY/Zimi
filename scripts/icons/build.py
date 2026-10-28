@@ -12,11 +12,15 @@ sky of one fixed day (astro.py, glitter.py, splat.py are its helpers).  Run from
 """
 import math, os, re, datetime as dt
 import astro
-import sys, tempfile
+import argparse, sys, tempfile
 HERE = os.path.dirname(os.path.abspath(__file__)); REPO = os.path.dirname(os.path.dirname(HERE))
-def _arg(name, default):
-    return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else default
-OUT = _arg('--out', os.environ.get('ZIMI_ICONS_OUT') or os.path.join(tempfile.gettempdir(), 'zimi-icons')); os.makedirs(OUT, exist_ok=True)
+# argparse, so a misspelt flag stops the run instead of passing a drift check by not doing it
+_ap = argparse.ArgumentParser(description='Build the Zimi mark and the ZIM icons.')
+_ap.add_argument('--out', default=os.environ.get('ZIMI_ICONS_OUT') or os.path.join(tempfile.gettempdir(), 'zimi-icons'))
+for _flag in ('apply', 'icons', 'check', 'review'):
+    _ap.add_argument('--' + _flag, action='store_true')
+ARGS = _ap.parse_args()
+OUT = ARGS.out; os.makedirs(OUT, exist_ok=True)
 GRAD = '<stop offset="0" stop-color="#f59e0b"/><stop offset=".5" stop-color="#f97316"/><stop offset="1" stop-color="#ef4444"/>'
 
 # The Z in icon.png: SF Compact Black, glyph "Z" straight from /System/Library/Fonts/SFCompact.ttf
@@ -912,10 +916,10 @@ def review():
             'section{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-bottom:24px}img{max-width:100%;height:auto}figure{margin:0;text-align:center}</style>'
             f'<section>{row("zimigames.svg")}</section><section>{row("almanac.svg")}</section><section><img src="{uri("mark.svg")}" width="220"></section>')
     open(os.path.join(OUT, 'board.html'), 'w').write(html)
-if '--apply' in sys.argv: apply_to_repo()
-if '--check' in sys.argv:
+if ARGS.apply: apply_to_repo()
+if ARGS.check:
     d = drift(); print('drifted: ' + ', '.join(d) if d else 'icons: clean'); sys.exit(1 if d else 0)
-if '--review' in sys.argv: review(); print(os.path.join(OUT, 'board.html'))
-if '--icons' in sys.argv:
+if ARGS.review: review(); print(os.path.join(OUT, 'board.html'))
+if ARGS.icons:
     rasterise(os.path.join(OUT, 'zimigames.svg'), os.path.join(GAMES, 'icon.png'))
     rasterise(os.path.join(OUT, 'almanac.svg'), os.path.join(REPO, 'zimi', 'builtin', 'almanac', 'icon.png'))

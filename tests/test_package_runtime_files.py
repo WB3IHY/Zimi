@@ -65,6 +65,8 @@ def test_the_source_the_zims_were_built_from_does_not_ship(rel):
 
 
 def test_the_built_zims_ship_everywhere():
+    zims = sorted(z.name for z in BUILTIN.glob("*.zim"))
+    assert [re.sub(r"_\d{4}-\d{2}\.zim$", "", n) for n in zims] == ["zimi_almanac", "zimi_games"], zims
     for z in BUILTIN.glob("*.zim"):
         assert _shipped_by_pyproject(z.name) and _shipped_by_dockerignore(z.name), z.name
 

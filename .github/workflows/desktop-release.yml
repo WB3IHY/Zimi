@@ -136,6 +136,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           curl -sL --retry 5 --retry-all-errors --retry-delay 5 "https://github.com/sparkle-project/Sparkle/releases/download/2.8.1/Sparkle-2.8.1.tar.xz" -o /tmp/sparkle.tar.xz
+          echo "5cddb7695674ef7704268f38eccaee80e3accbf19e61c1689efff5b6116d85be  /tmp/sparkle.tar.xz" | shasum -a 256 -c -
           tar -xf /tmp/sparkle.tar.xz -C /tmp
           cp -R /tmp/Sparkle.framework Sparkle.framework
           echo "Sparkle.framework ready ($(du -sh Sparkle.framework | cut -f1))"
@@ -673,7 +674,10 @@ jobs:
             echo "::warning::no SBOM this release; the builds ship without it"
           fi
           # Zimi's own ZIMs (zimi/ownzims.py), for Kiwix and any other reader.
-          cp zimi/builtin/*.zim release/
+          # A tag from before they existed has none, and that is no reason to stop.
+          for z in zimi/builtin/*.zim; do
+            if [ -e "$z" ]; then cp "$z" release/; fi
+          done
           ls -la release
 
       # A GitHub build-provenance attestation for every file that ships.
@@ -713,4 +717,9 @@ jobs:
 
           Or `pip install --upgrade zimi` for Python installs.
           ENDNOTES
-          gh release create "$TAG" release/* --draft --verify-tag --title "Zimi $TAG" --notes-file notes.md
+          # No half-filled draft is left to be published: if the create or an
+          # upload fails, the draft goes and the re-run starts clean.
+          if ! gh release create "$TAG" release/* --draft --verify-tag --title "Zimi $TAG" --notes-file notes.md; then
+            gh release delete "$TAG" --yes || true
+            exit 1
+          fi
