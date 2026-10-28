@@ -24,7 +24,14 @@ READ_GHOST = """() => {
   st.draw();
   const marked = S.landing(g).filter(p => p[1] >= HID);
   // the outline runs along the inside of each cell's border: sample the middle of its left edge
-  const seen = marked.map(p => lit(px(p[0] * cs + Math.max(1, cs * 0.06) + 1, (p[1] - HID) * cs + cs / 2)));
+  // Under the piece itself the fill is lit whatever is drawn, so there the outline must differ from the piece's own interior pixel.
+  const held = new Set(S.pieceCells(g.cur).map(p => p.join(',')));
+  const far = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) > 24;
+  const seen = marked.map(p => {
+    const edge = px(p[0] * cs + Math.max(1, cs * 0.06) + 1, (p[1] - HID) * cs + cs / 2);
+    if (!held.has(p.join(','))) return lit(edge);
+    return far(edge, px(p[0] * cs + cs / 2, (p[1] - HID) * cs + cs / 2));
+  });
   return { n: marked.length, seen };
 }"""
 
@@ -52,7 +59,10 @@ def site():
 def page(site):
     sync_api = pytest.importorskip("playwright.sync_api")
     with sync_api.sync_playwright() as p:
-        b = p.webkit.launch()
+        try:
+            b = p.webkit.launch()
+        except Exception as e:
+            pytest.skip("WebKit is not installed: %s" % e)
         pg = b.new_page(viewport={"width": 390, "height": 844})
         pg.goto(site + "stacker.html")
         pg.wait_for_function("() => window.__stacker && window.__stacker.g")

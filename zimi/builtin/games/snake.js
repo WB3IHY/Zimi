@@ -129,9 +129,9 @@
     for (var y = 0; y < g.rows; y++) for (var x = 0; x < n; x++) { ctx.fillStyle = (x + y) % 2 ? pal.a : pal.b; ctx.fillRect(x * cs, y * cs, cs, cs); }
     if (g.wrap) { ctx.strokeStyle = pal.tail; ctx.globalAlpha = 0.5; ctx.setLineDash([4, 4]); ctx.strokeRect(1, 1, cs * n - 2, cs * g.rows - 2); ctx.setLineDash([]); ctx.globalAlpha = 1; }
     if (g.food) {
-      var fx = g.food[0] * cs + cs / 2, fy = g.food[1] * cs + cs / 2;
-      ctx.fillStyle = pal.food; ctx.beginPath(); ctx.arc(fx, fy + 1, cs * 0.38, 0, 7); ctx.fill();
-      ctx.fillStyle = pal.leaf; ctx.beginPath(); ctx.ellipse(fx + cs * 0.12, fy - cs * 0.34, cs * 0.18, cs * 0.09, -0.5, 0, 7); ctx.fill();
+      var foodX = g.food[0] * cs + cs / 2, foodY = g.food[1] * cs + cs / 2;
+      ctx.fillStyle = pal.food; ctx.beginPath(); ctx.arc(foodX, foodY + 1, cs * 0.38, 0, 7); ctx.fill();
+      ctx.fillStyle = pal.leaf; ctx.beginPath(); ctx.ellipse(foodX + cs * 0.12, foodY - cs * 0.34, cs * 0.18, cs * 0.09, -0.5, 0, 7); ctx.fill();
     }
     drawEat();
     var len = g.snake.length, dying = fx.dead && !Play.reducedMotion() ? Math.floor((performance.now() - fx.dead) / DEATH_BLINK_MS) % 2 === 0 : !!fx.dead;
@@ -169,7 +169,7 @@
       if (res === 'dead' || res === 'won') { draw(); hud(); return finish(res === 'won'); }
     }
     draw(); hud();
-    requestAnimationFrame(frame);
+    raf = requestAnimationFrame(frame);
   }
   // Eating is felt twice: the ring on the board, and the bar's score gives a small bump.
   function ate(food) {
@@ -177,7 +177,8 @@
     fx.eat = { x: food[0], y: food[1], t: performance.now() };
     if (els.stat.animate) els.stat.animate([{ scale: 1 }, { scale: BUMP_SCALE }, { scale: 1 }], { duration: BUMP_MS, easing: 'ease-out' });
   }
-  function startLoop() { last = performance.now(); requestAnimationFrame(frame); }
+  var raf = 0;
+  function startLoop() { cancelAnimationFrame(raf); last = performance.now(); raf = requestAnimationFrame(frame); }
 
   // The ready line says the gesture once; a tap or a key starts. Armed again after a game, once the end sheet is up.
   function arm() {

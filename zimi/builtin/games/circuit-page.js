@@ -341,7 +341,7 @@
     els.cv.style.visibility = 'hidden';
     setupSheet = ZimiShell.sheet({
       title: L('circuit.title'), text: L('circuit.startLine'), body: [body],
-      actions: [{ label: L('shell.start'), primary: true, onclick: function () { g.heat = 0; g.heats = []; startRace(); } }],
+      actions: [{ label: L('shell.start'), primary: true, onclick: function () { if (prefs.tilt) askTilt(); g.heat = 0; g.heats = []; startRace(); } }],
       onClose: function () {
         setupSheet = null;
         if (g.mode !== 'setup') return;
@@ -406,8 +406,10 @@
   // Tilt: the phone's roll steers. Off unless asked for; iOS asks first.
   function askTilt() {
     try {
-      if (root.DeviceOrientationEvent && DeviceOrientationEvent.requestPermission) DeviceOrientationEvent.requestPermission().catch(function () { prefs.tilt = false; savePrefs(); });
-    } catch (e) { prefs.tilt = false; }
+      if (root.DeviceOrientationEvent && DeviceOrientationEvent.requestPermission) DeviceOrientationEvent.requestPermission().then(function (s) {
+        if (s !== 'granted') { prefs.tilt = false; savePrefs(); }   // denied resolves, it does not reject
+      }).catch(function () { prefs.tilt = false; savePrefs(); });
+    } catch (e) { prefs.tilt = false; savePrefs(); }
   }
   window.addEventListener('deviceorientation', function (e) {
     if (!prefs.tilt || e.gamma == null) return;

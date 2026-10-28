@@ -319,18 +319,18 @@
     var lv = settings.level, flags = [];
     cells.forEach(function (c, i) { if (game.mine[i]) flags.push(i); });
     ripple(flags, last, 'planted');
-    if (lv !== 'custom' && (!best[lv] || finalMs < best[lv])) { best[lv] = finalMs; save(BEST_KEY, best); }
+    if (lv !== 'custom' && LEVEL_IDS.indexOf(lv) >= 0 && (!best[lv] || finalMs < best[lv])) { best[lv] = finalMs; save(BEST_KEY, best); }
     line.say(T('mines.cleared'));
     var stats = [[T('play.time'), fmtTime(finalMs)]];
     if (best[lv]) stats.push([T('play.best'), fmtTime(best[lv])]);
     ZimiShell.endSheet({ result: 'win', after: ZimiShell.reducedMotion() ? END_AFTER_MS : BOOM_AFTER_MS, stats: stats });
   }
 
-  function doReveal(i) { if (i >= 0) afterMove(reveal(game, i)); }
+  function doReveal(i) { if (i >= 0 && playable(game)) afterMove(reveal(game, i)); }
   // A chord that cannot work says why: the flags around the number have to match it.
   function doChord(i) {
-    if (i < 0) return;
-    if (playable(game) && game.state[i] === OPEN && game.count[i] > 0) {
+    if (i < 0 || !playable(game)) return;   // a finished board takes no more moves (they would end it again)
+    if (game.state[i] === OPEN && game.count[i] > 0) {
       var have = flagsAround(game, i), need = game.count[i];
       if (have !== need) {
         ZimiShell.shake(cells[i]);

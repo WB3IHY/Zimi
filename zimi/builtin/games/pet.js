@@ -319,10 +319,15 @@
     });
   }
   // One pet each, as a segmented control, and a last segment that finds another egg while there is room.
+  // Rebuilt only when what it shows changes: hud() runs every second, and a rebuild would drop a keyboard user's focus.
+  var tabsKey = '';
+  function tabLabel(p) { return p.stage === 'egg' ? T('pet.stage.egg') : p.name; }
   function tabs() {
-    var seg = els.tabs; seg.textContent = '';
+    var seg = els.tabs, key = store.active + '|' + store.pets.map(tabLabel).join('|') + '|' + (store.pets.length < MAX_PETS ? T('pet.addEgg') : '');
+    if (key === tabsKey) return;
+    tabsKey = key; seg.textContent = '';
     store.pets.forEach(function (p, i) {
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'ar-btn'; b.textContent = p.stage === 'egg' ? T('pet.stage.egg') : p.name; b.setAttribute('aria-pressed', String(i === store.active));
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'ar-btn'; b.textContent = tabLabel(p); b.setAttribute('aria-pressed', String(i === store.active));
       b.addEventListener('click', function () { store.active = i; pet = current(); careKey = ''; catchUp(); save(); say(''); });
       seg.appendChild(b);
     });

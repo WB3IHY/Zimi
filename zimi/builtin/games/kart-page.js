@@ -26,7 +26,7 @@
   var els = { cv: $('kt-board'), stage: $('kt-stage'), pads: $('kt-pads'), msg: $('kt-msg'), pause: $('kt-pause'), newBtn: $('kt-new') };
   var status = Play.status(els.msg), openSheet = null;
   var ctx, cssW = 0, cssH = 0, pxs = 1;
-  var g = { mode: 'setup', race: null, T: null, assets: null, cams: [], humans: [], gp: null, rects: [], split: false, banner: null, bannerT: 0, rec: null, ghost: null, ghostRec: null, lastPlace: [], lastSay: 0, assetsFor: '' };
+  var g = { mode: 'setup', raceMode: null, race: null, T: null, assets: null, cams: [], humans: [], gp: null, rects: [], split: false, banner: null, bannerT: 0, rec: null, ghost: null, ghostRec: null, lastPlace: [], lastSay: 0, assetsFor: '' };
   var keys = {}, pads = [{}, {}], tiltSteer = 0, assetCache = {};
 
   // ── tracks ───────────────────────────────────────────────────────────────
@@ -36,21 +36,23 @@
   }
 
   // ── starting a race ──────────────────────────────────────────────────────
-  function trackFor() { return prefs.mode === 'gp' ? TRACKS[E.CUPS[prefs.cup].tracks[g.gp.race]] : E.track(prefs.track); }
+  // The race that is running keeps the mode and the cup it started with: the Menu can change prefs.mode and prefs.cup mid-race, and those are for the next one.
+  function trackFor() { return g.raceMode === 'gp' ? TRACKS[E.CUPS[g.gp.cup].tracks[g.gp.race]] : E.track(prefs.track); }
   function startRace() {
-    var def = trackFor(), a = assetsFor(def.id), humans = prefs.mode === 'trial' ? 1 : prefs.players;
-    var opts = { humans: humans, driver: prefs.driver, driver2: prefs.driver2, diff: prefs.diff, laps: 3, seed: Math.floor(Math.random() * 1e9), trial: prefs.mode === 'trial' };
-    if (prefs.mode === 'gp' && g.gp.race > 0) opts.grid = E.cupOrder(g.gp.totals);
+    if (!g.raceMode) g.raceMode = prefs.mode;
+    var def = trackFor(), a = assetsFor(def.id), humans = g.raceMode === 'trial' ? 1 : prefs.players;
+    var opts = { humans: humans, driver: prefs.driver, driver2: prefs.driver2, diff: prefs.diff, laps: 3, seed: Math.floor(Math.random() * 1e9), trial: g.raceMode === 'trial' };
+    if (g.raceMode === 'gp' && g.gp.race > 0) opts.grid = E.cupOrder(g.gp.totals);
     els.cv.style.visibility = '';
     g.opts = opts; g.T = a.T; g.assets = a; g.race = E.createRace(a.T, opts);
     g.humans = g.race.karts.filter(function (k) { return k.human >= 0; }).sort(function (x, y) { return x.human - y.human; });
     g.split = humans === 2; g.cams = g.humans.map(function (k) { var c = { x: 0, y: 0, yaw: 0, lift: 0 }; V.follow(c, k, 0, true); return c; });
-    g.rec = prefs.mode === 'trial' ? E.ghostNew() : null; g.ghostRec = prefs.mode === 'trial' ? Play.load(GHOST_KEY + def.id, null) : null;
+    g.rec = g.raceMode === 'trial' ? E.ghostNew() : null; g.ghostRec = g.raceMode === 'trial' ? Play.load(GHOST_KEY + def.id, null) : null;
     g.lastPlace = []; g.banner = null; closeSheet(); say(Tx(isTouch() ? 'kart.hintTouch' : 'kart.hintKeys'));
     g.mode = 'playing'; Play.pauseLabel(els.pause, false); els.pause.disabled = false;
     buildPads(); layout(); loop.start();
   }
-  function startCup() { g.gp = { race: 0, totals: DRIVERS.map(function () { return 0; }), cup: prefs.cup }; startRace(); }
+  function startCup() { g.raceMode = 'gp'; g.gp = { race: 0, totals: DRIVERS.map(function () { return 0; }), cup: prefs.cup }; startRace(); }
 
   function toast(text) { g.banner = text; g.bannerT = TOAST_S; }
   function say(text) { status.say(text); }
@@ -113,16 +115,16 @@
   function finishRace() {
     g.mode = 'result'; loop.stop(); releaseAll(); els.pause.disabled = true; Play.pauseLabel(els.pause, false);
     var r = g.race, order = r.order || E.rankKarts(r), me = g.humans[0], clock = me.finished;
-    if (prefs.mode === 'trial') return trialResult(me, clock);
+    if (g.raceMode === 'trial') return trialResult(me, clock);
     var drvOrder = order.map(function (k) { return k.drvIndex; });
-    if (prefs.mode === 'gp') g.gp.totals = E.addPoints(g.gp.totals, drvOrder);
-    var last = prefs.mode === 'gp' && g.gp.race === 2, title;
-    if (prefs.mode === 'gp') title = Tx('kart.raceOf', { n: g.gp.race + 1, total: 3 });
+    if (g.raceMode === 'gp') g.gp.totals = E.addPoints(g.gp.totals, drvOrder);
+    var last = g.raceMode === 'gp' && g.gp.race === 2, title;
+    if (g.raceMode === 'gp') title = Tx('kart.raceOf', { n: g.gp.race + 1, total: 3 });
     else title = g.humans.length === 2 ? Tx('shell.end.wins', { name: nameOf(order.filter(isMine)[0]) }) : Tx('kart.placeOf', { place: Play.ordinal(me.place), n: r.karts.length });
     sheet(title, function (b) {
-      table(b, order.map(function (k, i) { return { me: isMine(k), cells: [Play.ordinal(i + 1), nameOf(k), k.finished != null ? E.fmtTime(k.finished) : '-', prefs.mode === 'gp' ? '+' + Play.num(E.GP_POINTS[i] || 0) : ''] }; }));
-      if (prefs.mode !== 'gp') g.humans.forEach(function (k) { if (k.laps.length) note(b, g.humans.length > 1 ? Tx('kart.bestLapOf', { name: nameOf(k), time: E.fmtTime(Math.min.apply(null, k.laps)) }) : Tx('kart.bestLap', { time: E.fmtTime(Math.min.apply(null, k.laps)) })); });
-    }, prefs.mode === 'gp' ? [[last ? Tx('kart.cupResult') : Tx('kart.next', { track: trackName(TRACKS[E.CUPS[prefs.cup].tracks[g.gp.race + 1]]) }), function () { if (last) cupResult(); else { g.gp.race++; startRace(); } }, true, true]] :
+      table(b, order.map(function (k, i) { return { me: isMine(k), cells: [Play.ordinal(i + 1), nameOf(k), k.finished != null ? E.fmtTime(k.finished) : '-', g.raceMode === 'gp' ? '+' + Play.num(E.GP_POINTS[i] || 0) : ''] }; }));
+      if (g.raceMode !== 'gp') g.humans.forEach(function (k) { if (k.laps.length) note(b, g.humans.length > 1 ? Tx('kart.bestLapOf', { name: nameOf(k), time: E.fmtTime(Math.min.apply(null, k.laps)) }) : Tx('kart.bestLap', { time: E.fmtTime(Math.min.apply(null, k.laps)) })); });
+    }, g.raceMode === 'gp' ? [[last ? Tx('kart.cupResult') : Tx('kart.next', { track: trackName(TRACKS[E.CUPS[g.gp.cup].tracks[g.gp.race + 1]]) }), function () { if (last) cupResult(); else { g.gp.race++; startRace(); } }, true, true]] :
       [[Tx('shell.close')], [Tx('shell.menu.new'), startRace, true]]);
   }
   // The cup standings with the next race ready (also what a returning player sees).
@@ -135,7 +137,8 @@
   function nameOf(k) { return isMine(k) ? (g.humans.length > 1 ? Tx('kart.player', { n: k.human + 1, driver: driverName(k.driver) }) : Tx('kart.you', { driver: driverName(k.driver) })) : driverName(k.driver); }
   function medal(rank) { return rank <= 3 ? Tx('kart.medal.' + rank) : Play.ordinal(rank); }
   function cupResult() {
-    var order = E.cupOrder(g.gp.totals), me = g.humans[0] ? g.humans[0].drvIndex : prefs.driver, rank = order.indexOf(me) + 1, cup = E.CUPS[prefs.cup];
+    var order = E.cupOrder(g.gp.totals), me = g.humans[0] ? g.humans[0].drvIndex : prefs.driver, rank = order.indexOf(me) + 1, cup = E.CUPS[g.gp.cup];
+    g.gp.done = true;   // a finished cup is not saved as 'between races'
     var rec = prefs.cups[cup.id];
     if (!rec || rank < rec.rank || (rank === rec.rank && g.gp.totals[me] > rec.points)) { prefs.cups[cup.id] = { rank: rank, points: g.gp.totals[me] }; savePrefs(); }
     sheet(Tx('kart.cupTitle', { cup: cupName(cup), medal: medal(rank) }), function (b) {
@@ -230,10 +233,10 @@
     return top;
   }
   // Leaving 'setup' first: closing the start sheet in that mode arms a tap-to-start that would restart the race on the first pad press.
-  function begin() { g.mode = 'starting'; closeSheet(); if (prefs.mode === 'gp') startCup(); else startRace(); }
+  function begin() { if (prefs.tilt) askTilt(); g.mode = 'starting'; closeSheet(); g.raceMode = prefs.mode; if (g.raceMode === 'gp') startCup(); else startRace(); }
   // The board is not drawn until Start: the setup comes first.
   function goSetup() {
-    g.mode = 'setup'; loop.stop(); releaseAll(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); g.gp = null; say('');
+    g.mode = 'setup'; loop.stop(); releaseAll(); els.pause.disabled = true; Play.pauseLabel(els.pause, false); g.gp = null; g.raceMode = null; say('');
     closeSheet();
     els.cv.style.visibility = 'hidden';
     // Closed without Start: the page is not left blank, a tap starts with the choices made so far.
@@ -284,8 +287,10 @@
 
   function askTilt() {
     try {
-      if (root.DeviceOrientationEvent && DeviceOrientationEvent.requestPermission) DeviceOrientationEvent.requestPermission().catch(function () { prefs.tilt = false; savePrefs(); });
-    } catch (e) { prefs.tilt = false; }
+      if (root.DeviceOrientationEvent && DeviceOrientationEvent.requestPermission) DeviceOrientationEvent.requestPermission().then(function (s) {
+        if (s !== 'granted') { prefs.tilt = false; savePrefs(); }   // denied resolves, it does not reject
+      }).catch(function () { prefs.tilt = false; savePrefs(); });
+    } catch (e) { prefs.tilt = false; savePrefs(); }
   }
   window.addEventListener('deviceorientation', function (e) {
     if (!prefs.tilt || e.gamma == null) return;
@@ -328,21 +333,21 @@
   ZimiShell.persist({
     save: function () {
       // A Grand Prix between races is progress: the cup, the race it is on and the points come back as the standings.
-      if (g.mode === 'result' && prefs.mode === 'gp' && g.gp) return { between: true, gp: g.gp };
+      if (g.mode === 'result' && g.raceMode === 'gp' && g.gp && !g.gp.done) return { between: true, gp: g.gp };
       if ((g.mode !== 'playing' && g.mode !== 'paused') || !g.race || g.race.trial) return null;
       var rr = {};
       Object.keys(g.race).forEach(function (k) { if (!RACE_SKIP.test(k)) rr[k] = g.race[k]; });
-      return { mode: prefs.mode, gp: g.gp, trackId: g.T.def.id, opts: g.opts, karts: g.race.karts, race: rr };
+      return { mode: g.raceMode, gp: g.gp, trackId: g.T.def.id, opts: g.opts, karts: g.race.karts, race: rr };
     },
     load: function (d) {
       if (d && d.between) {
         if (!d.gp || !d.gp.totals || !E.CUPS[d.gp.cup]) return false;
-        prefs.mode = 'gp'; prefs.cup = d.gp.cup; g.gp = d.gp; g.mode = 'result'; els.pause.disabled = true; standings();
+        prefs.mode = 'gp'; prefs.cup = d.gp.cup; g.raceMode = 'gp'; g.gp = d.gp; g.mode = 'result'; els.pause.disabled = true; standings();
         restored = true;
         return true;
       }
       if (!d || !d.opts || !d.karts || !TRACKS.some(function (t) { return t.id === d.trackId; })) return false;
-      prefs.mode = d.mode; if (d.mode === 'gp') { if (!d.gp) return false; g.gp = d.gp; prefs.cup = d.gp.cup; }
+      prefs.mode = g.raceMode = d.mode; if (d.mode === 'gp') { if (!d.gp) return false; g.gp = d.gp; prefs.cup = d.gp.cup; }
       var a = assetsFor(d.trackId), race = E.createRace(a.T, d.opts);
       race.karts.splice.apply(race.karts, [0, race.karts.length].concat(d.karts));
       Object.keys(d.race).forEach(function (k) { race[k] = d.race[k]; });

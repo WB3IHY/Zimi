@@ -216,12 +216,14 @@
     if (!timer) timer = setInterval(function () { if (puzzle && puzzle.since && !puzzle.done) paintClock(); }, TICK_MS);
   }
 
+  var building = 0;   // a picture that arrives after a newer New game was asked for is dropped
   function newPuzzle(count, daily) {
+    var ticket = ++building;
     pause(); puzzle = null; paintHud(); els.area.classList.remove('whole');
     els.area.querySelectorAll('.jg-piece').forEach(function (n) { n.parentNode.removeChild(n); });
     els.ghost.style.backgroundImage = 'none';
     say(T('jigsaw.finding'));
-    return getPicture(daily).then(function (pic) { say(''); build(pic, count, daily); });
+    return getPicture(daily).then(function (pic) { if (ticket !== building) return; say(''); build(pic, count, daily); });
   }
 
   // ── dragging ──

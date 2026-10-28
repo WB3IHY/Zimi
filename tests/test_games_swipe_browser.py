@@ -36,7 +36,11 @@ def page():
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     with sync_playwright() as p:
-        b = p.webkit.launch()
+        try:
+            b = p.webkit.launch()
+        except Exception as e:   # Playwright without its WebKit build: skip, like the other browser tests
+            srv.shutdown()
+            pytest.skip("WebKit is not installed: %s" % e)
         ctx = b.new_context(viewport=VIEW, has_touch=True, is_mobile=True)
         pg = ctx.new_page()
         pg.base = "http://127.0.0.1:%d" % srv.server_address[1]
@@ -59,7 +63,8 @@ def test_sokoban_swipe(page):
             moved = (dx, dy)
             break
     assert moved, "no swipe moved the player"
-    assert page.evaluate("window.scrollY") == 0
+    # Synthetic pointer events never scroll anything, so scrollY proves nothing: what stops a real swipe from scrolling is touch-action.
+    assert page.evaluate("getComputedStyle(document.querySelector('#sk-board')).touchAction") == "none", "a real swipe on the board would scroll the page"
 
 
 def test_quest_swipe(page):

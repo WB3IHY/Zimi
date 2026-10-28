@@ -106,10 +106,11 @@
   }
   function win() {
     won = true;
+    // A replayed solution is not the player's: it sets no best and marks no level done.
+    if (watching) { stopWatching(); draw(); say(T('sokoban.solutionDone', { n: moves })); return; }
     var id = levels[cur].id, prev = state.best[id], record = !prev || moves < prev;
     if (record) state.best[id] = moves;
     save(); draw();
-    if (watching) { stopWatching(); say(T('sokoban.solutionDone', { n: moves })); return; }
     say(T('shell.end.win'));
     pending = Math.min(levels.length - 1, cur + 1);   // New game on the end sheet is the next level
     ZimiShell.endSheet({ result: 'win', newLabel: cur < levels.length - 1 ? T('shell.nextLevel') : undefined, after: END_AFTER_MS, stats: [[T('sokoban.moves'), Play.num(moves)], [T('sokoban.pushes'), Play.num(pushes)]] });

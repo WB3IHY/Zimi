@@ -292,6 +292,8 @@
       E.findSegment(game.road, c.z).cars.push(c);
     });
     (d.hit || []).forEach(function (h) { var sp = game.road.segments[h[0]] && game.road.segments[h[0]].sprites[h[1]]; if (sp) sp.hit = true; }); countdown = d.countdown; toastT = 0; crashFlash = 0;
+    // The gates already passed stay passed (the engine awards them in order), so a reload pays no second time or score bonus.
+    game.road.checkpoints.forEach(function (cp) { cp.hit = game.player.pos >= cp.index * E.SEG; });
     layout(); render();
     if (d.over) { mode = 'over'; els.pause.disabled = true; setTimeout(showEnd, 0); return true; }
     pausedFrom = d.from === 'ready' ? 'ready' : 'playing'; mode = 'paused'; els.pause.disabled = false; Play.pauseLabel(els.pause, true); status.say(T('play.paused'));

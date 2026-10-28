@@ -166,8 +166,12 @@
     // the board itself is kept by the shell (ZimiShell.persist, below)
   }
 
+  // The merged and new tiles of the last move arrive when its slide ends; whatever changes the board first lets them arrive now.
+  var pending = null;
+  function flush() { if (pending) { clearTimeout(pending.t); var p = pending; pending = null; p.fn(); } }
   function act(dir) {
     if (document.querySelector('.ar-sheet:not([hidden])')) return;
+    flush();
     var res = move(g, dir), instant = Play.reducedMotion();
     if (!res.moved) return;
     var gone = {};
@@ -177,7 +181,7 @@
       res.merges.forEach(function (m) { m.ids.forEach(drop); makeTile(m.id, m.value, m.to, 'pop'); });
       if (res.spawned) makeTile(res.spawned.id, res.spawned.value, res.spawned.at, 'new');
     }
-    if (instant) settle(); else setTimeout(settle, SLIDE_MS);
+    if (instant) settle(); else pending = { fn: settle, t: setTimeout(function () { pending = null; settle(); }, SLIDE_MS) };
     hud(); persist();
     if (res.gain) scored(res);
     note.say('');
@@ -196,9 +200,9 @@
   function endSheet(result) { ZimiShell.endSheet({ result: result, after: END_AFTER_MS, stats: [[T('play.score'), Play.num(g.score)], [T('play.best'), Play.num(Math.max(best.score, g.score))]] }); }
   // A board with nothing played says how to play, once; the first move takes the line away.
   function startLine() { return g.score === 0 && !g.undo && values(g).filter(Boolean).length <= START_TILES ? T('t2048.swipe') : ''; }
-  function fresh() { g = createGame(); asked = false; rebuild(); hud(); persist(); note.say(startLine()); }
+  function fresh() { flush(); g = createGame(); asked = false; rebuild(); hud(); persist(); note.say(startLine()); }
   els.fresh.addEventListener('click', fresh);
-  els.undo.addEventListener('click', function () { if (undo(g)) { rebuild(); hud(); persist(); note.say(''); } });
+  els.undo.addEventListener('click', function () { if (undo(g)) { flush(); asked = g.won; rebuild(); hud(); persist(); note.say(''); } });
   ZimiShell.game({
     inProgress: function () { return !g.over && values(g).some(Boolean); },
     stats: function () { return [[T('play.best'), Play.num(best.score)]]; }

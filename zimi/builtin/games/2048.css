@@ -32,8 +32,12 @@
 .t1024 { background: var(--t1024); font-size: min(var(--fs-brand), calc(var(--cell) * 0.34)); } .t2048 { background: var(--t2048); font-size: min(var(--fs-brand), calc(var(--cell) * 0.34)); }
 .tbig { background: var(--tbig); font-size: min(var(--fs-sheet), calc(var(--cell) * 0.28)); }
 .t32, .t64, .t128, .t256, .t512, .t1024, .t2048, .tbig { color: var(--tf-ink-light); }
-:root[data-theme="dark"] :is(.t128, .t256, .t512, .t1024, .t2048, .tbig) { color: var(--tf-ink-on-bright); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.t128, .t256, .t512, .t1024, .t2048, .tbig) { color: var(--tf-ink-on-bright); } }
+:root[data-theme="dark"] :is(.t64, .t128, .t256, .t512, .t1024, .t2048, .tbig) { color: var(--tf-ink-on-bright); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.t64, .t128, .t256, .t512, .t1024, .t2048, .tbig) { color: var(--tf-ink-on-bright); } }
+/* Contrast: the 32 tile is too light for white in the light theme; the 64 tile (above) too light in the dark theme. */
+.t32 { color: var(--tf-ink-dark); }
+:root[data-theme="dark"] .t32 { color: var(--tf-ink-light); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .t32 { color: var(--tf-ink-light); } }
 @media (prefers-reduced-motion: reduce) { .tf-tile { transition: none; } .tf-tile.pop, .tf-tile.new { animation: none; } }
 
 /* The whole page takes the swipe, so a thumb never has to find the board. */

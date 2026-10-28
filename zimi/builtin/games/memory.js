@@ -130,9 +130,11 @@
   function paint() {
     g.cards.forEach(function (c, i) {
       var b = buttons[i];
-      b.dataset.up = String(c.up || c.done); b.dataset.done = String(c.done); b.dataset.miss = String(!!g.pending && g.pending.indexOf(i) >= 0);
+      var up = String(c.up || c.done);
+      if (b.dataset.up !== undefined && b.dataset.up !== up) b.dataset.flip = '1';   // only a card that turns animates
+      b.dataset.up = up; b.dataset.done = String(c.done); b.dataset.miss = String(!!g.pending && g.pending.indexOf(i) >= 0);
       b.setAttribute('aria-label', c.up || c.done ? T(c.done ? 'memory.matched' : 'memory.faceUp', { pic: picName(c) }) : T('memory.faceDown', { n: i + 1 }));
-      b.disabled = c.done;
+      b.setAttribute('aria-disabled', String(c.done));   // not `disabled`: a matched card keeps the focus, so the arrow keys keep working
     });
     els.moves.textContent = Play.num(g.moves); els.pairs.textContent = T('memory.pairsOf', { found: g.found, pairs: g.pairs });
     els.best.textContent = multi() || !best[bestKey()] ? '-' : Play.num(best[bestKey()]);
@@ -229,7 +231,8 @@
   function kept() {
     if (!g || (g.moves === 0 && g.first < 0)) return null;
     return { set: settings.set, size: settings.size, people: people(), cards: g.cards.map(function (c) { return [c.id, c.up && !(g.pending && g.pending.indexOf(g.cards.indexOf(c)) >= 0) ? 1 : 0, c.done ? 1 : 0]; }),
-      first: g.first, moves: g.moves, found: g.found, over: g.over, turn: turn, scores: scores };
+      first: g.first, moves: g.moves, found: g.found, over: g.over,
+      turn: g.pending && multi() ? (turn + 1) % scores.length : turn, scores: scores };   // a miss waiting to turn back has already passed the turn
   }
   function takeUp(d) {
     if (!d || !SETS[d.set] || !SIZES[d.size] || !Array.isArray(d.cards) || d.cards.length !== SIZES[d.size] * 2) return false;
