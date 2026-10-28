@@ -209,8 +209,12 @@ const rng = seed => load(['librarykit.js']).GamesLib.rng(seed);
     check(P[day.idx][0].includes(day.center), 'bee: the middle letter is one of the seven');
     const spread = new Set(Array.from({ length: 60 }, (_, i) => E.dailyPick(P, String(20260101 + i)).idx));
     check(spread.size >= 30, 'bee: sixty days are not sixty of the same few puzzles');
-    const fit = P.every((p, i) => { const c = E.chooseCenter(p, rng(i)); const n = E.withCenter(E.wordsOf(p).common, c).length; return n >= 20 || E.wordsOf(p).common.length < 40 || true; });
-    check(fit, 'bee: a middle letter is chosen for every set');
+    const fit = P.every((p, i) => {
+      const letters = p[0].split(''), common = E.wordsOf(p).common, c = E.chooseCenter(p, rng(i));
+      const inRange = l => { const n = E.withCenter(common, l).length; return n >= 20 && n <= 70; };
+      return letters.includes(c) && (!letters.some(inRange) || inRange(c));
+    });
+    check(fit, 'bee: the middle letter is one of the seven and gives a puzzle neither bare nor huge');
     check(E.refusal('fog', l, 'a', []) === 'tooShort' && E.refusal('afarx', l, 'a', []) === 'badLetters' && E.refusal('frog', l, 'a', []) === 'noCenter' && E.refusal('afar', l, 'a', ['afar']) === 'already' && E.refusal('afar', l, 'a', []) === '', 'bee: why a word cannot be tried');
     check(E.rankOf(0, 100) === 'beginner' && E.rankOf(2, 100) === 'goodStart' && E.rankOf(50, 100) === 'amazing' && E.rankOf(70, 100) === 'genius' && E.rankOf(100, 100) === 'queenBee' && E.rankOf(99, 100) === 'genius' && E.rankOf(5, 0) === 'beginner', 'bee: ranks go by the share of the points');
     const first = P[0], c0 = E.chooseCenter(first, rng(1));

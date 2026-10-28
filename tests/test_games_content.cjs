@@ -37,7 +37,6 @@ const check = (ok, label) => {
     prev = p.rating;
     ratingBand[Math.floor(p.rating / 400)] = 1;
     const pos = E.parseFen(p.fen);
-    const mover = pos.turn;
     let ok = true;
     for (let i = 0; i < p.moves.length && ok; i++) {
       const m = C.fromUci(E, pos, p.moves[i]);
@@ -46,11 +45,10 @@ const check = (ok, label) => {
     }
     // the puzzle ends as the data says: the last move is the solver's (an even count), and a mate theme ends in mate
     if (ok && p.moves.length % 2 !== 0) ok = false;
-    if (ok && /^mateIn/.test(p.themes.join(',')) && p.themes.some(t => /^mateIn[123]$/.test(t))) {
+    if (ok && p.themes.some(t => /^mateIn[123]$/.test(t))) {
       mates++;
       if (E.status(pos, []).result !== 'mate') ok = false;
     }
-    if (ok && mover === pos.turn && p.moves.length % 2 === 1) ok = false;
     if (!ok) { bad++; if (!firstBad) firstBad = row; }
   }
   check(rows.length >= 15000 && rows.length <= 20000, 'chess puzzles: ' + rows.length + ' shipped (15,000 to 20,000)');
@@ -79,7 +77,8 @@ const check = (ok, label) => {
   check(play('d2d4 g8f6 c2c4 e7e6 b1c3 f8b4').name.indexOf('Nimzo-Indian') === 0 && play('c2c4 g8f6 b1c3 e7e6 d2d4 f8b4').name.indexOf('Nimzo-Indian') === 0, 'openings: transpositions find the same name');
   // the name sticks while the game goes beyond the book, and a game with no book move has none
   check(play('e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f8e7 a2a3 h7h6').name.indexOf('Ruy Lopez') === 0, 'openings: the name holds past the last named move');
-  check(play('a2a3 a7a6 b2b3 b7b6') === null || typeof play('a2a3 a7a6 b2b3 b7b6').name === 'string', 'openings: an unnamed game has no name or a named one');
+  // nothing named yet: the start position alone, and a position that is in no line of the book
+  check(C.openingFor(idx, [E.key(E.startPosition())]) === null && C.openingFor(idx, [E.key(E.startPosition()), 'not a position in the book']) === null, 'openings: a game with no book move has no name');
   check(C.family('Sicilian Defense: Najdorf Variation') === 'Sicilian Defense', 'openings: family names');
 }
 

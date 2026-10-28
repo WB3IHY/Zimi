@@ -151,7 +151,9 @@ def test_dictionary_bluff(browser, world, mode, gone):
         page.locator(".bl-option.real").count() == 1
         and "The real definition" in page.locator(".bl-option.real").inner_text()
     )
-    assert sum(page.evaluate("__bluff.g.totals")) >= 0
+    assert page.evaluate(
+        "JSON.stringify(__bluff.g.totals) === JSON.stringify(BluffEngine.tally(__bluff.g.options, __bluff.g.votes, __bluff.g.players).points)"
+    ), "the totals shown are the tally of the votes"
     assert not errors, errors
     ctx.close()
 

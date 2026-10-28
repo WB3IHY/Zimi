@@ -63,9 +63,10 @@
 
   // ── the real map ──
   function mapUrl(hash) { return Lib.articleUrl(mapZim, 'index.html') + (hash ? '#' + hash : ''); }
-  function showMap() {
+  function truthHash() { return 'map=' + MAP_ZOOM_TRUTH + '/' + q().lat + '/' + q().lon; }
+  function showMap(hash) {
     els.world.hidden = true; els.zoom.hidden = true; els.frame.hidden = false; els.cross.hidden = false;
-    els.frame.src = mapUrl('');
+    els.frame.src = mapUrl(hash || '');
   }
   function mapCenter() {
     try { return parseHash(els.frame.contentWindow.location.hash); } catch (e) { return null; }
@@ -125,9 +126,9 @@
     var x = q(); pin = null; els.mapLink.hidden = true; paint();
     els.ask.textContent = T(g.mode === 'map' ? 'drop.findOnMap' : 'drop.find', { name: Lib.iso(x.name) });
     els.next.hidden = true; els.drop.hidden = false;
-    if (g.mode === 'map') { els.drop.removeAttribute('aria-disabled'); status.say(T('drop.panTo')); showMap(); }
+    if (g.mode === 'map') { els.drop.removeAttribute('aria-disabled'); status.say(T('drop.panTo')); showMap(g.ans ? truthHash() : ''); }
     else { els.drop.setAttribute('aria-disabled', 'true'); status.say(T('drop.tapTo')); buildWorld(); }
-    if (g.ans) reveal(g.ans, true);
+    if (g.ans) reveal(g.ans, true);   // a round taken up again: the map frame is still loading, so its address already carries the place
   }
   function drop() {
     if (done || g.ans) return;
@@ -137,11 +138,14 @@
     g.ans = { lat: p.lat, lon: p.lon, km: km, pts: pts }; g.total += pts;
     reveal(g.ans, false);
   }
-  function reveal(a) {
+  function reveal(a, restored) {
     status.say(T('drop.result', { distance: kmText(a.km), points: a.pts }));
     mapLink(q());
     els.drop.hidden = true; els.next.hidden = false; els.next.textContent = T(g.at + 1 >= g.qs.length ? 'round.seeScore' : 'round.next'); els.next.focus();
-    if (g.mode === 'map') { els.cross.hidden = true; try { els.frame.contentWindow.location.hash = 'map=' + MAP_ZOOM_TRUTH + '/' + q().lat + '/' + q().lon; } catch (e) { els.frame.src = mapUrl('map=' + MAP_ZOOM_TRUTH + '/' + q().lat + '/' + q().lon); } }
+    if (g.mode === 'map') {
+      els.cross.hidden = true;
+      if (!restored) { try { els.frame.contentWindow.location.hash = truthHash(); } catch (e) { els.frame.src = mapUrl(truthHash()); } }
+    }
     else paintPins();
     paint();
   }

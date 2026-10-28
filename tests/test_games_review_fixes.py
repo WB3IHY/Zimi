@@ -225,3 +225,17 @@ def test_a_typed_seat_name_is_text_in_the_koikoi_pill(open_game, browser):
     frames(page, 3)
     assert page.evaluate("document.getElementById('pwn')") is None, "a typed name became markup"
     assert "<i id=pwn>x" in page.evaluate("document.querySelector('.kk-pill').textContent")
+
+
+def test_echo_new_game_cancels_a_strict_mode_ending_on_its_way(open_game):
+    page = open_game("echo")
+    game_ready(page, "__echo.g")
+    page.click('.ec-pad[data-c="0"]')   # the first tap starts the game
+    page.wait_for_function(truthy("__echo.status === 'input'"), timeout=60000)
+    wrong = page.evaluate("(__echo.g.seq[0] + 1) % 4")
+    page.click('.ec-pad[data-c="%d"]' % wrong)   # a miss: the game ends in about half a second
+    page.evaluate("window.__ends = 0; const o = ZimiShell.endSheet; ZimiShell.endSheet = function () { window.__ends++; return o.apply(this, arguments); }; 0")
+    page.evaluate("document.getElementById('ec-new').click(); 0")   # New game before it does
+    page.wait_for_timeout(1500)
+    assert page.evaluate("window.__ends") == 0, "the old round's ending opened an end sheet on the new round"
+    assert not page.errors, page.errors

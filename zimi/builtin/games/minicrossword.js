@@ -197,8 +197,11 @@
   }
   function win() {
     done = true;
-    var stats = Play.load(STATS_KEY, { solved: 0, clean: 0 });
-    stats.solved++; if (!g.hints) stats.clean++; Play.save(STATS_KEY, stats);
+    if (!g.counted) {   // a solved grid comes back solved: it is counted once
+      g.counted = true;
+      var stats = Play.load(STATS_KEY, { solved: 0, clean: 0 });
+      stats.solved++; if (!g.hints) stats.clean++; Play.save(STATS_KEY, stats);
+    }
     status.say(T('minicw.solved'));
     ZimiShell.endSheet({ result: 'win', stats: [[T('minicw.hintsUsed'), Play.num(g.hints)]] });
   }

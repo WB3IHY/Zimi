@@ -232,6 +232,7 @@
     if (e.type === 'slime') {
       if (e.t <= 0) { var a = Math.floor(st.rng() * 5); e.vx = a === 0 ? -SLIME.speed : a === 1 ? SLIME.speed : 0; e.vy = a === 2 ? -SLIME.speed : a === 3 ? SLIME.speed : 0; e.t = 0.5 + st.rng() * 1.1; if (e.vx || e.vy) e.face = e.vx > 0 ? 'right' : e.vx < 0 ? 'left' : e.vy < 0 ? 'up' : 'down'; }
       if (moveBox(st, e, e.vx * dt, e.vy * dt)) { e.vx = -e.vx; e.vy = -e.vy; }
+      e.x = clamp(e.x, 0, W - e.w); e.y = clamp(e.y, 0, H - e.h);   // an open edge is the hero's way out, not a slime's
     } else if (e.type === 'bat') {
       if (e.t <= 0) { var ang = st.rng() * 6.283; e.vx = Math.cos(ang) * BAT.speed; e.vy = Math.sin(ang) * BAT.speed; e.t = 0.5 + st.rng() * 0.8; }
       var hit = moveBox(st, e, e.vx * dt, 0); if (hit) e.vx = -e.vx;
@@ -240,7 +241,8 @@
     } else {
       var fast = e.hp <= BOSS.hp / 2;
       e.vx = (e.vx < 0 ? -1 : 1) * (fast ? BOSS.fast : BOSS.speed);
-      if (moveBox(st, e, e.vx * dt, 0)) e.vx = -e.vx;
+      if (moveBox(st, e, e.vx * dt, 0) || e.x < 0 || e.x > W - e.w) e.vx = -e.vx;
+      e.x = clamp(e.x, 0, W - e.w);
       if (e.t <= 0) {
         e.t = fast ? BOSS.shotFast : BOSS.shotEvery;
         var cx = e.x + e.w / 2, cy = e.y + e.h, base = Math.atan2(st.y + st.h / 2 - cy, st.x + st.w / 2 - cx);
@@ -291,7 +293,7 @@
       st.enemies.forEach(function (e) {
         if (e.hp <= 0 || st.hit[e.id] || !overlap(sb, e)) return;
         st.hit[e.id] = true; e.hp--; e.flash = 0.25; event(st, 'hit', e.type);
-        if (e.type !== 'boss') { var d = Math.hypot(e.x - st.x, e.y - st.y) || 1; moveBox(st, e, (e.x - st.x) / d * 6, (e.y - st.y) / d * 6); }
+        if (e.type !== 'boss') { var d = Math.hypot(e.x - st.x, e.y - st.y) || 1; moveBox(st, e, (e.x - st.x) / d * 6, (e.y - st.y) / d * 6); e.x = clamp(e.x, 0, W - e.w); e.y = clamp(e.y, 0, H - e.h); }
       });
     }
     // enemies and shots

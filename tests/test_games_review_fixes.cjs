@@ -30,4 +30,27 @@ async function engineKitDrop() {
   check(got.some((g) => g[0] === 'unbudgeted'), 'enginekit: a request waiting without a budget is answered when the worker is dropped');
 }
 
+// Quest: an open screen edge is the hero's way out; enemies that wander into it stay on the screen.
+function questKeepsEnemiesOnScreen() {
+  const sb = {}; vm.createContext(sb);
+  ['util.js', 'quest.js'].forEach((f) => vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sb, { filename: f }));
+  const Q = sb.QuestEngine, DT = 1 / 60;
+  let tried = 0, outside = 0;
+  Object.keys(Q.SCREENS).forEach((id) => {
+    for (let r = 0; r < Q.ROWS; r++) for (const side of [-1, 1]) {
+      const st = Q.createState(null, 1);
+      st.screen = id; st.x = Q.W / 2; st.y = Q.H / 2; st.inv = 1e9;
+      st.enemies = [{ id: 0, type: 'slime', x: side < 0 ? 0 : Q.W - 10, y: r * Q.TILE + 3, w: 10, h: 10, hp: 1, vx: side * 30, vy: 0, t: 1e9, flash: 0, face: 'down' }];
+      tried++;
+      for (let i = 0; i < 90; i++) {
+        Q.step(st, DT, { dx: 0, dy: 0 });
+        const e = st.enemies[0];
+        if (e && (e.x < 0 || e.x > Q.W - e.w)) { outside++; break; }
+      }
+    }
+  });
+  check(tried > 50 && outside === 0, 'quest: no slime leaves the screen by an open edge (' + tried + ' tried)');
+}
+questKeepsEnemiesOnScreen();
+
 engineKitDrop().then(() => process.exit(failures ? 1 : 0));

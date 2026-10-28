@@ -43,7 +43,7 @@
   var els = { board: $('ec-board'), len: $('ec-len'), best: $('ec-best'), msg: $('ec-msg'), pause: $('ec-pause'), nu: $('ec-new') };
   var line = Play.status(els.msg);
   var settings = Play.load(SETTINGS_KEY, { strict: true }), best = Play.load(BEST_KEY, { length: 0 });
-  var g = createGame(), status = 'idle', timer = null, pads = [], armed = null;
+  var g = createGame(), status = 'idle', timer = null, missTimer = null, pads = [], armed = null;
 
   // Sound is off unless asked for in Settings (Play.tone makes a note only then, and only after a tap).
   function tone(pad, ms) { Play.tone(FREQ[pad], ms); }
@@ -96,7 +96,7 @@
     pads[pad].classList.add('miss'); ZimiShell.shake(els.board); Play.haptic(HAPTIC_MISS); Play.tone(MISS_BUZZ_HZ, MISS_BUZZ_MS);
     Play.later(function () { pads[pad].classList.remove('miss'); }, MISS_MS);
     if (pad !== want) Play.later(function () { light(want, MISS_MS); }, TAP_LIGHT_MS);
-    if (settings.strict) { line.say(T('echo.miss')); Play.later(finish, MISS_MS + TAP_LIGHT_MS); return; }
+    if (settings.strict) { line.say(T('echo.miss')); missTimer = Play.later(finish, MISS_MS + TAP_LIGHT_MS); return; }
     line.say(T('echo.slip'));
     timer = Play.later(show, REPLAY_DELAY_MS + 400);
   }
@@ -116,6 +116,7 @@
   function begin() {
     if (armed) armed.cancel();
     if (timer) timer.cancel();
+    if (missTimer) missTimer.cancel();   // a strict-mode ending still on its way belongs to the old round
     g = createGame(); Play.pauseLabel(els.pause, false); els.pause.disabled = false; hud(); show();
   }
   function pause() {
@@ -154,6 +155,7 @@
     if (!d || !Array.isArray(d.seq) || !d.seq.length || d.seq.some(function (p) { return !(p >= 0 && p < PADS); })) return false;
     if (armed) armed.cancel();
     if (timer) timer.cancel();
+    if (missTimer) missTimer.cancel();
     g = createGame(); g.seq = d.seq.slice(); g.pos = 0;
     if (d.over) { status = 'over'; finish(); return true; }
     els.pause.disabled = false; status = 'wait'; hud(); pause();

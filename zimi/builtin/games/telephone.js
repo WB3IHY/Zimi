@@ -95,7 +95,7 @@
   }
   function newSecret() {
     return pickSecret().then(function (s) {
-      if (!s) { zim = ''; return pickSecret(); }   // the library gave nothing fit: the built-in articles
+      if (!s) { zim = ''; g.zim = ''; return pickSecret(); }   // the library gave nothing fit: the built-in articles
       return s;
     }).then(function (s) { g.secret = s; g.used.push(s.title); });
   }

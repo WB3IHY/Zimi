@@ -154,8 +154,11 @@
   }
   function finish() {
     done = true;
-    var stats = Play.load(STATS_KEY, { queens: 0 });
-    stats.queens = (stats.queens || 0) + 1; Play.save(STATS_KEY, stats);
+    if (!g.counted) {   // a finished puzzle comes back finished: it is counted once
+      g.counted = true;
+      var stats = Play.load(STATS_KEY, { queens: 0 });
+      stats.queens = (stats.queens || 0) + 1; Play.save(STATS_KEY, stats);
+    }
     ZimiShell.endSheet({ result: 'win', text: T('bee.queen'), stats: [[T('bee.wordsLabel'), Play.num(g.found.length)], [T('play.score'), Play.num(score())]] });
   }
   function start(mode) {
