@@ -181,6 +181,12 @@ const Lib = load(['librarykit.js']).GamesLib;
     check(L.dailyMini(mini, '20261024').word === L.dailyMini(mini, '20261024').word && days.size >= 20, 'letters: the day\'s built-in word is one word, and the days differ (' + days.size + ' of 28)');
     const lookup = { langs: [{ entries: [{ groups: [{ parts: [{ senses: [{ d: [] }, { d: ['A tall plant.'] }] }] }] }] }] };
     check(L.senseOf(lookup) === 'A tall plant.' && L.senseOf({}) === '' && L.senseOf(null) === '', 'letters: the clue is the first sense a dictionary has (and none for an odd shape)');
+    const mixed = { langs: [
+      { code: 'la', entries: [{ groups: [{ parts: [{ senses: [{ d: ['first-person singular present passive subjunctive of dēlīneo'] }] }] }] }] },
+      { code: 'en', entries: [{ groups: [{ parts: [{ senses: [{ d: ['plural of tree'] }, { d: ['A woody plant.'] }] }] }] }] }
+    ] };
+    check(L.senseOf(mixed, 'en') === 'A woody plant.', 'letters: the clue comes from the game\'s own language and is never grammar about another word');
+    check(L.senseOf({ langs: [mixed.langs[0]] }, 'en') === '', 'letters: a word with no sense in the game\'s language gives no clue, so another word is drawn');
   }
 
   // ── Quizzical ──────────────────────────────────────────────────────────────

@@ -78,11 +78,15 @@
   function parseMini(list) { return list.map(function (s) { var i = s.indexOf('|'); return { word: s.slice(0, i), clue: s.slice(i + 1) }; }); }
   function dailyMini(list, dayKey) { return list[Lib.hash('letters|' + dayKey) % list.length]; }
 
-  // The clue of a Wiktionary entry as /dictionary/word answers: the first sense of the first part of speech.
-  function senseOf(lookup) {
+  // The clue of a Wiktionary entry as /dictionary/word answers: the first sense of the first part of speech, from the
+  // section in the game's own language only (an English Wiktionary also holds Latin and French words), and never a
+  // sense that is only grammar about another word ("first-person singular present passive subjunctive of dēlīneo").
+  var FORM_OF = /\b(form|plural|singular|participle|tense|person|spelling|comparative|superlative|inflection|abbreviation|initialism|genitive|dative|accusative|nominative|vocative|ablative|subjunctive|indicative|imperative|infinitive|gerund)\b[^.]*\bof\b/i;
+  function senseOf(lookup, lang) {
     try {
       var langs = (lookup && lookup.langs) || [];
       for (var i = 0; i < langs.length; i++) {
+        if (lang && langs[i].code && String(langs[i].code).split('-')[0] !== lang) continue;
         var entries = langs[i].entries || [];
         for (var j = 0; j < entries.length; j++) {
           var groups = entries[j].groups || [];
@@ -90,7 +94,7 @@
             var parts = groups[g].parts || [];
             for (var p = 0; p < parts.length; p++) {
               var senses = parts[p].senses || [];
-              for (var s = 0; s < senses.length; s++) if (senses[s].d && senses[s].d[0]) return senses[s].d[0];
+              for (var s = 0; s < senses.length; s++) if (senses[s].d && senses[s].d[0] && !FORM_OF.test(senses[s].d[0])) return senses[s].d[0];
             }
           }
         }
@@ -264,7 +268,7 @@
     return Promise.resolve({ word: w.word, clue: w.clue });
   }
   function clueFor(zim, word) {
-    return Lib.json('/dictionary/word?w=' + encodeURIComponent(word) + '&names=' + encodeURIComponent(zim)).then(senseOf, function () { return ''; });
+    return Lib.json('/dictionary/word?w=' + encodeURIComponent(word) + '&names=' + encodeURIComponent(zim)).then(function (r) { return senseOf(r, source && source.lang); }, function () { return ''; });
   }
   function refill() {
     var langs = Lib.uiLang();
