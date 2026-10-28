@@ -7017,7 +7017,7 @@ def handle_manage_post(handler, parsed, data):
         name, gone = data.get("name"), data.get("removed")
         if not isinstance(gone, bool) or not _srv.set_own_zim_removed(str(name), gone):
             return handler._json(400, {"error": "name is zimi_games or zimi_almanac, removed is true or false"})
-        log.info("%s %s", "Removed" if gone else "Added back", name)
+        log.info("%s %s", "Removed" if gone else "Added back", str(name).replace("\r", "").replace("\n", ""))
         from zimi import ownzims
 
         return handler._json(200, {"zims": ownzims.catalog()})

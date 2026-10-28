@@ -35,7 +35,7 @@ def block():
 
 
 _ID = re.compile(r"^[a-z][A-Za-z0-9_]*(?:(?:\.[A-Za-z0-9_]+)+\.?|\.)$")
-_STRING = re.compile(r"""(['"])((?:\\.|(?!\1).)*)\1""")
+_STRING = re.compile(r"""(['"])((?:\\.|(?!\1)[^\\\n])*)\1""")  # an escape or one plain character: no overlap, no backtracking
 _CALL = re.compile(r"(?<![A-Za-z0-9_$])(?:(?:[A-Za-z0-9_$.]*\.)?(?:T|TX|tx|t)|tr)\(")
 _DATA_T = re.compile(r'data-t(?:-aria|-title)?="([^"]+)"')
 _COMMENTS = re.compile(r"/\*.*?\*/|(?<![:'\"])//[^\n]*", re.S)

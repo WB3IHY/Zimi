@@ -2476,7 +2476,7 @@ def set_own_zim_removed(name, gone):
             register_zim_file(path)
             done = name in (_zim_files_cache or {})
     except Exception as e:
-        log.warning("Incremental change of %s failed (%s), rescanning the library", name, e)
+        log.warning("Incremental change of %s failed (%s), rescanning the library", str(name).replace("\r", "").replace("\n", ""), e)
     if not done:
         with _zim_lock:
             load_cache(force=True)
