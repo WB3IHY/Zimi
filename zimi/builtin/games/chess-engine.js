@@ -393,7 +393,10 @@ function ZimiChessEngine(S) {
   function takenFrom(pos, color) {
     var have = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, out = [], worth = 0, t, n;
     for (var s = 0; s < 64; s++) { var v = pos.sq[s]; if (v && v * color > 0 && have[Math.abs(v)] !== undefined) have[Math.abs(v)]++; }
-    for (t = 5; t >= 1; t--) for (n = START_COUNT[t] - have[t]; n > 0; n--) { out.push(t); worth += PAWNS[t]; }
+    // A piece beyond its starting count was a pawn that promoted, not a pawn that was taken.
+    var promoted = 0;
+    for (t = 2; t <= 5; t++) promoted += Math.max(0, have[t] - START_COUNT[t]);
+    for (t = 5; t >= 1; t--) for (n = START_COUNT[t] - have[t] - (t === 1 ? promoted : 0); n > 0; n--) { out.push(t); worth += PAWNS[t]; }
     return { list: out, worth: worth };
   }
 

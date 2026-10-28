@@ -31,6 +31,7 @@ function makeGoEngine() {
   // With maxLibs the flood stops once that many liberties are found (the group is then partial).
   function flood(b, n, idx, maxLibs) {
     maxLibs = maxLibs || 1e9;
+    if (STAMP >= 0x7ffffff0) { SEEN.fill(0); LIBSEEN.fill(0); STAMP = 0; }   // the marks are Int32: a wrapped stamp would match old ones
     var nb = neighbors(n), color = b[idx], sp = 0, stamp = ++STAMP;
     gCount = 0; gLibs = 0; gLib = -1;
     STACK[sp++] = idx; SEEN[idx] = stamp;

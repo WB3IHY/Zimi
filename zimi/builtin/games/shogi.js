@@ -99,7 +99,7 @@
         if (E.DROPPABLE.indexOf(t) < 0) return;
         var n = pos.hand[side][t], picked = canUse && selDrop === t && n > 0;
         sig += t + ':' + n + (picked ? '*' : '') + (canUse ? 'u' : '');
-        html += '<button type="button" class="sg-h' + (picked ? ' sel' : '') + '" data-piece="' + t + '" data-c="' + color + '"' + (canUse && n ? '' : ' disabled') + ' aria-label="' + T('shogi.hand.piece', { side: colorName(color), piece: T('shogi.piece.' + t), n: n }) + '">' + pieceSvg(t, color) + '<b>' + n + '</b></button>';
+        html += '<button type="button" class="sg-h' + (picked ? ' sel' : '') + (n ? '' : ' empty') + '" data-piece="' + t + '" data-c="' + color + '"' + (canUse && n ? '' : ' disabled') + ' aria-label="' + T('shogi.hand.piece', { side: colorName(color), piece: T('shogi.piece.' + t), n: n }) + '">' + pieceSvg(t, color) + '<b>' + n + '</b></button>';
       });
       sig += G.settings.labels + bottom;
       if (box.dataset.sig !== sig) {

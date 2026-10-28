@@ -16,7 +16,7 @@
   if (!state.solved || typeof state.solved !== 'object') state.solved = {};
   var save = function () { BK.save(KEY, state); };
   var problems = D.problems;
-  var keyboard = false, P, b, ko, plies, last, history, over, thinking, cue, wrongAt, cursor, search, showTimer, shown, coll = null, gradeFilter = 'all';
+  var keyboard = false, P, b, ko, plies, last, history, over, thinking, cue, wrongAt, cursor, search, showTimer, replyTimer, shown, gradeFilter = 'all';
 
   var boardEl = $('gp-board');
   var line = UI.status($('gp-msg'));
@@ -68,6 +68,7 @@
   // ── a problem ──
   function load(i) {
     clearInterval(showTimer); showTimer = 0;
+    clearTimeout(replyTimer); replyTimer = 0;
     P = problems[Math.max(0, Math.min(problems.length - 1, i))];
     b = S.boardFromRows(P.r); ko = -1; plies = 0; last = -1; history = []; over = false; thinking = false; cue = -1; wrongAt = -1; shown = false;
     var goal = { kind: P.k, target: P.t };
@@ -115,9 +116,11 @@
     b = nx.b; ko = nx.ko; plies++; last = p;
     if (S.verdict(b, goal()) > 0) { solved(); return; }
     say(T('gp.whiteAnswers'), true); thinking = true; drawBoard();
-    setTimeout(whiteReplies, REPLY_DELAY_MS);
+    replyTimer = setTimeout(whiteReplies, REPLY_DELAY_MS);
   }
   function whiteReplies() {
+    replyTimer = 0;
+    if (!thinking) return;   // the problem was reset or left while White was on its way
     budget();
     var r = S.stubbornReply(search, b, ko, MAX_PLIES - plies);
     thinking = false;
@@ -162,7 +165,6 @@
   }
   function next() {
     var i = problems.indexOf(P), j = i + 1;
-    while (j < problems.length && (coll && problems[j].c !== coll)) j++;
     load(j < problems.length ? j : 0);
   }
 
@@ -242,7 +244,7 @@
       if (over) say(T(P.k === 'kill' ? 'gp.solved.kill' : 'gp.solved.live'));
       showStats(); drawBoard();
     },
-    resume: function () { if (thinking) { say(T('gp.whiteAnswers'), true); setTimeout(whiteReplies, REPLY_DELAY_MS); } }
+    resume: function () { if (thinking) { say(T('gp.whiteAnswers'), true); clearTimeout(replyTimer); replyTimer = setTimeout(whiteReplies, REPLY_DELAY_MS); } }
   });
 
   if (new URLSearchParams(location.search).has('debug')) {

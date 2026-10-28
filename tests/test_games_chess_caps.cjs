@@ -17,6 +17,8 @@ const w = E.takenFrom(p, E.WHITE), b = E.takenFrom(p, E.BLACK);
 check(same(w.list, [3, 3, 2, 2, 1]) && w.worth === 13, 'white lost 2B 2N P (biggest first), worth 13');
 check(same(b.list, [3, 3, 2, 1]) && b.worth === 10, 'black lost 2B N P, worth 10');
 check(w.worth - b.worth === 3, 'Black is up 3 (white lost more)');
-// The strip for the side on top (Black) shows what White lost, and it carries the lead; paintCaps uses exactly this.
-check(E.takenFrom(p, E.WHITE).worth - E.takenFrom(p, E.BLACK).worth > 0, 'lead is positive for the side that took more');
+// A promoted pawn is not a captured pawn: White has 7 pawns and a second queen, and has lost nothing.
+p = E.parseFen('rnbqkbnr/pppppppp/8/8/8/Q7/PPPPPPP1/RNBQKBNR w KQkq - 0 1');
+const pr = E.takenFrom(p, E.WHITE);
+check(pr.list.length === 0 && pr.worth === 0, 'a promotion is not counted as a lost pawn');
 process.exit(failures ? 1 : 0);

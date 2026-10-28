@@ -184,9 +184,17 @@ async function main() {
     ['g1f3', 'g8f6', 'f3g1', 'f6g8'].forEach(t => { const m = movesOf(E, pos).find(x => F.uci('chess', E, pos, x) === t); played.push(m); E.make(pos, m); });
     const undoBefore = pos.undo.length;
     const h = F.history('chess', E, pos, played);
-    check(h.moves.join(' ') === 'g1f3 g8f6 f3g1 f6g8' && h.fen.startsWith('rnbqkbnr/pppppppp'), 'history: the start position and the four moves');
+    check(h.moves.join(' ') === 'g1f3 g8f6 f3g1 f6g8' && h.fen === 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', 'history: the start position and the four moves');
     check(E.toFen(pos).startsWith('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w'), 'history: the live position is left as it was');
     check(pos.undo.length === undoBefore, 'history: the take-back stack is as long as before');
+  }
+  // and with moves that do not return to the start, a wrong or unrestored position shows
+  {
+    const E = engines.chess, pos = E.startPosition(), played = [];
+    ['e2e4', 'e7e5', 'g1f3'].forEach(t => { const m = movesOf(E, pos).find(x => F.uci('chess', E, pos, x) === t); played.push(m); E.make(pos, m); });
+    const live = E.toFen(pos), h = F.history('chess', E, pos, played);
+    check(h.fen === 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' && h.moves.join(' ') === 'e2e4 e7e5 g1f3', 'history: three moves from the start');
+    check(E.toFen(pos) === live, 'history: the live position after three moves is left exactly as it was');
   }
 }
 

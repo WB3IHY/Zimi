@@ -165,3 +165,32 @@ def test_minesweeper_ignores_keys_after_the_game_ends(open_game):
     assert page.evaluate("document.getElementById('ms-time').textContent") == before
     assert page.evaluate("window.__ends") == 1, "the end sheet opens once"
     assert not page.errors, page.errors
+
+
+def test_a_waiting_shogi_hand_keeps_its_counts(open_game):
+    """The side not to move has its pieces disabled; their counts stay visible, and only an empty slot fades."""
+    page = open_game("shogi")
+    game_ready(page, "document.getElementById('sg-hand-top')")
+    seen = page.evaluate("""(() => {
+      const box = document.getElementById('sg-hand-top');
+      const mk = (cls, n) => { const b = document.createElement('button'); b.className = 'sg-h' + cls; b.disabled = true; b.innerHTML = '<b>' + n + '</b>'; box.appendChild(b); return getComputedStyle(b.querySelector('b')).visibility; };
+      return [mk('', 2), mk(' empty', 0)];
+    })()""")
+    assert seen == ["visible", "hidden"], seen
+
+
+def test_go_problems_reply_does_not_outlive_a_restart(open_game):
+    page = open_game("goproblems", "?debug")
+    game_ready(page, "window.__gp")
+    fresh = page.evaluate("""(() => {
+      const gp = __gp, i = gp.problems.indexOf(gp.problem()), board = document.getElementById('gp-board');
+      for (let p = 0; p < 400 && !gp.thinking(); p++) { try { gp.play(p); } catch (e) {} }
+      if (!gp.thinking()) return null;
+      gp.load(i);   // Restart while White is still to answer
+      return [board.innerHTML, document.body.innerText];
+    })()""")
+    assert fresh, "no first move that White answers was found"
+    page.wait_for_timeout(1200)   # past the reply delay
+    assert page.evaluate("[document.getElementById('gp-board').innerHTML, document.body.innerText]") == fresh, "White answered on the restarted problem"
+    assert page.evaluate("[__gp.thinking(), __gp.over()]") == [False, False]
+    assert not page.errors, page.errors
