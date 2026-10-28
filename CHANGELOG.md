@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - An open window or the installed app updates itself to a new version of Zimi: right away on the home page, otherwise the next time it is in the background, with an open article back where it was.
 - ZIMs added or removed show up in every open window without a reload.
 - Discover shows the next day's cards in a window left open overnight.
-- Patience, in Settings > Languages > Voices and in Read aloud's voice menu while Natural reads: Read aloud keeps a slow voice, gets ahead before it starts (the bar counts down with a closing ring) and pauses to catch up, instead of switching to a faster voice.
+- Patience, in Settings > Language > Voices and in Read aloud's voice menu while Natural reads: Read aloud keeps a slow voice, gets ahead before it starts (the bar counts down with a closing ring) and pauses to catch up, instead of switching to a faster voice.
 - ZimiGames, an Apps tile on Home: over 100 offline games from around the world, among them cards (Solitaire, Hearts, Bridge, Cribbage, Scopa, Koi-Koi), boards (Chess, Go, Xiangqi, Shogi, Backgammon, Mahjong), arcade and kids' games, each with a computer opponent where the game has one. The opponent is named Zimi.
 - Simon Tatham's puzzles are first class: 38 on the shelf as a Logic puzzles family, with How to play, the puzzle's manual, Undo and Redo in the bar, the puzzle's own settings, best times and a win sheet.
 - Play feel across the games: a hint and a glide on every board move, the reason for every refused tap, felt hits and clears in the arcade, full-width touch pads, and the page never shifts or zooms around a game.
