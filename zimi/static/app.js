@@ -28344,7 +28344,8 @@ function _updateResumeApply(win) {
 // /static/find.js, fetched the first time a find is asked for.
 var _findLoading = null;
 function _findApplies() {
-  return readerOpen && !_almanacOpen && !_createOpen && !_isMapPage() && !_isPdfPage();
+  // Not in Zimi's apps or an app ZIM (ZimiGames, the Almanac): a game board has no text to find.
+  return readerOpen && !_almanacOpen && !_createOpen && !_isMapPage() && !_isAppPage() && !_isPdfPage() && !_docIsApp(_readerFrameDoc());
 }
 function _findIsOpen() { return !!(window.ZimiFind && window.ZimiFind.isOpen()); }
 function _findClose() { if (_findIsOpen()) window.ZimiFind.close(); }

@@ -123,4 +123,5 @@ test('a game offers no Reader View: it is played, not read', async ({ page }) =>
   await page.locator('button.topbar-more').click();
   await expect(page.locator('#topbar-menu.visible')).toHaveCount(1);
   await expect(page.locator('#tbm-readerview')).toHaveCount(0);
+  await expect(page.locator('#tbm-find')).toHaveCount(0);
 });
