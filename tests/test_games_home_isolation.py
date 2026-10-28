@@ -48,6 +48,13 @@ def browser():
         b.close()
 
 
+MESSAGES = [
+    {"zimi": "game", "title": "Hostile", "act": {"kind": "undo", "label": "x"}},
+    {"zimi": "game-sky", "place": "x"},
+    {"zimi": "game-app", "app": "dictionary", "w": "word"},
+]
+
+
 def _send_from_reader_frame(page, msg):
     page.evaluate("""m => { let f = document.getElementById('reader-frame'); f.src = 'about:blank'; }""")
     page.wait_for_function("() => document.getElementById('reader-frame').contentWindow.location.href === 'about:blank'")
@@ -67,6 +74,7 @@ def test_game_messages_are_heard_only_from_the_games_zim(zimi, browser, zim, hea
       openDictionary = () => window.__asked.push('dictionary');
       readerOpen = true;
       currentArticle = { zim: z, path: 'index.html', title: 'x' };
+      _gameFrameZim = () => z;   // the frame's own address (here it is about:blank, so the test says whose page it is)
     }""", zim)
     for m in MESSAGES:
         _send_from_reader_frame(page, m)
