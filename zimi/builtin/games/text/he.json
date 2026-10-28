@@ -4821,7 +4821,7 @@
  "shell.end.draw": "תיקו",
  "shell.end.lose": "הפסדתם",
  "shell.end.over": "המשחק נגמר",
- "shell.end.win": "ניצחתם",
+ "shell.end.win": "ניצחתם!",
  "shell.end.wins": "ניצחון: {name}",
  "shell.end.winsTeam": "ניצחון: {name}",
  "shell.failedStart": "המשחק לא הצליח להיפתח.",

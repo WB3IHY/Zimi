@@ -188,6 +188,7 @@ The pebble is the mark. The games tile is the product's icon and appears where t
 | ZIM icon, Zimi Home tile, Zimi's header | Games tile | Native 48, 96, 256 | Half the pebble's width | As drawn in both (felt is a material) |
 | Shelf header | Games tile and "ZimiGames" | 40px tile, 12px gap | 16px page gutter | Tile as drawn; text in ink |
 | Game bar | Chevron and pebble, one 44px target | Pebble 24px | 8px around it | Pebble as drawn; in dark a 1px ring (ink at 28 percent) |
+| Inside Zimi, the game's page (its bar is hidden behind Zimi's header) | Pebble on the ground of the game: the felt of a card table, the page's ground elsewhere; under everything, never over a board, card or control | 20px, bottom-right | 12px from the edges | As drawn; in dark a 1px ring on the page's ground (the felt needs none) |
 | Sheet over a bar | None | n/a | n/a | n/a |
 | Sheet on a page with no bar (the shelf's) | Pebble | 20px, 8px to the title | 8px | As the bar, ring in dark |
 | End screens, empty and loading states | None | n/a | n/a | n/a |
@@ -209,13 +210,13 @@ Never recoloured, never a watermark, never inside a board. Below 20px the Z has 
 
 The one computer opponent is Zimi: a proper name, the same in all ten languages (`ZimiText.ZIMI`, `board.zimi`, and `ZimiSeats` at a two-seat table). With two or more computers the seats keep names (`seats.cpu.N`, the compass points); a partner is never Zimi.
 
-A win lands (Shell.endSheet): the game's own flourish, then a pebble stamp, a ring and a scatter, about 800 ms, then the sheet with a heavier title and counting figures. A loss settles in softly, nothing moves over the board. A draw is plain. A tap or key skips the beat and the sheet opens at once (the skipping tap cannot press a sheet button for 250 ms); a tap on the bar cancels it. Haptic where available. Reduced motion: no beat, the sheet at once. A sheet shown with `after: 0` (a finished game coming back) has no beat.
+A win lands (Shell.endSheet): the game's own flourish, then a pebble stamp, a ring, a scatter and confetti in the mark's colours (red, amber, orange, ink, cream), about 1.8 s, then the sheet with a heavier title and counting figures. A loss settles in softly, nothing moves over the board. A draw is plain. A tap or key skips the beat and the sheet opens at once (the skipping tap cannot press a sheet button for 250 ms); a tap on the bar cancels it. Haptic where available. Reduced motion: no beat, the sheet at once. A closed end sheet is never a dead end: the result line and a large New game stay over the bottom of the finished board until a new game starts (`.gs-rest`). A sheet shown with `after: 0` (a finished game coming back) has no beat.
 
 ## Words
 
 US English, to match Zimi: color, favorite, center, gray. "Draughts" survives only as that game's name. A lint test fails on the British spellings in visible text.
 
-Sentence case everywhere. Typographic apostrophes. No exclamation marks, no emoji, no jokes in controls.
+Sentence case everywhere. Typographic apostrophes. No exclamation marks, no emoji, no jokes in controls. The one exception is a win's title ("You win!", and the same mark in each language where it is natural), because a win is the moment the product is allowed to cheer.
 
 One verb per action:
 - New game: start fresh. This covers puzzles too, so never New puzzle, New word or New code.

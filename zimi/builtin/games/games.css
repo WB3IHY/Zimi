@@ -524,7 +524,7 @@ html.gs-pad :focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .gs-tm-sheet { animation: none; } }
 
 /* The end of a game. A win: a pebble stamps the middle of the game under the sheet's scrim level, a ring opens from it and a few
-   pebbles scatter (shell.js, about 800 ms); the sheet's title is heavier. A loss: the sheet settles in, nothing moves over the
+   pebbles scatter and confetti falls (shell.js, about 1.8 s); the sheet's title is heavier. A loss: the sheet settles in, nothing moves over the
    board. Reduced motion never reaches this: shell.js adds nothing then. */
 .gs-moment { position: fixed; inset: 0; z-index: 49; pointer-events: none; overflow: hidden; }
 body:has(> .ar-bar) .gs-moment { top: var(--bar-h); }
@@ -540,6 +540,20 @@ body:has(> .ar-bar) .gs-moment { top: var(--bar-h); }
 @keyframes gs-stamp { 0% { opacity: 0; transform: scale(1.9) rotate(-9deg); } 55% { opacity: 1; transform: scale(0.94) rotate(1deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
 @keyframes gs-ring { 0% { opacity: 0.9; transform: scale(0.8); } 100% { opacity: 0; transform: scale(3.2); } }
 @keyframes gs-bit { 0% { opacity: 1; transform: translate(0, 0) scale(0.6); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1); } }
+/* Confetti: the mark's own colours (red, amber, orange) and the ink, falling for about 1.5 s from the top of the game behind the stamp. */
+.gs-m-rain { position: absolute; inset: 0; overflow: hidden; }
+.gs-m-conf { position: absolute; top: -14px; left: var(--x); width: 7px; height: 12px; border-radius: 1.5px; opacity: 0; animation: gs-conf var(--fall) cubic-bezier(0.3, 0.55, 0.5, 1) var(--delay) both; }
+.gs-m-conf0 { background: #ef4444; }
+.gs-m-conf1 { background: #f59e0b; }
+.gs-m-conf2 { background: #f97316; }
+.gs-m-conf3 { background: var(--ink); width: 6px; height: 6px; border-radius: 50%; }
+.gs-m-conf4 { background: #fdfcf8; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18); }
+@keyframes gs-conf { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--sway), 105vh) rotate(var(--turn)); } }
+/* The result and a big New game stay on a finished board once its sheet is closed (shell.js, showRest): never a dead end. */
+.gs-rest { position: fixed; left: 50%; bottom: max(var(--gutter), env(safe-area-inset-bottom)); z-index: 40; width: min(420px, calc(100% - 2 * var(--gutter))); transform: translateX(-50%); display: grid; gap: var(--sp-3); padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-sheet); background: var(--surface2); color: var(--ink); box-shadow: var(--shadow-popup); text-align: center; }
+.gs-rest p { margin: 0; font-size: var(--fs-sheet); font-weight: 650; letter-spacing: -0.01em; }
+.gs-rest .gs-rest-new { width: 100%; min-height: 56px; font-size: var(--fs-title); font-weight: 650; }
+@media (prefers-reduced-motion: no-preference) { .gs-rest { animation: gs-rest-in 240ms ease-out; } @keyframes gs-rest-in { from { opacity: 0; transform: translate(-50%, 12px); } } }
 .gs-end-win h2 { font-weight: 800; animation: gs-title-pop 360ms cubic-bezier(0.2, 0.9, 0.25, 1.2); transform-origin: left center; }
 .gs-end-win .gs-chip b { color: var(--accent); }
 @keyframes gs-title-pop { 0% { transform: scale(0.88); opacity: 0.4; } 60% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(1); } }

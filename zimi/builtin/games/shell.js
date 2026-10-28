@@ -30,7 +30,8 @@
          games with no win state). At most two stat chips, then Close and New game in amber. It appears
          `after` ms from now (default 600: call it when the last animation ends) and ignores keys for its
          first 600 ms, so a player still pressing Space or Enter cannot dismiss or restart it unseen.
-         onNew defaults to the game's own New game; a loss looks like a win. `newLabel` (T('shell.nextLevel'))
+         onNew defaults to the game's own New game; a loss looks like a win. Closing the sheet leaves the result line and a large
+         New game over the bottom of the board until a new game starts, so no game is a dead end. `newLabel` (T('shell.nextLevel'))
          names the amber button for a game that goes on to a next level rather than a new game.
 
      ZimiShell.status(el)            makes el the game's one status line (role=status, aria-live=polite);
@@ -252,7 +253,7 @@
       return v && v.v === SAVE_VERSION && v.data !== undefined && v.data !== null ? v.data : null;
     } catch (e) { return null; }
   }
-  function forgetSave() { saveUnread = false; root.clearTimeout(saveTimer); try { root.localStorage.removeItem(SAVE_KEY); } catch (e) { /* blocked */ } }
+  function forgetSave() { Shell.clearRest(); saveUnread = false; root.clearTimeout(saveTimer); try { root.localStorage.removeItem(SAVE_KEY); } catch (e) { /* blocked */ } }
   function writeSave() {
     root.clearTimeout(saveTimer);
     if (!saver || saveUnread) return;
@@ -541,11 +542,11 @@
   var END_TITLES = { win: 'shell.end.win', lose: 'shell.end.lose', draw: 'shell.end.draw', over: 'shell.end.over' };
 
   // ── the end of a game is a moment ──
-  // A win lands: a pebble stamps the middle of the game, a ring opens from it and a few pebbles scatter (about 800 ms,
-  // the game's own flourish plays first), then the sheet comes up with its title heavier and its numbers counting up.
+  // A win lands: a pebble stamps the middle of the game, a ring opens from it, a few pebbles scatter and confetti in the
+  // mark's own colours falls (about 1.8 s, the game's own flourish plays first), then the sheet comes up with its title heavier and its numbers counting up.
   // A loss is dignified: no motion over the board, the sheet settles in softly. A draw is plain. A tap, a key or the
   // sheet being asked for early skips the beat; under reduced motion there is none and the sheet is there at once.
-  var BEAT_MS = 800, COUNT_MS = 600, MOMENT_OUT_MS = 300, SKIP_SETTLE_MS = 250, SCATTER = 14, SCATTER_REACH = 120, GOLDEN = 2.399963, HAPTIC = { win: [14, 70, 26], lose: [30] };
+  var BEAT_MS = 1800, COUNT_MS = 600, MOMENT_OUT_MS = 300, SKIP_SETTLE_MS = 250, SCATTER = 14, SCATTER_REACH = 120, CONFETTI = 44, CONFETTI_COLOURS = 5, GOLDEN = 2.399963, HAPTIC = { win: [14, 70, 26], lose: [30] };
   function haptic(result) {
     try { if (HAPTIC[result] && root.navigator && root.navigator.vibrate && !reducedMotion()) root.navigator.vibrate(HAPTIC[result]); } catch (e) { /* no haptics here */ }
   }
@@ -556,7 +557,11 @@
       a = i * GOLDEN; r = SCATTER_REACH * (0.55 + 0.45 * ((i * 7) % 5) / 4);
       kids.push(h('i', { class: 'gs-m-bit gs-m-bit' + (i % 3), style: '--dx:' + Math.round(Math.cos(a) * r) + 'px;--dy:' + Math.round(Math.sin(a) * r) + 'px;--s:' + (6 + (i % 4) * 2) + 'px' }));
     }
-    return h('div', { class: 'gs-moment', 'aria-hidden': 'true' }, [h('div', { class: 'gs-m-at' }, kids)]);
+    var rain = [];
+    for (i = 0; i < CONFETTI; i++) {   // each piece's place, drift, turn and start is a function of its number: the same fall every win
+      rain.push(h('i', { class: 'gs-m-conf gs-m-conf' + (i % CONFETTI_COLOURS), style: '--x:' + (((i * 0.618034) % 1) * 100).toFixed(1) + '%;--sway:' + (((i * 37) % 11) - 5) * 9 + 'px;--turn:' + (((i * 53) % 9) - 4) * 150 + 'deg;--delay:' + ((i * 29) % 13) * 40 + 'ms;--fall:' + (1050 + ((i * 17) % 7) * 70) + 'ms' }));
+    }
+    return h('div', { class: 'gs-moment', 'aria-hidden': 'true' }, [h('div', { class: 'gs-m-rain' }, rain), h('div', { class: 'gs-m-at' }, kids)]);
   }
   // The figures in the chips count up from nothing; the chip says its final value to a screen reader at once.
   function countUp(chips) {
@@ -575,20 +580,35 @@
       b.textContent = '0';
     });
   }
+  // After a finished game's sheet is closed the board is not a dead end: the result and a large New game stay on it, over the
+  // bottom of the screen, until a new game starts (by this button, the Menu, the game's own button or a discarded save).
+  var rest = null;
+  function clearRest() { if (rest) { rest.remove(); rest = null; } }
+  Shell.clearRest = clearRest;
+  function showRest(title, label, onNew) {
+    clearRest();
+    var btn = h('button', { class: 'ar-btn gs-primary gs-rest-new', type: 'button', 'aria-pressed': 'true', text: label });
+    btn.addEventListener('click', function () { clearRest(); onNew(); });
+    rest = h('div', { class: 'gs-rest', role: 'status' }, [h('p', { text: title }), btn]);
+    d.body.appendChild(rest);
+    if (newBtn) newBtn.addEventListener('click', clearRest, { once: true });
+  }
   Shell.endSheet = function (opts) {
     // `title`: the caller's own headline, already in the player's language ("2nd of 5", "Solved"), over the result's.
     var title = opts.title ? String(opts.title) : opts.name ? T(opts.team ? 'shell.end.winsTeam' : 'shell.end.wins', { name: opts.name }) : T(END_TITLES[opts.result] || END_TITLES.over);
     var chips = (opts.stats || []).slice(0, 2).map(function (s) { return h('span', { class: 'gs-chip' }, [h('span', { text: s[0] }), h('b', { text: String(s[1]) })]); });
-    var newGame = function () { dirty = false; if (opts.onNew) opts.onNew(); else if (newBtn) newBtn.click(); };
-    var after = opts.after === undefined ? (opts.result === 'win' ? BEAT_MS : SHEET_GUARD_MS) : opts.after;
+    var newGame = function () { dirty = false; clearRest(); if (opts.onNew) opts.onNew(); else if (newBtn) newBtn.click(); };
+    var after = opts.after === undefined ? (opts.result === 'win' && !reducedMotion() ? BEAT_MS : SHEET_GUARD_MS) : opts.after;
     var beat = opts.result === 'win' && after > 0 && !reducedMotion(), shown = false, opened = null, timers = [], overlay = null, release = function () {};
+    var label = opts.newLabel || T('shell.menu.new');
     var show = function () {
       if (shown) return;
-      shown = true; release();
-      var api = Shell.sheet({
-        title: title, text: opts.text, guard: true, onClose: opts.onClose,
+      shown = true; release(); clearRest();
+      var started = false, api = Shell.sheet({
+        title: title, text: opts.text, guard: true,
+        onClose: function () { if (!started) showRest(title, label, newGame); if (opts.onClose) opts.onClose(); },
         body: (chips.length ? [h('div', { class: 'gs-chips' }, chips)] : []).concat(opts.extra || []),
-        actions: [{ label: T('shell.close') }, { label: opts.newLabel || T('shell.menu.new'), primary: true, onclick: newGame }]
+        actions: [{ label: T('shell.close') }, { label: label, primary: true, keep: true, onclick: function () { started = true; api.close(); newGame(); } }]
       });
       opened = api && api.el;
       var card = opened && opened.querySelector('.ar-sheet-card');
@@ -683,7 +703,7 @@
   // New game: one tap when nothing is under way. When a game is, one pane asks ("Start a new game?" and what is lost),
   // with the game's own options in that same pane and Start last; without options its button says New game.
   function startNew() {
-    dirty = false; closeMenu(); stopWatching('new'); if (newBtn) newBtn.click();
+    dirty = false; clearRest(); closeMenu(); stopWatching('new'); if (newBtn) newBtn.click();
   }
   function newGameTapped() {
     var options = menuOptions();
@@ -980,13 +1000,24 @@
     'html.gs-hosted .ar-bar:not(:has(.ar-stat, #ms-flagmode)) { display: none; }' +
     'html.gs-hosted .ar-bar { min-height: 0; padding-block: 4px; justify-content: flex-end; }' +
     'html.gs-hosted .ar-shelf .ar-brand, html.gs-hosted .ar-shelf > header > p { display: none; }';
+  // The bar carried the pebble; here it is hidden behind Zimi's header. The pebble lies on the ground of the game instead, 20px in
+  // the bottom-right corner, under everything (the felt of a card table, the page's ground elsewhere): a maker's mark on the table,
+  // never over a board, a card or a control. docs/design/games.md, the mark.
+  var MARK_PX = 20, MARK_GAP = 12;
+  function hostMarkCss(url) {
+    var at = 'content:"";position:absolute;pointer-events:none;width:' + MARK_PX + 'px;height:' + MARK_PX + 'px;background:url(' + url + ') center/contain no-repeat;';
+    return 'html.gs-hosted body:has(> .ar-bar) .zc-table::before{' + at + 'z-index:0;right:' + MARK_GAP + 'px;bottom:' + MARK_GAP + 'px}' +
+      'html.gs-hosted body:has(> .ar-bar):not(:has(.zc-table))::before{' + at.replace('absolute', 'fixed') + 'z-index:-1;right:' + MARK_GAP + 'px;bottom:calc(' + MARK_GAP + 'px + env(safe-area-inset-bottom))}' +
+      ':root[data-theme="dark"].gs-hosted body:has(> .ar-bar):not(:has(.zc-table))::before{filter:drop-shadow(1px 0 0 var(--mark-ring)) drop-shadow(-1px 0 0 var(--mark-ring)) drop-shadow(0 1px 0 var(--mark-ring)) drop-shadow(0 -1px 0 var(--mark-ring))}' +
+      '@media (prefers-color-scheme:dark){:root:not([data-theme="light"]).gs-hosted body:has(> .ar-bar):not(:has(.zc-table))::before{filter:drop-shadow(1px 0 0 var(--mark-ring)) drop-shadow(-1px 0 0 var(--mark-ring)) drop-shadow(0 1px 0 var(--mark-ring)) drop-shadow(0 -1px 0 var(--mark-ring))}}';
+  }
   function inZimi() {
     try { var f = root.parent !== root && root.parent.document.getElementById('reader-frame'); return !!f && f.contentWindow === root; } catch (e) { return false; }
   }
   var hosted = Shell.hosted = inZimi();
   if (hosted) {
     d.documentElement.classList.add('gs-hosted');
-    var hostStyle = d.createElement('style'); hostStyle.textContent = HOST_CSS; d.head.appendChild(hostStyle);
+    var hostStyle = d.createElement('style'); hostStyle.textContent = HOST_CSS + hostMarkCss(HOME + 'mark.svg'); d.head.appendChild(hostStyle);
   }
   function hostAct() { return d.querySelector('.ar-bar [id$="undo"], .ar-bar [id$="pause"]'); }
   function hostSay() {
