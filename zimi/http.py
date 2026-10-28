@@ -311,6 +311,7 @@ _RATE_LIMITED_API_PATHS = (
     "/almanac-ages",
     "/almanac-place",
     "/games-links",
+    "/own-offline",
     "/events",
 )
 
@@ -2893,6 +2894,13 @@ class ZimHandler(BaseHTTPRequestHandler):
                 return _almanac_pdf_get(self, parsed.path)
             elif parsed.path == "/almanac-ages":
                 return self._json(200, _almanac_ages())
+            elif parsed.path == "/own-offline":
+                # What the phone keeps of one of Zimi's own ZIMs (the games)
+                # so it opens with no signal: ownzims.offline_paths. Asked
+                # by the worker once the ZIM has been opened, never by Home.
+                from zimi import ownzims
+
+                return self._json(200, {"paths": ownzims.offline_paths(param("zim") or "")})
             elif parsed.path == "/games-links":
                 # ZimiGames <-> encyclopedia: which installed article carries
                 # each game's Q-ID (zimi/gamelinks.py). Asked once, lazily.

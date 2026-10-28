@@ -95,12 +95,15 @@ self.addEventListener('install', event => {
 // Activate: clean old caches, claim clients, version check
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(
-        keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k))
-      ))
-      .then(() => self.clients.claim())
-      .then(() => checkVersion())
+    ownKeptBefore().catch(() => [])
+      .then(had => caches.keys()
+        .then(keys => Promise.all(
+          keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k))
+        ))
+        .then(() => self.clients.claim())
+        .then(() => checkVersion())
+        // A deploy empties the cache; what was kept whole comes again, once the new worker is in charge.
+        .then(() => Promise.all(had.map(keepOwnZim))))
   );
 });
 
@@ -155,7 +158,7 @@ async function checkVersion() {
 // signed-out phone could be shown them. Offline the page reads the guide's own
 // copy instead (/static/fieldguide-offline.json: public text, kept like any
 // static file), so nothing is lost by never keeping these.
-const NETWORK_ONLY_PREFIXES = ['/login', '/logout', '/suggest', '/random', '/places', '/tube', '/exchange', '/reddot', '/me', '/collections', '/userdata', '/dictionary/voices', '/dictionary/speak', '/fieldguide', '/keep', '/games-links'];
+const NETWORK_ONLY_PREFIXES = ['/login', '/logout', '/suggest', '/random', '/places', '/tube', '/exchange', '/reddot', '/me', '/collections', '/userdata', '/dictionary/voices', '/dictionary/speak', '/fieldguide', '/keep', '/games-links', '/own-offline'];
 // /games-links is filtered per account and follows the library: never kept, so no copy outlives a sign-out or an account change.
 
 // The answers the app cannot start without, which say who is asking and what
@@ -269,6 +272,13 @@ self.addEventListener('fetch', event => {
   // Cache Storage: a TED talk's 65 MB copied on an iPhone while it played.
   if (event.request.headers.has('range')) return;
   const url = new URL(event.request.url);
+  // The games opened (a tile, an address, a reload): the games and the Almanac are kept whole, a moment after this page has loaded.
+  if (!_ownKeepAsked && url.pathname.startsWith('/w/zimi_games/')) {
+    _ownKeepAsked = true;
+    event.waitUntil(new Promise(r => setTimeout(r, OWN_KEEP_DELAY_MS))
+      .then(() => caches.open(CACHE_VERSION)).then(c => c.match(OWN_KEEP_MARK + 'zimi_games'))
+      .then(kept => { if (!kept) return keepOwnApps(); }).catch(() => {}));
+  }
   switch (routeStrategy(url.pathname, event.request.mode, event.request.destination, url.search)) {
     case 'passthrough':
       return;
@@ -665,6 +675,8 @@ self.addEventListener('message', event => {
     event.waitUntil(refreshCachedCatalogs());
   }
   if (event.data && event.data.type === 'keep-almanac') event.waitUntil(keepAlmanac());
+  if (event.data && event.data.type === 'keep-own-apps') event.waitUntil(keepOwnApps());
+  if (event.data && event.data.type === 'forget-own' && OWN_ZIM_PREFIXES.includes('/w/' + event.data.zim + '/')) event.waitUntil(forgetOwnZim(event.data.zim));
 });
 
 // A device that kept the Almanac keeps each new deploy's too, before activate
@@ -681,6 +693,74 @@ async function hadAlmanac() {
 async function keepAlmanac() {
   const cache = await caches.open(CACHE_VERSION);
   await Promise.allSettled(ALMANAC_URLS.map(async u => { if (!(await cache.match(u))) await cache.add(u); }));
+}
+
+// The games (and the Almanac beside them) open with no signal once either has been used, or the phone keeps anything
+// offline: Eric, 2026-10-27, "Games and almanac should always be available offline if any app is offline unless user
+// explicitly removes." The server lists what the games are made of (/own-offline: ~6.5 MB, 2.2 MB on the wire; the
+// puzzle files and thumbnails come as they are played); a few at a time, only what this cache lacks, in the
+// background after the page that asked has loaded. An empty list means the person removed the ZIM: what was kept of it goes.
+const OWN_KEEP_PARALLEL = 4;
+const OWN_KEEP_MARK = '/_kept/own/';   // a small answer saying this cache holds a ZIM's pages whole
+const OWN_KEEP_DELAY_MS = 4000;
+const OWN_KEEP_MAX_FAILS = 5;   // a network that went away stops the keeping; the next open asks again
+const _ownKeeping = {};
+let _ownKeepAsked = false;   // once per worker life: a page of the games has been asked for
+
+async function keepOwnApps() {
+  await keepAlmanac();
+  await keepOwnZim('zimi_games');
+}
+
+async function keepOwnZim(zim) {
+  if (_ownKeeping[zim]) return _ownKeeping[zim];
+  return (_ownKeeping[zim] = (async () => {
+    try {
+      const cache = await caches.open(CACHE_VERSION);
+      const resp = await fetch('/own-offline?zim=' + encodeURIComponent(zim), { credentials: 'same-origin' });
+      if (!resp.ok || _gatewayDown(resp)) return;
+      const paths = (await resp.json()).paths || [];
+      if (!paths.length) { await forgetOwnZim(zim); return; }
+      const todo = [];
+      for (const u of paths) if (!(await cache.match(u))) todo.push(u);
+      let failed = 0;
+      const worker = async () => {
+        while (todo.length && failed < OWN_KEEP_MAX_FAILS) {
+          const u = todo.pop();
+          try { await cache.add(new Request(u, { cache: 'no-cache' })); } catch (e) { failed++; }
+        }
+      };
+      await Promise.all(Array.from({ length: OWN_KEEP_PARALLEL }, worker));
+      if (!failed) await cache.put(OWN_KEEP_MARK + zim, new Response('1'));
+    } catch (e) { /* offline or busy: asked again the next time it opens */ }
+    finally { delete _ownKeeping[zim]; }
+  })());
+}
+
+// A ZIM the person removed: its kept pages go with it.
+async function forgetOwnZim(zim) {
+  try {
+    const cache = await caches.open(CACHE_VERSION);
+    const prefix = '/w/' + zim + '/';
+    for (const r of await cache.keys()) {
+      const path = new URL(r.url).pathname;
+      if (path.startsWith(prefix) || path === OWN_KEEP_MARK + zim) await cache.delete(r);
+    }
+  } catch (e) { /* nothing kept */ }
+}
+
+// Which own ZIMs an older cache held whole, read before activate drops it: the new deploy keeps them again.
+async function ownKeptBefore() {
+  const had = [];
+  for (const k of await caches.keys()) {
+    if (k === CACHE_VERSION) continue;
+    const cache = await caches.open(k);
+    for (const o of OWN_ZIM_PREFIXES) {
+      const zim = o.split('/')[2];
+      if (!had.includes(zim) && await cache.match(OWN_KEEP_MARK + zim)) had.push(zim);
+    }
+  }
+  return had;
 }
 
 // Only the last few searches are kept, newest first.

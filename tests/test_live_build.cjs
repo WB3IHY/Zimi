@@ -34,12 +34,13 @@ function page(opts) {
       hidden: !!opts.hidden, activeElement: null,
       querySelectorAll: () => [],
       addEventListener: (type, f) => { (listeners[type] = listeners[type] || []).push(f); },
+      removeEventListener: (type, f) => { listeners[type] = (listeners[type] || []).filter(g => g !== f); },
       getElementById: () => null,
     },
     mode: opts.mode || 'home', readerOpen: !!opts.readerOpen, _almanacOpen: false, _createOpen: false, _ttsSpeaking: !!opts.speaking,
   };
   vm.createContext(sb);
-  vm.runInContext(['_buildHeard', '_buildWorker', '_buildReload', '_buildQuiet', '_updateResumeKeep'].map(fn).join('\n'), sb);
+  vm.runInContext(['_buildHeard', '_buildWorker', '_buildReload', '_buildSafe', '_buildQuiet', '_updateResumeKeep'].map(fn).join('\n'), sb);
   return { sb, session, listeners, reloads, hide() { sb.document.hidden = true; (listeners.visibilitychange || []).forEach(f => f()); } };
 }
 
@@ -68,7 +69,10 @@ function page(opts) {
   await tick(); await tick();
   check(p.reloads.length === 0, 'an article open on screen: it waits');
   p.hide();
-  check(p.reloads.length === 1, '...and reloads once the window is hidden');
+  check(p.reloads.length === 0, '...and hiding the window with it open does not reload it (a game or article is never lost to an update)');
+  p.sb.readerOpen = false; p.sb.document.hidden = false;
+  p.hide();
+  check(p.reloads.length === 1, '...it reloads on the first hide after the reader is closed');
 
   p = page({ speaking: true });
   p.sb._buildHeard('zimi-v1-new');
@@ -78,7 +82,11 @@ function page(opts) {
   p = page({ hidden: true, readerOpen: true, mode: 'reader' });
   p.sb._buildHeard('zimi-v1-new');
   await tick(); await tick();
-  check(p.reloads.length === 1, 'a hidden window reloads at once, whatever it shows');
+  check(p.reloads.length === 0, 'a hidden window with an article or game open waits, it does not reload under the player');
+  p = page({ hidden: true });
+  p.sb._buildHeard('zimi-v1-new');
+  await tick(); await tick();
+  check(p.reloads.length === 1, 'a hidden window with nothing open reloads at once');
 
   p = page({});
   p.sb.document.activeElement = { tagName: 'INPUT', value: 'water purif' };

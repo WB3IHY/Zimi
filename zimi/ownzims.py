@@ -152,6 +152,41 @@ def is_own_path(path):
     return bool(path) and os.path.dirname(os.path.abspath(path)) == os.path.abspath(OUT_DIR)
 
 
+#: Folders of an own ZIM the phone does not keep ahead of time: the games' 214 puzzle files (16 MB) and their thumbnails
+#: come as they are played, through the worker's usual network-first copy. Everything else is the app itself.
+OFFLINE_SKIP = ("puzzles/", "thumbs/")
+_offline_cache = {}  # name -> (file identity, [paths])
+_offline_lock = threading.Lock()
+
+
+def offline_paths(name):
+    """What the phone keeps so an own ZIM opens with no signal (``GET /own-offline``): the address of each page, script,
+    style and engine, less OFFLINE_SKIP. Empty when the ZIM is not in this request's library (removed, deleted, off the
+    account's list), so nothing is kept for what the person took away. Read once per file, then from memory."""
+    from zimi import server as _srv
+
+    path = _srv.get_zim_files().get(name)
+    if not path or not any(o.name == name for o in OWN):
+        return []
+    st = os.stat(path)
+    ident = (path, st.st_size, st.st_mtime_ns)
+    with _offline_lock:
+        hit = _offline_cache.get(name)
+        if hit and hit[0] == ident:
+            return hit[1]
+    out = []
+    with _srv._zim_lock:
+        archive = _srv.get_archive(name) or _srv.open_archive(path)
+        for i in range(archive.all_entry_count):
+            entry = archive._get_entry_by_id(i)
+            # The ZIM's own metadata (Counter, Title, Illustration_48x48@1) has no extension and is no page.
+            if (not entry.is_redirect and "." in entry.path and not entry.path.startswith(OFFLINE_SKIP + ("_", "-/", "Illustration"))):
+                out.append("/w/%s/%s" % (name, entry.path))
+    with _offline_lock:
+        _offline_cache[name] = (ident, out)
+    return out
+
+
 def name_of_file(filename):
     """The own ZIM a file name (``zimi_games_2026-10.zim``) is, or None."""
     name = re.sub(_DATED, "", os.path.basename(filename))
