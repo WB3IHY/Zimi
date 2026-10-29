@@ -79,6 +79,8 @@ ctx._ttsVoices.timings = { kokoro: { rtf: 2.9 } };
 ok('Automatic: a voice the server measured too slow reads after one only this browser thought slow', engines('en') === '["piper","kokoro"]', engines('en'));
 ctx._ttsVoices.timings = {};
 store.zimi_tts_slow = JSON.stringify({ kokoro: Date.now() });
+prefs = { voice: '', off: [] };
+ok('not waiting: a voice marked slow reads last', engines('en') === '["piper","kokoro"]', engines('en'));
 prefs = { voice: '', off: [], wait: true };
 ok('waiting for the best voice: Automatic keeps the server\'s order, a slow one first', engines('en') === '["kokoro","piper"]', engines('en'));
 prefs = { voice: 'piper', off: [], wait: true };
@@ -651,6 +653,8 @@ const tick = () => new Promise(r => setImmediate(r));
         ['div', { cls: ['post-text'] }, ['p', {}, 'Use a loop.'], ['pre', {}, 'a poem line'], ['pre', {}, 'x = [1, 2]'], ['pre', {}, 'map(callbackFn)'], ['details', { cls: ['baseline-indicator'] }, 'Baseline Widely available'], ['p', {}, 'That is all.']], ['button', {}, 'Share'],
         ['div', { cls: ['votecell'] }, '16'], ['div', { cls: ['post-taglist'] }, 'sleep'],
         ['p', { cls: ['chapter'] }, 'CHAPTER I. Down the Rabbit-Hole', ['span', { cls: ['pagenum'] }, '[12]']], ['div', { cls: ['transnote'] }, 'Typos fixed.'], ['ul', { cls: ['toc'] }, ['li', {}, 'Chapter I']]]) === 'See also|Tides|Moons|Use a loop.|a poem line|That is all.|CHAPTER I. Down the Rabbit-Hole|');
+    ok('a poem in a <pre> with semicolons, an ampersand and an equals sign is read, not taken for code',
+      model_of(['main', {}, ['pre', {}, 'Roses are red; violets are blue &\nsugar is sweet = so are you']]) === 'Roses are red; violets are blue &\nsugar is sweet = so are you|');
     const laid = mkDoc(['main', {}, ['table', {}, ['tr', {}, ['td', {}, ['p', {}, 'The whole page sits in a table.']]]]]);
     const laidText = ax._ttsReadModel(laid, laid.main).text.replace(new RegExp(BLOCK, 'g'), '|');
     ok('a table that holds paragraphs is the page\'s layout, and is read', laidText === 'The whole page sits in a table.|', laidText);
@@ -1037,6 +1041,36 @@ const tick = () => new Promise(r => setImmediate(r));
     await say();
     ok('...then plays the chunk that was waited for, not the one that ended', a.played.length === 3 && a.src === 'clip:' + four[2], a.src);
     ok('nothing was marked slow', !store.zimi_tts_slow, store.zimi_tts_slow);
+    prefs = { voice: '', off: [] };
+    ctx._ttsVoices = null;
+    delete ctx.URL;
+  }
+
+  // Waiting for the best voice, and the voice gives way while a chunk is being made: the request that was making it is called
+  // off and never says it is done, so the next voice must not wait for it. It asks for the chunks again and goes on.
+  {
+    r = freshReading();
+    a = ctx._ttsAudio;
+    prefs = { voice: '', off: [], wait: true };
+    ctx._ttsVoices = { timings: { kokoro: { rtf: 1.5, cps: 14 } } };
+    ctx.AbortController = AbortController;
+    const answers = [];
+    ctx.authedFetch = (u, o) => { fetched.push(u); return new Promise((res, rej) => {
+      answers.push(() => res({ status: 200, ok: true, blob: () => Promise.resolve('clip:' + textOf(u)) }));
+      if (o && o.signal) o.signal.addEventListener('abort', () => rej({ name: 'AbortError' }));
+    }); };
+    ctx.URL = { createObjectURL: b => b, revokeObjectURL() {} };
+    const say = async () => { answers.shift()(); for (let k = 0; k < 4; k++) await tick(); };
+    const four = lens(4).map((x, k) => k + x);
+    ctx._ttsSpeakServer(four, 'en', ['kokoro', 'piper'], 1, null);
+    await say(); await say();   // far enough ahead: the first plays
+    a.onplaying();               // the next chunk is being made...
+    const before = fetched.length;
+    a.onerror(); a.onerror();   // ...and the voice fails twice: the next voice takes over
+    for (let k = 0; k < 4; k++) await tick();
+    a.onplaying();
+    for (let k = 0; k < 4; k++) await tick();
+    ok('waiting, voice gave way mid-chunk: the next voice asks for chunks again', fetched.slice(before).some(u => engineOf(u) === 'piper'), JSON.stringify(fetched.slice(before)));
     prefs = { voice: '', off: [] };
     ctx._ttsVoices = null;
     delete ctx.URL;

@@ -152,6 +152,9 @@ def test_the_list_the_worker_keeps_is_empty_for_a_removed_zim(server):
     got = json.load(urllib.request.urlopen(server + "/own-offline?zim=zimi_games"))["paths"]
     assert "/w/zimi_games/golf.html" in got and "/w/zimi_games/index.html" in got
     assert not [p for p in got if "/puzzles/" in p or "/thumbs/" in p]
+    kept = json.load(urllib.request.urlopen(server + "/own-offline?zim=zimi_games"))
+    assert kept["version"], "the file the list describes, so a phone can tell when its kept pages are of another file"
+    assert json.load(urllib.request.urlopen(server + "/own-offline?zim=nope"))["version"] == ""
     assert json.load(urllib.request.urlopen(server + "/own-offline?zim=nope"))["paths"] == []
     assert json.load(urllib.request.urlopen(server + "/own-offline?zim=../etc"))["paths"] == []
 

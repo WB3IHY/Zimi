@@ -72,7 +72,7 @@ def test_a_replaced_zim_shows_new_at_the_same_place(served):
             pg.wait_for_function(heading, timeout=60000)
             assert pg.evaluate(heading) == "first"
             pg.evaluate("() => document.getElementById('reader-frame').contentWindow.scrollTo(0, 900)")
-            pg.wait_for_timeout(1500)   # the window has its stream open
+            pg.wait_for_function("() => typeof _liveSource !== 'undefined' && _liveSource && _liveSource.readyState === 1")   # the window has its stream open
             served["swap"]()
             pg.wait_for_function("() => { %s }" % ("const h = (%s)(); return h === 'second';" % heading), timeout=30000)
             y = pg.evaluate("() => document.getElementById('reader-frame').contentWindow.scrollY")

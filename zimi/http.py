@@ -2916,7 +2916,11 @@ class ZimHandler(BaseHTTPRequestHandler):
                 # by the worker once the ZIM has been opened, never by Home.
                 from zimi import ownzims
 
-                return self._json(200, {"paths": ownzims.offline_paths(param("zim") or "")})
+                zim = param("zim") or ""
+                return self._json(
+                    200,
+                    {"paths": ownzims.offline_paths(zim), "version": ownzims.offline_version(zim)},
+                )
             elif parsed.path == "/games-links":
                 # ZimiGames <-> encyclopedia: which installed article carries
                 # each game's Q-ID (zimi/gamelinks.py). Asked once, lazily.

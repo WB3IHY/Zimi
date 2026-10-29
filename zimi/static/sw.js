@@ -277,7 +277,10 @@ self.addEventListener('fetch', event => {
     _ownKeepAsked = true;
     event.waitUntil(new Promise(r => setTimeout(r, OWN_KEEP_DELAY_MS))
       .then(() => caches.open(CACHE_VERSION)).then(c => c.match(OWN_KEEP_MARK + 'zimi_games'))
-      .then(kept => { if (!kept) return keepOwnApps(); }).catch(() => {}));
+      .then(kept => { if (!kept) return keepOwnApps(); })
+      .then(() => caches.open(CACHE_VERSION)).then(c => c.match(OWN_KEEP_MARK + 'zimi_games'))
+      .then(kept => { if (!kept) _ownKeepAsked = false; })   // not kept whole (offline, or a download failed): the next open tries again
+      .catch(() => { _ownKeepAsked = false; }));
   }
   switch (routeStrategy(url.pathname, event.request.mode, event.request.destination, url.search)) {
     case 'passthrough':
@@ -710,6 +713,7 @@ let _ownKeepAsked = false;   // once per worker life: a page of the games has be
 async function keepOwnApps() {
   await keepAlmanac();
   await keepOwnZim('zimi_games');
+  await keepOwnZim('zimi_almanac');
 }
 
 async function keepOwnZim(zim) {
@@ -719,10 +723,15 @@ async function keepOwnZim(zim) {
       const cache = await caches.open(CACHE_VERSION);
       const resp = await fetch('/own-offline?zim=' + encodeURIComponent(zim), { credentials: 'same-origin' });
       if (!resp.ok || _gatewayDown(resp)) return;
-      const paths = (await resp.json()).paths || [];
+      const body = await resp.json();
+      const paths = body.paths || [], version = String(body.version || '');
       if (!paths.length) { await forgetOwnZim(zim); return; }
+      // The file the kept pages came from: when it is another file (a new edition under the same name and paths), every page is
+      // fetched again; a cache holding the old copy of a path would otherwise answer offline with the old file.
+      const marked = await cache.match(OWN_KEEP_MARK + zim), had = marked ? await marked.text() : null;
+      const replace = had !== null && had !== version;
       const todo = [];
-      for (const u of paths) if (!(await cache.match(u))) todo.push(u);
+      for (const u of paths) if (replace || !(await cache.match(u))) todo.push(u);
       let failed = 0;
       const worker = async () => {
         while (todo.length && failed < OWN_KEEP_MAX_FAILS) {
@@ -731,7 +740,7 @@ async function keepOwnZim(zim) {
         }
       };
       await Promise.all(Array.from({ length: OWN_KEEP_PARALLEL }, worker));
-      if (!failed) await cache.put(OWN_KEEP_MARK + zim, new Response('1'));
+      if (!failed) await cache.put(OWN_KEEP_MARK + zim, new Response(version));
     } catch (e) { /* offline or busy: asked again the next time it opens */ }
     finally { delete _ownKeeping[zim]; }
   })());

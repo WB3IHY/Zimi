@@ -193,6 +193,18 @@ def offline_paths(name):
     return out
 
 
+def offline_version(name):
+    """Which file version ``offline_paths`` describes (its size and time), so a phone that kept an earlier one knows to replace
+    what it has under the same paths. "" when the ZIM is not in this request's library."""
+    from zimi import server as _srv
+
+    path = _srv.get_zim_files().get(name)
+    if not path or not any(o.name == name for o in OWN):
+        return ""
+    st = os.stat(path)
+    return "%d-%d" % (st.st_size, st.st_mtime_ns)
+
+
 def name_of_file(filename):
     """The own ZIM a file name (``zimi_games_2026-10.zim``) is, or None."""
     name = re.sub(_DATED, "", os.path.basename(filename))

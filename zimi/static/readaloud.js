@@ -322,7 +322,7 @@ var _TTS_SKIP_SEL = 'sup.reference,.mw-ref,.mw-editsection,.hatnote,.metadata,.a
 // Chrome by its class words (nav, menu, toolbar...), whatever the site calls the rest.
 var _TTS_CHROME_CLASS = /(?:^|[\s_-])(?:nav|navbar|navigation|menu|dropdown|breadcrumbs?|toolbar|pagination)(?:$|[\s_-])/i;
 // Code is not read: its symbols come out as noise. A <pre> of prose (a poem) is.
-function _ttsCode(el) { return el.localName === 'pre' && (!!el.querySelector('code') || !!(el.hasAttribute && el.hasAttribute('data-language')) || /[{}\[\]|&<>=;$\\]|\w\(/.test(el.textContent || '')); }
+function _ttsCode(el) { return el.localName === 'pre' && (!!el.querySelector('code') || !!(el.hasAttribute && el.hasAttribute('data-language')) || /[{}\[\]|<>$\\]|\w\(/.test(el.textContent || '')); }
 function _ttsChrome(el) { return typeof el.className === 'string' && _TTS_CHROME_CLASS.test(el.className); }
 // A collapsed section (an accordion's closed panel) is still the article's text:
 // hidden by the page's script until opened, and opened when the reading gets there.
@@ -555,11 +555,17 @@ function _ttsAlongChar(idx, ch) {
 }
 // A sentence inside a closed panel has no place on the page: open the panel as
 // a tap on its heading does. True when one was opened.
+var _ttsOpened = typeof WeakSet !== 'undefined' ? new WeakSet() : null;   // each heading is clicked at most once: a page that ignores the click is not clicked every 450 ms
 function _ttsOpenPanel(range) {
   var win = range.startContainer.ownerDocument.defaultView;
   for (var el = range.startContainer.parentElement; el; el = el.parentElement) {
     var head = _ttsPanelHead(el);
-    if (head && win.getComputedStyle(el).display === 'none') { head.click(); return true; }
+    if (head && win.getComputedStyle(el).display === 'none') {
+      if (_ttsOpened && _ttsOpened.has(head)) return false;
+      if (_ttsOpened) _ttsOpened.add(head);
+      head.click();
+      return true;
+    }
   }
   return false;
 }
@@ -577,7 +583,7 @@ function _ttsFollow(force) {
       if (doc.__zbShowRange) { doc.__zbShowRange(rs[0]); moved = true; }
     } else {
       var box = rs[0].getBoundingClientRect(), end = rs[rs.length - 1].getBoundingClientRect();
-      if (!box.width && !box.height && _ttsOpenPanel(rs[0])) { setTimeout(function() { if (_ttsRead === st) _ttsFollow(false); }, _TTS_PANEL_OPEN_MS); return; }
+      if (!box.width && !box.height && _ttsOpenPanel(rs[0])) { setTimeout(function() { if (_ttsRead === st) _ttsFollow(force); }, _TTS_PANEL_OPEN_MS); return; }
       var scr = _scrollerOf(rs[0].startContainer.parentElement, win), cr = scr ? scr.getBoundingClientRect() : { top: 0, height: win.innerHeight };
       var by = _ttsScrollBy({ top: box.top - cr.top, bottom: end.bottom - cr.top }, cr.height);
       if (!by && !force) { st.following = true; return; }
@@ -795,6 +801,9 @@ function _ttsSpeakServer(chunks, lang, engines, run, onSlow, from) {
     eng++;
     asked = {};
     started = false; heard = 0; retried = false;
+    // The request that was making a chunk is called off below and never says it is done: without this the next engine would wait for it forever.
+    making = false;
+    pace = _ttsPace(engines[eng]); tookS = 0; tookChars = 0;   // the new engine's own pace, not the old one's
     if (calls) { calls.abort(); calls = new AbortController(); }
     letGo();
   }

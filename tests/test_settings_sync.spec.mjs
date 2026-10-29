@@ -119,12 +119,14 @@ test('live: a change reaches the other open browser while it stays on the page, 
 test('live: a page that was hidden hears what changed meanwhile as it shows again', async ({ browser }) => {
   const a = await signedIn(browser, USER, 0);
   const b = await signedIn(browser, USER, 1);
-  await b.page.waitForFunction(() => _liveSource && _liveSince);
+  await b.page.waitForFunction(() => _liveSource && _liveSince && _savedPulledAt > 0);   // its own first pull is over: nothing in flight can deliver the change
   // Hidden: the stream closes (a phone in a pocket holds nothing open).
   await b.page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); });
   expect(await b.page.evaluate(() => _liveSource)).toBe(null);
   await a.page.evaluate(() => _setLibraryView('list'));
   await expect.poll(() => value(a.page, 'zimi_library_view'), { timeout: 10000 }).toBe('list');
+  await a.page.waitForTimeout(500);
+  expect(await raw(b.page, 'zimi_library_view'), 'the hidden page has not heard it yet').not.toBe('list');
   // Shown again before the pull-on-return interval: the stream resumes from
   // its place and the change arrives through it.
   await b.page.evaluate(() => { _savedPulledAt = Date.now(); Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });

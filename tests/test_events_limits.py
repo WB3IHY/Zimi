@@ -69,7 +69,8 @@ def test_a_client_over_its_cap_gets_429_with_retry_after_and_others_do_not(port)
         c, r = _open(port, "8.8.8.8")
         assert r.status == 429
         assert int(r.getheader("Retry-After")) == zhttp._EVENTS_FULL_RETRY_S
-        assert b"error" in r.read() and b"Traceback" not in r.read()
+        body = r.read()
+        assert b"error" in body and b"Traceback" not in body
         c.close()
         # Another address (CF-Connecting-IP, trusted from this hop) has its own count.
         c, r = _open(port, "1.1.1.1")
