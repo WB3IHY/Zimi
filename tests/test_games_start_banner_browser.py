@@ -45,7 +45,10 @@ def site():
 def browser():
     sync_api = pytest.importorskip("playwright.sync_api")
     with sync_api.sync_playwright() as p:
-        b = p.webkit.launch()
+        try:
+            b = p.webkit.launch()
+        except Exception as e:
+            pytest.skip("WebKit is not installed: %s" % e)
         yield b
         b.close()
 

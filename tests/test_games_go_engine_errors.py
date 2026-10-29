@@ -41,7 +41,10 @@ def site():
 def test_a_worker_that_errors_does_not_make_the_computer_pass(site):
     sync_api = pytest.importorskip("playwright.sync_api")
     with sync_api.sync_playwright() as p:
-        b = p.webkit.launch()
+        try:
+            b = p.webkit.launch()
+        except Exception as e:
+            pytest.skip("WebKit is not installed: %s" % e)
         page = b.new_page(viewport={"width": 390, "height": 844})
         page.add_init_script(FAKE_WORKER)
         page.goto(site + "go.html")

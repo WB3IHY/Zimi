@@ -79,7 +79,10 @@ def zimi(tmp_path_factory):
 @pytest.fixture(scope="module")
 def browser():
     with sync_playwright() as p:
-        b = p.webkit.launch()
+        try:
+            b = p.webkit.launch()
+        except Exception as e:
+            pytest.skip("WebKit is not installed: %s" % e)
         yield b
         b.close()
 

@@ -20,6 +20,7 @@ tests/test_almanac_live_sky.cjs.
 Run: pytest tests/test_almanac_live_sky_browser.py -v
 """
 
+import datetime
 import json
 import os
 import sys
@@ -443,7 +444,21 @@ def test_life_on_the_horizon(browser, served):
         ctx.close()
 
 
-ISS_PASS = "2026-09-29T03:12:40Z"  # the shipped elements are exact for days either side of 2026-09-28: a pass at 51 degrees in the southwest, Sun 16 degrees down
+# The shipped elements are refreshed for every release and exact only for days either side of their epoch, so the pass is looked
+# for in the elements the page holds: the first half-minute within 2.5 days of the epoch the ISS stands above 12 degrees in the view over a dark sky (Sun below 6).
+ISS_PASS_SCAN = """
+() => {
+  const s = _skyState, iss = _ae.sats.list.find((q) => q.iss), lat = s.lat, lon = s.lon;
+  const sinLat = Math.sin(lat * DEG_TO_RAD), cosLat = Math.cos(lat * DEG_TO_RAD);
+  for (let t = iss.epochMs - 2.5 * MS_PER_DAY; t < iss.epochMs + 2.5 * MS_PER_DAY; t += 30000) {
+    const up = _skyIss(s, t);
+    if (!up || up.alt < 12 || !_skyInView(s, _skyX(s, up.az), 4)) continue;
+    const d = new Date(t), sq = _skySunRaDec(_jdToJulianCentury(_dateToJD(t)));
+    if (_skyHorizontal(sq.ra, sq.dec, _skyLST(d, lon), sinLat, cosLat).alt < -6) return d.toISOString();
+  }
+  return null;
+}
+"""
 
 
 def test_the_first_look_is_the_beach_with_its_life(browser, served):
@@ -502,7 +517,9 @@ def test_the_iss_is_drawn_when_it_is_overhead_and_lit(browser, served):
             polling=500,
             timeout=90000,
         )
-        _settle(pg, ISS_PASS)
+        iss_pass = pg.evaluate(ISS_PASS_SCAN)
+        assert iss_pass, "the shipped elements hold no dark-sky pass in their 2.5 days either side of their epoch"
+        _settle(pg, iss_pass)
         pg.wait_for_function(
             "() => _skyState.bodies.some((b) => b.type === 'iss')",
             polling=POLL_MS,
@@ -511,7 +528,7 @@ def test_the_iss_is_drawn_when_it_is_overhead_and_lit(browser, served):
         iss = pg.evaluate("_skyState.bodies.find((b) => b.type === 'iss')")
         assert iss["alt"] > 8 and 300 < iss["km"] < 500, iss
         # An hour on the same orbit's ground track it is not over this sky: nothing is drawn.
-        _settle(pg, "2026-09-29T06:00:00Z")
+        _settle(pg, (datetime.datetime.fromisoformat(iss_pass.replace("Z", "+00:00")) + datetime.timedelta(hours=1)).isoformat())
         assert not pg.evaluate("_skyState.bodies.some((b) => b.type === 'iss')")
         assert not errors, errors
     finally:
