@@ -177,6 +177,7 @@ def test_it_builds_into_a_real_zim_and_rebuilds_when_a_source_changes(
         "tz-borders.json",
     ):
         assert a.has_entry_by_path(p), p
+    del a  # Windows will not replace a file this test still holds open
     assert ownzims.build(ALMANAC) is None, "unchanged: nothing is built"
     (host / "index.html").write_text(_read(HOST_HTML) + "\n<!-- changed -->\n", encoding="utf-8")
     assert ownzims.build(ALMANAC) == path, "a changed source builds it again"
