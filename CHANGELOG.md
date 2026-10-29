@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- libzim is held below 4.0, whose new writer API broke creating ZIMs on a fresh install.
 - qBittorrent versions after 5.1 connect: Zimi read their reply to a correct login as a wrong password (#122).
 - Read aloud on Automatic gives way to a faster server voice when a slow one stalls after only a title or fails twice, instead of falling to the browser's voice, and asks a voice whose speed is not measured yet for one chunk ahead instead of three (#121).
 - The draft release appears only once every build is attached to it.
