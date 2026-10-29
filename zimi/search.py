@@ -451,6 +451,17 @@ _title_db_pool = {}  # {zim_name: sqlite3.Connection}
 _title_db_pool_lock = threading.Lock()
 
 
+_use_locks = {}  # (id(pool), zim_name) -> Lock: a query on a pooled connection, and the close that would pull it out from under it
+_use_locks_guard = threading.Lock()
+
+
+def pooled_db_use(pool, zim_name):
+    """The lock to hold while a query runs on ``zim_name``'s pooled connection: closing it waits for the query to end (closing
+    a SQLite connection mid-query in another thread crashes the process)."""
+    with _use_locks_guard:
+        return _use_locks.setdefault((id(pool), zim_name), threading.Lock())
+
+
 def _get_pooled_db(zim_name, pool, pool_lock, path_fn):
     """Get a pooled SQLite connection, or None if no DB at path_fn(zim_name)."""
     with pool_lock:
@@ -482,7 +493,8 @@ def _close_pooled_db(zim_name, pool, pool_lock):
         conn = pool.pop(zim_name, None)
     if conn:
         try:
-            conn.close()
+            with pooled_db_use(pool, zim_name):
+                conn.close()
         except Exception as e:
             log.debug("Failed to close pooled DB for %s: %s", loggable(zim_name), loggable(e))
             pass

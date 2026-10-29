@@ -800,7 +800,7 @@ _PREPARE_JS = r"""() => {
   const covered = window.innerWidth * window.innerHeight * OVERLAY_SHARE;
   let pageText = -1;
   const holdsThePage = el => {
-    if (el.querySelector('main, article, [role="main"]')) return true;
+    if (el.matches('main, article, [role="main"]') || el.querySelector('main, article, [role="main"]')) return true;   // the box may itself be the main content
     if (pageText < 0) pageText = (document.body.innerText || '').trim().length;
     const inside = (el.innerText || '').trim().length;
     return pageText > 0 && pageText - inside < pageText * PAGE_OUTSIDE_SHARE;

@@ -5974,12 +5974,13 @@ class ZimHandler(BaseHTTPRequestHandler):
         self.wfile.flush()
         ends = time.monotonic() + _EVENTS_MAX_S
         while time.monotonic() < ends:
-            after, got = _changes.wait(after, name, _EVENTS_HEARTBEAT_S)
+            after, got = _changes.wait_marked(after, name, _EVENTS_HEARTBEAT_S)
             place = _changes.place(after).encode()
+            # Each change carries its own place, so a drop after one resumes just after it.
             out = b"".join(
                 b"id: %s\nevent: change\ndata: %s\n\n"
-                % (place, json.dumps(c, separators=(",", ":")).encode())
-                for c in got
+                % (_changes.place(seq).encode(), json.dumps(c, separators=(",", ":")).encode())
+                for seq, c in got
             )
             self.wfile.write(out or b"id: %s\nevent: tick\ndata: %s\n\n" % (place, tick))
             self.wfile.flush()

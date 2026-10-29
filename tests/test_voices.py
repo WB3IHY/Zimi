@@ -1794,17 +1794,13 @@ def test_a_sample_never_starts_ahead_of_a_queued_request_and_never_delays_one(pi
     install("en-US")
     calls = []
     monkeypatch.setattr(voices, "_timed", lambda *a, **k: calls.append(a) or voices.OK)
-    voices._synth_lock.acquire()  # a synthesis is under way
-    queued = threading.Thread(target=lambda: voices._acquire_synth(5), daemon=True)
-    queued.start()
-    while not voices._synth_waiting:
-        time.sleep(0.005)
-    voices._synth_lock.release()  # the request is about to take it; a sample must not barge in
-    start = time.monotonic()
-    assert voices._sample_speed("piper", "en") is False and not calls
-    queued.join(5)
-    voices._synth_lock.release()
-    assert time.monotonic() - start < 1
+    with voices._lock:
+        voices._synth_waiting = 1  # a request is queued (the synthesis lock itself is free: nothing else decides this)
+    try:
+        assert voices._sample_speed("piper", "en") is False and not calls
+    finally:
+        with voices._lock:
+            voices._synth_waiting = 0
     assert voices._sample_speed("piper", "en") is True, "nobody waiting: it runs"
 
 
@@ -1831,6 +1827,15 @@ def test_a_sample_is_said_in_the_voices_language_with_english_only_where_it_spea
     install("en-US")
     assert voices._speed_sample("piper", "en-GB")[1] == voices.SPEED_SAMPLES["en"]
     assert voices._speed_sample("piper", "fr")[1] == voices.SPEED_SAMPLES["en"], "no French voice: English, which Piper speaks"
-    assert voices._speed_sample("piper", "xx") is None or voices._speed_sample("piper", "xx")[1]
+    assert voices._speed_sample("piper", "xx")[1] == voices.SPEED_SAMPLES["en"], "an unknown language: English, which Piper speaks"
     assert voices._speed_sample("espeak", "en") is None, "an engine that is not here says nothing"
     assert all(100 <= len(s) <= 160 or p == "zh" for p, s in voices.SPEED_SAMPLES.items())
+
+
+def test_a_cold_sample_voice_does_not_spend_the_one_try(piper, monkeypatch):
+    install("en-US")
+    monkeypatch.setattr(voices, "_timed", lambda *a, **k: voices.OK)
+    monkeypatch.setattr(voices, "_is_cold", lambda engine, voice: True)
+    assert voices._sample_speed("piper", "en") is False
+    monkeypatch.setattr(voices, "_is_cold", lambda engine, voice: False)
+    assert voices._sample_speed("piper", "en") is True, "the try was kept for a later warm"

@@ -27,6 +27,7 @@ from zimi.search import (
     _build_index_isolated,
     _loadavg_throttle,
     _write_index_meta,
+    pooled_db_use as _pooled_db_use,
 )
 from zimi.safety import loggable
 
@@ -228,6 +229,13 @@ def _get_qid_db(zim_name):
     return _srv._get_pooled_db(
         zim_name, _qid_db_pool, _qid_db_pool_lock, _qid_index_path
     )
+
+
+def _qid_index_built_elsewhere(zim_name):
+    """A child process replaced the index: drop this process's connection to the old one and let the games' links follow it
+    (the in-process build tells them itself)."""
+    _close_qid_db(zim_name)
+    _games_note_index_change()
 
 
 def _close_qid_db(zim_name):
@@ -472,16 +480,17 @@ def _qid_lookup(zim_name, article_path):
 def _qid_find_in_zim(zim_name, qid_int):
     """Find an article path by Q-ID in a specific ZIM. Checks index AND cache."""
     # Check full index
-    conn = _get_qid_db(zim_name)
-    if conn is not None:
-        try:
-            row = conn.execute(
-                "SELECT path FROM qids WHERE qid=?", (qid_int,)
-            ).fetchone()
-            if row:
-                return row[0]
-        except Exception as e:
-            log.debug("Q-ID index find failed for %s/Q%s: %s", zim_name, qid_int, e)
+    with _pooled_db_use(_qid_db_pool, zim_name):   # an index being replaced waits for this query, never closes under it
+        conn = _get_qid_db(zim_name)
+        if conn is not None:
+            try:
+                row = conn.execute(
+                    "SELECT path FROM qids WHERE qid=?", (qid_int,)
+                ).fetchone()
+                if row:
+                    return row[0]
+            except Exception as e:
+                log.debug("Q-ID index find failed for %s/Q%s: %s", zim_name, qid_int, e)
     # Always check on-demand cache too (cross-cached entries from other lookups)
     return _qid_cache_find(zim_name, qid_int)
 
@@ -935,7 +944,7 @@ def _build_all_qid_indexes_inner():
             for i, (name, path) in enumerate(need_build):
                 _background_step("qids", name, i)
                 try:
-                    _build_index_isolated("qids", name, path, _build_qid_index, _close_qid_db)
+                    _build_index_isolated("qids", name, path, _build_qid_index, _qid_index_built_elsewhere)
                     current += 1
                     _apply_qid_flags({name: True})
                     _background_ok("qids", name)

@@ -2475,7 +2475,8 @@ def set_own_zim_removed(name, gone):
             done = bool(path) and unregister_zim_file(os.path.basename(path))
         elif path:
             register_zim_file(path)
-            done = name in (_zim_files_cache or {})
+            # Done only if the package's file now holds the name: a same-name copy in the library can outrank it (the scan's rules decide)
+            done = (_zim_files_cache or {}).get(name) == path
     except Exception as e:
         log.warning("Incremental change of %s failed (%s), rescanning the library", str(name).replace("\r", "").replace("\n", ""), e)
     if not done:

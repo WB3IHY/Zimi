@@ -126,7 +126,7 @@ def removed():
     except ImportError:  # zimi-mcp ships no Manage
         return frozenset()
     names = {o.name for o in OWN}
-    return frozenset(n for n in saved if n in names) if isinstance(saved, list) else frozenset()
+    return frozenset(n for n in saved if isinstance(n, str) and n in names) if isinstance(saved, list) else frozenset()   # a hand-edited file may hold anything
 
 
 _removed_lock = threading.Lock()  # one read-then-write of the list at a time
@@ -158,6 +158,7 @@ def is_own_path(path):
 OFFLINE_SKIP = ("puzzles/", "thumbs/")
 _offline_cache = {}  # name -> (file identity, [paths])
 _offline_lock = threading.Lock()
+_OFFLINE_RUN = 64  # entries read per hold of the library lock
 
 
 def offline_paths(name):
@@ -178,11 +179,15 @@ def offline_paths(name):
     out = []
     with _srv._zim_lock:
         archive = _srv.get_archive(name) or _srv.open_archive(path)
-        for i in range(archive.all_entry_count):
-            entry = archive._get_entry_by_id(i)
-            # The ZIM's own metadata (Counter, Title, Illustration_48x48@1) has no extension and is no page.
-            if (not entry.is_redirect and "." in entry.path and not entry.path.startswith(OFFLINE_SKIP + ("_", "-/", "Illustration"))):
-                out.append("/w/%s/%s" % (name, entry.path))
+        total = archive.all_entry_count
+    # The walk takes the library lock a run at a time, so a search or an article read is never kept waiting for the whole ZIM.
+    for start in range(0, total, _OFFLINE_RUN):
+        with _srv._zim_lock:
+            for i in range(start, min(start + _OFFLINE_RUN, total)):
+                entry = archive._get_entry_by_id(i)
+                # The ZIM's own metadata (Counter, Title, Illustration_48x48@1) has no extension and is no page.
+                if (not entry.is_redirect and "." in entry.path and not entry.path.startswith(OFFLINE_SKIP + ("_", "-/", "Illustration"))):
+                    out.append("/w/%s/%s" % (name, entry.path))
     with _offline_lock:
         _offline_cache[name] = (ident, out)
     return out

@@ -692,8 +692,9 @@ def _zim_file_item_class():
     from libzim.writer import FileProvider, Hint, Item
 
     class _FileItem(Item):
-        def __init__(self, path, title, fs_path, mimetype):
+        def __init__(self, path, title, fs_path, mimetype, front=True):
             super().__init__()
+            self._front = front
             self._path = path
             self._title = title
             self._fs_path = fs_path
@@ -714,8 +715,11 @@ def _zim_file_item_class():
         def get_hints(self):
             # PDFs are front articles — they're the content in a document
             # folder, and FRONT_ARTICLE puts them in the suggest index.
+            # (a licence or notice is served but is no article, in any format)
             return (
-                {Hint.FRONT_ARTICLE: 1} if self._mimetype == "application/pdf" else {}
+                {Hint.FRONT_ARTICLE: 1}
+                if self._mimetype == "application/pdf" and self._front
+                else {}
             )
 
     _file_item_cls = _FileItem
@@ -735,6 +739,12 @@ def _scan_folder(root):
 # ZIM's articles. The folder's own README stays what it is, often the page a documents-only folder opens on.
 _NOTICE_FILE = re.compile(r"(licen[cs]e|copying|notice)([.-][a-z0-9-]+)?(\.(txt|md))?$", re.I)
 _NESTED_README = re.compile(r"readme([.-][a-z0-9-]+)?(\.(txt|md))?$", re.I)
+
+
+def _folder_tag_list(mimetypes, sidecar, explicit):
+    """A folder ZIM's tags: what the files show, then the explicit ones, then the sidecar's. Readers take the first
+    ``_category:``, so an explicit one beats the folder's own."""
+    return media_tags(mimetypes) + list(explicit or ()) + _folderfiles.tags_of(sidecar)
 
 
 def _is_notice_file(zim_path):
@@ -1374,7 +1384,7 @@ def _create_folder_zim(
                     pages.append((zim_path, page_title, key[0] if key else ""))
             else:
                 mime = _saved.mime_for(zim_path, fs_path, use_hints)
-                creator.add_item(file_cls(zim_path, named or stem, fs_path, mime))
+                creator.add_item(file_cls(zim_path, named or stem, fs_path, mime, front=not _is_notice_file(zim_path)))
                 assets.append(zim_path)
                 mimetypes.add(mime)
             _folder_progress(progress, n, len(items), zim_path)
@@ -1451,9 +1461,7 @@ def _create_folder_zim(
             # Repackaging the same folder next month is a new EDITION of this
             # ZIM, so the Name comes from the folder, never from the date.
             name=zim_name(base_name, language),
-            tags=media_tags(mimetypes)
-            + _folderfiles.tags_of(meta.get("tags"))
-            + list(tags or ()),
+            tags=_folder_tag_list(mimetypes, meta.get("tags"), tags),
             illustration=_folder_icon(folder, meta),
             history=history_record(
                 "created",

@@ -7040,8 +7040,8 @@ def handle_manage_post(handler, parsed, data):
         # ordinary ZIM (deleted below), unless the package's file holds the name.
         own_name = _own.name_of_file(filename)
         served = (_srv.get_zim_files() or {}).get(own_name) if own_name else None
-        if served and not _own.is_own_path(served):
-            own_name = None
+        if served and (not _own.is_own_path(served) or os.path.basename(served) != filename):
+            own_name = None   # not the package's file: an ordinary ZIM, deleted below
         if own_name:
             _srv.set_own_zim_removed(own_name, True)
             return handler._json(200, {"status": "removed", "own": own_name})

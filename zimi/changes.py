@@ -61,11 +61,11 @@ def announce(topic, owner, by=None):
         _cond.notify_all()
 
 
-def wait(after, owner, timeout):
-    """Changes for ``owner`` (None: a window no one is signed in to) and for
-    every window, announced after ``after``, waiting up to ``timeout`` seconds
-    for one: (latest number, [{"topic", "by"}]). A stream that fell further
-    behind than the log keeps is told every topic changed."""
+def wait_marked(after, owner, timeout):
+    """Like ``wait``, each change with the place in the log it belongs to:
+    (latest number, [(number, {"topic", "by"})]) in ascending number, the last
+    one at ``latest``. A stream that drops after delivering one change then
+    resumes right after it, and the changes after it are sent again."""
     with _cond:
         _cond.wait_for(lambda: _seq > after, timeout)
         latest = _seq
@@ -73,10 +73,23 @@ def wait(after, owner, timeout):
             return latest, []
         if not _log or _log[0][0] > after + 1:
             mine = TOPICS if owner else ("library",)
-            return latest, [{"topic": t, "by": None} for t in mine]
-        out, seen = [], set()
+            out = [(after, {"topic": t, "by": None}) for t in mine]
+            out[-1] = (latest, out[-1][1])
+            return latest, out
+        last = {}  # (topic, by) -> number of its latest announcement
         for seq, topic, who, by in _log:
-            if seq > after and who in (owner, None) and (topic, by) not in seen:
-                seen.add((topic, by))
-                out.append({"topic": topic, "by": by})
+            if seq > after and who in (owner, None):
+                last[(topic, by)] = seq
+        out = sorted((seq, {"topic": k[0], "by": k[1]}) for k, seq in last.items())
+        if out:
+            out[-1] = (latest, out[-1][1])
         return latest, out
+
+
+def wait(after, owner, timeout):
+    """Changes for ``owner`` (None: a window no one is signed in to) and for
+    every window, announced after ``after``, waiting up to ``timeout`` seconds
+    for one: (latest number, [{"topic", "by"}]). A stream that fell further
+    behind than the log keeps is told every topic changed."""
+    latest, marked = wait_marked(after, owner, timeout)
+    return latest, [c for _, c in marked]

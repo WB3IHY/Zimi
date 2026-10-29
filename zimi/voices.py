@@ -1751,7 +1751,9 @@ def _sample_speed(engine, lang):
         if _sampled.get(engine) == fp or _synth_waiting:
             return False
     picked = _speed_sample(engine, lang)
-    if picked is None or not _synth_lock.acquire(blocking=False):
+    if picked is None or _is_cold(engine, picked[0]):
+        return False  # a cold run notes no rtf, so it must not spend the one try: a later warm that finds the voice loaded samples it
+    if not _synth_lock.acquire(blocking=False):
         return False
     try:
         with _lock:

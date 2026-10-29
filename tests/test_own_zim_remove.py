@@ -80,7 +80,7 @@ def test_removed_is_a_list_of_known_names_beside_the_apps_switch(served):
     ownzims.set_removed("zimi_games", False)
     assert ownzims.removed() == frozenset() and len(ownzims.zim_paths()) == 2
     # A hand-edited prefs file naming something else removes nothing else.
-    manage._write_app_update_prefs(**{ownzims.REMOVED_KEY: ["zimi_games", "x", 3]})
+    manage._write_app_update_prefs(**{ownzims.REMOVED_KEY: ["zimi_games", "x", 3, ["zimi_games"], {"a": 1}]})
     assert ownzims.removed() == {"zimi_games"}
     manage._write_app_update_prefs(**{ownzims.REMOVED_KEY: "zimi_games"})
     assert ownzims.removed() == frozenset()
@@ -130,6 +130,13 @@ def test_manage_delete_of_the_file_is_the_same_removal(served):
     assert code == 200 and d["own"] == "zimi_almanac"
     assert "zimi_almanac" not in _served(served)
     assert os.path.exists(ownzims.zim_path(ownzims.OWN[1])), "the packaged file is never deleted"
+
+
+def test_deleting_an_older_copy_with_an_own_name_does_not_remove_the_packages_zim(served):
+    """An old edition of the same name (a different file) is an ordinary ZIM: asking to delete it must not take the package's out."""
+    code, d = _call(served, "/manage/delete", {"filename": "zimi_almanac_2020-01.zim"})
+    assert d.get("own") is None and d.get("status") != "removed", d
+    assert "zimi_almanac" in _served(served), "the package's own ZIM stays"
 
 
 @pytest.mark.parametrize("body", [{"name": "nope", "removed": True}, {"name": "zimi_games"}, {"name": "zimi_games", "removed": "yes"}, {}])

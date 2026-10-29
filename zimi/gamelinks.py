@@ -69,6 +69,7 @@ def almanac_here():
 
 
 _almanac_keys = None  # {qid: entity key}, read once
+_thumbs = {}  # game path -> the picture's /w/ URL or None, found once
 
 
 def almanac_qids():
@@ -103,6 +104,14 @@ def rows():
 def wiki_rows():
     """The rows that stand for an encyclopedia article (a puzzle with none has no Q-ID)."""
     return [r for r in rows() if r.get("qid")]
+
+
+def warm():
+    """Read what the answers are made of before a request needs it: games.json, the Almanac's closed set and each game's
+    picture (all fixed files of the package). Called from the background pass."""
+    almanac_qids()
+    for r in rows():
+        thumbnail(r["path"])
 
 
 def _wiki_zims():
@@ -155,6 +164,7 @@ def _refresh():
     if not _building.acquire(blocking=False):
         return
     try:
+        warm()  # before the first pass clears the flag: asks made meanwhile are covered by it
         while _dirty.is_set():
             _dirty.clear()
             token = _srv._listing_seen
@@ -245,13 +255,18 @@ def thumbnail(game_path):
     tile's own art (thumbs/<game>.svg, thumbs/puzzles/<name>.svg for one of
     Tatham's puzzles, scripts/build_games_shelf.js) or, for a puzzle with no
     tile, its icon. None for a game with neither."""
+    if game_path in _thumbs:
+        return _thumbs[game_path]
     stem = os.path.splitext(os.path.basename(game_path))[0]
     folder = os.path.join(ownzims.SOURCE_ROOT, "games")
     own = os.path.splitext(game_path)[0]
+    found = None
     for rel in ("thumbs/%s.svg" % own, "puzzles/icons/%s.png" % stem):
         if os.path.exists(os.path.join(folder, rel)):
-            return "/w/%s/%s" % (_GAMES_ZIM, rel)
-    return None
+            found = "/w/%s/%s" % (_GAMES_ZIM, rel)
+            break
+    _thumbs[game_path] = found   # the files never change under a running server: asked of the disk once, in the background
+    return found
 
 
 def random_card(exclude=None, served=False):

@@ -110,3 +110,15 @@ def test_the_library_is_announced_only_when_what_it_holds_changed(monkeypatch):
     again = changes.resume_from(None)
     server._set_listing(one)
     assert _heard(again, None) == [{"topic": "library", "by": None}], "a ZIM removed"
+
+
+def test_each_change_has_its_own_place_so_a_drop_after_one_loses_none():
+    start = changes.resume_from(None)
+    changes.announce("settings", "alice", "tab-1")
+    changes.announce("saved", "alice", "tab-1")
+    latest, marked = changes.wait_marked(start, "alice", 0)
+    assert [c["topic"] for _, c in marked] == ["settings", "saved"]
+    first, last = marked[0][0], marked[-1][0]
+    assert start < first < last == latest
+    # a stream that heard the first and dropped resumes right after it, and still hears the second
+    assert [c["topic"] for c in changes.wait(first, "alice", 0)[1]] == ["saved"]

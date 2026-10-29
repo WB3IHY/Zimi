@@ -156,3 +156,10 @@ def test_cold_page_answered_from_disk_is_dated_by_that_copy_not_by_now(_env, mon
     total, got, err = lib._fetch_kiwix_catalog("", "eng", 500, 0)
     assert err is None and got == items
     assert lib._catalog_stale_ts == saved_at
+
+
+def test_the_offline_catalog_and_its_stamp_come_from_one_read(_env, monkeypatch):
+    reads = []
+    monkeypatch.setattr(lib, "_load_full_catalog", lambda: (reads.append(1), ([{"name": "a", "title": "A"}], 1234.0))[1])
+    items, stamp = lib._offline_catalog_matching_stamped("")
+    assert items and stamp == 1234.0 and len(reads) == 1

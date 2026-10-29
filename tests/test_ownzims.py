@@ -23,6 +23,9 @@ from zimi import ownzims, server
 
 GAMES = os.path.join(ownzims.SOURCE_ROOT, "games")
 
+# The ZIMs' source folders are in a repo checkout, not in an installed package (ownzims.main() says the same and returns 2).
+pytestmark = pytest.mark.skipif(not os.path.isdir(GAMES), reason="no ZIM source folders here: not a repo checkout")
+
 
 @pytest.fixture
 def home(tmp_path, monkeypatch):

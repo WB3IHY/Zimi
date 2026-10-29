@@ -1617,6 +1617,8 @@ FIVE_JUDGED = 40  # candidate pages read, at most, before giving up
 FIVE_SUGGEST = 10
 _FIVE_PLAIN = re.compile(r"[a-z]{5}")
 _FIVE_CHANCE = "chance"
+_FIVE_DAYS_KEPT = 64  # days' answers kept, across Wiktionaries
+_five_daily = {}  # (name, day) -> the answer, so the day's word is worked out once, not on every request
 
 
 def fold_letters(text):
@@ -1630,7 +1632,8 @@ def _five_titles(archive, rng):
     """Up to FIVE_JUDGED ``(path, title)`` of entries whose title is five
     lower-case letters that fold to a to z, in the order ``rng`` draws them."""
     out, seen = [], set()
-    total = archive.entry_count
+    with _srv._zim_lock:   # an Archive is touched only under the library lock, a property read too
+        total = archive.entry_count
     probes = 0
     while total and probes < FIVE_PROBES and len(out) < FIVE_JUDGED:
         with _srv._zim_lock:
@@ -1661,10 +1664,25 @@ def five_letters(name, day):
     Wiktionary has none. The same for ``name`` and ``day`` (YYYYMMDD), so it
     is the day's word for everyone; any other ``day`` ("chance") draws
     afresh. None when ``name`` is not a Wiktionary this request may read."""
-    from zimi import wiki as _wiki
-
     if not is_dictionary(name):
         return None
+    if day != _FIVE_CHANCE:
+        with _lock:
+            kept = _five_daily.get((name, day))
+        if kept is not None:
+            return dict(kept)
+    answer = _five_letters_drawn(name, day)
+    if day != _FIVE_CHANCE:
+        with _lock:
+            if len(_five_daily) >= _FIVE_DAYS_KEPT:
+                _five_daily.pop(next(iter(_five_daily)))
+            _five_daily[(name, day)] = dict(answer)
+    return answer
+
+
+def _five_letters_drawn(name, day):
+    from zimi import wiki as _wiki
+
     if day == _FIVE_CHANCE:
         rng = random.Random()
     else:
@@ -1737,3 +1755,4 @@ def is_five_letter_word(name, word):
 def _reset_for_tests():
     with _lock:
         _cache.clear()
+        _five_daily.clear()

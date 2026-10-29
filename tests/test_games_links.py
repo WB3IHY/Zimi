@@ -314,3 +314,14 @@ class GameOfTheDayTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_the_background_pass_reads_the_fixed_files_so_a_request_does_not():
+    from zimi import gamelinks
+
+    gamelinks._rows = None
+    gamelinks._almanac_keys = None
+    gamelinks._thumbs.clear()
+    gamelinks.warm()
+    assert gamelinks._rows and gamelinks._almanac_keys is not None
+    assert set(gamelinks._thumbs) == {r["path"] for r in gamelinks.rows()}

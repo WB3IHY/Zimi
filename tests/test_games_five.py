@@ -198,3 +198,22 @@ def test_only_a_zim_this_request_may_read_answers(library, monkeypatch):
     assert dic.five_letters("wiktionary_fr", day) is None
     assert dic.is_five_letter_word("wiktionary_fr", "arbre") is None
     assert dic.five_letters("wiktionary", day)["zim"] == "wiktionary"
+
+
+def test_the_days_word_is_worked_out_once(monkeypatch):
+    """Every player asks for the day's word; the probing that finds it runs once per Wiktionary and day, not per request."""
+    calls = []
+
+    def drawn(name, day):
+        calls.append((name, day))
+        return {"word": "crane", "title": "crane", "zim": name, "lang": "en", "blurb": "a bird"}
+
+    dic._reset_for_tests()
+    monkeypatch.setattr(dic, "is_dictionary", lambda name: True)
+    monkeypatch.setattr(dic, "_five_letters_drawn", drawn)
+    assert dic.five_letters("w", "20261028") == dic.five_letters("w", "20261028")
+    assert calls == [("w", "20261028")]
+    dic.five_letters("w", "chance")
+    dic.five_letters("w", "chance")
+    assert len(calls) == 3, "a chance draw is fresh each time"
+    dic._reset_for_tests()

@@ -1897,10 +1897,12 @@ def maybe_persist_full_catalog(total):
     return persist_full_catalog(items)
 
 
-def offline_catalog():
+def _offline_catalog_stamped():
     """The best catalog available without touching the network.
 
-    Returns ``(items, source, as_of)`` where source is "cache", "snapshot" or
+    Returns ``(items, source, as_of, stamp)`` where stamp is the epoch seconds
+    of what it hands back (when the cache was fetched, or the snapshot's build
+    date; 0 when unknown), found from the same one read, and source is "cache", "snapshot" or
     "none", and as_of is an ISO date for the UI to show, or "".
 
     Cache first, always: it is the fresher of the two and it is what the
@@ -1911,7 +1913,7 @@ def offline_catalog():
         as_of = ""
         if fetched_at:
             as_of = datetime.datetime.fromtimestamp(fetched_at).date().isoformat()
-        return items, "cache", as_of
+        return items, "cache", as_of, fetched_at
 
     from zimi import catalog_snapshot
 
@@ -1929,36 +1931,46 @@ def offline_catalog():
             if digest:
                 item["icon_url"] = "/catalog-icon/" + digest
             shipped.append(item)
-        return shipped, "snapshot", catalog_snapshot.built_at()
-    return [], "none", ""
+        built = catalog_snapshot.built_at()
+        stamp = 0
+        if built:
+            try:
+                stamp = datetime.datetime.fromisoformat(built).timestamp()
+            except ValueError:
+                pass
+        return shipped, "snapshot", built, stamp
+    return [], "none", "", 0
+
+
+def offline_catalog():
+    """``(items, source, as_of)`` of the best catalog without the network (see _offline_catalog_stamped)."""
+    items, source, as_of, _stamp = _offline_catalog_stamped()
+    return items, source, as_of
 
 
 def _offline_catalog_stamp():
     """Epoch seconds of the catalog offline_catalog() would hand back: when the
     cache was fetched, or the snapshot's build date. 0 when unknown."""
-    _items, fetched_at = _load_full_catalog()
-    if _items and fetched_at:
-        return fetched_at
-    _items, source, as_of = offline_catalog()
-    if source == "snapshot" and as_of:
-        try:
-            return datetime.datetime.fromisoformat(as_of).timestamp()
-        except ValueError:
-            pass
-    return 0
+    return _offline_catalog_stamped()[3]
 
 
-def _offline_catalog_matching(query):
-    """The catalog on disk (or the package's snapshot), narrowed to `query`."""
-    items, _source, _as_of = offline_catalog()
+def _offline_catalog_matching_stamped(query):
+    """``(items, stamp)``: the catalog on disk (or the package's snapshot),
+    narrowed to `query`, and its stamp, from one read."""
+    items, _source, _as_of, stamp = _offline_catalog_stamped()
     if not query:
-        return items
+        return items, stamp
     needle = query.lower()
     return [
         it
         for it in items
         if needle in str(it.get("title", "")).lower() or needle in str(it.get("name", "")).lower()
-    ]
+    ], stamp
+
+
+def _offline_catalog_matching(query):
+    """The catalog on disk (or the package's snapshot), narrowed to `query`."""
+    return _offline_catalog_matching_stamped(query)[0]
 
 
 def _fetch_kiwix_catalog(
@@ -2025,9 +2037,9 @@ def _fetch_kiwix_catalog(
         # behind it, the same stale-while-revalidate as an expired page. The
         # first browse used to wait on Kiwix (Eric: "if catalog is baked in
         # and cached why did it take a while when I clicked maps").
-        fallback = _offline_catalog_matching(query)
+        fallback, fallback_stamp = _offline_catalog_matching_stamped(query)
         if fallback:
-            _catalog_stale_ts = _offline_catalog_stamp() or time.time()
+            _catalog_stale_ts = fallback_stamp or time.time()
             _kick_catalog_refresh(query, lang, count, start, _internal=_internal)
             return len(fallback), fallback[start : start + count], None
 
