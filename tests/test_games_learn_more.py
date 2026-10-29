@@ -143,7 +143,7 @@ def game(page, name):
     )
     frame = next(f for f in page.frames if f.url.split("?")[0].endswith("/" + name))
     frame.wait_for_function(
-        "() => document.documentElement.classList.contains('gs-ready')", timeout=WAIT
+        "() => !!document.documentElement && document.documentElement.classList.contains('gs-ready')", timeout=WAIT
     )
     return frame
 

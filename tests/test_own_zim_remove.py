@@ -204,7 +204,11 @@ def test_remove_from_library_gone_from_home_add_from_catalog_back(served):
         _shot(pg, "3-confirm")
         pg.locator(".pw-confirm #ac-ok").click()
         pg.wait_for_function("() => !(zimsCache || []).some(z => z.name === 'zimi_games')", timeout=8000)
-        assert pg.locator(".catalog-item", has_text="ZimiGames").count() == 0
+        # zimsCache drops the ZIM optimistically; the row itself goes when the delete answers, which a slow runner makes visible.
+        pg.wait_for_function(
+            "() => ![...document.querySelectorAll('.catalog-item')].some(e => e.textContent.includes('ZimiGames'))",
+            timeout=8000,
+        )
         _shot(pg, "4-library-after-remove")
         # A second open window hears it without a reload; Home agrees.
         other.wait_for_function("() => !(zimsCache || []).some(z => z.name === 'zimi_games')", timeout=8000)

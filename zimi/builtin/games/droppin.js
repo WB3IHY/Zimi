@@ -62,10 +62,11 @@
   function kmText(km) { return T('drop.km', { n: km < 10 ? Math.round(km * 10) / 10 : Math.round(km) }); }
 
   // ── the real map ──
+  // (the world is an SVG: it has no .hidden property, only the attribute)
   function mapUrl(hash) { return Lib.articleUrl(mapZim, 'index.html') + (hash ? '#' + hash : ''); }
   function truthHash() { return 'map=' + MAP_ZOOM_TRUTH + '/' + q().lat + '/' + q().lon; }
   function showMap(hash) {
-    els.world.hidden = true; els.zoom.hidden = true; els.frame.hidden = false; els.cross.hidden = false;
+    els.world.toggleAttribute('hidden', true); els.zoom.hidden = true; els.frame.hidden = false; els.cross.hidden = false;
     els.frame.src = mapUrl(hash || '');
   }
   function mapCenter() {
@@ -73,7 +74,7 @@
   }
   // ── the world outline ──
   function buildWorld() {
-    els.frame.hidden = true; els.cross.hidden = true; els.world.hidden = false; els.zoom.hidden = false;
+    els.frame.hidden = true; els.cross.hidden = true; els.world.toggleAttribute('hidden', false); els.zoom.hidden = false;
     els.world.innerHTML = '';
     var grid = svg('g', { class: 'grid' }, els.world), i;
     for (i = -150; i <= 150; i += 30) { var x = project(0, i).x; svg('line', { x1: x, y1: 0, x2: x, y2: MAP_H }, grid); }
