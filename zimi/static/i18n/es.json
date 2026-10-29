@@ -3494,5 +3494,6 @@
   "game_resume": "Reanudar",
   "alm_earth_failed": "No se pudo cargar la Tierra en 3D. Cierra esta vista y ábrela de nuevo.",
   "recent_added_dot": "{n} añadidos recientemente",
-  "recent_updated_dot": "{n} actualizados recientemente"
+  "recent_updated_dot": "{n} actualizados recientemente",
+  "hide_from_home": "Ocultar de Inicio"
 }

@@ -3494,5 +3494,6 @@
   "game_resume": "继续",
   "alm_earth_failed": "无法加载 3D 地球。请关闭此视图后重新打开。",
   "recent_added_dot": "{n} 个最近添加",
-  "recent_updated_dot": "{n} 个最近更新"
+  "recent_updated_dot": "{n} 个最近更新",
+  "hide_from_home": "从主页隐藏"
 }

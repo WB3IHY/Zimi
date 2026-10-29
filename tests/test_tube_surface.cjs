@@ -35,7 +35,7 @@ const ctx = {
   _userSession: null, document: { body: { dataset: {} } },
   _zimInfo: name => ctx.zimsCache.find(z => z.name === name) || null,
   // Zimi's own tiles: the ZIM's icon, its new-dot and the pet's peek are not what this file judges.
-  _ownIconHtml: (zim, glyph) => glyph, _ownTileDotHtml: () => '', OWN_TILE_ICON_PX: 42, _petPeekSchedule() {}, _petPeek: null,
+  _ownIconHtml: (zim, glyph) => glyph, _appTileFootHtml: () => '', OWN_TILE_ICON_PX: 42, _petPeekSchedule() {}, _petPeek: null,
 };
 vm.createContext(ctx);
 vm.runInContext(require("./app_source.cjs").localeHelpers(src), ctx);

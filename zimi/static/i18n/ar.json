@@ -3494,5 +3494,6 @@
   "game_resume": "استئناف",
   "alm_earth_failed": "تعذّر تحميل الأرض ثلاثية الأبعاد. أغلق هذا العرض وافتحه من جديد.",
   "recent_added_dot": "{n} أُضيفت حديثًا",
-  "recent_updated_dot": "{n} حُدّثت حديثًا"
+  "recent_updated_dot": "{n} حُدّثت حديثًا",
+  "hide_from_home": "إخفاء من الرئيسية"
 }

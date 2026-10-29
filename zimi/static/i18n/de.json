@@ -3494,5 +3494,6 @@
   "game_resume": "Fortsetzen",
   "alm_earth_failed": "Die 3D-Erde konnte nicht geladen werden. Schließe diese Ansicht und öffne sie erneut.",
   "recent_added_dot": "{n} neu hinzugefügt",
-  "recent_updated_dot": "{n} kürzlich aktualisiert"
+  "recent_updated_dot": "{n} kürzlich aktualisiert",
+  "hide_from_home": "Von Start ausblenden"
 }

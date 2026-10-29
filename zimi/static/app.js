@@ -1589,8 +1589,7 @@ function _voiceDefaultHtml(on) {
 // always show it").
 function _voiceReadHtml(on) {
   return _voicePickHtml(on, 'tts_speak', _voicePrefs().read || '', 'read', 'voice-read', true) +
-    '<div class="share-rows set-rows voice-prefs">' +
-    _voiceSwitchRow('voices_wait', 'voices-wait', !!_voicePrefs().wait, '_setVoicePrefs({ wait: this.checked })') + '</div>';
+    _voiceSwitchRow('voices_wait', 'voices-wait', !!_voicePrefs().wait, '_setVoicePrefs({ wait: this.checked })');
 }
 // A switch row of Settings > Voices: its title, what it covers, the switch.
 function _voiceSwitchRow(key, id, on, onchange) {
@@ -1614,9 +1613,10 @@ function _voicePickHtml(on, labelKey, cur, field, cls, reads) {
       (slow ? ' data-slow title="' + escAttr(t('voices_pace_behind')) + '"' : '') +
       ' onclick="' + escAttr('_setVoicePrefs(' + JSON.stringify(change) + ')') + '"><span>' + esc(label) + '</span></button>';
   };
-  return '<div class="ms-theme-label">' + tH(labelKey) + '</div>' +
+  // A row of the card, as every Settings section draws one: its title, then the choices under it.
+  return '<div class="share-row set-row voice-pick"><span class="share-row-title">' + tH(labelKey) + '</span>' +
     '<div class="app-theme-seg voice-default ' + cls + '" role="radiogroup" aria-label="' + escAttr(t(labelKey)) + '">' +
-    opt('', t('voices_default_auto')) + on.map(function(x) { return opt(x.engine, _voiceEngineName(x.engine)); }).join('') + '</div>';
+    opt('', t('voices_default_auto')) + on.map(function(x) { return opt(x.engine, _voiceEngineName(x.engine)); }).join('') + '</div></div>';
 }
 // The Speaking switch, and with it off, the voices downloaded here offered
 // for removal (an admin's): nothing else of Voices shows.
@@ -1652,7 +1652,7 @@ function _voicePrefsHtml() {
   here.sort(function(a, b) { return _VOICE_ENGINES.indexOf(a.engine) - _VOICE_ENGINES.indexOf(b.engine); });
   var on = here.filter(function(x) { return !x.absent && off.indexOf(x.engine) < 0; });
   // One row per engine here; the last one on stays on.
-  var h = _speakingHtml() + _voiceDefaultHtml(on) + _voiceReadHtml(on) + '<div class="share-rows set-rows voice-prefs">' + here.map(function(x) {
+  var h = _speakingHtml() + '<div class="share-rows set-rows voice-prefs">' + _voiceDefaultHtml(on) + _voiceReadHtml(on) + '</div><div class="share-rows set-rows voice-prefs">' + here.map(function(x) {
     return _voiceRowHtml(x, !x.absent && off.indexOf(x.engine) < 0, on.length === 1);
   }).join('') + '</div>' + _voiceGridHtml();
   if (_voicesHere && _voicesHere.can_change && _voicesHere.setting) h += _voicesModeHtml(_voicesHere.setting);
@@ -5073,7 +5073,7 @@ function renderHome(filter) {
   } else {
     // The Apps page counts what each app shows on its own cards: a sum of
     // ZIM entries across books, videos and maps would count none of them.
-    statsHtml = t('sources_count', {n: '<span class="num">' + n + '</span>'}) + ' &middot; ' +
+    statsHtml = (homeScope ? '' : _freshDotHtml(baseZims)) + t('sources_count', {n: '<span class="num">' + n + '</span>'}) + ' &middot; ' +
       (homeScope && homeScope.type === 'apps' ? '' : t('articles_count', {n: '<span class="num">' + fmtNum(totalEntries) + '</span>'}) + ' &middot; ') +
       fmtSize(totalGb, true);
   }
@@ -5117,11 +5117,9 @@ function renderHome(filter) {
   var _recentUpdated = _langSorted.filter(function(z) { return _unseenKind(z) === 'updated'; }).sort(_byUpdatedDesc);
   // A language narrowing can empty the active recency list — its pill is hidden
   // then, so fall back to All rather than strand the view on an empty filter.
-  if (homeRecentFilter === 'added' && !_recentAdded.length) homeRecentFilter = null;
-  if (homeRecentFilter === 'updated' && !_recentUpdated.length) homeRecentFilter = null;
-  const sorted = homeRecentFilter === 'added' ? _recentAdded
-    : homeRecentFilter === 'updated' ? _recentUpdated
-    : _langSorted;
+  var _recentFresh = _recentAdded.concat(_recentUpdated);
+  if (homeRecentFilter === 'fresh' && !_recentFresh.length) homeRecentFilter = null;
+  const sorted = homeRecentFilter === 'fresh' ? _recentFresh : _langSorted;
   // The ZIMs the recency and language filters let through, for the sections
   // (favourites, collections) that pick their own members by name.
   const _homeShown = new Set(sorted.map(z => z.name));
@@ -5456,6 +5454,7 @@ function _markZimOpened(name) {
 // The games and the Almanac are Zimi's own apps: Apps tiles (with their own dot), not cards in the library grid.
 // Still in search and in Manage. Only while the Apps row shows them, so there is always a way in.
 var _OWN_ZIM_APP = { zimi_games: 'games', zimi_almanac: 'almanac' };
+var _OWN_APP_ZIM = { games: 'zimi_games', almanac: 'zimi_almanac' };
 function _ownZimInApps(name) {
   var app = _OWN_ZIM_APP[name];
   return !!app && _appsEnabled() && _shownApps().indexOf(app) >= 0;
@@ -5466,10 +5465,21 @@ function _unseenKind(z) {
   var b = _zimBadge(z);
   return b ? b.label : null;
 }
-// An own app's tile wears the same mark when its ZIM is new or updated since you opened it.
-function _ownTileDotHtml(zim) {
-  var b = _zimBadge(_zimInfo(zim));
-  return b ? '<span class="rc-dot tile ' + (b.label === 'updated' ? 'updated' : 'added') + '" title="' + escAttr(t(b.label === 'updated' ? 'recently_updated' : 'recently_installed')) + '"><i aria-hidden="true"></i></span>' : '';
+// The status line's one dot: solid amber, first thing on the line, only when a ZIM is new or updated since you opened it
+// (the games and the Almanac count too). Tapping it narrows Home to those cards; tapping again lets go.
+function _freshDotHtml(list, mark) {
+  var counts = { added: 0, updated: 0 };
+  list.forEach(function(z) { var b = _zimBadge(z); if (b) counts[b.label === 'updated' ? 'updated' : 'added']++; });
+  if (!counts.added && !counts.updated) return '';
+  var label = ['added', 'updated'].filter(function(k) { return counts[k]; }).map(function(k) { return t('recent_' + k + '_dot', { n: counts[k] }); }).join(', ');
+  if (mark) return '<span class="rc-dot mark" role="img" title="' + escAttr(label) + '" aria-label="' + escAttr(label) + '"><i aria-hidden="true"></i></span>';
+  return '<button type="button" class="rc-dot' + (homeRecentFilter === 'fresh' ? ' active' : '') + '" aria-pressed="' + (homeRecentFilter === 'fresh') +
+    '" title="' + escAttr(label) + '" aria-label="' + escAttr(label) + '" onclick="filterHomeRecent()"><i aria-hidden="true"></i></button>';
+}
+function filterHomeRecent() {
+  hideSuggest();
+  homeRecentFilter = homeRecentFilter === 'fresh' ? null : 'fresh';
+  renderHome();
 }
 function _zimBadge(z) {
   if (!z) return null;
@@ -7011,7 +7021,9 @@ var _CARD_MORE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6"
 // The card's ⋯: its menu, opened under the button.
 function _cardMore(btn) {
   var card = btn.closest('[data-zim]'), r = btn.getBoundingClientRect();
-  if (card) _openZimMenu(card.getAttribute('data-zim'), r.left, r.bottom + 4, false, card);
+  if (!card) return;
+  var app = card.getAttribute('data-app');
+  _openZimMenu(app ? (_OWN_APP_ZIM[app] || '') : card.getAttribute('data-zim'), r.left, r.bottom + 4, false, card, app);
 }
 
 // ``countOf(z)``: the count on a card's line, _zimCountHtml's by default (the
@@ -8858,6 +8870,7 @@ function _moveZimTo(zim, category) {
   const menu = document.getElementById('zim-ctx-menu');
   if (!menu) return;
   let _ctxZim = null;
+  let _ctxApp = null;       // an Apps tile's menu: the app's name (its own ZIM, if any, is _ctxZim)
   let _ctxCard = null;
   let _ctxX = 0, _ctxY = 0;
   let _ctxCompact = false;  // gear trigger shows just the layout actions
@@ -8872,7 +8885,7 @@ function _moveZimTo(zim, category) {
     menu.classList.remove('visible', 'sheet');
     var bd = document.getElementById('ctx-backdrop');
     if (bd) bd.hidden = true;
-    _ctxZim = null; _ctxCard = null; _kbSub = null; _ctxCustomAction = null;
+    _ctxZim = null; _ctxApp = null; _ctxCard = null; _kbSub = null; _ctxCustomAction = null;
   }
 
   // On a phone a ZIM's menu is a sheet that comes up from the bottom, with the
@@ -9091,7 +9104,19 @@ function _moveZimTo(zim, category) {
     return '<div class="ctx-item">' + tH('move_to') + ' ›<div class="ctx-sub">' + _moveSubmenuHtml(zim) + '</div></div>';
   }
 
+  // An Apps tile's menu: Open, About (its ZIM, where it has one), Hide from Home (an account's choice), Delete (Zimi's own).
+  function showAppMenu() {
+    var zim = _ctxZim, own = zim && _zimInfo(zim);
+    var h = '<div class="ctx-item" data-action="app-open">' + tH('open') + '</div>';
+    if (own) h += '<div class="ctx-item" data-action="about">' + tH('about_zim') + '</div>';
+    if (_userSession) h += '<div class="ctx-item" data-action="app-hide">' + tH('hide_from_home') + '</div>';
+    if (own && manageEnabled) h += '<div class="ctx-sep"></div><div class="ctx-item danger" data-action="delete">' + tH('delete') + '</div>';
+    menu.innerHTML = h;
+    posMenu(_ctxX, _ctxY);
+  }
+
   function showMainMenu() {
+    if (_ctxApp) return showAppMenu();
     var zim = _ctxZim;
     // About belongs on EVERY library card, so both menu shapes carry it — the
     // compact gear menu (an Installed row) as much as the full card menu.
@@ -9143,8 +9168,8 @@ function _moveZimTo(zim, category) {
 
   // Exposed so the manage-row gear can raise the same menu (compact variant).
   // `card`: the card it was opened from, so Favorite holds the page on it.
-  window._openZimMenu = function(zim, x, y, compact, card) {
-    _ctxZim = zim; _ctxCard = card || null; _ctxCompact = !!compact;
+  window._openZimMenu = function(zim, x, y, compact, card, app) {
+    _ctxZim = zim; _ctxApp = app || null; _ctxCard = card || null; _ctxCompact = !!compact;
     _ctxCustomAction = null;
     _ctxX = x; _ctxY = y;
     showMainMenu();
@@ -9155,7 +9180,7 @@ function _moveZimTo(zim, category) {
   // the callback keeps the menu open; anything else closes it. Reuses posMenu,
   // the ARIA keyboard nav and outside-dismiss that the ZIM menu already has.
   window._openMenuAt = function(html, x, y, onAction) {
-    _ctxZim = null; _ctxCard = null; _ctxCompact = false;
+    _ctxZim = null; _ctxApp = null; _ctxCard = null; _ctxCompact = false;
     _ctxCustomAction = onAction || null;
     _ctxX = x; _ctxY = y;
     menu.innerHTML = html;
@@ -9178,6 +9203,7 @@ function _moveZimTo(zim, category) {
     // Prevent text selection
     window.getSelection().removeAllRanges();
     _ctxZim = hit.zim;
+    _ctxApp = hit.app || null;
     _ctxCard = hit.card;
     _ctxCompact = false;
     _ctxCustomAction = null;
@@ -9215,6 +9241,8 @@ function _moveZimTo(zim, category) {
   function _lpHit(target) {
     var card = target.closest && target.closest('.stat-card, .catalog-item[data-zim]');
     if (!card) return null;
+    var app = card.dataset && card.dataset.app;
+    if (app && !card.classList.contains('app-empty')) return { card: card, zim: _OWN_APP_ZIM[app] || '', app: app };
     var zim = card.dataset && card.dataset.zim;
     if (!zim) {
       var m = (card.getAttribute('onclick') || '').match(/enterSource\('([^']+)'/);
@@ -9244,7 +9272,7 @@ function _moveZimTo(zim, category) {
       _lpTimer = null; _lpFired = true; _lpCard = hit.card;
       if (navigator.vibrate) { try { navigator.vibrate(10); } catch (_) {} }
       if (window.getSelection) { try { window.getSelection().removeAllRanges(); } catch (_) {} }
-      _ctxZim = hit.zim; _ctxCard = hit.card; _ctxCompact = false; _ctxCustomAction = null;
+      _ctxZim = hit.zim; _ctxApp = hit.app || null; _ctxCard = hit.card; _ctxCompact = false; _ctxCustomAction = null;
       _ctxX = _lpStartX + 2; _ctxY = _lpStartY + 2;
       showMainMenu();
     }, 500);
@@ -9318,7 +9346,12 @@ function _moveZimTo(zim, category) {
       return;
     }
 
-    if (action === 'open') {
+    if (action === 'app-open') {
+      closeCtx(); if (card) card.click();
+    } else if (action === 'app-hide') {
+      var hidden = _ctxApp;
+      closeCtx(); _setUserApp(hidden, false);
+    } else if (action === 'open') {
       closeCtx(); enterSource(zim, true);
     } else if (action === 'about') {
       closeCtx(); _openZimAbout(zim);
@@ -24160,13 +24193,22 @@ function _appSectionHtml(app, n, grid) {
   return '<section class="app-section" data-app="' + app + '">' + tile + grid + '</section>';
 }
 
+// A tile's foot: the same solid dot a new or updated ZIM wears on the status line (when something inside is), and the
+// same ⋯ a card has, which opens the menu a right click or a long press opens.
+function _appTileFootHtml(app) {
+  var zims = _appZims(app).concat(_OWN_APP_ZIM[app] && !_appZims(app).length ? [_zimInfo(_OWN_APP_ZIM[app])] : []);
+  var dot = _freshDotHtml(zims.filter(Boolean), true);
+  return '<span class="card-foot"><span class="card-marks">' + dot + '</span>' +
+    '<button type="button" class="card-more" aria-label="' + escAttr(t('more_actions')) + '" title="' + escAttr(t('more_actions')) + '" onclick="event.preventDefault();event.stopPropagation();_cardMore(this)">' + _CARD_MORE_SVG + '</button></span>';
+}
+
 function _appTileHtml(app, title, icon, names, openFn) {
   names = names.filter(function(n, i) { return names.indexOf(n) === i; });
   if (names.length) {
     return '<a class="stat-card app-tile ' + app + '-tile" href="#' + app + '" data-zim="" data-app="' + app + '" onclick="return _spaNav(event, ' + openFn + ')">' +
       '<div class="card-icon">' + icon + '</div>' +
       '<div class="card-info"><div class="name"><span class="zt">' + esc(title) + '</span></div>' +
-      '<div class="detail">' + esc(names.join(' \u00b7 ')) + '</div></div></a>';
+      '<div class="detail">' + esc(names.join(' \u00b7 ')) + '</div></div>' + _appTileFootHtml(app) + '</a>';
   }
   var door = _APP_CATEGORY[app]
     ? 'href="/?manage" onclick="return _spaNav(event, function() { _openCategory(_APP_CATEGORY.' + app + '); })"'
@@ -24204,10 +24246,10 @@ function openGames() {
 }
 function _gamesTileHtml() {
   if (!_installedGamesZims().length) return '';
-  return _appTileHtml('games', t('app_games'), _GAMES_SVG + _ownTileDotHtml(_GAMES_ZIM), [t('apps_count_games')], 'openGames');
+  return _appTileHtml('games', t('app_games'), _GAMES_SVG, [t('apps_count_games')], 'openGames');
 }
 function _almanacTileHtml() {
-  return _appTileHtml('almanac', t('app_almanac'), _ALMANAC_SVG + _ownTileDotHtml(_ALMANAC_ZIM), [t('apps_count_almanac')], 'openAlmanac');
+  return _appTileHtml('almanac', t('app_almanac'), _ALMANAC_SVG, [t('apps_count_almanac')], 'openAlmanac');
 }
 
 function _tubeTileHtml() {

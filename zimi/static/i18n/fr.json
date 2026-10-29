@@ -3494,5 +3494,6 @@
   "game_resume": "Reprendre",
   "alm_earth_failed": "La Terre en 3D n'a pas pu être chargée. Fermez cette vue et rouvrez-la.",
   "recent_added_dot": "{n} ajoutés récemment",
-  "recent_updated_dot": "{n} mis à jour récemment"
+  "recent_updated_dot": "{n} mis à jour récemment",
+  "hide_from_home": "Masquer de l'accueil"
 }

@@ -621,13 +621,12 @@
   /* ── Stats bar ── */
   .stats-bar { text-align: center; padding: 12px 0; font-size: 14px; color: var(--text2); }
   .stats-bar .num { color: var(--amber); font-weight: 600; }
-  /* The status row's dots (_recencyDotsHtml): solid amber for added, a ring for updated; and the same mark on an own
-     app's tile (_ownTileDotHtml). Subtle: small, no label, the count beside it. */
-  .rc-dot { display: inline-flex; align-items: center; gap: 5px; margin-inline-end: 12px; padding: 2px 8px 2px 6px; border: 1px solid transparent; border-radius: 999px; background: none; color: var(--text2); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; vertical-align: 1px; }
+  /* The status line's one dot (_freshDotHtml): solid amber, first on the line, only when something is new or updated. */
+  .rc-dot { display: inline-flex; align-items: center; gap: 5px; margin-inline-end: 2px; padding: 2px 8px 2px 6px; border: 1px solid transparent; border-radius: 999px; background: none; color: var(--text2); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; vertical-align: 1px; }
   .rc-dot i { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-sizing: border-box; }
-  .rc-dot.updated i { background: transparent; border: 2px solid var(--amber); }
+  .rc-dot.mark { margin: 0; padding: 0 4px; cursor: default; pointer-events: none; }
+  .app-banner .card-foot { display: none; }
   .rc-dot:hover, .rc-dot.active { color: var(--amber); border-color: var(--amber-border); background: var(--amber-glow); }
-  .rc-dot.tile { position: absolute; top: 5px; inset-inline-end: 5px; margin: 0; padding: 3px; cursor: default; pointer-events: none; background: var(--surface); }
 
   /* ── Pills (categories + search source filters) ── */
   .pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; margin-bottom: 20px; }
@@ -3965,7 +3964,8 @@
   .voice-pick-all { color: var(--amber); font-weight: 600; }
   .voice-pick-mb { color: var(--text3); font-variant-numeric: tabular-nums; font-weight: 400; }
   /* Default voice: only the voices on here; scrolls sideways when many. */
-  .voice-default { max-width: none; overflow-x: auto; margin-bottom: 12px; scrollbar-width: none; }
+  .voice-default { max-width: none; overflow-x: auto; scrollbar-width: none; }
+  .share-row.voice-pick { flex-direction: column; align-items: stretch; gap: 8px; }
   .voice-default .app-theme-btn { flex: 1 0 auto; white-space: nowrap; }
   .voice-engine.voice-off .share-row-title, .voice-engine.voice-off .share-row-desc { opacity: 0.55; }
   .voice-engine .set-btn[data-primary] { color: var(--amber); border-color: var(--amber-border); }

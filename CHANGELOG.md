@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Controllers, swipe on arrow-pad games, and the games in all ten of Zimi's languages, right to left included.
 - ZimiGames and the Almanac ship as real ZIM files, attached to each release for Kiwix and other readers; `ZIMI_BUILTIN_ZIMS=0` hides them.
 - A Zimi section in the library holds both: delete either from Manage and add it back from the Catalog like any ZIM.
-- Home: the games and the Almanac are Apps tiles with their own icons, and new or updated ZIMs show as dots on the status row.
+- Home: the games and the Almanac are Apps tiles with their own icons, and a new or updated ZIM shows as one solid dot at the start of the status line, and beside the app's ⋯ on its tile. App tiles have the ⋯, right-click and long-press menu cards have (Open, About, Hide from Home, Delete).
 - An open article, game or Almanac reloads in place when its ZIM is replaced.
 - The Almanac ZIM works on its own: the 3D Earth, satellites and tides in Kiwix, and its PDF through Zimi when hosted.
 
