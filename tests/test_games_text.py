@@ -39,8 +39,7 @@ def test_every_string_id_exists():
     have, missing = table(), []
     for name in SHARED + CONVERTED:
         path = os.path.join(GAMES, name)
-        if not os.path.exists(path):
-            continue
+        assert os.path.exists(path), name + " is listed here but is not in the games folder"
         with open(path, encoding="utf-8") as f:
             for key in _KEY.findall(f.read()):
                 # A key ending in a dot is a prefix a dynamic id is built from (cards.rank. + 12): its members are checked by the tests that build them.
@@ -66,10 +65,10 @@ def test_plurals_have_one_and_other():
 def test_every_page_string_id_exists():
     have, missing = table(), []
     for name in PAGES:
-        for ext in (".js", ".html"):
+        found = [ext for ext in (".js", ".html") if os.path.exists(os.path.join(GAMES, name + ext))]
+        assert found, name + " is listed here but has neither a .js nor an .html in the games folder"
+        for ext in found:
             path = os.path.join(GAMES, name + ext)
-            if not os.path.exists(path):
-                continue
             with open(path, encoding="utf-8") as f:
                 text = f.read()
             for key in _KEY.findall(text) + _ATTR.findall(text):

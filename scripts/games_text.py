@@ -81,13 +81,14 @@ def audit():
             text = f.read()
         if path == JS_PATH:
             text = _BLOCK.sub("", text)
+        if path.endswith((".js", ".html")):
+            text = _COMMENTS.sub("", text)   # an id written only in a comment is not used
         for m in _STRING.finditer(text):
             if _ID.match(m.group(2)):
                 written.add(m.group(2))
         if not path.endswith((".js", ".html")):
             continue
         name = os.path.basename(path)
-        text = _COMMENTS.sub("", text)   # an example in a comment asks for nothing
         for m in _CALL.finditer(text):
             for s in _STRING.finditer(_first_argument(text, m.end())):
                 if _ID.match(s.group(2)):
@@ -179,6 +180,9 @@ def translations_audit():
 def main():
     with open(JS_PATH, encoding="utf-8") as f:
         text = f.read()
+    if len(_BLOCK.findall(text)) != 1:
+        print("text.js must hold exactly one generated English block (en:begin ... en:end)")
+        return 1
     new = _BLOCK.sub(lambda m: block(), text, count=1)
     if "--check" in sys.argv:
         if new != text:

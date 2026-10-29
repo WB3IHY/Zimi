@@ -90,7 +90,9 @@ Re-vendoring
   4. From the repository root, python3 scripts/games_puzzles.py turns each page
      into a ZimiGames page (it reads the title and the page's own style and menu
      form, so it can be run on the output of step 3 or on its own output), then
-     python3 scripts/games_shell.py.
+     python3 scripts/games_recent.py and python3 scripts/games_links.py (a
+     freshly vendored page has neither block yet, and games_puzzles.py only
+     keeps them where they already are), then python3 scripts/games_shell.py.
   5. If the puzzle list changed, update puzzles.html (the shelf, one tile each),
      text/en.json (How to play, four parts each) and the version line above. If
      a puzzle gained a digit keypad need, add it to KEYPAD in zimi-fit.js; if its

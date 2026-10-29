@@ -11,7 +11,7 @@ const SANS = 'system-ui,-apple-system,sans-serif';
 const rr = (x, y, w, h, r, fill, extra) => '<rect x="' + n1(x) + '" y="' + n1(y) + '" width="' + n1(w) + '" height="' + n1(h) + '" rx="' + r + '" fill="' + fill + '"' + (extra ? ' ' + extra : '') + '/>';
 const ln = (x1, y1, x2, y2, stroke, w) => '<path d="M' + n1(x1) + ' ' + n1(y1) + 'L' + n1(x2) + ' ' + n1(y2) + '" stroke="' + stroke + '" stroke-width="' + w + '" stroke-linecap="round" fill="none"/>';
 const pl = (pts, fill, extra) => path_('M' + pts.map((p) => n1(p[0]) + ' ' + n1(p[1])).join('L') + 'Z', fill, extra);
-const stroke = (d, color, w, extra) => '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round"' + (extra ? ' ' + extra : '') + '/>';
+const stroke = (d, color, w, extra) => '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="' + w + '"' + (extra && /stroke-linecap/.test(extra) ? '' : ' stroke-linecap="round" stroke-linejoin="round"') + (extra ? ' ' + extra : '') + '/>';   // an extra that sets the caps replaces the default, never repeats an attribute
 const num = (x, y, size, fill, s) => '<text x="' + n1(x) + '" y="' + n1(y + size * 0.36) + '" font-size="' + size + '" font-weight="800" text-anchor="middle" fill="' + fill + '" font-family="' + SANS + '">' + s + '</text>';
 
 const DEFS = defs(

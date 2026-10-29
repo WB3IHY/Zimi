@@ -475,7 +475,9 @@
   function pauseButton() { return d.querySelector('.ar-bar [id$="pause"]'); }
   function pauseNow() {
     var pause = pauseButton();
-    if (pause && !pause.disabled && /^pause/i.test(pause.textContent.trim())) { try { pause.click(); } catch (e) { /* not running */ } }
+    // Running is the state whose key is play.pause (the label is translated); a button with no key falls back to its English label.
+    var key = pause && pause.getAttribute('data-t');
+    if (pause && !pause.disabled && (key ? key === 'play.pause' : /^pause/i.test(pause.textContent.trim()))) { try { pause.click(); } catch (e) { /* not running */ } }
   }
   function watchBlur() {
     d.addEventListener('visibilitychange', function () { if (d.hidden) pauseNow(); });
@@ -559,7 +561,7 @@
   }
   Shell.haptic = haptic;
   function momentNode() {
-    var kids = [h('i', { class: 'gs-m-ring' }), h('img', { class: 'gs-m-stamp', src: 'mark.svg', alt: '' })], i, a, r;
+    var kids = [h('i', { class: 'gs-m-ring' }), h('img', { class: 'gs-m-stamp', src: HOME + 'mark.svg', alt: '' })], i, a, r;
     for (i = 0; i < SCATTER; i++) {
       a = i * GOLDEN; r = SCATTER_REACH * (0.55 + 0.45 * ((i * 7) % 5) / 4);
       kids.push(h('i', { class: 'gs-m-bit gs-m-bit' + (i % 3), style: '--dx:' + Math.round(Math.cos(a) * r) + 'px;--dy:' + Math.round(Math.sin(a) * r) + 'px;--s:' + (6 + (i % 4) * 2) + 'px' }));

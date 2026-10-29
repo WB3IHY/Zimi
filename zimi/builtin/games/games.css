@@ -495,7 +495,6 @@ dl.gs-help { margin: 0; }
 @media (max-width: 420px) { .gs-seat-row { flex-wrap: wrap; } .gs-seat-row > .gs-seg { flex: 1 1 0; } .gs-seat-row .gs-seat-name { flex: 1 1 100%; } }
 .gs-seat-name { flex: 1 1 100%; min-width: 0; min-height: var(--target); padding: 0 var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; -webkit-appearance: none; }
 .gs-seat-name:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.gs-note { margin: 0; font-size: var(--fs-small); color: var(--ink3); }
 .gs-card .zc-note { margin: 0; }
 
 /* Watch and learn: one sentence under the bar, and the controls. */

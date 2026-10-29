@@ -403,7 +403,9 @@
     page.hud = function () {
       if (o.hud) { o.hud(); return; }
       var st = o.state();
-      els.score.textContent = Play.num(st.score); els.best.textContent = Play.num(Math.max(page.best.score, st.score)); els.lives.textContent = Play.num(Math.max(0, st.lives));
+      if (els.score) els.score.textContent = Play.num(st.score);
+      if (els.best && page.best) els.best.textContent = Play.num(Math.max(page.best.score, st.score));
+      if (els.lives) els.lives.textContent = Play.num(Math.max(0, st.lives));
       if (els.wave) els.wave.textContent = Play.num(st.wave);
       if (els.level) els.level.textContent = Play.num(st.level);
     };
@@ -443,7 +445,7 @@
     };
     function endStats() {
       var st = o.state();
-      return o.stats ? o.stats() : [[T('play.score'), Play.num(st.score)], [T('play.best'), Play.num(page.best.score)]];
+      return o.stats ? o.stats() : [[T('play.score'), Play.num(st.score)]].concat(page.best ? [[T('play.best'), Play.num(page.best.score)]] : []);
     }
     function showEnd(stats) {
       window.ZimiShell.endSheet({ result: o.result || 'over', stats: stats || endStats() });

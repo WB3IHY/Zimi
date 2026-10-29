@@ -132,12 +132,12 @@ function shellEnv(storage, path_, reduced) {
   let pos = E.parseFen('4k3/8/8/3q4/8/8/8/3RK3 w - - 0 1');
   let r = explain(E, pos, mv(pos, 'd1', 'd5'), {});
   check(r.facts.captured === 'queen' && !r.facts.recapturable && /takes a queen/.test(r.text) && /nothing can take back/.test(r.text), 'chess: Rxd5 takes an unguarded queen and says nothing can take back');
-  pos = E.parseFen('4k3/8/8/3q4/2p5/8/8/3RK3 w - - 0 1');
+  pos = E.parseFen('4k3/8/2p5/3q4/8/8/8/3RK3 w - - 0 1');   // a black pawn on c6 guards d5
   r = explain(E, pos, mv(pos, 'd1', 'd5'), {});
-  check(r.facts.recapturable === false || /taken back|take back/.test(r.text), 'chess: the same capture is not called free when a piece guards it');
-  pos = E.parseFen('4k3/8/8/3q4/4p3/8/8/3RK3 w - - 0 1');
+  check(r.facts.recapturable === true && /taken back|take back/.test(r.text) && !/nothing can take back/.test(r.text), 'chess: the same capture is not called free when a piece guards it');
+  pos = E.parseFen('4k3/8/4p3/3q4/8/8/8/3RK3 w - - 0 1');   // so does one on e6
   r = explain(E, pos, mv(pos, 'd1', 'd5'), {});
-  check(r.facts.recapturable === false || r.facts.recapturable === true, 'chess: capture facts are computed, never assumed');
+  check(r.facts.recapturable === true, 'chess: a guard from the other side counts too');
   pos = E.parseFen('6k1/5ppp/8/8/8/8/8/R3K3 w - - 0 1');
   r = explain(E, pos, mv(pos, 'a1', 'a8'), {});
   check(r.facts.mate === true && /checkmate/.test(r.text), 'chess: a back-rank mate is called checkmate');

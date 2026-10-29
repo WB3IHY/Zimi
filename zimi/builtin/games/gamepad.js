@@ -161,7 +161,7 @@
   function poll(now) {
     raf = 0;
     var pads = Array.prototype.slice.call(root.navigator.getGamepads() || []).filter(function (p) { return p && p.connected; });
-    if (!pads.length) return;
+    if (!pads.length) { step(now, held([])).forEach(act); return; }   // the last pad went away: let go of whatever it held
     if (!d.hidden) {
       var events = step(now, held(pads));
       if (events.length) { html.classList.add('gs-pad'); events.forEach(act); }

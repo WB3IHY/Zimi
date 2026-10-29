@@ -93,4 +93,27 @@ function openingsAndBluff() {
 }
 openingsAndBluff();
 
+// Favorites: choosing "Remove" on a game kept under an alias page removes that item instead of adding a second one.
+function favoritesRemoveAlias() {
+  const items = [{ kind: 'article', zim: 'zimi_games', path: 'puzzles/mines.html', title: 'Mines' }];
+  const Saved = {
+    all: () => items.slice(),
+    save: (ref) => items.push(ref),
+    unsave: (ref) => { const i = items.findIndex((it) => it.zim === ref.zim && it.path === ref.path); if (i >= 0) items.splice(i, 1); },
+    has: (ref) => items.some((it) => it.zim === ref.zim && it.path === ref.path)
+  };
+  const doc = { addEventListener() {}, getElementById: () => null, querySelector: () => null, createElement: () => ({ setAttribute() {}, appendChild() {}, addEventListener() {}, remove() {}, style: {} }), head: { appendChild() {} } };
+  const win = { document: doc, addEventListener() {}, ZimiRecent: { canon: (p) => (p === 'puzzles/mines.html' ? 'minesweeper.html' : p) } };
+  win.parent = { Saved, document: { getElementById: () => ({}) } };
+  vm.createContext(win);
+  vm.runInContext(fs.readFileSync(path.join(dir, 'favorites.js'), 'utf8'), win, { filename: 'favorites.js' });
+  const F = win.ZimiFavorites;
+  check(F.has('minesweeper.html') === true, 'favorites: a game kept under its alias page counts as kept');
+  F.toggle('minesweeper.html', 'Minesweeper');
+  check(items.length === 0 && F.has('minesweeper.html') === false, 'favorites: removing it removes the alias item, and adds nothing');
+  F.toggle('minesweeper.html', 'Minesweeper');
+  check(items.length === 1 && items[0].path === 'minesweeper.html', 'favorites: a game not kept is kept');
+}
+favoritesRemoveAlias();
+
 engineKitDrop().then(() => process.exit(failures ? 1 : 0));

@@ -147,19 +147,6 @@ def test_every_page_of_games_json_starts_inside_zimi(browser, zimi):
     assert not broken, broken
 
 
-def test_the_offline_keeper_does_not_spend_a_pages_budget(zimi):
-    """The keeper's requests count in a bucket of their own: a full minute of them leaves the page's /w/ requests answered."""
-    url = zimi["url"] + "/w/zimi_games/shell.js"
-    keep = urllib.request.Request(url, headers={"X-Zimi-Keep": "1"})
-    from zimi import http as _http
-
-    ip_buckets = _http._rate_buckets_keep   # (the server is another process: this proves only the names exist)
-    assert ip_buckets == {} or isinstance(ip_buckets, dict)
-    for _ in range(40):
-        urllib.request.urlopen(keep).read()
-    assert urllib.request.urlopen(url).status == 200
-
-
 def test_keeper_requests_use_their_own_bucket():
     from zimi import http as _http
 
@@ -298,7 +285,7 @@ def test_favorites_tiles_lay_out_like_the_other_tiles(browser, zimi, viewport, v
       return { favW: r.width, otherW: o.width, titleW: t.getBoundingClientRect().width, clipped: t.scrollWidth > t.clientWidth + 1, text: t.textContent };
     }""")
     assert not m["clipped"] and m["titleW"] > 50, m
-    assert m["favW"] >= 120 and (view == "index" or abs(m["favW"] - m["otherW"]) < 60 or m["favW"] >= 120), m
+    assert m["favW"] >= 120, m   # a favorite keeps a real tile width in both views (its title is not squeezed to a letter)
     ctx.close()
 
 

@@ -96,7 +96,9 @@
     toggle: function (path, title) {
       var s = saved(), ref = { kind: 'article', zim: ZIM, path: path, title: title };
       if (!s) return false;
-      if (s.has(ref)) s.unsave(ref); else s.save(ref);
+      // Every kept item that is this game (its own page or an alias of it), the way has() sees it: removing must remove what has() found.
+      var kept = s.all().filter(function (it) { return it.zim === ZIM && it.path && canon(it.path) === path; });
+      if (kept.length) kept.forEach(function (it) { s.unsave(it); }); else s.save(ref);
       draw();
       return true;
     }

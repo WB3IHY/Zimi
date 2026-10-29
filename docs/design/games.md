@@ -105,7 +105,7 @@ A start sheet appears only when the choice changes the game (players, seats, mod
 Games with no real choice open ready to play on the live board, with one short line: "Tap to start" or "Press any key".
 
 The end sheet is shared by every game, from shell.js:
-- The title is the result: "You win", "You lose" or "Draw". "Name wins" is for games with several people. "Game over" is only for solo score games with no win state.
+- The title is the result: "You won!", "You lost" or "Draw". "Name won!" is for games with several people. "Game over" is only for solo score games with no win state.
 - At most two stat chips.
 - Close as a quiet ghost on the left (a third), New game in amber on the right (two thirds): one 44px row, the same anatomy as every sheet's actions.
 - It appears about 600ms after the last animation. Keys are ignored for its first 600ms, so a player still pressing Space or Enter cannot dismiss or restart it unseen.
@@ -216,7 +216,7 @@ A win lands (Shell.endSheet): the game's own flourish, then a pebble stamp, a ri
 
 US English, to match Zimi: color, favorite, center, gray. "Draughts" survives only as that game's name. A lint test fails on the British spellings in visible text.
 
-Sentence case everywhere. Typographic apostrophes. No exclamation marks, no emoji, no jokes in controls. The one exception is a win's title ("You win!", and the same mark in each language where it is natural), because a win is the moment the product is allowed to cheer.
+Sentence case everywhere. Typographic apostrophes. No exclamation marks, no emoji, no jokes in controls. The one exception is a win's title ("You won!", and the same mark in each language where it is natural), because a win is the moment the product is allowed to cheer.
 
 One verb per action:
 - New game: start fresh. This covers puzzles too, so never New puzzle, New word or New code.

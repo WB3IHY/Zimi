@@ -27,7 +27,7 @@ def _problems(svg, shared=frozenset()):
 
 def test_every_thumbnail_is_a_complete_svg():
     bad = {}
-    paths = sorted(glob.glob(os.path.join(GAMES, "thumbs", "*.svg")))
+    paths = sorted(glob.glob(os.path.join(GAMES, "thumbs", "**", "*.svg"), recursive=True))
     assert paths, "no thumbnails found"
     for path in paths:
         with open(path, encoding="utf-8") as f:
@@ -43,11 +43,12 @@ def test_every_shelf_tile_is_balanced_and_points_at_the_sprite():
     sprite = re.search(r"<!-- zimi-shelf:sprite -->(.*?)<!-- /zimi-shelf:sprite -->", html, re.S)
     shared = set(_ID.findall(sprite.group(1))) if sprite else set()
     bad = {}
-    for m in re.finditer(r'<a class="ar-game" href="([a-z0-9]+)\.html">\s*(<svg class="ar-game-art".*?</svg>)\s*<span class="ar-game-text">', html, re.S):
+    tiles = list(re.finditer(r'<a class="ar-game" href="((?:puzzles/)?[a-z0-9]+)\.html">\s*(<svg class="ar-game-art".*?</svg>)\s*<span class="ar-game-text">', html, re.S))
+    for m in tiles:
         art = m.group(2).replace("<svg class=", '<svg xmlns="http://www.w3.org/2000/svg" class=', 1)
         problems = _problems(art, shared)
         if problems:
             bad[m.group(1)] = problems
     assert not bad, bad
     # And the pattern above really found the tiles: a broken tile that the pattern skipped would pass unseen.
-    assert len(re.findall(r'<a class="ar-game" href="', html)) == len(re.findall(r'<svg class="ar-game-art"', html))
+    assert len(tiles) == len(re.findall(r'<a class="ar-game" href="', html))
