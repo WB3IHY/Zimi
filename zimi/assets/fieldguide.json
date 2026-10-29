@@ -1039,7 +1039,7 @@
   "ready": {
    "name": "Ready.gov",
    "match": "^www\\.ready\\.gov(_en|_es)?$",
-   "catalog": ["www.ready.gov_en"],
+   "catalog": ["ready.gov_en_all"],
    "paths": ["www.ready.gov/{slug}", "ready.gov/{slug}"],
    "note": "FEMA, what to do before, during and after"
   },
@@ -1086,7 +1086,7 @@
   "scoutwiki": {
    "name": "ScoutWiki",
    "match": "^scoutwiki(_en)?(_all)?$",
-   "catalog": ["scoutwiki_en_all"],
+   "catalog": ["scoutwiki.org_en_all"],
    "note": "Campfires, bivouac shelters and knots, from scouting"
   },
   "field_manual": {

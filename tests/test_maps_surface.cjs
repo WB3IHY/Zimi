@@ -37,6 +37,7 @@ vm.runInContext(require("./app_source.cjs").localeHelpers(src), ctx);
 vm.runInContext([
   extract(/var _MAPS_SVG = [^\n]*\n/, '_MAPS_SVG'),
   extract(/function _newestPer\(list, key\) \{[\s\S]*?\n\}/, '_newestPer'),
+  'function _appTileFootHtml() { return ""; }',  // the tile foot (dot and the more button) is not under test here
   extract(/function _installedOfKind\(kind, key\) \{[\s\S]*?\n\}/, '_installedOfKind'),
   extract(/function _installedFor\(kind, app, key\) \{[\s\S]*?\n\}/, '_installedFor'),
   extract(/function _mapName\(z\) \{[\s\S]*?\n\}/, '_mapName'),
