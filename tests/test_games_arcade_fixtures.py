@@ -419,13 +419,14 @@ SCRIPTS = {
     ),
 }
 
+# (Math.sin and Math.cos differ in the last bit between JavaScriptCore and V8, so the state is hashed with its fractions rounded to 1e-4)
 FNV = "const fnv = (s) => { let x = 2166136261; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619) >>> 0; } return x >>> 0; };"
 
 # The canvas is recorded as a coarse picture, not a hash of its pixels: the browser's rasteriser rounds a few edge pixels by one level
 # differently from run to run under load (13 pixels of 400,000 on the Lander's hull), and a hash calls that a different game.
 # THUMB_COLS x THUMB_ROWS cells of mean brightness, two hex digits each: a sprite one pixel off moves a cell by several levels, a
 # rounding difference by a hundredth.
-THUMB_COLS, THUMB_ROWS, THUMB_TOLERANCE = 24, 18, 1
+THUMB_COLS, THUMB_ROWS, THUMB_TOLERANCE = 24, 18, 4   # (4: WebKit and Chromium anti-alias a sprite's edge up to four levels apart)
 THUMB = """const thumb = (c) => {
     const t = document.createElement('canvas'); t.width = c.width; t.height = c.height;
     const x = t.getContext('2d'); x.drawImage(c, 0, 0);
@@ -451,7 +452,7 @@ CHECK = """
   %s
   const x = window[g.api], st = x.st, txt = (s) => { const e = document.querySelector(s); return e ? e.textContent.trim() : null; };
   const p = document.querySelector('#' + g.id + '-pause'), nb = document.querySelector('#' + g.id + '-new'), sheet = document.querySelector('.ar-sheet:not([hidden])');
-  return { mode: x.mode, score: st.score === undefined ? null : st.score, lives: st.lives === undefined ? null : st.lives, state: fnv(JSON.stringify(st)).toString(16),
+  return { mode: x.mode, score: st.score === undefined ? null : st.score, lives: st.lives === undefined ? null : st.lives, state: fnv(JSON.stringify(st, (k, v) => typeof v === 'number' && !Number.isInteger(v) ? Math.round(v * 1e4) / 1e4 : v)).toString(16),
     canvas: (() => { const c = document.querySelector('canvas'); return c ? thumb(c) : null; })(),
     hud: txt('.pl-hud'), msg: txt('#' + g.id + '-msg'), pause: p ? [p.textContent.trim(), p.disabled] : null, newHidden: nb ? nb.hidden : null, sheet: sheet ? sheet.textContent.trim() : null };
 }
