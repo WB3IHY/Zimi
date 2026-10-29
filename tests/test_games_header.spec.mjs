@@ -139,6 +139,9 @@ test('a reload in a game paints the game\'s header without passing through other
     if (!sessionStorage.getItem('zimi.probe')) return;
     window.__seen = [];
     const rec = () => { const t = document.getElementById('game-title'), s = document.querySelector('.topbar-search');
+      // nothing paints before the render-blocking stylesheet is in; until then the bar's rules are not applied and a state seen here is never shown
+      const css = document.querySelector('link[href*="app.css"]');
+      if (!css || !css.sheet) return;
       const v = (t && t.offsetParent && t.textContent ? 'title:' + t.textContent : '') + (s && s.offsetParent && getComputedStyle(s).visibility !== 'hidden' ? '|search' : '');
       if (v && window.__seen[window.__seen.length - 1] !== v) window.__seen.push(v); };
     new MutationObserver(rec).observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
